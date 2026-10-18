@@ -1,0 +1,364 @@
+{
+  "KC1_OVERVIEW": {
+    "topic": "Toàn cảnh kháng chiến chống Mông Cổ lần 1 (1258)",
+    "category": "KHANG_CHIEN_LAN_1_1258",
+    "entity": "Trần Thái Tông",
+    "event": "Kháng chiến chống Mông Cổ lần 1 (1258)",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_KC1_TIMELINE",
+      "SKILL_DONG_BO_DAU"
+    ]
+  },
+  "KC1_WHY_INVADE": {
+    "topic": "Âm mưu Mông Cổ xâm lược Đại Việt năm 1258",
+    "category": "KHANG_CHIEN_LAN_1_1258",
+    "entity": "Ngột Lương Hợp Thai & Vua Trần Thái Tông",
+    "event": "Mông Cổ xâm lược Đại Việt năm 1258",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_KC1_MOTIVE"
+    ]
+  },
+  "KC1_BINH_LE_NGUYEN": {
+    "topic": "Trận Bình Lệ Nguyên và Lê Phụ Trần (1258)",
+    "category": "KHANG_CHIEN_LAN_1_1258",
+    "entity": "Lê Phụ Trần (Lê Tần)",
+    "event": "Trận Bình Lệ Nguyên (Tháng 1/1258)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.6,
+    "skills": [
+      "SKILL_BINH_LE_NGUYEN",
+      "SKILL_LE_PHU_TRAN"
+    ]
+  },
+  "KC1_VUON_KHONG_NHA_TRONG": {
+    "topic": "Kế sách Vườn không nhà trống tại Thăng Long (1258)",
+    "category": "KHANG_CHIEN_LAN_1_1258",
+    "entity": "Quân dân Thăng Long",
+    "event": "Kế sách Vườn không nhà trống (1258)",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.7,
+    "skills": [
+      "SKILL_VUON_KHONG_NHA_TRONG"
+    ]
+  },
+  "KC1_TRAN_THU_DO_QUOTE": {
+    "topic": "Thái sư Trần Thủ Độ và câu nói bất hủ (1258)",
+    "category": "KHANG_CHIEN_LAN_1_1258",
+    "entity": "Thái sư Trần Thủ Độ",
+    "event": "Kháng chiến chống Mông Cổ lần 1 (1258)",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.3,
+    "skills": [
+      "SKILL_TRAN_THU_DO"
+    ]
+  },
+  "KC1_DONG_BO_DAU": {
+    "topic": "Đại thắng Đông Bộ Đầu (29/1/1258)",
+    "category": "KHANG_CHIEN_LAN_1_1258",
+    "entity": "Trần Thái Tông & Hà Khuất",
+    "event": "Trận Đông Bộ Đầu (29/1/1258)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_DONG_BO_DAU",
+      "SKILL_HA_KHUAT"
+    ]
+  },
+  "TQT_WHY_ORANGE": {
+    "topic": "Vì sao Trần Quốc Toản bóp nát quả cam (1282)",
+    "category": "BINH_THAN_TRAN_QUOC_TOAN",
+    "entity": "Hoài Văn hầu Trần Quốc Toản",
+    "event": "Hội nghị Bình Than (Tháng 10/1282)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_TRAN_QUOC_TOAN",
+      "SKILL_BINH_THAN"
+    ]
+  },
+  "TQT_SIX_GOLDEN_WORDS": {
+    "topic": "Lá cờ thêu sáu chữ vàng của Trần Quốc Toản",
+    "category": "BINH_THAN_TRAN_QUOC_TOAN",
+    "entity": "Hoài Văn hầu Trần Quốc Toản",
+    "event": "Đội quân sáu chữ vàng (1282 - 1285)",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.3,
+    "skills": [
+      "SKILL_TRAN_QUOC_TOAN"
+    ]
+  },
+  "TQT_OVERVIEW": {
+    "topic": "Tiểu sử anh hùng thiếu niên Trần Quốc Toản",
+    "category": "BINH_THAN_TRAN_QUOC_TOAN",
+    "entity": "Hoài Văn hầu Trần Quốc Toản",
+    "event": "Kháng chiến chống Nguyên lần 2 (1285)",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.3,
+    "skills": [
+      "SKILL_TRAN_QUOC_TOAN"
+    ]
+  },
+  "BINH_THAN_CONFERENCE": {
+    "topic": "Hội nghị Bình Than (Tháng 10/1282)",
+    "category": "BINH_THAN_TRAN_QUOC_TOAN",
+    "entity": "Vua Trần Nhân Tông & Vương hầu",
+    "event": "Hội nghị Bình Than (1282)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_BINH_THAN"
+    ]
+  },
+  "DIEN_HONG_CONFERENCE": {
+    "topic": "Hội nghị Diên Hồng (Đầu năm 1285)",
+    "category": "DIEN_HONG_HICH_TUONG_SI",
+    "entity": "Thượng hoàng Trần Thánh Tông & Các bô lão",
+    "event": "Hội nghị Diên Hồng (Đầu năm 1285)",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.6,
+    "skills": [
+      "SKILL_DIEN_HONG"
+    ]
+  },
+  "HICH_TUONG_SI": {
+    "topic": "Hịch tướng sĩ và Tinh thần Sát Thát (1284 - 1285)",
+    "category": "DIEN_HONG_HICH_TUONG_SI",
+    "entity": "Trần Quốc Tuấn & Binh sĩ",
+    "event": "Kháng chiến chống Nguyên lần 2 (1285)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_HICH_TUONG_SI",
+      "SKILL_SAT_THAT"
+    ]
+  },
+  "TRAN_HUNG_DAO_PORTRAIT": {
+    "topic": "Quốc công Tiết chế Hưng Đạo Đại vương Trần Quốc Tuấn",
+    "category": "DIEN_HONG_HICH_TUONG_SI",
+    "entity": "Trần Quốc Tuấn (Trần Hưng Đạo)",
+    "event": "Kháng chiến chống Nguyên lần 2 và 3",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.3,
+    "skills": [
+      "SKILL_TRAN_HUNG_DAO"
+    ]
+  },
+  "KC2_OVERVIEW": {
+    "topic": "Toàn cảnh cuộc kháng chiến chống quân Nguyên lần 2 (1285)",
+    "category": "KHANG_CHIEN_LAN_2_1285",
+    "entity": "Trần Hưng Đạo & Thoát Hoan",
+    "event": "Kháng chiến chống Nguyên lần 2 (1285)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_KC2_TIMELINE",
+      "SKILL_THOAT_HOAN"
+    ]
+  },
+  "KC2_THOAT_HOAN_COPPER_PIPE": {
+    "topic": "Thoát Hoan chui ống đồng tháo chạy (Tháng 6/1285)",
+    "category": "KHANG_CHIEN_LAN_2_1285",
+    "entity": "Thoát Hoan",
+    "event": "Thoát Hoan tháo chạy qua Vạn Kiếp (Tháng 6/1285)",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.3,
+    "skills": [
+      "SKILL_THOAT_HOAN"
+    ]
+  },
+  "KC2_TRAN_BINH_TRONG": {
+    "topic": "Bảo Nghĩa vương Trần Bình Trọng và câu nói bất tử (1285)",
+    "category": "KHANG_CHIEN_LAN_2_1285",
+    "entity": "Trần Bình Trọng",
+    "event": "Trận bãi Tự Nhiên (Tháng 2/1285)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_TRAN_BINH_TRONG"
+    ]
+  },
+  "KC2_HAM_TU_CHUONG_DUONG": {
+    "topic": "Chiến thắng Hàm Tử, Chương Dương và bài thơ Tụng giá hoàn kinh",
+    "category": "KHANG_CHIEN_LAN_2_1285",
+    "entity": "Trần Quang Khải & Trần Nhật Duật",
+    "event": "Chiến thắng Hàm Tử - Chương Dương (Mùa hè 1285)",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.6,
+    "skills": [
+      "SKILL_CHUONG_DUONG",
+      "SKILL_HAM_TU",
+      "SKILL_TRAN_QUANG_KHAI"
+    ]
+  },
+  "KC3_VAN_DON": {
+    "topic": "Hải chiến Vân Đồn - Tiêu diệt thuyền lương Trương Văn Hổ (1288)",
+    "category": "HAI_CHIEN_VAN_DON_1288",
+    "entity": "Trần Khánh Dư",
+    "event": "Trận Vân Đồn (Đầu năm 1288)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_VAN_DON",
+      "SKILL_TRAN_KHANH_DU"
+    ]
+  },
+  "KC3_BACH_DANG_HOW": {
+    "topic": "Đại thắng sông Bạch Đằng (Tháng 4/1288)",
+    "category": "DAI_THANG_BACH_DANG_1288",
+    "entity": "Trần Quốc Tuấn (Trần Hưng Đạo)",
+    "event": "Đại thắng Bạch Đằng Giang (Tháng 4/1288)",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.7,
+    "skills": [
+      "SKILL_BACH_DANG_1288",
+      "SKILL_TRAN_HUNG_DAO"
+    ]
+  },
+  "KC3_OVERVIEW": {
+    "topic": "Toàn cảnh kháng chiến chống quân Nguyên lần 3 (1287 - 1288)",
+    "category": "DAI_THANG_BACH_DANG_1288",
+    "entity": "Trần Hưng Đạo & Trần Khánh Dư",
+    "event": "Kháng chiến chống Nguyên lần 3 (1287 - 1288)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_KC3_TIMELINE"
+    ]
+  },
+  "ALL_3_WARS_SUMMARY": {
+    "topic": "Tổng quan ba lần kháng chiến chống Mông - Nguyên (1258 - 1288)",
+    "category": "NGUYEN_NHAN_Y_NGHIA",
+    "entity": "Vương triều Trần",
+    "event": "Ba lần kháng chiến chống Mông - Nguyên (1258 - 1288)",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_ALL_3_WARS"
+    ]
+  },
+  "CAUSES_OF_VICTORY": {
+    "topic": "Nguyên nhân thắng lợi của ba lần kháng chiến",
+    "category": "NGUYEN_NHAN_Y_NGHIA",
+    "entity": "Vua tôi nhà Trần & Nhân dân",
+    "event": "Thắng lợi ba lần kháng chiến chống Mông - Nguyên",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.8,
+    "skills": [
+      "SKILL_VICTORY_CAUSES"
+    ]
+  },
+  "HISTORICAL_SIGNIFICANCE": {
+    "topic": "Ý nghĩa lịch sử của ba lần kháng chiến chống Mông - Nguyên",
+    "category": "NGUYEN_NHAN_Y_NGHIA",
+    "entity": "Dân tộc Đại Việt & Thế giới",
+    "event": "Ý nghĩa lịch sử ba lần chiến thắng (1258 - 1288)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.6,
+    "skills": [
+      "SKILL_HISTORICAL_SIGNIFICANCE"
+    ]
+  },
+  "YET_KIEU_DA_TUONG": {
+    "topic": "Yết Kiêu và Dã Tượng - Hai gia tướng trung kiên",
+    "category": "DANH_TUONG_GIA_THAN",
+    "entity": "Yết Kiêu & Dã Tượng",
+    "event": "Kháng chiến chống Nguyên",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.3,
+    "skills": [
+      "SKILL_YET_KIEU_DA_TUONG"
+    ]
+  },
+  "PHAM_NGU_LAO": {
+    "topic": "Phạm Ngũ Lão và giai thoại đan sọt",
+    "category": "DANH_TUONG_GIA_THAN",
+    "entity": "Phạm Ngũ Lão",
+    "event": "Trần Hưng Đạo phát hiện Phạm Ngũ Lão tại Phù Ủng",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.3,
+    "skills": [
+      "SKILL_PHAM_NGU_LAO"
+    ]
+  },
+  "INTENT_GREETING": {
+    "topic": "Chào hỏi làm quen tự nhiên",
+    "category": "CONVERSATIONAL_INTENT",
+    "entity": "Trợ lý AI Đông A",
+    "event": "Chào hỏi",
+    "cognitive_level": "GIAO_TIEP",
+    "difficulty": 0.1,
+    "skills": [
+      "SKILL_GREETING"
+    ]
+  },
+  "INTENT_STUDENT_STRUGGLE": {
+    "topic": "Học sinh gặp khó khăn hoặc quên kiến thức",
+    "category": "CONVERSATIONAL_INTENT",
+    "entity": "Trợ lý AI Đông A",
+    "event": "Hỗ trợ học tập",
+    "cognitive_level": "GIAO_TIEP",
+    "difficulty": 0.1,
+    "skills": [
+      "SKILL_HELP"
+    ]
+  },
+  "INTENT_THANKS": {
+    "topic": "Học sinh cảm ơn",
+    "category": "CONVERSATIONAL_INTENT",
+    "entity": "Trợ lý AI Đông A",
+    "event": "Cảm ơn",
+    "cognitive_level": "GIAO_TIEP",
+    "difficulty": 0.1,
+    "skills": [
+      "SKILL_THANKS"
+    ]
+  },
+  "CROSS_ERA_HAM_NGHI": {
+    "topic": "Phân biệt vua Hàm Nghi triều Nguyễn với thời Trần",
+    "category": "CROSS_ERA_SAFEGUARD",
+    "entity": "Vua Hàm Nghi",
+    "event": "Phong trào Cần Vương (1885)",
+    "cognitive_level": "PHAN_BIET",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_CROSS_ERA_HAM_NGHI"
+    ]
+  },
+  "CROSS_ERA_NGO_QUYEN": {
+    "topic": "Phân biệt Ngô Quyền (938) và Trần Hưng Đạo (1288) trên sông Bạch Đằng",
+    "category": "CROSS_ERA_SAFEGUARD",
+    "entity": "Ngô Quyền",
+    "event": "Chiến thắng Bạch Đằng năm 938",
+    "cognitive_level": "PHAN_BIET",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_CROSS_ERA_NGO_QUYEN"
+    ]
+  },
+  "CROSS_ERA_QUANG_TRUNG_LE_LOI_LY_THUONG_KIET": {
+    "topic": "Phân biệt anh hùng thời Lý, Lê, Tây Sơn",
+    "category": "CROSS_ERA_SAFEGUARD",
+    "entity": "Lý Thường Kiệt / Lê Lợi / Quang Trung",
+    "event": "Các triều đại khác",
+    "cognitive_level": "PHAN_BIET",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_CROSS_ERA_OTHERS"
+    ]
+  },
+  "OOD_RANDOM_AND_OFFTOPIC": {
+    "topic": "Nội dung ngoài phạm vi lịch sử",
+    "category": "OUT_OF_DOMAIN",
+    "entity": "Không xác định",
+    "event": "Ngoài phạm vi",
+    "cognitive_level": "OOD",
+    "difficulty": 0.1,
+    "skills": [
+      "SKILL_OOD"
+    ]
+  }
+}

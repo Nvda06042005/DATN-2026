@@ -1,0 +1,40 @@
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.vite/
+*.log
+
+# Python / Backend
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# Documentation, diagrams, spreadsheets & raw archives (excluded from repo)
+*.drawio
+*.xlsx
+*.pdf
+*.docx
+init_schema_haokhidonga.sql
+sync_v1.py
+Vietnam%20History%20Complete.jsonl
+Tran_Dynasty_3_Wars_Full.jsonl
+
+# OS / Editor
+.DS_Store
+Thumbs.db

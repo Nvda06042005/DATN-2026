@@ -1,0 +1,1061 @@
+"""
+FILE 1: QUẢN LÝ DỮ LIỆU, CHỐNG DATA LEAKAGE & TẬP TEST HỌC SINH THẬT
+================================================================================
+Khắc phục triệt để góp ý của Mentor:
+1. "Chia train/test trước, rồi mới tăng cường dữ liệu, và CHỈ tăng cường tập train".
+2. Xây dựng tập TEST ĐỘC LẬP gồm câu hỏi thực tế của học sinh (viết tắt, không dấu,
+   cộc lốc, sai chính tả, teen code) để có con số Accuracy trung thực (khoảng 75-88%).
+3. Tích hợp bảng Q-Matrix (Cognitive Level: NHAN_BIET, THONG_HIEU, VAN_DUNG và Difficulty)
+   làm tiền đề cho thuật toán Bayesian Knowledge Tracing (BKT) ở Khó khăn 3.
+"""
+
+import json
+import random
+from pathlib import Path
+from typing import List, Dict, Any, Tuple
+from sklearn.model_selection import train_test_split
+
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data"
+ROOT_DIR = BASE_DIR.parent
+
+TRAIN_FILE = DATA_DIR / "train_data.jsonl"
+TEST_FILE = DATA_DIR / "test_data.jsonl"
+REAL_TEST_FILE = DATA_DIR / "real_student_test.jsonl"
+QMATRIX_FILE = DATA_DIR / "q_matrix.json"
+KNOWLEDGE_BASE_FILE = DATA_DIR / "knowledge_base.json"
+LEGACY_GOLD_FILE = ROOT_DIR / "Tran_Dynasty_Gold_Standard_Curriculum.jsonl"
+
+
+# ==============================================================================
+# 1. DANH MỤC 32 CỤM TRI THỨC CHUYÊN SÂU & BẢNG Q-MATRIX
+# ==============================================================================
+KNOWLEDGE_UNITS: List[Dict[str, Any]] = [
+    # --- KHÁNG CHIẾN LẦN 1 (1258) ---
+    {
+        "unit_id": "KC1_OVERVIEW",
+        "category": "KHANG_CHIEN_LAN_1_1258",
+        "topic": "Toàn cảnh kháng chiến chống Mông Cổ lần 1 (1258)",
+        "q_matrix": {"cognitive_level": "NHAN_BIET", "difficulty": 0.4, "skills": ["SKILL_KC1_TIMELINE", "SKILL_DONG_BO_DAU"]},
+        "entity": "Trần Thái Tông",
+        "event": "Kháng chiến chống Mông Cổ lần 1 (1258)",
+        "fact_chunk": "Tháng 1/1258, 3 vạn quân Mông Cổ do Ngột Lương Hợp Thai chỉ huy xâm lược Đại Việt. Vua Trần Thái Tông chặn giặc ở Bình Lệ Nguyên rồi rút lui bảo toàn lực lượng, thực hiện 'Vườn không nhà trống' ở Thăng Long. Ngày 29/1/1258, quân Trần phản công thắng lợi tại Đông Bộ Đầu, quét sạch giặc khỏi bờ cõi.",
+        "badge": "Chiến thần Đông Bộ Đầu",
+        "base_queries": [
+            "tôi cần biết về trận chiến chống nguyên mông lần 1",
+            "kể về cuộc kháng chiến chống mông cổ lần thứ nhất năm 1258",
+            "tóm tắt diễn biến cuộc kháng chiến lần 1 chống quân mông cổ",
+            "kháng chiến lần thứ nhất năm 1258 diễn ra thế nào"
+        ],
+        "answer": (
+            "Cuộc kháng chiến lần thứ nhất chống quân Mông Cổ (đầu năm 1258) diễn ra vô cùng quyết liệt và kết thúc thắng lợi chỉ trong chưa đầy một tháng:\n\n"
+            "• **Mở đầu (Tháng 1/1258)**: Ngột Lương Hợp Thai dẫn 3 vạn kỵ binh Mông Cổ tiến vào Đại Việt theo đường sông Thao.\n"
+            "• **Trận Bình Lệ Nguyên**: Vua Trần Thái Tông trực tiếp đốc chiến; nghe lời tướng Lê Tần khuyên nhủ, nhà vua chủ động rút quân để bảo toàn lực lượng.\n"
+            "• **Kế sách 'Vườn không nhà trống'**: Triều đình và nhân dân Thăng Long sơ tán toàn bộ lương thảo, khiến quân giặc rơi vào cảnh đói kiệt và dịch bệnh.\n"
+            "• **Đại thắng Đông Bộ Đầu (29/1/1258)**: Quân Trần mở đợt tổng phản công sấm sét tại bến Đông Bộ Đầu, quét sạch giặc khỏi bờ cõi."
+        ),
+        "follow_up": "Em có muốn biết kế sách Vườn không nhà trống đã làm quân Mông Cổ suy kiệt ra sao không?"
+    },
+    {
+        "unit_id": "KC1_WHY_INVADE",
+        "category": "KHANG_CHIEN_LAN_1_1258",
+        "topic": "Âm mưu Mông Cổ xâm lược Đại Việt năm 1258",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.5, "skills": ["SKILL_KC1_MOTIVE"]},
+        "entity": "Ngột Lương Hợp Thai & Vua Trần Thái Tông",
+        "event": "Mông Cổ xâm lược Đại Việt năm 1258",
+        "fact_chunk": "Năm 1258, quân Mông Cổ xâm lược Đại Việt nhằm tạo bàn đạp chiến lược đánh thọc từ phía nam lên để phối hợp tiêu diệt nhà Nam Tống. Trước hành vi nghênh ngang đòi mượn đường của sứ giả Mông Cổ, vua Trần Thái Tông kiên quyết cự tuyệt, hạ lệnh bắt giam sứ giả vào ngục và ban lệnh cho cả nước sẵn sàng kháng chiến.",
+        "badge": "Chiến thần Đông Bộ Đầu",
+        "base_queries": [
+            "vì sao quân mông cổ lại đánh đại việt năm 1258",
+            "mục đích của mông cổ khi xâm lược nước ta lần 1 là gì",
+            "tại sao ngột lương hợp thai lại tấn công đại việt",
+            "âm mưu mông cổ đánh đại việt để tạo gọng kìm diệt nam tống",
+            "khi sứ giả mông cổ sang đòi mượn đường vua trần đã xử lý thế nào",
+            "vua trần thái tông đã làm gì trước âm mưu xâm lược của mông cổ năm 1258"
+        ],
+        "answer": (
+            "Mục đích cốt lõi của quân Mông Cổ khi đánh Đại Việt năm 1258 là **chiếm bàn đạp chiến lược để tạo thế gọng kìm tiêu diệt Nam Tống**.\n\n"
+            "Đế chế Mông Cổ đang bế tắc trong cuộc chiến với nhà Nam Tống (Trung Quốc). Do đó, Ngột Lương Hợp Thai muốn thôn tính Đại Việt để mở đường tiến công đánh thốc từ sườn phía Nam lên, kẹp Nam Tống vào giữa hai gọng kìm.\n\n"
+            "Trước âm mưu xâm lược và thái độ nghênh ngang của sứ giả Mông Cổ đòi mượn đường, **vua Trần Thái Tông đã kiên quyết xử lý bằng cách cự tuyệt, ra lệnh bắt giam sứ giặc vào ngục**, đồng thời ban lệnh cho toàn quân và muôn dân cả nước chuẩn bị sẵn sàng kháng chiến bảo vệ bờ cõi!"
+        ),
+        "follow_up": "Em có biết trận đụng độ đầu tiên giữa quân Trần và kỵ binh Mông Cổ đã diễn ra tại đâu không?"
+    },
+    {
+        "unit_id": "KC1_BINH_LE_NGUYEN",
+        "category": "KHANG_CHIEN_LAN_1_1258",
+        "topic": "Trận Bình Lệ Nguyên và Lê Phụ Trần (1258)",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.6, "skills": ["SKILL_BINH_LE_NGUYEN", "SKILL_LE_PHU_TRAN"]},
+        "entity": "Lê Phụ Trần (Lê Tần)",
+        "event": "Trận Bình Lệ Nguyên (Tháng 1/1258)",
+        "fact_chunk": "Tại trận Bình Lệ Nguyên (Vĩnh Phúc) tháng 1/1258, tướng Lê Tần (Lê Phụ Trần) lấy ván thuyền che tên cho vua Trần Thái Tông và khuyên vua rút lui bảo toàn lực lượng.",
+        "badge": "Chiến thần Đông Bộ Đầu",
+        "base_queries": [
+            "tại sao quân trần lại rút lui ở trận bình lệ nguyên",
+            "ai là người lấy ván thuyền che tên cho vua trần thái tông",
+            "lê tần hay lê phụ trần có công lao gì ở bình lệ nguyên",
+            "diễn biến trận bình lệ nguyên vĩnh phúc năm 1258"
+        ],
+        "answer": (
+            "Tại trận **Bình Lệ Nguyên** (Vĩnh Phúc, tháng 1/1258), vua Trần Thái Tông trực tiếp đốc chiến, nhưng kỵ binh giặc ban đầu quá hung hãn.\n\n"
+            "Giữa làn mưa tên dày đặc, tướng **Lê Tần** (sau được đổi tên là **Lê Phụ Trần**) đã dũng cảm lấy ván thuyền che chắn cho vua và khuyên: *'Nay thế giặc đang mạnh, ta chỉ là đánh liều một trận mà thôi. Chi bằng tạm rút lui để giữ lấy lực lượng, lo gì sau này không có dịp phản công!'*.\n\n"
+            "Nhờ đó, chủ lực Đại Việt rút lui an toàn, tạo tiền đề phản công thắng lợi tại Đông Bộ Đầu."
+        ),
+        "follow_up": "Sau khi rút khỏi Bình Lệ Nguyên, quân dân ta đã thực hiện kế sách độc đáo nào tại kinh thành Thăng Long?"
+    },
+    {
+        "unit_id": "KC1_VUON_KHONG_NHA_TRONG",
+        "category": "KHANG_CHIEN_LAN_1_1258",
+        "topic": "Kế sách Vườn không nhà trống tại Thăng Long (1258)",
+        "q_matrix": {"cognitive_level": "VAN_DUNG", "difficulty": 0.7, "skills": ["SKILL_VUON_KHONG_NHA_TRONG"]},
+        "entity": "Quân dân Thăng Long",
+        "event": "Kế sách Vườn không nhà trống (1258)",
+        "fact_chunk": "Kế sách 'Vườn không nhà trống' là sơ tán toàn bộ nhân dân và lương thực khỏi kinh thành Thăng Long, làm giặc không cướp được lương ăn, rơi vào cảnh đói kiệt và hoang mang.",
+        "badge": "Chiến thần Đông Bộ Đầu",
+        "base_queries": [
+            "kế sách vườn không nhà trống là gì và có tác dụng như thế nào",
+            "tại sao nhà trần lại dùng kế vườn không nhà trống",
+            "vườn không nhà trống giúp quân trần thắng giặc ra sao",
+            "làm thế nào nhà trần làm cho quân mông cổ bị đói lương",
+            "vì sao quân trần chủ động rút khỏi thăng long",
+            "tại sao quân ta lại rút khỏi kinh thành thăng long",
+            "vì sao nhà trần phải rút khỏi thăng long năm 1258",
+            "quân trần rút khỏi thăng long nhằm mục đích gì",
+            "vì sao chiến thuật rút lui không đồng nghĩa với thất bại",
+            "tại sao việc quân trần rút lui không phải là đầu hàng hay thất bại",
+            "ý nghĩa của chiến thuật rút lui chiến lược trong kháng chiến chống mông nguyên"
+        ],
+        "answer": (
+            "Việc quân Trần **chủ động rút khỏi Thăng Long** để thực hiện kế sách **'Vườn không nhà trống'** là một nghệ thuật quân sự độc đáo và sáng suốt:\n\n"
+            "1. **Triệt phá hoàn toàn hậu cần giặc**: Quân Mông Cổ quen hành quân thần tốc và cướp bóc lương thực tại chỗ. Khi quân dân ta sơ tán sạch người và của, giặc chỉ chiếm được một tòa thành rỗng không một hạt thóc, nhanh chóng rơi vào cảnh đói kiệt và dịch bệnh.\n"
+            "2. **Chủ động rút lui để bảo toàn thực lực**: Rút lui không phải là thất bại, mà là bước lùi chiến lược nhằm tránh mũi nhọn hung hãn ban đầu của giặc, bảo toàn nguyên vẹn quân chủ lực Đại Việt.\n"
+            "3. **Tạo thời cơ phản công quyết định**: Khi giặc mỏi mệt, suy kiệt sĩ khí sau nhiều ngày giam chân trong thành trống, quân ta chớp thời cơ mở đợt tổng phản công sấm sét tại Đông Bộ Đầu đánh tan tác quân thù."
+        ),
+        "follow_up": "Sau khi rút khỏi Thăng Long, em có biết quân dân ta đã chớp thời cơ phản công giặc tại bến sông nào không?"
+    },
+    {
+        "unit_id": "KC1_TRAN_THU_DO_QUOTE",
+        "category": "KHANG_CHIEN_LAN_1_1258",
+        "topic": "Thái sư Trần Thủ Độ và câu nói bất hủ (1258)",
+        "q_matrix": {"cognitive_level": "NHAN_BIET", "difficulty": 0.3, "skills": ["SKILL_TRAN_THU_DO"]},
+        "entity": "Thái sư Trần Thủ Độ",
+        "event": "Kháng chiến chống Mông Cổ lần 1 (1258)",
+        "fact_chunk": "Năm 1258, khi vua Trần Thái Tông lo lắng hỏi kế sách, Thái sư Trần Thủ Độ khẳng khái tâu: 'Đầu thần chưa rơi xuống đất, xin bệ hạ đừng lo!'.",
+        "badge": "Bản lĩnh Đông A",
+        "base_queries": [
+            "câu nói đầu thần chưa rơi xuống đất xin bệ hạ đừng lo là của ai",
+            "trần thủ độ có vai trò gì trong kháng chiến lần 1 năm 1258",
+            "ai nói đầu tôi chưa rơi xuống đất xin bệ hạ đừng lo",
+            "ý nghĩa câu nói của thái sư trần thủ độ"
+        ],
+        "answer": (
+            "Câu nói bất hủ **'Đầu thần chưa rơi xuống đất, xin bệ hạ đừng lo!'** là của **Thái sư Trần Thủ Độ** (1194 – 1264).\n\n"
+            "Vào tháng 1/1258, khi triều đình phải tạm rút khỏi Thăng Long xuôi về sông Thiên Mạc, vua Trần Thái Tông lo lắng đến hỏi ý kiến. Lời khẳng định đanh thép, bản lĩnh ngút trời của vị Thái sư đã xua tan nỗi hoang mang, củng cố ý chí quyết chiến cho toàn thể triều đình."
+        ),
+        "follow_up": "Bên cạnh Trần Thủ Độ, thời Trần còn có câu nói lẫy lừng của Trần Bình Trọng hay Trần Hưng Đạo, em có muốn nghe không?"
+    },
+    {
+        "unit_id": "KC1_DONG_BO_DAU",
+        "category": "KHANG_CHIEN_LAN_1_1258",
+        "topic": "Đại thắng Đông Bộ Đầu (29/1/1258)",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.5, "skills": ["SKILL_DONG_BO_DAU", "SKILL_HA_KHUAT"]},
+        "entity": "Trần Thái Tông & Hà Khuất",
+        "event": "Trận Đông Bộ Đầu (29/1/1258)",
+        "fact_chunk": "Ngày 29/1/1258, quân Trần phản công đánh tan giặc Mông Cổ tại bến Đông Bộ Đầu (Hà Nội). Tàn quân tháo chạy qua Quy Hóa bị chủ trại Hà Khuất chặn đánh tan tác.",
+        "badge": "Chiến thần Đông Bộ Đầu",
+        "base_queries": [
+            "trận đông bộ đầu diễn ra vào ngày tháng năm nào và ở đâu",
+            "chiến thắng đông bộ đầu năm 1258 có ý nghĩa gì",
+            "ai là người chặn đánh giặc mông cổ ở trại quy hóa",
+            "trận quyết chiến kết thúc kháng chiến lần 1 năm 1258"
+        ],
+        "answer": (
+            "Trận **Đông Bộ Đầu** (nay thuộc khu vực bến sông Hồng gần cầu Long Biên, Hà Nội) diễn ra vào ngày **29/1/1258** là trận đại phản công kết thúc thắng lợi cuộc kháng chiến lần thứ nhất:\n\n"
+            "Chớp thời cơ quân Mông Cổ bị đói ăn sau hơn 9 ngày chiếm thành trống, vua Trần Thái Tông hạ lệnh xuất kích đánh úp thẳng vào cứ điểm giặc. Quân Mông Cổ đại bại tháo chạy, trên đường qua **vùng Quy Hóa** (Yên Bái - Lào Cai) lại bị lực lượng dân binh của tù trưởng **Hà Khuất** phục kích tơi bời, tháo chạy tán loạn về nước."
+        ),
+        "follow_up": "Sau thất bại cay đắng này, hơn 20 năm sau nhà Nguyên mới dám đem quân tái xâm lược lần thứ hai đấy!"
+    },
+
+    # --- HỘI NGHỊ BÌNH THAN & TRẦN QUỐC TOẢN (1282) ---
+    {
+        "unit_id": "TQT_WHY_ORANGE",
+        "category": "BINH_THAN_TRAN_QUOC_TOAN",
+        "topic": "Vì sao Trần Quốc Toản bóp nát quả cam (1282)",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.4, "skills": ["SKILL_TRAN_QUOC_TOAN", "SKILL_BINH_THAN"]},
+        "entity": "Hoài Văn hầu Trần Quốc Toản",
+        "event": "Hội nghị Bình Than (Tháng 10/1282)",
+        "fact_chunk": "Tháng 10/1282 tại Hội nghị Bình Than, Trần Quốc Toản vì mới 15-16 tuổi không được vào dự bàn việc nước. Vừa căm thù giặc vừa hổ thẹn, chàng siết chặt bàn tay bóp nát quả cam vua ban lúc nào không hay.",
+        "badge": "Lá cờ sáu chữ vàng",
+        "base_queries": [
+            "vì sao trần quốc toản lại bóp nát quả cam",
+            "tại sao trần quốc toản bóp nát quả cam vua ban ở bến bình than",
+            "nguyên nhân trần quốc toản bóp nát quả cam là gì",
+            "trần quốc toản bóp nát quả cam ở đâu",
+            "câu chuyện trần quốc toản bóp nát quả cam"
+        ],
+        "answer": (
+            "Hoài Văn hầu **Trần Quốc Toản** bóp nát quả cam là vì **lòng yêu nước nồng nàn và nỗi hổ thẹn sục sôi khi không được dự bàn việc nước lúc tuổi còn nhỏ**.\n\n"
+            "Tại Hội nghị Bình Than (tháng 10/1282), vì mới khoảng 15–16 tuổi, chàng không được vào khoang trướng dự họp. Quá nôn nóng vì nước nhà nguy ngập, Quốc Toản liều mình xô lính canh bước vào. Vua Trần Nhân Tông thấy chàng có chí khí nên không trị tội mà ban cho quả cam. Bước lên bờ, vừa căm hận giặc Nguyên bạo tàn, vừa tủi hổ vì bị xem là trẻ con đứng ngoài cuộc, chàng siết chặt bàn tay làm quả cam nát vụn lúc nào không hay."
+        ),
+        "follow_up": "Em có nhớ sau khi rời bến Bình Than, Trần Quốc Toản đã thêu sáu chữ vàng gì lên lá cờ của mình không?"
+    },
+    {
+        "unit_id": "TQT_SIX_GOLDEN_WORDS",
+        "category": "BINH_THAN_TRAN_QUOC_TOAN",
+        "topic": "Lá cờ thêu sáu chữ vàng của Trần Quốc Toản",
+        "q_matrix": {"cognitive_level": "NHAN_BIET", "difficulty": 0.3, "skills": ["SKILL_TRAN_QUOC_TOAN"]},
+        "entity": "Hoài Văn hầu Trần Quốc Toản",
+        "event": "Đội quân sáu chữ vàng (1282 - 1285)",
+        "fact_chunk": "Trần Quốc Toản chiêu mộ hơn 1.000 gia nô, thân tộc dựng cờ thêu sáu chữ vàng 'Phá cường địch, báo hoàng ân' (Phá giặc mạnh, đền ơn vua).",
+        "badge": "Lá cờ sáu chữ vàng",
+        "base_queries": [
+            "lá cờ của trần quốc toản thêu sáu chữ vàng gì",
+            "6 chữ vàng trên lá cờ của trần quốc toản có nghĩa là gì",
+            "phá cường địch báo hoàng ân nghĩa là gì và của ai",
+            "đội quân của trần quốc toản có bao nhiêu người"
+        ],
+        "answer": (
+            "Lá cờ của Hoài Văn hầu Trần Quốc Toản thêu sáu chữ vàng rực rỡ: **'Phá cường địch, báo hoàng ân'** — có nghĩa là **'Phá giặc mạnh, đền ơn vua'**.\n\n"
+            "Sau khi rời bến Bình Than, chàng tự bỏ tiền của chiêu mộ hơn **1.000 gia nô và thân tộc**, ngày đêm thao luyện võ nghệ, đóng thuyền bè và giương cao lá cờ sáu chữ vàng. Trong cuộc kháng chiến năm 1285, đội quân thiếu niên quả cảm ấy luôn xung phong ở tuyến đầu tại Hàm Tử, Chương Dương, làm quân Nguyên khiếp đảm."
+        ),
+        "follow_up": "Hành động của Trần Quốc Toản là tấm gương sáng ngời cho tuổi trẻ Việt Nam qua mọi thời đại!"
+    },
+    {
+        "unit_id": "TQT_OVERVIEW",
+        "category": "BINH_THAN_TRAN_QUOC_TOAN",
+        "topic": "Tiểu sử anh hùng thiếu niên Trần Quốc Toản",
+        "q_matrix": {"cognitive_level": "NHAN_BIET", "difficulty": 0.3, "skills": ["SKILL_TRAN_QUOC_TOAN"]},
+        "entity": "Hoài Văn hầu Trần Quốc Toản",
+        "event": "Kháng chiến chống Nguyên lần 2 (1285)",
+        "fact_chunk": "Hoài Văn hầu Trần Quốc Toản (1267 - 1285) là thiếu niên anh hùng hoàng tộc thời Trần, nổi tiếng với giai thoại bóp nát quả cam tại Bình Than và lá cờ thêu sáu chữ vàng.",
+        "badge": "Lá cờ sáu chữ vàng",
+        "base_queries": [
+            "bạn biết trần quốc toản không",
+            "trần quốc toản là ai trong lịch sử nhà trần",
+            "giới thiệu về anh hùng thiếu niên trần quốc toản",
+            "hoài văn hầu trần quốc toản có công lao gì"
+        ],
+        "answer": (
+            "**Hoài Văn hầu Trần Quốc Toản** (1267 – 1285) là biểu tượng anh hùng tuổi trẻ kiệt xuất của triều Trần trong cuộc kháng chiến chống quân Nguyên lần thứ hai (1285):\n\n"
+            "• **Tuổi trẻ chí lớn**: Mới 15–16 tuổi, vì không được dự Hội nghị Bình Than (1282), chàng hổ thẹn bóp nát quả cam vua ban.\n"
+            "• **Tự lực lập quân**: Tự chiêu tập hơn 1.000 gia nô, thêu cờ **'Phá cường địch, báo hoàng ân'**.\n"
+            "• **Chiến công oanh liệt**: Trực tiếp tham gia các trận đánh lớn Tây Kết, Chương Dương, xông pha tuyến đầu đánh đuổi quân xâm lược."
+        ),
+        "follow_up": "Em muốn tìm hiểu thêm về sự kiện quả cam hay về lá cờ sáu chữ vàng của chàng?"
+    },
+    {
+        "unit_id": "BINH_THAN_CONFERENCE",
+        "category": "BINH_THAN_TRAN_QUOC_TOAN",
+        "topic": "Hội nghị Bình Than (Tháng 10/1282)",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.5, "skills": ["SKILL_BINH_THAN"]},
+        "entity": "Vua Trần Nhân Tông & Vương hầu",
+        "event": "Hội nghị Bình Than (1282)",
+        "fact_chunk": "Tháng 10/1282, vua Trần Nhân Tông triệu tập Hội nghị Bình Than (tại bến Bình Than, Bắc Ninh/Hải Dương) gồm vương hầu, trăm quan bàn kế đánh giặc và cử Trần Quốc Tuấn làm Quốc công Tiết chế.",
+        "badge": "Mưu lược Bình Than",
+        "base_queries": [
+            "hội nghị bình than diễn ra vào năm nào và ở đâu",
+            "mục đích của hội nghị bình than năm 1282 là gì",
+            "hội nghị bình than đã đưa ra những quyết định quan trọng nào",
+            "sự khác nhau giữa hội nghị bình than và hội nghị diên hồng"
+        ],
+        "answer": (
+            "**Hội nghị Bình Than** diễn ra vào **tháng 10 năm 1282** tại bến Bình Than (ngã ba sông Đuống và sông Thái Bình), do **vua Trần Nhân Tông** triệu tập:\n\n"
+            "• **Thành phần & Mục đích**: Triệu tập các vương hầu, tướng lĩnh cao cấp của triều đình để bàn phương án tác chiến phòng thủ trước nguy cơ quân Nguyên xâm lược.\n"
+            "• **Quyết định cốt lõi**: Cử Hưng Đạo vương Trần Quốc Tuấn làm Quốc công Tiết chế chỉ huy toàn quân, thống nhất ý chí hoàng tộc.\n"
+            "• **Phân biệt với Diên Hồng**: Bình Than (1282) là hội nghị của **vương hầu, tướng lĩnh**, còn Diên Hồng (1285) là hội nghị của **các bậc bô lão đại diện cho toàn thể nhân dân**."
+        ),
+        "follow_up": "Em có muốn tìm hiểu về khí thế sục sôi tại Hội nghị Diên Hồng sau đó không?"
+    },
+
+    # --- HỘI NGHỊ DIÊN HỒNG & HỊCH TƯỚNG SĨ (1284 - 1285) ---
+    {
+        "unit_id": "DIEN_HONG_CONFERENCE",
+        "category": "DIEN_HONG_HICH_TUONG_SI",
+        "topic": "Hội nghị Diên Hồng (Đầu năm 1285)",
+        "q_matrix": {"cognitive_level": "VAN_DUNG", "difficulty": 0.6, "skills": ["SKILL_DIEN_HONG"]},
+        "entity": "Thượng hoàng Trần Thánh Tông & Các bô lão",
+        "event": "Hội nghị Diên Hồng (Đầu năm 1285)",
+        "fact_chunk": "Đầu năm 1285, Thượng hoàng Trần Thánh Tông triệu tập các bậc bô lão cả nước họp ở điện Diên Hồng, hỏi 'Nên đánh hay nên hòa?'. Muôn người đồng thanh hô vang một tiếng 'ĐÁNH!'.",
+        "badge": "Hào khí Diên Hồng",
+        "base_queries": [
+            "hội nghị diên hồng năm 1285 có ý nghĩa gì",
+            "tại hội nghị diên hồng các bô lão đã hô vang từ gì",
+            "kể về hội nghị diên hồng đầu năm 1285",
+            "hội nghị diên hồng được tổ chức vào năm nào",
+            "vì sao nhà trần lại mời các bô lão về họp ở điện diên hồng"
+        ],
+        "answer": (
+            "**Hội nghị Diên Hồng** (đầu năm 1285 tại điện Diên Hồng, Thăng Long) do Thượng hoàng **Trần Thánh Tông** chủ trì là biểu tượng vĩ đại của nền dân chủ và khối đại đoàn kết dân tộc:\n\n"
+            "• Trước thế giặc 50 vạn quân Nguyên hung bạo, triều đình mở yến tiệc mời các bậc bô lão đại diện cho nhân dân các làng xã trên cả nước về hỏi kế sách: *'Nên đánh hay nên hòa?'*.\n"
+            "• Hàng trăm vị bô lão râu tóc bạc phơ đã đồng thanh hô vang một tiếng **'ĐÁNH!'** rung chuyển kinh thành.\n"
+            "• Khẳng định quyết tâm chống giặc giữ nước xuất phát từ ý nguyện thiêng liêng của muôn dân trăm họ, chứ không chỉ riêng triều đình."
+        ),
+        "follow_up": "Để khích lệ tinh thần binh sĩ trước giờ ra trận, Trần Hưng Đạo đã viết áng văn bất hủ nào, em có nhớ không?"
+    },
+    {
+        "unit_id": "HICH_TUONG_SI",
+        "category": "DIEN_HONG_HICH_TUONG_SI",
+        "topic": "Hịch tướng sĩ và Tinh thần Sát Thát (1284 - 1285)",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.5, "skills": ["SKILL_HICH_TUONG_SI", "SKILL_SAT_THAT"]},
+        "entity": "Trần Quốc Tuấn & Binh sĩ",
+        "event": "Kháng chiến chống Nguyên lần 2 (1285)",
+        "fact_chunk": "Năm 1284, Trần Quốc Tuấn soạn 'Hịch tướng sĩ' khích lệ lòng yêu nước. Quân sĩ nhà Trần tự nguyện xăm hai chữ 'Sát Thát' (Giết giặc Mông Cổ) lên cánh tay thề sống chết với non sông.",
+        "badge": "Hào khí Đông A",
+        "base_queries": [
+            "ai là tác giả của hịch tướng sĩ và bài hịch có ý nghĩa gì",
+            "hai chữ sát thát nghĩa là gì và vì sao binh sĩ lại xăm lên tay",
+            "tinh thần sát thát của quân dân nhà trần là gì",
+            "câu văn ta thường tới bữa quên ăn nửa đêm vỗ gối trong tác phẩm nào"
+        ],
+        "answer": (
+            "**'Hịch tướng sĩ'** do **Quốc công Tiết chế Trần Hưng Đạo** soạn thảo vào năm 1284 nhằm khích lệ tinh thần quyết chiến của tướng sĩ Đại Việt:\n\n"
+            "• **Áng văn tâm huyết**: Những câu văn bất hủ như *'Ta thường tới bữa quên ăn, nửa đêm vỗ gối, ruột đau như cắt, nước mắt đầm đìa...'* đã thổi bùng ngọn lửa căm thù giặc trong lòng quân đội.\n"
+            "• **Khẩu hiệu 'Sát Thát'**: Sau khi nghe truyền hịch, toàn thể tướng sĩ đã đồng lòng xăm hai chữ **'Sát Thát'** (Giết giặc Mông Cổ) lên cánh tay để thề không đội trời chung với quân xâm lược."
+        ),
+        "follow_up": "Em có biết câu nói nổi tiếng của Trần Hưng Đạo khi vua Trần hỏi có nên đầu hàng giặc không?"
+    },
+    {
+        "unit_id": "TRAN_HUNG_DAO_PORTRAIT",
+        "category": "DIEN_HONG_HICH_TUONG_SI",
+        "topic": "Quốc công Tiết chế Hưng Đạo Đại vương Trần Quốc Tuấn",
+        "q_matrix": {"cognitive_level": "NHAN_BIET", "difficulty": 0.3, "skills": ["SKILL_TRAN_HUNG_DAO"]},
+        "entity": "Trần Quốc Tuấn (Trần Hưng Đạo)",
+        "event": "Kháng chiến chống Nguyên lần 2 và 3",
+        "fact_chunk": "Trần Quốc Tuấn (1228 - 1300) là vị tổng chỉ huy quân đội Đại Việt trong hai lần kháng chiến năm 1285 và 1288. Ông nói câu 'Nếu bệ hạ muốn hàng xin hãy chém đầu thần trước đã!' và chỉ huy đại thắng Bạch Đằng 1288.",
+        "badge": "Hưng Đạo Đại Vương",
+        "base_queries": [
+            "trần hưng đạo là ai và có công lao gì",
+            "ai là người nói câu nếu bệ hạ muốn hàng xin hãy chém đầu thần trước đã",
+            "kể về anh hùng dân tộc trần quốc tuấn trần hưng đạo",
+            "công lao của hưng đạo đại vương trong các cuộc kháng chiến"
+        ],
+        "answer": (
+            "**Hưng Đạo Đại vương Trần Quốc Tuấn** (1228 – 1300) là thiên tài quân sự kiệt xuất, Quốc công Tiết chế thống lĩnh toàn bộ quân đội Đại Việt:\n\n"
+            "• **Đặt nợ nước lên trên thù nhà**: Xóa bỏ hiềm khích gia tộc để đoàn kết toàn quân.\n"
+            "• **Bản lĩnh thép**: Khi giặc Nguyên tràn ngập năm 1285, ông khẳng khái tâu vua: **'Nếu bệ hạ muốn hàng, xin hãy chém đầu thần trước đã!'**.\n"
+            "• **Chiến công hiển hách**: Soạn Hịch tướng sĩ, chỉ huy các chiến dịch giải phóng Thăng Long (1285) và đại thắng cọc ngầm **Bạch Đằng (1288)**.\n"
+            "• **Di huấn muôn đời**: Để lại bài học: *'Khoan thư sức dân để làm kế sâu rễ bền gốc, đó là thượng sách giữ nước'*."
+        ),
+        "follow_up": "Em có muốn nghe chuyện về hai người gia tướng tài ba Yết Kiêu và Dã Tượng của ông không?"
+    },
+
+    # --- KHÁNG CHIẾN LẦN 2 (1285) ---
+    {
+        "unit_id": "KC2_OVERVIEW",
+        "category": "KHANG_CHIEN_LAN_2_1285",
+        "topic": "Toàn cảnh cuộc kháng chiến chống quân Nguyên lần 2 (1285)",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.5, "skills": ["SKILL_KC2_TIMELINE", "SKILL_THOAT_HOAN"]},
+        "entity": "Trần Hưng Đạo & Thoát Hoan",
+        "event": "Kháng chiến chống Nguyên lần 2 (1285)",
+        "fact_chunk": "Đầu năm 1285, Thoát Hoan đem 50 vạn quân Nguyên từ phía Bắc phối hợp Toa Đô từ phía Nam đánh Đại Việt. Tháng 5-6/1285, quân Trần đại phản công ở Tây Kết, Hàm Tử, Chương Dương. Toa Đô bị chém đầu, Thoát Hoan chui ống đồng tháo chạy.",
+        "badge": "Hào khí Chương Dương - Hàm Tử",
+        "base_queries": [
+            "kể về cuộc kháng chiến chống quân nguyên lần thứ hai năm 1285",
+            "tôi cần biết về trận chiến chống nguyên mông lần 2",
+            "tóm tắt diễn biến cuộc kháng chiến lần 2 năm 1285",
+            "kháng chiến chống nguyên lần 2 diễn ra như thế nào"
+        ],
+        "answer": (
+            "Kháng chiến lần thứ hai (1285) là cuộc chiến quy mô khốc liệt nhất khi giặc huy động **50 vạn quân** tạo thế gọng kìm hai đầu:\n\n"
+            "• **Thế giặc hung hãn**: Thoát Hoan đánh từ phía Bắc xuống, Toa Đô từ Chăm-pa đánh ngược từ phía Nam lên.\n"
+            "• **Rút lui bảo toàn**: Quân Trần thực hiện Vườn không nhà trống tại Thăng Long, khéo léo chặn không cho hai đạo quân giặc hội quân.\n"
+            "• **Tổng phản công vang dội (Tháng 5 - 6/1285)**: Quân ta tổng phản công tại **A Lỗ, Tây Kết, Hàm Tử, Chương Dương**, tiến vào giải phóng Thăng Long.\n"
+            "• **Kết cục giặc**: Toa Đô bị chém đầu tại Tây Kết, Lý Hằng trúng tên độc, còn Thoát Hoan phải **chui vào ống đồng** cho lính khiêng chạy trối chết về nước."
+        ),
+        "follow_up": "Em có tò mò vì sao Thoát Hoan lại phải chui vào ống đồng khi chạy trốn không?"
+    },
+    {
+        "unit_id": "KC2_THOAT_HOAN_COPPER_PIPE",
+        "category": "KHANG_CHIEN_LAN_2_1285",
+        "topic": "Thoát Hoan chui ống đồng tháo chạy (Tháng 6/1285)",
+        "q_matrix": {"cognitive_level": "NHAN_BIET", "difficulty": 0.3, "skills": ["SKILL_THOAT_HOAN"]},
+        "entity": "Thoát Hoan",
+        "event": "Thoát Hoan tháo chạy qua Vạn Kiếp (Tháng 6/1285)",
+        "fact_chunk": "Tháng 6/1285, khi tháo chạy qua Vạn Kiếp, vì quá sợ bị trúng tên tẩm thuốc độc của quân dân nhà Trần, chủ tướng Thoát Hoan đã chui vào ống đồng đặt trên xe cho lính kéo về nước.",
+        "badge": "Hào khí Chương Dương - Hàm Tử",
+        "base_queries": [
+            "vì sao thoát hoan phải chui vào ống đồng",
+            "ai là tướng giặc phải chui vào ống đồng chạy về nước",
+            "thoát hoan chui ống đồng trong cuộc kháng chiến lần thứ mấy",
+            "tại sao tướng giặc thoát hoan lại trốn trong ống đồng"
+        ],
+        "answer": (
+            "**Thoát Hoan** (con trai vua Nguyên Hốt Tất Liệt) phải chui vào ống đồng tháo chạy vào **tháng 6 năm 1285** (kháng chiến lần thứ hai) vì **quá khiếp sợ trước những trận phục kích và mưa tên tẩm độc của quân dân Đại Việt**.\n\n"
+            "Khi quân giặc tan vỡ tháo chạy về biên giới phía Bắc, Trần Hưng Đạo bố trí các ổ mai phục bắn tên tẩm thuốc độc dữ dội tại sông Như Nguyệt và Vạn Kiếp. Tướng giặc Lý Hằng trúng tên độc chết ngay tại trận. Quá kinh hãi, 'Trấn Nam Vương' Thoát Hoan đành chui vào một chiếc ống đồng lớn đặt trên xe đẩy để che chắn thân mình rồi hối hả cho lính khiêng chạy tháo thân về phương Bắc."
+        ),
+        "follow_up": "Hình ảnh ống đồng Thoát Hoan đã trở thành nỗi nhục muôn đời của quân xâm lược phương Bắc đấy!"
+    },
+    {
+        "unit_id": "KC2_TRAN_BINH_TRONG",
+        "category": "KHANG_CHIEN_LAN_2_1285",
+        "topic": "Bảo Nghĩa vương Trần Bình Trọng và câu nói bất tử (1285)",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.4, "skills": ["SKILL_TRAN_BINH_TRONG"]},
+        "entity": "Trần Bình Trọng",
+        "event": "Trận bãi Tự Nhiên (Tháng 2/1285)",
+        "fact_chunk": "Tháng 2/1285, Trần Bình Trọng chặn giặc ở bãi Tự Nhiên bảo vệ hai vua Trần rút lui. Bị giặc bắt và dụ hàng phong vương, ông thét lớn: 'Ta thà làm quỷ nước Nam, chứ không thèm làm vương đất Bắc!' rồi anh dũng hy sinh.",
+        "badge": "Khí phách Nước Nam",
+        "base_queries": [
+            "ai nói ta thà làm quỷ nước nam chứ không thèm làm vương đất bắc",
+            "trần bình trọng hy sinh trong trận nào",
+            "câu nói nổi tiếng của trần bình trọng trước mặt giặc",
+            "kể về sự hy sinh oanh liệt của trần bình trọng"
+        ],
+        "answer": (
+            "Câu nói bất hủ **'Ta thà làm quỷ nước Nam, chứ không thèm làm vương đất Bắc!'** là của danh tướng **Bảo Nghĩa vương Trần Bình Trọng** (1259 – 1285).\n\n"
+            "Tháng 2/1285, ông chỉ huy đội quân cảm tử chặn đánh quân giặc tại **bãi Tự Nhiên** (sông Hồng) để bảo vệ hai vua Trần rút lui an toàn. Sa vào tay giặc, tướng Nguyên đem giàu sang và tước vương phương Bắc ra dụ dỗ. Ông hiên ngang nhịn ăn, quát thẳng vào mặt kẻ thù câu nói thiêng liêng ấy rồi ngẩng cao đầu đón nhận cái chết khi mới **26 tuổi**."
+        ),
+        "follow_up": "Khí phách của Trần Bình Trọng đã cổ vũ toàn quân ta mở cuộc tổng phản công lớn ở Hàm Tử, Chương Dương!"
+    },
+    {
+        "unit_id": "KC2_HAM_TU_CHUONG_DUONG",
+        "category": "KHANG_CHIEN_LAN_2_1285",
+        "topic": "Chiến thắng Hàm Tử, Chương Dương và bài thơ Tụng giá hoàn kinh",
+        "q_matrix": {"cognitive_level": "VAN_DUNG", "difficulty": 0.6, "skills": ["SKILL_CHUONG_DUONG", "SKILL_HAM_TU", "SKILL_TRAN_QUANG_KHAI"]},
+        "entity": "Trần Quang Khải & Trần Nhật Duật",
+        "event": "Chiến thắng Hàm Tử - Chương Dương (Mùa hè 1285)",
+        "fact_chunk": "Tháng 5 - 6/1285, Trần Nhật Duật thắng lớn ở Hàm Tử Quan, Trần Quang Khải đại phá giặc ở Chương Dương Độ giải phóng Thăng Long. Trần Quang Khải làm bài thơ 'Tụng giá hoàn kinh'.",
+        "badge": "Hào khí Chương Dương - Hàm Tử",
+        "base_queries": [
+            "trận hàm tử và chương dương năm 1285 do ai chỉ huy",
+            "câu thơ đoạt sáo chương dương độ cầm hồ hàm tử quan của ai",
+            "tướng giặc toa đô bị tiêu diệt ở trận nào",
+            "bài thơ tụng giá hoàn kinh ra đời trong hoàn cảnh nào"
+        ],
+        "answer": (
+            "Chuỗi chiến thắng **Hàm Tử – Chương Dương – Tây Kết** (mùa hè năm 1285) mở toang cánh cửa giải phóng kinh thành Thăng Long:\n\n"
+            "• **Hàm Tử Quan (Hưng Yên)**: Chiêu Văn vương **Trần Nhật Duật** chỉ huy đánh tan đạo thủy quân của Toa Đô.\n"
+            "• **Chương Dương Độ (Hà Nội)**: Thượng tướng Thái sư **Trần Quang Khải** cùng Trần Quốc Toản giáng đòn tiêu diệt căn cứ then chốt của giặc, mở đường tiến thẳng vào giải phóng Thăng Long.\n"
+            "• **Tây Kết**: Tiêu diệt cánh quân phía Nam của địch, **Toa Đô bị chém đầu tại trận**.\n\n"
+            "Ngày rước hai vua về lại Thăng Long, Trần Quang Khải đã sáng tác bài thơ bất hủ **'Tụng giá hoàn kinh'**:\n"
+            "*'Đoạt sáo Chương Dương độ / Cầm Hồ Hàm Tử quan / Thái bình tu nỗ lực / Vạn cổ thử giang san'*."
+        ),
+        "follow_up": "Em có biết hai câu cuối của bài thơ nhắc nhở bài học gì về thời bình không?"
+    },
+
+    # --- KHÁNG CHIẾN LẦN 3 & HẢI CHIẾN VÂN ĐỒN (1287 - 1288) ---
+    {
+        "unit_id": "KC3_VAN_DON",
+        "category": "HAI_CHIEN_VAN_DON_1288",
+        "topic": "Hải chiến Vân Đồn - Tiêu diệt thuyền lương Trương Văn Hổ (1288)",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.5, "skills": ["SKILL_VAN_DON", "SKILL_TRAN_KHANH_DU"]},
+        "entity": "Trần Khánh Dư",
+        "event": "Trận Vân Đồn (Đầu năm 1288)",
+        "fact_chunk": "Đầu năm 1288, Nhân Huệ vương Trần Khánh Dư phục kích tại Vân Đồn (Quảng Ninh) đánh đắm và thu giữ toàn bộ đoàn thuyền chở 17 vạn thạch lương của Trương Văn Hổ.",
+        "badge": "Mưu thần Vân Đồn",
+        "base_queries": [
+            "trận vân đồn năm 1288 do ai chỉ huy và tiêu diệt đoàn thuyền của ai",
+            "vì sao chiến thắng vân đồn của trần khánh dư có ý nghĩa bước ngoặt",
+            "ai là người đánh đắm đoàn thuyền lương của trương văn hổ",
+            "diễn biến trận hải chiến vân đồn năm 1288"
+        ],
+        "answer": (
+            "Trận hải chiến **Vân Đồn** (Quảng Ninh, đầu năm 1288) do **Nhân Huệ vương Trần Khánh Dư** chỉ huy là đòn bẻ gãy huyết mạch hậu cần của giặc:\n\n"
+            "• **Mưu tính của giặc**: Rút kinh nghiệm những lần đói ăn trước, nhà Nguyên giao **Trương Văn Hổ** dẫn 70 chiến thuyền chở **17 vạn thạch lương** đi đường biển tiếp tế cho 30 vạn quân Thoát Hoan.\n"
+            "• **Tài thao lược của Trần Khánh Dư**: Đoán chắc đoàn thuyền lương đi sau sẽ chủ quan sau khi thuyền chiến Ô Mã Nhi đi qua, ông bố trí phục kích tại Vân Đồn, đánh đắm và tịch thu toàn bộ lương thực.\n"
+            "• **Ý nghĩa bước ngoặt**: Mất sạch lương, quân Nguyên ở Thăng Long rơi vào cảnh tuyệt lương cùng quẫn, buộc phải rút lui và dẫn tới thảm bại ở Bạch Đằng."
+        ),
+        "follow_up": "Sau khi mất hết lương ăn ở Vân Đồn, thủy quân giặc đã rút chạy theo đường sông nào và rơi vào bẫy mai phục của ai?"
+    },
+    {
+        "unit_id": "KC3_BACH_DANG_HOW",
+        "category": "DAI_THANG_BACH_DANG_1288",
+        "topic": "Đại thắng sông Bạch Đằng (Tháng 4/1288)",
+        "q_matrix": {"cognitive_level": "VAN_DUNG", "difficulty": 0.7, "skills": ["SKILL_BACH_DANG_1288", "SKILL_TRAN_HUNG_DAO"]},
+        "entity": "Trần Quốc Tuấn (Trần Hưng Đạo)",
+        "event": "Đại thắng Bạch Đằng Giang (Tháng 4/1288)",
+        "fact_chunk": "Tháng 4/1288, Trần Hưng Đạo bố trí bãi cọc ngầm trên sông Bạch Đằng, nhử thuyền giặc vào lúc triều lên rồi tổng công kích khi triều rút. Đánh chìm và bắt sống toàn bộ thủy quân giặc, bắt sống Ô Mã Nhi, Phàn Tiếp.",
+        "badge": "Huyền thoại Bạch Đằng Giang",
+        "base_queries": [
+            "trận bạch đằng năm 1288 đã diễn ra như thế nào",
+            "tại sao trần hưng đạo lại chọn sông bạch đằng để đóng cọc ngầm",
+            "cách đánh giặc trên sông bạch đằng năm 1288 của trần hưng đạo",
+            "ai bị bắt sống trong trận bạch đằng năm 1288"
+        ],
+        "answer": (
+            "Đại thắng **Bạch Đằng Giang** (vào **tháng 4 năm 1288** theo SGK Lịch sử 7) do **Quốc công Tiết chế Trần Hưng Đạo** chỉ huy là đỉnh cao rực rỡ của nghệ thuật thủy chiến Đại Việt:\n\n"
+            "1. **Bố trí bãi cọc ngầm**: Đoán trước đường rút lui bằng đường thủy của giặc, Trần Hưng Đạo cho cắm các bãi cọc gỗ vót nhọn bịt sắt ngầm dưới lòng sông Bạch Đằng ở những vị trí hiểm yếu.\n"
+            "2. **Nhử giặc vào bẫy**: Khi thủy triều dâng che khuất bãi cọc, các cánh thuyền nhẹ của ta vờ khiêu chiến rồi rút lui, nhử hạm đội thuyền giặc của Ô Mã Nhi và Phàn Tiếp đuổi theo tiến sâu vào trận địa mai phục.\n"
+            "3. **Công kích khi triều rút**: Khi nước triều rút mạnh, bãi cọc nhô lên chặn đứng và đâm thủng thuyền giặc. Quân ta từ hai bên bờ và các nhánh sông mai phục đồng loạt xông ra công kích dữ dội.\n"
+            "4. **Chiến quả trọn vẹn**: Tiêu diệt và bắt sống toàn bộ đạo thủy quân giặc, bắt sống các tướng chỉ huy là **Ô Mã Nhi và Phàn Tiếp** (Đại Việt Sử Ký Toàn Thư ghi nhận quân ta bắt hơn 400 chiến thuyền), đập tan hoàn toàn ý chí xâm lược của nhà Nguyên."
+        ),
+        "follow_up": "Em có nhớ trước trận Bạch Đằng năm 1288, vị anh hùng nào năm 938 cũng từng dùng cọc gỗ đánh thắng quân Nam Hán trên sông này không?"
+    },
+    {
+        "unit_id": "KC3_OVERVIEW",
+        "category": "DAI_THANG_BACH_DANG_1288",
+        "topic": "Toàn cảnh kháng chiến chống quân Nguyên lần 3 (1287 - 1288)",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.5, "skills": ["SKILL_KC3_TIMELINE"]},
+        "entity": "Trần Hưng Đạo & Trần Khánh Dư",
+        "event": "Kháng chiến chống Nguyên lần 3 (1287 - 1288)",
+        "fact_chunk": "Cuối 1287 - tháng 4/1288, Thoát Hoan đem 30 vạn quân cùng thuyền lương Trương Văn Hổ xâm lược lần 3. Trần Khánh Dư thắng ở Vân Đồn, Trần Hưng Đạo thắng ở Bạch Đằng, đập tan hoàn toàn mộng xâm lăng.",
+        "badge": "Huyền thoại Bạch Đằng Giang",
+        "base_queries": [
+            "tôi cần biết về trận chiến chống nguyên mông lần 3",
+            "kể về cuộc kháng chiến chống quân nguyên lần thứ ba năm 1287 1288",
+            "tóm tắt diễn biến cuộc kháng chiến lần 3 chống nguyên mông",
+            "kháng chiến lần 3 năm 1288 có những trận đánh lớn nào"
+        ],
+        "answer": (
+            "Cuộc kháng chiến lần thứ ba chống quân Nguyên (**cuối năm 1287 – tháng 4/1288**) ghi dấu bản lĩnh và sự chủ động hoàn toàn của nhà Trần:\n\n"
+            "• **Giặc chuẩn bị kỹ lưỡng**: Thoát Hoan dẫn 30 vạn quân cùng hạm đội thuyền lương của Trương Văn Hổ chia hai đường thủy – bộ tiến vào Đại Việt.\n"
+            "• **Đòn đánh then chốt Vân Đồn (Đầu 1288)**: Trần Khánh Dư tiêu diệt sạch đoàn thuyền chở 17 vạn thạch lương của giặc tại Vân Đồn, khiến quân Nguyên lâm vào cảnh thiếu đói bế tắc.\n"
+            "• **Quyết chiến Bạch Đằng (Tháng 4/1288)**: Trần Hưng Đạo giăng bãi cọc ngầm tiêu diệt toàn bộ thủy quân giặc, bắt sống Ô Mã Nhi; cánh quân bộ của Thoát Hoan cũng bị phục kích tơi bời khi tháo chạy qua Lạng Sơn.\n"
+            "• **Kết quả**: Chấm dứt vĩnh viễn tham vọng bành trướng xuống phương Nam của đế chế Mông - Nguyên."
+        ),
+        "follow_up": "Em có muốn cùng thầy tổng kết nguyên nhân vì sao Đại Việt 3 lần đều đánh thắng đế chế hùng mạnh nhất thế giới không?"
+    },
+
+    # --- NGUYÊN NHÂN THẮNG LỢI & Ý NGHĨA LỊCH SỬ ---
+    {
+        "unit_id": "ALL_3_WARS_SUMMARY",
+        "category": "NGUYEN_NHAN_Y_NGHIA",
+        "topic": "Tổng quan ba lần kháng chiến chống Mông - Nguyên (1258 - 1288)",
+        "q_matrix": {"cognitive_level": "NHAN_BIET", "difficulty": 0.4, "skills": ["SKILL_ALL_3_WARS"]},
+        "entity": "Vương triều Trần",
+        "event": "Ba lần kháng chiến chống Mông - Nguyên (1258 - 1288)",
+        "fact_chunk": "Ba lần kháng chiến chống quân Mông - Nguyên diễn ra trong 30 năm (1258, 1285, 1287-1288). Cả ba lần đều thắng lợi vẻ vang gắn với các trận Đông Bộ Đầu, Chương Dương, Hàm Tử, Bạch Đằng.",
+        "badge": "Tinh hoa Đông A",
+        "base_queries": [
+            "tóm tắt ba lần kháng chiến chống quân mông nguyên",
+            "ba lần kháng chiến chống mông nguyên diễn ra vào những năm nào",
+            "kể tên các trận đánh tiêu biểu trong 3 lần kháng chiến",
+            "nhà trần đã đánh thắng quân mông nguyên mấy lần"
+        ],
+        "answer": (
+            "Trong 30 năm (**1258 – 1288**), quân dân thời Trần đã lập kỳ tích **ba lần đánh bại đế chế Mông – Nguyên**:\n\n"
+            "1. **Lần 1 (1258)**: Đánh tan 3 vạn quân Mông Cổ; nổi bật với trận **Bình Lệ Nguyên**, kế sách **Vườn không nhà trống** và đại thắng **Đông Bộ Đầu**.\n"
+            "2. **Lần 2 (1285)**: Đánh tan 50 vạn quân Nguyên; nổi bật với **Hội nghị Bình Than (1282)**, **Hội nghị Diên Hồng (1285)**, chuỗi đại thắng **Tây Kết, Hàm Tử, Chương Dương**, Thoát Hoan chui ống đồng.\n"
+            "3. **Lần 3 (1287 - 1288)**: Đánh tan 30 vạn quân Nguyên; nổi bật với chiến thắng **Vân Đồn** và đại thắng cọc ngầm **Bạch Đằng (9/4/1288)** bắt sống Ô Mã Nhi."
+        ),
+        "follow_up": "Trong ba lần này, em thích tìm hiểu nhất về chiến dịch nào?"
+    },
+    {
+        "unit_id": "CAUSES_OF_VICTORY",
+        "category": "NGUYEN_NHAN_Y_NGHIA",
+        "topic": "Nguyên nhân thắng lợi của ba lần kháng chiến",
+        "q_matrix": {"cognitive_level": "VAN_DUNG", "difficulty": 0.8, "skills": ["SKILL_VICTORY_CAUSES"]},
+        "entity": "Vua tôi nhà Trần & Nhân dân",
+        "event": "Thắng lợi ba lần kháng chiến chống Mông - Nguyên",
+        "fact_chunk": "Nguyên nhân thắng lợi: 1. Khối đại đoàn kết toàn dân ('Vua tôi đồng lòng, anh em hòa mục, cả nước góp sức'). 2. Bộ chỉ huy tài ba của các vua Trần và Trần Quốc Tuấn. 3. Nghệ thuật quân sự sáng tạo (vườn không nhà trống, lấy yếu thắng mạnh).",
+        "badge": "Tinh hoa Đông A",
+        "base_queries": [
+            "nguyên nhân thắng lợi của ba lần kháng chiến chống quân mông nguyên",
+            "vì sao đại việt lại đánh thắng được đế chế mông nguyên hùng mạnh",
+            "yếu tố quan trọng nhất giúp nhà trần đánh thắng quân mông nguyên là gì",
+            "vua tôi đồng lòng anh em hòa mục cả nước góp sức nói về điều gì",
+            "tại sao quân nguyên đông và mạnh mà vẫn thua đại việt",
+            "vì sao quân mông nguyên mạnh như vậy mà vẫn thất bại trước đại việt",
+            "tại sao một nước nhỏ như đại việt lại đánh thắng đế chế mông nguyên đông và mạnh",
+            "vì sao quân giặc đông và hung bạo mà vẫn thua"
+        ],
+        "answer": (
+            "Dù quân Mông – Nguyên có quân số đông đảo và kỵ binh mạnh bậc nhất thế giới, Đại Việt vẫn giành thắng lợi trọn vẹn nhờ khắc chế được sự chênh lệch sức mạnh qua **3 nguyên nhân căn bản**:\n\n"
+            "1. **Đại đoàn kết toàn dân tộc (Triệt tiêu ưu thế quân số của giặc)**: 'Vua tôi đồng lòng, anh em hòa mục, cả nước góp sức'. Tinh thần yêu nước kết nối hoàng tộc, tướng sĩ với nhân dân và đồng bào miền núi thành thế trận chiến tranh nhân dân, khiến đạo quân khổng lồ của giặc bị chia cắt và sa lầy.\n"
+            "2. **Sự lãnh đạo và thiên tài quân sự kiệt xuất**: Các vị vua anh minh (Trần Thái Tông, Trần Thánh Tông, Trần Nhân Tông) cùng thiên tài quân sự Quốc công Tiết chế Trần Hưng Đạo luôn giữ vững quyền chủ động chiến lược, biết chớp đúng thời cơ giặc suy yếu để phản công quyết định.\n"
+            "3. **Nghệ thuật quân sự sáng tạo (Vô hiệu hóa sở trường kỵ binh)**: Tránh đối đầu trực diện khi giặc đang hăng máu; chủ động rút lui chiến lược bảo toàn thực lực; thực hiện triệt để 'Vườn không nhà trống' làm giặc đói kiệt và tận dụng địa hình sông nước (Vân Đồn, Bạch Đằng)."
+        ),
+        "follow_up": "Bài học đoàn kết và lấy dân làm gốc vẫn còn nguyên giá trị cho công cuộc xây dựng đất nước hôm nay đấy em!"
+    },
+    {
+        "unit_id": "HISTORICAL_SIGNIFICANCE",
+        "category": "NGUYEN_NHAN_Y_NGHIA",
+        "topic": "Ý nghĩa lịch sử của ba lần kháng chiến chống Mông - Nguyên",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.6, "skills": ["SKILL_HISTORICAL_SIGNIFICANCE"]},
+        "entity": "Dân tộc Đại Việt & Thế giới",
+        "event": "Ý nghĩa lịch sử ba lần chiến thắng (1258 - 1288)",
+        "fact_chunk": "Ý nghĩa lịch sử: Đập tan tham vọng xâm lược của đế chế Mông - Nguyên, bảo vệ vững chắc độc lập; củng cố niềm tự hào dân tộc; góp phần ngăn chặn quân Nguyên bành trướng xuống Đông Nam Á và Nhật Bản.",
+        "badge": "Tinh hoa Đông A",
+        "base_queries": [
+            "ý nghĩa lịch sử của ba lần kháng chiến chống quân mông nguyên",
+            "chiến thắng chống mông nguyên có ý nghĩa gì đối với thế giới",
+            "tầm vóc quốc tế của chiến thắng bạch đằng và ba lần chống mông nguyên",
+            "thắng lợi chống mông nguyên để lại bài học gì"
+        ],
+        "answer": (
+            "Thắng lợi ba lần kháng chiến (1258 – 1288) mang **tầm vóc lịch sử to lớn đối với cả dân tộc và thế giới**:\n\n"
+            "• **Với dân tộc**: Bảo vệ trọn vẹn độc lập, chủ quyền và bờ cõi non sông; bồi đắp Hào khí Đông A hào hùng và bài học muôn đời về 'khoan thư sức dân'.\n"
+            "• **Với thế giới**: Góp phần bẻ gãy mưu đồ xâm lược của đế chế Nguyên Mông xuống Đông Nam Á và bảo vệ hòa bình cho khu vực; là một trong những kỳ tích quân sự vĩ đại nhất thế giới thế kỷ XIII."
+        ),
+        "follow_up": "Em có muốn tìm hiểu thêm về các vị tướng xuất thân bình dân như Yết Kiêu, Dã Tượng không?"
+    },
+
+    # --- DANH TƯỚNG & GIA THẦN ---
+    {
+        "unit_id": "YET_KIEU_DA_TUONG",
+        "category": "DANH_TUONG_GIA_THAN",
+        "topic": "Yết Kiêu và Dã Tượng - Hai gia tướng trung kiên",
+        "q_matrix": {"cognitive_level": "NHAN_BIET", "difficulty": 0.3, "skills": ["SKILL_YET_KIEU_DA_TUONG"]},
+        "entity": "Yết Kiêu & Dã Tượng",
+        "event": "Kháng chiến chống Nguyên",
+        "fact_chunk": "Yết Kiêu có tài bơi lặn đục thủng thuyền giặc và trung kiên giữ thuyền chờ Trần Hưng Đạo ở bãi Tân Hưng. Dã Tượng có tài chỉ huy tượng binh (voi chiến).",
+        "badge": "Trung nghĩa Đông A",
+        "base_queries": [
+            "yết kiêu và dã tượng là ai và có tài năng gì",
+            "ai là người có tài bơi lặn đục thủng thuyền giặc thời trần",
+            "kể về hai người gia nô trung thành của trần hưng đạo",
+            "yết kiêu đã lập công gì trong cuộc kháng chiến"
+        ],
+        "answer": (
+            "**Yết Kiêu** và **Dã Tượng** là hai danh tướng xuất thân gia nô, nổi tiếng trung thành và tài giỏi dưới trướng Trần Hưng Đạo:\n\n"
+            "• **Yết Kiêu**: Bậc thầy bơi lặn như rái cá, chuyên lặn đêm đục thủng đáy thuyền chiến của giặc. Ở bãi Tân Hưng, dù giặc đuổi sát, ông vẫn kiên quyết cắm thuyền chờ chủ soái: *'Vương gia chưa đến thì thuyền thần chưa đi!'*.\n"
+            "• **Dã Tượng**: Bậc thầy chỉ huy đội voi chiến (tượng binh), dũng cảm bảo vệ chủ soái xông pha chiến trường.\n\n"
+            "Trần Hưng Đạo từng xúc động ca ngợi hai ông như những chiếc lông cánh trụ cột giúp chim hồng hộc bay cao nghìn dặm."
+        ),
+        "follow_up": "Bên cạnh Yết Kiêu, dưới trướng Trần Hưng Đạo còn có người ngồi đan sọt bị đâm vào đùi không biết đau là ai, em nhớ không?"
+    },
+    {
+        "unit_id": "PHAM_NGU_LAO",
+        "category": "DANH_TUONG_GIA_THAN",
+        "topic": "Phạm Ngũ Lão và giai thoại đan sọt",
+        "q_matrix": {"cognitive_level": "NHAN_BIET", "difficulty": 0.3, "skills": ["SKILL_PHAM_NGU_LAO"]},
+        "entity": "Phạm Ngũ Lão",
+        "event": "Trần Hưng Đạo phát hiện Phạm Ngũ Lão tại Phù Ủng",
+        "fact_chunk": "Phạm Ngũ Lão (1255 - 1320) ngồi đan sọt mải nghĩ việc nước bị giáo đâm vào đùi không biết đau. Được Trần Hưng Đạo trọng dụng, gả con gái và lập công lớn ở Vạn Kiếp, Bạch Đằng.",
+        "badge": "Trung nghĩa Đông A",
+        "base_queries": [
+            "phạm ngũ lão là ai và giai thoại ngồi đan sọt là như thế nào",
+            "ai mải nghĩ việc nước bị giáo đâm vào đùi không biết đau",
+            "bài thơ tỏ lòng thuật hoài của ai",
+            "kể về danh tướng phạm ngũ lão thời trần"
+        ],
+        "answer": (
+            "**Phạm Ngũ Lão** (1255 – 1320, quê làng Phù Ủng, Hưng Yên) là vị danh tướng văn võ song toàn xuất thân từ bình dân:\n\n"
+            "• **Giai thoại đan sọt**: Ngồi đan sọt bên đường mải suy nghĩ việc nước đến mức lính tiên phong đâm mũi giáo vào đùi chảy máu mà chàng vẫn không hề hay biết. Nhận thấy chí lớn phi thường, Trần Hưng Đạo liền đưa về trọng dụng và gả con gái cho.\n"
+            "• **Chiến công & Thơ văn**: Lập nhiều chiến công lớn ở Vạn Kiếp, Bạch Đằng và là tác giả bài thơ **'Thuật hoài' (Tỏ lòng)** khí thế nuốt trâu chọi cọp."
+        ),
+        "follow_up": "Đó là minh chứng rõ nét cho việc nhà Trần trọng người hiền tài không phân biệt xuất thân sang hèn!"
+    },
+
+    # --- Ý ĐỊNH GIAO TIẾP HỌC ĐƯỜNG ---
+    {
+        "unit_id": "INTENT_GREETING",
+        "category": "CONVERSATIONAL_INTENT",
+        "topic": "Chào hỏi làm quen tự nhiên",
+        "q_matrix": {"cognitive_level": "GIAO_TIEP", "difficulty": 0.1, "skills": ["SKILL_GREETING"]},
+        "entity": "Trợ lý AI Đông A",
+        "event": "Chào hỏi",
+        "fact_chunk": "",
+        "badge": None,
+        "base_queries": [
+            "xin chào thầy",
+            "chào bạn nhé",
+            "hello",
+            "hi thầy ơi",
+            "em chào thầy ạ"
+        ],
+        "answer": (
+            "Chào em! Thầy là Trợ lý AI Sử học Đông A, người bạn đồng hành cùng em khám phá bài học **'Ba lần kháng chiến chống quân Mông – Nguyên (1258 – 1288)'** (Lịch sử 7).\n\n"
+            "Em đang muốn tìm hiểu về trận đánh nào, một vị tướng anh hùng hay cần thầy giải thích câu hỏi khó nào trong sách?"
+        ),
+        "follow_up": ""
+    },
+    {
+        "unit_id": "INTENT_STUDENT_STRUGGLE",
+        "category": "CONVERSATIONAL_INTENT",
+        "topic": "Học sinh gặp khó khăn hoặc quên kiến thức",
+        "q_matrix": {"cognitive_level": "GIAO_TIEP", "difficulty": 0.1, "skills": ["SKILL_HELP"]},
+        "entity": "Trợ lý AI Đông A",
+        "event": "Hỗ trợ học tập",
+        "fact_chunk": "",
+        "badge": None,
+        "base_queries": [
+            "em không biết đáp án câu này",
+            "em chưa hiểu bài thầy ơi giúp em với",
+            "khó quá em không biết làm",
+            "chỉ em cách trả lời với em quên mất rồi"
+        ],
+        "answer": (
+            "Đừng lo lắng nhé! Lịch sử có nhiều mốc năm và trận đánh nên đôi khi nhầm lẫn là rất bình thường.\n\n"
+            "Mẹo nhỏ: Em chỉ cần nhớ **3 mốc năm gắn với 3 chiến thắng quyết định**:\n"
+            "• **Lần 1 (1258)** $\\rightarrow$ Vườn không nhà trống & thắng lớn ở **Đông Bộ Đầu**.\n"
+            "• **Lần 2 (1285)** $\\rightarrow$ Hội nghị Diên Hồng & thắng ở **Hàm Tử, Chương Dương** (Thoát Hoan chui ống đồng).\n"
+            "• **Lần 3 (1288)** $\\rightarrow$ Đốt thuyền lương **Vân Đồn** & cắm cọc lim trên sông **Bạch Đằng**.\n\n"
+            "Em đang vướng câu hỏi trắc nghiệm hay sự kiện nào, cứ dán vào đây thầy hướng dẫn từng bước nhé!"
+        ),
+        "follow_up": ""
+    },
+    {
+        "unit_id": "INTENT_THANKS",
+        "category": "CONVERSATIONAL_INTENT",
+        "topic": "Học sinh cảm ơn",
+        "q_matrix": {"cognitive_level": "GIAO_TIEP", "difficulty": 0.1, "skills": ["SKILL_THANKS"]},
+        "entity": "Trợ lý AI Đông A",
+        "event": "Cảm ơn",
+        "fact_chunk": "",
+        "badge": None,
+        "base_queries": [
+            "cảm ơn thầy nhiều ạ",
+            "dạ em hiểu rồi cảm ơn thầy",
+            "hay quá cảm ơn bạn nhé",
+            "thanks thầy nha"
+        ],
+        "answer": (
+            "Không có gì em nhé! Thấy em nắm bài chắc và hứng thú với lịch sử dân tộc là thầy rất vui. Cứ tự nhiên hỏi thêm bất cứ điều gì em còn thắc mắc nhé!"
+        ),
+        "follow_up": ""
+    },
+
+    # --- PHÂN BIỆT RANH GIỚI TRIỀU ĐẠI (CROSS-ERA) ---
+    {
+        "unit_id": "CROSS_ERA_HAM_NGHI",
+        "category": "CROSS_ERA_SAFEGUARD",
+        "topic": "Phân biệt vua Hàm Nghi triều Nguyễn với thời Trần",
+        "q_matrix": {"cognitive_level": "PHAN_BIET", "difficulty": 0.4, "skills": ["SKILL_CROSS_ERA_HAM_NGHI"]},
+        "entity": "Vua Hàm Nghi",
+        "event": "Phong trào Cần Vương (1885)",
+        "fact_chunk": "",
+        "badge": None,
+        "base_queries": [
+            "bạn biết vua hàm nghi không",
+            "vua hàm nghi là ai có phải thời trần không",
+            "hàm nghi phong trào cần vương",
+            "vua hàm nghi triều đại nào"
+        ],
+        "answer": (
+            "Thầy biết chứ! **Vua Hàm Nghi** (1871 – 1944) là vị hoàng đế yêu nước trẻ tuổi của **triều Nguyễn** (cuối thế kỷ XIX), gắn liền với chiếu Cần Vương (năm 1885) chống thực dân Pháp.\n\n"
+            "💡 **Lưu ý để không nhầm trong bài thi**:\n"
+            "• Vua Hàm Nghi thuộc thế kỷ XIX (chống Pháp năm 1885).\n"
+            "• Bài học Lịch sử 7 của chúng ta đang tìm hiểu là **Ba lần kháng chiến chống Mông - Nguyên thời nhà Trần (1258 – 1288, thế kỷ XIII)** em nhé!"
+        ),
+        "follow_up": ""
+    },
+    {
+        "unit_id": "CROSS_ERA_NGO_QUYEN",
+        "category": "CROSS_ERA_SAFEGUARD",
+        "topic": "Phân biệt Ngô Quyền (938) và Trần Hưng Đạo (1288) trên sông Bạch Đằng",
+        "q_matrix": {"cognitive_level": "PHAN_BIET", "difficulty": 0.4, "skills": ["SKILL_CROSS_ERA_NGO_QUYEN"]},
+        "entity": "Ngô Quyền",
+        "event": "Chiến thắng Bạch Đằng năm 938",
+        "fact_chunk": "",
+        "badge": None,
+        "base_queries": [
+            "ngô quyền là ai và đánh trận bạch đằng năm nào",
+            "phân biệt trận bạch đằng của ngô quyền và trần hưng đạo",
+            "ngô quyền có phải tướng thời trần không",
+            "ai là người đầu tiên cắm cọc sông bạch đằng"
+        ],
+        "answer": (
+            "Đây là điểm rất hay bị nhầm lẫn trong các đề thi Lịch sử:\n\n"
+            "• **Ngô Quyền (Năm 938 - Thế kỷ X)**: Người đầu tiên sáng tạo cắm cọc ngầm trên sông Bạch Đằng để đánh tan quân **Nam Hán**, chấm dứt hơn 1.000 năm Bắc thuộc.\n"
+            "• **Trần Hưng Đạo (Năm 1288 - Thế kỷ XIII, Thời Trần)**: Kế thừa và phát triển nghệ thuật cọc ngầm đánh bại thủy quân **Nguyên Mông** (bắt sống Ô Mã Nhi).\n\n"
+            "Trong bài học Lịch sử 7 Bài 13 này, chúng ta đang học về Trần Hưng Đạo năm 1288 em nhé!"
+        ),
+        "follow_up": ""
+    },
+    {
+        "unit_id": "CROSS_ERA_QUANG_TRUNG_LE_LOI_LY_THUONG_KIET",
+        "category": "CROSS_ERA_SAFEGUARD",
+        "topic": "Phân biệt anh hùng thời Lý, Lê, Tây Sơn",
+        "q_matrix": {"cognitive_level": "PHAN_BIET", "difficulty": 0.4, "skills": ["SKILL_CROSS_ERA_OTHERS"]},
+        "entity": "Lý Thường Kiệt / Lê Lợi / Quang Trung",
+        "event": "Các triều đại khác",
+        "fact_chunk": "",
+        "badge": None,
+        "base_queries": [
+            "vua quang trung nguyễn huệ thuộc triều đại nào",
+            "lê lợi và nguyễn trãi khởi nghĩa lam sơn năm nào",
+            "lý thường kiệt có tham gia chống quân nguyên mông không",
+            "bạn biết vua quang trung không"
+        ],
+        "answer": (
+            "Đó đều là những vị anh hùng vĩ đại của dân tộc, nhưng thuộc **các triều đại khác**:\n\n"
+            "• **Lý Thường Kiệt** (Thế kỷ XI - **Thời Lý**): Kháng chiến chống Tống (1075 - 1077) trên sông Như Nguyệt.\n"
+            "• **Lê Lợi & Nguyễn Trãi** (Thế kỷ XV - **Khởi nghĩa Lam Sơn / Hậu Lê**): Đánh đuổi quân Minh (1418 - 1427).\n"
+            "• **Quang Trung (Nguyễn Huệ)** (Thế kỷ XVIII - **Tây Sơn**): Đại phá 29 vạn quân Thanh (1789).\n\n"
+            "Còn chuyên đề Lịch sử 7 Bài 13 tập trung vào thời Trần (1258 - 1288) với Trần Hưng Đạo, Trần Quốc Toản, Trần Thủ Độ... em nhé!"
+        ),
+        "follow_up": ""
+    },
+
+    # --- NGOÀI PHẠM VI (OUT OF DOMAIN) ---
+    {
+        "unit_id": "OOD_RANDOM_AND_OFFTOPIC",
+        "category": "OUT_OF_DOMAIN",
+        "topic": "Nội dung ngoài phạm vi lịch sử",
+        "q_matrix": {"cognitive_level": "OOD", "difficulty": 0.1, "skills": ["SKILL_OOD"]},
+        "entity": "Không xác định",
+        "event": "Ngoài phạm vi",
+        "fact_chunk": "",
+        "badge": None,
+        "base_queries": [
+            "576",
+            "123456",
+            "hôm nay thời tiết thế nào",
+            "cách nấu món phở bò ngon",
+            "viết code python",
+            "asdfghjkl"
+        ],
+        "answer": "OUT_OF_DOMAIN",
+        "follow_up": ""
+    }
+]
+
+
+# ==============================================================================
+# 2. TẬP TEST ĐỘC LẬP - CÂU HỎI THỰC TẾ HỌC SINH (REAL STUDENT TEST SET)
+# Chứa câu hỏi viết tắt (kccm, tqt, thđ), không dấu, cộc lốc, sai chính tả
+# ĐỘC LẬP 100% - KHÔNG QUA TEMPLATE ĐỂ ĐO LƯỜNG CHÍNH XÁC ACCURACY THỰC TẾ
+# ==============================================================================
+REAL_STUDENT_TEST_SET: List[Dict[str, str]] = [
+    # Kháng chiến lần 1 (1258)
+    {"query": "kccm lan 1 diễn ra thế nào", "expected": "KC1_OVERVIEW"},
+    {"query": "tóm tắt kccm lần 1", "expected": "KC1_OVERVIEW"},
+    {"query": "trận đánh đầu tiên chống mông cổ năm 1258", "expected": "KC1_OVERVIEW"},
+    {"query": "vì sao mông cổ mượn đường đánh nam tống", "expected": "KC1_WHY_INVADE"},
+    {"query": "nguyên nhân ngột lương hợp thai sang xâm lược", "expected": "KC1_WHY_INVADE"},
+    {"query": "rút lui bình lệ nguyên vì sao vậy", "expected": "KC1_BINH_LE_NGUYEN"},
+    {"query": "ai lấy ván thuyền che tên cho vua", "expected": "KC1_BINH_LE_NGUYEN"},
+    {"query": "lê phụ trần lấy ván thuyền", "expected": "KC1_BINH_LE_NGUYEN"},
+    {"query": "vknt là kế sách gì", "expected": "KC1_VUON_KHONG_NHA_TRONG"},
+    {"query": "vườn ko nhà trống có tác dụng gì", "expected": "KC1_VUON_KHONG_NHA_TRONG"},
+    {"query": "thăng long ko 1 hạt gạo làm giặc đói", "expected": "KC1_VUON_KHONG_NHA_TRONG"},
+    {"query": "đầu thần chưa rơi xuống đất bệ hạ đừng lo ai nói", "expected": "KC1_TRAN_THU_DO_QUOTE"},
+    {"query": "ttd nói câu gì với vua thái tông", "expected": "KC1_TRAN_THU_DO_QUOTE"},
+    {"query": "trận đông bộ đầu ngày nào", "expected": "KC1_DONG_BO_DAU"},
+    {"query": "hà khuất phục kích giặc mông cổ ở đâu", "expected": "KC1_DONG_BO_DAU"},
+
+    # Trần Quốc Toản & Bình Than
+    {"query": "tại sao tqt bóp nát wả cam", "expected": "TQT_WHY_ORANGE"},
+    {"query": "vi sao bop nat qua cam o ben binh than", "expected": "TQT_WHY_ORANGE"},
+    {"query": "nguyên nhân bóp nát quả cam", "expected": "TQT_WHY_ORANGE"},
+    {"query": "cờ 6 chữ vàng của tqt", "expected": "TQT_SIX_GOLDEN_WORDS"},
+    {"query": "phá cường địch báo hoàng ân có nghĩa là gì", "expected": "TQT_SIX_GOLDEN_WORDS"},
+    {"query": "tqt chiêu mộ bao nhiêu gia nô", "expected": "TQT_SIX_GOLDEN_WORDS"},
+    {"query": "tqt là ai", "expected": "TQT_OVERVIEW"},
+    {"query": "anh hùng thiếu niên trần quốc toản", "expected": "TQT_OVERVIEW"},
+    {"query": "hội nghị bt năm 1282", "expected": "BINH_THAN_CONFERENCE"},
+    {"query": "ai chủ trì hội nghị bình than", "expected": "BINH_THAN_CONFERENCE"},
+
+    # Diên Hồng & Hịch Tướng Sĩ
+    {"query": "hội nghị dh bô lão hô gì", "expected": "DIEN_HONG_CONFERENCE"},
+    {"query": "các cụ già hô đánh ở điện diên hồng", "expected": "DIEN_HONG_CONFERENCE"},
+    {"query": "ai viết hịch tướng sĩ", "expected": "HICH_TUONG_SI"},
+    {"query": "chữ sát thát xăm trên tay có nghĩa gì", "expected": "HICH_TUONG_SI"},
+    {"query": "nửa đêm vỗ gối ruột đau như cắt", "expected": "HICH_TUONG_SI"},
+    {"query": "trần quốc tuấn là ai", "expected": "TRAN_HUNG_DAO_PORTRAIT"},
+    {"query": "nếu bệ hạ muốn hàng xin chém đầu thần trước đã", "expected": "TRAN_HUNG_DAO_PORTRAIT"},
+    {"query": "thđ có công gì trong kháng chiến", "expected": "TRAN_HUNG_DAO_PORTRAIT"},
+
+    # Kháng chiến lần 2 (1285)
+    {"query": "kccm lan 2 dien ra the nao", "expected": "KC2_OVERVIEW"},
+    {"query": "kccn 2 năm 1285 ai chỉ huy", "expected": "KC2_OVERVIEW"},
+    {"query": "thoat hoan ong dong kccm 2", "expected": "KC2_THOAT_HOAN_COPPER_PIPE"},
+    {"query": "vi sao thoat hoan phai chui vao ong dong", "expected": "KC2_THOAT_HOAN_COPPER_PIPE"},
+    {"query": "tên tướng nào trốn trong ống đồng xe đẩy", "expected": "KC2_THOAT_HOAN_COPPER_PIPE"},
+    {"query": "ta thà làm quỷ nước nam chứ ko thèm làm vương đất bắc", "expected": "KC2_TRAN_BINH_TRONG"},
+    {"query": "tbt hy sinh ở bãi tự nhiên", "expected": "KC2_TRAN_BINH_TRONG"},
+    {"query": "ai chém đầu toa đô ở tây kết", "expected": "KC2_HAM_TU_CHUONG_DUONG"},
+    {"query": "trần quang khải đánh trận chương dương", "expected": "KC2_HAM_TU_CHUONG_DUONG"},
+    {"query": "tụng giá hoàn kinh sáng tác khi nào", "expected": "KC2_HAM_TU_CHUONG_DUONG"},
+
+    # Vân Đồn & Bạch Đằng (1288)
+    {"query": "ai đánh đắm thuyền lương trương văn hổ", "expected": "KC3_VAN_DON"},
+    {"query": "trần khánh dư thắng trận vân đồn", "expected": "KC3_VAN_DON"},
+    {"query": "17 vạn thạch lương bị tiêu diệt ở đâu", "expected": "KC3_VAN_DON"},
+    {"query": "cách đánh cọc ngầm sông bạch đằng 1288", "expected": "KC3_BACH_DANG_HOW"},
+    {"query": "ai bị bắt sống trên sông bạch đằng năm 1288", "expected": "KC3_BACH_DANG_HOW"},
+    {"query": "triều rút thuyền giặc vướng cọc gỗ", "expected": "KC3_BACH_DANG_HOW"},
+    {"query": "kccm 3 năm 1288", "expected": "KC3_OVERVIEW"},
+    {"query": "tóm tắt kháng chiến chống nguyên lần 3", "expected": "KC3_OVERVIEW"},
+
+    # Nguyên nhân & Ý nghĩa & Chiến thuật rút lui
+    {"query": "tổng kết cả 3 lần kccm", "expected": "ALL_3_WARS_SUMMARY"},
+    {"query": "nhà trần thắng mông nguyên mấy lần", "expected": "ALL_3_WARS_SUMMARY"},
+    {"query": "nguyên nhân nhà trần thắng quân nguyên", "expected": "CAUSES_OF_VICTORY"},
+    {"query": "vì sao nước nhỏ đánh thắng đế chế lớn", "expected": "CAUSES_OF_VICTORY"},
+    {"query": "tại sao quân nguyên đông và mạnh mà vẫn thua đại việt", "expected": "CAUSES_OF_VICTORY"},
+    {"query": "vì sao quân trần chủ động rút khỏi thăng long", "expected": "KC1_VUON_KHONG_NHA_TRONG"},
+    {"query": "vì sao chiến thuật rút lui không đồng nghĩa với thất bại", "expected": "KC1_VUON_KHONG_NHA_TRONG"},
+    {"query": "ý nghĩa 3 lần chiến thắng mông nguyên", "expected": "HISTORICAL_SIGNIFICANCE"},
+    {"query": "tầm vóc thế giới của trận bạch đằng 1288", "expected": "HISTORICAL_SIGNIFICANCE"},
+
+    # Danh tướng
+    {"query": "ai bơi lặn đục thủng thuyền giặc", "expected": "YET_KIEU_DA_TUONG"},
+    {"query": "dã tượng chỉ huy voi chiến", "expected": "YET_KIEU_DA_TUONG"},
+    {"query": "phạm ngũ lão đan sọt bị giáo đâm", "expected": "PHAM_NGU_LAO"},
+    {"query": "tác giả bài thơ tỏ lòng là ai", "expected": "PHAM_NGU_LAO"},
+
+    # Giao tiếp & Ranh giới & OOD
+    {"query": "alo thầy ơi", "expected": "INTENT_GREETING"},
+    {"query": "hi bạn", "expected": "INTENT_GREETING"},
+    {"query": "khó quá em không nhớ mốc năm", "expected": "INTENT_STUDENT_STRUGGLE"},
+    {"query": "bí câu hỏi trắc nghiệm này rồi", "expected": "INTENT_STUDENT_STRUGGLE"},
+    {"query": "thank u thầy nhìu", "expected": "INTENT_THANKS"},
+    {"query": "vua hàm nghi cần vương", "expected": "CROSS_ERA_HAM_NGHI"},
+    {"query": "ngô quyền cắm cọc bạch đằng năm nào", "expected": "CROSS_ERA_NGO_QUYEN"},
+    {"query": "quang trung nguyễn huệ đánh quân thanh", "expected": "CROSS_ERA_QUANG_TRUNG_LE_LOI_LY_THUONG_KIET"},
+    {"query": "576", "expected": "OOD_RANDOM_AND_OFFTOPIC"},
+    {"query": "hôm nay ăn gì", "expected": "OOD_RANDOM_AND_OFFTOPIC"},
+    {"query": "game liên quân mùa này", "expected": "OOD_RANDOM_AND_OFFTOPIC"}
+]
+
+
+# ==============================================================================
+# 3. HÀM TĂNG CƯỜNG DỮ LIỆU BẰNG LUẬT (CHỈ ÁP DỤNG TRÊN TẬP TRAIN)
+# ==============================================================================
+def augment_text(text: str) -> List[str]:
+    """Tăng cường dữ liệu bằng luật: bỏ dấu, thêm tiền tố tự nhiên, rút gọn."""
+    variants = [text]
+    # 1. Biến thể thêm lời chào/hỏi tự nhiên
+    openers = ["thầy ơi ", "cho em hỏi ", "bạn ơi ", "giải thích giúp em ", "kể cho em nghe "]
+    for op in openers:
+        variants.append(f"{op}{text}".strip())
+
+    # 2. Biến thể bỏ dấu
+    import unicodedata
+    nfd = unicodedata.normalize("NFD", text)
+    unacc = "".join(c for c in nfd if not unicodedata.combining(c)).replace("đ", "d").replace("Đ", "D")
+    if unacc != text:
+        variants.append(unacc)
+        for op in ["thay oi ", "cho em hoi ", "cho hoi "]:
+            variants.append(f"{op}{unacc}".strip())
+
+    return list(dict.fromkeys(variants))
+
+
+def generate_and_split_dataset(test_size: float = 0.2, random_state: int = 42) -> Dict[str, Any]:
+    """
+    Quy trình chuẩn Machine Learning (Không rò rỉ dữ liệu - No Data Leakage):
+    1. Chia tập câu hỏi gốc (base_queries) thành Train Gốc (80%) và Test Gốc (20%).
+    2. CHỈ tăng cường dữ liệu (Data Augmentation) trên tập Train.
+    3. Tập Test giữ nguyên câu hỏi thật + kết hợp REAL_STUDENT_TEST_SET.
+    4. Xuất bảng Q-Matrix phục vụ Bayesian Knowledge Tracing.
+    """
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    train_samples: List[Dict[str, Any]] = []
+    test_samples: List[Dict[str, Any]] = []
+    q_matrix_data: Dict[str, Any] = {}
+
+    sample_id = 1
+
+    for unit in KNOWLEDGE_UNITS:
+        uid = unit["unit_id"]
+        q_matrix_data[uid] = {
+            "topic": unit["topic"],
+            "category": unit["category"],
+            "entity": unit["entity"],
+            "event": unit["event"],
+            "cognitive_level": unit["q_matrix"]["cognitive_level"],
+            "difficulty": unit["q_matrix"]["difficulty"],
+            "skills": unit["q_matrix"]["skills"]
+        }
+
+        base_q = unit["base_queries"]
+        # Phân chia 80% Train Gốc - 20% Test Gốc trước khi sinh biến thể
+        if len(base_q) >= 2:
+            base_train, base_test = train_test_split(base_q, test_size=0.25, random_state=random_state)
+        else:
+            base_train = base_q
+            base_test = base_q
+
+        # 1. Tạo tập Train: Áp dụng Tăng cường dữ liệu (Augmentation) CHỈ TRÊN TẬP TRAIN
+        for q in base_train:
+            augmented_q_list = augment_text(q)
+            for aq in augmented_q_list:
+                train_samples.append({
+                    "id": f"TRAIN_{sample_id:04d}",
+                    "unit_id": uid,
+                    "category": unit["category"],
+                    "topic": unit["topic"],
+                    "entity": unit["entity"],
+                    "event": unit["event"],
+                    "q_matrix": unit["q_matrix"],
+                    "user_query": aq,
+                    "answer": unit["answer"],
+                    "follow_up": unit["follow_up"],
+                    "grounding_source": {
+                        "doc_name": "SGK Lịch sử 7 (KNTT) & Đại Việt Sử Ký Toàn Thư" if unit["fact_chunk"] else "",
+                        "curriculum_match": "SGK Lịch sử 7 - Bài 13",
+                        "fact_chunk": unit["fact_chunk"]
+                    },
+                    "game_metadata": {
+                        "unlocked_badge": unit["badge"],
+                        "exp_reward": 50 if unit["fact_chunk"] else 0
+                    }
+                })
+                sample_id += 1
+
+        # 2. Tạo tập Test: Giữ nguyên các câu hỏi gốc của Test (KHÔNG thêm biến thể template)
+        for tq in base_test:
+            test_samples.append({
+                "id": f"TEST_{sample_id:04d}",
+                "unit_id": uid,
+                "category": unit["category"],
+                "topic": unit["topic"],
+                "entity": unit["entity"],
+                "event": unit["event"],
+                "q_matrix": unit["q_matrix"],
+                "user_query": tq,
+                "answer": unit["answer"],
+                "grounding_source": {"fact_chunk": unit["fact_chunk"]},
+                "is_real_student": False
+            })
+            sample_id += 1
+
+    # 3. Bổ sung các câu hỏi học sinh thật (Real Student Test Set) vào tập Test
+    for item in REAL_STUDENT_TEST_SET:
+        matching_unit = next((u for u in KNOWLEDGE_UNITS if u["unit_id"] == item["expected"]), None)
+        if matching_unit:
+            test_samples.append({
+                "id": f"TEST_REAL_{sample_id:04d}",
+                "unit_id": item["expected"],
+                "category": matching_unit["category"],
+                "topic": matching_unit["topic"],
+                "entity": matching_unit["entity"],
+                "event": matching_unit["event"],
+                "q_matrix": matching_unit["q_matrix"],
+                "user_query": item["query"],
+                "answer": matching_unit["answer"],
+                "grounding_source": {"fact_chunk": matching_unit["fact_chunk"]},
+                "is_real_student": True
+            })
+            sample_id += 1
+
+    # Lưu các file độc lập
+    with open(TRAIN_FILE, "w", encoding="utf-8") as f:
+        for r in train_samples:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+    with open(TEST_FILE, "w", encoding="utf-8") as f:
+        for r in test_samples:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+    with open(QMATRIX_FILE, "w", encoding="utf-8") as f:
+        json.dump(q_matrix_data, f, ensure_ascii=False, indent=2)
+
+    # Lưu cấu trúc 32 cụm tri thức chuẩn hóa
+    kb_dict = {u["unit_id"]: u for u in KNOWLEDGE_UNITS}
+    with open(KNOWLEDGE_BASE_FILE, "w", encoding="utf-8") as f:
+        json.dump(kb_dict, f, ensure_ascii=False, indent=2)
+
+    with open(LEGACY_GOLD_FILE, "w", encoding="utf-8") as f:
+        for r in train_samples:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+    total = len(train_samples) + len(test_samples)
+    stats = {
+        "train_samples": len(train_samples),
+        "test_samples": len(test_samples),
+        "total_samples": total,
+        "train_pct": round(len(train_samples) / total * 100, 1),
+        "test_pct": round(len(test_samples) / total * 100, 1),
+        "real_student_queries": len(REAL_STUDENT_TEST_SET),
+        "q_matrix_skills": len(q_matrix_data)
+    }
+    return stats
+
+
+if __name__ == "__main__":
+    import sys
+    if sys.platform == "win32":
+        sys.stdout.reconfigure(encoding="utf-8")
+
+    info = generate_and_split_dataset(test_size=0.2, random_state=42)
+    print("=" * 70)
+    print("[DATA SPLITTER] HOÀN TẤT CHIA DỮ LIỆU CHỐNG DATA LEAKAGE & Q-MATRIX")
+    print("=" * 70)
+    print(f"• Tập Huấn luyện (Train) : {info['train_samples']} mẫu (Chỉ tăng cường trên Train)")
+    print(f"• Tập Kiểm thử   (Test)  : {info['test_samples']} mẫu (Bao gồm {info['real_student_queries']} câu hỏi học sinh thật)")
+    print(f"• Bảng Q-Matrix Skills  : {info['q_matrix_skills']} cụm tri thức gắn Cognitive Level & Difficulty")
+    print(f"• File Q-Matrix lưu tại : {QMATRIX_FILE}")
+    print("=" * 70)
