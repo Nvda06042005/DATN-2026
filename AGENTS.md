@@ -29,3 +29,14 @@ Backend tự áp dụng migration mới khi khởi động với `DATABASE_URL`.
 
 - Thêm/sửa chủ đề: sửa `KNOWLEDGE_UNITS` và `REAL_STUDENT_TEST_SET` trong `ai/data_splitter.py`, rồi từ thư mục `ai/` chạy `python data_splitter.py`, `python create_model.py`, `python test_model.py`, `python test_regression_suite.py`. Ghi lại số liệu đánh giá mới (`ai/KET_QUA_DANH_GIA.md`).
 - Mô hình được pickle bằng scikit-learn 1.7.x + numpy 2.x; đổi phiên bản chính thì phải huấn luyện lại.
+
+# Tự động đồng bộ sau khi hoàn tất công việc
+
+Người dùng đã cho phép tự động cập nhật dự án sau mỗi yêu cầu sửa đổi hoàn tất; không cần hỏi lại để commit, push hoặc triển khai các thay đổi thuộc yêu cầu đó. Đây là quy trình kết thúc mỗi lần làm việc của agent, không phải dịch vụ theo dõi mọi lần lưu file khi agent không hoạt động.
+
+- Chạy kiểm tra phù hợp với thay đổi; xử lý lỗi trước khi phát hành. Không tự đưa thay đổi không liên quan hoặc bí mật vào commit.
+- Commit và push lên nhánh `main` của `https://github.com/Nvda06042005/DATN-2026`. Nếu đang làm trong bản giải nén không có `.git`, dùng checkout Git liên kết đúng repo và đối chiếu thay đổi trước khi push; không force-push.
+- Vercel triển khai frontend từ GitHub: `https://datn-2026-indol.vercel.app/`. Kiểm tra trạng thái triển khai và website sau push.
+- Render triển khai backend từ GitHub: `https://datn-2026-gm5g.onrender.com/`. Kiểm tra `/api/health`, `/api/database/health` và API liên quan đến thay đổi. Nếu không tự triển khai, dùng kết nối Render được cấp để deploy; nếu thiếu quyền truy cập, báo rõ phần chưa hoàn tất.
+- Supabase: thay đổi schema hoặc seed/reference data phải có migration mới theo quy tắc ở trên. Backend áp dụng migration khi khởi động; xác minh migration đã chạy. Không cần sửa database nếu yêu cầu không thay đổi database.
+- Chỉ báo đồng bộ thành công khi có bằng chứng cho từng dịch vụ; nêu rõ lỗi triển khai hoặc thiếu kết nối. Không yêu cầu lại quyền triển khai đã được cấp trong mục này.
