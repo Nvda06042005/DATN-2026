@@ -11,6 +11,8 @@ Bản này viết lại kế hoạch gốc sau khi rà soát bằng skill ui-ux-
 
 Đã dựng đủ 4 giai đoạn ở mục 10, gồm cả **Thi đấu lớp thời gian thực** (WebSocket `/api/live/ws`, lịch sử trận ở migration 005). Chatbot đã học 4 chủ đề mới; số liệu đánh giá trước/sau ở `ai/KET_QUA_DANH_GIA.md`.
 
+Ngày 24/10/2026, mã frontend không còn gộp trong một file `App.tsx` (khác mục 2) mà được chia thư mục theo vai trò như repo tham khảo tronect-mobile-app (`app/`, `api/`, `components/`, `constants/`, `hooks/`, `lib/`, `providers/`, `store/`, `types/`, `utils/`); xem `frontend/README.md`. Lệnh `npm run build:single` vẫn xuất một file HTML duy nhất.
+
 Khác với kế hoạch, kèm lý do:
 
 | Kế hoạch | Đã làm | Lý do |

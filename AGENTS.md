@@ -6,14 +6,15 @@ Backend tự áp dụng migration mới khi khởi động với `DATABASE_URL`.
 
 # Cấu trúc dự án
 
-- `frontend/`: giao diện React (một file `src/App.tsx`).
+- `frontend/`: giao diện React chia thư mục theo vai trò (giống repo tham khảo tronect-mobile-app): `app/` màn hình theo trang (`_layout.tsx`, `(tabs)/`, …), `api/` hàm gọi backend, `components/ui` (dùng chung, kebab-case) và `components/customs` (riêng Đông A, PascalCase), `constants/`, `hooks/` (`use-*.ts`), `lib/`, `providers/`, `store/`, `types/` (`*Type.ts`), `utils/`, `assets/`. Import bằng `@/…`. Xem `frontend/README.md`.
 - `backend/`: máy chủ FastAPI – API, xác thực, logic học tập (`app/`).
 - `ai/`: BKT, RAG, Gemini/Hugging Face, mô hình NLP, huấn luyện/đánh giá, bộ dữ liệu. Giữ tên module phẳng (`create_model`, `context_manager`, ...) vì `models/dong_a_nlp_model.joblib` được pickle theo các tên này.
 - `database/`: kho tài khoản & tiến độ (`user_store.py`), migration PostgreSQL (`migrator.py`, `migrate.py`, `migrations/`), SQLite cục bộ (`data/users.db`).
 
 # Game Hào Khí Đông A (cổng học sinh)
 
-- Mã game nằm trong `frontend/src/App.tsx`, giữa hai dấu `// @@GAME-BEGIN@@` và `// @@GAME-END@@`. Thiết kế theo `KE_HOACH_GAME_HAO_KHI_DONG_A.md`.
+- Mã game nằm trong `frontend/app/student/` (khung và các tab), `frontend/components/customs/game/`, `frontend/constants/game/`, `frontend/lib/game/` và `frontend/store/game.store.ts`. Thiết kế theo `KE_HOACH_GAME_HAO_KHI_DONG_A.md`.
+- Gọi backend qua hàm trong `frontend/api/`, không gọi `fetch` thẳng trong component. File component chỉ export component (oxlint `only-export-components`).
 - Câu hỏi của game nằm ở `ai/data/game_content.json`; server giữ đáp án và tự chấm (`backend/app/core/question_bank.py`). Ấn Tín (cột `gems`) và XP chỉ được cộng ở server khi chấm; client chỉ được tiêu Ấn Tín.
 - Nội dung câu hỏi phải khớp `ai/data/knowledge_base.json`; không sửa tay `knowledge_base.json`/`q_matrix.json` (được sinh từ `ai/data_splitter.py`).
 - Kiểm thử backend: `python -m unittest discover -s backend/tests -v` (từ thư mục gốc).

@@ -16,11 +16,16 @@
     "noEmit": true,
     "jsx": "react-jsx",
 
+    /* Import "@/..." tính từ thư mục frontend/ (khớp alias trong vite.config.ts) */
+    "paths": {
+      "@/*": ["./*"]
+    },
+
     /* Linting */
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["main.tsx", "app", "api", "components", "constants", "hooks", "lib", "providers", "store", "types", "utils"]
 }

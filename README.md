@@ -6,7 +6,7 @@ Dự án chia thành 4 phần độc lập:
 
 | Thư mục | Nội dung |
 | --- | --- |
-| `frontend/` | Giao diện React + Vite + Tailwind (toàn bộ trong `src/App.tsx`). Trang `/hoc-sinh` (game), `/giao-vien`, `/admin`. |
+| `frontend/` | Giao diện React + Vite + Tailwind, chia thư mục `app/` (màn hình theo trang), `api/`, `components/`, `constants/`, `hooks/`, `lib/`, `providers/`, `store/`, `types/`, `utils/` – xem `frontend/README.md`. Trang `/hoc-sinh` (game), `/giao-vien`, `/admin`. |
 | `backend/` | Máy chủ FastAPI (`app/`): API đăng nhập, quản trị, học sinh (câu hỏi, chấm điểm, trạng thái game), giáo viên, chat, quiz, truyện. |
 | `ai/` | BKT, RAG, Gemini/Hugging Face, mô hình NLP (`models/`), bộ dữ liệu (`data/`), ngân hàng câu hỏi của game (`data/game_content.json`). |
 | `database/` | Kho tài khoản & tiến độ (`user_store.py`), migration PostgreSQL (`migrations/`, `migrate.py`), SQLite cục bộ (`data/users.db`). |
