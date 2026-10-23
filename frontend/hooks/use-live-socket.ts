@@ -41,6 +41,8 @@ export const useLiveSocket = (token: string, onMessage: (msg: LiveServerMsg, sen
         return;
       }
       wsRef.current = ws;
+      // Lý do ngừng nối lại, đọc từ tin nhắn của server: proxy (vd. Render) có thể làm mất mã đóng 4000/4401
+      let stopReason: LiveStatus | null = null;
       ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token }));
       ws.onmessage = (ev) => {
         let msg: LiveServerMsg;
@@ -54,14 +56,16 @@ export const useLiveSocket = (token: string, onMessage: (msg: LiveServerMsg, sen
           attempt = 0;
           setStatus('open');
         }
+        if (msg.type === 'replaced') stopReason = 'replaced';
+        if (msg.type === 'error' && (msg.code === 'auth' || msg.code === 'role')) stopReason = 'expired';
         handler.current(msg, send);
       };
       ws.onclose = (ev) => {
         window.clearInterval(ping);
         if (wsRef.current === ws) wsRef.current = null;
         if (stopped) return;
-        if (ev.code === 4000) setStatus('replaced');
-        else if (ev.code === 4401 || ev.code === 4403) setStatus('expired');
+        const reason = ev.code === 4000 ? 'replaced' : ev.code === 4401 || ev.code === 4403 ? 'expired' : stopReason;
+        if (reason) setStatus(reason);
         else schedule();
       };
       ping = window.setInterval(() => {
