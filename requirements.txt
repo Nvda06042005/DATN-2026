@@ -1,10 +1,2 @@
-fastapi>=0.115.0
-uvicorn>=0.30.0
-pydantic>=2.0.0
-python-dotenv>=1.0.0
-httpx>=0.27.0
-scikit-learn>=1.5.0
-numpy>=1.26.0
-joblib>=1.4.0
-huggingface-hub>=0.24.0
-psycopg[binary]>=3.2,<4
+# Thư viện Python của backend (gồm cả ai/ và database/)
+-r backend/requirements.txt

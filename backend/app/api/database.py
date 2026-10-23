@@ -1,7 +1,4 @@
-"""Health check duy nhất để xác nhận Render kết nối được Supabase Postgres.
-
-Chưa có thao tác ghi dữ liệu: cần bổ sung bảng và API xác thực cho ứng dụng.
-"""
+"""Health check kết nối PostgreSQL; SQL migrations được chạy ở bước startup."""
 import os
 import logging
 

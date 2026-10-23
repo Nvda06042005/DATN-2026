@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException
 from app.models.schemas import StoryGenerateRequest, StoryGenerateResponse
-from app.core.rag_engine import rag_engine
-from app.core.gemini_client import gemini_client
+
+# Các module AI nằm trong thư mục ai/ (xem app/__init__.py)
+from rag_engine import rag_engine
+from gemini_client import gemini_client
 
 router = APIRouter(prefix="/story", tags=["Nhiệm Vụ - Sinh Cốt Truyện Nhập Vai"])
 

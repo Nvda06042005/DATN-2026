@@ -1,13 +1,8 @@
-import sys
-from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from app.models.schemas import ChatRequest, ChatResponse, GroundingSource
-from app.core.rag_engine import rag_engine
 
-BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
-if str(BACKEND_ROOT) not in sys.path:
-    sys.path.insert(0, str(BACKEND_ROOT))
-
+# Các module AI nằm trong thư mục ai/ (xem app/__init__.py)
+from rag_engine import rag_engine
 from hybrid_router import hybrid_router
 
 router = APIRouter(prefix="/chat", tags=["Trợ Lý AI Sử Học Đông A"])

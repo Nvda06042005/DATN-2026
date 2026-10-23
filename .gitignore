@@ -24,6 +24,8 @@ __pycache__/
 venv/
 env/
 .pytest_cache/
+# Tài khoản người dùng (SQLite cục bộ) – không đưa lên GitHub
+database/data/users.db
 
 # Documentation, diagrams, spreadsheets & raw archives (excluded from repo)
 *.drawio

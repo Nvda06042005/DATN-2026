@@ -1,5 +1,3 @@
-import sys
-from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query
 from app.models.schemas import (
     QuizGenerateRequest, 
@@ -9,13 +7,10 @@ from app.models.schemas import (
     PersonalizedRecommendationResponse,
     PersonalizedRecommendationItem
 )
-from app.core.rag_engine import rag_engine
-from app.core.gemini_client import gemini_client
 
-BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
-if str(BACKEND_ROOT) not in sys.path:
-    sys.path.insert(0, str(BACKEND_ROOT))
-
+# Các module AI nằm trong thư mục ai/ (xem app/__init__.py)
+from rag_engine import rag_engine
+from gemini_client import gemini_client
 from bkt_engine import bkt_engine
 
 router = APIRouter(prefix="/quiz", tags=["Giảng Viên & Khảo Thí - Sinh Đề & BKT Cá Nhân Hóa"])

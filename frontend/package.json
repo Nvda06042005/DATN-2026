@@ -1,11 +1,12 @@
 {
-  "name": "frontend",
+  "name": "dong-a-frontend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:single": "tsc -b && vite build --mode single",
     "lint": "oxlint",
     "preview": "vite preview"
   },
@@ -27,6 +28,7 @@
     "postcss": "^8.5.28",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
-    "vite": "^8.3.0"
+    "vite": "^8.3.0",
+    "vite-plugin-singlefile": "^2.3.4"
   }
 }

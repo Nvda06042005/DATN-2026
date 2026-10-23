@@ -2,13 +2,19 @@ services:
   - type: web
     name: dong-a-edu-backend
     runtime: python
-    rootDir: backend
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    # Chạy từ thư mục gốc: backend cần cả ai/ và database/ bên cạnh
+    buildCommand: pip install -r backend/requirements.txt && python database/migrate.py check
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: GEMINI_MODEL
         value: gemini-flash-latest
       - key: GEMINI_API_KEY
+        sync: false
+      - key: AUTH_SECRET_KEY
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: DATABASE_URL
         sync: false
