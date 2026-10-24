@@ -624,6 +624,276 @@
     "answer": "**Phạm Ngũ Lão** (1255 – 1320, quê làng Phù Ủng, Hưng Yên) là vị danh tướng văn võ song toàn xuất thân từ bình dân:\n\n• **Giai thoại đan sọt**: Ngồi đan sọt bên đường mải suy nghĩ việc nước đến mức lính tiên phong đâm mũi giáo vào đùi chảy máu mà chàng vẫn không hề hay biết. Nhận thấy chí lớn phi thường, Trần Hưng Đạo liền đưa về trọng dụng và gả con gái cho.\n• **Chiến công & Thơ văn**: Lập nhiều chiến công lớn ở Vạn Kiếp, Bạch Đằng và là tác giả bài thơ **'Thuật hoài' (Tỏ lòng)** khí thế nuốt trâu chọi cọp.",
     "follow_up": "Đó là minh chứng rõ nét cho việc nhà Trần trọng người hiền tài không phân biệt xuất thân sang hèn!"
   },
+  "MILITARY_ART_TRAN_DYNASTY": {
+    "unit_id": "MILITARY_ART_TRAN_DYNASTY",
+    "category": "NGUYEN_NHAN_Y_NGHIA",
+    "topic": "Nghệ thuật quân sự độc đáo thời Trần (Lấy yếu thắng mạnh, lấy đoản binh thắng trường trận)",
+    "q_matrix": {
+      "cognitive_level": "VAN_DUNG",
+      "difficulty": 0.75,
+      "skills": [
+        "SKILL_MILITARY_ART"
+      ]
+    },
+    "entity": "Trần Hưng Đạo & Quân dân nhà Trần",
+    "event": "Nghệ thuật quân sự ba lần kháng chiến (1258 - 1288)",
+    "fact_chunk": "Nghệ thuật quân sự thời Trần kết tinh ở tư tưởng 'lấy đoản binh thắng trường trận' (lấy yếu thắng mạnh, lấy ít địch nhiều), kết hợp rút lui chiến lược, kế sách 'Vườn không nhà trống', đánh cắt hậu cần (Vân Đồn) và quyết chiến chiến lược đúng thời cơ (Đông Bộ Đầu, Chương Dương, Bạch Đằng).",
+    "badge": "Tinh hoa Đông A",
+    "base_queries": [
+      "nét độc đáo về nghệ thuật quân sự của nhà trần trong ba lần kháng chiến là gì",
+      "nghệ thuật đánh giặc lấy đoản binh thắng trường trận của trần hưng đạo là gì",
+      "chiến thuật lấy yếu thắng mạnh của nhà trần được thể hiện như thế nào",
+      "phân tích nghệ thuật quân sự trong ba lần kháng chiến chống mông nguyên"
+    ],
+    "answer": "Nghệ thuật quân sự thời Trần trong ba lần kháng chiến chống Mông – Nguyên (1258 – 1288) là đỉnh cao của đường lối **chiến tranh nhân dân**, kết tinh qua **4 nét độc đáo**:\n\n1. **Lấy đoản binh thắng trường trận (Lấy ít địch nhiều, lấy yếu chống mạnh)**: Tránh giao chiến trực diện khi kỵ binh giặc đang sung sức, chủ động rút lui chiến lược (Bình Lệ Nguyên, Vạn Kiếp) để bảo toàn quân chủ lực.\n2. **Kế sách 'Vườn không nhà trống' kết hợp chiến tranh du kích**: Triệt tiêu nguồn lương thảo tại chỗ tại Thăng Long, kết hợp dân binh địa phương ngày đêm tập kích làm giặc mỏi mệt, hoang mang.\n3. **Đánh vào chỗ hiểm yếu – Cắt đứt mạch máu hậu cần**: Tiêu biểu là trận phục kích đoàn thuyền lương Trương Văn Hổ tại **Vân Đồn (1288)** khiến 30 vạn quân Thoát Hoan lâm vào cảnh tuyệt lương.\n4. **Chớp thời cơ mở trận quyết chiến chiến lược**: Lợi dụng địa hình sông nước, thủy triều và sĩ khí giặc suy sụp để giáng đòn sấm sét tại **Đông Bộ Đầu (1258)**, **Hàm Tử – Chương Dương (1285)** và **Bạch Đằng (1288)**.",
+    "follow_up": "Em ấn tượng nhất với kế sách nào trong 4 nghệ thuật quân sự trên của cha ông ta?"
+  },
+  "ROLE_OF_ETHNIC_MINORITIES": {
+    "unit_id": "ROLE_OF_ETHNIC_MINORITIES",
+    "category": "DANH_TUONG_GIA_THAN",
+    "topic": "Vai trò của đồng bào dân tộc thiểu số và các tù trưởng miền núi (Hà Đặc, Hà Chương, Hà Khuất, Nguyễn Thế Lộc)",
+    "q_matrix": {
+      "cognitive_level": "THONG_HIEU",
+      "difficulty": 0.45,
+      "skills": [
+        "SKILL_ETHNIC_MINORITIES",
+        "SKILL_HA_KHUAT"
+      ]
+    },
+    "entity": "Hà Khuất, Hà Đặc, Hà Chương, Nguyễn Thế Lộc",
+    "event": "Chiến đấu bảo vệ biên cương phía Bắc (1258 - 1288)",
+    "fact_chunk": "Trong ba lần kháng chiến, đồng bào các dân tộc thiểu số miền núi phía Bắc dưới sự chỉ huy của các tù trưởng yêu nước như Hà Khuất (Quy Hóa - 1258), anh em Hà Đặc - Hà Chương (Đà Giang - 1285), Nguyễn Thế Lộc (Lạng Sơn - 1285, 1288) đã lập nhiều chiến công lớn, chặn đánh và tiêu hao sinh lực địch.",
+    "badge": "Trung nghĩa Đông A",
+    "base_queries": [
+      "vai trò của đồng bào các dân tộc thiểu số miền núi trong kháng chiến chống mông nguyên",
+      "hà đặc hà chương và nguyễn thế lộc có công lao gì trong kháng chiến thời trần",
+      "đồng bào miền núi đã đóng góp gì trong ba lần kháng chiến chống quân mông nguyên",
+      "kể tên các tù trưởng dân tộc thiểu số tiêu biểu đánh giặc mông nguyên"
+    ],
+    "answer": "Đồng bào các dân tộc thiểu số vùng biên giới phía Bắc đã sát cánh cùng triều đình lập nên những chiến công vang dội, khẳng định sức mạnh **đoàn kết miền xuôi – miền ngược**:\n\n• **Chủ trại Hà Khuất (Kháng chiến lần 1 - 1258)**: Chỉ huy dân binh trại Quy Hóa (Yên Bái – Lào Cai) chặn đánh tàn quân Mông Cổ tháo chạy từ Đông Bộ Đầu, khiến giặc đại bại.\n• **Hai anh em tù trưởng Hà Đặc và Hà Chương (Kháng chiến lần 2 - 1285)**: Dẫn dắt đồng bào vùng núi Đà Giang (Phú Thọ – Hòa Bình) làm hình người cỏ mặc áo giáp nhử giặc bắn hết tên rồi tập kích đánh bại quân Nguyên; Hà Đặc anh dũng hy sinh.\n• **Tù trưởng Nguyễn Thế Lộc và Nguyễn Lĩnh (1285 & 1288)**: Chỉ huy dân binh dân tộc Tày vùng Lạng Sơn phục kích tại đồn Ma Lục, dùng tên độc tiêu diệt hàng vạn quân giặc trên đường tháo chạy.",
+    "follow_up": "Sự góp sức của đồng bào miền núi là minh chứng sống động cho câu 'Cả nước góp sức' đấy em!"
+  },
+  "GAME_TRAN_NHAN_TONG": {
+    "unit_id": "GAME_TRAN_NHAN_TONG",
+    "category": "DANH_TUONG_GIA_THAN",
+    "topic": "Vua Trần Nhân Tông qua các giai đoạn cuộc đời",
+    "q_matrix": {
+      "cognitive_level": "NHAN_BIET",
+      "difficulty": 0.4,
+      "skills": [
+        "SKILL_TRAN_NHAN_TONG"
+      ]
+    },
+    "entity": "Trần Nhân Tông (Trần Khâm)",
+    "event": "Kháng chiến 1285 và 1287 – 1288",
+    "fact_chunk": "Trần Nhân Tông (Trần Khâm, 1258 – 1308) sinh cuối năm 1258, sau cuộc kháng chiến lần thứ nhất. Ông được lập làm Hoàng thái tử năm 1274, lên ngôi năm 1278, triệu tập Hội nghị Bình Than năm 1282 và cùng Thượng hoàng Trần Thánh Tông lãnh đạo hai cuộc kháng chiến chống quân Nguyên. Ông nổi tiếng với hai câu thơ 'Xã tắc lưỡng hồi lao thạch mã / Sơn hà thiên cổ điện kim âu'. Năm 1293 ông nhường ngôi; năm 1299 xuất gia ở núi Yên Tử, sáng lập Thiền phái Trúc Lâm.",
+    "badge": "Phật hoàng Trúc Lâm",
+    "base_queries": [
+      "trần nhân tông là ai",
+      "vua trần nhân tông sinh năm nào",
+      "trần nhân tông lên ngôi năm nào",
+      "vua nào sáng lập thiền phái trúc lâm",
+      "trần nhân tông xuất gia ở đâu",
+      "vì sao trần nhân tông được gọi là phật hoàng",
+      "cuộc đời vua trần nhân tông có những mốc nào",
+      "trần khâm là ai",
+      "vua trần nhân tông là ai và có công lao gì trong kháng chiến chống nguyên",
+      "hai câu thơ xã tắc lưỡng hồi lao thạch mã sơn hà thiên cổ điện kim âu của ai",
+      "ai là tác giả câu thơ xã tắc hai phen chồn ngựa đá non sông nghìn thuở vững âu vàng",
+      "câu thơ xã tắc lưỡng hồi lao thạch mã sơn hà thiên cổ điện kim âu nói về chiến thắng nào của vua trần nhân tông",
+      "vị vua nào trực tiếp lãnh đạo cả hai cuộc kháng chiến năm 1285 và 1288 rồi đi tu ở yên tử",
+      "kể về phật hoàng trần nhân tông và thiền phái trúc lâm yên tử trong lịch sử nhà trần"
+    ],
+    "answer": "**Vua Trần Nhân Tông** (tên thật **Trần Khâm**, 1258 – 1308) là vị vua lãnh đạo hai cuộc kháng chiến chống quân Nguyên và là Phật hoàng Trúc Lâm:\n\n• **1258**: sinh ra, sau khi cuộc kháng chiến lần thứ nhất kết thúc.\n• **1274**: được lập làm Hoàng thái tử; **1278**: lên ngôi vua.\n• **1282**: triệu tập **Hội nghị Bình Than** bàn kế đánh giặc.\n• **1285 và 1287 – 1288**: cùng Thượng hoàng **Trần Thánh Tông** lãnh đạo quân dân đánh thắng quân Nguyên. Sau đại thắng Bạch Đằng năm 1288, nhà vua đề hai câu thơ bất hủ:\n  *'Xã tắc lưỡng hồi lao thạch mã / Sơn hà thiên cổ điện kim âu'* (Xã tắc hai phen chồn ngựa đá / Non sông nghìn thuở vững âu vàng).\n• **1293**: nhường ngôi; **1299**: xuất gia ở núi **Yên Tử**, sáng lập **Thiền phái Trúc Lâm**, được tôn là **Phật hoàng**.",
+    "follow_up": "Em có muốn biết Hội nghị Bình Than do vua Trần Nhân Tông triệu tập đã quyết định những gì không?"
+  },
+  "GAME_NGU_BINH_U_NONG": {
+    "unit_id": "GAME_NGU_BINH_U_NONG",
+    "category": "NEN_TANG_QUAN_SU",
+    "topic": "Chính sách ngụ binh ư nông",
+    "q_matrix": {
+      "cognitive_level": "THONG_HIEU",
+      "difficulty": 0.4,
+      "skills": [
+        "SKILL_NGU_BINH_U_NONG"
+      ]
+    },
+    "entity": "Nhà Lý, nhà Trần",
+    "event": "Tổ chức quân đội thời Lý – Trần",
+    "fact_chunk": "“Ngụ binh ư nông” nghĩa là gửi binh ở nhà nông: thời bình, binh lính được luân phiên về quê làm ruộng; khi có chiến tranh, triều đình điều động họ ra trận. Nhờ vậy nhà nước vừa có lực lượng quân đội đông đảo, vừa bảo đảm sản xuất và lương thực.",
+    "badge": "Ngụ binh ư nông",
+    "base_queries": [
+      "ngụ binh ư nông là gì",
+      "chính sách ngụ binh ư nông có tác dụng gì",
+      "thời bình binh lính nhà trần làm gì",
+      "gửi binh ở nhà nông nghĩa là sao",
+      "nhà trần tổ chức quân đội như thế nào",
+      "vì sao nhà trần vừa có quân đông vừa đủ lương thực",
+      "binh lính luân phiên về quê làm ruộng là chính sách gì",
+      "ý nghĩa của chính sách ngụ binh ư nông"
+    ],
+    "answer": "**Ngụ binh ư nông** nghĩa là *gửi binh ở nhà nông* – cách tổ chức quân đội của nhà Lý và nhà Trần:\n\n• **Thời bình**: binh lính được luân phiên về quê làm ruộng, ruộng đồng không bị bỏ hoang, nhà nước vẫn đủ lương thực.\n• **Khi có giặc**: triều đình nhanh chóng điều động họ ra trận, nên có ngay một lực lượng quân đội đông đảo, đã quen việc quân.\n• **Ý nghĩa**: một nước không lớn như Đại Việt vẫn đủ người và đủ lương cho những cuộc kháng chiến dài ngày – nền tảng quan trọng giúp nhà Trần ba lần đánh thắng quân Mông – Nguyên.",
+    "follow_up": "Em có muốn biết nhà Trần còn dùng kế sách gì khiến quân giặc thiếu lương, đói kiệt không?"
+  },
+  "GAME_TRAN_KHANH_DU": {
+    "unit_id": "GAME_TRAN_KHANH_DU",
+    "category": "DANH_TUONG_GIA_THAN",
+    "topic": "Trần Khánh Dư – từ người buôn than ở Chí Linh đến trận Vân Đồn",
+    "q_matrix": {
+      "cognitive_level": "NHAN_BIET",
+      "difficulty": 0.4,
+      "skills": [
+        "SKILL_TRAN_KHANH_DU"
+      ]
+    },
+    "entity": "Nhân Huệ vương Trần Khánh Dư",
+    "event": "Trận Vân Đồn (cuối 1287 – đầu 1288)",
+    "fact_chunk": "Trần Khánh Dư từng phạm lỗi, bị tước bỏ quan tước, về vùng Chí Linh sống bằng nghề buôn than. Năm 1282, trước nguy cơ quân Nguyên xâm lược, ông được tha tội để lập công. Trong kháng chiến lần thứ ba, ông trấn giữ vùng biển Vân Đồn, phục kích đánh đắm và thu giữ đoàn thuyền lương của Trương Văn Hổ.",
+    "badge": "Mưu thần Vân Đồn",
+    "base_queries": [
+      "trần khánh dư là ai",
+      "vì sao trần khánh dư bị tước quan tước",
+      "trần khánh dư từng làm nghề buôn than ở đâu",
+      "nhân huệ vương trần khánh dư xuất thân thế nào",
+      "tại sao trần khánh dư lại được tha tội năm 1282",
+      "kể về cuộc đời trần khánh dư",
+      "ai từng bán than ở chí linh rồi lập công lớn",
+      "trần khánh dư lập công chuộc tội như thế nào"
+    ],
+    "answer": "**Nhân Huệ vương Trần Khánh Dư** là vị tướng nhà Trần có cuộc đời nhiều thăng trầm:\n\n• **Lỡ bước**: ông từng phạm lỗi, bị tước bỏ quan tước, về vùng **Chí Linh** sống bằng nghề **buôn than**.\n• **Được dùng lại (1282)**: trước nguy cơ quân Nguyên xâm lược, nhà Trần tha tội để ông lập công chuộc lỗi.\n• **Lập công ở Vân Đồn**: trong kháng chiến lần thứ ba, ông trấn giữ vùng biển Vân Đồn, phục kích, đánh đắm và thu giữ đoàn thuyền lương của **Trương Văn Hổ**, khiến quân Nguyên ở Thăng Long lâm vào cảnh thiếu lương – bước ngoặt dẫn tới đại thắng Bạch Đằng.\n\nCâu chuyện của ông cho thấy nhà Trần biết **dùng người tài**, cho người lầm lỗi cơ hội sửa sai vì việc nước.",
+    "follow_up": "Em có muốn nghe kỹ hơn về trận Vân Đồn, nơi ông đánh đắm đoàn thuyền lương của giặc không?"
+  },
+  "GAME_BINH_THU_YEU_LUOC": {
+    "unit_id": "GAME_BINH_THU_YEU_LUOC",
+    "category": "DIEN_HONG_HICH_TUONG_SI",
+    "topic": "Binh thư yếu lược của Trần Quốc Tuấn",
+    "q_matrix": {
+      "cognitive_level": "NHAN_BIET",
+      "difficulty": 0.4,
+      "skills": [
+        "SKILL_BINH_THU_YEU_LUOC"
+      ]
+    },
+    "entity": "Trần Quốc Tuấn (Trần Hưng Đạo)",
+    "event": "Chuẩn bị kháng chiến lần thứ hai",
+    "fact_chunk": "Binh thư yếu lược là sách binh pháp do Trần Quốc Tuấn biên soạn để dạy các tướng cách cầm quân. Trong Hịch tướng sĩ, ông viết: “Nay ta chọn binh pháp các nhà hợp thành một tuyển, gọi là Binh thư yếu lược”, khuyên tướng sĩ chăm chỉ luyện tập theo sách.",
+    "badge": "Binh thư yếu lược",
+    "base_queries": [
+      "binh thư yếu lược là gì",
+      "ai là tác giả binh thư yếu lược",
+      "trần hưng đạo viết cuốn sách binh pháp nào",
+      "sách binh thư yếu lược dùng để làm gì",
+      "trần quốc tuấn soạn binh thư để dạy ai",
+      "cuốn binh pháp của hưng đạo đại vương tên là gì",
+      "trong hịch tướng sĩ trần quốc tuấn khuyên tướng sĩ học sách gì"
+    ],
+    "answer": "**Binh thư yếu lược** là cuốn sách binh pháp do **Trần Quốc Tuấn (Hưng Đạo Đại vương)** biên soạn để dạy các tướng cách cầm quân đánh giặc:\n\n• **Nội dung**: tổng hợp, chọn lọc binh pháp của các nhà để tướng sĩ học theo.\n• **Gắn với Hịch tướng sĩ**: trong bài hịch, ông viết *“Nay ta chọn binh pháp các nhà hợp thành một tuyển, gọi là Binh thư yếu lược”* và khuyên tướng sĩ chăm chỉ luyện tập theo sách.\n• **Ý nghĩa**: chuẩn bị cho tướng sĩ cả về **tinh thần** (Hịch tướng sĩ) lẫn **cách đánh** (Binh thư yếu lược) trước cuộc kháng chiến lần thứ hai.",
+    "follow_up": "Em có muốn đọc lại những câu văn nổi tiếng trong Hịch tướng sĩ không?"
+  },
+  "HISTORICAL_LESSONS_TODAY": {
+    "unit_id": "HISTORICAL_LESSONS_TODAY",
+    "category": "NGUYEN_NHAN_Y_NGHIA",
+    "topic": "Bài học kinh nghiệm lịch sử từ ba lần kháng chiến thời Trần đối với sự nghiệp bảo vệ Tổ quốc hiện nay",
+    "q_matrix": {
+      "cognitive_level": "VAN_DUNG",
+      "difficulty": 0.85,
+      "skills": [
+        "SKILL_HISTORICAL_LESSONS"
+      ]
+    },
+    "entity": "Dân tộc Việt Nam",
+    "event": "Bài học giữ nước từ Hào khí Đông A",
+    "fact_chunk": "Ba lần kháng chiến chống Mông - Nguyên để lại bài học cốt lõi: 1. Khoan thư sức dân để làm kế sâu rễ bền gốc (lấy dân làm gốc). 2. Phát huy khối đại đoàn kết toàn dân tộc ('Vua tôi đồng lòng, anh em hòa mục, cả nước góp sức'). 3. Đề cao cảnh giác và nghệ thuật quân sự chiến tranh nhân dân.",
+    "badge": "Tinh hoa Đông A",
+    "base_queries": [
+      "bài học kinh nghiệm rút ra từ ba lần kháng chiến chống quân mông nguyên đối với ngày nay",
+      "tư tưởng khoan thư sức dân để làm kế sâu rễ bền gốc có ý nghĩa gì hiện nay",
+      "liên hệ trách nhiệm của học sinh hôm nay từ hào khí đông a thời trần",
+      "vận dụng bài học đại đoàn kết thời trần vào công cuộc xây dựng và bảo vệ tổ quốc hiện nay"
+    ],
+    "answer": "Thắng lợi vĩ đại của ba lần kháng chiến chống Mông – Nguyên (1258 – 1288) để lại **4 bài học lịch sử vô giá** cho công cuộc xây dựng và bảo vệ Tổ quốc ngày nay:\n\n1. **Bài học 'Lấy dân làm gốc'**: Thực hiện lời dặn của Trần Hưng Đạo: *'Khoan thư sức dân để làm kế sâu rễ bền gốc, đó là thượng sách giữ nước'* — chăm lo đời sống nhân dân chính là nền tảng sức mạnh quốc gia vững chắc nhất.\n2. **Phát huy khối đại đoàn kết toàn dân tộc**: Tinh thần Diên Hồng *'Vua tôi đồng lòng, anh em hòa mục, cả nước góp sức'* nhắc nhở chúng ta luôn đoàn kết muôn người như một trước mọi thử thách.\n3. **Trọng dụng hiền tài & Phát huy trí tuệ Việt**: Không phân biệt xuất thân (như trọng dụng Phạm Ngũ Lão, Yết Kiêu, Dã Tượng) và vận dụng linh hoạt thế trận toàn dân.\n4. **Trách nhiệm của thế hệ trẻ (học sinh lớp 7)**: Tiếp nối gương sáng tuổi trẻ Hoài Văn hầu Trần Quốc Toản — chăm chỉ rèn luyện đạo đức, học tập tốt, tự hào và giữ gìn chủ quyền thiêng liêng của Tổ quốc.",
+    "follow_up": "Theo em, trong các bài học trên, bài học nào gần gũi nhất với học sinh chúng mình?"
+  },
+  "GAME_QUAN_THANH_DUC_SAT_THAT": {
+    "unit_id": "GAME_QUAN_THANH_DUC_SAT_THAT",
+    "category": "NEN_TANG_QUAN_SU",
+    "topic": "Cấm quân Thánh Dực, Tinh binh Sát Thát và Nón Ma Lôi thời Trần",
+    "q_matrix": {
+      "cognitive_level": "THONG_HIEU",
+      "difficulty": 0.45,
+      "skills": [
+        "SKILL_THANH_DUC_SAT_THAT",
+        "SKILL_SAT_THAT"
+      ]
+    },
+    "entity": "Quân Thánh Dực & Quân Sát Thát",
+    "event": "Tổ chức lực lượng vũ trang nhà Trần (1258 - 1288)",
+    "fact_chunk": "Quân đội thời Trần gồm Cấm quân (tiêu biểu là quân Thánh Dực bảo vệ vua và kinh thành Thăng Long, từng hộ giá vua Trần Thái Tông từ Bình Lệ Nguyên về Thiên Mạc và phản công Đông Bộ Đầu), lộ quân ở các địa phương, quân vương hầu và hương binh làng xã. Tướng sĩ thích hai chữ 'Sát Thát' lên cánh tay. Ở Vân Đồn có giai thoại Trần Khánh Dư cho quân đội nón Ma Lôi để nhận diện nhau.",
+    "badge": "Tinh binh Sát Thát",
+    "base_queries": [
+      "quân thánh dực thời trần là đội quân gì và có vai trò thế nào",
+      "cấm quân thánh dực và quân sát thát trong quân đội nhà trần là gì",
+      "nón ma lôi của trần khánh dư ở vân đồn có ý nghĩa gì",
+      "phân biệt chính sử và giai thoại dân gian về nón ma lôi thời trần",
+      "các lực lượng cấm quân lộ quân và hương binh thời trần được tổ chức ra sao",
+      "đội quân thánh dực bảo vệ vua trần thái tông ở đâu"
+    ],
+    "answer": "Lực lượng vũ trang nhà Trần trong kháng chiến chống Mông – Nguyên được tổ chức chặt chẽ, kết hợp **quân triều đình, quân vương hầu và dân binh làng xã**:\n\n• **Cấm quân Thánh Dực (`[Chính sử]`)**: Đội quân tinh nhuệ nhất bảo vệ nhà vua và kinh thành Thăng Long. Năm 1258, quân Thánh Dực cùng Lê Phụ Trần sát cánh hộ giá vua Trần Thái Tông rút từ Bình Lệ Nguyên về sông Thiên Mạc và làm mũi nhọn phản công giải phóng Đông Bộ Đầu.\n• **Tinh binh Sát Thát (`[Chính sử]`)**: Các tướng sĩ nhà Trần tự nguyện xăm hai chữ **'Sát Thát'** (Giết giặc Mông – Nguyên) lên cánh tay, kết hợp cùng gia đồng của các vương hầu và hương binh các làng xã tạo nên thế trận chiến tranh nhân dân.\n• **Nón Ma Lôi ở Vân Đồn (`[Giai thoại dân gian / Sử ký]`)**: Tương truyền khi trấn giữ Vân Đồn, Nhân Huệ vương Trần Khánh Dư từng khuyên dân làm nghề đan nón Ma Lôi và cho quân sĩ đội nón Ma Lôi làm ám hiệu nhận ra nhau trong hỗn chiến.",
+    "follow_up": "Em có muốn tìm hiểu thêm về hệ thống căn cứ địa Vạn Kiếp và Thiên Trường của quân đội nhà Trần không?"
+  },
+  "GAME_VAN_KIEP_THIEN_TRUONG_BASES": {
+    "unit_id": "GAME_VAN_KIEP_THIEN_TRUONG_BASES",
+    "category": "NEN_TANG_QUAN_SU",
+    "topic": "Hệ thống căn cứ địa chiến lược: Vạn Kiếp – Nội Bàng và Hậu phương Thiên Trường – Trường Yên",
+    "q_matrix": {
+      "cognitive_level": "THONG_HIEU",
+      "difficulty": 0.55,
+      "skills": [
+        "SKILL_STRATEGIC_BASES"
+      ]
+    },
+    "entity": "Trần Hưng Đạo & Vương triều Trần",
+    "event": "Bố phòng chiến lược trong ba lần kháng chiến (1258 - 1288)",
+    "fact_chunk": "Nhà Trần xây dựng hệ thống phòng thủ và hậu phương liên hoàn: Tuyến tiền tiêu phía Bắc có Nội Bàng, Vạn Kiếp (Chí Linh, Hải Dương) nơi Trần Hưng Đạo duyệt 20 vạn quân; tuyến sông Hồng có Bình Lệ Nguyên, Phù Ninh, Thăng Long, Thiên Mạc, Hàm Tử, Chương Dương; hậu phương chiến lược có Thiên Trường (Nam Định), Trường Yên (Ninh Bình) và Thanh Hóa.",
+    "badge": "Mưu lược Vạn Kiếp",
+    "base_queries": [
+      "căn cứ vạn kiếp và nội bàng có vị trí chiến lược như thế nào thời trần",
+      "vai trò của hậu phương thiên trường trường yên và thanh hóa trong kháng chiến chống mông nguyên",
+      "tại sao vạn kiếp lại là đại bản doanh quân sự quan trọng của trần hưng đạo",
+      "hệ thống địa danh chiến lược từ vạn kiếp thăng long thiên mạc đến thiên trường thời trần",
+      "thiên mạc trường yên và thiên trường giúp nhà trần bảo toàn lực lượng ra sao",
+      "vì sao trần hưng đạo hội 20 vạn quân ở vạn kiếp"
+    ],
+    "answer": "Để đánh thắng đạo quân xâm lược khổng lồ, nhà Trần đã kiến tạo **hệ thống căn cứ địa và hậu phương chiến lược liên hoàn** trải dài từ biên giới xuống đồng bằng:\n\n1. **Tuyến phòng thủ tiền tiêu phía Bắc (Nội Bàng – Vạn Kiếp)**: **Vạn Kiếp** (Chí Linh, Hải Dương) là nơi hội tụ của 6 dòng sông (Lục Đầu Giang), án ngữ cửa ngõ đường thủy – bộ vào Thăng Long. Năm 1284, Trần Hưng Đạo hội 20 vạn quân tại Vạn Kiếp để tập trận và truyền *Hịch tướng sĩ*.\n2. **Tuyến phòng thủ sông Hồng (Bình Lệ Nguyên – Phù Ninh – Thăng Long – Thiên Mạc)**: Nơi ghìm chân giặc, thực hiện *'Vườn không nhà trống'* và mở các trận đại phản công (**Đông Bộ Đầu, Tây Kết, Hàm Tử, Chương Dương**).\n3. **Hậu phương chiến lược (Thiên Trường – Trường Yên – Thanh Hóa)**: Khi tạm rút khỏi Thăng Long, triều đình lui về hành cung **Thiên Trường** (Nam Định), căn cứ núi đá **Trường Yên** (Ninh Bình) và **Thanh Hóa** để bảo toàn lực lượng, tích trữ lương thảo, rèn luyện tân binh chờ thời cơ tổng phản công.",
+    "follow_up": "Em có muốn biết khi giặc Nguyên tiến công, sự đối lập giữa những trung thần giữ nước và kẻ hèn nhát đầu hàng diễn ra thế nào không?"
+  },
+  "GAME_TRUNG_THAN_VS_PHAN_BOI": {
+    "unit_id": "GAME_TRUNG_THAN_VS_PHAN_BOI",
+    "category": "DANH_TUONG_GIA_THAN",
+    "topic": "Sự đối lập giữa trung thần tiết nghĩa nhà Trần và kẻ phản bội đầu hàng (Trần Ích Tắc, Trần Kiện)",
+    "q_matrix": {
+      "cognitive_level": "VAN_DUNG",
+      "difficulty": 0.65,
+      "skills": [
+        "SKILL_LOYALTY_VS_TREASON",
+        "SKILL_TRAN_BINH_TRONG"
+      ]
+    },
+    "entity": "Trần Bình Trọng, Trần Quốc Tuấn vs. Trần Ích Tắc, Trần Kiện",
+    "event": "Kháng chiến chống quân Nguyên lần 2 (1285)",
+    "fact_chunk": "Năm 1285, trước thế giặc Nguyên hung hãn, một số quý tộc hèn nhát như Trần Ích Tắc, Trần Kiện đem gia quyến đầu hàng giặc để cầu vinh (Trần Kiện bị gia nô Nguyễn Địa Lô bắn chết ở Lạng Sơn). Trái lại, tuyệt đại đa số vua tôi, tướng sĩ nhà Trần như Trần Quốc Tuấn, Trần Bình Trọng, Trần Quốc Toản kiên trung bất khuất bảo vệ Tổ quốc.",
+    "badge": "Khí phách Nước Nam",
+    "base_queries": [
+      "trần ích tắc và trần kiện là ai trong cuộc kháng chiến chống nguyên năm 1285",
+      "sự đối lập giữa khí tiết của trần bình trọng với kẻ đầu hàng trần ích tắc trần kiện",
+      "ai là kẻ phản bội nhà trần đầu hàng quân nguyên năm 1285",
+      "kết cục của trần kiện và trần ích tắc khi phản bội tổ quốc theo giặc nguyên",
+      "so sánh tấm gương trung nghĩa của trần bình trọng trần quốc tuấn với trần ích tắc",
+      "nguyễn địa lô bắn chết tên phản bội trần kiện ở đâu"
+    ],
+    "answer": "Cuộc kháng chiến năm 1285 là phép thử khắc nghiệt làm sáng tỏ **ranh giới giữa lòng trung quân ái quốc và sự phản bội hèn nhát**:\n\n• **Kẻ phản bội cầu vinh (Trần Ích Tắc, Trần Kiện)**: Khiếp nhược trước 50 vạn quân Nguyên, Chiêu Quốc vương **Trần Ích Tắc** và **Trần Kiện** đã phản bội non sông, đem gia quyến đầu hàng Thoát Hoan với mộng được phong vương. Kết cục, Trần Kiện bị gia nô của Trần Hưng Đạo là **Nguyễn Địa Lô** bắn chết tại trại Ma Lục (Lạng Sơn), còn Trần Ích Tắc phải sống lưu vong nhục nhã nơi đất giặc, bị sử sách lên án.\n• **Khí tiết sáng ngời của các bậc đại trung thần**: Đối lập hoàn toàn với bọn phản bội là tinh thần bất khuất của **Trần Bình Trọng** (*'Ta thà làm quỷ nước Nam, chứ không thèm làm vương đất Bắc!'*), **Trần Hưng Đạo** (*'Nếu bệ hạ muốn hàng, xin hãy chém đầu thần trước đã!'*) và tuổi trẻ **Trần Quốc Toản**.\n\nBài học lịch sử khẳng định: chính nghĩa và lòng trung hiếu với Tổ quốc luôn chiến thắng và lưu danh muôn thuở.",
+    "follow_up": "Câu nói của Trần Bình Trọng trước mặt giặc chính là lời đanh thép nhất bác bỏ giấc mộng 'làm vương đất Bắc' của kẻ phản bội đấy em!"
+  },
   "INTENT_GREETING": {
     "unit_id": "INTENT_GREETING",
     "category": "CONVERSATIONAL_INTENT",
@@ -794,116 +1064,5 @@
     ],
     "answer": "OUT_OF_DOMAIN",
     "follow_up": ""
-  },
-  "GAME_NGU_BINH_U_NONG": {
-    "unit_id": "GAME_NGU_BINH_U_NONG",
-    "category": "NEN_TANG_QUAN_SU",
-    "topic": "Chính sách ngụ binh ư nông",
-    "q_matrix": {
-      "cognitive_level": "THONG_HIEU",
-      "difficulty": 0.4,
-      "skills": [
-        "SKILL_NGU_BINH_U_NONG"
-      ]
-    },
-    "entity": "Nhà Lý, nhà Trần",
-    "event": "Tổ chức quân đội thời Lý – Trần",
-    "fact_chunk": "“Ngụ binh ư nông” nghĩa là gửi binh ở nhà nông: thời bình, binh lính được luân phiên về quê làm ruộng; khi có chiến tranh, triều đình điều động họ ra trận. Nhờ vậy nhà nước vừa có lực lượng quân đội đông đảo, vừa bảo đảm sản xuất và lương thực.",
-    "badge": "Ngụ binh ư nông",
-    "base_queries": [
-      "ngụ binh ư nông là gì",
-      "chính sách ngụ binh ư nông có tác dụng gì",
-      "thời bình binh lính nhà trần làm gì",
-      "gửi binh ở nhà nông nghĩa là sao",
-      "nhà trần tổ chức quân đội như thế nào",
-      "vì sao nhà trần vừa có quân đông vừa đủ lương thực",
-      "binh lính luân phiên về quê làm ruộng là chính sách gì",
-      "ý nghĩa của chính sách ngụ binh ư nông"
-    ],
-    "answer": "**Ngụ binh ư nông** nghĩa là *gửi binh ở nhà nông* – cách tổ chức quân đội của nhà Lý và nhà Trần:\n\n• **Thời bình**: binh lính được luân phiên về quê làm ruộng, ruộng đồng không bị bỏ hoang, nhà nước vẫn đủ lương thực.\n• **Khi có giặc**: triều đình nhanh chóng điều động họ ra trận, nên có ngay một lực lượng quân đội đông đảo, đã quen việc quân.\n• **Ý nghĩa**: một nước không lớn như Đại Việt vẫn đủ người và đủ lương cho những cuộc kháng chiến dài ngày – nền tảng quan trọng giúp nhà Trần ba lần đánh thắng quân Mông – Nguyên.",
-    "follow_up": "Em có muốn biết nhà Trần còn dùng kế sách gì khiến quân giặc thiếu lương, đói kiệt không?"
-  },
-  "GAME_TRAN_KHANH_DU": {
-    "unit_id": "GAME_TRAN_KHANH_DU",
-    "category": "DANH_TUONG_GIA_THAN",
-    "topic": "Trần Khánh Dư – từ người buôn than ở Chí Linh đến trận Vân Đồn",
-    "q_matrix": {
-      "cognitive_level": "NHAN_BIET",
-      "difficulty": 0.4,
-      "skills": [
-        "SKILL_TRAN_KHANH_DU"
-      ]
-    },
-    "entity": "Nhân Huệ vương Trần Khánh Dư",
-    "event": "Trận Vân Đồn (cuối 1287 – đầu 1288)",
-    "fact_chunk": "Trần Khánh Dư từng phạm lỗi, bị tước bỏ quan tước, về vùng Chí Linh sống bằng nghề buôn than. Năm 1282, trước nguy cơ quân Nguyên xâm lược, ông được tha tội để lập công. Trong kháng chiến lần thứ ba, ông trấn giữ vùng biển Vân Đồn, phục kích đánh đắm và thu giữ đoàn thuyền lương của Trương Văn Hổ.",
-    "badge": "Mưu thần Vân Đồn",
-    "base_queries": [
-      "trần khánh dư là ai",
-      "vì sao trần khánh dư bị tước quan tước",
-      "trần khánh dư từng làm nghề buôn than ở đâu",
-      "nhân huệ vương trần khánh dư xuất thân thế nào",
-      "tại sao trần khánh dư lại được tha tội năm 1282",
-      "kể về cuộc đời trần khánh dư",
-      "ai từng bán than ở chí linh rồi lập công lớn",
-      "trần khánh dư lập công chuộc tội như thế nào"
-    ],
-    "answer": "**Nhân Huệ vương Trần Khánh Dư** là vị tướng nhà Trần có cuộc đời nhiều thăng trầm:\n\n• **Lỡ bước**: ông từng phạm lỗi, bị tước bỏ quan tước, về vùng **Chí Linh** sống bằng nghề **buôn than**.\n• **Được dùng lại (1282)**: trước nguy cơ quân Nguyên xâm lược, nhà Trần tha tội để ông lập công chuộc lỗi.\n• **Lập công ở Vân Đồn**: trong kháng chiến lần thứ ba, ông trấn giữ vùng biển Vân Đồn, phục kích, đánh đắm và thu giữ đoàn thuyền lương của **Trương Văn Hổ**, khiến quân Nguyên ở Thăng Long lâm vào cảnh thiếu lương – bước ngoặt dẫn tới đại thắng Bạch Đằng.\n\nCâu chuyện của ông cho thấy nhà Trần biết **dùng người tài**, cho người lầm lỗi cơ hội sửa sai vì việc nước.",
-    "follow_up": "Em có muốn nghe kỹ hơn về trận Vân Đồn, nơi ông đánh đắm đoàn thuyền lương của giặc không?"
-  },
-  "GAME_BINH_THU_YEU_LUOC": {
-    "unit_id": "GAME_BINH_THU_YEU_LUOC",
-    "category": "DIEN_HONG_HICH_TUONG_SI",
-    "topic": "Binh thư yếu lược của Trần Quốc Tuấn",
-    "q_matrix": {
-      "cognitive_level": "NHAN_BIET",
-      "difficulty": 0.4,
-      "skills": [
-        "SKILL_BINH_THU_YEU_LUOC"
-      ]
-    },
-    "entity": "Trần Quốc Tuấn (Trần Hưng Đạo)",
-    "event": "Chuẩn bị kháng chiến lần thứ hai",
-    "fact_chunk": "Binh thư yếu lược là sách binh pháp do Trần Quốc Tuấn biên soạn để dạy các tướng cách cầm quân. Trong Hịch tướng sĩ, ông viết: “Nay ta chọn binh pháp các nhà hợp thành một tuyển, gọi là Binh thư yếu lược”, khuyên tướng sĩ chăm chỉ luyện tập theo sách.",
-    "badge": "Binh thư yếu lược",
-    "base_queries": [
-      "binh thư yếu lược là gì",
-      "ai là tác giả binh thư yếu lược",
-      "trần hưng đạo viết cuốn sách binh pháp nào",
-      "sách binh thư yếu lược dùng để làm gì",
-      "trần quốc tuấn soạn binh thư để dạy ai",
-      "cuốn binh pháp của hưng đạo đại vương tên là gì",
-      "trong hịch tướng sĩ trần quốc tuấn khuyên tướng sĩ học sách gì"
-    ],
-    "answer": "**Binh thư yếu lược** là cuốn sách binh pháp do **Trần Quốc Tuấn (Hưng Đạo Đại vương)** biên soạn để dạy các tướng cách cầm quân đánh giặc:\n\n• **Nội dung**: tổng hợp, chọn lọc binh pháp của các nhà để tướng sĩ học theo.\n• **Gắn với Hịch tướng sĩ**: trong bài hịch, ông viết *“Nay ta chọn binh pháp các nhà hợp thành một tuyển, gọi là Binh thư yếu lược”* và khuyên tướng sĩ chăm chỉ luyện tập theo sách.\n• **Ý nghĩa**: chuẩn bị cho tướng sĩ cả về **tinh thần** (Hịch tướng sĩ) lẫn **cách đánh** (Binh thư yếu lược) trước cuộc kháng chiến lần thứ hai.",
-    "follow_up": "Em có muốn đọc lại những câu văn nổi tiếng trong Hịch tướng sĩ không?"
-  },
-  "GAME_TRAN_NHAN_TONG": {
-    "unit_id": "GAME_TRAN_NHAN_TONG",
-    "category": "DANH_TUONG_GIA_THAN",
-    "topic": "Vua Trần Nhân Tông qua các giai đoạn cuộc đời",
-    "q_matrix": {
-      "cognitive_level": "NHAN_BIET",
-      "difficulty": 0.4,
-      "skills": [
-        "SKILL_TRAN_NHAN_TONG"
-      ]
-    },
-    "entity": "Trần Nhân Tông (Trần Khâm)",
-    "event": "Kháng chiến 1285 và 1287 – 1288",
-    "fact_chunk": "Trần Nhân Tông (Trần Khâm, 1258 – 1308) sinh cuối năm 1258, sau cuộc kháng chiến lần thứ nhất. Ông được lập làm Hoàng thái tử năm 1274, lên ngôi năm 1278, triệu tập Hội nghị Bình Than năm 1282 và cùng Thượng hoàng Trần Thánh Tông lãnh đạo hai cuộc kháng chiến chống quân Nguyên. Năm 1293 ông nhường ngôi; năm 1299 xuất gia ở núi Yên Tử, sáng lập Thiền phái Trúc Lâm.",
-    "badge": "Phật hoàng Trúc Lâm",
-    "base_queries": [
-      "trần nhân tông là ai",
-      "vua trần nhân tông sinh năm nào",
-      "trần nhân tông lên ngôi năm nào",
-      "vua nào sáng lập thiền phái trúc lâm",
-      "trần nhân tông xuất gia ở đâu",
-      "vì sao trần nhân tông được gọi là phật hoàng",
-      "cuộc đời vua trần nhân tông có những mốc nào",
-      "trần khâm là ai"
-    ],
-    "answer": "**Vua Trần Nhân Tông** (tên thật **Trần Khâm**, 1258 – 1308) là vị vua lãnh đạo hai cuộc kháng chiến chống quân Nguyên:\n\n• **1258**: sinh ra, sau khi cuộc kháng chiến lần thứ nhất kết thúc.\n• **1274**: được lập làm Hoàng thái tử; **1278**: lên ngôi vua.\n• **1282**: triệu tập **Hội nghị Bình Than** bàn kế đánh giặc.\n• **1285 và 1287 – 1288**: cùng Thượng hoàng **Trần Thánh Tông** lãnh đạo quân dân đánh thắng quân Nguyên.\n• **1293**: nhường ngôi; **1299**: xuất gia ở núi **Yên Tử**, sáng lập **Thiền phái Trúc Lâm**, được tôn là **Phật hoàng**.",
-    "follow_up": "Em có muốn biết Hội nghị Bình Than do vua Trần Nhân Tông triệu tập đã quyết định những gì không?"
   }
 }

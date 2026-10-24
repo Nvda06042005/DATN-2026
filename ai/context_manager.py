@@ -284,7 +284,7 @@ SPECIAL_GROUNDED_RESPONSES: Dict[str, Dict[str, Any]] = {
         }
     },
     "SIGNIFICANCE_DONG_BO_DAU": {
-        "unit_id": "SIGNIFICANCE_DONG_BO_DAU",
+        "unit_id": "KC1_DONG_BO_DAU",
         "category": "SIGNIFICANCE",
         "topic": "Ý nghĩa lịch sử của trận phản công Đông Bộ Đầu (1258)",
         "entity": "Trần Thái Tông & Quân dân nhà Trần",
@@ -530,6 +530,24 @@ SPECIAL_GROUNDED_RESPONSES: Dict[str, Dict[str, Any]] = {
             "curriculum_match": "SGK Lịch sử 7 - Bài 13: Cuộc kháng chiến lần thứ ba chống quân Nguyên (1287 - 1288)",
             "fact_chunk": "Đại thắng Bạch Đằng (tháng 4/1288) là trận quyết định kết thúc cuộc kháng chiến lần 3."
         }
+    },
+    "INTENT_ASSISTANT_IDENTITY": {
+        "unit_id": "INTENT_ASSISTANT_IDENTITY",
+        "category": "CONVERSATIONAL_INTENT",
+        "q_type": "INTENT",
+        "topic": "Giới thiệu Trợ lý AI Lịch sử Đông A & hướng dẫn sử dụng",
+        "entity": "Trợ lý AI Đông A",
+        "event": "Giao tiếp sư phạm",
+        "fact_chunk": "Trợ lý AI Lịch sử Đông A là hệ thống gia sư thông minh chuyên trách Bài 13 SGK Lịch sử 7 (Ba lần kháng chiến chống quân Mông - Nguyên 1258 - 1288), tích hợp mô hình BKT cá nhân hóa.",
+        "answer": (
+            "Xin chào em! Thầy là **Trợ Lý AI Lịch Sử Đông A** — gia sư lịch sử thông minh đồng hành cùng em trong chuyên đề **Ba lần kháng chiến chống quân Mông – Nguyên (1258 – 1288)** (Lịch sử lớp 7).\n\n"
+            "🌟 **Thầy có thể giúp em những việc sau**:\n"
+            "1. **Giải đáp & Đối chiếu lịch sử chuyên sâu**: Hỏi đáp mọi sự kiện, nhân vật, chiến thuật hoặc so sánh 2 sự kiện bất kỳ trong thời Trần.\n"
+            "2. **Hiểu cả mô tả gián tiếp**: Dù em quên tên nhân vật hay kế sách (ví dụ: *\"Ông vua nào đi tu trên núi Yên Tử?\"*), thầy vẫn nhận diện và giải thích chính xác.\n"
+            "3. **Đố vui & Chấm tự luận trực tiếp trên khung Chat**: Em chỉ cần gõ **\"Thầy đố em một câu đi\"**, thầy sẽ chọn ngay chủ đề em đang yếu trong Hồ sơ năng lực để thử thách và chấm điểm thang 10!\n"
+            "4. **Tư vấn lộ trình & Tài liệu SGK cá nhân hóa**: Gõ **\"Em không biết nên hỏi gì\"** để xem gợi ý bài học sát với mức độ nắm vững BKT của riêng em."
+        ),
+        "grounding_source": {}
     }
 }
 
@@ -561,6 +579,130 @@ class ConversationalContextManager:
         if session_id in self.sessions:
             del self.sessions[session_id]
 
+    @classmethod
+    def detect_knowledge_graph_contradiction(cls, unacc_q: str) -> Optional[Dict[str, Any]]:
+        """
+        Kiểm chứng Đồ thị Tri thức Lịch sử Thời Trần (Knowledge Graph Fact-Checker):
+        Tự động phát hiện các câu hỏi ghép lệch giữa (Nhân vật, Sự kiện/Trận đánh, Năm, Lần kháng chiến)
+        và trả về phản hồi đính chính chuẩn xác ngay ở câu mở đầu.
+        """
+        padded = f" {unacc_q} "
+        if any(c in padded for c in [" so sanh ", " khac nhau ", " phan biet ", " va ", " voi ", " cung nhu "]):
+            return None
+
+        # 1. Trận Bạch Đằng (1288 - Lần 3) bị nhầm sang năm 1258 / 1285 / Lần 1 / Lần 2
+        if "bach dang" in unacc_q and any(w in unacc_q for w in ["1258", "1285", "lan 1", "lan thu nhat", "lan 2", "lan thu hai"]):
+            return {
+                "unit_id": "CORRECTION_KG_CONTRADICTION",
+                "category": "CORRECTION",
+                "topic": "Đính chính thời gian đại thắng Bạch Đằng (Tháng 4/1288 - Kháng chiến lần 3)",
+                "entity": "Trần Hưng Đạo",
+                "event": "Đại thắng Bạch Đằng (Tháng 4/1288)",
+                "fact_chunk": "Đại thắng trên sông Bạch Đằng thời Trần diễn ra vào tháng 4 năm 1288 (thuộc cuộc kháng chiến lần thứ ba 1287 - 1288) do Trần Hưng Đạo chỉ huy, không phải năm 1258 hay 1285.",
+                "answer": (
+                    "⚠️ **Đính chính mốc thời gian lịch sử**: Đại thắng trên sông Bạch Đằng thời Trần diễn ra vào **tháng 4 năm 1288 (thuộc cuộc kháng chiến lần thứ ba 1287 – 1288)**, chứ **không phải** vào năm 1258 hay 1285!\n\n"
+                    "• **Kháng chiến lần 1 (1258)**: Trận quyết định là **Đông Bộ Đầu** (29/1/1258).\n"
+                    "• **Kháng chiến lần 2 (1285)**: Các trận đại thắng tiêu biểu là **Tây Kết, Hàm Tử, Chương Dương**.\n"
+                    "• **Kháng chiến lần 3 (1287 – 1288)**: Kết thúc bằng đại thắng trận địa cọc ngầm trên **sông Bạch Đằng (tháng 4/1288)** do Quốc công Tiết chế Trần Hưng Đạo chỉ huy, bắt sống Ô Mã Nhi và tiêu diệt toàn bộ thủy quân giặc."
+                ),
+                "grounding_source": {
+                    "doc_name": "SGK Lịch sử 7 (KNTT) - Bài 13",
+                    "page_number": 75,
+                    "curriculum_match": "SGK Lịch sử 7 - Bài 13: Cuộc kháng chiến lần thứ ba chống quân Nguyên (1287 - 1288)",
+                    "fact_chunk": "Đại thắng Bạch Đằng diễn ra vào tháng 4/1288, kết thúc cuộc kháng chiến lần thứ ba."
+                }
+            }
+
+        # 2. Hội nghị Diên Hồng (Đầu năm 1285 - Lần 2) bị nhầm sang 1258 / 1288 / Lần 1 / Lần 3
+        if "dien hong" in unacc_q and any(w in unacc_q for w in ["1258", "1288", "lan 1", "lan thu nhat", "lan 3", "lan thu ba"]):
+            return {
+                "unit_id": "CORRECTION_KG_CONTRADICTION",
+                "category": "CORRECTION",
+                "topic": "Đính chính thời gian Hội nghị Diên Hồng (Đầu năm 1285 - Kháng chiến lần 2)",
+                "entity": "Thượng hoàng Trần Thánh Tông & Các bô lão",
+                "event": "Hội nghị Diên Hồng (1285)",
+                "fact_chunk": "Hội nghị Diên Hồng được tổ chức vào đầu năm 1285 tại kinh thành Thăng Long trong cuộc kháng chiến lần thứ hai chống quân Nguyên, không phải năm 1258 hay 1288.",
+                "answer": (
+                    "⚠️ **Đính chính mốc thời gian lịch sử**: **Hội nghị Diên Hồng** được Thượng hoàng Trần Thánh Tông triệu tập vào **đầu năm 1285 (thuộc cuộc kháng chiến lần thứ hai)** tại kinh thành Thăng Long, chứ **không phải** năm 1258 hay 1288!\n\n"
+                    "• Tại hội nghị lịch sử này, khi vua hỏi nên *'Hòa hay Đánh'* trước thế giặc Nguyên 50 vạn quân hung hãn, các vị bô lão đại diện nhân dân cả nước đã đồng thanh hô vang **'Đánh!'** ('muôn người cùng một lời'), thể hiện ý chí đoàn kết toàn dân tộc."
+                ),
+                "grounding_source": {
+                    "doc_name": "SGK Lịch sử 7 (KNTT) - Bài 13",
+                    "page_number": 71,
+                    "curriculum_match": "SGK Lịch sử 7 - Bài 13: Cuộc kháng chiến lần thứ hai chống quân Nguyên (1285)",
+                    "fact_chunk": "Đầu năm 1285, Thượng hoàng Trần Thánh Tông triệu tập Hội nghị Diên Hồng."
+                }
+            }
+
+        # 3. Trận Đông Bộ Đầu / Bình Lệ Nguyên (1258 - Lần 1) bị nhầm sang 1285 / 1288 / Lần 2 / Lần 3
+        if any(b in unacc_q for b in ["dong bo dau", "binh le nguyen"]) and any(w in unacc_q for w in ["1285", "1288", "lan 2", "lan thu hai", "lan 3", "lan thu ba"]):
+            return {
+                "unit_id": "CORRECTION_KG_CONTRADICTION",
+                "category": "CORRECTION",
+                "topic": "Đính chính thời gian trận Bình Lệ Nguyên & Đông Bộ Đầu (Năm 1258 - Kháng chiến lần 1)",
+                "entity": "Vua Trần Thái Tông & Trần Thủ Độ",
+                "event": "Kháng chiến chống Mông Cổ lần thứ nhất (1258)",
+                "fact_chunk": "Trận Bình Lệ Nguyên (17/1/1258) và trận phản công Đông Bộ Đầu (29/1/1258) diễn ra trong cuộc kháng chiến lần thứ nhất năm 1258 chống quân Mông Cổ.",
+                "answer": (
+                    "⚠️ **Đính chính mốc thời gian lịch sử**: Trận **Bình Lệ Nguyên** và trận phản công **Đông Bộ Đầu** diễn ra vào **tháng 1 năm 1258 (thuộc cuộc kháng chiến lần thứ nhất chống quân Mông Cổ)**, chứ **không phải** năm 1285 hay 1288!\n\n"
+                    "• **Ngày 17/1/1258**: Vua Trần Thái Tông trực tiếp chỉ huy chặn giặc tại Bình Lệ Nguyên rồi rút lui chiến lược, thực hiện 'Vườn không nhà trống' tại Thăng Long.\n"
+                    "• **Ngày 29/1/1258**: Quân Trần mở cuộc đại phản công tại bến **Đông Bộ Đầu**, quét sạch quân Mông Cổ của Ngột Lương Hợp Thai khỏi kinh thành Thăng Long."
+                ),
+                "grounding_source": {
+                    "doc_name": "SGK Lịch sử 7 (KNTT) - Bài 13",
+                    "page_number": 69,
+                    "curriculum_match": "SGK Lịch sử 7 - Bài 13: Cuộc kháng chiến lần thứ nhất chống quân Mông Cổ (1258)",
+                    "fact_chunk": "Tháng 1/1258 diễn ra trận Bình Lệ Nguyên và chiến thắng Đông Bộ Đầu."
+                }
+            }
+
+        # 4. Hịch tướng sĩ (Trần Quốc Tuấn) bị gán nhầm cho nhân vật khác
+        if "hich tuong si" in unacc_q and any(p in unacc_q for p in ["tran thu do", "tran quoc toan", "tran binh trong", "tran quang khai", "pham ngu lao"]):
+            return {
+                "unit_id": "CORRECTION_KG_CONTRADICTION",
+                "category": "CORRECTION",
+                "topic": "Đính chính tác giả bài Hịch tướng sĩ (Trần Quốc Tuấn)",
+                "entity": "Hưng Đạo Đại vương Trần Quốc Tuấn",
+                "event": "Soạn Hịch tướng sĩ (Trước cuộc kháng chiến lần 2 - 1285)",
+                "fact_chunk": "Bài 'Hịch tướng sĩ' (Dụ chư tỳ tướng hịch văn) do Quốc công Tiết chế Hưng Đạo Đại vương Trần Quốc Tuấn biên soạn để khích lệ tướng sĩ trước cuộc kháng chiến lần thứ hai (1285).",
+                "answer": (
+                    "⚠️ **Đính chính tác giả lịch sử**: Kiệt tác thiên cổ hùng văn **'Hịch tướng sĩ'** là do **Quốc công Tiết chế Hưng Đạo Đại vương Trần Quốc Tuấn (Trần Hưng Đạo)** soạn thảo trước cuộc kháng chiến lần thứ hai (1285), chứ **không phải** của nhân vật khác!\n\n"
+                    "• Với lời văn thống thiết *'Ta thường tới bữa quên ăn, nửa đêm vỗ gối...'*, bài hịch đã khơi dậy lòng căm thù giặc sâu sắc, thúc đẩy tướng sĩ nhà Trần thích hai chữ **'Sát Thát'** (Giết giặc Mông – Nguyên) lên cánh tay quyết tử giữ nước."
+                ),
+                "grounding_source": {
+                    "doc_name": "SGK Lịch sử 7 (KNTT) - Bài 13",
+                    "page_number": 71,
+                    "curriculum_match": "SGK Lịch sử 7 - Bài 13: Cuộc kháng chiến lần thứ hai chống quân Nguyên (1285)",
+                    "fact_chunk": "Trần Quốc Tuấn soạn Hịch tướng sĩ để khích lệ tinh thần chiến đấu của quân đội."
+                }
+            }
+
+        # 5. Nhầm chủ tướng giặc giữa lần 1 (Ngột Lương Hợp Thai - 1258) và lần 2, 3 (Thoát Hoan - 1285, 1288)
+        if ("thoat hoan" in unacc_q and any(w in unacc_q for w in ["1258", "lan 1", "lan thu nhat"])) or (
+            "ngot luong hop thai" in unacc_q and any(w in unacc_q for w in ["1285", "1288", "lan 2", "lan thu hai", "lan 3", "lan thu ba"])
+        ):
+            return {
+                "unit_id": "CORRECTION_KG_CONTRADICTION",
+                "category": "CORRECTION",
+                "topic": "Đính chính tướng chỉ huy quân xâm lược qua 3 lần kháng chiến",
+                "entity": "Ngột Lương Hợp Thai (1258) & Thoát Hoan (1285, 1288)",
+                "event": "Ba lần kháng chiến chống quân Mông - Nguyên (1258 - 1288)",
+                "fact_chunk": "Năm 1258 (Lần 1), quân Mông Cổ do Ngột Lương Hợp Thai chỉ huy. Năm 1285 (Lần 2) và 1287-1288 (Lần 3), quân Nguyên do Trấn Nam vương Thoát Hoan chỉ huy.",
+                "answer": (
+                    "⚠️ **Đính chính nhân vật lịch sử**: Em đang có chút nhầm lẫn về tướng chỉ huy quân xâm lược giữa các lần kháng chiến nhé! Chính sử ghi rõ:\n\n"
+                    "• **Kháng chiến lần 1 (1258)**: Đạo quân Mông Cổ (3 vạn quân) do tướng **Ngột Lương Hợp Thai** chỉ huy.\n"
+                    "• **Kháng chiến lần 2 (1285) và lần 3 (1287 – 1288)**: Đại quân Nguyên (50 vạn quân năm 1285; 30 vạn quân năm 1287) do Trấn Nam vương **Thoát Hoan** (con trai Hốt Tất Liệt) làm chủ tướng chỉ huy."
+                ),
+                "grounding_source": {
+                    "doc_name": "SGK Lịch sử 7 (KNTT) - Bài 13",
+                    "page_number": 68,
+                    "curriculum_match": "SGK Lịch sử 7 - Bài 13: Ba lần kháng chiến chống quân Mông - Nguyên",
+                    "fact_chunk": "Lần 1 (1258) do Ngột Lương Hợp Thai chỉ huy; Lần 2 (1285) và Lần 3 (1288) do Thoát Hoan chỉ huy."
+                }
+            }
+
+        return None
+
     def resolve_query(
         self,
         query: str,
@@ -576,6 +718,14 @@ class ConversationalContextManager:
         """
         clean_q = query.strip()
         unacc_q = normalize_vi(remove_accents(clean_q))
+        for wrong_tp, right_tp in [
+            ("bat dang", "bach dang"), ("bach dan", "bach dang"), ("bach dangg", "bach dang"),
+            ("rien hong", "dien hong"), ("gien hong", "dien hong"), ("dien hom", "dien hong"),
+            ("binh thang", "binh than"), ("thoat hoang", "thoat hoan"), ("nha chong", "nha trong"),
+            ("tran khanh giu", "tran khanh du"), ("tran binh chong", "tran binh trong")
+        ]:
+            if wrong_tp in unacc_q:
+                unacc_q = unacc_q.replace(wrong_tp, right_tp)
         session = self.get_or_create_session(session_id)
 
         # ----------------------------------------------------------------------
@@ -592,6 +742,11 @@ class ConversationalContextManager:
         has_bach_dang = any(k in unacc_q for k in ["bach dang", "song bach dang", "tran bach dang", "coc go", "o ma nhi"])
         if has_tqt and has_bach_dang:
             return query, False, SPECIAL_GROUNDED_RESPONSES["CORRECTION_FALSE_PREMISE_BACH_DANG"]
+
+        # Sai 3+: Bộ kiểm chứng Đồ thị Tri thức tự động (Nhầm chéo Năm - Sự kiện - Tướng chỉ huy - Tác phẩm)
+        kg_contradiction = self.detect_knowledge_graph_contradiction(unacc_q)
+        if kg_contradiction:
+            return query, False, kg_contradiction
 
         # ----------------------------------------------------------------------
         # 2. KIỂM TRA THÔNG TIN CHI TIẾT ĐỜI TƯ NGOÀI SGK (ABSENT FACT)
@@ -711,7 +866,7 @@ class ConversationalContextManager:
             return query, False, SPECIAL_GROUNDED_RESPONSES["SIGNIFICANCE_DIEN_HONG"]
 
         # 11. Điểm chung qua ba lần kháng chiến
-        is_common_3_wars = (any(k in unacc_q for k in ["diem chung", "giong nhau", "tuong dong", "diem giong", "tong ket"]) and any(k in unacc_q for k in ["ba lan", "3 lan", "ca ba lan"]))
+        is_common_3_wars = (any(k in unacc_q for k in ["diem chung", "giong nhau", "tuong dong", "diem giong"]) and any(k in unacc_q for k in ["ba lan", "3 lan", "ca ba lan"]))
         if is_common_3_wars:
             return query, False, SPECIAL_GROUNDED_RESPONSES["COMPARISON_ALL_3_WARS_COMMON"]
 
@@ -777,11 +932,12 @@ class ConversationalContextManager:
         has_action_kw = any(a in unacc_q for a in [
             "xu ly", "lam gi", "phan ung", "hanh dong", "ra sao", "the nao", "la ai", "co nhung ai", "gom nhung ai"
         ])
-        # Đã nêu đích danh vị vua ("Vua Trần Nhân Tông là ai?") thì không còn mơ hồ
-        names_specific_king = any(k in unacc_q for k in [
-            "thai tong", "thanh tong", "nhan tong", "tran kham", "tran canh", "phat hoang"
+        has_specific_king_clue = any(k in unacc_q for k in [
+            "thai tong", "thanh tong", "nhan tong", "tran kham", "tran canh", "phat hoang",
+            "truc lam", "di tu", "xuat gia", "yen tu", "nhuong ngoi", "vua nao",
+            "ong vua nao", "vi vua nao", "thach ma", "ham nghi", "quang trung", "le loi", "ngo quyen"
         ])
-        is_king_action_query = has_king_kw and has_action_kw and not names_specific_king
+        is_king_action_query = has_king_kw and has_action_kw and not has_specific_king_clue
         has_active_context = bool(session.get("last_unit_id"))
 
         if is_king_action_query and not has_active_context:
@@ -795,7 +951,8 @@ class ConversationalContextManager:
             "bach dang", "van don", "ham tu", "chuong duong", "tay ket", "dien hong",
             "binh than", "dong bo dau", "binh le nguyen", "thoat hoan", "toa do",
             "o ma nhi", "tran quoc toan", "tran binh trong", "tran hung dao", "tran thu do",
-            "tran khanh du", "tran nhan tong", "binh thu yeu luoc", "ngu binh"
+            "pham ngu lao", "dan sot", "tran quang khai", "tran nhan tong", "yen tu", "di tu",
+            "vuon khong", "bo thanh trong", "tran khanh du", "binh thu yeu luoc", "ngu binh"
         ]
         has_explicit_standalone = any(es in unacc_q for es in explicit_standalones)
 
@@ -808,6 +965,42 @@ class ConversationalContextManager:
             event = session.get("last_event") or f"kháng chiến chống quân Mông Cổ năm {time_p}"
             rewritten = f"{king} đã xử lý thế nào khi {event}?"
             return rewritten, True, None
+
+        # Mẫu 2B: Phản hồi câu hỏi gợi mở (follow_up) của AI ("Có ạ", "Kể tiếp đi", "Em không nhớ", "Là chữ gì vậy thầy?")
+        FOLLOWUP_CONTINUATION_MAP = {
+            "TQT_WHY_ORANGE": "Trần Quốc Toản đã thêu sáu chữ vàng gì lên lá cờ của mình và lập chiến công ra sao?",
+            "TQT_SIX_GOLDEN_WORDS": "Tổng quan về tấm gương yêu nước của thiếu niên anh hùng Trần Quốc Toản?",
+            "BINH_THAN_CONFERENCE": "Vì sao Trần Quốc Toản lại bóp nát quả cam tại bến Bình Than năm 1282?",
+            "DIEN_HONG_CONFERENCE": "Hoàn cảnh ra đời và ý nghĩa của Hịch tướng sĩ và tinh thần Sát Thát năm 1285?",
+            "HICH_TUONG_SI": "Các trận tổng phản công Tây Kết, Hàm Tử, Chương Dương năm 1285 diễn ra như thế nào?",
+            "KC1_WHY_INVADE": "Diễn biến trận mở màn Bình Lệ Nguyên năm 1258 diễn ra như thế nào?",
+            "KC1_BINH_LE_NGUYEN": "Sau trận Bình Lệ Nguyên nhà Trần thực hiện kế sách vườn không nhà trống như thế nào năm 1258?",
+            "KC1_VUON_KHONG_NHA_TRONG": "Sau khi rút khỏi Thăng Long thực hiện vườn không nhà trống quân Trần làm gì tiếp theo để phản công tại Đông Bộ Đầu năm 1258?",
+            "KC1_DONG_BO_DAU": "Câu nói Đầu thần chưa rơi xuống đất xin bệ hạ đừng lo của Trần Thủ Độ có ý nghĩa gì?",
+            "KC2_OVERVIEW": "Các trận phản công Tây Kết, Hàm Tử, Chương Dương năm 1285 diễn ra như thế nào?",
+            "KC2_HAM_TU_CHUONG_DUONG": "Vì sao Thoát Hoan phải chui vào ống đồng tháo chạy năm 1285?",
+            "KC3_OVERVIEW": "Chiến thắng Vân Đồn tiêu diệt đoàn thuyền lương của Trần Khánh Dư năm 1288 diễn ra thế nào?",
+            "KC3_VAN_DON": "Trận quyết chiến trên sông Bạch Đằng tháng 4 năm 1288 diễn ra như thế nào?",
+            "KC3_BACH_DANG_HOW": "Nguyên nhân thắng lợi và ý nghĩa lịch sử của ba lần kháng chiến chống quân Mông Nguyên là gì?",
+            "GAME_NGU_BINH_U_NONG": "Tại sao nhà Trần dùng kế sách vườn không nhà trống khiến quân giặc đói lương?",
+            "GAME_TRAN_KHANH_DU": "Chiến thắng Vân Đồn tiêu diệt đoàn thuyền lương Trương Văn Hổ năm 1288 diễn ra như thế nào?",
+            "GAME_BINH_THU_YEU_LUOC": "Hoàn cảnh ra đời và ý nghĩa của bài Hịch tướng sĩ của Trần Quốc Tuấn?",
+            "GAME_TRAN_NHAN_TONG": "Hội nghị Bình Than năm 1282 do vua Trần Nhân Tông triệu tập đã quyết định những gì?"
+        }
+        is_followup_reply = (
+            any(k in unacc_q for k in [
+                "ke tiep", "noi tiep", "tiep tuc di", "giai thich luon", "noi ro hon",
+                "em khong nho", "khong nho a", "chua nho", "quen roi thay",
+                "la chu gi", "la cau gi", "la tran nao vay", "co a thay ke", "vang thay ke"
+            ])
+            or cleaned_no_punct in ["co", "co a", "da co", "vang", "vang a", "ke di", "ke tiep di", "tiep di thay"]
+        )
+        if is_followup_reply and has_active_context and not has_explicit_standalone:
+            last_uid = session.get("last_unit_id", "")
+            if last_uid in FOLLOWUP_CONTINUATION_MAP:
+                return FOLLOWUP_CONTINUATION_MAP[last_uid], True, None
+            time_p = session.get("last_time_period", "1285")
+            return f"Diễn biến và ý nghĩa tiếp theo của cuộc kháng chiến chống quân Mông Nguyên năm {time_p} là gì?", True, None
 
         # Mẫu 2: "Nhà vua làm gì tiếp theo?" / "Sau đó vua làm gì?" / "Vậy sau khi rút khỏi Thăng Long thì quân ta làm gì?"
         is_next_action_query = any(k in unacc_q for k in [
@@ -941,8 +1134,11 @@ class ConversationalContextManager:
         event = unit_record.get("event", "")
         entity = unit_record.get("entity", "")
 
-        # Không ghi nhớ ngữ cảnh các câu OOD hay chào hỏi đơn thuần
-        if uid in ["OOD_RANDOM_AND_OFFTOPIC", "INTENT_GREETING", "INTENT_THANKS"]:
+        # Không ghi nhớ ngữ cảnh các câu OOD hay chào hỏi / hỏi thông tin trợ lý / câu đố nhanh
+        if uid in [
+            "OOD_RANDOM_AND_OFFTOPIC", "INTENT_GREETING", "INTENT_THANKS",
+            "INTENT_ASSISTANT_IDENTITY", "INTERACTIVE_CHAT_QUIZ"
+        ]:
             session["history"].append({"user": query, "assistant": answer, "unit_id": uid})
             return
 

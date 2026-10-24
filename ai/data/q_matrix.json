@@ -284,6 +284,119 @@
       "SKILL_PHAM_NGU_LAO"
     ]
   },
+  "MILITARY_ART_TRAN_DYNASTY": {
+    "topic": "Nghệ thuật quân sự độc đáo thời Trần (Lấy yếu thắng mạnh, lấy đoản binh thắng trường trận)",
+    "category": "NGUYEN_NHAN_Y_NGHIA",
+    "entity": "Trần Hưng Đạo & Quân dân nhà Trần",
+    "event": "Nghệ thuật quân sự ba lần kháng chiến (1258 - 1288)",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.75,
+    "skills": [
+      "SKILL_MILITARY_ART"
+    ]
+  },
+  "ROLE_OF_ETHNIC_MINORITIES": {
+    "topic": "Vai trò của đồng bào dân tộc thiểu số và các tù trưởng miền núi (Hà Đặc, Hà Chương, Hà Khuất, Nguyễn Thế Lộc)",
+    "category": "DANH_TUONG_GIA_THAN",
+    "entity": "Hà Khuất, Hà Đặc, Hà Chương, Nguyễn Thế Lộc",
+    "event": "Chiến đấu bảo vệ biên cương phía Bắc (1258 - 1288)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.45,
+    "skills": [
+      "SKILL_ETHNIC_MINORITIES",
+      "SKILL_HA_KHUAT"
+    ]
+  },
+  "GAME_TRAN_NHAN_TONG": {
+    "topic": "Vua Trần Nhân Tông qua các giai đoạn cuộc đời",
+    "category": "DANH_TUONG_GIA_THAN",
+    "entity": "Trần Nhân Tông (Trần Khâm)",
+    "event": "Kháng chiến 1285 và 1287 – 1288",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_TRAN_NHAN_TONG"
+    ]
+  },
+  "GAME_NGU_BINH_U_NONG": {
+    "topic": "Chính sách ngụ binh ư nông",
+    "category": "NEN_TANG_QUAN_SU",
+    "entity": "Nhà Lý, nhà Trần",
+    "event": "Tổ chức quân đội thời Lý – Trần",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_NGU_BINH_U_NONG"
+    ]
+  },
+  "GAME_TRAN_KHANH_DU": {
+    "topic": "Trần Khánh Dư – từ người buôn than ở Chí Linh đến trận Vân Đồn",
+    "category": "DANH_TUONG_GIA_THAN",
+    "entity": "Nhân Huệ vương Trần Khánh Dư",
+    "event": "Trận Vân Đồn (cuối 1287 – đầu 1288)",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_TRAN_KHANH_DU"
+    ]
+  },
+  "GAME_BINH_THU_YEU_LUOC": {
+    "topic": "Binh thư yếu lược của Trần Quốc Tuấn",
+    "category": "DIEN_HONG_HICH_TUONG_SI",
+    "entity": "Trần Quốc Tuấn (Trần Hưng Đạo)",
+    "event": "Chuẩn bị kháng chiến lần thứ hai",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_BINH_THU_YEU_LUOC"
+    ]
+  },
+  "HISTORICAL_LESSONS_TODAY": {
+    "topic": "Bài học kinh nghiệm lịch sử từ ba lần kháng chiến thời Trần đối với sự nghiệp bảo vệ Tổ quốc hiện nay",
+    "category": "NGUYEN_NHAN_Y_NGHIA",
+    "entity": "Dân tộc Việt Nam",
+    "event": "Bài học giữ nước từ Hào khí Đông A",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.85,
+    "skills": [
+      "SKILL_HISTORICAL_LESSONS"
+    ]
+  },
+  "GAME_QUAN_THANH_DUC_SAT_THAT": {
+    "topic": "Cấm quân Thánh Dực, Tinh binh Sát Thát và Nón Ma Lôi thời Trần",
+    "category": "NEN_TANG_QUAN_SU",
+    "entity": "Quân Thánh Dực & Quân Sát Thát",
+    "event": "Tổ chức lực lượng vũ trang nhà Trần (1258 - 1288)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.45,
+    "skills": [
+      "SKILL_THANH_DUC_SAT_THAT",
+      "SKILL_SAT_THAT"
+    ]
+  },
+  "GAME_VAN_KIEP_THIEN_TRUONG_BASES": {
+    "topic": "Hệ thống căn cứ địa chiến lược: Vạn Kiếp – Nội Bàng và Hậu phương Thiên Trường – Trường Yên",
+    "category": "NEN_TANG_QUAN_SU",
+    "entity": "Trần Hưng Đạo & Vương triều Trần",
+    "event": "Bố phòng chiến lược trong ba lần kháng chiến (1258 - 1288)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.55,
+    "skills": [
+      "SKILL_STRATEGIC_BASES"
+    ]
+  },
+  "GAME_TRUNG_THAN_VS_PHAN_BOI": {
+    "topic": "Sự đối lập giữa trung thần tiết nghĩa nhà Trần và kẻ phản bội đầu hàng (Trần Ích Tắc, Trần Kiện)",
+    "category": "DANH_TUONG_GIA_THAN",
+    "entity": "Trần Bình Trọng, Trần Quốc Tuấn vs. Trần Ích Tắc, Trần Kiện",
+    "event": "Kháng chiến chống quân Nguyên lần 2 (1285)",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.65,
+    "skills": [
+      "SKILL_LOYALTY_VS_TREASON",
+      "SKILL_TRAN_BINH_TRONG"
+    ]
+  },
   "INTENT_GREETING": {
     "topic": "Chào hỏi làm quen tự nhiên",
     "category": "CONVERSATIONAL_INTENT",
@@ -359,50 +472,6 @@
     "difficulty": 0.1,
     "skills": [
       "SKILL_OOD"
-    ]
-  },
-  "GAME_NGU_BINH_U_NONG": {
-    "topic": "Chính sách ngụ binh ư nông",
-    "category": "NEN_TANG_QUAN_SU",
-    "entity": "Nhà Lý, nhà Trần",
-    "event": "Tổ chức quân đội thời Lý – Trần",
-    "cognitive_level": "THONG_HIEU",
-    "difficulty": 0.4,
-    "skills": [
-      "SKILL_NGU_BINH_U_NONG"
-    ]
-  },
-  "GAME_TRAN_KHANH_DU": {
-    "topic": "Trần Khánh Dư – từ người buôn than ở Chí Linh đến trận Vân Đồn",
-    "category": "DANH_TUONG_GIA_THAN",
-    "entity": "Nhân Huệ vương Trần Khánh Dư",
-    "event": "Trận Vân Đồn (cuối 1287 – đầu 1288)",
-    "cognitive_level": "NHAN_BIET",
-    "difficulty": 0.4,
-    "skills": [
-      "SKILL_TRAN_KHANH_DU"
-    ]
-  },
-  "GAME_BINH_THU_YEU_LUOC": {
-    "topic": "Binh thư yếu lược của Trần Quốc Tuấn",
-    "category": "DIEN_HONG_HICH_TUONG_SI",
-    "entity": "Trần Quốc Tuấn (Trần Hưng Đạo)",
-    "event": "Chuẩn bị kháng chiến lần thứ hai",
-    "cognitive_level": "NHAN_BIET",
-    "difficulty": 0.4,
-    "skills": [
-      "SKILL_BINH_THU_YEU_LUOC"
-    ]
-  },
-  "GAME_TRAN_NHAN_TONG": {
-    "topic": "Vua Trần Nhân Tông qua các giai đoạn cuộc đời",
-    "category": "DANH_TUONG_GIA_THAN",
-    "entity": "Trần Nhân Tông (Trần Khâm)",
-    "event": "Kháng chiến 1285 và 1287 – 1288",
-    "cognitive_level": "NHAN_BIET",
-    "difficulty": 0.4,
-    "skills": [
-      "SKILL_TRAN_NHAN_TONG"
     ]
   }
 }

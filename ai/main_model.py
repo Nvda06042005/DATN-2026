@@ -51,23 +51,31 @@ class MainNLPEngine:
         cls,
         query: str,
         character_id: Optional[str] = None,
-        session_id: str = "default"
+        session_id: str = "default",
+        student_id: Optional[str] = None
     ) -> Dict[str, Any]:
         model = cls.get_model()
         return model.generate_natural_response(
             query=query,
             character_id=character_id,
-            session_id=session_id
+            session_id=session_id,
+            student_id=student_id or session_id
         )
 
 
 def ask_dong_a_ai(
     query: str,
     character_id: Optional[str] = None,
-    session_id: str = "default"
+    session_id: str = "default",
+    student_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """Hàm tiện ích gọi trực tiếp từ API hoặc từ chương trình chính."""
-    return MainNLPEngine.ask(query=query, character_id=character_id, session_id=session_id)
+    return MainNLPEngine.ask(
+        query=query,
+        character_id=character_id,
+        session_id=session_id,
+        student_id=student_id
+    )
 
 
 if __name__ == "__main__":

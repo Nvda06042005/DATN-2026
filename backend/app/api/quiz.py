@@ -5,7 +5,10 @@ from app.models.schemas import (
     StudentAnswerSubmission,
     BKTUpdateResponse,
     PersonalizedRecommendationResponse,
-    PersonalizedRecommendationItem
+    PersonalizedRecommendationItem,
+    StudentAccountAnalysisResponse,
+    ShortAnswerSubmission,
+    ShortAnswerEvaluationResponse,
 )
 
 # Các module AI nằm trong thư mục ai/ (xem app/__init__.py)
@@ -69,7 +72,7 @@ async def submit_student_answer(sub: StudentAnswerSubmission):
 async def get_personalized_recommendations(student_id: str, top_k: int = Query(3, ge=1, le=10)):
     """
     Gợi ý cá nhân hóa các cụm tri thức yếu (P(L) < 0.60) cần ôn tập trọng tâm.
-    Dựa trên Q-matrix (32 kỹ năng, độ khó, mức độ nhận thức).
+    Dựa trên Q-matrix (39 kỹ năng, độ khó, mức độ nhận thức).
     """
     try:
         recs = bkt_engine.recommend_personalized_review(student_id=student_id, top_k=top_k)
@@ -82,3 +85,44 @@ async def get_personalized_recommendations(student_id: str, top_k: int = Query(3
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi truy vấn gợi ý cá nhân hóa: {str(e)}")
 
+
+@router.get("/student-profile/{student_id}", response_model=StudentAccountAnalysisResponse)
+async def get_student_account_analysis(student_id: str):
+    """
+    Đánh giá dữ liệu toàn diện tài khoản học sinh (BKT + Bloom + 3 cuộc kháng chiến)
+    và tự động đưa ra phương án học + danh mục tài liệu SGK phù hợp nhất.
+    """
+    try:
+        profile = bkt_engine.analyze_student_account_profile(student_id=student_id)
+        return StudentAccountAnalysisResponse(**profile)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi phân tích hồ sơ tài khoản học sinh: {str(e)}")
+
+
+@router.post("/evaluate-essay", response_model=ShortAnswerEvaluationResponse)
+async def evaluate_student_short_answer(sub: ShortAnswerSubmission):
+    """
+    Chấm câu trả lời tự luận ngắn của học sinh bằng AI ngữ nghĩa, chỉ ra ý đã nêu đúng / ý còn thiếu
+    và tự động cập nhật hồ sơ năng lực BKT của tài khoản.
+    """
+    try:
+        result = bkt_engine.evaluate_short_answer(
+            student_id=sub.student_id,
+            unit_id=sub.unit_id,
+            student_answer=sub.student_answer
+        )
+        return ShortAnswerEvaluationResponse(**result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi chấm câu trả lời tự luận ngắn: {str(e)}")
+
+
+@router.get("/adaptive-exam/{student_id}")
+async def get_adaptive_exam_for_student(student_id: str, num_questions: int = Query(5, ge=3, le=10)):
+    """
+    Sinh đề kiểm tra thích ứng cá nhân hóa dựa trên đường cong quên Ebbinghaus,
+    tốc độ học (Learning Velocity) và các lỗ hổng kiến thức BKT của học sinh.
+    """
+    try:
+        return bkt_engine.generate_adaptive_exam(student_id=student_id, num_questions=num_questions)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi sinh đề thi thích ứng BKT: {str(e)}")

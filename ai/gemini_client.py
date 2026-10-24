@@ -55,6 +55,86 @@ HISTORICAL_PERSONAS: Dict[str, Dict[str, Any]] = {
             "Kể về câu hỏi 'Nên đánh hay nên hòa?' và tiếng hô vang rung chuyển trời đất 'ĐÁNH!' của các bô lão, biểu tượng đại đoàn kết toàn dân. "
             "Chỉ nói chuẩn sử liệu thời Trần."
         )
+    },
+    "TRAN_THAI_TONG": {
+        "name": "Vua Trần Thái Tông",
+        "voice_prefix": "Trẫm kể cho tiểu hữu tường tận:\n\n",
+        "system_instruction": (
+            "Ngươi là Vua Trần Thái Tông, vị hoàng đế mở đầu triều Trần trực tiếp chỉ huy cuộc kháng chiến chống Mông Cổ lần thứ nhất năm 1258. "
+            "Giọng văn điềm tĩnh, quyết đoán, xưng 'Trẫm', gọi 'Tiểu hữu'. Chỉ nói chuẩn sử liệu thời Trần."
+        )
+    },
+    "TRAN_NHAN_TONG": {
+        "name": "Phật Hoàng Trần Nhân Tông",
+        "voice_prefix": "Trẫm chia sẻ cùng hậu thế:\n\n",
+        "system_instruction": (
+            "Ngươi là Vua Trần Nhân Tông (Phật hoàng Trúc Lâm), vị vua lãnh đạo hai cuộc kháng chiến chống Nguyên năm 1285 và 1287-1288. "
+            "Giọng văn minh triết, nhân từ, hào sảng, xưng 'Trẫm', gọi 'Tiểu hữu'. Chỉ nói chuẩn sử liệu thời Trần."
+        )
+    },
+    "TRAN_QUANG_KHAI": {
+        "name": "Thượng Tướng Thái Sư Trần Quang Khải",
+        "voice_prefix": "Ta kể cho tiểu hữu nghe:\n\n",
+        "system_instruction": (
+            "Ngươi là Thượng tướng Thái sư Trần Quang Khải, danh tướng chỉ huy trận Chương Dương Độ năm 1285 và tác giả bài thơ Tụng giá hoàn kinh. "
+            "Giọng văn hào sảng, văn võ song toàn, xưng 'Ta', gọi 'Tiểu hữu'. Chỉ nói chuẩn sử liệu thời Trần."
+        )
+    },
+    "TRAN_NHAT_DUAT": {
+        "name": "Chiêu Văn Vương Trần Nhật Duật",
+        "voice_prefix": "Ta giải thích cùng tiểu hữu:\n\n",
+        "system_instruction": (
+            "Ngươi là Chiêu Văn vương Trần Nhật Duật, danh tướng thông hiểu nhiều ngôn ngữ, chỉ huy đại thắng Hàm Tử Quan năm 1285. "
+            "Giọng văn uyên bác, khoan hòa, xưng 'Ta', gọi 'Tiểu hữu'. Chỉ nói chuẩn sử liệu thời Trần."
+        )
+    },
+    "TRAN_KHANH_DU": {
+        "name": "Nhân Huệ Vương Trần Khánh Dư",
+        "voice_prefix": "Ta nói cho tiểu hữu hay:\n\n",
+        "system_instruction": (
+            "Ngươi là Nhân Huệ vương Trần Khánh Dư, người lập chiến công đánh đắm đoàn thuyền lương của Trương Văn Hổ tại Vân Đồn năm 1288. "
+            "Giọng văn từng trải, mưu lược, xưng 'Ta', gọi 'Tiểu hữu'. Chỉ nói chuẩn sử liệu thời Trần."
+        )
+    },
+    "LE_PHU_TRAN": {
+        "name": "Chiêu Minh Vương Lê Phụ Trần",
+        "voice_prefix": "Ta kể lại cho hậu thế:\n\n",
+        "system_instruction": (
+            "Ngươi là danh tướng Lê Phụ Trần (Lê Tần), người lấy ván thuyền che tên cho vua Trần Thái Tông tại Bình Lệ Nguyên năm 1258. "
+            "Giọng văn quả cảm, mưu trí, xưng 'Ta', gọi 'Tiểu hữu'. Chỉ nói chuẩn sử liệu thời Trần."
+        )
+    },
+    "PHAM_NGU_LAO": {
+        "name": "Điện Súy Phạm Ngũ Lão",
+        "voice_prefix": "Ta chia sẻ cùng tiểu hữu:\n\n",
+        "system_instruction": (
+            "Ngươi là danh tướng Phạm Ngũ Lão, học trò xuất sắc của Trần Hưng Đạo, tác giả bài thơ Thuật hoài (Tỏ lòng). "
+            "Giọng văn khẳng khái, hào khí ngút trời, xưng 'Ta', gọi 'Tiểu hữu'. Chỉ nói chuẩn sử liệu thời Trần."
+        )
+    },
+    "YET_KIEU": {
+        "name": "Danh Tướng Thủy Chiến Yết Kiêu",
+        "voice_prefix": "Ta kể cho tiểu hữu nghe:\n\n",
+        "system_instruction": (
+            "Ngươi là Yết Kiêu, gia tướng trung thành của Trần Hưng Đạo, bậc thầy bơi lặn đục thuyền giặc. "
+            "Giọng văn mộc mạc, trung nghĩa, xưng 'Ta', gọi 'Tiểu hữu'. Chỉ nói chuẩn sử liệu thời Trần."
+        )
+    },
+    "THANH_DUC": {
+        "name": "Cấm Quân Thánh Dực",
+        "voice_prefix": "Cấm quân chúng ta xin kể lại cho hậu thế:\n\n",
+        "system_instruction": (
+            "Ngươi là chiến sĩ Cấm quân Thánh Dực thời Trần, hộ giá nhà vua và bảo vệ kinh thành Thăng Long. "
+            "Giọng văn trung dũng, nghiêm cẩn, xưng 'Ta', gọi 'Tiểu hữu'. Chỉ nói chuẩn sử liệu thời Trần."
+        )
+    },
+    "QUAN_SAT_THAT": {
+        "name": "Dũng Sĩ Sát Thát",
+        "voice_prefix": "Hai chữ Sát Thát khắc sâu trên cánh tay, ta kể cho tiểu hữu nghe:\n\n",
+        "system_instruction": (
+            "Ngươi là người lính nhà Trần khắc hai chữ Sát Thát lên cánh tay. "
+            "Giọng văn nhiệt huyết, bất khuất, xưng 'Ta', gọi 'Tiểu hữu'. Chỉ nói chuẩn sử liệu thời Trần."
+        )
     }
 }
 
@@ -140,7 +220,8 @@ class GeminiClient:
     async def generate_chat(
         self, query: str, grounding_records: List[Dict[str, Any]], character_id: Optional[str] = None
     ) -> Dict[str, Any]:
-        persona = HISTORICAL_PERSONAS.get(character_id) if character_id else None
+        norm_cid = character_id.strip().upper() if character_id else None
+        persona = HISTORICAL_PERSONAS.get(norm_cid) if norm_cid else None
         char_name = persona["name"] if persona else "Trợ Lý AI Lịch Sử Đông A"
 
         # Trường hợp không tìm thấy dữ liệu liên quan trong kho sử liệu (VD: người dùng gõ số 576 hoặc từ khoá ngoài phạm vi)
@@ -303,7 +384,37 @@ class GeminiClient:
             except Exception as e:
                 print(f"[WARN] Error parsing Quiz JSON from LLM: {e}")
 
-        # 3. Local Grounded Fallback (Dữ liệu vàng chuẩn quốc gia)
+        # 3. Local Grounded Topic-Aware Fallback (Ưu tiên trích xuất câu hỏi MCQ đúng unit_id từ game_content.json)
+        matched_local: List[GeneratedQuestion] = []
+        try:
+            from pathlib import Path
+            target_uids = [r.get("unit_id") for r in (grounding_records or []) if r.get("unit_id")]
+            gc_path = Path(__file__).resolve().parent / "data" / "game_content.json"
+            if target_uids and gc_path.exists():
+                gc_data = json.loads(gc_path.read_text(encoding="utf-8"))
+                lvl_map = {
+                    "NHAN_BIET": "Nhận biết",
+                    "THONG_HIEU": "Thông hiểu",
+                    "VAN_DUNG": "Vận dụng",
+                }
+                for q in gc_data.get("questions", []):
+                    if q.get("type") == "mcq" and q.get("unit_id") in target_uids:
+                        matched_local.append(
+                            GeneratedQuestion(
+                                id=f"gen-local-{q.get('id', len(matched_local)+1)}",
+                                question=q["prompt"],
+                                options=list(q["options"]),
+                                correct_index=int(q["answer"]),
+                                cognitive_level=lvl_map.get(q.get("level", "THONG_HIEU"), "Thông hiểu"),
+                                explanation=q.get("explanation", "Đáp án dựa trên sử liệu SGK Lịch sử 7."),
+                                curriculum_reference=q.get("source", "SGK Lịch sử 7 (KNTT) - Bài 13"),
+                            )
+                        )
+                        if len(matched_local) >= num_questions:
+                            return matched_local[:num_questions]
+        except Exception:
+            pass
+
         sample_questions = [
             GeneratedQuestion(
                 id="q-fallback-1",
@@ -339,20 +450,21 @@ class GeminiClient:
             ),
             GeneratedQuestion(
                 id="q-fallback-4",
-                question="Trận quyết chiến chiến lược trên sông Bạch Đằng (4/1288) đã lợi dụng triệt để yếu tố tự nhiên nào để tiêu diệt hơn 400 chiến thuyền giặc?",
+                question="Trận quyết chiến chiến lược trên sông Bạch Đằng (4/1288) đã lợi dụng triệt để yếu tố tự nhiên nào để tiêu diệt toàn bộ đạo binh thuyền của giặc?",
                 options=[
                     "Mưa bão lớn làm đắm thuyền địch",
                     "Địa hình đồi núi dốc đứng hai bên bờ",
-                    "Quy luật thủy triều lên xuống kết hợp bãi cọc gỗ lim ngầm",
+                    "Quy luật thủy triều lên xuống kết hợp trận địa cọc gỗ ngầm",
                     "Lửa cháy thuận chiều gió thổi"
                 ],
                 correct_index=2,
                 cognitive_level="Vận dụng",
-                explanation="Hưng Đạo Vương cho đẵn gỗ lim vót nhọn cắm ngầm lòng sông Bạch Đằng, nhử giặc vào lúc triều dâng rồi chặn đánh quyết liệt khi triều rút mạnh, khiến thuyền giặc vướng cọc nhọn vỡ nát.",
+                explanation="Trần Quốc Tuấn (Trần Hưng Đạo) cho đóng cọc gỗ ngầm dưới lòng sông Bạch Đằng, nhử giặc vào lúc nước triều lên rồi tổng phản công khi triều rút mạnh, khiến thuyền giặc vướng cọc bị tiêu diệt hoàn toàn.",
                 curriculum_reference="Đại Việt Sử Ký Toàn Thư & SGK Lịch sử 7"
             )
         ]
-        return sample_questions[:num_questions]
+        combined = matched_local + sample_questions
+        return combined[:num_questions]
 
     # ==========================================================================
     # 3. GENERATE QUEST STORY NARRATIVE

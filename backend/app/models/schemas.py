@@ -1,4 +1,4 @@
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict, Any
 from pydantic import BaseModel, Field
 
 # ==============================================================================
@@ -15,9 +15,21 @@ class GroundingSource(BaseModel):
     curriculum_match: Optional[str] = Field(None, description="Mục bài học tương ứng trong chương trình GDPT 2018")
     fact_chunk: str = Field(description="Đoạn tư liệu sử liệu được trích xuất làm căn cứ trả lời")
 
+class StudyMaterialItem(BaseModel):
+    unit_id: str
+    title: str
+    doc_source: str
+    reading_section: str
+    summary_points: List[str] = Field(default_factory=list)
+    practice_prompt: str = ""
+    bloom_target: str = "NHAN_BIET"
+    current_mastery: Optional[float] = None
+    mastery_status: Optional[str] = None
+
 class ChatRequest(BaseModel):
     query: str = Field(..., description="Câu hỏi của học sinh về Lịch sử thời Trần")
     session_id: Optional[str] = Field(None, description="Mã phiên hội thoại của học sinh")
+    student_id: Optional[str] = Field("student_demo_01", description="Mã tài khoản học sinh để đồng bộ hồ sơ BKT")
     character_id: Optional[str] = Field(
         None, 
         description="ID nhân vật lịch sử nhập vai nếu có (TRAN_QUOC_TUAN, TRAN_THAI_TONG, TRAN_QUOC_TOAN...)"
@@ -30,6 +42,27 @@ class ChatResponse(BaseModel):
     grounding_sources: List[GroundingSource] = Field(default_factory=list, description="Căn cứ sử liệu")
     badge_unlocked: Optional[str] = Field(None, description="Huy hiệu lịch sử mở khóa nếu có")
     exp_reward: int = Field(20, description="Điểm kinh nghiệm thưởng cho câu hỏi hay")
+    recommended_materials: List[StudyMaterialItem] = Field(default_factory=list, description="Tài liệu học tập gợi ý theo chủ đề vừa hỏi")
+    study_hint: Optional[str] = Field(None, description="Gợi ý lộ trình học tập cá nhân hóa từ hồ sơ học sinh")
+    student_mastery_summary: Optional[Dict[str, Any]] = Field(None, description="Tóm tắt nhanh tiến độ BKT của tài khoản sau câu hỏi")
+
+class TeachKnowledgeRequest(BaseModel):
+    unit_id: Optional[str] = Field(None, description="Mã chủ điểm mới (tự sinh nếu để trống)")
+    topic: str = Field(..., description="Tên chủ đề lịch sử mới do giáo viên bổ sung")
+    entity: Optional[str] = Field("Nhân vật / Sự kiện thời Trần", description="Nhân vật hoặc thực thể chính")
+    event: Optional[str] = Field("Kháng chiến chống Mông - Nguyên", description="Sự kiện gắn liền")
+    fact_chunk: str = Field(..., description="Căn cứ sử liệu chuẩn để trích dẫn (SGK / Đại Việt Sử Ký Toàn Thư)")
+    answer: str = Field(..., description="Nội dung bài giảng chuẩn do giáo viên biên soạn")
+    sample_questions: List[str] = Field(..., description="Danh sách câu hỏi mẫu của học sinh cho chủ đề này")
+    cognitive_level: Optional[str] = Field("THONG_HIEU", description="Mức độ nhận thức (NHAN_BIET, THONG_HIEU, VAN_DUNG)")
+    difficulty: Optional[float] = Field(0.5, description="Độ khó (0.1 - 0.9)")
+
+class TeachKnowledgeResponse(BaseModel):
+    status: str
+    unit_id: str
+    topic: str
+    added_training_samples: int
+    total_units: int
 
 # ==============================================================================
 # SCHEMAS FOR QUIZ GENERATION (TEACHER AI STUDIO)
@@ -106,8 +139,66 @@ class PersonalizedRecommendationItem(BaseModel):
     difficulty: float
     cognitive_level: str
     reason: str
+    study_material: Optional[StudyMaterialItem] = None
 
 class PersonalizedRecommendationResponse(BaseModel):
     student_id: str
     total_recommendations: int
     recommendations: List[PersonalizedRecommendationItem]
+
+class CampaignMasteryItem(BaseModel):
+    campaign_id: str
+    campaign_name: str
+    average_mastery: float
+    mastered_units: int
+    total_units: int
+    status: str
+
+class CognitiveMasteryItem(BaseModel):
+    level_code: str
+    level_name: str
+    average_mastery: float
+    practiced_units: int
+    total_units: int
+
+class StudyPlanStep(BaseModel):
+    step: int
+    phase_name: str
+    action_title: str
+    description: str
+    target_units: List[str]
+    estimated_minutes: int
+
+class StudentAccountAnalysisResponse(BaseModel):
+    student_id: str
+    overall_mastery: float
+    student_rank_title: str
+    total_attempts: int
+    total_correct: int
+    accuracy_rate: float
+    chat_questions_asked: int
+    ai_evaluator_comment: str
+    strengths: List[str]
+    weaknesses: List[str]
+    campaign_breakdown: List[CampaignMasteryItem]
+    cognitive_breakdown: List[CognitiveMasteryItem]
+    study_plan: List[StudyPlanStep]
+    recommended_materials: List[StudyMaterialItem]
+
+class ShortAnswerSubmission(BaseModel):
+    student_id: str = Field("student_demo_01", description="ID tài khoản học sinh")
+    unit_id: str = Field(..., description="ID chủ điểm lịch sử cần chấm tự luận ngắn")
+    student_answer: str = Field(..., description="Câu trả lời tự luận ngắn của học sinh")
+
+class ShortAnswerEvaluationResponse(BaseModel):
+    student_id: str
+    unit_id: str
+    topic: str
+    score_10: float
+    coverage_ratio: float
+    is_passed: bool
+    matched_concepts: List[str]
+    missing_concepts: List[str]
+    ai_feedback: str
+    standard_reference_answer: str
+    bkt_update: BKTUpdateResponse

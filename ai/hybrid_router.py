@@ -15,7 +15,13 @@ import time
 import httpx
 from pathlib import Path
 from typing import Dict, Any, Optional
-from app.config import settings
+try:
+    from app.config import settings
+except ImportError:
+    class _FallbackSettings:
+        GEMINI_API_KEY = ""
+        GEMINI_MODEL = "gemini-flash-latest"
+    settings = _FallbackSettings()
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -147,6 +153,11 @@ class HybridNLPRouter:
         3. Nếu timeout / offline / lỗi -> Trả về kết quả Local NLG ngay lập tức (<10ms)
         """
         unit_id = local_result.get("unit_id", "UNKNOWN")
+        if unit_id in ["INTERACTIVE_CHAT_QUIZ", "INTERACTIVE_CHAT_QUIZ_GRADE", "ADAPTIVE_CUSTOM_EXAM"] or str(unit_id).startswith("CUSTOM_"):
+            res = dict(local_result)
+            res["served_by"] = "Local Interactive BKT & Dynamic Knowledge Engine"
+            return res
+
         cache_key = self._get_cache_key(query, unit_id, character_id)
 
         # 1. Trả về từ Cache nếu có
@@ -165,6 +176,9 @@ class HybridNLPRouter:
 
         EXCLUDED_FROM_LLM_POLISH = [
             "OOD_RANDOM_AND_OFFTOPIC", "INTENT_GREETING", "INTENT_THANKS", "INTENT_STUDENT_STRUGGLE",
+            "INTENT_ASSISTANT_IDENTITY", "MULTI_INTENT_SYNTHESIS",
+            "INTERACTIVE_CHAT_QUIZ", "INTERACTIVE_CHAT_QUIZ_GRADE", "ADAPTIVE_CUSTOM_EXAM",
+            "CORRECTION_KG_CONTRADICTION",
             "CLARIFY_AMBIGUOUS_TRAN_KING", "CORRECTION_FALSE_PREMISE_ORANGE",
             "CORRECTION_FALSE_PREMISE_BACH_DANG", "ABSENT_HISTORICAL_FACT",
             "CROSS_ERA_HAM_NGHI", "CROSS_ERA_NGO_QUYEN", "CROSS_ERA_QUANG_TRUNG_LE_LOI_LY_THUONG_KIET",
