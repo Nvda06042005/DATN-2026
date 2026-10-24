@@ -26,7 +26,7 @@ services:
         fromService:
           type: web
           name: dong-a-ai
-          envVarKey: AI_PUBLIC_URL
+          envVarKey: RENDER_EXTERNAL_URL
       - key: AI_SERVICE_TOKEN
         fromService:
           type: web
@@ -48,10 +48,5 @@ services:
         value: gemini-flash-latest
       - key: GEMINI_API_KEY
         sync: false
-      - key: AI_PUBLIC_URL
-        fromService:
-          type: web
-          name: dong-a-ai
-          envVarKey: RENDER_EXTERNAL_URL
       - key: AI_SERVICE_TOKEN
         generateValue: true
