@@ -7,7 +7,7 @@
 ```
 React Native (Expo) ──HTTPS / WebSocket──► NestJS (Node.js) ──SQL──► PostgreSQL (Supabase)
   frontend/                                  backend/          │
-                                                               └─HTTP nội bộ─► Dịch vụ AI Python (FastAPI)
+                                                               └─HTTPS + token─► Dịch vụ AI Python (FastAPI)
                                                                                ai/: NLP + RAG + LLM, BKT
 ```
 
@@ -84,8 +84,12 @@ Bài kiểm thử backend tự tạo cụm PostgreSQL tạm (cần `initdb`/`pg_
 | --- | --- | --- |
 | `frontend/` (web) | Vercel, thư mục gốc `frontend` | `frontend/vercel.json`: `expo export -p web`, thư mục `dist`. Biến `EXPO_PUBLIC_API_URL` = địa chỉ backend (nếu chưa đặt sẽ dùng `VITE_API_URL` cũ). |
 | `frontend/` (Android/iOS) | EAS Build | `npx eas-cli build -p android` (cần tài khoản Expo); đặt `EXPO_PUBLIC_API_URL` trong môi trường build. |
-| `backend/` + `ai/` | Render (Blueprint `render.yaml`) | 2 dịch vụ `dong-a-api` (Node) và `dong-a-ai` (Python); đặt `DATABASE_URL`, `ADMIN_PASSWORD`, `GEMINI_API_KEY` trong Render. Backend chạy một instance (phòng thi đấu nằm trong bộ nhớ). |
-| Database | Supabase PostgreSQL | Migration trong `database/migrations/`, xem [database/HUONG_DAN_SUPABASE.md](database/HUONG_DAN_SUPABASE.md). |
+| `backend/` + `ai/` | Render (Blueprint `render.yaml`) | 2 dịch vụ Free `dong-a-api` (Node) và `dong-a-ai` (Python); đặt `DATABASE_URL` (Supabase Session pooler), `ADMIN_PASSWORD`, `GEMINI_API_KEY` trong Render. Backend chạy một instance (phòng thi đấu nằm trong bộ nhớ). |
+| Database | Supabase PostgreSQL | Migration trong `database/migrations/`, xem [database/migrations/README.md](database/migrations/README.md). |
+
+Blueprint lấy URL HTTPS của AI từ `RENDER_EXTERNAL_URL` qua `AI_PUBLIC_URL`, rồi gán cho `AI_SERVICE_URL` của backend. Hai dịch vụ Free không dùng `hostport` private network. Render tự tạo `AI_SERVICE_TOKEN` cho AI và cấp cùng giá trị cho backend; các API nghiệp vụ AI yêu cầu header `X-AI-Token`. Không đưa token này vào frontend. `/health` chỉ dùng kiểm tra dịch vụ nên không yêu cầu token. Nếu dùng Hugging Face, thêm `HF_TOKEN` trực tiếp vào môi trường `dong-a-ai` (không bắt buộc khi dùng Gemini).
+
+Free có thể ngủ khi không có truy cập, nên lần gọi đầu sau thời gian nghỉ có thể chậm. Sau triển khai, kiểm tra `/health` của AI, `/api/health` và `/api/database/health` của backend; thử gọi API AI không có token phải nhận HTTP 401. Đặt `EXPO_PUBLIC_API_URL` trên Vercel bằng URL HTTPS thực tế của `dong-a-api`, rồi triển khai lại frontend để cập nhật giá trị trong gói web.
 
 Không đặt `DATABASE_URL`, mật khẩu hay khóa bí mật vào biến `EXPO_PUBLIC_*` – các biến này nằm công khai trong gói app.
 

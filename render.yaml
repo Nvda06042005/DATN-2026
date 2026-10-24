@@ -3,10 +3,12 @@
 #    Tự chạy database/migrations/*.sql khi khởi động; lỗi migration sẽ dừng khởi động.
 #  - dong-a-ai: dịch vụ AI Python (chatbot RAG, BKT, soạn đề, soạn truyện) – chỉ backend gọi, có khóa nội bộ.
 # Phòng thi đấu nằm trong bộ nhớ: dong-a-api chạy MỘT instance.
+# Hai dịch vụ Free gọi nhau qua HTTPS công khai; Free không nhận kết nối private network.
 services:
   - type: web
     name: dong-a-api
     runtime: node
+    plan: free
     rootDir: .
     buildCommand: cd backend && npm ci && npm run build && npm run migrate -- check
     startCommand: cd backend && npm run start
@@ -24,7 +26,7 @@ services:
         fromService:
           type: web
           name: dong-a-ai
-          property: hostport
+          envVarKey: AI_PUBLIC_URL
       - key: AI_SERVICE_TOKEN
         fromService:
           type: web
@@ -34,6 +36,7 @@ services:
   - type: web
     name: dong-a-ai
     runtime: python
+    plan: free
     rootDir: ai
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
@@ -45,7 +48,10 @@ services:
         value: gemini-flash-latest
       - key: GEMINI_API_KEY
         sync: false
-      - key: HF_TOKEN
-        sync: false
+      - key: AI_PUBLIC_URL
+        fromService:
+          type: web
+          name: dong-a-ai
+          envVarKey: RENDER_EXTERNAL_URL
       - key: AI_SERVICE_TOKEN
         generateValue: true
