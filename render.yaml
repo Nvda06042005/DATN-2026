@@ -1,10 +1,43 @@
+# Render Blueprint: 2 dịch vụ web trong cùng vùng.
+#  - dong-a-api: backend NestJS (đăng nhập, tài khoản, tiến độ, game, chấm điểm, thi đấu WebSocket, PostgreSQL/Supabase).
+#    Tự chạy database/migrations/*.sql khi khởi động; lỗi migration sẽ dừng khởi động.
+#  - dong-a-ai: dịch vụ AI Python (chatbot RAG, BKT, soạn đề, soạn truyện) – chỉ backend gọi, có khóa nội bộ.
+# Phòng thi đấu nằm trong bộ nhớ: dong-a-api chạy MỘT instance.
 services:
   - type: web
-    name: dong-a-edu-backend
+    name: dong-a-api
+    runtime: node
+    rootDir: .
+    buildCommand: cd backend && npm ci && npm run build && npm run migrate -- check
+    startCommand: cd backend && npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 22.21.0
+      - key: DATABASE_URL
+        sync: false
+      - key: AUTH_SECRET_KEY
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: AI_SERVICE_URL
+        fromService:
+          type: web
+          name: dong-a-ai
+          property: hostport
+      - key: AI_SERVICE_TOKEN
+        fromService:
+          type: web
+          name: dong-a-ai
+          envVarKey: AI_SERVICE_TOKEN
+
+  - type: web
+    name: dong-a-ai
     runtime: python
-    # Chạy từ thư mục gốc: backend cần cả ai/ và database/ bên cạnh
-    buildCommand: pip install -r backend/requirements.txt && python database/migrate.py check
-    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    rootDir: ai
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
@@ -12,9 +45,7 @@ services:
         value: gemini-flash-latest
       - key: GEMINI_API_KEY
         sync: false
-      - key: AUTH_SECRET_KEY
+      - key: HF_TOKEN
+        sync: false
+      - key: AI_SERVICE_TOKEN
         generateValue: true
-      - key: ADMIN_PASSWORD
-        sync: false
-      - key: DATABASE_URL
-        sync: false

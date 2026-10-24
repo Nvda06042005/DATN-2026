@@ -1,61 +1,94 @@
-import React from 'react';
-import { GraduationCap, Presentation, ShieldCheck } from 'lucide-react';
-import { BrandLogo } from '@/components/customs/BrandLogo';
-import { Mascot } from '@/components/customs/Mascot';
-import { goTo, routeHref } from '@/lib/router';
+/** Trang chủ: chọn vai trò (học sinh, giáo viên, quản trị). expo-router bắt buộc tên index cho đường dẫn "/". */
+import { View, useWindowDimensions } from 'react-native';
+import { useRouter } from 'expo-router';
+import { GraduationCap, Presentation, ShieldCheck } from 'lucide-react-native';
+import { BrandLogo, Mascot } from '@/components/art';
+import { PORTAL_PATH, useDocumentTitle } from '@/components/auth';
+import { Btn, Card, Screen, Txt } from '@/components/ui';
+import { useTheme } from '@/hooks/use-theme';
+import { webHref } from '@/lib/format';
+import type { IconType } from '@/types/game';
 
-export const HomeChooser: React.FC = () => (
-  <div className="min-h-screen w-full paper-bg flex flex-col text-muc">
-    <header className="px-5 sm:px-8 py-4 flex items-center justify-between">
-      <BrandLogo subtitle="Học Sử qua game" />
-      <button onClick={() => goTo('admin')} className="btn-3d btn-outline btn-sm !text-duo-wolf" aria-label="Trang quản trị">
-        <ShieldCheck className="w-4 h-4" /> <span className="hidden sm:inline">Quản trị</span>
-      </button>
-    </header>
+const PortalCard: React.FC<{ title: string; text: string; cta: string; icon: IconType; color: string; edge: string; tone: 'son' | 'ngoc'; onPress: () => void; path: string }> = ({
+  title, text, cta, icon: Icon, color, edge, tone, onPress, path,
+}) => {
+  const { c } = useTheme();
+  const href = webHref(path);
+  return (
+    <Card pad={22} style={{ flex: 1, minWidth: 260, gap: 14 }}>
+      <View style={{ width: 64, height: 64, borderRadius: 18, backgroundColor: color, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 5, borderBottomColor: edge }}>
+        <Icon size={36} color="#ffffff" />
+      </View>
+      <View style={{ gap: 4 }}>
+        <Txt f="displayHeavy" size={24}>
+          {title}
+        </Txt>
+        <Txt color={c.muc2}>{text}</Txt>
+      </View>
+      <Btn title={cta} tone={tone} full onPress={onPress} />
+      {href && (
+        <Txt f="semibold" size={12} color={c.muc2} center>
+          {href.replace(/^https?:\/\//, '')}
+        </Txt>
+      )}
+    </Card>
+  );
+};
 
-    <main className="flex-1 flex flex-col items-center px-5 pb-10">
-      <section className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-[1fr_auto] items-center gap-4 md:gap-8 pt-2 md:pt-8">
-        <div className="text-center md:text-left">
-          <span className="seal-title text-sm">Lịch sử 7 · 1258 – 1288</span>
-          <h1 className="font-display text-[2.6rem] sm:text-6xl font-extrabold text-muc mt-3 leading-[1.05]">Hào Khí Đông A</h1>
-          <p className="text-lg text-muc-2 mt-3 max-w-xl mx-auto md:mx-0">
+export default function HomeChooser() {
+  const { c } = useTheme();
+  const router = useRouter();
+  const { width } = useWindowDimensions();
+  const wide = width >= 760;
+  useDocumentTitle('Đông A – Học Sử vui như chơi');
+  return (
+    <Screen maxWidth={980}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <BrandLogo subtitle="Học Sử qua game" />
+        <Btn tone="giay" size="sm" icon={ShieldCheck} title={wide ? 'Quản trị' : undefined} label="Trang quản trị" onPress={() => router.push(PORTAL_PATH.admin)} />
+      </View>
+      <View style={{ flexDirection: wide ? 'row' : 'column-reverse', alignItems: 'center', gap: 16, paddingTop: wide ? 24 : 0 }}>
+        <View style={{ flex: wide ? 1 : undefined, gap: 10 }}>
+          <Txt f="bold" size={13} color={c.sonChu} upper center={!wide}>
+            Lịch sử 7 · 1258 – 1288
+          </Txt>
+          <Txt f="displayHeavy" size={wide ? 56 : 40} center={!wide} accessibilityRole="header">
+            Hào Khí Đông A
+          </Txt>
+          <Txt size={17} color={c.muc2} center={!wide}>
             Xây Điền Trang, chiêu mộ danh tướng nhà Trần và ra trận theo đúng kế sách của ông cha – mỗi sức mạnh đều đến từ một câu trả lời đúng.
-          </p>
-        </div>
-        <Mascot size={180} accessory="helmet" mood="excited" bob className="mx-auto order-first md:order-none" />
-      </section>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 w-full max-w-4xl mt-8">
-        <button onClick={() => goTo('student')} className="g-card p-6 text-left flex flex-col gap-4 hover:-translate-y-0.5 transition">
-          <span className="w-16 h-16 rounded-2xl bg-son flex items-center justify-center shadow-[0_4px_0_#7f1d1d]">
-            <GraduationCap className="w-9 h-9 text-white" />
-          </span>
-          <div>
-            <h2 className="font-display text-2xl font-extrabold">Học sinh</h2>
-            <p className="text-muc-2 mt-1">Vào Điền Trang: thu lương thảo, chiêu mộ tướng, đánh 3 màn chiến dịch và hỏi Quân Sư AI.</p>
-          </div>
-          <span className="btn-3d btn-red w-full mt-auto">Vào trang học sinh</span>
-          <span className="text-xs font-semibold text-muc-2 text-center -mt-2">{routeHref('student').replace(/^https?:\/\//, '')}</span>
-        </button>
-
-        <button onClick={() => goTo('teacher')} className="g-card p-6 text-left flex flex-col gap-4 hover:-translate-y-0.5 transition">
-          <span className="w-16 h-16 rounded-2xl bg-ngoc flex items-center justify-center shadow-[0_4px_0_#134e4a]">
-            <Presentation className="w-9 h-9 text-white" />
-          </span>
-          <div>
-            <h2 className="font-display text-2xl font-extrabold">Giáo viên</h2>
-            <p className="text-muc-2 mt-1">Theo dõi tiến độ, câu sai nhiều nhất và mức nắm vững của cả lớp; tổ chức thi đấu và soạn đề bằng AI.</p>
-          </div>
-          <span className="btn-3d btn-green w-full mt-auto">Vào trang giáo viên</span>
-          <span className="text-xs font-semibold text-muc-2 text-center -mt-2">{routeHref('teacher').replace(/^https?:\/\//, '')}</span>
-        </button>
-      </div>
-
-      <button onClick={() => goTo('admin')} className="mt-8 min-h-[44px] text-sm font-bold text-muc-2 hover:text-muc flex items-center gap-1.5">
-        <ShieldCheck className="w-4 h-4" /> Quản trị viên nhà trường? Vào trang quản trị
-      </button>
-    </main>
-
-    <footer className="py-4 text-center text-xs font-semibold text-muc-2 border-t-2 border-vien">© Đông A EDU · Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên</footer>
-  </div>
-);
+          </Txt>
+        </View>
+        <Mascot size={wide ? 180 : 150} accessory="helmet" mood="excited" bob />
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
+        <PortalCard
+          title="Học sinh"
+          text="Vào Điền Trang: thu lương thảo, chiêu mộ tướng, đánh 3 màn chiến dịch và hỏi Quân Sư AI."
+          cta="Vào trang học sinh"
+          icon={GraduationCap}
+          color={c.son}
+          edge={c.sonDam}
+          tone="son"
+          path={PORTAL_PATH.student}
+          onPress={() => router.push(PORTAL_PATH.student)}
+        />
+        <PortalCard
+          title="Giáo viên"
+          text="Theo dõi tiến độ, câu sai nhiều nhất và mức nắm vững của cả lớp; tổ chức thi đấu và soạn đề bằng AI."
+          cta="Vào trang giáo viên"
+          icon={Presentation}
+          color={c.ngoc}
+          edge={c.ngocDam}
+          tone="ngoc"
+          path={PORTAL_PATH.teacher}
+          onPress={() => router.push(PORTAL_PATH.teacher)}
+        />
+      </View>
+      <Btn tone="ghost" icon={ShieldCheck} title="Quản trị viên nhà trường? Vào trang quản trị" onPress={() => router.push(PORTAL_PATH.admin)} style={{ alignSelf: 'center' }} />
+      <Txt f="semibold" size={12} color={c.muc2} center style={{ borderTopWidth: 2, borderTopColor: c.vien, paddingTop: 14 }}>
+        © Đông A EDU · Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên
+      </Txt>
+    </Screen>
+  );
+}

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { LIVE_WS_URL } from '@/api/liveApi';
-import type { LiveServerMsg, LiveStatus } from '@/types/liveType';
+import { LIVE_WS_URL } from '@/api/client';
+import type { LiveServerMsg, LiveStatus } from '@/types/api';
 
 /**
  * Kết nối WebSocket phòng thi đấu. Token gửi trong tin nhắn đầu tiên (không đặt trên URL để không lộ trong log);
  * mất mạng thì tự nối lại – server gắn lại đúng phòng đang chơi; ping 25 giây/lần để giữ kết nối.
+ * Proxy (vd. Render) có thể làm mất mã đóng 4000/4401, nên lý do ngừng nối lại được đọc từ tin nhắn của server.
  */
 export const useLiveSocket = (token: string, onMessage: (msg: LiveServerMsg, send: (msg: Record<string, unknown>) => boolean) => void) => {
   const [status, setStatus] = useState<LiveStatus>('connecting');
@@ -25,12 +26,12 @@ export const useLiveSocket = (token: string, onMessage: (msg: LiveServerMsg, sen
   useEffect(() => {
     let stopped = false;
     let attempt = 0;
-    let retry = 0;
-    let ping = 0;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let ping: ReturnType<typeof setInterval> | undefined;
     const schedule = () => {
       attempt += 1;
       setStatus('reconnecting');
-      retry = window.setTimeout(connect, Math.min(10_000, 700 * 2 ** Math.min(attempt, 4)));
+      retry = setTimeout(connect, Math.min(10_000, 700 * 2 ** Math.min(attempt, 4)));
     };
     const connect = () => {
       let ws: WebSocket;
@@ -41,7 +42,6 @@ export const useLiveSocket = (token: string, onMessage: (msg: LiveServerMsg, sen
         return;
       }
       wsRef.current = ws;
-      // Lý do ngừng nối lại, đọc từ tin nhắn của server: proxy (vd. Render) có thể làm mất mã đóng 4000/4401
       let stopReason: LiveStatus | null = null;
       ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token }));
       ws.onmessage = (ev) => {
@@ -61,22 +61,22 @@ export const useLiveSocket = (token: string, onMessage: (msg: LiveServerMsg, sen
         handler.current(msg, send);
       };
       ws.onclose = (ev) => {
-        window.clearInterval(ping);
+        clearInterval(ping);
         if (wsRef.current === ws) wsRef.current = null;
         if (stopped) return;
         const reason = ev.code === 4000 ? 'replaced' : ev.code === 4401 || ev.code === 4403 ? 'expired' : stopReason;
         if (reason) setStatus(reason);
         else schedule();
       };
-      ping = window.setInterval(() => {
+      ping = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) ws.send('{"type":"ping"}');
       }, 25_000);
     };
     connect();
     return () => {
       stopped = true;
-      window.clearTimeout(retry);
-      window.clearInterval(ping);
+      clearTimeout(retry);
+      clearInterval(ping);
       wsRef.current?.close(1000);
       wsRef.current = null;
     };

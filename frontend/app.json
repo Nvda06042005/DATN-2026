@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "Hào Khí Đông A",
+    "slug": "hao-khi-dong-a",
+    "description": "Học Lịch sử 7 qua game chiến thuật về ba lần kháng chiến chống quân Mông – Nguyên (1258 – 1288).",
+    "version": "2.0.0",
+    "scheme": "donga",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "backgroundColor": "#fbf6ea",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "edu.donga.haokhi"
+    },
+    "android": {
+      "package": "edu.donga.haokhi",
+      "adaptiveIcon": {
+        "backgroundColor": "#b91c1c",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "single",
+      "name": "Hào Khí Đông A – Học Sử qua game",
+      "lang": "vi",
+      "favicon": "./assets/favicon.png",
+      "themeColor": "#fbf6ea",
+      "backgroundColor": "#fbf6ea"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "backgroundColor": "#fbf6ea",
+          "dark": { "backgroundColor": "#0b1220" }
+        }
+      ]
+    ]
+  }
+}

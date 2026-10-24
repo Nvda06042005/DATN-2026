@@ -15,7 +15,7 @@ import time
 import httpx
 from pathlib import Path
 from typing import Dict, Any, Optional
-from app.config import settings
+from config import settings
 
 BASE_DIR = Path(__file__).resolve().parent
 

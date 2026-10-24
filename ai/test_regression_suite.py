@@ -19,12 +19,10 @@ import asyncio
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
 
-# Cấu hình môi trường và đường dẫn: thư mục ai/ + backend/ (hybrid_router dùng app.config)
+# Đường dẫn: các module AI nằm phẳng trong thư mục ai/ (config, schemas, hybrid_router, ...)
 AI_DIR = Path(__file__).resolve().parent
-BACKEND_DIR = AI_DIR.parent / "backend"
-for _path in (BACKEND_DIR, AI_DIR):
-    if str(_path) not in sys.path:
-        sys.path.insert(0, str(_path))
+if str(AI_DIR) not in sys.path:
+    sys.path.insert(0, str(AI_DIR))
 
 import joblib
 from create_model import MODEL_PATH, DongANLPModel

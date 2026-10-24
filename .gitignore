@@ -9,11 +9,14 @@ frontend/.env
 frontend/.env.*
 !frontend/.env.example
 
-# Node / Frontend
+# Node (backend NestJS, frontend Expo)
 node_modules/
-frontend/node_modules/
+backend/dist/
 frontend/dist/
-.vite/
+frontend/.expo/
+frontend/web-build/
+frontend/ios/
+frontend/android/
 *.log
 
 # Python / Backend
@@ -24,8 +27,8 @@ __pycache__/
 venv/
 env/
 .pytest_cache/
-# Tài khoản người dùng (SQLite cục bộ) – không đưa lên GitHub
-database/data/users.db
+# Dữ liệu cục bộ – không đưa lên GitHub
+database/data/
 
 # Documentation, diagrams, spreadsheets & raw archives (excluded from repo)
 *.drawio

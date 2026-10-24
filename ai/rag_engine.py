@@ -6,7 +6,7 @@ Model Ngôn ngữ Tự nhiên đã được tách module độc lập tại `ai/
 import sys
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-from app.models.schemas import GroundingSource
+from schemas import GroundingSource
 
 # main_model.py nằm cùng thư mục ai/
 AI_DIR = Path(__file__).resolve().parent

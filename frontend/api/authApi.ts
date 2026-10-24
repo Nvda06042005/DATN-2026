@@ -1,5 +1,5 @@
-import type { AuthSession, AuthUser, Portal } from '@/types/authType';
-import { apiRequest } from '@/utils/http';
+import { apiRequest } from '@/api/client';
+import type { AuthSession, AuthUser, Portal } from '@/types/api';
 
 /** Đăng nhập tại một trang (học sinh / giáo viên / quản trị); server kiểm tra vai trò khớp với trang */
 export const loginToPortal = (username: string, password: string, portal: Portal) =>
@@ -10,7 +10,4 @@ export const getMe = (token: string) => apiRequest<AuthUser>('/api/auth/me', { t
 
 /** Đổi mật khẩu; server trả phiên mới (token cũ hết hiệu lực) */
 export const changePassword = (token: string, currentPassword: string, newPassword: string) =>
-  apiRequest<AuthSession>('/api/auth/change-password', {
-    token,
-    body: { current_password: currentPassword, new_password: newPassword },
-  });
+  apiRequest<AuthSession>('/api/auth/change-password', { token, body: { current_password: currentPassword, new_password: newPassword } });

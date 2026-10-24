@@ -1,8 +1,8 @@
-import type { GameState } from '@/types/gameType';
+import { apiRequest } from '@/api/client';
 import type {
-  AnswerPayload, AnswerResult, CodexEntry, LeaderboardEntry, LearnerProgress, QuestionsResponse, Recommendation,
-} from '@/types/learningType';
-import { API_BASE_URL, apiRequest } from '@/utils/http';
+  AnswerPayload, AnswerResult, ChatbotReply, CodexEntry, LeaderboardEntry, LearnerProgress, QuestionsResponse, Recommendation,
+} from '@/types/api';
+import type { GameState } from '@/types/game';
 
 /** Tiến độ học tập (XP, Ấn Tín, chuỗi ngày, hạng trong lớp) */
 export const getProgress = (token: string) => apiRequest<LearnerProgress>('/api/student/progress', { token });
@@ -10,27 +10,20 @@ export const getProgress = (token: string) => apiRequest<LearnerProgress>('/api/
 /** Trạng thái game đã lưu trên server (null nếu học sinh mới) */
 export const getGameState = (token: string) => apiRequest<{ state: unknown }>('/api/student/game', { token });
 
-/** Lưu trạng thái game. keepalive để vẫn gửi được khi đóng tab; trả về Response để biết mã 401 */
-export const putGameState = (token: string, state: GameState, keepalive = false) =>
-  fetch(`${API_BASE_URL}/api/student/game`, {
-    method: 'PUT',
-    keepalive,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ state }),
-  });
+export const putGameState = (token: string, state: GameState) => apiRequest<{ state: unknown }>('/api/student/game', { method: 'PUT', token, body: { state }, timeoutMs: 20_000 });
 
 /** Thẻ Sử Ký (kho tri thức của chatbot + thẻ bổ sung của game) */
 export const getCodex = (token: string) => apiRequest<CodexEntry[]>('/api/student/codex', { token });
 
 /** Câu hỏi trong ngân hàng (server giữ đáp án) */
-export const getQuestions = (token: string, params: URLSearchParams) =>
-  apiRequest<QuestionsResponse>(`/api/student/questions?${params.toString()}`, { token });
+export const getQuestions = (token: string, params: Record<string, string>) =>
+  apiRequest<QuestionsResponse>(`/api/student/questions?${new URLSearchParams(params).toString()}`, { token });
 
 /** Câu hỏi do Quân Sư AI soạn; AI bận thì server dùng câu trong ngân hàng */
 export const getAiQuestions = (token: string, unitId: string | null, count: number) =>
   apiRequest<QuestionsResponse>('/api/student/questions/ai', { token, body: { unit_id: unitId, count } });
 
-/** Gửi câu trả lời để server chấm, cộng XP/Ấn Tín và cập nhật BKT */
+/** Gửi câu trả lời để server chấm, cộng XP/Ấn Tín và cập nhật mức nắm vững (BKT) */
 export const submitAnswer = (token: string, questionId: string, payload: AnswerPayload) =>
   apiRequest<AnswerResult>('/api/student/answer', { token, body: { question_id: questionId, ...payload } });
 
@@ -51,3 +44,7 @@ export const getLeaderboard = (token: string) => apiRequest<LeaderboardEntry[]>(
 /** Chủ đề nên ôn tiếp theo mô hình BKT */
 export const getRecommendations = (token: string, topK: number) =>
   apiRequest<{ recommendations: Recommendation[] }>(`/api/student/recommendations?top_k=${topK}`, { token });
+
+/** Hỏi Quân Sư AI (NLP + truy xuất kho tri thức + LLM); sessionId giữ ngữ cảnh hội thoại nhiều lượt */
+export const askAdvisor = (token: string, query: string, characterId: string, sessionId: string) =>
+  apiRequest<ChatbotReply>('/api/chat/dong-a', { token, body: { query, character_id: characterId, session_id: sessionId } });

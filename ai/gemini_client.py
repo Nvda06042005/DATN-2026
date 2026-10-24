@@ -2,8 +2,8 @@ import json
 import httpx
 from typing import List, Dict, Any, Optional
 from huggingface_hub import InferenceClient
-from app.config import settings
-from app.models.schemas import GeneratedQuestion
+from config import settings
+from schemas import GeneratedQuestion
 
 HISTORICAL_PERSONAS: Dict[str, Dict[str, Any]] = {
     "TRAN_HUNG_DAO": {
