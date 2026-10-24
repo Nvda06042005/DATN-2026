@@ -80,6 +80,10 @@ Bài kiểm thử backend tự tạo cụm PostgreSQL tạm (cần `initdb`/`pg_
 
 ## Triển khai
 
+Website chính thức: **https://datn-2026-indol.vercel.app/**. Mã nguồn đang sử dụng nằm trên nhánh **`main`** của [GitHub DATN-2026](https://github.com/Nvda06042005/DATN-2026/tree/main). Vercel chỉ tự triển khai từ `main` theo `frontend/vercel.json`; không dùng URL Preview hoặc URL có mã deployment làm địa chỉ bàn giao. Mỗi lần cập nhật vẫn có lịch sử deployment và URL kỹ thuật do Vercel tự tạo, còn địa chỉ chính thức luôn giữ nguyên.
+
+`dong-a-api` và `dong-a-ai` là hai dịch vụ backend của cùng ứng dụng, cùng lấy mã từ `main`; chúng không phải hai website để người dùng lựa chọn.
+
 | Phần | Nơi chạy | Cấu hình |
 | --- | --- | --- |
 | `frontend/` (web) | Vercel, thư mục gốc `frontend` | `frontend/vercel.json`: `expo export -p web`, thư mục `dist`. Biến `EXPO_PUBLIC_API_URL` = địa chỉ backend (nếu chưa đặt sẽ dùng `VITE_API_URL` cũ). |
