@@ -1,13 +1,13 @@
 /**
  * Game học sinh "Hào Khí Đông A": tải tiến độ + trạng thái game từ server, tự lưu (gom thay đổi 1,2 giây), thanh HUD,
- * 5 tab (Điền Trang, Doanh Trại, Chiến Dịch, Quốc Tử Giám, Sử Ký), hồ sơ – cài đặt, hướng dẫn, thi đấu cả lớp.
+ * 5 tab (Điền Trang, Doanh Trại, Chiến Dịch, Quốc Tử Giám, Sử Ký), thế giới 2D Hành Trình Đông A, hồ sơ – cài đặt, hướng dẫn, thi đấu cả lớp.
  * XP và Ấn Tín chỉ do server cộng khi chấm câu trả lời; trạng thái game (công trình, tướng, sao chiến dịch) lưu qua PUT /api/student/game.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform, Pressable, ScrollView, View, useColorScheme, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronLeft, ChevronRight, Flame, HelpCircle, KeyRound, LogOut, Medal, Monitor, Moon, RefreshCw, Shield, Sparkles, Stamp, Sun, Timer, Volume2, VolumeX, Wheat } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Flame, Gamepad2, HelpCircle, KeyRound, LogOut, Medal, Monitor, Moon, RefreshCw, Shield, Sparkles, Stamp, Sun, Timer, Volume2, VolumeX, Wheat } from 'lucide-react-native';
 import * as studentApi from '@/api/studentApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { BrandLogo, Mascot, type MascotAccessory, type MascotMood } from '@/components/art';
@@ -18,6 +18,7 @@ import { CodexTab } from '@/components/game/CodexTab';
 import { ExamTab } from '@/components/game/ExamTab';
 import { FarmTab } from '@/components/game/FarmTab';
 import { LiveArena } from '@/components/game/LiveArena';
+import { WorldScreen } from '@/components/game/WorldScreen';
 import { Avatar, Bar, Btn, Card, HudPill, PaperBg, Segmented, Sheet, Spinner, ToggleRow, Txt, useToast } from '@/components/ui';
 import { PHASES } from '@/constants/campaigns';
 import { GAME_TABS, qtgFood, storeCap, troopCap } from '@/constants/game';
@@ -92,6 +93,7 @@ const GameApp: React.FC<{ session: Session; initial: Initial; initialPin: string
   const [profile, setProfile] = useState(false);
   const [tutorial, setTutorial] = useState(!initial.state.tutorial);
   const [live, setLive] = useState<{ pin: string | null; resume: boolean } | null>(() => (initialPin ? { pin: initialPin, resume: false } : readLiveRoom() ? { pin: null, resume: true } : null));
+  const [worldOpen, setWorldOpen] = useState(false);
   const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const firstSave = useRef(true);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -294,6 +296,7 @@ const GameApp: React.FC<{ session: Session; initial: Initial; initialPin: string
   );
 
   const openLive = useCallback((pin?: string) => setLive({ pin: pin ?? null, resume: false }), []);
+  const openWorld = useCallback(() => setWorldOpen(true), []);
   const closeLive = useCallback(() => {
     setLive(null);
     // Câu trả lời trong trận đã được server cộng XP, Ấn Tín: tải lại tiến độ
@@ -306,7 +309,7 @@ const GameApp: React.FC<{ session: Session; initial: Initial; initialPin: string
   const sound = useCallback((kind: 'ok' | 'bad' | 'win') => soundOn && playTone(kind), [soundOn]);
 
   const ctx: GameCtx = {
-    user, progress, state, codex: initial.codex, dark, update, request, toast, fetchQuestions, submitAnswer, finishSession, spendGems, reward, bumpDaily, askAdvisor, openLive,
+    user, progress, state, codex: initial.codex, dark, update, request, toast, fetchQuestions, submitAnswer, finishSession, spendGems, reward, bumpDaily, askAdvisor, openLive, openWorld,
     sound: (kind) => {
       sound(kind);
     },
@@ -340,7 +343,7 @@ const GameApp: React.FC<{ session: Session; initial: Initial; initialPin: string
               setTimeout(() => setTutorial(true), Platform.OS === 'ios' ? 450 : 0);
             }}
           />
-          {tutorial && !live && (
+          {tutorial && !live && !worldOpen && (
             <Tutorial
               onDone={() => {
                 setTutorial(false);
@@ -348,6 +351,7 @@ const GameApp: React.FC<{ session: Session; initial: Initial; initialPin: string
               }}
             />
           )}
+          {worldOpen && !live && <WorldScreen onClose={() => setWorldOpen(false)} />}
           {live && <LiveArena token={token} initialPin={live.pin} resume={live.resume} onClose={closeLive} onExpired={expired} />}
         </ReduceMotionContext.Provider>
       </ThemeContext.Provider>
@@ -359,7 +363,7 @@ const GameApp: React.FC<{ session: Session; initial: Initial; initialPin: string
 const GameLayout: React.FC<{ tab: GameTab; onTab: (t: GameTab) => void; scrollRef: React.Ref<React.ComponentRef<typeof ScrollView>>; onProfile: () => void; children: React.ReactNode }> = ({
   tab, onTab, scrollRef, onProfile, children,
 }) => {
-  const { user, progress, state } = useGame();
+  const { user, progress, state, openWorld } = useGame();
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -391,6 +395,22 @@ const GameLayout: React.FC<{ tab: GameTab; onTab: (t: GameTab) => void; scrollRe
                   <Bar value={progress.xp - lvlFrom} max={lvlTo - lvlFrom} fill={c.dong} height={6} style={{ width: 64 }} label="XP tới cấp tiếp theo" />
                 </View>
               </View>
+            )}
+          </Pressable>
+          <Pressable
+            onPress={openWorld}
+            accessibilityRole="button"
+            accessibilityLabel="Hành Trình Đông A – phiêu lưu 2D"
+            style={({ pressed }) => ({
+              minHeight: 44, minWidth: 44, paddingHorizontal: width >= 760 ? 14 : 0, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+              backgroundColor: pressed ? c.ngocDam : c.ngoc, borderBottomWidth: 3, borderBottomColor: c.ngocDam,
+            })}
+          >
+            <Gamepad2 size={20} color="#ffffff" />
+            {width >= 760 && (
+              <Txt f="display" size={14} color="#ffffff">
+                Hành Trình
+              </Txt>
             )}
           </Pressable>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginLeft: 'auto', flexGrow: 0 }} contentContainerStyle={{ gap: 6, alignItems: 'center' }}>
@@ -614,6 +634,7 @@ const TUTORIAL: Array<{ title: string; text: string; mood: MascotMood; acc: Masc
   { title: 'Kiến thức là vũ khí', text: 'Muốn nâng cấp công trình, chiêu mộ hay tung kế sách, em phải trả lời đúng câu hỏi lịch sử. Ấn Tín chỉ có khi em trả lời đúng.', mood: 'thinking', acc: 'scholar' },
   { title: 'Chiêu mộ tướng ở Doanh Trại', text: 'Ghép một thẻ Nhân lực với một thẻ Sự kiện ở Hội Quán Vạn Kiếp để mời danh tướng nhà Trần gia nhập.', mood: 'happy', acc: 'helmet' },
   { title: 'Ra trận theo đúng kế sách', text: 'Ba màn chiến dịch: 1258, 1285, 1287 – 1288. Rút lui đúng lúc, bỏ trống làng mạc, cắt nguồn lương, chờ thủy triều rút… như ông cha ta!', mood: 'love', acc: 'crown' },
+  { title: 'Phiêu lưu Hành Trình Đông A', text: 'Bấm nút tay cầm “Hành Trình” để vào thế giới 2D: đi khắp làng, nghe người dân kể chuyện xưa, giải đố để mở đường sang vùng đất mới, gieo trồng và đuổi thám báo.', mood: 'excited', acc: 'helmet' },
 ];
 
 const Tutorial: React.FC<{ onDone: () => void }> = ({ onDone }) => {

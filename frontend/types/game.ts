@@ -187,6 +187,131 @@ export interface GameSettings {
   reduceMotion: boolean;
 }
 
+// ---------------------------------------------------------------------- Hành Trình Đông A (thế giới 2D)
+export type WorldMapId = 'dong_a' | 'binh_than' | 'bach_dang';
+
+export type WorldDir = 'up' | 'down' | 'left' | 'right';
+
+export type CropId = 'dau' | 'khoai' | 'lua';
+
+/** Nhân vật trong thế giới 2D đều là người hư cấu (dân làng, lính, thầy đồ...), kể lại chuyện của người thật */
+export type CharacterId = 'player' | 'elder' | 'farmer' | 'soldier' | 'messenger' | 'scholar' | 'boatman' | 'scout' | 'carpenter' | 'weaver' | 'veteran';
+
+/** Ngoại hình nhân vật pixel: màu tóc, da, áo, quần, mũ nón và vật cầm tay */
+export interface CharacterLook {
+  hair: string;
+  skin: string;
+  cloth: string;
+  clothDark: string;
+  accent: string;
+  pants: string;
+  hat: 'none' | 'band' | 'non_la' | 'khan' | 'fur' | 'white';
+  hatColor?: string;
+  item: 'none' | 'spear' | 'staff' | 'oar' | 'bow' | 'hammer' | 'scroll' | 'basket' | 'hoe';
+}
+
+/** Lượt hỏi đáp gắn với một nhân vật / vật: câu hỏi lấy từ các cụm tri thức, server chấm */
+export interface WorldLesson {
+  units: string[];
+  count: number;
+  pass: number;
+}
+
+export interface WorldReward {
+  luong: number;
+  quan: number;
+  cards?: string[];
+}
+
+export type WorldObjectKind = 'npc' | 'scout' | 'boss' | 'sign' | 'scroll' | 'stake' | 'portal';
+
+export interface WorldObjectDef {
+  id: string;
+  kind: WorldObjectKind;
+  x: number;
+  y: number;
+  /** Số ô chiếm (mặc định 1×1; đội thuyền giặc 2×2) */
+  w?: number;
+  h?: number;
+  name: string;
+  role?: string;
+  look?: CharacterId;
+  sign?: 'post' | 'board' | 'orange' | 'flag';
+  /** Lời thoại khi không có nhiệm vụ đang chờ ở đây */
+  lines: string[];
+  /** Việc phụ: làm một lần, có thưởng */
+  lesson?: WorldLesson;
+  reward?: WorldReward;
+  /** Thám báo đi tuần qua lại giữa các ô */
+  patrol?: Array<[number, number]>;
+  /** Cổng sang vùng khác; `needs` là nhiệm vụ phải xong trước */
+  to?: { map: WorldMapId; x: number; y: number; dir: WorldDir };
+  needs?: string;
+  /** Chỉ xuất hiện từ bước này của nhiệm vụ: [mã nhiệm vụ, bước] */
+  showAt?: [string, number];
+}
+
+export type StructureKind = 'house' | 'dinh' | 'well' | 'tent' | 'pavilion' | 'boat' | 'tower' | 'logs' | 'dummy' | 'hay';
+
+export interface WorldStructure {
+  kind: StructureKind;
+  x: number;
+  y: number;
+}
+
+export interface WorldMapDef {
+  id: WorldMapId;
+  name: string;
+  era: string;
+  intro: string;
+  /** Mỗi ký tự là một ô: xem TILE_INFO trong constants/world.ts */
+  rows: string[];
+  structures: WorldStructure[];
+  objects: WorldObjectDef[];
+  spawn: { x: number; y: number; dir: WorldDir };
+}
+
+export interface WorldQuestStep {
+  /** Mã vật/nhân vật cần gặp; "plot" là bất kỳ luống đất nào (gieo hạt) */
+  target: string;
+  text: string;
+  lines?: string[];
+  lesson?: WorldLesson;
+  reward?: WorldReward;
+}
+
+export interface WorldQuestDef {
+  id: string;
+  map: WorldMapId;
+  title: string;
+  steps: WorldQuestStep[];
+  reward: WorldReward;
+  doneText: string;
+}
+
+export interface CropDef {
+  id: CropId;
+  name: string;
+  seed: number;
+  minutes: number;
+  yield: number;
+  desc: string;
+}
+
+export interface WorldState {
+  map: WorldMapId;
+  x: number;
+  y: number;
+  dir: WorldDir;
+  /** Số bước đã xong của từng nhiệm vụ chính */
+  quests: Record<string, number>;
+  /** Việc phụ đã xong (cuộn sử, thám báo, nhân vật) và vùng đất đã đến (`map:<id>`) */
+  done: string[];
+  /** Luống đất: cây đang trồng, lúc gieo, đã bón phân tri thức chưa */
+  plots: Record<string, { crop: CropId; at: number; boost: boolean }>;
+  intro: boolean;
+}
+
 export interface GameState {
   v: 1;
   createdAt: number;
@@ -207,6 +332,7 @@ export interface GameState {
   seen: string[];
   tutorial: boolean;
   settings: GameSettings;
+  world: WorldState;
 }
 
 export interface GameCtx {
@@ -228,6 +354,8 @@ export interface GameCtx {
   askAdvisor: (question: string) => void;
   /** Mở màn thi đấu cả lớp (nhập mã PIN thầy cô đưa) */
   openLive: (pin?: string) => void;
+  /** Mở thế giới 2D Hành Trình Đông A */
+  openWorld: () => void;
   sound: (kind: 'ok' | 'bad' | 'win') => void;
 }
 

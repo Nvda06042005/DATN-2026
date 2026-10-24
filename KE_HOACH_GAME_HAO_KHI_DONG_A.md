@@ -11,7 +11,9 @@ Bản này viết lại kế hoạch gốc sau khi rà soát bằng skill ui-ux-
 
 Đã dựng đủ 4 giai đoạn ở mục 10, gồm cả **Thi đấu lớp thời gian thực** (WebSocket `/api/live/ws`, lịch sử trận ở migration 005). Chatbot đã học 4 chủ đề mới; số liệu đánh giá trước/sau ở `ai/KET_QUA_DANH_GIA.md`.
 
-Ngày 24/10/2026, mã frontend không còn gộp trong một file `App.tsx` (khác mục 2) mà được chia thư mục theo vai trò như repo tham khảo tronect-mobile-app (`app/`, `api/`, `components/`, `constants/`, `hooks/`, `lib/`, `providers/`, `store/`, `types/`, `utils/`); xem `frontend/README.md`. Lệnh `npm run build:single` vẫn xuất một file HTML duy nhất.
+Ngày 24/10/2026, frontend được viết lại bằng React Native (Expo) và chia thư mục theo vai trò như repo tham khảo tronect-mobile-app (`app/`, `api/`, `components/`, `constants/`, `hooks/`, `lib/`, `types/`; khác mục 2); backend chính là NestJS, Python chỉ còn dịch vụ AI. Xem `README.md`.
+
+Cũng trong ngày 24/10/2026, thêm **Hành Trình Đông A** – thế giới 2D pixel tham khảo lối chơi nông trại – phiêu lưu của Bonnievale Online (Phụ lục B): 3 vùng đất theo 3 lần kháng chiến, mỗi vùng một chuỗi 7 việc chính và các việc phụ (cuộn sử, thám báo, người dân kể chuyện). Nguyên tắc “kiến thức là vũ khí” giữ nguyên: muốn qua việc phải nghe chuyện xưa (thẻ Sử Ký) rồi trả lời đúng câu hỏi server chấm; vùng sau chỉ mở khi xong việc chính của vùng trước.
 
 Khác với kế hoạch, kèm lý do:
 
@@ -445,6 +447,7 @@ Hội Quán Vạn Kiếp nằm trong Doanh Trại. Hồ sơ, Bảng xếp hạng
 - Không vẽ "chân dung thật" khi không có tư liệu hình ảnh, để tránh gây hiểu nhầm.
 - Trang phục, thuyền, vũ khí tham khảo tư liệu thời Trần.
 - Không dùng hình ảnh triều Nguyễn hay trang phục hiện đại.
+- Hành Trình Đông A: nhân vật pixel đều là người hư cấu (bô lão, lính trạm, lái đò, thầy đồ, thám báo…) kể lại chuyện của người thật; không vẽ danh nhân. Cây trồng chỉ dùng loại có ở Đại Việt thời Trần (lúa nước, đậu, khoai sọ – không có ngô).
 
 ### 8.8 Kiểm tra trước khi bàn giao (theo checklist của skill)
 
@@ -518,6 +521,7 @@ Unit mới trong q_matrix là đủ để BKT chấm. Muốn chatbot trả lời
 | **Prodigy Math** | Ra chiêu phải trả lời đúng; sai thì có gợi ý và giải thích; câu hỏi thích ứng theo trình độ | Sai 2 lần là mất lượt (quá nặng với lớp học) |
 | **Blooket** (Tower Defense, Factory, Gold Quest) | Trả lời câu hỏi → có tiền → xây tháp, nâng nhà máy; vòng chơi ngắn, hợp lớp học | Cướp vàng của bạn cùng lớp (dễ gây mâu thuẫn) |
 | **Gimkit** | Kinh tế "trả lời → tiền → nâng cấp": thêm điểm mỗi câu, thưởng chuỗi đúng, "bảo hiểm" khi sai | — |
+| **Bonnievale Online** (butastudio, game nông trại – phiêu lưu pixel) | Thung lũng pixel đi lại tự do; cây lớn theo thời gian thực, bỏ quên cũng không chết; người dân giao việc, vùng đất mở dần; cẩm nang tra cứu → Hành Trình Đông A | Chơi trực tuyến nhiều người, mã mời, nghề và trùm theo tổ đội |
 | **Monster Legends** | Doanh trại theo hệ, công thức kết hợp, 3 giai đoạn tiến hóa | Chờ ấp hàng giờ, gói nạp tiền |
 | **Clash of Clans, Hay Day** | Căn cứ trên lưới, chạm để thu, thời gian nâng cấp | Thời gian chờ dài, tấn công người chơi khác |
 | **Slay the Spire** | Báo trước ý đồ địch, buộc người chơi lập kế | — |

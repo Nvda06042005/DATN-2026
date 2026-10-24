@@ -1,16 +1,17 @@
 /**
  * Hình vẽ của Đông A (react-native-svg, sắc nét ở mọi kích thước): Rồng Con, ô đáp án Kahoot, huy hiệu tướng/quân địch,
- * công trình Điền Trang, nền chiến trận, lược đồ Đại Việt thời Trần (minh họa, không theo tỉ lệ).
+ * công trình Điền Trang, nền chiến trận, lược đồ Đại Việt thời Trần (minh họa, không theo tỉ lệ), ảnh pixel của Hành Trình Đông A.
  * Không vẽ chân dung nhân vật lịch sử có thật.
  */
 import React from 'react';
-import { Animated, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Marker, Path, Pattern, RadialGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { Crown } from 'lucide-react-native';
 import { ELEMENTS, ENEMY_TYPES, MAP_PLACES } from '@/constants/game';
 import { ANSWER_STYLES, FONT, type AnswerShape } from '@/constants/theme';
 import { useBob } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
+import type { PixelPaths } from '@/lib/pixel-art';
 import type { BattleBg, BuildingId, EnemyDef, HeroDef, PlaceId } from '@/types/game';
 
 export type MascotMood = 'happy' | 'excited' | 'sad' | 'sleepy' | 'thinking' | 'love';
@@ -276,6 +277,19 @@ export const EnemyBadge: React.FC<{ enemy: EnemyDef; size?: number }> = ({ enemy
     </View>
   );
 };
+
+/** Giữ nét pixel sắc khi phóng to trên web (trình duyệt không làm nhòe mép ô) */
+const CRISP = Platform.OS === 'web' ? ({ shapeRendering: 'crispEdges' } as object) : {};
+
+/** Ảnh pixel dựng sẵn ở lib/pixel-art.ts (mỗi màu một Path); kích thước tùy ý, giữ tỉ lệ ô */
+export const PixelArt = React.memo<{ art: PixelPaths; width: number; height: number; style?: StyleProp<ViewStyle> }>(({ art, width, height, style }) => (
+  <Svg width={width} height={height} viewBox={`0 0 ${art.w} ${art.h}`} style={style} {...CRISP}>
+    {art.list.map((p, i) => (
+      <Path key={i} d={p.d} fill={p.fill} />
+    ))}
+  </Svg>
+));
+PixelArt.displayName = 'PixelArt';
 
 /** Logo "Đông A": ấn triện son đỏ có Rồng Con, chữ Baloo 2 */
 export const BrandLogo: React.FC<{ compact?: boolean; subtitle?: string; light?: boolean }> = ({ compact = false, subtitle, light = false }) => {

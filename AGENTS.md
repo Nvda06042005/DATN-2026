@@ -15,10 +15,11 @@ Backend NestJS tự áp dụng migration mới khi khởi động với `DATABAS
 
 # Game Hào Khí Đông A (trang học sinh)
 
-- Mã game: `frontend/components/game/` (`GameShell.tsx` khung + lưu trạng thái, các tab, `quiz.tsx` câu hỏi, `LiveArena.tsx`), dữ liệu `frontend/constants/{game,heroes,campaigns}.ts`, logic `frontend/lib/{game-state,battle-engine}.ts`. Thiết kế theo `KE_HOACH_GAME_HAO_KHI_DONG_A.md`.
+- Mã game: `frontend/components/game/` (`GameShell.tsx` khung + lưu trạng thái, các tab, `quiz.tsx` câu hỏi, `LiveArena.tsx`, `WorldScreen.tsx`), dữ liệu `frontend/constants/{game,heroes,campaigns,world}.ts`, logic `frontend/lib/{game-state,battle-engine,world-engine,pixel-art}.ts`. Thiết kế theo `KE_HOACH_GAME_HAO_KHI_DONG_A.md`.
 - Câu hỏi nằm ở `ai/data/game_content.json`; server giữ đáp án và tự chấm (`backend/src/student/content.service.ts`). Ấn Tín (cột `gems`) và XP chỉ được cộng ở server khi chấm; client chỉ được tiêu Ấn Tín.
 - Nội dung câu hỏi phải khớp `ai/data/knowledge_base.json`; không sửa tay `knowledge_base.json`/`q_matrix.json` (sinh từ `ai/data_splitter.py`).
 - Lưu tiến độ ở server không ghi `game_state` (chỉ `PUT /api/student/game` ghi), để không đè trạng thái client vừa lưu.
+- Hành Trình Đông A (thế giới 2D pixel): màn `components/game/WorldScreen.tsx` (toàn màn hình, hộp thoại bằng `InlineSheet`, lượt hỏi bằng `QuizPanel`), dữ liệu vùng đất/nhân vật/nhiệm vụ/cây trồng `constants/world.ts`, luật đi lại – tìm đường – nhiệm vụ – khôi phục bản lưu `lib/world-engine.ts`, hình pixel `lib/pixel-art.ts` (vẽ bằng `PixelArt` trong `components/art.tsx`). Trạng thái nằm trong `GameState.world` (lưu chung `game_state`, không cần migration). Nhân vật là người hư cấu; phần kiến thức hiện từ thẻ Sử Ký, câu hỏi lấy theo `units` phải có trong `ai/data/game_content.json`. Sửa bản đồ: mọi hàng cùng độ dài, ký tự có trong `TILE_INFO`, vật đặt trên ô đi được (cọc và đội thuyền đặt trên nước) và tới được từ điểm xuất phát.
 
 # Thi đấu cả lớp (thời gian thực)
 

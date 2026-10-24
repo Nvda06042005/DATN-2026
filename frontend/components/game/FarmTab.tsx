@@ -1,22 +1,26 @@
 /**
  * Điền Trang: bàn công trình (ruộng, trại, kho, xưởng cọc, bến Vân Đồn...), thu hoạch Lương Thảo theo thời gian,
- * xây/nâng cấp phải trả lời đúng một câu, nhiệm vụ hôm nay, sự kiện "giặc kéo đến cướp lương" (vườn không nhà trống).
+ * xây/nâng cấp phải trả lời đúng một câu, nhiệm vụ hôm nay, sự kiện "giặc kéo đến cướp lương" (vườn không nhà trống),
+ * lối vào thế giới 2D Hành Trình Đông A.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Platform, Pressable, View, useWindowDimensions } from 'react-native';
 import {
-  AlertTriangle, ArrowUpCircle, BicepsFlexed, Check, ChessKnight, ChevronRight, Clock, Gift, Hammer, Sailboat, Shield, Siren, Stamp, Swords, Users, Warehouse, Wheat,
+  AlertTriangle, ArrowUpCircle, BicepsFlexed, Check, ChessKnight, ChevronRight, Clock, Gamepad2, Gift, Hammer, Sailboat, Shield, Siren, Stamp, Swords, Users, Warehouse, Wheat,
 } from 'lucide-react-native';
-import { BattleBackdrop, BuildingSprite, FarmBoardArt, Mascot } from '@/components/art';
+import { BattleBackdrop, BuildingSprite, FarmBoardArt, Mascot, PixelArt } from '@/components/art';
 import { QuestionCard, QuizPanel } from '@/components/game/quiz';
 import { Bar, Btn, Card, Chip, InfoNote, Inset, PressCard, SectionTitle, Sheet, Spinner, Txt } from '@/components/ui';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADE_SECONDS, farmCap, farmRate, storeCap, troopCap, upgradeCost } from '@/constants/game';
+import { WORLD_MAP_BY_ID, WORLD_QUESTS } from '@/constants/world';
 import { useGame } from '@/hooks/use-game';
 import { useBob, useReduceMotion } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
 import { useNow } from '@/hooks/use-timers';
 import { fmt, fmtClock } from '@/lib/format';
 import { dailyTasksFor, farmReady, levelOf, raidDue, todayKey } from '@/lib/game-state';
+import { characterArt, worldMapArt } from '@/lib/pixel-art';
+import { activeQuest, questDone } from '@/lib/world-engine';
 import type { ServedQuestion } from '@/types/api';
 import type { BuildingDef, BuildingId, DailyTaskDef, GameState, GameTab } from '@/types/game';
 
@@ -59,6 +63,7 @@ export const FarmTab: React.FC<{ onGoto: (tab: GameTab, sub?: string) => void }>
           <Stock icon={Wheat} label="Lương Thảo" value={state.luong} cap={storeCap(state.buildings.kho.level)} color={c.dongChu} />
           <Stock icon={Shield} label="Quân Lực" value={state.quan} cap={troopCap(state.buildings.trai.level)} color={c.sonChu} />
         </View>
+        <WorldCard />
       </View>
       <View style={{ width: wide ? 340 : '100%', gap: 14 }}>
         <DailyPanel />
@@ -118,6 +123,64 @@ const Stock: React.FC<{ icon: typeof Wheat; label: string; value: number; cap: n
           / {fmt(cap)}
         </Txt>
       </Txt>
+    </Card>
+  );
+};
+
+// ---------------------------------------------------------------------- lối vào Hành Trình Đông A (thế giới 2D)
+const WorldCard: React.FC = () => {
+  const { state, dark, openWorld } = useGame();
+  const { c } = useTheme();
+  const { width } = useWindowDimensions();
+  const w = state.world;
+  const map = WORLD_MAP_BY_ID[w.map];
+  const art = useMemo(() => worldMapArt(map, dark), [map, dark]);
+  const quest = activeQuest(w);
+  const done = WORLD_QUESTS.filter((q) => questDone(w, q)).length;
+  const row = width >= 700;
+  const thumbW = Math.min(row ? 260 : 360, width - 64);
+  const tile = thumbW / map.rows[0].length;
+  const thumbH = tile * map.rows.length;
+  return (
+    <Card style={{ flexDirection: row ? 'row' : 'column', alignItems: row ? 'center' : 'stretch', gap: 14 }}>
+      <Pressable
+        onPress={openWorld}
+        accessibilityRole="button"
+        accessibilityLabel={`Vào Hành Trình Đông A – em đang ở ${map.name}`}
+        style={({ pressed }) => ({ alignSelf: 'center', borderRadius: 18, overflow: 'hidden', borderWidth: 3, borderColor: c.vien2, transform: [{ scale: pressed ? 0.98 : 1 }] })}
+      >
+        <View style={{ width: thumbW, height: thumbH }}>
+          <PixelArt art={art.ground} width={thumbW} height={thumbH} />
+          <View style={{ position: 'absolute', left: w.x * tile, top: w.y * tile }}>
+            <PixelArt art={characterArt('player', 'down', 0, dark)} width={tile} height={tile} />
+          </View>
+          <View style={{ position: 'absolute', left: 0, top: 0 }}>
+            <PixelArt art={art.over} width={thumbW} height={thumbH} />
+          </View>
+        </View>
+      </Pressable>
+      <View style={{ flex: row ? 1 : undefined, gap: 8 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+          <Gamepad2 size={22} color={c.ngocChu} />
+          <Txt f="displayHeavy" size={19} accessibilityRole="header">
+            Hành Trình Đông A
+          </Txt>
+          <Chip text="Phiêu lưu 2D" bg={c.ngocNhat} fg={c.ngocChu} />
+        </View>
+        <Txt size={14} color={c.muc2}>
+          Đi khắp ba vùng đất, nghe người xưa kể chuyện, giải đố để mở đường, gieo trồng và đuổi thám báo.
+        </Txt>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Bar value={done} max={WORLD_QUESTS.length} fill={c.ngoc} height={10} style={{ flex: 1 }} label="Nhiệm vụ chính của Hành Trình" />
+          <Txt f="bold" size={13} color={c.muc2}>
+            {done}/{WORLD_QUESTS.length}
+          </Txt>
+        </View>
+        <Txt f="semibold" size={13}>
+          {quest ? `Đang làm: ${quest.title} (${WORLD_MAP_BY_ID[quest.map].name})` : 'Em đã đi hết Hành Trình Đông A!'}
+        </Txt>
+        <Btn title={w.intro ? 'Tiếp tục phiêu lưu' : 'Vào phiêu lưu'} icon={Gamepad2} tone="ngoc" size="lg" full={!row} onPress={openWorld} />
+      </View>
     </Card>
   );
 };

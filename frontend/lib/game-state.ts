@@ -3,6 +3,7 @@ import { PHASES, PHASE_BY_ID } from '@/constants/campaigns';
 import { HEROES, HERO_BY_ID } from '@/constants/heroes';
 import type { DailyTaskDef, GameState, HeroState, PhaseDef } from '@/types/game';
 import { BUILDINGS, CARDS, DAILY_TASKS, RECIPES, RELICS, farmCap, farmRate } from '@/constants/game';
+import { newWorld, restoreWorld } from '@/lib/world-engine';
 
 export const todayKey = (d: Date = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -26,6 +27,7 @@ const newGameState = (now = Date.now()): GameState => ({
   seen: [],
   tutorial: false,
   settings: { theme: 'system', timer: true, sound: false, reduceMotion: false },
+  world: newWorld(),
 });
 
 /** Đọc trạng thái đã lưu, bổ sung trường mới và loại bỏ dữ liệu hỏng */
@@ -73,6 +75,7 @@ export const restoreGameState = (raw: unknown): GameState => {
     seen: (s.seen ?? []).filter((q) => typeof q === 'string').slice(-60),
     tutorial: Boolean(s.tutorial),
     settings: { ...base.settings, ...(s.settings ?? {}) },
+    world: restoreWorld(s.world),
   };
 };
 
