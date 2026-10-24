@@ -36,7 +36,7 @@ Backend NestJS tự áp dụng migration mới khi khởi động với `DATABAS
 Người dùng đã cho phép tự động cập nhật dự án sau mỗi yêu cầu sửa đổi hoàn tất; không cần hỏi lại để commit, push hoặc triển khai các thay đổi thuộc yêu cầu đó. Đây là quy trình kết thúc mỗi lần làm việc của agent, không phải dịch vụ theo dõi mọi lần lưu file khi agent không hoạt động.
 
 - Chạy kiểm tra phù hợp với thay đổi; xử lý lỗi trước khi phát hành. Không tự đưa thay đổi không liên quan hoặc bí mật vào commit.
-- Commit và push lên `https://github.com/Nvda06042005/DATN-2026`. Bản làm việc không có `.git`: đồng bộ qua checkout `deploy-sync/` trong dự án, đối chiếu thay đổi trước khi push; không force-push. Thay đổi kiến trúc lớn (đổi backend/runtime) đưa lên nhánh riêng trước, chỉ gộp vào `main` khi dịch vụ Render tương ứng đã sẵn sàng.
+- Commit và push lên `https://github.com/Nvda06042005/DATN-2026`. Thư mục dự án chính là repo Git (không còn bản sao `deploy-sync/`): commit trực tiếp, xem lại `git status`/`git diff` trước khi push; không force-push. Thay đổi kiến trúc lớn (đổi backend/runtime) đưa lên nhánh riêng trước, chỉ gộp vào `main` khi dịch vụ Render tương ứng đã sẵn sàng.
 - Vercel triển khai frontend từ GitHub: `https://datn-2026-indol.vercel.app/` (thư mục `frontend`, `frontend/vercel.json`). Kiểm tra trạng thái triển khai và website sau push.
 - Render triển khai backend từ GitHub theo `render.yaml` (dịch vụ `dong-a-api` và `dong-a-ai`). Kiểm tra `/api/health`, `/api/database/health` và API liên quan đến thay đổi. Nếu thiếu quyền truy cập, báo rõ phần chưa hoàn tất.
 - Supabase: thay đổi schema hoặc seed/reference data phải có migration mới theo quy tắc ở trên. Backend áp dụng migration khi khởi động; xác minh migration đã chạy.
