@@ -10,6 +10,7 @@ Backend NestJS tự áp dụng migration mới khi khởi động với `DATABAS
 - Expo SDK 58 thay đổi nhiều: trước khi dùng API Expo/React Native, đọc tài liệu đúng phiên bản (`https://docs.expo.dev/versions/v58.0.0/`), cài thư viện bằng `npx expo install`, chạy `npm run typecheck` và `npx expo export -p web` trước khi báo xong.
 - Không mở hai `Modal` chồng nhau: trong màn toàn màn hình (trận đánh, thi đấu) dùng `InlineSheet`; chuỗi hỏi đáp trong một bảng dùng `QuizPanel`; mở bảng tiếp theo sau khi bảng trước đóng bằng `afterSheet`.
 - `backend/`: NestJS – `src/auth`, `admin`, `student` (ngân hàng câu hỏi `content.service.ts`, quy tắc tiến độ `progress.ts`), `teacher`, `live` (WebSocket), `ai` (gọi dịch vụ Python), `database` (pg + migrator + CLI). Kiểm thử Jest ở `backend/test/`.
+- Lockfile backend phải cài được bằng npm 10.9.4 đi kèm Node.js 22.21.0 trên Render. Sau khi đổi dependency, dùng npm 10.9.4 đồng bộ `package-lock.json` và chạy `npm ci` bằng phiên bản đó trước khi build/kiểm thử; không chỉ dựa vào `node_modules` đã có trên máy.
 - `ai/`: dịch vụ FastAPI `server.py` + BKT, RAG, Gemini/Hugging Face, mô hình NLP, dữ liệu. Giữ tên module phẳng (`create_model`, `context_manager`, ...) vì `models/dong_a_nlp_model.joblib` được pickle theo các tên này.
 - `database/`: chỉ chứa `migrations/` và tài liệu.
 

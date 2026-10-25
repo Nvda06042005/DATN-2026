@@ -94,6 +94,8 @@ cd frontend && npm run typecheck && npx expo export -p web         # kiểu Type
 
 Bài kiểm thử backend tự tạo cụm PostgreSQL tạm (cần `initdb`/`pg_ctl`; đặt `POSTGRES_BIN` nếu không ở vị trí mặc định) và thay dịch vụ AI bằng bản giả.
 
+Backend trên Render dùng Node.js 22.21.0 và npm 10.9.4. Khi thay đổi dependency, đồng bộ lockfile bằng `npx --yes npm@10.9.4 install --package-lock-only`, rồi kiểm tra cài đặt sạch bằng `npx --yes npm@10.9.4 ci` trước khi build và chạy kiểm thử. Lockfile tạo bằng npm khác có thể thiếu peer dependency mà npm 10 yêu cầu.
+
 ## Triển khai
 
 Website chính thức: **https://datn-2026-indol.vercel.app/**. Mã nguồn đang sử dụng nằm trên nhánh **`main`** của [GitHub DATN-2026](https://github.com/Nvda06042005/DATN-2026/tree/main). Vercel chỉ tự triển khai từ `main` theo `frontend/vercel.json`; không dùng URL Preview hoặc URL có mã deployment làm địa chỉ bàn giao. Mỗi lần cập nhật vẫn có lịch sử deployment và URL kỹ thuật do Vercel tự tạo, còn địa chỉ chính thức luôn giữ nguyên.
