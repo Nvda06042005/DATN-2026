@@ -433,14 +433,15 @@ export const OutboxPanel: React.FC<{ session: Session }> = ({ session }) => {
   const { c } = useTheme();
   const toast = useToast();
   const fail = useFail(session);
-  const [data, setData] = useState<{ smtp: boolean; items: OutboxItem[] } | null>(null);
-  const [busy, setBusy] = useState<null | 'retry' | 'csv'>(null);
+  const [data, setData] = useState<Awaited<ReturnType<typeof adminApi.getOutbox>> | null>(null);
+  const [busy, setBusy] = useState<null | 'retry' | 'csv' | 'test'>(null);
+  const [testOpen, setTestOpen] = useState(false);
   const load = useCallback(() => {
     adminApi
       .getOutbox(session.token)
       .then(setData)
       .catch((err) => {
-        setData({ smtp: false, items: [] });
+        setData({ smtp: false, worker: false, test_recipient: null, items: [] });
         fail(err);
       });
   }, [session.token, fail]);
@@ -470,6 +471,19 @@ export const OutboxPanel: React.FC<{ session: Session }> = ({ session }) => {
     }
   };
 
+  const sendTest = async () => {
+    setBusy('test');
+    try {
+      const r = await adminApi.sendTestMail(session.token);
+      toast(`Máy chủ thư đã nhận email kiểm tra gửi đến ${r.recipient}. Hãy kiểm tra hộp thư và mục Thư rác.`);
+      setTestOpen(false);
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const items = data?.items ?? [];
   const waiting = items.filter((i) => i.status === 'queued' || i.status === 'failed' || i.status === 'sending').length;
   return (
@@ -482,18 +496,21 @@ export const OutboxPanel: React.FC<{ session: Session }> = ({ session }) => {
         action={<Btn tone="giay" size="sm" icon={RefreshCw} label="Tải lại" onPress={load} />}
       />
       {data && (
-        <Inset style={{ backgroundColor: data.smtp ? c.ngocNhat : c.dongNhat, gap: 4 }}>
-          <Txt f="bold" size={14} color={data.smtp ? c.ngocChu : c.dongChu}>
-            {data.smtp ? 'Máy chủ thư đã cấu hình: thư được gửi tự động, thử lại khi lỗi.' : 'Máy chủ chưa cấu hình gửi thư (SMTP): thư nằm chờ trong hàng đợi.'}
+        <Inset style={{ backgroundColor: data.smtp && data.worker ? c.ngocNhat : c.dongNhat, gap: 4 }}>
+          <Txt f="bold" size={14} color={data.smtp && data.worker ? c.ngocChu : c.dongChu}>
+            {data.smtp ? (data.worker ? 'Máy chủ thư đã cấu hình: gửi tự động đã bật, thử lại khi lỗi.' : 'Máy chủ thư đã cấu hình. Gửi tự động đang tạm dừng.') : 'Máy chủ chưa cấu hình gửi thư (SMTP): thư nằm chờ trong hàng đợi.'}
           </Txt>
           {!data.smtp && (
             <Txt size={13} color={c.dongChu}>
-              Tải danh sách tài khoản đang chờ để in hoặc phát tay; thư sẽ tự gửi khi máy chủ được cấu hình SMTP_URL.
+              Tải danh sách tài khoản đang chờ để in hoặc phát tay; thư sẽ tự gửi khi máy chủ thư hoạt động.
             </Txt>
           )}
         </Inset>
       )}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+        {session.user.role === 'root_admin' && data?.smtp && data.test_recipient && (
+          <Btn title="Gửi thư kiểm tra" icon={Mail} tone="thuy" size="sm" disabled={busy !== null} onPress={() => setTestOpen(true)} />
+        )}
         <Btn title="Gửi lại thư lỗi" icon={RotateCcw} tone="giay" size="sm" loading={busy === 'retry'} onPress={retry} />
         <Btn title={`Tải tài khoản chưa gửi thư${waiting ? ` (${waiting})` : ''}`} icon={Download} tone="dong" size="sm" loading={busy === 'csv'} onPress={csv} />
       </View>
@@ -527,6 +544,16 @@ export const OutboxPanel: React.FC<{ session: Session }> = ({ session }) => {
           );
         })
       )}
+      <ConfirmSheet
+        open={testOpen}
+        title="Gửi thư kiểm tra?"
+        message={`Gửi 1 email kiểm tra đến ${data?.test_recipient ?? 'địa chỉ người gửi đã cấu hình'}. Sau khi gửi, kiểm tra hộp thư và trạng thái giao thư trên dịch vụ email.`}
+        confirmLabel="Gửi thư kiểm tra"
+        tone="thuy"
+        busy={busy === 'test'}
+        onConfirm={sendTest}
+        onCancel={() => setTestOpen(false)}
+      />
     </Card>
   );
 };

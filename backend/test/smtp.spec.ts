@@ -5,6 +5,53 @@ import { config } from '../src/config';
 import type { DatabaseService } from '../src/database/database.service';
 
 describe('Kiểm tra SMTP trước khi gửi thư', () => {
+  test('chưa cấu hình SMTP thì không gửi thư kiểm tra hoặc truy cập hàng đợi', async () => {
+    const query = jest.fn();
+    const mail = new MailService({ ready: true, query } as unknown as DatabaseService);
+    await expect(mail.sendTest()).rejects.toMatchObject({ status: 503 });
+    expect(mail.testRecipient).toBeNull();
+    expect(mail.workerEnabled).toBe(false);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  test('gửi kiểm tra về chính người gửi, giới hạn 60 giây và không lấy thư tài khoản khỏi hàng đợi', async () => {
+    const saved = { ...config };
+    Object.assign(config, { mailTransport: 'json', mailWorker: false, mailFrom: 'Đông A EDU <sender@example.test>' });
+    const query = jest.fn();
+    const mail = new MailService({ ready: true, query } as unknown as DatabaseService);
+    try {
+      await mail.onModuleInit();
+      expect(mail.testRecipient).toBe('Đông A EDU <sender@example.test>');
+      expect(mail.workerEnabled).toBe(false);
+      await expect(mail.sendTest()).resolves.toEqual({ accepted: true, recipient: 'Đông A EDU <sender@example.test>' });
+      expect(mail.sent).toHaveLength(1);
+      expect(mail.sent[0]).toMatchObject({ to: 'Đông A EDU <sender@example.test>', subject: '[Đông A EDU] Kiểm tra gửi email' });
+      expect(mail.sent[0].text).toContain('cấu hình gửi email');
+      await expect(mail.sendTest()).rejects.toMatchObject({ status: 429 });
+      expect(mail.sent).toHaveLength(1);
+      expect(query).not.toHaveBeenCalled();
+    } finally {
+      mail.onModuleDestroy();
+      Object.assign(config, saved);
+    }
+  });
+
+  test('lỗi gửi kiểm tra không lộ phản hồi SMTP thô hoặc bí mật', async () => {
+    const query = jest.fn();
+    const mail = new MailService({ ready: true, query } as unknown as DatabaseService);
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    Object.assign(mail, { transport: { sendMail: jest.fn().mockRejectedValue(Object.assign(new Error('dummy-private-key SMTP response'), { code: 'EAUTH' })), close: jest.fn() } });
+    try {
+      await expect(mail.sendTest()).rejects.toMatchObject({ status: 503, message: 'Không gửi được thư kiểm tra. Kiểm tra trạng thái SMTP trên máy chủ.' });
+      expect(warn).toHaveBeenCalledWith('Gửi thư kiểm tra thất bại (EAUTH)');
+      expect(JSON.stringify(warn.mock.calls)).not.toContain('dummy-private-key');
+      expect(query).not.toHaveBeenCalled();
+    } finally {
+      mail.onModuleDestroy();
+      warn.mockRestore();
+    }
+  });
+
   test.each(['host', 'url'])('từ chối máy chủ không nâng cấp TLS (%s), không truyền mật khẩu hay gửi thư', async (mode) => {
     const commands: string[] = [];
     const sockets = new Set<Socket>();

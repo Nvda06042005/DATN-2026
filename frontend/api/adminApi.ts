@@ -42,7 +42,10 @@ export const getImport = (token: string, id: number) => apiRequest<{ id: number;
 
 export const getIncomplete = (token: string) => apiRequest<IncompleteLog[]>('/api/admin/incomplete', { token });
 
-export const getOutbox = (token: string) => apiRequest<{ smtp: boolean; items: OutboxItem[] }>('/api/admin/outbox', { token });
+export const getOutbox = (token: string) => apiRequest<{ smtp: boolean; worker: boolean; test_recipient: string | null; items: OutboxItem[] }>('/api/admin/outbox', { token });
+
+/** Quản trị tổng gửi một thư kiểm tra đến địa chỉ người gửi đã cấu hình trên máy chủ. */
+export const sendTestMail = (token: string) => apiRequest<{ accepted: boolean; recipient: string }>('/api/admin/outbox/test', { method: 'POST', token });
 
 export const retryOutbox = (token: string) => apiRequest<{ requeued: number }>('/api/admin/outbox/retry', { method: 'POST', token });
 

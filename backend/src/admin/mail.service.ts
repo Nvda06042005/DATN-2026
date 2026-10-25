@@ -4,7 +4,7 @@
  * mất thư khi máy chủ khởi động lại. Nội dung có mật khẩu mặc định được mã hóa AES-256-GCM và xóa ngay khi gửi xong.
  * Chưa cấu hình SMTP thì thư nằm chờ; quản trị tải danh sách tài khoản (CSV) để phát tay.
  */
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { HttpException, Injectable, Logger, OnModuleDestroy, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
 import { createTransport, Transporter } from 'nodemailer';
 import { config } from '../config';
@@ -30,6 +30,7 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
   private transport: Transporter | null = null;
   private timer: NodeJS.Timeout | null = null;
   private running = false;
+  private nextTestAt = 0;
   /** Khóa mã hóa nội dung thư, suy ra từ AUTH_SECRET_KEY (không cần thêm biến bí mật) */
   private readonly key = createHash('sha256').update(`dong-a-outbox:${config.authSecret}`).digest();
   /** Thư đã "gửi" khi MAIL_TRANSPORT=json (kiểm thử, chạy thử trên máy) */
@@ -39,6 +40,14 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
 
   get configured(): boolean {
     return this.transport !== null;
+  }
+
+  get workerEnabled(): boolean {
+    return this.configured && config.mailWorker;
+  }
+
+  get testRecipient(): string | null {
+    return this.configured ? config.mailFrom : null;
   }
 
   async onModuleInit(): Promise<void> {
@@ -82,6 +91,25 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     this.transport?.close();
+  }
+
+  /** Chỉ route quản trị tổng gọi: gửi về chính MAIL_FROM, độc lập với hàng đợi tài khoản. */
+  async sendTest(): Promise<{ accepted: true; recipient: string }> {
+    if (!this.transport || !config.mailFrom) throw new ServiceUnavailableException('Máy chủ chưa cấu hình gửi thư.');
+    if (Date.now() < this.nextTestAt) throw new HttpException('Vui lòng chờ 60 giây giữa các lần gửi thư kiểm tra.', 429);
+    this.nextTestAt = Date.now() + 60_000;
+    const subject = '[Đông A EDU] Kiểm tra gửi email';
+    const text = `Đây là thư kiểm tra cấu hình gửi email của Đông A EDU, được yêu cầu từ cổng quản trị tổng.\nWebsite: ${config.appUrl}\nNếu bạn nhận được thư này, đường gửi email từ backend đến hộp thư đã hoạt động.`;
+    try {
+      await this.transport.sendMail({ from: config.mailFrom, to: config.mailFrom, subject, text, html: `<p>${escapeHtml(text).replace(/\n/g, '</p><p>')}</p>` });
+      if (config.mailTransport === 'json') this.sent.push({ to: config.mailFrom, subject, text });
+      this.logger.log('SMTP: máy chủ thư đã nhận thư kiểm tra');
+      return { accepted: true, recipient: config.mailFrom };
+    } catch (exc) {
+      const code = String((exc as { code?: string })?.code ?? 'UNKNOWN');
+      this.logger.warn(`Gửi thư kiểm tra thất bại (${/^[A-Z0-9_]+$/.test(code) ? code : 'UNKNOWN'})`);
+      throw new ServiceUnavailableException('Không gửi được thư kiểm tra. Kiểm tra trạng thái SMTP trên máy chủ.');
+    }
   }
 
   encrypt(payload: MailPayload): string {

@@ -235,4 +235,23 @@ async function firstLogin(username: string, password: string, portal: string, ne
     expect(await db.getById(target.id)).toBeNull();
     expect((await api('GET', '/api/admin/trash', undefined, SA)).body).toEqual([]);
   });
+
+  test('chỉ quản trị tổng gửi được thư kiểm tra đến người gửi đã cấu hình, không đụng hàng đợi tài khoản', async () => {
+    expect((await api('POST', '/api/admin/outbox/test')).status).toBe(401);
+    expect((await api('POST', '/api/admin/outbox/test', undefined, SA)).status).toBe(403);
+    expect((await api('POST', '/api/admin/outbox/test', undefined, T)).status).toBe(403);
+    const rootBox = (await api('GET', '/api/admin/outbox', undefined, ROOT)).body;
+    expect(rootBox).toMatchObject({ smtp: true, worker: false });
+    expect(rootBox.test_recipient).toBeTruthy();
+    expect((await api('GET', '/api/admin/outbox', undefined, SA)).body.test_recipient).toBeNull();
+    const before = mail.sent.length;
+    const queueBefore = await db.query('SELECT id, status, attempts FROM app_email_outbox ORDER BY id');
+    const res = await api('POST', '/api/admin/outbox/test', { to: 'ignored-recipient@example.test' }, ROOT);
+    expect(res).toEqual({ status: 200, body: { accepted: true, recipient: rootBox.test_recipient } });
+    expect(mail.sent.slice(before)).toHaveLength(1);
+    expect(mail.sent[before]).toMatchObject({ to: rootBox.test_recipient, subject: '[Đông A EDU] Kiểm tra gửi email' });
+    expect(mail.sent[before].text).not.toContain('VN@');
+    expect(await db.query('SELECT id, status, attempts FROM app_email_outbox ORDER BY id')).toEqual(queueBefore);
+    expect((await api('POST', '/api/admin/outbox/test', undefined, ROOT)).status).toBe(429);
+  });
 });

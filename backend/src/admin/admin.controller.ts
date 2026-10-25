@@ -5,6 +5,7 @@ import { IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, Length, Matches,
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { Role, UserRow } from '../database/database.service';
 import { SchoolService, UploadedXlsx } from './school.service';
+import { MailService } from './mail.service';
 
 const trimLower = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim().toLowerCase() || undefined : value);
 /** "  Đặng   Thu  Hà " -> "Đặng Thu Hà" */
@@ -83,7 +84,7 @@ export const XLSX_UPLOAD = FileInterceptor('file', { limits: { fileSize: 2 * 102
 @UseGuards(AuthGuard)
 @Roles('root_admin', 'school_admin')
 export class AdminController {
-  constructor(private readonly school: SchoolService) {}
+  constructor(private readonly school: SchoolService, private readonly mail: MailService) {}
 
   /** Thống kê: số trường, giáo viên, học sinh từng khối 6–9 (quản trị trường: chỉ trường mình) */
   @Get('overview')
@@ -179,6 +180,13 @@ export class AdminController {
   @Get('outbox')
   outbox(@CurrentUser() user: UserRow) {
     return this.school.outbox(user);
+  }
+
+  @Post('outbox/test')
+  @HttpCode(200)
+  @Roles('root_admin')
+  testMail() {
+    return this.mail.sendTest();
   }
 
   @Post('outbox/retry')

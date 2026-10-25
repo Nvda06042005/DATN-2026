@@ -637,6 +637,8 @@ export class SchoolService implements OnApplicationBootstrap {
   async outbox(actor: UserRow) {
     return this.run(actor, async (q, scope) => ({
       smtp: this.mail.configured,
+      worker: this.mail.workerEnabled,
+      test_recipient: actor.role === 'root_admin' ? this.mail.testRecipient : null,
       items: await q(
         `SELECT o.id, o.kind, o.to_email, o.subject, o.status, o.attempts, o.last_error, o.created_at, o.sent_at, u.full_name, u.username
          FROM app_email_outbox o LEFT JOIN app_users u ON u.id = o.user_id
