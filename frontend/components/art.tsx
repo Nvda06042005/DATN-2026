@@ -384,6 +384,150 @@ export const SkyBackdrop: React.FC<{ variant?: 'hero' | 'blue' | 'night' }> = ({
   );
 };
 
+// ---------------------------------------------------------------------- bình minh Bạch Đằng (hero trang chủ)
+/** Núi đá vôi tròn đỉnh (cx: tâm, base: chân núi, w: rộng, h: cao) */
+const karst = (cx: number, base: number, w: number, h: number) =>
+  `M${cx - w / 2} ${base} C${cx - w / 2} ${base - h * 0.55} ${cx - w * 0.28} ${base - h} ${cx} ${base - h} C${cx + w * 0.28} ${base - h} ${cx + w / 2} ${base - h * 0.55} ${cx + w / 2} ${base} Z`;
+
+const WATER_Y = 585;
+const SUN = { x: 1000, y: 500 };
+const FAR_PEAKS = [karst(70, WATER_Y, 150, 100), karst(230, WATER_Y, 170, 140), karst(420, WATER_Y, 200, 180), karst(650, WATER_Y, 170, 120), karst(1250, WATER_Y, 220, 200), karst(1400, WATER_Y, 160, 150)].join(' ');
+const MID_PEAKS = [karst(300, WATER_Y, 150, 250), karst(540, WATER_Y, 130, 160), karst(740, WATER_Y, 140, 270), karst(1200, WATER_Y, 120, 210), karst(1340, WATER_Y, 170, 290)].join(' ');
+const RAYS = [-760, -520, -300, -110, 90, 300, 520].map((dx) => `M${SUN.x} ${SUN.y} L${SUN.x + dx - 50} -60 L${SUN.x + dx + 50} -60 Z`).join(' ');
+
+/** Số giả ngẫu nhiên cố định để sao và cọc không đổi giữa các lần vẽ */
+const lcg = (seed: number) => () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+
+const STARS = (() => {
+  const rnd = lcg(5);
+  return Array.from({ length: 44 }, () => ({ x: rnd() * 1440, y: rnd() * 250, r: 0.7 + rnd() * 1.1, o: 0.25 + rnd() * 0.5 }));
+})();
+
+/** Bãi cọc nhọn cắm dưới sông Bạch Đằng: chỉ lộ phần đầu cọc trên mặt nước */
+const STAKES = (() => {
+  const rnd = lcg(21);
+  return Array.from({ length: 30 }, () => ({ x: 800 + rnd() * 520, y: 690 + rnd() * 62, h: 36 + rnd() * 30, tilt: (rnd() - 0.5) * 12 })).sort((a, b) => a.y - b.y);
+})();
+
+/** Thuyền chiến nhà Trần: thân dài mũi cong, buồm đỏ viền vàng, cờ hiệu (gốc ở mép nước, dài khoảng 276, quay mũi sang phải) */
+const WarBoat: React.FC<{ x: number; y: number; s?: number }> = ({ x, y, s = 1 }) => (
+  <G transform={`translate(${x} ${y}) scale(${s})`}>
+    <Path d="M0 -8 C30 22 90 28 150 28 C210 28 250 14 276 -30 L262 -30 C240 -6 200 8 150 8 C100 8 50 4 18 -20 Z" fill="#150f1f" />
+    <Path d="M14 -14 C44 8 96 14 150 14 C204 14 240 2 266 -22" fill="none" stroke="#f0b45a" strokeWidth="2" opacity="0.8" />
+    <Path d="M76 -30 Q127 -62 178 -30 Z" fill="#150f1f" />
+    <Rect x="84" y="-30" width="86" height="20" fill="#150f1f" />
+    <Rect x="128" y="-196" width="5" height="170" fill="#150f1f" />
+    <Path d="M133 -188 L133 -58 C168 -62 206 -72 238 -94 C220 -132 184 -168 133 -188 Z" fill="#b32a2e" stroke="#ffd479" strokeWidth="2" strokeLinejoin="round" />
+    <Circle cx="178" cy="-112" r="16" fill="#ffd479" opacity="0.9" />
+    <Circle cx="178" cy="-112" r="8" fill="#b32a2e" />
+    <Path d="M131 -196 C152 -206 172 -190 200 -200 L200 -184 C172 -176 152 -192 131 -182 Z" fill="#ffd479" />
+    <Path d="M10 34 q18 -8 36 0 t36 0 t36 0 t36 0" fill="none" stroke="#f6c46b" strokeWidth="2" opacity="0.4" />
+  </G>
+);
+
+/** Thuyền giặc bốc cháy mắc cọc, nghiêng về một bên (biểu tượng chiến thắng Bạch Đằng) */
+const BurningShip: React.FC<{ x: number; y: number; s?: number; tilt?: number }> = ({ x, y, s = 1, tilt = 14 }) => (
+  <G transform={`translate(${x} ${y}) rotate(${tilt}) scale(${s})`}>
+    <Circle cx="140" cy="-30" r="90" fill="#ff8a3d" opacity="0.28" />
+    <Path d="M0 -8 C30 22 90 28 150 28 C210 28 250 14 276 -30 L262 -30 C240 -6 200 8 150 8 C100 8 50 4 18 -20 Z" fill="#17121c" />
+    <Rect x="128" y="-150" width="5" height="124" fill="#17121c" />
+    <Path d="M133 -146 L133 -64 L196 -84 L178 -112 L152 -104 Z" fill="#4f4858" opacity="0.9" />
+    <Path d="M104 -10 C94 -44 118 -58 112 -90 C140 -66 150 -38 140 -10 Z" fill="#ff7a2f" />
+    <Path d="M124 -10 C118 -34 132 -44 130 -66 C148 -50 150 -28 144 -10 Z" fill="#ffd24a" />
+    <Path d="M168 -10 C162 -30 174 -38 172 -56 C188 -42 190 -26 184 -10 Z" fill="#ff7a2f" />
+  </G>
+);
+
+/** Cờ phướn trên bờ: cột tối, cờ đỏ viền vàng bay trong gió */
+const Banner: React.FC<{ x: number; top: number; w?: number; label?: string }> = ({ x, top, w = 92, label }) => (
+  <G>
+    <Rect x={x} y={top - 12} width="5" height={820 - top} fill="#0a0f22" />
+    <Circle cx={x + 2.5} cy={top - 14} r="5" fill="#ffd479" />
+    <Path d={`M${x + 5} ${top} C${x + w * 0.35} ${top - 12} ${x + w * 0.65} ${top + 12} ${x + w} ${top - 2} L${x + w - 14} ${top + 36} L${x + w} ${top + 72} C${x + w * 0.65} ${top + 86} ${x + w * 0.35} ${top + 62} ${x + 5} ${top + 74} Z`} fill="#c1272d" stroke="#ffd479" strokeWidth="2" strokeLinejoin="round" />
+    {label && (
+      <SvgText x={x + w * 0.52} y={top + 43} textAnchor="middle" fontSize="15" fontFamily={FONT.displayHeavy} fill="#ffd479">
+        {label}
+      </SvgText>
+    )}
+  </G>
+);
+
+/**
+ * Bình minh trên sông Bạch Đằng (vẽ riêng): trời chàm chuyển đỏ – vàng, mặt trời rực sau núi đá, đoàn thuyền chiến cờ đỏ,
+ * bãi cọc, thuyền giặc cháy mắc cọc và cờ phướn trên bờ. Lấp đầy khung cha, canh theo đáy; shade làm tối phía trái để chữ trắng đọc rõ;
+ * fade hòa mép trên vào màu xanh mực của khối chữ nằm liền phía trên (màn hẹp).
+ */
+export const EpicBackdrop: React.FC<{ shade?: boolean; fade?: boolean }> = ({ shade = false, fade = false }) => {
+  const { c } = useTheme();
+  const gid = React.useId().replace(/:/g, '');
+  return (
+    <Svg width="100%" height="100%" viewBox="0 0 1440 820" preserveAspectRatio="xMidYMax slice" style={StyleSheet.absoluteFill}>
+      <Defs>
+        <LinearGradient id={`s-${gid}`} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={c.xanhMuc} />
+          <Stop offset="0.24" stopColor="#1c2f6b" />
+          <Stop offset="0.45" stopColor="#5a3a7c" />
+          <Stop offset="0.65" stopColor="#c24f55" />
+          <Stop offset="0.83" stopColor="#f08a4b" />
+          <Stop offset="0.97" stopColor="#ffc46b" />
+        </LinearGradient>
+        <RadialGradient id={`g-${gid}`} cx="0.5" cy="0.5" r="0.5">
+          <Stop offset="0" stopColor="#fff1c1" stopOpacity="0.95" />
+          <Stop offset="0.3" stopColor="#ffbe64" stopOpacity="0.55" />
+          <Stop offset="1" stopColor="#ff8a3d" stopOpacity="0" />
+        </RadialGradient>
+        <LinearGradient id={`r-${gid}`} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#f0a35a" stopOpacity="0.95" />
+          <Stop offset="0.22" stopColor="#7a4b7c" />
+          <Stop offset="0.6" stopColor="#26305e" />
+          <Stop offset="1" stopColor="#101733" />
+        </LinearGradient>
+        <LinearGradient id={`f-${gid}`} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={c.xanhMuc} stopOpacity="1" />
+          <Stop offset="1" stopColor={c.xanhMuc} stopOpacity="0" />
+        </LinearGradient>
+        <LinearGradient id={`d-${gid}`} x1="0" y1="0" x2="1" y2="0">
+          <Stop offset="0" stopColor={c.xanhMuc} stopOpacity="0.92" />
+          <Stop offset="0.65" stopColor={c.xanhMuc} stopOpacity="0.5" />
+          <Stop offset="1" stopColor={c.xanhMuc} stopOpacity="0" />
+        </LinearGradient>
+      </Defs>
+      <Rect x="-600" y="-400" width="2640" height="400" fill={c.xanhMuc} />
+      <Rect x="-600" y="0" width="2640" height={WATER_Y} fill={`url(#s-${gid})`} />
+      {STARS.map((t, i) => (
+        <Circle key={i} cx={t.x} cy={t.y} r={t.r} fill="#ffffff" opacity={t.o} />
+      ))}
+      <Circle cx={SUN.x} cy={SUN.y} r="420" fill={`url(#g-${gid})`} />
+      <Path d={RAYS} fill="#ffe2a0" opacity="0.07" />
+      {fade && <Rect x="-600" y="0" width="2640" height="300" fill={`url(#f-${gid})`} />}
+      <Circle cx={SUN.x} cy={SUN.y} r="82" fill="#fff1c1" />
+      <Path d={FAR_PEAKS} fill="#4a3f86" opacity="0.6" />
+      <Ellipse cx="720" cy={WATER_Y - 4} rx="900" ry="16" fill="#ffffff" opacity="0.07" />
+      <Path d={MID_PEAKS} fill="#262c63" opacity="0.92" />
+      <Rect x="-600" y={WATER_Y} width="2640" height="400" fill={`url(#r-${gid})`} />
+      {[70, 52, 38, 26, 16].map((rx, i) => (
+        <Ellipse key={rx} cx={SUN.x} cy={WATER_Y + 18 + i * 34} rx={rx * 2.2} ry="5" fill="#ffd9a0" opacity={0.42 - i * 0.07} />
+      ))}
+      <WarBoat x={540} y={704} s={0.95} />
+      <WarBoat x={880} y={662} s={0.55} />
+      <BurningShip x={1030} y={700} s={0.6} tilt={12} />
+      {STAKES.map((k, i) => (
+        <G key={i} transform={`translate(${k.x} ${k.y}) rotate(${k.tilt})`}>
+          <Path d={`M-3.5 ${k.h} L-3.5 7 L0 0 L3.5 7 L3.5 ${k.h} Z`} fill="#1b1220" />
+          <Path d={`M0 0 L3.5 7 L3.5 ${k.h} L1 ${k.h} L1 8 Z`} fill="#6b4a36" opacity="0.7" />
+          <Ellipse cx="0" cy={k.h} rx="10" ry="2.4" fill="none" stroke="#f6c46b" strokeOpacity="0.45" />
+        </G>
+      ))}
+      <Path d="M-600 650 C-200 640 250 660 380 708 C440 732 470 784 486 830 H-600 Z" fill="#0c1228" />
+      <Path d="M2040 640 C1700 626 1250 640 1150 700 C1110 726 1090 780 1082 830 H2040 Z" fill="#0c1228" />
+      <Banner x={1180} top={530} w={100} label="ĐÔNG A" />
+      <Banner x={1272} top={474} w={84} />
+      <Banner x={1352} top={538} w={46} />
+      {shade && <Rect x="0" y="0" width="960" height="820" fill={`url(#d-${gid})`} />}
+    </Svg>
+  );
+};
+
 /** Dải mây cuộn làm mép chuyển giữa hai vùng nền (flip: mây treo từ mép trên xuống); color là màu vùng nền bên cạnh */
 export const CloudBank: React.FC<{ color: string; flip?: boolean; height?: number }> = ({ color, flip = false, height = 72 }) => {
   const gid = React.useId().replace(/:/g, '');

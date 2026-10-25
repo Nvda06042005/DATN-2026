@@ -9,10 +9,10 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Activity, ArrowRight, Castle, Check, Compass, Database, Download, FileSpreadsheet, GraduationCap, Joystick, Landmark, LayoutDashboard, Layers, LibraryBig, Lock,
-  Map as MapIcon, Medal, MessageSquareText, Milestone, Monitor, MonitorSmartphone, Puzzle, RadioTower, Route, School, ScrollText, Send, Shield, ShieldCheck, Smartphone,
-  Stamp, Sword, Table2, Tablet, TrendingUp, Trophy, Undo2, Users, WandSparkles, Zap,
+  Map as MapIcon, Medal, MessageSquareText, Milestone, Monitor, Puzzle, RadioTower, Route, School, ScrollText, Send, Shield, ShieldCheck, Smartphone,
+  Sword, Table2, Tablet, TrendingUp, Trophy, Undo2, Users, WandSparkles, Zap,
 } from 'lucide-react-native';
-import { BrandLogo, CloudBank, GradeBadge, SchematicMap, SkyBackdrop } from '@/components/art';
+import { BrandLogo, CloudBank, EpicBackdrop, GradeBadge, SchematicMap, SkyBackdrop } from '@/components/art';
 import { useDocumentTitle } from '@/components/auth';
 import { LoreChip } from '@/components/game/quiz';
 import { TemplateGuide, downloadTemplate } from '@/components/provisioning';
@@ -24,7 +24,6 @@ import type { Palette } from '@/constants/theme';
 import { WORLD_QUESTS } from '@/constants/world';
 import { useReduceMotion } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
-import { webHref } from '@/lib/format';
 import type { IconType } from '@/types/game';
 
 const MAX_W = 1120;
@@ -132,14 +131,16 @@ const Panel: React.FC<{ children: React.ReactNode; pad?: number; style?: StylePr
   return <View style={[{ backgroundColor: c.the, borderRadius: 20, borderWidth: 1, borderColor: c.bienXanh, padding: pad }, shadow(c, 'sm'), style]}>{children}</View>;
 };
 
-type CtaTone = 'son' | 'xanh' | 'trang' | 'vien';
+/** son/xanh/trang/vien dùng trên nền sáng; vang/sang dùng trên nền tối của hero */
+type CtaTone = 'son' | 'xanh' | 'trang' | 'vien' | 'vang' | 'sang';
 
 /** Nút phẳng dạng viên thuốc, cao tối thiểu 44 */
 const Cta: React.FC<{ title: string; onPress: () => void; tone?: CtaTone; icon?: IconType; arrow?: boolean; lg?: boolean; label?: string; testID?: string }> = ({
   title, onPress, tone = 'son', icon, arrow = false, lg = false, label, testID,
 }) => {
   const { c } = useTheme();
-  const t = { son: { bg: c.son, fg: c.the, bd: c.son }, xanh: { bg: c.xanhMuc, fg: c.the, bd: c.xanhMuc }, trang: { bg: c.the, fg: c.xanhMuc, bd: c.the }, vien: { bg: 'transparent', fg: c.xanhMuc, bd: c.xanhMuc2 } }[tone];
+  const t = { son: { bg: c.son, fg: c.the, bd: c.son }, xanh: { bg: c.xanhMuc, fg: c.the, bd: c.xanhMuc }, trang: { bg: c.the, fg: c.xanhMuc, bd: c.the }, vien: { bg: 'transparent', fg: c.xanhMuc, bd: c.xanhMuc2 },
+    vang: { bg: c.vang, fg: c.xanhMuc, bd: c.vang }, sang: { bg: c.kinh, fg: c.the, bd: c.troi3 } }[tone];
   const text = lg ? 16 : 15;
   return (
     <Pressable
@@ -154,7 +155,8 @@ const Cta: React.FC<{ title: string; onPress: () => void; tone?: CtaTone; icon?:
             alignSelf: 'flex-start', minHeight: lg ? 52 : 44, paddingHorizontal: lg ? 26 : 20, borderRadius: 999, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
             backgroundColor: t.bg, borderWidth: 1.5, borderColor: t.bd, opacity: pressed ? 0.9 : 1, transform: [{ translateY: pressed ? 1 : hovered ? -1 : 0 }],
           },
-          tone === 'vien' ? null : shadow(c, 'sm'),
+          tone === 'vien' || tone === 'sang' ? null : shadow(c, 'sm'),
+          tone === 'sang' ? GLASS : null,
         ];
       }}
     >
@@ -283,130 +285,106 @@ const Header: React.FC<{ width: number; go: (id: string) => void }> = ({ width, 
   );
 };
 
-/** Ví dụ một câu hỏi trong game (minh họa giao diện làm bài) */
-const QuizPreview: React.FC<{ wide: boolean }> = ({ wide }) => {
+/** Ba trận đại thắng của nhà Trần, hiện trong hero dưới dạng thẻ kính mờ */
+const VICTORIES = [
+  { year: '1258', place: 'Đông Bộ Đầu' },
+  { year: '1285', place: 'Hàm Tử – Chương Dương' },
+  { year: '1288', place: 'Bạch Đằng' },
+] as const;
+
+/** Làm mờ phía sau thẻ kính (chỉ web) */
+const GLASS = (WEB ? { backdropFilter: 'blur(10px)' } : null) as unknown as ViewStyle;
+
+/** Lời nói bất hủ của Trần Bình Trọng (1285), nguyên văn như trong dữ liệu chiến dịch của game */
+const Epigraph: React.FC<{ wide: boolean }> = ({ wide }) => {
   const { c } = useTheme();
-  const options = ['Trần Hưng Đạo', 'Ngô Quyền', 'Lê Lợi', 'Quang Trung'];
   return (
-    <View style={{ width: '100%', maxWidth: 440 }}>
-      <View
-        accessible
-        accessibilityLabel="Ví dụ một câu hỏi trong game: Trận Bạch Đằng năm 1288 do ai chỉ huy? Đáp án đúng là Trần Hưng Đạo."
-        style={[{ backgroundColor: c.the, borderRadius: 24, borderWidth: 1, borderColor: c.bienXanh, padding: 20, gap: 14 }, shadow(c, 'lg')]}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <Chip text="Chiến dịch 3 · Bạch Đằng" icon={Castle} bg={c.troi5} fg={c.troi} />
-          <Txt size={12} color={c.xanhMuc2}>
-            Ví dụ
-          </Txt>
-        </View>
-        <View style={{ height: 6, borderRadius: 3, backgroundColor: c.troi5 }}>
-          <View style={{ width: '60%', height: 6, borderRadius: 3, backgroundColor: c.troi2 }} />
-        </View>
-        <Txt f="bold" size={19} color={c.xanhMuc} style={{ lineHeight: 27 }}>
-          Trận Bạch Đằng năm 1288 do ai chỉ huy?
+    <View style={{ flexDirection: 'row', gap: 16, maxWidth: 460 }}>
+      <View style={{ width: 3, borderRadius: 2, backgroundColor: c.vang }} />
+      <View style={{ flex: 1, gap: 10 }}>
+        <Txt f="serifBold" size={wide ? 28 : 20} color={c.the} style={{ lineHeight: wide ? 40 : 30 }}>
+          “Ta thà làm quỷ nước Nam, chứ không thèm làm vương đất Bắc!”
         </Txt>
-        <View style={{ gap: 8 }}>
-          {options.map((o, i) => {
-            const right = i === 0;
-            return (
-              <View
-                key={o}
-                style={{
-                  minHeight: 48, borderRadius: 14, borderWidth: 1.5, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 12,
-                  borderColor: right ? c.ngoc : c.bienXanh, backgroundColor: right ? c.ngocNhat : c.the,
-                }}
-              >
-                <Txt f="bold" size={14} color={right ? c.ngocChu : c.xanhMuc2} style={{ width: 16 }}>
-                  {'ABCD'[i]}
-                </Txt>
-                <Txt f={right ? 'bold' : 'medium'} size={15} color={right ? c.ngocChu : c.xanhMuc} style={{ flex: 1 }}>
-                  {o}
-                </Txt>
-                {right && <Ico icon={Check} text={15} color={c.ngocChu} />}
-              </View>
-            );
-          })}
-        </View>
-        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-          <Chip text="Điểm kinh nghiệm" icon={Zap} bg={c.ngocNhat} fg={c.ngocChu} />
-          <Chip text="Ấn Tín" icon={Stamp} bg={c.vangNhat} fg={c.vangChu} />
-        </View>
+        <Txt f="bold" size={13} color={c.vang} upper>
+          Trần Bình Trọng · 1285
+        </Txt>
       </View>
-      {wide && (
-        <View style={[{ position: 'absolute', right: -20, bottom: -28, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, paddingRight: 16, borderRadius: 16, backgroundColor: c.the, borderWidth: 1, borderColor: c.bienXanh }, shadow(c, 'sm')]}>
-          <IconTile icon={Zap} text={14} size={36} bg={c.sonNhat} fg={c.sonChu} />
-          <View>
-            <Txt f="bold" size={14} color={c.xanhMuc}>
-              Thi đấu trực tiếp
-            </Txt>
-            <Txt size={12} color={c.xanhMuc2}>
-              Cả lớp cùng chơi
-            </Txt>
-          </View>
-        </View>
-      )}
     </View>
   );
 };
 
+/** Hero: cảnh bình minh Bạch Đằng, tiêu đề "Sống lại hào khí Đông A", ba trận đại thắng. Màn rộng: cảnh là nền; màn hẹp: chữ ở trên, cảnh ở dưới */
 const Hero: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wide, go }) => {
   const { c } = useTheme();
   const router = useRouter();
-  const portalHref = webHref('/portal');
-  const trust: Array<{ icon: IconType; text: string }> = [
-    { icon: ShieldCheck, text: 'Tài khoản do nhà trường cấp' },
-    { icon: MonitorSmartphone, text: 'Web, Android, iOS' },
-    { icon: MessageSquareText, text: 'Có Quân Sư AI hỏi đáp' },
-  ];
   return (
-    <View style={{ width: '100%', backgroundColor: c.troi4 }}>
-      <SkyBackdrop variant="hero" />
-      <CloudBank color={c.the} flip height={96} />
-      <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: HEADER_SPACE + (wide ? 72 : 36), paddingBottom: wide ? 168 : 132 }}>
-        <View style={{ flexDirection: wide ? 'row' : 'column', alignItems: 'center', gap: wide ? 48 : 52 }}>
-          <View style={{ flex: wide ? 1.12 : undefined, width: wide ? undefined : '100%', gap: 20, alignItems: wide ? 'flex-start' : 'center' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: c.the, borderWidth: 1, borderColor: c.bienXanh }}>
-              <Ico icon={GraduationCap} text={13} color={c.troi} />
-              <Txt f="semibold" size={13} color={c.xanhMuc}>
+    <View style={{ width: '100%', backgroundColor: c.xanhMuc, overflow: 'hidden' }}>
+      {wide && <EpicBackdrop shade />}
+      <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: HEADER_SPACE + (wide ? 72 : 40), paddingBottom: wide ? 176 : 32 }}>
+        <View style={{ flexDirection: wide ? 'row' : 'column', gap: 48 }}>
+          <View style={{ flex: wide ? 1.12 : undefined, width: wide ? undefined : '100%', gap: 22, alignItems: 'flex-start' }}>
+            <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: c.kinh, borderWidth: 1, borderColor: c.kinhVien }, GLASS]}>
+              <Ico icon={GraduationCap} text={13} color={c.vang} />
+              <Txt f="semibold" size={13} color={c.the}>
                 Lịch sử và Địa lí THCS · Khối 6 – 9
               </Txt>
             </View>
-            <Txt f="heavy" size={wide ? 48 : 32} color={c.xanhMuc} center={!wide} accessibilityRole="header" style={{ lineHeight: wide ? 57 : 39, letterSpacing: -1 }}>
-              Học Sử game hóa{'\n'}
-              {/* U+00A0 + U+2060: dấu "–" cho phép ngắt dòng ngay sau nó, nên cần thêm ký tự nối từ để "Nguyên – Mông" không bị tách */}
-              <Txt f="heavy" size={wide ? 48 : 32} color={c.sonChu} style={{ lineHeight: wide ? 57 : 39, letterSpacing: -1 }}>
-                {`ba lần kháng chiến${wide ? '\n' : ' '}chống Nguyên –⁠ Mông`}
+            <Txt f="heavy" size={wide ? 62 : 40} color={c.the} accessibilityRole="header" style={{ lineHeight: wide ? 68 : 46, letterSpacing: -1.2 }}>
+              Sống lại{'\n'}
+              <Txt f="heavy" size={wide ? 62 : 40} color={c.vang} style={{ lineHeight: wide ? 68 : 46, letterSpacing: -1.2 }}>
+                hào khí Đông A
               </Txt>
             </Txt>
-            <Txt size={18} color={c.xanhMuc2} center={!wide} style={{ maxWidth: 560, lineHeight: 28 }}>
-              Hào Khí Đông A là nền tảng học tập game hóa: xây Điền Trang, chiêu mộ danh tướng nhà Trần và ra trận theo đúng kế sách của ông cha. Mỗi sức mạnh đều đến từ một câu trả lời đúng – có Quân Sư AI đồng hành, thầy cô theo dõi tiến độ cả lớp.
+            <Txt size={18} color={c.troi4} style={{ maxWidth: 540, lineHeight: 28 }}>
+              Nền tảng học tập game hóa về ba lần kháng chiến chống Nguyên – Mông thời Trần. Chiêu mộ danh tướng, bày trận Bạch Đằng – mỗi chiến thắng đều đến từ một câu trả lời đúng, có Quân Sư AI đồng hành.
             </Txt>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: wide ? 'flex-start' : 'center' }}>
-              <Cta title="Vào học ngay" arrow lg onPress={() => router.push('/portal')} testID="home-portal" />
-              {WEB && <Cta title="Khám phá nội dung" tone="vien" icon={Compass} lg onPress={() => go('ba-lan-khang-chien')} />}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+              <Cta title="Vào học ngay" tone="vang" arrow lg onPress={() => router.push('/portal')} testID="home-portal" />
+              {WEB && <Cta title="Khám phá nội dung" tone="sang" icon={Compass} lg onPress={() => go('ba-lan-khang-chien')} />}
             </View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, columnGap: 20, justifyContent: wide ? 'flex-start' : 'center' }}>
-              {trust.map((t) => (
-                <View key={t.text} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Ico icon={t.icon} text={14} color={c.troi} />
-                  <Txt f="semibold" size={14} color={c.xanhMuc2}>
-                    {t.text}
-                  </Txt>
-                </View>
-              ))}
-            </View>
-            {portalHref && (
-              <Txt f="medium" size={13} color={c.xanhMuc2}>
-                {portalHref.replace(/^https?:\/\//, '')}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+              <Ico icon={ShieldCheck} text={13} color={c.troi3} />
+              <Txt f="medium" size={13} color={c.troi4} style={{ flex: 1 }}>
+                Tài khoản do nhà trường cấp · Học trên web, Android và iOS
               </Txt>
-            )}
+            </View>
+            {!wide && <Epigraph wide={false} />}
+            <View style={{ gap: 10 }}>
+              <Txt f="bold" size={13} color={c.vang} upper>
+                Ba lần đại thắng
+              </Txt>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                {VICTORIES.map((v) => (
+                  <View
+                    key={v.year}
+                    accessible
+                    accessibilityLabel={`Năm ${v.year}: ${v.place}`}
+                    style={[{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 14, backgroundColor: c.kinh, borderWidth: 1, borderColor: c.kinhVien }, GLASS]}
+                  >
+                    <Txt f="heavy" size={24} color={c.vang} style={{ lineHeight: 28 }}>
+                      {v.year}
+                    </Txt>
+                    <Txt f="medium" size={13} color={c.the}>
+                      {v.place}
+                    </Txt>
+                  </View>
+                ))}
+              </View>
+            </View>
           </View>
-          <View style={{ flex: wide ? 0.88 : undefined, width: wide ? undefined : '100%', alignItems: 'center' }}>
-            <QuizPreview wide={wide} />
-          </View>
+          {wide && (
+            <View style={{ flex: 0.88, alignItems: 'flex-end', paddingTop: 8 }}>
+              <Epigraph wide />
+            </View>
+          )}
         </View>
       </View>
+      {!wide && (
+        <View style={{ width: '100%', aspectRatio: 1.1 }}>
+          <EpicBackdrop fade />
+        </View>
+      )}
+      <CloudBank color={c.the} height={72} />
     </View>
   );
 };

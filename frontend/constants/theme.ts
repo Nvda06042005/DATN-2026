@@ -61,6 +61,9 @@ const light = {
   xanhMuc2: '#475a76',
   bienXanh: '#d9e6f2',
   bong: 'rgba(22, 37, 63, 0.10)',
+  /** Kính mờ trên nền tối của hero: nền và viền trắng trong suốt */
+  kinh: 'rgba(255, 255, 255, 0.10)',
+  kinhVien: 'rgba(255, 255, 255, 0.28)',
 };
 
 export type Palette = typeof light;
