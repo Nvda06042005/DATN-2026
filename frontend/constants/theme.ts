@@ -50,6 +50,17 @@ const light = {
   dichNhat: '#f5f5f4',
   /** Lớp phủ sau hộp thoại */
   scrim: 'rgba(28, 25, 23, 0.55)',
+  /** Trang chủ công khai (nền bầu trời): trời đậm (chữ trắng ≥ 5:1), trời, chân mây, trời nhạt, gần trắng */
+  troi: '#0b6cc0',
+  troi2: '#19a0ee',
+  troi3: '#8ad1fc',
+  troi4: '#c8efff',
+  troi5: '#eaf8ff',
+  /** Chữ xanh mực (tiêu đề, nền chân trang), chữ phụ xanh xám, viền thẻ xanh nhạt, bóng đổ */
+  xanhMuc: '#16253f',
+  xanhMuc2: '#475a76',
+  bienXanh: '#d9e6f2',
+  bong: 'rgba(22, 37, 63, 0.10)',
 };
 
 export type Palette = typeof light;

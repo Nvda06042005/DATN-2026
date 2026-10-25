@@ -293,6 +293,121 @@ export const PixelArt = React.memo<{ art: PixelPaths; width: number; height: num
 ));
 PixelArt.displayName = 'PixelArt';
 
+// ---------------------------------------------------------------------- nền bầu trời (trang chủ)
+/** Cụm mây vẽ từ các hình tròn; gốc ở góc trên trái, rộng khoảng 240, cao khoảng 100 */
+const Cloud: React.FC<{ x: number; y: number; s?: number; fill: string; opacity?: number }> = ({ x, y, s = 1, fill, opacity = 1 }) => (
+  <G transform={`translate(${x} ${y}) scale(${s})`} opacity={opacity} fill={fill}>
+    <Circle cx="62" cy="62" r="34" />
+    <Circle cx="112" cy="42" r="44" />
+    <Circle cx="168" cy="60" r="36" />
+    <Circle cx="206" cy="70" r="26" />
+    <Rect x="28" y="66" width="204" height="30" rx="15" />
+  </G>
+);
+
+/** Đỉnh đồi (toạ độ viền nhìn) để rắc hoa chỉ ở phần dưới đường đồi */
+const hillTop = (x: number) => (x < 1240 ? 800 - (x - 860) * (160 / 380) : 640 + (x - 1240) * (28 / 200));
+
+const FLOWERS = (() => {
+  let seed = 11;
+  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  const out: Array<{ x: number; y: number; r: number; warm: boolean }> = [];
+  for (let i = 0; i < 300 && out.length < 150; i++) {
+    const x = 880 + rnd() * 560;
+    const y = 620 + rnd() * 180;
+    if (y > hillTop(x) + 8) out.push({ x, y, r: 2.4 + rnd() * 2.2, warm: rnd() < 0.2 });
+  }
+  return out;
+})();
+
+/**
+ * Nền bầu trời cho trang chủ, dựng lại theo phong cách VioEdu bằng hình vẽ riêng:
+ * hero = trời nhạt, tia nắng, mây lớn hai bên, đồi hoa và dòng sông; blue = dải trời đậm dần sang nhạt; night = trời chuyển sang xanh mực.
+ */
+export const SkyBackdrop: React.FC<{ variant?: 'hero' | 'blue' | 'night' }> = ({ variant = 'hero' }) => {
+  const { c } = useTheme();
+  const gid = React.useId().replace(/:/g, '');
+  if (variant === 'hero') {
+    return (
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <Svg width="100%" height="100%" viewBox="0 0 1440 800" preserveAspectRatio="xMidYMid slice">
+          <Defs>
+            <LinearGradient id={`h-${gid}`} x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={c.troi4} />
+              <Stop offset="1" stopColor={c.troi5} />
+            </LinearGradient>
+          </Defs>
+          <Rect width="1440" height="800" fill={`url(#h-${gid})`} />
+          <G fill={c.the} opacity="0.35">
+            <Path d="M1010 0 L1130 0 L690 800 L520 800 Z" />
+            <Path d="M1200 0 L1290 0 L980 800 L860 800 Z" />
+            <Path d="M820 0 L880 0 L420 800 L340 800 Z" />
+          </G>
+          <Cloud x={-150} y={250} s={2.4} fill={c.the} opacity={0.92} />
+          <Cloud x={1170} y={190} s={2.2} fill={c.the} opacity={0.92} />
+          <Cloud x={140} y={560} s={0.8} fill={c.the} opacity={0.7} />
+          <Cloud x={1010} y={150} s={0.6} fill={c.the} opacity={0.75} />
+          <Path d="M860 800 C980 700 1120 650 1240 640 C1330 632 1400 650 1440 668 V800 Z" fill="#a8cf3a" />
+          <Path d="M1010 800 C1130 735 1290 705 1440 722 V800 Z" fill="#8fbf2e" />
+          {FLOWERS.map((f, i) => (
+            <Circle key={i} cx={f.x} cy={f.y} r={f.r} fill={f.warm ? '#ff9f1c' : '#ffd23f'} />
+          ))}
+          <Path d="M1330 800 C1370 742 1410 722 1440 714 V800 Z" fill={c.troi2} />
+        </Svg>
+      </View>
+    );
+  }
+  const night = variant === 'night';
+  /** Trời đậm giữ tới 1/4 đầu (chữ trắng tiêu đề nằm ở đó, đạt tương phản 5:1) rồi nhạt dần */
+  const stops: Array<[string, string]> = night
+    ? [['0', c.troi], ['0.25', c.troi], ['1', c.xanhMuc]]
+    : [['0', c.troi], ['0.25', c.troi], ['0.6', c.troi2], ['1', c.troi3]];
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <Svg width="100%" height="100%" preserveAspectRatio="none" style={StyleSheet.absoluteFill}>
+        <Defs>
+          <LinearGradient id={`g-${gid}`} x1="0" y1="0" x2="0" y2="1">
+            {stops.map(([offset, color]) => (
+              <Stop key={offset} offset={offset} stopColor={color} />
+            ))}
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill={`url(#g-${gid})`} />
+      </Svg>
+      {!night && (
+        <Svg width="100%" height={260} viewBox="0 0 1440 260" preserveAspectRatio="xMidYMin slice" style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
+          <Cloud x={70} y={110} s={0.9} fill={c.the} opacity={0.45} />
+          <Cloud x={1210} y={120} s={0.7} fill={c.the} opacity={0.45} />
+        </Svg>
+      )}
+    </View>
+  );
+};
+
+/** Dải mây cuộn làm mép chuyển giữa hai vùng nền (flip: mây treo từ mép trên xuống); color là màu vùng nền bên cạnh */
+export const CloudBank: React.FC<{ color: string; flip?: boolean; height?: number }> = ({ color, flip = false, height = 72 }) => {
+  const gid = React.useId().replace(/:/g, '');
+  return (
+    <View
+      pointerEvents="none"
+      style={{ position: 'absolute', left: 0, right: 0, height, ...(flip ? { top: -1 } : { bottom: -1 }), transform: flip ? [{ scaleY: -1 }] : undefined }}
+    >
+      <Svg width="100%" height={height}>
+        <Defs>
+          <Pattern id={`k-${gid}`} width="220" height={height} patternUnits="userSpaceOnUse">
+            <Circle cx="40" cy="46" r="26" fill={color} />
+            <Circle cx="96" cy="34" r="34" fill={color} />
+            <Circle cx="158" cy="44" r="28" fill={color} />
+            <Circle cx="198" cy="50" r="20" fill={color} />
+            <Rect x="0" y="48" width="220" height={height - 48} fill={color} />
+          </Pattern>
+        </Defs>
+        <Rect width="100%" height={height} fill={`url(#k-${gid})`} />
+      </Svg>
+    </View>
+  );
+};
+
 /** Logo "Đông A": ấn triện son đỏ có Rồng Con, chữ Baloo 2 */
 export const BrandLogo: React.FC<{ compact?: boolean; subtitle?: string; light?: boolean }> = ({ compact = false, subtitle, light = false }) => {
   const { c } = useTheme();
