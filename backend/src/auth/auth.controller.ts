@@ -1,14 +1,19 @@
 import { Body, Controller, Get, HttpCode, Post, ServiceUnavailableException, UseGuards } from '@nestjs/common';
-import { IsIn, IsOptional, IsString, Length } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsIn, IsInt, IsOptional, IsString, Length } from 'class-validator';
+import { SchoolService } from '../admin/school.service';
 import { DatabaseService, UserRow } from '../database/database.service';
 import { AuthGuard, CurrentUser } from './auth.guard';
-import { AuthService, toPublic } from './auth.service';
+import { AuthService, Portal, toPublic } from './auth.service';
 
 class LoginDto {
-  @IsString() @Length(1, 64) username: string;
+  @IsString() @Length(1, 96) username: string;
   @IsString() @Length(1, 128) password: string;
-  /** Trang đăng nhập: admin (/admin), teacher (/giao-vien), student (/hoc-sinh); "app" = giáo viên hoặc học sinh */
-  @IsOptional() @IsIn(['admin', 'teacher', 'student', 'app']) portal: 'admin' | 'teacher' | 'student' | 'app' = 'app';
+  /** Trang đăng nhập: root_admin (/root-system-admin), school_admin (/school-manager-admin), teacher (/giao-vien), student (/hoc-sinh); "app" = /portal */
+  @IsOptional() @IsIn(['root_admin', 'school_admin', 'teacher', 'student', 'app']) portal: Portal = 'app';
+}
+
+class ReadDto {
+  @IsOptional() @IsArray() @ArrayMaxSize(200) @IsInt({ each: true }) ids?: number[];
 }
 
 class ChangePasswordDto {
@@ -16,12 +21,13 @@ class ChangePasswordDto {
   @IsString() @Length(6, 128) new_password: string;
 }
 
-/** /api/auth: đăng nhập, xem phiên hiện tại, đổi mật khẩu (mọi vai trò) */
+/** /api/auth: đăng nhập, xem phiên hiện tại, đổi mật khẩu, thông báo (mọi vai trò) */
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly db: DatabaseService,
+    private readonly school: SchoolService,
   ) {}
 
   @Post('login')
@@ -42,5 +48,21 @@ export class AuthController {
   @UseGuards(AuthGuard)
   changePassword(@CurrentUser() user: UserRow, @Body() body: ChangePasswordDto) {
     return this.auth.changePassword(user, body.current_password, body.new_password);
+  }
+
+  /** Thông báo trong app (duyệt lớp, yêu cầu mở lớp...) – mới nhất trước */
+  @Get('notifications')
+  @UseGuards(AuthGuard)
+  notifications(@CurrentUser() user: UserRow) {
+    return this.school.notifications(user);
+  }
+
+  /** Đánh dấu đã đọc (không gửi ids = đọc hết) */
+  @Post('notifications/read')
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  async read(@CurrentUser() user: UserRow, @Body() body: ReadDto) {
+    await this.school.markRead(user, body.ids ?? null);
+    return { ok: true };
   }
 }

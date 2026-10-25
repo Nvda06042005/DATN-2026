@@ -10,7 +10,8 @@ export const Roles = (...roles: Role[]) => SetMetadata(ROLES_KEY, roles);
 export const CurrentUser = createParamDecorator((_: unknown, ctx: ExecutionContext): UserRow => ctx.switchToHttp().getRequest().user);
 
 const ROLE_MESSAGE: Record<Role, string> = {
-  admin: 'Chỉ quản trị viên được thực hiện thao tác này',
+  root_admin: 'Chỉ quản trị tổng được thực hiện thao tác này',
+  school_admin: 'Chỉ quản trị viên được thực hiện thao tác này',
   teacher: 'Chức năng này chỉ dành cho giáo viên',
   student: 'Chức năng này chỉ dành cho học sinh',
 };

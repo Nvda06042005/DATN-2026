@@ -8,6 +8,9 @@ export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://localhos
 /** WebSocket phòng thi đấu cả lớp (token gửi trong tin nhắn đầu tiên, không đặt trên URL) */
 export const LIVE_WS_URL = `${API_BASE_URL.replace(/^http/i, 'ws')}/api/live/ws`;
 
+/** File Excel mẫu cấp tài khoản – tải công khai, không cần đăng nhập */
+export const EXCEL_TEMPLATE_URL = `${API_BASE_URL}/api/public/excel-template`;
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -32,6 +35,8 @@ const timeoutSignal = (ms: number) => {
   return controller.signal;
 };
 
+const OFFLINE = 'Không kết nối được máy chủ. Hãy kiểm tra mạng hoặc thử lại sau ít phút.';
+
 export async function apiRequest<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   let res: Response;
   try {
@@ -45,8 +50,47 @@ export async function apiRequest<T>(path: string, opts: RequestOptions = {}): Pr
       signal: timeoutSignal(opts.timeoutMs ?? 75_000),
     });
   } catch {
-    throw new ApiError(0, 'Không kết nối được máy chủ. Hãy kiểm tra mạng hoặc thử lại sau ít phút.');
+    throw new ApiError(0, OFFLINE);
   }
+  return readResponse<T>(res);
+}
+
+/** File người dùng chọn (expo-document-picker): web có đối tượng File, điện thoại có uri */
+export interface PickedFile {
+  name: string;
+  mimeType: string;
+  uri: string;
+  size?: number;
+  file?: Blob;
+}
+
+/** Gửi một file dạng multipart (trường "file"), ví dụ file Excel mẫu đã điền */
+export async function apiUpload<T>(path: string, file: PickedFile, token: string, timeoutMs = 150_000): Promise<T> {
+  const form = new FormData();
+  if (file.file) form.append('file', file.file, file.name);
+  else form.append('file', { uri: file.uri, name: file.name, type: file.mimeType } as unknown as Blob);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form, signal: timeoutSignal(timeoutMs) });
+  } catch {
+    throw new ApiError(0, OFFLINE);
+  }
+  return readResponse<T>(res);
+}
+
+/** Nội dung văn bản của một API cần đăng nhập (ví dụ danh sách tài khoản CSV) */
+export async function apiText(path: string, token: string): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, { headers: { Authorization: `Bearer ${token}` }, signal: timeoutSignal(60_000) });
+  } catch {
+    throw new ApiError(0, OFFLINE);
+  }
+  if (!res.ok) await readResponse(res);
+  return res.text();
+}
+
+async function readResponse<T>(res: Response): Promise<T> {
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => null);
   if (!res.ok) {

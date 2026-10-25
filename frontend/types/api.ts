@@ -1,10 +1,13 @@
 /** Dữ liệu trao đổi với backend NestJS (/api/...) */
 
 // ---------------------------------------------------------------------- tài khoản
-export type AuthRole = 'admin' | 'teacher' | 'student';
+/** root_admin: quản trị tổng (/root-system-admin); school_admin: quản trị một trường (/school-manager-admin) */
+export type AuthRole = 'root_admin' | 'school_admin' | 'teacher' | 'student';
 
-/** Trang đăng nhập riêng của từng vai trò */
+/** Trang đăng nhập riêng của từng vai trò (mỗi trang giữ phiên riêng) */
 export type Portal = AuthRole;
+
+export type Grade = 6 | 7 | 8 | 9;
 
 export interface AuthUser {
   id: number;
@@ -16,6 +19,17 @@ export interface AuthUser {
   is_active: boolean;
   created_at: string;
   last_login_at: string | null;
+  school_id: number | null;
+  user_code: string | null;
+  school_code: string | null;
+  region: string | null;
+  city: string | null;
+  birth_date: string | null;
+  school_year: string | null;
+  email: string | null;
+  grade: number | null;
+  deleted_at: string | null;
+  purge_at: string | null;
 }
 
 /** Phiên đăng nhập server trả về khi đăng nhập hoặc đổi mật khẩu */
@@ -24,12 +38,71 @@ export interface AuthSession {
   user: AuthUser;
 }
 
-/** Tài khoản kèm tiến độ học tập (trang quản trị) */
+export interface AppNotification {
+  id: number;
+  kind: string;
+  title: string;
+  body: string;
+  read_at: string | null;
+  created_at: string;
+}
+
+// ---------------------------------------------------------------------- quản trị (hai cấp)
+export interface SchoolStat {
+  id: number;
+  school_code: string;
+  name: string;
+  region: string | null;
+  city: string | null;
+  admins: number;
+  teachers: number;
+  students: number;
+  grades: Record<Grade, number>;
+}
+
+export interface AdminOverview {
+  scope: 'system' | 'school';
+  schools: number;
+  teachers: number;
+  students: number;
+  grades: Record<Grade, number>;
+  unassigned: number;
+  per_school: SchoolStat[];
+  pending_classes: number;
+  incomplete: number;
+  trash: number;
+  pending_first_login: number;
+  outbox: Record<'queued' | 'sending' | 'sent' | 'failed' | 'cancelled', number>;
+  features: { pgvector: boolean; rls_school_scope: boolean; smtp: boolean };
+}
+
+/** Tài khoản kèm tên trường và tiến độ học tập (học sinh) */
 export interface AdminUser extends AuthUser {
-  xp?: number | null;
-  streak?: number | null;
-  lessons_completed?: number | null;
-  accuracy?: number | null;
+  school_name: string | null;
+  xp: number | null;
+  streak: number | null;
+  lessons_completed: number | null;
+  accuracy: number | null;
+}
+
+export interface UserFilters {
+  q?: string;
+  school_id?: number;
+  region?: string;
+  city?: string;
+  school_year?: string;
+  grade?: number;
+  role?: AuthRole;
+  page?: number;
+  limit?: number;
+}
+
+export interface UsersPage {
+  total: number;
+  page: number;
+  limit: number;
+  items: AdminUser[];
+  facets: { regions: string[]; cities: string[]; school_years: string[] };
 }
 
 export interface AccountCredential {
@@ -37,24 +110,123 @@ export interface AccountCredential {
   password: string;
 }
 
-export interface AdminStats {
-  teachers: number;
-  students: number;
-  admins: number;
-  active: number;
-  pending_first_login: number;
-  classes: string[];
-  storage: string;
-}
-
-export type ManagedRole = 'teacher' | 'student';
+export type ManagedRole = 'school_admin' | 'teacher' | 'student';
 
 export interface NewAccountInput {
   full_name: string;
   role: ManagedRole;
-  class_name: string | null;
+  school_id?: number | null;
+  class_name?: string | null;
+  grade?: number | null;
+  school_year?: string | null;
+  email?: string | null;
+  username?: string | null;
+  password?: string | null;
+}
+
+export interface NewSchoolInput {
+  school_code: string;
+  name: string;
+  region?: string | null;
+  city?: string | null;
+}
+
+export interface TrashUser extends AuthUser {
+  days_left: number;
+}
+
+export type ImportStatus = 'created' | 'delta' | 'existing' | 'incomplete' | 'error';
+
+export interface ImportRow {
+  row: number;
+  full_name: string;
+  role: 'teacher' | 'student' | null;
+  school_code: string;
+  status: ImportStatus;
+  username?: string;
+  missing?: string[];
+  message?: string;
+}
+
+/** Kết quả một lần nhập file Excel mẫu (mật khẩu không có ở đây: gửi qua email / tải CSV) */
+export interface ImportResult {
+  batches: Array<{ id: number; school_id: number; school_code: string; school_name: string }>;
+  totals: Record<'total' | ImportStatus, number>;
+  rows: ImportRow[];
+  emails_queued: number;
+  smtp: boolean;
+}
+
+export interface ImportBatch {
+  id: number;
+  school_id: number;
+  school_code: string;
+  school_name: string;
+  file_name: string;
+  total_rows: number;
+  created_count: number;
+  delta_count: number;
+  existing_count: number;
+  incomplete_count: number;
+  error_count: number;
+  created_at: string;
+  uploaded_by: string | null;
+}
+
+export interface IncompleteLog {
+  id: number;
+  school_id: number;
+  school_code: string;
+  row_number: number;
+  user_code: string | null;
+  email: string | null;
+  full_name: string | null;
+  missing_fields: string[];
+  batch_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OutboxItem {
+  id: number;
+  kind: 'bulk' | 'delta' | 'class';
+  to_email: string;
+  subject: string;
+  status: 'queued' | 'sending' | 'sent' | 'failed' | 'cancelled';
+  attempts: number;
+  last_error: string | null;
+  created_at: string;
+  sent_at: string | null;
+  full_name: string | null;
   username: string | null;
-  password: string | null;
+}
+
+export type ClassStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface ClassRequest {
+  id: number;
+  class_code: string;
+  school_year: string;
+  name: string;
+  status: ClassStatus;
+  review_note: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  members: number;
+  school_id?: number;
+  school_code?: string;
+  school_name?: string;
+  teacher_name?: string;
+  teacher_username?: string;
+}
+
+export interface StudentClass {
+  id: number;
+  class_code: string;
+  name: string;
+  school_year: string;
+  teacher_name: string;
+  joined_at: string;
 }
 
 // ---------------------------------------------------------------------- học tập

@@ -1,10 +1,14 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
-import { Pool, PoolClient } from 'pg';
+import { Pool, PoolClient, types } from 'pg';
 import { config } from '../config';
 import { baseUsername, hashPassword } from '../auth/passwords';
 import { applyMigrations, MigrationError, pgConfig } from './migrator';
 
-export type Role = 'admin' | 'teacher' | 'student';
+// Cột DATE (ngày sinh) giữ dạng chuỗi YYYY-MM-DD, không đổi theo múi giờ máy chủ
+types.setTypeParser(1082, (v: string) => v);
+
+/** root_admin: quản trị tổng (/root-system-admin); school_admin: quản trị một trường (/school-manager-admin) */
+export type Role = 'root_admin' | 'school_admin' | 'teacher' | 'student';
 
 export interface UserRow {
   id: number;
@@ -17,6 +21,30 @@ export interface UserRow {
   is_active: boolean;
   created_at: string;
   last_login_at: string | null;
+  school_id: number | null;
+  user_code: string | null;
+  school_code: string | null;
+  region: string | null;
+  city: string | null;
+  birth_date: string | null;
+  school_year: string | null;
+  email: string | null;
+  grade: number | null;
+  deleted_at: string | null;
+  purge_at: string | null;
+}
+
+/** Hồ sơ theo file Excel mẫu (khi tạo tài khoản) */
+export interface UserProfile {
+  school_id?: number | null;
+  user_code?: string | null;
+  school_code?: string | null;
+  region?: string | null;
+  city?: string | null;
+  birth_date?: string | null;
+  school_year?: string | null;
+  email?: string | null;
+  grade?: number | null;
 }
 
 /** Một dòng app_progress (tiến độ học tập thật của học sinh) */
@@ -81,7 +109,13 @@ export interface LiveSessionRow {
 
 export class DuplicateUsername extends Error {}
 
-const USER_COLUMNS = 'id, username, full_name, role, class_name, password_hash, must_change_password, is_active, created_at, last_login_at';
+/** Truy vấn trong một giao dịch (phạm vi một trường hoặc quyền đầy đủ) */
+export type Q = <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<T[]>;
+
+export const USER_COLUMNS =
+  'id, username, full_name, role, class_name, password_hash, must_change_password, is_active, created_at, last_login_at, ' +
+  'school_id, user_code, school_code, region, city, birth_date, school_year, email, grade, deleted_at, purge_at';
+const PROFILE_FIELDS = ['school_id', 'user_code', 'school_code', 'region', 'city', 'birth_date', 'school_year', 'email', 'grade'] as const;
 const PROGRESS_INT_FIELDS = [
   'xp', 'gems', 'streak', 'lessons_completed', 'perfect_runs', 'questions_answered', 'questions_correct',
   'ai_questions', 'day_xp', 'day_lessons', 'day_correct', 'day_ai_questions', 'day_gems', 'week_xp',
@@ -94,18 +128,41 @@ const PROGRESS_LIGHT_COLUMNS = `user_id, ${[...PROGRESS_INT_FIELDS, 'last_active
 
 export const nowIso = (): string => new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
 
-const toUser = (row: Record<string, unknown>): UserRow => ({
+const iso = (v: unknown): string | null => (v instanceof Date ? v.toISOString() : typeof v === 'string' ? v : null);
+
+/** Một dòng app_users -> tài khoản (cột số nguyên 0/1 thành boolean, mốc thời gian thành chuỗi ISO) */
+export const toUser = (row: Record<string, unknown>): UserRow => ({
   ...(row as unknown as UserRow),
   must_change_password: Boolean(row.must_change_password),
   is_active: Boolean(row.is_active),
+  grade: row.grade === null || row.grade === undefined ? null : Number(row.grade),
+  deleted_at: iso(row.deleted_at),
+  purge_at: iso(row.purge_at),
 });
 
-/** Kho dữ liệu PostgreSQL: tài khoản (app_users), tiến độ (app_progress), lịch sử thi đấu (app_live_*). */
+/** Chuỗi tìm kiếm không dấu, chữ thường (đánh chỉ mục trigram cho tìm kiếm tức thời) */
+export const searchText = (...parts: Array<string | number | null | undefined>): string =>
+  parts
+    .filter((p) => p !== null && p !== undefined && p !== '')
+    .join(' ')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .normalize('NFD')
+    .replace(/\p{Mn}/gu, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/** Kho dữ liệu PostgreSQL: tài khoản, tiến độ, lịch sử thi đấu, trường, lớp, nhập Excel, hàng đợi email. */
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger('Database');
   private pool: Pool | null = null;
   ready = false;
+  /** Vai trò dong_a_school_scope dùng được: truy vấn của một trường chịu Row-Level Security */
+  rlsReady = false;
+  /** Schema của tiện ích pgvector khi CSDL có (Supabase); null thì tính cosine trong ứng dụng */
+  vectorSchema: string | null = null;
 
   async onModuleInit(): Promise<void> {
     if (!config.databaseUrl) {
@@ -118,11 +175,15 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     this.pool = new Pool({ ...pgConfig(config.databaseUrl), max: 10 });
     this.pool.on('error', () => this.logger.error('Mất kết nối PostgreSQL (chi tiết kết nối đã ẩn)'));
     await this.ensureAdmin();
+    await this.detectFeatures();
+    await this.backfillSearchText();
     this.ready = true;
   }
 
   async onModuleDestroy(): Promise<void> {
+    this.ready = false;
     await this.pool?.end().catch(() => undefined);
+    this.pool = null;
   }
 
   async query<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
@@ -146,22 +207,66 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Chạy truy vấn của một trường trong một giao dịch: vai trò dong_a_school_scope + app.school_id (Row-Level Security),
+   * nên kể cả khi một truy vấn thiếu điều kiện WHERE cũng không chạm được dữ liệu trường khác. Truy vấn vẫn lọc school_id.
+   */
+  async scoped<T>(schoolId: number, run: (q: Q) => Promise<T>): Promise<T> {
+    return this.transaction(async (c) => {
+      if (this.rlsReady) await c.query('SET LOCAL ROLE dong_a_school_scope');
+      await c.query("SELECT set_config('app.school_id', $1, true)", [String(schoolId)]);
+      return run(async <R = Record<string, unknown>>(sql: string, params: unknown[] = []) => (await c.query(sql, params)).rows as R[]);
+    });
+  }
+
+  /** Giao dịch với quyền đầy đủ (quản trị tổng, tiến trình nền) */
+  async tx<T>(run: (q: Q) => Promise<T>): Promise<T> {
+    return this.transaction((c) => run(async <R = Record<string, unknown>>(sql: string, params: unknown[] = []) => (await c.query(sql, params)).rows as R[]));
+  }
+
   async ping(): Promise<boolean> {
     const rows = await this.query<{ ok: number }>('SELECT 1 AS ok');
     return rows[0]?.ok === 1;
   }
 
+  /** RLS theo trường và pgvector có bật được hay không (migration bỏ qua phần CSDL không cho phép) */
+  private async detectFeatures(): Promise<void> {
+    try {
+      await this.transaction(async (c) => {
+        await c.query('SET LOCAL ROLE dong_a_school_scope');
+      });
+      this.rlsReady = true;
+    } catch {
+      this.rlsReady = false;
+      this.logger.warn('Chưa bật được RLS theo trường – truy vấn vẫn lọc theo school_id');
+    }
+    const vec = await this.query<{ schema: string }>(
+      `SELECT n.nspname AS schema FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace
+       WHERE e.extname = 'vector' AND EXISTS (
+         SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'app_incomplete_import_logs' AND column_name = 'embedding_vec')`,
+    );
+    this.vectorSchema = vec[0]?.schema ?? null;
+  }
+
+  /** Tài khoản tạo trước migration 006 chưa có chuỗi tìm kiếm */
+  private async backfillSearchText(): Promise<void> {
+    const rows = await this.query<{ id: number; full_name: string; username: string; user_code: string | null; email: string | null; class_name: string | null }>(
+      "SELECT id, full_name, username, user_code, email, class_name FROM app_users WHERE search_text = ''",
+    );
+    for (const r of rows) await this.query('UPDATE app_users SET search_text = $1 WHERE id = $2', [searchText(r.full_name, r.username, r.user_code, r.email, r.class_name), r.id]);
+  }
+
   private async ensureAdmin(): Promise<void> {
-    if ((await this.query("SELECT id FROM app_users WHERE role = 'admin' LIMIT 1")).length) return;
+    if ((await this.query("SELECT id FROM app_users WHERE role = 'root_admin' LIMIT 1")).length) return;
     await this.createUser({
       username: config.adminUsername,
-      full_name: 'Quản trị viên Đông A',
-      role: 'admin',
+      full_name: 'Quản trị tổng Đông A',
+      role: 'root_admin',
       class_name: null,
       password_hash: await hashPassword(config.adminPassword),
       must_change_password: false,
     });
-    this.logger.warn(`Đã tạo tài khoản quản trị '${config.adminUsername}' (đăng nhập tại trang /admin). Nên đổi mật khẩu mặc định khi triển khai thật.`);
+    this.logger.warn(`Đã tạo tài khoản quản trị tổng '${config.adminUsername}' (đăng nhập tại trang /root-system-admin). Nên đổi mật khẩu mặc định khi triển khai thật.`);
   }
 
   // ------------------------------------------------------------------ tài khoản
@@ -175,44 +280,40 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     return rows.length ? toUser(rows[0]) : null;
   }
 
-  async listUsers(role?: Role): Promise<UserRow[]> {
-    const rows = role
-      ? await this.query(`SELECT ${USER_COLUMNS} FROM app_users WHERE role = $1 ORDER BY class_name, full_name`, [role])
-      : await this.query(`SELECT ${USER_COLUMNS} FROM app_users ORDER BY role, class_name, full_name`);
-    return rows.map(toUser);
-  }
-
-  async countByRole(): Promise<Record<Role, number>> {
-    const counts: Record<Role, number> = { admin: 0, teacher: 0, student: 0 };
-    for (const r of await this.query<{ role: Role; total: string }>('SELECT role, COUNT(*) AS total FROM app_users GROUP BY role')) {
-      counts[r.role] = Number(r.total);
-    }
-    return counts;
-  }
-
+  /** Tên đăng nhập kiểu cũ cho tài khoản tạo tay (gv.long.nv, long.nv; quản trị trường: qt.long.nv) */
   async uniqueUsername(fullName: string, role: Role): Promise<string> {
-    const base = baseUsername(fullName, role);
+    const base = role === 'school_admin' ? `qt.${baseUsername(fullName, 'student')}` : baseUsername(fullName, role);
     let candidate = base;
     for (let n = 2; await this.getByUsername(candidate); n += 1) candidate = `${base}${n}`;
     return candidate;
   }
 
-  async createUser(u: { username: string; full_name: string; role: Role; class_name: string | null; password_hash: string; must_change_password: boolean }): Promise<UserRow> {
+  async createUser(
+    u: { username: string; full_name: string; role: Role; class_name: string | null; password_hash: string; must_change_password: boolean } & UserProfile,
+    q: Q = (sql, params) => this.query(sql, params),
+  ): Promise<UserRow> {
     const username = u.username.trim().toLowerCase();
-    if (await this.getByUsername(username)) throw new DuplicateUsername(username);
-    await this.query(
-      'INSERT INTO app_users (username, full_name, role, class_name, password_hash, must_change_password, is_active, created_at) VALUES ($1, $2, $3, $4, $5, $6, 1, $7)',
-      [username, u.full_name.trim(), u.role, u.class_name?.trim() || null, u.password_hash, u.must_change_password ? 1 : 0, nowIso()],
+    if ((await q('SELECT 1 FROM app_users WHERE username = $1', [username])).length) throw new DuplicateUsername(username);
+    const profile = PROFILE_FIELDS.map((f) => (u[f] === undefined || u[f] === '' ? null : u[f]));
+    const rows = await q<Record<string, unknown>>(
+      `INSERT INTO app_users (username, full_name, role, class_name, password_hash, must_change_password, is_active, created_at, search_text, ${PROFILE_FIELDS.join(', ')})
+       VALUES ($1, $2, $3, $4, $5, $6, 1, $7, $8, ${PROFILE_FIELDS.map((_, i) => `$${i + 9}`).join(', ')}) RETURNING ${USER_COLUMNS}`,
+      [
+        username, u.full_name.trim(), u.role, u.class_name?.trim() || null, u.password_hash, u.must_change_password ? 1 : 0, nowIso(),
+        searchText(u.full_name, username, u.user_code, u.email, u.class_name), ...profile,
+      ],
     );
-    return (await this.getByUsername(username))!;
+    return toUser(rows[0]);
   }
 
-  async updateUser(id: number, fields: { full_name?: string; class_name?: string; is_active?: boolean }): Promise<UserRow | null> {
-    const allowed = Object.entries(fields).filter(([, v]) => v !== undefined && v !== null);
+  async updateUser(id: number, fields: { full_name?: string; class_name?: string | null; is_active?: boolean; email?: string | null; grade?: number | null }): Promise<UserRow | null> {
+    const allowed = Object.entries(fields).filter(([, v]) => v !== undefined);
     if (allowed.length) {
       const sets = allowed.map(([k], i) => `${k} = $${i + 1}`).join(', ');
       const values = allowed.map(([k, v]) => (k === 'is_active' ? (v ? 1 : 0) : v));
       await this.query(`UPDATE app_users SET ${sets} WHERE id = $${allowed.length + 1}`, [...values, id]);
+      const u = await this.getById(id);
+      if (u) await this.query('UPDATE app_users SET search_text = $1 WHERE id = $2', [searchText(u.full_name, u.username, u.user_code, u.email, u.class_name), id]);
     }
     return this.getById(id);
   }
@@ -225,7 +326,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     await this.query('UPDATE app_users SET last_login_at = $1 WHERE id = $2', [nowIso(), id]);
   }
 
-  /** Xóa tài khoản cùng tiến độ và dữ liệu thi đấu liên quan */
+  /** Xóa hẳn tài khoản cùng tiến độ và dữ liệu thi đấu liên quan (thùng rác hết hạn hoặc xóa vĩnh viễn) */
   async deleteUser(id: number): Promise<void> {
     await this.transaction(async (c) => {
       await c.query('DELETE FROM app_progress WHERE user_id = $1', [id]);
@@ -235,9 +336,14 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async studentsInClass(className: string | null): Promise<UserRow[]> {
+  /** Học sinh của một lớp (trong trường của giáo viên nếu có), bỏ qua tài khoản trong thùng rác */
+  async studentsInClass(className: string | null, schoolId: number | null = null): Promise<UserRow[]> {
     if (!className) return [];
-    const rows = await this.query(`SELECT ${USER_COLUMNS} FROM app_users WHERE role = 'student' AND class_name = $1 ORDER BY full_name`, [className]);
+    const rows = await this.query(
+      `SELECT ${USER_COLUMNS} FROM app_users
+       WHERE role = 'student' AND class_name = $1 AND deleted_at IS NULL AND ($2::integer IS NULL OR school_id = $2) ORDER BY full_name`,
+      [className, schoolId],
+    );
     return rows.map(toUser);
   }
 

@@ -14,7 +14,7 @@ import { Bar, Btn, Card, Chip, InfoNote, InlineSheet, Inset, SectionTitle, Segme
 import { CAMPAIGNS, CAMPAIGN_ROUTES, PHASES } from '@/constants/campaigns';
 import { ELEMENTS, ENEMIES, ENEMY_TYPES, INTENT_INFO, MAP_PLACES, RELICS, TIDE_CYCLE, TIDE_LABEL } from '@/constants/game';
 import { HEROES, HERO_BY_ID } from '@/constants/heroes';
-import { PALETTES } from '@/constants/theme';
+import { ON_BRIGHT, PALETTES } from '@/constants/theme';
 import { useGame } from '@/hooks/use-game';
 import { useFloatUp, useReduceMotion, useShake } from '@/hooks/use-motion';
 import { ThemeContext, useTheme } from '@/hooks/use-theme';
@@ -148,7 +148,7 @@ export const CampaignTab: React.FC<{ onGoto: (tab: GameTab, sub?: string) => voi
               <Card key={p.id} pad={12} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, opacity: open ? 1 : 0.7 }}>
                 <View style={{ width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: stars ? c.ngoc : open ? c.son : c.giay2 }}>
                   {open ? (
-                    <Txt f="displayHeavy" size={18} color="#ffffff">
+                    <Txt f="displayHeavy" size={18} color={stars ? ON_BRIGHT : '#ffffff'}>
                       {i + 1}
                     </Txt>
                   ) : (
@@ -784,9 +784,9 @@ const TideMeter: React.FC<{ tide: TideState; round: number }> = ({ tide, round }
         const Icon = t === 'len' ? ArrowUp : t === 'rut' ? ArrowDown : Minus;
         return (
           <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999, backgroundColor: cur ? (t === 'rut' ? c.ngoc : c.thuy) : c.giay2 }}>
-            <Icon size={12} color={cur ? '#ffffff' : c.muc3} />
+            <Icon size={12} color={cur ? (t === 'rut' ? ON_BRIGHT : '#ffffff') : c.muc3} />
             {cur && (
-              <Txt f="bold" size={11} color="#ffffff">
+              <Txt f="bold" size={11} color={t === 'rut' ? ON_BRIGHT : '#ffffff'}>
                 {TIDE_LABEL[t]}
               </Txt>
             )}

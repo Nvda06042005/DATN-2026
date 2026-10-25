@@ -1,6 +1,8 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import { XLSX_UPLOAD } from '../admin/admin.controller';
+import { SchoolService, UploadedXlsx } from '../admin/school.service';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { DatabaseService, UserRow } from '../database/database.service';
 import { ContentService } from '../student/content.service';
@@ -10,9 +12,16 @@ class LimitQuery {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(50) limit = 10;
 }
 
+class ClassRequestDto {
+  @IsString() @Length(2, 20) class_code: string;
+  @IsString() @Length(9, 9) school_year: string;
+  @IsString() @Length(2, 80) name: string;
+  @IsString() @Length(4, 64) join_password: string;
+}
+
 const round3 = (x: number): number => Math.round(x * 1000) / 1000;
 
-/** /api/teacher: lớp học sinh thật của giáo viên phụ trách và lịch sử thi đấu cả lớp */
+/** /api/teacher: lớp đang dạy (tiến độ học sinh thật), lịch sử thi đấu, yêu cầu mở lớp, nhập tài khoản học sinh từ file Excel mẫu */
 @Controller('teacher')
 @UseGuards(AuthGuard)
 @Roles('teacher')
@@ -20,11 +29,48 @@ export class TeacherController {
   constructor(
     private readonly db: DatabaseService,
     private readonly content: ContentService,
+    private readonly school: SchoolService,
   ) {}
+
+  /** Yêu cầu mở lớp của giáo viên (chờ duyệt, đã duyệt, bị từ chối) */
+  @Get('classes')
+  classes(@CurrentUser() user: UserRow) {
+    return this.school.teacherClasses(user);
+  }
+
+  @Post('classes')
+  createClass(@CurrentUser() user: UserRow, @Body() body: ClassRequestDto) {
+    return this.school.createClass(user, body);
+  }
+
+  /** Chọn lớp đang dạy (trả về tài khoản đã cập nhật class_name) */
+  @Post('classes/:id/activate')
+  @HttpCode(200)
+  activate(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) {
+    return this.school.activateClass(user, id);
+  }
+
+  /** Nhập tài khoản học sinh của trường mình từ file Excel mẫu (dòng giáo viên bị từ chối) */
+  @Post('import')
+  @HttpCode(200)
+  @UseInterceptors(XLSX_UPLOAD)
+  importExcel(@CurrentUser() user: UserRow, @UploadedFile() file: UploadedXlsx | undefined) {
+    return this.school.importExcel(user, file);
+  }
+
+  @Get('imports')
+  imports(@CurrentUser() user: UserRow) {
+    return this.school.imports(user);
+  }
+
+  @Get('imports/:id')
+  importReport(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) {
+    return this.school.importReport(user, id);
+  }
 
   @Get('class')
   async myClass(@CurrentUser() user: UserRow) {
-    const students = await this.db.studentsInClass(user.class_name);
+    const students = await this.db.studentsInClass(user.class_name, user.school_id);
     const progress = await this.db.allProgress();
     const week = prog.weekKey();
     const wrongTotals = new Map<string, [number, number, number]>();

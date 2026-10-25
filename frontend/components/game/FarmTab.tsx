@@ -13,6 +13,7 @@ import { QuestionCard, QuizPanel } from '@/components/game/quiz';
 import { Bar, Btn, Card, Chip, InfoNote, Inset, PressCard, SectionTitle, Sheet, Spinner, Txt } from '@/components/ui';
 import { BUILDINGS, BUILDING_BY_ID, UPGRADE_SECONDS, farmCap, farmRate, storeCap, troopCap, upgradeCost } from '@/constants/game';
 import { WORLD_MAP_BY_ID, WORLD_QUESTS } from '@/constants/world';
+import { ON_BRIGHT } from '@/constants/theme';
 import { useGame } from '@/hooks/use-game';
 import { useBob, useReduceMotion } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
@@ -199,7 +200,7 @@ const BuildingButton: React.FC<{ def: BuildingDef; now: number; board: number; o
   let badge: React.ReactNode = null;
   if (upgrading) badge = <Chip text={fmtClock(((b.upgradeEnds ?? now) - now) / 1000)} icon={Clock} bg={c.the} fg={c.muc} style={{ borderWidth: 2, borderColor: c.vien }} />;
   else if (b.level === 0) badge = <Chip text="Xây" icon={Hammer} bg={c.dong} fg="#1c1917" />;
-  else if (def.id === 'ruong' && ready >= 5) badge = <Chip text={`+${fmt(ready)}`} icon={Wheat} bg={c.ngoc} fg="#ffffff" />;
+  else if (def.id === 'ruong' && ready >= 5) badge = <Chip text={`+${fmt(ready)}`} icon={Wheat} bg={c.ngoc} fg={ON_BRIGHT} />;
   const label = `${def.name}, ${b.level === 0 ? 'chưa xây' : `cấp ${b.level}`}${upgrading ? ', đang nâng cấp' : ''}${def.id === 'ruong' && ready ? `, có ${ready} Lương Thảo chờ thu` : ''}`;
   return (
     <Pressable
@@ -471,7 +472,7 @@ const DailyPanel: React.FC = () => {
         return (
           <View key={t.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <View style={{ width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: done ? c.ngoc : c.giay2 }}>
-              <Icon size={20} color={done ? '#ffffff' : c.muc2} />
+              <Icon size={20} color={done ? ON_BRIGHT : c.muc2} />
             </View>
             <View style={{ flex: 1, gap: 4 }}>
               <Txt f="semibold" size={14}>
@@ -602,7 +603,7 @@ const RaidEvent: React.FC<{ onDone: () => void }> = ({ onDone }) => {
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
             <PressCard onPress={() => choose('vuon_khong')} label="Vườn không nhà trống" hint="Giấu hết lương vào Kho Bí Mật. Trả lời 1 câu." style={{ flexGrow: 1, flexBasis: 240, gap: 6 }}>
               <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.ngoc, alignItems: 'center', justifyContent: 'center' }}>
-                <Warehouse size={24} color="#ffffff" />
+                <Warehouse size={24} color={ON_BRIGHT} />
               </View>
               <Txt f="displayHeavy" size={18}>
                 Vườn không nhà trống

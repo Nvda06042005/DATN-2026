@@ -1,6 +1,7 @@
 /**
  * Hình vẽ của Đông A (react-native-svg, sắc nét ở mọi kích thước): Rồng Con, ô đáp án Kahoot, huy hiệu tướng/quân địch,
- * công trình Điền Trang, nền chiến trận, lược đồ Đại Việt thời Trần (minh họa, không theo tỉ lệ), ảnh pixel của Hành Trình Đông A.
+ * công trình Điền Trang, nền chiến trận, lược đồ Đại Việt thời Trần (minh họa, không theo tỉ lệ), ảnh pixel của Hành Trình Đông A,
+ * huy hiệu bang hội Khối 6 – 9.
  * Không vẽ chân dung nhân vật lịch sử có thật.
  */
 import React from 'react';
@@ -8,10 +9,11 @@ import { Animated, Platform, StyleSheet, Text, View, type StyleProp, type ViewSt
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Marker, Path, Pattern, RadialGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { Crown } from 'lucide-react-native';
 import { ELEMENTS, ENEMY_TYPES, MAP_PLACES } from '@/constants/game';
-import { ANSWER_STYLES, FONT, type AnswerShape } from '@/constants/theme';
+import { ANSWER_STYLES, FONT, GRADE_STYLE, type AnswerShape } from '@/constants/theme';
 import { useBob } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
 import type { PixelPaths } from '@/lib/pixel-art';
+import type { Grade } from '@/types/api';
 import type { BattleBg, BuildingId, EnemyDef, HeroDef, PlaceId } from '@/types/game';
 
 export type MascotMood = 'happy' | 'excited' | 'sad' | 'sleepy' | 'thinking' | 'love';
@@ -305,6 +307,39 @@ export const BrandLogo: React.FC<{ compact?: boolean; subtitle?: string; light?:
           {subtitle && (
             <Text style={{ fontFamily: FONT.bold, fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase', color: light ? 'rgba(255,255,255,0.85)' : c.muc2 }}>{subtitle}</Text>
           )}
+        </View>
+      )}
+    </View>
+  );
+};
+
+/** Huy hiệu bang hội của Khối 6 – 9 (cấp độ trong game): khiên màu có số khối, tên bang tùy chọn */
+export const GradeBadge: React.FC<{ grade: number | null; size?: number; showName?: boolean; count?: number }> = ({ grade, size = 40, showName = false, count }) => {
+  const { c } = useTheme();
+  const g = grade ? GRADE_STYLE[grade as Grade] : undefined;
+  if (!g) return null;
+  return (
+    <View
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={`Khối ${grade} – ${g.name}${count === undefined ? '' : `: ${count}`}`}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+    >
+      <Svg width={size} height={size * 1.1} viewBox="0 0 100 110">
+        <Path d="M50 6 L92 20 V54 C92 80 72 98 50 108 C28 98 8 80 8 54 V20 Z" fill={g.edge} />
+        <Path d="M50 0 L92 14 V48 C92 74 72 92 50 102 C28 92 8 74 8 48 V14 Z" fill={g.bg} />
+        <Path d="M50 10 L82 21 V48 C82 67 67 81 50 89 C33 81 18 67 18 48 V21 Z" fill="rgba(255,255,255,0.25)" />
+        <SvgText x="50" y="68" textAnchor="middle" fontSize="50" fontFamily={FONT.displayHeavy} fill={g.fg}>
+          {String(grade)}
+        </SvgText>
+      </Svg>
+      {(showName || count !== undefined) && (
+        <View style={{ flexShrink: 1 }}>
+          {count !== undefined && <Text style={{ fontFamily: FONT.displayHeavy, fontSize: 22, lineHeight: 26, color: c.muc }}>{count}</Text>}
+          <Text style={{ fontFamily: FONT.bold, fontSize: 12, color: c.muc2 }} numberOfLines={1}>
+            Khối {grade}
+            {showName ? ` · ${g.name}` : ''}
+          </Text>
         </View>
       )}
     </View>

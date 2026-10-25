@@ -1,8 +1,15 @@
 import { apiRequest } from '@/api/client';
 import type {
-  AnswerPayload, AnswerResult, ChatbotReply, CodexEntry, LeaderboardEntry, LearnerProgress, QuestionsResponse, Recommendation,
+  AnswerPayload, AnswerResult, ChatbotReply, CodexEntry, LeaderboardEntry, LearnerProgress, QuestionsResponse, Recommendation, StudentClass,
 } from '@/types/api';
 import type { GameState } from '@/types/game';
+
+/** Lớp đã vào */
+export const getMyClasses = (token: string) => apiRequest<StudentClass[]>('/api/student/classes', { token });
+
+/** Vào lớp đã được duyệt bằng mã lớp + mật khẩu lớp do thầy cô phát */
+export const joinClass = (token: string, classCode: string, password: string) =>
+  apiRequest<StudentClass>('/api/student/classes/join', { token, body: { class_code: classCode, password } });
 
 /** Tiến độ học tập (XP, Ấn Tín, chuỗi ngày, hạng trong lớp) */
 export const getProgress = (token: string) => apiRequest<LearnerProgress>('/api/student/progress', { token });

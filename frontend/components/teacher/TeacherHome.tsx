@@ -1,27 +1,29 @@
 /**
  * Trang giáo viên: tiến độ thật của lớp phụ trách (XP, sao chiến dịch, độ chính xác, mức nắm vững BKT, câu sai nhiều nhất,
  * học sinh cần hỗ trợ), lịch sử thi đấu cả lớp, mở phòng thi đấu trực tiếp, công cụ AI soạn đề / soạn truyện, xuất báo cáo CSV.
+ * Mục Lớp học: xin mở lớp (quản trị trường duyệt), chọn lớp đang dạy, nhập tài khoản học sinh từ file Excel mẫu; chuông thông báo duyệt lớp.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, RefreshControl, ScrollView, Share, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BarChart2, BookOpenText, Check, FileSpreadsheet, Flame, LayoutDashboard, Lock, Radio, RefreshCw, Sparkles, Star, Target, Trophy, Users } from 'lucide-react-native';
+import { BarChart2, BookOpenText, Check, Eye, EyeOff, FileSpreadsheet, Flame, LayoutDashboard, Lock, Plus, Radio, RefreshCw, School, Sparkles, Star, Target, Trophy, Users } from 'lucide-react-native';
 import * as teacherApi from '@/api/teacherApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { KahootShape, Mascot } from '@/components/art';
 import { TopBar, type Session } from '@/components/auth';
+import { ImportPanel, NotificationBell, classStatusChip, useFail } from '@/components/provisioning';
 import { AiQuizSheet, AiStorySheet } from '@/components/teacher/AiTools';
 import { LiveHost } from '@/components/teacher/LiveHost';
-import { Avatar, Bar, Btn, Card, Chip, EmptyState, Field, PaperBg, PressCard, Segmented, Skeleton, Txt, useToast } from '@/components/ui';
-import { ANSWER_STYLES, LIVE_BG } from '@/constants/theme';
+import { Avatar, Bar, Btn, Card, Chip, EmptyState, Field, Inset, PaperBg, PressCard, Segmented, Sheet, Skeleton, Txt, useToast } from '@/components/ui';
+import { ANSWER_STYLES, LIVE_BG, onFill } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { fmt, formatDateTime, pct, shortName } from '@/lib/format';
-import type { LiveSessionSummary, RosterStudent, TeacherClass } from '@/types/api';
+import { currentSchoolYear, fmt, formatDateTime, pct, shortName } from '@/lib/format';
+import type { AuthUser, ClassRequest, LiveSessionSummary, RosterStudent, TeacherClass } from '@/types/api';
 import type { IconType } from '@/types/game';
 
 const DEFAULT_LESSON = 'Bài 14 (KNTT): Ba lần kháng chiến chống quân xâm lược Mông - Nguyên';
 const STAGES = ['Màn 1 – Kháng chiến lần thứ nhất (1258)', 'Màn 2 – Kháng chiến lần thứ hai (1285)', 'Màn 3 – Kháng chiến lần thứ ba (1287 – 1288)'];
-type Tab = 'home' | 'roster';
+type Tab = 'home' | 'roster' | 'classes';
 
 export const TeacherHome: React.FC<{ session: Session }> = ({ session }) => {
   const { token, user } = session;
@@ -98,6 +100,7 @@ export const TeacherHome: React.FC<{ session: Session }> = ({ session }) => {
   const nav: Array<{ id: Tab; label: string; icon: IconType }> = [
     { id: 'home', label: 'Tổng quan', icon: LayoutDashboard },
     { id: 'roster', label: 'Học sinh', icon: Users },
+    { id: 'classes', label: 'Lớp học', icon: School },
   ];
   const actions = [
     { label: 'Thi đấu trực tiếp', icon: Radio, onPress: () => setLive(true) },
@@ -109,7 +112,11 @@ export const TeacherHome: React.FC<{ session: Session }> = ({ session }) => {
   return (
     <View style={{ flex: 1 }}>
       <PaperBg />
-      <TopBar session={session} subtitle={`Không gian giáo viên${user.class_name ? ` · Lớp ${user.class_name}` : ''}: theo dõi học sinh, tổ chức thi đấu & soạn học liệu AI`} />
+      <TopBar
+        session={session}
+        subtitle={`Không gian giáo viên${user.class_name ? ` · Lớp ${user.class_name}` : ''}: theo dõi học sinh, tổ chức thi đấu & soạn học liệu AI`}
+        extra={<NotificationBell session={session} />}
+      />
       <View style={{ flex: 1, flexDirection: 'row' }}>
         {wide && (
           <View style={{ width: 240, padding: 16, gap: 8, borderRightWidth: 2, borderRightColor: c.vien, backgroundColor: c.the }}>
@@ -122,10 +129,10 @@ export const TeacherHome: React.FC<{ session: Session }> = ({ session }) => {
                   onPress={() => setTab(n.id)}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: on }}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingHorizontal: 12, borderRadius: 14, borderWidth: 2, borderColor: on ? '#5eead4' : 'transparent', backgroundColor: on ? c.ngocNhat : 'transparent' }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingHorizontal: 12, borderRadius: 14, borderWidth: 2, borderColor: on ? c.ngoc : 'transparent', backgroundColor: on ? c.ngocNhat : 'transparent' }}
                 >
-                  <Icon size={20} color={on ? c.ngocDam : c.muc2} />
-                  <Txt f="display" size={15} upper color={on ? c.ngocDam : c.muc2}>
+                  <Icon size={20} color={on ? c.ngocChu : c.muc2} />
+                  <Txt f="display" size={15} upper color={on ? c.ngocChu : c.muc2}>
                     {n.label}
                   </Txt>
                 </Pressable>
@@ -151,9 +158,18 @@ export const TeacherHome: React.FC<{ session: Session }> = ({ session }) => {
               onAiStory={() => setAiStory(true)}
               onExport={exportCsv}
               onRoster={() => setTab('roster')}
+              onClasses={() => setTab('classes')}
             />
+          ) : tab === 'roster' ? (
+            <Roster className={user.class_name} cls={cls} loading={loading} onRefresh={loadClass} onExport={exportCsv} onClasses={() => setTab('classes')} />
           ) : (
-            <Roster className={user.class_name} cls={cls} loading={loading} onRefresh={loadClass} onExport={exportCsv} />
+            <ClassesTab
+              session={session}
+              onActivated={(u) => {
+                session.updateUser(u);
+                loadClass();
+              }}
+            />
           )}
         </ScrollView>
       </View>
@@ -176,7 +192,8 @@ const Dashboard: React.FC<{
   onAiStory: () => void;
   onExport: () => void;
   onRoster: () => void;
-}> = ({ cls, loading, history, teacherName, className, onLive, onAiQuiz, onAiStory, onExport, onRoster }) => {
+  onClasses: () => void;
+}> = ({ cls, loading, history, teacherName, className, onLive, onAiQuiz, onAiStory, onExport, onRoster, onClasses }) => {
   const { c } = useTheme();
   const { width } = useWindowDimensions();
   const roster = cls?.students ?? [];
@@ -211,13 +228,17 @@ const Dashboard: React.FC<{
             </Txt>
             <Txt f="semibold" color="rgba(255,255,255,0.88)" style={{ maxWidth: 560 }}>
               {!className
-                ? 'Tài khoản chưa được gán lớp phụ trách. Nhờ quản trị viên cập nhật để theo dõi học sinh.'
+                ? 'Bạn chưa có lớp đang dạy. Vào mục Lớp học để xin mở lớp; quản trị trường duyệt xong, phát mã lớp và mật khẩu lớp cho học sinh.'
                 : total === 0
-                  ? `Lớp ${className} chưa có học sinh nào trên hệ thống. Quản trị viên cấp tài khoản tại trang quản trị.`
+                  ? `Lớp ${className} chưa có học sinh nào. Phát mã lớp và mật khẩu lớp để học sinh tự vào lớp trong game.`
                   : `${practiced}/${total} học sinh lớp ${className} đã làm bài. Hôm nay tổ chức một trận thi đấu Sử cho cả lớp nhé?`}
             </Txt>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 6 }}>
-              <Btn title="Thi đấu trực tiếp" icon={Radio} tone="dong" size="lg" onPress={onLive} />
+              {className ? (
+                <Btn title="Thi đấu trực tiếp" icon={Radio} tone="dong" size="lg" onPress={onLive} />
+              ) : (
+                <Btn title="Xin mở lớp" icon={School} tone="dong" size="lg" onPress={onClasses} />
+              )}
               <Btn title="Soạn đề bằng AI" icon={Sparkles} tone="giay" size="lg" onPress={onAiQuiz} />
             </View>
           </View>
@@ -231,7 +252,7 @@ const Dashboard: React.FC<{
           return (
             <Card key={k.label} pad={14} style={{ flexGrow: 1, flexBasis: 220, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: k.color, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon size={24} color="#ffffff" />
+                <Icon size={24} color={onFill(c, k.color)} />
               </View>
               <View style={{ flex: 1 }} accessible accessibilityLabel={`${k.label}: ${k.value}`}>
                 {loading && !cls ? <Skeleton height={22} width={70} /> : <Txt f="displayHeavy" size={22}>{k.value}</Txt>}
@@ -494,7 +515,9 @@ const LiveHistoryCard: React.FC<{ sessions: LiveSessionSummary[] | null; onLaunc
 };
 
 // ---------------------------------------------------------------------- danh sách học sinh
-const Roster: React.FC<{ className: string | null; cls: TeacherClass | null; loading: boolean; onRefresh: () => void; onExport: () => void }> = ({ className, cls, loading, onRefresh, onExport }) => {
+const Roster: React.FC<{ className: string | null; cls: TeacherClass | null; loading: boolean; onRefresh: () => void; onExport: () => void; onClasses: () => void }> = ({
+  className, cls, loading, onRefresh, onExport, onClasses,
+}) => {
   const { c } = useTheme();
   const [search, setSearch] = useState('');
   const roster = cls?.students ?? [];
@@ -518,7 +541,11 @@ const Roster: React.FC<{ className: string | null; cls: TeacherClass | null; loa
         </View>
       </View>
       {!className ? (
-        <EmptyState title="Tài khoản của bạn chưa được gán lớp" text="Nhờ quản trị viên cập nhật lớp phụ trách tại trang quản trị." />
+        <EmptyState
+          title="Bạn chưa có lớp đang dạy"
+          text="Xin mở lớp ở mục Lớp học; quản trị trường duyệt xong, chọn lớp để theo dõi học sinh."
+          action={<Btn title="Đến mục Lớp học" icon={School} tone="ngoc" onPress={onClasses} />}
+        />
       ) : (
         <>
           <ClassInsights cls={cls} />
@@ -526,7 +553,7 @@ const Roster: React.FC<{ className: string | null; cls: TeacherClass | null; loa
           {rows.length === 0 ? (
             <EmptyState
               title={roster.length === 0 ? 'Lớp chưa có học sinh nào' : 'Không tìm thấy học sinh phù hợp'}
-              text={roster.length === 0 ? 'Quản trị viên cấp tài khoản học sinh cho lớp tại trang quản trị.' : 'Thử từ khóa khác.'}
+              text={roster.length === 0 ? 'Phát mã lớp và mật khẩu lớp cho học sinh: các em vào lớp trong mục Hồ sơ của game.' : 'Thử từ khóa khác.'}
             />
           ) : (
             rows.map((s, i) => <StudentRow key={s.id} s={s} index={i} />)
@@ -589,6 +616,183 @@ const StudentRow = React.memo<{ s: RosterStudent; index: number }>(({ s, index }
   );
 });
 StudentRow.displayName = 'StudentRow';
+
+// ---------------------------------------------------------------------- lớp học: xin mở lớp, chọn lớp đang dạy, nhập tài khoản học sinh
+const ClassesTab: React.FC<{ session: Session; onActivated: (user: AuthUser) => void }> = ({ session, onActivated }) => {
+  const { c } = useTheme();
+  const toast = useToast();
+  const fail = useFail(session);
+  const [items, setItems] = useState<ClassRequest[] | null>(null);
+  const [form, setForm] = useState(false);
+  const [busy, setBusy] = useState<number | null>(null);
+  const active = session.user.class_name;
+
+  const load = useCallback(() => {
+    teacherApi
+      .getClassRequests(session.token)
+      .then(setItems)
+      .catch((err) => {
+        setItems([]);
+        fail(err);
+      });
+  }, [session.token, fail]);
+
+  useEffect(load, [load]);
+
+  const activate = async (k: ClassRequest) => {
+    setBusy(k.id);
+    try {
+      onActivated(await teacherApi.activateClass(session.token, k.id));
+      toast(`Đang dạy lớp ${k.class_code}`);
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <>
+      <Card style={{ gap: 12 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+          <View style={{ flex: 1, minWidth: 220 }}>
+            <Txt f="displayHeavy" size={22} accessibilityRole="header">
+              Lớp của tôi
+            </Txt>
+            <Txt size={13} color={c.muc2}>
+              Gửi mã lớp, năm học, tên lớp và mật khẩu lớp. Quản trị trường duyệt xong, bạn nhận thông báo và email; phát mã lớp và mật khẩu lớp để học sinh tự vào lớp.
+            </Txt>
+          </View>
+          <Btn tone="giay" size="sm" icon={RefreshCw} label="Tải lại" onPress={load} />
+          <Btn title="Xin mở lớp" icon={Plus} tone="ngoc" onPress={() => setForm(true)} testID="class-request" />
+        </View>
+        {items === null ? (
+          <Skeleton height={56} />
+        ) : items.length === 0 ? (
+          <Txt size={14} color={c.muc2}>
+            Chưa có lớp nào. Bấm Xin mở lớp để bắt đầu.
+          </Txt>
+        ) : (
+          items.map((k) => {
+            const chip = classStatusChip(c, k.status);
+            const on = k.status === 'APPROVED' && active === k.class_code;
+            return (
+              <Inset key={k.id} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, borderWidth: 2, borderColor: on ? c.ngoc : 'transparent' }}>
+                <View style={{ minWidth: 64, height: 44, paddingHorizontal: 8, borderRadius: 12, backgroundColor: c.vang, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 4, borderBottomColor: c.vangDam }}>
+                  <Txt f="display" size={14} color="#3a2a00">
+                    {k.class_code}
+                  </Txt>
+                </View>
+                <View style={{ flexGrow: 1, flexBasis: 200 }}>
+                  <Txt f="bold" size={14}>
+                    {k.name} · {k.school_year}
+                  </Txt>
+                  <Txt size={12} color={c.muc2}>
+                    Gửi {formatDateTime(k.created_at)}
+                    {k.status === 'APPROVED' ? ` · ${k.members} học sinh đã vào lớp` : ''}
+                  </Txt>
+                  {k.review_note && (
+                    <Txt size={12} color={k.status === 'REJECTED' ? c.sonChu : c.muc3}>
+                      Ghi chú của quản trị: {k.review_note}
+                    </Txt>
+                  )}
+                </View>
+                <Chip text={on ? 'Đang dạy' : chip.text} bg={on ? c.ngocNhat : chip.bg} fg={on ? c.ngocChu : chip.fg} />
+                {k.status === 'APPROVED' && !on && <Btn title="Dạy lớp này" icon={Check} tone="ngoc" size="sm" loading={busy === k.id} onPress={() => activate(k)} />}
+              </Inset>
+            );
+          })
+        )}
+      </Card>
+      <ImportPanel
+        session={session}
+        scope="Giáo viên nhập tài khoản học sinh (vai trò HS) của trường mình; dòng giáo viên hoặc dòng của trường khác bị từ chối."
+        upload={teacherApi.importStudents}
+        history={teacherApi.getImports}
+      />
+      {form && (
+        <ClassRequestSheet
+          token={session.token}
+          onClose={() => setForm(false)}
+          onCreated={() => {
+            setForm(false);
+            load();
+            toast('Đã gửi yêu cầu mở lớp – chờ quản trị trường duyệt');
+          }}
+        />
+      )}
+    </>
+  );
+};
+
+const ClassRequestSheet: React.FC<{ token: string; onClose: () => void; onCreated: () => void }> = ({ token, onClose, onCreated }) => {
+  const { c } = useTheme();
+  const [code, setCode] = useState('');
+  const [year, setYear] = useState(currentSchoolYear());
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [show, setShow] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    const classCode = code.trim().toUpperCase();
+    if (!/^[A-Z0-9][A-Z0-9._-]{1,19}$/.test(classCode)) return setError('Mã lớp gồm 2–20 chữ in hoa không dấu, số, dấu chấm, gạch (vd: 7A1).');
+    const y = year.trim();
+    if (!/^\d{4}-\d{4}$/.test(y) || Number(y.slice(5)) !== Number(y.slice(0, 4)) + 1) return setError('Năm học có dạng 2025-2026.');
+    if (name.trim().length < 2) return setError('Tên lớp cần ít nhất 2 ký tự.');
+    if (password.length < 4) return setError('Mật khẩu lớp cần ít nhất 4 ký tự.');
+    setLoading(true);
+    setError(null);
+    try {
+      await teacherApi.requestClass(token, { class_code: classCode, school_year: y, name: name.trim(), join_password: password });
+      onCreated();
+    } catch (err) {
+      setError(errorMessage(err, 'Không gửi được yêu cầu mở lớp.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      title="Xin mở lớp"
+      subtitle="Quản trị trường duyệt trước khi học sinh vào được lớp"
+      footer={
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
+          <Btn title="Hủy" tone="giay" onPress={onClose} />
+          <Btn title="Gửi yêu cầu" icon={School} tone="ngoc" loading={loading} onPress={submit} testID="class-submit" />
+        </View>
+      }
+    >
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+        <Field label="Mã số lớp *" value={code} onChangeText={setCode} placeholder="vd: 7A1" autoCapitalize="characters" autoCorrect={false} autoFocus style={{ flexGrow: 1, flexBasis: 140 }} nativeID="class-code" />
+        <Field label="Năm học *" value={year} onChangeText={setYear} placeholder="2025-2026" style={{ flexGrow: 1, flexBasis: 140 }} nativeID="class-year" />
+      </View>
+      <Field label="Tên lớp *" value={name} onChangeText={setName} placeholder="vd: Lớp 7A1 – Lịch sử" nativeID="class-name" />
+      <Field
+        label="Mật khẩu mã lớp * (học sinh nhập khi vào lớp)"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry={!show}
+        autoCapitalize="none"
+        autoCorrect={false}
+        nativeID="class-password"
+        hint="Hãy ghi nhớ: hệ thống chỉ lưu bản mã hóa, không hiển thị lại mật khẩu lớp."
+      />
+      <Btn tone="ghost" size="sm" icon={show ? EyeOff : Eye} title={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} onPress={() => setShow((v) => !v)} selected={show} />
+      {error && (
+        <Inset style={{ backgroundColor: c.sonNhat }}>
+          <Txt f="bold" size={14} color={c.sonChu} accessibilityRole="alert">
+            {error}
+          </Txt>
+        </Inset>
+      )}
+    </Sheet>
+  );
+};
 
 const Stat: React.FC<{ label: string; value: string; color?: string }> = ({ label, value, color }) => {
   const { c } = useTheme();

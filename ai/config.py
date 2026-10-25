@@ -21,6 +21,8 @@ class Settings:
     HF_MODEL: str = os.getenv("HF_MODEL", "Qwen/Qwen2.5-7B-Instruct")
     # Khóa nội bộ: backend NestJS gửi trong header X-AI-Token. Để trống khi chạy thử trên máy.
     AI_SERVICE_TOKEN: str = os.getenv("AI_SERVICE_TOKEN", "").strip()
+    # Khóa ký HMAC-SHA256 cho file Excel mẫu (Render tự sinh); đổi khóa thì file mẫu tải trước đó không nhập được nữa
+    EXCEL_SIGNING_KEY: str = os.getenv("EXCEL_SIGNING_KEY", "").strip()
 
 
 settings = Settings()

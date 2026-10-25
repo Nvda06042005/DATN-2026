@@ -9,7 +9,7 @@ import { AlertCircle, Check, Clock, Info, Radio, Trophy, Users, WifiOff, X } fro
 import { KahootShape, Mascot } from '@/components/art';
 import { LiveTimer } from '@/components/live';
 import { Btn, Card, Chip, InlineSheet, PaperBg, Spinner, Txt } from '@/components/ui';
-import { ANSWER_STYLES, FONT } from '@/constants/theme';
+import { ANSWER_STYLES, FONT, ON_BRIGHT } from '@/constants/theme';
 import { useGame } from '@/hooks/use-game';
 import { useLiveSocket } from '@/hooks/use-live-socket';
 import { useTheme } from '@/hooks/use-theme';
@@ -284,13 +284,13 @@ const ArenaBody: React.FC<React.ComponentProps<typeof LiveArena>> = ({ token, in
           <View style={{ gap: 12 }}>
             <View accessibilityLiveRegion="polite" style={{ flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 18, padding: 16, backgroundColor: ok ? c.ngoc : ok === false ? c.son : c.giay2 }}>
               <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-                {ok ? <Check size={28} color="#ffffff" strokeWidth={3} /> : ok === false ? <X size={28} color="#ffffff" strokeWidth={3} /> : <Clock size={28} color={c.muc} />}
+                {ok ? <Check size={28} color={ON_BRIGHT} strokeWidth={3} /> : ok === false ? <X size={28} color="#ffffff" strokeWidth={3} /> : <Clock size={28} color={c.muc} />}
               </View>
               <View style={{ flex: 1 }}>
-                <Txt f="displayHeavy" size={22} color={ok === null ? c.muc : '#ffffff'}>
+                <Txt f="displayHeavy" size={22} color={ok === null ? c.muc : ok ? ON_BRIGHT : '#ffffff'}>
                   {ok ? 'Chính xác!' : ok === false ? 'Chưa đúng' : 'Hết giờ'}
                 </Txt>
-                <Txt f="semibold" color={ok === null ? c.muc : '#ffffff'}>
+                <Txt f="semibold" color={ok === null ? c.muc : ok ? ON_BRIGHT : '#ffffff'}>
                   {ok ? `+${me.last_gain} điểm` : 'Không có điểm câu này'}
                   {me.streak >= 2 ? ` · ${me.streak} câu đúng liên tiếp` : ''}
                 </Txt>

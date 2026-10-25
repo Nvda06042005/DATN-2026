@@ -6,7 +6,7 @@ Backend NestJS tự áp dụng migration mới khi khởi động với `DATABAS
 
 # Cấu trúc dự án
 
-- `frontend/`: app Expo (React Native) cho Android, iOS, web. Route trong `app/` (`_layout.tsx`, `index.tsx`, `hoc-sinh.tsx`, `giao-vien.tsx`, `admin.tsx` – expo-router bắt buộc tên `index` cho `/`). `api/` gọi backend (không `fetch` trong component), `components/ui.tsx` (thành phần dùng chung), `components/art.tsx` (hình SVG), `components/auth.tsx` (phiên đăng nhập theo trang), `components/live.tsx`, `components/game|teacher|admin/`, `constants/`, `hooks/` (`use-*.ts`), `lib/`, `types/`. Import bằng `@/…`. Màu chỉ lấy từ `constants/theme.ts` qua `useTheme()`; mọi nút dùng `Btn`/`Pressable` có nhãn trợ năng, vùng chạm ≥ 44pt.
+- `frontend/`: app Expo (React Native) cho Android, iOS, web. Route trong `app/` (`_layout.tsx`, `index.tsx`, `portal.tsx`, `hoc-sinh.tsx`, `giao-vien.tsx`, `root-system-admin.tsx`, `school-manager-admin.tsx` – expo-router bắt buộc tên `index` cho `/`). `api/` gọi backend (không `fetch` trong component), `components/ui.tsx` (thành phần dùng chung), `components/art.tsx` (hình SVG), `components/auth.tsx` (phiên đăng nhập theo trang), `components/live.tsx`, `components/provisioning.tsx` (nhập Excel, thư, thùng rác, duyệt lớp, chuông thông báo – dùng chung cho quản trị và giáo viên), `components/game|teacher|admin/`, `constants/`, `hooks/` (`use-*.ts`), `lib/`, `types/`. Import bằng `@/…`. Màu chỉ lấy từ `constants/theme.ts` qua `useTheme()`; mọi nút dùng `Btn`/`Pressable` có nhãn trợ năng, vùng chạm ≥ 44pt.
 - Expo SDK 58 thay đổi nhiều: trước khi dùng API Expo/React Native, đọc tài liệu đúng phiên bản (`https://docs.expo.dev/versions/v58.0.0/`), cài thư viện bằng `npx expo install`, chạy `npm run typecheck` và `npx expo export -p web` trước khi báo xong.
 - Không mở hai `Modal` chồng nhau: trong màn toàn màn hình (trận đánh, thi đấu) dùng `InlineSheet`; chuỗi hỏi đáp trong một bảng dùng `QuizPanel`; mở bảng tiếp theo sau khi bảng trước đóng bằng `afterSheet`.
 - `backend/`: NestJS – `src/auth`, `admin`, `student` (ngân hàng câu hỏi `content.service.ts`, quy tắc tiến độ `progress.ts`), `teacher`, `live` (WebSocket), `ai` (gọi dịch vụ Python), `database` (pg + migrator + CLI). Kiểm thử Jest ở `backend/test/`.
@@ -20,6 +20,14 @@ Backend NestJS tự áp dụng migration mới khi khởi động với `DATABAS
 - Nội dung câu hỏi phải khớp `ai/data/knowledge_base.json`; không sửa tay `knowledge_base.json`/`q_matrix.json` (sinh từ `ai/data_splitter.py`).
 - Lưu tiến độ ở server không ghi `game_state` (chỉ `PUT /api/student/game` ghi), để không đè trạng thái client vừa lưu.
 - Hành Trình Đông A (thế giới 2D pixel): màn `components/game/WorldScreen.tsx` (toàn màn hình, hộp thoại bằng `InlineSheet`, lượt hỏi bằng `QuizPanel`), dữ liệu vùng đất/nhân vật/nhiệm vụ/cây trồng `constants/world.ts`, luật đi lại – tìm đường – nhiệm vụ – khôi phục bản lưu `lib/world-engine.ts`, hình pixel `lib/pixel-art.ts` (vẽ bằng `PixelArt` trong `components/art.tsx`). Trạng thái nằm trong `GameState.world` (lưu chung `game_state`, không cần migration). Nhân vật là người hư cấu; phần kiến thức hiện từ thẻ Sử Ký, câu hỏi lấy theo `units` phải có trong `ai/data/game_content.json`. Sửa bản đồ: mọi hàng cùng độ dài, ký tự có trong `TILE_INFO`, vật đặt trên ô đi được (cọc và đội thuyền đặt trên nước) và tới được từ điểm xuất phát.
+
+# Hai cổng quản trị và cấp tài khoản
+
+- `/root-system-admin` (vai trò `root_admin`) và `/school-manager-admin` (`school_admin`) dùng chung `components/admin/AdminHome.tsx`; không render nút hay liên kết về trang chủ, `/portal` hay cổng khác. Trang chủ công khai không liên kết tới cổng quản trị.
+- Nghiệp vụ ở `backend/src/admin/school.service.ts`: quản trị tổng chạy truy vấn toàn hệ thống; vai trò khác chạy trong `DatabaseService.scoped(school_id)` (vai trò PostgreSQL `dong_a_school_scope` + RLS), luôn kèm điều kiện `school_id` trong SQL. Không mở quyền công khai để chạy được migration.
+- File Excel mẫu do `ai/excel_provisioning.py` tạo và ký (HMAC-SHA256 bằng `EXCEL_SIGNING_KEY`); giữ đúng 11 cột và thứ tự trong `COLUMNS`, đổi cấu trúc thì tăng `TEMPLATE_VERSION`. Python không truy cập CSDL: backend đọc ứng viên (pgvector khi có) rồi gửi Python quyết định khớp.
+- Mật khẩu mặc định không được trả về trong phản hồi nhập file, chỉ đi qua thư (`mail.service.ts`, nội dung mã hóa và xóa sau khi gửi) hoặc CSV tài khoản chưa gửi thư của quản trị.
+- Xóa tài khoản = thùng rác 45 ngày (`deleted_at`, `purge_at`); cron 00:00 giờ Việt Nam xóa vĩnh viễn.
 
 # Thi đấu cả lớp (thời gian thực)
 

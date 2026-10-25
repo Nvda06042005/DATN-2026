@@ -1,31 +1,36 @@
 import { Platform } from 'react-native';
 
 /**
- * Hệ thiết kế Đông A: chất liệu thời Trần – giấy dó, sơn son, men ngọc, đồng thếp vàng.
- * Màu chữ/nền đã kiểm tra tương phản WCAG ≥ 4.5:1 ở cả chế độ sáng ("Giấy dó") và tối ("Đêm Bạch Đằng").
+ * Hệ thiết kế Đông A theo phong cách game học tập (Duolingo, Classcraft): nền kem sáng #FFFDF7, cam hổ phách #FF9600,
+ * xanh ngọc lục bảo #58CC02, vàng huy hiệu #FFC800; sơn son giữ cho ấn triện và cảnh báo.
+ * Nền màu tươi luôn đi với chữ tối; màu chữ/nền đã kiểm tra tương phản WCAG ≥ 4.5:1 ở cả chế độ sáng và tối ("Đêm Bạch Đằng").
  */
 const light = {
-  giay: '#fbf6ea',
-  giay2: '#f3ead7',
-  the: '#fffdf7',
-  the2: '#fbf3e2',
+  giay: '#fffdf7',
+  giay2: '#fbf1dc',
+  the: '#ffffff',
+  the2: '#fff8e8',
   muc: '#1c1917',
   muc2: '#57534e',
   muc3: '#6b6560',
-  vien: '#e7d9bc',
-  vien2: '#d6c39b',
+  vien: '#efe0bf',
+  vien2: '#dcc797',
   son: '#b91c1c',
   sonDam: '#7f1d1d',
   sonNhat: '#fee2e2',
   sonChu: '#b91c1c',
-  ngoc: '#0f766e',
-  ngocDam: '#134e4a',
-  ngocNhat: '#ccfbf1',
-  ngocChu: '#0f766e',
-  dong: '#d97706',
-  dongDam: '#92400e',
-  dongNhat: '#fef3c7',
-  dongChu: '#92400e',
+  ngoc: '#58cc02',
+  ngocDam: '#3f9a00',
+  ngocNhat: '#e7f8d6',
+  ngocChu: '#2b6b00',
+  dong: '#ff9600',
+  dongDam: '#c97500',
+  dongNhat: '#fff0d4',
+  dongChu: '#8f4a00',
+  vang: '#ffc800',
+  vangDam: '#d4a500',
+  vangNhat: '#fff7cc',
+  vangChu: '#7a5a00',
   thuy: '#0369a1',
   thuyNhat: '#e0f2fe',
   thuyChu: '#0369a1',
@@ -64,13 +69,15 @@ const dark: Palette = {
   sonDam: '#991b1b',
   sonNhat: '#3b1416',
   sonChu: '#f87171',
-  ngocDam: '#0b3d3a',
-  ngocNhat: '#0f2f2c',
-  ngocChu: '#2dd4bf',
-  dong: '#f59e0b',
-  dongDam: '#b45309',
-  dongNhat: '#3a2a0c',
-  dongChu: '#fbbf24',
+  ngocDam: '#2f7300',
+  ngocNhat: '#16300a',
+  ngocChu: '#7ee03a',
+  dongDam: '#b56a00',
+  dongNhat: '#3a2608',
+  dongChu: '#ffb347',
+  vangDam: '#b38b00',
+  vangNhat: '#332a05',
+  vangChu: '#ffd84d',
   thuyNhat: '#0c2a3d',
   thuyChu: '#38bdf8',
   mocNhat: '#0f2e1c',
@@ -109,15 +116,23 @@ export type FontName = keyof typeof FONT;
 
 export const RADIUS = { sm: 12, md: 16, lg: 22, pill: 999 } as const;
 
+/** Chữ, biểu tượng đặt trên nền xanh lục bảo / cam / vàng (chữ trắng không đủ tương phản trên các màu tươi này) */
+export const ON_BRIGHT = '#102b00';
+
+/** Màu chữ/biểu tượng trên một nền màu của bảng màu: tối trên nền tươi, trắng trên nền đậm */
+export const onFill = (c: Palette, bg: string): string => ([c.ngoc, c.dong, c.vang].includes(bg) ? ON_BRIGHT : '#ffffff');
+
 /** Màu nút: nền, viền đáy (tạo khối 3D) và chữ */
-export type Tone = 'son' | 'ngoc' | 'dong' | 'thuy' | 'thong' | 'giay' | 'ghost' | 'dark';
+export type Tone = 'son' | 'ngoc' | 'dong' | 'vang' | 'thuy' | 'thong' | 'giay' | 'ghost' | 'dark';
 
 export const toneColors = (c: Palette, tone: Tone): { bg: string; edge: string; fg: string; border?: string } => {
   switch (tone) {
     case 'ngoc':
-      return { bg: c.ngoc, edge: c.ngocDam, fg: '#ffffff' };
+      return { bg: c.ngoc, edge: c.ngocDam, fg: ON_BRIGHT };
     case 'dong':
       return { bg: c.dong, edge: c.dongDam, fg: '#1c1917' };
+    case 'vang':
+      return { bg: c.vang, edge: c.vangDam, fg: '#1c1917' };
     case 'thuy':
       return { bg: c.thuy, edge: '#075985', fg: '#ffffff' };
     case 'thong':
@@ -145,3 +160,11 @@ export const ANSWER_STYLES: Array<{ shape: AnswerShape; bg: string; shadow: stri
 
 /** Nền phòng thi đấu (men ngọc đậm) */
 export const LIVE_BG = ['#115e59', '#0b3d3a', '#082b29'] as const;
+
+/** Huy hiệu bang hội Khối 6–9: màu nền, viền đáy, chữ (chữ tối trên nền tươi) */
+export const GRADE_STYLE: Record<6 | 7 | 8 | 9, { name: string; bg: string; edge: string; fg: string }> = {
+  6: { name: 'Bang Mầm Non Sông', bg: '#58cc02', edge: '#3f9a00', fg: '#102b00' },
+  7: { name: 'Bang Hào Khí', bg: '#1cb0f6', edge: '#1287c2', fg: '#05253a' },
+  8: { name: 'Bang Trí Dũng', bg: '#ce82ff', edge: '#a05ad1', fg: '#2a0b3d' },
+  9: { name: 'Bang Rồng Vàng', bg: '#ffc800', edge: '#d4a500', fg: '#3a2a00' },
+};

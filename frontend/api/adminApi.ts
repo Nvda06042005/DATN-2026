@@ -1,16 +1,22 @@
-import { apiRequest } from '@/api/client';
-import type { AccountCredential, AdminStats, AdminUser, AuthUser, ManagedRole, NewAccountInput } from '@/types/api';
+import { apiRequest, apiText, apiUpload, type PickedFile } from '@/api/client';
+import type {
+  AccountCredential, AdminOverview, AuthUser, ClassRequest, ClassStatus, ImportBatch, ImportResult, ImportRow, IncompleteLog, NewAccountInput, NewSchoolInput,
+  OutboxItem, SchoolStat, TrashUser, UserFilters, UsersPage,
+} from '@/types/api';
 
-export const getUsers = (token: string) => apiRequest<AdminUser[]>('/api/admin/users', { token });
+/** Thống kê: quản trị tổng xem toàn hệ thống (lọc được một trường), quản trị trường chỉ thấy trường mình */
+export const getOverview = (token: string, schoolId?: number) => apiRequest<AdminOverview>(`/api/admin/overview${schoolId ? `?school_id=${schoolId}` : ''}`, { token });
 
-export const getAdminStats = (token: string) => apiRequest<AdminStats>('/api/admin/stats', { token });
+export const createSchool = (token: string, body: NewSchoolInput) => apiRequest<SchoolStat>('/api/admin/schools', { token, body });
 
-/** Cấp một tài khoản; trả về tên đăng nhập và mật khẩu tạm (chỉ hiện một lần) */
+/** Danh sách tài khoản: bộ lọc kết hợp + tìm kiếm tức thời (phân trang) */
+export const getUsers = (token: string, f: UserFilters) => {
+  const params = new URLSearchParams(Object.entries(f).filter(([, v]) => v !== undefined && v !== '' && v !== null).map(([k, v]) => [k, String(v)]));
+  return apiRequest<UsersPage>(`/api/admin/users?${params.toString()}`, { token });
+};
+
+/** Cấp một tài khoản (quản trị tổng cấp được quản trị trường); mật khẩu tạm chỉ trả về một lần */
 export const createUser = (token: string, body: NewAccountInput) => apiRequest<AccountCredential>('/api/admin/users', { token, body });
-
-/** Cấp nhiều tài khoản cùng lúc theo danh sách họ tên */
-export const bulkCreateUsers = (token: string, role: ManagedRole, className: string | null, fullNames: string[]) =>
-  apiRequest<AccountCredential[]>('/api/admin/users/bulk', { token, body: { role, class_name: className, full_names: fullNames } });
 
 export const setUserActive = (token: string, userId: number, isActive: boolean) =>
   apiRequest<AuthUser>(`/api/admin/users/${userId}`, { method: 'PATCH', token, body: { is_active: isActive } });
@@ -18,4 +24,32 @@ export const setUserActive = (token: string, userId: number, isActive: boolean) 
 export const resetUserPassword = (token: string, userId: number) =>
   apiRequest<AccountCredential>(`/api/admin/users/${userId}/reset-password`, { method: 'POST', token });
 
-export const deleteUser = (token: string, userId: number) => apiRequest<void>(`/api/admin/users/${userId}`, { method: 'DELETE', token });
+/** Xóa = chuyển vào thùng rác 45 ngày */
+export const trashUser = (token: string, userId: number) => apiRequest<void>(`/api/admin/users/${userId}`, { method: 'DELETE', token });
+
+export const getTrash = (token: string) => apiRequest<TrashUser[]>('/api/admin/trash', { token });
+
+export const restoreUser = (token: string, userId: number) => apiRequest<AuthUser>(`/api/admin/trash/${userId}/restore`, { method: 'POST', token });
+
+export const purgeUser = (token: string, userId: number) => apiRequest<void>(`/api/admin/trash/${userId}`, { method: 'DELETE', token });
+
+/** Nhập file Excel mẫu: kiểm chữ ký, cấp tài khoản dòng đủ thông tin, ghi dòng thiếu, gửi thư (lần nhập lại chỉ gửi dòng vừa bổ sung) */
+export const importExcel = (token: string, file: PickedFile) => apiUpload<ImportResult>('/api/admin/import', file, token);
+
+export const getImports = (token: string) => apiRequest<ImportBatch[]>('/api/admin/imports', { token });
+
+export const getImport = (token: string, id: number) => apiRequest<{ id: number; file_name: string; report: ImportRow[]; created_at: string }>(`/api/admin/imports/${id}`, { token });
+
+export const getIncomplete = (token: string) => apiRequest<IncompleteLog[]>('/api/admin/incomplete', { token });
+
+export const getOutbox = (token: string) => apiRequest<{ smtp: boolean; items: OutboxItem[] }>('/api/admin/outbox', { token });
+
+export const retryOutbox = (token: string) => apiRequest<{ requeued: number }>('/api/admin/outbox/retry', { method: 'POST', token });
+
+/** CSV tài khoản chưa gửi được thư (để phát tay khi chưa cấu hình SMTP) */
+export const pendingCredentialsCsv = (token: string, batchId?: number) => apiText(`/api/admin/outbox/credentials.csv${batchId ? `?batch_id=${batchId}` : ''}`, token);
+
+export const getClasses = (token: string, status?: ClassStatus) => apiRequest<ClassRequest[]>(`/api/admin/classes${status ? `?status=${status}` : ''}`, { token });
+
+export const reviewClass = (token: string, id: number, approve: boolean, note: string | null) =>
+  apiRequest<{ id: number; status: ClassStatus }>(`/api/admin/classes/${id}/${approve ? 'approve' : 'reject'}`, { token, body: { note } });

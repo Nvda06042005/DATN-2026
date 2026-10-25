@@ -1,14 +1,27 @@
-import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException, StreamableFile } from '@nestjs/common';
 import { AiService } from './ai/ai.service';
 import { config } from './config';
 import { DatabaseService } from './database/database.service';
 
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+/** File mẫu dùng lại trong 10 phút (dịch vụ AI gói miễn phí khởi động chậm) */
+const TEMPLATE_TTL_MS = 10 * 60_000;
+
 @Controller()
 export class AppController {
+  private template: { at: number; file: Buffer } | null = null;
+
   constructor(
     private readonly db: DatabaseService,
     private readonly ai: AiService,
   ) {}
+
+  /** File Excel mẫu công khai (không cần đăng nhập): nhà trường tải về, điền rồi gửi quản trị trường/giáo viên nhập */
+  @Get('public/excel-template')
+  async excelTemplate() {
+    if (!this.template || Date.now() - this.template.at > TEMPLATE_TTL_MS) this.template = { at: Date.now(), file: await this.ai.excelTemplate() };
+    return new StreamableFile(this.template.file, { type: XLSX_MIME, disposition: 'attachment; filename="mau-tai-khoan-dong-a.xlsx"' });
+  }
 
   @Get()
   root() {

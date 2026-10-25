@@ -4,11 +4,16 @@ import { promisify } from 'util';
 
 const pbkdf2Async = promisify(pbkdf2);
 const ITERATIONS = 240_000;
+/**
+ * Mật khẩu mặc định cấp hàng loạt từ file Excel (bắt buộc đổi ở lần đăng nhập đầu): ít vòng hơn để nhập hàng trăm dòng
+ * không quá lâu trên máy chủ gói miễn phí; mật khẩu người dùng tự đặt luôn băm 240.000 vòng.
+ */
+export const TEMP_ITERATIONS = 20_000;
 
-export async function hashPassword(password: string): Promise<string> {
+export async function hashPassword(password: string, iterations = ITERATIONS): Promise<string> {
   const salt = randomBytes(16);
-  const digest = await pbkdf2Async(password, salt, ITERATIONS, 32, 'sha256');
-  return `pbkdf2_sha256$${ITERATIONS}$${salt.toString('base64url')}$${digest.toString('base64url')}`;
+  const digest = await pbkdf2Async(password, salt, iterations, 32, 'sha256');
+  return `pbkdf2_sha256$${iterations}$${salt.toString('base64url')}$${digest.toString('base64url')}`;
 }
 
 export async function verifyPassword(password: string, stored: string): Promise<boolean> {

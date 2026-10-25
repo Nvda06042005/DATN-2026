@@ -6,14 +6,25 @@ import { hashPassword, passwordFingerprint, verifyPassword } from './passwords';
 export type PublicUser = Omit<UserRow, 'password_hash'>;
 export const toPublic = ({ password_hash: _hash, ...user }: UserRow): PublicUser => user;
 
-type Portal = 'admin' | 'teacher' | 'student' | 'app';
+/** Trang đăng nhập: hai cổng quản trị tách biệt, trang giáo viên, trang học sinh; "app" = giáo viên hoặc học sinh (/portal) */
+export type Portal = 'root_admin' | 'school_admin' | 'teacher' | 'student' | 'app';
 
-const WRONG_PORTAL: Record<Role, string> = {
-  admin: 'Đây là tài khoản quản trị – hãy đăng nhập tại trang quản trị (/admin).',
-  teacher: 'Đây là tài khoản giáo viên – hãy đăng nhập tại trang giáo viên (/giao-vien).',
-  student: 'Đây là tài khoản học sinh – hãy đăng nhập tại trang học sinh (/hoc-sinh).',
+const ALLOWED: Record<Portal, Role[]> = {
+  root_admin: ['root_admin'],
+  school_admin: ['school_admin'],
+  teacher: ['teacher'],
+  student: ['student'],
+  app: ['teacher', 'student'],
 };
-const ALLOWED: Record<Portal, Role[]> = { admin: ['admin'], teacher: ['teacher'], student: ['student'], app: ['teacher', 'student'] };
+
+/** Lời nhắn khi đăng nhập nhầm trang; không chỉ đường tới cổng quản trị cho người học */
+function wrongPortal(role: Role, portal: Portal): string {
+  if (portal === 'root_admin' || portal === 'school_admin') return 'Trang này chỉ dành cho tài khoản quản trị được cấp quyền.';
+  if (role === 'root_admin' || role === 'school_admin') return 'Tài khoản quản trị không đăng nhập ở trang học tập.';
+  return role === 'teacher'
+    ? 'Đây là tài khoản giáo viên – hãy đăng nhập tại trang giáo viên (/giao-vien).'
+    : 'Đây là tài khoản học sinh – hãy đăng nhập tại trang học sinh (/hoc-sinh).';
+}
 
 /** Chống dò mật khẩu: khóa tạm 60 giây sau 5 lần sai liên tiếp */
 const MAX_FAILS = 5;
@@ -28,21 +39,22 @@ export class AuthService {
     private readonly jwt: JwtService,
   ) {}
 
-  /** Token JWT (HS256): sub = id tài khoản, pfp = dấu vân tay mật khẩu hiện tại */
+  /** Token JWT (HS256): sub = id tài khoản, sid = trường của tài khoản (lọc dữ liệu theo trường), pfp = dấu vân tay mật khẩu */
   createToken(user: UserRow): string {
-    return this.jwt.sign({ sub: user.id, role: user.role, pfp: passwordFingerprint(user.password_hash) });
+    return this.jwt.sign({ sub: user.id, role: user.role, sid: user.school_id, pfp: passwordFingerprint(user.password_hash) });
   }
 
-  /** Trả về tài khoản nếu token hợp lệ, tài khoản còn hoạt động và mật khẩu chưa đổi kể từ khi cấp token */
+  /** Trả về tài khoản nếu token hợp lệ, tài khoản còn hoạt động, chưa vào thùng rác, cùng trường và mật khẩu chưa đổi kể từ khi cấp token */
   async authenticate(token: string): Promise<UserRow | null> {
-    let payload: { sub?: number; pfp?: string };
+    let payload: { sub?: number; sid?: number | null; pfp?: string };
     try {
       payload = this.jwt.verify(token);
     } catch {
       return null;
     }
     const user = typeof payload.sub === 'number' ? await this.db.getById(payload.sub) : null;
-    if (!user || !user.is_active || payload.pfp !== passwordFingerprint(user.password_hash)) return null;
+    if (!user || !user.is_active || user.deleted_at || payload.pfp !== passwordFingerprint(user.password_hash)) return null;
+    if ((payload.sid ?? null) !== (user.school_id ?? null)) return null;
     return user;
   }
 
@@ -64,8 +76,9 @@ export class AuthService {
       this.failed.set(username, { fails: (this.failed.get(username)?.fails ?? 0) + 1, since: Date.now() });
       throw new UnauthorizedException('Sai tên đăng nhập hoặc mật khẩu');
     }
+    if (user.deleted_at) throw new ForbiddenException('Tài khoản đang ở thùng rác. Liên hệ quản trị trường để khôi phục.');
     if (!user.is_active) throw new ForbiddenException('Tài khoản đã bị khóa. Liên hệ quản trị viên.');
-    if (!ALLOWED[portal].includes(user.role)) throw new ForbiddenException(WRONG_PORTAL[user.role]);
+    if (!ALLOWED[portal].includes(user.role)) throw new ForbiddenException(wrongPortal(user.role, portal));
     this.failed.delete(username);
     await this.db.touchLogin(user.id);
     const fresh = (await this.db.getById(user.id))!;

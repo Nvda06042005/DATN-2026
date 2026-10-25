@@ -20,7 +20,59 @@ export interface AiQuestion {
   source: string;
 }
 
-/** Gọi dịch vụ AI Python (ai/server.py): chatbot RAG, soạn đề, soạn truyện, Bayesian Knowledge Tracing. */
+/** Một dòng của file Excel mẫu sau khi dịch vụ Python kiểm tra và chuẩn hóa */
+export interface ExcelRow {
+  row: number;
+  values: {
+    user_code: string;
+    school_name: string;
+    school_code: string;
+    region: string;
+    city: string;
+    full_name: string;
+    /** YYYY-MM-DD */
+    birth_date: string | null;
+    school_year: string;
+    email: string;
+    grade: number | null;
+    role: 'GV' | 'HS' | null;
+  };
+  /** Tên cột còn trống hoặc sai định dạng */
+  missing: string[];
+  invalid: Array<{ field: string; message: string }>;
+  complete: boolean;
+  /** Vector đặc trưng hồ sơ (đối chiếu dòng bổ sung bằng pgvector / cosine) */
+  embedding: number[];
+  /** Chỉ có khi dòng đủ thông tin: tên đăng nhập (chưa có 3 số thứ tự và @miền) và mật khẩu mặc định */
+  credentials: { username_prefix: string; password: string } | null;
+}
+
+export interface ExcelValidation {
+  ok: boolean;
+  errors: string[];
+  template_id: string | null;
+  rows: ExcelRow[];
+}
+
+/** Ứng viên lấy từ nhật ký dòng thiếu (truy xuất bằng pgvector hoặc khớp chính xác) */
+export interface MatchCandidate {
+  id: number;
+  user_code: string | null;
+  email: string | null;
+  full_name: string | null;
+  school_code: string | null;
+  row_data: Record<string, unknown>;
+  embedding: number[] | null;
+}
+
+export interface MatchDecision {
+  row: number;
+  log_id: number | null;
+  score: number;
+  reason: string;
+}
+
+/** Gọi dịch vụ AI Python (ai/server.py): chatbot RAG, soạn đề, soạn truyện, Bayesian Knowledge Tracing, file Excel mẫu. */
 @Injectable()
 export class AiService implements OnApplicationBootstrap {
   private readonly logger = new Logger('AI');
@@ -39,6 +91,31 @@ export class AiService implements OnApplicationBootstrap {
     });
     if (!res.ok) throw new Error(`AI service ${res.status}`);
     return (await res.json()) as T;
+  }
+
+  /** File Excel mẫu có chữ ký HMAC ẩn (mỗi lần tải là một mã mẫu mới) */
+  async excelTemplate(): Promise<Buffer> {
+    try {
+      const res = await fetch(`${config.aiServiceUrl}/excel/template`, {
+        headers: config.aiServiceToken ? { 'X-AI-Token': config.aiServiceToken } : {},
+        signal: AbortSignal.timeout(90_000),
+      });
+      if (!res.ok) throw new Error(`AI service ${res.status}`);
+      return Buffer.from(await res.arrayBuffer());
+    } catch {
+      throw new ServiceUnavailableException('Chưa tạo được file mẫu, thử lại sau ít phút');
+    }
+  }
+
+  /** Kiểm duyệt file: định dạng .xlsx, chữ ký mẫu, cấu trúc cột; đọc và chuẩn hóa từng dòng */
+  async excelValidate(fileBase64: string, filename: string, mime: string): Promise<ExcelValidation> {
+    return this.forward<ExcelValidation>('/excel/validate', { file_b64: fileBase64, filename, mime }, 90_000);
+  }
+
+  /** RAG Smart Delta: dòng đủ thông tin nào bổ sung cho dòng thiếu nào trong lịch sử nhập */
+  async provisionMatch(rows: Array<{ row: number; values: ExcelRow['values']; embedding: number[]; candidates: MatchCandidate[] }>): Promise<MatchDecision[]> {
+    if (!rows.length) return [];
+    return (await this.forward<{ decisions: MatchDecision[] }>('/provision/match', { rows }, 60_000)).decisions;
   }
 
   async health(): Promise<boolean> {

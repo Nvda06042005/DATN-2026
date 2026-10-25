@@ -7,10 +7,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AppState, Platform, Pressable, ScrollView, View, useColorScheme, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronLeft, ChevronRight, Flame, Gamepad2, HelpCircle, KeyRound, LogOut, Medal, Monitor, Moon, RefreshCw, Shield, Sparkles, Stamp, Sun, Timer, Volume2, VolumeX, Wheat } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, DoorOpen, Flame, Gamepad2, HelpCircle, KeyRound, LogOut, Medal, Monitor, Moon, RefreshCw, Shield, Sparkles, Stamp, Sun, Timer, Volume2, VolumeX, Wheat } from 'lucide-react-native';
 import * as studentApi from '@/api/studentApi';
 import { ApiError, errorMessage } from '@/api/client';
-import { BrandLogo, Mascot, type MascotAccessory, type MascotMood } from '@/components/art';
+import { BrandLogo, GradeBadge, Mascot, type MascotAccessory, type MascotMood } from '@/components/art';
 import type { Session } from '@/components/auth';
 import { BarracksTab } from '@/components/game/BarracksTab';
 import { CampaignTab } from '@/components/game/CampaignTab';
@@ -19,11 +19,11 @@ import { ExamTab } from '@/components/game/ExamTab';
 import { FarmTab } from '@/components/game/FarmTab';
 import { LiveArena } from '@/components/game/LiveArena';
 import { WorldScreen } from '@/components/game/WorldScreen';
-import { Avatar, Bar, Btn, Card, HudPill, PaperBg, Segmented, Sheet, Spinner, ToggleRow, Txt, useToast } from '@/components/ui';
+import { Avatar, Bar, Btn, Card, Field, HudPill, Inset, PaperBg, Segmented, Sheet, Spinner, ToggleRow, Txt, useToast } from '@/components/ui';
 import { PHASES } from '@/constants/campaigns';
 import { GAME_TABS, qtgFood, storeCap, troopCap } from '@/constants/game';
 import { HEROES } from '@/constants/heroes';
-import { PALETTES } from '@/constants/theme';
+import { ON_BRIGHT, PALETTES } from '@/constants/theme';
 import { GameContext, useGame } from '@/hooks/use-game';
 import { ReduceMotionContext, useReduceMotion } from '@/hooks/use-motion';
 import { ThemeContext, useTheme } from '@/hooks/use-theme';
@@ -31,7 +31,7 @@ import { fmt, shortName } from '@/lib/format';
 import { finalizeUpgrades, levelOf, levelXp, restoreGameState, todayKey } from '@/lib/game-state';
 import { playTone } from '@/lib/sound';
 import { readLiveRoom } from '@/lib/storage';
-import type { AnswerPayload, CodexEntry, LeaderboardEntry, LearnerProgress, QuestionRequest, QuestionsResponse, ServedQuestion } from '@/types/api';
+import type { AnswerPayload, CodexEntry, LeaderboardEntry, LearnerProgress, QuestionRequest, QuestionsResponse, ServedQuestion, StudentClass } from '@/types/api';
 import type { DailyTaskDef, GameCtx, GameSettings, GameState, GameTab } from '@/types/game';
 
 interface Initial {
@@ -342,6 +342,7 @@ const GameApp: React.FC<{ session: Session; initial: Initial; initialPin: string
               setProfile(false);
               setTimeout(() => setTutorial(true), Platform.OS === 'ios' ? 450 : 0);
             }}
+            onJoined={(classCode) => session.updateUser({ ...user, class_name: classCode })}
           />
           {tutorial && !live && !worldOpen && (
             <Tutorial
@@ -406,9 +407,9 @@ const GameLayout: React.FC<{ tab: GameTab; onTab: (t: GameTab) => void; scrollRe
               backgroundColor: pressed ? c.ngocDam : c.ngoc, borderBottomWidth: 3, borderBottomColor: c.ngocDam,
             })}
           >
-            <Gamepad2 size={20} color="#ffffff" />
+            <Gamepad2 size={20} color={ON_BRIGHT} />
             {width >= 760 && (
-              <Txt f="display" size={14} color="#ffffff">
+              <Txt f="display" size={14} color={ON_BRIGHT}>
                 Hành Trình
               </Txt>
             )}
@@ -416,7 +417,7 @@ const GameLayout: React.FC<{ tab: GameTab; onTab: (t: GameTab) => void; scrollRe
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginLeft: 'auto', flexGrow: 0 }} contentContainerStyle={{ gap: 6, alignItems: 'center' }}>
             <HudPill icon={Wheat} value={fmt(state.luong)} label="Lương Thảo" tone={c.dong} />
             <HudPill icon={Shield} value={fmt(state.quan)} label="Quân Lực" tone={c.son} />
-            <HudPill icon={Stamp} value={fmt(progress.gems)} label="Ấn Tín" tone={c.ngoc} />
+            <HudPill icon={Stamp} value={fmt(progress.gems)} label="Ấn Tín" tone={c.ngocChu} />
             {width >= 420 && <HudPill icon={Flame} value={String(progress.streak)} label="Chuỗi ngày học" tone={c.hoa} />}
           </ScrollView>
         </View>
@@ -482,10 +483,12 @@ const GameLayout: React.FC<{ tab: GameTab; onTab: (t: GameTab) => void; scrollRe
 };
 
 // ---------------------------------------------------------------------- hồ sơ & cài đặt
-const ProfileSheet: React.FC<{ open: boolean; onClose: () => void; onLogout: () => void; onChangePassword: () => void; onTutorial: () => void }> = ({ open, onClose, onLogout, onChangePassword, onTutorial }) => {
+const ProfileSheet: React.FC<{ open: boolean; onClose: () => void; onLogout: () => void; onChangePassword: () => void; onTutorial: () => void; onJoined: (classCode: string) => void }> = ({
+  open, onClose, onLogout, onChangePassword, onTutorial, onJoined,
+}) => {
   const { user, progress, state, update, request } = useGame();
   const { c } = useTheme();
-  const [tab, setTab] = useState<'rank' | 'settings'>('rank');
+  const [tab, setTab] = useState<'rank' | 'class' | 'settings'>('rank');
   const [board, setBoard] = useState<LeaderboardEntry[] | null>(null);
   const lvl = levelOf(progress.xp);
   const heroes = Object.keys(state.heroes).length;
@@ -512,7 +515,7 @@ const ProfileSheet: React.FC<{ open: boolean; onClose: () => void; onLogout: () 
       wide
       title={user.full_name}
       subtitle={`${user.username}${user.class_name ? ` · Lớp ${user.class_name}` : ''}`}
-      icon={<Avatar name={user.full_name} size={48} />}
+      icon={user.grade ? <GradeBadge grade={user.grade} size={44} /> : <Avatar name={user.full_name} size={48} />}
       footer={
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           <Btn title="Đổi mật khẩu" icon={KeyRound} tone="giay" onPress={onChangePassword} />
@@ -541,12 +544,15 @@ const ProfileSheet: React.FC<{ open: boolean; onClose: () => void; onLogout: () 
         label="Hồ sơ"
         options={[
           { value: 'rank' as const, label: 'Bảng xếp hạng tuần' },
+          { value: 'class' as const, label: 'Lớp học' },
           { value: 'settings' as const, label: 'Cài đặt' },
         ]}
         value={tab}
         onChange={setTab}
       />
-      {tab === 'rank' ? (
+      {tab === 'class' ? (
+        <ClassJoin onJoined={onJoined} />
+      ) : tab === 'rank' ? (
         board === null ? (
           <Spinner />
         ) : board.length === 0 ? (
@@ -625,6 +631,107 @@ const ProfileSheet: React.FC<{ open: boolean; onClose: () => void; onLogout: () 
         </Card>
       )}
     </Sheet>
+  );
+};
+
+/** Vào lớp bằng mã lớp và mật khẩu lớp thầy cô phát (lớp đã được quản trị trường duyệt) */
+const ClassJoin: React.FC<{ onJoined: (classCode: string) => void }> = ({ onJoined }) => {
+  const { request, toast } = useGame();
+  const { c } = useTheme();
+  const [classes, setClasses] = useState<StudentClass[] | null>(null);
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    request(studentApi.getMyClasses)
+      .then(setClasses)
+      .catch(() => setClasses([]));
+  }, [request]);
+
+  useEffect(load, [load]);
+
+  const join = async () => {
+    if (code.trim().length < 2 || !password) return setError('Nhập mã lớp và mật khẩu lớp thầy cô phát.');
+    setBusy(true);
+    setError(null);
+    try {
+      const k = await request((t) => studentApi.joinClass(t, code.trim().toUpperCase(), password));
+      toast(`Đã vào lớp ${k.class_code}!`);
+      setCode('');
+      setPassword('');
+      onJoined(k.class_code);
+      load();
+    } catch (err) {
+      setError(errorMessage(err, 'Không vào được lớp.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View style={{ gap: 12 }}>
+      <Card flat pad={14} style={{ gap: 10 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Mascot size={56} mood="excited" accessory="scholar" />
+          <Txt f="semibold" size={14} color={c.muc2} style={{ flex: 1 }}>
+            Thầy cô phát cho em mã lớp và mật khẩu lớp. Nhập vào đây để vào lớp, cùng thi đấu và đua bảng xếp hạng với các bạn.
+          </Txt>
+        </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+          <Field label="Mã lớp" value={code} onChangeText={setCode} placeholder="vd: 7A1" autoCapitalize="characters" autoCorrect={false} style={{ flexGrow: 1, flexBasis: 140 }} nativeID="join-code" />
+          <Field
+            label="Mật khẩu lớp"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="go"
+            onSubmitEditing={join}
+            style={{ flexGrow: 1, flexBasis: 140 }}
+            nativeID="join-password"
+          />
+        </View>
+        {error && (
+          <Inset style={{ backgroundColor: c.sonNhat }}>
+            <Txt f="bold" size={14} color={c.sonChu} accessibilityRole="alert">
+              {error}
+            </Txt>
+          </Inset>
+        )}
+        <Btn title="Vào lớp" icon={DoorOpen} tone="ngoc" loading={busy} onPress={join} testID="join-submit" />
+      </Card>
+      <Txt f="display" size={16}>
+        Lớp của em
+      </Txt>
+      {classes === null ? (
+        <Spinner />
+      ) : classes.length === 0 ? (
+        <Txt size={14} color={c.muc2}>
+          Em chưa vào lớp nào.
+        </Txt>
+      ) : (
+        classes.map((k) => (
+          <Inset key={k.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ minWidth: 56, height: 40, paddingHorizontal: 8, borderRadius: 12, backgroundColor: c.vang, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 4, borderBottomColor: c.vangDam }}>
+              <Txt f="display" size={14} color="#3a2a00">
+                {k.class_code}
+              </Txt>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Txt f="bold" size={14}>
+                {k.name}
+              </Txt>
+              <Txt size={12} color={c.muc2}>
+                {k.school_year} · GV {k.teacher_name}
+              </Txt>
+            </View>
+          </Inset>
+        ))
+      )}
+    </View>
   );
 };
 

@@ -32,6 +32,11 @@ services:
           type: web
           name: dong-a-ai
           envVarKey: AI_SERVICE_TOKEN
+      # Gửi thư thông tin đăng nhập (vd: smtps://user:app-password@smtp.gmail.com:465); để trống thì thư nằm chờ trong hàng đợi
+      - key: SMTP_URL
+        sync: false
+      - key: MAIL_FROM
+        sync: false
 
   - type: web
     name: dong-a-ai
@@ -49,4 +54,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: AI_SERVICE_TOKEN
+        generateValue: true
+      # Khóa ký file Excel mẫu (HMAC-SHA256); đổi khóa thì file mẫu tải trước đó hết hiệu lực
+      - key: EXCEL_SIGNING_KEY
         generateValue: true

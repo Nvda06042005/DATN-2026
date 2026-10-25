@@ -17,7 +17,7 @@ export const config = {
   authSecret: secret || randomBytes(32).toString('hex'),
   authSecretFromEnv: Boolean(secret),
   tokenTtlHours: Number(env('TOKEN_TTL_HOURS', '12')) || 12,
-  /** Tài khoản quản trị được tạo ở lần chạy đầu tiên – đăng nhập tại trang /admin */
+  /** Tài khoản quản trị tổng được tạo ở lần chạy đầu tiên – đăng nhập tại trang /root-system-admin */
   adminUsername: env('ADMIN_USERNAME', 'admin').toLowerCase(),
   adminPassword: process.env.ADMIN_PASSWORD ?? 'admin@123',
   startingGems: Number(env('STARTING_GEMS', '100')),
@@ -27,4 +27,18 @@ export const config = {
   /** Ngân hàng câu hỏi game_content.json, kho tri thức knowledge_base.json, q_matrix.json */
   contentDir: env('CONTENT_DIR') ? resolve(env('CONTENT_DIR')) : resolve(repoRoot, 'ai', 'data'),
   migrationsDir: env('MIGRATIONS_DIR') ? resolve(env('MIGRATIONS_DIR')) : resolve(repoRoot, 'database', 'migrations'),
+  /** Phần sau @ của tên đăng nhập sinh từ file Excel (anh.2374807022001@<miền>) */
+  accountDomain: env('ACCOUNT_DOMAIN', 'donga.local').toLowerCase(),
+  /** Địa chỉ website ghi trong email gửi tài khoản */
+  appUrl: env('APP_URL', 'https://datn-2026-indol.vercel.app').replace(/\/+$/, ''),
+  /** Gửi email: SMTP_URL (smtps://user:pass@host:465) hoặc SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS; MAIL_TRANSPORT=json chỉ ghi nhận (kiểm thử) */
+  smtpUrl: env('SMTP_URL'),
+  smtpHost: env('SMTP_HOST'),
+  smtpPort: Number(env('SMTP_PORT', '587')) || 587,
+  smtpUser: env('SMTP_USER'),
+  smtpPass: process.env.SMTP_PASS ?? '',
+  mailFrom: env('MAIL_FROM', 'Đông A EDU <no-reply@donga.local>'),
+  mailTransport: env('MAIL_TRANSPORT'),
+  /** Tiến trình nền gửi thư mỗi 4 giây (kiểm thử đặt MAIL_WORKER=off để tự gọi từng lượt) */
+  mailWorker: env('MAIL_WORKER', 'on') !== 'off',
 };

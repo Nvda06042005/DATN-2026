@@ -15,7 +15,7 @@ import { Mascot, PixelArt } from '@/components/art';
 import { LoreChip, QuizPanel, type QuizSummary } from '@/components/game/quiz';
 import { Bar, Btn, Card, Chip, HudPill, InfoNote, InlineSheet, PressCard, Segmented, ToastView, Txt } from '@/components/ui';
 import { CARDS, storeCap, troopCap } from '@/constants/game';
-import { PALETTES } from '@/constants/theme';
+import { ON_BRIGHT, PALETTES } from '@/constants/theme';
 import { CROPS, FARM_LESSON, QUEST_BY_ID, WORLD_MAPS, WORLD_MAP_BY_ID, WORLD_QUESTS } from '@/constants/world';
 import { useGame } from '@/hooks/use-game';
 import { useBob, usePopIn, useReduceMotion } from '@/hooks/use-motion';
@@ -627,7 +627,7 @@ const WorldBody: React.FC<{ onClose: () => void; backRef: React.MutableRefObject
           </View>
           <View pointerEvents="box-none" style={{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             {view.w >= 430 && <HudPill icon={Wheat} value={fmt(state.luong)} label="Lương Thảo" tone={c.dong} />}
-            <HudPill icon={Stamp} value={fmt(progress.gems)} label="Ấn Tín" tone={c.ngoc} />
+            <HudPill icon={Stamp} value={fmt(progress.gems)} label="Ấn Tín" tone={c.ngocChu} />
             <Btn icon={MapIcon} title={wideScreen ? 'Nhật ký' : undefined} label="Nhật ký hành trình" tone="giay" size="sm" onPress={() => open({ kind: 'journal' })} />
           </View>
         </View>
@@ -1200,7 +1200,7 @@ const JournalSheet: React.FC<{
                   <View key={`${q.id}-${i}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <View style={{ width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: i < n ? c.ngoc : i === n ? c.dong : c.giay2 }}>
                       {i < n ? (
-                        <Check size={14} color="#ffffff" />
+                        <Check size={14} color={ON_BRIGHT} />
                       ) : (
                         <Txt f="bold" size={11} color={i === n ? '#1c1917' : c.muc3}>
                           {i + 1}

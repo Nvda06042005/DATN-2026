@@ -12,7 +12,7 @@ import { Client } from 'pg';
 import { WebSocket } from 'ws';
 import type { INestApplication } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
-import type { BktResult } from '../src/ai/ai.service';
+import type { BktResult, ExcelRow, ExcelValidation, MatchCandidate, MatchDecision } from '../src/ai/ai.service';
 
 const PREFIX = 'dong_a_nest_test_';
 const cluster = globalThis as typeof globalThis & { __pg?: { bin: string; root: string; data: string } };
@@ -132,6 +132,60 @@ export class FakeAi {
     this.calls.push(`forward:${path}`);
     return { path, echo: body } as T;
   }
+
+  /** File mẫu giả (byte bất kỳ có chữ ký ZIP) */
+  async excelTemplate(): Promise<Buffer> {
+    this.calls.push('excel:template');
+    return Buffer.concat([Buffer.from('504b0304', 'hex'), Buffer.from('mau-gia')]);
+  }
+
+  /**
+   * "File Excel" trong kiểm thử = chữ ký ZIP + JSON {ok?, errors?, rows: [{row, values, missing?, invalid?}]}.
+   * Bản giả tự tính complete, vector đặc trưng và tên đăng nhập/mật khẩu theo đúng công thức của dịch vụ Python.
+   */
+  async excelValidate(fileBase64: string): Promise<ExcelValidation> {
+    this.calls.push('excel:validate');
+    const doc = JSON.parse(Buffer.from(fileBase64, 'base64').subarray(4).toString('utf8'));
+    if (doc.ok === false) return { ok: false, errors: doc.errors ?? ['Sai chữ ký'], template_id: null, rows: [] };
+    const rows: ExcelRow[] = doc.rows.map((r: { row: number; values: ExcelRow['values']; missing?: string[]; invalid?: ExcelRow['invalid'] }) => {
+      const missing = r.missing ?? [];
+      const invalid = r.invalid ?? [];
+      const complete = !missing.length && !invalid.length;
+      return { row: r.row, values: r.values, missing, invalid, complete, embedding: fakeEmbedding(`${r.values.full_name} ${r.values.school_code}`), credentials: complete ? fakeCredentials(r.values) : null };
+    });
+    return { ok: true, errors: [], template_id: 'tpl-test', rows };
+  }
+
+  /** Khớp như dịch vụ Python: trùng mã người dùng hoặc email, hoặc cùng họ tên */
+  async provisionMatch(rows: Array<{ row: number; values: ExcelRow['values']; candidates: MatchCandidate[] }>): Promise<MatchDecision[]> {
+    this.calls.push(`match:${rows.length}`);
+    return rows.map((r) => {
+      const c = r.candidates.find((x) => (r.values.user_code && x.user_code === r.values.user_code) || (r.values.email && x.email === r.values.email.toLowerCase()) || x.full_name === r.values.full_name);
+      return { row: r.row, log_id: c?.id ?? null, score: c ? 1 : 0, reason: c ? 'trùng mã người dùng' : 'không khớp' };
+    });
+  }
+}
+
+const fakeEmbedding = (text: string): number[] => {
+  const v = new Array(128).fill(0);
+  for (let i = 0; i < text.length - 2; i++) v[(text.charCodeAt(i) * 31 + text.charCodeAt(i + 1) * 7 + text.charCodeAt(i + 2)) % 128] += 1;
+  const n = Math.sqrt(v.reduce((a, x) => a + x * x, 0)) || 1;
+  return v.map((x) => x / n);
+};
+
+const strip = (s: string) => s.replace(/đ/g, 'd').replace(/Đ/g, 'D').normalize('NFD').replace(/\p{Mn}/gu, '');
+
+/** Công thức của đặc tả (giống ai/excel_provisioning.py) */
+export function fakeCredentials(v: ExcelRow['values']): { username_prefix: string; password: string } {
+  const words = strip(v.full_name).split(/\s+/).filter(Boolean);
+  const start = Number(v.school_year.slice(0, 4));
+  const cohort = String(start - ((v.grade ?? 6) - 6)).slice(-3);
+  const [y, m, d] = (v.birth_date ?? '2000-01-01').split('-');
+  const initials = words.map((w) => w[0].toLowerCase()).join('');
+  return {
+    username_prefix: `${words[words.length - 1].toLowerCase()}.${String(start).slice(-2)}${v.school_code}${v.grade}${cohort}`,
+    password: `${initials[0].toUpperCase()}${initials.slice(1)}${d}${m}${y}VN@`,
+  };
 }
 
 export interface Started {
@@ -144,10 +198,13 @@ export interface Started {
   close(): Promise<void>;
 }
 
-/** Khởi động backend NestJS thật trên một cổng ngẫu nhiên với CSDL riêng; dịch vụ AI được thay bằng FakeAi */
+/** Khởi động backend NestJS thật trên một cổng ngẫu nhiên với CSDL riêng; dịch vụ AI được thay bằng FakeAi, email chỉ ghi nhận (json) */
 export async function startApp(dbName: string): Promise<Started> {
   const url = await createDatabase(dbName);
-  Object.assign(process.env, { DATABASE_URL: url, AUTH_SECRET_KEY: 'nest-test-secret', ADMIN_USERNAME: 'admin', ADMIN_PASSWORD: 'admin@123', STARTING_GEMS: '100' });
+  Object.assign(process.env, {
+    DATABASE_URL: url, AUTH_SECRET_KEY: 'nest-test-secret', ADMIN_USERNAME: 'admin', ADMIN_PASSWORD: 'admin@123', STARTING_GEMS: '100',
+    MAIL_TRANSPORT: 'json', MAIL_WORKER: 'off', ACCOUNT_DOMAIN: 'donga.local',
+  });
   const { Test } = await import('@nestjs/testing');
   const { AppModule, configureApp } = await import('../src/app.module');
   const { AiService } = await import('../src/ai/ai.service');
@@ -189,8 +246,20 @@ export async function makeUser(base: string, adminToken: string, fullName: strin
 }
 
 export async function adminLogin(base: string): Promise<string> {
-  return (await call(base, 'POST', '/api/auth/login', { username: 'admin', password: 'admin@123', portal: 'admin' })).body.token;
+  return (await call(base, 'POST', '/api/auth/login', { username: 'admin', password: 'admin@123', portal: 'root_admin' })).body.token;
 }
+
+/** Gửi file dạng multipart (trường "file") như trang quản trị */
+export async function upload<T = any>(base: string, path: string, name: string, content: Buffer, mime: string, token?: string): Promise<Res<T>> {
+  const form = new FormData();
+  form.append('file', new Blob([new Uint8Array(content)], { type: mime }), name);
+  const res = await fetch(`${base}${path}`, { method: 'POST', body: form, headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  const text = await res.text();
+  return { status: res.status, body: text ? JSON.parse(text) : null };
+}
+
+/** "File Excel" giả cho FakeAi */
+export const fakeXlsx = (doc: unknown): Buffer => Buffer.concat([Buffer.from('504b0304', 'hex'), Buffer.from(JSON.stringify(doc), 'utf8')]);
 
 // ---------------------------------------------------------------------- WebSocket
 type Msg = Record<string, any>;

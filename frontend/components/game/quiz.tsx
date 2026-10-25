@@ -10,7 +10,7 @@ import {
 import { Mascot, SchematicMap } from '@/components/art';
 import { Bar, Btn, Chip, InfoNote, Sheet, Skeleton, Spinner, Txt } from '@/components/ui';
 import { ELEMENTS, LORE_LABEL, TIER_INFO } from '@/constants/game';
-import type { Palette } from '@/constants/theme';
+import { ON_BRIGHT, type Palette } from '@/constants/theme';
 import { useGame } from '@/hooks/use-game';
 import { usePopIn } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
@@ -423,7 +423,7 @@ export const QuestionCard: React.FC<{
         >
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
             <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: result.correct ? c.ngoc : c.son, alignItems: 'center', justifyContent: 'center' }}>
-              {result.correct ? <Check size={20} color="#ffffff" /> : <X size={20} color="#ffffff" />}
+              {result.correct ? <Check size={20} color={ON_BRIGHT} /> : <X size={20} color="#ffffff" />}
             </View>
             <Txt f="displayHeavy" size={21} color={result.correct ? c.ngocChu : c.sonChu} accessibilityRole="alert">
               {result.correct ? 'Chính xác!' : 'Chưa đúng rồi'}

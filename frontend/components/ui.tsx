@@ -11,9 +11,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Path, Pattern, Rect } from 'react-native-svg';
 import { Info, Star, X } from 'lucide-react-native';
 import { Mascot, type MascotMood } from '@/components/art';
-import { FONT, toneColors, type FontName, type Palette, type Tone } from '@/constants/theme';
+import { FONT, ON_BRIGHT, toneColors, type FontName, type Palette, type Tone } from '@/constants/theme';
 import { avatarColor, initialsOf } from '@/lib/format';
-import { usePopIn } from '@/hooks/use-motion';
+import { usePopIn, useReduceMotion } from '@/hooks/use-motion';
 import { useStyles, useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
 
@@ -65,20 +65,29 @@ export interface BtnProps {
   testID?: string;
 }
 
-/** Nút khối 3D: mặt nút lún xuống viền đáy khi bấm (viền đáy giữ chỗ nên bố cục không đổi) */
+/** Nút khối 3D: mặt nút lún xuống viền đáy khi bấm, bật lại bằng lò xo (viền đáy giữ chỗ nên bố cục không đổi) */
 export const Btn: React.FC<BtnProps> = ({
   title, icon: Icon, iconRight: IconRight, tone = 'son', size = 'md', onPress, disabled = false, loading = false, label, hint, full = false, upper = false,
   selected, style, testID,
 }) => {
   const { c } = useTheme();
+  const reduce = useReduceMotion();
+  const press = useRef(new Animated.Value(0)).current;
   const m = BTN[size];
   const off = disabled || loading;
   const t = off ? { bg: c.giay2, edge: c.vien2, fg: c.muc3, border: undefined } : toneColors(c, tone);
   const iconOnly = !title;
   const flat = tone === 'ghost';
+  const sink = (down: boolean) => {
+    if (flat) return;
+    if (reduce) press.setValue(down ? 1 : 0);
+    else Animated.spring(press, { toValue: down ? 1 : 0, speed: 48, bounciness: down ? 0 : 10, useNativeDriver: Platform.OS !== 'web' }).start();
+  };
   return (
     <Pressable
       onPress={onPress}
+      onPressIn={() => sink(true)}
+      onPressOut={() => sink(false)}
       disabled={off}
       testID={testID}
       accessibilityRole="button"
@@ -91,11 +100,11 @@ export const Btn: React.FC<BtnProps> = ({
       {({ pressed }) => (
         <View style={{ paddingBottom: flat ? 0 : m.depth }}>
           {!flat && <View style={[StyleSheet.absoluteFill, { top: m.depth, borderRadius: m.radius, backgroundColor: t.edge }]} />}
-          <View
+          <Animated.View
             style={{
               minHeight: m.h, minWidth: iconOnly ? m.h : undefined, paddingHorizontal: iconOnly ? 0 : m.px, borderRadius: m.radius, backgroundColor: flat && pressed ? c.giay2 : t.bg,
               borderWidth: t.border ? 2 : 0, borderColor: t.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-              transform: [{ translateY: pressed && !flat ? m.depth - 1 : 0 }],
+              transform: [{ translateY: press.interpolate({ inputRange: [0, 1], outputRange: [0, m.depth - 1] }) }],
             }}
           >
             {loading ? <ActivityIndicator size="small" color={t.fg} /> : Icon ? <Icon size={m.icon} color={t.fg} strokeWidth={2.4} /> : null}
@@ -105,7 +114,7 @@ export const Btn: React.FC<BtnProps> = ({
               </Txt>
             ) : null}
             {IconRight && <IconRight size={m.icon} color={t.fg} strokeWidth={2.4} />}
-          </View>
+          </Animated.View>
         </View>
       )}
     </Pressable>
@@ -265,7 +274,7 @@ export function Segmented<T extends string | number>({ options, value, onChange,
             style={{ minHeight: 40, paddingHorizontal: 14, borderRadius: 999, justifyContent: 'center', backgroundColor: on ? c.ngoc : c.the, borderWidth: 2, borderColor: on ? c.ngoc : c.vien }}
             hitSlop={4}
           >
-            <Txt f="bold" size={14} color={on ? '#ffffff' : c.muc2}>
+            <Txt f="bold" size={14} color={on ? ON_BRIGHT : c.muc2}>
               {o.label}
             </Txt>
           </Pressable>

@@ -4,6 +4,33 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field
 
 
+class ExcelValidateRequest(BaseModel):
+    file_b64: str = Field(..., min_length=4, max_length=3_000_000, description="Nội dung file .xlsx (base64)")
+    filename: str = Field(..., min_length=1, max_length=200)
+    mime: str = Field("", max_length=120)
+
+
+class MatchCandidate(BaseModel):
+    id: int
+    user_code: Optional[str] = None
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    school_code: Optional[str] = None
+    row_data: dict[str, Any] = Field(default_factory=dict)
+    embedding: Optional[list[float]] = None
+
+
+class MatchRow(BaseModel):
+    row: int
+    values: dict[str, Any]
+    embedding: list[float] = Field(default_factory=list)
+    candidates: list[MatchCandidate] = Field(default_factory=list, max_length=20)
+
+
+class ProvisionMatchRequest(BaseModel):
+    rows: list[MatchRow] = Field(default_factory=list, max_length=1000)
+
+
 class GroundingSource(BaseModel):
     doc_name: str = Field(description="Tài liệu gốc, ví dụ SGK Lịch sử 7 KNTT hoặc Đại Việt sử ký toàn thư")
     page_number: Optional[int] = None

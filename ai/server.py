@@ -7,15 +7,22 @@ Backend NestJS gọi các API này; người dùng không gọi trực tiếp.
 - POST /questions/generate : câu hỏi AI cho game (kèm đáp án, backend giữ để chấm)
 - POST /bkt/update         : Bayesian Knowledge Tracing – nhận trạng thái, trả trạng thái mới (không lưu ở đây)
 - POST /bkt/recommend      : gợi ý cụm tri thức cần ôn
+- GET  /excel/template     : file Excel mẫu cấp tài khoản, có chữ ký HMAC-SHA256 ẩn
+- POST /excel/validate     : kiểm duyệt file nhập (định dạng, chữ ký, cấu trúc cột), chuẩn hóa dòng, sinh tên đăng nhập/mật khẩu, vector hồ sơ
+- POST /provision/match    : RAG Smart Delta – dòng mới bổ sung cho dòng thiếu nào (ứng viên do backend truy xuất từ pgvector)
 
 Chạy: cd ai && uvicorn server:app --port 8001
 """
+import base64
+import binascii
 import copy
 import logging
 import threading
 import uuid
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Response
+
+import excel_provisioning
 
 from bkt_engine import bkt_engine
 from config import settings
@@ -23,8 +30,8 @@ from gemini_client import gemini_client
 from hybrid_router import hybrid_router
 from rag_engine import rag_engine
 from schemas import (
-    BktRecommendRequest, BktUpdateRequest, BktUpdateResponse, ChatRequest, ChatResponse, GroundingSource,
-    QuestionGenerateRequest, QuizGenerateRequest, QuizGenerateResponse, StoryGenerateRequest, StoryGenerateResponse,
+    BktRecommendRequest, BktUpdateRequest, BktUpdateResponse, ChatRequest, ChatResponse, ExcelValidateRequest, GroundingSource,
+    ProvisionMatchRequest, QuestionGenerateRequest, QuizGenerateRequest, QuizGenerateResponse, StoryGenerateRequest, StoryGenerateResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -124,3 +131,26 @@ def bkt_update(req: BktUpdateRequest):
 def bkt_recommend(req: BktRecommendRequest):
     recs, _ = _with_state(req.state, lambda sid: bkt_engine.recommend_personalized_review(student_id=sid, top_k=req.top_k))
     return {"recommendations": recs, "total_recommendations": len(recs)}
+
+
+@app.get("/excel/template", dependencies=[api])
+def excel_template():
+    return Response(
+        content=excel_provisioning.build_template(),
+        media_type=excel_provisioning.XLSX_MIME,
+        headers={"Content-Disposition": 'attachment; filename="mau-tai-khoan-dong-a.xlsx"'},
+    )
+
+
+@app.post("/excel/validate", dependencies=[api])
+def excel_validate(req: ExcelValidateRequest):
+    try:
+        raw = base64.b64decode(req.file_b64, validate=True)
+    except (binascii.Error, ValueError):
+        return {"ok": False, "errors": ["File gửi lên bị hỏng."], "template_id": None, "rows": []}
+    return excel_provisioning.validate_file(raw, req.filename, req.mime)
+
+
+@app.post("/provision/match", dependencies=[api])
+def provision_match(req: ProvisionMatchRequest):
+    return {"decisions": excel_provisioning.match_rows([r.model_dump() for r in req.rows])}

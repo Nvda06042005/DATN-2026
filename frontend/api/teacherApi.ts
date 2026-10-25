@@ -1,8 +1,22 @@
-import { apiRequest } from '@/api/client';
-import type { GeneratedQuiz, GeneratedStory, LiveSessionSummary, TeacherClass } from '@/types/api';
+import { apiRequest, apiUpload, type PickedFile } from '@/api/client';
+import type { AuthUser, ClassRequest, GeneratedQuiz, GeneratedStory, ImportBatch, ImportResult, LiveSessionSummary, TeacherClass } from '@/types/api';
 
 /** Lớp phụ trách: học sinh thật, tóm tắt, câu sai nhiều, mức nắm vững, học sinh cần hỗ trợ */
 export const getMyClass = (token: string) => apiRequest<TeacherClass>('/api/teacher/class', { token });
+
+/** Yêu cầu mở lớp của giáo viên: chờ duyệt, đã duyệt, bị từ chối */
+export const getClassRequests = (token: string) => apiRequest<ClassRequest[]>('/api/teacher/classes', { token });
+
+export const requestClass = (token: string, body: { class_code: string; school_year: string; name: string; join_password: string }) =>
+  apiRequest<ClassRequest>('/api/teacher/classes', { token, body });
+
+/** Chọn lớp đang dạy (bảng theo dõi, thi đấu dùng lớp này) */
+export const activateClass = (token: string, id: number) => apiRequest<AuthUser>(`/api/teacher/classes/${id}/activate`, { method: 'POST', token });
+
+/** Nhập tài khoản học sinh của trường mình từ file Excel mẫu */
+export const importStudents = (token: string, file: PickedFile) => apiUpload<ImportResult>('/api/teacher/import', file, token);
+
+export const getImports = (token: string) => apiRequest<ImportBatch[]>('/api/teacher/imports', { token });
 
 /** Các trận thi đấu đã lưu của giáo viên (mới nhất trước) */
 export const getLiveSessions = (token: string, limit = 5) => apiRequest<LiveSessionSummary[]>(`/api/teacher/live-sessions?limit=${limit}`, { token });

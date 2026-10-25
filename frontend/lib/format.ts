@@ -34,6 +34,12 @@ export const shortName = (n: string) => n.trim().split(/\s+/).slice(-2).join(' '
 /** Bỏ tiền tố "A. ", "B. "... khỏi đáp án để hiển thị trên ô màu Kahoot */
 export const stripOptionPrefix = (text: string) => text.replace(/^[A-D][.)]\s*/, '');
 
+/** Năm học hiện tại dạng "2025-2026" (từ tháng 8 tính năm học mới) */
+export const currentSchoolYear = (d = new Date()) => {
+  const y = d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1;
+  return `${y}-${y + 1}`;
+};
+
 /** 12345 -> "12.345" */
 export const fmt = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 

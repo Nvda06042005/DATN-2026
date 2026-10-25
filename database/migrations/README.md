@@ -1,6 +1,6 @@
 # SQL migrations
 
-Thêm file mới theo số thứ tự, ví dụ `006_add_student_badges.sql`.
+Thêm file mới theo số thứ tự, ví dụ `007_add_student_badges.sql`.
 Tạo file bằng lệnh (từ thư mục `backend/`): `npm run build && npm run migrate -- new add_student_badges`.
 
 Không sửa migration đã chạy, không chứa bí mật/dữ liệu tài khoản thật,
@@ -8,4 +8,9 @@ không thêm transaction wrapper. Bảng mới chứa dữ liệu người dùng
 Runner của backend NestJS tự chạy khi khởi động với `DATABASE_URL` và ghi lịch sử vào
 `public.app_schema_migrations`.
 
-Xem [hướng dẫn cấu hình và triển khai](../HUONG_DAN_SUPABASE.md).
+`006_schools_provisioning.sql`: trường học, vai trò `root_admin`/`school_admin` (tài khoản `admin` cũ thành
+`root_admin`), cột hồ sơ tài khoản, thùng rác, lớp học, thông báo, lượt nhập Excel, dòng thiếu thông tin,
+hàng đợi thư; vai trò `dong_a_school_scope` + chính sách RLS theo `app.school_id`. Phần `pg_trgm`, `vector`
+(pgvector) và vai trò RLS được bọc khối an toàn: CSDL không hỗ trợ thì bỏ qua, backend dùng cách dự phòng.
+
+Xem [hướng dẫn cấu hình và triển khai](../../README.md#triển-khai).

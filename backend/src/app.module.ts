@@ -1,6 +1,9 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, INestApplication, Logger, Module, RequestMethod, UnprocessableEntityException, ValidationError, ValidationPipe } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AdminController } from './admin/admin.controller';
+import { MailService } from './admin/mail.service';
+import { SchoolService } from './admin/school.service';
 import { AiController } from './ai/ai.controller';
 import { AiService } from './ai/ai.service';
 import { AppController } from './app.controller';
@@ -17,9 +20,12 @@ import { StudentService } from './student/student.service';
 import { TeacherController } from './teacher/teacher.controller';
 
 @Module({
-  imports: [JwtModule.register({ secret: config.authSecret, signOptions: { algorithm: 'HS256', expiresIn: config.tokenTtlHours * 3600 }, verifyOptions: { algorithms: ['HS256'] } })],
+  imports: [
+    JwtModule.register({ secret: config.authSecret, signOptions: { algorithm: 'HS256', expiresIn: config.tokenTtlHours * 3600 }, verifyOptions: { algorithms: ['HS256'] } }),
+    ScheduleModule.forRoot(),
+  ],
   controllers: [AppController, AuthController, AdminController, StudentController, TeacherController, AiController],
-  providers: [DatabaseService, AuthService, AuthGuard, ContentService, AiService, StudentService, LiveHub, LiveGateway],
+  providers: [DatabaseService, AuthService, AuthGuard, ContentService, AiService, StudentService, MailService, SchoolService, LiveHub, LiveGateway],
 })
 export class AppModule {}
 

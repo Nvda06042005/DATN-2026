@@ -1,10 +1,16 @@
 import { Body, Controller, Get, HttpCode, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsIn, IsInt, IsObject, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsIn, IsInt, IsObject, IsOptional, IsString, Length, Matches, Max, MaxLength, Min } from 'class-validator';
+import { SchoolService } from '../admin/school.service';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import type { UserRow } from '../database/database.service';
 import { ContentService } from './content.service';
 import { StudentService } from './student.service';
+
+class JoinClassDto {
+  @IsString() @Length(2, 20) class_code: string;
+  @IsString() @Length(1, 64) password: string;
+}
 
 class GameStateDto {
   @IsObject() state: Record<string, unknown>;
@@ -59,7 +65,20 @@ export class StudentController {
   constructor(
     private readonly student: StudentService,
     private readonly content: ContentService,
+    private readonly school: SchoolService,
   ) {}
+
+  /** Lớp đã vào (mã lớp + mật khẩu lớp do giáo viên phát sau khi lớp được duyệt) */
+  @Get('classes')
+  classes(@CurrentUser() user: UserRow) {
+    return this.school.studentClasses(user);
+  }
+
+  @Post('classes/join')
+  @HttpCode(200)
+  joinClass(@CurrentUser() user: UserRow, @Body() body: JoinClassDto) {
+    return this.school.joinClass(user, body.class_code, body.password);
+  }
 
   @Get('progress')
   progress(@CurrentUser() user: UserRow) {

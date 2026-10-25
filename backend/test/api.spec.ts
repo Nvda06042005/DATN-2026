@@ -52,7 +52,8 @@ async function answer(token: string, q: BankQuestion, payload: Record<string, un
     prog = await import('../src/student/progress');
     ADMIN = await adminLogin(s.base);
     const teacher = await api('POST', '/api/admin/users', { full_name: 'Trần Thị Hoa', role: 'teacher', class_name: '7A1' }, ADMIN);
-    const students = await api('POST', '/api/admin/users/bulk', { role: 'student', class_name: '7A1', full_names: ['Nguyễn Văn Long', 'Đỗ Bảo Ngọc'] }, ADMIN);
+    const students = { body: [] as Array<{ user: { username: string }; password: string }> };
+    for (const name of ['Nguyễn Văn Long', 'Đỗ Bảo Ngọc']) students.body.push((await api('POST', '/api/admin/users', { full_name: name, role: 'student', class_name: '7A1' }, ADMIN)).body);
     const login = async (username: string, password: string, portal: string, newPassword: string) => {
       const r = await api('POST', '/api/auth/login', { username, password, portal });
       return (await api('POST', '/api/auth/change-password', { current_password: password, new_password: newPassword }, r.body.token)).body;
@@ -109,21 +110,18 @@ async function answer(token: string, q: BankQuestion, payload: Record<string, un
     expect((await api('GET', '/api/auth/me', undefined, 'khong-phai-token')).status).toBe(401);
   });
 
-  test('quản trị viên cấp, sửa, đặt lại mật khẩu và xóa tài khoản', async () => {
+  test('quản trị tổng cấp, sửa, đặt lại mật khẩu, xóa vào thùng rác và khôi phục tài khoản', async () => {
     const created = await api('POST', '/api/admin/users', { full_name: 'Phạm Minh Đức', role: 'student', class_name: '7A2', username: ' Duc.PM ', password: 'tamthoi1' }, ADMIN);
     expect(created.status).toBe(201);
     expect([created.body.user.username, created.body.password, created.body.user.must_change_password]).toEqual(['duc.pm', 'tamthoi1', true]);
     expect(created.body.user).not.toHaveProperty('password_hash');
     const dup = await api('POST', '/api/admin/users', { full_name: 'Khác', role: 'student', username: 'duc.pm' }, ADMIN);
     expect([dup.status, dup.body.detail]).toEqual([409, "Tên đăng nhập 'duc.pm' đã tồn tại"]);
-    expect((await api('POST', '/api/admin/users', { full_name: 'X', role: 'admin' }, ADMIN)).status).toBe(422);
-    const bulk = await api('POST', '/api/admin/users/bulk', { role: 'teacher', full_names: ['  Đặng   Thu  Hà ', 'Đặng Thu Hà'] }, ADMIN);
-    expect(bulk.body.map((r: { user: { username: string; full_name: string } }) => [r.user.username, r.user.full_name])).toEqual([
-      ['gv.ha.dt', 'Đặng Thu Hà'],
-      ['gv.ha.dt2', 'Đặng Thu Hà'],
-    ]);
-    expect(bulk.body[0].password).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}$/);
-    expect((await api('POST', '/api/admin/users/bulk', { role: 'student', full_names: ['  '] }, ADMIN)).body.detail).toBe('Danh sách tên trống');
+    expect((await api('POST', '/api/admin/users', { full_name: 'X', role: 'root_admin' }, ADMIN)).status).toBe(422);
+    expect((await api('POST', '/api/admin/users/bulk', { role: 'teacher', full_names: ['Đặng Thu Hà'] }, ADMIN)).status).toBe(404);
+    const teacher = await api('POST', '/api/admin/users', { full_name: '  Đặng   Thu  Hà ', role: 'teacher' }, ADMIN);
+    expect([teacher.body.user.username, teacher.body.user.full_name]).toEqual(['gv.ha.dt', 'Đặng Thu Hà']);
+    expect(teacher.body.password).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}$/);
 
     const id = created.body.user.id;
     expect((await api('PATCH', `/api/admin/users/${id}`, { full_name: 'Phạm Minh Đức Anh', class_name: '7A3' }, ADMIN)).body).toMatchObject({ full_name: 'Phạm Minh Đức Anh', class_name: '7A3' });
@@ -131,18 +129,28 @@ async function answer(token: string, q: BankQuestion, payload: Record<string, un
     expect(reset.status).toBe(200);
     expect((await api('POST', '/api/auth/login', { username: 'duc.pm', password: reset.body.password, portal: 'student' })).status).toBe(200);
 
-    const stats = (await api('GET', '/api/admin/stats', undefined, ADMIN)).body;
-    expect(stats).toMatchObject({ admins: 1, storage: 'postgres' });
-    expect(stats.classes).toEqual(expect.arrayContaining(['7A1', '7A3']));
-    const users = (await api('GET', '/api/admin/users?role=student', undefined, ADMIN)).body;
-    expect(users.every((u: { role: string; xp: number | null }) => u.role === 'student' && typeof u.xp === 'number')).toBe(true);
+    const overview = (await api('GET', '/api/admin/overview', undefined, ADMIN)).body;
+    expect(overview).toMatchObject({ scope: 'system', features: { rls_school_scope: true, smtp: true, pgvector: false } });
+    expect(overview.unassigned).toBeGreaterThanOrEqual(4);
+    const users = (await api('GET', '/api/admin/users?role=student&q=duc anh', undefined, ADMIN)).body;
+    expect(users.items.map((u: { username: string }) => u.username)).toEqual(['duc.pm']);
+    expect(users.items.every((u: { role: string; xp: number | null }) => u.role === 'student' && typeof u.xp === 'number')).toBe(true);
 
-    const admin = (await api('GET', '/api/admin/users?role=admin', undefined, ADMIN)).body[0];
-    expect((await api('PATCH', `/api/admin/users/${admin.id}`, { is_active: false }, ADMIN)).body.detail).toBe('Không thể khóa tài khoản quản trị');
-    expect((await api('DELETE', `/api/admin/users/${admin.id}`, undefined, ADMIN)).status).toBe(400);
+    const root = (await api('GET', '/api/admin/users?role=root_admin', undefined, ADMIN)).body.items[0];
+    expect((await api('PATCH', `/api/admin/users/${root.id}`, { is_active: false }, ADMIN)).body.detail).toBe('Không thao tác được trên tài khoản quản trị tổng');
+    expect((await api('DELETE', `/api/admin/users/${root.id}`, undefined, ADMIN)).status).toBe(400);
     expect((await api('DELETE', `/api/admin/users/${id}`, undefined, ADMIN)).status).toBe(204);
-    expect((await api('DELETE', `/api/admin/users/${id}`, undefined, ADMIN)).status).toBe(404);
-    expect((await api('GET', '/api/admin/stats', undefined, T)).status).toBe(403);
+    expect((await api('DELETE', `/api/admin/users/${id}`, undefined, ADMIN)).body.detail).toBe('Tài khoản đã ở thùng rác');
+    const trashed = await api('POST', '/api/auth/login', { username: 'duc.pm', password: reset.body.password, portal: 'student' });
+    expect([trashed.status, trashed.body.detail]).toEqual([403, 'Tài khoản đang ở thùng rác. Liên hệ quản trị trường để khôi phục.']);
+    const trash = (await api('GET', '/api/admin/trash', undefined, ADMIN)).body;
+    expect(trash.find((u: { id: number }) => u.id === id).days_left).toBe(45);
+    expect((await api('POST', `/api/admin/trash/${id}/restore`, undefined, ADMIN)).body).toMatchObject({ id, is_active: true, deleted_at: null });
+    expect((await api('POST', '/api/auth/login', { username: 'duc.pm', password: reset.body.password, portal: 'student' })).status).toBe(200);
+    expect((await api('DELETE', `/api/admin/users/${id}`, undefined, ADMIN)).status).toBe(204);
+    expect((await api('DELETE', `/api/admin/trash/${id}`, undefined, ADMIN)).status).toBe(204);
+    expect((await api('POST', `/api/admin/trash/${id}/restore`, undefined, ADMIN)).status).toBe(404);
+    expect((await api('GET', '/api/admin/overview', undefined, T)).status).toBe(403);
   });
 
   // ------------------------------------------------------------------ tiến độ & câu hỏi
