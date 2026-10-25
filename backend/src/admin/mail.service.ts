@@ -41,11 +41,14 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     return this.transport !== null;
   }
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
+    // Cổng 2525 dùng STARTTLS; không gửi thông tin đăng nhập qua kết nối không mã hóa.
+    const smtpOptions = { requireTLS: true, connectionTimeout: 20_000, greetingTimeout: 15_000, socketTimeout: 60_000 };
     if (config.mailTransport === 'json') this.transport = createTransport({ jsonTransport: true });
-    else if (config.smtpUrl) this.transport = createTransport(config.smtpUrl);
+    else if (config.smtpUrl) this.transport = createTransport({ url: config.smtpUrl, ...smtpOptions });
     else if (config.smtpHost) {
       this.transport = createTransport({
+        ...smtpOptions,
         host: config.smtpHost,
         port: config.smtpPort,
         secure: config.smtpPort === 465,
@@ -55,6 +58,17 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     if (!this.transport) {
       this.logger.warn('Chưa cấu hình SMTP – thư tài khoản nằm trong hàng đợi, tải danh sách CSV ở trang quản trị để phát tay');
       return;
+    }
+    if (config.mailTransport !== 'json') {
+      try {
+        // verify chỉ kiểm tra DNS/TCP/TLS và xác thực, không gửi email hay lấy thư khỏi hàng đợi.
+        await this.transport.verify();
+        this.logger.log('SMTP: kết nối TLS và xác thực thành công');
+      } catch (exc) {
+        const code = String((exc as { code?: string })?.code ?? 'UNKNOWN');
+        // Không ghi lỗi thô vì có thể chứa thông tin máy chủ hoặc tài khoản SMTP.
+        this.logger.warn(`SMTP chưa xác thực được (${/^[A-Z0-9_]+$/.test(code) ? code : 'UNKNOWN'}); kiểm tra cấu hình gửi thư trên Render`);
+      }
     }
     if (config.mailWorker) this.timer = setInterval(() => void this.tick().catch(() => undefined), 4000);
   }
@@ -67,6 +81,7 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
   onModuleDestroy(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    this.transport?.close();
   }
 
   encrypt(payload: MailPayload): string {

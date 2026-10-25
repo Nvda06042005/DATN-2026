@@ -32,7 +32,9 @@ services:
           type: web
           name: dong-a-ai
           envVarKey: AI_SERVICE_TOKEN
-      # Gửi thư thông tin đăng nhập (vd: smtps://user:app-password@smtp.gmail.com:465); để trống thì thư nằm chờ trong hàng đợi
+      # Render Free: dùng Brevo SMTP cổng 2525 + STARTTLS; xem README phần gửi thư.
+      # Có thể đặt SMTP_HOST/PORT/USER/PASS trực tiếp trong Environment thay cho SMTP_URL.
+      # Không cấu hình SMTP thì thư nằm chờ trong hàng đợi.
       - key: SMTP_URL
         sync: false
       - key: MAIL_FROM

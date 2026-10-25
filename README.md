@@ -115,6 +115,18 @@ Free có thể ngủ khi không có truy cập, nên lần gọi đầu sau th�
 
 Không đặt `DATABASE_URL`, mật khẩu hay khóa bí mật vào biến `EXPO_PUBLIC_*` – các biến này nằm công khai trong gói app.
 
+### Gửi thư qua Brevo trên Render Free
+
+[Render Free chặn cổng SMTP 25, 465 và 587](https://render.com/docs/free). Dùng [Brevo SMTP](https://help.brevo.com/hc/en-us/articles/7924908994450-Send-transactional-emails-using-Brevo-SMTP) cổng **2525**; backend bắt buộc nâng cấp STARTTLS và kiểm tra chứng chỉ máy chủ.
+
+1. Tạo tài khoản Brevo Free, hoàn tất xác minh và xác nhận dịch vụ Transactional đang hoạt động. Thêm địa chỉ người gửi và xác minh email theo hướng dẫn của Brevo.
+2. Lấy **SMTP login** và tạo **SMTP key** trên trang SMTP của Brevo. SMTP login có thể khác email đăng nhập tài khoản. Không dùng API key, mật khẩu Gmail hoặc SMTP login làm địa chỉ From.
+3. Trong Render → `dong-a-api` → Environment, đặt `SMTP_HOST=smtp-relay.brevo.com`, `SMTP_PORT=2525`, `SMTP_USER` bằng SMTP login, `SMTP_PASS` bằng SMTP key, `MAIL_FROM` theo mẫu `Đông A EDU <dia-chi-da-xac-minh>`. Xóa/để trống `SMTP_URL` để không ghi đè các biến riêng; để trống `MAIL_TRANSPORT` khi gửi thật. Nhập bí mật trực tiếp trên Render, không lưu vào Git hay chat.
+4. Ban đầu đặt `MAIL_WORKER=off`, lưu và triển khai. Backend kiểm tra kết nối/xác thực mà **không gửi thư**; log thành công: `SMTP: kết nối TLS và xác thực thành công`. Việc này chưa xác nhận Brevo chấp nhận địa chỉ From hoặc thư đã vào hộp thư người nhận. Lỗi SMTP không làm dừng API; log chỉ ghi mã lỗi, không ghi tài khoản hoặc khóa.
+5. Kiểm tra hàng đợi ở trang quản trị trước khi bật. Sau khi xác nhận cấu hình/người gửi và thư chờ hợp lệ, đặt `MAIL_WORKER=on` và triển khai lại. Thư chờ đến hạn sẽ được gửi tự động; xem trạng thái ở trang quản trị và Transactional Logs của Brevo. Khi Render Free ngủ, worker dừng và tiếp tục khi dịch vụ hoạt động trở lại.
+
+Brevo có thể [thay địa chỉ From dùng Gmail bằng địa chỉ relay](https://help.brevo.com/hc/en-us/articles/14925263522578-Comply-with-Gmail-Yahoo-and-Microsoft-s-requirements-for-email-senders). Dùng tên miền riêng đã xác thực nếu cần giữ địa chỉ From theo tên miền. Các biến `sync: false` của Blueprint không tự bổ sung vào dịch vụ đã tồn tại; cập nhật Environment trên `dong-a-api`.
+
 ## Lưu ý
 
 - Module trong `ai/` giữ tên phẳng (`create_model`, `context_manager`, …) vì `ai/models/dong_a_nlp_model.joblib` được pickle theo các tên này; mô hình tạo bằng scikit-learn 1.7.x + numpy 2.x.
