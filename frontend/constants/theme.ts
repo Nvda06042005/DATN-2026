@@ -70,6 +70,19 @@ const light = {
   /** Màu nhấn trên thẻ (biểu tượng, chữ nổi bật) và nền kính của thanh điều hướng khi đã cuộn */
   nhan: '#0b6cc0',
   kinhDac: 'rgba(255, 255, 255, 0.86)',
+  /** Trang chủ kiểu Papumba: trời xanh tươi (đỉnh, chân trời; chữ trắng ≥ 4,5:1), nền xám nhạt của các khối, ba tầng đồi cỏ từ xa tới gần */
+  bau: '#1374df',
+  bau2: '#7cc4ff',
+  xam: '#f3f4f6',
+  doi1: '#a6dc5a',
+  doi2: '#7ac943',
+  doi3: '#4fa83a',
+  /** Màu nhấn cố định: cam và lục làm nền nhãn (chữ trắng đậm ≥ 20px), tím, hồng (chữ tối), nút đen */
+  cam: '#e8531f',
+  coDam: '#2f9e44',
+  tim: '#5b3fd0',
+  hong: '#ff8fb8',
+  den: '#0e1116',
 };
 
 export type Palette = typeof light;
@@ -119,6 +132,12 @@ const dark: Palette = {
   nhan: '#5eb6ff',
   bong: 'rgba(0, 0, 0, 0.45)',
   kinhDac: 'rgba(19, 28, 46, 0.86)',
+  bau: '#0a1a3d',
+  bau2: '#1d3f7c',
+  xam: '#0f1829',
+  doi1: '#2f7a3a',
+  doi2: '#25682f',
+  doi3: '#1c5226',
 };
 
 /** Chế độ tối chỉ dùng trong game học sinh; trang giáo viên và quản trị luôn dùng giao diện sáng */

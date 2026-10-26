@@ -305,86 +305,6 @@ const Cloud: React.FC<{ x: number; y: number; s?: number; fill: string; opacity?
   </G>
 );
 
-/** Đỉnh đồi (toạ độ viền nhìn) để rắc hoa chỉ ở phần dưới đường đồi */
-const hillTop = (x: number) => (x < 1240 ? 800 - (x - 860) * (160 / 380) : 640 + (x - 1240) * (28 / 200));
-
-const FLOWERS = (() => {
-  let seed = 11;
-  const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
-  const out: Array<{ x: number; y: number; r: number; warm: boolean }> = [];
-  for (let i = 0; i < 300 && out.length < 150; i++) {
-    const x = 880 + rnd() * 560;
-    const y = 620 + rnd() * 180;
-    if (y > hillTop(x) + 8) out.push({ x, y, r: 2.4 + rnd() * 2.2, warm: rnd() < 0.2 });
-  }
-  return out;
-})();
-
-/**
- * Nền bầu trời cho trang chủ, dựng lại theo phong cách VioEdu bằng hình vẽ riêng:
- * hero = trời nhạt, tia nắng, mây lớn hai bên, đồi hoa và dòng sông; blue = dải trời đậm dần sang nhạt; night = trời chuyển sang xanh mực.
- */
-export const SkyBackdrop: React.FC<{ variant?: 'hero' | 'blue' | 'night' }> = ({ variant = 'hero' }) => {
-  const { c, dark } = useTheme();
-  const gid = React.useId().replace(/:/g, '');
-  if (variant === 'hero') {
-    return (
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <Svg width="100%" height="100%" viewBox="0 0 1440 800" preserveAspectRatio="xMidYMid slice">
-          <Defs>
-            <LinearGradient id={`h-${gid}`} x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={c.troi4} />
-              <Stop offset="1" stopColor={c.troi5} />
-            </LinearGradient>
-          </Defs>
-          <Rect width="1440" height="800" fill={`url(#h-${gid})`} />
-          <G fill={c.the} opacity="0.35">
-            <Path d="M1010 0 L1130 0 L690 800 L520 800 Z" />
-            <Path d="M1200 0 L1290 0 L980 800 L860 800 Z" />
-            <Path d="M820 0 L880 0 L420 800 L340 800 Z" />
-          </G>
-          <Cloud x={-150} y={250} s={2.4} fill={c.the} opacity={0.92} />
-          <Cloud x={1170} y={190} s={2.2} fill={c.the} opacity={0.92} />
-          <Cloud x={140} y={560} s={0.8} fill={c.the} opacity={0.7} />
-          <Cloud x={1010} y={150} s={0.6} fill={c.the} opacity={0.75} />
-          <Path d="M860 800 C980 700 1120 650 1240 640 C1330 632 1400 650 1440 668 V800 Z" fill="#a8cf3a" />
-          <Path d="M1010 800 C1130 735 1290 705 1440 722 V800 Z" fill="#8fbf2e" />
-          {FLOWERS.map((f, i) => (
-            <Circle key={i} cx={f.x} cy={f.y} r={f.r} fill={f.warm ? '#ff9f1c' : '#ffd23f'} />
-          ))}
-          <Path d="M1330 800 C1370 742 1410 722 1440 714 V800 Z" fill={c.troi2} />
-        </Svg>
-      </View>
-    );
-  }
-  const night = variant === 'night';
-  /** Trời đậm giữ tới 1/4 đầu (chữ trắng tiêu đề nằm ở đó, đạt tương phản 5:1) rồi nhạt dần */
-  const [top, mid, low] = dark ? ['#0a2a55', '#0d3f77', '#165c9a'] : [c.troi, c.troi2, c.troi3];
-  const stops: Array<[string, string]> = night
-    ? [['0', top], ['0.25', top], ['1', c.dem]]
-    : [['0', top], ['0.25', top], ['0.6', mid], ['1', low]];
-  return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <Svg width="100%" height="100%" preserveAspectRatio="none" style={StyleSheet.absoluteFill}>
-        <Defs>
-          <LinearGradient id={`g-${gid}`} x1="0" y1="0" x2="0" y2="1">
-            {stops.map(([offset, color]) => (
-              <Stop key={offset} offset={offset} stopColor={color} />
-            ))}
-          </LinearGradient>
-        </Defs>
-        <Rect width="100%" height="100%" fill={`url(#g-${gid})`} />
-      </Svg>
-      {!night && (
-        <Svg width="100%" height={260} viewBox="0 0 1440 260" preserveAspectRatio="xMidYMin slice" style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
-          <Cloud x={70} y={110} s={0.9} fill={c.trang} opacity={dark ? 0.14 : 0.45} />
-          <Cloud x={1210} y={120} s={0.7} fill={c.trang} opacity={dark ? 0.14 : 0.45} />
-        </Svg>
-      )}
-    </View>
-  );
-};
-
 // ---------------------------------------------------------------------- bình minh Bạch Đằng (hero trang chủ)
 /** Núi đá vôi tròn đỉnh (cx: tâm, base: chân núi, w: rộng, h: cao) */
 const karst = (cx: number, base: number, w: number, h: number) =>
@@ -528,6 +448,107 @@ export const EpicBackdrop: React.FC<{ shade?: boolean; fade?: boolean }> = ({ sh
     </Svg>
   );
 };
+
+/** Ngôi sao bốn cánh lấp lánh */
+const SPARKLE = 'M0 -10 C1.6 -2.6 2.6 -1.6 10 0 C2.6 1.6 1.6 2.6 0 10 C-1.6 2.6 -2.6 1.6 -10 0 C-2.6 -1.6 -1.6 -2.6 0 -10 Z';
+export const Sparkle: React.FC<{ size?: number; color?: string; opacity?: number; style?: StyleProp<ViewStyle> }> = ({ size = 24, color = '#ffffff', opacity = 0.7, style }) => (
+  <View pointerEvents="none" style={[{ position: 'absolute' }, style]}>
+    <Svg width={size} height={size} viewBox="-10 -10 20 20">
+      <Path d={SPARKLE} fill={color} opacity={opacity} />
+    </Svg>
+  </View>
+);
+
+const SPARKLES = [[150, 330, 22], [330, 250, 14], [980, 300, 18], [1110, 410, 30], [610, 120, 12], [1290, 180, 16], [200, 520, 18], [1000, 560, 22], [760, 330, 10]] as const;
+const NIGHT_STARS = (() => {
+  const rnd = lcg(5);
+  return Array.from({ length: 56 }, () => ({ x: rnd() * 1440, y: rnd() * 560, r: 0.8 + rnd() * 1.4, o: 0.3 + rnd() * 0.6 }));
+})();
+const MEADOW = (() => {
+  const rnd = lcg(33);
+  const colors = ['#ffffff', '#ffd23f', '#ff8fb8', '#ffffff'];
+  return Array.from({ length: 70 }, (_, i) => ({ x: rnd() * 1440, y: 835 + rnd() * 60, r: 2 + rnd() * 2.4, fill: colors[i % colors.length] }));
+})();
+const RAINBOW = [['#ff5a5f', 232], ['#ff9f43', 208], ['#ffd93d', 184], ['#6bcf63', 160], ['#4dabf7', 136]] as const;
+
+/** Cây tre: thân có đốt và vài chùm lá, gốc ở (x, y) */
+const Bamboo: React.FC<{ x: number; y: number; h: number; body: string; leaf: string }> = ({ x, y, h, body, leaf }) => (
+  <G>
+    <Rect x={x - 4} y={y - h} width="8" height={h} rx="4" fill={body} />
+    {[0.25, 0.5, 0.75].map((k) => (
+      <Rect key={k} x={x - 5} y={y - h * k} width="10" height="3" rx="1.5" fill="#00000026" />
+    ))}
+    <Ellipse cx={x + 16} cy={y - h + 18} rx="18" ry="5" fill={leaf} transform={`rotate(-28 ${x + 16} ${y - h + 18})`} />
+    <Ellipse cx={x - 16} cy={y - h + 34} rx="18" ry="5" fill={leaf} transform={`rotate(28 ${x - 16} ${y - h + 34})`} />
+    <Ellipse cx={x + 14} cy={y - h + 54} rx="16" ry="4.5" fill={leaf} transform={`rotate(-24 ${x + 14} ${y - h + 54})`} />
+  </G>
+);
+
+/**
+ * Nền "trời xanh – đồi cỏ" kiểu Papumba (vẽ riêng): trời xanh tươi (ban đêm có sao ở chế độ tối), mây, sao lấp lánh, cầu vồng,
+ * ba tầng đồi cỏ có tre và bụi cây, dòng sông Bạch Đằng với con thuyền buồm đỏ, hoa nhỏ. Lấp đầy khung cha, canh theo đáy.
+ */
+export const SunnyHills: React.FC = () => {
+  const { c, dark } = useTheme();
+  const gid = React.useId().replace(/:/g, '');
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <Svg width="100%" height="100%" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMax slice">
+        <Defs>
+          <LinearGradient id={`k-${gid}`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="720">
+            <Stop offset="0" stopColor={c.bau} />
+            <Stop offset="0.22" stopColor={c.bau} />
+            <Stop offset="1" stopColor={c.bau2} />
+          </LinearGradient>
+        </Defs>
+        <Rect x="-600" y="-900" width="2640" height="1900" fill={`url(#k-${gid})`} />
+        {dark && NIGHT_STARS.map((t, i) => <Circle key={i} cx={t.x} cy={t.y} r={t.r} fill="#ffffff" opacity={t.o} />)}
+        {SPARKLES.map(([x, y, s], i) => (
+          <Path key={i} d={SPARKLE} transform={`translate(${x} ${y}) scale(${s / 10})`} fill="#ffffff" opacity={dark ? 0.35 : 0.5} />
+        ))}
+        <Cloud x={-60} y={430} s={1.3} fill={c.trang} opacity={dark ? 0.1 : 0.95} />
+        <Cloud x={40} y={230} s={0.62} fill={c.trang} opacity={dark ? 0.08 : 0.9} />
+        <Cloud x={1250} y={120} s={0.7} fill={c.trang} opacity={dark ? 0.08 : 0.9} />
+        <Cloud x={1230} y={360} s={1.15} fill={c.trang} opacity={dark ? 0.1 : 0.95} />
+        <Cloud x={560} y={520} s={0.6} fill={c.trang} opacity={dark ? 0.06 : 0.8} />
+        <G opacity={dark ? 0.4 : 1}>
+          {RAINBOW.map(([color, r]) => (
+            <Path key={color} d={`M${260 - r} 800 A${r} ${r} 0 0 1 ${260 + r} 800`} fill="none" stroke={color} strokeWidth="24" />
+          ))}
+        </G>
+        <Path d="M-100 720 C150 620 380 640 600 700 S980 690 1180 650 S1440 640 1540 680 V900 H-100 Z" fill={c.doi1} />
+        <Bamboo x={1340} y={700} h={190} body={c.doi3} leaf={c.doi2} />
+        <Bamboo x={1368} y={705} h={150} body={c.doi3} leaf={c.doi2} />
+        <Bamboo x={1318} y={706} h={130} body={c.doi3} leaf={c.doi2} />
+        <Path d="M-100 790 C160 700 420 740 640 790 S1000 770 1220 730 S1440 720 1540 760 V900 H-100 Z" fill={c.doi2} />
+        <Circle cx="110" cy="742" r="46" fill={c.doi3} />
+        <Circle cx="160" cy="758" r="34" fill={c.doi3} />
+        <Circle cx="64" cy="764" r="30" fill={c.doi3} />
+        <Path d="M690 772 C730 790 700 822 770 846 C830 868 800 886 840 900 L965 900 C935 880 962 860 912 840 C862 820 884 800 842 782 Z" fill={c.bau2} />
+        <Path d="M710 780 C740 796 718 818 780 840" fill="none" stroke="#ffffff" strokeWidth="3" opacity="0.6" strokeLinecap="round" />
+        <G transform="translate(805 842)">
+          <Path d="M-26 0 L26 0 L18 14 L-18 14 Z" fill="#8a4b2a" />
+          <Rect x="-1.5" y="-40" width="3" height="40" fill="#5c3320" />
+          <Path d="M2 -38 L2 -6 L26 -10 Z" fill="#e0443e" />
+          <Path d="M-2 -34 L-2 -8 L-20 -10 Z" fill="#ffd23f" />
+        </G>
+        <Path d="M-100 870 C200 800 520 830 760 860 S1160 830 1440 850 L1540 860 V900 H-100 Z" fill={c.doi3} />
+        {MEADOW.map((f, i) => (
+          <Circle key={i} cx={f.x} cy={f.y} r={f.r} fill={f.fill} opacity="0.9" />
+        ))}
+      </Svg>
+    </View>
+  );
+};
+
+/** Đường viền đồi cỏ uốn lượn đặt ngay phía trên một khối nền (color là màu của khối) để nối mềm với khối trước */
+export const HillEdge: React.FC<{ color: string; height?: number }> = ({ color, height = 90 }) => (
+  <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: -height + 1, height }}>
+    <Svg width="100%" height={height} viewBox="0 0 1440 90" preserveAspectRatio="none">
+      <Path d="M0 90 L0 52 C180 6 360 70 560 44 S940 8 1140 40 S1360 56 1440 30 L1440 90 Z" fill={color} />
+    </Svg>
+  </View>
+);
 
 /** Dải mây cuộn làm mép chuyển giữa hai vùng nền (flip: mây treo từ mép trên xuống); color là màu vùng nền bên cạnh */
 export const CloudBank: React.FC<{ color: string; flip?: boolean; height?: number }> = ({ color, flip = false, height = 72 }) => {
