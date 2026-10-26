@@ -5,7 +5,7 @@
  * Không vẽ chân dung nhân vật lịch sử có thật.
  */
 import React from 'react';
-import { Animated, Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Image, Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Marker, Path, Pattern, RadialGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { Crown } from 'lucide-react-native';
 import { ELEMENTS, ENEMY_TYPES, MAP_PLACES } from '@/constants/game';
@@ -325,7 +325,7 @@ const FLOWERS = (() => {
  * hero = trời nhạt, tia nắng, mây lớn hai bên, đồi hoa và dòng sông; blue = dải trời đậm dần sang nhạt; night = trời chuyển sang xanh mực.
  */
 export const SkyBackdrop: React.FC<{ variant?: 'hero' | 'blue' | 'night' }> = ({ variant = 'hero' }) => {
-  const { c } = useTheme();
+  const { c, dark } = useTheme();
   const gid = React.useId().replace(/:/g, '');
   if (variant === 'hero') {
     return (
@@ -359,9 +359,10 @@ export const SkyBackdrop: React.FC<{ variant?: 'hero' | 'blue' | 'night' }> = ({
   }
   const night = variant === 'night';
   /** Trời đậm giữ tới 1/4 đầu (chữ trắng tiêu đề nằm ở đó, đạt tương phản 5:1) rồi nhạt dần */
+  const [top, mid, low] = dark ? ['#0a2a55', '#0d3f77', '#165c9a'] : [c.troi, c.troi2, c.troi3];
   const stops: Array<[string, string]> = night
-    ? [['0', c.troi], ['0.25', c.troi], ['1', c.xanhMuc]]
-    : [['0', c.troi], ['0.25', c.troi], ['0.6', c.troi2], ['1', c.troi3]];
+    ? [['0', top], ['0.25', top], ['1', c.dem]]
+    : [['0', top], ['0.25', top], ['0.6', mid], ['1', low]];
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <Svg width="100%" height="100%" preserveAspectRatio="none" style={StyleSheet.absoluteFill}>
@@ -376,8 +377,8 @@ export const SkyBackdrop: React.FC<{ variant?: 'hero' | 'blue' | 'night' }> = ({
       </Svg>
       {!night && (
         <Svg width="100%" height={260} viewBox="0 0 1440 260" preserveAspectRatio="xMidYMin slice" style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
-          <Cloud x={70} y={110} s={0.9} fill={c.the} opacity={0.45} />
-          <Cloud x={1210} y={120} s={0.7} fill={c.the} opacity={0.45} />
+          <Cloud x={70} y={110} s={0.9} fill={c.trang} opacity={dark ? 0.14 : 0.45} />
+          <Cloud x={1210} y={120} s={0.7} fill={c.trang} opacity={dark ? 0.14 : 0.45} />
         </Svg>
       )}
     </View>
@@ -464,7 +465,7 @@ export const EpicBackdrop: React.FC<{ shade?: boolean; fade?: boolean }> = ({ sh
     <Svg width="100%" height="100%" viewBox="0 0 1440 820" preserveAspectRatio="xMidYMax slice" style={StyleSheet.absoluteFill}>
       <Defs>
         <LinearGradient id={`s-${gid}`} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor={c.xanhMuc} />
+          <Stop offset="0" stopColor={c.dem} />
           <Stop offset="0.24" stopColor="#1c2f6b" />
           <Stop offset="0.45" stopColor="#5a3a7c" />
           <Stop offset="0.65" stopColor="#c24f55" />
@@ -483,16 +484,16 @@ export const EpicBackdrop: React.FC<{ shade?: boolean; fade?: boolean }> = ({ sh
           <Stop offset="1" stopColor="#101733" />
         </LinearGradient>
         <LinearGradient id={`f-${gid}`} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor={c.xanhMuc} stopOpacity="1" />
-          <Stop offset="1" stopColor={c.xanhMuc} stopOpacity="0" />
+          <Stop offset="0" stopColor={c.dem} stopOpacity="1" />
+          <Stop offset="1" stopColor={c.dem} stopOpacity="0" />
         </LinearGradient>
         <LinearGradient id={`d-${gid}`} x1="0" y1="0" x2="1" y2="0">
-          <Stop offset="0" stopColor={c.xanhMuc} stopOpacity="0.92" />
-          <Stop offset="0.65" stopColor={c.xanhMuc} stopOpacity="0.5" />
-          <Stop offset="1" stopColor={c.xanhMuc} stopOpacity="0" />
+          <Stop offset="0" stopColor={c.dem} stopOpacity="0.92" />
+          <Stop offset="0.65" stopColor={c.dem} stopOpacity="0.5" />
+          <Stop offset="1" stopColor={c.dem} stopOpacity="0" />
         </LinearGradient>
       </Defs>
-      <Rect x="-600" y="-400" width="2640" height="400" fill={c.xanhMuc} />
+      <Rect x="-600" y="-400" width="2640" height="400" fill={c.dem} />
       <Rect x="-600" y="0" width="2640" height={WATER_Y} fill={`url(#s-${gid})`} />
       {STARS.map((t, i) => (
         <Circle key={i} cx={t.x} cy={t.y} r={t.r} fill="#ffffff" opacity={t.o} />
@@ -552,22 +553,51 @@ export const CloudBank: React.FC<{ color: string; flip?: boolean; height?: numbe
   );
 };
 
-/** Logo "Đông A": ấn triện son đỏ có Rồng Con, chữ Baloo 2 */
+/** Biểu tượng logo: hình vuông bo góc cắt từ assets/logo.jpg (chiến binh cầm cờ đỏ trước mặt trời) */
+const LOGO_MARK = require('../assets/logo-mark.png');
+
+/** Logo "Đông A edu": biểu tượng chiến binh kèm tên chữ Be Vietnam Pro (light: chữ trắng cho nền tối) */
 export const BrandLogo: React.FC<{ compact?: boolean; subtitle?: string; light?: boolean }> = ({ compact = false, subtitle, light = false }) => {
   const { c } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} accessible accessibilityRole="header" accessibilityLabel={subtitle ? `Đông A – ${subtitle}` : 'Đông A'}>
-      <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: '#b91c1c', borderWidth: 2, borderColor: '#fde68a', alignItems: 'center', justifyContent: 'center', borderBottomWidth: 4, borderBottomColor: '#7f1d1d' }}>
-        <Mascot size={38} mood="happy" accessory="helmet" title="Đông A" />
-      </View>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} accessible accessibilityRole="header" accessibilityLabel={subtitle ? `Đông A edu – ${subtitle}` : 'Đông A edu'}>
+      <Image source={LOGO_MARK} accessibilityIgnoresInvertColors style={{ width: 44, height: 44, borderRadius: 12 }} />
       {!compact && (
         <View>
-          <Text style={{ fontFamily: FONT.displayHeavy, fontSize: 24, lineHeight: 28, color: light ? '#ffffff' : c.sonChu }}>Đông A</Text>
+          <Text style={{ fontFamily: FONT.heavy, fontSize: 21, lineHeight: 25, letterSpacing: -0.3, color: light ? '#ffffff' : c.muc }}>
+            Đông A
+            <Text style={{ fontFamily: FONT.semibold, fontSize: 14, letterSpacing: 0, color: light ? '#ffd479' : c.sonChu }}> edu</Text>
+          </Text>
           {subtitle && (
             <Text style={{ fontFamily: FONT.bold, fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase', color: light ? 'rgba(255,255,255,0.85)' : c.muc2 }}>{subtitle}</Text>
           )}
         </View>
       )}
+    </View>
+  );
+};
+
+/** Cờ đỏ sao vàng (tỉ lệ 2:3, màu chuẩn của quốc kỳ) dùng làm biểu tượng ngôn ngữ Tiếng Việt */
+const STAR = (() => {
+  const cx = 15;
+  const cy = 10.4;
+  const R = 6.2;
+  const r = R * 0.382;
+  return Array.from({ length: 10 }, (_, i) => {
+    const a = (-90 + i * 36) * (Math.PI / 180);
+    const d = i % 2 === 0 ? R : r;
+    return `${(cx + d * Math.cos(a)).toFixed(2)} ${(cy + d * Math.sin(a)).toFixed(2)}`;
+  }).join(' L');
+})();
+
+export const VietnamFlag: React.FC<{ width?: number }> = ({ width = 36 }) => {
+  const height = Math.round((width * 2) / 3);
+  return (
+    <View accessible accessibilityRole="image" accessibilityLabel="Tiếng Việt" style={{ width, height, borderRadius: 4, overflow: 'hidden' }}>
+      <Svg width={width} height={height} viewBox="0 0 30 20">
+        <Rect width="30" height="20" fill="#da251d" />
+        <Path d={`M${STAR} Z`} fill="#ffff00" />
+      </Svg>
     </View>
   );
 };

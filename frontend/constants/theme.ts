@@ -64,6 +64,12 @@ const light = {
   /** Kính mờ trên nền tối của hero: nền và viền trắng trong suốt */
   kinh: 'rgba(255, 255, 255, 0.10)',
   kinhVien: 'rgba(255, 255, 255, 0.28)',
+  /** Không đổi theo chế độ sáng/tối: trắng (chữ trên nền tối) và xanh đêm (nền hero, dải kêu gọi, chân trang) */
+  trang: '#ffffff',
+  dem: '#16253f',
+  /** Màu nhấn trên thẻ (biểu tượng, chữ nổi bật) và nền kính của thanh điều hướng khi đã cuộn */
+  nhan: '#0b6cc0',
+  kinhDac: 'rgba(255, 255, 255, 0.86)',
 };
 
 export type Palette = typeof light;
@@ -105,6 +111,14 @@ const dark: Palette = {
   dich: '#57534e',
   dichNhat: '#1f2937',
   scrim: 'rgba(2, 6, 23, 0.7)',
+  /** Chế độ tối của trang chủ: chữ sáng trên thẻ tối; bầu trời (troi, troi2…) và các màu cố định giữ nguyên */
+  xanhMuc: '#eaf1fb',
+  xanhMuc2: '#9fb0c8',
+  bienXanh: '#243352',
+  troi5: '#0f1a30',
+  nhan: '#5eb6ff',
+  bong: 'rgba(0, 0, 0, 0.45)',
+  kinhDac: 'rgba(19, 28, 46, 0.86)',
 };
 
 /** Chế độ tối chỉ dùng trong game học sinh; trang giáo viên và quản trị luôn dùng giao diện sáng */

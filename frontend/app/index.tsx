@@ -1,48 +1,53 @@
 /**
- * Trang chủ công khai theo bố cục VioEdu nhưng giao diện hiện đại: nền bầu trời dựng lại bằng SVG, nút phẳng dạng viên thuốc, thẻ trắng viền mảnh bóng nhẹ,
+ * Trang chủ công khai theo bố cục VioEdu nhưng giao diện hiện đại: nền bầu trời dựng lại bằng SVG, nút phẳng dạng viên thuốc, thẻ viền mảnh bóng nhẹ,
  * chữ Be Vietnam Pro, biểu tượng cùng nét mảnh và cỡ tính theo cỡ chữ đi kèm (xem iconPx).
+ * Thanh điều hướng nổi hình viên thuốc co hẹp khi cuộn, có nút đổi sáng/tối (chỉ áp dụng cho trang chủ, nhớ lại ở lần sau) và cuộn mượt khi lăn chuột.
+ * Dải luôn tối (hero, kêu gọi, chân trang) dùng màu cố định `trang`/`dem`; thẻ và chữ dùng màu đổi theo chế độ.
  * Số liệu lấy thẳng từ dữ liệu game nên không lệch. Không có liên kết tới hai cổng quản trị. expo-router bắt buộc tên index cho đường dẫn "/".
  */
-import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  Animated, Platform, Pressable, ScrollView, StyleSheet, View, useColorScheme, useWindowDimensions,
+  type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance, type StyleProp, type ViewStyle,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  Activity, ArrowRight, Check, Compass, Database, Download, FileSpreadsheet, GraduationCap, Joystick, Landmark, LayoutDashboard, Layers, LibraryBig, Lock,
-  Map as MapIcon, MapPinned, Medal, MessageSquareText, Milestone, Monitor, Puzzle, RadioTower, School, Send, ShieldCheck, ShieldHalf, Smartphone,
-  Sword, Swords, Table2, Tablet, Target, TrendingUp, Trophy, Undo2, Users, WandSparkles, Zap,
+  Activity, ArrowRight, Check, ChevronUp, Compass, Database, Download, FileSpreadsheet, GraduationCap, Joystick, Landmark, LayoutDashboard, Layers, LibraryBig, Lock, LogIn,
+  Map as MapIcon, MapPinned, Medal, MessageSquareText, Milestone, Monitor, Moon, Puzzle, RadioTower, School, Send, ShieldCheck, ShieldHalf, Smartphone,
+  Sun, Sword, Swords, Table2, Tablet, Target, TrendingUp, Trophy, Undo2, Users, WandSparkles, Zap,
 } from 'lucide-react-native';
-import { BrandLogo, CloudBank, EpicBackdrop, GradeBadge, SchematicMap, SkyBackdrop } from '@/components/art';
+import { BrandLogo, CloudBank, EpicBackdrop, GradeBadge, SchematicMap, SkyBackdrop, VietnamFlag } from '@/components/art';
 import { useDocumentTitle } from '@/components/auth';
 import { LoreChip } from '@/components/game/quiz';
 import { TemplateGuide, downloadTemplate } from '@/components/provisioning';
-import { Chip, Screen, Txt } from '@/components/ui';
+import { Chip, PaperBg, Txt } from '@/components/ui';
 import { CAMPAIGNS, CAMPAIGN_ROUTES, PHASES } from '@/constants/campaigns';
 import { ELEMENTS, GAME_TABS, LORE_LABEL, MAP_PLACES } from '@/constants/game';
 import { HEROES } from '@/constants/heroes';
-import type { Palette } from '@/constants/theme';
+import { PALETTES, type Palette } from '@/constants/theme';
 import { useReduceMotion } from '@/hooks/use-motion';
-import { useTheme } from '@/hooks/use-theme';
+import { useSmoothScroll } from '@/hooks/use-smooth-scroll';
+import { ThemeContext, useTheme } from '@/hooks/use-theme';
+import { readHomeTheme, saveHomeTheme, type HomeTheme } from '@/lib/storage';
 import type { IconType } from '@/types/game';
 
 const MAX_W = 1120;
 const WEB = Platform.OS === 'web';
-/** Chiều cao thanh điều hướng nổi (64) cộng khoảng cách trên (12) */
-const HEADER_SPACE = 76;
-
-/** Đầu trang dính khi cuộn (chỉ web) */
-const STICKY = (WEB ? { position: 'sticky', top: 0 } : null) as unknown as ViewStyle;
+/** Chiều cao thanh điều hướng nổi (64) cộng khoảng cách trên (16); hero chừa chỗ này ở đầu */
+const HEADER_SPACE = 80;
 
 /** Đích cuộn của liên kết neo chừa chỗ cho đầu trang dính */
 const ANCHOR = (WEB ? { scrollMarginTop: 88 } : null) as unknown as ViewStyle;
 
+/** Các phần có neo: label dùng ở chân trang, short là nhãn ngắn trên thanh điều hướng */
 const NAV = [
-  { id: 'ba-lan-khang-chien', label: 'Ba lần kháng chiến' },
-  { id: 'lo-trinh', label: 'Lộ trình' },
-  { id: 'danh-tuong', label: 'Danh tướng' },
-  { id: 'vi-sao', label: 'Dành cho ai' },
-  { id: 'de-tai', label: 'Về đề tài' },
+  { id: 'ba-lan-khang-chien', label: 'Ba lần kháng chiến', short: 'Kháng chiến' },
+  { id: 'lo-trinh', label: 'Lộ trình', short: 'Lộ trình' },
+  { id: 'danh-tuong', label: 'Danh tướng', short: 'Danh tướng' },
+  { id: 'vi-sao', label: 'Dành cho ai', short: 'Dành cho ai' },
+  { id: 'de-tai', label: 'Về đề tài', short: 'Về đề tài' },
 ] as const;
 
 /**
@@ -142,7 +147,7 @@ const IconTile: React.FC<{ icon: IconType; text?: number; size?: number; bg?: st
       importantForAccessibility="no-hide-descendants"
       style={{ width: size, height: size, borderRadius: Math.round(size * 0.3), backgroundColor: bg ?? c.troi5, alignItems: 'center', justifyContent: 'center' }}
     >
-      <Icon size={iconPx(text)} color={fg ?? c.troi} strokeWidth={1.75} />
+      <Icon size={iconPx(text)} color={fg ?? c.nhan} strokeWidth={1.75} />
     </View>
   );
 };
@@ -161,8 +166,8 @@ const Cta: React.FC<{ title: string; onPress: () => void; tone?: CtaTone; icon?:
   title, onPress, tone = 'son', icon, arrow = false, lg = false, label, testID,
 }) => {
   const { c } = useTheme();
-  const t = { son: { bg: c.son, fg: c.the, bd: c.son }, xanh: { bg: c.xanhMuc, fg: c.the, bd: c.xanhMuc }, trang: { bg: c.the, fg: c.xanhMuc, bd: c.the }, vien: { bg: 'transparent', fg: c.xanhMuc, bd: c.xanhMuc2 },
-    vang: { bg: c.vang, fg: c.xanhMuc, bd: c.vang }, sang: { bg: c.kinh, fg: c.the, bd: c.troi3 } }[tone];
+  const t = { son: { bg: c.son, fg: c.trang, bd: c.son }, xanh: { bg: c.xanhMuc, fg: c.the, bd: c.xanhMuc }, trang: { bg: c.trang, fg: c.dem, bd: c.trang }, vien: { bg: 'transparent', fg: c.xanhMuc, bd: c.xanhMuc2 },
+    vang: { bg: c.vang, fg: c.dem, bd: c.vang }, sang: { bg: c.kinh, fg: c.trang, bd: c.troi3 } }[tone];
   const text = lg ? 16 : 15;
   return (
     <Pressable
@@ -193,9 +198,9 @@ const Cta: React.FC<{ title: string; onPress: () => void; tone?: CtaTone; icon?:
 
 /** Dải toàn chiều rộng; nội dung bên trong giới hạn bề ngang và căn giữa. sky = nền bầu trời, cloudTop/cloudBottom = màu vùng liền kề để vẽ mây chuyển */
 const Band: React.FC<{
-  id?: string; bg?: string; sky?: 'blue' | 'night'; cloudTop?: string; cloudBottom?: string; wide: boolean; gap?: number; children: React.ReactNode;
-}> = ({ id, bg, sky, cloudTop, cloudBottom, wide, gap = 32, children }) => (
-  <View id={id} style={[{ width: '100%', backgroundColor: bg }, id ? ANCHOR : null]}>
+  id?: string; bg?: string; sky?: 'blue' | 'night'; cloudTop?: string; cloudBottom?: string; wide: boolean; gap?: number; onSection?: (id: string, y: number) => void; children: React.ReactNode;
+}> = ({ id, bg, sky, cloudTop, cloudBottom, wide, gap = 32, onSection, children }) => (
+  <View id={id} onLayout={id && onSection ? (e) => onSection(id, e.nativeEvent.layout.y) : undefined} style={[{ width: '100%', backgroundColor: bg }, id ? ANCHOR : null]}>
     {sky && <SkyBackdrop variant={sky} />}
     {cloudTop && <CloudBank color={cloudTop} flip />}
     <View
@@ -217,11 +222,11 @@ const Head: React.FC<{ eyebrow: string; title: string; text?: string; wide: bool
       <Txt f="bold" size={13} color={light ? c.troi4 : c.sonChu} upper center>
         {eyebrow}
       </Txt>
-      <Txt f="heavy" size={wide ? 40 : 26} color={light ? c.the : c.xanhMuc} center accessibilityRole="header" style={{ lineHeight: wide ? 48 : 33, letterSpacing: -0.6 }}>
+      <Txt f="heavy" size={wide ? 40 : 26} color={light ? c.trang : c.xanhMuc} center accessibilityRole="header" style={{ lineHeight: wide ? 48 : 33, letterSpacing: -0.6 }}>
         {title}
       </Txt>
       {text && (
-        <Txt size={17} color={light ? c.the : c.xanhMuc2} center style={{ maxWidth: 720 }}>
+        <Txt size={17} color={light ? c.trang : c.xanhMuc2} center style={{ maxWidth: 720 }}>
           {text}
         </Txt>
       )}
@@ -271,39 +276,119 @@ const FootLink: React.FC<{ label: string; onPress: () => void }> = ({ label, onP
 };
 
 // ---------------------------------------------------------------------- đầu trang và hero
-/** Thanh điều hướng nổi, dính khi cuộn; kéo hero lên dưới nó bằng lề âm */
-const Header: React.FC<{ width: number; go: (id: string) => void }> = ({ width, go }) => {
-  const { c } = useTheme();
+/** Các mục trên thanh điều hướng: "Trang chủ" cuộn về đầu trang, còn lại cuộn tới phần có id tương ứng */
+const NAV_ITEMS = [{ id: 'home', short: 'Trang chủ' }, ...NAV.map((n) => ({ id: n.id, short: n.short }))];
+
+/** Nút tròn viền mảnh chứa một biểu tượng (cỡ biểu tượng theo chữ 15; vùng chạm 46 kể cả hitSlop) */
+const RoundBtn: React.FC<{ icon: IconType; label: string; onPress: () => void; color: string; border: string; testID?: string }> = ({ icon: Icon, label, onPress, color, border, testID }) => (
+  <Pressable
+    onPress={onPress}
+    accessibilityRole="button"
+    accessibilityLabel={label}
+    testID={testID}
+    hitSlop={2}
+    style={({ pressed }) => ({ width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: border, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}
+  >
+    <Icon size={iconPx(15)} color={color} strokeWidth={1.75} />
+  </Pressable>
+);
+
+/**
+ * Thanh điều hướng nổi hình viên thuốc, cố định phía trên cùng. Khi cuộn nó co hẹp lại, thấp xuống một chút và đổi từ kính mờ trên nền hero tối
+ * sang kính sáng/tối theo chế độ; mục đang xem có chấm tròn đánh dấu. Có nút đổi sáng/tối, cờ Tiếng Việt và nút đăng nhập.
+ */
+const Header: React.FC<{ width: number; scrollY: Animated.Value; stuck: boolean; active: string; go: (id: string) => void; onToggleTheme: () => void }> = ({
+  width, scrollY, stuck, active, go, onToggleTheme,
+}) => {
+  const { c, dark } = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const wide = width >= 1100;
+  const clamp = { extrapolate: 'clamp' } as const;
+  const maxWidth = scrollY.interpolate({ inputRange: [0, 120], outputRange: [MAX_W, 1010], ...clamp });
+  const height = scrollY.interpolate({ inputRange: [0, 80], outputRange: [64, 56], ...clamp });
+  const marginTop = scrollY.interpolate({ inputRange: [0, 80], outputRange: [16, 8], ...clamp });
+  const bg = scrollY.interpolate({ inputRange: [0, 60], outputRange: [c.kinh, c.kinhDac], ...clamp });
+  const border = scrollY.interpolate({ inputRange: [0, 60], outputRange: [c.kinhVien, c.bienXanh], ...clamp });
+  const fg = stuck ? c.xanhMuc : c.trang;
+  const muted = stuck ? c.xanhMuc2 : c.troi4;
+  const accent = stuck ? c.sonChu : c.vang;
+  const ring = stuck ? c.bienXanh : c.kinhVien;
   return (
-    <View pointerEvents="box-none" style={[{ zIndex: 30, paddingHorizontal: 12, paddingTop: 12, marginBottom: -HEADER_SPACE }, STICKY]}>
-      <View
+    <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 40, alignItems: 'center', paddingHorizontal: 12, paddingTop: insets.top }}>
+      <Animated.View
         style={[
-          { width: '100%', maxWidth: MAX_W, alignSelf: 'center', height: 64, borderRadius: 20, backgroundColor: c.the, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-          shadow(c, 'sm'),
+          { width: '100%', maxWidth, height, marginTop, borderRadius: 999, borderWidth: 1, borderColor: border, backgroundColor: bg, paddingLeft: 10, paddingRight: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+          GLASS,
         ]}
       >
-        <BrandLogo subtitle="Học Sử qua game" />
-        {WEB && width >= 1000 && (
-          <View accessibilityRole="menu" style={{ flexDirection: 'row', gap: 2 }}>
-            {NAV.map((n) => (
-              <Pressable
-                key={n.id}
-                accessibilityRole="link"
-                accessibilityLabel={n.label}
-                onPress={() => go(n.id)}
-                style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 14, justifyContent: 'center', borderRadius: 12, backgroundColor: pressed ? c.troi5 : 'transparent' })}
-              >
-                <Txt f="semibold" size={15} color={c.xanhMuc}>
-                  {n.label}
-                </Txt>
-              </Pressable>
-            ))}
+        <Pressable onPress={() => go('home')} accessibilityRole="link" accessibilityLabel="Về đầu trang" hitSlop={4} style={{ minHeight: 44, justifyContent: 'center' }}>
+          <BrandLogo light={!stuck} compact={width < 380} />
+        </Pressable>
+        {WEB && wide && (
+          <View accessibilityRole="menu" style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {NAV_ITEMS.map((n) => {
+              const on = n.id === active;
+              return (
+                <Pressable
+                  key={n.id}
+                  accessibilityRole="link"
+                  accessibilityLabel={n.short}
+                  accessibilityState={{ selected: on }}
+                  onPress={() => go(n.id)}
+                  style={{ minHeight: 44, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                >
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: accent, opacity: on ? 1 : 0 }} />
+                  <Txt f={on ? 'bold' : 'semibold'} size={14} color={on ? accent : muted}>
+                    {n.short}
+                  </Txt>
+                </Pressable>
+              );
+            })}
           </View>
         )}
-        <Cta title={width >= 360 ? 'Đăng nhập' : ''} label="Đăng nhập học tập" icon={width >= 360 ? undefined : ArrowRight} onPress={() => router.push('/portal')} testID="home-login" />
-      </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <RoundBtn
+            icon={dark ? Moon : Sun}
+            label={dark ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
+            onPress={onToggleTheme}
+            color={fg}
+            border={ring}
+            testID="home-theme"
+          />
+          {width >= 340 && (
+            <View style={{ borderRadius: 5, borderWidth: 1, borderColor: ring, padding: 1 }}>
+              <VietnamFlag width={34} />
+            </View>
+          )}
+          <Cta title={width >= 560 ? 'Đăng nhập' : ''} label="Đăng nhập học tập" icon={width >= 560 ? undefined : LogIn} onPress={() => router.push('/portal')} testID="home-login" />
+        </View>
+      </Animated.View>
     </View>
+  );
+};
+
+/** Nút lên đầu trang ở góc phải dưới, hiện dần khi đã cuộn xuống */
+const BackToTop: React.FC<{ scrollY: Animated.Value; visible: boolean; onPress: () => void }> = ({ scrollY, visible, onPress }) => {
+  const { c } = useTheme();
+  const insets = useSafeAreaInsets();
+  const opacity = scrollY.interpolate({ inputRange: [420, 620], outputRange: [0, 1], extrapolate: 'clamp' });
+  return (
+    <Animated.View pointerEvents={visible ? 'box-none' : 'none'} style={{ position: 'absolute', right: 20, bottom: 20 + insets.bottom, opacity, zIndex: 40 }}>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel="Lên đầu trang"
+        testID="home-top"
+        style={({ pressed }) => [
+          { width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: c.bienXanh, backgroundColor: c.kinhDac, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.8 : 1 },
+          shadow(c, 'sm'),
+          GLASS,
+        ]}
+      >
+        <ChevronUp size={iconPx(15)} color={c.xanhMuc} strokeWidth={1.75} />
+      </Pressable>
+    </Animated.View>
   );
 };
 
@@ -324,7 +409,7 @@ const Epigraph: React.FC<{ wide: boolean }> = ({ wide }) => {
     <View style={{ flexDirection: 'row', gap: 16, maxWidth: 460 }}>
       <View style={{ width: 3, borderRadius: 2, backgroundColor: c.vang }} />
       <View style={{ flex: 1, gap: 10 }}>
-        <Txt f="serifBold" size={wide ? 28 : 20} color={c.the} style={{ lineHeight: wide ? 40 : 30 }}>
+        <Txt f="serifBold" size={wide ? 28 : 20} color={c.trang} style={{ lineHeight: wide ? 40 : 30 }}>
           “Ta thà làm quỷ nước Nam, chứ không thèm làm vương đất Bắc!”
         </Txt>
         <Txt f="bold" size={13} color={c.vang} upper>
@@ -339,19 +424,20 @@ const Epigraph: React.FC<{ wide: boolean }> = ({ wide }) => {
 const Hero: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wide, go }) => {
   const { c } = useTheme();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   return (
-    <View style={{ width: '100%', backgroundColor: c.xanhMuc, overflow: 'hidden' }}>
+    <View style={{ width: '100%', backgroundColor: c.dem, overflow: 'hidden' }}>
       {wide && <EpicBackdrop shade />}
-      <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: HEADER_SPACE + (wide ? 72 : 40), paddingBottom: wide ? 176 : 32 }}>
+      <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: insets.top + HEADER_SPACE + (wide ? 72 : 40), paddingBottom: wide ? 176 : 32 }}>
         <View style={{ flexDirection: wide ? 'row' : 'column', gap: 48 }}>
           <View style={{ flex: wide ? 1.12 : undefined, width: wide ? undefined : '100%', gap: 22, alignItems: 'flex-start' }}>
             <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999, backgroundColor: c.kinh, borderWidth: 1, borderColor: c.kinhVien }, GLASS]}>
               <Ico icon={GraduationCap} text={13} color={c.vang} />
-              <Txt f="semibold" size={13} color={c.the}>
+              <Txt f="semibold" size={13} color={c.trang}>
                 Lịch sử và Địa lí THCS · Khối 6 – 9
               </Txt>
             </View>
-            <Txt f="heavy" size={wide ? 62 : 40} color={c.the} accessibilityRole="header" style={{ lineHeight: wide ? 68 : 46, letterSpacing: -1.2 }}>
+            <Txt f="heavy" size={wide ? 62 : 40} color={c.trang} accessibilityRole="header" style={{ lineHeight: wide ? 68 : 46, letterSpacing: -1.2 }}>
               Sống lại{'\n'}
               <Txt f="heavy" size={wide ? 62 : 40} color={c.vang} style={{ lineHeight: wide ? 68 : 46, letterSpacing: -1.2 }}>
                 hào khí Đông A
@@ -392,7 +478,7 @@ const Hero: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wide, go 
                     <Txt f="heavy" size={26} color={c.vang} style={{ lineHeight: 32 }}>
                       {v.year}
                     </Txt>
-                    <Txt f="bold" size={14} color={c.the} style={{ lineHeight: 19 }}>
+                    <Txt f="bold" size={14} color={c.trang} style={{ lineHeight: 19 }}>
                       {v.place}
                     </Txt>
                     <Txt size={12} color={c.troi4} style={{ lineHeight: 17 }}>
@@ -432,7 +518,7 @@ const StatIcon: React.FC<{ icon: IconType }> = ({ icon: Icon }) => {
       <LinearGradient colors={[c.troi2, c.troi]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
       {/* Bọc trong View: trên web, lớp nền đặt tuyệt đối sẽ che SVG nếu SVG không nằm trong phần tử có vị trí */}
       <View>
-        <Icon size={iconPx(18)} color={c.the} strokeWidth={1.75} />
+        <Icon size={iconPx(18)} color={c.trang} strokeWidth={1.75} />
       </View>
     </View>
   );
@@ -499,12 +585,12 @@ const FactRow: React.FC<{ icon: IconType; label: string; text: string; color: st
 };
 
 const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
-  const { c } = useTheme();
+  const { c, dark } = useTheme();
   const router = useRouter();
   const [sel, setSel] = useState<1 | 2 | 3>(1);
   const camp = CAMPAIGNS[sel - 1];
   const facts = CAMPAIGN_FACTS[sel];
-  const look = { accent: c.troi, soft: c.troi5 };
+  const look = { accent: c.nhan, soft: c.troi5 };
   const phases = PHASES.filter((p) => p.campaign === sel);
   return (
     <View style={{ flexDirection: wide ? 'row' : 'column', alignItems: 'flex-start', gap: 24 }}>
@@ -577,7 +663,7 @@ const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
         </Panel>
       </View>
       <Panel pad={0} style={{ width: wide ? 400 : '100%', overflow: 'hidden' }}>
-        <SchematicMap pins={[...new Set(phases.map((p) => p.place))]} routes={CAMPAIGN_ROUTES[sel]} title={`Lược đồ ${camp.name}`} />
+        <SchematicMap dark={dark} pins={[...new Set(phases.map((p) => p.place))]} routes={CAMPAIGN_ROUTES[sel]} title={`Lược đồ ${camp.name}`} />
         <Txt size={12} color={c.xanhMuc2} style={{ paddingHorizontal: 16, paddingBottom: 14 }}>
           Mũi tên đỏ: hướng tiến quân của giặc.
         </Txt>
@@ -600,9 +686,9 @@ const Roadmap: React.FC<{ wide: boolean }> = ({ wide }) => {
       extra: (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
           {GAME_TABS.map((t) => (
-            <Chip key={t.id} text={t.label} icon={t.Icon} bg={c.troi5} fg={c.troi} />
+            <Chip key={t.id} text={t.label} icon={t.Icon} bg={c.troi5} fg={c.nhan} />
           ))}
-          <Chip text="Hành Trình Đông A" icon={Compass} bg={c.troi5} fg={c.troi} />
+          <Chip text="Hành Trình Đông A" icon={Compass} bg={c.troi5} fg={c.nhan} />
         </View>
       ),
     },
@@ -617,7 +703,7 @@ const Roadmap: React.FC<{ wide: boolean }> = ({ wide }) => {
         <Panel key={s.title} pad={24} style={{ flex: wide ? 1 : undefined, gap: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <IconTile icon={s.icon} text={18} size={48} />
-            <Txt f="heavy" size={40} color={c.troi4} accessibilityElementsHidden importantForAccessibility="no" style={{ lineHeight: 46 }}>
+            <Txt f="heavy" size={40} color={c.bienXanh} accessibilityElementsHidden importantForAccessibility="no" style={{ lineHeight: 46 }}>
               {`0${i + 1}`}
             </Txt>
           </View>
@@ -667,7 +753,24 @@ const HeroRoster: React.FC<{ wide: boolean }> = ({ wide }) => {
 };
 
 // ---------------------------------------------------------------------- trang chủ
+/** Trang chủ tự quản lý chế độ sáng/tối rồi bọc nội dung trong ThemeContext riêng, nên các màn khác của app không bị ảnh hưởng */
 export default function Home() {
+  const system = useColorScheme();
+  const [mode, setMode] = useState<HomeTheme>(() => readHomeTheme() ?? (system === 'dark' ? 'dark' : 'light'));
+  const theme = useMemo(() => ({ c: PALETTES[mode], dark: mode === 'dark' }), [mode]);
+  const toggleTheme = useCallback(() => {
+    const next: HomeTheme = mode === 'dark' ? 'light' : 'dark';
+    setMode(next);
+    saveHomeTheme(next);
+  }, [mode]);
+  return (
+    <ThemeContext.Provider value={theme}>
+      <HomePage onToggleTheme={toggleTheme} />
+    </ThemeContext.Provider>
+  );
+}
+
+function HomePage({ onToggleTheme }: { onToggleTheme: () => void }) {
   const { c } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -677,17 +780,56 @@ export default function Home() {
   const [who, setWho] = useState<AudienceId>('hoc_sinh');
   useDocumentTitle('Đông A – Nền tảng học Sử game hóa');
 
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const sections = useRef<Record<string, number>>({});
+  const [active, setActive] = useState('home');
+  const [stuck, setStuck] = useState(false);
+  const [showTop, setShowTop] = useState(false);
+
+  const onSection = useCallback((id: string, y: number) => {
+    sections.current[id] = y;
+  }, []);
+
+  /** Theo dõi vị trí cuộn: điều khiển thanh điều hướng (co hẹp, mục đang xem) và nút lên đầu trang */
+  const onScroll = useMemo(
+    () =>
+      Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+        useNativeDriver: false,
+        listener: (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+          const y = e.nativeEvent.contentOffset.y;
+          setStuck(y > 40);
+          setShowTop(y > 560);
+          let current = 'home';
+          for (const n of NAV) {
+            const top = sections.current[n.id];
+            if (top !== undefined && top - 180 <= y) current = n.id;
+          }
+          setActive(current);
+        },
+      }),
+    [scrollY],
+  );
+
+  const getScrollNode = useCallback(() => (scrollRef.current as unknown as { getScrollableNode?: () => HTMLElement | null } | null)?.getScrollableNode?.() ?? null, []);
+  useSmoothScroll(getScrollNode, WEB && !reduce);
+
   const go = (id: string) => {
+    if (id === 'home') {
+      scrollRef.current?.scrollTo({ y: 0, animated: !reduce });
+      return;
+    }
     if (WEB && typeof document !== 'undefined') document.getElementById(id)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   };
 
   return (
-    <Screen maxWidth={100000} pad={0} edges={['top']} contentStyle={{ gap: 0 }}>
-      <Header width={width} go={go} />
+    <View style={{ flex: 1 }}>
+      <PaperBg />
+      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={{ flexGrow: 1 }}>
       <Hero wide={wide} go={go} />
       <Stats wide={wide} />
 
-      <Band id="ba-lan-khang-chien" bg={c.the} wide={wide}>
+      <Band id="ba-lan-khang-chien" onSection={onSection} bg={c.the} wide={wide}>
         <Head eyebrow="Chương trình học" title="Ba lần kháng chiến chống Nguyên – Mông" text="Chọn một cuộc kháng chiến để xem lược đồ, diễn biến chính và các màn chơi." wide={wide} />
         <CampaignExplorer wide={wide} />
         <Txt size={13} color={c.xanhMuc2} center style={{ maxWidth: 760, alignSelf: 'center' }}>
@@ -695,12 +837,12 @@ export default function Home() {
         </Txt>
       </Band>
 
-      <Band id="lo-trinh" sky="blue" cloudTop={c.the} cloudBottom={c.the} wide={wide}>
+      <Band id="lo-trinh" onSection={onSection} sky="blue" cloudTop={c.the} cloudBottom={c.the} wide={wide}>
         <Head light eyebrow="Lộ trình học tập" title="Học qua ba bước, vui như chơi" text="Từ ngày đầu vào lớp đến lúc cùng cả lớp thi đấu, mọi hoạt động đều gắn với kiến thức lịch sử." wide={wide} />
         <Roadmap wide={wide} />
       </Band>
 
-      <Band id="danh-tuong" bg={c.the} wide={wide}>
+      <Band id="danh-tuong" onSection={onSection} bg={c.the} wide={wide}>
         <Head eyebrow="Đội hình nhà Trần" title="Chiêu mộ danh tướng nhà Trần" text="Mỗi nhân vật gắn nhãn nguồn gốc để học sinh phân biệt chính sử với giai thoại và phần sáng tạo của game." wide={wide} />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
           {Object.keys(LORE_LABEL).map((k) => (
@@ -710,7 +852,7 @@ export default function Home() {
         <HeroRoster wide={wide} />
       </Band>
 
-      <Band id="vi-sao" bg={c.troi5} wide={wide}>
+      <Band id="vi-sao" onSection={onSection} bg={c.troi5} wide={wide}>
         <Head eyebrow="Vì sao chọn Đông A" title="Một nền tảng cho cả lớp học" text="Mỗi đối tượng đều có công cụ riêng, nhưng cùng chung một kho kiến thức lịch sử." wide={wide} />
         <Tabs
           label="Chọn đối tượng"
@@ -733,7 +875,7 @@ export default function Home() {
         </View>
       </Band>
 
-      <Band id="de-tai" bg={c.the} wide={wide}>
+      <Band id="de-tai" onSection={onSection} bg={c.the} wide={wide}>
         <Head eyebrow="Về đề tài" title="Nghiên cứu và phát triển" wide={wide} />
         <View style={{ flexDirection: wide ? 'row' : 'column', alignItems: 'stretch', gap: 16 }}>
           <Panel pad={28} style={{ flex: wide ? 1 : undefined, gap: 16 }}>
@@ -780,15 +922,15 @@ export default function Home() {
               <Txt f="semibold" size={14} color={c.xanhMuc2}>
                 Học trên mọi thiết bị:
               </Txt>
-              <Chip text="Trình duyệt web" icon={Monitor} bg={c.troi5} fg={c.troi} />
-              <Chip text="Android" icon={Smartphone} bg={c.troi5} fg={c.troi} />
-              <Chip text="iPhone, iPad" icon={Tablet} bg={c.troi5} fg={c.troi} />
+              <Chip text="Trình duyệt web" icon={Monitor} bg={c.troi5} fg={c.nhan} />
+              <Chip text="Android" icon={Smartphone} bg={c.troi5} fg={c.nhan} />
+              <Chip text="iPhone, iPad" icon={Tablet} bg={c.troi5} fg={c.nhan} />
             </View>
           </View>
         </View>
       </Band>
 
-      <Band id="nha-truong" bg={c.troi5} wide={wide}>
+      <Band id="nha-truong" onSection={onSection} bg={c.troi5} wide={wide}>
         <Head eyebrow="Dành cho nhà trường" title="Cấp tài khoản hàng loạt bằng Excel" wide={wide} />
         <Panel pad={28} style={{ gap: 18 }}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16 }}>
@@ -814,7 +956,7 @@ export default function Home() {
 
       <Band sky="night" cloudTop={c.troi5} wide={wide} gap={16}>
         <View style={{ alignItems: 'center', gap: 16 }}>
-          <Txt f="heavy" size={wide ? 40 : 28} color={c.the} center accessibilityRole="header" style={{ lineHeight: wide ? 48 : 35, letterSpacing: -0.6 }}>
+          <Txt f="heavy" size={wide ? 40 : 28} color={c.trang} center accessibilityRole="header" style={{ lineHeight: wide ? 48 : 35, letterSpacing: -0.6 }}>
             Sẵn sàng ra trận cùng quân dân nhà Trần?
           </Txt>
           <Txt size={17} color={c.troi4} center style={{ maxWidth: 520 }}>
@@ -826,7 +968,7 @@ export default function Home() {
         </View>
       </Band>
 
-      <View style={{ backgroundColor: c.xanhMuc, paddingBottom: insets.bottom }}>
+      <View style={{ backgroundColor: c.dem, paddingBottom: insets.bottom }}>
         <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: wide ? 24 : 8, paddingBottom: 20, gap: 24 }}>
           <View style={{ flexDirection: wide ? 'row' : 'column', gap: wide ? 40 : 24 }}>
             <View style={{ flex: wide ? 1.6 : undefined, gap: 12 }}>
@@ -837,7 +979,7 @@ export default function Home() {
             </View>
             {WEB && (
               <View style={{ flex: wide ? 1 : undefined }}>
-                <Txt f="bold" size={16} color={c.the} accessibilityRole="header">
+                <Txt f="bold" size={16} color={c.trang} accessibilityRole="header">
                   Khám phá
                 </Txt>
                 {NAV.map((n) => (
@@ -846,18 +988,21 @@ export default function Home() {
               </View>
             )}
             <View style={{ flex: wide ? 1 : undefined }}>
-              <Txt f="bold" size={16} color={c.the} accessibilityRole="header">
+              <Txt f="bold" size={16} color={c.trang} accessibilityRole="header">
                 Truy cập
               </Txt>
               <FootLink label="Đăng nhập học tập" onPress={() => router.push('/portal')} />
               <FootLink label="Tải file Excel mẫu" onPress={downloadTemplate} />
             </View>
           </View>
-          <Txt f="medium" size={12} color={c.troi3} center style={{ borderTopWidth: 1, borderTopColor: c.xanhMuc2, paddingTop: 16 }}>
+          <Txt f="medium" size={12} color={c.troi3} center style={{ borderTopWidth: 1, borderTopColor: c.kinhVien, paddingTop: 16 }}>
             © Đông A EDU · Lịch sử và Địa lí – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên
           </Txt>
         </View>
       </View>
-    </Screen>
+      </ScrollView>
+      <Header width={width} scrollY={scrollY} stuck={stuck} active={active} go={go} onToggleTheme={onToggleTheme} />
+      <BackToTop scrollY={scrollY} visible={showTop} onPress={() => go('home')} />
+    </View>
   );
 }
