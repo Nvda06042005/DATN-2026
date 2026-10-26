@@ -293,18 +293,6 @@ export const PixelArt = React.memo<{ art: PixelPaths; width: number; height: num
 ));
 PixelArt.displayName = 'PixelArt';
 
-// ---------------------------------------------------------------------- nền bầu trời (trang chủ)
-/** Cụm mây vẽ từ các hình tròn; gốc ở góc trên trái, rộng khoảng 240, cao khoảng 100 */
-const Cloud: React.FC<{ x: number; y: number; s?: number; fill: string; opacity?: number }> = ({ x, y, s = 1, fill, opacity = 1 }) => (
-  <G transform={`translate(${x} ${y}) scale(${s})`} opacity={opacity} fill={fill}>
-    <Circle cx="62" cy="62" r="34" />
-    <Circle cx="112" cy="42" r="44" />
-    <Circle cx="168" cy="60" r="36" />
-    <Circle cx="206" cy="70" r="26" />
-    <Rect x="28" y="66" width="204" height="30" rx="15" />
-  </G>
-);
-
 // ---------------------------------------------------------------------- bình minh Bạch Đằng (hero trang chủ)
 /** Núi đá vôi tròn đỉnh (cx: tâm, base: chân núi, w: rộng, h: cao) */
 const karst = (cx: number, base: number, w: number, h: number) =>
@@ -373,9 +361,46 @@ const Banner: React.FC<{ x: number; top: number; w?: number; label?: string }> =
   </G>
 );
 
+/** Kỵ binh Mông Cổ phi nước đại, bóng đen cầm giáo có cờ đuôi (gốc ở chân ngựa, quay sang phải) */
+const Horseman: React.FC<{ x: number; y: number; s?: number }> = ({ x, y, s = 1 }) => (
+  <G transform={`translate(${x} ${y}) scale(${s})`} fill="#0d0a16">
+    <Ellipse cx="0" cy="-48" rx="38" ry="15" />
+    <Path d="M26 -54 C40 -74 52 -82 62 -80 L72 -70 C66 -64 56 -62 46 -46 Z" />
+    <Path d="M56 -80 L60 -92 L66 -80 Z" />
+    <Path d="M-36 -52 C-54 -48 -62 -30 -58 -14 C-50 -28 -44 -38 -34 -42 Z" />
+    <Path d="M-26 -38 L-44 -4 L-36 -2 L-16 -36 Z" />
+    <Path d="M-12 -36 L-18 0 L-8 0 L0 -34 Z" />
+    <Path d="M16 -36 L34 -6 L42 -10 L26 -38 Z" />
+    <Path d="M28 -40 L52 -18 L58 -24 L36 -46 Z" />
+    <Path d="M-6 -62 L-2 -92 L10 -92 L12 -62 Z" />
+    <Circle cx="4" cy="-100" r="8" />
+    <Path d="M-6 -104 L4 -128 L14 -104 Z" />
+    <Path d="M14 -80 L66 -152" stroke="#0d0a16" strokeWidth="3" fill="none" />
+    <Path d="M66 -152 L90 -146 L68 -138 Z" />
+  </G>
+);
+
+/** Cổng thành Thăng Long: tường, lầu hai tầng mái cong, cờ hiệu trên đỉnh (gốc ở giữa chân tường) */
+const Citadel: React.FC<{ x: number; y: number; s?: number }> = ({ x, y, s = 1 }) => (
+  <G transform={`translate(${x} ${y}) scale(${s})`} fill="#0a0f22">
+    <Rect x="-130" y="-34" width="260" height="34" />
+    {Array.from({ length: 13 }, (_, i) => (
+      <Rect key={i} x={-130 + i * 20 + 2} y="-42" width="12" height="8" />
+    ))}
+    <Rect x="-44" y="-92" width="88" height="58" />
+    <Path d="M-64 -92 Q0 -122 64 -92 L52 -82 L-52 -82 Z" />
+    <Rect x="-26" y="-134" width="52" height="42" />
+    <Path d="M-46 -134 Q0 -168 46 -134 L36 -124 L-36 -124 Z" />
+    <Circle cx="0" cy="-168" r="4" />
+    <Rect x="-1.5" y="-230" width="3" height="64" />
+    <Path d="M1.5 -230 L42 -220 L1.5 -206 Z" fill="#c1272d" />
+    <Rect x="-8" y="-72" width="16" height="26" fill="#f6c46b" opacity="0.85" />
+  </G>
+);
+
 /**
- * Bình minh trên sông Bạch Đằng (vẽ riêng): trời chàm chuyển đỏ – vàng, mặt trời rực sau núi đá, đoàn thuyền chiến cờ đỏ,
- * bãi cọc, thuyền giặc cháy mắc cọc và cờ phướn trên bờ. Lấp đầy khung cha, canh theo đáy; shade làm tối phía trái để chữ trắng đọc rõ;
+ * Cảnh ba cuộc kháng chiến (vẽ riêng): trời chàm chuyển đỏ – vàng, mặt trời rực sau núi đá; bên trái là cổng thành Thăng Long và kỵ binh Mông Cổ (1258),
+ * ở giữa đoàn thuyền chiến cờ đỏ (1285), bên phải bãi cọc, thuyền giặc cháy mắc cọc và cờ phướn trên bờ (1288). Lấp đầy khung cha, canh theo đáy; shade làm tối phía trái để chữ trắng đọc rõ;
  * fade hòa mép trên vào màu xanh mực của khối chữ nằm liền phía trên (màn hẹp).
  */
 export const EpicBackdrop: React.FC<{ shade?: boolean; fade?: boolean }> = ({ shade = false, fade = false }) => {
@@ -425,6 +450,9 @@ export const EpicBackdrop: React.FC<{ shade?: boolean; fade?: boolean }> = ({ sh
       <Path d={FAR_PEAKS} fill="#4a3f86" opacity="0.6" />
       <Ellipse cx="720" cy={WATER_Y - 4} rx="900" ry="16" fill="#ffffff" opacity="0.07" />
       <Path d={MID_PEAKS} fill="#262c63" opacity="0.92" />
+      <Horseman x={392} y={588} s={0.42} />
+      <Horseman x={436} y={592} s={0.38} />
+      <Horseman x={622} y={590} s={0.4} />
       <Rect x="-600" y={WATER_Y} width="2640" height="400" fill={`url(#r-${gid})`} />
       {[70, 52, 38, 26, 16].map((rx, i) => (
         <Ellipse key={rx} cx={SUN.x} cy={WATER_Y + 18 + i * 34} rx={rx * 2.2} ry="5" fill="#ffd9a0" opacity={0.42 - i * 0.07} />
@@ -440,6 +468,7 @@ export const EpicBackdrop: React.FC<{ shade?: boolean; fade?: boolean }> = ({ sh
         </G>
       ))}
       <Path d="M-600 650 C-200 640 250 660 380 708 C440 732 470 784 486 830 H-600 Z" fill="#0c1228" />
+      <Citadel x={150} y={676} s={0.95} />
       <Path d="M2040 640 C1700 626 1250 640 1150 700 C1110 726 1090 780 1082 830 H2040 Z" fill="#0c1228" />
       <Banner x={1180} top={530} w={100} label="ĐÔNG A" />
       <Banner x={1272} top={474} w={84} />
@@ -449,106 +478,49 @@ export const EpicBackdrop: React.FC<{ shade?: boolean; fade?: boolean }> = ({ sh
   );
 };
 
-/** Ngôi sao bốn cánh lấp lánh */
-const SPARKLE = 'M0 -10 C1.6 -2.6 2.6 -1.6 10 0 C2.6 1.6 1.6 2.6 0 10 C-1.6 2.6 -2.6 1.6 -10 0 C-2.6 -1.6 -1.6 -2.6 0 -10 Z';
-export const Sparkle: React.FC<{ size?: number; color?: string; opacity?: number; style?: StyleProp<ViewStyle> }> = ({ size = 24, color = '#ffffff', opacity = 0.7, style }) => (
-  <View pointerEvents="none" style={[{ position: 'absolute' }, style]}>
-    <Svg width={size} height={size} viewBox="-10 -10 20 20">
-      <Path d={SPARKLE} fill={color} opacity={opacity} />
-    </Svg>
-  </View>
-);
-
-const SPARKLES = [[150, 330, 22], [330, 250, 14], [980, 300, 18], [1110, 410, 30], [610, 120, 12], [1290, 180, 16], [200, 520, 18], [1000, 560, 22], [760, 330, 10]] as const;
-const NIGHT_STARS = (() => {
-  const rnd = lcg(5);
-  return Array.from({ length: 56 }, () => ({ x: rnd() * 1440, y: rnd() * 560, r: 0.8 + rnd() * 1.4, o: 0.3 + rnd() * 0.6 }));
-})();
-const MEADOW = (() => {
-  const rnd = lcg(33);
-  const colors = ['#ffffff', '#ffd23f', '#ff8fb8', '#ffffff'];
-  return Array.from({ length: 70 }, (_, i) => ({ x: rnd() * 1440, y: 835 + rnd() * 60, r: 2 + rnd() * 2.4, fill: colors[i % colors.length] }));
-})();
-const RAINBOW = [['#ff5a5f', 232], ['#ff9f43', 208], ['#ffd93d', 184], ['#6bcf63', 160], ['#4dabf7', 136]] as const;
-
-/** Cây tre: thân có đốt và vài chùm lá, gốc ở (x, y) */
-const Bamboo: React.FC<{ x: number; y: number; h: number; body: string; leaf: string }> = ({ x, y, h, body, leaf }) => (
-  <G>
-    <Rect x={x - 4} y={y - h} width="8" height={h} rx="4" fill={body} />
-    {[0.25, 0.5, 0.75].map((k) => (
-      <Rect key={k} x={x - 5} y={y - h * k} width="10" height="3" rx="1.5" fill="#00000026" />
-    ))}
-    <Ellipse cx={x + 16} cy={y - h + 18} rx="18" ry="5" fill={leaf} transform={`rotate(-28 ${x + 16} ${y - h + 18})`} />
-    <Ellipse cx={x - 16} cy={y - h + 34} rx="18" ry="5" fill={leaf} transform={`rotate(28 ${x - 16} ${y - h + 34})`} />
-    <Ellipse cx={x + 14} cy={y - h + 54} rx="16" ry="4.5" fill={leaf} transform={`rotate(-24 ${x + 14} ${y - h + 54})`} />
-  </G>
-);
-
-/**
- * Nền "trời xanh – đồi cỏ" kiểu Papumba (vẽ riêng): trời xanh tươi (ban đêm có sao ở chế độ tối), mây, sao lấp lánh, cầu vồng,
- * ba tầng đồi cỏ có tre và bụi cây, dòng sông Bạch Đằng với con thuyền buồm đỏ, hoa nhỏ. Lấp đầy khung cha, canh theo đáy.
- */
-export const SunnyHills: React.FC = () => {
-  const { c, dark } = useTheme();
+/** Dải họa tiết sóng nước (seigaiha) làm viền trang trí: nền bg, nét line */
+export const WaveBand: React.FC<{ bg: string; line: string; height?: number }> = ({ bg, line, height = 48 }) => {
   const gid = React.useId().replace(/:/g, '');
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      <Svg width="100%" height="100%" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMax slice">
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" pointerEvents="none" style={{ width: '100%', height, backgroundColor: bg, overflow: 'hidden' }}>
+      <Svg width="100%" height={height}>
         <Defs>
-          <LinearGradient id={`k-${gid}`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="720">
-            <Stop offset="0" stopColor={c.bau} />
-            <Stop offset="0.22" stopColor={c.bau} />
-            <Stop offset="1" stopColor={c.bau2} />
-          </LinearGradient>
+          <Pattern id={`w-${gid}`} width="48" height="24" patternUnits="userSpaceOnUse">
+            <G fill={bg} stroke={line} strokeWidth="1.4">
+              {[[24, 12], [0, 24], [48, 24]].map(([cx, cy]) => (
+                <G key={`${cx}-${cy}`}>
+                  <Circle cx={cx} cy={cy} r="18" />
+                  <Circle cx={cx} cy={cy} r="12" />
+                  <Circle cx={cx} cy={cy} r="6" />
+                </G>
+              ))}
+            </G>
+          </Pattern>
         </Defs>
-        <Rect x="-600" y="-900" width="2640" height="1900" fill={`url(#k-${gid})`} />
-        {dark && NIGHT_STARS.map((t, i) => <Circle key={i} cx={t.x} cy={t.y} r={t.r} fill="#ffffff" opacity={t.o} />)}
-        {SPARKLES.map(([x, y, s], i) => (
-          <Path key={i} d={SPARKLE} transform={`translate(${x} ${y}) scale(${s / 10})`} fill="#ffffff" opacity={dark ? 0.35 : 0.5} />
-        ))}
-        <Cloud x={-60} y={430} s={1.3} fill={c.trang} opacity={dark ? 0.1 : 0.95} />
-        <Cloud x={40} y={230} s={0.62} fill={c.trang} opacity={dark ? 0.08 : 0.9} />
-        <Cloud x={1250} y={120} s={0.7} fill={c.trang} opacity={dark ? 0.08 : 0.9} />
-        <Cloud x={1230} y={360} s={1.15} fill={c.trang} opacity={dark ? 0.1 : 0.95} />
-        <Cloud x={560} y={520} s={0.6} fill={c.trang} opacity={dark ? 0.06 : 0.8} />
-        <G opacity={dark ? 0.4 : 1}>
-          {RAINBOW.map(([color, r]) => (
-            <Path key={color} d={`M${260 - r} 800 A${r} ${r} 0 0 1 ${260 + r} 800`} fill="none" stroke={color} strokeWidth="24" />
-          ))}
-        </G>
-        <Path d="M-100 720 C150 620 380 640 600 700 S980 690 1180 650 S1440 640 1540 680 V900 H-100 Z" fill={c.doi1} />
-        <Bamboo x={1340} y={700} h={190} body={c.doi3} leaf={c.doi2} />
-        <Bamboo x={1368} y={705} h={150} body={c.doi3} leaf={c.doi2} />
-        <Bamboo x={1318} y={706} h={130} body={c.doi3} leaf={c.doi2} />
-        <Path d="M-100 790 C160 700 420 740 640 790 S1000 770 1220 730 S1440 720 1540 760 V900 H-100 Z" fill={c.doi2} />
-        <Circle cx="110" cy="742" r="46" fill={c.doi3} />
-        <Circle cx="160" cy="758" r="34" fill={c.doi3} />
-        <Circle cx="64" cy="764" r="30" fill={c.doi3} />
-        <Path d="M690 772 C730 790 700 822 770 846 C830 868 800 886 840 900 L965 900 C935 880 962 860 912 840 C862 820 884 800 842 782 Z" fill={c.bau2} />
-        <Path d="M710 780 C740 796 718 818 780 840" fill="none" stroke="#ffffff" strokeWidth="3" opacity="0.6" strokeLinecap="round" />
-        <G transform="translate(805 842)">
-          <Path d="M-26 0 L26 0 L18 14 L-18 14 Z" fill="#8a4b2a" />
-          <Rect x="-1.5" y="-40" width="3" height="40" fill="#5c3320" />
-          <Path d="M2 -38 L2 -6 L26 -10 Z" fill="#e0443e" />
-          <Path d="M-2 -34 L-2 -8 L-20 -10 Z" fill="#ffd23f" />
-        </G>
-        <Path d="M-100 870 C200 800 520 830 760 860 S1160 830 1440 850 L1540 860 V900 H-100 Z" fill={c.doi3} />
-        {MEADOW.map((f, i) => (
-          <Circle key={i} cx={f.x} cy={f.y} r={f.r} fill={f.fill} opacity="0.9" />
-        ))}
+        <Rect width="100%" height={height} fill={`url(#w-${gid})`} />
       </Svg>
     </View>
   );
 };
 
-/** Đường viền đồi cỏ uốn lượn đặt ngay phía trên một khối nền (color là màu của khối) để nối mềm với khối trước */
-export const HillEdge: React.FC<{ color: string; height?: number }> = ({ color, height = 90 }) => (
-  <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: -height + 1, height }}>
-    <Svg width="100%" height={height} viewBox="0 0 1440 90" preserveAspectRatio="none">
-      <Path d="M0 90 L0 52 C180 6 360 70 560 44 S940 8 1140 40 S1360 56 1440 30 L1440 90 Z" fill={color} />
-    </Svg>
-  </View>
-);
+/** Ấn đỏ khắc chữ (như dấu triện): ô vuông viền kép nghiêng nhẹ, chữ xuống dòng bằng \n */
+export const Seal: React.FC<{ text: string; size?: number; color?: string; fg?: string }> = ({ text, size = 72, color = '#c1272d', fg = '#fff7e6' }) => {
+  const lines = text.split('\n');
+  const fs = lines.length > 1 ? 24 : 36;
+  return (
+    <View accessible accessibilityRole="image" accessibilityLabel={text.replace('\n', ' ')} style={{ width: size, height: size, transform: [{ rotate: '-6deg' }] }}>
+      <Svg width={size} height={size} viewBox="0 0 100 100">
+        <Rect x="3" y="3" width="94" height="94" rx="10" fill={color} />
+        <Rect x="10" y="10" width="80" height="80" rx="6" fill="none" stroke={fg} strokeWidth="3" />
+        {lines.map((l, i) => (
+          <SvgText key={l} x="50" y={50 + (i - (lines.length - 1) / 2) * 34 + fs * 0.35} textAnchor="middle" fontSize={fs} fontFamily={FONT.displayHeavy} fill={fg}>
+            {l}
+          </SvgText>
+        ))}
+      </Svg>
+    </View>
+  );
+};
 
 /** Dải mây cuộn làm mép chuyển giữa hai vùng nền (flip: mây treo từ mép trên xuống); color là màu vùng nền bên cạnh */
 export const CloudBank: React.FC<{ color: string; flip?: boolean; height?: number }> = ({ color, flip = false, height = 72 }) => {

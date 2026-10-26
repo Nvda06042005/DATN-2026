@@ -1,6 +1,7 @@
 /**
- * Các khối của trang chủ công khai theo phong cách Papumba: trời xanh tươi với chữ trắng khổng lồ, đồi cỏ và linh vật Rồng Con, nav viên thuốc trắng,
- * các khối màu bão hòa xen kẽ, khung máy tính bảng, dải thẻ nghiêng chạy ngang, thẻ lời ông cha nhiều màu, chân trang bãi cỏ.
+ * Các khối của trang chủ công khai: bố cục kiểu Papumba (chữ trắng khổng lồ ở giữa, nav viên thuốc trắng, khối màu bão hòa xen kẽ, khung máy tính bảng,
+ * dải thẻ nghiêng chạy ngang, thẻ lời ông cha nhiều màu) nhưng hình ảnh và màu sắc lấy từ cuộc kháng chiến chống quân Nguyên – Mông thời Trần:
+ * cảnh thành Thăng Long – thuyền chiến – bãi cọc Bạch Đằng, đỏ son, vàng, lam sông, giấy dó, họa tiết sóng nước và ấn đỏ.
  * Nội dung lịch sử đối chiếu Wikipedia tiếng Việt "Chiến tranh Nguyên Mông – Đại Việt" và ba bài chi tiết từng lần; số liệu lấy thẳng từ dữ liệu game.
  * Khối luôn tối/sáng cố định dùng màu `trang`/`dem`; thẻ và chữ dùng màu đổi theo chế độ sáng/tối. Không có liên kết tới hai cổng quản trị.
  */
@@ -14,7 +15,7 @@ import {
   Target, TrendingUp, Trophy, Undo2, Users, WandSparkles, Zap,
 } from 'lucide-react-native';
 import {
-  BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, EpicBackdrop, GradeBadge, HeroMedallion, HillEdge, KahootShape, Mascot, SchematicMap, Sparkle, SunnyHills, VietnamFlag,
+  BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, EpicBackdrop, GradeBadge, HeroMedallion, KahootShape, Mascot, SchematicMap, Seal, VietnamFlag, WaveBand,
   type MascotAccessory,
 } from '@/components/art';
 import { LoreChip } from '@/components/game/quiz';
@@ -86,10 +87,10 @@ const VICTORIES = [
 
 /** Lời ông cha, nguyên văn như trong dữ liệu game (riêng "Đánh!" theo Đại Việt sử ký toàn thư, Wikipedia dẫn lại) */
 const QUOTES = [
-  { text: 'Ta thà làm quỷ nước Nam, chứ không thèm làm vương đất Bắc!', who: 'Trần Bình Trọng', note: 'khi bị giặc bắt và dụ hàng, 1285', bg: '#ffb3d1' },
+  { text: 'Ta thà làm quỷ nước Nam, chứ không thèm làm vương đất Bắc!', who: 'Trần Bình Trọng', note: 'khi bị giặc bắt và dụ hàng, 1285', bg: '#f6b8a8' },
   { text: 'Đầu thần chưa rơi xuống đất, xin bệ hạ đừng lo!', who: 'Trần Thủ Độ', note: 'trước thế giặc mạnh, 1258', bg: '#ffd84d' },
-  { text: 'Phá cường địch, báo hoàng ân', who: 'Trần Quốc Toản', note: 'sáu chữ vàng thêu trên lá cờ của ông, 1285', bg: '#a6e36a' },
-  { text: 'Đánh!', who: 'Các bô lão', note: 'cùng đáp “như từ một miệng” ở Hội nghị Diên Hồng', bg: '#8fd0ff' },
+  { text: 'Phá cường địch, báo hoàng ân', who: 'Trần Quốc Toản', note: 'sáu chữ vàng thêu trên lá cờ của ông, 1285', bg: '#bfe3a4' },
+  { text: 'Đánh!', who: 'Các bô lão', note: 'cùng đáp “như từ một miệng” ở Hội nghị Diên Hồng', bg: '#a9d4ee' },
 ] as const;
 
 type AudienceId = 'hoc_sinh' | 'giao_vien' | 'nha_truong';
@@ -152,15 +153,15 @@ const Ico: React.FC<{ icon: IconType; text: number; color: string }> = ({ icon: 
 );
 
 /** Vòng tròn màu chứa biểu tượng lớn (kiểu huy hiệu của Papumba); cỡ biểu tượng bằng 0,45 cỡ vòng */
-const Badge: React.FC<{ icon: IconType; color: string; size?: number }> = ({ icon: Icon, color, size = 104 }) => {
+const Badge: React.FC<{ icon: IconType; color: string; size?: number; fg?: string; ring?: string }> = ({ icon: Icon, color, size = 104, fg, ring }) => {
   const { c } = useTheme();
   return (
     <View
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: color, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: c.trang }, shadow(c, 'sm')]}
+      style={[{ width: size, height: size, borderRadius: size / 2, backgroundColor: color, alignItems: 'center', justifyContent: 'center', borderWidth: 4, borderColor: ring ?? c.trang }, shadow(c, 'sm')]}
     >
-      <Icon size={Math.round(size * 0.45)} color={c.trang} strokeWidth={1.75} />
+      <Icon size={Math.round(size * 0.45)} color={fg ?? c.trang} strokeWidth={1.75} />
     </View>
   );
 };
@@ -197,8 +198,8 @@ const Panel: React.FC<{ children: React.ReactNode; pad?: number; style?: StylePr
   return <View style={[{ backgroundColor: c.the, borderRadius: 28, borderWidth: 1, borderColor: c.bienXanh, padding: pad }, shadow(c, 'sm'), style]}>{children}</View>;
 };
 
-/** den/trang dùng trên nền màu (nút đen, nút trắng như huy hiệu cửa hàng); cam/son/xanh dùng trên thẻ */
-type CtaTone = 'den' | 'trang' | 'cam' | 'son' | 'xanh';
+/** den/trang dùng trên nền màu (nút đen, nút trắng như huy hiệu cửa hàng); son/xanh dùng trên thẻ */
+type CtaTone = 'den' | 'trang' | 'son' | 'xanh';
 
 /** Nút viên thuốc bo tròn, cao tối thiểu 44 */
 const Cta: React.FC<{ title: string; onPress: () => void; tone?: CtaTone; icon?: IconType; arrow?: boolean; lg?: boolean; label?: string; testID?: string }> = ({
@@ -208,7 +209,6 @@ const Cta: React.FC<{ title: string; onPress: () => void; tone?: CtaTone; icon?:
   const t = {
     den: { bg: c.den, fg: c.trang, bd: c.kinhVien },
     trang: { bg: c.trang, fg: c.dem, bd: c.trang },
-    cam: { bg: c.cam, fg: c.trang, bd: c.cam },
     son: { bg: c.son, fg: c.trang, bd: c.son },
     xanh: { bg: c.xanhMuc, fg: c.the, bd: c.xanhMuc },
   }[tone];
@@ -239,12 +239,11 @@ const Cta: React.FC<{ title: string; onPress: () => void; tone?: CtaTone; icon?:
   );
 };
 
-/** Dải toàn chiều rộng; hillEdge = đường đồi cỏ uốn lượn nối lên khối phía trên, cloudTop/cloudBottom = màu khối liền kề để vẽ mây chuyển */
+/** Dải toàn chiều rộng; cloudTop/cloudBottom = màu khối liền kề để vẽ dải sóng/mây chuyển */
 const Band: React.FC<{
-  id?: string; bg?: string; hillEdge?: string; cloudTop?: string; cloudBottom?: string; wide: boolean; gap?: number; onSection?: (id: string, y: number) => void; children: React.ReactNode;
-}> = ({ id, bg, hillEdge, cloudTop, cloudBottom, wide, gap = 32, onSection, children }) => (
+  id?: string; bg?: string; cloudTop?: string; cloudBottom?: string; wide: boolean; gap?: number; onSection?: (id: string, y: number) => void; children: React.ReactNode;
+}> = ({ id, bg, cloudTop, cloudBottom, wide, gap = 32, onSection, children }) => (
   <View id={id} onLayout={id && onSection ? (e) => onSection(id, e.nativeEvent.layout.y) : undefined} style={[{ width: '100%', backgroundColor: bg }, id ? ANCHOR : null]}>
-    {hillEdge && <HillEdge color={hillEdge} />}
     {cloudTop && <CloudBank color={cloudTop} flip />}
     <View
       style={{
@@ -383,7 +382,7 @@ export const Header: React.FC<{ width: number; scrollY: Animated.Value; stuck: b
                   onPress={() => go(n.id)}
                   style={{ minHeight: 44, paddingHorizontal: 16, justifyContent: 'center' }}
                 >
-                  <Txt f="bold" size={15} color={on ? c.hoaChu : c.xanhMuc}>
+                  <Txt f="bold" size={15} color={on ? c.sonChu : c.xanhMuc}>
                     {n.short}
                   </Txt>
                 </Pressable>
@@ -437,22 +436,29 @@ export const BackToTop: React.FC<{ scrollY: Animated.Value; visible: boolean; on
 };
 
 // ---------------------------------------------------------------------- hero
-/** Hero: trời xanh tươi, tiêu đề trắng khổng lồ, hai nút trắng, đồi cỏ với Rồng Con đội mũ trụ, cầu vồng, dòng sông Bạch Đằng */
+/**
+ * Hero: cảnh ba cuộc kháng chiến (thành Thăng Long và kỵ binh Mông Cổ 1258, thuyền chiến 1285, bãi cọc Bạch Đằng 1288) dưới tiêu đề trắng khổng lồ kiểu Papumba,
+ * hai nút trắng và ba mốc năm bấm được. Màn hẹp: chữ ở trên, cảnh ở dưới.
+ */
 const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wide, go }) => {
   const { c } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
-  const minH = Math.min(Math.max(wide ? 780 : 800, height), 1000);
+  const minH = Math.min(Math.max(wide ? 780 : 640, height), 1000);
+  const h1 = wide ? 96 : 50;
   return (
-    <View style={{ width: '100%', minHeight: minH, backgroundColor: c.bau, overflow: 'hidden' }}>
-      <SunnyHills />
-      <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: insets.top + HEADER_SPACE + (wide ? 36 : 16), alignItems: 'center', gap: 20 }}>
-        <Txt f="heavy" size={wide ? 96 : 50} color={c.trang} center accessibilityRole="header" style={{ lineHeight: wide ? 100 : 54, letterSpacing: wide ? -3.6 : -1.8 }}>
-          Học Sử vui như{'\n'}chơi game
+    <View style={{ width: '100%', minHeight: wide ? minH : undefined, backgroundColor: c.dem, overflow: 'hidden' }}>
+      {wide && <EpicBackdrop />}
+      <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: insets.top + HEADER_SPACE + (wide ? 36 : 16), paddingBottom: wide ? 0 : 24, alignItems: 'center', gap: 20 }}>
+        <Txt f="heavy" size={h1} color={c.trang} center accessibilityRole="header" style={{ lineHeight: wide ? 100 : 54, letterSpacing: wide ? -3.6 : -1.8 }}>
+          Sống lại{'\n'}
+          <Txt f="heavy" size={h1} color={c.vang} style={{ lineHeight: wide ? 100 : 54, letterSpacing: wide ? -3.6 : -1.8 }}>
+            hào khí Đông A
+          </Txt>
         </Txt>
-        <Txt f="bold" size={wide ? 26 : 19} color={c.trang} center style={{ lineHeight: wide ? 34 : 26, maxWidth: 760 }}>
-          ba lần kháng chiến chống Nguyên – Mông, hào khí Đông A
+        <Txt f="bold" size={wide ? 24 : 18} color={c.trang} center style={{ lineHeight: wide ? 32 : 25, maxWidth: 780 }}>
+          Nền tảng học tập game hóa về ba lần kháng chiến chống quân Nguyên – Mông thời Trần
         </Txt>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
           <Cta title="Vào học ngay" tone="trang" icon={LogIn} lg onPress={() => router.push('/portal')} testID="home-portal" />
@@ -460,22 +466,39 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
         </View>
         <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 999, backgroundColor: c.the }, shadow(c, 'sm')]}>
           <Ico icon={ShieldCheck} text={14} color={c.nhan} />
-          <Txt f="semibold" size={14} color={c.xanhMuc}>
+          <Txt f="semibold" size={14} color={c.xanhMuc} style={{ flexShrink: 1 }}>
             Tài khoản do nhà trường cấp · Học trên web, Android và iOS
           </Txt>
         </View>
       </View>
-      <View style={{ position: 'absolute', right: wide ? '9%' : -4, bottom: '7%' }} pointerEvents="none">
-        <Mascot size={wide ? 270 : 168} accessory="helmet" mood="excited" bob title="Rồng Con đội mũ trụ" />
+      {!wide && (
+        <View style={{ width: '100%', aspectRatio: 1.5 }}>
+          <EpicBackdrop fade />
+        </View>
+      )}
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: wide ? 32 : 14, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: wide ? 18 : 8, paddingHorizontal: 12 }}>
+        {VICTORIES.map((v) => (
+          <Pressable
+            key={v.year}
+            onPress={() => go('khang-chien')}
+            accessibilityRole="button"
+            accessibilityLabel={`${v.war}, năm ${v.year}: ${v.place}`}
+            style={({ pressed }) => [
+              { minHeight: 48, paddingHorizontal: wide ? 20 : 14, paddingVertical: 6, borderRadius: 999, backgroundColor: c.kinh, borderWidth: 1, borderColor: c.kinhVien, flexDirection: 'row', alignItems: 'center', gap: wide ? 12 : 6, opacity: pressed ? 0.8 : 1 },
+              GLASS,
+            ]}
+          >
+            <Txt f="heavy" size={wide ? 22 : 17} color={c.vang}>
+              {v.year}
+            </Txt>
+            {wide && (
+              <Txt f="semibold" size={14} color={c.trang}>
+                {v.place}
+              </Txt>
+            )}
+          </Pressable>
+        ))}
       </View>
-      <Pressable
-        onPress={() => go('thong-ke')}
-        accessibilityRole="button"
-        accessibilityLabel="Cuộn xuống"
-        style={{ position: 'absolute', bottom: 22, alignSelf: 'center', width: 52, height: 52, borderRadius: 26, backgroundColor: c.den, alignItems: 'center', justifyContent: 'center' }}
-      >
-        <ArrowDown size={iconPx(15)} color={c.trang} strokeWidth={2} />
-      </Pressable>
     </View>
   );
 };
@@ -485,17 +508,17 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
 const StatsSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
   const items: Array<{ icon: IconType; color: string; value: number; title: string; text: string }> = [
-    { icon: Swords, color: c.bau, value: CAMPAIGNS.length, title: 'cuộc kháng chiến', text: '1258 · 1285 · 1287 – 1288' },
-    { icon: Target, color: c.cam, value: PHASES.length, title: 'màn chiến dịch', text: 'Từ Bình Lệ đến Bạch Đằng' },
-    { icon: ShieldHalf, color: c.coDam, value: HEROES.length, title: 'tướng và binh đoàn', text: 'Chiêu mộ và tiến hóa' },
-    { icon: MapPinned, color: c.tim, value: Object.keys(MAP_PLACES).length, title: 'địa danh lịch sử', text: 'Lược đồ thời Trần' },
+    { icon: Swords, color: c.son, value: CAMPAIGNS.length, title: 'cuộc kháng chiến', text: '1258 · 1285 · 1287 – 1288' },
+    { icon: Target, color: c.vang, value: PHASES.length, title: 'màn chiến dịch', text: 'Từ Bình Lệ đến Bạch Đằng' },
+    { icon: ShieldHalf, color: c.thuy, value: HEROES.length, title: 'tướng và binh đoàn', text: 'Chiêu mộ và tiến hóa' },
+    { icon: MapPinned, color: c.moc, value: Object.keys(MAP_PLACES).length, title: 'địa danh lịch sử', text: 'Lược đồ thời Trần' },
   ];
   return (
     <Band id="thong-ke" bg={c.xam} wide={wide} onSection={onSection} gap={0}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 40 }}>
         {items.map((s) => (
           <View key={s.title} accessible accessibilityLabel={`${s.value} ${s.title}. ${s.text}`} style={{ width: wide ? 230 : 150, alignItems: 'center', gap: 6 }}>
-            <Badge icon={s.icon} color={s.color} size={wide ? 128 : 92} />
+            <Badge icon={s.icon} color={s.color} size={wide ? 128 : 92} fg={s.color === c.vang ? c.dem : undefined} />
             <Txt f="heavy" size={wide ? 64 : 44} color={c.xanhMuc} center style={{ lineHeight: wide ? 70 : 50, letterSpacing: -1.5, marginTop: 6 }}>
               {s.value}
             </Txt>
@@ -515,7 +538,7 @@ const StatsSection: React.FC<{ wide: boolean; onSection: (id: string, y: number)
 /** Khối vàng sọc có khung "tivi" đựng cảnh Bạch Đằng (không có nút phát vì chưa có video) */
 const SceneSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c, dark } = useTheme();
-  const [a, b] = dark ? ['#5a4300', '#4d3900'] : ['#ffc41f', '#ffb800'];
+  const [a, b] = dark ? ['#4a0f0f', '#420d0d'] : ['#b91c1c', '#a51818'];
   return (
     <View id="canh-game" onLayout={(e) => onSection('canh-game', e.nativeEvent.layout.y)} style={{ width: '100%', backgroundColor: a, overflow: 'hidden' }}>
       <View pointerEvents="none" style={{ ...StyleSheet.absoluteFill, flexDirection: 'row' }}>
@@ -524,8 +547,8 @@ const SceneSection: React.FC<{ wide: boolean; onSection: (id: string, y: number)
         ))}
       </View>
       <View style={{ width: '100%', maxWidth: 920, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: wide ? 80 : 48, gap: 22, alignItems: 'center' }}>
-        <Tag center text="Một cảnh trong game" bg={c.cam} size={wide ? 26 : 20} />
-        <View style={[{ width: '100%', aspectRatio: wide ? 16 / 9 : 4 / 3, borderRadius: wide ? 36 : 24, borderWidth: wide ? 14 : 8, borderColor: c.cam, overflow: 'hidden', backgroundColor: c.dem }, shadow(c, 'lg')]}>
+        <Tag center text="Một cảnh trong game" bg={c.vang} fg={c.dem} size={wide ? 26 : 20} />
+        <View style={[{ width: '100%', aspectRatio: wide ? 16 / 9 : 4 / 3, borderRadius: wide ? 36 : 24, borderWidth: wide ? 14 : 8, borderColor: c.vang, overflow: 'hidden', backgroundColor: c.dem }, shadow(c, 'lg')]}>
           <EpicBackdrop />
           <View style={{ position: 'absolute', left: 16, bottom: 16, right: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             <Chip text="Chiến dịch 3 · Bạch Đằng" icon={Swords} bg={c.trang} fg={c.dem} />
@@ -540,7 +563,7 @@ const SceneSection: React.FC<{ wide: boolean; onSection: (id: string, y: number)
 /** Ba huy hiệu đại thắng lớn (thay cho dải giải thưởng của Papumba) */
 const VictoriesSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
-  const colors = [c.cam, c.coDam, c.bau];
+  const colors = [c.son, c.vang, c.thuy];
   return (
     <Band id="dai-thang" bg={c.the} wide={wide} onSection={onSection}>
       <Head title="Ba lần đại thắng" text="Quân dân nhà Trần ba lần đánh bại quân xâm lược Mông – Nguyên, từ năm 1258 đến năm 1288." wide={wide} />
@@ -552,12 +575,12 @@ const VictoriesSection: React.FC<{ wide: boolean; onSection: (id: string, y: num
             accessibilityLabel={`${v.war}, năm ${v.year}: thắng ở ${v.place}. ${v.result}`}
             style={{ width: wide ? 330 : '100%', alignItems: 'center', gap: 10, paddingHorizontal: 8 }}
           >
-            <View style={[{ width: 152, height: 152, borderRadius: 76, backgroundColor: colors[i], alignItems: 'center', justifyContent: 'center', borderWidth: 6, borderColor: c.vang }, shadow(c, 'sm')]}>
-              <Txt f="heavy" size={46} color={c.trang} style={{ lineHeight: 52, letterSpacing: -1 }}>
+            <View style={[{ width: 152, height: 152, borderRadius: 76, backgroundColor: colors[i], alignItems: 'center', justifyContent: 'center', borderWidth: 6, borderColor: i === 1 ? c.son : c.vang }, shadow(c, 'sm')]}>
+              <Txt f="heavy" size={46} color={i === 1 ? c.dem : c.trang} style={{ lineHeight: 52, letterSpacing: -1 }}>
                 {v.year}
               </Txt>
             </View>
-            <Txt f="bold" size={13} color={c.hoaChu} upper center>
+            <Txt f="bold" size={13} color={c.sonChu} upper center>
               {v.war}
             </Txt>
             <Txt f="heavy" size={26} color={c.xanhMuc} center style={{ lineHeight: 31 }}>
@@ -576,7 +599,7 @@ const VictoriesSection: React.FC<{ wide: boolean; onSection: (id: string, y: num
 /** Dải thẻ nghiêng chạy ngang: chín màn chiến dịch (thay cho dải bìa game của Papumba) */
 const PhaseMarquee: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
-  const colors = [c.cam, c.coDam, c.bau];
+  const colors = [c.son, c.vang, c.thuy];
   return (
     <View id="chin-man" onLayout={(e) => onSection('chin-man', e.nativeEvent.layout.y)} style={{ width: '100%', backgroundColor: c.xam, paddingVertical: wide ? 80 : 48, gap: 20 }}>
       <View style={{ paddingHorizontal: 16 }}>
@@ -589,10 +612,10 @@ const PhaseMarquee: React.FC<{ wide: boolean; onSection: (id: string, y: number)
             style={[{ width: 270, marginRight: 22, marginVertical: 22, borderRadius: 28, overflow: 'hidden', backgroundColor: c.the, transform: [{ rotate: i % 2 ? '2.5deg' : '-2.5deg' }] }, shadow(c, 'sm')]}
           >
             <View style={{ backgroundColor: colors[p.campaign - 1], padding: 18, gap: 4 }}>
-              <Txt f="bold" size={13} color={c.trang} upper>
+              <Txt f="bold" size={13} color={p.campaign === 2 ? c.dem : c.trang} upper>
                 {`Lần ${p.campaign} · ${p.date}`}
               </Txt>
-              <Txt f="heavy" size={26} color={c.trang} style={{ lineHeight: 31 }}>
+              <Txt f="heavy" size={26} color={p.campaign === 2 ? c.dem : c.trang} style={{ lineHeight: 31 }}>
                 {p.name}
               </Txt>
             </View>
@@ -611,11 +634,11 @@ const PhaseMarquee: React.FC<{ wide: boolean; onSection: (id: string, y: number)
 // ---------------------------------------------------------------------- khối xanh: khám phá mọi lúc, mọi nơi
 type ShowId = 'choi' | 'kham-pha' | 'hoi-dap' | 'on-tap';
 
-const SHOWCASE: Array<{ id: ShowId; label: string; icon: IconType; color: 'coDam' | 'cam' | 'tim' | 'hong'; text: string }> = [
-  { id: 'choi', label: 'Chơi', icon: Joystick, color: 'coDam', text: 'Thu lương thảo ở Điền Trang, chiêu mộ danh tướng rồi bày trận đánh các màn chiến dịch – mỗi sức mạnh đều đến từ một câu trả lời đúng.' },
-  { id: 'kham-pha', label: 'Khám phá', icon: Compass, color: 'cam', text: 'Đi khắp làng pixel của Hành Trình Đông A, trò chuyện với dân làng, thu cuộn sử và lần theo lược đồ Đại Việt thời Trần.' },
-  { id: 'hoi-dap', label: 'Hỏi đáp', icon: MessageSquareText, color: 'tim', text: 'Hỏi Quân Sư AI bất cứ điều gì về ba lần kháng chiến; câu trả lời dựa trên kho kiến thức sử liệu của đề tài.' },
-  { id: 'on-tap', label: 'Ôn tập', icon: School, color: 'hong', text: 'Tháp Khảo Thí 10 tầng và thẻ Sử Ký giúp ôn từ nhận biết đến vận dụng; hệ thống ghi nhận mức nắm vững để gợi ý câu hỏi tiếp theo.' },
+const SHOWCASE: Array<{ id: ShowId; label: string; icon: IconType; color: 'son' | 'vang' | 'moc' | 'trang'; text: string }> = [
+  { id: 'choi', label: 'Chơi', icon: Joystick, color: 'son', text: 'Thu lương thảo ở Điền Trang, chiêu mộ danh tướng rồi bày trận đánh các màn chiến dịch – mỗi sức mạnh đều đến từ một câu trả lời đúng.' },
+  { id: 'kham-pha', label: 'Khám phá', icon: Compass, color: 'vang', text: 'Đi khắp làng pixel của Hành Trình Đông A, trò chuyện với dân làng, thu cuộn sử và lần theo lược đồ Đại Việt thời Trần.' },
+  { id: 'hoi-dap', label: 'Hỏi đáp', icon: MessageSquareText, color: 'moc', text: 'Hỏi Quân Sư AI bất cứ điều gì về ba lần kháng chiến; câu trả lời dựa trên kho kiến thức sử liệu của đề tài.' },
+  { id: 'on-tap', label: 'Ôn tập', icon: School, color: 'trang', text: 'Tháp Khảo Thí 10 tầng và thẻ Sử Ký giúp ôn từ nhận biết đến vận dụng; hệ thống ghi nhận mức nắm vững để gợi ý câu hỏi tiếp theo.' },
 ];
 
 /** Màn chơi minh họa: sông Bạch Đằng, tướng ta bên trái, tướng giặc bên phải, bảng câu hỏi bốn ô màu (đỏ ▲, lam ◆, vàng ●, lục ■ như trong game) ở dưới */
@@ -770,8 +793,6 @@ const ShowcaseSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
   const color = c[cur.color];
   return (
     <Band id="kham-pha" bg={c.bau} cloudTop={c.xam} cloudBottom={c.the} wide={wide} onSection={onSection}>
-      <Sparkle size={30} style={{ top: 120, left: '14%' }} />
-      <Sparkle size={20} style={{ top: 180, right: '16%' }} />
       <Head light title="Nơi học sinh khám phá lịch sử mọi lúc, mọi nơi!" wide={wide} />
       <View accessibilityRole="tablist" accessibilityLabel="Chọn tính năng" style={{ flexDirection: 'row', justifyContent: 'center', gap: wide ? 28 : 14 }}>
         {SHOWCASE.map((s) => {
@@ -786,7 +807,7 @@ const ShowcaseSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
               style={{ alignItems: 'center', gap: 8, minWidth: 64, opacity: on ? 1 : 0.78 }}
             >
               <View style={[{ transform: [{ scale: on ? 1.12 : 1 }] }]}>
-                <Badge icon={s.icon} color={c[s.color]} size={wide ? 84 : 62} />
+                <Badge icon={s.icon} color={c[s.color]} size={wide ? 84 : 62} fg={s.color === 'vang' || s.color === 'trang' ? c.dem : undefined} />
               </View>
               <Txt f="heavy" size={wide ? 17 : 14} color={c.trang} center>
                 {s.label}
@@ -804,7 +825,7 @@ const ShowcaseSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
         </Tablet>
       </View>
       <View style={{ alignItems: 'center', gap: 12 }}>
-        <Tag center text={cur.label} bg={color} fg={cur.color === 'hong' ? c.dem : c.trang} size={wide ? 26 : 20} />
+        <Tag center text={cur.label} bg={color} fg={cur.color === 'vang' || cur.color === 'trang' ? c.dem : c.trang} size={wide ? 26 : 20} />
         <Txt f="medium" size={wide ? 20 : 17} color={c.trang} center style={{ maxWidth: 640, lineHeight: wide ? 29 : 25 }}>
           {cur.text}
         </Txt>
@@ -835,7 +856,7 @@ const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
   const [sel, setSel] = useState<1 | 2 | 3>(1);
   const camp = CAMPAIGNS[sel - 1];
   const facts = CAMPAIGN_FACTS[sel];
-  const look = { accent: c.nhan, soft: c.troi5 };
+  const look = { accent: c.sonChu, soft: c.sonNhat };
   const phases = PHASES.filter((p) => p.campaign === sel);
   return (
     <View style={{ flexDirection: wide ? 'row' : 'column', alignItems: 'flex-start', gap: 24 }}>
@@ -1006,15 +1027,26 @@ const QuotesSection: React.FC<{ wide: boolean; onSection: (id: string, y: number
           </View>
         ))}
       </View>
+      <Panel pad={24} style={{ flexDirection: wide ? 'row' : 'column', alignItems: 'center', gap: 20, maxWidth: 860, width: '100%', alignSelf: 'center' }}>
+        <Seal text={'ĐÔNG\nA'} size={wide ? 96 : 72} />
+        <View style={{ flex: wide ? 1 : undefined, gap: 6 }}>
+          <Txt f="heavy" size={22} color={c.xanhMuc} center={!wide} style={{ lineHeight: 28 }}>
+            Hào khí Đông A là gì?
+          </Txt>
+          <Txt size={15} color={c.xanhMuc2} center={!wide} style={{ lineHeight: 23 }}>
+            Là khí phách hào hùng, lòng tự hào dân tộc và sự đồng lòng từ vua đến dân của thời Trần. Tên gọi còn được giải thích bằng cách chiết tự chữ “Trần” thành “Đông” và “A”.
+          </Txt>
+        </View>
+      </Panel>
     </Band>
   );
 };
 
 // ---------------------------------------------------------------------- dành cho ai, đề tài, nhà trường
-const AUDIENCE_CARDS: Array<{ id: AudienceId; title: string; tag: string; color: 'cam' | 'bau' | 'tim'; cta: string }> = [
-  { id: 'hoc_sinh', title: 'Dành cho học sinh', tag: 'Học sinh', color: 'cam', cta: 'Vào học ngay' },
-  { id: 'giao_vien', title: 'Dành cho giáo viên', tag: 'Giáo viên', color: 'bau', cta: 'Đăng nhập giáo viên' },
-  { id: 'nha_truong', title: 'Dành cho nhà trường', tag: 'Nhà trường', color: 'tim', cta: 'Tải file Excel mẫu' },
+const AUDIENCE_CARDS: Array<{ id: AudienceId; title: string; tag: string; color: 'son' | 'thuy' | 'moc'; cta: string }> = [
+  { id: 'hoc_sinh', title: 'Dành cho học sinh', tag: 'Học sinh', color: 'son', cta: 'Vào học ngay' },
+  { id: 'giao_vien', title: 'Dành cho giáo viên', tag: 'Giáo viên', color: 'thuy', cta: 'Đăng nhập giáo viên' },
+  { id: 'nha_truong', title: 'Dành cho nhà trường', tag: 'Nhà trường', color: 'moc', cta: 'Tải file Excel mẫu' },
 ];
 
 /** Ba thẻ lớn trên nền đồi cỏ (kiểu "Resources for Parents/Teachers" của Papumba) */
@@ -1022,11 +1054,11 @@ const AudienceSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
   const { c } = useTheme();
   const router = useRouter();
   return (
-    <Band id="vi-sao" bg={c.doi2} hillEdge={c.doi2} wide={wide} onSection={onSection}>
-      <View style={{ position: 'absolute', right: wide ? '8%' : 8, top: wide ? -56 : -30 }} pointerEvents="none">
+    <Band id="vi-sao" bg={c.son} cloudTop={c.the} wide={wide} onSection={onSection}>
+      <View style={{ position: 'absolute', right: wide ? '8%' : 8, top: wide ? 20 : 4 }} pointerEvents="none">
         <Mascot size={wide ? 120 : 76} accessory="none" mood="happy" bob title="Rồng Con" />
       </View>
-      <Head title="Một nền tảng cho cả lớp học" text="Mỗi đối tượng đều có công cụ riêng, nhưng cùng chung một kho kiến thức lịch sử." wide={wide} />
+      <Head light title="Một nền tảng cho cả lớp học" text="Mỗi đối tượng đều có công cụ riêng, nhưng cùng chung một kho kiến thức lịch sử." wide={wide} />
       <View style={{ flexDirection: wide ? 'row' : 'column', gap: 18, alignItems: 'stretch' }}>
         {AUDIENCE_CARDS.map((a) => (
           <View key={a.id} style={[{ flex: wide ? 1 : undefined, backgroundColor: c.the, borderRadius: 32, padding: 24, gap: 16 }, shadow(c, 'lg')]}>
@@ -1059,7 +1091,7 @@ const AudienceSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
 
 const ThesisSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
-  const tones = [c.bau, c.cam, c.coDam, c.tim, c.bau, c.cam];
+  const tones = [c.son, c.thuy, c.moc, c.hoa, c.son, c.thuy];
   return (
     <Band id="de-tai" bg={c.xam} wide={wide} onSection={onSection}>
       <Head title="Về đề tài nghiên cứu" wide={wide} />
@@ -1180,20 +1212,18 @@ const FootLink: React.FC<{ label: string; onPress: () => void }> = ({ label, onP
   );
 };
 
-/** Chân trang: nhãn cam "Đến giờ học Sử rồi!" trên trời xanh, các cột liên kết, bãi cỏ có bốn Rồng Con, dải trắng với logo */
+/** Chân trang: dải sóng nước đỏ vàng, ấn đỏ "Đông A", nhãn vàng "Đến giờ học Sử rồi!", các cột liên kết, bốn Rồng Con, dải trắng với logo */
 const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wide, go }) => {
   const { c } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   return (
-    <View style={{ width: '100%', backgroundColor: c.bau }}>
-      <HillEdge color={c.bau} />
-      <View style={{ ...StyleSheet.absoluteFill, overflow: 'hidden' }}>
-        <SunnyHills />
-      </View>
-      <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: wide ? 80 : 56, minHeight: wide ? 700 : 760, gap: 28 }}>
-        <View style={{ alignItems: 'center' }}>
-          <Tag center text="Đến giờ học Sử rồi!" bg={c.cam} size={wide ? 44 : 28} rotate={-2} />
+    <View style={{ width: '100%', backgroundColor: c.dem }}>
+      <WaveBand bg={c.son} line={c.vang} />
+      <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: wide ? 64 : 44, paddingBottom: wide ? 36 : 24, gap: 28 }}>
+        <View style={{ alignItems: 'center', gap: 16 }}>
+          <Seal text={'ĐÔNG\nA'} size={wide ? 84 : 64} />
+          <Tag center text="Đến giờ học Sử rồi!" bg={c.vang} fg={c.dem} size={wide ? 44 : 28} rotate={-2} />
         </View>
         <View style={{ flexDirection: wide ? 'row' : 'column', gap: wide ? 48 : 12, justifyContent: 'center', alignItems: wide ? 'flex-start' : 'center' }}>
           {WEB && (
@@ -1208,12 +1238,13 @@ const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ 
             <FootLink label="Tải file Excel mẫu" onPress={downloadTemplate} />
           </View>
         </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: wide ? 24 : 6 }} pointerEvents="none">
+          {CAST.map((m, i) => (
+            <Mascot key={m.accessory} size={wide ? 140 : 76} accessory={m.accessory} mood={m.mood} bob={i % 2 === 1} title={`Rồng Con ${m.accessory}`} />
+          ))}
+        </View>
       </View>
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 76, flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: wide ? 24 : 6 }} pointerEvents="none">
-        {CAST.map((m, i) => (
-          <Mascot key={m.accessory} size={wide ? 150 : 78} accessory={m.accessory} mood={m.mood} bob={i % 2 === 1} title={`Rồng Con ${m.accessory}`} />
-        ))}
-      </View>
+      <WaveBand bg={c.son} line={c.vang} height={24} />
       <View style={{ backgroundColor: c.the, paddingBottom: insets.bottom }}>
         <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 18, flexDirection: wide ? 'row' : 'column', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <BrandLogo />
