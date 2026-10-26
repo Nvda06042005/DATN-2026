@@ -683,16 +683,6 @@ export default function Home() {
 
   return (
     <Screen maxWidth={100000} pad={0} edges={['top']} contentStyle={{ gap: 0 }}>
-      <View style={{ backgroundColor: c.xanhMuc }}>
-        <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <View style={{ flexShrink: 0 }}>
-            <Ico icon={GraduationCap} text={13} color={c.troi3} />
-          </View>
-          <Txt f="medium" size={13} color={c.the} center style={{ flexShrink: 1 }}>
-            Đề tài khóa luận · Nghiên cứu và phát triển nền tảng học tập game hóa hỗ trợ khám phá lịch sử ba lần kháng chiến chống Nguyên – Mông thời Trần
-          </Txt>
-        </View>
-      </View>
       <Header width={width} go={go} />
       <Hero wide={wide} go={go} />
       <Stats wide={wide} />
