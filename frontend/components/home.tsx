@@ -25,7 +25,8 @@ import { CAMPAIGNS, CAMPAIGN_ROUTES, PHASES } from '@/constants/campaigns';
 import { ELEMENTS, ENEMIES, LORE_LABEL, MAP_PLACES } from '@/constants/game';
 import { HEROES, HERO_BY_ID } from '@/constants/heroes';
 import { ANSWER_STYLES, type Palette } from '@/constants/theme';
-import { useReduceMotion } from '@/hooks/use-motion';
+import { CountUp, Lift, Reveal, useScrollY } from '@/components/motion';
+import { usePopIn, useReduceMotion } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
 
@@ -260,16 +261,18 @@ const Band: React.FC<{
 const Head: React.FC<{ title: string; text?: string; wide: boolean; light?: boolean }> = ({ title, text, wide, light = false }) => {
   const { c } = useTheme();
   return (
-    <View style={{ gap: 12, alignItems: 'center' }}>
-      <Txt f="heavy" size={wide ? 52 : 32} color={light ? c.trang : c.xanhMuc} center accessibilityRole="header" style={{ lineHeight: wide ? 58 : 38, letterSpacing: wide ? -1.6 : -0.8, maxWidth: 860 }}>
-        {title}
-      </Txt>
-      {text && (
-        <Txt f="medium" size={wide ? 20 : 17} color={light ? c.trang : c.xanhMuc2} center style={{ maxWidth: 720, lineHeight: wide ? 29 : 25 }}>
-          {text}
+    <Reveal>
+      <View style={{ gap: 12, alignItems: 'center' }}>
+        <Txt f="heavy" size={wide ? 52 : 32} color={light ? c.trang : c.xanhMuc} center accessibilityRole="header" style={{ lineHeight: wide ? 58 : 38, letterSpacing: wide ? -1.6 : -0.8, maxWidth: 860 }}>
+          {title}
         </Txt>
-      )}
-    </View>
+        {text && (
+          <Txt f="medium" size={wide ? 20 : 17} color={light ? c.trang : c.xanhMuc2} center style={{ maxWidth: 720, lineHeight: wide ? 29 : 25 }}>
+            {text}
+          </Txt>
+        )}
+      </View>
+    </Reveal>
   );
 };
 
@@ -447,10 +450,29 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
   const { height } = useWindowDimensions();
   const minH = Math.min(Math.max(wide ? 780 : 640, height), 1000);
   const h1 = wide ? 96 : 50;
+  const reduce = useReduceMotion();
+  const scrollY = useScrollY();
+  const on = !!scrollY && !reduce;
+  const clampOpt = { extrapolate: 'clamp' } as const;
+  /** Cảnh trôi xuống chậm hơn lúc cuộn (lệch tầng); chữ mờ dần, bay lên và thu nhỏ khi lướt qua */
+  const sceneFx = on ? { transform: [{ translateY: scrollY.interpolate({ inputRange: [0, 800], outputRange: [0, 240], ...clampOpt }) }] } : null;
+  const textFx = on
+    ? {
+        opacity: scrollY.interpolate({ inputRange: [0, 120, 440], outputRange: [1, 1, 0], ...clampOpt }),
+        transform: [
+          { translateY: scrollY.interpolate({ inputRange: [0, 440], outputRange: [0, -84], ...clampOpt }) },
+          { scale: scrollY.interpolate({ inputRange: [0, 440], outputRange: [1, 0.95], ...clampOpt }) },
+        ],
+      }
+    : null;
   return (
     <View style={{ width: '100%', minHeight: wide ? minH : undefined, backgroundColor: c.dem, overflow: 'hidden' }}>
-      {wide && <EpicBackdrop />}
-      <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: insets.top + HEADER_SPACE + (wide ? 36 : 16), paddingBottom: wide ? 0 : 24, alignItems: 'center', gap: 20 }}>
+      {wide && (
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, sceneFx]}>
+          <EpicBackdrop />
+        </Animated.View>
+      )}
+      <Animated.View style={[{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: insets.top + HEADER_SPACE + (wide ? 36 : 16), paddingBottom: wide ? 0 : 24, alignItems: 'center', gap: 20 }, textFx]}>
         <Txt f="heavy" size={h1} color={c.trang} center accessibilityRole="header" style={{ lineHeight: wide ? 100 : 54, letterSpacing: wide ? -3.6 : -1.8 }}>
           Sống lại{'\n'}
           <Txt f="heavy" size={h1} color={c.vang} style={{ lineHeight: wide ? 100 : 54, letterSpacing: wide ? -3.6 : -1.8 }}>
@@ -470,13 +492,13 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
             Tài khoản do nhà trường cấp · Học trên web, Android và iOS
           </Txt>
         </View>
-      </View>
+      </Animated.View>
       {!wide && (
         <View style={{ width: '100%', aspectRatio: 1.5 }}>
           <EpicBackdrop fade />
         </View>
       )}
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: wide ? 32 : 14, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: wide ? 18 : 8, paddingHorizontal: 12 }}>
+      <Animated.View style={[{ position: 'absolute', left: 0, right: 0, bottom: wide ? 32 : 14, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: wide ? 18 : 8, paddingHorizontal: 12 }, textFx]}>
         {VICTORIES.map((v) => (
           <Pressable
             key={v.year}
@@ -498,7 +520,7 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
             )}
           </Pressable>
         ))}
-      </View>
+      </Animated.View>
     </View>
   );
 };
@@ -516,19 +538,26 @@ const StatsSection: React.FC<{ wide: boolean; onSection: (id: string, y: number)
   return (
     <Band id="thong-ke" bg={c.xam} wide={wide} onSection={onSection} gap={0}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 40 }}>
-        {items.map((s) => (
-          <View key={s.title} accessible accessibilityLabel={`${s.value} ${s.title}. ${s.text}`} style={{ width: wide ? 230 : 150, alignItems: 'center', gap: 6 }}>
-            <Badge icon={s.icon} color={s.color} size={wide ? 128 : 92} fg={s.color === c.vang ? c.dem : undefined} />
-            <Txt f="heavy" size={wide ? 64 : 44} color={c.xanhMuc} center style={{ lineHeight: wide ? 70 : 50, letterSpacing: -1.5, marginTop: 6 }}>
-              {s.value}
-            </Txt>
-            <Txt f="heavy" size={wide ? 20 : 16} color={c.xanhMuc} center style={{ lineHeight: wide ? 26 : 21 }}>
-              {s.title}
-            </Txt>
-            <Txt size={wide ? 15 : 13} color={c.xanhMuc2} center style={{ lineHeight: 20 }}>
-              {s.text}
-            </Txt>
-          </View>
+        {items.map((s, i) => (
+          <Reveal key={s.title} delay={i * 70} from="scale" style={{ width: wide ? 230 : 150 }}>
+            <View accessible accessibilityLabel={`${s.value} ${s.title}. ${s.text}`} style={{ width: '100%', alignItems: 'center', gap: 6 }}>
+              <Badge icon={s.icon} color={s.color} size={wide ? 128 : 92} fg={s.color === c.vang ? c.dem : undefined} />
+              <CountUp
+                value={s.value}
+                render={(n) => (
+                  <Txt f="heavy" size={wide ? 64 : 44} color={c.xanhMuc} center style={{ lineHeight: wide ? 70 : 50, letterSpacing: -1.5, marginTop: 6 }}>
+                    {n}
+                  </Txt>
+                )}
+              />
+              <Txt f="heavy" size={wide ? 20 : 16} color={c.xanhMuc} center style={{ lineHeight: wide ? 26 : 21 }}>
+                {s.title}
+              </Txt>
+              <Txt size={wide ? 15 : 13} color={c.xanhMuc2} center style={{ lineHeight: 20 }}>
+                {s.text}
+              </Txt>
+            </View>
+          </Reveal>
         ))}
       </View>
     </Band>
@@ -547,14 +576,18 @@ const SceneSection: React.FC<{ wide: boolean; onSection: (id: string, y: number)
         ))}
       </View>
       <View style={{ width: '100%', maxWidth: 920, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: wide ? 80 : 48, gap: 22, alignItems: 'center' }}>
-        <Tag center text="Một cảnh trong game" bg={c.vang} fg={c.dem} size={wide ? 26 : 20} />
-        <View style={[{ width: '100%', aspectRatio: wide ? 16 / 9 : 4 / 3, borderRadius: wide ? 36 : 24, borderWidth: wide ? 14 : 8, borderColor: c.vang, overflow: 'hidden', backgroundColor: c.dem }, shadow(c, 'lg')]}>
-          <EpicBackdrop />
-          <View style={{ position: 'absolute', left: 16, bottom: 16, right: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            <Chip text="Chiến dịch 3 · Bạch Đằng" icon={Swords} bg={c.trang} fg={c.dem} />
-            <Chip text="Sáng 9/4/1288: thủy quân Nguyên mắc cọc ngầm" icon={MapPin} bg={c.trang} fg={c.dem} />
+        <Reveal style={{ width: '100%' }}>
+          <Tag center text="Một cảnh trong game" bg={c.vang} fg={c.dem} size={wide ? 26 : 20} />
+        </Reveal>
+        <Reveal from="scale" style={{ width: '100%' }}>
+          <View style={[{ width: '100%', aspectRatio: wide ? 16 / 9 : 4 / 3, borderRadius: wide ? 36 : 24, borderWidth: wide ? 14 : 8, borderColor: c.vang, overflow: 'hidden', backgroundColor: c.dem }, shadow(c, 'lg')]}>
+            <EpicBackdrop />
+            <View style={{ position: 'absolute', left: 16, bottom: 16, right: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              <Chip text="Chiến dịch 3 · Bạch Đằng" icon={Swords} bg={c.trang} fg={c.dem} />
+              <Chip text="Sáng 9/4/1288: thủy quân Nguyên mắc cọc ngầm" icon={MapPin} bg={c.trang} fg={c.dem} />
+            </View>
           </View>
-        </View>
+        </Reveal>
       </View>
     </View>
   );
@@ -569,11 +602,11 @@ const VictoriesSection: React.FC<{ wide: boolean; onSection: (id: string, y: num
       <Head title="Ba lần đại thắng" text="Quân dân nhà Trần ba lần đánh bại quân xâm lược Mông – Nguyên, từ năm 1258 đến năm 1288." wide={wide} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: wide ? 28 : 20 }}>
         {VICTORIES.map((v, i) => (
+          <Reveal key={v.year} delay={i * 90} style={{ width: wide ? 330 : '100%' }}>
           <View
-            key={v.year}
             accessible
             accessibilityLabel={`${v.war}, năm ${v.year}: thắng ở ${v.place}. ${v.result}`}
-            style={{ width: wide ? 330 : '100%', alignItems: 'center', gap: 10, paddingHorizontal: 8 }}
+            style={{ width: '100%', alignItems: 'center', gap: 10, paddingHorizontal: 8 }}
           >
             <View style={[{ width: 152, height: 152, borderRadius: 76, backgroundColor: colors[i], alignItems: 'center', justifyContent: 'center', borderWidth: 6, borderColor: i === 1 ? c.son : c.vang }, shadow(c, 'sm')]}>
               <Txt f="heavy" size={46} color={i === 1 ? c.dem : c.trang} style={{ lineHeight: 52, letterSpacing: -1 }}>
@@ -590,6 +623,7 @@ const VictoriesSection: React.FC<{ wide: boolean; onSection: (id: string, y: num
               {v.result}
             </Txt>
           </View>
+          </Reveal>
         ))}
       </View>
     </Band>
@@ -791,9 +825,11 @@ const ShowcaseSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
   const [tab, setTab] = useState<ShowId>('choi');
   const cur = SHOWCASE.find((s) => s.id === tab) ?? SHOWCASE[0];
   const color = c[cur.color];
+  const pop = usePopIn(tab);
   return (
     <Band id="kham-pha" bg={c.bau} cloudTop={c.xam} cloudBottom={c.the} wide={wide} onSection={onSection}>
       <Head light title="Nơi học sinh khám phá lịch sử mọi lúc, mọi nơi!" wide={wide} />
+      <Reveal>
       <View accessibilityRole="tablist" accessibilityLabel="Chọn tính năng" style={{ flexDirection: 'row', justifyContent: 'center', gap: wide ? 28 : 14 }}>
         {SHOWCASE.map((s) => {
           const on = s.id === tab;
@@ -816,20 +852,27 @@ const ShowcaseSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
           );
         })}
       </View>
+      </Reveal>
+      <Reveal from="scale">
       <View style={{ alignItems: 'center' }}>
         <Tablet wide={wide}>
-          {tab === 'choi' && <MockPlay />}
-          {tab === 'kham-pha' && <MockExplore wide={wide} />}
-          {tab === 'hoi-dap' && <MockAsk />}
-          {tab === 'on-tap' && <MockReview />}
+          <Animated.View style={[{ flex: 1 }, pop]}>
+            {tab === 'choi' && <MockPlay />}
+            {tab === 'kham-pha' && <MockExplore wide={wide} />}
+            {tab === 'hoi-dap' && <MockAsk />}
+            {tab === 'on-tap' && <MockReview />}
+          </Animated.View>
         </Tablet>
       </View>
-      <View style={{ alignItems: 'center', gap: 12 }}>
+      </Reveal>
+      <Reveal>
+      <Animated.View style={[{ alignItems: 'center', gap: 12 }, pop]}>
         <Tag center text={cur.label} bg={color} fg={cur.color === 'vang' || cur.color === 'trang' ? c.dem : c.trang} size={wide ? 26 : 20} />
         <Txt f="medium" size={wide ? 20 : 17} color={c.trang} center style={{ maxWidth: 640, lineHeight: wide ? 29 : 25 }}>
           {cur.text}
         </Txt>
-      </View>
+      </Animated.View>
+      </Reveal>
     </Band>
   );
 };
@@ -943,10 +986,14 @@ const ExplorerSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
   return (
     <Band id="khang-chien" bg={c.the} wide={wide} onSection={onSection}>
       <Head title={`Ba lần kháng chiến chống Nguyên\u00A0–\u2060\u00A0Mông`} text="Chọn một cuộc kháng chiến để xem lược đồ, diễn biến chính và các màn chơi." wide={wide} />
-      <CampaignExplorer wide={wide} />
-      <Txt size={13} color={c.xanhMuc2} center style={{ maxWidth: 760, alignSelf: 'center' }}>
-        Đối chiếu theo Wikipedia tiếng Việt: “Chiến tranh Nguyên Mông – Đại Việt” và ba bài chi tiết từng lần. Sau ba lần thất bại, nhà Nguyên không còn đưa quân sang; Đại Việt giữ vững độc lập, trên danh nghĩa chịu làm nước chư hầu triều cống.
-      </Txt>
+      <Reveal>
+        <CampaignExplorer wide={wide} />
+      </Reveal>
+      <Reveal>
+        <Txt size={13} color={c.xanhMuc2} center style={{ maxWidth: 760, alignSelf: 'center' }}>
+          Đối chiếu theo Wikipedia tiếng Việt: “Chiến tranh Nguyên Mông – Đại Việt” và ba bài chi tiết từng lần. Sau ba lần thất bại, nhà Nguyên không còn đưa quân sang; Đại Việt giữ vững độc lập, trên danh nghĩa chịu làm nước chư hầu triều cống.
+        </Txt>
+      </Reveal>
     </Band>
   );
 };
@@ -964,22 +1011,28 @@ const CastSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) 
   const { c } = useTheme();
   return (
     <Band id="danh-tuong" bg={c.xam} wide={wide} onSection={onSection}>
-      <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: wide ? 12 : 4 }} pointerEvents="none">
-        {CAST.map((m, i) => (
-          <Mascot key={m.accessory} size={wide ? 112 : 70} accessory={m.accessory} mood={m.mood} bob={i % 2 === 0} title={`Rồng Con ${m.accessory}`} />
-        ))}
-      </View>
+      <Reveal from="scale">
+        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: wide ? 12 : 4 }} pointerEvents="none">
+          {CAST.map((m, i) => (
+            <Mascot key={m.accessory} size={wide ? 112 : 70} accessory={m.accessory} mood={m.mood} bob={i % 2 === 0} title={`Rồng Con ${m.accessory}`} />
+          ))}
+        </View>
+      </Reveal>
       <Head title="Gặp gỡ danh tướng nhà Trần" text="Mỗi nhân vật gắn nhãn nguồn gốc để học sinh phân biệt chính sử với giai thoại và phần sáng tạo của game." wide={wide} />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-        {Object.keys(LORE_LABEL).map((k) => (
-          <LoreChip key={k} lore={k} />
-        ))}
-      </View>
+      <Reveal>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+          {Object.keys(LORE_LABEL).map((k) => (
+            <LoreChip key={k} lore={k} />
+          ))}
+        </View>
+      </Reveal>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
-        {HEROES.map((h) => {
+        {HEROES.map((h, i) => {
           const el = ELEMENTS[h.element];
           return (
-            <View key={h.id} style={[{ width: wide ? 262 : '100%', borderRadius: 28, backgroundColor: c[el.fill], padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14 }, shadow(c, 'sm')]}>
+            <Reveal key={h.id} delay={(i % 4) * 70} style={{ width: wide ? 262 : '100%' }}>
+            <Lift style={{ width: '100%' }}>
+            <View style={[{ width: '100%', borderRadius: 28, backgroundColor: c[el.fill], padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14 }, shadow(c, 'sm')]}>
               <HeroMedallion hero={h} size={72} />
               <View style={{ flex: 1, gap: 4, alignItems: 'flex-start' }}>
                 <Txt f="heavy" size={18} color={c.trang} style={{ lineHeight: 22 }}>
@@ -991,6 +1044,8 @@ const CastSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) 
                 <LoreChip lore={h.lore} />
               </View>
             </View>
+            </Lift>
+            </Reveal>
           );
         })}
       </View>
@@ -1006,11 +1061,12 @@ const QuotesSection: React.FC<{ wide: boolean; onSection: (id: string, y: number
       <Head title="Lời ông cha còn vang mãi" text="Những câu nói làm nên hào khí Đông A, có trong từng màn chơi của game." wide={wide} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 18, justifyContent: 'center' }}>
         {QUOTES.map((q, i) => (
+          <Reveal key={q.who} delay={i * 80} style={{ width: wide ? 258 : '100%' }}>
+          <Lift tilt={wide ? (i % 2 ? 1.5 : -1.5) : 0} style={{ width: '100%' }}>
           <View
-            key={q.who}
             accessible
             accessibilityLabel={`${q.text} – ${q.who}, ${q.note}`}
-            style={[{ width: wide ? 258 : "100%", minHeight: wide ? 270 : undefined, borderRadius: 28, backgroundColor: q.bg, padding: 22, gap: 12, transform: [{ rotate: wide ? (i % 2 ? '1.5deg' : '-1.5deg') : '0deg' }] }, shadow(c, 'sm')]}
+            style={[{ width: '100%', minHeight: wide ? 270 : undefined, borderRadius: 28, backgroundColor: q.bg, padding: 22, gap: 12 }, shadow(c, 'sm')]}
           >
             <Quote size={34} color="#16253f" strokeWidth={2.2} />
             <Txt f="heavy" size={q.text.length < 12 ? 44 : 21} color="#16253f" style={{ lineHeight: q.text.length < 12 ? 50 : 28, flex: 1 }}>
@@ -1025,9 +1081,12 @@ const QuotesSection: React.FC<{ wide: boolean; onSection: (id: string, y: number
               </Txt>
             </View>
           </View>
+          </Lift>
+          </Reveal>
         ))}
       </View>
-      <Panel pad={24} style={{ flexDirection: wide ? 'row' : 'column', alignItems: 'center', gap: 20, maxWidth: 860, width: '100%', alignSelf: 'center' }}>
+      <Reveal style={{ maxWidth: 860, width: '100%', alignSelf: 'center' }}>
+      <Panel pad={24} style={{ flexDirection: wide ? 'row' : 'column', alignItems: 'center', gap: 20, width: '100%' }}>
         <Seal text={'ĐÔNG\nA'} size={wide ? 96 : 72} />
         <View style={{ flex: wide ? 1 : undefined, gap: 6 }}>
           <Txt f="heavy" size={22} color={c.xanhMuc} center={!wide} style={{ lineHeight: 28 }}>
@@ -1038,6 +1097,7 @@ const QuotesSection: React.FC<{ wide: boolean; onSection: (id: string, y: number
           </Txt>
         </View>
       </Panel>
+      </Reveal>
     </Band>
   );
 };
@@ -1060,8 +1120,10 @@ const AudienceSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
       </View>
       <Head light title="Một nền tảng cho cả lớp học" text="Mỗi đối tượng đều có công cụ riêng, nhưng cùng chung một kho kiến thức lịch sử." wide={wide} />
       <View style={{ flexDirection: wide ? 'row' : 'column', gap: 18, alignItems: 'stretch' }}>
-        {AUDIENCE_CARDS.map((a) => (
-          <View key={a.id} style={[{ flex: wide ? 1 : undefined, backgroundColor: c.the, borderRadius: 32, padding: 24, gap: 16 }, shadow(c, 'lg')]}>
+        {AUDIENCE_CARDS.map((a, i) => (
+          <Reveal key={a.id} delay={i * 90} style={{ flex: wide ? 1 : undefined }}>
+          <Lift fill={wide} style={{ flex: wide ? 1 : undefined }}>
+          <View style={[{ flex: wide ? 1 : undefined, backgroundColor: c.the, borderRadius: 32, padding: 24, gap: 16 }, shadow(c, 'lg')]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <Tag text={a.tag} bg={c[a.color]} size={18} rotate={-2} />
               <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.den, alignItems: 'center', justifyContent: 'center' }}>
@@ -1083,6 +1145,8 @@ const AudienceSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
             </View>
             <Cta title={a.cta} tone="den" arrow onPress={a.id === 'nha_truong' ? downloadTemplate : () => router.push('/portal')} />
           </View>
+          </Lift>
+          </Reveal>
         ))}
       </View>
     </Band>
@@ -1096,6 +1160,7 @@ const ThesisSection: React.FC<{ wide: boolean; onSection: (id: string, y: number
     <Band id="de-tai" bg={c.xam} wide={wide} onSection={onSection}>
       <Head title="Về đề tài nghiên cứu" wide={wide} />
       <View style={{ flexDirection: wide ? 'row' : 'column', alignItems: 'stretch', gap: 18 }}>
+        <Reveal from="left" style={{ flex: wide ? 1 : undefined }}>
         <Panel pad={28} style={{ flex: wide ? 1 : undefined, gap: 16 }}>
           <Tag text="Tên đề tài" bg={c.son} size={16} rotate={-2} />
           <Txt f="serifBold" size={22} color={c.xanhMuc} style={{ lineHeight: 32 }}>
@@ -1115,10 +1180,12 @@ const ThesisSection: React.FC<{ wide: boolean; onSection: (id: string, y: number
             ))}
           </View>
         </Panel>
+        </Reveal>
         <View style={{ flex: wide ? 1 : undefined, gap: 16 }}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
             {TECH.map((t, i) => (
-              <Panel key={t.title} pad={16} style={{ flexGrow: 1, flexBasis: 200, flexDirection: 'row', gap: 14, alignItems: 'center' }}>
+              <Reveal key={t.title} from="right" delay={(i % 2) * 60 + Math.floor(i / 2) * 40} style={{ flexGrow: 1, flexBasis: 200 }}>
+              <Panel pad={16} style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
                 <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: tones[i], alignItems: 'center', justifyContent: 'center' }}>
                   <t.icon size={iconPx(16)} color={c.trang} strokeWidth={1.75} />
                 </View>
@@ -1131,8 +1198,10 @@ const ThesisSection: React.FC<{ wide: boolean; onSection: (id: string, y: number
                   </Txt>
                 </View>
               </Panel>
+              </Reveal>
             ))}
           </View>
+          <Reveal>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
             <Txt f="semibold" size={14} color={c.xanhMuc2}>
               Học trên mọi thiết bị:
@@ -1141,6 +1210,7 @@ const ThesisSection: React.FC<{ wide: boolean; onSection: (id: string, y: number
             <Chip text="Android" icon={Smartphone} bg={c.the} fg={c.nhan} />
             <Chip text="iPhone, iPad" icon={Smartphone} bg={c.the} fg={c.nhan} />
           </View>
+          </Reveal>
         </View>
       </View>
     </Band>
@@ -1152,6 +1222,7 @@ const SchoolSection: React.FC<{ wide: boolean; onSection: (id: string, y: number
   return (
     <Band id="nha-truong" bg={c.the} wide={wide} onSection={onSection}>
       <Head title="Cấp tài khoản hàng loạt bằng Excel" text="Dành cho nhà trường: điền một file mẫu, quản trị trường nhập là có tài khoản cho cả khối." wide={wide} />
+      <Reveal>
       <Panel pad={28} style={{ gap: 18 }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16 }}>
           <IconTile icon={FileSpreadsheet} text={18} size={52} />
@@ -1172,6 +1243,7 @@ const SchoolSection: React.FC<{ wide: boolean; onSection: (id: string, y: number
           ))}
         </View>
       </Panel>
+      </Reveal>
     </Band>
   );
 };
@@ -1186,7 +1258,9 @@ const ClosingSection: React.FC<{ wide: boolean }> = ({ wide }) => {
       <EpicBackdrop />
       <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: c.dem, opacity: 0.42 }]} />
       <CloudBank color={c.the} flip height={90} />
-      <View style={{ width: '100%', maxWidth: 860, alignSelf: 'center', paddingHorizontal: 16, paddingTop: wide ? 190 : 150, paddingBottom: wide ? 130 : 90, alignItems: 'center', gap: 22 }}>
+      <View style={{ width: '100%', maxWidth: 860, alignSelf: 'center', paddingHorizontal: 16, paddingTop: wide ? 190 : 150, paddingBottom: wide ? 130 : 90 }}>
+      <Reveal from="scale">
+      <View style={{ alignItems: 'center', gap: 22 }}>
         <Txt f="heavy" size={wide ? 64 : 36} color={c.trang} center accessibilityRole="header" style={{ lineHeight: wide ? 70 : 42, letterSpacing: wide ? -2 : -1 }}>
           Cùng cả lớp ra trận{'\n'}với <Txt f="heavy" size={wide ? 64 : 36} color={c.vang} style={{ lineHeight: wide ? 70 : 42, letterSpacing: wide ? -2 : -1 }}>Đông A</Txt>!
         </Txt>
@@ -1196,6 +1270,8 @@ const ClosingSection: React.FC<{ wide: boolean }> = ({ wide }) => {
         <View style={{ alignSelf: 'center' }}>
           <Cta title="Vào học ngay" tone="trang" arrow lg onPress={() => router.push('/portal')} testID="home-portal-bottom" />
         </View>
+      </View>
+      </Reveal>
       </View>
     </View>
   );
@@ -1221,10 +1297,12 @@ const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ 
     <View style={{ width: '100%', backgroundColor: c.dem }}>
       <WaveBand bg={c.son} line={c.vang} />
       <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: wide ? 64 : 44, paddingBottom: wide ? 36 : 24, gap: 28 }}>
-        <View style={{ alignItems: 'center', gap: 16 }}>
-          <Seal text={'ĐÔNG\nA'} size={wide ? 84 : 64} />
-          <Tag center text="Đến giờ học Sử rồi!" bg={c.vang} fg={c.dem} size={wide ? 44 : 28} rotate={-2} />
-        </View>
+        <Reveal from="scale">
+          <View style={{ alignItems: 'center', gap: 16 }}>
+            <Seal text={'ĐÔNG\nA'} size={wide ? 84 : 64} />
+            <Tag center text="Đến giờ học Sử rồi!" bg={c.vang} fg={c.dem} size={wide ? 44 : 28} rotate={-2} />
+          </View>
+        </Reveal>
         <View style={{ flexDirection: wide ? 'row' : 'column', gap: wide ? 48 : 12, justifyContent: 'center', alignItems: wide ? 'flex-start' : 'center' }}>
           {WEB && (
             <View style={{ alignItems: wide ? 'flex-start' : 'center' }}>
@@ -1240,7 +1318,9 @@ const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ 
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: wide ? 24 : 6 }} pointerEvents="none">
           {CAST.map((m, i) => (
-            <Mascot key={m.accessory} size={wide ? 140 : 76} accessory={m.accessory} mood={m.mood} bob={i % 2 === 1} title={`Rồng Con ${m.accessory}`} />
+            <Reveal key={m.accessory} delay={i * 80}>
+              <Mascot size={wide ? 140 : 76} accessory={m.accessory} mood={m.mood} bob={i % 2 === 1} title={`Rồng Con ${m.accessory}`} />
+            </Reveal>
           ))}
         </View>
       </View>

@@ -1,6 +1,6 @@
 /**
  * Trang chủ công khai theo phong cách Papumba (các khối nằm ở components/home.tsx): khung trang gồm chế độ sáng/tối riêng cho trang chủ (nhớ lại ở lần sau),
- * thanh điều hướng cố định co hẹp khi cuộn có đánh dấu mục đang xem, nút lên đầu trang và cuộn mượt khi lăn chuột.
+ * thanh điều hướng cố định co hẹp khi cuộn có đánh dấu mục đang xem, nút lên đầu trang, cuộn mượt khi lăn chuột và hiệu ứng theo cuộn (components/motion.tsx).
  * Không có liên kết tới hai cổng quản trị. expo-router bắt buộc tên index cho đường dẫn "/".
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useDocumentTitle } from '@/components/auth';
 import { BackToTop, Header, HomeSections, NAV } from '@/components/home';
+import { FxProvider } from '@/components/motion';
 import { PaperBg } from '@/components/ui';
 import { PALETTES } from '@/constants/theme';
 import { useReduceMotion } from '@/hooks/use-motion';
@@ -87,9 +88,11 @@ function HomePage({ onToggleTheme }: { onToggleTheme: () => void }) {
   return (
     <View style={{ flex: 1 }}>
       <PaperBg />
-      <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={{ flexGrow: 1 }}>
-        <HomeSections wide={wide} go={go} onSection={onSection} />
-      </ScrollView>
+      <FxProvider scrollY={scrollY}>
+        <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={{ flexGrow: 1 }}>
+          <HomeSections wide={wide} go={go} onSection={onSection} />
+        </ScrollView>
+      </FxProvider>
       <Header width={width} scrollY={scrollY} stuck={stuck} active={active} go={go} onToggleTheme={onToggleTheme} />
       <BackToTop scrollY={scrollY} visible={showTop} onPress={() => go('home')} />
     </View>

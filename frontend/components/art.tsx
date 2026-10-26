@@ -12,6 +12,7 @@ import { ELEMENTS, ENEMY_TYPES, MAP_PLACES } from '@/constants/game';
 import { ANSWER_STYLES, FONT, GRADE_STYLE, type AnswerShape } from '@/constants/theme';
 import { useBob } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
+import { useDrift, useLoop, useOnScreen } from '@/components/motion';
 import type { PixelPaths } from '@/lib/pixel-art';
 import type { Grade } from '@/types/api';
 import type { BattleBg, BuildingId, EnemyDef, HeroDef, PlaceId } from '@/types/game';
@@ -319,8 +320,8 @@ const STAKES = (() => {
 })();
 
 /** Thuyền chiến nhà Trần: thân dài mũi cong, buồm đỏ viền vàng, cờ hiệu (gốc ở mép nước, dài khoảng 276, quay mũi sang phải) */
-const WarBoat: React.FC<{ x: number; y: number; s?: number }> = ({ x, y, s = 1 }) => (
-  <G transform={`translate(${x} ${y}) scale(${s})`}>
+const WarBoat: React.FC = () => (
+  <G>
     <Path d="M0 -8 C30 22 90 28 150 28 C210 28 250 14 276 -30 L262 -30 C240 -6 200 8 150 8 C100 8 50 4 18 -20 Z" fill="#150f1f" />
     <Path d="M14 -14 C44 8 96 14 150 14 C204 14 240 2 266 -22" fill="none" stroke="#f0b45a" strokeWidth="2" opacity="0.8" />
     <Path d="M76 -30 Q127 -62 178 -30 Z" fill="#150f1f" />
@@ -334,27 +335,49 @@ const WarBoat: React.FC<{ x: number; y: number; s?: number }> = ({ x, y, s = 1 }
   </G>
 );
 
-/** Thuyền giặc bốc cháy mắc cọc, nghiêng về một bên (biểu tượng chiến thắng Bạch Đằng) */
-const BurningShip: React.FC<{ x: number; y: number; s?: number; tilt?: number }> = ({ x, y, s = 1, tilt = 14 }) => (
-  <G transform={`translate(${x} ${y}) rotate(${tilt}) scale(${s})`}>
-    <Circle cx="140" cy="-30" r="90" fill="#ff8a3d" opacity="0.28" />
+/** Thân thuyền giặc cháy: thân, cột, buồm cháy dở (đã nghiêng sẵn, gốc ở mép nước) */
+const BurningHull: React.FC<{ tilt: number }> = ({ tilt }) => (
+  <G transform={`rotate(${tilt})`}>
     <Path d="M0 -8 C30 22 90 28 150 28 C210 28 250 14 276 -30 L262 -30 C240 -6 200 8 150 8 C100 8 50 4 18 -20 Z" fill="#17121c" />
     <Rect x="128" y="-150" width="5" height="124" fill="#17121c" />
     <Path d="M133 -146 L133 -64 L196 -84 L178 -112 L152 -104 Z" fill="#4f4858" opacity="0.9" />
+  </G>
+);
+
+const BurningGlow: React.FC<{ tilt: number }> = ({ tilt }) => (
+  <G transform={`rotate(${tilt})`}>
+    <Circle cx="140" cy="-30" r="90" fill="#ff8a3d" opacity="0.28" />
+  </G>
+);
+
+const BurningFlames: React.FC<{ tilt: number }> = ({ tilt }) => (
+  <G transform={`rotate(${tilt})`}>
     <Path d="M104 -10 C94 -44 118 -58 112 -90 C140 -66 150 -38 140 -10 Z" fill="#ff7a2f" />
     <Path d="M124 -10 C118 -34 132 -44 130 -66 C148 -50 150 -28 144 -10 Z" fill="#ffd24a" />
     <Path d="M168 -10 C162 -30 174 -38 172 -56 C188 -42 190 -26 184 -10 Z" fill="#ff7a2f" />
   </G>
 );
 
-/** Cờ phướn trên bờ: cột tối, cờ đỏ viền vàng bay trong gió */
-const Banner: React.FC<{ x: number; top: number; w?: number; label?: string }> = ({ x, top, w = 92, label }) => (
+/** Cột cờ phướn trên bờ (cờ vẽ riêng để bay): cột tối và quả cầu vàng trên đỉnh */
+const BannerPole: React.FC<{ x: number; top: number }> = ({ x, top }) => (
   <G>
     <Rect x={x} y={top - 12} width="5" height={820 - top} fill="#0a0f22" />
     <Circle cx={x + 2.5} cy={top - 14} r="5" fill="#ffd479" />
-    <Path d={`M${x + 5} ${top} C${x + w * 0.35} ${top - 12} ${x + w * 0.65} ${top + 12} ${x + w} ${top - 2} L${x + w - 14} ${top + 36} L${x + w} ${top + 72} C${x + w * 0.65} ${top + 86} ${x + w * 0.35} ${top + 62} ${x + 5} ${top + 74} Z`} fill="#c1272d" stroke="#ffd479" strokeWidth="2" strokeLinejoin="round" />
+  </G>
+);
+
+/** Lá cờ đỏ viền vàng, gốc ở chỗ buộc vào cột (0, 0) */
+const BannerCloth: React.FC<{ w: number; label?: string }> = ({ w, label }) => (
+  <G>
+    <Path
+      d={`M0 0 C${w * 0.35 - 5} -12 ${w * 0.65 - 5} 12 ${w - 5} -2 L${w - 19} 36 L${w - 5} 72 C${w * 0.65 - 5} 86 ${w * 0.35 - 5} 62 0 74 Z`}
+      fill="#c1272d"
+      stroke="#ffd479"
+      strokeWidth="2"
+      strokeLinejoin="round"
+    />
     {label && (
-      <SvgText x={x + w * 0.52} y={top + 43} textAnchor="middle" fontSize="15" fontFamily={FONT.displayHeavy} fill="#ffd479">
+      <SvgText x={w * 0.52 - 5} y={43} textAnchor="middle" fontSize="15" fontFamily={FONT.displayHeavy} fill="#ffd479">
         {label}
       </SvgText>
     )}
@@ -362,8 +385,8 @@ const Banner: React.FC<{ x: number; top: number; w?: number; label?: string }> =
 );
 
 /** Kỵ binh Mông Cổ phi nước đại, bóng đen cầm giáo có cờ đuôi (gốc ở chân ngựa, quay sang phải) */
-const Horseman: React.FC<{ x: number; y: number; s?: number }> = ({ x, y, s = 1 }) => (
-  <G transform={`translate(${x} ${y}) scale(${s})`} fill="#0d0a16">
+const Horseman: React.FC = () => (
+  <G fill="#0d0a16">
     <Ellipse cx="0" cy="-48" rx="38" ry="15" />
     <Path d="M26 -54 C40 -74 52 -82 62 -80 L72 -70 C66 -64 56 -62 46 -46 Z" />
     <Path d="M56 -80 L60 -92 L66 -80 Z" />
@@ -380,9 +403,9 @@ const Horseman: React.FC<{ x: number; y: number; s?: number }> = ({ x, y, s = 1 
   </G>
 );
 
-/** Cổng thành Thăng Long: tường, lầu hai tầng mái cong, cờ hiệu trên đỉnh (gốc ở giữa chân tường) */
-const Citadel: React.FC<{ x: number; y: number; s?: number }> = ({ x, y, s = 1 }) => (
-  <G transform={`translate(${x} ${y}) scale(${s})`} fill="#0a0f22">
+/** Cổng thành Thăng Long: tường, lầu hai tầng mái cong (cờ trên đỉnh vẽ riêng để bay); gốc ở giữa chân tường */
+const Citadel: React.FC = () => (
+  <G fill="#0a0f22">
     <Rect x="-130" y="-34" width="260" height="34" />
     {Array.from({ length: 13 }, (_, i) => (
       <Rect key={i} x={-130 + i * 20 + 2} y="-42" width="12" height="8" />
@@ -393,88 +416,265 @@ const Citadel: React.FC<{ x: number; y: number; s?: number }> = ({ x, y, s = 1 }
     <Path d="M-46 -134 Q0 -168 46 -134 L36 -124 L-36 -124 Z" />
     <Circle cx="0" cy="-168" r="4" />
     <Rect x="-1.5" y="-230" width="3" height="64" />
-    <Path d="M1.5 -230 L42 -220 L1.5 -206 Z" fill="#c1272d" />
     <Rect x="-8" y="-72" width="16" height="26" fill="#f6c46b" opacity="0.85" />
   </G>
 );
 
+/** Vị trí cảnh trong khung: cảnh 1440 × 820 phủ kín khung theo kiểu "slice" canh đáy giữa */
+interface Geo {
+  k: number;
+  ox: number;
+  oy: number;
+}
+
+const lerp = (v: Animated.Value, a: number, b: number) => v.interpolate({ inputRange: [0, 1], outputRange: [a, b] });
+const lerpDeg = (v: Animated.Value, a: number, b: number) => v.interpolate({ inputRange: [0, 1], outputRange: [`${a}deg`, `${b}deg`] });
+
+/** Lớp SVG phủ toàn cảnh (cùng phép cắt "slice" với nền), có thể gắn chuyển động */
+const Full: React.FC<{ style?: any; children: React.ReactNode }> = ({ style, children }) => (
+  <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, style]}>
+    <Svg width="100%" height="100%" viewBox="0 0 1440 820" preserveAspectRatio="xMidYMax slice">
+      {children}
+    </Svg>
+  </Animated.View>
+);
+
+/** Khung đặt một vật thể tại (x, y) rộng w cao h tính theo tọa độ cảnh */
+const Box: React.FC<{ g: Geo; x: number; y: number; w: number; h: number; style?: any; children?: React.ReactNode }> = ({ g, x, y, w, h, style, children }) => (
+  <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: g.ox + x * g.k, top: g.oy + y * g.k, width: w * g.k, height: h * g.k }, style]}>
+    {children}
+  </Animated.View>
+);
+
+/** Một lớp SVG nằm gọn trong Box (viewBox theo tọa độ riêng của vật thể) */
+const Sub: React.FC<{ vb: string; style?: any; children: React.ReactNode }> = ({ vb, style, children }) => (
+  <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, style]}>
+    <Svg width="100%" height="100%" viewBox={vb}>
+      {children}
+    </Svg>
+  </Animated.View>
+);
+
+const BOAT_VB = '-4 -210 284 250';
+const BURN_VB = '-60 -200 390 310';
+const HORSE_VB = '-64 -156 160 160';
+
+const TWINKLE = (seed: number) => {
+  const rnd = lcg(seed);
+  return Array.from({ length: 14 }, () => ({ x: rnd() * 1440, y: 10 + rnd() * 300, r: 1.4 + rnd() * 1.6 }));
+};
+const TWINKLE_A = TWINKLE(9);
+const TWINKLE_B = TWINKLE(13);
+
 /**
  * Cảnh ba cuộc kháng chiến (vẽ riêng): trời chàm chuyển đỏ – vàng, mặt trời rực sau núi đá; bên trái là cổng thành Thăng Long và kỵ binh Mông Cổ (1258),
- * ở giữa đoàn thuyền chiến cờ đỏ (1285), bên phải bãi cọc, thuyền giặc cháy mắc cọc và cờ phướn trên bờ (1288). Lấp đầy khung cha, canh theo đáy; shade làm tối phía trái để chữ trắng đọc rõ;
- * fade hòa mép trên vào màu xanh mực của khối chữ nằm liền phía trên (màn hẹp).
+ * ở giữa đoàn thuyền chiến cờ đỏ (1285), bên phải bãi cọc, thuyền giặc cháy mắc cọc và cờ phướn trên bờ (1288). Lấp đầy khung cha, canh theo đáy;
+ * shade làm tối phía trái để chữ trắng đọc rõ; fade hòa mép trên vào màu xanh mực của khối chữ nằm liền phía trên (màn hẹp).
+ * Cảnh gồm nhiều lớp để từng vật thể chuyển động riêng khi đang nằm trong màn hình: thuyền nhấp nhô và lắc, thuyền giặc cháy kèm lửa chập chờn và khói,
+ * cờ bay, kỵ binh phi, sao nhấp nháy, tia nắng và quầng mặt trời thở, ánh nước lung linh, chim bay ngang.
  */
 export const EpicBackdrop: React.FC<{ shade?: boolean; fade?: boolean }> = ({ shade = false, fade = false }) => {
   const { c } = useTheme();
   const gid = React.useId().replace(/:/g, '');
+  const [ref, live] = useOnScreen();
+  const [box, setBox] = React.useState({ w: 0, h: 0 });
+  const k = box.w > 0 && box.h > 0 ? Math.max(box.w / 1440, box.h / 820) : 0;
+  const g: Geo = { k, ox: (box.w - 1440 * k) / 2, oy: box.h - 820 * k };
+  const sunOrigin = `${g.ox + SUN.x * k}px ${g.oy + SUN.y * k}px`;
+
+  const bob1 = useLoop(live, 3200);
+  const rock1 = useLoop(live, 4300, 300);
+  const bob2 = useLoop(live, 2700, 600);
+  const rock2 = useLoop(live, 3700, 900);
+  const burnBob = useLoop(live, 4100);
+  const burnRock = useLoop(live, 3000, 200);
+  const flick = useLoop(live, 420);
+  const glowPulse = useLoop(live, 1900);
+  const sunPulse = useLoop(live, 5200);
+  const rays = useLoop(live, 14000);
+  const shimmer = useLoop(live, 4600);
+  const shimmerOp = useLoop(live, 2300);
+  const twA = useLoop(live, 2600);
+  const twB = useLoop(live, 3300, 700);
+  const waveA = useLoop(live, 1300);
+  const waveB = useLoop(live, 1700, 400);
+  const gallop = useLoop(live, 440);
+  const birds = useDrift(live, 30000);
+  const flap = useLoop(live, 520);
+  const smoke1 = useDrift(live, 3600);
+  const smoke2 = useDrift(live, 3600, 1200);
+  const smoke3 = useDrift(live, 3600, 2400);
+
+  const smokeStyle = (v: Animated.Value, dx: number) => ({
+    opacity: v.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 0.5, 0] }),
+    transform: [{ translateY: lerp(v, 0, -120 * k * 0.6) }, { translateX: lerp(v, 0, dx * k) }, { scale: lerp(v, 0.6, 1.9) }],
+    transformOrigin: '53% 52%',
+  });
+  const horse = (sgn: number) => ({ transform: [{ translateY: lerp(gallop, -2.6 * k * sgn, 2.6 * k * sgn) }] });
+  const cloth = (v: Animated.Value, amp: number) => ({ transform: [{ skewY: lerpDeg(v, -amp, amp) }, { scaleX: lerp(v, 0.965, 1.035) }], transformOrigin: '2% 50%' });
+
+  const BANNERS = [
+    { x: 1180, top: 530, w: 100, label: 'ĐÔNG A', v: waveA, amp: 5 },
+    { x: 1272, top: 474, w: 84, label: undefined, v: waveB, amp: 6 },
+    { x: 1352, top: 538, w: 46, label: undefined, v: waveA, amp: 7 },
+  ];
+  const HORSES = [{ x: 392, y: 584, s: 0.42, sgn: 1 }, { x: 436, y: 588, s: 0.38, sgn: -1 }, { x: 622, y: 586, s: 0.4, sgn: 1 }];
+
   return (
-    <Svg width="100%" height="100%" viewBox="0 0 1440 820" preserveAspectRatio="xMidYMax slice" style={StyleSheet.absoluteFill}>
-      <Defs>
-        <LinearGradient id={`s-${gid}`} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor={c.dem} />
-          <Stop offset="0.24" stopColor="#1c2f6b" />
-          <Stop offset="0.45" stopColor="#5a3a7c" />
-          <Stop offset="0.65" stopColor="#c24f55" />
-          <Stop offset="0.83" stopColor="#f08a4b" />
-          <Stop offset="0.97" stopColor="#ffc46b" />
-        </LinearGradient>
-        <RadialGradient id={`g-${gid}`} cx="0.5" cy="0.5" r="0.5">
-          <Stop offset="0" stopColor="#fff1c1" stopOpacity="0.95" />
-          <Stop offset="0.3" stopColor="#ffbe64" stopOpacity="0.55" />
-          <Stop offset="1" stopColor="#ff8a3d" stopOpacity="0" />
-        </RadialGradient>
-        <LinearGradient id={`r-${gid}`} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#f0a35a" stopOpacity="0.95" />
-          <Stop offset="0.22" stopColor="#7a4b7c" />
-          <Stop offset="0.6" stopColor="#26305e" />
-          <Stop offset="1" stopColor="#101733" />
-        </LinearGradient>
-        <LinearGradient id={`f-${gid}`} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor={c.dem} stopOpacity="1" />
-          <Stop offset="1" stopColor={c.dem} stopOpacity="0" />
-        </LinearGradient>
-        <LinearGradient id={`d-${gid}`} x1="0" y1="0" x2="1" y2="0">
-          <Stop offset="0" stopColor={c.dem} stopOpacity="0.92" />
-          <Stop offset="0.65" stopColor={c.dem} stopOpacity="0.5" />
-          <Stop offset="1" stopColor={c.dem} stopOpacity="0" />
-        </LinearGradient>
-      </Defs>
-      <Rect x="-600" y="-400" width="2640" height="400" fill={c.dem} />
-      <Rect x="-600" y="0" width="2640" height={WATER_Y} fill={`url(#s-${gid})`} />
-      {STARS.map((t, i) => (
-        <Circle key={i} cx={t.x} cy={t.y} r={t.r} fill="#ffffff" opacity={t.o} />
-      ))}
-      <Circle cx={SUN.x} cy={SUN.y} r="420" fill={`url(#g-${gid})`} />
-      <Path d={RAYS} fill="#ffe2a0" opacity="0.07" />
-      {fade && <Rect x="-600" y="0" width="2640" height="300" fill={`url(#f-${gid})`} />}
-      <Circle cx={SUN.x} cy={SUN.y} r="82" fill="#fff1c1" />
-      <Path d={FAR_PEAKS} fill="#4a3f86" opacity="0.6" />
-      <Ellipse cx="720" cy={WATER_Y - 4} rx="900" ry="16" fill="#ffffff" opacity="0.07" />
-      <Path d={MID_PEAKS} fill="#262c63" opacity="0.92" />
-      <Horseman x={392} y={588} s={0.42} />
-      <Horseman x={436} y={592} s={0.38} />
-      <Horseman x={622} y={590} s={0.4} />
-      <Rect x="-600" y={WATER_Y} width="2640" height="400" fill={`url(#r-${gid})`} />
-      {[70, 52, 38, 26, 16].map((rx, i) => (
-        <Ellipse key={rx} cx={SUN.x} cy={WATER_Y + 18 + i * 34} rx={rx * 2.2} ry="5" fill="#ffd9a0" opacity={0.42 - i * 0.07} />
-      ))}
-      <WarBoat x={540} y={704} s={0.95} />
-      <WarBoat x={880} y={662} s={0.55} />
-      <BurningShip x={1030} y={700} s={0.6} tilt={12} />
-      {STAKES.map((k, i) => (
-        <G key={i} transform={`translate(${k.x} ${k.y}) rotate(${k.tilt})`}>
-          <Path d={`M-3.5 ${k.h} L-3.5 7 L0 0 L3.5 7 L3.5 ${k.h} Z`} fill="#1b1220" />
-          <Path d={`M0 0 L3.5 7 L3.5 ${k.h} L1 ${k.h} L1 8 Z`} fill="#6b4a36" opacity="0.7" />
-          <Ellipse cx="0" cy={k.h} rx="10" ry="2.4" fill="none" stroke="#f6c46b" strokeOpacity="0.45" />
+    <View ref={ref} onLayout={(e) => setBox({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })} pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <Svg width="100%" height="100%" viewBox="0 0 1440 820" preserveAspectRatio="xMidYMax slice" style={StyleSheet.absoluteFill}>
+        <Defs>
+          <LinearGradient id={`s-${gid}`} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={c.dem} />
+            <Stop offset="0.24" stopColor="#1c2f6b" />
+            <Stop offset="0.45" stopColor="#5a3a7c" />
+            <Stop offset="0.65" stopColor="#c24f55" />
+            <Stop offset="0.83" stopColor="#f08a4b" />
+            <Stop offset="0.97" stopColor="#ffc46b" />
+          </LinearGradient>
+        </Defs>
+        <Rect x="-600" y="-400" width="2640" height="400" fill={c.dem} />
+        <Rect x="-600" y="0" width="2640" height={WATER_Y} fill={`url(#s-${gid})`} />
+        {STARS.map((t, i) => (
+          <Circle key={i} cx={t.x} cy={t.y} r={t.r} fill="#ffffff" opacity={t.o} />
+        ))}
+      </Svg>
+      <Full style={{ opacity: lerp(twA, 0.12, 1) }}>
+        {TWINKLE_A.map((t, i) => (
+          <Circle key={i} cx={t.x} cy={t.y} r={t.r} fill="#fff6dc" />
+        ))}
+      </Full>
+      <Full style={{ opacity: lerp(twB, 1, 0.12) }}>
+        {TWINKLE_B.map((t, i) => (
+          <Circle key={i} cx={t.x} cy={t.y} r={t.r} fill="#fff6dc" />
+        ))}
+      </Full>
+      <Full style={{ opacity: lerp(sunPulse, 0.78, 1), transform: [{ scale: lerp(sunPulse, 0.96, 1.06) }], transformOrigin: sunOrigin }}>
+        <Defs>
+          <RadialGradient id={`g-${gid}`} cx="0.5" cy="0.5" r="0.5">
+            <Stop offset="0" stopColor="#fff1c1" stopOpacity="0.95" />
+            <Stop offset="0.3" stopColor="#ffbe64" stopOpacity="0.55" />
+            <Stop offset="1" stopColor="#ff8a3d" stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Circle cx={SUN.x} cy={SUN.y} r="420" fill={`url(#g-${gid})`} />
+      </Full>
+      <Full style={{ opacity: lerp(rays, 0.55, 1), transform: [{ rotate: lerpDeg(rays, -4, 4) }], transformOrigin: sunOrigin }}>
+        <Path d={RAYS} fill="#ffe2a0" opacity="0.07" />
+      </Full>
+      {k > 0 && (
+        <Box g={g} x={0} y={110} w={1440} h={240} style={{ opacity: birds.interpolate({ inputRange: [0, 0.08, 0.92, 1], outputRange: [0, 0.85, 0.85, 0] }), transform: [{ translateX: lerp(birds, 0, 1300 * k) }, { translateY: lerp(flap, -7 * k, 7 * k) }] }}>
+          <Sub vb="0 0 1440 240">
+            {[[60, 70, 1], [118, 104, 0.8], [96, 34, 0.9]].map(([bx, by, bs]) => (
+              <Path key={`${bx}-${by}`} d={`M${bx} ${by} q${11 * bs} ${-12 * bs} ${22 * bs} 0 q${11 * bs} ${-12 * bs} ${22 * bs} 0`} fill="none" stroke="#ffe2a0" strokeWidth="3" strokeLinecap="round" opacity="0.8" />
+            ))}
+          </Sub>
+        </Box>
+      )}
+      <Svg width="100%" height="100%" viewBox="0 0 1440 820" preserveAspectRatio="xMidYMax slice" style={StyleSheet.absoluteFill}>
+        <Defs>
+          <LinearGradient id={`r-${gid}`} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor="#f0a35a" stopOpacity="0.95" />
+            <Stop offset="0.22" stopColor="#7a4b7c" />
+            <Stop offset="0.6" stopColor="#26305e" />
+            <Stop offset="1" stopColor="#101733" />
+          </LinearGradient>
+          <LinearGradient id={`f-${gid}`} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={c.dem} stopOpacity="1" />
+            <Stop offset="1" stopColor={c.dem} stopOpacity="0" />
+          </LinearGradient>
+        </Defs>
+        {fade && <Rect x="-600" y="0" width="2640" height="300" fill={`url(#f-${gid})`} />}
+        <Circle cx={SUN.x} cy={SUN.y} r="82" fill="#fff1c1" />
+        <Path d={FAR_PEAKS} fill="#4a3f86" opacity="0.6" />
+        <Ellipse cx="720" cy={WATER_Y - 4} rx="900" ry="16" fill="#ffffff" opacity="0.07" />
+        <Path d={MID_PEAKS} fill="#262c63" opacity="0.92" />
+        <Rect x="-600" y={WATER_Y} width="2640" height="400" fill={`url(#r-${gid})`} />
+      </Svg>
+      {k > 0 &&
+        HORSES.map((h, i) => (
+          <Box key={i} g={g} x={h.x - h.s * 64} y={h.y - h.s * 156} w={h.s * 160} h={h.s * 160} style={horse(h.sgn)}>
+            <Sub vb={HORSE_VB}>
+              <Horseman />
+            </Sub>
+          </Box>
+        ))}
+      <Full style={{ opacity: lerp(shimmerOp, 0.6, 1), transform: [{ translateX: lerp(shimmer, -16 * k, 16 * k) }] }}>
+        {[70, 52, 38, 26, 16].map((rx, i) => (
+          <Ellipse key={rx} cx={SUN.x} cy={WATER_Y + 18 + i * 34} rx={rx * 2.2} ry="5" fill="#ffd9a0" opacity={0.42 - i * 0.07} />
+        ))}
+      </Full>
+      {k > 0 && (
+        <>
+          <Box g={g} x={540 - 0.95 * 4} y={704 - 0.95 * 210} w={0.95 * 284} h={0.95 * 250} style={{ transform: [{ translateY: lerp(bob1, -6 * k, 6 * k) }, { rotate: lerpDeg(rock1, -2.4, 2.4) }], transformOrigin: '50% 92%' }}>
+            <Sub vb={BOAT_VB}>
+              <WarBoat />
+            </Sub>
+          </Box>
+          <Box g={g} x={880 - 0.55 * 4} y={662 - 0.55 * 210} w={0.55 * 284} h={0.55 * 250} style={{ transform: [{ translateY: lerp(bob2, -4 * k, 4 * k) }, { rotate: lerpDeg(rock2, -2.8, 2.8) }], transformOrigin: '50% 92%' }}>
+            <Sub vb={BOAT_VB}>
+              <WarBoat />
+            </Sub>
+          </Box>
+          <Box g={g} x={1030 - 0.6 * 60} y={700 - 0.6 * 200} w={0.6 * 390} h={0.6 * 310} style={{ transform: [{ translateY: lerp(burnBob, -3 * k, 3 * k) }, { rotate: lerpDeg(burnRock, -1.6, 1.6) }], transformOrigin: '50% 78%' }}>
+            <Sub vb={BURN_VB} style={{ opacity: lerp(glowPulse, 0.5, 1), transform: [{ scale: lerp(glowPulse, 0.92, 1.1) }], transformOrigin: '52% 64%' }}>
+              <BurningGlow tilt={12} />
+            </Sub>
+            <Sub vb={BURN_VB}>
+              <BurningHull tilt={12} />
+            </Sub>
+            <Sub vb={BURN_VB} style={{ opacity: lerp(flick, 0.72, 1), transform: [{ scaleY: lerp(flick, 0.86, 1.16) }, { scaleX: lerp(flick, 1.05, 0.95) }], transformOrigin: '53% 71%' }}>
+              <BurningFlames tilt={12} />
+            </Sub>
+            {[[smoke1, 14], [smoke2, -12], [smoke3, 20]].map(([v, dx], i) => (
+              <Sub key={i} vb={BURN_VB} style={smokeStyle(v as Animated.Value, dx as number)}>
+                <Circle cx="146" cy="-60" r="15" fill="#2a2430" />
+              </Sub>
+            ))}
+          </Box>
+        </>
+      )}
+      <Svg width="100%" height="100%" viewBox="0 0 1440 820" preserveAspectRatio="xMidYMax slice" style={StyleSheet.absoluteFill}>
+        <Defs>
+          <LinearGradient id={`d-${gid}`} x1="0" y1="0" x2="1" y2="0">
+            <Stop offset="0" stopColor={c.dem} stopOpacity="0.92" />
+            <Stop offset="0.65" stopColor={c.dem} stopOpacity="0.5" />
+            <Stop offset="1" stopColor={c.dem} stopOpacity="0" />
+          </LinearGradient>
+        </Defs>
+        {STAKES.map((s, i) => (
+          <G key={i} transform={`translate(${s.x} ${s.y}) rotate(${s.tilt})`}>
+            <Path d={`M-3.5 ${s.h} L-3.5 7 L0 0 L3.5 7 L3.5 ${s.h} Z`} fill="#1b1220" />
+            <Path d={`M0 0 L3.5 7 L3.5 ${s.h} L1 ${s.h} L1 8 Z`} fill="#6b4a36" opacity="0.7" />
+            <Ellipse cx="0" cy={s.h} rx="10" ry="2.4" fill="none" stroke="#f6c46b" strokeOpacity="0.45" />
+          </G>
+        ))}
+        <Path d="M-600 650 C-200 640 250 660 380 708 C440 732 470 784 486 830 H-600 Z" fill="#0c1228" />
+        <G transform="translate(150 676) scale(0.95)">
+          <Citadel />
         </G>
-      ))}
-      <Path d="M-600 650 C-200 640 250 660 380 708 C440 732 470 784 486 830 H-600 Z" fill="#0c1228" />
-      <Citadel x={150} y={676} s={0.95} />
-      <Path d="M2040 640 C1700 626 1250 640 1150 700 C1110 726 1090 780 1082 830 H2040 Z" fill="#0c1228" />
-      <Banner x={1180} top={530} w={100} label="ĐÔNG A" />
-      <Banner x={1272} top={474} w={84} />
-      <Banner x={1352} top={538} w={46} />
-      {shade && <Rect x="0" y="0" width="960" height="820" fill={`url(#d-${gid})`} />}
-    </Svg>
+        <Path d="M2040 640 C1700 626 1250 640 1150 700 C1110 726 1090 780 1082 830 H2040 Z" fill="#0c1228" />
+        {BANNERS.map((b) => (
+          <BannerPole key={b.x} x={b.x} top={b.top} />
+        ))}
+        {shade && <Rect x="0" y="0" width="960" height="820" fill={`url(#d-${gid})`} />}
+      </Svg>
+      {k > 0 &&
+        BANNERS.map((b) => (
+          <Box key={b.x} g={g} x={b.x + 1} y={b.top - 20} w={b.w + 4} h={118} style={cloth(b.v, b.amp)}>
+            <Sub vb={`-4 -20 ${b.w + 4} 118`}>
+              <BannerCloth w={b.w} label={b.label} />
+            </Sub>
+          </Box>
+        ))}
+      {k > 0 && (
+        <Box g={g} x={150 - 0.95 * 4} y={676 - 0.95 * 236} w={0.95 * 52} h={0.95 * 36} style={{ transform: [{ skewY: lerpDeg(waveB, -7, 7) }, { scaleX: lerp(waveB, 0.95, 1.06) }], transformOrigin: '5% 50%' }}>
+          <Sub vb="-4 -236 52 36">
+            <Path d="M1.5 -230 L42 -220 L1.5 -206 Z" fill="#c1272d" />
+          </Sub>
+        </Box>
+      )}
+    </View>
   );
 };
 
