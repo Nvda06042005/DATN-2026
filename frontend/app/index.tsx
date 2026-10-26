@@ -4,13 +4,14 @@
  * Số liệu lấy thẳng từ dữ liệu game nên không lệch. Không có liên kết tới hai cổng quản trị. expo-router bắt buộc tên index cho đường dẫn "/".
  */
 import { useState } from 'react';
-import { Platform, Pressable, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
+import { Platform, Pressable, StyleSheet, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  Activity, ArrowRight, Castle, Check, Compass, Database, Download, FileSpreadsheet, GraduationCap, Joystick, Landmark, LayoutDashboard, Layers, LibraryBig, Lock,
-  Map as MapIcon, Medal, MessageSquareText, Milestone, Monitor, Puzzle, RadioTower, Route, School, ScrollText, Send, Shield, ShieldCheck, Smartphone,
-  Sword, Table2, Tablet, TrendingUp, Trophy, Undo2, Users, WandSparkles, Zap,
+  Activity, ArrowRight, Check, Compass, Database, Download, FileSpreadsheet, GraduationCap, Joystick, Landmark, LayoutDashboard, Layers, LibraryBig, Lock,
+  Map as MapIcon, MapPinned, Medal, MessageSquareText, Milestone, Monitor, Puzzle, RadioTower, School, Send, ShieldCheck, ShieldHalf, Smartphone,
+  Sword, Swords, Table2, Tablet, Target, TrendingUp, Trophy, Undo2, Users, WandSparkles, Zap,
 } from 'lucide-react-native';
 import { BrandLogo, CloudBank, EpicBackdrop, GradeBadge, SchematicMap, SkyBackdrop } from '@/components/art';
 import { useDocumentTitle } from '@/components/auth';
@@ -18,10 +19,9 @@ import { LoreChip } from '@/components/game/quiz';
 import { TemplateGuide, downloadTemplate } from '@/components/provisioning';
 import { Chip, Screen, Txt } from '@/components/ui';
 import { CAMPAIGNS, CAMPAIGN_ROUTES, PHASES } from '@/constants/campaigns';
-import { ELEMENTS, GAME_TABS, LORE_LABEL } from '@/constants/game';
+import { ELEMENTS, GAME_TABS, LORE_LABEL, MAP_PLACES } from '@/constants/game';
 import { HEROES } from '@/constants/heroes';
 import type { Palette } from '@/constants/theme';
-import { WORLD_QUESTS } from '@/constants/world';
 import { useReduceMotion } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
@@ -420,33 +420,59 @@ const Hero: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wide, go 
   );
 };
 
-/** Khung số liệu trắng nằm đè lên đáy hero */
+/** Biểu tượng số liệu: ô bo tròn nền chuyển sắc xanh trời, biểu tượng trắng nét mảnh (cỡ theo chữ tiêu đề đi kèm) và bóng xanh nhẹ */
+const StatIcon: React.FC<{ icon: IconType }> = ({ icon: Icon }) => {
+  const { c } = useTheme();
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={[{ width: 52, height: 52, borderRadius: 16, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }, shadow(c, 'sm')]}
+    >
+      <LinearGradient colors={[c.troi2, c.troi]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+      {/* Bọc trong View: trên web, lớp nền đặt tuyệt đối sẽ che SVG nếu SVG không nằm trong phần tử có vị trí */}
+      <View>
+        <Icon size={iconPx(18)} color={c.the} strokeWidth={1.75} />
+      </View>
+    </View>
+  );
+};
+
+/**
+ * Khung số liệu trắng nằm đè lên đáy hero. Mọi số lấy từ dữ liệu game; "đội quân" trong 14 là binh đoàn (Quân Thánh Dực, Quân Sát Thát),
+ * "địa danh" là các điểm trên lược đồ Đại Việt thời Trần (có cả Chăm-pa ở phía nam).
+ */
 const Stats: React.FC<{ wide: boolean }> = ({ wide }) => {
   const { c } = useTheme();
-  const items: Array<{ icon: IconType; value: number; label: string }> = [
-    { icon: Castle, value: CAMPAIGNS.length, label: 'lần kháng chiến: 1258, 1285 và 1287 – 1288' },
-    { icon: Route, value: PHASES.length, label: 'màn chiến dịch, từ Bình Lệ Nguyên đến Bạch Đằng' },
-    { icon: Shield, value: HEROES.length, label: 'danh tướng và đội quân nhà Trần để chiêu mộ' },
-    { icon: ScrollText, value: WORLD_QUESTS.length, label: 'nhiệm vụ khám phá trong Hành Trình Đông A' },
+  const items: Array<{ icon: IconType; value: number; title: string; text: string }> = [
+    { icon: Swords, value: CAMPAIGNS.length, title: 'cuộc kháng chiến', text: '1258 · 1285 · 1287 – 1288' },
+    { icon: Target, value: PHASES.length, title: 'màn chiến dịch', text: 'Từ Bình Lệ đến Bạch Đằng' },
+    { icon: ShieldHalf, value: HEROES.length, title: 'tướng và binh đoàn', text: 'Chiêu mộ và tiến hóa' },
+    { icon: MapPinned, value: Object.keys(MAP_PLACES).length, title: 'địa danh lịch sử', text: 'Lược đồ thời Trần' },
   ];
   return (
     <View style={{ width: '100%', marginTop: wide ? -84 : -72, zIndex: 5, paddingHorizontal: 16 }}>
       <Panel pad={0} style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', borderRadius: 24, flexDirection: 'row', flexWrap: 'wrap', overflow: 'hidden' }}>
         {items.map((s, i) => (
           <View
-            key={s.label}
+            key={s.title}
+            accessible
+            accessibilityLabel={`${s.value} ${s.title}. ${s.text}`}
             style={{
-              flexGrow: 1, flexBasis: wide ? 240 : 280, padding: 24, flexDirection: 'row', alignItems: 'center', gap: 16,
+              flexGrow: 1, flexBasis: wide ? 240 : 280, padding: wide ? 20 : 24, flexDirection: 'row', alignItems: 'center', gap: 14,
               borderLeftWidth: wide && i > 0 ? 1 : 0, borderTopWidth: !wide && i > 0 ? 1 : 0, borderColor: c.bienXanh,
             }}
           >
-            <IconTile icon={s.icon} text={18} size={48} />
-            <View style={{ flex: 1 }}>
-              <Txt f="heavy" size={34} color={c.xanhMuc} accessibilityLabel={`${s.value} ${s.label}`} style={{ lineHeight: 40, letterSpacing: -0.5 }}>
+            <StatIcon icon={s.icon} />
+            <View style={{ flex: 1, gap: 1 }}>
+              <Txt f="heavy" size={36} color={c.xanhMuc} style={{ lineHeight: 42, letterSpacing: -0.8 }}>
                 {s.value}
               </Txt>
-              <Txt size={13} color={c.xanhMuc2} accessibilityElementsHidden importantForAccessibility="no">
-                {s.label}
+              <Txt f="bold" size={15} color={c.xanhMuc} style={{ lineHeight: 20 }}>
+                {s.title}
+              </Txt>
+              <Txt size={13} color={c.xanhMuc2} style={{ lineHeight: 18 }}>
+                {s.text}
               </Txt>
             </View>
           </View>
