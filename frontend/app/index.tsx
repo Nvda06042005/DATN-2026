@@ -45,11 +45,33 @@ const NAV = [
   { id: 'de-tai', label: 'Về đề tài' },
 ] as const;
 
-/** Thông tin tóm tắt mỗi cuộc kháng chiến (đối chiếu sách giáo khoa Lịch sử 7 và kho kiến thức của game) */
+/**
+ * Thông tin tóm tắt mỗi cuộc kháng chiến, đối chiếu Wikipedia tiếng Việt: "Chiến tranh Nguyên Mông – Đại Việt" và ba bài "… lần 1/2/3".
+ * Lần 1 là quân Mông Cổ (nhà Nguyên lập sau, năm 1271); hai lần sau là quân Nguyên.
+ */
 const CAMPAIGN_FACTS: Record<1 | 2 | 3, { enemy: string; lead: string; key: string }> = {
-  1: { enemy: 'Quân Mông Cổ do Ngột Lương Hợp Thai chỉ huy', lead: 'Vua Trần Thái Tông, Thái sư Trần Thủ Độ', key: 'Vườn không nhà trống; phản công thắng lợi ở Đông Bộ Đầu (29/1/1258)' },
-  2: { enemy: 'Quân Nguyên do Thoát Hoan và Toa Đô chỉ huy', lead: 'Vua Trần Nhân Tông, Quốc công tiết chế Trần Hưng Đạo', key: 'Hội nghị Diên Hồng; thắng Hàm Tử, Chương Dương, Tây Kết; thu phục Thăng Long (6/1285)' },
-  3: { enemy: 'Quân Nguyên do Thoát Hoan và Ô Mã Nhi chỉ huy', lead: 'Vua Trần Nhân Tông, Quốc công tiết chế Trần Hưng Đạo', key: 'Đánh đoàn thuyền lương ở Vân Đồn; trận Bạch Đằng (4/1288)' },
+  1: {
+    enemy: 'Quân Mông Cổ (kèm quân Đại Lý) do Ngột Lương Hợp Thai và con trai là Aju chỉ huy',
+    lead: 'Vua Trần Thái Tông cùng Thái tử Trần Hoảng, Thái sư Trần Thủ Độ',
+    key: 'Thua ở Bình Lệ Nguyên (17/1) và Phù Lỗ (18/1), bỏ Thăng Long với "vườn không nhà trống"; đêm 28/1/1258 phản công, thắng ở Đông Bộ Đầu',
+  },
+  2: {
+    enemy: 'Quân Nguyên (Hốt Tất Liệt ra lệnh): Thoát Hoan đánh từ phía Bắc, Toa Đô từ Chiêm Thành đánh ra',
+    lead: 'Thượng hoàng Trần Thánh Tông, vua Trần Nhân Tông, Quốc công tiết chế Trần Hưng Đạo',
+    key: 'Hội nghị Bình Than, Diên Hồng; rút về Thanh Hóa rồi phản công: thắng Hàm Tử, Chương Dương, giải phóng Thăng Long, diệt quân Toa Đô ở Tây Kết (24/6/1285)',
+  },
+  3: {
+    enemy: 'Quân Nguyên chia ba cánh vào Đại Việt: Thoát Hoan chỉ huy chung, Ô Mã Nhi chỉ huy thủy quân',
+    lead: 'Thượng hoàng Trần Thánh Tông, vua Trần Nhân Tông, Quốc công tiết chế Trần Hưng Đạo',
+    key: 'Tập kích đoàn thuyền lương ở Vân Đồn (đầu 1288); sáng 9/4/1288 thủy quân Nguyên vào sông Bạch Đằng, mắc cọc ngầm và bị tiêu diệt',
+  },
+};
+
+/** Mô tả ngắn trên thẻ chọn: không ghi số quân Nguyên lần 2 vì sử liệu chép khác nhau (Toàn thư 50 vạn, Nguyên sử 30 vạn kể cả dân phu) */
+const CAMPAIGN_BLURB: Record<1 | 2 | 3, string> = {
+  1: 'Từ Bình Lệ Nguyên đến Đông Bộ Đầu',
+  2: 'Phá gọng kìm Bắc – Nam, giải phóng Thăng Long',
+  3: 'Từ Vân Đồn đến Bạch Đằng',
 };
 
 type AudienceId = 'hoc_sinh' | 'giao_vien' | 'nha_truong';
@@ -287,9 +309,9 @@ const Header: React.FC<{ width: number; go: (id: string) => void }> = ({ width, 
 
 /** Ba trận đại thắng của nhà Trần, hiện trong hero dưới dạng thẻ kính mờ */
 const VICTORIES = [
-  { year: '1258', place: 'Đông Bộ Đầu' },
-  { year: '1285', place: 'Hàm Tử – Chương Dương' },
-  { year: '1288', place: 'Bạch Đằng' },
+  { war: 'Lần 1 · quân Mông Cổ', year: '1258', place: 'Đông Bộ Đầu', result: 'Quân Mông Cổ bỏ Thăng Long, rút về nước' },
+  { war: 'Lần 2 · quân Nguyên', year: '1285', place: 'Hàm Tử – Chương Dương', result: 'Giải phóng Thăng Long, diệt quân Toa Đô ở Tây Kết' },
+  { war: 'Lần 3 · quân Nguyên', year: '1288', place: 'Bạch Đằng', result: 'Thủy quân Nguyên bị tiêu diệt, sáng 9/4/1288' },
 ] as const;
 
 /** Làm mờ phía sau thẻ kính (chỉ web) */
@@ -358,14 +380,23 @@ const Hero: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wide, go 
                   <View
                     key={v.year}
                     accessible
-                    accessibilityLabel={`Năm ${v.year}: ${v.place}`}
-                    style={[{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 14, backgroundColor: c.kinh, borderWidth: 1, borderColor: c.kinhVien }, GLASS]}
+                    accessibilityLabel={`${v.war}, năm ${v.year}: thắng ở ${v.place}. ${v.result}`}
+                    style={[
+                      { flexGrow: 1, flexBasis: 160, maxWidth: wide ? 190 : undefined, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 14, backgroundColor: c.kinh, borderWidth: 1, borderColor: c.kinhVien, gap: 2 },
+                      GLASS,
+                    ]}
                   >
-                    <Txt f="heavy" size={24} color={c.vang} style={{ lineHeight: 28 }}>
+                    <Txt f="bold" size={11} color={c.troi3} upper>
+                      {v.war}
+                    </Txt>
+                    <Txt f="heavy" size={26} color={c.vang} style={{ lineHeight: 32 }}>
                       {v.year}
                     </Txt>
-                    <Txt f="medium" size={13} color={c.the}>
+                    <Txt f="bold" size={14} color={c.the} style={{ lineHeight: 19 }}>
                       {v.place}
+                    </Txt>
+                    <Txt size={12} color={c.troi4} style={{ lineHeight: 17 }}>
+                      {v.result}
                     </Txt>
                   </View>
                 ))}
@@ -460,7 +491,7 @@ const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
                 key={k.id}
                 onPress={() => setSel(k.id)}
                 accessibilityRole="button"
-                accessibilityLabel={`${k.name}, ${k.years}. ${k.desc}`}
+                accessibilityLabel={`${k.name}, ${k.years}. ${CAMPAIGN_BLURB[k.id]}`}
                 accessibilityState={{ selected: on }}
                 style={({ pressed }) => ({
                   minHeight: 72, padding: 16, borderRadius: 16, borderWidth: 1.5, flexDirection: 'row', alignItems: 'center', gap: 16,
@@ -482,7 +513,7 @@ const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
                     {k.name}
                   </Txt>
                   <Txt size={14} color={c.xanhMuc2}>
-                    {k.desc}
+                    {CAMPAIGN_BLURB[k.id]}
                   </Txt>
                 </View>
                 <Ico icon={ArrowRight} text={15} color={on ? look.accent : c.xanhMuc2} />
@@ -643,6 +674,9 @@ export default function Home() {
       <Band id="ba-lan-khang-chien" bg={c.the} wide={wide}>
         <Head eyebrow="Chương trình học" title="Ba lần kháng chiến chống Nguyên – Mông" text="Chọn một cuộc kháng chiến để xem lược đồ, diễn biến chính và các màn chơi." wide={wide} />
         <CampaignExplorer wide={wide} />
+        <Txt size={13} color={c.xanhMuc2} center style={{ maxWidth: 760, alignSelf: 'center' }}>
+          Đối chiếu theo Wikipedia tiếng Việt: “Chiến tranh Nguyên Mông – Đại Việt” và ba bài chi tiết từng lần. Sau ba lần thất bại, nhà Nguyên không còn đưa quân sang; Đại Việt giữ vững độc lập, trên danh nghĩa chịu làm nước chư hầu triều cống.
+        </Txt>
       </Band>
 
       <Band id="lo-trinh" sky="blue" cloudTop={c.the} cloudBottom={c.the} wide={wide}>
