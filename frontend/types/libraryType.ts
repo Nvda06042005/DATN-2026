@@ -95,6 +95,27 @@ export interface CourseItem {
 
 export type LibraryCategory = 'quiz' | 'story' | 'course' | 'folders' | 'trash';
 
+/** Cụm tri thức con trong nhóm chủ đề */
+export interface TopicGroupUnit {
+  unit_id: string;
+  topic: string;
+  cognitive_level?: string;
+  difficulty?: number;
+  question_count?: number;
+}
+
+/** Nhóm chủ đề khảo thí chuẩn SGK Lịch sử 7 */
+export interface TopicGroupItem {
+  id: string;
+  title: string;
+  short_title?: string;
+  badge?: string;
+  description: string;
+  sgk_reference: string;
+  units: TopicGroupUnit[];
+  question_count_available: number;
+}
+
 /** Câu hỏi do AI soạn (POST /api/quiz/generate) */
 export interface GeneratedQuizQuestion {
   id?: string;
@@ -104,6 +125,10 @@ export interface GeneratedQuizQuestion {
   cognitive_level?: string;
   curriculum_reference?: string;
   explanation?: string;
+  topic_group_id?: string;
+  topic_group_name?: string;
+  unit_id?: string;
+  topic?: string;
 }
 
 /** Màn truyện do AI soạn (POST /api/story/generate) */

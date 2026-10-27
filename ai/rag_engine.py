@@ -16,6 +16,69 @@ if str(AI_DIR) not in sys.path:
 from main_model import MainNLPEngine
 
 
+CURRICULUM_TOPIC_GROUPS: Dict[str, Dict[str, Any]] = {
+    "KHANG_CHIEN_1": {
+        "id": "KHANG_CHIEN_1",
+        "title": "Kháng chiến chống Mông Cổ lần thứ nhất (1258)",
+        "short_title": "Kháng chiến lần 1 (1258)",
+        "badge": "1258 - Bình Lệ Nguyên & Đông Bộ Đầu",
+        "description": "Âm mưu xâm lược của Mông Cổ, Trận Bình Lệ Nguyên (Lê Phụ Trần), Kế sách Vườn không nhà trống tại Thăng Long, Thái sư Trần Thủ Độ và Đại thắng phản công Đông Bộ Đầu.",
+        "sgk_reference": "SGK Lịch sử & Địa lí 7 (KNTT) - Bài 15, Mục 1, Trang 66–67",
+        "unit_ids": [
+            "KC1_OVERVIEW", "KC1_WHY_INVADE", "KC1_BINH_LE_NGUYEN",
+            "KC1_VUON_KHONG_NHA_TRONG", "KC1_TRAN_THU_DO_QUOTE", "KC1_DONG_BO_DAU"
+        ]
+    },
+    "KHANG_CHIEN_2": {
+        "id": "KHANG_CHIEN_2",
+        "title": "Kháng chiến chống quân Nguyên lần thứ hai (1285)",
+        "short_title": "Kháng chiến lần 2 (1285)",
+        "badge": "1285 - Bình Than, Diên Hồng & Hàm Tử",
+        "description": "Hội nghị Bình Than, Trần Quốc Toản bóp nát quả cam, Hội nghị Diên Hồng (tiếng hô ĐÁNH), Hịch tướng sĩ & chữ Sát Thát, Trần Bình Trọng, Hàm Tử - Chương Dương, Thoát Hoan chui ống đồng.",
+        "sgk_reference": "SGK Lịch sử & Địa lí 7 (KNTT) - Bài 15, Mục 2, Trang 68–71",
+        "unit_ids": [
+            "BINH_THAN_CONFERENCE", "TQT_WHY_ORANGE", "TQT_SIX_GOLDEN_WORDS", "TQT_OVERVIEW",
+            "DIEN_HONG_CONFERENCE", "HICH_TUONG_SI", "TRAN_HUNG_DAO_PORTRAIT", "GAME_BINH_THU_YEU_LUOC",
+            "KC2_OVERVIEW", "KC2_TRAN_BINH_TRONG", "KC2_HAM_TU_CHUONG_DUONG", "KC2_THOAT_HOAN_COPPER_PIPE"
+        ]
+    },
+    "KHANG_CHIEN_3": {
+        "id": "KHANG_CHIEN_3",
+        "title": "Kháng chiến chống quân Nguyên lần thứ ba (1287 – 1288)",
+        "short_title": "Kháng chiến lần 3 (1287 - 1288)",
+        "badge": "1287-1288 - Vân Đồn & Bạch Đằng",
+        "description": "Toàn cảnh kháng chiến 1287-1288, Hải chiến Vân Đồn (Trần Khánh Dư tiêu diệt đoàn thuyền lương Trương Văn Hổ), Đại thắng Bạch Đằng 1288 với bãi cọc ngầm lim bắt sống Ô Mã Nhi.",
+        "sgk_reference": "SGK Lịch sử & Địa lí 7 (KNTT) - Bài 15, Mục 3, Trang 71–73",
+        "unit_ids": [
+            "KC3_OVERVIEW", "KC3_VAN_DON", "GAME_TRAN_KHANH_DU", "KC3_BACH_DANG_HOW"
+        ]
+    },
+    "NHAN_VAT_QUAN_SU": {
+        "id": "NHAN_VAT_QUAN_SU",
+        "title": "Nhân vật Lịch sử, Hội nghị & Nghệ thuật Quân sự thời Trần",
+        "short_title": "Nhân vật & Nghệ thuật Quân sự",
+        "badge": "Hào khí Đông A & Bài học lịch sử",
+        "description": "Điện súy Phạm Ngũ Lão, Yết Kiêu - Dã Tượng, Phật Hoàng Trần Nhân Tông, Tù trưởng miền núi, Ngụ binh ư nông, Quân Thánh Dực, Căn cứ Vạn Kiếp - Thiên Trường, Nguyên nhân thắng lợi & Bài học Khoan thư sức dân.",
+        "sgk_reference": "SGK Lịch sử & Địa lí 7 (KNTT) - Bài 14 & Bài 15, Trang 62–75",
+        "unit_ids": [
+            "ALL_3_WARS_SUMMARY", "CAUSES_OF_VICTORY", "HISTORICAL_SIGNIFICANCE", "MILITARY_ART_TRAN_DYNASTY",
+            "HISTORICAL_LESSONS_TODAY", "GAME_NGU_BINH_U_NONG", "GAME_QUAN_THANH_DUC_SAT_THAT",
+            "GAME_VAN_KIEP_THIEN_TRUONG_BASES", "YET_KIEU_DA_TUONG", "PHAM_NGU_LAO", "GAME_TRAN_NHAN_TONG",
+            "ROLE_OF_ETHNIC_MINORITIES", "GAME_TRUNG_THAN_VS_PHAN_BOI"
+        ]
+    },
+    "TONG_HOP_TOAN_KHOA": {
+        "id": "TONG_HOP_TOAN_KHOA",
+        "title": "Tổng hợp Toàn khóa 3 lần Kháng chiến (1258 - 1288)",
+        "short_title": "Đề Tổng hợp Toàn khóa",
+        "badge": "Ma trận Bloom chuẩn GDPT 2018",
+        "description": "Đề khảo thí tích hợp toàn diện bao quát 3 cuộc kháng chiến chống Mông - Nguyên, phân bổ ma trận Bloom (Nhận biết, Thông hiểu, Vận dụng).",
+        "sgk_reference": "Toàn bộ Chương trình Lịch sử 7 - Chủ đề Ba lần kháng chiến chống Mông - Nguyên",
+        "unit_ids": []
+    }
+}
+
+
 class RAGEngine:
     """
     Adapter gọn nhẹ kết nối API với `MainNLPEngine` (không gộp dữ liệu cứng vào code).
@@ -26,6 +89,74 @@ class RAGEngine:
     @property
     def records(self) -> List[Dict[str, Any]]:
         return self.model.train_records
+
+    def get_topic_group_meta(self, group_id: Optional[str]) -> Optional[Dict[str, Any]]:
+        if not group_id:
+            return None
+        return CURRICULUM_TOPIC_GROUPS.get(group_id.strip().upper())
+
+    def get_topic_groups(self) -> List[Dict[str, Any]]:
+        import json
+        DATA_DIR = Path(__file__).resolve().parent / "data"
+        qm_path = DATA_DIR / "q_matrix.json"
+        gc_path = DATA_DIR / "game_content.json"
+
+        qm_data = {}
+        if qm_path.exists():
+            try:
+                qm_data = json.loads(qm_path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+
+        mcq_counts: Dict[str, int] = {}
+        if gc_path.exists():
+            try:
+                gc_data = json.loads(gc_path.read_text(encoding="utf-8"))
+                for q in gc_data.get("questions", []):
+                    if q.get("type") == "mcq" and q.get("unit_id"):
+                        uid = q.get("unit_id")
+                        mcq_counts[uid] = mcq_counts.get(uid, 0) + 1
+            except Exception:
+                pass
+
+        lvl_map = {
+            "NHAN_BIET": "Nhận biết",
+            "THONG_HIEU": "Thông hiểu",
+            "VAN_DUNG": "Vận dụng",
+        }
+
+        all_academic_units: List[str] = []
+        for gid, grp in CURRICULUM_TOPIC_GROUPS.items():
+            if gid != "TONG_HOP_TOAN_KHOA":
+                all_academic_units.extend(grp["unit_ids"])
+
+        result = []
+        for gid, grp in CURRICULUM_TOPIC_GROUPS.items():
+            target_uids = grp["unit_ids"] if gid != "TONG_HOP_TOAN_KHOA" else all_academic_units
+            units_list = []
+            total_mcqs = 0
+            for uid in target_uids:
+                u_info = qm_data.get(uid, {})
+                q_cnt = mcq_counts.get(uid, 0)
+                total_mcqs += q_cnt
+                units_list.append({
+                    "unit_id": uid,
+                    "topic": u_info.get("topic", uid),
+                    "cognitive_level": lvl_map.get(u_info.get("cognitive_level", "THONG_HIEU"), "Thông hiểu"),
+                    "difficulty": float(u_info.get("difficulty", 0.5)),
+                    "question_count": q_cnt
+                })
+            result.append({
+                "id": grp["id"],
+                "title": grp["title"],
+                "short_title": grp["short_title"],
+                "badge": grp["badge"],
+                "description": grp["description"],
+                "sgk_reference": grp["sgk_reference"],
+                "units": units_list,
+                "question_count_available": total_mcqs
+            })
+        return result
 
     def ask_natural(
         self,
@@ -105,15 +236,68 @@ class RAGEngine:
         return res
 
     def search_relevant_chunks(
-        self, query: str, character_id: Optional[str] = None, top_k: int = 3
+        self,
+        query: Optional[str] = None,
+        character_id: Optional[str] = None,
+        top_k: int = 5,
+        topic_group_id: Optional[str] = None,
+        unit_ids: Optional[List[str]] = None
     ) -> List[Dict[str, Any]]:
-        best_uid, conf, meta = self.model.predict_unit(query)
-        if best_uid == "OOD_RANDOM_AND_OFFTOPIC" or best_uid not in self.model.unit_lookup:
-            return []
-        unit_rec = dict(self.model.unit_lookup[best_uid])
-        unit_rec["confidence"] = conf
-        unit_rec["detected_q_type"] = meta.get("q_type", "OVERVIEW")
-        return [unit_rec]
+        # 1. Nếu chỉ định trực tiếp danh sách unit_ids
+        if unit_ids and len(unit_ids) > 0:
+            results = []
+            for uid in unit_ids:
+                if uid in self.model.unit_lookup:
+                    rec = dict(self.model.unit_lookup[uid])
+                    rec["confidence"] = 1.0
+                    results.append(rec)
+            if results:
+                return results[:top_k]
+
+        # 2. Nếu có topic_group_id
+        if topic_group_id:
+            norm_gid = topic_group_id.strip().upper()
+            group_info = CURRICULUM_TOPIC_GROUPS.get(norm_gid)
+            if group_info:
+                target_uids = group_info["unit_ids"]
+                if not target_uids:  # TONG_HOP_TOAN_KHOA
+                    target_uids = [u for g in CURRICULUM_TOPIC_GROUPS.values() for u in g["unit_ids"] if u]
+
+                # Nếu có query, ưu tiên dự đoán và sắp xếp theo query
+                if query and query.strip():
+                    best_uid, conf, meta = self.model.predict_unit(query)
+                    ordered = []
+                    if best_uid in target_uids and best_uid in self.model.unit_lookup:
+                        rec = dict(self.model.unit_lookup[best_uid])
+                        rec["confidence"] = conf
+                        ordered.append(rec)
+                    for uid in target_uids:
+                        if uid != best_uid and uid in self.model.unit_lookup:
+                            rec = dict(self.model.unit_lookup[uid])
+                            rec["confidence"] = 0.8
+                            ordered.append(rec)
+                    return ordered[:top_k]
+
+                # Nếu không có query, trả về các unit trong group
+                results = []
+                for uid in target_uids:
+                    if uid in self.model.unit_lookup:
+                        rec = dict(self.model.unit_lookup[uid])
+                        rec["confidence"] = 0.9
+                        results.append(rec)
+                return results[:top_k]
+
+        # 3. Fallback theo query ban đầu (tương thích 100% với code cũ)
+        if query and query.strip():
+            best_uid, conf, meta = self.model.predict_unit(query)
+            if best_uid == "OOD_RANDOM_AND_OFFTOPIC" or best_uid not in self.model.unit_lookup:
+                return []
+            unit_rec = dict(self.model.unit_lookup[best_uid])
+            unit_rec["confidence"] = conf
+            unit_rec["detected_q_type"] = meta.get("q_type", "OVERVIEW")
+            return [unit_rec]
+
+        return []
 
     def extract_grounding_sources(self, records: List[Dict[str, Any]]) -> List[GroundingSource]:
         sources = []

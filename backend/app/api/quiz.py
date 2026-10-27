@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from app.models.schemas import (
     QuizGenerateRequest, 
     QuizGenerateResponse,
+    TopicGroupsResponse,
     StudentAnswerSubmission,
     BKTUpdateResponse,
     PersonalizedRecommendationResponse,
@@ -18,33 +19,60 @@ from bkt_engine import bkt_engine
 
 router = APIRouter(prefix="/quiz", tags=["Giảng Viên & Khảo Thí - Sinh Đề & BKT Cá Nhân Hóa"])
 
+@router.get("/topic-groups", response_model=TopicGroupsResponse)
+async def get_quiz_topic_groups():
+    """
+    Trả về danh mục các nhóm chủ đề khảo thí chuẩn SGK Lịch sử 7
+    kèm danh sách các cụm tri thức con và số lượng câu hỏi trắc nghiệm sẵn có.
+    """
+    try:
+        groups = rag_engine.get_topic_groups()
+        return TopicGroupsResponse(
+            total_groups=len(groups),
+            groups=groups
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi lấy danh mục nhóm chủ đề khảo thí: {str(e)}")
+
+
 @router.post("/generate", response_model=QuizGenerateResponse)
 async def generate_quiz(req: QuizGenerateRequest):
     """
     Giáo viên yêu cầu sinh bộ câu hỏi trắc nghiệm tự động chuẩn kiến thức SGK 7
+    theo nhóm chủ đề (Topic Group) và phân bổ mức độ nhận thức Bloom.
     """
     try:
-        # 1. RAG Retrieval: Trích xuất các sự kiện & tư liệu liên quan đến chủ đề
+        # 1. RAG Retrieval: Trích xuất các sự kiện & tư liệu liên quan đến nhóm chủ đề
         relevant_records = rag_engine.search_relevant_chunks(
             query=req.topic,
-            top_k=5
+            topic_group_id=req.topic_group_id,
+            unit_ids=req.unit_ids,
+            top_k=8
         )
 
-        # 2. Sinh câu hỏi trắc nghiệm
+        # 2. Sinh câu hỏi trắc nghiệm bám sát nhóm chủ đề
         questions = await gemini_client.generate_quiz(
             topic=req.topic,
             num_questions=req.num_questions,
-            cognitive_level=req.cognitive_level or "Tất cả mức độ",
-            grounding_records=relevant_records
+            cognitive_level=req.cognitive_level or "Phân bổ ma trận",
+            grounding_records=relevant_records,
+            topic_group_id=req.topic_group_id,
+            unit_ids=req.unit_ids
         )
 
+        # Lấy tên nhóm chủ đề chuẩn
+        group_meta = rag_engine.get_topic_group_meta(req.topic_group_id)
+        group_name = group_meta.get("title") if group_meta else (req.topic or "Lịch sử thời Trần")
+
         return QuizGenerateResponse(
-            topic=req.topic,
+            topic=req.topic or group_name,
+            topic_group_id=req.topic_group_id,
+            topic_group_name=group_name,
             total_generated=len(questions),
             questions=questions,
             generation_notes=(
-                f"Đã sinh {len(questions)} câu hỏi dựa trên {len(relevant_records)} căn cứ sử liệu chính thức "
-                "từ SGK Lịch sử 7 và Đại Việt Sử Ký Toàn Thư."
+                f"Đã sinh {len(questions)} câu hỏi chuẩn hóa theo nhóm chủ đề '{group_name}', "
+                f"đối chiếu {len(relevant_records)} căn cứ sử liệu chính thức từ SGK Lịch sử 7 và Đại Việt Sử Ký Toàn Thư."
             )
         )
     except Exception as e:

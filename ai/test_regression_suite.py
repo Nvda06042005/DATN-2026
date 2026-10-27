@@ -1178,6 +1178,94 @@ class RegressionTestRunner:
         )
 
     # ==========================================================================
+    # CATEGORY P: TOPIC GROUPS AI QUIZ GENERATION & BLOOM MATRIX (5 TESTS)
+    # ==========================================================================
+    def test_category_p_topic_groups_quiz(self):
+        print("\n" + "=" * 70)
+        print("▶ CATEGORY P: TOPIC GROUPS AI QUIZ GENERATION & BLOOM MATRIX")
+        print("=" * 70)
+        import asyncio
+        from rag_engine import rag_engine, CURRICULUM_TOPIC_GROUPS
+        from gemini_client import gemini_client
+
+        # P.1: rag_engine.get_topic_groups() contract
+        groups = rag_engine.get_topic_groups()
+        p1_has_5 = len(groups) == 5
+        group_ids = [g["id"] for g in groups]
+        p1_expected_ids = {"KHANG_CHIEN_1", "KHANG_CHIEN_2", "KHANG_CHIEN_3", "NHAN_VAT_QUAN_SU", "TONG_HOP_TOAN_KHOA"}
+        p1_ids_ok = p1_expected_ids.issubset(set(group_ids))
+        p1_counts_ok = all(g.get("question_count_available", 0) > 0 for g in groups)
+        self.record_result(
+            "P.1",
+            "Registry 5 Topic Groups & Available Question Counts",
+            p1_has_5 and p1_ids_ok and p1_counts_ok,
+            f"Total Groups: {len(groups)} | Expected IDs: {p1_ids_ok} | Question Counts: {[g['question_count_available'] for g in groups]}"
+        )
+
+        # P.2: Quiz Generation strictly adhering to KHANG_CHIEN_1
+        q_kc1 = asyncio.run(gemini_client.generate_quiz(
+            topic_group_id="KHANG_CHIEN_1",
+            num_questions=3,
+            cognitive_level="Phân bổ ma trận"
+        ))
+        kc1_uids = set(CURRICULUM_TOPIC_GROUPS["KHANG_CHIEN_1"]["unit_ids"])
+        p2_ok = len(q_kc1) == 3 and all(q.topic_group_id == "KHANG_CHIEN_1" for q in q_kc1) and all(q.unit_id in kc1_uids for q in q_kc1 if q.unit_id)
+        self.record_result(
+            "P.2",
+            "AI Quiz Generation for Group 'KHANG_CHIEN_1' (1258)",
+            p2_ok,
+            f"Generated: {len(q_kc1)} | Group ID matched: True | Units: {[q.unit_id for q in q_kc1]}"
+        )
+
+        # P.3: Quiz Generation strictly adhering to KHANG_CHIEN_2
+        q_kc2 = asyncio.run(gemini_client.generate_quiz(
+            topic_group_id="KHANG_CHIEN_2",
+            num_questions=4,
+            cognitive_level="Phân bổ ma trận"
+        ))
+        kc2_uids = set(CURRICULUM_TOPIC_GROUPS["KHANG_CHIEN_2"]["unit_ids"])
+        p3_ok = len(q_kc2) == 4 and all(q.topic_group_id == "KHANG_CHIEN_2" for q in q_kc2) and all(q.unit_id in kc2_uids for q in q_kc2 if q.unit_id)
+        self.record_result(
+            "P.3",
+            "AI Quiz Generation for Group 'KHANG_CHIEN_2' (1285)",
+            p3_ok,
+            f"Generated: {len(q_kc2)} | Group ID matched: True | Units: {[q.unit_id for q in q_kc2]}"
+        )
+
+        # P.4: Quiz Generation strictly adhering to KHANG_CHIEN_3
+        q_kc3 = asyncio.run(gemini_client.generate_quiz(
+            topic_group_id="KHANG_CHIEN_3",
+            num_questions=3,
+            cognitive_level="Phân bổ ma trận"
+        ))
+        kc3_uids = set(CURRICULUM_TOPIC_GROUPS["KHANG_CHIEN_3"]["unit_ids"])
+        p4_ok = len(q_kc3) == 3 and all(q.topic_group_id == "KHANG_CHIEN_3" for q in q_kc3) and all(q.unit_id in kc3_uids for q in q_kc3 if q.unit_id)
+        self.record_result(
+            "P.4",
+            "AI Quiz Generation for Group 'KHANG_CHIEN_3' (1287-1288)",
+            p4_ok,
+            f"Generated: {len(q_kc3)} | Group ID matched: True | Units: {[q.unit_id for q in q_kc3]}"
+        )
+
+        # P.5: Bloom Matrix Distribution & Grounded Citations
+        q_matrix = asyncio.run(gemini_client.generate_quiz(
+            topic_group_id="TONG_HOP_TOAN_KHOA",
+            num_questions=3,
+            cognitive_level="Phân bổ ma trận"
+        ))
+        levels_present = {q.cognitive_level for q in q_matrix}
+        has_citations = all(len(q.curriculum_reference) > 0 for q in q_matrix)
+        has_explanations = all(len(q.explanation) > 0 for q in q_matrix)
+        has_4_options = all(len(q.options) == 4 and 0 <= q.correct_index <= 3 for q in q_matrix)
+        p5_ok = len(q_matrix) == 3 and len(levels_present) >= 2 and has_citations and has_explanations and has_4_options
+        self.record_result(
+            "P.5",
+            "Cognitive Bloom Matrix (Distributed Levels + 4-Options + Citations)",
+            p5_ok,
+            f"Levels present: {levels_present} | Citations: {has_citations} | Explanations: {has_explanations} | 4-Options Valid: {has_4_options}"
+        )
+
+    # ==========================================================================
     # RUN ALL SUITES & REPORT SUMMARY
     # ==========================================================================
     def run_all(self):
@@ -1197,6 +1285,7 @@ class RegressionTestRunner:
         self.test_category_m_adaptive_ai_and_new_units()
         self.test_category_m_game_topics()
         self.test_category_o_fullstack_api_contracts()
+        self.test_category_p_topic_groups_quiz()
 
         total = self.passed_tests + self.failed_tests
         pass_rate = (self.passed_tests / total * 100) if total > 0 else 0.0

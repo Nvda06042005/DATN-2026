@@ -315,14 +315,51 @@ class GeminiClient:
         }
 
     # ==========================================================================
-    # 2. GENERATE QUIZ FOR TEACHER STUDIO
+    # 2. GENERATE QUIZ FOR TEACHER STUDIO (THEO NHÓM CHỦ ĐỀ & MA TRẬN BLOOM)
     # ==========================================================================
     async def generate_quiz(
-        self, topic: str, num_questions: int, cognitive_level: str, grounding_records: List[Dict[str, Any]]
+        self,
+        topic: Optional[str] = None,
+        num_questions: int = 4,
+        cognitive_level: str = "Phân bổ ma trận",
+        grounding_records: Optional[List[Dict[str, Any]]] = None,
+        topic_group_id: Optional[str] = None,
+        unit_ids: Optional[List[str]] = None
     ) -> List[GeneratedQuestion]:
+        from rag_engine import CURRICULUM_TOPIC_GROUPS
+
+        # 1. Xác định nhóm chủ đề khảo thí
+        effective_gid = (topic_group_id or "").strip().upper()
+        if not effective_gid or effective_gid not in CURRICULUM_TOPIC_GROUPS:
+            lower_t = (topic or "").lower()
+            if "1258" in lower_t or "bình lệ nguyên" in lower_t or "đông bộ đầu" in lower_t:
+                effective_gid = "KHANG_CHIEN_1"
+            elif "1285" in lower_t or "bình than" in lower_t or "diên hồng" in lower_t or "thoát hoan" in lower_t:
+                effective_gid = "KHANG_CHIEN_2"
+            elif "1287" in lower_t or "1288" in lower_t or "bạch đằng" in lower_t or "vân đồn" in lower_t:
+                effective_gid = "KHANG_CHIEN_3"
+            elif "nhân vật" in lower_t or "quân sự" in lower_t or "ngụ binh" in lower_t or "bài học" in lower_t:
+                effective_gid = "NHAN_VAT_QUAN_SU"
+            else:
+                effective_gid = "KHANG_CHIEN_2"
+
+        grp_info = CURRICULUM_TOPIC_GROUPS.get(effective_gid, CURRICULUM_TOPIC_GROUPS["KHANG_CHIEN_2"])
+        group_name = grp_info["title"]
+        display_topic = topic or group_name
+
+        # 2. Phân bổ ma trận mức độ nhận thức (Bloom GDPT 2018)
+        is_matrix = cognitive_level in ["Phân bổ ma trận", "Tất cả mức độ", "Tự động", "Ma trận Bloom"]
+        levels_cycle = ["Nhận biết", "Thông hiểu", "Vận dụng", "Thông hiểu", "Nhận biết"]
+        target_levels: List[str] = []
+        for i in range(num_questions):
+            if is_matrix:
+                target_levels.append(levels_cycle[i % len(levels_cycle)])
+            else:
+                target_levels.append(cognitive_level)
+
         context_facts = "\n".join([
             f"- {r.get('grounding_source', {}).get('fact_chunk', '')}"
-            for r in grounding_records if r.get('grounding_source')
+            for r in (grounding_records or []) if r.get('grounding_source') and r.get('grounding_source', {}).get('fact_chunk')
         ])
 
         system_instruction = (
@@ -331,8 +368,11 @@ class GeminiClient:
         )
 
         prompt = (
-            f"Dựa vào các tư liệu lịch sử sau đây:\n{context_facts}\n\n"
-            f"Hãy tạo đúng {num_questions} câu hỏi trắc nghiệm về chủ đề: '{topic}', mức độ '{cognitive_level}'.\n"
+            f"Nhóm chủ đề khảo thí: '{group_name}' ({grp_info['sgk_reference']})\n"
+            f"Chủ đề chi tiết / từ khóa: '{display_topic}'\n"
+            f"Căn cứ tư liệu lịch sử trích xuất:\n{context_facts if context_facts else grp_info['description']}\n\n"
+            f"Hãy tạo đúng {num_questions} câu hỏi trắc nghiệm bám sát nhóm chủ đề này với các mức độ nhận thức tương ứng:\n"
+            f"{target_levels}\n\n"
             "Đầu ra BẮT BUỘC là định dạng JSON mảng các object với cấu trúc:\n"
             "[\n"
             "  {\n"
@@ -341,7 +381,7 @@ class GeminiClient:
             "    \"correct_index\": 0,\n"
             "    \"cognitive_level\": \"Nhận biết\",\n"
             "    \"explanation\": \"Giải thích vì sao đúng dựa trên sử liệu...\",\n"
-            "    \"curriculum_reference\": \"SGK Lịch sử 7 Bài 13\"\n"
+            "    \"curriculum_reference\": \"SGK Lịch sử 7 Bài 15\"\n"
             "  }\n"
             "]\n"
             "Chỉ trả về JSON thuần túy, không thêm markdown ```json."
@@ -371,51 +411,109 @@ class GeminiClient:
                 for i, q in enumerate(raw_list):
                     questions.append(
                         GeneratedQuestion(
-                            id=f"gen-q-{i+1}",
+                            id=f"gen-llm-{i+1}",
                             question=q["question"],
                             options=q["options"],
-                            correct_index=q["correct_index"],
-                            cognitive_level=q.get("cognitive_level", cognitive_level),
-                            explanation=q.get("explanation", ""),
-                            curriculum_reference=q.get("curriculum_reference", "SGK Lịch sử 7")
+                            correct_index=int(q["correct_index"]),
+                            cognitive_level=q.get("cognitive_level", target_levels[i % len(target_levels)]),
+                            explanation=q.get("explanation", f"Căn cứ theo tư liệu {group_name}."),
+                            curriculum_reference=q.get("curriculum_reference", grp_info["sgk_reference"]),
+                            topic_group_id=effective_gid,
+                            topic_group_name=group_name,
+                            unit_id=q.get("unit_id"),
+                            topic=display_topic
                         )
                     )
-                return questions
+                if len(questions) >= num_questions:
+                    return questions[:num_questions]
             except Exception as e:
                 print(f"[WARN] Error parsing Quiz JSON from LLM: {e}")
 
-        # 3. Local Grounded Topic-Aware Fallback (Ưu tiên trích xuất câu hỏi MCQ đúng unit_id từ game_content.json)
+        # 3. Local Grounded Topic-Group Fallback (Trích xuất từ 92 MCQ vàng trong game_content.json đúng nhóm chủ đề)
         matched_local: List[GeneratedQuestion] = []
         try:
             from pathlib import Path
-            target_uids = [r.get("unit_id") for r in (grounding_records or []) if r.get("unit_id")]
             gc_path = Path(__file__).resolve().parent / "data" / "game_content.json"
-            if target_uids and gc_path.exists():
+            if gc_path.exists():
                 gc_data = json.loads(gc_path.read_text(encoding="utf-8"))
                 lvl_map = {
                     "NHAN_BIET": "Nhận biết",
                     "THONG_HIEU": "Thông hiểu",
                     "VAN_DUNG": "Vận dụng",
                 }
+
+                # Tập hợp các unit_id thuộc nhóm chủ đề mục tiêu
+                target_uids: set = set()
+                if unit_ids and len(unit_ids) > 0:
+                    target_uids = set(unit_ids)
+                elif effective_gid == "TONG_HOP_TOAN_KHOA":
+                    for g in CURRICULUM_TOPIC_GROUPS.values():
+                        target_uids.update(g["unit_ids"])
+                else:
+                    target_uids = set(grp_info["unit_ids"])
+
+                # Lọc ra các câu hỏi trắc nghiệm 4 đáp án khớp với nhóm chủ đề
+                candidates_by_level: Dict[str, List[Any]] = {
+                    "Nhận biết": [],
+                    "Thông hiểu": [],
+                    "Vận dụng": []
+                }
+                other_candidates: List[Any] = []
+
                 for q in gc_data.get("questions", []):
-                    if q.get("type") == "mcq" and q.get("unit_id") in target_uids:
+                    if q.get("type") == "mcq" and isinstance(q.get("options"), list) and len(q.get("options")) == 4:
+                        q_uid = q.get("unit_id")
+                        if q_uid in target_uids:
+                            c_lvl = lvl_map.get(q.get("level", "THONG_HIEU"), "Thông hiểu")
+                            if c_lvl in candidates_by_level:
+                                candidates_by_level[c_lvl].append(q)
+                            else:
+                                other_candidates.append(q)
+                        else:
+                            other_candidates.append(q)
+
+                used_ids = set()
+                for req_lvl in target_levels:
+                    # Ưu tiên lấy đúng mức độ
+                    pool = candidates_by_level.get(req_lvl, [])
+                    avail = [q for q in pool if q.get("id") not in used_ids]
+                    if not avail:
+                        # Thử lấy từ các mức độ khác trong cùng nhóm chủ đề
+                        for other_lvl in ["Thông hiểu", "Nhận biết", "Vận dụng"]:
+                            if other_lvl != req_lvl:
+                                avail = [q for q in candidates_by_level.get(other_lvl, []) if q.get("id") not in used_ids]
+                                if avail:
+                                    break
+                    if not avail:
+                        # Lấy từ kho dự phòng
+                        avail = [q for q in other_candidates if q.get("id") not in used_ids]
+
+                    if avail:
+                        chosen = avail[0]
+                        used_ids.add(chosen.get("id"))
+                        chosen_lvl = lvl_map.get(chosen.get("level", "THONG_HIEU"), req_lvl)
                         matched_local.append(
                             GeneratedQuestion(
-                                id=f"gen-local-{q.get('id', len(matched_local)+1)}",
-                                question=q["prompt"],
-                                options=list(q["options"]),
-                                correct_index=int(q["answer"]),
-                                cognitive_level=lvl_map.get(q.get("level", "THONG_HIEU"), "Thông hiểu"),
-                                explanation=q.get("explanation", "Đáp án dựa trên sử liệu SGK Lịch sử 7."),
-                                curriculum_reference=q.get("source", "SGK Lịch sử 7 (KNTT) - Bài 13"),
+                                id=f"gen-topic-{chosen.get('id', len(matched_local)+1)}",
+                                question=chosen["prompt"],
+                                options=list(chosen["options"]),
+                                correct_index=int(chosen["answer"]),
+                                cognitive_level=chosen_lvl,
+                                explanation=chosen.get("explanation", f"Căn cứ theo tư liệu {group_name}."),
+                                curriculum_reference=chosen.get("source", grp_info["sgk_reference"]),
+                                topic_group_id=effective_gid,
+                                topic_group_name=group_name,
+                                unit_id=chosen.get("unit_id"),
+                                topic=display_topic
                             )
                         )
-                        if len(matched_local) >= num_questions:
-                            return matched_local[:num_questions]
-        except Exception:
-            pass
+                if len(matched_local) >= num_questions:
+                    return matched_local[:num_questions]
+        except Exception as e:
+            print(f"[WARN] Local Topic Fallback error: {e}")
 
-        sample_questions = [
+        # 4. Emergency Backup nếu kho câu hỏi không đủ
+        sample_pool = [
             GeneratedQuestion(
                 id="q-fallback-1",
                 question="Tại Hội nghị Diên Hồng năm 1285, trước câu hỏi 'Nên hòa hay nên đánh?' của Thượng hoàng, các bô lão đã đồng thanh đáp lời thế nào?",
@@ -423,7 +521,11 @@ class GeminiClient:
                 correct_index=0,
                 cognitive_level="Nhận biết",
                 explanation="Đầu năm 1285, Thượng hoàng Trần Thánh Tông mở tiệc Diên Hồng đón các bô lão. Muôn miệng một lời, các bô lão cùng thét lớn 'ĐÁNH!', biểu thị ý chí quật cường của toàn dân tộc.",
-                curriculum_reference="SGK Lịch sử 7 (KNTT) - Bài 13, Mục 2b"
+                curriculum_reference="SGK Lịch sử 7 (KNTT) - Bài 15, Mục 2b",
+                topic_group_id="KHANG_CHIEN_2",
+                topic_group_name="Kháng chiến chống quân Nguyên lần 2 (1285)",
+                unit_id="DIEN_HONG_CONFERENCE",
+                topic="Hội nghị Diên Hồng"
             ),
             GeneratedQuestion(
                 id="q-fallback-2",
@@ -437,7 +539,11 @@ class GeminiClient:
                 correct_index=1,
                 cognitive_level="Thông hiểu",
                 explanation="Kế sách 'Vườn không nhà trống' khiến quân Mông Cổ chiếm được Thăng Long nhưng không tìm ra lương thảo, nhanh chóng rơi vào cảnh đói khát và suy sụp sĩ khí.",
-                curriculum_reference="SGK Lịch sử 7 - Bài 13, Mục 2a"
+                curriculum_reference="SGK Lịch sử 7 (KNTT) - Bài 15, Mục 1",
+                topic_group_id="KHANG_CHIEN_1",
+                topic_group_name="Kháng chiến chống Mông Cổ lần 1 (1258)",
+                unit_id="KC1_VUON_KHONG_NHA_TRONG",
+                topic="Kế sách Vườn không nhà trống"
             ),
             GeneratedQuestion(
                 id="q-fallback-3",
@@ -446,25 +552,33 @@ class GeminiClient:
                 correct_index=1,
                 cognitive_level="Nhận biết",
                 explanation="Nhân Huệ Vương Trần Khánh Dư phán đoán thuyền lương giặc đi sau sẽ mất cảnh giác, liền phục kích tại Vân Đồn đánh chìm toàn bộ thuyền lương, cắt đứt hoàn toàn hậu cần quân Nguyên.",
-                curriculum_reference="SGK Lịch sử 7 (KNTT) - Bài 13, Mục 2c"
+                curriculum_reference="SGK Lịch sử 7 (KNTT) - Bài 15, Mục 3a",
+                topic_group_id="KHANG_CHIEN_3",
+                topic_group_name="Kháng chiến chống quân Nguyên lần 3 (1287 – 1288)",
+                unit_id="KC3_VAN_DON",
+                topic="Hải chiến Vân Đồn"
             ),
             GeneratedQuestion(
                 id="q-fallback-4",
-                question="Trận quyết chiến chiến lược trên sông Bạch Đằng (4/1288) đã lợi dụng triệt để yếu tố tự nhiên nào để tiêu diệt toàn bộ đạo binh thuyền của giặc?",
+                question="Chiến thắng Bạch Đằng năm 1288 thể hiện đỉnh cao nghệ thuật quân sự nào của quân dân nhà Trần?",
                 options=[
-                    "Mưa bão lớn làm đắm thuyền địch",
-                    "Địa hình đồi núi dốc đứng hai bên bờ",
-                    "Quy luật thủy triều lên xuống kết hợp trận địa cọc gỗ ngầm",
-                    "Lửa cháy thuận chiều gió thổi"
+                    "Lợi dụng địa hình hiểm trở và quy luật lên xuống của thủy triều",
+                    "Đánh du kích trường kỳ trong rừng rậm",
+                    "Dùng kỵ binh nặng đối đầu trực diện kỵ binh Mông Cổ",
+                    "Bao vây thành trì tiêu hao sinh lực địch"
                 ],
-                correct_index=2,
+                correct_index=0,
                 cognitive_level="Vận dụng",
-                explanation="Trần Quốc Tuấn (Trần Hưng Đạo) cho đóng cọc gỗ ngầm dưới lòng sông Bạch Đằng, nhử giặc vào lúc nước triều lên rồi tổng phản công khi triều rút mạnh, khiến thuyền giặc vướng cọc bị tiêu diệt hoàn toàn.",
-                curriculum_reference="Đại Việt Sử Ký Toàn Thư & SGK Lịch sử 7"
+                explanation="Quốc công Tiết chế Trần Hưng Đạo đã khéo léo kết hợp bãi cọc ngầm lim đón thời khắc thủy triều rút để tổng phản công, tiêu diệt hoàn toàn thủy quân Nguyên.",
+                curriculum_reference="SGK Lịch sử 7 (KNTT) - Bài 15, Mục 3b",
+                topic_group_id="KHANG_CHIEN_3",
+                topic_group_name="Kháng chiến chống quân Nguyên lần 3 (1287 – 1288)",
+                unit_id="KC3_BACH_DANG_HOW",
+                topic="Đại thắng Bạch Đằng"
             )
         ]
-        combined = matched_local + sample_questions
-        return combined[:num_questions]
+        combined = (matched_local + sample_pool)[:num_questions]
+        return combined
 
     # ==========================================================================
     # 3. GENERATE QUEST STORY NARRATIVE

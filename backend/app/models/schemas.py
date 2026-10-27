@@ -72,6 +72,27 @@ class QuizOption(BaseModel):
     text: str = Field(..., description="Nội dung đáp án")
     is_correct: bool = Field(False, description="Đáp án đúng hay sai")
 
+class TopicGroupUnit(BaseModel):
+    unit_id: str = Field(..., description="Mã cụm tri thức con")
+    topic: str = Field(..., description="Tên bài học / sự kiện")
+    cognitive_level: str = Field("THONG_HIEU", description="Mức độ nhận thức chuẩn")
+    difficulty: float = Field(0.5, description="Độ khó chuẩn (0.1 - 0.9)")
+    question_count: int = Field(0, description="Số lượng câu hỏi trắc nghiệm thẩm định có sẵn")
+
+class TopicGroupItem(BaseModel):
+    id: str = Field(..., description="Mã nhóm chủ đề (KHANG_CHIEN_1, KHANG_CHIEN_2, KHANG_CHIEN_3, NHAN_VAT_QUAN_SU, TONG_HOP_TOAN_KHOA)")
+    title: str = Field(..., description="Tên hiển thị đầy đủ của nhóm chủ đề")
+    short_title: Optional[str] = Field(None, description="Tên ngắn gọn hiển thị trên tab giao diện")
+    badge: Optional[str] = Field(None, description="Huy hiệu thời gian / sự kiện")
+    description: str = Field(..., description="Tóm tắt trọng tâm nội dung nhóm chủ đề")
+    sgk_reference: str = Field(..., description="Căn cứ SGK Lịch sử 7 chuẩn")
+    units: List[TopicGroupUnit] = Field(default_factory=list, description="Danh sách các cụm tri thức con")
+    question_count_available: int = Field(0, description="Tổng số câu hỏi trắc nghiệm thẩm định sẵn có")
+
+class TopicGroupsResponse(BaseModel):
+    total_groups: int = Field(..., description="Tổng số nhóm chủ đề khảo thí")
+    groups: List[TopicGroupItem] = Field(..., description="Danh sách nhóm chủ đề")
+
 class GeneratedQuestion(BaseModel):
     id: str
     question: str
@@ -80,15 +101,23 @@ class GeneratedQuestion(BaseModel):
     cognitive_level: Literal["Nhận biết", "Thông hiểu", "Vận dụng", "Vận dụng cao"]
     explanation: str
     curriculum_reference: str
+    topic_group_id: Optional[str] = Field(None, description="Mã nhóm chủ đề")
+    topic_group_name: Optional[str] = Field(None, description="Tên nhóm chủ đề")
+    unit_id: Optional[str] = Field(None, description="Mã cụm tri thức con")
+    topic: Optional[str] = Field(None, description="Tên bài học / sự kiện con")
 
 class QuizGenerateRequest(BaseModel):
-    topic: str = Field("Ba lần kháng chiến chống quân Mông - Nguyên (1258 - 1288)", description="Chủ đề trắc nghiệm")
+    topic: Optional[str] = Field("Ba lần kháng chiến chống quân Mông - Nguyên (1258 - 1288)", description="Chủ đề trắc nghiệm hoặc từ khóa tìm kiếm nhanh")
+    topic_group_id: Optional[str] = Field("KHANG_CHIEN_2", description="Mã nhóm chủ đề khảo thí (KHANG_CHIEN_1, KHANG_CHIEN_2, KHANG_CHIEN_3, NHAN_VAT_QUAN_SU, TONG_HOP_TOAN_KHOA)")
+    unit_ids: Optional[List[str]] = Field(None, description="Danh sách mã cụm tri thức con được chọn")
     num_questions: int = Field(4, ge=1, le=20, description="Số lượng câu hỏi cần sinh")
-    cognitive_level: Optional[str] = Field("Tất cả mức độ", description="Mức độ nhận thức GDPT 2018")
+    cognitive_level: Optional[str] = Field("Phân bổ ma trận", description="Mức độ nhận thức GDPT 2018 hoặc phân bổ ma trận Bloom")
     source_preference: Optional[str] = Field("SGK Lịch sử 7 Kết nối tri thức", description="Nguồn sách ưu tiên")
 
 class QuizGenerateResponse(BaseModel):
     topic: str
+    topic_group_id: Optional[str] = None
+    topic_group_name: Optional[str] = None
     total_generated: int
     questions: List[GeneratedQuestion]
     generation_notes: str
