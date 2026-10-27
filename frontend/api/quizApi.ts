@@ -20,8 +20,8 @@ export interface QuizGenerateResult {
 
 /** Lấy danh sách các nhóm chủ đề khảo thí chuẩn SGK Lịch sử 7 */
 export const getTopicGroups = async (): Promise<{ total_groups: number; groups: TopicGroupItem[] }> => {
-  const response = await fetch(${API_BASE_URL}/api/quiz/topic-groups);
-  if (!response.ok) throw new Error(Máy chủ AI phản hồi lỗi: );
+  const response = await fetch(`${API_BASE_URL}/api/quiz/topic-groups`);
+  if (!response.ok) throw new Error(`Máy chủ AI phản hồi lỗi: ${response.status}`);
   return response.json();
 };
 
@@ -48,11 +48,11 @@ export const generateQuiz = async (
     };
   }
 
-  const response = await fetch(${API_BASE_URL}/api/quiz/generate, {
+  const response = await fetch(`${API_BASE_URL}/api/quiz/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!response.ok) throw new Error(Máy chủ AI phản hồi lỗi: );
+  if (!response.ok) throw new Error(`Máy chủ AI phản hồi lỗi: ${response.status}`);
   return response.json();
 };

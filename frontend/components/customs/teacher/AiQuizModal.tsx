@@ -16,7 +16,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import * as quizApi from '@/api/quizApi';
-import type { TopicGroupItem, TopicGroupUnit } from '@/types/libraryType';
+import type { TopicGroupItem } from '@/types/libraryType';
 import { KahootShape } from '@/components/customs/KahootShape';
 import { Mascot } from '@/components/customs/Mascot';
 import { ANSWER_STYLES } from '@/constants/theme';
