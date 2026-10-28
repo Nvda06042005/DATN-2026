@@ -21,7 +21,7 @@ import {
 import { LoreChip } from '@/components/game/quiz';
 import { TemplateGuide, downloadTemplate } from '@/components/provisioning';
 import { Chip, Txt } from '@/components/ui';
-import { CAMPAIGNS, CAMPAIGN_ROUTES, PHASES } from '@/constants/campaigns';
+import { CAMPAIGNS, CAMPAIGN_ROUTES, PHASES, PHASE_REAL } from '@/constants/campaigns';
 import { ELEMENTS, ENEMIES, LORE_LABEL, MAP_PLACES } from '@/constants/game';
 import { HEROES, HERO_BY_ID } from '@/constants/heroes';
 import { ANSWER_STYLES, type Palette } from '@/constants/theme';
@@ -276,18 +276,36 @@ const Head: React.FC<{ title: string; text?: string; wide: boolean; light?: bool
   );
 };
 
-/** Dải chữ chạy ngang liên tục (nhân đôi nội dung để nối liền); giảm chuyển động thì chuyển thành dải cuộn ngang */
-const Marquee: React.FC<{ children: React.ReactNode; speed?: number }> = ({ children, speed = 46 }) => {
+/**
+ * Dải thẻ chạy ngang liên tục (nhân đôi nội dung để nối liền); rê chuột vào thì dừng để đọc, bỏ chuột ra chạy tiếp từ chỗ đang dừng.
+ * Giảm chuyển động thì chuyển thành dải cuộn ngang bằng tay.
+ */
+const Marquee: React.FC<{ children: React.ReactNode; speed?: number }> = ({ children, speed = 34 }) => {
   const reduce = useReduceMotion();
   const [w, setW] = useState(0);
+  const [hold, setHold] = useState(false);
   const x = useRef(new Animated.Value(0)).current;
+  const at = useRef(0);
   useEffect(() => {
-    x.setValue(0);
-    if (!w || reduce) return undefined;
-    const loop = Animated.loop(Animated.timing(x, { toValue: -w, duration: (w / speed) * 1000, easing: Easing.linear, useNativeDriver: Platform.OS !== 'web' }));
-    loop.start();
-    return () => loop.stop();
-  }, [w, reduce, speed, x]);
+    if (!w || reduce || hold) return undefined;
+    let alive = true;
+    const run = () => {
+      Animated.timing(x, { toValue: -w, duration: ((w + at.current) / speed) * 1000, easing: Easing.linear, useNativeDriver: Platform.OS !== 'web' }).start(({ finished }) => {
+        if (finished && alive) {
+          x.setValue(0);
+          at.current = 0;
+          run();
+        }
+      });
+    };
+    run();
+    return () => {
+      alive = false;
+      x.stopAnimation((v) => {
+        at.current = v;
+      });
+    };
+  }, [w, reduce, hold, speed, x]);
   if (reduce) {
     return (
       <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ paddingHorizontal: 16 }}>
@@ -296,7 +314,7 @@ const Marquee: React.FC<{ children: React.ReactNode; speed?: number }> = ({ chil
     );
   }
   return (
-    <View style={{ width: '100%', overflow: 'hidden' }}>
+    <Pressable focusable={false} accessible={false} onHoverIn={() => setHold(true)} onHoverOut={() => setHold(false)} style={{ width: '100%', overflow: 'hidden' }}>
       <Animated.View style={{ flexDirection: 'row', transform: [{ translateX: x }] }}>
         <View onLayout={(e) => setW(e.nativeEvent.layout.width)} style={{ flexDirection: 'row' }}>
           {children}
@@ -305,7 +323,7 @@ const Marquee: React.FC<{ children: React.ReactNode; speed?: number }> = ({ chil
           {children}
         </View>
       </Animated.View>
-    </View>
+    </Pressable>
   );
 };
 
@@ -615,37 +633,61 @@ const VictoriesSection: React.FC<{ wide: boolean; onSection: (id: string, y: num
   );
 };
 
-/** Dải thẻ nghiêng chạy ngang: chín màn chiến dịch (thay cho dải bìa game của Papumba) */
+/** Màn rộng: dải tự chạy (dừng khi rê chuột). Màn hẹp (điện thoại, không có chuột để dừng): dải vuốt ngang bằng tay */
+const PhaseTrack: React.FC<{ auto: boolean; children: React.ReactNode }> = ({ auto, children }) =>
+  auto ? (
+    <Marquee>{children}</Marquee>
+  ) : (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingLeft: 16 }} accessibilityLabel="Chín màn chiến dịch, vuốt ngang để xem">
+      {children}
+    </ScrollView>
+  );
+
+/** Dải thẻ nghiêng chạy ngang: chín màn chiến dịch, mỗi thẻ là một trận đánh thật với ngày tháng và diễn biến theo Wikipedia (xem PHASE_REAL) */
 const PhaseMarquee: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
   const colors = [c.son, c.vang, c.thuy];
   return (
     <View id="chin-man" onLayout={(e) => onSection('chin-man', e.nativeEvent.layout.y)} style={{ width: '100%', backgroundColor: c.xam, paddingVertical: wide ? 80 : 48, gap: 20 }}>
       <View style={{ paddingHorizontal: 16 }}>
-        <Head title="Chín màn chiến dịch" text="Đi qua từng trận đánh, từ Bình Lệ Nguyên đến Bạch Đằng." wide={wide} />
+        <Head title="Chín màn chiến dịch" text="Mỗi màn là một trận đánh có thật, từ Bình Lệ Nguyên đến Bạch Đằng." wide={wide} />
       </View>
-      <Marquee>
-        {PHASES.map((p, i) => (
-          <View
-            key={p.id}
-            style={[{ width: 270, marginRight: 22, marginVertical: 22, borderRadius: 28, overflow: 'hidden', backgroundColor: c.the, transform: [{ rotate: i % 2 ? '2.5deg' : '-2.5deg' }] }, shadow(c, 'sm')]}
-          >
-            <View style={{ backgroundColor: colors[p.campaign - 1], padding: 18, gap: 4 }}>
-              <Txt f="bold" size={13} color={p.campaign === 2 ? c.dem : c.trang} upper>
-                {`Lần ${p.campaign} · ${p.date}`}
-              </Txt>
-              <Txt f="heavy" size={26} color={p.campaign === 2 ? c.dem : c.trang} style={{ lineHeight: 31 }}>
-                {p.name}
-              </Txt>
+      <PhaseTrack auto={wide}>
+        {PHASES.map((p, i) => {
+          const r = PHASE_REAL[p.id];
+          const fg = p.campaign === 2 ? c.dem : c.trang;
+          return (
+            <View
+              key={p.id}
+              accessible
+              accessibilityLabel={`Màn ${i + 1}, lần ${p.campaign}, ${r.date}. ${r.title}. ${r.text}`}
+              style={[{ width: wide ? 320 : 290, marginRight: 22, marginVertical: 22, borderRadius: 28, overflow: 'hidden', backgroundColor: c.the, transform: [{ rotate: i % 2 ? '1.6deg' : '-1.6deg' }] }, shadow(c, 'sm')]}
+            >
+              <View style={{ backgroundColor: colors[p.campaign - 1], paddingHorizontal: 18, paddingTop: 16, paddingBottom: 14, gap: 3 }}>
+                <Txt f="bold" size={12} color={fg} upper>
+                  {`Màn ${i + 1} · Lần ${p.campaign}`}
+                </Txt>
+                <Txt f="heavy" size={15} color={fg}>
+                  {r.date}
+                </Txt>
+                <Txt f="heavy" size={wide ? 23 : 21} color={fg} style={{ lineHeight: wide ? 28 : 26 }}>
+                  {r.title}
+                </Txt>
+              </View>
+              <View style={{ padding: 18, flex: 1 }}>
+                <Txt size={14} color={c.xanhMuc2} style={{ lineHeight: 22 }}>
+                  {r.text}
+                </Txt>
+              </View>
             </View>
-            <View style={{ padding: 16, minHeight: 92 }}>
-              <Txt size={14} color={c.xanhMuc2} style={{ lineHeight: 20 }}>
-                {p.objective}
-              </Txt>
-            </View>
-          </View>
-        ))}
-      </Marquee>
+          );
+        })}
+      </PhaseTrack>
+      <Reveal>
+        <Txt size={13} color={c.xanhMuc2} center style={{ maxWidth: 760, alignSelf: 'center', paddingHorizontal: 16 }}>
+          Nội dung đối chiếu Wikipedia tiếng Việt: “Chiến tranh Nguyên Mông – Đại Việt lần 1, lần 2, lần 3”. Các sách sử chép ngày tháng và chi tiết không hoàn toàn thống nhất; nơi còn tranh cãi trang ghi “tương truyền”. {wide ? 'Rê chuột vào dải thẻ để dừng và đọc.' : 'Vuốt ngang để xem các màn.'}
+        </Txt>
+      </Reveal>
     </View>
   );
 };
@@ -707,7 +749,7 @@ const MockExplore: React.FC<{ wide: boolean }> = ({ wide }) => {
   const { c, dark } = useTheme();
   const places = [
     { id: 'binh_le_nguyen', date: '17/1/1258' },
-    { id: 'dong_bo_dau', date: '28 – 29/1/1258' },
+    { id: 'dong_bo_dau', date: 'Đêm 28/1/1258' },
     { id: 'thang_long', date: 'Kinh đô Đại Việt' },
   ] as const;
   return (
@@ -945,10 +987,10 @@ const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
                 </View>
                 <Txt size={15} color={c.xanhMuc} style={{ flex: 1 }}>
                   <Txt f="bold" size={15} color={look.accent}>
-                    {p.date}
+                    {PHASE_REAL[p.id].date}
                   </Txt>
                   {'  '}
-                  {p.name}
+                  {PHASE_REAL[p.id].title}
                 </Txt>
               </View>
             ))}
