@@ -22,6 +22,7 @@ import { LoreChip } from '@/components/game/quiz';
 import { TemplateGuide, downloadTemplate } from '@/components/provisioning';
 import { Chip, Txt } from '@/components/ui';
 import { HomeVideo } from '@/components/home-video';
+import { HistoryShowcase } from '@/components/history-showcase';
 import { CAMPAIGNS, CAMPAIGN_ROUTES, PHASES, PHASE_REAL } from '@/constants/campaigns';
 import { ELEMENTS, ENEMIES, LORE_LABEL, MAP_PLACES } from '@/constants/game';
 import { HEROES, HERO_BY_ID } from '@/constants/heroes';
@@ -328,17 +329,6 @@ const Marquee: React.FC<{ children: React.ReactNode; speed?: number }> = ({ chil
   );
 };
 
-/** Khung máy tính bảng viền đen bo tròn (kiểu Papumba) đựng màn hình minh họa */
-const Tablet: React.FC<{ children: React.ReactNode; wide: boolean }> = ({ children, wide }) => {
-  const { c } = useTheme();
-  return (
-    <View style={[{ width: '100%', maxWidth: 780, aspectRatio: wide ? 4 / 3 : 0.92, borderRadius: wide ? 44 : 32, backgroundColor: c.den, padding: wide ? 14 : 10 }, shadow(c, 'lg')]}>
-      <View style={{ flex: 1, borderRadius: wide ? 32 : 24, overflow: 'hidden', backgroundColor: c.the }}>{children}</View>
-      <View style={{ position: 'absolute', top: wide ? 4 : 3, alignSelf: 'center', width: 6, height: 6, borderRadius: 3, backgroundColor: '#2a3140' }} />
-    </View>
-  );
-};
-
 // ---------------------------------------------------------------------- thanh điều hướng
 /** Các mục trên thanh điều hướng: "Trang chủ" cuộn về đầu trang, còn lại cuộn tới phần có id tương ứng */
 const NAV_ITEMS = [{ id: 'home', short: 'Trang chủ' }, ...NAV.map((n) => ({ id: n.id, short: n.short }))];
@@ -584,14 +574,14 @@ const PhaseMarquee: React.FC<{ wide: boolean; onSection: (id: string, y: number)
   );
 };
 
-// ---------------------------------------------------------------------- khối xanh: khám phá mọi lúc, mọi nơi
+// ---------------------------------------------------------------------- khám phá lịch sử theo màu logo
 type ShowId = 'choi' | 'kham-pha' | 'hoi-dap' | 'on-tap';
 
-const SHOWCASE: Array<{ id: ShowId; label: string; icon: IconType; color: 'son' | 'vang' | 'moc' | 'trang'; text: string }> = [
-  { id: 'choi', label: 'Chơi', icon: Joystick, color: 'son', text: 'Thu lương thảo ở Điền Trang, chiêu mộ danh tướng rồi bày trận đánh các màn chiến dịch – mỗi sức mạnh đều đến từ một câu trả lời đúng.' },
-  { id: 'kham-pha', label: 'Khám phá', icon: Compass, color: 'vang', text: 'Đi khắp làng pixel của Hành Trình Đông A, trò chuyện với dân làng, thu cuộn sử và lần theo lược đồ Đại Việt thời Trần.' },
-  { id: 'hoi-dap', label: 'Hỏi đáp', icon: MessageSquareText, color: 'moc', text: 'Hỏi Quân Sư AI bất cứ điều gì về ba lần kháng chiến; câu trả lời dựa trên kho kiến thức sử liệu của đề tài.' },
-  { id: 'on-tap', label: 'Ôn tập', icon: School, color: 'trang', text: 'Tháp Khảo Thí 10 tầng và thẻ Sử Ký giúp ôn từ nhận biết đến vận dụng; hệ thống ghi nhận mức nắm vững để gợi ý câu hỏi tiếp theo.' },
+const SHOWCASE: Array<{ id: ShowId; label: string; icon: IconType; color: 'logoRed' | 'logoGold' | 'logoInk' | 'logoPaper'; text: string }> = [
+  { id: 'choi', label: 'Chơi', icon: Joystick, color: 'logoRed', text: 'Thu lương thảo ở Điền Trang, chiêu mộ danh tướng rồi bày trận đánh các màn chiến dịch – mỗi sức mạnh đều đến từ một câu trả lời đúng.' },
+  { id: 'kham-pha', label: 'Khám phá', icon: Compass, color: 'logoGold', text: 'Đi khắp làng pixel của Hành Trình Đông A, trò chuyện với dân làng, thu cuộn sử và lần theo lược đồ Đại Việt thời Trần.' },
+  { id: 'hoi-dap', label: 'Hỏi đáp', icon: MessageSquareText, color: 'logoInk', text: 'Hỏi Quân Sư AI bất cứ điều gì về ba lần kháng chiến; câu trả lời dựa trên kho kiến thức sử liệu của đề tài.' },
+  { id: 'on-tap', label: 'Ôn tập', icon: School, color: 'logoPaper', text: 'Tháp Khảo Thí 10 tầng và thẻ Sử Ký giúp ôn từ nhận biết đến vận dụng; hệ thống ghi nhận mức nắm vững để gợi ý câu hỏi tiếp theo.' },
 ];
 
 /** Màn chơi minh họa: sông Bạch Đằng, tướng ta bên trái, tướng giặc bên phải, bảng câu hỏi bốn ô màu (đỏ ▲, lam ◆, vàng ●, lục ■ như trong game) ở dưới */
@@ -738,7 +728,7 @@ const MockReview: React.FC = () => {
   );
 };
 
-/** Khối xanh "nơi học sinh khám phá lịch sử mọi lúc, mọi nơi": bốn vòng tròn màu chọn tính năng, máy tính bảng minh họa và mô tả */
+/** Nội dung bốn tính năng đặt trong cảnh cuộn: tiêu đề → khung trống → màn hình đầy đủ. */
 const ShowcaseSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
   const [tab, setTab] = useState<ShowId>('choi');
@@ -746,9 +736,7 @@ const ShowcaseSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
   const color = c[cur.color];
   const pop = usePopIn(tab);
   return (
-    <Band id="kham-pha" bg={c.bau} cloudTop={c.xam} cloudBottom={c.the} wide={wide} onSection={onSection}>
-      <Head light title="Nơi học sinh khám phá lịch sử mọi lúc, mọi nơi!" wide={wide} />
-      <Reveal>
+    <HistoryShowcase wide={wide} onSection={onSection} tabs={(interactive, compact) => (
       <View accessibilityRole="tablist" accessibilityLabel="Chọn tính năng" style={{ flexDirection: 'row', justifyContent: 'center', gap: wide ? 28 : 14 }}>
         {SHOWCASE.map((s) => {
           const on = s.id === tab;
@@ -759,40 +747,34 @@ const ShowcaseSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
               accessibilityRole="tab"
               accessibilityLabel={s.label}
               accessibilityState={{ selected: on }}
+              aria-selected={on}
+              disabled={!interactive}
+              tabIndex={interactive ? 0 : -1}
               style={{ alignItems: 'center', gap: 8, minWidth: 64, opacity: on ? 1 : 0.78 }}
             >
               <View style={[{ transform: [{ scale: on ? 1.12 : 1 }] }]}>
-                <Badge icon={s.icon} color={c[s.color]} size={wide ? 84 : 62} fg={s.color === 'vang' || s.color === 'trang' ? c.dem : undefined} />
+                <Badge icon={s.icon} color={c[s.color]} size={wide ? compact ? 54 : 64 : 58} fg={s.color === 'logoGold' || s.color === 'logoPaper' ? c.logoInk : c.logoPaper} />
               </View>
-              <Txt f="heavy" size={wide ? 17 : 14} color={c.trang} center>
+              <Txt f="heavy" size={14} color={c.logoInk} center>
                 {s.label}
               </Txt>
             </Pressable>
           );
         })}
       </View>
-      </Reveal>
-      <Reveal from="scale">
-      <View style={{ alignItems: 'center' }}>
-        <Tablet wide={wide}>
+    )} description={(
+      <>
+        <Tag center text={cur.label} bg={color} fg={cur.color === 'logoGold' || cur.color === 'logoPaper' ? c.logoInk : c.logoPaper} size={20} />
+        <Txt f="medium" size={16} color={c.logoInk} center style={{ lineHeight: 23 }}>{cur.text}</Txt>
+      </>
+    )}>
           <Animated.View style={[{ flex: 1 }, pop]}>
             {tab === 'choi' && <MockPlay />}
             {tab === 'kham-pha' && <MockExplore wide={wide} />}
             {tab === 'hoi-dap' && <MockAsk />}
             {tab === 'on-tap' && <MockReview />}
           </Animated.View>
-        </Tablet>
-      </View>
-      </Reveal>
-      <Reveal>
-      <Animated.View style={[{ alignItems: 'center', gap: 12 }, pop]}>
-        <Tag center text={cur.label} bg={color} fg={cur.color === 'vang' || cur.color === 'trang' ? c.dem : c.trang} size={wide ? 26 : 20} />
-        <Txt f="medium" size={wide ? 20 : 17} color={c.trang} center style={{ maxWidth: 640, lineHeight: wide ? 29 : 25 }}>
-          {cur.text}
-        </Txt>
-      </Animated.View>
-      </Reveal>
-    </Band>
+    </HistoryShowcase>
   );
 };
 

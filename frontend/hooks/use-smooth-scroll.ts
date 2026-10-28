@@ -53,13 +53,20 @@ export function useSmoothScroll(getNode: () => HTMLElement | null, enabled: bool
       current = el.scrollTop;
       target = current;
     };
+    const interrupt = () => {
+      cancelAnimationFrame(raf);
+      running = false;
+      current = target = el.scrollTop;
+    };
 
     el.addEventListener('wheel', onWheel, { passive: false });
     el.addEventListener('scroll', onScroll, { passive: true });
+    el.addEventListener('pointerdown', interrupt, { passive: true });
     return () => {
       cancelAnimationFrame(raf);
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('scroll', onScroll);
+      el.removeEventListener('pointerdown', interrupt);
     };
   }, [getNode, enabled, ease]);
 }

@@ -12,6 +12,7 @@ import { useScrollY } from '@/components/motion';
 import { Btn, Txt } from '@/components/ui';
 import { useReduceMotion } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
+import { useDragScroll } from '@/hooks/use-drag-scroll';
 
 const SOURCE = require('../assets/gioi-thieu-dong-a.mp4');
 const POSTER = require('../assets/gioi-thieu-dong-a-poster.jpg');
@@ -84,8 +85,8 @@ export function HomeVideo({ wide, onImmersiveChange }: { wide: boolean; onImmers
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(false);
   const [ready, setReady] = useState(false);
-  const dragging = useRef(false);
   const pin = WEB && wide && !reduce;
+  const dragging = useDragScroll(trigger, pin);
   const travel = height * 1.1;
   const initialWidth = Math.min(960, width * (wide ? 0.62 : 0.9));
   const player = useVideoPlayer(SOURCE, (p) => { p.loop = true; p.muted = true; });
@@ -124,48 +125,6 @@ export function HomeVideo({ wide, onImmersiveChange }: { wide: boolean; onImmers
       onImmersiveChange(false);
     };
   }, [scrollY, pin, height, travel, progress, onImmersiveChange]);
-
-  // Kéo trên khung cũng cuộn được như kéo thanh cuộn; ngưỡng 8px phân biệt thao tác kéo với bấm xem.
-  useEffect(() => {
-    if (!pin) return undefined;
-    const button = trigger.current as unknown as HTMLElement | null;
-    let scroller = section.current as unknown as HTMLElement | null;
-    while (scroller && scroller.scrollHeight <= scroller.clientHeight) scroller = scroller.parentElement;
-    if (!button || !scroller) return undefined;
-    let startY = 0, startScroll = 0;
-    let pointer: number | null = null;
-    let reset: ReturnType<typeof setTimeout>;
-    const down = (e: PointerEvent) => {
-      if (e.pointerType !== 'mouse' || e.button !== 0) return;
-      clearTimeout(reset);
-      dragging.current = false;
-      pointer = e.pointerId;
-      startY = e.clientY;
-      startScroll = scroller.scrollTop;
-    };
-    const move = (e: PointerEvent) => {
-      if (e.pointerId !== pointer) return;
-      const delta = startY - e.clientY;
-      if (Math.abs(delta) > 8) dragging.current = true;
-      if (dragging.current) {
-        button.setPointerCapture(e.pointerId);
-        scroller.scrollTop = startScroll + delta * 2;
-        e.preventDefault();
-      }
-    };
-    const end = () => { pointer = null; reset = setTimeout(() => { dragging.current = false; }, 0); };
-    button.addEventListener('pointerdown', down);
-    button.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', end);
-    window.addEventListener('pointercancel', end);
-    return () => {
-      button.removeEventListener('pointerdown', down);
-      button.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', end);
-      window.removeEventListener('pointercancel', end);
-      clearTimeout(reset);
-    };
-  }, [pin]);
 
   const close = useCallback(() => {
     detailPlayer.pause();
