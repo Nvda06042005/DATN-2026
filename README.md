@@ -23,7 +23,7 @@ Cấu trúc `backend/src/`: `auth/`, `admin/` (`admin.controller.ts`, `school.se
 
 ### Video giới thiệu trên trang chủ
 
-`frontend/components/home-video.tsx` nằm sau ảnh bìa. Trên web màn rộng, cuộn hoặc giữ chuột kéo lên trên khung sẽ phóng video từ khung nhỏ ra kín màn hình; cuộn ngược thu nhỏ lại. Bấm vào khung (hoặc Enter khi đang chọn khung) mở trình phát có âm thanh, tua và toàn màn hình; đóng bằng nút X, Escape hoặc bấm nền tối. Video xem trước tắt tiếng, dừng khi ngoài màn hình hoặc khi trình phát mở. Điện thoại dùng khung gọn; bật Giảm chuyển động sẽ bỏ hiệu ứng ghim/phóng và tự phát xem trước.
+`frontend/components/home-video.tsx` nằm sau “Chín màn chiến dịch” và trước “Nơi học sinh khám phá lịch sử mọi lúc, mọi nơi!”. Trên web màn rộng, cuộn hoặc giữ chuột kéo lên trên khung sẽ phóng video từ khung nhỏ ra kín màn hình; cuộn ngược thu nhỏ lại. Bấm vào khung (hoặc Enter khi đang chọn khung) mở trình phát có âm thanh, tua và toàn màn hình; đóng bằng nút X, Escape hoặc bấm nền tối. Video xem trước tắt tiếng, dừng khi ngoài màn hình hoặc khi trình phát mở. Điện thoại dùng khung gọn; bật Giảm chuyển động sẽ bỏ hiệu ứng ghim/phóng và tự phát xem trước.
 
 Video và ảnh chờ ở `frontend/assets/gioi-thieu-dong-a.mp4` / `gioi-thieu-dong-a-poster.jpg` (H.264/AAC, MP4 fast start). Màu nền lấy từ `logoInk`, `logoRed`, `logoGold`, `logoPaper` trong `constants/theme.ts`. Khi thay video, giữ bản web gọn, cập nhật ảnh chờ và kiểm tra cuộn/kéo, mở/đóng, âm thanh, bàn phím, khung điện thoại và Giảm chuyển động trước khi phát hành. Không cần migration database.
 

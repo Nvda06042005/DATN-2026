@@ -1259,8 +1259,8 @@ const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ 
 export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; onSection: (id: string, y: number) => void; onVideoImmersiveChange: (on: boolean) => void }> = ({ wide, go, onSection, onVideoImmersiveChange }) => (
   <>
     <HeroSection wide={wide} go={go} />
-    <HomeVideo wide={wide} onImmersiveChange={onVideoImmersiveChange} />
     <PhaseMarquee wide={wide} onSection={onSection} />
+    <HomeVideo wide={wide} onImmersiveChange={onVideoImmersiveChange} />
     <ShowcaseSection wide={wide} onSection={onSection} />
     <ExplorerSection wide={wide} onSection={onSection} />
     <CastSection wide={wide} onSection={onSection} />
