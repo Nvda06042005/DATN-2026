@@ -21,6 +21,7 @@ import {
 import { LoreChip } from '@/components/game/quiz';
 import { TemplateGuide, downloadTemplate } from '@/components/provisioning';
 import { Chip, Txt } from '@/components/ui';
+import { HomeVideo } from '@/components/home-video';
 import { CAMPAIGNS, CAMPAIGN_ROUTES, PHASES, PHASE_REAL } from '@/constants/campaigns';
 import { ELEMENTS, ENEMIES, LORE_LABEL, MAP_PLACES } from '@/constants/game';
 import { HEROES, HERO_BY_ID } from '@/constants/heroes';
@@ -1255,9 +1256,10 @@ const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ 
 };
 
 /** Toàn bộ nội dung trang chủ, theo thứ tự từ trên xuống (onSection báo vị trí các phần có neo cho thanh điều hướng) */
-export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; onSection: (id: string, y: number) => void }> = ({ wide, go, onSection }) => (
+export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; onSection: (id: string, y: number) => void; onVideoImmersiveChange: (on: boolean) => void }> = ({ wide, go, onSection, onVideoImmersiveChange }) => (
   <>
     <HeroSection wide={wide} go={go} />
+    <HomeVideo wide={wide} onImmersiveChange={onVideoImmersiveChange} />
     <PhaseMarquee wide={wide} onSection={onSection} />
     <ShowcaseSection wide={wide} onSection={onSection} />
     <ExplorerSection wide={wide} onSection={onSection} />

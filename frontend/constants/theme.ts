@@ -77,6 +77,11 @@ const light = {
   bau2: '#2f7fa8',
   xam: '#fbf1dc',
   den: '#0e1116',
+  /** Màu cố định từ logo Đông A: mực xanh, cờ đỏ, vàng cổ và giấy kem (khung video giới thiệu). */
+  logoInk: '#23382f',
+  logoRed: '#b53520',
+  logoGold: '#dfb66f',
+  logoPaper: '#faf4e7',
 };
 
 export type Palette = typeof light;

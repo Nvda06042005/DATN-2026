@@ -44,7 +44,8 @@
           "backgroundColor": "#fbf6ea",
           "dark": { "backgroundColor": "#0b1220" }
         }
-      ]
+      ],
+      "expo-video"
     ]
   }
 }

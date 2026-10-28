@@ -21,6 +21,12 @@ React Native (Expo) ──HTTPS / WebSocket──► NestJS (Node.js) ──SQL�
 Cấu trúc `frontend/`: `app/` (7 route), `api/` (gọi backend), `components/` (`ui.tsx`, `art.tsx`, `auth.tsx`, `live.tsx`, `provisioning.tsx`, `game/`, `teacher/`, `admin/`), `constants/`, `hooks/`, `lib/`, `types/`, `assets/`.
 Cấu trúc `backend/src/`: `auth/`, `admin/` (`admin.controller.ts`, `school.service.ts` – trường, tài khoản, nhập Excel, lớp, thùng rác; `mail.service.ts` – hàng đợi thư), `student/`, `teacher/`, `live/`, `ai/`, `database/`, `app.module.ts`, `main.ts`, `config.ts`; kiểm thử ở `backend/test/`.
 
+### Video giới thiệu trên trang chủ
+
+`frontend/components/home-video.tsx` nằm sau ảnh bìa. Trên web màn rộng, cuộn hoặc giữ chuột kéo lên trên khung sẽ phóng video từ khung nhỏ ra kín màn hình; cuộn ngược thu nhỏ lại. Bấm vào khung (hoặc Enter khi đang chọn khung) mở trình phát có âm thanh, tua và toàn màn hình; đóng bằng nút X, Escape hoặc bấm nền tối. Video xem trước tắt tiếng, dừng khi ngoài màn hình hoặc khi trình phát mở. Điện thoại dùng khung gọn; bật Giảm chuyển động sẽ bỏ hiệu ứng ghim/phóng và tự phát xem trước.
+
+Video và ảnh chờ ở `frontend/assets/gioi-thieu-dong-a.mp4` / `gioi-thieu-dong-a-poster.jpg` (H.264/AAC, MP4 fast start). Màu nền lấy từ `logoInk`, `logoRed`, `logoGold`, `logoPaper` trong `constants/theme.ts`. Khi thay video, giữ bản web gọn, cập nhật ảnh chờ và kiểm tra cuộn/kéo, mở/đóng, âm thanh, bàn phím, khung điện thoại và Giảm chuyển động trước khi phát hành. Không cần migration database.
+
 ### Xác thực
 
 - Mật khẩu băm PBKDF2-SHA256 (240.000 vòng, muối ngẫu nhiên; mật khẩu mặc định cấp từ file Excel 20.000 vòng vì bắt buộc đổi ở lần đầu); token JWT HS256 ký bằng `AUTH_SECRET_KEY` (kèm mã trường `sid`), hết hạn sau 12 giờ, tự mất hiệu lực khi đổi mật khẩu, khóa hoặc xóa tài khoản.

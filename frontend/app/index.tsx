@@ -49,6 +49,7 @@ function HomePage({ onToggleTheme }: { onToggleTheme: () => void }) {
   const [active, setActive] = useState('home');
   const [stuck, setStuck] = useState(false);
   const [showTop, setShowTop] = useState(false);
+  const [videoImmersive, setVideoImmersive] = useState(false);
 
   const onSection = useCallback((id: string, y: number) => {
     sections.current[id] = y;
@@ -90,11 +91,11 @@ function HomePage({ onToggleTheme }: { onToggleTheme: () => void }) {
       <PaperBg />
       <FxProvider scrollY={scrollY}>
         <ScrollView ref={scrollRef} onScroll={onScroll} scrollEventThrottle={16} contentContainerStyle={{ flexGrow: 1 }}>
-          <HomeSections wide={wide} go={go} onSection={onSection} />
+          <HomeSections wide={wide} go={go} onSection={onSection} onVideoImmersiveChange={setVideoImmersive} />
         </ScrollView>
       </FxProvider>
-      <Header width={width} scrollY={scrollY} stuck={stuck} active={active} go={go} onToggleTheme={onToggleTheme} />
-      <BackToTop scrollY={scrollY} visible={showTop} onPress={() => go('home')} />
+      {!videoImmersive && <Header width={width} scrollY={scrollY} stuck={stuck} active={active} go={go} onToggleTheme={onToggleTheme} />}
+      {!videoImmersive && <BackToTop scrollY={scrollY} visible={showTop} onPress={() => go('home')} />}
     </View>
   );
 }
