@@ -166,47 +166,47 @@ export const PHASE_REAL: Record<string, { title: string; date: string; text: str
   m1p1: {
     title: 'Bình Lệ Nguyên',
     date: '17/1/1258',
-    text: 'Vua Trần Thái Tông thân chinh đón đánh quân Mông Cổ của Ngột Lương Hợp Thai. Voi trận bị bắn vào mắt, quay lại giẫm nát đội hình; quân Trần thất lợi nhưng chủ động rút để giữ lực lượng. Tướng Lê Phụ Trần lấy ván thuyền che tên cho vua.',
+    text: 'Vua Trần Thái Tông thân chinh chỉ huy quân Đại Việt đón đánh quân Mông Cổ của Ngột Lương Hợp Thai. Quân Mông Cổ bắn tên vào mắt voi trận, voi hoảng sợ quay lại dày xéo đội hình quân Trần. Quân Trần thất lợi nhưng chủ động rút lui, bảo toàn lực lượng; tướng Lê Tần (tức Lê Phụ Trần) lấy ván thuyền che tên cho vua.',
   },
   m1p2: {
-    title: 'Bỏ Thăng Long, vườn không nhà trống',
+    title: 'Rút khỏi Thăng Long, vườn không nhà trống',
     date: '18 – 28/1/1258',
-    text: 'Sau trận Phù Lỗ (18/1), nhà Trần lại chủ động rút, mang đi lương thực trong thành. Quân Mông Cổ chiếm Thăng Long chỉ sau hai trận nhưng kho tàng trống rỗng nên thiếu lương, chỉ ở lại khoảng 9 ngày.',
+    text: 'Sau trận Phù Lỗ (18/1), quân Trần lại chủ động rút khỏi Thăng Long, đem đi hết lương thực trong thành. Quân Mông Cổ chiếm kinh đô chỉ sau hai trận nhưng kho tàng trống rỗng, thiếu lương; theo Nguyên sử, chúng chỉ ở lại 9 ngày.',
   },
   m1p3: {
     title: 'Đông Bộ Đầu',
     date: 'Đêm 28/1/1258',
-    text: 'Nửa đêm, vua Trần Thái Tông cùng Thái tử Trần Hoảng đi lâu thuyền ngược sông đánh úp quân Mông Cổ đang chủ quan. Giặc thua to, bỏ Thăng Long chạy về Vân Nam; trên đường rút bị Hà Bổng đánh tập kích ở Quy Hóa.',
+    text: 'Nửa đêm, vua Trần Thái Tông cùng Thái tử Trần Hoảng ngự lâu thuyền ngược sông, bất ngờ đánh vào quân Mông Cổ đang chủ quan. Giặc thua to, bỏ Thăng Long tháo chạy về Vân Nam; trên đường rút, chúng bị chủ trại Quy Hóa là Hà Bổng tập kích dữ dội.',
   },
   m2p1: {
     title: 'Bãi Đà Mạc: chặn giặc cho triều đình rút',
     date: 'Tháng 2 – 3/1285',
-    text: 'Sau trận Thăng Long (17 – 18/2), vua tôi nhà Trần rút theo sông Hồng. Trần Bình Trọng chỉ huy 600 quân Thánh Dực chặn quân Nguyên ở bãi Đà Mạc, cầm chân địch qua sáu đợt tấn công rồi bị bắt và hy sinh.',
+    text: 'Sau trận Thăng Long (17 – 18/2), vua tôi nhà Trần rút theo sông Hồng. Trần Bình Trọng chỉ huy 600 quân Thánh Dực chặn quân Nguyên ở bãi Đà Mạc, kiềm chân mấy nghìn quân địch qua sáu đợt tấn công rồi bị bắt và hy sinh.',
   },
   m2p2: {
     title: 'Hàm Tử – Chương Dương',
     date: 'Tháng 5 – 6/1285',
-    text: 'Quân Trần tổng phản công: Trần Nhật Duật thắng ở Hàm Tử; Trần Quang Khải cùng Phạm Ngũ Lão và Trần Quốc Toản đánh tan quân Nguyên ở Chương Dương, đốt và chiếm nhiều chiến thuyền, rồi giải phóng Thăng Long.',
+    text: 'Quân Trần tổng phản công: Trần Nhật Duật đánh bại quân Nguyên ở Hàm Tử; Trần Quang Khải cùng Phạm Ngũ Lão và Trần Quốc Toản đánh tan quân Nguyên ở Chương Dương, đốt cháy hoặc chiếm phần lớn chiến thuyền địch, rồi giải phóng Thăng Long.',
   },
   m2p3: {
     title: 'Tây Kết và đường rút chạy của Thoát Hoan',
     date: '10 – 24/6/1285',
-    text: 'Quân Nguyên chạy về Vạn Kiếp, bị chặn đánh ở sông Như Nguyệt, sông Sách và Vĩnh Bình; tương truyền Thoát Hoan phải chui vào ống đồng để thoát. Ngày 24/6, quân Trần đánh tan đạo quân của Toa Đô ở Tây Kết, Toa Đô tử trận.',
+    text: 'Quân Nguyên rút chạy về phía Vạn Kiếp, bị chặn đánh ở sông Như Nguyệt, sông Sách và Vĩnh Bình; tương truyền quân Nguyên phải giấu Thoát Hoan trong ống đồng để chạy trốn. Ngày 24/6, quân Trần đánh tan đạo quân của Toa Đô ở Tây Kết, Toa Đô tử trận.',
   },
   m3p1: {
-    title: 'Vân Đồn: đoàn thuyền lương bị đánh đắm',
+    title: 'Vân Đồn: tiêu diệt đoàn thuyền lương',
     date: 'Cuối 12/1287 – đầu 1/1288',
-    text: 'Đoàn thuyền lương của Trương Văn Hổ đi sau thủy quân Ô Mã Nhi bị Trần Khánh Dư tập kích ở Vân Đồn. Hổ đổ thóc xuống biển rồi bỏ chạy; các đoàn lương khác gặp bão hoặc đi lạc. Quân Nguyên mất nguồn lương: đây là bước ngoặt của cuộc chiến.',
+    text: 'Thủy quân Ô Mã Nhi đi trước, đoàn thuyền lương của Trương Văn Hổ theo sau thì bị Trần Khánh Dư tập kích ở Vân Đồn và nhanh chóng bị tiêu diệt. Văn Hổ đổ thóc xuống biển rồi bỏ chạy; các đoàn lương khác gặp bão hoặc đi lạc. Quân Nguyên mất nguồn lương: đây là bước ngoặt của cuộc chiến.',
   },
   m3p2: {
     title: 'Bạch Đằng: trận địa cọc ngầm',
     date: 'Sáng 9/4/1288',
-    text: 'Rút quân vì thiếu lương, thủy quân Ô Mã Nhi bị chặn đánh liên tục rồi phải vào sông Bạch Đằng. Quân Trần bố trí cọc ngầm, phục binh hai bờ và thuyền nhử địch; thuyền Nguyên đuổi theo, va vào cọc, nước triều rút càng làm nhiều thuyền hư hại.',
+    text: 'Thoát Hoan rút quân vì thiếu lương; thủy quân Ô Mã Nhi bị chặn đánh liên tục rồi phải vào sông Bạch Đằng. Quân Trần bố trí cọc ngầm, cho bộ binh mai phục hai bờ và thủy quân ẩn trong các nhánh sông; thuyền Nguyên đuổi đánh đội thuyền giả thua, va phải cọc, nước triều rút làm nhiều thuyền hư hại thêm.',
   },
   m3p3: {
     title: 'Bắt Ô Mã Nhi, diệt thủy quân Nguyên',
     date: 'Chiều 9/4/1288',
-    text: 'Quân Trần từ các nhánh sông và hai bờ đổ ra đánh; đến chiều toàn bộ cánh thủy quân Nguyên bị tiêu diệt, Đỗ Hành bắt được Ô Mã Nhi. Thoát Hoan chạy bộ qua Lạng Sơn, đến 19/4 mới thoát khỏi biên giới về Tư Minh.',
+    text: 'Quân Trần từ các nhánh sông và hai bờ đổ ra đánh; đến chiều toàn bộ cánh quân thủy của Nguyên bị tiêu diệt, Đỗ Hành bắt được Ô Mã Nhi. Bộ binh của Thoát Hoan rút theo đường Lạng Sơn, bị phục kích ở Nội Bàng; đến 19/4 mới thoát khỏi biên giới về Tư Minh.',
   },
 };
 

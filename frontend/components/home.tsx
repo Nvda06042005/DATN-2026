@@ -54,7 +54,7 @@ export const NAV = [
  */
 const CAMPAIGN_FACTS: Record<1 | 2 | 3, { enemy: string; lead: string; key: string }> = {
   1: {
-    enemy: 'Quân Mông Cổ (kèm quân Đại Lý) do Ngột Lương Hợp Thai và con trai là Aju chỉ huy',
+    enemy: 'Quân Mông Cổ (kèm quân Đại Lý) do Ngột Lương Hợp Thai và con trai là A Truật chỉ huy',
     lead: 'Vua Trần Thái Tông cùng Thái tử Trần Hoảng, Thái sư Trần Thủ Độ',
     key: 'Thua ở Bình Lệ Nguyên (17/1) và Phù Lỗ (18/1), bỏ Thăng Long với "vườn không nhà trống"; đêm 28/1/1258 phản công, thắng ở Đông Bộ Đầu',
   },
@@ -64,7 +64,7 @@ const CAMPAIGN_FACTS: Record<1 | 2 | 3, { enemy: string; lead: string; key: stri
     key: 'Hội nghị Bình Than, Diên Hồng; rút về Thanh Hóa rồi phản công: thắng Hàm Tử, Chương Dương, giải phóng Thăng Long, diệt quân Toa Đô ở Tây Kết (24/6/1285)',
   },
   3: {
-    enemy: 'Quân Nguyên chia ba cánh vào Đại Việt: Thoát Hoan chỉ huy chung, Ô Mã Nhi chỉ huy thủy quân',
+    enemy: 'Quân Nguyên chia ba cánh vào Đại Việt: Thoát Hoan làm tổng tư lệnh, Ô Mã Nhi và Phàn Tiếp chỉ huy thủy quân',
     lead: 'Thượng hoàng Trần Thánh Tông, vua Trần Nhân Tông, Quốc công tiết chế Trần Hưng Đạo',
     key: 'Tập kích đoàn thuyền lương ở Vân Đồn (đầu 1288); sáng 9/4/1288 thủy quân Nguyên vào sông Bạch Đằng, mắc cọc ngầm và bị tiêu diệt',
   },
@@ -84,12 +84,12 @@ const VICTORIES = [
   { war: 'Lần 3 · quân Nguyên', year: '1288', place: 'Bạch Đằng', result: 'Thủy quân Nguyên bị tiêu diệt, sáng 9/4/1288' },
 ] as const;
 
-/** Lời ông cha, nguyên văn như trong dữ liệu game (riêng "Đánh!" theo Đại Việt sử ký toàn thư, Wikipedia dẫn lại) */
+/** Lời ông cha, như trong dữ liệu game; riêng câu của Trần Thủ Độ (lần 1) và "Đánh!" (lần 2) viết theo Wikipedia, dẫn từ Đại Việt sử ký toàn thư */
 const QUOTES = [
   { text: 'Ta thà làm quỷ nước Nam, chứ không thèm làm vương đất Bắc!', who: 'Trần Bình Trọng', note: 'khi bị giặc bắt và dụ hàng, 1285', bg: '#f6b8a8' },
-  { text: 'Đầu thần chưa rơi xuống đất, xin bệ hạ đừng lo!', who: 'Trần Thủ Độ', note: 'trước thế giặc mạnh, 1258', bg: '#ffd84d' },
+  { text: 'Đầu thần chưa rơi xuống đất, bệ hạ đừng lo gì khác.', who: 'Trần Thủ Độ', note: 'khi vua hỏi kế sau trận Bình Lệ Nguyên, 1258', bg: '#ffd84d' },
   { text: 'Phá cường địch, báo hoàng ân', who: 'Trần Quốc Toản', note: 'sáu chữ vàng thêu trên lá cờ của ông, 1285', bg: '#bfe3a4' },
-  { text: 'Đánh!', who: 'Các bô lão', note: 'cùng đáp “như từ một miệng” ở Hội nghị Diên Hồng', bg: '#a9d4ee' },
+  { text: 'Đánh!', who: 'Các phụ lão', note: 'cùng đáp “như từ một miệng” ở Hội nghị Diên Hồng', bg: '#a9d4ee' },
 ] as const;
 
 // ---------------------------------------------------------------------- nền tảng giao diện
@@ -486,7 +486,8 @@ const PhaseTrack: React.FC<{ auto: boolean; children: React.ReactNode }> = ({ au
 /** Dải thẻ nghiêng chạy ngang: chín màn chiến dịch, mỗi thẻ là một trận đánh thật với ngày tháng và diễn biến theo Wikipedia (xem PHASE_REAL) */
 const PhaseMarquee: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
-  const colors = [c.son, c.vang, c.thuy];
+  /** Đỏ son, vàng và xanh mực của logo (lần 3 dùng xanh lá đậm `logoInk`, không phải xanh dương) */
+  const colors = [c.son, c.vang, c.logoInk];
   return (
     <View id="chin-man" onLayout={(e) => onSection('chin-man', e.nativeEvent.layout.y)} style={{ width: '100%', backgroundColor: c.xam, paddingVertical: wide ? 80 : 48, gap: 20 }}>
       <View style={{ paddingHorizontal: 16 }}>
@@ -630,7 +631,7 @@ const MockAsk: React.FC = () => {
         <Mascot size={48} mood="happy" accessory="scholar" title="Quân Sư AI" />
         <View style={{ flex: 1, backgroundColor: c.the, borderRadius: 22, borderBottomLeftRadius: 6, paddingHorizontal: 16, paddingVertical: 12 }}>
           <Txt size={14} color={c.xanhMuc} style={{ lineHeight: 21 }}>
-            Quân Trần cắm cọc nhọn ngầm dưới sông Bạch Đằng rồi nhử thuyền giặc vào. Thuyền Nguyên va phải cọc ngầm, bị chặn lại và bị tiêu diệt.
+            Quân Trần bố trí trận địa cọc ngầm dưới sông Bạch Đằng, cho thuyền giả thua để nhử giặc vào. Thuyền Nguyên đuổi theo, va phải cọc ngầm, bị chặn lại rồi bị quân Trần đổ ra đánh tiêu diệt.
           </Txt>
         </View>
       </View>
