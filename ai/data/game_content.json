@@ -2270,6 +2270,490 @@
       "answer": true,
       "explanation": "Đúng. Tại trại Ma Lục (Lạng Sơn), dân binh Nguyễn Thế Lộc và gia nô Nguyễn Địa Lô đã phục kích bắn chết Trần Kiện.",
       "source": "Đại Việt sử ký toàn thư"
+    },
+    {
+      "id": "dvsktt-nhcd-1",
+      "unit_id": "DVSKTT_TRAN_NHAT_HIEU_HOANG_CU_DA",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [22a], trang 520), năm 1258 tại sông Thiên Mạc, khi vua Trần Thái Tông hỏi kế, Thái úy Trần Nhật Hiệu đã viết hai chữ gì lên mạn thuyền?",
+      "options": [
+        "Nhập Tống (chạy sang nhà Tống)",
+        "Sát Thát (giết giặc Mông Cổ)",
+        "Đầu hàng (xin hàng quân Mông)",
+        "Phản công (đánh úp Đông Bộ Đầu)"
+      ],
+      "answer": 0,
+      "explanation": "Trần Nhật Hiệu hoảng sợ nắm mạn thuyền không bước sang được, lấy ngón tay chấm nước viết hai chữ “Nhập Tống” trên mạn thuyền.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [22a], trang 520"
+    },
+    {
+      "id": "dvsktt-nhcd-2",
+      "unit_id": "DVSKTT_TRAN_NHAT_HIEU_HOANG_CU_DA",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Trong Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [22b-23b], trang 521-522), câu chuyện Tiểu Hoàng môn Hoàng Cự Đà chỉ vì không được ban một quả xoài mà bỏ trốn khi giặc đến để lại bài học quản trị quốc gia sâu sắc nào?",
+      "options": [
+        "Thưởng phạt phải công minh và quan lại phải lấy đại nghĩa quốc gia làm trọng, không vì chuyện ăn uống nhỏ nhặt mà quên nghĩa lớn",
+        "Nhà vua không bao giờ nên ban thưởng trái cây cho các quan",
+        "Khi có giặc ngoại xâm thì ai cũng được phép tự ý bỏ trốn",
+        "Quân tinh nhuệ Tinh Cương đã đầu hàng quân Mông Cổ"
+      ],
+      "answer": 0,
+      "explanation": "Thái tử Trần Hoảng xin xử cực hình để răn kẻ bất trung, còn vua Trần Thái Tông tự trách mình (“Cự Đà tội đáng giết, song ngày trước trẫm có lỗi: ăn xoài mà không cho nó ăn...”) rồi tha chết nhưng bắt đánh giặc chuộc tội.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [22b-23b], trang 521-522"
+    },
+    {
+      "id": "dvsktt-nhcd-3",
+      "unit_id": "DVSKTT_TRAN_NHAT_HIEU_HOANG_CU_DA",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [22b]), lời nói “Đầu thần chưa rơi xuống đất, bệ hạ đừng lo gì khác” của Thái sư Trần Thủ Độ đã củng cố ý chí kháng chiến của vua Trần Thái Tông trái ngược với sự nao núng của Trần Nhật Hiệu.",
+      "answer": true,
+      "explanation": "Đúng. Sử thần Ngô Sĩ Liên nhận xét rằng nếu nghe lời Trần Nhật Hiệu thì nhà Trần đã mất nước, nhờ lời quyết đoán của Trần Thủ Độ mà xoay chuyển vận nước.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [22b], trang 521"
+    },
+    {
+      "id": "dvsktt-dkc-1",
+      "unit_id": "DVSKTT_DO_KHAC_CHUNG_SU_GIA",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [44b-45a], trang 564-565), năm 1285 tại Bình Than, ai đã tình nguyện đem thư sang trại tướng Nguyên Ô Mã Nhi để vờ cầu hòa và dò xét tình hình địch?",
+      "options": [
+        "Chi hậu cục thủ Đỗ Khắc Chung",
+        "Đoàn Nhữ Hài",
+        "Trương Hán Siêu",
+        "Mạc Đĩnh Chi"
+      ],
+      "answer": 0,
+      "explanation": "Chi hậu cục thủ Đỗ Khắc Chung dũng cảm sang trại Ô Mã Nhi, ứng đối đanh thép khiến Ô Mã Nhi phải thốt lên: “Nước nó đương lúc nguy cấp mà có người như thế, không thể coi thường được”.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [44b-45a], trang 564-565"
+    },
+    {
+      "id": "dvsktt-dkc-2",
+      "unit_id": "DVSKTT_DO_KHAC_CHUNG_SU_GIA",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Khi tướng Nguyên Ô Mã Nhi hạch hỏi việc quân Trần thích chữ “Sát Thát” vào cánh tay, sứ giả Đỗ Khắc Chung đã đối đáp khôn khéo như thế nào?",
+      "options": [
+        "Chó nhà cắn người lạ không phải tại chủ nó bảo, vì lòng trung nghĩa mà quân lính tự thích chữ vào tay, Quốc vương không biết việc đó",
+        "Xin lập tức xóa chữ Sát Thát và đầu hàng quân Nguyên",
+        "Đó là lệnh bắt buộc của vua Trần Nhân Tông đối với mọi người dân",
+        "Đó là ký hiệu riêng của thương nhân buôn bán vùng biên giới"
+      ],
+      "answer": 0,
+      "explanation": "Đỗ Khắc Chung vừa khẳng định khí thế tự giác giết giặc của quân sĩ Đại Việt, vừa khéo léo giữ lễ ngoại giao cho nhà vua để kéo dài thời gian hoãn binh.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [44b-45a], trang 564-565"
+    },
+    {
+      "id": "dvsktt-dkc-3",
+      "unit_id": "DVSKTT_DO_KHAC_CHUNG_SU_GIA",
+      "type": "tf",
+      "level": "VAN_DUNG",
+      "prompt": "Chuyến đi sứ trại Ô Mã Nhi năm 1285 của Đỗ Khắc Chung là minh chứng tiêu biểu cho nghệ thuật kết hợp đấu tranh quân sự với đấu tranh ngoại giao “vừa đánh vừa đàm” của nhà Trần.",
+      "answer": true,
+      "explanation": "Đúng. Hoạt động ngoại giao khôn khéo của Đỗ Khắc Chung giúp nhà Trần thăm dò hư thực quân Nguyên và tranh thủ thời gian bố trí lực lượng.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [44b-45a], trang 564-565"
+    },
+    {
+      "id": "dvsktt-gbs-1",
+      "unit_id": "DVSKTT_TRAN_QUOC_TUAN_GAY_BIT_SAT",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [47b-48a], trang 571), năm 1285 khi theo hầu hai vua Trần, vì sao Hưng Đạo Vương Trần Quốc Tuấn lại sai vứt bỏ đầu sắt nhọn của chiếc gậy chống, chỉ chống gậy gỗ không?",
+      "options": [
+        "Để xóa bỏ mọi hiềm nghi do mối thù riêng của cha là An Sinh Vương Trần Liễu, giữ trọn đạo trung thần",
+        "Vì đầu sắt của chiếc gậy quá nặng không mang qua sông được",
+        "Vì ông muốn lấy sắt rèn mũi tên bắn giặc",
+        "Vì vua Trần Nhân Tông ra lệnh tịch thu mọi vũ khí"
+      ],
+      "answer": 0,
+      "explanation": "Trước có lời di mệnh của cha là An Sinh Vương Trần Liễu bảo cướp ngôi, mọi người nhìn ông với con mắt nghi ngờ nên Quốc Tuấn rút bỏ đầu sắt nhọn của gậy chống để tỏ rõ tấm lòng trung nghĩa.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [47b-48a], trang 571"
+    },
+    {
+      "id": "dvsktt-gbs-2",
+      "unit_id": "DVSKTT_TRAN_QUOC_TUAN_GAY_BIT_SAT",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Trong lời bàn về hành động rút đầu sắt gậy gỗ của Trần Quốc Tuấn (Đại Việt Sử Ký Toàn Thư, Quyển V, tờ [48a], trang 571), Sử thần Ngô Sĩ Liên đã so sánh tài đức của ông với danh tướng nào và rút ra bài học gì?",
+      "options": [
+        "So sánh với Quách Tử Nghi đời Đường, khẳng định người làm tôi giữ tiết nghĩa một lòng vì xã tắc thì giữ trọn tiếng thơm muôn đời",
+        "So sánh với Triệu Đà và khuyên nên tự lập làm vương",
+        "So sánh với Hàn Tín và khuyên nên rút lui ở ẩn",
+        "So sánh với Tào Tháo và khuyên nên thâu tóm quyền lực"
+      ],
+      "answer": 0,
+      "explanation": "Sử thần Ngô Sĩ Liên khen ngợi Trần Quốc Tuấn gạt bỏ lời di mệnh tư thù của cha, đem hết sức trung nghĩa lập công lớn như Quách Tử Nghi nhà Đường.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [47b-48a], trang 571"
+    },
+    {
+      "id": "dvsktt-gbs-3",
+      "unit_id": "DVSKTT_TRAN_QUOC_TUAN_GAY_BIT_SAT",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển VI, tờ [9b], trang 620-621), khi Trần Hưng Đạo đem chuyện dặn dò của cha ra thử lòng hai con, Hưng Nhượng Vương Trần Quốc Tảng vì khuyên cha cướp ngôi nên đã bị Trần Hưng Đạo tuốt gươm định chém và giận không cho gặp mặt.",
+      "answer": true,
+      "explanation": "Đúng. Hưng Vũ Vương Nghiễn can ngăn nên được khen ngợi, còn Trần Quốc Tảng khuyên cha làm điều bất trung nên bị Trần Hưng Đạo nghiêm khắc trừng phạt.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VI, tờ [9b], trang 620-621"
+    },
+    {
+      "id": "dvsktt-dhnk-1",
+      "unit_id": "DVSKTT_BACH_DANG_DO_HANH_NGUYEN_KHOAI",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [53a-54b], trang 583-586), trong trận Bạch Đằng ngày 8 tháng 3 năm Mậu Tý (9/4/1288), vị tướng nào đã trực tiếp bắt sống Tham chính Ô Mã Nhi và Tích Lệ Cơ Ngọc?",
+      "options": [
+        "Nội Minh tự Đỗ Hành",
+        "Lê Phụ Trần",
+        "Trần Bình Trọng",
+        "Đoàn Nhữ Hài"
+      ],
+      "answer": 0,
+      "explanation": "Sử chép: “Nội Minh tự Đỗ Hành bắt được Ô Mã Nhi và Tích Lệ Cơ Ngọc dâng lên Thượng hoàng. Thượng hoàng sai dẫn lên thuyền ngự, cùng ngồi nói chuyện với chúng và uống rượu”.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [53a], trang 583"
+    },
+    {
+      "id": "dvsktt-dhnk-2",
+      "unit_id": "DVSKTT_BACH_DANG_DO_HANH_NGUYEN_KHOAI",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [54b], trang 586), khi xét công trận Bạch Đằng năm 1289, vì sao Nội Minh tự Đỗ Hành bắt sống được Ô Mã Nhi nhưng chỉ được phong tước Quan nội hầu mà không được phong tước Hầu?",
+      "options": [
+        "Vì Đỗ Hành đem Ô Mã Nhi dâng lên Thượng hoàng mà không dâng lên Quốc công Tiết chế Trần Hưng Đạo theo đúng quân pháp",
+        "Vì Đỗ Hành đến chiến trường Bạch Đằng muộn",
+        "Vì Ô Mã Nhi đã tự nhảy lên thuyền của Thượng hoàng",
+        "Vì Đỗ Hành làm mất ấn tín trong lúc giao chiến"
+      ],
+      "answer": 0,
+      "explanation": "Chi tiết này phản ánh kỷ luật quân sự nghiêm minh thời Trần: Trần Hưng Đạo là Quốc công Tiết chế thống lĩnh toàn quân nên tù binh bắt được phải giải nộp cho Tiết chế trước.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [54b], trang 586"
+    },
+    {
+      "id": "dvsktt-dhnk-3",
+      "unit_id": "DVSKTT_BACH_DANG_DO_HANH_NGUYEN_KHOAI",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Trong đại chiến Bạch Đằng năm 1288, tướng Nguyễn Khoái lĩnh quân Thánh Dực nghĩa dũng đánh chặn thượng lưu và sau chiến thắng được phong tước Liệt hầu, ban hẳn một hương làm湯 mộc ấp gọi là Khoái Lộ.",
+      "answer": true,
+      "explanation": "Đúng. Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [53a, 54b]) ghi rõ chiến công và phần thưởng phong Liệt hầu, ban Khoái Lộ cho Nguyễn Khoái.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [53a, 54b], trang 583-586"
+    },
+    {
+      "id": "dvsktt-htt-1",
+      "unit_id": "DVSKTT_HOANG_TA_THON_NGO_SI_LIEN_BAN",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [56b], trang 589-590), mùa xuân năm Kỷ Sửu (1289), nhà Trần đã dùng mưu của Trần Hưng Đạo xử lý tướng giặc hung bạo Ô Mã Nhi trên đường trao trả về nước như thế nào?",
+      "options": [
+        "Sai lực sĩ giỏi bơi lặn Hoàng Tá Thốn giả làm người chèo thuyền, nhân ban đêm lặn xuống dùi thủng thuyền làm Ô Mã Nhi chết đuối",
+        "Đem Ô Mã Nhi ra chém đầu công khai ở cửa thành Thăng Long",
+        "Giam cầm Ô Mã Nhi suốt đời ở đảo Vân Đồn",
+        "Phong tước vương cho Ô Mã Nhi ở lại Đại Việt"
+      ],
+      "answer": 0,
+      "explanation": "Ô Mã Nhi giết hại người nước ta rất nhiều, vua Trần bèn dùng mưu của Hưng Đạo Vương, sai lực sĩ Hoàng Tá Thốn ban đêm dùi đắm thuyền làm Ô Mã Nhi chết đuối mà nhà Nguyên không có cớ trách phạt.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [56b], trang 589-590"
+    },
+    {
+      "id": "dvsktt-htt-2",
+      "unit_id": "DVSKTT_HOANG_TA_THON_NGO_SI_LIEN_BAN",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Trong lời bàn tại Quyển V, tờ [56b] (trang 590) của Đại Việt Sử Ký Toàn Thư, Sử thần Ngô Sĩ Liên đánh giá như thế nào về kế sách xử lý Ô Mã Nhi của vua Trần Nhân Tông và Trần Hưng Đạo?",
+      "options": [
+        "Đó là mưu kế tất phải thế (quyền biến): vừa giữ danh nghĩa hiếu sinh để yên lòng nhà Nguyên, vừa trừ khử tên giặc đầu sỏ tàn bạo để rửa hận cho dân",
+        "Đó là việc làm sai lầm vì lẽ ra phải thả Ô Mã Nhi về nước an toàn để tiếp tục dẫn quân sang",
+        "Đó là hành động tự phát của Hoàng Tá Thốn mà triều đình không hề hay biết",
+        "Sử thần Ngô Sĩ Liên hoàn toàn phản đối mọi mưu kế trong binh pháp"
+      ],
+      "answer": 0,
+      "explanation": "Ngô Sĩ Liên bàn rằng Ô Mã Nhi là kẻ tàn sát nhân dân và xâm phạm lăng miếu, nếu thả sống về thì không trả được thù chung mà còn để hậu họa, nên kế của Hưng Đạo Vương là sự quyền biến cao tay.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [56b], trang 589-590"
+    },
+    {
+      "id": "dvsktt-htt-3",
+      "unit_id": "DVSKTT_HOANG_TA_THON_NGO_SI_LIEN_BAN",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Việc trao trả tù binh Phàn Tiếp, Tích Lệ Cơ Ngọc đồng thời bí mật trừ khử tên tướng hiếu sát Ô Mã Nhi thể hiện sự kết hợp nhuần nhuyễn giữa chính sách ngoại giao mềm dẻo và quyết tâm bảo vệ an ninh quốc gia của nhà Trần.",
+      "answer": true,
+      "explanation": "Đúng. Nhà Trần giữ thể diện cho triều Nguyên để củng cố hòa hiếu lâu dài nhưng không để tên tướng tàn bạo Ô Mã Nhi quay lại gây họa.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [56b], trang 589-590"
+    },
+    {
+      "id": "dvsktt-ttk-1",
+      "unit_id": "DVSKTT_TRAN_THI_KIEN_PHAP_LUAT",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển VI, tờ [4b-5a], trang 611-612), năm 1297 vị quan Kiểm pháp quan (sau làm An phủ Thiên Trường) nào đã thọc tay vào cổ họng mửa hết thức ăn tại chỗ khi biết mâm cỗ do người có việc kiện tụng ở trong hương biếu?",
+      "options": [
+        "Trần Thì Kiến",
+        "Trương Hán Siêu",
+        "Đoàn Nhữ Hài",
+        "Phạm Ngũ Lão"
+      ],
+      "answer": 0,
+      "explanation": "Khi giữ chức ở phủ Thiên Trường, có người dân biếu mâm cỗ, Trần Thì Kiến ăn xong hỏi ra biết người ấy có việc cầu xin kiện tụng liền thọc tay vào họng mửa ra ngay.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VI, tờ [4b-5a], trang 611-612"
+    },
+    {
+      "id": "dvsktt-ttk-2",
+      "unit_id": "DVSKTT_TRAN_THI_KIEN_PHAP_LUAT",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Trong Đại Việt Sử Ký Toàn Thư (Quyển VI, tờ [4b-5a], trang 611-612), Sử thần Phan Phu Tiên và Ngô Sĩ Liên rút ra bài học trị nước gì từ lệnh cấm đánh bạc và tấm gương liêm chính của Trần Thì Kiến?",
+      "options": [
+        "Pháp luật nghiêm minh, ngăn chặn tệ cờ bạc và giữ gìn đạo lý liêm chính, không nhận hối lộ của quan lại là nền tảng làm nên sức mạnh quốc gia thời Trần",
+        "Quan lại địa phương được phép nhận quà biếu của người đi kiện miễn là xử thắng",
+        "Đánh bạc là trò tiêu khiển cần khuyến khích trong quân đội và quan trường",
+        "Chỉ cần quân đội mạnh là đủ, không cần quan tâm đến kỷ cương pháp luật thời bình"
+      ],
+      "answer": 0,
+      "explanation": "Phan Phu Tiên bàn về việc trị tận gốc tệ đánh bạc làm khuynh gia bại sản, còn Ngô Sĩ Liên ca ngợi khí tiết trong sạch, không để vật chất làm mờ mắt của Trần Thì Kiến.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VI, tờ [4a-5a], trang 611-612"
+    },
+    {
+      "id": "dvsktt-ttk-3",
+      "unit_id": "DVSKTT_TRAN_THI_KIEN_PHAP_LUAT",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Trần Thì Kiến vốn là môn khách của Hưng Đạo Vương Trần Quốc Tuấn, được tiến cử lên triều đình giữ chức Kiểm pháp quan rồi thăng làm Hành khiển nhờ tài năng và đức tính chính trực.",
+      "answer": true,
+      "explanation": "Đúng. Đại Việt Sử Ký Toàn Thư (Quyển VI, tờ [4b-5a]) ghi rõ Trần Thì Kiến người làng Cối Giang (Đông Triều), là môn khách được Hưng Đạo Vương tiến cử.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VI, tờ [4b-5a], trang 611-612"
+    },
+    {
+      "id": "dvsktt-tlnt-1",
+      "unit_id": "DVSKTT_THANH_LAP_NHA_TRAN_1225",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [1a], trang 478-479), vào tháng 12 âm lịch năm Ất Dậu (đầu năm 1226), Lý Chiêu Hoàng đã nhường ngôi cho ai tại điện Thiên An để lập nên vương triều nhà Trần?",
+      "options": [
+        "Trần Cảnh (vua Trần Thái Tông)",
+        "Trần Thủ Độ",
+        "Trần Quốc Tuấn",
+        "Trần Nhân Tông"
+      ],
+      "answer": 0,
+      "explanation": "Tại điện Thiên An, nữ hoàng Lý Chiêu Hoàng trút bỏ áo ngự mời chồng là Trần Cảnh lên ngôi Hoàng đế (tức vua Trần Thái Tông), mở đầu triều đại nhà Trần.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [1a-1b], trang 478-479"
+    },
+    {
+      "id": "dvsktt-tlnt-2",
+      "unit_id": "DVSKTT_THANH_LAP_NHA_TRAN_1225",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Điện tiền chỉ huy sứ Trần Thủ Độ (sau được phong Quốc thượng phụ, Thái sư) là người đóng vai trò quyết định trong việc chuyển giao vương quyền từ nhà Lý sang nhà Trần và củng cố vương triều mới.",
+      "answer": true,
+      "explanation": "Đúng. Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [1a-2b]) ghi rõ Trần Thủ Độ nắm giữ mọi việc quân quốc trọng sự giúp vua Trần Thái Tông ổn định đất nước.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [1a-2b], trang 478-481"
+    },
+    {
+      "id": "dvsktt-bmpl-1",
+      "unit_id": "DVSKTT_BO_MAY_PHAP_LUAT_QUOC_TRIEU_HINH_THU",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Bộ luật thành văn tiêu biểu được biên soạn và ban hành dưới triều đại nhà Trần có tên là gì?",
+      "options": [
+        "Quốc triều hình thư",
+        "Hình thư thời Lý",
+        "Quốc triều hình luật (Luật Hồng Đức)",
+        "Hoàng Việt luật lệ"
+      ],
+      "answer": 0,
+      "explanation": "Nhà Trần ban hành Quốc triều thông chế và Quốc triều hình thư, đặt cơ quan Thẩm hình viện để xét xử kiện tụng công minh.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [4a-15a], trang 484-505"
+    },
+    {
+      "id": "dvsktt-bmpl-2",
+      "unit_id": "DVSKTT_BO_MAY_PHAP_LUAT_QUOC_TRIEU_HINH_THU",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Điểm độc đáo nhất trong tổ chức bộ máy nhà nước quân chủ trung ương tập quyền thời Trần giúp việc truyền ngôi ổn định và đoàn kết nội bộ là gì?",
+      "options": [
+        "Thực hiện chế độ Thái thượng hoàng (vua cha nhường ngôi sớm cho con rồi cùng điều hành việc nước)",
+        "Bãi bỏ hoàn toàn các đơn vị hành chính địa phương",
+        "Giao toàn bộ quyền cai trị cho các sứ thần nước ngoài",
+        "Không lập sổ hộ tịch trong nhân dân"
+      ],
+      "answer": 0,
+      "explanation": "Chế độ Thái thượng hoàng giúp vua trẻ sớm rèn luyện bản lĩnh trị nước dưới sự dìu dắt của Thượng hoàng, tránh nạn tranh giành ngôi báu.",
+      "source": "SGK Lịch sử 7 (Bài 14) & Đại Việt Sử Ký Toàn Thư, Quyển V, trang 484-505"
+    },
+    {
+      "id": "dvsktt-ktdt-1",
+      "unit_id": "DVSKTT_KINH_TE_DIEN_TRANG_THAI_AP_DE_DINH_NHI",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [14b], trang 504), tháng 3 năm 1248 vua Trần Thái Tông đã lệnh cho các lộ đắp hệ thống đê nào từ đầu nguồn đến bờ biển để chống lũ lụt?",
+      "options": [
+        "Đê Đỉnh Nhĩ (Đê Quai Vạc) và đặt chức quan Hà đê sứ",
+        "Đê Cơ Xá dọc kinh thành Thăng Long",
+        "Kênh Nhà Lê ở vùng Thanh Hóa",
+        "Trường thành bằng đá dọc biên giới"
+      ],
+      "answer": 0,
+      "explanation": "Năm Mậu Thân (1248), nhà Trần đắp đê Đỉnh Nhĩ (đê Quai Vạc) suốt từ đầu nguồn đến bờ biển và đặt quan Hà đê chánh phó sứ trông coi.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [14b], trang 504"
+    },
+    {
+      "id": "dvsktt-ktdt-2",
+      "unit_id": "DVSKTT_KINH_TE_DIEN_TRANG_THAI_AP_DE_DINH_NHI",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [29a], trang 533), năm 1266 nhà Trần xuống chiếu cho phép vương hầu, công chúa, phò mã chiêu tập dân phiêu tán khai khẩn ruộng hoang để lập thành loại hình ruộng đất nào?",
+      "options": [
+        "Điền trang",
+        "Công điền quân phân",
+        "Ruộng tịch điền",
+        "Ruộng chùa"
+      ],
+      "answer": 0,
+      "explanation": "Chính sách lập Điền trang năm 1266 vừa mở rộng diện tích canh tác nông nghiệp, vừa tạo nguồn hậu cần và lực lượng quân sự tại chỗ của các vương hầu.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [29a], trang 533"
+    },
+    {
+      "id": "dvsktt-kcths-1",
+      "unit_id": "DVSKTT_KHOA_CU_THAI_HOC_SINH_NGUYEN_HIEN_MAC_DINH_CHI",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [14a], trang 503), trong khoa thi Thái học sinh tháng 2 năm Đinh Mùi (1247) lần đầu tiên đặt danh hiệu Tam khôi, ai đã đỗ Trạng nguyên khi mới 12 tuổi?",
+      "options": [
+        "Nguyễn Hiền",
+        "Mạc Đĩnh Chi",
+        "Chu Văn An",
+        "Trương Hán Siêu"
+      ],
+      "answer": 0,
+      "explanation": "Khoa thi năm 1247 lấy Nguyễn Hiền (12 tuổi) đỗ Trạng nguyên, Lê Văn Hưu (18 tuổi) đỗ Bảng nhãn và Đặng Ma La đỗ Thám hoa.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [14a], trang 503"
+    },
+    {
+      "id": "dvsktt-kcths-2",
+      "unit_id": "DVSKTT_KHOA_CU_THAI_HOC_SINH_NGUYEN_HIEN_MAC_DINH_CHI",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Ai là tác giả bộ Quốc sử 'Đại Việt Sử Ký' (30 quyển, hoàn thành năm 1272) dưới triều Trần?",
+      "options": [
+        "Bảng nhãn Lê Văn Hưu",
+        "Trạng nguyên Mạc Đĩnh Chi",
+        "Hàn Thuyên",
+        "Đoàn Nhữ Hài"
+      ],
+      "answer": 0,
+      "explanation": "Lê Văn Hưu (đỗ Bảng nhãn khoa thi 1247) giữ chức Hàn lâm viện Học sĩ kiêm Quốc sử viện Giám tu, hoàn thành bộ Đại Việt Sử Ký năm 1272.",
+      "source": "SGK Lịch sử 7 (Bài 14) & Đại Việt Sử Ký Toàn Thư, Quyển V, trang 503"
+    },
+    {
+      "id": "dvsktt-cva-1",
+      "unit_id": "DVSKTT_CHU_VAN_AN_THAT_TRAM_SO",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển VII, tờ [19a, 34b], trang 736, 765), vị danh nho nào giữ chức Quốc Tử Giám Tư nghiệp đã dâng 'Thất trảm sớ' xin chém 7 tên nịnh thần rồi cáo quan về núi Phượng Hoàng?",
+      "options": [
+        "Chu Văn An",
+        "Trương Hán Siêu",
+        "Mạc Đĩnh Chi",
+        "Lê Văn Hưu"
+      ],
+      "answer": 0,
+      "explanation": "Chu Văn An dâng Thất trảm sớ dưới triều Trần Dụ Tông nhưng vua không nghe nên treo mũ từ quan về dạy học ở núi Phượng Hoàng (Chí Linh), khi mất được thờ ở Văn Miếu.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VII, tờ [19a, 34b], trang 736, 765"
+    },
+    {
+      "id": "dvsktt-cva-2",
+      "unit_id": "DVSKTT_CHU_VAN_AN_THAT_TRAM_SO",
+      "type": "tf",
+      "level": "VAN_DUNG",
+      "prompt": "Hành động dâng Thất trảm sớ và từ quan không màng danh lợi của Chu Văn An là biểu tượng cao đẹp của khí tiết người trí thức và truyền thống tôn sư trọng đạo Việt Nam.",
+      "answer": true,
+      "explanation": "Đúng. Sử thần Ngô Sĩ Liên ca ngợi Chu Văn An là bậc đại nho tiết tháo cao khiết bậc nhất đời Trần.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VII, tờ [34b], trang 765"
+    },
+    {
+      "id": "dvsktt-ths-1",
+      "unit_id": "DVSKTT_TRUONG_HAN_SIEU_BACH_DANG_GIANG_PHU",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Ai là tác giả bài 'Phú sông Bạch Đằng' (Bạch Đằng giang phú) nổi tiếng với câu kết: 'Giặc tan muôn thuở thăng bình / Bởi đâu đất hiểm, cốt mình đức cao'?",
+      "options": [
+        "Trương Hán Siêu",
+        "Phạm Ngũ Lão",
+        "Trần Quang Khải",
+        "Hàn Thuyên"
+      ],
+      "answer": 0,
+      "explanation": "Tham tri chính sự Trương Hán Siêu (môn khách của Trần Hưng Đạo) là tác giả kiệt tác Bạch Đằng giang phú.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VII, tờ [17b], trang 733"
+    },
+    {
+      "id": "dvsktt-ths-2",
+      "unit_id": "DVSKTT_TRUONG_HAN_SIEU_BACH_DANG_GIANG_PHU",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [42a], trang 559), năm 1282 Nguyễn Thuyên (được vua ban họ Hàn Thuyên) làm văn tế cá sấu trên sông Lô bằng chữ Nôm, mở đầu việc dùng chữ Nôm sáng tác thơ phú ở nước ta.",
+      "answer": true,
+      "explanation": "Đúng. Đại Việt Sử Ký Toàn Thư ghi rõ nước ta làm thơ phú dùng nhiều quốc ngữ (chữ Nôm) bắt đầu từ Hàn Thuyên.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [42a], trang 559"
+    },
+    {
+      "id": "dvsktt-dnh-1",
+      "unit_id": "DVSKTT_DOAN_NHU_HAI_NGOAI_GIAO",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển VI, tờ [7a-7b], trang 616-617), năm 1299 chàng thư sinh 20 tuổi nào đã thảo bài biểu tạ tội giúp vua Trần Anh Tông và quỳ suốt đêm dưới mưa ở phủ Thiên Trường khiến Thượng hoàng Trần Nhân Tông cảm động?",
+      "options": [
+        "Đoàn Nhữ Hài",
+        "Trần Quốc Toản",
+        "Nguyễn Hiền",
+        "Đỗ Khắc Chung"
+      ],
+      "answer": 0,
+      "explanation": "Đoàn Nhữ Hài (20 tuổi) thảo bài biểu tạ tội và quỳ dưới mưa suốt đêm ở phủ Thiên Trường, được Thượng hoàng Trần Nhân Tông khen ngợi và vua Trần Anh Tông phong làm Ngự sử trung tán.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VI, tờ [7a-7b], trang 616-617"
+    },
+    {
+      "id": "dvsktt-dnh-2",
+      "unit_id": "DVSKTT_DOAN_NHU_HAI_NGOAI_GIAO",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Năm 1303, khi đi sứ Chiêm Thành, Đoàn Nhữ Hài đã mưu trí rước chiếu thư thiên tử đặt lên án rồi lạy chiếu thư, khiến Quốc vương Chiêm Thành cũng phải cúi lạy chiếu thư Đại Việt.",
+      "answer": true,
+      "explanation": "Đúng. Tài ứng biến ngoại giao của Đoàn Nhữ Hài được Đại Việt Sử Ký Toàn Thư (Quyển VI, tờ [18b], trang 637) ghi chép và ca ngợi.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VI, tờ [18b], trang 637"
+    },
+    {
+      "id": "dvsktt-vhpv-1",
+      "unit_id": "DVSKTT_VAN_HOA_AN_NAM_TU_DAI_KHI_CHUA_PHAP_VAN",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [8b-9a], trang 492-493), khi vua Trần Thái Tông đêm trốn lên núi Yên Tử năm 1237, Quốc sư Phù Vân đã khuyên nhà vua câu nói nổi tiếng nào?",
+      "options": [
+        "Trong núi vốn không có Phật, Phật ở ngay trong lòng; đấng nhân quân phải lấy ý muốn của thiên hạ làm ý muốn của mình",
+        "Hãy từ bỏ ngôi vua để ở ẩn suốt đời trên núi",
+        "Hãy dời kinh đô từ Thăng Long lên núi Yên Tử",
+        "Không cần quan tâm đến đời sống của muôn dân"
+      ],
+      "answer": 0,
+      "explanation": "Lời khuyên của Quốc sư Phù Vân thể hiện tinh thần Phật giáo nhập thế 'Phật tại tâm', gắn việc tu hành với trách nhiệm trị nước an dân.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [8b-9a], trang 492-493"
+    },
+    {
+      "id": "dvsktt-vhpv-2",
+      "unit_id": "DVSKTT_VAN_HOA_AN_NAM_TU_DAI_KHI_CHUA_PHAP_VAN",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Những công trình kiến trúc – điêu khắc tiêu biểu nào sau đây được xây dựng dưới triều đại nhà Trần?",
+      "options": [
+        "Tháp Phổ Minh (Nam Định), tháp Bình Sơn (Vĩnh Phúc), tượng hổ lăng Trần Thủ Độ",
+        "Chùa Một Cột và tượng Phật A-di-đà chùa Phật Tích (thời Lý)",
+        "Thành nhà Hồ (Tây Đô, Thanh Hóa)",
+        "Kinh thành Huế và lăng Minh Mạng"
+      ],
+      "answer": 0,
+      "explanation": "Tháp Phổ Minh (Nam Định), tháp Bình Sơn (Vĩnh Phúc) và tượng hổ đá lăng Trần Thủ Độ là những di sản kiến trúc, điêu khắc tiêu biểu của thời Trần.",
+      "source": "SGK Lịch sử 7 (Bài 14) & Đại Việt Sử Ký Toàn Thư, Quyển V, trang 526"
     }
   ]
 }

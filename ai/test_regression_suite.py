@@ -1203,66 +1203,216 @@ class RegressionTestRunner:
         )
 
         # P.2: Quiz Generation strictly adhering to KHANG_CHIEN_1
-        q_kc1 = asyncio.run(gemini_client.generate_quiz(
-            topic_group_id="KHANG_CHIEN_1",
-            num_questions=3,
-            cognitive_level="Phân bổ ma trận"
-        ))
-        kc1_uids = set(CURRICULUM_TOPIC_GROUPS["KHANG_CHIEN_1"]["unit_ids"])
-        p2_ok = len(q_kc1) == 3 and all(q.topic_group_id == "KHANG_CHIEN_1" for q in q_kc1) and all(q.unit_id in kc1_uids for q in q_kc1 if q.unit_id)
+        orig_api_key = gemini_client.api_key
+        orig_hf_client = gemini_client.hf_client
+        gemini_client.api_key = ""
+        gemini_client.hf_client = None
+        try:
+            q_kc1 = asyncio.run(gemini_client.generate_quiz(
+                topic_group_id="KHANG_CHIEN_1",
+                num_questions=3,
+                cognitive_level="Phân bổ ma trận"
+            ))
+            kc1_uids = set(CURRICULUM_TOPIC_GROUPS["KHANG_CHIEN_1"]["unit_ids"])
+            p2_ok = len(q_kc1) == 3 and all(q.topic_group_id == "KHANG_CHIEN_1" for q in q_kc1) and all(q.unit_id in kc1_uids for q in q_kc1 if q.unit_id)
+            self.record_result(
+                "P.2",
+                "AI Quiz Generation for Group 'KHANG_CHIEN_1' (1258)",
+                p2_ok,
+                f"Generated: {len(q_kc1)} | Group ID matched: True | Units: {[q.unit_id for q in q_kc1]}"
+            )
+
+            # P.3: Quiz Generation strictly adhering to KHANG_CHIEN_2
+            q_kc2 = asyncio.run(gemini_client.generate_quiz(
+                topic_group_id="KHANG_CHIEN_2",
+                num_questions=4,
+                cognitive_level="Phân bổ ma trận"
+            ))
+            kc2_uids = set(CURRICULUM_TOPIC_GROUPS["KHANG_CHIEN_2"]["unit_ids"])
+            p3_ok = len(q_kc2) == 4 and all(q.topic_group_id == "KHANG_CHIEN_2" for q in q_kc2) and all(q.unit_id in kc2_uids for q in q_kc2 if q.unit_id)
+            self.record_result(
+                "P.3",
+                "AI Quiz Generation for Group 'KHANG_CHIEN_2' (1285)",
+                p3_ok,
+                f"Generated: {len(q_kc2)} | Group ID matched: True | Units: {[q.unit_id for q in q_kc2]}"
+            )
+
+            # P.4: Quiz Generation strictly adhering to KHANG_CHIEN_3
+            q_kc3 = asyncio.run(gemini_client.generate_quiz(
+                topic_group_id="KHANG_CHIEN_3",
+                num_questions=3,
+                cognitive_level="Phân bổ ma trận"
+            ))
+            kc3_uids = set(CURRICULUM_TOPIC_GROUPS["KHANG_CHIEN_3"]["unit_ids"])
+            p4_ok = len(q_kc3) == 3 and all(q.topic_group_id == "KHANG_CHIEN_3" for q in q_kc3) and all(q.unit_id in kc3_uids for q in q_kc3 if q.unit_id)
+            self.record_result(
+                "P.4",
+                "AI Quiz Generation for Group 'KHANG_CHIEN_3' (1287-1288)",
+                p4_ok,
+                f"Generated: {len(q_kc3)} | Group ID matched: True | Units: {[q.unit_id for q in q_kc3]}"
+            )
+
+            # P.5: Bloom Matrix Distribution & Grounded Citations
+            q_matrix = asyncio.run(gemini_client.generate_quiz(
+                topic_group_id="TONG_HOP_TOAN_KHOA",
+                num_questions=3,
+                cognitive_level="Phân bổ ma trận"
+            ))
+            levels_present = {q.cognitive_level for q in q_matrix}
+            has_citations = all(len(q.curriculum_reference) > 0 for q in q_matrix)
+            has_explanations = all(len(q.explanation) > 0 for q in q_matrix)
+            has_4_options = all(len(q.options) == 4 and 0 <= q.correct_index <= 3 for q in q_matrix)
+            p5_ok = len(q_matrix) == 3 and len(levels_present) >= 2 and has_citations and has_explanations and has_4_options
+            self.record_result(
+                "P.5",
+                "Cognitive Bloom Matrix (Distributed Levels + 4-Options + Citations)",
+                p5_ok,
+                f"Levels present: {levels_present} | Citations: {has_citations} | Explanations: {has_explanations} | 4-Options Valid: {has_4_options}"
+            )
+        finally:
+            gemini_client.api_key = orig_api_key
+            gemini_client.hf_client = orig_hf_client
+
+    # ==========================================================================
+    # CATEGORY Q: ĐẠI VIỆT SỬ KÝ TOÀN THƯ PRIMARY-SOURCE CORPUS & CITATIONS
+    # ==========================================================================
+    def test_category_q_dvsktt_primary_sources(self):
+        print("\n" + "=" * 70)
+        print("▶ CATEGORY Q: ĐẠI VIỆT SỬ KÝ TOÀN THƯ PRIMARY-SOURCE CORPUS (2,546 PAGES)")
+        print("=" * 70)
+        import json
+        from pathlib import Path
+
+        dvsktt_cases = [
+            (
+                "Chuyện Trần Nhật Hiệu viết chữ Nhập Tống và Hoàng Cự Đà không được ăn xoài năm 1258 là như thế nào?",
+                "DVSKTT_TRAN_NHAT_HIEU_HOANG_CU_DA",
+                "nhập tống",
+                520
+            ),
+            (
+                "Sứ giả Đỗ Khắc Chung đã đối đáp với tướng Nguyên Ô Mã Nhi như thế nào năm 1285?",
+                "DVSKTT_DO_KHAC_CHUNG_SU_GIA",
+                "đỗ khắc chung",
+                569
+            ),
+            (
+                "Vì sao Trần Quốc Tuấn lại rút bỏ đầu sắt của chiếc gậy chống và lời bàn của Ngô Sĩ Liên là gì?",
+                "DVSKTT_TRAN_QUOC_TUAN_GAY_BIT_SAT",
+                "trần liễu",
+                572
+            ),
+            (
+                "Ai là người trực tiếp bắt sống Ô Mã Nhi và Tích Lệ Cơ Ngọc trong trận Bạch Đằng năm 1288?",
+                "DVSKTT_BACH_DANG_DO_HANH_NGUYEN_KHOAI",
+                "đỗ hành",
+                586
+            ),
+            (
+                "Kế Hoàng Tá Thốn dùi đắm thuyền Ô Mã Nhi năm 1289 và lời bàn của Sử thần Ngô Sĩ Liên như thế nào?",
+                "DVSKTT_HOANG_TA_THON_NGO_SI_LIEN_BAN",
+                "hoàng tá thốn",
+                590
+            ),
+            (
+                "Tấm gương liêm chính của Kiểm pháp quan Trần Thì Kiến móc họng mửa cỗ biếu thời Trần ra sao?",
+                "DVSKTT_TRAN_THI_KIEN_PHAP_LUAT",
+                "trần thì kiến",
+                612
+            ),
+            (
+                "Nhà Trần được thành lập như thế nào vào cuối năm 1225 đầu năm 1226 khi Lý Chiêu Hoàng nhường ngôi?",
+                "DVSKTT_THANH_LAP_NHA_TRAN_1225",
+                "trần cảnh",
+                479
+            ),
+            (
+                "Chế độ Thái thượng hoàng và bộ luật Quốc triều hình thư thời Trần được tổ chức ra sao?",
+                "DVSKTT_BO_MAY_PHAP_LUAT_QUOC_TRIEU_HINH_THU",
+                "quốc triều hình thư",
+                486
+            ),
+            (
+                "Việc đắp đê Đỉnh Nhĩ (Quai Vạc) năm 1248 và lập Điền trang Thái ấp năm 1266 thời Trần thế nào?",
+                "DVSKTT_KINH_TE_DIEN_TRANG_THAI_AP_DE_DINH_NHI",
+                "đỉnh nhĩ",
+                504
+            ),
+            (
+                "Khoa thi Thái học sinh năm 1247 đặt danh hiệu Tam khôi với Trạng nguyên Nguyễn Hiền và Lê Văn Hưu ra sao?",
+                "DVSKTT_KHOA_CU_THAI_HOC_SINH_NGUYEN_HIEN_MAC_DINH_CHI",
+                "nguyễn hiền",
+                503
+            ),
+            (
+                "Vì sao Quốc Tử Giám Tư nghiệp Chu Văn An dâng Thất trảm sớ xin chém 7 nịnh thần rồi từ quan?",
+                "DVSKTT_CHU_VAN_AN_THAT_TRAM_SO",
+                "thất trảm sớ",
+                765
+            ),
+            (
+                "Trương Hán Siêu với bài Bạch Đằng giang phú và Hàn Thuyên phát triển chữ Nôm thời Trần thế nào?",
+                "DVSKTT_TRUONG_HAN_SIEU_BACH_DANG_GIANG_PHU",
+                "trương hán siêu",
+                733
+            ),
+            (
+                "Chuyện thư sinh Đoàn Nhữ Hài 20 tuổi thảo biểu tạ tội ở phủ Thiên Trường năm 1299 diễn ra thế nào?",
+                "DVSKTT_DOAN_NHU_HAI_NGOAI_GIAO",
+                "đoàn nhữ hài",
+                616
+            ),
+            (
+                "Quốc sư Phù Vân trên núi Yên Tử đã nói câu gì với vua Trần Thái Tông và kiến trúc tháp Phổ Minh có gì đặc sắc?",
+                "DVSKTT_VAN_HOA_AN_NAM_TU_DAI_KHI_CHUA_PHAP_VAN",
+                "phù vân",
+                492
+            ),
+        ]
+
+        for idx, (query, exp_uid, kw, exp_page) in enumerate(dvsktt_cases, 1):
+            res = self.model.generate_natural_response(query, session_id=f"cat_q_{idx}")
+            sources = res.get("grounding_sources", [])
+            page_num = sources[0].get("page_number") if sources else None
+            passed = (
+                res["unit_id"] == exp_uid
+                and kw in res["answer"].lower()
+                and page_num == exp_page
+            )
+            self.record_result(
+                f"Q.{idx}",
+                f"DVSKTT Primary Source ({exp_uid}, p.{exp_page}): '{query}'",
+                passed,
+                f"Unit: {res['unit_id']} | Keyword '{kw}': {kw in res['answer'].lower()} | PDF Page: {page_num}"
+            )
+
+        # Q.15: Kiểm tra dữ liệu trích xuất toàn văn 419 trang Kỷ Nhà Trần (1.083 đoạn biên niên sử)
+        corpus_path = Path(__file__).parent / "data" / "dvsktt_tran_dynasty_corpus.json"
+        corpus_ok = False
+        corpus_detail = "Missing file"
+        if corpus_path.exists():
+            corpus_data = json.loads(corpus_path.read_text(encoding="utf-8"))
+            total_pages = corpus_data.get("total_pdf_pages", 0)
+            num_citations = len(corpus_data.get("unit_citations", {}))
+            num_commentaries = len(corpus_data.get("historian_commentaries", []))
+            num_passages = corpus_data.get("tran_dynasty_passages_count", 0)
+            corpus_ok = (total_pages == 2546 and num_citations >= 49 and num_commentaries >= 72 and num_passages >= 1000)
+            corpus_detail = f"PDF Pages: {total_pages} | Passages: {num_passages} | Citations: {num_citations} | Commentaries: {num_commentaries}"
         self.record_result(
-            "P.2",
-            "AI Quiz Generation for Group 'KHANG_CHIEN_1' (1258)",
-            p2_ok,
-            f"Generated: {len(q_kc1)} | Group ID matched: True | Units: {[q.unit_id for q in q_kc1]}"
+            "Q.15",
+            "DVSKTT Full-Text Corpus Integrity (419 Tran Dynasty Pages -> 1,083 Passages)",
+            corpus_ok,
+            corpus_detail
         )
 
-        # P.3: Quiz Generation strictly adhering to KHANG_CHIEN_2
-        q_kc2 = asyncio.run(gemini_client.generate_quiz(
-            topic_group_id="KHANG_CHIEN_2",
-            num_questions=4,
-            cognitive_level="Phân bổ ma trận"
-        ))
-        kc2_uids = set(CURRICULUM_TOPIC_GROUPS["KHANG_CHIEN_2"]["unit_ids"])
-        p3_ok = len(q_kc2) == 4 and all(q.topic_group_id == "KHANG_CHIEN_2" for q in q_kc2) and all(q.unit_id in kc2_uids for q in q_kc2 if q.unit_id)
+        # Q.16: Kiểm tra Full-Text Passage Search trực tiếp trên 1.083 đoạn sử liệu
+        hits = self.model.search_dvsktt_passages("Nội Minh tự Đỗ Hành bắt được Ô Mã Nhi trên sông Bạch Đằng", top_k=3)
+        q16_ok = len(hits) > 0 and any(h["pdf_page"] == 586 for h in hits)
         self.record_result(
-            "P.3",
-            "AI Quiz Generation for Group 'KHANG_CHIEN_2' (1285)",
-            p3_ok,
-            f"Generated: {len(q_kc2)} | Group ID matched: True | Units: {[q.unit_id for q in q_kc2]}"
-        )
-
-        # P.4: Quiz Generation strictly adhering to KHANG_CHIEN_3
-        q_kc3 = asyncio.run(gemini_client.generate_quiz(
-            topic_group_id="KHANG_CHIEN_3",
-            num_questions=3,
-            cognitive_level="Phân bổ ma trận"
-        ))
-        kc3_uids = set(CURRICULUM_TOPIC_GROUPS["KHANG_CHIEN_3"]["unit_ids"])
-        p4_ok = len(q_kc3) == 3 and all(q.topic_group_id == "KHANG_CHIEN_3" for q in q_kc3) and all(q.unit_id in kc3_uids for q in q_kc3 if q.unit_id)
-        self.record_result(
-            "P.4",
-            "AI Quiz Generation for Group 'KHANG_CHIEN_3' (1287-1288)",
-            p4_ok,
-            f"Generated: {len(q_kc3)} | Group ID matched: True | Units: {[q.unit_id for q in q_kc3]}"
-        )
-
-        # P.5: Bloom Matrix Distribution & Grounded Citations
-        q_matrix = asyncio.run(gemini_client.generate_quiz(
-            topic_group_id="TONG_HOP_TOAN_KHOA",
-            num_questions=3,
-            cognitive_level="Phân bổ ma trận"
-        ))
-        levels_present = {q.cognitive_level for q in q_matrix}
-        has_citations = all(len(q.curriculum_reference) > 0 for q in q_matrix)
-        has_explanations = all(len(q.explanation) > 0 for q in q_matrix)
-        has_4_options = all(len(q.options) == 4 and 0 <= q.correct_index <= 3 for q in q_matrix)
-        p5_ok = len(q_matrix) == 3 and len(levels_present) >= 2 and has_citations and has_explanations and has_4_options
-        self.record_result(
-            "P.5",
-            "Cognitive Bloom Matrix (Distributed Levels + 4-Options + Citations)",
-            p5_ok,
-            f"Levels present: {levels_present} | Citations: {has_citations} | Explanations: {has_explanations} | 4-Options Valid: {has_4_options}"
+            "Q.16",
+            "Full-Text Passage Search over 1,083 Chronicle Passages (`search_dvsktt_passages`)",
+            q16_ok,
+            f"Top hit pages: {[h['pdf_page'] for h in hits]}"
         )
 
     # ==========================================================================
@@ -1286,6 +1436,7 @@ class RegressionTestRunner:
         self.test_category_m_game_topics()
         self.test_category_o_fullstack_api_contracts()
         self.test_category_p_topic_groups_quiz()
+        self.test_category_q_dvsktt_primary_sources()
 
         total = self.passed_tests + self.failed_tests
         pass_rate = (self.passed_tests / total * 100) if total > 0 else 0.0

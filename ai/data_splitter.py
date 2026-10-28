@@ -1027,6 +1027,368 @@ KNOWLEDGE_UNITS: List[Dict[str, Any]] = [
         "follow_up": ""
     },
 
+    # --- TƯ LIỆU GỐC ĐẠI VIỆT SỬ KÝ TOÀN THƯ (BẢN KỶ QUYỂN V & QUYỂN VI) ---
+    {
+        "unit_id": "DVSKTT_TRAN_NHAT_HIEU_HOANG_CU_DA",
+        "category": "KHANG_CHIEN_LAN_1_1258",
+        "topic": "Thái úy Trần Nhật Hiệu viết chữ 'Nhập Tống', Hoàng Cự Đà ăn xoài và Lời bàn của Ngô Sĩ Liên (1258)",
+        "q_matrix": {"cognitive_level": "VAN_DUNG", "difficulty": 0.65, "skills": ["SKILL_TRAN_THU_DO", "SKILL_DVSKTT_PRIMARY"]},
+        "entity": "Trần Nhật Hiệu, Hoàng Cự Đà & Sử thần Ngô Sĩ Liên",
+        "event": "Kháng chiến chống Mông Cổ lần 1 (1258) - Sông Thiên Mạc & Đông Bộ Đầu",
+        "fact_chunk": "Theo Đại Việt Sử Ký Toàn Thư (Bản Kỷ Quyển V, tờ [22b-23a], tr. 520-522): Năm 1258 tại sông Thiên Mạc, Thái úy Trần Nhật Hiệu khiếp sợ viết hai chữ 'Nhập Tống' (chạy sang Tống) lên mạn thuyền, đối lập hoàn toàn với câu nói 'Đầu thần chưa rơi xuống đất, bệ hạ đừng lo gì khác' của Thái sư Trần Thủ Độ; Sử thần Ngô Sĩ Liên nghiêm khắc phê phán Nhật Hiệu hèn nhát. Cùng dịp đó, tiểu hiệu Hoàng Cự Đà vì trước kia không được ăn xoài vua ban nên bỏ chạy khi giặc đến Đông Bộ Đầu; sau chiến thắng, vua Trần Thái Tông nhận lỗi về mình và tha tội chết cho Cự Đà lập công chuộc tội.",
+        "badge": "Tinh thông Chính sử",
+        "base_queries": [
+            "ai là người viết hai chữ nhập tống lên mạn thuyền năm 1258",
+            "trần nhật hiệu viết chữ nhập tống ở sông thiên mạc và lời bàn của ngô sĩ liên",
+            "chuyện hoàng cự đà không được ăn xoài trong đại việt sử ký toàn thư",
+            "vì sao vua trần thái tông tha tội chết cho hoàng cự đà năm 1258",
+            "sự đối lập giữa trần nhật hiệu và trần thủ độ trên sông thiên mạc năm 1258"
+        ],
+        "answer": (
+            "Theo **Đại Việt Sử Ký Toàn Thư** (*Bản Kỷ Toàn Thư - Quyển V, tờ `[22b–23a]`, trang 520–522*), cuộc kháng chiến lần thứ nhất (1258) ghi lại hai câu chuyện lịch sử vô cùng sâu sắc:\n\n"
+            "1. **Thái úy Trần Nhật Hiệu viết chữ 'Nhập Tống' (`[22b]`, tr. 520)**:\n"
+            "   • Khi vua Trần Thái Tông lui giữ sông Thiên Mạc, ngự thuyền nhỏ đến hỏi kế sách, Thái úy **Trần Nhật Hiệu** khiếp sợ dựa mạn thuyền không đứng dậy nổi, lấy ngón tay chấm nước viết hai chữ **'Nhập Tống'** (khuyên vua chạy sang nước Nam Tống).\n"
+            "   • Trái ngược lại, **Thái sư Trần Thủ Độ** khẳng khái tâu: *'Đầu thần chưa rơi xuống đất, bệ hạ đừng lo gì khác'*.\n"
+            "   • **Lời bàn của Sử thần Ngô Sĩ Liên**: *'Nhật Hiệu là đại thần cùng họ với vua. Giặc đến, khiếp sợ, hèn nhát, không có kế sách chống giữ, lại còn kiếm cách xui vua mình chạy đi ở nhờ nước khác, thì còn dùng hắn làm tướng làm gì?'*.\n\n"
+            "2. **Giai thoại Hoàng Cự Đà không được ăn xoài (`[23a]`, tr. 521–522)**:\n"
+            "   • Trước kia vua ban xoài cho cận thần nhưng tiểu hiệu **Hoàng Cự Đà** không được ăn. Khi giặc tới Đông Bộ Đầu, Cự Đà ngồi thuyền nhẹ chạy trốn; gặp quân Thái tử hỏi giặc ở đâu, Đà trả lời: *'Không biết, đi mà hỏi những người ăn xoài ấy!'*.\n"
+            "   • Sau ngày toàn thắng, Thái tử xin xử cực hình, nhưng **vua Trần Thái Tông** độ lượng nói: *'Việc Cự Đà là lỗi ở ta, tha cho hắn tội chết, cho phép hắn đánh giặc chuộc tội'*."
+        ),
+        "follow_up": "Em thấy cách xử lý khoan dung, tự nhận lỗi của vua Trần Thái Tông với Hoàng Cự Đà thể hiện phẩm chất gì của bậc minh quân?"
+    },
+    {
+        "unit_id": "DVSKTT_DO_KHAC_CHUNG_SU_GIA",
+        "category": "KHANG_CHIEN_LAN_2_1285",
+        "topic": "Đỗ Khắc Chung đi sứ trại giặc Ô Mã Nhi và tài ứng đối về hai chữ 'Sát Thát' (1285)",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.55, "skills": ["SKILL_DO_KHAC_CHUNG", "SKILL_SAT_THAT"]},
+        "entity": "Chi hậu cục thủ Đỗ Khắc Chung & Ô Mã Nhi",
+        "event": "Đỗ Khắc Chung đi sứ dò xét trại quân Nguyên (Tháng Giêng năm 1285)",
+        "fact_chunk": "Theo Đại Việt Sử Ký Toàn Thư (Bản Kỷ Quyển V, tờ [45b-46b], tr. 568-570): Tháng Giêng năm 1285, Chi hậu cục thủ Đỗ Khắc Chung tình nguyện sang trại giặc Ô Mã Nhi giả đưa thư giảng hòa để dò xét tình hình, được vua khen 'Ngờ đâu trong đám ngựa kéo xe muối lại có ngựa kỳ, ngựa ký như thế!'. Khi Ô Mã Nhi hạch tội thích chữ 'Sát Thát', Khắc Chung ung dung giơ cánh tay và đối đáp đanh thép: 'Thú cùng thì chống lại, chim cùng thì mổ lại, huống chi là người', khiến Ô Mã Nhi cảm phục.",
+        "badge": "Sứ thần Bất khuất",
+        "base_queries": [
+            "đỗ khắc chung là ai và đã đối đáp với ô mã nhi như thế nào năm 1285",
+            "ai là người đi sứ sang trại giặc ô mã nhi giải thích hai chữ sát thát",
+            "sứ giả nào đi sứ sang trại giặc ô mã nhi giải thích hai chữ sát thát trên cánh tay",
+            "câu nói ngờ đâu trong đám ngựa kéo xe muối lại có ngựa kỳ ngựa ký khen ai",
+            "chuyện đỗ khắc chung đi sứ trại giặc nguyên trong đại việt sử ký toàn thư",
+            "ô mã nhi đã nhận xét gì sau khi đỗ khắc chung trở về",
+            "chi hậu cục thủ đỗ khắc chung nói chó nhà cắn người lạ không phải tại chủ nó với ô mã nhi"
+        ],
+        "answer": (
+            "Theo **Đại Việt Sử Ký Toàn Thư** (*Bản Kỷ Toàn Thư - Quyển V, tờ `[45b–46b]`, trang 568–570*), **Chi hậu cục thủ Đỗ Khắc Chung** là tấm gương ngoại giao mưu lược và bất khuất trong kháng chiến lần thứ hai (tháng Giêng năm 1285):\n\n"
+            "• **Dũng cảm nhận mệnh**: Khi quân Ô Mã Nhi tiến đến Đông Bộ Đầu, vua Trần muốn tìm người đi dò xét tình hình giặc. Đỗ Khắc Chung bước ra tâu: *'Thần hèn mọn bất tài, nhưng xin được đi'*. Vua mừng rỡ khen: *'Ngờ đâu trong đám ngựa kéo xe muối lại có ngựa kỳ, ngựa ký như thế!'*.\n"
+            "• **Bản lĩnh ứng đối về hai chữ 'Sát Thát' (`[46a]`, tr. 569)**: Ô Mã Nhi hạch tội vua Trần vô lễ sai quân thích chữ *'Sát Thát'* vào cánh tay. Khắc Chung bình thản giơ cánh tay mình ra và đáp: *'Chó nhà cắn người lạ không phải tại chủ nó. Vì lòng trung phẫn mà họ tự thích chữ thôi, Quốc vương tôi không biết việc đó... Nay lại bức nhau, người ta nói thú cùng thì chống lại, chim cùng thì mổ lại, huống chi là người!'*.\n"
+            "• **Kẻ thù phải nể phục (`[46b]`, tr. 570)**: Khi Khắc Chung về rồi, Ô Mã Nhi bảo các tướng: *'Người này ở vào lúc bị uy hiếp mà lời lẽ tự nhiên, không hạ chủ nó xuống là Chích, không nịnh ta lên là Nghiêu... Nước nó còn có người giỏi, chưa dễ mưu tính được'*."
+        ),
+        "follow_up": "Em có muốn tìm hiểu thêm về cách Trần Quốc Tuấn xóa bỏ hiềm khích gia tộc để giữ vững khối đoàn kết triều Trần không?"
+    },
+    {
+        "unit_id": "DVSKTT_TRAN_QUOC_TUAN_GAY_BIT_SAT",
+        "category": "DIEN_HONG_HICH_TUONG_SI",
+        "topic": "Trần Quốc Tuấn rút đầu sắt gậy gỗ xóa hiềm khích gia tộc, răn dạy các con và Lời bàn của Ngô Sĩ Liên",
+        "q_matrix": {"cognitive_level": "VAN_DUNG", "difficulty": 0.7, "skills": ["SKILL_TRAN_HUNG_DAO", "SKILL_DVSKTT_PRIMARY"]},
+        "entity": "Hưng Đạo Đại Vương Trần Quốc Tuấn & Ngô Sĩ Liên",
+        "event": "Xóa bỏ hiềm khích gia tộc vì đại nghĩa dân tộc (1285 - 1300)",
+        "fact_chunk": "Theo Đại Việt Sử Ký Toàn Thư (Bản Kỷ Quyển V tờ [47b] tr. 572 & Quyển VI tờ [9b-10b] tr. 621-623): Cha của Trần Quốc Tuấn là Yên Sinh Vương Trần Liễu có hiềm khích với Trần Thái Tông, trối trăng bảo con giành lấy thiên hạ. Nhưng Quốc Tuấn đặt vận nước lên trên thù nhà: năm 1285 khi theo hầu hai vua, thấy mọi người nghi ngại chiếc gậy bịt sắt nhọn của mình, ông liền rút đầu sắt nhọn vứt đi chỉ chống gậy không; đồng thời răn dạy các con đạo trung hiếu. Sử thần Ngô Sĩ Liên ca ngợi ông sánh ngang Quách Tử Nghi nhà Đường.",
+        "badge": "Đại nghĩa Đông A",
+        "base_queries": [
+            "vì sao trần quốc tuấn lại rút đầu sắt nhọn trên gậy gỗ vứt đi năm 1285",
+            "câu chuyện trần quốc tuấn rút đầu sắt gậy gỗ và lời bàn của ngô sĩ liên",
+            "trần quốc tuấn đã hóa giải mối hiềm khích của yên sinh vương trần liễu như thế nào",
+            "vì sao trần quốc tuấn rút gươm định giết con là trần quốc tảng",
+            "ngô sĩ liên so sánh trần quốc tuấn với danh tướng nào của nhà đường",
+            "sử thần ngô sĩ liên so sánh trần quốc tuấn với danh tướng quách tử nghi của nhà đường như thế nào",
+            "hưng vũ vương nghiễn và hưng nhượng vương trần quốc tảng trả lời cha thế nào khi thử lòng"
+        ],
+        "answer": (
+            "Theo **Đại Việt Sử Ký Toàn Thư** (*Bản Kỷ Quyển V tờ `[47b]` tr. 572 & Quyển VI tờ `[9b–10b]` tr. 621–623*), tấm lòng trung nghĩa, đặt lợi ích dân tộc lên trên thù riêng của **Trần Quốc Tuấn** được khắc họa qua những chi tiết lịch sử đắt giá:\n\n"
+            "1. **Gạt bỏ lời trối trăng giành ngôi của cha (`[9b–10a]`, tr. 621–622)**:\n"
+            "   • Cha ông là **Yên Sinh Vương Trần Liễu** vốn có hiềm khích với vua Trần Thái Tông, lúc sắp mất cầm tay dặn: *'Con không vì cha lấy được thiên hạ, thì cha chết dưới suối vàng cũng không nhắm mắt được'*. Quốc Tuấn ghi để trong lòng nhưng không cho là phải.\n"
+            "   • Khi thử lòng hai gia nô **Yết Kiêu, Dã Tượng** và con trai **Hưng Vũ Vương Nghiễn**, thấy họ đều khuyên giữ trọn đạo trung hiếu (*'Dẫu khác họ cũng không nên, huống chi là cùng một họ!'*), ông vô cùng cảm phục; ngược lại khi người con thứ **Trần Quốc Tảng** khuyên thừa cơ đoạt ngôi, ông rút gươm quở trách: *'Tên loạn thần là từ đứa con bất hiếu mà ra!'*.\n\n"
+            "2. **Rút đầu sắt nhọn trên gậy gỗ xóa tan nghi kỵ (`[47b]`, tr. 572)**:\n"
+            "   • Năm 1285, khi xa giá hai vua phải rút lui gian truân, Quốc Tuấn đi theo hộ giá, tay cầm chiếc gậy có bịt sắt nhọn. Thấy mọi người gườm mắt nhìn vì ngại mối hiềm khích cũ của Yên Sinh Vương, **ông liền rút ngay đầu sắt nhọn vứt đi, chỉ chống gậy gỗ không mà đi**.\n"
+            "   • **Lời bàn của Sử thần Ngô Sĩ Liên (`[47b]`, tr. 572)**: *'Bậc đại thần ở vào hoàn cảnh bị hiềm nghi nguy hiểm, tất phải thành thực tin nhau, sáng suốt khéo xử... mới có thể giữ tròn danh dự, làm nên sự nghiệp. Quách Tử Nghi nhà Đường, Trần Quốc Tuấn nhà Trần đã làm được như vậy'*."
+        ),
+        "follow_up": "Hành động rút đầu sắt gậy gỗ của Trần Quốc Tuấn giúp em hiểu sâu hơn câu 'Vua tôi đồng tâm, anh em hòa mục' như thế nào?"
+    },
+    {
+        "unit_id": "DVSKTT_BACH_DANG_DO_HANH_NGUYEN_KHOAI",
+        "category": "DAI_THANG_BACH_DANG_1288",
+        "topic": "Chi tiết chính sử Đại thắng Bạch Đằng (1288): Nguyễn Khoái, Đỗ Hành bắt sống Ô Mã Nhi và lễ dâng thắng trận ở Chiêu Lăng",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.55, "skills": ["SKILL_BACH_DANG_1288", "SKILL_DVSKTT_PRIMARY"]},
+        "entity": "Nguyễn Khoái, Đỗ Hành, Trần Hưng Đạo & Vua Trần Nhân Tông",
+        "event": "Đại thắng Bạch Đằng và Lễ dâng thắng trận ở Chiêu Lăng (Tháng 3 năm Mậu Tý - 4/1288)",
+        "fact_chunk": "Theo Đại Việt Sử Ký Toàn Thư (Bản Kỷ Quyển V, tờ [54a-55a], tr. 585-587): Ngày 8 tháng 3 âm lịch năm Mậu Tý (9/4/1288) trên sông Bạch Đằng, tướng Nguyễn Khoái chỉ huy quân Thánh Dực Dũng Nghĩa bắt sống Bình chương Áo Lỗ Xích; thuyền lương Trương Văn Hổ mắc cọc nghiêng đắm gần hết; Nội Minh tự Đỗ Hành bắt sống Ô Mã Nhi và Tích Lê Cơ Ngọc dâng lên Thượng hoàng, thu 400 chiến thuyền. Ngày 17 tháng 3, khi giải tù binh làm lễ dâng thắng trận ở Chiêu Lăng, thấy chân ngựa đá lấm bùn, vua Trần Nhân Tông đề hai câu thơ 'Xã tắc lưỡng hồi lao thạch mã / Sơn hà thiên cổ điện kim âu'.",
+        "badge": "Huyền thoại Bạch Đằng Giang",
+        "base_queries": [
+            "ai là người trực tiếp bắt sống ô mã nhi và tích lê cơ ngọc trên sông bạch đằng năm 1288",
+            "nội minh tự đỗ hành và tướng nguyễn khoái lập công gì ở trận bạch đằng năm 1288",
+            "đại việt sử ký toàn thư chép diễn biến trận bạch đằng ngày 8 tháng 3 năm mậu tý thế nào",
+            "vì sao chân ngựa đá ở chiêu lăng bị lấm bùn sau đại thắng bạch đằng năm 1288",
+            "quân ta thu được bao nhiêu chiến thuyền và bắt những tướng giặc nào ở trận bạch đằng 1288",
+            "thu được 400 chiến thuyền và bắt sống những tướng giặc nào ở trận bạch đằng năm 1288",
+            "vì sao đỗ hành bắt sống ô mã nhi nhưng chỉ được phong tước quan nội hầu"
+        ],
+        "answer": (
+            "Theo nguyên văn **Đại Việt Sử Ký Toàn Thư** (*Bản Kỷ Toàn Thư - Quyển V, tờ `[54a–55a]`, trang 585–587*), trận quyết chiến trên sông Bạch Đằng ngày mồng 8 tháng 3 năm Mậu Tý (**9/4/1288**) có những chi tiết chính sử vô cùng hào hùng:\n\n"
+            "• **Bãi cọc phủ cỏ và thời cơ nước triều rút (`[54a–54b]`, tr. 585–586)**: Hưng Đạo Vương đóng cọc gỗ ở sông Bạch Đằng, phủ cỏ lên trên. Lúc nước triều lên, quân ta khiêu chiến rồi giả thua chạy; khi nước triều rút mạnh, thuyền giặc vướng cọc hết.\n"
+            "• **Chiến công của tướng Nguyễn Khoái**: Chỉ huy đội cấm quân tinh nhuệ **Thánh Dực Dũng Nghĩa** xung trận quyết liệt, bắt sống Bình chương Áo Lỗ Xích; hai vua đem đại quân tiếp ứng đánh lớn khiến quân Nguyên chết đuối nhiều không kể xiết, nước sông đỏ ngầu.\n"
+            "• **Nội Minh tự Đỗ Hành bắt sống Ô Mã Nhi (`[54b]`, tr. 586)**: Thuyền Trương Văn Hổ mắc trên cọc nghiêng đắm gần hết. Quân ta thu được **400 chiến thuyền**; **Nội Minh tự Đỗ Hành** bắt sống Nguyên soái **Ô Mã Nhi** và **Tích Lê Cơ Ngọc** dâng lên Thượng hoàng Trần Thánh Tông.\n"
+            "• **Lễ dâng thắng trận ở Chiêu Lăng (`[55a]`, tr. 587)**: Ngày 17 tháng 3, vua đem các tướng giặc bị bắt (Ô Mã Nhi, Phàn Tiếp, Tích Lê Cơ Ngọc, Sầm Đoàn) làm lễ dâng thắng trận ở **Chiêu Lăng** (lăng vua Trần Thái Tông). Thấy chân ngựa đá ở lăng đều lấm bùn, vua Trần Nhân Tông xúc động đề thơ:\n"
+            "  *'Xã tắc lưỡng hồi lao thạch mã / Sơn hà thiên cổ điện kim âu'*."
+        ),
+        "follow_up": "Em có muốn biết năm 1289 triều Trần đã xử lý tên tướng giặc hung bạo Ô Mã Nhi như thế nào trên đường trả về nước không?"
+    },
+    {
+        "unit_id": "DVSKTT_HOANG_TA_THON_NGO_SI_LIEN_BAN",
+        "category": "DAI_THANG_BACH_DANG_1288",
+        "topic": "Kế Hoàng Tá Thốn dùi đắm thuyền Ô Mã Nhi (1289) và Lời bàn của Sử thần Ngô Sĩ Liên",
+        "q_matrix": {"cognitive_level": "VAN_DUNG", "difficulty": 0.75, "skills": ["SKILL_BACH_DANG_1288", "SKILL_DVSKTT_PRIMARY"]},
+        "entity": "Hoàng Tá Thốn, Trần Hưng Đạo, Ô Mã Nhi & Ngô Sĩ Liên",
+        "event": "Xử lý tướng giặc Ô Mã Nhi sau chiến tranh (Tháng 2 năm Kỷ Sửu - 1289)",
+        "fact_chunk": "Theo Đại Việt Sử Ký Toàn Thư (Bản Kỷ Quyển V, tờ [56b], tr. 590): Tháng 2 năm Kỷ Sửu (1289), vua Trần sai Nội thư Hoàng Tá Thốn đưa bọn Ô Mã Nhi về nước; theo kế của Hưng Đạo Vương, dùng người giỏi bơi lặn làm phu thuyền, ban đêm dùi thuyền cho đắm khiến Ô Mã Nhi chết đuối. Sử thần Ngô Sĩ Liên bàn về chữ Tín trong vương chính và đối sánh với việc vua Lê Thái Tổ sau này giữ chữ Tín tha quân Minh về nước.",
+        "badge": "Tư duy Sử học",
+        "base_queries": [
+            "ô mã nhi chết như thế nào sau khi bị bắt ở trận bạch đằng",
+            "ai là người dùng kế dùi đắm thuyền ô mã nhi năm 1289",
+            "hoàng tá thốn đưa ô mã nhi về nước và lời bàn của sử thần ngô sĩ liên",
+            "sử thần ngô sĩ liên đã bàn gì về việc dùi thuyền giết ô mã nhi năm 1289",
+            "số phận của tướng giặc ô mã nhi sau trận bạch đằng năm 1288"
+        ],
+        "answer": (
+            "Theo **Đại Việt Sử Ký Toàn Thư** (*Bản Kỷ Toàn Thư - Quyển V, tờ `[56b]`, trang 590*), kết cục của tướng giặc **Ô Mã Nhi** vào mùa xuân tháng 2 năm Kỷ Sửu (**1289**) được ghi chép kèm lời bàn rất đáng suy ngẫm của sử gia:\n\n"
+            "• **Kế dùi thuyền của Hưng Đạo Vương & Hoàng Tá Thốn (`[56b]`, tr. 590)**:\n"
+            "  Vì Ô Mã Nhi là tên tướng cực kỳ hung bạo, từng nhiều lần tàn sát nhân dân và quật phá lăng tẩm nhà Trần, nếu thả sống về phương Bắc sẽ để lại hậu họa lớn; nhưng nếu giết công khai sẽ tạo cớ cho nhà Nguyên gây chiến. Do đó, triều đình sai Nội thư **Hoàng Tá Thốn** hộ tống Ô Mã Nhi về nước bằng đường biển, dùng kế của **Hưng Đạo Vương**: chọn những người giỏi bơi lặn giả làm phu thuyền, chờ ban đêm lấy dùi đục thủng đáy thuyền làm thuyền đắm, bọn Ô Mã Nhi đều chết đuối.\n"
+            "• **Góc nhìn phản biện của Sử thần Ngô Sĩ Liên (`[56b]`, tr. 590)**:\n"
+            "  Đứng trên quan điểm Nho giáo thế kỷ XV, **Ngô Sĩ Liên** bàn rằng: *'Chữ tín là vật báu của nước, mà làm cho người khác phục mình sâu sắc thì đó là gốc của vương chính'*, và đem đối sánh với việc vua **Lê Thái Tổ** sau này giữ trọn chữ Tín cấp thuyền lương tha 10 vạn quân Minh về nước.\n"
+            "• **Bài học tư duy lịch sử**: Giúp chúng ta hiểu cả **tình thế hiểm nghèo thời Trần** (phải trừ tận gốc tên tướng hiếu chiến để bảo vệ dân lành) lẫn **truyền thống nhân nghĩa, giữ chữ Tín ngoại giao** của dân tộc Việt Nam."
+        ),
+        "follow_up": "Em có muốn khám phá thêm về pháp luật nghiêm minh và tấm gương quan thanh liêm Trần Thì Kiến dưới triều Trần không?"
+    },
+    {
+        "unit_id": "DVSKTT_TRAN_THI_KIEN_PHAP_LUAT",
+        "category": "DANH_TUONG_GIA_THAN",
+        "topic": "Pháp luật thời Trần, tấm gương quan thanh liêm Trần Thì Kiến và Lời bàn của Phan Phu Tiên – Ngô Sĩ Liên",
+        "q_matrix": {"cognitive_level": "VAN_DUNG", "difficulty": 0.65, "skills": ["SKILL_DVSKTT_PRIMARY"]},
+        "entity": "Kiểm pháp quan Trần Thì Kiến, Phan Phu Tiên & Ngô Sĩ Liên",
+        "event": "Quản trị đất nước và kỷ cương pháp luật thời Trần (1296 - 1297)",
+        "fact_chunk": "Theo Đại Việt Sử Ký Toàn Thư (Bản Kỷ Quyển VI, tờ [4a-5a], tr. 610-612): Nhà Trần thời thịnh trị giữ pháp luật rất nghiêm minh, nghiêm cấm đánh bạc (Phan Phu Tiên bàn rằng nhờ pháp luật nghiêm mà nước mạnh, cuối đời Dụ Tông đánh bạc trong cung nên mất nước). Đặc biệt, môn khách của Trần Hưng Đạo là Trần Thì Kiến làm An phủ sứ Thiên Trường nổi tiếng thanh liêm cương trực: khi biết người đem biếu mâm cỗ giỗ có ý cậy cục xin xỏ, ông đã móc họng mửa hết thức ăn ra, được thăng làm Kiểm pháp quan.",
+        "badge": "Thanh liêm Chính trực",
+        "base_queries": [
+            "trần thì kiến là ai và vì sao ông lại móc họng mửa ra mâm cỗ biếu",
+            "tấm gương quan thanh liêm trần thì kiến trong đại việt sử ký toàn thư",
+            "luật pháp nhà trần nghiêm cấm đánh bạc và lời bàn của phan phu tiên như thế nào",
+            "ngô sĩ liên nhận xét gì về hành động của kiểm pháp quan trần thì kiến",
+            "vì sao vua trần không hài lòng với câu nói tướng là chim ưng dân lính là vịt của trần khánh dư"
+        ],
+        "answer": (
+            "Theo **Đại Việt Sử Ký Toàn Thư** (*Bản Kỷ Toàn Thư - Quyển VI, tờ `[4a–5a]`, trang 610–612*), sức mạnh của vương triều Trần không chỉ nằm ở quân sự mà còn ở **kỷ cương pháp luật nghiêm minh và đội ngũ quan lại thanh liêm**:\n\n"
+            "1. **Tấm gương quan thanh liêm Trần Thì Kiến (`[4b–5a]`, tr. 611–612)**:\n"
+            "   • **Trần Thì Kiến** vốn là môn khách giỏi của Hưng Đạo Vương, được tiến cử làm An phủ sứ Thiên Trường. Có người trong hương nhân ngày giỗ đem biếu mâm cỗ và nói chỉ vì ở gần trị sở chứ không cầu cạnh gì. Nhưng mấy ngày sau, người ấy quả nhiên đến kêu xin việc riêng. **Trần Thì Kiến liền móc họng mửa hết ra** để giữ trọn sự trong sạch, sau được thăng làm **Kiểm pháp quan**.\n"
+            "   • **Lời bàn của Sử thần Ngô Sĩ Liên**: *'Thì Kiến hành động lạ lùng quá mức để uốn nắn cái tệ xin xỏ của người bấy giờ, cũng như Án Anh tằn tiện quá mức để uốn nắn cái thói xa xỉ tiếm lễ của Quản Trọng vậy'*.\n\n"
+            "2. **Thương dân và nghiêm trị tệ cờ bạc (`[4a–4b]`, tr. 610–611)**:\n"
+            "   • Khi Trần Khánh Dư bị dân kiện và tâu vua: *'Tướng là chim ưng, dân lính là vịt, dùng vịt để nuôi chim ưng thì có gì là lạ?'*, vua Trần Anh Tông đã **không hài lòng** khiến Khánh Dư phải sợ hãi rút lui.\n"
+            "   • **Lời bàn của Sử thần Phan Phu Tiên (`[4a]`, tr. 610)**: Luật pháp nhà Trần đầu triều nghiêm cấm đánh bạc rất nặng (quan Thượng phẩm Nguyễn Hưng đánh bạc bị xử tội chết), nhờ vậy kỷ cương vững chắc; đến cuối đời Dụ Tông công nhiên gọi người giàu vào cung đánh bạc nên triều cương suy đồi."
+        ),
+        "follow_up": "Câu chuyện của Kiểm pháp quan Trần Thì Kiến để lại bài học gì về phẩm chất liêm chính, chống tham nhũng hiện nay?"
+    },
+    {
+        "unit_id": "DVSKTT_THANH_LAP_NHA_TRAN_1225",
+        "category": "TONG_KET_NGUYEN_NHAN_Y_NGHIA",
+        "topic": "Sự thành lập nhà Trần (1225 - 1226): Lý Chiêu Hoàng nhường ngôi cho Trần Cảnh và vai trò của Thái sư Trần Thủ Độ",
+        "q_matrix": {"cognitive_level": "NHAN_BIET", "difficulty": 0.35, "skills": ["SKILL_THANH_LAP_NHA_TRAN", "SKILL_DVSKTT_PRIMARY"]},
+        "entity": "Vua Trần Thái Tông (Trần Cảnh), Lý Chiêu Hoàng & Thái sư Trần Thủ Độ",
+        "event": "Nhà Trần thành lập (Tháng 12 âm lịch năm Ất Dậu - Đầu năm 1226)",
+        "fact_chunk": "Theo Đại Việt Sử Ký Toàn Thư (Bản Kỷ Quyển V, tờ [1a-2b], tr. 478-481): Cuối thế kỷ XII - đầu thế kỷ XIII, nhà Lý suy yếu, chính quyền phải dựa vào thế lực họ Trần. Dưới sự sắp đặt của Điện tiền chỉ huy sứ Trần Thủ Độ, tháng 12 âm lịch năm Ất Dậu (đầu năm 1226), tại điện Thiên An, nữ hoàng Lý Chiêu Hoàng trút bỏ áo ngự nhường ngôi cho chồng là Trần Cảnh (8 tuổi, tức vua Trần Thái Tông), đặt niên hiệu Kiến Trung, phong Trần Thủ Độ làm Quốc thượng phụ nắm giữ việc nước.",
+        "badge": "Khởi nghiệp Đông A",
+        "base_queries": [
+            "nhà trần được thành lập như thế nào vào năm 1225 1226",
+            "lý chiêu hoàng nhường ngôi cho trần cảnh diễn ra như thế nào",
+            "ai là vị vua đầu tiên của triều đại nhà trần",
+            "vai trò của trần thủ độ trong việc thành lập nhà trần năm 1226",
+            "đại việt sử ký toàn thư quyển v tờ 1a chép sự kiện trần cảnh lên ngôi thế nào",
+            "hoàn cảnh ra đời của vương triều nhà trần đầu năm 1226"
+        ],
+        "answer": (
+            "Theo **Đại Việt Sử Ký Toàn Thư** (*Bản Kỷ Toàn Thư - Quyển V, tờ `[1a–2b]`, trang 478–481*), sự thành lập vương triều nhà Trần diễn ra vào tháng 12 âm lịch năm Ất Dậu (**đầu năm 1226**):\n\n"
+            "• **Bối cảnh lịch sử**: Cuối thế kỷ XII – đầu thế kỷ XIII, triều Lý suy yếu trầm trọng, giặc giã nổi lên khắp nơi. Triều đình nhà Lý phải dựa vào thế lực họ Trần (Trần Tự Khánh, Trần Thừa, Trần Thủ Độ) để dẹp loạn và giữ yên đất nước.\n"
+            "• **Chuyển giao ngôi báu tại điện Thiên An (`[1a–1b]`, tr. 478–479)**: Dưới sự thu xếp của Điện tiền chỉ huy sứ **Trần Thủ Độ**, nữ hoàng **Lý Chiêu Hoàng** kết hôn với **Trần Cảnh** (khi ấy 8 tuổi). Ngày mồng 1 tháng 12 năm Ất Dậu, Lý Chiêu Hoàng mở hội lớn ở điện Thiên An, trút bỏ áo ngự mời Trần Cảnh lên ngôi Hoàng đế — tức **vua Trần Thái Tông**.\n"
+            "• **Củng cố vương triều mới**: Vua đổi niên hiệu là **Kiến Trung**, tôn cha là Trần Thừa làm Thượng hoàng, phong **Trần Thủ Độ làm Quốc thượng phụ** (sau là Thái sư) điều hành mọi việc quân quốc trọng sự, mở ra thời đại **Hào khí Đông A** kéo dài 175 năm (1226 – 1400)."
+        ),
+        "follow_up": "Em có muốn tìm hiểu tiếp về bộ máy nhà nước chế độ Thái thượng hoàng và bộ luật Quốc triều hình thư của nhà Trần không?"
+    },
+    {
+        "unit_id": "DVSKTT_BO_MAY_PHAP_LUAT_QUOC_TRIEU_HINH_THU",
+        "category": "TONG_KET_NGUYEN_NHAN_Y_NGHIA",
+        "topic": "Tổ chức bộ máy nhà nước chế độ Thái thượng hoàng và luật pháp Quốc triều hình thư thời Trần",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.5, "skills": ["SKILL_BO_MAY_NHA_TRAN", "SKILL_DVSKTT_PRIMARY"]},
+        "entity": "Triều đình nhà Trần & Quốc triều hình thư",
+        "event": "Củng cố chế độ quân chủ trung ương tập quyền và ban hành Quốc triều hình thư",
+        "fact_chunk": "Theo Đại Việt Sử Ký Toàn Thư (Bản Kỷ Quyển V, tờ [4a-15a], tr. 484-505): Nhà Trần tổ chức bộ máy quân chủ trung ương tập quyền độc đáo với chế độ Thái thượng hoàng (vua cha nhường ngôi sớm cho con rồi cùng điều hành việc nước); chia cả nước thành 12 lộ, phủ, châu, huyện, xã; lập sổ hộ tịch và ban hành bộ Quốc triều thông chế, Quốc triều hình thư, đặt cơ quan Thẩm hình viện xét xử công minh.",
+        "badge": "Pháp trị Đông A",
+        "base_queries": [
+            "tổ chức bộ máy nhà nước và pháp luật thời trần có điểm gì nổi bật",
+            "chế độ thái thượng hoàng của nhà trần là gì và có tác dụng gì",
+            "bộ luật thành văn của nhà trần có tên là gì",
+            "quốc triều hình thư và quốc triều thông chế thời trần được ban hành thế nào",
+            "nhà trần chia cả nước thành bao nhiêu lộ và quản lý hộ tịch ra sao",
+            "đại việt sử ký toàn thư chép việc đặt vạc dầu và chuồng hổ răn đe phạm pháp thời trần thế nào"
+        ],
+        "answer": (
+            "Theo **Đại Việt Sử Ký Toàn Thư** (*Bản Kỷ Toàn Thư - Quyển V, tờ `[4a–15a]`, trang 484–505*) và SGK Lịch sử 7 (Bài 14), bộ máy nhà nước và pháp luật thời Trần được tổ chức rất chặt chẽ, quy củ:\n\n"
+            "• **Chế độ Thái thượng hoàng độc đáo**: Các vua Trần thường nhường ngôi sớm cho Thái tử khi đã trưởng thành để lên làm **Thái thượng hoàng**, cùng vua đương triều bàn bạc quyết định việc lớn, giúp triều chính luôn ổn định và đoàn kết.\n"
+            "• **Hệ thống hành chính 12 lộ (`[13a]`, tr. 501)**: Cả nước được chia thành **12 lộ**, dưới lộ là phủ, châu, huyện và cấp cơ sở là **xã** (có Xã quan quản lý), định kỳ lập sổ hộ tịch chặt chẽ.\n"
+            "• **Pháp luật nghiêm minh (`[4a, 5b]`, tr. 484–486)**: Nhà Trần ban hành bộ **Quốc triều thông chế** và **Quốc triều hình thư**, đặt cơ quan **Thẩm hình viện**, để chuông lớn ở thềm điện cho dân kêu oan, đồng thời đặt vạc dầu và chuồng hổ ở hành lang để răn đe kẻ gian tham."
+        ),
+        "follow_up": "Em có muốn biết nhà Trần đã phát triển kinh tế nông nghiệp, đắp đê Quai Vạc và lập Điền trang – Thái ấp như thế nào không?"
+    },
+    {
+        "unit_id": "DVSKTT_KINH_TE_DIEN_TRANG_THAI_AP_DE_DINH_NHI",
+        "category": "TONG_KET_NGUYEN_NHAN_Y_NGHIA",
+        "topic": "Kinh tế thời Trần: Đắp đê Đỉnh Nhĩ (Quai Vạc), chức quan Hà đê sứ và chính sách Điền trang – Thái ấp",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.5, "skills": ["SKILL_KINH_TE_NHA_TRAN", "SKILL_DVSKTT_PRIMARY"]},
+        "entity": "Hà đê sứ, Điền trang – Thái ấp & Thương cảng Vân Đồn",
+        "event": "Đắp đê Đỉnh Nhĩ (1248) và chiếu lập Điền trang (1266)",
+        "fact_chunk": "Theo Đại Việt Sử Ký Toàn Thư (Bản Kỷ Quyển V, tờ [14b, 29a], tr. 504, 533): Tháng 3 năm Mậu Thân (1248), vua Trần Thái Tông lệnh đắp đê Đỉnh Nhĩ (đê Quai Vạc) từ đầu nguồn đến bờ biển để chống lũ lụt, đặt chức quan Hà đê chánh phó sứ và Khuyến nông sứ. Tháng 10 năm Bính Dần (1266), triều đình xuống chiếu cho vương hầu, công chúa, phò mã chiêu tập dân nghèo phiêu tán khai khẩn đất hoang lập thành Điền trang, bên cạnh các Thái ấp ban cho quý tộc.",
+        "badge": "Phú quốc Cường binh",
+        "base_queries": [
+            "tình hình kinh tế nông nghiệp thủ công nghiệp thương nghiệp thời trần như thế nào",
+            "đê đỉnh nhĩ hay đê quai vạc và chức quan hà đê sứ thời trần là gì",
+            "điền trang và thái ấp thời nhà trần là gì",
+            "năm 1266 nhà trần ban chiếu cho vương hầu khai hoang lập điền trang thế nào",
+            "vì sao kinh tế nhà trần nhanh chóng phục hồi và phát triển thịnh đạt",
+            "đại việt sử ký toàn thư quyển v trang 504 chép việc đắp đê đỉnh nhĩ năm 1248 ra sao"
+        ],
+        "answer": (
+            "Theo **Đại Việt Sử Ký Toàn Thư** (*Bản Kỷ Toàn Thư - Quyển V, tờ `[14b, 29a]`, trang 504, 533*), nền kinh tế Đại Việt thời Trần phát triển hưng thịnh làm hậu thuẫn vững chắc cho 3 cuộc kháng chiến:\n\n"
+            "• **Đắp đê Đỉnh Nhĩ (Đê Quai Vạc) & đặt quan Hà đê sứ (`[14b]`, tr. 504)**: Tháng 3 năm 1248, vua Trần Thái Tông lệnh cho các lộ đắp đê từ đầu nguồn đến bờ biển gọi là **đê Đỉnh Nhĩ (đê Quai Vạc)** để ngăn nước lũ, đặt chức **Hà đê chánh phó sứ** và **Khuyến nông sứ** chăm lo thủy lợi.\n"
+            "• **Khai hoang lập Điền trang – Thái ấp (`[29a]`, tr. 533)**: Tháng 10 năm 1266, triều đình cho phép các vương hầu, công chúa, phò mã chiêu tập dân phiêu tán khai khẩn ruộng hoang lập thành **Điền trang**, kết hợp với **Thái ấp** tạo nên hậu cần tại chỗ cực mạnh khi có chiến tranh.\n"
+            "• **Thủ công nghiệp & Thương nghiệp**: Làng nghề gốm Bát Tràng, dệt lụa, đúc đồng, đóng thuyền chiến phát triển; chợ mọc lên ở các làng xã, kinh thành Thăng Long có **61 phố phường** và cảng **Vân Đồn** tấp nập thuyền buôn nước ngoài."
+        ),
+        "follow_up": "Em có muốn tìm hiểu về khoa cử Thái học sinh và thần đồng Trạng nguyên 12 tuổi Nguyễn Hiền thời Trần không?"
+    },
+    {
+        "unit_id": "DVSKTT_KHOA_CU_THAI_HOC_SINH_NGUYEN_HIEN_MAC_DINH_CHI",
+        "category": "DANH_TUONG_GIA_THAN",
+        "topic": "Giáo dục & Khoa cử thời Trần: Danh hiệu Tam khôi (1247), Trạng nguyên Nguyễn Hiền, Lê Văn Hưu và Mạc Đĩnh Chi",
+        "q_matrix": {"cognitive_level": "NHAN_BIET", "difficulty": 0.45, "skills": ["SKILL_VAN_HOA_KHOA_CU", "SKILL_DVSKTT_PRIMARY"]},
+        "entity": "Trạng nguyên Nguyễn Hiền, Sử gia Lê Văn Hưu & Lưỡng quốc Trạng nguyên Mạc Đĩnh Chi",
+        "event": "Đặt danh hiệu Tam khôi khoa thi Thái học sinh năm Đinh Mùi (1247) và khoa thi năm Giáp Thìn (1304)",
+        "fact_chunk": "Theo Đại Việt Sử Ký Toàn Thư (Bản Kỷ Quyển V tờ [14a] tr. 503 & Quyển VI tờ [19b] tr. 639): Nhà Trần mở rộng Quốc học viện (Quốc Tử Giám), tổ chức thi Thái học sinh định kỳ 7 năm một lần. Khoa thi tháng 2 năm Đinh Mùi (1247) lần đầu tiên đặt danh hiệu Tam khôi (Trạng nguyên, Bảng nhãn, Thám hoa): Nguyễn Hiền (12 tuổi) đỗ Trạng nguyên, Lê Văn Hưu (18 tuổi) đỗ Bảng nhãn. Năm 1272, Lê Văn Hưu hoàn thành bộ Quốc sử Đại Việt Sử Ký (30 quyển). Năm 1304, Mạc Đĩnh Chi đỗ Trạng nguyên, đi sứ phương Bắc được phong Lưỡng quốc Trạng nguyên.",
+        "badge": "Bảng vàng Đông A",
+        "base_queries": [
+            "giáo dục và khoa cử thời trần phát triển như thế nào",
+            "danh hiệu tam khôi trạng nguyên bảng nhãn thám hoa có từ khoa thi năm nào",
+            "nguyễn hiền đỗ trạng nguyên năm bao nhiêu tuổi và dưới triều vua nào",
+            "lê văn hưu và bộ quốc sử đại việt sử ký năm 1272 là gì",
+            "lưỡng quốc trạng nguyên mạc đĩnh chi là ai",
+            "đại việt sử ký toàn thư quyển v trang 503 chép về khoa thi năm đinh mùi 1247 thế nào"
+        ],
+        "answer": (
+            "Theo **Đại Việt Sử Ký Toàn Thư** (*Bản Kỷ Quyển V tờ `[14a]` tr. 503 & Quyển VI tờ `[19b]` tr. 639*), giáo dục và khoa cử thời Trần đạt nhiều thành tựu rực rỡ:\n\n"
+            "• **Đặt danh hiệu Tam khôi đầu tiên trong lịch sử (Tháng 2/1247, `[14a]`, tr. 503)**: Vua Trần Thái Tông mở khoa thi **Thái học sinh**, lần đầu tiên định lệ **Tam khôi** (*Trạng nguyên, Bảng nhãn, Thám hoa*). Thần đồng **Nguyễn Hiền** (12 tuổi) đỗ Trạng nguyên, **Lê Văn Hưu** (18 tuổi) đỗ Bảng nhãn, **Đặng Ma La** đỗ Thám hoa.\n"
+            "• **Bộ Quốc sử đầu tiên — Đại Việt Sử Ký (1272)**: Hàn lâm viện Học sĩ kiêm Quốc sử viện Giám tu **Lê Văn Hưu** biên soạn xong bộ **Đại Việt Sử Ký** gồm 30 quyển (từ Triệu Vũ Đế đến Lý Chiêu Hoàng), đặt nền móng cho nền sử học dân tộc.\n"
+            "• **Lưỡng quốc Trạng nguyên Mạc Đĩnh Chi (`[19b]`, tr. 639)**: Đỗ Trạng nguyên khoa Giáp Thìn (1304), khi đi sứ nhà Nguyên nhờ tài ứng đối uyên bác và bài *Phú hoa sen trong giếng ngọc* nên được phong **Lưỡng quốc Trạng nguyên**."
+        ),
+        "follow_up": "Em có muốn nghe về người thầy mẫu mực Chu Văn An và tờ Thất trảm sớ nổi tiếng thời Trần không?"
+    },
+    {
+        "unit_id": "DVSKTT_CHU_VAN_AN_THAT_TRAM_SO",
+        "category": "DANH_TUONG_GIA_THAN",
+        "topic": "Vạn thế sư biểu Chu Văn An và tờ Thất trảm sớ trong Đại Việt Sử Ký Toàn Thư",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.55, "skills": ["SKILL_VAN_HOA_KHOA_CU", "SKILL_DVSKTT_PRIMARY"]},
+        "entity": "Quốc Tử Giám Tư nghiệp Chu Văn An",
+        "event": "Chu Văn An dạy học ở Quốc Tử Giám và dâng Thất trảm sớ xin chém 7 nịnh thần",
+        "fact_chunk": "Theo Đại Việt Sử Ký Toàn Thư (Bản Kỷ Quyển VII, tờ [6a, 19a, 34b], tr. 711, 736, 765): Chu Văn An (quê ở Thanh Đàm, Hà Nội) tính cương trực, thanh khiết, không cầu danh lợi, mở trường dạy học làm rạng rỡ đạo Nho, được vua Trần Minh Tông mời làm Quốc Tử Giám Tư nghiệp dạy thái tử. Thời Trần Dụ Tông, thấy quyền thần gian nịnh làm rối loạn kỷ cương, ông dâng Thất trảm sớ xin chém 7 tên nịnh thần nhưng vua không nghe, bèn treo mũ từ quan về ở ẩn tại núi Phượng Hoàng (Chí Linh, Hải Dương). Khi mất năm 1370 được thờ ở Văn Miếu.",
+        "badge": "Vạn thế Sư biểu",
+        "base_queries": [
+            "chu văn an là ai và vì sao ông dâng thất trảm sớ",
+            "thất trảm sớ của chu văn an có nội dung gì",
+            "vì sao chu văn an treo mũ từ quan về ở ẩn tại núi phượng hoàng",
+            "đại việt sử ký toàn thư quyển vii chép về quốc tử giám tư nghiệp chu văn an thế nào",
+            "ai là người thầy mẫu mực thời trần được thờ ở văn miếu"
+        ],
+        "answer": (
+            "Theo **Đại Việt Sử Ký Toàn Thư** (*Bản Kỷ Toàn Thư - Quyển VII, tờ `[6a, 19a, 34b]`, trang 711, 736, 765*), **Chu Văn An** (1292 – 1370) là bậc đại nho thanh cao, người thầy tiêu biểu nhất của nền giáo dục thời Trần:\n\n"
+            "• **Sự nghiệp giáo dục (`[6a]`, tr. 711)**: Ông người làng Quang Liệt (huyện Thanh Đàm, Hà Nội), tính tình nghiêm nghị, trong sạch, mở trường dạy học ở quê nhà có hàng nghìn học trò theo học (nhiều người đỗ đạt cao như Phạm Sư Mạnh, Lê Quát). Vua Trần Minh Tông vời ông làm **Quốc Tử Giám Tư nghiệp** (Hiệu trưởng Quốc Tử Giám).\n"
+            "• **Dâng 'Thất trảm sớ' và khí tiết người thầy (`[19a]`, tr. 736)**: Dưới triều Trần Dụ Tông, chính sự suy đồi, bọn quyền thần gian nịnh lộng hành. Chu Văn An khẳng khái dâng **Thất trảm sớ** xin chém 7 tên quyền thần sâu mọt nhưng vua không nghe. Ông liền treo mũ từ quan về ở ẩn tại **núi Phượng Hoàng** (Chí Linh, Hải Dương).\n"
+            "• **Lời bàn của Sử thần Ngô Sĩ Liên (`[34b]`, tr. 765)**: Khi ông mất năm 1370, vua Trần Nghệ Tông ban tên thụy là **Văn Trinh**, cho thờ ở **Văn Miếu** — biểu tượng muôn đời của đạo lý *'Tôn sư trọng đạo'*."
+        ),
+        "follow_up": "Em có muốn tìm hiểu thêm về tác phẩm Bạch Đằng giang phú của Trương Hán Siêu và sự phát triển chữ Nôm thời Trần không?"
+    },
+    {
+        "unit_id": "DVSKTT_TRUONG_HAN_SIEU_BACH_DANG_GIANG_PHU",
+        "category": "DANH_TUONG_GIA_THAN",
+        "topic": "Văn học yêu nước thời Trần: Trương Hán Siêu với 'Bạch Đằng giang phú' và Hàn Thuyên phát triển chữ Nôm",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.5, "skills": ["SKILL_VAN_HOA_KHOA_CU", "SKILL_DVSKTT_PRIMARY"]},
+        "entity": "Trương Hán Siêu & Hàn Thuyên (Nguyễn Thuyên)",
+        "event": "Sự phát triển rực rỡ của văn học chữ Hán yêu nước và văn học chữ Nôm thời Trần",
+        "fact_chunk": "Theo Đại Việt Sử Ký Toàn Thư (Bản Kỷ Quyển V tờ [42a] tr. 559 & Quyển VII tờ [17b] tr. 733): Văn học thời Trần thấm đẫm hào khí Đông A và lòng tự hào dân tộc với Hịch tướng sĩ (Trần Quốc Tuấn), Tụng giá hoàn kinh (Trần Quang Khải), Thuật hoài (Phạm Ngũ Lão) và đặc biệt là Bạch Đằng giang phú (Phú sông Bạch Đằng) của Trương Hán Siêu (môn khách của Trần Hưng Đạo) khẳng định 'Bởi đâu đất hiểm, cốt mình đức cao'. Đồng thời, năm 1282 Hàn Thuyên (Nguyễn Thuyên) làm văn tế cá sấu bằng chữ Nôm, mở đầu dòng văn học chữ Nôm dân tộc.",
+        "badge": "Hào khí Văn chương",
+        "base_queries": [
+            "trương hán siêu và tác phẩm bạch đằng giang phú có ý nghĩa gì",
+            "ai là tác giả bài phú sông bạch đằng",
+            "hàn thuyên nguyễn thuyên có đóng góp gì cho văn học chữ nôm thời trần",
+            "văn học chữ hán và chữ nôm thời trần có những tác phẩm tiêu biểu nào",
+            "câu thơ giặc tan muôn thuở thăng bình bởi đâu đất hiểm cốt mình đức cao nằm trong tác phẩm nào"
+        ],
+        "answer": (
+            "Theo **Đại Việt Sử Ký Toàn Thư** (*Bản Kỷ Quyển V tờ `[42a]` tr. 559 & Quyển VII tờ `[17b]` tr. 733*) và SGK Lịch sử 7 (Bài 14), văn học thời Trần phát triển rực rỡ cả bằng chữ Hán và chữ Nôm, thấm đẫm **Hào khí Đông A**:\n\n"
+            "• **Trương Hán Siêu và *Bạch Đằng giang phú* (`[17b]`, tr. 733)**: Trương Hán Siêu vốn là môn khách tài đức của Trần Hưng Đạo, làm quan qua 4 triều vua. Bài **Phú sông Bạch Đằng** (*Bạch Đằng giang phú*) của ông tái hiện hào hùng chiến công sông Bạch Đằng và đúc kết chân lý giữ nước bất hủ:\n"
+            "  *'Giặc tan muôn thuở thăng bình / Bởi đâu đất hiểm, cốt mình đức cao'*.\n"
+            "• **Hàn Thuyên và sự phát triển chữ Nôm (`[42a]`, tr. 559)**: Tháng 8 năm Nhâm Ngọ (1282), có cá sấu đến sông Lô, Hình bộ Thượng thư Nguyễn Thuyên làm bài văn bằng quốc ngữ (**chữ Nôm**) đuổi cá sấu đi; vua ban họ **Hàn Thuyên**, mở đầu cho phong trào sáng tác thơ phú bằng chữ Nôm (*Hàn luật*)."
+        ),
+        "follow_up": "Em có muốn khám phá giai thoại sứ thần trẻ tuổi Đoàn Nhữ Hài 20 tuổi trong Đại Việt Sử Ký Toàn Thư không?"
+    },
+    {
+        "unit_id": "DVSKTT_DOAN_NHU_HAI_NGOAI_GIAO",
+        "category": "DANH_TUONG_GIA_THAN",
+        "topic": "Tài năng trẻ Đoàn Nhữ Hài (20 tuổi) thảo biểu tạ tội ở Thiên Trường và đi sứ giữ vững quốc thể (1299 - 1303)",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.55, "skills": ["SKILL_DVSKTT_PRIMARY"]},
+        "entity": "Ngự sử trung tán Đoàn Nhữ Hài & Vua Trần Anh Tông",
+        "event": "Đoàn Nhữ Hài dâng biểu ở phủ Thiên Trường (1299) và đi sứ Chiêm Thành (1303)",
+        "fact_chunk": "Theo Đại Việt Sử Ký Toàn Thư (Bản Kỷ Quyển VI, tờ [7a-18b], tr. 616-637): Năm Kỷ Hợi (1299), vua Trần Anh Tông vì uống rượu say bị Thượng hoàng Trần Nhân Tông quở trách định phế truất. Thư sinh Đoàn Nhữ Hài mới 20 tuổi đã giúp vua thảo bài biểu tạ tội và quỳ dầm mưa suốt đêm ngoài sân điện Thiên Trường khiến Thượng hoàng cảm động tha lỗi, được phong Ngự sử trung tán. Năm 1303, khi đi sứ Chiêm Thành, Đoàn Nhữ Hài mưu trí đặt chiếu thư lên án hương làm vua Chiêm phải cúi lạy chiếu thư thiên tử Đại Việt.",
+        "badge": "Tuổi trẻ Tài cao",
+        "base_queries": [
+            "đoàn nhữ hài là ai và lập công gì năm 20 tuổi dưới triều trần anh tông",
+            "chuyện đoàn nhữ hài thảo biểu tạ tội quỳ dưới mưa ở phủ thiên trường năm 1299",
+            "đoàn nhữ hài đi sứ chiêm thành năm 1303 đã dùng mưu gì để giữ quốc thể",
+            "đại việt sử ký toàn thư quyển vi trang 616 chép về đoàn nhữ hài thế nào",
+            "vì sao vua trần anh tông phong thư sinh đoàn nhữ hài làm ngự sử trung tán"
+        ],
+        "answer": (
+            "Theo **Đại Việt Sử Ký Toàn Thư** (*Bản Kỷ Toàn Thư - Quyển VI, tờ `[7a–18b]`, trang 616–637*), bên cạnh Trần Quốc Toản trên chiến trường, **Đoàn Nhữ Hài** là biểu tượng tài năng trẻ kiệt xuất về chính trị và ngoại giao thời Trần:\n\n"
+            "• **Thảo biểu tạ tội ở phủ Thiên Trường năm 20 tuổi (`[7a–7b]`, tr. 616–617)**: Năm 1299, Thượng hoàng Trần Nhân Tông từ Yên Tử về kinh, thấy vua Trần Anh Tông uống rượu say bỏ bê triều chính nên nổi giận về phủ Thiên Trường, định truất ngôi. Giữa lúc nguy cấp, vua gặp thư sinh **Đoàn Nhữ Hài** (20 tuổi) ở chùa Tư Phúc, nhờ thảo bài biểu tạ tội. Nhữ Hài theo vua về Thiên Trường, **quỳ suốt đêm dưới mưa gió ngoài sân cung** dâng biểu khiến Thượng hoàng cảm động tha lỗi cho vua và khen: *'Bài biểu nó soạn rất hợp lòng trẫm'*, được phong ngay chức **Ngự sử trung tán**.\n"
+            "• **Mưu trí đi sứ năm 1303 (`[18b]`, tr. 637)**: Khi đi sứ Chiêm Thành, trước tục lệ vua Chiêm không lạy sứ thần trước, Nhữ Hài nhanh trí rước chiếu thư đặt lên án rồi lạy chiếu thư nhà vua, khiến Quốc vương Chiêm Thành cũng phải cúi đầu lạy chiếu thư thiên tử Đại Việt, giữ trọn uy nghiêm quốc gia."
+        ),
+        "follow_up": "Em có muốn tìm hiểu thêm về tư tưởng 'Phật tại tâm' trên núi Yên Tử và nghệ thuật kiến trúc thời Trần không?"
+    },
+    {
+        "unit_id": "DVSKTT_VAN_HOA_AN_NAM_TU_DAI_KHI_CHUA_PHAP_VAN",
+        "category": "TONG_KET_NGUYEN_NHAN_Y_NGHIA",
+        "topic": "Tôn giáo & Kiến trúc thời Trần: Quốc sư Phù Vân trên núi Yên Tử ('Trong núi vốn không có Phật, Phật ở trong lòng') và Tháp Phổ Minh",
+        "q_matrix": {"cognitive_level": "THONG_HIEU", "difficulty": 0.5, "skills": ["SKILL_VAN_HOA_KHOA_CU", "SKILL_DVSKTT_PRIMARY"]},
+        "entity": "Quốc sư Phù Vân, Vua Trần Thái Tông & Tháp Phổ Minh",
+        "event": "Vua Trần Thái Tông lên núi Yên Tử (1237) và xây dựng các công trình kiến trúc thời Trần",
+        "fact_chunk": "Theo Đại Việt Sử Ký Toàn Thư (Bản Kỷ Quyển V, tờ [8b-9a, 25a], tr. 492-493, 526): Năm 1237, khi vua Trần Thái Tông đêm trốn lên núi Yên Tử định đi tu, Quốc sư Phù Vân đã nói câu bất hủ: 'Trong núi vốn không có Phật, chỉ ở trong lòng thôi. Lòng lặng mà biết, đó chính là chân Phật', khuyên vua lấy ý muốn của thiên hạ làm ý muốn của mình. Nghệ thuật kiến trúc, điêu khắc thời Trần phát triển rực rỡ với kinh thành Thăng Long, cung Thái Thượng Hoàng ở Thiên Trường, tháp Phổ Minh (Nam Định), tháp Bình Sơn (Vĩnh Phúc), tượng hổ lăng Trần Thủ Độ.",
+        "badge": "Tinh hoa Văn hiến Đông A",
+        "base_queries": [
+            "câu nói trong núi vốn không có phật phật ở ngay trong lòng là của ai nói với vua trần thái tông",
+            "quốc sư phù vân trên núi yên tử đã khuyên vua trần thái tông điều gì",
+            "tôn giáo tín ngưỡng và nghệ thuật kiến trúc điêu khắc thời trần có thành tựu gì tiêu biểu",
+            "tháp phổ minh ở nam định và tháp bình sơn ở vĩnh phúc được xây dựng dưới triều đại nào",
+            "đại việt sử ký toàn thư quyển v trang 492 chép chuyện vua trần thái tông lên núi yên tử thế nào"
+        ],
+        "answer": (
+            "Theo **Đại Việt Sử Ký Toàn Thư** (*Bản Kỷ Toàn Thư - Quyển V, tờ `[8b–9a, 25a]`, trang 492–493, 526*) và SGK Lịch sử 7 (Bài 14), đời sống tôn giáo, tư tưởng và nghệ thuật kiến trúc thời Trần mang đậm bản sắc dân tộc:\n\n"
+            "• **Triết lý 'Phật tại tâm' và tinh thần nhập thế (`[8b–9a]`, tr. 492–493)**: Khi vua Trần Thái Tông đau khổ bỏ lên núi Yên Tử định đi tu, **Quốc sư Phù Vân** đã khuyên giải câu nói nổi tiếng:\n"
+            "  *'Trong núi vốn không có Phật, chỉ ở trong lòng thôi. Lòng lặng mà biết, đó chính là chân Phật... Phàm đã làm đấng nhân quân thì phải lấy ý muốn của thiên hạ làm ý muốn của mình, lấy tấm lòng của thiên hạ làm tấm lòng của mình'*.\n"
+            "  Tư tưởng Phật giáo gắn liền với trách nhiệm hộ quốc an dân ấy đã kết tinh thành **Thiền phái Trúc Lâm Yên Tử** thời Trần Nhân Tông.\n"
+            "• **Kiến trúc & Điêu khắc đặc sắc (`[25a]`, tr. 526)**: Nhiều công trình tiêu biểu ra đời như **tháp Phổ Minh** (Nam Định, cao 14 tầng), **tháp Bình Sơn** (Vĩnh Phúc), vạc Phổ Minh, chạm khắc rồng thời Trần khỏe khoắn và tượng hổ đá tại lăng Thái sư Trần Thủ Độ."
+        ),
+        "follow_up": "Em có muốn làm thử một đề trắc nghiệm tổng hợp về tình hình chính trị, kinh tế, văn hóa và 3 lần kháng chiến thời Trần không?"
+    },
+
     # --- NGOÀI PHẠM VI (OUT OF DOMAIN) ---
     {
         "unit_id": "OOD_RANDOM_AND_OFFTOPIC",
@@ -1162,7 +1524,24 @@ REAL_STUDENT_TEST_SET: List[Dict[str, str]] = [
     {"query": "khoan thư sức dân để làm kế sâu rễ bền gốc có ý nghĩa gì hiện nay", "expected": "HISTORICAL_LESSONS_TODAY"},
     {"query": "quân thánh dực và nón ma lôi thời trần là gì", "expected": "GAME_QUAN_THANH_DUC_SAT_THAT"},
     {"query": "căn cứ vạn kiếp và hậu phương thiên trường có vai trò gì", "expected": "GAME_VAN_KIEP_THIEN_TRUONG_BASES"},
-    {"query": "trần ích tắc trần kiện đầu hàng giặc nguyên", "expected": "GAME_TRUNG_THAN_VS_PHAN_BOI"}
+    {"query": "trần ích tắc trần kiện đầu hàng giặc nguyên", "expected": "GAME_TRUNG_THAN_VS_PHAN_BOI"},
+
+    # Tư liệu gốc Đại Việt Sử Ký Toàn Thư (Bản Kỷ Quyển V, VI, VII, VIII)
+    {"query": "trần nhật hiệu viết chữ nhập tống lên mạn thuyền", "expected": "DVSKTT_TRAN_NHAT_HIEU_HOANG_CU_DA"},
+    {"query": "hoàng cự đà không được ăn xoài năm 1258", "expected": "DVSKTT_TRAN_NHAT_HIEU_HOANG_CU_DA"},
+    {"query": "đỗ khắc chung đi sứ đối đáp với ô mã nhi về chữ sát thát", "expected": "DVSKTT_DO_KHAC_CHUNG_SU_GIA"},
+    {"query": "trần quốc tuấn rút đầu sắt nhọn trên gậy gỗ vứt đi", "expected": "DVSKTT_TRAN_QUOC_TUAN_GAY_BIT_SAT"},
+    {"query": "nội minh tự đỗ hành và nguyễn khoái bắt sống ô mã nhi trên sông bạch đằng", "expected": "DVSKTT_BACH_DANG_DO_HANH_NGUYEN_KHOAI"},
+    {"query": "hoàng tá thốn dùi đắm thuyền ô mã nhi năm 1289 và lời bàn ngô sĩ liên", "expected": "DVSKTT_HOANG_TA_THON_NGO_SI_LIEN_BAN"},
+    {"query": "quan thanh liêm trần thì kiến móc họng mửa cỗ biếu ở thiên trường", "expected": "DVSKTT_TRAN_THI_KIEN_PHAP_LUAT"},
+    {"query": "lý chiêu hoàng nhường ngôi cho trần cảnh năm 1226", "expected": "DVSKTT_THANH_LAP_NHA_TRAN_1225"},
+    {"query": "chế độ thái thượng hoàng và bộ luật quốc triều hình thư thời trần", "expected": "DVSKTT_BO_MAY_PHAP_LUAT_QUOC_TRIEU_HINH_THU"},
+    {"query": "đắp đê đỉnh nhĩ quai vạc và lập điền trang thái ấp thời trần", "expected": "DVSKTT_KINH_TE_DIEN_TRANG_THAI_AP_DE_DINH_NHI"},
+    {"query": "trạng nguyên 12 tuổi nguyễn hiền và lưỡng quốc trạng nguyên mạc đĩnh chi", "expected": "DVSKTT_KHOA_CU_THAI_HOC_SINH_NGUYEN_HIEN_MAC_DINH_CHI"},
+    {"query": "chu văn an dâng thất trảm sớ xin chém 7 nịnh thần", "expected": "DVSKTT_CHU_VAN_AN_THAT_TRAM_SO"},
+    {"query": "trương hán siêu viết bạch đằng giang phú và hàn thuyên chữ nôm", "expected": "DVSKTT_TRUONG_HAN_SIEU_BACH_DANG_GIANG_PHU"},
+    {"query": "đoàn nhữ hài 20 tuổi thảo biểu tạ tội ở phủ thiên trường", "expected": "DVSKTT_DOAN_NHU_HAI_NGOAI_GIAO"},
+    {"query": "quốc sư phù vân nói trong núi vốn không có phật phật ở trong lòng", "expected": "DVSKTT_VAN_HOA_AN_NAM_TU_DAI_KHI_CHUA_PHAP_VAN"}
 ]
 
 
@@ -1170,20 +1549,36 @@ REAL_STUDENT_TEST_SET: List[Dict[str, str]] = [
 # 3. HÀM TĂNG CƯỜNG DỮ LIỆU BẰNG LUẬT (CHỈ ÁP DỤNG TRÊN TẬP TRAIN)
 # ==============================================================================
 def augment_text(text: str) -> List[str]:
-    """Tăng cường dữ liệu bằng luật: bỏ dấu, thêm tiền tố tự nhiên, rút gọn."""
+    """Tăng cường dữ liệu chuyên sâu: khẩu ngữ học sinh, tra cứu Đại Việt Sử Ký Toàn Thư, bỏ dấu, hậu tố tự nhiên."""
     variants = [text]
-    # 1. Biến thể thêm lời chào/hỏi tự nhiên
-    openers = ["thầy ơi ", "cho em hỏi ", "bạn ơi ", "giải thích giúp em ", "kể cho em nghe "]
+    # 1. Biến thể thêm lời chào/hỏi tự nhiên & câu hỏi tra cứu chính sử
+    openers = [
+        "thầy ơi ",
+        "cho em hỏi ",
+        "bạn ơi ",
+        "giải thích giúp em ",
+        "kể cho em nghe ",
+        "theo đại việt sử ký toàn thư thì ",
+        "sách sử chép thế nào về việc ",
+        "tóm tắt giúp em ",
+        "cho mình hỏi về ",
+        "em muốn tìm hiểu "
+    ]
     for op in openers:
         variants.append(f"{op}{text}".strip())
 
-    # 2. Biến thể bỏ dấu
+    # 2. Biến thể hậu tố khẩu ngữ học sinh
+    suffixes = [" vậy thầy", " thế ạ", " chi tiết giúp em", " trong lịch sử lớp 7"]
+    for sf in suffixes:
+        variants.append(f"{text}{sf}".strip())
+
+    # 3. Biến thể bỏ dấu tiếng Việt
     import unicodedata
     nfd = unicodedata.normalize("NFD", text)
     unacc = "".join(c for c in nfd if not unicodedata.combining(c)).replace("đ", "d").replace("Đ", "D")
     if unacc != text:
         variants.append(unacc)
-        for op in ["thay oi ", "cho em hoi ", "cho hoi "]:
+        for op in ["thay oi ", "cho em hoi ", "cho hoi ", "theo dai viet su ky toan thu ", "ke ve ", "tom tat "]:
             variants.append(f"{op}{unacc}".strip())
 
     return list(dict.fromkeys(variants))
@@ -1195,9 +1590,13 @@ def generate_and_split_dataset(test_size: float = 0.2, random_state: int = 42) -
     1. Chia tập câu hỏi gốc (base_queries) thành Train Gốc (80%) và Test Gốc (20%).
     2. CHỈ tăng cường dữ liệu (Data Augmentation) trên tập Train.
     3. Tập Test giữ nguyên câu hỏi thật + kết hợp REAL_STUDENT_TEST_SET.
-    4. Xuất bảng Q-Matrix phục vụ Bayesian Knowledge Tracing.
+    4. Xuất bảng Q-Matrix phục vụ Bayesian Knowledge Tracing và gắn tọa độ Đại Việt Sử Ký Toàn Thư.
     """
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        from extract_dvsktt_pipeline import DVSKTT_UNIT_CITATIONS
+    except Exception:
+        DVSKTT_UNIT_CITATIONS = {}
 
     train_samples: List[Dict[str, Any]] = []
     test_samples: List[Dict[str, Any]] = []
@@ -1207,6 +1606,19 @@ def generate_and_split_dataset(test_size: float = 0.2, random_state: int = 42) -
 
     for unit in KNOWLEDGE_UNITS:
         uid = unit["unit_id"]
+        dvsktt_meta = DVSKTT_UNIT_CITATIONS.get(uid, {})
+        primary_page = dvsktt_meta.get("primary_page")
+        dvsktt_ref = dvsktt_meta.get("dvsktt_reference", "")
+        verbatim_quote = dvsktt_meta.get("verbatim_quote", "")
+        historian_commentary = dvsktt_meta.get("historian_commentary", "")
+
+        if dvsktt_ref:
+            unit["dvsktt_reference"] = dvsktt_ref
+            unit["page_number"] = primary_page
+            unit["folios"] = dvsktt_meta.get("folios", [])
+            unit["verbatim_quote"] = verbatim_quote
+            unit["historian_commentary"] = historian_commentary
+
         q_matrix_data[uid] = {
             "topic": unit["topic"],
             "category": unit["category"],
@@ -1214,7 +1626,9 @@ def generate_and_split_dataset(test_size: float = 0.2, random_state: int = 42) -
             "event": unit["event"],
             "cognitive_level": unit["q_matrix"]["cognitive_level"],
             "difficulty": unit["q_matrix"]["difficulty"],
-            "skills": unit["q_matrix"]["skills"]
+            "skills": unit["q_matrix"]["skills"],
+            "dvsktt_reference": dvsktt_ref,
+            "page_number": primary_page
         }
 
         base_q = unit["base_queries"]
@@ -1224,6 +1638,15 @@ def generate_and_split_dataset(test_size: float = 0.2, random_state: int = 42) -
         else:
             base_train = base_q
             base_test = base_q
+
+        doc_name_val = (
+            "SGK Lịch sử 7 (KNTT) & Đại Việt Sử Ký Toàn Thư (Dai-viet-su-ki-toan-thu.pdf)"
+            if unit["fact_chunk"] else ""
+        )
+        curr_match_val = (
+            f"SGK Lịch sử 7 - Bài 13 & {dvsktt_ref}"
+            if dvsktt_ref else "SGK Lịch sử 7 - Bài 13"
+        )
 
         # 1. Tạo tập Train: Áp dụng Tăng cường dữ liệu (Augmentation) CHỈ TRÊN TẬP TRAIN
         for q in base_train:
@@ -1241,9 +1664,13 @@ def generate_and_split_dataset(test_size: float = 0.2, random_state: int = 42) -
                     "answer": unit["answer"],
                     "follow_up": unit["follow_up"],
                     "grounding_source": {
-                        "doc_name": "SGK Lịch sử 7 (KNTT) & Đại Việt Sử Ký Toàn Thư" if unit["fact_chunk"] else "",
-                        "curriculum_match": "SGK Lịch sử 7 - Bài 13",
-                        "fact_chunk": unit["fact_chunk"]
+                        "doc_name": doc_name_val,
+                        "page_number": primary_page,
+                        "curriculum_match": curr_match_val,
+                        "fact_chunk": unit["fact_chunk"],
+                        "dvsktt_reference": dvsktt_ref,
+                        "verbatim_quote": verbatim_quote,
+                        "historian_commentary": historian_commentary
                     },
                     "game_metadata": {
                         "unlocked_badge": unit["badge"],
@@ -1264,7 +1691,12 @@ def generate_and_split_dataset(test_size: float = 0.2, random_state: int = 42) -
                 "q_matrix": unit["q_matrix"],
                 "user_query": tq,
                 "answer": unit["answer"],
-                "grounding_source": {"fact_chunk": unit["fact_chunk"]},
+                "grounding_source": {
+                    "doc_name": doc_name_val,
+                    "page_number": primary_page,
+                    "curriculum_match": curr_match_val,
+                    "fact_chunk": unit["fact_chunk"]
+                },
                 "is_real_student": False
             })
             sample_id += 1
@@ -1273,6 +1705,7 @@ def generate_and_split_dataset(test_size: float = 0.2, random_state: int = 42) -
     for item in REAL_STUDENT_TEST_SET:
         matching_unit = next((u for u in KNOWLEDGE_UNITS if u["unit_id"] == item["expected"]), None)
         if matching_unit:
+            dvsktt_meta = DVSKTT_UNIT_CITATIONS.get(item["expected"], {})
             test_samples.append({
                 "id": f"TEST_REAL_{sample_id:04d}",
                 "unit_id": item["expected"],
@@ -1283,7 +1716,12 @@ def generate_and_split_dataset(test_size: float = 0.2, random_state: int = 42) -
                 "q_matrix": matching_unit["q_matrix"],
                 "user_query": item["query"],
                 "answer": matching_unit["answer"],
-                "grounding_source": {"fact_chunk": matching_unit["fact_chunk"]},
+                "grounding_source": {
+                    "doc_name": "SGK Lịch sử 7 (KNTT) & Đại Việt Sử Ký Toàn Thư (Dai-viet-su-ki-toan-thu.pdf)" if matching_unit["fact_chunk"] else "",
+                    "page_number": dvsktt_meta.get("primary_page"),
+                    "curriculum_match": f"SGK Lịch sử 7 - Bài 13 & {dvsktt_meta['dvsktt_reference']}" if dvsktt_meta.get("dvsktt_reference") else "SGK Lịch sử 7 - Bài 13",
+                    "fact_chunk": matching_unit["fact_chunk"]
+                },
                 "is_real_student": True
             })
             sample_id += 1

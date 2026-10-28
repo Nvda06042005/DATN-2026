@@ -22,11 +22,12 @@ CURRICULUM_TOPIC_GROUPS: Dict[str, Dict[str, Any]] = {
         "title": "Kháng chiến chống Mông Cổ lần thứ nhất (1258)",
         "short_title": "Kháng chiến lần 1 (1258)",
         "badge": "1258 - Bình Lệ Nguyên & Đông Bộ Đầu",
-        "description": "Âm mưu xâm lược của Mông Cổ, Trận Bình Lệ Nguyên (Lê Phụ Trần), Kế sách Vườn không nhà trống tại Thăng Long, Thái sư Trần Thủ Độ và Đại thắng phản công Đông Bộ Đầu.",
-        "sgk_reference": "SGK Lịch sử & Địa lí 7 (KNTT) - Bài 15, Mục 1, Trang 66–67",
+        "description": "Âm mưu xâm lược của Mông Cổ, Trận Bình Lệ Nguyên (Lê Phụ Trần), Kế sách Vườn không nhà trống tại Thăng Long, Thái sư Trần Thủ Độ, Trần Nhật Hiệu - Hoàng Cự Đà và Đại thắng phản công Đông Bộ Đầu.",
+        "sgk_reference": "SGK Lịch sử & Địa lí 7 (KNTT) - Bài 15, Mục 1, Tr. 66–67 & Đại Việt Sử Ký Toàn Thư Quyển V, tờ [22a-23b], Tr. 519–522",
         "unit_ids": [
             "KC1_OVERVIEW", "KC1_WHY_INVADE", "KC1_BINH_LE_NGUYEN",
-            "KC1_VUON_KHONG_NHA_TRONG", "KC1_TRAN_THU_DO_QUOTE", "KC1_DONG_BO_DAU"
+            "KC1_VUON_KHONG_NHA_TRONG", "KC1_TRAN_THU_DO_QUOTE", "KC1_DONG_BO_DAU",
+            "DVSKTT_TRAN_NHAT_HIEU_HOANG_CU_DA"
         ]
     },
     "KHANG_CHIEN_2": {
@@ -34,12 +35,13 @@ CURRICULUM_TOPIC_GROUPS: Dict[str, Dict[str, Any]] = {
         "title": "Kháng chiến chống quân Nguyên lần thứ hai (1285)",
         "short_title": "Kháng chiến lần 2 (1285)",
         "badge": "1285 - Bình Than, Diên Hồng & Hàm Tử",
-        "description": "Hội nghị Bình Than, Trần Quốc Toản bóp nát quả cam, Hội nghị Diên Hồng (tiếng hô ĐÁNH), Hịch tướng sĩ & chữ Sát Thát, Trần Bình Trọng, Hàm Tử - Chương Dương, Thoát Hoan chui ống đồng.",
-        "sgk_reference": "SGK Lịch sử & Địa lí 7 (KNTT) - Bài 15, Mục 2, Trang 68–71",
+        "description": "Hội nghị Bình Than, Trần Quốc Toản bóp nát quả cam, Hội nghị Diên Hồng (tiếng hô ĐÁNH), Hịch tướng sĩ & chữ Sát Thát, Đỗ Khắc Chung đi sứ, Trần Quốc Tuấn rút đầu sắt gậy gỗ, Trần Bình Trọng, Hàm Tử - Chương Dương, Thoát Hoan chui ống đồng.",
+        "sgk_reference": "SGK Lịch sử & Địa lí 7 (KNTT) - Bài 15, Mục 2, Tr. 68–71 & Đại Việt Sử Ký Toàn Thư Quyển V, tờ [42a-50a], Tr. 560–578",
         "unit_ids": [
             "BINH_THAN_CONFERENCE", "TQT_WHY_ORANGE", "TQT_SIX_GOLDEN_WORDS", "TQT_OVERVIEW",
             "DIEN_HONG_CONFERENCE", "HICH_TUONG_SI", "TRAN_HUNG_DAO_PORTRAIT", "GAME_BINH_THU_YEU_LUOC",
-            "KC2_OVERVIEW", "KC2_TRAN_BINH_TRONG", "KC2_HAM_TU_CHUONG_DUONG", "KC2_THOAT_HOAN_COPPER_PIPE"
+            "KC2_OVERVIEW", "KC2_TRAN_BINH_TRONG", "KC2_HAM_TU_CHUONG_DUONG", "KC2_THOAT_HOAN_COPPER_PIPE",
+            "DVSKTT_DO_KHAC_CHUNG_SU_GIA", "DVSKTT_TRAN_QUOC_TUAN_GAY_BIT_SAT"
         ]
     },
     "KHANG_CHIEN_3": {
@@ -47,10 +49,11 @@ CURRICULUM_TOPIC_GROUPS: Dict[str, Dict[str, Any]] = {
         "title": "Kháng chiến chống quân Nguyên lần thứ ba (1287 – 1288)",
         "short_title": "Kháng chiến lần 3 (1287 - 1288)",
         "badge": "1287-1288 - Vân Đồn & Bạch Đằng",
-        "description": "Toàn cảnh kháng chiến 1287-1288, Hải chiến Vân Đồn (Trần Khánh Dư tiêu diệt đoàn thuyền lương Trương Văn Hổ), Đại thắng Bạch Đằng 1288 với bãi cọc ngầm lim bắt sống Ô Mã Nhi.",
-        "sgk_reference": "SGK Lịch sử & Địa lí 7 (KNTT) - Bài 15, Mục 3, Trang 71–73",
+        "description": "Toàn cảnh kháng chiến 1287-1288, Hải chiến Vân Đồn (Trần Khánh Dư tiêu diệt đoàn thuyền lương Trương Văn Hổ), Đại thắng Bạch Đằng 1288 (Nguyễn Khoái, Đỗ Hành bắt sống Ô Mã Nhi) và kế Hoàng Tá Thốn dùi thuyền kèm Lời bàn Ngô Sĩ Liên.",
+        "sgk_reference": "SGK Lịch sử & Địa lí 7 (KNTT) - Bài 15, Mục 3, Tr. 71–73 & Đại Việt Sử Ký Toàn Thư Quyển V, tờ [51b-56b], Tr. 580–590",
         "unit_ids": [
-            "KC3_OVERVIEW", "KC3_VAN_DON", "GAME_TRAN_KHANH_DU", "KC3_BACH_DANG_HOW"
+            "KC3_OVERVIEW", "KC3_VAN_DON", "GAME_TRAN_KHANH_DU", "KC3_BACH_DANG_HOW",
+            "DVSKTT_BACH_DANG_DO_HANH_NGUYEN_KHOAI", "DVSKTT_HOANG_TA_THON_NGO_SI_LIEN_BAN"
         ]
     },
     "NHAN_VAT_QUAN_SU": {
@@ -58,13 +61,17 @@ CURRICULUM_TOPIC_GROUPS: Dict[str, Dict[str, Any]] = {
         "title": "Nhân vật Lịch sử, Hội nghị & Nghệ thuật Quân sự thời Trần",
         "short_title": "Nhân vật & Nghệ thuật Quân sự",
         "badge": "Hào khí Đông A & Bài học lịch sử",
-        "description": "Điện súy Phạm Ngũ Lão, Yết Kiêu - Dã Tượng, Phật Hoàng Trần Nhân Tông, Tù trưởng miền núi, Ngụ binh ư nông, Quân Thánh Dực, Căn cứ Vạn Kiếp - Thiên Trường, Nguyên nhân thắng lợi & Bài học Khoan thư sức dân.",
-        "sgk_reference": "SGK Lịch sử & Địa lí 7 (KNTT) - Bài 14 & Bài 15, Trang 62–75",
+        "description": "Điện súy Phạm Ngũ Lão, Yết Kiêu - Dã Tượng, Phật Hoàng Trần Nhân Tông, Tù trưởng miền núi, Ngụ binh ư nông, Quân Thánh Dực, Căn cứ Vạn Kiếp - Thiên Trường, Kiểm pháp quan Trần Thì Kiến, Nguyên nhân thắng lợi & Bài học Khoan thư sức dân.",
+        "sgk_reference": "SGK Lịch sử & Địa lí 7 (KNTT) - Bài 14 & 15, Tr. 62–75 & Đại Việt Sử Ký Toàn Thư Quyển VI, tờ [4a-14a], Tr. 610–630",
         "unit_ids": [
             "ALL_3_WARS_SUMMARY", "CAUSES_OF_VICTORY", "HISTORICAL_SIGNIFICANCE", "MILITARY_ART_TRAN_DYNASTY",
             "HISTORICAL_LESSONS_TODAY", "GAME_NGU_BINH_U_NONG", "GAME_QUAN_THANH_DUC_SAT_THAT",
             "GAME_VAN_KIEP_THIEN_TRUONG_BASES", "YET_KIEU_DA_TUONG", "PHAM_NGU_LAO", "GAME_TRAN_NHAN_TONG",
-            "ROLE_OF_ETHNIC_MINORITIES", "GAME_TRUNG_THAN_VS_PHAN_BOI"
+            "ROLE_OF_ETHNIC_MINORITIES", "GAME_TRUNG_THAN_VS_PHAN_BOI", "DVSKTT_TRAN_THI_KIEN_PHAP_LUAT",
+            "DVSKTT_THANH_LAP_NHA_TRAN_1225", "DVSKTT_BO_MAY_PHAP_LUAT_QUOC_TRIEU_HINH_THU",
+            "DVSKTT_KINH_TE_DIEN_TRANG_THAI_AP_DE_DINH_NHI", "DVSKTT_KHOA_CU_THAI_HOC_SINH_NGUYEN_HIEN_MAC_DINH_CHI",
+            "DVSKTT_CHU_VAN_AN_THAT_TRAM_SO", "DVSKTT_TRUONG_HAN_SIEU_BACH_DANG_GIANG_PHU",
+            "DVSKTT_DOAN_NHU_HAI_NGOAI_GIAO", "DVSKTT_VAN_HOA_AN_NAM_TU_DAI_KHI_CHUA_PHAP_VAN"
         ]
     },
     "TONG_HOP_TOAN_KHOA": {
@@ -72,8 +79,8 @@ CURRICULUM_TOPIC_GROUPS: Dict[str, Dict[str, Any]] = {
         "title": "Tổng hợp Toàn khóa 3 lần Kháng chiến (1258 - 1288)",
         "short_title": "Đề Tổng hợp Toàn khóa",
         "badge": "Ma trận Bloom chuẩn GDPT 2018",
-        "description": "Đề khảo thí tích hợp toàn diện bao quát 3 cuộc kháng chiến chống Mông - Nguyên, phân bổ ma trận Bloom (Nhận biết, Thông hiểu, Vận dụng).",
-        "sgk_reference": "Toàn bộ Chương trình Lịch sử 7 - Chủ đề Ba lần kháng chiến chống Mông - Nguyên",
+        "description": "Đề khảo thí tích hợp toàn diện bao quát 3 cuộc kháng chiến chống Mông - Nguyên và tư liệu gốc Đại Việt Sử Ký Toàn Thư, phân bổ ma trận Bloom (Nhận biết, Thông hiểu, Vận dụng).",
+        "sgk_reference": "Toàn bộ Chương trình Lịch sử 7 & Đại Việt Sử Ký Toàn Thư (Bản Kỷ Quyển V - VI, Tr. 478–630)",
         "unit_ids": []
     }
 }

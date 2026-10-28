@@ -202,7 +202,7 @@ def expand_abbreviations(text: str) -> str:
                 for i in range(len(tokens) - c_len + 1):
                     win_tokens = tokens[i:i + c_len]
                     win = " ".join(win_tokens)
-                    if win in CANONICAL_ENTITY_PHRASES:
+                    if win in CANONICAL_ENTITY_PHRASES or win == "tran phan cong":
                         continue
                     if (
                         win[0] == canonical[0]
@@ -241,23 +241,25 @@ def build_bilingual_features(text: str) -> str:
     if "binh than" in unacc:
         tags.append("__binh_than__ __binh_than__ __binh_than__")
     if "dong bo dau" in unacc:
-        tags.append("__dong_bo_dau__ __dong_bo_dau__ __dong_bo_dau__")
+        tags.append("__dong_bo_dau__ __dong_bo_dau__ __dong_bo_dau__ __dong_bo_dau__")
     if any(k in unacc for k in ["binh le nguyen", "le phu tran", "le tan", "van thuyen", "che ten"]):
         tags.append("__binh_le_nguyen__ __binh_le_nguyen__ __binh_le_nguyen__")
     if any(k in unacc for k in ["bach dang", "coc ngam", "coc go", "trieu rut"]):
         tags.append("__bach_dang__ __bach_dang__ __bach_dang__")
     if any(k in unacc for k in ["van don", "thuyen luong", "thach luong", "17 van", "truong van ho"]):
         tags.append("__van_don__ __van_don__ __van_don__")
-    if any(k in unacc for k in ["thoat hoan", "chui ong", "ong dong"]):
+    if any(k in unacc for k in ["thoat hoan", "chui ong", "chui vao ong dong", "tron trong ong dong"]) or ("ong dong" in unacc and "phan cong dong" not in unacc):
         tags.append("__thoat_hoan_ong_dong__ __thoat_hoan_ong_dong__")
-    if any(k in unacc for k in ["qua cam", "bop nat", "sau chu vang", "6 chu vang", "pha cuong dich", "bao hoang an"]):
-        tags.append("__tran_quoc_toan__ __tran_quoc_toan__")
+    if any(k in unacc for k in ["qua cam", "bop nat", "bop cam"]):
+        tags.append("__tqt_why_orange__ __tqt_why_orange__ __tqt_why_orange__")
+    if any(k in unacc for k in ["sau chu vang", "6 chu vang", "pha cuong dich", "bao hoang an", "chieu mo bao nhieu gia no", "1000 gia no", "hon 1000 gia no"]):
+        tags.append("__tqt_six_golden_words__ __tqt_six_golden_words__ __tqt_six_golden_words__")
     if any(k in unacc for k in ["tran binh trong", "quy nuoc nam"]):
         tags.append("__tran_binh_trong__ __tran_binh_trong__")
-    if any(k in unacc for k in ["hich tuong si", "sat that", "nua dem vo goi", "ruot dau nhu cat"]):
+    if any(k in unacc for k in ["hich tuong si", "sat that", "nua dem vo goi", "ruot dau nhu cat"]) and not any(d in unacc for d in ["di su", "trai giac", "do khac chung", "khac chung"]):
         tags.append("__hich_tuong_si__ __hich_tuong_si__ __hich_tuong_si__")
-    if any(k in unacc for k in ["dau than chua roi", "dau toi chua roi", "xin be ha dung lo", "tran thu do"]):
-        tags.append("__tran_thu_do__ __tran_thu_do__ __tran_thu_do__")
+    if any(k in unacc for k in ["dau than chua roi", "dau toi chua roi", "xin be ha dung lo"]) or ("tran thu do" in unacc and not any(d in unacc for d in ["1225", "1226", "thanh lap", "chieu hoang", "tran canh"])):
+        tags.append("__tran_thu_do__ __tran_thu_do__ __tran_thu_do__ __tran_thu_do__")
     if any(k in unacc for k in ["chem dau than", "chem dau toi", "muon hang", "tran hung dao la ai", "tran quoc tuan la ai", "cong lao cua hung dao"]):
         tags.append("__tran_hung_dao_portrait__ __tran_hung_dao_portrait__ __tran_hung_dao_portrait__")
     if any(k in unacc for k in ["muc dich cua mong co", "am muu mong co", "muon duong", "nam tong", "su gia mong co", "ngot luong hop thai"]):
@@ -289,7 +291,7 @@ def build_bilingual_features(text: str) -> str:
         tags.append("__ngu_binh_u_nong__ __ngu_binh_u_nong__ __ngu_binh_u_nong__")
     if any(k in unacc for k in ["binh thu", "sach binh phap", "cuon binh phap"]):
         tags.append("__binh_thu_yeu_luoc__ __binh_thu_yeu_luoc__ __binh_thu_yeu_luoc__")
-    if any(k in unacc for k in ["nhan tong", "tran kham", "truc lam", "yen tu", "phat hoang", "lao thach ma", "dien kim au", "chon ngua da", "vung au vang"]):
+    if any(k in unacc for k in ["nhan tong", "tran kham", "truc lam", "yen tu", "phat hoang", "lao thach ma", "dien kim au", "chon ngua da", "vung au vang"]) and not any(d in unacc for d in ["tran thai tong", "phu van", "trang 492", "1237"]):
         tags.append("__tran_nhan_tong__ __tran_nhan_tong__")
     if any(k in unacc for k in ["buon than", "ban than", "chi linh", "tuoc quan", "tha toi"]):
         tags.append("__khanh_du_cuoc_doi__ __khanh_du_cuoc_doi__")
@@ -307,6 +309,36 @@ def build_bilingual_features(text: str) -> str:
         "vua toi dong long anh em hoa muc"
     ]):
         tags.append("__causes_of_victory__ __causes_of_victory__ __causes_of_victory__")
+
+    # Điểm neo ngữ nghĩa cho 14 cụm tri thức chính sử Đại Việt Sử Ký Toàn Thư
+    if any(k in unacc for k in ["nhat hieu", "nhap tong", "cu da", "hoang cu da", "an xoai"]):
+        tags.append("__dvsktt_nhat_hieu_cu_da__ __dvsktt_nhat_hieu_cu_da__ __dvsktt_nhat_hieu_cu_da__")
+    if any(k in unacc for k in ["do khac chung", "khac chung", "ngua keo xe muoi", "ngua ky", "cho nha can nguoi", "di su sang trai giac", "giai thich hai chu sat that"]):
+        tags.append("__dvsktt_do_khac_chung__ __dvsktt_do_khac_chung__ __dvsktt_do_khac_chung__")
+    if any(k in unacc for k in ["gay bit sat", "dau sat nhon", "rut dau sat", "yen sinh vuong", "tran lieu", "quach tu nghi", "quoc tang", "danh tuong nao cua nha duong", "so sanh tran quoc tuan voi"]):
+        tags.append("__dvsktt_gay_bit_sat__ __dvsktt_gay_bit_sat__ __dvsktt_gay_bit_sat__")
+    if any(k in unacc for k in ["do hanh", "nguyen khoai", "tich le co ngoc", "ao lo xich", "400 chiec thuyen", "400 chien thuyen", "chieu lang", "thu duoc bao nhieu chien thuyen", "bat nhung tuong giac nao"]):
+        tags.append("__dvsktt_do_hanh_nguyen_khoai__ __dvsktt_do_hanh_nguyen_khoai__ __dvsktt_do_hanh_nguyen_khoai__")
+    if any(k in unacc for k in ["hoang ta thon", "dui thuyen", "dui dam thuyen", "o ma nhi chet", "so phan cua tuong giac o ma nhi"]):
+        tags.append("__dvsktt_hoang_ta_thon__ __dvsktt_hoang_ta_thon__ __dvsktt_hoang_ta_thon__")
+    if any(k in unacc for k in ["tran thi kien", "thi kien", "kiem phap quan", "moc hong", "mua ra", "cam danh bac", "phan phu tien", "chim ung"]):
+        tags.append("__dvsktt_tran_thi_kien__ __dvsktt_tran_thi_kien__ __dvsktt_tran_thi_kien__")
+    if any(k in unacc for k in ["thanh lap nha tran", "ly chieu hoang", "chieu hoang", "tran canh", "1225", "1226", "quoc thuong phu", "dien thien an", "kien trung"]):
+        tags.append("__dvsktt_thanh_lap_nha_tran__ __dvsktt_thanh_lap_nha_tran__ __dvsktt_thanh_lap_nha_tran__")
+    if any(k in unacc for k in ["thai thuong hoang", "quoc trieu hinh thu", "quoc trieu thong che", "tham hinh vien", "12 lo", "so ho tich", "vac dau", "chuong ho", "bo may nha nuoc", "bo luat thanh van"]):
+        tags.append("__dvsktt_bo_may_phap_luat__ __dvsktt_bo_may_phap_luat__ __dvsktt_bo_may_phap_luat__")
+    if any(k in unacc for k in ["dinh nhi", "quai vac", "ha de su", "khuyen nong su", "dien trang", "thai ap", "1248", "1266", "kinh te nong nghiep"]):
+        tags.append("__dvsktt_kinh_te_nha_tran__ __dvsktt_kinh_te_nha_tran__ __dvsktt_kinh_te_nha_tran__")
+    if any(k in unacc for k in ["tam khoi", "nguyen hien", "le van huu", "mac dinh chi", "luong quoc trang nguyen", "thai hoc sinh", "1247", "1304", "khoa cu"]):
+        tags.append("__dvsktt_khoa_cu_nha_tran__ __dvsktt_khoa_cu_nha_tran__ __dvsktt_khoa_cu_nha_tran__")
+    if any(k in unacc for k in ["chu van an", "that tram so", "7 ninh than", "7 ten ninh than", "phuong hoang", "tu nghiep", "van mieu"]):
+        tags.append("__dvsktt_chu_van_an__ __dvsktt_chu_van_an__ __dvsktt_chu_van_an__")
+    if any(k in unacc for k in ["truong han sieu", "bach dang giang phu", "phu song bach dang", "han thuyen", "nguyen thuyen", "chu nom", "van te ca sau", "cot minh duc cao"]):
+        tags.append("__dvsktt_truong_han_sieu__ __dvsktt_truong_han_sieu__ __dvsktt_truong_han_sieu__")
+    if any(k in unacc for k in ["doan nhu hai", "nhu hai", "thao bieu ta toi", "ngu su trung tan", "di su chiem thanh", "1299", "1303"]):
+        tags.append("__dvsktt_doan_nhu_hai__ __dvsktt_doan_nhu_hai__ __dvsktt_doan_nhu_hai__")
+    if any(k in unacc for k in ["phu van", "quoc su phu van", "khong co phat", "phat o ngay trong long", "phat o trong long", "thap pho minh", "thap binh son", "vac pho minh", "tran thai tong len nui yen tu", "trang 492"]):
+        tags.append("__dvsktt_van_hoa_phu_van__ __dvsktt_van_hoa_phu_van__ __dvsktt_van_hoa_phu_van__")
 
     if any(w in words for w in ["hello", "hi", "alo"]) or any(k in unacc for k in ["xin chao", "chao thay", "chao ban", "chao tro ly"]):
         tags.append("__intent_greeting__ __intent_greeting__ __intent_greeting__")
@@ -417,7 +449,20 @@ class VietnameseNLU:
         "duc thung", "boi lan", "to long", "thuat hoai", "dan sot",
         "thanh duc", "cam quan", "ma loi", "noi bang", "thien truong",
         "truong yen", "ich tac", "tran kien", "dia lo", "ma luc",
-        "phu ninh", "da giang", "thien mac", "quy hoa", "huong binh"
+        "phu ninh", "da giang", "thien mac", "quy hoa", "huong binh",
+        "nhat hieu", "nhap tong", "cu da", "an xoai", "khac chung",
+        "do hanh", "nguyen khoai", "tich le co ngoc", "ao lo xich",
+        "hoang ta thon", "dui thuyen", "thi kien", "kiem phap quan",
+        "ngo si lien", "phan phu tien", "yen sinh vuong", "tran lieu",
+        "chieu lang", "dai viet su ky", "quach tu nghi", "quoc tang",
+        "chieu hoang", "tran canh", "kien trung", "thai thuong hoang",
+        "quoc trieu hinh thu", "quoc trieu thong che", "tham hinh vien",
+        "dinh nhi", "quai vac", "ha de su", "dien trang", "thai ap",
+        "tam khoi", "nguyen hien", "le van huu", "mac dinh chi",
+        "thai hoc sinh", "chu van an", "that tram so", "phuong hoang",
+        "truong han sieu", "bach dang giang phu", "han thuyen", "chu nom",
+        "doan nhu hai", "phu van", "pho minh", "binh son",
+        "cot minh duc cao", "dat hiem", "thang binh", "muon thuo"
     ]
 
     @classmethod
@@ -1522,8 +1567,8 @@ class DongANLPModel:
                 s_data = r_item.get("grounding_source", {})
                 if s_data and s_data.get("fact_chunk"):
                     synth_sources.append({
-                        "doc_name": s_data.get("doc_name", "SGK Lịch sử 7 (KNTT) - Bài 13"),
-                        "page_number": None,
+                        "doc_name": s_data.get("doc_name", "SGK Lịch sử 7 (KNTT) & Đại Việt Sử Ký Toàn Thư"),
+                        "page_number": s_data.get("page_number"),
                         "curriculum_match": s_data.get("curriculum_match", "SGK Lịch sử 7 - Bài 13"),
                         "fact_chunk": s_data.get("fact_chunk", "")
                     })
@@ -1684,7 +1729,7 @@ class DongANLPModel:
         if src_data and src_data.get("fact_chunk"):
             sources.append({
                 "doc_name": src_data.get("doc_name", "SGK Lịch sử 7 (KNTT) & Đại Việt Sử Ký Toàn Thư"),
-                "page_number": None,
+                "page_number": src_data.get("page_number"),
                 "curriculum_match": src_data.get("curriculum_match", "SGK Lịch sử 7 - Bài 13"),
                 "fact_chunk": src_data.get("fact_chunk", "")
             })
@@ -1717,6 +1762,60 @@ class DongANLPModel:
             "exp_reward": game_meta.get("exp_reward", 25 if sources else 0),
             "is_not_found": False
         }
+
+    def search_dvsktt_passages(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
+        """
+        Tìm kiếm toàn văn (Full-Text Passage Retrieval) trực tiếp trên 1.083 đoạn biên niên sử
+        của toàn bộ 419 trang Kỷ Nhà Trần (trang 478 - 896) trong `dvsktt_tran_dynasty_corpus.json`.
+        """
+        corpus_file = DATA_DIR / "dvsktt_tran_dynasty_corpus.json"
+        if not corpus_file.exists():
+            return []
+        try:
+            if not hasattr(self, "_dvsktt_passages_cache") or not self._dvsktt_passages_cache:
+                corpus_data = json.loads(corpus_file.read_text(encoding="utf-8"))
+                self._dvsktt_passages_cache = corpus_data.get("tran_dynasty_passages", [])
+
+            q_norm = normalize_vi(query)
+            q_unacc = normalize_vi(remove_accents(query))
+            q_tokens = [t for t in q_unacc.split() if len(t) >= 2]
+            if not q_tokens:
+                return []
+
+            scored: List[Tuple[float, Dict[str, Any]]] = []
+            for p in self._dvsktt_passages_cache:
+                txt = p.get("text", "")
+                txt_norm = normalize_vi(txt)
+                txt_unacc = normalize_vi(remove_accents(txt))
+                score = 0.0
+                for tok in q_tokens:
+                    if tok in txt_unacc:
+                        score += 1.0
+                # Thưởng điểm cụm 2-gram và khớp có dấu
+                for i in range(len(q_tokens) - 1):
+                    bg = f"{q_tokens[i]} {q_tokens[i + 1]}"
+                    if bg in txt_unacc:
+                        score += 2.5
+                for w in q_norm.split():
+                    if len(w) >= 3 and w in txt_norm:
+                        score += 0.8
+                if score > 0:
+                    scored.append((score, p))
+
+            scored.sort(key=lambda x: x[0], reverse=True)
+            return [
+                {
+                    "passage_id": item["passage_id"],
+                    "pdf_page": item["pdf_page"],
+                    "quyen": item["quyen"],
+                    "folios": item["folios"],
+                    "score": round(sc, 2),
+                    "text": item["text"]
+                }
+                for sc, item in scored[:top_k]
+            ]
+        except Exception:
+            return []
 
 
 def train_and_save_model() -> DongANLPModel:

@@ -146,8 +146,8 @@ class GeminiClient:
         self.base_url = "https://generativelanguage.googleapis.com/v1beta/models"
 
         # 2. Cấu hình Hugging Face (Qwen2.5-7B-Instruct / BGE-M3)
-        self.hf_token = settings.HF_TOKEN
-        self.hf_model = settings.HF_MODEL
+        self.hf_token = getattr(settings, "HF_TOKEN", "")
+        self.hf_model = getattr(settings, "HF_MODEL", "Qwen/Qwen2.5-7B-Instruct")
         self.hf_client = None
         if self.hf_token:
             try:
