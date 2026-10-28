@@ -5,17 +5,14 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Baloo2_600SemiBold } from '@expo-google-fonts/baloo-2/600SemiBold';
-import { Baloo2_700Bold } from '@expo-google-fonts/baloo-2/700Bold';
-import { Baloo2_800ExtraBold } from '@expo-google-fonts/baloo-2/800ExtraBold';
-import { BeVietnamPro_400Regular } from '@expo-google-fonts/be-vietnam-pro/400Regular';
-import { BeVietnamPro_500Medium } from '@expo-google-fonts/be-vietnam-pro/500Medium';
-import { BeVietnamPro_600SemiBold } from '@expo-google-fonts/be-vietnam-pro/600SemiBold';
-import { BeVietnamPro_700Bold } from '@expo-google-fonts/be-vietnam-pro/700Bold';
-import { BeVietnamPro_800ExtraBold } from '@expo-google-fonts/be-vietnam-pro/800ExtraBold';
-import { NotoSerif_400Regular } from '@expo-google-fonts/noto-serif/400Regular';
-import { NotoSerif_700Bold } from '@expo-google-fonts/noto-serif/700Bold';
-import { NotoSerif_700Bold_Italic } from '@expo-google-fonts/noto-serif/700Bold_Italic';
+import { Manrope_400Regular } from '@expo-google-fonts/manrope/400Regular';
+import { Manrope_500Medium } from '@expo-google-fonts/manrope/500Medium';
+import { Manrope_600SemiBold } from '@expo-google-fonts/manrope/600SemiBold';
+import { Manrope_700Bold } from '@expo-google-fonts/manrope/700Bold';
+import { Manrope_800ExtraBold } from '@expo-google-fonts/manrope/800ExtraBold';
+import { Newsreader_400Regular } from '@expo-google-fonts/newsreader/400Regular';
+import { Newsreader_700Bold } from '@expo-google-fonts/newsreader/700Bold';
+import { Newsreader_700Bold_Italic } from '@expo-google-fonts/newsreader/700Bold_Italic';
 import { ToastProvider } from '@/components/ui';
 import { PALETTES } from '@/constants/theme';
 import { ReduceMotionContext, useSystemReduceMotion } from '@/hooks/use-motion';
@@ -27,9 +24,8 @@ const LIGHT = { c: PALETTES.light, dark: false };
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    Baloo2_600SemiBold, Baloo2_700Bold, Baloo2_800ExtraBold,
-    BeVietnamPro_400Regular, BeVietnamPro_500Medium, BeVietnamPro_600SemiBold, BeVietnamPro_700Bold, BeVietnamPro_800ExtraBold,
-    NotoSerif_400Regular, NotoSerif_700Bold, NotoSerif_700Bold_Italic,
+    Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold,
+    Newsreader_400Regular, Newsreader_700Bold, Newsreader_700Bold_Italic,
   });
   const reduceMotion = useSystemReduceMotion();
   const ready = loaded || !!error;

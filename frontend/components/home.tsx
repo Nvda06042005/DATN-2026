@@ -450,8 +450,8 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
   const { height } = useWindowDimensions();
   const minH = Math.min(Math.max(wide ? 780 : 700, height), wide ? 1000 : 900);
   const h1 = wide ? 96 : 50;
-  /** Cụm nhấn: chữ nghiêng có chân (Noto Serif) màu đỏ son, đi cùng chữ không chân đậm ở dòng trên; chữ có chân rộng hơn nên thu nhỏ một chút */
-  const accent = wide ? 92 : 44;
+  /** Cụm nhấn: chữ nghiêng có chân (Newsreader) màu đỏ son, đi cùng chữ không chân đậm ở dòng trên; Newsreader hẹp và thấp hơn nên cùng cỡ với dòng trên */
+  const accent = h1;
   const reduce = useReduceMotion();
   const scrollY = useScrollY();
   const on = !!scrollY && !reduce;

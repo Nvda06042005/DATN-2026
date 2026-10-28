@@ -380,9 +380,10 @@ Hai cặp font skill gợi ý đầu tiên đều **không có bộ ký tự ti�
 
 | Vai trò | Font | Ghi chú |
 |---|---|---|
-| Tiêu đề, số lớn | **Baloo 2** (700–800) | Có tiếng Việt, tròn, hợp game |
-| Nội dung | **Be Vietnam Pro** (400–600) | Thiết kế cho tiếng Việt |
-| Thẻ Sử Ký, trích dẫn | **Noto Serif** | Có tiếng Việt, chất "sử sách" |
+| Tiêu đề, số lớn, nút, nội dung | **Manrope** (400–800) | Không chân, hiện đại, có đủ chữ tiếng Việt; dùng cho cả trang chủ, học sinh, giáo viên, quản trị |
+| Thẻ Sử Ký, trích dẫn, chữ nghiêng nhấn | **Newsreader** (400, 700, 700 nghiêng) | Có chân dáng báo chí, có đủ chữ tiếng Việt, chất "sử sách" |
+
+> Cập nhật 28/10/2026: đã đổi từ Baloo 2 + Be Vietnam Pro + Noto Serif sang Manrope + Newsreader trên toàn ứng dụng.
 
 **Quy định chữ:**
 

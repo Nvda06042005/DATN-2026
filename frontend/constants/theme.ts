@@ -134,19 +134,23 @@ const dark: Palette = {
 /** Chế độ tối chỉ dùng trong game học sinh; trang giáo viên và quản trị luôn dùng giao diện sáng */
 export const PALETTES = { light, dark };
 
-/** Phông chữ: Baloo 2 cho tiêu đề và nút, Be Vietnam Pro cho nội dung, Noto Serif cho trích sử liệu và chữ nghiêng nhấn ở tiêu đề ảnh bìa */
+/**
+ * Phông chữ: Manrope (không chân, hình học) cho mọi tiêu đề, nút, nhãn và nội dung ở trang chủ, đăng nhập, học sinh, giáo viên và quản trị;
+ * Newsreader (có chân, dáng báo chí) cho trích sử liệu, đoạn đọc dài và chữ nghiêng nhấn ở tiêu đề ảnh bìa. Cả hai có đủ chữ tiếng Việt.
+ * Các khóa display* giữ nguyên tên cũ để không phải sửa nơi dùng: nay cũng là Manrope, chỉ khác độ đậm.
+ */
 export const FONT = {
-  displayMedium: 'Baloo2_600SemiBold',
-  display: 'Baloo2_700Bold',
-  displayHeavy: 'Baloo2_800ExtraBold',
-  body: 'BeVietnamPro_400Regular',
-  medium: 'BeVietnamPro_500Medium',
-  semibold: 'BeVietnamPro_600SemiBold',
-  bold: 'BeVietnamPro_700Bold',
-  heavy: 'BeVietnamPro_800ExtraBold',
-  serif: 'NotoSerif_400Regular',
-  serifBold: 'NotoSerif_700Bold',
-  serifItalic: 'NotoSerif_700Bold_Italic',
+  displayMedium: 'Manrope_600SemiBold',
+  display: 'Manrope_700Bold',
+  displayHeavy: 'Manrope_800ExtraBold',
+  body: 'Manrope_400Regular',
+  medium: 'Manrope_500Medium',
+  semibold: 'Manrope_600SemiBold',
+  bold: 'Manrope_700Bold',
+  heavy: 'Manrope_800ExtraBold',
+  serif: 'Newsreader_400Regular',
+  serifBold: 'Newsreader_700Bold',
+  serifItalic: 'Newsreader_700Bold_Italic',
   /** Tên đăng nhập, mật khẩu tạm, mã PIN */
   mono: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'Consolas, "Courier New", monospace' }),
 } as const;

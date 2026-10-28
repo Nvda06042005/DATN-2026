@@ -923,7 +923,7 @@ const CredentialsSheet: React.FC<{ cred: AccountCredential; title: string; onClo
     const w = window.open('', '_blank');
     if (!w) return toast('Trình duyệt chặn cửa sổ in – hãy cho phép pop-up');
     w.document.write(`<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Phiếu tài khoản Đông A</title><style>
-      body{font-family:"Be Vietnam Pro","Segoe UI",sans-serif;margin:16px;color:#1c1917}
+      body{font-family:"Manrope","Segoe UI",sans-serif;margin:16px;color:#1c1917}
       .card{border:2px dashed #6b6560;border-radius:14px;padding:14px;max-width:420px}
       .brand{color:#c97500;font-weight:900;font-size:18px}.name{font-weight:900;font-size:17px;margin-top:4px}
       .meta{color:#57534e;font-size:13px;margin-bottom:8px}.row{display:flex;justify-content:space-between;font-size:14px;padding:3px 0}

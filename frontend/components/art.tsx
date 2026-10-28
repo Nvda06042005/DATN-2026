@@ -997,7 +997,7 @@ export const CloudBank: React.FC<{ color: string; flip?: boolean; height?: numbe
 /** Biểu tượng logo: hình vuông bo góc cắt từ assets/logo.jpg (chiến binh cầm cờ đỏ trước mặt trời) */
 const LOGO_MARK = require('../assets/logo-mark.png');
 
-/** Logo "Đông A edu": biểu tượng chiến binh kèm tên chữ Be Vietnam Pro (light: chữ trắng cho nền tối) */
+/** Logo "Đông A edu": biểu tượng chiến binh kèm tên chữ Manrope (light: chữ trắng cho nền tối) */
 export const BrandLogo: React.FC<{ compact?: boolean; subtitle?: string; light?: boolean }> = ({ compact = false, subtitle, light = false }) => {
   const { c } = useTheme();
   return (
