@@ -15,7 +15,7 @@ import {
   Target, TrendingUp, Trophy, Undo2, Users, WandSparkles, Zap,
 } from 'lucide-react-native';
 import {
-  BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, EpicBackdrop, GradeBadge, HeroMedallion, KahootShape, Mascot, SchematicMap, Seal, VietnamFlag, WaveBand,
+  BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, EpicBackdrop, FilmBackdrop, GradeBadge, HeroMedallion, KahootShape, Mascot, SchematicMap, Seal, VietnamFlag, WaveBand,
   type MascotAccessory,
 } from '@/components/art';
 import { LoreChip } from '@/components/game/quiz';
@@ -440,21 +440,21 @@ export const BackToTop: React.FC<{ scrollY: Animated.Value; visible: boolean; on
 
 // ---------------------------------------------------------------------- hero
 /**
- * Hero: cảnh ba cuộc kháng chiến (thành Thăng Long và kỵ binh Mông Cổ 1258, thuyền chiến 1285, bãi cọc Bạch Đằng 1288) dưới tiêu đề trắng khổng lồ kiểu Papumba,
- * hai nút trắng và ba mốc năm bấm được. Màn hẹp: chữ ở trên, cảnh ở dưới.
+ * Hero: ảnh bìa điện ảnh ghép tám khung hình minh họa thành một cảnh chuyển động (xem FilmBackdrop) dưới tiêu đề trắng khổng lồ kiểu Papumba,
+ * hai nút trắng và ba mốc năm bấm được. Màn hẹp dùng bản ảnh dọc phủ kín khung.
  */
 const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wide, go }) => {
   const { c } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
-  const minH = Math.min(Math.max(wide ? 780 : 640, height), 1000);
+  const minH = Math.min(Math.max(wide ? 780 : 700, height), wide ? 1000 : 900);
   const h1 = wide ? 96 : 50;
   const reduce = useReduceMotion();
   const scrollY = useScrollY();
   const on = !!scrollY && !reduce;
   const clampOpt = { extrapolate: 'clamp' } as const;
-  /** Cảnh trôi xuống chậm hơn lúc cuộn (lệch tầng); chữ mờ dần, bay lên và thu nhỏ khi lướt qua */
+  /** Ảnh trôi xuống chậm hơn lúc cuộn (lệch tầng); chữ mờ dần, bay lên và thu nhỏ khi lướt qua */
   const sceneFx = on ? { transform: [{ translateY: scrollY.interpolate({ inputRange: [0, 800], outputRange: [0, 240], ...clampOpt }) }] } : null;
   const textFx = on
     ? {
@@ -465,21 +465,20 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
         ],
       }
     : null;
+  const shade = { textShadowColor: 'rgba(0, 0, 0, 0.55)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 22 } as const;
   return (
-    <View style={{ width: '100%', minHeight: wide ? minH : undefined, backgroundColor: c.dem, overflow: 'hidden' }}>
-      {wide && (
-        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, sceneFx]}>
-          <EpicBackdrop />
-        </Animated.View>
-      )}
-      <Animated.View style={[{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: insets.top + HEADER_SPACE + (wide ? 36 : 16), paddingBottom: wide ? 0 : 24, alignItems: 'center', gap: 20 }, textFx]}>
-        <Txt f="heavy" size={h1} color={c.trang} center accessibilityRole="header" style={{ lineHeight: wide ? 100 : 54, letterSpacing: wide ? -3.6 : -1.8 }}>
+    <View style={{ width: '100%', minHeight: minH, backgroundColor: c.dem, overflow: 'hidden' }}>
+      <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, sceneFx]}>
+        <FilmBackdrop wide={wide} indicator scrim indicatorBottom={wide ? 100 : 76} />
+      </Animated.View>
+      <Animated.View style={[{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: insets.top + HEADER_SPACE + (wide ? 36 : 16), alignItems: 'center', gap: 20 }, textFx]}>
+        <Txt f="heavy" size={h1} color={c.trang} center accessibilityRole="header" style={[{ lineHeight: wide ? 100 : 54, letterSpacing: wide ? -3.6 : -1.8 }, shade]}>
           Sống lại{'\n'}
-          <Txt f="heavy" size={h1} color={c.vang} style={{ lineHeight: wide ? 100 : 54, letterSpacing: wide ? -3.6 : -1.8 }}>
+          <Txt f="heavy" size={h1} color={c.vang} style={[{ lineHeight: wide ? 100 : 54, letterSpacing: wide ? -3.6 : -1.8 }, shade]}>
             hào khí Đông A
           </Txt>
         </Txt>
-        <Txt f="bold" size={wide ? 24 : 18} color={c.trang} center style={{ lineHeight: wide ? 32 : 25, maxWidth: 780 }}>
+        <Txt f="bold" size={wide ? 24 : 18} color={c.trang} center style={[{ lineHeight: wide ? 32 : 25, maxWidth: 780 }, shade]}>
           Nền tảng học tập game hóa về ba lần kháng chiến chống quân Nguyên – Mông thời Trần
         </Txt>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
@@ -493,11 +492,6 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
           </Txt>
         </View>
       </Animated.View>
-      {!wide && (
-        <View style={{ width: '100%', aspectRatio: 1.5 }}>
-          <EpicBackdrop fade />
-        </View>
-      )}
       <Animated.View style={[{ position: 'absolute', left: 0, right: 0, bottom: wide ? 32 : 14, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: wide ? 18 : 8, paddingHorizontal: 12 }, textFx]}>
         {VICTORIES.map((v) => (
           <Pressable
@@ -1255,8 +1249,7 @@ const ClosingSection: React.FC<{ wide: boolean }> = ({ wide }) => {
   const router = useRouter();
   return (
     <View style={{ width: '100%', backgroundColor: c.dem, overflow: 'hidden' }}>
-      <EpicBackdrop />
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: c.dem, opacity: 0.42 }]} />
+      <FilmBackdrop wide={wide} only={[7]} dim={0.12} scrim />
       <CloudBank color={c.the} flip height={90} />
       <View style={{ width: '100%', maxWidth: 860, alignSelf: 'center', paddingHorizontal: 16, paddingTop: wide ? 190 : 150, paddingBottom: wide ? 130 : 90 }}>
       <Reveal from="scale">

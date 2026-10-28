@@ -5,12 +5,13 @@
  * Không vẽ chân dung nhân vật lịch sử có thật.
  */
 import React from 'react';
-import { Animated, Image, Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Easing, Image, Platform, Pressable, StyleSheet, Text, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
+import { LinearGradient as Gradient } from 'expo-linear-gradient';
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Marker, Path, Pattern, RadialGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { Crown } from 'lucide-react-native';
 import { ELEMENTS, ENEMY_TYPES, MAP_PLACES } from '@/constants/game';
 import { ANSWER_STYLES, FONT, GRADE_STYLE, type AnswerShape } from '@/constants/theme';
-import { useBob } from '@/hooks/use-motion';
+import { useBob, useReduceMotion } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
 import { useDrift, useLoop, useOnScreen } from '@/components/motion';
 import type { PixelPaths } from '@/lib/pixel-art';
@@ -673,6 +674,253 @@ export const EpicBackdrop: React.FC<{ shade?: boolean; fade?: boolean }> = ({ sh
             <Path d="M1.5 -230 L42 -220 L1.5 -206 Z" fill="#c1272d" />
           </Sub>
         </Box>
+      )}
+    </View>
+  );
+};
+
+// ---------------------------------------------------------------------- ảnh bìa điện ảnh (ghép từ các khung hình minh họa)
+/** Một cảnh của ảnh bìa: tên hiển thị, ảnh bản ngang (màn rộng) và bản dọc (điện thoại), chuyển động máy quay từ [phóng, dịch ngang, dịch dọc] sang [...] (dịch tính theo tỉ lệ khung) */
+interface FilmScene {
+  name: string;
+  land: ImageSourcePropType;
+  tall: ImageSourcePropType;
+  from: [number, number, number];
+  to: [number, number, number];
+}
+
+/**
+ * Tám khung hình minh họa do AI tạo (người dùng cung cấp), sắp theo mạch: chuẩn bị → hành quân → xung phong → giáp chiến → khói lửa → thủy chiến → bãi cọc ngầm → chiến thắng.
+ * Chỉ là hình minh họa không gắn với một trận cụ thể, trang luôn ghi chú "Hình minh họa do AI tạo".
+ */
+const FILM_SCENES: FilmScene[] = [
+  { name: 'Chuẩn bị', land: require('../assets/anh-bia-1-ngang.jpg'), tall: require('../assets/anh-bia-1-doc.jpg'), from: [1.03, 0, 0.01], to: [1.11, 0, -0.01] },
+  { name: 'Hành quân', land: require('../assets/anh-bia-2-ngang.jpg'), tall: require('../assets/anh-bia-2-doc.jpg'), from: [1.1, 0.015, 0], to: [1.03, -0.015, 0] },
+  { name: 'Xung phong', land: require('../assets/anh-bia-3-ngang.jpg'), tall: require('../assets/anh-bia-3-doc.jpg'), from: [1.03, -0.012, 0], to: [1.1, 0.01, 0] },
+  { name: 'Giáp chiến', land: require('../assets/anh-bia-4-ngang.jpg'), tall: require('../assets/anh-bia-4-doc.jpg'), from: [1.06, 0.012, 0], to: [1.12, -0.012, 0] },
+  { name: 'Khói lửa', land: require('../assets/anh-bia-5-ngang.jpg'), tall: require('../assets/anh-bia-5-doc.jpg'), from: [1.1, 0, 0.01], to: [1.03, 0, -0.01] },
+  { name: 'Thủy chiến', land: require('../assets/anh-bia-6-ngang.jpg'), tall: require('../assets/anh-bia-6-doc.jpg'), from: [1.03, -0.015, 0], to: [1.1, 0.015, 0] },
+  { name: 'Bãi cọc ngầm', land: require('../assets/anh-bia-7-ngang.jpg'), tall: require('../assets/anh-bia-7-doc.jpg'), from: [1.08, 0.012, 0], to: [1.03, -0.008, 0] },
+  { name: 'Chiến thắng', land: require('../assets/anh-bia-8-ngang.jpg'), tall: require('../assets/anh-bia-8-doc.jpg'), from: [1.03, 0, 0.015], to: [1.1, 0, -0.015] },
+];
+const GRAIN = require('../assets/anh-bia-hat.png');
+
+const SCENE_MS = 6000;
+const FADE_MS = 1300;
+const GLOW = (Platform.OS === 'web' ? { boxShadow: '0 0 8px 2px rgba(255, 150, 50, 0.85)' } : null) as unknown as ViewStyle;
+
+/** Một lớp ảnh: mờ hiện/ẩn khi chuyển cảnh, máy quay chậm tiến hoặc lùi trong suốt thời gian cảnh (kéo dài hết lúc mờ đi để không khựng) */
+const FilmSlide: React.FC<{ scene: FilmScene; tall: boolean; active: boolean; size: { w: number; h: number } }> = ({ scene, tall, active, size }) => {
+  const reduce = useReduceMotion();
+  const op = React.useRef(new Animated.Value(active ? 1 : 0)).current;
+  const kb = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    Animated.timing(op, { toValue: active ? 1 : 0, duration: reduce ? 1 : FADE_MS, easing: Easing.inOut(Easing.quad), useNativeDriver: Platform.OS !== 'web' }).start();
+    if (!active) return undefined;
+    kb.setValue(0);
+    if (reduce) return undefined;
+    const run = Animated.timing(kb, { toValue: 1, duration: SCENE_MS + FADE_MS, easing: Easing.linear, useNativeDriver: Platform.OS !== 'web' });
+    run.start();
+    return () => run.stop();
+  }, [active, reduce, op, kb]);
+  const [s0, x0, y0] = scene.from;
+  const [s1, x1, y1] = scene.to;
+  return (
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: op }]}>
+      <Animated.Image
+        source={tall ? scene.tall : scene.land}
+        accessible={false}
+        resizeMode="cover"
+        style={[
+          StyleSheet.absoluteFill,
+          {
+            transform: [
+              { translateX: kb.interpolate({ inputRange: [0, 1], outputRange: [x0 * size.w, x1 * size.w] }) },
+              { translateY: kb.interpolate({ inputRange: [0, 1], outputRange: [y0 * size.h, y1 * size.h] }) },
+              { scale: kb.interpolate({ inputRange: [0, 1], outputRange: [s0, s1] }) },
+            ],
+          },
+        ]}
+      />
+    </Animated.View>
+  );
+};
+
+/** Hạt phim: lớp nhiễu mịn tráng đều, dịch chỗ ngẫu nhiên mỗi ~0,1 giây như phim thật */
+const FilmGrain: React.FC<{ live: boolean; size: { w: number; h: number } }> = ({ live, size }) => {
+  const reduce = useReduceMotion();
+  const x = React.useRef(new Animated.Value(0)).current;
+  const y = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    if (!live || reduce) return undefined;
+    const id = setInterval(() => {
+      x.setValue(-Math.floor(Math.random() * 256));
+      y.setValue(-Math.floor(Math.random() * 256));
+    }, 110);
+    return () => clearInterval(id);
+  }, [live, reduce, x, y]);
+  return (
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { overflow: 'hidden', opacity: 0.26 }]}>
+      <Animated.Image source={GRAIN} accessible={false} resizeMode="repeat" style={{ position: 'absolute', left: 0, top: 0, width: size.w + 256, height: size.h + 256, transform: [{ translateX: x }, { translateY: y }] }} />
+    </View>
+  );
+};
+
+const EMBERS = (() => {
+  const rnd = lcg(77);
+  return Array.from({ length: 18 }, () => ({ x: rnd(), size: 2.5 + rnd() * 3.5, period: 5200 + rnd() * 5200, delay: rnd() * 6000, rise: 0.35 + rnd() * 0.5, sway: 10 + rnd() * 22 }));
+})();
+
+/** Tàn lửa bay lên từ đáy khung, lắc lư theo gió rồi tắt dần */
+const Ember: React.FC<{ e: (typeof EMBERS)[number]; live: boolean; size: { w: number; h: number } }> = ({ e, live, size }) => {
+  const v = useDrift(live, e.period, e.delay);
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        { position: 'absolute', left: e.x * size.w, bottom: 0, width: e.size, height: e.size, borderRadius: e.size, backgroundColor: '#ffb347' },
+        GLOW,
+        {
+          opacity: v.interpolate({ inputRange: [0, 0.12, 0.7, 1], outputRange: [0, 0.95, 0.45, 0] }),
+          transform: [
+            { translateY: lerp(v, 0, -e.rise * size.h) },
+            { translateX: v.interpolate({ inputRange: [0, 0.25, 0.5, 0.75, 1], outputRange: [0, e.sway, -e.sway * 0.6, e.sway * 0.8, 0] }) },
+            { scale: lerp(v, 1, 0.4) },
+          ],
+        },
+      ]}
+    />
+  );
+};
+
+/** Đám khói xám mềm trôi ngang rất chậm và đậm nhạt theo nhịp thở */
+const SmokeBlob: React.FC<{ live: boolean; size: { w: number; h: number }; top: number; width: number; period: number; delay: number; dir: 1 | -1 }> = ({ live, size, top, width, period, delay, dir }) => {
+  const v = useLoop(live, period, delay);
+  const gid = React.useId().replace(/:/g, '');
+  const w = width * size.w;
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{ position: 'absolute', top: top * size.h, left: dir > 0 ? -w * 0.25 : size.w - w * 0.75, width: w, height: w * 0.6, opacity: lerp(v, 0.06, 0.2), transform: [{ translateX: lerp(v, -50 * dir, 50 * dir) }, { scale: lerp(v, 0.94, 1.08) }] }}
+    >
+      <Svg width="100%" height="100%" viewBox="0 0 100 60" preserveAspectRatio="none">
+        <Defs>
+          <RadialGradient id={`sm-${gid}`} cx="0.5" cy="0.5" r="0.5">
+            <Stop offset="0" stopColor="#2b2a30" stopOpacity="0.9" />
+            <Stop offset="1" stopColor="#2b2a30" stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Ellipse cx="50" cy="30" rx="50" ry="30" fill={`url(#sm-${gid})`} />
+      </Svg>
+    </Animated.View>
+  );
+};
+
+/** Vạch tiến độ của một cảnh: đầy dần trong suốt thời gian cảnh đang chiếu */
+const FilmSeg: React.FC<{ state: 'done' | 'active' | 'todo'; live: boolean; wide: boolean; label: string; onPress: () => void }> = ({ state, live, wide, label, onPress }) => {
+  const reduce = useReduceMotion();
+  const fill = React.useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    if (state !== 'active') {
+      fill.setValue(state === 'done' ? 1 : 0);
+      return undefined;
+    }
+    if (reduce) {
+      fill.setValue(1);
+      return undefined;
+    }
+    if (!live) return undefined;
+    fill.setValue(0);
+    const run = Animated.timing(fill, { toValue: 1, duration: SCENE_MS, easing: Easing.linear, useNativeDriver: Platform.OS !== 'web' });
+    run.start();
+    return () => run.stop();
+  }, [state, live, reduce, fill]);
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ selected: state === 'active' }} style={{ minHeight: 44, paddingHorizontal: 4, justifyContent: 'center' }}>
+      <View style={{ width: wide ? 30 : 18, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.32)', overflow: 'hidden' }}>
+        <Animated.View style={{ width: '100%', height: 4, backgroundColor: '#ffffff', transform: [{ scaleX: fill }], transformOrigin: 'left center' }} />
+      </View>
+    </Pressable>
+  );
+};
+
+/**
+ * Ảnh bìa điện ảnh: các khung hình minh họa chiếu nối tiếp như một đoạn phim, mỗi cảnh quay chậm tiến hoặc lùi rồi mờ chồng sang cảnh sau.
+ * Phủ lên ảnh là lớp màu son ấm, vignette, khói trôi, tàn lửa bay, ánh lửa chập chờn và hạt phim cho cảm giác thực. `only` chọn cảnh (mặc định cả tám),
+ * `indicator` hiện tên cảnh, vạch tiến độ bấm được và dòng ghi chú ảnh AI. Chỉ chạy khi nằm trong màn hình; giảm chuyển động thì đứng ở cảnh đầu và chuyển cảnh bằng tay.
+ */
+export const FilmBackdrop: React.FC<{ wide?: boolean; only?: number[]; indicator?: boolean; indicatorBottom?: number; dim?: number; scrim?: boolean }> = ({ wide = true, only, indicator = false, indicatorBottom = 96, dim = 0, scrim = false }) => {
+  const reduce = useReduceMotion();
+  const vid = React.useId().replace(/:/g, '');
+  const [ref, live] = useOnScreen();
+  const order = React.useMemo(() => only ?? FILM_SCENES.map((_, i) => i), [only]);
+  const [pos, setPos] = React.useState(0);
+  const [prev, setPrev] = React.useState<number | null>(null);
+  const [size, setSize] = React.useState({ w: 0, h: 0 });
+  const flick = useLoop(live, 700);
+  const flick2 = useLoop(live, 1130, 300);
+  const goTo = (n: number) => {
+    setPrev(pos);
+    setPos(n);
+  };
+  React.useEffect(() => {
+    if (!live || reduce || order.length < 2) return undefined;
+    const t = setTimeout(() => {
+      setPrev(pos);
+      setPos((pos + 1) % order.length);
+    }, SCENE_MS);
+    return () => clearTimeout(t);
+  }, [live, reduce, pos, order.length]);
+  const tall = size.w > 0 && size.w < size.h * 1.15;
+  const mounted = new Set<number>([pos, (pos + 1) % order.length]);
+  if (prev !== null && prev < order.length) mounted.add(prev);
+  const cur = FILM_SCENES[order[pos]];
+  return (
+    <View ref={ref} onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })} pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: '#0b0a10' }]}>
+        {size.w > 0 && [...mounted].map((p) => <FilmSlide key={order[p]} scene={FILM_SCENES[order[p]]} tall={tall} active={p === pos} size={size} />)}
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(110, 26, 16, 0.08)' }]} />
+        {size.w > 0 && (
+          <>
+            <SmokeBlob live={live} size={size} top={0.28} width={0.9} period={15000} delay={0} dir={1} />
+            <SmokeBlob live={live} size={size} top={0.5} width={0.8} period={21000} delay={2500} dir={-1} />
+            <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255, 130, 50, 1)', opacity: Animated.add(lerp(flick, 0, 0.05), lerp(flick2, 0, 0.04)) }]} />
+            {EMBERS.map((e, i) => (
+              <Ember key={i} e={e} live={live} size={size} />
+            ))}
+          </>
+        )}
+        <Gradient colors={['rgba(8,8,16,0.5)', 'rgba(8,8,16,0.06)', 'rgba(16,6,6,0.78)']} locations={[0, 0.4, 1]} style={StyleSheet.absoluteFill} />
+        {dim > 0 && <View style={[StyleSheet.absoluteFill, { backgroundColor: '#0b0a10', opacity: dim }]} />}
+        <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+          <Defs>
+            <RadialGradient id={`vg-${vid}`} cx="0.5" cy="0.5" r="0.75">
+              <Stop offset="0.6" stopColor="#000000" stopOpacity="0" />
+              <Stop offset="1" stopColor="#000000" stopOpacity="0.42" />
+            </RadialGradient>
+            <RadialGradient id={`sc-${vid}`} cx="0.5" cy="0.5" r="0.5">
+              <Stop offset="0" stopColor="#06060c" stopOpacity="0.5" />
+              <Stop offset="0.65" stopColor="#06060c" stopOpacity="0.26" />
+              <Stop offset="1" stopColor="#06060c" stopOpacity="0" />
+            </RadialGradient>
+          </Defs>
+          <Rect width="100%" height="100%" fill={`url(#vg-${vid})`} />
+          {scrim && <Ellipse cx="50%" cy="34%" rx="46%" ry="36%" fill={`url(#sc-${vid})`} />}
+        </Svg>
+        {size.w > 0 && <FilmGrain live={live} size={size} />}
+      </View>
+      {indicator && order.length > 1 && (
+        <View pointerEvents="box-none" style={{ position: 'absolute', left: 0, right: 0, bottom: indicatorBottom, paddingHorizontal: 24, alignItems: wide ? 'flex-end' : 'center' }}>
+          <Text style={{ fontFamily: FONT.bold, fontSize: 13, letterSpacing: 1.2, textTransform: 'uppercase', color: '#ffffff', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6 }}>
+            {`Cảnh ${pos + 1}/${order.length} · ${cur.name}`}
+          </Text>
+          <View accessibilityRole="tablist" accessibilityLabel="Chọn cảnh" style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {order.map((id, i) => (
+              <FilmSeg key={id} state={i < pos ? 'done' : i === pos ? 'active' : 'todo'} live={live} wide={wide} label={`Xem cảnh ${i + 1}: ${FILM_SCENES[id].name}`} onPress={() => goTo(i)} />
+            ))}
+          </View>
+          <Text style={{ fontFamily: FONT.medium, fontSize: 12, color: 'rgba(255,255,255,0.82)', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6 }}>Hình minh họa do AI tạo, không phải tư liệu lịch sử</Text>
+        </View>
       )}
     </View>
   );
