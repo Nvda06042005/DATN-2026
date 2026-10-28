@@ -532,7 +532,7 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
 /** Màn rộng: dải tự chạy (dừng khi rê chuột). Màn hẹp (điện thoại, không có chuột để dừng): dải vuốt ngang bằng tay */
 const PhaseTrack: React.FC<{ auto: boolean; children: React.ReactNode }> = ({ auto, children }) =>
   auto ? (
-    <Marquee>{children}</Marquee>
+    <Marquee speed={40}>{children}</Marquee>
   ) : (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingLeft: 16 }} accessibilityLabel="Chín màn chiến dịch, vuốt ngang để xem">
       {children}
@@ -579,11 +579,6 @@ const PhaseMarquee: React.FC<{ wide: boolean; onSection: (id: string, y: number)
           );
         })}
       </PhaseTrack>
-      <Reveal>
-        <Txt size={13} color={c.xanhMuc2} center style={{ maxWidth: 760, alignSelf: 'center', paddingHorizontal: 16 }}>
-          Nội dung đối chiếu Wikipedia tiếng Việt: “Chiến tranh Nguyên Mông – Đại Việt lần 1, lần 2, lần 3”. Các sách sử chép ngày tháng và chi tiết không hoàn toàn thống nhất; nơi còn tranh cãi trang ghi “tương truyền”. {wide ? 'Rê chuột vào dải thẻ để dừng và đọc.' : 'Vuốt ngang để xem các màn.'}
-        </Txt>
-      </Reveal>
     </View>
   );
 };
