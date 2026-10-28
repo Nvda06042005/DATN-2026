@@ -83,6 +83,8 @@ npm run web                 # trình duyệt; hoặc npm start rồi quét mã b
 
 Quản trị tổng mặc định: `admin` / `admin@123`, đăng nhập tại `/admin` (đặt `ADMIN_PASSWORD` khi triển khai thật). Quản trị tổng thêm trường và cấp tài khoản quản trị trường; quản trị trường đăng nhập tại `/school-manager-admin`.
 
+Trên website Vercel, đường dẫn cũ `/root-system-admin` tự chuyển hướng vĩnh viễn (HTTP 308) sang `/admin`.
+
 ## Kiểm thử
 
 ```bash
