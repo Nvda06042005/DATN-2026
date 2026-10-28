@@ -10,16 +10,13 @@ import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View, us
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  Activity, ArrowDown, ArrowRight, ArrowUpRight, Check, Compass, Database, Download, FileSpreadsheet, Joystick, Landmark, LayoutDashboard, Layers, LibraryBig, Lock,
-  LogIn, Map as MapIcon, MapPin, MessageSquareText, Milestone, Moon, Quote, RadioTower, School, Send, Smartphone, Sun, Sword, Swords, Table2,
-  TrendingUp, Trophy, Undo2, Users, WandSparkles, Zap,
+  ArrowDown, ArrowRight, Check, Compass, Joystick, Landmark, LogIn, MapPin, MessageSquareText, Milestone, Moon, Quote, School, Sun, Sword, Swords,
 } from 'lucide-react-native';
 import {
-  BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, GradeBadge, HeroMedallion, KahootShape, Mascot, SchematicMap, Seal, VietnamFlag, WaveBand,
+  BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, SchematicMap, Seal, VietnamFlag, WaveBand,
   type MascotAccessory,
 } from '@/components/art';
 import { LoreChip } from '@/components/game/quiz';
-import { TemplateGuide, downloadTemplate } from '@/components/provisioning';
 import { Chip, Txt } from '@/components/ui';
 import { HomeVideo } from '@/components/home-video';
 import { HistoryShowcase } from '@/components/history-showcase';
@@ -47,8 +44,6 @@ const GLASS = (WEB ? { backdropFilter: 'blur(10px)' } : null) as unknown as View
 export const NAV = [
   { id: 'khang-chien', label: 'Ba lần kháng chiến', short: 'Kháng chiến' },
   { id: 'danh-tuong', label: 'Danh tướng', short: 'Danh tướng' },
-  { id: 'vi-sao', label: 'Dành cho ai', short: 'Dành cho ai' },
-  { id: 'de-tai', label: 'Về đề tài', short: 'Về đề tài' },
 ] as const;
 
 // ---------------------------------------------------------------------- dữ liệu nội dung
@@ -95,49 +90,6 @@ const QUOTES = [
   { text: 'Phá cường địch, báo hoàng ân', who: 'Trần Quốc Toản', note: 'sáu chữ vàng thêu trên lá cờ của ông, 1285', bg: '#bfe3a4' },
   { text: 'Đánh!', who: 'Các bô lão', note: 'cùng đáp “như từ một miệng” ở Hội nghị Diên Hồng', bg: '#a9d4ee' },
 ] as const;
-
-type AudienceId = 'hoc_sinh' | 'giao_vien' | 'nha_truong';
-interface Benefit {
-  icon: IconType;
-  title: string;
-  text: string;
-}
-const AUDIENCE: Record<AudienceId, Benefit[]> = {
-  hoc_sinh: [
-    { icon: Joystick, title: 'Học như chơi game', text: 'Thu lương thảo, chiêu mộ và tiến hóa danh tướng, đánh các màn chiến dịch – mỗi sức mạnh đều đến từ một câu trả lời đúng.' },
-    { icon: MessageSquareText, title: 'Quân Sư AI giải đáp', text: 'Hỏi bất cứ điều gì về ba lần kháng chiến; câu trả lời dựa trên kho kiến thức sử liệu của đề tài.' },
-    { icon: MapIcon, title: 'Khám phá Hành Trình Đông A', text: 'Đi khắp làng pixel, trò chuyện với dân làng, thu cuộn sử và làm nhiệm vụ để hiểu chuyện xưa.' },
-    { icon: TrendingUp, title: 'Ôn đúng chỗ còn yếu', text: 'Hệ thống ghi nhận mức nắm vững từng kiến thức sau mỗi câu trả lời và gợi ý câu hỏi tiếp theo.' },
-  ],
-  giao_vien: [
-    { icon: LayoutDashboard, title: 'Theo dõi cả lớp', text: 'Tiến độ, câu sai nhiều nhất và mức nắm vững của từng em trên một màn hình.' },
-    { icon: Zap, title: 'Thi đấu trực tiếp', text: 'Mở phòng bằng mã PIN, cả lớp thi đấu thời gian thực kiểu Kahoot ngay trên điện thoại.' },
-    { icon: WandSparkles, title: 'Soạn đề bằng AI', text: 'Tạo nhanh câu hỏi ôn tập từ kho kiến thức của đề tài, tiết kiệm thời gian chuẩn bị bài.' },
-    { icon: Users, title: 'Quản lý lớp học', text: 'Xin mở lớp, được nhà trường duyệt rồi mời học sinh vào bằng mã lớp.' },
-  ],
-  nha_truong: [
-    { icon: Table2, title: 'Cấp tài khoản hàng loạt', text: 'Điền file Excel mẫu, quản trị trường nhập một lần là có tài khoản giáo viên và học sinh.' },
-    { icon: Lock, title: 'Dữ liệu tách theo trường', text: 'Mỗi trường chỉ thấy dữ liệu của mình nhờ phân quyền ngay ở tầng cơ sở dữ liệu.' },
-    { icon: Send, title: 'Gửi tài khoản qua thư', text: 'Mật khẩu ban đầu được gửi qua thư điện tử, không hiển thị công khai.' },
-    { icon: Undo2, title: 'Xóa nhầm vẫn khôi phục', text: 'Tài khoản bị xóa nằm trong thùng rác 45 ngày trước khi xóa vĩnh viễn.' },
-  ],
-};
-
-const TECH: Benefit[] = [
-  { icon: Trophy, title: 'Game hóa', text: 'Điểm kinh nghiệm, Ấn Tín, tướng, nhiệm vụ và thi đấu' },
-  { icon: Activity, title: 'BKT', text: 'Ước lượng mức nắm vững từng kiến thức' },
-  { icon: LibraryBig, title: 'RAG', text: 'Hỏi đáp dựa trên kho kiến thức sử liệu' },
-  { icon: RadioTower, title: 'Thời gian thực', text: 'WebSocket cho phòng thi đấu cả lớp' },
-  { icon: Layers, title: 'Đa nền tảng', text: 'Expo React Native: một mã nguồn cho web, Android, iOS' },
-  { icon: Database, title: 'PostgreSQL + RLS', text: 'Dữ liệu bền vững, tách theo trường' },
-];
-
-const GOALS = [
-  'Số hóa kiến thức ba lần kháng chiến (1258, 1285, 1287 – 1288) thành màn chơi, thẻ Sử Ký và câu hỏi có đáp án.',
-  'Tạo động lực học bằng cơ chế game hóa: điểm kinh nghiệm, Ấn Tín, chiêu mộ và tiến hóa danh tướng, nhiệm vụ.',
-  'Cá nhân hóa việc học bằng theo dõi mức nắm vững (BKT) và trợ lý hỏi đáp (RAG).',
-  'Cung cấp công cụ để giáo viên và nhà trường tổ chức lớp, thi đấu và cấp tài khoản.',
-];
 
 // ---------------------------------------------------------------------- nền tảng giao diện
 /** Cỡ biểu tượng theo cỡ chữ đi kèm (1,25 lần) để biểu tượng và chữ luôn đồng bộ */
@@ -1003,152 +955,6 @@ const QuotesSection: React.FC<{ wide: boolean; onSection: (id: string, y: number
   );
 };
 
-// ---------------------------------------------------------------------- dành cho ai, đề tài, nhà trường
-const AUDIENCE_CARDS: Array<{ id: AudienceId; title: string; tag: string; color: 'son' | 'thuy' | 'moc'; cta: string }> = [
-  { id: 'hoc_sinh', title: 'Dành cho học sinh', tag: 'Học sinh', color: 'son', cta: 'Vào học ngay' },
-  { id: 'giao_vien', title: 'Dành cho giáo viên', tag: 'Giáo viên', color: 'thuy', cta: 'Đăng nhập giáo viên' },
-  { id: 'nha_truong', title: 'Dành cho nhà trường', tag: 'Nhà trường', color: 'moc', cta: 'Tải file Excel mẫu' },
-];
-
-/** Ba thẻ lớn trên nền đồi cỏ (kiểu "Resources for Parents/Teachers" của Papumba) */
-const AudienceSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
-  const { c } = useTheme();
-  const router = useRouter();
-  return (
-    <Band id="vi-sao" bg={c.son} cloudTop={c.the} wide={wide} onSection={onSection}>
-      <View style={{ position: 'absolute', right: wide ? '8%' : 8, top: wide ? 20 : 4 }} pointerEvents="none">
-        <Mascot size={wide ? 120 : 76} accessory="none" mood="happy" bob title="Rồng Con" />
-      </View>
-      <Head light title="Một nền tảng cho cả lớp học" text="Mỗi đối tượng đều có công cụ riêng, nhưng cùng chung một kho kiến thức lịch sử." wide={wide} />
-      <View style={{ flexDirection: wide ? 'row' : 'column', gap: 18, alignItems: 'stretch' }}>
-        {AUDIENCE_CARDS.map((a, i) => (
-          <Reveal key={a.id} delay={i * 90} style={{ flex: wide ? 1 : undefined }}>
-          <Lift fill={wide} style={{ flex: wide ? 1 : undefined }}>
-          <View style={[{ flex: wide ? 1 : undefined, backgroundColor: c.the, borderRadius: 32, padding: 24, gap: 16 }, shadow(c, 'lg')]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Tag text={a.tag} bg={c[a.color]} size={18} rotate={-2} />
-              <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.den, alignItems: 'center', justifyContent: 'center' }}>
-                <ArrowUpRight size={iconPx(15)} color={c.trang} strokeWidth={2} />
-              </View>
-            </View>
-            <Txt f="heavy" size={26} color={c.xanhMuc} style={{ lineHeight: 31, letterSpacing: -0.5 }}>
-              {a.title}
-            </Txt>
-            <View style={{ gap: 10, flex: 1 }}>
-              {AUDIENCE[a.id].map((b) => (
-                <View key={b.title} style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                  <Ico icon={Check} text={15} color={c.ngocChu} />
-                  <Txt f="medium" size={15} color={c.xanhMuc2} style={{ flex: 1 }}>
-                    {b.title}
-                  </Txt>
-                </View>
-              ))}
-            </View>
-            <Cta title={a.cta} tone="den" arrow onPress={a.id === 'nha_truong' ? downloadTemplate : () => router.push('/portal')} />
-          </View>
-          </Lift>
-          </Reveal>
-        ))}
-      </View>
-    </Band>
-  );
-};
-
-const ThesisSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
-  const { c } = useTheme();
-  const tones = [c.son, c.thuy, c.moc, c.hoa, c.son, c.thuy];
-  return (
-    <Band id="de-tai" bg={c.xam} wide={wide} onSection={onSection}>
-      <Head title="Về đề tài nghiên cứu" wide={wide} />
-      <View style={{ flexDirection: wide ? 'row' : 'column', alignItems: 'stretch', gap: 18 }}>
-        <Reveal from="left" style={{ flex: wide ? 1 : undefined }}>
-        <Panel pad={28} style={{ flex: wide ? 1 : undefined, gap: 16 }}>
-          <Tag text="Tên đề tài" bg={c.son} size={16} rotate={-2} />
-          <Txt f="serifBold" size={22} color={c.xanhMuc} style={{ lineHeight: 32 }}>
-            Nghiên cứu và phát triển nền tảng học tập game hóa hỗ trợ khám phá lịch sử ba lần kháng chiến chống Nguyên – Mông thời Trần
-          </Txt>
-          <Txt f="bold" size={13} color={c.xanhMuc2} upper>
-            Mục tiêu
-          </Txt>
-          <View style={{ gap: 12 }}>
-            {GOALS.map((g) => (
-              <View key={g} style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
-                <Ico icon={Check} text={15} color={c.ngocChu} />
-                <Txt size={15} color={c.xanhMuc2} style={{ flex: 1 }}>
-                  {g}
-                </Txt>
-              </View>
-            ))}
-          </View>
-        </Panel>
-        </Reveal>
-        <View style={{ flex: wide ? 1 : undefined, gap: 16 }}>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-            {TECH.map((t, i) => (
-              <Reveal key={t.title} from="right" delay={(i % 2) * 60 + Math.floor(i / 2) * 40} style={{ flexGrow: 1, flexBasis: 200 }}>
-              <Panel pad={16} style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-                <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: tones[i], alignItems: 'center', justifyContent: 'center' }}>
-                  <t.icon size={iconPx(16)} color={c.trang} strokeWidth={1.75} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Txt f="heavy" size={16} color={c.xanhMuc} style={{ lineHeight: 21 }}>
-                    {t.title}
-                  </Txt>
-                  <Txt size={13} color={c.xanhMuc2} style={{ lineHeight: 18 }}>
-                    {t.text}
-                  </Txt>
-                </View>
-              </Panel>
-              </Reveal>
-            ))}
-          </View>
-          <Reveal>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-            <Txt f="semibold" size={14} color={c.xanhMuc2}>
-              Học trên mọi thiết bị:
-            </Txt>
-            <Chip text="Trình duyệt web" icon={Compass} bg={c.the} fg={c.nhan} />
-            <Chip text="Android" icon={Smartphone} bg={c.the} fg={c.nhan} />
-            <Chip text="iPhone, iPad" icon={Smartphone} bg={c.the} fg={c.nhan} />
-          </View>
-          </Reveal>
-        </View>
-      </View>
-    </Band>
-  );
-};
-
-const SchoolSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
-  const { c } = useTheme();
-  return (
-    <Band id="nha-truong" bg={c.the} wide={wide} onSection={onSection}>
-      <Head title="Cấp tài khoản hàng loạt bằng Excel" text="Dành cho nhà trường: điền một file mẫu, quản trị trường nhập là có tài khoản cho cả khối." wide={wide} />
-      <Reveal>
-      <Panel pad={28} style={{ gap: 18 }}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 16 }}>
-          <IconTile icon={FileSpreadsheet} text={18} size={52} />
-          <View style={{ flex: 1, minWidth: 220 }}>
-            <Txt f="heavy" size={19} color={c.xanhMuc} accessibilityRole="header" style={{ lineHeight: 25 }}>
-              File Excel mẫu cấp tài khoản
-            </Txt>
-            <Txt size={14} color={c.xanhMuc2}>
-              Nhà trường tải về (không cần đăng nhập), điền danh sách giáo viên, học sinh rồi gửi cho quản trị trường để cấp tài khoản hàng loạt.
-            </Txt>
-          </View>
-          <Cta title="Tải file mẫu (.xlsx)" tone="den" icon={Download} onPress={downloadTemplate} testID="home-template" />
-        </View>
-        <TemplateGuide />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
-          {([6, 7, 8, 9] as const).map((g) => (
-            <GradeBadge key={g} grade={g} size={28} showName />
-          ))}
-        </View>
-      </Panel>
-      </Reveal>
-    </Band>
-  );
-};
-
 // ---------------------------------------------------------------------- kêu gọi cuối trang và chân trang
 /** Khối tối cuối trang: cảnh bình minh Bạch Đằng, mây trắng nối từ khối trên (kiểu khối ảnh tối + mây của Papumba) */
 const ClosingSection: React.FC<{ wide: boolean }> = ({ wide }) => {
@@ -1177,53 +983,12 @@ const ClosingSection: React.FC<{ wide: boolean }> = ({ wide }) => {
   );
 };
 
-const FootLink: React.FC<{ label: string; onPress: () => void }> = ({ label, onPress }) => {
+/** Chân trang: dải sóng nước đỏ vàng nối khối cuối, rồi dải trắng với logo và tên đề tài */
+const FooterSection: React.FC<{ wide: boolean }> = ({ wide }) => {
   const { c } = useTheme();
-  return (
-    <Pressable accessibilityRole="link" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => ({ minHeight: 44, justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
-      <Txt f="bold" size={16} color={c.trang}>
-        {label}
-      </Txt>
-    </Pressable>
-  );
-};
-
-/** Chân trang: dải sóng nước đỏ vàng, ấn đỏ "Đông A", nhãn vàng "Đến giờ học Sử rồi!", các cột liên kết, bốn Rồng Con, dải trắng với logo */
-const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wide, go }) => {
-  const { c } = useTheme();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   return (
     <View style={{ width: '100%', backgroundColor: c.dem }}>
-      <WaveBand bg={c.son} line={c.vang} />
-      <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: wide ? 64 : 44, paddingBottom: wide ? 36 : 24, gap: 28 }}>
-        <Reveal from="scale">
-          <View style={{ alignItems: 'center', gap: 16 }}>
-            <Seal text={'ĐÔNG\nA'} size={wide ? 84 : 64} />
-            <Tag center text="Đến giờ học Sử rồi!" bg={c.vang} fg={c.dem} size={wide ? 44 : 28} rotate={-2} />
-          </View>
-        </Reveal>
-        <View style={{ flexDirection: wide ? 'row' : 'column', gap: wide ? 48 : 12, justifyContent: 'center', alignItems: wide ? 'flex-start' : 'center' }}>
-          {WEB && (
-            <View style={{ alignItems: wide ? 'flex-start' : 'center' }}>
-              {NAV.map((n) => (
-                <FootLink key={n.id} label={n.label} onPress={() => go(n.id)} />
-              ))}
-            </View>
-          )}
-          <View style={{ alignItems: wide ? 'flex-start' : 'center' }}>
-            <FootLink label="Đăng nhập học tập" onPress={() => router.push('/portal')} />
-            <FootLink label="Tải file Excel mẫu" onPress={downloadTemplate} />
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: wide ? 24 : 6 }} pointerEvents="none">
-          {CAST.map((m, i) => (
-            <Reveal key={m.accessory} delay={i * 80}>
-              <Mascot size={wide ? 140 : 76} accessory={m.accessory} mood={m.mood} bob={i % 2 === 1} title={`Rồng Con ${m.accessory}`} />
-            </Reveal>
-          ))}
-        </View>
-      </View>
       <WaveBand bg={c.son} line={c.vang} height={24} />
       <View style={{ backgroundColor: c.the, paddingBottom: insets.bottom }}>
         <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 18, flexDirection: wide ? 'row' : 'column', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -1247,10 +1012,7 @@ export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; o
     <ExplorerSection wide={wide} onSection={onSection} />
     <CastSection wide={wide} onSection={onSection} />
     <QuotesSection wide={wide} onSection={onSection} />
-    <AudienceSection wide={wide} onSection={onSection} />
-    <ThesisSection wide={wide} onSection={onSection} />
-    <SchoolSection wide={wide} onSection={onSection} />
     <ClosingSection wide={wide} />
-    <FooterSection wide={wide} go={go} />
+    <FooterSection wide={wide} />
   </>
 );
