@@ -19,11 +19,12 @@ import {
 import { LoreChip } from '@/components/game/quiz';
 import { Chip, Txt } from '@/components/ui';
 import { HomeVideo } from '@/components/home-video';
+import { HeroGallery } from '@/components/hero-gallery';
 import { HistoryShowcase } from '@/components/history-showcase';
 import { SectionCloud } from '@/components/section-cloud';
 import { CAMPAIGNS, CAMPAIGN_ROUTES, PHASES, PHASE_REAL } from '@/constants/campaigns';
-import { ELEMENTS, ENEMIES, LORE_LABEL, MAP_PLACES } from '@/constants/game';
-import { HEROES, HERO_BY_ID } from '@/constants/heroes';
+import { ENEMIES, LORE_LABEL, MAP_PLACES } from '@/constants/game';
+import { HERO_BY_ID } from '@/constants/heroes';
 import { ANSWER_STYLES, type Palette } from '@/constants/theme';
 import { Lift, Reveal, useScrollY } from '@/components/motion';
 import { usePopIn, useReduceMotion } from '@/hooks/use-motion';
@@ -861,11 +862,11 @@ const CAST: Array<{ accessory: MascotAccessory; mood: 'happy' | 'excited' | 'lov
   { accessory: 'scholar', mood: 'thinking' },
 ];
 
-/** Thẻ màu của từng danh tướng theo hệ (màu nền lấy từ hệ Thủy/Mộc/Thổ/Hỏa/Thống soái của game) */
+/** Danh tướng nhà Trần: nền xanh mực của logo, lưới tranh minh họa và khung sơ yếu lý lịch (xem components/hero-gallery.tsx) */
 const CastSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
   return (
-    <Band id="danh-tuong" bg={c.xam} wide={wide} onSection={onSection}>
+    <Band id="danh-tuong" bg={c.logoInk} wide={wide} onSection={onSection}>
       <Reveal from="scale">
         <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: wide ? 12 : 4 }} pointerEvents="none">
           {CAST.map((m, i) => (
@@ -873,7 +874,7 @@ const CastSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) 
           ))}
         </View>
       </Reveal>
-      <Head title="Gặp gỡ danh tướng nhà Trần" text="Mỗi nhân vật gắn nhãn nguồn gốc để học sinh phân biệt chính sử với giai thoại và phần sáng tạo của game." wide={wide} />
+      <Head light title="Gặp gỡ danh tướng nhà Trần" text="Chọn một nhân vật để xem sơ yếu lý lịch và công trạng. Mỗi người gắn nhãn nguồn gốc để phân biệt chính sử với giai thoại và phần sáng tạo của game." wide={wide} />
       <Reveal>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
           {Object.keys(LORE_LABEL).map((k) => (
@@ -881,29 +882,7 @@ const CastSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) 
           ))}
         </View>
       </Reveal>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
-        {HEROES.map((h, i) => {
-          const el = ELEMENTS[h.element];
-          return (
-            <Reveal key={h.id} delay={(i % 4) * 70} style={{ width: wide ? 262 : '100%' }}>
-            <Lift style={{ width: '100%' }}>
-            <View style={[{ width: '100%', borderRadius: 28, backgroundColor: c[el.fill], padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14 }, shadow(c, 'sm')]}>
-              <HeroMedallion hero={h} size={72} />
-              <View style={{ flex: 1, gap: 4, alignItems: 'flex-start' }}>
-                <Txt f="heavy" size={18} color={c.trang} style={{ lineHeight: 22 }}>
-                  {h.name}
-                </Txt>
-                <Txt size={13} color={c.trang} style={{ lineHeight: 18 }}>
-                  {h.title}
-                </Txt>
-                <LoreChip lore={h.lore} />
-              </View>
-            </View>
-            </Lift>
-            </Reveal>
-          );
-        })}
-      </View>
+      <HeroGallery wide={wide} />
     </Band>
   );
 };

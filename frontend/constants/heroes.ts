@@ -303,3 +303,179 @@ export const HEROES: HeroDef[] = [
 ];
 
 export const HERO_BY_ID: Record<string, HeroDef> = Object.fromEntries(HEROES.map((h) => [h.id, h]));
+
+/**
+ * Sơ yếu lý lịch tóm tắt của từng danh tướng, viết theo Wikipedia tiếng Việt (bài riêng của từng người và ba bài "Chiến tranh Nguyên Mông – Đại Việt lần 1/2/3").
+ * Dùng ở trang chủ; KHÔNG thay `story`/`stages` của HEROES vì chúng gắn với màn chơi và kho tri thức của Quân Sư AI.
+ * Quy ước: chỉ ghi ngày, năm mà bài có ghi; chuyện còn tranh cãi hoặc là giai thoại thì nói rõ; hai đơn vị quân (Thánh Dực, Sát Thát) viết theo các bài về cuộc chiến.
+ * Giữ ngắn: tóm tắt không quá bốn dòng, mỗi công trạng không quá hai dòng để khung chi tiết vừa một màn hình.
+ */
+export const HERO_PROFILE: Record<string, { years: string; rank: string; origin: string; wars: string; summary: string; deeds: string[] }> = {
+  tran_thai_tong: {
+    years: '1218 – 1277',
+    rank: 'Hoàng đế Đại Việt (1226 – 1258), sau là Thái thượng hoàng',
+    origin: 'Hương Tức Mặc, phủ Thiên Trường (Nam Định)',
+    wars: 'Lần 1 (1258), trực tiếp lãnh đạo',
+    summary: 'Tên thật Trần Cảnh, vị hoàng đế đầu tiên của nhà Trần. Năm 1258 ông thân chinh chống quân Mông Cổ: thất lợi ở Bình Lệ Nguyên, rút lui giữ lực lượng rồi phản công thắng ở Đông Bộ Đầu.',
+    deeds: [
+      'Thân chinh đón đánh quân Mông Cổ ở Bình Lệ Nguyên (17/1/1258), thất lợi nhưng lui quân bảo toàn lực lượng.',
+      'Đêm 28/1/1258 cùng Thái tử Trần Hoảng ngự lâu thuyền đánh vào Đông Bộ Đầu, buộc giặc bỏ Thăng Long.',
+      'Cùng Trần Thủ Độ cải tổ luật pháp, hành chính; là thiền sư, tác giả Khóa hư lục.',
+    ],
+  },
+  tran_thu_do: {
+    years: '1194 – 1264',
+    rank: 'Thái sư (Tể tướng), truy tặng Thượng phụ Thái sư Trung Vũ đại vương',
+    origin: 'Phủ Long Hưng; chú họ của vua Trần Thái Tông',
+    wars: 'Lần 1 (1258)',
+    summary: 'Nhà chính trị có vai trò then chốt khi lập nên nhà Trần, giúp Thái Tông dẹp giặc trong nước, chỉnh đốn mọi việc để Đại Việt đủ mạnh chống Mông Cổ. Sử cũ vừa đề cao tài lược, vừa phê phán một số việc làm của ông.',
+    deeds: [
+      'Làm Điện tiền chỉ huy sứ nhà Lý, sắp đặt việc Lý Chiêu Hoàng nhường ngôi cho Trần Cảnh (1225 – 1226).',
+      'Giữ chức Thái sư, cùng Thái Tông dẹp các thế lực cát cứ, chỉnh đốn việc nước.',
+      'Năm 1258 trấn an nhà vua: “Đầu thần chưa rơi xuống đất, bệ hạ đừng lo gì khác.”',
+    ],
+  },
+  le_phu_tran: {
+    years: 'Sử không ghi năm sinh, năm mất',
+    rank: 'Ngự sử đại phu, Bảo Văn hầu; sau là Thủy quân đại tướng quân',
+    origin: 'Người Ái Châu (Thanh Hóa); có ý kiến cho là dòng dõi Lê Đại Hành',
+    wars: 'Lần 1 (1258)',
+    summary: 'Danh tướng ba đời vua Thái Tông, Thánh Tông, Nhân Tông, tên khác là Lê Tần. Ở Bình Lệ Nguyên (1258), khi quân Trần núng thế, ông một ngựa xông pha, can vua tạm lánh giặc và lấy ván thuyền che tên cho vua.',
+    deeds: [
+      'Che tên cho vua, khuyên vua rút lui giữ lực lượng ở Bình Lệ Nguyên (1258).',
+      'Được phong Ngự sử đại phu, tước Bảo Văn hầu; cùng Chu Bác Lãm đi sứ sang nhà Nguyên.',
+      'Năm 1274 làm Thiếu sư, dạy học Thái tử Trần Khâm (sau là vua Trần Nhân Tông).',
+    ],
+  },
+  thanh_duc: {
+    years: 'Thời Trần (thế kỷ XIII)',
+    rank: 'Một đạo cấm quân của nhà Trần',
+    origin: 'Cấm quân đóng gần kinh thành Thăng Long',
+    wars: 'Cả ba lần kháng chiến',
+    summary: 'Một trong những đạo cấm quân tinh nhuệ, lực lượng chủ lực đóng gần kinh thành. Năm 1258 theo vua Thái Tông ra trận; năm 1285, 600 quân Thánh Dực của Trần Bình Trọng chặn mấy nghìn quân Nguyên ở Đà Mạc.',
+    deeds: [
+      '1258: cùng năm đạo cấm quân khác theo vua chặn quân Mông Cổ ở Bình Lệ Nguyên.',
+      '1285: kiềm chân quân Nguyên qua sáu đợt tấn công ở Đà Mạc, giúp bộ chỉ huy rút lui an toàn.',
+      '1288: dưới quyền Nguyễn Khoái, đánh thẳng vào chính diện đội hình thuyền Nguyên ở Bạch Đằng.',
+    ],
+  },
+  tran_nhan_tong: {
+    years: '1258 – 1308',
+    rank: 'Hoàng đế (1278 – 1293); Phật hoàng, sơ tổ Thiền phái Trúc Lâm',
+    origin: 'Con trưởng vua Trần Thánh Tông, cháu nội Trần Thái Tông',
+    wars: 'Lần 2 (1285) và lần 3 (1287 – 1288)',
+    summary: 'Vị vua thứ ba của nhà Trần, lên ngôi năm 1278 khi chưa đầy 20 tuổi. Ông cùng Thượng hoàng Thánh Tông và Trần Quốc Tuấn lãnh đạo hai cuộc kháng chiến chống Nguyên, về sau xuất gia ở Yên Tử.',
+    deeds: [
+      'Mở Hội nghị Bình Than (cuối 1282); năm 1283 phong Trần Quốc Tuấn làm Quốc công Tiết chế.',
+      'Cùng Thượng hoàng và Hưng Đạo vương đánh bật quân Nguyên (1285), đánh bại cuộc xâm lược 1287 – 1288.',
+      'Năm 1299 lên Yên Tử tu hành, lập Thiền phái Trúc Lâm; năm 2013 được công nhận là một trong 14 anh hùng dân tộc.',
+    ],
+  },
+  tran_hung_dao: {
+    years: 'Mất 5/10/1300 (không rõ năm sinh)',
+    rank: 'Quốc công Tiết chế (tổng chỉ huy); Hưng Đạo Đại vương (1289)',
+    origin: 'Hương Tức Mặc, phủ Thiên Trường; con của Trần Liễu',
+    wars: 'Lần 2 (1285) và lần 3 (1287 – 1288), tổng chỉ huy',
+    summary: 'Tên thật Trần Quốc Tuấn, nhà chiến lược quân sự lớn nhất của nhà Trần. Ông thống lĩnh quân Đại Việt đánh bật quân Nguyên năm 1285 và thắng lớn ở Bạch Đằng năm 1288; dân gian tôn ông là Đức Thánh Trần.',
+    deeds: [
+      'Được phong Quốc công Tiết chế (1283); rút lui bảo toàn lực lượng rồi phản công, giải phóng Thăng Long (1285).',
+      'Năm 1288 bố trí trận địa cọc ngầm trên sông Bạch Đằng, tiêu diệt thủy quân của Ô Mã Nhi.',
+      'Soạn Hịch tướng sĩ (Dụ chư tỳ tướng hịch văn) và Binh thư yếu lược.',
+    ],
+  },
+  tran_quang_khai: {
+    years: '1241 – 1294',
+    rank: 'Thượng tướng Thái sư, Thừa tướng; Chiêu Minh Đại vương',
+    origin: 'Con thứ ba vua Trần Thái Tông, em vua Trần Thánh Tông',
+    wars: 'Lần 2 (1285)',
+    summary: 'Đại thần đầu triều qua ba đời vua, được phong Thượng tướng Thái sư năm 1285. Ông giữ mặt trận Thanh Hóa – Nghệ An rồi chỉ huy đánh tan quân Nguyên ở Chương Dương. Ông còn giỏi thơ, có tập Lạc đạo.',
+    deeds: [
+      'Cùng Phạm Ngũ Lão, Trần Quốc Toản đánh quân Nguyên ở Chương Dương, đốt cháy hoặc chiếm phần lớn chiến thuyền địch (1285).',
+      'Chỉ huy các đơn vị thủy bộ chủ lực tấn công, giải phóng Thăng Long.',
+      'Thơ “Tụng giá hoàn kinh sư”: “Đoạt sáo Chương Dương độ, Cầm hồ Hàm Tử quan.”',
+    ],
+  },
+  tran_binh_trong: {
+    years: '1259 – 1285',
+    rank: 'Bảo Nghĩa hầu; truy phong Bảo Nghĩa vương',
+    origin: 'Sinh ở xã Bảo Thái (nay thuộc Ninh Bình); dòng dõi Lê Hoàn',
+    wars: 'Lần 2 (1285)',
+    summary: 'Danh tướng được giao giữ vùng Đà Mạc – Thiên Mạc để chặn quân Nguyên truy đuổi hai vua Trần. Bị bắt, ông không chịu khuất phục: “Ta thà làm quỷ nước Nam, chứ không thèm làm vương đất Bắc!”',
+    deeds: [
+      'Chỉ huy 600 quân Thánh Dực chặn đánh quân Nguyên ở bãi Đà Mạc, qua sáu đợt tấn công (1285).',
+      'Nhờ trận chặn này, quân Nguyên mất dấu bộ chỉ huy kháng chiến.',
+      'Bị bắt, từ chối dụ hàng, hy sinh khi mới 26 tuổi; sau được truy phong Bảo Nghĩa vương.',
+    ],
+  },
+  tran_nhat_duat: {
+    years: '1255 – 1330',
+    rank: 'Chiêu Văn vương (1267); sau là Thái úy Quốc công, Tể tướng',
+    origin: 'Con thứ sáu vua Trần Thái Tông, sinh ở Thăng Long',
+    wars: 'Lần 2 (1285) và lần 3 (1287 – 1288)',
+    summary: 'Hoàng tử hiếu học, thông thạo tiếng Tống, tiếng Chiêm Thành và am hiểu các nước láng giềng. Năm 1285 ông đón đánh quân Nguyên ở Hàm Tử; năm 1287 – 1288 chỉ huy quân giữ mặt trận phía Việt Trì.',
+    deeds: [
+      'Rút quân an toàn khỏi trại Thu Vật (Yên Bái) về Bạch Hạc, không để quân Nguyên chặn đầu (2/1285).',
+      'Năm 1285 bàn với Hưng Đạo vương rồi đón đánh quân Nguyên ở Hàm Tử, đưa cả người Tống cũ vào đội hình.',
+      'Theo Nguyên sử, năm 1287 – 1288 chỉ huy 4 vạn quân ở cửa Mộc Ngột (Việt Trì), giao chiến với cánh quân Vân Nam.',
+    ],
+  },
+  tran_quoc_toan: {
+    years: '1267 – 1285 (sử cũ chưa thống nhất)',
+    rank: 'Hoài Văn hầu; truy tặng Hoài Văn vương',
+    origin: 'Tôn thất nhà Trần, con của Trần Nhật Duy',
+    wars: 'Lần 2 (1285)',
+    summary: 'Thiếu niên tôn thất nhà Trần. Năm 1282, vì còn nhỏ không được dự Hội nghị Bình Than, ông bóp nát quả cam trong tay, về huy động hơn nghìn gia nô, dựng lá cờ sáu chữ “Phá cường địch, báo hoàng ân”.',
+    deeds: [
+      'Lập đội quân riêng, sắm vũ khí, đóng chiến thuyền dưới lá cờ sáu chữ vàng.',
+      'Năm 1285 luôn đi đầu trong các trận phản công ở Hàm Tử – Tây Kết và Chương Dương.',
+      'Sử chưa ghi rõ ông mất thế nào; vua Nhân Tông thương tiếc, viết văn tế và truy tặng tước vương.',
+    ],
+  },
+  tran_khanh_du: {
+    years: '1240 – 1339 (năm sinh còn nghi vấn)',
+    rank: 'Nhân Huệ vương; Phó đô tướng quân trấn giữ Vân Đồn',
+    origin: 'Quê Chí Linh (Hải Dương); cháu nội Trần Thủ Độ',
+    wars: 'Lần 2 và lần 3, nổi bật ở Vân Đồn (1287 – 1288)',
+    summary: 'Tướng tài nhiều thăng trầm: từng bị tước hết quan tước, phải về Chí Linh bán than. Vua Nhân Tông gặp ông ở bến Bình Than, tha tội và phục chức; cuối năm 1287 ông tập kích đoàn thuyền lương của Trương Văn Hổ ở Vân Đồn.',
+    deeds: [
+      'Được giao trấn giữ cửa biển Vân Đồn trước kháng chiến lần 3.',
+      'Cuối 12/1287 – đầu 1/1288 tiêu diệt đoàn thuyền lương của Trương Văn Hổ, khiến quân Nguyên thiếu lương: bước ngoặt cuộc chiến.',
+      'Viết lời tựa cho sách Vạn Kiếp tông bí truyền thư của Trần Hưng Đạo.',
+    ],
+  },
+  yet_kieu: {
+    years: '1242 – 1303',
+    rank: 'Đô soái thủy quân, tước Hầu; gia tướng của Hưng Đạo Vương',
+    origin: 'Tên thật Phạm Hữu Thế, quê làng Hạ Bì (nay thuộc Hải Phòng)',
+    wars: 'Lần 2 và lần 3',
+    summary: 'Gia thần trung thành của Hưng Đạo Vương, nổi tiếng bơi lặn giỏi. Toàn thư chép ông giữ thuyền ở bãi Tân chờ chủ tướng; dân gian kể ông lặn xuống đục thủng thuyền giặc trong đêm.',
+    deeds: [
+      'Giữ thuyền ở bãi Tân, nhất quyết không dời thuyền khi chưa gặp Đại vương (theo Toàn thư).',
+      'Giai thoại: đêm đêm lặn đục hơn hai mươi lỗ mỗi thuyền giặc, nhét giẻ rồi rút giẻ lúc gần sáng cho thuyền đắm.',
+      'Mất năm 1303; vua Trần cho lập đền thờ ở Hạ Bì (đền Quát), nay là di tích quốc gia.',
+    ],
+  },
+  pham_ngu_lao: {
+    years: '1255 – 1320',
+    rank: 'Điện súy Thượng tướng quân, Quan nội hầu',
+    origin: 'Làng Phù Ủng (nay thuộc Hưng Yên)',
+    wars: 'Lần 2 (1285) và lần 3 (1287 – 1288)',
+    summary: 'Giai thoại kể ông ngồi đan sọt, mải nghĩ việc binh đến nỗi bị giáo đâm vào đùi cũng không hay nên được Hưng Đạo Vương trọng dụng. Ông lập công trong cả hai cuộc kháng chiến chống Nguyên và để lại bài thơ “Thuật hoài”.',
+    deeds: [
+      '1285: cùng Trần Quang Khải đánh Chương Dương, Hàm Tử; rồi mang 3 vạn quân phục kích ở Vạn Kiếp.',
+      '1287 – 1288: tham gia bố trí phục kích đường rút của thủy quân Nguyên trên sông Bạch Đằng.',
+      'Từ 1290 cai quản quân Thánh Dực; ba lần đánh Ai Lao, hai lần Nam chinh Chiêm Thành.',
+    ],
+  },
+  quan_sat_that: {
+    years: 'Những năm chuẩn bị kháng chiến lần 2',
+    rank: 'Không phải đơn vị chính thức: tên chung của các chiến sĩ xăm chữ “Sát Thát”',
+    origin: 'Quân sĩ và dân binh Đại Việt',
+    wars: 'Kháng chiến lần 2 (1285)',
+    summary: 'Sát Thát (殺韃) nghĩa là “giết giặc Thát” (người Mông Cổ). Khi Trần Quốc Tuấn viết Hịch tướng sĩ để nâng cao tinh thần quân sĩ, nhiều chiến sĩ đã xăm hai chữ này lên tay để thể hiện quyết tâm đánh giặc.',
+    deeds: [
+      'Xăm hai chữ “Sát Thát” lên cánh tay như một lời thề đánh giặc.',
+      'Hưởng ứng Hịch tướng sĩ, góp phần nâng cao tinh thần quân sĩ trước cuộc xâm lược năm 1285.',
+    ],
+  },
+};

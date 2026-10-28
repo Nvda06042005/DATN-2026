@@ -2,7 +2,7 @@
  * Hình vẽ của Đông A (react-native-svg, sắc nét ở mọi kích thước): Rồng Con, ô đáp án Kahoot, huy hiệu tướng/quân địch,
  * công trình Điền Trang, nền chiến trận, lược đồ Đại Việt thời Trần (minh họa, không theo tỉ lệ), ảnh pixel của Hành Trình Đông A,
  * huy hiệu bang hội Khối 6 – 9.
- * Không vẽ chân dung nhân vật lịch sử có thật.
+ * Huy hiệu và linh vật không vẽ chân dung người thật; tranh minh họa danh tướng ở trang chủ nằm riêng trong hero-portrait.tsx.
  */
 import React from 'react';
 import { Animated, Easing, Image, Platform, Pressable, StyleSheet, Text, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
