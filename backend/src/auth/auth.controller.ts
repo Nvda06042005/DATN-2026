@@ -8,7 +8,7 @@ import { AuthService, Portal, toPublic } from './auth.service';
 class LoginDto {
   @IsString() @Length(1, 96) username: string;
   @IsString() @Length(1, 128) password: string;
-  /** Trang đăng nhập: root_admin (/root-system-admin), school_admin (/school-manager-admin), teacher (/giao-vien), student (/hoc-sinh); "app" = /portal */
+  /** Trang đăng nhập: root_admin (/admin), school_admin (/school-manager-admin), teacher (/giao-vien), student (/hoc-sinh); "app" = /portal */
   @IsOptional() @IsIn(['root_admin', 'school_admin', 'teacher', 'student', 'app']) portal: Portal = 'app';
 }
 

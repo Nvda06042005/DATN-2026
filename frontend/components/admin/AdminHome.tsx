@@ -1,6 +1,6 @@
 /**
  * Hai cổng quản trị độc lập dùng chung màn hình này (không có nút hay liên kết về trang chủ):
- * - Quản trị tổng (/root-system-admin): toàn hệ thống – các trường, giáo viên, học sinh từng Khối 6 – 9 của mỗi trường; thêm trường, cấp quản trị trường.
+ * - Quản trị tổng (/admin): toàn hệ thống – các trường, giáo viên, học sinh từng Khối 6 – 9 của mỗi trường; thêm trường, cấp quản trị trường.
  * - Quản trị trường (/school-manager-admin): chỉ dữ liệu trường mình (server lọc theo school_id trong token và Row-Level Security của PostgreSQL).
  * Cả hai: tìm kiếm, lọc nhanh tài khoản; nhập file Excel mẫu; duyệt lớp; hàng đợi thư; thùng rác 45 ngày.
  * Mật khẩu cấp thủ công hoặc đặt lại chỉ hiện một lần trong phiếu tài khoản.

@@ -7,7 +7,7 @@ import { applyMigrations, MigrationError, pgConfig } from './migrator';
 // Cột DATE (ngày sinh) giữ dạng chuỗi YYYY-MM-DD, không đổi theo múi giờ máy chủ
 types.setTypeParser(1082, (v: string) => v);
 
-/** root_admin: quản trị tổng (/root-system-admin); school_admin: quản trị một trường (/school-manager-admin) */
+/** root_admin: quản trị tổng (/admin); school_admin: quản trị một trường (/school-manager-admin) */
 export type Role = 'root_admin' | 'school_admin' | 'teacher' | 'student';
 
 export interface UserRow {
@@ -266,7 +266,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       password_hash: await hashPassword(config.adminPassword),
       must_change_password: false,
     });
-    this.logger.warn(`Đã tạo tài khoản quản trị tổng '${config.adminUsername}' (đăng nhập tại trang /root-system-admin). Nên đổi mật khẩu mặc định khi triển khai thật.`);
+    this.logger.warn(`Đã tạo tài khoản quản trị tổng '${config.adminUsername}' (đăng nhập tại trang /admin). Nên đổi mật khẩu mặc định khi triển khai thật.`);
   }
 
   // ------------------------------------------------------------------ tài khoản

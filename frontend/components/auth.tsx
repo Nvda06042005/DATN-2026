@@ -1,5 +1,5 @@
 /**
- * Phiên đăng nhập theo từng trang: học sinh (/hoc-sinh), giáo viên (/giao-vien), quản trị tổng (/root-system-admin),
+ * Phiên đăng nhập theo từng trang: học sinh (/hoc-sinh), giáo viên (/giao-vien), quản trị tổng (/admin),
  * quản trị trường (/school-manager-admin); /portal đăng nhập chung cho giáo viên và học sinh. Hai cổng quản trị tách biệt:
  * không có nút hay liên kết về trang chủ. Mỗi trang giữ token riêng (kho bảo mật của điện thoại hoặc localStorage trên web).
  * Lần đầu đăng nhập bằng mật khẩu mặc định: màn hình chính bị khóa, cửa sổ bắt buộc đặt mật khẩu mới; đổi mật khẩu làm token cũ hết hiệu lực.
@@ -19,10 +19,10 @@ import { useTheme } from '@/hooks/use-theme';
 import { readToken, saveToken } from '@/lib/storage';
 import type { AuthRole, AuthUser, Portal } from '@/types/api';
 
-export const PORTAL_PATH: Record<Portal, '/hoc-sinh' | '/giao-vien' | '/root-system-admin' | '/school-manager-admin'> = {
+export const PORTAL_PATH: Record<Portal, '/hoc-sinh' | '/giao-vien' | '/admin' | '/school-manager-admin'> = {
   student: '/hoc-sinh',
   teacher: '/giao-vien',
-  root_admin: '/root-system-admin',
+  root_admin: '/admin',
   school_admin: '/school-manager-admin',
 };
 export const PORTAL_TITLE: Record<Portal | 'app', string> = {

@@ -466,7 +466,7 @@ Hội Quán Vạn Kiếp nằm trong Doanh Trại. Hồ sơ, Bảng xếp hạng
   - 5 câu cả lớp sai nhiều nhất.
   - Danh sách học sinh cần hỗ trợ.
   - Xuất CSV (đã có) và mở phòng "Thi đấu lớp".
-- **Quản trị:** hai cổng độc lập `/root-system-admin` (quản trị tổng) và `/school-manager-admin` (quản trị trường), cấp tài khoản bằng file Excel mẫu, duyệt lớp, thùng rác 45 ngày – xem README, mục “Cấp tài khoản bằng file Excel”.
+- **Quản trị:** hai cổng độc lập `/admin` (quản trị tổng) và `/school-manager-admin` (quản trị trường), cấp tài khoản bằng file Excel mẫu, duyệt lớp, thùng rác 45 ngày – xem README, mục “Cấp tài khoản bằng file Excel”.
 
 ## 10. Lộ trình và tiêu chí hoàn thành
 

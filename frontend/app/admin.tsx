@@ -1,4 +1,4 @@
-/** /root-system-admin – cổng quản trị tổng (toàn hệ thống); cổng độc lập, không có liên kết về trang chủ */
+/** /admin – cổng quản trị tổng (toàn hệ thống); cổng độc lập, không có liên kết về trang chủ */
 import { AdminHome } from '@/components/admin/AdminHome';
 import { PortalApp } from '@/components/auth';
 

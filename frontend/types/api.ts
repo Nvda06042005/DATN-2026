@@ -1,7 +1,7 @@
 /** Dữ liệu trao đổi với backend NestJS (/api/...) */
 
 // ---------------------------------------------------------------------- tài khoản
-/** root_admin: quản trị tổng (/root-system-admin); school_admin: quản trị một trường (/school-manager-admin) */
+/** root_admin: quản trị tổng (/admin); school_admin: quản trị một trường (/school-manager-admin) */
 export type AuthRole = 'root_admin' | 'school_admin' | 'teacher' | 'student';
 
 /** Trang đăng nhập riêng của từng vai trò (mỗi trang giữ phiên riêng) */

@@ -13,7 +13,7 @@ React Native (Expo) ──HTTPS / WebSocket──► NestJS (Node.js) ──SQL�
 
 | Thư mục | Công nghệ | Vai trò |
 | --- | --- | --- |
-| `frontend/` | Expo SDK 58, React Native 0.88, expo-router, react-native-svg, expo-document-picker | Giao diện cho 4 vai trò. Route: `/` trang chủ công khai (tải file Excel mẫu), `/portal` đăng nhập chung giáo viên – học sinh, `/hoc-sinh` (game), `/giao-vien`, `/root-system-admin` (quản trị tổng), `/school-manager-admin` (quản trị trường). |
+| `frontend/` | Expo SDK 58, React Native 0.88, expo-router, react-native-svg, expo-document-picker | Giao diện cho 4 vai trò. Route: `/` trang chủ công khai (tải file Excel mẫu), `/portal` đăng nhập chung giáo viên – học sinh, `/hoc-sinh` (game), `/giao-vien`, `/admin` (quản trị tổng), `/school-manager-admin` (quản trị trường). |
 | `backend/` | NestJS 11, TypeScript, `pg`, JWT, WebSocket (`ws`) | Đăng nhập & phân quyền, tài khoản, tiến độ, ngân hàng câu hỏi (server giữ đáp án và chấm), trạng thái game, thi đấu cả lớp thời gian thực, gọi dịch vụ AI, chạy migration PostgreSQL. |
 | `ai/` | Python 3.11, FastAPI, scikit-learn, openpyxl | Quân Sư AI: mô hình NLP phân loại ý định + truy xuất kho tri thức (RAG) + Gemini/Hugging Face; Bayesian Knowledge Tracing; soạn đề, soạn truyện; tạo – ký – kiểm tra file Excel mẫu và so khớp dòng nhập lại (`excel_provisioning.py`). Chỉ backend gọi (khóa `AI_SERVICE_TOKEN`). |
 | `database/` | SQL | `migrations/*.sql` đánh số – nguồn duy nhất của mọi thay đổi schema. |
@@ -81,7 +81,7 @@ cp .env.example .env        # EXPO_PUBLIC_API_URL=http://localhost:8000 (điện
 npm run web                 # trình duyệt; hoặc npm start rồi quét mã bằng Expo Go / npm run android
 ```
 
-Quản trị tổng mặc định: `admin` / `admin@123`, đăng nhập tại `/root-system-admin` (đặt `ADMIN_PASSWORD` khi triển khai thật). Quản trị tổng thêm trường và cấp tài khoản quản trị trường; quản trị trường đăng nhập tại `/school-manager-admin`.
+Quản trị tổng mặc định: `admin` / `admin@123`, đăng nhập tại `/admin` (đặt `ADMIN_PASSWORD` khi triển khai thật). Quản trị tổng thêm trường và cấp tài khoản quản trị trường; quản trị trường đăng nhập tại `/school-manager-admin`.
 
 ## Kiểm thử
 

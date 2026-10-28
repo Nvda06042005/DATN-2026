@@ -17,7 +17,7 @@ export const config = {
   authSecret: secret || randomBytes(32).toString('hex'),
   authSecretFromEnv: Boolean(secret),
   tokenTtlHours: Number(env('TOKEN_TTL_HOURS', '12')) || 12,
-  /** Tài khoản quản trị tổng được tạo ở lần chạy đầu tiên – đăng nhập tại trang /root-system-admin */
+  /** Tài khoản quản trị tổng được tạo ở lần chạy đầu tiên – đăng nhập tại trang /admin */
   adminUsername: env('ADMIN_USERNAME', 'admin').toLowerCase(),
   adminPassword: process.env.ADMIN_PASSWORD ?? 'admin@123',
   startingGems: Number(env('STARTING_GEMS', '100')),
