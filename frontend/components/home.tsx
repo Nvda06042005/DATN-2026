@@ -450,6 +450,8 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
   const { height } = useWindowDimensions();
   const minH = Math.min(Math.max(wide ? 780 : 700, height), wide ? 1000 : 900);
   const h1 = wide ? 96 : 50;
+  /** Cụm nhấn: chữ nghiêng có chân (Noto Serif) màu đỏ son, đi cùng chữ không chân đậm ở dòng trên; chữ có chân rộng hơn nên thu nhỏ một chút */
+  const accent = wide ? 92 : 44;
   const reduce = useReduceMotion();
   const scrollY = useScrollY();
   const on = !!scrollY && !reduce;
@@ -474,7 +476,7 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
       <Animated.View style={[{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: insets.top + HEADER_SPACE + (wide ? 36 : 16), alignItems: 'center', gap: 20 }, textFx]}>
         <Txt f="heavy" size={h1} color={c.trang} center accessibilityRole="header" style={[{ lineHeight: wide ? 100 : 54, letterSpacing: wide ? -3.6 : -1.8 }, shade]}>
           Sống lại{'\n'}
-          <Txt f="heavy" size={h1} color={c.vang} style={[{ lineHeight: wide ? 100 : 54, letterSpacing: wide ? -3.6 : -1.8 }, shade]}>
+          <Txt f="serifItalic" size={accent} color={c.sonSang} style={[{ lineHeight: wide ? 108 : 58, letterSpacing: wide ? -2 : -1 }, shade]}>
             hào khí Đông A
           </Txt>
         </Txt>

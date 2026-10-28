@@ -15,6 +15,7 @@ import { BeVietnamPro_700Bold } from '@expo-google-fonts/be-vietnam-pro/700Bold'
 import { BeVietnamPro_800ExtraBold } from '@expo-google-fonts/be-vietnam-pro/800ExtraBold';
 import { NotoSerif_400Regular } from '@expo-google-fonts/noto-serif/400Regular';
 import { NotoSerif_700Bold } from '@expo-google-fonts/noto-serif/700Bold';
+import { NotoSerif_700Bold_Italic } from '@expo-google-fonts/noto-serif/700Bold_Italic';
 import { ToastProvider } from '@/components/ui';
 import { PALETTES } from '@/constants/theme';
 import { ReduceMotionContext, useSystemReduceMotion } from '@/hooks/use-motion';
@@ -28,7 +29,7 @@ export default function RootLayout() {
   const [loaded, error] = useFonts({
     Baloo2_600SemiBold, Baloo2_700Bold, Baloo2_800ExtraBold,
     BeVietnamPro_400Regular, BeVietnamPro_500Medium, BeVietnamPro_600SemiBold, BeVietnamPro_700Bold, BeVietnamPro_800ExtraBold,
-    NotoSerif_400Regular, NotoSerif_700Bold,
+    NotoSerif_400Regular, NotoSerif_700Bold, NotoSerif_700Bold_Italic,
   });
   const reduceMotion = useSystemReduceMotion();
   const ready = loaded || !!error;

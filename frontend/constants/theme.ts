@@ -67,6 +67,8 @@ const light = {
   /** Không đổi theo chế độ sáng/tối: trắng (chữ trên nền tối) và xanh đêm (nền hero, dải kêu gọi, chân trang) */
   trang: '#ffffff',
   dem: '#16253f',
+  /** Đỏ son sáng cho chữ nghiêng nhấn trên ảnh bìa tối (không đổi theo chế độ sáng/tối); đỏ son thường `son` quá tối trên nền cảnh */
+  sonSang: '#ff6a5a',
   /** Màu nhấn trên thẻ (biểu tượng, chữ nổi bật) và nền kính của thanh điều hướng khi đã cuộn */
   nhan: '#0b6cc0',
   kinhDac: 'rgba(255, 255, 255, 0.86)',
@@ -132,7 +134,7 @@ const dark: Palette = {
 /** Chế độ tối chỉ dùng trong game học sinh; trang giáo viên và quản trị luôn dùng giao diện sáng */
 export const PALETTES = { light, dark };
 
-/** Phông chữ: Baloo 2 cho tiêu đề và nút, Be Vietnam Pro cho nội dung, Noto Serif cho trích sử liệu */
+/** Phông chữ: Baloo 2 cho tiêu đề và nút, Be Vietnam Pro cho nội dung, Noto Serif cho trích sử liệu và chữ nghiêng nhấn ở tiêu đề ảnh bìa */
 export const FONT = {
   displayMedium: 'Baloo2_600SemiBold',
   display: 'Baloo2_700Bold',
@@ -144,6 +146,7 @@ export const FONT = {
   heavy: 'BeVietnamPro_800ExtraBold',
   serif: 'NotoSerif_400Regular',
   serifBold: 'NotoSerif_700Bold',
+  serifItalic: 'NotoSerif_700Bold_Italic',
   /** Tên đăng nhập, mật khẩu tạm, mã PIN */
   mono: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'Consolas, "Courier New", monospace' }),
 } as const;
