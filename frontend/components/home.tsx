@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Activity, ArrowDown, ArrowRight, ArrowUpRight, Check, Compass, Database, Download, FileSpreadsheet, Joystick, Landmark, LayoutDashboard, Layers, LibraryBig, Lock,
-  LogIn, Map as MapIcon, MapPin, MapPinned, MessageSquareText, Milestone, Moon, Quote, RadioTower, School, Send, ShieldCheck, ShieldHalf, Smartphone, Sun, Sword, Swords, Table2,
+  LogIn, Map as MapIcon, MapPin, MapPinned, MessageSquareText, Milestone, Moon, Quote, RadioTower, School, Send, ShieldHalf, Smartphone, Sun, Sword, Swords, Table2,
   Target, TrendingUp, Trophy, Undo2, Users, WandSparkles, Zap,
 } from 'lucide-react-native';
 import {
@@ -440,17 +440,16 @@ export const BackToTop: React.FC<{ scrollY: Animated.Value; visible: boolean; on
 
 // ---------------------------------------------------------------------- hero
 /**
- * Hero: ảnh bìa điện ảnh ghép tám khung hình minh họa thành một cảnh chuyển động (xem FilmBackdrop) dưới tiêu đề trắng khổng lồ kiểu Papumba,
- * hai nút trắng và ba mốc năm bấm được. Màn hẹp dùng bản ảnh dọc phủ kín khung.
+ * Hero: ảnh bìa điện ảnh ghép tám khung hình minh họa thành một cảnh chuyển động (xem FilmBackdrop),
+ * tiêu đề Hào Khí Đông A và ba mốc năm bấm được. Màn hẹp dùng bản ảnh dọc phủ kín khung.
  */
 const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wide, go }) => {
   const { c } = useTheme();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const minH = Math.min(Math.max(wide ? 780 : 700, height), wide ? 1000 : 900);
   const h1 = wide ? 96 : 50;
-  /** Cụm nhấn: chữ nghiêng có chân (Newsreader) màu đỏ son, đi cùng chữ không chân đậm ở dòng trên; Newsreader hẹp và thấp hơn nên cùng cỡ với dòng trên */
+  /** Cụm Đông A: chữ nghiêng có chân (Newsreader) màu đỏ son, cùng cỡ với chữ không chân đậm Hào Khí */
   const accent = h1;
   const reduce = useReduceMotion();
   const scrollY = useScrollY();
@@ -475,24 +474,14 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
       </Animated.View>
       <Animated.View style={[{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: insets.top + HEADER_SPACE + (wide ? 36 : 16), alignItems: 'center', gap: 20 }, textFx]}>
         <Txt f="heavy" size={h1} color={c.trang} center accessibilityRole="header" style={[{ lineHeight: wide ? 100 : 54, letterSpacing: wide ? -3.6 : -1.8 }, shade]}>
-          Sống lại{'\n'}
+          Hào Khí{' '}
           <Txt f="serifItalic" size={accent} color={c.sonSang} style={[{ lineHeight: wide ? 108 : 58, letterSpacing: wide ? -2 : -1 }, shade]}>
-            hào khí Đông A
+            Đông A
           </Txt>
         </Txt>
         <Txt f="bold" size={wide ? 24 : 18} color={c.trang} center style={[{ lineHeight: wide ? 32 : 25, maxWidth: 780 }, shade]}>
           Nền tảng học tập game hóa về ba lần kháng chiến chống quân Nguyên – Mông thời Trần
         </Txt>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, justifyContent: 'center' }}>
-          <Cta title="Vào học ngay" tone="trang" icon={LogIn} lg onPress={() => router.push('/portal')} testID="home-portal" />
-          {WEB && <Cta title="Khám phá nội dung" tone="trang" icon={Compass} lg onPress={() => go('kham-pha')} />}
-        </View>
-        <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 999, backgroundColor: c.the }, shadow(c, 'sm')]}>
-          <Ico icon={ShieldCheck} text={14} color={c.nhan} />
-          <Txt f="semibold" size={14} color={c.xanhMuc} style={{ flexShrink: 1 }}>
-            Tài khoản do nhà trường cấp · Học trên web, Android và iOS
-          </Txt>
-        </View>
       </Animated.View>
       <Animated.View style={[{ position: 'absolute', left: 0, right: 0, bottom: wide ? 32 : 14, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: wide ? 18 : 8, paddingHorizontal: 12 }, textFx]}>
         {VICTORIES.map((v) => (
