@@ -454,8 +454,8 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
   const scrollY = useScrollY();
   const on = !!scrollY && !reduce;
   const clampOpt = { extrapolate: 'clamp' } as const;
-  /** Ảnh trôi xuống chậm hơn lúc cuộn (lệch tầng); chữ mờ dần, bay lên và thu nhỏ khi lướt qua */
-  const sceneFx = on ? { transform: [{ translateY: scrollY.interpolate({ inputRange: [0, 800], outputRange: [0, 240], ...clampOpt }) }] } : null;
+  /** Cảnh phóng nhẹ khi cuộn (luôn phủ kín 100% khung, không bị hụt mép); chữ mờ dần, bay lên và thu nhỏ khi lướt qua */
+  const sceneFx = on ? { transform: [{ scale: scrollY.interpolate({ inputRange: [0, 800], outputRange: [1, 1.06], ...clampOpt }) }] } : null;
   const textFx = on
     ? {
         opacity: scrollY.interpolate({ inputRange: [0, 120, 440], outputRange: [1, 1, 0], ...clampOpt }),
@@ -468,8 +468,8 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
   const shade = { textShadowColor: 'rgba(0, 0, 0, 0.55)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 22 } as const;
   return (
     <View style={{ width: '100%', minHeight: minH, backgroundColor: c.dem, overflow: 'hidden' }}>
-      <Animated.View pointerEvents="box-none" style={[StyleSheet.absoluteFill, sceneFx]}>
-        <FilmBackdrop wide={wide} indicator scrim indicatorBottom={wide ? 100 : 76} />
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, sceneFx]}>
+        <FilmBackdrop wide={wide} scrim />
       </Animated.View>
       <Animated.View style={[{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: insets.top + HEADER_SPACE + (wide ? 36 : 16), alignItems: 'center', gap: 20 }, textFx]}>
         <Txt f="heavy" size={h1} color={c.trang} center accessibilityRole="header" style={[{ lineHeight: wide ? 100 : 54, letterSpacing: wide ? -3.6 : -1.8 }, shade]}>
