@@ -29,6 +29,8 @@ Video và ảnh chờ ở `frontend/assets/gioi-thieu-dong-a.mp4` / `gioi-thieu-
 
 Khối “Nơi học sinh khám phá lịch sử” dùng `components/history-showcase.tsx`: nền kem và viền xanh mực theo logo, điểm nhấn đỏ/vàng. Trên web màn rộng, cuộn hoặc kéo lần lượt hiện tiêu đề, khung máy tính bảng trống, rồi nội dung cùng bốn tab; cuộn ngược đảo các bước. Tab chưa hiện được loại khỏi thứ tự bàn phím và cây trợ năng. Điện thoại, màn thấp và Giảm chuyển động hiện đầy đủ ngay, không ghim cảnh. Hook `hooks/use-drag-scroll.ts` dùng chung với video; khi kéo chuột sẽ ngắt đà cuộn mượt để không giằng vị trí.
 
+`components/section-cloud.tsx` nối sáu ranh giới giữa các khối hiện có bằng dải mây chồng nhẹ lên mép nền, không thêm khoảng trống hay thay đổi nội dung. Ba dáng mây, kích thước và hướng lên/xuống được dùng xen kẽ. Màu lấy từ khối liền kề, viền vàng theo logo; chỉ trôi nhẹ khi nằm gần màn hình trên web màn rộng. Điện thoại và Giảm chuyển động giữ dải mây đứng yên; dải trang trí không nhận thao tác chuột hoặc xuất hiện trong cây trợ năng.
+
 ### Xác thực
 
 - Mật khẩu băm PBKDF2-SHA256 (240.000 vòng, muối ngẫu nhiên; mật khẩu mặc định cấp từ file Excel 20.000 vòng vì bắt buộc đổi ở lần đầu); token JWT HS256 ký bằng `AUTH_SECRET_KEY` (kèm mã trường `sid`), hết hạn sau 12 giờ, tự mất hiệu lực khi đổi mật khẩu, khóa hoặc xóa tài khoản.

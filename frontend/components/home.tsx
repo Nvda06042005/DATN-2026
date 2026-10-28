@@ -20,6 +20,7 @@ import { LoreChip } from '@/components/game/quiz';
 import { Chip, Txt } from '@/components/ui';
 import { HomeVideo } from '@/components/home-video';
 import { HistoryShowcase } from '@/components/history-showcase';
+import { SectionCloud } from '@/components/section-cloud';
 import { CAMPAIGNS, CAMPAIGN_ROUTES, PHASES, PHASE_REAL } from '@/constants/campaigns';
 import { ELEMENTS, ENEMIES, LORE_LABEL, MAP_PLACES } from '@/constants/game';
 import { HEROES, HERO_BY_ID } from '@/constants/heroes';
@@ -963,7 +964,6 @@ const ClosingSection: React.FC<{ wide: boolean }> = ({ wide }) => {
   return (
     <View style={{ width: '100%', backgroundColor: c.dem, overflow: 'hidden' }}>
       <FilmBackdrop wide={wide} only={[7]} dim={0.12} scrim />
-      <CloudBank color={c.the} flip height={90} />
       <View style={{ width: '100%', maxWidth: 860, alignSelf: 'center', paddingHorizontal: 16, paddingTop: wide ? 190 : 150, paddingBottom: wide ? 130 : 90 }}>
       <Reveal from="scale">
       <View style={{ alignItems: 'center', gap: 22 }}>
@@ -1003,16 +1003,25 @@ const FooterSection: React.FC<{ wide: boolean }> = ({ wide }) => {
 };
 
 /** Toàn bộ nội dung trang chủ, theo thứ tự từ trên xuống (onSection báo vị trí các phần có neo cho thanh điều hướng) */
-export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; onSection: (id: string, y: number) => void; onVideoImmersiveChange: (on: boolean) => void }> = ({ wide, go, onSection, onVideoImmersiveChange }) => (
+export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; onSection: (id: string, y: number) => void; onVideoImmersiveChange: (on: boolean) => void }> = ({ wide, go, onSection, onVideoImmersiveChange }) => {
+  const { c } = useTheme();
+  return (
   <>
     <HeroSection wide={wide} go={go} />
     <PhaseMarquee wide={wide} onSection={onSection} />
+    <SectionCloud color={c.xam} wide={wide} variant={0} />
     <HomeVideo wide={wide} onImmersiveChange={onVideoImmersiveChange} />
+    <SectionCloud color={c.logoPaper} wide={wide} direction="up" variant={1} />
     <ShowcaseSection wide={wide} onSection={onSection} />
+    <SectionCloud color={c.logoPaper} wide={wide} variant={2} />
     <ExplorerSection wide={wide} onSection={onSection} />
+    <SectionCloud color={c.the} wide={wide} variant={1} />
     <CastSection wide={wide} onSection={onSection} />
+    <SectionCloud color={c.the} wide={wide} direction="up" variant={0} />
     <QuotesSection wide={wide} onSection={onSection} />
+    <SectionCloud color={c.the} wide={wide} variant={2} />
     <ClosingSection wide={wide} />
     <FooterSection wide={wide} />
   </>
-);
+  );
+};
