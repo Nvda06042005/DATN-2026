@@ -1112,15 +1112,15 @@ export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; o
   <>
     <HeroSection wide={wide} go={go} />
     <PhaseMarquee wide={wide} onSection={onSection} />
-    <SectionCloud material="gold" wide={wide} variant={0} />
+    <SectionCloud material="gold" wide={wide} direction="up" variant={1} />
     <HomeVideo wide={wide} onImmersiveChange={onVideoImmersiveChange} />
     <SectionCloud color={c.logoPaper} sound wide={wide} direction="up" variant={1} />
     <ShowcaseSection wide={wide} onSection={onSection} />
-    <SectionCloud material="gold" wide={wide} variant={2} />
+    <SectionCloud material="gold" wide={wide} direction="up" variant={1} />
     <ExplorerSection wide={wide} onSection={onSection} />
-    <SectionCloud material="gold" wide={wide} variant={1} />
+    <SectionCloud material="gold" wide={wide} direction="up" variant={1} />
     <CastSection wide={wide} onSection={onSection} />
-    <SectionCloud material="gold" wide={wide} direction="up" variant={0} />
+    <SectionCloud material="gold" wide={wide} direction="up" variant={1} />
     <QuotesSection wide={wide} onSection={onSection} />
     <SectionCloud color={c.the} sound wide={wide} variant={2} />
     <ClosingSection wide={wide} />
