@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
-import { Play, X } from 'lucide-react-native';
+import { Play, Volume2, VolumeX, X } from 'lucide-react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { PatternOverlay } from '@/components/art';
 import { useScrollY } from '@/components/motion';
@@ -92,6 +92,9 @@ export function HomeVideo({ wide, onImmersiveChange }: { wide: boolean; onImmers
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(false);
   const [ready, setReady] = useState(false);
+  const [previewMuted, setPreviewMuted] = useState(true);
+  const soundWanted = useRef(true);
+  const startPreview = useRef<() => void>(() => undefined);
   const pin = WEB && wide && !reduce;
   const dragging = useDragScroll(trigger, pin);
   const travel = height * 1.1;
@@ -102,8 +105,47 @@ export function HomeVideo({ wide, onImmersiveChange }: { wide: boolean; onImmers
 
   useEffect(() => {
     if (previewStatus === 'readyToPlay') setReady(true);
-    if (WEB && visible && !open && !reduce && previewStatus === 'readyToPlay') playVideo(player, preview.current);
-    else player.pause();
+    if (!WEB) return undefined;
+    let disposed = false;
+    let attempt = 0;
+    const active = visible && !open && !reduce && previewStatus === 'readyToPlay';
+    const start = () => {
+      const request = ++attempt;
+      if (disposed || !active || document.hidden) { player.pause(); return; }
+      const video = (preview.current as unknown as HTMLElement | null)?.querySelector('video');
+      if (!video) return;
+      player.volume = 1;
+      player.muted = !soundWanted.current;
+      setPreviewMuted(player.muted);
+      void video.play().catch((error: unknown) => {
+        // Lần ghé đầu có thể chưa được phép tự phát có tiếng. Giữ hình chạy và cho bật tiếng ngay tại video.
+        if (disposed || request !== attempt || !(error instanceof DOMException) || error.name !== 'NotAllowedError') return;
+        player.muted = true;
+        setPreviewMuted(true);
+        void video.play().catch(() => undefined);
+      });
+    };
+    const interact = (event: Event) => {
+      // Nút âm thanh tự xử lý lần bấm; không đổi trạng thái trước khi onPress chạy.
+      if (event.target instanceof Element && event.target.closest('[data-testid="home-video-sound"]')) return;
+      start();
+    };
+    startPreview.current = start;
+    start();
+    // Thử lại trong thao tác thật của người xem, kể cả khi họ giữ chuột kéo khung video.
+    window.addEventListener('pointerdown', interact, { passive: true });
+    window.addEventListener('pointerup', interact, { passive: true });
+    window.addEventListener('keydown', interact, { passive: true });
+    document.addEventListener('visibilitychange', start);
+    return () => {
+      disposed = true;
+      startPreview.current = () => undefined;
+      window.removeEventListener('pointerdown', interact);
+      window.removeEventListener('pointerup', interact);
+      window.removeEventListener('keydown', interact);
+      document.removeEventListener('visibilitychange', start);
+      player.pause();
+    };
   }, [player, visible, open, reduce, previewStatus]);
 
   useEffect(() => {
@@ -116,7 +158,9 @@ export function HomeVideo({ wide, onImmersiveChange }: { wide: boolean; onImmers
       raf = 0;
       const r = el.getBoundingClientRect();
       progress.setValue(pin ? clamp(-r.top / travel) : 0);
-      setVisible(r.bottom > 0 && r.top < height);
+      const videoRect = (preview.current as unknown as HTMLElement | null)?.getBoundingClientRect();
+      const shown = videoRect ? Math.min(videoRect.bottom, height) - Math.max(videoRect.top, 0) : 0;
+      setVisible(!!videoRect && shown > Math.min(videoRect.height, height) * 0.5);
       const immersive = pin && r.top <= 80 && r.bottom >= height;
       if (immersive !== wasImmersive) { wasImmersive = immersive; onImmersiveChange(immersive); }
     };
@@ -178,6 +222,21 @@ export function HomeVideo({ wide, onImmersiveChange }: { wide: boolean; onImmers
               <Play size={wide ? 42 : 30} color={c.trang} fill={c.trang} style={{ marginLeft: 5 }} />
             </View>
           </Pressable>
+          {WEB && !reduce && (
+            <Pressable
+              testID="home-video-sound"
+              accessibilityRole="button"
+              accessibilityLabel={previewMuted ? 'Bật tiếng video' : 'Tắt tiếng video'}
+              onPress={() => {
+                soundWanted.current = previewMuted;
+                startPreview.current();
+              }}
+              style={{ position: 'absolute', right: 12, bottom: 12, zIndex: 2, minHeight: 44, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 24, borderWidth: 1, borderColor: c.logoGold, backgroundColor: c.logoInk }}
+            >
+              {previewMuted ? <VolumeX size={19} color={c.trang} /> : <Volume2 size={19} color={c.trang} />}
+              <Txt f="semibold" size={12} color={c.trang}>{previewMuted ? 'Bật tiếng video' : 'Tắt tiếng video'}</Txt>
+            </Pressable>
+          )}
         </Animated.View>
       </View>
       <Modal visible={open} transparent animationType={reduce ? 'none' : 'fade'} onRequestClose={close} onShow={() => { if (WEB) (closeButton.current as unknown as HTMLElement | null)?.focus(); }} statusBarTranslucent>
