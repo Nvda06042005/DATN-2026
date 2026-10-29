@@ -1,19 +1,18 @@
 /**
- * Thư viện danh tướng nhà Trần của trang chủ (kiểu lưới biểu tượng kèm khung chi tiết): bên trái là lưới thẻ có tranh minh họa, bên phải là
- * khung sơ yếu lý lịch tóm tắt của người đang chọn (khung dính theo khi cuộn). Điện thoại: lưới hai cột, khung mở ngay dưới hàng vừa bấm.
+ * Thư viện danh tướng: ảnh tượng, phù điêu và tư liệu có nguồn. Lưới và khung chi tiết
+ * hiển thị ngay, không trượt/hiện dần/nhấc thẻ; khung chi tiết không dính khi cuộn.
+ * Điện thoại: lưới hai cột, khung mở ngay dưới hàng vừa bấm.
  * Màu theo bảng màu logo như các khối phía trên (nền giấy kem, chữ mực xanh, đỏ cờ làm điểm nhấn). Dữ liệu: HEROES (tên, danh hiệu, nhãn nguồn) và HERO_PROFILE (sơ yếu lý lịch theo Wikipedia) trong constants/heroes.ts.
  */
 import React, { useState } from 'react';
-import { Animated, Platform, Pressable, View, useWindowDimensions, type ViewStyle } from 'react-native';
+import { Pressable, View, useWindowDimensions, type ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowUpRight } from 'lucide-react-native';
 import { LoreChip } from '@/components/game/quiz';
-import { HeroPortrait } from '@/components/hero-portrait';
-import { Lift, Reveal } from '@/components/motion';
+import { HeroPhoto, HeroPhotoCredit } from '@/components/hero-photo';
 import { Txt } from '@/components/ui';
-import { ELEMENTS, TIER_INFO } from '@/constants/game';
+import { TIER_INFO } from '@/constants/game';
 import { HEROES, HERO_PROFILE } from '@/constants/heroes';
-import { usePopIn } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
 import type { HeroDef } from '@/types/game';
 
@@ -21,8 +20,6 @@ const MAX_W = 1120;
 const DEFAULT_ID = 'tran_hung_dao';
 const INK_SOFT = 'rgba(35, 56, 47, 0.78)';
 const INK_LINE = 'rgba(35, 56, 47, 0.16)';
-/** Khung chi tiết dính theo khi cuộn (chỉ web) */
-const STICKY = (Platform.OS === 'web' ? { position: 'sticky', top: 84 } : null) as unknown as ViewStyle;
 
 const rows = <T,>(list: T[], n: number) => Array.from({ length: Math.ceil(list.length / n) }, (_, i) => list.slice(i * n, i * n + n));
 
@@ -37,10 +34,10 @@ export const HeroGallery: React.FC<{ wide: boolean }> = ({ wide }) => {
   const tileW = Math.floor((gridW - (cols - 1) * 12) / cols);
   const hero = HEROES.find((h) => h.id === current) ?? null;
 
-  const tile = (h: HeroDef, i: number) => (
-    <Reveal key={h.id} delay={(i % cols) * 70} style={{ width: tileW }}>
+  const tile = (h: HeroDef) => (
+    <View key={h.id} style={{ width: tileW }}>
       <Tile hero={h} w={tileW} active={h.id === current} onPress={() => setSel(!wide && h.id === current ? null : h.id)} />
-    </Reveal>
+    </View>
   );
 
   if (!wide) {
@@ -48,7 +45,7 @@ export const HeroGallery: React.FC<{ wide: boolean }> = ({ wide }) => {
       <View style={{ gap: 12 }}>
         {rows(HEROES, cols).map((row, r) => (
           <View key={r} style={{ gap: 12 }}>
-            <View style={{ flexDirection: 'row', gap: 12 }}>{row.map((h, i) => tile(h, r * cols + i))}</View>
+            <View style={{ flexDirection: 'row', gap: 12 }}>{row.map(tile)}</View>
             {hero && row.some((h) => h.id === hero.id) && <Detail hero={hero} wide={false} />}
           </View>
         ))}
@@ -59,24 +56,24 @@ export const HeroGallery: React.FC<{ wide: boolean }> = ({ wide }) => {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 28 }}>
       <View style={{ width: gridW, flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>{HEROES.map(tile)}</View>
-      <View style={[{ width: panelW }, STICKY]}>{hero && <Detail hero={hero} wide />}</View>
+      <View style={{ width: panelW }}>{hero && <Detail hero={hero} wide />}</View>
     </View>
   );
 };
 
-/** Một thẻ trong lưới: tranh minh họa, tên và danh hiệu; thẻ đang chọn viền vàng */
+/** Thẻ ảnh tư liệu cố định; thẻ đang chọn có viền đỏ theo logo. */
 const Tile: React.FC<{ hero: HeroDef; w: number; active: boolean; onPress: () => void }> = ({ hero, w, active, onPress }) => {
   const { c } = useTheme();
-  const el = ELEMENTS[hero.element];
   const art = Math.min(150, w - 24);
   const h = Math.round(art * 1.2) + 74;
   return (
-    <Lift style={{ width: w, height: h }}>
+    <View style={{ width: w, height: h }}>
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={`${hero.name}, ${hero.title}`}
         accessibilityState={{ selected: active }}
+        aria-pressed={active}
         testID={`hero-tile-${hero.id}`}
         style={({ pressed }) => ({
           width: w, height: h, alignItems: 'center', paddingTop: 12, paddingBottom: 12, paddingHorizontal: 8, borderRadius: 26, borderWidth: 1.5,
@@ -85,7 +82,7 @@ const Tile: React.FC<{ hero: HeroDef; w: number; active: boolean; onPress: () =>
           opacity: pressed ? 0.9 : 1,
         })}
       >
-        <HeroPortrait id={hero.id} size={art} accent={c[el.fill]} />
+        <HeroPhoto id={hero.id} size={art} />
         <Txt f="bold" size={14.5} color={c.logoInk} center style={{ marginTop: 2, lineHeight: 19 }}>
           {hero.name}
         </Txt>
@@ -93,17 +90,15 @@ const Tile: React.FC<{ hero: HeroDef; w: number; active: boolean; onPress: () =>
           {hero.title}
         </Txt>
       </Pressable>
-    </Lift>
+    </View>
   );
 };
 
-/** Khung sơ yếu lý lịch: tranh lớn, tên, danh hiệu, tóm tắt, bảng thông tin, công trạng và liên kết vào game */
+/** Khung chi tiết: ảnh lớn có chú thích/nguồn, thông tin nhân vật và liên kết vào game. */
 const Detail: React.FC<{ hero: HeroDef; wide: boolean }> = ({ hero, wide }) => {
   const { c } = useTheme();
   const router = useRouter();
-  const pop = usePopIn(hero.id);
   const p = HERO_PROFILE[hero.id];
-  const el = ELEMENTS[hero.element];
   const soft = INK_SOFT;
   if (!p) return null;
   const row = (label: string, text: string) => (
@@ -120,9 +115,9 @@ const Detail: React.FC<{ hero: HeroDef; wide: boolean }> = ({ hero, wide }) => {
       testID="hero-detail"
       style={{ borderRadius: 30, padding: wide ? 20 : 16, backgroundColor: 'rgba(255, 255, 255, 0.78)', borderWidth: 1, borderColor: INK_LINE, boxShadow: '0 10px 30px rgba(35, 56, 47, 0.10)' } as unknown as ViewStyle}
     >
-      <Animated.View style={[{ gap: 10 }, pop]}>
+      <View style={{ gap: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <HeroPortrait id={hero.id} size={wide ? 168 : 128} accent={c[el.fill]} />
+          <HeroPhoto id={hero.id} size={wide ? 168 : 128} />
           <View style={{ flex: 1, gap: 6, alignItems: 'flex-start' }}>
             <Txt f="heavy" size={wide ? 28 : 24} color={c.logoInk} accessibilityRole="header" style={{ lineHeight: wide ? 32 : 28, letterSpacing: -0.6 }}>
               {hero.name}
@@ -167,10 +162,8 @@ const Detail: React.FC<{ hero: HeroDef; wide: boolean }> = ({ hero, wide }) => {
           </Txt>
           <ArrowUpRight size={18} color={c.logoRed} strokeWidth={2.2} />
         </Pressable>
-        <Txt size={12} color="rgba(35, 56, 47, 0.62)" style={{ lineHeight: 17 }}>
-          Tranh minh họa cách điệu, không phải chân dung đương thời (không còn chân dung của các nhân vật này). Nội dung theo Wikipedia tiếng Việt.
-        </Txt>
-      </Animated.View>
+        <HeroPhotoCredit id={hero.id} />
+      </View>
     </View>
   );
 };
