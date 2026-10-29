@@ -84,6 +84,10 @@ const light = {
   logoRed: '#b53520',
   logoGold: '#dfb66f',
   logoPaper: '#faf4e7',
+  /** Giao diện quản trị: nền trung tính, đường kẻ mảnh và hàng tiêu đề bảng. */
+  adminCanvas: '#f5f5f8',
+  adminLine: '#e8e6eb',
+  adminTint: '#fcf6f6',
   /** Chất liệu mây vàng be nhạt, giữ cùng tông logo ở cả hai chế độ. */
   cloudGoldTip: '#efdcae',
   cloudGoldBase: '#f9f0d9',

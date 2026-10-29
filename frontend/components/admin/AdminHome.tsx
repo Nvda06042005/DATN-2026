@@ -8,16 +8,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import { LinearGradient } from 'expo-linear-gradient';
 import {
-  AlertTriangle, Check, ClipboardCopy, FileSpreadsheet, KeyRound, LayoutDashboard, Lock, Mail, MapPin, Printer, School, Search, ShieldCheck, Trash2, Unlock, UserPlus, Users,
+  AlertTriangle, Check, ClipboardCopy, FileSpreadsheet, KeyRound, LayoutDashboard, Lock, Mail, MapPin, MoreVertical, Printer, School, Search, ShieldCheck, Trash2, Unlock, UserPlus, Users,
 } from 'lucide-react-native';
+import { AdminWorkspace } from './AdminWorkspace';
+import { AdminSelect } from './AdminSelect';
 import * as adminApi from '@/api/adminApi';
 import { ApiError, errorMessage } from '@/api/client';
-import { GradeBadge, Mascot } from '@/components/art';
-import { PORTAL_PATH, PORTAL_TITLE, ROLE_LABEL, TopBar, type Session } from '@/components/auth';
+import { GradeBadge } from '@/components/art';
+import { PORTAL_PATH, PORTAL_TITLE, ROLE_LABEL, type Session } from '@/components/auth';
 import { ClassReviewPanel, ImportPanel, IncompletePanel, NotificationBell, OutboxPanel, TrashPanel, useFail } from '@/components/provisioning';
-import { Avatar, Bar, Btn, Card, Chip, ConfirmSheet, EmptyState, Field, Inset, PaperBg, PressCard, Segmented, Sheet, Skeleton, Spinner, Txt, useToast } from '@/components/ui';
+import { AdminUiContext, Avatar, Bar, Btn, Card, Chip, ConfirmSheet, EmptyState, Field, Inset, PressCard, Segmented, Sheet, Skeleton, Spinner, Txt, useToast } from '@/components/ui';
 import { onFill, type Palette } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { currentSchoolYear, fmt, formatDateTime, pct, webHref } from '@/lib/format';
@@ -30,7 +31,7 @@ type Modal = null | { kind: 'account'; role?: ManagedRole; schoolId?: number } |
 const GRADES: Grade[] = [6, 7, 8, 9];
 
 const roleChip = (c: Palette, role: AuthRole) =>
-  role === 'root_admin' || role === 'school_admin' ? { bg: c.dongNhat, fg: c.dongChu } : role === 'teacher' ? { bg: c.thongNhat, fg: c.thongChu } : { bg: c.ngocNhat, fg: c.ngocChu };
+  role === 'root_admin' || role === 'school_admin' ? { bg: c.sonNhat, fg: c.sonChu } : role === 'teacher' ? { bg: c.thongNhat, fg: c.thongChu } : { bg: c.ngocNhat, fg: c.ngocChu };
 
 /** Trang đăng nhập ghi trên phiếu: giáo viên, học sinh dùng /portal; quản trị trường dùng cổng riêng */
 const loginUrl = (role: AuthRole) => {
@@ -45,8 +46,8 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
   const toast = useToast();
   const fail = useFail(session);
   const { width } = useWindowDimensions();
-  const wide = width >= 900;
-  const [tab, setTab] = useState<AdminTab>('overview');
+  const wide = width >= 1000;
+  const [tab, setTab] = useState<AdminTab>('users');
   const [ov, setOv] = useState<AdminOverview | null>(null);
   const [ovError, setOvError] = useState<string | null>(null);
   const [preset, setPreset] = useState<{ key: number; filters: UserFilters }>({ key: 0, filters: {} });
@@ -91,16 +92,16 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
   };
 
   const nav: Array<{ id: AdminTab; label: string; icon: IconType; color: string; count?: number }> = [
-    { id: 'overview', label: 'Tổng quan', icon: LayoutDashboard, color: c.dong },
+    { id: 'users', label: 'Tài khoản', icon: Users, color: c.son },
+    { id: 'overview', label: 'Tổng quan', icon: LayoutDashboard, color: c.son },
     ...(system ? [{ id: 'schools' as const, label: 'Trường học', icon: School, color: c.thuy, count: ov?.schools }] : []),
-    { id: 'users', label: 'Tài khoản', icon: Users, color: c.ngocDam, count: ov ? ov.teachers + ov.students : undefined },
     { id: 'import', label: 'Nhập Excel', icon: FileSpreadsheet, color: c.ngoc, count: ov?.incomplete || undefined },
     { id: 'classes', label: 'Duyệt lớp', icon: Check, color: c.vang, count: ov?.pending_classes || undefined },
     { id: 'mail', label: 'Thư gửi', icon: Mail, color: c.thuy, count: mailWaiting || undefined },
     { id: 'trash', label: 'Thùng rác', icon: Trash2, color: c.son, count: ov?.trash || undefined },
   ];
   const TITLES: Record<AdminTab, [string, string]> = {
-    overview: system ? ['Bảng chỉ huy hệ thống', 'Toàn bộ trường, giáo viên và học sinh khối 6 – 9'] : [mySchool?.name ?? 'Trường của bạn', `Mã trường ${mySchool?.school_code ?? '—'} · chỉ dữ liệu của trường bạn`],
+    overview: system ? ['Tổng quan hệ thống', 'Toàn bộ trường, giáo viên và học sinh khối 6 – 9'] : [mySchool?.name ?? 'Trường của bạn', `Mã trường ${mySchool?.school_code ?? '—'} · chỉ dữ liệu của trường bạn`],
     schools: ['Trường học', 'Thêm trường, cấp tài khoản quản trị trường'],
     users: ['Tài khoản', system ? 'Tìm và lọc tài khoản của mọi trường' : 'Giáo viên, học sinh của trường'],
     import: ['Nhập file Excel', 'Cấp tài khoản hàng loạt từ file mẫu, gửi thư đăng nhập'],
@@ -110,7 +111,8 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
   };
 
   const header = (
-    <View style={{ gap: 16, paddingBottom: 12 }}>
+    <View style={{ gap: 16, paddingBottom: 20 }}>
+      <Txt f="bold" upper size={10} color={c.son} style={{ letterSpacing: 1.4 }}>Quản lý {tab === 'users' ? 'tài khoản' : TITLES[tab][0].toLowerCase()}</Txt>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
         <View style={{ flexShrink: 1 }}>
           <Txt f="displayHeavy" size={28} accessibilityRole="header">
@@ -122,17 +124,9 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
         </View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {system && (tab === 'overview' || tab === 'schools') && <Btn title="Thêm trường" icon={School} tone="giay" onPress={() => setModal({ kind: 'school' })} />}
-          <Btn title="Cấp tài khoản" icon={UserPlus} tone="ngoc" onPress={() => setModal({ kind: 'account' })} testID="admin-create" />
+          {tab !== 'users' && <Btn title="Cấp tài khoản" icon={UserPlus} tone="son" onPress={() => setModal({ kind: 'account' })} testID="admin-create" />}
         </View>
       </View>
-      {!wide && (
-        <Segmented
-          label="Mục quản trị"
-          options={nav.map((n) => ({ value: n.id, label: n.count === undefined ? n.label : `${n.label} (${n.count})` }))}
-          value={tab}
-          onChange={setTab}
-        />
-      )}
       {ovError && (
         <Inset style={{ backgroundColor: c.sonNhat, flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <AlertTriangle size={16} color={c.sonChu} />
@@ -181,67 +175,16 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      <PaperBg />
-      <TopBar
-        session={session}
-        subtitle={system ? 'Quản trị tổng: toàn hệ thống Đông A' : `Quản trị trường ${mySchool?.name ?? ''}`}
-        extra={system ? undefined : <NotificationBell session={session} />}
-      />
-      <View style={{ flex: 1, flexDirection: 'row' }}>
-        {wide && (
-          <View style={{ width: 240, padding: 16, gap: 8, borderRightWidth: 2, borderRightColor: c.vien, backgroundColor: c.the }}>
-            {nav.map((n) => {
-              const on = tab === n.id;
-              const Icon = n.icon;
-              return (
-                <Pressable
-                  key={n.id}
-                  onPress={() => setTab(n.id)}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: on }}
-                  accessibilityLabel={n.count === undefined ? n.label : `${n.label}: ${n.count}`}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingHorizontal: 10, borderRadius: 14, borderWidth: 2, borderColor: on ? c.ngoc : 'transparent', backgroundColor: on ? c.ngocNhat : 'transparent' }}
-                >
-                  <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: n.color, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 3, borderBottomColor: 'rgba(0,0,0,0.18)' }}>
-                    <Icon size={18} color={onFill(c, n.color)} strokeWidth={2.6} />
-                  </View>
-                  <Txt f="display" size={15} color={on ? c.ngocChu : c.muc2} upper style={{ flex: 1 }}>
-                    {n.label}
-                  </Txt>
-                  {n.count !== undefined && <Chip text={fmt(n.count)} bg={c.giay2} fg={c.muc2} style={{ alignSelf: 'center' }} />}
-                </Pressable>
-              );
-            })}
-            <Inset style={{ backgroundColor: c.dongNhat, marginTop: 'auto', gap: 2 }}>
-              <Txt f="bold" size={12} color={c.dongChu}>
-                {ROLE_LABEL[me.role]}
-              </Txt>
-              <Txt f="mono" size={12} color={c.dongChu} numberOfLines={1}>
-                {me.username}
-              </Txt>
-            </Inset>
-          </View>
-        )}
+    <AdminUiContext.Provider value>
+      <AdminWorkspace session={session} nav={nav} active={tab} onSelect={setTab} extra={system ? undefined : <NotificationBell session={session} />}>
         {tab === 'users' ? (
-          <UsersTab
-            key={preset.key}
-            session={session}
-            system={system}
-            schools={schools}
-            preset={preset.filters}
-            reloadKey={reloadKey}
-            header={header}
-            onCred={showCred}
-            onChanged={refresh}
-          />
+          <UsersTab key={preset.key} session={session} system={system} schools={schools} preset={preset.filters} reloadKey={reloadKey} header={header} onCreate={() => setModal({ kind: 'account' })} onCred={showCred} onChanged={refresh} />
         ) : (
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 16, width: '100%', maxWidth: 1100, alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
-            {header}
-            {body()}
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: wide ? 28 : 16, gap: 16, width: '100%', maxWidth: 1600, alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+            {header}{body()}
           </ScrollView>
         )}
-      </View>
+      </AdminWorkspace>
       {modal?.kind === 'account' && (
         <CreateAccountSheet
           token={token}
@@ -265,7 +208,7 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
         />
       )}
       {cred && <CredentialsSheet title={cred.title} cred={cred.item} onClose={() => setCred(null)} />}
-    </View>
+    </AdminUiContext.Provider>
   );
 };
 
@@ -306,40 +249,39 @@ const Overview: React.FC<{ ov: AdminOverview | null; system: boolean; onUsers: (
   ];
   return (
     <View style={{ gap: 16 }}>
-      <LinearGradient colors={['#ffb020', '#ff9600', '#e98200']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 26, padding: 22, borderBottomWidth: 6, borderBottomColor: '#c97500' }}>
+      <Card pad={24} style={{ gap: 12 }}>
         <View style={{ flexDirection: width >= 760 ? 'row' : 'column', alignItems: width >= 760 ? 'center' : 'flex-start', gap: 16 }}>
           <View style={{ flex: 1, gap: 8, alignSelf: 'stretch' }}>
-            <Chip text={system ? 'QUẢN TRỊ TỔNG · TOÀN HỆ THỐNG' : `QUẢN TRỊ TRƯỜNG · MÃ ${school?.school_code ?? '—'}`} bg="rgba(255,255,255,0.35)" fg="#3a1d00" />
-            <Txt f="displayHeavy" size={28} color="#2a1500">
+            <Chip text={system ? 'QUẢN TRỊ TỔNG · TOÀN HỆ THỐNG' : `QUẢN TRỊ TRƯỜNG · MÃ ${school?.school_code ?? '—'}`} bg={c.adminTint} fg={c.son} />
+            <Txt f="displayHeavy" size={28} color={c.muc}>
               {system ? `${fmt(ov.schools)} trường đang tham gia` : (school?.name ?? 'Trường của bạn')}
             </Txt>
-            <Txt f="semibold" color="#3a1d00">
+            <Txt f="semibold" color={c.muc2}>
               {fmt(ov.teachers)} giáo viên · {fmt(ov.students)} học sinh
               {!system && school?.city ? ` · ${school.city}` : ''}
             </Txt>
             <View style={{ gap: 4, marginTop: 4 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Txt f="bold" size={13} color="#3a1d00">
+                <Txt f="bold" size={13} color={c.muc2}>
                   Tài khoản đã kích hoạt
                 </Txt>
-                <Txt f="display" size={14} color="#2a1500" style={{ fontVariant: ['tabular-nums'] }}>
+                <Txt f="display" size={14} color={c.muc} style={{ fontVariant: ['tabular-nums'] }}>
                   {fmt(activated)}/{fmt(people)}
                 </Txt>
               </View>
-              <Bar value={activated} max={people} height={16} fill={c.ngoc} label={`Đã kích hoạt ${activated} trên ${people} tài khoản`} style={{ backgroundColor: 'rgba(255,255,255,0.45)' }} />
+              <Bar value={activated} max={people} height={16} fill={c.son} label={`Đã kích hoạt ${activated} trên ${people} tài khoản`} style={{ backgroundColor: c.adminCanvas }} />
             </View>
           </View>
-          {width >= 760 && <Mascot size={130} accessory="crown" mood="excited" bob title="Rồng Con chỉ huy" />}
         </View>
-      </LinearGradient>
+      </Card>
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
         {tiles.map((t) => {
           const Icon = t.icon;
           return (
             <Card key={t.label} style={{ flexGrow: 1, flexBasis: 150, gap: 6 }} pad={14}>
-              <View style={{ width: 42, height: 42, borderRadius: 14, backgroundColor: t.color, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 4, borderBottomColor: 'rgba(0,0,0,0.18)' }}>
-                <Icon size={22} color={onFill(c, t.color)} />
+              <View style={{ width: 42, height: 42, borderRadius: 6, backgroundColor: c.adminTint, alignItems: 'center', justifyContent: 'center' }}>
+                <Icon size={22} color={c.son} />
               </View>
               <Txt f="displayHeavy" size={26} accessibilityLabel={`${t.label}: ${t.value}`}>
                 {fmt(t.value)}
@@ -354,7 +296,7 @@ const Overview: React.FC<{ ov: AdminOverview | null; system: boolean; onUsers: (
 
       <Card style={{ gap: 12 }}>
         <Txt f="display" size={19} accessibilityRole="header">
-          Bang hội theo khối
+          Học sinh theo khối
         </Txt>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
           {GRADES.map((g) => (
@@ -482,12 +424,15 @@ const UsersTab: React.FC<{
   reloadKey: number;
   header: React.ReactElement;
   onCred: (title: string, item: AccountCredential) => void;
+  onCreate: () => void;
   onChanged: () => void;
-}> = ({ session, system, schools, preset, reloadKey, header, onCred, onChanged }) => {
+}> = ({ session, system, schools, preset, reloadKey, header, onCred, onCreate, onChanged }) => {
   const { c } = useTheme();
   const toast = useToast();
   const fail = useFail(session);
   const me = session.user;
+  const { width } = useWindowDimensions();
+  const table = width >= 1180;
   const [q, setQ] = useState('');
   const [query, setQuery] = useState('');
   const [role, setRole] = useState<AuthRole | 'all'>(preset.role ?? 'all');
@@ -590,43 +535,45 @@ const UsersTab: React.FC<{
     { value: 'student', label: 'Học sinh' },
   ];
   const facetPicker = (label: string, values: string[] | undefined, value: string, onChange: (v: string) => void) =>
-    values && values.length > 1 ? <Segmented label={label} options={[{ value: 'all', label: `${label}: tất cả` }, ...values.map((v) => ({ value: v, label: v }))]} value={value} onChange={onChange} /> : null;
-
+    values && values.length > 1 ? <View style={{ flexGrow: 1, flexBasis: 160 }}><AdminSelect label={label} options={[{ value: 'all', label: 'Tất cả' }, ...values.map(v => ({ value: v, label: v }))]} value={value} onChange={onChange} /></View> : null;
+  const clearFilters = () => { setQ(''); setQuery(''); setRole('all'); setGrade(0); setSchoolId(0); setSchoolYear('all'); setRegion('all'); setCity('all'); setAdvanced(false); };
   const filtersUi = (
-    <View style={{ gap: 10, paddingBottom: 12 }}>
-      <Field
-        label="Tìm kiếm nhanh"
-        value={q}
-        onChangeText={setQ}
-        placeholder="Họ tên, tên đăng nhập, email, mã người dùng…"
-        autoCapitalize="none"
-        autoCorrect={false}
-        returnKeyType="search"
-        nativeID="admin-search"
-      />
-      <Segmented label="Lọc theo vai trò" options={roleOptions} value={role} onChange={setRole} />
-      <Segmented label="Lọc theo khối" options={[{ value: 0, label: 'Mọi khối' }, ...GRADES.map((g) => ({ value: g as number, label: `Khối ${g}` }))]} value={grade} onChange={setGrade} />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-        <Btn title={advanced ? 'Ẩn bộ lọc khác' : 'Lọc thêm: trường, năm học, khu vực'} icon={Search} tone="ghost" size="sm" onPress={() => setAdvanced((v) => !v)} selected={advanced} />
-        <Txt f="bold" size={13} color={c.muc2} style={{ marginLeft: 'auto' }} accessibilityLiveRegion="polite">
-          {loading ? 'Đang tìm…' : `${fmt(page?.total ?? 0)} tài khoản`}
-        </Txt>
+    <View style={{ backgroundColor: c.the, borderWidth: 1, borderColor: c.adminLine, borderBottomWidth: 0, borderTopLeftRadius: 8, borderTopRightRadius: 8 }}>
+      <View style={{ padding: table ? 24 : 16, gap: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+        <View style={{ gap: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><Txt f="bold" size={18} accessibilityRole="header">Tài khoản người dùng</Txt><Chip text={loading ? '…' : fmt(page?.total ?? 0)} bg={c.adminTint} fg={c.son} /></View>
+          <Txt size={12} color={c.muc3}>Quản lý tài khoản, phân quyền và thông tin đăng nhập.</Txt>
+        </View>
+        <Btn title="Cấp tài khoản" icon={UserPlus} tone="son" size="sm" onPress={onCreate} testID="admin-create" />
       </View>
-      {advanced && (
-        <Inset style={{ gap: 10 }}>
-          {system && schools.length > 0 && (
-            <Segmented label="Lọc theo trường" options={[{ value: 0, label: 'Mọi trường' }, ...schools.map((s) => ({ value: s.id, label: `${s.school_code} · ${s.name}` }))]} value={schoolId} onChange={setSchoolId} />
-          )}
+      <View style={{ paddingHorizontal: table ? 24 : 16, borderBottomWidth: 1, borderBottomColor: c.adminLine }}><View style={{ alignSelf: 'flex-start', borderBottomWidth: 2, borderBottomColor: c.son, paddingVertical: 12 }}><Txt f="bold" size={13} color={c.son}>Tài khoản</Txt></View></View>
+      <View style={{ padding: table ? 24 : 16, gap: 14 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
+          <Field label="Nhập từ khóa tìm kiếm" value={q} onChangeText={setQ} placeholder="Họ tên, tên đăng nhập hoặc email…" autoCapitalize="none" autoCorrect={false} returnKeyType="search" nativeID="admin-search" style={{ flexGrow: 2, flexBasis: 260 }} />
+          <View style={{ flexGrow: 1, flexBasis: 160 }}><AdminSelect label="Vai trò" testID="admin-role-filter" options={roleOptions} value={role} onChange={setRole} /></View>
+          <View style={{ flexGrow: 1, flexBasis: 140 }}><AdminSelect label="Khối" testID="admin-grade-filter" options={[{ value: 0, label: 'Tất cả khối' }, ...GRADES.map(g => ({ value: g as number, label: `Khối ${g}` }))]} value={grade} onChange={setGrade} /></View>
+          <Btn title="Xóa bộ lọc" tone="giay" size="sm" onPress={clearFilters} testID="admin-clear-filters" />
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <Btn title={advanced ? 'Ẩn bộ lọc khác' : 'Lọc theo trường, năm học, khu vực'} icon={Search} tone="ghost" size="sm" onPress={() => setAdvanced(value => !value)} selected={advanced} />
+          <Txt size={12} color={c.muc3} accessibilityLiveRegion="polite">{loading ? 'Đang tìm…' : `${fmt(page?.total ?? 0)} tài khoản phù hợp`}</Txt>
+        </View>
+        {advanced && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+          {system && schools.length > 0 && <View style={{ flexGrow: 1, flexBasis: 220 }}><AdminSelect label="Trường" testID="admin-school-filter" options={[{ value: 0, label: 'Tất cả trường' }, ...schools.map(school => ({ value: school.id, label: `${school.school_code} · ${school.name}` }))]} value={schoolId} onChange={setSchoolId} /></View>}
           {facetPicker('Năm học', facets?.school_years, schoolYear, setSchoolYear)}
           {facetPicker('Khu vực', facets?.regions, region, setRegion)}
           {facetPicker('Thành phố', facets?.cities, city, setCity)}
-          {!(facets && (facets.school_years.length > 1 || facets.regions.length > 1 || facets.cities.length > 1)) && !(system && schools.length > 0) && (
-            <Txt size={13} color={c.muc2}>
-              Chưa có đủ dữ liệu năm học, khu vực, thành phố để lọc.
-            </Txt>
-          )}
-        </Inset>
-      )}
+          {!(facets && (facets.school_years.length > 1 || facets.regions.length > 1 || facets.cities.length > 1)) && !(system && schools.length > 0) && <Txt size={13} color={c.muc2}>Chưa có thêm dữ liệu để lọc.</Txt>}
+        </View>}
+      </View>
+      {table && <View testID="admin-table-head" style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 14, backgroundColor: c.adminTint, borderTopWidth: 1, borderTopColor: c.adminLine, gap: 18 }}>
+        <Txt f="bold" size={11} color={c.muc2} style={{ width: 36 }}>STT</Txt>
+        <Txt f="bold" size={11} color={c.muc2} style={{ flex: 3 }}>Người dùng</Txt>
+        <Txt f="bold" size={11} color={c.muc2} style={{ flex: 1.2 }}>Vai trò</Txt>
+        <Txt f="bold" size={11} color={c.muc2} style={{ flex: 1.1 }}>Trạng thái</Txt>
+        <Txt f="bold" size={11} color={c.muc2} style={{ flex: 1.5 }}>Đăng nhập gần nhất</Txt>
+        <Txt f="bold" size={11} color={c.muc2} style={{ width: 54 }} center>Thao tác</Txt>
+      </View>}
     </View>
   );
 
@@ -642,9 +589,9 @@ const UsersTab: React.FC<{
             {filtersUi}
           </>
         }
-        contentContainerStyle={{ padding: 16, gap: 10, width: '100%', maxWidth: 1100, alignSelf: 'center' }}
-        renderItem={({ item }) => (
-          <UserRow
+        contentContainerStyle={{ padding: table ? 28 : 16, width: '100%', maxWidth: 1600, alignSelf: 'center', paddingBottom: 32 }}
+        renderItem={({ item, index }) => (
+          <UserRow index={index + 1} table={table}
             u={item}
             system={system}
             manage={canManage(item)}
@@ -663,11 +610,10 @@ const UsersTab: React.FC<{
             />
           )
         }
-        ListFooterComponent={
-          !loading && page && items.length < page.total ? (
-            <Btn title={`Xem thêm (${fmt(page.total - items.length)} tài khoản)`} tone="giay" loading={more} onPress={() => load(page.page + 1)} style={{ alignSelf: 'center' }} />
-          ) : undefined
-        }
+        ListFooterComponent={!loading && page ? <View style={{ padding: 20, backgroundColor: c.the, borderWidth: 1, borderTopWidth: 0, borderColor: c.adminLine, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, gap: 16 }}>
+          <Txt size={12} color={c.muc3}>Hiển thị {fmt(items.length)} / {fmt(page.total)} tài khoản</Txt>
+          {items.length < page.total && <Btn title={`Xem thêm (${fmt(page.total - items.length)} tài khoản)`} tone="giay" loading={more} onPress={() => load(page.page + 1)} style={{ alignSelf: 'center' }} />}
+        </View> : undefined}
         keyboardShouldPersistTaps="handled"
       />
       <ConfirmSheet
@@ -690,51 +636,38 @@ const UsersTab: React.FC<{
   );
 };
 
-const UserRow = React.memo<{ u: AdminUser; system: boolean; manage: boolean; onReset: () => void; onToggle: () => void; onTrash: () => void }>(({ u, system, manage, onReset, onToggle, onTrash }) => {
+const UserRow = React.memo<{ u: AdminUser; index: number; table: boolean; system: boolean; manage: boolean; onReset: () => void; onToggle: () => void; onTrash: () => void }>(({ u, index, table, system, manage, onReset, onToggle, onTrash }) => {
   const { c } = useTheme();
+  const [actions, setActions] = useState(false);
   const chip = roleChip(c, u.role);
-  return (
-    <Card flat pad={12} style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, opacity: u.is_active ? 1 : 0.75 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexGrow: 1, flexBasis: 260 }}>
-        {u.role === 'student' && u.grade ? <GradeBadge grade={u.grade} size={34} /> : <Avatar name={u.full_name} size={38} />}
-        <View style={{ flex: 1 }}>
-          <Txt f="bold" numberOfLines={1}>
-            {u.full_name}
-          </Txt>
-          <Txt f="mono" size={13} color={c.thuyChu} numberOfLines={1} selectable>
-            {u.username}
-          </Txt>
-          {u.email && (
-            <Txt size={12} color={c.muc3} numberOfLines={1}>
-              {u.email}
-            </Txt>
-          )}
-        </View>
+  const identity = <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.adminTint, alignItems: 'center', justifyContent: 'center' }}><Txt f="bold" size={13} color={c.son}>{u.full_name.trim().charAt(0).toUpperCase()}</Txt></View>
+    <View style={{ flex: 1, minWidth: 0, gap: 2 }}><Txt f="bold" size={13} numberOfLines={1}>{u.full_name}</Txt><Txt size={12} color={c.muc3} numberOfLines={1} selectable>{u.email || u.username}</Txt>{system && u.school_name && <Txt size={11} color={c.muc3} numberOfLines={1}>{u.school_name}</Txt>}</View>
+  </View>;
+  const status = <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: u.is_active ? c.moc : c.son }} /><Txt size={12} color={c.muc2}>{u.is_active ? 'Đang hoạt động' : 'Đã khóa'}</Txt></View>;
+  const actionButton = manage ? <Pressable testID={`admin-user-actions-${u.id}`} accessibilityRole="button" accessibilityLabel={`Thao tác với ${u.full_name}`} accessibilityState={{ expanded: actions }} onPress={() => setActions(value => !value)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 5, backgroundColor: actions ? c.adminTint : 'transparent' }}><MoreVertical size={19} color={c.muc2} /></Pressable> : <Txt size={13} color={c.muc3}>—</Txt>;
+  return <View testID={`admin-user-${u.id}`} style={{ backgroundColor: c.the, borderWidth: 1, borderTopWidth: 0, borderColor: c.adminLine, opacity: u.is_active ? 1 : 0.8 }}>
+    {table ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18, paddingHorizontal: 24, paddingVertical: 16, minHeight: 94 }}>
+      <Txt size={12} color={c.muc3} style={{ width: 36 }}>{index}</Txt>
+      <View style={{ flex: 3, minWidth: 0 }}>{identity}</View>
+      <View style={{ flex: 1.2, minWidth: 0 }}><Chip text={ROLE_LABEL[u.role]} bg={chip.bg} fg={chip.fg} style={{ borderRadius: 4, paddingHorizontal: 6 }} />{u.class_name && <Txt size={11} color={c.muc3}>{u.class_name}{u.grade ? ` · Khối ${u.grade}` : ''}</Txt>}</View>
+      <View style={{ flex: 1.1 }}>{status}</View>
+      <Txt size={12} color={c.muc2} style={{ flex: 1.5 }}>{u.last_login_at ? formatDateTime(u.last_login_at) : 'Chưa đăng nhập'}</Txt>
+      <View style={{ width: 54, alignItems: 'center' }}>{actionButton}</View>
+    </View> : <View style={{ padding: 16, gap: 14 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>{identity}{actionButton}</View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}><Chip text={ROLE_LABEL[u.role]} bg={chip.bg} fg={chip.fg} />{status}{u.class_name && <Txt size={12} color={c.muc3}>Lớp {u.class_name}</Txt>}</View>
+      <Txt size={12} color={c.muc3}>Đăng nhập gần nhất: {u.last_login_at ? formatDateTime(u.last_login_at) : 'Chưa đăng nhập'}</Txt>
+    </View>}
+    {actions && <View testID={`admin-user-menu-${u.id}`} style={{ padding: 16, backgroundColor: c.adminTint, borderTopWidth: 1, borderTopColor: c.adminLine, gap: 12 }}>
+      <Txt size={12} color={c.muc2} selectable>{u.username}{u.school_year ? ` · ${u.school_year}` : ''}{u.must_change_password ? ' · Chưa đổi mật khẩu lần đầu' : ''}{u.role === 'student' ? ` · ${fmt(u.xp ?? 0)} XP · ${u.lessons_completed ?? 0} lượt học · đúng ${pct(u.accuracy)}` : ''}</Txt>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
+        <Btn tone="giay" size="sm" icon={KeyRound} title="Đặt lại mật khẩu" label={`Đặt lại mật khẩu cho ${u.full_name}`} onPress={() => { setActions(false); onReset(); }} />
+        <Btn tone="giay" size="sm" icon={u.is_active ? Lock : Unlock} title={u.is_active ? 'Khóa tài khoản' : 'Mở khóa tài khoản'} label={u.is_active ? `Khóa tài khoản ${u.full_name}` : `Mở khóa tài khoản ${u.full_name}`} onPress={() => { setActions(false); onToggle(); }} />
+        <Btn tone="giay" size="sm" icon={Trash2} title="Thùng rác" label={`Chuyển ${u.full_name} vào thùng rác`} onPress={() => { setActions(false); onTrash(); }} />
       </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, flexGrow: 1, flexBasis: 220 }}>
-        <Chip text={u.class_name ? `${ROLE_LABEL[u.role]} · ${u.class_name}` : ROLE_LABEL[u.role]} bg={chip.bg} fg={chip.fg} />
-        {system && u.school_name && <Chip text={u.school_code ? `${u.school_code} · ${u.school_name}` : u.school_name} bg={c.thuyNhat} fg={c.thuyChu} />}
-        {u.school_year && <Chip text={u.school_year} bg={c.giay2} fg={c.muc2} />}
-        {u.is_active ? <Chip text="Hoạt động" bg={c.ngocNhat} fg={c.ngocChu} /> : <Chip text="Đã khóa" bg={c.sonNhat} fg={c.sonChu} />}
-        {u.must_change_password && <Chip text="Chưa đổi MK" bg={c.dongNhat} fg={c.dongChu} />}
-      </View>
-      <View style={{ flexGrow: 1, flexBasis: 200 }}>
-        <Txt f="semibold" size={13} color={c.muc2}>
-          {u.role === 'student' ? `${fmt(u.xp ?? 0)} XP · ${u.lessons_completed ?? 0} lượt học · đúng ${pct(u.accuracy)}` : u.role === 'teacher' ? 'Giáo viên' : ROLE_LABEL[u.role]}
-        </Txt>
-        <Txt size={12} color={c.muc3}>
-          Đăng nhập gần nhất: {formatDateTime(u.last_login_at)}
-        </Txt>
-      </View>
-      {manage && (
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          <Btn tone="giay" size="sm" icon={KeyRound} label={`Đặt lại mật khẩu cho ${u.full_name}`} onPress={onReset} />
-          <Btn tone="giay" size="sm" icon={u.is_active ? Lock : Unlock} label={u.is_active ? `Khóa tài khoản ${u.full_name}` : `Mở khóa tài khoản ${u.full_name}`} onPress={onToggle} />
-          <Btn tone="giay" size="sm" icon={Trash2} label={`Chuyển ${u.full_name} vào thùng rác`} onPress={onTrash} />
-        </View>
-      )}
-    </Card>
-  );
+    </View>}
+  </View>;
 });
 UserRow.displayName = 'UserRow';
 

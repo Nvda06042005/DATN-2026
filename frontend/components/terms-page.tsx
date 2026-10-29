@@ -73,7 +73,7 @@ function TermsBody({ scroll }: { scroll: React.RefObject<ScrollViewInstance | nu
 
   return (
     <Band bg={c.logoPaper} wide={wide} padTop={wide ? 136 : 108} decor={<GoldRings />}>
-      <SectionHeading eyebrow="Thông tin cần biết" title="Điều khoản" accent="sử dụng." description="Quy tắc dùng Đông A và cách ứng dụng bảo vệ thông tin của bạn." wide={wide} testID="terms-heading" />
+      <SectionHeading eyebrow="Thông tin cần biết" title="Điều khoản" accent="sử dụng" description="Quy tắc dùng Đông A và cách ứng dụng bảo vệ thông tin của bạn." wide={wide} singleLine testID="terms-heading" />
       <View onLayout={(e) => { y.current.layout = e.nativeEvent.layout.y; }} style={{ flexDirection: side ? 'row' : 'column', alignItems: 'flex-start', gap: side ? 48 : 32 }}>
         <View role="navigation" aria-label="Danh mục điều khoản" style={{ width: side ? 340 : '100%', gap: 16 }}>
           {eyebrow('Danh mục')}

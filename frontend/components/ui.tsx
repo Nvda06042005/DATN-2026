@@ -17,6 +17,9 @@ import { usePopIn, useReduceMotion } from '@/hooks/use-motion';
 import { useStyles, useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
 
+/** Flat controls are scoped to the management portal; the learner UI keeps its game styling. */
+export const AdminUiContext = createContext(false);
+
 // ---------------------------------------------------------------------- chữ
 type TxtProps = React.ComponentProps<typeof Text> & { f?: FontName; size?: number; color?: string; center?: boolean; upper?: boolean };
 
@@ -71,13 +74,14 @@ export const Btn: React.FC<BtnProps> = ({
   selected, style, testID,
 }) => {
   const { c } = useTheme();
+  const admin = useContext(AdminUiContext);
   const reduce = useReduceMotion();
   const press = useRef(new Animated.Value(0)).current;
   const m = BTN[size];
   const off = disabled || loading;
-  const t = off ? { bg: c.giay2, edge: c.vien2, fg: c.muc3, border: undefined } : toneColors(c, tone);
+  const t = off ? { bg: c.giay2, edge: c.vien2, fg: c.muc3, border: undefined } : toneColors(c, admin && (tone === 'ngoc' || tone === 'dong') ? 'son' : tone);
   const iconOnly = !title;
-  const flat = tone === 'ghost';
+  const flat = admin || tone === 'ghost';
   const sink = (down: boolean) => {
     if (flat) return;
     if (reduce) press.setValue(down ? 1 : 0);
@@ -102,8 +106,8 @@ export const Btn: React.FC<BtnProps> = ({
           {!flat && <View style={[StyleSheet.absoluteFill, { top: m.depth, borderRadius: m.radius, backgroundColor: t.edge }]} />}
           <Animated.View
             style={{
-              minHeight: m.h, minWidth: iconOnly ? m.h : undefined, paddingHorizontal: iconOnly ? 0 : m.px, borderRadius: m.radius, backgroundColor: flat && pressed ? c.giay2 : t.bg,
-              borderWidth: t.border ? 2 : 0, borderColor: t.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+              minHeight: admin ? Math.max(44, m.h) : m.h, minWidth: iconOnly ? (admin ? Math.max(44, m.h) : m.h) : undefined, paddingHorizontal: iconOnly ? 0 : m.px, borderRadius: admin ? 5 : m.radius, backgroundColor: tone === 'ghost' && pressed ? c.giay2 : t.bg,
+              borderWidth: t.border ? (admin ? 1 : 2) : 0, borderColor: admin && t.border ? c.adminLine : t.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: admin && pressed ? 0.85 : 1,
               transform: [{ translateY: press.interpolate({ inputRange: [0, 1], outputRange: [0, m.depth - 1] }) }],
             }}
           >
@@ -130,14 +134,17 @@ const cardStyles = (c: Palette) => ({
 
 /** Thẻ giấy có viền đáy (flat: không có khối) */
 export const Card: React.FC<{ children: React.ReactNode; flat?: boolean; pad?: number; style?: StyleProp<ViewStyle> }> = ({ children, flat = false, pad = 16, style }) => {
+  const admin = useContext(AdminUiContext);
+  const { c } = useTheme();
   const s = useStyles(cardStyles);
-  return <View style={[flat ? s.flat : s.card, { padding: pad }, style]}>{children}</View>;
+  return <View style={[flat ? s.flat : s.card, admin && { borderWidth: 1, borderBottomWidth: 1, borderColor: c.adminLine, borderBottomColor: c.adminLine, borderRadius: 8 }, { padding: pad }, style]}>{children}</View>;
 };
 
 /** Ô nền chìm (giấy dó đậm) */
 export const Inset: React.FC<{ children: React.ReactNode; pad?: number; style?: StyleProp<ViewStyle> }> = ({ children, pad = 12, style }) => {
+  const admin = useContext(AdminUiContext);
   const s = useStyles(cardStyles);
-  return <View style={[s.inset, { padding: pad }, style]}>{children}</View>;
+  return <View style={[s.inset, admin && { borderRadius: 6 }, { padding: pad }, style]}>{children}</View>;
 };
 
 /** Thẻ bấm được (cả thẻ là một nút) */
@@ -152,6 +159,8 @@ export const PressCard: React.FC<{
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }> = ({ children, onPress, label, hint, pad = 16, disabled = false, selected, style, testID }) => {
+  const admin = useContext(AdminUiContext);
+  const { c } = useTheme();
   const s = useStyles(cardStyles);
   return (
     <Pressable
@@ -162,7 +171,7 @@ export const PressCard: React.FC<{
       accessibilityLabel={label}
       accessibilityHint={hint}
       accessibilityState={{ disabled, selected }}
-      style={({ pressed }) => [s.card, { padding: pad, transform: [{ translateY: pressed ? 3 : 0 }], opacity: disabled ? 0.6 : 1 }, style]}
+      style={({ pressed }) => [s.card, admin && { borderWidth: 1, borderBottomWidth: 1, borderColor: c.adminLine, borderBottomColor: c.adminLine, borderRadius: 8 }, { padding: pad, transform: [{ translateY: pressed && !admin ? 3 : 0 }], opacity: disabled ? 0.6 : 1 }, style]}
     >
       {children}
     </Pressable>
@@ -261,6 +270,7 @@ export const ToggleRow: React.FC<{ checked: boolean; onChange: (v: boolean) => v
 /** Nhóm nút chọn một (thẻ phân loại) */
 export function Segmented<T extends string | number>({ options, value, onChange, label }: { options: Array<{ value: T; label: string }>; value: T; onChange: (v: T) => void; label: string }) {
   const { c } = useTheme();
+  const admin = useContext(AdminUiContext);
   return (
     <View accessibilityRole="tablist" accessibilityLabel={label} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
       {options.map((o) => {
@@ -271,10 +281,10 @@ export function Segmented<T extends string | number>({ options, value, onChange,
             onPress={() => onChange(o.value)}
             accessibilityRole="tab"
             accessibilityState={{ selected: on }}
-            style={{ minHeight: 40, paddingHorizontal: 14, borderRadius: 999, justifyContent: 'center', backgroundColor: on ? c.ngoc : c.the, borderWidth: 2, borderColor: on ? c.ngoc : c.vien }}
+            style={{ minHeight: admin ? 44 : 40, paddingHorizontal: 14, borderRadius: admin ? 5 : 999, justifyContent: 'center', backgroundColor: on ? (admin ? c.adminTint : c.ngoc) : c.the, borderWidth: admin ? 1 : 2, borderColor: on ? (admin ? c.son : c.ngoc) : admin ? c.adminLine : c.vien }}
             hitSlop={4}
           >
-            <Txt f="bold" size={14} color={on ? ON_BRIGHT : c.muc2}>
+            <Txt f="bold" size={14} color={on ? (admin ? c.son : ON_BRIGHT) : c.muc2}>
               {o.label}
             </Txt>
           </Pressable>
@@ -425,6 +435,7 @@ export const Field: React.FC<
   Omit<TextInputProps, 'style'> & { label: string; error?: string | null; hint?: string; inputRef?: React.Ref<TextInputInstance>; style?: StyleProp<ViewStyle>; inputStyle?: StyleProp<TextStyle> }
 > = ({ label, error, hint, inputRef, style, inputStyle, onFocus, onBlur, ...rest }) => {
   const { c } = useTheme();
+  const admin = useContext(AdminUiContext);
   const s = useStyles(fieldStyles);
   const [focus, setFocus] = useState(false);
   return (
@@ -445,7 +456,7 @@ export const Field: React.FC<
           setFocus(false);
           onBlur?.(e);
         }}
-        style={[s.input, { borderColor: error ? c.son : focus ? c.thuy : c.vien }, inputStyle]}
+        style={[s.input, admin && { minHeight: 44, borderRadius: 5, borderWidth: 1, backgroundColor: c.the, fontFamily: FONT.body, fontSize: 14 }, { borderColor: error ? c.son : focus ? (admin ? c.son : c.thuy) : admin ? c.adminLine : c.vien }, inputStyle]}
         {...rest}
       />
       {error ? (

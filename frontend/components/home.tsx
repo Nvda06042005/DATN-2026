@@ -6,7 +6,7 @@
  * Khối luôn tối/sáng cố định dùng màu `trang`/`dem`; thẻ và chữ dùng màu đổi theo chế độ sáng/tối. Chỉ chân trang có một liên kết "Trang quản lý" tới /admin; không có liên kết tới /school-manager-admin.
  */
 import { useCallback, useEffect, useRef, useState, type ComponentRef } from 'react';
-import { Animated, Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -14,7 +14,7 @@ import {
   Trophy, Users, X, ZoomIn, ArrowUp, ArrowUpRight, FileSpreadsheet, Plus,
 } from 'lucide-react-native';
 import {
-  BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, PatternOverlay, VietnamFlag, WaveBand,
+  BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, PatternOverlay, VietnamFlag,
 } from '@/components/art';
 import { Chip, Txt } from '@/components/ui';
 import { HomeVideo } from '@/components/home-video';
@@ -23,11 +23,10 @@ import { ClosingTitle, HeroTitle } from '@/components/hero-title';
 import { SectionHeading } from '@/components/section-heading';
 import { HistoryShowcase } from '@/components/history-showcase';
 import { CloudPair, SectionCloud } from '@/components/section-cloud';
-import { ThreadsBackground } from '@/components/threads-background';
+import { ThreadedWaveBand } from '@/components/threaded-wave-band';
 import { PhaseGallery } from '@/components/phase-gallery';
 import { CAMPAIGNS, PHASES, PHASE_REAL } from '@/constants/campaigns';
 import { FAQ_HOME } from '@/constants/faq';
-import { MAP_IMAGE_CREDITS } from '@/constants/map-credits';
 import { ENEMIES } from '@/constants/game';
 import { HERO_BY_ID } from '@/constants/heroes';
 import { ANSWER_STYLES, type Palette } from '@/constants/theme';
@@ -447,7 +446,6 @@ const PhaseCampaignGallery: React.FC<{ wide: boolean; onSection: (id: string, y:
   return (
     <View id="chin-man" onLayout={e => onSection('chin-man', e.nativeEvent.layout.y)} style={{ width: '100%', backgroundColor: c.xam, paddingVertical: wide ? 80 : 48, gap: 20, overflow: 'hidden' }}>
       <PatternOverlay />
-      <ThreadsBackground paused={!!selected} />
       <View style={{ paddingHorizontal: 16 }}>
         <SectionHeading eyebrow="Theo dấu chiến dịch" title="Chín màn" accent="chiến dịch" description="Mỗi màn là một trận đánh có thật, từ Bình Lệ Nguyên đến Bạch Đằng." wide={wide} singleLine testID="phases-heading" />
       </View>
@@ -1101,8 +1099,7 @@ export const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void; 
   return (
     <View style={{ width: '100%', backgroundColor: c.logoInk, overflow: 'hidden' }}>
       <PatternOverlay opacity={0.05} />
-      <ThreadsBackground />
-      <WaveBand testID="footer-wave-band" bg={c.son} line={c.vang} height={24} opacity={0.2} />
+      <ThreadedWaveBand testID="footer-wave-band" />
       <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: wide ? 56 : 40, paddingBottom: insets.bottom + 20, gap: 30 }}>
         <View style={{ flexDirection: wide ? 'row' : 'column', justifyContent: 'space-between', gap: wide ? 40 : 32 }}>
           <View style={{ width: wide ? 340 : '100%', gap: 16 }}>
@@ -1126,7 +1123,6 @@ export const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void; 
             <FootLink label="Điều khoản sử dụng" arrow onPress={() => router.push('/dieu-khoan-su-dung')} />
             <FootLink label="Trang quản lý" arrow onPress={() => router.push('/admin')} />
             <FootLink label="Thông tin hình ảnh" onPress={() => router.push('/thong-tin-hinh-anh')} />
-            {MAP_IMAGE_CREDITS.map(map => <FootLink key={map.id} label={`Bản đồ lần ${map.id} · Wikipedia`} arrow onPress={() => { void Linking.openURL(map.url); }} />)}
           </View>
         </View>
         <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(250, 244, 231, 0.18)', paddingTop: 18, flexDirection: wide ? 'row' : 'column', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -1155,7 +1151,7 @@ export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; o
   <>
     <HeroSection wide={wide} go={go} />
     <View style={{ backgroundColor: c.xam }}>
-      <WaveBand testID="hero-wave-band" bg={c.son} line={c.vang} height={24} opacity={0.2} />
+      <ThreadedWaveBand testID="hero-wave-band" />
     </View>
     <PhaseCampaignGallery wide={wide} onSection={onSection} />
     <CloudPair upper={c.xam} lower={c.logoPaper} wide={wide} variant={1} />
