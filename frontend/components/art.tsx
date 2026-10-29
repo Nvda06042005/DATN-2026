@@ -942,11 +942,11 @@ export const FilmBackdrop: React.FC<{ wide?: boolean; only?: number[]; indicator
   );
 };
 
-/** Dải họa tiết sóng nước (seigaiha) làm viền trang trí: nền bg, nét line */
-export const WaveBand: React.FC<{ bg: string; line: string; height?: number }> = ({ bg, line, height = 48 }) => {
+/** Dải họa tiết sóng nước: opacity làm mờ đều cả nền và nét, không làm mờ nhòe hình. */
+export const WaveBand: React.FC<{ bg: string; line: string; height?: number; opacity?: number; testID?: string }> = ({ bg, line, height = 48, opacity = 1, testID }) => {
   const gid = React.useId().replace(/:/g, '');
   return (
-    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" pointerEvents="none" style={{ width: '100%', height, backgroundColor: bg, overflow: 'hidden' }}>
+    <View testID={testID} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" pointerEvents="none" style={{ width: '100%', height, backgroundColor: bg, overflow: 'hidden', opacity }}>
       <Svg width="100%" height={height}>
         <Defs>
           <Pattern id={`w-${gid}`} width="48" height="24" patternUnits="userSpaceOnUse">

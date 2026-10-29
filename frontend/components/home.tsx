@@ -19,7 +19,7 @@ import {
 import { Chip, Txt } from '@/components/ui';
 import { HomeVideo } from '@/components/home-video';
 import { HeroGallery } from '@/components/hero-gallery';
-import { HeroTitle } from '@/components/hero-title';
+import { ClosingTitle, HeroTitle } from '@/components/hero-title';
 import { SectionHeading } from '@/components/section-heading';
 import { HistoryShowcase } from '@/components/history-showcase';
 import { CloudPair, SectionCloud } from '@/components/section-cloud';
@@ -418,7 +418,7 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
     : null;
   const shade = { textShadowColor: 'rgba(0, 0, 0, 0.55)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 22 } as const;
   return (
-    <View style={{ width: '100%', minHeight: minH, backgroundColor: c.dem, overflow: 'hidden' }}>
+    <View testID="home-hero-section" style={{ width: '100%', minHeight: minH, backgroundColor: c.dem, overflow: 'hidden' }}>
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, sceneFx]}>
         <FilmBackdrop wide={wide} scrim />
       </Animated.View>
@@ -1091,14 +1091,12 @@ const ClosingSection: React.FC<{ wide: boolean }> = ({ wide }) => {
   const { c } = useTheme();
   const router = useRouter();
   return (
-    <View style={{ width: '100%', backgroundColor: c.dem, overflow: 'hidden' }}>
+    <View testID="home-closing-section" style={{ width: '100%', backgroundColor: c.dem, overflow: 'hidden' }}>
       <FilmBackdrop wide={wide} only={[7]} dim={0.12} scrim />
       <View style={{ width: '100%', maxWidth: 860, alignSelf: 'center', paddingHorizontal: 16, paddingTop: wide ? 190 : 150, paddingBottom: wide ? 130 : 90 }}>
       <Reveal from="scale">
       <View style={{ alignItems: 'center', gap: 22 }}>
-        <Txt f="heavy" size={wide ? 64 : 36} color={c.trang} center accessibilityRole="header" style={{ lineHeight: wide ? 70 : 42, letterSpacing: wide ? -2 : -1 }}>
-          Cùng cả lớp ra trận{'\n'}với <Txt f="heavy" size={wide ? 64 : 36} color={c.vang} style={{ lineHeight: wide ? 70 : 42, letterSpacing: wide ? -2 : -1 }}>Đông A</Txt>!
-        </Txt>
+        <ClosingTitle wide={wide} />
         <View style={{ alignSelf: 'center' }}>
           <Cta title="Vào học ngay" tone="trang" arrow lg onPress={() => router.push('/portal')} testID="home-portal-bottom" />
         </View>
@@ -1146,7 +1144,7 @@ export const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void; 
   return (
     <View style={{ width: '100%', backgroundColor: c.logoInk, overflow: 'hidden' }}>
       <PatternOverlay opacity={0.05} />
-      <WaveBand bg={c.son} line={c.vang} height={24} />
+      <WaveBand testID="footer-wave-band" bg={c.son} line={c.vang} height={24} opacity={0.05} />
       <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: wide ? 56 : 40, paddingBottom: insets.bottom + 20, gap: 30 }}>
         <View style={{ flexDirection: wide ? 'row' : 'column', justifyContent: 'space-between', gap: wide ? 40 : 32 }}>
           <View style={{ width: wide ? 340 : '100%', gap: 16 }}>
@@ -1197,6 +1195,9 @@ export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; o
   return (
   <>
     <HeroSection wide={wide} go={go} />
+    <View style={{ backgroundColor: c.xam }}>
+      <WaveBand testID="hero-wave-band" bg={c.son} line={c.vang} height={24} opacity={0.05} />
+    </View>
     <PhaseMarquee wide={wide} onSection={onSection} />
     <CloudPair upper={c.xam} lower={c.logoPaper} wide={wide} variant={1} />
     <HomeVideo wide={wide} onImmersiveChange={onVideoImmersiveChange} />

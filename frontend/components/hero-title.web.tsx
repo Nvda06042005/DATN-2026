@@ -7,8 +7,8 @@ import { useTheme } from '@/hooks/use-theme';
 type Mask = { canvas: HTMLCanvasElement; width: number; height: number; padding: number };
 
 /** Match the actual DOM font, tracking and baseline instead of scaling a separate text image. */
-function MetallicWord({ text, family, tint, tracking, enabled }: {
-  text: string; family: string; tint: string; tracking: number; enabled: boolean;
+function MetallicWord({ text, family, tint, tracking, enabled, testID = 'hero-title-word' }: {
+  text: string; family: string; tint: string; tracking: number; enabled: boolean; testID?: string;
 }) {
   const source = useRef<HTMLSpanElement>(null);
   const baseline = useRef<HTMLSpanElement>(null);
@@ -60,7 +60,7 @@ function MetallicWord({ text, family, tint, tracking, enabled }: {
   }, [enabled, text, family, tint, tracking]);
 
   return (
-    <span data-testid="hero-title-word" style={{ position: 'relative', display: 'inline-block', fontFamily: family, letterSpacing: tracking, color: tint, whiteSpace: 'pre' }}>
+    <span data-testid={testID} style={{ position: 'relative', display: 'inline-block', fontFamily: family, letterSpacing: tracking, color: tint, whiteSpace: 'pre' }}>
       <span ref={source} style={{ display: 'inline-block' }}>
         {text}<span ref={baseline} aria-hidden="true" style={{ display: 'inline-block', width: 0, height: 0, verticalAlign: 'baseline' }} />
       </span>
@@ -96,5 +96,22 @@ export function HeroTitle({ wide }: { wide: boolean }) {
       {' '}
       <MetallicWord text="Đông A" family={FONT.serifItalic} tint={c.sonSang} tracking={wide ? -2 : -1} enabled={wide && !reduce} />
     </h1>
+  );
+}
+
+/** Lời mời cuối trang dùng cùng ánh kim với tiêu đề bìa; màn hẹp giữ chữ thật để xuống dòng tự nhiên. */
+export function ClosingTitle({ wide }: { wide: boolean }) {
+  const { c } = useTheme();
+  const reduce = useReduceMotion();
+  const enabled = wide && !reduce;
+  return (
+    <h2 data-testid="closing-title" style={{ margin: 0, maxWidth: '100%', textAlign: 'center', fontFamily: FONT.heavy, fontWeight: 400, fontSize: wide ? 64 : 36, lineHeight: wide ? '70px' : '42px', letterSpacing: wide ? -2 : -1, color: c.trang, textShadow: `0 4px 22px ${c.den}` }}>
+      {wide ? <MetallicWord text="Cùng cả lớp ra trận" family={FONT.heavy} tint={c.trang} tracking={-2} enabled={enabled} testID="closing-title-word" /> : 'Cùng cả lớp ra trận'}
+      <br />
+      {wide ? <MetallicWord text="với" family={FONT.heavy} tint={c.trang} tracking={-2} enabled={enabled} testID="closing-title-word" /> : 'với'}
+      {' '}
+      <MetallicWord text="Đông A" family={FONT.serifItalic} tint={c.sonSang} tracking={wide ? -2 : -1} enabled={enabled} testID="closing-title-accent" />
+      {wide ? <MetallicWord text="!" family={FONT.heavy} tint={c.trang} tracking={-2} enabled={enabled} testID="closing-title-word" /> : '!'}
+    </h2>
   );
 }
