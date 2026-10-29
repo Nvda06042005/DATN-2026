@@ -1078,9 +1078,6 @@ const ClosingSection: React.FC<{ wide: boolean }> = ({ wide }) => {
         <Txt f="heavy" size={wide ? 64 : 36} color={c.trang} center accessibilityRole="header" style={{ lineHeight: wide ? 70 : 42, letterSpacing: wide ? -2 : -1 }}>
           Cùng cả lớp ra trận{'\n'}với <Txt f="heavy" size={wide ? 64 : 36} color={c.vang} style={{ lineHeight: wide ? 70 : 42, letterSpacing: wide ? -2 : -1 }}>Đông A</Txt>!
         </Txt>
-        <Txt f="medium" size={wide ? 20 : 17} color={c.troi4} center style={{ maxWidth: 560, lineHeight: wide ? 29 : 25 }}>
-          Đăng nhập bằng tài khoản nhà trường cấp và bắt đầu từ Điền Trang của em.
-        </Txt>
         <View style={{ alignSelf: 'center' }}>
           <Cta title="Vào học ngay" tone="trang" arrow lg onPress={() => router.push('/portal')} testID="home-portal-bottom" />
         </View>
