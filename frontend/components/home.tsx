@@ -103,10 +103,10 @@ const VICTORIES = [
 
 /** Lời ông cha, như trong dữ liệu game; riêng câu của Trần Thủ Độ (lần 1) và "Đánh!" (lần 2) viết theo Wikipedia, dẫn từ Đại Việt sử ký toàn thư */
 const QUOTES = [
-  { text: 'Ta thà làm quỷ nước Nam, chứ không thèm làm vương đất Bắc!', who: 'Trần Bình Trọng', note: 'khi bị giặc bắt và dụ hàng, 1285', bg: '#f6b8a8' },
-  { text: 'Đầu thần chưa rơi xuống đất, bệ hạ đừng lo gì khác.', who: 'Trần Thủ Độ', note: 'khi vua hỏi kế sau trận Bình Lệ Nguyên, 1258', bg: '#ffd84d' },
-  { text: 'Phá cường địch, báo hoàng ân', who: 'Trần Quốc Toản', note: 'sáu chữ vàng thêu trên lá cờ của ông, 1285', bg: '#bfe3a4' },
-  { text: 'Đánh!', who: 'Các phụ lão', note: 'cùng đáp “như từ một miệng” ở Hội nghị Diên Hồng', bg: '#a9d4ee' },
+  { text: 'Ta thà làm quỷ nước Nam, chứ không thèm làm vương đất Bắc!', who: 'Trần Bình Trọng', note: 'khi bị giặc bắt và dụ hàng, 1285' },
+  { text: 'Đầu thần chưa rơi xuống đất, bệ hạ đừng lo gì khác.', who: 'Trần Thủ Độ', note: 'khi vua hỏi kế sau trận Bình Lệ Nguyên, 1258' },
+  { text: 'Phá cường địch, báo hoàng ân', who: 'Trần Quốc Toản', note: 'sáu chữ vàng thêu trên lá cờ của ông, 1285' },
+  { text: 'Đánh!', who: 'Các phụ lão', note: 'cùng đáp “như từ một miệng” ở Hội nghị Diên Hồng' },
 ] as const;
 
 // ---------------------------------------------------------------------- nền tảng giao diện
@@ -1009,12 +1009,18 @@ const CastSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) 
   );
 };
 
-/** Bốn thẻ lời ông cha nhiều màu (thay cho thẻ nhận xét của Papumba; chỉ dùng lời có trong dữ liệu game và sử liệu) */
+/** Bốn thẻ lời ông cha theo bảng màu logo như khối "Nơi học sinh khám phá lịch sử" (đỏ cờ, vàng cổ, mực xanh, giấy kem); chỉ dùng lời có trong dữ liệu game và sử liệu */
 const QuotesSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
+  const tones = [
+    { bg: c.logoRed, fg: c.logoPaper },
+    { bg: c.logoGold, fg: c.logoInk },
+    { bg: c.logoInk, fg: c.logoPaper },
+    { bg: 'rgba(255, 255, 255, 0.86)', fg: c.logoInk },
+  ];
   return (
-    <Band id="loi-ong-cha" bg={c.the} wide={wide} onSection={onSection}>
-      <Head title="Lời ông cha còn vang mãi" text="Những câu nói làm nên hào khí Đông A, có trong từng màn chơi của game." wide={wide} />
+    <Band id="loi-ong-cha" bg={c.logoPaper} wide={wide} onSection={onSection} decor={<GoldRings />}>
+      <Head logo title="Lời ông cha còn vang mãi" text="Những câu nói làm nên hào khí Đông A, có trong từng màn chơi của game." wide={wide} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 18, justifyContent: 'center' }}>
         {QUOTES.map((q, i) => (
           <Reveal key={q.who} delay={i * 80} style={{ width: wide ? 258 : '100%' }}>
@@ -1022,17 +1028,17 @@ const QuotesSection: React.FC<{ wide: boolean; onSection: (id: string, y: number
           <View
             accessible
             accessibilityLabel={`${q.text} – ${q.who}, ${q.note}`}
-            style={[{ width: '100%', minHeight: wide ? 270 : undefined, borderRadius: 28, backgroundColor: q.bg, padding: 22, gap: 12 }, shadow(c, 'sm')]}
+            style={[{ width: '100%', minHeight: wide ? 270 : undefined, borderRadius: 28, backgroundColor: tones[i].bg, padding: 22, gap: 12 }, i === 3 ? { borderWidth: 1, borderColor: INK_LINE } : null, shadow(c, 'sm')]}
           >
-            <Quote size={34} color="#16253f" strokeWidth={2.2} />
-            <Txt f="heavy" size={q.text.length < 12 ? 44 : 21} color="#16253f" style={{ lineHeight: q.text.length < 12 ? 50 : 28, flex: 1 }}>
+            <Quote size={34} color={i === 3 ? c.logoRed : tones[i].fg} strokeWidth={2.2} />
+            <Txt f="heavy" size={q.text.length < 12 ? 44 : 21} color={tones[i].fg} style={{ lineHeight: q.text.length < 12 ? 50 : 28, flex: 1 }}>
               {q.text}
             </Txt>
             <View>
-              <Txt f="heavy" size={16} color="#16253f">
+              <Txt f="heavy" size={16} color={tones[i].fg}>
                 {q.who}
               </Txt>
-              <Txt size={13} color="#16253f" style={{ lineHeight: 18 }}>
+              <Txt size={13} color={tones[i].fg} style={{ lineHeight: 18 }}>
                 {q.note}
               </Txt>
             </View>
@@ -1042,13 +1048,13 @@ const QuotesSection: React.FC<{ wide: boolean; onSection: (id: string, y: number
         ))}
       </View>
       <Reveal style={{ maxWidth: 860, width: '100%', alignSelf: 'center' }}>
-      <Panel pad={24} style={{ flexDirection: wide ? 'row' : 'column', alignItems: 'center', gap: 20, width: '100%' }}>
+      <Panel pad={24} style={[{ flexDirection: wide ? 'row' : 'column', alignItems: 'center', gap: 20, width: '100%' }, PAPER_CARD]}>
         <Seal text={'ĐÔNG\nA'} size={wide ? 96 : 72} />
         <View style={{ flex: wide ? 1 : undefined, gap: 6 }}>
-          <Txt f="heavy" size={22} color={c.xanhMuc} center={!wide} style={{ lineHeight: 28 }}>
+          <Txt f="heavy" size={22} color={c.logoInk} center={!wide} style={{ lineHeight: 28 }}>
             Hào khí Đông A là gì?
           </Txt>
-          <Txt size={15} color={c.xanhMuc2} center={!wide} style={{ lineHeight: 23 }}>
+          <Txt size={15} color={INK_SOFT} center={!wide} style={{ lineHeight: 23 }}>
             Là khí phách hào hùng, lòng tự hào dân tộc và sự đồng lòng từ vua đến dân của thời Trần. Tên gọi còn được giải thích bằng cách chiết tự chữ “Trần” thành “Đông” và “A”.
           </Txt>
         </View>
@@ -1120,9 +1126,9 @@ export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; o
     <ExplorerSection wide={wide} onSection={onSection} />
     <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={1} />
     <CastSection wide={wide} onSection={onSection} />
-    <CloudPair upper={c.logoPaper} lower={c.the} wide={wide} variant={1} />
+    <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={1} />
     <QuotesSection wide={wide} onSection={onSection} />
-    <SectionCloud color={c.the} sound wide={wide} variant={2} />
+    <SectionCloud color={c.logoPaper} rim sound wide={wide} variant={2} />
     <ClosingSection wide={wide} />
     <FooterSection wide={wide} />
   </>

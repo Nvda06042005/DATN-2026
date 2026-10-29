@@ -41,13 +41,15 @@ function MaterialPath({ children, ...props }: PropsWithChildren<{
   return Platform.OS === 'web' ? <path {...props}>{children}</path> : <Path {...props} />;
 }
 
-export function SectionCloud({ color, material, sound = false, pair, wide, variant = 0, direction = 'down' }: {
+export function SectionCloud({ color, material, sound = false, pair, rim = false, wide, variant = 0, direction = 'down' }: {
   /** Màu tô của dải mây (thường là màu khối liền kề); bỏ qua khi có `material` */
   color?: string;
   material?: 'gold';
   sound?: boolean;
   /** Hai lớp chồng nhau ở một chỗ nối (cả hai khối phải có nền một màu); bỏ qua `color`, `material`, `direction` */
   pair?: { upper: string; lower: string };
+  /** Chỉ cho mây màu (`color`): viền vàng be dày dưới mép mây, dùng khi mây treo lên ảnh phim không có màu phẳng để chồng hai lớp */
+  rim?: boolean;
   wide: boolean;
   variant?: 0 | 1 | 2;
   direction?: 'up' | 'down';
@@ -58,9 +60,11 @@ export function SectionCloud({ color, material, sound = false, pair, wide, varia
   const [ref, visible] = useOnScreen();
   const motion = useLoop(Platform.OS === 'web' && wide && visible, 12000 + variant * 4000);
   const base = wide ? [72, 80, 64][variant] : [52, 58, 48][variant];
-  const height = pair ? Math.round(base * 1.2) : base;
+  const rimPad = rim ? 8 : 0; // chừa chỗ ở chân mây để viền không bị cắt
+  const height = pair ? Math.round(base * 1.2) : base + rimPad;
   const tileWidth = [220, 260, 190][variant];
   const scale = `scale(${tileWidth / 220} ${height / 96})`;
+  const solid = rim ? `translate(0 ${rimPad}) ${scale}` : scale;
   const crest = CRESTS[variant];
   const goldMotion = (material === 'gold' || !!pair) && Platform.OS === 'web' && wide && visible && !reduce;
   const morphTiming = cloudMorphTiming(1.2, 3.2 + variant * 0.3);
@@ -167,8 +171,14 @@ export function SectionCloud({ color, material, sound = false, pair, wide, varia
                 </G>
               ) : (
                 <>
-                  <Path d={`${crest} V100 H0 Z`} transform={scale} fill={color} />
-                  <Path d={crest} transform={scale} fill="none" stroke={c.logoGold} strokeWidth="1" opacity="0.45" />
+                  {rim ? (
+                    <>
+                      <Path d={crest} transform={solid} fill="none" stroke={c.cloudGoldShadow} strokeOpacity={0.16} strokeWidth={15} vectorEffect="non-scaling-stroke" />
+                      <Path d={crest} transform={solid} fill="none" stroke={c.cloudGoldTip} strokeWidth={10} vectorEffect="non-scaling-stroke" />
+                    </>
+                  ) : null}
+                  <Path d={`${crest} V100 H0 Z`} transform={solid} fill={color} />
+                  <Path d={crest} transform={solid} fill="none" stroke={rim ? c.cloudGoldEdge : c.logoGold} strokeWidth={rim ? 1.8 : 1} opacity={rim ? 1 : 0.45} vectorEffect={rim ? 'non-scaling-stroke' : undefined} />
                 </>
               )}
             </Pattern>
