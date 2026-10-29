@@ -14,7 +14,7 @@ import {
   Trophy, Users, X, ZoomIn, ArrowUp, ArrowUpRight, FileSpreadsheet, Plus,
 } from 'lucide-react-native';
 import {
-  BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, PatternOverlay, SchematicMap, VietnamFlag, WaveBand,
+  BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, PatternOverlay, VietnamFlag, WaveBand,
 } from '@/components/art';
 import { Chip, Txt } from '@/components/ui';
 import { HomeVideo } from '@/components/home-video';
@@ -23,9 +23,9 @@ import { HeroTitle } from '@/components/hero-title';
 import { SectionHeading } from '@/components/section-heading';
 import { HistoryShowcase } from '@/components/history-showcase';
 import { CloudPair, SectionCloud } from '@/components/section-cloud';
-import { CAMPAIGNS, CAMPAIGN_ROUTES, PHASES, PHASE_REAL } from '@/constants/campaigns';
+import { CAMPAIGNS, PHASES, PHASE_REAL } from '@/constants/campaigns';
 import { FAQ_HOME } from '@/constants/faq';
-import { ENEMIES, MAP_PLACES } from '@/constants/game';
+import { ENEMIES } from '@/constants/game';
 import { HERO_BY_ID } from '@/constants/heroes';
 import { ANSWER_STYLES, type Palette } from '@/constants/theme';
 import { Lift, Reveal, useScrollY } from '@/components/motion';
@@ -517,7 +517,7 @@ type ShowId = 'choi' | 'kham-pha' | 'hoi-dap' | 'on-tap';
 
 const SHOWCASE: Array<{ id: ShowId; label: string; icon: IconType; color: 'logoRed' | 'logoGold' | 'logoInk' | 'logoPaper'; text: string }> = [
   { id: 'choi', label: 'Chơi', icon: Joystick, color: 'logoRed', text: 'Thu lương thảo ở Điền Trang, chiêu mộ danh tướng rồi bày trận đánh các màn chiến dịch – mỗi sức mạnh đều đến từ một câu trả lời đúng.' },
-  { id: 'kham-pha', label: 'Khám phá', icon: Compass, color: 'logoGold', text: 'Đi khắp làng pixel của Hành Trình Đông A, trò chuyện với dân làng, thu cuộn sử và lần theo lược đồ Đại Việt thời Trần.' },
+  { id: 'kham-pha', label: 'Khám phá', icon: Compass, color: 'logoGold', text: 'Khám phá cuộc kháng chiến chống quân Mông Cổ năm 1258 qua các địa danh Phù Lỗ, Thăng Long và Đông Bộ Đầu. Mũi tên đỏ chỉ quân Đại Việt, mũi tên đen chỉ quân Mông Cổ.' },
   { id: 'hoi-dap', label: 'Hỏi đáp', icon: MessageSquareText, color: 'logoInk', text: 'Hỏi Quân Sư AI bất cứ điều gì về ba lần kháng chiến; câu trả lời dựa trên kho kiến thức sử liệu của đề tài.' },
   { id: 'on-tap', label: 'Ôn tập', icon: School, color: 'logoPaper', text: 'Tháp Khảo Thí 10 tầng và thẻ Sử Ký giúp ôn từ nhận biết đến vận dụng; hệ thống ghi nhận mức nắm vững để gợi ý câu hỏi tiếp theo.' },
 ];
@@ -564,34 +564,44 @@ const MockPlay: React.FC = () => {
   );
 };
 
-/** Lược đồ Đại Việt và ba địa danh của lần kháng chiến thứ nhất */
+/** Bản đồ cuộc kháng chiến lần thứ nhất và ba địa danh được ghi trên chính bản đồ. */
 const MockExplore: React.FC<{ wide: boolean }> = ({ wide }) => {
-  const { c, dark } = useTheme();
+  const { c } = useTheme();
   const places = [
-    { id: 'binh_le_nguyen', date: '17/1/1258' },
-    { id: 'dong_bo_dau', date: 'Đêm 28/1/1258' },
-    { id: 'thang_long', date: 'Kinh đô Đại Việt' },
+    { name: 'Phù Lỗ', date: '18/1/1258', detail: 'Quân Trần tiếp tục rút lui.' },
+    { name: 'Thăng Long', date: PHASE_REAL.m1p2.date, detail: 'Vườn không nhà trống.' },
+    { name: PHASE_REAL.m1p3.title, date: PHASE_REAL.m1p3.date, detail: 'Quân Trần phản công.' },
   ] as const;
   return (
-    <View style={{ flex: 1, flexDirection: 'row', backgroundColor: c.the }}>
-      <View style={{ flex: wide ? 0.9 : 1, justifyContent: 'center' }}>
-        <SchematicMap dark={dark} pins={['binh_le_nguyen', 'dong_bo_dau', 'thang_long']} routes={CAMPAIGN_ROUTES[1]} title="Lược đồ Đại Việt thời Trần" />
+    <View testID="showcase-explore" style={{ flex: 1, flexDirection: 'row', backgroundColor: c.logoPaper }}>
+      <View style={{ flex: wide ? 1.2 : 1, padding: wide ? 12 : 10, justifyContent: 'center' }}>
+        <Image
+          testID="showcase-explore-map"
+          source={CAMPAIGN_MAP[1].src}
+          resizeMode="contain"
+          alt="Bản đồ cuộc kháng chiến chống quân Mông Cổ lần thứ nhất năm 1258"
+          style={{ width: '100%', height: '100%' }}
+        />
       </View>
       {wide && (
-        <View style={{ flex: 1.1, padding: 24, gap: 14, justifyContent: 'center' }}>
-          <Txt f="heavy" size={22} color={c.xanhMuc} style={{ lineHeight: 28 }}>
-            Lược đồ Đại Việt thời Trần
-          </Txt>
+        <View testID="showcase-explore-facts" style={{ flex: 1, paddingVertical: 18, paddingLeft: 4, paddingRight: 18, gap: 12, justifyContent: 'center' }}>
+          <View style={{ gap: 5 }}>
+            <Txt f="heavy" size={20} color={c.logoInk} style={{ lineHeight: 26 }}>
+              Kháng chiến lần thứ nhất
+            </Txt>
+            <Txt f="semibold" size={12} color={c.logoRed}>Chống quân Mông Cổ · 1258</Txt>
+          </View>
           {places.map((p) => (
-            <View key={p.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <IconTile icon={MapPin} text={15} size={40} />
+            <View key={p.name} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <IconTile icon={MapPin} text={15} size={36} bg={c.logoGold} fg={c.logoInk} />
               <View style={{ flex: 1 }}>
-                <Txt f="bold" size={16} color={c.xanhMuc} style={{ lineHeight: 21 }}>
-                  {MAP_PLACES[p.id].name}
+                <Txt f="bold" size={15} color={c.logoInk} style={{ lineHeight: 20 }}>
+                  {p.name}
                 </Txt>
-                <Txt size={13} color={c.xanhMuc2}>
+                <Txt f="semibold" size={12} color={c.logoRed}>
                   {p.date}
                 </Txt>
+                <Txt size={11} color={c.logoInk} style={{ lineHeight: 16 }}>{p.detail}</Txt>
               </View>
             </View>
           ))}
