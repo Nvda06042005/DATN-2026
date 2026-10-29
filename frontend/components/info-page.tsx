@@ -1,7 +1,7 @@
 /**
  * Khung chung của hai trang thông tin công khai: "Điều khoản sử dụng" (/dieu-khoan-su-dung) và "Câu hỏi thường gặp" (/cau-hoi-thuong-gap).
- * Dùng lại đúng thanh điều hướng, chân trang, nút lên đầu trang, chế độ sáng/tối (cùng khóa lưu với trang chủ) và cuộn mượt của trang chủ; thanh điều hướng
- * luôn ở dạng viên thuốc kính (như khi đã cuộn xuống) vì nền các trang này là giấy kem, và menu chỉ có ba mục: Trang chủ, Điều khoản sử dụng, Câu hỏi thường gặp.
+ * Dùng lại đúng thanh điều hướng (to ở đầu trang, co thành viên thuốc kính khi cuộn như trang chủ; logo chữ tối vì nền là giấy kem), chân trang, nút lên đầu trang,
+ * chế độ sáng/tối (cùng khóa lưu với trang chủ) và cuộn mượt của trang chủ; menu chỉ có ba mục: Trang chủ, Điều khoản sử dụng, Câu hỏi thường gặp.
  * Phần nội dung của từng trang đặt trong `Band` của trang chủ. Cũng chứa AnswerBody và QaRow: cách hiển thị câu hỏi – trả lời giống khối "Câu hỏi thường gặp" ở trang chủ.
  */
 import React, { useCallback, useMemo, useRef, useState } from 'react';
@@ -113,15 +113,19 @@ const Page: React.FC<{ active: InfoTab; scrollRef: React.RefObject<ScrollViewIns
   const { width } = useWindowDimensions();
   const wide = width >= 760;
   const scrollY = useRef(new Animated.Value(0)).current;
-  /** Thanh điều hướng luôn ở dạng đã co (kính sáng/tối), không theo vị trí cuộn */
-  const headerY = useRef(new Animated.Value(120)).current;
+  const [stuck, setStuck] = useState(false);
   const [showTop, setShowTop] = useState(false);
 
+  /** Như trang chủ: thanh điều hướng to ở đầu trang, co thành viên thuốc kính khi cuộn xuống (stuck) */
   const onScroll = useMemo(
     () =>
       Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
         useNativeDriver: false,
-        listener: (e: NativeSyntheticEvent<NativeScrollEvent>) => setShowTop(e.nativeEvent.contentOffset.y > 560),
+        listener: (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+          const y = e.nativeEvent.contentOffset.y;
+          setStuck(y > 40);
+          setShowTop(y > 560);
+        },
       }),
     [scrollY],
   );
@@ -143,7 +147,7 @@ const Page: React.FC<{ active: InfoTab; scrollRef: React.RefObject<ScrollViewIns
         {children}
         <FooterSection wide={wide} go={go} onTop={top} />
       </ScrollView>
-      <Header width={width} scrollY={headerY} stuck active={ACTIVE_ID[active]} go={go} onToggleTheme={onToggleTheme} items={INFO_NAV} />
+      <Header width={width} scrollY={scrollY} stuck={stuck} active={ACTIVE_ID[active]} go={go} onToggleTheme={onToggleTheme} items={INFO_NAV} paper />
       <BackToTop scrollY={scrollY} visible={showTop} onPress={top} />
     </View>
   );

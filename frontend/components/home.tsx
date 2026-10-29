@@ -320,8 +320,10 @@ export const Header: React.FC<{
   width: number; scrollY: Animated.Value; stuck: boolean; active: string; go: (id: string) => void; onToggleTheme: () => void;
   /** Các mục menu; trang chủ dùng mặc định (sáu phần của trang), trang điều khoản và câu hỏi thường gặp truyền mục riêng */
   items?: ReadonlyArray<{ id: string; short: string }>;
+  /** Nền phía sau thanh ở đầu trang là giấy kem (không phải ảnh tối): logo dùng chữ tối thay vì chữ trắng */
+  paper?: boolean;
 }> = ({
-  width, scrollY, stuck, active, go, onToggleTheme, items = NAV_ITEMS,
+  width, scrollY, stuck, active, go, onToggleTheme, items = NAV_ITEMS, paper = false,
 }) => {
   const { c, dark } = useTheme();
   const router = useRouter();
@@ -349,7 +351,7 @@ export const Header: React.FC<{
         ]}
       >
         <Pressable onPress={() => go('home')} accessibilityRole="link" accessibilityLabel="Về đầu trang" hitSlop={4} style={{ minHeight: 44, justifyContent: 'center' }}>
-          <BrandLogo light={!stuck} compact={width < 380} />
+          <BrandLogo light={!stuck && !paper} paper={!stuck && paper} compact={width < 380} />
         </Pressable>
         {WEB && wide && (
           <Animated.View accessibilityRole="menu" style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 999, backgroundColor: navBg, paddingHorizontal: 8, height: 50 }}>

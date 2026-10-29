@@ -1014,16 +1014,16 @@ export const CloudBank: React.FC<{ color: string; flip?: boolean; height?: numbe
 const LOGO_MARK = require('../assets/logo-mark.png');
 
 /** Logo "Đông A edu": biểu tượng chiến binh kèm tên chữ Manrope (light: chữ trắng cho nền tối) */
-export const BrandLogo: React.FC<{ compact?: boolean; subtitle?: string; light?: boolean }> = ({ compact = false, subtitle, light = false }) => {
+export const BrandLogo: React.FC<{ compact?: boolean; subtitle?: string; light?: boolean; paper?: boolean }> = ({ compact = false, subtitle, light = false, paper = false }) => {
   const { c } = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} accessible accessibilityRole="header" accessibilityLabel={subtitle ? `Đông A edu – ${subtitle}` : 'Đông A edu'}>
       <Image source={LOGO_MARK} accessibilityIgnoresInvertColors style={{ width: 44, height: 44, borderRadius: 12 }} />
       {!compact && (
         <View>
-          <Text style={{ fontFamily: FONT.heavy, fontSize: 21, lineHeight: 25, letterSpacing: -0.3, color: light ? '#ffffff' : c.muc }}>
+          <Text style={{ fontFamily: FONT.heavy, fontSize: 21, lineHeight: 25, letterSpacing: -0.3, color: light ? '#ffffff' : paper ? c.logoInk : c.muc }}>
             Đông A
-            <Text style={{ fontFamily: FONT.semibold, fontSize: 14, letterSpacing: 0, color: light ? '#ffd479' : c.sonChu }}> edu</Text>
+            <Text style={{ fontFamily: FONT.semibold, fontSize: 14, letterSpacing: 0, color: light ? '#ffd479' : paper ? c.logoRed : c.sonChu }}> edu</Text>
           </Text>
           {subtitle && (
             <Text style={{ fontFamily: FONT.bold, fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase', color: light ? 'rgba(255,255,255,0.85)' : c.muc2 }}>{subtitle}</Text>
