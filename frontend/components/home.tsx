@@ -23,6 +23,7 @@ import { HeroTitle } from '@/components/hero-title';
 import { HistoryShowcase } from '@/components/history-showcase';
 import { CloudPair, SectionCloud } from '@/components/section-cloud';
 import { CAMPAIGNS, CAMPAIGN_ROUTES, PHASES, PHASE_REAL } from '@/constants/campaigns';
+import { FAQ_HOME } from '@/constants/faq';
 import { ENEMIES, MAP_PLACES } from '@/constants/game';
 import { HERO_BY_ID } from '@/constants/heroes';
 import { ANSWER_STYLES, type Palette } from '@/constants/theme';
@@ -1030,15 +1031,6 @@ const STEPS: Array<{ icon: IconType; title: string; text: string }> = [
   { icon: Trophy, title: 'Cả lớp cùng tiến bộ', text: 'Giáo viên theo dõi tiến độ và mức nắm vững của từng em, rồi mở phòng thi đấu bằng mã PIN để cả lớp thi trên điện thoại.' },
 ];
 
-const FAQ: Array<{ q: string; a: string }> = [
-  { q: 'Đông A là gì?', a: 'Đông A là nền tảng học tập game hóa về ba lần kháng chiến chống Nguyên – Mông thời Trần (1258, 1285 và 1287 – 1288), thuộc đề tài khóa luận tốt nghiệp. Học sinh vừa chơi vừa trả lời câu hỏi lịch sử để chiêu mộ danh tướng và vượt các màn chiến dịch.' },
-  { q: 'Làm sao để có tài khoản?', a: 'Tài khoản do nhà trường cấp: quản trị trường nhập file Excel mẫu, mật khẩu ban đầu được gửi qua thư điện tử và phải đổi ở lần đăng nhập đầu tiên.' },
-  { q: 'Nội dung lịch sử lấy từ đâu?', a: 'Phần giới thiệu ba lần kháng chiến trên trang này viết theo Wikipedia tiếng Việt (bài “Chiến tranh Nguyên Mông – Đại Việt” và ba bài chi tiết lần 1, 2, 3). Trong game, mỗi nhân vật gắn nhãn nguồn gốc: chính sử, giai thoại – truyền thuyết, sáng tạo của game hoặc dân gian – cần đối chiếu.' },
-  { q: 'Quân Sư AI trả lời dựa trên gì?', a: 'Quân Sư AI trả lời dựa trên kho kiến thức sử liệu của đề tài (truy xuất kiến thức rồi mới sinh câu trả lời). Khi cần, học sinh nên đối chiếu thêm với sách giáo khoa.' },
-  { q: 'Chơi được trên thiết bị nào?', a: 'Đông A chạy trên trình duyệt web, điện thoại Android và iPhone, iPad.' },
-  { q: 'Dữ liệu của trường có được tách riêng không?', a: 'Có. Mỗi trường chỉ thấy dữ liệu của mình nhờ phân quyền ngay ở tầng cơ sở dữ liệu. Tài khoản bị xóa nhầm vẫn khôi phục được trong 45 ngày trước khi xóa vĩnh viễn.' },
-];
-
 /** Bốn bước từ lúc nhà trường cấp tài khoản đến khi cả lớp ra trận */
 const HowSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
@@ -1076,13 +1068,14 @@ const HowSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) =
 /**
  * Câu hỏi thường gặp, bố cục hai cột: bên trái là nhãn nhỏ, tiêu đề, một dòng giới thiệu và nút mở/thu gọn tất cả; bên phải là danh sách các câu
  * ngăn bằng đường kẻ mảnh, bấm để mở/đóng từng câu (có thể mở nhiều câu cùng lúc, mở sẵn câu đầu). Không có hiệu ứng trượt hay hiện dần.
+ * Nút "Xem tất cả câu hỏi" mở trang đầy đủ /cau-hoi-thuong-gap (components/faq-page.tsx); sáu câu ở đây lấy từ constants/faq.ts.
  */
 const FaqSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
+  const router = useRouter();
   const { width } = useWindowDimensions();
   const two = width >= 1000; // hai cột cần đủ chỗ: hẹp hơn thì xếp dọc
   const [open, setOpen] = useState<number[]>([0]);
-  const all = open.length === FAQ.length;
   const toggle = (i: number) => setOpen((o) => (o.includes(i) ? o.filter((x) => x !== i) : [...o, i]));
   const h = wide ? 42 : 32;
   return (
@@ -1101,10 +1094,10 @@ const FaqSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) =
           <Txt f="medium" size={16} color={INK_SOFT} style={{ lineHeight: 24 }}>
             Hiểu thêm về Đông A và cách tham gia.
           </Txt>
-          <Cta title={all ? 'Thu gọn tất cả' : 'Xem tất cả câu hỏi'} tone="logo" arrow={!all} onPress={() => setOpen(all ? [] : FAQ.map((_, i) => i))} testID="faq-all" />
+          <Cta title="Xem tất cả câu hỏi" tone="logo" arrow onPress={() => router.push('/cau-hoi-thuong-gap')} testID="faq-all" />
         </View>
         <View style={{ flex: two ? 1 : undefined, width: two ? undefined : '100%', borderTopWidth: 1, borderTopColor: INK_LINE }}>
-          {FAQ.map((f, i) => {
+          {FAQ_HOME.map((f, i) => {
             const on = open.includes(i);
             return (
               <View key={f.q} style={{ borderBottomWidth: 1, borderBottomColor: INK_LINE }}>
