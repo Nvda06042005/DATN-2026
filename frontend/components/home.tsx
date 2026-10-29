@@ -961,11 +961,6 @@ const ExplorerSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
       <Reveal>
         <CampaignExplorer wide={wide} />
       </Reveal>
-      <Reveal>
-        <Txt size={13} color={INK_SOFT} center style={{ maxWidth: 760, alignSelf: 'center' }}>
-          Nội dung và bản đồ theo Wikipedia tiếng Việt: “Chiến tranh Nguyên Mông – Đại Việt” và ba bài chi tiết lần 1, 2, 3; số quân là ước tính, các nguồn chép khác nhau. Sau ba lần xâm lược thất bại, nhà Nguyên có kế hoạch đánh lần thứ tư nhưng không thực hiện được; Đại Việt giữ vững độc lập, trên danh nghĩa vẫn là nước chư hầu.
-        </Txt>
-      </Reveal>
     </Band>
   );
 };
