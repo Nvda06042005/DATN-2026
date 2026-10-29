@@ -1,6 +1,7 @@
 /**
- * Thư viện danh tướng: ảnh tượng, phù điêu và tư liệu có nguồn. Lưới và khung chi tiết
- * hiển thị ngay, không trượt/hiện dần/nhấc thẻ; khung chi tiết không dính khi cuộn.
+ * Thư viện danh tướng: ảnh tượng, phù điêu và tư liệu có nguồn.
+ * Ban đầu chỉ hiện lưới; bấm thẻ mới hiện chi tiết, bấm lại để đóng.
+ * Không trượt/hiện dần/nhấc thẻ; khung chi tiết không dính khi cuộn.
  * Điện thoại: lưới hai cột, khung mở ngay dưới hàng vừa bấm.
  * Màu theo bảng màu logo như các khối phía trên (nền giấy kem, chữ mực xanh, đỏ cờ làm điểm nhấn). Dữ liệu: HEROES (tên, danh hiệu, nhãn nguồn) và HERO_PROFILE (sơ yếu lý lịch theo Wikipedia) trong constants/heroes.ts.
  */
@@ -17,7 +18,6 @@ import { useTheme } from '@/hooks/use-theme';
 import type { HeroDef } from '@/types/game';
 
 const MAX_W = 1120;
-const DEFAULT_ID = 'tran_hung_dao';
 const INK_SOFT = 'rgba(35, 56, 47, 0.78)';
 const INK_LINE = 'rgba(35, 56, 47, 0.16)';
 
@@ -25,24 +25,23 @@ const rows = <T,>(list: T[], n: number) => Array.from({ length: Math.ceil(list.l
 
 export const HeroGallery: React.FC<{ wide: boolean }> = ({ wide }) => {
   const { width } = useWindowDimensions();
-  const [sel, setSel] = useState<string | null>(wide ? DEFAULT_ID : null);
-  const current = sel ?? (wide ? DEFAULT_ID : null);
+  const [sel, setSel] = useState<string | null>(null);
+  const hero = HEROES.find((h) => h.id === sel) ?? null;
   const inner = Math.min(width, MAX_W) - 32;
   const panelW = inner >= 900 ? 440 : 360;
-  const gridW = wide ? inner - panelW - 28 : inner;
+  const gridW = wide && hero ? inner - panelW - 28 : inner;
   const cols = wide ? Math.max(2, Math.floor((gridW + 12) / (138 + 12))) : 2;
   const tileW = Math.floor((gridW - (cols - 1) * 12) / cols);
-  const hero = HEROES.find((h) => h.id === current) ?? null;
 
   const tile = (h: HeroDef) => (
     <View key={h.id} style={{ width: tileW }}>
-      <Tile hero={h} w={tileW} active={h.id === current} onPress={() => setSel(!wide && h.id === current ? null : h.id)} />
+      <Tile hero={h} w={tileW} active={h.id === sel} onPress={() => setSel(previous => previous === h.id ? null : h.id)} />
     </View>
   );
 
   if (!wide) {
     return (
-      <View style={{ gap: 12 }}>
+      <View testID="hero-gallery" style={{ gap: 12 }}>
         {rows(HEROES, cols).map((row, r) => (
           <View key={r} style={{ gap: 12 }}>
             <View style={{ flexDirection: 'row', gap: 12 }}>{row.map(tile)}</View>
@@ -54,9 +53,9 @@ export const HeroGallery: React.FC<{ wide: boolean }> = ({ wide }) => {
   }
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 28 }}>
-      <View style={{ width: gridW, flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>{HEROES.map(tile)}</View>
-      <View style={{ width: panelW }}>{hero && <Detail hero={hero} wide />}</View>
+    <View testID="hero-gallery" style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 28 }}>
+      <View testID="hero-grid" style={{ width: gridW, flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>{HEROES.map(tile)}</View>
+      {hero && <View style={{ width: panelW }}><Detail hero={hero} wide /></View>}
     </View>
   );
 };
@@ -72,7 +71,9 @@ const Tile: React.FC<{ hero: HeroDef; w: number; active: boolean; onPress: () =>
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={`${hero.name}, ${hero.title}`}
-        accessibilityState={{ selected: active }}
+        accessibilityState={{ selected: active, expanded: active }}
+        aria-controls={active ? 'hero-detail-panel' : undefined}
+        aria-expanded={active}
         aria-pressed={active}
         testID={`hero-tile-${hero.id}`}
         style={({ pressed }) => ({
@@ -111,6 +112,7 @@ const Detail: React.FC<{ hero: HeroDef; wide: boolean }> = ({ hero, wide }) => {
   );
   return (
     <View
+      id="hero-detail-panel"
       accessibilityLiveRegion="polite"
       testID="hero-detail"
       style={{ borderRadius: 30, padding: wide ? 20 : 16, backgroundColor: 'rgba(255, 255, 255, 0.78)', borderWidth: 1, borderColor: INK_LINE, boxShadow: '0 10px 30px rgba(35, 56, 47, 0.10)' } as unknown as ViewStyle}
