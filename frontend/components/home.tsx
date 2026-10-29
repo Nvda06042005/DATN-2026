@@ -942,6 +942,17 @@ const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
   );
 };
 
+/** Hai vòng tròn vàng mảnh ở hai góc nền, giống khối "Nơi học sinh khám phá lịch sử" */
+const GoldRings: React.FC = () => {
+  const { c } = useTheme();
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <View style={{ position: 'absolute', width: 440, height: 440, borderRadius: 220, borderWidth: 1, borderColor: c.logoGold, opacity: 0.3, right: -260, top: 40 }} />
+      <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, borderWidth: 1, borderColor: c.logoGold, opacity: 0.3, left: -190, bottom: 60 }} />
+    </View>
+  );
+};
+
 const ExplorerSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
   return (
@@ -950,12 +961,7 @@ const ExplorerSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
       bg={c.logoPaper}
       wide={wide}
       onSection={onSection}
-      decor={(
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          <View style={{ position: 'absolute', width: 440, height: 440, borderRadius: 220, borderWidth: 1, borderColor: c.logoGold, opacity: 0.3, right: -260, top: 40 }} />
-          <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, borderWidth: 1, borderColor: c.logoGold, opacity: 0.3, left: -190, bottom: 60 }} />
-        </View>
-      )}
+      decor={<GoldRings />}
     >
       <Head logo title={`Ba lần kháng chiến chống Nguyên\u00A0–\u2060\u00A0Mông`} text="Chọn một cuộc kháng chiến để xem bản đồ, diễn biến chính và các màn chơi." wide={wide} />
       <Reveal>
@@ -978,11 +984,11 @@ const CAST: Array<{ accessory: MascotAccessory; mood: 'happy' | 'excited' | 'lov
   { accessory: 'scholar', mood: 'thinking' },
 ];
 
-/** Danh tướng nhà Trần: nền xanh mực của logo, lưới tranh minh họa và khung sơ yếu lý lịch (xem components/hero-gallery.tsx) */
+/** Danh tướng nhà Trần: cùng bảng màu logo với các khối phía trên (giấy kem, mực xanh, đỏ cờ), lưới tranh minh họa và khung sơ yếu lý lịch (xem components/hero-gallery.tsx) */
 const CastSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
   return (
-    <Band id="danh-tuong" bg={c.logoInk} wide={wide} onSection={onSection}>
+    <Band id="danh-tuong" bg={c.logoPaper} wide={wide} onSection={onSection} decor={<GoldRings />}>
       <Reveal from="scale">
         <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: wide ? 12 : 4 }} pointerEvents="none">
           {CAST.map((m, i) => (
@@ -990,7 +996,7 @@ const CastSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) 
           ))}
         </View>
       </Reveal>
-      <Head light title="Gặp gỡ danh tướng nhà Trần" text="Chọn một nhân vật để xem sơ yếu lý lịch và công trạng. Mỗi người gắn nhãn nguồn gốc để phân biệt chính sử với giai thoại và phần sáng tạo của game." wide={wide} />
+      <Head logo title="Gặp gỡ danh tướng nhà Trần" text="Chọn một nhân vật để xem sơ yếu lý lịch và công trạng. Mỗi người gắn nhãn nguồn gốc để phân biệt chính sử với giai thoại và phần sáng tạo của game." wide={wide} />
       <Reveal>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
           {Object.keys(LORE_LABEL).map((k) => (
@@ -1112,9 +1118,9 @@ export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; o
     <ShowcaseSection wide={wide} onSection={onSection} />
     <SectionCloud material="gold" wide={wide} variant={2} />
     <ExplorerSection wide={wide} onSection={onSection} />
-    <SectionCloud color={c.logoPaper} sound wide={wide} variant={1} />
+    <SectionCloud material="gold" wide={wide} variant={1} />
     <CastSection wide={wide} onSection={onSection} />
-    <SectionCloud color={c.the} sound wide={wide} direction="up" variant={0} />
+    <SectionCloud material="gold" wide={wide} direction="up" variant={0} />
     <QuotesSection wide={wide} onSection={onSection} />
     <SectionCloud color={c.the} sound wide={wide} variant={2} />
     <ClosingSection wide={wide} />

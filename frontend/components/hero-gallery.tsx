@@ -1,7 +1,7 @@
 /**
  * Thư viện danh tướng nhà Trần của trang chủ (kiểu lưới biểu tượng kèm khung chi tiết): bên trái là lưới thẻ có tranh minh họa, bên phải là
  * khung sơ yếu lý lịch tóm tắt của người đang chọn (khung dính theo khi cuộn). Điện thoại: lưới hai cột, khung mở ngay dưới hàng vừa bấm.
- * Dữ liệu: HEROES (tên, danh hiệu, nhãn nguồn) và HERO_PROFILE (sơ yếu lý lịch theo Wikipedia) trong constants/heroes.ts.
+ * Màu theo bảng màu logo như các khối phía trên (nền giấy kem, chữ mực xanh, đỏ cờ làm điểm nhấn). Dữ liệu: HEROES (tên, danh hiệu, nhãn nguồn) và HERO_PROFILE (sơ yếu lý lịch theo Wikipedia) trong constants/heroes.ts.
  */
 import React, { useState } from 'react';
 import { Animated, Platform, Pressable, View, useWindowDimensions, type ViewStyle } from 'react-native';
@@ -19,6 +19,8 @@ import type { HeroDef } from '@/types/game';
 
 const MAX_W = 1120;
 const DEFAULT_ID = 'tran_hung_dao';
+const INK_SOFT = 'rgba(35, 56, 47, 0.78)';
+const INK_LINE = 'rgba(35, 56, 47, 0.16)';
 /** Khung chi tiết dính theo khi cuộn (chỉ web) */
 const STICKY = (Platform.OS === 'web' ? { position: 'sticky', top: 84 } : null) as unknown as ViewStyle;
 
@@ -78,16 +80,16 @@ const Tile: React.FC<{ hero: HeroDef; w: number; active: boolean; onPress: () =>
         testID={`hero-tile-${hero.id}`}
         style={({ pressed }) => ({
           width: w, height: h, alignItems: 'center', paddingTop: 12, paddingBottom: 12, paddingHorizontal: 8, borderRadius: 26, borderWidth: 1.5,
-          borderColor: active ? c.logoGold : 'rgba(250,244,231,0.09)',
-          backgroundColor: active ? 'rgba(223,182,111,0.12)' : 'rgba(250,244,231,0.04)',
+          borderColor: active ? c.logoRed : INK_LINE,
+          backgroundColor: active ? 'rgba(181, 53, 32, 0.08)' : 'rgba(255, 255, 255, 0.7)',
           opacity: pressed ? 0.9 : 1,
         })}
       >
         <HeroPortrait id={hero.id} size={art} accent={c[el.fill]} />
-        <Txt f="bold" size={14.5} color={c.logoPaper} center style={{ marginTop: 2, lineHeight: 19 }}>
+        <Txt f="bold" size={14.5} color={c.logoInk} center style={{ marginTop: 2, lineHeight: 19 }}>
           {hero.name}
         </Txt>
-        <Txt size={12} color="rgba(250,244,231,0.66)" center numberOfLines={2} style={{ lineHeight: 16, minHeight: 32 }}>
+        <Txt size={12} color={INK_SOFT} center numberOfLines={2} style={{ lineHeight: 16, minHeight: 32 }}>
           {hero.title}
         </Txt>
       </Pressable>
@@ -102,11 +104,11 @@ const Detail: React.FC<{ hero: HeroDef; wide: boolean }> = ({ hero, wide }) => {
   const pop = usePopIn(hero.id);
   const p = HERO_PROFILE[hero.id];
   const el = ELEMENTS[hero.element];
-  const soft = 'rgba(250,244,231,0.74)';
+  const soft = INK_SOFT;
   if (!p) return null;
   const row = (label: string, text: string) => (
-    <Txt size={13.5} color={c.logoPaper} style={{ lineHeight: 20 }}>
-      <Txt f="bold" size={13.5} color={c.logoGold}>
+    <Txt size={13.5} color={c.logoInk} style={{ lineHeight: 20 }}>
+      <Txt f="bold" size={13.5} color={c.logoRed}>
         {label}:{' '}
       </Txt>
       {text}
@@ -116,16 +118,16 @@ const Detail: React.FC<{ hero: HeroDef; wide: boolean }> = ({ hero, wide }) => {
     <View
       accessibilityLiveRegion="polite"
       testID="hero-detail"
-      style={{ borderRadius: 30, padding: wide ? 20 : 16, backgroundColor: 'rgba(250,244,231,0.05)', borderWidth: 1, borderColor: 'rgba(223,182,111,0.28)' }}
+      style={{ borderRadius: 30, padding: wide ? 20 : 16, backgroundColor: 'rgba(255, 255, 255, 0.78)', borderWidth: 1, borderColor: INK_LINE, boxShadow: '0 10px 30px rgba(35, 56, 47, 0.10)' } as unknown as ViewStyle}
     >
       <Animated.View style={[{ gap: 10 }, pop]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <HeroPortrait id={hero.id} size={wide ? 168 : 128} accent={c[el.fill]} />
           <View style={{ flex: 1, gap: 6, alignItems: 'flex-start' }}>
-            <Txt f="heavy" size={wide ? 28 : 24} color={c.logoPaper} accessibilityRole="header" style={{ lineHeight: wide ? 32 : 28, letterSpacing: -0.6 }}>
+            <Txt f="heavy" size={wide ? 28 : 24} color={c.logoInk} accessibilityRole="header" style={{ lineHeight: wide ? 32 : 28, letterSpacing: -0.6 }}>
               {hero.name}
             </Txt>
-            <Txt f="bold" size={11.5} color={c.logoGold} upper style={{ letterSpacing: 1.4, lineHeight: 16 }}>
+            <Txt f="bold" size={11.5} color={c.logoRed} upper style={{ letterSpacing: 1.4, lineHeight: 16 }}>
               {hero.title}
             </Txt>
             <LoreChip lore={hero.lore} />
@@ -134,20 +136,20 @@ const Detail: React.FC<{ hero: HeroDef; wide: boolean }> = ({ hero, wide }) => {
         <Txt size={14.5} color={soft} style={{ lineHeight: 22 }}>
           {p.summary}
         </Txt>
-        <View style={{ borderRadius: 20, padding: 14, gap: 6, backgroundColor: 'rgba(0,0,0,0.18)', borderWidth: 1, borderColor: 'rgba(250,244,231,0.1)' }}>
+        <View style={{ borderRadius: 20, padding: 14, gap: 6, backgroundColor: 'rgba(35, 56, 47, 0.05)', borderWidth: 1, borderColor: INK_LINE }}>
           {row('Sinh – mất', p.years)}
           {row('Chức tước', p.rank)}
           {row('Xuất thân', p.origin)}
           {row('Tham gia', p.wars)}
-          <Txt f="bold" size={13.5} color={c.logoGold} style={{ marginTop: 4 }}>
+          <Txt f="bold" size={13.5} color={c.logoRed} style={{ marginTop: 4 }}>
             Công trạng:
           </Txt>
           {p.deeds.map((d) => (
             <View key={d} style={{ flexDirection: 'row', gap: 8 }}>
-              <Txt size={13.5} color={c.logoGold} style={{ lineHeight: 20 }}>
+              <Txt size={13.5} color={c.logoRed} style={{ lineHeight: 20 }}>
                 •
               </Txt>
-              <Txt size={13.5} color={c.logoPaper} style={{ flex: 1, lineHeight: 20 }}>
+              <Txt size={13.5} color={c.logoInk} style={{ flex: 1, lineHeight: 20 }}>
                 {d}
               </Txt>
             </View>
@@ -160,12 +162,12 @@ const Detail: React.FC<{ hero: HeroDef; wide: boolean }> = ({ hero, wide }) => {
           accessibilityLabel={`Chơi cùng ${hero.name} trong game`}
           style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, opacity: pressed ? 0.75 : 1 })}
         >
-          <Txt f="bold" size={15} color={c.logoGold}>
+          <Txt f="bold" size={15} color={c.logoRed}>
             Chơi cùng {hero.name} trong game
           </Txt>
-          <ArrowUpRight size={18} color={c.logoGold} strokeWidth={2.2} />
+          <ArrowUpRight size={18} color={c.logoRed} strokeWidth={2.2} />
         </Pressable>
-        <Txt size={12} color="rgba(250,244,231,0.5)" style={{ lineHeight: 17 }}>
+        <Txt size={12} color="rgba(35, 56, 47, 0.62)" style={{ lineHeight: 17 }}>
           Tranh minh họa cách điệu, không phải chân dung đương thời (không còn chân dung của các nhân vật này). Nội dung theo Wikipedia tiếng Việt.
         </Txt>
       </Animated.View>
