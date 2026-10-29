@@ -15,9 +15,7 @@ import {
 } from 'lucide-react-native';
 import {
   BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, PatternOverlay, SchematicMap, VietnamFlag, WaveBand,
-  type MascotAccessory,
 } from '@/components/art';
-import { LoreChip } from '@/components/game/quiz';
 import { Chip, Txt } from '@/components/ui';
 import { HomeVideo } from '@/components/home-video';
 import { HeroGallery } from '@/components/hero-gallery';
@@ -25,7 +23,7 @@ import { HeroTitle } from '@/components/hero-title';
 import { HistoryShowcase } from '@/components/history-showcase';
 import { CloudPair, SectionCloud } from '@/components/section-cloud';
 import { CAMPAIGNS, CAMPAIGN_ROUTES, PHASES, PHASE_REAL } from '@/constants/campaigns';
-import { ENEMIES, LORE_LABEL, MAP_PLACES } from '@/constants/game';
+import { ENEMIES, MAP_PLACES } from '@/constants/game';
 import { HERO_BY_ID } from '@/constants/heroes';
 import { ANSWER_STYLES, type Palette } from '@/constants/theme';
 import { Lift, Reveal, useScrollY } from '@/components/motion';
@@ -973,33 +971,11 @@ const ExplorerSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
 };
 
 // ---------------------------------------------------------------------- danh tướng và lời ông cha
-const CAST: Array<{ accessory: MascotAccessory; mood: 'happy' | 'excited' | 'love' | 'thinking' }> = [
-  { accessory: 'helmet', mood: 'excited' },
-  { accessory: 'conical', mood: 'happy' },
-  { accessory: 'crown', mood: 'love' },
-  { accessory: 'scholar', mood: 'thinking' },
-];
-
-/** Danh tướng nhà Trần: cùng bảng màu logo với các khối phía trên (giấy kem, mực xanh, đỏ cờ), lưới tranh minh họa và khung sơ yếu lý lịch (xem components/hero-gallery.tsx) */
+/** Danh tướng nhà Trần: chỉ còn danh sách (không tiêu đề, linh vật hay chú giải nhãn); cùng bảng màu logo với các khối phía trên (giấy kem, mực xanh, đỏ cờ), lưới tranh minh họa và khung sơ yếu lý lịch (xem components/hero-gallery.tsx) */
 const CastSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
   return (
     <Band id="danh-tuong" bg={c.logoPaper} wide={wide} onSection={onSection} decor={<GoldRings />}>
-      <Reveal from="scale">
-        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: wide ? 12 : 4 }} pointerEvents="none">
-          {CAST.map((m, i) => (
-            <Mascot key={m.accessory} size={wide ? 112 : 70} accessory={m.accessory} mood={m.mood} bob={i % 2 === 0} title={`Rồng Con ${m.accessory}`} />
-          ))}
-        </View>
-      </Reveal>
-      <Head logo title="Gặp gỡ danh tướng nhà Trần" text="Chọn một nhân vật để xem sơ yếu lý lịch và công trạng. Mỗi người gắn nhãn nguồn gốc để phân biệt chính sử với giai thoại và phần sáng tạo của game." wide={wide} />
-      <Reveal>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-          {Object.keys(LORE_LABEL).map((k) => (
-            <LoreChip key={k} lore={k} />
-          ))}
-        </View>
-      </Reveal>
       <HeroGallery wide={wide} />
     </Band>
   );
