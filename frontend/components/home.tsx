@@ -241,24 +241,6 @@ const Band: React.FC<{
   );
 };
 
-const Head: React.FC<{ title: string; text?: string; wide: boolean; light?: boolean; logo?: boolean }> = ({ title, text, wide, light = false, logo = false }) => {
-  const { c } = useTheme();
-  return (
-    <Reveal>
-      <View style={{ gap: 12, alignItems: 'center' }}>
-        <Txt f="heavy" size={wide ? 52 : 32} color={logo ? c.logoInk : light ? c.trang : c.xanhMuc} center accessibilityRole="header" style={{ lineHeight: wide ? 58 : 38, letterSpacing: wide ? -1.6 : -0.8, maxWidth: 860 }}>
-          {title}
-        </Txt>
-        {text && (
-          <Txt f="medium" size={wide ? 20 : 17} color={logo ? INK_SOFT : light ? c.trang : c.xanhMuc2} center style={{ maxWidth: 720, lineHeight: wide ? 29 : 25 }}>
-            {text}
-          </Txt>
-        )}
-      </View>
-    </Reveal>
-  );
-};
-
 /**
  * Dải thẻ chạy ngang liên tục (nhân đôi nội dung để nối liền); rê chuột vào thì dừng để đọc, bỏ chuột ra chạy tiếp từ chỗ đang dừng.
  * Giảm chuyển động thì chuyển thành dải cuộn ngang bằng tay.
@@ -528,7 +510,7 @@ const PhaseMarquee: React.FC<{ wide: boolean; onSection: (id: string, y: number)
     <View id="chin-man" onLayout={(e) => onSection('chin-man', e.nativeEvent.layout.y)} style={{ width: '100%', backgroundColor: c.xam, paddingVertical: wide ? 80 : 48, gap: 20, overflow: 'hidden' }}>
       <PatternOverlay />
       <View style={{ paddingHorizontal: 16 }}>
-        <Head title="Chín màn chiến dịch" text="Mỗi màn là một trận đánh có thật, từ Bình Lệ Nguyên đến Bạch Đằng." wide={wide} />
+        <SectionHeading eyebrow="Theo dấu chiến dịch" title="Chín màn" accent="chiến dịch" description="Mỗi màn là một trận đánh có thật, từ Bình Lệ Nguyên đến Bạch Đằng." wide={wide} testID="phases-heading" />
       </View>
       <PhaseTrack auto={wide}>
         {PHASES.map((p, i) => {
