@@ -81,6 +81,11 @@ const CAMPAIGN_FACTS: Record<1 | 2 | 3, { time: string; enemy: string; lead: str
   },
 };
 
+/** Khối ba lần kháng chiến dùng cùng bảng màu logo với khối "Nơi học sinh khám phá lịch sử": giấy kem, mực xanh, đỏ cờ và vàng cổ; cố định ở cả hai chế độ sáng/tối */
+const INK_SOFT = 'rgba(35, 56, 47, 0.78)';
+const INK_LINE = 'rgba(35, 56, 47, 0.16)';
+const PAPER_CARD = { backgroundColor: 'rgba(255, 255, 255, 0.74)', borderColor: INK_LINE, boxShadow: '0 10px 30px rgba(35, 56, 47, 0.10)' } as unknown as ViewStyle;
+
 /** Mô tả ngắn trên thẻ chọn: không ghi số quân Nguyên lần 2 vì sử liệu chép khác nhau (Toàn thư 50 vạn, Nguyên sử 30 vạn kể cả dân phu) */
 const CAMPAIGN_BLURB: Record<1 | 2 | 3, string> = {
   1: 'Từ Bình Lệ Nguyên đến Đông Bộ Đầu',
@@ -166,7 +171,7 @@ const Panel: React.FC<{ children: React.ReactNode; pad?: number; style?: StylePr
 };
 
 /** den/trang dùng trên nền màu (nút đen, nút trắng như huy hiệu cửa hàng); son/xanh dùng trên thẻ */
-type CtaTone = 'den' | 'trang' | 'son' | 'xanh';
+type CtaTone = 'den' | 'trang' | 'son' | 'xanh' | 'muc';
 
 /** Nút viên thuốc bo tròn, cao tối thiểu 44 */
 const Cta: React.FC<{ title: string; onPress: () => void; tone?: CtaTone; icon?: IconType; arrow?: boolean; lg?: boolean; label?: string; testID?: string }> = ({
@@ -178,6 +183,7 @@ const Cta: React.FC<{ title: string; onPress: () => void; tone?: CtaTone; icon?:
     trang: { bg: c.trang, fg: c.dem, bd: c.trang },
     son: { bg: c.son, fg: c.trang, bd: c.son },
     xanh: { bg: c.xanhMuc, fg: c.the, bd: c.xanhMuc },
+    muc: { bg: c.logoInk, fg: c.logoPaper, bd: c.logoInk },
   }[tone];
   const text = lg ? 18 : 15;
   return (
@@ -208,12 +214,13 @@ const Cta: React.FC<{ title: string; onPress: () => void; tone?: CtaTone; icon?:
 
 /** Dải toàn chiều rộng; cloudTop/cloudBottom = màu khối liền kề để vẽ dải sóng/mây chuyển */
 const Band: React.FC<{
-  id?: string; bg?: string; cloudTop?: string; cloudBottom?: string; wide: boolean; gap?: number; onSection?: (id: string, y: number) => void; children: React.ReactNode;
-}> = ({ id, bg, cloudTop, cloudBottom, wide, gap = 32, onSection, children }) => {
+  id?: string; bg?: string; cloudTop?: string; cloudBottom?: string; wide: boolean; gap?: number; onSection?: (id: string, y: number) => void; decor?: React.ReactNode; children: React.ReactNode;
+}> = ({ id, bg, cloudTop, cloudBottom, wide, gap = 32, onSection, decor, children }) => {
   const { c } = useTheme();
   return (
     <View id={id} onLayout={id && onSection ? (e) => onSection(id, e.nativeEvent.layout.y) : undefined} style={[{ width: '100%', backgroundColor: bg, overflow: 'hidden' }, id ? ANCHOR : null]}>
-      <PatternOverlay opacity={bg === c.logoInk ? 0.065 : undefined} />
+      <PatternOverlay opacity={bg === c.logoInk ? 0.065 : bg === c.logoPaper ? 0.075 : undefined} />
+      {decor}
       {cloudTop && <CloudBank color={cloudTop} flip />}
       <View
         style={{
@@ -228,16 +235,16 @@ const Band: React.FC<{
   );
 };
 
-const Head: React.FC<{ title: string; text?: string; wide: boolean; light?: boolean }> = ({ title, text, wide, light = false }) => {
+const Head: React.FC<{ title: string; text?: string; wide: boolean; light?: boolean; logo?: boolean }> = ({ title, text, wide, light = false, logo = false }) => {
   const { c } = useTheme();
   return (
     <Reveal>
       <View style={{ gap: 12, alignItems: 'center' }}>
-        <Txt f="heavy" size={wide ? 52 : 32} color={light ? c.trang : c.xanhMuc} center accessibilityRole="header" style={{ lineHeight: wide ? 58 : 38, letterSpacing: wide ? -1.6 : -0.8, maxWidth: 860 }}>
+        <Txt f="heavy" size={wide ? 52 : 32} color={logo ? c.logoInk : light ? c.trang : c.xanhMuc} center accessibilityRole="header" style={{ lineHeight: wide ? 58 : 38, letterSpacing: wide ? -1.6 : -0.8, maxWidth: 860 }}>
           {title}
         </Txt>
         {text && (
-          <Txt f="medium" size={wide ? 20 : 17} color={light ? c.trang : c.xanhMuc2} center style={{ maxWidth: 720, lineHeight: wide ? 29 : 25 }}>
+          <Txt f="medium" size={wide ? 20 : 17} color={logo ? INK_SOFT : light ? c.trang : c.xanhMuc2} center style={{ maxWidth: 720, lineHeight: wide ? 29 : 25 }}>
             {text}
           </Txt>
         )}
@@ -754,8 +761,8 @@ const FactRow: React.FC<{ icon: IconType; label: string; text: string; color: st
   return (
     <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
       <Ico icon={icon} text={15} color={color} />
-      <Txt size={15} color={c.xanhMuc2} style={{ flex: 1 }}>
-        <Txt f="bold" size={15} color={c.xanhMuc}>
+      <Txt size={15} color={INK_SOFT} style={{ flex: 1 }}>
+        <Txt f="bold" size={15} color={c.logoInk}>
           {label}:{' '}
         </Txt>
         {text}
@@ -787,21 +794,21 @@ const CampaignMap: React.FC<{ id: 1 | 2 | 3; name: string; wide: boolean }> = ({
     </View>
   );
   return (
-    <Panel pad={0} style={{ width: wide ? 440 : '100%', overflow: 'hidden' }}>
+    <Panel pad={0} style={[{ width: wide ? 440 : '100%', overflow: 'hidden' }, PAPER_CARD]}>
       <Pressable onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel={`${label}, bấm để phóng to`} style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}>
         {picture(wide ? 438 : width - 34)}
-        <View pointerEvents="none" style={{ position: 'absolute', right: 10, bottom: 10, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 32, borderRadius: 16, backgroundColor: 'rgba(14,17,22,0.78)' }}>
-          <ZoomIn size={15} color={c.trang} strokeWidth={2} />
-          <Txt f="bold" size={12.5} color={c.trang}>
+        <View pointerEvents="none" style={{ position: 'absolute', right: 10, bottom: 10, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 32, borderRadius: 16, backgroundColor: 'rgba(35,56,47,0.86)' }}>
+          <ZoomIn size={15} color={c.logoPaper} strokeWidth={2} />
+          <Txt f="bold" size={12.5} color={c.logoPaper}>
             Phóng to
           </Txt>
         </View>
       </Pressable>
       <View style={{ padding: 14, gap: 4 }}>
-        <Txt f="bold" size={14} color={c.xanhMuc}>
+        <Txt f="bold" size={14} color={c.logoInk}>
           {label}
         </Txt>
-        <Txt size={12.5} color={c.xanhMuc2} style={{ lineHeight: 18 }}>
+        <Txt size={12.5} color={INK_SOFT} style={{ lineHeight: 18 }}>
           Mũi tên đỏ là quân Đại Việt, mũi tên đen là quân Mông Nguyên (tiến quân, rút chạy); chú thích đầy đủ nằm trong bản đồ. Nguồn: Wikipedia tiếng Việt, tác giả Lưu Ly (Wikimedia Commons, phạm vi công cộng).
         </Txt>
       </View>
@@ -838,7 +845,7 @@ const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
   const [sel, setSel] = useState<1 | 2 | 3>(1);
   const camp = CAMPAIGNS[sel - 1];
   const facts = CAMPAIGN_FACTS[sel];
-  const look = { accent: c.sonChu, soft: c.sonNhat };
+  const look = { accent: c.logoRed, soft: 'rgba(181, 53, 32, 0.08)' };
   const phases = PHASES.filter((p) => p.campaign === sel);
   return (
     <View style={{ flexDirection: wide ? 'row' : 'column', alignItems: 'flex-start', gap: 24 }}>
@@ -855,34 +862,34 @@ const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
                 accessibilityState={{ selected: on }}
                 style={({ pressed }) => ({
                   minHeight: 72, padding: 16, borderRadius: 22, borderWidth: 2, flexDirection: 'row', alignItems: 'center', gap: 16,
-                  borderColor: on ? look.accent : c.bienXanh, backgroundColor: on ? look.soft : c.the, opacity: pressed ? 0.9 : 1,
+                  borderColor: on ? look.accent : INK_LINE, backgroundColor: on ? look.soft : 'rgba(255, 255, 255, 0.7)', opacity: pressed ? 0.9 : 1,
                 })}
               >
                 {wide && (
-                  <Txt f="heavy" size={22} color={on ? look.accent : c.xanhMuc} style={{ minWidth: 104, letterSpacing: -0.4 }}>
+                  <Txt f="heavy" size={22} color={on ? look.accent : c.logoInk} style={{ minWidth: 104, letterSpacing: -0.4 }}>
                     {k.years.replace(' – ', '–')}
                   </Txt>
                 )}
                 <View style={{ flex: 1 }}>
                   {!wide && (
-                    <Txt f="heavy" size={18} color={on ? look.accent : c.xanhMuc} style={{ letterSpacing: -0.3 }}>
+                    <Txt f="heavy" size={18} color={on ? look.accent : c.logoInk} style={{ letterSpacing: -0.3 }}>
                       {k.years.replace(' – ', '–')}
                     </Txt>
                   )}
-                  <Txt f="bold" size={16} color={c.xanhMuc}>
+                  <Txt f="bold" size={16} color={c.logoInk}>
                     {k.name}
                   </Txt>
-                  <Txt size={14} color={c.xanhMuc2}>
+                  <Txt size={14} color={INK_SOFT}>
                     {CAMPAIGN_BLURB[k.id]}
                   </Txt>
                 </View>
-                <Ico icon={ArrowRight} text={15} color={on ? look.accent : c.xanhMuc2} />
+                <Ico icon={ArrowRight} text={15} color={on ? look.accent : INK_SOFT} />
               </Pressable>
             );
           })}
         </View>
-        <Panel pad={24} style={{ gap: 14 }}>
-          <Txt f="heavy" size={22} color={c.xanhMuc} accessibilityRole="header" style={{ lineHeight: 28, letterSpacing: -0.3 }}>
+        <Panel pad={24} style={[{ gap: 14 }, PAPER_CARD]}>
+          <Txt f="heavy" size={22} color={c.logoInk} accessibilityRole="header" style={{ lineHeight: 28, letterSpacing: -0.3 }}>
             {camp.name} · {camp.years}
           </Txt>
           <FactRow icon={CalendarDays} label="Thời gian" text={facts.time} color={look.accent} />
@@ -891,8 +898,8 @@ const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
           <FactRow icon={Users} label="Lực lượng" text={facts.force} color={look.accent} />
           <FactRow icon={Milestone} label="Diễn biến chính" text={facts.key} color={look.accent} />
           <FactRow icon={Trophy} label="Kết quả" text={facts.result} color={look.accent} />
-          <View style={{ gap: 10, paddingTop: 14, borderTopWidth: 1, borderTopColor: c.bienXanh }}>
-            <Txt f="bold" size={13} color={c.xanhMuc2} upper>
+          <View style={{ gap: 10, paddingTop: 14, borderTopWidth: 1, borderTopColor: INK_LINE }}>
+            <Txt f="bold" size={13} color={INK_SOFT} upper>
               {phases.length} màn chơi
             </Txt>
             {phases.map((p) => (
@@ -900,7 +907,7 @@ const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
                 <View style={{ height: lineH(15), justifyContent: 'center' }}>
                   <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: look.accent }} />
                 </View>
-                <Txt size={15} color={c.xanhMuc} style={{ flex: 1 }}>
+                <Txt size={15} color={c.logoInk} style={{ flex: 1 }}>
                   <Txt f="bold" size={15} color={look.accent}>
                     {PHASE_REAL[p.id].date}
                   </Txt>
@@ -910,7 +917,7 @@ const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
               </View>
             ))}
           </View>
-          <Cta title="Chơi chiến dịch này" tone="den" arrow onPress={() => router.push('/portal')} />
+          <Cta title="Chơi chiến dịch này" tone="muc" arrow onPress={() => router.push('/portal')} />
         </Panel>
       </View>
       <CampaignMap id={sel} name={camp.name} wide={wide} />
@@ -921,13 +928,24 @@ const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
 const ExplorerSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
   return (
-    <Band id="khang-chien" bg={c.the} wide={wide} onSection={onSection}>
-      <Head title={`Ba lần kháng chiến chống Nguyên\u00A0–\u2060\u00A0Mông`} text="Chọn một cuộc kháng chiến để xem bản đồ, diễn biến chính và các màn chơi." wide={wide} />
+    <Band
+      id="khang-chien"
+      bg={c.logoPaper}
+      wide={wide}
+      onSection={onSection}
+      decor={(
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <View style={{ position: 'absolute', width: 440, height: 440, borderRadius: 220, borderWidth: 1, borderColor: c.logoGold, opacity: 0.3, right: -260, top: 40 }} />
+          <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, borderWidth: 1, borderColor: c.logoGold, opacity: 0.3, left: -190, bottom: 60 }} />
+        </View>
+      )}
+    >
+      <Head logo title={`Ba lần kháng chiến chống Nguyên\u00A0–\u2060\u00A0Mông`} text="Chọn một cuộc kháng chiến để xem bản đồ, diễn biến chính và các màn chơi." wide={wide} />
       <Reveal>
         <CampaignExplorer wide={wide} />
       </Reveal>
       <Reveal>
-        <Txt size={13} color={c.xanhMuc2} center style={{ maxWidth: 760, alignSelf: 'center' }}>
+        <Txt size={13} color={INK_SOFT} center style={{ maxWidth: 760, alignSelf: 'center' }}>
           Nội dung và bản đồ theo Wikipedia tiếng Việt: “Chiến tranh Nguyên Mông – Đại Việt” và ba bài chi tiết lần 1, 2, 3; số quân là ước tính, các nguồn chép khác nhau. Sau ba lần xâm lược thất bại, nhà Nguyên có kế hoạch đánh lần thứ tư nhưng không thực hiện được; Đại Việt giữ vững độc lập, trên danh nghĩa vẫn là nước chư hầu.
         </Txt>
       </Reveal>
@@ -1077,7 +1095,7 @@ export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; o
     <ShowcaseSection wide={wide} onSection={onSection} />
     <SectionCloud color={c.logoPaper} wide={wide} variant={2} />
     <ExplorerSection wide={wide} onSection={onSection} />
-    <SectionCloud color={c.the} wide={wide} variant={1} />
+    <SectionCloud color={c.logoPaper} wide={wide} variant={1} />
     <CastSection wide={wide} onSection={onSection} />
     <SectionCloud color={c.the} wide={wide} direction="up" variant={0} />
     <QuotesSection wide={wide} onSection={onSection} />
