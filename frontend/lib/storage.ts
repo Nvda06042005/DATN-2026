@@ -62,28 +62,6 @@ export const readLiveRoom = (): string | null => {
   }
 };
 
-/** Chế độ sáng/tối của trang chủ công khai (chỉ nhớ trên web; điện thoại theo cài đặt hệ thống) */
-export type HomeTheme = 'light' | 'dark';
-const HOME_THEME_KEY = 'donga_home_theme';
-
-export const readHomeTheme = (): HomeTheme | null => {
-  if (Platform.OS !== 'web') return null;
-  try {
-    const v = webStore('local')?.getItem(HOME_THEME_KEY);
-    return v === 'dark' || v === 'light' ? v : null;
-  } catch {
-    return null;
-  }
-};
-
-export const saveHomeTheme = (mode: HomeTheme) => {
-  if (Platform.OS !== 'web') return;
-  try {
-    webStore('local')?.setItem(HOME_THEME_KEY, mode);
-  } catch {
-    // bỏ qua: lần sau mở lại trang sẽ theo cài đặt hệ thống
-  }
-};
 
 /** Âm thanh hiệu ứng của trang chủ: bật mặc định, nhớ lựa chọn trên web (xem lib/sfx.ts) */
 const HOME_SOUND_KEY = 'donga_home_sound';

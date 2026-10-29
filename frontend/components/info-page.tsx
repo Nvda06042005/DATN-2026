@@ -1,11 +1,11 @@
 /**
  * Khung chung của hai trang thông tin công khai: "Điều khoản sử dụng" (/dieu-khoan-su-dung) và "Câu hỏi thường gặp" (/cau-hoi-thuong-gap).
  * Dùng lại đúng thanh điều hướng (to ở đầu trang, co thành viên thuốc kính khi cuộn như trang chủ; logo chữ tối vì nền là giấy kem), chân trang, nút lên đầu trang,
- * chế độ sáng/tối (cùng khóa lưu với trang chủ) và cuộn mượt của trang chủ; menu chỉ có ba mục: Trang chủ, Điều khoản sử dụng, Câu hỏi thường gặp.
+ * bảng màu sáng cố định (như trang chủ, không có nút đổi sáng/tối) và cuộn mượt của trang chủ; menu chỉ có ba mục: Trang chủ, Điều khoản sử dụng, Câu hỏi thường gặp.
  * Phần nội dung của từng trang đặt trong `Band` của trang chủ. Cũng chứa AnswerBody và QaRow: cách hiển thị câu hỏi – trả lời giống khối "Câu hỏi thường gặp" ở trang chủ.
  */
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, ScrollView, View, useColorScheme, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from 'react-native';
+import { Animated, Platform, Pressable, ScrollView, View, useWindowDimensions, type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Plus, X } from 'lucide-react-native';
 import { BackToTop, FooterSection, Header, INK_LINE, INK_SOFT } from '@/components/home';
@@ -15,9 +15,9 @@ import { PALETTES } from '@/constants/theme';
 import { useReduceMotion } from '@/hooks/use-motion';
 import { useSmoothScroll } from '@/hooks/use-smooth-scroll';
 import { ThemeContext, useTheme } from '@/hooks/use-theme';
-import { readHomeTheme, saveHomeTheme, type HomeTheme } from '@/lib/storage';
 
 const WEB = Platform.OS === 'web';
+const INFO_THEME = { c: PALETTES.light, dark: false };
 
 export type InfoTab = 'terms' | 'faq';
 
@@ -89,25 +89,15 @@ export const InfoShell: React.FC<{
   active: InfoTab;
   scrollRef: React.RefObject<ScrollViewInstance | null>;
   children: React.ReactNode;
-}> = ({ active, scrollRef, children }) => {
-  const system = useColorScheme();
-  const [mode, setMode] = useState<HomeTheme>(() => readHomeTheme() ?? (system === 'dark' ? 'dark' : 'light'));
-  const theme = useMemo(() => ({ c: PALETTES[mode], dark: mode === 'dark' }), [mode]);
-  const toggleTheme = useCallback(() => {
-    const next: HomeTheme = mode === 'dark' ? 'light' : 'dark';
-    setMode(next);
-    saveHomeTheme(next);
-  }, [mode]);
-  return (
-    <ThemeContext.Provider value={theme}>
-      <Page active={active} scrollRef={scrollRef} onToggleTheme={toggleTheme}>
-        {children}
-      </Page>
-    </ThemeContext.Provider>
-  );
-};
+}> = ({ active, scrollRef, children }) => (
+  <ThemeContext.Provider value={INFO_THEME}>
+    <Page active={active} scrollRef={scrollRef}>
+      {children}
+    </Page>
+  </ThemeContext.Provider>
+);
 
-const Page: React.FC<{ active: InfoTab; scrollRef: React.RefObject<ScrollViewInstance | null>; onToggleTheme: () => void; children: React.ReactNode }> = ({ active, scrollRef, onToggleTheme, children }) => {
+const Page: React.FC<{ active: InfoTab; scrollRef: React.RefObject<ScrollViewInstance | null>; children: React.ReactNode }> = ({ active, scrollRef, children }) => {
   const router = useRouter();
   const reduce = useReduceMotion();
   const { width } = useWindowDimensions();
@@ -147,7 +137,7 @@ const Page: React.FC<{ active: InfoTab; scrollRef: React.RefObject<ScrollViewIns
         {children}
         <FooterSection wide={wide} go={go} onTop={top} />
       </ScrollView>
-      <Header width={width} scrollY={scrollY} stuck={stuck} active={ACTIVE_ID[active]} go={go} onToggleTheme={onToggleTheme} items={INFO_NAV} paper />
+      <Header width={width} scrollY={scrollY} stuck={stuck} active={ACTIVE_ID[active]} go={go} items={INFO_NAV} paper />
       <BackToTop scrollY={scrollY} visible={showTop} onPress={top} />
     </View>
   );

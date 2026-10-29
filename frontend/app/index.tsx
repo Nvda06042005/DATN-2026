@@ -1,11 +1,11 @@
 /**
- * Trang chủ công khai theo phong cách Papumba (các khối nằm ở components/home.tsx): khung trang gồm chế độ sáng/tối riêng cho trang chủ (nhớ lại ở lần sau),
+ * Trang chủ công khai theo phong cách Papumba (các khối nằm ở components/home.tsx): khung trang luôn dùng bảng màu sáng (không có nút đổi sáng/tối),
  * thanh điều hướng cố định co hẹp khi cuộn có đánh dấu mục đang xem, nút lên đầu trang, cuộn mượt khi lăn chuột và hiệu ứng theo cuộn (components/motion.tsx).
  * Chỉ chân trang có liên kết "Trang quản lý" tới /admin. expo-router bắt buộc tên index cho đường dẫn "/".
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated, Platform, ScrollView, View, useColorScheme, useWindowDimensions,
+  Animated, Platform, ScrollView, View, useWindowDimensions,
   type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance,
 } from 'react-native';
 import { useDocumentTitle } from '@/components/auth';
@@ -16,28 +16,21 @@ import { PALETTES } from '@/constants/theme';
 import { useReduceMotion } from '@/hooks/use-motion';
 import { useSmoothScroll } from '@/hooks/use-smooth-scroll';
 import { ThemeContext } from '@/hooks/use-theme';
-import { readHomeTheme, saveHomeTheme, type HomeTheme } from '@/lib/storage';
 
 const WEB = Platform.OS === 'web';
 
-/** Trang chủ tự quản lý chế độ sáng/tối rồi bọc nội dung trong ThemeContext riêng, nên các màn khác của app không bị ảnh hưởng */
+/** Trang chủ không có nút đổi sáng/tối (bỏ ngày 29/10/2026): luôn dùng bảng màu sáng trong ThemeContext riêng, nên các màn khác của app không bị ảnh hưởng */
+const HOME_THEME = { c: PALETTES.light, dark: false };
+
 export default function Home() {
-  const system = useColorScheme();
-  const [mode, setMode] = useState<HomeTheme>(() => readHomeTheme() ?? (system === 'dark' ? 'dark' : 'light'));
-  const theme = useMemo(() => ({ c: PALETTES[mode], dark: mode === 'dark' }), [mode]);
-  const toggleTheme = useCallback(() => {
-    const next: HomeTheme = mode === 'dark' ? 'light' : 'dark';
-    setMode(next);
-    saveHomeTheme(next);
-  }, [mode]);
   return (
-    <ThemeContext.Provider value={theme}>
-      <HomePage onToggleTheme={toggleTheme} />
+    <ThemeContext.Provider value={HOME_THEME}>
+      <HomePage />
     </ThemeContext.Provider>
   );
 }
 
-function HomePage({ onToggleTheme }: { onToggleTheme: () => void }) {
+function HomePage() {
   const reduce = useReduceMotion();
   const { width } = useWindowDimensions();
   const wide = width >= 760;
@@ -123,7 +116,7 @@ function HomePage({ onToggleTheme }: { onToggleTheme: () => void }) {
           <HomeSections wide={wide} go={go} onSection={onSection} onVideoImmersiveChange={setVideoImmersive} />
         </ScrollView>
       </FxProvider>
-      {!videoImmersive && <Header width={width} scrollY={scrollY} stuck={stuck} active={active} go={go} onToggleTheme={onToggleTheme} />}
+      {!videoImmersive && <Header width={width} scrollY={scrollY} stuck={stuck} active={active} go={go} />}
       {!videoImmersive && <BackToTop scrollY={scrollY} visible={showTop} onPress={() => go('home')} />}
     </View>
   );

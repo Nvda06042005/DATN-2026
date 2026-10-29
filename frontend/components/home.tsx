@@ -10,7 +10,7 @@ import { Animated, Easing, Image, Modal, Platform, Pressable, ScrollView, StyleS
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ArrowDown, ArrowRight, CalendarDays, Check, Compass, Joystick, Landmark, LogIn, MapPin, MessageSquareText, Milestone, Moon, Quote, School, Sun, Sword, Swords,
+  ArrowDown, ArrowRight, CalendarDays, Check, Compass, Joystick, Landmark, LogIn, MapPin, MessageSquareText, Milestone, Quote, School, Sword, Swords,
   Trophy, Users, Volume2, VolumeX, X, ZoomIn, ArrowUp, ArrowUpRight, FileSpreadsheet, Plus,
 } from 'lucide-react-native';
 import {
@@ -314,16 +314,16 @@ const RoundBtn: React.FC<{ icon: IconType; label: string; onPress: () => void; c
 
 /**
  * Thanh điều hướng cố định phía trên cùng. Ở đầu trang: logo trắng bên trái, viên thuốc trắng chứa các mục ở giữa (mục đang xem màu cam),
- * nút đen "Vào học ngay" bên phải. Khi cuộn, cả thanh co hẹp lại thành một viên thuốc kính sáng/tối. Có nút đổi sáng/tối và cờ Tiếng Việt.
+ * nút đen "Vào học ngay" bên phải. Khi cuộn, cả thanh co hẹp lại thành một viên thuốc kính. Có cờ Tiếng Việt; không có nút đổi sáng/tối (bỏ ngày 29/10/2026).
  */
 export const Header: React.FC<{
-  width: number; scrollY: Animated.Value; stuck: boolean; active: string; go: (id: string) => void; onToggleTheme: () => void;
+  width: number; scrollY: Animated.Value; stuck: boolean; active: string; go: (id: string) => void;
   /** Các mục menu; trang chủ dùng mặc định (sáu phần của trang), trang điều khoản và câu hỏi thường gặp truyền mục riêng */
   items?: ReadonlyArray<{ id: string; short: string }>;
   /** Nền phía sau thanh ở đầu trang là giấy kem (không phải ảnh tối): logo dùng chữ tối thay vì chữ trắng */
   paper?: boolean;
 }> = ({
-  width, scrollY, stuck, active, go, onToggleTheme, items = NAV_ITEMS, paper = false,
+  width, scrollY, stuck, active, go, items = NAV_ITEMS, paper = false,
 }) => {
   const { c, dark } = useTheme();
   const router = useRouter();
@@ -375,16 +375,6 @@ export const Header: React.FC<{
           </Animated.View>
         )}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: small ? 6 : 8 }}>
-          <RoundBtn
-            size={small ? 38 : 42}
-            icon={dark ? Moon : Sun}
-            label={dark ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
-            onPress={onToggleTheme}
-            color={fg}
-            bg={roundBg}
-            border={ring}
-            testID="home-theme"
-          />
           {WEB && (
             <RoundBtn
               size={small ? 38 : 42}
