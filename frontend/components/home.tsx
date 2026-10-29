@@ -14,7 +14,7 @@ import {
   Trophy, Users, Volume2, VolumeX, X, ZoomIn, ArrowUp, ArrowUpRight, ChevronDown, FileSpreadsheet,
 } from 'lucide-react-native';
 import {
-  BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, PatternOverlay, SchematicMap, Seal, VietnamFlag, WaveBand,
+  BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, PatternOverlay, SchematicMap, VietnamFlag, WaveBand,
   type MascotAccessory,
 } from '@/components/art';
 import { LoreChip } from '@/components/game/quiz';
@@ -1043,19 +1043,6 @@ const QuotesSection: React.FC<{ wide: boolean; onSection: (id: string, y: number
           </Reveal>
         ))}
       </View>
-      <Reveal style={{ maxWidth: 860, width: '100%', alignSelf: 'center' }}>
-      <Panel pad={24} style={[{ flexDirection: wide ? 'row' : 'column', alignItems: 'center', gap: 20, width: '100%' }, PAPER_CARD]}>
-        <Seal text={'ĐÔNG\nA'} size={wide ? 96 : 72} />
-        <View style={{ flex: wide ? 1 : undefined, gap: 6 }}>
-          <Txt f="heavy" size={22} color={c.logoInk} center={!wide} style={{ lineHeight: 28 }}>
-            Hào khí Đông A là gì?
-          </Txt>
-          <Txt size={15} color={INK_SOFT} center={!wide} style={{ lineHeight: 23 }}>
-            Là khí phách hào hùng, lòng tự hào dân tộc và sự đồng lòng từ vua đến dân của thời Trần. Tên gọi còn được giải thích bằng cách chiết tự chữ “Trần” thành “Đông” và “A”.
-          </Txt>
-        </View>
-      </Panel>
-      </Reveal>
     </Band>
   );
 };
