@@ -22,7 +22,7 @@ import { Chip, Txt } from '@/components/ui';
 import { HomeVideo } from '@/components/home-video';
 import { HeroGallery } from '@/components/hero-gallery';
 import { HistoryShowcase } from '@/components/history-showcase';
-import { SectionCloud } from '@/components/section-cloud';
+import { CloudPair, SectionCloud } from '@/components/section-cloud';
 import { CAMPAIGNS, CAMPAIGN_ROUTES, PHASES, PHASE_REAL } from '@/constants/campaigns';
 import { ENEMIES, LORE_LABEL, MAP_PLACES } from '@/constants/game';
 import { HERO_BY_ID } from '@/constants/heroes';
@@ -1112,15 +1112,15 @@ export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; o
   <>
     <HeroSection wide={wide} go={go} />
     <PhaseMarquee wide={wide} onSection={onSection} />
-    <SectionCloud material="gold" wide={wide} direction="up" variant={1} />
+    <CloudPair upper={c.xam} lower={c.logoPaper} wide={wide} variant={1} />
     <HomeVideo wide={wide} onImmersiveChange={onVideoImmersiveChange} />
     <SectionCloud color={c.logoPaper} sound wide={wide} direction="up" variant={1} />
     <ShowcaseSection wide={wide} onSection={onSection} />
-    <SectionCloud material="gold" wide={wide} direction="up" variant={1} />
+    <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={1} />
     <ExplorerSection wide={wide} onSection={onSection} />
-    <SectionCloud material="gold" wide={wide} direction="up" variant={1} />
+    <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={1} />
     <CastSection wide={wide} onSection={onSection} />
-    <SectionCloud material="gold" wide={wide} direction="up" variant={1} />
+    <CloudPair upper={c.logoPaper} lower={c.the} wide={wide} variant={1} />
     <QuotesSection wide={wide} onSection={onSection} />
     <SectionCloud color={c.the} sound wide={wide} variant={2} />
     <ClosingSection wide={wide} />
