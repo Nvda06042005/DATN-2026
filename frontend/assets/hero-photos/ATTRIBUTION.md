@@ -1,6 +1,7 @@
 # Ảnh tư liệu cho thư viện danh tướng
 
 Các ảnh chỉ dùng trong thư viện công khai, tách biệt với hình nhân vật trong game.
+Thông tin ghi công hiển thị công khai tại `/thong-tin-hinh-anh`, truy cập từ liên kết “Thông tin hình ảnh” ở chân trang; không in các dòng nguồn/chú thích dưới từng hồ sơ nhân vật.
 Ảnh tượng thờ, phù điêu và tranh tư liệu không được giới thiệu là ảnh chụp người thật thời Trần.
 Ảnh bối cảnh được ghi rõ khi chưa có ảnh tượng/chân dung đã xác minh.
 
@@ -74,7 +75,7 @@ Giữ nguyên nội dung; chỉ thu nhỏ và chuyển WebP. Giấy phép áp d�
 
 ## Ảnh dẫn trực tiếp từ nhà xuất bản
 
-Các ảnh dưới đây dùng URL công khai của nhà xuất bản; không sao chép tệp ảnh báo chí vào repo và không gán cho chúng giấy phép Creative Commons của các ảnh Commons. Khung chi tiết hiển thị tên nguồn cùng liên kết bài gốc. Không xóa watermark hoặc sửa nội dung các ảnh này.
+Các ảnh dưới đây dùng URL công khai của nhà xuất bản; không sao chép tệp ảnh báo chí vào repo và không gán cho chúng giấy phép Creative Commons của các ảnh Commons. Trang thông tin hình ảnh hiển thị tên nguồn cùng liên kết bài gốc. Không xóa watermark hoặc sửa nội dung các ảnh này.
 
 ### tran_thai_tong
 
@@ -117,4 +118,4 @@ Các ảnh dưới đây dùng URL công khai của nhà xuất bản; không sa
 - Đối chiếu chú thích bài gốc trước khi thay ảnh; không lấy ảnh đường phố, tàu hoặc người trùng tên làm chân dung nhân vật.
 - Với Thánh Dực và Sát Thát: dùng tranh tư liệu về quân đội Đại Việt, ghi rõ không xác định một cá nhân/đơn vị cụ thể.
 - Với Lê Phụ Trần: ảnh sông Mã là bối cảnh, không phải chân dung. [Bài tham khảo của Hội Nhà văn Việt Nam](https://vanvn.vn/le-phu-tran-dung-tuong-pho-ta-co-nghiep-nha-tran/) liên hệ nhân vật với xứ Thanh và dùng hình sông Mã.
-- Nếu nguồn bên ngoài không tải được, thẻ giữ vị trí và cung cấp liên kết ảnh gốc trong khung chi tiết; không đổi sang chân dung không có căn cứ.
+- Nếu nguồn bên ngoài không tải được, thẻ giữ vị trí và hiển thị thông báo nhẹ. Liên kết ảnh gốc nằm ở trang thông tin hình ảnh; không đổi sang chân dung không có căn cứ.

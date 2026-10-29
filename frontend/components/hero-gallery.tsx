@@ -9,7 +9,7 @@ import { Pressable, View, useWindowDimensions, type ViewStyle } from 'react-nati
 import { useRouter } from 'expo-router';
 import { ArrowUpRight } from 'lucide-react-native';
 import { LoreChip } from '@/components/game/quiz';
-import { HeroPhoto, HeroPhotoCredit } from '@/components/hero-photo';
+import { HeroPhoto, HeroPhotoNote } from '@/components/hero-photo';
 import { Txt } from '@/components/ui';
 import { TIER_INFO } from '@/constants/game';
 import { HEROES, HERO_PROFILE } from '@/constants/heroes';
@@ -94,7 +94,7 @@ const Tile: React.FC<{ hero: HeroDef; w: number; active: boolean; onPress: () =>
   );
 };
 
-/** Khung chi tiết: ảnh lớn có chú thích/nguồn, thông tin nhân vật và liên kết vào game. */
+/** Khung chi tiết không có dòng chú thích/nguồn; ảnh bối cảnh vẫn được phân biệt với chân dung. */
 const Detail: React.FC<{ hero: HeroDef; wide: boolean }> = ({ hero, wide }) => {
   const { c } = useTheme();
   const router = useRouter();
@@ -162,7 +162,7 @@ const Detail: React.FC<{ hero: HeroDef; wide: boolean }> = ({ hero, wide }) => {
           </Txt>
           <ArrowUpRight size={18} color={c.logoRed} strokeWidth={2.2} />
         </Pressable>
-        <HeroPhotoCredit id={hero.id} />
+        <HeroPhotoNote id={hero.id} />
       </View>
     </View>
   );

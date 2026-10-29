@@ -967,11 +967,14 @@ const ExplorerSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
 };
 
 // ---------------------------------------------------------------------- danh tướng và lời ông cha
-/** Danh tướng nhà Trần: chỉ còn danh sách (không tiêu đề, linh vật hay chú giải nhãn); cùng bảng màu logo với các khối phía trên (giấy kem, mực xanh, đỏ cờ), lưới tranh minh họa và khung sơ yếu lý lịch (xem components/hero-gallery.tsx) */
+/** Khối danh tướng với tiêu đề theo yêu cầu, dùng màu logo và hiển thị ngay khi cuộn tới. */
 const CastSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
   return (
     <Band id="danh-tuong" bg={c.logoPaper} wide={wide} onSection={onSection} decor={<GoldRings />}>
+      <Txt f="heavy" size={wide ? 52 : 32} color={c.logoInk} center accessibilityRole="header" testID="generals-heading" style={{ alignSelf: 'center', lineHeight: wide ? 58 : 38, letterSpacing: wide ? -1.6 : -0.8, maxWidth: 860 }}>
+        Các vị vua thời Trần
+      </Txt>
       <HeroGallery wide={wide} />
     </Band>
   );
@@ -1172,7 +1175,7 @@ const FOOT_TEXT = 'rgba(250, 244, 231, 0.78)';
 const FootLink: React.FC<{ label: string; onPress: () => void; arrow?: boolean }> = ({ label, onPress, arrow = false }) => {
   const { c } = useTheme();
   return (
-    <Pressable accessibilityRole="link" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => ({ minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.7 : 1 })}>
+    <Pressable accessibilityRole="link" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.7 : 1 })}>
       <Txt f="medium" size={15} color={c.logoPaper}>
         {label}
       </Txt>
@@ -1216,6 +1219,7 @@ const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ 
               Khám phá lịch sử thời Trần
             </Txt>
             <FootLink label="Trang quản lý" arrow onPress={() => router.push('/admin')} />
+            <FootLink label="Thông tin hình ảnh" onPress={() => router.push('/thong-tin-hinh-anh')} />
           </View>
         </View>
         <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(250, 244, 231, 0.18)', paddingTop: 18, flexDirection: wide ? 'row' : 'column', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>

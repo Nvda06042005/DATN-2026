@@ -15,12 +15,20 @@ export const HeroPhoto: React.FC<{ id: string; size: number }> = ({ id, size }) 
       {photo && failedSource !== photo.source ? (
         <Image source={photo.source} resizeMode="contain" accessibilityLabel={photo.caption} onError={() => setFailedSource(photo.source)} style={{ width: size, height }} />
       ) : (
-        <Txt size={12} center color={c.logoInk} style={{ paddingHorizontal: 8 }}>Xem ảnh tại nguồn bên dưới</Txt>
+        <Txt size={12} center color={c.logoInk} style={{ paddingHorizontal: 8 }}>Ảnh tạm thời chưa tải được</Txt>
       )}
     </View>
   );
 };
 
+/** Keep contextual images distinguishable from portraits without displaying source credits in the profile. */
+export const HeroPhotoNote: React.FC<{ id: string }> = ({ id }) => {
+  const { c } = useTheme();
+  const note = HERO_PHOTOS[id]?.note;
+  return note ? <Txt size={12} color={c.logoInk} style={{ lineHeight: 18 }}>{note}</Txt> : null;
+};
+
+/** Full attribution is available on the separate image-information page linked from the footer. */
 export const HeroPhotoCredit: React.FC<{ id: string }> = ({ id }) => {
   const { c } = useTheme();
   const photo = HERO_PHOTOS[id];
