@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowDown, ArrowRight, CalendarDays, Check, Compass, Joystick, Landmark, LogIn, MapPin, MessageSquareText, Milestone, Moon, Quote, School, Sun, Sword, Swords,
-  Trophy, Users, X, ZoomIn,
+  Trophy, Users, Volume2, VolumeX, X, ZoomIn,
 } from 'lucide-react-native';
 import {
   BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, PatternOverlay, SchematicMap, Seal, VietnamFlag, WaveBand,
@@ -30,6 +30,7 @@ import { ANSWER_STYLES, type Palette } from '@/constants/theme';
 import { Lift, Reveal, useScrollY } from '@/components/motion';
 import { usePopIn, useReduceMotion } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
+import { useSound } from '@/lib/sfx';
 import type { IconType } from '@/types/game';
 
 export const MAX_W = 1120;
@@ -309,8 +310,8 @@ const Marquee: React.FC<{ children: React.ReactNode; speed?: number }> = ({ chil
 const NAV_ITEMS = [{ id: 'home', short: 'Trang chủ' }, ...NAV.map((n) => ({ id: n.id, short: n.short }))];
 
 /** Nút tròn chứa một biểu tượng (cỡ biểu tượng theo chữ 15; vùng chạm 46 kể cả hitSlop) */
-const RoundBtn: React.FC<{ icon: IconType; label: string; onPress: () => void; color: string; bg: string; border: string; testID?: string }> = ({
-  icon: Icon, label, onPress, color, bg, border, testID,
+const RoundBtn: React.FC<{ icon: IconType; label: string; onPress: () => void; color: string; bg: string; border: string; testID?: string; size?: number }> = ({
+  icon: Icon, label, onPress, color, bg, border, testID, size = 42,
 }) => (
   <Pressable
     onPress={onPress}
@@ -318,7 +319,7 @@ const RoundBtn: React.FC<{ icon: IconType; label: string; onPress: () => void; c
     accessibilityLabel={label}
     testID={testID}
     hitSlop={2}
-    style={({ pressed }) => ({ width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: border, backgroundColor: bg, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}
+    style={({ pressed }) => ({ width: size, height: size, borderRadius: size / 2, borderWidth: 1, borderColor: border, backgroundColor: bg, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}
   >
     <Icon size={iconPx(15)} color={color} strokeWidth={1.75} />
   </Pressable>
@@ -334,7 +335,10 @@ export const Header: React.FC<{ width: number; scrollY: Animated.Value; stuck: b
   const { c, dark } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [soundOn, toggleSound] = useSound();
   const wide = width >= 1100;
+  /** Điện thoại hẹp: nút tròn nhỏ hơn và khoảng cách sít lại để đủ chỗ cho cả nút âm thanh */
+  const small = width < 430;
   const clamp = { extrapolate: 'clamp' } as const;
   const maxWidth = scrollY.interpolate({ inputRange: [0, 120], outputRange: [MAX_W, 1010], ...clamp });
   const height = scrollY.interpolate({ inputRange: [0, 80], outputRange: [64, 56], ...clamp });
@@ -377,8 +381,9 @@ export const Header: React.FC<{ width: number; scrollY: Animated.Value; stuck: b
             })}
           </Animated.View>
         )}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: small ? 6 : 8 }}>
           <RoundBtn
+            size={small ? 38 : 42}
             icon={dark ? Moon : Sun}
             label={dark ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
             onPress={onToggleTheme}
@@ -387,9 +392,21 @@ export const Header: React.FC<{ width: number; scrollY: Animated.Value; stuck: b
             border={ring}
             testID="home-theme"
           />
+          {WEB && (
+            <RoundBtn
+              size={small ? 38 : 42}
+              icon={soundOn ? Volume2 : VolumeX}
+              label={soundOn ? 'Tắt âm thanh hiệu ứng' : 'Bật âm thanh hiệu ứng'}
+              onPress={toggleSound}
+              color={fg}
+              bg={roundBg}
+              border={ring}
+              testID="home-sound"
+            />
+          )}
           {width >= 340 && (
             <View style={{ borderRadius: 6, borderWidth: 1, borderColor: ring, padding: 1, backgroundColor: roundBg }}>
-              <VietnamFlag width={34} />
+              <VietnamFlag width={small ? 30 : 34} />
             </View>
           )}
           <Cta title={width >= 560 ? 'Vào học ngay' : ''} label="Đăng nhập học tập" icon={width >= 560 ? undefined : LogIn} onPress={() => router.push('/portal')} testID="home-login" />
@@ -1089,17 +1106,17 @@ export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; o
   <>
     <HeroSection wide={wide} go={go} />
     <PhaseMarquee wide={wide} onSection={onSection} />
-    <SectionCloud color={c.logoGold} trim={c.logoRed} wide={wide} variant={0} />
+    <SectionCloud material="gold" wide={wide} variant={0} />
     <HomeVideo wide={wide} onImmersiveChange={onVideoImmersiveChange} />
-    <SectionCloud color={c.logoPaper} wide={wide} direction="up" variant={1} />
+    <SectionCloud color={c.logoPaper} sound wide={wide} direction="up" variant={1} />
     <ShowcaseSection wide={wide} onSection={onSection} />
-    <SectionCloud color={c.logoGold} trim={c.logoRed} wide={wide} variant={2} />
+    <SectionCloud material="gold" wide={wide} variant={2} />
     <ExplorerSection wide={wide} onSection={onSection} />
-    <SectionCloud color={c.logoPaper} wide={wide} variant={1} />
+    <SectionCloud color={c.logoPaper} sound wide={wide} variant={1} />
     <CastSection wide={wide} onSection={onSection} />
-    <SectionCloud color={c.the} wide={wide} direction="up" variant={0} />
+    <SectionCloud color={c.the} sound wide={wide} direction="up" variant={0} />
     <QuotesSection wide={wide} onSection={onSection} />
-    <SectionCloud color={c.the} wide={wide} variant={2} />
+    <SectionCloud color={c.the} sound wide={wide} variant={2} />
     <ClosingSection wide={wide} />
     <FooterSection wide={wide} />
   </>
