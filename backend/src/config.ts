@@ -39,6 +39,9 @@ export const config = {
   smtpPort: Number(env('SMTP_PORT', '587')) || 587,
   smtpUser: env('SMTP_USER'),
   smtpPass: process.env.SMTP_PASS ?? '',
+  /** Cầu gửi thư qua HTTPS (Google Apps Script, xem backend/mail-relay.gs) cho nơi chặn cổng SMTP như Render Free; cần cả hai biến, ưu tiên hơn SMTP */
+  mailRelayUrl: env('MAIL_RELAY_URL'),
+  mailRelaySecret: env('MAIL_RELAY_SECRET'),
   mailFrom: env('MAIL_FROM', 'Đông A EDU <no-reply@donga.local>'),
   mailTransport: env('MAIL_TRANSPORT'),
   /** Tiến trình nền gửi thư mỗi 4 giây (kiểm thử đặt MAIL_WORKER=off để tự gọi từng lượt) */

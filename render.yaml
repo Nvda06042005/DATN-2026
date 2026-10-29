@@ -42,6 +42,11 @@ services:
         sync: false
       - key: MAIL_FROM
         sync: false
+      # Thay cho SMTP khi Render Free chặn cổng: cầu Google Apps Script (backend/mail-relay.gs), cần cả hai biến
+      - key: MAIL_RELAY_URL
+        sync: false
+      - key: MAIL_RELAY_SECRET
+        sync: false
 
   - type: web
     name: dong-a-ai

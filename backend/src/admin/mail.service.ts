@@ -6,7 +6,7 @@
  */
 import { HttpException, Injectable, Logger, OnModuleDestroy, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypto';
-import { createTransport, Transporter } from 'nodemailer';
+import { createTransport, Transport, Transporter } from 'nodemailer';
 import { config } from '../config';
 import { DatabaseService, Q } from '../database/database.service';
 
@@ -23,6 +23,53 @@ const MAX_ATTEMPTS = 5;
 const BATCH = 20;
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!);
+
+/** Địa chỉ trần trong "Tên <địa-chỉ>" (hoặc chính chuỗi nếu chỉ có địa chỉ) và tên hiển thị */
+const bareAddress = (s: string): string => (/<([^<>]+)>/.exec(s)?.[1] ?? s).trim();
+const displayName = (s: string): string => (/^\s*"?([^"<]*?)"?\s*</.exec(s)?.[1] ?? '').trim();
+
+const relayError = (code: string): Error => Object.assign(new Error('Cầu gửi thư lỗi'), { code });
+
+/**
+ * Cầu gửi thư qua HTTPS (Google Apps Script, xem backend/mail-relay.gs): Render Free chặn cổng SMTP 25/465/587 nhưng cho HTTPS, nên backend
+ * POST nội dung thư tới Web App của chủ Gmail và script gửi bằng MailApp (thư đi từ Gmail đó). Là transport tùy biến của Nodemailer để mọi chỗ
+ * gọi sendMail/verify giữ nguyên. Lỗi chỉ mang mã (ERELAYCONNECT/ERELAYRESPONSE/ERELAYAUTH/ERELAYSEND/ERELAYRECIPIENT), không kèm phản hồi thô.
+ */
+function relayTransport(url: string, secret: string, from: string): Transport {
+  const call = async (payload: Record<string, unknown>): Promise<void> => {
+    let res: Response;
+    try {
+      res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ secret, ...payload }), signal: AbortSignal.timeout(25_000) });
+    } catch {
+      throw relayError('ERELAYCONNECT');
+    }
+    let body: { ok?: boolean; error?: string } | null = null;
+    try {
+      body = (await res.json()) as { ok?: boolean; error?: string };
+    } catch {
+      throw relayError('ERELAYRESPONSE');
+    }
+    if (!res.ok || !body?.ok) throw relayError(body?.error === 'unauthorized' ? 'ERELAYAUTH' : 'ERELAYSEND');
+  };
+  return {
+    name: 'apps-script-relay',
+    version: '1',
+    send(mail, done) {
+      const { to, subject, text, html } = mail.data;
+      const recipient = typeof to === 'string' ? bareAddress(to) : '';
+      if (!/^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/.test(recipient)) return done(relayError('ERELAYRECIPIENT'), undefined);
+      call({ to: recipient, subject: String(subject ?? ''), text: String(text ?? ''), html: typeof html === 'string' ? html : undefined, name: displayName(from) || undefined }).then(
+        () => done(null, { messageId: `<relay-${Date.now()}@apps-script>`, envelope: { from: bareAddress(from), to: [recipient] }, accepted: [recipient], rejected: [], pending: [], response: 'relay ok' }),
+        (err: Error) => done(err, undefined),
+      );
+    },
+    /** Kiểm tra địa chỉ và khóa bí mật mà không gửi thư */
+    verify: async () => {
+      await call({ action: 'verify' });
+      return true as const;
+    },
+  };
+}
 
 @Injectable()
 export class MailService implements OnModuleInit, OnModuleDestroy {
@@ -53,7 +100,9 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit(): Promise<void> {
     // Cổng 2525 dùng STARTTLS; không gửi thông tin đăng nhập qua kết nối không mã hóa.
     const smtpOptions = { requireTLS: true, connectionTimeout: 20_000, greetingTimeout: 15_000, socketTimeout: 60_000 };
+    const relay = config.mailTransport !== 'json' && Boolean(config.mailRelayUrl && config.mailRelaySecret);
     if (config.mailTransport === 'json') this.transport = createTransport({ jsonTransport: true });
+    else if (relay) this.transport = createTransport(relayTransport(config.mailRelayUrl, config.mailRelaySecret, config.mailFrom));
     else if (config.smtpUrl) this.transport = createTransport({ url: config.smtpUrl, ...smtpOptions });
     else if (config.smtpHost) {
       this.transport = createTransport({
@@ -65,18 +114,19 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
       });
     }
     if (!this.transport) {
-      this.logger.warn('Chưa cấu hình SMTP – thư tài khoản nằm trong hàng đợi, tải danh sách CSV ở trang quản trị để phát tay');
+      this.logger.warn('Chưa cấu hình gửi thư (SMTP hoặc MAIL_RELAY_URL) – thư tài khoản nằm trong hàng đợi, tải danh sách CSV ở trang quản trị để phát tay');
       return;
     }
     if (config.mailTransport !== 'json') {
       try {
-        // verify chỉ kiểm tra DNS/TCP/TLS và xác thực, không gửi email hay lấy thư khỏi hàng đợi.
+        // verify chỉ kiểm tra DNS/TCP/TLS và xác thực (hoặc địa chỉ và khóa của cầu gửi thư), không gửi email hay lấy thư khỏi hàng đợi.
         await this.transport.verify();
-        this.logger.log('SMTP: kết nối TLS và xác thực thành công');
+        this.logger.log(relay ? 'Cầu gửi thư (Apps Script): kết nối và xác thực thành công' : 'SMTP: kết nối TLS và xác thực thành công');
       } catch (exc) {
         const code = String((exc as { code?: string })?.code ?? 'UNKNOWN');
-        // Không ghi lỗi thô vì có thể chứa thông tin máy chủ hoặc tài khoản SMTP.
-        this.logger.warn(`SMTP chưa xác thực được (${/^[A-Z0-9_]+$/.test(code) ? code : 'UNKNOWN'}); kiểm tra cấu hình gửi thư trên Render`);
+        const safe = /^[A-Z0-9_]+$/.test(code) ? code : 'UNKNOWN';
+        // Không ghi lỗi thô vì có thể chứa thông tin máy chủ, tài khoản SMTP hoặc khóa của cầu gửi thư.
+        this.logger.warn(relay ? `Cầu gửi thư chưa xác thực được (${safe}); kiểm tra MAIL_RELAY_URL, MAIL_RELAY_SECRET và bản triển khai Apps Script` : `SMTP chưa xác thực được (${safe}); kiểm tra cấu hình gửi thư trên Render`);
       }
     }
     if (config.mailWorker) this.timer = setInterval(() => void this.tick().catch(() => undefined), 4000);

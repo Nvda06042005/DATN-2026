@@ -152,6 +152,17 @@ Không đặt `DATABASE_URL`, mật khẩu hay khóa bí mật vào biến `EXPO
 5. Trong cổng quản trị tổng → Thư, bấm **Gửi thư kiểm tra** và xác nhận địa chỉ nhận. Backend gửi về chính `MAIL_FROM`, tối đa một lần/60 giây/tiến trình; không thay đổi hàng đợi tài khoản. Nút này chỉ dành cho quản trị tổng (`POST /api/admin/outbox/test`); trường không được xem địa chỉ kiểm tra hoặc gọi API này. Kiểm tra hộp thư và Transactional Logs của Brevo: phản hồi API chỉ xác nhận máy chủ SMTP đã nhận thư, chưa xác nhận đã giao vào hộp thư. Hoàn tất bước Verification của Brevo khi thấy log gửi thư thành công.
 6. Kiểm tra hàng đợi ở trang quản trị trước khi bật. Sau khi xác nhận cấu hình/người gửi và thư chờ hợp lệ, đặt `MAIL_WORKER=on` và triển khai lại. Thư chờ đến hạn sẽ được gửi tự động; xem trạng thái ở trang quản trị và Transactional Logs của Brevo. Trang Thư phân biệt SMTP đã cấu hình với tiến trình gửi tự động đang bật/tạm dừng. Khi Render Free ngủ, worker dừng và tiếp tục khi dịch vụ hoạt động trở lại.
 
+### Gửi thư bằng Gmail qua cầu Apps Script (không cần SMTP, chạy được trên Render Free)
+
+Render Free chặn cổng SMTP nhưng cho HTTPS, nên backend có thể gửi thư bằng cách gọi một Web App Google Apps Script của chính chủ Gmail (`backend/mail-relay.gs`); script gửi bằng `MailApp`, thư đi từ Gmail đó. Khi có cả `MAIL_RELAY_URL` và `MAIL_RELAY_SECRET`, cầu được ưu tiên hơn SMTP. Mật khẩu ứng dụng Google không dùng ở cách này.
+
+1. Làm theo các bước trong phần chú thích đầu `backend/mail-relay.gs` (tạo script, đặt thuộc tính `MAIL_RELAY_SECRET`, chạy `authorize`, triển khai Ứng dụng web chạy bằng "Tôi", truy cập "Bất kỳ ai"), lấy URL kết thúc bằng `/exec`.
+2. Trong Render → `dong-a-api` → Environment đặt `MAIL_RELAY_URL` (URL `/exec`), `MAIL_RELAY_SECRET` (trùng thuộc tính trong Apps Script), `MAIL_FROM=Đông A EDU <gmail-của-bạn>` (thư kiểm tra gửi về địa chỉ này), `ADMIN_EMAIL`; đặt `MAIL_WORKER=off` cho lần triển khai đầu để thư đang chờ trong hàng đợi chưa bị gửi ngay. Bí mật nhập trực tiếp trên Render, không đưa vào Git hay chat.
+3. Sau khi triển khai, log phải có `Cầu gửi thư (Apps Script): kết nối và xác thực thành công` (chỉ kiểm tra địa chỉ và khóa, không gửi thư). Lỗi chỉ ghi mã: `ERELAYAUTH` sai khóa, `ERELAYRESPONSE` URL không phải bản triển khai hợp lệ (script chưa triển khai cho "Bất kỳ ai" hoặc URL sai), `ERELAYCONNECT` không kết nối được, `ERELAYSEND` Google từ chối gửi (thường hết hạn mức).
+4. Bấm **Gửi thư kiểm tra** ở cổng quản trị tổng, thử "Quên mật khẩu", rồi bật `MAIL_WORKER=on` như bước 6 của mục Brevo.
+
+Giới hạn: Gmail cá nhân chỉ gửi khoảng 100 người nhận mỗi ngày qua Apps Script (Workspace khoảng 1.500), nên nhập Excel cấp tài khoản cho vài trăm người sẽ vượt hạn mức; các thư quá hạn mức thử lại theo hàng đợi hoặc dùng CSV tài khoản chưa gửi. Ai biết URL và khóa bí mật đều gửi được thư từ Gmail đó, nên giữ kín khóa và đặt chuỗi dài, ngẫu nhiên.
+
 Brevo có thể [thay địa chỉ From dùng Gmail bằng địa chỉ relay](https://help.brevo.com/hc/en-us/articles/14925263522578-Comply-with-Gmail-Yahoo-and-Microsoft-s-requirements-for-email-senders). Dùng tên miền riêng đã xác thực nếu cần giữ địa chỉ From theo tên miền. Các biến `sync: false` của Blueprint không tự bổ sung vào dịch vụ đã tồn tại; cập nhật Environment trên `dong-a-api`.
 
 ## Lưu ý

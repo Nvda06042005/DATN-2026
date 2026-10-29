@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { createServer as createHttpServer } from 'http';
 import { AddressInfo, createServer, Socket } from 'net';
 import { MailService } from '../src/admin/mail.service';
 import { config } from '../src/config';
@@ -50,6 +51,86 @@ describe('Kiểm tra SMTP trước khi gửi thư', () => {
       mail.onModuleDestroy();
       warn.mockRestore();
     }
+  });
+
+  describe('cầu gửi thư qua HTTPS (Apps Script) cho nơi chặn cổng SMTP', () => {
+    const SECRET = 'relay-test-secret-0123456789';
+    type Hit = { secret?: string; action?: string; to?: string; subject?: string; text?: string; html?: string; name?: string };
+    let hits: Hit[];
+    let respond: (hit: Hit) => string;
+    let server: ReturnType<typeof createHttpServer>;
+    let saved: typeof config;
+    let warn: jest.SpyInstance;
+
+    beforeEach(async () => {
+      hits = [];
+      respond = (hit) => JSON.stringify(hit.secret === SECRET ? { ok: true } : { ok: false, error: 'unauthorized' });
+      server = createHttpServer((req, res) => {
+        let raw = '';
+        req.on('data', (chunk) => (raw += chunk));
+        req.on('end', () => {
+          const hit = JSON.parse(raw) as Hit;
+          hits.push(hit);
+          res.writeHead(200, { 'Content-Type': 'application/json' }).end(respond(hit));
+        });
+      });
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+      saved = { ...config };
+      warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      Object.assign(config, {
+        mailTransport: '', mailWorker: false, smtpUrl: '', smtpHost: '', mailFrom: 'Đông A EDU <sender@example.test>',
+        mailRelayUrl: `http://127.0.0.1:${(server.address() as AddressInfo).port}/exec`, mailRelaySecret: SECRET,
+      });
+    });
+
+    afterEach(async () => {
+      Object.assign(config, saved);
+      warn.mockRestore();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    });
+
+    test('xác thực khi khởi động không gửi thư; thư đặt lại mật khẩu và thư kiểm tra đi qua cầu với đúng nội dung', async () => {
+      const mail = new MailService({ ready: true, query: jest.fn() } as unknown as DatabaseService);
+      await mail.onModuleInit();
+      expect(mail.configured).toBe(true);
+      expect(hits).toEqual([{ secret: SECRET, action: 'verify' }]);
+
+      await mail.sendPasswordReset('quan.tri@example.test', 'Quản Trị', 'https://site.test/admin?reset=abc123', 30);
+      expect(hits).toHaveLength(2);
+      expect(hits[1]).toMatchObject({ secret: SECRET, to: 'quan.tri@example.test', subject: '[Đông A EDU] Đặt lại mật khẩu', name: 'Đông A EDU' });
+      expect(hits[1].text).toContain('https://site.test/admin?reset=abc123');
+      expect(hits[1].html).toContain('<a href="https://site.test/admin?reset=abc123">');
+
+      // Thư kiểm tra gửi về "Tên <địa chỉ>": cầu nhận địa chỉ trần
+      await mail.sendTest();
+      expect(hits[2]).toMatchObject({ to: 'sender@example.test', subject: '[Đông A EDU] Kiểm tra gửi email' });
+      mail.onModuleDestroy();
+    });
+
+    test('sai khóa hoặc phản hồi không phải JSON: lỗi chỉ mang mã, không lộ khóa hay phản hồi thô', async () => {
+      const mail = new MailService({ ready: true, query: jest.fn() } as unknown as DatabaseService);
+      respond = () => JSON.stringify({ ok: false, error: 'unauthorized' });
+      await mail.onModuleInit();
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('Cầu gửi thư chưa xác thực được (ERELAYAUTH)'));
+      await expect(mail.sendPasswordReset('quan.tri@example.test', 'Quản Trị', 'https://site.test/x', 30)).rejects.toMatchObject({ code: 'ERELAYAUTH' });
+
+      respond = () => '<html>Trang lỗi của Google</html>';
+      await expect(mail.sendPasswordReset('quan.tri@example.test', 'Quản Trị', 'https://site.test/x', 30)).rejects.toMatchObject({ code: 'ERELAYRESPONSE' });
+
+      respond = () => JSON.stringify({ ok: false, error: 'Service invoked too many times for one day: email.' });
+      await expect(mail.sendPasswordReset('quan.tri@example.test', 'Quản Trị', 'https://site.test/x', 30)).rejects.toMatchObject({ code: 'ERELAYSEND' });
+      await expect(mail.sendPasswordReset('không-phải-email', 'Quản Trị', 'https://site.test/x', 30)).rejects.toMatchObject({ code: 'ERELAYRECIPIENT' });
+      expect(JSON.stringify(warn.mock.calls)).not.toContain(SECRET);
+      mail.onModuleDestroy();
+    });
+
+    test('thiếu địa chỉ hoặc khóa thì không dùng cầu (rơi về SMTP, chưa cấu hình thì không gửi)', async () => {
+      Object.assign(config, { mailRelaySecret: '' });
+      const mail = new MailService({ ready: true, query: jest.fn() } as unknown as DatabaseService);
+      await mail.onModuleInit();
+      expect(mail.configured).toBe(false);
+      expect(hits).toEqual([]);
+    });
   });
 
   test.each(['host', 'url'])('từ chối máy chủ không nâng cấp TLS (%s), không truyền mật khẩu hay gửi thư', async (mode) => {
