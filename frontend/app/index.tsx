@@ -3,7 +3,7 @@
  * thanh điều hướng cố định co hẹp khi cuộn có đánh dấu mục đang xem, nút lên đầu trang, cuộn mượt khi lăn chuột và hiệu ứng theo cuộn (components/motion.tsx).
  * Chỉ chân trang có liên kết "Trang quản lý" tới /admin. expo-router bắt buộc tên index cho đường dẫn "/".
  */
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated, Platform, ScrollView, View, useColorScheme, useWindowDimensions,
   type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance,
@@ -93,6 +93,27 @@ function HomePage({ onToggleTheme }: { onToggleTheme: () => void }) {
     }
     if (WEB && typeof document !== 'undefined') document.getElementById(id)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   };
+
+  /** Địa chỉ dạng /#cau-hoi (từ chân trang của trang điều khoản, câu hỏi thường gặp): chờ các khối đo xong vị trí rồi cuộn tới khối đó */
+  const goRef = useRef(go);
+  goRef.current = go;
+  useEffect(() => {
+    if (!WEB || typeof window === 'undefined') return undefined;
+    const id = window.location.hash.slice(1);
+    if (!NAV.some((n) => n.id === id)) return undefined;
+    let wait: ReturnType<typeof setTimeout> | undefined;
+    let tries = 0;
+    const poll = setInterval(() => {
+      tries += 1;
+      if (sections.current[id] === undefined && tries < 40) return;
+      clearInterval(poll);
+      wait = setTimeout(() => goRef.current(id), 500);
+    }, 150);
+    return () => {
+      clearInterval(poll);
+      if (wait) clearTimeout(wait);
+    };
+  }, []);
 
   return (
     <View style={{ flex: 1 }}>

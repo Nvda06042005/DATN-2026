@@ -87,9 +87,9 @@ const CAMPAIGN_FACTS: Record<1 | 2 | 3, { time: string; enemy: string; lead: str
 };
 
 /** Khối ba lần kháng chiến dùng cùng bảng màu logo với khối "Nơi học sinh khám phá lịch sử": giấy kem, mực xanh, đỏ cờ và vàng cổ; cố định ở cả hai chế độ sáng/tối */
-const INK_SOFT = 'rgba(35, 56, 47, 0.78)';
-const INK_LINE = 'rgba(35, 56, 47, 0.16)';
-const PAPER_CARD = { backgroundColor: 'rgba(255, 255, 255, 0.74)', borderColor: INK_LINE, boxShadow: '0 10px 30px rgba(35, 56, 47, 0.10)' } as unknown as ViewStyle;
+export const INK_SOFT = 'rgba(35, 56, 47, 0.78)';
+export const INK_LINE = 'rgba(35, 56, 47, 0.16)';
+export const PAPER_CARD = { backgroundColor: 'rgba(255, 255, 255, 0.74)', borderColor: INK_LINE, boxShadow: '0 10px 30px rgba(35, 56, 47, 0.10)' } as unknown as ViewStyle;
 
 /** Mô tả ngắn trên thẻ chọn: không ghi số quân Nguyên lần 2 vì sử liệu chép khác nhau (Toàn thư 50 vạn, Nguyên sử 30 vạn kể cả dân phu) */
 const CAMPAIGN_BLURB: Record<1 | 2 | 3, string> = {
@@ -179,7 +179,7 @@ const Panel: React.FC<{ children: React.ReactNode; pad?: number; style?: StylePr
 type CtaTone = 'den' | 'trang' | 'son' | 'xanh' | 'muc' | 'logo';
 
 /** Nút viên thuốc bo tròn, cao tối thiểu 44 */
-const Cta: React.FC<{ title: string; onPress: () => void; tone?: CtaTone; icon?: IconType; arrow?: boolean; lg?: boolean; label?: string; testID?: string }> = ({
+export const Cta: React.FC<{ title: string; onPress: () => void; tone?: CtaTone; icon?: IconType; arrow?: boolean; lg?: boolean; label?: string; testID?: string }> = ({
   title, onPress, tone = 'den', icon, arrow = false, lg = false, label, testID,
 }) => {
   const { c } = useTheme();
@@ -218,10 +218,10 @@ const Cta: React.FC<{ title: string; onPress: () => void; tone?: CtaTone; icon?:
   );
 };
 
-/** Dải toàn chiều rộng; cloudTop/cloudBottom = màu khối liền kề để vẽ dải sóng/mây chuyển */
-const Band: React.FC<{
-  id?: string; bg?: string; cloudTop?: string; cloudBottom?: string; wide: boolean; gap?: number; onSection?: (id: string, y: number) => void; decor?: React.ReactNode; children: React.ReactNode;
-}> = ({ id, bg, cloudTop, cloudBottom, wide, gap = 32, onSection, decor, children }) => {
+/** Dải toàn chiều rộng; cloudTop/cloudBottom = màu khối liền kề để vẽ dải sóng/mây chuyển; padTop thay khoảng đệm phía trên (trang thông tin chừa chỗ cho thanh điều hướng nổi) */
+export const Band: React.FC<{
+  id?: string; bg?: string; cloudTop?: string; cloudBottom?: string; wide: boolean; gap?: number; padTop?: number; onSection?: (id: string, y: number) => void; decor?: React.ReactNode; children: React.ReactNode;
+}> = ({ id, bg, cloudTop, cloudBottom, wide, gap = 32, padTop, onSection, decor, children }) => {
   const { c } = useTheme();
   return (
     <View id={id} onLayout={id && onSection ? (e) => onSection(id, e.nativeEvent.layout.y) : undefined} style={[{ width: '100%', backgroundColor: bg, overflow: 'hidden' }, id ? ANCHOR : null]}>
@@ -231,7 +231,7 @@ const Band: React.FC<{
       <View
         style={{
           width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, gap,
-          paddingTop: (wide ? 88 : 56) + (cloudTop ? 24 : 0), paddingBottom: (wide ? 88 : 56) + (cloudBottom ? 40 : 0),
+          paddingTop: padTop ?? (wide ? 88 : 56) + (cloudTop ? 24 : 0), paddingBottom: (wide ? 88 : 56) + (cloudBottom ? 40 : 0),
         }}
       >
         {children}
@@ -316,14 +316,18 @@ const RoundBtn: React.FC<{ icon: IconType; label: string; onPress: () => void; c
  * Thanh điều hướng cố định phía trên cùng. Ở đầu trang: logo trắng bên trái, viên thuốc trắng chứa các mục ở giữa (mục đang xem màu cam),
  * nút đen "Vào học ngay" bên phải. Khi cuộn, cả thanh co hẹp lại thành một viên thuốc kính sáng/tối. Có nút đổi sáng/tối và cờ Tiếng Việt.
  */
-export const Header: React.FC<{ width: number; scrollY: Animated.Value; stuck: boolean; active: string; go: (id: string) => void; onToggleTheme: () => void }> = ({
-  width, scrollY, stuck, active, go, onToggleTheme,
+export const Header: React.FC<{
+  width: number; scrollY: Animated.Value; stuck: boolean; active: string; go: (id: string) => void; onToggleTheme: () => void;
+  /** Các mục menu; trang chủ dùng mặc định (sáu phần của trang), trang điều khoản và câu hỏi thường gặp truyền mục riêng */
+  items?: ReadonlyArray<{ id: string; short: string }>;
+}> = ({
+  width, scrollY, stuck, active, go, onToggleTheme, items = NAV_ITEMS,
 }) => {
   const { c, dark } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [soundOn, toggleSound] = useSound();
-  const wide = width >= 1240; // năm mục menu cần chỗ: hẹp hơn thì ẩn menu (chân trang vẫn có đủ liên kết)
+  const wide = width >= (items.length > 4 ? 1240 : 1000); // sáu mục menu cần chỗ nhất: hẹp hơn thì ẩn menu (chân trang vẫn có đủ liên kết)
   /** Điện thoại hẹp: nút tròn nhỏ hơn và khoảng cách sít lại để đủ chỗ cho cả nút âm thanh */
   const small = width < 430;
   const clamp = { extrapolate: 'clamp' } as const;
@@ -349,7 +353,7 @@ export const Header: React.FC<{ width: number; scrollY: Animated.Value; stuck: b
         </Pressable>
         {WEB && wide && (
           <Animated.View accessibilityRole="menu" style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 999, backgroundColor: navBg, paddingHorizontal: 8, height: 50 }}>
-            {NAV_ITEMS.map((n) => {
+            {items.map((n) => {
               const on = n.id === active;
               return (
                 <Pressable
@@ -922,7 +926,7 @@ const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
 };
 
 /** Hai vòng tròn vàng mảnh ở hai góc nền, giống khối "Nơi học sinh khám phá lịch sử" */
-const GoldRings: React.FC = () => {
+export const GoldRings: React.FC = () => {
   const { c } = useTheme();
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -1159,7 +1163,7 @@ const FootLink: React.FC<{ label: string; onPress: () => void; arrow?: boolean }
 };
 
 /** Chân trang: dải sóng đỏ vàng, rồi nền mực xanh của logo với logo và mô tả, cột "Khám phá", cột "Khám phá lịch sử thời Trần" kèm liên kết "Trang quản lý" và thanh bản quyền có "Về đầu trang" */
-const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wide, go }) => {
+export const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void; onTop?: () => void }> = ({ wide, go, onTop = () => go('home') }) => {
   const { c } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -1204,7 +1208,7 @@ const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ 
           <Txt size={13} color={FOOT_TEXT} center>
             Học Sử vui như chơi game
           </Txt>
-          <Pressable accessibilityRole="link" accessibilityLabel="Về đầu trang" onPress={() => go('home')} style={({ pressed }) => ({ minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.7 : 1 })}>
+          <Pressable accessibilityRole="link" accessibilityLabel="Về đầu trang" onPress={onTop} style={({ pressed }) => ({ minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.7 : 1 })}>
             <Txt size={13} color={FOOT_TEXT}>
               Về đầu trang
             </Txt>
