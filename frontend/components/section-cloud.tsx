@@ -24,8 +24,8 @@ const WHOOSH = [
   { pitch: 470, length: 0.95 },
 ] as const;
 
-/** Vàng be nhạt hơn vàng logo (`logoGold` #dfb66f pha thêm khoảng 35% trắng): đầu mây đậm hơn một chút, gốc mây sáng hơn */
-const GOLD = { tip: '#e4c488', base: '#f4e6c3', edge: '#c9a05a' };
+/** Vàng be rất nhạt, nhạt hơn nhiều so với vàng logo (`logoGold` #dfb66f pha khoảng 55% trắng): đầu mây đậm hơn một chút, gốc mây sáng hơn */
+const GOLD = { tip: '#efdcae', base: '#f9f0d9', edge: '#dcc48f' };
 
 export function SectionCloud({ color, material, sound = false, wide, variant = 0, direction = 'down' }: {
   /** Màu tô của dải mây (thường là màu khối liền kề); bỏ qua khi có `material` */
