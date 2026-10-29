@@ -21,6 +21,7 @@ import { LoreChip } from '@/components/game/quiz';
 import { Chip, Txt } from '@/components/ui';
 import { HomeVideo } from '@/components/home-video';
 import { HeroGallery } from '@/components/hero-gallery';
+import { HeroTitle } from '@/components/hero-title';
 import { HistoryShowcase } from '@/components/history-showcase';
 import { CloudPair, SectionCloud } from '@/components/section-cloud';
 import { CAMPAIGNS, CAMPAIGN_ROUTES, PHASES, PHASE_REAL } from '@/constants/campaigns';
@@ -452,9 +453,6 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const minH = Math.min(Math.max(wide ? 780 : 700, height), wide ? 1000 : 900);
-  const h1 = wide ? 96 : 50;
-  /** Cụm Đông A: chữ nghiêng có chân (Newsreader) màu đỏ son, cùng cỡ với chữ không chân đậm Hào Khí */
-  const accent = h1;
   const reduce = useReduceMotion();
   const scrollY = useScrollY();
   const on = !!scrollY && !reduce;
@@ -477,12 +475,7 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
         <FilmBackdrop wide={wide} scrim />
       </Animated.View>
       <Animated.View style={[{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: insets.top + HEADER_SPACE + (wide ? 36 : 16), alignItems: 'center', gap: 20 }, textFx]}>
-        <Txt f="heavy" size={h1} color={c.trang} center accessibilityRole="header" style={[{ lineHeight: wide ? 100 : 54, letterSpacing: wide ? -3.6 : -1.8 }, shade]}>
-          Hào Khí{' '}
-          <Txt f="serifItalic" size={accent} color={c.sonSang} style={[{ lineHeight: wide ? 108 : 58, letterSpacing: wide ? -2 : -1 }, shade]}>
-            Đông A
-          </Txt>
-        </Txt>
+        <HeroTitle wide={wide} />
         <Txt f="bold" size={wide ? 24 : 18} color={c.trang} center style={[{ lineHeight: wide ? 32 : 25, maxWidth: 780 }, shade]}>
           Nền tảng học tập game hóa về ba lần kháng chiến chống quân Nguyên – Mông thời Trần
         </Txt>

@@ -21,6 +21,10 @@ React Native (Expo) ──HTTPS / WebSocket──► NestJS (Node.js) ──SQL�
 Cấu trúc `frontend/`: `app/` (7 route), `api/` (gọi backend), `components/` (`ui.tsx`, `art.tsx`, `auth.tsx`, `live.tsx`, `provisioning.tsx`, `game/`, `teacher/`, `admin/`), `constants/`, `hooks/`, `lib/`, `types/`, `assets/`.
 Cấu trúc `backend/src/`: `auth/`, `admin/` (`admin.controller.ts`, `school.service.ts` – trường, tài khoản, nhập Excel, lớp, thùng rác; `mail.service.ts` – hàng đợi thư), `student/`, `teacher/`, `live/`, `ai/`, `database/`, `app.module.ts`, `main.ts`, `config.ts`; kiểm thử ở `backend/test/`.
 
+### Ảnh bìa trang chủ
+
+Tiêu đề “Hào Khí Đông A” dùng `components/hero-title.web.tsx` và component [Metallic Paint của React Bits](https://reactbits.dev/animations/metallic-paint) tại `components/react-bits/metallic-paint.web.tsx`. Hai phần chữ giữ Manrope trắng và Newsreader nghiêng đỏ son. Lớp WebGL trong suốt dùng mặt nạ đo trực tiếp từ chữ thật (gồm dấu tiếng Việt, giãn chữ và đường cơ sở), phủ ánh kim chuyển động chậm; chữ HTML bên dưới vẫn đọc, chọn và sao chép được. Không tạo tiêu đề trùng trong cây trợ năng. Hiệu ứng giới hạn 30 khung hình/giây, dừng ngoài màn hình hoặc khi chuyển tab và giải phóng tài nguyên khi tháo. Điện thoại, Giảm chuyển động, trình duyệt thiếu WebGL hoặc mất context giữ chữ tĩnh; bản native ở `components/hero-title.tsx`. Nguồn và giấy phép được giữ trong `frontend/third-party/react-bits/`.
+
 ### Video giới thiệu trên trang chủ
 
 `frontend/components/home-video.tsx` nằm sau “Chín màn chiến dịch” và trước “Nơi học sinh khám phá lịch sử”. Trên web màn rộng, cuộn hoặc giữ chuột kéo lên trên khung sẽ phóng video từ khung nhỏ ra kín màn hình; cuộn ngược thu nhỏ lại. Bấm vào khung (hoặc Enter khi đang chọn khung) mở trình phát có âm thanh, tua và toàn màn hình; đóng bằng nút X, Escape hoặc bấm nền tối. Video xem trước tắt tiếng, dừng khi ngoài màn hình hoặc khi trình phát mở. Điện thoại dùng khung gọn; bật Giảm chuyển động sẽ bỏ hiệu ứng ghim/phóng và tự phát xem trước.
