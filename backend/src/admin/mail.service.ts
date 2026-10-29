@@ -153,7 +153,7 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.transport.sendMail({ from: config.mailFrom, to: config.mailFrom, subject, text, html: `<p>${escapeHtml(text).replace(/\n/g, '</p><p>')}</p>` });
       if (config.mailTransport === 'json') this.sent.push({ to: config.mailFrom, subject, text });
-      this.logger.log('SMTP: máy chủ thư đã nhận thư kiểm tra');
+      this.logger.log('Gửi thư: máy chủ thư (SMTP hoặc cầu Apps Script) đã nhận thư kiểm tra');
       return { accepted: true, recipient: config.mailFrom };
     } catch (exc) {
       const code = String((exc as { code?: string })?.code ?? 'UNKNOWN');

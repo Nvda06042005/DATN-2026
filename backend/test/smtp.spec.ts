@@ -163,7 +163,8 @@ describe('Kiểm tra SMTP trước khi gửi thư', () => {
     const query = jest.fn();
     const mail = new MailService({ ready: true, query } as unknown as DatabaseService);
     Object.assign(config, {
-      mailTransport: '', mailWorker: false,
+      // Cầu gửi thư được ưu tiên hơn SMTP: tắt để bài kiểm thử không phụ thuộc MAIL_RELAY_* trong backend/.env của máy chạy
+      mailTransport: '', mailWorker: false, mailRelayUrl: '', mailRelaySecret: '',
       smtpUrl: mode === 'url' ? `smtp://smtp-test-user:dummy-test-key@127.0.0.1:${port}` : '',
       smtpHost: '127.0.0.1', smtpPort: port, smtpUser: 'smtp-test-user', smtpPass: 'dummy-test-key',
     });
