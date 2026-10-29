@@ -1211,6 +1211,7 @@ const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ 
             <Txt size={14.5} color={FOOT_TEXT} style={{ lineHeight: 23, marginBottom: 6 }}>
               Khám phá lịch sử thời Trần
             </Txt>
+            <FootLink label="Điều khoản sử dụng" arrow onPress={() => router.push('/dieu-khoan-su-dung')} />
             <FootLink label="Trang quản lý" arrow onPress={() => router.push('/admin')} />
             <FootLink label="Thông tin hình ảnh" onPress={() => router.push('/thong-tin-hinh-anh')} />
           </View>
