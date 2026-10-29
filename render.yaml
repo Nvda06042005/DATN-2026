@@ -22,6 +22,9 @@ services:
         generateValue: true
       - key: ADMIN_PASSWORD
         sync: false
+      # Email nhận liên kết "Quên mật khẩu" của quản trị tổng (cần SMTP bên dưới)
+      - key: ADMIN_EMAIL
+        sync: false
       - key: AI_SERVICE_URL
         fromService:
           type: web

@@ -1,5 +1,8 @@
-import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { createHash, randomBytes } from 'crypto';
+import { MailService } from '../admin/mail.service';
+import { config } from '../config';
 import { DatabaseService, Role, UserRow } from '../database/database.service';
 import { hashPassword, passwordFingerprint, verifyPassword } from './passwords';
 
@@ -30,13 +33,26 @@ function wrongPortal(role: Role, portal: Portal): string {
 const MAX_FAILS = 5;
 const LOCK_MS = 60_000;
 
+/** Quên mật khẩu: liên kết sống 30 phút; mỗi tên đăng nhập/email chỉ được yêu cầu 3 lần trong 15 phút (quá số lần vẫn trả lời như bình thường) */
+const RESET_TTL_MIN = 30;
+const RESET_MAX_ASKS = 3;
+const RESET_WINDOW_MS = 15 * 60_000;
+const RESET_MAP_LIMIT = 5000;
+/** Trang chứa biểu mẫu đặt lại mật khẩu (mở bằng ?reset=<mã>) */
+const RESET_PATH: Record<'root_admin' | 'school_admin', string> = { root_admin: '/admin', school_admin: '/school-manager-admin' };
+
+const hashToken = (token: string): string => createHash('sha256').update(token).digest('hex');
+
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger('Auth');
   private readonly failed = new Map<string, { fails: number; since: number }>();
+  private readonly resetAsks = new Map<string, number[]>();
 
   constructor(
     private readonly db: DatabaseService,
     private readonly jwt: JwtService,
+    private readonly mail: MailService,
   ) {}
 
   /** Token JWT (HS256): sub = id tài khoản, sid = trường của tài khoản (lọc dữ liệu theo trường), pfp = dấu vân tay mật khẩu */
@@ -92,5 +108,45 @@ export class AuthService {
     const updated = (await this.db.getById(user.id))!;
     // Token cũ mất hiệu lực vì dấu vân tay mật khẩu đổi -> cấp token mới
     return { token: this.createToken(updated), user: toPublic(updated) };
+  }
+
+  /** Quá số lần yêu cầu trong cửa sổ thời gian thì thôi (ghi nhận lần này nếu chưa quá) */
+  private tooManyResets(key: string): boolean {
+    const now = Date.now();
+    if (this.resetAsks.size > RESET_MAP_LIMIT) this.resetAsks.clear();
+    const recent = (this.resetAsks.get(key) ?? []).filter((t) => now - t < RESET_WINDOW_MS);
+    if (recent.length >= RESET_MAX_ASKS) {
+      this.resetAsks.set(key, recent);
+      return true;
+    }
+    this.resetAsks.set(key, [...recent, now]);
+    return false;
+  }
+
+  /**
+   * Quên mật khẩu (TM.AUTH.007): gửi liên kết đặt lại tới email của tài khoản quản trị. Luôn trả lời giống nhau dù tài khoản có tồn tại hay
+   * không (không lộ tài khoản nào có thật); phần tạo mã và gửi thư chạy nền để thời gian trả lời không tiết lộ điều đó.
+   */
+  async forgotPassword(identifier: string, portal: 'root_admin' | 'school_admin'): Promise<void> {
+    if (!this.mail.configured) throw new ServiceUnavailableException('Máy chủ chưa cấu hình gửi thư nên chưa gửi được liên kết đặt lại mật khẩu. Hãy liên hệ người quản lý hệ thống.');
+    const key = identifier.trim().toLowerCase();
+    if (!key || this.tooManyResets(key)) return;
+    const user = await this.db.findForPasswordReset(key, ALLOWED[portal]);
+    if (user?.email) void this.issueReset(user, user.email, portal).catch(() => this.logger.warn('Không gửi được thư đặt lại mật khẩu'));
+  }
+
+  private async issueReset(user: UserRow, email: string, portal: 'root_admin' | 'school_admin'): Promise<void> {
+    const token = randomBytes(32).toString('base64url');
+    await this.db.createPasswordReset(user.id, hashToken(token), RESET_TTL_MIN);
+    await this.mail.sendPasswordReset(email, user.full_name, `${config.appUrl}${RESET_PATH[portal]}?reset=${token}`, RESET_TTL_MIN);
+  }
+
+  /** Đặt mật khẩu mới bằng mã trong thư: mã dùng được một lần; các phiên đăng nhập cũ mất hiệu lực vì dấu vân tay mật khẩu đổi */
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const userId = await this.db.consumePasswordReset(hashToken(token));
+    const user = userId === null ? null : await this.db.getById(userId);
+    if (!user || !user.is_active || user.deleted_at) throw new BadRequestException('Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Hãy yêu cầu liên kết mới.');
+    await this.db.setPassword(user.id, await hashPassword(newPassword), false);
+    this.failed.delete(user.username);
   }
 }

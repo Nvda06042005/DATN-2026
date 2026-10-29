@@ -105,6 +105,8 @@ npm run web                 # trình duyệt; hoặc npm start rồi quét mã b
 
 Quản trị tổng mặc định: `admin` / `admin@123`, đăng nhập tại `/admin` (đặt `ADMIN_PASSWORD` khi triển khai thật). Quản trị tổng thêm trường và cấp tài khoản quản trị trường; quản trị trường đăng nhập tại `/school-manager-admin`.
 
+**Đăng nhập, đăng xuất, quên mật khẩu của hai cổng quản trị** (nhóm "01. Tài khoản và xác thực" trong danh sách chức năng, giai đoạn 1): trang đăng nhập `components/admin/AdminLogin.tsx` có bố cục hai cột như LMS, chỉ đăng nhập bằng tài khoản được cấp (không đăng ký tự do) – TM.AUTH.001; nút "Đăng xuất" ở thanh trên cùng xóa phiên và quay về trang đăng nhập – TM.AUTH.002. "Quên mật khẩu?" – TM.AUTH.007: nhập tên đăng nhập hoặc email, backend (`POST /api/auth/forgot-password`) gửi email liên kết `…/admin?reset=<mã>` (hiệu lực 30 phút, dùng một lần, CSDL chỉ lưu băm SHA-256 ở `app_password_resets`); mở liên kết để đặt mật khẩu mới (`POST /api/auth/reset-password`), mọi phiên cũ mất hiệu lực. Luôn trả lời giống nhau dù tài khoản có tồn tại hay không, mỗi tên chỉ được yêu cầu 3 lần/15 phút. Cần cấu hình gửi thư (`SMTP_*`, `MAIL_FROM`; chưa có thì API trả 503) và tài khoản phải có email: đặt `ADMIN_EMAIL` cho quản trị tổng (điền vào tài khoản chưa có email lúc backend khởi động), quản trị trường dùng email trong hồ sơ.
+
 Trên website Vercel, đường dẫn cũ `/root-system-admin` tự chuyển hướng vĩnh viễn (HTTP 308) sang `/admin`.
 
 ## Kiểm thử
@@ -130,7 +132,7 @@ Website chính thức: **https://datn-2026-indol.vercel.app/**. Mã nguồn đan
 | --- | --- | --- |
 | `frontend/` (web) | Vercel, thư mục gốc `frontend` | `frontend/vercel.json`: `expo export -p web`, thư mục `dist`. Biến `EXPO_PUBLIC_API_URL` = địa chỉ backend (nếu chưa đặt sẽ dùng `VITE_API_URL` cũ). |
 | `frontend/` (Android/iOS) | EAS Build | `npx eas-cli build -p android` (cần tài khoản Expo); đặt `EXPO_PUBLIC_API_URL` trong môi trường build. |
-| `backend/` + `ai/` | Render (Blueprint `render.yaml`) | 2 dịch vụ Free `dong-a-api` (Node) và `dong-a-ai` (Python); đặt `DATABASE_URL` (Supabase Session pooler), `ADMIN_PASSWORD`, `GEMINI_API_KEY`, và để gửi thư: `SMTP_URL`, `MAIL_FROM` trong Render. Render tự tạo `EXCEL_SIGNING_KEY` (khóa ký file Excel mẫu) cho `dong-a-ai`. Backend chạy một instance (phòng thi đấu nằm trong bộ nhớ). |
+| `backend/` + `ai/` | Render (Blueprint `render.yaml`) | 2 dịch vụ Free `dong-a-api` (Node) và `dong-a-ai` (Python); đặt `DATABASE_URL` (Supabase Session pooler), `ADMIN_PASSWORD`, `ADMIN_EMAIL` (email nhận liên kết "Quên mật khẩu" của quản trị tổng), `GEMINI_API_KEY`, và để gửi thư: `SMTP_URL`, `MAIL_FROM` trong Render. Render tự tạo `EXCEL_SIGNING_KEY` (khóa ký file Excel mẫu) cho `dong-a-ai`. Backend chạy một instance (phòng thi đấu nằm trong bộ nhớ). |
 | Database | Supabase PostgreSQL | Migration trong `database/migrations/`, xem [database/migrations/README.md](database/migrations/README.md). |
 
 Blueprint lấy URL HTTPS của AI từ `RENDER_EXTERNAL_URL`, rồi gán cho `AI_SERVICE_URL` của backend. Hai dịch vụ Free không dùng `hostport` private network. Render tự tạo `AI_SERVICE_TOKEN` cho AI và cấp cùng giá trị cho backend; các API nghiệp vụ AI yêu cầu header `X-AI-Token`. Không đưa token này vào frontend. `/health` chỉ dùng kiểm tra dịch vụ nên không yêu cầu token. Nếu dùng Hugging Face, thêm `HF_TOKEN` trực tiếp vào môi trường `dong-a-ai` (không bắt buộc khi dùng Gemini).

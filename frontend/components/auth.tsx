@@ -3,14 +3,16 @@
  * quản trị trường (/school-manager-admin); /portal đăng nhập chung cho giáo viên và học sinh. Hai cổng quản trị tách biệt:
  * không có nút hay liên kết về trang chủ. Mỗi trang giữ token riêng (kho bảo mật của điện thoại hoặc localStorage trên web).
  * Lần đầu đăng nhập bằng mật khẩu mặc định: màn hình chính bị khóa, cửa sổ bắt buộc đặt mật khẩu mới; đổi mật khẩu làm token cũ hết hiệu lực.
+ * Trang đăng nhập của hai cổng quản trị (kèm quên mật khẩu) nằm ở components/admin/AdminLogin.tsx; ở đây chỉ còn đăng nhập giáo viên/học sinh.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, View, useWindowDimensions, type TextInputInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AlertTriangle, ChevronLeft, Eye, EyeOff, KeyRound, LogIn, LogOut, Presentation, ShieldCheck } from 'lucide-react-native';
+import { AlertTriangle, ChevronLeft, Eye, EyeOff, KeyRound, LogIn, LogOut, Presentation } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { ApiError, errorMessage } from '@/api/client';
+import { AdminLogin } from '@/components/admin/AdminLogin';
 import { BrandLogo, KahootShape, Mascot } from '@/components/art';
 import { Avatar, Btn, Card, Chip, Field, Inset, PaperBg, Sheet, Spinner, Txt, useToast } from '@/components/ui';
 import { ANSWER_STYLES, LIVE_BG } from '@/constants/theme';
@@ -112,6 +114,14 @@ export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) 
   );
 
   if (checking) {
+    // Cổng quản trị: chỉ một vòng chờ trên nền trắng, cùng nền với trang đăng nhập sắp hiện
+    if (isAdminPortal(portal)) {
+      return (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: c.the }}>
+          <Spinner label="Đang kiểm tra phiên đăng nhập…" />
+        </View>
+      );
+    }
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}>
         <PaperBg />
@@ -147,7 +157,7 @@ export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) 
       {children({
         token,
         user,
-        logout: (msg = 'Đã đăng xuất. Hẹn gặp lại!') => end(msg),
+        logout: (msg = isAdminPortal(portal) ? 'Bạn đã đăng xuất khỏi hệ thống.' : 'Đã đăng xuất. Hẹn gặp lại!') => end(msg),
         expired: () => end('Phiên đăng nhập đã hết hạn, hãy đăng nhập lại.'),
         changePassword: () => setChanging(true),
         updateUser: setUser,
@@ -157,7 +167,10 @@ export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) 
 };
 
 // ---------------------------------------------------------------------- đăng nhập
-const PORTAL_THEME: Record<Portal | 'app', { heading: string; sub: string; tone: 'son' | 'ngoc' | 'dong'; placeholder: string; panel: readonly [string, string, ...string[]]; panelTitle: string; panelText: string }> = {
+/** Trang đăng nhập của người học: học sinh, giáo viên và /portal chung (hai cổng quản trị dùng AdminLogin) */
+type LearnerPortal = 'student' | 'teacher' | 'app';
+
+const PORTAL_THEME: Record<LearnerPortal, { heading: string; sub: string; tone: 'son' | 'ngoc' | 'dong'; placeholder: string; panel: readonly [string, string, ...string[]]; panelTitle: string; panelText: string }> = {
   app: {
     heading: 'Đăng nhập học tập',
     sub: 'Giáo viên và học sinh dùng tài khoản nhà trường cấp',
@@ -185,30 +198,10 @@ const PORTAL_THEME: Record<Portal | 'app', { heading: string; sub: string; tone:
     panelTitle: 'Không gian giáo viên',
     panelText: 'Theo dõi tiến độ thật của học sinh, câu sai nhiều nhất và mức nắm vững theo chủ đề; tổ chức thi đấu trực tiếp và soạn đề bằng AI.',
   },
-  root_admin: {
-    heading: 'Quản trị tổng',
-    sub: 'Toàn hệ thống: các trường, giáo viên, học sinh khối 6 – 9',
-    tone: 'dong',
-    placeholder: 'tên đăng nhập quản trị',
-    panel: ['#1f2937', '#111827', '#0b1020'],
-    panelTitle: 'Bảng điều khiển hệ thống',
-    panelText: 'Theo dõi mọi trường, cấp tài khoản quản trị trường, duyệt lớp và xử lý thùng rác.',
-  },
-  school_admin: {
-    heading: 'Quản trị trường',
-    sub: 'Chỉ dữ liệu của trường bạn quản lý',
-    tone: 'ngoc',
-    placeholder: 'tên đăng nhập quản trị trường',
-    panel: ['#3f9a00', '#2f7300', '#1f4d00'],
-    panelTitle: 'Trường của bạn',
-    panelText: 'Nhập file Excel mẫu để cấp tài khoản, theo dõi khối 6 – 9, duyệt lớp và gửi thông tin đăng nhập.',
-  },
 };
 
-const PortalArt: React.FC<{ portal: Portal | 'app'; size?: number }> = ({ portal, size = 1 }) =>
-  portal === 'student' || portal === 'app' ? (
-    <Mascot size={190 * size} accessory="conical" mood="excited" bob />
-  ) : portal === 'teacher' ? (
+const PortalArt: React.FC<{ portal: LearnerPortal; size?: number }> = ({ portal, size = 1 }) =>
+  portal === 'teacher' ? (
     <View style={{ alignItems: 'center' }}>
       <View style={{ width: 104 * size, height: 104 * size, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}>
         <Presentation size={60 * size} color="#ffffff" />
@@ -216,12 +209,16 @@ const PortalArt: React.FC<{ portal: Portal | 'app'; size?: number }> = ({ portal
       <Mascot size={104 * size} accessory="scholar" mood="happy" style={{ marginTop: -22 }} />
     </View>
   ) : (
-    <View style={{ width: 104 * size, height: 104 * size, borderRadius: 28, backgroundColor: portal === 'school_admin' ? '#58cc02' : '#ff9600', alignItems: 'center', justifyContent: 'center', borderBottomWidth: 6, borderBottomColor: portal === 'school_admin' ? '#3f9a00' : '#c97500' }}>
-      <ShieldCheck size={60 * size} color="#102b00" />
-    </View>
+    <Mascot size={190 * size} accessory="conical" mood="excited" bob />
   );
 
-export const LoginScreen: React.FC<{ portal: Portal | 'app'; onLogin: (token: string, user: AuthUser) => void; notice?: string | null }> = ({ portal, onLogin, notice }) => {
+type LoginProps = { portal: Portal | 'app'; onLogin: (token: string, user: AuthUser) => void; notice?: string | null };
+
+/** Đăng nhập một trang: hai cổng quản trị có trang riêng (AdminLogin); giáo viên, học sinh và /portal dùng màn LearnerLogin */
+export const LoginScreen: React.FC<LoginProps> = ({ portal, ...rest }) =>
+  isAdminPortal(portal) ? <AdminLogin portal={portal} {...rest} /> : <LearnerLogin portal={portal} {...rest} />;
+
+const LearnerLogin: React.FC<Omit<LoginProps, 'portal'> & { portal: LearnerPortal }> = ({ portal, onLogin, notice }) => {
   const { c } = useTheme();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -255,8 +252,7 @@ export const LoginScreen: React.FC<{ portal: Portal | 'app'; onLogin: (token: st
     }
   };
 
-  const admin = isAdminPortal(portal);
-  const others = admin ? [] : (['student', 'teacher'] as Portal[]).filter((p) => p !== portal);
+  const others = (['student', 'teacher'] as Portal[]).filter((p) => p !== portal);
 
   return (
     <View style={{ flex: 1, flexDirection: 'row' }}>
@@ -269,15 +265,9 @@ export const LoginScreen: React.FC<{ portal: Portal | 'app'; onLogin: (token: st
                 <KahootShape shape={s.shape} size={44 + i * 6} color={s.bg} />
               </View>
             ))}
-          {admin ? (
-            <View style={{ alignSelf: 'flex-start' }}>
-              <BrandLogo light subtitle={PORTAL_TITLE[portal]} />
-            </View>
-          ) : (
-            <Pressable onPress={() => router.replace('/')} accessibilityRole="link" accessibilityLabel="Về trang chủ" style={{ alignSelf: 'flex-start' }}>
-              <BrandLogo light subtitle={PORTAL_TITLE[portal]} />
-            </Pressable>
-          )}
+          <Pressable onPress={() => router.replace('/')} accessibilityRole="link" accessibilityLabel="Về trang chủ" style={{ alignSelf: 'flex-start' }}>
+            <BrandLogo light subtitle={PORTAL_TITLE[portal]} />
+          </Pressable>
           <View style={{ alignItems: 'center', gap: 10 }}>
             <PortalArt portal={portal} />
             <Txt f="displayHeavy" size={30} color="#ffffff" center>
@@ -295,7 +285,7 @@ export const LoginScreen: React.FC<{ portal: Portal | 'app'; onLogin: (token: st
       <View style={{ flex: 1, maxWidth: wide ? 560 : undefined }}>
         <Animated.ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 20, paddingVertical: 40 }} keyboardShouldPersistTaps="handled">
           <View style={{ width: '100%', maxWidth: 400, alignSelf: 'center', gap: 14 }}>
-            {!admin && <Btn title="Trang chủ" icon={ChevronLeft} tone="ghost" size="sm" onPress={() => router.replace('/')} />}
+            <Btn title="Trang chủ" icon={ChevronLeft} tone="ghost" size="sm" onPress={() => router.replace('/')} />
             {!wide && (
               <View style={{ alignItems: 'center' }}>
                 <PortalArt portal={portal} size={0.7} />
@@ -303,8 +293,8 @@ export const LoginScreen: React.FC<{ portal: Portal | 'app'; onLogin: (token: st
             )}
             <Chip
               text={PORTAL_TITLE[portal].toUpperCase()}
-              bg={portal === 'student' ? c.sonNhat : portal === 'teacher' || portal === 'school_admin' ? c.ngocNhat : c.dongNhat}
-              fg={portal === 'student' ? c.sonChu : portal === 'teacher' || portal === 'school_admin' ? c.ngocChu : c.dongChu}
+              bg={portal === 'student' ? c.sonNhat : portal === 'teacher' ? c.ngocNhat : c.dongNhat}
+              fg={portal === 'student' ? c.sonChu : portal === 'teacher' ? c.ngocChu : c.dongChu}
               style={{ alignSelf: 'center' }}
             />
             <View>
@@ -369,26 +359,18 @@ export const LoginScreen: React.FC<{ portal: Portal | 'app'; onLogin: (token: st
             )}
             <Btn title={loading ? 'Đang đăng nhập…' : 'Đăng nhập'} icon={LogIn} tone={theme.tone} size="lg" full loading={loading} onPress={submit} testID="login-submit" />
             <Inset pad={16} style={{ gap: 6 }}>
-              {admin ? (
-                <Txt size={14} color={c.muc2}>
-                  {portal === 'root_admin' ? 'Trang này chỉ dành cho quản trị tổng của hệ thống.' : 'Trang này chỉ dành cho quản trị viên được cấp quyền của trường.'}
+              <Txt size={14} color={c.muc2}>
+                <Txt f="bold" size={14}>
+                  Chưa có tài khoản?{' '}
                 </Txt>
-              ) : (
-                <>
-                  <Txt size={14} color={c.muc2}>
-                    <Txt f="bold" size={14}>
-                      Chưa có tài khoản?{' '}
-                    </Txt>
-                    Tài khoản do quản trị viên nhà trường cấp.
-                  </Txt>
-                  <Txt size={14} color={c.muc2}>
-                    <Txt f="bold" size={14}>
-                      Quên mật khẩu?{' '}
-                    </Txt>
-                    Nhờ quản trị viên đặt lại mật khẩu tạm.
-                  </Txt>
-                </>
-              )}
+                Tài khoản do quản trị viên nhà trường cấp.
+              </Txt>
+              <Txt size={14} color={c.muc2}>
+                <Txt f="bold" size={14}>
+                  Quên mật khẩu?{' '}
+                </Txt>
+                Nhờ quản trị viên đặt lại mật khẩu tạm.
+              </Txt>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
                 {others.map((p) => (
                   <Btn key={p} tone="ghost" size="sm" title={p === 'student' ? 'Em là học sinh? →' : 'Bạn là giáo viên? →'} onPress={() => router.replace(PORTAL_PATH[p])} />

@@ -202,7 +202,7 @@ export interface Started {
 export async function startApp(dbName: string): Promise<Started> {
   const url = await createDatabase(dbName);
   Object.assign(process.env, {
-    DATABASE_URL: url, AUTH_SECRET_KEY: 'nest-test-secret', ADMIN_USERNAME: 'admin', ADMIN_PASSWORD: 'admin@123', STARTING_GEMS: '100',
+    DATABASE_URL: url, AUTH_SECRET_KEY: 'nest-test-secret', ADMIN_USERNAME: 'admin', ADMIN_PASSWORD: 'admin@123', ADMIN_EMAIL: 'quantri@example.invalid', STARTING_GEMS: '100',
     MAIL_TRANSPORT: 'json', MAIL_WORKER: 'off', ACCOUNT_DOMAIN: 'donga.local',
   });
   const { Test } = await import('@nestjs/testing');

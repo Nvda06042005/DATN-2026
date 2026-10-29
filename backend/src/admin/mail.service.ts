@@ -112,6 +112,24 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /** Thư đặt lại mật khẩu gửi thẳng, không qua hàng đợi: liên kết chứa mã dùng một lần nên không lưu ở bảng thư */
+  async sendPasswordReset(to: string, fullName: string, link: string, minutes: number): Promise<void> {
+    if (!this.transport) throw new ServiceUnavailableException('Máy chủ chưa cấu hình gửi thư.');
+    const subject = '[Đông A EDU] Đặt lại mật khẩu';
+    const lines = [
+      `Chào ${fullName},`,
+      '',
+      'Đông A EDU nhận được yêu cầu đặt lại mật khẩu cho tài khoản quản trị của bạn.',
+      `Mở liên kết sau để đặt mật khẩu mới (hiệu lực ${minutes} phút, chỉ dùng được một lần):`,
+      link,
+      '',
+      'Nếu không phải bạn yêu cầu, hãy bỏ qua thư này: mật khẩu hiện tại vẫn giữ nguyên.',
+    ];
+    const html = lines.map((l) => (l === link ? `<p><a href="${escapeHtml(l)}">${escapeHtml(l)}</a></p>` : l ? `<p>${escapeHtml(l)}</p>` : '')).join('');
+    await this.transport.sendMail({ from: config.mailFrom, to, subject, text: lines.join('\n'), html });
+    if (config.mailTransport === 'json') this.sent.push({ to, subject, text: lines.join('\n') });
+  }
+
   encrypt(payload: MailPayload): string {
     const iv = randomBytes(12);
     const cipher = createCipheriv('aes-256-gcm', this.key, iv);

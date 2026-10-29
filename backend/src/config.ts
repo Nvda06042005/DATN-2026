@@ -20,6 +20,8 @@ export const config = {
   /** Tài khoản quản trị tổng được tạo ở lần chạy đầu tiên – đăng nhập tại trang /admin */
   adminUsername: env('ADMIN_USERNAME', 'admin').toLowerCase(),
   adminPassword: process.env.ADMIN_PASSWORD ?? 'admin@123',
+  /** Email của quản trị tổng: nơi nhận liên kết "Quên mật khẩu" (chỉ điền khi tài khoản chưa có email) */
+  adminEmail: env('ADMIN_EMAIL').toLowerCase(),
   startingGems: Number(env('STARTING_GEMS', '100')),
   /** Dịch vụ AI Python (chatbot, RAG, BKT, soạn câu hỏi) */
   aiServiceUrl: /^https?:\/\//i.test(aiUrl) ? aiUrl : `http://${aiUrl}`,

@@ -60,6 +60,8 @@ const light = {
   xanhMuc: '#16253f',
   xanhMuc2: '#475a76',
   bienXanh: '#d9e6f2',
+  /** Viền ô nhập trên nền trắng (tương phản ≥ 3:1 với nền) */
+  bienDam: '#7a8ca8',
   bong: 'rgba(22, 37, 63, 0.10)',
   /** Kính mờ trên nền tối của hero: nền và viền trắng trong suốt */
   kinh: 'rgba(255, 255, 255, 0.10)',
@@ -132,6 +134,7 @@ const dark: Palette = {
   xanhMuc: '#eaf1fb',
   xanhMuc2: '#9fb0c8',
   bienXanh: '#243352',
+  bienDam: '#4a5c7a',
   troi5: '#0f1a30',
   nhan: '#5eb6ff',
   bong: 'rgba(0, 0, 0, 0.45)',

@@ -69,7 +69,7 @@ describe('file migration', () => {
     } finally {
       spy.mockRestore();
     }
-    expect(lines.filter((l) => l.startsWith('OK '))).toHaveLength(6);
+    expect(lines.filter((l) => l.startsWith('OK '))).toHaveLength(7);
   });
 });
 
@@ -88,11 +88,11 @@ describe('file migration', () => {
   test('status chỉ đọc, chạy lại không áp dụng lần hai, mọi bảng bật RLS', async () => {
     expect((await m.migrationStatus(url, dir)).every((s) => !s.applied)).toBe(true);
     expect((await sql(url, "SELECT to_regclass('public.app_schema_migrations') AS t"))[0].t).toBeNull();
-    expect(await m.applyMigrations(url, dir)).toHaveLength(6);
+    expect(await m.applyMigrations(url, dir)).toHaveLength(7);
     expect(await m.applyMigrations(url, dir)).toEqual([]);
     expect((await m.migrationStatus(url, dir)).every((s) => s.applied)).toBe(true);
-    expect(await count('SELECT count(*) AS n FROM public.app_schema_migrations')).toBe(6);
-    expect(await count("SELECT count(*) AS n FROM pg_tables WHERE schemaname = 'public' AND rowsecurity")).toBe(16);
+    expect(await count('SELECT count(*) AS n FROM public.app_schema_migrations')).toBe(7);
+    expect(await count("SELECT count(*) AS n FROM pg_tables WHERE schemaname = 'public' AND rowsecurity")).toBe(17);
     // Chính sách RLS theo trường cho vai trò dong_a_school_scope, không mở cho vai trò khác
     expect(await count("SELECT count(*) AS n FROM pg_policies WHERE schemaname = 'public' AND policyname = 'school_scope'")).toBe(9);
     expect(await count("SELECT count(*) AS n FROM pg_policies WHERE schemaname = 'public' AND NOT ('dong_a_school_scope' = ANY(roles))")).toBe(0);
@@ -102,19 +102,19 @@ describe('file migration', () => {
     await sql(url, readFileSync(join(dir, '001_initial_postgres_schema.sql'), 'utf8'));
     await sql(url, `INSERT INTO public."User" (id, email, "passwordHash", "fullName", "updatedAt") VALUES ('legacy-id', 'fixture@example.invalid', 'fake-hash', 'Fixture', now())`);
     await sql(url, "INSERT INTO public._prisma_migrations (id, checksum, migration_name) VALUES ('fixture', 'original-checksum', 'original-import')");
-    expect(await m.applyMigrations(url, dir)).toHaveLength(6);
+    expect(await m.applyMigrations(url, dir)).toHaveLength(7);
     expect(await sql(url, 'SELECT id, email FROM public."User"')).toEqual([{ id: 'legacy-id', email: 'fixture@example.invalid' }]);
     expect(await sql(url, 'SELECT checksum FROM public._prisma_migrations')).toEqual([{ checksum: 'original-checksum' }]);
   });
 
   test('một file lỗi thì hoàn tác cả lô và lịch sử', async () => {
     await m.applyMigrations(url, dir);
-    writeFileSync(join(dir, '007_create_marker.sql'), 'CREATE TABLE public.rollback_marker (id INT);');
-    writeFileSync(join(dir, '008_fail.sql'), 'SELECT * FROM deliberately_missing_relation;');
+    writeFileSync(join(dir, '008_create_marker.sql'), 'CREATE TABLE public.rollback_marker (id INT);');
+    writeFileSync(join(dir, '009_fail.sql'), 'SELECT * FROM deliberately_missing_relation;');
     await expect(m.applyMigrations(url, dir)).rejects.toThrow(/42P01/);
     expect((await sql(url, "SELECT to_regclass('public.rollback_marker') AS t"))[0].t).toBeNull();
-    expect(await count('SELECT count(*) AS n FROM public.app_schema_migrations')).toBe(6);
-    writeFileSync(join(dir, '008_fail.sql'), 'INSERT INTO public.rollback_marker VALUES (1);');
+    expect(await count('SELECT count(*) AS n FROM public.app_schema_migrations')).toBe(7);
+    writeFileSync(join(dir, '009_fail.sql'), 'INSERT INTO public.rollback_marker VALUES (1);');
     expect(await m.applyMigrations(url, dir)).toHaveLength(2);
     expect(await sql(url, 'SELECT id FROM public.rollback_marker')).toEqual([{ id: 1 }]);
   });
@@ -138,12 +138,13 @@ describe('file migration', () => {
 
   test('hai tiến trình chạy cùng lúc: mỗi file chỉ chạy một lần', async () => {
     const results = await Promise.all([m.applyMigrations(url, dir), m.applyMigrations(url, dir)]);
-    expect(results.map((r) => r.length).sort()).toEqual([0, 6]);
-    expect(await count('SELECT count(*) AS n FROM public.app_schema_migrations')).toBe(6);
+    expect(results.map((r) => r.length).sort()).toEqual([0, 7]);
+    expect(await count('SELECT count(*) AS n FROM public.app_schema_migrations')).toBe(7);
   });
 
   test('backend khởi động tự chạy migration, ghi được tiến độ và lịch sử thi đấu', async () => {
     process.env.DATABASE_URL = url;
+    process.env.ADMIN_EMAIL = 'fill@example.invalid';
     jest.resetModules();
     const { DatabaseService } = await import('../src/database/database.service');
     const { hashPassword } = await import('../src/auth/passwords');
@@ -159,13 +160,16 @@ describe('file migration', () => {
       expect([saved.game_state, saved.day_gems, saved.week_xp]).toEqual(['{"campaign":{"m1p1":3}}', 20, 42]);
       expect((await db.allProgress(true)).get(user.id)).not.toHaveProperty('game_state');
 
-      // Khởi động lại: không chạy lại migration, dữ liệu còn nguyên
+      // Khởi động lại: không chạy lại migration, dữ liệu còn nguyên; quản trị tổng chưa có email thì nhận ADMIN_EMAIL (để dùng "Quên mật khẩu")
+      expect(await sql(url, "SELECT email FROM public.app_users WHERE role = 'root_admin'")).toEqual([{ email: 'fill@example.invalid' }]);
+      await sql(url, "UPDATE public.app_users SET email = NULL WHERE role = 'root_admin'");
       const again = new DatabaseService();
       await again.onModuleInit();
+      expect(await sql(url, "SELECT email FROM public.app_users WHERE role = 'root_admin'")).toEqual([{ email: 'fill@example.invalid' }]);
       expect((await again.getByUsername('migration_student'))!.id).toBe(user.id);
       expect((await again.getProgress(user.id)).xp).toBe(42);
       await again.onModuleDestroy();
-      expect(await count('SELECT count(*) AS n FROM public.app_schema_migrations')).toBe(6);
+      expect(await count('SELECT count(*) AS n FROM public.app_schema_migrations')).toBe(7);
 
       // Lưu một trận thi đấu lớp, đọc lại kèm tên học sinh; xóa tài khoản thì xóa luôn dữ liệu trận liên quan
       const teacher = await db.createUser({ username: 'live_teacher', full_name: 'Fixture GV', role: 'teacher', class_name: '7A', password_hash: hash, must_change_password: true });

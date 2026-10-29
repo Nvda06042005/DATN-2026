@@ -257,7 +257,17 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async ensureAdmin(): Promise<void> {
-    if ((await this.query("SELECT id FROM app_users WHERE role = 'root_admin' LIMIT 1")).length) return;
+    const existing = await this.query<{ id: number; email: string | null; full_name: string; username: string }>(
+      "SELECT id, email, full_name, username FROM app_users WHERE role = 'root_admin' ORDER BY id LIMIT 1",
+    );
+    if (existing.length) {
+      // "Quên mật khẩu" gửi thư tới email của tài khoản: điền ADMIN_EMAIL cho quản trị tổng chưa có email, không ghi đè email đã có
+      const [admin] = existing;
+      if (config.adminEmail && !admin.email) {
+        await this.query('UPDATE app_users SET email = $1, search_text = $2 WHERE id = $3', [config.adminEmail, searchText(admin.full_name, admin.username, config.adminEmail), admin.id]);
+      }
+      return;
+    }
     await this.createUser({
       username: config.adminUsername,
       full_name: 'Quản trị tổng Đông A',
@@ -265,6 +275,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       class_name: null,
       password_hash: await hashPassword(config.adminPassword),
       must_change_password: false,
+      email: config.adminEmail || null,
     });
     this.logger.warn(`Đã tạo tài khoản quản trị tổng '${config.adminUsername}' (đăng nhập tại trang /admin). Nên đổi mật khẩu mặc định khi triển khai thật.`);
   }
@@ -324,6 +335,37 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   async touchLogin(id: number): Promise<void> {
     await this.query('UPDATE app_users SET last_login_at = $1 WHERE id = $2', [nowIso(), id]);
+  }
+
+  // ------------------------------------------------------------------ quên mật khẩu
+  /** Tài khoản còn hoạt động, có email và đúng vai trò của trang; tìm theo tên đăng nhập, hoặc theo email nếu chỉ một tài khoản dùng email đó */
+  async findForPasswordReset(identifier: string, roles: Role[]): Promise<UserRow | null> {
+    const key = identifier.trim().toLowerCase();
+    const rows = await this.query(
+      `SELECT ${USER_COLUMNS} FROM app_users
+       WHERE (username = $1 OR lower(email) = $1) AND role = ANY($2) AND is_active = 1 AND deleted_at IS NULL AND email IS NOT NULL`,
+      [key, roles],
+    );
+    const users = rows.map(toUser);
+    return users.find((u) => u.username === key) ?? (users.length === 1 ? users[0] : null);
+  }
+
+  /** Lưu băm của mã đặt lại; mã chưa dùng trước đó của tài khoản hết hiệu lực, mã quá hạn từ hơn một ngày bị dọn */
+  async createPasswordReset(userId: number, tokenHash: string, ttlMinutes: number): Promise<void> {
+    await this.tx(async (q) => {
+      await q("DELETE FROM app_password_resets WHERE expires_at < now() - interval '1 day'");
+      await q('UPDATE app_password_resets SET used_at = now() WHERE user_id = $1 AND used_at IS NULL', [userId]);
+      await q("INSERT INTO app_password_resets (user_id, token_hash, expires_at) VALUES ($1, $2, now() + ($3 || ' minutes')::interval)", [userId, tokenHash, String(ttlMinutes)]);
+    });
+  }
+
+  /** Dùng mã đúng một lần (một câu lệnh nguyên tử): trả về id tài khoản nếu mã còn hạn và chưa dùng */
+  async consumePasswordReset(tokenHash: string): Promise<number | null> {
+    const rows = await this.query<{ user_id: number }>(
+      'UPDATE app_password_resets SET used_at = now() WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now() RETURNING user_id',
+      [tokenHash],
+    );
+    return rows.length ? rows[0].user_id : null;
   }
 
   /** Xóa hẳn tài khoản cùng tiến độ và dữ liệu thi đấu liên quan (thùng rác hết hạn hoặc xóa vĩnh viễn) */

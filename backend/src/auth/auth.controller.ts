@@ -12,6 +12,17 @@ class LoginDto {
   @IsOptional() @IsIn(['root_admin', 'school_admin', 'teacher', 'student', 'app']) portal: Portal = 'app';
 }
 
+class ForgotPasswordDto {
+  /** Tên đăng nhập hoặc email của tài khoản quản trị */
+  @IsString() @Length(1, 254) identifier: string;
+  @IsIn(['root_admin', 'school_admin']) portal: 'root_admin' | 'school_admin';
+}
+
+class ResetPasswordDto {
+  @IsString() @Length(20, 200) token: string;
+  @IsString() @Length(6, 128) new_password: string;
+}
+
 class ReadDto {
   @IsOptional() @IsArray() @ArrayMaxSize(200) @IsInt({ each: true }) ids?: number[];
 }
@@ -35,6 +46,24 @@ export class AuthController {
   login(@Body() body: LoginDto) {
     if (!this.db.ready) throw new ServiceUnavailableException('Kho tài khoản chưa sẵn sàng. Kiểm tra cấu hình cơ sở dữ liệu.');
     return this.auth.login(body.username, body.password, body.portal);
+  }
+
+  /** Quên mật khẩu (cổng quản trị): gửi liên kết đặt lại tới email tài khoản; luôn trả {ok:true} để không lộ tài khoản nào có thật */
+  @Post('forgot-password')
+  @HttpCode(200)
+  async forgotPassword(@Body() body: ForgotPasswordDto) {
+    if (!this.db.ready) throw new ServiceUnavailableException('Kho tài khoản chưa sẵn sàng. Kiểm tra cấu hình cơ sở dữ liệu.');
+    await this.auth.forgotPassword(body.identifier, body.portal);
+    return { ok: true };
+  }
+
+  /** Đặt mật khẩu mới bằng mã trong thư (mã dùng một lần, hiệu lực 30 phút) */
+  @Post('reset-password')
+  @HttpCode(200)
+  async resetPassword(@Body() body: ResetPasswordDto) {
+    if (!this.db.ready) throw new ServiceUnavailableException('Kho tài khoản chưa sẵn sàng. Kiểm tra cấu hình cơ sở dữ liệu.');
+    await this.auth.resetPassword(body.token, body.new_password);
+    return { ok: true };
   }
 
   @Get('me')

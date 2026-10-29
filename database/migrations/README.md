@@ -13,4 +13,7 @@ Runner của backend NestJS tự chạy khi khởi động với `DATABASE_URL` 
 hàng đợi thư; vai trò `dong_a_school_scope` + chính sách RLS theo `app.school_id`. Phần `pg_trgm`, `vector`
 (pgvector) và vai trò RLS được bọc khối an toàn: CSDL không hỗ trợ thì bỏ qua, backend dùng cách dự phòng.
 
+`007_password_reset.sql`: bảng `app_password_resets` cho chức năng "Quên mật khẩu" (băm SHA-256 của mã đặt lại,
+hạn dùng, đã dùng chưa); bật RLS và không cấp quyền cho vai trò nào ngoài chủ bảng (backend).
+
 Xem [hướng dẫn cấu hình và triển khai](../../README.md#triển-khai).
