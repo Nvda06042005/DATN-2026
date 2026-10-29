@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowDown, ArrowRight, CalendarDays, Check, Compass, Joystick, Landmark, LogIn, MapPin, MessageSquareText, Milestone, Moon, Quote, School, Sun, Sword, Swords,
-  Trophy, Users, Volume2, VolumeX, X, ZoomIn, ArrowUp, ArrowUpRight, ChevronDown, FileSpreadsheet,
+  Trophy, Users, Volume2, VolumeX, X, ZoomIn, ArrowUp, ArrowUpRight, FileSpreadsheet, Plus,
 } from 'lucide-react-native';
 import {
   BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, PatternOverlay, SchematicMap, VietnamFlag, WaveBand,
@@ -174,7 +174,7 @@ const Panel: React.FC<{ children: React.ReactNode; pad?: number; style?: StylePr
 };
 
 /** den/trang dùng trên nền màu (nút đen, nút trắng như huy hiệu cửa hàng); son/xanh dùng trên thẻ */
-type CtaTone = 'den' | 'trang' | 'son' | 'xanh' | 'muc';
+type CtaTone = 'den' | 'trang' | 'son' | 'xanh' | 'muc' | 'logo';
 
 /** Nút viên thuốc bo tròn, cao tối thiểu 44 */
 const Cta: React.FC<{ title: string; onPress: () => void; tone?: CtaTone; icon?: IconType; arrow?: boolean; lg?: boolean; label?: string; testID?: string }> = ({
@@ -187,6 +187,7 @@ const Cta: React.FC<{ title: string; onPress: () => void; tone?: CtaTone; icon?:
     son: { bg: c.son, fg: c.trang, bd: c.son },
     xanh: { bg: c.xanhMuc, fg: c.the, bd: c.xanhMuc },
     muc: { bg: c.logoInk, fg: c.logoPaper, bd: c.logoInk },
+    logo: { bg: c.logoRed, fg: c.logoPaper, bd: c.logoRed },
   }[tone];
   const text = lg ? 18 : 15;
   return (
@@ -1069,44 +1070,64 @@ const HowSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) =
   );
 };
 
-/** Câu hỏi thường gặp: danh sách mở/đóng từng câu, mở sẵn câu đầu */
+/**
+ * Câu hỏi thường gặp, bố cục hai cột: bên trái là nhãn nhỏ, tiêu đề, một dòng giới thiệu và nút mở/thu gọn tất cả; bên phải là danh sách các câu
+ * ngăn bằng đường kẻ mảnh, bấm để mở/đóng từng câu (có thể mở nhiều câu cùng lúc, mở sẵn câu đầu). Không có hiệu ứng trượt hay hiện dần.
+ */
 const FaqSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
-  const [open, setOpen] = useState<number | null>(0);
+  const { width } = useWindowDimensions();
+  const two = width >= 1000; // hai cột cần đủ chỗ: hẹp hơn thì xếp dọc
+  const [open, setOpen] = useState<number[]>([0]);
+  const all = open.length === FAQ.length;
+  const toggle = (i: number) => setOpen((o) => (o.includes(i) ? o.filter((x) => x !== i) : [...o, i]));
+  const h = wide ? 42 : 32;
   return (
     <Band id="cau-hoi" bg={c.logoPaper} wide={wide} onSection={onSection} decor={<GoldRings />}>
-      <Head logo title="Câu hỏi thường gặp" text="Những điều học sinh, giáo viên và nhà trường hay hỏi về Đông A." wide={wide} />
-      <View style={{ width: '100%', maxWidth: 860, alignSelf: 'center', gap: 12 }}>
-        {FAQ.map((f, i) => {
-          const on = open === i;
-          return (
-            <Reveal key={f.q} delay={i * 50}>
-              <View style={[{ borderRadius: 24, borderWidth: 1, overflow: 'hidden' }, PAPER_CARD, on ? { borderColor: c.logoRed } : null]}>
+      <View style={{ flexDirection: two ? 'row' : 'column', alignItems: 'flex-start', gap: two ? 56 : 32 }}>
+        <View style={{ width: two ? 420 : '100%', gap: 16 }}>
+          <Txt f="bold" size={12.5} color={c.logoRed} upper style={{ letterSpacing: 1.6 }}>
+            Có thể bạn đang tò mò
+          </Txt>
+          <Txt f="heavy" size={h} color={c.logoInk} accessibilityRole="header" style={{ lineHeight: h + 7, letterSpacing: -1 }}>
+            Một vài điều{'\n'}
+            <Txt f="serifItalic" size={h} color={c.logoRed} style={{ lineHeight: h + 9, letterSpacing: -0.5 }}>
+              trước khi bắt đầu.
+            </Txt>
+          </Txt>
+          <Txt f="medium" size={16} color={INK_SOFT} style={{ lineHeight: 24 }}>
+            Hiểu thêm về Đông A và cách tham gia.
+          </Txt>
+          <Cta title={all ? 'Thu gọn tất cả' : 'Xem tất cả câu hỏi'} tone="logo" arrow={!all} onPress={() => setOpen(all ? [] : FAQ.map((_, i) => i))} testID="faq-all" />
+        </View>
+        <View style={{ flex: two ? 1 : undefined, width: two ? undefined : '100%', borderTopWidth: 1, borderTopColor: INK_LINE }}>
+          {FAQ.map((f, i) => {
+            const on = open.includes(i);
+            return (
+              <View key={f.q} style={{ borderBottomWidth: 1, borderBottomColor: INK_LINE }}>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityState={{ expanded: on }}
                   aria-expanded={on}
-                  onPress={() => setOpen(on ? null : i)}
-                  style={({ pressed }) => ({ minHeight: 64, paddingHorizontal: 22, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 14, opacity: pressed ? 0.85 : 1 })}
+                  onPress={() => toggle(i)}
+                  style={({ pressed }) => ({ minHeight: 64, paddingVertical: 18, flexDirection: 'row', alignItems: 'center', gap: 16, opacity: pressed ? 0.8 : 1 })}
                 >
-                  <Txt f="heavy" size={wide ? 18 : 16.5} color={on ? c.logoRed : c.logoInk} style={{ flex: 1, lineHeight: 24 }}>
+                  <Txt f="heavy" size={wide ? 18 : 16.5} color={on ? c.logoRed : c.logoInk} style={{ flex: 1, lineHeight: 25 }}>
                     {f.q}
                   </Txt>
-                  <View style={{ transform: [{ rotate: on ? '180deg' : '0deg' }] }}>
-                    <ChevronDown size={22} color={on ? c.logoRed : INK_SOFT} strokeWidth={2} />
-                  </View>
+                  {on ? <X size={20} color={c.logoRed} strokeWidth={2.2} /> : <Plus size={20} color={INK_SOFT} strokeWidth={2.2} />}
                 </Pressable>
                 {on ? (
-                  <View style={{ paddingHorizontal: 22, paddingBottom: 20 }}>
-                    <Txt size={15.5} color={INK_SOFT} style={{ lineHeight: 24 }}>
+                  <View style={{ paddingBottom: 22, paddingRight: 36 }}>
+                    <Txt size={15.5} color={INK_SOFT} style={{ lineHeight: 25 }}>
                       {f.a}
                     </Txt>
                   </View>
                 ) : null}
               </View>
-            </Reveal>
-          );
-        })}
+            );
+          })}
+        </View>
       </View>
     </Band>
   );
