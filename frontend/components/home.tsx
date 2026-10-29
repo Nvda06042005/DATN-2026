@@ -782,7 +782,7 @@ const FactRow: React.FC<{ icon: IconType; label: string; text: string; color: st
   );
 };
 
-/** Bản đồ ba cuộc kháng chiến lấy từ Wikipedia tiếng Việt (Wikimedia Commons, phạm vi công cộng, tác giả Lưu Ly); ratio = rộng / cao của tệp */
+/** Bản đồ ba cuộc kháng chiến lấy từ Wikipedia tiếng Việt (Wikimedia Commons, phạm vi công cộng, tác giả Lưu Ly; trên trang không ghi dòng nguồn theo yêu cầu); ratio = rộng / cao của tệp */
 const CAMPAIGN_MAP: Record<1 | 2 | 3, { src: ImageSourcePropType; ratio: number }> = {
   1: { src: require('../assets/ban-do-khang-chien-1.webp'), ratio: 1500 / 1052 },
   2: { src: require('../assets/ban-do-khang-chien-2.webp'), ratio: 1000 / 1458 },
@@ -820,7 +820,7 @@ const CampaignMap: React.FC<{ id: 1 | 2 | 3; name: string; wide: boolean }> = ({
           {label}
         </Txt>
         <Txt size={12.5} color={INK_SOFT} style={{ lineHeight: 18 }}>
-          Mũi tên đỏ là quân Đại Việt, mũi tên đen là quân Mông Nguyên (tiến quân, rút chạy); chú thích đầy đủ nằm trong bản đồ. Nguồn: Wikipedia tiếng Việt, tác giả Lưu Ly (Wikimedia Commons, phạm vi công cộng).
+          Mũi tên đỏ là quân Đại Việt, mũi tên đen là quân Mông Nguyên (tiến quân, rút chạy); chú thích đầy đủ nằm trong bản đồ.
         </Txt>
       </View>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
