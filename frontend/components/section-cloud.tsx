@@ -11,8 +11,10 @@ const CRESTS = [
   'M0 84 C0 3 51 -4 62 65 C75 35 97 33 108 66 C114 -15 165 -15 179 64 C194 29 220 30 220 84',
 ] as const;
 
-export function SectionCloud({ color, wide, variant = 0, direction = 'down' }: {
+/** color là màu tô của dải mây (thường là màu khối liền kề); trim (tùy chọn) là màu viền đậm của mép lượn để làm điểm nhấn khi hai khối liền nhau cùng màu */
+export function SectionCloud({ color, trim, wide, variant = 0, direction = 'down' }: {
   color: string;
+  trim?: string;
   wide: boolean;
   variant?: 0 | 1 | 2;
   direction?: 'up' | 'down';
@@ -39,7 +41,7 @@ export function SectionCloud({ color, wide, variant = 0, direction = 'down' }: {
           <Defs>
             <Pattern id={id} width={tileWidth} height={height} patternUnits="userSpaceOnUse">
               <Path d={`${CRESTS[variant]} V100 H0 Z`} transform={`scale(${tileWidth / 220} ${height / 96})`} fill={color} />
-              <Path d={CRESTS[variant]} transform={`scale(${tileWidth / 220} ${height / 96})`} fill="none" stroke={c.logoGold} strokeWidth="1" opacity="0.45" />
+              <Path d={CRESTS[variant]} transform={`scale(${tileWidth / 220} ${height / 96})`} fill="none" stroke={trim ?? c.logoGold} strokeWidth={trim ? 3 : 1} opacity={trim ? 1 : 0.45} />
             </Pattern>
           </Defs>
           <Rect width="100%" height={height} fill={`url(#${id})`} />
