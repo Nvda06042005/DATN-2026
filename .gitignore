@@ -5,6 +5,8 @@
 backend/.env
 backend/.env.*
 !backend/.env.example
+# Bản mail-relay.gs đã điền sẵn khóa bí mật để dán vào Google Apps Script (chỉ để trên máy)
+backend/*.local.gs
 frontend/.env
 frontend/.env.*
 !frontend/.env.example
