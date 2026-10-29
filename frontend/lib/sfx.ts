@@ -1,148 +1,128 @@
-/**
- * Âm thanh giao diện của trang chủ, tổng hợp bằng Web Audio (không dùng tệp âm thanh) theo các nút chỉnh của Sound Lab (React Bits):
- * cao độ (pitch), âm sắc (tone), độ dài (length) và độ vang (space). Hiện có "whoosh" mềm khi lướt qua đám mây và "pop" bật/tắt.
- * Quy tắc: chỉ phát sau khi người dùng đã bấm hoặc gõ phím một lần (trình duyệt cấm tự phát), nhỏ tiếng, cách nhau tối thiểu 0,65 giây,
- * có nút tắt/bật ở thanh điều hướng và nhớ lựa chọn; không phát khi bật "Giảm chuyển động". Chỉ chạy trên web.
- */
+/** Sound Lab Breeze exports, cached and played quietly after an explicit user gesture. */
 import { useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
 import { readHomeSound, saveHomeSound } from '@/lib/storage';
 
 const WEB = Platform.OS === 'web' && typeof window !== 'undefined';
-const COOLDOWN_MS = 650;
-
-type Ctx = AudioContext;
-let ctx: Ctx | null = null;
-let master: GainNode | null = null;
-let reverb: ConvolverNode | null = null;
-let noise: AudioBuffer | null = null;
-let last = 0;
-let on = readHomeSound() ?? true;
+const COOLDOWN_MS = 900;
+const SOURCES = {
+  up: require('../assets/sounds/cloud-breeze-up.mp3'),
+  down: require('../assets/sounds/cloud-breeze-down.mp3'),
+};
+const buffers = new Map<string, Promise<AudioBuffer>>();
+const active = new Set<AudioBufferSourceNode>();
 const listeners = new Set<() => void>();
+let context: AudioContext | null = null;
+let master: GainNode | null = null;
+let unlocked = false;
+let last = -Infinity;
+let on = readHomeSound() ?? true;
 
-const emit = () => listeners.forEach((l) => l());
+const emit = () => listeners.forEach((listener) => listener());
+const stopAll = () => {
+  active.forEach((source) => { try { source.stop(); } catch { /* already ended */ } });
+  active.clear();
+};
 
-/** Tạo bộ phát khi lần đầu có thao tác của người dùng (bấm, chạm hoặc gõ phím) */
+const load = (direction: 'up' | 'down') => {
+  const audio = context!;
+  let pending = buffers.get(direction);
+  if (!pending) {
+    // Static bundled audio, not an application API request.
+    pending = fetch(SOURCES[direction])
+      .then((response) => {
+        if (!response.ok) throw new Error('Cloud audio unavailable');
+        return response.arrayBuffer();
+      })
+      .then((data) => audio.decodeAudioData(data))
+      .catch((error: unknown) => { buffers.delete(direction); throw error; });
+    buffers.set(direction, pending);
+  }
+  return pending;
+};
+
 const start = () => {
-  if (!WEB || ctx) {
-    void ctx?.resume();
-    return;
+  if (!WEB || !on) return;
+  const Audio = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!Audio) return;
+  if (!context) {
+    try {
+      context = new Audio();
+      master = context.createGain();
+      master.gain.value = 0.6;
+      master.connect(context.destination);
+    } catch { context = null; master = null; return; }
   }
-  const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!AC) return;
-  ctx = new AC();
-  master = ctx.createGain();
-  master.gain.value = 0.9;
-  master.connect(ctx.destination);
-  // nhiễu trắng 1 giây dùng chung cho mọi tiếng gió
-  noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-  const d = noise.getChannelData(0);
-  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-  // độ vang: xung đáp ngắn tắt dần (0,7 giây)
-  const len = Math.floor(ctx.sampleRate * 0.7);
-  const ir = ctx.createBuffer(2, len, ctx.sampleRate);
-  for (let ch = 0; ch < 2; ch++) {
-    const data = ir.getChannelData(ch);
-    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6);
-  }
-  reverb = ctx.createConvolver();
-  reverb.buffer = ir;
-  reverb.connect(master);
-  void ctx.resume();
+  void context.resume().catch(() => undefined);
+  (['up', 'down'] as const).forEach((direction) => { void load(direction).catch(() => undefined); });
 };
 
 if (WEB) {
   const unlock = () => {
+    unlocked = true;
     start();
     window.removeEventListener('pointerdown', unlock);
     window.removeEventListener('keydown', unlock);
   };
   window.addEventListener('pointerdown', unlock, { passive: true });
   window.addEventListener('keydown', unlock);
-}
-
-export interface Whoosh {
-  /** up: tiếng gió đi lên (cao dần), down: đi xuống (thấp dần) */
-  dir?: 'up' | 'down';
-  /** tần số giữa của dải gió, Hz */
-  pitch?: number;
-  /** độ sắc của dải gió (Q): càng lớn càng "huýt" */
-  tone?: number;
-  /** thời lượng, giây */
-  length?: number;
-  /** độ vang 0 – 1 */
-  space?: number;
-  /** âm lượng đỉnh 0 – 1 */
-  gain?: number;
-}
-
-/** Tiếng gió mềm: nhiễu đi qua bộ lọc dải quét từ thấp lên cao (hoặc ngược lại), vào nhanh, tắt êm, kèm chút vang */
-export const playWhoosh = ({ dir = 'down', pitch = 600, tone = 1.1, length = 0.8, space = 0.4, gain = 0.07 }: Whoosh = {}) => {
-  if (!WEB || !on || !ctx || !master || !reverb || !noise || ctx.state !== 'running') return;
-  const now = performance.now();
-  if (now - last < COOLDOWN_MS || document.visibilityState !== 'visible') return;
-  last = now;
-  const t = ctx.currentTime;
-  const src = ctx.createBufferSource();
-  src.buffer = noise;
-  const band = ctx.createBiquadFilter();
-  band.type = 'bandpass';
-  band.Q.value = tone;
-  const from = dir === 'up' ? pitch * 0.45 : pitch * 1.7;
-  const to = dir === 'up' ? pitch * 1.7 : pitch * 0.45;
-  band.frequency.setValueAtTime(from, t);
-  band.frequency.exponentialRampToValueAtTime(to, t + length);
-  const amp = ctx.createGain();
-  amp.gain.setValueAtTime(0.0001, t);
-  amp.gain.exponentialRampToValueAtTime(gain, t + length * 0.35);
-  amp.gain.exponentialRampToValueAtTime(0.0001, t + length);
-  const wet = ctx.createGain();
-  wet.gain.value = space;
-  src.connect(band);
-  band.connect(amp);
-  amp.connect(master);
-  amp.connect(wet);
-  wet.connect(reverb);
-  src.start(t);
-  src.stop(t + length + 0.05);
-};
-
-/** Tiếng "pop" ngắn khi bật âm thanh: hai nốt sin liền nhau, lên cao */
-const playPop = () => {
-  if (!ctx || !master) return;
-  const t = ctx.currentTime;
-  [660, 990].forEach((f, i) => {
-    const o = ctx!.createOscillator();
-    const g = ctx!.createGain();
-    o.type = 'sine';
-    o.frequency.value = f;
-    g.gain.setValueAtTime(0.0001, t + i * 0.07);
-    g.gain.exponentialRampToValueAtTime(0.06, t + i * 0.07 + 0.012);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.07 + 0.16);
-    o.connect(g);
-    g.connect(master!);
-    o.start(t + i * 0.07);
-    o.stop(t + i * 0.07 + 0.2);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') stopAll();
   });
-};
+  document.addEventListener('play', (event) => {
+    if (event.target instanceof HTMLVideoElement && !event.target.muted) stopAll();
+  }, true);
+}
 
-const subscribe = (l: () => void) => {
-  listeners.add(l);
-  return () => {
-    listeners.delete(l);
+const canPlay = () => WEB && on && unlocked && context?.state === 'running'
+  && document.visibilityState === 'visible'
+  && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  && !Array.from(document.querySelectorAll('video')).some((video) => !video.muted && !video.paused);
+
+/** Returns a cancellation function, including while a bundled clip is still loading. */
+export const playCloudBreeze = ({ direction = 'up', variant = 0 }: {
+  direction?: 'up' | 'down';
+  variant?: 0 | 1 | 2;
+} = {}): (() => void) => {
+  let cancelled = false;
+  let source: AudioBufferSourceNode | null = null;
+  const cancel = () => {
+    cancelled = true;
+    try { source?.stop(); } catch { /* already ended */ }
   };
+  if (!canPlay() || performance.now() - last < COOLDOWN_MS) return cancel;
+  last = performance.now();
+  void load(direction).then((buffer) => {
+    if (cancelled || !canPlay() || !context || !master) return;
+    source = context.createBufferSource();
+    source.buffer = buffer;
+    source.playbackRate.value = [1.06, 1, 0.94][variant];
+    source.connect(master);
+    active.add(source);
+    const current = source;
+    source.onended = () => { active.delete(current); current.disconnect(); };
+    source.start();
+  }).catch(() => undefined);
+  return cancel;
 };
 
-/** Trạng thái bật/tắt âm thanh hiệu ứng và hàm đảo trạng thái (bấm nút là thao tác của người dùng nên bật được âm thanh ngay) */
+const subscribe = (listener: () => void) => {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+};
+
+/** The header speaker keeps its saved choice and stops active effects immediately when muted. */
 export const useSound = (): [boolean, () => void] => {
   const value = useSyncExternalStore(subscribe, () => on, () => on);
   const toggle = () => {
     on = !on;
     saveHomeSound(on);
+    if (!on) stopAll();
     emit();
     if (on) {
+      unlocked = true;
       start();
-      playPop();
+      if (context) void load('up').then(() => { playCloudBreeze(); }).catch(() => undefined);
     }
   };
   return [value, toggle];

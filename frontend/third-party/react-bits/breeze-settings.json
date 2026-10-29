@@ -1,0 +1,32 @@
+{
+  "source": "https://reactbits.dev/r/SoundBreeze-TS.json",
+  "recipeSource": "import type { Recipe } from './react-bits-sound';\n\nconst breeze: Recipe = {\n  duration: 0.48,\n  seed: 62,\n  loudness: -19,\n  lowpass: 6000,\n  highpass: 150,\n  reverb: { mix: 0.12, decay: 0.5, predelay: 0.01, damp: 5000 },\n  layers: [\n    {\n      type: 'noise',\n      color: 'pink',\n      filter: { type: 'bandpass', freq: { from: 500, to: 1600, time: 0.36, curve: 2 }, q: 0.8 },\n      env: { attack: 0.22, rise: 1.8, decay: 0.2, curve: 4 }\n    },\n    {\n      type: 'tone',\n      freq: { from: 330, to: 440, time: 0.3, curve: 2 },\n      gain: -15,\n      env: { attack: 0.16, rise: 1.6, decay: 0.2, curve: 4 }\n    }\n  ]\n};\n\nexport default breeze;\n",
+  "exports": [
+    {
+      "direction": "up",
+      "duration": 0.8972291666666666,
+      "peak": 0.3271336853504181,
+      "rmsDb": -26.24085635245092,
+      "tune": {
+        "pitch": -3,
+        "tone": -0.25,
+        "length": 1.55,
+        "space": 0.12,
+        "punch": -0.2
+      }
+    },
+    {
+      "direction": "down",
+      "duration": 0.8972291666666666,
+      "peak": 0.3188151717185974,
+      "rmsDb": -26.4645852829255,
+      "tune": {
+        "pitch": -3,
+        "tone": -0.25,
+        "length": 1.55,
+        "space": 0.12,
+        "punch": -0.2
+      }
+    }
+  ]
+}

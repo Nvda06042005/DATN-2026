@@ -82,6 +82,11 @@ const light = {
   logoRed: '#b53520',
   logoGold: '#dfb66f',
   logoPaper: '#faf4e7',
+  /** Chất liệu mây vàng be nhạt, giữ cùng tông logo ở cả hai chế độ. */
+  cloudGoldTip: '#efdcae',
+  cloudGoldBase: '#f9f0d9',
+  cloudGoldEdge: '#dcc48f',
+  cloudGoldShadow: '#5a3d10',
 };
 
 export type Palette = typeof light;
