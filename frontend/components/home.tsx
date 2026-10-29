@@ -13,7 +13,7 @@ import {
   ArrowDown, ArrowRight, Check, Compass, Joystick, Landmark, LogIn, MapPin, MessageSquareText, Milestone, Moon, Quote, School, Sun, Sword, Swords,
 } from 'lucide-react-native';
 import {
-  BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, SchematicMap, Seal, VietnamFlag, WaveBand,
+  BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, PatternOverlay, SchematicMap, Seal, VietnamFlag, WaveBand,
   type MascotAccessory,
 } from '@/components/art';
 import { LoreChip } from '@/components/game/quiz';
@@ -199,20 +199,24 @@ const Cta: React.FC<{ title: string; onPress: () => void; tone?: CtaTone; icon?:
 /** Dải toàn chiều rộng; cloudTop/cloudBottom = màu khối liền kề để vẽ dải sóng/mây chuyển */
 const Band: React.FC<{
   id?: string; bg?: string; cloudTop?: string; cloudBottom?: string; wide: boolean; gap?: number; onSection?: (id: string, y: number) => void; children: React.ReactNode;
-}> = ({ id, bg, cloudTop, cloudBottom, wide, gap = 32, onSection, children }) => (
-  <View id={id} onLayout={id && onSection ? (e) => onSection(id, e.nativeEvent.layout.y) : undefined} style={[{ width: '100%', backgroundColor: bg }, id ? ANCHOR : null]}>
-    {cloudTop && <CloudBank color={cloudTop} flip />}
-    <View
-      style={{
-        width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, gap,
-        paddingTop: (wide ? 88 : 56) + (cloudTop ? 24 : 0), paddingBottom: (wide ? 88 : 56) + (cloudBottom ? 40 : 0),
-      }}
-    >
-      {children}
+}> = ({ id, bg, cloudTop, cloudBottom, wide, gap = 32, onSection, children }) => {
+  const { c } = useTheme();
+  return (
+    <View id={id} onLayout={id && onSection ? (e) => onSection(id, e.nativeEvent.layout.y) : undefined} style={[{ width: '100%', backgroundColor: bg, overflow: 'hidden' }, id ? ANCHOR : null]}>
+      <PatternOverlay opacity={bg === c.logoInk ? 0.065 : undefined} />
+      {cloudTop && <CloudBank color={cloudTop} flip />}
+      <View
+        style={{
+          width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, gap,
+          paddingTop: (wide ? 88 : 56) + (cloudTop ? 24 : 0), paddingBottom: (wide ? 88 : 56) + (cloudBottom ? 40 : 0),
+        }}
+      >
+        {children}
+      </View>
+      {cloudBottom && <CloudBank color={cloudBottom} />}
     </View>
-    {cloudBottom && <CloudBank color={cloudBottom} />}
-  </View>
-);
+  );
+};
 
 const Head: React.FC<{ title: string; text?: string; wide: boolean; light?: boolean }> = ({ title, text, wide, light = false }) => {
   const { c } = useTheme();
@@ -490,7 +494,8 @@ const PhaseMarquee: React.FC<{ wide: boolean; onSection: (id: string, y: number)
   /** Đỏ son, vàng và xanh mực của logo (lần 3 dùng xanh lá đậm `logoInk`, không phải xanh dương) */
   const colors = [c.son, c.vang, c.logoInk];
   return (
-    <View id="chin-man" onLayout={(e) => onSection('chin-man', e.nativeEvent.layout.y)} style={{ width: '100%', backgroundColor: c.xam, paddingVertical: wide ? 80 : 48, gap: 20 }}>
+    <View id="chin-man" onLayout={(e) => onSection('chin-man', e.nativeEvent.layout.y)} style={{ width: '100%', backgroundColor: c.xam, paddingVertical: wide ? 80 : 48, gap: 20, overflow: 'hidden' }}>
+      <PatternOverlay />
       <View style={{ paddingHorizontal: 16 }}>
         <Head title="Chín màn chiến dịch" text="Mỗi màn là một trận đánh có thật, từ Bình Lệ Nguyên đến Bạch Đằng." wide={wide} />
       </View>
@@ -970,7 +975,8 @@ const FooterSection: React.FC<{ wide: boolean }> = ({ wide }) => {
   return (
     <View style={{ width: '100%', backgroundColor: c.dem }}>
       <WaveBand bg={c.son} line={c.vang} height={24} />
-      <View style={{ backgroundColor: c.the, paddingBottom: insets.bottom }}>
+      <View style={{ backgroundColor: c.the, paddingBottom: insets.bottom, overflow: 'hidden' }}>
+        <PatternOverlay opacity={0.055} />
         <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 18, flexDirection: wide ? 'row' : 'column', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <BrandLogo />
           <Txt f="medium" size={13} color={c.xanhMuc2} center={!wide} style={{ flexShrink: 1, maxWidth: 640 }}>

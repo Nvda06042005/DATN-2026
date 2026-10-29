@@ -1,6 +1,7 @@
 /** Cảnh khám phá lịch sử: tiêu đề → khung phủ mây mờ → mây tan dần để lộ nội dung, điều khiển bằng cuộn/kéo. */
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Platform, StyleSheet, View, useWindowDimensions, type ViewInstance, type ViewStyle } from 'react-native';
+import { PatternOverlay } from '@/components/art';
 import { useScrollY } from '@/components/motion';
 import { Txt } from '@/components/ui';
 import { useDragScroll } from '@/hooks/use-drag-scroll';
@@ -145,6 +146,7 @@ export function HistoryShowcase({ wide, onSection, tabs, description, children }
         pin ? { position: 'sticky', top: 0, cursor: 'grab' } as unknown as ViewStyle : null,
       ]}>
         <View pointerEvents="none" style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
+          <PatternOverlay opacity={0.075} />
           <View style={{ position: 'absolute', width: 440, height: 440, borderRadius: 220, borderWidth: 1, borderColor: c.logoGold, opacity: 0.3, left: -260, top: 20 }} />
           <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, borderWidth: 1, borderColor: c.logoGold, opacity: 0.3, right: -190, bottom: 20 }} />
         </View>

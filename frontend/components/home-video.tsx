@@ -8,6 +8,7 @@ import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
 import { Play, X } from 'lucide-react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { PatternOverlay } from '@/components/art';
 import { useScrollY } from '@/components/motion';
 import { Btn, Txt } from '@/components/ui';
 import { useReduceMotion } from '@/hooks/use-motion';
@@ -147,6 +148,7 @@ export function HomeVideo({ wide, onImmersiveChange }: { wide: boolean; onImmers
       ]}>
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: progress.interpolate({ inputRange: [0, 0.8, 1], outputRange: [1, 0.6, 0], ...clipped }) }]}>
           <LogoBackdrop />
+          <PatternOverlay opacity={0.075} />
         </Animated.View>
         <Animated.View testID="home-video-frame" style={[{ borderColor: c.logoGold, overflow: 'hidden', backgroundColor: c.logoInk, boxShadow: `0 24px 70px ${c.bong}` }, frameStyle]}>
           <View ref={preview} pointerEvents="none" style={StyleSheet.absoluteFill}>

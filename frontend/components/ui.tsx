@@ -10,7 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Path, Pattern, Rect } from 'react-native-svg';
 import { Info, Star, X } from 'lucide-react-native';
-import { Mascot, type MascotMood } from '@/components/art';
+import { Mascot, PatternOverlay, type MascotMood } from '@/components/art';
 import { FONT, ON_BRIGHT, toneColors, type FontName, type Palette, type Tone } from '@/constants/theme';
 import { avatarColor, initialsOf } from '@/lib/format';
 import { usePopIn, useReduceMotion } from '@/hooks/use-motion';
@@ -673,6 +673,7 @@ export const PaperBg: React.FC = () => {
         <Rect width="100%" height="100%" fill={`url(#d${id})`} />
         <Rect width="100%" height="100%" fill={`url(#w${id})`} />
       </Svg>
+      <PatternOverlay opacity={dark ? 0.055 : 0.07} />
     </View>
   );
 };

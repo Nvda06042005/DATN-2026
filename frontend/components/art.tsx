@@ -704,6 +704,22 @@ const FILM_SCENES: FilmScene[] = [
   { name: 'Chiến thắng', land: require('../assets/anh-bia-8-ngang.jpg'), tall: require('../assets/anh-bia-8-doc.jpg'), from: [1.05, 0, 0.012], to: [1.12, 0, -0.012] },
 ];
 const GRAIN = require('../assets/anh-bia-hat.png');
+const PATTERN_BG = require('../assets/hoa-tiet-nen.png');
+
+/** Họa tiết trống đồng – võ sĩ thời Trần lặp liền mạch làm nền chìm nhẹ cho các khối ngoài ảnh bìa */
+export const PatternOverlay: React.FC<{ opacity?: number }> = ({ opacity }) => {
+  const { dark } = useTheme();
+  return (
+    <View pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants" style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
+      <Image
+        source={PATTERN_BG}
+        accessible={false}
+        resizeMode="repeat"
+        style={[StyleSheet.absoluteFill, { width: '100%', height: '100%', opacity: opacity ?? (dark ? 0.065 : 0.08) }]}
+      />
+    </View>
+  );
+};
 
 const SCENE_MS = 6000;
 const FADE_MS = 1400;
