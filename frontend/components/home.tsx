@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowDown, ArrowRight, CalendarDays, Check, Compass, Joystick, Landmark, LogIn, MapPin, MessageSquareText, Milestone, Moon, Quote, School, Sun, Sword, Swords,
-  Trophy, Users, Volume2, VolumeX, X, ZoomIn,
+  Trophy, Users, Volume2, VolumeX, X, ZoomIn, ArrowUp, ArrowUpRight, ChevronDown, FileSpreadsheet,
 } from 'lucide-react-native';
 import {
   BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, PatternOverlay, SchematicMap, Seal, VietnamFlag, WaveBand,
@@ -46,8 +46,11 @@ const GLASS = (WEB ? { backdropFilter: 'blur(10px)' } : null) as unknown as View
 
 /** Các phần có neo: label dùng ở chân trang, short là nhãn ngắn trên thanh điều hướng (thứ tự phải trùng thứ tự trên trang để mục đang xem đúng) */
 export const NAV = [
+  { id: 'kham-pha', label: 'Tính năng', short: 'Tính năng' },
   { id: 'khang-chien', label: 'Ba lần kháng chiến', short: 'Kháng chiến' },
   { id: 'danh-tuong', label: 'Danh tướng', short: 'Danh tướng' },
+  { id: 'cach-hoat-dong', label: 'Cách hoạt động', short: 'Cách hoạt động' },
+  { id: 'cau-hoi', label: 'Câu hỏi thường gặp', short: 'Câu hỏi thường gặp' },
 ] as const;
 
 // ---------------------------------------------------------------------- dữ liệu nội dung
@@ -336,11 +339,11 @@ export const Header: React.FC<{ width: number; scrollY: Animated.Value; stuck: b
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [soundOn, toggleSound] = useSound();
-  const wide = width >= 1100;
+  const wide = width >= 1240; // năm mục menu cần chỗ: hẹp hơn thì ẩn menu (chân trang vẫn có đủ liên kết)
   /** Điện thoại hẹp: nút tròn nhỏ hơn và khoảng cách sít lại để đủ chỗ cho cả nút âm thanh */
   const small = width < 430;
   const clamp = { extrapolate: 'clamp' } as const;
-  const maxWidth = scrollY.interpolate({ inputRange: [0, 120], outputRange: [MAX_W, 1010], ...clamp });
+  const maxWidth = scrollY.interpolate({ inputRange: [0, 120], outputRange: [1240, 1180], ...clamp });
   const height = scrollY.interpolate({ inputRange: [0, 80], outputRange: [64, 56], ...clamp });
   const marginTop = scrollY.interpolate({ inputRange: [0, 80], outputRange: [16, 8], ...clamp });
   const bg = scrollY.interpolate({ inputRange: [0, 60], outputRange: ['rgba(255,255,255,0)', c.kinhDac], ...clamp });
@@ -371,9 +374,9 @@ export const Header: React.FC<{ width: number; scrollY: Animated.Value; stuck: b
                   accessibilityLabel={n.short}
                   accessibilityState={{ selected: on }}
                   onPress={() => go(n.id)}
-                  style={{ minHeight: 44, paddingHorizontal: 16, justifyContent: 'center' }}
+                  style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' }}
                 >
-                  <Txt f="bold" size={15} color={on ? c.sonChu : c.xanhMuc}>
+                  <Txt f="bold" size={14.5} color={on ? c.sonChu : c.xanhMuc}>
                     {n.short}
                   </Txt>
                 </Pressable>
@@ -1064,6 +1067,100 @@ const QuotesSection: React.FC<{ wide: boolean; onSection: (id: string, y: number
   );
 };
 
+// ---------------------------------------------------------------------- cách hoạt động và câu hỏi thường gặp
+const STEPS: Array<{ icon: IconType; title: string; text: string }> = [
+  { icon: FileSpreadsheet, title: 'Nhà trường cấp tài khoản', text: 'Quản trị trường nhập file Excel mẫu một lần là có tài khoản cho giáo viên và học sinh; mật khẩu ban đầu được gửi qua thư điện tử.' },
+  { icon: Users, title: 'Giáo viên lập lớp', text: 'Giáo viên xin mở lớp, được nhà trường duyệt rồi mời học sinh vào bằng mã lớp.' },
+  { icon: Joystick, title: 'Học sinh vào trận', text: 'Thu lương thảo, chiêu mộ danh tướng và đánh các màn chiến dịch; mỗi sức mạnh đều đến từ một câu trả lời đúng. Cần gợi ý thì hỏi Quân Sư AI.' },
+  { icon: Trophy, title: 'Cả lớp cùng tiến bộ', text: 'Giáo viên theo dõi tiến độ và mức nắm vững của từng em, rồi mở phòng thi đấu bằng mã PIN để cả lớp thi trên điện thoại.' },
+];
+
+const FAQ: Array<{ q: string; a: string }> = [
+  { q: 'Đông A là gì?', a: 'Đông A là nền tảng học tập game hóa về ba lần kháng chiến chống Nguyên – Mông thời Trần (1258, 1285 và 1287 – 1288), thuộc đề tài khóa luận tốt nghiệp. Học sinh vừa chơi vừa trả lời câu hỏi lịch sử để chiêu mộ danh tướng và vượt các màn chiến dịch.' },
+  { q: 'Làm sao để có tài khoản?', a: 'Tài khoản do nhà trường cấp: quản trị trường nhập file Excel mẫu, mật khẩu ban đầu được gửi qua thư điện tử và phải đổi ở lần đăng nhập đầu tiên.' },
+  { q: 'Nội dung lịch sử lấy từ đâu?', a: 'Phần giới thiệu ba lần kháng chiến trên trang này viết theo Wikipedia tiếng Việt (bài “Chiến tranh Nguyên Mông – Đại Việt” và ba bài chi tiết lần 1, 2, 3). Trong game, mỗi nhân vật gắn nhãn nguồn gốc: chính sử, giai thoại – truyền thuyết, sáng tạo của game hoặc dân gian – cần đối chiếu.' },
+  { q: 'Quân Sư AI trả lời dựa trên gì?', a: 'Quân Sư AI trả lời dựa trên kho kiến thức sử liệu của đề tài (truy xuất kiến thức rồi mới sinh câu trả lời). Khi cần, học sinh nên đối chiếu thêm với sách giáo khoa.' },
+  { q: 'Chơi được trên thiết bị nào?', a: 'Đông A chạy trên trình duyệt web, điện thoại Android và iPhone, iPad.' },
+  { q: 'Dữ liệu của trường có được tách riêng không?', a: 'Có. Mỗi trường chỉ thấy dữ liệu của mình nhờ phân quyền ngay ở tầng cơ sở dữ liệu. Tài khoản bị xóa nhầm vẫn khôi phục được trong 45 ngày trước khi xóa vĩnh viễn.' },
+];
+
+/** Bốn bước từ lúc nhà trường cấp tài khoản đến khi cả lớp ra trận */
+const HowSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
+  const { c } = useTheme();
+  return (
+    <Band id="cach-hoat-dong" bg={c.logoPaper} wide={wide} onSection={onSection} decor={<GoldRings />}>
+      <Head logo title="Cách hoạt động" text="Từ lúc nhà trường cấp tài khoản đến khi cả lớp cùng ra trận, chỉ bốn bước." wide={wide} />
+      <View style={{ flexDirection: wide ? 'row' : 'column', gap: 16, alignItems: 'stretch' }}>
+        {STEPS.map((s, i) => (
+          <Reveal key={s.title} delay={i * 90} style={{ flex: wide ? 1 : undefined }}>
+            <Lift fill={wide} style={{ flex: wide ? 1 : undefined }}>
+              <View style={[{ flex: wide ? 1 : undefined, borderRadius: 28, borderWidth: 1, padding: 22, gap: 12 }, PAPER_CARD]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: c.logoRed, alignItems: 'center', justifyContent: 'center' }}>
+                    <s.icon size={iconPx(18)} color={c.logoPaper} strokeWidth={1.8} />
+                  </View>
+                  <Txt f="heavy" size={40} color={c.logoGold} style={{ lineHeight: 44 }}>
+                    {String(i + 1).padStart(2, '0')}
+                  </Txt>
+                </View>
+                <Txt f="heavy" size={19} color={c.logoInk} style={{ lineHeight: 25 }}>
+                  {s.title}
+                </Txt>
+                <Txt size={14.5} color={INK_SOFT} style={{ lineHeight: 22 }}>
+                  {s.text}
+                </Txt>
+              </View>
+            </Lift>
+          </Reveal>
+        ))}
+      </View>
+    </Band>
+  );
+};
+
+/** Câu hỏi thường gặp: danh sách mở/đóng từng câu, mở sẵn câu đầu */
+const FaqSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
+  const { c } = useTheme();
+  const [open, setOpen] = useState<number | null>(0);
+  return (
+    <Band id="cau-hoi" bg={c.logoPaper} wide={wide} onSection={onSection} decor={<GoldRings />}>
+      <Head logo title="Câu hỏi thường gặp" text="Những điều học sinh, giáo viên và nhà trường hay hỏi về Đông A." wide={wide} />
+      <View style={{ width: '100%', maxWidth: 860, alignSelf: 'center', gap: 12 }}>
+        {FAQ.map((f, i) => {
+          const on = open === i;
+          return (
+            <Reveal key={f.q} delay={i * 50}>
+              <View style={[{ borderRadius: 24, borderWidth: 1, overflow: 'hidden' }, PAPER_CARD, on ? { borderColor: c.logoRed } : null]}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: on }}
+                  aria-expanded={on}
+                  onPress={() => setOpen(on ? null : i)}
+                  style={({ pressed }) => ({ minHeight: 64, paddingHorizontal: 22, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 14, opacity: pressed ? 0.85 : 1 })}
+                >
+                  <Txt f="heavy" size={wide ? 18 : 16.5} color={on ? c.logoRed : c.logoInk} style={{ flex: 1, lineHeight: 24 }}>
+                    {f.q}
+                  </Txt>
+                  <View style={{ transform: [{ rotate: on ? '180deg' : '0deg' }] }}>
+                    <ChevronDown size={22} color={on ? c.logoRed : INK_SOFT} strokeWidth={2} />
+                  </View>
+                </Pressable>
+                {on ? (
+                  <View style={{ paddingHorizontal: 22, paddingBottom: 20 }}>
+                    <Txt size={15.5} color={INK_SOFT} style={{ lineHeight: 24 }}>
+                      {f.a}
+                    </Txt>
+                  </View>
+                ) : null}
+              </View>
+            </Reveal>
+          );
+        })}
+      </View>
+    </Band>
+  );
+};
+
 // ---------------------------------------------------------------------- kêu gọi cuối trang và chân trang
 /** Khối tối cuối trang: cảnh bình minh Bạch Đằng, mây trắng nối từ khối trên (kiểu khối ảnh tối + mây của Papumba) */
 const ClosingSection: React.FC<{ wide: boolean }> = ({ wide }) => {
@@ -1088,20 +1185,81 @@ const ClosingSection: React.FC<{ wide: boolean }> = ({ wide }) => {
   );
 };
 
-/** Chân trang: dải sóng nước đỏ vàng nối khối cuối, rồi dải trắng với logo và tên đề tài */
-const FooterSection: React.FC<{ wide: boolean }> = ({ wide }) => {
+/** Liên kết cột "Khám phá" ở chân trang, theo thứ tự trên trang */
+const FOOT_LINKS: Array<{ id: string; label: string }> = [
+  { id: 'home', label: 'Về Đông A' },
+  { id: 'kham-pha', label: 'Tính năng' },
+  { id: 'khang-chien', label: 'Ba lần kháng chiến' },
+  { id: 'danh-tuong', label: 'Danh tướng' },
+  { id: 'cach-hoat-dong', label: 'Cách hoạt động' },
+  { id: 'cau-hoi', label: 'Câu hỏi thường gặp' },
+];
+
+const FOOT_TEXT = 'rgba(250, 244, 231, 0.78)';
+
+const FootLink: React.FC<{ label: string; onPress: () => void; arrow?: boolean }> = ({ label, onPress, arrow = false }) => {
   const { c } = useTheme();
-  const insets = useSafeAreaInsets();
   return (
-    <View style={{ width: '100%', backgroundColor: c.dem }}>
+    <Pressable accessibilityRole="link" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => ({ minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.7 : 1 })}>
+      <Txt f="medium" size={15} color={c.logoPaper}>
+        {label}
+      </Txt>
+      {arrow ? <ArrowUpRight size={16} color={c.logoGold} strokeWidth={2.2} /> : null}
+    </Pressable>
+  );
+};
+
+/** Chân trang: dải sóng đỏ vàng, rồi nền mực xanh của logo với logo và mô tả, cột "Khám phá", cột đề tài khóa luận và thanh bản quyền có "Về đầu trang" */
+const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wide, go }) => {
+  const { c } = useTheme();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const head = (text: string) => (
+    <Txt f="heavy" size={16} color={c.logoGold} accessibilityRole="header" style={{ marginBottom: 6 }}>
+      {text}
+    </Txt>
+  );
+  return (
+    <View style={{ width: '100%', backgroundColor: c.logoInk, overflow: 'hidden' }}>
+      <PatternOverlay opacity={0.05} />
       <WaveBand bg={c.son} line={c.vang} height={24} />
-      <View style={{ backgroundColor: c.the, paddingBottom: insets.bottom, overflow: 'hidden' }}>
-        <PatternOverlay opacity={0.055} />
-        <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 18, flexDirection: wide ? 'row' : 'column', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <BrandLogo />
-          <Txt f="medium" size={13} color={c.xanhMuc2} center={!wide} style={{ flexShrink: 1, maxWidth: 640 }}>
-            Đề tài khóa luận tốt nghiệp: nghiên cứu và phát triển nền tảng học tập game hóa hỗ trợ khám phá lịch sử ba lần kháng chiến chống Nguyên – Mông thời Trần.
+      <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: wide ? 56 : 40, paddingBottom: insets.bottom + 20, gap: 30 }}>
+        <View style={{ flexDirection: wide ? 'row' : 'column', justifyContent: 'space-between', gap: wide ? 40 : 32 }}>
+          <View style={{ width: wide ? 340 : '100%', gap: 16 }}>
+            <BrandLogo light />
+            <Txt size={14.5} color={FOOT_TEXT} style={{ lineHeight: 23 }}>
+              Nền tảng học tập game hóa hỗ trợ khám phá lịch sử ba lần kháng chiến chống Nguyên – Mông thời Trần.
+            </Txt>
+          </View>
+          {WEB && (
+            <View style={{ minWidth: wide ? 220 : undefined }}>
+              {head('Khám phá')}
+              {FOOT_LINKS.map((l) => (
+                <FootLink key={l.id} label={l.label} onPress={() => go(l.id)} />
+              ))}
+            </View>
+          )}
+          <View style={{ width: wide ? 300 : '100%', gap: 4 }}>
+            {head('Đề tài khóa luận tốt nghiệp')}
+            <Txt size={14.5} color={FOOT_TEXT} style={{ lineHeight: 23, marginBottom: 6 }}>
+              Nghiên cứu và phát triển nền tảng học tập game hóa hỗ trợ khám phá lịch sử ba lần kháng chiến chống Nguyên – Mông thời Trần.
+            </Txt>
+            <FootLink label="Đăng nhập học tập" arrow onPress={() => router.push('/portal')} />
+          </View>
+        </View>
+        <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(250, 244, 231, 0.18)', paddingTop: 18, flexDirection: wide ? 'row' : 'column', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+          <Txt size={13} color={FOOT_TEXT} center={!wide}>
+            © 2026 · Đề tài khóa luận tốt nghiệp · Đông A
           </Txt>
+          <Txt size={13} color={FOOT_TEXT} center>
+            Học Sử vui như chơi game
+          </Txt>
+          <Pressable accessibilityRole="link" accessibilityLabel="Về đầu trang" onPress={() => go('home')} style={({ pressed }) => ({ minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 8, opacity: pressed ? 0.7 : 1 })}>
+            <Txt size={13} color={FOOT_TEXT}>
+              Về đầu trang
+            </Txt>
+            <ArrowUp size={18} color={c.logoGold} strokeWidth={2.2} />
+          </Pressable>
         </View>
       </View>
     </View>
@@ -1125,9 +1283,13 @@ export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; o
     <CastSection wide={wide} onSection={onSection} />
     <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={1} />
     <QuotesSection wide={wide} onSection={onSection} />
+    <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={0} />
+    <HowSection wide={wide} onSection={onSection} />
+    <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={2} />
+    <FaqSection wide={wide} onSection={onSection} />
     <SectionCloud color={c.logoPaper} rim sound wide={wide} variant={2} />
     <ClosingSection wide={wide} />
-    <FooterSection wide={wide} />
+    <FooterSection wide={wide} go={go} />
   </>
   );
 };

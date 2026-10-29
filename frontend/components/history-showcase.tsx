@@ -77,7 +77,7 @@ function MistLayer({ progress, u }: { progress: Animated.Value; u: number }) {
 
 export function HistoryShowcase({ wide, onSection, tabs, description, children }: {
   wide: boolean;
-  onSection: (id: string, y: number) => void;
+  onSection: (id: string, y: number, landing?: number) => void;
   tabs: (interactive: boolean, compact: boolean) => ReactNode;
   description: ReactNode;
   children: ReactNode;
@@ -140,7 +140,7 @@ export function HistoryShowcase({ wide, onSection, tabs, description, children }
   const controlsFx = pin ? { opacity: progress.interpolate({ inputRange: [0, 0.62, 0.84, 1], outputRange: [0, 0, 1, 1], ...clamp }) } : null;
 
   return (
-    <View ref={section} id="kham-pha" testID="showcase-section" onLayout={(e) => onSection('kham-pha', e.nativeEvent.layout.y)} style={{ width: '100%', height: pin ? height + travel + height * 0.2 : undefined, backgroundColor: c.logoPaper }}>
+    <View ref={section} id="kham-pha" testID="showcase-section" onLayout={(e) => onSection('kham-pha', e.nativeEvent.layout.y, pin ? travel * 0.9 : 0)} style={{ width: '100%', height: pin ? height + travel + height * 0.2 : undefined, backgroundColor: c.logoPaper }}>
       <View ref={stage} testID="showcase-stage" style={[
         { width: '100%', height: pin ? height : undefined, overflow: 'hidden', alignItems: 'center' },
         pin ? { position: 'sticky', top: 0, cursor: 'grab' } as unknown as ViewStyle : null,

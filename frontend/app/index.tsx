@@ -51,8 +51,11 @@ function HomePage({ onToggleTheme }: { onToggleTheme: () => void }) {
   const [showTop, setShowTop] = useState(false);
   const [videoImmersive, setVideoImmersive] = useState(false);
 
-  const onSection = useCallback((id: string, y: number) => {
+  const landings = useRef<Record<string, number>>({});
+  /** landing: độ lệch cần cuộn thêm khi bấm menu, dùng cho cảnh ghim để đáp xuống lúc nội dung đã hiện đủ */
+  const onSection = useCallback((id: string, y: number, landing = 0) => {
     sections.current[id] = y;
+    landings.current[id] = landing;
   }, []);
 
   /** Theo dõi vị trí cuộn: điều khiển thanh điều hướng (co hẹp, mục đang xem) và nút lên đầu trang */
@@ -81,6 +84,11 @@ function HomePage({ onToggleTheme }: { onToggleTheme: () => void }) {
   const go = (id: string) => {
     if (id === 'home') {
       scrollRef.current?.scrollTo({ y: 0, animated: !reduce });
+      return;
+    }
+    const landing = landings.current[id];
+    if (landing && sections.current[id] !== undefined) {
+      scrollRef.current?.scrollTo({ y: sections.current[id] + landing, animated: !reduce });
       return;
     }
     if (WEB && typeof document !== 'undefined') document.getElementById(id)?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
