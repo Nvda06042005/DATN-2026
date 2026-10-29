@@ -54,7 +54,13 @@ function DetailVideo({ player }: { player: VideoPlayer }) {
   const { c } = useTheme();
   const container = useRef<ViewInstance>(null);
   const { status } = useEvent(player, 'statusChange', { status: player.status });
-  useEffect(() => { player.currentTime = 0; playVideo(player, container.current); }, [player]);
+  useEffect(() => {
+    player.currentTime = 0;
+    player.muted = false;
+    player.volume = 1;
+    playVideo(player, container.current);
+    return () => player.pause();
+  }, [player]);
   return (
     <View ref={container} style={{ width: '100%', height: '100%', backgroundColor: c.den }}>
       <VideoView player={player} style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]} contentFit="contain" nativeControls playsInline fullscreenOptions={{ enable: true }} accessibilityLabel="Video giới thiệu Hào Khí Đông A" />
@@ -91,7 +97,7 @@ export function HomeVideo({ wide, onImmersiveChange }: { wide: boolean; onImmers
   const travel = height * 1.1;
   const initialWidth = Math.min(960, width * (wide ? 0.62 : 0.9));
   const player = useVideoPlayer(SOURCE, (p) => { p.loop = true; p.muted = true; });
-  const detailPlayer = useVideoPlayer(SOURCE);
+  const detailPlayer = useVideoPlayer(SOURCE, (p) => { p.muted = false; p.volume = 1; });
   const { status: previewStatus } = useEvent(player, 'statusChange', { status: player.status });
 
   useEffect(() => {
@@ -162,6 +168,7 @@ export function HomeVideo({ wide, onImmersiveChange }: { wide: boolean; onImmers
             testID="home-video-open"
             onPress={() => {
               if (dragging.current) { dragging.current = false; return; }
+              player.pause();
               setOpen(true);
             }}
             style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}

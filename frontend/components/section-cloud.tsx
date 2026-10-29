@@ -1,17 +1,16 @@
 /**
- * Mép mây nối hai khối: ba dáng lượn, hai hướng, trôi nhẹ khi nằm trong màn hình. Hai kiểu theo React Bits:
- * - Sound Lab (`sound`): bản xuất Breeze chính thức, phát nhẹ khi mây thực sự vào màn hình.
+ * Mép mây nối hai khối: ba dáng lượn, hai hướng, trôi nhẹ khi nằm trong màn hình; không phát âm thanh.
+ * - Mây màu khối liền kề: các múi tròn nối khối, không có tiếng gió.
  * - Shape Magic (`material="gold"`): morph SVG theo bộ xuất Shape Magic, vàng be nhạt và ánh bóng di chuyển.
- * Chế độ `pair`: một chỗ nối có cả hai lớp chồng nhau, lớp Sound Lab treo xuống từ khối trên (màu khối trên, có tiếng gió) và lớp Shape Magic mọc lên
+ * Chế độ `pair`: một chỗ nối có cả hai lớp chồng nhau, lớp mây màu treo xuống từ khối trên và lớp Shape Magic mọc lên
  * từ khối dưới (màu khối dưới); giữa hai lớp là dải vàng be bóng, nên mép trên là các múi treo xuống còn mép dưới là các múi tròn mọc lên.
  */
-import { useEffect, useId, useRef, useState, type PropsWithChildren } from 'react';
+import { useId, type PropsWithChildren } from 'react';
 import { Animated, Platform, View } from 'react-native';
 import Svg, { Defs, G, LinearGradient, Path, Pattern, Rect, Stop } from 'react-native-svg';
 import { useLoop, useOnScreen } from '@/components/motion';
 import { useReduceMotion } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
-import { playCloudBreeze } from '@/lib/sfx';
 import { cloudMorphTiming } from '@/lib/cloud-morph';
 
 const CRESTS = [
@@ -41,11 +40,10 @@ function MaterialPath({ children, ...props }: PropsWithChildren<{
   return Platform.OS === 'web' ? <path {...props}>{children}</path> : <Path {...props} />;
 }
 
-export function SectionCloud({ color, material, sound = false, pair, rim = false, wide, variant = 0, direction = 'down' }: {
+export function SectionCloud({ color, material, pair, rim = false, wide, variant = 0, direction = 'down' }: {
   /** Màu tô của dải mây (thường là màu khối liền kề); bỏ qua khi có `material` */
   color?: string;
   material?: 'gold';
-  sound?: boolean;
   /** Hai lớp chồng nhau ở một chỗ nối (cả hai khối phải có nền một màu); bỏ qua `color`, `material`, `direction` */
   pair?: { upper: string; lower: string };
   /** Chỉ cho mây màu (`color`): viền vàng be dày dưới mép mây, dùng khi mây treo lên ảnh phim không có màu phẳng để chồng hai lớp */
@@ -83,25 +81,6 @@ export function SectionCloud({ color, material, sound = false, pair, rim = false
   const toA = `translate(0 ${(0.4325 * height).toFixed(2)}) scale(${sx.toFixed(4)} ${(-kk).toFixed(4)})`;
   const toB = `translate(0 ${(0.5675 * height).toFixed(2)}) scale(${sx.toFixed(4)} ${kk.toFixed(4)})`;
 
-  const paired = !!pair; // `pair` là đối tượng mới ở mỗi lần vẽ lại của khối cha, không được đưa thẳng vào mảng phụ thuộc
-  // Âm thanh chỉ theo giao điểm thật, không dùng vùng đệm 25% dành cho hiệu ứng hình ảnh.
-  const [inViewport, setInViewport] = useState(false);
-  const wasOutside = useRef(false);
-  useEffect(() => {
-    if (!sound || Platform.OS !== 'web' || !ref.current || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver(([entry]) => {
-      const inside = entry.isIntersecting && entry.intersectionRatio >= 0.25;
-      if (!inside) wasOutside.current = true;
-      setInViewport(inside);
-    }, { threshold: [0, 0.25] });
-    observer.observe(ref.current as unknown as HTMLElement);
-    return () => observer.disconnect();
-  }, [sound, ref]);
-  useEffect(() => {
-    if (!sound || !inViewport || !wasOutside.current || reduce) return;
-    return playCloudBreeze({ direction: paired ? 'down' : direction, variant });
-  }, [inViewport, sound, reduce, direction, variant, paired]);
-
   return (
     <View
       ref={ref}
@@ -110,7 +89,7 @@ export function SectionCloud({ color, material, sound = false, pair, rim = false
       aria-hidden
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      id={`cloud-${pair ? 'pair' : material === 'gold' ? 'shape-magic' : 'sound-lab'}-${direction}-${variant}`}
+      id={`cloud-${pair ? 'pair' : material === 'gold' ? 'shape-magic' : 'solid'}-${direction}-${variant}`}
       testID={pair ? `section-cloud-pair-${variant}` : `section-cloud-${direction}-${variant}`}
       style={{ width: '100%', height, zIndex: 3, overflow: 'hidden', ...(pair ? { marginTop: -height / 2, marginBottom: -height / 2 } : direction === 'down' ? { marginBottom: -height } : { marginTop: -height }) }}
     >
@@ -191,6 +170,6 @@ export function SectionCloud({ color, material, sound = false, pair, rim = false
 }
 
 /** Chỗ nối hai lớp giữa hai khối nền một màu: `upper` là nền khối trên, `lower` là nền khối dưới */
-export function CloudPair({ upper, lower, wide, variant = 1, sound = true }: { upper: string; lower: string; wide: boolean; variant?: 0 | 1 | 2; sound?: boolean }) {
-  return <SectionCloud pair={{ upper, lower }} sound={sound} wide={wide} variant={variant} />;
+export function CloudPair({ upper, lower, wide, variant = 1 }: { upper: string; lower: string; wide: boolean; variant?: 0 | 1 | 2 }) {
+  return <SectionCloud pair={{ upper, lower }} wide={wide} variant={variant} />;
 }

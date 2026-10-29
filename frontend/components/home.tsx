@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowDown, ArrowRight, CalendarDays, Check, Compass, Joystick, Landmark, LogIn, MapPin, MessageSquareText, Milestone, Quote, School, Sword, Swords,
-  Trophy, Users, Volume2, VolumeX, X, ZoomIn, ArrowUp, ArrowUpRight, FileSpreadsheet, Plus,
+  Trophy, Users, X, ZoomIn, ArrowUp, ArrowUpRight, FileSpreadsheet, Plus,
 } from 'lucide-react-native';
 import {
   BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, PatternOverlay, SchematicMap, VietnamFlag, WaveBand,
@@ -31,7 +31,6 @@ import { ANSWER_STYLES, type Palette } from '@/constants/theme';
 import { Lift, Reveal, useScrollY } from '@/components/motion';
 import { usePopIn, useReduceMotion } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
-import { useSound } from '@/lib/sfx';
 import type { IconType } from '@/types/game';
 
 export const MAX_W = 1120;
@@ -296,22 +295,6 @@ const Marquee: React.FC<{ children: React.ReactNode; speed?: number }> = ({ chil
 /** Các mục trên thanh điều hướng: "Trang chủ" cuộn về đầu trang, còn lại cuộn tới phần có id tương ứng */
 const NAV_ITEMS = [{ id: 'home', short: 'Trang chủ' }, ...NAV.map((n) => ({ id: n.id, short: n.short }))];
 
-/** Nút tròn chứa một biểu tượng (cỡ biểu tượng theo chữ 15; vùng chạm 46 kể cả hitSlop) */
-const RoundBtn: React.FC<{ icon: IconType; label: string; onPress: () => void; color: string; bg: string; border: string; testID?: string; size?: number }> = ({
-  icon: Icon, label, onPress, color, bg, border, testID, size = 42,
-}) => (
-  <Pressable
-    onPress={onPress}
-    accessibilityRole="button"
-    accessibilityLabel={label}
-    testID={testID}
-    hitSlop={2}
-    style={({ pressed }) => ({ width: size, height: size, borderRadius: size / 2, borderWidth: 1, borderColor: border, backgroundColor: bg, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}
-  >
-    <Icon size={iconPx(15)} color={color} strokeWidth={1.75} />
-  </Pressable>
-);
-
 /**
  * Thanh điều hướng cố định phía trên cùng. Ở đầu trang: logo trắng bên trái, viên thuốc trắng chứa các mục ở giữa (mục đang xem màu cam),
  * nút đen "Vào học ngay" bên phải. Khi cuộn, cả thanh co hẹp lại thành một viên thuốc kính. Có cờ Tiếng Việt; không có nút đổi sáng/tối (bỏ ngày 29/10/2026).
@@ -325,12 +308,11 @@ export const Header: React.FC<{
 }> = ({
   width, scrollY, stuck, active, go, items = NAV_ITEMS, paper = false,
 }) => {
-  const { c, dark } = useTheme();
+  const { c } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [soundOn, toggleSound] = useSound();
   const wide = width >= (items.length > 4 ? 1240 : 1000); // sáu mục menu cần chỗ nhất: hẹp hơn thì ẩn menu (chân trang vẫn có đủ liên kết)
-  /** Điện thoại hẹp: nút tròn nhỏ hơn và khoảng cách sít lại để đủ chỗ cho cả nút âm thanh */
+  /** Thu gọn khoảng cách giữa các nút khi màn hình hẹp. */
   const small = width < 430;
   const clamp = { extrapolate: 'clamp' } as const;
   const maxWidth = scrollY.interpolate({ inputRange: [0, 120], outputRange: [1240, 1180], ...clamp });
@@ -339,7 +321,6 @@ export const Header: React.FC<{
   const bg = scrollY.interpolate({ inputRange: [0, 60], outputRange: ['rgba(255,255,255,0)', c.kinhDac], ...clamp });
   const border = scrollY.interpolate({ inputRange: [0, 60], outputRange: ['rgba(255,255,255,0)', c.bienXanh], ...clamp });
   const navBg = scrollY.interpolate({ inputRange: [0, 60], outputRange: [c.the, c.kinhDac], ...clamp });
-  const fg = stuck ? c.xanhMuc : dark ? c.trang : c.dem;
   const roundBg = stuck ? 'rgba(255,255,255,0)' : c.the;
   const ring = stuck ? c.bienXanh : c.the;
   return (
@@ -375,18 +356,6 @@ export const Header: React.FC<{
           </Animated.View>
         )}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: small ? 6 : 8 }}>
-          {WEB && (
-            <RoundBtn
-              size={small ? 38 : 42}
-              icon={soundOn ? Volume2 : VolumeX}
-              label={soundOn ? 'Tắt âm thanh hiệu ứng' : 'Bật âm thanh hiệu ứng'}
-              onPress={toggleSound}
-              color={fg}
-              bg={roundBg}
-              border={ring}
-              testID="home-sound"
-            />
-          )}
           {width >= 340 && (
             <View style={{ borderRadius: 6, borderWidth: 1, borderColor: ring, padding: 1, backgroundColor: roundBg }}>
               <VietnamFlag width={small ? 30 : 34} />
@@ -1221,7 +1190,7 @@ export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; o
     <PhaseMarquee wide={wide} onSection={onSection} />
     <CloudPair upper={c.xam} lower={c.logoPaper} wide={wide} variant={1} />
     <HomeVideo wide={wide} onImmersiveChange={onVideoImmersiveChange} />
-    <SectionCloud color={c.logoPaper} sound wide={wide} direction="up" variant={1} />
+    <SectionCloud color={c.logoPaper} wide={wide} direction="up" variant={1} />
     <ShowcaseSection wide={wide} onSection={onSection} />
     <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={1} />
     <ExplorerSection wide={wide} onSection={onSection} />
@@ -1233,7 +1202,7 @@ export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; o
     <HowSection wide={wide} onSection={onSection} />
     <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={2} />
     <FaqSection wide={wide} onSection={onSection} />
-    <SectionCloud color={c.logoPaper} rim sound wide={wide} variant={2} />
+    <SectionCloud color={c.logoPaper} rim wide={wide} variant={2} />
     <ClosingSection wide={wide} />
     <FooterSection wide={wide} go={go} />
   </>

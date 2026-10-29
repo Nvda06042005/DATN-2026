@@ -61,26 +61,3 @@ export const readLiveRoom = (): string | null => {
     return memoryRoom;
   }
 };
-
-
-/** Âm thanh hiệu ứng của trang chủ: bật mặc định, nhớ lựa chọn trên web (xem lib/sfx.ts) */
-const HOME_SOUND_KEY = 'donga_home_sound';
-
-export const readHomeSound = (): boolean | null => {
-  if (Platform.OS !== 'web') return null;
-  try {
-    const v = webStore('local')?.getItem(HOME_SOUND_KEY);
-    return v === 'on' ? true : v === 'off' ? false : null;
-  } catch {
-    return null;
-  }
-};
-
-export const saveHomeSound = (on: boolean) => {
-  if (Platform.OS !== 'web') return;
-  try {
-    webStore('local')?.setItem(HOME_SOUND_KEY, on ? 'on' : 'off');
-  } catch {
-    // bỏ qua: lần sau mở lại trang sẽ dùng mặc định (bật)
-  }
-};
