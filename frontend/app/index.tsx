@@ -1,7 +1,7 @@
 /**
  * Trang chủ công khai theo phong cách Papumba (các khối nằm ở components/home.tsx): khung trang gồm chế độ sáng/tối riêng cho trang chủ (nhớ lại ở lần sau),
  * thanh điều hướng cố định co hẹp khi cuộn có đánh dấu mục đang xem, nút lên đầu trang, cuộn mượt khi lăn chuột và hiệu ứng theo cuộn (components/motion.tsx).
- * Không có liên kết tới hai cổng quản trị. expo-router bắt buộc tên index cho đường dẫn "/".
+ * Chỉ chân trang có liên kết "Trang quản lý" tới /admin. expo-router bắt buộc tên index cho đường dẫn "/".
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {

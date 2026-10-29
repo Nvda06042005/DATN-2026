@@ -27,7 +27,7 @@ Backend NestJS tự áp dụng migration mới khi khởi động với `DATABAS
 
 # Hai cổng quản trị và cấp tài khoản
 
-- `/admin` (vai trò `root_admin`) và `/school-manager-admin` (`school_admin`) dùng chung `components/admin/AdminHome.tsx`; không render nút hay liên kết về trang chủ, `/portal` hay cổng khác. Trang chủ công khai không liên kết tới cổng quản trị.
+- `/admin` (vai trò `root_admin`) và `/school-manager-admin` (`school_admin`) dùng chung `components/admin/AdminHome.tsx`; không render nút hay liên kết về trang chủ, `/portal` hay cổng khác. Trang chủ công khai chỉ có một liên kết "Trang quản lý" tới `/admin` ở chân trang (người dùng yêu cầu ngày 29/10/2026); không liên kết tới `/school-manager-admin`.
 - Nghiệp vụ ở `backend/src/admin/school.service.ts`: quản trị tổng chạy truy vấn toàn hệ thống; vai trò khác chạy trong `DatabaseService.scoped(school_id)` (vai trò PostgreSQL `dong_a_school_scope` + RLS), luôn kèm điều kiện `school_id` trong SQL. Không mở quyền công khai để chạy được migration.
 - File Excel mẫu do `ai/excel_provisioning.py` tạo và ký (HMAC-SHA256 bằng `EXCEL_SIGNING_KEY`); giữ đúng 11 cột và thứ tự trong `COLUMNS`, đổi cấu trúc thì tăng `TEMPLATE_VERSION`. Python không truy cập CSDL: backend đọc ứng viên (pgvector khi có) rồi gửi Python quyết định khớp.
 - Mật khẩu mặc định không được trả về trong phản hồi nhập file, chỉ đi qua thư (`mail.service.ts`, nội dung mã hóa và xóa sau khi gửi) hoặc CSV tài khoản chưa gửi thư của quản trị.

@@ -3,7 +3,7 @@
  * dải thẻ nghiêng chạy ngang, thẻ lời ông cha nhiều màu) nhưng hình ảnh và màu sắc lấy từ cuộc kháng chiến chống quân Nguyên – Mông thời Trần:
  * cảnh thành Thăng Long – thuyền chiến – bãi cọc Bạch Đằng, đỏ son, vàng, lam sông, giấy dó, họa tiết sóng nước và ấn đỏ.
  * Nội dung lịch sử đối chiếu Wikipedia tiếng Việt "Chiến tranh Nguyên Mông – Đại Việt" và ba bài chi tiết từng lần; số liệu lấy thẳng từ dữ liệu game.
- * Khối luôn tối/sáng cố định dùng màu `trang`/`dem`; thẻ và chữ dùng màu đổi theo chế độ sáng/tối. Không có liên kết tới hai cổng quản trị.
+ * Khối luôn tối/sáng cố định dùng màu `trang`/`dem`; thẻ và chữ dùng màu đổi theo chế độ sáng/tối. Chỉ chân trang có một liên kết "Trang quản lý" tới /admin; không có liên kết tới /school-manager-admin.
  */
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
@@ -1195,12 +1195,12 @@ const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ 
             <Txt size={14.5} color={FOOT_TEXT} style={{ lineHeight: 23, marginBottom: 6 }}>
               Nghiên cứu và phát triển nền tảng học tập game hóa hỗ trợ khám phá lịch sử ba lần kháng chiến chống Nguyên – Mông thời Trần.
             </Txt>
-            <FootLink label="Đăng nhập học tập" arrow onPress={() => router.push('/portal')} />
+            <FootLink label="Trang quản lý" arrow onPress={() => router.push('/admin')} />
           </View>
         </View>
         <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(250, 244, 231, 0.18)', paddingTop: 18, flexDirection: wide ? 'row' : 'column', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <Txt size={13} color={FOOT_TEXT} center={!wide}>
-            © 2026 · Đề tài khóa luận tốt nghiệp · Đông A
+            © 2026 · Đông A
           </Txt>
           <Txt size={13} color={FOOT_TEXT} center>
             Học Sử vui như chơi game
