@@ -6,11 +6,12 @@
  * Khối luôn tối/sáng cố định dùng màu `trang`/`dem`; thẻ và chữ dùng màu đổi theo chế độ sáng/tối. Không có liên kết tới hai cổng quản trị.
  */
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
+import { Animated, Easing, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ArrowDown, ArrowRight, Check, Compass, Joystick, Landmark, LogIn, MapPin, MessageSquareText, Milestone, Moon, Quote, School, Sun, Sword, Swords,
+  ArrowDown, ArrowRight, CalendarDays, Check, Compass, Joystick, Landmark, LogIn, MapPin, MessageSquareText, Milestone, Moon, Quote, School, Sun, Sword, Swords,
+  Trophy, Users, X, ZoomIn,
 } from 'lucide-react-native';
 import {
   BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, PatternOverlay, SchematicMap, Seal, VietnamFlag, WaveBand,
@@ -50,24 +51,33 @@ export const NAV = [
 
 // ---------------------------------------------------------------------- dữ liệu nội dung
 /**
- * Thông tin tóm tắt mỗi cuộc kháng chiến, đối chiếu Wikipedia tiếng Việt: "Chiến tranh Nguyên Mông – Đại Việt" và ba bài "… lần 1/2/3".
- * Lần 1 là quân Mông Cổ (nhà Nguyên lập sau, năm 1271); hai lần sau là quân Nguyên.
+ * Thông tin tóm tắt mỗi cuộc kháng chiến, viết theo Wikipedia tiếng Việt: hộp thông tin và nội dung của ba bài "Chiến tranh Nguyên Mông – Đại Việt lần 1/2/3".
+ * Lần 1 là quân Mông Cổ (nhà Nguyên lập sau, năm 1271); hai lần sau là quân Nguyên. Số quân là ước tính trong hộp thông tin, các bài và sách sử chép khác nhau.
  */
-const CAMPAIGN_FACTS: Record<1 | 2 | 3, { enemy: string; lead: string; key: string }> = {
+const CAMPAIGN_FACTS: Record<1 | 2 | 3, { time: string; enemy: string; lead: string; force: string; key: string; result: string }> = {
   1: {
-    enemy: 'Quân Mông Cổ (kèm quân Đại Lý) do Ngột Lương Hợp Thai và con trai là A Truật chỉ huy',
-    lead: 'Vua Trần Thái Tông cùng Thái tử Trần Hoảng, Thái sư Trần Thủ Độ',
-    key: 'Thua ở Bình Lệ Nguyên (17/1) và Phù Lỗ (18/1), bỏ Thăng Long với "vườn không nhà trống"; đêm 28/1/1258 phản công, thắng ở Đông Bộ Đầu',
+    time: 'Từ tháng 12/1257 đến tháng 1/1258',
+    enemy: 'Quân Mông Cổ do Ngột Lương Hợp Thai chỉ huy cùng con trai là A Truật và tướng Triệt Triệt Đô, có hàng binh Đại Lý đi trước',
+    lead: 'Vua Trần Thái Tông cùng Thái tử Trần Hoảng (sau là vua Trần Thánh Tông), Thái sư Trần Thủ Độ; các tướng Lê Phụ Trần, Hà Bổng',
+    force: 'Đại Việt khoảng 60.000 quân; Mông Cổ khoảng 30.000 quân (khoảng 10.000 kỵ binh Mông Cổ và 20.000 quân Đại Lý)',
+    key: 'Quân Trần thất lợi ở Bình Lệ Nguyên (17/1/1258) và Phù Lỗ (18/1), chủ động rút khỏi Thăng Long theo kế vườn không nhà trống; đêm 28/1/1258 phản công, đánh bại quân Mông Cổ ở Đông Bộ Đầu; quân Mông Cổ tháo chạy về Vân Nam và bị Hà Bổng tập kích ở Quy Hóa',
+    result: 'Đại Việt chiến thắng; quân Mông Cổ rút về Vân Nam',
   },
   2: {
-    enemy: 'Quân Nguyên (Hốt Tất Liệt ra lệnh): Thoát Hoan đánh từ phía Bắc, Toa Đô từ Chiêm Thành đánh ra',
-    lead: 'Thượng hoàng Trần Thánh Tông, vua Trần Nhân Tông, Quốc công tiết chế Trần Hưng Đạo',
-    key: 'Hội nghị Bình Than, Diên Hồng; rút về Thanh Hóa rồi phản công: thắng Hàm Tử, Chương Dương, giải phóng Thăng Long, diệt quân Toa Đô ở Tây Kết (24/6/1285)',
+    time: 'Từ tháng 1 đến tháng 6/1285',
+    enemy: 'Quân Nguyên chia ba đạo: đạo chủ lực do Thoát Hoan (Trấn Nam vương) và A Lý Hải Nha chỉ huy, vào qua Lạng Sơn; đạo của Nasirud Din từ Vân Nam; đạo của Toa Đô từ Chiêm Thành đánh lên từ phía nam; các tướng khác có Ô Mã Nhi, Lý Hằng',
+    lead: 'Thượng hoàng Trần Thánh Tông, vua Trần Nhân Tông, Quốc công Tiết chế Trần Quốc Tuấn; các tướng Trần Quang Khải, Trần Nhật Duật, Trần Bình Trọng, Phạm Ngũ Lão',
+    force: 'Đại Việt khoảng 200.000 – 300.000 quân và dân phu; quân Nguyên khoảng 500.000 quân và dân phu',
+    key: 'Sau Hội nghị Bình Than và Hội nghị Diên Hồng, quân Nguyên vượt biên giới (27/1/1285) và chiếm Thăng Long sau trận 17 – 18/2; Trần Bình Trọng chặn giặc ở Đà Mạc; vua Trần rút vào Thanh Hóa rồi phản công: thắng ở Hàm Tử, Chương Dương, giải phóng Thăng Long, diệt quân Toa Đô ở Tây Kết (24/6/1285)',
+    result: 'Quân Đại Việt chiến thắng, quân Nguyên phải rút lui',
   },
   3: {
-    enemy: 'Quân Nguyên chia ba cánh vào Đại Việt: Thoát Hoan làm tổng tư lệnh, Ô Mã Nhi và Phàn Tiếp chỉ huy thủy quân',
-    lead: 'Thượng hoàng Trần Thánh Tông, vua Trần Nhân Tông, Quốc công tiết chế Trần Hưng Đạo',
-    key: 'Tập kích đoàn thuyền lương ở Vân Đồn (đầu 1288); sáng 9/4/1288 thủy quân Nguyên vào sông Bạch Đằng, mắc cọc ngầm và bị tiêu diệt',
+    time: 'Từ tháng 12/1287 đến tháng 4/1288',
+    enemy: 'Quân Nguyên do Thoát Hoan làm tổng tư lệnh, chia ba cánh: cánh của Ái Lỗ từ Vân Nam, cánh chủ lực của Thoát Hoan từ phía đông bắc, thủy quân của Ô Mã Nhi và Phàn Tiếp cùng đoàn thuyền lương của Trương Văn Hổ',
+    lead: 'Thượng hoàng Trần Thánh Tông, vua Trần Nhân Tông, Quốc công Tiết chế Trần Quốc Tuấn; các tướng Trần Khánh Dư, Trần Nhật Duật, Phạm Ngũ Lão, Nguyễn Khoái, Đỗ Hành',
+    force: 'Đại Việt khoảng 200.000 – 300.000 quân chính quy và dân binh; quân Nguyên khoảng 300.000 – 500.000 (James A. Anderson ước tính 170.000 quân chính quy)',
+    key: 'Đoàn thuyền lương của Trương Văn Hổ bị tiêu diệt ở Vân Đồn (cuối 12/1287 – đầu 1/1288), quân Nguyên thiếu lương nên Thoát Hoan rút khỏi Thăng Long rồi quyết định rút quân; sáng 9/4/1288 thủy quân Ô Mã Nhi vào sông Bạch Đằng, vấp cọc ngầm và bị tiêu diệt',
+    result: 'Quân Đại Việt toàn thắng, quân Mông Nguyên phải rút lui; đến 19/4/1288 bộ binh Thoát Hoan mới thoát khỏi biên giới về Tư Minh',
   },
 };
 
@@ -754,8 +764,76 @@ const FactRow: React.FC<{ icon: IconType; label: string; text: string; color: st
   );
 };
 
+/** Bản đồ ba cuộc kháng chiến lấy từ Wikipedia tiếng Việt (Wikimedia Commons, phạm vi công cộng, tác giả Lưu Ly); ratio = rộng / cao của tệp */
+const CAMPAIGN_MAP: Record<1 | 2 | 3, { src: ImageSourcePropType; ratio: number }> = {
+  1: { src: require('../assets/ban-do-khang-chien-1.webp'), ratio: 1500 / 1052 },
+  2: { src: require('../assets/ban-do-khang-chien-2.webp'), ratio: 1000 / 1458 },
+  3: { src: require('../assets/ban-do-khang-chien-3.webp'), ratio: 1300 / 974 },
+};
+
+/** Bản đồ của cuộc kháng chiến đang chọn; bấm để mở khung phóng to (điện thoại kéo ngang để xem hết) */
+const CampaignMap: React.FC<{ id: 1 | 2 | 3; name: string; wide: boolean }> = ({ id, name, wide }) => {
+  const { c } = useTheme();
+  const { width, height } = useWindowDimensions();
+  const [open, setOpen] = useState(false);
+  const m = CAMPAIGN_MAP[id];
+  const label = `Bản đồ ${name.toLowerCase()}`;
+  const fit = Math.min(width - 32, 1280, (height - 150) * m.ratio);
+  const bigW = wide ? fit : Math.max(fit, 760);
+  /** Khung có tỉ lệ cố định, ảnh phủ kín khung (nếu để ảnh tự co thì nó lấy chiều cao gốc của tệp) */
+  const picture = (w: number, radius = 0, alt = '') => (
+    <View style={{ width: w, aspectRatio: m.ratio, borderRadius: radius, overflow: 'hidden', backgroundColor: '#ffffff' }}>
+      <Image source={m.src} resizeMode="contain" alt={alt} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} />
+    </View>
+  );
+  return (
+    <Panel pad={0} style={{ width: wide ? 440 : '100%', overflow: 'hidden' }}>
+      <Pressable onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel={`${label}, bấm để phóng to`} style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}>
+        {picture(wide ? 438 : width - 34)}
+        <View pointerEvents="none" style={{ position: 'absolute', right: 10, bottom: 10, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 32, borderRadius: 16, backgroundColor: 'rgba(14,17,22,0.78)' }}>
+          <ZoomIn size={15} color={c.trang} strokeWidth={2} />
+          <Txt f="bold" size={12.5} color={c.trang}>
+            Phóng to
+          </Txt>
+        </View>
+      </Pressable>
+      <View style={{ padding: 14, gap: 4 }}>
+        <Txt f="bold" size={14} color={c.xanhMuc}>
+          {label}
+        </Txt>
+        <Txt size={12.5} color={c.xanhMuc2} style={{ lineHeight: 18 }}>
+          Mũi tên đỏ là quân Đại Việt, mũi tên đen là quân Mông Nguyên (tiến quân, rút chạy); chú thích đầy đủ nằm trong bản đồ. Nguồn: Wikipedia tiếng Việt, tác giả Lưu Ly (Wikimedia Commons, phạm vi công cộng).
+        </Txt>
+      </View>
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(8,14,12,0.92)' }}>
+          <Pressable onPress={() => setOpen(false)} accessibilityLabel="Đóng bản đồ" style={StyleSheet.absoluteFill} />
+          <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 16, paddingTop: 64, gap: 12 }} pointerEvents="box-none">
+            {wide ? picture(bigW, 12, label) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator style={{ width: '100%', flexGrow: 0 }} contentContainerStyle={{ paddingBottom: 8 }}>
+                {picture(bigW, 12, label)}
+              </ScrollView>
+            )}
+            <Txt size={13} color="rgba(250,244,231,0.75)" center>
+              {label}. {wide ? 'Bấm ra ngoài hoặc nhấn Esc để đóng.' : 'Kéo ngang để xem hết, bấm ra ngoài để đóng.'}
+            </Txt>
+          </ScrollView>
+          <Pressable
+            onPress={() => setOpen(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Đóng bản đồ"
+            style={{ position: 'absolute', top: 16, right: 16, width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(250,244,231,0.16)' }}
+          >
+            <X size={22} color={c.trang} strokeWidth={2.2} />
+          </Pressable>
+        </View>
+      </Modal>
+    </Panel>
+  );
+};
+
 const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
-  const { c, dark } = useTheme();
+  const { c } = useTheme();
   const router = useRouter();
   const [sel, setSel] = useState<1 | 2 | 3>(1);
   const camp = CAMPAIGNS[sel - 1];
@@ -807,9 +885,12 @@ const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
           <Txt f="heavy" size={22} color={c.xanhMuc} accessibilityRole="header" style={{ lineHeight: 28, letterSpacing: -0.3 }}>
             {camp.name} · {camp.years}
           </Txt>
+          <FactRow icon={CalendarDays} label="Thời gian" text={facts.time} color={look.accent} />
           <FactRow icon={Sword} label="Đối phương" text={facts.enemy} color={look.accent} />
           <FactRow icon={Landmark} label="Lãnh đạo" text={facts.lead} color={look.accent} />
+          <FactRow icon={Users} label="Lực lượng" text={facts.force} color={look.accent} />
           <FactRow icon={Milestone} label="Diễn biến chính" text={facts.key} color={look.accent} />
+          <FactRow icon={Trophy} label="Kết quả" text={facts.result} color={look.accent} />
           <View style={{ gap: 10, paddingTop: 14, borderTopWidth: 1, borderTopColor: c.bienXanh }}>
             <Txt f="bold" size={13} color={c.xanhMuc2} upper>
               {phases.length} màn chơi
@@ -832,12 +913,7 @@ const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
           <Cta title="Chơi chiến dịch này" tone="den" arrow onPress={() => router.push('/portal')} />
         </Panel>
       </View>
-      <Panel pad={0} style={{ width: wide ? 400 : '100%', overflow: 'hidden' }}>
-        <SchematicMap dark={dark} pins={[...new Set(phases.map((p) => p.place))]} routes={CAMPAIGN_ROUTES[sel]} title={`Lược đồ ${camp.name}`} />
-        <Txt size={12} color={c.xanhMuc2} style={{ paddingHorizontal: 16, paddingBottom: 14 }}>
-          Mũi tên đỏ: hướng tiến quân của giặc.
-        </Txt>
-      </Panel>
+      <CampaignMap id={sel} name={camp.name} wide={wide} />
     </View>
   );
 };
@@ -846,13 +922,13 @@ const ExplorerSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
   const { c } = useTheme();
   return (
     <Band id="khang-chien" bg={c.the} wide={wide} onSection={onSection}>
-      <Head title={`Ba lần kháng chiến chống Nguyên\u00A0–\u2060\u00A0Mông`} text="Chọn một cuộc kháng chiến để xem lược đồ, diễn biến chính và các màn chơi." wide={wide} />
+      <Head title={`Ba lần kháng chiến chống Nguyên\u00A0–\u2060\u00A0Mông`} text="Chọn một cuộc kháng chiến để xem bản đồ, diễn biến chính và các màn chơi." wide={wide} />
       <Reveal>
         <CampaignExplorer wide={wide} />
       </Reveal>
       <Reveal>
         <Txt size={13} color={c.xanhMuc2} center style={{ maxWidth: 760, alignSelf: 'center' }}>
-          Đối chiếu theo Wikipedia tiếng Việt: “Chiến tranh Nguyên Mông – Đại Việt” và ba bài chi tiết từng lần. Sau ba lần thất bại, nhà Nguyên không còn đưa quân sang; Đại Việt giữ vững độc lập, trên danh nghĩa chịu làm nước chư hầu triều cống.
+          Nội dung và bản đồ theo Wikipedia tiếng Việt: “Chiến tranh Nguyên Mông – Đại Việt” và ba bài chi tiết lần 1, 2, 3; số quân là ước tính, các nguồn chép khác nhau. Sau ba lần xâm lược thất bại, nhà Nguyên có kế hoạch đánh lần thứ tư nhưng không thực hiện được; Đại Việt giữ vững độc lập, trên danh nghĩa vẫn là nước chư hầu.
         </Txt>
       </Reveal>
     </Band>

@@ -33,6 +33,8 @@ Khối “Nơi học sinh khám phá lịch sử” dùng `components/history-sh
 
 Khối “Gặp gỡ danh tướng nhà Trần” dùng `components/hero-gallery.tsx` (lưới thẻ có tranh minh họa, bên phải là khung sơ yếu lý lịch tóm tắt của người đang chọn, khung dính theo khi cuộn; điện thoại mở khung ngay dưới hàng vừa bấm). Sơ yếu lý lịch (sinh – mất, chức tước, xuất thân, kháng chiến tham gia, công trạng) nằm ở `HERO_PROFILE` trong `constants/heroes.ts`, viết theo Wikipedia tiếng Việt và giữ ngắn; không sửa `story`/`stages` của game. Tranh nằm ở `components/hero-portrait.tsx`: bán thân vẽ SVG cách điệu theo màu logo (không dùng ảnh của bên thứ ba), mặt chỉ vẽ tối giản vì không còn chân dung đương thời; khung chi tiết có ghi chú này. Thêm nhân vật mới thì thêm vào `HEROES`, `HERO_PROFILE` và `LOOK` (hero-portrait.tsx).
 
+Khối “Ba lần kháng chiến chống Nguyên – Mông” hiển thị bản đồ của Wikipedia tiếng Việt thay cho lược đồ minh họa: `frontend/assets/ban-do-khang-chien-1.webp`, `-2.webp`, `-3.webp` (Chongquannguyenlan1/2/3.svg trên Wikimedia Commons, tác giả Lưu Ly, phạm vi công cộng), bấm vào bản đồ để phóng to (điện thoại kéo ngang). Các dòng thời gian, đối phương, lãnh đạo, lực lượng, diễn biến chính và kết quả nằm ở `CAMPAIGN_FACTS` trong `components/home.tsx`, theo hộp thông tin và nội dung ba bài Wikipedia; số quân là ước tính, các nguồn chép khác nhau.
+
 ### Xác thực
 
 - Mật khẩu băm PBKDF2-SHA256 (240.000 vòng, muối ngẫu nhiên; mật khẩu mặc định cấp từ file Excel 20.000 vòng vì bắt buộc đổi ở lần đầu); token JWT HS256 ký bằng `AUTH_SECRET_KEY` (kèm mã trường `sid`), hết hạn sau 12 giờ, tự mất hiệu lực khi đổi mật khẩu, khóa hoặc xóa tài khoản.
