@@ -1160,7 +1160,7 @@ const FootLink: React.FC<{ label: string; onPress: () => void; arrow?: boolean }
   );
 };
 
-/** Chân trang: dải sóng đỏ vàng, rồi nền mực xanh của logo với logo và mô tả, cột "Khám phá", cột đề tài khóa luận và thanh bản quyền có "Về đầu trang" */
+/** Chân trang: dải sóng đỏ vàng, rồi nền mực xanh của logo với logo và mô tả, cột "Khám phá", cột "Khám phá lịch sử thời Trần" kèm liên kết "Trang quản lý" và thanh bản quyền có "Về đầu trang" */
 const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wide, go }) => {
   const { c } = useTheme();
   const router = useRouter();
@@ -1191,9 +1191,8 @@ const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ 
             </View>
           )}
           <View style={{ width: wide ? 300 : '100%', gap: 4 }}>
-            {head('Đề tài khóa luận tốt nghiệp')}
             <Txt size={14.5} color={FOOT_TEXT} style={{ lineHeight: 23, marginBottom: 6 }}>
-              Nghiên cứu và phát triển nền tảng học tập game hóa hỗ trợ khám phá lịch sử ba lần kháng chiến chống Nguyên – Mông thời Trần.
+              Khám phá lịch sử thời Trần
             </Txt>
             <FootLink label="Trang quản lý" arrow onPress={() => router.push('/admin')} />
           </View>
