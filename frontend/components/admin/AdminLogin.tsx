@@ -1,19 +1,21 @@
 /**
  * Trang đăng nhập của hai cổng quản trị (/admin, /school-manager-admin), dựng theo danh sách chức năng nhóm "01. Tài khoản và xác thực":
- * TM.AUTH.001 đăng nhập bằng tài khoản được cấp (không có đăng ký tự do), TM.AUTH.007 quên mật khẩu (gửi liên kết đặt lại qua email,
- * liên kết mở lại đúng cổng bằng ?reset=<mã>). TM.AUTH.002 đăng xuất là nút ở thanh trên cùng của trang quản trị (TopBar trong auth.tsx).
- * Bố cục hai cột như trang đăng nhập của LMS: bên trái giới thiệu cổng trên nền xanh đậm, bên phải biểu mẫu trên nền trắng;
- * dưới 1000 px chỉ còn một cột. Cổng quản trị độc lập: không có nút hay liên kết về trang chủ hoặc cổng khác.
+ * TM.AUTH.001 đăng nhập bằng tài khoản được cấp (không có đăng ký tự do, không đăng nhập qua bên thứ ba), TM.AUTH.007 quên mật khẩu
+ * (gửi liên kết đặt lại qua email, liên kết mở lại đúng cổng bằng ?reset=<mã>). TM.AUTH.002 đăng xuất là nút ở thanh trên cùng của
+ * trang quản trị (TopBar trong auth.tsx).
+ * Bố cục như trang đăng nhập LMS HUTECH: bên trái là ảnh bìa trang chủ (FilmBackdrop) phủ xanh đêm, cạnh phải vát chéo, tiêu đề trắng
+ * rất lớn; bên phải nền trắng, form chỉ gồm ô nhập có chữ gợi ý, nút đỏ và liên kết "Quên mật khẩu". Dưới 1000 px ảnh thu thành dải đầu trang.
+ * Cổng quản trị độc lập: không có nút hay liên kết về trang chủ hoặc cổng khác.
  */
 import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, TextInput, View, useWindowDimensions, type TextInputInstance, type TextInputProps } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Circle } from 'react-native-svg';
-import { ArrowLeft, CircleCheck, ClipboardCheck, Eye, EyeOff, FileSpreadsheet, Info, LogIn, MailCheck, School, ShieldCheck, TriangleAlert } from 'lucide-react-native';
+import Svg, { Polygon } from 'react-native-svg';
+import { ArrowLeft, CircleCheck, Eye, EyeOff, Info, MailCheck, TriangleAlert } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { ApiError, errorMessage } from '@/api/client';
-import { BrandLogo } from '@/components/art';
+import { BrandLogo, FilmBackdrop } from '@/components/art';
 import { Txt } from '@/components/ui';
 import { FONT } from '@/constants/theme';
 import { useShake } from '@/hooks/use-motion';
@@ -24,41 +26,29 @@ import type { IconType } from '@/types/game';
 export type AdminPortal = 'root_admin' | 'school_admin';
 type Step = 'login' | 'forgot' | 'reset';
 
-const COPY: Record<AdminPortal, { label: string; headline: string; accent: string; lead: string; placeholder: string; account: string; features: Array<{ icon: IconType; title: string; text: string }> }> = {
+const COPY: Record<AdminPortal, { label: string; placeholder: string; account: string }> = {
   root_admin: {
     label: 'Quản trị tổng',
-    headline: 'Cổng quản trị',
-    accent: 'toàn hệ thống',
-    lead: 'Theo dõi mọi trường, cấp tài khoản quản trị trường, duyệt lớp và xử lý thùng rác tại một nơi.',
     placeholder: 'Tên đăng nhập quản trị',
     account: 'Tài khoản quản trị tổng được cấu hình khi triển khai hệ thống, không có đăng ký tự do.',
-    features: [
-      { icon: School, title: 'Toàn hệ thống', text: 'Xem các trường, giáo viên và học sinh khối 6 – 9.' },
-      { icon: ShieldCheck, title: 'Phân quyền quản trị trường', text: 'Tạo và quản lý tài khoản quản trị của từng trường.' },
-      { icon: ClipboardCheck, title: 'Duyệt lớp, thùng rác 45 ngày', text: 'Xem xét yêu cầu mở lớp và khôi phục tài khoản đã xóa.' },
-    ],
   },
   school_admin: {
     label: 'Quản trị trường',
-    headline: 'Cổng quản trị',
-    accent: 'của trường bạn',
-    lead: 'Cấp tài khoản cho giáo viên và học sinh, duyệt lớp và theo dõi dữ liệu của riêng trường mình.',
     placeholder: 'Tên đăng nhập quản trị trường',
     account: 'Tài khoản quản trị trường do quản trị tổng cấp, không có đăng ký tự do.',
-    features: [
-      { icon: FileSpreadsheet, title: 'Cấp tài khoản bằng Excel', text: 'Nhập file mẫu để tạo tài khoản hàng loạt.' },
-      { icon: School, title: 'Dữ liệu của trường bạn', text: 'Chỉ xem và quản lý dữ liệu thuộc trường mình, khối 6 – 9.' },
-      { icon: ClipboardCheck, title: 'Duyệt lớp, gửi thông tin đăng nhập', text: 'Xem xét yêu cầu mở lớp và gửi tài khoản qua email.' },
-    ],
   },
 };
+
+/** Cạnh phải của ảnh vát chéo như trang LMS: rộng ở trên (49,3 % bề ngang), hẹp ở dưới (41 %) */
+const SLANT_TOP = 49.3;
+const SLANT_BOTTOM = 41;
 
 // ---------------------------------------------------------------------- thành phần nhỏ
 const Banner: React.FC<{ tone: 'error' | 'success' | 'info'; text: string }> = ({ tone, text }) => {
   const { c } = useTheme();
   const t = tone === 'error' ? { bg: c.sonNhat, fg: c.sonChu, Icon: TriangleAlert } : tone === 'success' ? { bg: c.mocNhat, fg: c.mocChu, Icon: CircleCheck } : { bg: c.thuyNhat, fg: c.thuyChu, Icon: Info };
   return (
-    <View style={{ flexDirection: 'row', gap: 10, padding: 12, borderRadius: 10, backgroundColor: t.bg }}>
+    <View style={{ flexDirection: 'row', gap: 10, padding: 12, borderRadius: 4, backgroundColor: t.bg }}>
       <t.Icon size={18} color={t.fg} style={{ marginTop: 1 }} />
       <Txt f="semibold" size={14} color={t.fg} style={{ flex: 1 }} accessibilityRole={tone === 'error' ? 'alert' : undefined} accessibilityLiveRegion="polite">
         {text}
@@ -67,50 +57,51 @@ const Banner: React.FC<{ tone: 'error' | 'success' | 'info'; text: string }> = (
   );
 };
 
-type InputProps = Omit<TextInputProps, 'style'> & {
+type InputProps = Omit<TextInputProps, 'style' | 'placeholder'> & {
+  /** Vừa là chữ gợi ý trong ô vừa là nhãn cho trình đọc màn hình */
   label: string;
   nativeID: string;
   invalid?: boolean;
   hint?: string;
   inputRef?: React.Ref<TextInputInstance>;
-  /** Liên kết cạnh nhãn (ví dụ "Quên mật khẩu?") */
-  labelRight?: React.ReactNode;
   /** Nút trong ô (ví dụ hiện/ẩn mật khẩu) */
   right?: React.ReactNode;
+  /** Hiện nhãn phía trên thay cho chữ gợi ý, dùng khi hai ô cùng loại nằm cạnh nhau (đặt mật khẩu mới) */
+  showLabel?: boolean;
 };
 
-/** Ô nhập phẳng: nhãn luôn hiện phía trên, viền đủ tương phản, vòng sáng khi đang nhập */
-const AuthInput: React.FC<InputProps> = ({ label, nativeID, invalid, hint, inputRef, labelRight, right, ...rest }) => {
+/** Ô nhập như trang LMS: viền mảnh, góc vuông, chỉ có chữ gợi ý (nhãn nằm ở accessibilityLabel); vòng sáng khi đang nhập */
+const AuthInput: React.FC<InputProps> = ({ label, nativeID, invalid, hint, inputRef, right, showLabel, ...rest }) => {
   const { c } = useTheme();
   const [focus, setFocus] = useState(false);
   return (
     <View style={{ gap: 6 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <Txt f="bold" size={14} color={c.xanhMuc}>
+      {showLabel ? (
+        <Txt f="bold" size={14} color={c.muc2}>
           {label}
         </Txt>
-        {labelRight}
-      </View>
+      ) : null}
       <View>
         <TextInput
           ref={inputRef}
           nativeID={nativeID}
           accessibilityLabel={label}
+          placeholder={showLabel ? undefined : label}
           placeholderTextColor={c.muc3}
           onFocus={() => setFocus(true)}
           onBlur={() => setFocus(false)}
           style={[
             {
-              minHeight: 48,
-              borderRadius: 10,
+              minHeight: 54,
+              borderRadius: 4,
               borderWidth: 1.5,
-              borderColor: invalid ? c.son : focus ? c.troi : c.bienDam,
+              borderColor: invalid ? c.son : focus ? c.troi : c.muc3,
               backgroundColor: c.the,
-              paddingHorizontal: 14,
-              paddingRight: right ? 52 : 14,
-              fontFamily: FONT.semibold,
-              fontSize: 16,
-              color: c.xanhMuc,
+              paddingHorizontal: 20,
+              paddingRight: right ? 58 : 20,
+              fontFamily: FONT.medium,
+              fontSize: 17,
+              color: c.muc,
             },
             focus && { boxShadow: `0 0 0 3px ${invalid ? 'rgba(185, 28, 28, 0.2)' : 'rgba(11, 108, 192, 0.22)'}` },
             // Trình duyệt vẽ thêm viền mặc định khi nhập: vòng sáng ở trên đã thay thế
@@ -118,10 +109,10 @@ const AuthInput: React.FC<InputProps> = ({ label, nativeID, invalid, hint, input
           ]}
           {...rest}
         />
-        {right ? <View style={{ position: 'absolute', right: 2, top: 0, bottom: 0, justifyContent: 'center' }}>{right}</View> : null}
+        {right ? <View style={{ position: 'absolute', right: 4, top: 0, bottom: 0, justifyContent: 'center' }}>{right}</View> : null}
       </View>
       {hint ? (
-        <Txt size={13} color={c.xanhMuc2}>
+        <Txt size={13} color={c.muc2}>
           {hint}
         </Txt>
       ) : null}
@@ -134,13 +125,14 @@ const ShowToggle: React.FC<{ shown: boolean; onToggle: () => void }> = ({ shown,
   const { c } = useTheme();
   const Icon = shown ? EyeOff : Eye;
   return (
-    <Pressable onPress={onToggle} accessibilityRole="button" accessibilityLabel={shown ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} accessibilityState={{ selected: shown }} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-      <Icon size={20} color={c.xanhMuc2} />
+    <Pressable onPress={onToggle} accessibilityRole="button" accessibilityLabel={shown ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} accessibilityState={{ selected: shown }} style={{ width: 46, height: 46, alignItems: 'center', justifyContent: 'center' }}>
+      <Icon size={22} color={c.muc3} />
     </Pressable>
   );
 };
 
-const SubmitButton: React.FC<{ title: string; icon?: IconType; loading?: boolean; onPress: () => void; testID?: string }> = ({ title, icon: Icon, loading = false, onPress, testID }) => {
+/** Nút đỏ như trang LMS (đỏ cờ `son`, chữ trắng) */
+const SubmitButton: React.FC<{ title: string; loading?: boolean; onPress: () => void; testID?: string }> = ({ title, loading = false, onPress, testID }) => {
   const { c } = useTheme();
   return (
     <Pressable
@@ -150,105 +142,97 @@ const SubmitButton: React.FC<{ title: string; icon?: IconType; loading?: boolean
       accessibilityRole="button"
       accessibilityLabel={title}
       accessibilityState={{ disabled: loading, busy: loading }}
-      style={({ pressed }) => ({ minHeight: 48, borderRadius: 10, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: pressed ? c.bau : c.troi, opacity: loading ? 0.8 : 1 })}
+      style={({ pressed }) => ({ minHeight: 54, minWidth: 140, borderRadius: 4, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, alignSelf: 'flex-start', backgroundColor: pressed ? c.sonDam : c.son, opacity: loading ? 0.8 : 1 })}
     >
-      {loading ? <ActivityIndicator size="small" color={c.trang} /> : Icon ? <Icon size={20} color={c.trang} strokeWidth={2.4} /> : null}
-      <Txt f="bold" size={16} color={c.trang}>
+      {loading ? <ActivityIndicator size="small" color={c.trang} /> : null}
+      <Txt f="semibold" size={18} color={c.trang}>
         {title}
       </Txt>
     </Pressable>
   );
 };
 
-const TextLink: React.FC<{ title: string; onPress: () => void; icon?: IconType; label?: string }> = ({ title, onPress, icon: Icon, label }) => {
+/** Liên kết chữ thường, tối màu như "Quên mật khẩu" ở trang LMS */
+const TextLink: React.FC<{ title: string; onPress: () => void; icon?: IconType }> = ({ title, onPress, icon: Icon }) => {
   const { c } = useTheme();
   return (
-    <Pressable onPress={onPress} accessibilityRole="link" accessibilityLabel={label ?? title} hitSlop={{ top: 14, bottom: 14, left: 10, right: 10 }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
-      {Icon ? <Icon size={16} color={c.troi} strokeWidth={2.4} /> : null}
-      <Txt f="bold" size={14} color={c.troi}>
+    <Pressable onPress={onPress} accessibilityRole="link" accessibilityLabel={title} hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' }}>
+      {Icon ? <Icon size={18} color={c.muc} strokeWidth={2.2} /> : null}
+      <Txt f="medium" size={18} color={c.muc}>
         {title}
       </Txt>
     </Pressable>
   );
 };
 
-const Heading: React.FC<{ title: string; text: string }> = ({ title, text }) => {
+const Heading: React.FC<{ title: string; text?: string }> = ({ title, text }) => {
   const { c } = useTheme();
   return (
-    <View style={{ gap: 6 }}>
-      <Txt f="heavy" size={30} color={c.xanhMuc} accessibilityRole="header" style={{ lineHeight: 36 }}>
+    <View style={{ gap: 8 }}>
+      <Txt f="bold" size={34} color={c.muc} accessibilityRole="header" style={{ lineHeight: 42 }}>
         {title}
       </Txt>
-      <Txt size={15} color={c.xanhMuc2}>
-        {text}
-      </Txt>
+      {text ? (
+        <Txt size={16} color={c.muc2}>
+          {text}
+        </Txt>
+      ) : null}
     </View>
   );
 };
 
-// ---------------------------------------------------------------------- khung hai cột
+// ---------------------------------------------------------------------- khung: ảnh bìa trang chủ bên trái, form bên phải
 const Shell: React.FC<{ portal: AdminPortal; children: React.ReactNode }> = ({ portal, children }) => {
   const { c } = useTheme();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const wide = width >= 1000;
   const copy = COPY[portal];
-  const night = [c.bau, c.dem] as const;
-  return (
-    <View style={{ flex: 1, flexDirection: wide ? 'row' : 'column', backgroundColor: c.the }}>
-      {wide ? (
-        <LinearGradient colors={night} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, padding: 48, justifyContent: 'space-between', overflow: 'hidden' }}>
-          <Svg accessibilityElementsHidden importantForAccessibility="no-hide-descendants" pointerEvents="none" width="100%" height="100%" viewBox="0 0 640 860" preserveAspectRatio="xMidYMax slice" style={StyleSheet.absoluteFill}>
-            {[110, 190, 270, 350, 430].map((r) => (
-              <Circle key={`a${r}`} cx={600} cy={820} r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={2} />
-            ))}
-            {[70, 140, 210].map((r) => (
-              <Circle key={`b${r}`} cx={20} cy={30} r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth={2} />
-            ))}
-          </Svg>
-          <BrandLogo light subtitle={copy.label} />
-          <View style={{ gap: 20, maxWidth: 520 }}>
-            <View>
-              <Txt f="heavy" size={42} color={c.trang} style={{ lineHeight: 50 }} accessibilityRole="header">
-                {copy.headline}
-              </Txt>
-              <Txt f="serifItalic" size={42} color={c.logoGold} style={{ lineHeight: 50 }}>
-                {copy.accent}
-              </Txt>
-            </View>
-            <Txt size={17} color="rgba(255, 255, 255, 0.85)">
-              {copy.lead}
-            </Txt>
-            <View style={{ gap: 16, marginTop: 8 }}>
-              {copy.features.map(({ icon: Icon, title, text }) => (
-                <View key={title} style={{ flexDirection: 'row', gap: 14, alignItems: 'flex-start' }}>
-                  <View style={{ width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255, 255, 255, 0.10)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.2)' }}>
-                    <Icon size={20} color={c.logoGold} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Txt f="bold" size={15} color={c.trang}>
-                      {title}
-                    </Txt>
-                    <Txt size={14} color="rgba(255, 255, 255, 0.78)">
-                      {text}
-                    </Txt>
-                  </View>
-                </View>
-              ))}
-            </View>
+  /** Xanh đêm (màu `dem` cố định) phủ lên ảnh: đậm bên trái nơi có chữ, nhạt dần về phía cạnh vát để còn thấy ảnh */
+  const tint = [`${c.dem}f2`, `${c.dem}d9`, `${c.dem}99`] as const;
+
+  if (!wide) {
+    return (
+      <View style={{ flex: 1, backgroundColor: c.the }}>
+        <View style={{ height: 232, backgroundColor: c.dem, overflow: 'hidden' }}>
+          <FilmBackdrop wide={false} />
+          <LinearGradient colors={tint} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+          <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+            <BrandLogo light subtitle={copy.label} />
           </View>
-          <Txt f="semibold" size={12} color="rgba(255, 255, 255, 0.7)">
-            © 2026 · Đông A edu
+          <Txt f="heavy" size={34} color={c.trang} accessibilityRole="header" style={{ position: 'absolute', left: 20, bottom: 40, lineHeight: 38 }}>
+            {'Bắt đầu quản trị\ncùng Đông A edu'}
           </Txt>
-        </LinearGradient>
-      ) : (
-        <LinearGradient colors={night} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ paddingHorizontal: 20, paddingVertical: 16 }}>
+          <Svg pointerEvents="none" width="100%" height={32} viewBox="0 0 100 32" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, right: 0, bottom: -1 }}>
+            <Polygon points="0,32 100,0 100,32" fill={c.the} />
+          </Svg>
+        </View>
+        <Animated.ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, padding: 20, paddingTop: 12, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+          <View style={{ width: '100%', maxWidth: 570, alignSelf: 'center', gap: 24 }}>{children}</View>
+        </Animated.ScrollView>
+      </View>
+    );
+  }
+
+  const headline = Math.round(Math.min(104, Math.max(48, width * 0.054)));
+  return (
+    <View style={{ flex: 1, backgroundColor: c.the, overflow: 'hidden' }}>
+      <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '52%', backgroundColor: c.dem }}>
+        <FilmBackdrop wide />
+        <LinearGradient colors={tint} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.4 }} style={StyleSheet.absoluteFill} />
+        <View style={{ position: 'absolute', left: '3.4%', top: 18 }}>
           <BrandLogo light subtitle={copy.label} />
-        </LinearGradient>
-      )}
-      {/* ScrollView tự giãn theo flex nên đặt độ rộng cột phải ở khung ngoài */}
-      <View style={wide ? { width: Math.max(480, Math.min(600, Math.round(width * 0.42))) } : { flex: 1 }}>
-        <Animated.ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: wide ? 'center' : 'flex-start', padding: wide ? 48 : 20, paddingVertical: wide ? 48 : 32 }} keyboardShouldPersistTaps="handled">
-          <View style={{ width: '100%', maxWidth: 400, alignSelf: 'center', gap: 20 }}>{children}</View>
+        </View>
+        <Txt f="heavy" size={headline} color={c.trang} accessibilityRole="header" style={{ position: 'absolute', left: '11.5%', top: '29%', lineHeight: Math.round(headline * 0.95), letterSpacing: -1 }}>
+          {'Bắt đầu\nquản trị\ncùng\nĐông A edu'}
+        </Txt>
+      </View>
+      <Svg pointerEvents="none" width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={StyleSheet.absoluteFill}>
+        <Polygon points={`${SLANT_TOP},0 100,0 100,100 ${SLANT_BOTTOM},100`} fill={c.the} />
+      </Svg>
+      <View style={{ position: 'absolute', left: '52%', right: 0, top: 0, bottom: 0 }}>
+        <Animated.ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingLeft: Math.round(width * 0.07), paddingRight: 48, paddingTop: Math.max(56, Math.round(height * 0.11)), paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
+          {/* Cột form chiếm khoảng 31 % bề ngang như trang LMS (tối đa 570 px) */}
+          <View style={{ width: '100%', maxWidth: Math.round(Math.min(570, Math.max(340, width * 0.31))), gap: 26 }}>{children}</View>
         </Animated.ScrollView>
       </View>
     </View>
@@ -289,15 +273,14 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
 
   return (
     <>
-      <Heading title="Đăng nhập" text="Dùng tài khoản được cấp để vào cổng quản trị." />
+      <Heading title="Đăng nhập" />
       {success ? <Banner tone="success" text={success} /> : null}
       {notice ? <Banner tone="info" text={notice} /> : null}
       <AuthInput
-        label="Tên đăng nhập"
+        label={copy.placeholder}
         nativeID="admin-username"
         value={username}
         onChangeText={setUsername}
-        placeholder={copy.placeholder}
         invalid={Boolean(error) && !username.trim()}
         autoCapitalize="none"
         autoCorrect={false}
@@ -313,7 +296,6 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
         inputRef={passwordRef}
         value={password}
         onChangeText={setPassword}
-        placeholder="Nhập mật khẩu"
         invalid={Boolean(error) && !password}
         secureTextEntry={!show}
         autoCapitalize="none"
@@ -322,7 +304,6 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
         textContentType="password"
         returnKeyType="go"
         onSubmitEditing={submit}
-        labelRight={<TextLink title="Quên mật khẩu?" onPress={onForgot} />}
         right={<ShowToggle shown={show} onToggle={() => setShow((v) => !v)} />}
       />
       {error ? (
@@ -330,12 +311,13 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
           <Banner tone="error" text={error} />
         </Animated.View>
       ) : null}
-      <SubmitButton title={loading ? 'Đang đăng nhập…' : 'Đăng nhập'} icon={LogIn} loading={loading} onPress={submit} testID="login-submit" />
-      <View style={{ borderTopWidth: 1, borderTopColor: c.bienXanh, paddingTop: 16 }}>
-        <Txt size={13} color={c.xanhMuc2}>
-          {copy.account}
-        </Txt>
+      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 24, rowGap: 8 }}>
+        <SubmitButton title={loading ? 'Đang đăng nhập…' : 'Đăng nhập'} loading={loading} onPress={submit} testID="login-submit" />
+        <TextLink title="Quên mật khẩu" onPress={onForgot} />
       </View>
+      <Txt size={14} color={c.muc2} style={{ maxWidth: 460 }}>
+        {copy.account}
+      </Txt>
     </>
   );
 };
@@ -372,15 +354,16 @@ const ForgotForm: React.FC<{ portal: AdminPortal; onBack: () => void }> = ({ por
           <MailCheck size={28} color={c.mocChu} />
         </View>
         <Heading title="Kiểm tra hộp thư" text="Nếu thông tin khớp với một tài khoản có email, liên kết đặt lại mật khẩu đã được gửi. Liên kết có hiệu lực 30 phút và chỉ dùng được một lần. Hãy xem cả mục thư rác." />
-        <SubmitButton title="Quay lại đăng nhập" icon={ArrowLeft} onPress={onBack} />
-        <TextLink title="Chưa nhận được thư? Gửi lại" onPress={() => setSent(false)} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 24, rowGap: 8 }}>
+          <SubmitButton title="Về đăng nhập" onPress={onBack} />
+          <TextLink title="Gửi lại" onPress={() => setSent(false)} />
+        </View>
       </>
     );
   }
   return (
     <>
-      <TextLink title="Quay lại đăng nhập" icon={ArrowLeft} onPress={onBack} />
-      <Heading title="Quên mật khẩu?" text="Nhập tên đăng nhập hoặc email của tài khoản quản trị. Chúng tôi sẽ gửi liên kết đặt lại mật khẩu tới email của tài khoản." />
+      <Heading title="Quên mật khẩu" text="Nhập tên đăng nhập hoặc email của tài khoản quản trị. Chúng tôi sẽ gửi liên kết đặt lại mật khẩu tới email của tài khoản." />
       <AuthInput
         label="Tên đăng nhập hoặc email"
         nativeID="admin-forgot"
@@ -395,7 +378,10 @@ const ForgotForm: React.FC<{ portal: AdminPortal; onBack: () => void }> = ({ por
         autoFocus={Platform.OS === 'web'}
       />
       {error ? <Banner tone="error" text={error} /> : null}
-      <SubmitButton title={loading ? 'Đang gửi…' : 'Gửi liên kết đặt lại'} icon={MailCheck} loading={loading} onPress={submit} testID="forgot-submit" />
+      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 24, rowGap: 8 }}>
+        <SubmitButton title={loading ? 'Đang gửi…' : 'Gửi liên kết'} loading={loading} onPress={submit} testID="forgot-submit" />
+        <TextLink title="Quay lại đăng nhập" icon={ArrowLeft} onPress={onBack} />
+      </View>
     </>
   );
 };
@@ -432,6 +418,7 @@ const ResetForm: React.FC<{ token: string; onDone: () => void; onRequestNew: () 
       <AuthInput
         label="Mật khẩu mới"
         nativeID="admin-new-password"
+        showLabel
         value={next}
         onChangeText={setNext}
         hint="Tối thiểu 6 ký tự."
@@ -448,6 +435,7 @@ const ResetForm: React.FC<{ token: string; onDone: () => void; onRequestNew: () 
       <AuthInput
         label="Nhập lại mật khẩu mới"
         nativeID="admin-confirm-password"
+        showLabel
         inputRef={confirmRef}
         value={confirm}
         onChangeText={setConfirm}
@@ -460,8 +448,10 @@ const ResetForm: React.FC<{ token: string; onDone: () => void; onRequestNew: () 
         onSubmitEditing={submit}
       />
       {error ? <Banner tone="error" text={error} /> : null}
-      <SubmitButton title={loading ? 'Đang lưu…' : 'Lưu mật khẩu mới'} icon={ShieldCheck} loading={loading} onPress={submit} testID="reset-submit" />
-      {dead ? <TextLink title="Yêu cầu liên kết mới" icon={MailCheck} onPress={onRequestNew} /> : null}
+      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 24, rowGap: 8 }}>
+        <SubmitButton title={loading ? 'Đang lưu…' : 'Lưu mật khẩu'} loading={loading} onPress={submit} testID="reset-submit" />
+        {dead ? <TextLink title="Yêu cầu liên kết mới" icon={MailCheck} onPress={onRequestNew} /> : null}
+      </View>
     </>
   );
 };
