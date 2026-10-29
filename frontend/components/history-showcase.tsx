@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, Platform, StyleSheet, View, useWindowDimensions, type ViewInstance, type ViewStyle } from 'react-native';
 import { PatternOverlay } from '@/components/art';
 import { useScrollY } from '@/components/motion';
-import { Txt } from '@/components/ui';
+import { SectionHeading } from '@/components/section-heading';
 import { useDragScroll } from '@/hooks/use-drag-scroll';
 import { useReduceMotion } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
@@ -91,10 +91,20 @@ export function HistoryShowcase({ wide, onSection, tabs, description, children }
   const progress = useRef(new Animated.Value(1)).current;
   const enter = useRef(new Animated.Value(1)).current;
   const [interactive, setInteractive] = useState(true);
-  const pin = Platform.OS === 'web' && wide && !reduce && height >= 680;
+  const [blockHeights, setBlockHeights] = useState({ heading: 134, controls: 92, description: 74 });
+  const wantsPin = Platform.OS === 'web' && wide && !reduce && height >= 680;
+  const compact = wantsPin && height < 860;
+  // Measure the taller two-font heading and the current tab's description before sizing the tablet.
+  // Reserve room for every tab's description so selecting a tab doesn't switch between pinned and normal scrolling.
+  const descriptionHeight = Math.max(112, blockHeights.description);
+  const tabletHeight = Math.min(560, height - 88 - 20 - 36 - blockHeights.heading - blockHeights.controls - descriptionHeight);
+  // Keep enough room for the complete demo (including all four review answers).
+  const pin = wantsPin && tabletHeight >= 360;
   const travel = height * 1.4;
-  const compact = pin && height < 800;
-  const tabletWidth = Math.min(780, width - 64, Math.max(260, Math.min(560, height - 420)) * 4 / 3);
+  const tabletWidth = Math.min(780, width - 64, Math.max(360, tabletHeight) * 4 / 3);
+  const recordHeight = (block: keyof typeof blockHeights, value: number) => {
+    setBlockHeights(previous => Math.abs(previous[block] - value) < 0.5 ? previous : { ...previous, [block]: value });
+  };
   const clamp = { extrapolate: 'clamp' } as const;
   useDragScroll(stage, pin);
 
@@ -151,12 +161,12 @@ export function HistoryShowcase({ wide, onSection, tabs, description, children }
           <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, borderWidth: 1, borderColor: c.logoGold, opacity: 0.3, right: -190, bottom: 20 }} />
         </View>
         <View style={{ width: '100%', maxWidth: 1120, alignItems: 'center', paddingHorizontal: 16, paddingTop: pin ? 88 : 56, paddingBottom: pin ? 20 : 56, gap: pin ? 12 : 24 }}>
-          <Animated.View testID="showcase-title" style={titleFx}>
-            <Txt f="heavy" size={wide ? compact ? 40 : 52 : 32} color={c.logoInk} center accessibilityRole="header" style={{ lineHeight: wide ? compact ? 46 : 58 : 38, letterSpacing: -1, maxWidth: 920 }}>
-              Nơi học sinh khám phá lịch sử
-            </Txt>
-          </Animated.View>
-          <Animated.View pointerEvents={interactive ? 'auto' : 'none'} aria-hidden={!interactive} accessibilityElementsHidden={!interactive} style={controlsFx}>
+          <View onLayout={e => recordHeight('heading', e.nativeEvent.layout.height)} style={{ width: '100%', alignSelf: 'flex-start' }}>
+            <Animated.View testID="showcase-title" style={titleFx}>
+              <SectionHeading eyebrow="Khám phá Đông A" title="Nơi học sinh" accent="khám phá lịch sử" wide={wide} compact={compact} />
+            </Animated.View>
+          </View>
+          <Animated.View onLayout={e => recordHeight('controls', e.nativeEvent.layout.height)} pointerEvents={interactive ? 'auto' : 'none'} aria-hidden={!interactive} accessibilityElementsHidden={!interactive} style={controlsFx}>
             {tabs(interactive, compact)}
           </Animated.View>
           <Animated.View testID="showcase-frame" style={[{ alignItems: 'center', width: '100%', maxWidth: pin ? tabletWidth : 780 }, frameFx]}>
@@ -168,7 +178,7 @@ export function HistoryShowcase({ wide, onSection, tabs, description, children }
               <View style={{ position: 'absolute', top: wide ? 4 : 3, alignSelf: 'center', width: 6, height: 6, borderRadius: 3, backgroundColor: c.logoGold }} />
             </View>
           </Animated.View>
-          <Animated.View testID="showcase-description" aria-hidden={!interactive} style={[{ alignItems: 'center', gap: 6, maxWidth: 760 }, controlsFx]}>{description}</Animated.View>
+          <Animated.View testID="showcase-description" onLayout={e => recordHeight('description', e.nativeEvent.layout.height)} aria-hidden={!interactive} style={[{ alignItems: 'center', gap: 6, maxWidth: 760 }, controlsFx]}>{description}</Animated.View>
         </View>
       </View>
     </View>

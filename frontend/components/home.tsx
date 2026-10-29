@@ -20,6 +20,7 @@ import { Chip, Txt } from '@/components/ui';
 import { HomeVideo } from '@/components/home-video';
 import { HeroGallery } from '@/components/hero-gallery';
 import { HeroTitle } from '@/components/hero-title';
+import { SectionHeading } from '@/components/section-heading';
 import { HistoryShowcase } from '@/components/history-showcase';
 import { CloudPair, SectionCloud } from '@/components/section-cloud';
 import { CAMPAIGNS, CAMPAIGN_ROUTES, PHASES, PHASE_REAL } from '@/constants/campaigns';
@@ -959,7 +960,7 @@ const ExplorerSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
       onSection={onSection}
       decor={<GoldRings />}
     >
-      <Head logo title={`Ba lần kháng chiến chống Nguyên\u00A0–\u2060\u00A0Mông`} text="Chọn một cuộc kháng chiến để xem bản đồ, diễn biến chính và các màn chơi." wide={wide} />
+      <SectionHeading eyebrow="Dấu ấn lịch sử" title="Ba lần kháng chiến" accent={`chống Nguyên\u00A0–\u2060\u00A0Mông`} description="Chọn một cuộc kháng chiến để xem bản đồ, diễn biến chính và các màn chơi." wide={wide} testID="campaigns-heading" />
       <Reveal>
         <CampaignExplorer wide={wide} />
       </Reveal>
@@ -973,9 +974,7 @@ const CastSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) 
   const { c } = useTheme();
   return (
     <Band id="danh-tuong" bg={c.logoPaper} wide={wide} onSection={onSection} decor={<GoldRings />}>
-      <Txt f="heavy" size={wide ? 52 : 32} color={c.logoInk} center accessibilityRole="header" testID="generals-heading" style={{ alignSelf: 'center', lineHeight: wide ? 58 : 38, letterSpacing: wide ? -1.6 : -0.8, maxWidth: 860 }}>
-        Các vị vua thời Trần
-      </Txt>
+      <SectionHeading eyebrow="Gương mặt lịch sử" title="Các vị vua" accent="thời Trần" wide={wide} testID="generals-heading" />
       <HeroGallery wide={wide} />
     </Band>
   );
@@ -992,7 +991,7 @@ const QuotesSection: React.FC<{ wide: boolean; onSection: (id: string, y: number
   ];
   return (
     <Band id="loi-ong-cha" bg={c.logoPaper} wide={wide} onSection={onSection} decor={<GoldRings />}>
-      <Head logo title="Lời ông cha còn vang mãi" text="Những câu nói làm nên hào khí Đông A, có trong từng màn chơi của game." wide={wide} />
+      <SectionHeading eyebrow="Hào khí Đông A" title="Lời ông cha" accent="còn vang mãi" description="Những câu nói làm nên hào khí Đông A, có trong từng màn chơi của game." wide={wide} testID="quotes-heading" />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 18, justifyContent: 'center' }}>
         {QUOTES.map((q, i) => (
           <Reveal key={q.who} delay={i * 80} style={{ width: wide ? 258 : '100%' }}>
@@ -1036,7 +1035,7 @@ const HowSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) =
   const { c } = useTheme();
   return (
     <Band id="cach-hoat-dong" bg={c.logoPaper} wide={wide} onSection={onSection} decor={<GoldRings />}>
-      <Head logo title="Cách hoạt động" text="Từ lúc nhà trường cấp tài khoản đến khi cả lớp cùng ra trận, chỉ bốn bước." wide={wide} />
+      <SectionHeading eyebrow="Hướng dẫn tham gia" title="Cách" accent="hoạt động" description="Từ lúc nhà trường cấp tài khoản đến khi cả lớp cùng ra trận, chỉ bốn bước." wide={wide} testID="how-heading" />
       <View style={{ flexDirection: wide ? 'row' : 'column', gap: 16, alignItems: 'stretch' }}>
         {STEPS.map((s, i) => (
           <Reveal key={s.title} delay={i * 90} style={{ flex: wide ? 1 : undefined }}>
