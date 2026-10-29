@@ -16,6 +16,7 @@ import { ArrowLeft, CircleCheck, Eye, EyeOff, Info, MailCheck, TriangleAlert } f
 import * as authApi from '@/api/authApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { BrandLogo, FilmBackdrop } from '@/components/art';
+import { BrandWordmark } from '@/components/brand-wordmark';
 import { Txt } from '@/components/ui';
 import { FONT } from '@/constants/theme';
 import { useShake } from '@/hooks/use-motion';
@@ -199,9 +200,10 @@ const Shell: React.FC<{ portal: AdminPortal; children: React.ReactNode }> = ({ p
           <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
             <BrandLogo light subtitle={copy.label} />
           </View>
-          <Txt f="heavy" size={34} color={c.trang} accessibilityRole="header" style={{ position: 'absolute', left: 20, bottom: 40, lineHeight: 38 }}>
-            {'Bắt đầu quản trị\ncùng Đông A edu'}
-          </Txt>
+          <View accessible accessibilityRole="header" accessibilityLabel="Bắt đầu quản trị cùng Đông A edu" style={{ position: 'absolute', left: 20, right: 20, bottom: 32, gap: 2 }}>
+            <Txt f="heavy" size={30} color={c.trang} style={{ lineHeight: 34 }}>Bắt đầu quản trị cùng</Txt>
+            <BrandWordmark height={42} color={c.trang} />
+          </View>
           <Svg pointerEvents="none" width="100%" height={32} viewBox="0 0 100 32" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, right: 0, bottom: -1 }}>
             <Polygon points="0,32 100,0 100,32" fill={c.the} />
           </Svg>
@@ -222,9 +224,10 @@ const Shell: React.FC<{ portal: AdminPortal; children: React.ReactNode }> = ({ p
         <View style={{ position: 'absolute', left: '3.4%', top: 18 }}>
           <BrandLogo light subtitle={copy.label} />
         </View>
-        <Txt f="heavy" size={headline} color={c.trang} accessibilityRole="header" style={{ position: 'absolute', left: '11.5%', top: '29%', lineHeight: Math.round(headline * 0.95), letterSpacing: -1 }}>
-          {'Bắt đầu\nquản trị\ncùng\nĐông A edu'}
-        </Txt>
+        <View accessible accessibilityRole="header" accessibilityLabel="Bắt đầu quản trị cùng Đông A edu" style={{ position: 'absolute', left: '11.5%', top: '29%', gap: 12 }}>
+          <Txt f="heavy" size={headline} color={c.trang} style={{ lineHeight: Math.round(headline * 0.95), letterSpacing: -1 }}>{'Bắt đầu\nquản trị\ncùng'}</Txt>
+          <BrandWordmark height={headline * 0.9} color={c.trang} />
+        </View>
       </View>
       <Svg pointerEvents="none" width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={StyleSheet.absoluteFill}>
         <Polygon points={`${SLANT_TOP},0 100,0 100,100 ${SLANT_BOTTOM},100`} fill={c.the} />

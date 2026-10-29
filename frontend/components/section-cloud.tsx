@@ -56,7 +56,7 @@ export function SectionCloud({ color, material, pair, rim = false, wide, variant
   const reduce = useReduceMotion();
   const id = `section-cloud-${useId().replace(/:/g, '')}`;
   const [ref, visible] = useOnScreen();
-  const motion = useLoop(Platform.OS === 'web' && wide && visible, 12000 + variant * 4000);
+  const motion = useLoop(Platform.OS === 'web' && wide && visible, rim ? 20000 : 12000 + variant * 4000);
   const base = wide ? [72, 80, 64][variant] : [52, 58, 48][variant];
   const rimPad = rim ? 8 : 0; // chừa chỗ ở chân mây để viền không bị cắt
   const height = pair ? Math.round(base * 1.2) : base + rimPad;
@@ -64,7 +64,7 @@ export function SectionCloud({ color, material, pair, rim = false, wide, variant
   const scale = `scale(${tileWidth / 220} ${height / 96})`;
   const solid = rim ? `translate(0 ${rimPad}) ${scale}` : scale;
   const crest = CRESTS[variant];
-  const goldMotion = (material === 'gold' || !!pair) && Platform.OS === 'web' && wide && visible && !reduce;
+  const goldMotion = (material === 'gold' || !!pair || rim) && Platform.OS === 'web' && wide && visible && !reduce;
   const morphTiming = cloudMorphTiming(1.2, 3.2 + variant * 0.3);
   const morph = (closed = false, v: 0 | 1 | 2 = variant, end = ' V100 H0 Z') => {
     if (!goldMotion) return null;
@@ -152,12 +152,12 @@ export function SectionCloud({ color, material, pair, rim = false, wide, variant
                 <>
                   {rim ? (
                     <>
-                      <Path d={crest} transform={solid} fill="none" stroke={c.cloudGoldShadow} strokeOpacity={0.16} strokeWidth={15} vectorEffect="non-scaling-stroke" />
-                      <Path d={crest} transform={solid} fill="none" stroke={c.cloudGoldTip} strokeWidth={10} vectorEffect="non-scaling-stroke" />
+                      <MaterialPath d={crest} transform={solid} fill="none" stroke={c.cloudGoldShadow} strokeOpacity={0.16} strokeWidth={15} vectorEffect="non-scaling-stroke">{morph()}</MaterialPath>
+                      <MaterialPath d={crest} transform={solid} fill="none" stroke={c.cloudGoldTip} strokeWidth={10} vectorEffect="non-scaling-stroke">{morph()}</MaterialPath>
                     </>
                   ) : null}
-                  <Path d={`${crest} V100 H0 Z`} transform={solid} fill={color} />
-                  <Path d={crest} transform={solid} fill="none" stroke={rim ? c.cloudGoldEdge : c.logoGold} strokeWidth={rim ? 1.8 : 1} opacity={rim ? 1 : 0.45} vectorEffect={rim ? 'non-scaling-stroke' : undefined} />
+                  <MaterialPath d={`${crest} V100 H0 Z`} transform={solid} fill={color}>{morph(true)}</MaterialPath>
+                  <MaterialPath d={crest} transform={solid} fill="none" stroke={rim ? c.cloudGoldEdge : c.logoGold} strokeOpacity={rim ? 1 : 0.45} strokeWidth={rim ? 1.8 : 1} vectorEffect={rim ? 'non-scaling-stroke' : undefined}>{morph()}</MaterialPath>
                 </>
               )}
             </Pattern>

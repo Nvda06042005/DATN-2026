@@ -163,7 +163,7 @@ export function HistoryShowcase({ wide, onSection, tabs, description, children }
         <View style={{ width: '100%', maxWidth: 1120, alignItems: 'center', paddingHorizontal: 16, paddingTop: pin ? 88 : 56, paddingBottom: pin ? 20 : 56, gap: pin ? 12 : 24 }}>
           <View onLayout={e => recordHeight('heading', e.nativeEvent.layout.height)} style={{ width: '100%', alignSelf: 'flex-start' }}>
             <Animated.View testID="showcase-title" style={titleFx}>
-              <SectionHeading eyebrow="Khám phá Đông A" title="Nơi học sinh" accent="khám phá lịch sử" wide={wide} compact={compact} />
+              <SectionHeading eyebrow="Khám phá Đông A" title="Nơi học sinh" accent="khám phá lịch sử" wide={wide} compact={compact} singleLine testID="showcase-heading" />
             </Animated.View>
           </View>
           <Animated.View onLayout={e => recordHeight('controls', e.nativeEvent.layout.height)} pointerEvents={interactive ? 'auto' : 'none'} aria-hidden={!interactive} accessibilityElementsHidden={!interactive} style={controlsFx}>

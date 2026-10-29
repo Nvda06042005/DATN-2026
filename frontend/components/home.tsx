@@ -1,12 +1,12 @@
 /**
  * Các khối của trang chủ công khai: bố cục kiểu Papumba (chữ trắng khổng lồ ở giữa, nav viên thuốc trắng, khối màu bão hòa xen kẽ, khung máy tính bảng,
- * dải thẻ nghiêng chạy ngang, thẻ lời ông cha nhiều màu) nhưng hình ảnh và màu sắc lấy từ cuộc kháng chiến chống quân Nguyên – Mông thời Trần:
+ * gallery chiến dịch xoay dạng barrel, thẻ lời ông cha nhiều màu) nhưng hình ảnh và màu sắc lấy từ cuộc kháng chiến chống quân Nguyên – Mông thời Trần:
  * cảnh thành Thăng Long – thuyền chiến – bãi cọc Bạch Đằng, đỏ son, vàng, lam sông, giấy dó, họa tiết sóng nước và ấn đỏ.
  * Nội dung lịch sử đối chiếu Wikipedia tiếng Việt "Chiến tranh Nguyên Mông – Đại Việt" và ba bài chi tiết từng lần; số liệu lấy thẳng từ dữ liệu game.
  * Khối luôn tối/sáng cố định dùng màu `trang`/`dem`; thẻ và chữ dùng màu đổi theo chế độ sáng/tối. Chỉ chân trang có một liên kết "Trang quản lý" tới /admin; không có liên kết tới /school-manager-admin.
  */
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
+import { useCallback, useEffect, useRef, useState, type ComponentRef } from 'react';
+import { Animated, Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -23,8 +23,11 @@ import { ClosingTitle, HeroTitle } from '@/components/hero-title';
 import { SectionHeading } from '@/components/section-heading';
 import { HistoryShowcase } from '@/components/history-showcase';
 import { CloudPair, SectionCloud } from '@/components/section-cloud';
+import { ThreadsBackground } from '@/components/threads-background';
+import { PhaseGallery } from '@/components/phase-gallery';
 import { CAMPAIGNS, PHASES, PHASE_REAL } from '@/constants/campaigns';
 import { FAQ_HOME } from '@/constants/faq';
+import { MAP_IMAGE_CREDITS } from '@/constants/map-credits';
 import { ENEMIES } from '@/constants/game';
 import { HERO_BY_ID } from '@/constants/heroes';
 import { ANSWER_STYLES, type Palette } from '@/constants/theme';
@@ -240,57 +243,6 @@ export const Band: React.FC<{
   );
 };
 
-/**
- * Dải thẻ chạy ngang liên tục (nhân đôi nội dung để nối liền); rê chuột vào thì dừng để đọc, bỏ chuột ra chạy tiếp từ chỗ đang dừng.
- * Giảm chuyển động thì chuyển thành dải cuộn ngang bằng tay.
- */
-const Marquee: React.FC<{ children: React.ReactNode; speed?: number }> = ({ children, speed = 34 }) => {
-  const reduce = useReduceMotion();
-  const [w, setW] = useState(0);
-  const [hold, setHold] = useState(false);
-  const x = useRef(new Animated.Value(0)).current;
-  const at = useRef(0);
-  useEffect(() => {
-    if (!w || reduce || hold) return undefined;
-    let alive = true;
-    const run = () => {
-      Animated.timing(x, { toValue: -w, duration: ((w + at.current) / speed) * 1000, easing: Easing.linear, useNativeDriver: Platform.OS !== 'web' }).start(({ finished }) => {
-        if (finished && alive) {
-          x.setValue(0);
-          at.current = 0;
-          run();
-        }
-      });
-    };
-    run();
-    return () => {
-      alive = false;
-      x.stopAnimation((v) => {
-        at.current = v;
-      });
-    };
-  }, [w, reduce, hold, speed, x]);
-  if (reduce) {
-    return (
-      <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ paddingHorizontal: 16 }}>
-        {children}
-      </ScrollView>
-    );
-  }
-  return (
-    <Pressable focusable={false} accessible={false} onHoverIn={() => setHold(true)} onHoverOut={() => setHold(false)} style={{ width: '100%', overflow: 'hidden' }}>
-      <Animated.View style={{ flexDirection: 'row', transform: [{ translateX: x }] }}>
-        <View onLayout={(e) => setW(e.nativeEvent.layout.width)} style={{ flexDirection: 'row' }}>
-          {children}
-        </View>
-        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row' }}>
-          {children}
-        </View>
-      </Animated.View>
-    </Pressable>
-  );
-};
-
 // ---------------------------------------------------------------------- thanh điều hướng
 /** Các mục trên thanh điều hướng: "Trang chủ" cuộn về đầu trang, còn lại cuộn tới phần có id tương ứng */
 const NAV_ITEMS = [{ id: 'home', short: 'Trang chủ' }, ...NAV.map((n) => ({ id: n.id, short: n.short }))];
@@ -332,7 +284,7 @@ export const Header: React.FC<{
         ]}
       >
         <Pressable onPress={() => go('home')} accessibilityRole="link" accessibilityLabel="Về đầu trang" hitSlop={4} style={{ minHeight: 44, justifyContent: 'center' }}>
-          <BrandLogo light={!stuck && !paper} paper={!stuck && paper} compact={width < 380} />
+          <BrandLogo light={!stuck && !paper} paper={!stuck && paper} />
         </Pressable>
         {WEB && wide && (
           <Animated.View accessibilityRole="menu" style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 999, backgroundColor: navBg, paddingHorizontal: 8, height: 50 }}>
@@ -456,58 +408,63 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
 };
 
 // ---------------------------------------------------------------------- chín màn chiến dịch
-/** Màn rộng: dải tự chạy (dừng khi rê chuột). Màn hẹp (điện thoại, không có chuột để dừng): dải vuốt ngang bằng tay */
-const PhaseTrack: React.FC<{ auto: boolean; children: React.ReactNode }> = ({ auto, children }) =>
-  auto ? (
-    <Marquee speed={40}>{children}</Marquee>
-  ) : (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingLeft: 16 }} accessibilityLabel="Chín màn chiến dịch, vuốt ngang để xem">
-      {children}
-    </ScrollView>
-  );
-
-/** Dải thẻ nghiêng chạy ngang: chín màn chiến dịch, mỗi thẻ là một trận đánh thật với ngày tháng và diễn biến theo Wikipedia (xem PHASE_REAL) */
-const PhaseMarquee: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
+/** Gallery 3D lấy cảm hứng từ Barrel của Motion; mỗi màn mở cửa sổ đọc riêng. */
+const PhaseCampaignGallery: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
-  /** Đỏ son, vàng và xanh mực của logo (lần 3 dùng xanh lá đậm `logoInk`, không phải xanh dương) */
+  const { height } = useWindowDimensions();
+  const [selected, setSelected] = useState<string | null>(null);
+  const lastFocus = useRef<HTMLElement | null>(null);
+  const closeButton = useRef<ComponentRef<typeof View>>(null);
+  const reduce = useReduceMotion();
   const colors = [c.son, c.vang, c.logoInk];
-  return (
-    <View id="chin-man" onLayout={(e) => onSection('chin-man', e.nativeEvent.layout.y)} style={{ width: '100%', backgroundColor: c.xam, paddingVertical: wide ? 80 : 48, gap: 20, overflow: 'hidden' }}>
-      <PatternOverlay />
-      <View style={{ paddingHorizontal: 16 }}>
-        <SectionHeading eyebrow="Theo dấu chiến dịch" title="Chín màn" accent="chiến dịch" description="Mỗi màn là một trận đánh có thật, từ Bình Lệ Nguyên đến Bạch Đằng." wide={wide} testID="phases-heading" />
+  const chosen = selected ? PHASE_REAL[selected] : null;
+  const phase = PHASES.find(p => p.id === selected);
+  const close = useCallback(() => setSelected(null), []);
+  useEffect(() => {
+    if (!WEB || !selected) return undefined;
+    // Also accept Escape while the fade-in is still running, before the native modal activates.
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); close(); } };
+    document.addEventListener('keydown', escape, true);
+    return () => document.removeEventListener('keydown', escape, true);
+  }, [selected, close]);
+  const items = PHASES.map((p, i) => {
+    const r = PHASE_REAL[p.id];
+    const fg = p.campaign === 2 ? c.dem : c.trang;
+    return { id: p.id, title: r.title, content: (
+      <View style={[{ width: '100%', height: '100%', borderRadius: 28, overflow: 'hidden', backgroundColor: c.the }, shadow(c, 'sm')]}>
+        <View style={{ backgroundColor: colors[p.campaign - 1], padding: 18, gap: 5, minHeight: wide ? 170 : 148 }}>
+          <Txt f="bold" size={12} color={fg} upper>{`Màn ${i + 1} · Lần ${p.campaign}`}</Txt>
+          <Txt f="heavy" size={14} color={fg}>{r.date}</Txt>
+          <Txt f="heavy" size={wide ? 23 : 20} numberOfLines={3} color={fg} style={{ lineHeight: wide ? 29 : 25 }}>{r.title}</Txt>
+        </View>
+        <View style={{ padding: 18, flex: 1, justifyContent: 'space-between', gap: 12 }}>
+          <Txt size={14} numberOfLines={4} color={c.logoInk} style={{ lineHeight: 22 }}>{r.text}</Txt>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Txt f="bold" size={14} color={c.logoRed}>Đọc chi tiết</Txt><ArrowUpRight size={17} color={c.logoRed} /></View>
+        </View>
       </View>
-      <PhaseTrack auto={wide}>
-        {PHASES.map((p, i) => {
-          const r = PHASE_REAL[p.id];
-          const fg = p.campaign === 2 ? c.dem : c.trang;
-          return (
-            <View
-              key={p.id}
-              accessible
-              accessibilityLabel={`Màn ${i + 1}, lần ${p.campaign}, ${r.date}. ${r.title}. ${r.text}`}
-              style={[{ width: wide ? 320 : 290, marginRight: 22, marginVertical: 22, borderRadius: 28, overflow: 'hidden', backgroundColor: c.the, transform: [{ rotate: i % 2 ? '1.6deg' : '-1.6deg' }] }, shadow(c, 'sm')]}
-            >
-              <View style={{ backgroundColor: colors[p.campaign - 1], paddingHorizontal: 18, paddingTop: 16, paddingBottom: 14, gap: 3 }}>
-                <Txt f="bold" size={12} color={fg} upper>
-                  {`Màn ${i + 1} · Lần ${p.campaign}`}
-                </Txt>
-                <Txt f="heavy" size={15} color={fg}>
-                  {r.date}
-                </Txt>
-                <Txt f="heavy" size={wide ? 23 : 21} color={fg} style={{ lineHeight: wide ? 28 : 26 }}>
-                  {r.title}
-                </Txt>
-              </View>
-              <View style={{ padding: 18, flex: 1 }}>
-                <Txt size={14} color={c.xanhMuc2} style={{ lineHeight: 22 }}>
-                  {r.text}
-                </Txt>
-              </View>
+    ) };
+  });
+  return (
+    <View id="chin-man" onLayout={e => onSection('chin-man', e.nativeEvent.layout.y)} style={{ width: '100%', backgroundColor: c.xam, paddingVertical: wide ? 80 : 48, gap: 20, overflow: 'hidden' }}>
+      <PatternOverlay />
+      <ThreadsBackground paused={!!selected} />
+      <View style={{ paddingHorizontal: 16 }}>
+        <SectionHeading eyebrow="Theo dấu chiến dịch" title="Chín màn" accent="chiến dịch" description="Mỗi màn là một trận đánh có thật, từ Bình Lệ Nguyên đến Bạch Đằng." wide={wide} singleLine testID="phases-heading" />
+      </View>
+      <PhaseGallery items={items} wide={wide} paused={!!selected} onSelect={id => { if (WEB) lastFocus.current = document.activeElement as HTMLElement; setSelected(id); }} />
+      <Modal visible={!!selected} transparent animationType={reduce ? 'none' : 'fade'} onRequestClose={close} onShow={() => { if (WEB) closeButton.current?.focus(); }} onDismiss={() => { if (WEB) lastFocus.current?.focus({ preventScroll: true }); }}>
+        <View role="dialog" aria-modal accessibilityViewIsModal aria-label={chosen ? `Chi tiết ${chosen.title}` : 'Chi tiết chiến dịch'} style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: wide ? 32 : 14 }}>
+          <Pressable testID="phase-detail-backdrop" onPress={close} accessibilityRole="button" accessibilityLabel="Đóng chi tiết chiến dịch" style={[StyleSheet.absoluteFill, { backgroundColor: c.den, opacity: 0.75 }]} />
+          <View testID="phase-detail" style={{ width: '100%', maxWidth: 640, maxHeight: height - 70, backgroundColor: c.logoPaper, borderRadius: 28, overflow: 'hidden', borderWidth: 1, borderColor: c.logoGold }}>
+            <View style={{ padding: 24, paddingRight: 74, gap: 6, backgroundColor: phase ? colors[phase.campaign - 1] : c.logoInk }}>
+              <Txt f="bold" size={13} color={phase?.campaign === 2 ? c.dem : c.trang}>{chosen?.date}</Txt>
+              <Txt f="heavy" size={wide ? 28 : 23} color={phase?.campaign === 2 ? c.dem : c.trang} accessibilityRole="header">{chosen?.title}</Txt>
             </View>
-          );
-        })}
-      </PhaseTrack>
+            <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ padding: 24 }}><Txt size={wide ? 17 : 16} color={c.logoInk} style={{ lineHeight: 28 }}>{chosen?.text}</Txt></ScrollView>
+            <Pressable ref={closeButton} testID="phase-detail-close" onPress={close} accessibilityRole="button" accessibilityLabel="Đóng cửa sổ chi tiết" style={{ position: 'absolute', top: 12, right: 12, height: 44, width: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: c.logoPaper }}><X size={23} color={c.logoInk} /></Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -931,7 +888,7 @@ const CastSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) 
   const { c } = useTheme();
   return (
     <Band id="danh-tuong" bg={c.logoPaper} wide={wide} onSection={onSection} decor={<GoldRings />}>
-      <SectionHeading eyebrow="Gương mặt lịch sử" title="Các vị vua" accent="thời Trần" wide={wide} testID="generals-heading" />
+      <SectionHeading eyebrow="Gương mặt lịch sử" title="Các vị vua" accent="thời Trần" wide={wide} singleLine testID="generals-heading" />
       <HeroGallery wide={wide} />
     </Band>
   );
@@ -948,7 +905,7 @@ const QuotesSection: React.FC<{ wide: boolean; onSection: (id: string, y: number
   ];
   return (
     <Band id="loi-ong-cha" bg={c.logoPaper} wide={wide} onSection={onSection} decor={<GoldRings />}>
-      <SectionHeading eyebrow="Hào khí Đông A" title="Lời ông cha" accent="còn vang mãi" description="Những câu nói làm nên hào khí Đông A, có trong từng màn chơi của game." wide={wide} testID="quotes-heading" />
+      <SectionHeading eyebrow="Hào khí Đông A" title="Lời ông cha" accent="còn vang mãi" description="Những câu nói làm nên hào khí Đông A, có trong từng màn chơi của game." wide={wide} singleLine testID="quotes-heading" />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 18, justifyContent: 'center' }}>
         {QUOTES.map((q, i) => (
           <Reveal key={q.who} delay={i * 80} style={{ width: wide ? 258 : '100%' }}>
@@ -992,7 +949,7 @@ const HowSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) =
   const { c } = useTheme();
   return (
     <Band id="cach-hoat-dong" bg={c.logoPaper} wide={wide} onSection={onSection} decor={<GoldRings />}>
-      <SectionHeading eyebrow="Hướng dẫn tham gia" title="Cách" accent="hoạt động" description="Từ lúc nhà trường cấp tài khoản đến khi cả lớp cùng ra trận, chỉ bốn bước." wide={wide} testID="how-heading" />
+      <SectionHeading eyebrow="Hướng dẫn tham gia" title="Cách" accent="hoạt động" description="Từ lúc nhà trường cấp tài khoản đến khi cả lớp cùng ra trận, chỉ bốn bước." wide={wide} singleLine testID="how-heading" />
       <View style={{ flexDirection: wide ? 'row' : 'column', gap: 16, alignItems: 'stretch' }}>
         {STEPS.map((s, i) => (
           <Reveal key={s.title} delay={i * 90} style={{ flex: wide ? 1 : undefined }}>
@@ -1144,7 +1101,8 @@ export const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void; 
   return (
     <View style={{ width: '100%', backgroundColor: c.logoInk, overflow: 'hidden' }}>
       <PatternOverlay opacity={0.05} />
-      <WaveBand testID="footer-wave-band" bg={c.son} line={c.vang} height={24} opacity={0.05} />
+      <ThreadsBackground />
+      <WaveBand testID="footer-wave-band" bg={c.son} line={c.vang} height={24} opacity={0.2} />
       <View style={{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: wide ? 56 : 40, paddingBottom: insets.bottom + 20, gap: 30 }}>
         <View style={{ flexDirection: wide ? 'row' : 'column', justifyContent: 'space-between', gap: wide ? 40 : 32 }}>
           <View style={{ width: wide ? 340 : '100%', gap: 16 }}>
@@ -1168,6 +1126,7 @@ export const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void; 
             <FootLink label="Điều khoản sử dụng" arrow onPress={() => router.push('/dieu-khoan-su-dung')} />
             <FootLink label="Trang quản lý" arrow onPress={() => router.push('/admin')} />
             <FootLink label="Thông tin hình ảnh" onPress={() => router.push('/thong-tin-hinh-anh')} />
+            {MAP_IMAGE_CREDITS.map(map => <FootLink key={map.id} label={`Bản đồ lần ${map.id} · Wikipedia`} arrow onPress={() => { void Linking.openURL(map.url); }} />)}
           </View>
         </View>
         <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(250, 244, 231, 0.18)', paddingTop: 18, flexDirection: wide ? 'row' : 'column', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
@@ -1196,12 +1155,12 @@ export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; o
   <>
     <HeroSection wide={wide} go={go} />
     <View style={{ backgroundColor: c.xam }}>
-      <WaveBand testID="hero-wave-band" bg={c.son} line={c.vang} height={24} opacity={0.05} />
+      <WaveBand testID="hero-wave-band" bg={c.son} line={c.vang} height={24} opacity={0.2} />
     </View>
-    <PhaseMarquee wide={wide} onSection={onSection} />
+    <PhaseCampaignGallery wide={wide} onSection={onSection} />
     <CloudPair upper={c.xam} lower={c.logoPaper} wide={wide} variant={1} />
     <HomeVideo wide={wide} onImmersiveChange={onVideoImmersiveChange} />
-    <SectionCloud color={c.logoPaper} wide={wide} direction="up" variant={1} />
+    <SectionCloud color={c.logoPaper} rim wide={wide} direction="up" variant={1} />
     <ShowcaseSection wide={wide} onSection={onSection} />
     <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={1} />
     <ExplorerSection wide={wide} onSection={onSection} />

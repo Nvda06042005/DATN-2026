@@ -3,6 +3,8 @@ import MetallicPaint from '@/components/react-bits/metallic-paint.web';
 import { FONT } from '@/constants/theme';
 import { useReduceMotion } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
+import { BrandWordmark, brandMaskSvg } from '@/components/brand-wordmark';
+import { BRAND_CORE_WIDTH, BRAND_HEIGHT } from '@/constants/brand';
 
 type Mask = { canvas: HTMLCanvasElement; width: number; height: number; padding: number };
 
@@ -87,6 +89,35 @@ function MetallicWord({ text, family, tint, tracking, enabled, testID = 'hero-ti
   );
 }
 
+function MetallicBrand({ height, tint, enabled, testID }: { height: number; tint: string; enabled: boolean; testID: string }) {
+  const width = height * BRAND_CORE_WIDTH / BRAND_HEIGHT;
+  const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    setReady(false);
+    if (!enabled) { setCanvas(null); return undefined; }
+    let active = true;
+    const image = new Image();
+    image.onload = () => {
+      if (!active) return;
+      const mask = document.createElement('canvas');
+      mask.width = Math.ceil((width + 24) * 2); mask.height = (height + 24) * 2;
+      const ctx = mask.getContext('2d');
+      if (!ctx) return;
+      ctx.scale(2, 2); ctx.drawImage(image, 12, 12, width, height); setCanvas(mask);
+    };
+    image.src = `data:image/svg+xml,${encodeURIComponent(brandMaskSvg(tint))}`;
+    return () => { active = false; };
+  }, [enabled, height, tint, width]);
+  return (
+    <span data-testid={testID} style={{ position: 'relative', display: 'inline-block', width, height, verticalAlign: '-0.13em', color: tint }}>
+      <span style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clipPath: 'inset(50%)' }}>Đông A</span>
+      <BrandWordmark height={height} color={tint} edu={false} />
+      {enabled && canvas && <MetallicPaint sourceCanvas={canvas} color={tint} density={1.8} softness={0.4} dispersion={0.02} distortion={0.05} edgeBend={0.5} speed={0.32} scale={1} mouseTilt={0.15} intro={false} dpr={2} onReady={() => setReady(true)} onError={() => setReady(false)} style={{ position: 'absolute', left: -12, top: -12, width: width + 24, height: height + 24, pointerEvents: 'none', opacity: ready ? 0.7 : 0 }} />}
+    </span>
+  );
+}
+
 export function HeroTitle({ wide }: { wide: boolean }) {
   const { c } = useTheme();
   const reduce = useReduceMotion();
@@ -94,7 +125,7 @@ export function HeroTitle({ wide }: { wide: boolean }) {
     <h1 data-testid="hero-title" style={{ margin: 0, maxWidth: '100%', textAlign: 'center', fontFamily: FONT.heavy, fontWeight: 400, fontSize: wide ? 96 : 50, lineHeight: wide ? '108px' : '58px', textShadow: `0 4px 22px ${c.den}` }}>
       <MetallicWord text="Hào Khí" family={FONT.heavy} tint={c.trang} tracking={wide ? -3.6 : -1.8} enabled={wide && !reduce} />
       {' '}
-      <MetallicWord text="Đông A" family={FONT.serifItalic} tint={c.sonSang} tracking={wide ? -2 : -1} enabled={wide && !reduce} />
+      <MetallicBrand height={wide ? 106 : 58} tint={c.sonSang} enabled={wide && !reduce} testID="hero-title-brand" />
     </h1>
   );
 }
@@ -110,7 +141,7 @@ export function ClosingTitle({ wide }: { wide: boolean }) {
       <br />
       {wide ? <MetallicWord text="với" family={FONT.heavy} tint={c.trang} tracking={-2} enabled={enabled} testID="closing-title-word" /> : 'với'}
       {' '}
-      <MetallicWord text="Đông A" family={FONT.serifItalic} tint={c.sonSang} tracking={wide ? -2 : -1} enabled={enabled} testID="closing-title-accent" />
+      <MetallicBrand height={wide ? 70 : 42} tint={c.sonSang} enabled={enabled} testID="closing-title-accent" />
       {wide ? <MetallicWord text="!" family={FONT.heavy} tint={c.trang} tracking={-2} enabled={enabled} testID="closing-title-word" /> : '!'}
     </h2>
   );

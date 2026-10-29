@@ -13,6 +13,7 @@ import { ELEMENTS, ENEMY_TYPES, MAP_PLACES } from '@/constants/game';
 import { ANSWER_STYLES, FONT, GRADE_STYLE, type AnswerShape } from '@/constants/theme';
 import { useBob, useReduceMotion } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
+import { BrandWordmark } from '@/components/brand-wordmark';
 import { useDrift, useLoop, useOnScreen } from '@/components/motion';
 import type { PixelPaths } from '@/lib/pixel-art';
 import type { Grade } from '@/types/api';
@@ -1013,18 +1014,15 @@ export const CloudBank: React.FC<{ color: string; flip?: boolean; height?: numbe
 /** Biểu tượng logo: hình vuông bo góc cắt từ assets/logo.jpg (chiến binh cầm cờ đỏ trước mặt trời) */
 const LOGO_MARK = require('../assets/logo-mark.png');
 
-/** Logo "Đông A edu": biểu tượng chiến binh kèm tên chữ Manrope (light: chữ trắng cho nền tối) */
+/** Logo chính chủ: biểu tượng chiến binh và nét chữ gốc, dùng chung ở mọi trang. */
 export const BrandLogo: React.FC<{ compact?: boolean; subtitle?: string; light?: boolean; paper?: boolean }> = ({ compact = false, subtitle, light = false, paper = false }) => {
-  const { c } = useTheme();
+  const { c, dark } = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} accessible accessibilityRole="header" accessibilityLabel={subtitle ? `Đông A edu – ${subtitle}` : 'Đông A edu'}>
       <Image source={LOGO_MARK} accessibilityIgnoresInvertColors style={{ width: 44, height: 44, borderRadius: 12 }} />
       {!compact && (
         <View>
-          <Text style={{ fontFamily: FONT.heavy, fontSize: 21, lineHeight: 25, letterSpacing: -0.3, color: light ? '#ffffff' : paper ? c.logoInk : c.muc }}>
-            Đông A
-            <Text style={{ fontFamily: FONT.semibold, fontSize: 14, letterSpacing: 0, color: light ? '#ffd479' : paper ? c.logoRed : c.sonChu }}> edu</Text>
-          </Text>
+          <BrandWordmark height={28} color={light ? c.trang : paper ? c.logoInk : dark ? c.trang : c.logoInk} />
           {subtitle && (
             <Text style={{ fontFamily: FONT.bold, fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase', color: light ? 'rgba(255,255,255,0.85)' : c.muc2 }}>{subtitle}</Text>
           )}
