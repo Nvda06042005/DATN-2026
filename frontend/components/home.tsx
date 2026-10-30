@@ -1076,9 +1076,11 @@ const FOOT_TEXT = 'rgba(250, 244, 231, 0.78)';
 
 const FootLink: React.FC<{ label: string; onPress: () => void; arrow?: boolean }> = ({ label, onPress, arrow = false }) => {
   const { c } = useTheme();
+  const [hover, setHover] = useState(false), [focus, setFocus] = useState(false);
+  const active = hover || focus;
   return (
-    <Pressable accessibilityRole="link" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.7 : 1 })}>
-      <Txt f="medium" size={15} color={c.logoPaper}>
+    <Pressable accessibilityRole="link" accessibilityLabel={label} onPress={onPress} onHoverIn={() => setHover(true)} onHoverOut={() => setHover(false)} onFocus={() => setFocus(true)} onBlur={() => setFocus(false)} style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: pressed ? 0.7 : 1 })}>
+      <Txt f="medium" size={15} color={active ? c.logoGold : c.logoPaper} style={{ textDecorationLine: active ? 'underline' : 'none' }}>
         {label}
       </Txt>
       {arrow ? <ArrowUpRight size={16} color={c.logoGold} strokeWidth={2.2} /> : null}
@@ -1109,17 +1111,15 @@ export const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void; 
             </Txt>
           </View>
           {WEB && (
-            <View style={{ minWidth: wide ? 220 : undefined }}>
+            <View testID="footer-explore-column" style={{ minWidth: wide ? 220 : undefined }}>
               {head('Khám phá')}
               {FOOT_LINKS.map((l) => (
                 <FootLink key={l.id} label={l.label} onPress={() => go(l.id)} />
               ))}
             </View>
           )}
-          <View style={{ width: wide ? 300 : '100%', gap: 4 }}>
-            <Txt size={14.5} color={FOOT_TEXT} style={{ lineHeight: 23, marginBottom: 6 }}>
-              Khám phá lịch sử thời Trần
-            </Txt>
+          <View testID="footer-history-column" style={{ width: wide ? 300 : '100%' }}>
+            {head('Khám phá lịch sử thời Trần')}
             <FootLink label="Điều khoản sử dụng" arrow onPress={() => router.push('/dieu-khoan-su-dung')} />
             <FootLink label="Trang quản lý" arrow onPress={() => router.push('/admin')} />
             <FootLink label="Thông tin hình ảnh" onPress={() => router.push('/thong-tin-hinh-anh')} />

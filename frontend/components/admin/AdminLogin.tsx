@@ -29,7 +29,7 @@ type Step = 'login' | 'forgot' | 'reset';
 
 const COPY: Record<AdminPortal, { label: string; placeholder: string; account: string }> = {
   root_admin: {
-    label: 'Quản trị tổng',
+    label: 'Quản lý tổng',
     placeholder: 'Tên đăng nhập quản trị',
     account: 'Tài khoản quản trị tổng được cấu hình khi triển khai hệ thống, không có đăng ký tự do.',
   },
