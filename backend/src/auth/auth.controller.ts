@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post, ServiceUnavailableException, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Req, ServiceUnavailableException, UseGuards } from '@nestjs/common';
 import { ArrayMaxSize, IsArray, IsIn, IsInt, IsOptional, IsString, Length } from 'class-validator';
 import { SchoolService } from '../admin/school.service';
 import { DatabaseService, UserRow } from '../database/database.service';
@@ -63,6 +63,14 @@ export class AuthController {
   async resetPassword(@Body() body: ResetPasswordDto) {
     if (!this.db.ready) throw new ServiceUnavailableException('Kho tài khoản chưa sẵn sàng. Kiểm tra cấu hình cơ sở dữ liệu.');
     await this.auth.resetPassword(body.token, body.new_password);
+    return { ok: true };
+  }
+
+  @Post('logout')
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  async logout(@Req() request: { headers: { authorization: string } }) {
+    await this.auth.logout(request.headers.authorization.slice(7).trim());
     return { ok: true };
   }
 

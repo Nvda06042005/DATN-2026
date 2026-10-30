@@ -188,3 +188,12 @@ Brevo có thể [thay địa chỉ From dùng Gmail bằng địa chỉ relay](h
 - Module trong `ai/` giữ tên phẳng (`create_model`, `context_manager`, …) vì `ai/models/dong_a_nlp_model.joblib` được pickle theo các tên này; mô hình tạo bằng scikit-learn 1.7.x + numpy 2.x.
 - Ngân hàng câu hỏi của game: `ai/data/game_content.json` (backend đọc khi khởi động). Không sửa tay `knowledge_base.json`/`q_matrix.json` (sinh bởi `ai/data_splitter.py`).
 - Tài khoản và mật khẩu cũ vẫn dùng được (cùng định dạng băm); sau khi chuyển backend, người dùng chỉ cần đăng nhập lại một lần.
+
+### Tài khoản và bảo mật TM.SEC (GĐ1)
+
+Trang admin có danh sách/tìm kiếm/lọc trạng thái, tạo tài khoản quản trị, chi tiết và phân quyền,
+khóa/mở khóa, lịch sử đăng nhập và nhật ký thao tác. Quyền được kiểm tra cả giao diện lẫn API;
+quản trị trường chỉ quản lý giáo viên/học sinh trong trường. Mật khẩu mới dùng Bcrypt và nâng cấp dần tài khoản PBKDF2 khi đăng nhập.
+Đăng xuất thu hồi token trên máy chủ; khóa/đổi quyền/đổi mật khẩu thu hồi các phiên cũ.
+Cấu trúc nằm trong migration 008, lịch sử mới bật RLS và không chứa mật khẩu hay raw token.
+Xem [chức năng, API và cách kiểm chứng](docs/ADMIN_SECURITY.md).

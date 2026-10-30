@@ -24,3 +24,6 @@ export const resetPassword = (token: string, newPassword: string) =>
 /** Đổi mật khẩu; server trả phiên mới (token cũ hết hiệu lực) */
 export const changePassword = (token: string, currentPassword: string, newPassword: string) =>
   apiRequest<AuthSession>('/api/auth/change-password', { token, body: { current_password: currentPassword, new_password: newPassword } });
+
+/** Revoke the current access token on the server before clearing the local session. */
+export const logout = (token: string) => apiRequest<{ ok: boolean }>('/api/auth/logout', { token, body: {} });

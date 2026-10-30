@@ -117,6 +117,7 @@ interface Player {
 interface Room {
   pin: string;
   hostId: number;
+  schoolId: number | null;
   className: string;
   title: string;
   scope: string;
@@ -281,7 +282,7 @@ export class LiveHub {
     const picked = this.content.pick(this.scopeUnits(scope), count, new Set(), LIVE_TYPES).filter((q) => LIVE_TYPES.has(q.type));
     if (!picked.length) return this.error(conn, 'no_questions');
     const room: Room = {
-      pin: this.newPin(), hostId: user.id, className: user.class_name, title, scope, questions: picked, served: picked.map((q) => this.serve(q)), host: conn,
+      pin: this.newPin(), hostId: user.id, schoolId: user.school_id, className: user.class_name, title, scope, questions: picked, served: picked.map((q) => this.serve(q)), host: conn,
       phase: 'lobby', index: -1, locked: false, players: new Map(), banned: new Set(), stats: [], qStarted: 0, deadline: 0, timer: null, created: Date.now(),
       hostLeft: null, startedAt: null, saved: false, sessionId: null,
     };
@@ -301,7 +302,7 @@ export class LiveHub {
     if (now - since > FAILED_JOIN_WINDOW_MS) [fails, since] = [0, now];
     if (fails >= MAX_FAILED_JOINS) return this.error(conn, 'too_many');
     const room = this.rooms.get(pin);
-    if (!room || room.phase === 'podium' || !user.class_name || room.className !== user.class_name) {
+    if (!room || room.phase === 'podium' || !user.class_name || room.className !== user.class_name || room.schoolId !== user.school_id) {
       // Sai PIN hoặc phòng của lớp khác: cùng một thông báo để không dò được phòng của lớp khác
       this.failedJoins.set(user.id, { fails: fails + 1, since });
       return this.error(conn, 'not_found');

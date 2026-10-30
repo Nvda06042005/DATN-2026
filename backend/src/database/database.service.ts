@@ -17,6 +17,7 @@ export interface UserRow {
   role: Role;
   class_name: string | null;
   password_hash: string;
+  token_version: number;
   must_change_password: boolean;
   is_active: boolean;
   created_at: string;
@@ -114,7 +115,7 @@ export type Q = <T = Record<string, unknown>>(sql: string, params?: unknown[]) =
 
 export const USER_COLUMNS =
   'id, username, full_name, role, class_name, password_hash, must_change_password, is_active, created_at, last_login_at, ' +
-  'school_id, user_code, school_code, region, city, birth_date, school_year, email, grade, deleted_at, purge_at';
+  'school_id, user_code, school_code, region, city, birth_date, school_year, email, grade, deleted_at, purge_at, token_version';
 const PROFILE_FIELDS = ['school_id', 'user_code', 'school_code', 'region', 'city', 'birth_date', 'school_year', 'email', 'grade'] as const;
 const PROGRESS_INT_FIELDS = [
   'xp', 'gems', 'streak', 'lessons_completed', 'perfect_runs', 'questions_answered', 'questions_correct',
@@ -281,8 +282,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ------------------------------------------------------------------ tài khoản
-  async getById(id: number): Promise<UserRow | null> {
-    const rows = await this.query(`SELECT ${USER_COLUMNS} FROM app_users WHERE id = $1`, [id]);
+  async getById(id: number, q: Q = (sql, params) => this.query(sql, params)): Promise<UserRow | null> {
+    const rows = await q(`SELECT ${USER_COLUMNS} FROM app_users WHERE id = $1`, [id]);
     return rows.length ? toUser(rows[0]) : null;
   }
 
@@ -317,20 +318,22 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     return toUser(rows[0]);
   }
 
-  async updateUser(id: number, fields: { full_name?: string; class_name?: string | null; is_active?: boolean; email?: string | null; grade?: number | null }): Promise<UserRow | null> {
-    const allowed = Object.entries(fields).filter(([, v]) => v !== undefined);
+  async updateUser(id: number, fields: { full_name?: string; class_name?: string | null; is_active?: boolean; email?: string | null; grade?: number | null }, q: Q = (sql, params) => this.query(sql, params)): Promise<UserRow | null> {
+    const allowed = Object.entries(fields).filter(([k, v]) => ['full_name', 'class_name', 'is_active', 'email', 'grade'].includes(k) && v !== undefined);
     if (allowed.length) {
-      const sets = allowed.map(([k], i) => `${k} = $${i + 1}`).join(', ');
+      const sets = allowed.map(([k], i) => `${k} = $${i + 1}`);
+      const active = allowed.findIndex(([k]) => k === 'is_active');
+      if (active >= 0) sets.push(`token_version = token_version + CASE WHEN is_active <> $${active + 1} THEN 1 ELSE 0 END`);
       const values = allowed.map(([k, v]) => (k === 'is_active' ? (v ? 1 : 0) : v));
-      await this.query(`UPDATE app_users SET ${sets} WHERE id = $${allowed.length + 1}`, [...values, id]);
-      const u = await this.getById(id);
-      if (u) await this.query('UPDATE app_users SET search_text = $1 WHERE id = $2', [searchText(u.full_name, u.username, u.user_code, u.email, u.class_name), id]);
+      await q(`UPDATE app_users SET ${sets.join(', ')} WHERE id = $${allowed.length + 1}`, [...values, id]);
+      const u = await this.getById(id, q);
+      if (u) await q('UPDATE app_users SET search_text = $1 WHERE id = $2', [searchText(u.full_name, u.username, u.user_code, u.email, u.class_name), id]);
     }
-    return this.getById(id);
+    return this.getById(id, q);
   }
 
-  async setPassword(id: number, passwordHash: string, mustChange: boolean): Promise<void> {
-    await this.query('UPDATE app_users SET password_hash = $1, must_change_password = $2 WHERE id = $3', [passwordHash, mustChange ? 1 : 0, id]);
+  async setPassword(id: number, passwordHash: string, mustChange: boolean, q: Q = (sql, params) => this.query(sql, params)): Promise<void> {
+    await q('UPDATE app_users SET password_hash = $1, must_change_password = $2, token_version = token_version + 1 WHERE id = $3', [passwordHash, mustChange ? 1 : 0, id]);
   }
 
   async touchLogin(id: number): Promise<void> {
@@ -383,13 +386,24 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     if (!className) return [];
     const rows = await this.query(
       `SELECT ${USER_COLUMNS} FROM app_users
-       WHERE role = 'student' AND class_name = $1 AND deleted_at IS NULL AND ($2::integer IS NULL OR school_id = $2) ORDER BY full_name`,
+       WHERE role = 'student' AND class_name = $1 AND deleted_at IS NULL AND school_id IS NOT DISTINCT FROM $2::integer ORDER BY full_name`,
       [className, schoolId],
     );
     return rows.map(toUser);
   }
 
   // ------------------------------------------------------------------ tiến độ
+  /** A school teacher sees only members of their approved, currently selected class. */
+  async studentsForTeacher(user: UserRow): Promise<UserRow[]> {
+    if (!user.school_id) return this.studentsInClass(user.class_name, null); // assigned legacy class
+    const rows = await this.query(`SELECT ${USER_COLUMNS.split(', ').map(c => 'u.' + c).join(', ')} FROM app_users u
+      WHERE u.role = 'student' AND u.deleted_at IS NULL AND u.school_id = $2 AND EXISTS (
+        SELECT 1 FROM app_classes c JOIN app_class_members m ON m.class_id = c.id
+        WHERE c.teacher_id = $1 AND c.school_id = $2 AND c.class_code = $3 AND c.status = 'APPROVED' AND m.user_id = u.id
+      ) ORDER BY u.full_name`, [user.id, user.school_id, user.class_name]);
+    return rows.map(toUser);
+  }
+
   async getProgress(userId: number): Promise<Progress> {
     const rows = await this.query<Progress>(`SELECT ${PROGRESS_COLUMNS} FROM app_progress WHERE user_id = $1`, [userId]);
     if (rows.length) return rows[0];
@@ -426,6 +440,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
           sessionId, r.user_id, r.rank, r.score, r.correct, r.answered,
         ]);
       }
+      await c.query(`INSERT INTO app_audit_events (actor_id, actor_name, actor_role, school_id, action, target_type, target_id, success)
+        SELECT id, full_name, role, school_id, 'LIVE grade_results', 'live_session', $2, true FROM app_users WHERE id = $1`, [session.teacher_id, String(sessionId)]);
       return sessionId;
     });
   }

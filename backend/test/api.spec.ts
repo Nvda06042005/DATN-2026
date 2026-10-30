@@ -204,8 +204,8 @@ async function answer(token: string, q: BankQuestion, payload: Record<string, un
     expect(users.items.map((u: { username: string }) => u.username)).toEqual(['duc.pm']);
     expect(users.items.every((u: { role: string; xp: number | null }) => u.role === 'student' && typeof u.xp === 'number')).toBe(true);
 
-    const root = (await api('GET', '/api/admin/users?role=root_admin', undefined, ADMIN)).body.items[0];
-    expect((await api('PATCH', `/api/admin/users/${root.id}`, { is_active: false }, ADMIN)).body.detail).toBe('Không thao tác được trên tài khoản quản trị tổng');
+    const root = (await api('GET', '/api/auth/me', undefined, ADMIN)).body;
+    expect((await api('PATCH', `/api/admin/users/${root.id}`, { is_active: false }, ADMIN)).body.detail).toBe('Không tự thay đổi quyền, khóa hoặc xóa tài khoản đang đăng nhập');
     expect((await api('DELETE', `/api/admin/users/${root.id}`, undefined, ADMIN)).status).toBe(400);
     expect((await api('DELETE', `/api/admin/users/${id}`, undefined, ADMIN)).status).toBe(204);
     expect((await api('DELETE', `/api/admin/users/${id}`, undefined, ADMIN)).body.detail).toBe('Tài khoản đã ở thùng rác');

@@ -70,7 +70,7 @@ export class TeacherController {
 
   @Get('class')
   async myClass(@CurrentUser() user: UserRow) {
-    const students = await this.db.studentsInClass(user.class_name, user.school_id);
+    const students = await this.db.studentsForTeacher(user);
     const progress = await this.db.allProgress();
     const week = prog.weekKey();
     const wrongTotals = new Map<string, [number, number, number]>();

@@ -1,3 +1,6 @@
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { AuditInterceptor } from './auth/audit.interceptor';
+import { SecurityService } from './auth/security.service';
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, INestApplication, Logger, Module, RequestMethod, UnprocessableEntityException, ValidationError, ValidationPipe } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -25,7 +28,7 @@ import { TeacherController } from './teacher/teacher.controller';
     ScheduleModule.forRoot(),
   ],
   controllers: [AppController, AuthController, AdminController, StudentController, TeacherController, AiController],
-  providers: [DatabaseService, AuthService, AuthGuard, ContentService, AiService, StudentService, MailService, SchoolService, LiveHub, LiveGateway],
+  providers: [SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, ContentService, AiService, StudentService, MailService, SchoolService, LiveHub, LiveGateway],
 })
 export class AppModule {}
 

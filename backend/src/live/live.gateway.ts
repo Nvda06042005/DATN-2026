@@ -42,6 +42,7 @@ export class LiveGateway implements OnApplicationBootstrap, OnApplicationShutdow
   private onConnection(ws: WebSocket): void {
     let conn: Conn | null = null;
     let authenticating = false;
+    let sessionToken: string | null = null;
     const timer = setTimeout(() => !conn && this.reject(ws, 'auth', 4401), AUTH_TIMEOUT_MS);
     ws.on('error', () => undefined);
     ws.on('close', () => {
@@ -58,7 +59,11 @@ export class LiveGateway implements OnApplicationBootstrap, OnApplicationShutdow
         return;
       }
       if (!msg || typeof msg !== 'object' || Array.isArray(msg)) return;
-      if (conn) return this.hub.handle(conn, msg);
+      if (conn) {
+        const fresh = sessionToken ? await this.auth.authenticate(sessionToken).catch(() => null) : null;
+        if (!fresh || fresh.role !== conn.user.role || fresh.class_name !== conn.user.class_name) return this.reject(ws, 'auth', 4401);
+        return this.hub.handle(conn, msg);
+      }
       if (authenticating) return;
       authenticating = true;
       const token = msg.type === 'auth' && typeof msg.token === 'string' && msg.token.length < 2048 ? msg.token : null;
@@ -67,6 +72,7 @@ export class LiveGateway implements OnApplicationBootstrap, OnApplicationShutdow
       if (!user) return this.reject(ws, 'auth', 4401);
       if (user.role !== 'teacher' && user.role !== 'student') return this.reject(ws, 'role', 4403);
       if (ws.readyState !== WebSocket.OPEN) return;
+      sessionToken = token;
       conn = new Conn(ws, user);
       this.hub.attach(conn);
     });

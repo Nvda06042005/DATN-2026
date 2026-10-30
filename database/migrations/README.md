@@ -1,6 +1,6 @@
 # SQL migrations
 
-Thêm file mới theo số thứ tự, ví dụ `007_add_student_badges.sql`.
+Thêm file mới theo số thứ tự, ví dụ `009_add_student_badges.sql`.
 Tạo file bằng lệnh (từ thư mục `backend/`): `npm run build && npm run migrate -- new add_student_badges`.
 
 Không sửa migration đã chạy, không chứa bí mật/dữ liệu tài khoản thật,
@@ -17,3 +17,11 @@ hàng đợi thư; vai trò `dong_a_school_scope` + chính sách RLS theo `app.s
 hạn dùng, đã dùng chưa); bật RLS và không cấp quyền cho vai trò nào ngoài chủ bảng (backend).
 
 Xem [hướng dẫn cấu hình và triển khai](../../README.md#triển-khai).
+
+`008_account_security.sql` (TM.SEC): `app_users.token_version` thu hồi toàn bộ phiên khi khóa/đổi quyền;
+`app_revoked_tokens` chỉ lưu SHA-256 của token đã đăng xuất và hạn dùng;
+`app_login_events` ghi kết quả đăng nhập và `app_audit_events` ghi thao tác có xác thực.
+Cả ba bảng mới đều bật RLS. Chỉ `dong_a_school_scope` được đọc hai bảng lịch sử theo `app.school_id`;
+không có quyền/policy công khai, không lưu mật khẩu, raw token, nội dung file nhập hoặc request body.
+Không băm lại mật khẩu trong SQL: Bcrypt áp dụng cho mật khẩu mới; tài khoản PBKDF2 được nâng cấp khi đăng nhập đúng.
+Kiểm chứng trên PostgreSQL tạm bằng `cd backend && npm run build && npm run migrate -- check && npm test` trước khi triển khai.

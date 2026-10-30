@@ -1,3 +1,4 @@
+import { SecurityService } from '../auth/security.service';
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Transform, Type } from 'class-transformer';
@@ -36,13 +37,14 @@ class UserQuery {
   @IsOptional() @IsString() @MaxLength(9) school_year?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(6) @Max(9) grade?: number;
   @IsOptional() @IsIn(['root_admin', 'school_admin', 'teacher', 'student']) role?: Role;
+  @IsOptional() @IsIn(['true', 'false']) active?: 'true' | 'false';
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(200) limit?: number;
 }
 
 class CreateUserDto {
   @Transform(squash) @IsString() @Length(2, 80) full_name: string;
-  @IsIn(['school_admin', 'teacher', 'student']) role: 'school_admin' | 'teacher' | 'student';
+  @IsIn(['root_admin', 'school_admin', 'teacher', 'student']) role: Role;
   @IsOptional() @Type(() => Number) @IsInt() school_id?: number | null;
   @IsOptional() @IsString() @MaxLength(40) class_name?: string | null;
   @IsOptional() @Type(() => Number) @IsInt() @Min(6) @Max(9) grade?: number | null;
@@ -61,6 +63,18 @@ class UpdateUserDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(6) @Max(9) grade?: number | null;
 }
 
+class RoleDto {
+  @IsIn(['root_admin', 'school_admin', 'teacher', 'student']) role: Role;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number | null;
+}
+class SecurityQuery {
+  @IsOptional() @IsString() @MaxLength(80) q?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) user_id?: number;
+  @IsOptional() @IsIn(['true','false']) success?: 'true' | 'false';
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number;
+}
 class ClassQuery {
   @IsOptional() @IsIn(['PENDING', 'APPROVED', 'REJECTED']) status?: string;
 }
@@ -84,7 +98,7 @@ export const XLSX_UPLOAD = FileInterceptor('file', { limits: { fileSize: 2 * 102
 @UseGuards(AuthGuard)
 @Roles('root_admin', 'school_admin')
 export class AdminController {
-  constructor(private readonly school: SchoolService, private readonly mail: MailService) {}
+  constructor(private readonly school: SchoolService, private readonly mail: MailService, private readonly security: SecurityService) {}
 
   /** Thống kê: số trường, giáo viên, học sinh từng khối 6–9 (quản trị trường: chỉ trường mình) */
   @Get('overview')
@@ -116,6 +130,18 @@ export class AdminController {
   create(@CurrentUser() user: UserRow, @Body() body: CreateUserDto) {
     return this.school.createUser(user, body);
   }
+
+  @Get('users/:id')
+  detail(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.school.userDetail(user, id); }
+
+  @Patch('users/:id/role')
+  assignRole(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: RoleDto) { return this.school.assignRole(user, id, body.role, body.school_id); }
+
+  @Get('login-history')
+  loginHistory(@CurrentUser() user: UserRow, @Query() query: SecurityQuery) { return this.security.events(user, 'login', query); }
+
+  @Get('audit-history')
+  auditHistory(@CurrentUser() user: UserRow, @Query() query: SecurityQuery) { return this.security.events(user, 'audit', query); }
 
   @Patch('users/:id')
   update(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: UpdateUserDto) {

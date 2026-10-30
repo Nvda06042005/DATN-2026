@@ -1,13 +1,14 @@
 import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import { MailService } from '../admin/mail.service';
+import { SecurityService } from './security.service';
 import { config } from '../config';
 import { DatabaseService, Role, UserRow } from '../database/database.service';
-import { hashPassword, passwordFingerprint, verifyPassword } from './passwords';
+import { hashPassword, needsPasswordUpgrade, passwordFingerprint, verifyPassword } from './passwords';
 
-export type PublicUser = Omit<UserRow, 'password_hash'>;
-export const toPublic = ({ password_hash: _hash, ...user }: UserRow): PublicUser => user;
+export type PublicUser = Omit<UserRow, 'password_hash' | 'token_version'>;
+export const toPublic = ({ password_hash: _hash, token_version: _version, ...user }: UserRow): PublicUser => user;
 
 /** Trang đăng nhập: hai cổng quản trị tách biệt, trang giáo viên, trang học sinh; "app" = giáo viên hoặc học sinh (/portal) */
 export type Portal = 'root_admin' | 'school_admin' | 'teacher' | 'student' | 'app';
@@ -53,16 +54,17 @@ export class AuthService {
     private readonly db: DatabaseService,
     private readonly jwt: JwtService,
     private readonly mail: MailService,
+    private readonly security: SecurityService,
   ) {}
 
   /** Token JWT (HS256): sub = id tài khoản, sid = trường của tài khoản (lọc dữ liệu theo trường), pfp = dấu vân tay mật khẩu */
   createToken(user: UserRow): string {
-    return this.jwt.sign({ sub: user.id, role: user.role, sid: user.school_id, pfp: passwordFingerprint(user.password_hash) });
+    return this.jwt.sign({ sub: user.id, role: user.role, sid: user.school_id, pfp: passwordFingerprint(user.password_hash), ver: user.token_version, jti: randomUUID() });
   }
 
   /** Trả về tài khoản nếu token hợp lệ, tài khoản còn hoạt động, chưa vào thùng rác, cùng trường và mật khẩu chưa đổi kể từ khi cấp token */
   async authenticate(token: string): Promise<UserRow | null> {
-    let payload: { sub?: number; sid?: number | null; pfp?: string };
+    let payload: { sub?: number; sid?: number | null; pfp?: string; ver?: number; role?: Role };
     try {
       payload = this.jwt.verify(token);
     } catch {
@@ -70,6 +72,8 @@ export class AuthService {
     }
     const user = typeof payload.sub === 'number' ? await this.db.getById(payload.sub) : null;
     if (!user || !user.is_active || user.deleted_at || payload.pfp !== passwordFingerprint(user.password_hash)) return null;
+    if ((payload.ver ?? 0) !== user.token_version || payload.role !== user.role) return null;
+    if ((await this.db.query('SELECT 1 FROM app_revoked_tokens WHERE token_hash = $1 AND expires_at > now()', [hashToken(token)])).length) return null;
     if ((payload.sid ?? null) !== (user.school_id ?? null)) return null;
     return user;
   }
@@ -86,26 +90,45 @@ export class AuthService {
 
   async login(rawUsername: string, password: string, portal: Portal) {
     const username = rawUsername.trim().toLowerCase();
-    this.checkLock(username);
     const user = await this.db.getByUsername(username);
+    try { this.checkLock(username); } catch (error) { await this.security.login(user, username, portal, 'rate_limit'); throw error; }
     if (!user || !(await verifyPassword(password, user.password_hash))) {
       this.failed.set(username, { fails: (this.failed.get(username)?.fails ?? 0) + 1, since: Date.now() });
+      await this.security.login(user, username, portal, 'credentials');
       throw new UnauthorizedException('Sai tên đăng nhập hoặc mật khẩu');
     }
-    if (user.deleted_at) throw new ForbiddenException('Tài khoản đang ở thùng rác. Liên hệ quản trị trường để khôi phục.');
-    if (!user.is_active) throw new ForbiddenException('Tài khoản đã bị khóa. Liên hệ quản trị viên.');
-    if (!ALLOWED[portal].includes(user.role)) throw new ForbiddenException(wrongPortal(user.role, portal));
+    if (user.deleted_at) { await this.security.login(user, username, portal, 'deleted'); throw new ForbiddenException('Tài khoản đang ở thùng rác. Liên hệ quản trị trường để khôi phục.'); }
+    if (!user.is_active) { await this.security.login(user, username, portal, 'locked'); throw new ForbiddenException('Tài khoản đã bị khóa. Liên hệ quản trị viên.'); }
+    if (!ALLOWED[portal].includes(user.role)) { await this.security.login(user, username, portal, 'portal'); throw new ForbiddenException(wrongPortal(user.role, portal)); }
     this.failed.delete(username);
-    await this.db.touchLogin(user.id);
-    const fresh = (await this.db.getById(user.id))!;
+    const upgraded = needsPasswordUpgrade(user.password_hash) && Buffer.byteLength(password, 'utf8') <= 72 ? await hashPassword(password) : null;
+    const fresh = await this.db.tx(async q => {
+      const rows = await q('SELECT id FROM app_users WHERE id = $1 FOR UPDATE', [user.id]);
+      const current = rows.length ? await this.db.getById(user.id, q) : null;
+      if (!current || !current.is_active || current.deleted_at || current.password_hash !== user.password_hash || current.role !== user.role || current.school_id !== user.school_id || current.token_version !== user.token_version) throw new UnauthorizedException('Tài khoản vừa thay đổi. Hãy đăng nhập lại.');
+      if (upgraded) await this.db.setPassword(user.id, upgraded, user.must_change_password, q);
+      await q('UPDATE app_users SET last_login_at = now() WHERE id = $1', [user.id]);
+      await this.security.login(current, username, portal, 'success', q);
+      return (await this.db.getById(user.id, q))!;
+    });
     return { token: this.createToken(fresh), user: toPublic(fresh) };
+  }
+
+  async logout(token: string): Promise<void> {
+    const payload = this.jwt.verify<{ exp: number }>(token);
+    await this.db.query('INSERT INTO app_revoked_tokens (token_hash, expires_at) VALUES ($1, to_timestamp($2)) ON CONFLICT DO NOTHING', [hashToken(token), payload.exp]);
+    await this.db.query('DELETE FROM app_revoked_tokens WHERE expires_at <= now()');
   }
 
   async changePassword(user: UserRow, currentPassword: string, newPassword: string) {
     if (!(await verifyPassword(currentPassword, user.password_hash))) throw new BadRequestException('Mật khẩu hiện tại không đúng');
     if (newPassword === currentPassword) throw new BadRequestException('Mật khẩu mới phải khác mật khẩu cũ');
-    await this.db.setPassword(user.id, await hashPassword(newPassword), false);
-    const updated = (await this.db.getById(user.id))!;
+    const passwordHash = await hashPassword(newPassword);
+    const updated = await this.db.tx(async q => {
+      const rows = await q('UPDATE app_users SET password_hash = $1, must_change_password = 0, token_version = token_version + 1 WHERE id = $2 AND password_hash = $3 AND token_version = $4 AND is_active = 1 AND deleted_at IS NULL RETURNING id', [passwordHash, user.id, user.password_hash, user.token_version]);
+      if (!rows.length) throw new UnauthorizedException('Phiên đã thay đổi. Hãy đăng nhập lại.');
+      return (await this.db.getById(user.id, q))!;
+    });
     // Token cũ mất hiệu lực vì dấu vân tay mật khẩu đổi -> cấp token mới
     return { token: this.createToken(updated), user: toPublic(updated) };
   }
@@ -143,10 +166,11 @@ export class AuthService {
 
   /** Đặt mật khẩu mới bằng mã trong thư: mã dùng được một lần; các phiên đăng nhập cũ mất hiệu lực vì dấu vân tay mật khẩu đổi */
   async resetPassword(token: string, newPassword: string): Promise<void> {
+    const passwordHash = await hashPassword(newPassword);
     const userId = await this.db.consumePasswordReset(hashToken(token));
     const user = userId === null ? null : await this.db.getById(userId);
     if (!user || !user.is_active || user.deleted_at) throw new BadRequestException('Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Hãy yêu cầu liên kết mới.');
-    await this.db.setPassword(user.id, await hashPassword(newPassword), false);
+    await this.db.setPassword(user.id, passwordHash, false);
     this.failed.delete(user.username);
   }
 }

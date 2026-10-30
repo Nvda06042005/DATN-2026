@@ -93,6 +93,7 @@ export interface UserFilters {
   school_year?: string;
   grade?: number;
   role?: AuthRole;
+  active?: 'true' | 'false';
   page?: number;
   limit?: number;
 }
@@ -110,7 +111,7 @@ export interface AccountCredential {
   password: string;
 }
 
-export type ManagedRole = 'school_admin' | 'teacher' | 'student';
+export type ManagedRole = AuthRole;
 
 export interface NewAccountInput {
   full_name: string;
@@ -511,3 +512,8 @@ export type LiveServerMsg =
   | { type: 'closed'; reason: string }
   | { type: 'saved'; session_id: number | null }
   | { type: 'pong' };
+
+export interface UserDetail extends AuthUser { school_name: string | null; classes: Array<{ id: number; class_code: string; name: string; school_year: string; status: ClassStatus }> }
+export interface SecurityFilters { q?: string; school_id?: number; user_id?: number; success?: 'true' | 'false'; page?: number; limit?: number }
+export interface SecurityEvent { id: number; created_at: string; school_id: number | null; school_name: string | null; success: boolean; username?: string; user_id?: number | null; portal?: string; reason?: string; actor_name?: string; actor_role?: AuthRole; actor_id?: number | null; action?: string; target_type?: string; target_id?: string | null }
+export interface SecurityPage { items: SecurityEvent[]; total: number; page: number; limit: number }

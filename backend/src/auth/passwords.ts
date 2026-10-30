@@ -1,27 +1,24 @@
-/** Băm mật khẩu (PBKDF2-SHA256, tương thích tài khoản đã tạo bằng backend Python cũ), sinh mật khẩu tạm và tên đăng nhập. */
-import { createHash, pbkdf2, randomBytes, randomInt, timingSafeEqual } from 'crypto';
+/** Bcrypt for new passwords; PBKDF2 verification preserves existing accounts. */
+import { BadRequestException } from '@nestjs/common';
+import { compare, hash } from 'bcryptjs';
+import { createHash, pbkdf2, randomInt, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
-
 const pbkdf2Async = promisify(pbkdf2);
-const ITERATIONS = 240_000;
-/**
- * Mật khẩu mặc định cấp hàng loạt từ file Excel (bắt buộc đổi ở lần đăng nhập đầu): ít vòng hơn để nhập hàng trăm dòng
- * không quá lâu trên máy chủ gói miễn phí; mật khẩu người dùng tự đặt luôn băm 240.000 vòng.
- */
-export const TEMP_ITERATIONS = 20_000;
-
-export async function hashPassword(password: string, iterations = ITERATIONS): Promise<string> {
-  const salt = randomBytes(16);
-  const digest = await pbkdf2Async(password, salt, iterations, 32, 'sha256');
-  return `pbkdf2_sha256$${iterations}$${salt.toString('base64url')}$${digest.toString('base64url')}`;
+export const TEMP_ITERATIONS = 10;
+export const needsPasswordUpgrade = (stored: string) => stored.startsWith('pbkdf2_sha256$');
+export async function hashPassword(password: string, rounds = 12): Promise<string> {
+  if (Buffer.byteLength(password, 'utf8') > 72) throw new BadRequestException('Mật khẩu tối đa 72 byte UTF-8 (ký tự có dấu có thể chiếm nhiều byte).');
+  return hash(password, rounds);
 }
-
 export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  if (/^\$2[aby]\$/.test(stored)) return Buffer.byteLength(password, 'utf8') <= 72 && compare(password, stored);
   const [algo, iterations, salt, digest] = stored.split('$');
-  if (algo !== 'pbkdf2_sha256' || !salt || !digest || !Number(iterations)) return false;
+  const rounds = Number(iterations);
+  if (algo !== 'pbkdf2_sha256' || !salt || !digest || !Number.isInteger(rounds) || rounds < 1 || rounds > 2000000) return false;
   const expected = Buffer.from(digest, 'base64url');
-  const candidate = await pbkdf2Async(password, Buffer.from(salt, 'base64url'), Number(iterations), expected.length, 'sha256');
-  return candidate.length === expected.length && timingSafeEqual(candidate, expected);
+  if (expected.length !== 32) return false;
+  const candidate = await pbkdf2Async(password, Buffer.from(salt, 'base64url'), rounds, expected.length, 'sha256');
+  return timingSafeEqual(candidate, expected);
 }
 
 /** Dấu vân tay của mật khẩu hiện tại: đổi/đặt lại mật khẩu thì token cũ tự mất hiệu lực. */

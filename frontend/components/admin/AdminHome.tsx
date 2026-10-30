@@ -11,6 +11,7 @@ import * as Clipboard from 'expo-clipboard';
 import {
   AlertTriangle, Check, ClipboardCopy, FileSpreadsheet, KeyRound, LayoutDashboard, Lock, Mail, MapPin, MoreVertical, Printer, School, Search, ShieldCheck, Trash2, Unlock, UserPlus, Users,
 } from 'lucide-react-native';
+import { SecurityHistory, UserDetailSheet } from './AccountSecurity';
 import { AdminWorkspace } from './AdminWorkspace';
 import { AdminSelect } from './AdminSelect';
 import * as adminApi from '@/api/adminApi';
@@ -48,6 +49,7 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
   const { width } = useWindowDimensions();
   const wide = width >= 1000;
   const [tab, setTab] = useState<AdminTab>('users');
+  const [accountsView, setAccountsView] = useState<'accounts' | 'login' | 'audit'>('accounts');
   const [ov, setOv] = useState<AdminOverview | null>(null);
   const [ovError, setOvError] = useState<string | null>(null);
   const [preset, setPreset] = useState<{ key: number; filters: UserFilters }>({ key: 0, filters: {} });
@@ -174,11 +176,16 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
     }
   };
 
+  const accountNav = <View style={{ paddingBottom: 16 }}><Segmented label="Tài khoản và bảo mật" options={[{ value: 'accounts' as const, label: 'Tài khoản' }, { value: 'login' as const, label: 'Lịch sử đăng nhập' }, { value: 'audit' as const, label: 'Nhật ký thao tác' }]} value={accountsView} onChange={setAccountsView} /></View>;
   return (
     <AdminUiContext.Provider value>
       <AdminWorkspace session={session} nav={nav} active={tab} onSelect={setTab} extra={system ? undefined : <NotificationBell session={session} />}>
-        {tab === 'users' ? (
-          <UsersTab key={preset.key} session={session} system={system} schools={schools} preset={preset.filters} reloadKey={reloadKey} header={header} onCreate={() => setModal({ kind: 'account' })} onCred={showCred} onChanged={refresh} />
+        {tab === 'users' ? accountsView === 'accounts' ? (
+          <UsersTab key={preset.key} session={session} system={system} schools={schools} preset={preset.filters} reloadKey={reloadKey} header={<>{header}{accountNav}</>} onCreate={() => setModal({ kind: 'account' })} onCreateAdmin={() => setModal({ kind: 'account', role: 'school_admin' })} onCred={showCred} onChanged={refresh} />
+        ) : (
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: wide ? 28 : 16, gap: 16, width: '100%', maxWidth: 1600, alignSelf: 'center' }}>
+            {header}{accountNav}<SecurityHistory key={accountsView} session={session} kind={accountsView} schools={schools} />
+          </ScrollView>
         ) : (
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: wide ? 28 : 16, gap: 16, width: '100%', maxWidth: 1600, alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
             {header}{body()}
@@ -425,8 +432,9 @@ const UsersTab: React.FC<{
   header: React.ReactElement;
   onCred: (title: string, item: AccountCredential) => void;
   onCreate: () => void;
+  onCreateAdmin: () => void;
   onChanged: () => void;
-}> = ({ session, system, schools, preset, reloadKey, header, onCred, onCreate, onChanged }) => {
+}> = ({ session, system, schools, preset, reloadKey, header, onCred, onCreate, onCreateAdmin, onChanged }) => {
   const { c } = useTheme();
   const toast = useToast();
   const fail = useFail(session);
@@ -441,6 +449,8 @@ const UsersTab: React.FC<{
   const [schoolYear, setSchoolYear] = useState('all');
   const [region, setRegion] = useState('all');
   const [city, setCity] = useState('all');
+  const [active, setActive] = useState<'all' | 'true' | 'false'>('all');
+  const [detailId, setDetailId] = useState<number | null>(null);
   const [advanced, setAdvanced] = useState(!!preset.school_id);
   const [page, setPage] = useState<UsersPage | null>(null);
   const [items, setItems] = useState<AdminUser[]>([]);
@@ -458,6 +468,7 @@ const UsersTab: React.FC<{
   const filters = useMemo<UserFilters>(
     () => ({
       q: query || undefined,
+      active: active === 'all' ? undefined : active,
       role: role === 'all' ? undefined : role,
       grade: grade || undefined,
       school_id: schoolId || undefined,
@@ -466,7 +477,7 @@ const UsersTab: React.FC<{
       city: city === 'all' ? undefined : city,
       limit: PAGE,
     }),
-    [query, role, grade, schoolId, schoolYear, region, city],
+    [query, role, grade, schoolId, schoolYear, region, city, active],
   );
 
   const load = useCallback(
@@ -499,7 +510,7 @@ const UsersTab: React.FC<{
     try {
       await adminApi.setUserActive(session.token, u.id, !u.is_active);
       toast(u.is_active ? `Đã khóa tài khoản ${u.username}` : `Đã mở khóa tài khoản ${u.username}`);
-      setItems((list) => list.map((x) => (x.id === u.id ? { ...x, is_active: !u.is_active } : x)));
+      onChanged();
     } catch (err) {
       fail(err);
     }
@@ -526,17 +537,17 @@ const UsersTab: React.FC<{
     }
   };
 
-  const canManage = (u: AdminUser) => u.role !== 'root_admin' && u.id !== me.id && (system || u.role !== 'school_admin');
+  const canManage = (u: AdminUser) => u.id !== me.id && (system || !['root_admin', 'school_admin'].includes(u.role));
   const facets = page?.facets;
   const roleOptions: Array<{ value: AuthRole | 'all'; label: string }> = [
     { value: 'all', label: 'Mọi vai trò' },
-    ...(system ? [{ value: 'school_admin' as const, label: 'Quản trị trường' }] : []),
+    ...(system ? [{ value: 'root_admin' as const, label: 'Quản trị tổng' }, { value: 'school_admin' as const, label: 'Quản trị trường' }] : []),
     { value: 'teacher', label: 'Giáo viên' },
     { value: 'student', label: 'Học sinh' },
   ];
   const facetPicker = (label: string, values: string[] | undefined, value: string, onChange: (v: string) => void) =>
     values && values.length > 1 ? <View style={{ flexGrow: 1, flexBasis: 160 }}><AdminSelect label={label} options={[{ value: 'all', label: 'Tất cả' }, ...values.map(v => ({ value: v, label: v }))]} value={value} onChange={onChange} /></View> : null;
-  const clearFilters = () => { setQ(''); setQuery(''); setRole('all'); setGrade(0); setSchoolId(0); setSchoolYear('all'); setRegion('all'); setCity('all'); setAdvanced(false); };
+  const clearFilters = () => { setQ(''); setQuery(''); setRole('all'); setGrade(0); setSchoolId(0); setSchoolYear('all'); setRegion('all'); setCity('all'); setActive('all'); setAdvanced(false); };
   const filtersUi = (
     <View style={{ backgroundColor: c.the, borderWidth: 1, borderColor: c.adminLine, borderBottomWidth: 0, borderTopLeftRadius: 8, borderTopRightRadius: 8 }}>
       <View style={{ padding: table ? 24 : 16, gap: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
@@ -544,14 +555,14 @@ const UsersTab: React.FC<{
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><Txt f="bold" size={18} accessibilityRole="header">Tài khoản người dùng</Txt><Chip text={loading ? '…' : fmt(page?.total ?? 0)} bg={c.adminTint} fg={c.son} /></View>
           <Txt size={12} color={c.muc3}>Quản lý tài khoản, phân quyền và thông tin đăng nhập.</Txt>
         </View>
-        <Btn title="Cấp tài khoản" icon={UserPlus} tone="son" size="sm" onPress={onCreate} testID="admin-create" />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{system && <Btn title="Tạo tài khoản quản trị" icon={ShieldCheck} tone="son" size="sm" onPress={onCreateAdmin} testID="admin-create-manager" />}<Btn title="Cấp tài khoản" icon={UserPlus} tone="giay" size="sm" onPress={onCreate} testID="admin-create" /></View>
       </View>
-      <View style={{ paddingHorizontal: table ? 24 : 16, borderBottomWidth: 1, borderBottomColor: c.adminLine }}><View style={{ alignSelf: 'flex-start', borderBottomWidth: 2, borderBottomColor: c.son, paddingVertical: 12 }}><Txt f="bold" size={13} color={c.son}>Tài khoản</Txt></View></View>
       <View style={{ padding: table ? 24 : 16, gap: 14 }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
           <Field label="Nhập từ khóa tìm kiếm" value={q} onChangeText={setQ} placeholder="Họ tên, tên đăng nhập hoặc email…" autoCapitalize="none" autoCorrect={false} returnKeyType="search" nativeID="admin-search" style={{ flexGrow: 2, flexBasis: 260 }} />
           <View style={{ flexGrow: 1, flexBasis: 160 }}><AdminSelect label="Vai trò" testID="admin-role-filter" options={roleOptions} value={role} onChange={setRole} /></View>
           <View style={{ flexGrow: 1, flexBasis: 140 }}><AdminSelect label="Khối" testID="admin-grade-filter" options={[{ value: 0, label: 'Tất cả khối' }, ...GRADES.map(g => ({ value: g as number, label: `Khối ${g}` }))]} value={grade} onChange={setGrade} /></View>
+          <View style={{ flexGrow: 1, flexBasis: 155 }}><AdminSelect label="Trạng thái" testID="admin-active-filter" options={[{ value: 'all', label: 'Tất cả trạng thái' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }]} value={active} onChange={setActive} /></View>
           <Btn title="Xóa bộ lọc" tone="giay" size="sm" onPress={clearFilters} testID="admin-clear-filters" />
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
@@ -595,6 +606,7 @@ const UsersTab: React.FC<{
             u={item}
             system={system}
             manage={canManage(item)}
+            onDetail={() => setDetailId(item.id)}
             onReset={() => setConfirm({ kind: 'reset', user: item })}
             onToggle={() => toggleActive(item)}
             onTrash={() => setConfirm({ kind: 'trash', user: item })}
@@ -616,6 +628,7 @@ const UsersTab: React.FC<{
         </View> : undefined}
         keyboardShouldPersistTaps="handled"
       />
+      {detailId !== null && <UserDetailSheet session={session} id={detailId} schools={schools} onClose={() => setDetailId(null)} onChanged={onChanged} />}
       <ConfirmSheet
         open={!!confirm}
         title={confirm?.kind === 'reset' ? 'Đặt lại mật khẩu?' : 'Chuyển vào thùng rác?'}
@@ -636,16 +649,16 @@ const UsersTab: React.FC<{
   );
 };
 
-const UserRow = React.memo<{ u: AdminUser; index: number; table: boolean; system: boolean; manage: boolean; onReset: () => void; onToggle: () => void; onTrash: () => void }>(({ u, index, table, system, manage, onReset, onToggle, onTrash }) => {
+const UserRow = React.memo<{ u: AdminUser; index: number; table: boolean; system: boolean; manage: boolean; onDetail: () => void; onReset: () => void; onToggle: () => void; onTrash: () => void }>(({ u, index, table, system, manage, onDetail, onReset, onToggle, onTrash }) => {
   const { c } = useTheme();
   const [actions, setActions] = useState(false);
   const chip = roleChip(c, u.role);
-  const identity = <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+  const identity = <Pressable accessibilityRole="button" accessibilityLabel={`Xem chi tiết tài khoản ${u.full_name}`} onPress={onDetail} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, minHeight: 44 }}>
     <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.adminTint, alignItems: 'center', justifyContent: 'center' }}><Txt f="bold" size={13} color={c.son}>{u.full_name.trim().charAt(0).toUpperCase()}</Txt></View>
     <View style={{ flex: 1, minWidth: 0, gap: 2 }}><Txt f="bold" size={13} numberOfLines={1}>{u.full_name}</Txt><Txt size={12} color={c.muc3} numberOfLines={1} selectable>{u.email || u.username}</Txt>{system && u.school_name && <Txt size={11} color={c.muc3} numberOfLines={1}>{u.school_name}</Txt>}</View>
-  </View>;
+  </Pressable>;
   const status = <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}><View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: u.is_active ? c.moc : c.son }} /><Txt size={12} color={c.muc2}>{u.is_active ? 'Đang hoạt động' : 'Đã khóa'}</Txt></View>;
-  const actionButton = manage ? <Pressable testID={`admin-user-actions-${u.id}`} accessibilityRole="button" accessibilityLabel={`Thao tác với ${u.full_name}`} accessibilityState={{ expanded: actions }} onPress={() => setActions(value => !value)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 5, backgroundColor: actions ? c.adminTint : 'transparent' }}><MoreVertical size={19} color={c.muc2} /></Pressable> : <Txt size={13} color={c.muc3}>—</Txt>;
+  const actionButton = <Pressable testID={`admin-user-actions-${u.id}`} accessibilityRole="button" accessibilityLabel={`Thao tác với ${u.full_name}`} accessibilityState={{ expanded: actions }} onPress={() => setActions(value => !value)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 5, backgroundColor: actions ? c.adminTint : 'transparent' }}><MoreVertical size={19} color={c.muc2} /></Pressable>;
   return <View testID={`admin-user-${u.id}`} style={{ backgroundColor: c.the, borderWidth: 1, borderTopWidth: 0, borderColor: c.adminLine, opacity: u.is_active ? 1 : 0.8 }}>
     {table ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18, paddingHorizontal: 24, paddingVertical: 16, minHeight: 94 }}>
       <Txt size={12} color={c.muc3} style={{ width: 36 }}>{index}</Txt>
@@ -662,9 +675,11 @@ const UserRow = React.memo<{ u: AdminUser; index: number; table: boolean; system
     {actions && <View testID={`admin-user-menu-${u.id}`} style={{ padding: 16, backgroundColor: c.adminTint, borderTopWidth: 1, borderTopColor: c.adminLine, gap: 12 }}>
       <Txt size={12} color={c.muc2} selectable>{u.username}{u.school_year ? ` · ${u.school_year}` : ''}{u.must_change_password ? ' · Chưa đổi mật khẩu lần đầu' : ''}{u.role === 'student' ? ` · ${fmt(u.xp ?? 0)} XP · ${u.lessons_completed ?? 0} lượt học · đúng ${pct(u.accuracy)}` : ''}</Txt>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
-        <Btn tone="giay" size="sm" icon={KeyRound} title="Đặt lại mật khẩu" label={`Đặt lại mật khẩu cho ${u.full_name}`} onPress={() => { setActions(false); onReset(); }} />
+        <Btn tone="giay" size="sm" title="Xem chi tiết" onPress={() => { setActions(false); onDetail(); }} />
+        {manage && <><Btn tone="giay" size="sm" icon={KeyRound} title="Đặt lại mật khẩu" label={`Đặt lại mật khẩu cho ${u.full_name}`} onPress={() => { setActions(false); onReset(); }} />
         <Btn tone="giay" size="sm" icon={u.is_active ? Lock : Unlock} title={u.is_active ? 'Khóa tài khoản' : 'Mở khóa tài khoản'} label={u.is_active ? `Khóa tài khoản ${u.full_name}` : `Mở khóa tài khoản ${u.full_name}`} onPress={() => { setActions(false); onToggle(); }} />
         <Btn tone="giay" size="sm" icon={Trash2} title="Thùng rác" label={`Chuyển ${u.full_name} vào thùng rác`} onPress={() => { setActions(false); onTrash(); }} />
+        </>}
       </View>
     </View>}
   </View>;
@@ -708,9 +723,9 @@ const CreateAccountSheet: React.FC<{
 
   const submit = async () => {
     if (fullName.trim().length < 2) return setError('Họ tên cần ít nhất 2 ký tự.');
-    if (system && !schoolId) return setError('Hãy chọn trường (thêm trường trước nếu chưa có).');
+    if (system && role !== 'root_admin' && !schoolId) return setError('Hãy chọn trường (thêm trường trước nếu chưa có).');
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setError('Email chưa đúng định dạng.');
-    if (role !== 'school_admin' && schoolYear.trim() && !/^\d{4}-\d{4}$/.test(schoolYear.trim())) return setError('Năm học có dạng 2025-2026.');
+    if (!['root_admin', 'school_admin'].includes(role) && schoolYear.trim() && !/^\d{4}-\d{4}$/.test(schoolYear.trim())) return setError('Năm học có dạng 2025-2026.');
     if (username.trim() && !/^[a-z0-9._@-]{3,64}$/.test(username.trim().toLowerCase())) return setError('Tên đăng nhập chỉ gồm chữ thường không dấu, số, dấu chấm, gạch, @ (3–64 ký tự).');
     if (password && password.length < 6) return setError('Mật khẩu cần ít nhất 6 ký tự.');
     setLoading(true);
@@ -720,10 +735,10 @@ const CreateAccountSheet: React.FC<{
         await adminApi.createUser(token, {
           full_name: fullName.trim(),
           role,
-          school_id: system ? schoolId : undefined,
-          class_name: role === 'school_admin' ? null : className.trim() || null,
+          school_id: role === 'root_admin' ? null : system ? schoolId : undefined,
+          class_name: ['root_admin', 'school_admin'].includes(role) ? null : className.trim() || null,
           grade: role === 'student' ? grade : null,
-          school_year: role === 'school_admin' ? null : schoolYear.trim() || null,
+          school_year: ['root_admin', 'school_admin'].includes(role) ? null : schoolYear.trim() || null,
           email: email.trim() || null,
           username: username.trim().toLowerCase() || null,
           password: password || null,
@@ -737,7 +752,7 @@ const CreateAccountSheet: React.FC<{
   };
 
   const roles: Array<{ value: ManagedRole; label: string }> = [
-    ...(system ? [{ value: 'school_admin' as const, label: ROLE_LABEL.school_admin }] : []),
+    ...(system ? [{ value: 'root_admin' as const, label: ROLE_LABEL.root_admin }, { value: 'school_admin' as const, label: ROLE_LABEL.school_admin }] : []),
     { value: 'teacher', label: ROLE_LABEL.teacher },
     { value: 'student', label: ROLE_LABEL.student },
   ];
@@ -756,7 +771,7 @@ const CreateAccountSheet: React.FC<{
       }
     >
       <Segmented label="Vai trò" options={roles} value={role} onChange={setRole} />
-      {system &&
+      {system && role !== 'root_admin' &&
         (schools.length ? (
           <Segmented label="Trường" options={schools.map((s) => ({ value: s.id, label: `${s.school_code} · ${s.name}` }))} value={schoolId} onChange={setSchoolId} />
         ) : (
@@ -767,7 +782,7 @@ const CreateAccountSheet: React.FC<{
       <Field label="Họ và tên *" value={fullName} onChangeText={setFullName} placeholder="vd: Nguyễn Văn Long" autoFocus nativeID="create-name" />
       <Field label="Email (nhận thông báo, thư đăng nhập)" value={email} onChangeText={setEmail} placeholder="vd: long@truong.edu.vn" autoCapitalize="none" autoCorrect={false} keyboardType="email-address" />
       {role === 'student' && <Segmented label="Khối" options={GRADES.map((g) => ({ value: g, label: `Khối ${g}` }))} value={grade} onChange={setGrade} />}
-      {role !== 'school_admin' && (
+      {!['root_admin', 'school_admin'].includes(role) && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
           <Field label="Năm học" value={schoolYear} onChangeText={setSchoolYear} placeholder="2025-2026" style={{ flexGrow: 1, flexBasis: 160 }} />
           <Field label={role === 'teacher' ? 'Lớp phụ trách' : 'Lớp'} value={className} onChangeText={setClassName} placeholder="vd: 7A1" autoCapitalize="characters" style={{ flexGrow: 1, flexBasis: 160 }} />

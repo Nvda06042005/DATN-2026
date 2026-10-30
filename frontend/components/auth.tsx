@@ -113,6 +113,16 @@ export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) 
     [portal],
   );
 
+  const logout = useCallback(async (message?: string) => {
+    try {
+      if (token) await authApi.logout(token);
+      end(message ?? (isAdminPortal(portal) ? 'Bạn đã đăng xuất khỏi hệ thống.' : 'Đã đăng xuất. Hẹn gặp lại!'));
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) end('Phiên đăng nhập đã kết thúc.');
+      else toast('Chưa thu hồi được phiên trên máy chủ. Kiểm tra kết nối và thử đăng xuất lại.');
+    }
+  }, [token, end, portal, toast]);
+
   if (checking) {
     // Cổng quản trị: chỉ một vòng chờ trên nền trắng, cùng nền với trang đăng nhập sắp hiện
     if (isAdminPortal(portal)) {
@@ -146,7 +156,7 @@ export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) 
           Trang đang khóa – hãy đặt mật khẩu mới để tiếp tục
         </Txt>
         <Sheet open persistent onClose={() => undefined} title="Đặt mật khẩu mới" subtitle="Bắt buộc ở lần đăng nhập đầu tiên">
-          <ChangePasswordForm user={user} token={token} forced onDone={saved} onCancel={() => end()} />
+          <ChangePasswordForm user={user} token={token} forced onDone={saved} onCancel={() => { void logout(); }} />
         </Sheet>
       </View>
     );
@@ -157,7 +167,7 @@ export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) 
       {children({
         token,
         user,
-        logout: (msg = isAdminPortal(portal) ? 'Bạn đã đăng xuất khỏi hệ thống.' : 'Đã đăng xuất. Hẹn gặp lại!') => end(msg),
+        logout: message => { void logout(message); },
         expired: () => end('Phiên đăng nhập đã hết hạn, hãy đăng nhập lại.'),
         changePassword: () => setChanging(true),
         updateUser: setUser,

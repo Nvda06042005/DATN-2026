@@ -56,3 +56,10 @@ export const getClasses = (token: string, status?: ClassStatus) => apiRequest<Cl
 
 export const reviewClass = (token: string, id: number, approve: boolean, note: string | null) =>
   apiRequest<{ id: number; status: ClassStatus }>(`/api/admin/classes/${id}/${approve ? 'approve' : 'reject'}`, { token, body: { note } });
+
+export const getUserDetail = (token: string, id: number) => apiRequest<import('@/types/api').UserDetail>(`/api/admin/users/${id}`, { token });
+export const assignRole = (token: string, id: number, role: import('@/types/api').AuthRole, schoolId?: number) => apiRequest<AuthUser>(`/api/admin/users/${id}/role`, { token, method: 'PATCH', body: { role, school_id: schoolId } });
+export const getSecurityHistory = (token: string, kind: 'login' | 'audit', f: import('@/types/api').SecurityFilters) => {
+  const params = new URLSearchParams(Object.entries(f).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]));
+  return apiRequest<import('@/types/api').SecurityPage>(`/api/admin/${kind === 'login' ? 'login-history' : 'audit-history'}?${params}`, { token });
+};

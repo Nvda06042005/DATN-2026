@@ -22,7 +22,7 @@ export class StudentService {
   }
 
   private async ranking(user: UserRow): Promise<[number, number]> {
-    const inClass = await this.db.studentsInClass(user.class_name);
+    const inClass = await this.db.studentsInClass(user.class_name, user.school_id);
     const classmates = inClass.length ? inClass : [user];
     const progress = await this.db.allProgress(true);
     const ranked = [...classmates].sort((a, b) => Number(progress.get(b.id)?.xp ?? 0) - Number(progress.get(a.id)?.xp ?? 0) || a.full_name.localeCompare(b.full_name));
@@ -177,7 +177,7 @@ export class StudentService {
   }
 
   async leaderboard(user: UserRow) {
-    const inClass = await this.db.studentsInClass(user.class_name);
+    const inClass = await this.db.studentsInClass(user.class_name, user.school_id);
     const classmates = inClass.length ? inClass : [user];
     const progress = await this.db.allProgress(true);
     const week = prog.weekKey();

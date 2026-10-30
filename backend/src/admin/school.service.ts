@@ -36,6 +36,7 @@ export interface UserFilter {
   school_year?: string;
   grade?: number;
   role?: Role;
+  active?: 'true' | 'false';
   page?: number;
   limit?: number;
 }
@@ -117,9 +118,10 @@ export class SchoolService implements OnApplicationBootstrap {
     return toUser(rows[0]);
   }
 
-  /** Quản trị trường chỉ quản lý giáo viên, học sinh; quản trị tổng quản lý mọi tài khoản trừ quản trị tổng */
+  /** Quản trị trường chỉ quản lý giáo viên/học sinh; quản trị tổng quản lý tài khoản khác, không tự thay đổi quyền/khóa/xóa. */
   private canManage(actor: UserRow, target: UserRow): void {
-    if (target.role === 'root_admin') throw new BadRequestException('Không thao tác được trên tài khoản quản trị tổng');
+    if (actor.id === target.id) throw new BadRequestException('Không tự thay đổi quyền, khóa hoặc xóa tài khoản đang đăng nhập');
+    if (actor.role !== 'root_admin' && !['teacher', 'student'].includes(target.role)) throw new ForbiddenException('Chỉ quản trị tổng quản lý tài khoản quản trị');
     if (actor.role === 'school_admin' && target.role === 'school_admin') throw new ForbiddenException('Chỉ quản trị tổng quản lý tài khoản quản trị trường');
   }
 
@@ -209,6 +211,7 @@ export class SchoolService implements OnApplicationBootstrap {
         where.push("u.role IN ('teacher', 'student'" + (actor.role === 'school_admin' ? ", 'school_admin'" : '') + ')');
       } else if (f.school_id) add('u.school_id = ?', f.school_id);
       if (f.role) add('u.role = ?', f.role);
+      if (f.active) add('u.is_active = ?', f.active === 'true' ? 1 : 0);
       if (f.grade) add('u.grade = ?', f.grade);
       if (f.school_year) add('u.school_year = ?', f.school_year);
       if (f.region) add('u.region = ?', f.region);
@@ -255,16 +258,19 @@ export class SchoolService implements OnApplicationBootstrap {
   /** Cấp một tài khoản thủ công (quản trị trường: giáo viên/học sinh của trường; quản trị tổng: thêm quản trị trường) */
   async createUser(
     actor: UserRow,
-    body: { full_name: string; role: 'school_admin' | 'teacher' | 'student'; school_id?: number | null; class_name?: string | null; grade?: number | null; school_year?: string | null; email?: string | null; user_code?: string | null; username?: string | null; password?: string | null },
+    body: { full_name: string; role: Role; school_id?: number | null; class_name?: string | null; grade?: number | null; school_year?: string | null; email?: string | null; user_code?: string | null; username?: string | null; password?: string | null },
   ) {
-    if (actor.role === 'school_admin' && body.role === 'school_admin') throw new ForbiddenException('Chỉ quản trị tổng cấp được tài khoản quản trị trường');
-    const schoolId = actor.role === 'school_admin' ? actor.school_id : (body.school_id ?? null);
+    if (actor.role !== 'root_admin' && !['teacher', 'student'].includes(body.role)) throw new ForbiddenException('Chỉ quản trị tổng cấp được tài khoản quản trị trường');
+    const schoolId = body.role === 'root_admin' ? null : actor.role === 'school_admin' ? actor.school_id : (body.school_id ?? null);
     if (body.role === 'school_admin' && !schoolId) throw new UnprocessableEntityException('Quản trị trường cần thuộc một trường');
     if (body.school_year && !validSchoolYear(body.school_year)) throw new UnprocessableEntityException('Năm học có dạng 2025-2026');
     const username = body.username || (await this.db.uniqueUsername(body.full_name, body.role));
     const password = body.password || generatePassword();
     const passwordHash = await hashPassword(password);
-    return this.run(actor, async (q) => {
+    return this.run(actor, async (q, scope) => {
+      await q('SELECT pg_advisory_xact_lock(7412026)');
+      const fresh = await this.userInScope(q, scope, actor.id);
+      if (!fresh.is_active || fresh.deleted_at || fresh.role !== actor.role || fresh.token_version !== actor.token_version) throw new ForbiddenException('Phiên đã thay đổi. Hãy đăng nhập lại.');
       const school = schoolId ? await this.schoolById(q, schoolId) : null;
       try {
         const user = await this.db.createUser(
@@ -284,30 +290,57 @@ export class SchoolService implements OnApplicationBootstrap {
     });
   }
 
+  /** Serialize sensitive account changes and recheck the actor after waiting for the lock. */
+  private async managed<T>(actor: UserRow, id: number, fn: (q: Q, target: UserRow) => Promise<T>): Promise<T> {
+    return this.run(actor, async (q, scope) => {
+      await q('SELECT pg_advisory_xact_lock(7412026)');
+      const fresh = await this.userInScope(q, scope, actor.id);
+      if (!fresh.is_active || fresh.deleted_at || fresh.role !== actor.role || fresh.token_version !== actor.token_version) throw new ForbiddenException('Quyền của phiên đã thay đổi. Hãy đăng nhập lại.');
+      const target = await this.userInScope(q, scope, id);
+      this.canManage(fresh, target);
+      if (target.deleted_at) throw new BadRequestException('Tài khoản đã ở thùng rác');
+      return fn(q, target);
+    });
+  }
+
+  async userDetail(actor: UserRow, id: number) {
+    return this.run(actor, async (q, scope) => {
+      const user = await this.userInScope(q, scope, id);
+      const school = user.school_id ? await this.schoolById(q, user.school_id) : null;
+      const classes = await q('SELECT c.id, c.class_code, c.name, c.school_year, c.status FROM app_classes c WHERE c.school_id = $2 AND (c.teacher_id = $1 OR EXISTS (SELECT 1 FROM app_class_members m WHERE m.class_id = c.id AND m.user_id = $1)) ORDER BY c.school_year DESC, c.class_code', [id, user.school_id]);
+      return { ...toPublic(user), school_name: school?.name ?? null, classes };
+    });
+  }
+
   async updateUser(actor: UserRow, id: number, body: { full_name?: string; class_name?: string | null; is_active?: boolean; email?: string | null; grade?: number | null }) {
-    await this.run(actor, async (q, scope) => this.canManage(actor, await this.userInScope(q, scope, id)));
-    return toPublic((await this.db.updateUser(id, body))!);
+    return this.managed(actor, id, async q => toPublic((await this.db.updateUser(id, body, q))!));
+  }
+
+  async assignRole(actor: UserRow, id: number, role: Role, schoolId?: number | null) {
+    if (actor.role !== 'root_admin' && !['teacher', 'student'].includes(role)) throw new ForbiddenException('Không được nâng quyền quản trị');
+    return this.managed(actor, id, async (q, target) => {
+      if (actor.role !== 'root_admin' && schoolId !== undefined && schoolId !== target.school_id) throw new ForbiddenException('Không được chuyển trường');
+      const sid = role === 'root_admin' ? null : schoolId ?? target.school_id;
+      if (role !== 'root_admin' && !sid) throw new UnprocessableEntityException('Hãy gán trường trước khi cấp vai trò này');
+      const school = sid ? await this.schoolById(q, sid) : null;
+      const changed = role !== target.role || sid !== target.school_id;
+      if (changed) await q("UPDATE app_users SET role = $2, school_id = $3, school_code = $4, region = $5, city = $6, class_name = NULL, grade = CASE WHEN $2 = 'student' THEN grade ELSE NULL END, token_version = token_version + 1 WHERE id = $1", [id, role, sid, school?.school_code ?? null, school?.region ?? null, school?.city ?? null]);
+      return toPublic((await this.db.getById(id, q))!);
+    });
   }
 
   async resetPassword(actor: UserRow, id: number) {
-    const target = await this.run(actor, async (q, scope) => {
-      const u = await this.userInScope(q, scope, id);
-      this.canManage(actor, u);
-      return u;
+    const password = generatePassword(), passwordHash = await hashPassword(password);
+    return this.managed(actor, id, async q => {
+      await this.db.setPassword(id, passwordHash, true, q);
+      return { user: toPublic((await this.db.getById(id, q))!), password };
     });
-    const password = generatePassword();
-    await this.db.setPassword(target.id, await hashPassword(password), true);
-    return { user: toPublic((await this.db.getById(target.id))!), password };
   }
 
   // ------------------------------------------------------------------ thùng rác 45 ngày
   async trashUser(actor: UserRow, id: number): Promise<void> {
-    await this.run(actor, async (q, scope) => {
-      const u = await this.userInScope(q, scope, id);
-      this.canManage(actor, u);
-      if (u.id === actor.id) throw new BadRequestException('Không tự xóa tài khoản đang đăng nhập');
-      if (u.deleted_at) throw new BadRequestException('Tài khoản đã ở thùng rác');
-      await q(`UPDATE app_users SET deleted_at = now(), purge_at = now() + interval '${TRASH_DAYS} days', is_active = 0 WHERE id = $1`, [id]);
+    await this.managed(actor, id, async q => {
+      await q(`UPDATE app_users SET deleted_at = now(), purge_at = now() + interval '${TRASH_DAYS} days', is_active = 0, token_version = token_version + 1 WHERE id = $1`, [id]);
     });
   }
 
@@ -324,8 +357,9 @@ export class SchoolService implements OnApplicationBootstrap {
   async restore(actor: UserRow, id: number) {
     return this.run(actor, async (q, scope) => {
       const u = await this.userInScope(q, scope, id);
+      this.canManage(actor, u);
       if (!u.deleted_at) throw new BadRequestException('Tài khoản không ở thùng rác');
-      await q('UPDATE app_users SET deleted_at = NULL, purge_at = NULL, is_active = 1 WHERE id = $1', [id]);
+      await q('UPDATE app_users SET deleted_at = NULL, purge_at = NULL, is_active = 1, token_version = token_version + 1 WHERE id = $1', [id]);
       return toPublic({ ...u, deleted_at: null, purge_at: null, is_active: true });
     });
   }
@@ -334,6 +368,7 @@ export class SchoolService implements OnApplicationBootstrap {
   async purgeNow(actor: UserRow, id: number): Promise<void> {
     await this.run(actor, async (q, scope) => {
       const u = await this.userInScope(q, scope, id);
+      this.canManage(actor, u);
       if (!u.deleted_at) throw new BadRequestException('Chỉ xóa vĩnh viễn được tài khoản đã ở thùng rác');
     });
     await this.db.deleteUser(id);
