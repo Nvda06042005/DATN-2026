@@ -2,19 +2,20 @@
  * Trang đăng nhập của hai cổng quản trị (/admin, /school-manager-admin), dựng theo danh sách chức năng nhóm "01. Tài khoản và xác thực":
  * TM.AUTH.001 đăng nhập bằng tài khoản được cấp (không có đăng ký tự do, không đăng nhập qua bên thứ ba), TM.AUTH.007 quên mật khẩu
  * (gửi liên kết đặt lại qua email, liên kết mở lại đúng cổng bằng ?reset=<mã>). TM.AUTH.002 đăng xuất là nút ở thanh trên cùng của
- * trang quản trị (TopBar trong auth.tsx).
- * Nền kem và họa tiết trống đồng dùng chung với trang chủ, áp dụng cho cả hai phía. Chỉ giữ logo nhỏ; không có khẩu hiệu lớn.
- * Form gồm ô nhập có chữ gợi ý, nút đỏ và liên kết "Quên mật khẩu"; màn hẹp xếp dọc.
+ * trang quản trị (AdminWorkspace).
+ * Bố cục đăng nhập cũ: ảnh bìa tối bên trái, cạnh vát chéo và form trắng bên phải. Giữ logo nhỏ, không có khẩu hiệu lớn.
+ * Màn hẹp dùng ảnh thành dải đầu trang; form gồm ô nhập có chữ gợi ý, nút đỏ và liên kết "Quên mật khẩu".
  * Cổng quản trị độc lập: không có nút hay liên kết về trang chủ hoặc cổng khác.
  */
 import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, TextInput, View, useWindowDimensions, type TextInputInstance, type TextInputProps } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Svg, { Circle } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Polygon } from 'react-native-svg';
 import { ArrowLeft, CircleCheck, Eye, EyeOff, Info, MailCheck, TriangleAlert } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { ApiError, errorMessage } from '@/api/client';
-import { BrandLogo, PatternOverlay } from '@/components/art';
+import { BrandLogo, FilmBackdrop } from '@/components/art';
 import { Txt } from '@/components/ui';
 import { FONT } from '@/constants/theme';
 import { useShake } from '@/hooks/use-motion';
@@ -37,6 +38,10 @@ const COPY: Record<AdminPortal, { label: string; placeholder: string; account: s
     account: 'Tài khoản quản trị trường do quản trị tổng cấp, không có đăng ký tự do.',
   },
 };
+
+/** Cạnh phải ảnh bìa vát chéo như bố cục đăng nhập cũ. */
+const SLANT_TOP = 49.3;
+const SLANT_BOTTOM = 41;
 
 // ---------------------------------------------------------------------- thành phần nhỏ
 const Banner: React.FC<{ tone: 'error' | 'success' | 'info'; text: string }> = ({ tone, text }) => {
@@ -179,27 +184,50 @@ const Heading: React.FC<{ title: string; text?: string }> = ({ title, text }) =>
 // ---------------------------------------------------------------------- khung: ảnh bìa trang chủ bên trái, form bên phải
 const Shell: React.FC<{ portal: AdminPortal; children: React.ReactNode }> = ({ portal, children }) => {
   const { c } = useTheme();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const wide = width >= 1000;
-  return (
-    <View testID="admin-login-pattern" style={{ flex: 1, backgroundColor: c.logoPaper }}>
-      <PatternOverlay opacity={0.075} />
-      <Svg pointerEvents="none" width="100%" height="100%" style={StyleSheet.absoluteFill}>
-        <Circle cx={width + 100} cy={220} r={330} fill="none" stroke={c.logoGold} strokeWidth={1} opacity={0.35} />
-      </Svg>
-      {wide ? (
-        <View style={{ flex: 1, flexDirection: 'row' }}>
-          <View style={{ width: '48%', padding: 32 }}><BrandLogo paper subtitle={COPY[portal].label} /></View>
-          <Animated.ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 48, paddingVertical: 72 }} keyboardShouldPersistTaps="handled">
-            <View style={{ width: '100%', maxWidth: 570, alignSelf: 'center', gap: 26 }}>{children}</View>
-          </Animated.ScrollView>
+  const copy = COPY[portal];
+  /** Xanh đêm (màu `dem` cố định) phủ lên ảnh: đậm bên trái, nhạt dần về phía cạnh vát để còn thấy ảnh */
+  const tint = [`${c.dem}f2`, `${c.dem}d9`, `${c.dem}99`] as const;
+
+  if (!wide) {
+    return (
+      <View testID="admin-login-shell" style={{ flex: 1, backgroundColor: c.the }}>
+        <View testID="admin-login-art" style={{ height: 232, backgroundColor: c.dem, overflow: 'hidden' }}>
+          <FilmBackdrop wide={false} />
+          <LinearGradient colors={tint} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+          <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+            <BrandLogo light subtitle={copy.label} />
+          </View>
+          <Svg pointerEvents="none" width="100%" height={32} viewBox="0 0 100 32" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, right: 0, bottom: -1 }}>
+            <Polygon points="0,32 100,0 100,32" fill={c.the} />
+          </Svg>
         </View>
-      ) : (
-        <Animated.ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, padding: 20, paddingBottom: 40, gap: 48 }} keyboardShouldPersistTaps="handled">
-          <BrandLogo paper subtitle={COPY[portal].label} />
+        <Animated.ScrollView testID="admin-login-form" style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, padding: 20, paddingTop: 12, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
           <View style={{ width: '100%', maxWidth: 570, alignSelf: 'center', gap: 24 }}>{children}</View>
         </Animated.ScrollView>
-      )}
+      </View>
+    );
+  }
+
+  return (
+    <View testID="admin-login-shell" style={{ flex: 1, backgroundColor: c.the, overflow: 'hidden' }}>
+      <View testID="admin-login-art" style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '52%', backgroundColor: c.dem }}>
+        <FilmBackdrop wide />
+        <LinearGradient colors={tint} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.4 }} style={StyleSheet.absoluteFill} />
+        <View style={{ position: 'absolute', left: '3.4%', top: 18 }}>
+          <BrandLogo light subtitle={copy.label} />
+        </View>
+      </View>
+      <Svg pointerEvents="none" width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={StyleSheet.absoluteFill}>
+        <Polygon points={`${SLANT_TOP},0 100,0 100,100 ${SLANT_BOTTOM},100`} fill={c.the} />
+      </Svg>
+      <View style={{ position: 'absolute', left: '52%', right: 0, top: 0, bottom: 0 }}>
+        <Animated.ScrollView testID="admin-login-form" style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingLeft: Math.round(width * 0.07), paddingRight: 48, paddingTop: Math.max(56, Math.round(height * 0.11)), paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
+          {/* Cột form chiếm khoảng 31 % bề ngang như trang LMS (tối đa 570 px) */}
+          <View style={{ width: '100%', maxWidth: Math.round(Math.min(570, Math.max(340, width * 0.31))), gap: 26 }}>{children}</View>
+        </Animated.ScrollView>
+      </View>
     </View>
   );
 };
