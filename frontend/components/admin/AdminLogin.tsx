@@ -3,19 +3,20 @@
  * TM.AUTH.001 đăng nhập bằng tài khoản được cấp (không có đăng ký tự do, không đăng nhập qua bên thứ ba), TM.AUTH.007 quên mật khẩu
  * (gửi liên kết đặt lại qua email, liên kết mở lại đúng cổng bằng ?reset=<mã>). TM.AUTH.002 đăng xuất là nút ở thanh trên cùng của
  * trang quản trị (AdminWorkspace).
- * Bố cục đăng nhập cũ: ảnh bìa tối bên trái, cạnh vát chéo và form trắng bên phải. Giữ logo nhỏ, không có khẩu hiệu lớn.
+ * Ảnh bìa chuyển động bên trái giữ nguyên, cạnh vát chéo; nền giấy kem và hoa văn trang chủ bên phải.
+ * Manrope cho form và phần chính tiêu đề, Newsreader nghiêng đỏ cho chữ nhấn. Giữ logo nhỏ, không có khẩu hiệu lớn.
  * Màn hẹp dùng ảnh thành dải đầu trang; form gồm ô nhập có chữ gợi ý, nút đỏ và liên kết "Quên mật khẩu".
  * Cổng quản trị độc lập: không có nút hay liên kết về trang chủ hoặc cổng khác.
  */
-import React, { useRef, useState } from 'react';
+import React, { useId, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, TextInput, View, useWindowDimensions, type TextInputInstance, type TextInputProps } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Polygon } from 'react-native-svg';
+import Svg, { Defs, Image as SvgImage, Pattern, Polygon } from 'react-native-svg';
 import { ArrowLeft, CircleCheck, Eye, EyeOff, Info, MailCheck, TriangleAlert } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { ApiError, errorMessage } from '@/api/client';
-import { BrandLogo, FilmBackdrop } from '@/components/art';
+import { BrandLogo, FilmBackdrop, PatternOverlay } from '@/components/art';
 import { Txt } from '@/components/ui';
 import { FONT } from '@/constants/theme';
 import { useShake } from '@/hooks/use-motion';
@@ -42,6 +43,7 @@ const COPY: Record<AdminPortal, { label: string; placeholder: string; account: s
 /** Cạnh phải ảnh bìa vát chéo như bố cục đăng nhập cũ. */
 const SLANT_TOP = 49.3;
 const SLANT_BOTTOM = 41;
+const LOGIN_PATTERN = require('../../assets/hoa-tiet-nen.png');
 
 // ---------------------------------------------------------------------- thành phần nhỏ
 const Banner: React.FC<{ tone: 'error' | 'success' | 'info'; text: string }> = ({ tone, text }) => {
@@ -95,15 +97,15 @@ const AuthInput: React.FC<InputProps> = ({ label, nativeID, invalid, hint, input
               minHeight: 54,
               borderRadius: 4,
               borderWidth: 1.5,
-              borderColor: invalid ? c.son : focus ? c.troi : c.muc3,
+              borderColor: invalid ? c.son : focus ? c.logoRed : c.muc3,
               backgroundColor: c.the,
               paddingHorizontal: 20,
               paddingRight: right ? 58 : 20,
               fontFamily: FONT.medium,
               fontSize: 17,
-              color: c.muc,
+              color: c.logoInk,
             },
-            focus && { boxShadow: `0 0 0 3px ${invalid ? 'rgba(185, 28, 28, 0.2)' : 'rgba(11, 108, 192, 0.22)'}` },
+            focus && { boxShadow: `0 0 0 3px ${c.logoRed}33` },
             // Trình duyệt vẽ thêm viền mặc định khi nhập: vòng sáng ở trên đã thay thế
             Platform.OS === 'web' && { outlineStyle: 'solid', outlineWidth: 0 },
           ]}
@@ -167,10 +169,18 @@ const TextLink: React.FC<{ title: string; onPress: () => void; icon?: IconType }
 
 const Heading: React.FC<{ title: string; text?: string }> = ({ title, text }) => {
   const { c } = useTheme();
+  const parts: Record<string, [string, string]> = {
+    'Đăng nhập': ['Đăng', 'nhập'],
+    'Quên mật khẩu': ['Quên', 'mật khẩu'],
+    'Đặt mật khẩu mới': ['Đặt', 'mật khẩu mới'],
+    'Kiểm tra hộp thư': ['Kiểm tra', 'hộp thư'],
+  };
+  const [main, accent] = parts[title] ?? [title, ''];
   return (
-    <View style={{ gap: 8 }}>
-      <Txt f="bold" size={34} color={c.muc} accessibilityRole="header" style={{ lineHeight: 42 }}>
-        {title}
+    <View testID="admin-auth-heading" style={{ gap: 12 }}>
+      <Txt testID="admin-auth-title" f="heavy" size={34} color={c.logoInk} accessibilityRole="header" style={{ lineHeight: 44 }}>
+        {main}{accent ? ' ' : ''}
+        {accent && <Txt testID="admin-auth-title-accent" f="serifItalic" size={34} color={c.logoRed} style={{ lineHeight: 44 }}>{accent}</Txt>}
       </Txt>
       {text ? (
         <Txt size={16} color={c.muc2}>
@@ -181,18 +191,20 @@ const Heading: React.FC<{ title: string; text?: string }> = ({ title, text }) =>
   );
 };
 
-// ---------------------------------------------------------------------- khung: ảnh bìa trang chủ bên trái, form bên phải
+// ---------------------------------------------------------------------- ảnh động bên trái, form trên nền hoa văn trang chủ bên phải
 const Shell: React.FC<{ portal: AdminPortal; children: React.ReactNode }> = ({ portal, children }) => {
   const { c } = useTheme();
   const { width, height } = useWindowDimensions();
   const wide = width >= 1000;
+  const paperId = `admin-login-paper-${useId().replace(/:/g, '')}`;
   const copy = COPY[portal];
   /** Xanh đêm (màu `dem` cố định) phủ lên ảnh: đậm bên trái, nhạt dần về phía cạnh vát để còn thấy ảnh */
   const tint = [`${c.dem}f2`, `${c.dem}d9`, `${c.dem}99`] as const;
 
   if (!wide) {
     return (
-      <View testID="admin-login-shell" style={{ flex: 1, backgroundColor: c.the }}>
+      <View testID="admin-login-shell" style={{ flex: 1, backgroundColor: c.logoPaper }}>
+        <PatternOverlay opacity={0.075} />
         <View testID="admin-login-art" style={{ height: 232, backgroundColor: c.dem, overflow: 'hidden' }}>
           <FilmBackdrop wide={false} />
           <LinearGradient colors={tint} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
@@ -200,7 +212,7 @@ const Shell: React.FC<{ portal: AdminPortal; children: React.ReactNode }> = ({ p
             <BrandLogo light subtitle={copy.label} />
           </View>
           <Svg pointerEvents="none" width="100%" height={32} viewBox="0 0 100 32" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, right: 0, bottom: -1 }}>
-            <Polygon points="0,32 100,0 100,32" fill={c.the} />
+            <Polygon points="0,32 100,0 100,32" fill={c.logoPaper} />
           </Svg>
         </View>
         <Animated.ScrollView testID="admin-login-form" style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, padding: 20, paddingTop: 12, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
@@ -219,8 +231,14 @@ const Shell: React.FC<{ portal: AdminPortal; children: React.ReactNode }> = ({ p
           <BrandLogo light subtitle={copy.label} />
         </View>
       </View>
-      <Svg pointerEvents="none" width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={StyleSheet.absoluteFill}>
-        <Polygon points={`${SLANT_TOP},0 100,0 100,100 ${SLANT_BOTTOM},100`} fill={c.the} />
+      <Svg testID="admin-login-paper" pointerEvents="none" width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={StyleSheet.absoluteFill}>
+        <Defs>
+          <Pattern id={paperId} width={382} height={512} patternUnits="userSpaceOnUse">
+            <SvgImage href={LOGIN_PATTERN} width={382} height={512} opacity={0.075} />
+          </Pattern>
+        </Defs>
+        <Polygon points={`${width * SLANT_TOP / 100},0 ${width},0 ${width},${height} ${width * SLANT_BOTTOM / 100},${height}`} fill={c.logoPaper} />
+        <Polygon points={`${width * SLANT_TOP / 100},0 ${width},0 ${width},${height} ${width * SLANT_BOTTOM / 100},${height}`} fill={`url(#${paperId})`} />
       </Svg>
       <View style={{ position: 'absolute', left: '52%', right: 0, top: 0, bottom: 0 }}>
         <Animated.ScrollView testID="admin-login-form" style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingLeft: Math.round(width * 0.07), paddingRight: 48, paddingTop: Math.max(56, Math.round(height * 0.11)), paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
