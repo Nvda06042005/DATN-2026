@@ -3,14 +3,14 @@
  * gallery chiến dịch xoay dạng barrel, thẻ lời ông cha nhiều màu) nhưng hình ảnh và màu sắc lấy từ cuộc kháng chiến chống quân Nguyên – Mông thời Trần:
  * cảnh thành Thăng Long – thuyền chiến – bãi cọc Bạch Đằng, đỏ son, vàng, lam sông, giấy dó, họa tiết sóng nước và ấn đỏ.
  * Nội dung lịch sử đối chiếu Wikipedia tiếng Việt "Chiến tranh Nguyên Mông – Đại Việt" và ba bài chi tiết từng lần; số liệu lấy thẳng từ dữ liệu game.
- * Khối luôn tối/sáng cố định dùng màu `trang`/`dem`; thẻ và chữ dùng màu đổi theo chế độ sáng/tối. Chỉ chân trang có một liên kết "Trang quản lý" tới /admin; không có liên kết tới /school-manager-admin.
+ * Khối luôn tối/sáng cố định dùng màu `trang`/`dem`; toàn bộ trang dùng bảng màu sáng.
  */
 import { useCallback, useEffect, useRef, useState, type ComponentRef } from 'react';
 import { Animated, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  ArrowDown, ArrowRight, CalendarDays, Check, Compass, Joystick, Landmark, LogIn, MapPin, MessageSquareText, Milestone, Quote, School, Sword, Swords,
+  ArrowDown, ArrowRight, CalendarDays, Check, Compass, Joystick, Landmark, MapPin, MessageSquareText, Milestone, Quote, School, Sword, Swords,
   Trophy, Users, X, ZoomIn, ArrowUp, ArrowUpRight, FileSpreadsheet, Plus, Menu,
 } from 'lucide-react-native';
 import {
@@ -247,7 +247,7 @@ export const Band: React.FC<{
 const NAV_ITEMS = [{ id: 'home', short: 'Trang chủ' }, ...NAV.map((n) => ({ id: n.id, short: n.short }))];
 
 /**
- * Thanh điều hướng cố định: logo bên trái, cờ và nút "Vào học ngay" bên phải; co thành viên thuốc kính khi cuộn.
+ * Thanh điều hướng cố định: logo bên trái, cờ bên phải; co thành viên thuốc kính khi cuộn.
  * Trang chủ chỉ hiện menu sau khi cuộn. Màn hẹp dùng nút mở menu với đầy đủ liên kết.
  */
 export const Header: React.FC<{
@@ -262,7 +262,6 @@ export const Header: React.FC<{
   width, scrollY, stuck, active, go, items = NAV_ITEMS, paper = false, revealOnScroll = false,
 }) => {
   const { c } = useTheme();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const wide = WEB && width >= (items.length > 4 ? 1100 : 1000);
@@ -342,7 +341,6 @@ export const Header: React.FC<{
               <VietnamFlag width={small ? 30 : 34} />
             </View>
           )}
-          <Cta title={width >= 560 ? 'Vào học ngay' : ''} label="Đăng nhập học tập" icon={width >= 560 ? undefined : LogIn} onPress={() => router.push('/portal')} testID="home-login" />
           {showNavigation && !wide && (
             <Pressable ref={menuButton} testID="home-menu-toggle" accessibilityRole="button" accessibilityLabel={menuOpen ? 'Đóng menu điều hướng' : 'Mở menu điều hướng'} accessibilityState={{ expanded: menuOpen }} aria-expanded={menuOpen} aria-controls="home-nav-panel" onPress={() => setMenuOpen((open) => !open)} style={{ width: 44, height: 44, borderRadius: 999, backgroundColor: c.the, alignItems: 'center', justifyContent: 'center' }}>
               {menuOpen ? <X size={22} color={c.logoInk} /> : <Menu size={22} color={c.logoInk} />}
@@ -813,7 +811,6 @@ const CampaignMap: React.FC<{ id: 1 | 2 | 3; name: string; wide: boolean }> = ({
 
 const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
   const { c } = useTheme();
-  const router = useRouter();
   const [sel, setSel] = useState<1 | 2 | 3>(1);
   const camp = CAMPAIGNS[sel - 1];
   const facts = CAMPAIGN_FACTS[sel];
@@ -889,7 +886,6 @@ const CampaignExplorer: React.FC<{ wide: boolean }> = ({ wide }) => {
               </View>
             ))}
           </View>
-          <Cta title="Chơi chiến dịch này" tone="muc" arrow onPress={() => router.push('/portal')} />
         </Panel>
       </View>
       <CampaignMap id={sel} name={camp.name} wide={wide} />
@@ -1099,7 +1095,7 @@ const ClosingSection: React.FC<{ wide: boolean }> = ({ wide }) => {
       <View style={{ alignItems: 'center', gap: 22 }}>
         <ClosingTitle wide={wide} />
         <View style={{ alignSelf: 'center' }}>
-          <Cta title="Vào học ngay" tone="trang" arrow lg onPress={() => router.push('/portal')} testID="home-portal-bottom" />
+          <Cta title="Xem câu hỏi thường gặp" tone="trang" arrow lg onPress={() => router.push('/cau-hoi-thuong-gap')} testID="home-faq-bottom" />
         </View>
       </View>
       </Reveal>
@@ -1134,7 +1130,7 @@ const FootLink: React.FC<{ label: string; onPress: () => void; arrow?: boolean }
   );
 };
 
-/** Chân trang: dải sóng đỏ vàng, rồi nền mực xanh của logo với logo và mô tả, cột "Khám phá", cột "Khám phá lịch sử thời Trần" kèm liên kết "Trang quản lý" và thanh bản quyền có "Về đầu trang" */
+/** Chân trang dùng chung cho ba trang công khai, với các liên kết khám phá và thông tin. */
 export const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void; onTop?: () => void }> = ({ wide, go, onTop = () => go('home') }) => {
   const { c } = useTheme();
   const router = useRouter();
@@ -1167,8 +1163,7 @@ export const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void; 
           <View testID="footer-history-column" style={{ width: wide ? 300 : '100%' }}>
             {head('Khám phá lịch sử thời Trần')}
             <FootLink label="Điều khoản sử dụng" arrow onPress={() => router.push('/dieu-khoan-su-dung')} />
-            <FootLink label="Trang quản lý" arrow onPress={() => router.push('/admin')} />
-            <FootLink label="Thông tin hình ảnh" onPress={() => router.push('/thong-tin-hinh-anh')} />
+            <FootLink label="Câu hỏi thường gặp" arrow onPress={() => router.push('/cau-hoi-thuong-gap')} />
           </View>
         </View>
         <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(250, 244, 231, 0.18)', paddingTop: 18, flexDirection: wide ? 'row' : 'column', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>

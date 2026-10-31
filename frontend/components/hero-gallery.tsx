@@ -7,9 +7,7 @@
  */
 import React, { useState } from 'react';
 import { Pressable, View, useWindowDimensions, type ViewStyle } from 'react-native';
-import { useRouter } from 'expo-router';
-import { ArrowUpRight } from 'lucide-react-native';
-import { LoreChip } from '@/components/game/quiz';
+import { LoreChip } from '@/components/lore-chip';
 import { HeroPhoto, HeroPhotoNote } from '@/components/hero-photo';
 import { Txt } from '@/components/ui';
 import { TIER_INFO } from '@/constants/game';
@@ -98,7 +96,6 @@ const Tile: React.FC<{ hero: HeroDef; w: number; active: boolean; onPress: () =>
 /** Khung chi tiết không có dòng chú thích/nguồn; ảnh bối cảnh vẫn được phân biệt với chân dung. */
 const Detail: React.FC<{ hero: HeroDef; wide: boolean }> = ({ hero, wide }) => {
   const { c } = useTheme();
-  const router = useRouter();
   const p = HERO_PROFILE[hero.id];
   const soft = INK_SOFT;
   if (!p) return null;
@@ -153,17 +150,6 @@ const Detail: React.FC<{ hero: HeroDef; wide: boolean }> = ({ hero, wide }) => {
           ))}
           {row('Trong game', `${TIER_INFO[hero.tier].name} · ${hero.role}`)}
         </View>
-        <Pressable
-          onPress={() => router.push('/portal')}
-          accessibilityRole="link"
-          accessibilityLabel={`Chơi cùng ${hero.name} trong game`}
-          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, opacity: pressed ? 0.75 : 1 })}
-        >
-          <Txt f="bold" size={15} color={c.logoRed}>
-            Chơi cùng {hero.name} trong game
-          </Txt>
-          <ArrowUpRight size={18} color={c.logoRed} strokeWidth={2.2} />
-        </Pressable>
         <HeroPhotoNote id={hero.id} />
       </View>
     </View>

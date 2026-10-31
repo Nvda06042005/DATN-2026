@@ -4,7 +4,7 @@ import { PALETTES, type Palette } from '@/constants/theme';
 
 export const ThemeContext = createContext<{ c: Palette; dark: boolean }>({ c: PALETTES.light, dark: false });
 
-/** Bảng màu đang dùng (game học sinh có chế độ tối riêng) */
+/** Bảng màu đang dùng cho các trang công khai. */
 export const useTheme = () => useContext(ThemeContext);
 
 type Styles = Parameters<typeof StyleSheet.create>[0];

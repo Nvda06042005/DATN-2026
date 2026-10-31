@@ -1,14 +1,14 @@
 /**
  * Trang chủ công khai theo phong cách Papumba (các khối nằm ở components/home.tsx): khung trang luôn dùng bảng màu sáng (không có nút đổi sáng/tối),
  * thanh điều hướng cố định co hẹp khi cuộn có đánh dấu mục đang xem, nút lên đầu trang, cuộn mượt khi lăn chuột và hiệu ứng theo cuộn (components/motion.tsx).
- * Chỉ chân trang có liên kết "Trang quản lý" tới /admin. expo-router bắt buộc tên index cho đường dẫn "/".
+ * expo-router bắt buộc tên index cho đường dẫn "/".
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated, Platform, ScrollView, View, useWindowDimensions,
   type NativeScrollEvent, type NativeSyntheticEvent, type ScrollViewInstance,
 } from 'react-native';
-import { useDocumentTitle } from '@/components/auth';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 import { BackToTop, Header, HomeSections, NAV } from '@/components/home';
 import { FxProvider } from '@/components/motion';
 import { PaperBg } from '@/components/ui';

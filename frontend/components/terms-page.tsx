@@ -9,10 +9,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ChevronRight } from 'lucide-react-native';
-import { useDocumentTitle } from '@/components/auth';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 import { Band, Cta, GoldRings, INK_LINE, INK_SOFT, PAPER_CARD } from '@/components/home';
-import { InfoShell, QaRow } from '@/components/info-page';
+import { InfoShell, PublicSiteNotice, QaRow } from '@/components/info-page';
 import { SectionHeading } from '@/components/section-heading';
+import { ImageCredits } from '@/components/image-credits';
 import { Txt } from '@/components/ui';
 import { TERMS_CATEGORIES, TERMS_GROUPS, TERMS_UPDATED } from '@/constants/terms';
 import { useReduceMotion } from '@/hooks/use-motion';
@@ -74,6 +75,7 @@ function TermsBody({ scroll }: { scroll: React.RefObject<ScrollViewInstance | nu
   return (
     <Band bg={c.logoPaper} wide={wide} padTop={wide ? 136 : 108} decor={<GoldRings />}>
       <SectionHeading eyebrow="Thông tin cần biết" title="Điều khoản" accent="sử dụng" description="Quy tắc dùng Đông A và cách ứng dụng bảo vệ thông tin của bạn." wide={wide} singleLine testID="terms-heading" />
+      <PublicSiteNotice />
       <View onLayout={(e) => { y.current.layout = e.nativeEvent.layout.y; }} style={{ flexDirection: side ? 'row' : 'column', alignItems: 'flex-start', gap: side ? 48 : 32 }}>
         <View role="navigation" aria-label="Danh mục điều khoản" style={{ width: side ? 340 : '100%', gap: 16 }}>
           {eyebrow('Danh mục')}
@@ -149,6 +151,7 @@ export function TermsPage() {
   return (
     <InfoShell active="terms" scrollRef={scroll}>
       <TermsBody scroll={scroll} />
+      <ImageCredits />
     </InfoShell>
   );
 }

@@ -28,7 +28,7 @@ export const HeroPhotoNote: React.FC<{ id: string }> = ({ id }) => {
   return note ? <Txt size={12} color={c.logoInk} style={{ lineHeight: 18 }}>{note}</Txt> : null;
 };
 
-/** Full attribution is available on the separate image-information page linked from the footer. */
+/** Ghi công đầy đủ được hiển thị trong trang điều khoản sử dụng. */
 export const HeroPhotoCredit: React.FC<{ id: string }> = ({ id }) => {
   const { c } = useTheme();
   const photo = HERO_PHOTOS[id];

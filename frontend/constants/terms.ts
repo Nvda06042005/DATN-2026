@@ -106,7 +106,7 @@ export const TERMS_GROUPS: FaqGroup[] = [
           {
             id: 'hinh-anh',
             q: 'Hình ảnh và bản đồ lấy từ đâu?',
-            a: ['Tranh danh tướng là tranh minh họa cách điệu, không phải chân dung đương thời. Bản đồ ba cuộc kháng chiến lấy từ Wikimedia Commons (tác giả Lưu Ly, phạm vi công cộng). Tác giả, nguồn và giấy phép của các hình ảnh có nguồn được ghi ở trang “Thông tin hình ảnh”.'],
+            a: ['Hình ảnh nhân vật gồm ảnh tượng, phù điêu và tư liệu lịch sử, không phải chân dung đương thời. Bản đồ ba cuộc kháng chiến của tác giả Lưu Ly thuộc phạm vi công cộng. Tác giả, nguồn và giấy phép được ghi ở mục “Thông tin hình ảnh” cuối trang này.'],
           },
           {
             id: 'gian-doan',

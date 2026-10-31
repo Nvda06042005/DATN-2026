@@ -1,7 +1,7 @@
 # Ảnh tư liệu cho thư viện danh tướng
 
 Các ảnh chỉ dùng trong thư viện công khai, tách biệt với hình nhân vật trong game.
-Thông tin ghi công hiển thị công khai tại `/thong-tin-hinh-anh`, truy cập từ liên kết “Thông tin hình ảnh” ở chân trang; không in các dòng nguồn/chú thích dưới từng hồ sơ nhân vật.
+Thông tin ghi công hiển thị công khai ở mục “Thông tin hình ảnh” cuối trang `/dieu-khoan-su-dung`; không in các dòng nguồn/chú thích dưới từng hồ sơ nhân vật.
 Ảnh tượng thờ, phù điêu và tranh tư liệu không được giới thiệu là ảnh chụp người thật thời Trần.
 Ảnh bối cảnh được ghi rõ khi chưa có ảnh tượng/chân dung đã xác minh.
 

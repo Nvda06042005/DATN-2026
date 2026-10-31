@@ -21,6 +21,17 @@ const INFO_THEME = { c: PALETTES.light, dark: false };
 
 export type InfoTab = 'terms' | 'faq';
 
+export function PublicSiteNotice() {
+  const { c } = useTheme();
+  return (
+    <View style={{ padding: 16, borderRadius: 16, borderWidth: 1, borderColor: INK_LINE, backgroundColor: c.logoPaper }}>
+      <Txt size={14} color={c.logoInk} style={{ lineHeight: 22 }}>
+        Hiện website chỉ cung cấp trang giới thiệu, điều khoản sử dụng và câu hỏi thường gặp. Thông tin về tài khoản, lớp học, trò chơi và AI bên dưới mô tả phiên bản trước.
+      </Txt>
+    </View>
+  );
+}
+
 /** Mục menu của thanh điều hướng ở hai trang này (id cũng là đường dẫn, trừ "home") */
 const INFO_NAV = [
   { id: 'home', short: 'Trang chủ' },

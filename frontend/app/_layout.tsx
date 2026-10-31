@@ -1,4 +1,4 @@
-/** Bố cục gốc: nạp phông chữ, vùng an toàn, chủ đề sáng, thông báo nhanh; mọi trang không có thanh tiêu đề hệ thống */
+/** Bố cục chung của trang chủ, điều khoản sử dụng và câu hỏi thường gặp. */
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -13,7 +13,6 @@ import { Manrope_800ExtraBold } from '@expo-google-fonts/manrope/800ExtraBold';
 import { Newsreader_400Regular } from '@expo-google-fonts/newsreader/400Regular';
 import { Newsreader_700Bold } from '@expo-google-fonts/newsreader/700Bold';
 import { Newsreader_700Bold_Italic } from '@expo-google-fonts/newsreader/700Bold_Italic';
-import { ToastProvider } from '@/components/ui';
 import { PALETTES } from '@/constants/theme';
 import { ReduceMotionContext, useSystemReduceMotion } from '@/hooks/use-motion';
 import { ThemeContext } from '@/hooks/use-theme';
@@ -39,10 +38,8 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ReduceMotionContext.Provider value={reduceMotion}>
         <ThemeContext.Provider value={LIGHT}>
-          <ToastProvider>
-            <StatusBar style="dark" />
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: PALETTES.light.giay }, animation: 'fade' }} />
-          </ToastProvider>
+          <StatusBar style="dark" />
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: PALETTES.light.giay }, animation: 'fade' }} />
         </ThemeContext.Provider>
       </ReduceMotionContext.Provider>
     </SafeAreaProvider>

@@ -8,8 +8,7 @@
   },
   "framework": null,
   "installCommand": "npm ci",
-  "buildCommand": "EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL:-$VITE_API_URL} npx expo export -p web",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "redirects": [{ "source": "/root-system-admin", "destination": "/admin", "permanent": true }],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

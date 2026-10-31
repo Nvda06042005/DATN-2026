@@ -7,9 +7,9 @@
 import { useRef, useState } from 'react';
 import { View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useDocumentTitle } from '@/components/auth';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 import { Band, Cta, GoldRings, INK_LINE, INK_SOFT } from '@/components/home';
-import { InfoShell, QaRow } from '@/components/info-page';
+import { InfoShell, PublicSiteNotice, QaRow } from '@/components/info-page';
 import { Txt } from '@/components/ui';
 import { FAQ_GROUPS } from '@/constants/faq';
 import { useTheme } from '@/hooks/use-theme';
@@ -41,6 +41,7 @@ function FaqBody() {
             Mọi điều cần biết về Đông A, dành cho học sinh, giáo viên và nhà trường. Cần thêm hỗ trợ? Hãy hỏi thầy cô hoặc quản trị viên của trường, hoặc đọc điều khoản sử dụng.
           </Txt>
           <Cta title="Xem điều khoản sử dụng" tone="logo" arrow onPress={() => router.push('/dieu-khoan-su-dung')} testID="faq-terms" />
+          <PublicSiteNotice />
         </View>
         <View style={{ flex: two ? 1 : undefined, width: two ? undefined : '100%', gap: 40 }}>
           {FAQ_GROUPS.map((g) => (
