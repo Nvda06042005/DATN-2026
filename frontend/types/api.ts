@@ -83,6 +83,7 @@ export interface AdminUser extends AuthUser {
   streak: number | null;
   lessons_completed: number | null;
   accuracy: number | null;
+  teaching_classes?: Array<{ id: number; class_code: string; school_year: string }>;
 }
 
 export interface UserFilters {
@@ -92,6 +93,8 @@ export interface UserFilters {
   city?: string;
   school_year?: string;
   grade?: number;
+  class_name?: string;
+  class_id?: number;
   role?: AuthRole;
   active?: 'true' | 'false';
   page?: number;
@@ -103,7 +106,7 @@ export interface UsersPage {
   page: number;
   limit: number;
   items: AdminUser[];
-  facets: { regions: string[]; cities: string[]; school_years: string[] };
+  facets: { regions: string[]; cities: string[]; school_years: string[]; class_names?: string[] };
 }
 
 export interface AccountCredential {
@@ -517,3 +520,12 @@ export interface UserDetail extends AuthUser { school_name: string | null; class
 export interface SecurityFilters { q?: string; school_id?: number; user_id?: number; success?: 'true' | 'false'; page?: number; limit?: number }
 export interface SecurityEvent { id: number; created_at: string; school_id: number | null; school_name: string | null; success: boolean; username?: string; user_id?: number | null; portal?: string; reason?: string; actor_name?: string; actor_role?: AuthRole; actor_id?: number | null; action?: string; target_type?: string; target_id?: string | null }
 export interface SecurityPage { items: SecurityEvent[]; total: number; page: number; limit: number }
+
+export interface DirectoryFilters { q?: string; school_id?: number; grade?: number; school_year?: string; region?: string; city?: string; education_level?: 'THCS'; active?: 'true' | 'false'; status?: ClassStatus; page?: number; limit?: number }
+export interface SchoolProfile { id: number; school_code: string; name: string; region: string | null; city: string | null; address: string | null; contact_name: string | null; contact_email: string | null; contact_phone: string | null; is_active: boolean }
+export interface SchoolSummary extends SchoolProfile { classes: number; teachers: number; students: number }
+export interface SchoolDetail extends SchoolProfile { counts: { grades: number; classes: number; teachers: number; students: number; admins: number }; grade_counts: Array<{ grade: number; classes: number; students: number }>; admins: AuthUser[] }
+export type SchoolUpdate = Partial<Pick<SchoolProfile,'name'|'region'|'city'|'address'|'contact_name'|'contact_email'|'contact_phone'|'is_active'>>;
+export interface SchoolsPage { items: SchoolSummary[]; total: number; page: number; limit: number; facets: { regions: string[]; cities: string[] } }
+export interface DirectoryClass { id: number; school_id: number; school_name: string; region: string | null; city: string | null; class_code: string; school_year: string; name: string; grade: number | null; status: ClassStatus; is_active: boolean; school_active: boolean; teacher_id: number; teacher_name: string; education_level: 'THCS'; students: number }
+export interface ClassesPage { items: DirectoryClass[]; total: number; page: number; limit: number; grade_counts: Array<{ grade: number | null; n: number }>; facets: { school_years: string[]; regions: string[]; cities: string[]; education_levels: string[] } }

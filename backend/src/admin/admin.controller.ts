@@ -2,7 +2,7 @@ import { SecurityService } from '../auth/security.service';
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Transform, Type } from 'class-transformer';
-import { IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, Length, Matches, Max, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, Length, Matches, Max, MaxLength, Min, ValidateIf } from 'class-validator';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { Role, UserRow } from '../database/database.service';
 import { SchoolService, UploadedXlsx } from './school.service';
@@ -24,12 +24,37 @@ class CreateSchoolDto {
 }
 
 class UpdateSchoolDto {
-  @IsOptional() @IsString() @Length(2, 120) name?: string;
+  @ValidateIf((_,value) => value !== undefined) @Transform(squash) @IsString() @Length(2, 120) name?: string;
   @IsOptional() @IsString() @MaxLength(80) region?: string | null;
   @IsOptional() @IsString() @MaxLength(80) city?: string | null;
+  @IsOptional() @IsString() @MaxLength(255) address?: string | null;
+  @IsOptional() @IsString() @MaxLength(120) contact_name?: string | null;
+  @IsOptional() @IsEmail() contact_email?: string | null;
+  @IsOptional() @IsString() @MaxLength(40) contact_phone?: string | null;
+  @ValidateIf((_,value) => value !== undefined) @IsBoolean() is_active?: boolean;
+}
+
+class DirectoryQuery {
+  @IsOptional() @IsString() @MaxLength(80) q?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(6) @Max(9) grade?: number;
+  @IsOptional() @IsString() @MaxLength(9) school_year?: string;
+  @IsOptional() @IsString() @MaxLength(80) region?: string;
+  @IsOptional() @IsString() @MaxLength(80) city?: string;
+  @IsOptional() @IsIn(['THCS']) education_level?: 'THCS';
+  @IsOptional() @IsIn(['true','false']) active?: 'true' | 'false';
+  @IsOptional() @IsIn(['PENDING','APPROVED','REJECTED']) status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number;
+}
+class UpdateClassDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(6) @Max(9) grade?: number | null;
+  @ValidateIf((_,value) => value !== undefined) @IsBoolean() is_active?: boolean;
 }
 
 class UserQuery {
+  @IsOptional() @IsString() @MaxLength(40) class_name?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) class_id?: number;
   @IsOptional() @IsString() @MaxLength(80) q?: string;
   @IsOptional() @Type(() => Number) @IsInt() school_id?: number;
   @IsOptional() @IsString() @MaxLength(80) region?: string;
@@ -107,6 +132,19 @@ export class AdminController {
   }
 
   // ------------------------------------------------------------------ trường
+  @Get('schools')
+  schools(@CurrentUser() user: UserRow, @Query() query: DirectoryQuery) { return this.school.schoolDirectory(user,query); }
+
+  @Get('schools/:id')
+  schoolDetail(@CurrentUser() user: UserRow,@Param('id',ParseIntPipe) id:number) { return this.school.schoolDetail(user,id); }
+
+  @Get('class-directory')
+  classDirectory(@CurrentUser() user: UserRow,@Query() query: DirectoryQuery) { return this.school.classDirectory(user,query); }
+
+  @Patch('classes/:id')
+  @Roles('root_admin')
+  updateClass(@CurrentUser() user:UserRow,@Param('id',ParseIntPipe) id:number,@Body() body:UpdateClassDto) { return this.school.updateClass(user,id,body); }
+
   @Post('schools')
   @Roles('root_admin')
   createSchool(@Body() body: CreateSchoolDto) {

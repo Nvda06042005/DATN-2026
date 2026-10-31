@@ -1,6 +1,6 @@
 # SQL migrations
 
-Thêm file mới theo số thứ tự, ví dụ `009_add_student_badges.sql`.
+Thêm file mới theo số thứ tự, ví dụ `010_add_student_badges.sql`.
 Tạo file bằng lệnh (từ thư mục `backend/`): `npm run build && npm run migrate -- new add_student_badges`.
 
 Không sửa migration đã chạy, không chứa bí mật/dữ liệu tài khoản thật,
@@ -25,3 +25,8 @@ Cả ba bảng mới đều bật RLS. Chỉ `dong_a_school_scope` được đ�
 không có quyền/policy công khai, không lưu mật khẩu, raw token, nội dung file nhập hoặc request body.
 Không băm lại mật khẩu trong SQL: Bcrypt áp dụng cho mật khẩu mới; tài khoản PBKDF2 được nâng cấp khi đăng nhập đúng.
 Kiểm chứng trên PostgreSQL tạm bằng `cd backend && npm run build && npm run migrate -- check && npm test` trước khi triển khai.
+
+`009_school_management.sql`: bổ sung địa chỉ, liên hệ, `is_active` cho trường; khối và `is_active` cho lớp.
+Giữ nguyên RLS, chính sách scope, tài khoản và dữ liệu hiện có. Chỉ suy khối từ mã lớp cũ bắt đầu rõ ràng bằng 6–9
+(ví dụ 7A1); các mã khác giữ NULL. `GET /api/database/health` trả thêm `schema_version` đọc từ lịch sử migration,
+để kiểm chứng backend Production đã áp dụng migration mà không cần lộ thông tin kết nối.

@@ -63,3 +63,10 @@ export const getSecurityHistory = (token: string, kind: 'login' | 'audit', f: im
   const params = new URLSearchParams(Object.entries(f).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]));
   return apiRequest<import('@/types/api').SecurityPage>(`/api/admin/${kind === 'login' ? 'login-history' : 'audit-history'}?${params}`, { token });
 };
+
+const directoryParams = (filters: object) => new URLSearchParams(Object.entries(filters).filter(([,v]) => v !== undefined && v !== '' && v !== null).map(([k,v]) => [k,String(v)])).toString();
+export const getSchoolDirectory = (token:string,f:import('@/types/api').DirectoryFilters) => apiRequest<import('@/types/api').SchoolsPage>(`/api/admin/schools?${directoryParams(f)}`,{token});
+export const getSchoolDetail = (token:string,id:number) => apiRequest<import('@/types/api').SchoolDetail>(`/api/admin/schools/${id}`,{token});
+export const updateSchool = (token:string,id:number,body:import('@/types/api').SchoolUpdate) => apiRequest<import('@/types/api').SchoolProfile>(`/api/admin/schools/${id}`,{token,method:'PATCH',body});
+export const getClassDirectory = (token:string,f:import('@/types/api').DirectoryFilters) => apiRequest<import('@/types/api').ClassesPage>(`/api/admin/class-directory?${directoryParams(f)}`,{token});
+export const updateDirectoryClass = (token:string,id:number,body:{grade?:number|null;is_active?:boolean}) => apiRequest(`/api/admin/classes/${id}`,{token,method:'PATCH',body});

@@ -12,6 +12,7 @@ import {
   AlertTriangle, Check, ClipboardCopy, FileSpreadsheet, KeyRound, LayoutDashboard, Lock, Mail, MapPin, MoreVertical, Printer, School, Search, ShieldCheck, Trash2, Unlock, UserPlus, Users,
 } from 'lucide-react-native';
 import { SecurityHistory, UserDetailSheet } from './AccountSecurity';
+import { ClassDirectory, SchoolsDirectory } from './SchoolManagement';
 import { AdminWorkspace } from './AdminWorkspace';
 import { AdminSelect } from './AdminSelect';
 import * as adminApi from '@/api/adminApi';
@@ -26,7 +27,7 @@ import { currentSchoolYear, fmt, formatDateTime, pct, webHref } from '@/lib/form
 import type { AccountCredential, AdminOverview, AdminUser, AuthRole, Grade, ManagedRole, SchoolStat, UserFilters, UsersPage } from '@/types/api';
 import type { IconType } from '@/types/game';
 
-type AdminTab = 'overview' | 'schools' | 'users' | 'import' | 'classes' | 'mail' | 'trash';
+type AdminTab = 'teachers' | 'students' | 'class_directory' | 'overview' | 'schools' | 'users' | 'import' | 'classes' | 'mail' | 'trash';
 type Modal = null | { kind: 'account'; role?: ManagedRole; schoolId?: number } | { kind: 'school' };
 
 const GRADES: Grade[] = [6, 7, 8, 9];
@@ -84,7 +85,8 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
 
   const openUsers = (filters: UserFilters) => {
     setPreset((p) => ({ key: p.key + 1, filters }));
-    setTab('users');
+    setAccountsView('accounts');
+    setTab(filters.role === 'teacher' ? 'teachers' : filters.role === 'student' ? 'students' : 'users');
   };
 
   const showCred = (title: string, item: AccountCredential) => {
@@ -96,7 +98,10 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
   const nav: Array<{ id: AdminTab; label: string; icon: IconType; color: string; count?: number }> = [
     { id: 'users', label: 'Tài khoản', icon: Users, color: c.son },
     { id: 'overview', label: 'Tổng quan', icon: LayoutDashboard, color: c.son },
-    ...(system ? [{ id: 'schools' as const, label: 'Trường học', icon: School, color: c.thuy, count: ov?.schools }] : []),
+    { id: 'schools', label: system ? 'Trường học' : 'Trường của tôi', icon: School, color: c.thuy, count: system ? ov?.schools : undefined },
+    { id: 'class_directory', label: 'Khối và lớp', icon: School, color: c.son },
+    { id: 'teachers', label: 'Giáo viên', icon: Users, color: c.son },
+    { id: 'students', label: 'Học sinh', icon: Users, color: c.son },
     { id: 'import', label: 'Nhập Excel', icon: FileSpreadsheet, color: c.ngoc, count: ov?.incomplete || undefined },
     { id: 'classes', label: 'Duyệt lớp', icon: Check, color: c.vang, count: ov?.pending_classes || undefined },
     { id: 'mail', label: 'Thư gửi', icon: Mail, color: c.thuy, count: mailWaiting || undefined },
@@ -104,7 +109,10 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
   ];
   const TITLES: Record<AdminTab, [string, string]> = {
     overview: system ? ['Tổng quan hệ thống', 'Toàn bộ trường, giáo viên và học sinh khối 6 – 9'] : [mySchool?.name ?? 'Trường của bạn', `Mã trường ${mySchool?.school_code ?? '—'} · chỉ dữ liệu của trường bạn`],
-    schools: ['Trường học', 'Thêm trường, cấp tài khoản quản trị trường'],
+    schools: [system ? 'Trường học' : 'Trường của tôi', system ? 'Thông tin, liên hệ, trạng thái và số liệu của mọi trường' : 'Chỉ trường được gán cho bạn'],
+    class_directory: ['Khối và lớp', system ? 'Tổng hợp lớp của mọi trường trên nền tảng' : 'Các khối và lớp thuộc trường của bạn'],
+    teachers: ['Giáo viên', system ? 'Giáo viên toàn hệ thống, lớp giảng dạy và trạng thái tài khoản' : 'Giáo viên thuộc trường của bạn'],
+    students: ['Học sinh', system ? 'Học sinh toàn hệ thống, lọc theo trường, khối và lớp' : 'Học sinh thuộc trường của bạn'],
     users: ['Tài khoản', system ? 'Tìm và lọc tài khoản của mọi trường' : 'Giáo viên, học sinh của trường'],
     import: ['Nhập file Excel', 'Cấp tài khoản hàng loạt từ file mẫu, gửi thư đăng nhập'],
     classes: ['Duyệt lớp', 'Yêu cầu mở lớp của giáo viên'],
@@ -126,7 +134,7 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
         </View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {system && (tab === 'overview' || tab === 'schools') && <Btn title="Thêm trường" icon={School} tone="giay" onPress={() => setModal({ kind: 'school' })} />}
-          {tab !== 'users' && <Btn title="Cấp tài khoản" icon={UserPlus} tone="son" onPress={() => setModal({ kind: 'account' })} testID="admin-create" />}
+          {!['users','teachers','students'].includes(tab) && <Btn title="Cấp tài khoản" icon={UserPlus} tone="son" onPress={() => setModal({ kind: 'account' })} testID="admin-create" />}
         </View>
       </View>
       {ovError && (
@@ -146,7 +154,9 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
       case 'overview':
         return <Overview ov={ov} system={system} onUsers={openUsers} go={setTab} />;
       case 'schools':
-        return <SchoolsList schools={schools} loading={!ov} onUsers={(id) => openUsers({ school_id: id })} onAdmin={(id) => setModal({ kind: 'account', role: 'school_admin', schoolId: id })} />;
+        return <SchoolsDirectory session={session} reloadKey={reloadKey} onUsers={openUsers} onCreateTeacher={id => setModal({kind:'account',role:'teacher',schoolId:id})} onChanged={loadOverview}/>;
+      case 'class_directory':
+        return <ClassDirectory session={session} schools={schools} onUsers={openUsers}/>;
       case 'import':
         return (
           <>
@@ -179,12 +189,12 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
   const accountNav = <View style={{ paddingBottom: 16 }}><Segmented label="Tài khoản và bảo mật" options={[{ value: 'accounts' as const, label: 'Tài khoản' }, { value: 'login' as const, label: 'Lịch sử đăng nhập' }, { value: 'audit' as const, label: 'Nhật ký thao tác' }]} value={accountsView} onChange={setAccountsView} /></View>;
   return (
     <AdminUiContext.Provider value>
-      <AdminWorkspace session={session} nav={nav} active={tab} onSelect={setTab} extra={system ? undefined : <NotificationBell session={session} />}>
-        {tab === 'users' ? accountsView === 'accounts' ? (
-          <UsersTab key={preset.key} session={session} system={system} schools={schools} preset={preset.filters} reloadKey={reloadKey} header={<>{header}{accountNav}</>} onCreate={() => setModal({ kind: 'account' })} onCreateAdmin={() => setModal({ kind: 'account', role: 'school_admin' })} onCred={showCred} onChanged={refresh} />
+      <AdminWorkspace session={session} nav={nav} active={tab} onSelect={next => { if (['users','teachers','students'].includes(next)) setPreset(p => ({key:p.key+1,filters:{}})); setTab(next); }} extra={system ? undefined : <NotificationBell session={session} />}>
+        {['users','teachers','students'].includes(tab) ? tab !== 'users' || accountsView === 'accounts' ? (
+          <UsersTab key={`${tab}:${preset.key}`} session={session} system={system} schools={schools} preset={preset.filters} reloadKey={reloadKey} audience={tab === 'teachers' ? 'teacher' : tab === 'students' ? 'student' : undefined} header={<>{header}{tab === 'users' && accountNav}</>} onCreate={() => setModal({ kind: 'account',role:tab === 'teachers' ? 'teacher' : tab === 'students' ? 'student' : undefined })} onCreateAdmin={() => setModal({ kind: 'account', role: 'school_admin' })} onCred={showCred} onChanged={refresh} />
         ) : (
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: wide ? 28 : 16, gap: 16, width: '100%', maxWidth: 1600, alignSelf: 'center' }}>
-            {header}{accountNav}<SecurityHistory key={accountsView} session={session} kind={accountsView} schools={schools} />
+            {header}{accountNav}<SecurityHistory key={accountsView} session={session} kind={accountsView === 'audit' ? 'audit' : 'login'} schools={schools} />
           </ScrollView>
         ) : (
           <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: wide ? 28 : 16, gap: 16, width: '100%', maxWidth: 1600, alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
@@ -399,27 +409,6 @@ const SchoolCard: React.FC<{ s: SchoolStat; onPress: () => void; children?: Reac
   );
 };
 
-const SchoolsList: React.FC<{ schools: SchoolStat[]; loading: boolean; onUsers: (id: number) => void; onAdmin: (id: number) => void }> = ({ schools, loading, onUsers, onAdmin }) => {
-  const { c } = useTheme();
-  if (loading) return <Skeleton height={120} />;
-  if (!schools.length) return <EmptyState title="Chưa có trường nào" text="Bấm Thêm trường, hoặc nhập file Excel mẫu: trường mới được tạo từ cột Trường và Mã số trường." />;
-  return (
-    <View style={{ gap: 10 }}>
-      {schools.map((s) => (
-        <SchoolCard key={s.id} s={s} onPress={() => onUsers(s.id)}>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-            <Txt size={13} color={s.admins ? c.muc2 : c.dongChu} style={{ flex: 1, minWidth: 160 }}>
-              {s.admins ? `${s.admins} quản trị trường` : 'Chưa có quản trị trường'}
-            </Txt>
-            <Btn title="Xem tài khoản" icon={Users} tone="giay" size="sm" onPress={() => onUsers(s.id)} />
-            <Btn title="Cấp quản trị trường" icon={ShieldCheck} tone="dong" size="sm" onPress={() => onAdmin(s.id)} />
-          </View>
-        </SchoolCard>
-      ))}
-    </View>
-  );
-};
-
 // ---------------------------------------------------------------------- danh sách tài khoản
 const PAGE = 50;
 
@@ -427,6 +416,7 @@ const UsersTab: React.FC<{
   session: Session;
   system: boolean;
   schools: SchoolStat[];
+  audience?: 'teacher' | 'student';
   preset: UserFilters;
   reloadKey: number;
   header: React.ReactElement;
@@ -434,7 +424,7 @@ const UsersTab: React.FC<{
   onCreate: () => void;
   onCreateAdmin: () => void;
   onChanged: () => void;
-}> = ({ session, system, schools, preset, reloadKey, header, onCred, onCreate, onCreateAdmin, onChanged }) => {
+}> = ({ session, system, schools, preset, reloadKey, header, onCred, onCreate, onCreateAdmin, onChanged, audience }) => {
   const { c } = useTheme();
   const toast = useToast();
   const fail = useFail(session);
@@ -446,7 +436,9 @@ const UsersTab: React.FC<{
   const [role, setRole] = useState<AuthRole | 'all'>(preset.role ?? 'all');
   const [grade, setGrade] = useState<number>(preset.grade ?? 0);
   const [schoolId, setSchoolId] = useState<number>(preset.school_id ?? 0);
-  const [schoolYear, setSchoolYear] = useState('all');
+  const [schoolYear, setSchoolYear] = useState(preset.school_year ?? 'all');
+  const [className,setClassName] = useState(preset.class_name ?? 'all');
+  const [classId,setClassId] = useState(preset.class_id ?? 0);
   const [region, setRegion] = useState('all');
   const [city, setCity] = useState('all');
   const [active, setActive] = useState<'all' | 'true' | 'false'>('all');
@@ -469,7 +461,9 @@ const UsersTab: React.FC<{
     () => ({
       q: query || undefined,
       active: active === 'all' ? undefined : active,
-      role: role === 'all' ? undefined : role,
+      role: audience ?? (role === 'all' ? undefined : role),
+      class_name: className === 'all' ? undefined : className,
+      class_id: classId || undefined,
       grade: grade || undefined,
       school_id: schoolId || undefined,
       school_year: schoolYear === 'all' ? undefined : schoolYear,
@@ -477,7 +471,7 @@ const UsersTab: React.FC<{
       city: city === 'all' ? undefined : city,
       limit: PAGE,
     }),
-    [query, role, grade, schoolId, schoolYear, region, city, active],
+    [query, role, grade, schoolId, schoolYear, region, city, active, audience, className, classId],
   );
 
   const load = useCallback(
@@ -547,28 +541,30 @@ const UsersTab: React.FC<{
   ];
   const facetPicker = (label: string, values: string[] | undefined, value: string, onChange: (v: string) => void) =>
     values && values.length > 1 ? <View style={{ flexGrow: 1, flexBasis: 160 }}><AdminSelect label={label} options={[{ value: 'all', label: 'Tất cả' }, ...values.map(v => ({ value: v, label: v }))]} value={value} onChange={onChange} /></View> : null;
-  const clearFilters = () => { setQ(''); setQuery(''); setRole('all'); setGrade(0); setSchoolId(0); setSchoolYear('all'); setRegion('all'); setCity('all'); setActive('all'); setAdvanced(false); };
+  const clearFilters = () => { setQ(''); setQuery(''); setRole('all'); setGrade(0); setSchoolId(0); setSchoolYear('all'); setRegion('all'); setCity('all'); setActive('all'); setClassName('all'); setClassId(0); setAdvanced(false); };
   const filtersUi = (
     <View style={{ backgroundColor: c.the, borderWidth: 1, borderColor: c.adminLine, borderBottomWidth: 0, borderTopLeftRadius: 8, borderTopRightRadius: 8 }}>
       <View style={{ padding: table ? 24 : 16, gap: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <View style={{ gap: 4 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><Txt f="bold" size={18} accessibilityRole="header">Tài khoản người dùng</Txt><Chip text={loading ? '…' : fmt(page?.total ?? 0)} bg={c.adminTint} fg={c.son} /></View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><Txt f="bold" size={18} accessibilityRole="header">{audience === 'teacher' ? 'Danh sách giáo viên' : audience === 'student' ? 'Danh sách học sinh' : 'Tài khoản người dùng'}</Txt><Chip text={loading ? '…' : fmt(page?.total ?? 0)} bg={c.adminTint} fg={c.son} /></View>
           <Txt size={12} color={c.muc3}>Quản lý tài khoản, phân quyền và thông tin đăng nhập.</Txt>
         </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{system && <Btn title="Tạo tài khoản quản trị" icon={ShieldCheck} tone="son" size="sm" onPress={onCreateAdmin} testID="admin-create-manager" />}<Btn title="Cấp tài khoản" icon={UserPlus} tone="giay" size="sm" onPress={onCreate} testID="admin-create" /></View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{system && !audience && <Btn title="Tạo tài khoản quản trị" icon={ShieldCheck} tone="son" size="sm" onPress={onCreateAdmin} testID="admin-create-manager" />}<Btn title={audience === 'teacher' ? 'Cấp tài khoản giáo viên' : audience === 'student' ? 'Cấp tài khoản học sinh' : 'Cấp tài khoản'} icon={UserPlus} tone="giay" size="sm" onPress={onCreate} testID="admin-create" /></View>
       </View>
       <View style={{ padding: table ? 24 : 16, gap: 14 }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
           <Field label="Nhập từ khóa tìm kiếm" value={q} onChangeText={setQ} placeholder="Họ tên, tên đăng nhập hoặc email…" autoCapitalize="none" autoCorrect={false} returnKeyType="search" nativeID="admin-search" style={{ flexGrow: 2, flexBasis: 260 }} />
-          <View style={{ flexGrow: 1, flexBasis: 160 }}><AdminSelect label="Vai trò" testID="admin-role-filter" options={roleOptions} value={role} onChange={setRole} /></View>
-          <View style={{ flexGrow: 1, flexBasis: 140 }}><AdminSelect label="Khối" testID="admin-grade-filter" options={[{ value: 0, label: 'Tất cả khối' }, ...GRADES.map(g => ({ value: g as number, label: `Khối ${g}` }))]} value={grade} onChange={setGrade} /></View>
+          <View style={{ flexGrow: 1, flexBasis: 160 }}><AdminSelect label="Vai trò" testID="admin-role-filter" options={audience ? [{value:audience,label:ROLE_LABEL[audience]}] : roleOptions} value={audience ?? role} onChange={setRole} /></View>
+          {audience !== 'teacher' && <View style={{ flexGrow: 1, flexBasis: 140 }}><AdminSelect label="Khối" testID="admin-grade-filter" options={[{ value: 0, label: 'Tất cả khối' }, ...GRADES.map(g => ({ value: g as number, label: `Khối ${g}` }))]} value={grade} onChange={setGrade} /></View>}
           <View style={{ flexGrow: 1, flexBasis: 155 }}><AdminSelect label="Trạng thái" testID="admin-active-filter" options={[{ value: 'all', label: 'Tất cả trạng thái' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }]} value={active} onChange={setActive} /></View>
+          <View style={{ flexGrow:1,flexBasis:170 }}><AdminSelect label="Lớp" value={className} onChange={value=>{setClassName(value);setClassId(0);}} options={[{value:'all',label:'Tất cả lớp'},...(facets?.class_names ?? []).map(value=>({value,label:value}))]}/></View>
           <Btn title="Xóa bộ lọc" tone="giay" size="sm" onPress={clearFilters} testID="admin-clear-filters" />
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <Btn title={advanced ? 'Ẩn bộ lọc khác' : 'Lọc theo trường, năm học, khu vực'} icon={Search} tone="ghost" size="sm" onPress={() => setAdvanced(value => !value)} selected={advanced} />
           <Txt size={12} color={c.muc3} accessibilityLiveRegion="polite">{loading ? 'Đang tìm…' : `${fmt(page?.total ?? 0)} tài khoản phù hợp`}</Txt>
         </View>
+        {classId > 0 && <View style={{gap:8}}><Txt size={13} color={c.muc2}>Đang lọc theo lớp được chọn trong danh sách khối và lớp.</Txt><Btn title="Bỏ lọc lớp đã chọn" tone="ghost" size="sm" onPress={()=>setClassId(0)}/></View>}
         {advanced && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
           {system && schools.length > 0 && <View style={{ flexGrow: 1, flexBasis: 220 }}><AdminSelect label="Trường" testID="admin-school-filter" options={[{ value: 0, label: 'Tất cả trường' }, ...schools.map(school => ({ value: school.id, label: `${school.school_code} · ${school.name}` }))]} value={schoolId} onChange={setSchoolId} /></View>}
           {facetPicker('Năm học', facets?.school_years, schoolYear, setSchoolYear)}
@@ -663,13 +659,13 @@ const UserRow = React.memo<{ u: AdminUser; index: number; table: boolean; system
     {table ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18, paddingHorizontal: 24, paddingVertical: 16, minHeight: 94 }}>
       <Txt size={12} color={c.muc3} style={{ width: 36 }}>{index}</Txt>
       <View style={{ flex: 3, minWidth: 0 }}>{identity}</View>
-      <View style={{ flex: 1.2, minWidth: 0 }}><Chip text={ROLE_LABEL[u.role]} bg={chip.bg} fg={chip.fg} style={{ borderRadius: 4, paddingHorizontal: 6 }} />{u.class_name && <Txt size={11} color={c.muc3}>{u.class_name}{u.grade ? ` · Khối ${u.grade}` : ''}</Txt>}</View>
+      <View style={{ flex: 1.2, minWidth: 0 }}><Chip text={ROLE_LABEL[u.role]} bg={chip.bg} fg={chip.fg} style={{ borderRadius: 4, paddingHorizontal: 6 }} />{(u.class_name || u.teaching_classes?.length) ? <Txt size={11} color={c.muc3} numberOfLines={2}>{u.role === 'teacher' && u.teaching_classes?.length ? u.teaching_classes.map(item => `${item.class_code} (${item.school_year})`).join(', ') : u.class_name}{u.grade ? ` · Khối ${u.grade}` : ''}</Txt> : null}</View>
       <View style={{ flex: 1.1 }}>{status}</View>
       <Txt size={12} color={c.muc2} style={{ flex: 1.5 }}>{u.last_login_at ? formatDateTime(u.last_login_at) : 'Chưa đăng nhập'}</Txt>
       <View style={{ width: 54, alignItems: 'center' }}>{actionButton}</View>
     </View> : <View style={{ padding: 16, gap: 14 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>{identity}{actionButton}</View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}><Chip text={ROLE_LABEL[u.role]} bg={chip.bg} fg={chip.fg} />{status}{u.class_name && <Txt size={12} color={c.muc3}>Lớp {u.class_name}</Txt>}</View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}><Chip text={ROLE_LABEL[u.role]} bg={chip.bg} fg={chip.fg} />{status}{(u.class_name || u.teaching_classes?.length) ? <Txt size={12} color={c.muc3}>Lớp {u.role === 'teacher' && u.teaching_classes?.length ? u.teaching_classes.map(item=>`${item.class_code} (${item.school_year})`).join(', ') : u.class_name}</Txt> : null}</View>
       <Txt size={12} color={c.muc3}>Đăng nhập gần nhất: {u.last_login_at ? formatDateTime(u.last_login_at) : 'Chưa đăng nhập'}</Txt>
     </View>}
     {actions && <View testID={`admin-user-menu-${u.id}`} style={{ padding: 16, backgroundColor: c.adminTint, borderTopWidth: 1, borderTopColor: c.adminLine, gap: 12 }}>
@@ -771,9 +767,10 @@ const CreateAccountSheet: React.FC<{
       }
     >
       <Segmented label="Vai trò" options={roles} value={role} onChange={setRole} />
+      <Txt size={13} color={c.muc2}>{role === 'root_admin' ? 'Quản trị tổng xem và quản lý toàn bộ trường trên nền tảng.' : role === 'school_admin' ? 'Quản trị trường chỉ truy cập dữ liệu của trường được gán; không xem được trường khác.' : role === 'teacher' ? 'Giáo viên làm việc trong trường và các lớp được phân công.' : 'Học sinh học tập và xem tiến độ của chính mình.'}</Txt>
       {system && role !== 'root_admin' &&
         (schools.length ? (
-          <Segmented label="Trường" options={schools.map((s) => ({ value: s.id, label: `${s.school_code} · ${s.name}` }))} value={schoolId} onChange={setSchoolId} />
+          <AdminSelect label="Trường" options={schools.map((s) => ({ value: s.id, label: `${s.school_code} · ${s.name}` }))} value={schoolId} onChange={setSchoolId} />
         ) : (
           <Txt size={14} color={c.dongChu}>
             Chưa có trường nào – hãy thêm trường trước.

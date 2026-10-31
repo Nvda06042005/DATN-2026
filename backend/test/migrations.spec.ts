@@ -69,7 +69,7 @@ describe('file migration', () => {
     } finally {
       spy.mockRestore();
     }
-    expect(lines.filter((l) => l.startsWith('OK '))).toHaveLength(8);
+    expect(lines.filter((l) => l.startsWith('OK '))).toHaveLength(9);
   });
 });
 
@@ -88,10 +88,10 @@ describe('file migration', () => {
   test('status chỉ đọc, chạy lại không áp dụng lần hai, mọi bảng bật RLS', async () => {
     expect((await m.migrationStatus(url, dir)).every((s) => !s.applied)).toBe(true);
     expect((await sql(url, "SELECT to_regclass('public.app_schema_migrations') AS t"))[0].t).toBeNull();
-    expect(await m.applyMigrations(url, dir)).toHaveLength(8);
+    expect(await m.applyMigrations(url, dir)).toHaveLength(9);
     expect(await m.applyMigrations(url, dir)).toEqual([]);
     expect((await m.migrationStatus(url, dir)).every((s) => s.applied)).toBe(true);
-    expect(await count('SELECT count(*) AS n FROM public.app_schema_migrations')).toBe(8);
+    expect(await count('SELECT count(*) AS n FROM public.app_schema_migrations')).toBe(9);
     expect(await count("SELECT count(*) AS n FROM pg_tables WHERE schemaname = 'public' AND rowsecurity")).toBe(20);
     // Chính sách RLS theo trường cho vai trò dong_a_school_scope, không mở cho vai trò khác
     expect(await count("SELECT count(*) AS n FROM pg_policies WHERE schemaname = 'public' AND policyname = 'school_scope'")).toBe(11);
@@ -102,19 +102,19 @@ describe('file migration', () => {
     await sql(url, readFileSync(join(dir, '001_initial_postgres_schema.sql'), 'utf8'));
     await sql(url, `INSERT INTO public."User" (id, email, "passwordHash", "fullName", "updatedAt") VALUES ('legacy-id', 'fixture@example.invalid', 'fake-hash', 'Fixture', now())`);
     await sql(url, "INSERT INTO public._prisma_migrations (id, checksum, migration_name) VALUES ('fixture', 'original-checksum', 'original-import')");
-    expect(await m.applyMigrations(url, dir)).toHaveLength(8);
+    expect(await m.applyMigrations(url, dir)).toHaveLength(9);
     expect(await sql(url, 'SELECT id, email FROM public."User"')).toEqual([{ id: 'legacy-id', email: 'fixture@example.invalid' }]);
     expect(await sql(url, 'SELECT checksum FROM public._prisma_migrations')).toEqual([{ checksum: 'original-checksum' }]);
   });
 
   test('một file lỗi thì hoàn tác cả lô và lịch sử', async () => {
     await m.applyMigrations(url, dir);
-    writeFileSync(join(dir, '009_create_marker.sql'), 'CREATE TABLE public.rollback_marker (id INT);');
-    writeFileSync(join(dir, '010_fail.sql'), 'SELECT * FROM deliberately_missing_relation;');
+    writeFileSync(join(dir, '010_create_marker.sql'), 'CREATE TABLE public.rollback_marker (id INT);');
+    writeFileSync(join(dir, '011_fail.sql'), 'SELECT * FROM deliberately_missing_relation;');
     await expect(m.applyMigrations(url, dir)).rejects.toThrow(/42P01/);
     expect((await sql(url, "SELECT to_regclass('public.rollback_marker') AS t"))[0].t).toBeNull();
-    expect(await count('SELECT count(*) AS n FROM public.app_schema_migrations')).toBe(8);
-    writeFileSync(join(dir, '010_fail.sql'), 'INSERT INTO public.rollback_marker VALUES (1);');
+    expect(await count('SELECT count(*) AS n FROM public.app_schema_migrations')).toBe(9);
+    writeFileSync(join(dir, '011_fail.sql'), 'INSERT INTO public.rollback_marker VALUES (1);');
     expect(await m.applyMigrations(url, dir)).toHaveLength(2);
     expect(await sql(url, 'SELECT id FROM public.rollback_marker')).toEqual([{ id: 1 }]);
   });
@@ -138,8 +138,8 @@ describe('file migration', () => {
 
   test('hai tiến trình chạy cùng lúc: mỗi file chỉ chạy một lần', async () => {
     const results = await Promise.all([m.applyMigrations(url, dir), m.applyMigrations(url, dir)]);
-    expect(results.map((r) => r.length).sort()).toEqual([0, 8]);
-    expect(await count('SELECT count(*) AS n FROM public.app_schema_migrations')).toBe(8);
+    expect(results.map((r) => r.length).sort()).toEqual([0, 9]);
+    expect(await count('SELECT count(*) AS n FROM public.app_schema_migrations')).toBe(9);
   });
 
   test('backend khởi động tự chạy migration, ghi được tiến độ và lịch sử thi đấu', async () => {
@@ -169,7 +169,7 @@ describe('file migration', () => {
       expect((await again.getByUsername('migration_student'))!.id).toBe(user.id);
       expect((await again.getProgress(user.id)).xp).toBe(42);
       await again.onModuleDestroy();
-      expect(await count('SELECT count(*) AS n FROM public.app_schema_migrations')).toBe(8);
+      expect(await count('SELECT count(*) AS n FROM public.app_schema_migrations')).toBe(9);
 
       // Lưu một trận thi đấu lớp, đọc lại kèm tên học sinh; xóa tài khoản thì xóa luôn dữ liệu trận liên quan
       const teacher = await db.createUser({ username: 'live_teacher', full_name: 'Fixture GV', role: 'teacher', class_name: '7A', password_hash: hash, must_change_password: true });

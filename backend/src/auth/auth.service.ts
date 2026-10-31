@@ -74,7 +74,7 @@ export class AuthService {
     if (!user || !user.is_active || user.deleted_at || payload.pfp !== passwordFingerprint(user.password_hash)) return null;
     if ((payload.ver ?? 0) !== user.token_version || payload.role !== user.role) return null;
     if ((await this.db.query('SELECT 1 FROM app_revoked_tokens WHERE token_hash = $1 AND expires_at > now()', [hashToken(token)])).length) return null;
-    if ((payload.sid ?? null) !== (user.school_id ?? null)) return null;
+    if ((payload.sid ?? null) !== (user.school_id ?? null) || !(await this.db.schoolActive(user.school_id))) return null;
     return user;
   }
 
@@ -99,6 +99,7 @@ export class AuthService {
     }
     if (user.deleted_at) { await this.security.login(user, username, portal, 'deleted'); throw new ForbiddenException('Tài khoản đang ở thùng rác. Liên hệ quản trị trường để khôi phục.'); }
     if (!user.is_active) { await this.security.login(user, username, portal, 'locked'); throw new ForbiddenException('Tài khoản đã bị khóa. Liên hệ quản trị viên.'); }
+    if (!(await this.db.schoolActive(user.school_id))) { await this.security.login(user, username, portal, 'locked'); throw new ForbiddenException('Trường đang tạm ngưng hoạt động. Liên hệ quản trị tổng.'); }
     if (!ALLOWED[portal].includes(user.role)) { await this.security.login(user, username, portal, 'portal'); throw new ForbiddenException(wrongPortal(user.role, portal)); }
     this.failed.delete(username);
     const upgraded = needsPasswordUpgrade(user.password_hash) && Buffer.byteLength(password, 'utf8') <= 72 ? await hashPassword(password) : null;
@@ -106,6 +107,7 @@ export class AuthService {
       const rows = await q('SELECT id FROM app_users WHERE id = $1 FOR UPDATE', [user.id]);
       const current = rows.length ? await this.db.getById(user.id, q) : null;
       if (!current || !current.is_active || current.deleted_at || current.password_hash !== user.password_hash || current.role !== user.role || current.school_id !== user.school_id || current.token_version !== user.token_version) throw new UnauthorizedException('Tài khoản vừa thay đổi. Hãy đăng nhập lại.');
+      if (!(await this.db.schoolActive(current.school_id,q))) throw new ForbiddenException('Trường đang tạm ngưng hoạt động.');
       if (upgraded) await this.db.setPassword(user.id, upgraded, user.must_change_password, q);
       await q('UPDATE app_users SET last_login_at = now() WHERE id = $1', [user.id]);
       await this.security.login(current, username, portal, 'success', q);

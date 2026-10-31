@@ -74,7 +74,7 @@ async function answer(token: string, q: BankQuestion, payload: Record<string, un
   test('trang gốc, health và kiểm tra CSDL', async () => {
     expect((await api('GET', '/')).body.status).toBe('online');
     expect((await api('GET', '/api/health')).body).toEqual({ status: 'healthy', ai_engine: 'operational', dataset_grounded: true });
-    expect((await api('GET', '/api/database/health')).body).toEqual({ status: 'connected', database: 'postgresql' });
+    expect((await api('GET', '/api/database/health')).body).toMatchObject({ status: 'connected', database: 'postgresql' });
   });
 
   test('đăng nhập đúng trang, sai mật khẩu, khóa tạm khi dò mật khẩu', async () => {

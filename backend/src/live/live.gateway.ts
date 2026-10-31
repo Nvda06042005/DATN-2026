@@ -62,6 +62,10 @@ export class LiveGateway implements OnApplicationBootstrap, OnApplicationShutdow
       if (conn) {
         const fresh = sessionToken ? await this.auth.authenticate(sessionToken).catch(() => null) : null;
         if (!fresh || fresh.role !== conn.user.role || fresh.class_name !== conn.user.class_name) return this.reject(ws, 'auth', 4401);
+        if (fresh.role === 'teacher' && fresh.school_id && msg.type === 'create') {
+          const available = await this.db.query("SELECT 1 FROM app_classes WHERE teacher_id=$1 AND school_id=$2 AND class_code=$3 AND status='APPROVED' AND is_active",[fresh.id,fresh.school_id,fresh.class_name]);
+          if (!available.length) { ws.send(JSON.stringify({type:'error',code:'no_class',message:'Lớp chưa được duyệt hoặc đã tạm ngưng.'})); return; }
+        }
         return this.hub.handle(conn, msg);
       }
       if (authenticating) return;

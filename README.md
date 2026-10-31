@@ -197,3 +197,10 @@ quản trị trường chỉ quản lý giáo viên/học sinh trong trường. 
 Đăng xuất thu hồi token trên máy chủ; khóa/đổi quyền/đổi mật khẩu thu hồi các phiên cũ.
 Cấu trúc nằm trong migration 008, lịch sử mới bật RLS và không chứa mật khẩu hay raw token.
 Xem [chức năng, API và cách kiểm chứng](docs/ADMIN_SECURITY.md).
+
+### Quản lý trường, khối/lớp và danh sách toàn hệ thống
+
+Mục Trường học/Trường của tôi có hồ sơ, liên hệ, số liệu khối/lớp/GV/HS và quản trị trường; chỉ quản trị tổng sửa được trường.
+Có thêm Khối và lớp (lọc cấp THCS, khối 6–9, trạng thái/duyệt/địa bàn/năm học), Giáo viên và Học sinh.
+Root xem mọi trường; school_admin chỉ trường được gán, kể cả khi sửa query/URL. Migration 009 giữ RLS và dữ liệu hiện có.
+[Chi tiết chức năng và phân quyền](docs/SCHOOL_ADMIN.md). Health database trả schema_version để xác minh migration Production.

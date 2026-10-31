@@ -35,12 +35,16 @@ export interface UserFilter {
   city?: string;
   school_year?: string;
   grade?: number;
+  class_name?: string;
+  class_id?: number;
   role?: Role;
   active?: 'true' | 'false';
   page?: number;
   limit?: number;
 }
 
+export interface SchoolFields { name?: string; region?: string | null; city?: string | null; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null; is_active?: boolean }
+export interface DirectoryFilter { q?: string; school_id?: number; grade?: number; school_year?: string; region?: string; city?: string; education_level?: 'THCS'; active?: 'true' | 'false'; status?: 'PENDING' | 'APPROVED' | 'REJECTED'; page?: number; limit?: number }
 type RowStatus = 'created' | 'delta' | 'existing' | 'incomplete' | 'error';
 
 export interface RowResult {
@@ -60,6 +64,11 @@ interface SchoolRow {
   name: string;
   region: string | null;
   city: string | null;
+  address?: string | null;
+  contact_name?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  is_active?: boolean;
 }
 
 /** Mã trường chuẩn hóa 4 chữ số: chỉ giữ chữ số, lấy 4 số cuối, thêm 0 phía trước */
@@ -181,13 +190,93 @@ export class SchoolService implements OnApplicationBootstrap {
     )[0];
   }
 
-  async updateSchool(id: number, body: { name?: string; region?: string | null; city?: string | null }) {
-    const rows = await this.db.query<SchoolRow>(
-      'UPDATE app_schools SET name = COALESCE($2, name), region = COALESCE($3, region), city = COALESCE($4, city) WHERE id = $1 RETURNING id, school_code, name, region, city',
-      [id, body.name?.trim() || null, body.region?.trim() ?? null, body.city?.trim() ?? null],
-    );
-    if (!rows.length) throw new NotFoundException('Không tìm thấy trường');
-    return rows[0];
+  async updateSchool(id: number, body: SchoolFields) {
+    return this.db.tx(async q => {
+      const old = (await q<SchoolRow>('SELECT * FROM app_schools WHERE id = $1 FOR UPDATE', [id]))[0];
+      if (!old) throw new NotFoundException('Không tìm thấy trường');
+      const allowed = ['name','region','city','address','contact_name','contact_email','contact_phone','is_active'];
+      const entries = Object.entries(body).filter(([k,v]) => allowed.includes(k) && v !== undefined);
+      if (entries.length) {
+        const values = entries.map(([,v]) => typeof v === 'string' ? v.trim() || null : v);
+        await q(`UPDATE app_schools SET ${entries.map(([k],i) => `${k} = $${i+2}`).join(', ')} WHERE id = $1`, [id,...values]);
+        if (body.is_active !== undefined && body.is_active !== old.is_active) await q('UPDATE app_users SET token_version = token_version + 1 WHERE school_id = $1',[id]);
+        if (body.region !== undefined || body.city !== undefined) {
+          await q('UPDATE app_users SET region = s.region, city = s.city FROM app_schools s WHERE app_users.school_id = s.id AND s.id = $1',[id]);
+        }
+      }
+      return (await q<SchoolRow>('SELECT * FROM app_schools WHERE id = $1',[id]))[0];
+    });
+  }
+
+  async schoolDetail(actor: UserRow, id: number) {
+    return this.run(actor, async (q,scope) => {
+      const school = (await q<SchoolRow>('SELECT * FROM app_schools WHERE id = $1 AND ($2::integer IS NULL OR id = $2)',[id,scope]))[0];
+      if (!school) throw new NotFoundException('Không tìm thấy trường');
+      const users = (await q<{ teachers: number; students: number }>("SELECT count(*) FILTER (WHERE role = 'teacher')::int AS teachers, count(*) FILTER (WHERE role = 'student')::int AS students FROM app_users WHERE school_id = $1 AND deleted_at IS NULL",[id]))[0];
+      const admins = (await q(`SELECT ${USER_COLUMNS} FROM app_users WHERE school_id = $1 AND role = 'school_admin' AND deleted_at IS NULL ORDER BY full_name`,[id])).map(row => toPublic(toUser(row)));
+      const grades = await q<{ grade: number; classes: number; students: number }>(`SELECT g.grade,
+        (SELECT count(*)::int FROM app_classes c WHERE c.school_id = $1 AND c.grade = g.grade) AS classes,
+        (SELECT count(*)::int FROM app_users u WHERE u.school_id = $1 AND u.role = 'student' AND u.deleted_at IS NULL AND u.grade = g.grade) AS students
+        FROM (SELECT grade FROM app_classes WHERE school_id = $1 AND grade IS NOT NULL UNION SELECT grade FROM app_users WHERE school_id = $1 AND role = 'student' AND deleted_at IS NULL AND grade IS NOT NULL) g ORDER BY g.grade`,[id]);
+      const [{classes}] = await q<{classes:number}>('SELECT count(*)::int AS classes FROM app_classes WHERE school_id = $1',[id]);
+      return {...school, counts:{...users,classes,grades:grades.length,admins:admins.length}, grade_counts:grades, admins};
+    });
+  }
+
+  async schoolDirectory(actor: UserRow, f: DirectoryFilter) {
+    return this.run(actor, async (q,scope) => {
+      const params: unknown[] = [], where: string[] = [];
+      const add = (sql: string,v:unknown) => { params.push(v); where.push(sql.replaceAll('?', '$'+params.length)); };
+      if(scope !== null) add('s.id = ?',scope); else if(f.school_id) add('s.id = ?',f.school_id);
+      if(f.q?.trim()) add("(s.name || ' ' || s.school_code) ILIKE ? ESCAPE '\\'",'%'+likeEscape(f.q.trim())+'%');
+      if(f.region) add('s.region = ?',f.region); if(f.city) add('s.city = ?',f.city);
+      if(f.active) add('s.is_active = ?',f.active === 'true');
+      const condition = where.length ? where.join(' AND ') : 'TRUE';
+      const total = Number((await q<{n:string}>(`SELECT count(*) AS n FROM app_schools s WHERE ${condition}`,params))[0].n);
+      const page=f.page??1, limit=f.limit??30;
+      const items = await q(`SELECT s.*,
+        (SELECT count(*)::int FROM app_classes c WHERE c.school_id = s.id) AS classes,
+        (SELECT count(*)::int FROM app_users u WHERE u.school_id = s.id AND u.role = 'teacher' AND u.deleted_at IS NULL) AS teachers,
+        (SELECT count(*)::int FROM app_users u WHERE u.school_id = s.id AND u.role = 'student' AND u.deleted_at IS NULL) AS students
+        FROM app_schools s WHERE ${condition} ORDER BY s.name, s.id LIMIT $${params.length+1} OFFSET $${params.length+2}`,[...params,limit,(page-1)*limit]);
+      const places=await q<{region:string|null;city:string|null}>('SELECT DISTINCT region, city FROM app_schools WHERE ($1::integer IS NULL OR id = $1)',[scope]);
+      const uniq=(v:Array<string|null>)=>[...new Set(v.filter((x):x is string=>!!x))].sort();
+      return {items,total,page,limit,facets:{regions:uniq(places.map(x=>x.region)),cities:uniq(places.map(x=>x.city))}};
+    });
+  }
+
+  async classDirectory(actor: UserRow, f: DirectoryFilter) {
+    return this.run(actor, async (q,scope) => {
+      const params:unknown[]=[],where:string[]=[];
+      const add=(sql:string,v:unknown)=>{params.push(v);where.push(sql.replaceAll('?', '$'+params.length));};
+      if(scope !== null) add('c.school_id = ?',scope); else if(f.school_id) add('c.school_id = ?',f.school_id);
+      if(f.education_level) add("'THCS' = ?",f.education_level);
+      if(f.grade) add('c.grade = ?',f.grade); if(f.school_year) add('c.school_year = ?',f.school_year);
+      if(f.region) add('s.region = ?',f.region); if(f.city) add('s.city = ?',f.city);
+      if(f.status) add('c.status = ?',f.status); if(f.active) add('(c.is_active AND s.is_active) = ?',f.active==='true');
+      if(f.q?.trim()) add("(c.class_code || ' ' || c.name || ' ' || s.name) ILIKE ? ESCAPE '\\'",'%'+likeEscape(f.q.trim())+'%');
+      const condition=where.length?where.join(' AND '):'TRUE',page=f.page??1,limit=f.limit??30;
+      const join='FROM app_classes c JOIN app_schools s ON s.id = c.school_id JOIN app_users t ON t.id = c.teacher_id';
+      const total=Number((await q<{n:string}>(`SELECT count(*) AS n ${join} WHERE ${condition}`,params))[0].n);
+      const items=await q(`SELECT c.id,c.school_id,c.class_code,c.school_year,c.name,c.grade,c.status,c.is_active,s.is_active AS school_active,s.name AS school_name,s.region,s.city,t.id AS teacher_id,t.full_name AS teacher_name,'THCS' AS education_level,
+        (SELECT count(*)::int FROM app_class_members m JOIN app_users u ON u.id=m.user_id WHERE m.class_id=c.id AND u.role='student' AND u.deleted_at IS NULL) AS students
+        ${join} WHERE ${condition} ORDER BY s.name,c.grade NULLS LAST,c.school_year DESC,c.class_code,c.id LIMIT $${params.length+1} OFFSET $${params.length+2}`,[...params,limit,(page-1)*limit]);
+      const years=await q<{school_year:string}>('SELECT DISTINCT school_year FROM app_classes WHERE ($1::integer IS NULL OR school_id=$1) ORDER BY school_year DESC',[scope]);
+      const places=await q<{region:string|null;city:string|null}>('SELECT DISTINCT region,city FROM app_schools WHERE ($1::integer IS NULL OR id=$1)',[scope]);
+      const uniq=(v:Array<string|null>)=>[...new Set(v.filter((x):x is string=>!!x))].sort();
+      const grades=await q<{grade:number|null;n:number}>(`SELECT c.grade,count(*)::int AS n FROM app_classes c JOIN app_schools s ON s.id=c.school_id JOIN app_users t ON t.id=c.teacher_id WHERE ${condition} GROUP BY c.grade ORDER BY c.grade`,params);
+      return {items,total,page,limit,grade_counts:grades,facets:{school_years:years.map(x=>x.school_year),regions:uniq(places.map(x=>x.region)),cities:uniq(places.map(x=>x.city)),education_levels:['THCS']}};
+    });
+  }
+
+  async updateClass(actor: UserRow,id:number,body:{grade?:number|null;is_active?:boolean}) {
+    return this.run(actor,async(q,scope)=>{
+      const row=(await q<{school_id:number;class_code:string}>('SELECT school_id,class_code FROM app_classes WHERE id=$1 AND ($2::integer IS NULL OR school_id=$2)',[id,scope]))[0];
+      if(!row) throw new NotFoundException('Không tìm thấy lớp');
+      const entries=Object.entries(body).filter(([k,v])=>['grade','is_active'].includes(k)&&v!==undefined);
+      if(entries.length) await q(`UPDATE app_classes SET ${entries.map(([k],i)=>`${k}=$${i+2}`).join(', ')} WHERE id=$1`,[id,...entries.map(([,v])=>v)]);
+      return (await q('SELECT id,school_id,class_code,grade,is_active FROM app_classes WHERE id=$1',[id]))[0];
+    });
   }
 
   private async schoolById(q: Q, id: number): Promise<SchoolRow> {
@@ -204,12 +293,14 @@ export class SchoolService implements OnApplicationBootstrap {
       const params: unknown[] = [];
       const add = (cond: string, v: unknown) => {
         params.push(v);
-        where.push(cond.replace('?', `$${params.length}`));
+        where.push(cond.replaceAll('?', `$${params.length}`));
       };
       if (scope !== null) {
         add('u.school_id = ?', scope);
         where.push("u.role IN ('teacher', 'student'" + (actor.role === 'school_admin' ? ", 'school_admin'" : '') + ')');
       } else if (f.school_id) add('u.school_id = ?', f.school_id);
+      if (f.class_name) add("(u.class_name = ? OR (u.role = 'teacher' AND EXISTS (SELECT 1 FROM app_classes c WHERE c.teacher_id = u.id AND c.school_id = u.school_id AND c.class_code = ?)))", f.class_name);
+      if (f.class_id) add("((u.role = 'teacher' AND EXISTS (SELECT 1 FROM app_classes c WHERE c.id = ? AND c.teacher_id = u.id AND c.school_id = u.school_id)) OR (u.role = 'student' AND EXISTS (SELECT 1 FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = u.id AND m.class_id = ? AND c.school_id = u.school_id)))",f.class_id);
       if (f.role) add('u.role = ?', f.role);
       if (f.active) add('u.is_active = ?', f.active === 'true' ? 1 : 0);
       if (f.grade) add('u.grade = ?', f.grade);
@@ -223,7 +314,8 @@ export class SchoolService implements OnApplicationBootstrap {
       const total = Number((await q<{ n: string }>(`SELECT COUNT(*) AS n FROM app_users u WHERE ${where.join(' AND ')}`, params))[0].n);
       const rows = await q<Record<string, unknown>>(
         `SELECT ${USER_COLUMNS.split(', ').map((c) => `u.${c}`).join(', ')}, s.name AS school_name,
-                p.xp, p.streak, p.last_active_date, p.lessons_completed, p.questions_answered, p.questions_correct, p.freeze_week
+                p.xp, p.streak, p.last_active_date, p.lessons_completed, p.questions_answered, p.questions_correct, p.freeze_week,
+                COALESCE((SELECT json_agg(json_build_object('id',c.id,'class_code',c.class_code,'school_year',c.school_year)) FROM app_classes c WHERE c.teacher_id = u.id AND c.school_id = u.school_id AND c.status = 'APPROVED' AND c.is_active), '[]'::json) AS teaching_classes
          FROM app_users u LEFT JOIN app_schools s ON s.id = u.school_id LEFT JOIN app_progress p ON p.user_id = u.id
          WHERE ${where.join(' AND ')}
          ORDER BY CASE u.role WHEN 'root_admin' THEN 0 WHEN 'school_admin' THEN 1 WHEN 'teacher' THEN 2 ELSE 3 END, u.grade NULLS LAST, u.full_name
@@ -236,6 +328,7 @@ export class SchoolService implements OnApplicationBootstrap {
         const p = r.xp === null || r.xp === undefined ? undefined : (r as unknown as Progress);
         return {
           ...toPublic(u),
+          teaching_classes: u.role === 'teacher' ? r.teaching_classes : [],
           school_name: (r.school_name as string | null) ?? null,
           xp: student ? Number(r.xp ?? 0) : null,
           streak: student ? effectiveStreak(p) : null,
@@ -243,14 +336,14 @@ export class SchoolService implements OnApplicationBootstrap {
           accuracy: student ? accuracy(p) : null,
         };
       });
-      const facets = await q<{ region: string | null; city: string | null; school_year: string | null }>(
-        `SELECT DISTINCT region, city, school_year FROM app_users u WHERE u.deleted_at IS NULL AND ($1::integer IS NULL OR u.school_id = $1)`,
+      const facets = await q<{ region: string | null; city: string | null; school_year: string | null; class_name: string | null }>(
+        `SELECT DISTINCT region, city, school_year, class_name FROM app_users u WHERE u.deleted_at IS NULL AND ($1::integer IS NULL OR u.school_id = $1)`,
         [scope ?? f.school_id ?? null],
       );
       const uniq = (vals: Array<string | null>) => [...new Set(vals.filter((v): v is string => Boolean(v)))].sort();
       return {
         total, page, limit, items,
-        facets: { regions: uniq(facets.map((x) => x.region)), cities: uniq(facets.map((x) => x.city)), school_years: uniq(facets.map((x) => x.school_year)) },
+        facets: { regions: uniq(facets.map((x) => x.region)), cities: uniq(facets.map((x) => x.city)), school_years: uniq(facets.map((x) => x.school_year)), class_names: uniq(facets.map(x => x.class_name)) },
       };
     });
   }
@@ -718,7 +811,7 @@ export class SchoolService implements OnApplicationBootstrap {
       if (dup.length) throw new ConflictException(`Lớp ${code} năm học ${body.school_year} đã có`);
       const row = (
         await q(
-          `INSERT INTO app_classes (school_id, teacher_id, class_code, school_year, name, join_password_hash) VALUES ($1, $2, $3, $4, $5, $6)
+          `INSERT INTO app_classes (school_id, teacher_id, class_code, school_year, name, join_password_hash, grade) VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $3 ~ '^[6-9]([^0-9]|$)' THEN left($3,1)::smallint ELSE NULL END)
            RETURNING id, class_code, school_year, name, status, created_at`,
           [scope, teacher.id, code, body.school_year.trim(), body.name.trim(), hash],
         )
@@ -743,7 +836,7 @@ export class SchoolService implements OnApplicationBootstrap {
   /** Chọn lớp đang dạy (bảng theo dõi, thi đấu cả lớp dùng lớp này) */
   async activateClass(teacher: UserRow, id: number) {
     const cls = await this.run(teacher, async (q) => {
-      const rows = await q<{ class_code: string; status: string }>('SELECT class_code, status FROM app_classes WHERE id = $1 AND teacher_id = $2', [id, teacher.id]);
+      const rows = await q<{ class_code: string; status: string }>('SELECT class_code, status FROM app_classes WHERE id = $1 AND teacher_id = $2 AND is_active', [id, teacher.id]);
       if (!rows.length) throw new NotFoundException('Không tìm thấy lớp');
       if (rows[0].status !== 'APPROVED') throw new BadRequestException('Lớp chưa được duyệt');
       return rows[0];
@@ -799,7 +892,7 @@ export class SchoolService implements OnApplicationBootstrap {
     const code = classCode.trim().toUpperCase();
     return this.run(student, async (q, scope) => {
       const rows = await q<{ id: number; class_code: string; name: string; school_year: string; join_password_hash: string; teacher_id: number }>(
-        "SELECT id, class_code, name, school_year, join_password_hash, teacher_id FROM app_classes WHERE school_id = $1 AND class_code = $2 AND status = 'APPROVED' ORDER BY school_year DESC LIMIT 1",
+        "SELECT id, class_code, name, school_year, join_password_hash, teacher_id FROM app_classes WHERE school_id = $1 AND class_code = $2 AND status = 'APPROVED' AND is_active ORDER BY school_year DESC LIMIT 1",
         [scope, code],
       );
       if (!rows.length || !(await verifyPassword(password, rows[0].join_password_hash))) throw new BadRequestException('Sai mã lớp hoặc mật khẩu lớp');

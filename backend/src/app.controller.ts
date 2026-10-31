@@ -39,7 +39,8 @@ export class AppController {
     if (!config.databaseUrl) throw new ServiceUnavailableException('DATABASE_URL is not configured');
     try {
       if (!(await this.db.ping())) throw new Error('unexpected');
-      return { status: 'connected', database: 'postgresql' };
+      const rows = await this.db.query<{version:number|null}>('SELECT max(version) AS version FROM public.app_schema_migrations');
+      return { status: 'connected', database: 'postgresql', schema_version: Number(rows[0]?.version ?? 0) };
     } catch {
       throw new ServiceUnavailableException('Database unavailable. Check connection settings on Render and Supabase.');
     }

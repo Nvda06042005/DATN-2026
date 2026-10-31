@@ -287,6 +287,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     return rows.length ? toUser(rows[0]) : null;
   }
 
+  async schoolActive(schoolId:number|null,q:Q=this.query.bind(this)):Promise<boolean> {
+    return schoolId === null || (await q('SELECT 1 FROM app_schools WHERE id=$1 AND is_active',[schoolId])).length > 0;
+  }
+
   async getByUsername(username: string): Promise<UserRow | null> {
     const rows = await this.query(`SELECT ${USER_COLUMNS} FROM app_users WHERE username = $1`, [username.trim().toLowerCase()]);
     return rows.length ? toUser(rows[0]) : null;
@@ -399,7 +403,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     const rows = await this.query(`SELECT ${USER_COLUMNS.split(', ').map(c => 'u.' + c).join(', ')} FROM app_users u
       WHERE u.role = 'student' AND u.deleted_at IS NULL AND u.school_id = $2 AND EXISTS (
         SELECT 1 FROM app_classes c JOIN app_class_members m ON m.class_id = c.id
-        WHERE c.teacher_id = $1 AND c.school_id = $2 AND c.class_code = $3 AND c.status = 'APPROVED' AND m.user_id = u.id
+        WHERE c.teacher_id = $1 AND c.school_id = $2 AND c.class_code = $3 AND c.status = 'APPROVED' AND c.is_active AND m.user_id = u.id
       ) ORDER BY u.full_name`, [user.id, user.school_id, user.class_name]);
     return rows.map(toUser);
   }
