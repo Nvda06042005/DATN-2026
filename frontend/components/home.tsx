@@ -247,8 +247,8 @@ export const Band: React.FC<{
 const NAV_ITEMS = [{ id: 'home', short: 'Trang chủ' }, ...NAV.map((n) => ({ id: n.id, short: n.short }))];
 
 /**
- * Thanh điều hướng cố định phía trên cùng. Ở đầu trang: logo trắng bên trái, viên thuốc trắng chứa các mục ở giữa (mục đang xem màu cam),
- * nút đen "Vào học ngay" bên phải. Khi cuộn, cả thanh co hẹp lại thành một viên thuốc kính. Màn hẹp có nút mở menu thay vì ẩn hết liên kết.
+ * Thanh điều hướng cố định: logo bên trái, cờ và nút "Vào học ngay" bên phải; co thành viên thuốc kính khi cuộn.
+ * Trang chủ chỉ hiện menu sau khi cuộn. Màn hẹp dùng nút mở menu với đầy đủ liên kết.
  */
 export const Header: React.FC<{
   width: number; scrollY: Animated.Value; stuck: boolean; active: string; go: (id: string) => void;
@@ -256,18 +256,22 @@ export const Header: React.FC<{
   items?: ReadonlyArray<{ id: string; short: string }>;
   /** Nền phía sau thanh ở đầu trang là giấy kem (không phải ảnh tối): logo dùng chữ tối thay vì chữ trắng */
   paper?: boolean;
+  /** Trang chủ giữ phần đầu thoáng: chỉ hiện điều hướng khi thanh đã co lại sau khi cuộn */
+  revealOnScroll?: boolean;
 }> = ({
-  width, scrollY, stuck, active, go, items = NAV_ITEMS, paper = false,
+  width, scrollY, stuck, active, go, items = NAV_ITEMS, paper = false, revealOnScroll = false,
 }) => {
   const { c } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const wide = WEB && width >= (items.length > 4 ? 1100 : 1000);
+  const showNavigation = !revealOnScroll || stuck;
   const compactNav = width < 1240;
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuVisible = menuOpen && showNavigation && !wide;
   const menuButton = useRef<ComponentRef<typeof Pressable>>(null);
-  useEffect(() => { if (wide) setMenuOpen(false); }, [wide]);
+  useEffect(() => { if (wide || !showNavigation) setMenuOpen(false); }, [wide, showNavigation]);
   useEffect(() => {
     if (!WEB || !menuOpen) return undefined;
     const close = (event: KeyboardEvent) => {
@@ -298,8 +302,8 @@ export const Header: React.FC<{
   const roundBg = stuck ? 'rgba(255,255,255,0)' : c.the;
   const ring = stuck ? c.bienXanh : c.the;
   return (
-    <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, bottom: menuOpen ? 0 : undefined, left: 0, right: 0, zIndex: 40, alignItems: 'center', paddingHorizontal: 12, paddingTop: insets.top }}>
-      {menuOpen && <Pressable accessibilityRole="button" accessibilityLabel="Đóng menu điều hướng" onPress={closeMenu} style={StyleSheet.absoluteFill} />}
+    <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, bottom: menuVisible ? 0 : undefined, left: 0, right: 0, zIndex: 40, alignItems: 'center', paddingHorizontal: 12, paddingTop: insets.top }}>
+      {menuVisible && <Pressable accessibilityRole="button" accessibilityLabel="Đóng menu điều hướng" onPress={closeMenu} style={StyleSheet.absoluteFill} />}
       <Animated.View
         testID="home-header"
         style={[
@@ -310,7 +314,7 @@ export const Header: React.FC<{
         <Pressable onPress={() => navigate('home')} accessibilityRole="link" accessibilityLabel="Về đầu trang" hitSlop={4} style={{ minHeight: 44, justifyContent: 'center' }}>
           <BrandLogo compact={width < 430} light={!stuck && !paper} paper={!stuck && paper} />
         </Pressable>
-        {wide && (
+        {showNavigation && wide && (
           <Animated.View testID="home-nav-desktop" role="navigation" accessibilityLabel="Điều hướng chính" style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 999, backgroundColor: navBg, paddingHorizontal: 8, height: 50 }}>
             {items.map((n) => {
               const on = n.id === active;
@@ -339,14 +343,14 @@ export const Header: React.FC<{
             </View>
           )}
           <Cta title={width >= 560 ? 'Vào học ngay' : ''} label="Đăng nhập học tập" icon={width >= 560 ? undefined : LogIn} onPress={() => router.push('/portal')} testID="home-login" />
-          {!wide && (
+          {showNavigation && !wide && (
             <Pressable ref={menuButton} testID="home-menu-toggle" accessibilityRole="button" accessibilityLabel={menuOpen ? 'Đóng menu điều hướng' : 'Mở menu điều hướng'} accessibilityState={{ expanded: menuOpen }} aria-expanded={menuOpen} aria-controls="home-nav-panel" onPress={() => setMenuOpen((open) => !open)} style={{ width: 44, height: 44, borderRadius: 999, backgroundColor: c.the, alignItems: 'center', justifyContent: 'center' }}>
               {menuOpen ? <X size={22} color={c.logoInk} /> : <Menu size={22} color={c.logoInk} />}
             </Pressable>
           )}
         </View>
       </Animated.View>
-      {!wide && menuOpen && (
+      {menuVisible && (
         <View id="home-nav-panel" testID="home-nav-panel" role="navigation" accessibilityLabel="Điều hướng chính" style={[{ width: '100%', maxWidth: 520, alignSelf: 'flex-end', marginTop: 8, padding: 8, borderRadius: 20, borderWidth: 1, borderColor: c.bienXanh, backgroundColor: c.the }, shadow(c, 'sm')]}>
           <ScrollView style={{ maxHeight: Math.max(44, windowHeight - insets.top - insets.bottom - 120) }}>
             {items.map((n) => (
