@@ -1,6 +1,6 @@
 # SQL migrations
 
-Thêm file mới theo số thứ tự, ví dụ `017_ten_thay_doi.sql`.
+Thêm file mới theo số thứ tự, ví dụ `020_ten_thay_doi.sql`.
 Tạo file bằng lệnh (từ thư mục `backend/`): `npm run build && npm run migrate -- new ten_thay_doi`.
 
 Không sửa migration đã chạy, không chứa bí mật/dữ liệu tài khoản thật, không thêm transaction wrapper.
@@ -23,6 +23,9 @@ Ngày 31/10/2026 thư mục này từng bị xóa theo yêu cầu (website chỉ
 | `014_hk_accounts_years_classes.sql` | Lý do khóa, cấp quản trị tổng, xác nhận hồ sơ, OTP đăng ký tự học, **bảng năm học** (suy từ lớp/khối/tài khoản cũ), **mã tham gia lớp 6 ký tự** (lớp cũ nhận mã ngẫu nhiên), **bảng giáo viên–lớp** (chép từ `teacher_id`), khóa ngoại giáo viên không còn xóa lớp, thêm loại sự kiện lớp, RLS theo trường cho bảng mới. Dữ liệu cũ giữ nguyên |
 | `015_history_warehouse.sql` | Kho dữ liệu lịch sử: `hist_campaigns`, `hist_places`, `hist_figures`, `hist_events`, `hist_battles`, `hist_sources`, `hist_terms`, `hist_links`, `hist_versions`; RLS bật, **không** cấp quyền cho vai trò theo trường (chỉ backend đọc/ghi) |
 | `016_seed_history_warehouse.sql` | Nội dung khởi tạo của kho (tất cả ở trạng thái Nháp, kèm phiên bản 1 và liên kết); chạy lại không tạo trùng |
+| `017_question_bank.sql` | Ngân hàng câu hỏi nhiều dạng (`hk_questions`), liên kết với kho lịch sử, lịch sử chỉnh sửa, bộ đề (`hk_quizzes`, `hk_quiz_questions`), yêu cầu chia sẻ/duyệt (`hk_shares`); RLS bật, chỉ backend đọc/ghi |
+| `018_learning_journeys.sql` | Bài học, hành trình, nút, giao cho lớp, tiến độ học sinh, mở khóa tư liệu, lượt làm bài và đáp án, câu sai, sổ điểm, ghi chú, yêu thích, nhật ký sự kiện học tập; RLS bật, chỉ backend đọc/ghi |
+| `019_seed_learning_content.sql` | Nội dung học khởi tạo: 27 câu hỏi, 9 bộ đề, 3 bài học, 3 hành trình mẫu (bài học và hành trình ở trạng thái Nháp); chạy lại không tạo trùng |
 
 Kiểm chứng trên PostgreSQL tạm bằng `cd backend && npm run build && npm test` trước khi triển khai.
 Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).

@@ -1,7 +1,7 @@
-/** /giao-vien – trang giáo viên: hồ sơ, lớp được phân công */
+/** /giao-vien – trang giáo viên: lớp phụ trách, hành trình học, ngân hàng câu hỏi, bộ đề */
 import { PortalApp } from '@/components/auth';
-import { LearnerHome } from '@/components/portal/LearnerHome';
+import { TeacherApp } from '@/components/portal/TeacherApp';
 
 export default function TeacherRoute() {
-  return <PortalApp portal="teacher">{(session) => <LearnerHome session={session} />}</PortalApp>;
+  return <PortalApp portal="teacher">{(session) => <TeacherApp session={session} />}</PortalApp>;
 }

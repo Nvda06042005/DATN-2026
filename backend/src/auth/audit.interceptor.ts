@@ -13,7 +13,7 @@ export class AuditInterceptor implements NestInterceptor {
     const actor: UserRow | undefined = req.user;
     if (!actor || !['POST','PATCH','PUT','DELETE'].includes(req.method)) return next.handle();
     const route: string = req.route?.path ?? '';
-    const targetType = /\/(users|teachers|students)\b/.test(route) ? 'account' : route.includes('/history') ? 'history' : /\/school/.test(route) ? 'school' : route.includes('/classes') || route.includes('/student/') ? 'class' : 'system';
+    const targetType = route.includes('/content') ? 'content' : route.includes('/play') ? 'learning' : /\/(users|teachers|students)\b/.test(route) ? 'account' : route.includes('/history') ? 'history' : /\/school/.test(route) ? 'school' : route.includes('/classes') || route.includes('/student/') ? 'class' : 'system';
     return defer(async () => {
       const table = targetType === 'account' ? 'app_users' : targetType === 'class' ? 'app_classes' : null;
       if (!table || !/^\d+$/.test(req.params.id ?? '')) return null;

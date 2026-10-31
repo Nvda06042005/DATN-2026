@@ -37,7 +37,7 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
     <LinearGradient testID="admin-sidebar" colors={[c.son, c.sonDam]} style={{ width: wide ? 232 : 260, height: '100%' }}>
       <PatternOverlay opacity={0.045} />
       <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 14, paddingTop: 26, gap: 18 }}>
-        <Txt f="bold" upper size={10} color={c.trang} style={{ paddingHorizontal: 10, letterSpacing: 1.3, opacity: 0.8 }}>{session.user.role === 'root_admin' ? 'Quản trị hệ thống' : 'Quản trị trường học'}</Txt>
+        <Txt f="bold" upper size={10} color={c.trang} style={{ paddingHorizontal: 10, letterSpacing: 1.3, opacity: 0.8 }}>{session.user.role === 'root_admin' ? 'Quản trị hệ thống' : session.user.role === 'teacher' ? 'Không gian giáo viên' : 'Quản trị trường học'}</Txt>
         <View accessibilityRole="tablist" accessibilityLabel="Chức năng quản trị" style={{ gap: 6 }}>
           {nav.map(item => {
             const selected = item.id === active, Icon = item.icon;
@@ -63,7 +63,7 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
       <View testID="admin-topbar" style={{ minHeight: wide ? 80 : 72, backgroundColor: c.the, borderBottomWidth: 1, borderBottomColor: c.adminLine, paddingHorizontal: wide ? 24 : 12, flexDirection: 'row', alignItems: 'center', gap: wide ? 28 : 8 }}>
         {!wide && <Pressable testID="admin-menu-toggle" accessibilityRole="button" accessibilityLabel={open ? 'Đóng menu quản trị' : 'Mở menu quản trị'} accessibilityState={{ expanded: open }} onPress={() => setOpen(value => !value)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>{open ? <X size={23} color={c.muc} /> : <Menu size={23} color={c.muc} />}</Pressable>}
         <View style={{ flexShrink: 1 }}><BrandLogo compact={width < 350} /></View>
-        {wide && <Txt size={12} color={c.muc3} style={{ flex: 1 }}>Quản trị / {label}</Txt>}
+        {wide && <Txt size={12} color={c.muc3} style={{ flex: 1 }}>{session.user.role === 'teacher' ? 'Giáo viên' : 'Quản trị'} / {label}</Txt>}
         <View style={{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           {extra}
           {width >= 680 && <><Avatar name={session.user.full_name} size={34} /><View style={{ maxWidth: 190 }}><Txt f="bold" size={12} numberOfLines={1}>{session.user.full_name}</Txt><Txt size={10} color={c.muc3}>{ROLE_LABEL[session.user.role]}</Txt></View></>}
@@ -73,8 +73,8 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
       <View testID="admin-scope" accessibilityLabel="Vai trò và phạm vi quản lý" style={{backgroundColor:session.user.role==='root_admin'?c.adminTint:c.thongNhat,borderBottomWidth:1,borderBottomColor:c.adminLine,paddingHorizontal:wide?24:16,paddingVertical:12,flexDirection:'row',alignItems:'center',gap:12}}>
         <ShieldCheck size={23} color={session.user.role==='root_admin'?c.son:c.thongChu}/>
         <View style={{flex:1,minWidth:0,gap:3}}>
-          <Txt f="bold" size={14} color={session.user.role==='root_admin'?c.son:c.thongChu}>{session.user.role==='root_admin'?'Quản trị tổng · Toàn hệ thống':'Quản trị trường · Trường được gán'}</Txt>
-          <Txt size={12} color={c.muc2}>{session.user.role==='root_admin'?`Bạn quản lý mọi trường${schoolCount!==undefined?` (${fmt(schoolCount)} trường)`:''}, bao gồm tài khoản quản trị trường.`:`${schoolName??`Mã trường ${session.user.school_code??'chưa xác định'}`} · Bạn chỉ truy cập dữ liệu của trường này.`}</Txt>
+          <Txt f="bold" size={14} color={session.user.role==='root_admin'?c.son:c.thongChu}>{session.user.role==='root_admin'?'Quản trị tổng · Toàn hệ thống':session.user.role==='teacher'?'Giáo viên · Trường được gán':'Quản trị trường · Trường được gán'}</Txt>
+          <Txt size={12} color={c.muc2}>{session.user.role==='root_admin'?`Bạn quản lý mọi trường${schoolCount!==undefined?` (${fmt(schoolCount)} trường)`:''}, bao gồm tài khoản quản trị trường.`:`${schoolName??`Mã trường ${session.user.school_code??'chưa xác định'}`} · ${session.user.role==='teacher'?'Bạn thấy lớp được phân công, nội dung của mình, của trường và của hệ thống.':'Bạn chỉ truy cập dữ liệu của trường này.'}`}</Txt>
         </View>
       </View>
       <View style={{ flex: 1, flexDirection: 'row', minHeight: 0 }}>
