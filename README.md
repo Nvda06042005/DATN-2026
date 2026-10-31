@@ -1,21 +1,23 @@
 # Hào Khí Đông A
 
 Nền tảng học lịch sử game hóa về ba lần kháng chiến chống Nguyên – Mông thời Trần cho học sinh THCS (đề tài khóa luận).
-Đặc tả: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). **Đã làm: Sprint 1 và 2** – xem
+Đặc tả: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). **Đã làm: Sprint 1 đến 4** – xem
 [docs/TIEN_DO_HAO_KHI.md](docs/TIEN_DO_HAO_KHI.md) (từng mã HK.*, quyết định, phần chưa làm).
 
 ## Trang web
 
 - `/`, `/dieu-khoan-su-dung`, `/cau-hoi-thuong-gap`: trang công khai (trang chủ, điều khoản kèm ghi công hình ảnh, câu hỏi thường gặp).
-- `/portal`: đăng nhập chung của giáo viên và học sinh; `/hoc-sinh`: hồ sơ, tham gia lớp bằng mã 6 ký tự; `/giao-vien`: hồ sơ và lớp được phân công.
-- `/school-manager-admin`: quản trị viên trường học – trường và năm học, khối lớp, giáo viên, học sinh, lớp, nhập/xuất Excel, nhân bản lớp sang năm mới.
-- `/admin`: quản trị tổng – trường học, người dùng toàn hệ thống, **kho dữ liệu lịch sử** (cuộc kháng chiến, nhân vật, sự kiện, địa điểm trên bản đồ, trận đánh, dòng thời gian, tư liệu gốc, thuật ngữ; kiểm chứng và công bố; lịch sử chỉnh sửa; nhập/xuất).
+- `/portal`: đăng nhập chung của giáo viên và học sinh.
+- `/hoc-sinh`: trang chủ ba cuộc kháng chiến, bản đồ nhiệm vụ (bài học, trận đánh, câu hỏi, tư liệu, Quyết chiến), làm bài có đồng hồ, thư viện lịch sử, dòng thời gian, bản đồ, kho tư liệu, nhiệm vụ, lịch sử làm bài, luyện câu sai, vào lớp bằng mã 6 ký tự.
+- `/giao-vien`: lớp phụ trách, hành trình học (mẫu, tạo, giao cho lớp), ngân hàng câu hỏi, bộ đề (làm thử), nội dung đã gửi duyệt.
+- `/school-manager-admin`: quản trị viên trường học – trường và năm học, khối lớp, giáo viên, học sinh, lớp, nhập/xuất Excel, nhân bản lớp sang năm mới, duyệt nội dung giáo viên chia sẻ, hành trình mẫu của trường, ngân hàng câu hỏi và bộ đề của trường.
+- `/admin`: quản trị tổng – trường học, người dùng toàn hệ thống, **kho dữ liệu lịch sử** (cuộc kháng chiến, nhân vật, sự kiện, địa điểm trên bản đồ, trận đánh, dòng thời gian, tư liệu gốc, thuật ngữ; kiểm chứng và công bố; lịch sử chỉnh sửa; nhập/xuất), **hành trình mẫu, bài học, ngân hàng câu hỏi, bộ đề, duyệt đề xuất của các trường**.
 - Hai cổng quản trị không có liên kết từ trang chủ.
 
 ## Cấu trúc
 
-- `frontend/`: Expo (React Native + web, Expo Router), Manrope và Newsreader. `app/` (route), `components/admin/` (cổng quản trị), `components/portal/`, `api/`, `types/`.
-- `backend/`: NestJS 11 + PostgreSQL. `src/auth` (đăng nhập, OTP, hồ sơ), `src/admin` (trường, năm học, tài khoản, lớp, Excel, hàng đợi email), `src/history` (kho lịch sử), `src/student` (vào lớp bằng mã), `test/` (Jest, PostgreSQL tạm).
+- `frontend/`: Expo (React Native + web, Expo Router), Manrope và Newsreader. `app/` (route), `components/admin/` (cổng quản trị), `components/portal/` (trang học sinh và giáo viên), `api/`, `types/`.
+- `backend/`: NestJS 11 + PostgreSQL. `src/auth` (đăng nhập, OTP, hồ sơ), `src/admin` (trường, năm học, tài khoản, lớp, Excel, hàng đợi email), `src/history` (kho lịch sử), `src/content` (câu hỏi, bộ đề, bài học, hành trình, chia sẻ/duyệt), `src/student` (vào lớp, đọc kho lịch sử, học và làm bài chấm ở máy chủ), `test/` (Jest, PostgreSQL tạm).
 - `database/migrations/`: SQL theo số thứ tự, nguồn thay đổi cơ sở dữ liệu duy nhất; xem [README của thư mục](database/migrations/README.md).
 - `docs/`: [tiến độ theo mã HK.*](docs/TIEN_DO_HAO_KHI.md), [đối chiếu đặc tả với hệ thống](docs/DOI_CHIEU_HAO_KHI_V01.md).
 - `render.yaml`: dịch vụ `dong-a-api` trên Render. `frontend/vercel.json`: Vercel build thư mục `frontend/`.
@@ -50,7 +52,7 @@ Gửi thư (mật khẩu tạm, mã OTP) cần `SMTP_URL`/`SMTP_*` hoặc cầu 
 
 ## Triển khai
 
-Website chính thức: https://datn-2026-indol.vercel.app/ (Vercel chỉ triển khai nhánh `main`; `frontend/vercel.json` lấy địa chỉ API từ `EXPO_PUBLIC_API_URL`, nếu chưa đặt thì dùng biến cũ `VITE_API_URL`, và cuối cùng là backend chính thức `https://dong-a-api.onrender.com`; địa chỉ này công khai, không chứa bí mật). Backend trên Render (`render.yaml`), cơ sở dữ liệu Supabase PostgreSQL; backend áp dụng migration mới khi khởi động. Sprint 1–2 đã được gộp vào `main` ngày 31/10/2026.
+Website chính thức: https://datn-2026-indol.vercel.app/ (Vercel chỉ triển khai nhánh `main`; `frontend/vercel.json` lấy địa chỉ API từ `EXPO_PUBLIC_API_URL`, nếu chưa đặt thì dùng biến cũ `VITE_API_URL`, và cuối cùng là backend chính thức `https://dong-a-api.onrender.com`; địa chỉ này công khai, không chứa bí mật). Backend trên Render (`render.yaml`), cơ sở dữ liệu Supabase PostgreSQL; backend áp dụng migration mới khi khởi động. Sprint 1–2 đã được gộp vào `main` ngày 31/10/2026; Sprint 3–4 (migration 017–019) sau khi gộp cần backend khởi động lại để áp dụng migration.
 
 ## Ghi công
 

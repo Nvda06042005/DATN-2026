@@ -3,12 +3,17 @@
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { BookOpenText, Building2, Plus, Trash2, Users } from 'lucide-react-native';
+import { BookOpen, BookOpenText, Building2, CircleHelp, Inbox, ListChecks, Plus, Route, Trash2, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AccountSheet, dateText, ROLE_TEXT } from '@/components/admin/AccountSheet';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { HistoryManager } from '@/components/admin/HistoryManager';
+import { JourneyManager } from '@/components/admin/JourneyManager';
+import { LessonManager } from '@/components/admin/LessonManager';
+import { QuestionBank } from '@/components/admin/QuestionBank';
+import { QuizManager } from '@/components/admin/QuizManager';
+import { ShareInbox } from '@/components/admin/ShareInbox';
 import { Cell, CredentialSheet, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad, DataTable, type FieldDef } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { AdminUiContext, Btn, ConfirmSheet, Field, Inset, Sheet, Spinner, Txt } from '@/components/ui';
@@ -16,11 +21,16 @@ import { useTheme } from '@/hooks/use-theme';
 import { fmt } from '@/lib/format';
 import type { AuthRole, CreatedAccount, CreatedSchool, SchoolItem } from '@/types/api';
 
-type Tab = 'schools' | 'users' | 'history';
+type Tab = 'schools' | 'users' | 'history' | 'journeys' | 'lessons' | 'questions' | 'quizzes' | 'shares';
 const NAV = [
   { id: 'schools' as const, label: 'Trường học', icon: Building2 },
   { id: 'users' as const, label: 'Người dùng', icon: Users },
   { id: 'history' as const, label: 'Kho dữ liệu lịch sử', icon: BookOpenText },
+  { id: 'journeys' as const, label: 'Hành trình mẫu', icon: Route },
+  { id: 'lessons' as const, label: 'Bài học', icon: BookOpen },
+  { id: 'questions' as const, label: 'Ngân hàng câu hỏi', icon: CircleHelp },
+  { id: 'quizzes' as const, label: 'Bộ đề', icon: ListChecks },
+  { id: 'shares' as const, label: 'Duyệt đề xuất', icon: Inbox },
 ];
 
 export const RootAdmin: React.FC<{ session: Session }> = ({ session }) => {
@@ -30,7 +40,8 @@ export const RootAdmin: React.FC<{ session: Session }> = ({ session }) => {
   return (
     <AdminUiContext.Provider value>
       <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab} schoolCount={schools?.total}>
-        {tab === 'schools' ? <SchoolsPanel session={session} /> : tab === 'users' ? <UsersPanel session={session} schools={options} /> : <HistoryManager session={session} />}
+        {tab === 'schools' ? <SchoolsPanel session={session} /> : tab === 'users' ? <UsersPanel session={session} schools={options} /> : tab === 'history' ? <HistoryManager session={session} />
+          : tab === 'journeys' ? <JourneyManager session={session} /> : tab === 'lessons' ? <LessonManager session={session} /> : tab === 'questions' ? <QuestionBank session={session} /> : tab === 'quizzes' ? <QuizManager session={session} /> : <ShareInbox session={session} />}
       </AdminWorkspace>
     </AdminUiContext.Provider>
   );
