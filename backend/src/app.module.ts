@@ -13,17 +13,26 @@ import { AuthController } from './auth/auth.controller';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthService } from './auth/auth.service';
 import { config } from './config';
+import { ContentController } from './content/content.controller';
+import { JourneyService } from './content/journey.service';
+import { LessonService } from './content/lesson.service';
+import { QuestionService } from './content/question.service';
+import { QuizService } from './content/quiz.service';
+import { ShareService } from './content/share.service';
 import { DatabaseService } from './database/database.service';
 import { HistoryController } from './history/history.controller';
 import { HistoryService } from './history/history.service';
+import { LearnController, PlayController } from './student/learn.controller';
+import { LearnService } from './student/learn.service';
+import { PlayService } from './student/play.service';
 import { StudentController } from './student/student.controller';
 
 @Module({
   imports: [
     JwtModule.register({ secret: config.authSecret, signOptions: { algorithm: 'HS256', expiresIn: config.tokenTtlHours * 3600 }, verifyOptions: { algorithms: ['HS256'] } }),
   ],
-  controllers: [AppController, AuthController, AdminController, HistoryController, StudentController],
-  providers: [SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, MailService, SchoolService, AccountService, ClassService, HistoryService],
+  controllers: [AppController, AuthController, AdminController, HistoryController, ContentController, StudentController, LearnController, PlayController],
+  providers: [SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, MailService, SchoolService, AccountService, ClassService, HistoryService, QuestionService, QuizService, LessonService, JourneyService, ShareService, LearnService, PlayService],
 })
 export class AppModule {}
 
