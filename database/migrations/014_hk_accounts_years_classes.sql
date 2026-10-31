@@ -40,7 +40,7 @@ ALTER TABLE public.app_signup_otps ENABLE ROW LEVEL SECURITY;
 CREATE TABLE IF NOT EXISTS public.app_school_years (
     id SERIAL PRIMARY KEY,
     school_id INTEGER NOT NULL REFERENCES public.app_schools(id) ON DELETE CASCADE,
-    label TEXT NOT NULL CHECK (label ~ '^[0-9]{4}-[0-9]{4}$' AND right(label, 4)::integer = left(label, 4)::integer + 1),
+    label TEXT NOT NULL CHECK (CASE WHEN label ~ '^[0-9]{4}-[0-9]{4}$' THEN right(label, 4)::integer = left(label, 4)::integer + 1 ELSE false END),
     starts_on DATE NOT NULL,
     ends_on DATE NOT NULL,
     status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'active', 'ended')),
@@ -63,7 +63,7 @@ FROM (
     UNION SELECT school_id, school_year FROM public.app_school_grades
     UNION SELECT school_id, school_year FROM public.app_users WHERE school_id IS NOT NULL AND school_year IS NOT NULL
 ) y
-WHERE y.label ~ '^[0-9]{4}-[0-9]{4}$' AND right(y.label, 4)::integer = left(y.label, 4)::integer + 1
+WHERE CASE WHEN y.label ~ '^[0-9]{4}-[0-9]{4}$' THEN right(y.label, 4)::integer = left(y.label, 4)::integer + 1 ELSE false END
 ON CONFLICT (school_id, label) DO NOTHING;
 
 UPDATE public.app_school_years y
