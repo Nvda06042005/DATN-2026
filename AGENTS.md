@@ -1,12 +1,13 @@
 # Phạm vi dự án hiện tại
 
-Theo yêu cầu ngày 31/10/2026, dự án chỉ giữ trang chủ, Điều khoản sử dụng và Câu hỏi thường gặp. Backend, AI, game, đăng nhập và các cổng quản lý đã được xóa; không khôi phục các chức năng đó nếu chưa có yêu cầu mới. Giữ file `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` theo yêu cầu riêng của người dùng.
+Theo yêu cầu ngày 31/10/2026, bản chính thức giữ trang chủ, Điều khoản sử dụng và Câu hỏi thường gặp; theo yêu cầu tiếp theo, khôi phục riêng trang đăng nhập quản trị tổng `/admin`. Backend, AI, game và các màn quản lý chưa được khôi phục trên `main`. Bản Sprint 1–2 nằm riêng ở `feat/hao-khi-sprint-1-2`; không gộp bản đó khi chỉ sửa trang đăng nhập. Giữ file Excel danh sách chức năng theo yêu cầu riêng của người dùng.
 
-- `frontend/app/`: chỉ có `index.tsx`, `dieu-khoan-su-dung.tsx`, `cau-hoi-thuong-gap.tsx` và `_layout.tsx`.
-- Giữ các thành phần, dữ liệu, hook và tài nguyên mà ba trang sử dụng. Import bằng `@/…`.
+- `frontend/app/`: `index.tsx`, `dieu-khoan-su-dung.tsx`, `cau-hoi-thuong-gap.tsx`, `admin.tsx` và `_layout.tsx`.
+- `/admin` dùng `components/admin/AdminLogin.tsx` và `api/` với địa chỉ `EXPO_PUBLIC_API_URL`; chỉ nhận vai trò `root_admin`, giữ cổng độc lập. Không thêm liên kết quản trị từ trang chủ, không mặc định một backend bên ngoài khi thiếu cấu hình.
+- Giữ các thành phần, dữ liệu, hook và tài nguyên mà các trang sử dụng. Import bằng `@/…`.
 - Dùng bảng màu sáng trong `constants/theme.ts`, `useTheme()` và các phông Manrope/Newsreader đã nạp ở `_layout.tsx`. Nút có nhãn trợ năng và vùng chạm ít nhất 44pt.
 - Ghi công ảnh và bản đồ nằm cuối trang điều khoản, `assets/hero-photos/ATTRIBUTION.md` và `constants/map-credits.ts`. Giữ thông báo giấy phép của mã bên thứ ba còn dùng.
-- Kiểm tra bằng `cd frontend`, `npm run typecheck`, `npm run build` và kiểm tra ba route khi thay đổi điều hướng.
+- Kiểm tra bằng `cd frontend`, `npm run typecheck`, `npm test`, `npm run build` và kiểm tra các route khi thay đổi điều hướng.
 
 # Database migrations
 
