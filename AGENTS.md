@@ -10,9 +10,9 @@ Theo yêu cầu ngày 31/10/2026, dự án chỉ giữ trang chủ, Điều kho�
 
 # Database migrations
 
-Giữ nguyên lịch sử `database/migrations/001_*.sql` đến `013_*.sql` và dữ liệu đang có. Bản website hiện tại không có backend/migration runner và không kết nối database.
+Theo yêu cầu rõ ràng của người dùng ngày 31/10/2026, toàn bộ thư mục `database/` cùng 13 migration SQL cũ đã được xóa vì không phục vụ ba trang còn lại. Website hiện tại không có backend/migration runner và không kết nối database. Yêu cầu chỉ xóa file trong dự án, không xóa dữ liệu hoặc dịch vụ PostgreSQL/Supabase.
 
-Nếu sau này có thay đổi PostgreSQL hoặc seed/reference data, thêm file SQL với số tiếp theo trong `database/migrations/`; không sửa, đổi tên hay xóa migration đã áp dụng. Không nhúng DDL vào TypeScript/Python, không chứa bí mật hay dữ liệu tài khoản thật. Không thêm BEGIN/COMMIT/ROLLBACK hoặc lệnh chỉ chạy ngoài transaction. Bảng mới chứa dữ liệu người dùng phải bật RLS, không mở quyền công khai. Kiểm tra bằng PostgreSQL thử nghiệm trước khi áp dụng; thay đổi phá hủy dữ liệu cần được người dùng cho phép rõ ràng. Không tự sửa `_prisma_migrations` hay lịch sử `app_schema_migrations`.
+Nếu sau này phát triển lại chức năng PostgreSQL, kiểm tra lịch sử migration của database đích trước khi chọn số tiếp theo và khôi phục quy trình migration phù hợp; không tự coi đó là database mới. Mọi thay đổi schema hoặc seed/reference data phải qua file SQL mới; không nhúng DDL vào TypeScript/Python, không chứa bí mật hay dữ liệu tài khoản thật. Không thêm BEGIN/COMMIT/ROLLBACK hoặc lệnh chỉ chạy ngoài transaction. Bảng mới chứa dữ liệu người dùng phải bật RLS, không mở quyền công khai. Kiểm tra bằng PostgreSQL thử nghiệm trước khi áp dụng; thay đổi phá hủy dữ liệu cần được người dùng cho phép rõ ràng. Không tự sửa `_prisma_migrations` hay lịch sử `app_schema_migrations`.
 
 # Phạm vi đồng bộ của bản ba trang
 

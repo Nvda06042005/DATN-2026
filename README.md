@@ -24,8 +24,9 @@ Kiểm tra TypeScript bằng `npm run typecheck`, xuất bản web bằng `npm r
 - `frontend/app/`: ba route và `_layout.tsx` dùng chung.
 - `frontend/components/`, `constants/`, `hooks/`, `lib/`, `types/`: mã và dữ liệu hiển thị được ba trang sử dụng.
 - `frontend/assets/`: ảnh, video, biểu tượng phục vụ giao diện.
-- `database/migrations/`: giữ nguyên 13 migration SQL đã có để bảo toàn lịch sử. Bản website này không kết nối PostgreSQL và không có migration runner; việc xóa mã ứng dụng không xóa dữ liệu đã lưu trên Supabase.
 - `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx`: giữ lại theo yêu cầu riêng của người dùng; không được nạp vào website.
+
+Website không sử dụng database. Thư mục `database/` và 13 migration SQL cũ đã được xóa theo yêu cầu của người dùng; dữ liệu đang tồn tại trên Supabase không bị tác động.
 
 ## Triển khai
 
