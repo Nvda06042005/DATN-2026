@@ -1,7 +1,8 @@
 import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
 import { XLSX_UPLOAD } from '../admin/admin.controller';
+import { ClassService } from '../admin/class.service';
 import { SchoolService, UploadedXlsx } from '../admin/school.service';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { DatabaseService, UserRow } from '../database/database.service';
@@ -19,6 +20,13 @@ class ClassRequestDto {
   @IsString() @Length(4, 64) join_password: string;
 }
 
+class JoinPasswordDto {
+  @IsString() @Length(4, 64) password: string;
+}
+class JoinOpenDto {
+  @IsBoolean() open: boolean;
+}
+
 const round3 = (x: number): number => Math.round(x * 1000) / 1000;
 
 /** /api/teacher: lớp đang dạy (tiến độ học sinh thật), lịch sử thi đấu, yêu cầu mở lớp, nhập tài khoản học sinh từ file Excel mẫu */
@@ -30,6 +38,7 @@ export class TeacherController {
     private readonly db: DatabaseService,
     private readonly content: ContentService,
     private readonly school: SchoolService,
+    private readonly classes_: ClassService,
   ) {}
 
   /** Yêu cầu mở lớp của giáo viên (chờ duyệt, đã duyệt, bị từ chối) */
@@ -48,6 +57,20 @@ export class TeacherController {
   @HttpCode(200)
   activate(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) {
     return this.school.activateClass(user, id);
+  }
+
+  /** Giáo viên được phân công đặt/đổi mật khẩu gia nhập lớp (mật khẩu cũ ngừng hiệu lực ngay) */
+  @Post('classes/:id/join-password')
+  @HttpCode(200)
+  joinPassword(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: JoinPasswordDto) {
+    return this.classes_.setJoinPassword(user, id, body.password);
+  }
+
+  /** Mở hoặc đóng đăng ký vào lớp */
+  @Post('classes/:id/join-open')
+  @HttpCode(200)
+  joinOpen(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: JoinOpenDto) {
+    return this.classes_.setJoinOpen(user, id, body.open);
   }
 
   /** Nhập tài khoản học sinh của trường mình từ file Excel mẫu (dòng giáo viên bị từ chối) */

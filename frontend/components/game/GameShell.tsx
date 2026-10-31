@@ -31,7 +31,7 @@ import { fmt, shortName } from '@/lib/format';
 import { finalizeUpgrades, levelOf, levelXp, restoreGameState, todayKey } from '@/lib/game-state';
 import { playTone } from '@/lib/sound';
 import { readLiveRoom } from '@/lib/storage';
-import type { AnswerPayload, CodexEntry, LeaderboardEntry, LearnerProgress, QuestionRequest, QuestionsResponse, ServedQuestion, StudentClass } from '@/types/api';
+import type { AnswerPayload, CodexEntry, LeaderboardEntry, LearnerProgress, QuestionRequest, QuestionsResponse, ServedQuestion, StudentClass, AvailableClass } from '@/types/api';
 import type { DailyTaskDef, GameCtx, GameSettings, GameState, GameTab } from '@/types/game';
 
 interface Initial {
@@ -639,6 +639,7 @@ const ClassJoin: React.FC<{ onJoined: (classCode: string) => void }> = ({ onJoin
   const { request, toast } = useGame();
   const { c } = useTheme();
   const [classes, setClasses] = useState<StudentClass[] | null>(null);
+  const [open, setOpen] = useState<AvailableClass[]>([]);
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -648,6 +649,9 @@ const ClassJoin: React.FC<{ onJoined: (classCode: string) => void }> = ({ onJoin
     request(studentApi.getMyClasses)
       .then(setClasses)
       .catch(() => setClasses([]));
+    request(studentApi.getAvailableClasses)
+      .then(setOpen)
+      .catch(() => setOpen([]));
   }, [request]);
 
   useEffect(load, [load]);
@@ -702,6 +706,20 @@ const ClassJoin: React.FC<{ onJoined: (classCode: string) => void }> = ({ onJoin
           </Inset>
         )}
         <Btn title="Vào lớp" icon={DoorOpen} tone="ngoc" loading={busy} onPress={join} testID="join-submit" />
+        {open.some((k) => !k.joined) && (
+          <View style={{ gap: 6 }}>
+            <Txt f="bold" size={13} color={c.muc2}>
+              Lớp đang mở đăng ký trong trường em (chạm để điền mã lớp)
+            </Txt>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {open
+                .filter((k) => !k.joined)
+                .map((k) => (
+                  <Btn key={k.id} title={`${k.class_code} · ${k.teacher_name}`} tone="giay" size="sm" label={`Điền mã lớp ${k.class_code}`} onPress={() => setCode(k.class_code)} />
+                ))}
+            </View>
+          </View>
+        )}
       </Card>
       <Txt f="display" size={16}>
         Lớp của em

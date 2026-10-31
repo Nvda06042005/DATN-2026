@@ -1,5 +1,5 @@
 import { SecurityService } from '../auth/security.service';
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Put, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, Length, Matches, Max, MaxLength, Min, ValidateIf } from 'class-validator';
@@ -7,6 +7,7 @@ import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { Role, UserRow } from '../database/database.service';
 import { SchoolService, UploadedXlsx } from './school.service';
 import { ReportService } from './report.service';
+import { ClassService } from './class.service';
 import { MailService } from './mail.service';
 
 const trimLower = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim().toLowerCase() || undefined : value);
@@ -58,6 +59,34 @@ class ReportQuery {
 class UpdateClassDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(6) @Max(9) grade?: number | null;
   @ValidateIf((_,value) => value !== undefined) @IsBoolean() is_active?: boolean;
+  @IsOptional() @IsString() @Length(2, 80) name?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) expected_size?: number | null;
+}
+class NewClassDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number;
+  @IsString() @Length(2, 20) class_code: string;
+  @IsString() @Matches(/^\d{4}-\d{4}$/) school_year: string;
+  @Type(() => Number) @IsInt() @Min(6) @Max(9) grade: number;
+  @IsString() @Length(2, 80) name: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) expected_size?: number | null;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) teacher_id?: number | null;
+}
+class GradeQuery {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number;
+  @IsOptional() @IsString() @Matches(/^\d{4}-\d{4}$/) school_year?: string;
+}
+class GradeDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number;
+  @IsString() @Matches(/^\d{4}-\d{4}$/) school_year: string;
+  @Type(() => Number) @IsInt() @Min(6) @Max(9) grade: number;
+  @IsBoolean() is_active: boolean;
+}
+class AssignTeacherDto {
+  @ValidateIf((_,value) => value !== null) @Type(() => Number) @IsInt() @Min(1) teacher_id: number | null;
+}
+class TransferDto {
+  @Type(() => Number) @IsInt() @Min(1) user_id: number;
+  @Type(() => Number) @IsInt() @Min(1) to_class_id: number;
 }
 
 class UserQuery {
@@ -131,7 +160,7 @@ export const XLSX_UPLOAD = FileInterceptor('file', { limits: { fileSize: 2 * 102
 @UseGuards(AuthGuard)
 @Roles('root_admin', 'school_admin')
 export class AdminController {
-  constructor(private readonly school: SchoolService, private readonly mail: MailService, private readonly security: SecurityService, private readonly reports: ReportService) {}
+  constructor(private readonly school: SchoolService, private readonly mail: MailService, private readonly security: SecurityService, private readonly reports: ReportService, private readonly classes_: ClassService) {}
 
   @Get('reports/dashboard')
   dashboard(@CurrentUser() user:UserRow,@Query() query:ReportQuery) { return this.reports.dashboard(user,query); }
@@ -157,9 +186,29 @@ export class AdminController {
   @Get('class-directory')
   classDirectory(@CurrentUser() user: UserRow,@Query() query: DirectoryQuery) { return this.school.classDirectory(user,query); }
 
+  /** Sửa thông tin/đóng-mở lớp: quản trị tổng mọi lớp, quản trị trường chỉ lớp của trường mình (TM.SCH-CLASS.004) */
   @Patch('classes/:id')
-  @Roles('root_admin')
-  updateClass(@CurrentUser() user:UserRow,@Param('id',ParseIntPipe) id:number,@Body() body:UpdateClassDto) { return this.school.updateClass(user,id,body); }
+  updateClass(@CurrentUser() user:UserRow,@Param('id',ParseIntPipe) id:number,@Body() body:UpdateClassDto) { return this.classes_.updateClass(user,id,body); }
+
+  @Post('classes')
+  createClassByAdmin(@CurrentUser() user:UserRow,@Body() body:NewClassDto) { return this.classes_.createClass(user,body); }
+
+  @Post('classes/:id/teacher')
+  @HttpCode(200)
+  assignTeacher(@CurrentUser() user:UserRow,@Param('id',ParseIntPipe) id:number,@Body() body:AssignTeacherDto) { return this.classes_.assignTeacher(user,id,body.teacher_id); }
+
+  @Post('classes/:id/transfer')
+  @HttpCode(200)
+  transferStudent(@CurrentUser() user:UserRow,@Param('id',ParseIntPipe) id:number,@Body() body:TransferDto) { return this.classes_.transferStudent(user,id,body.user_id,body.to_class_id); }
+
+  @Get('classes/:id/events')
+  classEvents(@CurrentUser() user:UserRow,@Param('id',ParseIntPipe) id:number) { return this.classes_.events(user,id); }
+
+  @Get('school-grades')
+  grades(@CurrentUser() user:UserRow,@Query() query:GradeQuery) { return this.classes_.grades(user,query.school_id,query.school_year); }
+
+  @Put('school-grades')
+  setGrade(@CurrentUser() user:UserRow,@Body() body:GradeDto) { return this.classes_.setGrade(user,body); }
 
   @Post('schools')
   @Roles('root_admin')

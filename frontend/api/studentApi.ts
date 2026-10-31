@@ -1,11 +1,14 @@
 import { apiRequest } from '@/api/client';
 import type {
-  AnswerPayload, AnswerResult, ChatbotReply, CodexEntry, LeaderboardEntry, LearnerProgress, QuestionsResponse, Recommendation, StudentClass,
+  AnswerPayload, AnswerResult, ChatbotReply, CodexEntry, LeaderboardEntry, LearnerProgress, QuestionsResponse, Recommendation, StudentClass, AvailableClass,
 } from '@/types/api';
 import type { GameState } from '@/types/game';
 
 /** Lớp đã vào */
 export const getMyClasses = (token: string) => apiRequest<StudentClass[]>('/api/student/classes', { token });
+
+/** Lớp đang mở đăng ký trong trường của em (không kèm mật khẩu) */
+export const getAvailableClasses = (token: string) => apiRequest<AvailableClass[]>('/api/student/classes/available', { token });
 
 /** Vào lớp đã được duyệt bằng mã lớp + mật khẩu lớp do thầy cô phát */
 export const joinClass = (token: string, classCode: string, password: string) =>

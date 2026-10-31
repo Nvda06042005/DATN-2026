@@ -1,7 +1,7 @@
 /**
  * Trang giáo viên: tiến độ thật của lớp phụ trách (XP, sao chiến dịch, độ chính xác, mức nắm vững BKT, câu sai nhiều nhất,
  * học sinh cần hỗ trợ), lịch sử thi đấu cả lớp, mở phòng thi đấu trực tiếp, công cụ AI soạn đề / soạn truyện, xuất báo cáo CSV.
- * Mục Lớp học: xin mở lớp (quản trị trường duyệt), chọn lớp đang dạy, nhập tài khoản học sinh từ file Excel mẫu; chuông thông báo duyệt lớp.
+ * Mục Lớp học: lớp quản trị trường phân công (đặt/đổi mật khẩu lớp, đóng/mở đăng ký) hoặc xin mở lớp (quản trị trường duyệt), chọn lớp đang dạy, nhập tài khoản học sinh từ file Excel mẫu; chuông thông báo duyệt lớp.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, RefreshControl, ScrollView, Share, View, useWindowDimensions } from 'react-native';
@@ -625,6 +625,7 @@ const ClassesTab: React.FC<{ session: Session; onActivated: (user: AuthUser) => 
   const [items, setItems] = useState<ClassRequest[] | null>(null);
   const [form, setForm] = useState(false);
   const [busy, setBusy] = useState<number | null>(null);
+  const [pwFor, setPwFor] = useState<ClassRequest | null>(null);
   const active = session.user.class_name;
 
   const load = useCallback(() => {
@@ -651,6 +652,19 @@ const ClassesTab: React.FC<{ session: Session; onActivated: (user: AuthUser) => 
     }
   };
 
+  const toggleJoin = async (k: ClassRequest) => {
+    setBusy(k.id);
+    try {
+      await teacherApi.setClassJoinOpen(session.token, k.id, !k.join_open);
+      toast(k.join_open ? `Đã đóng đăng ký vào lớp ${k.class_code}` : `Đã mở đăng ký vào lớp ${k.class_code}`);
+      load();
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   return (
     <>
       <Card style={{ gap: 12 }}>
@@ -660,7 +674,7 @@ const ClassesTab: React.FC<{ session: Session; onActivated: (user: AuthUser) => 
               Lớp của tôi
             </Txt>
             <Txt size={13} color={c.muc2}>
-              Gửi mã lớp, năm học, tên lớp và mật khẩu lớp. Quản trị trường duyệt xong, bạn nhận thông báo và email; phát mã lớp và mật khẩu lớp để học sinh tự vào lớp.
+              Quản trị trường tạo lớp và phân công cho bạn: hãy đặt mật khẩu lớp rồi phát mã lớp và mật khẩu cho học sinh tự vào lớp. Bạn cũng có thể gửi yêu cầu mở lớp để quản trị trường duyệt.
             </Txt>
           </View>
           <Btn tone="giay" size="sm" icon={RefreshCw} label="Tải lại" onPress={load} />
@@ -698,7 +712,15 @@ const ClassesTab: React.FC<{ session: Session; onActivated: (user: AuthUser) => 
                   )}
                 </View>
                 <Chip text={on ? 'Đang dạy' : chip.text} bg={on ? c.ngocNhat : chip.bg} fg={on ? c.ngocChu : chip.fg} />
-                {k.status === 'APPROVED' && !on && <Btn title="Dạy lớp này" icon={Check} tone="ngoc" size="sm" loading={busy === k.id} onPress={() => activate(k)} />}
+                {k.status === 'APPROVED' && !on && k.is_active !== false && <Btn title="Dạy lớp này" icon={Check} tone="ngoc" size="sm" loading={busy === k.id} onPress={() => activate(k)} />}
+                {k.status === 'APPROVED' && k.is_active === false && <Chip text="Lớp đã đóng" bg={c.sonNhat} fg={c.sonChu} />}
+                {k.status === 'APPROVED' && k.is_active !== false && (
+                  <View style={{ flexBasis: '100%', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                    <Chip text={!k.has_password ? 'Chưa có mật khẩu lớp: học sinh chưa vào được' : k.join_open ? 'Đang mở đăng ký' : 'Đang đóng đăng ký'} bg={!k.has_password ? c.vangNhat : k.join_open ? c.thuyNhat : c.dichNhat} fg={!k.has_password ? c.vangChu : k.join_open ? c.thuyChu : c.muc2} />
+                    <Btn title={k.has_password ? 'Đổi mật khẩu lớp' : 'Đặt mật khẩu lớp'} icon={Lock} tone="giay" size="sm" label={`${k.has_password ? 'Đổi' : 'Đặt'} mật khẩu lớp ${k.class_code}`} onPress={() => setPwFor(k)} />
+                    {k.has_password && <Btn title={k.join_open ? 'Đóng đăng ký' : 'Mở đăng ký'} tone="giay" size="sm" loading={busy === k.id} label={`${k.join_open ? 'Đóng' : 'Mở'} đăng ký lớp ${k.class_code}`} onPress={() => toggleJoin(k)} />}
+                  </View>
+                )}
               </Inset>
             );
           })
@@ -710,6 +732,18 @@ const ClassesTab: React.FC<{ session: Session; onActivated: (user: AuthUser) => 
         upload={teacherApi.importStudents}
         history={teacherApi.getImports}
       />
+      {pwFor && (
+        <JoinPasswordSheet
+          token={session.token}
+          cls={pwFor}
+          onClose={() => setPwFor(null)}
+          onSaved={() => {
+            setPwFor(null);
+            load();
+            toast('Đã lưu mật khẩu lớp. Mật khẩu cũ không còn dùng được.');
+          }}
+        />
+      )}
       {form && (
         <ClassRequestSheet
           token={session.token}
@@ -722,6 +756,50 @@ const ClassesTab: React.FC<{ session: Session; onActivated: (user: AuthUser) => 
         />
       )}
     </>
+  );
+};
+
+/** Giáo viên được phân công đặt/đổi mật khẩu gia nhập lớp; máy chủ chỉ lưu băm và thu hồi mật khẩu cũ ngay */
+const JoinPasswordSheet: React.FC<{ token: string; cls: ClassRequest; onClose: () => void; onSaved: () => void }> = ({ token, cls, onClose, onSaved }) => {
+  const { c } = useTheme();
+  const [password, setPassword] = useState('');
+  const [show, setShow] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const submit = async () => {
+    if (password.length < 4) return setError('Mật khẩu lớp cần ít nhất 4 ký tự.');
+    setLoading(true);
+    setError(null);
+    try {
+      await teacherApi.setClassPassword(token, cls.id, password);
+      onSaved();
+    } catch (err) {
+      setError(errorMessage(err, 'Không lưu được mật khẩu lớp.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      title={cls.has_password ? `Đổi mật khẩu lớp ${cls.class_code}` : `Đặt mật khẩu lớp ${cls.class_code}`}
+      subtitle="Học sinh nhập mã lớp và mật khẩu này để vào lớp"
+      footer={
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
+          <Btn title="Hủy" tone="giay" onPress={onClose} />
+          <Btn title="Lưu mật khẩu" icon={Lock} tone="ngoc" loading={loading} onPress={submit} />
+        </View>
+      }
+    >
+      {error && (
+        <Txt color={c.sonChu} accessibilityRole="alert">
+          {error}
+        </Txt>
+      )}
+      <Field label="Mật khẩu lớp mới" value={password} onChangeText={setPassword} secureTextEntry={!show} autoCapitalize="none" autoCorrect={false} hint="Tối thiểu 4 ký tự. Mật khẩu cũ ngừng dùng được ngay." />
+      <Btn title={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} icon={show ? EyeOff : Eye} tone="giay" size="sm" onPress={() => setShow((v) => !v)} />
+    </Sheet>
   );
 };
 

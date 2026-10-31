@@ -25,3 +25,9 @@ Lớp tạm ngưng giữ dữ liệu, không được chọn/vào/mở phòng th
 Migration **009_school_management.sql** chỉ thêm cột/chỉ mục và suy khối từ mã rõ ràng; giữ RLS và tài khoản.
 Sau deploy, `/api/database/health` phải báo `schema_version: 9` (hoặc lớn hơn nếu có migration mới).
 Kiểm thử dùng 64 trường tạm trong `backend/test/school-management.spec.ts`, không tạo trường thử trên Supabase.
+
+## Vòng đời lớp (TM.SCH-CLASS, migration 012)
+
+Quản trị trường chỉ thao tác trường mình (RLS); quản trị tổng chọn trường. Trong **Khối và lớp**: bật khối 6–9 theo năm học, tạo lớp,
+“Quản lý lớp” để sửa thông tin, phân công/đổi/hủy giáo viên, chuyển học sinh, đóng/mở lớp và xem lịch sử. Đổi hoặc hủy giáo viên thu hồi
+mật khẩu lớp cũ; chuyển học sinh và đóng lớp không làm mất điểm hay lịch sử thi đấu. Chi tiết và giới hạn: [TIEN_DO_CHUC_NANG.md](TIEN_DO_CHUC_NANG.md).

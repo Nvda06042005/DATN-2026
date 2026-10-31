@@ -4,6 +4,7 @@ import { ArrayMaxSize, IsArray, IsIn, IsInt, IsObject, IsOptional, IsString, Len
 import { SchoolService } from '../admin/school.service';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import type { UserRow } from '../database/database.service';
+import { ClassService } from '../admin/class.service';
 import { ContentService } from './content.service';
 import { StudentService } from './student.service';
 
@@ -66,12 +67,19 @@ export class StudentController {
     private readonly student: StudentService,
     private readonly content: ContentService,
     private readonly school: SchoolService,
+    private readonly classes_: ClassService,
   ) {}
 
   /** Lớp đã vào (mã lớp + mật khẩu lớp do giáo viên phát sau khi lớp được duyệt) */
   @Get('classes')
   classes(@CurrentUser() user: UserRow) {
     return this.school.studentClasses(user);
+  }
+
+  /** Lớp đang mở đăng ký trong trường mình (không kèm mật khẩu) */
+  @Get('classes/available')
+  availableClasses(@CurrentUser() user: UserRow) {
+    return this.classes_.availableClasses(user);
   }
 
   @Post('classes/join')

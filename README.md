@@ -214,3 +214,7 @@ Quản trị tổng còn có **Nội dung & cấu hình** (chương trình lịc
 thẻ danh tướng, luật EXP) và **Nhật ký & sức khỏe** (đăng nhập, thao tác, lỗi nhập Excel/gửi thư, trạng thái API/CSDL/AI).
 Mỗi thay đổi có phiên bản và lịch sử; câu hỏi và luật EXP có hiệu lực ngay, các mục còn lại là dữ liệu quản trị.
 [Chi tiết TM.SA-CONTENT và giới hạn hiện tại](docs/ADMIN_CONTENT.md).
+
+Quản trị trường (và quản trị tổng) bật khối theo năm học, **tạo lớp**, phân công hoặc đổi giáo viên, chuyển học sinh giữa các lớp cùng trường và
+đóng/mở lớp; giáo viên được phân công tự đặt mật khẩu lớp và đóng/mở đăng ký; học sinh thấy lớp đang mở trong trường mình.
+[Chi tiết vòng đời lớp, tiến độ theo danh sách chức năng, đánh giá và đề xuất](docs/TIEN_DO_CHUC_NANG.md).

@@ -40,3 +40,7 @@ Xem [dashboard, bộ lọc và giới hạn số liệu](../../docs/ADMIN_REPORT
 ngân hàng câu hỏi, kho sử liệu AI, thẻ danh tướng, luật EXP), bật RLS và không cấp quyền cho vai trò theo trường. Dữ liệu gốc
 (3 cuộc kháng chiến, 9 ải, 14 thẻ, luật EXP phiên bản 1) lấy từ nội dung game hiện có; không thay đổi bảng hay dữ liệu cũ.
 Xem [nội dung và cấu hình](../../docs/ADMIN_CONTENT.md).
+
+`012_class_lifecycle.sql`: lớp có thể chưa có giáo viên và chưa có mật khẩu gia nhập (hai cột cho phép NULL), thêm
+`join_open`, sĩ số dự kiến, người tạo, thời điểm đóng; bảng khối theo trường và năm học; lịch sử vòng đời lớp (chỉ thêm).
+Lớp và học sinh hiện có giữ nguyên, lớp cũ vẫn nhận học sinh như trước. Xem [vòng đời lớp](../../docs/TIEN_DO_CHUC_NANG.md).

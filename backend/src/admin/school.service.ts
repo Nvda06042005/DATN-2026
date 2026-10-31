@@ -256,26 +256,16 @@ export class SchoolService implements OnApplicationBootstrap {
       if(f.status) add('c.status = ?',f.status); if(f.active) add('(c.is_active AND s.is_active) = ?',f.active==='true');
       if(f.q?.trim()) add("(c.class_code || ' ' || c.name || ' ' || s.name) ILIKE ? ESCAPE '\\'",'%'+likeEscape(f.q.trim())+'%');
       const condition=where.length?where.join(' AND '):'TRUE',page=f.page??1,limit=f.limit??30;
-      const join='FROM app_classes c JOIN app_schools s ON s.id = c.school_id JOIN app_users t ON t.id = c.teacher_id';
+      const join='FROM app_classes c JOIN app_schools s ON s.id = c.school_id LEFT JOIN app_users t ON t.id = c.teacher_id';
       const total=Number((await q<{n:string}>(`SELECT count(*) AS n ${join} WHERE ${condition}`,params))[0].n);
-      const items=await q(`SELECT c.id,c.school_id,c.class_code,c.school_year,c.name,c.grade,c.status,c.is_active,s.is_active AS school_active,s.name AS school_name,s.region,s.city,t.id AS teacher_id,t.full_name AS teacher_name,'THCS' AS education_level,
+      const items=await q(`SELECT c.id,c.school_id,c.class_code,c.school_year,c.name,c.grade,c.status,c.is_active,c.join_open,c.expected_size,(c.join_password_hash IS NOT NULL) AS has_password,c.closed_at,s.is_active AS school_active,s.name AS school_name,s.region,s.city,t.id AS teacher_id,t.full_name AS teacher_name,'THCS' AS education_level,
         (SELECT count(*)::int FROM app_class_members m JOIN app_users u ON u.id=m.user_id WHERE m.class_id=c.id AND u.role='student' AND u.deleted_at IS NULL) AS students
         ${join} WHERE ${condition} ORDER BY s.name,c.grade NULLS LAST,c.school_year DESC,c.class_code,c.id LIMIT $${params.length+1} OFFSET $${params.length+2}`,[...params,limit,(page-1)*limit]);
       const years=await q<{school_year:string}>('SELECT DISTINCT school_year FROM app_classes WHERE ($1::integer IS NULL OR school_id=$1) ORDER BY school_year DESC',[scope]);
       const places=await q<{region:string|null;city:string|null}>('SELECT DISTINCT region,city FROM app_schools WHERE ($1::integer IS NULL OR id=$1)',[scope]);
       const uniq=(v:Array<string|null>)=>[...new Set(v.filter((x):x is string=>!!x))].sort();
-      const grades=await q<{grade:number|null;n:number}>(`SELECT c.grade,count(*)::int AS n FROM app_classes c JOIN app_schools s ON s.id=c.school_id JOIN app_users t ON t.id=c.teacher_id WHERE ${condition} GROUP BY c.grade ORDER BY c.grade`,params);
+      const grades=await q<{grade:number|null;n:number}>(`SELECT c.grade,count(*)::int AS n FROM app_classes c JOIN app_schools s ON s.id=c.school_id WHERE ${condition} GROUP BY c.grade ORDER BY c.grade`,params);
       return {items,total,page,limit,grade_counts:grades,facets:{school_years:years.map(x=>x.school_year),regions:uniq(places.map(x=>x.region)),cities:uniq(places.map(x=>x.city)),education_levels:['THCS']}};
-    });
-  }
-
-  async updateClass(actor: UserRow,id:number,body:{grade?:number|null;is_active?:boolean}) {
-    return this.run(actor,async(q,scope)=>{
-      const row=(await q<{school_id:number;class_code:string}>('SELECT school_id,class_code FROM app_classes WHERE id=$1 AND ($2::integer IS NULL OR school_id=$2)',[id,scope]))[0];
-      if(!row) throw new NotFoundException('Không tìm thấy lớp');
-      const entries=Object.entries(body).filter(([k,v])=>['grade','is_active'].includes(k)&&v!==undefined);
-      if(entries.length) await q(`UPDATE app_classes SET ${entries.map(([k],i)=>`${k}=$${i+2}`).join(', ')} WHERE id=$1`,[id,...entries.map(([,v])=>v)]);
-      return (await q('SELECT id,school_id,class_code,grade,is_active FROM app_classes WHERE id=$1',[id]))[0];
     });
   }
 
@@ -825,7 +815,7 @@ export class SchoolService implements OnApplicationBootstrap {
   async teacherClasses(teacher: UserRow) {
     return this.run(teacher, (q) =>
       q(
-        `SELECT c.id, c.class_code, c.school_year, c.name, c.status, c.review_note, c.reviewed_at, c.created_at,
+        `SELECT c.id, c.class_code, c.school_year, c.name, c.status, c.review_note, c.reviewed_at, c.created_at, c.grade, c.is_active, c.join_open, (c.join_password_hash IS NOT NULL) AS has_password,
                 (SELECT COUNT(*) FROM app_class_members m WHERE m.class_id = c.id)::int AS members
          FROM app_classes c WHERE c.teacher_id = $1 ORDER BY c.created_at DESC`,
         [teacher.id],
@@ -849,7 +839,7 @@ export class SchoolService implements OnApplicationBootstrap {
       q(
         `SELECT c.id, c.school_id, s.school_code, s.name AS school_name, c.class_code, c.school_year, c.name, c.status, c.review_note, c.reviewed_at, c.created_at,
                 u.full_name AS teacher_name, u.username AS teacher_username, (SELECT COUNT(*) FROM app_class_members m WHERE m.class_id = c.id)::int AS members
-         FROM app_classes c JOIN app_users u ON u.id = c.teacher_id JOIN app_schools s ON s.id = c.school_id
+         FROM app_classes c LEFT JOIN app_users u ON u.id = c.teacher_id JOIN app_schools s ON s.id = c.school_id
          WHERE ($1::integer IS NULL OR c.school_id = $1) AND ($2::text IS NULL OR c.status = $2)
          ORDER BY (c.status = 'PENDING') DESC, c.created_at DESC LIMIT 200`,
         [scope, status ?? null],
@@ -891,15 +881,17 @@ export class SchoolService implements OnApplicationBootstrap {
   async joinClass(student: UserRow, classCode: string, password: string) {
     const code = classCode.trim().toUpperCase();
     return this.run(student, async (q, scope) => {
-      const rows = await q<{ id: number; class_code: string; name: string; school_year: string; join_password_hash: string; teacher_id: number }>(
-        "SELECT id, class_code, name, school_year, join_password_hash, teacher_id FROM app_classes WHERE school_id = $1 AND class_code = $2 AND status = 'APPROVED' AND is_active ORDER BY school_year DESC LIMIT 1",
+      const rows = await q<{ id: number; class_code: string; name: string; school_year: string; join_password_hash: string | null; join_open: boolean; teacher_id: number | null }>(
+        "SELECT id, class_code, name, school_year, join_password_hash, join_open, teacher_id FROM app_classes WHERE school_id = $1 AND class_code = $2 AND status = 'APPROVED' AND is_active ORDER BY school_year DESC LIMIT 1",
         [scope, code],
       );
-      if (!rows.length || !(await verifyPassword(password, rows[0].join_password_hash))) throw new BadRequestException('Sai mã lớp hoặc mật khẩu lớp');
+      if (!rows.length || !rows[0].join_password_hash || !(await verifyPassword(password, rows[0].join_password_hash))) throw new BadRequestException('Sai mã lớp hoặc mật khẩu lớp');
       const c = rows[0];
+      // Chỉ báo lớp đang đóng sau khi mật khẩu đúng, để không dò được lớp nào tồn tại
+      if (!c.join_open) throw new BadRequestException('Lớp đang tạm đóng đăng ký, hãy hỏi giáo viên phụ trách');
       await q('INSERT INTO app_class_members (class_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [c.id, student.id]);
       await q('UPDATE app_users SET class_name = $2 WHERE id = $1', [student.id, c.class_code]);
-      await this.notify(q, c.teacher_id, scope!, 'class_join', `Học sinh mới vào lớp ${c.class_code}`, `${student.full_name} vừa vào "${c.name}".`);
+      if (c.teacher_id) await this.notify(q, c.teacher_id, scope!, 'class_join', `Học sinh mới vào lớp ${c.class_code}`, `${student.full_name} vừa vào "${c.name}".`);
       return { id: c.id, class_code: c.class_code, name: c.name, school_year: c.school_year };
     });
   }
@@ -908,7 +900,7 @@ export class SchoolService implements OnApplicationBootstrap {
     return this.run(student, (q) =>
       q(
         `SELECT c.id, c.class_code, c.name, c.school_year, u.full_name AS teacher_name, m.joined_at
-         FROM app_class_members m JOIN app_classes c ON c.id = m.class_id JOIN app_users u ON u.id = c.teacher_id
+         FROM app_class_members m JOIN app_classes c ON c.id = m.class_id LEFT JOIN app_users u ON u.id = c.teacher_id
          WHERE m.user_id = $1 ORDER BY m.joined_at DESC`,
         [student.id],
       ),

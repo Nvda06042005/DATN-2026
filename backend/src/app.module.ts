@@ -11,6 +11,7 @@ import { ReportService } from './admin/report.service';
 import { CatalogController, SystemController } from './admin/catalog.controller';
 import { CatalogService } from './admin/catalog.service';
 import { SystemService } from './admin/system.service';
+import { ClassService } from './admin/class.service';
 import { AiController } from './ai/ai.controller';
 import { AiService } from './ai/ai.service';
 import { AppController } from './app.controller';
@@ -32,7 +33,7 @@ import { TeacherController } from './teacher/teacher.controller';
     ScheduleModule.forRoot(),
   ],
   controllers: [AppController, AuthController, AdminController, CatalogController, SystemController, StudentController, TeacherController, AiController],
-  providers: [SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, ContentService, AiService, StudentService, MailService, SchoolService, ReportService, CatalogService, SystemService, LiveHub, LiveGateway],
+  providers: [SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, ContentService, AiService, StudentService, MailService, SchoolService, ReportService, CatalogService, SystemService, ClassService, LiveHub, LiveGateway],
 })
 export class AppModule {}
 

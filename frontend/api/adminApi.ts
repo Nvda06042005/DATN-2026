@@ -104,3 +104,12 @@ export const saveExpRules = (token: string, config: C.ExpRulesConfig, note?: str
 export const getContentHistory = (token: string, entity: string, id: string | number) => apiRequest<C.ContentHistoryRow[]>(`/api/admin/content/history?${directoryParams({ entity, id })}`, { token });
 export const getSystemHealth = (token: string) => apiRequest<C.SystemHealth>('/api/admin/system/health', { token });
 export const getSystemEvents = (token: string, f: C.SystemEventFilters) => apiRequest<C.SystemEventsPage>(`/api/admin/system/events?${directoryParams(f)}`, { token });
+
+// ---- TM.SCH-CLASS: khối, lớp, phân công giáo viên, chuyển học sinh
+export const getSchoolGrades = (token: string, f: { school_id?: number; school_year?: string }) => apiRequest<C.SchoolGrade[]>(`/api/admin/school-grades?${directoryParams(f)}`, { token });
+export const setSchoolGrade = (token: string, body: { school_id?: number; school_year: string; grade: number; is_active: boolean }) => apiRequest<C.SchoolGrade[]>('/api/admin/school-grades', { token, method: 'PUT', body });
+export const createClassByAdmin = (token: string, body: C.NewClassInput) => apiRequest<C.ClassView>('/api/admin/classes', { token, method: 'POST', body });
+export const updateClassInfo = (token: string, id: number, body: { name?: string; grade?: number | null; expected_size?: number | null; is_active?: boolean }) => apiRequest<C.ClassView>(`/api/admin/classes/${id}`, { token, method: 'PATCH', body });
+export const assignClassTeacher = (token: string, id: number, teacherId: number | null) => apiRequest<C.ClassView>(`/api/admin/classes/${id}/teacher`, { token, method: 'POST', body: { teacher_id: teacherId } });
+export const transferClassStudent = (token: string, id: number, userId: number, toClassId: number) => apiRequest<{ from: C.ClassView; to: C.ClassView }>(`/api/admin/classes/${id}/transfer`, { token, method: 'POST', body: { user_id: userId, to_class_id: toClassId } });
+export const getClassEvents = (token: string, id: number) => apiRequest<C.ClassEvent[]>(`/api/admin/classes/${id}/events`, { token });

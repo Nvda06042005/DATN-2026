@@ -217,6 +217,10 @@ export interface ClassRequest {
   reviewed_at: string | null;
   created_at: string;
   members: number;
+  grade?: number | null;
+  is_active?: boolean;
+  join_open?: boolean;
+  has_password?: boolean;
   school_id?: number;
   school_code?: string;
   school_name?: string;
@@ -229,7 +233,7 @@ export interface StudentClass {
   class_code: string;
   name: string;
   school_year: string;
-  teacher_name: string;
+  teacher_name: string | null;
   joined_at: string;
 }
 
@@ -527,7 +531,7 @@ export interface SchoolSummary extends SchoolProfile { classes: number; teachers
 export interface SchoolDetail extends SchoolProfile { counts: { grades: number; classes: number; teachers: number; students: number; admins: number }; grade_counts: Array<{ grade: number; classes: number; students: number }>; admins: AuthUser[] }
 export type SchoolUpdate = Partial<Pick<SchoolProfile,'name'|'region'|'city'|'address'|'contact_name'|'contact_email'|'contact_phone'|'is_active'>>;
 export interface SchoolsPage { items: SchoolSummary[]; total: number; page: number; limit: number; facets: { regions: string[]; cities: string[] } }
-export interface DirectoryClass { id: number; school_id: number; school_name: string; region: string | null; city: string | null; class_code: string; school_year: string; name: string; grade: number | null; status: ClassStatus; is_active: boolean; school_active: boolean; teacher_id: number; teacher_name: string; education_level: 'THCS'; students: number }
+export interface DirectoryClass { id: number; school_id: number; school_name: string; region: string | null; city: string | null; class_code: string; school_year: string; name: string; grade: number | null; status: ClassStatus; is_active: boolean; school_active: boolean; teacher_id: number | null; teacher_name: string | null; education_level: 'THCS'; students: number; join_open: boolean; expected_size: number | null; has_password: boolean; closed_at: string | null }
 export interface ClassesPage { items: DirectoryClass[]; total: number; page: number; limit: number; grade_counts: Array<{ grade: number | null; n: number }>; facets: { school_years: string[]; regions: string[]; cities: string[]; education_levels: string[] } }
 
 export interface ReportFilters { school_id?:number;region?:string;city?:string;active?:'true'|'false';school_year?:string }
@@ -625,3 +629,13 @@ export interface SystemHealth {
   imports: { batches_24h: number; error_rows_24h: number; open_incomplete: number };
   logins: { failed_24h: number; locked_24h: number };
 }
+
+// ---------------------------------------------------------------------- TM.SCH-CLASS / TM.T-CLASS: vòng đời lớp
+export interface SchoolGrade { school_year: string; grade: number; is_active: boolean; classes: number; active_classes: number }
+export interface ClassEvent { id: number; kind: string; note: string | null; created_at: string; actor_name: string | null; teacher_name: string | null; previous_teacher_name: string | null; student_name: string | null; related_class_code: string | null }
+export interface NewClassInput { school_id?: number; class_code: string; school_year: string; grade: number; name: string; expected_size?: number | null; teacher_id?: number | null }
+export interface ClassView {
+  id: number; school_id: number; teacher_id: number | null; teacher_name: string | null; class_code: string; school_year: string; name: string; grade: number | null;
+  status: ClassStatus; is_active: boolean; join_open: boolean; has_password: boolean; expected_size: number | null; closed_at: string | null; students: number;
+}
+export interface AvailableClass { id: number; class_code: string; name: string; school_year: string; grade: number | null; teacher_name: string; joined: boolean }

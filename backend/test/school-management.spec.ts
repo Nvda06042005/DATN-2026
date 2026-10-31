@@ -27,7 +27,7 @@ async function account(role:string,schoolId:number,name:string,grade?:number){re
   expect((await api('PATCH',`/api/admin/schools/${schoolA}`,{name:'Không được sửa'},scoped)).status).toBe(403);
   expect((await api('GET','/api/admin/schools',undefined,teacherToken)).status).toBe(403);
   const ov=await api('GET','/api/admin/overview');expect(ov.body.schools).toBe(64);
-  expect((await api('GET','/api/database/health')).body.schema_version).toBe(11);
+  expect((await api('GET','/api/database/health')).body.schema_version).toBe(12);
  });
  test('school details expose correct counts, grade breakdown and safe school-admin information',async()=>{
   const r=await api('GET',`/api/admin/schools/${schoolA}`);expect(r.body.counts).toEqual({teachers:1,students:1,classes:1,grades:1,admins:1});
@@ -46,7 +46,7 @@ async function account(role:string,schoolId:number,name:string,grade?:number){re
   const r=await api('GET',`/api/admin/class-directory?school_id=${schoolA}&grade=7&school_year=2026-2027&region=${encodeURIComponent('Miền Nam')}&city=TP.HCM&status=APPROVED&active=true&education_level=THCS`);
   expect(r.status).toBe(200);expect(r.body.items.map((x:any)=>x.id)).toEqual([classA.id]);expect(r.body.items[0]).toMatchObject({grade:7,students:1,teacher_name:teacher.full_name});
   const own=await api('GET',`/api/admin/class-directory?school_id=${schoolB}`,undefined,scoped);expect(own.body.items.map((x:any)=>x.school_id)).toEqual([schoolA]);
-  expect((await api('PATCH',`/api/admin/classes/${classB.id}`,{is_active:false},scoped)).status).toBe(403);
+  expect((await api('PATCH',`/api/admin/classes/${classB.id}`,{is_active:false},scoped)).status).toBe(404); // lớp trường khác: không thấy
   expect((await api('PATCH',`/api/admin/classes/${classB.id}`,{is_active:false})).status).toBe(200);
   expect((await api('GET','/api/admin/class-directory?active=false')).body.items.map((x:any)=>x.id)).toEqual([classB.id]);
   expect((await api('GET','/api/admin/class-directory?education_level=THPT')).status).toBe(422);

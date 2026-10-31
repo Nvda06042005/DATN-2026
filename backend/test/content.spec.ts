@@ -238,7 +238,7 @@ const rules = async () => (await api('GET', '/api/admin/content/rules')).body;
     expect(page.has_more).toBe(true);
 
     const health = (await api('GET', '/api/admin/system/health')).body;
-    expect(health).toMatchObject({ api: { status: 'ok' }, database: { status: 'ok', schema_version: 11 }, ai: { status: 'ok' }, mail: { failed: 1 }, imports: { batches_24h: 1, error_rows_24h: 3 } });
+    expect(health).toMatchObject({ api: { status: 'ok' }, database: { status: 'ok', schema_version: 12 }, ai: { status: 'ok' }, mail: { failed: 1 }, imports: { batches_24h: 1, error_rows_24h: 3 } });
     expect(health.logins.failed_24h).toBeGreaterThan(0);
     expect(JSON.stringify(health)).not.toContain('postgresql://');
   });

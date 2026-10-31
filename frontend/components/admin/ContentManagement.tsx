@@ -336,8 +336,17 @@ function QuestionSheet({ session, id, units, places, onClose, onChanged }: { ses
         </Row>}
         {detail && <HistoryToggle session={session} entity="question" id={detail.id} />}
       </>}
-      <ConfirmSheet open={confirm !== null} title={confirm === 'restore' ? 'Khôi phục bản gốc?' : 'Xóa câu hỏi?'} message={confirm === 'restore' ? 'Bản chỉnh sửa bị bỏ, câu hỏi quay lại nội dung gốc của game. Lịch sử vẫn được giữ.' : 'Câu hỏi nháp hoặc đang ẩn sẽ bị xóa. Lịch sử cập nhật vẫn được giữ.'} confirmLabel={confirm === 'restore' ? 'Khôi phục' : 'Xóa'} busy={busy} onCancel={() => setConfirm(null)}
-        onConfirm={() => run(() => api.removeBankQuestion(session.token, id), confirm === 'restore' ? 'Đã khôi phục bản gốc' : 'Đã xóa câu hỏi', true)} />
+      {/* Xác nhận ngay trong Sheet: không mở Modal thứ hai chồng lên */}
+      {confirm && (
+        <Inset style={{ gap: 10, backgroundColor: c.vangNhat }}>
+          <Txt f="bold" size={15}>{confirm === 'restore' ? 'Khôi phục bản gốc?' : 'Xóa câu hỏi?'}</Txt>
+          <Txt size={13}>{confirm === 'restore' ? 'Bản chỉnh sửa bị bỏ, câu hỏi quay lại nội dung gốc của game. Lịch sử vẫn được giữ.' : 'Câu hỏi nháp hoặc đang ẩn sẽ bị xóa. Lịch sử cập nhật vẫn được giữ.'}</Txt>
+          <Row>
+            <Btn title="Hủy" tone="giay" size="sm" disabled={busy} onPress={() => setConfirm(null)} />
+            <Btn title={confirm === 'restore' ? 'Khôi phục' : 'Xóa'} tone="son" size="sm" loading={busy} onPress={() => run(() => api.removeBankQuestion(session.token, id), confirm === 'restore' ? 'Đã khôi phục bản gốc' : 'Đã xóa câu hỏi', true)} />
+          </Row>
+        </Inset>
+      )}
     </Sheet>
   );
 }

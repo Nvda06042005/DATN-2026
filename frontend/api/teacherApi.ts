@@ -1,5 +1,5 @@
 import { apiRequest, apiUpload, type PickedFile } from '@/api/client';
-import type { AuthUser, ClassRequest, GeneratedQuiz, GeneratedStory, ImportBatch, ImportResult, LiveSessionSummary, TeacherClass } from '@/types/api';
+import type { AuthUser, ClassRequest, ClassView, GeneratedQuiz, GeneratedStory, ImportBatch, ImportResult, LiveSessionSummary, TeacherClass } from '@/types/api';
 
 /** Lớp phụ trách: học sinh thật, tóm tắt, câu sai nhiều, mức nắm vững, học sinh cần hỗ trợ */
 export const getMyClass = (token: string) => apiRequest<TeacherClass>('/api/teacher/class', { token });
@@ -9,6 +9,12 @@ export const getClassRequests = (token: string) => apiRequest<ClassRequest[]>('/
 
 export const requestClass = (token: string, body: { class_code: string; school_year: string; name: string; join_password: string }) =>
   apiRequest<ClassRequest>('/api/teacher/classes', { token, body });
+
+/** Giáo viên được phân công đặt hoặc đổi mật khẩu gia nhập lớp (mật khẩu cũ ngừng hiệu lực ngay) */
+export const setClassPassword = (token: string, id: number, password: string) => apiRequest<ClassView>(`/api/teacher/classes/${id}/join-password`, { method: 'POST', token, body: { password } });
+
+/** Mở hoặc đóng đăng ký vào lớp */
+export const setClassJoinOpen = (token: string, id: number, open: boolean) => apiRequest<ClassView>(`/api/teacher/classes/${id}/join-open`, { method: 'POST', token, body: { open } });
 
 /** Chọn lớp đang dạy (bảng theo dõi, thi đấu dùng lớp này) */
 export const activateClass = (token: string, id: number) => apiRequest<AuthUser>(`/api/teacher/classes/${id}/activate`, { method: 'POST', token });
