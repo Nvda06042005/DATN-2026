@@ -1,0 +1,53 @@
+{
+  "name": "dong-a-backend",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Backend NestJS của Hào Khí Đông A: xác thực, trường, năm học, tài khoản, lớp học, kho dữ liệu lịch sử, PostgreSQL",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "dev": "nest start --watch",
+    "test": "jest --runInBand",
+    "migrate": "node dist/database/migrate.cli.js"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "bcryptjs": "^3.0.3",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "dotenv": "^16.4.0",
+    "exceljs": "4.4.0",
+    "nodemailer": "^10.2.1",
+    "pg": "^8.13.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/testing": "^11.1.0",
+    "@types/jest": "^29.5.0",
+    "@types/multer": "^2.3.0",
+    "@types/node": "^22.0.0",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pg": "^8.11.0",
+    "@types/supertest": "^6.0.0",
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.2.0",
+    "typescript": "~5.8.0"
+  },
+  "jest": {
+    "rootDir": ".",
+    "testRegex": "test/.*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.ts$": "ts-jest"
+    },
+    "testEnvironment": "node",
+    "globalSetup": "<rootDir>/test/harness.ts",
+    "globalTeardown": "<rootDir>/test/harness.ts",
+    "testTimeout": 60000
+  }
+}
