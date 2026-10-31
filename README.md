@@ -1,40 +1,58 @@
 # Hào Khí Đông A
 
-Website hiện có ba trang công khai và trang đăng nhập quản trị tổng:
+Nền tảng học lịch sử game hóa về ba lần kháng chiến chống Nguyên – Mông thời Trần cho học sinh THCS (đề tài khóa luận).
+Đặc tả: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). **Đã làm: Sprint 1 và 2** – xem
+[docs/TIEN_DO_HAO_KHI.md](docs/TIEN_DO_HAO_KHI.md) (từng mã HK.*, quyết định, phần chưa làm).
 
-- `/`: trang chủ.
-- `/dieu-khoan-su-dung`: Điều khoản sử dụng, kèm thông tin ghi công hình ảnh.
-- `/cau-hoi-thuong-gap`: Câu hỏi thường gặp.
-- `/admin`: đăng nhập quản trị tổng với giao diện cũ, quên mật khẩu bằng OTP, xác nhận phiên và đổi mật khẩu lần đầu. Trang độc lập, không có liên kết từ trang chủ.
+## Trang web
 
-Backend, dịch vụ AI, game và các cổng học sinh/giáo viên/quản trị đã được gỡ theo yêu cầu ngày 31/10/2026. Theo yêu cầu tiếp theo cùng ngày, riêng trang đăng nhập `/admin` được khôi phục trên bản chính thức. Các màn quản lý sau đăng nhập và bản Sprint 1–2 vẫn ở nhánh `feat/hao-khi-sprint-1-2`; không được gộp trong lần khôi phục này.
+- `/`, `/dieu-khoan-su-dung`, `/cau-hoi-thuong-gap`: trang công khai (trang chủ, điều khoản kèm ghi công hình ảnh, câu hỏi thường gặp).
+- `/portal`: đăng nhập chung của giáo viên và học sinh; `/hoc-sinh`: hồ sơ, tham gia lớp bằng mã 6 ký tự; `/giao-vien`: hồ sơ và lớp được phân công.
+- `/school-manager-admin`: quản trị viên trường học – trường và năm học, khối lớp, giáo viên, học sinh, lớp, nhập/xuất Excel, nhân bản lớp sang năm mới.
+- `/admin`: quản trị tổng – trường học, người dùng toàn hệ thống, **kho dữ liệu lịch sử** (cuộc kháng chiến, nhân vật, sự kiện, địa điểm trên bản đồ, trận đánh, dòng thời gian, tư liệu gốc, thuật ngữ; kiểm chứng và công bố; lịch sử chỉnh sửa; nhập/xuất).
+- Hai cổng quản trị không có liên kết từ trang chủ.
 
-## Chạy và kiểm tra
+## Cấu trúc
 
-Từ thư mục `frontend/`:
+- `frontend/`: Expo (React Native + web, Expo Router), Manrope và Newsreader. `app/` (route), `components/admin/` (cổng quản trị), `components/portal/`, `api/`, `types/`.
+- `backend/`: NestJS 11 + PostgreSQL. `src/auth` (đăng nhập, OTP, hồ sơ), `src/admin` (trường, năm học, tài khoản, lớp, Excel, hàng đợi email), `src/history` (kho lịch sử), `src/student` (vào lớp bằng mã), `test/` (Jest, PostgreSQL tạm).
+- `database/migrations/`: SQL theo số thứ tự, nguồn thay đổi cơ sở dữ liệu duy nhất; xem [README của thư mục](database/migrations/README.md).
+- `docs/`: [tiến độ theo mã HK.*](docs/TIEN_DO_HAO_KHI.md), [đối chiếu đặc tả với hệ thống](docs/DOI_CHIEU_HAO_KHI_V01.md).
+- `render.yaml`: dịch vụ `dong-a-api` trên Render. `frontend/vercel.json`: Vercel build thư mục `frontend/`.
+
+## Chạy trên máy
+
+Backend (cần PostgreSQL; chuỗi kết nối đặt trong `backend/.env`, mẫu ở `backend/.env.example`):
 
 ```sh
+cd backend
 npm ci
-npm run web
+npm run build
+npm run migrate -- check     # kiểm tra file migration, không cần CSDL
+npm run start                # tự chạy migration mới khi khởi động; tạo tài khoản quản trị tổng lần đầu (ADMIN_USERNAME/ADMIN_PASSWORD)
+npm test                     # tự dựng PostgreSQL tạm (initdb/pg_ctl); đặt POSTGRES_BIN nếu không tìm thấy
 ```
 
-Kiểm tra TypeScript bằng `npm run typecheck`, kiểm thử hợp đồng xác thực bằng `npm test`, xuất bản web bằng `npm run build` (kết quả trong `frontend/dist/`). Frontend dùng Expo Router, React Native Web, Manrope và Newsreader. Ba trang công khai không cần API. Trang `/admin` dùng `EXPO_PUBLIC_API_URL` (xem `frontend/.env.example`); thiếu cấu hình thì hiện lỗi rõ ràng khi gửi form và không gửi thông tin đăng nhập tới địa chỉ mặc định.
+Frontend (địa chỉ backend đặt bằng `EXPO_PUBLIC_API_URL`, mặc định `http://localhost:8000`):
 
-## Cấu trúc còn lại
+```sh
+cd frontend
+npm ci
+npm run web
+npm run typecheck
+npm test                     # kiểm thử hợp đồng xác thực của lớp gọi API (không cần máy chủ)
+npm run build                # xuất web vào frontend/dist/
+```
 
-- `frontend/app/`: ba trang công khai, `admin.tsx` và `_layout.tsx` dùng chung.
-- `frontend/components/`, `constants/`, `hooks/`, `lib/`, `types/`: mã và dữ liệu được các trang sử dụng; `frontend/api/` gọi API xác thực của `/admin`.
-- `frontend/assets/`: ảnh, video, biểu tượng phục vụ giao diện.
-- `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx`: giữ lại theo yêu cầu riêng của người dùng; không được nạp vào website.
+Bản chính thức không đoán địa chỉ máy chủ: nếu thiếu `EXPO_PUBLIC_API_URL` thì các cổng báo lỗi rõ ràng và không gửi thông tin đăng nhập đi đâu cả (chỉ khi chạy `npm run web` mới mặc định `http://localhost:8000`).
 
-Website không sử dụng database. Thư mục `database/` và 13 migration SQL cũ đã được xóa theo yêu cầu của người dùng; dữ liệu đang tồn tại trên Supabase không bị tác động.
+Gửi thư (mật khẩu tạm, mã OTP) cần `SMTP_URL`/`SMTP_*` hoặc cầu `MAIL_RELAY_*` (xem `backend/.env.example`, `backend/mail-relay.gs`); chưa cấu hình thì mật khẩu tạm vẫn hiện một lần trên trang quản trị nhưng OTP quên mật khẩu không gửi được. Đăng nhập Google của học sinh cần `GOOGLE_CLIENT_ID` (backend) và `EXPO_PUBLIC_GOOGLE_CLIENT_ID` (frontend).
 
 ## Triển khai
 
-Website chính thức: https://datn-2026-indol.vercel.app/. Vercel xây dựng thư mục `frontend/` từ nhánh `main`; cấu hình nằm ở `frontend/vercel.json`. Đăng nhập, OTP, kiểm tra phiên, đổi mật khẩu và đăng xuất gọi API xác thực đã được người vận hành cấu hình bằng `EXPO_PUBLIC_API_URL` (cấu hình cũ `VITE_API_URL` được chuyển sang biến Expo khi build). Khôi phục trang này không triển khai backend, chạy migration hoặc thay đổi dữ liệu trên nhà cung cấp.
+Website chính thức: https://datn-2026-indol.vercel.app/ (Vercel chỉ triển khai nhánh `main`; `frontend/vercel.json` lấy địa chỉ API từ `EXPO_PUBLIC_API_URL`, nếu chưa đặt thì dùng biến cũ `VITE_API_URL`). Backend trên Render (`render.yaml`), cơ sở dữ liệu Supabase PostgreSQL; backend áp dụng migration mới khi khởi động. Sprint 1–2 đã được gộp vào `main` ngày 31/10/2026.
 
 ## Ghi công
 
-Nguồn và giấy phép ảnh nhân vật được giữ trong `frontend/assets/hero-photos/ATTRIBUTION.md` và phần “Thông tin hình ảnh” cuối trang Điều khoản sử dụng. Ba bản đồ của Lưu Ly thuộc phạm vi công cộng; liên kết nguồn nằm trong `frontend/constants/map-credits.ts` và cùng phần ghi công trên website.
-
-Các hiệu ứng có mã từ React Bits giữ thông báo giấy phép trong `frontend/third-party/react-bits/LICENSE.md` và nguồn tham khảo trong README cùng thư mục.
+Nguồn và giấy phép ảnh nhân vật: `frontend/assets/hero-photos/ATTRIBUTION.md` và phần “Thông tin hình ảnh” cuối trang Điều khoản sử dụng. Ba bản đồ của Lưu Ly thuộc phạm vi công cộng; liên kết nguồn nằm trong `frontend/constants/map-credits.ts` và cùng phần ghi công trên website.
+Bản đồ chọn tọa độ của quản trị tổng dùng Leaflet (giấy phép BSD-2) và dữ liệu nền © OpenStreetMap, ghi công hiển thị ngay trên bản đồ. Các hiệu ứng có mã từ React Bits giữ thông báo giấy phép trong `frontend/third-party/react-bits/LICENSE.md`.

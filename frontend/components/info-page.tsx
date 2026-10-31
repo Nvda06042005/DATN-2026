@@ -26,7 +26,7 @@ export function PublicSiteNotice() {
   return (
     <View style={{ padding: 16, borderRadius: 16, borderWidth: 1, borderColor: INK_LINE, backgroundColor: c.logoPaper }}>
       <Txt size={14} color={c.logoInk} style={{ lineHeight: 22 }}>
-        Website hiện có trang giới thiệu, điều khoản sử dụng, câu hỏi thường gặp và trang đăng nhập quản trị tổng. Thông tin về lớp học, trò chơi và AI bên dưới mô tả phiên bản trước.
+        Website hiện có trang giới thiệu, điều khoản sử dụng, câu hỏi thường gặp và các cổng đăng nhập của học sinh, giáo viên, quản trị trường, quản trị tổng. Thông tin về trò chơi và AI bên dưới mô tả phiên bản trước và sẽ quay lại ở các giai đoạn sau.
       </Txt>
     </View>
   );

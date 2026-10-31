@@ -41,10 +41,13 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 160,
           "backgroundColor": "#fbf6ea",
-          "dark": { "backgroundColor": "#0b1220" }
+          "dark": {
+            "backgroundColor": "#0b1220"
+          }
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-secure-store"
     ]
   }
 }

@@ -1,6 +1,8 @@
 /**
- * Trang đăng nhập quản trị tổng (/admin), khôi phục giao diện trước khi rút gọn dự án:
- * tài khoản được cấp, quên mật khẩu bằng mã OTP, phiên đăng nhập và đổi mật khẩu lần đầu.
+ * Trang đăng nhập của hai cổng quản trị (/admin, /school-manager-admin), dựng theo danh sách chức năng nhóm "01. Tài khoản và xác thực":
+ * TM.AUTH.001 đăng nhập bằng tài khoản được cấp (không có đăng ký tự do, không đăng nhập qua bên thứ ba), TM.AUTH.007 quên mật khẩu
+ * (HK.QT.002/HK.AD: gửi mã OTP 6 chữ số hiệu lực 5 phút qua email rồi đặt mật khẩu mới). Đăng xuất là nút ở thanh trên cùng của
+ * trang quản trị (AdminWorkspace).
  * Ảnh bìa chuyển động bên trái giữ nguyên, cạnh vát chéo; nền giấy kem và hoa văn trang chủ bên phải.
  * Manrope cho form và phần chính tiêu đề, Newsreader nghiêng đỏ cho chữ nhấn. Giữ logo nhỏ, không có khẩu hiệu lớn.
  * Màn hẹp dùng ảnh thành dải đầu trang; form gồm ô nhập có chữ gợi ý, nút đỏ và liên kết "Quên mật khẩu".
@@ -18,10 +20,10 @@ import { Txt } from '@/components/ui';
 import { FONT } from '@/constants/theme';
 import { useShake } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
-import type { AuthUser } from '@/types/auth';
+import type { AuthUser } from '@/types/api';
 import type { IconType } from '@/types/game';
 
-export type AdminPortal = 'root_admin';
+export type AdminPortal = 'root_admin' | 'school_admin';
 type Step = 'login' | 'forgot' | 'reset';
 
 const COPY: Record<AdminPortal, { label: string; placeholder: string; account: string }> = {
@@ -29,6 +31,11 @@ const COPY: Record<AdminPortal, { label: string; placeholder: string; account: s
     label: 'Quản lý tổng',
     placeholder: 'Tên đăng nhập quản trị tổng',
     account: 'Quản trị tổng xem và quản lý tất cả trường trên nền tảng. Chỉ dùng tài khoản được cấp, không có đăng ký tự do.',
+  },
+  school_admin: {
+    label: 'Quản trị trường',
+    placeholder: 'Tên đăng nhập quản trị trường',
+    account: 'Quản trị trường chỉ truy cập trường được gán. Tài khoản do quản trị tổng cấp, không có đăng ký tự do.',
   },
 };
 
@@ -488,78 +495,6 @@ export const AdminLogin: React.FC<{ portal: AdminPortal; onLogin: (token: string
           onRequestNew={() => setView('forgot')}
         />
       )}
-    </Shell>
-  );
-};
-
-/** Xác nhận phiên thật từ máy chủ; phần quản lý đầy đủ được triển khai riêng. */
-export const AdminSignedIn: React.FC<{
-  user: AuthUser;
-  onLogout: () => Promise<void>;
-  onPasswordChange: (currentPassword: string, newPassword: string) => Promise<void>;
-}> = ({ user, onLogout, onPasswordChange }) => {
-  const { c } = useTheme();
-  const [current, setCurrent] = useState('');
-  const [next, setNext] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [shown, setShown] = useState(false);
-  const [busy, setBusy] = useState<'password' | 'logout' | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const nextRef = useRef<TextInputInstance>(null);
-  const confirmRef = useRef<TextInputInstance>(null);
-
-  const changePassword = async () => {
-    if (busy) return;
-    if (!current) return setError('Hãy nhập mật khẩu hiện tại.');
-    if (next.length < 8 || !/\p{L}/u.test(next) || !/\p{N}/u.test(next)) return setError('Mật khẩu mới tối thiểu 8 ký tự, gồm cả chữ và số.');
-    if (next === current) return setError('Mật khẩu mới cần khác mật khẩu hiện tại.');
-    if (next !== confirm) return setError('Mật khẩu nhập lại chưa khớp.');
-    setBusy('password');
-    setError(null);
-    try {
-      await onPasswordChange(current, next);
-      setCurrent('');
-      setNext('');
-      setConfirm('');
-    } catch (err) {
-      setError(errorMessage(err, 'Chưa đổi được mật khẩu. Hãy thử lại sau.'));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const logout = async () => {
-    if (busy) return;
-    setBusy('logout');
-    setError(null);
-    try {
-      await onLogout();
-    } catch (err) {
-      setError(errorMessage(err, 'Chưa đăng xuất được. Hãy kiểm tra kết nối và thử lại.'));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  return (
-    <Shell portal="root_admin">
-      <Heading title={user.must_change_password ? 'Đặt mật khẩu mới' : 'Đăng nhập thành công'} text={user.must_change_password ? 'Hãy đổi mật khẩu được cấp trước khi tiếp tục sử dụng tài khoản.' : 'Tài khoản quản trị tổng đã được xác thực.'} />
-      {user.must_change_password ? (
-        <>
-          <AuthInput label="Mật khẩu hiện tại" nativeID="admin-current-password" value={current} onChangeText={setCurrent} showLabel secureTextEntry={!shown} autoCapitalize="none" autoCorrect={false} autoComplete="current-password" returnKeyType="next" onSubmitEditing={() => nextRef.current?.focus()} />
-          <AuthInput label="Mật khẩu mới" nativeID="admin-required-password" inputRef={nextRef} value={next} onChangeText={setNext} showLabel secureTextEntry={!shown} autoCapitalize="none" autoCorrect={false} autoComplete="new-password" hint="Tối thiểu 8 ký tự, gồm cả chữ và số." returnKeyType="next" onSubmitEditing={() => confirmRef.current?.focus()} right={<ShowToggle shown={shown} onToggle={() => setShown(value => !value)} />} />
-          <AuthInput label="Nhập lại mật khẩu mới" nativeID="admin-required-confirm" inputRef={confirmRef} value={confirm} onChangeText={setConfirm} showLabel secureTextEntry={!shown} autoCapitalize="none" autoCorrect={false} autoComplete="new-password" returnKeyType="go" onSubmitEditing={changePassword} />
-        </>
-      ) : (
-        <View testID="admin-session" style={{ gap: 8 }}>
-          <Txt f="bold" size={22} color={c.logoInk}>{user.full_name}</Txt>
-          <Txt size={15} color={c.muc2}>{user.username}</Txt>
-          {user.email ? <Txt size={15} color={c.muc2}>{user.email}</Txt> : null}
-        </View>
-      )}
-      {error ? <Banner tone="error" text={error} /> : null}
-      {user.must_change_password ? <SubmitButton title="Lưu mật khẩu" loading={busy !== null} onPress={changePassword} testID="admin-change-password" /> : null}
-      <SubmitButton title="Đăng xuất" loading={busy !== null} onPress={logout} testID="admin-logout" />
     </Shell>
   );
 };
