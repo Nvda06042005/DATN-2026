@@ -1168,7 +1168,7 @@ export const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void; 
         </View>
         <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(250, 244, 231, 0.18)', paddingTop: 18, flexDirection: wide ? 'row' : 'column', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <Txt size={13} color={FOOT_TEXT} center={!wide}>
-            © 2026 · Đông A
+            © 2026 · Bản quyền thuộc quản lý Đông A
           </Txt>
           <Txt size={13} color={FOOT_TEXT} center>
             Học Sử vui như chơi game
