@@ -157,6 +157,35 @@ describe('file migration', () => {
     expect(await sql(url, "SELECT b.slug AS battle, e.slug AS event, p.slug AS place FROM hist_battles b JOIN hist_events e ON e.id = b.event_id JOIN hist_places p ON p.id = b.place_id WHERE b.slug = 'bach-dang'")).toEqual([{ battle: 'bach-dang', event: 'dai-thang-bach-dang-1288', place: 'bach-dang' }]);
   });
 
+  test('017–019 tạo ngân hàng câu hỏi, hành trình học và nội dung học mẫu ở trạng thái Nháp; mọi câu hỏi mẫu qua kiểm tra cấu trúc của máy chủ', async () => {
+    await m.applyMigrations(url, dir);
+    expect(await count("SELECT count(*) AS n FROM hk_questions WHERE scope = 'system' AND school_id IS NULL")).toBe(27);
+    expect(await count('SELECT count(*) AS n FROM hk_question_versions')).toBe(27);
+    expect(await count('SELECT count(*) AS n FROM hk_quizzes')).toBe(9);
+    expect(await count('SELECT count(*) AS n FROM hk_quiz_questions')).toBe(40);
+    expect(await count("SELECT count(*) AS n FROM hk_lessons WHERE status = 'draft'")).toBe(3);
+    expect(await count("SELECT count(*) AS n FROM hk_lessons WHERE status <> 'draft'")).toBe(0);
+    expect(await count("SELECT count(*) AS n FROM hk_lesson_checks")).toBe(3);
+    expect(await count("SELECT count(*) AS n FROM hk_journeys WHERE scope = 'system' AND status = 'draft' AND NOT is_default")).toBe(3);
+    expect(await count('SELECT count(*) AS n FROM hk_nodes')).toBe(14);
+    expect(await count("SELECT count(*) AS n FROM hk_nodes WHERE kind = 'final' AND pass_percent = 70")).toBe(3);
+    expect(await count('SELECT count(*) AS n FROM hk_node_unlocks')).toBe(1);
+    expect(await count('SELECT count(*) AS n FROM hk_question_links')).toBeGreaterThan(30);
+    expect(await sql(url, "SELECT j.campaign_id, (SELECT kind FROM hk_nodes n WHERE n.journey_id = j.id ORDER BY position DESC LIMIT 1) AS last FROM hk_journeys j ORDER BY j.campaign_id")).toHaveLength(3);
+    const { normalizeData } = await import('../src/content/questions');
+    const { normalizeBlocks } = await import('../src/content/lesson.service');
+    for (const q of await sql<{ id: number; qtype: never; prompt: string; data: Record<string, unknown> }>(url, 'SELECT id, qtype, prompt, data FROM hk_questions')) {
+      expect(() => normalizeData(q.qtype, q.data, q.prompt)).not.toThrow();
+      expect(normalizeData(q.qtype, q.data, q.prompt)).toEqual(q.data);
+    }
+    for (const l of await sql<{ blocks: unknown[] }>(url, 'SELECT blocks FROM hk_lessons')) expect(normalizeBlocks(l.blocks)).toEqual(l.blocks);
+    // Mỗi bộ đề có ít nhất 3 câu; bộ đề Quyết chiến có đủ nhiều dạng câu hỏi
+    expect(await count('SELECT count(*) AS n FROM (SELECT quiz_id FROM hk_quiz_questions GROUP BY quiz_id HAVING count(*) < 3) x')).toBe(0);
+    expect(await count("SELECT count(DISTINCT t.qtype) AS n FROM hk_quiz_questions qq JOIN hk_questions t ON t.id = qq.question_id JOIN hk_quizzes z ON z.id = qq.quiz_id WHERE z.title LIKE 'Quyết chiến%'")).toBe(6);
+    // Chạy lại không nhân đôi
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+  });
+
   test('một file lỗi thì hoàn tác cả lô và lịch sử', async () => {
     await m.applyMigrations(url, dir);
     const next = String(TOTAL + 1).padStart(3, '0'), after = String(TOTAL + 2).padStart(3, '0');

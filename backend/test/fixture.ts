@@ -2,7 +2,7 @@
  * Dữ liệu dựng sẵn cho kiểm thử Sprint 3–4: hai trường, giáo viên, học sinh, lớp và nội dung lịch sử đã công bố.
  * Không phải bài kiểm thử (không có đuôi .spec.ts); dùng chung cho sprint3.spec.ts và sprint4.spec.ts.
  */
-import { activate, call, Started } from './harness';
+import { activate, call, sql, Started } from './harness';
 
 export const PW = 'Matkhau-12345';
 export interface Person { id: number; token: string }
@@ -20,7 +20,9 @@ export async function publish(base: string, root: string, entity: string, id: nu
   }
 }
 
-export async function bootstrap(s: Started, root: string): Promise<Fixture> {
+/** `keepSeed`: giữ nội dung học mẫu của migration 019; mặc định xóa để bài kiểm thử đếm chính xác nội dung do mình tạo */
+export async function bootstrap(s: Started, root: string, keepSeed = false): Promise<Fixture> {
+  if (!keepSeed) await sql(s.url, 'DELETE FROM hk_journeys; DELETE FROM hk_quizzes; DELETE FROM hk_lessons; DELETE FROM hk_questions;');
   const mk = async (code: string, name: string, email: string) => {
     const created = await call(s.base, 'POST', '/api/admin/schools', { school_code: code, name, admin: { full_name: `Quản Trị ${code}`, email } }, root);
     const active = await activate(s.base, created.body.admin.username, created.body.temporary_password, PW, 'school_admin');
