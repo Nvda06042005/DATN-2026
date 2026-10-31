@@ -60,6 +60,7 @@ chỉ 2 địa điểm (Thăng Long, Vân Đồn) có tọa độ vì vị trí 
 
 ## Triển khai và dữ liệu hiện có
 
+- Cập nhật trang công khai ngày 31/10/2026: toàn bộ ghi công bản đồ/ảnh được chuyển khỏi Điều khoản sử dụng sang `/thong-tin-hinh-anh`, mở từ footer chung. Trang riêng dùng `InfoShell`, nền và Manrope/Newsreader như Điều khoản sử dụng; giữ đủ tác giả, nguồn và giấy phép. Không thay đổi database.
 - Đã gộp vào `main` ngày 31/10/2026 (nhánh làm việc `feat/hao-khi-sprint-1-2`). Backend áp dụng migration 014–016 khi khởi động với `DATABASE_URL`; xác minh bằng `schema_version` ở `/api/database/health` (mong đợi 16).
 - Supabase vẫn giữ migration 001–013 đã áp dụng; 001–013 đã được khôi phục từ lịch sử Git nguyên văn (runner từ chối khi thiếu hoặc sửa file đã chạy).
 - Bản cũ có các tài khoản/lớp thử; migration 014 giữ nguyên chúng (kiểm thử `014 giữ nguyên lớp...` trên dữ liệu giả): năm học được suy ra từ lớp/khối cũ (năm mới nhất = đang hoạt động, các năm trước = đã kết thúc), mỗi lớp cũ nhận mã tham gia ngẫu nhiên, giáo viên cũ được chép sang bảng giáo viên–lớp, khóa ngoại giáo viên không còn xóa lớp khi xóa tài khoản.

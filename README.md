@@ -54,5 +54,5 @@ Website chính thức: https://datn-2026-indol.vercel.app/ (Vercel chỉ triển
 
 ## Ghi công
 
-Nguồn và giấy phép ảnh nhân vật: `frontend/assets/hero-photos/ATTRIBUTION.md` và phần “Thông tin hình ảnh” cuối trang Điều khoản sử dụng. Ba bản đồ của Lưu Ly thuộc phạm vi công cộng; liên kết nguồn nằm trong `frontend/constants/map-credits.ts` và cùng phần ghi công trên website.
+Nguồn và giấy phép ảnh nhân vật: `frontend/assets/hero-photos/ATTRIBUTION.md` và trang “Thông tin hình ảnh” (`/thong-tin-hinh-anh`), mở từ footer. Ba bản đồ của Lưu Ly thuộc phạm vi công cộng; liên kết nguồn nằm trong `frontend/constants/map-credits.ts` và cùng trang ghi công trên website.
 Bản đồ chọn tọa độ của quản trị tổng dùng Leaflet (giấy phép BSD-2) và dữ liệu nền © OpenStreetMap, ghi công hiển thị ngay trên bản đồ. Các hiệu ứng có mã từ React Bits giữ thông báo giấy phép trong `frontend/third-party/react-bits/LICENSE.md`.
