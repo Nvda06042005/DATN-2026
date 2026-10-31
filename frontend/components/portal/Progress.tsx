@@ -6,12 +6,14 @@ import React, { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Heart, NotebookPen, RotateCcw } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
+import * as gameApi from '@/api/gameApi';
 import { ErrorNote, Pager, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import type { OpenDetail } from '@/components/portal/Library';
 import { ClassesPanel } from '@/components/portal/LearnerHome';
-import { Btn, Card, Chip, EmptyState, Segmented, Spinner, Stars, Txt } from '@/components/ui';
+import { Bar, Btn, Card, Chip, EmptyState, Segmented, Spinner, Stars, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import type { GameQuest } from '@/types/gamification';
 import type { Quest } from '@/types/learning';
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
@@ -36,6 +38,38 @@ const QuestCard: React.FC<{ quest: Quest; onGo?: () => void }> = ({ quest, onGo 
   );
 };
 
+/** Nhiệm vụ ngày và tuần (HK.HS.024): máy chủ giao theo ngày/tuần, tự cộng thưởng khi đủ tiến độ */
+const GameQuestRow: React.FC<{ quest: GameQuest }> = ({ quest }) => {
+  const { c } = useTheme();
+  const done = Boolean(quest.completed_at);
+  return (
+    <Card flat pad={12} style={{ gap: 6, borderColor: done ? c.ngoc : c.vien }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <Txt f="bold" size={15} style={{ flex: 1, minWidth: 160 }}>{quest.title}</Txt>
+        {done ? <Chip text="Đã xong" bg={c.ngocNhat} fg={c.ngocChu} /> : null}
+      </View>
+      <Bar value={Math.min(quest.progress, quest.target)} max={quest.target} height={10} fill={done ? c.ngoc : c.dong} label={`${quest.title}: ${Math.min(quest.progress, quest.target)} trên ${quest.target}`} />
+      <Txt size={13} color={c.muc2}>{Math.min(quest.progress, quest.target)}/{quest.target} · Thưởng {[quest.reward_xp ? `${quest.reward_xp} điểm` : '', quest.reward_gold ? `${quest.reward_gold} vàng` : ''].filter(Boolean).join(' và ')}</Txt>
+    </Card>
+  );
+};
+
+const GameQuestsPanel: React.FC<{ session: Session; refreshKey: number }> = ({ session, refreshKey }) => {
+  const { c } = useTheme();
+  const quests = useLoad(() => gameApi.gameQuests(session.token), [session.token, refreshKey], session.expired);
+  if (!quests.data) return quests.error ? <ErrorNote message={quests.error} /> : null;
+  // Máy chủ trả mốc làm mới là ngày theo giờ Việt Nam (0 giờ của ngày đó)
+  const left = (day: string) => { const h = Math.max(0, Math.round((new Date(`${day}T00:00:00+07:00`).getTime() - Date.now()) / 3_600_000)); return h >= 48 ? `${Math.round(h / 24)} ngày` : `${h} giờ`; };
+  return (
+    <View style={{ gap: 10 }}>
+      <Txt f="bold" size={16}>Nhiệm vụ hôm nay <Txt size={13} color={c.muc3}>(làm mới sau {left(quests.data.resets.daily)})</Txt></Txt>
+      {quests.data.daily.map((q) => <GameQuestRow key={q.id} quest={q} />)}
+      <Txt f="bold" size={16}>Nhiệm vụ tuần này <Txt size={13} color={c.muc3}>(làm mới sau {left(quests.data.resets.weekly)})</Txt></Txt>
+      {quests.data.weekly.map((q) => <GameQuestRow key={q.id} quest={q} />)}
+    </View>
+  );
+};
+
 export const QuestsTab: React.FC<{ session: Session; refreshKey: number; onGo: (campaignId: number, nodeId: number) => void }> = ({ session, refreshKey, onGo }) => {
   const quests = useLoad(() => api.playQuests(session.token), [session.token, refreshKey], session.expired);
   const [view, setView] = useState<'doing' | 'done' | 'locked'>('doing');
@@ -44,11 +78,13 @@ export const QuestsTab: React.FC<{ session: Session; refreshKey: number; onGo: (
   return (
     <View style={{ gap: 14 }}>
       <Txt f="displayHeavy" size={24} accessibilityRole="header">Nhiệm vụ của em</Txt>
+      <GameQuestsPanel session={session} refreshKey={refreshKey} />
+      <Txt f="displayHeavy" size={20} accessibilityRole="header">Nhiệm vụ trên bản đồ hành trình</Txt>
       <Segmented<'doing' | 'done' | 'locked'> label="Trạng thái nhiệm vụ" value={view} onChange={setView}
         options={[{ value: 'doing', label: `Đang làm${counts ? ` (${counts.doing})` : ''}` }, { value: 'done', label: `Đã xong${counts ? ` (${counts.done})` : ''}` }, { value: 'locked', label: `Chưa mở${counts ? ` (${counts.locked})` : ''}` }]} />
       <ErrorNote message={quests.error} />
       {quests.loading && !quests.data ? <Spinner /> : null}
-      {quests.data && list.length === 0 ? <EmptyState mood="thinking" title={view === 'doing' ? 'Chưa có nhiệm vụ đang mở' : view === 'done' ? 'Em chưa hoàn thành nhiệm vụ nào' : 'Không còn nhiệm vụ chờ mở'} text="Nhiệm vụ lấy từ các nút trên bản đồ hành trình. Nhiệm vụ hằng ngày, hằng tuần sẽ có ở giai đoạn sau." /> : null}
+      {quests.data && list.length === 0 ? <EmptyState mood="thinking" title={view === 'doing' ? 'Chưa có nhiệm vụ đang mở' : view === 'done' ? 'Em chưa hoàn thành nhiệm vụ nào' : 'Không còn nhiệm vụ chờ mở'} text="Nhiệm vụ này lấy từ các nút trên bản đồ hành trình." /> : null}
       {list.map((q) => <QuestCard key={q.node_id} quest={q} onGo={view === 'doing' ? () => onGo(q.campaign_id, q.node_id) : undefined} />)}
     </View>
   );

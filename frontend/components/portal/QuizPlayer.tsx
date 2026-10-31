@@ -5,8 +5,9 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
-import { ArrowDown, ArrowRight, ArrowUp, CheckCircle2, CircleDot, Clock, ListChecks, MapPin, RotateCcw, Square, SquareCheck, Trophy, XCircle } from 'lucide-react-native';
+import { ArrowDown, ArrowRight, ArrowUp, CheckCircle2, CircleDot, Clock, Lightbulb, ListChecks, MapPin, RotateCcw, Square, SquareCheck, Trophy, XCircle } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
+import { requestHint } from '@/api/gameApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { ErrorNote } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
@@ -290,10 +291,13 @@ const Review: React.FC<{ review: AttemptReview; onBack?: () => void; onOpen?: (t
 // ---------------------------------------------------------------------- khung làm bài
 export const QuizPlayer: React.FC<{
   session: Session; initial: AttemptState; title: string; onClose: (summary?: AttemptSummary) => void; onRetry?: () => void; onOpenLink?: (type: string, id: number) => void;
-}> = ({ session, initial, title, onClose, onRetry, onOpenLink }) => {
+  /** Số gợi ý 50/50 em đang có (HK.HS.070) và hàm gọi khi tim, vàng hay gợi ý thay đổi để cập nhật thanh chỉ số */
+  hints?: number; onGameChanged?: () => void;
+}> = ({ session, initial, title, onClose, onRetry, onOpenLink, hints = 0, onGameChanged }) => {
   const { c } = useTheme();
   const { token } = session;
   const [state, setState] = useState<AttemptState>(initial);
+  const [hintsLeft, setHintsLeft] = useState(hints);
   const [draft, setDraft] = useState<Draft>(null);
   const [feedback, setFeedback] = useState<{ res: AnswerResult; sent: Draft } | null>(null);
   const [summary, setSummary] = useState<AttemptSummary | null>(initial.summary ?? null);
@@ -344,6 +348,7 @@ export const QuizPlayer: React.FC<{
       setFeedback({ res, sent });
       setState((s) => ({ ...s, position: res.attempt.position, base_points: res.attempt.base_points, bonus_points: res.attempt.bonus_points }));
       if (res.summary) setSummary(res.summary);
+      onGameChanged?.();
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
         // Câu hiện tại đã đổi (ví dụ hết giờ): tải lại trạng thái từ máy chủ
@@ -353,7 +358,22 @@ export const QuizPlayer: React.FC<{
       submitting.current = false;
       setBusy(false);
     }
-  }, [q, draft, token, state.id, adopt, guard]);
+  }, [q, draft, token, state.id, adopt, guard, onGameChanged]);
+
+  // Gợi ý 50/50: máy chủ loại bớt đáp án sai và trừ một gợi ý; chỉ dùng cho câu một đáp án từ 3 lựa chọn trở lên
+  const askHint = async () => {
+    if (!q || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { removed } = await requestHint(token, state.id);
+      setState((s) => (s.current ? { ...s, current: { ...s.current, question: { ...s.current.question, options: (s.current.question.options ?? []).filter((o) => !removed.includes(o.id)) } } } : s));
+      setDraft((d) => (typeof d === 'string' && removed.includes(d) ? null : d));
+      setHintsLeft((n) => Math.max(0, n - 1));
+      setAnnounce(`Đã bỏ ${removed.length} đáp án sai`);
+      onGameChanged?.();
+    } catch (e) { guard(e); } finally { setBusy(false); }
+  };
 
   // Đồng hồ: tính từ mốc hết giờ, không cộng dồn để không trôi khi tab nền chạy chậm
   useEffect(() => {
@@ -408,13 +428,15 @@ export const QuizPlayer: React.FC<{
           {q.image_url ? <Txt size={13} color={c.thuyChu} selectable>Hình minh họa: {q.image_url}</Txt> : null}
         </Card>
         {!feedback ? <QuestionInput q={q} draft={draft} setDraft={setDraft} disabled={busy} /> : <Feedback res={feedback.res.result} qtype={q.qtype} answer={feedback.sent} onOpen={onOpenLink} />}
+        {!feedback && q.qtype === 'single' && (q.options?.length ?? 0) >= 3 && state.mode !== 'preview' && hintsLeft > 0
+          ? <Btn icon={Lightbulb} title={`Gợi ý 50/50 (còn ${hintsLeft})`} tone="thuy" size="sm" disabled={busy} onPress={askHint} testID="quiz-hint" /> : null}
         <ErrorNote message={error} />
         {!feedback
           ? <Btn title="Trả lời" tone="ngoc" size="lg" full loading={busy} disabled={!ready(q, draft)} onPress={submit} testID="quiz-submit" />
           : <Btn iconRight={ArrowRight} title={feedback.res.finished ? 'Xem kết quả' : 'Câu tiếp theo'} tone="ngoc" size="lg" full loading={busy} onPress={proceed} testID="quiz-next" />}
       </View>
     );
-  }, [review, summary, feedback, q, current, state, draft, busy, error, seconds, remaining, hurry]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [review, summary, feedback, q, current, state, draft, busy, error, seconds, remaining, hurry, hintsLeft]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <View style={{ gap: 12 }}>

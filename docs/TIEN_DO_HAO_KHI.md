@@ -1,9 +1,9 @@
 # Tiến độ xây dựng Hào Khí Đông A (theo mã HK.*)
 
-Nguồn: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). Tài liệu này ghi **Sprint 1 đến Sprint 4**
-(141 chức năng) đã làm được gì, quyết định đã chọn khi đặc tả chưa nói rõ, và những gì cố ý chưa làm. Phân tích đối chiếu ban đầu: `DOI_CHIEU_HAO_KHI_V01.md`.
+Nguồn: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). Tài liệu này ghi **Sprint 1 đến Sprint 5**
+(179 chức năng) đã làm được gì, quyết định đã chọn khi đặc tả chưa nói rõ, và những gì cố ý chưa làm. Phân tích đối chiếu ban đầu: `DOI_CHIEU_HAO_KHI_V01.md`.
 
-Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 118 bài, gồm migration trên dữ liệu cũ, Sprint 1–4, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu);
+Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 140 bài, gồm migration trên dữ liệu cũ, Sprint 1–5, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu, trò chơi hóa);
 `cd frontend && npm run typecheck && npm run build`. Mỗi bài kiểm thử ghi mã HK.* trong tên.
 
 ## Sprint 1 – xác thực, tài khoản, hồ sơ, trường học, người dùng (40 chức năng)
@@ -98,6 +98,34 @@ Nội dung học khởi tạo (migration 019): 27 câu hỏi (đủ sáu dạng)
 kho lịch sử của migration 016. **Bài học và hành trình ở trạng thái Nháp**: học sinh chưa thấy gì cho đến khi quản trị tổng (cùng giáo viên Lịch sử) đối chiếu với sách giáo khoa,
 công bố nội dung lịch sử liên quan, công bố bài học rồi phát hành và đặt mặc định ba hành trình. Kiểm thử `seed.spec.ts` chạy trọn quy trình đó và để một học sinh hoàn thành cả ba hành trình.
 
+## Sprint 5 – trò chơi hóa (38 chức năng)
+
+Học sinh có thêm các mục **Nhân vật, Bộ sưu tập, Xếp hạng**, thanh chỉ số ở mọi màn hình học và hộp chúc mừng; giáo viên, quản trị viên trường và quản trị tổng có mục **Trò chơi hóa**. Mọi điểm, vàng, tim, thẻ, huy hiệu do máy chủ tính; giao diện chỉ hiển thị và gửi lựa chọn.
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.HS.011/012 | Xong | Lần đầu vào học phải chọn 1 trong 3 lớp nhân vật (Tướng quân, Quân sư, Lương y) với chỉ số và kỹ năng; không đổi được sau khi chọn. Ngoại hình ghép từ trang phục, vũ khí, cờ hiệu (biểu tượng + màu, **không có ảnh nhân vật vẽ riêng**); trang phục mở theo cấp hoặc mua bằng vàng |
+| HK.HS.013 | Xong | Thanh chỉ số luôn hiện: tim, cấp (kèm % tiến tới cấp sau), vàng, chuỗi ngày, điểm hôm nay trên mục tiêu; trạng thái luôn kèm chữ |
+| HK.HS.014 | Xong | Mục tiêu ngày 50/100/200 điểm (mặc định 50); đạt mục tiêu được vàng thưởng và tính vào chuỗi |
+| HK.HS.024, HK.AD.053 | Xong | 3 nhiệm vụ ngày + 2 nhiệm vụ tuần giao tự động từ mẫu (xoay theo học sinh và ngày/tuần), đo bằng số câu đúng, nút/trận/bài học xong, điểm kiếm được, bài 100%; xong là tự cộng thưởng. Quản trị tổng thêm/sửa/xóa mẫu |
+| HK.HS.047, HK.SYS.004 | Xong | 5 tim, mất 1 tim khi trả lời sai ở bài của nút, hồi 1 tim mỗi 4 giờ (tính khi đọc, không cần job), hồi tim khi luyện lại câu sai đúng (đóng nốt phần còn lại của HK.HS.048). Hết tim thì không vào được bài mới. Giáo viên tắt tim theo lớp; lớp nào tắt thì học sinh thuộc lớp đó không bị giới hạn |
+| HK.HS.062, HK.HS.063, HK.SYS.001, HK.AD.050 | Xong | Điểm (XP) là tổng sổ điểm, mỗi khoản cộng một lần theo (học sinh, lý do, khóa); 10 cấp từ Lính mới đến Anh hùng Đông A, mỗi cấp thưởng vàng; lên cấp hiện hộp chúc mừng. Quản trị tổng sửa bảng cấp |
+| HK.HS.064, HK.HS.065, HK.SYS.003 | Xong | Chuỗi chỉ tăng ở ngày đạt mục tiêu; ngày bỏ lỡ dùng 1 lượt đóng băng (tối đa 2), hết thì về 0. Tính khi học sinh mở ứng dụng và có job nền quét 10 phút một lần để chuỗi của người không mở app vẫn được chốt đúng (thay cho một job cố định 0 giờ). Đóng băng mua ở cửa hàng hoặc nhận ở quà ngày 7 |
+| HK.HS.066/067, HK.SYS.002, HK.AD.049 | Xong | Huy hiệu hệ thống tự trao theo quy tắc: hoàn thành hành trình, chuỗi ngày, số câu đúng, số nút, cấp độ, số thẻ, số bài 100%, tổng điểm; xem được cả huy hiệu chưa đạt kèm điều kiện. Quản trị tổng sửa huy hiệu và quy tắc |
+| HK.HS.068/069, HK.SYS.008, HK.AD.048 | Xong | Thẻ rơi khi **lần đầu** hoàn thành nút trận đánh hoặc nút cuối; máy chủ chọn thẻ theo tỉ lệ độ hiếm (Thường 70 / Hiếm 25 / Huyền thoại 5, đổi được) rồi trọng số; học sinh lật để xem. Thẻ trùng đổi thành vàng. Thẻ gắn nhân vật trong kho lịch sử nên hiện tiểu sử và câu nói chỉ khi mục đó đã công bố |
+| HK.HS.070, HK.AD.051 | Xong | Cửa hàng: trang phục, vũ khí, cờ hiệu, đóng băng chuỗi, hồi tim, gợi ý 50/50. Giá 0 + cấp yêu cầu = mở khóa miễn phí khi đủ cấp. Gợi ý 50/50 do máy chủ loại đáp án sai (chỉ câu một đáp án từ 3 lựa chọn) |
+| HK.HS.073 | Xong | Quà 7 ngày liên tiếp (10–50 vàng, ngày 7 thêm 1 đóng băng); bỏ một ngày thì về ngày 1 |
+| HK.HS.074/075, HK.SYS.005 | Xong, một phần | Bảng xếp hạng lớp (hiện tên thật), trường và hệ thống (chỉ biệt danh "Học sinh ẩn danh", trừ chính học sinh), theo tuần/tháng/từ trước đến nay. Lưu đệm 30 giây **trong bộ nhớ của máy chủ**, chưa dùng Redis như đặc tả |
+| HK.HS.077, HK.SYS.006, HK.AD.054 | Xong, một phần | Giải đấu tuần theo tuần bắt đầu thứ Hai: nhóm 30 người, 4 hạng (Đồng, Bạc, Vàng, Kim cương), 10 người đầu lên hạng, 5 người cuối xuống hạng (chỉ khi nhóm đủ lớn). Chốt một lần khi hết tuần (job hoặc khi có người mở). Số người nhóm/thăng/giáng chỉnh được; **4 hạng và lịch chốt thứ Hai cố định** |
+| HK.HS.078 | Một phần | Ảnh thành tích (tên hiển thị, cấp, điểm, huy hiệu, thẻ) tạo ở trình duyệt, tải về hoặc chia sẻ bằng bộ chia sẻ của thiết bị; **chỉ có trên bản web**, chưa có liên kết công khai |
+| HK.QT.044 | Xong | Quản trị viên trường bật/tắt bảng xếp hạng trường, phạm vi (toàn trường/khối), kỳ (tuần/tháng) |
+| HK.QT.045 | Xong | Sự kiện – giải đấu cấp trường: thời gian giờ Việt Nam, lớp tham gia, vàng thưởng hạng 1–3 và tham gia, huy hiệu cho người thắng, bảng điểm riêng; chỉ sửa khi chưa bắt đầu; thưởng trao một lần khi kết thúc |
+| HK.QT.046 | Xong | Huy hiệu riêng của trường (không có điều kiện tự trao); giáo viên và quản trị viên trường trao cho học sinh trong lớp mình phụ trách |
+| HK.AD.052 | Một phần | Quản trị tổng sửa 3 lớp nhân vật, chỉ số và kỹ năng; **kỹ năng chỉ hiển thị, dùng được từ Sprint 7** (hoạt động lớp học) |
+| HK.AD.066 | Xong | Một bảng cấu hình mặc định cho tim, thưởng tốc độ, điểm luyện tập, mục tiêu ngày, vàng thưởng, đóng băng, tỉ lệ thẻ, quà ngày, giải đấu, thời gian lưu đệm; mỗi giá trị có giới hạn kiểm tra ở máy chủ; đổi không tính lại điểm đã ghi |
+
+Nội dung khởi tạo (migration 021): 10 cấp, 3 lớp nhân vật, 14 vật phẩm, 8 mẫu nhiệm vụ, huy hiệu hệ thống và thẻ nhân vật gắn với nhân vật trong kho lịch sử. **Nội dung khởi tạo là bản nháp thiết kế**, giáo viên Lịch sử cần xem lại tên, mô tả và tiểu sử trước khi dùng thật.
+
 ## Quyết định khi đặc tả chưa nói rõ
 
 - **Quản trị tổng cấp 2 (HK.AD.020):** có cột `admin_level`. Cấp 2 quản lý quản trị viên trường học nhưng không tạo/sửa/khóa/xóa quản trị tổng, không tạo hay xóa trường. Ma trận RBAC thực sự (HK.AD.026) thuộc Sprint 11.
@@ -108,20 +136,26 @@ công bố nội dung lịch sử liên quan, công bố bài học rồi phát 
 - **Học sinh học theo hành trình nào:** mỗi cuộc kháng chiến một hành trình – hành trình giáo viên giao cho lớp mới nhất, nếu không có thì hành trình mặc định của hệ thống. Tiến độ tính theo từng nút nên đổi hành trình thì tiến độ riêng.
 - **Chống gian lận:** máy chủ giữ danh sách câu, đồng hồ, đáp án và chấm điểm; bản chụp câu hỏi được lưu theo lượt nên sửa câu hỏi giữa chừng không làm sai lượt đang làm. Điểm làm bài chỉ cộng phần vượt kỷ lục cũ nên chơi lại không "cày" điểm; sổ điểm có khóa duy nhất cho mỗi khoản thưởng.
 - **Bộ đề không có trạng thái nháp/công bố:** dùng quy tắc khóa theo việc sử dụng (hành trình đã phát hành hoặc đã có học sinh làm). Hành trình của giáo viên tự phát hành khi giao cho lớp.
+- **Điểm, vàng, tim (Sprint 5):** điểm là tổng sổ điểm `hk_points` (mỗi khoản duy nhất theo học sinh – lý do – khóa nên gọi lại không cộng trùng); vàng có sổ riêng `hk_gold_ledger` cũng chống trùng. Cấp độ, tim, chuỗi ngày là số liệu lưu sẵn trong `hk_players` và được cập nhật lười khi đọc, nên không phụ thuộc job chạy đúng giờ.
+- **Chuỗi ngày:** chỉ ngày đạt mục tiêu điểm mới tăng chuỗi (khác Sprint 3 tính theo nhật ký học). Mốc ngày theo giờ Việt Nam.
+- **Bảng xếp hạng ẩn danh:** bảng trường/hệ thống không trả họ tên cho học sinh khác; bảng lớp hiện tên thật vì các bạn đã quen nhau trong lớp.
+- **Cơ chế tim theo lớp:** nếu học sinh thuộc nhiều lớp và **bất kỳ lớp nào** tắt tim thì tim tắt cho học sinh đó (hướng có lợi cho học sinh).
+- **Thẻ nhân vật:** rơi quyết định ở máy chủ khi hoàn thành lần đầu, học sinh chỉ lật; thẻ nối với nhân vật của kho lịch sử nhưng tiểu sử chỉ hiện khi nhân vật đó đã **Công bố**.
 - **Cột lớp học sinh `class_name` và giáo viên `teacher_id` cũ:** để nguyên (không xóa dữ liệu); mã mới chỉ đọc bảng thành viên / giáo viên–lớp.
 
 ## Triển khai và dữ liệu hiện có
 
 - Cập nhật trang công khai ngày 31/10/2026: toàn bộ ghi công bản đồ/ảnh được chuyển khỏi Điều khoản sử dụng sang `/thong-tin-hinh-anh`, mở từ footer chung. Trang riêng dùng `InfoShell`, nền và Manrope/Newsreader như Điều khoản sử dụng; giữ đủ tác giả, nguồn và giấy phép. Không thay đổi database.
-- Sprint 1–2 đã gộp vào `main` ngày 31/10/2026 (nhánh `feat/hao-khi-sprint-1-2`); khi đó Render và Supabase đã chạy `schema_version` 16. Sprint 3–4 (nhánh `feat/hao-khi-sprint-3-4`) được gộp vào `main` cùng ngày. Backend áp dụng migration 014–019 khi khởi động với `DATABASE_URL`; xác minh bằng `schema_version` ở `/api/database/health` (mong đợi 19 sau khi Render khởi động bản mới).
+- Sprint 1–2 đã gộp vào `main` ngày 31/10/2026 (nhánh `feat/hao-khi-sprint-1-2`); khi đó Render và Supabase đã chạy `schema_version` 16. Sprint 3–4 (nhánh `feat/hao-khi-sprint-3-4`) được gộp vào `main` cùng ngày (Render và Supabase chạy `schema_version` 19). Sprint 5 (nhánh `feat/hao-khi-sprint-5`) thêm migration 020–021; backend áp dụng khi khởi động với `DATABASE_URL`; xác minh bằng `schema_version` ở `/api/database/health` (mong đợi 21 sau khi Render khởi động bản mới).
 - Supabase vẫn giữ migration 001–013 đã áp dụng; 001–013 đã được khôi phục từ lịch sử Git nguyên văn (runner từ chối khi thiếu hoặc sửa file đã chạy).
 - Bản cũ có các tài khoản/lớp thử; migration 014 giữ nguyên chúng (kiểm thử `014 giữ nguyên lớp...` trên dữ liệu giả): năm học được suy ra từ lớp/khối cũ (năm mới nhất = đang hoạt động, các năm trước = đã kết thúc), mỗi lớp cũ nhận mã tham gia ngẫu nhiên, giáo viên cũ được chép sang bảng giáo viên–lớp, khóa ngoại giáo viên không còn xóa lớp khi xóa tài khoản.
 - Cần đặt trên Render: `DATABASE_URL`, `ADMIN_PASSWORD`, `ADMIN_EMAIL`, gửi thư (`SMTP_URL` hoặc `MAIL_RELAY_*`), tùy chọn `GOOGLE_CLIENT_ID`; Vercel: `EXPO_PUBLIC_API_URL`, tùy chọn `EXPO_PUBLIC_GOOGLE_CLIENT_ID`.
 
-## Chưa làm (ngoài Sprint 1–4) và đề xuất
+## Chưa làm (ngoài Sprint 1–5) và đề xuất
 
-- Từ Sprint 5: trò chơi hóa (điểm cấp độ, huy hiệu, chuỗi ngày có job 0h và đóng băng, tim, nhiệm vụ hằng ngày/tuần, bảng xếp hạng), mini-game trận đánh (Sprint 6), kéo thả vị trí nút và nhánh rẽ, điều kiện mở khóa tùy chỉnh, xếp lịch giao hành trình, tiến độ lớp trên bản đồ (Sprint 7), thi trực tiếp (Sprint 8), trợ lý AI và sinh câu hỏi bằng AI (Sprint 9–10).
+- Từ Sprint 6: mini-game trận đánh (Sprint 6), kéo thả vị trí nút và nhánh rẽ, điều kiện mở khóa tùy chỉnh, xếp lịch giao hành trình, tiến độ lớp trên bản đồ, **dùng kỹ năng lớp nhân vật**, bảng xếp hạng đội (HK.HS.071/076, Sprint 7), thi trực tiếp (Sprint 8), trợ lý AI và sinh câu hỏi bằng AI (Sprint 9–10).
+- Giới hạn đã biết của Sprint 5: bảng xếp hạng lưu đệm trong bộ nhớ một máy chủ (nhiều máy chủ sẽ mỗi máy một đệm, cần Redis nếu mở rộng); giải đấu có 4 hạng cố định; lượt làm bài đang dở vẫn tiếp tục khi tim về 0 (chỉ chặn bài mới); ảnh thành tích chỉ tạo được trên web; nhân vật là biểu tượng ghép chứ chưa có ảnh vẽ; nội dung khởi tạo (tên cấp, huy hiệu, thẻ, nhiệm vụ) là bản nháp thiết kế chờ giáo viên duyệt.
 - Bản cũ có game 2D, thi đấu trực tiếp, chatbot AI, BKT, thống kê: đã gỡ khỏi mã; xây lại theo sprint sau từ đặc tả mới.
 - Giới hạn đã biết của Sprint 3–4: câu hỏi kéo thả bản đồ và bản đồ tương tác chỉ có trên bản web; đổi thứ tự (nút hành trình, mục sắp xếp, khối bài học) bằng nút mũi tên chứ chưa kéo thả; video trong bài học mở bằng liên kết; thông báo cho giáo viên khi nội dung được duyệt/từ chối chưa có (thông báo trong ứng dụng thuộc Sprint 11) – người gửi xem ở mục "Nội dung đã gửi".
 - Cần quyết định của bạn: (1) giữ hay bỏ đăng ký tự học (HK.HS.003); (2) **giáo viên Lịch sử kiểm chứng nội dung khởi tạo** (kho lịch sử, 27 câu hỏi, 3 bài học) trước khi công bố cho học sinh; (3) kéo thả dòng thời gian/nút hành trình và tải tệp lên (cần kho lưu trữ) có làm ngay không.
-- Đề xuất cho đặc tả: HK.GV.019 (Sprint 3) và HK.GV.026 (Sprint 7) trùng việc gán hành trình cho lớp (đã làm phần gán ở Sprint 3, Sprint 7 thêm lịch); HK.AD.050 cấp độ và HK.AD.066 quy tắc điểm nên chốt giá trị mặc định cùng giáo viên trước Sprint 5.
+- Đề xuất cho đặc tả: HK.GV.019 (Sprint 3) và HK.GV.026 (Sprint 7) trùng việc gán hành trình cho lớp (đã làm phần gán ở Sprint 3, Sprint 7 thêm lịch); HK.AD.050 cấp độ và HK.AD.066 quy tắc điểm đã có giá trị mặc định (xem Sprint 5) nhưng nên chốt lại cùng giáo viên; HK.SYS.005 ghi Redis nhưng chưa cần ở quy mô hiện tại.

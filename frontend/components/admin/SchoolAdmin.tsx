@@ -4,12 +4,13 @@
  */
 import React, { useState } from 'react';
 import { Image, View } from 'react-native';
-import { CalendarDays, CircleHelp, GraduationCap, Inbox, ListChecks, Plus, Route, School, Trash2, UserRound, Users } from 'lucide-react-native';
+import { CalendarDays, CircleHelp, GraduationCap, Inbox, ListChecks, Plus, Route, School, Trash2, Trophy, UserRound, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { dateText } from '@/components/admin/AccountSheet';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, yearOptions, YEAR_TEXT } from '@/components/admin/kit';
+import { SchoolGame } from '@/components/admin/GameAdmin';
 import { JourneyManager } from '@/components/admin/JourneyManager';
 import { QuestionBank } from '@/components/admin/QuestionBank';
 import { QuizManager } from '@/components/admin/QuizManager';
@@ -21,7 +22,7 @@ import { AdminUiContext, Btn, Card, ConfirmSheet, Inset, Spinner, Txt } from '@/
 import { useTheme } from '@/hooks/use-theme';
 import type { YearItem } from '@/types/api';
 
-type Tab = 'school' | 'teachers' | 'students' | 'classes' | 'review' | 'journeys' | 'questions' | 'quizzes';
+type Tab = 'school' | 'teachers' | 'students' | 'classes' | 'review' | 'journeys' | 'questions' | 'quizzes' | 'game';
 const NAV = [
   { id: 'school' as const, label: 'Trường và năm học', icon: School },
   { id: 'teachers' as const, label: 'Giáo viên', icon: UserRound },
@@ -31,6 +32,7 @@ const NAV = [
   { id: 'journeys' as const, label: 'Hành trình mẫu', icon: Route },
   { id: 'questions' as const, label: 'Ngân hàng câu hỏi', icon: CircleHelp },
   { id: 'quizzes' as const, label: 'Bộ đề', icon: ListChecks },
+  { id: 'game' as const, label: 'Trò chơi hóa', icon: Trophy },
 ];
 const YEAR_KIND = { planned: 'info', active: 'on', ended: 'muted' } as const;
 
@@ -47,7 +49,7 @@ export const SchoolAdmin: React.FC<{ session: Session }> = ({ session }) => {
           : tab === 'students' ? <SchoolPeople session={session} kind="students" years={years ?? []} />
           : tab === 'classes' ? <SchoolClasses session={session} years={years ?? []} onYearsChanged={reloadYears} />
           : tab === 'review' ? <ShareInbox session={session} /> : tab === 'journeys' ? <JourneyManager session={session} />
-          : tab === 'questions' ? <QuestionBank session={session} /> : <QuizManager session={session} />}
+          : tab === 'questions' ? <QuestionBank session={session} /> : tab === 'quizzes' ? <QuizManager session={session} /> : <SchoolGame session={session} />}
       </AdminWorkspace>
     </AdminUiContext.Provider>
   );

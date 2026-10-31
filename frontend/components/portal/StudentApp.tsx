@@ -4,10 +4,14 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { BookMarked, History as HistoryIcon, Library as LibraryIcon, ListChecks, Map as MapIcon, Route, ScrollText, UserRound } from 'lucide-react-native';
+import { Award, BookMarked, History as HistoryIcon, Library as LibraryIcon, ListChecks, Map as MapIcon, Route, ScrollText, Shield, Trophy, UserRound } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
+import * as game from '@/api/gameApi';
 import { errorMessage } from '@/api/client';
 import { TopBar, type Session } from '@/components/auth';
+import { CelebrationHost, CharacterSetup, ShareSheet } from '@/components/portal/Celebrations';
+import { CharacterTab, CollectionTab, RankingTab } from '@/components/portal/GameTabs';
+import { HudBar } from '@/components/portal/GameKit';
 import { DetailSheet, LibraryTab, MapTab, SourcesTab, TimelineTab } from '@/components/portal/Library';
 import { LessonReader, Overlay } from '@/components/portal/LessonReader';
 import { MyTab, QuestsTab } from '@/components/portal/Progress';
@@ -16,9 +20,10 @@ import { CampaignMapView, HomeTab, type NodeActions } from '@/components/portal/
 import { Btn, PaperBg, Sheet, Spinner, Stars, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
+import type { Hud } from '@/types/gamification';
 import type { AttemptState, AttemptSummary, NodeResult } from '@/types/learning';
 
-type Tab = 'home' | 'library' | 'timeline' | 'map' | 'sources' | 'quests' | 'mine';
+type Tab = 'home' | 'library' | 'timeline' | 'map' | 'sources' | 'quests' | 'character' | 'collection' | 'ranking' | 'mine';
 const TABS: Array<{ id: Tab; label: string; icon: IconType }> = [
   { id: 'home', label: 'Hành trình', icon: Route },
   { id: 'library', label: 'Thư viện', icon: LibraryIcon },
@@ -26,6 +31,9 @@ const TABS: Array<{ id: Tab; label: string; icon: IconType }> = [
   { id: 'map', label: 'Bản đồ', icon: MapIcon },
   { id: 'sources', label: 'Tư liệu', icon: ScrollText },
   { id: 'quests', label: 'Nhiệm vụ', icon: ListChecks },
+  { id: 'character', label: 'Nhân vật', icon: Shield },
+  { id: 'collection', label: 'Bộ sưu tập', icon: Award },
+  { id: 'ranking', label: 'Xếp hạng', icon: Trophy },
   { id: 'mine', label: 'Của em', icon: UserRound },
 ];
 const VIEW_EVENT: Partial<Record<Tab, string>> = { library: 'view_library', timeline: 'view_timeline', map: 'view_map' };
@@ -47,9 +55,18 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const [detail, setDetail] = useState<{ type: string; id: number } | null>(null);
   const [done, setDone] = useState<NodeResult | null>(null);
   const [busy, setBusy] = useState(false);
+  const [hud, setHud] = useState<Hud | null>(null);
+  const [share, setShare] = useState<{ badges: number; cards: number } | null>(null);
   const bump = useCallback(() => setRefreshKey((k) => k + 1), []);
+  const loadHud = useCallback(() => { game.gameMe(token).then(setHud).catch(() => undefined); }, [token]);
 
   useEffect(() => { const e = VIEW_EVENT[tab]; if (e) api.viewEvent(token, e); }, [tab, token]);
+  useEffect(() => { loadHud(); }, [loadHud, refreshKey]);
+
+  const openShare = async () => {
+    const counts = await guarded(async () => { const [b, c] = await Promise.all([game.gameBadges(token), game.gameCards(token)]); return { badges: b.filter((x) => x.earned).length, cards: c.owned }; });
+    if (counts) setShare(counts);
+  };
 
   const open = (type: string, id: number) => setDetail({ type, id });
   const guarded = useCallback(async <T,>(fn: () => Promise<T>): Promise<T | undefined> => {
@@ -90,6 +107,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
     <View style={{ flex: 1 }}>
       <PaperBg />
       <TopBar session={session} subtitle="Học lịch sử cùng Hào Khí Đông A" />
+      {hud && !hud.has_character ? <CharacterSetup session={session} onDone={(next) => { setHud(next); bump(); }} /> : (<>
       <View accessibilityRole="tablist" accessibilityLabel="Các mục học tập" style={{ backgroundColor: c.the, borderBottomWidth: 2, borderBottomColor: c.vien }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8, gap: 8 }}>
           {TABS.map((t) => {
@@ -104,6 +122,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
           })}
         </ScrollView>
       </View>
+      <HudBar hud={hud} />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 56, maxWidth: 880, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
         {tab === 'home' ? (
           campaignId === null
@@ -115,15 +134,19 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
         {tab === 'map' ? <MapTab session={session} onOpen={open} /> : null}
         {tab === 'sources' ? <SourcesTab session={session} refreshKey={refreshKey} onOpen={open} /> : null}
         {tab === 'quests' ? <QuestsTab session={session} refreshKey={refreshKey} onGo={(cid, nid) => { setTab('home'); setCampaignId(cid); setFocusNode(nid); }} /> : null}
+        {tab === 'character' ? <CharacterTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} onShare={openShare} /> : null}
+        {tab === 'collection' ? <CollectionTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
+        {tab === 'ranking' ? <RankingTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
         {tab === 'mine' ? <MyTab session={session} refreshKey={refreshKey} onPractice={startPractice} onReview={(id) => setOverlay({ kind: 'review', id })} onOpen={open} /> : null}
       </ScrollView>
+      </>)}
 
       {overlay?.kind === 'lesson' ? (
         <LessonReader session={session} nodeId={overlay.nodeId} title={overlay.title} onOpenLink={open} onClose={(changed) => { setOverlay(null); if (changed) bump(); }} />
       ) : null}
       {overlay?.kind === 'quiz' ? (
         <Overlay title={overlay.title} onBack={() => { setOverlay(null); bump(); }}>
-          <QuizPlayer session={session} initial={overlay.attempt} title={overlay.title} onOpenLink={open} onClose={finishQuiz}
+          <QuizPlayer session={session} initial={overlay.attempt} title={overlay.title} onOpenLink={open} onClose={finishQuiz} hints={hud?.hints ?? 0} onGameChanged={loadHud}
             onRetry={overlay.nodeId ? () => startQuiz(overlay.nodeId!, overlay.title) : undefined} />
         </Overlay>
       ) : null}
@@ -132,6 +155,8 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       ) : null}
       {detail ? <DetailSheet key={`${detail.type}${detail.id}`} session={session} type={detail.type} id={detail.id} onClose={() => setDetail(null)} onOpen={open} onChanged={bump} /> : null}
       {done ? <NodeDoneSheet result={done} onOpen={(id) => { setDone(null); open('source', id); }} onClose={() => setDone(null)} /> : null}
+      {share && hud ? <ShareSheet hud={hud} badges={share.badges} cards={share.cards} onClose={() => setShare(null)} /> : null}
+      {hud?.has_character && !overlay && !done && !detail ? <CelebrationHost session={session} refreshKey={refreshKey} onChanged={loadHud} /> : null}
       {busy ? <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, alignItems: 'center', justifyContent: 'center', backgroundColor: c.scrim }}><Spinner label="Đang xử lý…" /></View> : null}
     </View>
   );

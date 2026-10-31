@@ -444,6 +444,15 @@ const userRow = async (id: number) => (await db.query<any>('SELECT * FROM app_us
     expect((await api('POST', `/api/game/badges/${schoolBadge}/award`, { user_ids: [f.S3.id] }, f.T1.token)).status).toBe(403); // học sinh chưa vào lớp của thầy
     expect((await api('POST', `/api/game/badges/${schoolBadge}/award`, { user_ids: [f.S3.id] }, f.A.token)).body.awarded).toBe(1); // quản trị trường trao cho mọi học sinh của trường
     expect((await api('POST', `/api/game/badges/${schoolBadge}/award`, { user_ids: [f.S1.id] }, f.TB.token)).status).toBe(404); // trường khác
+    // danh sách phục vụ màn trao huy hiệu: huy hiệu trường mình và học sinh trong lớp mình phụ trách
+    expect((await api('GET', '/api/game/school-badges', undefined, f.T1.token)).body.map((b: any) => b.id)).toEqual([schoolBadge]);
+    expect((await api('GET', '/api/game/school-badges', undefined, f.TB.token)).body).toEqual([]);
+    const roster = await api('GET', `/api/game/class-students/${f.class7a.id}`, undefined, f.T1.token);
+    expect(roster.status).toBe(200);
+    expect(roster.body.map((r: any) => r.id)).toContain(f.S1.id);
+    expect(Object.keys(roster.body[0]).sort()).toEqual(['full_name', 'id', 'user_code']); // không lộ trường dữ liệu khác
+    expect((await api('GET', `/api/game/class-students/${f.class7a.id}`, undefined, f.TB.token)).status).toBe(404); // giáo viên trường khác
+    expect((await api('GET', `/api/game/class-students/${f.class7a.id}`, undefined, f.S1.token)).status).toBe(403); // học sinh không dùng được
     const mine = (await api('GET', '/api/game/badges', undefined, f.S1.token)).body.find((b: any) => b.id === schoolBadge);
     expect(mine).toMatchObject({ earned: true, scope: 'school' });
     const systemBadge = (await api('GET', '/api/game/admin/badges', undefined, f.root)).body.find((b: any) => b.scope === 'system');

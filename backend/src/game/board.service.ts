@@ -342,6 +342,22 @@ export class BoardService {
   }
 
   // ------------------------------------------------------------------ trao huy hiệu của trường (HK.QT.046)
+  /** Học sinh của một lớp (giáo viên phụ trách lớp hoặc quản trị viên trường) để chọn người nhận huy hiệu */
+  async classStudents(actor: UserRow, classId: number) {
+    const ok = actor.role === 'teacher'
+      ? (await this.db.query('SELECT 1 FROM app_class_teachers WHERE class_id = $1 AND teacher_id = $2', [classId, actor.id])).length > 0
+      : (await this.db.query('SELECT 1 FROM app_classes WHERE id = $1 AND school_id = $2', [classId, actor.school_id])).length > 0;
+    if (!ok) throw notFound('lớp');
+    return this.db.query(
+      `SELECT u.id, u.full_name, u.user_code FROM app_class_members m JOIN app_users u ON u.id = m.user_id AND u.role = 'student' WHERE m.class_id = $1 ORDER BY u.full_name`, [classId]);
+  }
+
+  /** Huy hiệu của trường mà giáo viên được trao tay */
+  async schoolBadges(actor: UserRow) {
+    return this.db.query(
+      "SELECT id, name, description, icon, color FROM hk_badges WHERE scope = 'school' AND school_id = $1 AND is_active ORDER BY sort_order, id", [actor.school_id]);
+  }
+
   async awardBadge(actor: UserRow, badgeId: number, userIds: number[]) {
     if (!userIds.length || userIds.length > 100) throw new BadRequestException('Hãy chọn từ 1 đến 100 học sinh');
     return this.db.tx(async (q) => {

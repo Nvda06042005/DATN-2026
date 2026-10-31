@@ -88,6 +88,8 @@ export class GameController {
   @Get('class-settings') @Roles('teacher', 'school_admin') classSettings(@CurrentUser() user: UserRow) { return this.board.classSettings(user); }
   @Put('class-settings/:classId') @Roles('teacher', 'school_admin')
   setClass(@CurrentUser() user: UserRow, @Param('classId', ParseIntPipe) classId: number, @Body() body: HeartsDto) { return this.board.setClassHearts(user, classId, body.hearts_enabled); }
+  @Get('class-students/:classId') @Roles('teacher', 'school_admin') classStudents(@CurrentUser() user: UserRow, @Param('classId', ParseIntPipe) classId: number) { return this.board.classStudents(user, classId); }
+  @Get('school-badges') @Roles('teacher', 'school_admin') schoolBadges(@CurrentUser() user: UserRow) { return this.board.schoolBadges(user); }
   @Post('badges/:id/award') @Roles('teacher', 'school_admin') @HttpCode(200)
   award(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: AwardDto) { return this.board.awardBadge(user, id, body.user_ids); }
 

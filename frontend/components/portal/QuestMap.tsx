@@ -4,11 +4,11 @@
  */
 import React, { useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
-import { BookOpen, Castle, CircleHelp, Crown, Flag, Flame, Lock, Map as MapIcon, PawPrint, Play, RotateCcw, ScrollText, Ship, Star, Swords, Trophy, Check } from 'lucide-react-native';
+import { BookOpen, Castle, CircleHelp, Crown, Flag, Lock, Map as MapIcon, PawPrint, Play, RotateCcw, ScrollText, Ship, Star, Swords, Trophy, Check } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import { ErrorNote, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
-import { Avatar, Bar, Btn, Card, Chip, EmptyState, HudPill, InfoNote, Sheet, Spinner, Stars, Txt } from '@/components/ui';
+import { Avatar, Bar, Btn, Card, Chip, EmptyState, InfoNote, Sheet, Spinner, Stars, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
 import type { CampaignCard, MapNode, NodeDetail, NodeIcon, NodeState } from '@/types/learning';
@@ -39,10 +39,6 @@ export const HomeTab: React.FC<{ session: Session; refreshKey: number; onOpenCam
         <>
           <View style={{ gap: 10 }}>
             <Txt f="displayHeavy" size={26} accessibilityRole="header">Xin chào, {data.learner.nickname || data.learner.full_name}!</Txt>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-              <HudPill icon={Star} value={String(data.points)} label="điểm" tone={c.vangDam} />
-              <HudPill icon={Flame} value={String(data.streak)} label={data.streak === 1 ? 'ngày học liên tiếp' : 'ngày liên tiếp'} tone={c.hoa} />
-            </View>
           </View>
           {data.suggestions.length ? (
             <View style={{ gap: 8 }}>
