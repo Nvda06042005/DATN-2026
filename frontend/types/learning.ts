@@ -110,6 +110,8 @@ export interface CampaignMap {
 }
 export interface NodeDetail extends Omit<MapNode, 'content'> {
   content: MapNode['content']; unlocks: Array<{ id: number; title: string; unlocked: boolean }>; can_start: boolean; pass_percent: number | null; hint: string | null; has_quiz: boolean; needs_quiz: boolean;
+  /** Trận đánh có kịch bản mô phỏng đã phát hành (Sprint 6): hoàn thành nút bằng cách chơi mô phỏng */
+  has_sim?: boolean; scenario_id?: number | null;
 }
 export interface NodeResult {
   first_completion: boolean; passed: boolean; stars: number; percent: number; points_awarded: number; unlocked_sources: Array<{ id: number; title: string }>;

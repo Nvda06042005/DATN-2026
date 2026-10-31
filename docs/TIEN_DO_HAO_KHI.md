@@ -1,7 +1,7 @@
 # Tiến độ xây dựng Hào Khí Đông A (theo mã HK.*)
 
-Nguồn: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). Tài liệu này ghi **Sprint 1 đến Sprint 5**
-(179 chức năng) đã làm được gì, quyết định đã chọn khi đặc tả chưa nói rõ, và những gì cố ý chưa làm. Phân tích đối chiếu ban đầu: `DOI_CHIEU_HAO_KHI_V01.md`.
+Nguồn: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). Tài liệu này ghi **Sprint 1 đến Sprint 6**
+(193 chức năng) đã làm được gì, quyết định đã chọn khi đặc tả chưa nói rõ, và những gì cố ý chưa làm. Phân tích đối chiếu ban đầu: `DOI_CHIEU_HAO_KHI_V01.md`.
 
 Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 140 bài, gồm migration trên dữ liệu cũ, Sprint 1–5, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu, trò chơi hóa);
 `cd frontend && npm run typecheck && npm run build`. Mỗi bài kiểm thử ghi mã HK.* trong tên.
@@ -126,6 +126,27 @@ Học sinh có thêm các mục **Nhân vật, Bộ sưu tập, Xếp hạng**, 
 
 Nội dung khởi tạo (migration 021): 10 cấp, 3 lớp nhân vật, 14 vật phẩm, 8 mẫu nhiệm vụ, huy hiệu hệ thống và thẻ nhân vật gắn với nhân vật trong kho lịch sử. **Nội dung khởi tạo là bản nháp thiết kế**, giáo viên Lịch sử cần xem lại tên, mô tả và tiểu sử trước khi dùng thật.
 
+## Sprint 6 – mô phỏng trận đánh và mini-game (14 chức năng)
+
+Học sinh có mục **Trận đánh**: vào vai người chỉ huy, ra quyết định từng bước, bố trí lực lượng trên bản đồ, nhận phản hồi đối chiếu diễn biến thật, xem hoạt ảnh, chơi ba mini-game. Quản trị tổng soạn kịch bản (JSON) và tham số mini-game. Máy chủ giữ đáp án, chấm điểm và đồng hồ; mỗi lượt chơi lưu bản chụp kịch bản lúc bắt đầu nên sửa kịch bản giữa chừng không làm hỏng lượt đang chơi.
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.HS.051/052 | Xong | Danh sách 6 trận (Đông Bộ Đầu, Hàm Tử, Chương Dương, Tây Kết, Vân Đồn, Bạch Đằng) kèm khóa/mở, sao, điểm cao nhất, lượt chơi dở; màn giới thiệu gồm tình hình, lực lượng, nhiệm vụ của người chỉ huy, điều kiện thắng. Trận nằm trong hành trình của học sinh thì khóa tới khi đến nút đó; trận chưa thuộc hành trình nào mở sẵn |
+| HK.HS.053/055 | Xong | Chơi theo lượt: bước **quyết định** (2–5 phương án, mỗi phương án có điểm riêng và hệ quả) và bước **bố trí** lực lượng; sau mỗi bước hiện đối chiếu với diễn biến thật, hệ quả, phương án phù hợp nhất và liên kết tới kho lịch sử (chỉ mục đã công bố). Không lộ điểm, đáp án hay khu vực đúng trước khi trả lời |
+| HK.HS.054 | Xong, một phần | Bố trí bằng cách **chọn lực lượng rồi bấm lên bản đồ** (hoặc chọn khu vực trong danh sách, dùng được cả bằng bàn phím); chưa kéo thả bằng chuột. Máy chủ kiểm tra từng lực lượng nằm trong khu vực chấp nhận (vòng tròn bán kính 10–30 km, có chủ ý rộng vì tọa độ minh họa). Trên điện thoại chưa có bản đồ Leaflet nên dùng danh sách khu vực |
+| HK.HS.056 | Xong | Kết quả: thắng khi đạt từ 60% điểm (đặt riêng được cho từng kịch bản), **toàn thắng (đúng mọi bước) +150 điểm**, sao 1/2 (từ 80%)/3 (toàn thắng), thời gian, thẻ nhân vật rơi ở lần đầu hoàn thành nút. Mô phỏng ở nút trận đánh hoàn thành nút như làm bài (mở nút kế, mở tư liệu, thưởng nút, rơi thẻ) |
+| HK.HS.057 | Xong | Chơi lại tùy ý; chỉ phần điểm vượt kỷ lục cũ được cộng (không "cày" điểm); thẻ chỉ rơi lần đầu |
+| HK.HS.061 | Xong | Lượt chơi dở được lưu sau từng bước; mở lại trận thì tiếp tục đúng chỗ, hoặc làm lại từ đầu |
+| HK.HS.028 | Xong | Hoạt ảnh diễn biến trên bản đồ: các khung vị trí hai bên (xanh = quân Trần, đỏ = đối phương), phát tự động hoặc chuyển từng khung. Vị trí chỉ mang tính minh họa |
+| HK.HS.058 | Xong | Ghép thẻ trong thời gian giới hạn: máy chủ kiểm tra từng lần ghép, ghép sai bị trừ điểm, hết giờ tự kết thúc với phần đã ghép |
+| HK.HS.059 | Xong | Sắp xếp dòng thời gian bằng nút mũi tên; sau khi nộp hiện thứ tự đúng kèm mốc thời gian |
+| HK.HS.060 | Xong | Ô chữ: bố cục tự xếp từ danh sách từ, gợi ý hiện cho học sinh, so khớp đáp án không dấu và không phân biệt hoa thường |
+| HK.AD.046 | Xong | Soạn kịch bản bằng **JSON** có mẫu, nút kiểm tra cấu trúc (báo lỗi tiếng Việt chỉ rõ bước/lựa chọn), chơi thử (không ghi điểm), phát hành chỉ khi hồ sơ trận đánh trong kho lịch sử đã công bố. Chưa có trình soạn từng bước bằng biểu mẫu |
+| HK.AD.047 | Xong | Soạn ghép thẻ, dòng thời gian, ô chữ bằng bảng nhập từng dòng; kiểm tra tham số (ô chữ cho biết kích thước lưới), phát hành, chơi thử |
+
+Nội dung khởi tạo (migration 023): 6 kịch bản (có hoạt ảnh) và 4 mini-game (2 ghép thẻ, 1 dòng thời gian, 1 ô chữ). **Tất cả ở trạng thái Nháp.** Diễn biến đối chiếu với các bài "Chiến tranh Nguyên Mông – Đại Việt lần 1/2/3" trên vi.wikipedia; những chỗ nguồn chép khác nhau (người chỉ huy trận Tây Kết, tướng Nguyên có dự trận Hàm Tử hay không, vai trò Trần Quốc Toản) **không được khẳng định**. Kịch bản Tây Kết ngắn (2 bước) vì hồ sơ trận trong kho còn thiếu mô tả. Cần giáo viên Lịch sử duyệt trước khi phát hành. Dựng bằng thành phần React Native và Leaflet, **không dùng Phaser/Canvas** như ghi chú trong đặc tả.
+
 ## Quyết định khi đặc tả chưa nói rõ
 
 - **Quản trị tổng cấp 2 (HK.AD.020):** có cột `admin_level`. Cấp 2 quản lý quản trị viên trường học nhưng không tạo/sửa/khóa/xóa quản trị tổng, không tạo hay xóa trường. Ma trận RBAC thực sự (HK.AD.026) thuộc Sprint 11.
@@ -141,6 +162,7 @@ Nội dung khởi tạo (migration 021): 10 cấp, 3 lớp nhân vật, 14 vật
 - **Bảng xếp hạng ẩn danh:** bảng trường/hệ thống không trả họ tên cho học sinh khác; bảng lớp hiện tên thật vì các bạn đã quen nhau trong lớp.
 - **Cơ chế tim theo lớp:** nếu học sinh thuộc nhiều lớp và **bất kỳ lớp nào** tắt tim thì tim tắt cho học sinh đó (hướng có lợi cho học sinh).
 - **Thẻ nhân vật:** rơi quyết định ở máy chủ khi hoàn thành lần đầu, học sinh chỉ lật; thẻ nối với nhân vật của kho lịch sử nhưng tiểu sử chỉ hiện khi nhân vật đó đã **Công bố**.
+- **Mô phỏng trận đánh (Sprint 6):** kịch bản là một JSON do máy chủ kiểm tra; mỗi trận đánh trong kho lịch sử có tối đa một kịch bản. Điểm thưởng toàn thắng (150) và ngưỡng thắng (60%) nằm trong từng kịch bản. Nút trận đánh có kịch bản đã phát hành thì phải chơi mô phỏng (hoặc làm bộ câu hỏi nếu nút có) mới hoàn thành, không còn "đọc là xong".
 - **Cột lớp học sinh `class_name` và giáo viên `teacher_id` cũ:** để nguyên (không xóa dữ liệu); mã mới chỉ đọc bảng thành viên / giáo viên–lớp.
 
 ## Triển khai và dữ liệu hiện có
@@ -151,9 +173,9 @@ Nội dung khởi tạo (migration 021): 10 cấp, 3 lớp nhân vật, 14 vật
 - Bản cũ có các tài khoản/lớp thử; migration 014 giữ nguyên chúng (kiểm thử `014 giữ nguyên lớp...` trên dữ liệu giả): năm học được suy ra từ lớp/khối cũ (năm mới nhất = đang hoạt động, các năm trước = đã kết thúc), mỗi lớp cũ nhận mã tham gia ngẫu nhiên, giáo viên cũ được chép sang bảng giáo viên–lớp, khóa ngoại giáo viên không còn xóa lớp khi xóa tài khoản.
 - Cần đặt trên Render: `DATABASE_URL`, `ADMIN_PASSWORD`, `ADMIN_EMAIL`, gửi thư (`SMTP_URL` hoặc `MAIL_RELAY_*`), tùy chọn `GOOGLE_CLIENT_ID`; Vercel: `EXPO_PUBLIC_API_URL`, tùy chọn `EXPO_PUBLIC_GOOGLE_CLIENT_ID`.
 
-## Chưa làm (ngoài Sprint 1–5) và đề xuất
+## Chưa làm (ngoài Sprint 1–6) và đề xuất
 
-- Từ Sprint 6: mini-game trận đánh (Sprint 6), kéo thả vị trí nút và nhánh rẽ, điều kiện mở khóa tùy chỉnh, xếp lịch giao hành trình, tiến độ lớp trên bản đồ, **dùng kỹ năng lớp nhân vật**, bảng xếp hạng đội (HK.HS.071/076, Sprint 7), thi trực tiếp (Sprint 8), trợ lý AI và sinh câu hỏi bằng AI (Sprint 9–10).
+- Từ Sprint 7: kéo thả vị trí nút và nhánh rẽ, điều kiện mở khóa tùy chỉnh, xếp lịch giao hành trình, tiến độ lớp trên bản đồ, **dùng kỹ năng lớp nhân vật**, bảng xếp hạng đội (HK.HS.071/076, Sprint 7), thi trực tiếp (Sprint 8), trợ lý AI và sinh câu hỏi bằng AI (Sprint 9–10).
 - Giới hạn đã biết của Sprint 5: bảng xếp hạng lưu đệm trong bộ nhớ một máy chủ (nhiều máy chủ sẽ mỗi máy một đệm, cần Redis nếu mở rộng); giải đấu có 4 hạng cố định; lượt làm bài đang dở vẫn tiếp tục khi tim về 0 (chỉ chặn bài mới); ảnh thành tích chỉ tạo được trên web; nhân vật là biểu tượng ghép chứ chưa có ảnh vẽ; nội dung khởi tạo (tên cấp, huy hiệu, thẻ, nhiệm vụ) là bản nháp thiết kế chờ giáo viên duyệt.
 - Bản cũ có game 2D, thi đấu trực tiếp, chatbot AI, BKT, thống kê: đã gỡ khỏi mã; xây lại theo sprint sau từ đặc tả mới.
 - Giới hạn đã biết của Sprint 3–4: câu hỏi kéo thả bản đồ và bản đồ tương tác chỉ có trên bản web; đổi thứ tự (nút hành trình, mục sắp xếp, khối bài học) bằng nút mũi tên chứ chưa kéo thả; video trong bài học mở bằng liên kết; thông báo cho giáo viên khi nội dung được duyệt/từ chối chưa có (thông báo trong ứng dụng thuộc Sprint 11) – người gửi xem ở mục "Nội dung đã gửi".

@@ -1,14 +1,14 @@
 # Hào Khí Đông A
 
 Nền tảng học lịch sử game hóa về ba lần kháng chiến chống Nguyên – Mông thời Trần cho học sinh THCS (đề tài khóa luận).
-Đặc tả: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). **Đã làm: Sprint 1 đến 5** – xem
+Đặc tả: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). **Đã làm: Sprint 1 đến 6** – xem
 [docs/TIEN_DO_HAO_KHI.md](docs/TIEN_DO_HAO_KHI.md) (từng mã HK.*, quyết định, phần chưa làm).
 
 ## Trang web
 
 - `/`, `/dieu-khoan-su-dung`, `/cau-hoi-thuong-gap`: trang công khai (trang chủ, điều khoản kèm ghi công hình ảnh, câu hỏi thường gặp).
 - `/portal`: đăng nhập chung của giáo viên và học sinh.
-- `/hoc-sinh`: trang chủ ba cuộc kháng chiến, bản đồ nhiệm vụ (bài học, trận đánh, câu hỏi, tư liệu, Quyết chiến), làm bài có đồng hồ, thư viện lịch sử, dòng thời gian, bản đồ, kho tư liệu, nhiệm vụ (kèm nhiệm vụ ngày/tuần), lịch sử làm bài, luyện câu sai, vào lớp bằng mã 6 ký tự; trò chơi hóa: nhân vật, tim, điểm – cấp độ, chuỗi ngày, cửa hàng, huy hiệu, thẻ nhân vật, quà hằng ngày, bảng xếp hạng lớp/trường/hệ thống, giải đấu tuần, sự kiện của trường.
+- `/hoc-sinh`: trang chủ ba cuộc kháng chiến, bản đồ nhiệm vụ (bài học, trận đánh, câu hỏi, tư liệu, Quyết chiến), làm bài có đồng hồ, thư viện lịch sử, dòng thời gian, bản đồ, kho tư liệu, nhiệm vụ (kèm nhiệm vụ ngày/tuần), lịch sử làm bài, luyện câu sai, vào lớp bằng mã 6 ký tự; trò chơi hóa: nhân vật, tim, điểm – cấp độ, chuỗi ngày, cửa hàng, huy hiệu, thẻ nhân vật, quà hằng ngày, bảng xếp hạng lớp/trường/hệ thống, giải đấu tuần, sự kiện của trường; mô phỏng trận đánh theo lượt (quyết định, bố trí lực lượng trên bản đồ, hoạt ảnh diễn biến) và ba mini-game (ghép thẻ, sắp xếp dòng thời gian, ô chữ).
 - `/giao-vien`: lớp phụ trách, hành trình học (mẫu, tạo, giao cho lớp), ngân hàng câu hỏi, bộ đề (làm thử), nội dung đã gửi duyệt, cơ chế tim theo lớp và trao huy hiệu của trường.
 - `/school-manager-admin`: quản trị viên trường học – trường và năm học, khối lớp, giáo viên, học sinh, lớp, nhập/xuất Excel, nhân bản lớp sang năm mới, duyệt nội dung giáo viên chia sẻ, hành trình mẫu của trường, ngân hàng câu hỏi và bộ đề của trường.
 - `/admin`: quản trị tổng – trường học, người dùng toàn hệ thống, **kho dữ liệu lịch sử** (cuộc kháng chiến, nhân vật, sự kiện, địa điểm trên bản đồ, trận đánh, dòng thời gian, tư liệu gốc, thuật ngữ; kiểm chứng và công bố; lịch sử chỉnh sửa; nhập/xuất), **hành trình mẫu, bài học, ngân hàng câu hỏi, bộ đề, duyệt đề xuất của các trường**.

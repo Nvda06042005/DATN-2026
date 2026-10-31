@@ -28,6 +28,8 @@ Ngày 31/10/2026 thư mục này từng bị xóa theo yêu cầu (website chỉ
 | `019_seed_learning_content.sql` | Nội dung học khởi tạo: 27 câu hỏi, 9 bộ đề, 3 bài học, 3 hành trình mẫu (bài học và hành trình ở trạng thái Nháp); chạy lại không tạo trùng |
 | `020_gamification.sql` | Trò chơi hóa: nhân vật học sinh (`hk_players`), lớp nhân vật, cấp độ, sổ vàng, nhiệm vụ ngày/tuần (mẫu và bản giao), huy hiệu và thẻ nhân vật (kể cả thẻ rơi chờ lật), cửa hàng và túi đồ, chuỗi ngày, mục tiêu ngày, chúc mừng chờ hiển thị, giải đấu tuần, cấu hình trường và lớp, sự kiện cấp trường, cấu hình chung (`hk_settings`); RLS bật, chỉ backend đọc/ghi |
 | `021_seed_gamification.sql` | Nội dung khởi tạo: 10 cấp, 3 lớp nhân vật và kỹ năng, vật phẩm cửa hàng, mẫu nhiệm vụ, huy hiệu hệ thống, thẻ nhân vật gắn với nhân vật trong kho lịch sử; chạy lại không tạo trùng |
+| `022_battle_simulation.sql` | Mô phỏng trận đánh và mini-game: kịch bản trận đánh (`hk_scenarios`, JSON), mini-game (`hk_minigames`), lượt chơi có lưu dở (`hk_game_runs`); thêm lý do điểm và vàng `battle`, `minigame`; RLS bật, chỉ backend đọc/ghi |
+| `023_seed_battle_content.sql` | Nội dung khởi tạo: 6 kịch bản trận đánh kèm hoạt ảnh và 4 mini-game, tất cả ở trạng thái Nháp; chạy lại không tạo trùng |
 
 Kiểm chứng trên PostgreSQL tạm bằng `cd backend && npm run build && npm test` trước khi triển khai.
 Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).
