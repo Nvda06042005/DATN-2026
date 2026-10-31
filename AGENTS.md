@@ -6,7 +6,7 @@ Ngày 31/10/2026 dự án từng được rút gọn còn trang chủ, Điều k
 - `backend/`: NestJS. Quyền theo vai trò (`root_admin`, `school_admin`, `teacher`, `student`) kiểm tra ở mọi route; dữ liệu quản trị trường chạy trong `db.scoped(school_id)` (Row-Level Security). Kho lịch sử chỉ quản trị tổng. Kiểm thử bằng `cd backend && npm run build && npm test` (PostgreSQL tạm; cần Program Files/PostgreSQL hoặc `POSTGRES_BIN`).
 - Import mã `src` trong kiểm thử phải dùng `import()` động sau khi `startApp` đặt biến môi trường (cấu hình đọc khi import).
 - Dùng bảng màu sáng trong `constants/theme.ts`, `useTheme()` và các phông Manrope/Newsreader đã nạp ở `_layout.tsx`. Nút có nhãn trợ năng và vùng chạm ít nhất 44pt.
-- Ghi công ảnh và bản đồ nằm cuối trang điều khoản, `assets/hero-photos/ATTRIBUTION.md` và `constants/map-credits.ts`. Giữ thông báo giấy phép của mã bên thứ ba còn dùng (React Bits, Leaflet).
+- Ghi công ảnh và bản đồ nằm ở trang riêng `/thong-tin-hinh-anh` (liên kết từ footer), `assets/hero-photos/ATTRIBUTION.md` và `constants/map-credits.ts`. Trang này dùng `InfoShell`, Manrope/Newsreader như Điều khoản sử dụng. Giữ thông báo giấy phép của mã bên thứ ba còn dùng (React Bits, Leaflet).
 - Kiểm tra giao diện bằng `cd frontend`, `npm run typecheck`, `npm test`, `npm run build`; thay đổi cổng quản trị nên chụp thử trên bản web (xem ghi chú dự án về Chrome CDP).
 
 # Database migrations

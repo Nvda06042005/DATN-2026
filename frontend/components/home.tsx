@@ -1164,6 +1164,7 @@ export const FooterSection: React.FC<{ wide: boolean; go: (id: string) => void; 
             {head('Khám phá lịch sử thời Trần')}
             <FootLink label="Điều khoản sử dụng" arrow onPress={() => router.push('/dieu-khoan-su-dung')} />
             <FootLink label="Câu hỏi thường gặp" arrow onPress={() => router.push('/cau-hoi-thuong-gap')} />
+            <FootLink label="Thông tin hình ảnh" arrow onPress={() => router.push('/thong-tin-hinh-anh')} />
           </View>
         </View>
         <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(250, 244, 231, 0.18)', paddingTop: 18, flexDirection: wide ? 'row' : 'column', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
