@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowDown, ArrowRight, CalendarDays, Check, Compass, Joystick, Landmark, LogIn, MapPin, MessageSquareText, Milestone, Quote, School, Sword, Swords,
-  Trophy, Users, X, ZoomIn, ArrowUp, ArrowUpRight, FileSpreadsheet, Plus,
+  Trophy, Users, X, ZoomIn, ArrowUp, ArrowUpRight, FileSpreadsheet, Plus, Menu,
 } from 'lucide-react-native';
 import {
   BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, PatternOverlay, VietnamFlag,
@@ -248,7 +248,7 @@ const NAV_ITEMS = [{ id: 'home', short: 'Trang chủ' }, ...NAV.map((n) => ({ id
 
 /**
  * Thanh điều hướng cố định phía trên cùng. Ở đầu trang: logo trắng bên trái, viên thuốc trắng chứa các mục ở giữa (mục đang xem màu cam),
- * nút đen "Vào học ngay" bên phải. Khi cuộn, cả thanh co hẹp lại thành một viên thuốc kính. Có cờ Tiếng Việt; không có nút đổi sáng/tối (bỏ ngày 29/10/2026).
+ * nút đen "Vào học ngay" bên phải. Khi cuộn, cả thanh co hẹp lại thành một viên thuốc kính. Màn hẹp có nút mở menu thay vì ẩn hết liên kết.
  */
 export const Header: React.FC<{
   width: number; scrollY: Animated.Value; stuck: boolean; active: string; go: (id: string) => void;
@@ -262,7 +262,30 @@ export const Header: React.FC<{
   const { c } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const wide = width >= (items.length > 4 ? 1240 : 1000); // sáu mục menu cần chỗ nhất: hẹp hơn thì ẩn menu (chân trang vẫn có đủ liên kết)
+  const { height: windowHeight } = useWindowDimensions();
+  const wide = WEB && width >= (items.length > 4 ? 1100 : 1000);
+  const compactNav = width < 1240;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuButton = useRef<ComponentRef<typeof Pressable>>(null);
+  useEffect(() => { if (wide) setMenuOpen(false); }, [wide]);
+  useEffect(() => {
+    if (!WEB || !menuOpen) return undefined;
+    const close = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setMenuOpen(false);
+      menuButton.current?.focus();
+    };
+    document.addEventListener('keydown', close);
+    return () => document.removeEventListener('keydown', close);
+  }, [menuOpen]);
+  const closeMenu = () => {
+    setMenuOpen(false);
+    menuButton.current?.focus();
+  };
+  const navigate = (id: string) => {
+    closeMenu();
+    go(id);
+  };
   /** Thu gọn khoảng cách giữa các nút khi màn hình hẹp. */
   const small = width < 430;
   const clamp = { extrapolate: 'clamp' } as const;
@@ -275,18 +298,20 @@ export const Header: React.FC<{
   const roundBg = stuck ? 'rgba(255,255,255,0)' : c.the;
   const ring = stuck ? c.bienXanh : c.the;
   return (
-    <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 40, alignItems: 'center', paddingHorizontal: 12, paddingTop: insets.top }}>
+    <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, bottom: menuOpen ? 0 : undefined, left: 0, right: 0, zIndex: 40, alignItems: 'center', paddingHorizontal: 12, paddingTop: insets.top }}>
+      {menuOpen && <Pressable accessibilityRole="button" accessibilityLabel="Đóng menu điều hướng" onPress={closeMenu} style={StyleSheet.absoluteFill} />}
       <Animated.View
+        testID="home-header"
         style={[
           { width: '100%', maxWidth, height, marginTop, borderRadius: 999, borderWidth: 1, borderColor: border, backgroundColor: bg, paddingLeft: 10, paddingRight: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
           stuck ? GLASS : null,
         ]}
       >
-        <Pressable onPress={() => go('home')} accessibilityRole="link" accessibilityLabel="Về đầu trang" hitSlop={4} style={{ minHeight: 44, justifyContent: 'center' }}>
-          <BrandLogo light={!stuck && !paper} paper={!stuck && paper} />
+        <Pressable onPress={() => navigate('home')} accessibilityRole="link" accessibilityLabel="Về đầu trang" hitSlop={4} style={{ minHeight: 44, justifyContent: 'center' }}>
+          <BrandLogo compact={width < 430} light={!stuck && !paper} paper={!stuck && paper} />
         </Pressable>
-        {WEB && wide && (
-          <Animated.View accessibilityRole="menu" style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 999, backgroundColor: navBg, paddingHorizontal: 8, height: 50 }}>
+        {wide && (
+          <Animated.View testID="home-nav-desktop" role="navigation" accessibilityLabel="Điều hướng chính" style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 999, backgroundColor: navBg, paddingHorizontal: 8, height: 50 }}>
             {items.map((n) => {
               const on = n.id === active;
               return (
@@ -295,10 +320,11 @@ export const Header: React.FC<{
                   accessibilityRole="link"
                   accessibilityLabel={n.short}
                   accessibilityState={{ selected: on }}
+                  aria-current={on ? 'location' : undefined}
                   onPress={() => go(n.id)}
-                  style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' }}
+                  style={{ minHeight: 44, paddingHorizontal: compactNav ? 8 : 12, justifyContent: 'center' }}
                 >
-                  <Txt f="bold" size={14.5} color={on ? c.sonChu : c.xanhMuc}>
+                  <Txt f="bold" size={compactNav ? 13.5 : 14.5} color={on ? c.sonChu : c.xanhMuc}>
                     {n.short}
                   </Txt>
                 </Pressable>
@@ -313,8 +339,24 @@ export const Header: React.FC<{
             </View>
           )}
           <Cta title={width >= 560 ? 'Vào học ngay' : ''} label="Đăng nhập học tập" icon={width >= 560 ? undefined : LogIn} onPress={() => router.push('/portal')} testID="home-login" />
+          {!wide && (
+            <Pressable ref={menuButton} testID="home-menu-toggle" accessibilityRole="button" accessibilityLabel={menuOpen ? 'Đóng menu điều hướng' : 'Mở menu điều hướng'} accessibilityState={{ expanded: menuOpen }} aria-expanded={menuOpen} aria-controls="home-nav-panel" onPress={() => setMenuOpen((open) => !open)} style={{ width: 44, height: 44, borderRadius: 999, backgroundColor: c.the, alignItems: 'center', justifyContent: 'center' }}>
+              {menuOpen ? <X size={22} color={c.logoInk} /> : <Menu size={22} color={c.logoInk} />}
+            </Pressable>
+          )}
         </View>
       </Animated.View>
+      {!wide && menuOpen && (
+        <View id="home-nav-panel" testID="home-nav-panel" role="navigation" accessibilityLabel="Điều hướng chính" style={[{ width: '100%', maxWidth: 520, alignSelf: 'flex-end', marginTop: 8, padding: 8, borderRadius: 20, borderWidth: 1, borderColor: c.bienXanh, backgroundColor: c.the }, shadow(c, 'sm')]}>
+          <ScrollView style={{ maxHeight: Math.max(44, windowHeight - insets.top - insets.bottom - 120) }}>
+            {items.map((n) => (
+              <Pressable key={n.id} accessibilityRole="link" accessibilityLabel={n.short} accessibilityState={{ selected: n.id === active }} aria-current={n.id === active ? 'location' : undefined} onPress={() => navigate(n.id)} style={{ minHeight: 44, paddingHorizontal: 16, paddingVertical: 12, justifyContent: 'center', borderRadius: 12, backgroundColor: n.id === active ? c.logoPaper : 'transparent' }}>
+                <Txt f="bold" size={15} color={n.id === active ? c.sonChu : c.xanhMuc}>{n.short}</Txt>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      )}
     </View>
   );
 };
