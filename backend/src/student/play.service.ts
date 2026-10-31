@@ -12,9 +12,10 @@ import { bonusPoints, grade, GRACE_MS, publicView, QuestionCore, QType, seededSh
 import { SPECS, Entity } from '../history/history.service';
 import { logEvent } from './events';
 import { LearnService } from './learn.service';
-import { activeJourneys, nodesWithState, ProgressNode, streakDays } from './progress';
+import { GameService } from '../game/game.service';
+import { activeJourneys, nodesWithState, ProgressNode } from './progress';
 
-interface PlanItem { question_id: number; points: number; seconds: number; seed: number; shuffle: boolean; snap: Omit<QuestionCore, 'id'> }
+interface PlanItem { question_id: number; points: number; seconds: number; seed: number; shuffle: boolean; snap: Omit<QuestionCore, 'id'>; removed?: string[] }
 interface AttemptRow {
   id: number; user_id: number; quiz_id: number | null; node_id: number | null; mode: 'node' | 'practice' | 'preview'; status: 'active' | 'done'; plan: PlanItem[]; position: number;
   served_at: string | null; started_at: string; finished_at: string | null; pass_percent: number; base_points: number; bonus_points: number; max_points: number; percent: number;
@@ -25,12 +26,11 @@ const ATTEMPT_COLUMNS =
   'id::int AS id, user_id, quiz_id, node_id, mode, status, plan, position, served_at, started_at, finished_at, pass_percent, base_points, bonus_points, max_points, percent, stars, correct_count, wrong_count, passed, duration_ms, result';
 const PRACTICE_SIZE = 10;
 const PRACTICE_SECONDS = 30;
-const PRACTICE_POINTS = 10;
 const VIEW_EVENTS = ['view_lesson', 'view_figure', 'view_event', 'view_battle', 'view_place', 'view_map', 'view_timeline', 'view_library', 'view_source'];
 
 @Injectable()
 export class PlayService {
-  constructor(private readonly db: DatabaseService, private readonly quizzes: QuizService, private readonly learn: LearnService) {}
+  constructor(private readonly db: DatabaseService, private readonly quizzes: QuizService, private readonly learn: LearnService, private readonly game: GameService) {}
 
   private readonly read: Q = (sql, params) => this.db.query(sql, params);
 
@@ -55,8 +55,9 @@ export class PlayService {
     }
     const points = Number((await q<{ n: string }>('SELECT COALESCE(sum(points), 0) AS n FROM hk_points WHERE user_id = $1', [user.id]))[0].n);
     const wrong = Number((await q<{ n: string }>('SELECT count(*) AS n FROM hk_wrong_questions WHERE user_id = $1 AND cleared_at IS NULL', [user.id]))[0].n);
+    const hud = await this.game.me(user);
     const suggestions = [...(next ? [next] : []), ...(wrong ? [{ type: 'practice', count: wrong }] : [])];
-    return { learner: { full_name: user.full_name, nickname: user.nickname, avatar_url: user.avatar_url }, points, streak: await streakDays(q, user.id), campaigns: cards, suggestions };
+    return { learner: { full_name: user.full_name, nickname: user.nickname, avatar_url: user.avatar_url }, points, streak: hud.streak.current, hud, campaigns: cards, suggestions };
   }
 
   // ------------------------------------------------------------------ bản đồ hành trình (HK.HS.019–022)
@@ -142,7 +143,7 @@ export class PlayService {
     // Điểm: thưởng của nút khi hoàn thành lần đầu + phần điểm làm bài vượt kỷ lục cũ (chơi lại không "cày" được điểm)
     const delta = r.passed ? Math.max(0, r.points - (prev?.best_points ?? 0)) : 0;
     const awarded = (first ? node.reward_points : 0) + delta;
-    if (awarded > 0) await q("INSERT INTO hk_points (user_id, points, reason, ref_key) VALUES ($1, $2, 'node', $3) ON CONFLICT DO NOTHING", [user.id, awarded, `node:${node.id}:${r.ref}`]);
+    if (awarded > 0) await this.game.awardXp(q, user, awarded, 'node', `node:${node.id}:${r.ref}`);
     let unlocked: Array<{ id: number; title: string }> = [];
     if (first) {
       const wanted = new Set((await q<{ source_id: number }>('SELECT source_id FROM hk_node_unlocks WHERE node_id = $1', [node.id])).map((r) => r.source_id));
@@ -155,6 +156,7 @@ export class PlayService {
       if (opened.length) unlocked = await q<{ id: number; title: string }>("SELECT id, title FROM hist_sources WHERE id = ANY($1) AND status = 'published' ORDER BY title", [opened]);
       await logEvent(null, user, 'node_complete', 'node', node.id, node.id, { stars: r.stars, percent: r.percent }, null, q);
     }
+    if (r.passed) await this.game.onNodeCompleted(q, user, node, first);
     const nodes = await nodesWithState(q, user.id, node.journey_id);
     const nextNode = nodes.find((n) => n.state === 'available');
     return {
@@ -234,6 +236,7 @@ export class PlayService {
       await q('UPDATE hk_lesson_progress SET completed_at = COALESCE(completed_at, now()) WHERE user_id = $1 AND lesson_id = $2', [user.id, node.lesson_id]);
       const firstTry = progress.first_try_correct ?? allRight;
       await logEvent(null, user, 'lesson_complete', 'lesson', node.lesson_id, node.id, null, null, q);
+      await this.game.onLessonCompleted(q, user);
       const finished = await this.finishNode(q, user, node, { percent: 100, stars: firstTry ? 3 : 2, points: 0, passed: true, ref: 'lesson' });
       return { completed: true, results, node: finished };
     });
@@ -269,6 +272,7 @@ export class PlayService {
       if (!node.quiz_id || node.kind === 'lesson' || node.kind === 'source') throw new ConflictException('Nút này không có bộ câu hỏi');
       const open = (await q<{ id: number }>("SELECT id::int AS id FROM hk_attempts WHERE user_id = $1 AND node_id = $2 AND status = 'active' AND mode = 'node'", [user.id, nodeId]))[0];
       if (open) return this.stateOf(q, user, open.id);
+      await this.game.assertCanPlay(q, user);
       const { plan, pass } = await this.planFromQuiz(q, node.quiz_id);
       const id = await this.insertAttempt(q, user.id, 'node', node.quiz_id, node.id, plan, node.pass_percent ?? pass);
       await logEvent(null, user, 'attempt_start', 'node', node.id, node.id, null, null, q);
@@ -332,7 +336,8 @@ export class PlayService {
     const g = timedOut ? { correct: false, detail: undefined as unknown } : grade(item.snap, answer);
     const used = Math.min(Math.max(0, elapsedMs), item.seconds * 1000);
     const base = g.correct ? item.points : 0;
-    const bonus = g.correct ? bonusPoints(item.points, item.seconds, used) : 0;
+    const settings = await this.game.cfg();
+    const bonus = g.correct ? bonusPoints(item.points, item.seconds, used, settings.speed_bonus_ratio) : 0;
     await q(
       `INSERT INTO hk_attempt_answers (attempt_id, question_id, position, answer, correct, timed_out, base_points, bonus_points, time_ms) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [a.id, item.question_id, a.position, timedOut || answer === undefined ? null : JSON.stringify(answer), g.correct, timedOut, base, bonus, used]);
@@ -343,8 +348,13 @@ export class PlayService {
            ON CONFLICT (user_id, question_id) DO UPDATE SET wrong_count = hk_wrong_questions.wrong_count + 1, last_wrong_at = now(), cleared_at = NULL`, [user.id, item.question_id]);
       } else if (a.mode === 'practice') {
         const cleared = await q<{ wrong_count: number }>('UPDATE hk_wrong_questions SET cleared_at = now() WHERE user_id = $1 AND question_id = $2 AND cleared_at IS NULL RETURNING wrong_count', [user.id, item.question_id]);
-        if (cleared.length) await q("INSERT INTO hk_points (user_id, points, reason, ref_key) VALUES ($1, $2, 'practice', $3) ON CONFLICT DO NOTHING", [user.id, PRACTICE_POINTS, `practice:${item.question_id}:${cleared[0].wrong_count}`]);
+        if (cleared.length) {
+          await this.game.awardXp(q, user, settings.practice_correct_xp, 'practice', `practice:${item.question_id}:${cleared[0].wrong_count}`);
+          await this.game.gainHearts(q, user, settings.hearts.per_practice_correct);
+        }
       }
+      if (a.mode === 'node' && !g.correct) await this.game.loseHeart(q, user);
+      if (g.correct) await this.game.onCorrectAnswer(q, user);
       await logEvent(null, user, 'answer', 'question', item.question_id, a.node_id, { correct: g.correct, timed_out: timedOut, ms: used }, used, q);
     }
     const nextPosition = a.position + 1;
@@ -376,6 +386,7 @@ export class PlayService {
       }
     }
     if (node) await q('UPDATE hk_attempts SET result = $2 WHERE id = $1', [id, JSON.stringify(node)]);
+    if (a.mode === 'node' && percent === 100) await this.game.onPerfectQuiz(q, user, id);
     if (a.mode !== 'preview') await logEvent(null, user, 'attempt_finish', 'attempt', id, a.node_id, { percent, passed }, Number(timing.used), q);
     return { percent, stars, passed, node };
   }
@@ -394,8 +405,36 @@ export class PlayService {
     const remaining = Math.max(0, item.seconds * 1000 - (Date.now() - new Date(a.served_at).getTime()));
     return {
       ...base,
-      current: { index: a.position, seconds: item.seconds, remaining_ms: remaining, points: item.points, question: publicView({ ...item.snap, id: item.question_id }, item.seed, item.shuffle) },
+      current: { index: a.position, seconds: item.seconds, remaining_ms: remaining, points: item.points, question: this.visible(item) },
     };
+  }
+
+  /** Câu hỏi hiển thị cho học sinh: bỏ các đáp án đã bị gợi ý 50/50 loại */
+  private visible(item: PlanItem): Record<string, unknown> {
+    const view = publicView({ ...item.snap, id: item.question_id }, item.seed, item.shuffle) as { options?: Array<{ id: string }> };
+    if (item.removed?.length && view.options) view.options = view.options.filter((o) => !item.removed!.includes(o.id));
+    return view;
+  }
+
+  /** Gợi ý 50/50 (HK.HS.070): chỉ cho câu một đáp án đang làm; máy chủ chọn đáp án sai bị loại, chỉ còn một đáp án sai cạnh đáp án đúng */
+  async hint(user: UserRow, id: number) {
+    return this.db.tx(async (q) => {
+      const a = await this.loadAttempt(q, user, id, true);
+      const item = a.plan[a.position];
+      if (a.status !== 'active' || !item || !a.served_at) throw new ConflictException('Chưa có câu hỏi đang làm');
+      if (a.mode === 'preview') throw new ConflictException('Làm thử không dùng gợi ý');
+      const data = item.snap.data as { options?: Array<{ id: string }>; correct?: string };
+      if (item.snap.qtype !== 'single' || !data.options || data.options.length < 3) throw new ConflictException('Gợi ý 50/50 chỉ dùng cho câu một đáp án có từ 3 lựa chọn');
+      if (item.removed?.length) throw new ConflictException('Em đã dùng gợi ý cho câu này rồi');
+      const held = (await q<{ item_id: number }>("SELECT i.item_id FROM hk_inventory i JOIN hk_shop_items s ON s.id = i.item_id WHERE i.user_id = $1 AND s.kind = 'hint' AND i.qty > 0 ORDER BY i.item_id LIMIT 1 FOR UPDATE", [user.id]))[0];
+      if (!held) throw new ConflictException('Em không còn gợi ý 50/50; mua thêm ở cửa hàng nhé');
+      const wrong = seededShuffle(data.options.filter((o) => o.id !== data.correct), item.seed);
+      const removed = wrong.slice(0, wrong.length - 1).map((o) => o.id);
+      await q('UPDATE hk_inventory SET qty = qty - 1 WHERE user_id = $1 AND item_id = $2', [user.id, held.item_id]);
+      const plan = a.plan.map((p, i) => (i === a.position ? { ...p, removed } : p));
+      await q('UPDATE hk_attempts SET plan = $2 WHERE id = $1', [id, JSON.stringify(plan)]);
+      return { removed };
+    });
   }
 
   async attempt(user: UserRow, id: number) {

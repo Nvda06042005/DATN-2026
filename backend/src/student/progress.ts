@@ -62,18 +62,3 @@ export async function lockedSources(q: Q, userId: number): Promise<Map<number, {
      ORDER BY g.source_id, g.position`, [userId]);
   return new Map(rows.map((r) => [r.source_id, { node_id: r.node_id, node_title: r.node_title }]));
 }
-
-/** Chuỗi ngày học liên tiếp, tính theo giờ Việt Nam đến hôm nay (hoặc hôm qua nếu hôm nay chưa học) */
-export async function streakDays(q: Q, userId: number): Promise<number> {
-  const rows = await q<{ d: string }>(
-    `SELECT DISTINCT to_char((created_at AT TIME ZONE 'Asia/Ho_Chi_Minh')::date, 'YYYY-MM-DD') AS d FROM hk_events
-     WHERE user_id = $1 AND event IN ('answer', 'node_complete', 'lesson_complete', 'view_lesson', 'view_source') ORDER BY d DESC LIMIT 400`, [userId]);
-  const days = new Set(rows.map((r) => r.d));
-  const fmt = (t: number) => new Date(t).toISOString().slice(0, 10);
-  const vn = Date.now() + 7 * 3600_000;
-  let cursor = vn;
-  if (!days.has(fmt(cursor))) cursor -= 86400_000;
-  let n = 0;
-  while (days.has(fmt(cursor))) { n += 1; cursor -= 86400_000; }
-  return n;
-}

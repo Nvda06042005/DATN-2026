@@ -26,6 +26,8 @@ Ngày 31/10/2026 thư mục này từng bị xóa theo yêu cầu (website chỉ
 | `017_question_bank.sql` | Ngân hàng câu hỏi nhiều dạng (`hk_questions`), liên kết với kho lịch sử, lịch sử chỉnh sửa, bộ đề (`hk_quizzes`, `hk_quiz_questions`), yêu cầu chia sẻ/duyệt (`hk_shares`); RLS bật, chỉ backend đọc/ghi |
 | `018_learning_journeys.sql` | Bài học, hành trình, nút, giao cho lớp, tiến độ học sinh, mở khóa tư liệu, lượt làm bài và đáp án, câu sai, sổ điểm, ghi chú, yêu thích, nhật ký sự kiện học tập; RLS bật, chỉ backend đọc/ghi |
 | `019_seed_learning_content.sql` | Nội dung học khởi tạo: 27 câu hỏi, 9 bộ đề, 3 bài học, 3 hành trình mẫu (bài học và hành trình ở trạng thái Nháp); chạy lại không tạo trùng |
+| `020_gamification.sql` | Trò chơi hóa: nhân vật học sinh (`hk_players`), lớp nhân vật, cấp độ, sổ vàng, nhiệm vụ ngày/tuần (mẫu và bản giao), huy hiệu và thẻ nhân vật (kể cả thẻ rơi chờ lật), cửa hàng và túi đồ, chuỗi ngày, mục tiêu ngày, chúc mừng chờ hiển thị, giải đấu tuần, cấu hình trường và lớp, sự kiện cấp trường, cấu hình chung (`hk_settings`); RLS bật, chỉ backend đọc/ghi |
+| `021_seed_gamification.sql` | Nội dung khởi tạo: 10 cấp, 3 lớp nhân vật và kỹ năng, vật phẩm cửa hàng, mẫu nhiệm vụ, huy hiệu hệ thống, thẻ nhân vật gắn với nhân vật trong kho lịch sử; chạy lại không tạo trùng |
 
 Kiểm chứng trên PostgreSQL tạm bằng `cd backend && npm run build && npm test` trước khi triển khai.
 Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).

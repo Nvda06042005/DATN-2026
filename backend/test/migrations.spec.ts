@@ -113,7 +113,7 @@ describe('file migration', () => {
   test('014 giữ nguyên lớp, giáo viên, học sinh hiện có: tạo năm học, mã tham gia 6 ký tự, bảng giáo viên–lớp', async () => {
     // Chỉ bản sao tạm của file 014–016 được dời đi; migration trong repo giữ nguyên
     const held = new Map<string, string>();
-    for (const f of readdirSync(dir).filter((x) => /^01[4-9]_/.test(x))) {
+    for (const f of readdirSync(dir).filter((x) => /^0(1[4-9]|[2-9][0-9])_/.test(x))) {
       renameSync(join(dir, f), join(dir, `${f}.held`));
       held.set(f, `${f}.held`);
     }
@@ -183,6 +183,23 @@ describe('file migration', () => {
     expect(await count('SELECT count(*) AS n FROM (SELECT quiz_id FROM hk_quiz_questions GROUP BY quiz_id HAVING count(*) < 3) x')).toBe(0);
     expect(await count("SELECT count(DISTINCT t.qtype) AS n FROM hk_quiz_questions qq JOIN hk_questions t ON t.id = qq.question_id JOIN hk_quizzes z ON z.id = qq.quiz_id WHERE z.title LIKE 'Quyết chiến%'")).toBe(6);
     // Chạy lại không nhân đôi
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+  });
+
+  test('020–021 tạo bảng trò chơi hóa và nội dung khởi tạo: cấp độ tăng dần, ba lớp nhân vật, huy hiệu có điều kiện hợp lệ, thẻ gắn nhân vật lịch sử', async () => {
+    await m.applyMigrations(url, dir);
+    expect(await sql(url, 'SELECT level, xp_required FROM hk_levels ORDER BY level')).toEqual([0, 100, 250, 450, 700, 1000, 1400, 1900, 2500, 3200].map((xp, i) => ({ level: i + 1, xp_required: xp })));
+    expect((await sql<{ code: string }>(url, 'SELECT code FROM hk_character_classes ORDER BY sort_order')).map((r) => r.code)).toEqual(['tuong_quan', 'quan_su', 'luong_y']);
+    expect(await count('SELECT count(*) AS n FROM hk_shop_items')).toBe(14);
+    expect(await count("SELECT count(*) AS n FROM hk_shop_items WHERE kind IN ('outfit', 'weapon', 'banner') AND price = 0 AND min_level = 1")).toBe(3); // mỗi loại một đồ mặc định miễn phí
+    expect(await count('SELECT count(*) AS n FROM hk_quest_templates')).toBe(8);
+    expect(await count("SELECT count(*) AS n FROM hk_quest_templates WHERE period = 'daily'")).toBe(4);
+    expect(await count('SELECT count(*) AS n FROM hk_badges WHERE rule IS NOT NULL')).toBe(12);
+    expect(await count("SELECT count(*) AS n FROM hk_badges WHERE rule->>'type' = 'campaign_complete' AND (rule->>'campaign_id') IS NOT NULL")).toBe(3);
+    expect(await count('SELECT count(*) AS n FROM hk_cards')).toBe(13);
+    expect(await count('SELECT count(*) AS n FROM hk_cards WHERE figure_id IS NULL')).toBe(0);
+    expect(await sql(url, "SELECT rarity, count(*)::int AS n FROM hk_cards GROUP BY rarity ORDER BY rarity")).toEqual([{ rarity: 'common', n: 6 }, { rarity: 'legendary', n: 2 }, { rarity: 'rare', n: 5 }]);
+    expect(await count('SELECT count(*) AS n FROM hk_players')).toBe(0); // không tạo dữ liệu người chơi
     expect(await m.applyMigrations(url, dir)).toHaveLength(0);
   });
 

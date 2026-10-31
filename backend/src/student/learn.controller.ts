@@ -124,6 +124,8 @@ export class PlayController {
   attempt(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.play.attempt(user, id); }
   @Post('attempts/:id/answer') @Roles('student', 'teacher', 'school_admin', 'root_admin') @HttpCode(200)
   answer(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: AnswerDto) { return this.play.answer(user, id, body.question_id, body.answer); }
+  @Post('attempts/:id/hint') @Roles('student') @HttpCode(200)
+  hint(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.play.hint(user, id); }
   @Post('attempts/:id/next') @Roles('student', 'teacher', 'school_admin', 'root_admin') @HttpCode(200)
   next(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.play.next(user, id); }
   @Get('attempts/:id/review') @Roles('student', 'teacher', 'school_admin', 'root_admin')
