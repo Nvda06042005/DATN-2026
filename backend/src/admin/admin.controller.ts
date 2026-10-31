@@ -6,6 +6,7 @@ import { IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, Length, Matches,
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { Role, UserRow } from '../database/database.service';
 import { SchoolService, UploadedXlsx } from './school.service';
+import { ReportService } from './report.service';
 import { MailService } from './mail.service';
 
 const trimLower = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim().toLowerCase() || undefined : value);
@@ -46,6 +47,13 @@ class DirectoryQuery {
   @IsOptional() @IsIn(['PENDING','APPROVED','REJECTED']) status?: 'PENDING' | 'APPROVED' | 'REJECTED';
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit?: number;
+}
+class ReportQuery {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number;
+  @IsOptional() @IsString() @MaxLength(80) region?: string;
+  @IsOptional() @IsString() @MaxLength(80) city?: string;
+  @IsOptional() @IsIn(['true','false']) active?: 'true' | 'false';
+  @IsOptional() @IsString() @Matches(/^\d{4}-\d{4}$/) school_year?: string;
 }
 class UpdateClassDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(6) @Max(9) grade?: number | null;
@@ -123,7 +131,15 @@ export const XLSX_UPLOAD = FileInterceptor('file', { limits: { fileSize: 2 * 102
 @UseGuards(AuthGuard)
 @Roles('root_admin', 'school_admin')
 export class AdminController {
-  constructor(private readonly school: SchoolService, private readonly mail: MailService, private readonly security: SecurityService) {}
+  constructor(private readonly school: SchoolService, private readonly mail: MailService, private readonly security: SecurityService, private readonly reports: ReportService) {}
+
+  @Get('reports/dashboard')
+  dashboard(@CurrentUser() user:UserRow,@Query() query:ReportQuery) { return this.reports.dashboard(user,query); }
+
+  @Get('reports/export')
+  async reportExcel(@CurrentUser() user:UserRow,@Query() query:ReportQuery) {
+    return new StreamableFile(await this.reports.excel(user,query),{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',disposition:'attachment; filename="thong-ke-dong-a.xlsx"'});
+  }
 
   /** Thống kê: số trường, giáo viên, học sinh từng khối 6–9 (quản trị trường: chỉ trường mình) */
   @Get('overview')

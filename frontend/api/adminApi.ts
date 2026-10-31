@@ -1,4 +1,4 @@
-import { apiRequest, apiText, apiUpload, type PickedFile } from '@/api/client';
+import { apiBlob, apiRequest, apiText, apiUpload, type PickedFile } from '@/api/client';
 import type {
   AccountCredential, AdminOverview, AuthUser, ClassRequest, ClassStatus, ImportBatch, ImportResult, ImportRow, IncompleteLog, NewAccountInput, NewSchoolInput,
   OutboxItem, SchoolStat, TrashUser, UserFilters, UsersPage,
@@ -70,3 +70,6 @@ export const getSchoolDetail = (token:string,id:number) => apiRequest<import('@/
 export const updateSchool = (token:string,id:number,body:import('@/types/api').SchoolUpdate) => apiRequest<import('@/types/api').SchoolProfile>(`/api/admin/schools/${id}`,{token,method:'PATCH',body});
 export const getClassDirectory = (token:string,f:import('@/types/api').DirectoryFilters) => apiRequest<import('@/types/api').ClassesPage>(`/api/admin/class-directory?${directoryParams(f)}`,{token});
 export const updateDirectoryClass = (token:string,id:number,body:{grade?:number|null;is_active?:boolean}) => apiRequest(`/api/admin/classes/${id}`,{token,method:'PATCH',body});
+
+export const getDashboard = (token:string,f:import('@/types/api').ReportFilters) => apiRequest<import('@/types/api').DashboardReport>(`/api/admin/reports/dashboard?${directoryParams(f)}`,{token});
+export const exportDashboard = (token:string,f:import('@/types/api').ReportFilters) => apiBlob(`/api/admin/reports/export?${directoryParams(f)}`,token);

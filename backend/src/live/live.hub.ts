@@ -407,7 +407,7 @@ export class LiveHub {
     this.db
       .saveLiveSession(
         {
-          teacher_id: room.hostId, class_name: room.className, title: room.title, scope: room.scope, question_count: asked,
+          teacher_id: room.hostId, school_id:room.schoolId, class_name: room.className, title: room.title, scope: room.scope, question_count: asked,
           question_stats: JSON.stringify(room.stats.map((s) => ({ id: s.id, answered: s.answered, correct: s.correct }))),
           started_at: room.startedAt ?? nowIso(), finished_at: nowIso(),
         },

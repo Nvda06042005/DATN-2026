@@ -7,6 +7,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AdminController } from './admin/admin.controller';
 import { MailService } from './admin/mail.service';
 import { SchoolService } from './admin/school.service';
+import { ReportService } from './admin/report.service';
 import { AiController } from './ai/ai.controller';
 import { AiService } from './ai/ai.service';
 import { AppController } from './app.controller';
@@ -28,7 +29,7 @@ import { TeacherController } from './teacher/teacher.controller';
     ScheduleModule.forRoot(),
   ],
   controllers: [AppController, AuthController, AdminController, StudentController, TeacherController, AiController],
-  providers: [SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, ContentService, AiService, StudentService, MailService, SchoolService, LiveHub, LiveGateway],
+  providers: [SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, ContentService, AiService, StudentService, MailService, SchoolService, ReportService, LiveHub, LiveGateway],
 })
 export class AppModule {}
 

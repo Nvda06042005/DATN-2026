@@ -204,3 +204,8 @@ Mục Trường học/Trường của tôi có hồ sơ, liên hệ, số liệu
 Có thêm Khối và lớp (lọc cấp THCS, khối 6–9, trạng thái/duyệt/địa bàn/năm học), Giáo viên và Học sinh.
 Root xem mọi trường; school_admin chỉ trường được gán, kể cả khi sửa query/URL. Migration 009 giữ RLS và dữ liệu hiện có.
 [Chi tiết chức năng và phân quyền](docs/SCHOOL_ADMIN.md). Health database trả schema_version để xác minh migration Production.
+
+Hai cổng luôn hiển thị **Quản trị tổng · Toàn hệ thống** hoặc **Quản trị trường · tên trường được gán**,
+giúp phân biệt tài khoản kể cả trên điện thoại. Mục Dashboard có thống kê trường/khối/lớp/nhân sự,
+so sánh học tập và thi đấu, bộ lọc và xuất Excel `.xlsx` theo đúng phạm vi được cấp.
+[Chi tiết TM.SA-REPORT, cách tính và giới hạn dữ liệu](docs/ADMIN_REPORTS.md).

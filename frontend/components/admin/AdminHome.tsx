@@ -9,10 +9,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FlatList, Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import {
-  AlertTriangle, Check, ClipboardCopy, FileSpreadsheet, KeyRound, LayoutDashboard, Lock, Mail, MapPin, MoreVertical, Printer, School, Search, ShieldCheck, Trash2, Unlock, UserPlus, Users,
+  AlertTriangle, Check, ClipboardCopy, FileSpreadsheet, KeyRound, LayoutDashboard, Lock, Mail, MoreVertical, Printer, School, Search, ShieldCheck, Trash2, Unlock, UserPlus, Users,
 } from 'lucide-react-native';
 import { SecurityHistory, UserDetailSheet } from './AccountSecurity';
 import { ClassDirectory, SchoolsDirectory } from './SchoolManagement';
+import { ReportsDashboard } from './ReportsDashboard';
 import { AdminWorkspace } from './AdminWorkspace';
 import { AdminSelect } from './AdminSelect';
 import * as adminApi from '@/api/adminApi';
@@ -20,8 +21,8 @@ import { ApiError, errorMessage } from '@/api/client';
 import { GradeBadge } from '@/components/art';
 import { PORTAL_PATH, PORTAL_TITLE, ROLE_LABEL, type Session } from '@/components/auth';
 import { ClassReviewPanel, ImportPanel, IncompletePanel, NotificationBell, OutboxPanel, TrashPanel, useFail } from '@/components/provisioning';
-import { AdminUiContext, Avatar, Bar, Btn, Card, Chip, ConfirmSheet, EmptyState, Field, Inset, PressCard, Segmented, Sheet, Skeleton, Spinner, Txt, useToast } from '@/components/ui';
-import { onFill, type Palette } from '@/constants/theme';
+import { AdminUiContext, Avatar, Btn, Card, Chip, ConfirmSheet, EmptyState, Field, Inset, Segmented, Sheet, Spinner, Txt, useToast } from '@/components/ui';
+import { type Palette } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { currentSchoolYear, fmt, formatDateTime, pct, webHref } from '@/lib/format';
 import type { AccountCredential, AdminOverview, AdminUser, AuthRole, Grade, ManagedRole, SchoolStat, UserFilters, UsersPage } from '@/types/api';
@@ -33,7 +34,7 @@ type Modal = null | { kind: 'account'; role?: ManagedRole; schoolId?: number } |
 const GRADES: Grade[] = [6, 7, 8, 9];
 
 const roleChip = (c: Palette, role: AuthRole) =>
-  role === 'root_admin' || role === 'school_admin' ? { bg: c.sonNhat, fg: c.sonChu } : role === 'teacher' ? { bg: c.thongNhat, fg: c.thongChu } : { bg: c.ngocNhat, fg: c.ngocChu };
+  role === 'root_admin' ? { bg: c.sonNhat, fg: c.sonChu } : role === 'school_admin' ? {bg:c.thongNhat,fg:c.thongChu} : role === 'teacher' ? { bg: c.thongNhat, fg: c.thongChu } : { bg: c.ngocNhat, fg: c.ngocChu };
 
 /** Trang đăng nhập ghi trên phiếu: giáo viên, học sinh dùng /portal; quản trị trường dùng cổng riêng */
 const loginUrl = (role: AuthRole) => {
@@ -97,7 +98,7 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
 
   const nav: Array<{ id: AdminTab; label: string; icon: IconType; color: string; count?: number }> = [
     { id: 'users', label: 'Tài khoản', icon: Users, color: c.son },
-    { id: 'overview', label: 'Tổng quan', icon: LayoutDashboard, color: c.son },
+    { id: 'overview', label: system ? 'Dashboard hệ thống' : 'Dashboard trường', icon: LayoutDashboard, color: c.son },
     { id: 'schools', label: system ? 'Trường học' : 'Trường của tôi', icon: School, color: c.thuy, count: system ? ov?.schools : undefined },
     { id: 'class_directory', label: 'Khối và lớp', icon: School, color: c.son },
     { id: 'teachers', label: 'Giáo viên', icon: Users, color: c.son },
@@ -152,7 +153,7 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
   const body = () => {
     switch (tab) {
       case 'overview':
-        return <Overview ov={ov} system={system} onUsers={openUsers} go={setTab} />;
+        return <ReportsDashboard session={session} schools={schools} reloadKey={reloadKey} overview={ov} onNavigate={setTab}/>;
       case 'schools':
         return <SchoolsDirectory session={session} reloadKey={reloadKey} onUsers={openUsers} onCreateTeacher={id => setModal({kind:'account',role:'teacher',schoolId:id})} onChanged={loadOverview}/>;
       case 'class_directory':
@@ -189,7 +190,7 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
   const accountNav = <View style={{ paddingBottom: 16 }}><Segmented label="Tài khoản và bảo mật" options={[{ value: 'accounts' as const, label: 'Tài khoản' }, { value: 'login' as const, label: 'Lịch sử đăng nhập' }, { value: 'audit' as const, label: 'Nhật ký thao tác' }]} value={accountsView} onChange={setAccountsView} /></View>;
   return (
     <AdminUiContext.Provider value>
-      <AdminWorkspace session={session} nav={nav} active={tab} onSelect={next => { if (['users','teachers','students'].includes(next)) setPreset(p => ({key:p.key+1,filters:{}})); setTab(next); }} extra={system ? undefined : <NotificationBell session={session} />}>
+      <AdminWorkspace session={session} schoolName={mySchool?.name} schoolCount={ov?.schools} nav={nav} active={tab} onSelect={next => { if (['users','teachers','students'].includes(next)) setPreset(p => ({key:p.key+1,filters:{}})); setTab(next); }} extra={system ? undefined : <NotificationBell session={session} />}>
         {['users','teachers','students'].includes(tab) ? tab !== 'users' || accountsView === 'accounts' ? (
           <UsersTab key={`${tab}:${preset.key}`} session={session} system={system} schools={schools} preset={preset.filters} reloadKey={reloadKey} audience={tab === 'teachers' ? 'teacher' : tab === 'students' ? 'student' : undefined} header={<>{header}{tab === 'users' && accountNav}</>} onCreate={() => setModal({ kind: 'account',role:tab === 'teachers' ? 'teacher' : tab === 'students' ? 'student' : undefined })} onCreateAdmin={() => setModal({ kind: 'account', role: 'school_admin' })} onCred={showCred} onChanged={refresh} />
         ) : (
@@ -219,193 +220,13 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
           onClose={() => setModal(null)}
           onCreated={(s) => {
             toast(`Đã thêm trường ${s.name}`);
-            loadOverview();
+            refresh();
             setModal({ kind: 'account', role: 'school_admin', schoolId: s.id });
           }}
         />
       )}
       {cred && <CredentialsSheet title={cred.title} cred={cred.item} onClose={() => setCred(null)} />}
     </AdminUiContext.Provider>
-  );
-};
-
-// ---------------------------------------------------------------------- tổng quan
-const Overview: React.FC<{ ov: AdminOverview | null; system: boolean; onUsers: (f: UserFilters) => void; go: (t: AdminTab) => void }> = ({ ov, system, onUsers, go }) => {
-  const { c } = useTheme();
-  const { width } = useWindowDimensions();
-  if (!ov) {
-    return (
-      <View style={{ gap: 12 }}>
-        <Skeleton height={170} radius={26} />
-        <Skeleton height={90} />
-        <Skeleton height={120} />
-      </View>
-    );
-  }
-  const people = ov.teachers + ov.students;
-  const activated = Math.max(0, people - ov.pending_first_login);
-  const school = system ? null : ov.per_school[0];
-  const tiles: Array<{ label: string; value: number; icon: IconType; color: string }> = system
-    ? [
-        { label: 'Trường', value: ov.schools, icon: School, color: c.thuy },
-        { label: 'Giáo viên', value: ov.teachers, icon: Users, color: c.thong },
-        { label: 'Học sinh', value: ov.students, icon: Users, color: c.ngoc },
-        { label: 'Chưa gán trường', value: ov.unassigned, icon: AlertTriangle, color: c.dong },
-      ]
-    : [
-        { label: 'Giáo viên', value: ov.teachers, icon: Users, color: c.thong },
-        { label: 'Học sinh', value: ov.students, icon: Users, color: c.ngoc },
-        { label: 'Quản trị trường', value: school?.admins ?? 0, icon: ShieldCheck, color: c.dong },
-        { label: 'Chưa đăng nhập lần đầu', value: ov.pending_first_login, icon: KeyRound, color: c.hoa },
-      ];
-  const quests: Array<{ id: AdminTab; label: string; value: number; icon: IconType; color: string }> = [
-    { id: 'classes', label: 'Lớp chờ duyệt', value: ov.pending_classes, icon: Check, color: c.vang },
-    { id: 'import', label: 'Dòng Excel thiếu thông tin', value: ov.incomplete, icon: FileSpreadsheet, color: c.dong },
-    { id: 'mail', label: 'Thư đang chờ / lỗi', value: ov.outbox.queued + ov.outbox.sending + ov.outbox.failed, icon: Mail, color: c.thuy },
-    { id: 'trash', label: 'Tài khoản trong thùng rác', value: ov.trash, icon: Trash2, color: c.son },
-  ];
-  return (
-    <View style={{ gap: 16 }}>
-      <Card pad={24} style={{ gap: 12 }}>
-        <View style={{ flexDirection: width >= 760 ? 'row' : 'column', alignItems: width >= 760 ? 'center' : 'flex-start', gap: 16 }}>
-          <View style={{ flex: 1, gap: 8, alignSelf: 'stretch' }}>
-            <Chip text={system ? 'QUẢN TRỊ TỔNG · TOÀN HỆ THỐNG' : `QUẢN TRỊ TRƯỜNG · MÃ ${school?.school_code ?? '—'}`} bg={c.adminTint} fg={c.son} />
-            <Txt f="displayHeavy" size={28} color={c.muc}>
-              {system ? `${fmt(ov.schools)} trường đang tham gia` : (school?.name ?? 'Trường của bạn')}
-            </Txt>
-            <Txt f="semibold" color={c.muc2}>
-              {fmt(ov.teachers)} giáo viên · {fmt(ov.students)} học sinh
-              {!system && school?.city ? ` · ${school.city}` : ''}
-            </Txt>
-            <View style={{ gap: 4, marginTop: 4 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Txt f="bold" size={13} color={c.muc2}>
-                  Tài khoản đã kích hoạt
-                </Txt>
-                <Txt f="display" size={14} color={c.muc} style={{ fontVariant: ['tabular-nums'] }}>
-                  {fmt(activated)}/{fmt(people)}
-                </Txt>
-              </View>
-              <Bar value={activated} max={people} height={16} fill={c.son} label={`Đã kích hoạt ${activated} trên ${people} tài khoản`} style={{ backgroundColor: c.adminCanvas }} />
-            </View>
-          </View>
-        </View>
-      </Card>
-
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-        {tiles.map((t) => {
-          const Icon = t.icon;
-          return (
-            <Card key={t.label} style={{ flexGrow: 1, flexBasis: 150, gap: 6 }} pad={14}>
-              <View style={{ width: 42, height: 42, borderRadius: 6, backgroundColor: c.adminTint, alignItems: 'center', justifyContent: 'center' }}>
-                <Icon size={22} color={c.son} />
-              </View>
-              <Txt f="displayHeavy" size={26} accessibilityLabel={`${t.label}: ${t.value}`}>
-                {fmt(t.value)}
-              </Txt>
-              <Txt f="bold" size={12} color={c.muc2}>
-                {t.label}
-              </Txt>
-            </Card>
-          );
-        })}
-      </View>
-
-      <Card style={{ gap: 12 }}>
-        <Txt f="display" size={19} accessibilityRole="header">
-          Học sinh theo khối
-        </Txt>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          {GRADES.map((g) => (
-            <PressCard key={g} label={`Xem học sinh khối ${g}`} onPress={() => onUsers({ role: 'student', grade: g })} pad={12} style={{ flexGrow: 1, flexBasis: 140 }}>
-              <GradeBadge grade={g} size={42} count={ov.grades[g] ?? 0} />
-            </PressCard>
-          ))}
-        </View>
-      </Card>
-
-      <View style={{ gap: 10 }}>
-        <Txt f="display" size={19} accessibilityRole="header">
-          Nhiệm vụ cần xử lý
-        </Txt>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          {quests.map((q) => {
-            const Icon = q.icon;
-            const done = q.value === 0;
-            return (
-              <PressCard key={q.id} label={`${q.label}: ${q.value}`} onPress={() => go(q.id)} pad={12} style={{ flexGrow: 1, flexBasis: 220, flexDirection: 'row', alignItems: 'center', gap: 12, opacity: done ? 0.75 : 1 }}>
-                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: done ? c.giay2 : q.color, alignItems: 'center', justifyContent: 'center' }}>
-                  {done ? <Check size={20} color={c.ngocChu} /> : <Icon size={20} color={onFill(c, q.color)} />}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Txt f="displayHeavy" size={20}>
-                    {fmt(q.value)}
-                  </Txt>
-                  <Txt f="bold" size={12} color={c.muc2}>
-                    {q.label}
-                  </Txt>
-                </View>
-              </PressCard>
-            );
-          })}
-        </View>
-      </View>
-
-      {system && (
-        <View style={{ gap: 10 }}>
-          <Txt f="display" size={19} accessibilityRole="header">
-            Học sinh từng khối theo trường
-          </Txt>
-          {ov.per_school.length === 0 ? (
-            <EmptyState title="Chưa có trường nào" text="Thêm trường, hoặc nhập file Excel mẫu: trường mới được tạo từ cột Trường và Mã số trường." />
-          ) : (
-            ov.per_school.map((s) => <SchoolCard key={s.id} s={s} onPress={() => onUsers({ school_id: s.id })} />)
-          )}
-        </View>
-      )}
-
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-        <Chip text={ov.features.rls_school_scope ? 'Phân quyền dữ liệu theo trường (RLS): bật' : 'RLS theo trường: chưa bật trên CSDL này'} bg={ov.features.rls_school_scope ? c.ngocNhat : c.dongNhat} fg={ov.features.rls_school_scope ? c.ngocChu : c.dongChu} />
-        <Chip text={ov.features.pgvector ? 'Đối chiếu nhập lại: pgvector' : 'Đối chiếu nhập lại: so khớp dự phòng'} bg={c.thuyNhat} fg={c.thuyChu} />
-        <Chip text={ov.features.smtp ? 'Gửi thư: đã cấu hình' : 'Gửi thư: chưa cấu hình SMTP'} bg={ov.features.smtp ? c.ngocNhat : c.dongNhat} fg={ov.features.smtp ? c.ngocChu : c.dongChu} />
-      </View>
-    </View>
-  );
-};
-
-const SchoolCard: React.FC<{ s: SchoolStat; onPress: () => void; children?: React.ReactNode }> = ({ s, onPress, children }) => {
-  const { c } = useTheme();
-  return (
-    <Card pad={14} style={{ gap: 10 }}>
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${s.name}: ${s.teachers} giáo viên, ${s.students} học sinh. Xem tài khoản`} style={{ gap: 10 }}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-          <View style={{ minWidth: 56, height: 44, paddingHorizontal: 8, borderRadius: 12, backgroundColor: c.thuy, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 4, borderBottomColor: 'rgba(0,0,0,0.2)' }}>
-            <Txt f="display" size={14} color="#ffffff">
-              {s.school_code}
-            </Txt>
-          </View>
-          <View style={{ flex: 1, minWidth: 180 }}>
-            <Txt f="bold">{s.name}</Txt>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <MapPin size={12} color={c.muc3} />
-              <Txt size={12} color={c.muc2} numberOfLines={1}>
-                {[s.region, s.city].filter(Boolean).join(' · ') || 'Chưa có khu vực'}
-              </Txt>
-            </View>
-          </View>
-          <View style={{ flexDirection: 'row', gap: 4 }}>
-            <Chip text={`${fmt(s.teachers)} GV`} bg={c.thongNhat} fg={c.thongChu} />
-            <Chip text={`${fmt(s.students)} HS`} bg={c.ngocNhat} fg={c.ngocChu} />
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-          {GRADES.map((g) => (
-            <GradeBadge key={g} grade={g} size={26} count={s.grades[g] ?? 0} />
-          ))}
-        </View>
-      </Pressable>
-      {children}
-    </Card>
   );
 };
 

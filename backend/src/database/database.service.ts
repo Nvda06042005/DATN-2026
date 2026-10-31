@@ -77,6 +77,8 @@ export interface Progress {
 }
 
 export interface LiveSessionInput {
+  /** Trusted school of the room at creation; never supplied by an HTTP client. */
+  school_id?: number | null;
   teacher_id: number;
   class_name: string | null;
   title: string;
@@ -434,9 +436,12 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   /** Lưu một trận và kết quả từng học sinh trong cùng một giao dịch */
   async saveLiveSession(session: LiveSessionInput, results: LiveResultInput[]): Promise<number> {
     return this.transaction(async (c) => {
+      const schoolId=session.school_id!==undefined?session.school_id:(await c.query('SELECT school_id FROM app_users WHERE id=$1',[session.teacher_id])).rows[0]?.school_id??null;
+      const candidates=(await c.query('SELECT id,school_year,grade FROM app_classes WHERE school_id=$1 AND teacher_id=$2 AND class_code=$3 AND status=\'APPROVED\' AND is_active',[schoolId,session.teacher_id,session.class_name])).rows;
+      const cls=candidates.length===1?candidates[0]:null;
       const inserted = await c.query(
-        'INSERT INTO app_live_sessions (teacher_id, class_name, title, scope, question_count, player_count, question_stats, started_at, finished_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
-        [session.teacher_id, session.class_name, session.title, session.scope, session.question_count, results.length, session.question_stats, session.started_at, session.finished_at],
+        'INSERT INTO app_live_sessions (teacher_id, class_name, title, scope, question_count, player_count, question_stats, started_at, finished_at, school_id, class_id, school_year, grade) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id',
+        [session.teacher_id, session.class_name, session.title, session.scope, session.question_count, results.length, session.question_stats, session.started_at, session.finished_at,schoolId,cls?.id??null,cls?.school_year??null,cls?.grade??null],
       );
       const sessionId = Number(inserted.rows[0].id);
       for (const r of results) {
@@ -452,7 +457,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   async liveSessionsForTeacher(teacherId: number, limit = 10): Promise<LiveSessionRow[]> {
     const sessions = await this.query<Omit<LiveSessionRow, 'results'>>(
-      'SELECT id, class_name, title, scope, question_count, player_count, question_stats, started_at, finished_at FROM app_live_sessions WHERE teacher_id = $1 ORDER BY finished_at DESC, id DESC LIMIT $2',
+      'SELECT id, class_name, title, scope, question_count, player_count, question_stats, started_at, finished_at FROM app_live_sessions WHERE teacher_id = $1 AND school_id IS NOT DISTINCT FROM (SELECT school_id FROM app_users WHERE id=$1) ORDER BY finished_at DESC, id DESC LIMIT $2',
       [teacherId, limit],
     );
     if (!sessions.length) return [];

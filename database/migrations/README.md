@@ -1,6 +1,6 @@
 # SQL migrations
 
-Thêm file mới theo số thứ tự, ví dụ `010_add_student_badges.sql`.
+Thêm file mới theo số thứ tự, ví dụ `011_add_student_badges.sql`.
 Tạo file bằng lệnh (từ thư mục `backend/`): `npm run build && npm run migrate -- new add_student_badges`.
 
 Không sửa migration đã chạy, không chứa bí mật/dữ liệu tài khoản thật,
@@ -30,3 +30,8 @@ Kiểm chứng trên PostgreSQL tạm bằng `cd backend && npm run build && npm
 Giữ nguyên RLS, chính sách scope, tài khoản và dữ liệu hiện có. Chỉ suy khối từ mã lớp cũ bắt đầu rõ ràng bằng 6–9
 (ví dụ 7A1); các mã khác giữ NULL. `GET /api/database/health` trả thêm `schema_version` đọc từ lịch sử migration,
 để kiểm chứng backend Production đã áp dụng migration mà không cần lộ thông tin kết nối.
+
+`010_reporting_scope.sql`: lưu trường/lớp/năm/khối của trận thi đấu và RLS chỉ đọc theo trường cho
+hai bảng kết quả hiện có. Trận cũ giữ nguyên nội dung/điểm, chỉ gán trường hiện tại của giáo viên;
+không đoán năm học. Trận mới chép ngữ cảnh trường của phòng và năm/khối nếu khớp đúng một lớp.
+Xem [dashboard, bộ lọc và giới hạn số liệu](../../docs/ADMIN_REPORTS.md).

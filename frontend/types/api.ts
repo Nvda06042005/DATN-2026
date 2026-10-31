@@ -529,3 +529,20 @@ export type SchoolUpdate = Partial<Pick<SchoolProfile,'name'|'region'|'city'|'ad
 export interface SchoolsPage { items: SchoolSummary[]; total: number; page: number; limit: number; facets: { regions: string[]; cities: string[] } }
 export interface DirectoryClass { id: number; school_id: number; school_name: string; region: string | null; city: string | null; class_code: string; school_year: string; name: string; grade: number | null; status: ClassStatus; is_active: boolean; school_active: boolean; teacher_id: number; teacher_name: string; education_level: 'THCS'; students: number }
 export interface ClassesPage { items: DirectoryClass[]; total: number; page: number; limit: number; grade_counts: Array<{ grade: number | null; n: number }>; facets: { school_years: string[]; regions: string[]; cities: string[]; education_levels: string[] } }
+
+export interface ReportFilters { school_id?:number;region?:string;city?:string;active?:'true'|'false';school_year?:string }
+export interface ReportStats {
+  schools:number;active_schools:number;inactive_schools:number;grades:number;classes:number;active_classes:number;approved_classes:number;
+  teachers:number;active_teachers:number;assigned_teachers:number;unassigned_teachers:number;students:number;active_students:number;joined_students:number;unjoined_students:number;
+  learning_students:number;completed_students:number;completed_sessions:number;answers:number;correct:number;score_students:number;score_sum:number;
+  competitions:number;participations:number;unique_participants:number;competition_answers:number;competition_correct:number;legacy_competitions:number;
+  completion_rate:number|null;game_participation_rate:number|null;average_score:number|null;accuracy:number|null;competition_accuracy:number|null;
+}
+export interface SchoolReport extends Pick<SchoolProfile,'id'|'school_code'|'name'|'region'|'city'|'is_active'>,ReportStats {}
+export interface DashboardReport {
+  scope:'system'|'school';viewer_role:AuthRole;generated_at:string;filters:ReportFilters;summary:ReportStats;per_school:SchoolReport[];
+  grades:Array<{school_id:number;school_name:string;grade:number;classes:number;students:number}>;
+  class_breakdown:Array<{school_id:number;school_name:string;grade:number|null;school_year:string;classes:number;active_classes:number;approved_classes:number}>;
+  education_levels:Array<{level:string;schools:number;classes:number;students:number}>;unassigned_people:number;excluded_legacy_competitions:number;
+  facets:{regions:string[];cities:string[];school_years:string[]};definitions:string[];
+}

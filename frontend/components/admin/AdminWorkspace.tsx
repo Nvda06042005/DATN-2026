@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { KeyRound, LogOut, Menu, X } from 'lucide-react-native';
+import { KeyRound, LogOut, Menu, ShieldCheck, X } from 'lucide-react-native';
 import { BrandLogo, PatternOverlay } from '@/components/art';
 import { BrandWordmark } from '@/components/brand-wordmark';
 import { ROLE_LABEL, type Session } from '@/components/auth';
@@ -10,9 +10,9 @@ import { useTheme } from '@/hooks/use-theme';
 import { fmt } from '@/lib/format';
 import type { IconType } from '@/types/game';
 
-export function AdminWorkspace<T extends string>({ session, nav, active, onSelect, extra, children }: {
+export function AdminWorkspace<T extends string>({ session, nav, active, onSelect, extra, schoolName, schoolCount, children }: {
   session: Session; nav: Array<{ id: T; label: string; icon: IconType; count?: number }>;
-  active: T; onSelect: (tab: T) => void; extra?: ReactNode; children: ReactNode;
+  active: T; onSelect: (tab: T) => void; extra?: ReactNode; schoolName?:string;schoolCount?:number; children: ReactNode;
 }) {
   const { c } = useTheme();
   const { width } = useWindowDimensions();
@@ -61,6 +61,13 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
           {extra}
           {width >= 680 && <><Avatar name={session.user.full_name} size={34} /><View style={{ maxWidth: 190 }}><Txt f="bold" size={12} numberOfLines={1}>{session.user.full_name}</Txt><Txt size={10} color={c.muc3}>{ROLE_LABEL[session.user.role]}</Txt></View></>}
           <Btn title={width >= 680 ? 'Đăng xuất' : undefined} label="Đăng xuất" icon={LogOut} tone="giay" size="sm" onPress={() => session.logout()} />
+        </View>
+      </View>
+      <View testID="admin-scope" accessibilityLabel="Vai trò và phạm vi quản lý" style={{backgroundColor:session.user.role==='root_admin'?c.adminTint:c.thongNhat,borderBottomWidth:1,borderBottomColor:c.adminLine,paddingHorizontal:wide?24:16,paddingVertical:12,flexDirection:'row',alignItems:'center',gap:12}}>
+        <ShieldCheck size={23} color={session.user.role==='root_admin'?c.son:c.thongChu}/>
+        <View style={{flex:1,minWidth:0,gap:3}}>
+          <Txt f="bold" size={14} color={session.user.role==='root_admin'?c.son:c.thongChu}>{session.user.role==='root_admin'?'Quản trị tổng · Toàn hệ thống':'Quản trị trường · Trường được gán'}</Txt>
+          <Txt size={12} color={c.muc2}>{session.user.role==='root_admin'?`Bạn quản lý mọi trường${schoolCount!==undefined?` (${fmt(schoolCount)} trường)`:''}, bao gồm tài khoản quản trị trường.`:`${schoolName??`Mã trường ${session.user.school_code??'chưa xác định'}`} · Bạn chỉ truy cập dữ liệu của trường này.`}</Txt>
         </View>
       </View>
       <View style={{ flex: 1, flexDirection: 'row', minHeight: 0 }}>

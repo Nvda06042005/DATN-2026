@@ -30,13 +30,13 @@ type Step = 'login' | 'forgot' | 'reset';
 const COPY: Record<AdminPortal, { label: string; placeholder: string; account: string }> = {
   root_admin: {
     label: 'Quản lý tổng',
-    placeholder: 'Tên đăng nhập quản trị',
-    account: 'Tài khoản quản trị tổng được cấu hình khi triển khai hệ thống, không có đăng ký tự do.',
+    placeholder: 'Tên đăng nhập quản trị tổng',
+    account: 'Quản trị tổng xem và quản lý tất cả trường trên nền tảng. Chỉ dùng tài khoản được cấp, không có đăng ký tự do.',
   },
   school_admin: {
     label: 'Quản trị trường',
     placeholder: 'Tên đăng nhập quản trị trường',
-    account: 'Tài khoản quản trị trường do quản trị tổng cấp, không có đăng ký tự do.',
+    account: 'Quản trị trường chỉ truy cập trường được gán. Tài khoản do quản trị tổng cấp, không có đăng ký tự do.',
   },
 };
 
