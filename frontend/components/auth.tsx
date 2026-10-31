@@ -9,17 +9,18 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, View, useWindowDimensions, type TextInputInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AlertTriangle, ChevronLeft, Eye, EyeOff, KeyRound, LogIn, LogOut, Presentation } from 'lucide-react-native';
+import { AlertTriangle, ChevronLeft, Eye, EyeOff, KeyRound, LogIn, LogOut, Presentation, User } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { AdminLogin } from '@/components/admin/AdminLogin';
 import { BrandLogo, KahootShape, Mascot } from '@/components/art';
+import { ProfileSheet } from '@/components/profile';
 import { Avatar, Btn, Card, Chip, Field, Inset, PaperBg, Sheet, Spinner, Txt, useToast } from '@/components/ui';
 import { ANSWER_STYLES, LIVE_BG } from '@/constants/theme';
 import { useShake } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
 import { readToken, saveToken } from '@/lib/storage';
-import type { AuthRole, AuthUser, Portal } from '@/types/api';
+import type { AuthRole, AuthUser, Portal, ProfilePatch } from '@/types/api';
 
 export const PORTAL_PATH: Record<Portal, '/hoc-sinh' | '/giao-vien' | '/admin' | '/school-manager-admin'> = {
   student: '/hoc-sinh',
@@ -240,6 +241,8 @@ const LearnerLogin: React.FC<Omit<LoginProps, 'portal'> & { portal: LearnerPorta
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tries, setTries] = useState(0);
+  const [forgot, setForgot] = useState(false);
+  const [flash, setFlash] = useState<string | null>(null);
   const passwordRef = useRef<TextInputInstance>(null);
   const shake = useShake(error ? tries : null);
 
@@ -315,15 +318,15 @@ const LearnerLogin: React.FC<Omit<LoginProps, 'portal'> & { portal: LearnerPorta
                 {theme.sub}
               </Txt>
             </View>
-            {notice && (
+            {(notice || flash) && (
               <Inset style={{ backgroundColor: c.thuyNhat }}>
                 <Txt f="bold" size={14} color={c.thuyChu} accessibilityLiveRegion="polite">
-                  {notice}
+                  {flash ?? notice}
                 </Txt>
               </Inset>
             )}
             <Field
-              label="Tên đăng nhập"
+              label="Tên đăng nhập, email hoặc mã học sinh"
               nativeID="login-username"
               value={username}
               onChangeText={setUsername}
@@ -379,8 +382,11 @@ const LearnerLogin: React.FC<Omit<LoginProps, 'portal'> & { portal: LearnerPorta
                 <Txt f="bold" size={14}>
                   Quên mật khẩu?{' '}
                 </Txt>
-                Nhờ quản trị viên đặt lại mật khẩu tạm.
+                Nhận mã xác thực qua email, hoặc nhờ quản trị viên đặt lại.
               </Txt>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+                <Btn tone="ghost" size="sm" title="Quên mật khẩu? Nhận mã qua email" onPress={() => setForgot(true)} testID="forgot-open" />
+              </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
                 {others.map((p) => (
                   <Btn key={p} tone="ghost" size="sm" title={p === 'student' ? 'Em là học sinh? →' : 'Bạn là giáo viên? →'} onPress={() => router.replace(PORTAL_PATH[p])} />
@@ -390,7 +396,95 @@ const LearnerLogin: React.FC<Omit<LoginProps, 'portal'> & { portal: LearnerPorta
           </View>
         </Animated.ScrollView>
       </View>
+      {forgot && (
+        <ForgotPasswordSheet
+          onClose={() => setForgot(false)}
+          onDone={() => {
+            setForgot(false);
+            setFlash('Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.');
+          }}
+        />
+      )}
     </View>
+  );
+};
+
+// ---------------------------------------------------------------------- quên mật khẩu bằng OTP (giáo viên, học sinh; HK.HS.005, HK.GV.002)
+/** Hai bước trong một cửa sổ: nhập tên/email để nhận mã 6 chữ số (5 phút), rồi nhập mã và mật khẩu mới */
+const ForgotPasswordSheet: React.FC<{ onClose: () => void; onDone: () => void }> = ({ onClose, onDone }) => {
+  const { c } = useTheme();
+  const [step, setStep] = useState<'ask' | 'code'>('ask');
+  const [identifier, setIdentifier] = useState('');
+  const [otp, setOtp] = useState('');
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [show, setShow] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const ask = async () => {
+    if (!identifier.trim()) return setError('Hãy nhập tên đăng nhập, email hoặc mã học sinh của em.');
+    setLoading(true);
+    setError(null);
+    try {
+      await authApi.requestPasswordReset(identifier.trim());
+      setStep('code');
+    } catch (err) {
+      setError(errorMessage(err, 'Chưa gửi được mã. Hãy thử lại sau.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+  const submit = async () => {
+    if (!/^\d{6}$/.test(otp)) return setError('Mã xác thực gồm 6 chữ số trong thư.');
+    if (next.length < 8 || !/\p{L}/u.test(next) || !/\p{N}/u.test(next)) return setError('Mật khẩu mới tối thiểu 8 ký tự, gồm cả chữ và số.');
+    if (next !== confirm) return setError('Mật khẩu nhập lại chưa khớp.');
+    setLoading(true);
+    setError(null);
+    try {
+      await authApi.resetPassword(identifier.trim(), otp, next);
+      onDone();
+    } catch (err) {
+      setError(errorMessage(err, 'Chưa đặt lại được mật khẩu.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      title="Quên mật khẩu"
+      subtitle={step === 'ask' ? 'Mã xác thực được gửi tới email đã khai báo trong hồ sơ' : 'Mã có hiệu lực 5 phút và chỉ dùng được một lần'}
+      footer={
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+          <Btn title="Đóng" tone="giay" onPress={onClose} />
+          {step === 'code' && <Btn title="Gửi lại mã" tone="giay" onPress={() => { setStep('ask'); setOtp(''); setError(null); }} />}
+          <Btn title={step === 'ask' ? 'Gửi mã xác thực' : 'Lưu mật khẩu'} tone="ngoc" loading={loading} onPress={step === 'ask' ? ask : submit} testID="forgot-submit" />
+        </View>
+      }
+    >
+      {error && (
+        <Inset style={{ backgroundColor: c.sonNhat }}>
+          <Txt f="bold" size={14} color={c.sonChu} accessibilityRole="alert">{error}</Txt>
+        </Inset>
+      )}
+      {step === 'ask' ? (
+        <>
+          <Txt size={14} color={c.muc2}>Nhập tên đăng nhập, email hoặc mã học sinh. Nếu tài khoản có email, mã xác thực 6 chữ số sẽ được gửi tới đó. Chưa có email trong hồ sơ thì nhờ quản trị viên nhà trường đặt lại mật khẩu.</Txt>
+          <Field label="Tên đăng nhập, email hoặc mã học sinh" nativeID="forgot-identifier" value={identifier} onChangeText={setIdentifier} autoCapitalize="none" autoCorrect={false} returnKeyType="send" onSubmitEditing={ask} autoFocus={Platform.OS === 'web'} />
+        </>
+      ) : (
+        <>
+          <Txt size={14} color={c.muc2}>Nếu thông tin khớp với một tài khoản có email, mã đã được gửi (xem cả mục thư rác). Nhập mã và đặt mật khẩu mới; các phiên đăng nhập cũ sẽ bị đăng xuất.</Txt>
+          <Field label="Mã xác thực" nativeID="forgot-otp" value={otp} onChangeText={(v) => setOtp(v.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" autoComplete="one-time-code" autoFocus={Platform.OS === 'web'} />
+          <Field label="Mật khẩu mới (tối thiểu 8 ký tự, có chữ và số)" nativeID="forgot-new" value={next} onChangeText={setNext} secureTextEntry={!show} autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" />
+          <Field label="Nhập lại mật khẩu mới" nativeID="forgot-confirm" value={confirm} onChangeText={setConfirm} secureTextEntry={!show} autoCapitalize="none" autoComplete="new-password" returnKeyType="done" onSubmitEditing={submit} />
+          <Btn tone="ghost" size="sm" icon={show ? EyeOff : Eye} title={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} onPress={() => setShow((v) => !v)} selected={show} />
+        </>
+      )}
+    </Sheet>
   );
 };
 
@@ -420,7 +514,7 @@ const ChangePasswordForm: React.FC<ChangePasswordProps> = ({ user, token, forced
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
-    if (next.length < 6) return setError('Mật khẩu mới cần ít nhất 6 ký tự.');
+    if (next.length < 8 || !/\p{L}/u.test(next) || !/\p{N}/u.test(next)) return setError('Mật khẩu mới tối thiểu 8 ký tự, gồm cả chữ và số.');
     if (next !== confirm) return setError('Mật khẩu nhập lại chưa khớp.');
     if (next === current) return setError('Mật khẩu mới phải khác mật khẩu hiện tại.');
     setLoading(true);
@@ -457,7 +551,7 @@ const ChangePasswordForm: React.FC<ChangePasswordProps> = ({ user, token, forced
         </View>
       )}
       <Field label={forced ? 'Mật khẩu mặc định được cấp' : 'Mật khẩu hiện tại'} nativeID="cp-current" value={current} onChangeText={setCurrent} secureTextEntry={!show} autoCapitalize="none" autoComplete="current-password" />
-      <Field label="Mật khẩu mới (tối thiểu 6 ký tự)" nativeID="cp-new" value={next} onChangeText={setNext} secureTextEntry={!show} autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" />
+      <Field label="Mật khẩu mới (tối thiểu 8 ký tự, có chữ và số)" nativeID="cp-new" value={next} onChangeText={setNext} secureTextEntry={!show} autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" />
       <Field label="Nhập lại mật khẩu mới" nativeID="cp-confirm" value={confirm} onChangeText={setConfirm} secureTextEntry={!show} autoCapitalize="none" autoComplete="new-password" returnKeyType="done" onSubmitEditing={submit} />
       <Btn tone="ghost" size="sm" icon={show ? EyeOff : Eye} title={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} onPress={() => setShow((v) => !v)} selected={show} />
       {error && (
@@ -482,6 +576,9 @@ export const TopBar: React.FC<{ session: Session; subtitle: string; extra?: Reac
   const { width } = useWindowDimensions();
   const { user } = session;
   const isAdmin = user.role === 'root_admin' || user.role === 'school_admin';
+  const [profile, setProfile] = useState(false);
+  const loadProfile = useCallback(() => authApi.getProfile(session.token), [session.token]);
+  const saveProfile = useCallback((patch: ProfilePatch) => authApi.updateProfile(session.token, patch), [session.token]);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: c.the, borderBottomWidth: 2, borderBottomColor: c.vien }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
@@ -506,9 +603,11 @@ export const TopBar: React.FC<{ session: Session; subtitle: string; extra?: Reac
             </Txt>
           </View>
         )}
+        <Btn tone="giay" size="sm" icon={User} label="Hồ sơ cá nhân" onPress={() => setProfile(true)} testID="open-profile" />
         <Btn tone="giay" size="sm" icon={KeyRound} label="Đổi mật khẩu" onPress={session.changePassword} />
         <Btn tone="giay" size="sm" icon={LogOut} title={width >= 520 ? 'Đăng xuất' : undefined} label="Đăng xuất" onPress={() => session.logout()} />
       </View>
+      {profile && <ProfileSheet onClose={() => setProfile(false)} load={loadProfile} save={saveProfile} onSaved={session.updateUser} />}
     </View>
   );
 };

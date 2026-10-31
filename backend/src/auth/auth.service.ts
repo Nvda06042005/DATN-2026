@@ -1,10 +1,9 @@
-import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, ServiceUnavailableException, UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { createHash, randomBytes, randomUUID } from 'crypto';
+import { createHash, randomInt, randomUUID } from 'crypto';
 import { MailService } from '../admin/mail.service';
 import { SecurityService } from './security.service';
-import { config } from '../config';
-import { DatabaseService, Role, UserRow } from '../database/database.service';
+import { DatabaseService, Role, searchText, UserRow } from '../database/database.service';
 import { hashPassword, needsPasswordUpgrade, passwordFingerprint, verifyPassword } from './passwords';
 
 export type PublicUser = Omit<UserRow, 'password_hash' | 'token_version'>;
@@ -30,19 +29,30 @@ function wrongPortal(role: Role, portal: Portal): string {
     : 'Đây là tài khoản học sinh – hãy đăng nhập tại trang học sinh (/hoc-sinh).';
 }
 
-/** Chống dò mật khẩu: khóa tạm 60 giây sau 5 lần sai liên tiếp */
+/** Chống dò mật khẩu (HK.*.001): khóa tạm 15 phút sau 5 lần sai liên tiếp, tính theo tài khoản dù đăng nhập bằng tên, email hay mã */
 const MAX_FAILS = 5;
-const LOCK_MS = 60_000;
+const LOCK_MS = 15 * 60_000;
 
-/** Quên mật khẩu: liên kết sống 30 phút; mỗi tên đăng nhập/email chỉ được yêu cầu 3 lần trong 15 phút (quá số lần vẫn trả lời như bình thường) */
-const RESET_TTL_MIN = 30;
+/** Quên mật khẩu (HK.*.005): mã OTP 6 chữ số hiệu lực 5 phút; mỗi tên đăng nhập/email chỉ được yêu cầu 3 lần trong 15 phút (quá số lần vẫn trả lời như bình thường) */
+const OTP_TTL_MIN = 5;
 const RESET_MAX_ASKS = 3;
 const RESET_WINDOW_MS = 15 * 60_000;
 const RESET_MAP_LIMIT = 5000;
-/** Trang chứa biểu mẫu đặt lại mật khẩu (mở bằng ?reset=<mã>) */
-const RESET_PATH: Record<'root_admin' | 'school_admin', string> = { root_admin: '/admin', school_admin: '/school-manager-admin' };
+const ALL_ROLES: Role[] = ['root_admin', 'school_admin', 'teacher', 'student'];
+const OTP_INVALID = 'Mã xác thực không đúng hoặc đã hết hạn. Hãy yêu cầu mã mới.';
 
 const hashToken = (token: string): string => createHash('sha256').update(token).digest('hex');
+/** Băm OTP kèm id tài khoản để cùng một mã của hai người không trùng giá trị lưu */
+const hashOtp = (userId: number, otp: string): string => hashToken(`${userId}:${otp}`);
+
+/** Trường hồ sơ mỗi vai trò được tự sửa (HK.HS.010, HK.GV.006, HK.QT.005, HK.AD.005); họ tên, lớp, email học sinh/giáo viên do quản trị quản lý */
+const PROFILE_FIELDS: Record<Role, string[]> = {
+  student: ['nickname', 'avatar_url', 'bio'],
+  teacher: ['phone', 'avatar_url', 'bio'],
+  school_admin: ['full_name', 'email', 'phone', 'avatar_url'],
+  root_admin: ['full_name', 'email', 'phone', 'avatar_url'],
+};
+const FIELD_LABEL: Record<string, string> = { full_name: 'họ tên', email: 'email', phone: 'số điện thoại', avatar_url: 'ảnh đại diện', bio: 'giới thiệu', nickname: 'biệt danh' };
 
 @Injectable()
 export class AuthService {
@@ -78,22 +88,24 @@ export class AuthService {
     return user;
   }
 
-  private checkLock(username: string): void {
-    const entry = this.failed.get(username);
+  private checkLock(key: string): void {
+    const entry = this.failed.get(key);
     if (!entry || entry.fails < MAX_FAILS) return;
     const elapsed = Date.now() - entry.since;
     if (elapsed < LOCK_MS) {
-      throw new HttpException(`Sai quá nhiều lần. Thử lại sau ${Math.floor((LOCK_MS - elapsed) / 1000) + 1} giây.`, HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(`Sai quá nhiều lần. Thử lại sau ${Math.ceil((LOCK_MS - elapsed) / 60_000)} phút.`, HttpStatus.TOO_MANY_REQUESTS);
     }
-    this.failed.delete(username);
+    this.failed.delete(key);
   }
 
   async login(rawUsername: string, password: string, portal: Portal) {
     const username = rawUsername.trim().toLowerCase();
-    const user = await this.db.getByUsername(username);
-    try { this.checkLock(username); } catch (error) { await this.security.login(user, username, portal, 'rate_limit'); throw error; }
+    const user = await this.db.findForLogin(username);
+    // Khóa theo tài khoản (không theo chuỗi gõ) để đổi qua lại giữa tên đăng nhập, email và mã không né được giới hạn
+    const lockKey = user ? `u${user.id}` : `n:${username}`;
+    try { this.checkLock(lockKey); } catch (error) { await this.security.login(user, username, portal, 'rate_limit'); throw error; }
     if (!user || !(await verifyPassword(password, user.password_hash))) {
-      this.failed.set(username, { fails: (this.failed.get(username)?.fails ?? 0) + 1, since: Date.now() });
+      this.failed.set(lockKey, { fails: (this.failed.get(lockKey)?.fails ?? 0) + 1, since: Date.now() });
       await this.security.login(user, username, portal, 'credentials');
       throw new UnauthorizedException('Sai tên đăng nhập hoặc mật khẩu');
     }
@@ -101,7 +113,7 @@ export class AuthService {
     if (!user.is_active) { await this.security.login(user, username, portal, 'locked'); throw new ForbiddenException('Tài khoản đã bị khóa. Liên hệ quản trị viên.'); }
     if (!(await this.db.schoolActive(user.school_id))) { await this.security.login(user, username, portal, 'locked'); throw new ForbiddenException('Trường đang tạm ngưng hoạt động. Liên hệ quản trị tổng.'); }
     if (!ALLOWED[portal].includes(user.role)) { await this.security.login(user, username, portal, 'portal'); throw new ForbiddenException(wrongPortal(user.role, portal)); }
-    this.failed.delete(username);
+    this.failed.delete(lockKey);
     const upgraded = needsPasswordUpgrade(user.password_hash) && Buffer.byteLength(password, 'utf8') <= 72 ? await hashPassword(password) : null;
     const fresh = await this.db.tx(async q => {
       const rows = await q('SELECT id FROM app_users WHERE id = $1 FOR UPDATE', [user.id]);
@@ -149,30 +161,57 @@ export class AuthService {
   }
 
   /**
-   * Quên mật khẩu (TM.AUTH.007): gửi liên kết đặt lại tới email của tài khoản quản trị. Luôn trả lời giống nhau dù tài khoản có tồn tại hay
-   * không (không lộ tài khoản nào có thật); phần tạo mã và gửi thư chạy nền để thời gian trả lời không tiết lộ điều đó.
+   * Quên mật khẩu (HK.*.005), mọi vai trò: gửi mã OTP 6 chữ số tới email đã khai báo của tài khoản. Luôn trả lời giống nhau dù tài khoản có
+   * tồn tại hay không (không lộ tài khoản nào có thật); phần tạo mã và gửi thư chạy nền để thời gian trả lời không tiết lộ điều đó.
    */
-  async forgotPassword(identifier: string, portal: 'root_admin' | 'school_admin'): Promise<void> {
-    if (!this.mail.configured) throw new ServiceUnavailableException('Máy chủ chưa cấu hình gửi thư nên chưa gửi được liên kết đặt lại mật khẩu. Hãy liên hệ người quản lý hệ thống.');
+  async forgotPassword(identifier: string): Promise<void> {
+    if (!this.mail.configured) throw new ServiceUnavailableException('Máy chủ chưa cấu hình gửi thư nên chưa gửi được mã xác thực. Hãy liên hệ người quản lý hệ thống.');
     const key = identifier.trim().toLowerCase();
     if (!key || this.tooManyResets(key)) return;
-    const user = await this.db.findForPasswordReset(key, ALLOWED[portal]);
-    if (user?.email) void this.issueReset(user, user.email, portal).catch(() => this.logger.warn('Không gửi được thư đặt lại mật khẩu'));
+    const user = await this.db.findForPasswordReset(key, ALL_ROLES);
+    if (user?.email) void this.issueOtp(user, user.email).catch(() => this.logger.warn('Không gửi được thư mã xác thực'));
   }
 
-  private async issueReset(user: UserRow, email: string, portal: 'root_admin' | 'school_admin'): Promise<void> {
-    const token = randomBytes(32).toString('base64url');
-    await this.db.createPasswordReset(user.id, hashToken(token), RESET_TTL_MIN);
-    await this.mail.sendPasswordReset(email, user.full_name, `${config.appUrl}${RESET_PATH[portal]}?reset=${token}`, RESET_TTL_MIN);
+  private async issueOtp(user: UserRow, email: string): Promise<void> {
+    const otp = String(randomInt(0, 1_000_000)).padStart(6, '0');
+    await this.db.createPasswordReset(user.id, hashOtp(user.id, otp), OTP_TTL_MIN);
+    await this.mail.sendPasswordOtp(email, user.full_name, otp, OTP_TTL_MIN);
   }
 
-  /** Đặt mật khẩu mới bằng mã trong thư: mã dùng được một lần; các phiên đăng nhập cũ mất hiệu lực vì dấu vân tay mật khẩu đổi */
-  async resetPassword(token: string, newPassword: string): Promise<void> {
+  /** Đặt mật khẩu mới bằng OTP: mã dùng một lần, sai quá 5 lần thì bị vô hiệu; các phiên đăng nhập cũ mất hiệu lực vì dấu vân tay mật khẩu đổi */
+  async resetPassword(identifier: string, otp: string, newPassword: string): Promise<void> {
     const passwordHash = await hashPassword(newPassword);
-    const userId = await this.db.consumePasswordReset(hashToken(token));
-    const user = userId === null ? null : await this.db.getById(userId);
-    if (!user || !user.is_active || user.deleted_at) throw new BadRequestException('Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Hãy yêu cầu liên kết mới.');
+    const user = await this.db.findForPasswordReset(identifier.trim().toLowerCase(), ALL_ROLES);
+    if (!user || !(await this.db.consumePasswordOtp(user.id, hashOtp(user.id, otp)))) throw new BadRequestException(OTP_INVALID);
     await this.db.setPassword(user.id, passwordHash, false);
-    this.failed.delete(user.username);
+    this.failed.delete(`u${user.id}`);
+  }
+
+  // ------------------------------------------------------------------ hồ sơ cá nhân
+  /** Hồ sơ của chính người dùng: thông tin cá nhân, trường, các lớp (giáo viên: lớp phụ trách; học sinh: lớp đã tham gia) */
+  async profile(user: UserRow) {
+    const school = user.school_id ? (await this.db.query('SELECT id, school_code, name FROM app_schools WHERE id = $1', [user.school_id]))[0] ?? null : null;
+    const classes = user.role === 'teacher'
+      ? await this.db.query('SELECT id, class_code, name, school_year, is_active FROM app_classes WHERE teacher_id = $1 AND school_id = $2 ORDER BY school_year DESC, class_code', [user.id, user.school_id])
+      : user.role === 'student'
+        ? await this.db.query('SELECT c.id, c.class_code, c.name, c.school_year, c.is_active FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = $1 ORDER BY c.school_year DESC, c.class_code', [user.id])
+        : [];
+    return { user: toPublic(user), school, classes, editable: PROFILE_FIELDS[user.role] };
+  }
+
+  /** Tự sửa hồ sơ trong các trường vai trò được phép; trường khác bị từ chối rõ ràng thay vì bỏ qua âm thầm */
+  async updateProfile(user: UserRow, patch: Record<string, string | null | undefined>) {
+    const allowed = PROFILE_FIELDS[user.role];
+    const entries = Object.entries(patch).filter(([, v]) => v !== undefined) as Array<[string, string | null]>;
+    for (const [key] of entries) if (!allowed.includes(key)) throw new UnprocessableEntityException(`Bạn không tự sửa được ${FIELD_LABEL[key] ?? key}; hãy nhờ quản trị viên.`);
+    const clean = entries.map(([k, v]) => [k, typeof v === 'string' ? (v.trim().replace(/\s+/g, ' ') || null) : null] as [string, string | null]);
+    if (clean.some(([k, v]) => k === 'full_name' && v === null)) throw new UnprocessableEntityException('Họ tên không được để trống');
+    if (clean.length) {
+      const sets = clean.map(([k], i) => `${k} = $${i + 2}`);
+      await this.db.query(`UPDATE app_users SET ${sets.join(', ')} WHERE id = $1`, [user.id, ...clean.map(([, v]) => v)]);
+      const fresh = (await this.db.getById(user.id))!;
+      await this.db.query('UPDATE app_users SET search_text = $1 WHERE id = $2', [searchText(fresh.full_name, fresh.username, fresh.user_code, fresh.email, fresh.class_name), user.id]);
+    }
+    return this.profile((await this.db.getById(user.id))!);
   }
 }

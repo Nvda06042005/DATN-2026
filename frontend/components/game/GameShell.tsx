@@ -8,7 +8,9 @@ import { AppState, Platform, Pressable, ScrollView, View, useColorScheme, useWin
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { ChevronLeft, ChevronRight, DoorOpen, Flame, Gamepad2, HelpCircle, KeyRound, LogOut, Medal, Monitor, Moon, RefreshCw, Shield, Sparkles, Stamp, Sun, Timer, Volume2, VolumeX, Wheat } from 'lucide-react-native';
+import * as authApi from '@/api/authApi';
 import * as studentApi from '@/api/studentApi';
+import { ProfileForm } from '@/components/profile';
 import { ApiError, errorMessage } from '@/api/client';
 import { BrandLogo, GradeBadge, Mascot, type MascotAccessory, type MascotMood } from '@/components/art';
 import type { Session } from '@/components/auth';
@@ -31,7 +33,7 @@ import { fmt, shortName } from '@/lib/format';
 import { finalizeUpgrades, levelOf, levelXp, restoreGameState, todayKey } from '@/lib/game-state';
 import { playTone } from '@/lib/sound';
 import { readLiveRoom } from '@/lib/storage';
-import type { AnswerPayload, CodexEntry, LeaderboardEntry, LearnerProgress, QuestionRequest, QuestionsResponse, ServedQuestion, StudentClass, AvailableClass } from '@/types/api';
+import type { AnswerPayload, CodexEntry, LeaderboardEntry, LearnerProgress, QuestionRequest, QuestionsResponse, ServedQuestion, StudentClass, AvailableClass, ProfilePatch } from '@/types/api';
 import type { DailyTaskDef, GameCtx, GameSettings, GameState, GameTab } from '@/types/game';
 
 interface Initial {
@@ -488,7 +490,7 @@ const ProfileSheet: React.FC<{ open: boolean; onClose: () => void; onLogout: () 
 }) => {
   const { user, progress, state, update, request } = useGame();
   const { c } = useTheme();
-  const [tab, setTab] = useState<'rank' | 'class' | 'settings'>('rank');
+  const [tab, setTab] = useState<'rank' | 'class' | 'info' | 'settings'>('rank');
   const [board, setBoard] = useState<LeaderboardEntry[] | null>(null);
   const lvl = levelOf(progress.xp);
   const heroes = Object.keys(state.heroes).length;
@@ -506,6 +508,8 @@ const ProfileSheet: React.FC<{ open: boolean; onClose: () => void; onLogout: () 
     };
   }, [open, tab, request]);
 
+  const loadProfile = useCallback(() => request(authApi.getProfile), [request]);
+  const saveProfile = useCallback((patch: ProfilePatch) => request((t) => authApi.updateProfile(t, patch)), [request]);
   const setSetting = <K extends keyof GameSettings>(key: K, value: GameSettings[K]) => update((s) => ({ ...s, settings: { ...s.settings, [key]: value } }));
 
   return (
@@ -545,6 +549,7 @@ const ProfileSheet: React.FC<{ open: boolean; onClose: () => void; onLogout: () 
         options={[
           { value: 'rank' as const, label: 'Bảng xếp hạng tuần' },
           { value: 'class' as const, label: 'Lớp học' },
+          { value: 'info' as const, label: 'Thông tin' },
           { value: 'settings' as const, label: 'Cài đặt' },
         ]}
         value={tab}
@@ -552,6 +557,8 @@ const ProfileSheet: React.FC<{ open: boolean; onClose: () => void; onLogout: () 
       />
       {tab === 'class' ? (
         <ClassJoin onJoined={onJoined} />
+      ) : tab === 'info' ? (
+        <ProfileForm load={loadProfile} save={saveProfile} />
       ) : tab === 'rank' ? (
         board === null ? (
           <Spinner />

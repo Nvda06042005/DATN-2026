@@ -90,7 +90,7 @@ async function answer(token: string, q: BankQuestion, payload: Record<string, un
     }
     const locked = await api('POST', '/api/auth/login', { username: 'khach.thu', password: 'sai' });
     expect(locked.status).toBe(429);
-    expect(locked.body.detail).toMatch(/^Sai quá nhiều lần\. Thử lại sau \d+ giây\.$/);
+    expect(locked.body.detail).toMatch(/^Sai quá nhiều lần\. Thử lại sau \d+ phút\.$/);
     // Dữ liệu sai định dạng: 422, detail là danh sách lỗi như FastAPI
     const invalid = await api('POST', '/api/auth/login', { username: '', password: 'x' });
     expect(invalid.status).toBe(422);
@@ -113,69 +113,86 @@ async function answer(token: string, q: BankQuestion, payload: Record<string, un
     expect((await api('GET', '/api/auth/me', undefined, 'khong-phai-token')).status).toBe(401);
   });
 
-  test('quên mật khẩu ở cổng quản trị: liên kết dùng một lần, không lộ tài khoản, mật khẩu mới có hiệu lực', async () => {
+  test('quên mật khẩu bằng OTP cho mọi vai trò: mã dùng một lần, hiệu lực 5 phút, tối đa 5 lần thử, không lộ tài khoản', async () => {
     const { hashPassword } = await import('../src/auth/passwords');
     // ADMIN_EMAIL được điền cho quản trị tổng ngay khi tạo
     expect((await api('GET', '/api/auth/me', undefined, ADMIN)).body.email).toBe('quantri@example.invalid');
     const hash = await hashPassword('cu-matkhau1');
-    const base = { class_name: null, password_hash: hash, must_change_password: false, role: 'root_admin' as const };
-    const root = await db.createUser({ ...base, username: 'root.quen', full_name: 'Quản Trị Quên', email: 'quen.mk@example.invalid' });
-    const addr = 'quen.mk@example.invalid';
-    const inbox = () => mail.sent.filter((m) => m.to === addr);
-    const ask = (identifier: string, portal = 'root_admin') => api('POST', '/api/auth/forgot-password', { identifier, portal });
+    const base = { class_name: null, password_hash: hash, must_change_password: false };
+    const root = await db.createUser({ ...base, role: 'root_admin' as const, username: 'root.quen', full_name: 'Quản Trị Quên', email: 'quen.mk@example.invalid' });
+    const pupil = await db.createUser({ ...base, role: 'student' as const, username: 'hs.quen', full_name: 'Học Sinh Quên', email: 'hs.quen@example.invalid' });
+    await db.createUser({ ...base, role: 'student' as const, username: 'hs.khongmail', full_name: 'Học Sinh Không Thư' });
+    const inbox = (addr: string) => mail.sent.filter((m) => m.to === addr);
+    const ask = (identifier: string) => api('POST', '/api/auth/forgot-password', { identifier });
     const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     const until = async (ok: () => boolean) => {
       for (let i = 0; i < 50 && !ok(); i += 1) await wait(100);
       expect(ok()).toBe(true);
     };
-    const tokenOf = (text: string) => /\/admin\?reset=([\w-]+)/.exec(text)![1];
-    const reset = (token: string, newPassword: string) => api('POST', '/api/auth/reset-password', { token, new_password: newPassword });
-    const invalid = [400, 'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn. Hãy yêu cầu liên kết mới.'];
+    const otpOf = (text: string) => /Mã xác thực của bạn là: (\d{6})/.exec(text)![1];
+    const wrongOf = (otp: string) => (otp === '000000' ? '000001' : '000000');
+    const reset = (identifier: string, otp: string, newPassword: string) => api('POST', '/api/auth/reset-password', { identifier, otp, new_password: newPassword });
+    const invalid = [400, 'Mã xác thực không đúng hoặc đã hết hạn. Hãy yêu cầu mã mới.'];
 
-    // Tên lạ, sai cổng, tài khoản học sinh: cùng một câu trả lời, không gửi thư; cổng không phải quản trị bị từ chối
-    for (const [who, portal] of [['khong.co.that', 'root_admin'], ['root.quen', 'school_admin'], ['long.nv', 'root_admin']]) expect((await ask(who, portal)).body).toEqual({ ok: true });
-    expect((await ask('root.quen', 'teacher')).status).toBe(422);
+    // Tên lạ và tài khoản chưa khai báo email: cùng một câu trả lời, không gửi thư
+    for (const who of ['khong.co.that', 'hs.khongmail']) expect((await ask(who)).body).toEqual({ ok: true });
+    expect((await api('POST', '/api/auth/forgot-password', {})).status).toBe(422);
     await wait(300);
-    expect(inbox()).toHaveLength(0);
+    expect(inbox('quen.mk@example.invalid')).toHaveLength(0);
 
-    // Hỏi bằng email (hoa/thường, khoảng trắng không quan trọng): thư có liên kết tới /admin, CSDL chỉ lưu băm
-    expect([(await ask(' Quen.MK@example.invalid ')).status]).toEqual([200]);
-    await until(() => inbox().length === 1);
-    expect(inbox()[0].text).toContain(`${process.env.APP_URL ?? 'https://datn-2026-indol.vercel.app'}/admin?reset=`);
-    const token = tokenOf(inbox()[0].text);
-    expect(token).toHaveLength(43);
-    expect((await db.query<{ token_hash: string }>('SELECT token_hash FROM app_password_resets WHERE user_id = $1', [root.id])).map((r) => r.token_hash)).toEqual([expect.not.stringContaining(token)]);
+    // Học sinh hỏi bằng email (hoa/thường, khoảng trắng không quan trọng): thư có mã 6 chữ số, CSDL chỉ lưu băm
+    expect((await ask(' HS.Quen@example.invalid ')).status).toBe(200);
+    await until(() => inbox('hs.quen@example.invalid').length === 1);
+    const otp = otpOf(inbox('hs.quen@example.invalid')[0].text);
+    expect(inbox('hs.quen@example.invalid')[0].text).toContain('5 phút');
+    const stored = await db.query<{ token_hash: string; attempts: number }>('SELECT token_hash, attempts FROM app_password_resets WHERE user_id = $1', [pupil.id]);
+    expect(stored).toHaveLength(1);
+    expect(stored[0].token_hash).not.toContain(otp);
+    expect(stored[0].attempts).toBe(0);
 
-    // Mã sai, mật khẩu mới quá ngắn (không làm hỏng mã)
-    expect(await reset('a'.repeat(43), 'moi-matkhau1').then((r) => [r.status, r.body.detail])).toEqual(invalid);
-    expect((await reset(token, '123')).status).toBe(422);
-    const oldSession = (await api('POST', '/api/auth/login', { username: 'root.quen', password: 'cu-matkhau1', portal: 'root_admin' })).body.token;
+    // Mã sai, sai định dạng, mật khẩu mới yếu (không làm hỏng mã đúng)
+    expect(await reset('hs.quen', wrongOf(otp), 'moi-matkhau1').then((r) => [r.status, r.body.detail])).toEqual(invalid);
+    expect((await reset('hs.quen', '12345', 'moi-matkhau1')).status).toBe(422);
+    expect((await reset('hs.quen', otp, '123')).status).toBe(422);
+    expect((await reset('hs.quen', otp, 'toanchucai')).status).toBe(422); // phải có cả chữ và số
+    expect((await reset('hs.quen', otp, '12345678')).status).toBe(422);
+    expect(await reset('nguoi.khac', otp, 'moi-matkhau1').then((r) => [r.status, r.body.detail])).toEqual(invalid);
+    const oldSession = (await api('POST', '/api/auth/login', { username: 'hs.quen', password: 'cu-matkhau1', portal: 'student' })).body.token;
 
-    expect((await reset(token, 'moi-matkhau1')).body).toEqual({ ok: true });
-    expect(await reset(token, 'khac-matkhau2').then((r) => [r.status, r.body.detail])).toEqual(invalid);
-    expect((await api('POST', '/api/auth/login', { username: 'root.quen', password: 'cu-matkhau1', portal: 'root_admin' })).status).toBe(401);
-    expect((await api('POST', '/api/auth/login', { username: 'root.quen', password: 'moi-matkhau1', portal: 'root_admin' })).status).toBe(200);
+    expect((await reset('hs.quen', otp, 'moi-matkhau1')).body).toEqual({ ok: true });
+    expect(await reset('hs.quen', otp, 'khac-matkhau2').then((r) => [r.status, r.body.detail])).toEqual(invalid); // dùng một lần
+    expect((await api('POST', '/api/auth/login', { username: 'hs.quen', password: 'cu-matkhau1', portal: 'student' })).status).toBe(401);
+    expect((await api('POST', '/api/auth/login', { username: 'hs.quen', password: 'moi-matkhau1', portal: 'student' })).status).toBe(200);
     expect((await api('GET', '/api/auth/me', undefined, oldSession)).status).toBe(401);
 
-    // Mã quá hạn không dùng được
+    // Mã quá hạn không dùng được (hiệu lực 5 phút)
     await ask('root.quen');
-    await until(() => inbox().length === 2);
+    await until(() => inbox('quen.mk@example.invalid').length === 1);
     await db.query("UPDATE app_password_resets SET expires_at = now() - interval '1 minute' WHERE user_id = $1", [root.id]);
-    expect(await reset(tokenOf(inbox()[1].text), 'qua-han-mk1').then((r) => [r.status, r.body.detail])).toEqual(invalid);
+    expect(await reset('root.quen', otpOf(inbox('quen.mk@example.invalid')[0].text), 'qua-han-mk1').then((r) => [r.status, r.body.detail])).toEqual(invalid);
 
-    // Yêu cầu mới làm mã cũ hết hiệu lực; mỗi tên chỉ được 3 yêu cầu trong 15 phút (yêu cầu thứ 4 vẫn trả lời bình thường nhưng không gửi thư)
-    await db.createUser({ ...base, username: 'root.gioihan', full_name: 'Quản Trị Giới Hạn', email: 'gioi.han@example.invalid' });
-    const other = () => mail.sent.filter((m) => m.to === 'gioi.han@example.invalid');
+    // Dò mã: sai quá 5 lần thì mã bị vô hiệu, kể cả khi sau đó nhập đúng
+    await db.query("UPDATE app_password_resets SET used_at = now() WHERE user_id = $1", [root.id]);
+    await ask('root.quen');
+    await until(() => inbox('quen.mk@example.invalid').length === 2);
+    const real = otpOf(inbox('quen.mk@example.invalid')[1].text);
+    for (let n = 0; n < 5; n += 1) expect((await reset('root.quen', wrongOf(real), 'do-ma-sai1')).status).toBe(400);
+    expect(await reset('root.quen', real, 'do-ma-dung1').then((r) => [r.status, r.body.detail])).toEqual(invalid);
+    expect((await api('POST', '/api/auth/login', { username: 'root.quen', password: 'cu-matkhau1', portal: 'root_admin' })).status).toBe(200);
+
+    // Mỗi tên chỉ được 3 yêu cầu trong 15 phút (yêu cầu thứ 4 vẫn trả lời bình thường nhưng không gửi thư); yêu cầu mới làm mã cũ hết hiệu lực
+    await db.createUser({ ...base, role: 'teacher' as const, username: 'gv.gioihan', full_name: 'Giáo Viên Giới Hạn', email: 'gioi.han@example.invalid' });
+    const other = () => inbox('gioi.han@example.invalid');
     for (let n = 1; n <= 4; n += 1) {
-      expect((await ask('root.gioihan')).body).toEqual({ ok: true });
+      expect((await ask('gv.gioihan')).body).toEqual({ ok: true });
       if (n < 4) await until(() => other().length === n);
     }
     await wait(400);
     expect(other()).toHaveLength(3);
-    const [first, second, third] = other().map((m) => tokenOf(m.text));
-    expect(await reset(first, 'mk-thu-nhat1').then((r) => r.status)).toBe(400);
-    expect(await reset(second, 'mk-thu-hai1').then((r) => r.status)).toBe(400);
-    expect((await reset(third, 'mk-thu-ba1')).status).toBe(200);
+    const [first, second, third] = other().map((m) => otpOf(m.text));
+    expect(await reset('gv.gioihan', first, 'mk-thu-nhat1').then((r) => r.status)).toBe(400);
+    expect(await reset('gv.gioihan', second, 'mk-thu-hai1').then((r) => r.status)).toBe(400);
+    expect((await reset('gv.gioihan', third, 'mk-thu-ba1')).status).toBe(200);
   });
 
   test('quản trị tổng cấp, sửa, đặt lại mật khẩu, xóa vào thùng rác và khôi phục tài khoản', async () => {

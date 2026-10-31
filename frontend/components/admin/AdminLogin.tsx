@@ -1,7 +1,7 @@
 /**
  * Trang đăng nhập của hai cổng quản trị (/admin, /school-manager-admin), dựng theo danh sách chức năng nhóm "01. Tài khoản và xác thực":
  * TM.AUTH.001 đăng nhập bằng tài khoản được cấp (không có đăng ký tự do, không đăng nhập qua bên thứ ba), TM.AUTH.007 quên mật khẩu
- * (gửi liên kết đặt lại qua email, liên kết mở lại đúng cổng bằng ?reset=<mã>). TM.AUTH.002 đăng xuất là nút ở thanh trên cùng của
+ * (HK.QT.002/HK.AD: gửi mã OTP 6 chữ số hiệu lực 5 phút qua email rồi đặt mật khẩu mới). Đăng xuất là nút ở thanh trên cùng của
  * trang quản trị (AdminWorkspace).
  * Ảnh bìa chuyển động bên trái giữ nguyên, cạnh vát chéo; nền giấy kem và hoa văn trang chủ bên phải.
  * Manrope cho form và phần chính tiêu đề, Newsreader nghiêng đỏ cho chữ nhấn. Giữ logo nhỏ, không có khẩu hiệu lớn.
@@ -10,7 +10,6 @@
  */
 import React, { useId, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, TextInput, View, useWindowDimensions, type TextInputInstance, type TextInputProps } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, Image as SvgImage, Pattern, Polygon } from 'react-native-svg';
 import { ArrowLeft, CircleCheck, Eye, EyeOff, Info, MailCheck, TriangleAlert } from 'lucide-react-native';
@@ -333,13 +332,11 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
   );
 };
 
-// ---------------------------------------------------------------------- quên mật khẩu (TM.AUTH.007)
-const ForgotForm: React.FC<{ portal: AdminPortal; onBack: () => void }> = ({ portal, onBack }) => {
-  const { c } = useTheme();
+// ---------------------------------------------------------------------- quên mật khẩu bằng OTP (HK.*.005)
+const ForgotForm: React.FC<{ onBack: () => void; onSent: (identifier: string) => void }> = ({ onBack, onSent }) => {
   const [identifier, setIdentifier] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
 
   const submit = async () => {
     if (!identifier.trim()) {
@@ -349,8 +346,8 @@ const ForgotForm: React.FC<{ portal: AdminPortal; onBack: () => void }> = ({ por
     setLoading(true);
     setError(null);
     try {
-      await authApi.requestPasswordReset(identifier.trim(), portal);
-      setSent(true);
+      await authApi.requestPasswordReset(identifier.trim());
+      onSent(identifier.trim());
     } catch (err) {
       setError(errorMessage(err, 'Chưa gửi được yêu cầu. Hãy thử lại sau.'));
     } finally {
@@ -358,23 +355,9 @@ const ForgotForm: React.FC<{ portal: AdminPortal; onBack: () => void }> = ({ por
     }
   };
 
-  if (sent) {
-    return (
-      <>
-        <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: c.mocNhat, alignItems: 'center', justifyContent: 'center' }}>
-          <MailCheck size={28} color={c.mocChu} />
-        </View>
-        <Heading title="Kiểm tra hộp thư" text="Nếu thông tin khớp với một tài khoản có email, liên kết đặt lại mật khẩu đã được gửi. Liên kết có hiệu lực 30 phút và chỉ dùng được một lần. Hãy xem cả mục thư rác." />
-        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 24, rowGap: 8 }}>
-          <SubmitButton title="Về đăng nhập" onPress={onBack} />
-          <TextLink title="Gửi lại" onPress={() => setSent(false)} />
-        </View>
-      </>
-    );
-  }
   return (
     <>
-      <Heading title="Quên mật khẩu" text="Nhập tên đăng nhập hoặc email của tài khoản quản trị. Chúng tôi sẽ gửi liên kết đặt lại mật khẩu tới email của tài khoản." />
+      <Heading title="Quên mật khẩu" text="Nhập tên đăng nhập hoặc email của tài khoản quản trị. Chúng tôi sẽ gửi mã xác thực 6 chữ số tới email của tài khoản." />
       <AuthInput
         label="Tên đăng nhập hoặc email"
         nativeID="admin-forgot"
@@ -390,30 +373,33 @@ const ForgotForm: React.FC<{ portal: AdminPortal; onBack: () => void }> = ({ por
       />
       {error ? <Banner tone="error" text={error} /> : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 24, rowGap: 8 }}>
-        <SubmitButton title={loading ? 'Đang gửi…' : 'Gửi liên kết'} loading={loading} onPress={submit} testID="forgot-submit" />
+        <SubmitButton title={loading ? 'Đang gửi…' : 'Gửi mã xác thực'} loading={loading} onPress={submit} testID="forgot-submit" />
         <TextLink title="Quay lại đăng nhập" icon={ArrowLeft} onPress={onBack} />
       </View>
     </>
   );
 };
 
-// ---------------------------------------------------------------------- đặt mật khẩu mới từ liên kết trong thư
-const ResetForm: React.FC<{ token: string; onDone: () => void; onRequestNew: () => void }> = ({ token, onDone, onRequestNew }) => {
+// ---------------------------------------------------------------------- nhập mã OTP và đặt mật khẩu mới
+const ResetForm: React.FC<{ identifier: string; onDone: () => void; onRequestNew: () => void }> = ({ identifier, onDone, onRequestNew }) => {
+  const [otp, setOtp] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dead, setDead] = useState(false);
+  const nextRef = useRef<TextInputInstance>(null);
   const confirmRef = useRef<TextInputInstance>(null);
 
   const submit = async () => {
-    if (next.length < 6) return setError('Mật khẩu mới cần ít nhất 6 ký tự.');
+    if (!/^\d{6}$/.test(otp)) return setError('Mã xác thực gồm 6 chữ số trong thư.');
+    if (next.length < 8 || !/\p{L}/u.test(next) || !/\p{N}/u.test(next)) return setError('Mật khẩu mới tối thiểu 8 ký tự, gồm cả chữ và số.');
     if (next !== confirm) return setError('Mật khẩu nhập lại chưa khớp.');
     setLoading(true);
     setError(null);
     try {
-      await authApi.resetPassword(token, next);
+      await authApi.resetPassword(identifier, otp, next);
       onDone();
     } catch (err) {
       setError(errorMessage(err, 'Chưa đặt lại được mật khẩu. Hãy thử lại sau.'));
@@ -425,14 +411,29 @@ const ResetForm: React.FC<{ token: string; onDone: () => void; onRequestNew: () 
 
   return (
     <>
-      <Heading title="Đặt mật khẩu mới" text="Nhập mật khẩu mới cho tài khoản quản trị của bạn. Các phiên đăng nhập cũ sẽ bị đăng xuất." />
+      <Heading title="Nhập mã xác thực" text="Nếu thông tin khớp với một tài khoản có email, mã 6 chữ số đã được gửi (hiệu lực 5 phút, dùng một lần; xem cả mục thư rác). Nhập mã rồi đặt mật khẩu mới; các phiên đăng nhập cũ sẽ bị đăng xuất." />
+      <AuthInput
+        label="Mã xác thực"
+        nativeID="admin-otp"
+        showLabel
+        value={otp}
+        onChangeText={(v) => setOtp(v.replace(/\D/g, '').slice(0, 6))}
+        invalid={Boolean(error) && !dead && !/^\d{6}$/.test(otp)}
+        keyboardType="number-pad"
+        autoComplete="one-time-code"
+        textContentType="oneTimeCode"
+        returnKeyType="next"
+        onSubmitEditing={() => nextRef.current?.focus()}
+        autoFocus={Platform.OS === 'web'}
+      />
       <AuthInput
         label="Mật khẩu mới"
         nativeID="admin-new-password"
         showLabel
+        inputRef={nextRef}
         value={next}
         onChangeText={setNext}
-        hint="Tối thiểu 6 ký tự."
+        hint="Tối thiểu 8 ký tự, gồm cả chữ và số."
         secureTextEntry={!show}
         autoCapitalize="none"
         autoCorrect={false}
@@ -441,7 +442,6 @@ const ResetForm: React.FC<{ token: string; onDone: () => void; onRequestNew: () 
         returnKeyType="next"
         onSubmitEditing={() => confirmRef.current?.focus()}
         right={<ShowToggle shown={show} onToggle={() => setShow((v) => !v)} />}
-        autoFocus={Platform.OS === 'web'}
       />
       <AuthInput
         label="Nhập lại mật khẩu mới"
@@ -461,7 +461,7 @@ const ResetForm: React.FC<{ token: string; onDone: () => void; onRequestNew: () 
       {error ? <Banner tone="error" text={error} /> : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 24, rowGap: 8 }}>
         <SubmitButton title={loading ? 'Đang lưu…' : 'Lưu mật khẩu'} loading={loading} onPress={submit} testID="reset-submit" />
-        {dead ? <TextLink title="Yêu cầu liên kết mới" icon={MailCheck} onPress={onRequestNew} /> : null}
+        <TextLink title={dead ? 'Yêu cầu mã mới' : 'Gửi lại mã'} icon={MailCheck} onPress={onRequestNew} />
       </View>
     </>
   );
@@ -469,33 +469,30 @@ const ResetForm: React.FC<{ token: string; onDone: () => void; onRequestNew: () 
 
 // ---------------------------------------------------------------------- trang
 export const AdminLogin: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: AuthUser) => void; notice?: string | null }> = ({ portal, onLogin, notice }) => {
-  const router = useRouter();
-  const { reset } = useLocalSearchParams<{ reset?: string | string[] }>();
-  const resetToken = (Array.isArray(reset) ? reset[0] : reset) || '';
-  const [view, setView] = useState<Step>(resetToken ? 'reset' : 'login');
+  const [view, setView] = useState<Step>('login');
+  const [identifier, setIdentifier] = useState('');
   const [flash, setFlash] = useState<string | null>(null);
-
-  /** Bỏ mã khỏi địa chỉ để làm mới trang không mở lại biểu mẫu đặt mật khẩu */
-  const clearToken = () => {
-    if (resetToken) router.setParams({ reset: undefined });
-  };
 
   return (
     <Shell portal={portal}>
       {view === 'login' && <LoginForm portal={portal} onLogin={onLogin} onForgot={() => setView('forgot')} notice={notice} success={flash} />}
-      {view === 'forgot' && <ForgotForm portal={portal} onBack={() => setView('login')} />}
+      {view === 'forgot' && (
+        <ForgotForm
+          onBack={() => setView('login')}
+          onSent={(id) => {
+            setIdentifier(id);
+            setView('reset');
+          }}
+        />
+      )}
       {view === 'reset' && (
         <ResetForm
-          token={resetToken}
+          identifier={identifier}
           onDone={() => {
-            clearToken();
             setFlash('Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.');
             setView('login');
           }}
-          onRequestNew={() => {
-            clearToken();
-            setView('forgot');
-          }}
+          onRequestNew={() => setView('forgot')}
         />
       )}
     </Shell>

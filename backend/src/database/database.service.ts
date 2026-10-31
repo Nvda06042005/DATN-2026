@@ -33,6 +33,13 @@ export interface UserRow {
   grade: number | null;
   deleted_at: string | null;
   purge_at: string | null;
+  phone: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  nickname: string | null;
+  gender: 'male' | 'female' | 'other' | null;
+  subject: string | null;
+  parent_email: string | null;
 }
 
 /** Hồ sơ theo file Excel mẫu (khi tạo tài khoản) */
@@ -117,7 +124,7 @@ export type Q = <T = Record<string, unknown>>(sql: string, params?: unknown[]) =
 
 export const USER_COLUMNS =
   'id, username, full_name, role, class_name, password_hash, must_change_password, is_active, created_at, last_login_at, ' +
-  'school_id, user_code, school_code, region, city, birth_date, school_year, email, grade, deleted_at, purge_at, token_version';
+  'school_id, user_code, school_code, region, city, birth_date, school_year, email, grade, deleted_at, purge_at, token_version, phone, avatar_url, bio, nickname, gender, subject, parent_email';
 const PROFILE_FIELDS = ['school_id', 'user_code', 'school_code', 'region', 'city', 'birth_date', 'school_year', 'email', 'grade'] as const;
 const PROGRESS_INT_FIELDS = [
   'xp', 'gems', 'streak', 'lessons_completed', 'perfect_runs', 'questions_answered', 'questions_correct',
@@ -289,6 +296,19 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     return rows.length ? toUser(rows[0]) : null;
   }
 
+  /**
+   * Đăng nhập bằng tên đăng nhập, email hoặc mã người dùng (mã học sinh). Tên đăng nhập khớp chính xác được ưu tiên (kể cả tài khoản trong
+   * thùng rác để báo đúng lý do); email/mã chỉ nhận khi khớp đúng một tài khoản còn dùng được, tránh đăng nhập nhầm khi mã trùng giữa các trường.
+   */
+  async findForLogin(identifier: string): Promise<UserRow | null> {
+    const key = identifier.trim().toLowerCase();
+    const rows = (await this.query(
+      `SELECT ${USER_COLUMNS} FROM app_users WHERE username = $1 OR (deleted_at IS NULL AND (lower(email) = $1 OR lower(user_code) = $1))`,
+      [key],
+    )).map(toUser);
+    return rows.find((u) => u.username === key) ?? (rows.length === 1 ? rows[0] : null);
+  }
+
   async schoolActive(schoolId:number|null,q:Q=this.query.bind(this)):Promise<boolean> {
     return schoolId === null || (await q('SELECT 1 FROM app_schools WHERE id=$1 AND is_active',[schoolId])).length > 0;
   }
@@ -368,13 +388,21 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  /** Dùng mã đúng một lần (một câu lệnh nguyên tử): trả về id tài khoản nếu mã còn hạn và chưa dùng */
-  async consumePasswordReset(tokenHash: string): Promise<number | null> {
-    const rows = await this.query<{ user_id: number }>(
-      'UPDATE app_password_resets SET used_at = now() WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now() RETURNING user_id',
-      [tokenHash],
-    );
-    return rows.length ? rows[0].user_id : null;
+  /**
+   * Kiểm tra mã OTP quên mật khẩu: lấy mã mới nhất còn hạn và chưa dùng của tài khoản. Sai thì tăng số lần thử (quá 5 lần mã bị vô hiệu,
+   * vì OTP 6 chữ số dễ bị dò); đúng thì đánh dấu đã dùng. Trả về đúng/sai, không nêu lý do.
+   */
+  async consumePasswordOtp(userId: number, tokenHash: string): Promise<boolean> {
+    return this.transaction(async (c) => {
+      const row = (await c.query('SELECT id, token_hash, attempts FROM app_password_resets WHERE user_id = $1 AND used_at IS NULL AND expires_at > now() ORDER BY id DESC LIMIT 1 FOR UPDATE', [userId])).rows[0];
+      if (!row || Number(row.attempts) >= 5) return false;
+      if (row.token_hash !== tokenHash) {
+        await c.query('UPDATE app_password_resets SET attempts = attempts + 1 WHERE id = $1', [row.id]);
+        return false;
+      }
+      await c.query('UPDATE app_password_resets SET used_at = now() WHERE id = $1', [row.id]);
+      return true;
+    });
   }
 
   /** Xóa hẳn tài khoản cùng tiến độ và dữ liệu thi đấu liên quan (thùng rác hết hạn hoặc xóa vĩnh viễn) */

@@ -1,5 +1,5 @@
 import { apiRequest } from '@/api/client';
-import type { AppNotification, AuthSession, AuthUser, Portal } from '@/types/api';
+import type { AppNotification, AuthSession, AuthUser, Portal, ProfileData, ProfilePatch } from '@/types/api';
 
 /** Đăng nhập tại một trang; server kiểm tra vai trò khớp với trang ("app" = /portal: giáo viên hoặc học sinh) */
 export const loginToPortal = (username: string, password: string, portal: Portal | 'app') =>
@@ -13,13 +13,17 @@ export const markNotificationsRead = (token: string) => apiRequest<{ ok: boolean
 /** Tài khoản của phiên đang lưu */
 export const getMe = (token: string) => apiRequest<AuthUser>('/api/auth/me', { token });
 
-/** Quên mật khẩu (cổng quản trị): server gửi liên kết đặt lại tới email của tài khoản; luôn trả ok để không lộ tài khoản nào có thật */
-export const requestPasswordReset = (identifier: string, portal: 'root_admin' | 'school_admin') =>
-  apiRequest<{ ok: boolean }>('/api/auth/forgot-password', { body: { identifier, portal } });
+/** Quên mật khẩu (mọi vai trò): server gửi mã OTP 6 chữ số (hiệu lực 5 phút) tới email của tài khoản; luôn trả ok để không lộ tài khoản nào có thật */
+export const requestPasswordReset = (identifier: string) => apiRequest<{ ok: boolean }>('/api/auth/forgot-password', { body: { identifier } });
 
-/** Đặt mật khẩu mới bằng mã trong thư (mã dùng một lần, hiệu lực 30 phút) */
-export const resetPassword = (token: string, newPassword: string) =>
-  apiRequest<{ ok: boolean }>('/api/auth/reset-password', { body: { token, new_password: newPassword } });
+/** Đặt mật khẩu mới bằng mã OTP trong thư (dùng một lần, sai quá 5 lần thì vô hiệu) */
+export const resetPassword = (identifier: string, otp: string, newPassword: string) =>
+  apiRequest<{ ok: boolean }>('/api/auth/reset-password', { body: { identifier, otp, new_password: newPassword } });
+
+/** Hồ sơ cá nhân: thông tin, trường, lớp và các trường vai trò được tự sửa */
+export const getProfile = (token: string) => apiRequest<ProfileData>('/api/auth/profile', { token });
+
+export const updateProfile = (token: string, body: ProfilePatch) => apiRequest<ProfileData>('/api/auth/profile', { token, method: 'PATCH', body });
 
 /** Đổi mật khẩu; server trả phiên mới (token cũ hết hiệu lực) */
 export const changePassword = (token: string, currentPassword: string, newPassword: string) =>

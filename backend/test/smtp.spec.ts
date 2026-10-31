@@ -89,17 +89,18 @@ describe('Kiểm tra SMTP trước khi gửi thư', () => {
       await new Promise<void>((resolve) => server.close(() => resolve()));
     });
 
-    test('xác thực khi khởi động không gửi thư; thư đặt lại mật khẩu và thư kiểm tra đi qua cầu với đúng nội dung', async () => {
+    test('xác thực khi khởi động không gửi thư; thư mã OTP quên mật khẩu và thư kiểm tra đi qua cầu với đúng nội dung', async () => {
       const mail = new MailService({ ready: true, query: jest.fn() } as unknown as DatabaseService);
       await mail.onModuleInit();
       expect(mail.configured).toBe(true);
       expect(hits).toEqual([{ secret: SECRET, action: 'verify' }]);
 
-      await mail.sendPasswordReset('quan.tri@example.test', 'Quản Trị', 'https://site.test/admin?reset=abc123', 30);
+      await mail.sendPasswordOtp('quan.tri@example.test', 'Quản Trị', '482915', 5);
       expect(hits).toHaveLength(2);
-      expect(hits[1]).toMatchObject({ secret: SECRET, to: 'quan.tri@example.test', subject: '[Đông A EDU] Đặt lại mật khẩu', name: 'Đông A EDU' });
-      expect(hits[1].text).toContain('https://site.test/admin?reset=abc123');
-      expect(hits[1].html).toContain('<a href="https://site.test/admin?reset=abc123">');
+      expect(hits[1]).toMatchObject({ secret: SECRET, to: 'quan.tri@example.test', subject: '[Đông A EDU] Mã xác thực đặt lại mật khẩu', name: 'Đông A EDU' });
+      expect(hits[1].text).toContain('Mã xác thực của bạn là: 482915');
+      expect(hits[1].text).toContain('5 phút');
+      expect(hits[1].html).toContain('>482915</b>');
 
       // Thư kiểm tra gửi về "Tên <địa chỉ>": cầu nhận địa chỉ trần
       await mail.sendTest();
@@ -112,14 +113,14 @@ describe('Kiểm tra SMTP trước khi gửi thư', () => {
       respond = () => JSON.stringify({ ok: false, error: 'unauthorized' });
       await mail.onModuleInit();
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('Cầu gửi thư chưa xác thực được (ERELAYAUTH)'));
-      await expect(mail.sendPasswordReset('quan.tri@example.test', 'Quản Trị', 'https://site.test/x', 30)).rejects.toMatchObject({ code: 'ERELAYAUTH' });
+      await expect(mail.sendPasswordOtp('quan.tri@example.test', 'Quản Trị', '123456', 5)).rejects.toMatchObject({ code: 'ERELAYAUTH' });
 
       respond = () => '<html>Trang lỗi của Google</html>';
-      await expect(mail.sendPasswordReset('quan.tri@example.test', 'Quản Trị', 'https://site.test/x', 30)).rejects.toMatchObject({ code: 'ERELAYRESPONSE' });
+      await expect(mail.sendPasswordOtp('quan.tri@example.test', 'Quản Trị', '123456', 5)).rejects.toMatchObject({ code: 'ERELAYRESPONSE' });
 
       respond = () => JSON.stringify({ ok: false, error: 'Service invoked too many times for one day: email.' });
-      await expect(mail.sendPasswordReset('quan.tri@example.test', 'Quản Trị', 'https://site.test/x', 30)).rejects.toMatchObject({ code: 'ERELAYSEND' });
-      await expect(mail.sendPasswordReset('không-phải-email', 'Quản Trị', 'https://site.test/x', 30)).rejects.toMatchObject({ code: 'ERELAYRECIPIENT' });
+      await expect(mail.sendPasswordOtp('quan.tri@example.test', 'Quản Trị', '123456', 5)).rejects.toMatchObject({ code: 'ERELAYSEND' });
+      await expect(mail.sendPasswordOtp('không-phải-email', 'Quản Trị', '123456', 5)).rejects.toMatchObject({ code: 'ERELAYRECIPIENT' });
       expect(JSON.stringify(warn.mock.calls)).not.toContain(SECRET);
       mail.onModuleDestroy();
     });

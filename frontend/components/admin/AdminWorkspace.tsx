@@ -1,13 +1,16 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { KeyRound, LogOut, Menu, ShieldCheck, X } from 'lucide-react-native';
+import { KeyRound, LogOut, Menu, ShieldCheck, User, X } from 'lucide-react-native';
+import * as authApi from '@/api/authApi';
+import { ProfileSheet } from '@/components/profile';
 import { BrandLogo, PatternOverlay } from '@/components/art';
 import { BrandWordmark } from '@/components/brand-wordmark';
 import { ROLE_LABEL, type Session } from '@/components/auth';
 import { Avatar, Btn, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { fmt } from '@/lib/format';
+import type { ProfilePatch } from '@/types/api';
 import type { IconType } from '@/types/game';
 
 export function AdminWorkspace<T extends string>({ session, nav, active, onSelect, extra, schoolName, schoolCount, children }: {
@@ -18,6 +21,9 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
   const { width } = useWindowDimensions();
   const wide = width >= 1000;
   const [open, setOpen] = useState(false);
+  const [profile, setProfile] = useState(false);
+  const loadProfile = useCallback(() => authApi.getProfile(session.token), [session.token]);
+  const saveProfile = useCallback((patch: ProfilePatch) => authApi.updateProfile(session.token, patch), [session.token]);
   const label = nav.find(item => item.id === active)?.label ?? 'Quản trị';
   useEffect(() => {
     if (!open || Platform.OS !== 'web') return undefined;
@@ -46,6 +52,7 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
           <BrandWordmark height={24} color={c.trang} />
           <Txt size={11} color={c.trang} style={{ opacity: 0.85 }}>Học lịch sử qua trải nghiệm</Txt>
           <Txt f="bold" size={12} color={c.trang} numberOfLines={2}>{session.user.full_name}</Txt>
+          <Pressable accessibilityRole="button" accessibilityLabel="Hồ sơ cá nhân" testID="open-profile" onPress={() => { setOpen(false); setProfile(true); }} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 }}><User size={16} color={c.trang} /><Txt size={12} color={c.trang}>Hồ sơ cá nhân</Txt></Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="Đổi mật khẩu" onPress={session.changePassword} style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 }}><KeyRound size={16} color={c.trang} /><Txt size={12} color={c.trang}>Đổi mật khẩu</Txt></Pressable>
         </View>
       </ScrollView>
@@ -73,6 +80,7 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
       <View style={{ flex: 1, flexDirection: 'row', minHeight: 0 }}>
         {wide && sidebar}
         <View style={{ flex: 1, minWidth: 0 }}>{children}</View>
+        {profile && <ProfileSheet onClose={() => setProfile(false)} load={loadProfile} save={saveProfile} onSaved={session.updateUser} />}
         {!wide && open && <View style={{ position: 'absolute', inset: 0, zIndex: 40 }}><Pressable accessibilityRole="button" accessibilityLabel="Đóng menu quản trị" onPress={() => setOpen(false)} style={{ position: 'absolute', inset: 0, backgroundColor: c.scrim }} />{sidebar}</View>}
       </View>
     </View>

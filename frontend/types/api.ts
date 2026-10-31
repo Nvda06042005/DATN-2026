@@ -30,7 +30,23 @@ export interface AuthUser {
   grade: number | null;
   deleted_at: string | null;
   purge_at: string | null;
+  phone: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  nickname: string | null;
+  gender: 'male' | 'female' | 'other' | null;
+  subject: string | null;
+  parent_email: string | null;
 }
+
+/** Hồ sơ cá nhân (HK.*.005/009/010): thông tin, trường, lớp, các trường vai trò được tự sửa */
+export interface ProfileData {
+  user: AuthUser;
+  school: { id: number; school_code: string; name: string } | null;
+  classes: Array<{ id: number; class_code: string; name: string; school_year: string; is_active: boolean }>;
+  editable: Array<'full_name' | 'email' | 'phone' | 'avatar_url' | 'bio' | 'nickname'>;
+}
+export type ProfilePatch = Partial<Record<'full_name' | 'email' | 'phone' | 'avatar_url' | 'bio' | 'nickname', string | null>>;
 
 /** Phiên đăng nhập server trả về khi đăng nhập hoặc đổi mật khẩu */
 export interface AuthSession {

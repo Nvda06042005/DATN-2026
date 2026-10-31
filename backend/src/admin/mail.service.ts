@@ -162,20 +162,20 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /** Thư đặt lại mật khẩu gửi thẳng, không qua hàng đợi: liên kết chứa mã dùng một lần nên không lưu ở bảng thư */
-  async sendPasswordReset(to: string, fullName: string, link: string, minutes: number): Promise<void> {
+  /** Thư chứa mã OTP quên mật khẩu (gửi thẳng, không qua hàng đợi vì có mã): mã 6 chữ số, hiệu lực vài phút, chỉ dùng được một lần */
+  async sendPasswordOtp(to: string, fullName: string, otp: string, minutes: number): Promise<void> {
     if (!this.transport) throw new ServiceUnavailableException('Máy chủ chưa cấu hình gửi thư.');
-    const subject = '[Đông A EDU] Đặt lại mật khẩu';
+    const subject = '[Đông A EDU] Mã xác thực đặt lại mật khẩu';
     const lines = [
       `Chào ${fullName},`,
       '',
-      'Đông A EDU nhận được yêu cầu đặt lại mật khẩu cho tài khoản quản trị của bạn.',
-      `Mở liên kết sau để đặt mật khẩu mới (hiệu lực ${minutes} phút, chỉ dùng được một lần):`,
-      link,
+      'Đông A EDU nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.',
+      `Mã xác thực của bạn là: ${otp}`,
+      `Mã có hiệu lực ${minutes} phút và chỉ dùng được một lần. Đừng chia sẻ mã này với bất kỳ ai.`,
       '',
       'Nếu không phải bạn yêu cầu, hãy bỏ qua thư này: mật khẩu hiện tại vẫn giữ nguyên.',
     ];
-    const html = lines.map((l) => (l === link ? `<p><a href="${escapeHtml(l)}">${escapeHtml(l)}</a></p>` : l ? `<p>${escapeHtml(l)}</p>` : '')).join('');
+    const html = lines.map((l) => (l.startsWith('Mã xác thực của bạn là:') ? `<p>Mã xác thực của bạn là: <b style="font-size:20px;letter-spacing:3px">${escapeHtml(otp)}</b></p>` : l ? `<p>${escapeHtml(l)}</p>` : '')).join('');
     await this.transport.sendMail({ from: config.mailFrom, to, subject, text: lines.join('\n'), html });
     if (config.mailTransport === 'json') this.sent.push({ to, subject, text: lines.join('\n') });
   }

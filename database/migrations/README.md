@@ -44,3 +44,7 @@ Xem [nội dung và cấu hình](../../docs/ADMIN_CONTENT.md).
 `012_class_lifecycle.sql`: lớp có thể chưa có giáo viên và chưa có mật khẩu gia nhập (hai cột cho phép NULL), thêm
 `join_open`, sĩ số dự kiến, người tạo, thời điểm đóng; bảng khối theo trường và năm học; lịch sử vòng đời lớp (chỉ thêm).
 Lớp và học sinh hiện có giữ nguyên, lớp cũ vẫn nhận học sinh như trước. Xem [vòng đời lớp](../../docs/TIEN_DO_CHUC_NANG.md).
+
+`013_profiles_and_otp.sql`: cột hồ sơ cá nhân trên `app_users` (số điện thoại, ảnh đại diện https, giới thiệu, biệt danh, giới tính,
+bộ môn, email phụ huynh; đều cho phép NULL), cột `attempts` cho OTP quên mật khẩu và chỉ mục tra cứu đăng nhập theo email/mã người dùng.
+Dữ liệu hiện có giữ nguyên. Xem [đối chiếu HK.*](../../docs/DOI_CHIEU_HAO_KHI_V01.md).
