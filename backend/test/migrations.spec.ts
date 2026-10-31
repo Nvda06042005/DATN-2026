@@ -203,6 +203,22 @@ describe('file migration', () => {
     expect(await m.applyMigrations(url, dir)).toHaveLength(0);
   });
 
+  test('022–023 tạo bảng mô phỏng trận đánh và mini-game; kịch bản và tham số khởi tạo hợp lệ theo engine; tất cả ở trạng thái Nháp', async () => {
+    await m.applyMigrations(url, dir);
+    const { normalizeScenario, normalizeMinigame } = await import('../src/battle/engine');
+    expect(await count('SELECT count(*) AS n FROM hk_scenarios')).toBe(6);
+    expect(await count("SELECT count(*) AS n FROM hk_scenarios WHERE status <> 'draft'")).toBe(0);
+    expect((await sql<{ slug: string }>(url, 'SELECT b.slug FROM hk_scenarios s JOIN hist_battles b ON b.id = s.battle_id ORDER BY b.sort_order')).map((r) => r.slug)).toEqual(['dong-bo-dau', 'ham-tu', 'chuong-duong', 'tay-ket', 'van-don', 'bach-dang']);
+    for (const row of await sql<{ content: unknown }>(url, 'SELECT content FROM hk_scenarios')) expect(normalizeScenario(row.content)).toEqual(row.content);
+    expect(await count('SELECT count(*) AS n FROM hk_minigames')).toBe(4);
+    expect(await count("SELECT count(*) AS n FROM hk_minigames WHERE status <> 'draft'")).toBe(0);
+    for (const row of await sql<{ kind: 'match' | 'timeline' | 'crossword'; params: unknown }>(url, 'SELECT kind, params FROM hk_minigames')) expect(normalizeMinigame(row.kind, row.params)).toEqual(row.params);
+    expect(await count('SELECT count(*) AS n FROM hk_game_runs')).toBe(0); // không tạo dữ liệu lượt chơi
+    // điểm và vàng nhận thêm lý do mới nhưng vẫn từ chối lý do lạ
+    await expect(sql(url, "INSERT INTO hk_points (user_id, points, reason, ref_key) VALUES (1, 1, 'khong-co', 'x')")).rejects.toThrow();
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+  });
+
   test('một file lỗi thì hoàn tác cả lô và lịch sử', async () => {
     await m.applyMigrations(url, dir);
     const next = String(TOTAL + 1).padStart(3, '0'), after = String(TOTAL + 2).padStart(3, '0');

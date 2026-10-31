@@ -4,16 +4,18 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { Award, BookMarked, History as HistoryIcon, Library as LibraryIcon, ListChecks, Map as MapIcon, Route, ScrollText, Shield, Trophy, UserRound } from 'lucide-react-native';
+import { Award, BookMarked, History as HistoryIcon, Library as LibraryIcon, ListChecks, Map as MapIcon, Route, ScrollText, Shield, Swords, Trophy, UserRound } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import * as game from '@/api/gameApi';
 import { errorMessage } from '@/api/client';
 import { TopBar, type Session } from '@/components/auth';
+import { AnimationScreen, BattleScreen, BattlesTab } from '@/components/portal/BattleKit';
 import { CelebrationHost, CharacterSetup, ShareSheet } from '@/components/portal/Celebrations';
 import { CharacterTab, CollectionTab, RankingTab } from '@/components/portal/GameTabs';
 import { HudBar } from '@/components/portal/GameKit';
 import { DetailSheet, LibraryTab, MapTab, SourcesTab, TimelineTab } from '@/components/portal/Library';
 import { LessonReader, Overlay } from '@/components/portal/LessonReader';
+import { MiniScreen } from '@/components/portal/MiniGames';
 import { MyTab, QuestsTab } from '@/components/portal/Progress';
 import { QuizPlayer, ReviewScreen } from '@/components/portal/QuizPlayer';
 import { CampaignMapView, HomeTab, type NodeActions } from '@/components/portal/QuestMap';
@@ -23,7 +25,7 @@ import type { IconType } from '@/types/game';
 import type { Hud } from '@/types/gamification';
 import type { AttemptState, AttemptSummary, NodeResult } from '@/types/learning';
 
-type Tab = 'home' | 'library' | 'timeline' | 'map' | 'sources' | 'quests' | 'character' | 'collection' | 'ranking' | 'mine';
+type Tab = 'home' | 'library' | 'timeline' | 'map' | 'sources' | 'quests' | 'battles' | 'character' | 'collection' | 'ranking' | 'mine';
 const TABS: Array<{ id: Tab; label: string; icon: IconType }> = [
   { id: 'home', label: 'Hành trình', icon: Route },
   { id: 'library', label: 'Thư viện', icon: LibraryIcon },
@@ -31,6 +33,7 @@ const TABS: Array<{ id: Tab; label: string; icon: IconType }> = [
   { id: 'map', label: 'Bản đồ', icon: MapIcon },
   { id: 'sources', label: 'Tư liệu', icon: ScrollText },
   { id: 'quests', label: 'Nhiệm vụ', icon: ListChecks },
+  { id: 'battles', label: 'Trận đánh', icon: Swords },
   { id: 'character', label: 'Nhân vật', icon: Shield },
   { id: 'collection', label: 'Bộ sưu tập', icon: Award },
   { id: 'ranking', label: 'Xếp hạng', icon: Trophy },
@@ -41,7 +44,10 @@ const VIEW_EVENT: Partial<Record<Tab, string>> = { library: 'view_library', time
 type Overlayed =
   | { kind: 'lesson'; nodeId: number; title: string }
   | { kind: 'quiz'; attempt: AttemptState; title: string; nodeId: number | null }
-  | { kind: 'review'; id: number };
+  | { kind: 'review'; id: number }
+  | { kind: 'battle'; scenarioId: number; title: string; restart?: boolean }
+  | { kind: 'anim'; scenarioId: number; title: string }
+  | { kind: 'mini'; id: number; title: string; restart?: boolean };
 
 export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const { c } = useTheme();
@@ -90,6 +96,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       }
     },
     onOpenDetail: open,
+    onSim: (n) => setOverlay({ kind: 'battle', scenarioId: n.scenarioId, title: n.title }),
   };
 
   const finishQuiz = (summary?: AttemptSummary) => {
@@ -134,6 +141,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
         {tab === 'map' ? <MapTab session={session} onOpen={open} /> : null}
         {tab === 'sources' ? <SourcesTab session={session} refreshKey={refreshKey} onOpen={open} /> : null}
         {tab === 'quests' ? <QuestsTab session={session} refreshKey={refreshKey} onGo={(cid, nid) => { setTab('home'); setCampaignId(cid); setFocusNode(nid); }} /> : null}
+        {tab === 'battles' ? <BattlesTab session={session} refreshKey={refreshKey} onPlay={(id, title, restart) => setOverlay({ kind: 'battle', scenarioId: id, title, restart })} onAnimation={(id, title) => setOverlay({ kind: 'anim', scenarioId: id, title })} onMini={(id, title, restart) => setOverlay({ kind: 'mini', id, title, restart })} onOpenLink={open} /> : null}
         {tab === 'character' ? <CharacterTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} onShare={openShare} /> : null}
         {tab === 'collection' ? <CollectionTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
         {tab === 'ranking' ? <RankingTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
@@ -149,6 +157,17 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
           <QuizPlayer session={session} initial={overlay.attempt} title={overlay.title} onOpenLink={open} onClose={finishQuiz} hints={hud?.hints ?? 0} onGameChanged={loadHud}
             onRetry={overlay.nodeId ? () => startQuiz(overlay.nodeId!, overlay.title) : undefined} />
         </Overlay>
+      ) : null}
+      {overlay?.kind === 'battle' ? (
+        <Overlay title={overlay.title} onBack={() => { setOverlay(null); bump(); }}>
+          <BattleScreen session={session} scenarioId={overlay.scenarioId} restart={overlay.restart} onClose={() => { setOverlay(null); bump(); }} onAnimation={() => setOverlay({ kind: 'anim', scenarioId: overlay.scenarioId, title: overlay.title })} onOpenLink={open} />
+        </Overlay>
+      ) : null}
+      {overlay?.kind === 'anim' ? (
+        <Overlay title={`Diễn biến: ${overlay.title}`} onBack={() => setOverlay(null)}><AnimationScreen session={session} scenarioId={overlay.scenarioId} onClose={() => setOverlay(null)} /></Overlay>
+      ) : null}
+      {overlay?.kind === 'mini' ? (
+        <Overlay title={overlay.title} onBack={() => { setOverlay(null); bump(); }}><MiniScreen session={session} id={overlay.id} restart={overlay.restart} onClose={() => { setOverlay(null); bump(); }} /></Overlay>
       ) : null}
       {overlay?.kind === 'review' ? (
         <Overlay title="Xem lại bài đã làm" onBack={() => setOverlay(null)}><ReviewScreen session={session} id={overlay.id} onOpenLink={open} /></Overlay>

@@ -13,7 +13,9 @@ const FILL = { son: '#fee2e2', ngoc: '#e7f8d6', thuy: '#e0f2fe', dong: '#fff0d4'
 export const LeafletMap: React.FC<{
   markers: MapMarker[]; circles?: MapCircle[]; lines?: MapLine[]; onMarkerPress?: (id: string) => void; onMapPress?: (lat: number, lng: number) => void;
   height?: number; label: string; center?: [number, number]; zoom?: number;
-}> = ({ markers, circles = [], lines = [], onMarkerPress, onMapPress, height = 320, label, center = [16.2, 106.2], zoom = 5 }) => {
+  /** Các điểm cần luôn nằm trong khung nhìn (ví dụ mọi vị trí của hoạt ảnh); mặc định là các điểm đánh dấu */
+  fit?: Array<[number, number]>;
+}> = ({ markers, circles = [], lines = [], onMarkerPress, onMapPress, height = 320, label, center = [16.2, 106.2], zoom = 5, fit }) => {
   const host = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const layer = useRef<L.LayerGroup | null>(null);
@@ -47,13 +49,14 @@ export const LeafletMap: React.FC<{
       dot.bindTooltip(m.label, { permanent: true, direction: 'top', offset: [0, -8] });
       if (markerPress.current) dot.on('click', (e: L.LeafletMouseEvent) => { L.DomEvent.stopPropagation(e); markerPress.current?.(m.id); });
     }
-    const signature = markers.map((m) => m.id).join('|');
-    if (markers.length && signature !== fitted.current) {
+    const points: Array<[number, number]> = fit?.length ? fit : markers.map((m) => [m.lat, m.lng] as [number, number]);
+    const signature = fit?.length ? fit.map((p) => p.join(',')).join('|') : markers.map((m) => m.id).join('|');
+    if (points.length && signature !== fitted.current) {
       fitted.current = signature;
-      if (markers.length === 1) instance.setView([markers[0].lat, markers[0].lng], Math.max(zoom, 8));
-      else instance.fitBounds(L.latLngBounds(markers.map((m) => [m.lat, m.lng] as [number, number])), { padding: [36, 36], maxZoom: 10 });
+      if (points.length === 1) instance.setView(points[0], Math.max(zoom, 8));
+      else instance.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 10 });
     }
-  }, [markers, circles, lines, zoom]);
+  }, [markers, circles, lines, zoom, fit]);
 
   return <div ref={host} role="application" aria-label={label} style={{ height, width: '100%', borderRadius: 14, border: '2px solid #efe0bf', overflow: 'hidden' }} />;
 };

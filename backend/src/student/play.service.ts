@@ -105,7 +105,7 @@ export class PlayService {
   }
 
   /** Nút trong hành trình đang học của học sinh; ném 404 nếu nút không thuộc hành trình nào học sinh được học */
-  private async accessNode(q: Q, user: UserRow, nodeId: number): Promise<{ node: ProgressNode; nodes: ProgressNode[] }> {
+  async accessNode(q: Q, user: UserRow, nodeId: number): Promise<{ node: ProgressNode; nodes: ProgressNode[] }> {
     const row = (await q<{ journey_id: number }>('SELECT journey_id FROM hk_nodes WHERE id = $1', [nodeId]))[0];
     if (!row) throw notFound('nút');
     if (!(await activeJourneys(q, user.id)).some((a) => a.journey_id === row.journey_id)) throw notFound('nút');
@@ -123,15 +123,16 @@ export class PlayService {
       `SELECT s.id, s.title, EXISTS (SELECT 1 FROM hk_unlocked_sources u WHERE u.user_id = $2 AND u.source_id = s.id) AS unlocked
        FROM hist_sources s WHERE s.status = 'published' AND (s.id IN (SELECT source_id FROM hk_node_unlocks WHERE node_id = $1) OR s.id = $3) ORDER BY s.title`, [nodeId, user.id, node.source_id]);
     const quiz = content.quiz as { pass_percent: number } | undefined;
+    const sim = node.battle_id ? await this.simulationOf(q, node.battle_id) : null;
     return {
-      ...this.nodeBrief(node), content: locked ? null : content, unlocks, can_start: !locked,
+      ...this.nodeBrief(node), content: locked ? null : content, unlocks, can_start: !locked, has_sim: Boolean(sim), scenario_id: sim?.id ?? null,
       pass_percent: node.pass_percent ?? quiz?.pass_percent ?? null, hint: locked && prev ? `Hoàn thành nút "${prev.title}" trước` : null,
       has_quiz: Boolean(node.quiz_id), needs_quiz: node.kind === 'quiz' || node.kind === 'final' || (node.kind === 'battle' && Boolean(node.quiz_id)),
     };
   }
 
   // ------------------------------------------------------------------ hoàn thành nút (HK.SYS.007)
-  private async finishNode(q: Q, user: UserRow, node: ProgressNode, r: { percent: number; stars: number; points: number; passed: boolean; ref: string }) {
+  async finishNode(q: Q, user: UserRow, node: ProgressNode, r: { percent: number; stars: number; points: number; passed: boolean; ref: string }) {
     const prev = (await q<{ best_points: number; completed_at: string | null }>('SELECT best_points, completed_at FROM hk_node_progress WHERE user_id = $1 AND node_id = $2 FOR UPDATE', [user.id, node.id]))[0];
     const first = r.passed && !prev?.completed_at;
     await q(
@@ -165,6 +166,11 @@ export class PlayService {
     };
   }
 
+  /** Kịch bản mô phỏng đã phát hành của một trận đánh (Sprint 6): nút trận đánh có kịch bản thì hoàn thành bằng cách chơi mô phỏng */
+  private async simulationOf(q: Q, battleId: number): Promise<{ id: number } | null> {
+    return (await q<{ id: number }>("SELECT id FROM hk_scenarios WHERE battle_id = $1 AND status = 'published'", [battleId]))[0] ?? null;
+  }
+
   /** Nút tư liệu / trận đánh không kèm bộ câu hỏi hoàn thành khi học sinh đã đọc */
   async completeNode(user: UserRow, nodeId: number) {
     return this.db.tx(async (q) => {
@@ -172,6 +178,7 @@ export class PlayService {
       if (node.state === 'locked') throw new ConflictException('Hãy hoàn thành nút trước đó');
       if (node.kind === 'lesson') throw new ConflictException('Bài học hoàn thành khi trả lời đúng câu kiểm tra nhanh');
       if (node.kind === 'quiz' || node.kind === 'final' || (node.kind === 'battle' && node.quiz_id)) throw new ConflictException('Hãy làm bộ câu hỏi của nút này');
+      if (node.kind === 'battle' && node.battle_id && (await this.simulationOf(q, node.battle_id))) throw new ConflictException('Hãy chơi mô phỏng trận đánh để hoàn thành nút này');
       return this.finishNode(q, user, node, { percent: 100, stars: 3, points: 0, passed: true, ref: 'read' });
     });
   }

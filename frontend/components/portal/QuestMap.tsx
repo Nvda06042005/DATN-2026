@@ -24,6 +24,7 @@ export interface NodeActions {
   onQuiz: (node: { id: number; title: string }) => void;
   onRead: (node: { id: number; title: string; kind: 'battle' | 'source'; refId: number; done: boolean }) => void;
   onOpenDetail: (type: string, id: number) => void;
+  onSim: (node: { id: number; title: string; scenarioId: number }) => void;
 }
 
 // ---------------------------------------------------------------------- trang chủ
@@ -179,11 +180,12 @@ const NodeSheet: React.FC<{ session: Session; nodeId: number; refreshKey: number
     const ref = { id: d.id, title: d.title };
     onClose();
     if (d.kind === 'lesson') actions.onLesson(ref);
+    else if (d.kind === 'battle' && d.has_sim && d.scenario_id) actions.onSim({ ...ref, scenarioId: d.scenario_id });
     else if (d.needs_quiz) actions.onQuiz(ref);
     else if (d.kind === 'battle' && d.content?.battle) actions.onRead({ ...ref, kind: 'battle', refId: d.content.battle.id, done: d.state === 'done' });
     else if (d.kind === 'source' && d.content?.source) actions.onRead({ ...ref, kind: 'source', refId: d.content.source.id, done: d.state === 'done' });
   };
-  const verb = !d ? '' : d.kind === 'lesson' ? 'Đọc bài học' : d.needs_quiz ? (d.state === 'done' ? 'Chơi lại' : 'Bắt đầu') : d.kind === 'battle' ? 'Đọc hồ sơ trận đánh' : 'Đọc tư liệu';
+  const verb = !d ? '' : d.kind === 'lesson' ? 'Đọc bài học' : d.kind === 'battle' && d.has_sim ? (d.state === 'done' ? 'Chơi lại mô phỏng' : 'Vào trận mô phỏng') : d.needs_quiz ? (d.state === 'done' ? 'Chơi lại' : 'Bắt đầu') : d.kind === 'battle' ? 'Đọc hồ sơ trận đánh' : 'Đọc tư liệu';
   return (
     <Sheet open onClose={onClose} title={d?.title ?? 'Chi tiết nút'} subtitle={d ? `${d.kind_label} · ${STATE_TEXT[d.state]}` : undefined}
       footer={d ? <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}><Btn title="Đóng" tone="giay" onPress={onClose} /><Btn icon={d.state === 'done' ? RotateCcw : Play} title={verb} tone="ngoc" disabled={!d.can_start} onPress={() => go(d)} testID="node-start" /></View> : undefined}>

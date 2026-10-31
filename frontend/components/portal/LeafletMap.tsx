@@ -11,7 +11,7 @@ export interface MapLine { from: [number, number]; to: [number, number]; tone?: 
 
 export const LeafletMap: React.FC<{
   markers: MapMarker[]; circles?: MapCircle[]; lines?: MapLine[]; onMarkerPress?: (id: string) => void; onMapPress?: (lat: number, lng: number) => void;
-  height?: number; label: string; center?: [number, number]; zoom?: number;
+  height?: number; label: string; center?: [number, number]; zoom?: number; fit?: Array<[number, number]>;
 }> = ({ markers, onMarkerPress, label }) => {
   const { c } = useTheme();
   return (
