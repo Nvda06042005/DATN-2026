@@ -224,10 +224,10 @@ export function grade(q: Pick<QuestionCore, 'qtype' | 'data'>, answer: unknown):
 
 // ------------------------------------------------------------------ điểm thưởng tốc độ và sao
 /** Trả lời đúng càng sớm càng được thưởng, tối đa bằng một nửa điểm gốc của câu (HK.HS.045) */
-export function bonusPoints(base: number, limitSeconds: number, elapsedMs: number): number {
+export function bonusPoints(base: number, limitSeconds: number, elapsedMs: number, ratio: number = MAX_BONUS_RATIO): number {
   const limit = limitSeconds * 1000;
   const left = Math.max(0, limit - Math.max(0, elapsedMs));
-  return Math.round(base * MAX_BONUS_RATIO * (left / limit));
+  return Math.round(base * ratio * (left / limit));
 }
 
 /**
