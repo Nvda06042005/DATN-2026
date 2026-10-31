@@ -8,6 +8,9 @@ import { AdminController } from './admin/admin.controller';
 import { MailService } from './admin/mail.service';
 import { SchoolService } from './admin/school.service';
 import { ReportService } from './admin/report.service';
+import { CatalogController, SystemController } from './admin/catalog.controller';
+import { CatalogService } from './admin/catalog.service';
+import { SystemService } from './admin/system.service';
 import { AiController } from './ai/ai.controller';
 import { AiService } from './ai/ai.service';
 import { AppController } from './app.controller';
@@ -28,8 +31,8 @@ import { TeacherController } from './teacher/teacher.controller';
     JwtModule.register({ secret: config.authSecret, signOptions: { algorithm: 'HS256', expiresIn: config.tokenTtlHours * 3600 }, verifyOptions: { algorithms: ['HS256'] } }),
     ScheduleModule.forRoot(),
   ],
-  controllers: [AppController, AuthController, AdminController, StudentController, TeacherController, AiController],
-  providers: [SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, ContentService, AiService, StudentService, MailService, SchoolService, ReportService, LiveHub, LiveGateway],
+  controllers: [AppController, AuthController, AdminController, CatalogController, SystemController, StudentController, TeacherController, AiController],
+  providers: [SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, ContentService, AiService, StudentService, MailService, SchoolService, ReportService, CatalogService, SystemService, LiveHub, LiveGateway],
 })
 export class AppModule {}
 

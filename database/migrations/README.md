@@ -35,3 +35,8 @@ Giữ nguyên RLS, chính sách scope, tài khoản và dữ liệu hiện có. 
 hai bảng kết quả hiện có. Trận cũ giữ nguyên nội dung/điểm, chỉ gán trường hiện tại của giáo viên;
 không đoán năm học. Trận mới chép ngữ cảnh trường của phòng và năm/khối nếu khớp đúng một lớp.
 Xem [dashboard, bộ lọc và giới hạn số liệu](../../docs/ADMIN_REPORTS.md).
+
+`011_content_management.sql`: sáu bảng nội dung/cấu hình của quản trị tổng (lịch sử cập nhật, chương trình, lớp chỉnh sửa
+ngân hàng câu hỏi, kho sử liệu AI, thẻ danh tướng, luật EXP), bật RLS và không cấp quyền cho vai trò theo trường. Dữ liệu gốc
+(3 cuộc kháng chiến, 9 ải, 14 thẻ, luật EXP phiên bản 1) lấy từ nội dung game hiện có; không thay đổi bảng hay dữ liệu cũ.
+Xem [nội dung và cấu hình](../../docs/ADMIN_CONTENT.md).

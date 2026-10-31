@@ -209,3 +209,8 @@ Hai cổng luôn hiển thị **Quản trị tổng · Toàn hệ thống** ho�
 giúp phân biệt tài khoản kể cả trên điện thoại. Mục Dashboard có thống kê trường/khối/lớp/nhân sự,
 so sánh học tập và thi đấu, bộ lọc và xuất Excel `.xlsx` theo đúng phạm vi được cấp.
 [Chi tiết TM.SA-REPORT, cách tính và giới hạn dữ liệu](docs/ADMIN_REPORTS.md).
+
+Quản trị tổng còn có **Nội dung & cấu hình** (chương trình lịch sử, ngân hàng câu hỏi dùng chung, kho sử liệu AI có kiểm duyệt,
+thẻ danh tướng, luật EXP) và **Nhật ký & sức khỏe** (đăng nhập, thao tác, lỗi nhập Excel/gửi thư, trạng thái API/CSDL/AI).
+Mỗi thay đổi có phiên bản và lịch sử; câu hỏi và luật EXP có hiệu lực ngay, các mục còn lại là dữ liệu quản trị.
+[Chi tiết TM.SA-CONTENT và giới hạn hiện tại](docs/ADMIN_CONTENT.md).

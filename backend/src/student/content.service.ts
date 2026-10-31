@@ -34,6 +34,13 @@ export interface UnitMeta {
   category: string;
   [key: string]: unknown;
 }
+/** Một dòng app_question_bank: câu quản trị chỉnh sửa/ẩn/tạo, chồng lên ngân hàng gốc trong file */
+export interface BankOverlay {
+  id: string;
+  origin: 'file' | 'admin';
+  status: 'draft' | 'published' | 'hidden';
+  payload: BankQuestion;
+}
 type Key = number | string | boolean;
 export interface ServedQuestion {
   id: string;
@@ -98,8 +105,11 @@ const readJson = (file: string) => JSON.parse(readFileSync(join(config.contentDi
 @Injectable()
 export class ContentService {
   private readonly logger = new Logger('Content');
+  /** Câu đang phục vụ học sinh (gốc + lớp chỉnh sửa đã xuất bản); đổi nội dung tại chỗ trong applyOverlay */
   readonly questions = new Map<string, BankQuestion>();
   readonly byUnit = new Map<string, string[]>();
+  /** Ngân hàng gốc đọc từ ai/data/game_content.json, không bao giờ bị sửa */
+  private readonly base = new Map<string, BankQuestion>();
   readonly places: Record<string, string>;
   /** Q-matrix của chatbot + cụm tri thức bổ sung của game (chủ đề, nhóm) */
   readonly units: Record<string, UnitMeta>;
@@ -112,10 +122,10 @@ export class ContentService {
     this.places = game.places ?? {};
     for (const q of game.questions as BankQuestion[]) {
       validate(q, this.places);
-      if (this.questions.has(q.id)) throw new Error(`Trùng mã câu hỏi ${q.id}`);
-      this.questions.set(q.id, q);
-      this.byUnit.set(q.unit_id, [...(this.byUnit.get(q.unit_id) ?? []), q.id]);
+      if (this.base.has(q.id)) throw new Error(`Trùng mã câu hỏi ${q.id}`);
+      this.base.set(q.id, q);
     }
+    this.applyOverlay([]);
     let qMatrix: Record<string, UnitMeta> = {};
     let kb: Record<string, Record<string, unknown>> = {};
     try {
@@ -144,6 +154,47 @@ export class ContentService {
     const known = new Set(this.codex.map((e) => e.unit_id));
     for (const [uid, e] of gameCodex) if (!known.has(uid)) this.codex.push({ ...e });
     this.logger.log(`Ngân hàng câu hỏi: ${this.questions.size} câu, ${this.byUnit.size} cụm tri thức`);
+  }
+
+  /**
+   * Dựng lại ngân hàng đang phục vụ: câu gốc, trừ câu bị ẩn, thay bằng bản đã xuất bản của quản trị, cộng câu quản trị tạo.
+   * Dòng nháp không ảnh hưởng học sinh; dòng sai định dạng bị bỏ qua để một dòng lỗi không làm hỏng cả ngân hàng.
+   */
+  applyOverlay(rows: BankOverlay[]): number {
+    const next = new Map(this.base);
+    let applied = 0;
+    for (const row of rows) {
+      if (row.origin === 'file' && row.status === 'hidden') {
+        next.delete(row.id);
+        applied += 1;
+      } else if (row.status === 'published') {
+        try {
+          validate(row.payload, this.places);
+          next.set(row.id, row.payload);
+          applied += 1;
+        } catch (exc) {
+          this.logger.warn(`Bỏ qua câu ${row.id}: ${(exc as Error).message}`);
+        }
+      }
+    }
+    this.questions.clear();
+    this.byUnit.clear();
+    for (const [id, q] of next) {
+      this.questions.set(id, q);
+      this.byUnit.set(q.unit_id, [...(this.byUnit.get(q.unit_id) ?? []), id]);
+    }
+    return applied;
+  }
+
+  /** Câu gốc trong file (để quản trị so sánh, ẩn hoặc chỉnh sửa) */
+  baseQuestions(): BankQuestion[] {
+    return [...this.base.values()];
+  }
+
+  /** Kiểm tra một câu quản trị gửi lên: đúng định dạng từng dạng câu và thuộc một cụm tri thức học tập có thật */
+  check(q: BankQuestion): void {
+    validate(q, this.places);
+    if (!this.isLearningUnit(q.unit_id) || !(q.unit_id in this.units)) throw new Error(`${q.id}: cụm tri thức ${q.unit_id} không tồn tại`);
   }
 
   topicOf(unitId: string): string {

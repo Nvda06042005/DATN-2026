@@ -9,6 +9,30 @@ export const GEMS_CORRECT_WEAK = 15;
 export const DAILY_GEM_CAP = 300;
 export const WEAK_THRESHOLD = 0.6;
 
+export const BADGE_METRICS = ['xp', 'streak', 'lessons_completed', 'questions_correct', 'perfect_runs'] as const;
+export interface ExpRules {
+  xp_correct: number;
+  xp_wrong: number;
+  gems_correct: number;
+  gems_weak: number;
+  daily_gem_cap: number;
+  weak_threshold: number;
+  /** Mốc EXP của từng cấp, tăng dần, cấp 1 bắt đầu từ 0 */
+  levels: Array<{ level: number; name: string; min_xp: number }>;
+  badges: Array<{ code: string; name: string; metric: (typeof BADGE_METRICS)[number]; threshold: number; reward_xp: number; reward_gems: number }>;
+}
+/** Luật đang chạy trước khi quản trị cấu hình: đúng các hằng số ở trên và công thức cấp (cấp − 1)² × 40 của game */
+export const DEFAULT_RULES: ExpRules = {
+  xp_correct: XP_CORRECT, xp_wrong: XP_WRONG, gems_correct: GEMS_CORRECT, gems_weak: GEMS_CORRECT_WEAK, daily_gem_cap: DAILY_GEM_CAP, weak_threshold: WEAK_THRESHOLD,
+  levels: Array.from({ length: 10 }, (_, i) => ({ level: i + 1, name: `Cấp ${i + 1}`, min_xp: i * i * 40 })), badges: [],
+};
+let rules: ExpRules = DEFAULT_RULES;
+/** Luật EXP đang hiệu lực; chỉ áp dụng cho câu trả lời sau khi đổi, không tính lại điểm đã ghi nhận */
+export const activeRules = (): ExpRules => rules;
+export const setActiveRules = (next: ExpRules): void => {
+  rules = next;
+};
+
 const VN_OFFSET_MS = 7 * 3_600_000;
 const DAY_MS = 86_400_000;
 
@@ -58,12 +82,12 @@ export function effectiveStreak(p?: Progress | null): number {
 }
 
 /** Cộng XP và Ấn Tín (cột gems) cho một câu trả lời đã được server chấm. Trả về [xp, gems]. */
-export function awardAnswer(p: Progress, correct: boolean, weak: boolean): [number, number] {
-  const xp = correct ? XP_CORRECT : XP_WRONG;
+export function awardAnswer(p: Progress, correct: boolean, weak: boolean, r: ExpRules = rules): [number, number] {
+  const xp = correct ? r.xp_correct : r.xp_wrong;
   let gems = 0;
   if (correct) {
-    const room = Math.max(0, DAILY_GEM_CAP - Number(p.day_gems || 0));
-    gems = Math.min(weak ? GEMS_CORRECT_WEAK : GEMS_CORRECT, room);
+    const room = Math.max(0, r.daily_gem_cap - Number(p.day_gems || 0));
+    gems = Math.min(weak ? r.gems_weak : r.gems_correct, room);
   }
   p.xp = Number(p.xp || 0) + xp;
   p.day_xp = Number(p.day_xp || 0) + xp;

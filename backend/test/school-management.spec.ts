@@ -27,7 +27,7 @@ async function account(role:string,schoolId:number,name:string,grade?:number){re
   expect((await api('PATCH',`/api/admin/schools/${schoolA}`,{name:'Không được sửa'},scoped)).status).toBe(403);
   expect((await api('GET','/api/admin/schools',undefined,teacherToken)).status).toBe(403);
   const ov=await api('GET','/api/admin/overview');expect(ov.body.schools).toBe(64);
-  expect((await api('GET','/api/database/health')).body.schema_version).toBe(10);
+  expect((await api('GET','/api/database/health')).body.schema_version).toBe(11);
  });
  test('school details expose correct counts, grade breakdown and safe school-admin information',async()=>{
   const r=await api('GET',`/api/admin/schools/${schoolA}`);expect(r.body.counts).toEqual({teachers:1,students:1,classes:1,grades:1,admins:1});

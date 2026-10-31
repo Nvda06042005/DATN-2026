@@ -37,7 +37,7 @@ export class StudentService {
       lessons_completed: Number(p.lessons_completed), perfect_runs: Number(p.perfect_runs), questions_answered: Number(p.questions_answered),
       questions_correct: Number(p.questions_correct), accuracy: prog.accuracy(p), ai_questions: Number(p.ai_questions), day_xp: Number(p.day_xp),
       day_lessons: Number(p.day_lessons), day_correct: Number(p.day_correct), day_ai_questions: Number(p.day_ai_questions), day_gems: Number(p.day_gems || 0),
-      daily_gem_cap: prog.DAILY_GEM_CAP, class_name: user.class_name, class_rank: rank, class_size: size,
+      daily_gem_cap: prog.activeRules().daily_gem_cap, class_name: user.class_name, class_rank: rank, class_size: size,
     };
   }
 
@@ -62,7 +62,7 @@ export class StudentService {
   weakUnits(bktState: Record<string, { attempts?: number; p_l?: number }>, limit = 3): string[] {
     const units = this.content.unitsWithQuestions();
     const tried = units
-      .filter((u) => bktState[u]?.attempts && Number(bktState[u].p_l ?? 0.3) < prog.WEAK_THRESHOLD)
+      .filter((u) => bktState[u]?.attempts && Number(bktState[u].p_l ?? 0.3) < prog.activeRules().weak_threshold)
       .sort((a, b) => Number(bktState[a].p_l ?? 0.3) - Number(bktState[b].p_l ?? 0.3));
     if (tried.length) return tried.slice(0, limit);
     const untried = shuffle(units.filter((u) => !bktState[u]?.attempts));
@@ -105,7 +105,7 @@ export class StudentService {
     const p = prog.rollDay(await this.db.getProgress(user.id));
     const state = prog.loadJson(p.bkt_state);
     const before = (state[q.unit_id] ?? {}) as { attempts?: number; p_l?: number };
-    const weak = Boolean(before.attempts) && Number(before.p_l ?? 0.3) < prog.WEAK_THRESHOLD;
+    const weak = Boolean(before.attempts) && Number(before.p_l ?? 0.3) < prog.activeRules().weak_threshold;
     const bkt = await this.ai.bktUpdate(state, q.unit_id, correct);
 
     p.questions_answered = Number(p.questions_answered) + 1;

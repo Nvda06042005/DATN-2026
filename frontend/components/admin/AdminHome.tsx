@@ -9,11 +9,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FlatList, Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import {
-  AlertTriangle, Check, ClipboardCopy, FileSpreadsheet, KeyRound, LayoutDashboard, Lock, Mail, MoreVertical, Printer, School, Search, ShieldCheck, Trash2, Unlock, UserPlus, Users,
+  Activity, AlertTriangle, BookOpen, Check, ClipboardCopy, FileSpreadsheet, KeyRound, LayoutDashboard, Lock, Mail, MoreVertical, Printer, School, Search, ShieldCheck, Trash2, Unlock, UserPlus, Users,
 } from 'lucide-react-native';
 import { SecurityHistory, UserDetailSheet } from './AccountSecurity';
 import { ClassDirectory, SchoolsDirectory } from './SchoolManagement';
 import { ReportsDashboard } from './ReportsDashboard';
+import { ContentManagement } from './ContentManagement';
+import { SystemLogs } from './SystemLogs';
 import { AdminWorkspace } from './AdminWorkspace';
 import { AdminSelect } from './AdminSelect';
 import * as adminApi from '@/api/adminApi';
@@ -28,7 +30,7 @@ import { currentSchoolYear, fmt, formatDateTime, pct, webHref } from '@/lib/form
 import type { AccountCredential, AdminOverview, AdminUser, AuthRole, Grade, ManagedRole, SchoolStat, UserFilters, UsersPage } from '@/types/api';
 import type { IconType } from '@/types/game';
 
-type AdminTab = 'teachers' | 'students' | 'class_directory' | 'overview' | 'schools' | 'users' | 'import' | 'classes' | 'mail' | 'trash';
+type AdminTab = 'teachers' | 'students' | 'class_directory' | 'overview' | 'schools' | 'users' | 'import' | 'classes' | 'mail' | 'trash' | 'content' | 'system_logs';
 type Modal = null | { kind: 'account'; role?: ManagedRole; schoolId?: number } | { kind: 'school' };
 
 const GRADES: Grade[] = [6, 7, 8, 9];
@@ -107,6 +109,11 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
     { id: 'classes', label: 'Duyệt lớp', icon: Check, color: c.vang, count: ov?.pending_classes || undefined },
     { id: 'mail', label: 'Thư gửi', icon: Mail, color: c.thuy, count: mailWaiting || undefined },
     { id: 'trash', label: 'Thùng rác', icon: Trash2, color: c.son, count: ov?.trash || undefined },
+    // Nội dung và cấu hình dùng chung toàn hệ thống: chỉ quản trị tổng (máy chủ cũng chặn quản trị trường)
+    ...(system ? [
+      { id: 'content' as const, label: 'Nội dung & cấu hình', icon: BookOpen, color: c.son },
+      { id: 'system_logs' as const, label: 'Nhật ký & sức khỏe', icon: Activity, color: c.son },
+    ] : []),
   ];
   const TITLES: Record<AdminTab, [string, string]> = {
     overview: system ? ['Tổng quan hệ thống', 'Toàn bộ trường, giáo viên và học sinh khối 6 – 9'] : [mySchool?.name ?? 'Trường của bạn', `Mã trường ${mySchool?.school_code ?? '—'} · chỉ dữ liệu của trường bạn`],
@@ -119,6 +126,8 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
     classes: ['Duyệt lớp', 'Yêu cầu mở lớp của giáo viên'],
     mail: ['Thư gửi', 'Hàng đợi thư thông tin đăng nhập và thông báo lớp'],
     trash: ['Thùng rác', 'Khôi phục trong 45 ngày trước khi tự xóa vĩnh viễn'],
+    content: ['Nội dung và cấu hình', 'Chương trình lịch sử, ngân hàng câu hỏi, kho sử liệu AI, thẻ danh tướng và luật EXP'],
+    system_logs: ['Nhật ký và sức khỏe hệ thống', 'Đăng nhập, thao tác, lỗi nhập Excel, lỗi gửi thư và trạng thái dịch vụ'],
   };
 
   const header = (
@@ -135,7 +144,7 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
         </View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           {system && (tab === 'overview' || tab === 'schools') && <Btn title="Thêm trường" icon={School} tone="giay" onPress={() => setModal({ kind: 'school' })} />}
-          {!['users','teachers','students'].includes(tab) && <Btn title="Cấp tài khoản" icon={UserPlus} tone="son" onPress={() => setModal({ kind: 'account' })} testID="admin-create" />}
+          {!['users','teachers','students','content','system_logs'].includes(tab) && <Btn title="Cấp tài khoản" icon={UserPlus} tone="son" onPress={() => setModal({ kind: 'account' })} testID="admin-create" />}
         </View>
       </View>
       {ovError && (
@@ -182,6 +191,10 @@ export const AdminHome: React.FC<{ session: Session }> = ({ session }) => {
         return <OutboxPanel session={session} />;
       case 'trash':
         return <TrashPanel session={session} onChanged={refresh} />;
+      case 'content':
+        return system ? <ContentManagement session={session} /> : null;
+      case 'system_logs':
+        return system ? <SystemLogs session={session} /> : null;
       default:
         return null;
     }

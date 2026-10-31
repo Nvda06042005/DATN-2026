@@ -9,7 +9,7 @@ import { useTheme } from '@/hooks/use-theme';
 import type { ClassesPage, DirectoryFilters, SchoolDetail, SchoolStat, SchoolsPage, SchoolUpdate, UserFilters } from '@/types/api';
 import { AdminSelect } from './AdminSelect';
 
-function Pager({page,total,limit,busy,onPage}:{page:number;total:number;limit:number;busy:boolean;onPage:(n:number)=>void}) {
+export function Pager({page,total,limit,busy,onPage}:{page:number;total:number;limit:number;busy:boolean;onPage:(n:number)=>void}) {
  const {c}=useTheme();return <View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',alignItems:'center',gap:10}}><Txt size={13} color={c.muc3}>{total} kết quả · Trang {page}/{Math.max(1,Math.ceil(total/limit))}</Txt><View style={{flexDirection:'row',gap:8}}><Btn title="Trang trước" tone="giay" size="sm" disabled={busy||page<=1} onPress={()=>onPage(page-1)}/><Btn title="Trang sau" tone="giay" size="sm" disabled={busy||page*limit>=total} onPress={()=>onPage(page+1)}/></View></View>;
 }
 export function SchoolsDirectory({session,reloadKey,onUsers,onCreateTeacher,onChanged}:{session:Session;reloadKey:number;onUsers:(f:UserFilters)=>void;onCreateTeacher:(id:number)=>void;onChanged:()=>void}) {

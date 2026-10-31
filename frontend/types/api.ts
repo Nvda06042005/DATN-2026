@@ -546,3 +546,82 @@ export interface DashboardReport {
   education_levels:Array<{level:string;schools:number;classes:number;students:number}>;unassigned_people:number;excluded_legacy_competitions:number;
   facets:{regions:string[];cities:string[];school_years:string[]};definitions:string[];
 }
+
+// ---------------------------------------------------------------------- TM.SA-CONTENT: nội dung và cấu hình (quản trị tổng)
+export type PublishState = 'draft' | 'published' | 'archived';
+export type NodeKind = 'campaign' | 'chapter' | 'lesson' | 'stage' | 'battle';
+export interface CurriculumNode {
+  id: number; parent_id: number | null; kind: NodeKind; code: string; title: string; summary: string; period: string | null;
+  sort_order: number; status: PublishState; version: number; updated_at: string; children: number;
+}
+export interface CurriculumData { nodes: CurriculumNode[]; kinds: Array<{ id: NodeKind; label: string }> }
+export interface NodeInput { kind?: NodeKind; parent_id?: number | null; code?: string; title?: string; summary?: string; period?: string | null; sort_order?: number; status?: PublishState }
+
+export type BankQuestionType = 'mcq' | 'tf' | 'order' | 'match' | 'map';
+export type BankQuestionStatus = 'draft' | 'published' | 'hidden';
+export interface BankQuestionRow {
+  id: string; origin: 'file' | 'admin'; status: BankQuestionStatus; edited: boolean; live: boolean; unit_id: string; topic: string;
+  type: BankQuestionType; level: string; prompt: string; source: string | null; version: number; updated_at: string | null;
+}
+export interface BankQuestionsPage {
+  items: BankQuestionRow[]; total: number; page: number; limit: number;
+  counts: { all: number; published: number; draft: number; hidden: number; edited: number; added: number };
+  facets: { units: Array<{ unit_id: string; topic: string }>; places: Record<string, string> };
+}
+export interface BankQuestionBody {
+  unit_id: string; type: BankQuestionType; prompt: string; explanation: string; level?: string; source?: string | null; hint?: string | null;
+  options?: string[]; answer?: number | boolean | string; items?: string[]; left?: string[]; right?: string[]; keep_order?: boolean;
+}
+export interface BankQuestionDetail {
+  id: string; origin: 'file' | 'admin'; status: BankQuestionStatus; version: number; review_note: string | null;
+  question: BankQuestionBody & { id: string }; original: (BankQuestionBody & { id: string }) | null;
+}
+
+export type SourceStatus = 'pending' | 'approved' | 'rejected' | 'archived';
+export type SourceKind = 'chinh_su' | 'giai_thoai' | 'tham_khao';
+export interface AiSourceRow {
+  id: number; title: string; citation: string; kind: SourceKind; unit_id: string | null; file_name: string | null; status: SourceStatus;
+  review_note: string | null; version: number; content_length: number; reviewed_at: string | null; created_at: string; updated_at: string;
+}
+export interface AiSourcesPage { items: AiSourceRow[]; total: number; page: number; limit: number; counts: Record<SourceStatus, number>; units: Array<{ unit_id: string; topic: string }> }
+export interface AiSourceDetail extends Omit<AiSourceRow, 'content_length'> { content: string }
+export interface AiSourceInput { title: string; citation: string; kind: SourceKind; unit_id?: string | null; file_name?: string | null; content: string }
+export interface AiSourceHit { id: number; title: string; citation: string; kind: SourceKind; unit_id: string | null; score: number; excerpt: string }
+
+export type CardRarity = 'hiem' | 'su_thi' | 'huyen_thoai' | 'tiet_che';
+export type CardKind = 'chinh_su' | 'giai_thoai' | 'sang_tao' | 'dan_gian';
+export interface HeroCardRow {
+  code: string; name: string; title: string | null; role: string | null; rarity: CardRarity; kind: CardKind; summary: string; source: string;
+  unlock_condition: string; status: PublishState; sort_order: number; version: number; updated_at: string;
+}
+export interface HeroCardsData { items: HeroCardRow[]; counts: { all: number; chinh_su: number; giai_thoai: number; published: number } }
+export type HeroCardInput = Partial<Pick<HeroCardRow, 'code' | 'name' | 'title' | 'role' | 'rarity' | 'kind' | 'summary' | 'source' | 'unlock_condition' | 'sort_order' | 'status'>>;
+
+export type BadgeMetric = 'xp' | 'streak' | 'lessons_completed' | 'questions_correct' | 'perfect_runs';
+export interface ExpRulesConfig {
+  xp_correct: number; xp_wrong: number; gems_correct: number; gems_weak: number; daily_gem_cap: number; weak_threshold: number;
+  levels: Array<{ level: number; name: string; min_xp: number }>;
+  badges: Array<{ code: string; name: string; metric: BadgeMetric; threshold: number; reward_xp: number; reward_gems: number }>;
+}
+export interface ExpRulesData {
+  active: { version: number; config: ExpRulesConfig; since: string | null };
+  versions: Array<{ version: number; is_active: boolean; note: string | null; created_at: string; created_by_name: string | null }>;
+  metrics: BadgeMetric[];
+}
+
+export interface ContentHistoryRow { id: number; entity: string; entity_id: string; version: number; action: string; snapshot: Record<string, unknown>; actor_name: string; created_at: string }
+
+export type EventKind = 'login' | 'audit' | 'import' | 'mail';
+export type EventLevel = 'info' | 'warn' | 'error';
+export interface SystemEvent { kind: EventKind; level: EventLevel; title: string; actor: string | null; detail: string | null; school_id: number | null; school_name: string | null; created_at: string }
+export interface SystemEventsPage { items: SystemEvent[]; page: number; limit: number; has_more: boolean; total: number; counts: Record<EventKind, number>; schools: Array<{ id: number; name: string }> }
+export interface SystemEventFilters { from?: string; to?: string; school_id?: number; kind?: EventKind; level?: EventLevel; page?: number; limit?: number }
+export interface SystemHealth {
+  generated_at: string;
+  api: { status: string; uptime_seconds: number; response_ms: number };
+  database: { status: string; schema_version: number; migrations: number; school_scope_rls: boolean; pgvector: boolean };
+  ai: { status: string; latency_ms: number | null };
+  mail: { configured: boolean; worker: boolean; queued: number; failed: number; sent_24h: number };
+  imports: { batches_24h: number; error_rows_24h: number; open_incomplete: number };
+  logins: { failed_24h: number; locked_24h: number };
+}

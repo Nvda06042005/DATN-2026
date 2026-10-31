@@ -1,4 +1,5 @@
 import { apiBlob, apiRequest, apiText, apiUpload, type PickedFile } from '@/api/client';
+import type * as C from '@/types/api';
 import type {
   AccountCredential, AdminOverview, AuthUser, ClassRequest, ClassStatus, ImportBatch, ImportResult, ImportRow, IncompleteLog, NewAccountInput, NewSchoolInput,
   OutboxItem, SchoolStat, TrashUser, UserFilters, UsersPage,
@@ -73,3 +74,33 @@ export const updateDirectoryClass = (token:string,id:number,body:{grade?:number|
 
 export const getDashboard = (token:string,f:import('@/types/api').ReportFilters) => apiRequest<import('@/types/api').DashboardReport>(`/api/admin/reports/dashboard?${directoryParams(f)}`,{token});
 export const exportDashboard = (token:string,f:import('@/types/api').ReportFilters) => apiBlob(`/api/admin/reports/export?${directoryParams(f)}`,token);
+
+// ---- TM.SA-CONTENT: nội dung và cấu hình (chỉ quản trị tổng)
+export const getCurriculum = (token: string) => apiRequest<C.CurriculumData>('/api/admin/content/curriculum', { token });
+export const createNode = (token: string, body: C.NodeInput) => apiRequest<C.CurriculumNode>('/api/admin/content/curriculum', { token, method: 'POST', body });
+export const updateNode = (token: string, id: number, body: C.NodeInput) => apiRequest<C.CurriculumNode>(`/api/admin/content/curriculum/${id}`, { token, method: 'PATCH', body });
+
+export const getBankQuestions = (token: string, f: object) => apiRequest<C.BankQuestionsPage>(`/api/admin/content/questions?${directoryParams(f)}`, { token });
+export const getBankQuestion = (token: string, id: string) => apiRequest<C.BankQuestionDetail>(`/api/admin/content/questions/${encodeURIComponent(id)}`, { token });
+export const createBankQuestion = (token: string, body: C.BankQuestionBody) => apiRequest<C.BankQuestionDetail>('/api/admin/content/questions', { token, method: 'POST', body });
+export const updateBankQuestion = (token: string, id: string, body: C.BankQuestionBody) => apiRequest<C.BankQuestionDetail>(`/api/admin/content/questions/${encodeURIComponent(id)}`, { token, method: 'PATCH', body });
+export const setBankQuestionStatus = (token: string, id: string, status: C.BankQuestionStatus, note?: string) => apiRequest<C.BankQuestionDetail>(`/api/admin/content/questions/${encodeURIComponent(id)}/status`, { token, method: 'POST', body: { status, note } });
+export const removeBankQuestion = (token: string, id: string) => apiRequest<void>(`/api/admin/content/questions/${encodeURIComponent(id)}`, { token, method: 'DELETE' });
+
+export const getAiSources = (token: string, f: object) => apiRequest<C.AiSourcesPage>(`/api/admin/content/sources?${directoryParams(f)}`, { token });
+export const getAiSource = (token: string, id: number) => apiRequest<C.AiSourceDetail>(`/api/admin/content/sources/${id}`, { token });
+export const createAiSource = (token: string, body: C.AiSourceInput) => apiRequest<C.AiSourceRow>('/api/admin/content/sources', { token, method: 'POST', body });
+export const reviewAiSource = (token: string, id: number, decision: 'approve' | 'reject' | 'archive' | 'reopen', note?: string) => apiRequest<C.AiSourceRow>(`/api/admin/content/sources/${id}/review`, { token, method: 'POST', body: { decision, note } });
+export const searchAiSources = (token: string, q: string) => apiRequest<C.AiSourceHit[]>(`/api/admin/content/sources/search?${directoryParams({ q })}`, { token });
+
+export const getHeroCards = (token: string, f: object) => apiRequest<C.HeroCardsData>(`/api/admin/content/cards?${directoryParams(f)}`, { token });
+export const createHeroCard = (token: string, body: C.HeroCardInput) => apiRequest<C.HeroCardRow>('/api/admin/content/cards', { token, method: 'POST', body });
+export const updateHeroCard = (token: string, code: string, body: C.HeroCardInput) => apiRequest<C.HeroCardRow>(`/api/admin/content/cards/${code}`, { token, method: 'PATCH', body });
+
+export const getExpRules = (token: string) => apiRequest<C.ExpRulesData>('/api/admin/content/rules', { token });
+export const getExpRuleVersion = (token: string, version: number) => apiRequest<{ version: number; config: C.ExpRulesConfig }>(`/api/admin/content/rules/${version}`, { token });
+export const saveExpRules = (token: string, config: C.ExpRulesConfig, note?: string) => apiRequest<{ version: number; config: C.ExpRulesConfig }>('/api/admin/content/rules', { token, method: 'POST', body: { config, note } });
+
+export const getContentHistory = (token: string, entity: string, id: string | number) => apiRequest<C.ContentHistoryRow[]>(`/api/admin/content/history?${directoryParams({ entity, id })}`, { token });
+export const getSystemHealth = (token: string) => apiRequest<C.SystemHealth>('/api/admin/system/health', { token });
+export const getSystemEvents = (token: string, f: C.SystemEventFilters) => apiRequest<C.SystemEventsPage>(`/api/admin/system/events?${directoryParams(f)}`, { token });
