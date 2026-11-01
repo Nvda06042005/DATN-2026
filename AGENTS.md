@@ -25,3 +25,4 @@ Người dùng đã cho phép tự động cập nhật dự án sau mỗi yêu 
 - Render triển khai backend `dong-a-api` từ GitHub theo `render.yaml`. Kiểm tra `/api/health`, `/api/database/health` (có `schema_version`) và API liên quan. Dịch vụ `dong-a-ai` của bản cũ không còn trong `render.yaml`. Nếu thiếu quyền truy cập, báo rõ phần chưa hoàn tất.
 - Supabase: thay đổi schema hoặc seed/reference data phải có migration mới theo quy tắc ở trên. Backend áp dụng migration khi khởi động; xác minh bằng `schema_version` của `/api/database/health`.
 - Chỉ báo đồng bộ thành công khi có bằng chứng cho từng dịch vụ; nêu rõ lỗi triển khai hoặc thiếu kết nối.
+- CI trên GitHub: `.github/workflows/ci.yml` chạy backend/migration với PostgreSQL tạm, frontend và hồi quy auto-sync; tài liệu `docs/GITHUB_ACTIONS.md`. Không thêm credential production vào workflow, không bỏ qua kiểm thử database để lấy dấu tích xanh. Kết quả CI không thay cho xác minh deploy Render/Vercel/Supabase.

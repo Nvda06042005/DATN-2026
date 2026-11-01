@@ -37,6 +37,8 @@ Ngày 31/10/2026 thư mục này từng bị xóa theo yêu cầu (website chỉ
 
 Kiểm chứng trên PostgreSQL tạm bằng `cd backend && npm run build && npm test` trước khi triển khai.
 
+GitHub Actions cũng chạy bước kiểm tra file SQL và toàn bộ kiểm thử trên PostgreSQL 16 tạm; không dùng `DATABASE_URL` của Supabase. Job không coi các bài kiểm thử bị bỏ qua là đạt. Xem [CI và Check status](../../docs/GITHUB_ACTIONS.md).
+
 ## Kiểm tra build Render
 
 Render dùng Node 22.21.0 và npm 10. Khi đổi dependency backend, tạo lockfile bằng
