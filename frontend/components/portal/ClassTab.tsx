@@ -3,9 +3,9 @@
  * thông báo của lớp, xin rời lớp), danh sách bài tập và vào làm bài, điểm – nhận xét của giáo viên, kỹ năng nhân vật (điểm hành động, hồi tim, hiệu ứng), xếp hạng đội
  * và chuông thông báo. Máy chủ quyết định mọi điểm, hạn nộp và lượt làm; giao diện chỉ hiển thị và gửi yêu cầu.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { Bell, BookOpen, Heart, LogIn, LogOut, Play, RotateCcw, Shield, Swords, Users, Zap } from 'lucide-react-native';
+import { BookOpen, Heart, LogIn, LogOut, Play, RotateCcw, Shield, Swords, Users, Zap } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import * as api from '@/api/classroomApi';
 import { errorMessage } from '@/api/client';
@@ -14,65 +14,13 @@ import type { Session } from '@/components/auth';
 import { Bar, Btn, Card, Chip, EmptyState, Field, InfoNote, Segmented, Sheet, Spinner, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { Hud } from '@/types/gamification';
-import type { MyAssignment, MyAssignState, MyClassRow, Notice, TeamBoard } from '@/types/classroom';
+import type { MyAssignment, MyAssignState, MyClassRow, TeamBoard } from '@/types/classroom';
 import { teamLabel } from '@/types/classroom';
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }) : '—');
 
-// ---------------------------------------------------------------------- chuông thông báo (HK.HS.104)
-export const NoticeBell: React.FC<{ session: Session; refreshKey?: number; onGo?: (n: Notice) => void }> = ({ session, refreshKey = 0, onGo }) => {
-  const { c } = useTheme();
-  const [unread, setUnread] = useState(0);
-  const [open, setOpen] = useState(false);
-  const poll = useCallback(() => { api.notices(session.token).then((d) => setUnread(d.unread)).catch(() => undefined); }, [session.token]);
-  useEffect(() => {
-    poll();
-    const timer = setInterval(poll, 60_000);
-    return () => clearInterval(timer);
-  }, [poll, refreshKey]);
-  return (
-    <>
-      <Pressable accessibilityRole="button" accessibilityLabel={unread ? `Thông báo, ${unread} chưa đọc` : 'Thông báo'} onPress={() => setOpen(true)} testID="notice-bell"
-        style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
-        <Bell size={22} color={unread ? c.son : c.muc2} />
-        {unread ? <View style={{ position: 'absolute', top: 4, right: 2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: c.son, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Txt f="bold" size={11} color="#ffffff">{unread > 9 ? '9+' : unread}</Txt></View> : null}
-      </Pressable>
-      {open ? <NoticeSheet session={session} onClose={() => { setOpen(false); poll(); }} onGo={onGo} /> : null}
-    </>
-  );
-};
-
-const NoticeSheet: React.FC<{ session: Session; onClose: () => void; onGo?: (n: Notice) => void }> = ({ session, onClose, onGo }) => {
-  const { c } = useTheme();
-  const list = useLoad(() => api.notices(session.token), [session.token], session.expired);
-  const { busy, run } = useAction(session.expired);
-  const items = list.data?.items ?? [];
-  const read = async (n: Notice) => {
-    if (!n.read_at) { await api.markNoticesRead(session.token, [n.id]).catch(() => undefined); list.reload(); }
-    if (onGo) { onClose(); onGo(n); }
-  };
-  return (
-    <Sheet open onClose={onClose} title="Thông báo" subtitle={list.data ? `${list.data.unread} chưa đọc` : undefined}
-      footer={<View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
-        <Btn title="Đánh dấu đã đọc tất cả" tone="giay" disabled={!list.data?.unread} loading={busy} onPress={async () => { if (await run(() => api.markNoticesRead(session.token))) list.reload(); }} />
-        <Btn title="Đóng" tone="ngoc" onPress={onClose} /></View>}>
-      <ErrorNote message={list.error} />
-      {list.loading && !list.data ? <Spinner /> : null}
-      {list.data && !items.length ? <EmptyState mood="thinking" title="Chưa có thông báo nào" /> : null}
-      {items.map((n) => (
-        <Pressable key={n.id} accessibilityRole="button" onPress={() => read(n)} style={({ pressed }) => ({ gap: 4, padding: 12, borderRadius: 12, borderWidth: 2, borderColor: n.read_at ? c.vien : c.thuy, backgroundColor: pressed ? c.the2 : n.read_at ? c.the : c.thuyNhat })}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {!n.read_at ? <Chip text="Mới" bg={c.son} fg="#ffffff" /> : null}
-            {n.class_name ? <Chip text={n.class_name} bg={c.dichNhat} fg={c.dich} /> : null}
-            <Txt size={12} color={c.muc3}>{when(n.created_at)}</Txt>
-          </View>
-          <Txt f="bold" size={15}>{n.title}</Txt>
-          <Txt size={14} color={c.muc2}>{n.body}</Txt>
-        </Pressable>
-      ))}
-    </Sheet>
-  );
-};
+// Chuông thông báo (HK.HS.104) nay nằm ở NoticeCenter (Sprint 11) và dùng chung cho mọi vai trò
+export { NoticeBell } from '@/components/portal/NoticeCenter';
 
 // ---------------------------------------------------------------------- bảng xếp hạng đội (HK.HS.076)
 export const TeamRanking: React.FC<{ session: Session; refreshKey: number }> = ({ session, refreshKey }) => {

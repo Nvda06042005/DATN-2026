@@ -1,5 +1,6 @@
 import { ApiError, apiRequest } from '@/api/client';
 import type { AuthSession, AuthUser, ClassItem, Portal, ProfileData, ProfilePatch } from '@/types/api';
+import type { TwoFactorChallenge } from '@/types/platform';
 
 /** Phiên server trả về phải có token và đúng vai trò của trang đăng nhập (trang quản trị không nhận phiên của vai trò khác) */
 function checkSession(session: AuthSession, portal: Portal | 'app'): AuthSession {
@@ -13,6 +14,13 @@ function checkSession(session: AuthSession, portal: Portal | 'app'): AuthSession
 /** Đăng nhập tại một trang; server kiểm tra vai trò khớp với trang ("app" = /portal: giáo viên hoặc học sinh) */
 export const loginToPortal = async (username: string, password: string, portal: Portal | 'app') =>
   checkSession(await apiRequest<AuthSession>('/api/auth/login', { body: { username, password, portal } }), portal);
+
+/** Đăng nhập cổng quản trị: tài khoản bật xác thực hai lớp (HK.AD.002) nhận mã thử thách thay cho phiên, rồi nhập mã ở bước hai */
+export const loginAdmin = async (username: string, password: string, portal: Portal): Promise<AuthSession | TwoFactorChallenge> => {
+  const res = await apiRequest<AuthSession | TwoFactorChallenge>('/api/auth/login', { body: { username, password, portal } });
+  return 'two_factor' in res ? res : checkSession(res, portal);
+};
+export const verifyTwoFactor = async (challenge: string, code: string, portal: Portal) => checkSession(await apiRequest<AuthSession>('/api/auth/2fa/verify', { body: { challenge, code, portal } }), portal);
 
 /** Đăng nhập Google (HK.HS.002): chỉ học sinh có email Google trùng email trong hồ sơ */
 export const loginWithGoogle = (idToken: string) => apiRequest<AuthSession>('/api/auth/google', { body: { id_token: idToken, portal: 'student' } });

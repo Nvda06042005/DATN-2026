@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import {
-  Award, Dumbbell, Ellipsis, GraduationCap, History as HistoryIcon, Library as LibraryIcon, ListChecks, Map as MapIcon, Radio, Route, ScrollText, Shield, ShoppingBag, Sparkles, Swords, Trophy, UserRound, Users,
+  Award, ClipboardList, Dumbbell, Ellipsis, GraduationCap, History as HistoryIcon, Library as LibraryIcon, Lightbulb, LifeBuoy, ListChecks, Map as MapIcon, Radio, Route, ScrollText, Shield, ShoppingBag, Sparkles, Swords, Trophy, UserRound, Users,
 } from 'lucide-react-native';
 import { Sheet, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -14,7 +14,7 @@ import type { IconType } from '@/types/game';
 
 export type Tab =
   | 'learn' | 'home' | 'collection' | 'practice' | 'ranking' | 'quests' | 'shop' | 'mine'
-  | 'library' | 'timeline' | 'map' | 'sources' | 'class' | 'live' | 'battles' | 'character' | 'ai';
+  | 'library' | 'timeline' | 'map' | 'sources' | 'class' | 'live' | 'battles' | 'character' | 'ai' | 'study' | 'survey' | 'help';
 
 interface NavItem { id: Tab; label: string; icon: IconType }
 /** Chín mục của thanh menu chính theo đặc tả (mục thứ chín "Xem thêm" mở các mục còn lại) */
@@ -29,6 +29,7 @@ export const NAV_MAIN: NavItem[] = [
   { id: 'mine', label: 'Hồ sơ', icon: UserRound },
 ];
 export const NAV_MORE: NavItem[] = [
+  { id: 'study', label: 'Gợi ý học tập', icon: Lightbulb },
   { id: 'library', label: 'Thư viện', icon: LibraryIcon },
   { id: 'timeline', label: 'Dòng thời gian', icon: HistoryIcon },
   { id: 'map', label: 'Bản đồ', icon: MapIcon },
@@ -38,6 +39,8 @@ export const NAV_MORE: NavItem[] = [
   { id: 'battles', label: 'Trận đánh', icon: Swords },
   { id: 'character', label: 'Nhân vật', icon: Shield },
   { id: 'ai', label: 'Tiểu Tướng', icon: Sparkles },
+  { id: 'survey', label: 'Khảo sát', icon: ClipboardList },
+  { id: 'help', label: 'Trợ giúp', icon: LifeBuoy },
 ];
 /** Năm mục ở thanh dưới trên điện thoại (cộng "Xem thêm") */
 const PHONE_MAIN: Tab[] = ['learn', 'home', 'collection', 'practice'];
@@ -49,10 +52,11 @@ const Dot: React.FC<{ n?: number }> = ({ n }) => {
   return n ? <View accessibilityLabel={`${n} việc mới`} style={{ minWidth: 10, height: 10, borderRadius: 5, backgroundColor: c.son, borderWidth: 2, borderColor: c.the }} /> : null;
 };
 
-export const StudentNav: React.FC<{ tab: Tab; wide: boolean; dots: Dots; onSelect: (t: Tab) => void }> = ({ tab, wide, dots, onSelect }) => {
+export const StudentNav: React.FC<{ tab: Tab; wide: boolean; dots: Dots; onSelect: (t: Tab) => void; hidden?: Tab[] }> = ({ tab, wide, dots, onSelect, hidden = [] }) => {
   const { c } = useTheme();
   const [more, setMore] = useState(false);
-  const moreTabs = wide ? [] : [...NAV_MAIN.filter((i) => !PHONE_MAIN.includes(i.id)), ...NAV_MORE];
+  const main = NAV_MAIN.filter((i) => !hidden.includes(i.id)), extra = NAV_MORE.filter((i) => !hidden.includes(i.id));
+  const moreTabs = wide ? [] : [...main.filter((i) => !PHONE_MAIN.includes(i.id)), ...extra];
   const moreActive = !wide && moreTabs.some((i) => i.id === tab);
   const moreDot = (dots.more ?? 0) + moreTabs.reduce((n, i) => n + (dots[i.id] ?? 0), 0);
 
@@ -71,16 +75,16 @@ export const StudentNav: React.FC<{ tab: Tab; wide: boolean; dots: Dots; onSelec
     return (
       <View accessibilityRole="tablist" accessibilityLabel="Menu chính" style={{ width: 232, backgroundColor: c.the, borderRightWidth: 2, borderRightColor: c.vien }}>
         <ScrollView contentContainerStyle={{ padding: 12, gap: 4 }}>
-          {NAV_MAIN.map(row)}
+          {main.map(row)}
           <View style={{ height: 2, backgroundColor: c.vien, marginVertical: 8 }} />
           <Txt size={12} color={c.muc3} style={{ paddingHorizontal: 14, paddingBottom: 4 }}>Xem thêm</Txt>
-          {NAV_MORE.map(row)}
+          {extra.map(row)}
         </ScrollView>
       </View>
     );
   }
 
-  const phone = [...NAV_MAIN.filter((i) => PHONE_MAIN.includes(i.id))];
+  const phone = [...main.filter((i) => PHONE_MAIN.includes(i.id))];
   const tile = (key: string, label: string, Icon: IconType, on: boolean, dot: number | undefined, press: () => void, testID: string) => (
     <Pressable key={key} testID={testID} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label} onPress={press}
       style={{ flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 6 }}>

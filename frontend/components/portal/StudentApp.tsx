@@ -2,18 +2,22 @@
  * Trang học sinh (/hoc-sinh), Sprint 3–7: trang chủ ba cuộc kháng chiến, bản đồ nhiệm vụ (kể cả bản đồ rẽ nhánh), đọc bài, làm bài, thư viện lịch sử, dòng thời gian,
  * bản đồ tương tác, kho tư liệu, nhiệm vụ, lịch sử làm bài, lớp học (đội, bài tập, kỹ năng, thông báo). Mọi tính điểm và mở khóa do máy chủ quyết định.
  */
-import React, { useCallback, useEffect, useState } from 'react';
-import { ScrollView, View, useWindowDimensions } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ScrollView, View, useColorScheme, useWindowDimensions } from 'react-native';
 import { BookMarked } from 'lucide-react-native';
 import { useLocalSearchParams } from 'expo-router';
 import * as api from '@/api/learningApi';
 import * as game from '@/api/gameApi';
 import * as classroom from '@/api/classroomApi';
+import * as platform from '@/api/platformApi';
 import { errorMessage } from '@/api/client';
 import { TopBar, type Session } from '@/components/auth';
 import { AnimationScreen, BattleScreen, BattlesTab } from '@/components/portal/BattleKit';
 import { CelebrationHost, CharacterSetup, ShareSheet } from '@/components/portal/Celebrations';
-import { ClassTab, NoticeBell, type ClassSection } from '@/components/portal/ClassTab';
+import { ClassTab, type ClassSection } from '@/components/portal/ClassTab';
+import { HelpCenter } from '@/components/portal/HelpCenter';
+import { NoticeBell, SettingsButton } from '@/components/portal/NoticeCenter';
+import { SurveyCenter } from '@/components/portal/SurveyCenter';
 import { LivePlay } from '@/components/portal/LivePlay';
 import { LiveTab } from '@/components/portal/LiveTab';
 import { CharacterTab, CollectionTab, RankingTab, ShopTab } from '@/components/portal/GameTabs';
@@ -27,12 +31,15 @@ import { MyTab, QuestsTab } from '@/components/portal/Progress';
 import { QuizPlayer, ReviewScreen } from '@/components/portal/QuizPlayer';
 import { CampaignMapView, HomeTab, type NodeActions } from '@/components/portal/QuestMap';
 import { StudentNav, type Dots, type Tab } from '@/components/portal/StudentNav';
+import { StudyPlanTab } from '@/components/portal/StudyPlan';
 import { ExplainSheet, TieuTuongTab } from '@/components/portal/TieuTuong';
 import { WarCardsTab } from '@/components/portal/WarCards';
 import { BattlesHub, MarchTab, StageIntroSheet, TruthSheet, WarBattleScreen } from '@/components/portal/WarPlay';
 import { Btn, PaperBg, Segmented, Sheet, Spinner, Stars, Txt, useToast } from '@/components/ui';
-import { useTheme } from '@/hooks/use-theme';
-import type { MyAssignment, Notice } from '@/types/classroom';
+import { PALETTES } from '@/constants/theme';
+import { ThemeContext, useTheme } from '@/hooks/use-theme';
+import type { MyAssignment } from '@/types/classroom';
+import type { NoticeItem, PlatformConfig, Prefs } from '@/types/platform';
 import type { Hud } from '@/types/gamification';
 import type { AttemptState, AttemptSummary, MenuDots, NodeResult } from '@/types/learning';
 import type { BattleView } from '@/types/war';
@@ -52,7 +59,7 @@ type Overlayed =
   | { kind: 'live'; roomId: number; title: string }
   | { kind: 'war'; battle: BattleView };
 
-export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
+const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (p: Prefs) => void; cfg: PlatformConfig | null }> = ({ session, prefs, onPrefs, cfg }) => {
   const { c } = useTheme();
   const toast = useToast();
   const { token } = session;
@@ -73,8 +80,15 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const [hud, setHud] = useState<Hud | null>(null);
   const [share, setShare] = useState<{ badges: number; cards: number } | null>(null);
   // Game thẻ tướng (ver0.2): chế độ hiển thị của các tab, màn đang xem giới thiệu và “Sự thật lịch sử”
-  const [homeMode, setHomeMode] = useState<'march' | 'quest'>('march');
-  const [collMode, setCollMode] = useState<'war' | 'badges'>('war');
+  // Tính năng bị quản trị tắt hoặc nhóm thử nghiệm của lớp không có (Sprint 11–12): ẩn mục menu tương ứng, máy chủ vẫn kiểm tra lại
+  const gam = cfg?.features.gamification !== false, ai = cfg?.features.ai !== false, flag = (k: string): boolean => cfg?.flags[k] !== false;
+  const warOn = gam && flag('war_game');
+  const hidden = useMemo<Tab[]>(() => [
+    ...(gam ? [] : ['collection', 'ranking', 'quests', 'shop', 'character'] as Tab[]), ...(flag('shop') ? [] : ['shop'] as Tab[]),
+    ...(ai && flag('ai_tutor') ? [] : ['ai'] as Tab[]), ...(ai && flag('recommendations') ? [] : ['study'] as Tab[]), ...(flag('live_quiz') ? [] : ['live'] as Tab[]),
+  ], [gam, ai, cfg]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [homeMode, setHomeMode] = useState<'march' | 'quest'>(warOn ? 'march' : 'quest');
+  const [collMode, setCollMode] = useState<'war' | 'badges'>(warOn ? 'war' : 'badges');
   const [stageId, setStageId] = useState<number | null>(null);
   const [truthId, setTruthId] = useState<number | null>(null);
   // Hỏi Tiểu Tướng vì sao một câu làm sai (HK.HS.089)
@@ -136,7 +150,9 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   }, [guarded, token]);
 
   // Từ thông báo đi tới đúng mục của lớp học
-  const goNotice = (n: Notice) => {
+  const goNotice = (n: NoticeItem) => {
+    if (n.kind === 'survey') { setTab('survey'); return; }
+    if (n.kind === 'support') { setTab('help'); return; }
     setTab('class');
     setClassSection(n.kind === 'assignment' || n.kind === 'reminder' ? 'assignments' : n.kind === 'skill' ? 'skills' : 'classes');
   };
@@ -158,10 +174,11 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       <TopBar session={session} subtitle="Học lịch sử cùng Hào Khí Đông A" />
       {hud && !hud.has_character ? <CharacterSetup session={session} onDone={(next) => { setHud(next); bump(); }} /> : (
       <View style={{ flex: 1, flexDirection: wide ? 'row' : 'column' }}>
-      {wide ? <StudentNav tab={tab} wide dots={navDots} onSelect={select} /> : null}
+      {wide ? <StudentNav tab={tab} wide dots={navDots} onSelect={select} hidden={hidden} /> : null}
       <View style={{ flex: 1 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: c.the2 }}>
         <View style={{ flex: 1 }}><HudBar hud={hud} /></View>
+        <SettingsButton session={session} prefs={prefs} onSaved={onPrefs} />
         <NoticeBell session={session} refreshKey={refreshKey} onGo={goNotice} />
       </View>
       {tab === 'learn' ? <LearningPathTab session={session} refreshKey={refreshKey} actions={actions} /> : (
@@ -170,8 +187,8 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
         {tab === 'shop' ? <ShopTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
         {tab === 'home' && campaignId === null ? (
           <View style={{ gap: 14 }}>
-            <Segmented<'march' | 'quest'> label="Kiểu chiến dịch" value={homeMode} onChange={setHomeMode} options={[{ value: 'march', label: 'Hành quân' }, { value: 'quest', label: 'Bản đồ nhiệm vụ' }]} />
-            {homeMode === 'march'
+            {warOn ? <Segmented<'march' | 'quest'> label="Kiểu chiến dịch" value={homeMode} onChange={setHomeMode} options={[{ value: 'march', label: 'Hành quân' }, { value: 'quest', label: 'Bản đồ nhiệm vụ' }]} /> : null}
+            {homeMode === 'march' && warOn
               ? <MarchTab session={session} refreshKey={refreshKey} onStage={setStageId} onSource={(id) => open('source', id)} onChanged={bump} />
               : <HomeTab session={session} refreshKey={refreshKey} onOpenCampaign={(id) => { setCampaignId(id); setFocusNode(null); }} onPractice={startPractice} onNode={(cid, nid) => { setCampaignId(cid); setFocusNode(nid); }} />}
           </View>
@@ -191,17 +208,20 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
         {tab === 'character' ? <CharacterTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} onShare={openShare} /> : null}
         {tab === 'collection' ? (
           <View style={{ gap: 14 }}>
-            <Segmented<'war' | 'badges'> label="Bộ sưu tập" value={collMode} onChange={setCollMode} options={[{ value: 'war', label: 'Thẻ tướng' }, { value: 'badges', label: 'Huy hiệu và thẻ rơi' }]} />
-            {collMode === 'war' ? <WarCardsTab session={session} refreshKey={refreshKey} onChanged={bump} /> : <CollectionTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} />}
+            {warOn ? <Segmented<'war' | 'badges'> label="Bộ sưu tập" value={collMode} onChange={setCollMode} options={[{ value: 'war', label: 'Thẻ tướng' }, { value: 'badges', label: 'Huy hiệu và thẻ rơi' }]} /> : null}
+            {collMode === 'war' && warOn ? <WarCardsTab session={session} refreshKey={refreshKey} onChanged={bump} /> : <CollectionTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} />}
           </View>
         ) : null}
         {tab === 'ranking' ? <RankingTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
         {tab === 'ai' ? <TieuTuongTab session={session} onOpen={open} onChanged={bump} /> : null}
+        {tab === 'survey' ? <SurveyCenter session={session} refreshKey={refreshKey} /> : null}
+        {tab === 'help' ? <HelpCenter session={session} /> : null}
+        {tab === 'study' ? <StudyPlanTab session={session} refreshKey={refreshKey} actions={{ onNode: (cid, nid) => { if (cid) { setTab('home'); setCampaignId(cid); setFocusNode(nid); } else setTab('learn'); }, onTab: setTab, onAttempt: (attempt, title) => setOverlay({ kind: 'quiz', attempt, title, nodeId: null }) }} /> : null}
         {tab === 'mine' ? <MyTab session={session} refreshKey={refreshKey} onPractice={startPractice} onReview={(id) => setOverlay({ kind: 'review', id })} onOpen={open} /> : null}
       </ScrollView>
       )}
       </View>
-      {!wide ? <StudentNav tab={tab} wide={false} dots={navDots} onSelect={select} /> : null}
+      {!wide ? <StudentNav tab={tab} wide={false} dots={navDots} onSelect={select} hidden={hidden} /> : null}
       </View>
       )}
 
@@ -255,6 +275,24 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       {hud?.has_character && !overlay && !done && !detail ? <CelebrationHost session={session} refreshKey={refreshKey} onChanged={loadHud} /> : null}
       {busy ? <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, alignItems: 'center', justifyContent: 'center', backgroundColor: c.scrim }}><Spinner label="Đang xử lý…" /></View> : null}
     </View>
+  );
+};
+
+/** Trang học sinh: tải cài đặt giao diện (sáng / tối / theo thiết bị) và cấu hình tính năng của tài khoản rồi dựng khung học tập */
+export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
+  const system = useColorScheme();
+  const [prefs, setPrefs] = useState<Prefs | null>(null);
+  const [cfg, setCfg] = useState<PlatformConfig | null>(null);
+  useEffect(() => {
+    platform.prefs(session.token).then(setPrefs).catch(() => undefined);
+    platform.config(session.token).then(setCfg).catch(() => undefined);
+  }, [session.token]);
+  const dark = prefs?.theme === 'dark' || (prefs?.theme === 'system' && system === 'dark');
+  const value = useMemo(() => ({ c: dark ? PALETTES.dark : PALETTES.light, dark: Boolean(dark) }), [dark]);
+  return (
+    <ThemeContext.Provider value={value}>
+      <StudentShell session={session} prefs={prefs} onPrefs={setPrefs} cfg={cfg} />
+    </ThemeContext.Provider>
   );
 };
 

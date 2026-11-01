@@ -27,6 +27,29 @@ import { AiToolsService } from './ai/ai-tools.service';
 import { AiTutorService } from './ai/ai-tutor.service';
 import { AiController } from './ai/ai.controller';
 import { LlmClient } from './ai/llm.client';
+import { AnalyticsController } from './analytics/analytics.controller';
+import { AnalyticsJob } from './analytics/analytics.job';
+import { AnalyticsService } from './analytics/analytics.service';
+import { FeedbackService } from './analytics/feedback.service';
+import { RecoService } from './analytics/reco.service';
+import { PlatformAdminController } from './platform/platform-admin.controller';
+import { ResearchService } from './platform/research.service';
+import { SurveyController } from './platform/survey.controller';
+import { SurveyService } from './platform/survey.service';
+import { PlatformController } from './platform/platform.controller';
+import { PlatformJob } from './platform/platform.job';
+import { BackupService } from './platform/backup.service';
+import { ErrorLog } from './platform/error-log';
+import { LogsService } from './platform/logs.service';
+import { NoticeService } from './platform/notice.service';
+import { PolicyInterceptor } from './platform/policy.interceptor';
+import { PrefsService } from './platform/prefs.service';
+import { RbacService } from './platform/rbac.service';
+import { json as jsonBody } from 'express';
+import { DEFAULT_RATE, requestMiddleware } from './platform/request-context';
+import { FaqService, SupportService } from './platform/support.service';
+import { SystemService } from './platform/system.service';
+import { TwoFactorService } from './platform/twofa.service';
 import { AssignmentService } from './classroom/assignment.service';
 import { ClassroomController } from './classroom/classroom.controller';
 import { ClassroomService } from './classroom/classroom.service';
@@ -60,8 +83,8 @@ import { StudentController } from './student/student.controller';
   imports: [
     JwtModule.register({ secret: config.authSecret, signOptions: { algorithm: 'HS256', expiresIn: config.tokenTtlHours * 3600 }, verifyOptions: { algorithms: ['HS256'] } }),
   ],
-  controllers: [AppController, AuthController, AdminController, HistoryController, ContentController, StudentController, LearnController, PlayController, GameController, BattleController, ClassroomController, LiveController, WarController, AiController],
-  providers: [LlmClient, AiSettingsService, AiRetrievalService, AiIndexService, AiTutorService, AiToolsService, AiAdminService, SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, MailService, SchoolService, AccountService, ClassService, HistoryService, QuestionService, QuizService, LessonService, JourneyService, ShareService, LearnService, PlayService, GameClock, SettingsService, GameService, BoardService, CatalogService, GameJob, BattleService, WarGate, WarCardsService, WarMarchService, WarService, ClassroomService, AssignmentService, SkillService, LiveService, LiveGateway],
+  controllers: [AppController, AuthController, AdminController, HistoryController, ContentController, StudentController, LearnController, PlayController, GameController, BattleController, ClassroomController, LiveController, WarController, AiController, AnalyticsController, PlatformController, PlatformAdminController, SurveyController],
+  providers: [SurveyService, ResearchService, SystemService, RbacService, LogsService, PrefsService, NoticeService, SupportService, FaqService, TwoFactorService, BackupService, PlatformJob, { provide: APP_INTERCEPTOR, useClass: PolicyInterceptor }, AnalyticsService, RecoService, FeedbackService, AnalyticsJob, LlmClient, AiSettingsService, AiRetrievalService, AiIndexService, AiTutorService, AiToolsService, AiAdminService, SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, MailService, SchoolService, AccountService, ClassService, HistoryService, QuestionService, QuizService, LessonService, JourneyService, ShareService, LearnService, PlayService, GameClock, SettingsService, GameService, BoardService, CatalogService, GameJob, BattleService, WarGate, WarCardsService, WarMarchService, WarService, ClassroomService, AssignmentService, SkillService, LiveService, LiveGateway],
 })
 export class AppModule {}
 
@@ -74,6 +97,8 @@ export class ErrorFilter implements ExceptionFilter {
     const res = host.switchToHttp().getResponse<{ status(code: number): { json(body: unknown): void } }>();
     if (!(exc instanceof HttpException)) {
       this.logger.error(`Lỗi không xử lý được (${(exc as Error)?.name ?? 'Error'})`, (exc as Error)?.stack);
+      const req = host.switchToHttp().getRequest<{ method?: string; originalUrl?: string; user?: { id: number; school_id: number | null } }>();
+      ErrorLog.report('api', `${(exc as Error)?.name ?? 'Error'}: ${(exc as Error)?.message ?? ''}`, { route: `${req.method ?? ''} ${(req.originalUrl ?? '').split('?')[0]}`.trim(), status: 500, user_id: req.user?.id ?? null, school_id: req.user?.school_id ?? null });
       res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ detail: 'Lỗi máy chủ, thử lại sau' });
       return;
     }
@@ -99,6 +124,14 @@ export function configureApp(app: INestApplication): INestApplication {
   app.setGlobalPrefix('api', { exclude: [{ path: '/', method: RequestMethod.GET }] });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, exceptionFactory: validationErrors }));
   app.useGlobalFilters(new ErrorFilter());
+  // ngữ cảnh yêu cầu (IP, thiết bị) và giới hạn tần suất theo IP (HK.SYS.018); giới hạn đọc từ cấu hình hệ thống, mặc định theo môi trường
+  const ipLimit = async (): Promise<number> => {
+    try { return (await app.get(SystemService, { strict: false }).settings()).rate_ip_per_min ?? DEFAULT_RATE.ip(); } catch { return DEFAULT_RATE.ip(); }
+  };
+  app.use(requestMiddleware(ipLimit));
+  // yêu cầu hỗ trợ kèm ảnh chụp màn hình (tối đa 1,5 MB, mã hóa base64 nên lớn hơn): chỉ tuyến này được nhận thân lớn hơn mặc định
+  const largeJson = jsonBody({ limit: '3mb' });
+  app.use((req: { path?: string; originalUrl?: string }, res: unknown, next: () => void) => (/^\/api\/platform\/support(\/|$|\?)/.test(req.originalUrl ?? '') ? (largeJson as any)(req, res, next) : next()));
   app.enableShutdownHooks();
   return app;
 }

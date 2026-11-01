@@ -103,12 +103,12 @@ const Model: React.FC<{ session: Session }> = ({ session }) => {
   const { token } = session;
   const cfg = useLoad(() => api.aiSettings(token), [token], session.expired);
   const { busy, run } = useAction(session.expired);
-  const [f, setF] = useState({ provider: 'none', base_url: '', chat_model: '', embed_model: '', api_key: '', temperature: '0.3', max_tokens: '700', top_k: '5' });
+  const [f, setF] = useState({ provider: 'none', base_url: '', chat_model: '', embed_model: '', api_key: '', temperature: '0.3', max_tokens: '700', top_k: '5', price_in: '0', price_out: '0' });
   const [test, setTest] = useState<TestResult | null>(null);
   const d: AiSettingsView | null = cfg.data;
-  useEffect(() => { if (d) setF({ provider: d.provider, base_url: d.base_url ?? '', chat_model: d.chat_model ?? '', embed_model: d.embed_model ?? '', api_key: '', temperature: String(d.temperature), max_tokens: String(d.max_tokens), top_k: String(d.top_k) }); }, [d]);
+  useEffect(() => { if (d) setF({ provider: d.provider, base_url: d.base_url ?? '', chat_model: d.chat_model ?? '', embed_model: d.embed_model ?? '', api_key: '', temperature: String(d.temperature), max_tokens: String(d.max_tokens), top_k: String(d.top_k), price_in: String(d.price_in), price_out: String(d.price_out) }); }, [d]);
   const save = async () => {
-    const body: Record<string, unknown> = { provider: f.provider, base_url: f.base_url, chat_model: f.chat_model, embed_model: f.embed_model, temperature: Number(f.temperature), max_tokens: Number(f.max_tokens), top_k: Number(f.top_k) };
+    const body: Record<string, unknown> = { provider: f.provider, base_url: f.base_url, chat_model: f.chat_model, embed_model: f.embed_model, temperature: Number(f.temperature), max_tokens: Number(f.max_tokens), top_k: Number(f.top_k), price_in: Number(f.price_in.replace(',', '.')), price_out: Number(f.price_out.replace(',', '.')) };
     if (f.api_key.trim()) body.api_key = f.api_key.trim();
     const out = await run(() => api.aiSaveSettings(token, body), 'Đã lưu cấu hình mô hình');
     if (out) { cfg.setData(out); setTest(null); }
@@ -131,6 +131,10 @@ const Model: React.FC<{ session: Session }> = ({ session }) => {
             <View style={{ flex: 1, minWidth: 140 }}><Field label="Nhiệt độ (0–1)" value={f.temperature} onChangeText={(v) => setF({ ...f, temperature: v })} keyboardType="numeric" /></View>
             <View style={{ flex: 1, minWidth: 140 }}><Field label="Giới hạn token trả lời" value={f.max_tokens} onChangeText={(v) => setF({ ...f, max_tokens: v })} keyboardType="numeric" /></View>
             <View style={{ flex: 1, minWidth: 140 }}><Field label="Số đoạn tư liệu truy xuất" value={f.top_k} onChangeText={(v) => setF({ ...f, top_k: v })} keyboardType="numeric" /></View>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
+            <View style={{ flex: 1, minWidth: 200 }}><Field label="Giá token vào (USD / 1 triệu token)" value={f.price_in} onChangeText={(v) => setF({ ...f, price_in: v })} keyboardType="decimal-pad" hint="Chỉ dùng để ước tính chi phí ở mục Thống kê hệ thống." nativeID="ai-price-in" /></View>
+            <View style={{ flex: 1, minWidth: 200 }}><Field label="Giá token ra (USD / 1 triệu token)" value={f.price_out} onChangeText={(v) => setF({ ...f, price_out: v })} keyboardType="decimal-pad" nativeID="ai-price-out" /></View>
           </View>
           <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
             <Btn title="Lưu cấu hình" tone="son" loading={busy} onPress={save} testID="ai-save-model" />

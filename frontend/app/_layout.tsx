@@ -15,6 +15,7 @@ import { Newsreader_700Bold } from '@expo-google-fonts/newsreader/700Bold';
 import { Newsreader_700Bold_Italic } from '@expo-google-fonts/newsreader/700Bold_Italic';
 import { PALETTES } from '@/constants/theme';
 import { ReduceMotionContext, useSystemReduceMotion } from '@/hooks/use-motion';
+import { ErrorPage } from '@/components/error-page';
 import { ThemeContext } from '@/hooks/use-theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -42,6 +43,17 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: PALETTES.light.giay }, animation: 'fade' }} />
         </ThemeContext.Provider>
       </ReduceMotionContext.Provider>
+    </SafeAreaProvider>
+  );
+}
+
+/** Trang lỗi thân thiện khi một màn hình gặp sự cố (HK.HS.112, HK.GV.082, HK.QT.055); chi tiết kỹ thuật chỉ ghi ra bảng điều khiển */
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => Promise<unknown> }) {
+  return (
+    <SafeAreaProvider>
+      <ThemeContext.Provider value={LIGHT}>
+        <ErrorPage kind="crash" detail={error?.message} onRetry={() => { void retry(); }} />
+      </ThemeContext.Provider>
     </SafeAreaProvider>
   );
 }

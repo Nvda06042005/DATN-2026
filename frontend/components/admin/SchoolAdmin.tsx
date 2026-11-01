@@ -4,11 +4,16 @@
  */
 import React, { useState } from 'react';
 import { Image, View } from 'react-native';
-import { CalendarDays, CircleHelp, GraduationCap, Inbox, ListChecks, Plus, Route, School, Trash2, Trophy, UserRound, Users } from 'lucide-react-native';
+import { Bell, CalendarDays, ChartColumn, CircleHelp, ClipboardList, History, LifeBuoy, ShieldCheck, GraduationCap, Inbox, ListChecks, Plus, Route, School, Trash2, Trophy, UserRound, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { dateText } from '@/components/admin/AccountSheet';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { AdminSelect } from '@/components/admin/AdminSelect';
+import { SchoolReports } from '@/components/admin/AnalyticsAdmin';
+import { BroadcastManager, SurveyManager } from '@/components/admin/PlatformComms';
+import { LogsPanel, SecurityPanel } from '@/components/admin/PlatformOps';
+import { HelpPage } from '@/components/portal/HelpCenter';
+import { NoticeBell } from '@/components/portal/NoticeCenter';
 import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, yearOptions, YEAR_TEXT } from '@/components/admin/kit';
 import { SchoolGame } from '@/components/admin/GameAdmin';
 import { JourneyManager } from '@/components/admin/JourneyManager';
@@ -22,17 +27,23 @@ import { AdminUiContext, Btn, Card, ConfirmSheet, Inset, Spinner, Txt } from '@/
 import { useTheme } from '@/hooks/use-theme';
 import type { YearItem } from '@/types/api';
 
-type Tab = 'school' | 'teachers' | 'students' | 'classes' | 'review' | 'journeys' | 'questions' | 'quizzes' | 'game';
+type Tab = 'school' | 'teachers' | 'students' | 'classes' | 'reports' | 'review' | 'journeys' | 'questions' | 'quizzes' | 'game' | 'notices' | 'surveys' | 'logs' | 'security' | 'help';
 const NAV = [
   { id: 'school' as const, label: 'Trường và năm học', icon: School },
   { id: 'teachers' as const, label: 'Giáo viên', icon: UserRound },
   { id: 'students' as const, label: 'Học sinh', icon: GraduationCap },
   { id: 'classes' as const, label: 'Lớp học', icon: Users },
+  { id: 'reports' as const, label: 'Báo cáo', icon: ChartColumn },
   { id: 'review' as const, label: 'Duyệt nội dung', icon: Inbox },
   { id: 'journeys' as const, label: 'Hành trình mẫu', icon: Route },
   { id: 'questions' as const, label: 'Ngân hàng câu hỏi', icon: CircleHelp },
   { id: 'quizzes' as const, label: 'Bộ đề', icon: ListChecks },
   { id: 'game' as const, label: 'Trò chơi hóa', icon: Trophy },
+  { id: 'notices' as const, label: 'Thông báo', icon: Bell },
+  { id: 'surveys' as const, label: 'Khảo sát', icon: ClipboardList },
+  { id: 'logs' as const, label: 'Nhật ký', icon: History },
+  { id: 'security' as const, label: 'Bảo mật', icon: ShieldCheck },
+  { id: 'help' as const, label: 'Trợ giúp', icon: LifeBuoy },
 ];
 const YEAR_KIND = { planned: 'info', active: 'on', ended: 'muted' } as const;
 
@@ -43,13 +54,16 @@ export const SchoolAdmin: React.FC<{ session: Session }> = ({ session }) => {
   const reloadAll = () => { reloadSchool(); reloadYears(); };
   return (
     <AdminUiContext.Provider value>
-      <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab} schoolName={school?.name}>
+      <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab} schoolName={school?.name} extra={<NoticeBell session={session} onGo={(n) => setTab(n.kind === 'survey' ? 'surveys' : n.kind === 'support' ? 'help' : 'school')} />}>
         {tab === 'school' ? <SchoolPanel session={session} school={school} years={years ?? []} onChanged={reloadAll} />
           : tab === 'teachers' ? <SchoolPeople session={session} kind="teachers" years={years ?? []} />
           : tab === 'students' ? <SchoolPeople session={session} kind="students" years={years ?? []} />
           : tab === 'classes' ? <SchoolClasses session={session} years={years ?? []} onYearsChanged={reloadYears} />
+          : tab === 'reports' ? <SchoolReports session={session} />
           : tab === 'review' ? <ShareInbox session={session} /> : tab === 'journeys' ? <JourneyManager session={session} />
-          : tab === 'questions' ? <QuestionBank session={session} /> : tab === 'quizzes' ? <QuizManager session={session} /> : <SchoolGame session={session} />}
+          : tab === 'questions' ? <QuestionBank session={session} /> : tab === 'quizzes' ? <QuizManager session={session} />
+          : tab === 'notices' ? <BroadcastManager session={session} /> : tab === 'surveys' ? <SurveyManager session={session} /> : tab === 'logs' ? <LogsPanel session={session} />
+          : tab === 'security' ? <SecurityPanel session={session} /> : tab === 'help' ? <HelpPage session={session} /> : <SchoolGame session={session} />}
       </AdminWorkspace>
     </AdminUiContext.Provider>
   );

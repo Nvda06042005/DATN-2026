@@ -1,12 +1,14 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
+import { currentContext } from '../platform/request-context';
 
-export interface SecurityFilter { q?: string; school_id?: number; user_id?: number; success?: 'true' | 'false'; page?: number; limit?: number }
+export interface SecurityFilter { q?: string; school_id?: number; user_id?: number; success?: 'true' | 'false'; page?: number; limit?: number; staff_only?: boolean }
 @Injectable()
 export class SecurityService {
   constructor(private readonly db: DatabaseService) {}
   async login(user: UserRow | null, username: string, portal: string, reason: string, q: Q = this.db.query.bind(this.db)): Promise<void> {
-    await q('INSERT INTO app_login_events (user_id, school_id, username, portal, success, reason) VALUES ($1,$2,$3,$4,$5,$6)', [user?.id ?? null, user?.school_id ?? null, username, portal, reason === 'success', reason]);
+    const ctx = currentContext();
+    await q('INSERT INTO app_login_events (user_id, school_id, username, portal, success, reason, ip, user_agent) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [user?.id ?? null, user?.school_id ?? null, username, portal, reason === 'success', reason, ctx?.ip ?? null, ctx?.ua || null]);
   }
   async audit(actor: UserRow, action: string, targetType: string, targetId: string | null, schoolId: number | null, success: boolean): Promise<void> {
     await this.db.query('INSERT INTO app_audit_events (actor_id, actor_name, actor_role, school_id, action, target_type, target_id, success) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [actor.id, actor.full_name, actor.role, schoolId, action, targetType, targetId, success]);
@@ -20,6 +22,7 @@ export class SecurityService {
       if (scope !== null) add('e.school_id = ?', scope); else if (f.school_id) add('e.school_id = ?', f.school_id);
       if (f.user_id) add(kind === 'login' ? 'e.user_id = ?' : 'e.actor_id = ?', f.user_id);
       if (f.success) add('e.success = ?', f.success === 'true');
+      if (kind === 'audit' && f.staff_only) where.push("e.actor_role <> 'student'");
       if (f.q?.trim()) add(kind === 'login' ? "e.username ILIKE ? ESCAPE '\\'" : "(e.actor_name || ' ' || e.action) ILIKE ? ESCAPE '\\'", '%' + f.q.trim().replace(/[\\%_]/g, '\\$&') + '%');
       const condition = where.length ? where.join(' AND ') : 'TRUE';
       const total = Number((await q<{ n: string }>(`SELECT count(*) AS n FROM ${table} e WHERE ${condition}`, params))[0].n);

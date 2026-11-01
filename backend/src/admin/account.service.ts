@@ -8,6 +8,7 @@ import { toPublic } from '../auth/auth.service';
 import { generatePassword, hashPassword } from '../auth/passwords';
 import { DatabaseService, DuplicateUsername, Q, Role, searchText, toUser, USER_COLUMNS, UserRow } from '../database/database.service';
 import { buildWorkbook, checkUpload, Column, parseDate, readSheet, UploadedXlsx } from './excel';
+import { SystemService } from '../platform/system.service';
 import { MailService } from './mail.service';
 import { likeEscape, SchoolService } from './school.service';
 
@@ -227,6 +228,7 @@ export class AccountService {
 
   private async insertMember(q: Q, school: { id: number; school_code: string; region: string | null; city: string | null }, role: MemberRole, input: MemberInput, passwordHash: string, cls: { id: number; grade: number | null; school_year: string } | null): Promise<UserRow> {
     await this.assertUnique(q, school.id, input.email ?? null, input.user_code ?? null);
+    if (role === 'student') await SystemService.assertStudentRoom(q, school.id);
     const username = await this.db.uniqueUsername(input.full_name, role, q);
     let user: UserRow;
     try {

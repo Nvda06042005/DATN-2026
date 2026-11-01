@@ -21,7 +21,7 @@ export interface TopicsResult { days: number; questions: number; students: numbe
 export interface AiSettingsView {
   provider: 'none' | 'anthropic' | 'openai'; provider_effective: 'none' | 'anthropic' | 'openai'; base_url: string | null; chat_model: string | null; embed_model: string | null;
   temperature: number; max_tokens: number; top_k: number; min_score: number; system_prompt: string; refusal_message: string; banned_terms: string[]; index_kinds: string[];
-  daily_per_user: number; daily_per_school: number; last_index_at: string | null; last_index_ms: number | null; last_index_error: string | null;
+  daily_per_user: number; daily_per_school: number; price_in: number; price_out: number; last_index_at: string | null; last_index_ms: number | null; last_index_error: string | null;
   has_key: boolean; key_hint: string | null; key_source: 'env' | 'db' | 'none'; key_unreadable: boolean; env_overrides: string[]; mode: 'llm' | 'extractive'; embeddings: boolean;
   default_chat_model: { anthropic: string; openai: string };
 }
