@@ -76,8 +76,8 @@ export const SPECS: Record<string, Spec> = {
     blockers: async (q, id) => { const n = Number((await q<{ n: string }>('SELECT count(*) AS n FROM hk_user_badges WHERE badge_id = $1', [id]))[0].n); return n ? `Đã trao cho ${n} học sinh; hãy tắt "Đang dùng" thay vì xóa` : null; },
   },
   cards: {
-    entity: 'cards', label: 'Thẻ nhân vật', plural: 'Thẻ nhân vật', table: 'hk_cards', pk: 'id', order: "CASE rarity WHEN 'legendary' THEN 0 WHEN 'rare' THEN 1 ELSE 2 END, id", summary: ['name', 'rarity'],
-    fields: [code, text('name', 'Tên thẻ', 80, true), enumOf('rarity', 'Độ hiếm', [['common', 'Thường'], ['rare', 'Hiếm'], ['legendary', 'Huyền thoại']]), int('drop_weight', 'Trọng số rơi (trong cùng độ hiếm)', 1, 1000, true),
+    entity: 'cards', label: 'Thẻ nhân vật', plural: 'Thẻ nhân vật', table: 'hk_cards', pk: 'id', order: "CASE rarity WHEN 'legendary' THEN 0 WHEN 'epic' THEN 1 WHEN 'rare' THEN 2 ELSE 3 END, id", summary: ['name', 'rarity'],
+    fields: [code, text('name', 'Tên thẻ', 80, true), enumOf('rarity', 'Độ hiếm', [['common', 'Thường'], ['rare', 'Hiếm'], ['epic', 'Sử thi'], ['legendary', 'Huyền thoại']]), int('drop_weight', 'Trọng số rơi (trong cùng độ hiếm)', 1, 1000, true),
       { name: 'figure_id', label: 'Nhân vật trong kho lịch sử', type: 'ref', ref: 'figure' }, text('flavor_quote', 'Dòng chữ trên thẻ', 300), { name: 'image_url', label: 'Hình (liên kết https)', type: 'url', maxLen: 500 },
       int('min_level', 'Cấp tối thiểu để thẻ có thể rơi', 1, 100), active],
     blockers: async (q, id) => { const n = Number((await q<{ n: string }>('SELECT count(*) AS n FROM hk_user_cards WHERE card_id = $1', [id]))[0].n); return n ? `Có ${n} học sinh đã sưu tầm thẻ này; hãy tắt "Đang dùng" thay vì xóa` : null; },

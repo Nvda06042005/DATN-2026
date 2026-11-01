@@ -131,13 +131,15 @@ export interface NodeDetail extends Omit<MapNode, 'content'> {
   content: MapNode['content']; unlocks: Array<{ id: number; title: string; unlocked: boolean }>; can_start: boolean; pass_percent: number | null; hint: string | null; has_quiz: boolean; needs_quiz: boolean;
   /** Trận đánh có kịch bản mô phỏng đã phát hành (Sprint 6): hoàn thành nút bằng cách chơi mô phỏng */
   has_sim?: boolean; scenario_id?: number | null;
+  /** Màn chơi bằng thẻ tướng của trận đánh (ver0.2, HK.HS.124) */
+  stage_id?: number | null;
   /** Lộ trình dạng đường đi (ver0.2): số câu, Binh thư nhận được, Cửa chứa nút */
   question_count?: number | null; reward_binh_thu?: number; gate?: { id: number; title: string } | null;
 }
 export interface NodeResult {
   first_completion: boolean; passed: boolean; stars: number; percent: number; points_awarded: number; unlocked_sources: Array<{ id: number; title: string }>;
   next_node: { id: number; title: string } | null; journey_completed: boolean; campaign_final: boolean;
-  rewards?: { gold: number; card: boolean; badge: string | null; binh_thu?: number };
+  rewards?: { gold: number; card: boolean; badge: string | null; binh_thu?: number; fragments?: Array<{ card: string; qty: number; merged: boolean }> };
 }
 
 // ---------------------------------------------------------------------- lộ trình dạng đường đi (ver0.2)

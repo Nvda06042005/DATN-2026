@@ -33,6 +33,8 @@ export interface NodeActions {
   /** Lộ trình dạng đường đi (ver0.2): nghe kể chuyện và mở rương */
   onListen: (node: { id: number; title: string }) => void;
   onChest: (node: { id: number; title: string }) => void;
+  /** Ra trận bằng thẻ tướng: mở màn giới thiệu của màn chơi gắn với trận đánh (HK.HS.124) */
+  onStage: (stageId: number) => void;
 }
 
 // ---------------------------------------------------------------------- trang chủ
@@ -209,7 +211,7 @@ export const NodeSheet: React.FC<{ session: Session; nodeId: number; refreshKey:
       : d.kind === 'battle' && d.has_sim ? (done ? 'Chơi lại mô phỏng' : 'Vào trận mô phỏng') : d.needs_quiz ? (done ? 'Chơi lại' : 'Bắt đầu') : d.kind === 'battle' ? 'Đọc hồ sơ trận đánh' : 'Đọc tư liệu';
   return (
     <Sheet open onClose={onClose} title={d?.title ?? 'Chi tiết nút'} subtitle={d ? `${d.kind_label}${d.gate ? ` · ${d.gate.title}` : ''} · ${STATE_TEXT[d.state]}` : undefined}
-      footer={d ? <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}><Btn title="Đóng" tone="giay" onPress={onClose} /><Btn icon={done ? RotateCcw : Play} title={verb} tone="ngoc" disabled={!d.can_start || (d.kind === 'chest' && done)} onPress={() => go(d)} testID="node-start" /></View> : undefined}>
+      footer={d ? <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}><Btn title="Đóng" tone="giay" onPress={onClose} />{d.stage_id ? <Btn icon={Swords} title="Ra trận bằng thẻ tướng" tone="son" onPress={() => { onClose(); actions.onStage(d.stage_id!); }} testID="node-stage" /> : null}<Btn icon={done ? RotateCcw : Play} title={verb} tone="ngoc" disabled={!d.can_start || (d.kind === 'chest' && done)} onPress={() => go(d)} testID="node-start" /></View> : undefined}>
       <ErrorNote message={detail.error} />
       {detail.loading && !d ? <Spinner /> : null}
       {d ? (

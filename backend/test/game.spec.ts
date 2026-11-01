@@ -155,7 +155,7 @@ const userRow = async (id: number) => (await db.query<any>('SELECT * FROM app_us
     expect(flipped.body.card.figure).toMatchObject({ name: expect.any(String), biography: expect.any(String) }); // tiểu sử lấy từ kho lịch sử đã công bố
     expect((await api('POST', `/api/game/drops/${drops[0].id}/flip`)).status).toBe(409);
     const album = (await api('GET', '/api/game/cards')).body;
-    expect(album).toMatchObject({ total: 13, owned: 1 });
+    expect(album).toMatchObject({ total: 17, owned: 1 }); // 13 thẻ tướng + 4 thẻ chiến thuật (migration 029)
     expect(album.cards.filter((c: any) => !c.owned).every((c: any) => c.name === null)).toBe(true); // thẻ chưa có chỉ lộ độ hiếm
     const owned = album.cards.find((c: any) => c.owned);
     expect((await api('GET', `/api/game/cards/${owned.id}`)).status).toBe(200);

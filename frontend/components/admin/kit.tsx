@@ -123,8 +123,8 @@ export interface Column<T> {
 }
 
 /** Bảng khi đủ rộng; danh sách thẻ "nhãn: giá trị" trên màn hẹp. Hàng có thể bấm để mở chi tiết. */
-export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions }: {
-  columns: Column<T>[]; rows: T[]; rowKey: (row: T) => string | number; onRowPress?: (row: T) => void; empty: string; actions?: (row: T) => React.ReactNode;
+export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions, actionsWidth = 150 }: {
+  columns: Column<T>[]; rows: T[]; rowKey: (row: T) => string | number; onRowPress?: (row: T) => void; empty: string; actions?: (row: T) => React.ReactNode; actionsWidth?: number;
 }) {
   const { c } = useTheme();
   const { width } = useWindowDimensions();
@@ -153,13 +153,13 @@ export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions
     <View style={{ borderWidth: 1, borderColor: c.adminLine, borderRadius: 5, backgroundColor: c.the, overflow: 'hidden' }}>
       <View style={{ flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 10, backgroundColor: c.adminCanvas, borderBottomWidth: 1, borderBottomColor: c.adminLine, gap: 12 }}>
         {columns.map((col) => <Txt key={col.key} f="bold" size={12} color={c.muc2} style={{ flex: col.flex ?? 1 }}>{col.label}</Txt>)}
-        {actions ? <View style={{ width: 150 }} /> : null}
+        {actions ? <View style={{ width: actionsWidth }} /> : null}
       </View>
       {rows.map((row, i) => (
         <Pressable key={rowKey(row)} accessibilityRole={onRowPress ? 'button' : undefined} disabled={!onRowPress} onPress={() => onRowPress?.(row)}
           style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, minHeight: 52, paddingVertical: 8, gap: 12, borderTopWidth: i ? 1 : 0, borderTopColor: c.adminLine, backgroundColor: pressed ? c.adminCanvas : c.the })}>
           {columns.map((col) => <View key={col.key} style={{ flex: col.flex ?? 1, minWidth: 0 }}>{col.render(row)}</View>)}
-          {actions ? <View style={{ width: 150, flexDirection: 'row', gap: 6, justifyContent: 'flex-end' }}>{actions(row)}</View> : null}
+          {actions ? <View style={{ width: actionsWidth, flexDirection: 'row', gap: 6, justifyContent: 'flex-end' }}>{actions(row)}</View> : null}
         </Pressable>
       ))}
     </View>
