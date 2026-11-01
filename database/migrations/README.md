@@ -32,6 +32,8 @@ Ngày 31/10/2026 thư mục này từng bị xóa theo yêu cầu (website chỉ
 | `023_seed_battle_content.sql` | Nội dung khởi tạo: 6 kịch bản trận đánh kèm hoạt ảnh và 4 mini-game, tất cả ở trạng thái Nháp; chạy lại không tạo trùng |
 | `024_classroom.sql` | Lớp học (Sprint 7): đội và thành viên, yêu cầu rời lớp, thưởng/phạt, hộp quà, bài tập và bài nộp, lượt dùng kỹ năng, đường nối nút; cột vị trí – điều kiện – thưởng của nút, lịch giao hành trình, điểm hành động; bảng mới bật RLS, không tạo dữ liệu người dùng |
 | `025_live_quiz.sql` | Thi đấu trực tiếp (Sprint 8): phòng thi kèm bản chụp câu hỏi và mã PIN (duy nhất giữa các phòng chưa kết thúc), người chơi, câu trả lời; lý do điểm `live`; bảng mới bật RLS, không tạo dữ liệu người dùng |
+| `026_learning_path.sql` | Lộ trình dạng đường đi (Sprint 5 theo ver0.2): Cửa của hành trình (`hk_gates`), cột Cửa / âm thanh / lời kể / Binh thư của nút, bốn loại nút mới (luyện tập, nghe kể chuyện, rương, kiểm tra cuối cửa), Binh thư của người chơi và sổ cái riêng; bảng mới bật RLS, không tạo dữ liệu người dùng |
+| `027_seed_learning_path.sql` | Nội dung khởi tạo (bản nháp): chia ba hành trình mẫu thành các Cửa và thêm nút nghe kể chuyện, luyện tập, rương, kiểm tra cuối cửa; chỉ động vào hành trình mẫu còn nháp, chưa có học sinh học và chưa chia Cửa; chạy lại không nhân đôi |
 
 Kiểm chứng trên PostgreSQL tạm bằng `cd backend && npm run build && npm test` trước khi triển khai.
 Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).

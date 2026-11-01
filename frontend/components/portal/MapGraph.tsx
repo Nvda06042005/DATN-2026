@@ -5,13 +5,13 @@
  */
 import React, { useMemo, useRef, useState } from 'react';
 import { PanResponder, Pressable, View } from 'react-native';
-import { BookOpen, Castle, Check, CircleHelp, Crown, Flag, Lock, Map as MapIcon, PawPrint, ScrollText, Ship, Star, Swords } from 'lucide-react-native';
+import { BookOpen, Castle, Check, CircleHelp, Crown, Dumbbell, Flag, Gift, Headphones, Lock, Map as MapIcon, PawPrint, ScrollText, Ship, Star, Swords, Trophy } from 'lucide-react-native';
 import { Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
 import type { NodeIcon, NodeState } from '@/types/learning';
 
-const ICON: Record<NodeIcon, IconType> = { book: BookOpen, quiz: CircleHelp, sword: Swords, scroll: ScrollText, flag: Flag, star: Star, castle: Castle, ship: Ship, horse: PawPrint, map: MapIcon, crown: Crown };
+const ICON: Record<NodeIcon, IconType> = { book: BookOpen, quiz: CircleHelp, sword: Swords, scroll: ScrollText, flag: Flag, star: Star, castle: Castle, ship: Ship, horse: PawPrint, map: MapIcon, crown: Crown, headphones: Headphones, dumbbell: Dumbbell, chest: Gift, trophy: Trophy };
 const SIZE = 56;
 
 export interface GraphNode { id: number; title: string; icon: NodeIcon | null; pos_x: number | null; pos_y: number | null; state?: NodeState; stars?: number }

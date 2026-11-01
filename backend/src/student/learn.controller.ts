@@ -104,6 +104,9 @@ export class PlayController {
 
   @Get('home') home(@CurrentUser() user: UserRow) { return this.play.home(user); }
   @Get('campaigns/:id/map') map(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.play.campaignMap(user, id); }
+  @Get('path') path(@CurrentUser() user: UserRow) { return this.play.path(user); }
+  @Get('dots') dots(@CurrentUser() user: UserRow) { return this.play.menuDots(user); }
+  @Get('gates/:id/guide') guide(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.play.gateGuide(user, id); }
   @Get('quests') quests(@CurrentUser() user: UserRow) { return this.play.quests(user); }
   @Get('history') history(@CurrentUser() user: UserRow, @Query() query: HistoryQuery) { return this.play.history(user, query.page, query.limit); }
 
@@ -112,6 +115,8 @@ export class PlayController {
   @Post('nodes/:id/attempts') @HttpCode(200) startQuiz(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.play.startNodeQuiz(user, id); }
   @Get('nodes/:id/lesson') lesson(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.play.lesson(user, id); }
   @Post('nodes/:id/lesson/progress') @HttpCode(200) lessonProgress(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: ProgressDto) { return this.play.lessonProgress(user, id, body.read_percent); }
+  @Post('nodes/:id/lesson/check') @HttpCode(200) lessonCheck(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: AnswerDto) { return this.play.lessonCheck(user, id, body.question_id, body.answer); }
+  @Get('nodes/:id/listen') listen(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.play.listen(user, id); }
   @Post('nodes/:id/lesson/complete') @HttpCode(200) lessonComplete(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: LessonCompleteDto) { return this.play.completeLesson(user, id, body.answers); }
 
   @Get('practice') practice(@CurrentUser() user: UserRow) { return this.play.practiceInfo(user); }

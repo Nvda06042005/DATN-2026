@@ -114,7 +114,7 @@ class JourneyListQuery {
 }
 
 class NodeDto {
-  @IsOptional() @IsIn(['lesson', 'quiz', 'battle', 'source', 'final']) kind?: NodeInput['kind'];
+  @IsOptional() @IsIn(['lesson', 'quiz', 'battle', 'source', 'final', 'practice', 'listen', 'chest', 'gate_test']) kind?: NodeInput['kind'];
   @IsOptional() @IsString() @MaxLength(160) title?: string;
   @IsOptional() @IsString() @MaxLength(30) icon?: string | null;
   @IsOptional() @IsString() @MaxLength(500) objective?: string | null;
@@ -132,6 +132,16 @@ class NodeDto {
   @IsOptional() @num() @IsInt() reward_gold?: number;
   @IsOptional() @num() @IsInt() reward_card_id?: number | null;
   @IsOptional() @num() @IsInt() reward_badge_id?: number | null;
+  @IsOptional() @num() @IsInt() @Min(1) gate_id?: number | null;
+  @IsOptional() @IsString() @MaxLength(500) audio_url?: string | null;
+  @IsOptional() @IsString() @MaxLength(4200) transcript?: string | null;
+  @IsOptional() @num() @IsInt() reward_binh_thu?: number | null;
+}
+
+class GateDto {
+  @IsOptional() @IsString() @MaxLength(160) title?: string;
+  @IsOptional() @IsString() @MaxLength(500) summary?: string | null;
+  @IsOptional() @IsString() @MaxLength(2200) guide_note?: string | null;
 }
 
 class OrderDto {
@@ -354,6 +364,15 @@ export class ContentController {
   @Delete('journeys/:id/classes/:classId')
   @Roles('teacher')
   unassign(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Param('classId', ParseIntPipe) classId: number) { return this.journeys.unassign(user, id, classId); }
+
+  @Post('journeys/:id/gates')
+  addGate(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: GateDto) { return this.journeys.addGate(user, id, body); }
+
+  @Put('gates/:gateId')
+  updateGate(@CurrentUser() user: UserRow, @Param('gateId', ParseIntPipe) gateId: number, @Body() body: GateDto) { return this.journeys.updateGate(user, gateId, body); }
+
+  @Delete('gates/:gateId')
+  removeGate(@CurrentUser() user: UserRow, @Param('gateId', ParseIntPipe) gateId: number) { return this.journeys.removeGate(user, gateId); }
 
   @Put('nodes/:nodeId')
   updateNode(@CurrentUser() user: UserRow, @Param('nodeId', ParseIntPipe) nodeId: number, @Body() body: NodeDto) { return this.journeys.updateNode(user, nodeId, body as NodeInput); }

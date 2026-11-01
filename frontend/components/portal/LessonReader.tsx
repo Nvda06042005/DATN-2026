@@ -3,7 +3,7 @@
  * Bài học hoàn thành khi em đọc hết và trả lời đúng mọi câu kiểm tra nhanh. `Overlay` là khung toàn màn hình dùng chung cho đọc bài và làm bài.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Image, Linking, NativeScrollEvent, NativeSyntheticEvent, ScrollView, TextInput, View } from 'react-native';
+import { Image, Linking, NativeScrollEvent, NativeSyntheticEvent, ScrollView, TextInput, View, type ScrollViewInstance } from 'react-native';
 import { ArrowLeft, CheckCircle2, ExternalLink, Save, Trash2, Video, XCircle } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import * as classroom from '@/api/classroomApi';
@@ -16,15 +16,18 @@ import { useTheme } from '@/hooks/use-theme';
 import type { LessonBlock, LessonCompletion, PlayQuestion } from '@/types/learning';
 
 /** Khung toàn màn hình phủ lên ứng dụng, có nút quay lại và vùng cuộn riêng */
-export const Overlay: React.FC<{ title: string; onBack: () => void; children: React.ReactNode; onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void; footer?: React.ReactNode }> = ({ title, onBack, children, onScroll, footer }) => {
+export const Overlay: React.FC<{ title: string; onBack: () => void; children: React.ReactNode; onScroll?: (e: NativeSyntheticEvent<NativeScrollEvent>) => void; footer?: React.ReactNode; resetKey?: unknown }> = ({ title, onBack, children, onScroll, footer, resetKey }) => {
   const { c } = useTheme();
+  const scroller = useRef<ScrollViewInstance>(null);
+  // Đổi bước (học từng bước) thì cuộn về đầu để em thấy ngay nội dung mới
+  useEffect(() => { scroller.current?.scrollTo({ y: 0, animated: false }); }, [resetKey]);
   return (
     <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 30, backgroundColor: c.giay }}>
       <View style={{ minHeight: 56, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.the, borderBottomWidth: 2, borderBottomColor: c.vien }}>
         <Btn icon={ArrowLeft} label="Quay lại" tone="ghost" size="sm" onPress={onBack} testID="overlay-back" />
         <Txt f="bold" size={15} numberOfLines={1} style={{ flex: 1 }}>{title}</Txt>
       </View>
-      <ScrollView onScroll={onScroll} scrollEventThrottle={120} contentContainerStyle={{ padding: 16, paddingBottom: 56, maxWidth: 760, width: '100%', alignSelf: 'center', gap: 16 }} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scroller} onScroll={onScroll} scrollEventThrottle={120} contentContainerStyle={{ padding: 16, paddingBottom: 56, maxWidth: 760, width: '100%', alignSelf: 'center', gap: 16 }} keyboardShouldPersistTaps="handled">
         {children}
       </ScrollView>
       {footer}
@@ -32,7 +35,7 @@ export const Overlay: React.FC<{ title: string; onBack: () => void; children: Re
   );
 };
 
-const Block: React.FC<{ block: LessonBlock }> = ({ block }) => {
+export const Block: React.FC<{ block: LessonBlock }> = ({ block }) => {
   const { c } = useTheme();
   if (block.type === 'text') {
     return (

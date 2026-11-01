@@ -116,7 +116,7 @@ export const GameCatalog: React.FC<{ session: Session; entities?: string[]; hide
 };
 
 // ---------------------------------------------------------------------- cấu hình mặc định (quản trị tổng)
-const GROUPS: Array<[string, string]> = [['hearts', 'Cơ chế tim'], ['daily_goal', 'Mục tiêu ngày'], ['gold', 'Vàng thưởng'], ['streak', 'Chuỗi ngày'], ['cards', 'Thẻ nhân vật'], ['gift', 'Quà hằng ngày'], ['league', 'Giải đấu tuần'], ['', 'Khác']];
+const GROUPS: Array<[string, string]> = [['hearts', 'Cơ chế tim'], ['daily_goal', 'Mục tiêu ngày'], ['gold', 'Vàng thưởng'], ['binh_thu', 'Binh thư (nâng cấp thẻ tướng)'], ['streak', 'Chuỗi ngày'], ['cards', 'Thẻ nhân vật'], ['gift', 'Quà hằng ngày'], ['league', 'Giải đấu tuần'], ['', 'Khác']];
 const getPath = (obj: Row, path: string): unknown => path.split('.').reduce<any>((cur, k) => (cur === undefined || cur === null ? undefined : cur[k]), obj);
 const setPath = (obj: Row, path: string, value: unknown) => { const keys = path.split('.'); let cur = obj; for (const k of keys.slice(0, -1)) cur = cur[k] ??= {}; cur[keys[keys.length - 1]] = value; };
 

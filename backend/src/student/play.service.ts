@@ -14,6 +14,7 @@ import { logEvent } from './events';
 import { LearnService } from './learn.service';
 import { GameService } from '../game/game.service';
 import { recordSubmission } from '../classroom/submission';
+import { GATE_PLAN_SIZE, gateGuide as buildGateGuide, gatePool } from './gates';
 import { activeJourneys, nodesWithState, ProgressNode } from './progress';
 
 interface PlanItem { question_id: number; points: number; seconds: number; seed: number; shuffle: boolean; snap: Omit<QuestionCore, 'id'>; removed?: string[] }
@@ -85,8 +86,23 @@ export class PlayService {
       id: n.id, position: n.position, kind: n.kind, kind_label: NODE_KIND_LABEL[n.kind], title: n.title, icon: n.icon, objective: n.objective, state: n.state, stars: n.stars,
       best_percent: n.best_percent, attempts: n.attempts, reward_points: n.reward_points, completed_at: n.completed_at,
       pos_x: n.pos_x, pos_y: n.pos_y, preds: n.preds, lock_reason: n.lock_reason, min_percent: n.min_percent, min_stars: n.min_stars, opens_at: n.opens_at, reward_gold: n.reward_gold,
-      has_reward_card: Boolean(n.reward_card_id), has_reward_badge: Boolean(n.reward_badge_id),
+      has_reward_card: Boolean(n.reward_card_id), has_reward_badge: Boolean(n.reward_badge_id), gate_id: n.gate_id,
     };
+  }
+
+  /** Nút có làm bộ câu hỏi (kể cả tự ghép từ câu hỏi của Cửa) thì hoàn thành bằng lượt làm bài */
+  private needsQuiz(n: ProgressNode): boolean {
+    return n.kind === 'quiz' || n.kind === 'final' || n.kind === 'practice' || n.kind === 'gate_test' || ((n.kind === 'battle' || n.kind === 'listen') && Boolean(n.quiz_id));
+  }
+
+  /** Lượt làm bài tự ghép từ câu hỏi của Cửa (Luyện tập, Kiểm tra cuối cửa không có bộ đề riêng): chọn ngẫu nhiên tối đa GATE_PLAN_SIZE câu đã gặp trong Cửa */
+  private async planFromGate(q: Q, node: ProgressNode): Promise<{ plan: PlanItem[]; pass: number }> {
+    if (!node.gate_id) throw new ConflictException('Nút này chưa thuộc Cửa nào nên chưa có câu hỏi để ôn');
+    const pool = await gatePool(q, node.gate_id);
+    if (!pool.length) throw new ConflictException('Cửa này chưa có câu hỏi nào để ôn');
+    const seed = Math.floor(Math.random() * 2 ** 31);
+    const plan = seededShuffle(pool, seed).slice(0, GATE_PLAN_SIZE).map((r, idx): PlanItem => ({ question_id: r.id, points: 100, seconds: PRACTICE_SECONDS, seed: seed + idx * 101 + 1, shuffle: true, snap: this.snap(r) }));
+    return { plan, pass: node.kind === 'gate_test' ? 70 : 1 };
   }
 
   /** Thông tin ngắn về nội dung của từng nút (thời lượng bài học, số câu hỏi...) */
@@ -124,12 +140,19 @@ export class PlayService {
     const unlocks = await q<{ id: number; title: string; unlocked: boolean }>(
       `SELECT s.id, s.title, EXISTS (SELECT 1 FROM hk_unlocked_sources u WHERE u.user_id = $2 AND u.source_id = s.id) AS unlocked
        FROM hist_sources s WHERE s.status = 'published' AND (s.id IN (SELECT source_id FROM hk_node_unlocks WHERE node_id = $1) OR s.id = $3) ORDER BY s.title`, [nodeId, user.id, node.source_id]);
-    const quiz = content.quiz as { pass_percent: number } | undefined;
+    const quiz = content.quiz as { pass_percent: number; questions: number } | undefined;
     const sim = node.battle_id ? await this.simulationOf(q, node.battle_id) : null;
+    // Số câu hỏi để học sinh biết trước khi vào học (HK.HS.118): câu kiểm tra nhanh của bài, câu của bộ đề, hoặc số câu tự ghép từ Cửa
+    let questionCount: number | null = null;
+    if (node.kind === 'lesson' && node.lesson_id) questionCount = Number((await q<{ n: string }>('SELECT count(*) AS n FROM hk_lesson_checks WHERE lesson_id = $1', [node.lesson_id]))[0].n);
+    else if (quiz) questionCount = quiz.questions;
+    else if ((node.kind === 'practice' || node.kind === 'gate_test') && node.gate_id) questionCount = Math.min(GATE_PLAN_SIZE, (await gatePool(q, node.gate_id)).length);
+    const binhThu = await this.game.binhThuFor(node.kind, node.reward_binh_thu);
     return {
       ...this.nodeBrief(node), content: locked ? null : content, unlocks, can_start: !locked, has_sim: Boolean(sim), scenario_id: sim?.id ?? null,
       pass_percent: node.pass_percent ?? quiz?.pass_percent ?? null, hint: locked ? node.lock_reason : null,
-      has_quiz: Boolean(node.quiz_id), needs_quiz: node.kind === 'quiz' || node.kind === 'final' || (node.kind === 'battle' && Boolean(node.quiz_id)),
+      has_quiz: Boolean(node.quiz_id), needs_quiz: this.needsQuiz(node), question_count: questionCount, reward_binh_thu: binhThu,
+      gate: node.gate_id ? (await q<{ id: number; title: string }>('SELECT id, title FROM hk_gates WHERE id = $1', [node.gate_id]))[0] ?? null : null,
     };
   }
 
@@ -148,10 +171,13 @@ export class PlayService {
     const awarded = (first ? node.reward_points : 0) + delta;
     if (awarded > 0) await this.game.awardXp(q, user, awarded, 'node', `node:${node.id}:${r.ref}`);
     let unlocked: Array<{ id: number; title: string }> = [];
-    const rewards = { gold: 0, card: false, badge: null as string | null };
+    const rewards = { gold: 0, card: false, badge: null as string | null, binh_thu: 0 };
     if (first) {
       // Phần thưởng riêng của nút do giáo viên đặt (HK.GV.024): vàng, thẻ nhân vật, huy hiệu; chỉ lần hoàn thành đầu tiên
       if (node.reward_gold && (await this.game.addGold(q, user, node.reward_gold, 'node', `nodegold:${node.id}`))) rewards.gold = node.reward_gold;
+      // Binh thư (ver0.2): mức riêng của nút nếu có, không thì mức mặc định theo loại nút trong cấu hình trò chơi hóa
+      const binhThu = await this.game.binhThuFor(node.kind, node.reward_binh_thu);
+      if (binhThu > 0 && (await this.game.addBinhThu(q, user, binhThu, node.kind === 'chest' ? 'chest' : 'node', `node:${node.id}`))) rewards.binh_thu = binhThu;
       if (node.reward_card_id && (await this.game.grantCard(q, user, node.reward_card_id, node.id))) rewards.card = true;
       if (node.reward_badge_id) {
         const badge = (await q<{ id: number; name: string; icon: string; color: string }>('SELECT id, name, icon, color FROM hk_badges WHERE id = $1 AND is_active', [node.reward_badge_id]))[0];
@@ -187,7 +213,7 @@ export class PlayService {
       const { node } = await this.accessNode(q, user, nodeId);
       if (node.state === 'locked') throw new ConflictException('Hãy hoàn thành nút trước đó');
       if (node.kind === 'lesson') throw new ConflictException('Bài học hoàn thành khi trả lời đúng câu kiểm tra nhanh');
-      if (node.kind === 'quiz' || node.kind === 'final' || (node.kind === 'battle' && node.quiz_id)) throw new ConflictException('Hãy làm bộ câu hỏi của nút này');
+      if (this.needsQuiz(node)) throw new ConflictException('Hãy làm bộ câu hỏi của nút này');
       if (node.kind === 'battle' && node.battle_id && (await this.simulationOf(q, node.battle_id))) throw new ConflictException('Hãy chơi mô phỏng trận đánh để hoàn thành nút này');
       return this.finishNode(q, user, node, { percent: 100, stars: 3, points: 0, passed: true, ref: 'read' });
     });
@@ -259,6 +285,112 @@ export class PlayService {
     });
   }
 
+  private async nodeKind(q: Q, nodeId: number | null): Promise<string | null> {
+    return nodeId ? (await q<{ kind: string }>('SELECT kind FROM hk_nodes WHERE id = $1', [nodeId]))[0]?.kind ?? null : null;
+  }
+
+  // ------------------------------------------------------------------ lộ trình dạng đường đi (HK.HS.117–118, 125)
+  /**
+   * Toàn bộ lộ trình của học sinh theo Phần (mỗi cuộc kháng chiến) và Cửa (nhóm nút liên tiếp cùng Cửa): trạng thái từng nút, vòng tiến độ, nút hiện tại.
+   * Hành trình chưa chia Cửa hiện thành một nhóm duy nhất; nút không thuộc Cửa nào hiện thành nhóm riêng.
+   */
+  async path(user: UserRow) {
+    const q = this.read;
+    const campaigns = (await this.learn.campaigns()) as Array<Record<string, any>>;
+    const active = await activeJourneys(q, user.id);
+    const parts = [];
+    let current: { part_no: number; gate_no: number; gate_title: string; node_id: number } | null = null;
+    for (const [i, c] of campaigns.entries()) {
+      const journey = active.find((a) => a.campaign_id === c.id);
+      const head = { no: i + 1, campaign: { id: c.id, title: c.title, year_label: c.year_label } };
+      if (!journey) { parts.push({ ...head, journey: null, gates: [], totals: { nodes: 0, done: 0 } }); continue; }
+      const nodes = await nodesWithState(q, user.id, journey.journey_id);
+      const lessonIds = nodes.filter((n) => n.lesson_id).map((n) => n.lesson_id as number);
+      const lessons = lessonIds.length ? await q<{ id: number; blocks: number; checks: number; read_percent: number; completed: boolean }>(
+        `SELECT l.id, jsonb_array_length(l.blocks) AS blocks, (SELECT count(*)::int FROM hk_lesson_checks k WHERE k.lesson_id = l.id) AS checks,
+                COALESCE(p.read_percent, 0) AS read_percent, (p.completed_at IS NOT NULL) AS completed
+         FROM hk_lessons l LEFT JOIN hk_lesson_progress p ON p.lesson_id = l.id AND p.user_id = $2 WHERE l.id = ANY($1)`, [lessonIds, user.id]) : [];
+      const gateRows = await q<{ id: number; title: string; summary: string | null }>('SELECT id, title, summary FROM hk_gates WHERE journey_id = $1', [journey.journey_id]);
+      const gates: Array<{ id: number | null; no: number; title: string; summary: string | null; nodes: Array<Record<string, unknown>>; done: number; state: string }> = [];
+      for (const n of nodes) {
+        const last = gates[gates.length - 1];
+        if (!last || last.id !== n.gate_id) {
+          const g = gateRows.find((x) => x.id === n.gate_id);
+          gates.push({ id: n.gate_id, no: gates.length + 1, title: g?.title ?? (n.gate_id === null && !gateRows.length ? journey.title : 'Chặng khác'), summary: g?.summary ?? null, nodes: [], done: 0, state: 'locked' });
+        }
+        const gate = gates[gates.length - 1];
+        const l = lessons.find((x) => x.id === n.lesson_id);
+        // Vòng tiến độ: bài học tính theo số bước (thẻ kiến thức + câu hỏi) đã qua; nút khác là 0 hoặc 1
+        const total = l ? Math.max(1, l.blocks + l.checks) : 1;
+        const stepsDone = n.state === 'done' ? total : l ? Math.min(total - 1, Math.round((l.read_percent / 100) * l.blocks)) : 0;
+        gate.nodes.push({
+          id: n.id, position: n.position, kind: n.kind, kind_label: NODE_KIND_LABEL[n.kind], title: n.title, icon: n.icon, state: n.state, stars: n.stars, best_percent: n.best_percent,
+          reward_points: n.reward_points, lock_reason: n.lock_reason, steps: { done: stepsDone, total },
+        });
+        if (n.state === 'done') gate.done += 1;
+        if (!current && n.state === 'available') current = { part_no: i + 1, gate_no: gate.no, gate_title: gate.title, node_id: n.id };
+      }
+      for (const g of gates) g.state = g.done === g.nodes.length ? 'done' : g.nodes.some((x) => x.state === 'available') ? 'current' : 'locked';
+      parts.push({ ...head, journey: { id: journey.journey_id, title: journey.title, from_class: journey.from_class }, gates, totals: { nodes: nodes.length, done: nodes.filter((n) => n.state === 'done').length } });
+    }
+    return { parts, current };
+  }
+
+  /** Dấu chấm đỏ của thanh menu (HK.HS.125): số việc mới ở các mục mà dữ liệu nằm ngoài bản đồ học */
+  async menuDots(user: UserRow) {
+    const q = this.read;
+    const practice = Number((await q<{ n: string }>('SELECT count(*) AS n FROM hk_wrong_questions WHERE user_id = $1 AND cleared_at IS NULL', [user.id]))[0].n);
+    const live = Number((await q<{ n: string }>(
+      "SELECT count(*) AS n FROM hk_live_rooms r JOIN app_class_members m ON m.class_id = r.class_id AND m.user_id = $1 WHERE r.state <> 'ended'", [user.id]))[0].n);
+    return { practice, live };
+  }
+
+  /** Cẩm nang của Cửa (HK.HS.123): tóm tắt tự tạo từ kho lịch sử; chỉ xem được Cửa của hành trình mình đang học */
+  async gateGuide(user: UserRow, gateId: number) {
+    const q = this.read;
+    const gate = (await q<{ journey_id: number }>('SELECT journey_id FROM hk_gates WHERE id = $1', [gateId]))[0];
+    if (!gate || !(await activeJourneys(q, user.id)).some((a) => a.journey_id === gate.journey_id)) throw notFound('Cửa');
+    const guide = await buildGateGuide(q, gateId);
+    if (!guide) throw notFound('Cửa');
+    await logEvent(this.db, user, 'view_guide', 'gate', gateId);
+    return guide;
+  }
+
+  /** Nghe kể chuyện (HK.HS.121): lời kể tách theo dòng làm phụ đề; âm thanh thu sẵn nếu có, không thì máy đọc tiếng Việt trên thiết bị */
+  async listen(user: UserRow, nodeId: number) {
+    const out = await this.db.tx(async (q) => {
+      const { node } = await this.accessNode(q, user, nodeId);
+      if (node.state === 'locked' || node.kind !== 'listen') throw new ConflictException('Nút này chưa mở hoặc không phải nút nghe kể chuyện');
+      const lines = (node.transcript ?? '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+      return { node: this.nodeBrief(node), title: node.title, audio_url: node.audio_url, lines, has_quiz: Boolean(node.quiz_id) };
+    });
+    await logEvent(this.db, user, 'view_listen', 'node', nodeId, nodeId);
+    return out;
+  }
+
+  /**
+   * Chấm từng câu kiểm tra nhanh khi học bài theo từng bước (HK.HS.119): trả đúng/sai kèm giải thích ngay. Sai thì mất một tim (không bao giờ chặn việc học khi hết tim)
+   * và câu được ghi vào danh sách câu cần luyện lại. Việc hoàn thành bài vẫn do `completeLesson` quyết định.
+   */
+  async lessonCheck(user: UserRow, nodeId: number, questionId: number, answer: unknown) {
+    return this.db.tx(async (q) => {
+      const { node } = await this.accessNode(q, user, nodeId);
+      if (node.state === 'locked' || node.kind !== 'lesson' || !node.lesson_id) throw new ConflictException('Nút này chưa mở hoặc không phải bài học');
+      const c = (await q<{ question_id: number; qtype: QType; explanation: string | null; data: Record<string, unknown> }>(
+        'SELECT k.question_id, t.qtype, t.explanation, t.data FROM hk_lesson_checks k JOIN hk_questions t ON t.id = k.question_id WHERE k.lesson_id = $1 AND k.question_id = $2', [node.lesson_id, questionId]))[0];
+      if (!c) throw notFound('câu hỏi');
+      const g = grade(c, answer);
+      if (!g.correct) {
+        await this.game.loseHeart(q, user);
+        await q(
+          `INSERT INTO hk_wrong_questions (user_id, question_id) VALUES ($1, $2)
+           ON CONFLICT (user_id, question_id) DO UPDATE SET wrong_count = hk_wrong_questions.wrong_count + 1, last_wrong_at = now(), cleared_at = NULL`, [user.id, questionId]);
+      }
+      await logEvent(null, user, 'lesson_check', 'question', questionId, nodeId, { correct: g.correct }, null, q);
+      return { correct: g.correct, explanation: c.explanation, detail: g.detail };
+    });
+  }
+
   // ------------------------------------------------------------------ làm bài (HK.HS.043–046)
   private snap(row: { qtype: QType; prompt: string; image_url: string | null; explanation: string | null; difficulty: number; data: Record<string, unknown> }): PlanItem['snap'] {
     return { qtype: row.qtype, prompt: row.prompt, image_url: row.image_url, explanation: row.explanation, difficulty: row.difficulty, data: row.data };
@@ -286,11 +418,14 @@ export class PlayService {
     return this.db.tx(async (q) => {
       const { node } = await this.accessNode(q, user, nodeId);
       if (node.state === 'locked') throw new ConflictException('Hãy hoàn thành nút trước đó');
-      if (!node.quiz_id || node.kind === 'lesson' || node.kind === 'source') throw new ConflictException('Nút này không có bộ câu hỏi');
+      // Luyện tập và Kiểm tra cuối cửa không có bộ đề riêng thì tự ghép câu hỏi từ Cửa
+      const auto = (node.kind === 'practice' || node.kind === 'gate_test') && !node.quiz_id;
+      if ((!node.quiz_id && !auto) || node.kind === 'lesson' || node.kind === 'source' || node.kind === 'chest') throw new ConflictException('Nút này không có bộ câu hỏi');
       const open = (await q<{ id: number }>("SELECT id::int AS id FROM hk_attempts WHERE user_id = $1 AND node_id = $2 AND status = 'active' AND mode = 'node'", [user.id, nodeId]))[0];
       if (open) return this.stateOf(q, user, open.id);
-      await this.game.assertCanPlay(q, user);
-      const { plan, pass } = await this.planFromQuiz(q, node.quiz_id);
+      // Luyện tập không bị chặn khi hết tim (và làm sai không mất tim) để em vẫn ôn bài được
+      if (node.kind !== 'practice') await this.game.assertCanPlay(q, user);
+      const { plan, pass } = auto ? await this.planFromGate(q, node) : await this.planFromQuiz(q, node.quiz_id!);
       const id = await this.insertAttempt(q, user.id, 'node', node.quiz_id, node.id, plan, node.pass_percent ?? pass);
       await logEvent(null, user, 'attempt_start', 'node', node.id, node.id, null, null, q);
       return this.stateOf(q, user, id);
@@ -427,7 +562,7 @@ export class PlayService {
           await this.game.gainHearts(q, user, settings.hearts.per_practice_correct);
         }
       }
-      if (a.mode === 'node' && !g.correct) await this.game.loseHeart(q, user);
+      if (a.mode === 'node' && !g.correct && (await this.nodeKind(q, a.node_id)) !== 'practice') await this.game.loseHeart(q, user);
       if (g.correct) await this.game.onCorrectAnswer(q, user);
       await logEvent(null, user, 'answer', 'question', item.question_id, a.node_id, { correct: g.correct, timed_out: timedOut, ms: used }, used, q);
     }
@@ -452,6 +587,8 @@ export class PlayService {
       `UPDATE hk_attempts SET status = 'done', finished_at = now(), percent = $2, stars = $3, passed = $4, duration_ms = $5, max_points = $6 WHERE id = $1`,
       [id, percent, stars, passed, Number(timing.used), maxBase]);
     let node: Record<string, unknown> | null = null;
+    // Nút luyện tập làm lại không giới hạn nên không thưởng vàng khi đạt 100% (tránh cày vàng)
+    const kind = a.mode === 'node' ? await this.nodeKind(q, a.node_id) : null;
     if (a.mode === 'node' && a.node_id) {
       const row = (await q<{ journey_id: number }>('SELECT journey_id FROM hk_nodes WHERE id = $1', [a.node_id]))[0];
       if (row) {
@@ -464,7 +601,7 @@ export class PlayService {
       const sub = await recordSubmission(q, this.game, user, a.assignment_id, percent);
       await q('UPDATE hk_attempts SET result = $2 WHERE id = $1', [id, JSON.stringify({ assignment_id: a.assignment_id, ...sub })]);
     }
-    if (a.mode === 'node' && percent === 100) await this.game.onPerfectQuiz(q, user, id);
+    if (a.mode === 'node' && percent === 100 && kind !== 'practice') await this.game.onPerfectQuiz(q, user, id);
     if (a.mode !== 'preview') await logEvent(null, user, 'attempt_finish', 'attempt', id, a.node_id, { percent, passed }, Number(timing.used), q);
     return { percent, stars, passed, node };
   }
@@ -635,8 +772,11 @@ export class PlayService {
         const pass = n.pass_percent ?? quizPass.get(n.id);
         const condition = n.kind === 'lesson' ? 'Đọc hết bài học và trả lời đúng câu kiểm tra nhanh'
           : n.kind === 'source' ? 'Đọc tư liệu để mở khóa'
-            : n.kind === 'battle' && !n.quiz_id ? 'Tìm hiểu hồ sơ trận đánh'
-              : `Đạt từ ${pass ?? 60}% điểm ở bộ câu hỏi`;
+            : n.kind === 'chest' ? 'Đi tới rương và mở để nhận thưởng'
+              : n.kind === 'practice' ? 'Ôn lại các câu đã học trong cửa'
+                : n.kind === 'listen' ? 'Nghe hết câu chuyện' + (n.quiz_id ? ' và trả lời câu hỏi về nội dung vừa nghe' : '')
+                  : n.kind === 'battle' && !n.quiz_id ? 'Tìm hiểu hồ sơ trận đánh'
+                    : `Đạt từ ${pass ?? (n.kind === 'gate_test' ? 70 : 60)}% điểm ở bộ câu hỏi`;
         const quest = { node_id: n.id, campaign_id: j.campaign_id, campaign_title: campaign, journey_title: j.title, title: n.title, kind: n.kind, kind_label: NODE_KIND_LABEL[n.kind], condition, reward_points: n.reward_points, stars: n.stars, state: n.state, best_percent: n.best_percent };
         (n.state === 'done' ? out.done : n.state === 'available' ? out.doing : out.locked).push(quest);
       }

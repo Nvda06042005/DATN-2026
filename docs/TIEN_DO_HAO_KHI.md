@@ -3,7 +3,10 @@
 Nguồn: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). Tài liệu này ghi **Sprint 1 đến Sprint 8**
 (251 chức năng) đã làm được gì, quyết định đã chọn khi đặc tả chưa nói rõ, và những gì cố ý chưa làm. Phân tích đối chiếu ban đầu: `DOI_CHIEU_HAO_KHI_V01.md`.
 
-Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 198 bài trong 16 tệp, gồm migration trên dữ liệu cũ, Sprint 1–7, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu, trò chơi hóa, mô phỏng trận đánh, lớp học, bài tập, bản đồ rẽ nhánh);
+**Từ 01/11/2026 đặc tả có bản `ver0.2`** (408 chức năng; viết lại Sprint 5–8, thêm 60 chức năng, sửa 10). Đối chiếu và các điểm cần chốt: `DOI_CHIEU_HAO_KHI_V02.md`.
+Đang làm ver0.2 theo thứ tự Sprint 5 → 6 → 7 → 8; tiến độ nằm ở mục "ver0.2" cuối các bảng Sprint tương ứng (Sprint 5 ver0.2: lộ trình dạng đường đi, đã làm; Sprint 6–8 ver0.2: chưa làm).
+
+Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 212 bài trong 17 tệp, gồm migration trên dữ liệu cũ, Sprint 1–7, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu, trò chơi hóa, mô phỏng trận đánh, lớp học, bài tập, bản đồ rẽ nhánh, lộ trình dạng đường đi);
 `cd frontend && npm run typecheck && npm run build`. Mỗi bài kiểm thử ghi mã HK.* trong tên.
 
 ## Sprint 1 – xác thực, tài khoản, hồ sơ, trường học, người dùng (40 chức năng)
@@ -216,6 +219,27 @@ Giáo viên tạo phòng thi từ một bộ đề, chiếu mã PIN 6 số và m
 
 Dữ liệu: migration 025 (phòng thi, người chơi, câu trả lời; mã PIN chỉ duy nhất giữa các phòng chưa kết thúc; lý do điểm `live`). Mọi bảng mới bật RLS, chỉ máy chủ đọc/ghi.
 
+## Sprint 5 theo ver0.2 – lộ trình học dạng đường đi kiểu Duolingo (9 chức năng mới)
+
+Hành trình mẫu được chia thành **Phần** (mỗi cuộc kháng chiến) và **Cửa** (chủ đề, nhóm các nút liên tiếp). Màn **Học** vẽ các nút thành đường uốn lượn; bốn loại nút mới: luyện tập, nghe kể chuyện, rương, kiểm tra cuối cửa. Nút vẫn mở tuần tự (hoặc theo đường nối nếu giáo viên thiết kế nhánh rẽ), nên qua bài kiểm tra cuối cửa mới mở Cửa kế tiếp. Thẻ nhân vật (HK.HS.068/069, HK.AD.048, HK.SYS.008) chuyển sang Sprint 6; phần đã làm ở bản cũ vẫn chạy nguyên.
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.HS.117 | Xong | Màn **Học**: đường uốn lượn chia Phần/Cửa, băng tiêu đề dính "Phần 1, Cửa 4 – tên cửa" đổi theo vị trí cuộn, nút đã xong / đang học / bị khóa khác màu và có chữ, linh vật đứng cạnh nút hiện tại, tự cuộn tới nút hiện tại. Hành trình chưa chia Cửa hiện thành một nhóm duy nhất; nút không thuộc Cửa nào hiện thành nhóm "Chặng khác" |
+| HK.HS.118 | Xong | Nút hiện tại có nhãn "BẮT ĐẦU" và vòng tiến độ (số bước đã qua / tổng số bước); bấm mở tờ chi tiết với tên bài, số câu hỏi, điểm thưởng, Binh thư rồi vào học |
+| HK.HS.119 | Xong | Bài học từng bước: thẻ kiến thức xen kẽ câu hỏi kiểm tra nhanh, thanh tiến độ và số tim ở trên cùng, "Kiểm tra" báo đúng/sai kèm giải thích ngay (máy chủ chấm), sai mất một tim và câu được ghi vào danh sách luyện lại (hết tim không chặn việc học); cuối bài báo điểm, độ chính xác, thời gian, thưởng. Có nút "Đọc cả bài một lượt" quay lại trình đọc cuộn cũ (giữ ghi chú); bài tập của lớp vẫn dùng trình đọc cũ |
+| HK.HS.120 | Xong | Nút rương: mở khi đã tới (chưa tới hiện khóa), nhận vàng và Binh thư riêng của nút một lần; **mảnh thẻ tướng sẽ bật ở Sprint 6** (khi hệ thống thẻ mới có) |
+| HK.HS.121 | Xong | Nút luyện tập: máy chủ tự ghép tối đa 8 câu đã gặp trong Cửa (câu kiểm tra nhanh của bài học, câu của bộ đề), làm đúng ít nhất một câu là hoàn thành, sai không mất tim và không thưởng vàng "100%" (chống cày). Nút nghe kể chuyện: lời kể hiện thành phụ đề từng dòng, phát âm thanh thu sẵn nếu có, không thì máy đọc tiếng Việt của thiết bị (nếu thiết bị không đọc được thì phụ đề tự chạy), có thể hỏi câu hỏi về nội dung vừa nghe nếu nút gắn bộ đề |
+| HK.HS.122 | Xong | Kiểm tra cuối cửa: bộ đề riêng hoặc tự ghép câu hỏi của Cửa, cần từ 70% mới hoàn thành Cửa và mở Cửa kế tiếp (làm lại không giới hạn) |
+| HK.HS.123 | Xong | Nút "Hướng dẫn" trên băng tiêu đề mở **Cẩm nang** của Cửa, tự tạo từ kho lịch sử đã Công bố gắn với các bài học và trận đánh trong Cửa: mốc thời gian, nhân vật (cả nhân vật tham gia các sự kiện/trận đánh của Cửa), địa danh, thuật ngữ, câu nói nổi tiếng, kèm ghi chú của người biên soạn; chạm vào mục để mở chi tiết |
+| HK.HS.125 | Xong | Thanh menu chính: thanh bên trái trên máy tính (từ 900 px; đủ 16 mục), thanh dưới trên điện thoại (5 mục: Học, Chiến dịch, Bộ thẻ, Luyện tập, Xem thêm – các mục còn lại ở tờ "Xem thêm", giữ tối đa 5 mục ở thanh dưới); chấm đỏ cho câu cần luyện lại, thẻ chưa lật, phòng thi đang mở. Mục mới: Luyện tập (câu đã sai, ôn theo cửa, trận đánh), Cửa hàng. "Bộ thẻ" dùng bộ sưu tập hiện có |
+| HK.AD.080 | Xong | Trình quản lý hành trình có mục **Các Cửa** (thêm/sửa/xóa, mô tả, ghi chú Cẩm nang), chọn loại nút mới, Cửa của nút, âm thanh và lời kể, Binh thư thưởng riêng; nhân bản hành trình sao cả Cửa. Phát hành/đặt mặc định bị chặn nếu nút luyện tập hoặc kiểm tra cuối cửa chưa có câu hỏi để ôn |
+| HK.HS.068, 069, HK.AD.048, HK.SYS.008 | Chuyển sang Sprint 6 | Theo ver0.2; chưa nâng cấp (mảnh thẻ, sao, độ hiếm Sử thi) |
+
+**Binh thư** (chốt mặc định, xem `DOI_CHIEU_HAO_KHI_V02.md` mục A1): tài nguyên dùng nâng cấp thẻ tướng ở Sprint 6, có sổ cái riêng `hk_binh_thu_ledger` (mỗi khoản duy nhất theo học sinh – lý do – đối tượng nên làm lại không nhận trùng), hiện trên thanh chỉ số cạnh vàng. Nhận khi hoàn thành nút lần đầu: mặc định bài học/câu hỏi/tư liệu/nghe kể chuyện 2, luyện tập 1, kiểm tra cuối cửa 6, trận đánh 4, Quyết chiến 10, rương 5; quản trị tổng sửa mức mặc định ở "Cấu hình trò chơi hóa → Binh thư" và đặt riêng cho từng nút.
+
+Dữ liệu: migration 026 (bảng `hk_gates`; cột Cửa, âm thanh, lời kể, Binh thư của nút; bốn loại nút mới; cột `binh_thu` và sổ cái Binh thư, có RLS), migration 027 (chia ba hành trình mẫu còn là bản nháp thành 2 Cửa mỗi hành trình, thêm 15 nút nghe kể chuyện / luyện tập / rương / kiểm tra cuối cửa; chỉ động vào hành trình chưa phát hành, chưa có học sinh học và chưa chia Cửa; lời kể chỉ dùng lại các sự kiện đã có trong bài học mẫu, vẫn cần giáo viên Lịch sử kiểm tra).
+
 ## Quyết định khi đặc tả chưa nói rõ
 
 - **Quản trị tổng cấp 2 (HK.AD.020):** có cột `admin_level`. Cấp 2 quản lý quản trị viên trường học nhưng không tạo/sửa/khóa/xóa quản trị tổng, không tạo hay xóa trường. Ma trận RBAC thực sự (HK.AD.026) thuộc Sprint 11.
@@ -243,6 +267,7 @@ Dữ liệu: migration 025 (phòng thi, người chơi, câu trả lời; mã PI
 
 ## Triển khai và dữ liệu hiện có
 
+- Sprint 5 ver0.2 (nhánh `feat/hao-khi-v02-sprint-5`, migration 026–027): mong đợi `schema_version` 27 ở `/api/database/health` sau khi Render khởi động bản mới (bản này kéo theo cả migration 025 của Sprint 8 nếu Render chưa chạy).
 - Sprint 8 (nhánh `feat/hao-khi-sprint-8`, migration 025, thêm Socket.IO, pdfkit, qrcode); mong đợi `schema_version` 25 ở `/api/database/health` sau khi Render khởi động bản mới. Render hỗ trợ WebSocket; nếu một mạng chặn WebSocket thì Socket.IO tự dùng polling và giao diện dùng thêm đường HTTP dự phòng.
 - Sprint 6 (nhánh `feat/hao-khi-sprint-6`, migration 022–023) gộp vào `main` ngày 01/11/2026 (Render chạy `schema_version` 23). Sprint 7 (nhánh `feat/hao-khi-sprint-7`, migration 024) gộp vào `main` cùng ngày (3d1d650); Render và Supabase chạy `schema_version` 24 (xác nhận ở `/api/database/health`), các đường dẫn `/api/classroom/*` trả 401 khi chưa đăng nhập, bản web trên Vercel có mã Sprint 7.
 - Cập nhật trang công khai ngày 31/10/2026: toàn bộ ghi công bản đồ/ảnh được chuyển khỏi Điều khoản sử dụng sang `/thong-tin-hinh-anh`, mở từ footer chung. Trang riêng dùng `InfoShell`, nền và Manrope/Newsreader như Điều khoản sử dụng; giữ đủ tác giả, nguồn và giấy phép. Không thay đổi database.

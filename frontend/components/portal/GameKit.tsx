@@ -64,6 +64,7 @@ export const HudBar: React.FC<{ hud: Hud | null }> = ({ hud }) => {
         <HudPill icon={Heart} value={h.enabled ? `${h.current}/${h.max}` : 'Không giới hạn'} label={h.enabled ? 'Tim' : 'Lớp đã tắt cơ chế tim'} tone={h.current <= 1 && h.enabled ? c.son : c.sonChu} />
         <HudPill icon={Award} value={`Cấp ${hud.level.level}`} label={`Cấp ${hud.level.level} ${hud.level.title}, ${hud.xp} điểm`} tone={c.dong} />
         <HudPill icon={Coins} value={String(hud.gold)} label="Vàng" tone={c.vangDam} />
+        <HudPill icon={ScrollText} value={String(hud.binh_thu ?? 0)} label="Binh thư (dùng nâng cấp thẻ tướng)" tone={c.thuyChu} />
         {hud.ap ? <HudPill icon={Zap} value={`${hud.ap.current}/${hud.ap.max}`} label={`Điểm hành động hôm nay ${hud.ap.current} trên ${hud.ap.max}${hud.buffs && Object.keys(hud.buffs).length ? ', có hiệu ứng kỹ năng đang chờ' : ''}`} tone={c.thuy} /> : null}
         <HudPill icon={Flame} value={String(hud.streak.current)} label={hud.streak.at_risk ? 'Chuỗi ngày học, hôm nay chưa đạt mục tiêu' : 'Chuỗi ngày học'} tone={hud.streak.at_risk ? c.dich : c.hoa} />
         <HudPill icon={Target} value={`${Math.min(hud.daily.xp, hud.daily.goal)}/${hud.daily.goal}`} label={hud.daily.reached ? 'Đã đạt mục tiêu hôm nay' : 'Điểm hôm nay trên mục tiêu'} tone={hud.daily.reached ? c.ngocDam : c.thuy} />

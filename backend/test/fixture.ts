@@ -33,6 +33,15 @@ export async function publishSeed(base: string, root: string): Promise<void> {
   for (const m of (await call(base, 'GET', '/api/battle/admin/minigames', undefined, root)).body) await call(base, 'POST', `/api/battle/admin/minigames/${m.id}/status`, { status: 'published' }, root);
 }
 
+/**
+ * Đưa ba hành trình mẫu về dạng thẳng của migration 019 (bỏ các Cửa và nút lộ trình đường đi của migration 027: nghe kể chuyện, luyện tập, rương, kiểm tra cuối cửa).
+ * Dành cho bài kiểm thử không liên quan tới lộ trình đường đi, để nút thứ hai là câu hỏi, nút thứ ba là trận đánh... như khi viết bài kiểm thử.
+ */
+export async function flattenSeedJourneys(url: string): Promise<void> {
+  await sql(url, `DELETE FROM hk_nodes WHERE kind IN ('listen', 'practice', 'chest', 'gate_test'); DELETE FROM hk_gates;
+    UPDATE hk_nodes n SET position = r.rn FROM (SELECT id, row_number() OVER (PARTITION BY journey_id ORDER BY position) AS rn FROM hk_nodes) r WHERE r.id = n.id;`);
+}
+
 /** `keepSeed`: giữ nội dung học mẫu của migration 019; mặc định xóa để bài kiểm thử đếm chính xác nội dung do mình tạo */
 export async function bootstrap(s: Started, root: string, keepSeed = false): Promise<Fixture> {
   if (!keepSeed) await sql(s.url, 'DELETE FROM hk_journeys; DELETE FROM hk_quizzes; DELETE FROM hk_lessons; DELETE FROM hk_questions;');

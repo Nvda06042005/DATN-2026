@@ -56,10 +56,12 @@ export interface LessonDetail {
 }
 export interface LessonInput { title: string; summary?: string | null; campaign_id?: number | null; blocks: LessonBlock[]; read_minutes?: number; links?: HistoryLink[]; check_question_ids?: number[] }
 
-export type NodeKind = 'lesson' | 'quiz' | 'battle' | 'source' | 'final';
-export const NODE_KIND_TEXT: Record<NodeKind, string> = { lesson: 'Bài học', quiz: 'Câu hỏi', battle: 'Trận đánh', source: 'Tư liệu', final: 'Quyết chiến' };
-export type NodeIcon = 'book' | 'quiz' | 'sword' | 'scroll' | 'flag' | 'star' | 'castle' | 'ship' | 'horse' | 'map' | 'crown';
-export const NODE_ICONS: NodeIcon[] = ['book', 'quiz', 'sword', 'scroll', 'flag', 'star', 'castle', 'ship', 'horse', 'map', 'crown'];
+export type NodeKind = 'lesson' | 'quiz' | 'battle' | 'source' | 'final' | 'practice' | 'listen' | 'chest' | 'gate_test';
+export const NODE_KIND_TEXT: Record<NodeKind, string> = {
+  lesson: 'Bài học', quiz: 'Câu hỏi', battle: 'Trận đánh', source: 'Tư liệu', final: 'Quyết chiến', practice: 'Luyện tập', listen: 'Nghe kể chuyện', chest: 'Rương', gate_test: 'Kiểm tra cửa',
+};
+export type NodeIcon = 'book' | 'quiz' | 'sword' | 'scroll' | 'flag' | 'star' | 'castle' | 'ship' | 'horse' | 'map' | 'crown' | 'headphones' | 'dumbbell' | 'chest' | 'trophy';
+export const NODE_ICONS: NodeIcon[] = ['book', 'quiz', 'sword', 'scroll', 'flag', 'star', 'castle', 'ship', 'horse', 'map', 'crown', 'headphones', 'dumbbell', 'chest', 'trophy'];
 
 export interface JourneyItem {
   id: number; scope: Scope; owner_name: string | null; title: string; description: string | null; campaign_id: number; campaign_title: string; is_default: boolean;
@@ -71,10 +73,13 @@ export interface JourneyNode {
   quiz_title: string | null; quiz_questions: number | null; source_title: string | null; source_status: string | null; battle_name: string | null; battle_status: string | null;
   completed: number; unlocks: Array<{ id: number; title: string }>;
   pos_x: number | null; pos_y: number | null; opens_at: string | null; min_percent: number | null; min_stars: number | null; reward_gold: number; reward_card_id: number | null; reward_badge_id: number | null;
+  /** Lộ trình dạng đường đi (ver0.2): Cửa chứa nút, âm thanh / lời kể của nút nghe kể chuyện, Binh thư thưởng riêng (null = mức mặc định theo loại nút) */
+  gate_id: number | null; audio_url: string | null; transcript: string | null; reward_binh_thu: number | null;
 }
+export interface Gate { id: number; position: number; title: string; summary: string | null; guide_note: string | null }
 export interface JourneyDetail {
   id: number; scope: Scope; owner_name: string | null; title: string; description: string | null; campaign_id: number; campaign_title: string; background_url: string | null; is_default: boolean;
-  status: 'draft' | 'published'; copied_from: number | null; can_edit: boolean; nodes: JourneyNode[]; problems: string[]; shares: ShareState[];
+  status: 'draft' | 'published'; copied_from: number | null; can_edit: boolean; nodes: JourneyNode[]; gates: Gate[]; problems: string[]; shares: ShareState[];
   classes: Array<{ id: number; name: string; grade: number | null; school_year: string; students: number; assigned_at: string; starts_at: string | null; ends_at: string | null }>;
   edges: Array<{ from_node: number; to_node: number }>;
 }
@@ -82,7 +87,9 @@ export interface NodeInput {
   kind?: NodeKind; title?: string; icon?: string | null; objective?: string | null; lesson_id?: number | null; quiz_id?: number | null; source_id?: number | null; battle_id?: number | null;
   pass_percent?: number | null; reward_points?: number; unlock_source_ids?: number[];
   opens_at?: string | null; min_percent?: number | null; min_stars?: number | null; reward_gold?: number; reward_card_id?: number | null; reward_badge_id?: number | null;
+  gate_id?: number | null; audio_url?: string | null; transcript?: string | null; reward_binh_thu?: number | null; position?: number;
 }
+export interface GateInput { title?: string; summary?: string | null; guide_note?: string | null }
 /** Xem trước bản đồ như học sinh (HK.GV.025) */
 export interface JourneyPreview {
   journey: { id: number; title: string; description: string | null; background_url: string | null }; edges: Array<{ from_node: number; to_node: number }>;
@@ -124,12 +131,37 @@ export interface NodeDetail extends Omit<MapNode, 'content'> {
   content: MapNode['content']; unlocks: Array<{ id: number; title: string; unlocked: boolean }>; can_start: boolean; pass_percent: number | null; hint: string | null; has_quiz: boolean; needs_quiz: boolean;
   /** Trận đánh có kịch bản mô phỏng đã phát hành (Sprint 6): hoàn thành nút bằng cách chơi mô phỏng */
   has_sim?: boolean; scenario_id?: number | null;
+  /** Lộ trình dạng đường đi (ver0.2): số câu, Binh thư nhận được, Cửa chứa nút */
+  question_count?: number | null; reward_binh_thu?: number; gate?: { id: number; title: string } | null;
 }
 export interface NodeResult {
   first_completion: boolean; passed: boolean; stars: number; percent: number; points_awarded: number; unlocked_sources: Array<{ id: number; title: string }>;
   next_node: { id: number; title: string } | null; journey_completed: boolean; campaign_final: boolean;
-  rewards?: { gold: number; card: boolean; badge: string | null };
+  rewards?: { gold: number; card: boolean; badge: string | null; binh_thu?: number };
 }
+
+// ---------------------------------------------------------------------- lộ trình dạng đường đi (ver0.2)
+export interface PathNode {
+  id: number; position: number; kind: NodeKind; kind_label: string; title: string; icon: NodeIcon | null; state: NodeState; stars: number; best_percent: number;
+  reward_points: number; lock_reason: string | null; steps: { done: number; total: number };
+}
+export interface PathGate { id: number | null; no: number; title: string; summary: string | null; nodes: PathNode[]; done: number; state: 'done' | 'current' | 'locked' }
+export interface PathPart {
+  no: number; campaign: { id: number; title: string; year_label: string }; journey: { id: number; title: string; from_class: boolean } | null;
+  gates: PathGate[]; totals: { nodes: number; done: number };
+}
+export interface LearningPath { parts: PathPart[]; current: { part_no: number; gate_no: number; gate_title: string; node_id: number } | null }
+export interface GateGuide {
+  gate: { id: number; title: string; summary: string | null; guide_note: string | null };
+  milestones: Array<{ type: 'event' | 'battle'; id: number; name: string; year: number; date_text: string | null }>;
+  figures: Array<{ id: number; name: string; honorific: string | null; role_text: string | null }>;
+  places: Array<{ id: number; name: string; old_name: string | null }>;
+  terms: Array<{ id: number; term: string; definition: string }>;
+  quotes: Array<{ text: string; by: string }>;
+}
+export interface ListenView { node: { id: number; title: string }; title: string; audio_url: string | null; lines: string[]; has_quiz: boolean }
+export interface LessonCheckResult { correct: boolean; explanation: string | null; detail?: unknown }
+export interface MenuDots { practice: number; live: number }
 
 export interface PlayQuestion {
   id: number; qtype: QType; prompt: string; image_url: string | null; difficulty: number; options?: QOption[]; blanks?: number; items?: QOption[];

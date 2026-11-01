@@ -12,7 +12,7 @@ export interface EquippedItem { id: number; name: string; icon: string; color: s
 export interface Hud {
   user: { id: number; name: string }; class: CharacterClass | null; has_character: boolean;
   appearance: { outfit: EquippedItem | null; weapon: EquippedItem | null; banner: EquippedItem | null };
-  gold: number; xp: number; hints: number; pending_drops: number; unseen_celebrations: number;
+  gold: number; binh_thu: number; xp: number; hints: number; pending_drops: number; unseen_celebrations: number;
   level: { level: number; title: string; xp: number; floor: number; next_xp: number | null; next_title: string | null; progress: number };
   hearts: { current: number; max: number; enabled: boolean; next_in_ms: number | null; regen_hours: number };
   streak: { current: number; longest: number; freezes: number; freeze_max: number; last_day: string | null; at_risk: boolean };

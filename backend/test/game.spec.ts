@@ -4,7 +4,7 @@
  * HTTP thật trên PostgreSQL tạm; thời gian được "tua" bằng GameClock (đồng hồ của trò chơi hóa), không đổi đồng hồ hệ thống.
  */
 import { call, hasPostgres, Started, startApp } from './harness';
-import { bootstrap, Fixture, publish } from './fixture';
+import { bootstrap, Fixture, flattenSeedJourneys, publish } from './fixture';
 import type { DatabaseService } from '../src/database/database.service';
 import type { GameClock } from '../src/game/clock';
 import type { GameService } from '../src/game/game.service';
@@ -67,6 +67,7 @@ const userRow = async (id: number) => (await db.query<any>('SELECT * FROM app_us
     job = s.moduleRef.get((await import('../src/game/game.job')).GameJob);
     const rootToken = (await call(s.base, 'POST', '/api/auth/login', { username: 'admin', password: 'admin@123', portal: 'root_admin' })).body.token;
     f = await bootstrap(s, rootToken, true);
+    await flattenSeedJourneys(s.url);
     for (const entity of ['campaigns', 'places', 'figures', 'sources', 'terms', 'events', 'battles']) {
       for (const item of (await api('GET', `/api/admin/history/${entity}?limit=100`, undefined, f.root)).body.items) await publish(s.base, f.root, entity, item.id);
     }

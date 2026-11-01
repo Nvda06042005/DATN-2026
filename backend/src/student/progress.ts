@@ -27,9 +27,10 @@ export async function activeJourneys(q: Q, userId: number): Promise<ActiveJourne
 }
 
 export interface ProgressNode {
-  id: number; journey_id: number; position: number; kind: 'lesson' | 'quiz' | 'battle' | 'source' | 'final'; title: string; icon: string | null; objective: string | null;
+  id: number; journey_id: number; position: number; kind: 'lesson' | 'quiz' | 'battle' | 'source' | 'final' | 'practice' | 'listen' | 'chest' | 'gate_test'; title: string; icon: string | null; objective: string | null;
   lesson_id: number | null; quiz_id: number | null; source_id: number | null; battle_id: number | null; pass_percent: number | null; reward_points: number;
   pos_x: number | null; pos_y: number | null; opens_at: string | null; min_percent: number | null; min_stars: number | null; reward_gold: number; reward_card_id: number | null; reward_badge_id: number | null;
+  gate_id: number | null; audio_url: string | null; transcript: string | null; reward_binh_thu: number | null;
   stars: number; best_percent: number; attempts: number; completed_at: string | null; state: NodeState; lock_reason: string | null; preds: number[];
 }
 
@@ -58,7 +59,8 @@ export function computeStates(rows: Raw[], edges: Array<{ from_node: number; to_
 }
 
 const NODE_SELECT = `n.id, n.journey_id, n.position, n.kind, n.title, n.icon, n.objective, n.lesson_id, n.quiz_id, n.source_id, n.battle_id, n.pass_percent, n.reward_points,
-  n.pos_x::float8 AS pos_x, n.pos_y::float8 AS pos_y, n.opens_at, n.min_percent, n.min_stars, n.reward_gold, n.reward_card_id, n.reward_badge_id`;
+  n.pos_x::float8 AS pos_x, n.pos_y::float8 AS pos_y, n.opens_at, n.min_percent, n.min_stars, n.reward_gold, n.reward_card_id, n.reward_badge_id,
+  n.gate_id, n.audio_url, n.transcript, n.reward_binh_thu`;
 
 export async function nodesWithState(q: Q, userId: number, journeyId: number): Promise<ProgressNode[]> {
   const rows = await q<Raw>(
