@@ -20,6 +20,19 @@ export async function publish(base: string, root: string, entity: string, id: nu
   }
 }
 
+/** Công bố toàn bộ nội dung khởi tạo (hồ sơ lịch sử, bài học, hành trình hệ thống, mini-game) như khi giáo viên lịch sử đã kiểm duyệt */
+export async function publishSeed(base: string, root: string): Promise<void> {
+  for (const entity of ['campaigns', 'places', 'figures', 'sources', 'terms', 'events', 'battles']) {
+    for (const item of (await call(base, 'GET', `/api/admin/history/${entity}?limit=100`, undefined, root)).body.items) await publish(base, root, entity, item.id);
+  }
+  for (const l of (await call(base, 'GET', '/api/content/lessons', undefined, root)).body) await call(base, 'PATCH', `/api/content/lessons/${l.id}/status`, { status: 'published' }, root);
+  for (const j of (await call(base, 'GET', '/api/content/journeys?store=system', undefined, root)).body) {
+    await call(base, 'PATCH', `/api/content/journeys/${j.id}/status`, { status: 'published' }, root);
+    await call(base, 'PATCH', `/api/content/journeys/${j.id}/default`, { value: true }, root);
+  }
+  for (const m of (await call(base, 'GET', '/api/battle/admin/minigames', undefined, root)).body) await call(base, 'POST', `/api/battle/admin/minigames/${m.id}/status`, { status: 'published' }, root);
+}
+
 /** `keepSeed`: giữ nội dung học mẫu của migration 019; mặc định xóa để bài kiểm thử đếm chính xác nội dung do mình tạo */
 export async function bootstrap(s: Started, root: string, keepSeed = false): Promise<Fixture> {
   if (!keepSeed) await sql(s.url, 'DELETE FROM hk_journeys; DELETE FROM hk_quizzes; DELETE FROM hk_lessons; DELETE FROM hk_questions;');

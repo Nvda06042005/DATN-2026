@@ -1,11 +1,13 @@
 /**
  * Hành trình học – bản đồ nhiệm vụ (HK.GV.018–021, HK.QT.042, HK.AD.043): thư viện hành trình mẫu của hệ thống / trường / giáo viên,
  * tạo trống hoặc từ mẫu, thêm – sửa – xóa nút (bài học, bộ câu hỏi, trận đánh, tư liệu, trận Quyết chiến), tư liệu mở khóa theo nút, giao cho lớp.
- * Nút mở theo thứ tự (hoàn thành nút trước mới mở nút sau); nhánh rẽ, điều kiện tùy chỉnh và xếp lịch thuộc Sprint 7.
+ * Nút mở theo thứ tự hoặc theo đường nối (nhánh rẽ), kèm điều kiện mở khóa và phần thưởng riêng của nút; vị trí nút trên bản đồ, xem trước như học sinh,
+ * giao cho lớp theo lịch, nhân bản sang lớp khác hoặc năm học mới (Sprint 7, HK.GV.022–027).
  */
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { likeEscape } from '../admin/school.service';
 import { DatabaseService, Q, searchText, UserRow } from '../database/database.service';
+import { computeStates } from '../student/progress';
 import { notFound, Scope } from './access';
 import { QuizService } from './quiz.service';
 
@@ -20,6 +22,7 @@ export interface JourneyInput { title: string; description?: string | null; camp
 export interface NodeInput {
   kind?: NodeKind; title?: string; icon?: string | null; objective?: string | null; lesson_id?: number | null; quiz_id?: number | null; source_id?: number | null;
   battle_id?: number | null; pass_percent?: number | null; reward_points?: number; unlock_source_ids?: number[]; position?: number;
+  opens_at?: string | null; min_percent?: number | null; min_stars?: number | null; reward_gold?: number; reward_card_id?: number | null; reward_badge_id?: number | null;
 }
 export interface JourneyFilter { q?: string; store?: string; campaign_id?: number }
 
@@ -30,10 +33,11 @@ interface JourneyRow {
 interface NodeRow {
   id: number; journey_id: number; position: number; kind: NodeKind; title: string; icon: string | null; objective: string | null;
   lesson_id: number | null; quiz_id: number | null; source_id: number | null; battle_id: number | null; pass_percent: number | null; reward_points: number;
+  pos_x: number | null; pos_y: number | null; opens_at: string | null; min_percent: number | null; min_stars: number | null; reward_gold: number; reward_card_id: number | null; reward_badge_id: number | null;
 }
 
 const COLUMNS = 'id, scope, school_id, owner_id, title, description, campaign_id, background_url, is_default, status, copied_from, created_at, updated_at';
-const NODE_COLUMNS = 'id, journey_id, position, kind, title, icon, objective, lesson_id, quiz_id, source_id, battle_id, pass_percent, reward_points';
+const NODE_COLUMNS = 'id, journey_id, position, kind, title, icon, objective, lesson_id, quiz_id, source_id, battle_id, pass_percent, reward_points, pos_x::float8 AS pos_x, pos_y::float8 AS pos_y, opens_at, min_percent, min_stars, reward_gold, reward_card_id, reward_badge_id';
 
 const sees = (user: UserRow, j: JourneyRow): boolean => {
   if (user.role === 'root_admin') return j.scope !== 'teacher';
@@ -95,16 +99,18 @@ export class JourneyService {
       const owner = row.owner_id ? (await q<{ full_name: string }>('SELECT full_name FROM app_users WHERE id = $1', [row.owner_id]))[0]?.full_name ?? null : null;
       const campaign = (await q<{ title: string }>('SELECT title FROM hist_campaigns WHERE id = $1', [row.campaign_id]))[0]?.title ?? '';
       const classes = await q(
-        `SELECT c.id, c.name, c.grade, c.school_year, cj.assigned_at, (SELECT count(*)::int FROM app_class_members m WHERE m.class_id = c.id) AS students
+        `SELECT c.id, c.name, c.grade, c.school_year, cj.assigned_at, cj.starts_at, cj.ends_at, (SELECT count(*)::int FROM app_class_members m WHERE m.class_id = c.id) AS students
          FROM hk_class_journeys cj JOIN app_classes c ON c.id = cj.class_id WHERE cj.journey_id = $1 ORDER BY c.name`, [id]);
+      const edges = await q<{ from_node: number; to_node: number }>('SELECT from_node, to_node FROM hk_node_edges WHERE journey_id = $1', [id]);
       const shares = await q<{ target: string; status: string; review_note: string | null }>("SELECT target, status, review_note FROM hk_shares WHERE entity = 'journey' AND entity_id = $1", [id]);
-      return { ...row, campaign_title: campaign, owner_name: owner, can_edit: edits(user, row), nodes, classes, shares, problems: await this.problems(q, id, row) };
+      return { ...row, campaign_title: campaign, owner_name: owner, can_edit: edits(user, row), nodes, edges, classes, shares, problems: await this.problems(q, id, row) };
     });
   }
 
   private async nodeViews(q: Q, id: number) {
     const rows = await q(
       `SELECT n.id, n.position, n.kind, n.title, n.icon, n.objective, n.lesson_id, n.quiz_id, n.source_id, n.battle_id, n.pass_percent, n.reward_points,
+              n.pos_x::float8 AS pos_x, n.pos_y::float8 AS pos_y, n.opens_at, n.min_percent, n.min_stars, n.reward_gold, n.reward_card_id, n.reward_badge_id,
               l.title AS lesson_title, l.status AS lesson_status, l.read_minutes, z.title AS quiz_title,
               (SELECT count(*)::int FROM hk_quiz_questions qq WHERE qq.quiz_id = z.id) AS quiz_questions,
               s.title AS source_title, s.status AS source_status, b.name AS battle_name, b.status AS battle_status,
@@ -202,12 +208,17 @@ export class JourneyService {
 
   private async copyNodes(q: Q, from: number, to: number): Promise<void> {
     const nodes = await q<NodeRow>(`SELECT ${NODE_COLUMNS} FROM hk_nodes WHERE journey_id = $1 ORDER BY position`, [from]);
+    const ids = new Map<number, number>();
     for (const n of nodes) {
       const id = (await q<{ id: number }>(
-        `INSERT INTO hk_nodes (journey_id, position, kind, title, icon, objective, lesson_id, quiz_id, source_id, battle_id, pass_percent, reward_points)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
-        [to, n.position, n.kind, n.title, n.icon, n.objective, n.lesson_id, n.quiz_id, n.source_id, n.battle_id, n.pass_percent, n.reward_points]))[0].id;
+        `INSERT INTO hk_nodes (journey_id, position, kind, title, icon, objective, lesson_id, quiz_id, source_id, battle_id, pass_percent, reward_points, pos_x, pos_y, opens_at, min_percent, min_stars, reward_gold, reward_card_id, reward_badge_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING id`,
+        [to, n.position, n.kind, n.title, n.icon, n.objective, n.lesson_id, n.quiz_id, n.source_id, n.battle_id, n.pass_percent, n.reward_points, n.pos_x, n.pos_y, null, n.min_percent, n.min_stars, n.reward_gold, n.reward_card_id, n.reward_badge_id]))[0].id;
+      ids.set(n.id, id);
       await q('INSERT INTO hk_node_unlocks (node_id, source_id) SELECT $2, source_id FROM hk_node_unlocks WHERE node_id = $1', [n.id, id]);
+    }
+    for (const e of await q<{ from_node: number; to_node: number }>('SELECT from_node, to_node FROM hk_node_edges WHERE journey_id = $1', [from])) {
+      await q('INSERT INTO hk_node_edges (journey_id, from_node, to_node) VALUES ($1, $2, $3)', [to, ids.get(e.from_node), ids.get(e.to_node)]);
     }
   }
 
@@ -329,7 +340,24 @@ export class JourneyService {
     if (pass !== null && (!Number.isInteger(pass) || pass < 1 || pass > 100)) throw new BadRequestException('Điểm đạt từ 1% đến 100%');
     const reward = input.reward_points ?? existing?.reward_points ?? (kind === 'final' ? 200 : 50);
     if (!Number.isInteger(reward) || reward < 0 || reward > 1000) throw new BadRequestException('Điểm thưởng từ 0 đến 1000');
-    return { kind, title, icon, objective, lesson_id: lesson, quiz_id: quiz, source_id: source, battle_id: battle, pass_percent: pass, reward_points: reward };
+    // Điều kiện mở khóa (HK.GV.023) và phần thưởng riêng của nút (HK.GV.024)
+    const opensRaw = input.opens_at === undefined ? (existing?.opens_at ?? null) : input.opens_at;
+    const opens = opensRaw ? new Date(opensRaw) : null;
+    if (opens && Number.isNaN(opens.getTime())) throw new BadRequestException('Giờ mở nút không hợp lệ');
+    const range = (v: number | null | undefined, cur: number | null | undefined, min: number, max: number, label: string): number | null => {
+      const x = v === undefined ? (cur ?? null) : v;
+      if (x === null || x === undefined || (x as unknown) === '') return null;
+      if (!Number.isInteger(Number(x)) || Number(x) < min || Number(x) > max) throw new BadRequestException(`${label}: số nguyên từ ${min} đến ${max}`);
+      return Number(x);
+    };
+    const minPercent = range(input.min_percent, existing?.min_percent, 1, 100, 'Điểm tối thiểu (%)');
+    const minStars = range(input.min_stars, existing?.min_stars, 1, 3, 'Số sao tối thiểu');
+    const rewardGold = range(input.reward_gold, existing?.reward_gold, 0, 1000, 'Vàng thưởng') ?? 0;
+    const cardId = range(input.reward_card_id, existing?.reward_card_id, 1, 2_000_000_000, 'Thẻ thưởng');
+    const badgeId = range(input.reward_badge_id, existing?.reward_badge_id, 1, 2_000_000_000, 'Huy hiệu thưởng');
+    if (cardId && !(await q('SELECT 1 FROM hk_cards WHERE id = $1 AND is_active', [cardId])).length) throw new BadRequestException('Thẻ nhân vật thưởng không tồn tại hoặc đã tắt');
+    if (badgeId && !(await q("SELECT 1 FROM hk_badges WHERE id = $1 AND is_active AND (scope = 'system' OR school_id = $2)", [badgeId, journey.school_id])).length) throw new BadRequestException('Huy hiệu thưởng không tồn tại hoặc không thuộc trường của hành trình');
+    return { kind, title, icon, objective, lesson_id: lesson, quiz_id: quiz, source_id: source, battle_id: battle, pass_percent: pass, reward_points: reward, opens_at: opens, min_percent: minPercent, min_stars: minStars, reward_gold: rewardGold, reward_card_id: cardId, reward_badge_id: badgeId };
   }
 
   private async writeUnlocks(q: Q, nodeId: number, ids: number[] | undefined): Promise<void> {
@@ -354,9 +382,9 @@ export class JourneyService {
       position = Math.max(1, position);
       await q('UPDATE hk_nodes SET position = position + 1 WHERE journey_id = $1 AND position >= $2', [journeyId, position]);
       const id = (await q<{ id: number }>(
-        `INSERT INTO hk_nodes (journey_id, position, kind, title, icon, objective, lesson_id, quiz_id, source_id, battle_id, pass_percent, reward_points)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
-        [journeyId, position, f.kind, f.title, f.icon, f.objective, f.lesson_id, f.quiz_id, f.source_id, f.battle_id, f.pass_percent, f.reward_points]))[0].id;
+        `INSERT INTO hk_nodes (journey_id, position, kind, title, icon, objective, lesson_id, quiz_id, source_id, battle_id, pass_percent, reward_points, opens_at, min_percent, min_stars, reward_gold, reward_card_id, reward_badge_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING id`,
+        [journeyId, position, f.kind, f.title, f.icon, f.objective, f.lesson_id, f.quiz_id, f.source_id, f.battle_id, f.pass_percent, f.reward_points, f.opens_at, f.min_percent, f.min_stars, f.reward_gold, f.reward_card_id, f.reward_badge_id]))[0].id;
       await this.writeUnlocks(q, id, input.unlock_source_ids);
       await q('UPDATE hk_journeys SET updated_at = now() WHERE id = $1', [journeyId]);
     });
@@ -382,8 +410,9 @@ export class JourneyService {
       const contentChanged = f.lesson_id !== node.lesson_id || f.quiz_id !== node.quiz_id || f.source_id !== node.source_id || f.battle_id !== node.battle_id || f.pass_percent !== node.pass_percent;
       if (contentChanged && (await this.completedBy(q, nodeId))) throw new ConflictException('Đã có học sinh hoàn thành nút này nên không đổi nội dung hoặc điểm đạt; chỉ sửa được tên, biểu tượng, mục tiêu và điểm thưởng');
       await q(
-        `UPDATE hk_nodes SET title = $2, icon = $3, objective = $4, lesson_id = $5, quiz_id = $6, source_id = $7, battle_id = $8, pass_percent = $9, reward_points = $10, updated_at = now() WHERE id = $1`,
-        [nodeId, f.title, f.icon, f.objective, f.lesson_id, f.quiz_id, f.source_id, f.battle_id, f.pass_percent, f.reward_points]);
+        `UPDATE hk_nodes SET title = $2, icon = $3, objective = $4, lesson_id = $5, quiz_id = $6, source_id = $7, battle_id = $8, pass_percent = $9, reward_points = $10,
+           opens_at = $11, min_percent = $12, min_stars = $13, reward_gold = $14, reward_card_id = $15, reward_badge_id = $16, updated_at = now() WHERE id = $1`,
+        [nodeId, f.title, f.icon, f.objective, f.lesson_id, f.quiz_id, f.source_id, f.battle_id, f.pass_percent, f.reward_points, f.opens_at, f.min_percent, f.min_stars, f.reward_gold, f.reward_card_id, f.reward_badge_id]);
       await this.writeUnlocks(q, nodeId, input.unlock_source_ids);
       await q('UPDATE hk_journeys SET updated_at = now() WHERE id = $1', [node.journey_id]);
       return node.journey_id;
@@ -429,9 +458,10 @@ export class JourneyService {
   }
 
   /** Giao hành trình của giáo viên cho các lớp mình phụ trách; việc giao tự phát hành hành trình (phải đạt đủ điều kiện) */
-  async assign(user: UserRow, journeyId: number, classIds: number[]) {
+  async assign(user: UserRow, journeyId: number, classIds: number[], schedule: { starts_at?: string | null; ends_at?: string | null } = {}) {
     if (user.role !== 'teacher') throw new ForbiddenException('Chỉ giáo viên giao hành trình cho lớp');
     if (!classIds.length || classIds.length > 20) throw new BadRequestException('Hãy chọn từ 1 đến 20 lớp');
+    const { starts, ends } = this.window(schedule);
     await this.db.tx(async (q) => {
       const row = await this.load(q, user, journeyId, true);
       this.mustEdit(user, row);
@@ -441,10 +471,118 @@ export class JourneyService {
       if (mine.length !== new Set(classIds).size) throw new ForbiddenException('Chỉ giao được cho lớp bạn phụ trách và còn đang hoạt động');
       const problems = await this.problems(q, journeyId, row);
       if (problems.length) throw new UnprocessableEntityException(`Chưa giao được: ${problems.join('; ')}`);
-      for (const c of mine) await q('INSERT INTO hk_class_journeys (class_id, journey_id, assigned_by) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [c.id, journeyId, user.id]);
+      for (const c of mine) {
+        await q('INSERT INTO hk_class_journeys (class_id, journey_id, assigned_by, starts_at, ends_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (class_id, journey_id) DO UPDATE SET starts_at = $4, ends_at = $5, assigned_by = $3', [c.id, journeyId, user.id, starts, ends]);
+      }
       await q("UPDATE hk_journeys SET status = 'published', updated_at = now() WHERE id = $1", [journeyId]);
     });
     return this.get(user, journeyId);
+  }
+
+  /** Lịch giao hành trình (HK.GV.026): bắt đầu/kết thúc tùy chọn; chưa đặt thì chạy ngay và không hết hạn */
+  private window(s: { starts_at?: string | null; ends_at?: string | null }): { starts: Date | null; ends: Date | null } {
+    const starts = s.starts_at ? new Date(s.starts_at) : null, ends = s.ends_at ? new Date(s.ends_at) : null;
+    if ((starts && Number.isNaN(starts.getTime())) || (ends && Number.isNaN(ends.getTime()))) throw new BadRequestException('Ngày bắt đầu hoặc kết thúc không hợp lệ');
+    if (starts && ends && ends.getTime() <= starts.getTime()) throw new BadRequestException('Ngày kết thúc phải sau ngày bắt đầu');
+    if (ends && ends.getTime() <= Date.now()) throw new BadRequestException('Ngày kết thúc phải ở sau thời điểm hiện tại');
+    return { starts, ends };
+  }
+
+  async setSchedule(user: UserRow, journeyId: number, classId: number, schedule: { starts_at?: string | null; ends_at?: string | null }) {
+    const { starts, ends } = this.window(schedule);
+    await this.db.tx(async (q) => {
+      const row = await this.load(q, user, journeyId, true);
+      this.mustEdit(user, row);
+      const done = await q('UPDATE hk_class_journeys SET starts_at = $3, ends_at = $4 WHERE journey_id = $1 AND class_id = $2 RETURNING class_id', [journeyId, classId, starts, ends]);
+      if (!done.length) throw notFound('lớp được giao hành trình này');
+    });
+    return this.get(user, journeyId);
+  }
+
+  /** Nhân bản sang lớp khác hoặc năm học mới (HK.GV.027): sao cả nút, đường nối, điều kiện và phần thưởng; có thể giao ngay cho các lớp chọn */
+  async copyTo(user: UserRow, id: number, opts: { title?: string; class_ids?: number[]; starts_at?: string | null; ends_at?: string | null }) {
+    const copy = await this.duplicate(user, id);
+    const copyId = (copy as { id: number }).id;
+    const title = String(opts.title ?? '').trim();
+    if (title) await this.update(user, copyId, { title });
+    if (opts.class_ids?.length) await this.assign(user, copyId, opts.class_ids, { starts_at: opts.starts_at, ends_at: opts.ends_at });
+    return this.get(user, copyId);
+  }
+
+  // ------------------------------------------------------------------ trình thiết kế bản đồ (HK.GV.022, 025)
+  /** Lưu vị trí các nút (phần trăm trên bản đồ) và đường nối (nhánh rẽ); không có đường nối nào thì bản đồ chạy theo thứ tự nút */
+  async setLayout(user: UserRow, journeyId: number, body: { nodes?: Array<{ id: number; x: number | null; y: number | null }>; edges?: Array<{ from: number; to: number }> }) {
+    await this.db.tx(async (q) => {
+      const journey = await this.load(q, user, journeyId, true);
+      this.mustEdit(user, journey);
+      const nodes = await q<{ id: number; kind: NodeKind; title: string }>('SELECT id, kind, title FROM hk_nodes WHERE journey_id = $1', [journeyId]);
+      const ids = new Set(nodes.map((n) => n.id));
+      for (const n of body.nodes ?? []) {
+        if (!ids.has(n.id)) throw new BadRequestException('Có nút không thuộc hành trình này');
+        const ok = (v: unknown) => v === null || (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 100);
+        if (!ok(n.x) || !ok(n.y)) throw new BadRequestException('Vị trí nút nằm trong khoảng 0 đến 100 (phần trăm bản đồ)');
+        await q('UPDATE hk_nodes SET pos_x = $2, pos_y = $3 WHERE id = $1', [n.id, n.x === null ? null : Math.round(n.x * 100) / 100, n.y === null ? null : Math.round(n.y * 100) / 100]);
+      }
+      if (body.edges !== undefined) {
+        const edges = [...new Map((body.edges ?? []).map((e) => [`${e.from}>${e.to}`, e])).values()];
+        for (const e of edges) {
+          if (!ids.has(e.from) || !ids.has(e.to)) throw new BadRequestException('Đường nối phải nối hai nút của hành trình');
+          if (e.from === e.to) throw new BadRequestException('Một nút không nối với chính nó');
+        }
+        if (edges.length > 120) throw new BadRequestException('Quá nhiều đường nối');
+        // Đồ thị không có vòng: mỗi nút phải xếp được sau mọi nút nối vào nó
+        const indeg = new Map(nodes.map((n) => [n.id, 0]));
+        for (const e of edges) indeg.set(e.to, (indeg.get(e.to) ?? 0) + 1);
+        const queue = [...indeg.entries()].filter(([, d]) => d === 0).map(([id]) => id);
+        let seen = 0;
+        while (queue.length) {
+          const cur = queue.pop()!;
+          seen += 1;
+          for (const e of edges.filter((x) => x.from === cur)) { indeg.set(e.to, indeg.get(e.to)! - 1); if (indeg.get(e.to) === 0) queue.push(e.to); }
+        }
+        if (edges.length && seen !== nodes.length) throw new UnprocessableEntityException('Các đường nối tạo thành vòng lặp; hãy bỏ bớt một đường để mỗi nút có thể mở được');
+        const final = nodes.find((n) => n.kind === 'final');
+        if (edges.length && final) {
+          if (edges.some((e) => e.from === final.id)) throw new UnprocessableEntityException('Trận Quyết chiến là nút cuối nên không nối đi tiếp được');
+          if (!edges.some((e) => e.to === final.id)) throw new UnprocessableEntityException('Trận Quyết chiến cần được nối từ ít nhất một nút phía trước');
+        }
+        const current = await q<{ from_node: number; to_node: number }>('SELECT from_node, to_node FROM hk_node_edges WHERE journey_id = $1', [journeyId]);
+        const same = current.length === edges.length && current.every((c) => edges.some((e) => e.from === c.from_node && e.to === c.to_node));
+        if (!same) {
+          const learners = Number((await q<{ n: string }>('SELECT count(DISTINCT p.user_id) AS n FROM hk_node_progress p JOIN hk_nodes n ON n.id = p.node_id WHERE n.journey_id = $1', [journeyId]))[0].n);
+          if (learners) throw new ConflictException(`Đã có ${learners} học sinh học hành trình này nên không đổi đường nối được; hãy nhân bản hành trình để chỉnh`);
+          await q('DELETE FROM hk_node_edges WHERE journey_id = $1', [journeyId]);
+          for (const e of edges) await q('INSERT INTO hk_node_edges (journey_id, from_node, to_node) VALUES ($1, $2, $3)', [journeyId, e.from, e.to]);
+        }
+      }
+      await q('UPDATE hk_journeys SET updated_at = now() WHERE id = $1', [journeyId]);
+    });
+    return this.get(user, journeyId);
+  }
+
+  /** Xem trước bản đồ như học sinh (HK.GV.025): trạng thái các nút tính từ danh sách nút giáo viên đánh dấu "đã xong"; không ghi gì vào dữ liệu học sinh */
+  async preview(user: UserRow, journeyId: number, completed: number[] = [], hours = 0) {
+    return this.db.tx(async (q) => {
+      const row = await this.load(q, user, journeyId);
+      const nodes = await q<Record<string, any>>(`SELECT ${NODE_COLUMNS} FROM hk_nodes WHERE journey_id = $1 ORDER BY position`, [journeyId]);
+      const edges = await q<{ from_node: number; to_node: number }>('SELECT from_node, to_node FROM hk_node_edges WHERE journey_id = $1', [journeyId]);
+      const done = new Set(completed);
+      const at = new Date(Date.now() + Math.max(0, Math.min(24 * 365, Number(hours) || 0)) * 3600_000);
+      const states = computeStates(nodes.map((n) => ({ ...(n as Record<string, unknown>), stars: done.has(n.id) ? 3 : 0, best_percent: done.has(n.id) ? 100 : 0, attempts: done.has(n.id) ? 1 : 0, completed_at: done.has(n.id) ? new Date().toISOString() : null }) as never), edges, at);
+      return {
+        journey: { id: row.id, title: row.title, description: row.description, background_url: row.background_url }, edges,
+        nodes: states.map((n) => ({ id: n.id, position: n.position, kind: n.kind, kind_label: NODE_KIND_LABEL[n.kind], title: n.title, icon: n.icon, objective: n.objective, state: n.state, lock_reason: n.lock_reason, preds: n.preds, pos_x: n.pos_x, pos_y: n.pos_y, stars: n.stars, reward_points: n.reward_points, reward_gold: n.reward_gold })),
+        totals: { nodes: states.length, done: states.filter((n) => n.state === 'done').length },
+      };
+    });
+  }
+
+  /** Thẻ nhân vật và huy hiệu có thể đặt làm phần thưởng của nút (HK.GV.024): huy hiệu của hệ thống hoặc của trường người soạn */
+  async rewardOptions(user: UserRow) {
+    const cards = await this.db.query<{ id: number; name: string; rarity: string }>('SELECT id, name, rarity FROM hk_cards WHERE is_active ORDER BY rarity, name');
+    const badges = await this.db.query<{ id: number; name: string; scope: string }>(
+      "SELECT id, name, scope FROM hk_badges WHERE is_active AND (scope = 'system' OR school_id = $1) ORDER BY scope, sort_order, name", [user.school_id]);
+    return { cards, badges };
   }
 
   async unassign(user: UserRow, journeyId: number, classId: number) {

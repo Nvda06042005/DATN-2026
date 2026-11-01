@@ -18,6 +18,8 @@ export interface Hud {
   streak: { current: number; longest: number; freezes: number; freeze_max: number; last_day: string | null; at_risk: boolean };
   daily: { day: string; xp: number; goal: number; reached: boolean; options: number[]; selected: number };
   league: { tier: number; name: string }; gift: { available: boolean };
+  /** Điểm hành động hôm nay để dùng kỹ năng nhân vật và hiệu ứng đang chờ (Sprint 7, HK.HS.072) */
+  ap?: { current: number; max: number }; buffs?: Record<string, number>;
 }
 export interface GameConfig {
   hearts: { enabled: boolean; max: number; regen_hours: number; per_practice_correct: number }; daily_goal_options: number[]; gift: { gold: number[]; freeze_on_day7: boolean };
@@ -48,7 +50,7 @@ export interface StreakCalendar { current: number; longest: number; freezes: num
 export interface Celebration { id: number; kind: 'level_up' | 'badge' | 'card' | 'goal' | 'quest' | 'gift' | 'league' | 'contest'; payload: Record<string, any>; created_at: string }
 
 export interface BoardEntry { rank: number; name: string; xp: number; me: boolean }
-export interface Board { scope: string; period: string; label: string; entries: BoardEntry[]; me: { rank: number; xp: number } | null; size: number }
+export interface Board { scope: string; period: string; label: string; entries: BoardEntry[]; me: { rank: number; xp: number } | null; size: number; disabled?: boolean; message?: string }
 export interface LeagueView {
   week: string; ends_at: string; tier: number; tier_name: string; tiers: string[]; size: number; promote: number; demote: number; saved_tier: number;
   entries: Array<BoardEntry & { zone: 'promote' | 'demote' | 'stay' }>;

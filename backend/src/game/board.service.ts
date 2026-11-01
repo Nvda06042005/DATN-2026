@@ -116,6 +116,9 @@ export class BoardService {
       if (!cls) throw new ForbiddenException(classId ? 'Em không thuộc lớp này' : 'Em chưa tham gia lớp nào nên chưa có bảng xếp hạng lớp');
       const range = this.range(used);
       label = `Lớp ${cls.name}`;
+      // Giáo viên có thể tắt bảng xếp hạng của lớp (HK.GV.060)
+      const on = (await this.db.query<{ leaderboard_enabled: boolean }>('SELECT leaderboard_enabled FROM hk_class_settings WHERE class_id = $1', [cls.class_id]))[0]?.leaderboard_enabled ?? true;
+      if (!on) return { scope, period: used, label, entries: [], me: null, size: 0, disabled: true, message: 'Giáo viên đã tắt bảng xếp hạng của lớp này.' };
       rows = await this.rows(`class|${cls.class_id}|${used}`,
         `SELECT u.id, u.nickname, u.full_name, COALESCE(sum(p.points), 0)::int AS xp FROM app_class_members m JOIN app_users u ON u.id = m.user_id AND u.role = 'student' AND u.is_active::int = 1
          ${sums(range)} WHERE m.class_id = $1 GROUP BY u.id ORDER BY xp DESC, u.id LIMIT ${sizeLimit}`, range ? [cls.class_id, range[0], range[1]] : [cls.class_id]);

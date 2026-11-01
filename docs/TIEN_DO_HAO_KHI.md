@@ -1,9 +1,9 @@
 # Tiến độ xây dựng Hào Khí Đông A (theo mã HK.*)
 
-Nguồn: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). Tài liệu này ghi **Sprint 1 đến Sprint 6**
-(193 chức năng) đã làm được gì, quyết định đã chọn khi đặc tả chưa nói rõ, và những gì cố ý chưa làm. Phân tích đối chiếu ban đầu: `DOI_CHIEU_HAO_KHI_V01.md`.
+Nguồn: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). Tài liệu này ghi **Sprint 1 đến Sprint 7**
+(235 chức năng) đã làm được gì, quyết định đã chọn khi đặc tả chưa nói rõ, và những gì cố ý chưa làm. Phân tích đối chiếu ban đầu: `DOI_CHIEU_HAO_KHI_V01.md`.
 
-Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 140 bài, gồm migration trên dữ liệu cũ, Sprint 1–5, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu, trò chơi hóa);
+Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 189 bài trong 15 tệp, gồm migration trên dữ liệu cũ, Sprint 1–7, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu, trò chơi hóa, mô phỏng trận đánh, lớp học, bài tập, bản đồ rẽ nhánh);
 `cd frontend && npm run typecheck && npm run build`. Mỗi bài kiểm thử ghi mã HK.* trong tên.
 
 ## Sprint 1 – xác thực, tài khoản, hồ sơ, trường học, người dùng (40 chức năng)
@@ -147,6 +147,51 @@ Học sinh có mục **Trận đánh**: vào vai người chỉ huy, ra quyết 
 
 Nội dung khởi tạo (migration 023): 6 kịch bản (có hoạt ảnh) và 4 mini-game (2 ghép thẻ, 1 dòng thời gian, 1 ô chữ). **Tất cả ở trạng thái Nháp.** Diễn biến đối chiếu với các bài "Chiến tranh Nguyên Mông – Đại Việt lần 1/2/3" trên vi.wikipedia; những chỗ nguồn chép khác nhau (người chỉ huy trận Tây Kết, tướng Nguyên có dự trận Hàm Tử hay không, vai trò Trần Quốc Toản) **không được khẳng định**. Kịch bản Tây Kết ngắn (2 bước) vì hồ sơ trận trong kho còn thiếu mô tả. Cần giáo viên Lịch sử duyệt trước khi phát hành. Dựng bằng thành phần React Native và Leaflet, **không dùng Phaser/Canvas** như ghi chú trong đặc tả.
 
+## Sprint 7 – lớp học, bài tập, bản đồ rẽ nhánh, kỹ năng nhân vật (42 chức năng)
+
+Giáo viên có mục **Lớp học** để quản lý trọn một lớp (học sinh, đội, luật lớp, thưởng/phạt, bài tập, tiến độ, thông báo) và trình thiết kế **bản đồ rẽ nhánh**. Học sinh có mục **Lớp học** (lớp của em, bài tập, xếp hạng đội, kỹ năng) và chuông thông báo. Mọi điểm, hạn nộp, lượt làm và điều kiện mở nút do máy chủ quyết định; giao diện chỉ hiển thị và gửi yêu cầu.
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.GV.007 | Xong | Danh sách lớp phụ trách: sĩ số, số đội, mã lớp, hành trình đang chạy kèm tiến độ từng hành trình và tiến độ trung bình, số yêu cầu chờ duyệt |
+| HK.GV.008 | Xong | Giáo viên tự tạo lớp (khối 6–9) trong năm học đang hoạt động của trường; lớp tự tạo ghi nhận người tạo |
+| HK.GV.009/010 | Xong | Sửa tên, mô tả, ảnh bìa (liên kết https). **Lớp do nhà trường tạo**: giáo viên chỉ sửa mô tả và ảnh bìa, lưu trữ/xóa thuộc quản trị viên trường. **Lớp tự tạo**: lưu trữ và khôi phục tùy ý, chỉ xóa khi chưa có hành trình, bài tập hay thưởng/phạt |
+| HK.GV.011 | Xong | Tạo lại mã tham gia (mã cũ hết dùng), đóng/mở cho học sinh tự vào bằng mã |
+| HK.GV.012 | Xong | Thêm học sinh từ danh sách học sinh của trường (tìm không dấu) hoặc file Excel mẫu (mỗi dòng một mã học sinh; báo từng dòng lỗi: mã lạ, mã lặp, đã trong lớp) |
+| HK.GV.013 | Xong | Xóa học sinh khỏi lớp: rời lớp và rời đội, **dữ liệu học vẫn giữ nguyên** |
+| HK.GV.014/015 | Xong | Danh sách học sinh kèm nhân vật, cấp, điểm, vàng, tim (theo HP tối đa của lớp), đội, lần học gần nhất; tìm theo tên, mã hoặc biệt danh không dấu |
+| HK.GV.016 | Xong | Chia đội ngẫu nhiên (mỗi đội 4–6 học sinh, số đội làm tròn cho đều) hoặc thủ công (đặt tên đội, chọn đội cho từng học sinh, tối đa 12 đội); mỗi học sinh chỉ một đội |
+| HK.GV.017 | Xong | Học sinh xin rời lớp (HK.HS.105) → giáo viên nhận thông báo và đồng ý/từ chối; đồng ý thì học sinh rời lớp (dữ liệu giữ) |
+| HK.GV.022 | Xong, một phần | Bản đồ rẽ nhánh: **kéo nút bằng chuột/ngón tay** đến vị trí mong muốn, bật "Nối đường" rồi bấm hai nút để nối hoặc bỏ đường; thay thế cho người không kéo được: nhập vị trí bằng số và chọn nút nối bằng danh sách. Máy chủ từ chối đường nối tạo vòng lặp, nối nút với chính nó, nút Quyết chiến đi tiếp hoặc không có đường vào. Hành trình đã có học sinh học thì không đổi được đường nối (chỉ đổi vị trí); hãy nhân bản để chỉnh. Đã kiểm tra kéo thả trên trình duyệt web; chưa thử trên thiết bị cảm ứng thật |
+| HK.GV.023 | Xong | Điều kiện mở nút: nút mở khi **mọi nút nối vào đã hoàn thành**; kèm điểm tối thiểu (%), số sao tối thiểu ở nút trước và ngày giờ mở (giờ Việt Nam). Lý do khóa hiện bằng chữ cho học sinh. Hành trình không có đường nối chạy tuần tự như trước |
+| HK.GV.024 | Xong | Phần thưởng riêng của nút: vàng, một thẻ nhân vật, một huy hiệu (của hệ thống hoặc của trường); chỉ trao ở lần hoàn thành đầu tiên, chơi lại không trao lại |
+| HK.GV.025 | Xong | Xem trước như học sinh: giáo viên chạm vào nút để đánh dấu "đã xong" và chọn thời điểm (bây giờ / sau 1 ngày / 3 ngày / 1 tuần) để xem nút mở ra thế nào; không ghi gì vào dữ liệu học sinh |
+| HK.GV.026 | Xong | Giao hành trình cho lớp có **lịch bắt đầu và kết thúc** (bỏ trống là chạy ngay, không hết hạn); một lớp có thể được giao nhiều hành trình, học sinh học bản mới giao nhất đang chạy; hết hạn thì học sinh quay về hành trình trước hoặc mặc định |
+| HK.GV.027 | Xong | Nhân bản hành trình sang lớp khác hoặc năm học mới: sao nút, đường nối, vị trí, điều kiện, thưởng (ngày giờ mở không sao chép), có thể giao ngay |
+| HK.GV.028 | Xong | Tiến độ lớp trên bản đồ: số học sinh đã xong và đang ở từng nút; danh sách học sinh kèm lý do học chậm (chậm so với lịch, 7 ngày không học, hoặc thấp hơn trung bình lớp) |
+| HK.GV.029 | Xong từ Sprint 4 | Gửi hành trình vào kho của trường (đã làm cùng HK.GV.039) |
+| HK.GV.045/046 | Xong | Giao **bộ đề, mini-game hoặc bài học** cho cả lớp, một số đội hoặc một số học sinh với hạn nộp (tối đa một năm), số lần làm (1–10) và điểm thưởng đúng hạn (0–500); học sinh thuộc phạm vi được thông báo; danh sách bài tập có tỷ lệ nộp |
+| HK.GV.047/048 | Xong | Gia hạn, đổi phạm vi, số lần làm, điểm thưởng (không đổi nội dung đã giao; không bỏ học sinh đã nộp khỏi phạm vi; không giảm số lần dưới số lần đã làm); thu hồi chỉ khi chưa ai nộp. Tình trạng nộp từng học sinh: chưa nộp / đã nộp / nộp muộn / đã chấm |
+| HK.GV.049 | Xong | Chấm điểm 0–100 kèm nhận xét cho học sinh đã nộp; **điểm của giáo viên là điểm cuối**; xếp loại Giỏi (≥80), Khá (≥65), Trung bình (≥50), Yếu; học sinh được thông báo |
+| HK.GV.050 | Xong | Nhắc học sinh chưa nộp (mỗi học sinh tối đa một lần mỗi 6 giờ cho một bài tập) |
+| HK.GV.059 | Xong | Thưởng/phạt điểm, vàng, tim cho học sinh hoặc cả đội kèm lý do (chọn nhanh từ hành vi trong luật lớp hoặc tự nhập); điểm và vàng không xuống dưới 0, tim trong 0 đến HP tối đa, cấp độ không bị hạ; học sinh nhận thông báo; có lịch sử |
+| HK.GV.060 | Xong | Luật lớp: danh sách hành vi và mức thưởng/phạt (có danh sách mẫu), HP tối đa của lớp, bật/tắt tim, bật/tắt bảng xếp hạng lớp và đội, bật duyệt kỹ năng, mục tiêu điểm tuần mỗi người của đội |
+| HK.GV.061 | Xong | Trao huy hiệu riêng của trường cho học sinh hoặc cả đội (không trao hai lần; không trao huy hiệu hệ thống) |
+| HK.GV.062 | Xong | **Vòng quay vận mệnh**: máy chủ chọn ngẫu nhiên một trong 8 sự kiện đầu giờ (thưởng điểm, vàng, tim, trừ nhẹ, hoặc "một ngày bình yên") và áp cho cả lớp hoặc một đội |
+| HK.GV.063 | Xong | Duyệt kỹ năng: khi lớp bật duyệt, kỹ năng hồi tim của học sinh chờ giáo viên; từ chối thì hoàn lại điểm hành động |
+| HK.GV.064 | Xong | Bảng xếp hạng lớp và đội theo tuần/tháng/từ đầu; lớp tắt bảng thì học sinh thấy thông báo thay cho bảng |
+| HK.GV.065 | Xong | Hộp quà của lớp: mục tiêu điểm chung (không tính điểm giáo viên thưởng); đạt thì giáo viên mở hộp, mỗi học sinh nhận vàng/điểm một lần |
+| HK.HS.071 | Xong | Đội của em: thành viên kèm cấp và điểm tuần, hạng đội, nhiệm vụ đội (cả đội ghi đủ điểm trong tuần; mọi thành viên đạt mục tiêu ngày) |
+| HK.HS.072 | Xong | **Sáu kỹ năng** của ba lớp nhân vật tiêu tốn điểm hành động (3 ở cấp 1, thêm 1 sau mỗi 2 cấp, hồi đầy mỗi ngày): Xung phong (nhân đôi thưởng tốc độ câu đúng kế tiếp), Hộ giáp (bỏ qua một lần mất tim), Mưu kế (loại bớt đáp án sai ngay trong câu hỏi), Trận đồ (xem mục lịch sử liên quan), Thuốc quý (hồi một tim cho mình), Hồi sinh (hồi một tim cho bạn cùng lớp). Chỉ dùng khi em thuộc một lớp |
+| HK.HS.076 | Xong | Bảng xếp hạng đội của lớp (tuần/tháng/từ đầu), đánh dấu đội của em |
+| HK.HS.099/103 | Xong | Lớp đã tham gia (nhiều lớp): giáo viên, bạn cùng lớp kèm nhân vật, cấp, đội; hành trình đang chạy; hộp quà và thông báo của lớp. Không lộ mã học sinh hay họ tên đầy đủ khi đã có biệt danh |
+| HK.HS.100/102 | Xong | Danh sách bài tập chia "Cần làm / Quá hạn / Đã nộp" kèm hạn, lượt còn lại, điểm cao nhất; điểm, xếp loại và nhận xét của giáo viên |
+| HK.HS.101 | Xong | Làm bài tập: bộ đề (QuizPlayer), mini-game (lượt chơi gắn với bài tập), bài học (đọc hết và trả lời đúng mọi câu kiểm tra nhanh). Máy chủ giữ lượt làm và hạn nộp; quá hạn không bắt đầu được (lượt đang làm dở vẫn nộp được và tính nộp muộn); điểm cao nhất của các lần được giữ; điểm thưởng đúng hạn chỉ cộng một lần |
+| HK.HS.104 | Xong | Chuông thông báo (thăm dò mỗi 60 giây) với số chưa đọc, đánh dấu đã đọc; có cho cả giáo viên (yêu cầu rời lớp, xin dùng kỹ năng) |
+| HK.HS.105 | Xong | Xin rời lớp kèm lý do; chờ giáo viên đồng ý |
+
+Dữ liệu: migration 024 (bảng đội, yêu cầu rời lớp, thưởng/phạt, hộp quà, bài tập, bài nộp, lượt dùng kỹ năng, đường nối nút; cột vị trí – điều kiện – thưởng của nút, lịch giao hành trình, điểm hành động và hiệu ứng chờ của người chơi). Mọi bảng mới bật RLS và chỉ máy chủ đọc/ghi.
+
 ## Quyết định khi đặc tả chưa nói rõ
 
 - **Quản trị tổng cấp 2 (HK.AD.020):** có cột `admin_level`. Cấp 2 quản lý quản trị viên trường học nhưng không tạo/sửa/khóa/xóa quản trị tổng, không tạo hay xóa trường. Ma trận RBAC thực sự (HK.AD.026) thuộc Sprint 11.
@@ -163,19 +208,27 @@ Nội dung khởi tạo (migration 023): 6 kịch bản (có hoạt ảnh) và 4
 - **Cơ chế tim theo lớp:** nếu học sinh thuộc nhiều lớp và **bất kỳ lớp nào** tắt tim thì tim tắt cho học sinh đó (hướng có lợi cho học sinh).
 - **Thẻ nhân vật:** rơi quyết định ở máy chủ khi hoàn thành lần đầu, học sinh chỉ lật; thẻ nối với nhân vật của kho lịch sử nhưng tiểu sử chỉ hiện khi nhân vật đó đã **Công bố**.
 - **Mô phỏng trận đánh (Sprint 6):** kịch bản là một JSON do máy chủ kiểm tra; mỗi trận đánh trong kho lịch sử có tối đa một kịch bản. Điểm thưởng toàn thắng (150) và ngưỡng thắng (60%) nằm trong từng kịch bản. Nút trận đánh có kịch bản đã phát hành thì phải chơi mô phỏng (hoặc làm bộ câu hỏi nếu nút có) mới hoàn thành, không còn "đọc là xong".
+- **Lớp học (Sprint 7):** thao tác lớp của giáo viên đi qua dịch vụ lớp của quản trị trường sau khi kiểm tra giáo viên có phụ trách lớp (lớp của trường khác hoặc của giáo viên khác trả 404). Giáo viên chỉ lưu trữ/xóa lớp **do mình tạo**.
+- **Bản đồ rẽ nhánh:** không có đường nối nào thì nút mở tuần tự như cũ; có đường nối thì nút mở khi **mọi** nút nối vào đã xong (nút không có đường vào là điểm xuất phát). Điều kiện điểm/sao đặt ở nút đích nhưng kiểm tra trên các nút nối vào. Ngày giờ mở nhập theo giờ Việt Nam.
+- **Điểm bài tập:** điểm tự động là tỷ lệ đúng của lượt tốt nhất; nếu giáo viên chấm thì điểm của giáo viên là điểm cuối. Thưởng đúng hạn dùng khóa duy nhất theo bài tập nên không cộng trùng khi làm lại.
+- **Thưởng/phạt của giáo viên:** ghi vào sổ điểm/vàng với lý do riêng (`teacher`), trừ không xuống dưới 0 và không hạ cấp; không tính vào mục tiêu hộp quà của lớp để giáo viên không "tự mở" hộp quà. HP tối đa của lớp là mức thấp nhất giữa mặc định và giá trị giáo viên đặt.
+- **Kỹ năng và điểm hành động:** điểm hành động tính theo cấp và hồi đầy khi sang ngày mới (giờ Việt Nam); lên cấp giữa ngày chưa nâng điểm đang có đến hôm sau. Xung phong và Hộ giáp là hiệu ứng chờ (mỗi loại tối đa một cái), dùng đúng một lần.
+- **Thông báo:** dùng bảng thông báo chung, học sinh và giáo viên thăm dò 60 giây một lần (chưa đẩy thời gian thực, chưa gửi email).
 - **Cột lớp học sinh `class_name` và giáo viên `teacher_id` cũ:** để nguyên (không xóa dữ liệu); mã mới chỉ đọc bảng thành viên / giáo viên–lớp.
 
 ## Triển khai và dữ liệu hiện có
 
+- Sprint 6 (nhánh `feat/hao-khi-sprint-6`, migration 022–023) gộp vào `main` ngày 01/11/2026 (Render chạy `schema_version` 23). Sprint 7 (nhánh `feat/hao-khi-sprint-7`, migration 024); mong đợi `schema_version` 24 ở `/api/database/health` sau khi Render khởi động bản mới.
 - Cập nhật trang công khai ngày 31/10/2026: toàn bộ ghi công bản đồ/ảnh được chuyển khỏi Điều khoản sử dụng sang `/thong-tin-hinh-anh`, mở từ footer chung. Trang riêng dùng `InfoShell`, nền và Manrope/Newsreader như Điều khoản sử dụng; giữ đủ tác giả, nguồn và giấy phép. Không thay đổi database.
 - Sprint 1–2 đã gộp vào `main` ngày 31/10/2026 (nhánh `feat/hao-khi-sprint-1-2`); khi đó Render và Supabase đã chạy `schema_version` 16. Sprint 3–4 (nhánh `feat/hao-khi-sprint-3-4`) được gộp vào `main` cùng ngày (Render và Supabase chạy `schema_version` 19). Sprint 5 (nhánh `feat/hao-khi-sprint-5`) thêm migration 020–021; backend áp dụng khi khởi động với `DATABASE_URL`; xác minh bằng `schema_version` ở `/api/database/health` (mong đợi 21 sau khi Render khởi động bản mới).
 - Supabase vẫn giữ migration 001–013 đã áp dụng; 001–013 đã được khôi phục từ lịch sử Git nguyên văn (runner từ chối khi thiếu hoặc sửa file đã chạy).
 - Bản cũ có các tài khoản/lớp thử; migration 014 giữ nguyên chúng (kiểm thử `014 giữ nguyên lớp...` trên dữ liệu giả): năm học được suy ra từ lớp/khối cũ (năm mới nhất = đang hoạt động, các năm trước = đã kết thúc), mỗi lớp cũ nhận mã tham gia ngẫu nhiên, giáo viên cũ được chép sang bảng giáo viên–lớp, khóa ngoại giáo viên không còn xóa lớp khi xóa tài khoản.
 - Cần đặt trên Render: `DATABASE_URL`, `ADMIN_PASSWORD`, `ADMIN_EMAIL`, gửi thư (`SMTP_URL` hoặc `MAIL_RELAY_*`), tùy chọn `GOOGLE_CLIENT_ID`; Vercel: `EXPO_PUBLIC_API_URL`, tùy chọn `EXPO_PUBLIC_GOOGLE_CLIENT_ID`.
 
-## Chưa làm (ngoài Sprint 1–6) và đề xuất
+## Chưa làm (ngoài Sprint 1–7) và đề xuất
 
-- Từ Sprint 7: kéo thả vị trí nút và nhánh rẽ, điều kiện mở khóa tùy chỉnh, xếp lịch giao hành trình, tiến độ lớp trên bản đồ, **dùng kỹ năng lớp nhân vật**, bảng xếp hạng đội (HK.HS.071/076, Sprint 7), thi trực tiếp (Sprint 8), trợ lý AI và sinh câu hỏi bằng AI (Sprint 9–10).
+- Từ Sprint 8: thi trực tiếp (Sprint 8), trợ lý AI và sinh câu hỏi bằng AI (Sprint 9–10).
+- Giới hạn đã biết của Sprint 7: kéo thả nút mới thử trên trình duyệt web (chưa thử trên điện thoại thật; có cách nhập số và chọn nút thay thế); bài tập chỉ có ba loại (bộ đề, mini-game, bài học), chưa có bài nộp tệp hay tự luận; thông báo thăm dò chứ chưa đẩy thời gian thực; chưa xuất bảng điểm bài tập ra Excel; huy hiệu riêng của trường do quản trị viên trường tạo, giáo viên chỉ trao; hành trình đang có học sinh học không đổi được đường nối (nhân bản để chỉnh).
 - Giới hạn đã biết của Sprint 5: bảng xếp hạng lưu đệm trong bộ nhớ một máy chủ (nhiều máy chủ sẽ mỗi máy một đệm, cần Redis nếu mở rộng); giải đấu có 4 hạng cố định; lượt làm bài đang dở vẫn tiếp tục khi tim về 0 (chỉ chặn bài mới); ảnh thành tích chỉ tạo được trên web; nhân vật là biểu tượng ghép chứ chưa có ảnh vẽ; nội dung khởi tạo (tên cấp, huy hiệu, thẻ, nhiệm vụ) là bản nháp thiết kế chờ giáo viên duyệt.
 - Bản cũ có game 2D, thi đấu trực tiếp, chatbot AI, BKT, thống kê: đã gỡ khỏi mã; xây lại theo sprint sau từ đặc tả mới.
 - Giới hạn đã biết của Sprint 3–4: câu hỏi kéo thả bản đồ và bản đồ tương tác chỉ có trên bản web; đổi thứ tự (nút hành trình, mục sắp xếp, khối bài học) bằng nút mũi tên chứ chưa kéo thả; video trong bài học mở bằng liên kết; thông báo cho giáo viên khi nội dung được duyệt/từ chối chưa có (thông báo trong ứng dụng thuộc Sprint 11) – người gửi xem ở mục "Nội dung đã gửi".

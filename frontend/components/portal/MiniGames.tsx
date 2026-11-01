@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, TextInput, View, useWindowDimensions } from 'react-native';
 import { ArrowDown, ArrowUp, CheckCircle2, Clock, RotateCcw, Trophy, XCircle } from 'lucide-react-native';
 import * as api from '@/api/battleApi';
+import * as classroom from '@/api/classroomApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { ErrorNote } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
@@ -216,7 +217,7 @@ const MiniResultView: React.FC<{ run: MiniRun; onReplay: () => void; onClose: ()
 };
 
 /** Màn chơi một mini-game: bắt đầu (hoặc tiếp tục lượt dở), chơi, kết quả */
-export const MiniScreen: React.FC<{ session: Session; id: number; restart?: boolean; preview?: boolean; onClose: (changed: boolean) => void }> = ({ session, id, restart, preview, onClose }) => {
+export const MiniScreen: React.FC<{ session: Session; id: number; restart?: boolean; preview?: boolean; assignmentId?: number; onClose: (changed: boolean) => void }> = ({ session, id, restart, preview, assignmentId, onClose }) => {
   const { token } = session;
   const { c } = useTheme();
   const [run, setRun] = useState<MiniRun | null>(null);
@@ -225,8 +226,15 @@ export const MiniScreen: React.FC<{ session: Session; id: number; restart?: bool
   const guard = useCallback((e: unknown) => { if (e instanceof ApiError && e.status === 401) session.expired(); setError(errorMessage(e)); }, [session]);
   const begin = useCallback(async (again?: boolean) => {
     setBusy(true); setError(null);
-    try { setRun(await api.startMinigame(token, id, { restart: again ?? restart, preview })); } catch (e) { guard(e); } finally { setBusy(false); }
-  }, [token, id, restart, preview, guard]);
+    try {
+      if (assignmentId) {
+        // Bài tập của lớp: máy chủ tính lượt làm và hạn nộp
+        const started = await classroom.startAssignment(token, assignmentId);
+        if (started.kind !== 'minigame') throw new Error('Bài tập này không phải mini-game.');
+        setRun(started.run);
+      } else setRun(await api.startMinigame(token, id, { restart: again ?? restart, preview }));
+    } catch (e) { guard(e); } finally { setBusy(false); }
+  }, [token, id, restart, preview, assignmentId, guard]);
   useEffect(() => { void begin(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const settle = useCallback(() => { if (run) api.getRun(token, run.id).then((r) => setRun(r as MiniRun)).catch(guard); }, [run, token, guard]);
   const left = useCountdown(run?.remaining_ms ?? null, run?.status === 'active', settle);

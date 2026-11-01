@@ -219,6 +219,24 @@ describe('file migration', () => {
     expect(await m.applyMigrations(url, dir)).toHaveLength(0);
   });
 
+  test('024 tạo bảng lớp học (đội, bài tập, bài nộp, thưởng/phạt, mục tiêu, yêu cầu rời lớp, kỹ năng, đường nối nút) có RLS; không tạo dữ liệu người dùng', async () => {
+    await m.applyMigrations(url, dir);
+    const tables = ['hk_teams', 'hk_team_members', 'hk_leave_requests', 'hk_adjustments', 'hk_class_goals', 'hk_assignments', 'hk_submissions', 'hk_skill_uses', 'hk_node_edges'];
+    const rows = await sql<{ relname: string; rowsecurity: boolean }>(url, "SELECT c.relname, c.relrowsecurity AS rowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = ANY($1) ORDER BY c.relname", [tables]);
+    expect(rows.map((r) => r.relname)).toEqual([...tables].sort());
+    expect(rows.every((r) => r.rowsecurity)).toBe(true);
+    for (const table of tables) expect(await count(`SELECT count(*) AS n FROM public.${table}`)).toBe(0);
+    // điểm: giáo viên được trừ điểm nhưng không ghi dòng 0; lý do mới được chấp nhận
+    const defs = (await sql<{ def: string }>(url, "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname IN ('hk_points_reason_check', 'hk_gold_ledger_reason_check', 'hk_points_points_check', 'hk_attempts_mode_check')")).map((r) => r.def).join(' ');
+    expect(defs).toMatch(/'teacher'/);
+    expect(defs).toMatch(/'assignment'/);
+    expect(defs).toMatch(/points <> 0/);
+    // lịch giao hành trình: kết thúc phải sau bắt đầu; nút mới có cột vị trí, điều kiện, thưởng
+    expect(await count("SELECT count(*) AS n FROM information_schema.columns WHERE table_name = 'hk_nodes' AND column_name IN ('pos_x', 'pos_y', 'opens_at', 'min_percent', 'min_stars', 'reward_gold', 'reward_card_id', 'reward_badge_id')")).toBe(8);
+    expect(await count("SELECT count(*) AS n FROM pg_constraint WHERE conname = 'hk_class_journeys_window_check'")).toBe(1);
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+  });
+
   test('một file lỗi thì hoàn tác cả lô và lịch sử', async () => {
     await m.applyMigrations(url, dir);
     const next = String(TOTAL + 1).padStart(3, '0'), after = String(TOTAL + 2).padStart(3, '0');

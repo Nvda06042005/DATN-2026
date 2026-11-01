@@ -12,7 +12,7 @@ import * as api from '@/api/gameApi';
 import * as admin from '@/api/adminApi';
 import * as learning from '@/api/learningApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
-import { Cell, DataTable, ErrorNote, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, type FieldDef } from '@/components/admin/kit';
+import { Cell, DataTable, ErrorNote, FormSheet, Page, PageHeader, StatusChip, fromVn, toVn, useAction, useLoad, type FieldDef } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Card, ConfirmSheet, Field, Segmented, Sheet, Spinner, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -20,14 +20,6 @@ import type { CatalogField, CatalogSpec, SchoolContest } from '@/types/gamificat
 
 type Row = Record<string, any>;
 const dateTime = (iso: string) => new Date(iso).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
-
-/** Giờ Việt Nam <-> ISO: học sinh và nhà trường đều nhập giờ Việt Nam (UTC+7) */
-const toVn = (iso: string): string => new Date(new Date(iso).getTime() + 7 * 3_600_000).toISOString().slice(0, 16).replace('T', ' ');
-const fromVn = (text: string): string | null => {
-  const m = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})$/.exec(text.trim());
-  const date = m ? new Date(`${m[1]}T${m[2]}:00+07:00`) : null;
-  return date && !Number.isNaN(date.getTime()) ? date.toISOString() : null;
-};
 
 const InfoSheet: React.FC<{ title: string; lines: string[]; onClose: () => void }> = ({ title, lines, onClose }) => (
   <Sheet open onClose={onClose} title={title} footer={<View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}><Btn title="Đóng" tone="giay" onPress={onClose} /></View>}>

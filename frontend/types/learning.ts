@@ -70,15 +70,24 @@ export interface JourneyNode {
   source_id: number | null; battle_id: number | null; pass_percent: number | null; reward_points: number; lesson_title: string | null; lesson_status: string | null; read_minutes: number | null;
   quiz_title: string | null; quiz_questions: number | null; source_title: string | null; source_status: string | null; battle_name: string | null; battle_status: string | null;
   completed: number; unlocks: Array<{ id: number; title: string }>;
+  pos_x: number | null; pos_y: number | null; opens_at: string | null; min_percent: number | null; min_stars: number | null; reward_gold: number; reward_card_id: number | null; reward_badge_id: number | null;
 }
 export interface JourneyDetail {
   id: number; scope: Scope; owner_name: string | null; title: string; description: string | null; campaign_id: number; campaign_title: string; background_url: string | null; is_default: boolean;
   status: 'draft' | 'published'; copied_from: number | null; can_edit: boolean; nodes: JourneyNode[]; problems: string[]; shares: ShareState[];
-  classes: Array<{ id: number; name: string; grade: number | null; school_year: string; students: number }>;
+  classes: Array<{ id: number; name: string; grade: number | null; school_year: string; students: number; assigned_at: string; starts_at: string | null; ends_at: string | null }>;
+  edges: Array<{ from_node: number; to_node: number }>;
 }
 export interface NodeInput {
   kind?: NodeKind; title?: string; icon?: string | null; objective?: string | null; lesson_id?: number | null; quiz_id?: number | null; source_id?: number | null; battle_id?: number | null;
   pass_percent?: number | null; reward_points?: number; unlock_source_ids?: number[];
+  opens_at?: string | null; min_percent?: number | null; min_stars?: number | null; reward_gold?: number; reward_card_id?: number | null; reward_badge_id?: number | null;
+}
+/** Xem trước bản đồ như học sinh (HK.GV.025) */
+export interface JourneyPreview {
+  journey: { id: number; title: string; description: string | null; background_url: string | null }; edges: Array<{ from_node: number; to_node: number }>;
+  nodes: Array<{ id: number; position: number; kind: NodeKind; kind_label: string; title: string; icon: NodeIcon | null; objective: string | null; state: NodeState; lock_reason: string | null; preds: number[]; pos_x: number | null; pos_y: number | null; stars: number; reward_points: number; reward_gold: number }>;
+  totals: { nodes: number; done: number };
 }
 export interface TeacherClass { id: number; name: string; grade: number | null; school_year: string; students: number; journeys: Array<{ id: number; title: string }> }
 
@@ -101,6 +110,9 @@ export type NodeState = 'done' | 'available' | 'locked';
 export interface MapNode {
   id: number; position: number; kind: NodeKind; kind_label: string; title: string; icon: NodeIcon | null; objective: string | null; state: NodeState; stars: number; best_percent: number;
   attempts: number; reward_points: number; completed_at: string | null;
+  /** Bản đồ rẽ nhánh (Sprint 7): vị trí phần trăm, các nút nối vào, lý do khóa, điều kiện và thưởng riêng */
+  pos_x: number | null; pos_y: number | null; preds: number[]; lock_reason: string | null; min_percent: number | null; min_stars: number | null; opens_at: string | null; reward_gold: number;
+  has_reward_card: boolean; has_reward_badge: boolean;
   content: { lesson?: { id: number; title: string; read_minutes: number }; quiz?: { id: number; title: string; pass_percent: number; questions: number; total_seconds: number }; battle?: { id: number; name: string; year: number }; source?: { id: number; title: string; kind: string } } | null;
 }
 export interface CampaignMap {
@@ -116,6 +128,7 @@ export interface NodeDetail extends Omit<MapNode, 'content'> {
 export interface NodeResult {
   first_completion: boolean; passed: boolean; stars: number; percent: number; points_awarded: number; unlocked_sources: Array<{ id: number; title: string }>;
   next_node: { id: number; title: string } | null; journey_completed: boolean; campaign_final: boolean;
+  rewards?: { gold: number; card: boolean; badge: string | null };
 }
 
 export interface PlayQuestion {
@@ -125,9 +138,10 @@ export interface PlayQuestion {
 export interface AttemptSummary {
   percent: number; stars: number; passed: boolean | null; pass_percent: number; correct: number; wrong: number; total: number; base_points: number; bonus_points: number; duration_ms: number | null;
   node: { title: string; kind: string; reward_points: number } | null; node_result: NodeResult | null;
+  assignment?: { assignment_id: number; first: boolean; on_time: boolean; bonus: number } | null;
 }
 export interface AttemptState {
-  id: number; mode: 'node' | 'practice' | 'preview'; status: 'active' | 'done'; total: number; position: number; base_points: number; bonus_points: number; quiz_id: number | null; node_id: number | null;
+  id: number; mode: 'node' | 'practice' | 'preview' | 'assignment'; status: 'active' | 'done'; total: number; position: number; base_points: number; bonus_points: number; quiz_id: number | null; node_id: number | null;
   pass_percent: number; waiting_next?: boolean; current?: { index: number; seconds: number; remaining_ms: number; points: number; question: PlayQuestion }; summary?: AttemptSummary;
 }
 export interface AnswerResult {
@@ -149,10 +163,14 @@ export interface AttemptHistoryItem {
 export interface Quest { node_id: number; campaign_id: number; campaign_title: string; journey_title: string; title: string; kind: NodeKind; kind_label: string; condition: string; reward_points: number; stars: number; state: NodeState; best_percent: number }
 export interface Quests { doing: Quest[]; done: Quest[]; locked: Quest[] }
 export interface LessonView {
-  id: number; title: string; summary: string | null; blocks: LessonBlock[]; read_minutes: number; node: { id: number; title: string; reward_points: number };
+  id: number; title: string; summary: string | null; blocks: LessonBlock[]; read_minutes: number; node: { id: number; title: string; reward_points: number } | null;
   progress: { read_percent: number; check_attempts: number; completed_at: string | null }; note: string | null; links: HistoryLink[]; checks: PlayQuestion[];
 }
-export interface LessonCompletion { completed: boolean; results: Array<{ question_id: number; correct: boolean; explanation: string | null }>; node: NodeResult | null }
+export interface LessonCompletion {
+  completed: boolean; results: Array<{ question_id: number; correct: boolean; explanation: string | null }>; node: NodeResult | null;
+  /** Bài học là bài tập của lớp (Sprint 7): kết quả nộp bài và điểm thưởng đúng hạn */
+  submission?: { first: boolean; on_time: boolean; bonus: number } | null;
+}
 
 // kho lịch sử cho học sinh
 export interface FigureItem { id: number; name: string; honorific: string | null; figure_group: 'king' | 'general' | 'official' | 'other'; birth_year: number | null; death_year: number | null; role_text: string | null; image_url: string | null }

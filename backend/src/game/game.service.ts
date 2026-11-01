@@ -12,6 +12,7 @@ import { DAILY_GOALS, GameSettings, LEAGUE_TIERS, SettingsService } from './sett
 export interface PlayerRow {
   user_id: number; class_id: number | null; hearts: number; hearts_at: Date; gold: number; xp: number; level: number; daily_goal: number; streak_current: number; streak_longest: number;
   streak_last_day: string | null; freezes: number; appearance: Record<string, number | null>; last_gift_day: string | null; gift_streak: number; league_tier: number;
+  ap: number; ap_day: string | null; buffs: Record<string, number>;
 }
 interface LevelRow { level: number; title: string; xp_required: number; reward_gold: number }
 interface ItemRow { id: number; code: string; kind: string; name: string; description: string | null; icon: string; color: string; price: number; min_level: number; sort_order: number; is_active: boolean }
@@ -56,8 +57,8 @@ export class GameService {
       }
     }
 
-    // Tim: hồi một tim mỗi `regen_hours` giờ, không vượt tối đa
-    const max = s.hearts.max;
+    // Tim: hồi một tim mỗi `regen_hours` giờ, không vượt tối đa (giáo viên có thể đặt HP tối đa thấp hơn cho lớp)
+    const max = await this.heartsMax(q, user.id);
     const interval = s.hearts.regen_hours * 3600_000;
     let hearts = Math.min(p.hearts, max);
     let at = new Date(p.hearts_at).getTime();
@@ -82,12 +83,21 @@ export class GameService {
     return row?.ok ?? true;
   }
 
+  /** HP tối đa của học sinh: mặc định chung, hoặc mức thấp nhất mà giáo viên đặt ở các lớp của em (HK.GV.060) */
+  async heartsMax(q: Q, userId: number): Promise<number> {
+    const base = (await this.settings.get()).hearts.max;
+    const row = (await q<{ m: number | null }>(
+      'SELECT min(cs.hearts_max) AS m FROM app_class_members m JOIN hk_class_settings cs ON cs.class_id = m.class_id WHERE m.user_id = $1 AND cs.hearts_max IS NOT NULL', [userId]))[0];
+    return row?.m ? Math.min(base, Number(row.m)) : base;
+  }
+
   async heartsInfo(q: Q, user: UserRow, p: PlayerRow) {
     const s = await this.settings.get();
     const enabled = await this.heartsEnabled(q, user.id);
+    const max = await this.heartsMax(q, user.id);
     const interval = s.hearts.regen_hours * 3600_000;
-    const next = enabled && p.hearts < s.hearts.max ? Math.max(0, interval - (this.clock.now().getTime() - new Date(p.hearts_at).getTime())) : null;
-    return { current: enabled ? p.hearts : s.hearts.max, max: s.hearts.max, enabled, next_in_ms: next, regen_hours: s.hearts.regen_hours };
+    const next = enabled && p.hearts < max ? Math.max(0, interval - (this.clock.now().getTime() - new Date(p.hearts_at).getTime())) : null;
+    return { current: enabled ? Math.min(p.hearts, max) : max, max, enabled, next_in_ms: next, regen_hours: s.hearts.regen_hours };
   }
 
   /** Không cho bắt đầu bài ở nút khi hết tim; luyện tập vẫn được để hồi tim */
@@ -103,16 +113,83 @@ export class GameService {
   async loseHeart(q: Q, user: UserRow): Promise<void> {
     const p = await this.fresh(q, user);
     if (!(await this.heartsEnabled(q, user.id)) || p.hearts <= 0) return;
-    const s = await this.settings.get();
-    await q('UPDATE hk_players SET hearts = hearts - 1, hearts_at = CASE WHEN hearts >= $2::int THEN $3::timestamptz ELSE hearts_at END, updated_at = now() WHERE user_id = $1', [user.id, s.hearts.max, this.clock.now()]);
+    // Kỹ năng "Hộ giáp" (HK.HS.072): bỏ qua một lần mất tim
+    if (p.buffs?.ho_giap) { await this.useBuff(q, user, 'ho_giap'); return; }
+    const max = await this.heartsMax(q, user.id);
+    await q('UPDATE hk_players SET hearts = hearts - 1, hearts_at = CASE WHEN hearts >= $2::int THEN $3::timestamptz ELSE hearts_at END, updated_at = now() WHERE user_id = $1', [user.id, max, this.clock.now()]);
+  }
+
+  /** Dùng một hiệu ứng chờ (xung phong, hộ giáp); trả true nếu học sinh đang có hiệu ứng đó */
+  async useBuff(q: Q, user: UserRow, buff: string): Promise<boolean> {
+    const row = (await q<{ buffs: Record<string, number> }>('SELECT buffs FROM hk_players WHERE user_id = $1 FOR UPDATE', [user.id]))[0];
+    if (!row?.buffs?.[buff]) return false;
+    const next = { ...row.buffs, [buff]: row.buffs[buff] - 1 };
+    if (next[buff] <= 0) delete next[buff];
+    await q('UPDATE hk_players SET buffs = $2 WHERE user_id = $1', [user.id, JSON.stringify(next)]);
+    return true;
   }
 
   async gainHearts(q: Q, user: UserRow, n: number): Promise<void> {
     if (n <= 0) return;
     const p = await this.fresh(q, user);
-    const s = await this.settings.get();
-    const hearts = Math.min(s.hearts.max, p.hearts + n);
-    await q('UPDATE hk_players SET hearts = $2::int, hearts_at = CASE WHEN $2::int >= $3::int THEN $4::timestamptz ELSE hearts_at END, updated_at = now() WHERE user_id = $1', [user.id, hearts, s.hearts.max, this.clock.now()]);
+    const max = await this.heartsMax(q, user.id);
+    const hearts = Math.min(max, p.hearts + n);
+    await q('UPDATE hk_players SET hearts = $2::int, hearts_at = CASE WHEN $2::int >= $3::int THEN $4::timestamptz ELSE hearts_at END, updated_at = now() WHERE user_id = $1', [user.id, hearts, max, this.clock.now()]);
+  }
+
+  /** Giáo viên thưởng/phạt tim (HK.GV.059): trả về số tim thật sự thay đổi sau khi chặn trong khoảng 0 đến HP tối đa */
+  async adjustHearts(q: Q, user: UserRow, delta: number): Promise<number> {
+    if (!delta) return 0;
+    const p = await this.fresh(q, user);
+    const max = await this.heartsMax(q, user.id);
+    const hearts = Math.max(0, Math.min(max, p.hearts + delta));
+    await q('UPDATE hk_players SET hearts = $2::int, hearts_at = CASE WHEN $2::int >= $3::int THEN $4::timestamptz ELSE hearts_at END, updated_at = now() WHERE user_id = $1', [user.id, hearts, max, this.clock.now()]);
+    return hearts - p.hearts;
+  }
+
+  /** Giáo viên thưởng/phạt điểm (HK.GV.059): cộng đi qua đường cộng điểm thường (mục tiêu ngày, giải đấu, cấp độ); trừ không xuống dưới 0 và không hạ cấp */
+  async adjustXp(q: Q, user: UserRow, delta: number, refKey: string, reason = 'teacher'): Promise<number> {
+    if (!delta) return 0;
+    if (delta > 0) return (await this.awardXp(q, user, delta, reason, refKey)) ? delta : 0;
+    const p = await this.ensurePlayer(q, user);
+    const applied = -Math.min(-delta, p.xp);
+    if (!applied) return 0;
+    const ins = await q('INSERT INTO hk_points (user_id, points, reason, ref_key, created_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING RETURNING id', [user.id, applied, reason, refKey, this.clock.now()]);
+    if (!ins.length) return 0;
+    await q('UPDATE hk_players SET xp = xp + $2, updated_at = now() WHERE user_id = $1', [user.id, applied]);
+    await q('UPDATE hk_league_members SET xp = GREATEST(0, xp + $3) WHERE week_key = $1 AND user_id = $2', [weekKey(this.clock.now()), user.id, applied]);
+    return applied;
+  }
+
+  /** Giáo viên thưởng/phạt vàng: trừ không xuống dưới 0 */
+  async adjustGold(q: Q, user: UserRow, delta: number, refKey: string, reason = 'teacher'): Promise<number> {
+    if (!delta) return 0;
+    const p = await this.ensurePlayer(q, user);
+    const applied = delta > 0 ? delta : -Math.min(-delta, p.gold);
+    if (!applied) return 0;
+    return (await this.addGold(q, user, applied, reason, refKey)) ? applied : 0;
+  }
+
+  /** Trao thẳng một thẻ nhân vật cụ thể (phần thưởng của nút trên bản đồ, HK.GV.024): thẻ chờ lật như thẻ rơi */
+  async grantCard(q: Q, user: UserRow, cardId: number, nodeId: number | null): Promise<number | null> {
+    if (!(await q('SELECT 1 FROM hk_cards WHERE id = $1', [cardId])).length) return null;
+    const drop = (await q<{ id: number }>('INSERT INTO hk_card_drops (user_id, card_id, source, node_id, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id::int AS id', [user.id, cardId, 'node', nodeId, this.clock.now()]))[0];
+    await this.celebrate(q, user, 'card', { drop_id: drop.id });
+    return drop.id;
+  }
+
+  // ------------------------------------------------------------------ điểm hành động (HK.HS.072)
+  /** Điểm hành động tối đa tăng theo cấp: 3 ở cấp 1, thêm 1 mỗi 2 cấp */
+  apMax(level: number): number { return 3 + Math.floor((level - 1) / 2); }
+
+  /** Hồi đầy điểm hành động khi sang ngày mới (giờ Việt Nam) */
+  async refreshAp(q: Q, user: UserRow): Promise<PlayerRow> {
+    const p = await this.fresh(q, user);
+    const today = dayKey(this.clock.now());
+    if (p.ap_day === today) return p;
+    const ap = this.apMax(p.level);
+    await q('UPDATE hk_players SET ap = $2, ap_day = $3, updated_at = now() WHERE user_id = $1', [user.id, ap, today]);
+    return { ...p, ap, ap_day: today };
   }
 
   // ------------------------------------------------------------------ vàng, điểm, cấp độ
@@ -427,7 +504,7 @@ export class GameService {
         if (p.freezes >= s.streak.freeze_max) throw new ConflictException(`Em chỉ giữ tối đa ${s.streak.freeze_max} vật phẩm đóng băng chuỗi`);
       } else if (it.kind === 'heart') {
         if (!(await this.heartsEnabled(q, user.id))) throw new ConflictException('Lớp của em đang tắt cơ chế tim');
-        if (p.hearts >= s.hearts.max) throw new ConflictException('Tim của em đã đầy');
+        if (p.hearts >= (await this.heartsMax(q, user.id))) throw new ConflictException('Tim của em đã đầy');
       } else if (it.kind === 'hint') {
         const have = (await q<{ qty: number }>('SELECT qty FROM hk_inventory WHERE user_id = $1 AND item_id = $2', [user.id, it.id]))[0]?.qty ?? 0;
         if (have >= s.hint_max) throw new ConflictException(`Em chỉ giữ tối đa ${s.hint_max} gợi ý`);
@@ -437,7 +514,7 @@ export class GameService {
       await this.addGold(q, user, -it.price, 'shop', `buy:${n}`);
       if (cosmetic || it.kind === 'hint') await q('INSERT INTO hk_inventory (user_id, item_id, qty) VALUES ($1, $2, 1) ON CONFLICT (user_id, item_id) DO UPDATE SET qty = hk_inventory.qty + 1', [user.id, it.id]);
       else if (it.kind === 'streak_freeze') await q('UPDATE hk_players SET freezes = freezes + 1 WHERE user_id = $1', [user.id]);
-      else if (it.kind === 'heart') await q('UPDATE hk_players SET hearts = $2, hearts_at = $3 WHERE user_id = $1', [user.id, s.hearts.max, this.clock.now()]);
+      else if (it.kind === 'heart') await q('UPDATE hk_players SET hearts = $2, hearts_at = $3 WHERE user_id = $1', [user.id, await this.heartsMax(q, user.id), this.clock.now()]);
       return { item: it.name, gold: p.gold - it.price };
     });
   }
@@ -475,7 +552,7 @@ export class GameService {
   // ------------------------------------------------------------------ tổng quan nhân vật cho HUD (HK.HS.013)
   async me(user: UserRow) {
     return this.db.tx(async (q) => {
-      const p = await this.fresh(q, user);
+      const p = await this.refreshAp(q, user);
       const s = await this.settings.get();
       const now = this.clock.now();
       const today = dayKey(now);
@@ -498,6 +575,7 @@ export class GameService {
         daily: { day: today, xp: day?.xp ?? 0, goal: day?.goal ?? p.daily_goal, reached: day?.reached ?? false, options: [...DAILY_GOALS], selected: p.daily_goal },
         league: { tier: p.league_tier, name: LEAGUE_TIERS[p.league_tier] },
         gift: { available: p.last_gift_day !== today },
+        ap: { current: p.ap, max: this.apMax(cur?.level ?? p.level) }, buffs: p.buffs ?? {},
       };
     });
   }

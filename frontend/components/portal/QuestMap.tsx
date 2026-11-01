@@ -1,12 +1,14 @@
 /**
  * Trang chủ và bản đồ nhiệm vụ của học sinh (HK.HS.017–022): ba cuộc kháng chiến với tiến độ, điểm, chuỗi ngày, gợi ý; bản đồ chiến dịch gồm các nút nối tiếp
- * (bài học, câu hỏi, trận đánh, tư liệu, Quyết chiến); nút mở theo thứ tự; chi tiết nút với sao, phần thưởng và nút bắt đầu.
+ * (bài học, câu hỏi, trận đánh, tư liệu, Quyết chiến); nút mở theo thứ tự hoặc theo đường nối (bản đồ rẽ nhánh do giáo viên thiết kế, Sprint 7);
+ * chi tiết nút với sao, điều kiện mở, phần thưởng và nút bắt đầu.
  */
 import React, { useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
 import { BookOpen, Castle, CircleHelp, Crown, Flag, Lock, Map as MapIcon, PawPrint, Play, RotateCcw, ScrollText, Ship, Star, Swords, Trophy, Check } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import { ErrorNote, useLoad } from '@/components/admin/kit';
+import { MapGraph } from '@/components/portal/MapGraph';
 import type { Session } from '@/components/auth';
 import { Avatar, Bar, Btn, Card, Chip, EmptyState, InfoNote, Sheet, Spinner, Stars, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -17,6 +19,9 @@ const NODE_ICON: Record<NodeIcon, IconType> = {
   book: BookOpen, quiz: CircleHelp, sword: Swords, scroll: ScrollText, flag: Flag, star: Star, castle: Castle, ship: Ship, horse: PawPrint, map: MapIcon, crown: Crown,
 };
 const STATE_TEXT: Record<NodeState, string> = { done: 'Đã hoàn thành', available: 'Đang mở', locked: 'Chưa mở' };
+
+/** Hành trình theo thứ tự (mỗi nút chỉ sau nút trước, không đặt vị trí) vẽ thành danh sách dọc; ngược lại vẽ thành bản đồ rẽ nhánh */
+const isGraph = (nodes: MapNode[]): boolean => nodes.some((n, i) => n.pos_x !== null || n.preds.length !== (i === 0 ? 0 : 1) || (i > 0 && n.preds[0] !== nodes[i - 1].id));
 
 /** Hành động của một nút do StudentApp xử lý (mở bài học, làm bài, đọc hồ sơ) */
 export interface NodeActions {
@@ -127,11 +132,19 @@ export const CampaignMapView: React.FC<{ session: Session; campaignId: number; r
                 </View>
               </Card>
               {data.journey.description ? <Txt size={14} color={c.muc2}>{data.journey.description}</Txt> : null}
-              <View accessibilityLabel="Bản đồ nhiệm vụ" style={{ gap: 0 }}>
-                {data.nodes.map((node, i) => (
-                  <NodeRow key={node.id} node={node} last={i === data.nodes.length - 1} current={node.id === data.current_node_id} learner={session.user.full_name} onPress={() => setOpen(node.id)} />
-                ))}
-              </View>
+              {isGraph(data.nodes) ? (
+                <>
+                  <MapGraph nodes={data.nodes.map((n) => ({ id: n.id, title: n.title, icon: n.icon, pos_x: n.pos_x, pos_y: n.pos_y, state: n.state, stars: n.stars }))}
+                    edges={data.nodes.flatMap((n) => n.preds.map((p) => ({ from: p, to: n.id })))} currentId={data.current_node_id} onPress={setOpen} />
+                  <Txt size={13} color={c.muc2}>Bản đồ có nhánh rẽ: một nút mở khi em hoàn thành mọi nút nối vào nó. Chạm vào nút để xem điều kiện và phần thưởng.</Txt>
+                </>
+              ) : (
+                <View accessibilityLabel="Bản đồ nhiệm vụ" style={{ gap: 0 }}>
+                  {data.nodes.map((node, i) => (
+                    <NodeRow key={node.id} node={node} last={i === data.nodes.length - 1} current={node.id === data.current_node_id} learner={session.user.full_name} onPress={() => setOpen(node.id)} />
+                  ))}
+                </View>
+              )}
               {data.totals.percent === 100 ? <InfoNote>Chúc mừng em đã hoàn thành cả hành trình! Em có thể chơi lại các nút để tăng số sao.</InfoNote> : null}
             </>
           )}
@@ -195,6 +208,12 @@ const NodeSheet: React.FC<{ session: Session; nodeId: number; refreshKey: number
         <View style={{ gap: 12 }}>
           {d.objective ? <Txt size={15}>{d.objective}</Txt> : null}
           {d.hint ? <InfoNote>{d.hint}</InfoNote> : null}
+          {d.min_percent || d.min_stars || d.reward_gold || d.has_reward_card || d.has_reward_badge ? (
+            <View style={{ gap: 4 }}>
+              {d.min_percent || d.min_stars ? <Txt size={14} color={c.muc2}>Điều kiện mở nút này: {[d.min_percent ? `đạt ít nhất ${d.min_percent}%` : '', d.min_stars ? `ít nhất ${d.min_stars} sao` : ''].filter(Boolean).join(' và ')} ở các nút nối vào.</Txt> : null}
+              {d.reward_gold || d.has_reward_card || d.has_reward_badge ? <Txt size={14} color={c.dongChu} f="semibold">Thưởng riêng lần đầu hoàn thành: {[d.reward_gold ? `+${d.reward_gold} vàng` : '', d.has_reward_card ? 'một thẻ nhân vật' : '', d.has_reward_badge ? 'một huy hiệu' : ''].filter(Boolean).join(', ')}</Txt> : null}
+            </View>
+          ) : null}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
             <View><Txt size={12} color={c.muc3}>Số sao đạt được</Txt><Stars n={d.stars} size={24} /></View>
             <View><Txt size={12} color={c.muc3}>Điểm thưởng</Txt><Txt f="bold" size={18} color={c.dongChu}>+{d.reward_points}</Txt></View>

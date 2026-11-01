@@ -7,6 +7,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import { randomInt } from 'crypto';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
+import { recordSubmission } from '../classroom/submission';
 import { checkLinks, notFound } from '../content/access';
 import { seededShuffle } from '../content/questions';
 import { GameService } from '../game/game.service';
@@ -22,11 +23,11 @@ import {
 const GRACE_MS = 3000;
 type RunKind = 'battle' | 'match' | 'timeline' | 'crossword';
 interface RunRow {
-  id: number; user_id: number; kind: RunKind; scenario_id: number | null; minigame_id: number | null; node_id: number | null; mode: 'play' | 'preview'; status: 'active' | 'done';
+  id: number; user_id: number; kind: RunKind; scenario_id: number | null; minigame_id: number | null; node_id: number | null; assignment_id: number | null; mode: 'play' | 'preview'; status: 'active' | 'done';
   snapshot: Record<string, any>; state: Record<string, any>; started_at: Date; deadline: Date | null; finished_at: Date | null; score: number; max_score: number; bonus: number;
   percent: number; stars: number; passed: boolean | null; timed_out: boolean; duration_ms: number | null; result: Record<string, any> | null;
 }
-const RUN_COLUMNS = 'id::int AS id, user_id, kind, scenario_id, minigame_id, node_id, mode, status, snapshot, state, started_at, deadline, finished_at, score, max_score, bonus, percent, stars, passed, timed_out, duration_ms, result';
+const RUN_COLUMNS = 'id::int AS id, user_id, kind, scenario_id, minigame_id, node_id, assignment_id, mode, status, snapshot, state, started_at, deadline, finished_at, score, max_score, bonus, percent, stars, passed, timed_out, duration_ms, result';
 const isStudent = (u: UserRow) => u.role === 'student';
 
 export interface ScenarioInput { battle_id?: number; title?: string; summary?: string | null; difficulty?: number; content?: unknown }
@@ -260,7 +261,7 @@ export class BattleService {
   }
 
   // ------------------------------------------------------------------ mini-game (HK.HS.058–060)
-  async startMinigame(user: UserRow, id: number, opts: { restart?: boolean; preview?: boolean }) {
+  async startMinigame(user: UserRow, id: number, opts: { restart?: boolean; preview?: boolean; assignmentId?: number }) {
     return this.db.tx(async (q) => {
       const row = (await q<Record<string, any>>('SELECT * FROM hk_minigames WHERE id = $1 FOR UPDATE', [id]))[0];
       if (!row || (row.status !== 'published' && user.role !== 'root_admin')) throw notFound('mini-game');
@@ -271,6 +272,12 @@ export class BattleService {
         const active = (await q<RunRow>(`SELECT ${RUN_COLUMNS} FROM hk_game_runs WHERE user_id = $1 AND minigame_id = $2 AND status = 'active' AND mode = 'play' FOR UPDATE`, [user.id, id]))[0];
         if (active && !opts.restart) return this.viewRun(q, await this.expire(q, user, active));
         if (active) await q('DELETE FROM hk_game_runs WHERE id = $1', [active.id]);
+        if (opts.assignmentId) {
+          const a = (await q<{ max_attempts: number; minigame_id: number | null }>("SELECT max_attempts, minigame_id FROM hk_assignments WHERE id = $1 AND status = 'active'", [opts.assignmentId]))[0];
+          if (!a || a.minigame_id !== id) throw notFound('bài tập');
+          const used = (await q<{ attempts: number }>('SELECT attempts FROM hk_submissions WHERE assignment_id = $1 AND user_id = $2', [opts.assignmentId, user.id]))[0]?.attempts ?? 0;
+          if (used >= a.max_attempts) throw new ConflictException(`Em đã dùng hết ${a.max_attempts} lượt làm bài này`);
+        }
       }
       const kind = row.kind as MiniKind;
       const seed = randomInt(1, 2_000_000_000);
@@ -284,8 +291,8 @@ export class BattleService {
       const snapshot = { title: row.title, description: row.description, kind, params, points: row.points, seconds: row.seconds };
       const total = kind === 'match' ? (params as MatchParams).pairs.length : kind === 'timeline' ? (params as TimelineParams).items.length : (params as CrosswordParams).words.length;
       const created = (await q<{ id: number }>(
-        `INSERT INTO hk_game_runs (user_id, kind, minigame_id, mode, snapshot, state, deadline, max_score) VALUES ($1, $2, $3, $4, $5, $6, now() + ($7 || ' seconds')::interval, $8) RETURNING id::int AS id`,
-        [user.id, kind, id, preview ? 'preview' : 'play', JSON.stringify({ ...snapshot, total }), JSON.stringify(state), String(row.seconds), row.points]))[0];
+        `INSERT INTO hk_game_runs (user_id, kind, minigame_id, mode, snapshot, state, deadline, max_score, assignment_id) VALUES ($1, $2, $3, $4, $5, $6, now() + ($7 || ' seconds')::interval, $8, $9) RETURNING id::int AS id`,
+        [user.id, kind, id, preview ? 'preview' : 'play', JSON.stringify({ ...snapshot, total }), JSON.stringify(state), String(row.seconds), row.points, opts.assignmentId ?? null]))[0];
       if (!preview) await logEvent(null, user, 'minigame_start', 'minigame', id, null, { kind }, null, q);
       return this.viewRun(q, await this.loadRun(q, user, created.id));
     });
@@ -384,6 +391,8 @@ export class BattleService {
       const delta = Math.max(0, t.score - prev);
       if (delta > 0) await this.game.awardXp(q, user, delta, 'minigame', `mg:${run.minigame_id}:${run.id}`);
       result.xp_awarded = delta;
+      // Lượt chơi của bài tập: ghi bài nộp (điểm thưởng bài tập nếu nộp đúng hạn)
+      if (run.assignment_id) result.assignment = await recordSubmission(q, this.game, user, run.assignment_id, t.percent);
       await logEvent(null, user, 'minigame_finish', 'minigame', run.minigame_id, null, { kind: run.kind, percent: t.percent }, duration, q);
     }
     await q(

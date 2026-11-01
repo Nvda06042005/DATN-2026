@@ -13,17 +13,18 @@ import { SPECS, Entity } from '../history/history.service';
 import { logEvent } from './events';
 import { LearnService } from './learn.service';
 import { GameService } from '../game/game.service';
+import { recordSubmission } from '../classroom/submission';
 import { activeJourneys, nodesWithState, ProgressNode } from './progress';
 
 interface PlanItem { question_id: number; points: number; seconds: number; seed: number; shuffle: boolean; snap: Omit<QuestionCore, 'id'>; removed?: string[] }
 interface AttemptRow {
-  id: number; user_id: number; quiz_id: number | null; node_id: number | null; mode: 'node' | 'practice' | 'preview'; status: 'active' | 'done'; plan: PlanItem[]; position: number;
+  id: number; user_id: number; quiz_id: number | null; node_id: number | null; assignment_id: number | null; mode: 'node' | 'practice' | 'preview' | 'assignment'; status: 'active' | 'done'; plan: PlanItem[]; position: number;
   served_at: string | null; started_at: string; finished_at: string | null; pass_percent: number; base_points: number; bonus_points: number; max_points: number; percent: number;
   stars: number; correct_count: number; wrong_count: number; passed: boolean | null; duration_ms: number | null; result: Record<string, unknown> | null;
 }
 
 const ATTEMPT_COLUMNS =
-  'id::int AS id, user_id, quiz_id, node_id, mode, status, plan, position, served_at, started_at, finished_at, pass_percent, base_points, bonus_points, max_points, percent, stars, correct_count, wrong_count, passed, duration_ms, result';
+  'id::int AS id, user_id, quiz_id, node_id, assignment_id, mode, status, plan, position, served_at, started_at, finished_at, pass_percent, base_points, bonus_points, max_points, percent, stars, correct_count, wrong_count, passed, duration_ms, result';
 const PRACTICE_SIZE = 10;
 const PRACTICE_SECONDS = 30;
 const VIEW_EVENTS = ['view_lesson', 'view_figure', 'view_event', 'view_battle', 'view_place', 'view_map', 'view_timeline', 'view_library', 'view_source'];
@@ -83,6 +84,8 @@ export class PlayService {
     return {
       id: n.id, position: n.position, kind: n.kind, kind_label: NODE_KIND_LABEL[n.kind], title: n.title, icon: n.icon, objective: n.objective, state: n.state, stars: n.stars,
       best_percent: n.best_percent, attempts: n.attempts, reward_points: n.reward_points, completed_at: n.completed_at,
+      pos_x: n.pos_x, pos_y: n.pos_y, preds: n.preds, lock_reason: n.lock_reason, min_percent: n.min_percent, min_stars: n.min_stars, opens_at: n.opens_at, reward_gold: n.reward_gold,
+      has_reward_card: Boolean(n.reward_card_id), has_reward_badge: Boolean(n.reward_badge_id),
     };
   }
 
@@ -115,8 +118,7 @@ export class PlayService {
 
   async nodeDetail(user: UserRow, nodeId: number) {
     const q = this.read;
-    const { node, nodes } = await this.accessNode(q, user, nodeId);
-    const prev = nodes[nodes.indexOf(node) - 1];
+    const { node } = await this.accessNode(q, user, nodeId);
     const locked = node.state === 'locked';
     const content = (await this.nodeContent(q, [node])).get(node.id) ?? {};
     const unlocks = await q<{ id: number; title: string; unlocked: boolean }>(
@@ -126,7 +128,7 @@ export class PlayService {
     const sim = node.battle_id ? await this.simulationOf(q, node.battle_id) : null;
     return {
       ...this.nodeBrief(node), content: locked ? null : content, unlocks, can_start: !locked, has_sim: Boolean(sim), scenario_id: sim?.id ?? null,
-      pass_percent: node.pass_percent ?? quiz?.pass_percent ?? null, hint: locked && prev ? `Hoàn thành nút "${prev.title}" trước` : null,
+      pass_percent: node.pass_percent ?? quiz?.pass_percent ?? null, hint: locked ? node.lock_reason : null,
       has_quiz: Boolean(node.quiz_id), needs_quiz: node.kind === 'quiz' || node.kind === 'final' || (node.kind === 'battle' && Boolean(node.quiz_id)),
     };
   }
@@ -146,7 +148,15 @@ export class PlayService {
     const awarded = (first ? node.reward_points : 0) + delta;
     if (awarded > 0) await this.game.awardXp(q, user, awarded, 'node', `node:${node.id}:${r.ref}`);
     let unlocked: Array<{ id: number; title: string }> = [];
+    const rewards = { gold: 0, card: false, badge: null as string | null };
     if (first) {
+      // Phần thưởng riêng của nút do giáo viên đặt (HK.GV.024): vàng, thẻ nhân vật, huy hiệu; chỉ lần hoàn thành đầu tiên
+      if (node.reward_gold && (await this.game.addGold(q, user, node.reward_gold, 'node', `nodegold:${node.id}`))) rewards.gold = node.reward_gold;
+      if (node.reward_card_id && (await this.game.grantCard(q, user, node.reward_card_id, node.id))) rewards.card = true;
+      if (node.reward_badge_id) {
+        const badge = (await q<{ id: number; name: string; icon: string; color: string }>('SELECT id, name, icon, color FROM hk_badges WHERE id = $1 AND is_active', [node.reward_badge_id]))[0];
+        if (badge && (await this.game.awardBadge(q, user, badge, null))) rewards.badge = badge.name;
+      }
       const wanted = new Set((await q<{ source_id: number }>('SELECT source_id FROM hk_node_unlocks WHERE node_id = $1', [node.id])).map((r) => r.source_id));
       if (node.source_id) wanted.add(node.source_id);
       const opened: number[] = [];
@@ -161,7 +171,7 @@ export class PlayService {
     const nodes = await nodesWithState(q, user.id, node.journey_id);
     const nextNode = nodes.find((n) => n.state === 'available');
     return {
-      first_completion: first, passed: r.passed, stars: r.passed ? r.stars : 0, percent: r.percent, points_awarded: awarded, unlocked_sources: unlocked,
+      first_completion: first, passed: r.passed, stars: r.passed ? r.stars : 0, percent: r.percent, points_awarded: awarded, unlocked_sources: unlocked, rewards,
       next_node: nextNode ? { id: nextNode.id, title: nextNode.title } : null, journey_completed: nodes.every((n) => n.state === 'done'), campaign_final: node.kind === 'final' && r.passed,
     };
   }
@@ -254,11 +264,11 @@ export class PlayService {
     return { qtype: row.qtype, prompt: row.prompt, image_url: row.image_url, explanation: row.explanation, difficulty: row.difficulty, data: row.data };
   }
 
-  private async insertAttempt(q: Q, userId: number, mode: AttemptRow['mode'], quizId: number | null, nodeId: number | null, plan: PlanItem[], pass: number): Promise<number> {
+  private async insertAttempt(q: Q, userId: number, mode: AttemptRow['mode'], quizId: number | null, nodeId: number | null, plan: PlanItem[], pass: number, assignmentId: number | null = null): Promise<number> {
     const max = plan.reduce((n, p) => n + p.points, 0);
     return (await q<{ id: number }>(
-      `INSERT INTO hk_attempts (user_id, quiz_id, node_id, mode, plan, pass_percent, max_points, served_at) VALUES ($1, $2, $3, $4, $5, $6, $7, now()) RETURNING id::int AS id`,
-      [userId, quizId, nodeId, mode, JSON.stringify(plan), pass, max]))[0].id;
+      `INSERT INTO hk_attempts (user_id, quiz_id, node_id, mode, plan, pass_percent, max_points, served_at, assignment_id) VALUES ($1, $2, $3, $4, $5, $6, $7, now(), $8) RETURNING id::int AS id`,
+      [userId, quizId, nodeId, mode, JSON.stringify(plan), pass, max, assignmentId]))[0].id;
   }
 
   private async planFromQuiz(q: Q, quizId: number): Promise<{ plan: PlanItem[]; pass: number }> {
@@ -285,6 +295,61 @@ export class PlayService {
       await logEvent(null, user, 'attempt_start', 'node', node.id, node.id, null, null, q);
       return this.stateOf(q, user, id);
     });
+  }
+
+  /** Làm bộ đề của bài tập (HK.HS.101): còn lượt mới bắt đầu được; lượt đang làm dở thì tiếp tục. Không mất tim, không cộng điểm nút; kết quả ghi vào bài nộp. */
+  async startAssignmentQuiz(user: UserRow, a: { id: number; quiz_id: number | null }) {
+    return this.db.tx(async (q) => {
+      if (!a.quiz_id) throw new ConflictException('Bài tập này không có bộ đề');
+      const open = (await q<{ id: number }>("SELECT id::int AS id FROM hk_attempts WHERE user_id = $1 AND assignment_id = $2 AND status = 'active'", [user.id, a.id]))[0];
+      if (open) return this.stateOf(q, user, open.id);
+      const max = (await q<{ max_attempts: number }>('SELECT max_attempts FROM hk_assignments WHERE id = $1', [a.id]))[0]?.max_attempts ?? 1;
+      const used = (await q<{ attempts: number }>('SELECT attempts FROM hk_submissions WHERE assignment_id = $1 AND user_id = $2', [a.id, user.id]))[0]?.attempts ?? 0;
+      if (used >= max) throw new ConflictException(`Em đã dùng hết ${max} lượt làm bài này`);
+      const { plan, pass } = await this.planFromQuiz(q, a.quiz_id);
+      return this.stateOf(q, user, await this.insertAttempt(q, user.id, 'assignment', a.quiz_id, null, plan, pass, a.id));
+    });
+  }
+
+  /** Bài học của bài tập (HK.HS.101): nội dung và câu kiểm tra nhanh, không gắn với nút trên bản đồ */
+  async assignmentLesson(user: UserRow, lessonId: number) {
+    return this.db.tx(async (q) => {
+      const row = (await q<Record<string, any>>("SELECT id, title, summary, blocks, read_minutes FROM hk_lessons WHERE id = $1 AND status = 'published'", [lessonId]))[0];
+      if (!row) throw notFound('bài học');
+      await q('INSERT INTO hk_lesson_progress (user_id, lesson_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [user.id, row.id]);
+      const progress = (await q('SELECT read_percent, check_attempts, completed_at FROM hk_lesson_progress WHERE user_id = $1 AND lesson_id = $2', [user.id, row.id]))[0];
+      const checks = await q<{ question_id: number; qtype: QType; prompt: string; image_url: string | null; difficulty: number; data: Record<string, unknown> }>(
+        'SELECT k.question_id, t.qtype, t.prompt, t.image_url, t.difficulty, t.data FROM hk_lesson_checks k JOIN hk_questions t ON t.id = k.question_id WHERE k.lesson_id = $1 ORDER BY k.position', [row.id]);
+      return {
+        ...row, id: row.id as number, progress, node: null, note: null, links: [],
+        checks: checks.map((c) => publicView({ id: c.question_id, qtype: c.qtype, prompt: c.prompt, image_url: c.image_url, explanation: null, difficulty: c.difficulty, data: c.data }, c.question_id, false)),
+      };
+    });
+  }
+
+  async assignmentLessonProgress(user: UserRow, lessonId: number, readPercent: number) {
+    const pct = Math.max(0, Math.min(100, Math.round(readPercent)));
+    const row = (await this.db.query<{ read_percent: number }>(
+      `INSERT INTO hk_lesson_progress (user_id, lesson_id, read_percent) VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, lesson_id) DO UPDATE SET read_percent = GREATEST(hk_lesson_progress.read_percent, $3), updated_at = now() RETURNING read_percent`, [user.id, lessonId, pct]))[0];
+    return { read_percent: row.read_percent };
+  }
+
+  /** Chấm câu kiểm tra nhanh của bài học (không gắn nút): hoàn thành khi đã đọc hết và đúng mọi câu */
+  async gradeLessonChecks(q: Q, user: UserRow, lessonId: number, answers: Array<{ question_id: number; answer: unknown }>) {
+    const progress = (await q<{ read_percent: number; first_try_correct: boolean | null }>('SELECT read_percent, first_try_correct FROM hk_lesson_progress WHERE user_id = $1 AND lesson_id = $2 FOR UPDATE', [user.id, lessonId]))[0];
+    if (!progress || progress.read_percent < 100) throw new ConflictException('Hãy đọc hết bài học trước khi làm câu kiểm tra nhanh');
+    const checks = await q<{ question_id: number; qtype: QType; explanation: string | null; data: Record<string, unknown> }>(
+      'SELECT k.question_id, t.qtype, t.explanation, t.data FROM hk_lesson_checks k JOIN hk_questions t ON t.id = k.question_id WHERE k.lesson_id = $1 ORDER BY k.position', [lessonId]);
+    const results = checks.map((c) => {
+      const given = answers.find((a) => a.question_id === c.question_id);
+      const g = given ? grade(c, given.answer) : { correct: false };
+      return { question_id: c.question_id, correct: g.correct, explanation: c.explanation, detail: g.detail };
+    });
+    const completed = results.every((r) => r.correct);
+    await q('UPDATE hk_lesson_progress SET check_attempts = check_attempts + 1, first_try_correct = COALESCE(first_try_correct, $3), completed_at = CASE WHEN $3 THEN COALESCE(completed_at, now()) ELSE completed_at END, updated_at = now() WHERE user_id = $1 AND lesson_id = $2', [user.id, lessonId, completed]);
+    if (completed) await this.game.onLessonCompleted(q, user);
+    return { completed, results };
   }
 
   /** Giáo viên / quản trị làm thử bộ đề như học sinh (HK.GV.044); không ghi tiến độ, điểm hay câu sai */
@@ -344,7 +409,9 @@ export class PlayService {
     const used = Math.min(Math.max(0, elapsedMs), item.seconds * 1000);
     const base = g.correct ? item.points : 0;
     const settings = await this.game.cfg();
-    const bonus = g.correct ? bonusPoints(item.points, item.seconds, used, settings.speed_bonus_ratio) : 0;
+    let bonus = g.correct ? bonusPoints(item.points, item.seconds, used, settings.speed_bonus_ratio) : 0;
+    // Kỹ năng "Xung phong" (HK.HS.072): thưởng tốc độ của câu đúng kế tiếp được nhân đôi
+    if (g.correct && a.mode !== 'preview' && (await this.game.useBuff(q, user, 'xung_phong'))) bonus *= 2;
     await q(
       `INSERT INTO hk_attempt_answers (attempt_id, question_id, position, answer, correct, timed_out, base_points, bonus_points, time_ms) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [a.id, item.question_id, a.position, timedOut || answer === undefined ? null : JSON.stringify(answer), g.correct, timedOut, base, bonus, used]);
@@ -393,6 +460,10 @@ export class PlayService {
       }
     }
     if (node) await q('UPDATE hk_attempts SET result = $2 WHERE id = $1', [id, JSON.stringify(node)]);
+    if (a.mode === 'assignment' && a.assignment_id) {
+      const sub = await recordSubmission(q, this.game, user, a.assignment_id, percent);
+      await q('UPDATE hk_attempts SET result = $2 WHERE id = $1', [id, JSON.stringify({ assignment_id: a.assignment_id, ...sub })]);
+    }
     if (a.mode === 'node' && percent === 100) await this.game.onPerfectQuiz(q, user, id);
     if (a.mode !== 'preview') await logEvent(null, user, 'attempt_finish', 'attempt', id, a.node_id, { percent, passed }, Number(timing.used), q);
     return { percent, stars, passed, node };
@@ -424,7 +495,7 @@ export class PlayService {
   }
 
   /** Gợi ý 50/50 (HK.HS.070): chỉ cho câu một đáp án đang làm; máy chủ chọn đáp án sai bị loại, chỉ còn một đáp án sai cạnh đáp án đúng */
-  async hint(user: UserRow, id: number) {
+  async hint(user: UserRow, id: number, opts: { free?: boolean } = {}) {
     return this.db.tx(async (q) => {
       const a = await this.loadAttempt(q, user, id, true);
       const item = a.plan[a.position];
@@ -433,14 +504,25 @@ export class PlayService {
       const data = item.snap.data as { options?: Array<{ id: string }>; correct?: string };
       if (item.snap.qtype !== 'single' || !data.options || data.options.length < 3) throw new ConflictException('Gợi ý 50/50 chỉ dùng cho câu một đáp án có từ 3 lựa chọn');
       if (item.removed?.length) throw new ConflictException('Em đã dùng gợi ý cho câu này rồi');
-      const held = (await q<{ item_id: number }>("SELECT i.item_id FROM hk_inventory i JOIN hk_shop_items s ON s.id = i.item_id WHERE i.user_id = $1 AND s.kind = 'hint' AND i.qty > 0 ORDER BY i.item_id LIMIT 1 FOR UPDATE", [user.id]))[0];
+      const held = opts.free ? { item_id: 0 } : (await q<{ item_id: number }>("SELECT i.item_id FROM hk_inventory i JOIN hk_shop_items s ON s.id = i.item_id WHERE i.user_id = $1 AND s.kind = 'hint' AND i.qty > 0 ORDER BY i.item_id LIMIT 1 FOR UPDATE", [user.id]))[0];
       if (!held) throw new ConflictException('Em không còn gợi ý 50/50; mua thêm ở cửa hàng nhé');
       const wrong = seededShuffle(data.options.filter((o) => o.id !== data.correct), item.seed);
       const removed = wrong.slice(0, wrong.length - 1).map((o) => o.id);
-      await q('UPDATE hk_inventory SET qty = qty - 1 WHERE user_id = $1 AND item_id = $2', [user.id, held.item_id]);
+      if (!opts.free) await q('UPDATE hk_inventory SET qty = qty - 1 WHERE user_id = $1 AND item_id = $2', [user.id, held.item_id]);
       const plan = a.plan.map((p, i) => (i === a.position ? { ...p, removed } : p));
       await q('UPDATE hk_attempts SET plan = $2 WHERE id = $1', [id, JSON.stringify(plan)]);
       return { removed };
+    });
+  }
+
+  /** Mục lịch sử đã công bố liên quan đến câu đang làm (kỹ năng "Trận đồ", HK.HS.072): thường chỉ hiện sau khi trả lời */
+  async currentLinks(user: UserRow, id: number) {
+    return this.db.tx(async (q) => {
+      const a = await this.loadAttempt(q, user, id, false);
+      const item = a.plan[a.position];
+      if (a.status !== 'active' || !item || !a.served_at) throw new ConflictException('Chưa có câu hỏi đang làm');
+      if (a.mode === 'preview') throw new ConflictException('Làm thử không dùng kỹ năng');
+      return this.publishedLinks(q, item.question_id);
     });
   }
 
@@ -501,7 +583,7 @@ export class PlayService {
       : null;
     return {
       percent: a.percent, stars: a.stars, passed: a.passed, pass_percent: a.pass_percent, correct: a.correct_count, wrong: a.wrong_count, total: a.plan.length,
-      base_points: a.base_points, bonus_points: a.bonus_points, duration_ms: a.duration_ms, node, node_result: a.result, best: result,
+      base_points: a.base_points, bonus_points: a.bonus_points, duration_ms: a.duration_ms, node, node_result: a.mode === 'assignment' ? null : a.result, assignment: a.mode === 'assignment' ? a.result : null, best: result,
     };
   }
 
