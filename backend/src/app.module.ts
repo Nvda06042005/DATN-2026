@@ -27,6 +27,11 @@ import { AiToolsService } from './ai/ai-tools.service';
 import { AiTutorService } from './ai/ai-tutor.service';
 import { AiController } from './ai/ai.controller';
 import { LlmClient } from './ai/llm.client';
+import { AnalyticsController } from './analytics/analytics.controller';
+import { AnalyticsJob } from './analytics/analytics.job';
+import { AnalyticsService } from './analytics/analytics.service';
+import { FeedbackService } from './analytics/feedback.service';
+import { RecoService } from './analytics/reco.service';
 import { AssignmentService } from './classroom/assignment.service';
 import { ClassroomController } from './classroom/classroom.controller';
 import { ClassroomService } from './classroom/classroom.service';
@@ -60,8 +65,8 @@ import { StudentController } from './student/student.controller';
   imports: [
     JwtModule.register({ secret: config.authSecret, signOptions: { algorithm: 'HS256', expiresIn: config.tokenTtlHours * 3600 }, verifyOptions: { algorithms: ['HS256'] } }),
   ],
-  controllers: [AppController, AuthController, AdminController, HistoryController, ContentController, StudentController, LearnController, PlayController, GameController, BattleController, ClassroomController, LiveController, WarController, AiController],
-  providers: [LlmClient, AiSettingsService, AiRetrievalService, AiIndexService, AiTutorService, AiToolsService, AiAdminService, SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, MailService, SchoolService, AccountService, ClassService, HistoryService, QuestionService, QuizService, LessonService, JourneyService, ShareService, LearnService, PlayService, GameClock, SettingsService, GameService, BoardService, CatalogService, GameJob, BattleService, WarGate, WarCardsService, WarMarchService, WarService, ClassroomService, AssignmentService, SkillService, LiveService, LiveGateway],
+  controllers: [AppController, AuthController, AdminController, HistoryController, ContentController, StudentController, LearnController, PlayController, GameController, BattleController, ClassroomController, LiveController, WarController, AiController, AnalyticsController],
+  providers: [AnalyticsService, RecoService, FeedbackService, AnalyticsJob, LlmClient, AiSettingsService, AiRetrievalService, AiIndexService, AiTutorService, AiToolsService, AiAdminService, SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, MailService, SchoolService, AccountService, ClassService, HistoryService, QuestionService, QuizService, LessonService, JourneyService, ShareService, LearnService, PlayService, GameClock, SettingsService, GameService, BoardService, CatalogService, GameJob, BattleService, WarGate, WarCardsService, WarMarchService, WarService, ClassroomService, AssignmentService, SkillService, LiveService, LiveGateway],
 })
 export class AppModule {}
 

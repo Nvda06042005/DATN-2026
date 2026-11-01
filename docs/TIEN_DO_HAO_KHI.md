@@ -1,12 +1,12 @@
 # Tiến độ xây dựng Hào Khí Đông A (theo mã HK.*)
 
-Nguồn: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). Tài liệu này ghi **Sprint 1 đến Sprint 8**
-(251 chức năng) đã làm được gì, quyết định đã chọn khi đặc tả chưa nói rõ, và những gì cố ý chưa làm. Phân tích đối chiếu ban đầu: `DOI_CHIEU_HAO_KHI_V01.md`.
+Nguồn: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). Tài liệu này ghi **Sprint 1 đến Sprint 10**
+(301 chức năng) đã làm được gì, quyết định đã chọn khi đặc tả chưa nói rõ, và những gì cố ý chưa làm. Phân tích đối chiếu ban đầu: `DOI_CHIEU_HAO_KHI_V01.md`.
 
 **Từ 01/11/2026 đặc tả có bản `ver0.2`** (408 chức năng; viết lại Sprint 5–8, thêm 60 chức năng, sửa 10). Đối chiếu và các điểm cần chốt: `DOI_CHIEU_HAO_KHI_V02.md`.
-Đang làm ver0.2 theo thứ tự Sprint 5 → 6 → 7 → 8; tiến độ nằm ở mục "ver0.2" cuối các bảng Sprint tương ứng (Sprint 5 ver0.2: lộ trình dạng đường đi, đã làm; Sprint 6 ver0.2: game thẻ tướng, đã làm trừ Sa bàn 3D; Sprint 7–8 ver0.2: chưa làm). **Sprint 9 (AI Tutor) đã làm** theo yêu cầu chạy tiếp Sprint 9–10, làm trước khi xong Sprint 7–8 ver0.2.
+Đang làm ver0.2 theo thứ tự Sprint 5 → 6 → 7 → 8; tiến độ nằm ở mục "ver0.2" cuối các bảng Sprint tương ứng (Sprint 5 ver0.2: lộ trình dạng đường đi, đã làm; Sprint 6 ver0.2: game thẻ tướng, đã làm trừ Sa bàn 3D; Sprint 7–8 ver0.2: chưa làm). **Sprint 9 (AI Tutor) và Sprint 10 (gợi ý học tập, thống kê, báo cáo) đã làm** theo yêu cầu chạy tiếp Sprint 9–10, làm trước khi xong Sprint 7–8 ver0.2.
 
-Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 273 bài trong 22 tệp, gồm migration trên dữ liệu cũ, Sprint 1–8, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu, trò chơi hóa, mô phỏng trận đánh, lớp học, bài tập, bản đồ rẽ nhánh, lộ trình dạng đường đi, thi đấu trực tiếp, bộ máy trận thẻ tướng game thẻ tướng và AI Tutor);
+Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 286 bài trong 23 tệp, gồm migration trên dữ liệu cũ, Sprint 1–8, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu, trò chơi hóa, mô phỏng trận đánh, lớp học, bài tập, bản đồ rẽ nhánh, lộ trình dạng đường đi, thi đấu trực tiếp, bộ máy trận thẻ tướng game thẻ tướng, AI Tutor và gợi ý học tập, thống kê, báo cáo);
 `cd frontend && npm run typecheck && npm run build`. Mỗi bài kiểm thử ghi mã HK.* trong tên.
 
 ## Sprint 1 – xác thực, tài khoản, hồ sơ, trường học, người dùng (40 chức năng)
@@ -330,6 +330,46 @@ Dữ liệu: migration 030 (cấu hình AI một dòng, hạn mức theo trườ
 
 **Quyết định mặc định:** không dùng mô hình thì vẫn hữu ích (trích tư liệu); khóa API không bao giờ trả lại giao diện; học sinh "xóa" cuộc trò chuyện chỉ là ẩn; câu hỏi tính vào hạn mức kể cả khi bị từ chối vì ngoài phạm vi (chống dò); soạn câu hỏi và kịch bản tiết học cũng tính hạn mức giáo viên; AI không bao giờ tự lưu câu hỏi.
 
+## Sprint 10 – gợi ý học tập, thống kê và báo cáo (26 chức năng)
+
+Báo cáo **đọc từ dữ liệu có sẵn** (lượt làm bài, tiến độ nút, sự kiện học tập, trận đánh, thi đấu, hội thoại AI) nên migration chỉ thêm cấu hình, gợi ý, nhật ký thư và giá token. Máy chủ tính mọi số liệu theo phạm vi của người dùng (`backend/src/analytics/*`, `/api/analytics`); giao diện chỉ hiển thị. Mỗi câu hỏi gắn với nhân vật / sự kiện / địa danh / trận đánh / tư liệu / cuộc kháng chiến qua bảng liên kết câu hỏi có sẵn, nên "chủ đề" lấy từ đó; lượt xem thử của giáo viên (`preview`) không bao giờ được tính.
+
+**Không dùng mô hình AI cho phần này (quyết định quan trọng):** "gợi ý của AI" trong đặc tả (HK.HS.094, 097, GV.069) được làm bằng **quy tắc có điểm số minh bạch** do quản trị tổng chỉnh (HK.AD.063); dữ liệu học của học sinh không gửi ra dịch vụ ngoài. Muốn viết lời nhận xét bằng mô hình thì nối thêm ở Sprint sau.
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.HS.094 | Xong | "Hôm nay nên học gì?": tối đa 3 gợi ý (mặc định) có lý do, xếp theo điểm = trọng số điểm yếu × mức yếu + trọng số thời gian × thời gian chưa ôn + trọng số độ khó × độ phù hợp. Năm loại: học tiếp, luyện chủ đề yếu, ôn lại nút điểm thấp, bài tập sắp đến hạn, giữ chuỗi ngày học; mỗi loại tối đa 2, bỏ trùng đích. Tự tính lại khi cũ hơn `refresh_hours` và có nút Làm mới |
+| HK.HS.095 | Xong | Tỉ lệ đúng theo loại chủ đề (cuộc kháng chiến, nhân vật, sự kiện, địa danh, trận đánh, tư liệu) và từng chủ đề, có chữ mức (Mạnh ≥ 85% / Khá / Cần ôn dưới ngưỡng / chưa đủ dữ liệu) chứ không chỉ màu. Chủ đề cần tối thiểu 3 câu (cấu hình) mới được xếp mạnh hay yếu |
+| HK.HS.096 | Xong | Nút "Luyện" ở từng chủ đề yếu, hoặc "Luyện tất cả chủ đề yếu": 3–20 câu (mặc định 8) của chủ đề, ưu tiên câu em từng làm sai, **sắp từ dễ đến khó**, chỉ câu em được phép thấy (kho hệ thống và kho trường); mở thành lượt luyện tập thường (tính điểm như bình thường) và chỉ có một lượt luyện tập mở. Chủ đề chưa đủ 3 câu hỏi thì từ chối, không tự bịa câu |
+| HK.HS.097 | Xong (quy tắc, không phải AI) | Lộ trình theo ngày cho các bài tập giáo viên giao còn 1–21 ngày nữa là đến hạn: tối đa 7 ngày ôn (luyện chủ đề yếu liên quan đến bộ đề, làm lại câu sai, nghỉ ngơi), ngày cuối là làm bài. Giáo viên chưa có chức năng "đặt lịch kiểm tra" riêng nên lấy hạn nộp của **bài tập của lớp** |
+| HK.HS.098 | Xong | Hữu ích / Chưa hữu ích (bấm lại để bỏ chọn). Loại gợi ý bị đánh giá chưa hữu ích nhiều hơn hữu ích trong 30 ngày bị nhân hệ số giảm (mặc định 0,5), ngược lại được nhân 1,1 |
+| HK.GV.066 | Xong | Lớp: tiến độ trung bình, tỉ lệ hoàn thành, điểm TB, tỉ lệ đúng, hoạt động 7 ngày, số học sinh giữ chuỗi từ 3 ngày, thời gian học, biểu đồ hoạt động theo ngày (7–90 ngày), phân bố tiến độ, danh sách học sinh; lọc theo khoảng ngày |
+| HK.GV.067 | Xong | Hồ sơ một học sinh: tiến độ từng hành trình (nút đang mở và nút làm chưa tốt), bài làm gần đây, trận đánh / mini-game / màn thẻ tướng, thời gian học, dòng thời gian hoạt động, chủ đề mạnh / yếu, huy hiệu. Giáo viên chỉ xem học sinh trong lớp mình dạy; học sinh ngoài lớp trả 404 |
+| HK.GV.068 | Xong | Tỉ lệ đúng của cả lớp theo loại chủ đề và danh sách chủ đề cả lớp còn yếu (ngưỡng số câu tối thiểu nhân theo sĩ số, tối đa 3 lần) |
+| HK.GV.069 | Xong (quy tắc, không phải AI) | Học sinh cần hỗ trợ theo quy tắc: chưa hoạt động lần nào hoặc 7 ngày không học, tỉ lệ đúng thấp (từ 5 câu), tiến độ thấp hơn trung bình lớp từ 25 điểm; kèm chủ đề yếu và gợi ý việc nên làm. Giao diện ghi rõ đây là đề xuất theo quy tắc, giáo viên quyết định |
+| HK.GV.070 | Xong | So sánh các lớp phụ trách: bảng xếp hạng (điểm TB, tiến độ, tham gia, tỉ lệ đúng) và biểu đồ thanh; lọc theo khoảng ngày |
+| HK.GV.071 | Xong | Xuất **Excel** (xlsx) và **PDF** theo lớp và khoảng thời gian: tổng quan, từng học sinh, chủ đề cần ôn, danh sách bài tập (số bài đã nộp, điểm TB). Chưa có xuất riêng cho từng bài tập. Ô văn bản do người dùng nhập được làm sạch để Excel không hiểu nhầm là công thức; PDF dùng phông Manrope |
+| HK.GV.072 | Xong | Bản nháp nhận xét dựng từ số liệu thật; giáo viên sửa rồi chọn gửi học sinh và / hoặc phụ huynh (nếu hồ sơ có email); thư đi qua hàng đợi email của hệ thống (loại `feedback`), ghi nhật ký người gửi; tối đa 5 thư / học sinh / 24 giờ. **Chưa thử với máy chủ thư thật** (kiểm thử dùng bộ gửi JSON) |
+| HK.QT.006 | Xong | Số lớp, giáo viên, học sinh, hành trình đang chạy, hoạt động và người học hôm nay, người học trong 7 ngày |
+| HK.QT.007 | Xong | Biểu đồ cột chồng: bài học, quiz, trận đánh + mini-game, phòng thi đấu, theo ngày (30 ngày), tuần (90 ngày), tháng (12 tháng); mốc ngày theo giờ Việt Nam |
+| HK.QT.008, HK.QT.047 | Xong | Kết quả theo lớp, theo khối, theo giáo viên: điểm TB, tiến độ, tham gia, tỉ lệ đúng, **hạng**; lọc khoảng ngày; học sinh học nhiều lớp chỉ tính một lần ở nhóm khối / giáo viên |
+| HK.QT.009 | Xong | Số câu hỏi Tiểu Tướng, tỉ lệ bị từ chối, token, câu bị báo sai, tư liệu được hỏi nhiều nhất (ẩn danh), lượt còn lại hôm nay của trường |
+| HK.QT.033 | Xong | Quản trị trường mở hồ sơ học tập tổng hợp của học sinh trong trường mình (cùng màn với giáo viên) |
+| HK.QT.048 | Xong | Xuất Excel / PDF kết quả theo lớp, khối hoặc giáo viên |
+| HK.AD.006 | Xong | Số trường, người dùng theo vai trò, người học hôm nay / 7 ngày / 30 ngày, tài khoản mới 30 ngày, biểu đồ người dùng hoạt động theo ngày |
+| HK.AD.007 | Xong | Cùng biểu đồ sử dụng như HK.QT.007 nhưng toàn hệ thống |
+| HK.AD.008 | Xong (ước tính) | Số câu hỏi, token, tỉ lệ từ chối, câu báo sai, và **chi phí ước tính** = token × giá do quản trị tổng nhập (mục AI Tutor → Mô hình, USD / 1 triệu token; mặc định 0 = chưa nhập giá). Không lấy số tiền thật từ nhà cung cấp |
+| HK.AD.009 | Xong | Số bản ghi theo trạng thái nháp / kiểm duyệt / xuất bản của kho lịch sử (cuộc kháng chiến, nhân vật, sự kiện, địa danh, trận đánh, tư liệu, thuật ngữ) và nội dung học (bài học, hành trình, kịch bản trận, mini-game, màn thẻ tướng), số câu hỏi theo kho, bộ đề, đoạn tư liệu AI |
+| HK.AD.063 | Xong | Trọng số điểm yếu / thời gian / độ khó (0–10), ngưỡng điểm yếu (10–95%), số câu tối thiểu, tần suất cập nhật (1–168 giờ), số gợi ý, số câu luyện tập, hệ số giảm điểm; máy chủ kiểm tra giới hạn, có nút tính lại ngay |
+| HK.SYS.012 | Xong | Việc nền chạy mỗi giờ tính lại gợi ý cho học sinh có hoạt động trong 14 ngày mà gợi ý đã cũ hơn `refresh_hours`; ngoài ra gợi ý được tính lười khi học sinh mở màn nên đúng cả khi máy chủ miễn phí "ngủ". Tắt bằng `ANALYTICS_JOB=off` (kiểm thử) |
+| HK.SYS.013 | Một phần (khác đặc tả) | **Chọn** câu hỏi theo chủ đề yếu và độ khó tăng dần từ ngân hàng câu hỏi; **không sinh câu mới bằng AI** để học sinh không gặp câu chưa kiểm duyệt. Giáo viên soạn câu mới bằng công cụ AI ở HK.GV.038 |
+
+Dữ liệu: migration 031 (cấu hình thuật toán một dòng, gợi ý đã sinh kèm đánh giá, nhật ký thư nhận xét, loại thư `feedback` trong hàng đợi email, giá token AI; mọi bảng mới bật RLS). Không thêm thư viện: dùng `exceljs` và `pdfkit` có từ trước.
+
+**Giao diện:** học sinh có mục **Gợi ý học tập** trong "Xem thêm" (Hôm nay nên học gì | Điểm mạnh và điểm yếu | Lộ trình ôn tập); giáo viên có mục **Thống kê lớp** (Tổng quan | Học sinh | Chủ đề | Cần hỗ trợ | So sánh, hồ sơ học sinh, gửi nhận xét, xuất Excel / PDF); quản trị trường có mục **Báo cáo** (Tổng quan | Lớp và học sinh | Kết quả | Sử dụng | AI); quản trị tổng có mục **Thống kê hệ thống** (Tổng quan | Nội dung | Sử dụng | AI | Thuật toán gợi ý). Biểu đồ vẽ bằng thành phần thuần (không thư viện), luôn có chữ và con số kèm màu, có nhãn cho trình đọc màn hình.
+
+**Quyết định mặc định:** chủ đề chỉ xếp mạnh / yếu khi đủ số câu tối thiểu; chỉ tính lượt làm bài thật; thống kê chỉ trả số liệu tổng hợp của học sinh trong phạm vi người xem (giáo viên: lớp mình dạy; quản trị trường: trường mình; quản trị tổng: tất cả); số liệu về câu hỏi AI luôn ẩn danh (từ khóa chỉ hiện khi từ 3 học sinh cùng hỏi, ở Sprint 9); giáo viên và quản trị trường **chỉ thấy** học sinh của mình, nên báo cáo không dùng để đối chiếu học sinh giữa các trường.
+
 ## Quyết định khi đặc tả chưa nói rõ
 
 - **Quản trị tổng cấp 2 (HK.AD.020):** có cột `admin_level`. Cấp 2 quản lý quản trị viên trường học nhưng không tạo/sửa/khóa/xóa quản trị tổng, không tạo hay xóa trường. Ma trận RBAC thực sự (HK.AD.026) thuộc Sprint 11.
@@ -360,6 +400,8 @@ Dữ liệu: migration 030 (cấu hình AI một dòng, hạn mức theo trườ
 - GitHub Actions ngày 01/11/2026: workflow `CI` tự chạy khi push hoặc mở pull request vào `main`, kiểm tra backend/migration trên PostgreSQL tạm, frontend typecheck/test/build và hồi quy bộ đồng bộ. Kết quả gắn với commit để hiện Check status; không dùng credential Supabase. Xem `GITHUB_ACTIONS.md`.
 - Tự đồng bộ local ngày 01/11/2026: theo yêu cầu người dùng, thêm worker Windows chờ code ổn định, kiểm tra trên worktree riêng rồi commit/gộp/push nguyên tử lên `main`; Render/Supabase/Vercel tự cập nhật. Chỉ xác nhận khi Render và Vercel chạy đúng SHA và Supabase đạt schema cần thiết. Nền tảng và điều kiện hoạt động: `TU_DONG_DONG_BO.md`. Không thêm hoặc sửa migration SQL cho cơ chế này.
 - Sửa triển khai Render ngày 01/11/2026: các bản Sprint 8 và Sprint 5 ver0.2 dừng ở `npm ci` vì lockfile thiếu peer tùy chọn `webpack@5.112.2`. Tạo lại lockfile bằng npm 10.9.4 cùng dòng npm của Render; giữ nguyên lệnh build/start và các migration 001–027. Đã kiểm tra cài sạch, build, kiểm tra migration và nâng PostgreSQL thử nghiệm từ schema 24 lên 27, giữ tài khoản, tiến độ và sổ điểm cũ. Xem quy trình khóa dependency trong `database/migrations/README.md`.
+- Sprint 10 (nhánh `feat/hao-khi-sprint-10`, migration 031): mong đợi `schema_version` 31 ở `/api/database/health` sau khi Render khởi động bản mới; các đường `/api/analytics/*` trả 401 khi chưa đăng nhập. Không có biến môi trường mới: quản trị tổng nhập giá token ở mục AI Tutor → Mô hình nếu muốn xem chi phí ước tính.
+- Sprint 9 (nhánh `feat/hao-khi-sprint-9`, migration 030): `schema_version` 30; Render chưa có khóa AI nên chạy chế độ trích tư liệu.
 - Sprint 6 ver0.2 (nhánh `feat/hao-khi-v02-sprint-6`, migration 028–029): mong đợi `schema_version` 29 ở `/api/database/health` sau khi Render khởi động bản mới. Các màn, bản đồ, hội thoại, chỉ huy khởi tạo đều là **Nháp**: quản trị tổng cần phát hành (hội thoại phải gắn tư liệu nguồn trước) thì học sinh mới thấy bản đồ hành quân và màn chơi; bộ thẻ tướng (13 thẻ tướng, 4 thẻ chiến thuật) có sẵn.
 - Sprint 5 ver0.2 (nhánh `feat/hao-khi-v02-sprint-5`, migration 026–027): mong đợi `schema_version` 27 ở `/api/database/health` sau khi Render khởi động bản mới (bản này kéo theo cả migration 025 của Sprint 8 nếu Render chưa chạy).
 - Sprint 8 (nhánh `feat/hao-khi-sprint-8`, migration 025, thêm Socket.IO, pdfkit, qrcode); mong đợi `schema_version` 25 ở `/api/database/health` sau khi Render khởi động bản mới. Render hỗ trợ WebSocket; nếu một mạng chặn WebSocket thì Socket.IO tự dùng polling và giao diện dùng thêm đường HTTP dự phòng.
@@ -372,7 +414,8 @@ Dữ liệu: migration 030 (cấu hình AI một dòng, hạn mức theo trườ
 
 ## Chưa làm (ngoài Sprint 1–7) và đề xuất
 
-- Từ Sprint 9: trợ lý AI (RAG) và sinh câu hỏi bằng AI (Sprint 9–10), gợi ý học tập và báo cáo (Sprint 10), thông báo/cấu hình hệ thống/2FA (Sprint 11).
+- Từ Sprint 11: thông báo, cấu hình hệ thống, 2FA, phân quyền chi tiết (Sprint 11–12); và phần ver0.2 còn lại của Sprint 7–8.
+- Giới hạn đã biết của Sprint 10: "gợi ý của AI" làm bằng quy tắc điểm số (chưa dùng mô hình để viết lời nhận xét); lộ trình ôn tập lấy hạn của bài tập lớp vì chưa có chức năng đặt lịch kiểm tra riêng; luyện tập cá nhân hóa chỉ **chọn** câu từ ngân hàng, không sinh câu mới; xuất Excel / PDF theo lớp và theo khối / lớp / giáo viên, chưa xuất riêng từng bài tập; thư nhận xét chưa thử với máy chủ thư thật; chi phí AI chỉ là ước tính theo giá nhập tay; biểu đồ vẽ bằng thành phần thuần nên chưa có tooltip khi rê chuột (số liệu hiển thị sẵn bằng chữ); chưa kiểm thử với lớp có hàng trăm học sinh (truy vấn thống kê tính theo tập học sinh của lớp, đã chạy tốt với dữ liệu thử nhỏ).
 - Giới hạn đã biết của Sprint 8: chưa kiểm tra với cả lớp thật (đã kiểm tra tải đồng thời nhỏ: ba người trả lời cùng lúc); Socket.IO chạy trên một máy chủ (chưa có Redis adapter); chưa có chế độ tự học theo nhịp riêng (Kahoot "assignment"), chưa có nhạc/âm thanh; câu kéo thả bản đồ trên điện thoại cần Leaflet nên chỉ có trên bản web; báo cáo PDF không có biểu đồ (có bảng và tỉ lệ đúng).
 - Giới hạn đã biết của Sprint 7: kéo thả nút mới thử trên trình duyệt web (chưa thử trên điện thoại thật; có cách nhập số và chọn nút thay thế); bài tập chỉ có ba loại (bộ đề, mini-game, bài học), chưa có bài nộp tệp hay tự luận; thông báo thăm dò chứ chưa đẩy thời gian thực; chưa xuất bảng điểm bài tập ra Excel; huy hiệu riêng của trường do quản trị viên trường tạo, giáo viên chỉ trao; hành trình đang có học sinh học không đổi được đường nối (nhân bản để chỉnh).
 - Giới hạn đã biết của Sprint 5: bảng xếp hạng lưu đệm trong bộ nhớ một máy chủ (nhiều máy chủ sẽ mỗi máy một đệm, cần Redis nếu mở rộng); giải đấu có 4 hạng cố định; lượt làm bài đang dở vẫn tiếp tục khi tim về 0 (chỉ chặn bài mới); ảnh thành tích chỉ tạo được trên web; nhân vật là biểu tượng ghép chứ chưa có ảnh vẽ; nội dung khởi tạo (tên cấp, huy hiệu, thẻ, nhiệm vụ) là bản nháp thiết kế chờ giáo viên duyệt.

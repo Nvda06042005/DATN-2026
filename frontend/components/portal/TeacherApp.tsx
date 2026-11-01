@@ -3,9 +3,10 @@
  * ngân hàng câu hỏi, bộ đề (làm thử như học sinh), nội dung đã gửi duyệt. Dùng cùng khung và giao diện phẳng với các cổng quản trị.
  */
 import React, { useState } from 'react';
-import { CircleHelp, ListChecks, Radio, Route, Send, Sparkles, Trophy, Users } from 'lucide-react-native';
+import { ChartColumn, CircleHelp, ListChecks, Radio, Route, Send, Sparkles, Trophy, Users } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { AiTeacher } from '@/components/admin/AiTeacher';
+import { TeacherAnalytics } from '@/components/admin/AnalyticsTeacher';
 import { ClassManager } from '@/components/admin/ClassManager';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { TeacherGame } from '@/components/admin/GameAdmin';
@@ -19,9 +20,10 @@ import type { Session } from '@/components/auth';
 import { NoticeBell } from '@/components/portal/ClassTab';
 import { AdminUiContext } from '@/components/ui';
 
-type Tab = 'classes' | 'journeys' | 'questions' | 'quizzes' | 'live' | 'ai' | 'game' | 'shares';
+type Tab = 'classes' | 'analytics' | 'journeys' | 'questions' | 'quizzes' | 'live' | 'ai' | 'game' | 'shares';
 const NAV = [
   { id: 'classes' as const, label: 'Lớp học', icon: Users },
+  { id: 'analytics' as const, label: 'Thống kê lớp', icon: ChartColumn },
   { id: 'journeys' as const, label: 'Hành trình học', icon: Route },
   { id: 'questions' as const, label: 'Ngân hàng câu hỏi', icon: CircleHelp },
   { id: 'quizzes' as const, label: 'Bộ đề', icon: ListChecks },
@@ -38,6 +40,7 @@ export const TeacherApp: React.FC<{ session: Session }> = ({ session }) => {
     <AdminUiContext.Provider value>
       <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab} schoolName={profile.data?.school?.name} extra={<NoticeBell session={session} onGo={() => setTab('classes')} />}>
         {tab === 'classes' ? <ClassManager session={session} />
+          : tab === 'analytics' ? <TeacherAnalytics session={session} />
           : tab === 'journeys' ? <JourneyManager session={session} />
           : tab === 'questions' ? <QuestionBank session={session} />
           : tab === 'quizzes' ? <QuizManager session={session} />

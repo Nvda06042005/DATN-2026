@@ -525,6 +525,22 @@ export class PlayService {
     });
   }
 
+  /** Lượt luyện tập với danh sách câu do bộ gợi ý chọn (HK.HS.096), giữ nguyên thứ tự từ dễ đến khó; đang có lượt luyện tập dở thì tiếp tục lượt đó */
+  async startCustomPractice(user: UserRow, questionIds: number[]) {
+    return this.db.tx(async (q) => {
+      const open = (await q<{ id: number }>("SELECT id::int AS id FROM hk_attempts WHERE user_id = $1 AND status = 'active' AND mode = 'practice'", [user.id]))[0];
+      if (open) return this.stateOf(q, user, open.id);
+      const rows = await q<{ id: number; qtype: QType; prompt: string; image_url: string | null; explanation: string | null; difficulty: number; data: Record<string, unknown> }>(
+        'SELECT t.id, t.qtype, t.prompt, t.image_url, t.explanation, t.difficulty, t.data FROM hk_questions t WHERE t.id = ANY($1)', [questionIds]);
+      const byId = new Map(rows.map((r) => [r.id, r]));
+      const ordered = questionIds.map((id) => byId.get(id)).filter((r): r is NonNullable<typeof r> => Boolean(r));
+      if (!ordered.length) throw new ConflictException('Chưa có câu hỏi phù hợp để luyện tập');
+      const seed = Math.floor(Math.random() * 2 ** 31);
+      const plan = ordered.map((r, idx): PlanItem => ({ question_id: r.id, points: 100, seconds: PRACTICE_SECONDS, seed: seed + idx * 101 + 1, shuffle: true, snap: this.snap(r) }));
+      return this.stateOf(q, user, await this.insertAttempt(q, user.id, 'practice', null, null, plan, 60));
+    });
+  }
+
   private async loadAttempt(q: Q, user: UserRow, id: number, lock: boolean): Promise<AttemptRow> {
     const a = (await q<AttemptRow>(`SELECT ${ATTEMPT_COLUMNS} FROM hk_attempts WHERE id = $1 AND user_id = $2${lock ? ' FOR UPDATE' : ''}`, [id, user.id]))[0];
     if (!a) throw notFound('lượt làm bài');

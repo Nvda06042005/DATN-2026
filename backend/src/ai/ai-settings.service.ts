@@ -13,12 +13,12 @@ export interface AiSettings {
   base_url: string | null; chat_model: string | null; embed_model: string | null; api_key_enc: string | null;
   temperature: number; max_tokens: number; top_k: number; min_score: number;
   system_prompt: string; refusal_message: string; banned_terms: string[]; index_kinds: string[];
-  daily_per_user: number; daily_per_school: number;
+  daily_per_user: number; daily_per_school: number; price_in: number; price_out: number;
   last_index_at: string | null; last_index_ms: number | null; last_index_error: string | null;
 }
 
 export const INDEX_KINDS = ['campaign', 'place', 'figure', 'event', 'battle', 'source', 'term', 'lesson'] as const;
-const COLUMNS = 'provider, base_url, chat_model, embed_model, api_key_enc, temperature::float8 AS temperature, max_tokens, top_k, min_score::float8 AS min_score, system_prompt, refusal_message, banned_terms, index_kinds, daily_per_user, daily_per_school, last_index_at, last_index_ms, last_index_error';
+const COLUMNS = 'provider, base_url, chat_model, embed_model, api_key_enc, temperature::float8 AS temperature, max_tokens, top_k, min_score::float8 AS min_score, system_prompt, refusal_message, banned_terms, index_kinds, daily_per_user, daily_per_school, price_in::float8 AS price_in, price_out::float8 AS price_out, last_index_at, last_index_ms, last_index_error';
 
 @Injectable()
 export class AiSettingsService {
@@ -108,10 +108,11 @@ export class AiSettingsService {
     }
     await this.db.query(
       `UPDATE hk_ai_settings SET provider = $1, base_url = $2, chat_model = $3, embed_model = $4, api_key_enc = $5, temperature = $6, max_tokens = $7, top_k = $8, min_score = $9,
-              system_prompt = $10, refusal_message = $11, banned_terms = $12, index_kinds = $13, daily_per_user = $14, daily_per_school = $15, updated_by = $16, updated_at = now() WHERE id = 1`,
+              system_prompt = $10, refusal_message = $11, banned_terms = $12, index_kinds = $13, daily_per_user = $14, daily_per_school = $15, updated_by = $16, price_in = $17, price_out = $18, updated_at = now() WHERE id = 1`,
       [provider, base, text('chat_model', 100, 'Mô hình trả lời'), text('embed_model', 100, 'Mô hình nhúng'), keyEnc, num('temperature', 0, 1, 'Nhiệt độ'), num('max_tokens', 100, 4000, 'Giới hạn token', true),
         num('top_k', 1, 12, 'Số đoạn truy xuất', true), num('min_score', 0, 1, 'Ngưỡng liên quan'), system, refusal, banned, kinds,
-        num('daily_per_user', 1, 500, 'Số câu hỏi mỗi người mỗi ngày', true), num('daily_per_school', 1, 100000, 'Số câu hỏi mỗi trường mỗi ngày', true), user.id]);
+        num('daily_per_user', 1, 500, 'Số câu hỏi mỗi người mỗi ngày', true), num('daily_per_school', 1, 100000, 'Số câu hỏi mỗi trường mỗi ngày', true), user.id,
+        num('price_in', 0, 1000, 'Giá token đầu vào (USD cho 1 triệu token)'), num('price_out', 0, 1000, 'Giá token đầu ra (USD cho 1 triệu token)')]);
     this.invalidate();
     return this.publicView();
   }

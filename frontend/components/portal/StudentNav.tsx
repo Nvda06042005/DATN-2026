@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import {
-  Award, Dumbbell, Ellipsis, GraduationCap, History as HistoryIcon, Library as LibraryIcon, ListChecks, Map as MapIcon, Radio, Route, ScrollText, Shield, ShoppingBag, Sparkles, Swords, Trophy, UserRound, Users,
+  Award, Dumbbell, Ellipsis, GraduationCap, History as HistoryIcon, Library as LibraryIcon, Lightbulb, ListChecks, Map as MapIcon, Radio, Route, ScrollText, Shield, ShoppingBag, Sparkles, Swords, Trophy, UserRound, Users,
 } from 'lucide-react-native';
 import { Sheet, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -14,7 +14,7 @@ import type { IconType } from '@/types/game';
 
 export type Tab =
   | 'learn' | 'home' | 'collection' | 'practice' | 'ranking' | 'quests' | 'shop' | 'mine'
-  | 'library' | 'timeline' | 'map' | 'sources' | 'class' | 'live' | 'battles' | 'character' | 'ai';
+  | 'library' | 'timeline' | 'map' | 'sources' | 'class' | 'live' | 'battles' | 'character' | 'ai' | 'study';
 
 interface NavItem { id: Tab; label: string; icon: IconType }
 /** Chín mục của thanh menu chính theo đặc tả (mục thứ chín "Xem thêm" mở các mục còn lại) */
@@ -29,6 +29,7 @@ export const NAV_MAIN: NavItem[] = [
   { id: 'mine', label: 'Hồ sơ', icon: UserRound },
 ];
 export const NAV_MORE: NavItem[] = [
+  { id: 'study', label: 'Gợi ý học tập', icon: Lightbulb },
   { id: 'library', label: 'Thư viện', icon: LibraryIcon },
   { id: 'timeline', label: 'Dòng thời gian', icon: HistoryIcon },
   { id: 'map', label: 'Bản đồ', icon: MapIcon },

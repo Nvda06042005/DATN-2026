@@ -27,6 +27,7 @@ import { MyTab, QuestsTab } from '@/components/portal/Progress';
 import { QuizPlayer, ReviewScreen } from '@/components/portal/QuizPlayer';
 import { CampaignMapView, HomeTab, type NodeActions } from '@/components/portal/QuestMap';
 import { StudentNav, type Dots, type Tab } from '@/components/portal/StudentNav';
+import { StudyPlanTab } from '@/components/portal/StudyPlan';
 import { ExplainSheet, TieuTuongTab } from '@/components/portal/TieuTuong';
 import { WarCardsTab } from '@/components/portal/WarCards';
 import { BattlesHub, MarchTab, StageIntroSheet, TruthSheet, WarBattleScreen } from '@/components/portal/WarPlay';
@@ -197,6 +198,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
         ) : null}
         {tab === 'ranking' ? <RankingTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
         {tab === 'ai' ? <TieuTuongTab session={session} onOpen={open} onChanged={bump} /> : null}
+        {tab === 'study' ? <StudyPlanTab session={session} refreshKey={refreshKey} actions={{ onNode: (cid, nid) => { if (cid) { setTab('home'); setCampaignId(cid); setFocusNode(nid); } else setTab('learn'); }, onTab: setTab, onAttempt: (attempt, title) => setOverlay({ kind: 'quiz', attempt, title, nodeId: null }) }} /> : null}
         {tab === 'mine' ? <MyTab session={session} refreshKey={refreshKey} onPractice={startPractice} onReview={(id) => setOverlay({ kind: 'review', id })} onOpen={open} /> : null}
       </ScrollView>
       )}

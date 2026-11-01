@@ -10,10 +10,13 @@ import { createTransport, Transport, Transporter } from 'nodemailer';
 import { config } from '../config';
 import { DatabaseService, Q } from '../database/database.service';
 
-export type MailKind = 'bulk' | 'delta' | 'class';
+export type MailKind = 'bulk' | 'delta' | 'class' | 'feedback';
 
 /** Dữ liệu dựng thư: thông tin đăng nhập kèm mật khẩu tạm (tài khoản mới hoặc đặt lại mật khẩu) */
-export type MailPayload = { type: 'account'; full_name: string; username: string; password: string; role: 'root_admin' | 'school_admin' | 'teacher' | 'student'; school: string; reset?: boolean };
+export type AccountPayload = { type: 'account'; full_name: string; username: string; password: string; role: 'root_admin' | 'school_admin' | 'teacher' | 'student'; school: string; reset?: boolean };
+/** Thư nhận xét học tập giáo viên gửi (Sprint 10, HK.GV.072): nội dung văn bản thuần, không có mật khẩu */
+export type NotePayload = { type: 'note'; text: string };
+export type MailPayload = AccountPayload | NotePayload;
 
 const ROLE_LABEL = { root_admin: 'quản trị tổng', school_admin: 'quản trị viên trường học', teacher: 'giáo viên', student: 'học sinh' } as const;
 /** Trang đăng nhập của từng vai trò */
@@ -210,6 +213,7 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
   }
 
   render(payload: MailPayload): { text: string; html: string } {
+    if (payload.type === 'note') { const rows = payload.text.split('\n'); return { text: payload.text, html: rows.map((l) => (l ? `<p>${escapeHtml(l)}</p>` : '')).join('') }; }
     const login = `${config.appUrl}${LOGIN_PATH[payload.role]}`;
     const lines = [
       `Chào ${payload.full_name},`,
