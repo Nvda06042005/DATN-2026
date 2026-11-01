@@ -1,8 +1,8 @@
 /** API học tập: soạn nội dung (/api/content), đọc kho lịch sử (/api/learn) và học – làm bài (/api/play). Mọi hàm nhận token đăng nhập. */
 import { apiBlob, apiRequest, apiUpload, type PickedFile } from '@/api/client';
 import type {
-  AnswerResult, AttemptHistoryItem, AttemptReview, AttemptState, CampaignMap, Detail, FigureItem, HistoryOption, JourneyDetail, JourneyItem, JourneyPreview, LessonCompletion, LessonDetail, LessonInput,
-  LessonItem, LessonView, Listing, MapPlace, NodeDetail, NodeInput, NodeResult, NoteItem, QuestionDetail, QuestionImportResult, QuestionInput, QuestionItem, QuestionVersion, Quests,
+  AnswerResult, AttemptHistoryItem, AttemptReview, AttemptState, CampaignMap, Detail, FigureItem, GateGuide, GateInput, HistoryOption, JourneyDetail, JourneyItem, JourneyPreview, LearningPath, LessonCheckResult, LessonCompletion, LessonDetail, LessonInput,
+  LessonItem, LessonView, Listing, ListenView, MapPlace, MenuDots, NodeDetail, NodeInput, NodeResult, NoteItem, QuestionDetail, QuestionImportResult, QuestionInput, QuestionItem, QuestionVersion, Quests,
   QuizDetail, QuizInput, QuizItem, SearchHit, ShareDetail, ShareItem, SourceItem, StudentHome, TeacherClass, TermItem, TimelineEntry,
 } from '@/types/learning';
 
@@ -54,6 +54,10 @@ export const setJourneyDefault = (token: string, id: number, value: boolean) => 
 export const addNode = (token: string, journeyId: number, body: NodeInput) => apiRequest<JourneyDetail>(`/api/content/journeys/${journeyId}/nodes`, { token, body });
 export const updateNode = (token: string, nodeId: number, body: NodeInput) => apiRequest<JourneyDetail>(`/api/content/nodes/${nodeId}`, { token, method: 'PUT', body });
 export const removeNode = (token: string, nodeId: number) => apiRequest<JourneyDetail>(`/api/content/nodes/${nodeId}`, { token, method: 'DELETE' });
+// Cửa của lộ trình dạng đường đi (HK.AD.080)
+export const addGate = (token: string, journeyId: number, body: GateInput) => apiRequest<JourneyDetail>(`/api/content/journeys/${journeyId}/gates`, { token, body });
+export const updateGate = (token: string, gateId: number, body: GateInput) => apiRequest<JourneyDetail>(`/api/content/gates/${gateId}`, { token, method: 'PUT', body });
+export const removeGate = (token: string, gateId: number) => apiRequest<JourneyDetail>(`/api/content/gates/${gateId}`, { token, method: 'DELETE' });
 export const reorderNodes = (token: string, journeyId: number, nodeIds: number[]) => apiRequest<JourneyDetail>(`/api/content/journeys/${journeyId}/order`, { token, method: 'PUT', body: { node_ids: nodeIds } });
 export const myClasses = (token: string) => apiRequest<TeacherClass[]>('/api/content/my-classes', { token });
 export const assignJourney = (token: string, journeyId: number, classIds: number[]) => apiRequest<JourneyDetail>(`/api/content/journeys/${journeyId}/classes`, { token, body: { class_ids: classIds } });
@@ -84,6 +88,12 @@ export const campaignMap = (token: string, campaignId: number) => apiRequest<Cam
 export const nodeDetail = (token: string, nodeId: number) => apiRequest<NodeDetail>(`/api/play/nodes/${nodeId}`, { token });
 export const completeNode = (token: string, nodeId: number) => apiRequest<NodeResult>(`/api/play/nodes/${nodeId}/complete`, { token, body: {} });
 export const startNodeQuiz = (token: string, nodeId: number) => apiRequest<AttemptState>(`/api/play/nodes/${nodeId}/attempts`, { token, body: {} });
+// Lộ trình dạng đường đi (HK.HS.117–125)
+export const learningPath = (token: string) => apiRequest<LearningPath>('/api/play/path', { token });
+export const menuDots = (token: string) => apiRequest<MenuDots>('/api/play/dots', { token });
+export const gateGuide = (token: string, gateId: number) => apiRequest<GateGuide>(`/api/play/gates/${gateId}/guide`, { token });
+export const listenOfNode = (token: string, nodeId: number) => apiRequest<ListenView>(`/api/play/nodes/${nodeId}/listen`, { token });
+export const lessonCheck = (token: string, nodeId: number, questionId: number, answer: unknown) => apiRequest<LessonCheckResult>(`/api/play/nodes/${nodeId}/lesson/check`, { token, body: { question_id: questionId, answer } });
 export const lessonOfNode = (token: string, nodeId: number) => apiRequest<LessonView>(`/api/play/nodes/${nodeId}/lesson`, { token });
 export const lessonProgress = (token: string, nodeId: number, readPercent: number) => apiRequest<{ read_percent: number }>(`/api/play/nodes/${nodeId}/lesson/progress`, { token, body: { read_percent: readPercent } });
 export const completeLesson = (token: string, nodeId: number, answers: Array<{ question_id: number; answer: unknown }>) => apiRequest<LessonCompletion>(`/api/play/nodes/${nodeId}/lesson/complete`, { token, body: { answers } });

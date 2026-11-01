@@ -12,7 +12,7 @@ import { DAILY_GOALS, GameSettings, LEAGUE_TIERS, SettingsService } from './sett
 export interface PlayerRow {
   user_id: number; class_id: number | null; hearts: number; hearts_at: Date; gold: number; xp: number; level: number; daily_goal: number; streak_current: number; streak_longest: number;
   streak_last_day: string | null; freezes: number; appearance: Record<string, number | null>; last_gift_day: string | null; gift_streak: number; league_tier: number;
-  ap: number; ap_day: string | null; buffs: Record<string, number>;
+  ap: number; ap_day: string | null; buffs: Record<string, number>; binh_thu: number;
 }
 interface LevelRow { level: number; title: string; xp_required: number; reward_gold: number }
 interface ItemRow { id: number; code: string; kind: string; name: string; description: string | null; icon: string; color: string; price: number; min_level: number; sort_order: number; is_active: boolean }
@@ -200,6 +200,30 @@ export class GameService {
     if (!ins.length) return false;
     await q('UPDATE hk_players SET gold = gold + $2, updated_at = now() WHERE user_id = $1', [user.id, delta]);
     return true;
+  }
+
+  /** Binh thư (tài nguyên nâng cấp thẻ tướng): sổ cái riêng, mỗi khoản (lý do, đối tượng) chỉ ghi một lần. Trả true nếu thật sự cộng. */
+  async addBinhThu(q: Q, user: UserRow, delta: number, reason: string, refKey: string): Promise<boolean> {
+    if (delta === 0) return false;
+    await this.ensurePlayer(q, user);
+    const ins = await q('INSERT INTO hk_binh_thu_ledger (user_id, delta, reason, ref_key, created_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING RETURNING id', [user.id, delta, reason, refKey, this.clock.now()]);
+    if (!ins.length) return false;
+    await q('UPDATE hk_players SET binh_thu = binh_thu + $2, updated_at = now() WHERE user_id = $1', [user.id, delta]);
+    return true;
+  }
+
+  /** Số Binh thư của một nút khi hoàn thành lần đầu: giá trị riêng của nút nếu có (kể cả 0), không thì mức mặc định theo loại nút */
+  async binhThuFor(kind: string, override: number | null | undefined): Promise<number> {
+    if (override !== null && override !== undefined) return override;
+    const b = (await this.settings.get()).binh_thu;
+    switch (kind) {
+      case 'practice': return b.practice_first;
+      case 'gate_test': return b.gate_test_first;
+      case 'battle': return b.battle_first;
+      case 'final': return b.final_first;
+      case 'chest': return b.chest_default;
+      default: return b.node_first;
+    }
   }
 
   async celebrate(q: Q, user: UserRow, kind: string, payload: Record<string, unknown>): Promise<void> {
@@ -567,7 +591,7 @@ export class GameService {
       const active = Boolean(p.streak_last_day) && p.streak_current > 0;
       return {
         user: { id: user.id, name: user.nickname || user.full_name },
-        class: cls, has_character: Boolean(p.class_id), appearance: await this.appearance(q, p), gold: p.gold, xp: p.xp, hints, pending_drops: drops, unseen_celebrations: unseen,
+        class: cls, has_character: Boolean(p.class_id), appearance: await this.appearance(q, p), gold: p.gold, binh_thu: p.binh_thu, xp: p.xp, hints, pending_drops: drops, unseen_celebrations: unseen,
         level: { level: cur?.level ?? 1, title: cur?.title ?? '', xp: p.xp, floor: cur?.xp_required ?? 0, next_xp: next?.xp_required ?? null, next_title: next?.title ?? null,
           progress: next ? Math.round(((p.xp - (cur?.xp_required ?? 0)) / Math.max(1, next.xp_required - (cur?.xp_required ?? 0))) * 100) : 100 },
         hearts: await this.heartsInfo(q, user, p),

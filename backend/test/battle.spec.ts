@@ -4,7 +4,7 @@
  * HTTP thật trên PostgreSQL tạm; nội dung khởi tạo của migration 019 và 023 được giữ lại.
  */
 import { call, hasPostgres, Started, startApp } from './harness';
-import { bootstrap, Fixture, publish } from './fixture';
+import { bootstrap, Fixture, flattenSeedJourneys, publish } from './fixture';
 import type { DatabaseService } from '../src/database/database.service';
 import type { GameClock } from '../src/game/clock';
 
@@ -61,6 +61,7 @@ async function doLesson(token: string, nodeId: number) {
     clock = s.moduleRef.get((await import('../src/game/clock')).GameClock);
     const rootToken = (await call(s.base, 'POST', '/api/auth/login', { username: 'admin', password: 'admin@123', portal: 'root_admin' })).body.token;
     f = await bootstrap(s, rootToken, true);
+    await flattenSeedJourneys(s.url);
     for (const row of await db.query<{ id: number; qtype: string; data: any }>('SELECT id, qtype, data FROM hk_questions')) keys.set(row.id, row);
   });
   afterAll(async () => { clock?.reset(); await s?.close(); });

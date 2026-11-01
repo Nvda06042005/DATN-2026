@@ -3,8 +3,8 @@
  * bản đồ tương tác, kho tư liệu, nhiệm vụ, lịch sử làm bài, lớp học (đội, bài tập, kỹ năng, thông báo). Mọi tính điểm và mở khóa do máy chủ quyết định.
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
-import { Award, BookMarked, History as HistoryIcon, Library as LibraryIcon, ListChecks, Map as MapIcon, Radio, Route, ScrollText, Shield, Swords, Trophy, UserRound, Users } from 'lucide-react-native';
+import { ScrollView, View, useWindowDimensions } from 'react-native';
+import { BookMarked } from 'lucide-react-native';
 import { useLocalSearchParams } from 'expo-router';
 import * as api from '@/api/learningApi';
 import * as game from '@/api/gameApi';
@@ -16,41 +16,30 @@ import { CelebrationHost, CharacterSetup, ShareSheet } from '@/components/portal
 import { ClassTab, NoticeBell, type ClassSection } from '@/components/portal/ClassTab';
 import { LivePlay } from '@/components/portal/LivePlay';
 import { LiveTab } from '@/components/portal/LiveTab';
-import { CharacterTab, CollectionTab, RankingTab } from '@/components/portal/GameTabs';
+import { CharacterTab, CollectionTab, RankingTab, ShopTab } from '@/components/portal/GameTabs';
 import { HudBar } from '@/components/portal/GameKit';
+import { LearningPathTab, PracticeTab } from '@/components/portal/LearningPath';
 import { DetailSheet, LibraryTab, MapTab, SourcesTab, TimelineTab } from '@/components/portal/Library';
 import { LessonReader, Overlay } from '@/components/portal/LessonReader';
+import { LessonSteps, ListenPlayer, Rewards } from '@/components/portal/LessonSteps';
 import { MiniScreen } from '@/components/portal/MiniGames';
 import { MyTab, QuestsTab } from '@/components/portal/Progress';
 import { QuizPlayer, ReviewScreen } from '@/components/portal/QuizPlayer';
 import { CampaignMapView, HomeTab, type NodeActions } from '@/components/portal/QuestMap';
+import { StudentNav, type Dots, type Tab } from '@/components/portal/StudentNav';
 import { Btn, PaperBg, Sheet, Spinner, Stars, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
-import type { IconType } from '@/types/game';
 import type { MyAssignment, Notice } from '@/types/classroom';
 import type { Hud } from '@/types/gamification';
-import type { AttemptState, AttemptSummary, NodeResult } from '@/types/learning';
+import type { AttemptState, AttemptSummary, MenuDots, NodeResult } from '@/types/learning';
 
-type Tab = 'home' | 'library' | 'timeline' | 'map' | 'sources' | 'quests' | 'class' | 'live' | 'battles' | 'character' | 'collection' | 'ranking' | 'mine';
-const TABS: Array<{ id: Tab; label: string; icon: IconType }> = [
-  { id: 'home', label: 'Hành trình', icon: Route },
-  { id: 'library', label: 'Thư viện', icon: LibraryIcon },
-  { id: 'timeline', label: 'Dòng thời gian', icon: HistoryIcon },
-  { id: 'map', label: 'Bản đồ', icon: MapIcon },
-  { id: 'sources', label: 'Tư liệu', icon: ScrollText },
-  { id: 'quests', label: 'Nhiệm vụ', icon: ListChecks },
-  { id: 'class', label: 'Lớp học', icon: Users },
-  { id: 'live', label: 'Thi đấu', icon: Radio },
-  { id: 'battles', label: 'Trận đánh', icon: Swords },
-  { id: 'character', label: 'Nhân vật', icon: Shield },
-  { id: 'collection', label: 'Bộ sưu tập', icon: Award },
-  { id: 'ranking', label: 'Xếp hạng', icon: Trophy },
-  { id: 'mine', label: 'Của em', icon: UserRound },
-];
 const VIEW_EVENT: Partial<Record<Tab, string>> = { library: 'view_library', timeline: 'view_timeline', map: 'view_map' };
+/** Màn hình có bố cục sidebar từ chiều rộng này */
+const WIDE = 900;
 
 type Overlayed =
-  | { kind: 'lesson'; nodeId: number; title: string; assignmentId?: number }
+  | { kind: 'lesson'; nodeId: number; title: string; assignmentId?: number; scroll?: boolean }
+  | { kind: 'listen'; nodeId: number; title: string }
   | { kind: 'quiz'; attempt: AttemptState; title: string; nodeId: number | null; assignmentId?: number }
   | { kind: 'review'; id: number }
   | { kind: 'battle'; scenarioId: number; title: string; restart?: boolean }
@@ -64,7 +53,10 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const { token } = session;
   // Mã QR của phòng thi mở trang này kèm ?pin=…: vào thẳng tab Thi đấu với mã đã điền sẵn
   const { pin: linkPin } = useLocalSearchParams<{ pin?: string }>();
-  const [tab, setTab] = useState<Tab>(typeof linkPin === 'string' && /^\d{6}$/.test(linkPin) ? 'live' : 'home');
+  const [tab, setTab] = useState<Tab>(typeof linkPin === 'string' && /^\d{6}$/.test(linkPin) ? 'live' : 'learn');
+  const { width } = useWindowDimensions();
+  const wide = width >= WIDE;
+  const [dots, setDots] = useState<MenuDots>({ practice: 0, live: 0 });
   const [campaignId, setCampaignId] = useState<number | null>(null);
   const [classSection, setClassSection] = useState<ClassSection>('classes');
   const [focusNode, setFocusNode] = useState<number | null>(null);
@@ -80,6 +72,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
 
   useEffect(() => { const e = VIEW_EVENT[tab]; if (e) api.viewEvent(token, e); }, [tab, token]);
   useEffect(() => { loadHud(); }, [loadHud, refreshKey]);
+  useEffect(() => { api.menuDots(token).then(setDots).catch(() => undefined); }, [token, refreshKey, tab]);
 
   const openShare = async () => {
     const counts = await guarded(async () => { const [b, c] = await Promise.all([game.gameBadges(token), game.gameCards(token)]); return { badges: b.filter((x) => x.earned).length, cards: c.owned }; });
@@ -97,6 +90,10 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
     if (attempt) setOverlay({ kind: 'quiz', attempt, title, nodeId });
   }, [guarded, token]);
 
+  const select = (t: Tab) => { setTab(t); if (t === 'home') { setCampaignId(null); setFocusNode(null); } };
+  // Chấm đỏ của thanh menu: câu cần luyện lại, thẻ chưa lật, phòng thi đang mở
+  const navDots: Dots = { practice: dots.practice, collection: hud?.pending_drops ?? 0, live: dots.live };
+
   const actions: NodeActions = {
     onLesson: (n) => setOverlay({ kind: 'lesson', nodeId: n.id, title: n.title }),
     onQuiz: (n) => startQuiz(n.id, n.title),
@@ -109,6 +106,12 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
     },
     onOpenDetail: open,
     onSim: (n) => setOverlay({ kind: 'battle', scenarioId: n.scenarioId, title: n.title }),
+    onListen: (n) => setOverlay({ kind: 'listen', nodeId: n.id, title: n.title }),
+    // Mở rương: máy chủ trao vàng và Binh thư một lần rồi mở nút kế tiếp
+    onChest: async (n) => {
+      const res = await guarded(() => api.completeNode(token, n.id));
+      if (res) { setDone(res); bump(); }
+    },
   };
 
   // Bài tập của lớp (HK.HS.101): máy chủ tính lượt và hạn nộp; bộ đề mở lượt làm, mini-game và bài học tự xin dữ liệu khi mở
@@ -140,24 +143,18 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
     <View style={{ flex: 1 }}>
       <PaperBg />
       <TopBar session={session} subtitle="Học lịch sử cùng Hào Khí Đông A" />
-      {hud && !hud.has_character ? <CharacterSetup session={session} onDone={(next) => { setHud(next); bump(); }} /> : (<>
-      <View accessibilityRole="tablist" accessibilityLabel="Các mục học tập" style={{ backgroundColor: c.the, borderBottomWidth: 2, borderBottomColor: c.vien, flexDirection: 'row', alignItems: 'center' }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8, gap: 8 }}>
-          {TABS.map((t) => {
-            const on = t.id === tab, Icon = t.icon;
-            return (
-              <Pressable key={t.id} testID={`student-tab-${t.id}`} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => { setTab(t.id); if (t.id === 'home') { setCampaignId(null); setFocusNode(null); } }}
-                style={{ minHeight: 44, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 999, borderWidth: 2, borderColor: on ? c.ngoc : c.vien, backgroundColor: on ? c.ngocNhat : c.the }}>
-                <Icon size={18} color={on ? c.ngocChu : c.muc2} />
-                <Txt f={on ? 'bold' : 'semibold'} size={14} color={on ? c.ngocChu : c.muc2}>{t.label}</Txt>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+      {hud && !hud.has_character ? <CharacterSetup session={session} onDone={(next) => { setHud(next); bump(); }} /> : (
+      <View style={{ flex: 1, flexDirection: wide ? 'row' : 'column' }}>
+      {wide ? <StudentNav tab={tab} wide dots={navDots} onSelect={select} /> : null}
+      <View style={{ flex: 1 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: c.the2 }}>
+        <View style={{ flex: 1 }}><HudBar hud={hud} /></View>
         <NoticeBell session={session} refreshKey={refreshKey} onGo={goNotice} />
       </View>
-      <HudBar hud={hud} />
+      {tab === 'learn' ? <LearningPathTab session={session} refreshKey={refreshKey} actions={actions} /> : (
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 56, maxWidth: 880, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+        {tab === 'practice' ? <PracticeTab session={session} refreshKey={refreshKey} onPractice={startPractice} onGoLearn={() => setTab('learn')} onGoBattles={() => setTab('battles')} /> : null}
+        {tab === 'shop' ? <ShopTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
         {tab === 'home' ? (
           campaignId === null
             ? <HomeTab session={session} refreshKey={refreshKey} onOpenCampaign={(id) => { setCampaignId(id); setFocusNode(null); }} onPractice={startPractice} onNode={(cid, nid) => { setCampaignId(cid); setFocusNode(nid); }} />
@@ -176,10 +173,23 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
         {tab === 'ranking' ? <RankingTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
         {tab === 'mine' ? <MyTab session={session} refreshKey={refreshKey} onPractice={startPractice} onReview={(id) => setOverlay({ kind: 'review', id })} onOpen={open} /> : null}
       </ScrollView>
-      </>)}
+      )}
+      </View>
+      {!wide ? <StudentNav tab={tab} wide={false} dots={navDots} onSelect={select} /> : null}
+      </View>
+      )}
 
-      {overlay?.kind === 'lesson' ? (
+      {overlay?.kind === 'lesson' && (overlay.assignmentId || overlay.scroll) ? (
         <LessonReader session={session} nodeId={overlay.nodeId} assignmentId={overlay.assignmentId} title={overlay.title} onOpenLink={open} onClose={(changed) => { setOverlay(null); if (changed) bump(); }} />
+      ) : null}
+      {overlay?.kind === 'lesson' && !overlay.assignmentId && !overlay.scroll ? (
+        <LessonSteps session={session} nodeId={overlay.nodeId} title={overlay.title} onOpenLink={open} onGameChanged={loadHud}
+          onScrollMode={() => setOverlay({ ...overlay, scroll: true })} onClose={(changed) => { setOverlay(null); if (changed) bump(); }} />
+      ) : null}
+      {overlay?.kind === 'listen' ? (
+        <ListenPlayer session={session} nodeId={overlay.nodeId} title={overlay.title} onClose={(changed) => { setOverlay(null); if (changed) bump(); }}
+          onQuiz={() => { const { nodeId, title } = overlay; setOverlay(null); void startQuiz(nodeId, title); }}
+          onDone={(res) => { setOverlay(null); setDone(res); bump(); }} />
       ) : null}
       {overlay?.kind === 'quiz' ? (
         <Overlay title={overlay.title} onBack={() => { setOverlay(null); bump(); }}>
@@ -226,9 +236,7 @@ const NodeDoneSheet: React.FC<{ result: NodeResult; onClose: () => void; onOpen:
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>{result.unlocked_sources.map((s) => <Btn key={s.id} icon={BookMarked} title={s.title} tone="dong" size="sm" onPress={() => onOpen(s.id)} />)}</View>
           </View>
         ) : null}
-        {result.rewards && (result.rewards.gold || result.rewards.card || result.rewards.badge) ? (
-          <Txt f="bold" size={15} color={c.dongChu} center>Thưởng riêng của nút: {[result.rewards.gold ? `+${result.rewards.gold} vàng` : '', result.rewards.card ? 'một thẻ nhân vật (xem ở Bộ sưu tập)' : '', result.rewards.badge ? `huy hiệu “${result.rewards.badge}”` : ''].filter(Boolean).join(', ')}</Txt>
-        ) : null}
+        <Rewards node={result} />
         {result.next_node ? <Txt size={14} color={c.muc2} center>Nút tiếp theo đã mở: {result.next_node.title}</Txt> : null}
         {result.journey_completed ? <Txt f="bold" size={15} color={c.ngocChu} center>Em đã hoàn thành cả hành trình!</Txt> : null}
       </View>

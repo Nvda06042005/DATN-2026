@@ -5,7 +5,7 @@
  */
 import React, { useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
-import { BookOpen, Castle, CircleHelp, Crown, Flag, Lock, Map as MapIcon, PawPrint, Play, RotateCcw, ScrollText, Ship, Star, Swords, Trophy, Check } from 'lucide-react-native';
+import { BookOpen, Castle, CircleHelp, Crown, Dumbbell, Flag, Gift, Headphones, Lock, Map as MapIcon, PawPrint, Play, RotateCcw, ScrollText, Ship, Star, Swords, Trophy, Check } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import { ErrorNote, useLoad } from '@/components/admin/kit';
 import { MapGraph } from '@/components/portal/MapGraph';
@@ -15,11 +15,11 @@ import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
 import type { CampaignCard, MapNode, NodeDetail, NodeIcon, NodeState } from '@/types/learning';
 
-const NODE_ICON: Record<NodeIcon, IconType> = {
+export const NODE_ICON: Record<NodeIcon, IconType> = {
   book: BookOpen, quiz: CircleHelp, sword: Swords, scroll: ScrollText, flag: Flag, star: Star, castle: Castle, ship: Ship, horse: PawPrint, map: MapIcon, crown: Crown,
+  headphones: Headphones, dumbbell: Dumbbell, chest: Gift, trophy: Trophy,
 };
-const STATE_TEXT: Record<NodeState, string> = { done: 'Đã hoàn thành', available: 'Đang mở', locked: 'Chưa mở' };
-
+export const STATE_TEXT: Record<NodeState, string> = { done: 'Đã hoàn thành', available: 'Đang mở', locked: 'Chưa mở' };
 /** Hành trình theo thứ tự (mỗi nút chỉ sau nút trước, không đặt vị trí) vẽ thành danh sách dọc; ngược lại vẽ thành bản đồ rẽ nhánh */
 const isGraph = (nodes: MapNode[]): boolean => nodes.some((n, i) => n.pos_x !== null || n.preds.length !== (i === 0 ? 0 : 1) || (i > 0 && n.preds[0] !== nodes[i - 1].id));
 
@@ -30,6 +30,9 @@ export interface NodeActions {
   onRead: (node: { id: number; title: string; kind: 'battle' | 'source'; refId: number; done: boolean }) => void;
   onOpenDetail: (type: string, id: number) => void;
   onSim: (node: { id: number; title: string; scenarioId: number }) => void;
+  /** Lộ trình dạng đường đi (ver0.2): nghe kể chuyện và mở rương */
+  onListen: (node: { id: number; title: string }) => void;
+  onChest: (node: { id: number; title: string }) => void;
 }
 
 // ---------------------------------------------------------------------- trang chủ
@@ -185,7 +188,7 @@ const NodeRow: React.FC<{ node: MapNode; last: boolean; current: boolean; learne
 };
 
 // ---------------------------------------------------------------------- chi tiết nút (HK.HS.021–022)
-const NodeSheet: React.FC<{ session: Session; nodeId: number; refreshKey: number; actions: NodeActions; onClose: () => void }> = ({ session, nodeId, refreshKey, actions, onClose }) => {
+export const NodeSheet: React.FC<{ session: Session; nodeId: number; refreshKey: number; actions: NodeActions; onClose: () => void }> = ({ session, nodeId, refreshKey, actions, onClose }) => {
   const { c } = useTheme();
   const detail = useLoad(() => api.nodeDetail(session.token, nodeId), [session.token, nodeId, refreshKey], session.expired);
   const d = detail.data;
@@ -193,15 +196,20 @@ const NodeSheet: React.FC<{ session: Session; nodeId: number; refreshKey: number
     const ref = { id: d.id, title: d.title };
     onClose();
     if (d.kind === 'lesson') actions.onLesson(ref);
+    else if (d.kind === 'listen') actions.onListen(ref);
+    else if (d.kind === 'chest') actions.onChest(ref);
     else if (d.kind === 'battle' && d.has_sim && d.scenario_id) actions.onSim({ ...ref, scenarioId: d.scenario_id });
     else if (d.needs_quiz) actions.onQuiz(ref);
     else if (d.kind === 'battle' && d.content?.battle) actions.onRead({ ...ref, kind: 'battle', refId: d.content.battle.id, done: d.state === 'done' });
     else if (d.kind === 'source' && d.content?.source) actions.onRead({ ...ref, kind: 'source', refId: d.content.source.id, done: d.state === 'done' });
   };
-  const verb = !d ? '' : d.kind === 'lesson' ? 'Đọc bài học' : d.kind === 'battle' && d.has_sim ? (d.state === 'done' ? 'Chơi lại mô phỏng' : 'Vào trận mô phỏng') : d.needs_quiz ? (d.state === 'done' ? 'Chơi lại' : 'Bắt đầu') : d.kind === 'battle' ? 'Đọc hồ sơ trận đánh' : 'Đọc tư liệu';
+  const done = d?.state === 'done';
+  const verb = !d ? '' : d.kind === 'lesson' ? (done ? 'Học lại' : 'Bắt đầu học') : d.kind === 'listen' ? 'Nghe kể chuyện' : d.kind === 'chest' ? (done ? 'Rương đã mở' : 'Mở rương')
+    : d.kind === 'practice' ? 'Luyện tập' : d.kind === 'gate_test' ? (done ? 'Làm lại bài kiểm tra' : 'Làm bài kiểm tra')
+      : d.kind === 'battle' && d.has_sim ? (done ? 'Chơi lại mô phỏng' : 'Vào trận mô phỏng') : d.needs_quiz ? (done ? 'Chơi lại' : 'Bắt đầu') : d.kind === 'battle' ? 'Đọc hồ sơ trận đánh' : 'Đọc tư liệu';
   return (
-    <Sheet open onClose={onClose} title={d?.title ?? 'Chi tiết nút'} subtitle={d ? `${d.kind_label} · ${STATE_TEXT[d.state]}` : undefined}
-      footer={d ? <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}><Btn title="Đóng" tone="giay" onPress={onClose} /><Btn icon={d.state === 'done' ? RotateCcw : Play} title={verb} tone="ngoc" disabled={!d.can_start} onPress={() => go(d)} testID="node-start" /></View> : undefined}>
+    <Sheet open onClose={onClose} title={d?.title ?? 'Chi tiết nút'} subtitle={d ? `${d.kind_label}${d.gate ? ` · ${d.gate.title}` : ''} · ${STATE_TEXT[d.state]}` : undefined}
+      footer={d ? <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}><Btn title="Đóng" tone="giay" onPress={onClose} /><Btn icon={done ? RotateCcw : Play} title={verb} tone="ngoc" disabled={!d.can_start || (d.kind === 'chest' && done)} onPress={() => go(d)} testID="node-start" /></View> : undefined}>
       <ErrorNote message={detail.error} />
       {detail.loading && !d ? <Spinner /> : null}
       {d ? (
@@ -216,10 +224,15 @@ const NodeSheet: React.FC<{ session: Session; nodeId: number; refreshKey: number
           ) : null}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
             <View><Txt size={12} color={c.muc3}>Số sao đạt được</Txt><Stars n={d.stars} size={24} /></View>
+            {d.question_count ? <View><Txt size={12} color={c.muc3}>Số câu hỏi</Txt><Txt f="bold" size={18}>{d.question_count}</Txt></View> : null}
             <View><Txt size={12} color={c.muc3}>Điểm thưởng</Txt><Txt f="bold" size={18} color={c.dongChu}>+{d.reward_points}</Txt></View>
+            {d.reward_binh_thu ? <View><Txt size={12} color={c.muc3}>Binh thư</Txt><Txt f="bold" size={18} color={c.thuyChu}>+{d.reward_binh_thu}</Txt></View> : null}
             {d.attempts ? <View><Txt size={12} color={c.muc3}>Điểm cao nhất</Txt><Txt f="bold" size={18}>{d.best_percent}%</Txt></View> : null}
           </View>
-          {d.content?.lesson ? <Txt size={14} color={c.muc2}>Bài học khoảng {d.content.lesson.read_minutes} phút, kèm câu kiểm tra nhanh cuối bài.</Txt> : null}
+          {d.content?.lesson ? <Txt size={14} color={c.muc2}>Bài học khoảng {d.content.lesson.read_minutes} phút, xen kẽ thẻ kiến thức và câu hỏi kiểm tra nhanh.</Txt> : null}
+          {(d.kind === 'practice' || d.kind === 'gate_test') && !d.content?.quiz ? <Txt size={14} color={c.muc2}>Câu hỏi lấy ngẫu nhiên từ những gì em đã học trong cửa. {d.kind === 'gate_test' ? `Cần đạt từ ${d.pass_percent ?? 70}% để qua cửa và mở cửa kế tiếp.` : 'Làm đúng ít nhất một câu là hoàn thành; làm sai không mất tim.'}</Txt> : null}
+          {d.kind === 'listen' ? <Txt size={14} color={c.muc2}>Nghe một đoạn kể lịch sử có phụ đề{d.has_quiz ? ', sau đó trả lời câu hỏi về nội dung vừa nghe' : ''}.</Txt> : null}
+          {d.kind === 'chest' ? <Txt size={14} color={c.muc2}>Mở rương để nhận phần thưởng. Mỗi rương chỉ mở một lần.</Txt> : null}
           {d.content?.quiz ? <Txt size={14} color={c.muc2}>{d.content.quiz.questions} câu · khoảng {Math.ceil(d.content.quiz.total_seconds / 60)} phút · cần đạt {d.pass_percent ?? d.content.quiz.pass_percent}% để hoàn thành. Trả lời đúng và nhanh được thưởng thêm điểm.</Txt> : null}
           {d.content?.battle ? <Txt size={14} color={c.muc2}>Trận đánh: {d.content.battle.name} ({d.content.battle.year})</Txt> : null}
           {d.unlocks.length ? (

@@ -72,7 +72,7 @@ async function playQuiz(start: any) {
       expect((await api('PATCH', `/api/content/journeys/${journey.id}/default`, { value: true }, f.root)).body.is_default).toBe(true);
     }
     const home = await api('GET', '/api/play/home');
-    expect(home.body.campaigns.map((c: any) => [c.nodes, c.percent])).toEqual([[4, 0], [6, 0], [4, 0]]);
+    expect(home.body.campaigns.map((c: any) => [c.nodes, c.percent])).toEqual([[9, 0], [11, 0], [9, 0]]);
     expect(home.body.campaigns.every((c: any) => c.journey?.title)).toBe(true);
   });
 

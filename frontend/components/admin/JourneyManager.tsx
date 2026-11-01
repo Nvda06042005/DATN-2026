@@ -15,10 +15,16 @@ import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, Page, Page
 import type { Session } from '@/components/auth';
 import { Btn, Card, ConfirmSheet, Field, Inset, Segmented, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
-import type { JourneyDetail, JourneyItem, JourneyNode } from '@/types/learning';
+import type { Gate, JourneyDetail, JourneyItem, JourneyNode } from '@/types/learning';
 import { NODE_ICONS, NODE_KIND_TEXT } from '@/types/learning';
 
-const ICON_TEXT: Record<string, string> = { book: 'Sách', quiz: 'Dấu hỏi', sword: 'Gươm', scroll: 'Cuộn tư liệu', flag: 'Cờ', star: 'Sao', castle: 'Thành', ship: 'Thuyền', horse: 'Ngựa', map: 'Bản đồ', crown: 'Vương miện' };
+const ICON_TEXT: Record<string, string> = {
+  book: 'Sách', quiz: 'Dấu hỏi', sword: 'Gươm', scroll: 'Cuộn tư liệu', flag: 'Cờ', star: 'Sao', castle: 'Thành', ship: 'Thuyền', horse: 'Ngựa', map: 'Bản đồ', crown: 'Vương miện',
+  headphones: 'Tai nghe', dumbbell: 'Tạ', chest: 'Rương', trophy: 'Cúp',
+};
+/** Loại nút kèm bộ câu hỏi tùy chọn (nút câu hỏi và Quyết chiến bắt buộc có bộ câu hỏi riêng) */
+const OPTIONAL_QUIZ = ['battle', 'listen', 'gate_test'];
+const WITH_PASS = ['quiz', 'final', 'battle', 'gate_test', 'practice'];
 
 // ---------------------------------------------------------------------- biểu mẫu nút
 const NodeForm: React.FC<{ session: Session; journey: JourneyDetail; node?: JourneyNode; onClose: () => void; onSaved: (j: JourneyDetail) => void }> = ({ session, journey, node, onClose, onSaved }) => {
@@ -35,18 +41,24 @@ const NodeForm: React.FC<{ session: Session; journey: JourneyDetail; node?: Jour
     { name: 'lesson_id', label: 'Bài học', type: 'select', required: true, options: [{ value: '', label: '— Chọn bài học —' }, ...(lessons.data ?? []).map((l) => ({ value: String(l.id), label: `${l.title}${l.status === 'draft' ? ' (nháp)' : ''}` }))], when: (v) => (node?.kind ?? v.kind) === 'lesson' },
     { name: 'quiz_id', label: 'Bộ câu hỏi', type: 'select', required: true, options: [{ value: '', label: '— Chọn bộ đề —' }, ...quizOptions], when: (v) => ['quiz', 'final'].includes(String(node?.kind ?? v.kind)) },
     { name: 'battle_id', label: 'Trận đánh', type: 'select', required: true, options: [{ value: '', label: '— Chọn trận đánh —' }, ...(battles.data ?? []).map((b) => ({ value: String(b.id), label: `${b.label}${b.status !== 'published' ? ' (chưa công bố)' : ''}` }))], when: (v) => (node?.kind ?? v.kind) === 'battle' },
-    { name: 'battle_quiz_id', label: 'Bộ câu hỏi sau trận đánh (tùy chọn)', type: 'select', options: [{ value: '', label: '— Không có bộ câu hỏi —' }, ...quizOptions], when: (v) => (node?.kind ?? v.kind) === 'battle' },
+    { name: 'battle_quiz_id', label: 'Bộ câu hỏi đi kèm (tùy chọn)', type: 'select', options: [{ value: '', label: '— Không có bộ câu hỏi riêng —' }, ...quizOptions], when: (v) => OPTIONAL_QUIZ.includes(String(node?.kind ?? v.kind)),
+      hint: 'Trận đánh: câu hỏi sau trận. Nghe kể chuyện: câu hỏi về nội dung vừa nghe. Kiểm tra cuối cửa: để trống thì tự lấy câu hỏi từ các nút trong cửa.' },
+    { name: 'transcript', label: 'Lời kể (mỗi dòng là một đoạn phụ đề, tối đa 4000 ký tự)', type: 'textarea', when: (v) => (node?.kind ?? v.kind) === 'listen', hint: 'Máy đọc tiếng Việt trên thiết bị nếu không có âm thanh thu sẵn.' },
+    { name: 'audio_url', label: 'Âm thanh thu sẵn (liên kết https, tùy chọn)', when: (v) => (node?.kind ?? v.kind) === 'listen' },
+    { name: 'gate_id', label: 'Thuộc Cửa', type: 'select', options: [{ value: '', label: '— Không thuộc cửa nào —' }, ...journey.gates.map((g) => ({ value: String(g.id), label: g.title }))],
+      hint: 'Nút luyện tập và kiểm tra cuối cửa lấy câu hỏi từ các bài học và bộ câu hỏi cùng Cửa; nút mới của một Cửa nối vào cuối Cửa đó.' },
     { name: 'source_id', label: 'Tư liệu', type: 'select', required: true, options: [{ value: '', label: '— Chọn tư liệu —' }, ...(sources.data ?? []).map((b) => ({ value: String(b.id), label: `${b.label}${b.status !== 'published' ? ' (chưa công bố)' : ''}` }))], when: (v) => (node?.kind ?? v.kind) === 'source' },
     { name: 'title', label: 'Tên nút', hint: 'Để trống sẽ lấy tên của nội dung được chọn' },
     { name: 'icon', label: 'Biểu tượng', type: 'select', options: NODE_ICONS.map((value) => ({ value, label: ICON_TEXT[value] })) },
     { name: 'objective', label: 'Mục tiêu học tập', type: 'textarea' },
     { name: 'reward_points', label: 'Điểm thưởng khi hoàn thành (0–1000)', type: 'number' },
-    { name: 'pass_percent', label: 'Điểm đạt (%) – để trống dùng điểm đạt của bộ đề', type: 'number', when: (v) => ['quiz', 'final', 'battle'].includes(String(node?.kind ?? v.kind)) },
+    { name: 'pass_percent', label: 'Điểm đạt (%) – để trống dùng điểm đạt của bộ đề (kiểm tra cuối cửa mặc định 70%)', type: 'number', when: (v) => WITH_PASS.includes(String(node?.kind ?? v.kind)) },
     { name: 'unlock_source_ids', label: 'Tư liệu được mở khóa khi hoàn thành nút', type: 'multi', options: (sources.data ?? []).map((b) => ({ value: String(b.id), label: b.label })) },
     { name: 'min_percent', label: 'Điều kiện mở: điểm tối thiểu (%) ở nút trước (1–100, để trống nếu không cần)', type: 'number' },
     { name: 'min_stars', label: 'Điều kiện mở: số sao tối thiểu ở nút trước (1–3)', type: 'number' },
     { name: 'opens_at', label: 'Điều kiện mở: ngày giờ mở (giờ Việt Nam, để trống nếu mở ngay)', placeholder: '2026-11-20 07:00' },
     { name: 'reward_gold', label: 'Thưởng riêng: vàng (0–1000, nhận một lần)', type: 'number' },
+    { name: 'reward_binh_thu', label: 'Thưởng riêng: Binh thư (0–1000, nhận một lần; để trống dùng mức mặc định theo loại nút)', type: 'number' },
     { name: 'reward_card_id', label: 'Thưởng riêng: thẻ nhân vật', type: 'select', options: [{ value: '', label: '— Không thưởng thẻ —' }, ...(rewards.data?.cards ?? []).map((k) => ({ value: String(k.id), label: k.name }))] },
     { name: 'reward_badge_id', label: 'Thưởng riêng: huy hiệu', type: 'select', options: [{ value: '', label: '— Không thưởng huy hiệu —' }, ...(rewards.data?.badges ?? []).map((k) => ({ value: String(k.id), label: k.name }))] },
   ];
@@ -55,7 +67,8 @@ const NodeForm: React.FC<{ session: Session; journey: JourneyDetail; node?: Jour
     kind: node.kind, title: node.title, icon: node.icon ?? 'star', objective: node.objective ?? '', reward_points: String(node.reward_points), pass_percent: node.pass_percent ? String(node.pass_percent) : '', unlock_source_ids: idsToValues(node.unlocks.map((u) => u.id)),
     min_percent: node.min_percent ? String(node.min_percent) : '', min_stars: node.min_stars ? String(node.min_stars) : '', opens_at: node.opens_at ? toVn(node.opens_at) : '', reward_gold: String(node.reward_gold),
     reward_card_id: node.reward_card_id ? String(node.reward_card_id) : '', reward_badge_id: node.reward_badge_id ? String(node.reward_badge_id) : '',
-  } : { kind: 'lesson', icon: 'book', reward_points: '50', lesson_id: '', quiz_id: '', battle_id: '', source_id: '', battle_quiz_id: '', unlock_source_ids: [] as string[], min_percent: '', min_stars: '', opens_at: '', reward_gold: '0', reward_card_id: '', reward_badge_id: '' };
+    gate_id: node.gate_id ? String(node.gate_id) : '', audio_url: node.audio_url ?? '', transcript: node.transcript ?? '', reward_binh_thu: node.reward_binh_thu === null ? '' : String(node.reward_binh_thu),
+  } : { kind: 'lesson', icon: 'book', reward_points: '50', lesson_id: '', quiz_id: '', battle_id: '', source_id: '', battle_quiz_id: '', unlock_source_ids: [] as string[], min_percent: '', min_stars: '', opens_at: '', reward_gold: '0', reward_card_id: '', reward_badge_id: '', gate_id: '', audio_url: '', transcript: '', reward_binh_thu: '' };
   return (
     <FormSheet title={node ? 'Sửa nút' : 'Thêm nút vào bản đồ'} subtitle={journey.title} fields={fields} initial={initial} wide
       onClose={onClose}
@@ -67,9 +80,11 @@ const NodeForm: React.FC<{ session: Session; journey: JourneyDetail; node?: Jour
         const body = {
           min_percent: num(v.min_percent), min_stars: num(v.min_stars), opens_at: opens ? fromVn(opens) : null, reward_gold: num(v.reward_gold) ?? 0, reward_card_id: num(v.reward_card_id), reward_badge_id: num(v.reward_badge_id),
           ...(node ? {} : { kind }), title: String(v.title ?? '').trim() || undefined, icon: String(v.icon || ''), objective: String(v.objective ?? '').trim() || null, reward_points: num(v.reward_points) ?? 50,
-          lesson_id: kind === 'lesson' ? num(v.lesson_id) : undefined, quiz_id: kind === 'battle' ? num(v.battle_quiz_id) : kind === 'quiz' || kind === 'final' ? num(v.quiz_id) : undefined,
+          lesson_id: kind === 'lesson' ? num(v.lesson_id) : undefined, quiz_id: OPTIONAL_QUIZ.includes(kind) ? num(v.battle_quiz_id) : kind === 'quiz' || kind === 'final' ? num(v.quiz_id) : undefined,
           battle_id: kind === 'battle' ? num(v.battle_id) : undefined, source_id: kind === 'source' ? num(v.source_id) : undefined,
-          pass_percent: ['quiz', 'final', 'battle'].includes(kind) ? num(v.pass_percent) : undefined, unlock_source_ids: valuesToIds(v.unlock_source_ids),
+          pass_percent: WITH_PASS.includes(kind) ? num(v.pass_percent) : undefined, unlock_source_ids: valuesToIds(v.unlock_source_ids),
+          gate_id: num(v.gate_id), reward_binh_thu: num(v.reward_binh_thu),
+          ...(kind === 'listen' ? { audio_url: String(v.audio_url ?? '').trim() || null, transcript: String(v.transcript ?? '').trim() || null } : {}),
         };
         onSaved(node ? await api.updateNode(token, node.id, body) : await api.addNode(token, journey.id, body));
       }} />
@@ -106,8 +121,11 @@ const JourneyEditor: React.FC<{ session: Session; id: number; onBack: () => void
   const [schedule, setSchedule] = useState<JourneyDetail['classes'][number] | null>(null);
   const [copying, setCopying] = useState(false);
   const [removing, setRemoving] = useState<JourneyNode | null>(null);
+  const [gateForm, setGateForm] = useState<{ gate?: Gate } | null>(null);
+  const [removingGate, setRemovingGate] = useState<Gate | null>(null);
   const [deleting, setDeleting] = useState(false);
   const j = detail.data;
+  const gateTitle = (id: number | null) => j?.gates.find((g) => g.id === id)?.title ?? null;
   const apply = (next: JourneyDetail) => { detail.setData(next); onChanged(); };
   const campaigns = useCampaignOptions(session);
   const move = async (index: number, delta: number) => {
@@ -182,14 +200,32 @@ const JourneyEditor: React.FC<{ session: Session; id: number; onBack: () => void
             </Card>
           ) : null}
 
+          <Card flat pad={12} style={{ gap: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <Txt f="bold" size={15} style={{ flex: 1 }}>Các Cửa của lộ trình ({j.gates.length})</Txt>
+              {j.can_edit ? <Btn icon={Plus} title="Thêm Cửa" tone="giay" size="sm" onPress={() => setGateForm({})} testID="journey-add-gate" /> : null}
+            </View>
+            <Txt size={12} color={c.muc3}>Mỗi cuộc kháng chiến là một Phần; Cửa là chủ đề nhỏ chứa các nút liên tiếp (bài học, nghe kể chuyện, luyện tập, rương, kiểm tra cuối cửa). Học sinh xem Cẩm nang của từng Cửa, tự tạo từ nhân vật, sự kiện, địa danh gắn với các bài học trong Cửa.</Txt>
+            {!j.gates.length ? <Txt size={13} color={c.muc2}>Chưa chia Cửa: học sinh thấy toàn bộ nút trong một nhóm.</Txt> : null}
+            {j.gates.map((g, i) => (
+              <View key={g.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <View style={{ flex: 1, minWidth: 180 }}>
+                  <Txt f="semibold" size={14}>Cửa {i + 1}: {g.title}</Txt>
+                  <Txt size={12} color={c.muc3}>{j.nodes.filter((n) => n.gate_id === g.id).length} nút{g.summary ? ` · ${g.summary}` : ''}{g.guide_note ? ' · có ghi chú Cẩm nang' : ''}</Txt>
+                </View>
+                {j.can_edit ? <><Btn icon={Pencil} label={`Sửa Cửa ${g.title}`} tone="giay" size="sm" onPress={() => setGateForm({ gate: g })} /><Btn icon={Trash2} label={`Xóa Cửa ${g.title}`} tone="giay" size="sm" onPress={() => setRemovingGate(g)} /></> : null}
+              </View>
+            ))}
+          </Card>
+
           <Txt f="bold" size={16}>Các nút trên bản đồ ({j.nodes.length})</Txt>
           <Segmented label="Cách xem hành trình" options={[{ value: 'list', label: 'Danh sách nút' }, { value: 'map', label: 'Bản đồ rẽ nhánh' }]} value={view} onChange={setView} />
           {view === 'map' ? <JourneyDesigner key={designerKey(j)} session={session} journey={j} onSaved={apply} onEditNode={(nid) => { const target = j.nodes.find((n) => n.id === nid); if (target) setNodeForm({ node: target }); }} /> : null}
           {view === 'list' ? <DataTable<JourneyNode> rows={j.nodes} rowKey={(n) => n.id} empty="Hành trình chưa có nút nào. Bấm “Thêm nút” để bắt đầu." onRowPress={j.can_edit ? (n) => setNodeForm({ node: n }) : undefined}
             columns={[
               { key: 'pos', label: '#', flex: 0.3, render: (n) => <Txt f="bold" size={14}>{n.position}</Txt> },
-              { key: 'title', label: 'Nút', flex: 3, render: (n) => <Cell main={n.title} sub={[n.kind_label, n.lesson_title && n.lesson_title !== n.title ? n.lesson_title : null, n.quiz_title ? `${n.quiz_title} (${n.quiz_questions ?? 0} câu)` : null, n.battle_name, n.source_title && n.source_title !== n.title ? n.source_title : null].filter(Boolean).join(' · ')} /> },
-              { key: 'rule', label: 'Điều kiện / thưởng', flex: 1.8, render: (n) => <Txt size={13}>+{n.reward_points} điểm{n.pass_percent ? ` · đạt ${n.pass_percent}%` : ''}{n.reward_gold ? ` · +${n.reward_gold} vàng` : ''}{n.reward_card_id ? ' · thẻ' : ''}{n.reward_badge_id ? ' · huy hiệu' : ''}{n.min_percent ? ` · mở khi ≥ ${n.min_percent}%` : ''}{n.min_stars ? ` · ≥ ${n.min_stars} sao` : ''}{n.opens_at ? ` · mở ${toVn(n.opens_at)}` : ''}</Txt> },
+              { key: 'title', label: 'Nút', flex: 3, render: (n) => <Cell main={n.title} sub={[n.kind_label, gateTitle(n.gate_id), n.lesson_title && n.lesson_title !== n.title ? n.lesson_title : null, n.quiz_title ? `${n.quiz_title} (${n.quiz_questions ?? 0} câu)` : null, n.battle_name, n.source_title && n.source_title !== n.title ? n.source_title : null].filter(Boolean).join(' · ')} /> },
+              { key: 'rule', label: 'Điều kiện / thưởng', flex: 1.8, render: (n) => <Txt size={13}>+{n.reward_points} điểm{n.pass_percent ? ` · đạt ${n.pass_percent}%` : ''}{n.reward_gold ? ` · +${n.reward_gold} vàng` : ''}{n.reward_binh_thu !== null ? ` · +${n.reward_binh_thu} Binh thư` : ''}{n.reward_card_id ? ' · thẻ' : ''}{n.reward_badge_id ? ' · huy hiệu' : ''}{n.min_percent ? ` · mở khi ≥ ${n.min_percent}%` : ''}{n.min_stars ? ` · ≥ ${n.min_stars} sao` : ''}{n.opens_at ? ` · mở ${toVn(n.opens_at)}` : ''}</Txt> },
               { key: 'unlock', label: 'Mở khóa', flex: 1.5, hideOnCard: !j.nodes.some((n) => n.unlocks.length), render: (n) => <Txt size={13}>{n.unlocks.map((u) => u.title).join(', ') || '—'}</Txt> },
               { key: 'state', label: 'Trạng thái', flex: 1.3, render: (n) => (nodeWarn(n) ? <StatusChip kind="warn" text={nodeWarn(n)} /> : <StatusChip kind="on" text={n.completed ? `${n.completed} học sinh đã xong` : 'Sẵn sàng'} />) },
             ]}
@@ -203,6 +239,19 @@ const JourneyEditor: React.FC<{ session: Session; id: number; onBack: () => void
         </>
       ) : null}
       {nodeForm && j ? <NodeForm session={session} journey={j} node={nodeForm.node} onClose={() => setNodeForm(null)} onSaved={(next) => { setNodeForm(null); apply(next); }} /> : null}
+      {gateForm && j ? (
+        <FormSheet title={gateForm.gate ? 'Sửa Cửa' : 'Thêm Cửa'} subtitle={j.title} wide
+          fields={[{ name: 'title', label: 'Tên Cửa (chủ đề)', required: true }, { name: 'summary', label: 'Mô tả ngắn', type: 'textarea' },
+            { name: 'guide_note', label: 'Ghi chú thêm cho Cẩm nang (hiện cuối Cẩm nang, tối đa 2000 ký tự)', type: 'textarea' }]}
+          initial={{ title: gateForm.gate?.title ?? '', summary: gateForm.gate?.summary ?? '', guide_note: gateForm.gate?.guide_note ?? '' }} onClose={() => setGateForm(null)}
+          onSubmit={async (v) => {
+            const body = { title: String(v.title ?? '').trim(), summary: String(v.summary ?? '').trim() || null, guide_note: String(v.guide_note ?? '').trim() || null };
+            apply(gateForm.gate ? await api.updateGate(token, gateForm.gate.id, body) : await api.addGate(token, j.id, body));
+            setGateForm(null);
+          }} />
+      ) : null}
+      <ConfirmSheet open={!!removingGate} title="Xóa Cửa?" message={`Xóa Cửa “${removingGate?.title ?? ''}”. Các nút trong Cửa vẫn còn, chỉ không thuộc Cửa nào nữa.`} confirmLabel="Xóa Cửa" busy={busy}
+        onCancel={() => setRemovingGate(null)} onConfirm={async () => { if (removingGate) { const next = await run(() => api.removeGate(token, removingGate.id), 'Đã xóa Cửa'); setRemovingGate(null); if (next) apply(next); } }} />
       {meta && j ? (
         <FormSheet title="Thông tin hành trình" fields={[
           { name: 'title', label: 'Tên hành trình', required: true }, { name: 'description', label: 'Mô tả', type: 'textarea' },

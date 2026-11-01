@@ -153,6 +153,16 @@ const ShopCard: React.FC<{ session: Session; hud: Hud; refreshKey: number; onCha
   );
 };
 
+/** Mục "Cửa hàng" riêng của thanh menu chính (HK.HS.125): cùng cửa hàng vật phẩm trong tab Nhân vật */
+export const ShopTab: React.FC<TabProps> = ({ session, hud, refreshKey, onChanged }) => (
+  hud ? (
+    <View style={{ gap: 14 }}>
+      <Txt f="displayHeavy" size={24} accessibilityRole="header">Cửa hàng</Txt>
+      <ShopCard session={session} hud={hud} refreshKey={refreshKey} onChanged={onChanged} />
+    </View>
+  ) : <Spinner />
+);
+
 export const CharacterTab: React.FC<TabProps & { onShare: () => void }> = ({ session, hud, refreshKey, onChanged, onShare }) => {
   const { c } = useTheme();
   const { run } = useAction(session.expired);

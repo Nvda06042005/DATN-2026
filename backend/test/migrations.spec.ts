@@ -167,7 +167,8 @@ describe('file migration', () => {
     expect(await count("SELECT count(*) AS n FROM hk_lessons WHERE status <> 'draft'")).toBe(0);
     expect(await count("SELECT count(*) AS n FROM hk_lesson_checks")).toBe(3);
     expect(await count("SELECT count(*) AS n FROM hk_journeys WHERE scope = 'system' AND status = 'draft' AND NOT is_default")).toBe(3);
-    expect(await count('SELECT count(*) AS n FROM hk_nodes')).toBe(14);
+    // 14 nút của migration 019 + 15 nút lộ trình dạng đường đi của migration 027 (nghe kể chuyện, luyện tập, rương, kiểm tra cuối cửa)
+    expect(await count('SELECT count(*) AS n FROM hk_nodes')).toBe(29);
     expect(await count("SELECT count(*) AS n FROM hk_nodes WHERE kind = 'final' AND pass_percent = 70")).toBe(3);
     expect(await count('SELECT count(*) AS n FROM hk_node_unlocks')).toBe(1);
     expect(await count('SELECT count(*) AS n FROM hk_question_links')).toBeGreaterThan(30);
@@ -252,6 +253,32 @@ describe('file migration', () => {
     expect(idx).toMatch(/WHERE/);
     expect(await count("SELECT count(*) AS n FROM pg_indexes WHERE indexname = 'hk_live_players_nickname'")).toBe(1);
     expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+  });
+
+  test('026–027 thêm Cửa, bốn loại nút mới, Binh thư (có RLS); chia ba hành trình mẫu thành các Cửa mà không đổi trạng thái Nháp hay làm mất nút cũ', async () => {
+    await m.applyMigrations(url, dir);
+    for (const table of ['hk_gates', 'hk_binh_thu_ledger']) {
+      expect((await sql<{ rowsecurity: boolean }>(url, "SELECT c.relrowsecurity AS rowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = $1", [table]))[0].rowsecurity).toBe(true);
+    }
+    const kinds = (await sql<{ def: string }>(url, "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = 'hk_nodes_kind_check'"))[0].def;
+    for (const kind of ['practice', 'listen', 'chest', 'gate_test', 'final']) expect(kinds).toContain(`'${kind}'`);
+    // Hành trình mẫu: vẫn là bản nháp, mỗi hành trình có đúng 2 Cửa, nút cũ còn nguyên, nút Quyết chiến vẫn ở cuối
+    const journeys = await sql<{ id: number; status: string; gates: string; nodes: string; last: string }>(
+      url, `SELECT j.id, j.status, (SELECT count(*) FROM public.hk_gates g WHERE g.journey_id = j.id) AS gates, (SELECT count(*) FROM public.hk_nodes n WHERE n.journey_id = j.id) AS nodes,
+              (SELECT n.kind FROM public.hk_nodes n WHERE n.journey_id = j.id ORDER BY n.position DESC LIMIT 1) AS last FROM public.hk_journeys j WHERE j.scope = 'system' ORDER BY j.id`);
+    expect(journeys).toHaveLength(3);
+    for (const j of journeys) {
+      expect(j.status).toBe('draft');
+      expect(Number(j.gates)).toBe(2);
+      expect(j.last).toBe('final');
+    }
+    expect(journeys.map((j) => Number(j.nodes))).toEqual([9, 11, 9]);
+    // Vị trí liên tục từ 1 và mọi nút của hành trình có Cửa
+    expect(await count("SELECT count(*) AS n FROM (SELECT journey_id, count(*) AS c, max(position) AS mx, min(position) AS mn FROM public.hk_nodes GROUP BY journey_id) x WHERE c <> mx OR mn <> 1")).toBe(0);
+    expect(await count('SELECT count(*) AS n FROM public.hk_nodes WHERE gate_id IS NULL')).toBe(0);
+    // Chạy lại không nhân đôi nút (migration chỉ động vào hành trình chưa chia Cửa)
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+    expect(await count('SELECT count(*) AS n FROM public.hk_gates')).toBe(6);
   });
 
   test('một file lỗi thì hoàn tác cả lô và lịch sử', async () => {

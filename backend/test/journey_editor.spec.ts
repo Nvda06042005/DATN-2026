@@ -4,7 +4,7 @@
  * HTTP thật trên PostgreSQL tạm; nội dung học khởi tạo (migration 019) được công bố để dùng làm nút.
  */
 import { call, hasPostgres, Started, startApp } from './harness';
-import { bootstrap, Fixture, publishSeed } from './fixture';
+import { bootstrap, Fixture, flattenSeedJourneys, publishSeed } from './fixture';
 import type { DatabaseService } from '../src/database/database.service';
 
 let s: Started, f: Fixture, db: DatabaseService;
@@ -55,6 +55,7 @@ async function playNode(who: { token: string }, nodeId: number, right: (index: n
     db = s.moduleRef.get((await import('../src/database/database.service')).DatabaseService);
     const rootToken = (await call(s.base, 'POST', '/api/auth/login', { username: 'admin', password: 'admin@123', portal: 'root_admin' })).body.token;
     f = await bootstrap(s, rootToken, true);
+    await flattenSeedJourneys(s.url);
     await publishSeed(s.base, f.root);
     classId = f.class7a.id;
     for (const row of await db.query<{ id: number; qtype: string; data: any }>('SELECT id, qtype, data FROM hk_questions')) keys.set(row.id, row);
@@ -222,7 +223,7 @@ async function playNode(who: { token: string }, nodeId: number, right: (index: n
     expect((await as(f.S1)('GET', '/api/game/me')).body.gold - goldBefore).toBeGreaterThanOrEqual(30);
     expect([await goldRows(), await cardRows(), await badgeRows()]).toEqual([1, 1, 1]);
     const again = await playNode(f.S1, B, () => true); // chơi lại: không thưởng thêm
-    expect(again.summary.node_result.rewards).toEqual({ gold: 0, card: false, badge: null });
+    expect(again.summary.node_result.rewards).toEqual({ gold: 0, card: false, badge: null, binh_thu: 0 });
     expect([await goldRows(), await cardRows(), await badgeRows()]).toEqual([1, 1, 1]);
     // hành trình đã có học sinh học: không đổi đường nối nhưng vẫn đổi được vị trí
     const layout = (body: unknown) => api('PUT', `/api/content/journeys/${J}/layout`, body);

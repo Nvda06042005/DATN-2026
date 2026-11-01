@@ -11,6 +11,8 @@ export interface GameSettings {
   practice_correct_xp: number;
   daily_goal: { default: 50 | 100 | 200; bonus_gold: number };
   gold: { node_first: number; battle_first: number; final_first: number; perfect_quiz: number; duplicate_card: number };
+  /** Binh thư (tài nguyên nâng cấp thẻ tướng): số nhận khi hoàn thành nút lần đầu theo loại nút; rương dùng chest_default nếu nút không đặt riêng */
+  binh_thu: { node_first: number; practice_first: number; gate_test_first: number; battle_first: number; final_first: number; chest_default: number };
   streak: { freeze_max: number };
   cards: { rates: { common: number; rare: number; legendary: number } };
   hint_max: number;
@@ -25,6 +27,7 @@ export const GAME_DEFAULTS: GameSettings = {
   practice_correct_xp: 10,
   daily_goal: { default: 50, bonus_gold: 5 },
   gold: { node_first: 10, battle_first: 20, final_first: 50, perfect_quiz: 5, duplicate_card: 5 },
+  binh_thu: { node_first: 2, practice_first: 1, gate_test_first: 6, battle_first: 4, final_first: 10, chest_default: 5 },
   streak: { freeze_max: 2 },
   cards: { rates: { common: 70, rare: 25, legendary: 5 } },
   hint_max: 10,
@@ -52,6 +55,12 @@ export const SETTING_RULES: Record<string, Rule> = {
   'gold.final_first': { label: 'Vàng khi thắng trận Quyết chiến lần đầu', int: true, min: 0, max: 10000 },
   'gold.perfect_quiz': { label: 'Vàng khi đạt 100% một bài', int: true, min: 0, max: 10000 },
   'gold.duplicate_card': { label: 'Vàng khi lật trúng thẻ đã có', int: true, min: 0, max: 10000 },
+  'binh_thu.node_first': { label: 'Binh thư khi hoàn thành nút lần đầu (bài học, câu hỏi, tư liệu, nghe kể chuyện)', int: true, min: 0, max: 1000 },
+  'binh_thu.practice_first': { label: 'Binh thư khi hoàn thành nút luyện tập lần đầu', int: true, min: 0, max: 1000 },
+  'binh_thu.gate_test_first': { label: 'Binh thư khi qua bài kiểm tra cuối cửa lần đầu', int: true, min: 0, max: 1000 },
+  'binh_thu.battle_first': { label: 'Binh thư khi hoàn thành trận đánh lần đầu', int: true, min: 0, max: 1000 },
+  'binh_thu.final_first': { label: 'Binh thư khi thắng trận Quyết chiến lần đầu', int: true, min: 0, max: 1000 },
+  'binh_thu.chest_default': { label: 'Binh thư trong rương (khi nút rương không đặt riêng)', int: true, min: 0, max: 1000 },
   'streak.freeze_max': { label: 'Số vật phẩm đóng băng chuỗi tối đa', int: true, min: 0, max: 10 },
   'cards.rates.common': { label: 'Tỉ lệ rơi thẻ Thường', int: true, min: 0, max: 100 },
   'cards.rates.rare': { label: 'Tỉ lệ rơi thẻ Hiếm', int: true, min: 0, max: 100 },
