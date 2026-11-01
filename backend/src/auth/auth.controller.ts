@@ -11,6 +11,12 @@ class LoginDto {
   @IsOptional() @IsIn(['root_admin', 'school_admin', 'teacher', 'student', 'app']) portal: Portal = 'app';
 }
 
+class TwoFactorLoginDto {
+  @IsString() @Length(20, 2000) challenge: string;
+  @IsString() @Length(4, 20) code: string;
+  @IsIn(['root_admin', 'school_admin', 'teacher', 'student', 'app']) portal: Portal;
+}
+
 class GoogleLoginDto {
   @IsString() @Length(20, 4096) id_token: string;
   @IsOptional() @IsIn(['student', 'app']) portal: Portal = 'student';
@@ -78,6 +84,14 @@ export class AuthController {
   login(@Body() body: LoginDto) {
     this.ensureReady();
     return this.auth.login(body.username, body.password, body.portal);
+  }
+
+  /** Bước 2 của đăng nhập có xác thực hai lớp (HK.AD.002) */
+  @Post('2fa/verify')
+  @HttpCode(200)
+  twoFactor(@Body() body: TwoFactorLoginDto) {
+    this.ensureReady();
+    return this.auth.completeTwoFactor(body.challenge, body.code, body.portal);
   }
 
   /** Đăng nhập bằng Google (HK.HS.002): chỉ học sinh có email Google trùng email trong hồ sơ */

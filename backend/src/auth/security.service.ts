@@ -1,12 +1,14 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
+import { currentContext } from '../platform/request-context';
 
 export interface SecurityFilter { q?: string; school_id?: number; user_id?: number; success?: 'true' | 'false'; page?: number; limit?: number }
 @Injectable()
 export class SecurityService {
   constructor(private readonly db: DatabaseService) {}
   async login(user: UserRow | null, username: string, portal: string, reason: string, q: Q = this.db.query.bind(this.db)): Promise<void> {
-    await q('INSERT INTO app_login_events (user_id, school_id, username, portal, success, reason) VALUES ($1,$2,$3,$4,$5,$6)', [user?.id ?? null, user?.school_id ?? null, username, portal, reason === 'success', reason]);
+    const ctx = currentContext();
+    await q('INSERT INTO app_login_events (user_id, school_id, username, portal, success, reason, ip, user_agent) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [user?.id ?? null, user?.school_id ?? null, username, portal, reason === 'success', reason, ctx?.ip ?? null, ctx?.ua || null]);
   }
   async audit(actor: UserRow, action: string, targetType: string, targetId: string | null, schoolId: number | null, success: boolean): Promise<void> {
     await this.db.query('INSERT INTO app_audit_events (actor_id, actor_name, actor_role, school_id, action, target_type, target_id, success) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [actor.id, actor.full_name, actor.role, schoolId, action, targetType, targetId, success]);

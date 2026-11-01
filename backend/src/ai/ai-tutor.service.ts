@@ -4,6 +4,7 @@
  * Quy trình mỗi câu hỏi: kiểm tra độ dài và hạn mức → lọc nội dung → truy xuất → kiểm soát phạm vi (đoạn tốt nhất phải đủ "độ phủ") → mô hình sinh câu trả lời kèm [n]
  * (hoặc trích nguyên văn tư liệu khi chưa nối mô hình) → lọc lại đầu ra → lưu hội thoại. Máy chủ không bao giờ tin số liệu do mô hình tự nêu: trích dẫn chỉ gồm các đoạn đã truy xuất.
  */
+import { ErrorLog } from '../platform/error-log';
 import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService, UserRow } from '../database/database.service';
 import { notFound } from '../content/access';
@@ -175,6 +176,7 @@ export class AiTutorService {
         };
       } catch (e) {
         this.logger.warn(`Mô hình AI lỗi, dùng chế độ trích tư liệu: ${(e as Error).message}`);
+        ErrorLog.report('ai', `Mô hình AI lỗi: ${(e as Error).message}`);
       }
     }
     const ex = (o.extractFallback ?? ((p: Passage[]) => this.extract(o.question, p)))(passages);

@@ -4,6 +4,7 @@ import { createHash, randomInt, randomUUID } from 'crypto';
 import { MailService } from '../admin/mail.service';
 import { config } from '../config';
 import { SecurityService } from './security.service';
+import { TwoFactorService } from '../platform/twofa.service';
 import { DatabaseService, nowIso, Role, searchText, UserRow } from '../database/database.service';
 import { hashPassword, needsPasswordUpgrade, passwordFingerprint, verifyPassword } from './passwords';
 
@@ -68,6 +69,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly mail: MailService,
     private readonly security: SecurityService,
+    private readonly twofa: TwoFactorService,
   ) {}
 
   /** Token JWT (HS256): sub = id tài khoản, sid = trường của tài khoản (lọc dữ liệu theo trường), pfp = dấu vân tay mật khẩu */
@@ -140,8 +142,31 @@ export class AuthService {
     }
     await this.assertCanLogin(user, username, portal);
     this.failed.delete(lockKey);
+    const second = await this.twofa.requirement(user);
+    if (second) {
+      // bước 2 (HK.AD.002): mật khẩu đúng nhưng cần thêm mã; trả mã thử thách 5 phút, chưa cấp phiên đăng nhập
+      if (second.method === 'email') await this.twofa.sendEmailCode(user);
+      const challenge = this.jwt.sign({ sub: user.id, purpose: '2fa', portal, pfp: passwordFingerprint(user.password_hash) }, { expiresIn: '5m' });
+      return { two_factor: true as const, method: second.method, challenge, expires_in: 300 };
+    }
     const upgraded = needsPasswordUpgrade(user.password_hash) && Buffer.byteLength(password, 'utf8') <= 72 ? await hashPassword(password) : null;
     return this.issueSession(user, username, portal, upgraded);
+  }
+
+  /** Bước 2 của đăng nhập có xác thực hai lớp: mã thử thách + mã 6 chữ số (hoặc mã dự phòng) → phiên đăng nhập */
+  async completeTwoFactor(challenge: string, code: string, portal: Portal) {
+    const expired = new UnauthorizedException('Phiên xác thực đã hết hạn. Hãy đăng nhập lại.');
+    let payload: { sub?: number; purpose?: string; portal?: string; pfp?: string };
+    try { payload = this.jwt.verify(challenge); } catch { throw expired; }
+    if (payload.purpose !== '2fa' || payload.portal !== portal || typeof payload.sub !== 'number') throw expired;
+    const user = await this.db.getById(payload.sub);
+    if (!user || payload.pfp !== passwordFingerprint(user.password_hash)) throw expired;
+    await this.assertCanLogin(user, user.username, portal);
+    if (!(await this.twofa.verify(user, code))) {
+      await this.security.login(user, user.username, portal, 'two_factor');
+      throw new UnauthorizedException('Mã xác thực không đúng hoặc đã hết hạn');
+    }
+    return this.issueSession(user, user.username, portal, null);
   }
 
   /** Xác thực mã đăng nhập Google (HK.HS.002) bằng điểm kiểm tra của Google: chữ ký, hạn dùng, đúng ứng dụng, email đã xác minh */

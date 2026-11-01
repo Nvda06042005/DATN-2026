@@ -9,8 +9,12 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypt
 import { createTransport, Transport, Transporter } from 'nodemailer';
 import { config } from '../config';
 import { DatabaseService, Q } from '../database/database.service';
+import { DEFAULT_TEMPLATES, fill, TemplateKey } from '../platform/templates';
 
-export type MailKind = 'bulk' | 'delta' | 'class' | 'feedback';
+export type MailKind = 'bulk' | 'delta' | 'class' | 'feedback' | 'notice';
+
+/** Mẫu đã chỉnh trong trang quản trị (HK.AD.068), nếu có */
+export type TemplateOverrides = Partial<Record<TemplateKey, { subject: string; body: string }>>;
 
 /** Dữ liệu dựng thư: thông tin đăng nhập kèm mật khẩu tạm (tài khoản mới hoặc đặt lại mật khẩu) */
 export type AccountPayload = { type: 'account'; full_name: string; username: string; password: string; role: 'root_admin' | 'school_admin' | 'teacher' | 'student'; school: string; reset?: boolean };
@@ -90,6 +94,37 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
 
   constructor(private readonly db: DatabaseService) {}
 
+  private tplCache: { at: number; value: TemplateOverrides } | null = null;
+  private fromCache: { at: number; value: string | null } | null = null;
+
+  /** Mẫu thư đã chỉnh (đệm 20 giây; xóa đệm ngay khi quản trị lưu mẫu) */
+  async overrides(): Promise<TemplateOverrides> {
+    if (this.tplCache && Date.now() - this.tplCache.at < 20_000) return this.tplCache.value;
+    let value: TemplateOverrides = {};
+    try {
+      value = Object.fromEntries((await this.db.query<{ key: TemplateKey; subject: string; body: string }>('SELECT key, subject, body FROM hk_message_templates')).map((r) => [r.key, { subject: r.subject, body: r.body }]));
+    } catch { /* bảng chưa có hoặc cơ sở dữ liệu chưa sẵn sàng: dùng mẫu mặc định */ }
+    this.tplCache = { at: Date.now(), value };
+    return value;
+  }
+
+  invalidateTemplates(): void { this.tplCache = null; this.fromCache = null; }
+
+  /** Địa chỉ gửi: cấu hình hệ thống (HK.AD.065) nếu có, không thì biến môi trường MAIL_FROM */
+  async fromAddress(): Promise<string> {
+    if (!this.fromCache || Date.now() - this.fromCache.at > 20_000) {
+      let value: string | null = null;
+      try { value = (await this.db.query<{ mail_from: string | null }>('SELECT mail_from FROM hk_system_settings WHERE id = 1'))[0]?.mail_from ?? null; } catch { /* dùng MAIL_FROM */ }
+      this.fromCache = { at: Date.now(), value };
+    }
+    return this.fromCache.value?.trim() || config.mailFrom;
+  }
+
+  /** Ghi một lần gửi thư thất bại vào nhật ký lỗi (HK.AD.076); không bao giờ làm hỏng việc gửi */
+  private async logFailure(message: string): Promise<void> {
+    try { await this.db.query("INSERT INTO hk_error_log (source, message) VALUES ('email', $1)", [message.slice(0, 500)]); } catch { /* nhật ký lỗi không được gây lỗi mới */ }
+  }
+
   get configured(): boolean {
     return this.transport !== null;
   }
@@ -167,21 +202,26 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /** Thư chứa mã OTP quên mật khẩu (gửi thẳng, không qua hàng đợi vì có mã): mã 6 chữ số, hiệu lực vài phút, chỉ dùng được một lần */
-  async sendPasswordOtp(to: string, fullName: string, otp: string, minutes: number, purpose: 'reset' | 'signup' = 'reset'): Promise<void> {
+  /** Thư chứa mã OTP (quên mật khẩu, đăng ký tự học, đăng nhập quản trị hai lớp): gửi thẳng, không qua hàng đợi vì có mã; mã 6 chữ số, hiệu lực vài phút, chỉ dùng được một lần */
+  async sendPasswordOtp(to: string, fullName: string, otp: string, minutes: number, purpose: 'reset' | 'signup' | 'login' = 'reset'): Promise<void> {
     if (!this.transport) throw new ServiceUnavailableException('Máy chủ chưa cấu hình gửi thư.');
-    const subject = purpose === 'signup' ? '[Đông A EDU] Mã xác thực đăng ký tài khoản tự học' : '[Đông A EDU] Mã xác thực đặt lại mật khẩu';
-    const lines = [
-      `Chào ${fullName},`,
-      '',
-      purpose === 'signup' ? 'Đông A EDU nhận được yêu cầu đăng ký tài khoản tự học bằng địa chỉ email này.' : 'Đông A EDU nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.',
-      `Mã xác thực của bạn là: ${otp}`,
-      `Mã có hiệu lực ${minutes} phút và chỉ dùng được một lần. Đừng chia sẻ mã này với bất kỳ ai.`,
-      '',
-      purpose === 'signup' ? 'Nếu không phải bạn yêu cầu, hãy bỏ qua thư này: sẽ không có tài khoản nào được tạo.' : 'Nếu không phải bạn yêu cầu, hãy bỏ qua thư này: mật khẩu hiện tại vẫn giữ nguyên.',
-    ];
-    const html = lines.map((l) => (l.startsWith('Mã xác thực của bạn là:') ? `<p>Mã xác thực của bạn là: <b style="font-size:20px;letter-spacing:3px">${escapeHtml(otp)}</b></p>` : l ? `<p>${escapeHtml(l)}</p>` : '')).join('');
-    await this.transport.sendMail({ from: config.mailFrom, to, subject, text: lines.join('\n'), html });
+    const text = {
+      reset: { muc_dich: 'đặt lại mật khẩu', yeu_cau: 'đặt lại mật khẩu cho tài khoản của bạn', luu_y: 'Nếu không phải bạn yêu cầu, hãy bỏ qua thư này: mật khẩu hiện tại vẫn giữ nguyên.' },
+      signup: { muc_dich: 'đăng ký tài khoản tự học', yeu_cau: 'đăng ký tài khoản tự học bằng địa chỉ email này', luu_y: 'Nếu không phải bạn yêu cầu, hãy bỏ qua thư này: sẽ không có tài khoản nào được tạo.' },
+      login: { muc_dich: 'đăng nhập quản trị', yeu_cau: 'đăng nhập tài khoản quản trị của bạn', luu_y: 'Nếu không phải bạn đăng nhập, hãy đổi mật khẩu ngay và báo cho quản trị viên tổng.' },
+    }[purpose];
+    const tpl = (await this.overrides()).otp ?? DEFAULT_TEMPLATES.otp;
+    const vars = { ten: fullName, ma: otp, phut: minutes, ...text };
+    const subject = fill(tpl.subject, vars);
+    const lines = fill(tpl.body, vars).split('\n');
+    const html = lines.map((l) => (l.includes(otp) ? `<p>${escapeHtml(l).replace(escapeHtml(otp), `<b style="font-size:20px;letter-spacing:3px">${escapeHtml(otp)}</b>`)}</p>` : l ? `<p>${escapeHtml(l)}</p>` : '')).join('');
+    const from = await this.fromAddress();
+    try {
+      await this.transport.sendMail({ from, to, subject, text: lines.join('\n'), html });
+    } catch (exc) {
+      await this.logFailure(`Gửi thư mã xác thực thất bại (${String((exc as { code?: string })?.code ?? 'UNKNOWN').replace(/[^A-Z0-9_]/g, '').slice(0, 30) || 'UNKNOWN'})`);
+      throw exc;
+    }
     if (config.mailTransport === 'json') this.sent.push({ to, subject, text: lines.join('\n') });
   }
 
@@ -212,21 +252,15 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  render(payload: MailPayload): { text: string; html: string } {
+  render(payload: MailPayload, tpl: TemplateOverrides = {}): { text: string; html: string } {
     if (payload.type === 'note') { const rows = payload.text.split('\n'); return { text: payload.text, html: rows.map((l) => (l ? `<p>${escapeHtml(l)}</p>` : '')).join('') }; }
     const login = `${config.appUrl}${LOGIN_PATH[payload.role]}`;
-    const lines = [
-      `Chào ${payload.full_name},`,
-      '',
-      payload.reset
-        ? `Mật khẩu tài khoản ${ROLE_LABEL[payload.role]} của bạn trên Đông A EDU đã được đặt lại.`
-        : `${payload.school} đã cấp cho bạn tài khoản ${ROLE_LABEL[payload.role]} trên Đông A EDU.`,
-      `Tên đăng nhập: ${payload.username}`,
-      `Mật khẩu tạm: ${payload.password}`,
-      `Đăng nhập tại: ${login}`,
-      '',
-      'Lần đăng nhập đầu tiên, hệ thống sẽ yêu cầu bạn đặt mật khẩu mới. Không chia sẻ mật khẩu cho người khác.',
-    ];
+    const body = (tpl.temp_password ?? DEFAULT_TEMPLATES.temp_password).body;
+    const lines = fill(body, {
+      ten: payload.full_name,
+      mo_dau: payload.reset ? `Mật khẩu tài khoản ${ROLE_LABEL[payload.role]} của bạn trên Đông A EDU đã được đặt lại.` : `${payload.school} đã cấp cho bạn tài khoản ${ROLE_LABEL[payload.role]} trên Đông A EDU.`,
+      tai_khoan: payload.username, mat_khau: payload.password, duong_dan: login, vai_tro: ROLE_LABEL[payload.role], truong: payload.school,
+    }).split('\n');
     return { text: lines.join('\n'), html: lines.map((l) => (l ? `<p>${escapeHtml(l)}</p>` : '')).join('') };
   }
 
@@ -258,14 +292,15 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
             continue;
           }
         }
-        const { text, html } = this.render(payload);
+        const { text, html } = this.render(payload, await this.overrides());
         try {
-          await this.transport.sendMail({ from: config.mailFrom, to: job.to_email, subject: job.subject, text, html });
+          await this.transport.sendMail({ from: await this.fromAddress(), to: job.to_email, subject: job.subject, text, html });
           if (config.mailTransport === 'json') this.sent.push({ to: job.to_email, subject: job.subject, text });
           await this.db.query("UPDATE app_email_outbox SET status = 'sent', sent_at = now(), body_encrypted = NULL, last_error = NULL, locked_at = NULL WHERE id = $1", [job.id]);
           sent += 1;
         } catch (exc) {
           const final = job.attempts >= MAX_ATTEMPTS;
+          if (final) await this.logFailure(`Thư tới người dùng ${job.user_id ?? '?'} thất bại sau ${MAX_ATTEMPTS} lần thử (${/^[A-Z0-9_]+$/.test(String((exc as { code?: string })?.code)) ? (exc as { code?: string }).code : 'UNKNOWN'})`);
           const wait = BACKOFF_MIN[Math.min(BACKOFF_MIN.length - 1, job.attempts - 1)];
           await this.db.query(
             `UPDATE app_email_outbox SET status = $2, last_error = $3, locked_at = NULL, next_attempt_at = now() + ($4 || ' minutes')::interval${final ? ', body_encrypted = NULL' : ''} WHERE id = $1`,

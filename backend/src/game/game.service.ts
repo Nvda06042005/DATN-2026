@@ -78,6 +78,9 @@ export class GameService {
   /** Lớp của học sinh có tắt cơ chế tim không (giáo viên cấu hình, HK.HS.047): chỉ cần một lớp tắt là tắt */
   async heartsEnabled(q: Q, userId: number): Promise<boolean> {
     if (!(await this.settings.get()).hearts.enabled) return false;
+    // cờ tính năng của quản trị tổng (HK.AD.071): tắt "hearts" thì không ai bị giới hạn bởi tim
+    const flag = (await q<{ enabled: boolean }>("SELECT enabled FROM hk_feature_flags WHERE key = 'hearts'"))[0];
+    if (flag && !flag.enabled) return false;
     const row = (await q<{ ok: boolean | null }>(
       `SELECT bool_and(COALESCE(cs.hearts_enabled, true)) AS ok FROM app_class_members m LEFT JOIN hk_class_settings cs ON cs.class_id = m.class_id WHERE m.user_id = $1`, [userId]))[0];
     return row?.ok ?? true;
