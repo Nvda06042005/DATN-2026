@@ -238,6 +238,25 @@ describe('file migration', () => {
     expect(await m.applyMigrations(url, dir)).toHaveLength(0);
   });
 
+  test('nâng từ schema 24 giữ tài khoản, điểm, vàng và nút cũ; migration mới chỉ chạy một lần', async () => {
+    const held = readdirSync(dir).filter((name) => name.endsWith('.sql') && Number(name.slice(0, 3)) > 24);
+    for (const name of held) renameSync(join(dir, name), join(dir, `${name}.pending`));
+    expect(await m.applyMigrations(url, dir)).toHaveLength(24);
+    await sql(url, `INSERT INTO public.app_users (id, username, full_name, role, password_hash, created_at)
+      VALUES (991, 'upgrade-fixture', 'Upgrade fixture', 'student', 'fake-test-hash', '2026-11-01');
+      INSERT INTO public.hk_players (user_id, xp, gold, hearts) VALUES (991, 105, 37, 3);
+      INSERT INTO public.hk_points (user_id, points, reason, ref_key) VALUES (991, -5, 'teacher', 'upgrade-fixture');`);
+    const oldNodes = await sql(url, 'SELECT id, title, kind FROM public.hk_nodes ORDER BY id');
+    for (const name of held) renameSync(join(dir, `${name}.pending`), join(dir, name));
+    expect(await m.applyMigrations(url, dir)).toHaveLength(TOTAL - 24);
+    expect(await sql(url, 'SELECT username, full_name FROM public.app_users WHERE id = 991')).toEqual([{ username: 'upgrade-fixture', full_name: 'Upgrade fixture' }]);
+    expect(await sql(url, 'SELECT xp, gold, hearts, binh_thu FROM public.hk_players WHERE user_id = 991')).toEqual([{ xp: 105, gold: 37, hearts: 3, binh_thu: 0 }]);
+    expect(await sql(url, 'SELECT points, reason, ref_key FROM public.hk_points WHERE user_id = 991')).toEqual([{ points: -5, reason: 'teacher', ref_key: 'upgrade-fixture' }]);
+    expect(await sql(url, 'SELECT id, title, kind FROM public.hk_nodes ORDER BY id')).toEqual(expect.arrayContaining(oldNodes));
+    expect(await count('SELECT max(version) AS n FROM public.app_schema_migrations')).toBe(TOTAL);
+    expect(await m.applyMigrations(url, dir)).toEqual([]);
+  });
+
   test('025 tạo bảng thi đấu trực tiếp (phòng, người chơi, câu trả lời) có RLS; mã PIN chỉ duy nhất giữa các phòng chưa kết thúc; thêm lý do điểm "live"', async () => {
     await m.applyMigrations(url, dir);
     const tables = ['hk_live_rooms', 'hk_live_players', 'hk_live_answers'];

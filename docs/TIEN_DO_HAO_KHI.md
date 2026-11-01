@@ -267,6 +267,7 @@ Dữ liệu: migration 026 (bảng `hk_gates`; cột Cửa, âm thanh, lời k�
 
 ## Triển khai và dữ liệu hiện có
 
+- Sửa triển khai Render ngày 01/11/2026: các bản Sprint 8 và Sprint 5 ver0.2 dừng ở `npm ci` vì lockfile thiếu peer tùy chọn `webpack@5.112.2`. Tạo lại lockfile bằng npm 10.9.4 cùng dòng npm của Render; giữ nguyên lệnh build/start và các migration 001–027. Đã kiểm tra cài sạch, build, kiểm tra migration và nâng PostgreSQL thử nghiệm từ schema 24 lên 27, giữ tài khoản, tiến độ và sổ điểm cũ. Xem quy trình khóa dependency trong `database/migrations/README.md`.
 - Sprint 5 ver0.2 (nhánh `feat/hao-khi-v02-sprint-5`, migration 026–027): mong đợi `schema_version` 27 ở `/api/database/health` sau khi Render khởi động bản mới (bản này kéo theo cả migration 025 của Sprint 8 nếu Render chưa chạy).
 - Sprint 8 (nhánh `feat/hao-khi-sprint-8`, migration 025, thêm Socket.IO, pdfkit, qrcode); mong đợi `schema_version` 25 ở `/api/database/health` sau khi Render khởi động bản mới. Render hỗ trợ WebSocket; nếu một mạng chặn WebSocket thì Socket.IO tự dùng polling và giao diện dùng thêm đường HTTP dự phòng.
 - Sprint 6 (nhánh `feat/hao-khi-sprint-6`, migration 022–023) gộp vào `main` ngày 01/11/2026 (Render chạy `schema_version` 23). Sprint 7 (nhánh `feat/hao-khi-sprint-7`, migration 024) gộp vào `main` cùng ngày (3d1d650); Render và Supabase chạy `schema_version` 24 (xác nhận ở `/api/database/health`), các đường dẫn `/api/classroom/*` trả 401 khi chưa đăng nhập, bản web trên Vercel có mã Sprint 7.

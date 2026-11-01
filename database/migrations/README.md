@@ -36,4 +36,14 @@ Ngày 31/10/2026 thư mục này từng bị xóa theo yêu cầu (website chỉ
 | `027_seed_learning_path.sql` | Nội dung khởi tạo (bản nháp): chia ba hành trình mẫu thành các Cửa và thêm nút nghe kể chuyện, luyện tập, rương, kiểm tra cuối cửa; chỉ động vào hành trình mẫu còn nháp, chưa có học sinh học và chưa chia Cửa; chạy lại không nhân đôi |
 
 Kiểm chứng trên PostgreSQL tạm bằng `cd backend && npm run build && npm test` trước khi triển khai.
+
+## Kiểm tra build Render
+
+Render dùng Node 22.21.0 và npm 10. Khi đổi dependency backend, tạo lockfile bằng
+`npx --yes npm@10.9.4 install` rồi kiểm tra `npx --yes npm@10.9.4 ci`, `npm run build`,
+`npm run migrate -- check`. Không đổi Build Command sang `npm install` để bỏ qua lỗi lockfile.
+Lỗi `npm ci` báo thiếu `webpack@5.112.2` đã xuất hiện lại sau Sprint 8: lockfile do npm khác phiên bản
+tạo ra thiếu optional peer mà npm 10 cần. Giữ entry này trong `backend/package-lock.json`.
+Kiểm thử `migrations.spec.ts` có lượt nâng từ schema 24, xác minh tài khoản, điểm, vàng và nút cũ được giữ.
+
 Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).
