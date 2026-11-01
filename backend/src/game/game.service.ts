@@ -17,9 +17,9 @@ export interface PlayerRow {
 interface LevelRow { level: number; title: string; xp_required: number; reward_gold: number }
 interface ItemRow { id: number; code: string; kind: string; name: string; description: string | null; icon: string; color: string; price: number; min_level: number; sort_order: number; is_active: boolean }
 interface BadgeRow { id: number; code: string; scope: string; school_id: number | null; name: string; description: string | null; icon: string; color: string; rule: { type: string; value?: number; campaign_id?: number } | null; sort_order: number }
-interface CardRow { id: number; code: string; name: string; rarity: 'common' | 'rare' | 'legendary'; drop_weight: number; figure_id: number | null; flavor_quote: string | null; image_url: string | null; min_level: number }
+interface CardRow { id: number; code: string; name: string; rarity: 'common' | 'rare' | 'epic' | 'legendary'; drop_weight: number; figure_id: number | null; flavor_quote: string | null; image_url: string | null; min_level: number }
 
-export const RARITY_TEXT = { common: 'Thường', rare: 'Hiếm', legendary: 'Huyền thoại' } as const;
+export const RARITY_TEXT = { common: 'Thường', rare: 'Hiếm', epic: 'Sử thi', legendary: 'Huyền thoại' } as const;
 const STUDY_REASONS = ['node', 'lesson', 'practice'];
 const SLOTS = [['outfit', 'outfit_id'], ['weapon', 'weapon_id'], ['banner', 'banner_id']] as const;
 
@@ -176,6 +176,26 @@ export class GameService {
     const drop = (await q<{ id: number }>('INSERT INTO hk_card_drops (user_id, card_id, source, node_id, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id::int AS id', [user.id, cardId, 'node', nodeId, this.clock.now()]))[0];
     await this.celebrate(q, user, 'card', { drop_id: drop.id });
     return drop.id;
+  }
+
+  /**
+   * Cộng mảnh thẻ (HK.HS.068, 127): thẻ chưa có thì đủ số mảnh sẽ tự ghép thành thẻ (trừ số mảnh cần); thẻ đã có thì mảnh dùng để thăng sao.
+   * Trả về số mảnh còn lại và cho biết lần này có ghép được thẻ hay không.
+   */
+  async addFragments(q: Q, userId: number, cardId: number, qty: number): Promise<{ merged: boolean; fragments: number }> {
+    if (qty <= 0) return { merged: false, fragments: 0 };
+    const card = (await q<{ fragments_needed: number; kind: string }>('SELECT fragments_needed, kind FROM hk_cards WHERE id = $1', [cardId]))[0];
+    if (!card) return { merged: false, fragments: 0 };
+    let total = (await q<{ qty: number }>(
+      'INSERT INTO hk_card_fragments (user_id, card_id, qty) VALUES ($1, $2, $3) ON CONFLICT (user_id, card_id) DO UPDATE SET qty = hk_card_fragments.qty + $3 RETURNING qty', [userId, cardId, qty]))[0].qty;
+    const owned = (await q('SELECT 1 FROM hk_user_cards WHERE user_id = $1 AND card_id = $2', [userId, cardId])).length > 0;
+    if (!owned && total >= card.fragments_needed) {
+      total -= card.fragments_needed;
+      await q('INSERT INTO hk_user_cards (user_id, card_id, first_at) VALUES ($1, $2, $3)', [userId, cardId, this.clock.now()]);
+      await q('UPDATE hk_card_fragments SET qty = $3 WHERE user_id = $1 AND card_id = $2', [userId, cardId, total]);
+      return { merged: true, fragments: total };
+    }
+    return { merged: false, fragments: total };
   }
 
   // ------------------------------------------------------------------ điểm hành động (HK.HS.072)
@@ -423,7 +443,7 @@ export class GameService {
     const s = await this.settings.get();
     const p = (await q<PlayerRow>('SELECT level FROM hk_players WHERE user_id = $1', [user.id]))[0];
     const cards = await q<CardRow>('SELECT * FROM hk_cards WHERE is_active AND min_level <= $1', [p.level]);
-    const rarities = (['common', 'rare', 'legendary'] as const).filter((r) => s.cards.rates[r] > 0 && cards.some((c) => c.rarity === r));
+    const rarities = (['common', 'rare', 'epic', 'legendary'] as const).filter((r) => s.cards.rates[r] > 0 && cards.some((c) => c.rarity === r));
     if (!rarities.length) return null;
     let roll = this.clock.random() * rarities.reduce((n, r) => n + s.cards.rates[r], 0);
     const rarity = rarities.find((r) => (roll -= s.cards.rates[r]) < 0) ?? rarities[rarities.length - 1];
@@ -449,7 +469,10 @@ export class GameService {
       if (owned) await q('UPDATE hk_user_cards SET copies = copies + 1 WHERE user_id = $1 AND card_id = $2', [user.id, drop.card_id]);
       else await q('INSERT INTO hk_user_cards (user_id, card_id, first_at) VALUES ($1, $2, $3)', [user.id, drop.card_id, this.clock.now()]);
       const s = await this.settings.get();
-      if (owned) await this.addGold(q, user, s.gold.duplicate_card, 'card', `drop:${drop.id}`);
+      if (owned) {
+        await this.addGold(q, user, s.gold.duplicate_card, 'card', `drop:${drop.id}`);
+        await this.addFragments(q, user.id, drop.card_id, 1); // thẻ trùng thành một mảnh để thăng sao (Sprint 6)
+      }
       await q('UPDATE hk_card_drops SET flipped_at = $2, duplicate = $3 WHERE id = $1', [drop.id, this.clock.now(), owned]);
       await q("UPDATE hk_celebrations SET seen_at = $3 WHERE user_id = $1 AND kind = 'card' AND (payload->>'drop_id')::int = $2 AND seen_at IS NULL", [user.id, drop.id, this.clock.now()]);
       await this.evaluateBadges(q, user);
@@ -472,7 +495,7 @@ export class GameService {
     const rows = await this.db.query<Record<string, any>>(
       `SELECT c.id, c.rarity, c.image_url, uc.copies, uc.first_at, (uc.user_id IS NOT NULL) AS owned, CASE WHEN uc.user_id IS NOT NULL THEN c.name END AS name, c.min_level
        FROM hk_cards c LEFT JOIN hk_user_cards uc ON uc.card_id = c.id AND uc.user_id = $1 WHERE c.is_active OR uc.user_id IS NOT NULL
-       ORDER BY CASE c.rarity WHEN 'legendary' THEN 0 WHEN 'rare' THEN 1 ELSE 2 END, c.id`, [user.id]);
+       ORDER BY CASE c.rarity WHEN 'legendary' THEN 0 WHEN 'epic' THEN 1 WHEN 'rare' THEN 2 ELSE 3 END, c.id`, [user.id]);
     return { total: rows.length, owned: rows.filter((r) => r.owned).length, cards: rows.map((r) => ({ ...r, rarity_label: RARITY_TEXT[r.rarity as keyof typeof RARITY_TEXT] })) };
   }
 

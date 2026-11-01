@@ -14,7 +14,9 @@ export interface GameSettings {
   /** Binh thư (tài nguyên nâng cấp thẻ tướng): số nhận khi hoàn thành nút lần đầu theo loại nút; rương dùng chest_default nếu nút không đặt riêng */
   binh_thu: { node_first: number; practice_first: number; gate_test_first: number; battle_first: number; final_first: number; chest_default: number };
   streak: { freeze_max: number };
-  cards: { rates: { common: number; rare: number; legendary: number } };
+  cards: { rates: { common: number; rare: number; epic: number; legendary: number } };
+  /** Game mô phỏng trận đánh bằng thẻ tướng (Sprint 6): bật/tắt cho toàn hệ thống và giới hạn thời gian chơi mỗi ngày (0 = không giới hạn) */
+  war: { enabled: boolean; daily_minutes: number };
   hint_max: number;
   gift: { gold: number[]; freeze_on_day7: boolean };
   league: { group_size: number; promote: number; demote: number };
@@ -29,7 +31,8 @@ export const GAME_DEFAULTS: GameSettings = {
   gold: { node_first: 10, battle_first: 20, final_first: 50, perfect_quiz: 5, duplicate_card: 5 },
   binh_thu: { node_first: 2, practice_first: 1, gate_test_first: 6, battle_first: 4, final_first: 10, chest_default: 5 },
   streak: { freeze_max: 2 },
-  cards: { rates: { common: 70, rare: 25, legendary: 5 } },
+  cards: { rates: { common: 70, rare: 25, epic: 10, legendary: 5 } },
+  war: { enabled: true, daily_minutes: 0 },
   hint_max: 10,
   gift: { gold: [10, 15, 20, 25, 30, 40, 50], freeze_on_day7: true },
   league: { group_size: 30, promote: 10, demote: 5 },
@@ -64,6 +67,9 @@ export const SETTING_RULES: Record<string, Rule> = {
   'streak.freeze_max': { label: 'Số vật phẩm đóng băng chuỗi tối đa', int: true, min: 0, max: 10 },
   'cards.rates.common': { label: 'Tỉ lệ rơi thẻ Thường', int: true, min: 0, max: 100 },
   'cards.rates.rare': { label: 'Tỉ lệ rơi thẻ Hiếm', int: true, min: 0, max: 100 },
+  'cards.rates.epic': { label: 'Tỉ lệ rơi thẻ Sử thi', int: true, min: 0, max: 100 },
+  'war.enabled': { label: 'Bật game mô phỏng trận đánh bằng thẻ tướng cho toàn hệ thống', bool: true },
+  'war.daily_minutes': { label: 'Giới hạn thời gian chơi game mỗi ngày (phút, 0 = không giới hạn)', int: true, min: 0, max: 600 },
   'cards.rates.legendary': { label: 'Tỉ lệ rơi thẻ Huyền thoại', int: true, min: 0, max: 100 },
   hint_max: { label: 'Số gợi ý 50/50 tối đa được giữ', int: true, min: 0, max: 99 },
   'gift.freeze_on_day7': { label: 'Ngày thứ 7 tặng thêm một đóng băng chuỗi', bool: true },

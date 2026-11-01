@@ -197,9 +197,9 @@ describe('file migration', () => {
     expect(await count("SELECT count(*) AS n FROM hk_quest_templates WHERE period = 'daily'")).toBe(4);
     expect(await count('SELECT count(*) AS n FROM hk_badges WHERE rule IS NOT NULL')).toBe(12);
     expect(await count("SELECT count(*) AS n FROM hk_badges WHERE rule->>'type' = 'campaign_complete' AND (rule->>'campaign_id') IS NOT NULL")).toBe(3);
-    expect(await count('SELECT count(*) AS n FROM hk_cards')).toBe(13);
-    expect(await count('SELECT count(*) AS n FROM hk_cards WHERE figure_id IS NULL')).toBe(0);
-    expect(await sql(url, "SELECT rarity, count(*)::int AS n FROM hk_cards GROUP BY rarity ORDER BY rarity")).toEqual([{ rarity: 'common', n: 6 }, { rarity: 'legendary', n: 2 }, { rarity: 'rare', n: 5 }]);
+    expect(await count('SELECT count(*) AS n FROM hk_cards')).toBe(17); // 13 thẻ tướng (021) + 4 thẻ chiến thuật (029)
+    expect(await count("SELECT count(*) AS n FROM hk_cards WHERE figure_id IS NULL AND kind = 'general'")).toBe(0); // thẻ tướng đều gắn nhân vật; thẻ chiến thuật (029) gắn sự kiện nên không có nhân vật
+    expect(await sql(url, "SELECT rarity, count(*)::int AS n FROM hk_cards GROUP BY rarity ORDER BY rarity")).toEqual([{ rarity: 'common', n: 6 }, { rarity: 'epic', n: 4 }, { rarity: 'legendary', n: 2 }, { rarity: 'rare', n: 5 }]); // 029: hai thẻ tướng lên Sử thi và bốn thẻ chiến thuật
     expect(await count('SELECT count(*) AS n FROM hk_players')).toBe(0); // không tạo dữ liệu người chơi
     expect(await m.applyMigrations(url, dir)).toHaveLength(0);
   });
@@ -279,6 +279,29 @@ describe('file migration', () => {
     // Chạy lại không nhân đôi nút (migration chỉ động vào hành trình chưa chia Cửa)
     expect(await m.applyMigrations(url, dir)).toHaveLength(0);
     expect(await count('SELECT count(*) AS n FROM public.hk_gates')).toBe(6);
+  });
+
+  test('028–029 tạo bảng game thẻ tướng (có RLS) và nội dung khởi tạo ở trạng thái Nháp: thẻ Sử thi và thẻ chiến thuật, chiêu thức, 6 màn chơi, 3 bản đồ hành quân, hội thoại, chỉ huy', async () => {
+    await m.applyMigrations(url, dir);
+    const tables = ['hk_card_fragments', 'hk_card_moves', 'hk_formations', 'hk_commanders', 'hk_commanders_seen', 'hk_stages', 'hk_war_battles', 'hk_stage_progress', 'hk_march_maps', 'hk_march_points',
+      'hk_march_edges', 'hk_dialogs', 'hk_march_state', 'hk_march_visits', 'hk_dialog_log', 'hk_game_assets', 'hk_war_play'];
+    expect(await count(`SELECT count(*) AS n FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = ANY(ARRAY[${tables.map((t) => `'${t}'`).join(',')}]) AND c.relrowsecurity`)).toBe(tables.length);
+    expect((await sql<{ def: string }>(url, "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = 'hk_cards_rarity_check'"))[0].def).toContain("'epic'");
+    expect(await count("SELECT count(*) AS n FROM hk_cards WHERE kind = 'tactic' AND tactic IS NOT NULL")).toBe(4);
+    expect(await count("SELECT count(*) AS n FROM hk_cards WHERE rarity = 'epic'")).toBe(4);
+    expect(await count("SELECT count(*) AS n FROM hk_cards WHERE kind = 'general' AND branch IS NOT NULL")).toBe(13);
+    expect(await count('SELECT count(*) AS n FROM hk_card_moves')).toBe(31);
+    expect(await count('SELECT count(*) AS n FROM hk_commanders')).toBe(5);
+    expect(await count("SELECT count(*) AS n FROM hk_stages WHERE status = 'draft'")).toBe(6);
+    expect(await count("SELECT count(*) AS n FROM hk_march_maps WHERE status = 'draft'")).toBe(3);
+    expect((await sql<{ n: string }>(url, 'SELECT count(*) AS n FROM hk_march_points GROUP BY map_id ORDER BY map_id')).map((r) => Number(r.n))).toEqual([6, 8, 6]);
+    expect(await count("SELECT count(*) AS n FROM hk_dialogs WHERE status = 'draft'")).toBe(6);
+    // mọi điểm trận đánh trỏ tới một màn chơi có thật và mọi điểm có đường nối
+    expect(await count("SELECT count(*) AS n FROM hk_march_points p WHERE p.kind = 'battle' AND NOT EXISTS (SELECT 1 FROM hk_stages s WHERE s.id = (p.payload->>'stage_id')::int)")).toBe(0);
+    expect(await count('SELECT count(*) AS n FROM hk_march_points p WHERE NOT EXISTS (SELECT 1 FROM hk_march_edges e WHERE e.from_point = p.id OR e.to_point = p.id)')).toBe(0);
+    for (const col of ['war_enabled', 'war_grades', 'war_from', 'war_to', 'war_minutes']) expect(await count(`SELECT count(*) AS n FROM information_schema.columns WHERE table_name = 'hk_school_settings' AND column_name = '${col}'`)).toBe(1);
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+    expect(await count('SELECT count(*) AS n FROM hk_card_moves')).toBe(31); // dữ liệu khởi tạo không nhân đôi
   });
 
   test('một file lỗi thì hoàn tác cả lô và lịch sử', async () => {
