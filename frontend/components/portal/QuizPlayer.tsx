@@ -8,12 +8,14 @@ import { Pressable, TextInput, View } from 'react-native';
 import { ArrowDown, ArrowRight, ArrowUp, CheckCircle2, CircleDot, Clock, Lightbulb, ListChecks, MapPin, RotateCcw, Square, SquareCheck, Trophy, XCircle } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import { requestHint } from '@/api/gameApi';
+import { castSkill, mySkills } from '@/api/classroomApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { ErrorNote } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { LeafletMap, type MapCircle, type MapLine, type MapMarker } from '@/components/portal/LeafletMap';
 import { Bar, Btn, Card, Inset, Spinner, Stars, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import type { SkillView } from '@/types/classroom';
 import type { AnswerResult, AttemptReview, AttemptState, AttemptSummary, PlayQuestion, QData, QType, ReviewItem } from '@/types/learning';
 import { QTYPE_TEXT } from '@/types/learning';
 
@@ -243,6 +245,12 @@ const Summary: React.FC<{ summary: AttemptSummary; mode: AttemptState['mode']; o
         {mode === 'node' ? <Stars n={summary.stars} size={30} /> : null}
         <Txt f="bold" size={16}>{summary.base_points + summary.bonus_points} điểm{summary.bonus_points ? ` (gồm ${summary.bonus_points} thưởng tốc độ)` : ''}</Txt>
       </Card>
+      {summary.assignment ? (
+        <Card flat pad={14} style={{ gap: 4, backgroundColor: c.thuyNhat }}>
+          <Txt f="bold" size={15} color={c.thuyChu}>Đã nộp bài tập của lớp</Txt>
+          <Txt size={14} color={c.thuyChu}>{summary.assignment.on_time ? 'Em nộp đúng hạn.' : 'Em nộp sau hạn nên không có điểm thưởng.'}{summary.assignment.bonus ? ` Em nhận +${summary.assignment.bonus} điểm thưởng.` : ''} Điểm cao nhất của các lần làm được tính.</Txt>
+        </Card>
+      ) : null}
       {r && (r.points_awarded > 0 || r.passed || r.unlocked_sources.length > 0) ? (
         <Card flat pad={14} style={{ gap: 6 }}>
           {r.points_awarded > 0 ? <Txt f="bold" size={15} color={c.ngocChu}>+{r.points_awarded} điểm vào tài khoản của em</Txt> : r.passed ? <Txt size={14} color={c.muc2}>Em đã nhận thưởng nút này, điểm chỉ tăng khi vượt kỷ lục cũ.</Txt> : null}
@@ -257,7 +265,7 @@ const Summary: React.FC<{ summary: AttemptSummary; mode: AttemptState['mode']; o
       ) : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         <Btn icon={ListChecks} title="Xem lại từng câu" tone="giay" onPress={onReview} />
-        {onRetry && mode === 'node' && !passed ? <Btn icon={RotateCcw} title="Làm lại" tone="dong" onPress={onRetry} /> : null}
+        {onRetry && (mode === 'node' || mode === 'assignment') && !passed ? <Btn icon={RotateCcw} title="Làm lại" tone="dong" onPress={onRetry} /> : null}
         <Btn iconRight={ArrowRight} title={mode === 'node' ? 'Về bản đồ' : 'Xong'} tone="ngoc" onPress={onClose} />
       </View>
     </View>
@@ -298,6 +306,8 @@ export const QuizPlayer: React.FC<{
   const { token } = session;
   const [state, setState] = useState<AttemptState>(initial);
   const [hintsLeft, setHintsLeft] = useState(hints);
+  const [skills, setSkills] = useState<SkillView | null>(null);
+  const [seen, setSeen] = useState<Array<{ ref_type: string; ref_id: number; label: string }>>([]);
   const [draft, setDraft] = useState<Draft>(null);
   const [feedback, setFeedback] = useState<{ res: AnswerResult; sent: Draft } | null>(null);
   const [summary, setSummary] = useState<AttemptSummary | null>(initial.summary ?? null);
@@ -325,6 +335,7 @@ export const QuizPlayer: React.FC<{
       deadline.current = Date.now() + next.current.remaining_ms;
       setRemaining(next.current.remaining_ms);
       setDraft(initialDraft(next.current.question));
+      setSeen([]);
       setAnnounce('');
     }
   }, []);
@@ -371,6 +382,29 @@ export const QuizPlayer: React.FC<{
       setDraft((d) => (typeof d === 'string' && removed.includes(d) ? null : d));
       setHintsLeft((n) => Math.max(0, n - 1));
       setAnnounce(`Đã bỏ ${removed.length} đáp án sai`);
+      onGameChanged?.();
+    } catch (e) { guard(e); } finally { setBusy(false); }
+  };
+
+  // Kỹ năng nhân vật dùng trong lúc làm bài (HK.HS.072): Mưu kế loại bớt đáp án sai, Trận đồ mở mục lịch sử liên quan; chỉ khi em thuộc một lớp học
+  useEffect(() => {
+    if (state.mode === 'preview') return;
+    mySkills(token).then(setSkills).catch(() => undefined);
+  }, [token, state.mode]);
+  const castQuizSkill = async (code: string) => {
+    if (!q || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await castSkill(token, { skill: code, attempt_id: state.id });
+      if (res.removed) {
+        const removed = res.removed;
+        setState((s) => (s.current ? { ...s, current: { ...s.current, question: { ...s.current.question, options: (s.current.question.options ?? []).filter((o) => !removed.includes(o.id)) } } } : s));
+        setDraft((d) => (typeof d === 'string' && removed.includes(d) ? null : d));
+      }
+      if (res.links) setSeen(res.links);
+      setAnnounce(res.message);
+      setSkills((v) => (v ? { ...v, ap: res.ap } : v));
       onGameChanged?.();
     } catch (e) { guard(e); } finally { setBusy(false); }
   };
@@ -430,13 +464,17 @@ export const QuizPlayer: React.FC<{
         {!feedback ? <QuestionInput q={q} draft={draft} setDraft={setDraft} disabled={busy} /> : <Feedback res={feedback.res.result} qtype={q.qtype} answer={feedback.sent} onOpen={onOpenLink} />}
         {!feedback && q.qtype === 'single' && (q.options?.length ?? 0) >= 3 && state.mode !== 'preview' && hintsLeft > 0
           ? <Btn icon={Lightbulb} title={`Gợi ý 50/50 (còn ${hintsLeft})`} tone="thuy" size="sm" disabled={busy} onPress={askHint} testID="quiz-hint" /> : null}
+        {!feedback && skills?.in_class ? skills.skills.filter((k) => k.in_quiz).map((k) => (
+          <Btn key={k.code} icon={Lightbulb} title={`${k.name} (${k.cost} điểm hành động, còn ${skills.ap.current})`} tone="dong" size="sm" disabled={busy || skills.ap.current < k.cost || (k.code === 'muu_ke' && (q.qtype !== 'single' || (q.options?.length ?? 0) < 3))} onPress={() => castQuizSkill(k.code)} testID={`quiz-skill-${k.code}`} />
+        )) : null}
+        {seen.length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{seen.map((l) => <Btn key={`${l.ref_type}${l.ref_id}`} title={l.label} tone="thuy" size="sm" onPress={() => onOpenLink?.(l.ref_type, l.ref_id)} />)}</View> : null}
         <ErrorNote message={error} />
         {!feedback
           ? <Btn title="Trả lời" tone="ngoc" size="lg" full loading={busy} disabled={!ready(q, draft)} onPress={submit} testID="quiz-submit" />
           : <Btn iconRight={ArrowRight} title={feedback.res.finished ? 'Xem kết quả' : 'Câu tiếp theo'} tone="ngoc" size="lg" full loading={busy} onPress={proceed} testID="quiz-next" />}
       </View>
     );
-  }, [review, summary, feedback, q, current, state, draft, busy, error, seconds, remaining, hurry, hintsLeft]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [review, summary, feedback, q, current, state, draft, busy, error, seconds, remaining, hurry, hintsLeft, skills, seen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <View style={{ gap: 12 }}>

@@ -1,7 +1,7 @@
 # Hào Khí Đông A
 
 Nền tảng học lịch sử game hóa về ba lần kháng chiến chống Nguyên – Mông thời Trần cho học sinh THCS (đề tài khóa luận).
-Đặc tả: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). **Đã làm: Sprint 1 đến 6** – xem
+Đặc tả: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). **Đã làm: Sprint 1 đến 7** – xem
 [docs/TIEN_DO_HAO_KHI.md](docs/TIEN_DO_HAO_KHI.md) (từng mã HK.*, quyết định, phần chưa làm).
 
 ## Trang web

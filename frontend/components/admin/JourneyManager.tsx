@@ -1,17 +1,19 @@
 /**
  * Hành trình học – bản đồ nhiệm vụ (HK.GV.018–021, HK.QT.042, HK.AD.043): thư viện hành trình mẫu của hệ thống / trường / giáo viên, tạo trống hoặc từ mẫu,
  * thêm – sửa – xóa nút (bài học, câu hỏi, trận đánh, tư liệu, Quyết chiến), tư liệu mở khóa theo nút, thứ tự nút, phát hành, đặt mặc định,
- * giao cho lớp (giáo viên), gửi duyệt. Nút mở theo thứ tự; nhánh rẽ và xếp lịch thuộc Sprint 7.
+ * giao cho lớp (giáo viên), gửi duyệt. Sprint 7 (HK.GV.022–027): bản đồ rẽ nhánh kéo thả, điều kiện mở khóa và phần thưởng riêng của nút, xem trước như học sinh,
+ * giao cho lớp theo lịch (nhiều hành trình), nhân bản sang lớp khác hoặc năm học mới.
  */
 import React, { useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { ArrowDown, ArrowLeft, ArrowUp, Copy, Eye, Pencil, Plus, Rocket, Send, Star, Trash2, Users } from 'lucide-react-native';
+import { ArrowDown, ArrowLeft, ArrowUp, CalendarClock, Copy, CopyPlus, Pencil, Plus, Rocket, Send, Star, Trash2, Users } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { ScopeChip, useCampaignOptions } from '@/components/admin/ContentKit';
-import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, useAction, useDebounced, useLoad, valuesToIds, idsToValues, type FieldDef } from '@/components/admin/kit';
+import { JourneyDesigner } from '@/components/admin/JourneyDesigner';
+import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, fromVn, toVn, useAction, useDebounced, useLoad, valuesToIds, idsToValues, type FieldDef } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
-import { Btn, Card, ConfirmSheet, Field, Inset, Spinner, Txt } from '@/components/ui';
+import { Btn, Card, ConfirmSheet, Field, Inset, Segmented, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { JourneyDetail, JourneyItem, JourneyNode } from '@/types/learning';
 import { NODE_ICONS, NODE_KIND_TEXT } from '@/types/learning';
@@ -25,6 +27,7 @@ const NodeForm: React.FC<{ session: Session; journey: JourneyDetail; node?: Jour
   const quizzes = useLoad(() => api.listQuizzes(token, { limit: 100 }), [token], session.expired);
   const battles = useLoad(() => api.historyOptions(token, 'battle'), [token], session.expired);
   const sources = useLoad(() => api.historyOptions(token, 'source'), [token], session.expired);
+  const rewards = useLoad(() => api.rewardOptions(token), [token], session.expired);
   const system = journey.scope === 'system';
   const quizOptions = (quizzes.data?.items ?? []).filter((z) => (system ? z.scope === 'system' : true)).map((z) => ({ value: String(z.id), label: `${z.title} (${z.question_count} câu)` }));
   const fields: FieldDef[] = [
@@ -40,18 +43,29 @@ const NodeForm: React.FC<{ session: Session; journey: JourneyDetail; node?: Jour
     { name: 'reward_points', label: 'Điểm thưởng khi hoàn thành (0–1000)', type: 'number' },
     { name: 'pass_percent', label: 'Điểm đạt (%) – để trống dùng điểm đạt của bộ đề', type: 'number', when: (v) => ['quiz', 'final', 'battle'].includes(String(node?.kind ?? v.kind)) },
     { name: 'unlock_source_ids', label: 'Tư liệu được mở khóa khi hoàn thành nút', type: 'multi', options: (sources.data ?? []).map((b) => ({ value: String(b.id), label: b.label })) },
+    { name: 'min_percent', label: 'Điều kiện mở: điểm tối thiểu (%) ở nút trước (1–100, để trống nếu không cần)', type: 'number' },
+    { name: 'min_stars', label: 'Điều kiện mở: số sao tối thiểu ở nút trước (1–3)', type: 'number' },
+    { name: 'opens_at', label: 'Điều kiện mở: ngày giờ mở (giờ Việt Nam, để trống nếu mở ngay)', placeholder: '2026-11-20 07:00' },
+    { name: 'reward_gold', label: 'Thưởng riêng: vàng (0–1000, nhận một lần)', type: 'number' },
+    { name: 'reward_card_id', label: 'Thưởng riêng: thẻ nhân vật', type: 'select', options: [{ value: '', label: '— Không thưởng thẻ —' }, ...(rewards.data?.cards ?? []).map((k) => ({ value: String(k.id), label: k.name }))] },
+    { name: 'reward_badge_id', label: 'Thưởng riêng: huy hiệu', type: 'select', options: [{ value: '', label: '— Không thưởng huy hiệu —' }, ...(rewards.data?.badges ?? []).map((k) => ({ value: String(k.id), label: k.name }))] },
   ];
   const initial: Record<string, string | string[]> = node ? {
     lesson_id: String(node.lesson_id ?? ''), quiz_id: node.kind === 'battle' ? '' : String(node.quiz_id ?? ''), battle_quiz_id: node.kind === 'battle' ? String(node.quiz_id ?? '') : '', battle_id: String(node.battle_id ?? ''), source_id: String(node.source_id ?? ''),
     kind: node.kind, title: node.title, icon: node.icon ?? 'star', objective: node.objective ?? '', reward_points: String(node.reward_points), pass_percent: node.pass_percent ? String(node.pass_percent) : '', unlock_source_ids: idsToValues(node.unlocks.map((u) => u.id)),
-  } : { kind: 'lesson', icon: 'book', reward_points: '50', lesson_id: '', quiz_id: '', battle_id: '', source_id: '', battle_quiz_id: '', unlock_source_ids: [] as string[] };
+    min_percent: node.min_percent ? String(node.min_percent) : '', min_stars: node.min_stars ? String(node.min_stars) : '', opens_at: node.opens_at ? toVn(node.opens_at) : '', reward_gold: String(node.reward_gold),
+    reward_card_id: node.reward_card_id ? String(node.reward_card_id) : '', reward_badge_id: node.reward_badge_id ? String(node.reward_badge_id) : '',
+  } : { kind: 'lesson', icon: 'book', reward_points: '50', lesson_id: '', quiz_id: '', battle_id: '', source_id: '', battle_quiz_id: '', unlock_source_ids: [] as string[], min_percent: '', min_stars: '', opens_at: '', reward_gold: '0', reward_card_id: '', reward_badge_id: '' };
   return (
     <FormSheet title={node ? 'Sửa nút' : 'Thêm nút vào bản đồ'} subtitle={journey.title} fields={fields} initial={initial} wide
       onClose={onClose}
       onSubmit={async (v) => {
         const kind = (node?.kind ?? String(v.kind)) as JourneyNode['kind'];
         const num = (x: unknown) => (String(x ?? '').trim() ? Number(x) : null);
+        const opens = String(v.opens_at ?? '').trim();
+        if (opens && !fromVn(opens)) throw new Error('Nhập ngày giờ mở theo dạng 2026-11-20 07:00 (giờ Việt Nam).');
         const body = {
+          min_percent: num(v.min_percent), min_stars: num(v.min_stars), opens_at: opens ? fromVn(opens) : null, reward_gold: num(v.reward_gold) ?? 0, reward_card_id: num(v.reward_card_id), reward_badge_id: num(v.reward_badge_id),
           ...(node ? {} : { kind }), title: String(v.title ?? '').trim() || undefined, icon: String(v.icon || ''), objective: String(v.objective ?? '').trim() || null, reward_points: num(v.reward_points) ?? 50,
           lesson_id: kind === 'lesson' ? num(v.lesson_id) : undefined, quiz_id: kind === 'battle' ? num(v.battle_quiz_id) : kind === 'quiz' || kind === 'final' ? num(v.quiz_id) : undefined,
           battle_id: kind === 'battle' ? num(v.battle_id) : undefined, source_id: kind === 'source' ? num(v.source_id) : undefined,
@@ -62,8 +76,23 @@ const NodeForm: React.FC<{ session: Session; journey: JourneyDetail; node?: Jour
   );
 };
 
+/** Ngày giờ giờ-Việt-Nam của biểu mẫu -> ISO; bỏ trống là không giới hạn */
+const scheduleOf = (v: Record<string, string | string[]>): { starts_at: string | null; ends_at: string | null } => {
+  const one = (name: string) => {
+    const text = String(v[name] ?? '').trim();
+    if (!text) return null;
+    const iso = fromVn(text);
+    if (!iso) throw new Error('Nhập ngày giờ theo dạng 2026-11-20 07:00 (giờ Việt Nam).');
+    return iso;
+  };
+  return { starts_at: one('starts_at'), ends_at: one('ends_at') };
+};
+
+/** Khóa làm mới trình thiết kế khi nút hoặc đường nối thay đổi từ bên ngoài */
+const designerKey = (j: JourneyDetail): string => `${j.nodes.map((n) => `${n.id},${n.pos_x},${n.pos_y},${n.title}`).join('|')}#${j.edges.map((e) => `${e.from_node}>${e.to_node}`).join(',')}`;
+
 // ---------------------------------------------------------------------- chi tiết một hành trình
-const JourneyEditor: React.FC<{ session: Session; id: number; onBack: () => void; onChanged: () => void; onPreview?: (j: JourneyDetail) => void }> = ({ session, id, onBack, onChanged, onPreview }) => {
+const JourneyEditor: React.FC<{ session: Session; id: number; onBack: () => void; onChanged: () => void }> = ({ session, id, onBack, onChanged }) => {
   const { c } = useTheme();
   const { token } = session;
   const role = session.user.role;
@@ -73,6 +102,9 @@ const JourneyEditor: React.FC<{ session: Session; id: number; onBack: () => void
   const [nodeForm, setNodeForm] = useState<{ node?: JourneyNode } | null>(null);
   const [meta, setMeta] = useState(false);
   const [assign, setAssign] = useState(false);
+  const [view, setView] = useState<'list' | 'map'>('list');
+  const [schedule, setSchedule] = useState<JourneyDetail['classes'][number] | null>(null);
+  const [copying, setCopying] = useState(false);
   const [removing, setRemoving] = useState<JourneyNode | null>(null);
   const [deleting, setDeleting] = useState(false);
   const j = detail.data;
@@ -103,7 +135,6 @@ const JourneyEditor: React.FC<{ session: Session; id: number; onBack: () => void
         <>
           <PageHeader title={j.title} subtitle={`${j.campaign_title}${j.owner_name ? ` · soạn bởi ${j.owner_name}` : ''}`}
             actions={<>
-              {onPreview ? <Btn icon={Eye} title="Xem trước" tone="giay" size="sm" onPress={() => onPreview(j)} /> : null}
               {j.can_edit ? <Btn icon={Pencil} title="Sửa thông tin" tone="giay" size="sm" onPress={() => setMeta(true)} /> : null}
               {role !== 'school_admin' || j.scope === 'school' || j.scope === 'system' ? <Btn icon={Copy} title="Nhân bản" tone="giay" size="sm" loading={busy} onPress={async () => { const copy = await run(() => api.duplicateJourney(token, j.id), 'Đã nhân bản; bản sao nằm trong kho của bạn'); if (copy) { onChanged(); onBack(); } }} /> : null}
             </>} />
@@ -129,6 +160,7 @@ const JourneyEditor: React.FC<{ session: Session; id: number; onBack: () => void
             {role === 'root_admin' && j.scope === 'system' ? <Btn icon={Star} title={j.is_default ? 'Bỏ mặc định' : 'Đặt làm mặc định'} tone="giay" size="sm" loading={busy} disabled={!j.is_default && j.status !== 'published'}
               onPress={async () => { const next = await run(() => api.setJourneyDefault(token, j.id, !j.is_default), j.is_default ? 'Đã bỏ mặc định' : 'Đã đặt làm hành trình mặc định'); if (next) apply(next); }} testID="journey-default" /> : null}
             {role === 'teacher' && j.can_edit ? <Btn icon={Users} title="Giao cho lớp" tone="ngoc" size="sm" onPress={() => setAssign(true)} testID="journey-assign" /> : null}
+            {role === 'teacher' && j.can_edit ? <Btn icon={CopyPlus} title="Nhân bản sang lớp / năm học mới" tone="giay" size="sm" onPress={() => setCopying(true)} testID="journey-copy" /> : null}
             {shareTarget ? <Btn icon={Send} title={shareTarget === 'school' ? 'Gửi vào kho của trường' : 'Đề xuất lên kho hệ thống'} tone="giay" size="sm" loading={busy} disabled={shared?.status === 'pending'}
               onPress={async () => { if (await run(() => api.requestShare(token, 'journey', j.id, shareTarget), 'Đã gửi đi duyệt')) detail.reload(); }} /> : null}
             {j.can_edit ? <Btn icon={Trash2} title="Xóa hành trình" tone="giay" size="sm" onPress={() => setDeleting(true)} /> : null}
@@ -139,7 +171,11 @@ const JourneyEditor: React.FC<{ session: Session; id: number; onBack: () => void
               <Txt f="bold" size={14}>Đang giao cho lớp</Txt>
               {j.classes.map((k) => (
                 <View key={k.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <Txt size={14} style={{ flex: 1 }}>{k.name} · {k.school_year} · {k.students} học sinh</Txt>
+                  <View style={{ flex: 1, minWidth: 180 }}>
+                    <Txt size={14}>{k.name} · {k.school_year} · {k.students} học sinh</Txt>
+                    <Txt size={12} color={c.muc3}>{k.starts_at || k.ends_at ? `Lịch: ${k.starts_at ? toVn(k.starts_at) : 'ngay'} → ${k.ends_at ? toVn(k.ends_at) : 'không hết hạn'}` : 'Chạy ngay, không hết hạn'}</Txt>
+                  </View>
+                  <Btn icon={CalendarClock} title="Đặt lịch" tone="giay" size="sm" onPress={() => setSchedule(k)} />
                   <Btn title="Hủy giao" tone="giay" size="sm" onPress={async () => { const next = await run(() => api.unassignJourney(token, j.id, k.id), 'Đã hủy giao'); if (next) apply(next); }} />
                 </View>
               ))}
@@ -147,11 +183,13 @@ const JourneyEditor: React.FC<{ session: Session; id: number; onBack: () => void
           ) : null}
 
           <Txt f="bold" size={16}>Các nút trên bản đồ ({j.nodes.length})</Txt>
-          <DataTable<JourneyNode> rows={j.nodes} rowKey={(n) => n.id} empty="Hành trình chưa có nút nào. Bấm “Thêm nút” để bắt đầu." onRowPress={j.can_edit ? (n) => setNodeForm({ node: n }) : undefined}
+          <Segmented label="Cách xem hành trình" options={[{ value: 'list', label: 'Danh sách nút' }, { value: 'map', label: 'Bản đồ rẽ nhánh' }]} value={view} onChange={setView} />
+          {view === 'map' ? <JourneyDesigner key={designerKey(j)} session={session} journey={j} onSaved={apply} onEditNode={(nid) => { const target = j.nodes.find((n) => n.id === nid); if (target) setNodeForm({ node: target }); }} /> : null}
+          {view === 'list' ? <DataTable<JourneyNode> rows={j.nodes} rowKey={(n) => n.id} empty="Hành trình chưa có nút nào. Bấm “Thêm nút” để bắt đầu." onRowPress={j.can_edit ? (n) => setNodeForm({ node: n }) : undefined}
             columns={[
               { key: 'pos', label: '#', flex: 0.3, render: (n) => <Txt f="bold" size={14}>{n.position}</Txt> },
               { key: 'title', label: 'Nút', flex: 3, render: (n) => <Cell main={n.title} sub={[n.kind_label, n.lesson_title && n.lesson_title !== n.title ? n.lesson_title : null, n.quiz_title ? `${n.quiz_title} (${n.quiz_questions ?? 0} câu)` : null, n.battle_name, n.source_title && n.source_title !== n.title ? n.source_title : null].filter(Boolean).join(' · ')} /> },
-              { key: 'rule', label: 'Điều kiện / thưởng', flex: 1.5, render: (n) => <Txt size={13}>+{n.reward_points} điểm{n.pass_percent ? ` · đạt ${n.pass_percent}%` : ''}</Txt> },
+              { key: 'rule', label: 'Điều kiện / thưởng', flex: 1.8, render: (n) => <Txt size={13}>+{n.reward_points} điểm{n.pass_percent ? ` · đạt ${n.pass_percent}%` : ''}{n.reward_gold ? ` · +${n.reward_gold} vàng` : ''}{n.reward_card_id ? ' · thẻ' : ''}{n.reward_badge_id ? ' · huy hiệu' : ''}{n.min_percent ? ` · mở khi ≥ ${n.min_percent}%` : ''}{n.min_stars ? ` · ≥ ${n.min_stars} sao` : ''}{n.opens_at ? ` · mở ${toVn(n.opens_at)}` : ''}</Txt> },
               { key: 'unlock', label: 'Mở khóa', flex: 1.5, hideOnCard: !j.nodes.some((n) => n.unlocks.length), render: (n) => <Txt size={13}>{n.unlocks.map((u) => u.title).join(', ') || '—'}</Txt> },
               { key: 'state', label: 'Trạng thái', flex: 1.3, render: (n) => (nodeWarn(n) ? <StatusChip kind="warn" text={nodeWarn(n)} /> : <StatusChip kind="on" text={n.completed ? `${n.completed} học sinh đã xong` : 'Sẵn sàng'} />) },
             ]}
@@ -161,7 +199,7 @@ const JourneyEditor: React.FC<{ session: Session; id: number; onBack: () => void
                 <Btn icon={ArrowDown} label={`Đưa nút ${n.position} xuống`} tone="giay" size="sm" disabled={n.position === j.nodes.length || n.kind === 'final' || busy} onPress={() => move(n.position - 1, 1)} />
                 <Btn icon={Trash2} label={`Xóa nút ${n.position}`} tone="giay" size="sm" onPress={() => setRemoving(n)} />
               </>
-            ) : undefined} />
+            ) : undefined} /> : null}
         </>
       ) : null}
       {nodeForm && j ? <NodeForm session={session} journey={j} node={nodeForm.node} onClose={() => setNodeForm(null)} onSaved={(next) => { setNodeForm(null); apply(next); }} /> : null}
@@ -175,9 +213,22 @@ const JourneyEditor: React.FC<{ session: Session; id: number; onBack: () => void
       ) : null}
       {assign && j ? (
         <FormSheet title="Giao hành trình cho lớp" subtitle="Học sinh trong lớp sẽ học theo hành trình này thay cho hành trình mặc định của hệ thống. Hành trình tự phát hành khi giao."
-          fields={[{ name: 'class_ids', label: 'Lớp phụ trách', type: 'multi', required: true, options: (classes.data ?? []).map((k) => ({ value: String(k.id), label: `${k.name} · ${k.school_year} · ${k.students} học sinh` })) }]}
-          initial={{ class_ids: idsToValues(j.classes.map((k) => k.id)) }} submitLabel="Giao" onClose={() => setAssign(false)}
-          onSubmit={async (v) => { apply(await api.assignJourney(token, j.id, valuesToIds(v.class_ids))); setAssign(false); }} />
+          fields={[{ name: 'class_ids', label: 'Lớp phụ trách', type: 'multi', required: true, options: (classes.data ?? []).map((k) => ({ value: String(k.id), label: `${k.name} · ${k.school_year} · ${k.students} học sinh` })) },
+            { name: 'starts_at', label: 'Bắt đầu (giờ Việt Nam, để trống là chạy ngay)', placeholder: '2026-11-20 07:00' }, { name: 'ends_at', label: 'Kết thúc (để trống là không hết hạn)', placeholder: '2026-12-31 23:59' }]}
+          initial={{ class_ids: idsToValues(j.classes.map((k) => k.id)), starts_at: '', ends_at: '' }} submitLabel="Giao" onClose={() => setAssign(false)}
+          onSubmit={async (v) => { apply(await api.assignJourneyScheduled(token, j.id, valuesToIds(v.class_ids), scheduleOf(v))); setAssign(false); }} />
+      ) : null}
+      {schedule && j ? (
+        <FormSheet title="Lịch học của lớp" subtitle={`${schedule.name} · ${j.title}`} fields={[{ name: 'starts_at', label: 'Bắt đầu (giờ Việt Nam, để trống là chạy ngay)', placeholder: '2026-11-20 07:00' }, { name: 'ends_at', label: 'Kết thúc (để trống là không hết hạn)', placeholder: '2026-12-31 23:59' }]}
+          initial={{ starts_at: schedule.starts_at ? toVn(schedule.starts_at) : '', ends_at: schedule.ends_at ? toVn(schedule.ends_at) : '' }} onClose={() => setSchedule(null)}
+          onSubmit={async (v) => { apply(await api.setJourneySchedule(token, j.id, schedule.id, scheduleOf(v))); setSchedule(null); }} />
+      ) : null}
+      {copying && j ? (
+        <FormSheet title="Nhân bản hành trình" subtitle="Sao cả nút, đường nối, điều kiện và phần thưởng (ngày giờ mở không sao chép); có thể giao ngay cho lớp khác hoặc lớp năm học mới."
+          fields={[{ name: 'title', label: 'Tên bản sao', placeholder: `${j.title} (bản sao)` }, { name: 'class_ids', label: 'Giao ngay cho lớp (tùy chọn)', type: 'multi', options: (classes.data ?? []).map((k) => ({ value: String(k.id), label: `${k.name} · ${k.school_year}` })) },
+            { name: 'starts_at', label: 'Bắt đầu (giờ Việt Nam)', placeholder: '2027-09-05 07:00' }, { name: 'ends_at', label: 'Kết thúc', placeholder: '2028-05-31 23:59' }]}
+          initial={{ title: '', class_ids: [] as string[], starts_at: '', ends_at: '' }} submitLabel="Nhân bản" onClose={() => setCopying(false)}
+          onSubmit={async (v) => { await api.copyJourney(token, j.id, { title: String(v.title).trim() || undefined, class_ids: valuesToIds(v.class_ids), ...scheduleOf(v) }); setCopying(false); onChanged(); onBack(); }} />
       ) : null}
       <ConfirmSheet open={!!removing} title="Xóa nút?" message={`Xóa nút “${removing?.title ?? ''}”. Chỉ xóa được nút chưa có học sinh hoàn thành.`} confirmLabel="Xóa nút" busy={busy}
         onCancel={() => setRemoving(null)} onConfirm={async () => { if (removing) { const next = await run(() => api.removeNode(token, removing.id), 'Đã xóa nút'); setRemoving(null); if (next) apply(next); } }} />
@@ -188,7 +239,7 @@ const JourneyEditor: React.FC<{ session: Session; id: number; onBack: () => void
 };
 
 // ---------------------------------------------------------------------- thư viện
-export const JourneyManager: React.FC<{ session: Session; onPreview?: (j: JourneyDetail) => void }> = ({ session, onPreview }) => {
+export const JourneyManager: React.FC<{ session: Session }> = ({ session }) => {
   const role = session.user.role;
   const [store, setStore] = useState('all');
   const [q, setQ] = useState('');
@@ -199,7 +250,7 @@ export const JourneyManager: React.FC<{ session: Session; onPreview?: (j: Journe
   const campaigns = useCampaignOptions(session);
   const list = useLoad(() => api.listJourneys(session.token, { store, q: term, campaign_id: campaign }), [session.token, store, term, campaign], session.expired);
   const templates = useMemo(() => (list.data ?? []).filter((x) => x.node_count > 0), [list.data]);
-  if (open !== null) return <JourneyEditor session={session} id={open} onBack={() => setOpen(null)} onChanged={list.reload} onPreview={onPreview} />;
+  if (open !== null) return <JourneyEditor session={session} id={open} onBack={() => setOpen(null)} onChanged={list.reload} />;
   const title = role === 'teacher' ? 'Hành trình học' : role === 'school_admin' ? 'Hành trình mẫu của trường' : 'Hành trình mẫu của hệ thống';
   return (
     <Page>

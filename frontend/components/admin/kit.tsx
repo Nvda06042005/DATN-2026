@@ -446,3 +446,11 @@ export const useMemoOptions = <T,>(items: T[] | undefined, map: (item: T) => { v
 
 export const YEAR_TEXT = { planned: 'Chưa bắt đầu', active: 'Đang hoạt động', ended: 'Đã kết thúc' } as const;
 export const yearOptions = (years: Array<{ id: number; label: string; status: keyof typeof YEAR_TEXT }>) => years.map((y) => ({ value: String(y.id), label: `${y.label} · ${YEAR_TEXT[y.status]}` }));
+
+/** Giờ Việt Nam <-> ISO: học sinh và nhà trường đều nhập giờ Việt Nam (UTC+7) */
+export const toVn = (iso: string): string => new Date(new Date(iso).getTime() + 7 * 3_600_000).toISOString().slice(0, 16).replace('T', ' ');
+export const fromVn = (text: string): string | null => {
+  const m = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})$/.exec(text.trim());
+  const date = m ? new Date(`${m[1]}T${m[2]}:00+07:00`) : null;
+  return date && !Number.isNaN(date.getTime()) ? date.toISOString() : null;
+};

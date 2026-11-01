@@ -10,8 +10,9 @@ import * as api from '@/api/gameApi';
 import { ErrorNote, useAction, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { CardDetailView, ClassSheet, FlipSheet } from '@/components/portal/Celebrations';
+import { TeamRanking } from '@/components/portal/ClassTab';
 import { AvatarFigure, CardFace, iconOf, RARITY_COLOR, ruleText } from '@/components/portal/GameKit';
-import { Bar, Btn, Card, Chip, EmptyState, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
+import { Bar, Btn, Card, Chip, EmptyState, InfoNote, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { BadgeItem, CardAlbumItem, Hud, ShopItem } from '@/types/gamification';
 import { LEAGUE_TIERS, RARITY_TEXT } from '@/types/gamification';
@@ -295,7 +296,7 @@ const BoardRows: React.FC<{ entries: Array<{ rank: number; name: string; xp: num
   );
 };
 
-type Scope = 'class' | 'school' | 'system' | 'league' | 'contest';
+type Scope = 'class' | 'team' | 'school' | 'system' | 'league' | 'contest';
 export const RankingTab: React.FC<TabProps> = ({ session, refreshKey }) => {
   const { c } = useTheme();
   const [scope, setScope] = useState<Scope>('class');
@@ -310,7 +311,7 @@ export const RankingTab: React.FC<TabProps> = ({ session, refreshKey }) => {
     <View style={{ gap: 14 }}>
       <Txt f="displayHeavy" size={24} accessibilityRole="header">Xếp hạng</Txt>
       <Segmented<Scope> label="Loại bảng xếp hạng" value={scope} onChange={setScope}
-        options={[{ value: 'class', label: 'Lớp' }, { value: 'school', label: 'Trường' }, { value: 'system', label: 'Hệ thống' }, { value: 'league', label: 'Giải đấu tuần' }, { value: 'contest', label: 'Sự kiện' }]} />
+        options={[{ value: 'class', label: 'Lớp' }, { value: 'team', label: 'Đội' }, { value: 'school', label: 'Trường' }, { value: 'system', label: 'Hệ thống' }, { value: 'league', label: 'Giải đấu tuần' }, { value: 'contest', label: 'Sự kiện' }]} />
 
       {scope === 'class' || scope === 'school' || scope === 'system' ? (
         <View style={{ gap: 10 }}>
@@ -318,7 +319,8 @@ export const RankingTab: React.FC<TabProps> = ({ session, refreshKey }) => {
           <Txt size={13} color={c.muc2}>{scope === 'class' ? 'Bảng lớp hiện tên thật của các bạn trong lớp.' : 'Bảng trường và hệ thống chỉ hiện tên ẩn danh, trừ em.'}</Txt>
           {board.loading && !board.data ? <Spinner /> : null}
           <ErrorNote message={board.error} />
-          {board.data ? (
+          {board.data?.disabled ? <InfoNote>{board.data.message ?? 'Giáo viên đã tắt bảng xếp hạng của lớp.'}</InfoNote> : null}
+          {board.data && !board.data.disabled ? (
             <View style={{ gap: 10 }}>
               <Txt f="bold" size={15}>{board.data.label} · {board.data.size} học sinh</Txt>
               {board.data.me && !board.data.entries.some((e) => e.me) ? <Txt size={14} color={c.muc2}>Em đang xếp hạng {board.data.me.rank} với {board.data.me.xp} điểm.</Txt> : null}
@@ -327,6 +329,8 @@ export const RankingTab: React.FC<TabProps> = ({ session, refreshKey }) => {
           ) : null}
         </View>
       ) : null}
+
+      {scope === 'team' ? <TeamRanking session={session} refreshKey={refreshKey} /> : null}
 
       {scope === 'league' ? (
         <View style={{ gap: 10 }}>

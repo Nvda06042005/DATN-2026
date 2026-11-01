@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Linking, NativeScrollEvent, NativeSyntheticEvent, ScrollView, TextInput, View } from 'react-native';
 import { ArrowLeft, CheckCircle2, ExternalLink, Save, Trash2, Video, XCircle } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
+import * as classroom from '@/api/classroomApi';
 import { ErrorNote, useAction, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { LeafletMap } from '@/components/portal/LeafletMap';
@@ -66,10 +67,16 @@ const Block: React.FC<{ block: LessonBlock }> = ({ block }) => {
   );
 };
 
-export const LessonReader: React.FC<{ session: Session; nodeId: number; title: string; onClose: (changed: boolean) => void; onOpenLink: (type: string, id: number) => void }> = ({ session, nodeId, title, onClose, onOpenLink }) => {
+/** Đọc bài học của một nút trên bản đồ hoặc (có `assignmentId`) bài học được giao thành bài tập của lớp */
+export const LessonReader: React.FC<{ session: Session; nodeId: number; assignmentId?: number; title: string; onClose: (changed: boolean) => void; onOpenLink: (type: string, id: number) => void }> = ({ session, nodeId, assignmentId, title, onClose, onOpenLink }) => {
   const { c } = useTheme();
   const { token } = session;
-  const lesson = useLoad(() => api.lessonOfNode(token, nodeId), [token, nodeId], session.expired);
+  const lesson = useLoad(async () => {
+    if (!assignmentId) return api.lessonOfNode(token, nodeId);
+    const started = await classroom.startAssignment(token, assignmentId);
+    if (started.kind !== 'lesson') throw new Error('Bài tập này không phải bài học.');
+    return started.lesson;
+  }, [token, nodeId, assignmentId], session.expired);
   const { busy, run } = useAction(session.expired);
   const data = lesson.data;
   const [read, setRead] = useState(0);
@@ -85,8 +92,8 @@ export const LessonReader: React.FC<{ session: Session; nodeId: number; title: s
   const report = useCallback((percent: number) => {
     if (percent <= sent.current) return;
     sent.current = percent;
-    api.lessonProgress(token, nodeId, percent).catch(() => undefined);
-  }, [token, nodeId]);
+    (assignmentId ? classroom.assignmentLessonProgress(token, assignmentId, percent) : api.lessonProgress(token, nodeId, percent)).catch(() => undefined);
+  }, [token, nodeId, assignmentId]);
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
@@ -97,15 +104,21 @@ export const LessonReader: React.FC<{ session: Session; nodeId: number; title: s
     report(value);
   };
 
+  const complete = async (answers: Array<{ question_id: number; answer: unknown }>): Promise<LessonCompletion> => {
+    if (!assignmentId) return api.completeLesson(token, nodeId, answers);
+    const res = await classroom.completeAssignmentLesson(token, assignmentId, answers);
+    return { completed: res.completed, results: res.results, node: null, submission: res.submission };
+  };
   const checkDone = Boolean(data?.checks.length) && data!.checks.every((q) => drafts[q.id] !== undefined || q.qtype === 'order');
   const submit = async () => {
     if (!data) return;
     report(100);
-    const res = await run(() => api.completeLesson(token, nodeId, data.checks.map((q) => ({ question_id: q.id, answer: toAnswer(q, drafts[q.id]) }))));
+    const answers = data.checks.map((q) => ({ question_id: q.id, answer: toAnswer(q, drafts[q.id]) }));
+    const res = await run(() => complete(answers));
     if (res) { setOutcome(res); if (res.completed) changed.current = true; }
   };
   const finishWithoutChecks = async () => {
-    const res = await run(async () => { await api.lessonProgress(token, nodeId, 100); return api.completeLesson(token, nodeId, []); });
+    const res = await run(async () => { if (assignmentId) await classroom.assignmentLessonProgress(token, assignmentId, 100); else await api.lessonProgress(token, nodeId, 100); return complete([]); });
     if (res) { setOutcome(res); if (res.completed) changed.current = true; }
   };
   const saveNote = async () => { if (data) await run(() => api.saveNote(token, 'lesson', data.id, note), 'Đã lưu ghi chú'); };
@@ -171,6 +184,13 @@ export const LessonReader: React.FC<{ session: Session; nodeId: number; title: s
               data.checks.length
                 ? <Btn title="Nộp câu kiểm tra" tone="ngoc" size="lg" full loading={busy} disabled={read < 100 || !checkDone} onPress={submit} testID="lesson-submit" />
                 : <Btn title="Đánh dấu đã đọc xong" tone="ngoc" size="lg" full loading={busy} disabled={read < 100} onPress={finishWithoutChecks} />
+            ) : null}
+            {outcome?.completed && outcome.submission ? (
+              <Card flat pad={14} style={{ gap: 6, backgroundColor: c.ngocNhat }}>
+                <Txt f="displayHeavy" size={20} color={c.ngocChu}>Đã nộp bài tập!</Txt>
+                <Txt size={14}>{outcome.submission.on_time ? 'Em nộp đúng hạn.' : 'Em nộp sau hạn nên không có điểm thưởng.'}{outcome.submission.bonus ? ` Em nhận +${outcome.submission.bonus} điểm thưởng.` : ''}</Txt>
+                <Btn title="Về danh sách bài tập" tone="ngoc" onPress={() => onClose(true)} />
+              </Card>
             ) : null}
             {outcome?.completed && outcome.node ? (
               <Card flat pad={14} style={{ gap: 6, backgroundColor: c.ngocNhat }}>

@@ -126,6 +126,12 @@ class NodeDto {
   @IsOptional() @num() @IsInt() reward_points?: number;
   @IsOptional() @IsArray() @ArrayMaxSize(10) @IsInt({ each: true }) unlock_source_ids?: number[];
   @IsOptional() @num() @IsInt() @Min(1) position?: number;
+  @IsOptional() @IsString() opens_at?: string | null;
+  @IsOptional() @num() @IsInt() min_percent?: number | null;
+  @IsOptional() @num() @IsInt() min_stars?: number | null;
+  @IsOptional() @num() @IsInt() reward_gold?: number;
+  @IsOptional() @num() @IsInt() reward_card_id?: number | null;
+  @IsOptional() @num() @IsInt() reward_badge_id?: number | null;
 }
 
 class OrderDto {
@@ -134,6 +140,13 @@ class OrderDto {
 
 class ClassesDto {
   @IsArray() @ArrayMaxSize(20) @IsInt({ each: true }) class_ids: number[];
+  @IsOptional() @IsString() starts_at?: string | null;
+  @IsOptional() @IsString() ends_at?: string | null;
+}
+
+class ScheduleDto {
+  @IsOptional() @IsString() starts_at?: string | null;
+  @IsOptional() @IsString() ends_at?: string | null;
 }
 
 class DefaultDto {
@@ -282,6 +295,9 @@ export class ContentController {
   @Roles('teacher')
   myClasses(@CurrentUser() user: UserRow) { return this.journeys.myClasses(user); }
 
+  @Get('reward-options')
+  rewardOptions(@CurrentUser() user: UserRow) { return this.journeys.rewardOptions(user); }
+
   @Get('journeys')
   listJourneys(@CurrentUser() user: UserRow, @Query() query: JourneyListQuery) { return this.journeys.library(user, query); }
 
@@ -318,7 +334,22 @@ export class ContentController {
   @Post('journeys/:id/classes')
   @Roles('teacher')
   @HttpCode(200)
-  assign(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: ClassesDto) { return this.journeys.assign(user, id, body.class_ids); }
+  assign(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: ClassesDto) { return this.journeys.assign(user, id, body.class_ids, { starts_at: body.starts_at, ends_at: body.ends_at }); }
+
+  @Put('journeys/:id/classes/:classId/schedule')
+  @Roles('teacher')
+  setSchedule(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Param('classId', ParseIntPipe) classId: number, @Body() body: ScheduleDto) { return this.journeys.setSchedule(user, id, classId, body); }
+
+  @Post('journeys/:id/copy')
+  @HttpCode(200)
+  copyJourney(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Record<string, any>) { return this.journeys.copyTo(user, id, body); }
+
+  @Put('journeys/:id/layout')
+  setLayout(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Record<string, any>) { return this.journeys.setLayout(user, id, body); }
+
+  @Post('journeys/:id/preview')
+  @HttpCode(200)
+  previewJourney(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Record<string, any>) { return this.journeys.preview(user, id, Array.isArray(body.completed) ? body.completed.map(Number) : [], Number(body.hours ?? 0)); }
 
   @Delete('journeys/:id/classes/:classId')
   @Roles('teacher')

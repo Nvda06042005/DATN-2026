@@ -1,7 +1,7 @@
 /** API học tập: soạn nội dung (/api/content), đọc kho lịch sử (/api/learn) và học – làm bài (/api/play). Mọi hàm nhận token đăng nhập. */
 import { apiBlob, apiRequest, apiUpload, type PickedFile } from '@/api/client';
 import type {
-  AnswerResult, AttemptHistoryItem, AttemptReview, AttemptState, CampaignMap, Detail, FigureItem, HistoryOption, JourneyDetail, JourneyItem, LessonCompletion, LessonDetail, LessonInput,
+  AnswerResult, AttemptHistoryItem, AttemptReview, AttemptState, CampaignMap, Detail, FigureItem, HistoryOption, JourneyDetail, JourneyItem, JourneyPreview, LessonCompletion, LessonDetail, LessonInput,
   LessonItem, LessonView, Listing, MapPlace, NodeDetail, NodeInput, NodeResult, NoteItem, QuestionDetail, QuestionImportResult, QuestionInput, QuestionItem, QuestionVersion, Quests,
   QuizDetail, QuizInput, QuizItem, SearchHit, ShareDetail, ShareItem, SourceItem, StudentHome, TeacherClass, TermItem, TimelineEntry,
 } from '@/types/learning';
@@ -100,3 +100,16 @@ export const saveNote = (token: string, type: 'lesson' | 'source', id: number, b
 export const removeNote = (token: string, type: string, id: number) => apiRequest<void>(`/api/play/notes/${type}/${id}`, { token, method: 'DELETE' });
 export const setFavorite = (token: string, sourceId: number, on: boolean) => apiRequest<{ source_id: number; favorite: boolean }>(`/api/play/favorites/${sourceId}`, { token, method: on ? 'PUT' : 'DELETE' });
 export const viewEvent = (token: string, event: string, durationMs?: number) => apiRequest<{ ok: boolean }>('/api/play/events', { token, body: { event, duration_ms: durationMs } }).catch(() => undefined);
+
+// ---------------------------------------------------------------------- trình soạn hành trình (Sprint 7, HK.GV.022–027)
+export const assignJourneyScheduled = (token: string, journeyId: number, classIds: number[], schedule: { starts_at?: string | null; ends_at?: string | null }) =>
+  apiRequest<JourneyDetail>(`/api/content/journeys/${journeyId}/classes`, { token, body: { class_ids: classIds, ...schedule } });
+export const setJourneySchedule = (token: string, journeyId: number, classId: number, schedule: { starts_at: string | null; ends_at: string | null }) =>
+  apiRequest<JourneyDetail>(`/api/content/journeys/${journeyId}/classes/${classId}/schedule`, { token, method: 'PUT', body: schedule });
+export const copyJourney = (token: string, journeyId: number, body: { title?: string; class_ids?: number[]; starts_at?: string | null; ends_at?: string | null }) =>
+  apiRequest<JourneyDetail>(`/api/content/journeys/${journeyId}/copy`, { token, body });
+export const saveJourneyLayout = (token: string, journeyId: number, body: { nodes?: Array<{ id: number; x: number | null; y: number | null }>; edges?: Array<{ from: number; to: number }> }) =>
+  apiRequest<JourneyDetail>(`/api/content/journeys/${journeyId}/layout`, { token, method: 'PUT', body });
+export const previewJourney = (token: string, journeyId: number, completed: number[], hours = 0) =>
+  apiRequest<JourneyPreview>(`/api/content/journeys/${journeyId}/preview`, { token, body: { completed, hours } });
+export const rewardOptions = (token: string) => apiRequest<{ cards: Array<{ id: number; name: string; rarity: string }>; badges: Array<{ id: number; name: string; scope: string }> }>('/api/content/reward-options', { token });
