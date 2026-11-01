@@ -237,6 +237,23 @@ describe('file migration', () => {
     expect(await m.applyMigrations(url, dir)).toHaveLength(0);
   });
 
+  test('025 tạo bảng thi đấu trực tiếp (phòng, người chơi, câu trả lời) có RLS; mã PIN chỉ duy nhất giữa các phòng chưa kết thúc; thêm lý do điểm "live"', async () => {
+    await m.applyMigrations(url, dir);
+    const tables = ['hk_live_rooms', 'hk_live_players', 'hk_live_answers'];
+    const rows = await sql<{ relname: string; rowsecurity: boolean }>(url, "SELECT c.relname, c.relrowsecurity AS rowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = ANY($1) ORDER BY c.relname", [tables]);
+    expect(rows.map((r) => r.relname)).toEqual([...tables].sort());
+    expect(rows.every((r) => r.rowsecurity)).toBe(true);
+    for (const table of tables) expect(await count(`SELECT count(*) AS n FROM public.${table}`)).toBe(0);
+    const defs = (await sql<{ def: string }>(url, "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = 'hk_points_reason_check'")).map((r) => r.def).join(' ');
+    expect(defs).toMatch(/'live'/);
+    expect(defs).toMatch(/'teacher'/); // giữ nguyên các lý do cũ
+    const idx = (await sql<{ indexdef: string }>(url, "SELECT indexdef FROM pg_indexes WHERE indexname = 'hk_live_rooms_pin_open'"))[0].indexdef;
+    expect(idx).toMatch(/UNIQUE/);
+    expect(idx).toMatch(/WHERE/);
+    expect(await count("SELECT count(*) AS n FROM pg_indexes WHERE indexname = 'hk_live_players_nickname'")).toBe(1);
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+  });
+
   test('một file lỗi thì hoàn tác cả lô và lịch sử', async () => {
     await m.applyMigrations(url, dir);
     const next = String(TOTAL + 1).padStart(3, '0'), after = String(TOTAL + 2).padStart(3, '0');

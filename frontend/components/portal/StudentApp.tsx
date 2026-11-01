@@ -4,7 +4,8 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { Award, BookMarked, History as HistoryIcon, Library as LibraryIcon, ListChecks, Map as MapIcon, Route, ScrollText, Shield, Swords, Trophy, UserRound, Users } from 'lucide-react-native';
+import { Award, BookMarked, History as HistoryIcon, Library as LibraryIcon, ListChecks, Map as MapIcon, Radio, Route, ScrollText, Shield, Swords, Trophy, UserRound, Users } from 'lucide-react-native';
+import { useLocalSearchParams } from 'expo-router';
 import * as api from '@/api/learningApi';
 import * as game from '@/api/gameApi';
 import * as classroom from '@/api/classroomApi';
@@ -13,6 +14,8 @@ import { TopBar, type Session } from '@/components/auth';
 import { AnimationScreen, BattleScreen, BattlesTab } from '@/components/portal/BattleKit';
 import { CelebrationHost, CharacterSetup, ShareSheet } from '@/components/portal/Celebrations';
 import { ClassTab, NoticeBell, type ClassSection } from '@/components/portal/ClassTab';
+import { LivePlay } from '@/components/portal/LivePlay';
+import { LiveTab } from '@/components/portal/LiveTab';
 import { CharacterTab, CollectionTab, RankingTab } from '@/components/portal/GameTabs';
 import { HudBar } from '@/components/portal/GameKit';
 import { DetailSheet, LibraryTab, MapTab, SourcesTab, TimelineTab } from '@/components/portal/Library';
@@ -28,7 +31,7 @@ import type { MyAssignment, Notice } from '@/types/classroom';
 import type { Hud } from '@/types/gamification';
 import type { AttemptState, AttemptSummary, NodeResult } from '@/types/learning';
 
-type Tab = 'home' | 'library' | 'timeline' | 'map' | 'sources' | 'quests' | 'class' | 'battles' | 'character' | 'collection' | 'ranking' | 'mine';
+type Tab = 'home' | 'library' | 'timeline' | 'map' | 'sources' | 'quests' | 'class' | 'live' | 'battles' | 'character' | 'collection' | 'ranking' | 'mine';
 const TABS: Array<{ id: Tab; label: string; icon: IconType }> = [
   { id: 'home', label: 'Hành trình', icon: Route },
   { id: 'library', label: 'Thư viện', icon: LibraryIcon },
@@ -37,6 +40,7 @@ const TABS: Array<{ id: Tab; label: string; icon: IconType }> = [
   { id: 'sources', label: 'Tư liệu', icon: ScrollText },
   { id: 'quests', label: 'Nhiệm vụ', icon: ListChecks },
   { id: 'class', label: 'Lớp học', icon: Users },
+  { id: 'live', label: 'Thi đấu', icon: Radio },
   { id: 'battles', label: 'Trận đánh', icon: Swords },
   { id: 'character', label: 'Nhân vật', icon: Shield },
   { id: 'collection', label: 'Bộ sưu tập', icon: Award },
@@ -51,13 +55,16 @@ type Overlayed =
   | { kind: 'review'; id: number }
   | { kind: 'battle'; scenarioId: number; title: string; restart?: boolean }
   | { kind: 'anim'; scenarioId: number; title: string }
-  | { kind: 'mini'; id: number; title: string; restart?: boolean; assignmentId?: number };
+  | { kind: 'mini'; id: number; title: string; restart?: boolean; assignmentId?: number }
+  | { kind: 'live'; roomId: number; title: string };
 
 export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const { c } = useTheme();
   const toast = useToast();
   const { token } = session;
-  const [tab, setTab] = useState<Tab>('home');
+  // Mã QR của phòng thi mở trang này kèm ?pin=…: vào thẳng tab Thi đấu với mã đã điền sẵn
+  const { pin: linkPin } = useLocalSearchParams<{ pin?: string }>();
+  const [tab, setTab] = useState<Tab>(typeof linkPin === 'string' && /^\d{6}$/.test(linkPin) ? 'live' : 'home');
   const [campaignId, setCampaignId] = useState<number | null>(null);
   const [classSection, setClassSection] = useState<ClassSection>('classes');
   const [focusNode, setFocusNode] = useState<number | null>(null);
@@ -162,6 +169,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
         {tab === 'sources' ? <SourcesTab session={session} refreshKey={refreshKey} onOpen={open} /> : null}
         {tab === 'quests' ? <QuestsTab session={session} refreshKey={refreshKey} onGo={(cid, nid) => { setTab('home'); setCampaignId(cid); setFocusNode(nid); }} /> : null}
         {tab === 'class' ? <ClassTab session={session} hud={hud} refreshKey={refreshKey} section={classSection} onChanged={bump} onStart={startAssignment} /> : null}
+        {tab === 'live' ? <LiveTab session={session} refreshKey={refreshKey} initialPin={typeof linkPin === 'string' ? linkPin : undefined} onPlay={(roomId, title) => setOverlay({ kind: 'live', roomId, title })} /> : null}
         {tab === 'battles' ? <BattlesTab session={session} refreshKey={refreshKey} onPlay={(id, title, restart) => setOverlay({ kind: 'battle', scenarioId: id, title, restart })} onAnimation={(id, title) => setOverlay({ kind: 'anim', scenarioId: id, title })} onMini={(id, title, restart) => setOverlay({ kind: 'mini', id, title, restart })} onOpenLink={open} /> : null}
         {tab === 'character' ? <CharacterTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} onShare={openShare} /> : null}
         {tab === 'collection' ? <CollectionTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
@@ -189,6 +197,9 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       ) : null}
       {overlay?.kind === 'mini' ? (
         <Overlay title={overlay.title} onBack={() => { setOverlay(null); bump(); }}><MiniScreen session={session} id={overlay.id} restart={overlay.restart} assignmentId={overlay.assignmentId} onClose={() => { setOverlay(null); bump(); }} /></Overlay>
+      ) : null}
+      {overlay?.kind === 'live' ? (
+        <Overlay title={overlay.title} onBack={() => { setOverlay(null); bump(); }}><LivePlay session={session} roomId={overlay.roomId} /></Overlay>
       ) : null}
       {overlay?.kind === 'review' ? (
         <Overlay title="Xem lại bài đã làm" onBack={() => setOverlay(null)}><ReviewScreen session={session} id={overlay.id} onOpenLink={open} /></Overlay>

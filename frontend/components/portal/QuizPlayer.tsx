@@ -20,9 +20,9 @@ import type { AnswerResult, AttemptReview, AttemptState, AttemptSummary, PlayQue
 import { QTYPE_TEXT } from '@/types/learning';
 
 type Placement = Record<string, { lat: number; lng: number }>;
-type Draft = string | string[] | boolean | Placement | null;
+export type Draft = string | string[] | boolean | Placement | null;
 
-const initialDraft = (q: PlayQuestion): Draft => {
+export const initialDraft = (q: PlayQuestion): Draft => {
   if (q.qtype === 'multiple') return [];
   if (q.qtype === 'fill') return Array.from({ length: q.blanks ?? 1 }, () => '');
   if (q.qtype === 'order') return (q.items ?? []).map((i) => i.id);
@@ -30,7 +30,7 @@ const initialDraft = (q: PlayQuestion): Draft => {
   return null;
 };
 
-const buildAnswer = (qtype: QType, draft: Draft): unknown => {
+export const buildAnswer = (qtype: QType, draft: Draft): unknown => {
   switch (qtype) {
     case 'single': return { choice: draft };
     case 'multiple': return { choices: draft };
@@ -41,7 +41,7 @@ const buildAnswer = (qtype: QType, draft: Draft): unknown => {
   }
 };
 
-const ready = (q: PlayQuestion, draft: Draft): boolean => {
+export const ready = (q: PlayQuestion, draft: Draft): boolean => {
   if (q.qtype === 'single') return typeof draft === 'string';
   if (q.qtype === 'multiple') return Array.isArray(draft) && draft.length > 0;
   if (q.qtype === 'truefalse') return typeof draft === 'boolean';

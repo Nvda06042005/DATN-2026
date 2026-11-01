@@ -1,9 +1,9 @@
 # Tiến độ xây dựng Hào Khí Đông A (theo mã HK.*)
 
-Nguồn: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). Tài liệu này ghi **Sprint 1 đến Sprint 7**
-(235 chức năng) đã làm được gì, quyết định đã chọn khi đặc tả chưa nói rõ, và những gì cố ý chưa làm. Phân tích đối chiếu ban đầu: `DOI_CHIEU_HAO_KHI_V01.md`.
+Nguồn: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). Tài liệu này ghi **Sprint 1 đến Sprint 8**
+(251 chức năng) đã làm được gì, quyết định đã chọn khi đặc tả chưa nói rõ, và những gì cố ý chưa làm. Phân tích đối chiếu ban đầu: `DOI_CHIEU_HAO_KHI_V01.md`.
 
-Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 189 bài trong 15 tệp, gồm migration trên dữ liệu cũ, Sprint 1–7, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu, trò chơi hóa, mô phỏng trận đánh, lớp học, bài tập, bản đồ rẽ nhánh);
+Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 198 bài trong 16 tệp, gồm migration trên dữ liệu cũ, Sprint 1–7, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu, trò chơi hóa, mô phỏng trận đánh, lớp học, bài tập, bản đồ rẽ nhánh);
 `cd frontend && npm run typecheck && npm run build`. Mỗi bài kiểm thử ghi mã HK.* trong tên.
 
 ## Sprint 1 – xác thực, tài khoản, hồ sơ, trường học, người dùng (40 chức năng)
@@ -192,6 +192,30 @@ Giáo viên có mục **Lớp học** để quản lý trọn một lớp (học
 
 Dữ liệu: migration 024 (bảng đội, yêu cầu rời lớp, thưởng/phạt, hộp quà, bài tập, bài nộp, lượt dùng kỹ năng, đường nối nút; cột vị trí – điều kiện – thưởng của nút, lịch giao hành trình, điểm hành động và hiệu ứng chờ của người chơi). Mọi bảng mới bật RLS và chỉ máy chủ đọc/ghi.
 
+## Sprint 8 – thi đấu trực tiếp kiểu Kahoot (16 chức năng)
+
+Giáo viên tạo phòng thi từ một bộ đề, chiếu mã PIN 6 số và mã QR lên lớp; học sinh của lớp vào bằng điện thoại hoặc máy tính, trả lời cùng lúc, xem bảng điểm sau mỗi câu và bục vinh quang cuối trận. Trạng thái trận nằm trong PostgreSQL (khởi động lại máy chủ hay mất mạng không làm mất trận); WebSocket (Socket.IO, đường dẫn `/api/live/ws`) chỉ phát lại trạng thái cho từng người xem, mọi lệnh có API HTTP tương đương làm đường dự phòng.
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.GV.051 | Xong | Tạo phòng từ bộ đề (của mình, của trường hoặc của hệ thống) cho một lớp mình phụ trách, chế độ cá nhân hoặc theo đội (lớp cần đã chia ít nhất 2 đội); hệ thống sinh mã PIN 6 số (duy nhất giữa các phòng chưa kết thúc) và mã QR dẫn tới `/hoc-sinh?pin=…`. Phòng lưu **bản chụp** các câu hỏi lúc tạo nên sửa bộ đề giữa chừng không ảnh hưởng. Tối đa 5 phòng chưa kết thúc mỗi giáo viên; phòng bỏ quên quá 6 giờ tự đóng |
+| HK.GV.052 | Xong | Màn hình chờ chiếu lớp: mã PIN rất lớn, mã QR, danh sách người tham gia (biệt danh, hình đại diện, đội, chấm xanh khi đang trực tuyến) cập nhật theo thời gian thực, nút bắt đầu (cần ít nhất một học sinh), nút toàn màn hình (web) |
+| HK.GV.053 | Xong | Điều khiển trận: **bắt đầu**, **kết thúc câu / câu tiếp theo**, **tạm dừng và tiếp tục** (đồng hồ giữ đúng thời gian còn lại), **bỏ qua câu** (không tính điểm cho ai, điểm đã nhận của câu đó được thu hồi), **kết thúc sớm** (có hộp xác nhận). Chỉ giáo viên chủ phòng điều khiển được |
+| HK.GV.054 | Xong | Kết quả từng câu: biểu đồ phân bố đáp án (trắc nghiệm một/nhiều đáp án và đúng/sai; dạng khác hiện số đúng/sai/chưa trả lời), đáp án đúng, giải thích, bảng xếp hạng top 5 tức thời, điểm đội |
+| HK.GV.055 | Xong | Bục vinh quang cuối trận: top 3 (cá nhân, hoặc đội ở chế độ đội) với hiệu ứng dâng bục (tắt khi người dùng chọn giảm chuyển động), bảng xếp hạng đầy đủ |
+| HK.GV.056 | Xong | Báo cáo trận: điểm từng học sinh (họ tên, mã, biệt danh, đội), tỉ lệ đúng và thời gian trả lời trung bình từng câu, **câu khó nhất** (câu bị bỏ qua không tính), tỉ lệ tham gia trả lời, xếp hạng đội; lưu **lịch sử phòng thi** theo lớp |
+| HK.GV.057 | Xong | Xuất Excel (trang Tổng quan, Học sinh, Câu hỏi, Đội; chuỗi người dùng nhập được làm sạch để không thành công thức) và PDF (A4 ngang, chữ Manrope nhúng sẵn nên đủ dấu tiếng Việt) |
+| HK.GV.058, HK.HS.085 | Xong | Thi theo đội: học sinh tự vào đội của lớp (đã chia ở mục Lớp học → Đội); **điểm đội = trung bình điểm các thành viên đã tham gia** (công bằng khi đội đông ít khác nhau); học sinh chưa có đội vẫn thi được nhưng không nằm trong bảng đội |
+| HK.HS.079 | Xong | Nhập mã PIN 6 số (hoặc mở đường dẫn từ mã QR đã điền sẵn mã) → xem trước phòng → vào phòng chờ. Chỉ học sinh thuộc lớp của phòng; giới hạn 20 lần thử mỗi phút để không dò mã; có danh sách phòng đang mở của các lớp em (không kèm mã PIN) |
+| HK.HS.080 | Xong | Chọn biệt danh (2–20 ký tự, không trùng trong phòng, không phân biệt hoa thường) và 1 trong 12 hình đại diện; đổi được ở phòng chờ; vào lại phòng giữ nguyên người chơi. Giáo viên vẫn thấy tên thật trong báo cáo |
+| HK.HS.081 | Xong | Câu hỏi hiện đồng bộ với màn hình giáo viên, đếm ngược theo **giờ máy chủ** (có bù lệch đồng hồ). Điểm mỗi câu: đúng được từ 50% đến 100% điểm của câu tùy tốc độ, sai hoặc quá giờ 0 điểm; chỉ nhận một đáp án mỗi câu và không báo đúng/sai cho đến khi hết câu. Hỗ trợ cả sáu dạng câu hỏi (trắc nghiệm và đúng/sai bấm một lần; dạng khác có nút gửi) |
+| HK.HS.082 | Xong | Sau mỗi câu: kết quả của em (+điểm, hạng), đáp án đúng, phân bố đáp án, top 5 và hạng của em. Câu kết thúc khi hết giờ, hoặc khi mọi người đang trực tuyến đã trả lời, hoặc giáo viên kết thúc câu |
+| HK.HS.083 | Xong | Bục vinh quang top 3 và bảng xếp hạng cuối trận; điểm trận quy đổi thành **điểm tài khoản** (điểm ÷ 10, tối đa 150, thêm 20/10/5 cho hạng 1/2/3), cộng đúng một lần mỗi trận |
+| HK.HS.084 | Xong | Lịch sử các trận đã thi và xem lại từng câu: đúng/sai, điểm, đáp án đúng, giải thích, tỉ lệ đúng của cả lớp |
+| HK.SYS.016 | Xong | Đồng bộ thời gian thực bằng Socket.IO: đăng nhập bằng token như API, `live:state` riêng cho từng người xem (học sinh không bao giờ nhận đáp án trong lúc làm), `live:answered` cho số người đã trả lời; tự kết nối lại và hỏi lại trạng thái, trong lúc chưa có WebSocket thì lệnh và đáp án đi qua HTTP và trạng thái được hỏi lại mỗi 4 giây. Đồng hồ chốt câu chạy ở máy chủ và được dựng lại khi khởi động |
+
+Dữ liệu: migration 025 (phòng thi, người chơi, câu trả lời; mã PIN chỉ duy nhất giữa các phòng chưa kết thúc; lý do điểm `live`). Mọi bảng mới bật RLS, chỉ máy chủ đọc/ghi.
+
 ## Quyết định khi đặc tả chưa nói rõ
 
 - **Quản trị tổng cấp 2 (HK.AD.020):** có cột `admin_level`. Cấp 2 quản lý quản trị viên trường học nhưng không tạo/sửa/khóa/xóa quản trị tổng, không tạo hay xóa trường. Ma trận RBAC thực sự (HK.AD.026) thuộc Sprint 11.
@@ -214,10 +238,12 @@ Dữ liệu: migration 024 (bảng đội, yêu cầu rời lớp, thưởng/ph�
 - **Thưởng/phạt của giáo viên:** ghi vào sổ điểm/vàng với lý do riêng (`teacher`), trừ không xuống dưới 0 và không hạ cấp; không tính vào mục tiêu hộp quà của lớp để giáo viên không "tự mở" hộp quà. HP tối đa của lớp là mức thấp nhất giữa mặc định và giá trị giáo viên đặt.
 - **Kỹ năng và điểm hành động:** điểm hành động tính theo cấp và hồi đầy khi sang ngày mới (giờ Việt Nam); lên cấp giữa ngày chưa nâng điểm đang có đến hôm sau. Xung phong và Hộ giáp là hiệu ứng chờ (mỗi loại tối đa một cái), dùng đúng một lần.
 - **Thông báo:** dùng bảng thông báo chung, học sinh và giáo viên thăm dò 60 giây một lần (chưa đẩy thời gian thực, chưa gửi email).
+- **Thi đấu trực tiếp (Sprint 8):** phòng thi gắn với một lớp và chỉ học sinh của lớp đó vào được (giữ riêng tư và có đội để tính điểm đội); học sinh có thể vào muộn khi trận đã chạy (điểm các câu trước là 0). Chốt sớm một câu chỉ chờ những người **đang trực tuyến** (học sinh chỉ dùng đường HTTP dự phòng không được chờ); không ai trực tuyến thì đợi hết giờ. Máy chủ chỉ một tiến trình giữ đồng hồ: nếu sau này chạy nhiều máy chủ cần dùng bộ điều hợp Redis cho Socket.IO và khóa đồng hồ chốt câu.
 - **Cột lớp học sinh `class_name` và giáo viên `teacher_id` cũ:** để nguyên (không xóa dữ liệu); mã mới chỉ đọc bảng thành viên / giáo viên–lớp.
 
 ## Triển khai và dữ liệu hiện có
 
+- Sprint 8 (nhánh `feat/hao-khi-sprint-8`, migration 025, thêm Socket.IO, pdfkit, qrcode); mong đợi `schema_version` 25 ở `/api/database/health` sau khi Render khởi động bản mới. Render hỗ trợ WebSocket; nếu một mạng chặn WebSocket thì Socket.IO tự dùng polling và giao diện dùng thêm đường HTTP dự phòng.
 - Sprint 6 (nhánh `feat/hao-khi-sprint-6`, migration 022–023) gộp vào `main` ngày 01/11/2026 (Render chạy `schema_version` 23). Sprint 7 (nhánh `feat/hao-khi-sprint-7`, migration 024) gộp vào `main` cùng ngày (3d1d650); Render và Supabase chạy `schema_version` 24 (xác nhận ở `/api/database/health`), các đường dẫn `/api/classroom/*` trả 401 khi chưa đăng nhập, bản web trên Vercel có mã Sprint 7.
 - Cập nhật trang công khai ngày 31/10/2026: toàn bộ ghi công bản đồ/ảnh được chuyển khỏi Điều khoản sử dụng sang `/thong-tin-hinh-anh`, mở từ footer chung. Trang riêng dùng `InfoShell`, nền và Manrope/Newsreader như Điều khoản sử dụng; giữ đủ tác giả, nguồn và giấy phép. Không thay đổi database.
 - Sprint 1–2 đã gộp vào `main` ngày 31/10/2026 (nhánh `feat/hao-khi-sprint-1-2`); khi đó Render và Supabase đã chạy `schema_version` 16. Sprint 3–4 (nhánh `feat/hao-khi-sprint-3-4`) được gộp vào `main` cùng ngày (Render và Supabase chạy `schema_version` 19). Sprint 5 (nhánh `feat/hao-khi-sprint-5`) thêm migration 020–021; backend áp dụng khi khởi động với `DATABASE_URL`; xác minh bằng `schema_version` ở `/api/database/health` (mong đợi 21 sau khi Render khởi động bản mới).
@@ -227,7 +253,8 @@ Dữ liệu: migration 024 (bảng đội, yêu cầu rời lớp, thưởng/ph�
 
 ## Chưa làm (ngoài Sprint 1–7) và đề xuất
 
-- Từ Sprint 8: thi trực tiếp (Sprint 8), trợ lý AI và sinh câu hỏi bằng AI (Sprint 9–10).
+- Từ Sprint 9: trợ lý AI (RAG) và sinh câu hỏi bằng AI (Sprint 9–10), gợi ý học tập và báo cáo (Sprint 10), thông báo/cấu hình hệ thống/2FA (Sprint 11).
+- Giới hạn đã biết của Sprint 8: chưa kiểm tra với cả lớp thật (đã kiểm tra tải đồng thời nhỏ: ba người trả lời cùng lúc); Socket.IO chạy trên một máy chủ (chưa có Redis adapter); chưa có chế độ tự học theo nhịp riêng (Kahoot "assignment"), chưa có nhạc/âm thanh; câu kéo thả bản đồ trên điện thoại cần Leaflet nên chỉ có trên bản web; báo cáo PDF không có biểu đồ (có bảng và tỉ lệ đúng).
 - Giới hạn đã biết của Sprint 7: kéo thả nút mới thử trên trình duyệt web (chưa thử trên điện thoại thật; có cách nhập số và chọn nút thay thế); bài tập chỉ có ba loại (bộ đề, mini-game, bài học), chưa có bài nộp tệp hay tự luận; thông báo thăm dò chứ chưa đẩy thời gian thực; chưa xuất bảng điểm bài tập ra Excel; huy hiệu riêng của trường do quản trị viên trường tạo, giáo viên chỉ trao; hành trình đang có học sinh học không đổi được đường nối (nhân bản để chỉnh).
 - Giới hạn đã biết của Sprint 5: bảng xếp hạng lưu đệm trong bộ nhớ một máy chủ (nhiều máy chủ sẽ mỗi máy một đệm, cần Redis nếu mở rộng); giải đấu có 4 hạng cố định; lượt làm bài đang dở vẫn tiếp tục khi tim về 0 (chỉ chặn bài mới); ảnh thành tích chỉ tạo được trên web; nhân vật là biểu tượng ghép chứ chưa có ảnh vẽ; nội dung khởi tạo (tên cấp, huy hiệu, thẻ, nhiệm vụ) là bản nháp thiết kế chờ giáo viên duyệt.
 - Bản cũ có game 2D, thi đấu trực tiếp, chatbot AI, BKT, thống kê: đã gỡ khỏi mã; xây lại theo sprint sau từ đặc tả mới.
