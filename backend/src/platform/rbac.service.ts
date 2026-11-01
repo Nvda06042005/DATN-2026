@@ -18,7 +18,7 @@ export const FEATURE_ROUTES: Array<{ key: string; method?: string; re: RegExp; m
   { key: 'reports', re: /^\/api\/analytics\/(classes|results|students|export|school|usage|ai|system)/, message: 'Vai trò của bạn hiện không được xem báo cáo' },
   { key: 'live_host', method: 'POST', re: /^\/api\/live\/rooms$/, message: 'Vai trò của bạn hiện không được tổ chức phòng thi đấu' },
   { key: 'announce', re: /^\/api\/platform\/broadcasts/, message: 'Vai trò của bạn hiện không được gửi thông báo' },
-  { key: 'survey', re: /^\/api\/platform\/surveys/, message: 'Vai trò của bạn hiện không được dùng khảo sát' },
+  { key: 'survey', re: /^\/api\/platform\/(surveys|survey-templates)/, message: 'Vai trò của bạn hiện không được dùng khảo sát' },
   { key: 'support', re: /^\/api\/platform\/support/, message: 'Vai trò của bạn hiện không được gửi yêu cầu hỗ trợ' },
   { key: 'audit_log', re: /^\/api\/(admin\/audit-history|platform\/logs\/audit)/, message: 'Vai trò của bạn hiện không được xem nhật ký hoạt động' },
 ];

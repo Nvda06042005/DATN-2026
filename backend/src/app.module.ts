@@ -33,6 +33,9 @@ import { AnalyticsService } from './analytics/analytics.service';
 import { FeedbackService } from './analytics/feedback.service';
 import { RecoService } from './analytics/reco.service';
 import { PlatformAdminController } from './platform/platform-admin.controller';
+import { ResearchService } from './platform/research.service';
+import { SurveyController } from './platform/survey.controller';
+import { SurveyService } from './platform/survey.service';
 import { PlatformController } from './platform/platform.controller';
 import { PlatformJob } from './platform/platform.job';
 import { BackupService } from './platform/backup.service';
@@ -80,8 +83,8 @@ import { StudentController } from './student/student.controller';
   imports: [
     JwtModule.register({ secret: config.authSecret, signOptions: { algorithm: 'HS256', expiresIn: config.tokenTtlHours * 3600 }, verifyOptions: { algorithms: ['HS256'] } }),
   ],
-  controllers: [AppController, AuthController, AdminController, HistoryController, ContentController, StudentController, LearnController, PlayController, GameController, BattleController, ClassroomController, LiveController, WarController, AiController, AnalyticsController, PlatformController, PlatformAdminController],
-  providers: [SystemService, RbacService, LogsService, PrefsService, NoticeService, SupportService, FaqService, TwoFactorService, BackupService, PlatformJob, { provide: APP_INTERCEPTOR, useClass: PolicyInterceptor }, AnalyticsService, RecoService, FeedbackService, AnalyticsJob, LlmClient, AiSettingsService, AiRetrievalService, AiIndexService, AiTutorService, AiToolsService, AiAdminService, SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, MailService, SchoolService, AccountService, ClassService, HistoryService, QuestionService, QuizService, LessonService, JourneyService, ShareService, LearnService, PlayService, GameClock, SettingsService, GameService, BoardService, CatalogService, GameJob, BattleService, WarGate, WarCardsService, WarMarchService, WarService, ClassroomService, AssignmentService, SkillService, LiveService, LiveGateway],
+  controllers: [AppController, AuthController, AdminController, HistoryController, ContentController, StudentController, LearnController, PlayController, GameController, BattleController, ClassroomController, LiveController, WarController, AiController, AnalyticsController, PlatformController, PlatformAdminController, SurveyController],
+  providers: [SurveyService, ResearchService, SystemService, RbacService, LogsService, PrefsService, NoticeService, SupportService, FaqService, TwoFactorService, BackupService, PlatformJob, { provide: APP_INTERCEPTOR, useClass: PolicyInterceptor }, AnalyticsService, RecoService, FeedbackService, AnalyticsJob, LlmClient, AiSettingsService, AiRetrievalService, AiIndexService, AiTutorService, AiToolsService, AiAdminService, SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, MailService, SchoolService, AccountService, ClassService, HistoryService, QuestionService, QuizService, LessonService, JourneyService, ShareService, LearnService, PlayService, GameClock, SettingsService, GameService, BoardService, CatalogService, GameJob, BattleService, WarGate, WarCardsService, WarMarchService, WarService, ClassroomService, AssignmentService, SkillService, LiveService, LiveGateway],
 })
 export class AppModule {}
 

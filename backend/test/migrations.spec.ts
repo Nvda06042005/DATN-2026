@@ -334,6 +334,53 @@ describe('file migration', () => {
     expect(await count('SELECT count(*) AS n FROM hk_ai_settings')).toBe(1);
   });
 
+  test('031–034 (Sprint 10–12) tạo bảng gợi ý, nền tảng, khảo sát và nghiên cứu đều có RLS; dữ liệu khởi tạo đúng; giữ nguyên nhật ký đăng nhập cũ', async () => {
+    await m.applyMigrations(url, dir);
+    const tables = ['hk_reco_settings', 'hk_recommendations', 'hk_feedback_mails', 'hk_user_prefs', 'hk_broadcasts', 'hk_support_tickets', 'hk_support_messages', 'hk_faq', 'hk_system_settings', 'hk_feature_flags',
+      'hk_message_templates', 'hk_permission_features', 'hk_permissions', 'hk_two_factor', 'hk_two_factor_codes', 'hk_error_log', 'hk_job_heartbeats', 'hk_backups', 'hk_survey_templates', 'hk_surveys',
+      'hk_survey_responses', 'hk_experiment_groups', 'hk_experiment_classes'];
+    expect(await count(`SELECT count(*) AS n FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = ANY(ARRAY[${tables.map((t) => `'${t}'`).join(',')}]) AND c.relrowsecurity`)).toBe(tables.length);
+    // ma trận phân quyền theo đặc tả: 38 nhóm × 4 vai trò, 8 tính năng đã nối, quyền gốc trùng quyền hiện hành
+    expect(await count('SELECT count(*) AS n FROM hk_permission_features')).toBe(38);
+    expect(await count('SELECT count(*) AS n FROM hk_permissions')).toBe(152);
+    expect(await count('SELECT count(*) AS n FROM hk_permission_features WHERE enforced')).toBe(8);
+    expect(await count('SELECT count(*) AS n FROM hk_permissions WHERE allowed <> baseline')).toBe(0);
+    expect(await count("SELECT count(*) AS n FROM hk_permissions WHERE feature_key = 'reports' AND allowed")).toBe(3);
+    expect(await count('SELECT count(*) AS n FROM hk_feature_flags WHERE enabled')).toBe(8);
+    expect(await count('SELECT count(*) AS n FROM hk_system_settings')).toBe(1);
+    expect(await count("SELECT count(*) AS n FROM hk_system_settings WHERE language = 'vi' AND timezone = 'Asia/Ho_Chi_Minh' AND rate_ip_per_min IS NULL AND backup_enabled")).toBe(1);
+    await expect(sql(url, "INSERT INTO public.hk_system_settings (id) VALUES (2)")).rejects.toThrow(); // chỉ một dòng cấu hình
+    expect(await count('SELECT count(*) AS n FROM hk_reco_settings')).toBe(1);
+    expect(await count("SELECT count(DISTINCT audience) AS n FROM hk_faq")).toBe(4);
+    expect(await count('SELECT count(*) AS n FROM hk_faq WHERE is_published')).toBeGreaterThanOrEqual(30);
+    expect(await count('SELECT count(*) AS n FROM hk_survey_templates WHERE is_active')).toBe(3);
+    expect(await count("SELECT count(*) AS n FROM hk_survey_templates WHERE jsonb_array_length(questions) >= 7")).toBe(3);
+    expect(await count('SELECT count(*) AS n FROM hk_message_templates')).toBe(0); // mẫu thư mặc định nằm trong mã nguồn
+    for (const bad of ["INSERT INTO hk_faq (audience, category, question, answer, image_url) VALUES ('all', 'x', 'Câu hỏi hợp lệ?', 'Trả lời hợp lệ', 'http://khong-bao-mat.vn/a.png')",
+      "INSERT INTO hk_support_tickets (user_id, role, category, subject, body) VALUES (1, 'student', 'khac', 'Tiêu đề', 'Nội dung đủ dài')",
+      "INSERT INTO hk_survey_templates (title, audience, questions) VALUES ('Mẫu rỗng', 'student', '[]')",
+      "INSERT INTO hk_experiment_groups (name) VALUES ('x')"]) await expect(sql(url, bad)).rejects.toThrow();
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+    expect(await count('SELECT count(*) AS n FROM hk_permissions')).toBe(152); // dữ liệu khởi tạo không nhân đôi
+  });
+
+  test('032 giữ nguyên nhật ký đăng nhập và hàng đợi thư cũ, thêm cột IP và loại thư mới', async () => {
+    const held = readdirSync(dir).filter((name) => name.endsWith('.sql') && Number(name.slice(0, 3)) > 31);
+    for (const name of held) renameSync(join(dir, name), join(dir, `${name}.pending`));
+    expect(await m.applyMigrations(url, dir)).toHaveLength(31);
+    await sql(url, "INSERT INTO public.app_users (id, username, full_name, role, password_hash, created_at) VALUES (950, 'cu950', 'Người Cũ', 'teacher', 'x', '2026-10-01T00:00:00Z')");
+    await sql(url, "INSERT INTO public.app_login_events (user_id, username, portal, success, reason) VALUES (950, 'cu950', 'teacher', true, 'success'), (NULL, 'la', 'teacher', false, 'credentials')");
+    await sql(url, "INSERT INTO public.app_email_outbox (user_id, kind, to_email, subject, body_encrypted) VALUES (950, 'bulk', 'cu@example.edu.vn', 'Thư cũ', 'x')");
+    for (const name of held) renameSync(join(dir, `${name}.pending`), join(dir, name));
+    expect(await m.applyMigrations(url, dir)).toHaveLength(TOTAL - 31);
+    expect(await sql(url, 'SELECT username, success, reason, ip, user_agent FROM public.app_login_events ORDER BY id')).toEqual([
+      { username: 'cu950', success: true, reason: 'success', ip: null, user_agent: null }, { username: 'la', success: false, reason: 'credentials', ip: null, user_agent: null }]);
+    expect(await count("SELECT count(*) AS n FROM public.app_email_outbox WHERE kind = 'bulk' AND subject = 'Thư cũ'")).toBe(1);
+    await sql(url, "INSERT INTO public.app_email_outbox (user_id, kind, to_email, subject, body_encrypted) VALUES (950, 'notice', 'cu@example.edu.vn', 'Nhắc học', 'x')");
+    await sql(url, "INSERT INTO public.app_login_events (user_id, username, portal, success, reason, ip, user_agent) VALUES (950, 'cu950', 'root_admin', false, 'two_factor', '203.0.113.9', 'Chrome')");
+    await expect(sql(url, "INSERT INTO public.app_login_events (username, portal, success, reason) VALUES ('x', 'teacher', false, 'khong-co')")).rejects.toThrow();
+  });
+
   test('một file lỗi thì hoàn tác cả lô và lịch sử', async () => {
     await m.applyMigrations(url, dir);
     const next = String(TOTAL + 1).padStart(3, '0'), after = String(TOTAL + 2).padStart(3, '0');

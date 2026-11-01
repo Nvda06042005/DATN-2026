@@ -7,6 +7,7 @@ import { defer, mergeMap, Observable } from 'rxjs';
 import { UserRow } from '../database/database.service';
 import { DEFAULT_RATE, limiter } from './request-context';
 import { FEATURE_ROUTES, RbacService } from './rbac.service';
+import { ResearchService } from './research.service';
 import { SystemService } from './system.service';
 
 /** Đường dẫn của người học / người dùng cuối (không phải trang quản trị) thuộc cờ tính năng nào */
@@ -18,11 +19,14 @@ const FLAG_ROUTES: Array<{ flag: string; re: RegExp; what: string }> = [
   { flag: 'war_game', re: /^\/api\/war\/(?!admin\/)/, what: 'Game thẻ tướng' },
   { flag: 'recommendations', re: /^\/api\/analytics\/me\//, what: 'Gợi ý học tập' },
 ];
+/** Tính năng bị tắt cho học sinh thuộc lớp của nhóm thử nghiệm "không trò chơi hóa" / "không AI" (HK.AD.078) */
+const GAMIFICATION_ROUTES = /^\/api\/(game\/(shop|leaderboard|league|contests|badges|cards|drops|quests|gift|streak)|war\/(?!admin\/))/;
+const AI_ROUTES = /^\/api\/(ai\/(?!admin\/)|analytics\/me\/)/;
 const AI_CALL = /^\/api\/ai\/(ask|explain|summarize|teacher\/)/;
 
 @Injectable()
 export class PolicyInterceptor implements NestInterceptor {
-  constructor(private readonly system: SystemService, private readonly rbac: RbacService) {}
+  constructor(private readonly system: SystemService, private readonly rbac: RbacService, private readonly research: ResearchService) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const http = context.switchToHttp();
@@ -42,6 +46,10 @@ export class PolicyInterceptor implements NestInterceptor {
       if (req.method === 'POST' && path === '/api/ai/ask' && req.body?.mode === 'roleplay' && !(await this.system.isOn('roleplay'))) throw new ForbiddenException('Trò chuyện nhập vai đang được quản trị viên tạm tắt');
       for (const r of FEATURE_ROUTES) {
         if (r.re.test(path) && (!r.method || r.method === req.method) && !(await this.rbac.can(user.role, r.key))) throw new ForbiddenException(r.message);
+      }
+      if (user.role === 'student' && (GAMIFICATION_ROUTES.test(path) || AI_ROUTES.test(path))) {
+        const features = await this.research.featuresOf(user);
+        if ((!features.gamification && GAMIFICATION_ROUTES.test(path)) || (!features.ai && AI_ROUTES.test(path))) throw new ForbiddenException('Tính năng này không có trong chương trình thử nghiệm của lớp bạn');
       }
       if (/^\/api\/ai\/(?!admin\/)/.test(path) && user.school_id && !(await this.system.aiAllowed(user.school_id))) throw new ForbiddenException('AI Tutor đang tạm tắt cho trường của bạn');
     }).pipe(mergeMap(() => next.handle()));

@@ -3,6 +3,7 @@ import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { UserRow } from '../database/database.service';
 import { NoticeService } from './notice.service';
 import { PrefsService } from './prefs.service';
+import { ResearchService } from './research.service';
 import { FaqService, SupportService } from './support.service';
 import { SystemService } from './system.service';
 import { TwoFactorService } from './twofa.service';
@@ -21,12 +22,12 @@ const REQUESTERS = ['student', 'teacher', 'school_admin'] as const;
 export class PlatformController {
   constructor(
     private readonly system: SystemService, private readonly prefs: PrefsService, private readonly notices: NoticeService,
-    private readonly support: SupportService, private readonly faq: FaqService, private readonly twofa: TwoFactorService,
+    private readonly support: SupportService, private readonly faq: FaqService, private readonly twofa: TwoFactorService, private readonly research: ResearchService,
   ) {}
 
   // ---------------------------------------------------------------------- cấu hình công khai và cờ tính năng
   @Get('config') @Roles(...ALL)
-  async config() { return { ...(await this.system.publicConfig()), flags: Object.fromEntries((await this.system.flags()).map((f: Json) => [f.key, f.enabled])) }; }
+  async config(@CurrentUser() user: UserRow) { return { ...(await this.system.publicConfig()), flags: Object.fromEntries((await this.system.flags()).map((f: Json) => [f.key, f.enabled])), features: await this.research.featuresOf(user) }; }
 
   // ---------------------------------------------------------------------- tùy chọn cá nhân (HK.HS.015, HK.HS.016)
   @Get('prefs') @Roles(...ALL) getPrefs(@CurrentUser() user: UserRow) { return this.prefs.get(user); }
