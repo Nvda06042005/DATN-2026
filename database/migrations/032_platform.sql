@@ -5,7 +5,7 @@
 -- ------------------------------------------------------------------ tùy chọn của người dùng (HK.HS.015, HK.HS.016)
 CREATE TABLE public.hk_user_prefs (
     user_id INTEGER PRIMARY KEY REFERENCES public.app_users(id) ON DELETE CASCADE,
-    theme TEXT NOT NULL DEFAULT 'system' CHECK (theme IN ('light', 'dark', 'system')),
+    theme TEXT NOT NULL DEFAULT 'light' CHECK (theme IN ('light', 'dark', 'system')),
     reminder_enabled BOOLEAN NOT NULL DEFAULT false,
     -- giờ nhắc học trong ngày theo giờ hệ thống (múi giờ cấu hình ở hk_system_settings)
     reminder_hour SMALLINT NOT NULL DEFAULT 19 CHECK (reminder_hour BETWEEN 0 AND 23),

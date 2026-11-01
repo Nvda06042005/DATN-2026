@@ -259,8 +259,25 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tries, setTries] = useState(0);
+  const [challenge, setChallenge] = useState<{ challenge: string; method: 'email' | 'totp' } | null>(null);
+  const [code, setCode] = useState('');
   const passwordRef = useRef<TextInputInstance>(null);
   const shake = useShake(error ? tries : null);
+
+  const verify = async () => {
+    if (!challenge || !code.trim()) { setError('Hãy nhập mã xác thực.'); setTries((n) => n + 1); return; }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await authApi.verifyTwoFactor(challenge.challenge, code.trim(), portal);
+      onLogin(res.token, res.user);
+    } catch (err) {
+      setError(errorMessage(err, 'Mã xác thực không đúng.'));
+      setTries((n) => n + 1);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const submit = async () => {
     if (!username.trim() || !password) {
@@ -271,7 +288,8 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
     setLoading(true);
     setError(null);
     try {
-      const res = await authApi.loginToPortal(username.trim(), password, portal);
+      const res = await authApi.loginAdmin(username.trim(), password, portal);
+      if ('two_factor' in res) { setChallenge({ challenge: res.challenge, method: res.method }); setPassword(''); return; }
       onLogin(res.token, res.user);
     } catch (err) {
       setError(errorMessage(err, 'Đăng nhập thất bại.'));
@@ -280,6 +298,22 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
       setLoading(false);
     }
   };
+
+  if (challenge) {
+    return (
+      <>
+        <Heading title="Xác thực hai lớp" />
+        <Banner tone="info" text={challenge.method === 'email' ? 'Mã 6 chữ số đã được gửi tới email của tài khoản (hiệu lực 5 phút).' : 'Mở ứng dụng xác thực và nhập mã 6 chữ số của tài khoản này.'} />
+        <AuthInput label="Mã xác thực hoặc mã dự phòng" nativeID="admin-2fa-code" value={code} onChangeText={setCode} invalid={Boolean(error)} autoCapitalize="none" autoCorrect={false} autoComplete="one-time-code" textContentType="oneTimeCode"
+          returnKeyType="go" onSubmitEditing={verify} autoFocus={Platform.OS === 'web'} />
+        {error ? <Animated.View style={shake}><Banner tone="error" text={error} /></Animated.View> : null}
+        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 24, rowGap: 8 }}>
+          <SubmitButton title={loading ? 'Đang xác thực…' : 'Xác nhận'} loading={loading} onPress={verify} testID="login-2fa-submit" />
+          <TextLink title="Quay lại" onPress={() => { setChallenge(null); setCode(''); setError(null); }} />
+        </View>
+      </>
+    );
+  }
 
   return (
     <>

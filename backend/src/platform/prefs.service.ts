@@ -6,7 +6,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { DatabaseService, UserRow } from '../database/database.service';
 
 export interface Prefs { theme: 'light' | 'dark' | 'system'; reminder_enabled: boolean; reminder_hour: number; reminder_channel: 'web' | 'email' | 'both' }
-const DEFAULTS: Prefs = { theme: 'system', reminder_enabled: false, reminder_hour: 19, reminder_channel: 'web' };
+const DEFAULTS: Prefs = { theme: 'light', reminder_enabled: false, reminder_hour: 19, reminder_channel: 'web' };
 
 @Injectable()
 export class PrefsService {

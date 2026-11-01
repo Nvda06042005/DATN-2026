@@ -47,7 +47,7 @@ export class PlatformAdminController {
   @Get('health') @Roles('root_admin') health() { return this.system.health(limiter.stats(15)); }
 
   // ---------------------------------------------------------------------- nhật ký (HK.QT.051, HK.AD.027, HK.AD.075, HK.AD.076, HK.SYS.020)
-  @Get('logs/audit') @Roles('school_admin', 'root_admin') audit(@CurrentUser() user: UserRow, @Query() q: Json) { return this.logs.audit(user, filter(q)); }
+  @Get('logs/audit') @Roles('school_admin', 'root_admin') audit(@CurrentUser() user: UserRow, @Query() q: Json) { return this.logs.audit(user, { ...filter(q), staff_only: q.students !== 'true' }); }
   @Get('logs/logins') @Roles('school_admin', 'root_admin') logins(@CurrentUser() user: UserRow, @Query() q: Json) { return this.logs.logins(user, filter(q)); }
   @Get('logs/errors') @Roles('root_admin') errors(@CurrentUser() user: UserRow, @Query() q: Json) { return this.logs.errors(user, { source: q.source, q: q.q, from: q.from, to: q.to, page: num(q.page), limit: num(q.limit) }); }
   @Delete('logs/errors') @Roles('root_admin') clearErrors(@CurrentUser() user: UserRow, @Query('older_than_days') days?: string) { return this.logs.clearErrors(user, Number(days ?? 30)); }

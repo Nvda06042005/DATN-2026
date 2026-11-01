@@ -20,10 +20,24 @@ const VERB: Array<[RegExp, string]> = [
   [/\/members\b/, 'Cập nhật thành viên'], [/\/send\b|\/feedback\b|\/broadcasts\b/, 'Gửi'], [/\/reindex\b/, 'Lập chỉ mục'], [/change-password/, 'Đổi mật khẩu'], [/\/settings\b/, 'Đổi cấu hình'],
 ];
 
+/** Nhãn riêng cho các thao tác của nhóm nền tảng và tài khoản (kiểm tra trước các quy tắc chung bên dưới); [phương thức, mẫu đường dẫn, nhãn] */
+const SPECIAL: Array<[string | null, RegExp, string]> = [
+  ['POST', /\/platform\/broadcasts$/, 'Gửi thông báo'], ['PUT', /\/platform\/broadcasts\/:id$/, 'Sửa thông báo'], ['DELETE', /\/platform\/broadcasts\/:id$/, 'Thu hồi / hủy thông báo'],
+  ['POST', /\/platform\/surveys\/:id\/respond$/, 'Trả lời khảo sát'], ['POST', /\/platform\/surveys$/, 'Tạo khảo sát'], ['PUT', /\/platform\/surveys\/:id$/, 'Cập nhật khảo sát'], ['DELETE', /\/platform\/surveys\/:id$/, 'Xóa khảo sát'],
+  [null, /\/platform\/survey-templates/, 'Sửa mẫu khảo sát'], [null, /\/platform\/experiments\/classes/, 'Gán lớp vào nhóm thử nghiệm'], [null, /\/platform\/experiments\/groups/, 'Sửa nhóm thử nghiệm'],
+  [null, /\/platform\/support\/:id\/reply$/, 'Trả lời yêu cầu hỗ trợ'], [null, /\/platform\/support\/:id\/status$/, 'Đổi trạng thái yêu cầu hỗ trợ'], ['POST', /\/platform\/support$/, 'Gửi yêu cầu hỗ trợ'],
+  [null, /\/platform\/prefs$/, 'Đổi cài đặt cá nhân'], [null, /\/platform\/notices\//, 'Đọc / xóa thông báo'], [null, /\/platform\/settings$/, 'Đổi cấu hình hệ thống'], [null, /\/platform\/flags\//, 'Bật / tắt tính năng'],
+  [null, /\/platform\/templates\//, 'Sửa mẫu thư'], [null, /\/platform\/schools\/:id\/limits/, 'Đổi giới hạn của trường'], [null, /\/platform\/rbac$/, 'Đổi ma trận phân quyền'],
+  [null, /\/platform\/backups\/:id\/restore$/, 'Phục hồi dữ liệu'], [null, /\/platform\/backups/, 'Sao lưu dữ liệu'], [null, /\/platform\/2fa/, 'Đổi cài đặt xác thực hai lớp'], [null, /\/platform\/faq/, 'Sửa hướng dẫn / FAQ'],
+  [null, /\/platform\/logs\/errors/, 'Dọn nhật ký lỗi'], [null, /\/auth\/confirm-profile$/, 'Xác nhận hồ sơ'], [null, /\/auth\/change-password$/, 'Đổi mật khẩu'], [null, /\/game\/character$/, 'Chọn nhân vật'],
+];
+
 /** "POST /admin/teachers" → "Tạo giáo viên": nhãn dễ đọc cho nhật ký thao tác (không phải bản dịch hoàn chỉnh của mọi đường dẫn) */
 export function describeAction(action: string): string {
   const [method, ...rest] = action.split(' ');
   const route = rest.join(' ');
+  const special = SPECIAL.find(([m, re]) => (m === null || m === method) && re.test(route));
+  if (special) return special[2];
   const noun = NOUN.find(([re]) => re.test(route))?.[1] ?? 'dữ liệu';
   const verb = VERB.find(([re]) => re.test(route))?.[1];
   if (verb) return `${verb} ${noun}`;
@@ -86,7 +100,8 @@ export class LogsService implements OnModuleInit, OnModuleDestroy {
 
   /** Nhật ký thao tác kèm nhãn dễ đọc (HK.QT.051, HK.AD.075) */
   async audit(user: UserRow, f: SecurityFilter) {
-    const page = (await this.security.events(user, 'audit', f)) as unknown as { total: number; page: number; limit: number; items: Array<{ action: string } & Record<string, unknown>> };
+    // mặc định chỉ hiện thao tác của giáo viên và quản trị (học sinh thao tác rất nhiều nên làm loãng nhật ký); `students=true` để hiện cả học sinh
+    const page = (await this.security.events(user, 'audit', { ...f, staff_only: f.staff_only ?? true })) as unknown as { total: number; page: number; limit: number; items: Array<{ action: string } & Record<string, unknown>> };
     return { ...page, items: page.items.map((i) => ({ ...i, label: describeAction(i.action) })) };
   }
 

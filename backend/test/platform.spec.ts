@@ -226,10 +226,10 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
 
   // ------------------------------------------------------------------ HK.HS.015–016: tùy chọn
   test('tùy chọn cá nhân: giao diện sáng / tối lưu theo tài khoản; nhắc học chọn giờ và kênh, kiểm tra email', async () => {
-    expect((await as(f.S1)('GET', '/api/platform/prefs')).body).toMatchObject({ theme: 'system', reminder_enabled: false, reminder_hour: 19, reminder_channel: 'web', can_remind: true, has_email: true });
+    expect((await as(f.S1)('GET', '/api/platform/prefs')).body).toMatchObject({ theme: 'light', reminder_enabled: false, reminder_hour: 19, reminder_channel: 'web', can_remind: true, has_email: true });
     expect((await as(f.S1)('PUT', '/api/platform/prefs', { theme: 'dark', reminder_enabled: true, reminder_hour: 20, reminder_channel: 'both' })).body).toMatchObject({ theme: 'dark', reminder_enabled: true, reminder_hour: 20, reminder_channel: 'both' });
     expect((await as(f.S1)('GET', '/api/platform/prefs')).body.theme).toBe('dark'); // lưu theo tài khoản, không theo thiết bị
-    expect((await as(f.S2)('GET', '/api/platform/prefs')).body.theme).toBe('system');
+    expect((await as(f.S2)('GET', '/api/platform/prefs')).body.theme).toBe('light');
     for (const bad of [{ theme: 'neon' }, { reminder_hour: 24 }, { reminder_hour: 7.5 }, { reminder_channel: 'sms' }]) expect((await as(f.S1)('PUT', '/api/platform/prefs', bad)).status).toBe(400);
     expect((await as(f.S2)('PUT', '/api/platform/prefs', { reminder_enabled: true, reminder_channel: 'email' })).status).toBe(400); // chưa có email
     expect((await as(f.S2)('PUT', '/api/platform/prefs', { reminder_enabled: true, reminder_channel: 'web' })).status).toBe(200);
@@ -475,6 +475,12 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     expect(describeAction('DELETE /admin/students/:id')).toBe('Xóa học sinh');
     expect(describeAction('POST /admin/users/:id/reset-password')).toBe('Đặt lại mật khẩu tài khoản');
     expect(describeAction('PATCH /content/lessons/:id/status')).toBe('Đổi trạng thái bài học');
+    expect(describeAction('POST /platform/surveys/:id/respond')).toBe('Trả lời khảo sát');
+    expect(describeAction('PUT /platform/rbac')).toBe('Đổi ma trận phân quyền');
+    expect(describeAction('POST /platform/backups/:id/restore')).toBe('Phục hồi dữ liệu');
+    // mặc định ẩn thao tác của học sinh; students=true thì hiện
+    expect((await as(f.A)('GET', '/api/platform/logs/audit')).body.items.some((i: any) => i.actor_role === 'student')).toBe(false);
+    expect((await as(f.A)('GET', '/api/platform/logs/audit?students=true')).body.items.some((i: any) => i.actor_role === 'student')).toBe(true);
     // nhật ký lỗi: ghi từ mọi nơi, lọc, dọn
     const { ErrorLog } = await import('../src/platform/error-log');
     ErrorLog.report('ai', 'Mô hình AI lỗi: hết thời gian', { route: 'POST /api/ai/ask', status: 502 });
@@ -637,21 +643,25 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     expect((await as(f.T1)('POST', '/api/platform/support', { category: 'question', subject: 'Hỏi sau khi phục hồi', body: 'Hệ thống vẫn ghi được yêu cầu.' })).status).toBe(200);
     // tự động hằng ngày
     const backups = s.moduleRef.get((await import('../src/platform/backup.service')).BackupService);
-    const { hour } = await localNow();
+    // việc nền ở bài giám sát có thể đã tự sao lưu nếu đúng giờ mặc định (2 giờ sáng): bắt đầu từ trạng thái chưa có bản tự động
+    await sql(s.url, "DELETE FROM hk_backups WHERE kind = 'auto'");
+    // cố định một thời điểm để giờ tính và giờ kiểm tra không lệch nhau khi vừa qua mốc giờ
+    const now = new Date();
+    const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', hourCycle: 'h23' }).format(now));
     await root('PUT', '/api/platform/settings', { backup_hour: (hour + 1) % 24 });
     await clearCaches();
-    expect(await backups.autoIfDue()).toBe(false); // chưa tới giờ
+    expect(await backups.autoIfDue(now)).toBe(false); // chưa tới giờ
     await root('PUT', '/api/platform/settings', { backup_hour: hour, backup_keep: 1 });
     await clearCaches();
-    expect(await backups.autoIfDue()).toBe(true);
-    expect(await backups.autoIfDue()).toBe(false); // mỗi ngày một bản
+    expect(await backups.autoIfDue(now)).toBe(true);
+    expect(await backups.autoIfDue(now)).toBe(false); // mỗi ngày một bản
     await sql(s.url, "UPDATE hk_backups SET created_at = now() - interval '2 days' WHERE kind = 'auto'");
-    expect(await backups.autoIfDue()).toBe(true);
+    expect(await backups.autoIfDue(now)).toBe(true);
     expect((await sql<{ n: string }>(s.url, "SELECT count(*) AS n FROM hk_backups WHERE kind = 'auto'"))[0].n).toBe('1'); // chỉ giữ số bản theo cấu hình
     await root('PUT', '/api/platform/settings', { backup_enabled: false });
     await clearCaches();
     await sql(s.url, "DELETE FROM hk_backups WHERE kind = 'auto'");
-    expect(await backups.autoIfDue()).toBe(false);
+    expect(await backups.autoIfDue(now)).toBe(false);
     expect((await root('DELETE', `/api/platform/backups/${created.body.id}`)).body.deleted).toBe(true);
     expect((await root('DELETE', `/api/platform/backups/${created.body.id}`)).status).toBe(404);
     expect((await l2('POST', '/api/platform/backups', {})).status).toBe(403);

@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
 import { currentContext } from '../platform/request-context';
 
-export interface SecurityFilter { q?: string; school_id?: number; user_id?: number; success?: 'true' | 'false'; page?: number; limit?: number }
+export interface SecurityFilter { q?: string; school_id?: number; user_id?: number; success?: 'true' | 'false'; page?: number; limit?: number; staff_only?: boolean }
 @Injectable()
 export class SecurityService {
   constructor(private readonly db: DatabaseService) {}
@@ -22,6 +22,7 @@ export class SecurityService {
       if (scope !== null) add('e.school_id = ?', scope); else if (f.school_id) add('e.school_id = ?', f.school_id);
       if (f.user_id) add(kind === 'login' ? 'e.user_id = ?' : 'e.actor_id = ?', f.user_id);
       if (f.success) add('e.success = ?', f.success === 'true');
+      if (kind === 'audit' && f.staff_only) where.push("e.actor_role <> 'student'");
       if (f.q?.trim()) add(kind === 'login' ? "e.username ILIKE ? ESCAPE '\\'" : "(e.actor_name || ' ' || e.action) ILIKE ? ESCAPE '\\'", '%' + f.q.trim().replace(/[\\%_]/g, '\\$&') + '%');
       const condition = where.length ? where.join(' AND ') : 'TRUE';
       const total = Number((await q<{ n: string }>(`SELECT count(*) AS n FROM ${table} e WHERE ${condition}`, params))[0].n);

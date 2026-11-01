@@ -3,13 +3,17 @@
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { BookOpen, BookOpenText, Building2, ChartColumn, CircleHelp, Inbox, ListChecks, Plus, Route, Shield, Sparkles, Swords, Trash2, Trophy, Users } from 'lucide-react-native';
+import { Bell, BookOpen, BookOpenText, Building2, ChartColumn, CircleHelp, FlaskConical, History, LifeBuoy, LibraryBig, Settings2, ShieldCheck, Inbox, ListChecks, Plus, Route, Shield, Sparkles, Swords, Trash2, Trophy, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AccountSheet, dateText, ROLE_TEXT } from '@/components/admin/AccountSheet';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { AiAdmin } from '@/components/admin/AiAdmin';
 import { SystemStats } from '@/components/admin/AnalyticsAdmin';
+import { BroadcastManager } from '@/components/admin/PlatformComms';
+import { FaqManager, LogsPanel, SecurityPanel, SupportInbox } from '@/components/admin/PlatformOps';
+import { SystemAdmin } from '@/components/admin/PlatformSystem';
+import { ResearchAdmin } from '@/components/admin/ResearchAdmin';
 import { BattleAdmin } from '@/components/admin/BattleAdmin';
 import { RootGame } from '@/components/admin/GameAdmin';
 import { HistoryManager } from '@/components/admin/HistoryManager';
@@ -26,7 +30,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { fmt } from '@/lib/format';
 import type { AuthRole, CreatedAccount, CreatedSchool, SchoolItem } from '@/types/api';
 
-type Tab = 'schools' | 'users' | 'history' | 'journeys' | 'lessons' | 'questions' | 'quizzes' | 'battle' | 'war' | 'ai' | 'game' | 'stats' | 'shares';
+type Tab = 'schools' | 'users' | 'history' | 'journeys' | 'lessons' | 'questions' | 'quizzes' | 'battle' | 'war' | 'ai' | 'game' | 'stats' | 'shares' | 'system' | 'support' | 'faq' | 'logs' | 'notices' | 'research' | 'security';
 const NAV = [
   { id: 'schools' as const, label: 'Trường học', icon: Building2 },
   { id: 'users' as const, label: 'Người dùng', icon: Users },
@@ -41,6 +45,13 @@ const NAV = [
   { id: 'game' as const, label: 'Trò chơi hóa', icon: Trophy },
   { id: 'stats' as const, label: 'Thống kê hệ thống', icon: ChartColumn },
   { id: 'shares' as const, label: 'Duyệt đề xuất', icon: Inbox },
+  { id: 'notices' as const, label: 'Thông báo', icon: Bell },
+  { id: 'support' as const, label: 'Yêu cầu hỗ trợ', icon: LifeBuoy },
+  { id: 'faq' as const, label: 'Hướng dẫn và FAQ', icon: LibraryBig },
+  { id: 'research' as const, label: 'Nghiên cứu', icon: FlaskConical },
+  { id: 'logs' as const, label: 'Nhật ký', icon: History },
+  { id: 'system' as const, label: 'Hệ thống', icon: Settings2 },
+  { id: 'security' as const, label: 'Bảo mật', icon: ShieldCheck },
 ];
 
 export const RootAdmin: React.FC<{ session: Session }> = ({ session }) => {
@@ -51,7 +62,9 @@ export const RootAdmin: React.FC<{ session: Session }> = ({ session }) => {
     <AdminUiContext.Provider value>
       <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab} schoolCount={schools?.total}>
         {tab === 'schools' ? <SchoolsPanel session={session} /> : tab === 'users' ? <UsersPanel session={session} schools={options} /> : tab === 'history' ? <HistoryManager session={session} />
-          : tab === 'journeys' ? <JourneyManager session={session} /> : tab === 'lessons' ? <LessonManager session={session} /> : tab === 'questions' ? <QuestionBank session={session} /> : tab === 'quizzes' ? <QuizManager session={session} /> : tab === 'battle' ? <BattleAdmin session={session} /> : tab === 'war' ? <WarAdmin session={session} /> : tab === 'ai' ? <AiAdmin session={session} /> : tab === 'game' ? <RootGame session={session} /> : tab === 'stats' ? <SystemStats session={session} /> : <ShareInbox session={session} />}
+          : tab === 'journeys' ? <JourneyManager session={session} /> : tab === 'lessons' ? <LessonManager session={session} /> : tab === 'questions' ? <QuestionBank session={session} /> : tab === 'quizzes' ? <QuizManager session={session} /> : tab === 'battle' ? <BattleAdmin session={session} /> : tab === 'war' ? <WarAdmin session={session} /> : tab === 'ai' ? <AiAdmin session={session} /> : tab === 'game' ? <RootGame session={session} /> : tab === 'stats' ? <SystemStats session={session} />
+          : tab === 'notices' ? <BroadcastManager session={session} /> : tab === 'support' ? <SupportInbox session={session} /> : tab === 'faq' ? <FaqManager session={session} /> : tab === 'research' ? <ResearchAdmin session={session} />
+          : tab === 'logs' ? <LogsPanel session={session} /> : tab === 'system' ? <SystemAdmin session={session} /> : tab === 'security' ? <SecurityPanel session={session} /> : <ShareInbox session={session} />}
       </AdminWorkspace>
     </AdminUiContext.Provider>
   );
