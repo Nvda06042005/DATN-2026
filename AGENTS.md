@@ -17,7 +17,7 @@ Không nhúng DDL vào TypeScript/Python, không chứa bí mật hay dữ liệ
 
 # Tự động đồng bộ sau khi hoàn tất công việc
 
-Người dùng đã cho phép tự động cập nhật dự án sau mỗi yêu cầu sửa đổi hoàn tất; không cần hỏi lại để commit, push hoặc triển khai các thay đổi thuộc yêu cầu đó. Đây là quy trình kết thúc mỗi lần làm việc của agent, không phải dịch vụ theo dõi mọi lần lưu file khi agent không hoạt động.
+Người dùng đã cho phép tự động cập nhật dự án sau mỗi yêu cầu sửa đổi hoàn tất; không cần hỏi lại để commit, push hoặc triển khai các thay đổi thuộc yêu cầu đó. Ngày 01/11/2026 người dùng còn cho phép bộ theo dõi local chạy nền, tự commit và gộp nhánh đang làm vào `main` sau khi toàn bộ kiểm tra đạt. Cách bật/tắt, điều kiện hoạt động và trạng thái nằm ở `docs/TU_DONG_DONG_BO.md`, `scripts/auto-sync.ps1` và `.auto-sync/status.json` (file local bị bỏ qua bởi Git). Trước khi agent tự commit/gộp nhánh, kiểm tra worker; nên dừng và chờ `stopped` rồi làm việc, sau đó chạy lại để tránh phát hành cạnh tranh. Không coi worker đang chạy là bằng chứng các dịch vụ đã cập nhật: phải có trạng thái `synced` với đúng commit.
 
 - Chạy kiểm tra phù hợp với thay đổi; xử lý lỗi trước khi phát hành. Không tự đưa thay đổi không liên quan hoặc bí mật vào commit (xem `git status`: người dùng có thể đang sửa file khác, chỉ `git add` đúng file thuộc yêu cầu).
 - Commit và push lên `https://github.com/Nvda06042005/DATN-2026`. Thư mục dự án chính là repo Git: xem lại `git status`/`git diff` trước khi push; không force-push. Thay đổi kiến trúc lớn (đổi backend/runtime, thêm lại backend) đưa lên nhánh riêng trước, chỉ gộp vào `main` khi dịch vụ Render tương ứng đã sẵn sàng và người dùng đồng ý. Sprint 1–2 đã được người dùng yêu cầu triển khai và gộp vào `main` ngày 31/10/2026.

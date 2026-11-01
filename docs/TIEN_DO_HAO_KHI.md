@@ -267,6 +267,7 @@ Dữ liệu: migration 026 (bảng `hk_gates`; cột Cửa, âm thanh, lời k�
 
 ## Triển khai và dữ liệu hiện có
 
+- Tự đồng bộ local ngày 01/11/2026: theo yêu cầu người dùng, thêm worker Windows chờ code ổn định, kiểm tra trên worktree riêng rồi commit/gộp/push nguyên tử lên `main`; Render/Supabase/Vercel tự cập nhật. Chỉ xác nhận khi Render và Vercel chạy đúng SHA và Supabase đạt schema cần thiết. Nền tảng và điều kiện hoạt động: `TU_DONG_DONG_BO.md`. Không thêm hoặc sửa migration SQL cho cơ chế này.
 - Sửa triển khai Render ngày 01/11/2026: các bản Sprint 8 và Sprint 5 ver0.2 dừng ở `npm ci` vì lockfile thiếu peer tùy chọn `webpack@5.112.2`. Tạo lại lockfile bằng npm 10.9.4 cùng dòng npm của Render; giữ nguyên lệnh build/start và các migration 001–027. Đã kiểm tra cài sạch, build, kiểm tra migration và nâng PostgreSQL thử nghiệm từ schema 24 lên 27, giữ tài khoản, tiến độ và sổ điểm cũ. Xem quy trình khóa dependency trong `database/migrations/README.md`.
 - Sprint 5 ver0.2 (nhánh `feat/hao-khi-v02-sprint-5`, migration 026–027): mong đợi `schema_version` 27 ở `/api/database/health` sau khi Render khởi động bản mới (bản này kéo theo cả migration 025 của Sprint 8 nếu Render chưa chạy).
 - Sprint 8 (nhánh `feat/hao-khi-sprint-8`, migration 025, thêm Socket.IO, pdfkit, qrcode); mong đợi `schema_version` 25 ở `/api/database/health` sau khi Render khởi động bản mới. Render hỗ trợ WebSocket; nếu một mạng chặn WebSocket thì Socket.IO tự dùng polling và giao diện dùng thêm đường HTTP dự phòng.

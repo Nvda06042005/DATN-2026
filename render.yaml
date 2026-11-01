@@ -8,6 +8,8 @@ services:
     runtime: node
     plan: free
     rootDir: .
+    branch: main
+    autoDeployTrigger: commit
     buildCommand: cd backend && npm ci && npm run build && npm run migrate -- check
     startCommand: cd backend && npm run start
     healthCheckPath: /api/health
