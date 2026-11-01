@@ -31,6 +31,7 @@ Ngày 31/10/2026 thư mục này từng bị xóa theo yêu cầu (website chỉ
 | `022_battle_simulation.sql` | Mô phỏng trận đánh và mini-game: kịch bản trận đánh (`hk_scenarios`, JSON), mini-game (`hk_minigames`), lượt chơi có lưu dở (`hk_game_runs`); thêm lý do điểm và vàng `battle`, `minigame`; RLS bật, chỉ backend đọc/ghi |
 | `023_seed_battle_content.sql` | Nội dung khởi tạo: 6 kịch bản trận đánh kèm hoạt ảnh và 4 mini-game, tất cả ở trạng thái Nháp; chạy lại không tạo trùng |
 | `024_classroom.sql` | Lớp học (Sprint 7): đội và thành viên, yêu cầu rời lớp, thưởng/phạt, hộp quà, bài tập và bài nộp, lượt dùng kỹ năng, đường nối nút; cột vị trí – điều kiện – thưởng của nút, lịch giao hành trình, điểm hành động; bảng mới bật RLS, không tạo dữ liệu người dùng |
+| `025_live_quiz.sql` | Thi đấu trực tiếp (Sprint 8): phòng thi kèm bản chụp câu hỏi và mã PIN (duy nhất giữa các phòng chưa kết thúc), người chơi, câu trả lời; lý do điểm `live`; bảng mới bật RLS, không tạo dữ liệu người dùng |
 
 Kiểm chứng trên PostgreSQL tạm bằng `cd backend && npm run build && npm test` trước khi triển khai.
 Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).
