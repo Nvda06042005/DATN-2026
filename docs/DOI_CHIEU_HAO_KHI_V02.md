@@ -101,7 +101,7 @@ Ngày lập: 01/11/2026. Nguồn: `fuction list/HaoKhiDongA_DanhSachChucNang_ver
 
 | Sprint | Việc mới theo ver0.2 | Trạng thái |
 |---|---|---|
-| 5 | Lộ trình dạng đường đi (HS.117–125, AD.080), thẻ chuyển sang S6 | Đang làm theo tài liệu này |
-| 6 | 27 chức năng: bản đồ hành quân, thẻ tướng nâng cấp, đánh thẻ theo lượt, 3D, quản trị nội dung | Chưa làm |
+| 5 | Lộ trình dạng đường đi (HS.117–125, AD.080), thẻ chuyển sang S6 | Đã làm (01/11/2026) |
+| 6 | 27 chức năng: bản đồ hành quân, thẻ tướng nâng cấp, đánh thẻ theo lượt, 3D, quản trị nội dung | Đã làm theo mặc định ở mục A–C trừ Sa bàn 3D (HS.137), chân dung / hoạt ảnh chiêu, tải tệp tài nguyên; GV.084 thuộc Sprint 7. Chi tiết từng mã: `TIEN_DO_HAO_KHI.md` |
 | 7 | GV.083, GV.084, sửa GV.060 | Chưa làm |
 | 8 | 22 chức năng: soạn Quiz, khóa phòng, duyệt vào muộn, chống tra cứu, Đánh trùm; đảo ngược việc cho vào muộn | Chưa làm |

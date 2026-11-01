@@ -182,7 +182,7 @@ export const LessonSteps: React.FC<{ session: Session; nodeId: number; title: st
 export const Rewards: React.FC<{ node: NodeResult | null | undefined }> = ({ node }) => {
   const { c } = useTheme();
   const r = node?.rewards;
-  const parts = [r?.gold ? `+${r.gold} vàng` : '', r?.binh_thu ? `+${r.binh_thu} Binh thư` : '', r?.card ? 'một thẻ nhân vật' : '', r?.badge ? `huy hiệu “${r.badge}”` : ''].filter(Boolean);
+  const parts = [r?.gold ? `+${r.gold} vàng` : '', r?.binh_thu ? `+${r.binh_thu} Binh thư` : '', r?.card ? 'một thẻ nhân vật' : '', r?.badge ? `huy hiệu “${r.badge}”` : '', ...(r?.fragments ?? []).map((f) => `${f.qty} mảnh thẻ ${f.card}${f.merged ? ' (đã ghép thành thẻ)' : ''}`)].filter(Boolean);
   return parts.length ? <Txt f="bold" size={15} color={c.dongChu} center>Em nhận được: {parts.join(', ')}</Txt> : null;
 };
 

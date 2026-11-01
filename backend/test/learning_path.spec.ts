@@ -174,11 +174,16 @@ async function playNode(who: { token: string }, nodeId: number, wrong = 0) {
     const open = await as(f.S1)('POST', `/api/play/nodes/${nodes.chest.id}/complete`);
     expect(open.status).toBe(200);
     expect(open.body.rewards).toMatchObject({ gold: 10, binh_thu: 5 });
+    // Sprint 6 ver0.2: rương trao thêm mảnh của một thẻ tướng (thường và hiếm 2 mảnh, sử thi và huyền thoại 1 mảnh), chỉ ở lần mở đầu tiên
+    expect(open.body.rewards.fragments).toHaveLength(1);
+    expect(open.body.rewards.fragments[0].qty).toBeGreaterThanOrEqual(1);
+    const frag = (await db.query<{ qty: number; owned: boolean }>('SELECT COALESCE(sum(f.qty), 0)::int AS qty, EXISTS (SELECT 1 FROM hk_user_cards u WHERE u.user_id = $1) AS owned FROM hk_card_fragments f WHERE f.user_id = $1', [f.S1.id]))[0];
+    expect(frag.qty + (frag.owned ? 1 : 0)).toBeGreaterThanOrEqual(1);
     binhThu += 5;
     const hud = await me();
     expect(hud.binh_thu).toBe(binhThu);
     expect(hud.gold).toBeGreaterThanOrEqual(goldBefore + 10);
-    expect((await as(f.S1)('POST', `/api/play/nodes/${nodes.chest.id}/complete`)).body.rewards).toMatchObject({ gold: 0, binh_thu: 0 });
+    expect((await as(f.S1)('POST', `/api/play/nodes/${nodes.chest.id}/complete`)).body.rewards).toMatchObject({ gold: 0, binh_thu: 0, fragments: [] });
     expect((await db.query<{ n: string }>('SELECT count(*) AS n FROM hk_binh_thu_ledger WHERE user_id = $1', [f.S1.id]))[0].n).toBe('5');
   });
 
