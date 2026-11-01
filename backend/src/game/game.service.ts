@@ -439,17 +439,32 @@ export class GameService {
 
   // ------------------------------------------------------------------ thẻ nhân vật (HK.HS.068/069, HK.SYS.008)
   /** Chọn thẻ theo độ hiếm rồi theo trọng số; máy chủ chọn ngay, học sinh chỉ lật để xem */
+  private pickByRarity(cards: CardRow[], rates: Record<'common' | 'rare' | 'epic' | 'legendary', number>): CardRow | null {
+    const rarities = (['common', 'rare', 'epic', 'legendary'] as const).filter((r) => rates[r] > 0 && cards.some((c) => c.rarity === r));
+    if (!rarities.length) return null;
+    let roll = this.clock.random() * rarities.reduce((n, r) => n + rates[r], 0);
+    const rarity = rarities.find((r) => (roll -= rates[r]) < 0) ?? rarities[rarities.length - 1];
+    const pool = cards.filter((c) => c.rarity === rarity);
+    let pick = this.clock.random() * pool.reduce((n, c) => n + c.drop_weight, 0);
+    return pool.find((c) => (pick -= c.drop_weight) < 0) ?? pool[pool.length - 1];
+  }
+
+  /** Rương của lộ trình học (HK.HS.120, HK.HS.068): trao mảnh của một thẻ tướng chọn theo độ hiếm (thường và hiếm 2 mảnh, sử thi và huyền thoại 1 mảnh); đủ mảnh thì tự ghép thành thẻ */
+  async chestFragment(q: Q, user: UserRow): Promise<{ card: string; qty: number; merged: boolean } | null> {
+    const s = await this.settings.get();
+    const p = (await q<PlayerRow>('SELECT level FROM hk_players WHERE user_id = $1', [user.id]))[0];
+    const card = this.pickByRarity(await q<CardRow>("SELECT * FROM hk_cards WHERE is_active AND kind = 'general' AND min_level <= $1", [p?.level ?? 1]), s.cards.rates);
+    if (!card) return null;
+    const qty = card.rarity === 'common' || card.rarity === 'rare' ? 2 : 1;
+    const res = await this.addFragments(q, user.id, card.id, qty);
+    return { card: card.name, qty, merged: res.merged };
+  }
+
   async dropCard(q: Q, user: UserRow, source: 'node' | 'campaign' | 'level', nodeId: number | null): Promise<number | null> {
     const s = await this.settings.get();
     const p = (await q<PlayerRow>('SELECT level FROM hk_players WHERE user_id = $1', [user.id]))[0];
-    const cards = await q<CardRow>('SELECT * FROM hk_cards WHERE is_active AND min_level <= $1', [p.level]);
-    const rarities = (['common', 'rare', 'epic', 'legendary'] as const).filter((r) => s.cards.rates[r] > 0 && cards.some((c) => c.rarity === r));
-    if (!rarities.length) return null;
-    let roll = this.clock.random() * rarities.reduce((n, r) => n + s.cards.rates[r], 0);
-    const rarity = rarities.find((r) => (roll -= s.cards.rates[r]) < 0) ?? rarities[rarities.length - 1];
-    const pool = cards.filter((c) => c.rarity === rarity);
-    let pick = this.clock.random() * pool.reduce((n, c) => n + c.drop_weight, 0);
-    const card = pool.find((c) => (pick -= c.drop_weight) < 0) ?? pool[pool.length - 1];
+    const card = this.pickByRarity(await q<CardRow>('SELECT * FROM hk_cards WHERE is_active AND min_level <= $1', [p.level]), s.cards.rates);
+    if (!card) return null;
     const drop = (await q<{ id: number }>('INSERT INTO hk_card_drops (user_id, card_id, source, node_id, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id::int AS id', [user.id, card.id, source, nodeId, this.clock.now()]))[0];
     await this.celebrate(q, user, 'card', { drop_id: drop.id });
     return drop.id;

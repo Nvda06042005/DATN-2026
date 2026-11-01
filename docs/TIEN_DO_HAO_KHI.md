@@ -4,9 +4,9 @@ Nguồn: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức
 (251 chức năng) đã làm được gì, quyết định đã chọn khi đặc tả chưa nói rõ, và những gì cố ý chưa làm. Phân tích đối chiếu ban đầu: `DOI_CHIEU_HAO_KHI_V01.md`.
 
 **Từ 01/11/2026 đặc tả có bản `ver0.2`** (408 chức năng; viết lại Sprint 5–8, thêm 60 chức năng, sửa 10). Đối chiếu và các điểm cần chốt: `DOI_CHIEU_HAO_KHI_V02.md`.
-Đang làm ver0.2 theo thứ tự Sprint 5 → 6 → 7 → 8; tiến độ nằm ở mục "ver0.2" cuối các bảng Sprint tương ứng (Sprint 5 ver0.2: lộ trình dạng đường đi, đã làm; Sprint 6–8 ver0.2: chưa làm).
+Đang làm ver0.2 theo thứ tự Sprint 5 → 6 → 7 → 8; tiến độ nằm ở mục "ver0.2" cuối các bảng Sprint tương ứng (Sprint 5 ver0.2: lộ trình dạng đường đi, đã làm; Sprint 6 ver0.2: game thẻ tướng, đã làm trừ Sa bàn 3D; Sprint 7–8 ver0.2: chưa làm).
 
-Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 212 bài trong 17 tệp, gồm migration trên dữ liệu cũ, Sprint 1–7, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu, trò chơi hóa, mô phỏng trận đánh, lớp học, bài tập, bản đồ rẽ nhánh, lộ trình dạng đường đi);
+Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 249 bài trong 20 tệp, gồm migration trên dữ liệu cũ, Sprint 1–8, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu, trò chơi hóa, mô phỏng trận đánh, lớp học, bài tập, bản đồ rẽ nhánh, lộ trình dạng đường đi, thi đấu trực tiếp, bộ máy trận thẻ tướng và game thẻ tướng);
 `cd frontend && npm run typecheck && npm run build`. Mỗi bài kiểm thử ghi mã HK.* trong tên.
 
 ## Sprint 1 – xác thực, tài khoản, hồ sơ, trường học, người dùng (40 chức năng)
@@ -228,7 +228,7 @@ Hành trình mẫu được chia thành **Phần** (mỗi cuộc kháng chiến)
 | HK.HS.117 | Xong | Màn **Học**: đường uốn lượn chia Phần/Cửa, băng tiêu đề dính "Phần 1, Cửa 4 – tên cửa" đổi theo vị trí cuộn, nút đã xong / đang học / bị khóa khác màu và có chữ, linh vật đứng cạnh nút hiện tại, tự cuộn tới nút hiện tại. Hành trình chưa chia Cửa hiện thành một nhóm duy nhất; nút không thuộc Cửa nào hiện thành nhóm "Chặng khác" |
 | HK.HS.118 | Xong | Nút hiện tại có nhãn "BẮT ĐẦU" và vòng tiến độ (số bước đã qua / tổng số bước); bấm mở tờ chi tiết với tên bài, số câu hỏi, điểm thưởng, Binh thư rồi vào học |
 | HK.HS.119 | Xong | Bài học từng bước: thẻ kiến thức xen kẽ câu hỏi kiểm tra nhanh, thanh tiến độ và số tim ở trên cùng, "Kiểm tra" báo đúng/sai kèm giải thích ngay (máy chủ chấm), sai mất một tim và câu được ghi vào danh sách luyện lại (hết tim không chặn việc học); cuối bài báo điểm, độ chính xác, thời gian, thưởng. Có nút "Đọc cả bài một lượt" quay lại trình đọc cuộn cũ (giữ ghi chú); bài tập của lớp vẫn dùng trình đọc cũ |
-| HK.HS.120 | Xong | Nút rương: mở khi đã tới (chưa tới hiện khóa), nhận vàng và Binh thư riêng của nút một lần; **mảnh thẻ tướng sẽ bật ở Sprint 6** (khi hệ thống thẻ mới có) |
+| HK.HS.120 | Xong | Nút rương: mở khi đã tới (chưa tới hiện khóa), nhận vàng và Binh thư riêng của nút một lần; **từ Sprint 6 ver0.2 còn trao 1–2 mảnh thẻ tướng** (chọn theo độ hiếm, đủ mảnh thì ghép thành thẻ) |
 | HK.HS.121 | Xong | Nút luyện tập: máy chủ tự ghép tối đa 8 câu đã gặp trong Cửa (câu kiểm tra nhanh của bài học, câu của bộ đề), làm đúng ít nhất một câu là hoàn thành, sai không mất tim và không thưởng vàng "100%" (chống cày). Nút nghe kể chuyện: lời kể hiện thành phụ đề từng dòng, phát âm thanh thu sẵn nếu có, không thì máy đọc tiếng Việt của thiết bị (nếu thiết bị không đọc được thì phụ đề tự chạy), có thể hỏi câu hỏi về nội dung vừa nghe nếu nút gắn bộ đề |
 | HK.HS.122 | Xong | Kiểm tra cuối cửa: bộ đề riêng hoặc tự ghép câu hỏi của Cửa, cần từ 70% mới hoàn thành Cửa và mở Cửa kế tiếp (làm lại không giới hạn) |
 | HK.HS.123 | Xong | Nút "Hướng dẫn" trên băng tiêu đề mở **Cẩm nang** của Cửa, tự tạo từ kho lịch sử đã Công bố gắn với các bài học và trận đánh trong Cửa: mốc thời gian, nhân vật (cả nhân vật tham gia các sự kiện/trận đánh của Cửa), địa danh, thuật ngữ, câu nói nổi tiếng, kèm ghi chú của người biên soạn; chạm vào mục để mở chi tiết |
@@ -239,6 +239,57 @@ Hành trình mẫu được chia thành **Phần** (mỗi cuộc kháng chiến)
 **Binh thư** (chốt mặc định, xem `DOI_CHIEU_HAO_KHI_V02.md` mục A1): tài nguyên dùng nâng cấp thẻ tướng ở Sprint 6, có sổ cái riêng `hk_binh_thu_ledger` (mỗi khoản duy nhất theo học sinh – lý do – đối tượng nên làm lại không nhận trùng), hiện trên thanh chỉ số cạnh vàng. Nhận khi hoàn thành nút lần đầu: mặc định bài học/câu hỏi/tư liệu/nghe kể chuyện 2, luyện tập 1, kiểm tra cuối cửa 6, trận đánh 4, Quyết chiến 10, rương 5; quản trị tổng sửa mức mặc định ở "Cấu hình trò chơi hóa → Binh thư" và đặt riêng cho từng nút.
 
 Dữ liệu: migration 026 (bảng `hk_gates`; cột Cửa, âm thanh, lời kể, Binh thư của nút; bốn loại nút mới; cột `binh_thu` và sổ cái Binh thư, có RLS), migration 027 (chia ba hành trình mẫu còn là bản nháp thành 2 Cửa mỗi hành trình, thêm 15 nút nghe kể chuyện / luyện tập / rương / kiểm tra cuối cửa; chỉ động vào hành trình chưa phát hành, chưa có học sinh học và chưa chia Cửa; lời kể chỉ dùng lại các sự kiện đã có trong bài học mẫu, vẫn cần giáo viên Lịch sử kiểm tra).
+
+## Sprint 6 theo ver0.2 – game mô phỏng trận đánh bằng thẻ tướng (45 chức năng)
+
+Sprint 6 được viết lại thành game thẻ tướng đánh theo lượt: bộ thẻ có độ hiếm – cấp – sao, nâng cấp bằng Binh thư và mảnh thẻ, đội hình 5 thẻ, **bản đồ hành quân** nối với lộ trình học, màn chơi có địa hình và chỉ huy địch báo chiêu lớn, tuyệt kỹ kích hoạt bằng câu hỏi 15 giây, "Sự thật lịch sử" sau trận. Các phần ver0.1 đã làm (mô phỏng quyết định của chỉ huy, hoạt ảnh diễn biến, ba mini-game) **giữ nguyên** và nằm ở mục "Trận đánh → Quyết định của chỉ huy".
+
+Kiến trúc: lõi trận là một bộ máy lượt thuần, xác định theo hạt giống (`backend/src/battle/war-engine.ts`, kiểm thử riêng 10 bài); máy chủ giữ trạng thái trận, đo thời gian trả lời, chấm câu hỏi và trao thưởng; trình duyệt chỉ hiển thị và gửi hành động (`/api/war/*`).
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.HS.113 | Xong (khác công nghệ) | Bản đồ hành quân: điểm tròn có tên, đường nối nét đứt (đoạn đã đi nét liền), dấu ✓ cho điểm đã xong, kéo (cuộn) và phóng to / thu nhỏ. Dựng bằng thành phần React Native, **không dùng Phaser/PixiJS**; ảnh nền minh họa do quản trị tải lên (https, ghi nguồn), chưa có ảnh nền mẫu |
+| HK.HS.114 | Xong | Chạm điểm đã mở thì nhân vật đi dọc đường nối qua từng điểm (hoạt ảnh, tắt khi bật "giảm chuyển động"); máy chủ tìm đường qua các điểm đã đi và từ chối đi tắt; vị trí lưu cho lần sau. Nhân vật hiện là biểu tượng khiên, **chưa là lớp nhân vật đã chọn** |
+| HK.HS.115 | Xong | Sự kiện theo loại điểm: cốt truyện, thẻ / mảnh thẻ, thử thách câu hỏi, tư liệu, rương, trận đánh. Phần thưởng chỉ nhận một lần (sổ cái khóa theo điểm). Điểm trận đánh khóa tới khi nút trận đó trong lộ trình học đã mở |
+| HK.HS.116 | Một phần | Hội thoại có lựa chọn trả lời, Nhật ký hành quân xem lại được, lời thoại gắn tư liệu nguồn. **Chưa có chân dung nhân vật** và chưa có nút tua nhanh (có nút "Tiếp" từng câu) |
+| HK.HS.124 | Xong | Nút trận đánh trong lộ trình có nút "Ra trận bằng thẻ tướng" (chi tiết nút trả `stage_id` khi màn đã phát hành); màn vẫn khóa tới khi học tới nút đó. Nút mở **màn giới thiệu của màn chơi**, chưa nhảy tới điểm trận trên bản đồ hành quân |
+| HK.HS.068 | Xong | Nhận thẻ / mảnh thẻ từ điểm thẻ, thắng trận (lần đầu), **mở rương của lộ trình (1–2 mảnh, chọn theo độ hiếm)** và thẻ rơi trùng (1 mảnh); đủ mảnh thì tự ghép. Bốn độ hiếm Thường / Hiếm / Sử thi / Huyền thoại. Không có đường mua bằng tiền thật. Chưa có thẻ nào trao riêng khi "học xong cửa" ngoài các nút rương trong cửa |
+| HK.HS.069 | Xong | Lưới thẻ: khung màu theo độ hiếm, sao, cấp, lực chiến; thẻ chưa có hiện bóng mờ kèm tiến độ mảnh; lọc loại thẻ / binh chủng / độ hiếm, sắp xếp theo độ hiếm / cấp / sao / lực chiến. **Chưa lọc theo cuộc kháng chiến**; chân dung là biểu tượng binh chủng và chữ cái tên (chưa có ảnh vẽ) |
+| HK.HS.126 | Xong | Chi tiết thẻ hai mặt: trước (chân dung, độ hiếm, sao, cấp, binh chủng, Công – Thủ – Máu – Tốc, chỉ số cấp kế tiếp), sau (tiểu sử chỉ khi nhân vật đã công bố, câu nói, trận đã tham gia, chiêu thức kèm giai thoại) |
+| HK.HS.127 | Xong | Nâng cấp tốn 2 × cấp Binh thư; thăng sao 1→5 tốn 2, 3, 4, 5 mảnh; **cấp thẻ không vượt cấp độ học tập của học sinh** (có lời nhắc học thêm) |
+| HK.HS.128 | Xong | 3 đội hình, mỗi đội tối đa 5 thẻ chia hàng tiên phong / hậu quân, kèm một thẻ chiến thuật; hiện tổng lực chiến; tướng từng tham gia trận đó (liên kết kho lịch sử) được "Hào khí" +10% chỉ số. Chọn thẻ bằng chạm (chưa kéo thả) |
+| HK.HS.129 | Xong | 4 thẻ chiến thuật (Hịch tướng sĩ, Hội nghị Diên Hồng, Vườn không nhà trống, Cọc gỗ Bạch Đằng); mang một thẻ vào trận, dùng một lần, **không mất lượt** |
+| HK.HS.130 | Xong | Sổ tay chỉ huy đối phương: hồ sơ mở sau khi chạm trán trong trận, chỉ để tra cứu |
+| HK.HS.051, 052 | Xong | Danh sách màn (trạng thái khóa kèm lý do, sao cao nhất, số lần thắng) và màn giới thiệu: bối cảnh, nhiệm vụ, quân địch theo đợt, chỉ huy, địa hình, tướng nên mang, điều kiện sao, thưởng, chọn đội hình |
+| HK.HS.053, 054, 055 | Một phần | Quyết sách theo giai đoạn, bố trí lực lượng và phản hồi lịch sử vẫn là chế độ **"Quyết định của chỉ huy"** (ver0.1). Chúng **chưa** tạo lợi thế cho đợt giao chiến thẻ tướng kế tiếp như ver0.2 mô tả; thay vào đó ván thẻ tướng có địa hình, thẻ chiến thuật và "Hào khí" |
+| HK.HS.056, 057, 061 | Xong | Kết quả: thắng / thua, sao (thắng 1, không tướng ngã +1, trong số vòng quy định +1), số lượt, tướng xuất sắc nhất, thưởng vàng – Binh thư – kinh nghiệm – mảnh thẻ (lần thắng đầu); "Đánh lại"; trận dở được lưu và tiếp tục. Thưởng chỉ ở lần thắng đầu nên chơi lại không cày; **chưa có bảng xếp hạng riêng cho điểm trận** |
+| HK.HS.058, 059, 060, 028 | Giữ nguyên | Ba mini-game và hoạt ảnh diễn biến của ver0.1 |
+| HK.HS.131 | Xong (đơn giản hóa) | Hai phe, thanh thứ tự lượt, máu – nộ – hiệu ứng từng đơn vị, tối đa N lượt (mặc định 15). Quân ta ở khối trên, quân địch ở khối dưới (không đứng trái / phải), ảnh nền màn chơi nếu có |
+| HK.HS.132 | Một phần | Đòn thường, chiêu chủ động (tốn nộ), tuyệt kỹ, nội tại (cộng chỉ số cả đội từ đầu trận) kèm giai thoại ở mặt sau thẻ; sát thương hiện trong nhật ký diễn biến. **Chưa có hoạt ảnh chiêu thức** |
+| HK.HS.133 | Xong | Tuyệt kỹ cần nộ đầy; hiện câu hỏi 15 giây từ bộ đề của màn: đúng và kịp giờ ×1,6, sai hoặc chậm ×0,6 kèm giải thích; máy chủ đo giờ (cho thêm 3 giây bù mạng). Màn không có bộ đề thì tuyệt kỹ luôn đủ sức |
+| HK.HS.134 | Xong | Địa hình: thủy triều lên / rút, cọc ngầm làm thuyền địch mất máu khi triều rút, thưởng chỉ số cho thủy binh trên sông, thiếu lương làm địch mất máu mỗi vòng từ một vòng định trước |
+| HK.HS.135 | Xong | Chỉ huy địch báo trước chiêu lớn một lượt: khung đỏ và nhãn "Bị nhắm!" trên các đơn vị bị nhắm; phòng thủ giảm một nửa sát thương; hạ chỉ huy thì chiêu bị hủy |
+| HK.HS.136 | Xong | "Tự động đánh" (máy chọn đòn, thẻ chiến thuật tự dùng), tốc độ x1 / x2, hiệu ứng hiện bằng chữ, "Bỏ qua" chỉ cho màn đã 3 sao (nhận nửa thưởng, mỗi màn mỗi ngày một lần); lượt có câu hỏi luôn dừng chờ |
+| HK.HS.137 | **Chưa làm** | Sa bàn 3D (Three.js) hoãn: cần tài nguyên 3D và kiểm tra hiệu năng máy phòng tin học |
+| HK.HS.138 | Xong | "Sự thật lịch sử": diễn biến và kết quả thật, chỉ huy đối phương, điểm khác giữa ván chơi và lịch sử, nhân vật và tư liệu gốc; học sinh chỉ xem được sau khi đã chơi màn đó |
+| HK.QT.056 | Xong | Quản trị viên trường: bật / tắt game, giới hạn khối lớp (6–9), khung giờ (giờ Việt Nam) và số phút tối đa mỗi ngày. Hệ thống cũng có công tắc và số phút mặc định; học sinh chịu mức chặt nhất; chỉ chặn game, học bài vẫn bình thường |
+| HK.AD.046, 047 | Giữ nguyên | Quản lý kịch bản quyết định và mini-game của ver0.1 |
+| HK.AD.048, 083 | Xong | Quản trị tổng chỉnh chỉ số, binh chủng, số mảnh, cách nhận thẻ, chiêu thức (mục tiêu, hệ số, hiệu ứng, nộ, hồi chiêu, giai thoại) và thẻ chiến thuật. Thêm thẻ mới vẫn ở "Trò chơi hóa → Danh mục → Thẻ" |
+| HK.AD.081, 082 | Xong | Bản đồ hành quân: bố cục điểm + đường nối + sự kiện soạn bằng JSON có mẫu, cảnh báo thiếu sót; hội thoại: lời thoại JSON, **chỉ phát hành khi đã gắn tư liệu nguồn đã công bố**. Chưa có trình vẽ trực quan / xem trước (xem bằng giao diện học sinh) |
+| HK.AD.084 | Xong | Màn chơi: đợt quân, địa hình, thưởng, bộ câu hỏi tuyệt kỹ, số vòng, điều kiện sao, điểm khác lịch sử; chơi thử không ghi điểm (quản trị tổng có nút; máy chủ đã cho giáo viên chơi thử nhưng **trang giáo viên chưa có nút** – làm cùng Sprint 7, xem mục A5 ở `DOI_CHIEU_HAO_KHI_V02.md`); phát hành chỉ khi hồ sơ trận đánh đã công bố |
+| HK.AD.085 | Một phần | Kho tài nguyên **chỉ ghi liên kết kèm nguồn và giấy phép bắt buộc**; chưa tải tệp lên và chưa dùng sprite / âm thanh trong trận (chưa có kho lưu trữ) |
+| HK.AD.086 | Xong | Chạy cân bằng: máy tự đánh N trận với đội hình mẫu (cấp, sao, tỉ lệ trả lời đúng chỉnh được) để xem tỉ lệ thắng |
+| HK.SYS.008 | Xong | Thẻ rơi chọn theo độ hiếm và trọng số; thêm độ hiếm Sử thi (tỉ lệ `cards.rates.epic`); thẻ rơi có thể là thẻ chiến thuật, còn rương mảnh chỉ trao mảnh thẻ tướng |
+| HK.SYS.021 | Xong | Đồng bộ học → game: điểm trận đánh trên bản đồ mở khi nút cùng trận trong hành trình mặc định đã mở; Binh thư cộng từ Sprint 5 |
+| HK.SYS.022 | Xong | Bộ máy lượt chạy ở máy chủ với hạt giống; trạng thái trận lưu mỗi lượt để tiếp tục. **Chưa có nhật ký phát lại trận** (có nhật ký diễn biến trong lượt chơi) |
+
+**Giao diện:** "Bộ thẻ" (Thẻ tướng | Huy hiệu và thẻ rơi; trong Thẻ tướng có Thẻ / Đội hình / Sổ tay chỉ huy), "Chiến dịch" (Hành quân | Bản đồ nhiệm vụ), "Trận đánh" (Chiến trường thẻ tướng | Quyết định của chỉ huy). Quản trị tổng có mục **Game thẻ tướng** (thẻ và chiêu, bản đồ hành quân, hội thoại, màn chơi, chỉ huy địch, tài nguyên); quản trị viên trường có mục **Trò chơi hóa → Game thẻ tướng**.
+
+**Nội dung khởi tạo (migration 029) là bản nháp thiết kế, chờ giáo viên Lịch sử kiểm chứng:** chỉ số và độ hiếm của 13 tướng, 31 chiêu thức kèm giai thoại, 4 thẻ chiến thuật, 5 chỉ huy đối phương, 6 màn chơi (chỉ số quân địch đã cân bằng bằng máy: đội thẻ thường thắng ít, đội mạnh thắng nhiều), 3 bản đồ hành quân (6 / 8 / 6 điểm) và 6 hội thoại cốt truyện. Các màn, bản đồ, hội thoại và chỉ huy đều ở trạng thái **Nháp**; hội thoại chỉ phát hành được khi gắn tư liệu nguồn (hiện mới chỉ hội thoại "Hịch tướng sĩ" có nguồn). Chưa có chân dung tướng: dùng biểu tượng binh chủng và chữ cái tên, không dùng ảnh người thật.
+
+**Quyết định mặc định:** nâng cấp 2 × cấp Binh thư; thăng sao tốn 2 / 3 / 4 / 5 mảnh; chỉ số thẻ = gốc × (1 + 0,1 × (cấp − 1)) × (1 + 0,2 × (sao − 1)); nộ: +25 khi ra đòn, +15 khi bị đánh, chiêu chủ động 40, tuyệt kỹ 100; chỉ huy địch báo chiêu lớn ×1,8 sát thương; thưởng chỉ ở lần thắng đầu, "Bỏ qua" nhận nửa thưởng và chỉ nhận được một lần mỗi ngày; rương học tập trao 2 mảnh (thường, hiếm) hoặc 1 mảnh (sử thi, huyền thoại).
+
+Dữ liệu: migration 028 (độ hiếm Sử thi, thẻ tướng / chiến thuật, chiêu thức, đội hình, chỉ huy, màn chơi, trận đang chơi, tiến độ màn, bản đồ – điểm – đường nối, hội thoại, nhật ký, vị trí hành quân, kho tài nguyên, cài đặt của trường, giờ chơi; bảng mới đều bật RLS), migration 029 (nội dung khởi tạo ở trên, chỉ thêm mới và cập nhật bản ghi thẻ do migration 021 tạo).
 
 ## Quyết định khi đặc tả chưa nói rõ
 
@@ -267,6 +318,9 @@ Dữ liệu: migration 026 (bảng `hk_gates`; cột Cửa, âm thanh, lời k�
 
 ## Triển khai và dữ liệu hiện có
 
+- Tự đồng bộ local ngày 01/11/2026: theo yêu cầu người dùng, thêm worker Windows chờ code ổn định, kiểm tra trên worktree riêng rồi commit/gộp/push nguyên tử lên `main`; Render/Supabase/Vercel tự cập nhật. Chỉ xác nhận khi Render và Vercel chạy đúng SHA và Supabase đạt schema cần thiết. Nền tảng và điều kiện hoạt động: `TU_DONG_DONG_BO.md`. Không thêm hoặc sửa migration SQL cho cơ chế này.
+- Sửa triển khai Render ngày 01/11/2026: các bản Sprint 8 và Sprint 5 ver0.2 dừng ở `npm ci` vì lockfile thiếu peer tùy chọn `webpack@5.112.2`. Tạo lại lockfile bằng npm 10.9.4 cùng dòng npm của Render; giữ nguyên lệnh build/start và các migration 001–027. Đã kiểm tra cài sạch, build, kiểm tra migration và nâng PostgreSQL thử nghiệm từ schema 24 lên 27, giữ tài khoản, tiến độ và sổ điểm cũ. Xem quy trình khóa dependency trong `database/migrations/README.md`.
+- Sprint 6 ver0.2 (nhánh `feat/hao-khi-v02-sprint-6`, migration 028–029): mong đợi `schema_version` 29 ở `/api/database/health` sau khi Render khởi động bản mới. Các màn, bản đồ, hội thoại, chỉ huy khởi tạo đều là **Nháp**: quản trị tổng cần phát hành (hội thoại phải gắn tư liệu nguồn trước) thì học sinh mới thấy bản đồ hành quân và màn chơi; bộ thẻ tướng (13 thẻ tướng, 4 thẻ chiến thuật) có sẵn.
 - Sprint 5 ver0.2 (nhánh `feat/hao-khi-v02-sprint-5`, migration 026–027): mong đợi `schema_version` 27 ở `/api/database/health` sau khi Render khởi động bản mới (bản này kéo theo cả migration 025 của Sprint 8 nếu Render chưa chạy).
 - Sprint 8 (nhánh `feat/hao-khi-sprint-8`, migration 025, thêm Socket.IO, pdfkit, qrcode); mong đợi `schema_version` 25 ở `/api/database/health` sau khi Render khởi động bản mới. Render hỗ trợ WebSocket; nếu một mạng chặn WebSocket thì Socket.IO tự dùng polling và giao diện dùng thêm đường HTTP dự phòng.
 - Sprint 6 (nhánh `feat/hao-khi-sprint-6`, migration 022–023) gộp vào `main` ngày 01/11/2026 (Render chạy `schema_version` 23). Sprint 7 (nhánh `feat/hao-khi-sprint-7`, migration 024) gộp vào `main` cùng ngày (3d1d650); Render và Supabase chạy `schema_version` 24 (xác nhận ở `/api/database/health`), các đường dẫn `/api/classroom/*` trả 401 khi chưa đăng nhập, bản web trên Vercel có mã Sprint 7.

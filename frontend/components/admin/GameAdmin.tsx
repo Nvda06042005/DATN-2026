@@ -13,6 +13,7 @@ import * as admin from '@/api/adminApi';
 import * as learning from '@/api/learningApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { Cell, DataTable, ErrorNote, FormSheet, Page, PageHeader, StatusChip, fromVn, toVn, useAction, useLoad, type FieldDef } from '@/components/admin/kit';
+import { SchoolWarSettings } from '@/components/admin/WarAdmin';
 import type { Session } from '@/components/auth';
 import { Btn, Card, ConfirmSheet, Field, Segmented, Sheet, Spinner, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -309,13 +310,13 @@ const LeaderboardSection: React.FC<{ session: Session }> = ({ session }) => {
 };
 
 export const SchoolGame: React.FC<{ session: Session }> = ({ session }) => {
-  const [view, setView] = useState<'board' | 'contests' | 'badges' | 'classes'>('board');
+  const [view, setView] = useState<'board' | 'contests' | 'badges' | 'classes' | 'war'>('board');
   return (
     <Page>
-      <PageHeader title="Trò chơi hóa của trường" subtitle="Bảng xếp hạng, sự kiện – giải đấu, huy hiệu riêng và cơ chế tim theo lớp." />
-      <Segmented<'board' | 'contests' | 'badges' | 'classes'> label="Mục quản trị" value={view} onChange={setView}
-        options={[{ value: 'board', label: 'Bảng xếp hạng' }, { value: 'contests', label: 'Sự kiện – giải đấu' }, { value: 'badges', label: 'Huy hiệu của trường' }, { value: 'classes', label: 'Lớp và huy hiệu' }]} />
-      {view === 'board' ? <LeaderboardSection session={session} /> : view === 'contests' ? <ContestSection session={session} />
+      <PageHeader title="Trò chơi hóa của trường" subtitle="Bảng xếp hạng, sự kiện – giải đấu, huy hiệu riêng, cơ chế tim theo lớp và giới hạn game thẻ tướng." />
+      <Segmented<'board' | 'contests' | 'badges' | 'classes' | 'war'> label="Mục quản trị" value={view} onChange={setView}
+        options={[{ value: 'board', label: 'Bảng xếp hạng' }, { value: 'contests', label: 'Sự kiện – giải đấu' }, { value: 'badges', label: 'Huy hiệu của trường' }, { value: 'classes', label: 'Lớp và huy hiệu' }, { value: 'war', label: 'Game thẻ tướng' }]} />
+      {view === 'board' ? <LeaderboardSection session={session} /> : view === 'contests' ? <ContestSection session={session} /> : view === 'war' ? <SchoolWarSettings session={session} />
         : view === 'badges' ? <GameCatalog session={session} entities={['badges']} hideFields={['rule_type', 'rule_value', 'rule_campaign_id']} intro="Huy hiệu riêng của trường do giáo viên hoặc nhà trường trao tay cho học sinh; không có điều kiện tự trao." />
         : <ClassGamePanel session={session} />}
     </Page>

@@ -148,8 +148,10 @@ export class PlayService {
     else if (quiz) questionCount = quiz.questions;
     else if ((node.kind === 'practice' || node.kind === 'gate_test') && node.gate_id) questionCount = Math.min(GATE_PLAN_SIZE, (await gatePool(q, node.gate_id)).length);
     const binhThu = await this.game.binhThuFor(node.kind, node.reward_binh_thu);
+    // Màn chơi bằng thẻ tướng của trận đánh này (HK.HS.124): nút "Ra trận" chỉ hiện khi màn đã được phát hành
+    const stage = node.battle_id && !locked ? (await q<{ id: number }>("SELECT id FROM hk_stages WHERE battle_id = $1 AND status = 'published'", [node.battle_id]))[0] : undefined;
     return {
-      ...this.nodeBrief(node), content: locked ? null : content, unlocks, can_start: !locked, has_sim: Boolean(sim), scenario_id: sim?.id ?? null,
+      ...this.nodeBrief(node), content: locked ? null : content, unlocks, can_start: !locked, has_sim: Boolean(sim), scenario_id: sim?.id ?? null, stage_id: stage?.id ?? null,
       pass_percent: node.pass_percent ?? quiz?.pass_percent ?? null, hint: locked ? node.lock_reason : null,
       has_quiz: Boolean(node.quiz_id), needs_quiz: this.needsQuiz(node), question_count: questionCount, reward_binh_thu: binhThu,
       gate: node.gate_id ? (await q<{ id: number; title: string }>('SELECT id, title FROM hk_gates WHERE id = $1', [node.gate_id]))[0] ?? null : null,
@@ -171,8 +173,11 @@ export class PlayService {
     const awarded = (first ? node.reward_points : 0) + delta;
     if (awarded > 0) await this.game.awardXp(q, user, awarded, 'node', `node:${node.id}:${r.ref}`);
     let unlocked: Array<{ id: number; title: string }> = [];
-    const rewards = { gold: 0, card: false, badge: null as string | null, binh_thu: 0 };
+    const rewards: { gold: number; card: boolean; badge: string | null; binh_thu: number; fragments?: Array<{ card: string; qty: number; merged: boolean }> } = { gold: 0, card: false, badge: null, binh_thu: 0 };
+    // Chỉ nút rương có trường mảnh thẻ (Sprint 6 ver0.2): gom đủ mảnh thì thẻ tự ghép
+    if (node.kind === 'chest') rewards.fragments = [];
     if (first) {
+      if (node.kind === 'chest') { const frag = await this.game.chestFragment(q, user); if (frag) rewards.fragments!.push(frag); }
       // Phần thưởng riêng của nút do giáo viên đặt (HK.GV.024): vàng, thẻ nhân vật, huy hiệu; chỉ lần hoàn thành đầu tiên
       if (node.reward_gold && (await this.game.addGold(q, user, node.reward_gold, 'node', `nodegold:${node.id}`))) rewards.gold = node.reward_gold;
       // Binh thư (ver0.2): mức riêng của nút nếu có, không thì mức mặc định theo loại nút trong cấu hình trò chơi hóa

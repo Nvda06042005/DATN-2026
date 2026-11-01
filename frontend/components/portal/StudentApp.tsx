@@ -27,11 +27,14 @@ import { MyTab, QuestsTab } from '@/components/portal/Progress';
 import { QuizPlayer, ReviewScreen } from '@/components/portal/QuizPlayer';
 import { CampaignMapView, HomeTab, type NodeActions } from '@/components/portal/QuestMap';
 import { StudentNav, type Dots, type Tab } from '@/components/portal/StudentNav';
-import { Btn, PaperBg, Sheet, Spinner, Stars, Txt, useToast } from '@/components/ui';
+import { WarCardsTab } from '@/components/portal/WarCards';
+import { BattlesHub, MarchTab, StageIntroSheet, TruthSheet, WarBattleScreen } from '@/components/portal/WarPlay';
+import { Btn, PaperBg, Segmented, Sheet, Spinner, Stars, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { MyAssignment, Notice } from '@/types/classroom';
 import type { Hud } from '@/types/gamification';
 import type { AttemptState, AttemptSummary, MenuDots, NodeResult } from '@/types/learning';
+import type { BattleView } from '@/types/war';
 
 const VIEW_EVENT: Partial<Record<Tab, string>> = { library: 'view_library', timeline: 'view_timeline', map: 'view_map' };
 /** Màn hình có bố cục sidebar từ chiều rộng này */
@@ -45,7 +48,8 @@ type Overlayed =
   | { kind: 'battle'; scenarioId: number; title: string; restart?: boolean }
   | { kind: 'anim'; scenarioId: number; title: string }
   | { kind: 'mini'; id: number; title: string; restart?: boolean; assignmentId?: number }
-  | { kind: 'live'; roomId: number; title: string };
+  | { kind: 'live'; roomId: number; title: string }
+  | { kind: 'war'; battle: BattleView };
 
 export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const { c } = useTheme();
@@ -67,7 +71,12 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const [busy, setBusy] = useState(false);
   const [hud, setHud] = useState<Hud | null>(null);
   const [share, setShare] = useState<{ badges: number; cards: number } | null>(null);
-  const bump = useCallback(() => setRefreshKey((k) => k + 1), []);
+  // Game thẻ tướng (ver0.2): chế độ hiển thị của các tab, màn đang xem giới thiệu và “Sự thật lịch sử”
+  const [homeMode, setHomeMode] = useState<'march' | 'quest'>('march');
+  const [collMode, setCollMode] = useState<'war' | 'badges'>('war');
+  const [stageId, setStageId] = useState<number | null>(null);
+  const [truthId, setTruthId] = useState<number | null>(null);
+  const bump =useCallback(() => setRefreshKey((k) => k + 1), []);
   const loadHud = useCallback(() => { game.gameMe(token).then(setHud).catch(() => undefined); }, [token]);
 
   useEffect(() => { const e = VIEW_EVENT[tab]; if (e) api.viewEvent(token, e); }, [tab, token]);
@@ -112,6 +121,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       const res = await guarded(() => api.completeNode(token, n.id));
       if (res) { setDone(res); bump(); }
     },
+    onStage: setStageId,
   };
 
   // Bài tập của lớp (HK.HS.101): máy chủ tính lượt và hạn nộp; bộ đề mở lượt làm, mini-game và bài học tự xin dữ liệu khi mở
@@ -155,11 +165,15 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 56, maxWidth: 880, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
         {tab === 'practice' ? <PracticeTab session={session} refreshKey={refreshKey} onPractice={startPractice} onGoLearn={() => setTab('learn')} onGoBattles={() => setTab('battles')} /> : null}
         {tab === 'shop' ? <ShopTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
-        {tab === 'home' ? (
-          campaignId === null
-            ? <HomeTab session={session} refreshKey={refreshKey} onOpenCampaign={(id) => { setCampaignId(id); setFocusNode(null); }} onPractice={startPractice} onNode={(cid, nid) => { setCampaignId(cid); setFocusNode(nid); }} />
-            : <CampaignMapView session={session} campaignId={campaignId} refreshKey={refreshKey} focusNode={focusNode} actions={actions} onBack={() => { setCampaignId(null); setFocusNode(null); }} />
+        {tab === 'home' && campaignId === null ? (
+          <View style={{ gap: 14 }}>
+            <Segmented<'march' | 'quest'> label="Kiểu chiến dịch" value={homeMode} onChange={setHomeMode} options={[{ value: 'march', label: 'Hành quân' }, { value: 'quest', label: 'Bản đồ nhiệm vụ' }]} />
+            {homeMode === 'march'
+              ? <MarchTab session={session} refreshKey={refreshKey} onStage={setStageId} onSource={(id) => open('source', id)} onChanged={bump} />
+              : <HomeTab session={session} refreshKey={refreshKey} onOpenCampaign={(id) => { setCampaignId(id); setFocusNode(null); }} onPractice={startPractice} onNode={(cid, nid) => { setCampaignId(cid); setFocusNode(nid); }} />}
+          </View>
         ) : null}
+        {tab === 'home' && campaignId !== null ? <CampaignMapView session={session} campaignId={campaignId} refreshKey={refreshKey} focusNode={focusNode} actions={actions} onBack={() => { setCampaignId(null); setFocusNode(null); }} /> : null}
         {tab === 'library' ? <LibraryTab session={session} onOpen={open} /> : null}
         {tab === 'timeline' ? <TimelineTab session={session} onOpen={open} /> : null}
         {tab === 'map' ? <MapTab session={session} onOpen={open} /> : null}
@@ -167,9 +181,17 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
         {tab === 'quests' ? <QuestsTab session={session} refreshKey={refreshKey} onGo={(cid, nid) => { setTab('home'); setCampaignId(cid); setFocusNode(nid); }} /> : null}
         {tab === 'class' ? <ClassTab session={session} hud={hud} refreshKey={refreshKey} section={classSection} onChanged={bump} onStart={startAssignment} /> : null}
         {tab === 'live' ? <LiveTab session={session} refreshKey={refreshKey} initialPin={typeof linkPin === 'string' ? linkPin : undefined} onPlay={(roomId, title) => setOverlay({ kind: 'live', roomId, title })} /> : null}
-        {tab === 'battles' ? <BattlesTab session={session} refreshKey={refreshKey} onPlay={(id, title, restart) => setOverlay({ kind: 'battle', scenarioId: id, title, restart })} onAnimation={(id, title) => setOverlay({ kind: 'anim', scenarioId: id, title })} onMini={(id, title, restart) => setOverlay({ kind: 'mini', id, title, restart })} onOpenLink={open} /> : null}
+        {tab === 'battles' ? (
+          <BattlesHub session={session} refreshKey={refreshKey} onIntro={setStageId}
+            decision={<BattlesTab session={session} refreshKey={refreshKey} onPlay={(id, title, restart) => setOverlay({ kind: 'battle', scenarioId: id, title, restart })} onAnimation={(id, title) => setOverlay({ kind: 'anim', scenarioId: id, title })} onMini={(id, title, restart) => setOverlay({ kind: 'mini', id, title, restart })} onOpenLink={open} />} />
+        ) : null}
         {tab === 'character' ? <CharacterTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} onShare={openShare} /> : null}
-        {tab === 'collection' ? <CollectionTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
+        {tab === 'collection' ? (
+          <View style={{ gap: 14 }}>
+            <Segmented<'war' | 'badges'> label="Bộ sưu tập" value={collMode} onChange={setCollMode} options={[{ value: 'war', label: 'Thẻ tướng' }, { value: 'badges', label: 'Huy hiệu và thẻ rơi' }]} />
+            {collMode === 'war' ? <WarCardsTab session={session} refreshKey={refreshKey} onChanged={bump} /> : <CollectionTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} />}
+          </View>
+        ) : null}
         {tab === 'ranking' ? <RankingTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
         {tab === 'mine' ? <MyTab session={session} refreshKey={refreshKey} onPractice={startPractice} onReview={(id) => setOverlay({ kind: 'review', id })} onOpen={open} /> : null}
       </ScrollView>
@@ -211,9 +233,17 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       {overlay?.kind === 'live' ? (
         <Overlay title={overlay.title} onBack={() => { setOverlay(null); bump(); }}><LivePlay session={session} roomId={overlay.roomId} /></Overlay>
       ) : null}
+      {overlay?.kind === 'war' ? (
+        <Overlay title={overlay.battle.stage.title} onBack={() => { setOverlay(null); bump(); }}>
+          <WarBattleScreen session={session} battleId={overlay.battle.id} initial={overlay.battle} onClose={() => { setOverlay(null); bump(); }} onTruth={setTruthId}
+            onRestart={(id) => { setOverlay(null); setStageId(id); }} />
+        </Overlay>
+      ) : null}
       {overlay?.kind === 'review' ? (
         <Overlay title="Xem lại bài đã làm" onBack={() => setOverlay(null)}><ReviewScreen session={session} id={overlay.id} onOpenLink={open} /></Overlay>
       ) : null}
+      {stageId !== null ? <StageIntroSheet key={stageId} session={session} id={stageId} onClose={() => setStageId(null)} onChanged={() => { bump(); loadHud(); }} onTruth={setTruthId} onStart={(battle) => { setStageId(null); setOverlay({ kind: 'war', battle }); }} /> : null}
+      {truthId !== null ? <TruthSheet session={session} id={truthId} onClose={() => setTruthId(null)} onSource={(id) => { setTruthId(null); open('source', id); }} /> : null}
       {detail ? <DetailSheet key={`${detail.type}${detail.id}`} session={session} type={detail.type} id={detail.id} onClose={() => setDetail(null)} onOpen={open} onChanged={bump} /> : null}
       {done ? <NodeDoneSheet result={done} onOpen={(id) => { setDone(null); open('source', id); }} onClose={() => setDone(null)} /> : null}
       {share && hud ? <ShareSheet hud={hud} badges={share.badges} cards={share.cards} onClose={() => setShare(null)} /> : null}

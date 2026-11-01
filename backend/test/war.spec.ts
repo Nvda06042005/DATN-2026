@@ -444,6 +444,17 @@ async function playOut(who: { token: string }, battleId: number, right = true) {
       expect((await db.query<{ attempts: number; clears: number }>('SELECT attempts, clears FROM hk_stage_progress WHERE user_id = $1 AND stage_id = $2', [f.S2.id, stageBachDang]))[0]).toEqual({ attempts: 1, clears: 0 });
       expect((await as(f.S2)('GET', `/api/war/stages/${stageBachDang}/truth`)).status).toBe(200); // đã chơi thì xem được sự thật lịch sử
     });
+
+    test('HK.HS.124: chi tiết nút trận đánh trong lộ trình trả mã màn chơi để hiện nút "Ra trận"; nút chưa mở thì không lộ', async () => {
+      const nodes = await db.query<{ id: number }>("SELECT n.id FROM hk_nodes n JOIN hk_journeys j ON j.id = n.journey_id JOIN hist_battles b ON b.id = n.battle_id WHERE j.campaign_id = $1 AND j.is_default AND n.kind = 'battle' AND b.slug = 'bach-dang'", [campaigns[2].id]);
+      const open = (await as(f.S2)('GET', `/api/play/nodes/${nodes[0].id}`)).body;
+      expect(open.stage_id).toBe(stageBachDang);
+      // cuộc kháng chiến lần II em S2 chưa học tới: nút trận đánh còn khóa nên không lộ mã màn chơi
+      const lockedNodes = await db.query<{ id: number }>("SELECT n.id FROM hk_nodes n JOIN hk_journeys j ON j.id = n.journey_id WHERE j.campaign_id = $1 AND j.is_default AND n.kind = 'battle' ORDER BY n.position LIMIT 1", [campaigns[1].id]);
+      const locked = (await as(f.S2)('GET', `/api/play/nodes/${lockedNodes[0].id}`)).body;
+      expect(locked.can_start).toBe(false);
+      expect(locked.stage_id).toBeNull();
+    });
   });
 
   // ------------------------------------------------------------------ HK.QT.056: bật/tắt và giờ chơi

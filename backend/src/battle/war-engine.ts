@@ -126,7 +126,7 @@ function applyEffect(s: BattleState, target: Unit, e: Effect, caster: Unit): voi
   else if (e.type === 'heal') { const n = Math.round(value * target.maxHp); target.hp = Math.min(target.maxHp, target.hp + n); log(s, 'heal', `${target.name} hồi ${n} máu.`, { target: target.id, value: n }); return; }
   else if (e.type === 'drain') return; // hút máu tính ở nơi gây sát thương
   else target.fx.push({ type: e.type, value, turns });
-  log(s, 'effect', `${target.name} chịu hiệu ứng ${effectText(e.type)} (${turns} lượt).`, { target: target.id });
+  log(s, 'effect', `${target.name} chịu hiệu ứng ${effectText(e.type)}${turns > 30 ? ' (cả trận)' : ` (${turns} lượt)`}.`, { target: target.id });
 }
 const effectText = (t: EffectType): string => ({ stun: 'choáng', shield: 'khiên', atk_up: 'tăng công', def_up: 'tăng thủ', atk_down: 'giảm công', heal: 'trị liệu', drain: 'hút máu', burn: 'bỏng cháy', hunger: 'thiếu lương' }[t]);
 
