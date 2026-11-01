@@ -14,7 +14,7 @@ const split0 = (s) => s.split('\0').filter(Boolean);
 
 export function git(root, args, options = {}) {
   const r = spawnSync('git', args, { cwd: root, encoding: 'utf8', windowsHide: true, timeout: 300000, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'Never' }, ...options });
-  if (r.error || r.status !== 0) throw new Error(`git ${args[0]}: ${r.error?.message || r.stderr?.trim() || 'failed'}`);
+  if (r.error || r.status !== 0) throw new Error(`git ${args[0]}: ${r.error?.message || r.stderr?.trim() || r.stdout?.trim() || 'failed'}`);
   return r.stdout.trimEnd();
 }
 
@@ -133,6 +133,27 @@ export async function checkRelease(release, log, status) {
   for (const script of ['typecheck', 'test', 'build']) await npm(frontend, ['run', script]);
 }
 
+function keepDocumentationAdditions(release) {
+  const paths = split0(git(release, ['diff', '--name-only', '--diff-filter=U', '-z']));
+  if (!paths.length || paths.some((p) => !/^(?:(?:docs|database\/migrations)\/.*|README|AGENTS)\.md$/.test(p))) return false;
+  const resolved = [];
+  for (const path of paths) {
+    const text = readFileSync(join(release, path), 'utf8');
+    if (text.includes('|||||||')) return false;
+    let unsupported = false;
+    const merged = text.replace(/^<<<<<<<[^\n]*\n([\s\S]*?)^=======\r?\n([\s\S]*?)^>>>>>>>[^\n]*(?:\n|$)/gm, (_all, left, right) => {
+      if (left.trim() && right.trim()) { unsupported = true; return _all; }
+      return left.trim() ? left : right;
+    });
+    if (unsupported || /^<<<<<<<|^=======|^>>>>>>>/m.test(merged)) return false;
+    resolved.push([path, merged]);
+  }
+  for (const [path, text] of resolved) writeFileSync(join(release, path), text);
+  git(release, ['add', '--', ...paths]);
+  git(release, ['commit', '--no-edit']);
+  return true;
+}
+
 export async function publish(root, stateDir, snapshot, { check = checkRelease, status = () => {} } = {}) {
   git(root, ['fetch', 'origin', 'main']);
   const remote = git(root, ['rev-parse', 'origin/main']);
@@ -147,8 +168,12 @@ export async function publish(root, stateDir, snapshot, { check = checkRelease, 
   try {
     git(release, ['merge', ...(snapshot.branch === 'main' ? ['--ff-only'] : ['--no-ff']), commit, '-m', `Auto-sync: release ${snapshot.branch} after checks`]);
   } catch (e) {
-    try { git(release, ['merge', '--abort']); } catch {}
-    throw new Error(`Automatic merge stopped; resolve source/main conflict first. ${e.message}`);
+    let resolved = false;
+    try { resolved = keepDocumentationAdditions(release); } catch {}
+    if (!resolved) {
+      try { git(release, ['merge', '--abort']); } catch {}
+      throw new Error(`Automatic merge stopped; resolve source/main conflict first. ${e.message}`);
+    }
   }
   const tip = git(release, ['rev-parse', 'HEAD']);
   assertAppendOnlyMigrations(root, remote, tip);

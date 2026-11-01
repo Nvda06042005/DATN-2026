@@ -22,6 +22,7 @@ function fixture(t) {
   mkdirSync(join(root, 'backend/src'), { recursive: true });
   mkdirSync(join(root, 'database/migrations'), { recursive: true });
   writeFileSync(join(root, '.gitignore'), '.auto-sync/\n.env\n');
+  writeFileSync(join(root, 'README.md'), '# Project\n\nBase notes\n');
   writeFileSync(join(root, 'backend/src/example.ts'), 'export const value = 1;\n');
   writeFileSync(join(root, 'database/migrations/001_initial.sql'), 'CREATE TABLE demo (id integer);\n');
   git(root, ['add', '.']);
@@ -157,4 +158,36 @@ test('an explicit database credential in a source file blocks capture without pr
   const f = fixture(t);
   writeFileSync(join(f.root, 'backend/src/accidental.ts'), 'postgres' + 'ql://fixture:fake' + '@db.example.invalid/db');
   assert.throws(() => capture(f.root, f.state), (e) => /Potential credential/.test(e.message) && !e.message.includes('fixture:fake'));
+});
+
+test('documentation additions survive a merge when one conflict side is empty', async (t) => {
+  const f = fixture(t);
+  const upstream = join(f.state, 'upstream');
+  git(f.root, ['worktree', 'add', '--detach', upstream, 'origin/main']);
+  writeFileSync(join(upstream, 'README.md'), '# Project\n\nShared release note\nBase notes\n');
+  git(upstream, ['add', 'README.md']);
+  git(upstream, ['commit', '-m', 'shared documentation']);
+  git(upstream, ['push', 'origin', 'HEAD:refs/heads/main']);
+  writeFileSync(join(f.root, 'README.md'), '# Project\n\nShared release note\nFeature release note\nBase notes\n');
+  await publish(f.root, f.state, capture(f.root, f.state), { check: async (release) => {
+    const text = readFileSync(join(release, 'README.md'), 'utf8');
+    assert.ok(text.includes('Shared release note'));
+    assert.ok(text.includes('Feature release note'));
+    assert.ok(!text.includes('<<<<<<<'));
+  } });
+  assert.ok(git(f.origin, ['show', 'main:README.md']).includes('Feature release note'));
+});
+
+test('conflicting documentation replacements stop without choosing or deleting either version', async (t) => {
+  const f = fixture(t);
+  const upstream = join(f.state, 'upstream');
+  git(f.root, ['worktree', 'add', '--detach', upstream, 'origin/main']);
+  writeFileSync(join(upstream, 'README.md'), '# Project\n\nMain replacement\n');
+  git(upstream, ['add', 'README.md']);
+  git(upstream, ['commit', '-m', 'replace main documentation']);
+  git(upstream, ['push', 'origin', 'HEAD:refs/heads/main']);
+  writeFileSync(join(f.root, 'README.md'), '# Project\n\nFeature replacement\n');
+  await assert.rejects(publish(f.root, f.state, capture(f.root, f.state), { check: async () => assert.fail('conflict must not be tested or published') }), /Automatic merge stopped/);
+  assert.ok(git(f.origin, ['show', 'main:README.md']).includes('Main replacement'));
+  assert.ok(readFileSync(join(f.root, 'README.md'), 'utf8').includes('Feature replacement'));
 });

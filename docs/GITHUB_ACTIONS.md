@@ -16,5 +16,8 @@ Dùng Ubuntu 24.04 và Node 22.21.0; các action chính thức được cố đ�
 - Check status gắn với từng commit, độc lập với việc nhánh đã gộp hay chưa. Thêm workflow không tạo kết quả ngược cho commit cũ; các nhánh cũ chưa chứa file workflow vẫn có thể để trống trạng thái. Commit mới chứa workflow sẽ tự chạy kiểm tra.
 - CI xanh xác nhận build/test, không tự chứng minh Render/Vercel đã phục vụ bản mới. Xác minh cloud vẫn dùng SHA tại `/api/health`, `/build-info.json` và `schema_version` tại `/api/database/health`, như [quy trình tự đồng bộ](TU_DONG_DONG_BO.md).
 - Chưa đặt quy tắc bảo vệ nhánh bắt buộc CI: workflow cung cấp kết quả kiểm tra, còn quyền push/gộp hiện có được giữ nguyên.
+- Nếu tất cả job dừng ngay, chưa có bước nào chạy và báo tài khoản bị khóa vì billing, cần chủ tài khoản xử lý cảnh báo tại GitHub Settings → Billing. Đây là chặn từ tài khoản; kiểm tra log/annotation trước khi thay đổi code hoặc workflow. Sau khi được gỡ chặn, bấm **Re-run all jobs** hoặc **Run workflow**.
+
+Lần kích hoạt đầu tiên ngày 01/11/2026 đã tạo đủ ba check, nhưng [GitHub chặn khởi động job vì billing](https://github.com/Nvda06042005/DATN-2026/actions/runs/41312953129). Chưa có bước build/test nào chạy trong lượt đó; không coi trạng thái đỏ này là kết luận kiểm thử mã nguồn.
 
 Tài liệu chính thức: [GitHub status checks](https://docs.github.com/en/pull-requests/reference/status-checks), [Ubuntu runner image](https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md), [setup-node](https://github.com/actions/setup-node).
