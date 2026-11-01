@@ -4,9 +4,9 @@ Nguồn: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức
 (251 chức năng) đã làm được gì, quyết định đã chọn khi đặc tả chưa nói rõ, và những gì cố ý chưa làm. Phân tích đối chiếu ban đầu: `DOI_CHIEU_HAO_KHI_V01.md`.
 
 **Từ 01/11/2026 đặc tả có bản `ver0.2`** (408 chức năng; viết lại Sprint 5–8, thêm 60 chức năng, sửa 10). Đối chiếu và các điểm cần chốt: `DOI_CHIEU_HAO_KHI_V02.md`.
-Đang làm ver0.2 theo thứ tự Sprint 5 → 6 → 7 → 8; tiến độ nằm ở mục "ver0.2" cuối các bảng Sprint tương ứng (Sprint 5 ver0.2: lộ trình dạng đường đi, đã làm; Sprint 6 ver0.2: game thẻ tướng, đã làm trừ Sa bàn 3D; Sprint 7–8 ver0.2: chưa làm).
+Đang làm ver0.2 theo thứ tự Sprint 5 → 6 → 7 → 8; tiến độ nằm ở mục "ver0.2" cuối các bảng Sprint tương ứng (Sprint 5 ver0.2: lộ trình dạng đường đi, đã làm; Sprint 6 ver0.2: game thẻ tướng, đã làm trừ Sa bàn 3D; Sprint 7–8 ver0.2: chưa làm). **Sprint 9 (AI Tutor) đã làm** theo yêu cầu chạy tiếp Sprint 9–10, làm trước khi xong Sprint 7–8 ver0.2.
 
-Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 249 bài trong 20 tệp, gồm migration trên dữ liệu cũ, Sprint 1–8, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu, trò chơi hóa, mô phỏng trận đánh, lớp học, bài tập, bản đồ rẽ nhánh, lộ trình dạng đường đi, thi đấu trực tiếp, bộ máy trận thẻ tướng và game thẻ tướng);
+Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 273 bài trong 22 tệp, gồm migration trên dữ liệu cũ, Sprint 1–8, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu, trò chơi hóa, mô phỏng trận đánh, lớp học, bài tập, bản đồ rẽ nhánh, lộ trình dạng đường đi, thi đấu trực tiếp, bộ máy trận thẻ tướng game thẻ tướng và AI Tutor);
 `cd frontend && npm run typecheck && npm run build`. Mỗi bài kiểm thử ghi mã HK.* trong tên.
 
 ## Sprint 1 – xác thực, tài khoản, hồ sơ, trường học, người dùng (40 chức năng)
@@ -290,6 +290,45 @@ Kiến trúc: lõi trận là một bộ máy lượt thuần, xác định theo
 **Quyết định mặc định:** nâng cấp 2 × cấp Binh thư; thăng sao tốn 2 / 3 / 4 / 5 mảnh; chỉ số thẻ = gốc × (1 + 0,1 × (cấp − 1)) × (1 + 0,2 × (sao − 1)); nộ: +25 khi ra đòn, +15 khi bị đánh, chiêu chủ động 40, tuyệt kỹ 100; chỉ huy địch báo chiêu lớn ×1,8 sát thương; thưởng chỉ ở lần thắng đầu, "Bỏ qua" nhận nửa thưởng và chỉ nhận được một lần mỗi ngày; rương học tập trao 2 mảnh (thường, hiếm) hoặc 1 mảnh (sử thi, huyền thoại).
 
 Dữ liệu: migration 028 (độ hiếm Sử thi, thẻ tướng / chiến thuật, chiêu thức, đội hình, chỉ huy, màn chơi, trận đang chơi, tiến độ màn, bản đồ – điểm – đường nối, hội thoại, nhật ký, vị trí hành quân, kho tài nguyên, cài đặt của trường, giờ chơi; bảng mới đều bật RLS), migration 029 (nội dung khởi tạo ở trên, chỉ thêm mới và cập nhật bản ghi thẻ do migration 021 tạo).
+
+## Sprint 9 – AI Tutor "Tiểu Tướng" (RAG) (24 chức năng)
+
+Học sinh hỏi đáp bằng lời tự nhiên; Tiểu Tướng chỉ trả lời dựa trên **nội dung đã công bố** (kho lịch sử, bài học) và tài liệu quản trị tải lên, kèm trích dẫn mở được và gợi ý câu hỏi tiếp theo; câu ngoài phạm vi hoặc không phù hợp bị từ chối. Máy chủ làm toàn bộ: truy xuất, kiểm soát phạm vi, hạn mức, gọi mô hình, lưu nhật ký (`backend/src/ai/*`, `/api/ai`).
+
+**Hai chế độ (quyết định quan trọng):** (1) **Chế độ trích tư liệu** – mặc định, không cần khóa API: câu trả lời là các câu khớp nhất trong tư liệu, ghi rõ "Trích nguyên văn tư liệu"; (2) **Trợ lý AI** – quản trị chọn nhà cung cấp (Anthropic hoặc API tương thích OpenAI như Gemini, Ollama, vLLM) và nhập khóa thì mô hình viết lời giải thích, nhập vai, soạn câu hỏi. Mô hình lỗi giữa chừng thì câu hỏi vẫn được trả lời bằng chế độ trích tư liệu. **Hệ thống chưa được thử với một mô hình thật** (kiểm thử dùng máy chủ AI giả tương thích OpenAI), và trên Render chưa có khóa nên đang ở chế độ trích tư liệu cho tới khi quản trị cấu hình.
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.HS.086 | Xong | Hỏi đáp tự nhiên; truy xuất BM25 (và vector nhúng nếu có), câu hỏi nối tiếp ngắn mượn ngữ cảnh câu trước; ngoài phạm vi → lời từ chối do quản trị soạn kèm 3 câu hỏi mẫu đúng phạm vi |
+| HK.HS.087 | Xong | Mỗi câu trả lời có danh sách nguồn [n]; nhân vật, sự kiện, địa danh, trận đánh, tư liệu, thuật ngữ **mở được** chi tiết; bài học, tài liệu tải lên và cuộc kháng chiến chỉ hiện tên nguồn. Số [n] không có thật mà mô hình tự nêu bị bỏ |
+| HK.HS.088 | Xong | 3 câu hỏi gợi ý: do mô hình nêu, hoặc dựng từ các nguồn liên quan đã truy xuất |
+| HK.HS.089 | Xong | Nút "Hỏi Tiểu Tướng" ở từng câu làm sai trong màn xem lại bài: dùng đáp án đúng và giải thích của câu hỏi; chỉ chủ lượt làm bài, chỉ khi đã làm xong |
+| HK.HS.090 | Xong | Tóm tắt bài học, trận đánh, sự kiện, nhân vật, cuộc kháng chiến đã công bố; chưa có mô hình thì chọn đều các câu trong nội dung |
+| HK.HS.091 | Một phần | Nhập vai nhân vật (ưu tiên đoạn tiểu sử và các nguồn liên kết, xưng "ta"); **chỉ khi có mô hình AI** (chưa có thì báo rõ); lọc từ cấm vẫn áp dụng. Chưa có bộ lọc ngữ nghĩa riêng cho nhập vai |
+| HK.HS.092 | Xong | Danh sách cuộc trò chuyện theo ngày (Hôm nay / Hôm qua / ngày), mở lại, xóa từng cuộc. Xóa là **ẩn với học sinh**; bản ẩn danh còn trong nhật ký quản trị để kiểm tra báo cáo sai |
+| HK.HS.093 | Xong | Báo cáo câu trả lời chưa chính xác kèm lý do; báo lại thì cập nhật |
+| HK.GV.038 | Xong | Soạn bản nháp câu hỏi từ bài học / trận đánh / sự kiện / văn bản: dạng một đáp án, đúng–sai, điền khuyết; mô hình sinh JSON và máy chủ kiểm tra bằng đúng bộ kiểm tra của ngân hàng câu hỏi; chưa có mô hình thì soạn theo mẫu từ câu có mốc năm. **Không tự lưu**: giáo viên sửa rồi bấm lưu qua API câu hỏi bình thường |
+| HK.GV.073 | Xong | Hỏi đáp tư liệu có trích dẫn (cùng quy trình, hạn mức gấp 3 lần học sinh) |
+| HK.GV.074 | Xong | Chủ đề được nhắc tới nhiều trong câu hỏi của học sinh các lớp mình dạy (quản trị trường: mọi lớp của trường), **ẩn danh**; từ khóa chỉ hiện khi có ít nhất 3 học sinh cùng hỏi |
+| HK.GV.075 | Xong | Gợi ý kịch bản tiết học 15–90 phút từ hành trình hoặc trận đánh; chưa có mô hình thì dựng theo mẫu từ cấu trúc hành trình |
+| HK.AD.055 | Xong | Chọn loại nội dung đưa vào chỉ mục (bật/tắt từng loại) và tải thêm tài liệu **PDF, DOCX, TXT** hoặc dán văn bản (PDF dạng ảnh quét chưa đọc được); bật/tắt/xóa từng tài liệu |
+| HK.AD.056 | Xong | Số nguồn, số đoạn, số đoạn có vector, lần lập chỉ mục cuối, lỗi; nút lập lại chỉ mục (một phần hoặc toàn bộ) |
+| HK.AD.057 | Xong | Nhà cung cấp, địa chỉ API, mô hình trả lời và nhúng, nhiệt độ, giới hạn token, số đoạn truy xuất; khóa API **mã hóa AES-256-GCM** trong CSDL, chỉ hiện 4 ký tự cuối; biến môi trường `AI_PROVIDER`, `AI_API_KEY`, `AI_BASE_URL`, `AI_CHAT_MODEL`, `AI_EMBED_MODEL` ưu tiên hơn; nút kiểm tra kết nối |
+| HK.AD.058 | Xong | Prompt hệ thống, lời từ chối, ngưỡng liên quan, danh sách từ cấm bổ sung (đã có sẵn danh sách mặc định) |
+| HK.AD.059 | Xong | Thử câu hỏi: các đoạn được truy xuất kèm điểm phủ và cosine, câu trả lời, token, thời gian; không lưu và không tính hạn mức |
+| HK.AD.060 | Xong | Nhật ký hội thoại ẩn danh (mã người hỏi ngắn, không tên); lọc theo trường, khoảng ngày, câu bị báo cáo, câu bị từ chối |
+| HK.AD.061 | Xong | Danh sách báo cáo theo trạng thái (chưa xử lý / đang kiểm tra / đã xử lý / bỏ qua) kèm câu hỏi, câu trả lời, nguồn đã trích, ghi chú xử lý. Việc **sửa tư liệu nguồn** làm ở Kho dữ liệu lịch sử; công bố lại thì chỉ mục tự cập nhật |
+| HK.AD.062 | Xong | Gắn nhãn đúng / sai cho câu trả lời, tỉ lệ đúng, tải bộ dữ liệu đánh giá (JSON) |
+| HK.AD.064 | Xong | Hạn mức câu hỏi mỗi ngày (giờ Việt Nam): mặc định theo người và theo trường, trường có mức riêng; giáo viên gấp 3; hết hạn mức trả 429 kèm lời nhắn |
+| HK.SYS.009 | Xong (khác công nghệ) | Câu hỏi → (nhúng) → truy xuất top-k → mô hình trả lời kèm trích dẫn. **Không dùng pgvector hay Qdrant**: vector lưu `REAL[]` trong PostgreSQL và tính cosine trong bộ nhớ máy chủ (vài trăm đến vài nghìn đoạn), nên chạy được trên Supabase và PostgreSQL thử nghiệm không cần cài tiện ích; chưa có vector nhúng thì xếp hạng từ khóa BM25. Anthropic không có API nhúng nên chỉ dùng từ khóa |
+| HK.SYS.010 | Xong | Từ chối khi độ phủ từ khóa của câu hỏi thấp hơn ngưỡng (mặc định 0,4; hiệu chỉnh bằng bộ câu hỏi trong và ngoài phạm vi), khi chứa từ cấm hoặc cố gài lệnh ("bỏ qua hướng dẫn…"), và lọc lại câu trả lời của mô hình. **Chưa phải bộ lọc ngữ nghĩa**: câu ngoài đề nhưng có từ trùng tư liệu (ví dụ "thời tiết Hà Nội") có thể lọt ở chế độ trích tư liệu; khi có mô hình thì mô hình được dặn từ chối nên chặt hơn |
+| HK.SYS.011 | Xong | Công bố, sửa, gỡ, xóa, khôi phục, nhập Excel nội dung kho lịch sử hoặc bài học → hẹn lập chỉ mục nền (gộp thay đổi liên tiếp, chỉ làm lại phần đổi theo băm nội dung); gỡ công bố thì truy xuất lập tức không dùng nữa vì máy chủ kiểm tra lại trạng thái công bố. Lúc khởi động cũng lập chỉ mục |
+
+Dữ liệu: migration 030 (cấu hình AI một dòng, hạn mức theo trường, tài liệu và đoạn tư liệu, hội thoại – tin nhắn – báo cáo; mọi bảng bật RLS; không có khóa API hay dữ liệu thật trong migration). Thêm thư viện `pdf-parse@1.1.1` và `jszip@3.10.1` (đọc PDF và DOCX); lockfile tạo bằng npm 10.9.4.
+
+**Giao diện:** học sinh có mục **Tiểu Tướng** (Hỏi đáp | Nhập vai | Tóm tắt, Lịch sử, Cuộc mới) trong "Xem thêm"; nút **Hỏi Tiểu Tướng** ở màn xem lại bài; giáo viên có mục **Trợ lý AI** (Hỏi đáp tư liệu | Học sinh hỏi gì | Soạn câu hỏi | Kịch bản tiết học); quản trị tổng có mục **AI Tutor** (Nguồn và chỉ mục | Mô hình | Prompt và phạm vi | Thử câu hỏi | Nhật ký | Báo cáo và đánh giá | Hạn mức).
+
+**Quyết định mặc định:** không dùng mô hình thì vẫn hữu ích (trích tư liệu); khóa API không bao giờ trả lại giao diện; học sinh "xóa" cuộc trò chuyện chỉ là ẩn; câu hỏi tính vào hạn mức kể cả khi bị từ chối vì ngoài phạm vi (chống dò); soạn câu hỏi và kịch bản tiết học cũng tính hạn mức giáo viên; AI không bao giờ tự lưu câu hỏi.
 
 ## Quyết định khi đặc tả chưa nói rõ
 

@@ -4,6 +4,7 @@
  */
 import { BadRequestException, ConflictException, Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { likeEscape } from '../admin/school.service';
+import { AiIndexService } from '../ai/ai-index.service';
 import { DatabaseService, Q, searchText, UserRow } from '../database/database.service';
 import { checkLinks, LinkInput, linkLabels, notFound } from './access';
 
@@ -72,7 +73,13 @@ export function estimateMinutes(blocks: Block[]): number {
 
 @Injectable()
 export class LessonService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(private readonly db: DatabaseService, private readonly ai: AiIndexService) {
+    // Nội dung đã công bố đổi thì hẹn lập chỉ mục lại cho AI Tutor (HK.SYS.011); gộp các thay đổi liên tiếp
+    for (const name of ['update', 'setStatus', 'remove']) {
+      const original = (this as any)[name].bind(this);
+      (this as any)[name] = async (...args: unknown[]) => { const out = await original(...args); this.ai.touch(); return out; };
+    }
+  }
 
   /** Quản trị tổng thấy mọi bài; giáo viên và quản trị trường chỉ thấy bài đã công bố */
   async list(user: UserRow, f: LessonFilter) {

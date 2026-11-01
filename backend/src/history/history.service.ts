@@ -7,6 +7,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { DatabaseService, Q, searchText, UserRow } from '../database/database.service';
 import { cellText, checkUpload, UploadedXlsx } from '../admin/excel';
+import { AiIndexService } from '../ai/ai-index.service';
 import { likeEscape } from '../admin/school.service';
 
 export type Entity = 'campaign' | 'figure' | 'event' | 'place' | 'battle' | 'source' | 'term';
@@ -71,7 +72,13 @@ type Row = Record<string, unknown> & { id: number; slug: string; status: Status;
 
 @Injectable()
 export class HistoryService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(private readonly db: DatabaseService, private readonly ai: AiIndexService) {
+    // Nội dung đã công bố đổi thì hẹn lập chỉ mục lại cho AI Tutor (HK.SYS.011); gộp các thay đổi liên tiếp
+    for (const name of ['setStatus', 'update', 'remove', 'restore', 'importDoc']) {
+      const original = (this as any)[name].bind(this);
+      (this as any)[name] = async (...args: unknown[]) => { const out = await original(...args); this.ai.touch(); return out; };
+    }
+  }
 
   specs() {
     return ENTITIES.map((e) => ({ entity: e, ...SPECS[e], statuses: STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] })) }));

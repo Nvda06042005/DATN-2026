@@ -323,6 +323,17 @@ describe('file migration', () => {
     expect(await count('SELECT count(*) AS n FROM hk_card_moves')).toBe(31); // dữ liệu khởi tạo không nhân đôi
   });
 
+  test('030 tạo bảng AI Tutor (có RLS), cấu hình mặc định một dòng và không lưu khóa API dạng rõ', async () => {
+    await m.applyMigrations(url, dir);
+    const tables = ['hk_ai_settings', 'hk_ai_school_limits', 'hk_ai_docs', 'hk_ai_chunks', 'hk_ai_conversations', 'hk_ai_messages', 'hk_ai_reports'];
+    expect(await count(`SELECT count(*) AS n FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = ANY(ARRAY[${tables.map((t) => `'${t}'`).join(',')}]) AND c.relrowsecurity`)).toBe(tables.length);
+    expect(await count('SELECT count(*) AS n FROM hk_ai_settings')).toBe(1);
+    expect(await count("SELECT count(*) AS n FROM hk_ai_settings WHERE provider = 'none' AND api_key_enc IS NULL AND length(system_prompt) > 100")).toBe(1);
+    await expect(sql(url, "INSERT INTO public.hk_ai_settings (id, system_prompt, refusal_message) VALUES (2, repeat('x', 30), repeat('y', 10))")).rejects.toThrow(); // chỉ một dòng cấu hình
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+    expect(await count('SELECT count(*) AS n FROM hk_ai_settings')).toBe(1);
+  });
+
   test('một file lỗi thì hoàn tác cả lô và lịch sử', async () => {
     await m.applyMigrations(url, dir);
     const next = String(TOTAL + 1).padStart(3, '0'), after = String(TOTAL + 2).padStart(3, '0');

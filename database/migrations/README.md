@@ -36,6 +36,7 @@ Ngày 31/10/2026 thư mục này từng bị xóa theo yêu cầu (website chỉ
 | `027_seed_learning_path.sql` | Nội dung khởi tạo (bản nháp): chia ba hành trình mẫu thành các Cửa và thêm nút nghe kể chuyện, luyện tập, rương, kiểm tra cuối cửa; chỉ động vào hành trình mẫu còn nháp, chưa có học sinh học và chưa chia Cửa; chạy lại không nhân đôi |
 | `028_war_game.sql` | Game thẻ tướng (Sprint 6 theo ver0.2): độ hiếm Sử thi, thẻ tướng / thẻ chiến thuật (binh chủng, chỉ số, số mảnh), chiêu thức, cấp và sao của thẻ, mảnh thẻ, đội hình, chỉ huy đối phương và sổ tay, màn chơi, trận đang chơi, tiến độ màn, bản đồ hành quân (điểm, đường nối, vị trí, lượt đến), hội thoại và nhật ký, kho tài nguyên (bắt buộc nguồn và giấy phép), cài đặt game của trường, giờ chơi mỗi ngày; mọi bảng mới bật RLS |
 | `029_seed_war_content.sql` | Nội dung khởi tạo (bản nháp, chờ giáo viên Lịch sử kiểm chứng): chỉ số, độ hiếm và 31 chiêu thức kèm giai thoại của 13 tướng, 4 thẻ chiến thuật, 5 chỉ huy đối phương, 6 màn chơi, 3 bản đồ hành quân, 6 hội thoại; màn, bản đồ, hội thoại, chỉ huy đều ở trạng thái Nháp; chạy lại không nhân đôi |
+| `030_ai_tutor.sql` | AI Tutor "Tiểu Tướng" (Sprint 9): cấu hình mô hình một dòng (khóa API chỉ lưu mã hóa, không có khóa trong migration), hạn mức theo trường, tài liệu và đoạn tư liệu đã lập chỉ mục (vector nhúng `REAL[]`, không cần pgvector), hội thoại, tin nhắn, báo cáo câu trả lời sai; mọi bảng bật RLS |
 
 Kiểm chứng trên PostgreSQL tạm bằng `cd backend && npm run build && npm test` trước khi triển khai.
 

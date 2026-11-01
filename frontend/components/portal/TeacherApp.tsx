@@ -3,8 +3,9 @@
  * ngân hàng câu hỏi, bộ đề (làm thử như học sinh), nội dung đã gửi duyệt. Dùng cùng khung và giao diện phẳng với các cổng quản trị.
  */
 import React, { useState } from 'react';
-import { CircleHelp, ListChecks, Radio, Route, Send, Trophy, Users } from 'lucide-react-native';
+import { CircleHelp, ListChecks, Radio, Route, Send, Sparkles, Trophy, Users } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
+import { AiTeacher } from '@/components/admin/AiTeacher';
 import { ClassManager } from '@/components/admin/ClassManager';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { TeacherGame } from '@/components/admin/GameAdmin';
@@ -18,13 +19,14 @@ import type { Session } from '@/components/auth';
 import { NoticeBell } from '@/components/portal/ClassTab';
 import { AdminUiContext } from '@/components/ui';
 
-type Tab = 'classes' | 'journeys' | 'questions' | 'quizzes' | 'live' | 'game' | 'shares';
+type Tab = 'classes' | 'journeys' | 'questions' | 'quizzes' | 'live' | 'ai' | 'game' | 'shares';
 const NAV = [
   { id: 'classes' as const, label: 'Lớp học', icon: Users },
   { id: 'journeys' as const, label: 'Hành trình học', icon: Route },
   { id: 'questions' as const, label: 'Ngân hàng câu hỏi', icon: CircleHelp },
   { id: 'quizzes' as const, label: 'Bộ đề', icon: ListChecks },
   { id: 'live' as const, label: 'Thi đấu trực tiếp', icon: Radio },
+  { id: 'ai' as const, label: 'Trợ lý AI', icon: Sparkles },
   { id: 'game' as const, label: 'Trò chơi hóa', icon: Trophy },
   { id: 'shares' as const, label: 'Nội dung đã gửi', icon: Send },
 ];
@@ -40,6 +42,7 @@ export const TeacherApp: React.FC<{ session: Session }> = ({ session }) => {
           : tab === 'questions' ? <QuestionBank session={session} />
           : tab === 'quizzes' ? <QuizManager session={session} />
           : tab === 'live' ? <LiveManager session={session} />
+          : tab === 'ai' ? <AiTeacher session={session} />
           : tab === 'game' ? <TeacherGame session={session} />
           : <ShareInbox session={session} />}
       </AdminWorkspace>

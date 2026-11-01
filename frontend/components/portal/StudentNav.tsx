@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import {
-  Award, Dumbbell, Ellipsis, GraduationCap, History as HistoryIcon, Library as LibraryIcon, ListChecks, Map as MapIcon, Radio, Route, ScrollText, Shield, ShoppingBag, Swords, Trophy, UserRound, Users,
+  Award, Dumbbell, Ellipsis, GraduationCap, History as HistoryIcon, Library as LibraryIcon, ListChecks, Map as MapIcon, Radio, Route, ScrollText, Shield, ShoppingBag, Sparkles, Swords, Trophy, UserRound, Users,
 } from 'lucide-react-native';
 import { Sheet, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -14,7 +14,7 @@ import type { IconType } from '@/types/game';
 
 export type Tab =
   | 'learn' | 'home' | 'collection' | 'practice' | 'ranking' | 'quests' | 'shop' | 'mine'
-  | 'library' | 'timeline' | 'map' | 'sources' | 'class' | 'live' | 'battles' | 'character';
+  | 'library' | 'timeline' | 'map' | 'sources' | 'class' | 'live' | 'battles' | 'character' | 'ai';
 
 interface NavItem { id: Tab; label: string; icon: IconType }
 /** Chín mục của thanh menu chính theo đặc tả (mục thứ chín "Xem thêm" mở các mục còn lại) */
@@ -37,6 +37,7 @@ export const NAV_MORE: NavItem[] = [
   { id: 'live', label: 'Thi đấu', icon: Radio },
   { id: 'battles', label: 'Trận đánh', icon: Swords },
   { id: 'character', label: 'Nhân vật', icon: Shield },
+  { id: 'ai', label: 'Tiểu Tướng', icon: Sparkles },
 ];
 /** Năm mục ở thanh dưới trên điện thoại (cộng "Xem thêm") */
 const PHONE_MAIN: Tab[] = ['learn', 'home', 'collection', 'practice'];
