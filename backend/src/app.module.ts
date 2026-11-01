@@ -12,18 +12,56 @@ import { AppController } from './app.controller';
 import { AuthController } from './auth/auth.controller';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthService } from './auth/auth.service';
+import { BattleController } from './battle/battle.controller';
+import { BattleService } from './battle/battle.service';
+import { WarCardsService } from './battle/war-cards.service';
+import { WarController } from './battle/war.controller';
+import { WarGate } from './battle/war-gate';
+import { WarMarchService } from './battle/war-march.service';
+import { WarService } from './battle/war.service';
+import { AiAdminService } from './ai/ai-admin.service';
+import { AiIndexService } from './ai/ai-index.service';
+import { AiRetrievalService } from './ai/ai-retrieval.service';
+import { AiSettingsService } from './ai/ai-settings.service';
+import { AiToolsService } from './ai/ai-tools.service';
+import { AiTutorService } from './ai/ai-tutor.service';
+import { AiController } from './ai/ai.controller';
+import { LlmClient } from './ai/llm.client';
+import { AssignmentService } from './classroom/assignment.service';
+import { ClassroomController } from './classroom/classroom.controller';
+import { ClassroomService } from './classroom/classroom.service';
+import { SkillService } from './classroom/skill.service';
 import { config } from './config';
+import { BoardService } from './game/board.service';
+import { CatalogService } from './game/catalog.service';
+import { GameClock } from './game/clock';
+import { GameController } from './game/game.controller';
+import { GameJob } from './game/game.job';
+import { GameService } from './game/game.service';
+import { SettingsService } from './game/settings';
+import { ContentController } from './content/content.controller';
+import { JourneyService } from './content/journey.service';
+import { LessonService } from './content/lesson.service';
+import { QuestionService } from './content/question.service';
+import { QuizService } from './content/quiz.service';
+import { ShareService } from './content/share.service';
 import { DatabaseService } from './database/database.service';
 import { HistoryController } from './history/history.controller';
 import { HistoryService } from './history/history.service';
+import { LiveController } from './live/live.controller';
+import { LiveGateway } from './live/live.gateway';
+import { LiveService } from './live/live.service';
+import { LearnController, PlayController } from './student/learn.controller';
+import { LearnService } from './student/learn.service';
+import { PlayService } from './student/play.service';
 import { StudentController } from './student/student.controller';
 
 @Module({
   imports: [
     JwtModule.register({ secret: config.authSecret, signOptions: { algorithm: 'HS256', expiresIn: config.tokenTtlHours * 3600 }, verifyOptions: { algorithms: ['HS256'] } }),
   ],
-  controllers: [AppController, AuthController, AdminController, HistoryController, StudentController],
-  providers: [SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, MailService, SchoolService, AccountService, ClassService, HistoryService],
+  controllers: [AppController, AuthController, AdminController, HistoryController, ContentController, StudentController, LearnController, PlayController, GameController, BattleController, ClassroomController, LiveController, WarController, AiController],
+  providers: [LlmClient, AiSettingsService, AiRetrievalService, AiIndexService, AiTutorService, AiToolsService, AiAdminService, SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, MailService, SchoolService, AccountService, ClassService, HistoryService, QuestionService, QuizService, LessonService, JourneyService, ShareService, LearnService, PlayService, GameClock, SettingsService, GameService, BoardService, CatalogService, GameJob, BattleService, WarGate, WarCardsService, WarMarchService, WarService, ClassroomService, AssignmentService, SkillService, LiveService, LiveGateway],
 })
 export class AppModule {}
 

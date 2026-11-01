@@ -1,4 +1,4 @@
-/** Bố cục chung của trang chủ, điều khoản sử dụng và câu hỏi thường gặp. */
+/** Bố cục chung của các trang công khai và trang đăng nhập quản trị tổng. */
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';

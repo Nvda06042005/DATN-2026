@@ -28,7 +28,7 @@ export const HeroPhotoNote: React.FC<{ id: string }> = ({ id }) => {
   return note ? <Txt size={12} color={c.logoInk} style={{ lineHeight: 18 }}>{note}</Txt> : null;
 };
 
-/** Ghi công đầy đủ được hiển thị trong trang điều khoản sử dụng. */
+/** Ghi công đầy đủ được hiển thị tại /thong-tin-hinh-anh, mở từ footer. */
 export const HeroPhotoCredit: React.FC<{ id: string }> = ({ id }) => {
   const { c } = useTheme();
   const photo = HERO_PHOTOS[id];

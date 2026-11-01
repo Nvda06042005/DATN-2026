@@ -3,10 +3,14 @@
  * điện thoại chạy thử trên mạng LAN cần địa chỉ IP của máy tính (ví dụ http://192.168.1.10:8000), không dùng localhost.
  * Không bao giờ đặt chuỗi kết nối CSDL hay khóa bí mật vào biến EXPO_PUBLIC_*: chúng nằm công khai trong gói app.
  */
-export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+const DEV_API = typeof __DEV__ !== 'undefined' && __DEV__ ? 'http://localhost:8000' : '';
+export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || DEV_API).trim().replace(/\/+$/, '');
 
-
-
+/** Bản chính thức không đoán địa chỉ máy chủ: thiếu cấu hình thì báo lỗi rõ ràng và không gửi thông tin đăng nhập đi đâu cả */
+const NOT_CONFIGURED = 'Chức năng đăng nhập chưa được kết nối máy chủ. Vui lòng liên hệ quản trị hệ thống.';
+const requireBase = (): void => {
+  if (!API_BASE_URL) throw new ApiError(0, NOT_CONFIGURED);
+};
 
 export class ApiError extends Error {
   constructor(
@@ -35,6 +39,7 @@ const timeoutSignal = (ms: number) => {
 const OFFLINE = 'Không kết nối được máy chủ. Hãy kiểm tra mạng hoặc thử lại sau ít phút.';
 
 export async function apiRequest<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  requireBase();
   let res: Response;
   try {
     res = await fetch(`${API_BASE_URL}${path}`, {
@@ -63,6 +68,7 @@ export interface PickedFile {
 
 /** Gửi một file dạng multipart (trường "file"), ví dụ file Excel mẫu đã điền */
 export async function apiUpload<T>(path: string, file: PickedFile, token: string, timeoutMs = 150_000): Promise<T> {
+  requireBase();
   const form = new FormData();
   if (file.file) form.append('file', file.file, file.name);
   else form.append('file', { uri: file.uri, name: file.name, type: file.mimeType } as unknown as Blob);
@@ -77,6 +83,7 @@ export async function apiUpload<T>(path: string, file: PickedFile, token: string
 
 /** Nội dung văn bản của một API cần đăng nhập (ví dụ danh sách tài khoản CSV) */
 export async function apiText(path: string, token: string): Promise<string> {
+  requireBase();
   let res: Response;
   try {
     res = await fetch(`${API_BASE_URL}${path}`, { headers: { Authorization: `Bearer ${token}` }, signal: timeoutSignal(60_000) });
@@ -89,6 +96,7 @@ export async function apiText(path: string, token: string): Promise<string> {
 
 /** Authenticated file download: keep access tokens in headers, never put them in download URLs. */
 export async function apiBlob(path:string,token:string):Promise<Blob> {
+  requireBase();
   let res:Response;
   try { res=await fetch(`${API_BASE_URL}${path}`,{headers:{Authorization:`Bearer ${token}`},signal:timeoutSignal(75_000)}); }
   catch { throw new ApiError(0,OFFLINE); }

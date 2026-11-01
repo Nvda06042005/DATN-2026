@@ -1,5 +1,5 @@
 /**
- * Khung chung của hai trang thông tin công khai: "Điều khoản sử dụng" (/dieu-khoan-su-dung) và "Câu hỏi thường gặp" (/cau-hoi-thuong-gap).
+ * Khung chung của các trang thông tin công khai: Điều khoản sử dụng, Câu hỏi thường gặp và Thông tin hình ảnh.
  * Dùng lại đúng thanh điều hướng (to ở đầu trang, co thành viên thuốc kính khi cuộn như trang chủ; logo chữ tối vì nền là giấy kem), chân trang, nút lên đầu trang,
  * bảng màu sáng cố định (như trang chủ, không có nút đổi sáng/tối) và cuộn mượt của trang chủ; menu chỉ có ba mục: Trang chủ, Điều khoản sử dụng, Câu hỏi thường gặp.
  * Phần nội dung của từng trang đặt trong `Band` của trang chủ. Cũng chứa AnswerBody và QaRow: cách hiển thị câu hỏi – trả lời giống khối "Câu hỏi thường gặp" ở trang chủ.
@@ -19,14 +19,14 @@ import { ThemeContext, useTheme } from '@/hooks/use-theme';
 const WEB = Platform.OS === 'web';
 const INFO_THEME = { c: PALETTES.light, dark: false };
 
-export type InfoTab = 'terms' | 'faq';
+export type InfoTab = 'terms' | 'faq' | 'credits';
 
 export function PublicSiteNotice() {
   const { c } = useTheme();
   return (
     <View style={{ padding: 16, borderRadius: 16, borderWidth: 1, borderColor: INK_LINE, backgroundColor: c.logoPaper }}>
       <Txt size={14} color={c.logoInk} style={{ lineHeight: 22 }}>
-        Hiện website chỉ cung cấp trang giới thiệu, điều khoản sử dụng và câu hỏi thường gặp. Thông tin về tài khoản, lớp học, trò chơi và AI bên dưới mô tả phiên bản trước.
+        Website hiện có trang giới thiệu, điều khoản sử dụng, câu hỏi thường gặp và các cổng đăng nhập của học sinh, giáo viên, quản trị trường, quản trị tổng. Thông tin về trò chơi và AI bên dưới mô tả phiên bản trước và sẽ quay lại ở các giai đoạn sau.
       </Txt>
     </View>
   );
@@ -39,7 +39,7 @@ const INFO_NAV = [
   { id: 'cau-hoi-thuong-gap', short: 'Câu hỏi thường gặp' },
 ] as const;
 
-const ACTIVE_ID: Record<InfoTab, string> = { terms: 'dieu-khoan-su-dung', faq: 'cau-hoi-thuong-gap' };
+const ACTIVE_ID: Record<InfoTab, string> = { terms: 'dieu-khoan-su-dung', faq: 'cau-hoi-thuong-gap', credits: 'thong-tin-hinh-anh' };
 
 /** Các đoạn trả lời: chuỗi là đoạn văn, mảng chuỗi là danh sách gạch đầu dòng đỏ */
 export const AnswerBody: React.FC<{ paragraphs: FaqParagraph[] }> = ({ paragraphs }) => {

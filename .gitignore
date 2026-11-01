@@ -45,3 +45,6 @@ Tran_Dynasty_3_Wars_Full.jsonl
 # OS / Editor
 .DS_Store
 Thumbs.db
+
+# Local background publisher: state, logs, isolated checkout and machine settings
+.auto-sync/

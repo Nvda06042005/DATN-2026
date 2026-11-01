@@ -106,7 +106,7 @@ export async function startApp(dbName: string): Promise<Started> {
   const url = await createDatabase(dbName);
   Object.assign(process.env, {
     DATABASE_URL: url, AUTH_SECRET_KEY: 'nest-test-secret', ADMIN_USERNAME: 'admin', ADMIN_PASSWORD: 'admin@123', ADMIN_EMAIL: 'quantri@example.invalid',
-    MAIL_TRANSPORT: 'json', MAIL_WORKER: 'off', ACCOUNT_DOMAIN: 'donga.local', GOOGLE_CLIENT_ID: 'test-client.apps.googleusercontent.com',
+    MAIL_TRANSPORT: 'json', MAIL_WORKER: 'off', GAME_JOB: 'off', AI_INDEX_JOB: 'off', ACCOUNT_DOMAIN: 'donga.local', GOOGLE_CLIENT_ID: 'test-client.apps.googleusercontent.com',
   });
   const { Test } = await import('@nestjs/testing');
   const { AppModule, configureApp } = await import('../src/app.module');

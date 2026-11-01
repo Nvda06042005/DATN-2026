@@ -13,7 +13,6 @@ import { useDocumentTitle } from '@/hooks/use-document-title';
 import { Band, Cta, GoldRings, INK_LINE, INK_SOFT, PAPER_CARD } from '@/components/home';
 import { InfoShell, PublicSiteNotice, QaRow } from '@/components/info-page';
 import { SectionHeading } from '@/components/section-heading';
-import { ImageCredits } from '@/components/image-credits';
 import { Txt } from '@/components/ui';
 import { TERMS_CATEGORIES, TERMS_GROUPS, TERMS_UPDATED } from '@/constants/terms';
 import { useReduceMotion } from '@/hooks/use-motion';
@@ -151,7 +150,6 @@ export function TermsPage() {
   return (
     <InfoShell active="terms" scrollRef={scroll}>
       <TermsBody scroll={scroll} />
-      <ImageCredits />
     </InfoShell>
   );
 }

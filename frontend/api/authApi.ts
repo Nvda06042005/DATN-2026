@@ -1,9 +1,18 @@
-import { apiRequest } from '@/api/client';
+import { ApiError, apiRequest } from '@/api/client';
 import type { AuthSession, AuthUser, ClassItem, Portal, ProfileData, ProfilePatch } from '@/types/api';
 
+/** Phiên server trả về phải có token và đúng vai trò của trang đăng nhập (trang quản trị không nhận phiên của vai trò khác) */
+function checkSession(session: AuthSession, portal: Portal | 'app'): AuthSession {
+  if (!session?.user) throw new ApiError(502, 'Máy chủ chưa trả về phiên đăng nhập hợp lệ.');
+  const allowed = portal === 'app' ? ['teacher', 'student'] : [portal];
+  if (!allowed.includes(session.user.role)) throw new ApiError(403, 'Tài khoản không có quyền đăng nhập trang này.');
+  if (!session.token || typeof session.token !== 'string') throw new ApiError(502, 'Máy chủ chưa trả về phiên đăng nhập hợp lệ.');
+  return session;
+}
+
 /** Đăng nhập tại một trang; server kiểm tra vai trò khớp với trang ("app" = /portal: giáo viên hoặc học sinh) */
-export const loginToPortal = (username: string, password: string, portal: Portal | 'app') =>
-  apiRequest<AuthSession>('/api/auth/login', { body: { username, password, portal } });
+export const loginToPortal = async (username: string, password: string, portal: Portal | 'app') =>
+  checkSession(await apiRequest<AuthSession>('/api/auth/login', { body: { username, password, portal } }), portal);
 
 /** Đăng nhập Google (HK.HS.002): chỉ học sinh có email Google trùng email trong hồ sơ */
 export const loginWithGoogle = (idToken: string) => apiRequest<AuthSession>('/api/auth/google', { body: { id_token: idToken, portal: 'student' } });
@@ -32,8 +41,11 @@ export const updateProfile = (token: string, body: ProfilePatch) => apiRequest<P
 export const confirmProfile = (token: string, email?: string | null) => apiRequest<ProfileData>('/api/auth/confirm-profile', { token, body: { email: email || undefined } });
 
 /** Đổi mật khẩu; server trả phiên mới (token cũ hết hiệu lực) */
-export const changePassword = (token: string, currentPassword: string, newPassword: string) =>
-  apiRequest<AuthSession>('/api/auth/change-password', { token, body: { current_password: currentPassword, new_password: newPassword } });
+export const changePassword = async (token: string, currentPassword: string, newPassword: string) => {
+  const session = await apiRequest<AuthSession>('/api/auth/change-password', { token, body: { current_password: currentPassword, new_password: newPassword } });
+  if (!session?.token || typeof session.token !== 'string' || !session.user) throw new ApiError(502, 'Máy chủ chưa trả về phiên đăng nhập hợp lệ.');
+  return session;
+};
 
 /** Revoke the current access token on the server before clearing the local session. */
 export const logout = (token: string) => apiRequest<{ ok: boolean }>('/api/auth/logout', { token, body: {} });

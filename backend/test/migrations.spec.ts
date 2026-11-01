@@ -113,7 +113,7 @@ describe('file migration', () => {
   test('014 giữ nguyên lớp, giáo viên, học sinh hiện có: tạo năm học, mã tham gia 6 ký tự, bảng giáo viên–lớp', async () => {
     // Chỉ bản sao tạm của file 014–016 được dời đi; migration trong repo giữ nguyên
     const held = new Map<string, string>();
-    for (const f of readdirSync(dir).filter((x) => /^01[4-9]_/.test(x))) {
+    for (const f of readdirSync(dir).filter((x) => /^0(1[4-9]|[2-9][0-9])_/.test(x))) {
       renameSync(join(dir, f), join(dir, `${f}.held`));
       held.set(f, `${f}.held`);
     }
@@ -155,6 +155,183 @@ describe('file migration', () => {
     expect(await count('SELECT count(*) AS n FROM hist_versions')).toBe(await count("SELECT (SELECT count(*) FROM hist_campaigns) + (SELECT count(*) FROM hist_places) + (SELECT count(*) FROM hist_figures) + (SELECT count(*) FROM hist_events) + (SELECT count(*) FROM hist_battles) + (SELECT count(*) FROM hist_sources) + (SELECT count(*) FROM hist_terms) AS n"));
     expect(await count('SELECT count(*) AS n FROM hist_links')).toBeGreaterThan(20);
     expect(await sql(url, "SELECT b.slug AS battle, e.slug AS event, p.slug AS place FROM hist_battles b JOIN hist_events e ON e.id = b.event_id JOIN hist_places p ON p.id = b.place_id WHERE b.slug = 'bach-dang'")).toEqual([{ battle: 'bach-dang', event: 'dai-thang-bach-dang-1288', place: 'bach-dang' }]);
+  });
+
+  test('017–019 tạo ngân hàng câu hỏi, hành trình học và nội dung học mẫu ở trạng thái Nháp; mọi câu hỏi mẫu qua kiểm tra cấu trúc của máy chủ', async () => {
+    await m.applyMigrations(url, dir);
+    expect(await count("SELECT count(*) AS n FROM hk_questions WHERE scope = 'system' AND school_id IS NULL")).toBe(27);
+    expect(await count('SELECT count(*) AS n FROM hk_question_versions')).toBe(27);
+    expect(await count('SELECT count(*) AS n FROM hk_quizzes')).toBe(9);
+    expect(await count('SELECT count(*) AS n FROM hk_quiz_questions')).toBe(40);
+    expect(await count("SELECT count(*) AS n FROM hk_lessons WHERE status = 'draft'")).toBe(3);
+    expect(await count("SELECT count(*) AS n FROM hk_lessons WHERE status <> 'draft'")).toBe(0);
+    expect(await count("SELECT count(*) AS n FROM hk_lesson_checks")).toBe(3);
+    expect(await count("SELECT count(*) AS n FROM hk_journeys WHERE scope = 'system' AND status = 'draft' AND NOT is_default")).toBe(3);
+    // 14 nút của migration 019 + 15 nút lộ trình dạng đường đi của migration 027 (nghe kể chuyện, luyện tập, rương, kiểm tra cuối cửa)
+    expect(await count('SELECT count(*) AS n FROM hk_nodes')).toBe(29);
+    expect(await count("SELECT count(*) AS n FROM hk_nodes WHERE kind = 'final' AND pass_percent = 70")).toBe(3);
+    expect(await count('SELECT count(*) AS n FROM hk_node_unlocks')).toBe(1);
+    expect(await count('SELECT count(*) AS n FROM hk_question_links')).toBeGreaterThan(30);
+    expect(await sql(url, "SELECT j.campaign_id, (SELECT kind FROM hk_nodes n WHERE n.journey_id = j.id ORDER BY position DESC LIMIT 1) AS last FROM hk_journeys j ORDER BY j.campaign_id")).toHaveLength(3);
+    const { normalizeData } = await import('../src/content/questions');
+    const { normalizeBlocks } = await import('../src/content/lesson.service');
+    for (const q of await sql<{ id: number; qtype: never; prompt: string; data: Record<string, unknown> }>(url, 'SELECT id, qtype, prompt, data FROM hk_questions')) {
+      expect(() => normalizeData(q.qtype, q.data, q.prompt)).not.toThrow();
+      expect(normalizeData(q.qtype, q.data, q.prompt)).toEqual(q.data);
+    }
+    for (const l of await sql<{ blocks: unknown[] }>(url, 'SELECT blocks FROM hk_lessons')) expect(normalizeBlocks(l.blocks)).toEqual(l.blocks);
+    // Mỗi bộ đề có ít nhất 3 câu; bộ đề Quyết chiến có đủ nhiều dạng câu hỏi
+    expect(await count('SELECT count(*) AS n FROM (SELECT quiz_id FROM hk_quiz_questions GROUP BY quiz_id HAVING count(*) < 3) x')).toBe(0);
+    expect(await count("SELECT count(DISTINCT t.qtype) AS n FROM hk_quiz_questions qq JOIN hk_questions t ON t.id = qq.question_id JOIN hk_quizzes z ON z.id = qq.quiz_id WHERE z.title LIKE 'Quyết chiến%'")).toBe(6);
+    // Chạy lại không nhân đôi
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+  });
+
+  test('020–021 tạo bảng trò chơi hóa và nội dung khởi tạo: cấp độ tăng dần, ba lớp nhân vật, huy hiệu có điều kiện hợp lệ, thẻ gắn nhân vật lịch sử', async () => {
+    await m.applyMigrations(url, dir);
+    expect(await sql(url, 'SELECT level, xp_required FROM hk_levels ORDER BY level')).toEqual([0, 100, 250, 450, 700, 1000, 1400, 1900, 2500, 3200].map((xp, i) => ({ level: i + 1, xp_required: xp })));
+    expect((await sql<{ code: string }>(url, 'SELECT code FROM hk_character_classes ORDER BY sort_order')).map((r) => r.code)).toEqual(['tuong_quan', 'quan_su', 'luong_y']);
+    expect(await count('SELECT count(*) AS n FROM hk_shop_items')).toBe(14);
+    expect(await count("SELECT count(*) AS n FROM hk_shop_items WHERE kind IN ('outfit', 'weapon', 'banner') AND price = 0 AND min_level = 1")).toBe(3); // mỗi loại một đồ mặc định miễn phí
+    expect(await count('SELECT count(*) AS n FROM hk_quest_templates')).toBe(8);
+    expect(await count("SELECT count(*) AS n FROM hk_quest_templates WHERE period = 'daily'")).toBe(4);
+    expect(await count('SELECT count(*) AS n FROM hk_badges WHERE rule IS NOT NULL')).toBe(12);
+    expect(await count("SELECT count(*) AS n FROM hk_badges WHERE rule->>'type' = 'campaign_complete' AND (rule->>'campaign_id') IS NOT NULL")).toBe(3);
+    expect(await count('SELECT count(*) AS n FROM hk_cards')).toBe(17); // 13 thẻ tướng (021) + 4 thẻ chiến thuật (029)
+    expect(await count("SELECT count(*) AS n FROM hk_cards WHERE figure_id IS NULL AND kind = 'general'")).toBe(0); // thẻ tướng đều gắn nhân vật; thẻ chiến thuật (029) gắn sự kiện nên không có nhân vật
+    expect(await sql(url, "SELECT rarity, count(*)::int AS n FROM hk_cards GROUP BY rarity ORDER BY rarity")).toEqual([{ rarity: 'common', n: 6 }, { rarity: 'epic', n: 4 }, { rarity: 'legendary', n: 2 }, { rarity: 'rare', n: 5 }]); // 029: hai thẻ tướng lên Sử thi và bốn thẻ chiến thuật
+    expect(await count('SELECT count(*) AS n FROM hk_players')).toBe(0); // không tạo dữ liệu người chơi
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+  });
+
+  test('022–023 tạo bảng mô phỏng trận đánh và mini-game; kịch bản và tham số khởi tạo hợp lệ theo engine; tất cả ở trạng thái Nháp', async () => {
+    await m.applyMigrations(url, dir);
+    const { normalizeScenario, normalizeMinigame } = await import('../src/battle/engine');
+    expect(await count('SELECT count(*) AS n FROM hk_scenarios')).toBe(6);
+    expect(await count("SELECT count(*) AS n FROM hk_scenarios WHERE status <> 'draft'")).toBe(0);
+    expect((await sql<{ slug: string }>(url, 'SELECT b.slug FROM hk_scenarios s JOIN hist_battles b ON b.id = s.battle_id ORDER BY b.sort_order')).map((r) => r.slug)).toEqual(['dong-bo-dau', 'ham-tu', 'chuong-duong', 'tay-ket', 'van-don', 'bach-dang']);
+    for (const row of await sql<{ content: unknown }>(url, 'SELECT content FROM hk_scenarios')) expect(normalizeScenario(row.content)).toEqual(row.content);
+    expect(await count('SELECT count(*) AS n FROM hk_minigames')).toBe(4);
+    expect(await count("SELECT count(*) AS n FROM hk_minigames WHERE status <> 'draft'")).toBe(0);
+    for (const row of await sql<{ kind: 'match' | 'timeline' | 'crossword'; params: unknown }>(url, 'SELECT kind, params FROM hk_minigames')) expect(normalizeMinigame(row.kind, row.params)).toEqual(row.params);
+    expect(await count('SELECT count(*) AS n FROM hk_game_runs')).toBe(0); // không tạo dữ liệu lượt chơi
+    // điểm và vàng nhận thêm lý do mới nhưng vẫn từ chối lý do lạ
+    await expect(sql(url, "INSERT INTO hk_points (user_id, points, reason, ref_key) VALUES (1, 1, 'khong-co', 'x')")).rejects.toThrow();
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+  });
+
+  test('024 tạo bảng lớp học (đội, bài tập, bài nộp, thưởng/phạt, mục tiêu, yêu cầu rời lớp, kỹ năng, đường nối nút) có RLS; không tạo dữ liệu người dùng', async () => {
+    await m.applyMigrations(url, dir);
+    const tables = ['hk_teams', 'hk_team_members', 'hk_leave_requests', 'hk_adjustments', 'hk_class_goals', 'hk_assignments', 'hk_submissions', 'hk_skill_uses', 'hk_node_edges'];
+    const rows = await sql<{ relname: string; rowsecurity: boolean }>(url, "SELECT c.relname, c.relrowsecurity AS rowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = ANY($1) ORDER BY c.relname", [tables]);
+    expect(rows.map((r) => r.relname)).toEqual([...tables].sort());
+    expect(rows.every((r) => r.rowsecurity)).toBe(true);
+    for (const table of tables) expect(await count(`SELECT count(*) AS n FROM public.${table}`)).toBe(0);
+    // điểm: giáo viên được trừ điểm nhưng không ghi dòng 0; lý do mới được chấp nhận
+    const defs = (await sql<{ def: string }>(url, "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname IN ('hk_points_reason_check', 'hk_gold_ledger_reason_check', 'hk_points_points_check', 'hk_attempts_mode_check')")).map((r) => r.def).join(' ');
+    expect(defs).toMatch(/'teacher'/);
+    expect(defs).toMatch(/'assignment'/);
+    expect(defs).toMatch(/points <> 0/);
+    // lịch giao hành trình: kết thúc phải sau bắt đầu; nút mới có cột vị trí, điều kiện, thưởng
+    expect(await count("SELECT count(*) AS n FROM information_schema.columns WHERE table_name = 'hk_nodes' AND column_name IN ('pos_x', 'pos_y', 'opens_at', 'min_percent', 'min_stars', 'reward_gold', 'reward_card_id', 'reward_badge_id')")).toBe(8);
+    expect(await count("SELECT count(*) AS n FROM pg_constraint WHERE conname = 'hk_class_journeys_window_check'")).toBe(1);
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+  });
+
+  test('nâng từ schema 24 giữ tài khoản, điểm, vàng và nút cũ; migration mới chỉ chạy một lần', async () => {
+    const held = readdirSync(dir).filter((name) => name.endsWith('.sql') && Number(name.slice(0, 3)) > 24);
+    for (const name of held) renameSync(join(dir, name), join(dir, `${name}.pending`));
+    expect(await m.applyMigrations(url, dir)).toHaveLength(24);
+    await sql(url, `INSERT INTO public.app_users (id, username, full_name, role, password_hash, created_at)
+      VALUES (991, 'upgrade-fixture', 'Upgrade fixture', 'student', 'fake-test-hash', '2026-11-01');
+      INSERT INTO public.hk_players (user_id, xp, gold, hearts) VALUES (991, 105, 37, 3);
+      INSERT INTO public.hk_points (user_id, points, reason, ref_key) VALUES (991, -5, 'teacher', 'upgrade-fixture');`);
+    const oldNodes = await sql(url, 'SELECT id, title, kind FROM public.hk_nodes ORDER BY id');
+    for (const name of held) renameSync(join(dir, `${name}.pending`), join(dir, name));
+    expect(await m.applyMigrations(url, dir)).toHaveLength(TOTAL - 24);
+    expect(await sql(url, 'SELECT username, full_name FROM public.app_users WHERE id = 991')).toEqual([{ username: 'upgrade-fixture', full_name: 'Upgrade fixture' }]);
+    expect(await sql(url, 'SELECT xp, gold, hearts, binh_thu FROM public.hk_players WHERE user_id = 991')).toEqual([{ xp: 105, gold: 37, hearts: 3, binh_thu: 0 }]);
+    expect(await sql(url, 'SELECT points, reason, ref_key FROM public.hk_points WHERE user_id = 991')).toEqual([{ points: -5, reason: 'teacher', ref_key: 'upgrade-fixture' }]);
+    expect(await sql(url, 'SELECT id, title, kind FROM public.hk_nodes ORDER BY id')).toEqual(expect.arrayContaining(oldNodes));
+    expect(await count('SELECT max(version) AS n FROM public.app_schema_migrations')).toBe(TOTAL);
+    expect(await m.applyMigrations(url, dir)).toEqual([]);
+  });
+
+  test('025 tạo bảng thi đấu trực tiếp (phòng, người chơi, câu trả lời) có RLS; mã PIN chỉ duy nhất giữa các phòng chưa kết thúc; thêm lý do điểm "live"', async () => {
+    await m.applyMigrations(url, dir);
+    const tables = ['hk_live_rooms', 'hk_live_players', 'hk_live_answers'];
+    const rows = await sql<{ relname: string; rowsecurity: boolean }>(url, "SELECT c.relname, c.relrowsecurity AS rowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = ANY($1) ORDER BY c.relname", [tables]);
+    expect(rows.map((r) => r.relname)).toEqual([...tables].sort());
+    expect(rows.every((r) => r.rowsecurity)).toBe(true);
+    for (const table of tables) expect(await count(`SELECT count(*) AS n FROM public.${table}`)).toBe(0);
+    const defs = (await sql<{ def: string }>(url, "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = 'hk_points_reason_check'")).map((r) => r.def).join(' ');
+    expect(defs).toMatch(/'live'/);
+    expect(defs).toMatch(/'teacher'/); // giữ nguyên các lý do cũ
+    const idx = (await sql<{ indexdef: string }>(url, "SELECT indexdef FROM pg_indexes WHERE indexname = 'hk_live_rooms_pin_open'"))[0].indexdef;
+    expect(idx).toMatch(/UNIQUE/);
+    expect(idx).toMatch(/WHERE/);
+    expect(await count("SELECT count(*) AS n FROM pg_indexes WHERE indexname = 'hk_live_players_nickname'")).toBe(1);
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+  });
+
+  test('026–027 thêm Cửa, bốn loại nút mới, Binh thư (có RLS); chia ba hành trình mẫu thành các Cửa mà không đổi trạng thái Nháp hay làm mất nút cũ', async () => {
+    await m.applyMigrations(url, dir);
+    for (const table of ['hk_gates', 'hk_binh_thu_ledger']) {
+      expect((await sql<{ rowsecurity: boolean }>(url, "SELECT c.relrowsecurity AS rowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = $1", [table]))[0].rowsecurity).toBe(true);
+    }
+    const kinds = (await sql<{ def: string }>(url, "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = 'hk_nodes_kind_check'"))[0].def;
+    for (const kind of ['practice', 'listen', 'chest', 'gate_test', 'final']) expect(kinds).toContain(`'${kind}'`);
+    // Hành trình mẫu: vẫn là bản nháp, mỗi hành trình có đúng 2 Cửa, nút cũ còn nguyên, nút Quyết chiến vẫn ở cuối
+    const journeys = await sql<{ id: number; status: string; gates: string; nodes: string; last: string }>(
+      url, `SELECT j.id, j.status, (SELECT count(*) FROM public.hk_gates g WHERE g.journey_id = j.id) AS gates, (SELECT count(*) FROM public.hk_nodes n WHERE n.journey_id = j.id) AS nodes,
+              (SELECT n.kind FROM public.hk_nodes n WHERE n.journey_id = j.id ORDER BY n.position DESC LIMIT 1) AS last FROM public.hk_journeys j WHERE j.scope = 'system' ORDER BY j.id`);
+    expect(journeys).toHaveLength(3);
+    for (const j of journeys) {
+      expect(j.status).toBe('draft');
+      expect(Number(j.gates)).toBe(2);
+      expect(j.last).toBe('final');
+    }
+    expect(journeys.map((j) => Number(j.nodes))).toEqual([9, 11, 9]);
+    // Vị trí liên tục từ 1 và mọi nút của hành trình có Cửa
+    expect(await count("SELECT count(*) AS n FROM (SELECT journey_id, count(*) AS c, max(position) AS mx, min(position) AS mn FROM public.hk_nodes GROUP BY journey_id) x WHERE c <> mx OR mn <> 1")).toBe(0);
+    expect(await count('SELECT count(*) AS n FROM public.hk_nodes WHERE gate_id IS NULL')).toBe(0);
+    // Chạy lại không nhân đôi nút (migration chỉ động vào hành trình chưa chia Cửa)
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+    expect(await count('SELECT count(*) AS n FROM public.hk_gates')).toBe(6);
+  });
+
+  test('028–029 tạo bảng game thẻ tướng (có RLS) và nội dung khởi tạo ở trạng thái Nháp: thẻ Sử thi và thẻ chiến thuật, chiêu thức, 6 màn chơi, 3 bản đồ hành quân, hội thoại, chỉ huy', async () => {
+    await m.applyMigrations(url, dir);
+    const tables = ['hk_card_fragments', 'hk_card_moves', 'hk_formations', 'hk_commanders', 'hk_commanders_seen', 'hk_stages', 'hk_war_battles', 'hk_stage_progress', 'hk_march_maps', 'hk_march_points',
+      'hk_march_edges', 'hk_dialogs', 'hk_march_state', 'hk_march_visits', 'hk_dialog_log', 'hk_game_assets', 'hk_war_play'];
+    expect(await count(`SELECT count(*) AS n FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = ANY(ARRAY[${tables.map((t) => `'${t}'`).join(',')}]) AND c.relrowsecurity`)).toBe(tables.length);
+    expect((await sql<{ def: string }>(url, "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conname = 'hk_cards_rarity_check'"))[0].def).toContain("'epic'");
+    expect(await count("SELECT count(*) AS n FROM hk_cards WHERE kind = 'tactic' AND tactic IS NOT NULL")).toBe(4);
+    expect(await count("SELECT count(*) AS n FROM hk_cards WHERE rarity = 'epic'")).toBe(4);
+    expect(await count("SELECT count(*) AS n FROM hk_cards WHERE kind = 'general' AND branch IS NOT NULL")).toBe(13);
+    expect(await count('SELECT count(*) AS n FROM hk_card_moves')).toBe(31);
+    expect(await count('SELECT count(*) AS n FROM hk_commanders')).toBe(5);
+    expect(await count("SELECT count(*) AS n FROM hk_stages WHERE status = 'draft'")).toBe(6);
+    expect(await count("SELECT count(*) AS n FROM hk_march_maps WHERE status = 'draft'")).toBe(3);
+    expect((await sql<{ n: string }>(url, 'SELECT count(*) AS n FROM hk_march_points GROUP BY map_id ORDER BY map_id')).map((r) => Number(r.n))).toEqual([6, 8, 6]);
+    expect(await count("SELECT count(*) AS n FROM hk_dialogs WHERE status = 'draft'")).toBe(6);
+    // mọi điểm trận đánh trỏ tới một màn chơi có thật và mọi điểm có đường nối
+    expect(await count("SELECT count(*) AS n FROM hk_march_points p WHERE p.kind = 'battle' AND NOT EXISTS (SELECT 1 FROM hk_stages s WHERE s.id = (p.payload->>'stage_id')::int)")).toBe(0);
+    expect(await count('SELECT count(*) AS n FROM hk_march_points p WHERE NOT EXISTS (SELECT 1 FROM hk_march_edges e WHERE e.from_point = p.id OR e.to_point = p.id)')).toBe(0);
+    for (const col of ['war_enabled', 'war_grades', 'war_from', 'war_to', 'war_minutes']) expect(await count(`SELECT count(*) AS n FROM information_schema.columns WHERE table_name = 'hk_school_settings' AND column_name = '${col}'`)).toBe(1);
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+    expect(await count('SELECT count(*) AS n FROM hk_card_moves')).toBe(31); // dữ liệu khởi tạo không nhân đôi
+  });
+
+  test('030 tạo bảng AI Tutor (có RLS), cấu hình mặc định một dòng và không lưu khóa API dạng rõ', async () => {
+    await m.applyMigrations(url, dir);
+    const tables = ['hk_ai_settings', 'hk_ai_school_limits', 'hk_ai_docs', 'hk_ai_chunks', 'hk_ai_conversations', 'hk_ai_messages', 'hk_ai_reports'];
+    expect(await count(`SELECT count(*) AS n FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = ANY(ARRAY[${tables.map((t) => `'${t}'`).join(',')}]) AND c.relrowsecurity`)).toBe(tables.length);
+    expect(await count('SELECT count(*) AS n FROM hk_ai_settings')).toBe(1);
+    expect(await count("SELECT count(*) AS n FROM hk_ai_settings WHERE provider = 'none' AND api_key_enc IS NULL AND length(system_prompt) > 100")).toBe(1);
+    await expect(sql(url, "INSERT INTO public.hk_ai_settings (id, system_prompt, refusal_message) VALUES (2, repeat('x', 30), repeat('y', 10))")).rejects.toThrow(); // chỉ một dòng cấu hình
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+    expect(await count('SELECT count(*) AS n FROM hk_ai_settings')).toBe(1);
   });
 
   test('một file lỗi thì hoàn tác cả lô và lịch sử', async () => {

@@ -40,4 +40,15 @@ export const config = {
   mailTransport: env('MAIL_TRANSPORT'),
   /** Tiến trình nền gửi thư mỗi 4 giây (kiểm thử đặt MAIL_WORKER=off để tự gọi từng lượt) */
   mailWorker: env('MAIL_WORKER', 'on') !== 'off',
+  /**
+   * AI Tutor (Sprint 9): mô hình và khóa API có thể đặt bằng biến môi trường (ưu tiên hơn trang quản trị) để khóa không nằm trong CSDL; không bao giờ ghi vào Git.
+   * AI_PROVIDER = anthropic | openai (openai gồm mọi API tương thích: Gemini, Ollama, vLLM…); AI_BASE_URL tùy chọn.
+   */
+  aiProvider: env('AI_PROVIDER').toLowerCase(),
+  aiApiKey: process.env.AI_API_KEY ?? '',
+  aiBaseUrl: env('AI_BASE_URL'),
+  aiChatModel: env('AI_CHAT_MODEL'),
+  aiEmbedModel: env('AI_EMBED_MODEL'),
+  /** Tự lập chỉ mục khi nội dung công bố thay đổi và lúc khởi động; kiểm thử đặt AI_INDEX_JOB=off để tự gọi lập chỉ mục */
+  aiIndexJob: env('AI_INDEX_JOB', 'on') !== 'off',
 };
