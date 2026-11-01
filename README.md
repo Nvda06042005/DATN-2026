@@ -54,6 +54,10 @@ Gửi thư (mật khẩu tạm, mã OTP) cần `SMTP_URL`/`SMTP_*` hoặc cầu 
 
 ## Triển khai
 
+GitHub Actions chạy build/test backend, PostgreSQL migration, frontend và bộ tự đồng bộ trên mỗi push/pull request: [cách xem Check status](docs/GITHUB_ACTIONS.md).
+
+Theo dõi code local, kiểm tra rồi tự gộp/push và xác minh GitHub → Render/Supabase/Vercel: [hướng dẫn tự đồng bộ](docs/TU_DONG_DONG_BO.md). Bộ theo dõi chạy ẩn trên Windows khi được bật bằng `scripts/auto-sync.ps1`; không cần giữ cuộc chat mở.
+
 Website chính thức: https://datn-2026-indol.vercel.app/ (Vercel chỉ triển khai nhánh `main`; `frontend/vercel.json` lấy địa chỉ API từ `EXPO_PUBLIC_API_URL`, nếu chưa đặt thì dùng biến cũ `VITE_API_URL`, và cuối cùng là backend chính thức `https://dong-a-api.onrender.com`; địa chỉ này công khai, không chứa bí mật). Backend trên Render (`render.yaml`), cơ sở dữ liệu Supabase PostgreSQL; backend áp dụng migration mới khi khởi động. Sprint 1–2 đã được gộp vào `main` ngày 31/10/2026; Sprint 3–4 (migration 017–019) sau khi gộp cần backend khởi động lại để áp dụng migration.
 
 ## Ghi công

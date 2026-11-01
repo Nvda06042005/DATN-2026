@@ -13,7 +13,8 @@ export class AppController {
 
   @Get('health')
   health() {
-    return { status: 'healthy' };
+    const commit = process.env.RENDER_GIT_COMMIT;
+    return { status: 'healthy', commit: /^[a-f0-9]{40}$/.test(commit ?? '') ? commit : null };
   }
 
   /** Kiểm tra kết nối PostgreSQL (Supabase); migration chạy khi khởi động */

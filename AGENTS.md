@@ -17,7 +17,7 @@ Không nhúng DDL vào TypeScript/Python, không chứa bí mật hay dữ liệ
 
 # Tự động đồng bộ sau khi hoàn tất công việc
 
-Người dùng đã cho phép tự động cập nhật dự án sau mỗi yêu cầu sửa đổi hoàn tất; không cần hỏi lại để commit, push hoặc triển khai các thay đổi thuộc yêu cầu đó. Đây là quy trình kết thúc mỗi lần làm việc của agent, không phải dịch vụ theo dõi mọi lần lưu file khi agent không hoạt động.
+Người dùng đã cho phép tự động cập nhật dự án sau mỗi yêu cầu sửa đổi hoàn tất; không cần hỏi lại để commit, push hoặc triển khai các thay đổi thuộc yêu cầu đó. Ngày 01/11/2026 người dùng còn cho phép bộ theo dõi local chạy nền, tự commit và gộp nhánh đang làm vào `main` sau khi toàn bộ kiểm tra đạt. Cách bật/tắt, điều kiện hoạt động và trạng thái nằm ở `docs/TU_DONG_DONG_BO.md`, `scripts/auto-sync.ps1` và `.auto-sync/status.json` (file local bị bỏ qua bởi Git). Trước khi agent tự commit/gộp nhánh, kiểm tra worker; nên dừng và chờ `stopped` rồi làm việc, sau đó chạy lại để tránh phát hành cạnh tranh. Không coi worker đang chạy là bằng chứng các dịch vụ đã cập nhật: phải có trạng thái `synced` với đúng commit.
 
 - Chạy kiểm tra phù hợp với thay đổi; xử lý lỗi trước khi phát hành. Không tự đưa thay đổi không liên quan hoặc bí mật vào commit (xem `git status`: người dùng có thể đang sửa file khác, chỉ `git add` đúng file thuộc yêu cầu).
 - Commit và push lên `https://github.com/Nvda06042005/DATN-2026`. Thư mục dự án chính là repo Git: xem lại `git status`/`git diff` trước khi push; không force-push. Thay đổi kiến trúc lớn (đổi backend/runtime, thêm lại backend) đưa lên nhánh riêng trước, chỉ gộp vào `main` khi dịch vụ Render tương ứng đã sẵn sàng và người dùng đồng ý. Sprint 1–2 đã được người dùng yêu cầu triển khai và gộp vào `main` ngày 31/10/2026.
@@ -25,3 +25,4 @@ Người dùng đã cho phép tự động cập nhật dự án sau mỗi yêu 
 - Render triển khai backend `dong-a-api` từ GitHub theo `render.yaml`. Kiểm tra `/api/health`, `/api/database/health` (có `schema_version`) và API liên quan. Dịch vụ `dong-a-ai` của bản cũ không còn trong `render.yaml`. Nếu thiếu quyền truy cập, báo rõ phần chưa hoàn tất.
 - Supabase: thay đổi schema hoặc seed/reference data phải có migration mới theo quy tắc ở trên. Backend áp dụng migration khi khởi động; xác minh bằng `schema_version` của `/api/database/health`.
 - Chỉ báo đồng bộ thành công khi có bằng chứng cho từng dịch vụ; nêu rõ lỗi triển khai hoặc thiếu kết nối.
+- CI trên GitHub: `.github/workflows/ci.yml` chạy backend/migration với PostgreSQL tạm, frontend và hồi quy auto-sync; tài liệu `docs/GITHUB_ACTIONS.md`. Không thêm credential production vào workflow, không bỏ qua kiểm thử database để lấy dấu tích xanh. Kết quả CI không thay cho xác minh deploy Render/Vercel/Supabase.

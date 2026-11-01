@@ -38,4 +38,6 @@ Ngày 31/10/2026 thư mục này từng bị xóa theo yêu cầu (website chỉ
 | `029_seed_war_content.sql` | Nội dung khởi tạo (bản nháp, chờ giáo viên Lịch sử kiểm chứng): chỉ số, độ hiếm và 31 chiêu thức kèm giai thoại của 13 tướng, 4 thẻ chiến thuật, 5 chỉ huy đối phương, 6 màn chơi, 3 bản đồ hành quân, 6 hội thoại; màn, bản đồ, hội thoại, chỉ huy đều ở trạng thái Nháp; chạy lại không nhân đôi |
 
 Kiểm chứng trên PostgreSQL tạm bằng `cd backend && npm run build && npm test` trước khi triển khai.
+
+GitHub Actions cũng chạy bước kiểm tra file SQL và toàn bộ kiểm thử trên PostgreSQL 16 tạm; không dùng `DATABASE_URL` của Supabase. Job không coi các bài kiểm thử bị bỏ qua là đạt. Xem [CI và Check status](../../docs/GITHUB_ACTIONS.md).
 Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).
