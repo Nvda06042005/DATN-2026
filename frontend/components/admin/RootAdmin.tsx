@@ -3,11 +3,12 @@
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { BookOpen, BookOpenText, Building2, CircleHelp, Inbox, ListChecks, Plus, Route, Shield, Swords, Trash2, Trophy, Users } from 'lucide-react-native';
+import { BookOpen, BookOpenText, Building2, CircleHelp, Inbox, ListChecks, Plus, Route, Shield, Sparkles, Swords, Trash2, Trophy, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AccountSheet, dateText, ROLE_TEXT } from '@/components/admin/AccountSheet';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
+import { AiAdmin } from '@/components/admin/AiAdmin';
 import { BattleAdmin } from '@/components/admin/BattleAdmin';
 import { RootGame } from '@/components/admin/GameAdmin';
 import { HistoryManager } from '@/components/admin/HistoryManager';
@@ -24,7 +25,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { fmt } from '@/lib/format';
 import type { AuthRole, CreatedAccount, CreatedSchool, SchoolItem } from '@/types/api';
 
-type Tab = 'schools' | 'users' | 'history' | 'journeys' | 'lessons' | 'questions' | 'quizzes' | 'battle' | 'war' | 'game' | 'shares';
+type Tab = 'schools' | 'users' | 'history' | 'journeys' | 'lessons' | 'questions' | 'quizzes' | 'battle' | 'war' | 'ai' | 'game' | 'shares';
 const NAV = [
   { id: 'schools' as const, label: 'Trường học', icon: Building2 },
   { id: 'users' as const, label: 'Người dùng', icon: Users },
@@ -35,6 +36,7 @@ const NAV = [
   { id: 'quizzes' as const, label: 'Bộ đề', icon: ListChecks },
   { id: 'battle' as const, label: 'Mô phỏng trận đánh', icon: Swords },
   { id: 'war' as const, label: 'Game thẻ tướng', icon: Shield },
+  { id: 'ai' as const, label: 'AI Tutor', icon: Sparkles },
   { id: 'game' as const, label: 'Trò chơi hóa', icon: Trophy },
   { id: 'shares' as const, label: 'Duyệt đề xuất', icon: Inbox },
 ];
@@ -47,7 +49,7 @@ export const RootAdmin: React.FC<{ session: Session }> = ({ session }) => {
     <AdminUiContext.Provider value>
       <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab} schoolCount={schools?.total}>
         {tab === 'schools' ? <SchoolsPanel session={session} /> : tab === 'users' ? <UsersPanel session={session} schools={options} /> : tab === 'history' ? <HistoryManager session={session} />
-          : tab === 'journeys' ? <JourneyManager session={session} /> : tab === 'lessons' ? <LessonManager session={session} /> : tab === 'questions' ? <QuestionBank session={session} /> : tab === 'quizzes' ? <QuizManager session={session} /> : tab === 'battle' ? <BattleAdmin session={session} /> : tab === 'war' ? <WarAdmin session={session} /> : tab === 'game' ? <RootGame session={session} /> : <ShareInbox session={session} />}
+          : tab === 'journeys' ? <JourneyManager session={session} /> : tab === 'lessons' ? <LessonManager session={session} /> : tab === 'questions' ? <QuestionBank session={session} /> : tab === 'quizzes' ? <QuizManager session={session} /> : tab === 'battle' ? <BattleAdmin session={session} /> : tab === 'war' ? <WarAdmin session={session} /> : tab === 'ai' ? <AiAdmin session={session} /> : tab === 'game' ? <RootGame session={session} /> : <ShareInbox session={session} />}
       </AdminWorkspace>
     </AdminUiContext.Provider>
   );

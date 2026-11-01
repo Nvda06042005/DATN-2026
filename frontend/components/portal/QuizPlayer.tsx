@@ -5,7 +5,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
-import { ArrowDown, ArrowRight, ArrowUp, CheckCircle2, CircleDot, Clock, Lightbulb, ListChecks, MapPin, RotateCcw, Square, SquareCheck, Trophy, XCircle } from 'lucide-react-native';
+import { ArrowDown, ArrowRight, ArrowUp, CheckCircle2, CircleDot, Clock, Lightbulb, ListChecks, MapPin, RotateCcw, Sparkles, Square, SquareCheck, Trophy, XCircle } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import { requestHint } from '@/api/gameApi';
 import { castSkill, mySkills } from '@/api/classroomApi';
@@ -272,7 +272,7 @@ const Summary: React.FC<{ summary: AttemptSummary; mode: AttemptState['mode']; o
   );
 };
 
-const Review: React.FC<{ review: AttemptReview; onBack?: () => void; onOpen?: (type: string, id: number) => void }> = ({ review, onBack, onOpen }) => {
+const Review: React.FC<{ review: AttemptReview; onBack?: () => void; onOpen?: (type: string, id: number) => void; onExplain?: (attemptId: number, questionId: number) => void }> = ({ review, onBack, onOpen, onExplain }) => {
   const { c } = useTheme();
   return (
     <View style={{ gap: 12 }}>
@@ -290,6 +290,7 @@ const Review: React.FC<{ review: AttemptReview; onBack?: () => void; onOpen?: (t
           {it.qtype === 'map' ? <RevealMap key_={it.answer_key} placements={(it.answer?.placements as Placement) ?? null} /> : null}
           {it.explanation ? <Txt size={14}>{it.explanation}</Txt> : null}
           <Links links={it.links} onOpen={onOpen} />
+          {onExplain && !it.correct ? <View style={{ flexDirection: 'row' }}><Btn icon={Sparkles} title="Hỏi Tiểu Tướng" label={`Hỏi Tiểu Tướng vì sao câu ${it.index + 1} chưa đúng`} tone="dong" size="sm" onPress={() => onExplain(review.id, it.question_id)} testID={`ask-ai-${it.question_id}`} /></View> : null}
         </Card>
       ))}
     </View>
@@ -301,7 +302,9 @@ export const QuizPlayer: React.FC<{
   session: Session; initial: AttemptState; title: string; onClose: (summary?: AttemptSummary) => void; onRetry?: () => void; onOpenLink?: (type: string, id: number) => void;
   /** Số gợi ý 50/50 em đang có (HK.HS.070) và hàm gọi khi tim, vàng hay gợi ý thay đổi để cập nhật thanh chỉ số */
   hints?: number; onGameChanged?: () => void;
-}> = ({ session, initial, title, onClose, onRetry, onOpenLink, hints = 0, onGameChanged }) => {
+  /** Hỏi Tiểu Tướng vì sao một câu chưa đúng (HK.HS.089) */
+  onExplain?: (attemptId: number, questionId: number) => void;
+}> = ({ session, initial, title, onClose, onRetry, onOpenLink, hints = 0, onGameChanged, onExplain }) => {
   const { c } = useTheme();
   const { token } = session;
   const [state, setState] = useState<AttemptState>(initial);
@@ -438,7 +441,7 @@ export const QuizPlayer: React.FC<{
   const hurry = remaining <= 5000;
 
   const body = useMemo(() => {
-    if (review) return <Review review={review} onBack={() => setReview(null)} onOpen={onOpenLink} />;
+    if (review) return <Review review={review} onBack={() => setReview(null)} onOpen={onOpenLink} onExplain={onExplain} />;
     if (summary && !feedback) return <Summary summary={summary} mode={state.mode} onReview={openReview} onClose={() => onClose(summary)} onRetry={onRetry} onOpen={onOpenLink} />;
     if (!q || !current) return <Spinner label="Đang chuẩn bị câu hỏi…" />;
     return (
@@ -486,7 +489,7 @@ export const QuizPlayer: React.FC<{
 };
 
 /** Xem lại một lượt làm bài đã xong từ lịch sử làm bài (HK.HS.049) */
-export const ReviewScreen: React.FC<{ session: Session; id: number; onOpenLink?: (type: string, id: number) => void }> = ({ session, id, onOpenLink }) => {
+export const ReviewScreen: React.FC<{ session: Session; id: number; onOpenLink?: (type: string, id: number) => void; onExplain?: (attemptId: number, questionId: number) => void }> = ({ session, id, onOpenLink, onExplain }) => {
   const [review, setReview] = useState<AttemptReview | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { api.attemptReview(session.token, id).then(setReview).catch((e) => setError(errorMessage(e))); }, [session.token, id]);
@@ -498,7 +501,7 @@ export const ReviewScreen: React.FC<{ session: Session; id: number; onOpenLink?:
         <Txt f="displayHeavy" size={24}>{review.summary.percent}%{review.summary.passed ? ' · Đạt' : ''}</Txt>
         <Txt size={14}>Đúng {review.summary.correct}/{review.summary.total} câu · {review.summary.base_points + review.summary.bonus_points} điểm</Txt>
       </Card>
-      <Review review={review} onOpen={onOpenLink} />
+      <Review review={review} onOpen={onOpenLink} onExplain={onExplain} />
     </View>
   );
 };

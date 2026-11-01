@@ -27,6 +27,7 @@ import { MyTab, QuestsTab } from '@/components/portal/Progress';
 import { QuizPlayer, ReviewScreen } from '@/components/portal/QuizPlayer';
 import { CampaignMapView, HomeTab, type NodeActions } from '@/components/portal/QuestMap';
 import { StudentNav, type Dots, type Tab } from '@/components/portal/StudentNav';
+import { ExplainSheet, TieuTuongTab } from '@/components/portal/TieuTuong';
 import { WarCardsTab } from '@/components/portal/WarCards';
 import { BattlesHub, MarchTab, StageIntroSheet, TruthSheet, WarBattleScreen } from '@/components/portal/WarPlay';
 import { Btn, PaperBg, Segmented, Sheet, Spinner, Stars, Txt, useToast } from '@/components/ui';
@@ -76,6 +77,8 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const [collMode, setCollMode] = useState<'war' | 'badges'>('war');
   const [stageId, setStageId] = useState<number | null>(null);
   const [truthId, setTruthId] = useState<number | null>(null);
+  // Hỏi Tiểu Tướng vì sao một câu làm sai (HK.HS.089)
+  const [explain, setExplain] = useState<{ attemptId: number; questionId: number } | null>(null);
   const bump =useCallback(() => setRefreshKey((k) => k + 1), []);
   const loadHud = useCallback(() => { game.gameMe(token).then(setHud).catch(() => undefined); }, [token]);
 
@@ -193,6 +196,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
           </View>
         ) : null}
         {tab === 'ranking' ? <RankingTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
+        {tab === 'ai' ? <TieuTuongTab session={session} onOpen={open} onChanged={bump} /> : null}
         {tab === 'mine' ? <MyTab session={session} refreshKey={refreshKey} onPractice={startPractice} onReview={(id) => setOverlay({ kind: 'review', id })} onOpen={open} /> : null}
       </ScrollView>
       )}
@@ -215,7 +219,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       ) : null}
       {overlay?.kind === 'quiz' ? (
         <Overlay title={overlay.title} onBack={() => { setOverlay(null); bump(); }}>
-          <QuizPlayer session={session} initial={overlay.attempt} title={overlay.title} onOpenLink={open} onClose={finishQuiz} hints={hud?.hints ?? 0} onGameChanged={loadHud}
+          <QuizPlayer session={session} initial={overlay.attempt} title={overlay.title} onOpenLink={open} onClose={finishQuiz} hints={hud?.hints ?? 0} onGameChanged={loadHud} onExplain={(attemptId, questionId) => setExplain({ attemptId, questionId })}
             onRetry={overlay.nodeId ? () => startQuiz(overlay.nodeId!, overlay.title) : overlay.assignmentId ? () => { const id = overlay.assignmentId!; const name = overlay.title; setOverlay(null); void startAssignment({ id, kind: 'quiz', title: name } as MyAssignment); } : undefined} />
         </Overlay>
       ) : null}
@@ -240,9 +244,10 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
         </Overlay>
       ) : null}
       {overlay?.kind === 'review' ? (
-        <Overlay title="Xem lại bài đã làm" onBack={() => setOverlay(null)}><ReviewScreen session={session} id={overlay.id} onOpenLink={open} /></Overlay>
+        <Overlay title="Xem lại bài đã làm" onBack={() => setOverlay(null)}><ReviewScreen session={session} id={overlay.id} onOpenLink={open} onExplain={(attemptId, questionId) => setExplain({ attemptId, questionId })} /></Overlay>
       ) : null}
       {stageId !== null ? <StageIntroSheet key={stageId} session={session} id={stageId} onClose={() => setStageId(null)} onChanged={() => { bump(); loadHud(); }} onTruth={setTruthId} onStart={(battle) => { setStageId(null); setOverlay({ kind: 'war', battle }); }} /> : null}
+      {explain ? <ExplainSheet session={session} attemptId={explain.attemptId} questionId={explain.questionId} onClose={() => setExplain(null)} onOpen={open} /> : null}
       {truthId !== null ? <TruthSheet session={session} id={truthId} onClose={() => setTruthId(null)} onSource={(id) => { setTruthId(null); open('source', id); }} /> : null}
       {detail ? <DetailSheet key={`${detail.type}${detail.id}`} session={session} type={detail.type} id={detail.id} onClose={() => setDetail(null)} onOpen={open} onChanged={bump} /> : null}
       {done ? <NodeDoneSheet result={done} onOpen={(id) => { setDone(null); open('source', id); }} onClose={() => setDone(null)} /> : null}
