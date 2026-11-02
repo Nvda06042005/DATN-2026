@@ -53,7 +53,23 @@ jobs:
       - name: Validate migration files
         run: npm run migrate -- check
       - name: Test backend using disposable PostgreSQL
-        run: npm test -- --testTimeout=180000 --json --outputFile=test-results.json
+        run: |
+          set -o pipefail
+          npm test -- --testTimeout=180000 --json --outputFile=test-results.json 2>&1 | tee test-output.log
+      - name: Explain backend test failure
+        if: failure()
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          let text = '';
+          try {
+            const r = JSON.parse(fs.readFileSync('test-results.json', 'utf8'));
+            text = r.testResults.filter((s) => s.status === 'failed').map((s) => `${s.name}: ${String(s.message || '').slice(0, 700)}`).slice(0, 4).join('\n---\n');
+          } catch { /* chưa có kết quả JSON: lỗi xảy ra trước khi chạy bài đầu tiên */ }
+          if (!text) { try { text = fs.readFileSync('test-output.log', 'utf8').slice(-3500); } catch { text = 'Không có đầu ra kiểm thử'; } }
+          // Annotation đọc được qua API công khai ngay cả khi không tải được nhật ký đầy đủ
+          console.log(`::error title=Backend tests failed::${text.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')}`);
+          NODE
       - name: Require executed database tests
         run: |
           node <<'NODE'
@@ -68,7 +84,9 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: backend-test-results
-          path: backend/test-results.json
+          path: |
+            backend/test-results.json
+            backend/test-output.log
           if-no-files-found: ignore
           retention-days: 7
 
