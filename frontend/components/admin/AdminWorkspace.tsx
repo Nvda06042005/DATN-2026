@@ -8,6 +8,7 @@ import { BrandLogo, PatternOverlay } from '@/components/art';
 import { BrandWordmark } from '@/components/brand-wordmark';
 import { ROLE_LABEL, type Session } from '@/components/auth';
 import { Avatar, Btn, Txt } from '@/components/ui';
+import { useSystemBrand } from '@/hooks/use-system-brand';
 import { useTheme } from '@/hooks/use-theme';
 import { fmt } from '@/lib/format';
 import type { ProfilePatch } from '@/types/api';
@@ -18,6 +19,7 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
   active: T; onSelect: (tab: T) => void; extra?: ReactNode; schoolName?:string;schoolCount?:number; children: ReactNode;
 }) {
   const { c } = useTheme();
+  const brand = useSystemBrand(session.token);
   const { width } = useWindowDimensions();
   const wide = width >= 1000;
   const [open, setOpen] = useState(false);
@@ -62,7 +64,7 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
     <View testID="admin-workspace" style={{ flex: 1, backgroundColor: c.adminCanvas }}>
       <View testID="admin-topbar" style={{ minHeight: wide ? 80 : 72, backgroundColor: c.the, borderBottomWidth: 1, borderBottomColor: c.adminLine, paddingHorizontal: wide ? 24 : 12, flexDirection: 'row', alignItems: 'center', gap: wide ? 28 : 8 }}>
         {!wide && <Pressable testID="admin-menu-toggle" accessibilityRole="button" accessibilityLabel={open ? 'Đóng menu quản trị' : 'Mở menu quản trị'} accessibilityState={{ expanded: open }} onPress={() => setOpen(value => !value)} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>{open ? <X size={23} color={c.muc} /> : <Menu size={23} color={c.muc} />}</Pressable>}
-        <View style={{ flexShrink: 1 }}><BrandLogo compact={width < 350} /></View>
+        <View style={{ flexShrink: 1 }}><BrandLogo compact={width < 350} brand={brand} /></View>
         {wide && <Txt size={12} color={c.muc3} style={{ flex: 1 }}>{session.user.role === 'teacher' ? 'Giáo viên' : 'Quản trị'} / {label}</Txt>}
         <View style={{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           {extra}

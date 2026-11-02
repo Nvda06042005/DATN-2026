@@ -111,6 +111,12 @@ export class LearnService {
       event: row.event_id ? (await q('SELECT id, name, year_from FROM hist_events WHERE id = $1 AND status = \'published\'', [row.event_id]))[0] ?? null : null,
       figures: await this.related(q, 'battle', id, 'figure', 't.id, t.name, t.honorific, t.figure_group, t.image_url', 't.name'),
       sources: await this.relatedSources(q, user, 'battle', id),
+      // Chơi ngay từ hồ sơ trận đánh (HK.HS.033): màn thẻ tướng, mô phỏng quyết định và mini-game của cùng cuộc kháng chiến (mini-game của đúng cuộc kháng chiến hoặc cùng loại với `minigame_key` của trận xếp trước, rồi tới mini-game chung)
+      play: {
+        stage: (await q("SELECT id, title FROM hk_stages WHERE battle_id = $1 AND status = 'published' ORDER BY id LIMIT 1", [id]))[0] ?? null,
+        scenario: (await q("SELECT id, title FROM hk_scenarios WHERE battle_id = $1 AND status = 'published' ORDER BY id LIMIT 1", [id]))[0] ?? null,
+        minigames: await q("SELECT id, title, kind FROM hk_minigames WHERE status = 'published' AND (campaign_id = $1 OR campaign_id IS NULL OR kind = $2::text) ORDER BY (campaign_id = $1) DESC NULLS LAST, (kind = $2::text) DESC, kind, id LIMIT 6", [row.campaign_id ?? null, row.minigame_key ?? null]),
+      },
     }));
   }
 

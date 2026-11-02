@@ -230,15 +230,16 @@ export const WarCardsTab: React.FC<{ session: Session; refreshKey: number; onCha
   const [kind, setKind] = useState<'all' | 'general' | 'tactic'>('all');
   const [branch, setBranch] = useState<'all' | Branch>('all');
   const [rarity, setRarity] = useState<'all' | WarCard['rarity']>('all');
+  const [campaign, setCampaign] = useState<number | 'all'>('all');
   const [sort, setSort] = useState<Sort>('rarity');
   const [open, setOpen] = useState<number | null>(null);
   const data = col.data;
   const shown = useMemo(() => {
     const order = { legendary: 0, epic: 1, rare: 2, common: 3 } as const;
-    const list = (data?.cards ?? []).filter((x) => (kind === 'all' || x.kind === kind) && (branch === 'all' || x.branch === branch) && (rarity === 'all' || x.rarity === rarity));
+    const list = (data?.cards ?? []).filter((x) => (kind === 'all' || x.kind === kind) && (branch === 'all' || x.branch === branch) && (rarity === 'all' || x.rarity === rarity) && (campaign === 'all' || (x.campaign_ids ?? []).includes(campaign)));
     const key = (x: WarCard): number => (sort === 'level' ? -(x.level ?? 0) : sort === 'stars' ? -(x.stars ?? 0) : sort === 'power' ? -(x.power ?? 0) : order[x.rarity]);
     return [...list].sort((a, b) => Number(b.owned) - Number(a.owned) || key(a) - key(b) || a.id - b.id);
-  }, [data, kind, branch, rarity, sort]);
+  }, [data, kind, branch, rarity, campaign, sort]);
   return (
     <View style={{ gap: 14 }}>
       <Txt f="displayHeavy" size={24} accessibilityRole="header">Bộ thẻ tướng</Txt>
@@ -255,6 +256,7 @@ export const WarCardsTab: React.FC<{ session: Session; refreshKey: number; onCha
           <Segmented<'all' | 'general' | 'tactic'> label="Loại thẻ" value={kind} onChange={setKind} options={[{ value: 'all', label: 'Tất cả' }, { value: 'general', label: 'Tướng' }, { value: 'tactic', label: 'Chiến thuật' }]} />
           <Segmented<'all' | Branch> label="Binh chủng" value={branch} onChange={setBranch} options={[{ value: 'all', label: 'Mọi binh chủng' }, ...(Object.keys(BRANCH_LABEL) as Branch[]).map((b) => ({ value: b, label: BRANCH_LABEL[b] }))]} />
           <Segmented<'all' | WarCard['rarity']> label="Độ hiếm" value={rarity} onChange={setRarity} options={[{ value: 'all', label: 'Mọi độ hiếm' }, ...(Object.keys(RARITY_LABEL) as WarCard['rarity'][]).map((r) => ({ value: r, label: RARITY_LABEL[r] }))]} />
+          {data.campaigns?.length ? <Segmented<number | 'all'> label="Cuộc kháng chiến" value={campaign} onChange={setCampaign} options={[{ value: 'all', label: 'Mọi cuộc kháng chiến' }, ...data.campaigns.map((x) => ({ value: x.id, label: x.title }))]} /> : null}
           <Segmented<Sort> label="Sắp xếp" value={sort} onChange={setSort} options={[{ value: 'rarity', label: 'Độ hiếm' }, { value: 'level', label: 'Cấp' }, { value: 'stars', label: 'Sao' }, { value: 'power', label: 'Lực chiến' }]} />
           {shown.length ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>{shown.map((x) => <CardTile key={x.id} card={x} onPress={() => (x.owned ? setOpen(x.id) : undefined)} />)}</View>
             : <EmptyState mood="thinking" title="Không có thẻ nào phù hợp bộ lọc" />}

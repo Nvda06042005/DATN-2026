@@ -17,6 +17,7 @@ import { BrandLogo, Mascot } from '@/components/art';
 import { ProfileSheet } from '@/components/profile';
 import { Avatar, Btn, Card, Chip, Field, Inset, PaperBg, Sheet, Spinner, Txt, useToast } from '@/components/ui';
 import { useShake } from '@/hooks/use-motion';
+import { useSystemBrand } from '@/hooks/use-system-brand';
 import { useTheme } from '@/hooks/use-theme';
 import { readToken, saveToken } from '@/lib/storage';
 import type { AuthRole, AuthUser, Portal, ProfileData, ProfilePatch } from '@/types/api';
@@ -713,6 +714,7 @@ const ChangePasswordForm: React.FC<ChangePasswordProps> = ({ user, token, forced
 // ---------------------------------------------------------------------- thanh trên cùng (giáo viên, quản trị)
 export const TopBar: React.FC<{ session: Session; subtitle: string; extra?: React.ReactNode }> = ({ session, subtitle, extra }) => {
   const { c } = useTheme();
+  const brand = useSystemBrand(session.token);
   const { width } = useWindowDimensions();
   const { user } = session;
   const isAdmin = user.role === 'root_admin' || user.role === 'school_admin';
@@ -722,7 +724,7 @@ export const TopBar: React.FC<{ session: Session; subtitle: string; extra?: Reac
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: c.the, borderBottomWidth: 2, borderBottomColor: c.vien }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-        <BrandLogo compact={width < 520} subtitle={isAdmin ? ROLE_LABEL[user.role] : user.role === 'student' ? 'Trang học sinh' : 'Trang giáo viên'} />
+        <BrandLogo compact={width < 520} brand={brand} subtitle={isAdmin ? ROLE_LABEL[user.role] : user.role === 'student' ? 'Trang học sinh' : 'Trang giáo viên'} />
         {width >= 900 && (
           <Txt f="semibold" size={13} color={c.muc3} numberOfLines={1} style={{ flex: 1 }}>
             {subtitle}

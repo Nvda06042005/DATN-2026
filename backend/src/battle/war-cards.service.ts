@@ -56,10 +56,18 @@ export class WarCardsService {
 
   /** Bộ sưu tập (HK.HS.069): lưới thẻ, thẻ chưa có hiện bóng mờ (chỉ biết độ hiếm); lọc và sắp xếp ở giao diện */
   async collection(user: UserRow) {
-    const [p, rows] = await this.db.tx(async (q) => [await this.player(q, user.id), await this.owned(q, user.id)] as const);
-    const cards = rows.map((c) => this.brief(c, p));
+    const [p, rows, links, all] = await this.db.tx(async (q) => [
+      await this.player(q, user.id), await this.owned(q, user.id),
+      // thẻ tướng thuộc cuộc kháng chiến nào: qua các trận đánh mà nhân vật đã tham gia (lọc theo cuộc kháng chiến, HK.HS.069)
+      await q<{ figure_id: number; campaign_id: number }>(
+        `SELECT DISTINCT l.b_id AS figure_id, b.campaign_id FROM hist_links l JOIN hist_battles b ON b.id = l.a_id AND b.status = 'published' AND b.campaign_id IS NOT NULL WHERE l.a_type = 'battle' AND l.b_type = 'figure'`),
+      await q<{ id: number; title: string; year_label: string }>("SELECT id, title, year_label FROM hist_campaigns WHERE status = 'published' ORDER BY sort_order, id"),
+    ] as const);
+    const byFigure = new Map<number, number[]>();
+    for (const l of links) byFigure.set(l.figure_id, [...(byFigure.get(l.figure_id) ?? []), l.campaign_id]);
+    const cards = rows.map((c) => ({ ...this.brief(c, p), campaign_ids: c.figure_id ? byFigure.get(c.figure_id) ?? [] : [] }));
     return {
-      player: p, cards,
+      player: p, cards, campaigns: all.filter((x) => cards.some((c) => c.campaign_ids.includes(x.id))),
       summary: { total: rows.length, owned: rows.filter((c) => c.owned).length, generals: rows.filter((c) => c.owned && c.kind === 'general').length, tactics: rows.filter((c) => c.owned && c.kind === 'tactic').length },
     };
   }

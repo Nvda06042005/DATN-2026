@@ -62,7 +62,9 @@ export default async function globalSetupOrTeardown(): Promise<void> {
   const data = join(root, 'pgdata');
   const port = await freePort();
   runPg(bin, root, 'initdb', ['-D', data, '-U', 'test_runner', '-A', 'trust', '-E', 'UTF8', '--no-locale']);
-  runPg(bin, root, 'pg_ctl', ['-D', data, '-l', join(root, 'postgres.log'), '-o', `-h 127.0.0.1 -p ${port}`, '-w', 'start']);
+  // Trên Linux (gói PostgreSQL của Debian/Ubuntu) ổ cắm Unix mặc định nằm ở /var/run/postgresql, người dùng thường không có quyền ghi nên máy chủ không khởi động được: đặt ổ cắm vào thư mục tạm của lượt chạy
+  const socketDir = process.platform === 'win32' ? '' : ` -k ${root}`;
+  runPg(bin, root, 'pg_ctl', ['-D', data, '-l', join(root, 'postgres.log'), '-o', `-h 127.0.0.1 -p ${port}${socketDir}`, '-w', 'start']);
   cluster.__pg = { bin, root, data };
   process.env.TEST_PG_URL = `postgresql://test_runner@127.0.0.1:${port}/postgres?sslmode=disable`;
 }
