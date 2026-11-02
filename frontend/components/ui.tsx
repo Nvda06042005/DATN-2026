@@ -133,11 +133,11 @@ const cardStyles = (c: Palette) => ({
 });
 
 /** Thẻ giấy có viền đáy (flat: không có khối) */
-export const Card: React.FC<{ children: React.ReactNode; flat?: boolean; pad?: number; style?: StyleProp<ViewStyle> }> = ({ children, flat = false, pad = 16, style }) => {
+export const Card: React.FC<{ children: React.ReactNode; flat?: boolean; pad?: number; style?: StyleProp<ViewStyle>; testID?: string }> = ({ children, flat = false, pad = 16, style, testID }) => {
   const admin = useContext(AdminUiContext);
   const { c } = useTheme();
   const s = useStyles(cardStyles);
-  return <View style={[flat ? s.flat : s.card, admin && { borderWidth: 1, borderBottomWidth: 1, borderColor: c.adminLine, borderBottomColor: c.adminLine, borderRadius: 8 }, { padding: pad }, style]}>{children}</View>;
+  return <View testID={testID} style={[flat ? s.flat : s.card, admin && { borderWidth: 1, borderBottomWidth: 1, borderColor: c.adminLine, borderBottomColor: c.adminLine, borderRadius: 8 }, { padding: pad }, style]}>{children}</View>;
 };
 
 /** Ô nền chìm (giấy dó đậm) */

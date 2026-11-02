@@ -6,10 +6,11 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Image, Pressable, ScrollView, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
-import { Award, BookMarked, BookOpen, Check, CircleHelp, FastForward, Flag, Gift, History as HistoryIcon, Lock, Play, RotateCcw, ScrollText, Shield, Swords, Trophy, ZoomIn, ZoomOut } from 'lucide-react-native';
+import { Award, BookMarked, BookOpen, Check, CircleHelp, Cuboid, FastForward, Flag, Gift, History as HistoryIcon, Lock, Play, RotateCcw, ScrollText, Shield, Swords, Trophy, ZoomIn, ZoomOut } from 'lucide-react-native';
 import * as api from '@/api/warApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { ErrorNote, useAction, useLoad } from '@/components/admin/kit';
+import { SandTableView } from '@/components/portal/SandTableView';
 import type { Session } from '@/components/auth';
 import { LiveCountdown } from '@/components/portal/LiveKit';
 import { QuestionInput, buildAnswer, initialDraft, ready, type Draft } from '@/components/portal/QuizPlayer';
@@ -336,6 +337,18 @@ export const WarStagesTab: React.FC<{ session: Session; refreshKey: number; onIn
   );
 };
 
+/** Sa bàn của trận (HK.HS.137): mặc định bản vẽ 2D nhẹ chạy trên máy phòng tin học; máy đủ mạnh bật Sa bàn 3D để xoay và phóng to */
+const SandSheet: React.FC<{ session: Session; id: number; onClose: () => void }> = ({ session, id, onClose }) => {
+  const data = useLoad(() => api.sandtable(session.token, id), [session.token, id], session.expired);
+  return (
+    <Sheet open onClose={onClose} title="Sa bàn của trận" subtitle={data.data?.stage.battle_name} wide footer={<View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}><Btn title="Đóng" tone="giay" onPress={onClose} /></View>}>
+      <ErrorNote message={data.error} />
+      {data.loading && !data.data ? <Spinner /> : null}
+      {data.data ? <SandTableView detail={data.data} /> : null}
+    </Sheet>
+  );
+};
+
 export const StageIntroSheet: React.FC<{ session: Session; id: number; onClose: () => void; onStart: (battle: BattleView) => void; onTruth: (stageId: number) => void; onChanged: () => void }> = ({ session, id, onClose, onStart, onTruth, onChanged }) => {
   const { c } = useTheme();
   const student = session.user.role === 'student';
@@ -343,6 +356,7 @@ export const StageIntroSheet: React.FC<{ session: Session; id: number; onClose: 
   const forms = useLoad(() => (student ? api.formations(session.token) : Promise.resolve({ slots: [] })), [session.token, student], session.expired);
   const { busy, run } = useAction(session.expired);
   const [slot, setSlot] = useState<number | null>(null);
+  const [sand, setSand] = useState(false);
   const d: StageIntro | null = intro.data;
   const slots = forms.data?.slots ?? [];
   const chosen = slot ?? slots.find((s) => s.size > 0)?.slot ?? 1;
@@ -371,13 +385,16 @@ export const StageIntroSheet: React.FC<{ session: Session; id: number; onClose: 
       {d ? (
         <View style={{ gap: 12 }}>
           <WarBanner war={d.war} />
+          {d.class_link?.lock_reason ? <InfoNote><Txt size={14}>{d.class_link.lock_reason}</Txt></InfoNote> : null}
           {d.summary ? <Txt size={15} style={{ lineHeight: 23 }}>{d.summary}</Txt> : d.battle.context ? <Txt size={15} style={{ lineHeight: 23 }}>{d.battle.context}</Txt> : null}
           {d.objective ? <Card flat pad={12} style={{ borderColor: c.dong }}><Txt f="bold" size={13} color={c.dongChu}>Nhiệm vụ</Txt><Txt f="semibold" size={16}>{d.objective}</Txt></Card> : null}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             <Chip text={`Độ khó: ${DIFFICULTY_LABEL[d.difficulty] ?? 'Vừa'}`} bg={c.dichNhat} fg={c.dich} />
             <Chip text={`Tối đa ${d.max_turns} lượt`} bg={c.thuyNhat} fg={c.thuyChu} />
             {d.progress.best_stars ? <Chip text={`Cao nhất ${d.progress.best_stars} sao`} bg={c.dongNhat} fg={c.dongChu} /> : null}
+            {d.class_link && !d.class_link.skill_questions ? <Chip text="Giáo viên tắt câu hỏi tuyệt kỹ" bg={c.ngocNhat} fg={c.ngocChu} /> : null}
           </View>
+          {d.has_sandtable ? <Btn icon={Cuboid} title="Xem Sa bàn của trận" tone="giay" size="sm" onPress={() => setSand(true)} testID="stage-sand" /> : null}
           <View style={{ gap: 2 }}>
             <Txt f="bold" size={14}>Đạt sao khi</Txt>
             {d.stars.map((s, i) => <Txt key={i} size={14} color={c.muc2}>{i + 1} sao: {s}</Txt>)}
@@ -405,6 +422,7 @@ export const StageIntroSheet: React.FC<{ session: Session; id: number; onClose: 
           {d.progress.clears > 0 || !student ? <Btn icon={ScrollText} title="Sự thật lịch sử" tone="thuy" onPress={() => onTruth(d.id)} testID="stage-truth" /> : null}
         </View>
       ) : null}
+      {sand ? <SandSheet session={session} id={id} onClose={() => setSand(false)} /> : null}
     </Sheet>
   );
 };

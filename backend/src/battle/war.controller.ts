@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Pa
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { DatabaseService, UserRow } from '../database/database.service';
 import { WarCardsService } from './war-cards.service';
+import { WarClassService } from './war-class.service';
 import { WarGate } from './war-gate';
 import { WarMarchService } from './war-march.service';
 import { WarService } from './war.service';
@@ -16,7 +17,7 @@ const PLAYERS = ['student', 'teacher', 'school_admin', 'root_admin'] as const;
 @Controller('war')
 @UseGuards(AuthGuard)
 export class WarController {
-  constructor(private readonly cards: WarCardsService, private readonly march: WarMarchService, private readonly war: WarService, private readonly gate: WarGate, private readonly db: DatabaseService) {}
+  constructor(private readonly cards: WarCardsService, private readonly march: WarMarchService, private readonly war: WarService, private readonly gate: WarGate, private readonly db: DatabaseService, private readonly classLinks: WarClassService) {}
 
   @Get('status') @Roles('student') status(@CurrentUser() user: UserRow) { return this.db.tx((q) => this.gate.status(q, user)); }
 
@@ -45,6 +46,14 @@ export class WarController {
   @Get('battles/:id') @Roles(...PLAYERS) battle(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.war.battle(user, id); }
   @Post('battles/:id/act') @Roles(...PLAYERS) @HttpCode(200) act(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.war.act(user, id, body as never); }
   @Post('battles/:id/answer') @Roles(...PLAYERS) @HttpCode(200) answer(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.war.answer(user, id, body.answer); }
+
+  // ------------------------------------------------------------------ Sa bàn 3D (HK.HS.137, HK.GV.084)
+  @Get('sandtables') @Roles(...PLAYERS) sandtables(@CurrentUser() user: UserRow) { return this.war.sandtables(user); }
+  @Get('sandtables/:id') @Roles(...PLAYERS) sandtable(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.war.sandtable(user, id); }
+
+  // ------------------------------------------------------------------ gắn cửa học với trận đánh của lớp (HK.GV.083)
+  @Get('classes/:id/battle-links') @Roles('teacher', 'school_admin') classLinksOf(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.classLinks.options(user, id); }
+  @Put('classes/:id/battle-links') @Roles('teacher', 'school_admin') saveClassLinks(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.classLinks.save(user, id, body); }
 
   // ------------------------------------------------------------------ giờ chơi của trường (HK.QT.056)
   @Get('school-war') @Roles('school_admin', 'root_admin') schoolWar(@CurrentUser() user: UserRow, @Query('school_id') schoolId?: string) { return this.war.schoolWar(this.school(user, schoolId)); }

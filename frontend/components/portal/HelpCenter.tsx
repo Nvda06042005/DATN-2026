@@ -17,7 +17,7 @@ const MAX_IMAGE = 1_500_000;
 const when = (iso: string) => new Date(iso).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
 
 /** Đọc ảnh đã chọn thành chuỗi base64 (trình duyệt và điện thoại đều có FileReader) */
-async function readImage(picked: PickedFile): Promise<{ name: string; data: string }> {
+export async function readImage(picked: PickedFile): Promise<{ name: string; data: string }> {
   const blob: Blob = (picked.file as Blob | undefined) ?? (await (await fetch(picked.uri)).blob());
   if (blob.size > MAX_IMAGE) throw new Error('Ảnh tối đa 1,5 MB. Hãy chọn ảnh nhỏ hơn hoặc chụp lại vùng cần báo.');
   const data = await new Promise<string>((resolve, reject) => {

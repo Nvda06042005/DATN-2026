@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { ArrowDown, ArrowUp, Copy, Pencil, Play, Plus, Send, Trash2 } from 'lucide-react-native';
+import { ArrowDown, ArrowUp, Copy, Pencil, Play, Plus, Send, Sparkles, Trash2 } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { QuestionPicker, ScopeChip, useCampaignOptions } from '@/components/admin/ContentKit';
@@ -92,7 +92,7 @@ const QuizForm: React.FC<{ session: Session; initial?: QuizDetail; onClose: () =
   );
 };
 
-const QuizDetailSheet: React.FC<{ session: Session; id: number; onClose: () => void; onChanged: () => void; onPreview: (a: AttemptState, title: string) => void }> = ({ session, id, onClose, onChanged, onPreview }) => {
+const QuizDetailSheet: React.FC<{ session: Session; id: number; onClose: () => void; onChanged: () => void; onPreview: (a: AttemptState, title: string) => void; onStudio?: (quizId: number) => void }> = ({ session, id, onClose, onChanged, onPreview, onStudio }) => {
   const { c } = useTheme();
   const role = session.user.role;
   const detail = useLoad(() => api.getQuiz(session.token, id), [session.token, id], session.expired);
@@ -125,6 +125,7 @@ const QuizDetailSheet: React.FC<{ session: Session; id: number; onClose: () => v
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             <Btn icon={Play} title="Làm thử như học sinh" tone="ngoc" size="sm" loading={busy} onPress={async () => { const a = await run(() => api.previewQuiz(session.token, d.id)); if (a) { onPreview(a, d.title); onClose(); } }} testID="quiz-preview" />
             {d.can_edit ? <Btn icon={Pencil} title="Sửa" tone="son" size="sm" disabled={d.locked} onPress={() => setEditing(true)} testID="quiz-edit" /> : null}
+            {d.can_edit && onStudio ? <Btn icon={Sparkles} title="Sửa trong trình soạn Quiz" tone="ngoc" size="sm" disabled={d.locked} onPress={() => { onClose(); onStudio(d.id); }} testID="quiz-edit-studio" /> : null}
             {role === 'teacher' || role === 'root_admin' ? <Btn icon={Copy} title="Nhân bản" tone="giay" size="sm" loading={busy} onPress={async () => { if (await run(() => api.duplicateQuiz(session.token, d.id), 'Đã nhân bản bộ đề')) { onChanged(); onClose(); } }} /> : null}
             {shareTarget ? <Btn icon={Send} title={shareTarget === 'school' ? 'Gửi vào kho của trường' : 'Đề xuất lên kho hệ thống'} tone="giay" size="sm" loading={busy} disabled={shared?.status === 'pending'}
               onPress={async () => { if (await run(() => api.requestShare(session.token, 'quiz', d.id, shareTarget), 'Đã gửi đi duyệt')) detail.reload(); }} /> : null}
@@ -139,7 +140,7 @@ const QuizDetailSheet: React.FC<{ session: Session; id: number; onClose: () => v
   );
 };
 
-export const QuizManager: React.FC<{ session: Session }> = ({ session }) => {
+export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: number) => void }> = ({ session, onStudio }) => {
   const role = session.user.role;
   const [store, setStore] = useState(role === 'school_admin' ? 'school' : 'all');
   const [q, setQ] = useState('');
@@ -154,7 +155,7 @@ export const QuizManager: React.FC<{ session: Session }> = ({ session }) => {
     <>
     <Page>
       <PageHeader title="Bộ đề" subtitle="Bộ câu hỏi dùng ở các nút trên bản đồ hành trình. Bộ đề đang được giao hoặc đã có học sinh làm thì khóa chỉnh sửa; hãy nhân bản để thay đổi."
-        actions={canWrite ? <Btn icon={Plus} title="Tạo bộ đề" tone="son" size="sm" onPress={() => setCreating(true)} testID="quiz-create" /> : undefined} />
+        actions={canWrite ? <>{onStudio ? <Btn icon={Sparkles} title="Soạn Quiz kiểu Kahoot" tone="ngoc" size="sm" onPress={() => onStudio()} testID="quiz-studio" /> : null}<Btn icon={Plus} title="Tạo bộ đề" tone="son" size="sm" onPress={() => setCreating(true)} testID="quiz-create" /></> : undefined} />
       <FilterBar>
         <FilterBox><AdminSelect label="Kho" value={store} onChange={(v) => { setStore(v); setPage(1); }}
           options={role === 'root_admin' ? [{ value: 'all', label: 'Kho hệ thống và đề xuất' }, { value: 'system', label: 'Kho hệ thống' }, { value: 'school', label: 'Kho của các trường' }]
@@ -177,7 +178,7 @@ export const QuizManager: React.FC<{ session: Session }> = ({ session }) => {
           <Pager page={page} limit={15} total={list.data.total} onPage={setPage} />
         </>
       ) : null}
-      {open !== null ? <QuizDetailSheet session={session} id={open} onClose={() => setOpen(null)} onChanged={list.reload} onPreview={(attempt, title) => setPreview({ attempt, title })} /> : null}
+      {open !== null ? <QuizDetailSheet session={session} id={open} onClose={() => setOpen(null)} onChanged={list.reload} onPreview={(attempt, title) => setPreview({ attempt, title })} onStudio={onStudio} /> : null}
       {creating ? <QuizForm session={session} onClose={() => setCreating(false)} onSaved={(d) => { setCreating(false); list.reload(); setOpen(d.id); }} /> : null}
     </Page>
     {preview ? <Overlay title={`Làm thử: ${preview.title}`} onBack={() => setPreview(null)}><QuizPlayer session={session} initial={preview.attempt} title={preview.title} onClose={() => setPreview(null)} /></Overlay> : null}

@@ -2,7 +2,8 @@
  * Kênh thời gian thực của phòng thi đấu (Socket.IO, đường dẫn /api/live/ws; HK.SYS.016): đăng nhập bằng cùng token như API, phát câu hỏi, nhận đáp án,
  * cập nhật bảng điểm cho toàn phòng. Mọi lệnh có phản hồi (ack) và đều có API HTTP tương đương, nên mất WebSocket vẫn chơi tiếp được.
  *  - Máy chủ → máy khách: `live:state` (trạng thái riêng cho từng người xem), `live:answered` (số người đã trả lời).
- *  - Máy khách → máy chủ: `room:subscribe`, `room:leave`, `player:answer`, `player:profile`, `host:command`.
+ *  - Máy khách → máy chủ: `room:subscribe` (kèm `device_id`: một tài khoản chỉ vào từ một thiết bị), `room:leave`, `player:answer`, `player:profile`, `player:blur`, `host:command`.
+ *  - Người bị loại nhận `live:kicked` và bị đưa ra khỏi kênh của phòng; phòng đã khóa không nhận kết nối mới của người chưa ở trong phòng (HK.SYS.023).
  * Trạng thái thật nằm trong PostgreSQL; gateway chỉ phát lại, nên khi kết nối lại máy khách gọi `room:subscribe` để nhận trạng thái mới nhất.
  */
 import { HttpException } from '@nestjs/common';
@@ -40,7 +41,7 @@ export class LiveGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
         next(new Error('Không xác thực được kết nối'));
       }
     });
-    this.sub = this.live.changes.subscribe((c) => this.schedule(c.roomId, c.kind));
+    this.sub = this.live.changes.subscribe((c) => (c.kind === 'kick' ? void this.kick(c.roomId, c.userId ?? -1).catch(() => undefined) : this.schedule(c.roomId, c.kind)));
   }
 
   onModuleDestroy(): void {
@@ -57,6 +58,14 @@ export class LiveGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     for (const id of rooms) {
       const others = (await this.server.in(roomName(id)).fetchSockets()).filter((s) => s.id !== client.id && (s.data.user as UserRow).id === user.id);
       if (!others.length) await this.live.setOnline(id, user.id, false).catch(() => undefined);
+    }
+  }
+
+  private async kick(roomId: number, userId: number): Promise<void> {
+    for (const s of await this.server.in(roomName(roomId)).fetchSockets()) {
+      if ((s.data.user as UserRow).id !== userId) continue;
+      s.emit('live:kicked', { room_id: roomId });
+      s.leave(roomName(roomId));
     }
   }
 
@@ -105,12 +114,18 @@ export class LiveGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   @SubscribeMessage('room:subscribe')
-  subscribe(@ConnectedSocket() client: Socket, @MessageBody() body: { room_id?: number }): Promise<Ack> {
+  subscribe(@ConnectedSocket() client: Socket, @MessageBody() body: { room_id?: number; device_id?: string }): Promise<Ack> {
     return this.guard(async () => {
       const user = client.data.user as UserRow;
       const id = this.roomId(body);
       const role = await this.live.role(user, id);
-      if (!role) throw new HttpException('Không tìm thấy phòng thi', 404);
+      if (!role) throw new HttpException(await this.live.denial(user, id), 404);
+      const device = typeof body.device_id === 'string' ? body.device_id.slice(0, 64) : '';
+      if (device && role === 'player') {
+        const others = (await this.server.in(roomName(id)).fetchSockets()).filter((s) => s.id !== client.id && (s.data.user as UserRow).id === user.id && s.data.device && s.data.device !== device);
+        if (others.length) throw new HttpException('Tài khoản này đang tham gia phòng từ thiết bị khác. Hãy đóng thiết bị kia rồi thử lại sau vài giây', 409);
+      }
+      client.data.device = device;
       await client.join(roomName(id));
       (client.data.rooms as Set<number>).add(id);
       if (role === 'player') await this.live.setOnline(id, user.id, true);
@@ -139,6 +154,12 @@ export class LiveGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   @SubscribeMessage('player:profile')
   profile(@ConnectedSocket() client: Socket, @MessageBody() body: { room_id?: number; nickname?: string; avatar?: string }): Promise<Ack> {
     return this.guard(() => this.live.setProfile(client.data.user as UserRow, this.roomId(body), { nickname: body.nickname, avatar: body.avatar }));
+  }
+
+  /** Học sinh chuyển tab / thu nhỏ trình duyệt khi đang trả lời: giáo viên thấy cảnh báo trên màn hình điều khiển */
+  @SubscribeMessage('player:blur')
+  blur(@ConnectedSocket() client: Socket, @MessageBody() body: { room_id?: number; q_index?: number }): Promise<Ack> {
+    return this.guard(() => this.live.blur(client.data.user as UserRow, this.roomId(body), body.q_index));
   }
 
   @SubscribeMessage('host:command')

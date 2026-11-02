@@ -9,7 +9,7 @@ import PDFDocument from 'pdfkit';
 export type LiveReport = Awaited<ReturnType<import('./live.service').LiveService['report']>>;
 
 const FONT_DIR = join(__dirname, '..', '..', 'assets', 'fonts');
-const MODE = { solo: 'Cá nhân', team: 'Theo đội' } as const;
+const MODE = { solo: 'Cá nhân', team: 'Theo đội', boss: 'Đánh trùm cả lớp' } as const;
 const QTYPE: Record<string, string> = { single: 'Một đáp án', multiple: 'Nhiều đáp án', truefalse: 'Đúng / sai', fill: 'Điền khuyết', order: 'Sắp xếp', map: 'Bản đồ' };
 const when = (d: Date | string | null): string => (d ? new Date(d).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
 /** Chuỗi bắt đầu bằng = + - @ bị Excel coi là công thức: thêm dấu nháy đơn phía trước */
@@ -33,7 +33,7 @@ export async function reportWorkbook(r: LiveReport): Promise<Buffer> {
   players.columns = [
     { header: 'Hạng', key: 'rank', width: 8 }, { header: 'Họ và tên', key: 'full_name', width: 28 }, { header: 'Mã học sinh', key: 'user_code', width: 14 }, { header: 'Biệt danh', key: 'nickname', width: 20 },
     { header: 'Đội', key: 'team_name', width: 18 }, { header: 'Điểm', key: 'score', width: 10 }, { header: 'Số câu đúng', key: 'correct_count', width: 12 }, { header: 'Số câu đã trả lời', key: 'answered_count', width: 16 },
-    { header: 'Tỉ lệ đúng trên số câu đã thi (%)', key: 'accuracy', width: 26 }, { header: 'Thời gian trung bình (giây)', key: 'avg_seconds', width: 22 }, { header: 'Điểm cộng vào tài khoản', key: 'xp_awarded', width: 22 },
+    { header: 'Tỉ lệ đúng trên số câu đã thi (%)', key: 'accuracy', width: 26 }, { header: 'Thời gian trung bình (giây)', key: 'avg_seconds', width: 22 }, { header: 'Điểm cộng vào tài khoản', key: 'xp_awarded', width: 22 }, { header: 'Số lần chuyển tab khi đang trả lời', key: 'tab_switches', width: 30 },
   ];
   for (const p of r.players) players.addRow({ ...p, full_name: safe(p.full_name), nickname: safe(p.nickname), team_name: safe(p.team_name ?? ''), user_code: safe(p.user_code ?? '') });
   style(players);

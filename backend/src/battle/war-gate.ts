@@ -48,6 +48,12 @@ export class WarGate {
       }
       if (sch.war_minutes) limit = limit === null ? sch.war_minutes : Math.min(limit, sch.war_minutes);
     }
+    // Luật lớp (HK.GV.060): giáo viên tắt game cho lớp hoặc đặt giới hạn phút mỗi ngày; học sinh học nhiều lớp thì lớp nào chặt hơn thắng
+    const mine = await q<{ name: string; war_enabled: boolean; war_minutes: number | null }>(
+      'SELECT c.name, cs.war_enabled, cs.war_minutes FROM app_class_members m JOIN app_classes c ON c.id = m.class_id AND c.is_active JOIN hk_class_settings cs ON cs.class_id = m.class_id WHERE m.user_id = $1', [user.id]);
+    const off = mine.find((c) => !c.war_enabled);
+    if (off) return closed(`Giáo viên lớp ${off.name} đang tắt game trận đánh. Em vẫn học và làm bài bình thường nhé!`);
+    for (const c of mine) if (c.war_minutes) limit = limit === null ? c.war_minutes : Math.min(limit, c.war_minutes);
     if (limit !== null && used >= limit * 60) return closed('Hôm nay em đã chơi đủ thời gian. Em vẫn học và làm bài bình thường nhé!', limit);
     return { open: true, reason: null, used_minutes: Math.floor(used / 60), limit_minutes: limit };
   }

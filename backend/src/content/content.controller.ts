@@ -30,6 +30,7 @@ class QuestionDto {
   @IsOptional() @IsString() qtype?: string;
   @IsOptional() @IsString() @MaxLength(1200) prompt?: string;
   @IsOptional() @IsString() @MaxLength(500) image_url?: string | null;
+  @IsOptional() @IsString() @MaxLength(500) video_url?: string | null;
   @IsOptional() @IsString() @MaxLength(2200) explanation?: string | null;
   @IsOptional() @num() @IsInt() difficulty?: number;
   @IsOptional() @num() @IsInt() @Min(1) campaign_id?: number | null;
@@ -57,6 +58,7 @@ class QuizItemDto {
   @num() @IsInt() @Min(1) question_id: number;
   @IsOptional() @num() @IsInt() points?: number;
   @IsOptional() @num() @IsInt() seconds?: number | null;
+  @IsOptional() @IsIn(['standard', 'double', 'none']) score_mode?: 'standard' | 'double' | 'none' | null;
 }
 
 class QuizDto {
@@ -67,6 +69,8 @@ class QuizDto {
   @IsOptional() @IsBoolean() shuffle_questions?: boolean;
   @IsOptional() @IsBoolean() shuffle_options?: boolean;
   @IsOptional() @num() @IsInt() pass_percent?: number;
+  @IsOptional() @IsString() @MaxLength(500) cover_url?: string | null;
+  @IsOptional() @IsObject() theme?: Record<string, unknown>;
   @IsOptional() @IsArray() @ArrayMaxSize(60) @ValidateNested({ each: true }) @Type(() => QuizItemDto) items?: QuizItemDto[];
 }
 

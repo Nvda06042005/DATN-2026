@@ -10,19 +10,24 @@ import { authoringScope, canEdit, canSee, notFound, Owned, Scope, storeSql, visi
 import { QuestionService } from './question.service';
 import { DEFAULT_SECONDS, QTYPE_LABEL, QType } from './questions';
 
-export interface QuizItemInput { question_id: number; points?: number; seconds?: number | null }
+export type ScoreMode = 'standard' | 'double' | 'none';
+export interface QuizItemInput { question_id: number; points?: number; seconds?: number | null; score_mode?: ScoreMode | null }
+/** Nền và nhạc chờ có sẵn cho giao diện Quiz (HK.GV.093); giao diện chỉ chọn trong danh sách này */
+export const QUIZ_BACKGROUNDS = ['default', 'bach-dang', 'thang-long', 'chuong-duong', 'dong-bo-dau'] as const;
+export const QUIZ_MUSIC = ['none', 'trong-tran', 'song-nuoc', 'hao-khi'] as const;
+const MEDIA_OR_HTTPS = /^(https:\/\/|\/api\/content\/media\/[0-9a-f]{32}$)/;
 export interface QuizInput {
   title: string; description?: string | null; campaign_id?: number | null; seconds_per_question?: number; shuffle_questions?: boolean; shuffle_options?: boolean;
-  pass_percent?: number; items: QuizItemInput[];
+  pass_percent?: number; cover_url?: string | null; theme?: Record<string, unknown>; items: QuizItemInput[];
 }
 export interface QuizFilter { q?: string; store?: string; campaign_id?: number; page?: number; limit?: number }
 
 export interface QuizRow extends Owned {
   id: number; title: string; description: string | null; campaign_id: number | null; seconds_per_question: number; shuffle_questions: boolean; shuffle_options: boolean;
-  pass_percent: number; created_at: string; updated_at: string;
+  pass_percent: number; cover_url: string | null; theme: Record<string, unknown>; created_at: string; updated_at: string;
 }
 
-const COLUMNS = 'id, scope, school_id, owner_id, title, description, campaign_id, seconds_per_question, shuffle_questions, shuffle_options, pass_percent, created_at, updated_at';
+const COLUMNS = 'id, scope, school_id, owner_id, title, description, campaign_id, seconds_per_question, shuffle_questions, shuffle_options, pass_percent, cover_url, theme, created_at, updated_at';
 export const MAX_QUESTIONS = 50;
 
 @Injectable()
@@ -42,7 +47,7 @@ export class QuizService {
     const total = Number((await this.db.query<{ n: string }>(`SELECT count(*) AS n FROM hk_quizzes t WHERE ${where}`, params))[0].n);
     const all = [...params, limit, (page - 1) * limit];
     const rows = await this.db.query<QuizRow & { owner_name: string | null; campaign_title: string | null; question_count: number; total_seconds: number; assigned: number; attempts: number }>(
-      `SELECT t.id, t.scope, t.school_id, t.owner_id, t.title, t.description, t.campaign_id, t.seconds_per_question, t.pass_percent, t.updated_at, u.full_name AS owner_name, c.title AS campaign_title,
+      `SELECT t.id, t.scope, t.school_id, t.owner_id, t.title, t.description, t.campaign_id, t.seconds_per_question, t.pass_percent, t.cover_url, t.theme, t.updated_at, u.full_name AS owner_name, c.title AS campaign_title,
               (SELECT count(*)::int FROM hk_quiz_questions qq WHERE qq.quiz_id = t.id) AS question_count,
               (SELECT COALESCE(sum(COALESCE(qq.seconds, t.seconds_per_question)), 0)::int FROM hk_quiz_questions qq WHERE qq.quiz_id = t.id) AS total_seconds,
               (SELECT count(*)::int FROM hk_nodes n JOIN hk_journeys j ON j.id = n.journey_id WHERE n.quiz_id = t.id AND j.status = 'published') AS assigned,
@@ -72,7 +77,7 @@ export class QuizService {
     return this.db.tx(async (q) => {
       const row = await this.load(q, user, id);
       const items = await q(
-        `SELECT qq.question_id, qq.position, qq.points, qq.seconds, t.qtype, t.prompt, t.difficulty, t.scope
+        `SELECT qq.question_id, qq.position, qq.points, qq.seconds, qq.score_mode, t.qtype, t.prompt, t.difficulty, t.scope
          FROM hk_quiz_questions qq JOIN hk_questions t ON t.id = qq.question_id WHERE qq.quiz_id = $1 ORDER BY qq.position`, [id]);
       const owner = row.owner_id ? (await q<{ full_name: string }>('SELECT full_name FROM app_users WHERE id = $1', [row.owner_id]))[0]?.full_name ?? null : null;
       const shares = await q<{ target: string; status: string; review_note: string | null }>("SELECT target, status, review_note FROM hk_shares WHERE entity = 'quiz' AND entity_id = $1", [id]);
@@ -96,8 +101,15 @@ export class QuizService {
     if (!Number.isInteger(seconds) || seconds < 5 || seconds > 300) throw new BadRequestException('Thời gian mỗi câu từ 5 đến 300 giây');
     const pass = Number(input.pass_percent ?? existing?.pass_percent ?? 60);
     if (!Number.isInteger(pass) || pass < 1 || pass > 100) throw new BadRequestException('Điểm đạt từ 1% đến 100%');
+    const cover = input.cover_url === undefined ? (existing?.cover_url ?? null) : input.cover_url ? String(input.cover_url).trim() : null;
+    if (cover && (!MEDIA_OR_HTTPS.test(cover) || cover.length > 500)) throw new BadRequestException('Ảnh bìa phải là liên kết https hoặc ảnh đã tải lên');
+    const rawTheme = input.theme === undefined ? (existing?.theme ?? {}) : input.theme;
+    if (typeof rawTheme !== 'object' || rawTheme === null || Array.isArray(rawTheme)) throw new BadRequestException('Giao diện không hợp lệ');
+    const bg = String((rawTheme as Record<string, unknown>).bg ?? 'default'), music = String((rawTheme as Record<string, unknown>).music ?? 'none');
+    if (!(QUIZ_BACKGROUNDS as readonly string[]).includes(bg)) throw new BadRequestException('Nền giao diện không có trong danh sách');
+    if (!(QUIZ_MUSIC as readonly string[]).includes(music)) throw new BadRequestException('Nhạc chờ không có trong danh sách');
     return {
-      title, description, campaign_id: campaign, seconds_per_question: seconds, pass_percent: pass,
+      title, description, campaign_id: campaign, seconds_per_question: seconds, pass_percent: pass, cover_url: cover, theme: { bg, music },
       shuffle_questions: input.shuffle_questions ?? existing?.shuffle_questions ?? false, shuffle_options: input.shuffle_options ?? existing?.shuffle_options ?? false,
       search_text: searchText(title, description),
     };
@@ -117,6 +129,7 @@ export class QuizService {
       const points = item.points ?? 100;
       if (!Number.isInteger(points) || points < 10 || points > 1000) throw new BadRequestException('Điểm mỗi câu từ 10 đến 1000');
       if (item.seconds !== undefined && item.seconds !== null && (!Number.isInteger(item.seconds) || item.seconds < 5 || item.seconds > 300)) throw new BadRequestException('Thời gian riêng của câu từ 5 đến 300 giây');
+      if (item.score_mode !== undefined && item.score_mode !== null && !['standard', 'double', 'none'].includes(item.score_mode)) throw new BadRequestException('Loại điểm là tiêu chuẩn, gấp đôi hoặc không tính điểm');
     }
   }
 
@@ -124,7 +137,7 @@ export class QuizService {
     await q('DELETE FROM hk_quiz_questions WHERE quiz_id = $1', [quizId]);
     let position = 1;
     for (const item of items) {
-      await q('INSERT INTO hk_quiz_questions (quiz_id, question_id, position, points, seconds) VALUES ($1, $2, $3, $4, $5)', [quizId, item.question_id, position, item.points ?? 100, item.seconds ?? null]);
+      await q('INSERT INTO hk_quiz_questions (quiz_id, question_id, position, points, seconds, score_mode) VALUES ($1, $2, $3, $4, $5, $6)', [quizId, item.question_id, position, item.points ?? 100, item.seconds ?? null, item.score_mode ?? null]);
       position += 1;
     }
   }
@@ -135,9 +148,9 @@ export class QuizService {
       const f = await this.fields(q, input);
       await this.checkItems(q, user, own.scope, own.school_id, input.items);
       const id = (await q<{ id: number }>(
-        `INSERT INTO hk_quizzes (scope, school_id, owner_id, title, description, campaign_id, seconds_per_question, shuffle_questions, shuffle_options, pass_percent, search_text)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
-        [own.scope, own.school_id, own.owner_id, f.title, f.description, f.campaign_id, f.seconds_per_question, f.shuffle_questions, f.shuffle_options, f.pass_percent, f.search_text]))[0].id;
+        `INSERT INTO hk_quizzes (scope, school_id, owner_id, title, description, campaign_id, seconds_per_question, shuffle_questions, shuffle_options, pass_percent, search_text, cover_url, theme)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+        [own.scope, own.school_id, own.owner_id, f.title, f.description, f.campaign_id, f.seconds_per_question, f.shuffle_questions, f.shuffle_options, f.pass_percent, f.search_text, f.cover_url, JSON.stringify(f.theme)]))[0].id;
       await this.writeItems(q, id, input.items);
       return id;
     }).then((id) => this.get(user, id));
@@ -152,8 +165,8 @@ export class QuizService {
       const f = await this.fields(q, input, row);
       if (input.items !== undefined) await this.checkItems(q, user, row.scope, row.school_id, input.items);
       await q(
-        `UPDATE hk_quizzes SET title = $2, description = $3, campaign_id = $4, seconds_per_question = $5, shuffle_questions = $6, shuffle_options = $7, pass_percent = $8, search_text = $9, updated_at = now() WHERE id = $1`,
-        [id, f.title, f.description, f.campaign_id, f.seconds_per_question, f.shuffle_questions, f.shuffle_options, f.pass_percent, f.search_text]);
+        `UPDATE hk_quizzes SET title = $2, description = $3, campaign_id = $4, seconds_per_question = $5, shuffle_questions = $6, shuffle_options = $7, pass_percent = $8, search_text = $9, cover_url = $10, theme = $11, updated_at = now() WHERE id = $1`,
+        [id, f.title, f.description, f.campaign_id, f.seconds_per_question, f.shuffle_questions, f.shuffle_options, f.pass_percent, f.search_text, f.cover_url, JSON.stringify(f.theme)]);
       if (input.items !== undefined) await this.writeItems(q, id, input.items);
     });
     return this.get(user, id);
@@ -179,16 +192,16 @@ export class QuizService {
       const row = await this.load(q, user, id);
       const input: QuizInput = {
         title: `${row.title} (bản sao)`.slice(0, 160), description: row.description, campaign_id: row.campaign_id, seconds_per_question: row.seconds_per_question,
-        shuffle_questions: row.shuffle_questions, shuffle_options: row.shuffle_options, pass_percent: row.pass_percent,
-        items: (await q<{ question_id: number; points: number; seconds: number | null }>('SELECT question_id, points, seconds FROM hk_quiz_questions WHERE quiz_id = $1 ORDER BY position', [id])),
+        shuffle_questions: row.shuffle_questions, shuffle_options: row.shuffle_options, pass_percent: row.pass_percent, cover_url: row.cover_url, theme: row.theme,
+        items: (await q<{ question_id: number; points: number; seconds: number | null; score_mode: ScoreMode | null }>('SELECT question_id, points, seconds, score_mode FROM hk_quiz_questions WHERE quiz_id = $1 ORDER BY position', [id])),
       };
       const f = await this.fields(q, input);
       // Giáo viên nhân bản bộ đề hệ thống/trường vẫn dùng chính các câu hỏi đó; quản trị tổng chỉ dùng được câu hỏi hệ thống
       await this.checkItems(q, user, own.scope, own.school_id, input.items);
       const newId = (await q<{ id: number }>(
-        `INSERT INTO hk_quizzes (scope, school_id, owner_id, title, description, campaign_id, seconds_per_question, shuffle_questions, shuffle_options, pass_percent, search_text)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
-        [own.scope, own.school_id, own.owner_id, f.title, f.description, f.campaign_id, f.seconds_per_question, f.shuffle_questions, f.shuffle_options, f.pass_percent, f.search_text]))[0].id;
+        `INSERT INTO hk_quizzes (scope, school_id, owner_id, title, description, campaign_id, seconds_per_question, shuffle_questions, shuffle_options, pass_percent, search_text, cover_url, theme)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+        [own.scope, own.school_id, own.owner_id, f.title, f.description, f.campaign_id, f.seconds_per_question, f.shuffle_questions, f.shuffle_options, f.pass_percent, f.search_text, f.cover_url, JSON.stringify(f.theme)]))[0].id;
       await this.writeItems(q, newId, input.items);
       return newId;
     });
@@ -203,11 +216,11 @@ export class QuizService {
     const src = (await q<QuizRow>(`SELECT ${COLUMNS} FROM hk_quizzes WHERE id = $1`, [id]))[0];
     if (!src) throw notFound('bộ đề');
     const newId = (await q<{ id: number }>(
-      `INSERT INTO hk_quizzes (scope, school_id, owner_id, title, description, campaign_id, seconds_per_question, shuffle_questions, shuffle_options, pass_percent, search_text)
-       SELECT $2, $3, $4, title, description, campaign_id, seconds_per_question, shuffle_questions, shuffle_options, pass_percent, search_text FROM hk_quizzes WHERE id = $1 RETURNING id`,
+      `INSERT INTO hk_quizzes (scope, school_id, owner_id, title, description, campaign_id, seconds_per_question, shuffle_questions, shuffle_options, pass_percent, search_text, cover_url, theme)
+       SELECT $2, $3, $4, title, description, campaign_id, seconds_per_question, shuffle_questions, shuffle_options, pass_percent, search_text, cover_url, theme FROM hk_quizzes WHERE id = $1 RETURNING id`,
       [id, target.scope, target.school_id, target.owner_id]))[0].id;
-    const items = await q<{ question_id: number; position: number; points: number; seconds: number | null; scope: Scope; school_id: number | null }>(
-      'SELECT qq.question_id, qq.position, qq.points, qq.seconds, t.scope, t.school_id FROM hk_quiz_questions qq JOIN hk_questions t ON t.id = qq.question_id WHERE qq.quiz_id = $1 ORDER BY qq.position', [id]);
+    const items = await q<{ question_id: number; position: number; points: number; seconds: number | null; score_mode: ScoreMode | null; scope: Scope; school_id: number | null }>(
+      'SELECT qq.question_id, qq.position, qq.points, qq.seconds, qq.score_mode, t.scope, t.school_id FROM hk_quiz_questions qq JOIN hk_questions t ON t.id = qq.question_id WHERE qq.quiz_id = $1 ORDER BY qq.position', [id]);
     for (const item of items) {
       let questionId = item.question_id;
       const reusable = item.scope === 'system' || (item.scope === target.scope && item.school_id === target.school_id);
@@ -215,7 +228,7 @@ export class QuizService {
         if (!copied.has(item.question_id)) copied.set(item.question_id, await this.questions.cloneInto(q, item.question_id, target, by));
         questionId = copied.get(item.question_id)!;
       }
-      await q('INSERT INTO hk_quiz_questions (quiz_id, question_id, position, points, seconds) VALUES ($1, $2, $3, $4, $5)', [newId, questionId, item.position, item.points, item.seconds]);
+      await q('INSERT INTO hk_quiz_questions (quiz_id, question_id, position, points, seconds, score_mode) VALUES ($1, $2, $3, $4, $5, $6)', [newId, questionId, item.position, item.points, item.seconds, item.score_mode]);
     }
     return newId;
   }
@@ -224,8 +237,8 @@ export class QuizService {
   async forPlay(q: Q, id: number) {
     const quiz = (await q<QuizRow>(`SELECT ${COLUMNS} FROM hk_quizzes WHERE id = $1`, [id]))[0];
     if (!quiz) throw notFound('bộ đề');
-    const items = await q<{ question_id: number; position: number; points: number; seconds: number | null; qtype: QType; prompt: string; image_url: string | null; explanation: string | null; difficulty: number; data: Record<string, unknown> }>(
-      `SELECT qq.question_id, qq.position, qq.points, qq.seconds, t.qtype, t.prompt, t.image_url, t.explanation, t.difficulty, t.data
+    const items = await q<{ question_id: number; position: number; points: number; seconds: number | null; score_mode: ScoreMode | null; qtype: QType; prompt: string; image_url: string | null; video_url: string | null; explanation: string | null; difficulty: number; data: Record<string, unknown> }>(
+      `SELECT qq.question_id, qq.position, qq.points, qq.seconds, qq.score_mode, t.qtype, t.prompt, t.image_url, t.video_url, t.explanation, t.difficulty, t.data
        FROM hk_quiz_questions qq JOIN hk_questions t ON t.id = qq.question_id WHERE qq.quiz_id = $1 ORDER BY qq.position`, [id]);
     return { quiz, items };
   }

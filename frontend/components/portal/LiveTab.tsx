@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { LogIn, Radio, Trophy } from 'lucide-react-native';
+import { Lock, LogIn, Radio, Trophy } from 'lucide-react-native';
 import * as api from '@/api/liveApi';
 import { errorMessage } from '@/api/client';
 import { ErrorNote, useLoad } from '@/components/admin/kit';
@@ -12,34 +12,76 @@ import type { Session } from '@/components/auth';
 import { LiveAvatarPicker } from '@/components/portal/LiveKit';
 import { LiveReviewScreen } from '@/components/portal/LivePlay';
 import { Btn, Card, Chip, EmptyState, Field, InfoNote, Sheet, Spinner, Txt } from '@/components/ui';
+import { liveDeviceId } from '@/hooks/use-live-room';
 import { useTheme } from '@/hooks/use-theme';
-import type { LiveLookup, LiveMatch } from '@/types/live';
+import { LIVE_MODE_TEXT, type LiveLookup, type LiveMatch } from '@/types/live';
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }) : '');
 
-const JoinSheet: React.FC<{ session: Session; pin: string; look: LiveLookup; onClose: () => void; onJoined: (roomId: number, title: string) => void }> = ({ session, pin, look, onClose, onJoined }) => {
+const JoinSheet: React.FC<{ session: Session; pin: string; look: LiveLookup; onClose: () => void; onJoined: (roomId: number, title: string) => void }> = ({ session, pin, look: first, onClose, onJoined }) => {
   const { c } = useTheme();
-  const [nick, setNick] = useState(look.mine?.nickname ?? look.suggested);
-  const [avatar, setAvatar] = useState(look.mine?.avatar ?? look.avatars[0] ?? 'star');
+  const [look, setLook] = useState(first);
+  const [nick, setNick] = useState(first.mine?.nickname ?? first.suggested);
+  const [avatar, setAvatar] = useState(first.mine?.avatar ?? first.avatars[0] ?? 'star');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const status = look.request?.status;
+  const waiting = look.locked && status === 'pending';
+  const approved = look.locked && status === 'approved';
   const join = async () => {
     setBusy(true);
     setError(null);
     try {
-      const res = await api.joinRoom(session.token, { pin, nickname: nick.trim(), avatar });
+      const res = await api.joinRoom(session.token, { pin, nickname: look.profile_names ? undefined : nick.trim(), avatar, device_id: liveDeviceId() });
       onJoined(res.room_id, look.title);
     } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
   };
+  const ask = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.requestEntry(session.token, pin);
+      setLook(await api.lookupPin(session.token, pin));
+    } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+  };
+  // Phòng đã khóa: chờ giáo viên duyệt (hỏi lại mỗi 5 giây); được duyệt thì tự vào phòng
+  useEffect(() => {
+    if (!waiting) return undefined;
+    const timer = setInterval(() => { api.lookupPin(session.token, pin).then(setLook).catch(() => undefined); }, 5000);
+    return () => clearInterval(timer);
+  }, [waiting, pin, session.token]);
+  useEffect(() => { if (approved) void join(); }, [approved]); // eslint-disable-line react-hooks/exhaustive-deps
+  const footer = look.locked ? (
+    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+      <Btn title="Đóng" tone="giay" onPress={onClose} disabled={busy} />
+      {status === 'rejected' ? null : status === 'pending' ? <Btn title="Đang chờ giáo viên duyệt…" tone="giay" disabled testID="live-request-wait" />
+        : status === 'approved' ? <Btn icon={LogIn} title="Vào phòng" tone="ngoc" loading={busy} onPress={join} testID="live-join-confirm" />
+        : <Btn icon={Lock} title="Xin giáo viên cho vào" tone="ngoc" loading={busy} onPress={ask} testID="live-request" />}
+    </View>
+  ) : (
+    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}><Btn title="Hủy" tone="giay" onPress={onClose} disabled={busy} /><Btn icon={LogIn} title={look.mine ? 'Vào lại phòng' : 'Vào phòng chờ'} tone="ngoc" loading={busy} onPress={join} testID="live-join-confirm" /></View>
+  );
   return (
-    <Sheet open onClose={onClose} title={look.title} subtitle={`Lớp ${look.class_name} · ${look.mode === 'team' ? 'thi theo đội' : 'thi cá nhân'} · ${look.total} câu${look.host_name ? ` · GV ${look.host_name}` : ''}`}
-      footer={<View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}><Btn title="Hủy" tone="giay" onPress={onClose} disabled={busy} /><Btn icon={LogIn} title={look.mine ? 'Vào lại phòng' : 'Vào phòng chờ'} tone="ngoc" loading={busy} onPress={join} testID="live-join-confirm" /></View>}>
+    <Sheet open onClose={onClose} title={look.title} subtitle={`Lớp ${look.class_name} · ${LIVE_MODE_TEXT[look.mode].toLowerCase()} · ${look.total} câu${look.host_name ? ` · GV ${look.host_name}` : ''}`} footer={footer}>
       <ErrorNote message={error} />
-      {look.state !== 'lobby' ? <InfoNote>Trận đã bắt đầu. Em vẫn vào được và trả lời từ câu đang diễn ra; điểm các câu trước tính là 0.</InfoNote> : null}
-      <Field label="Biệt danh hiện trong bảng điểm (2–20 ký tự)" value={nick} onChangeText={setNick} maxLength={20} testID="live-join-nickname" />
-      <Txt f="bold" size={14} color={c.muc2}>Hình đại diện</Txt>
-      <LiveAvatarPicker value={avatar} onChange={setAvatar} />
-      <Txt size={13} color={c.muc3}>Biệt danh chỉ để hiện trong phòng thi; giáo viên vẫn biết tên thật của em trong báo cáo.</Txt>
+      {look.locked ? (
+        <InfoNote>
+          {status === 'rejected' ? 'Giáo viên chưa cho em vào phòng này. Em có thể hỏi trực tiếp thầy cô.'
+            : status === 'pending' ? 'Đã gửi yêu cầu. Khi giáo viên đồng ý, em sẽ tự vào phòng và làm từ câu đang diễn ra.'
+            : status === 'approved' ? 'Giáo viên đã đồng ý! Em đang vào phòng…'
+            : 'Phòng đã khóa nên không nhận thêm người. Em có thể gửi yêu cầu để giáo viên duyệt; em sẽ làm từ câu đang diễn ra và không xem lại các câu đã qua.'}
+        </InfoNote>
+      ) : (
+        <>
+          {look.state !== 'lobby' ? <InfoNote>Trận đã bắt đầu. Em vẫn vào được và làm từ câu đang diễn ra; các câu trước tính là chưa làm.</InfoNote> : null}
+          {look.profile_names
+            ? <Txt size={15}>Tên của em trong phòng: <Txt f="bold" size={15}>{look.mine?.nickname ?? look.suggested}</Txt> (lấy theo hồ sơ)</Txt>
+            : <Field label="Biệt danh hiện trong bảng điểm (2–20 ký tự)" value={nick} onChangeText={setNick} maxLength={20} testID="live-join-nickname" />}
+          <Txt f="bold" size={14} color={c.muc2}>Hình đại diện</Txt>
+          <LiveAvatarPicker value={avatar} onChange={setAvatar} />
+          <Txt size={13} color={c.muc3}>{look.profile_names ? 'Giáo viên chọn hiển thị tên theo hồ sơ nên em chỉ chọn hình đại diện.' : 'Biệt danh chỉ để hiện trong phòng thi; giáo viên vẫn biết tên thật của em trong báo cáo.'} Mỗi tài khoản chỉ vào phòng từ một thiết bị.</Txt>
+        </>
+      )}
     </Sheet>
   );
 };
@@ -85,7 +127,8 @@ export const LiveTab: React.FC<{ session: Session; refreshKey: number; initialPi
         <Card key={r.id} flat pad={14} style={{ gap: 6 }}>
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <Chip text={r.state === 'lobby' ? 'Phòng chờ' : 'Đang thi'} bg={r.state === 'lobby' ? c.vangNhat : c.ngocNhat} fg={r.state === 'lobby' ? c.vangChu : c.ngocChu} />
-            <Chip text={r.mode === 'team' ? 'Theo đội' : 'Cá nhân'} bg={c.thuyNhat} fg={c.thuyChu} />
+            <Chip text={r.mode === 'team' ? 'Theo đội' : r.mode === 'boss' ? 'Đánh trùm' : 'Cá nhân'} bg={c.thuyNhat} fg={c.thuyChu} />
+            {r.locked ? <Chip text="Đã khóa" bg={c.vangNhat} fg={c.vangChu} icon={Lock} /> : null}
             <Txt size={12} color={c.muc3}>Lớp {r.class_name} · {r.players} bạn đã vào · {r.total} câu</Txt>
           </View>
           <Txt f="bold" size={16}>{r.title}</Txt>

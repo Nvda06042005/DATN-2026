@@ -1,10 +1,15 @@
 /** API game mô phỏng trận đánh bằng thẻ tướng (/api/war, Sprint 6 theo ver0.2): thẻ, đội hình, bản đồ hành quân, màn chơi, trận đánh; quản trị. */
 import { apiRequest } from '@/api/client';
-import type { BattleView, CardDetail, Collection, Commander, DialogLogItem, FormationSlot, MarchListItem, MarchMap, MoveResult, StageIntro, StageItem, Truth, WarStatus } from '@/types/war';
+import type { SandtableDetail, SandtableListItem } from '@/types/sandtable';
+import type { BattleLinkOptions, BattleView, CardDetail, Collection, Commander, DialogLogItem, FormationSlot, MarchListItem, MarchMap, MoveResult, StageIntro, StageItem, Truth, WarStatus } from '@/types/war';
 
 const base = '/api/war';
 
 // ---------------------------------------------------------------------- học sinh
+export const sandtables = (token: string) => apiRequest<SandtableListItem[]>(`${base}/sandtables`, { token });
+export const sandtable = (token: string, stageId: number) => apiRequest<SandtableDetail>(`${base}/sandtables/${stageId}`, { token });
+export const classBattleLinks = (token: string, classId: number) => apiRequest<BattleLinkOptions>(`${base}/classes/${classId}/battle-links`, { token });
+export const saveClassBattleLinks = (token: string, classId: number, links: BattleLinkOptions['links']) => apiRequest<BattleLinkOptions>(`${base}/classes/${classId}/battle-links`, { token, method: 'PUT', body: { links } });
 export const warStatus = (token: string) => apiRequest<WarStatus>(`${base}/status`, { token });
 export const warCards = (token: string) => apiRequest<Collection>(`${base}/cards`, { token });
 export const warCard = (token: string, id: number) => apiRequest<CardDetail>(`${base}/cards/${id}`, { token });

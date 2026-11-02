@@ -54,7 +54,9 @@ async function answerFor(roomId: number, index: number, right: boolean): Promise
 
 (hasPostgres() ? describe : describe.skip)('Sprint 8 – thi đấu trực tiếp', () => {
   let classId: number, quizId: number;
-  const room = async (mode: 'solo' | 'team' = 'solo', token = f.T1.token) => (await api('POST', '/api/live/rooms', { class_id: classId, quiz_id: quizId, mode }, token));
+  // Phòng kiểu Sprint 8 gốc: biệt danh tự chọn, nội dung hiện trên thiết bị, không tự khóa. Các thiết lập mới (ver0.2) được kiểm trong live_v2.spec.ts
+  const LEGACY = { profile_names: false, hide_on_device: false, auto_lock_seconds: null };
+  const room = async (mode: 'solo' | 'team' = 'solo', token = f.T1.token) => (await api('POST', '/api/live/rooms', { class_id: classId, quiz_id: quizId, mode, ...LEGACY }, token));
   const end = async (id: number) => api('POST', `/api/live/rooms/${id}/command`, { action: 'end' });
 
   beforeAll(async () => {
