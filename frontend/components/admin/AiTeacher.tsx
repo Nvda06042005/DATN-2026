@@ -14,10 +14,11 @@ import { ChatPanel } from '@/components/portal/TieuTuong';
 import { DetailSheet } from '@/components/portal/Library';
 import { Btn, Card, Chip, EmptyState, Field, InfoNote, Segmented, Spinner, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
-import type { DraftResult, PlanResult, QuestionDraft } from '@/types/ai';
+import { DraftResult, PlanResult, QuestionDraft } from '@/types/ai';
 import { AiQuizModal } from '@/components/admin/AiQuizModal';
+import { AiHubDashboard } from '@/components/ai/AiHubDashboard';
 
-type Part = 'ask' | 'topics' | 'questions' | 'plan';
+type Part = 'ask' | 'topics' | 'questions' | 'plan' | 'hub';
 const KIND_LABEL: Record<string, string> = { figure: 'Nhân vật', event: 'Sự kiện', place: 'Địa danh', battle: 'Trận đánh', source: 'Tư liệu', term: 'Thuật ngữ', lesson: 'Bài học', doc: 'Tài liệu' };
 
 const optionTitle = (d: QuestionDraft): string[] => {
@@ -198,11 +199,12 @@ export const AiTeacher: React.FC<{ session: Session }> = ({ session }) => {
     <Page>
       <PageHeader title="Trợ lý AI" subtitle="Hỏi đáp tư liệu, thống kê câu hỏi của học sinh, soạn câu hỏi và kịch bản tiết học. Nội dung do AI soạn luôn cần thầy cô duyệt." />
       <Segmented<Part> label="Mục trợ lý" value={part} onChange={setPart}
-        options={[{ value: 'ask', label: 'Hỏi đáp tư liệu' }, { value: 'topics', label: 'Học sinh hỏi gì' }, { value: 'questions', label: 'Soạn câu hỏi' }, { value: 'plan', label: 'Kịch bản tiết học' }]} />
+        options={[{ value: 'ask', label: 'Hỏi đáp tư liệu' }, { value: 'topics', label: 'Học sinh hỏi gì' }, { value: 'questions', label: 'Soạn câu hỏi' }, { value: 'plan', label: 'Kịch bản tiết học' }, { value: 'hub', label: 'Trung tâm AI Hub' }]} />
       {part === 'ask' ? <ChatPanel session={session} mode="teacher" onOpen={(kind, id) => setDetail({ type: kind, id })} samples={['Hội nghị Diên Hồng diễn ra khi nào?', 'Trận Bạch Đằng có những chi tiết nào đáng chú ý?', 'Hịch tướng sĩ do ai viết?']} placeholder="Thầy cô muốn tra cứu điều gì?" /> : null}
       {part === 'topics' ? <Topics session={session} /> : null}
       {part === 'questions' ? <QuestionMaker session={session} /> : null}
       {part === 'plan' ? <PlanMaker session={session} /> : null}
+      {part === 'hub' ? <AiHubDashboard session={session} onOpenSource={(kind, id) => setDetail({ type: kind, id })} /> : null}
       {detail ? <DetailSheet session={session} type={detail.type} id={detail.id} onClose={() => setDetail(null)} onOpen={(type, id) => setDetail({ type, id })} /> : null}
     </Page>
   );

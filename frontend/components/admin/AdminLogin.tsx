@@ -12,9 +12,10 @@ import React, { useId, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, TextInput, View, useWindowDimensions, type TextInputInstance, type TextInputProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Defs, Image as SvgImage, Pattern, Polygon } from 'react-native-svg';
-import { ArrowLeft, CircleCheck, Eye, EyeOff, Info, MailCheck, TriangleAlert } from 'lucide-react-native';
+import { ArrowLeft, CircleCheck, Eye, EyeOff, Info, MailCheck, Sparkles, TriangleAlert } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { ApiError, errorMessage } from '@/api/client';
+import { createDemoUser } from '@/components/auth';
 import { BrandLogo, FilmBackdrop, PatternOverlay } from '@/components/art';
 import { Txt } from '@/components/ui';
 import { FONT } from '@/constants/theme';
@@ -359,6 +360,29 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
         <SubmitButton title={loading ? 'Đang đăng nhập…' : 'Đăng nhập'} loading={loading} onPress={submit} testID="login-submit" />
         <TextLink title="Quên mật khẩu" onPress={onForgot} />
       </View>
+      <Pressable
+        onPress={() => {
+          const role = portal;
+          onLogin(`demo-bypass-${role}-${Date.now()}`, createDemoUser(role));
+        }}
+        style={({ pressed }) => ({
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          paddingVertical: 10,
+          paddingHorizontal: 16,
+          borderRadius: 6,
+          backgroundColor: pressed ? '#fee2e2' : '#fef2f2',
+          borderWidth: 1.5,
+          borderColor: '#dc2626',
+          alignSelf: 'flex-start',
+        })}
+      >
+        <Sparkles size={16} color="#dc2626" />
+        <Txt f="bold" size={13} color="#dc2626">
+          ⚡ Vào thẳng quản trị {portal === 'root_admin' ? 'tổng' : 'trường'} (Bỏ qua đăng nhập)
+        </Txt>
+      </Pressable>
       <Txt size={14} color={c.muc2} style={{ maxWidth: 460 }}>
         {copy.account}
       </Txt>
