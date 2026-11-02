@@ -1,12 +1,10 @@
 /**
- * AI Hub Dashboard - Trung tâm Điều khiển Trợ lý AI (Thiết kế độc lập chuẩn EdTech hiện đại)
- * Bố cục dạng Hub Grid 6 thẻ tính năng theo đúng ảnh mẫu tham khảo:
- * 1. Homework Helper: Giải thích câu hỏi / câu làm sai chi tiết từng bước
- * 2. Summarizer: Tóm tắt bài học, chiến dịch và sử liệu ngắn gọn
- * 3. AI Tutor: Hỏi đáp trực tiếp cùng Tiểu Tướng với trích dẫn Đại Việt Sử Ký Toàn Thư
- * 4. Flash Cards: Bộ thẻ ghi nhớ mốc năm, danh tướng và chiến thuật 2 mặt có lặp lại ngắt quãng
- * 5. Quizzes: Luyện đề trắc nghiệm thông minh theo 5 nhóm chủ đề & ma trận Bloom GDPT 2018
- * 6. Roleplay & Courses: Nhập vai danh tướng (Trần Hưng Đạo, Trần Quốc Toản...) & Hành trình học
+ * AI Hub Dashboard - Trung tâm Điều khiển Trợ lý AI (Thiết kế độc lập chuẩn EdTech)
+ * Bố cục dạng Hub Grid 4 thẻ tính năng trọng tâm (đã lược bỏ Homework Helper & Course Creator theo yêu cầu):
+ * 1. AI Tutor: Hỏi đáp trực tiếp cùng Tiểu Tướng & Nhập vai danh tướng (trích dẫn DVSKTT)
+ * 2. Quizzes: Luyện đề trắc nghiệm thông minh theo 5 nhóm chủ đề & ma trận Bloom GDPT 2018
+ * 3. Flash Cards: Bộ thẻ ghi nhớ mốc năm, danh tướng và chiến thuật 2 mặt tương tác
+ * 4. Summarizer: Tóm tắt bài học, chiến dịch và sử liệu ngắn gọn
  *
  * Tách biệt hoàn toàn thành module riêng, không can thiệp hay ghi đè lên code của đồng đội.
  */
@@ -17,10 +15,7 @@ import {
   BookOpen,
   Bot,
   Check,
-  CheckCircle2,
-  Compass,
   FileText,
-  GraduationCap,
   Layers,
   ListChecks,
   Sparkles,
@@ -30,10 +25,10 @@ import { errorMessage } from '@/api/client';
 import { AiQuizModal } from '@/components/admin/AiQuizModal';
 import type { Session } from '@/components/auth';
 import { ChatPanel } from '@/components/portal/TieuTuong';
-import { Btn, Card, Chip, Field, InfoNote, Spinner, Txt, useToast } from '@/components/ui';
+import { Btn, Card, Chip, Spinner, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 
-export type AiHubView = 'hub' | 'helper' | 'summarizer' | 'tutor' | 'flashcards' | 'quizzes' | 'roleplay';
+export type AiHubView = 'hub' | 'tutor' | 'quizzes' | 'flashcards' | 'summarizer';
 
 interface FlashcardItem {
   id: string;
@@ -129,39 +124,14 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
   const [fcFlipped, setFcFlipped] = useState<boolean>(false);
   const [masteredIds, setMasteredIds] = useState<Set<string>>(new Set());
 
-  // State cho Homework Helper
-  const [helperQuestion, setHelperQuestion] = useState<string>('');
-  const [helperAnswer, setHelperAnswer] = useState<string | null>(null);
-  const [helperLoading, setHelperLoading] = useState<boolean>(false);
-
   // State cho Summarizer
   const [summaryKind, setSummaryKind] = useState<string>('all');
   const [summaryText, setSummaryText] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
 
-  // State cho Roleplay
+  // State cho AI Tutor / Roleplay
+  const [tutorTab, setTutorTab] = useState<'chat' | 'roleplay'>('chat');
   const [selectedFigure, setSelectedFigure] = useState<typeof HISTORICAL_FIGURES[0] | null>(null);
-
-  // ---------------------------------------------------------------------- Xử lý Homework Helper
-  const handleSolveProblem = async () => {
-    if (!helperQuestion.trim()) return;
-    setHelperLoading(true);
-    setHelperAnswer(null);
-    try {
-      const res = await aiApi.aiAsk(session.token, {
-        question: `Hãy giải thích chi tiết câu hỏi lịch sử này theo từng bước, căn cứ theo sách giáo khoa và sử liệu chính thức: ${helperQuestion}`,
-      });
-      if (res?.message?.content) {
-        setHelperAnswer(res.message.content);
-      } else {
-        setHelperAnswer('Tiểu Tướng chưa tìm thấy câu trả lời phù hợp trong kho tư liệu.');
-      }
-    } catch (e) {
-      toast(errorMessage(e));
-    } finally {
-      setHelperLoading(false);
-    }
-  };
 
   // ---------------------------------------------------------------------- Xử lý Summarizer
   const handleSummarizeTopic = async (topicTitle: string, promptText: string) => {
@@ -206,11 +176,11 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
   };
 
   // ======================================================================
-  // GIAO DIỆN TRANG CHỦ AI HUB (HUB GRID 6 THẺ THEO ẢNH THAM KHẢO)
+  // GIAO DIỆN TRANG CHỦ AI HUB (LƯỚI 4 THẺ CÂN ĐỐI 2x2)
   // ======================================================================
   if (activeView === 'hub') {
     return (
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 24, maxWidth: 1100, alignSelf: 'center', width: '100%' }}>
+      <ScrollView contentContainerStyle={{ padding: 24, gap: 24, maxWidth: 960, alignSelf: 'center', width: '100%' }}>
         {/* Header chào mừng */}
         <View style={{ alignItems: 'center', gap: 10, paddingTop: 10 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -220,80 +190,30 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
             </Txt>
           </View>
           <Txt f="bold" size={28} center color={c.muc}>
-            Courses, chats, and practice — together.
+            Chats, quizzes, and practice — together.
           </Txt>
-          <Txt size={15} center color={c.muc2} style={{ maxWidth: 640 }}>
-            Bắt đầu từ một chủ đề, bài học hoặc câu hỏi để luyện đề, ôn thẻ ghi nhớ hoặc đối thoại cùng trợ lý AI.
+          <Txt size={15} center color={c.muc2} style={{ maxWidth: 620 }}>
+            Khởi đầu từ một chủ đề hoặc bài học để luyện đề trắc nghiệm, ôn thẻ ghi nhớ hoặc hỏi đáp cùng trợ lý AI.
           </Txt>
           {onClose ? (
             <Btn title="Đóng bảng điều khiển" tone="giay" size="sm" onPress={onClose} />
           ) : null}
         </View>
 
-        {/* Lưới 6 thẻ tính năng chính (Grid) */}
+        {/* Lưới 4 thẻ tính năng chính (2x2 Grid) */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 18, justifyContent: 'center' }}>
-          {/* Card 1: Homework Helper */}
+          {/* Card 1: AI Tutor (Hỏi đáp & Nhập vai) */}
           <Pressable
-            onPress={() => setActiveView('helper')}
+            onPress={() => {
+              setTutorTab('chat');
+              setActiveView('tutor');
+            }}
             style={({ pressed }) => ({
-              width: '100%',
-              maxWidth: 320,
+              flexGrow: 1,
+              flexBasis: 360,
+              maxWidth: 440,
               minHeight: 180,
-              padding: 20,
-              borderRadius: 20,
-              backgroundColor: pressed ? c.the2 : c.the,
-              borderWidth: 2,
-              borderColor: c.vien,
-              gap: 12,
-              justifyContent: 'space-between',
-            })}
-          >
-            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#F3E8FF', alignItems: 'center', justifyContent: 'center' }}>
-              <GraduationCap size={24} color="#7C3AED" />
-            </View>
-            <View style={{ gap: 4 }}>
-              <Txt f="bold" size={17} color={c.muc}>Homework Helper</Txt>
-              <Txt size={13} color={c.muc2} numberOfLines={3}>
-                Giải thích cặn kẽ từng bước cho mọi câu hỏi và phân tích căn cứ sử liệu câu làm sai.
-              </Txt>
-            </View>
-          </Pressable>
-
-          {/* Card 2: Summarizer */}
-          <Pressable
-            onPress={() => setActiveView('summarizer')}
-            style={({ pressed }) => ({
-              width: '100%',
-              maxWidth: 320,
-              minHeight: 180,
-              padding: 20,
-              borderRadius: 20,
-              backgroundColor: pressed ? c.the2 : c.the,
-              borderWidth: 2,
-              borderColor: c.vien,
-              gap: 12,
-              justifyContent: 'space-between',
-            })}
-          >
-            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FCE7F3', alignItems: 'center', justifyContent: 'center' }}>
-              <FileText size={24} color="#DB2777" />
-            </View>
-            <View style={{ gap: 4 }}>
-              <Txt f="bold" size={17} color={c.muc}>Summarizer</Txt>
-              <Txt size={13} color={c.muc2} numberOfLines={3}>
-                Tóm tắt diễn biến trận đánh, sự kiện và nhân vật lịch sử thời Trần thành các ý súc tích, dễ nhớ.
-              </Txt>
-            </View>
-          </Pressable>
-
-          {/* Card 3: AI Tutor */}
-          <Pressable
-            onPress={() => setActiveView('tutor')}
-            style={({ pressed }) => ({
-              width: '100%',
-              maxWidth: 320,
-              minHeight: 180,
-              padding: 20,
+              padding: 22,
               borderRadius: 20,
               backgroundColor: pressed ? c.the2 : c.the,
               borderWidth: 2,
@@ -306,48 +226,22 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
               <Bot size={24} color="#4F46E5" />
             </View>
             <View style={{ gap: 4 }}>
-              <Txt f="bold" size={17} color={c.muc}>AI Tutor</Txt>
+              <Txt f="bold" size={18} color={c.muc}>AI Tutor</Txt>
               <Txt size={13} color={c.muc2} numberOfLines={3}>
-                Hỏi đáp tự do về lịch sử thời Trần, truy xuất căn cứ sử liệu chính thức từ Đại Việt Sử Ký Toàn Thư.
+                Hỏi đáp tự do về lịch sử thời Trần, truy xuất căn cứ sử liệu chính thức từ Đại Việt Sử Ký Toàn Thư và đàm đạo cùng danh tướng.
               </Txt>
             </View>
           </Pressable>
 
-          {/* Card 4: Flash Cards */}
-          <Pressable
-            onPress={() => setActiveView('flashcards')}
-            style={({ pressed }) => ({
-              width: '100%',
-              maxWidth: 320,
-              minHeight: 180,
-              padding: 20,
-              borderRadius: 20,
-              backgroundColor: pressed ? c.the2 : c.the,
-              borderWidth: 2,
-              borderColor: c.vien,
-              gap: 12,
-              justifyContent: 'space-between',
-            })}
-          >
-            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFEDD5', alignItems: 'center', justifyContent: 'center' }}>
-              <Layers size={24} color="#EA580C" />
-            </View>
-            <View style={{ gap: 4 }}>
-              <Txt f="bold" size={17} color={c.muc}>Flash Cards</Txt>
-              <Txt size={13} color={c.muc2} numberOfLines={3}>
-                Bộ thẻ ghi nhớ 2 mặt tương tác, ôn luyện mốc thời gian, danh tướng và kế sách quân sự thần tốc.
-              </Txt>
-            </View>
-          </Pressable>
-
-          {/* Card 5: Quizzes */}
+          {/* Card 2: Quizzes (Luyện đề trắc nghiệm Bloom) */}
           <Pressable
             onPress={() => setQuizModalOpen(true)}
             style={({ pressed }) => ({
-              width: '100%',
-              maxWidth: 320,
+              flexGrow: 1,
+              flexBasis: 360,
+              maxWidth: 440,
               minHeight: 180,
-              padding: 20,
+              padding: 22,
               borderRadius: 20,
               backgroundColor: pressed ? c.the2 : c.the,
               borderWidth: 2,
@@ -360,21 +254,22 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
               <ListChecks size={24} color="#059669" />
             </View>
             <View style={{ gap: 4 }}>
-              <Txt f="bold" size={17} color={c.muc}>Quizzes</Txt>
+              <Txt f="bold" size={18} color={c.muc}>Quizzes</Txt>
               <Txt size={13} color={c.muc2} numberOfLines={3}>
-                Sinh đề trắc nghiệm chuẩn ma trận nhận thức Bloom (Nhận biết, Thông hiểu, Vận dụng) theo 5 nhóm chủ đề SGK 7.
+                Sinh đề trắc nghiệm chuẩn hóa 4 mức độ nhận thức Bloom (Nhận biết, Thông hiểu, Vận dụng) theo 5 nhóm chủ đề SGK 7.
               </Txt>
             </View>
           </Pressable>
 
-          {/* Card 6: Roleplay & Courses */}
+          {/* Card 3: Flash Cards (Thẻ ghi nhớ mốc năm & sự kiện) */}
           <Pressable
-            onPress={() => setActiveView('roleplay')}
+            onPress={() => setActiveView('flashcards')}
             style={({ pressed }) => ({
-              width: '100%',
-              maxWidth: 320,
+              flexGrow: 1,
+              flexBasis: 360,
+              maxWidth: 440,
               minHeight: 180,
-              padding: 20,
+              padding: 22,
               borderRadius: 20,
               backgroundColor: pressed ? c.the2 : c.the,
               borderWidth: 2,
@@ -383,13 +278,41 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
               justifyContent: 'space-between',
             })}
           >
-            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' }}>
-              <Compass size={24} color="#D97706" />
+            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFEDD5', alignItems: 'center', justifyContent: 'center' }}>
+              <Layers size={24} color="#EA580C" />
             </View>
             <View style={{ gap: 4 }}>
-              <Txt f="bold" size={17} color={c.muc}>Roleplay & Courses</Txt>
+              <Txt f="bold" size={18} color={c.muc}>Flash Cards</Txt>
               <Txt size={13} color={c.muc2} numberOfLines={3}>
-                Đối thoại trực tiếp với các vị tướng lừng danh: Trần Hưng Đạo, Trần Quốc Toản, Trần Thủ Độ...
+                Bộ thẻ ghi nhớ 2 mặt tương tác, ôn luyện nhanh mốc thời gian (1258, 1285, 1288), danh tướng và kế sách kháng chiến.
+              </Txt>
+            </View>
+          </Pressable>
+
+          {/* Card 4: Summarizer (Tóm tắt sử liệu) */}
+          <Pressable
+            onPress={() => setActiveView('summarizer')}
+            style={({ pressed }) => ({
+              flexGrow: 1,
+              flexBasis: 360,
+              maxWidth: 440,
+              minHeight: 180,
+              padding: 22,
+              borderRadius: 20,
+              backgroundColor: pressed ? c.the2 : c.the,
+              borderWidth: 2,
+              borderColor: c.vien,
+              gap: 12,
+              justifyContent: 'space-between',
+            })}
+          >
+            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FCE7F3', alignItems: 'center', justifyContent: 'center' }}>
+              <FileText size={24} color="#DB2777" />
+            </View>
+            <View style={{ gap: 4 }}>
+              <Txt f="bold" size={18} color={c.muc}>Summarizer</Txt>
+              <Txt size={13} color={c.muc2} numberOfLines={3}>
+                Tóm tắt diễn biến trận đánh, sự kiện và nhân vật lịch sử thời Trần thành các ý súc tích, dễ nhớ.
               </Txt>
             </View>
           </Pressable>
@@ -478,59 +401,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
   }
 
   // ======================================================================
-  // GIAO DIỆN CON 2: HOMEWORK HELPER (GIẢI THÍCH CHI TIẾT TỪNG BƯỚC)
-  // ======================================================================
-  if (activeView === 'helper') {
-    return (
-      <View style={{ padding: 20, gap: 18, maxWidth: 840, alignSelf: 'center', width: '100%' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Btn icon={ArrowLeft} title="Quay lại AI Hub" tone="giay" size="sm" onPress={() => setActiveView('hub')} />
-          <Txt f="bold" size={18} color={c.muc} style={{ flex: 1 }}>Homework Helper — Trợ lý giải bài</Txt>
-        </View>
-
-        <InfoNote>
-          <Txt size={13}>Nhập bất kỳ câu hỏi hoặc bài tập lịch sử bạn đang gặp khó khăn. AI sẽ phân tích sự kiện, giải thích từng bước và đưa ra căn cứ sử liệu chính xác.</Txt>
-        </InfoNote>
-
-        <Card style={{ padding: 16, gap: 12, backgroundColor: c.the, borderColor: c.vien }}>
-          <Field
-            label="Nội dung câu hỏi hoặc bài tập cần giải thích"
-            value={helperQuestion}
-            onChangeText={setHelperQuestion}
-            placeholder="Ví dụ: Vì sao Trần Quốc Tuấn chọn sông Bạch Đằng làm trận quyết chiến năm 1288 thay vì chặn giặc ở biên giới?"
-            multiline
-            numberOfLines={4}
-          />
-
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-            <Btn
-              icon={Sparkles}
-              title={helperLoading ? 'Đang phân tích...' : 'Giải thích từng bước'}
-              tone="son"
-              loading={helperLoading}
-              disabled={helperLoading || !helperQuestion.trim()}
-              onPress={handleSolveProblem}
-            />
-          </View>
-        </Card>
-
-        {helperAnswer ? (
-          <Card style={{ padding: 18, gap: 10, backgroundColor: c.the, borderColor: c.ngoc, borderWidth: 1.5 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <CheckCircle2 size={18} color={c.ngoc} />
-              <Txt f="bold" size={15} color={c.ngoc}>Lời giải thích từ Tiểu Tướng:</Txt>
-            </View>
-            <Txt size={14} color={c.muc} style={{ lineHeight: 22 }} selectable>
-              {helperAnswer}
-            </Txt>
-          </Card>
-        ) : null}
-      </View>
-    );
-  }
-
-  // ======================================================================
-  // GIAO DIỆN CON 3: SUMMARIZER (TÓM TẮT SỬ LIỆU)
+  // GIAO DIỆN CON 2: SUMMARIZER (TÓM TẮT SỬ LIỆU)
   // ======================================================================
   if (activeView === 'summarizer') {
     const TOPICS = [
@@ -584,77 +455,82 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
   }
 
   // ======================================================================
-  // GIAO DIỆN CON 4: AI TUTOR (HỎI ĐÁP TIỂU TƯỚNG)
+  // GIAO DIỆN CON 3: AI TUTOR & NHẬP VAI DANH TƯỚNG
   // ======================================================================
   if (activeView === 'tutor') {
     return (
-      <View style={{ padding: 20, gap: 14, maxWidth: 900, alignSelf: 'center', width: '100%' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Btn icon={ArrowLeft} title="Quay lại AI Hub" tone="giay" size="sm" onPress={() => setActiveView('hub')} />
-          <Txt f="bold" size={18} color={c.muc} style={{ flex: 1 }}>AI Tutor — Trợ lý Tiểu Tướng</Txt>
-        </View>
-        <ChatPanel session={session} mode="tutor" onOpen={onOpenSource} />
-      </View>
-    );
-  }
-
-  // ======================================================================
-  // GIAO DIỆN CON 5: ROLEPLAY (NHẬP VAI DANH TƯỚNG)
-  // ======================================================================
-  if (activeView === 'roleplay') {
-    return (
-      <View style={{ padding: 20, gap: 18, maxWidth: 900, alignSelf: 'center', width: '100%' }}>
+      <View style={{ padding: 20, gap: 16, maxWidth: 920, alignSelf: 'center', width: '100%' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Btn icon={ArrowLeft} title="Quay lại AI Hub" tone="giay" size="sm" onPress={() => { setSelectedFigure(null); setActiveView('hub'); }} />
-          <Txt f="bold" size={18} color={c.muc} style={{ flex: 1 }}>Nhập vai Danh tướng Trần triều</Txt>
-        </View>
-
-        {selectedFigure ? (
-          <View style={{ gap: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Chip text={`Đang đàm đạo cùng: ${selectedFigure.name}`} bg={c.sonNhat} fg={c.sonChu} />
-              <Btn title="Chọn vị tướng khác" tone="giay" size="sm" onPress={() => setSelectedFigure(null)} />
-            </View>
-            <ChatPanel
-              session={session}
-              mode="roleplay"
-              figure={{ id: selectedFigure.id, name: selectedFigure.name }}
-              placeholder={`Em muốn hỏi gì với ${selectedFigure.name}?`}
-              samples={[
-                `Ngài nghĩ gì về âm mưu xâm lược của giặc Thát?`,
-                `Kế sách giữ nước quan trọng nhất của ngài là gì?`,
-                `Ý nghĩa câu nói nổi tiếng của ngài là gì?`,
-              ]}
+          <Txt f="bold" size={18} color={c.muc} style={{ flex: 1 }}>AI Tutor — Trợ lý Tiểu Tướng</Txt>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <Btn
+              title="Hỏi đáp chung"
+              tone={tutorTab === 'chat' && !selectedFigure ? 'son' : 'giay'}
+              size="sm"
+              onPress={() => { setSelectedFigure(null); setTutorTab('chat'); }}
+            />
+            <Btn
+              title="Nhập vai Danh tướng"
+              tone={tutorTab === 'roleplay' || selectedFigure ? 'son' : 'giay'}
+              size="sm"
+              onPress={() => setTutorTab('roleplay')}
             />
           </View>
-        ) : (
-          <View style={{ gap: 14 }}>
-            <Txt size={14} color={c.muc2}>Chọn một nhân vật lịch sử thời Trần để đối thoại trực tiếp:</Txt>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-              {HISTORICAL_FIGURES.map((fig) => (
-                <Pressable
-                  key={fig.id}
-                  onPress={() => setSelectedFigure(fig)}
-                  style={({ pressed }) => ({
-                    flexGrow: 1,
-                    flexBasis: 260,
-                    padding: 16,
-                    borderRadius: 16,
-                    backgroundColor: pressed ? c.the2 : c.the,
-                    borderWidth: 2,
-                    borderColor: c.vien,
-                    gap: 6,
-                  })}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Txt f="bold" size={16} color={c.muc}>{fig.name}</Txt>
-                    <Chip text={fig.role} bg={c.giay2} fg={c.muc2} />
-                  </View>
-                  <Txt size={12} color={c.muc3} style={{ fontStyle: 'italic' }}>“{fig.quote}”</Txt>
-                </Pressable>
-              ))}
+        </View>
+
+        {/* Chế độ Nhập vai */}
+        {tutorTab === 'roleplay' ? (
+          selectedFigure ? (
+            <View style={{ gap: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Chip text={`Đang đàm đạo cùng: ${selectedFigure.name}`} bg={c.sonNhat} fg={c.sonChu} />
+                <Btn title="Chọn vị tướng khác" tone="giay" size="sm" onPress={() => setSelectedFigure(null)} />
+              </View>
+              <ChatPanel
+                session={session}
+                mode="roleplay"
+                figure={{ id: selectedFigure.id, name: selectedFigure.name }}
+                placeholder={`Em muốn hỏi gì với ${selectedFigure.name}?`}
+                samples={[
+                  `Ngài nghĩ gì về âm mưu xâm lược của giặc Thát?`,
+                  `Kế sách giữ nước quan trọng nhất của ngài là gì?`,
+                  `Ý nghĩa câu nói nổi tiếng của ngài là gì?`,
+                ]}
+              />
             </View>
-          </View>
+          ) : (
+            <View style={{ gap: 14 }}>
+              <Txt size={14} color={c.muc2}>Chọn một nhân vật lịch sử thời Trần để đối thoại trực tiếp:</Txt>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+                {HISTORICAL_FIGURES.map((fig) => (
+                  <Pressable
+                    key={fig.id}
+                    onPress={() => setSelectedFigure(fig)}
+                    style={({ pressed }) => ({
+                      flexGrow: 1,
+                      flexBasis: 260,
+                      padding: 16,
+                      borderRadius: 16,
+                      backgroundColor: pressed ? c.the2 : c.the,
+                      borderWidth: 2,
+                      borderColor: c.vien,
+                      gap: 6,
+                    })}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Txt f="bold" size={16} color={c.muc}>{fig.name}</Txt>
+                      <Chip text={fig.role} bg={c.giay2} fg={c.muc2} />
+                    </View>
+                    <Txt size={12} color={c.muc3} style={{ fontStyle: 'italic' }}>“{fig.quote}”</Txt>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )
+        ) : (
+          /* Chế độ Hỏi đáp Tiểu Tướng chung */
+          <ChatPanel session={session} mode="tutor" onOpen={onOpenSource} />
         )}
       </View>
     );
