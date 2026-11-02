@@ -12,7 +12,8 @@ import { DatabaseService, Q, UserRow } from '../database/database.service';
 import { ErrorLog } from './error-log';
 import { assertSystemAdmin, SystemService } from './system.service';
 
-const SKIP = new Set(['hk_backups', 'app_schema_migrations', 'app_revoked_tokens', '_prisma_migrations', 'hk_ai_chunks', 'hk_recommendations', 'hk_error_log', 'hk_two_factor_codes', 'hk_job_heartbeats']);
+// hk_media (ảnh tải lên, dạng nhị phân) không nằm trong sao lưu trong cơ sở dữ liệu vì làm bản sao lưu vượt giới hạn; ảnh nằm trong sao lưu của Supabase
+const SKIP = new Set(['hk_media', 'hk_backups', 'app_schema_migrations', 'app_revoked_tokens', '_prisma_migrations', 'hk_ai_chunks', 'hk_recommendations', 'hk_error_log', 'hk_two_factor_codes', 'hk_job_heartbeats']);
 const MAX_BYTES = 25 * 1024 * 1024;
 const q = (name: string): string => `"${name.replace(/"/g, '""')}"`;
 export const CONFIRM_PHRASE = 'PHUC HOI';

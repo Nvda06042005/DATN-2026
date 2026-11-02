@@ -15,6 +15,7 @@ import { AuthService } from './auth/auth.service';
 import { BattleController } from './battle/battle.controller';
 import { BattleService } from './battle/battle.service';
 import { WarCardsService } from './battle/war-cards.service';
+import { WarClassService } from './battle/war-class.service';
 import { WarController } from './battle/war.controller';
 import { WarGate } from './battle/war-gate';
 import { WarMarchService } from './battle/war-march.service';
@@ -68,6 +69,8 @@ import { LessonService } from './content/lesson.service';
 import { QuestionService } from './content/question.service';
 import { QuizService } from './content/quiz.service';
 import { ShareService } from './content/share.service';
+import { MediaFileController, StudioController } from './content/studio.controller';
+import { MediaService, QuizStudioService } from './content/studio.service';
 import { DatabaseService } from './database/database.service';
 import { HistoryController } from './history/history.controller';
 import { HistoryService } from './history/history.service';
@@ -83,8 +86,8 @@ import { StudentController } from './student/student.controller';
   imports: [
     JwtModule.register({ secret: config.authSecret, signOptions: { algorithm: 'HS256', expiresIn: config.tokenTtlHours * 3600 }, verifyOptions: { algorithms: ['HS256'] } }),
   ],
-  controllers: [AppController, AuthController, AdminController, HistoryController, ContentController, StudentController, LearnController, PlayController, GameController, BattleController, ClassroomController, LiveController, WarController, AiController, AnalyticsController, PlatformController, PlatformAdminController, SurveyController],
-  providers: [SurveyService, ResearchService, SystemService, RbacService, LogsService, PrefsService, NoticeService, SupportService, FaqService, TwoFactorService, BackupService, PlatformJob, { provide: APP_INTERCEPTOR, useClass: PolicyInterceptor }, AnalyticsService, RecoService, FeedbackService, AnalyticsJob, LlmClient, AiSettingsService, AiRetrievalService, AiIndexService, AiTutorService, AiToolsService, AiAdminService, SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, MailService, SchoolService, AccountService, ClassService, HistoryService, QuestionService, QuizService, LessonService, JourneyService, ShareService, LearnService, PlayService, GameClock, SettingsService, GameService, BoardService, CatalogService, GameJob, BattleService, WarGate, WarCardsService, WarMarchService, WarService, ClassroomService, AssignmentService, SkillService, LiveService, LiveGateway],
+  controllers: [AppController, AuthController, AdminController, HistoryController, ContentController, StudentController, LearnController, PlayController, GameController, BattleController, ClassroomController, LiveController, WarController, AiController, AnalyticsController, PlatformController, PlatformAdminController, SurveyController, StudioController, MediaFileController],
+  providers: [WarClassService, MediaService, QuizStudioService, SurveyService, ResearchService, SystemService, RbacService, LogsService, PrefsService, NoticeService, SupportService, FaqService, TwoFactorService, BackupService, PlatformJob, { provide: APP_INTERCEPTOR, useClass: PolicyInterceptor }, AnalyticsService, RecoService, FeedbackService, AnalyticsJob, LlmClient, AiSettingsService, AiRetrievalService, AiIndexService, AiTutorService, AiToolsService, AiAdminService, SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, MailService, SchoolService, AccountService, ClassService, HistoryService, QuestionService, QuizService, LessonService, JourneyService, ShareService, LearnService, PlayService, GameClock, SettingsService, GameService, BoardService, CatalogService, GameJob, BattleService, WarGate, WarCardsService, WarMarchService, WarService, ClassroomService, AssignmentService, SkillService, LiveService, LiveGateway],
 })
 export class AppModule {}
 
@@ -129,9 +132,9 @@ export function configureApp(app: INestApplication): INestApplication {
     try { return (await app.get(SystemService, { strict: false }).settings()).rate_ip_per_min ?? DEFAULT_RATE.ip(); } catch { return DEFAULT_RATE.ip(); }
   };
   app.use(requestMiddleware(ipLimit));
-  // yêu cầu hỗ trợ kèm ảnh chụp màn hình (tối đa 1,5 MB, mã hóa base64 nên lớn hơn): chỉ tuyến này được nhận thân lớn hơn mặc định
+  // yêu cầu hỗ trợ kèm ảnh chụp màn hình và ảnh tải lên cho Quiz (tối đa 1,5 MB, mã hóa base64 nên lớn hơn): chỉ các tuyến này được nhận thân lớn hơn mặc định
   const largeJson = jsonBody({ limit: '3mb' });
-  app.use((req: { path?: string; originalUrl?: string }, res: unknown, next: () => void) => (/^\/api\/platform\/support(\/|$|\?)/.test(req.originalUrl ?? '') ? (largeJson as any)(req, res, next) : next()));
+  app.use((req: { path?: string; originalUrl?: string }, res: unknown, next: () => void) => (/^\/api\/(platform\/support|content\/media)(\/|$|\?)/.test(req.originalUrl ?? '') ? (largeJson as any)(req, res, next) : next()));
   app.enableShutdownHooks();
   return app;
 }

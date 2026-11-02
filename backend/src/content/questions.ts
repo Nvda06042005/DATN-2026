@@ -20,7 +20,7 @@ export type QData =
   | { items: Option[] }
   | { targets: MapTarget[] };
 
-export interface QuestionCore { id: number; qtype: QType; prompt: string; image_url: string | null; explanation: string | null; difficulty: number; data: Record<string, unknown> }
+export interface QuestionCore { id: number; qtype: QType; prompt: string; image_url: string | null; video_url?: string | null; explanation: string | null; difficulty: number; data: Record<string, unknown> }
 
 /** Khung bản đồ cho dạng kéo thả: lãnh thổ Việt Nam; địa danh ngoài khung bị từ chối để bản đồ luôn hiển thị được */
 export const MAP_BOUNDS = { south: 8, north: 24, west: 102, east: 110 };
@@ -161,11 +161,12 @@ function shuffleDifferent<T>(list: T[], seed: number): T[] {
 
 /** Dạng hiển thị cho học sinh: có đề, lựa chọn (đã xáo nếu bộ đề yêu cầu) nhưng không có đáp án đúng */
 export function publicView(q: QuestionCore, seed: number, shuffleOptions: boolean): Record<string, unknown> {
-  const base = { id: q.id, qtype: q.qtype, prompt: q.prompt, image_url: q.image_url, difficulty: q.difficulty };
+  const base = { id: q.id, qtype: q.qtype, prompt: q.prompt, image_url: q.image_url, video_url: q.video_url ?? null, difficulty: q.difficulty };
   const d = q.data as Record<string, any>;
   if (q.qtype === 'single' || q.qtype === 'multiple') {
     const opts = (d.options as Option[]).map((o) => ({ id: o.id, text: o.text }));
-    return { ...base, options: shuffleOptions ? seededShuffle(opts, seed) : opts };
+    // `shape` là vị trí của đáp án trên màn chiếu (▲ ◆ ● ■); giữ nguyên khi thiết bị học sinh xáo lại thứ tự hiển thị
+    return { ...base, options: (shuffleOptions ? seededShuffle(opts, seed) : opts).map((o, shape) => ({ ...o, shape })) };
   }
   if (q.qtype === 'truefalse') return base;
   if (q.qtype === 'fill') return { ...base, blanks: (d.blanks as unknown[]).length };

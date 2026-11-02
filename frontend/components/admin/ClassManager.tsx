@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { Image, View } from 'react-native';
 import { Archive, ArrowLeft, KeyRound, Pencil, Plus, RotateCcw, Trash2, UserPlus } from 'lucide-react-native';
 import * as api from '@/api/classroomApi';
+import { ClassBattleLinks } from '@/components/admin/ClassBattleLinks';
 import { ClassStudents, ClassTeams } from '@/components/admin/ClassPeople';
 import { ClassNotices, ClassRewards, ClassRules } from '@/components/admin/ClassRewards';
 import { ClassAssignments, ClassProgress } from '@/components/admin/ClassWork';
@@ -15,9 +16,9 @@ import { Bar, Btn, Card, Chip, ConfirmSheet, EmptyState, Segmented, Spinner, Tog
 import { useTheme } from '@/hooks/use-theme';
 import type { ClassDetail, ClassRow } from '@/types/classroom';
 
-type Section = 'students' | 'teams' | 'rules' | 'rewards' | 'assignments' | 'progress' | 'notices';
+type Section = 'students' | 'teams' | 'rules' | 'battle' | 'rewards' | 'assignments' | 'progress' | 'notices';
 const SECTIONS: Array<{ value: Section; label: string }> = [
-  { value: 'students', label: 'Học sinh' }, { value: 'teams', label: 'Đội' }, { value: 'rules', label: 'Luật lớp' }, { value: 'rewards', label: 'Thưởng/phạt' },
+  { value: 'students', label: 'Học sinh' }, { value: 'teams', label: 'Đội' }, { value: 'rules', label: 'Luật lớp' }, { value: 'battle', label: 'Trận đánh' }, { value: 'rewards', label: 'Thưởng/phạt' },
   { value: 'assignments', label: 'Bài tập' }, { value: 'progress', label: 'Tiến độ' }, { value: 'notices', label: 'Thông báo' },
 ];
 const GRADES = [6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }));
@@ -66,6 +67,7 @@ const ClassView: React.FC<{ session: Session; id: number; onBack: () => void; on
           {section === 'students' ? <ClassStudents session={session} cls={cls} onChanged={refresh} /> : null}
           {section === 'teams' ? <ClassTeams session={session} cls={cls} onChanged={refresh} /> : null}
           {section === 'rules' ? <ClassRules session={session} cls={cls} onChanged={refresh} /> : null}
+          {section === 'battle' ? <ClassBattleLinks session={session} cls={cls} /> : null}
           {section === 'rewards' ? <ClassRewards session={session} cls={cls} onChanged={refresh} /> : null}
           {section === 'assignments' ? <ClassAssignments session={session} cls={cls} /> : null}
           {section === 'progress' ? <ClassProgress session={session} cls={cls} /> : null}

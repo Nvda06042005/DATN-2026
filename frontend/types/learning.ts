@@ -37,15 +37,17 @@ export interface QuestionImportResult { committed: boolean; total: number; valid
 export interface QuizItem {
   id: number; scope: Scope; owner_name: string | null; title: string; description: string | null; campaign_id: number | null; campaign_title: string | null;
   seconds_per_question: number; pass_percent: number; question_count: number; total_seconds: number; assigned: number; attempts: number; locked: boolean; can_edit: boolean; updated_at: string;
+  cover_url?: string | null; theme?: { bg?: string; music?: string };
 }
 export interface QuizDetail {
   id: number; scope: Scope; owner_name: string | null; title: string; description: string | null; campaign_id: number | null; seconds_per_question: number; shuffle_questions: boolean;
-  shuffle_options: boolean; pass_percent: number; can_edit: boolean; locked: boolean; lock_reason: string | null; shares: ShareState[];
-  items: Array<{ question_id: number; position: number; points: number; seconds: number | null; qtype: QType; qtype_label: string; prompt: string; difficulty: number; scope: Scope }>;
+  shuffle_options: boolean; pass_percent: number; can_edit: boolean; locked: boolean; lock_reason: string | null; shares: ShareState[]; cover_url: string | null; theme: { bg?: string; music?: string };
+  items: Array<{ question_id: number; position: number; points: number; seconds: number | null; score_mode: 'standard' | 'double' | 'none' | null; qtype: QType; qtype_label: string; prompt: string; difficulty: number; scope: Scope }>;
 }
 export interface QuizInput {
   title: string; description?: string | null; campaign_id?: number | null; seconds_per_question?: number; shuffle_questions?: boolean; shuffle_options?: boolean; pass_percent?: number;
-  items: Array<{ question_id: number; points?: number; seconds?: number | null }>;
+  cover_url?: string | null; theme?: { bg?: string; music?: string };
+  items: Array<{ question_id: number; points?: number; seconds?: number | null; score_mode?: 'standard' | 'double' | 'none' | null }>;
 }
 
 export interface LessonBlock { type: 'text' | 'image' | 'video' | 'map'; heading?: string; text?: string; url?: string; caption?: string; lat?: number; lng?: number; zoom?: number; label?: string }
@@ -166,7 +168,7 @@ export interface LessonCheckResult { correct: boolean; explanation: string | nul
 export interface MenuDots { practice: number; live: number }
 
 export interface PlayQuestion {
-  id: number; qtype: QType; prompt: string; image_url: string | null; difficulty: number; options?: QOption[]; blanks?: number; items?: QOption[];
+  id: number; qtype: QType; prompt: string; image_url: string | null; video_url?: string | null; difficulty: number; options?: QOption[]; blanks?: number; items?: QOption[];
   targets?: Array<{ id: string; label: string }>; bounds?: { south: number; north: number; west: number; east: number };
 }
 export interface AttemptSummary {

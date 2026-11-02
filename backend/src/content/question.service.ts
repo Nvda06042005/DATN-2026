@@ -10,17 +10,19 @@ import { authoringScope, canEdit, canSee, checkLinks, LinkInput, linkLabels, not
 import { dataText, normalizeData, QTYPE_LABEL, QTYPES, QType } from './questions';
 
 export interface QuestionInput {
-  qtype: QType; prompt: string; image_url?: string | null; explanation?: string | null; difficulty?: number; campaign_id?: number | null; data: unknown; links?: LinkInput[];
+  qtype: QType; prompt: string; image_url?: string | null; video_url?: string | null; explanation?: string | null; difficulty?: number; campaign_id?: number | null; data: unknown; links?: LinkInput[];
 }
 export interface QuestionFilter { q?: string; store?: string; campaign_id?: number; qtype?: string; difficulty?: number; ref_type?: string; ref_id?: number; page?: number; limit?: number }
 
 export interface QuestionRow extends Owned {
-  id: number; qtype: QType; prompt: string; image_url: string | null; explanation: string | null; difficulty: number; campaign_id: number | null;
+  id: number; qtype: QType; prompt: string; image_url: string | null; video_url: string | null; explanation: string | null; difficulty: number; campaign_id: number | null;
   data: Record<string, unknown>; version_no: number; created_at: string; updated_at: string;
 }
 
-const COLUMNS = 'id, scope, school_id, owner_id, qtype, prompt, image_url, explanation, difficulty, campaign_id, data, version_no, created_at, updated_at';
+const COLUMNS = 'id, scope, school_id, owner_id, qtype, prompt, image_url, video_url, explanation, difficulty, campaign_id, data, version_no, created_at, updated_at';
 const MAX_PAGE = 100;
+/** Ảnh đã tải lên qua /api/content/media */
+export const MEDIA_PATH = /^\/api\/content\/media\/[0-9a-f]{32}$/;
 
 /** Chuỗi JSON có khóa sắp xếp: PostgreSQL jsonb đổi thứ tự khóa nên không so sánh trực tiếp được */
 const stable = (v: unknown): string => JSON.stringify(v, (_k, x) => (x && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))) : x));
@@ -32,12 +34,14 @@ function plainFields(input: Partial<QuestionInput>, existing?: QuestionRow) {
   const prompt = tidy(input.prompt ?? existing?.prompt);
   if (prompt.length < 3 || prompt.length > 1000) throw new BadRequestException('Đề bài cần từ 3 đến 1000 ký tự');
   const image = input.image_url === undefined ? (existing?.image_url ?? null) : input.image_url ? String(input.image_url).trim() : null;
-  if (image && (!/^https:\/\//.test(image) || image.length > 500)) throw new BadRequestException('Hình ảnh phải là liên kết https (tối đa 500 ký tự)');
+  if (image && (!(/^https:\/\//.test(image) || MEDIA_PATH.test(image)) || image.length > 500)) throw new BadRequestException('Hình ảnh phải là liên kết https hoặc ảnh đã tải lên (tối đa 500 ký tự)');
+  const video = input.video_url === undefined ? (existing?.video_url ?? null) : input.video_url ? String(input.video_url).trim() : null;
+  if (video && (!/^https:\/\//.test(video) || video.length > 500)) throw new BadRequestException('Video phải là liên kết https (tối đa 500 ký tự)');
   const explanation = input.explanation === undefined ? (existing?.explanation ?? null) : tidy(input.explanation) || null;
   if (explanation && explanation.length > 2000) throw new BadRequestException('Giải thích tối đa 2000 ký tự');
   const difficulty = Number(input.difficulty ?? existing?.difficulty ?? 2);
   if (![1, 2, 3].includes(difficulty)) throw new BadRequestException('Độ khó từ 1 (dễ) đến 3 (khó)');
-  return { prompt, image_url: image, explanation, difficulty };
+  return { prompt, image_url: image, video_url: video, explanation, difficulty };
 }
 
 @Injectable()
@@ -128,7 +132,7 @@ export class QuestionService {
   }
 
   private async snapshot(q: Q, row: { id: number }, version: number, by: number | null): Promise<void> {
-    const cur = (await q<Record<string, unknown>>(`SELECT qtype, prompt, image_url, explanation, difficulty, campaign_id, data FROM hk_questions WHERE id = $1`, [row.id]))[0];
+    const cur = (await q<Record<string, unknown>>(`SELECT qtype, prompt, image_url, video_url, explanation, difficulty, campaign_id, data FROM hk_questions WHERE id = $1`, [row.id]))[0];
     const links = await q<LinkInput>('SELECT ref_type, ref_id FROM hk_question_links WHERE question_id = $1 ORDER BY ref_type, ref_id', [row.id]);
     await q('INSERT INTO hk_question_versions (question_id, version_no, snapshot, changed_by) VALUES ($1, $2, $3, $4)', [row.id, version, JSON.stringify({ ...cur, links }), by]);
   }
@@ -139,9 +143,9 @@ export class QuestionService {
       const f = await this.fields(q, input);
       const links = await checkLinks(q, input.links);
       const id = (await q<{ id: number }>(
-        `INSERT INTO hk_questions (scope, school_id, owner_id, qtype, prompt, image_url, explanation, difficulty, campaign_id, data, search_text)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
-        [own.scope, own.school_id, own.owner_id, f.qtype, f.prompt, f.image_url, f.explanation, f.difficulty, f.campaign_id, JSON.stringify(f.data), f.search_text]))[0].id;
+        `INSERT INTO hk_questions (scope, school_id, owner_id, qtype, prompt, image_url, video_url, explanation, difficulty, campaign_id, data, search_text)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+        [own.scope, own.school_id, own.owner_id, f.qtype, f.prompt, f.image_url, f.video_url, f.explanation, f.difficulty, f.campaign_id, JSON.stringify(f.data), f.search_text]))[0].id;
       await this.writeLinks(q, id, links);
       await this.snapshot(q, { id }, 1, user.id);
       return this.view(q, user, await this.load(q, user, id));
@@ -156,14 +160,14 @@ export class QuestionService {
       const links = input.links === undefined ? undefined : await checkLinks(q, input.links);
       const oldLinks = JSON.stringify(await q('SELECT ref_type, ref_id FROM hk_question_links WHERE question_id = $1 ORDER BY ref_type, ref_id', [id]));
       const changed =
-        f.qtype !== row.qtype || f.prompt !== row.prompt || f.image_url !== row.image_url || f.explanation !== row.explanation || f.difficulty !== row.difficulty ||
+        f.qtype !== row.qtype || f.prompt !== row.prompt || f.image_url !== row.image_url || f.video_url !== row.video_url || f.explanation !== row.explanation || f.difficulty !== row.difficulty ||
         f.campaign_id !== row.campaign_id || stable(f.data) !== stable(row.data) ||
         (links !== undefined && JSON.stringify([...links].sort((a, b) => a.ref_type.localeCompare(b.ref_type) || a.ref_id - b.ref_id)) !== oldLinks);
       if (changed) {
         const version = row.version_no + 1;
         await q(
-          `UPDATE hk_questions SET qtype = $2, prompt = $3, image_url = $4, explanation = $5, difficulty = $6, campaign_id = $7, data = $8, search_text = $9, version_no = $10, updated_at = now() WHERE id = $1`,
-          [id, f.qtype, f.prompt, f.image_url, f.explanation, f.difficulty, f.campaign_id, JSON.stringify(f.data), f.search_text, version]);
+          `UPDATE hk_questions SET qtype = $2, prompt = $3, image_url = $4, video_url = $11, explanation = $5, difficulty = $6, campaign_id = $7, data = $8, search_text = $9, version_no = $10, updated_at = now() WHERE id = $1`,
+          [id, f.qtype, f.prompt, f.image_url, f.explanation, f.difficulty, f.campaign_id, JSON.stringify(f.data), f.search_text, version, f.video_url]);
         if (links !== undefined) await this.writeLinks(q, id, links);
         await this.snapshot(q, { id }, version, user.id);
       }
@@ -189,8 +193,8 @@ export class QuestionService {
     const src = (await q<QuestionRow>(`SELECT ${COLUMNS} FROM hk_questions WHERE id = $1`, [id]))[0];
     if (!src) throw notFound('câu hỏi');
     const row = (await q<{ id: number }>(
-      `INSERT INTO hk_questions (scope, school_id, owner_id, qtype, prompt, image_url, explanation, difficulty, campaign_id, data, search_text)
-       SELECT $2, $3, $4, qtype, prompt, image_url, explanation, difficulty, campaign_id, data, search_text FROM hk_questions WHERE id = $1 RETURNING id`,
+      `INSERT INTO hk_questions (scope, school_id, owner_id, qtype, prompt, image_url, video_url, explanation, difficulty, campaign_id, data, search_text)
+       SELECT $2, $3, $4, qtype, prompt, image_url, video_url, explanation, difficulty, campaign_id, data, search_text FROM hk_questions WHERE id = $1 RETURNING id`,
       [id, target.scope, target.school_id, target.owner_id]))[0];
     await q('INSERT INTO hk_question_links (question_id, ref_type, ref_id) SELECT $2, ref_type, ref_id FROM hk_question_links WHERE question_id = $1', [id, row.id]);
     await this.snapshot(q, row, 1, by);

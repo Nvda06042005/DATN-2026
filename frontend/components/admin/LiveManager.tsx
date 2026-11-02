@@ -13,7 +13,7 @@ import { LiveHost } from '@/components/admin/LiveHost';
 import type { Session } from '@/components/auth';
 import { Bar, Btn, Card, EmptyState, InfoNote, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
-import { LIVE_STATE_TEXT, type LiveReport, type LiveRoomRow } from '@/types/live';
+import { LIVE_MODE_TEXT, LIVE_STATE_TEXT, type LiveReport, type LiveRoomRow } from '@/types/live';
 import { QTYPE_TEXT } from '@/types/learning';
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }) : '—');
@@ -29,7 +29,7 @@ const Report: React.FC<{ session: Session; roomId: number; onBack: () => void }>
       {report.loading && !r ? <Spinner /> : null}
       {r ? (
         <>
-          <PageHeader title={`Báo cáo: ${r.room.title}`} subtitle={`Lớp ${r.room.class_name} · ${r.room.mode === 'team' ? 'thi theo đội' : 'thi cá nhân'} · ${when(r.room.started_at ?? r.room.created_at)}`}
+          <PageHeader title={`Báo cáo: ${r.room.title}`} subtitle={`Lớp ${r.room.class_name} · ${LIVE_MODE_TEXT[r.room.mode].toLowerCase()} · ${when(r.room.started_at ?? r.room.created_at)}`}
             actions={<>
               <DownloadButton title="Xuất Excel" fetchBlob={() => api.exportRoom(session.token, roomId, 'xlsx')} filename={`bao-cao-thi-dau-${roomId}.xlsx`} />
               <DownloadButton title="Xuất PDF" fetchBlob={() => api.exportRoom(session.token, roomId, 'pdf')} filename={`bao-cao-thi-dau-${roomId}.pdf`} />
@@ -42,6 +42,8 @@ const Report: React.FC<{ session: Session; roomId: number; onBack: () => void }>
             <StatusChip kind="muted" text={`${r.room.played}/${r.room.total} câu đã diễn ra${r.room.ended_early ? ' (kết thúc sớm)' : ''}`} />
             {r.summary.skipped ? <StatusChip kind="warn" text={`${r.summary.skipped} câu bị bỏ qua`} /> : null}
           </View>
+          {r.boss ? <InfoNote>Đánh trùm {r.boss.name}: {r.boss.outcome === 'win' ? 'cả lớp đã hạ được trùm' : 'cả lớp chưa hạ được trùm'} (trùm còn {r.boss.hp ?? 0}/{r.boss.max_hp ?? 0} máu, cả lớp còn {r.boss.class_hp ?? 0}/{r.boss.class_max_hp ?? 0} máu).</InfoNote> : null}
+          {r.removed.length ? <InfoNote>Đã loại khỏi phòng: {r.removed.map((x) => `${x.full_name} (${x.nickname})`).join(', ')}.</InfoNote> : null}
           {r.hardest ? <InfoNote>Câu khó nhất: câu {r.hardest.number} (chỉ {r.hardest.correct_rate}% trả lời đúng) – {r.hardest.prompt}</InfoNote> : null}
 
           <Txt f="bold" size={16}>Kết quả từng học sinh</Txt>
@@ -52,6 +54,7 @@ const Report: React.FC<{ session: Session; roomId: number; onBack: () => void }>
               { key: 'score', label: 'Điểm', flex: 0.8, render: (p) => <Txt f="bold" size={14}>{p.score}</Txt> },
               { key: 'ok', label: 'Đúng / đã trả lời', flex: 1.4, render: (p) => <Txt size={13}>{p.correct_count}/{p.answered_count} · {p.accuracy}% số câu đã thi</Txt> },
               { key: 'time', label: 'Thời gian TB', flex: 1, hideOnCard: true, render: (p) => <Txt size={13}>{p.avg_seconds === null ? '—' : `${p.avg_seconds} giây`}</Txt> },
+              { key: 'tabs', label: 'Chuyển tab', flex: 0.8, hideOnCard: true, render: (p) => <Txt size={13}>{p.tab_switches ? `${p.tab_switches} lần` : '—'}</Txt> },
               { key: 'xp', label: 'Điểm tài khoản', flex: 1, hideOnCard: true, render: (p) => <Txt size={13}>{p.xp_awarded ? `+${p.xp_awarded}` : '—'}</Txt> },
             ]} />
 
@@ -93,20 +96,36 @@ const Report: React.FC<{ session: Session; roomId: number; onBack: () => void }>
   );
 };
 
-const CreateRoom: React.FC<{ session: Session; onClose: () => void; onCreated: (id: number) => void }> = ({ session, onClose, onCreated }) => {
+/** Tạo phòng thi đấu; có thể mở sẵn với một bộ đề (từ trình soạn Quiz: "Tổ chức thi đấu") */
+export const CreateRoom: React.FC<{ session: Session; quizId?: number; onClose: () => void; onCreated: (id: number) => void }> = ({ session, quizId, onClose, onCreated }) => {
   const classes = useLoad(() => classroom.teacherClasses(session.token), [session.token], session.expired);
   const quizzes = useLoad(() => learning.listQuizzes(session.token, { limit: 100 }), [session.token], session.expired);
+  const bosses = useLoad(() => api.bosses(session.token), [session.token], session.expired);
+  const yesNo = (yes: string, no: string) => [{ value: 'yes', label: yes }, { value: 'no', label: no }];
   return (
     <FormSheet title="Tạo phòng thi đấu" subtitle="Hệ thống sinh mã PIN 6 số và mã QR; học sinh của lớp vào bằng mã." wide submitLabel="Tạo phòng"
       fields={[
         { name: 'class_id', label: 'Lớp', type: 'select', required: true, options: [{ value: '', label: '— Chọn lớp —' }, ...(classes.data ?? []).filter((k) => k.is_active).map((k) => ({ value: String(k.id), label: `${k.name} · ${k.students} học sinh` }))] },
         { name: 'quiz_id', label: 'Bộ đề', type: 'select', required: true, options: [{ value: '', label: '— Chọn bộ đề —' }, ...(quizzes.data?.items ?? []).filter((z) => z.question_count > 0).map((z) => ({ value: String(z.id), label: `${z.title} (${z.question_count} câu, ${Math.ceil(z.total_seconds / 60)} phút)` }))] },
-        { name: 'mode', label: 'Chế độ', type: 'select', options: [{ value: 'solo', label: 'Cá nhân – mỗi học sinh một bảng điểm' }, { value: 'team', label: 'Theo đội – điểm đội là trung bình thành viên (lớp cần đã chia đội)' }] },
+        { name: 'mode', label: 'Chế độ', type: 'select', options: [{ value: 'solo', label: 'Cá nhân – mỗi học sinh một bảng điểm' }, { value: 'team', label: 'Theo đội – điểm đội là trung bình thành viên (lớp cần đã chia đội)' }, { value: 'boss', label: 'Đánh trùm cả lớp – cả lớp cùng hạ một chỉ huy giặc' }] },
+        { name: 'boss', label: 'Trùm', type: 'select', required: true, when: (v) => v.mode === 'boss', hint: 'Máu trùm tự tính theo sĩ số lúc bắt đầu; câu đúng gây sát thương theo tốc độ, câu sai làm cả lớp mất máu.',
+          options: [{ value: '', label: '— Chọn trùm —' }, ...(bosses.data ?? []).map((b) => ({ value: b.key, label: b.name }))] },
         { name: 'title', label: 'Tên phòng (không bắt buộc)', hint: 'Để trống sẽ lấy tên bộ đề và tên lớp' },
+        { name: 'auto_lock', label: 'Khóa phòng', type: 'select', hint: 'Phòng khóa thì mã PIN không nhận thêm người mới; học sinh đến muộn phải xin giáo viên duyệt.',
+          options: [{ value: 'start', label: 'Tự khóa ngay khi bấm Bắt đầu (khuyên dùng)' }, { value: '30', label: 'Tự khóa sau 30 giây kể từ lúc bắt đầu' }, { value: '60', label: 'Tự khóa sau 60 giây kể từ lúc bắt đầu' }, { value: 'off', label: 'Không tự khóa (khóa tay khi cần)' }] },
+        { name: 'profile_names', label: 'Tên hiển thị', type: 'select', options: yesNo('Lấy theo hồ sơ học sinh (khuyên dùng)', 'Học sinh tự đặt biệt danh') },
+        { name: 'hide_on_device', label: 'Câu hỏi trên thiết bị học sinh', type: 'select', hint: 'Chống tra cứu: thiết bị chỉ có nút hình – màu, nội dung hiện trên màn chiếu. Chọn hiện đầy đủ khi học từ xa.', options: yesNo('Ẩn nội dung, chỉ hiện nút hình – màu (khuyên dùng)', 'Hiện đầy đủ nội dung') },
+        { name: 'shuffle_device', label: 'Xáo thứ tự đáp án theo thiết bị', type: 'select', options: yesNo('Có (khi hiện đầy đủ nội dung)', 'Không') },
+        { name: 'tab_alert', label: 'Cảnh báo chuyển tab', type: 'select', options: yesNo('Có – báo tên học sinh rời tab khi đang trả lời', 'Không') },
       ]}
-      initial={{ class_id: '', quiz_id: '', mode: 'solo', title: '' }} onClose={onClose}
+      initial={{ class_id: '', quiz_id: quizId ? String(quizId) : '', mode: 'solo', boss: '', title: '', auto_lock: 'start', profile_names: 'yes', hide_on_device: 'yes', shuffle_device: 'yes', tab_alert: 'yes' }} onClose={onClose}
       onSubmit={async (v) => {
-        const room = await api.createRoom(session.token, { class_id: Number(v.class_id), quiz_id: Number(v.quiz_id), mode: v.mode === 'team' ? 'team' : 'solo', title: String(v.title).trim() || undefined });
+        const mode = v.mode === 'team' ? 'team' : v.mode === 'boss' ? 'boss' : 'solo';
+        const room = await api.createRoom(session.token, {
+          class_id: Number(v.class_id), quiz_id: Number(v.quiz_id), mode, title: String(v.title).trim() || undefined, ...(mode === 'boss' ? { boss: String(v.boss) } : {}),
+          auto_lock_seconds: v.auto_lock === 'off' ? null : v.auto_lock === 'start' ? 0 : Number(v.auto_lock),
+          profile_names: v.profile_names !== 'no', hide_on_device: v.hide_on_device !== 'no', shuffle_device: v.shuffle_device !== 'no', tab_alert: v.tab_alert !== 'no',
+        });
         onCreated(room.room.id);
       }} />
   );
@@ -114,10 +133,10 @@ const CreateRoom: React.FC<{ session: Session; onClose: () => void; onCreated: (
 
 type Screen = { kind: 'list' } | { kind: 'host'; id: number } | { kind: 'report'; id: number };
 
-export const LiveManager: React.FC<{ session: Session }> = ({ session }) => {
+export const LiveManager: React.FC<{ session: Session; startQuizId?: number | null; onStarted?: () => void }> = ({ session, startQuizId, onStarted }) => {
   const rooms = useLoad(() => api.listRooms(session.token), [session.token], session.expired);
   const [screen, setScreen] = useState<Screen>({ kind: 'list' });
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(Boolean(startQuizId));
   const back = () => { setScreen({ kind: 'list' }); rooms.reload(); };
   if (screen.kind === 'host') return <LiveHost session={session} roomId={screen.id} onBack={back} onReport={(id) => setScreen({ kind: 'report', id })} />;
   if (screen.kind === 'report') return <Report session={session} roomId={screen.id} onBack={back} />;
@@ -131,7 +150,7 @@ export const LiveManager: React.FC<{ session: Session }> = ({ session }) => {
       {rooms.data?.length ? (
         <DataTable<LiveRoomRow> rows={rooms.data} rowKey={(r) => r.id} empty="" onRowPress={(r) => setScreen(r.state === 'ended' ? { kind: 'report', id: r.id } : { kind: 'host', id: r.id })}
           columns={[
-            { key: 'title', label: 'Phòng thi', flex: 3, render: (r) => <Cell main={r.title} sub={`Lớp ${r.class_name} · ${r.mode === 'team' ? 'theo đội' : 'cá nhân'}`} /> },
+            { key: 'title', label: 'Phòng thi', flex: 3, render: (r) => <Cell main={r.title} sub={`Lớp ${r.class_name} · ${r.mode === 'team' ? 'theo đội' : r.mode === 'boss' ? 'đánh trùm' : 'cá nhân'}${r.locked ? ' · đã khóa' : ''}`} /> },
             { key: 'state', label: 'Trạng thái', flex: 1.4, render: (r) => <StatusChip kind={r.state === 'ended' ? 'muted' : r.state === 'lobby' ? 'warn' : 'on'} text={r.state === 'ended' && r.ended_early ? 'Kết thúc sớm' : LIVE_STATE_TEXT[r.state]} /> },
             { key: 'pin', label: 'Mã PIN', flex: 1, render: (r) => <Txt f="bold" size={15} style={{ letterSpacing: 2 }}>{r.pin ?? '—'}</Txt> },
             { key: 'players', label: 'Người chơi', flex: 1, render: (r) => <Txt size={13}>{r.players} · điểm TB {r.avg_score}</Txt> },
@@ -141,7 +160,7 @@ export const LiveManager: React.FC<{ session: Session }> = ({ session }) => {
             ? <Btn title="Báo cáo" tone="giay" size="sm" onPress={() => setScreen({ kind: 'report', id: r.id })} />
             : <Btn icon={Play} title="Mở phòng" tone="ngoc" size="sm" onPress={() => setScreen({ kind: 'host', id: r.id })} testID={`live-open-${r.id}`} />)} />
       ) : null}
-      {creating ? <CreateRoom session={session} onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); rooms.reload(); setScreen({ kind: 'host', id }); }} /> : null}
+      {creating ? <CreateRoom session={session} quizId={startQuizId ?? undefined} onClose={() => { setCreating(false); onStarted?.(); }} onCreated={(id) => { setCreating(false); onStarted?.(); rooms.reload(); setScreen({ kind: 'host', id }); }} /> : null}
     </Page>
   );
 };

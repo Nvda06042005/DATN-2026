@@ -5,6 +5,7 @@ import type {
   LessonItem, LessonView, Listing, ListenView, MapPlace, MenuDots, NodeDetail, NodeInput, NodeResult, NoteItem, QuestionDetail, QuestionImportResult, QuestionInput, QuestionItem, QuestionVersion, Quests,
   QuizDetail, QuizInput, QuizItem, SearchHit, ShareDetail, ShareItem, SourceItem, StudentHome, TeacherClass, TermItem, TimelineEntry,
 } from '@/types/learning';
+import type { CommitResult, MediaLibrary, StudioDraft, StudioListItem, StudioPayload } from '@/types/studio';
 
 type Query = Record<string, string | number | boolean | null | undefined>;
 const qs = (query: Query = {}) => {
@@ -26,6 +27,16 @@ export const importQuestions = (token: string, file: PickedFile, commit: boolean
 export const historyOptions = (token: string, type: string, query: Query = {}) => apiRequest<HistoryOption[]>(`/api/content/history-options${qs({ type, ...query })}`, { token });
 
 // ---------------------------------------------------------------------- bộ đề (HK.GV.040–044)
+// ---------------------------------------------------------------------- trình soạn Quiz và ảnh tải lên (HK.GV.085–094)
+export const studioDrafts = (token: string) => apiRequest<StudioListItem[]>('/api/content/studio', { token });
+export const createStudioDraft = (token: string, fromQuizId?: number) => apiRequest<StudioDraft>('/api/content/studio', { token, body: fromQuizId ? { from_quiz_id: fromQuizId } : {} });
+export const getStudioDraft = (token: string, id: number) => apiRequest<StudioDraft>(`/api/content/studio/${id}`, { token });
+export const saveStudioDraft = (token: string, id: number, payload: StudioPayload) => apiRequest<{ id: number; updated_at: string }>(`/api/content/studio/${id}`, { token, method: 'PUT', body: payload });
+export const commitStudio = (token: string, id: number) => apiRequest<CommitResult>(`/api/content/studio/${id}/commit`, { token, body: {} });
+export const deleteStudio = (token: string, id: number) => apiRequest<{ deleted: boolean }>(`/api/content/studio/${id}`, { token, method: 'DELETE' });
+export const uploadMedia = (token: string, body: { name: string; data: string }) => apiRequest<{ token: string; url: string; mime: string; size_bytes: number }>('/api/content/media', { token, body, timeoutMs: 120_000 });
+export const mediaLibrary = (token: string, q: string) => apiRequest<MediaLibrary>(`/api/content/media-library${q ? `?q=${encodeURIComponent(q)}` : ''}`, { token });
+
 export const listQuizzes = (token: string, query: Query) => apiRequest<Listing<QuizItem>>(`/api/content/quizzes${qs(query)}`, { token });
 export const getQuiz = (token: string, id: number) => apiRequest<QuizDetail>(`/api/content/quizzes/${id}`, { token });
 export const createQuiz = (token: string, body: QuizInput) => apiRequest<QuizDetail>('/api/content/quizzes', { token, body });

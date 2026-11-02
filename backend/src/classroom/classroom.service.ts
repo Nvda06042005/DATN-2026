@@ -400,11 +400,12 @@ export class ClassroomService {
 
   // ------------------------------------------------------------------ luật lớp (HK.GV.060)
   private async settingsOf(q: Q, classId: number) {
-    const row = (await q<Record<string, any>>('SELECT hearts_enabled, hearts_max, leaderboard_enabled, skill_approval, team_goal_per_member, rules FROM hk_class_settings WHERE class_id = $1', [classId]))[0];
+    const row = (await q<Record<string, any>>('SELECT hearts_enabled, hearts_max, leaderboard_enabled, skill_approval, team_goal_per_member, rules, war_enabled, war_minutes FROM hk_class_settings WHERE class_id = $1', [classId]))[0];
     const rules = (row?.rules as Rule[] | undefined) ?? [];
     return {
       hearts_enabled: row?.hearts_enabled ?? true, hearts_max: row?.hearts_max ?? null, leaderboard_enabled: row?.leaderboard_enabled ?? true, skill_approval: row?.skill_approval ?? false,
       team_goal_per_member: row?.team_goal_per_member ?? 100, rules: rules.length ? rules : DEFAULT_RULES, rules_default: !rules.length,
+      war_enabled: row?.war_enabled ?? true, war_minutes: row?.war_minutes ?? null,
     };
   }
 
@@ -432,11 +433,12 @@ export class ClassroomService {
     const heartsMax = body.hearts_max === undefined ? cur.hearts_max : body.hearts_max === null || body.hearts_max === '' ? null : clampInt(body.hearts_max, 1, 10, 'HP tối đa');
     const goal = body.team_goal_per_member === undefined ? cur.team_goal_per_member : clampInt(body.team_goal_per_member, 10, 2000, 'Mục tiêu điểm mỗi người của đội');
     const bool = (v: unknown, fallback: boolean) => (typeof v === 'boolean' ? v : fallback);
+    const warMinutes = body.war_minutes === undefined ? cur.war_minutes : body.war_minutes === null || body.war_minutes === '' ? null : clampInt(body.war_minutes, 5, 240, 'Giới hạn chơi game trận đánh mỗi ngày (phút)');
     await this.db.query(
-      `INSERT INTO hk_class_settings (class_id, hearts_enabled, hearts_max, leaderboard_enabled, skill_approval, team_goal_per_member, rules, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (class_id) DO UPDATE SET hearts_enabled = $2, hearts_max = $3, leaderboard_enabled = $4, skill_approval = $5, team_goal_per_member = $6, rules = $7, updated_by = $8, updated_at = now()`,
+      `INSERT INTO hk_class_settings (class_id, hearts_enabled, hearts_max, leaderboard_enabled, skill_approval, team_goal_per_member, rules, updated_by, war_enabled, war_minutes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (class_id) DO UPDATE SET hearts_enabled = $2, hearts_max = $3, leaderboard_enabled = $4, skill_approval = $5, team_goal_per_member = $6, rules = $7, updated_by = $8, war_enabled = $9, war_minutes = $10, updated_at = now()`,
       [classId, bool(body.hearts_enabled, cur.hearts_enabled), heartsMax, bool(body.leaderboard_enabled, cur.leaderboard_enabled), bool(body.skill_approval, cur.skill_approval), goal,
-        JSON.stringify(rules ?? (cur.rules_default ? [] : cur.rules)), user.id]);
+        JSON.stringify(rules ?? (cur.rules_default ? [] : cur.rules)), user.id, bool(body.war_enabled, cur.war_enabled), warMinutes]);
     return this.settingsOf(this.db.query.bind(this.db) as Q, classId);
   }
 

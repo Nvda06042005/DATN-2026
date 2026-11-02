@@ -1,14 +1,14 @@
 /**
  * Thành phần chung của thi đấu trực tiếp (Sprint 8), dùng ở màn hình giáo viên và học sinh: hình đại diện, đồng hồ đếm ngược, đáp án có hình khối và chữ cái
- * (không chỉ dựa vào màu), bảng xếp hạng, bục vinh quang có hiệu ứng (tắt khi người dùng chọn giảm chuyển động).
+ * (không chỉ dựa vào màu), nút hình – màu trên thiết bị khi giáo viên ẩn nội dung câu hỏi, thanh máu trùm, bảng xếp hạng, bục vinh quang có hiệu ứng (tắt khi người dùng chọn giảm chuyển động).
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Pressable, View } from 'react-native';
-import { Check, Circle, Clock, Crown, Diamond, Square, Triangle } from 'lucide-react-native';
+import { Check, Circle, Clock, Crown, Diamond, Shield, Square, Swords, Triangle } from 'lucide-react-native';
 import { iconOf } from '@/components/portal/GameKit';
 import { Bar, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
-import { LIVE_AVATARS, type LiveOption, type LiveTop } from '@/types/live';
+import { LIVE_AVATARS, type BossHit, type BossView, type LiveOption, type LiveTop } from '@/types/live';
 
 export const LiveAvatar: React.FC<{ avatar: string; size?: number; label?: string }> = ({ avatar, size = 40, label }) => {
   const { c } = useTheme();
@@ -50,16 +50,19 @@ export const LiveCountdown: React.FC<{ remaining: number; total: number; paused?
   );
 };
 
+/** ▲ đỏ, ◆ xanh lá, ● vàng, ■ xanh đậm (HK.GV.087); mỗi đáp án giữ nguyên hình – màu theo vị trí trên màn chiếu */
 const SHAPES = [
-  { Shape: Triangle, edge: 'son', bg: 'sonNhat' }, { Shape: Diamond, edge: 'thuy', bg: 'thuyNhat' }, { Shape: Circle, edge: 'vangDam', bg: 'vangNhat' }, { Shape: Square, edge: 'ngoc', bg: 'ngocNhat' },
+  { Shape: Triangle, edge: 'son', bg: 'sonNhat' }, { Shape: Diamond, edge: 'ngoc', bg: 'ngocNhat' }, { Shape: Circle, edge: 'vangDam', bg: 'vangNhat' }, { Shape: Square, edge: 'thuy', bg: 'thuyNhat' },
 ] as const;
+export const SHAPE_NAMES = ['tam giác đỏ', 'hình thoi xanh lá', 'hình tròn vàng', 'hình vuông xanh đậm'] as const;
 
 /** Một đáp án: hình khối + chữ cái + nội dung; có thể bấm (học sinh) hoặc chỉ hiển thị với số lượt chọn và dấu đáp án đúng (giáo viên) */
 export const LiveChoice: React.FC<{
-  index: number; text: string; onPress?: () => void; disabled?: boolean; selected?: boolean; chosen?: boolean; correct?: boolean; count?: number; total?: number; revealed?: boolean; big?: boolean; testID?: string;
-}> = ({ index, text, onPress, disabled, selected, chosen, correct, count, total, revealed, big, testID }) => {
+  index: number; shape?: number; text: string; onPress?: () => void; disabled?: boolean; selected?: boolean; chosen?: boolean; correct?: boolean; count?: number; total?: number; revealed?: boolean; big?: boolean; testID?: string;
+}> = ({ index, shape, text, onPress, disabled, selected, chosen, correct, count, total, revealed, big, testID }) => {
   const { c } = useTheme();
-  const spec = SHAPES[index % 4];
+  const slot = (shape ?? index) % 4;
+  const spec = SHAPES[slot];
   // Khi công bố kết quả: đáp án đúng chuyển sang xanh lá, các đáp án còn lại xám (màu theo thứ tự đáp án không còn ý nghĩa)
   const edge = revealed ? (correct ? c.ngoc : c.vien2) : c[spec.edge], bg = revealed ? (correct ? c.ngocNhat : c.giay2) : c[spec.bg];
   const dim = revealed && !correct;
@@ -70,7 +73,7 @@ export const LiveChoice: React.FC<{
       <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: edge, alignItems: 'center', justifyContent: 'center' }}>
         <Shape size={18} color="#ffffff" fill="#ffffff" />
       </View>
-      <Txt f="displayHeavy" size={big ? 22 : 18} color={c.muc} style={{ width: 22 }}>{String.fromCharCode(65 + index)}</Txt>
+      <Txt f="displayHeavy" size={big ? 22 : 18} color={c.muc} style={{ width: 22 }}>{String.fromCharCode(65 + slot)}</Txt>
       <Txt f="semibold" size={big ? 22 : 17} color={c.muc} style={{ flex: 1 }}>{text}</Txt>
       {count !== undefined ? <Txt f="displayHeavy" size={big ? 28 : 20} color={c.muc}>{count}</Txt> : null}
       {revealed && correct ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}><Check size={22} color={c.ngocChu} /><Txt f="bold" size={13} color={c.ngocChu}>Đúng</Txt></View> : null}
@@ -79,10 +82,55 @@ export const LiveChoice: React.FC<{
   );
   if (!onPress) return body;
   return (
-    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`Đáp án ${String.fromCharCode(65 + index)}: ${text}`} accessibilityState={{ selected: Boolean(selected), disabled: Boolean(disabled) }} disabled={disabled} onPress={onPress}
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`Đáp án ${String.fromCharCode(65 + slot)}: ${text}`} accessibilityState={{ selected: Boolean(selected), disabled: Boolean(disabled) }} disabled={disabled} onPress={onPress}
       style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.99 : 1 }] })}>
       {body}
     </Pressable>
+  );
+};
+
+/** Nút hình – màu lớn trên thiết bị học sinh khi nội dung câu hỏi chỉ hiện trên màn chiếu (HK.HS.139); có tên hình cho trình đọc màn hình */
+export const LiveShapeButton: React.FC<{ shape: number; onPress: () => void; disabled?: boolean; selected?: boolean; testID?: string }> = ({ shape, onPress, disabled, selected, testID }) => {
+  const { c } = useTheme();
+  const spec = SHAPES[shape % 4];
+  const Shape = spec.Shape;
+  return (
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={`Đáp án ${String.fromCharCode(65 + (shape % 4))}: ${SHAPE_NAMES[shape % 4]}`} accessibilityState={{ selected: Boolean(selected), disabled: Boolean(disabled) }} disabled={disabled} onPress={onPress}
+      style={({ pressed }) => ({ flexGrow: 1, flexBasis: '45%', minHeight: 104, borderRadius: 20, borderWidth: 4, borderColor: selected ? c.muc : c[spec.edge], backgroundColor: c[spec.edge], opacity: disabled ? 0.55 : pressed ? 0.85 : 1, alignItems: 'center', justifyContent: 'center', gap: 4, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+      <Shape size={48} color="#ffffff" fill="#ffffff" />
+      <Txt f="displayHeavy" size={20} color="#ffffff">{String.fromCharCode(65 + (shape % 4))}</Txt>
+      {selected ? <View style={{ position: 'absolute', top: 8, right: 8 }}><Check size={24} color="#ffffff" /></View> : null}
+    </Pressable>
+  );
+};
+
+/** Thanh máu trùm và máu cả lớp (HK.GV.101, HK.HS.142); rung nhẹ mỗi khi có đòn đánh mới (không rung nếu người dùng giảm chuyển động) */
+export const BossPanel: React.FC<{ boss: BossView; hit?: BossHit | null; big?: boolean }> = ({ boss, hit, big }) => {
+  const { c } = useTheme();
+  const shake = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!hit) return;
+    AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (!reduce) Animated.sequence([-8, 8, -6, 6, 0].map((v) => Animated.timing(shake, { toValue: v, duration: 70, useNativeDriver: true }))).start();
+    }).catch(() => undefined);
+  }, [hit?.q]); // eslint-disable-line react-hooks/exhaustive-deps
+  const max = Math.max(1, boss.max_hp ?? 1), classMax = Math.max(1, boss.class_max_hp ?? 1);
+  return (
+    <Animated.View accessibilityLabel={`Trùm ${boss.name}: còn ${boss.hp ?? 0} trên ${boss.max_hp ?? 0} máu. Cả lớp còn ${boss.class_hp ?? 0} trên ${boss.class_max_hp ?? 0} máu`} style={{ transform: [{ translateX: shake }], gap: 8, padding: 14, borderRadius: 16, borderWidth: 2, borderColor: c.son, backgroundColor: c.sonNhat }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Swords size={big ? 34 : 26} color={c.sonChu} />
+        <Txt f="displayHeavy" size={big ? 26 : 19} color={c.sonChu} style={{ flex: 1 }}>{boss.name}</Txt>
+        <Txt f="bold" size={big ? 20 : 15} color={c.sonChu}>{boss.hp ?? 0}/{boss.max_hp ?? 0}</Txt>
+      </View>
+      <Bar value={boss.hp ?? 0} max={max} height={big ? 22 : 14} fill={c.son} label={`Máu trùm ${boss.hp ?? 0}`} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Shield size={big ? 24 : 18} color={c.ngocChu} />
+        <View style={{ flex: 1 }}><Bar value={boss.class_hp ?? 0} max={classMax} height={big ? 16 : 10} fill={c.ngoc} label={`Máu cả lớp ${boss.class_hp ?? 0}`} /></View>
+        <Txt f="bold" size={big ? 16 : 13} color={c.ngocChu}>Cả lớp {boss.class_hp ?? 0}/{boss.class_max_hp ?? 0}</Txt>
+      </View>
+      {hit ? <Txt size={big ? 18 : 14} color={c.muc}>Đòn vừa rồi: trùm mất {hit.damage} máu{hit.wrong ? ` · cả lớp mất ${hit.wrong} máu vì câu sai / bỏ trống` : ''}{hit.top.length ? ` · mạnh nhất: ${hit.top.map((t) => `${t.nickname} (${t.damage})`).join(', ')}` : ''}</Txt> : null}
+      {boss.outcome ? <Txt f="displayHeavy" size={big ? 26 : 20} color={boss.outcome === 'win' ? c.ngocChu : c.sonChu}>{boss.outcome === 'win' ? 'Trùm đã gục! Cả lớp chiến thắng' : 'Cả lớp hết máu hoặc trùm còn sống – lần sau cố gắng hơn nhé'}</Txt> : null}
+    </Animated.View>
   );
 };
 

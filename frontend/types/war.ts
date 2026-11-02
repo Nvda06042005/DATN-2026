@@ -61,7 +61,17 @@ export interface StageIntro {
   commander: { id: number; name: string; role_text: string | null; forces?: string | null; tactics?: string | null } | null; terrain_notes: string[];
   historical_figures: Array<{ id: number; name: string; honorific: string | null }>; suggested_cards: Array<{ id: number; name: string; rarity: WarRarity; owned: boolean }>;
   progress: { best_stars: number; clears: number }; rewards: { gold: number; binh_thu: number; xp: number; card: boolean; fragments: number }; stars: string[]; war: WarStatus;
+  /** Có sa bàn 3D để xem (HK.HS.137) và cấu hình của giáo viên áp lên lớp (HK.GV.083) */
+  has_sandtable?: boolean; class_link?: { gate_title: string | null; gate_done: boolean; skill_questions: boolean; lock_reason: string | null } | null;
 }
+/** Cấu hình gắn cửa học với trận đánh của một lớp (HK.GV.083) */
+export interface BattleLinkOptions {
+  class: { id: number; name: string };
+  gates: Array<{ id: number; title: string; position: number; journey_title: string; campaign_title: string | null }>;
+  stages: Array<{ id: number; title: string; difficulty: number; battle_name: string; year: number | null; has_quiz: boolean; point_name: string | null; map_title: string | null }>;
+  links: Array<{ stage_id: number; gate_id: number | null; difficulty: number | null; skill_questions: boolean }>;
+}
+
 export interface UnitView {
   id: string; side: 'ally' | 'enemy'; name: string; card_id: number | null; branch: Branch | null; level: number; hp: number; max_hp: number; rage: number; alive: boolean; commander: boolean; hao_khi: boolean;
   guard: boolean; effects: Array<{ type: string; turns: number }>; atk: number; def: number; spd: number;

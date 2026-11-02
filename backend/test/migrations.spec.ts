@@ -364,6 +364,34 @@ describe('file migration', () => {
     expect(await count('SELECT count(*) AS n FROM hk_permissions')).toBe(152); // dữ liệu khởi tạo không nhân đôi
   });
 
+  test('035–036 (ver0.2 Sprint 7–8) thêm bảng ảnh tải lên, bản nháp Quiz, yêu cầu vào phòng, nhật ký phòng, gắn cửa – trận đều có RLS; ràng buộc đúng; sa bàn khởi tạo cho 6 trận', async () => {
+    await m.applyMigrations(url, dir);
+    const tables = ['hk_media', 'hk_quiz_drafts', 'hk_live_requests', 'hk_live_events', 'hk_class_battle_links'];
+    expect(await count(`SELECT count(*) AS n FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = ANY(ARRAY[${tables.map((t) => `'${t}'`).join(',')}]) AND c.relrowsecurity`)).toBe(tables.length);
+    // phòng thi: thêm chế độ đánh trùm, mặc định chống tra cứu bật, tự khóa khi bắt đầu không áp cho phòng cũ (NULL = không tự khóa)
+    const cols = await sql<{ column_name: string; column_default: string | null }>(url, "SELECT column_name, column_default FROM information_schema.columns WHERE table_name = 'hk_live_rooms' AND column_name IN ('locked', 'profile_names', 'hide_on_device', 'shuffle_device', 'tab_alert', 'auto_lock_seconds')");
+    const dflt = Object.fromEntries(cols.map((c) => [c.column_name, c.column_default]));
+    expect(dflt).toMatchObject({ locked: 'false', profile_names: 'true', hide_on_device: 'true', shuffle_device: 'true', tab_alert: 'true' });
+    expect(dflt.auto_lock_seconds).toBeNull();
+    const modeCheck = (await sql<{ def: string }>(url, "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conrelid = 'public.hk_live_rooms'::regclass AND contype = 'c' AND pg_get_constraintdef(oid) LIKE '%mode%boss%'"));
+    expect(modeCheck).toHaveLength(1);
+    // ảnh câu hỏi: nhận liên kết https và ảnh tải lên, từ chối còn lại
+    const imgCheck = (await sql<{ def: string }>(url, "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conrelid = 'public.hk_questions'::regclass AND contype = 'c' AND pg_get_constraintdef(oid) LIKE '%image_url%'"));
+    expect(imgCheck).toHaveLength(1);
+    expect(imgCheck[0].def).toMatch(/api\/content\/media/);
+    for (const bad of ["INSERT INTO hk_media (token, mime, size_bytes, data) VALUES ('abc', 'image/png', 1, '\x00')", "INSERT INTO hk_media (token, mime, size_bytes, data) VALUES (repeat('a', 32), 'image/svg+xml', 1, '\x00')",
+      "INSERT INTO hk_media (token, mime, size_bytes, data) VALUES (repeat('b', 32), 'image/png', 9999999, '\x00')", "INSERT INTO hk_live_requests (room_id, user_id, status) VALUES (1, 1, 'khac')",
+      "INSERT INTO hk_live_events (room_id, kind) VALUES (1, 'khong-co')"]) await expect(sql(url, bad)).rejects.toThrow();
+    await expect(sql(url, "UPDATE hk_quizzes SET theme = '[]' WHERE id = (SELECT min(id) FROM hk_quizzes)")).rejects.toThrow(); // giao diện của Quiz phải là một đối tượng
+    await expect(sql(url, "UPDATE hk_quizzes SET cover_url = 'javascript:alert(1)' WHERE id = (SELECT min(id) FROM hk_quizzes)")).rejects.toThrow(); // ảnh bìa chỉ nhận https hoặc ảnh đã tải lên
+    expect(await count("SELECT count(*) AS n FROM pg_constraint WHERE conrelid = 'public.hk_class_settings'::regclass AND contype = 'c' AND pg_get_constraintdef(oid) LIKE '%war_minutes%'")).toBe(1); // phút chơi từ 5 đến 240
+    // sa bàn khởi tạo (Nháp) cho 6 trận, đúng dạng
+    expect(await count("SELECT count(*) AS n FROM hk_stages WHERE sandtable IS NOT NULL AND status = 'draft' AND jsonb_array_length(sandtable->'steps') >= 3 AND jsonb_array_length(sandtable->'armies') = 2")).toBe(6);
+    expect(await count("SELECT count(*) AS n FROM hk_stages WHERE sandtable->>'note' LIKE '%minh họa%'")).toBe(6);
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+    expect(await count('SELECT count(*) AS n FROM hk_stages WHERE sandtable IS NOT NULL')).toBe(6); // không nhân đôi hay ghi đè
+  });
+
   test('032 giữ nguyên nhật ký đăng nhập và hàng đợi thư cũ, thêm cột IP và loại thư mới', async () => {
     const held = readdirSync(dir).filter((name) => name.endsWith('.sql') && Number(name.slice(0, 3)) > 31);
     for (const name of held) renameSync(join(dir, name), join(dir, `${name}.pending`));

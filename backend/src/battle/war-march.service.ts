@@ -11,6 +11,7 @@ import { DatabaseService, Q, UserRow } from '../database/database.service';
 import { GameService } from '../game/game.service';
 import { activeJourneys, nodesWithState } from '../student/progress';
 import { WarGate } from './war-gate';
+import { WarClassService } from './war-class.service';
 
 const KINDS = ['start', 'story', 'card', 'quiz', 'source', 'battle', 'chest'];
 interface Point { id: number; map_id: number; code: string; name: string; description: string | null; x: number; y: number; kind: string; payload: Record<string, any>; sort_order: number }
@@ -18,7 +19,7 @@ interface Dialog { id: number; point_id: number | null; title: string; lines: Ar
 
 @Injectable()
 export class WarMarchService {
-  constructor(private readonly db: DatabaseService, private readonly game: GameService, private readonly gate: WarGate) {}
+  constructor(private readonly db: DatabaseService, private readonly game: GameService, private readonly gate: WarGate, private readonly classes: WarClassService) {}
 
   /** Trạng thái học của từng trận đánh trong hành trình đang học: có nút thì xét nút đã mở chưa */
   private async battleStates(q: Q, user: UserRow): Promise<Map<number, string>> {
@@ -54,6 +55,7 @@ export class WarMarchService {
       const stages = new Map((await q<{ id: number; battle_id: number; title: string; status: string; best_stars: number | null }>(
         'SELECT s.id, s.battle_id, s.title, s.status, sp.best_stars FROM hk_stages s LEFT JOIN hk_stage_progress sp ON sp.stage_id = s.id AND sp.user_id = $1', [user.id])).map((s) => [s.id, s]));
       const battles = await this.battleStates(q, user);
+      const links = await this.classes.linksFor(q, user.id);
       const dialogs = new Set((await q<{ point_id: number }>("SELECT point_id FROM hk_dialogs WHERE status = 'published' AND point_id = ANY($1)", [points.map((p) => p.id)])).map((d) => d.point_id));
       const near = (id: number) => edges.some((e) => (e.from_point === id && visits.has(e.to_point)) || (e.to_point === id && visits.has(e.from_point)));
       const out = points.map((p) => {
@@ -62,6 +64,7 @@ export class WarMarchService {
         if (p.kind === 'battle') {
           if (!stage || stage.status !== 'published') locked = 'Trận đánh này chưa được mở.';
           else if (battles.get(stage.battle_id) === 'locked') locked = 'Hãy học xong cửa dẫn tới trận này để ra trận.';
+          else locked = this.classes.lockReason(links.get(stage.id));
         }
         const visited = visits.has(p.id);
         const state = p.id === current ? 'current' : visited ? 'visited' : near(p.id) && !locked ? 'open' : 'locked';
@@ -117,6 +120,9 @@ export class WarMarchService {
           const stage = (await q<{ battle_id: number; status: string }>('SELECT battle_id, status FROM hk_stages WHERE id = $1', [Number(p.payload.stage_id)]))[0];
           if (!stage || stage.status !== 'published') throw new ConflictException('Trận đánh này chưa được mở.');
           if ((await this.battleStates(q, user)).get(stage.battle_id) === 'locked') throw new ConflictException('Hãy học xong cửa dẫn tới trận này để ra trận.');
+          const stageId = Number(p.payload.stage_id);
+          const classLock = this.classes.lockReason((await this.classes.linksFor(q, user.id, [stageId])).get(stageId));
+          if (classLock) throw new ConflictException(classLock);
         }
       }
       const path = this.pathTo(edges, visited, st.point_id, p.id);

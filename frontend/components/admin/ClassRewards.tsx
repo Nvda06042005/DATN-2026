@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { Gift, Heart, Plus, Send, Shield, Sparkles, Trash2, Trophy } from 'lucide-react-native';
+import { Gift, Heart, Plus, Send, Shield, Sparkles, Swords, Trash2, Trophy } from 'lucide-react-native';
 import * as game from '@/api/gameApi';
 import * as api from '@/api/classroomApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
@@ -29,6 +29,8 @@ const RulesForm: React.FC<{ session: Session; cls: ClassDetail; settings: ClassS
   const [hearts, setHearts] = useState(settings.hearts_enabled);
   const [board, setBoard] = useState(settings.leaderboard_enabled);
   const [approval, setApproval] = useState(settings.skill_approval);
+  const [warOn, setWarOn] = useState(settings.war_enabled);
+  const [warMinutes, setWarMinutes] = useState(settings.war_minutes ? String(settings.war_minutes) : '');
   const [max, setMax] = useState(settings.hearts_max ? String(settings.hearts_max) : '');
   const [goal, setGoal] = useState(String(settings.team_goal_per_member));
   const [rules, setRules] = useState<RuleDraft[]>(settings.rules.map((r) => ({ id: r.id, label: r.label, xp: String(r.xp), gold: String(r.gold), hp: String(r.hp) })));
@@ -36,6 +38,7 @@ const RulesForm: React.FC<{ session: Session; cls: ClassDetail; settings: ClassS
   const save = async () => {
     const res = await run(() => api.saveRules(session.token, cls.id, {
       hearts_enabled: hearts, leaderboard_enabled: board, skill_approval: approval, hearts_max: max ? Number(max) : null, team_goal_per_member: Number(goal) || 100,
+      war_enabled: warOn, war_minutes: warMinutes ? Number(warMinutes) : null,
       rules: rules.map((r) => ({ id: r.id, label: r.label.trim(), xp: Number(r.xp) || 0, gold: Number(r.gold) || 0, hp: Number(r.hp) || 0 })),
     }), 'Đã lưu luật lớp');
     if (res) onSaved(res);
@@ -46,7 +49,9 @@ const RulesForm: React.FC<{ session: Session; cls: ClassDetail; settings: ClassS
         <ToggleRow icon={Heart} label="Bật cơ chế tim" desc="Tắt thì học sinh trong lớp không bị mất tim khi trả lời sai" checked={hearts} onChange={setHearts} />
         <ToggleRow icon={Trophy} label="Hiện bảng xếp hạng lớp và đội" desc="Tắt thì học sinh thấy thông báo thay cho bảng xếp hạng" checked={board} onChange={setBoard} />
         <ToggleRow icon={Shield} label="Duyệt kỹ năng hồi tim" desc="Kỹ năng Thuốc quý và Hồi sinh chờ giáo viên đồng ý; điểm hành động hoàn lại nếu bị từ chối" checked={approval} onChange={setApproval} />
+        <ToggleRow icon={Swords} label="Cho phép game trận đánh" desc="Tắt thì học sinh của lớp không chơi được bản đồ hành quân và đánh thẻ; học và làm bài vẫn bình thường" checked={warOn} onChange={setWarOn} />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+          <View style={{ flexGrow: 1, flexBasis: 200 }}><AdminSelect label="Thời gian chơi game trận đánh tối đa mỗi ngày" value={warMinutes} onChange={(v) => setWarMinutes(String(v))} testID="class-war-minutes" options={[{ value: '', label: 'Theo cấu hình của trường và hệ thống' }, ...[10, 15, 20, 30, 45, 60, 90, 120].map((m) => ({ value: String(m), label: `${m} phút mỗi ngày` }))]} /></View>
           <View style={{ flexGrow: 1, flexBasis: 200 }}><AdminSelect label="HP (tim) tối đa của lớp" value={max} onChange={setMax} options={[{ value: '', label: 'Theo mặc định chung' }, ...Array.from({ length: 10 }, (_, i) => ({ value: String(i + 1), label: `${i + 1} tim` }))]} /></View>
           <Field label="Mục tiêu điểm tuần mỗi người của đội" value={goal} onChangeText={setGoal} keyboardType="numeric" style={{ flexGrow: 1, flexBasis: 200 }} hint="Nhiệm vụ đội = số thành viên × mức này (10–2000)" />
         </View>

@@ -14,6 +14,8 @@ import { GameService } from '../game/game.service';
 import { lockedSources, activeJourneys, nodesWithState } from '../student/progress';
 import { advance, Action, AllyInput, autoPlay, BattleState, cardStats, createBattle, EnemyDef, MoveDef, publicView, resolveUltimate, starsOf, TacticDef, TerrainDef, WaveDef } from './war-engine';
 import { WarGate } from './war-gate';
+import { WarClassService } from './war-class.service';
+import { cleanSandtable } from './sandtable';
 
 const QUESTION_SECONDS = 15;
 const DEFAULT_MOVES: MoveDef[] = [
@@ -25,17 +27,19 @@ const BRANCHES = ['bo', 'thuy', 'ky'];
 
 interface StageRow {
   id: number; battle_id: number; title: string; summary: string | null; objective: string | null; background_url: string | null; difficulty: number; max_turns: number; star_turns: number;
-  terrain: TerrainDef; waves: WaveDef[]; rewards: Record<string, any>; commander_id: number | null; quiz_id: number | null; differences: string[]; status: string;
+  terrain: TerrainDef; waves: WaveDef[]; rewards: Record<string, any>; commander_id: number | null; quiz_id: number | null; differences: string[]; status: string; sandtable: Record<string, unknown> | null;
 }
-interface RunState { engine: BattleState; question: null | { qid: number; served_at: number; seconds: number; qtype: QType; data: Record<string, unknown>; explanation: string | null; prompt: string; image_url: string | null; difficulty: number }; row: { front: string[]; back: string[] } }
+interface RunState { engine: BattleState; question: null | { qid: number; served_at: number; seconds: number; qtype: QType; data: Record<string, unknown>; explanation: string | null; prompt: string; image_url: string | null; difficulty: number }; row: { front: string[]; back: string[] }; opts?: { difficulty: number; skill_questions: boolean } }
 interface RunRow { id: number; user_id: number; stage_id: number; mode: 'play' | 'preview'; status: 'active' | 'won' | 'lost'; seed: number; formation: Record<string, any>; state: RunState; turns: number; stars: number; result: Record<string, any> | null; last_action_at: string }
 interface CardWar { id: number; code: string; name: string; branch: 'bo' | 'thuy' | 'ky' | null; kind: string; base_stats: Record<string, number>; figure_id: number | null; level: number; stars: number; tactic: Record<string, any> | null }
 
-const STAGE_COLUMNS = 'id, battle_id, title, summary, objective, background_url, difficulty, max_turns, star_turns, terrain, waves, rewards, commander_id, quiz_id, differences, status';
+const STAGE_COLUMNS = 'id, battle_id, title, summary, objective, background_url, difficulty, max_turns, star_turns, terrain, waves, rewards, commander_id, quiz_id, differences, status, sandtable';
+/** Hệ số sức mạnh quân địch theo độ khó (HK.GV.083): độ khó giáo viên chọn so với độ khó gốc của màn */
+const DIFFICULTY_POWER: Record<number, number> = { 1: 0.8, 2: 1, 3: 1.25 };
 
 @Injectable()
 export class WarService {
-  constructor(private readonly db: DatabaseService, private readonly game: GameService, private readonly gate: WarGate, private readonly clock: GameClock) {}
+  constructor(private readonly db: DatabaseService, private readonly game: GameService, private readonly gate: WarGate, private readonly clock: GameClock, private readonly classes: WarClassService) {}
 
   private async battleStates(q: Q, user: UserRow): Promise<Map<number, string>> {
     const out = new Map<number, string>();
@@ -53,9 +57,14 @@ export class WarService {
          LEFT JOIN hk_stage_progress sp ON sp.stage_id = s.id AND sp.user_id = $1 LEFT JOIN hk_commanders k ON k.id = s.commander_id AND k.status = 'published'
          LEFT JOIN hk_commanders_seen ks ON ks.commander_id = k.id AND ks.user_id = $1 WHERE s.status = 'published' ORDER BY c.sort_order NULLS LAST, b.year, s.id`, [user.id]);
       const states = await this.battleStates(q, user);
+      const links = user.role === 'student' ? await this.classes.linksFor(q, user.id) : new Map();
       return {
         war: await this.gate.status(q, user),
-        stages: rows.map((r) => ({ ...r, best_stars: r.best_stars ?? 0, clears: r.clears ?? 0, locked: states.get(r.battle_id) === 'locked', locked_reason: states.get(r.battle_id) === 'locked' ? 'Hãy học xong cửa dẫn tới trận này để ra trận.' : null })),
+        stages: rows.map((r) => {
+          const link = links.get(r.id);
+          const journeyLocked = states.get(r.battle_id) === 'locked', classLock = this.classes.lockReason(link);
+          return { ...r, difficulty: link?.difficulty ?? r.difficulty, best_stars: r.best_stars ?? 0, clears: r.clears ?? 0, locked: journeyLocked || Boolean(classLock), locked_reason: journeyLocked ? 'Hãy học xong cửa dẫn tới trận này để ra trận.' : classLock };
+        }),
       };
     });
   }
@@ -80,13 +89,15 @@ export class WarService {
         `SELECT c.id, c.name, c.rarity, (uc.user_id IS NOT NULL) AS owned, c.figure_id FROM hk_cards c LEFT JOIN hk_user_cards uc ON uc.card_id = c.id AND uc.user_id = $1
          WHERE c.is_active AND c.kind = 'general' AND c.figure_id = ANY($2) ORDER BY c.name`, [user.id, figures.map((f) => f.id)]);
       const progress = (await q<{ best_stars: number; clears: number }>('SELECT best_stars, clears FROM hk_stage_progress WHERE user_id = $1 AND stage_id = $2', [user.id, id]))[0] ?? { best_stars: 0, clears: 0 };
+      const link = user.role === 'student' ? (await this.classes.linksFor(q, user.id, [id])).get(id) : undefined;
       const terrainNotes: string[] = [];
       if (s.terrain.tide) terrainNotes.push('Nước triều lên xuống theo từng vòng.');
       if (s.terrain.stakes) terrainNotes.push('Khi nước rút, bãi cọc ngầm làm thuyền địch va vỡ.');
       if (s.terrain.water_bonus) terrainNotes.push('Thủy binh chiến đấu mạnh hơn trên sông nước.');
       if (s.terrain.hunger) terrainNotes.push('Kế "vườn không nhà trống": quân địch thiếu lương, mất dần sinh lực mỗi vòng.');
       return {
-        id: s.id, title: s.title, summary: s.summary, objective: s.objective, background_url: s.background_url, difficulty: s.difficulty, max_turns: s.max_turns, star_turns: s.star_turns,
+        id: s.id, title: s.title, summary: s.summary, objective: s.objective, background_url: s.background_url, difficulty: link?.difficulty ?? s.difficulty, max_turns: s.max_turns, star_turns: s.star_turns, has_sandtable: Boolean(s.sandtable),
+        class_link: link ? { gate_title: link.gate_title, gate_done: link.gate_done, skill_questions: link.skill_questions, lock_reason: this.classes.lockReason(link) } : null,
         battle: { id: battle.id, name: battle.name, year: battle.year, date_text: battle.date_text, context: battle.context, forces: battle.forces },
         enemies: s.waves.map((w) => ({ label: w.label ?? null, units: w.units.map((u) => ({ name: u.name, commander: Boolean(u.commander), branch: u.branch ?? null })) })),
         commander: commander ? (seen ? commander : { id: commander.id, name: commander.name, role_text: commander.role_text }) : null, terrain_notes: terrainNotes,
@@ -133,6 +144,9 @@ export class WarService {
       await this.gate.assertOpen(q, user);
       const s = await this.stage(q, stageId);
       if ((await this.battleStates(q, user)).get(s.battle_id) === 'locked') throw new ConflictException('Hãy học xong cửa dẫn tới trận này để ra trận.');
+      const link = (await this.classes.linksFor(q, user.id, [stageId])).get(stageId);
+      const classLock = this.classes.lockReason(link);
+      if (classLock) throw new ConflictException(classLock);
       const open = (await q<{ id: number }>("SELECT id::int AS id FROM hk_war_battles WHERE user_id = $1 AND stage_id = $2 AND status = 'active'", [user.id, stageId]))[0];
       if (open && !body.restart) return this.view(q, await this.runOf(q, user, open.id));
       if (open) await q('DELETE FROM hk_war_battles WHERE id = $1', [open.id]);
@@ -152,7 +166,7 @@ export class WarService {
         if (!t || t.kind !== 'tactic') throw new BadRequestException('Thẻ chiến thuật phải là thẻ em đã có');
         tactic = this.tacticOf(t);
       }
-      return this.create(q, user, s, 'play', cards, { front, back }, tactic);
+      return this.create(q, user, s, 'play', cards, { front, back }, tactic, link ? { difficulty: link.difficulty ?? s.difficulty, skill_questions: link.skill_questions } : undefined);
     });
   }
 
@@ -167,11 +181,19 @@ export class WarService {
     });
   }
 
-  private async create(q: Q, user: UserRow, s: StageRow, mode: 'play' | 'preview', cards: CardWar[], formation: { front: number[]; back: number[] }, tactic: TacticDef | null) {
+  /** Tăng / giảm máu và sức đánh của quân địch khi giáo viên đổi độ khó của trận cho lớp (HK.GV.083) */
+  private scaleWaves(waves: WaveDef[], from: number, to: number): WaveDef[] {
+    const factor = (DIFFICULTY_POWER[to] ?? 1) / (DIFFICULTY_POWER[from] ?? 1);
+    if (factor === 1) return waves;
+    return waves.map((w) => ({ ...w, units: w.units.map((u) => ({ ...u, hp: Math.max(50, Math.round(u.hp * factor)), atk: Math.max(1, Math.round(u.atk * factor)) })) }));
+  }
+
+  private async create(q: Q, user: UserRow, s: StageRow, mode: 'play' | 'preview', cards: CardWar[], formation: { front: number[]; back: number[] }, tactic: TacticDef | null, opts?: { difficulty: number; skill_questions: boolean }) {
     const seed = Math.floor(Math.random() * 2 ** 31);
-    const engine = createBattle({ allies: await this.buildAllies(q, cards, s.battle_id), waves: s.waves, terrain: s.terrain, maxTurns: s.max_turns, starTurns: s.star_turns, tactic, seed });
+    const waves = opts ? this.scaleWaves(s.waves, s.difficulty, opts.difficulty) : s.waves;
+    const engine = createBattle({ allies: await this.buildAllies(q, cards, s.battle_id), waves, terrain: s.terrain, maxTurns: s.max_turns, starTurns: s.star_turns, tactic, seed });
     advance(engine, null);
-    const state: RunState = { engine, question: null, row: { front: formation.front.map((id) => `a${id}`), back: formation.back.map((id) => `a${id}`) } };
+    const state: RunState = { engine, question: null, row: { front: formation.front.map((id) => `a${id}`), back: formation.back.map((id) => `a${id}`) }, ...(opts ? { opts } : {}) };
     const id = (await q<{ id: number }>(
       'INSERT INTO hk_war_battles (user_id, stage_id, mode, seed, formation, state, turns) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id::int AS id',
       [user.id, s.id, mode, seed, JSON.stringify({ ...formation, tactic: tactic?.name ?? null }), JSON.stringify(state), engine.turn]))[0].id;
@@ -202,7 +224,7 @@ export class WarService {
   /** Chọn câu hỏi cho tuyệt kỹ từ bộ câu hỏi của màn; không có bộ câu hỏi thì tuyệt kỹ phát huy đủ */
   private async prepareQuestion(q: Q, s: StageRow, r: RunRow): Promise<void> {
     const e = r.state.engine;
-    const rows = s.quiz_id ? await q<QuestionCore & { explanation: string | null }>(
+    const rows = s.quiz_id && r.state.opts?.skill_questions !== false ? await q<QuestionCore & { explanation: string | null }>(
       'SELECT t.id, t.qtype, t.prompt, t.image_url, t.explanation, t.difficulty, t.data FROM hk_quiz_questions k JOIN hk_questions t ON t.id = k.question_id WHERE k.quiz_id = $1 ORDER BY k.position, t.id', [s.quiz_id]) : [];
     if (!rows.length) { resolveUltimate(e, { correct: true, inTime: true }); advance(e, null); return; }
     const pick = rows[(r.seed + e.turn * 7 + e.stats.ultimates * 3) % rows.length];
@@ -339,6 +361,22 @@ export class WarService {
     });
   }
 
+  // ---------------------------------------------------------------------- Sa bàn 3D (HK.HS.137, HK.GV.084)
+  /** Các trận có sa bàn: học sinh và giáo viên thấy màn đã phát hành; quản trị tổng thấy cả bản nháp để kiểm tra */
+  async sandtables(user: UserRow) {
+    return this.db.query(
+      `SELECT s.id, s.title, b.name AS battle_name, b.year, c.title AS campaign_title, s.status, jsonb_array_length(s.sandtable->'steps')::int AS steps
+       FROM hk_stages s JOIN hist_battles b ON b.id = s.battle_id LEFT JOIN hist_campaigns c ON c.id = b.campaign_id
+       WHERE s.sandtable IS NOT NULL AND ($1 = 'root_admin' OR s.status = 'published') ORDER BY c.sort_order NULLS LAST, b.year, s.id`, [user.role]);
+  }
+
+  async sandtable(user: UserRow, id: number) {
+    const s = await this.stage(this.db.query.bind(this.db) as Q, id, user.role !== 'root_admin');
+    if (!s.sandtable) throw notFound('sa bàn của trận này');
+    const b = (await this.db.query<{ name: string; year: number | null; date_text: string | null }>('SELECT name, year, date_text FROM hist_battles WHERE id = $1', [s.battle_id]))[0];
+    return { stage: { id: s.id, title: s.title, summary: s.summary, objective: s.objective, status: s.status, battle_name: b?.name ?? s.title, year: b?.year ?? null, date_text: b?.date_text ?? null }, sandtable: s.sandtable };
+  }
+
   // ---------------------------------------------------------------------- quản trị màn chơi (HK.AD.084)
   async adminStages() {
     return this.db.query(
@@ -405,6 +443,7 @@ export class WarService {
     return {
       battleId, title, summary: text('summary', 800, 'Tóm tắt'), objective: text('objective', 400, 'Mục tiêu'), background_url: bg, difficulty: intIn('difficulty', 2, 1, 3, 'Độ khó'), max_turns: intIn('max_turns', 15, 3, 30, 'Số vòng tối đa'),
       star_turns: intIn('star_turns', 10, 1, 30, 'Số vòng cho sao thứ ba'), terrain, waves: cleanWaves, rewards, commanderId, quizId, differences: diffs,
+      sandtable: body.sandtable === undefined ? cur?.sandtable ?? null : cleanSandtable(body.sandtable),
     };
   }
 
@@ -412,9 +451,9 @@ export class WarService {
     const f = await this.db.tx((q) => this.stageFields(q, body));
     try {
       const id = (await this.db.query<{ id: number }>(
-        `INSERT INTO hk_stages (battle_id, title, summary, objective, background_url, difficulty, max_turns, star_turns, terrain, waves, rewards, commander_id, quiz_id, differences, created_by, updated_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $15) RETURNING id`,
-        [f.battleId, f.title, f.summary, f.objective, f.background_url, f.difficulty, f.max_turns, f.star_turns, JSON.stringify(f.terrain), JSON.stringify(f.waves), JSON.stringify(f.rewards), f.commanderId, f.quizId, JSON.stringify(f.differences), user.id]))[0].id;
+        `INSERT INTO hk_stages (battle_id, title, summary, objective, background_url, difficulty, max_turns, star_turns, terrain, waves, rewards, commander_id, quiz_id, differences, created_by, updated_by, sandtable)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $15, $16) RETURNING id`,
+        [f.battleId, f.title, f.summary, f.objective, f.background_url, f.difficulty, f.max_turns, f.star_turns, JSON.stringify(f.terrain), JSON.stringify(f.waves), JSON.stringify(f.rewards), f.commanderId, f.quizId, JSON.stringify(f.differences), user.id, f.sandtable ? JSON.stringify(f.sandtable) : null]))[0].id;
       return this.adminStage(id);
     } catch (e) { if ((e as { code?: string }).code === '23505') throw new ConflictException('Trận đánh này đã có màn chơi'); throw e; }
   }
@@ -424,8 +463,8 @@ export class WarService {
     const f = await this.db.tx((q) => this.stageFields(q, body, cur));
     await this.db.query(
       `UPDATE hk_stages SET battle_id = $2, title = $3, summary = $4, objective = $5, background_url = $6, difficulty = $7, max_turns = $8, star_turns = $9, terrain = $10, waves = $11, rewards = $12,
-         commander_id = $13, quiz_id = $14, differences = $15, updated_by = $16, updated_at = now() WHERE id = $1`,
-      [id, f.battleId, f.title, f.summary, f.objective, f.background_url, f.difficulty, f.max_turns, f.star_turns, JSON.stringify(f.terrain), JSON.stringify(f.waves), JSON.stringify(f.rewards), f.commanderId, f.quizId, JSON.stringify(f.differences), user.id]);
+         commander_id = $13, quiz_id = $14, differences = $15, updated_by = $16, sandtable = $17, updated_at = now() WHERE id = $1`,
+      [id, f.battleId, f.title, f.summary, f.objective, f.background_url, f.difficulty, f.max_turns, f.star_turns, JSON.stringify(f.terrain), JSON.stringify(f.waves), JSON.stringify(f.rewards), f.commanderId, f.quizId, JSON.stringify(f.differences), user.id, f.sandtable ? JSON.stringify(f.sandtable) : null]);
     return this.adminStage(id);
   }
 

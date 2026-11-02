@@ -1,11 +1,11 @@
-import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, Query, StreamableFile, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, Put, Query, StreamableFile, UseGuards } from '@nestjs/common';
 import * as QRCode from 'qrcode';
 import { XLSX_MIME } from '../admin/excel';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { config } from '../config';
 import { notFound } from '../content/access';
 import { UserRow } from '../database/database.service';
-import { LiveService, LiveView } from './live.service';
+import { BOSSES, LiveService, LiveView } from './live.service';
 import { reportPdf, reportWorkbook } from './live.report';
 
 type Json = Record<string, any>;
@@ -27,6 +27,10 @@ export class LiveController {
 
   // ------------------------------------------------------------------ giáo viên (HK.GV.051–058)
   @Post('rooms') @Roles('teacher') async create(@CurrentUser() user: UserRow, @Body() body: Json) { return this.withJoin(await this.live.create(user, body)); }
+  @Get('bosses') @Roles('teacher') bosses() { return BOSSES; }
+  @Put('rooms/:id/settings') @Roles('teacher') async settings(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.withJoin(await this.live.updateSettings(user, id, body)); }
+  @Post('rooms/:id/requests/:rid') @Roles('teacher') @HttpCode(200) decide(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Param('rid', ParseIntPipe) rid: number, @Body() body: Json) { return this.live.decideRequest(user, id, rid, body.approve === true); }
+  @Post('rooms/:id/kick') @Roles('teacher') @HttpCode(200) kick(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.live.kick(user, id, Number(body.player_id)); }
   @Get('rooms') @Roles('teacher') list(@CurrentUser() user: UserRow, @Query('class_id') classId?: string) { return this.live.list(user, classId ? Number(classId) : undefined); }
   @Get('rooms/:id') @Roles('teacher') async host(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.withJoin(await this.live.hostState(user, id)); }
   @Post('rooms/:id/command') @Roles('teacher') @HttpCode(200) command(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.live.command(user, id, String(body.action ?? '')); }
@@ -46,6 +50,8 @@ export class LiveController {
   @Get('my') @Roles('student') my(@CurrentUser() user: UserRow) { return this.live.myMatches(user); }
   @Get('my/:id') @Roles('student') review(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.live.review(user, id); }
   @Get('lookup/:pin') @Roles('student') lookup(@CurrentUser() user: UserRow, @Param('pin') pin: string) { return this.live.lookup(user, pin); }
+  @Post('request') @Roles('student') @HttpCode(200) request(@CurrentUser() user: UserRow, @Body() body: Json) { return this.live.requestEntry(user, body); }
+  @Post('rooms/:id/blur') @Roles('student') @HttpCode(200) blur(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.live.blur(user, id, body.q_index === undefined ? undefined : Number(body.q_index)); }
   @Post('join') @Roles('student') @HttpCode(200) join(@CurrentUser() user: UserRow, @Body() body: Json) { return this.live.join(user, body); }
   @Post('rooms/:id/profile') @Roles('student') @HttpCode(200) profile(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.live.setProfile(user, id, body); }
   @Post('rooms/:id/answer') @Roles('student') @HttpCode(200) answer(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.live.answer(user, id, { answer: body.answer, q_index: body.q_index }); }

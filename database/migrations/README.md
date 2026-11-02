@@ -41,6 +41,8 @@ Ngày 31/10/2026 thư mục này từng bị xóa theo yêu cầu (website chỉ
 | `032_platform.sql` | Nền tảng hệ thống (Sprint 11): tùy chọn người dùng (giao diện sáng / tối, nhắc học), thông báo hàng loạt có hẹn giờ và khóa chống gửi trùng, yêu cầu hỗ trợ kèm ảnh, hướng dẫn / FAQ, cấu hình hệ thống một dòng, cờ bật / tắt tính năng, mẫu thư đã chỉnh, giới hạn theo trường, ma trận phân quyền (38 nhóm × 4 vai trò theo đặc tả), xác thực hai lớp (bí mật TOTP chỉ lưu mã hóa), nhật ký lỗi, nhịp việc nền, sao lưu; thêm IP và thiết bị cho nhật ký đăng nhập; mọi bảng mới bật RLS |
 | `033_seed_help_content.sql` | Nội dung hướng dẫn và câu hỏi thường gặp khởi tạo theo vai trò (bản nháp chữ, quản trị tổng sửa được) |
 | `034_surveys_research.sql` | Khảo sát và nghiên cứu (Sprint 12): mẫu khảo sát (3 mẫu khởi tạo), khảo sát của trường, câu trả lời (mỗi người một lần), nhóm thử nghiệm và lớp thuộc nhóm; mọi bảng bật RLS |
+| `035_live_quiz_v2.sql` | Soạn Quiz và thi đấu nâng cao (ver0.2 Sprint 8): ảnh tải lên, ảnh bìa – giao diện – loại điểm của Quiz, bản nháp tự lưu, video câu hỏi; khóa phòng, tên theo hồ sơ, chống tra cứu, chế độ Đánh trùm, yêu cầu vào phòng và nhật ký phòng; mọi bảng mới bật RLS |
+| `036_class_battle_sandtable.sql` | Luật lớp bật / tắt game trận đánh và giới hạn phút (ver0.2 Sprint 7), gắn cửa học với trận đánh của lớp, Sa bàn 3D của trận kèm sa bàn khởi tạo cho 6 trận (Nháp) |
 
 Kiểm chứng trên PostgreSQL tạm bằng `cd backend && npm run build && npm test` trước khi triển khai.
 

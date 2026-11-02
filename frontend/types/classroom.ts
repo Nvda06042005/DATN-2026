@@ -8,6 +8,8 @@ export const teamLabel = (name: string): string => (/^đội\s/i.test(name) ? na
 export interface ClassRule { id: string; label: string; xp: number; gold: number; hp: number }
 export interface ClassSettings {
   hearts_enabled: boolean; hearts_max: number | null; leaderboard_enabled: boolean; skill_approval: boolean; team_goal_per_member: number; rules: ClassRule[]; rules_default: boolean;
+  /** Luật lớp về game trận đánh (HK.GV.060): bật / tắt và giới hạn phút mỗi ngày (null = theo cấu hình của trường và hệ thống) */
+  war_enabled: boolean; war_minutes: number | null;
 }
 export interface ClassRow {
   id: number; name: string; grade: number | null; school_year: string; description: string | null; cover_url: string | null; join_code: string; join_open: boolean; is_active: boolean;
