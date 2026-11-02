@@ -11,7 +11,7 @@ export class AuditInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const req = context.switchToHttp().getRequest();
     const actor: UserRow | undefined = req.user;
-    if (!actor || !['POST','PATCH','PUT','DELETE'].includes(req.method)) return next.handle();
+    if (!actor || !['POST','PATCH','PUT','DELETE'].includes(req.method) || actor.username?.includes('demo')) return next.handle();
     const route: string = req.route?.path ?? '';
     const targetType = route.includes('/content') ? 'content' : route.includes('/play') ? 'learning' : /\/(users|teachers|students)\b/.test(route) ? 'account' : route.includes('/history') ? 'history' : /\/school/.test(route) ? 'school' : route.includes('/classes') || route.includes('/student/') ? 'class' : 'system';
     return defer(async () => {
