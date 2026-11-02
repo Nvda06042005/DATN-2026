@@ -10,7 +10,7 @@ import { AdminSelect } from '@/components/admin/AdminSelect';
 import { ErrorNote, useAction, useDebounced, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { LeafletMap } from '@/components/portal/LeafletMap';
-import { Btn, Card, Chip, EmptyState, Field, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
+import { Btn, Card, Chip, EmptyState, Field, InfoNote, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { Detail, FigureItem, SearchHit, SourceItem } from '@/types/learning';
 
@@ -39,6 +39,7 @@ const Related: React.FC<{ title: string; items?: Array<{ id: number; label: stri
 );
 
 export const DetailSheet: React.FC<{ session: Session; type: string; id: number; onClose: () => void; onOpen: OpenDetail; onChanged?: () => void }> = ({ session, type, id, onClose, onOpen, onChanged }) => {
+  const player = session.user.role === 'student'; // nút chơi chỉ dành cho học sinh (giáo viên xem hồ sơ qua trợ lý AI)
   const { c } = useTheme();
   const { token } = session;
   const isTerm = type === 'term';
@@ -108,6 +109,9 @@ export const DetailSheet: React.FC<{ session: Session; type: string; id: number;
               <Related title="Sự kiện" type="event" onOpen={onOpen} items={d.event ? [{ id: d.event.id, label: d.event.name }] : []} />
               <Related title="Chỉ huy và nhân vật" type="figure" onOpen={onOpen} items={(d.figures ?? []).map((x: Detail) => ({ id: x.id, label: x.name }))} />
               <Related title="Tư liệu liên quan" type="source" onOpen={onOpen} items={(d.sources ?? []).map((x: Detail) => ({ id: x.id, label: x.title, locked: x.locked }))} />
+              <Related title="Ra trận bằng thẻ tướng" type="stage" onOpen={onOpen} items={player && d.play?.stage ? [{ id: d.play.stage.id, label: d.play.stage.title }] : []} />
+              <Related title="Mô phỏng quyết định của chỉ huy" type="scenario" onOpen={onOpen} items={player && d.play?.scenario ? [{ id: d.play.scenario.id, label: d.play.scenario.title }] : []} />
+              <Related title="Mini-game liên quan" type="minigame" onOpen={onOpen} items={(player ? d.play?.minigames ?? [] : []).map((x: Detail) => ({ id: x.id, label: x.title }))} />
             </>
           ) : null}
           {type === 'place' ? (
@@ -261,10 +265,13 @@ export const TimelineTab: React.FC<{ session: Session; onOpen: OpenDetail }> = (
   const [campaign, setCampaign] = useState('');
   const [figure, setFigure] = useState('');
   const [place, setPlace] = useState('');
+  const [yearFrom, setYearFrom] = useState('');
+  const [yearTo, setYearTo] = useState('');
   const campaigns = useLoad(() => api.learnCampaigns(token), [token], session.expired);
   const figures = useLoad(() => api.learnFigures(token), [token], session.expired);
   const places = useLoad(() => api.learnPlaces(token), [token], session.expired);
-  const timeline = useLoad(() => api.learnTimeline(token, { campaign_id: campaign, figure_id: figure, place_id: place }), [token, campaign, figure, place], session.expired);
+  const timeline = useLoad(() => api.learnTimeline(token, { campaign_id: campaign, figure_id: figure, place_id: place, year_from: yearFrom, year_to: yearTo }), [token, campaign, figure, place, yearFrom, yearTo], session.expired);
+  const years = Array.from({ length: 31 }, (_, i) => 1258 + i);
   return (
     <View style={{ gap: 14 }}>
       <Txt f="displayHeavy" size={24} accessibilityRole="header">Dòng thời gian 1258 – 1288</Txt>
@@ -272,7 +279,10 @@ export const TimelineTab: React.FC<{ session: Session; onOpen: OpenDetail }> = (
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
         <View style={{ flexGrow: 1, flexBasis: 220 }}><AdminSelect label="Nhân vật" value={figure} options={[{ value: '', label: 'Tất cả nhân vật' }, ...(figures.data ?? []).map((x) => ({ value: String(x.id), label: x.name }))]} onChange={setFigure} /></View>
         <View style={{ flexGrow: 1, flexBasis: 220 }}><AdminSelect label="Địa điểm" value={place} options={[{ value: '', label: 'Tất cả địa điểm' }, ...(places.data ?? []).map((x) => ({ value: String(x.id), label: x.name }))]} onChange={setPlace} /></View>
+        <View style={{ flexGrow: 1, flexBasis: 150 }}><AdminSelect label="Từ năm" value={yearFrom} options={[{ value: '', label: 'Từ đầu' }, ...years.map((y) => ({ value: String(y), label: String(y) }))]} onChange={setYearFrom} /></View>
+        <View style={{ flexGrow: 1, flexBasis: 150 }}><AdminSelect label="Đến năm" value={yearTo} options={[{ value: '', label: 'Đến cuối' }, ...years.map((y) => ({ value: String(y), label: String(y) }))]} onChange={setYearTo} /></View>
       </View>
+      {yearFrom && yearTo && Number(yearFrom) > Number(yearTo) ? <InfoNote><Txt size={14}>Năm bắt đầu đang lớn hơn năm kết thúc nên chưa có mốc nào; hãy đổi lại khoảng năm.</Txt></InfoNote> : null}
       <ErrorNote message={timeline.error} />
       {timeline.loading && !timeline.data ? <Spinner /> : null}
       {timeline.data && timeline.data.length === 0 ? <EmptyState mood="thinking" title="Chưa có mốc nào" text="Thử bỏ bớt bộ lọc, hoặc nội dung chưa được công bố." /> : null}

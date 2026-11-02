@@ -14,8 +14,10 @@ export interface WarCard {
   id: number; code: string; name: string | null; rarity: WarRarity; rarity_label: string; kind: 'general' | 'tactic'; branch: Branch | null; branch_label: string | null; image_url: string | null;
   owned: boolean; level: number | null; stars: number | null; fragments: number; fragments_needed: number; power: number | null; stats: Stats | null; min_level: number; source_text: string | null;
   level_cap: number; can_level: boolean; level_cost: number | null; can_star: boolean; star_cost: number | null; tactic: { name: string; text: string | null; effect: string } | null;
+  /** Các cuộc kháng chiến mà nhân vật của thẻ đã tham gia (lọc bộ sưu tập, HK.HS.069) */
+  campaign_ids?: number[];
 }
-export interface Collection { player: { level: number; binh_thu: number }; cards: WarCard[]; summary: { total: number; owned: number; generals: number; tactics: number } }
+export interface Collection { player: { level: number; binh_thu: number }; cards: WarCard[]; campaigns?: Array<{ id: number; title: string; year_label: string }>; summary: { total: number; owned: number; generals: number; tactics: number } }
 export interface Move { slot: Slot; name: string; description: string | null; anecdote: string | null; target: string; power: number; effect: { type: string; value?: number; turns?: number } | null; rage_cost: number; cooldown: number; anim: string | null }
 export interface CardDetail extends WarCard {
   flavor_quote: string | null; figure: { id: number; name: string; honorific: string | null; birth_year: number | null; death_year: number | null; role_text: string | null; biography: string | null; famous_quote: string | null } | null;
@@ -63,6 +65,10 @@ export interface StageIntro {
   progress: { best_stars: number; clears: number }; rewards: { gold: number; binh_thu: number; xp: number; card: boolean; fragments: number }; stars: string[]; war: WarStatus;
   /** Có sa bàn 3D để xem (HK.HS.137) và cấu hình của giáo viên áp lên lớp (HK.GV.083) */
   has_sandtable?: boolean; class_link?: { gate_title: string | null; gate_done: boolean; skill_questions: boolean; lock_reason: string | null } | null;
+  /** Bước quyết sách trước trận (HK.HS.053): kịch bản của trận và kết quả còn hiệu lực, chỉ học sinh */
+  decision?: { scenario_id: number; title: string; hours: number; ready: { run_id: number; percent: number; modifier_pct: number } | null } | null;
+  /** Các trận gần đây của màn có thể xem lại (HK.SYS.022) */
+  recent?: Array<{ id: number; status: 'won' | 'lost'; stars: number; finished_at: string }>;
 }
 /** Cấu hình gắn cửa học với trận đánh của một lớp (HK.GV.083) */
 export interface BattleLinkOptions {
@@ -87,11 +93,22 @@ export interface BattleView {
   turn: number; max_turns: number; star_turns: number; wave: number; waves: number; units: UnitView[]; order: string[]; actor: string | null; available: Array<'normal' | 'active' | 'ultimate'>;
   tide: 'high' | 'low' | null; terrain: { tide: boolean; stakes: boolean; hunger: boolean; water_bonus: Record<string, number> | null };
   telegraph: { unit: string; targets: string[] } | null; tactic: { name: string; text: string | null; used: boolean } | null; pending: { unit: string } | null; log: LogLine[];
-  stats: { dealt: number; ally_down: number }; result: BattleResult | null; stars_now: number;
+  stats: { dealt: number; ally_down: number }; result: BattleResult | null; stars_now: number; advantage?: { percent: number; modifier_pct: number } | null;
   question: { view: PlayQuestion; seconds: number; remaining_ms: number } | null;
 }
 export interface Truth {
   stage: { id: number; title: string }; battle: { id: number; name: string; year: number; date_text: string | null; context: string | null; forces: string | null; course: string | null; result: string | null };
   commander: { id: number; name: string; role_text: string | null; forces: string | null; tactics: string | null; outcome: string | null } | null; differences: string[];
   figures: Array<{ id: number; name: string; honorific: string | null; role_text: string | null }>; sources: Array<{ id: number; title: string; kind: string; locked: boolean }>;
+}
+
+/** Bản phát lại trận (HK.SYS.022): khung sau mỗi hành động của người chơi */
+export interface ReplayFrame {
+  n: number; label: string; turn: number; wave: number; status: 'active' | 'won' | 'lost'; tide: 'high' | 'low' | null;
+  /** [id, tên, phe (a = ta, e = địch), máu, máu tối đa, nộ, còn sống (1/0)] */
+  units: Array<[string, string, 'a' | 'e', number, number, number, 0 | 1]>; log: LogLine[];
+}
+export interface ReplayData {
+  id: number; mode: 'play' | 'preview'; status: 'won' | 'lost'; stage: { id: number; title: string; battle_id: number }; result: BattleResult | null; advantage: { percent: number; modifier_pct: number } | null;
+  frames: ReplayFrame[]; note: string | null;
 }

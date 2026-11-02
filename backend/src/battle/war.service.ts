@@ -12,7 +12,7 @@ import { DatabaseService, Q, UserRow } from '../database/database.service';
 import { dayKey, GameClock } from '../game/clock';
 import { GameService } from '../game/game.service';
 import { lockedSources, activeJourneys, nodesWithState } from '../student/progress';
-import { advance, Action, AllyInput, autoPlay, BattleState, cardStats, createBattle, EnemyDef, MoveDef, publicView, resolveUltimate, starsOf, TacticDef, TerrainDef, WaveDef } from './war-engine';
+import { advance, Action, AllyInput, autoPlay, BattleState, cardStats, createBattle, decisionModifier, EnemyDef, MoveDef, publicView, ReplayFrame, replayFrame, resolveUltimate, starsOf, TacticDef, TerrainDef, WaveDef } from './war-engine';
 import { WarGate } from './war-gate';
 import { WarClassService } from './war-class.service';
 import { cleanSandtable } from './sandtable';
@@ -24,12 +24,22 @@ const DEFAULT_MOVES: MoveDef[] = [
   { slot: 'ultimate', name: 'Tuyệt kỹ', target: 'enemy_all', power: 1.3, rage_cost: 100, cooldown: 0 },
 ];
 const BRANCHES = ['bo', 'thuy', 'ky'];
+const ACTION_LABEL: Record<string, string> = { normal: 'Đòn thường', active: 'Chiêu chủ động', ultimate: 'Tuyệt kỹ', guard: 'Phòng thủ', tactic: 'Thẻ chiến thuật', auto: 'Tự động đánh', auto_run: 'Tự động đánh' };
+/** Kết quả quyết sách còn hiệu lực trong bao lâu (HK.HS.053) */
+const DECISION_HOURS = 12;
 
 interface StageRow {
   id: number; battle_id: number; title: string; summary: string | null; objective: string | null; background_url: string | null; difficulty: number; max_turns: number; star_turns: number;
   terrain: TerrainDef; waves: WaveDef[]; rewards: Record<string, any>; commander_id: number | null; quiz_id: number | null; differences: string[]; status: string; sandtable: Record<string, unknown> | null;
 }
-interface RunState { engine: BattleState; question: null | { qid: number; served_at: number; seconds: number; qtype: QType; data: Record<string, unknown>; explanation: string | null; prompt: string; image_url: string | null; difficulty: number }; row: { front: string[]; back: string[] }; opts?: { difficulty: number; skill_questions: boolean } }
+interface RunState { engine: BattleState; question: null | { qid: number; served_at: number; seconds: number; qtype: QType; data: Record<string, unknown>; explanation: string | null; prompt: string; image_url: string | null; difficulty: number }; row: { front: string[]; back: string[] }; opts?: { difficulty: number; skill_questions: boolean };
+  /** Lợi thế từ bước quyết sách trước trận (HK.HS.053): lượt chơi kịch bản đã dùng và hệ số công / thủ */
+  advantage?: { run_id: number; percent: number; mod: number };
+  /** Nhật ký phát lại trận (HK.SYS.022) */
+  replay?: ReplayFrame[];
+  /** Số dòng nhật ký đã nằm trong các khung phát lại: khung mới chứa phần còn lại nên không dòng nào bị bỏ sót */
+  replayMark?: number;
+}
 interface RunRow { id: number; user_id: number; stage_id: number; mode: 'play' | 'preview'; status: 'active' | 'won' | 'lost'; seed: number; formation: Record<string, any>; state: RunState; turns: number; stars: number; result: Record<string, any> | null; last_action_at: string }
 interface CardWar { id: number; code: string; name: string; branch: 'bo' | 'thuy' | 'ky' | null; kind: string; base_stats: Record<string, number>; figure_id: number | null; level: number; stars: number; tactic: Record<string, any> | null }
 
@@ -103,6 +113,8 @@ export class WarService {
         commander: commander ? (seen ? commander : { id: commander.id, name: commander.name, role_text: commander.role_text }) : null, terrain_notes: terrainNotes,
         historical_figures: figures, suggested_cards: suggested, progress, rewards: { gold: s.rewards.gold ?? 0, binh_thu: s.rewards.binh_thu ?? 0, xp: s.rewards.xp ?? 100 * s.difficulty, card: Boolean(s.rewards.card_code), fragments: (s.rewards.fragments ?? []).length },
         stars: ['Thắng trận', 'Không có tướng nào ngã xuống', `Thắng trong ${s.star_turns} vòng`], war: await this.gate.status(q, user),
+        decision: user.role === 'student' ? await this.decisionOf(q, user.id, s.battle_id) : null,
+        recent: user.role === 'student' ? await q("SELECT id::int AS id, status, stars, finished_at FROM hk_war_battles WHERE user_id = $1 AND stage_id = $2 AND mode = 'play' AND status <> 'active' AND state->'replay' IS NOT NULL ORDER BY id DESC LIMIT 3", [user.id, id]) : [],
       };
     });
   }
@@ -139,7 +151,7 @@ export class WarService {
   }
 
   /** Vào trận (HK.HS.131): đội hình đã lưu hoặc chọn trực tiếp; trận đang dở thì chơi tiếp */
-  async start(user: UserRow, stageId: number, body: { slot?: number; front?: number[]; back?: number[]; tactic_card_id?: number | null; restart?: boolean }) {
+  async start(user: UserRow, stageId: number, body: { slot?: number; front?: number[]; back?: number[]; tactic_card_id?: number | null; restart?: boolean; use_decision?: boolean }) {
     return this.db.tx(async (q) => {
       await this.gate.assertOpen(q, user);
       const s = await this.stage(q, stageId);
@@ -150,6 +162,12 @@ export class WarService {
       const open = (await q<{ id: number }>("SELECT id::int AS id FROM hk_war_battles WHERE user_id = $1 AND stage_id = $2 AND status = 'active'", [user.id, stageId]))[0];
       if (open && !body.restart) return this.view(q, await this.runOf(q, user, open.id));
       if (open) await q('DELETE FROM hk_war_battles WHERE id = $1', [open.id]);
+      let advantage: { run_id: number; percent: number } | undefined;
+      if (body.use_decision) {
+        const ready = await this.readyDecision(q, user.id, s.battle_id);
+        if (!ready) throw new ConflictException('Em chưa có kết quả quyết sách nào còn hiệu lực cho trận này. Hãy làm quyết sách trước trận (hiệu lực 12 giờ, dùng một lần).');
+        advantage = { run_id: ready.id, percent: ready.percent };
+      }
       let front = body.front ?? [], back = body.back ?? [], tacticId = body.tactic_card_id ?? null;
       if (body.slot) {
         const f = (await q<{ front: number[]; back: number[]; tactic_card_id: number | null }>('SELECT front, back, tactic_card_id FROM hk_formations WHERE user_id = $1 AND slot = $2', [user.id, body.slot]))[0];
@@ -166,7 +184,7 @@ export class WarService {
         if (!t || t.kind !== 'tactic') throw new BadRequestException('Thẻ chiến thuật phải là thẻ em đã có');
         tactic = this.tacticOf(t);
       }
-      return this.create(q, user, s, 'play', cards, { front, back }, tactic, link ? { difficulty: link.difficulty ?? s.difficulty, skill_questions: link.skill_questions } : undefined);
+      return this.create(q, user, s, 'play', cards, { front, back }, tactic, link ? { difficulty: link.difficulty ?? s.difficulty, skill_questions: link.skill_questions } : undefined, advantage);
     });
   }
 
@@ -188,12 +206,14 @@ export class WarService {
     return waves.map((w) => ({ ...w, units: w.units.map((u) => ({ ...u, hp: Math.max(50, Math.round(u.hp * factor)), atk: Math.max(1, Math.round(u.atk * factor)) })) }));
   }
 
-  private async create(q: Q, user: UserRow, s: StageRow, mode: 'play' | 'preview', cards: CardWar[], formation: { front: number[]; back: number[] }, tactic: TacticDef | null, opts?: { difficulty: number; skill_questions: boolean }) {
+  private async create(q: Q, user: UserRow, s: StageRow, mode: 'play' | 'preview', cards: CardWar[], formation: { front: number[]; back: number[] }, tactic: TacticDef | null, opts?: { difficulty: number; skill_questions: boolean }, advantage?: { run_id: number; percent: number }) {
     const seed = Math.floor(Math.random() * 2 ** 31);
     const waves = opts ? this.scaleWaves(s.waves, s.difficulty, opts.difficulty) : s.waves;
-    const engine = createBattle({ allies: await this.buildAllies(q, cards, s.battle_id), waves, terrain: s.terrain, maxTurns: s.max_turns, starTurns: s.star_turns, tactic, seed });
+    const mod = advantage ? decisionModifier(advantage.percent) : 0;
+    const allies = (await this.buildAllies(q, cards, s.battle_id)).map((a) => (mod ? { ...a, stats: { ...a.stats, atk: Math.round(a.stats.atk * (1 + mod)), def: Math.round(a.stats.def * (1 + mod)) } } : a));
+    const engine = createBattle({ allies, waves, terrain: s.terrain, maxTurns: s.max_turns, starTurns: s.star_turns, tactic, seed });
     advance(engine, null);
-    const state: RunState = { engine, question: null, row: { front: formation.front.map((id) => `a${id}`), back: formation.back.map((id) => `a${id}`) }, ...(opts ? { opts } : {}) };
+    const state: RunState = { engine, question: null, row: { front: formation.front.map((id) => `a${id}`), back: formation.back.map((id) => `a${id}`) }, ...(opts ? { opts } : {}), ...(advantage ? { advantage: { ...advantage, mod } } : {}), replay: [replayFrame(engine, 0, 'Bắt đầu trận', 0)], replayMark: engine.logN ?? 0 };
     const id = (await q<{ id: number }>(
       'INSERT INTO hk_war_battles (user_id, stage_id, mode, seed, formation, state, turns) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id::int AS id',
       [user.id, s.id, mode, seed, JSON.stringify({ ...formation, tactic: tactic?.name ?? null }), JSON.stringify(state), engine.turn]))[0].id;
@@ -212,13 +232,53 @@ export class WarService {
     const qs = r.state.question;
     return {
       id: r.id, mode: r.mode, status: r.status, stage: { id: s.id, title: s.title, background_url: s.background_url, battle_id: s.battle_id }, formation: r.state.row,
-      ...publicView(e), result: r.result, stars_now: starsOf(e),
+      ...publicView(e), result: r.result, stars_now: starsOf(e), advantage: r.state.advantage ? { percent: r.state.advantage.percent, modifier_pct: Math.round(r.state.advantage.mod * 100) } : null,
       question: qs ? { view: questionView({ id: qs.qid, qtype: qs.qtype, prompt: qs.prompt, image_url: qs.image_url, explanation: null, difficulty: qs.difficulty, data: qs.data } as QuestionCore, r.id * 17 + qs.qid, true), seconds: qs.seconds, remaining_ms: Math.max(0, qs.seconds * 1000 - (Date.now() - qs.served_at)) } : null,
     };
   }
 
   async battle(user: UserRow, id: number) {
     return this.db.tx(async (q) => this.view(q, await this.runOf(q, user, id, false)));
+  }
+
+  /** Ghi một khung phát lại (HK.SYS.022); tối đa 250 khung mỗi trận */
+  private record(r: RunRow, label: string, onlyIfNew = false): void {
+    const e = r.state.engine, mark = r.state.replayMark ?? 0;
+    if (onlyIfNew && (e.logN ?? 0) <= mark) return;
+    const frames = (r.state.replay ??= []);
+    if (frames.length < 250) frames.push(replayFrame(e, frames.length, label, mark));
+    r.state.replayMark = e.logN ?? 0;
+  }
+
+  /** Phát lại trận đã kết thúc của chính mình (HK.SYS.022): trạng thái từng bước và nhật ký diễn biến, không lộ thêm điều gì ngoài những gì em đã thấy khi chơi */
+  async replay(user: UserRow, id: number) {
+    return this.db.tx(async (q) => {
+      const r = await this.runOf(q, user, id, false);
+      if (r.status === 'active') throw new ConflictException('Hãy đánh xong trận rồi mới xem lại');
+      const s = await this.stage(q, r.stage_id, false);
+      const frames = r.state.replay ?? [];
+      return {
+        id: r.id, mode: r.mode, status: r.status, stage: { id: s.id, title: s.title, battle_id: s.battle_id }, result: r.result, formation: r.state.row,
+        advantage: r.state.advantage ? { percent: r.state.advantage.percent, modifier_pct: Math.round(r.state.advantage.mod * 100) } : null, frames,
+        note: frames.length ? null : 'Trận này diễn ra trước khi hệ thống ghi nhật ký phát lại.',
+      };
+    });
+  }
+
+  /** Kết quả quyết sách (kịch bản ver0.1 của cùng trận) còn hiệu lực và chưa dùng cho trận nào (HK.HS.053) */
+  private async readyDecision(q: Q, userId: number, battleId: number): Promise<{ id: number; percent: number } | null> {
+    return (await q<{ id: number; percent: number }>(
+      `SELECT r.id::int AS id, r.percent::int AS percent FROM hk_game_runs r JOIN hk_scenarios sc ON sc.id = r.scenario_id
+       WHERE r.user_id = $1 AND r.kind = 'battle' AND r.mode = 'play' AND r.status = 'done' AND sc.battle_id = $2 AND sc.status = 'published' AND r.finished_at > now() - ($3 || ' hours')::interval
+         AND NOT EXISTS (SELECT 1 FROM hk_war_battles w WHERE w.user_id = r.user_id AND (w.state->'advantage'->>'run_id')::bigint = r.id)
+       ORDER BY r.finished_at DESC LIMIT 1`, [userId, battleId, String(DECISION_HOURS)]))[0] ?? null;
+  }
+
+  private async decisionOf(q: Q, userId: number, battleId: number) {
+    const sc = (await q<{ id: number; title: string }>("SELECT id, title FROM hk_scenarios WHERE battle_id = $1 AND status = 'published' ORDER BY id LIMIT 1", [battleId]))[0];
+    if (!sc) return null;
+    const ready = await this.readyDecision(q, userId, battleId);
+    return { scenario_id: sc.id, title: sc.title, hours: DECISION_HOURS, ready: ready ? { run_id: ready.id, percent: ready.percent, modifier_pct: Math.round(decisionModifier(ready.percent) * 100) } : null };
   }
 
   /** Chọn câu hỏi cho tuyệt kỹ từ bộ câu hỏi của màn; không có bộ câu hỏi thì tuyệt kỹ phát huy đủ */
@@ -248,11 +308,14 @@ export class WarService {
       if (r.state.question) throw new ConflictException('Hãy trả lời câu hỏi tuyệt kỹ trước');
       const s = await this.stage(q, r.stage_id, false);
       const e = r.state.engine;
+      const who = e.actor ? e.units[e.actor]?.name : null;
       if (body.type === 'auto_run') {
         // tự động đánh: máy chọn đòn; dừng khi tuyệt kỹ cần câu hỏi, hết trận hoặc đủ số bước
         for (let i = 0; i < Math.min(60, Math.max(1, Number(body.steps ?? 20))) && e.status === 'active' && !e.pending; i += 1) {
+          const actor = e.actor ? e.units[e.actor]?.name : null;
           if (e.tactic && !e.tacticUsed) advance(e, { type: 'tactic' });
           if (!advance(e, { type: 'auto' }).ok) break;
+          this.record(r, `${actor ? `${actor}: ` : ''}Tự động đánh`);
         }
       } else {
         const a: Action | null = body.type === 'move' ? { type: 'move', slot: body.slot as 'normal' | 'active' | 'ultimate', target: body.target } : ['guard', 'tactic', 'auto'].includes(body.type) ? ({ type: body.type } as Action) : null;
@@ -261,6 +324,8 @@ export class WarService {
         if (!res.ok) throw new ConflictException(res.reason);
       }
       if (e.pending) await this.prepareQuestion(q, s, r);
+      const label = `${who && body.type !== 'auto_run' && body.type !== 'tactic' ? `${who}: ` : ''}${ACTION_LABEL[body.type === 'move' ? String(body.slot) : body.type] ?? 'Hành động'}`;
+      if (body.type === 'auto_run') this.record(r, label, true); else this.record(r, label);
       await this.save(q, user, s, r);
       return this.view(q, r);
     });
@@ -280,6 +345,7 @@ export class WarService {
       resolveUltimate(r.state.engine, { correct: g.correct, inTime });
       advance(r.state.engine, null);
       if (r.state.engine.pending) await this.prepareQuestion(q, s, r);
+      this.record(r, g.correct && inTime ? 'Tuyệt kỹ: trả lời đúng' : 'Tuyệt kỹ: trả lời chưa đạt');
       await this.save(q, user, s, r);
       return { result: { correct: g.correct, in_time: inTime, explanation: qs.explanation, detail: g.detail }, battle: await this.view(q, r) };
     });

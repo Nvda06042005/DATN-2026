@@ -2,7 +2,7 @@
  * Động cơ đánh theo lượt bằng thẻ tướng (HK.HS.131–136, HK.SYS.022): hàm thuần nên kiểm tra không cần cơ sở dữ liệu.
  * Cùng hạt giống cho cùng kết quả; chiêu thức, nộ, tuyệt kỹ, địa hình, báo trước chiêu lớn, thẻ chiến thuật, tự động đánh, sao.
  */
-import { advance, autoPlay, AllyInput, cardStats, createBattle, publicView, resolveUltimate, starsOf, MoveDef, WaveDef } from '../src/battle/war-engine';
+import { advance, autoPlay, AllyInput, cardStats, createBattle, decisionModifier, publicView, replayFrame, resolveUltimate, starsOf, MoveDef, WaveDef } from '../src/battle/war-engine';
 
 const normal: MoveDef = { slot: 'normal', name: 'Đánh thường', target: 'enemy_one', power: 1, rage_cost: 0, cooldown: 0 };
 const active: MoveDef = { slot: 'active', name: 'Xung phong', target: 'enemy_one', power: 1.8, rage_cost: 40, cooldown: 2 };
@@ -151,5 +151,34 @@ describe('trận đánh theo lượt', () => {
     expect(s.units.a2.maxHp).toBe(800);
     const healer = createBattle({ allies: [ally(1, { moves: [normal, heal] })], waves: easy, seed: 1 });
     expect(healer.units.a1.moves.map((m) => m.slot)).toEqual(['normal', 'active']);
+  });
+});
+
+describe('lợi thế quyết sách và khung phát lại', () => {
+  test('quyết sách: 50% hòa vốn, 100% +15%, 0% −15%, không vượt giới hạn', () => {
+    expect(decisionModifier(50)).toBe(0);
+    expect(decisionModifier(100)).toBe(0.15);
+    expect(decisionModifier(0)).toBe(-0.15);
+    expect(decisionModifier(75)).toBe(0.08);
+    expect(decisionModifier(25)).toBe(-0.08);
+    expect(decisionModifier(130)).toBe(0.15);
+    expect(decisionModifier(-20)).toBe(-0.15);
+    expect(decisionModifier(Number.NaN)).toBe(-0.15);
+  });
+
+  test('khung phát lại: mỗi khung chứa đúng dòng nhật ký mới và trạng thái các đơn vị, ghép lại đủ nhật ký', () => {
+    const s = createBattle({ allies: [ally(1), ally(2), ally(3)], waves: easy, seed: 11 });
+    advance(s, null);
+    const frames = [replayFrame(s, 0, 'Bắt đầu', 0)];
+    expect(frames[0].log).toHaveLength(s.log.length);
+    for (let i = 0; i < 40 && s.status === 'active'; i += 1) {
+      const before = s.logN ?? 0;
+      if (s.pending) { resolveUltimate(s, { correct: true, inTime: true }); advance(s, null); } else advance(s, { type: 'auto' });
+      frames.push(replayFrame(s, frames.length, 'Hành động', before));
+    }
+    expect(s.status).toBe('won');
+    expect(frames.flatMap((f) => f.log).map((l) => l.text)).toEqual(s.log.map((l) => l.text));
+    expect(frames.at(-1)!.units.find((u) => u[0] === 'a1')).toEqual(['a1', 'Tướng 1', 'a', s.units.a1.hp, s.units.a1.maxHp, s.units.a1.rage, s.units.a1.alive ? 1 : 0]);
+    expect(frames.at(-1)!.status).toBe('won');
   });
 });

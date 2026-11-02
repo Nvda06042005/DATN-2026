@@ -1,7 +1,7 @@
 /** API game mô phỏng trận đánh bằng thẻ tướng (/api/war, Sprint 6 theo ver0.2): thẻ, đội hình, bản đồ hành quân, màn chơi, trận đánh; quản trị. */
 import { apiRequest } from '@/api/client';
 import type { SandtableDetail, SandtableListItem } from '@/types/sandtable';
-import type { BattleLinkOptions, BattleView, CardDetail, Collection, Commander, DialogLogItem, FormationSlot, MarchListItem, MarchMap, MoveResult, StageIntro, StageItem, Truth, WarStatus } from '@/types/war';
+import type { BattleLinkOptions, BattleView, CardDetail, Collection, Commander, DialogLogItem, FormationSlot, MarchListItem, MarchMap, MoveResult, ReplayData, StageIntro, StageItem, Truth, WarStatus } from '@/types/war';
 
 const base = '/api/war';
 
@@ -26,11 +26,12 @@ export const marchLog = (token: string) => apiRequest<DialogLogItem[]>(`${base}/
 
 export const warStages = (token: string) => apiRequest<{ war: WarStatus; stages: StageItem[] }>(`${base}/stages`, { token });
 export const stageIntro = (token: string, id: number) => apiRequest<StageIntro>(`${base}/stages/${id}`, { token });
-export const startStage = (token: string, id: number, body: { slot?: number; front?: number[]; back?: number[]; tactic_card_id?: number | null; restart?: boolean }) => apiRequest<BattleView>(`${base}/stages/${id}/start`, { token, body });
+export const startStage = (token: string, id: number, body: { slot?: number; front?: number[]; back?: number[]; tactic_card_id?: number | null; restart?: boolean; use_decision?: boolean }) => apiRequest<BattleView>(`${base}/stages/${id}/start`, { token, body });
 export const previewStage = (token: string, id: number) => apiRequest<BattleView>(`${base}/stages/${id}/preview`, { token, body: {} });
 export const skipStage = (token: string, id: number) => apiRequest<{ skipped: boolean; rewards: { gold: number; binh_thu: number } }>(`${base}/stages/${id}/skip`, { token, body: {} });
 export const stageTruth = (token: string, id: number) => apiRequest<Truth>(`${base}/stages/${id}/truth`, { token });
 export const warBattle = (token: string, id: number) => apiRequest<BattleView>(`${base}/battles/${id}`, { token });
+export const battleReplay = (token: string, id: number) => apiRequest<ReplayData>(`${base}/battles/${id}/replay`, { token });
 export const battleAct = (token: string, id: number, body: { type: string; slot?: string; target?: string; steps?: number }) => apiRequest<BattleView>(`${base}/battles/${id}/act`, { token, body });
 export const battleAnswer = (token: string, id: number, answer: unknown) => apiRequest<{ result: { correct: boolean; in_time: boolean; explanation: string | null }; battle: BattleView }>(`${base}/battles/${id}/answer`, { token, body: { answer } });
 

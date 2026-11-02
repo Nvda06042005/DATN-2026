@@ -6,7 +6,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Image, Pressable, ScrollView, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
-import { Award, BookMarked, BookOpen, Check, CircleHelp, Cuboid, FastForward, Flag, Gift, History as HistoryIcon, Lock, Play, RotateCcw, ScrollText, Shield, Swords, Trophy, ZoomIn, ZoomOut } from 'lucide-react-native';
+import { Award, BookMarked, BookOpen, Check, ChevronLeft, ChevronRight, CircleHelp, Cuboid, FastForward, Flag, Gift, History as HistoryIcon, Lock, Pause, Play, RotateCcw, ScrollText, Shield, Swords, Trophy, ZoomIn, ZoomOut } from 'lucide-react-native';
 import * as api from '@/api/warApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { ErrorNote, useAction, useLoad } from '@/components/admin/kit';
@@ -19,7 +19,7 @@ import { Bar, Btn, Card, Chip, EmptyState, InfoNote, Segmented, Sheet, Spinner, 
 import { useTheme } from '@/hooks/use-theme';
 import { DIFFICULTY_LABEL } from '@/types/battle';
 import type { IconType } from '@/types/game';
-import { POINT_LABEL, RARITY_COLOR, SLOT_LABEL, type BattleView, type Dialog, type MarchEvent, type MarchPoint, type PointKind, type StageIntro, type UnitView, type WarStatus } from '@/types/war';
+import { POINT_LABEL, RARITY_COLOR, SLOT_LABEL, type BattleView, type Dialog, type MarchEvent, type MarchPoint, type PointKind, type ReplayFrame, type StageIntro, type UnitView, type WarStatus } from '@/types/war';
 
 const POINT_ICON: Record<PointKind, IconType> = { start: Flag, story: ScrollText, card: Award, quiz: CircleHelp, source: BookMarked, battle: Swords, chest: Gift };
 const POINT_STATE_TEXT = { current: 'Em đang ở đây', visited: 'Đã đi qua', open: 'Có thể đi tới', locked: 'Chưa mở' } as const;
@@ -182,6 +182,12 @@ const DialogPlayer: React.FC<{ dialog: Dialog; onSource: (id: number) => void }>
   const [replies, setReplies] = useState<Record<number, string>>({});
   const line = dialog.lines[n - 1];
   const waiting = Boolean(line?.choices?.length) && replies[n - 1] === undefined;
+  // Tua nhanh (HK.HS.116): hiện liền các lời thoại kế tiếp, dừng ở câu có lựa chọn trả lời để em tự chọn
+  const fastForward = () => {
+    let k = n;
+    while (k < dialog.lines.length) { const choice = Boolean(dialog.lines[k].choices?.length); k += 1; if (choice) break; }
+    setN(k);
+  };
   return (
     <View style={{ gap: 10 }}>
       <Txt f="bold" size={15}>{dialog.title}</Txt>
@@ -199,8 +205,12 @@ const DialogPlayer: React.FC<{ dialog: Dialog; onSource: (id: number) => void }>
           <Txt size={13} color={c.muc2}>Em chọn lời đáp:</Txt>
           {line.choices!.map((ch, i) => <Btn key={i} title={ch.text} tone="giay" full onPress={() => setReplies((r) => ({ ...r, [n - 1]: ch.reply }))} />)}
         </View>
-      ) : n < dialog.lines.length ? <Btn title="Tiếp" tone="ngoc" full onPress={() => setN(n + 1)} testID="dialog-next" />
-        : dialog.sources.length ? (
+      ) : n < dialog.lines.length ? (
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <View style={{ flex: 1 }}><Btn title="Tiếp" tone="ngoc" full onPress={() => setN(n + 1)} testID="dialog-next" /></View>
+          {dialog.lines.length - n > 1 ? <Btn icon={FastForward} title="Tua nhanh" tone="giay" onPress={fastForward} testID="dialog-fast" /> : null}
+        </View>
+      ) : dialog.sources.length ? (
           <View style={{ gap: 6 }}>
             <Txt f="bold" size={13} color={c.muc2}>Tư liệu liên quan</Txt>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{dialog.sources.map((s) => <Btn key={s.id} icon={BookMarked} title={s.title} tone="thuy" size="sm" onPress={() => onSource(s.id)} />)}</View>
@@ -349,7 +359,7 @@ const SandSheet: React.FC<{ session: Session; id: number; onClose: () => void }>
   );
 };
 
-export const StageIntroSheet: React.FC<{ session: Session; id: number; onClose: () => void; onStart: (battle: BattleView) => void; onTruth: (stageId: number) => void; onChanged: () => void }> = ({ session, id, onClose, onStart, onTruth, onChanged }) => {
+export const StageIntroSheet: React.FC<{ session: Session; id: number; onClose: () => void; onStart: (battle: BattleView) => void; onTruth: (stageId: number) => void; onChanged: () => void; onDecision?: (scenarioId: number, title: string) => void; onReplay?: (battleId: number) => void }> = ({ session, id, onClose, onStart, onTruth, onChanged, onDecision, onReplay }) => {
   const { c } = useTheme();
   const student = session.user.role === 'student';
   const intro = useLoad(() => api.stageIntro(session.token, id), [session.token, id], session.expired);
@@ -357,12 +367,13 @@ export const StageIntroSheet: React.FC<{ session: Session; id: number; onClose: 
   const { busy, run } = useAction(session.expired);
   const [slot, setSlot] = useState<number | null>(null);
   const [sand, setSand] = useState(false);
+  const [useDecision, setUseDecision] = useState(true);
   const d: StageIntro | null = intro.data;
   const slots = forms.data?.slots ?? [];
   const chosen = slot ?? slots.find((s) => s.size > 0)?.slot ?? 1;
   const picked = slots.find((s) => s.slot === chosen);
   const start = async (restart?: boolean) => {
-    const battle = await run(() => api.startStage(session.token, id, { slot: chosen, restart }));
+    const battle = await run(() => api.startStage(session.token, id, { slot: chosen, restart, use_decision: Boolean(d?.decision?.ready && useDecision) }));
     if (battle) onStart(battle);
   };
   const preview = async () => { const battle = await run(() => api.previewStage(session.token, id)); if (battle) onStart(battle); };
@@ -412,6 +423,27 @@ export const StageIntroSheet: React.FC<{ session: Session; id: number; onClose: 
             </View>
           ) : null}
           <Txt size={13} color={c.muc2}>Thưởng lần đầu thắng: {d.rewards.gold} vàng, {d.rewards.binh_thu} Binh thư, {d.rewards.xp} điểm kinh nghiệm{d.rewards.card ? ', một thẻ tướng' : ''}{d.rewards.fragments ? `, ${d.rewards.fragments} mảnh thẻ` : ''}.</Txt>
+          {student && d.decision ? (
+            <Card flat pad={12} style={{ gap: 8, borderColor: c.thuy }}>
+              <Txt f="bold" size={14}>Quyết sách trước trận</Txt>
+              <Txt size={13} color={c.muc2} style={{ lineHeight: 20 }}>Làm bài quyết sách “{d.decision.title}” trước khi ra trận: quyết định đúng nhiều thì cả đội mạnh thêm tới 15% công và thủ, sai nhiều thì yếu đi tới 15%. Kết quả có hiệu lực {d.decision.hours} giờ và dùng cho một trận. Không bắt buộc.</Txt>
+              {d.decision.ready ? (
+                <View style={{ gap: 8 }}>
+                  <Chip text={`Đã làm: ${d.decision.ready.percent}% → ${d.decision.ready.modifier_pct > 0 ? '+' : ''}${d.decision.ready.modifier_pct}% công và thủ`} bg={d.decision.ready.modifier_pct >= 0 ? c.ngocNhat : c.sonNhat} fg={d.decision.ready.modifier_pct >= 0 ? c.ngocChu : c.sonChu} />
+                  <Segmented<'yes' | 'no'> label="Dùng kết quả quyết sách" value={useDecision ? 'yes' : 'no'} onChange={(v) => setUseDecision(v === 'yes')} options={[{ value: 'yes', label: 'Dùng lợi thế này' }, { value: 'no', label: 'Không dùng' }]} />
+                </View>
+              ) : null}
+              {onDecision ? <Btn icon={ScrollText} title={d.decision.ready ? 'Làm lại quyết sách' : 'Làm quyết sách'} tone="thuy" size="sm" onPress={() => onDecision(d.decision!.scenario_id, d.decision!.title)} testID="stage-decision" /> : null}
+            </Card>
+          ) : null}
+          {student && d.recent?.length && onReplay ? (
+            <View style={{ gap: 6 }}>
+              <Txt f="bold" size={14}>Xem lại trận gần đây</Txt>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {d.recent.map((r) => <Btn key={r.id} icon={HistoryIcon} tone="giay" size="sm" title={`${r.status === 'won' ? `Thắng · ${r.stars} sao` : 'Thua'} · ${new Date(r.finished_at).toLocaleString('vi-VN')}`} onPress={() => onReplay(r.id)} testID={`stage-replay-${r.id}`} />)}
+              </View>
+            </View>
+          ) : null}
           {student ? (
             <View style={{ gap: 8 }}>
               <Txt f="bold" size={14}>Đội hình ra trận</Txt>
@@ -493,7 +525,7 @@ const UnitTile: React.FC<{ u: UnitView; acting: boolean; targeted: boolean; tele
 
 const LOG_TONE: Record<string, 'muc' | 'ngocChu' | 'thuyChu' | 'sonChu' | 'dongChu' | 'vangChu'> = { hit: 'muc', heal: 'ngocChu', effect: 'thuyChu', alert: 'sonChu', wave: 'dongChu', end: 'dongChu', question: 'vangChu', info: 'muc' };
 
-export const WarBattleScreen: React.FC<{ session: Session; battleId: number; initial?: BattleView; onClose: (changed: boolean) => void; onTruth: (stageId: number) => void; onRestart?: (stageId: number) => void }> = ({ session, battleId, initial, onClose, onTruth, onRestart }) => {
+export const WarBattleScreen: React.FC<{ session: Session; battleId: number; initial?: BattleView; onClose: (changed: boolean) => void; onTruth: (stageId: number) => void; onRestart?: (stageId: number) => void; onReplay?: (battleId: number) => void }> = ({ session, battleId, initial, onClose, onTruth, onRestart, onReplay }) => {
   const { c } = useTheme();
   const { token } = session;
   const [view, setView] = useState<BattleView | null>(initial ?? null);
@@ -556,7 +588,7 @@ export const WarBattleScreen: React.FC<{ session: Session; battleId: number; ini
   const act = (type: 'guard' | 'tactic' | 'auto') => { void send({ type }); setFeedback(null); };
   const pickable = (u: UnitView) => !over && !view.question && !busy && actor !== null && u.alive;
 
-  if (over && view.result) return <WarResult view={view} onClose={() => onClose(true)} onTruth={() => onTruth(view.stage.id)} onRestart={onRestart && view.mode === 'play' ? () => onRestart(view.stage.id) : undefined} />;
+  if (over && view.result) return <WarResult view={view} onClose={() => onClose(true)} onTruth={() => onTruth(view.stage.id)} onRestart={onRestart && view.mode === 'play' ? () => onRestart(view.stage.id) : undefined} onReplay={onReplay ? () => onReplay(view.id) : undefined} />;
   return (
     <View style={{ gap: 12 }}>
       <View style={{ gap: 6 }}>
@@ -571,6 +603,7 @@ export const WarBattleScreen: React.FC<{ session: Session; battleId: number; ini
           {view.terrain.stakes ? <Chip text="Cọc ngầm" bg={c.dongNhat} fg={c.dongChu} /> : null}
           {view.terrain.hunger ? <Chip text="Địch thiếu lương" bg={c.dongNhat} fg={c.dongChu} /> : null}
           {view.mode === 'play' ? <Chip text={`Tối đa 3 sao nếu thắng trong ${view.star_turns} lượt`} bg={c.the2} fg={c.muc2} /> : null}
+          {view.advantage && view.advantage.modifier_pct !== 0 ? <Chip text={`Quyết sách ${view.advantage.percent}%: ${view.advantage.modifier_pct > 0 ? '+' : ''}${view.advantage.modifier_pct}% công và thủ`} bg={view.advantage.modifier_pct > 0 ? c.ngocNhat : c.sonNhat} fg={view.advantage.modifier_pct > 0 ? c.ngocChu : c.sonChu} /> : null}
         </View>
       </View>
       {view.stage.background_url ? <Image accessible={false} source={{ uri: view.stage.background_url }} resizeMode="cover" style={{ width: '100%', height: 110, borderRadius: 14, opacity: 0.85 }} /> : null}
@@ -659,7 +692,7 @@ export const WarBattleScreen: React.FC<{ session: Session; battleId: number; ini
   );
 };
 
-const WarResult: React.FC<{ view: BattleView; onClose: () => void; onTruth: () => void; onRestart?: () => void }> = ({ view, onClose, onTruth, onRestart }) => {
+const WarResult: React.FC<{ view: BattleView; onClose: () => void; onTruth: () => void; onRestart?: () => void; onReplay?: () => void }> = ({ view, onClose, onTruth, onRestart, onReplay }) => {
   const { c } = useTheme();
   const r = view.result!;
   const rw = r.rewards;
@@ -686,10 +719,70 @@ const WarResult: React.FC<{ view: BattleView; onClose: () => void; onTruth: () =
       ) : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         <Btn icon={ScrollText} title="Sự thật lịch sử" tone="thuy" onPress={onTruth} testID="war-truth" />
+        {onReplay ? <Btn icon={HistoryIcon} title="Xem lại trận" tone="giay" onPress={onReplay} testID="war-watch" /> : null}
         {onRestart ? <Btn icon={RotateCcw} title="Đánh lại" tone="dong" onPress={onRestart} testID="war-replay" /> : null}
         <Btn title="Xong" tone="ngoc" onPress={onClose} testID="war-done" />
       </View>
     </View>
+  );
+};
+
+/** Xem lại trận đã kết thúc (HK.SYS.022): từng bước theo nhật ký máy chủ đã ghi, tự phát hoặc bấm từng bước */
+export const WarReplaySheet: React.FC<{ session: Session; id: number; onClose: () => void }> = ({ session, id, onClose }) => {
+  const { c } = useTheme();
+  const data = useLoad(() => api.battleReplay(session.token, id), [session.token, id], session.expired);
+  const frames: ReplayFrame[] = data.data?.frames ?? [];
+  const [i, setI] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  useEffect(() => {
+    if (!playing) return undefined;
+    if (i >= frames.length - 1) { setPlaying(false); return undefined; }
+    const t = setTimeout(() => setI((x) => Math.min(frames.length - 1, x + 1)), 1100);
+    return () => clearTimeout(t);
+  }, [playing, i, frames.length]);
+  const f: ReplayFrame | undefined = frames[Math.min(i, frames.length - 1)];
+  const side = (s: 'a' | 'e') => (f?.units ?? []).filter((u) => u[2] === s);
+  const row = (u: ReplayFrame['units'][number]) => (
+    <View key={u[0]} style={{ gap: 3, opacity: u[6] ? 1 : 0.55 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+        <Txt f="semibold" size={13} style={{ flex: 1 }}>{u[1]}{u[6] ? '' : ' · ngã xuống'}</Txt>
+        <Txt size={12} color={c.muc2}>Máu {u[3]}/{u[4]} · Nộ {u[5]}</Txt>
+      </View>
+      <Bar value={u[3]} max={Math.max(1, u[4])} height={8} fill={u[2] === 'a' ? c.ngoc : c.son} label={`${u[1]}: máu ${u[3]}/${u[4]}`} />
+    </View>
+  );
+  return (
+    <Sheet open onClose={onClose} title="Xem lại trận" subtitle={data.data?.stage.title} wide footer={<View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}><Btn title="Đóng" tone="giay" onPress={onClose} testID="replay-close" /></View>}>
+      <ErrorNote message={data.error} />
+      {data.loading && !data.data ? <Spinner /> : null}
+      {data.data && !frames.length ? <InfoNote><Txt size={14}>{data.data.note ?? 'Trận này chưa có dữ liệu phát lại.'}</Txt></InfoNote> : null}
+      {f ? (
+        <View style={{ gap: 12 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            <Chip text={`Bước ${i + 1}/${frames.length}`} bg={c.the2} fg={c.muc2} />
+            <Chip text={`Lượt ${f.turn}`} bg={c.thuyNhat} fg={c.thuyChu} />
+            <Chip text={`Làn sóng ${f.wave}`} bg={c.sonNhat} fg={c.sonChu} />
+            {f.tide ? <Chip text={f.tide === 'high' ? 'Triều lên' : 'Triều rút'} bg={c.dongNhat} fg={c.dongChu} /> : null}
+            {f.status !== 'active' ? <Chip text={f.status === 'won' ? 'Chiến thắng' : 'Thất bại'} bg={f.status === 'won' ? c.ngocNhat : c.sonNhat} fg={f.status === 'won' ? c.ngocChu : c.sonChu} /> : null}
+            {data.data?.advantage && data.data.advantage.modifier_pct !== 0 ? <Chip text={`Quyết sách ${data.data.advantage.modifier_pct > 0 ? '+' : ''}${data.data.advantage.modifier_pct}%`} bg={c.the2} fg={c.muc2} /> : null}
+          </View>
+          <Bar value={i + 1} max={frames.length} height={6} label={`Bước ${i + 1}/${frames.length}`} />
+          <Txt f="bold" size={15} accessibilityLiveRegion="polite" testID="replay-label">{f.label}</Txt>
+          <View style={{ gap: 3 }}>
+            {f.log.length ? f.log.map((l, k) => <Txt key={`${l.t}-${k}`} size={13} color={c[LOG_TONE[l.kind] ?? 'muc']} f={l.kind === 'alert' || l.kind === 'end' ? 'bold' : 'body'}>• {l.text}</Txt>) : <Txt size={13} color={c.muc3}>Bước này không có diễn biến mới.</Txt>}
+          </View>
+          <Txt f="bold" size={14} color={c.sonChu}>Quân địch</Txt>
+          <View style={{ gap: 8 }}>{side('e').map(row)}</View>
+          <Txt f="bold" size={14} color={c.ngocChu}>Quân ta</Txt>
+          <View style={{ gap: 8 }}>{side('a').map(row)}</View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            <Btn icon={ChevronLeft} title="Bước trước" tone="giay" size="sm" disabled={i === 0} onPress={() => { setPlaying(false); setI(i - 1); }} testID="replay-prev" />
+            <Btn icon={playing ? Pause : Play} title={playing ? 'Dừng' : i >= frames.length - 1 ? 'Phát lại từ đầu' : 'Tự phát'} tone="thuy" size="sm" onPress={() => { if (playing) setPlaying(false); else { if (i >= frames.length - 1) setI(0); setPlaying(true); } }} testID="replay-play" />
+            <Btn icon={ChevronRight} title="Bước sau" tone="giay" size="sm" disabled={i >= frames.length - 1} onPress={() => { setPlaying(false); setI(i + 1); }} testID="replay-next" />
+          </View>
+        </View>
+      ) : null}
+    </Sheet>
   );
 };
 

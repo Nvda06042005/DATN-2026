@@ -12,7 +12,7 @@ import { useCampaignOptions } from '@/components/admin/ContentKit';
 import { Cell, DataTable, ErrorNote, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, type FieldDef } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Overlay } from '@/components/portal/LessonReader';
-import { WarBattleScreen } from '@/components/portal/WarPlay';
+import { WarBattleScreen, WarReplaySheet } from '@/components/portal/WarPlay';
 import { Btn, Card, ConfirmSheet, Field, Segmented, Sheet, Spinner, ToggleRow, Txt } from '@/components/ui';
 import { FONT } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -334,12 +334,13 @@ const StagesPanel: React.FC<{ session: Session }> = ({ session }) => {
   const [remove, setRemove] = useState<Row | null>(null);
   const [balance, setBalance] = useState<Row | null>(null);
   const [preview, setPreview] = useState<BattleView | null>(null);
+  const [replayId, setReplayId] = useState<number | null>(null);
   const edit = async (row: Row) => { const full = await run(() => api.adminStage(token, row.id)); if (full) setForm({ row: full }); };
   const play = async (row: Row) => { const battle = await run(() => api.previewStage(token, row.id)); if (battle) setPreview(battle); };
   const toggle = async (row: Row) => {
     if (await run(() => api.stageStatus(token, row.id, row.status === 'published' ? 'draft' : 'published'), row.status === 'published' ? 'Đã gỡ màn chơi về Nháp' : 'Đã phát hành màn chơi')) list.reload();
   };
-  if (preview) return <Overlay title={`Chơi thử: ${preview.stage.title}`} onBack={() => setPreview(null)}><WarBattleScreen session={session} battleId={preview.id} initial={preview} onClose={() => setPreview(null)} onTruth={() => undefined} /></Overlay>;
+  if (preview) return <Overlay title={`Chơi thử: ${preview.stage.title}`} onBack={() => setPreview(null)}><WarBattleScreen session={session} battleId={preview.id} initial={preview} onClose={() => setPreview(null)} onTruth={() => undefined} onReplay={setReplayId} />{replayId !== null ? <WarReplaySheet key={replayId} session={session} id={replayId} onClose={() => setReplayId(null)} /> : null}</Overlay>;
   const fields = (row?: Row): FieldDef[] => [
     ...(row ? [] : [{ name: 'battle_id', label: 'Trận đánh trong kho lịch sử', type: 'select' as const, required: true, options: [{ value: '', label: 'Chọn trận đánh…' }, ...(options.data ?? []).filter((o) => !o.has_stage).map((o) => ({ value: String(o.id), label: `${o.name}${o.year ? ` (${o.year})` : ''}${o.status === 'published' ? '' : ' – hồ sơ còn Nháp'}` }))] }]),
     { name: 'title', label: 'Tên màn chơi', required: true }, { name: 'summary', label: 'Tóm tắt', type: 'textarea' }, { name: 'objective', label: 'Nhiệm vụ của người chơi' },

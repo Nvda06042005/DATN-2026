@@ -457,6 +457,132 @@ async function playOut(who: { token: string }, battleId: number, right = true) {
     });
   });
 
+  // ------------------------------------------------------------------ HK.HS.053: quyết sách trước trận tạo lợi thế; HK.SYS.022: phát lại trận
+  describe('quyết sách trước trận và phát lại trận', () => {
+    let scenarioId: number;
+    const introOf = async (who: { token: string }) => (await as(who)('GET', `/api/war/stages/${stageDongBoDau}`)).body;
+    const startWith = (who: { token: string }, body: Record<string, unknown>) => as(who)('POST', `/api/war/stages/${stageDongBoDau}/start`, { slot: 1, restart: true, ...body });
+    const runDone = async (userId: number, percent: number, hoursAgo = 0) => (await db.query<{ id: number }>(
+      `INSERT INTO hk_game_runs (user_id, kind, scenario_id, mode, status, snapshot, finished_at, percent, score, max_score)
+       VALUES ($1, 'battle', $2, 'play', 'done', '{}'::jsonb, now() - ($3 || ' hours')::interval, $4, $5, 100) RETURNING id::int AS id`, [userId, scenarioId, String(hoursAgo), percent, percent]))[0].id;
+    const atkOf = (v: any): number[] => v.units.filter((u: any) => u.side === 'ally').map((u: any) => u.atk);
+    const defOf = (v: any): number[] => v.units.filter((u: any) => u.side === 'ally').map((u: any) => u.def);
+
+    beforeAll(async () => {
+      scenarioId = (await db.query<{ id: number }>("UPDATE hk_scenarios SET status = 'published' WHERE battle_id = (SELECT id FROM hist_battles WHERE slug = 'dong-bo-dau') RETURNING id"))[0].id;
+    });
+
+    test('giới thiệu màn có bước quyết sách; chưa làm thì chưa có lợi thế và không dùng được; giáo viên không thấy', async () => {
+      const intro = await introOf(f.S1);
+      expect(intro.decision).toMatchObject({ scenario_id: scenarioId, hours: 12, ready: null });
+      expect(Array.isArray(intro.recent)).toBe(true); // trận đã đánh ở các bài trước đều có nhật ký phát lại
+      expect((await startWith(f.S1, { use_decision: true })).status).toBe(409);
+      expect((await introOf(f.T1)).decision).toBeNull();
+    });
+
+    test('quyết sách tốt tăng công và thủ của cả đội, dùng cho một trận; đánh lại từ đầu thì được dùng lại', async () => {
+      const base: any = (await startWith(f.S1, {})).body;
+      expect(base.advantage).toBeNull();
+      const good = await runDone(f.S1.id, 100);
+      expect((await introOf(f.S1)).decision.ready).toEqual({ run_id: good, percent: 100, modifier_pct: 15 });
+      const boosted: any = (await startWith(f.S1, { use_decision: true })).body;
+      expect(boosted.advantage).toEqual({ percent: 100, modifier_pct: 15 });
+      atkOf(boosted).forEach((v, i) => { expect(v).toBeGreaterThan(atkOf(base)[i]); expect(Math.abs(v - atkOf(base)[i] * 1.15)).toBeLessThanOrEqual(2); });
+      defOf(boosted).forEach((v, i) => expect(v).toBeGreaterThan(defOf(base)[i]));
+      // đã gắn vào trận đang chơi nên chưa dùng lại được cho trận khác
+      expect((await introOf(f.S1)).decision.ready).toBeNull();
+      expect((await as(f.S1)('GET', `/api/war/battles/${boosted.id}`)).body.advantage).toEqual({ percent: 100, modifier_pct: 15 });
+      // đánh lại từ đầu (bỏ trận dở) thì kết quả quyết sách chưa bị tính là đã dùng
+      const again: any = (await startWith(f.S1, {})).body;
+      expect(again.advantage).toBeNull();
+      expect((await introOf(f.S1)).decision.ready).toMatchObject({ run_id: good, modifier_pct: 15 });
+      // trận đã kết thúc vẫn tính là đã dùng
+      expect((await startWith(f.S1, { use_decision: true })).status).toBe(200);
+      await db.query("UPDATE hk_war_battles SET status = 'lost', finished_at = now() WHERE user_id = $1 AND status = 'active'", [f.S1.id]);
+      expect((await introOf(f.S1)).decision.ready).toBeNull();
+      expect((await startWith(f.S1, { use_decision: true })).status).toBe(409);
+    });
+
+    test('quyết sách kém làm yếu quân; kết quả quá 12 giờ hết hiệu lực; học sinh khác không dùng được kết quả của bạn', async () => {
+      const base: any = (await startWith(f.S1, {})).body;
+      await runDone(f.S1.id, 0);
+      expect((await introOf(f.S1)).decision.ready).toMatchObject({ percent: 0, modifier_pct: -15 });
+      const weak: any = (await startWith(f.S1, { use_decision: true })).body;
+      expect(weak.advantage).toEqual({ percent: 0, modifier_pct: -15 });
+      atkOf(weak).forEach((v, i) => expect(v).toBeLessThan(atkOf(base)[i]));
+      await db.query("UPDATE hk_war_battles SET status = 'lost', finished_at = now() WHERE user_id = $1 AND status = 'active'", [f.S1.id]);
+      await runDone(f.S1.id, 100, 13);
+      expect((await introOf(f.S1)).decision.ready).toBeNull();
+      expect((await startWith(f.S1, { use_decision: true })).status).toBe(409);
+      expect((await introOf(f.S2)).decision.ready).toBeNull();
+      expect((await startWith(f.S2, { use_decision: true })).status).toBe(409);
+    });
+
+    test('phát lại trận: khung đầu là lúc bắt đầu, mỗi hành động thêm một khung, khung cuối khớp kết quả; chỉ người chơi xem được và phải đánh xong', async () => {
+      const pv: any = (await as(f.T1)('POST', `/api/war/stages/${stageDongBoDau}/preview`, {})).body;
+      expect((await as(f.T1)('GET', `/api/war/battles/${pv.id}/replay`)).status).toBe(409); // đang đánh dở
+      const end = await playOut(f.T1, pv.id);
+      expect(['won', 'lost']).toContain(end.status);
+      const rp: any = (await as(f.T1)('GET', `/api/war/battles/${pv.id}/replay`)).body;
+      expect(rp).toMatchObject({ id: pv.id, mode: 'preview', status: end.status, note: null, advantage: null });
+      expect(rp.frames.length).toBeGreaterThan(2);
+      expect(rp.frames[0]).toMatchObject({ n: 0, label: 'Bắt đầu trận', status: 'active', turn: 1 });
+      expect(rp.frames.map((x: any) => x.n)).toEqual(rp.frames.map((_: unknown, i: number) => i));
+      expect(rp.frames.at(-1).status).toBe(end.status);
+      expect(rp.frames[0].units[0]).toHaveLength(7);
+      expect(rp.frames.flatMap((x: any) => x.log).some((l: any) => l.kind === 'end')).toBe(true);
+      const finalHp = Object.fromEntries(rp.frames.at(-1).units.map((u: any[]) => [u[0], u[3]]));
+      for (const u of end.units) expect(finalHp[u.id]).toBe(u.hp);
+      expect(rp.frames.slice(1).every((x: any) => typeof x.label === 'string' && x.label.length > 0)).toBe(true);
+      expect((await as(f.S1)('GET', `/api/war/battles/${pv.id}/replay`)).status).toBe(404); // trận của người khác
+    });
+
+    test('trận thật của học sinh: có nhật ký phát lại và hiện trong "trận gần đây" của màn', async () => {
+      const start: any = (await startWith(f.S1, {})).body;
+      await playOut(f.S1, start.id);
+      const rp: any = (await as(f.S1)('GET', `/api/war/battles/${start.id}/replay`)).body;
+      expect(rp.mode).toBe('play');
+      expect(rp.frames.length).toBeGreaterThan(3); // mỗi bước tự động đánh là một khung
+      expect(rp.frames.slice(1).some((x: any) => /Tự động đánh/.test(x.label))).toBe(true);
+      const recent = (await introOf(f.S1)).recent;
+      expect(recent[0]).toMatchObject({ id: start.id });
+      expect(recent.length).toBeLessThanOrEqual(3);
+    });
+
+    test('HK.HS.069: bộ sưu tập kèm cuộc kháng chiến của từng thẻ để lọc; chỉ liệt kê cuộc kháng chiến có thẻ', async () => {
+      const col = (await as(f.S2)('GET', '/api/war/cards')).body;
+      expect(col.campaigns.length).toBeGreaterThanOrEqual(1);
+      expect(col.cards.every((c: any) => Array.isArray(c.campaign_ids))).toBe(true);
+      for (const camp of col.campaigns) expect(col.cards.some((c: any) => c.campaign_ids.includes(camp.id))).toBe(true);
+      const hungDao = col.cards.find((c: any) => c.code === 'tran-hung-dao');
+      expect(hungDao.campaign_ids.length).toBeGreaterThanOrEqual(1);
+      const tactic = col.cards.find((c: any) => c.kind === 'tactic');
+      expect(tactic.campaign_ids).toEqual([]); // thẻ chiến thuật không gắn nhân vật
+    });
+
+    test('HK.HS.033: hồ sơ trận đánh có đường vào màn thẻ tướng, mô phỏng quyết định và mini-game cùng cuộc kháng chiến', async () => {
+      await db.query("UPDATE hk_minigames SET status = 'published'");
+      const battleId = (await db.query<{ id: number }>("SELECT id FROM hist_battles WHERE slug = 'dong-bo-dau'"))[0].id;
+      const d = (await as(f.S1)('GET', `/api/learn/battles/${battleId}`)).body;
+      expect(d.play.stage).toEqual({ id: stageDongBoDau, title: expect.any(String) });
+      expect(d.play.scenario).toEqual({ id: scenarioId, title: expect.any(String) });
+      expect(d.play.minigames.length).toBeGreaterThanOrEqual(1);
+      expect(d.play.minigames.every((m: any) => ['match', 'timeline', 'crossword'].includes(m.kind))).toBe(true);
+      // bản nháp thì không hiện
+      await db.query("UPDATE hk_scenarios SET status = 'draft' WHERE id = $1", [scenarioId]);
+      expect((await as(f.S1)('GET', `/api/learn/battles/${battleId}`)).body.play.scenario).toBeNull();
+      await db.query("UPDATE hk_scenarios SET status = 'published' WHERE id = $1", [scenarioId]);
+    });
+
+    test('trận cũ chưa có nhật ký phát lại: trả danh sách khung rỗng kèm ghi chú, không lỗi', async () => {
+      const old: any = (await startWith(f.S1, {})).body;
+      await db.query("UPDATE hk_war_battles SET state = state - 'replay', status = 'lost', finished_at = now() WHERE id = $1", [old.id]);
+      const rp: any = (await as(f.S1)('GET', `/api/war/battles/${old.id}/replay`)).body;
+      expect(rp.frames).toEqual([]);
+      expect(rp.note).toMatch(/trước khi hệ thống ghi/);
+    });
+  });
+
   // ------------------------------------------------------------------ HK.QT.056: bật/tắt và giờ chơi
   describe('kiểm soát giờ chơi', () => {
     const today = () => new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);

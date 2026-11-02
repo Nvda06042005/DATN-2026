@@ -44,6 +44,7 @@ export class WarController {
   @Post('stages/:id/skip') @Roles('student') @HttpCode(200) skip(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.war.skip(user, id); }
   @Get('stages/:id/truth') @Roles(...PLAYERS) truth(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.war.truth(user, id); }
   @Get('battles/:id') @Roles(...PLAYERS) battle(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.war.battle(user, id); }
+  @Get('battles/:id/replay') @Roles(...PLAYERS) replay(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.war.replay(user, id); }
   @Post('battles/:id/act') @Roles(...PLAYERS) @HttpCode(200) act(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.war.act(user, id, body as never); }
   @Post('battles/:id/answer') @Roles(...PLAYERS) @HttpCode(200) answer(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.war.answer(user, id, body.answer); }
 

@@ -567,15 +567,27 @@ export const CloudBank: React.FC<{ color: string; flip?: boolean; height?: numbe
 /** Biểu tượng logo: hình vuông bo góc cắt từ assets/logo.jpg (chiến binh cầm cờ đỏ trước mặt trời) */
 const LOGO_MARK = require('../assets/logo-mark.png');
 
-/** Logo chính chủ: biểu tượng chiến binh và nét chữ gốc, dùng chung ở mọi trang. */
-export const BrandLogo: React.FC<{ compact?: boolean; subtitle?: string; light?: boolean; paper?: boolean }> = ({ compact = false, subtitle, light = false, paper = false }) => {
+/** Tên hệ thống mặc định: khớp giá trị mặc định của cấu hình hệ thống (migration 032) */
+export const DEFAULT_SYSTEM_NAME = 'Hào Khí Đông A';
+export interface SystemBrand { name: string; logo_url: string | null }
+
+/**
+ * Logo chính chủ: biểu tượng chiến binh và nét chữ gốc, dùng chung ở mọi trang.
+ * Khi quản trị tổng đổi tên hoặc logo hệ thống (HK.AD.065) thì `brand` thay tên bằng chữ thường và logo bằng ảnh đã đặt.
+ */
+export const BrandLogo: React.FC<{ compact?: boolean; subtitle?: string; light?: boolean; paper?: boolean; brand?: SystemBrand | null }> = ({ compact = false, subtitle, light = false, paper = false, brand }) => {
   const { c, dark } = useTheme();
+  const [logoFailed, setLogoFailed] = React.useState(false);
+  const custom = brand && (brand.name.trim() !== DEFAULT_SYSTEM_NAME || Boolean(brand.logo_url)) ? brand : null;
+  const name = custom?.name.trim() || 'Đông A edu';
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} accessible accessibilityRole="header" accessibilityLabel={subtitle ? `Đông A edu – ${subtitle}` : 'Đông A edu'}>
-      <Image source={LOGO_MARK} accessibilityIgnoresInvertColors style={{ width: 44, height: 44, borderRadius: 12 }} />
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} accessible accessibilityRole="header" accessibilityLabel={subtitle ? `${custom ? name : 'Đông A edu'} – ${subtitle}` : custom ? name : 'Đông A edu'}>
+      <Image source={custom?.logo_url && !logoFailed ? { uri: custom.logo_url } : LOGO_MARK} onError={() => setLogoFailed(true)} accessibilityIgnoresInvertColors style={{ width: 44, height: 44, borderRadius: 12 }} />
       {!compact && (
         <View>
-          <BrandWordmark height={28} color={light ? c.trang : paper ? c.logoInk : dark ? c.trang : c.logoInk} />
+          {custom && custom.name.trim() !== DEFAULT_SYSTEM_NAME
+            ? <Text numberOfLines={1} style={{ fontFamily: FONT.bold, fontSize: 20, color: light ? c.trang : paper ? c.logoInk : dark ? c.trang : c.logoInk, maxWidth: 260 }}>{name}</Text>
+            : <BrandWordmark height={28} color={light ? c.trang : paper ? c.logoInk : dark ? c.trang : c.logoInk} />}
           {subtitle && (
             <Text style={{ fontFamily: FONT.bold, fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase', color: light ? 'rgba(255,255,255,0.85)' : c.muc2 }}>{subtitle}</Text>
           )}

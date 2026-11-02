@@ -35,7 +35,7 @@ export interface LogEntry { t: number; kind: 'info' | 'hit' | 'heal' | 'effect' 
 export interface BattleState {
   turn: number; order: string[]; cursor: number; units: Record<string, Unit>; allyIds: string[]; enemyIds: string[]; wave: number; waves: WaveDef[]; terrain: TerrainDef;
   maxTurns: number; starTurns: number; tactic: TacticDef | null; tacticUsed: boolean; telegraph: Telegraph | null; pending: Pending | null;
-  status: 'active' | 'won' | 'lost'; log: LogEntry[]; rng: number; seq: number; actor: string | null; awaiting: boolean;
+  status: 'active' | 'won' | 'lost'; log: LogEntry[]; logN?: number; rng: number; seq: number; actor: string | null; awaiting: boolean;
   stats: { dealt: number; taken: number; allyDown: number; ultimates: number; ultimatesStrong: number; byUnit: Record<string, number> };
 }
 
@@ -63,6 +63,7 @@ function rnd(s: BattleState): number {
 }
 
 const log = (s: BattleState, kind: LogEntry['kind'], text: string, extra: Partial<LogEntry> = {}): void => {
+  s.logN = (s.logN ?? 0) + 1;
   s.log.push({ t: s.turn, kind, text, ...extra });
   if (s.log.length > 240) s.log.splice(0, s.log.length - 240);
 };
@@ -390,6 +391,27 @@ export function autoPlay(s: BattleState, answerRate = 0.7): BattleState {
     if (!r.ok) break;
   }
   return s;
+}
+
+/** Lợi thế từ bước quyết sách trước trận (HK.HS.053): 50% là hòa vốn, 100% tăng 15% công và thủ của cả đội, 0% giảm 15% (làm tròn đến 1%) */
+export function decisionModifier(percent: number): number {
+  const x = (Math.max(0, Math.min(100, Number(percent) || 0)) - 50) * 0.3;
+  return (Math.sign(x) * Math.round(Math.abs(x))) / 100;
+}
+
+/** Một khung của bản phát lại trận (HK.SYS.022): trạng thái các đơn vị sau mỗi hành động của người chơi và những dòng nhật ký mới */
+export interface ReplayFrame {
+  n: number; label: string; turn: number; wave: number; status: BattleState['status']; tide: 'high' | 'low' | null;
+  /** [id, tên, phe (a = ta, e = địch), máu, máu tối đa, nộ, còn sống (1/0)] */
+  units: Array<[string, string, 'a' | 'e', number, number, number, 0 | 1]>; log: LogEntry[];
+}
+export function replayFrame(s: BattleState, n: number, label: string, logBefore: number): ReplayFrame {
+  const added = Math.max(0, Math.min(s.log.length, (s.logN ?? 0) - logBefore));
+  return {
+    n, label, turn: Math.min(s.turn, s.maxTurns), wave: s.wave + 1, status: s.status, tide: tideState(s),
+    units: Object.values(s.units).map((u) => [u.id, u.name, u.side === 'ally' ? 'a' : 'e', u.hp, u.maxHp, u.rage, u.alive ? 1 : 0]),
+    log: added ? s.log.slice(-added) : [],
+  };
 }
 
 export function starsOf(s: BattleState): number {

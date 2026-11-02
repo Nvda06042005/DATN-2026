@@ -34,8 +34,8 @@ import { StudentNav, type Dots, type Tab } from '@/components/portal/StudentNav'
 import { StudyPlanTab } from '@/components/portal/StudyPlan';
 import { ExplainSheet, TieuTuongTab } from '@/components/portal/TieuTuong';
 import { WarCardsTab } from '@/components/portal/WarCards';
-import { BattlesHub, MarchTab, StageIntroSheet, TruthSheet, WarBattleScreen } from '@/components/portal/WarPlay';
-import { Btn, PaperBg, Segmented, Sheet, Spinner, Stars, Txt, useToast } from '@/components/ui';
+import { BattlesHub, MarchTab, StageIntroSheet, TruthSheet, WarBattleScreen, WarReplaySheet } from '@/components/portal/WarPlay';
+import { afterSheet, Btn, PaperBg, Segmented, Sheet, Spinner, Stars, Txt, useToast } from '@/components/ui';
 import { PALETTES } from '@/constants/theme';
 import { ThemeContext, useTheme } from '@/hooks/use-theme';
 import type { MyAssignment } from '@/types/classroom';
@@ -53,7 +53,7 @@ type Overlayed =
   | { kind: 'listen'; nodeId: number; title: string }
   | { kind: 'quiz'; attempt: AttemptState; title: string; nodeId: number | null; assignmentId?: number }
   | { kind: 'review'; id: number }
-  | { kind: 'battle'; scenarioId: number; title: string; restart?: boolean }
+  | { kind: 'battle'; scenarioId: number; title: string; restart?: boolean; backToStage?: number }
   | { kind: 'anim'; scenarioId: number; title: string }
   | { kind: 'mini'; id: number; title: string; restart?: boolean; assignmentId?: number }
   | { kind: 'live'; roomId: number; title: string }
@@ -90,6 +90,9 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
   const [homeMode, setHomeMode] = useState<'march' | 'quest'>(warOn ? 'march' : 'quest');
   const [collMode, setCollMode] = useState<'war' | 'badges'>(warOn ? 'war' : 'badges');
   const [stageId, setStageId] = useState<number | null>(null);
+  const [replayId, setReplayId] = useState<number | null>(null);
+  // màn giới thiệu đang tạm đóng để nhường chỗ cho bản phát lại (hai hộp thoại không mở chồng nhau)
+  const [replayBack, setReplayBack] = useState<number | null>(null);
   const [truthId, setTruthId] = useState<number | null>(null);
   // Hỏi Tiểu Tướng vì sao một câu làm sai (HK.HS.089)
   const [explain, setExplain] = useState<{ attemptId: number; questionId: number } | null>(null);
@@ -105,7 +108,13 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
     if (counts) setShare(counts);
   };
 
-  const open = (type: string, id: number) => setDetail({ type, id });
+  // Từ hồ sơ trận đánh đi thẳng vào chơi (HK.HS.033): màn thẻ tướng, mô phỏng quyết định, mini-game
+  const open = (type: string, id: number) => {
+    if (type === 'stage') { setDetail(null); setStageId(id); return; }
+    if (type === 'scenario') { setDetail(null); setOverlay({ kind: 'battle', scenarioId: id, title: 'Mô phỏng quyết định của chỉ huy' }); return; }
+    if (type === 'minigame') { setDetail(null); setOverlay({ kind: 'mini', id, title: 'Mini-game lịch sử' }); return; }
+    setDetail({ type, id });
+  };
   const guarded = useCallback(async <T,>(fn: () => Promise<T>): Promise<T | undefined> => {
     setBusy(true);
     try { return await fn(); } catch (e) { toast(errorMessage(e)); return undefined; } finally { setBusy(false); }
@@ -244,8 +253,8 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
         </Overlay>
       ) : null}
       {overlay?.kind === 'battle' ? (
-        <Overlay title={overlay.title} onBack={() => { setOverlay(null); bump(); }}>
-          <BattleScreen session={session} scenarioId={overlay.scenarioId} restart={overlay.restart} onClose={() => { setOverlay(null); bump(); }} onAnimation={() => setOverlay({ kind: 'anim', scenarioId: overlay.scenarioId, title: overlay.title })} onOpenLink={open} />
+        <Overlay title={overlay.title} onBack={() => { const back = overlay.backToStage; setOverlay(null); bump(); if (back) setStageId(back); }}>
+          <BattleScreen session={session} scenarioId={overlay.scenarioId} restart={overlay.restart} onClose={() => { const back = overlay.backToStage; setOverlay(null); bump(); if (back) setStageId(back); }} onAnimation={() => setOverlay({ kind: 'anim', scenarioId: overlay.scenarioId, title: overlay.title })} onOpenLink={open} />
         </Overlay>
       ) : null}
       {overlay?.kind === 'anim' ? (
@@ -260,13 +269,16 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
       {overlay?.kind === 'war' ? (
         <Overlay title={overlay.battle.stage.title} onBack={() => { setOverlay(null); bump(); }}>
           <WarBattleScreen session={session} battleId={overlay.battle.id} initial={overlay.battle} onClose={() => { setOverlay(null); bump(); }} onTruth={setTruthId}
-            onRestart={(id) => { setOverlay(null); setStageId(id); }} />
+            onRestart={(id) => { setOverlay(null); setStageId(id); }} onReplay={setReplayId} />
         </Overlay>
       ) : null}
       {overlay?.kind === 'review' ? (
         <Overlay title="Xem lại bài đã làm" onBack={() => setOverlay(null)}><ReviewScreen session={session} id={overlay.id} onOpenLink={open} onExplain={(attemptId, questionId) => setExplain({ attemptId, questionId })} /></Overlay>
       ) : null}
-      {stageId !== null ? <StageIntroSheet key={stageId} session={session} id={stageId} onClose={() => setStageId(null)} onChanged={() => { bump(); loadHud(); }} onTruth={setTruthId} onStart={(battle) => { setStageId(null); setOverlay({ kind: 'war', battle }); }} /> : null}
+      {stageId !== null ? <StageIntroSheet key={stageId} session={session} id={stageId} onClose={() => setStageId(null)} onChanged={() => { bump(); loadHud(); }} onTruth={setTruthId} onStart={(battle) => { setStageId(null); setOverlay({ kind: 'war', battle }); }}
+        onDecision={(scenarioId, title) => { const back = stageId; setStageId(null); setOverlay({ kind: 'battle', scenarioId, title, backToStage: back ?? undefined }); }}
+        onReplay={(battleId) => { setReplayBack(stageId); setStageId(null); afterSheet(() => setReplayId(battleId)); }} /> : null}
+      {replayId !== null ? <WarReplaySheet key={replayId} session={session} id={replayId} onClose={() => { const back = replayBack; setReplayId(null); setReplayBack(null); if (back !== null) afterSheet(() => setStageId(back)); }} /> : null}
       {explain ? <ExplainSheet session={session} attemptId={explain.attemptId} questionId={explain.questionId} onClose={() => setExplain(null)} onOpen={open} /> : null}
       {truthId !== null ? <TruthSheet session={session} id={truthId} onClose={() => setTruthId(null)} onSource={(id) => { setTruthId(null); open('source', id); }} /> : null}
       {detail ? <DetailSheet key={`${detail.type}${detail.id}`} session={session} type={detail.type} id={detail.id} onClose={() => setDetail(null)} onOpen={open} onChanged={bump} /> : null}
