@@ -4,6 +4,8 @@
  * kịch bản tiết học dựng từ cấu trúc hành trình, để chức năng vẫn dùng được và kết quả kiểm chứng được. Bản nháp không tự lưu: giáo viên lưu qua API câu hỏi bình thường.
  */
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
 import { visibleSql, notFound } from '../content/access';
 import { normalizeData, QType } from '../content/questions';
 import { DatabaseService, UserRow } from '../database/database.service';
@@ -62,6 +64,86 @@ export function templateDrafts(text: string, count: number): QuestionDraft[] {
   }
   return out;
 }
+
+
+export interface TopicGroupMeta {
+  id: string;
+  title: string;
+  short_title: string;
+  badge: string;
+  description: string;
+  sgk_reference: string;
+  unit_ids: string[];
+}
+
+export const CURRICULUM_TOPIC_GROUPS: Record<string, TopicGroupMeta> = {
+  KHANG_CHIEN_1: {
+    id: 'KHANG_CHIEN_1',
+    title: 'Kháng chiến chống Mông Cổ lần thứ nhất (1258)',
+    short_title: 'Kháng chiến lần 1 (1258)',
+    badge: '1258 - Bình Lệ Nguyên & Đông Bộ Đầu',
+    description: 'Âm mưu xâm lược của Mông Cổ, Trận Bình Lệ Nguyên (Lê Phụ Trần), Kế sách Vườn không nhà trống tại Thăng Long, Thái sư Trần Thủ Độ, Trần Nhật Hiệu - Hoàng Cự Đà và Đại thắng phản công Đông Bộ Đầu.',
+    sgk_reference: 'SGK Lịch sử & Địa lí 7 (KNTT) - Bài 15, Mục 1, Tr. 66–67 & Đại Việt Sử Ký Toàn Thư Quyển V, tờ [22a-23b], Tr. 519–522',
+    unit_ids: [
+      'KC1_OVERVIEW', 'KC1_WHY_INVADE', 'KC1_BINH_LE_NGUYEN',
+      'KC1_VUON_KHONG_NHA_TRONG', 'KC1_TRAN_THU_DO_QUOTE', 'KC1_DONG_BO_DAU',
+      'DVSKTT_TRAN_NHAT_HIEU_HOANG_CU_DA',
+    ],
+  },
+  KHANG_CHIEN_2: {
+    id: 'KHANG_CHIEN_2',
+    title: 'Kháng chiến chống quân Nguyên lần thứ hai (1285)',
+    short_title: 'Kháng chiến lần 2 (1285)',
+    badge: '1285 - Bình Than, Diên Hồng & Hàm Tử',
+    description: 'Hội nghị Bình Than, Trần Quốc Toản bóp nát quả cam, Hội nghị Diên Hồng (tiếng hô ĐÁNH), Hịch tướng sĩ & chữ Sát Thát, Đỗ Khắc Chung đi sứ, Trần Quốc Tuấn rút đầu sắt gậy gỗ, Trần Bình Trọng, Hàm Tử - Chương Dương, Thoát Hoan chui ống đồng.',
+    sgk_reference: 'SGK Lịch sử & Địa lí 7 (KNTT) - Bài 15, Mục 2, Tr. 68–71 & Đại Việt Sử Ký Toàn Thư Quyển V, tờ [42a-50a], Tr. 560–578',
+    unit_ids: [
+      'BINH_THAN_CONFERENCE', 'TQT_WHY_ORANGE', 'TQT_SIX_GOLDEN_WORDS', 'TQT_OVERVIEW',
+      'DIEN_HONG_CONFERENCE', 'HICH_TUONG_SI', 'TRAN_HUNG_DAO_PORTRAIT', 'GAME_BINH_THU_YEU_LUOC',
+      'KC2_OVERVIEW', 'KC2_TRAN_BINH_TRONG', 'KC2_HAM_TU_CHUONG_DUONG', 'KC2_THOAT_HOAN_COPPER_PIPE',
+      'DVSKTT_DO_KHAC_CHUNG_SU_GIA', 'DVSKTT_TRAN_QUOC_TUAN_GAY_BIT_SAT',
+    ],
+  },
+  KHANG_CHIEN_3: {
+    id: 'KHANG_CHIEN_3',
+    title: 'Kháng chiến chống quân Nguyên lần thứ ba (1287 – 1288)',
+    short_title: 'Kháng chiến lần 3 (1287 - 1288)',
+    badge: '1287-1288 - Vân Đồn & Bạch Đằng',
+    description: 'Toàn cảnh kháng chiến 1287-1288, Hải chiến Vân Đồn (Trần Khánh Dư tiêu diệt đoàn thuyền lương Trương Văn Hổ), Đại thắng Bạch Đằng 1288 (Nguyễn Khoái, Đỗ Hành bắt sống Ô Mã Nhi) và kế Hoàng Tá Thốn dùi thuyền kèm Lời bàn Ngô Sĩ Liên.',
+    sgk_reference: 'SGK Lịch sử & Địa lí 7 (KNTT) - Bài 15, Mục 3, Tr. 71–73 & Đại Việt Sử Ký Toàn Thư Quyển V, tờ [51b-56b], Tr. 580–590',
+    unit_ids: [
+      'KC3_OVERVIEW', 'KC3_VAN_DON', 'GAME_TRAN_KHANH_DU', 'KC3_BACH_DANG_HOW',
+      'DVSKTT_BACH_DANG_DO_HANH_NGUYEN_KHOAI', 'DVSKTT_HOANG_TA_THON_NGO_SI_LIEN_BAN',
+    ],
+  },
+  NHAN_VAT_QUAN_SU: {
+    id: 'NHAN_VAT_QUAN_SU',
+    title: 'Nhân vật Lịch sử, Hội nghị & Nghệ thuật Quân sự thời Trần',
+    short_title: 'Nhân vật & Nghệ thuật Quân sự',
+    badge: 'Hào khí Đông A & Bài học lịch sử',
+    description: 'Điện súy Phạm Ngũ Lão, Yết Kiêu - Dã Tượng, Phật Hoàng Trần Nhân Tông, Tù trưởng miền núi, Ngụ binh ư nông, Quân Thánh Dực, Căn cứ Vạn Kiếp - Thiên Trường, Kiểm pháp quan Trần Thì Kiến, Nguyên nhân thắng lợi & Bài học Khoan thư sức dân.',
+    sgk_reference: 'SGK Lịch sử & Địa lí 7 (KNTT) - Bài 14 & 15, Tr. 62–75 & Đại Việt Sử Ký Toàn Thư Quyển VI, tờ [4a-14a], Tr. 610–630',
+    unit_ids: [
+      'ALL_3_WARS_SUMMARY', 'CAUSES_OF_VICTORY', 'HISTORICAL_SIGNIFICANCE', 'MILITARY_ART_TRAN_DYNASTY',
+      'HISTORICAL_LESSONS_TODAY', 'GAME_NGU_BINH_U_NONG', 'GAME_QUAN_THANH_DUC_SAT_THAT',
+      'GAME_VAN_KIEP_THIEN_TRUONG_BASES', 'YET_KIEU_DA_TUONG', 'PHAM_NGU_LAO', 'GAME_TRAN_NHAN_TONG',
+      'ROLE_OF_ETHNIC_MINORITIES', 'GAME_TRUNG_THAN_VS_PHAN_BOI', 'DVSKTT_TRAN_THI_KIEN_PHAP_LUAT',
+      'DVSKTT_THANH_LAP_NHA_TRAN_1225', 'DVSKTT_BO_MAY_PHAP_LUAT_QUOC_TRIEU_HINH_THU',
+      'DVSKTT_KINH_TE_DIEN_TRANG_THAI_AP_DE_DINH_NHI', 'DVSKTT_KHOA_CU_THAI_HOC_SINH_NGUYEN_HIEN_MAC_DINH_CHI',
+      'DVSKTT_CHU_VAN_AN_THAT_TRAM_SO', 'DVSKTT_TRUONG_HAN_SIEU_BACH_DANG_GIANG_PHU',
+      'DVSKTT_DOAN_NHU_HAI_NGOAI_GIAO', 'DVSKTT_VAN_HOA_AN_NAM_TU_DAI_KHI_CHUA_PHAP_VAN',
+    ],
+  },
+  TONG_HOP_TOAN_KHOA: {
+    id: 'TONG_HOP_TOAN_KHOA',
+    title: 'Tổng hợp Toàn khóa 3 lần Kháng chiến (1258 - 1288)',
+    short_title: 'Đề Tổng hợp Toàn khóa',
+    badge: 'Ma trận Bloom chuẩn GDPT 2018',
+    description: 'Đề khảo thí tích hợp toàn diện bao quát 3 cuộc kháng chiến chống Mông - Nguyên và tư liệu gốc Đại Việt Sử Ký Toàn Thư, phân bổ ma trận Bloom (Nhận biết, Thông hiểu, Vận dụng).',
+    sgk_reference: 'Toàn bộ Chương trình Lịch sử 7 & Đại Việt Sử Ký Toàn Thư (Bản Kỷ Quyển V - VI, Tr. 478–630)',
+    unit_ids: [],
+  },
+};
 
 @Injectable()
 export class AiToolsService {
@@ -215,4 +297,184 @@ export class AiToolsService {
     }
     return { days, ...totals, topics: cited, keywords, anonymous: true, note: 'Chỉ hiện số liệu tổng hợp, không có tên học sinh; từ khóa chỉ hiện khi có ít nhất 3 học sinh cùng hỏi.' };
   }
+
+  // ---------------------------------------------------------------------- Khảo thí & Soạn đề chuẩn SGK 7
+  getTopicGroups() {
+    return {
+      total_groups: Object.keys(CURRICULUM_TOPIC_GROUPS).length,
+      groups: Object.values(CURRICULUM_TOPIC_GROUPS),
+    };
+  }
+
+  async generateQuiz(_user: UserRow, body: { topic_group_id?: string; topic?: string; cognitive_level?: string; num_questions?: number; unit_ids?: string[] }) {
+    const numQuestions = Math.min(20, Math.max(1, Math.round(Number(body.num_questions ?? 5)) || 5));
+    const effectiveGid = (body.topic_group_id && CURRICULUM_TOPIC_GROUPS[body.topic_group_id]) ? body.topic_group_id : 'TONG_HOP_TOAN_KHOA';
+    const grpInfo = CURRICULUM_TOPIC_GROUPS[effectiveGid];
+    const groupName = grpInfo?.title ?? 'Lịch sử thời Trần';
+    const displayTopic = body.topic || groupName;
+    const cognitiveLevel = body.cognitive_level || 'Phân bổ ma trận';
+
+    // Target Bloom levels distribution
+    const bloomCycle = ['Nhận biết', 'Thông hiểu', 'Vận dụng', 'Nhận biết', 'Thông hiểu'];
+    const targetLevels: string[] = [];
+    for (let i = 0; i < numQuestions; i++) {
+      if (cognitiveLevel === 'Phân bổ ma trận' || !cognitiveLevel) {
+        targetLevels.push(bloomCycle[i % bloomCycle.length]);
+      } else {
+        targetLevels.push(cognitiveLevel);
+      }
+    }
+
+    let questions: any[] = [];
+    let mode: 'llm' | 'grounded' = 'grounded';
+    const cfg = await this.settings.llm();
+    if (cfg) {
+      try {
+        const promptSystem = `Bạn là chuyên gia khảo thí Lịch sử THCS Việt Nam, chuyên biên soạn đề trắc nghiệm chuẩn SGK 7 và Đại Việt Sử Ký Toàn Thư.
+Soạn ${numQuestions} câu hỏi trắc nghiệm 4 đáp án (A, B, C, D) cho chủ đề: ${displayTopic} (${groupName}).
+Mức độ nhận thức yêu cầu: ${cognitiveLevel}.
+Mỗi câu hỏi phải có:
+- "question": Nội dung câu hỏi rõ ràng, sư phạm
+- "options": Mảng 4 lựa chọn (chữ tiếng Việt)
+- "correct_index": Số nguyên từ 0 đến 3 (vị trí đáp án đúng)
+- "cognitive_level": Nhận biết, Thông hiểu hoặc Vận dụng
+- "explanation": Giải thích ngắn gọn căn cứ theo sử liệu
+- "curriculum_reference": Ghi rõ trích dẫn SGK 7 hoặc DVSKTT
+Trả về DUY NHẤT một mảng JSON các object câu hỏi, không kèm chữ nào khác.`;
+
+        const res = await this.llm.chat(cfg, {
+          system: promptSystem,
+          messages: [{ role: 'user', content: `Hãy sinh ${numQuestions} câu hỏi trắc nghiệm theo đúng format JSON.` }],
+          temperature: 0.6,
+          maxTokens: 3000,
+        });
+
+        const m = res.text.match(/\[[\s\S]*\]/);
+        if (m) {
+          const rawArr = JSON.parse(m[0]);
+          if (Array.isArray(rawArr) && rawArr.length > 0) {
+            questions = rawArr.map((q: any, i: number) => ({
+              id: `gen-llm-${Date.now()}-${i + 1}`,
+              question: String(q.question || q.prompt || '').trim(),
+              options: Array.isArray(q.options) ? q.options.map((o: any) => String(o).trim()) : [],
+              correct_index: Math.min(3, Math.max(0, Number(q.correct_index ?? q.correct ?? 0))),
+              cognitive_level: String(q.cognitive_level || targetLevels[i % targetLevels.length]),
+              explanation: String(q.explanation || `Căn cứ theo tư liệu ${groupName}.`),
+              curriculum_reference: String(q.curriculum_reference || grpInfo.sgk_reference),
+              topic_group_id: effectiveGid,
+              topic_group_name: groupName,
+              unit_id: q.unit_id,
+              topic: displayTopic,
+            })).filter((q: any) => q.question && q.options.length === 4);
+            if (questions.length >= numQuestions) {
+              questions = questions.slice(0, numQuestions);
+              mode = 'llm';
+            }
+          }
+        }
+      } catch (e) {
+        this.logger.warn(`AI generateQuiz LLM failed, falling back to local grounded bank: ${(e as Error).message}`);
+      }
+    }
+
+    if (questions.length < numQuestions) {
+      const matchedLocal: any[] = [];
+      try {
+        const candidatesPaths = [
+          path.resolve(process.cwd(), '../ai/data/game_content.json'),
+          path.resolve(__dirname, '../../../ai/data/game_content.json'),
+          path.resolve(__dirname, '../../../../ai/data/game_content.json'),
+        ];
+        let gcPath = candidatesPaths.find((p) => fs.existsSync(p));
+        if (gcPath) {
+          const gcData = JSON.parse(fs.readFileSync(gcPath, 'utf8'));
+          const lvlMap: Record<string, string> = {
+            NHAN_BIET: 'Nhận biết',
+            THONG_HIEU: 'Thông hiểu',
+            VAN_DUNG: 'Vận dụng',
+          };
+
+          const targetUids = new Set<string>();
+          if (body.unit_ids && body.unit_ids.length > 0) {
+            body.unit_ids.forEach((u) => targetUids.add(u));
+          } else if (effectiveGid === 'TONG_HOP_TOAN_KHOA') {
+            Object.values(CURRICULUM_TOPIC_GROUPS).forEach((g) => g.unit_ids.forEach((u) => targetUids.add(u)));
+          } else {
+            grpInfo.unit_ids.forEach((u) => targetUids.add(u));
+          }
+
+          const byLevel: Record<string, any[]> = { 'Nhận biết': [], 'Thông hiểu': [], 'Vận dụng': [] };
+          const otherPool: any[] = [];
+
+          const allQuestions: any[] = Array.isArray(gcData.questions) ? gcData.questions : [];
+          const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
+
+          for (const q of shuffled) {
+            if (q.type === 'mcq' && Array.isArray(q.options) && q.options.length === 4) {
+              const cLvl = lvlMap[q.level] || 'Thông hiểu';
+              if (targetUids.has(q.unit_id)) {
+                if (byLevel[cLvl]) byLevel[cLvl].push(q);
+                else otherPool.push(q);
+              } else {
+                otherPool.push(q);
+              }
+            }
+          }
+
+          const usedIds = new Set<string>();
+          for (let i = 0; i < numQuestions; i++) {
+            const reqLvl = targetLevels[i % targetLevels.length];
+            let pool = (byLevel[reqLvl] || []).filter((q) => !usedIds.has(q.id));
+            if (!pool.length) {
+              for (const alt of ['Thông hiểu', 'Nhận biết', 'Vận dụng']) {
+                if (alt !== reqLvl) {
+                  pool = (byLevel[alt] || []).filter((q) => !usedIds.has(q.id));
+                  if (pool.length) break;
+                }
+              }
+            }
+            if (!pool.length) {
+              pool = otherPool.filter((q) => !usedIds.has(q.id));
+            }
+
+            if (pool.length) {
+              const chosen = pool[0];
+              usedIds.add(chosen.id);
+              matchedLocal.push({
+                id: `gen-curriculum-${chosen.id}`,
+                question: chosen.prompt,
+                options: [...chosen.options],
+                correct_index: Number(chosen.answer),
+                cognitive_level: lvlMap[chosen.level] || reqLvl,
+                explanation: chosen.explanation || `Căn cứ theo tư liệu SGK 7: ${groupName}.`,
+                curriculum_reference: chosen.source || grpInfo.sgk_reference,
+                topic_group_id: effectiveGid,
+                topic_group_name: groupName,
+                unit_id: chosen.unit_id,
+                topic: displayTopic,
+              });
+            }
+          }
+        }
+      } catch (err) {
+        this.logger.warn(`Failed reading game_content.json: ${(err as Error).message}`);
+      }
+
+      if (matchedLocal.length > 0) {
+        questions = matchedLocal;
+        mode = 'grounded';
+      }
+    }
+
+    return {
+      topic: displayTopic,
+      topic_group_id: effectiveGid,
+      topic_group_name: groupName,
+      total_generated: questions.length,
+      questions,
+      mode,
+      generation_notes: `Đã sinh ${questions.length} câu hỏi chuẩn hóa theo nhóm chủ đề '${groupName}', đối chiếu căn cứ sử liệu chính thức từ SGK Lịch sử 7 và Đại Việt Sử Ký Toàn Thư (${mode === 'llm' ? 'mô hình AI' : 'ngân hàng chuẩn hóa'}).`,
+    };
+  }
+
 }

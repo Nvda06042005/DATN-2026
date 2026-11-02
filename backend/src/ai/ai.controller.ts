@@ -38,6 +38,8 @@ export class AiController {
   @Post('teacher/question-drafts') @Roles('teacher', 'school_admin', 'root_admin') @HttpCode(200) drafts(@CurrentUser() user: UserRow, @Body() body: Json) { return this.tools.questionDrafts(user, body); }
   @Post('teacher/lesson-plan') @Roles('teacher', 'school_admin', 'root_admin') @HttpCode(200) plan(@CurrentUser() user: UserRow, @Body() body: Json) { return this.tools.lessonPlan(user, body); }
   @Get('teacher/topics') @Roles(...STAFF) topics(@CurrentUser() user: UserRow, @Query('days') days?: string) { return this.tools.topics(user, days ? Number(days) : undefined); }
+  @Get('teacher/topic-groups') @Roles(...STAFF) topicGroups() { return this.tools.getTopicGroups(); }
+  @Post('teacher/quiz-generate') @Roles(...STAFF) @HttpCode(200) generateQuiz(@CurrentUser() user: UserRow, @Body() body: Json) { return this.tools.generateQuiz(user, body); }
 
   // ---------------------------------------------------------------------- quản trị tổng
   @Get('admin/settings') @Roles('root_admin') settingsView() { return this.settings.publicView(); }

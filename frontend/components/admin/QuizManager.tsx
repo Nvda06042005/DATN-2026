@@ -8,6 +8,7 @@ import { ArrowDown, ArrowUp, Copy, Pencil, Play, Plus, Send, Sparkles, Trash2 } 
 import * as api from '@/api/learningApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { QuestionPicker, ScopeChip, useCampaignOptions } from '@/components/admin/ContentKit';
+import { AiQuizModal } from '@/components/admin/AiQuizModal';
 import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad } from '@/components/admin/kit';
 import { dateText } from '@/components/admin/AccountSheet';
 import type { Session } from '@/components/auth';
@@ -147,6 +148,7 @@ export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: numb
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
+  const [aiModal, setAiModal] = useState(false);
   const [preview, setPreview] = useState<{ attempt: AttemptState; title: string } | null>(null);
   const term = useDebounced(q.trim(), 300);
   const list = useLoad(() => api.listQuizzes(session.token, { store, q: term, page, limit: 15 }), [session.token, store, term, page], session.expired);
@@ -155,7 +157,7 @@ export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: numb
     <>
     <Page>
       <PageHeader title="Bộ đề" subtitle="Bộ câu hỏi dùng ở các nút trên bản đồ hành trình. Bộ đề đang được giao hoặc đã có học sinh làm thì khóa chỉnh sửa; hãy nhân bản để thay đổi."
-        actions={canWrite ? <>{onStudio ? <Btn icon={Sparkles} title="Soạn Quiz kiểu Kahoot" tone="ngoc" size="sm" onPress={() => onStudio()} testID="quiz-studio" /> : null}<Btn icon={Plus} title="Tạo bộ đề" tone="son" size="sm" onPress={() => setCreating(true)} testID="quiz-create" /></> : undefined} />
+        actions={canWrite ? <><Btn icon={Sparkles} title="Soạn đề bằng AI" tone="ngoc" size="sm" onPress={() => setAiModal(true)} testID="quiz-ai" />{onStudio ? <Btn icon={Sparkles} title="Soạn Quiz kiểu Kahoot" tone="ngoc" size="sm" onPress={() => onStudio()} testID="quiz-studio" /> : null}<Btn icon={Plus} title="Tạo bộ đề" tone="son" size="sm" onPress={() => setCreating(true)} testID="quiz-create" /></> : undefined} />
       <FilterBar>
         <FilterBox><AdminSelect label="Kho" value={store} onChange={(v) => { setStore(v); setPage(1); }}
           options={role === 'root_admin' ? [{ value: 'all', label: 'Kho hệ thống và đề xuất' }, { value: 'system', label: 'Kho hệ thống' }, { value: 'school', label: 'Kho của các trường' }]
@@ -178,6 +180,7 @@ export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: numb
           <Pager page={page} limit={15} total={list.data.total} onPage={setPage} />
         </>
       ) : null}
+            {aiModal ? <AiQuizModal open={aiModal} onClose={() => { setAiModal(false); list.reload(); }} session={session} /> : null}
       {open !== null ? <QuizDetailSheet session={session} id={open} onClose={() => setOpen(null)} onChanged={list.reload} onPreview={(attempt, title) => setPreview({ attempt, title })} onStudio={onStudio} /> : null}
       {creating ? <QuizForm session={session} onClose={() => setCreating(false)} onSaved={(d) => { setCreating(false); list.reload(); setOpen(d.id); }} /> : null}
     </Page>

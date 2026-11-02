@@ -6,16 +6,43 @@
  * Trang đăng nhập của hai cổng quản trị (kèm quên mật khẩu) nằm ở components/admin/AdminLogin.tsx; ở đây chỉ còn đăng nhập giáo viên/học sinh.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, View, useWindowDimensions, type TextInputInstance } from 'react-native';
+import {
+  ActivityIndicator,
+  Animated,
+  Platform,
+  Pressable,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+  type TextInputInstance,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AlertTriangle, ChevronLeft, Eye, EyeOff, KeyRound, LogIn, LogOut, Presentation, User } from 'lucide-react-native';
+import Svg, { Path } from 'react-native-svg';
+import {
+  AlertTriangle,
+  BookOpen,
+  Check,
+  ChevronLeft,
+  Eye,
+  EyeOff,
+  GraduationCap,
+  Info,
+  KeyRound,
+  LogOut,
+  Presentation,
+  School,
+  Sparkles,
+  Trophy,
+  User,
+} from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { AdminLogin } from '@/components/admin/AdminLogin';
 import { BrandLogo, Mascot } from '@/components/art';
 import { ProfileSheet } from '@/components/profile';
-import { Avatar, Btn, Card, Chip, Field, Inset, PaperBg, Sheet, Spinner, Txt, useToast } from '@/components/ui';
+import { Avatar, Btn, Card, Field, Inset, PaperBg, Sheet, Spinner, Txt, useToast } from '@/components/ui';
 import { useShake } from '@/hooks/use-motion';
 import { useSystemBrand } from '@/hooks/use-system-brand';
 import { useTheme } from '@/hooks/use-theme';
@@ -185,51 +212,68 @@ export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) 
   );
 };
 
-// ---------------------------------------------------------------------- đăng nhập
-/** Trang đăng nhập của người học: học sinh, giáo viên và /portal chung (hai cổng quản trị dùng AdminLogin) */
+// ---------------------------------------------------------------------- đăng nhập VioEdu style (Ảnh 3, 4, 5)
 type LearnerPortal = 'student' | 'teacher' | 'app';
 
-const PORTAL_THEME: Record<LearnerPortal, { heading: string; sub: string; tone: 'son' | 'ngoc' | 'dong'; placeholder: string; panel: readonly [string, string, ...string[]]; panelTitle: string; panelText: string }> = {
-  app: {
-    heading: 'Đăng nhập học tập',
-    sub: 'Giáo viên và học sinh dùng tài khoản nhà trường cấp',
-    tone: 'dong',
-    placeholder: 'tên đăng nhập, email hoặc mã học sinh',
-    panel: ['#0b6cc0', '#0f4f8a', '#16253f'],
-    panelTitle: 'Hào Khí Đông A',
-    panelText: 'Một cổng đăng nhập cho giáo viên và học sinh: hệ thống tự đưa bạn tới đúng trang của mình.',
-  },
-  student: {
-    heading: 'Học sinh đăng nhập',
-    sub: 'Dùng tài khoản nhà trường cấp cho em, hoặc đăng ký tự học',
-    tone: 'son',
-    placeholder: 'tên đăng nhập, email hoặc mã học sinh',
-    panel: ['#b91c1c', '#991b1b', '#7f1d1d'],
-    panelTitle: 'Học lịch sử cùng Hào Khí Đông A',
-    panelText: 'Tham gia lớp bằng mã giáo viên cung cấp và khám phá ba cuộc kháng chiến chống Nguyên – Mông thời Trần.',
-  },
-  teacher: {
-    heading: 'Giáo viên đăng nhập',
-    sub: 'Dùng tài khoản quản trị viên nhà trường cấp',
-    tone: 'ngoc',
-    placeholder: 'tên đăng nhập hoặc email',
-    panel: ['#0b6cc0', '#0f4f8a', '#16253f'],
-    panelTitle: 'Không gian giáo viên',
-    panelText: 'Xem các lớp được phân công, mã tham gia lớp và hồ sơ cá nhân.',
-  },
-};
+type SelectableRole = 'student' | 'teacher' | 'school_admin';
 
-const PortalArt: React.FC<{ portal: LearnerPortal; size?: number }> = ({ portal, size = 1 }) =>
-  portal === 'teacher' ? (
-    <View style={{ alignItems: 'center' }}>
-      <View style={{ width: 104 * size, height: 104 * size, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-        <Presentation size={60 * size} color="#ffffff" />
-      </View>
-      <Mascot size={104 * size} accessory="scholar" mood="happy" style={{ marginTop: -22 }} />
+const ROLES_LIST: Array<{ key: SelectableRole; label: string; Icon: React.ComponentType<{ size?: number; color?: string }> }> = [
+  { key: 'student', label: 'Học sinh', Icon: GraduationCap },
+  { key: 'teacher', label: 'Giáo viên', Icon: Presentation },
+  { key: 'school_admin', label: 'Nhà trường', Icon: School },
+];
+
+/** Nền mây bồng bềnh cuộn sóng đáy màn hình (Ảnh 3, 4, 5) */
+const CloudWaveBackdrop: React.FC = () => (
+  <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 160, overflow: 'hidden' }}>
+    <Svg width="100%" height="100%" viewBox="0 0 1440 220" preserveAspectRatio="none">
+      <Path
+        d="M0,120 C180,60 360,110 540,85 C720,60 900,105 1080,80 C1260,55 1380,95 1440,75 L1440,220 L0,220 Z"
+        fill="#ffffff"
+        opacity={0.35}
+      />
+      <Path
+        d="M0,145 C150,95 320,135 480,115 C640,95 800,130 960,110 C1120,90 1280,125 1440,105 L1440,220 L0,220 Z"
+        fill="#ffffff"
+        opacity={0.65}
+      />
+      <Path
+        d="M0,175 C120,145 220,165 340,150 C460,135 560,160 680,145 C800,130 920,155 1040,140 C1160,125 1280,150 1440,135 L1440,220 L0,220 Z"
+        fill="#ffffff"
+        opacity={1.0}
+      />
+    </Svg>
+  </View>
+);
+
+/** Thẻ tính năng hình viên thuốc bo tròn (Ảnh 3) */
+const FeaturePill: React.FC<{ icon: React.ReactNode; iconBg: string; text: string }> = ({ icon, iconBg, text }) => (
+  <View
+    style={{
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      borderRadius: 9999,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      gap: 12,
+      shadowColor: '#002b49',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
+      elevation: 3,
+      maxWidth: 480,
+      width: '100%',
+    }}
+  >
+    <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: iconBg, alignItems: 'center', justifyContent: 'center' }}>
+      {icon}
     </View>
-  ) : (
-    <Mascot size={190 * size} accessory="conical" mood="excited" bob />
-  );
+    <Txt f="bold" size={13} color="#1e293b" style={{ flex: 1, lineHeight: 18 }}>
+      {text}
+    </Txt>
+  </View>
+);
 
 type LoginProps = { portal: Portal | 'app'; onLogin: (token: string, user: AuthUser) => void; notice?: string | null };
 
@@ -238,11 +282,19 @@ export const LoginScreen: React.FC<LoginProps> = ({ portal, ...rest }) =>
   isAdminPortal(portal) ? <AdminLogin portal={portal} {...rest} /> : <LearnerLogin portal={portal} {...rest} />;
 
 const LearnerLogin: React.FC<Omit<LoginProps, 'portal'> & { portal: LearnerPortal }> = ({ portal, onLogin, notice }) => {
-  const { c } = useTheme();
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const theme = PORTAL_THEME[portal];
   const wide = width >= 1000;
+
+  // Chế độ: 'login' (Ảnh 3) hoặc 'signup' (Ảnh 4 & 5)
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+
+  // Tab vai trò: mặc định theo portal prop nếu có
+  const [selectedRole, setSelectedRole] = useState<SelectableRole>(
+    portal === 'teacher' ? 'teacher' : 'student'
+  );
+
+  // Form đăng nhập
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
@@ -250,12 +302,24 @@ const LearnerLogin: React.FC<Omit<LoginProps, 'portal'> & { portal: LearnerPorta
   const [error, setError] = useState<string | null>(null);
   const [tries, setTries] = useState(0);
   const [forgot, setForgot] = useState(false);
-  const [signup, setSignup] = useState(false);
+  const [signupModal, setSignupModal] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const passwordRef = useRef<TextInputInstance>(null);
   const shake = useShake(error ? tries : null);
 
-  const submit = async () => {
+  // Form đăng ký học sinh (Ảnh 4)
+  const [signupStep, setSignupStep] = useState<'form' | 'otp'>('form');
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regNick, setRegNick] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirm, setRegConfirm] = useState('');
+  const [regOtp, setRegOtp] = useState('');
+  const [regAgreed, setRegAgreed] = useState(true);
+  const [regLoading, setRegLoading] = useState(false);
+  const [regError, setRegError] = useState<string | null>(null);
+
+  const submitLogin = async () => {
     if (!username.trim() || !password) {
       setError('Hãy nhập tên đăng nhập và mật khẩu.');
       setTries((n) => n + 1);
@@ -264,7 +328,17 @@ const LearnerLogin: React.FC<Omit<LoginProps, 'portal'> & { portal: LearnerPorta
     setLoading(true);
     setError(null);
     try {
-      const res = await authApi.loginToPortal(username.trim(), password, portal);
+      // Gửi đúng portal theo tab đã chọn để máy chủ phân quyền chính xác
+      const targetPortal: Portal | 'app' =
+        selectedRole === 'school_admin'
+          ? 'school_admin'
+          : selectedRole === 'teacher'
+          ? 'teacher'
+          : portal === 'app'
+          ? 'app'
+          : 'student';
+
+      const res = await authApi.loginToPortal(username.trim(), password, targetPortal);
       onLogin(res.token, res.user);
     } catch (err) {
       setError(errorMessage(err, 'Đăng nhập thất bại.'));
@@ -274,138 +348,851 @@ const LearnerLogin: React.FC<Omit<LoginProps, 'portal'> & { portal: LearnerPorta
     }
   };
 
-  const others = (['student', 'teacher'] as Portal[]).filter((p) => p !== portal);
+  const handleRequestSignup = async () => {
+    if (!regName.trim() || regName.trim().length < 2) {
+      return setRegError('Vui lòng nhập họ và tên của em.');
+    }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(regEmail.trim())) {
+      return setRegError('Hãy nhập đúng địa chỉ email để nhận mã OTP.');
+    }
+    if (regPassword.length < 8 || !/\p{L}/u.test(regPassword) || !/\p{N}/u.test(regPassword)) {
+      return setRegError('Mật khẩu tối thiểu 8 ký tự, gồm cả chữ và số.');
+    }
+    if (regPassword !== regConfirm) {
+      return setRegError('Mật khẩu nhập lại chưa khớp.');
+    }
+    if (!regAgreed) {
+      return setRegError('Vui lòng đồng ý với Điều khoản sử dụng và Chính sách bảo mật.');
+    }
+
+    setRegLoading(true);
+    setRegError(null);
+    try {
+      await authApi.requestSignup(regEmail.trim());
+      setSignupStep('otp');
+    } catch (err) {
+      setRegError(errorMessage(err, 'Chưa gửi được mã xác thực.'));
+    } finally {
+      setRegLoading(false);
+    }
+  };
+
+  const handleCompleteSignup = async () => {
+    if (!/^\d{6}$/.test(regOtp.trim())) {
+      return setRegError('Mã xác thực gồm 6 chữ số gửi tới email.');
+    }
+    setRegLoading(true);
+    setRegError(null);
+    try {
+      const res = await authApi.completeSignup({
+        email: regEmail.trim(),
+        otp: regOtp.trim(),
+        full_name: regName.trim(),
+        nickname: regNick.trim() || undefined,
+        password: regPassword,
+      });
+      onLogin(res.token, res.user);
+    } catch (err) {
+      setRegError(errorMessage(err, 'Chưa hoàn tất được đăng ký.'));
+    } finally {
+      setRegLoading(false);
+    }
+  };
 
   return (
-    <View style={{ flex: 1, flexDirection: 'row' }}>
-      <PaperBg />
-      {wide && (
-        <LinearGradient colors={theme.panel} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, padding: 40, justifyContent: 'space-between', overflow: 'hidden' }}>
-          <Pressable onPress={() => router.replace('/')} accessibilityRole="link" accessibilityLabel="Về trang chủ" style={{ alignSelf: 'flex-start' }}>
-            <BrandLogo light subtitle={PORTAL_TITLE[portal]} />
-          </Pressable>
-          <View style={{ alignItems: 'center', gap: 10 }}>
-            <PortalArt portal={portal} />
-            <Txt f="displayHeavy" size={30} color="#ffffff" center>
-              {theme.panelTitle}
-            </Txt>
-            <Txt f="bold" color="rgba(255,255,255,0.85)" center style={{ maxWidth: 440 }}>
-              {theme.panelText}
-            </Txt>
-          </View>
-          <Txt f="bold" size={12} color="rgba(255,255,255,0.8)">
-            © Hào Khí Đông A · Học lịch sử qua trải nghiệm
-          </Txt>
-        </LinearGradient>
-      )}
-      <View style={{ flex: 1, maxWidth: wide ? 560 : undefined }}>
-        <Animated.ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 20, paddingVertical: 40 }} keyboardShouldPersistTaps="handled">
-          <View style={{ width: '100%', maxWidth: 400, alignSelf: 'center', gap: 14 }}>
-            <Btn title="Trang chủ" icon={ChevronLeft} tone="ghost" size="sm" onPress={() => router.replace('/')} />
-            {!wide && (
-              <View style={{ alignItems: 'center' }}>
-                <PortalArt portal={portal} size={0.7} />
-              </View>
-            )}
-            <Chip
-              text={PORTAL_TITLE[portal].toUpperCase()}
-              bg={portal === 'student' ? c.sonNhat : portal === 'teacher' ? c.ngocNhat : c.dongNhat}
-              fg={portal === 'student' ? c.sonChu : portal === 'teacher' ? c.ngocChu : c.dongChu}
-              style={{ alignSelf: 'center' }}
-            />
-            <View>
-              <Txt f="displayHeavy" size={30} center accessibilityRole="header">
-                {theme.heading}
-              </Txt>
-              <Txt f="semibold" size={14} color={c.muc2} center>
-                {theme.sub}
-              </Txt>
-            </View>
-            {(notice || flash) && (
-              <Inset style={{ backgroundColor: c.thuyNhat }}>
-                <Txt f="bold" size={14} color={c.thuyChu} accessibilityLiveRegion="polite">
-                  {flash ?? notice}
+    <LinearGradient
+      colors={['#0284c7', '#0ea5e9', '#38bdf8']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={{ flex: 1, position: 'relative' }}
+    >
+      <CloudWaveBackdrop />
+
+      <Animated.ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 24,
+          paddingVertical: 48,
+        }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View
+          style={{
+            width: '100%',
+            maxWidth: 1120,
+            flexDirection: wide ? 'row' : 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: wide ? 56 : 28,
+            zIndex: 10,
+          }}
+        >
+          {/* Cột trái: Giới thiệu AI & Linh vật Hào Khí Đông A (Ảnh 3) */}
+          {wide ? (
+            <View style={{ flex: 1, maxWidth: 480, alignItems: 'center', gap: 20 }}>
+              <Pressable
+                onPress={() => router.replace('/')}
+                accessibilityRole="link"
+                accessibilityLabel="Về trang chủ"
+                style={{
+                  alignSelf: 'flex-start',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                  paddingHorizontal: 14,
+                  paddingVertical: 7,
+                  borderRadius: 9999,
+                  backgroundColor: 'rgba(255, 255, 255, 0.22)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.35)',
+                }}
+              >
+                <ChevronLeft size={16} color="#ffffff" />
+                <Txt f="bold" size={13} color="#ffffff">
+                  Trang chủ
                 </Txt>
-              </Inset>
-            )}
-            <Field
-              label="Tên đăng nhập, email hoặc mã học sinh"
-              nativeID="login-username"
-              value={username}
-              onChangeText={setUsername}
-              placeholder={theme.placeholder}
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="username"
-              textContentType="username"
-              returnKeyType="next"
-              onSubmitEditing={() => passwordRef.current?.focus()}
-              autoFocus={Platform.OS === 'web'}
-            />
-            <View>
-              <Field
-                label="Mật khẩu"
-                nativeID="login-password"
-                inputRef={passwordRef}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Mật khẩu"
-                secureTextEntry={!show}
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="current-password"
-                textContentType="password"
-                returnKeyType="go"
-                onSubmitEditing={submit}
-                inputStyle={{ paddingRight: 52 }}
-              />
-              <View style={{ position: 'absolute', right: 2, bottom: 2 }}>
-                <Btn tone="ghost" size="sm" icon={show ? EyeOff : Eye} label={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} onPress={() => setShow((v) => !v)} />
+              </Pressable>
+
+              <View style={{ alignItems: 'center', gap: 6 }}>
+                <Txt f="displayHeavy" size={26} color="#ffffff" center style={{ textShadowColor: 'rgba(0,0,0,0.15)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 6 }}>
+                  Nền tảng tự học trực tuyến với AI
+                </Txt>
+                <Txt f="bold" size={15} color="rgba(255,255,255,0.92)" center>
+                  Hào Khí Đông A · Tiếp bước truyền thống cha ông
+                </Txt>
+              </View>
+
+              {/* Linh vật Rồng Con 3D nhún nhảy giữa vòng hào quang */}
+              <View style={{ alignItems: 'center', justifyContent: 'center', marginVertical: 8 }}>
+                <View
+                  style={{
+                    position: 'absolute',
+                    width: 200,
+                    height: 200,
+                    borderRadius: 100,
+                    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+                  }}
+                />
+                <Mascot size={170} accessory="conical" mood="excited" bob />
+              </View>
+
+              {/* 3 Thẻ tính năng hình viên thuốc (Ảnh 3) */}
+              <View style={{ width: '100%', gap: 10 }}>
+                <FeaturePill
+                  icon={<Trophy size={18} color="#d97706" />}
+                  iconBg="#fef3c7"
+                  text="Hơn 96% học sinh tiến bộ rõ rệt và yêu thích, tự giác học tập."
+                />
+                <FeaturePill
+                  icon={<Sparkles size={18} color="#16a34a" />}
+                  iconBg="#dcfce7"
+                  text="Trợ lý AI phát hiện chính xác lỗ hổng kiến thức."
+                />
+                <FeaturePill
+                  icon={<BookOpen size={18} color="#dc2626" />}
+                  iconBg="#fee2e2"
+                  text="Hơn 1,000,000++ nội dung kiến thức theo SGK và nâng cao."
+                />
               </View>
             </View>
-            {error && (
-              <Animated.View style={shake}>
-                <Inset style={{ backgroundColor: c.sonNhat, flexDirection: 'row', gap: 8 }}>
-                  <AlertTriangle size={16} color={c.sonChu} style={{ marginTop: 2 }} />
-                  <Txt f="bold" size={14} color={c.sonChu} style={{ flex: 1 }} accessibilityRole="alert">
-                    {error}
+          ) : (
+            <View style={{ width: '100%', maxWidth: 440, alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Pressable
+                onPress={() => router.replace('/')}
+                style={{
+                  alignSelf: 'flex-start',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 9999,
+                  backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                }}
+              >
+                <ChevronLeft size={16} color="#ffffff" />
+                <Txt f="bold" size={12} color="#ffffff">
+                  Trang chủ
+                </Txt>
+              </Pressable>
+              <Mascot size={110} accessory="conical" mood="excited" bob />
+            </View>
+          )}
+
+          {/* Cột phải: Hộp thẻ trắng nâng nổi cao cấp (Ảnh 3, 4, 5) */}
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 460,
+              backgroundColor: '#ffffff',
+              borderRadius: 28,
+              paddingHorizontal: wide ? 34 : 22,
+              paddingVertical: 32,
+              shadowColor: '#002b49',
+              shadowOffset: { width: 0, height: 16 },
+              shadowOpacity: 0.16,
+              shadowRadius: 30,
+              elevation: 10,
+              gap: 16,
+            }}
+          >
+            {/* Logo thương hiệu */}
+            <View style={{ alignItems: 'center', marginBottom: 4 }}>
+              <BrandLogo />
+            </View>
+
+            {mode === 'login' ? (
+              // ---------------------- MÀN HÌNH ĐĂNG NHẬP (Ảnh 3)
+              <View style={{ gap: 14 }}>
+                {/* 3 Tab chọn vai trò (Học sinh / Giáo viên / Nhà trường) */}
+                <View style={{ gap: 6 }}>
+                  <Txt f="bold" size={13} color="#64748b">
+                    Chọn vai trò:
                   </Txt>
-                </Inset>
-              </Animated.View>
-            )}
-            <Btn title={loading ? 'Đang đăng nhập…' : 'Đăng nhập'} icon={LogIn} tone={theme.tone} size="lg" full loading={loading} onPress={submit} testID="login-submit" />
-            <Inset pad={16} style={{ gap: 6 }}>
-              <Txt size={14} color={c.muc2}>
-                <Txt f="bold" size={14}>
-                  Chưa có tài khoản?{' '}
-                </Txt>
-                Tài khoản do quản trị viên nhà trường cấp. Học sinh chưa thuộc trường có thể đăng ký tự học bằng email.
-              </Txt>
-              <Txt size={14} color={c.muc2}>
-                <Txt f="bold" size={14}>
-                  Quên mật khẩu?{' '}
-                </Txt>
-                Nhận mã xác thực qua email, hoặc nhờ quản trị viên đặt lại.
-              </Txt>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-                <Btn tone="ghost" size="sm" title="Quên mật khẩu? Nhận mã qua email" onPress={() => setForgot(true)} testID="forgot-open" />
-              </View>
-              {portal !== 'teacher' && (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-                  <Btn tone="ghost" size="sm" title="Đăng ký tự học bằng email" onPress={() => setSignup(true)} testID="signup-open" />
-                  {GOOGLE_CLIENT_ID ? <GoogleButton onToken={async (idToken) => { try { const res = await authApi.loginWithGoogle(idToken); onLogin(res.token, res.user); } catch (err) { setError(errorMessage(err, 'Đăng nhập Google thất bại.')); setTries((n) => n + 1); } }} /> : null}
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {ROLES_LIST.map(({ key, label, Icon }) => {
+                      const isSel = selectedRole === key;
+                      return (
+                        <Pressable
+                          key={key}
+                          onPress={() => {
+                            setSelectedRole(key);
+                            setError(null);
+                          }}
+                          style={{
+                            flex: 1,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            paddingVertical: 10,
+                            paddingHorizontal: 6,
+                            borderRadius: 12,
+                            borderWidth: 1.5,
+                            borderColor: isSel ? '#16a34a' : '#e2e8f0',
+                            backgroundColor: isSel ? '#f0fdf4' : '#ffffff',
+                            gap: 4,
+                          }}
+                        >
+                          <Icon size={20} color={isSel ? '#16a34a' : '#64748b'} />
+                          <Txt f="bold" size={12} color={isSel ? '#16a34a' : '#475569'}>
+                            {label}
+                          </Txt>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 </View>
-              )}
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-                {others.map((p) => (
-                  <Btn key={p} tone="ghost" size="sm" title={p === 'student' ? 'Em là học sinh? →' : 'Bạn là giáo viên? →'} onPress={() => router.replace(PORTAL_PATH[p])} />
-                ))}
+
+                {/* Thông báo hệ thống / flash */}
+                {(notice || flash) && (
+                  <View style={{ padding: 12, borderRadius: 10, backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe' }}>
+                    <Txt f="bold" size={13} color="#1d4ed8">
+                      {flash ?? notice}
+                    </Txt>
+                  </View>
+                )}
+
+                {/* Ô Tên đăng nhập */}
+                <View style={{ gap: 6 }}>
+                  <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 13, color: '#334155' }}>
+                    Tên đăng nhập <Text style={{ color: '#ef4444' }}>*</Text>
+                  </Text>
+                  <TextInput
+                    value={username}
+                    onChangeText={setUsername}
+                    placeholder={
+                      selectedRole === 'student'
+                        ? 'Nhập tên đăng nhập, email hoặc mã học sinh'
+                        : selectedRole === 'teacher'
+                        ? 'Nhập tên đăng nhập hoặc email giáo viên'
+                        : 'Nhập tên đăng nhập quản trị trường'
+                    }
+                    placeholderTextColor="#94a3b8"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="username"
+                    textContentType="username"
+                    returnKeyType="next"
+                    onSubmitEditing={() => passwordRef.current?.focus()}
+                    style={{
+                      height: 48,
+                      borderRadius: 12,
+                      borderWidth: 1.5,
+                      borderColor: '#cbd5e1',
+                      paddingHorizontal: 14,
+                      backgroundColor: '#ffffff',
+                      fontSize: 14,
+                      color: '#0f172a',
+                    }}
+                  />
+                </View>
+
+                {/* Ô Mật khẩu */}
+                <View style={{ gap: 6 }}>
+                  <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 13, color: '#334155' }}>
+                    Mật khẩu <Text style={{ color: '#ef4444' }}>*</Text>
+                  </Text>
+                  <View style={{ position: 'relative', justifyContent: 'center' }}>
+                    <TextInput
+                      ref={passwordRef}
+                      value={password}
+                      onChangeText={setPassword}
+                      placeholder="Nhập mật khẩu"
+                      placeholderTextColor="#94a3b8"
+                      secureTextEntry={!show}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      autoComplete="current-password"
+                      textContentType="password"
+                      returnKeyType="go"
+                      onSubmitEditing={submitLogin}
+                      style={{
+                        height: 48,
+                        borderRadius: 12,
+                        borderWidth: 1.5,
+                        borderColor: '#cbd5e1',
+                        paddingLeft: 14,
+                        paddingRight: 48,
+                        backgroundColor: '#ffffff',
+                        fontSize: 14,
+                        color: '#0f172a',
+                      }}
+                    />
+                    <Pressable
+                      onPress={() => setShow(!show)}
+                      style={{ position: 'absolute', right: 12, padding: 6 }}
+                      accessibilityLabel={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    >
+                      {show ? <EyeOff size={18} color="#64748b" /> : <Eye size={18} color="#64748b" />}
+                    </Pressable>
+                  </View>
+                </View>
+
+                {/* Quên mật khẩu link */}
+                <View style={{ alignItems: 'flex-end', marginTop: -2 }}>
+                  <Pressable onPress={() => setForgot(true)}>
+                    <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 13, color: '#16a34a' }}>
+                      Quên mật khẩu?
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {/* Lỗi đăng nhập */}
+                {error && (
+                  <Animated.View style={shake}>
+                    <View style={{ flexDirection: 'row', gap: 8, padding: 12, borderRadius: 10, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca' }}>
+                      <AlertTriangle size={16} color="#dc2626" style={{ marginTop: 2 }} />
+                      <Txt f="bold" size={13} color="#b91c1c" style={{ flex: 1 }}>
+                        {error}
+                      </Txt>
+                    </View>
+                  </Animated.View>
+                )}
+
+                {/* Nút Đăng nhập dạng viên thuốc xanh lá (Ảnh 3) */}
+                <Pressable
+                  onPress={submitLogin}
+                  disabled={loading}
+                  style={({ pressed }) => ({
+                    height: 50,
+                    borderRadius: 9999,
+                    backgroundColor: '#16a34a',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: pressed ? 0.9 : 1,
+                    shadowColor: '#16a34a',
+                    shadowOffset: { width: 0, height: 6 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 10,
+                    elevation: 4,
+                  })}
+                  testID="login-submit"
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#ffffff" />
+                  ) : (
+                    <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 16, color: '#ffffff' }}>
+                      Đăng nhập
+                    </Text>
+                  )}
+                </Pressable>
+
+                {/* Đăng ký ngay */}
+                <View style={{ alignItems: 'center', marginTop: 4 }}>
+                  <Text style={{ fontSize: 14, color: '#475569' }}>
+                    Bạn chưa có tài khoản Đông A?{' '}
+                    <Text
+                      onPress={() => {
+                        setMode('signup');
+                        setRegError(null);
+                      }}
+                      style={{ fontFamily: 'Manrope_700Bold', color: '#16a34a' }}
+                    >
+                      Đăng ký ngay
+                    </Text>
+                  </Text>
+                </View>
+
+                {/* Dải thông báo kích hoạt tài khoản (Ảnh 3) */}
+                <Pressable
+                  onPress={() => {
+                    setMode('signup');
+                    setSignupStep('otp');
+                  }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                    paddingVertical: 10,
+                    paddingHorizontal: 14,
+                    borderRadius: 12,
+                    backgroundColor: '#f0fdf4',
+                    borderWidth: 1,
+                    borderColor: '#bbf7d0',
+                  }}
+                >
+                  <Info size={16} color="#16a34a" />
+                  <Text style={{ fontSize: 13, color: '#15803d', flex: 1 }}>
+                    <Text style={{ fontWeight: '700' }}>Tài khoản chưa kích hoạt?</Text> Nhập mã xác nhận tại đây
+                  </Text>
+                </Pressable>
+
+                {GOOGLE_CLIENT_ID ? (
+                  <View style={{ alignItems: 'center', marginTop: 4 }}>
+                    <GoogleButton
+                      onToken={async (idToken) => {
+                        try {
+                          const res = await authApi.loginWithGoogle(idToken);
+                          onLogin(res.token, res.user);
+                        } catch (err) {
+                          setError(errorMessage(err, 'Đăng nhập Google thất bại.'));
+                          setTries((n) => n + 1);
+                        }
+                      }}
+                    />
+                  </View>
+                ) : null}
+
+                {/* Liên kết mở cửa sổ đăng ký hoặc đăng ký tự học nếu cần */}
+                {portal !== 'teacher' && (
+                  <View style={{ alignItems: 'center' }}>
+                    <Pressable onPress={() => setSignupModal(true)}>
+                      <Txt size={12} color="#64748b">
+                        Đăng ký tự học bằng cửa sổ phụ →
+                      </Txt>
+                    </Pressable>
+                  </View>
+                )}
+
+                {/* Liên kết quản trị tổng */}
+                <View style={{ alignItems: 'center', marginTop: 2 }}>
+                  <Pressable onPress={() => router.replace('/admin')}>
+                    <Txt size={12} color="#94a3b8">
+                      Cổng Quản trị tổng →
+                    </Txt>
+                  </Pressable>
+                </View>
               </View>
-            </Inset>
+            ) : (
+              // ---------------------- MÀN HÌNH ĐĂNG KÝ (Ảnh 4 & 5)
+              <View style={{ gap: 14 }}>
+                <View style={{ alignItems: 'center', gap: 4 }}>
+                  <Txt f="displayHeavy" size={20} color="#0f172a" center>
+                    Tham gia thế giới Hào Khí Đông A
+                  </Txt>
+                  <Txt size={13} color="#64748b" center>
+                    Điền thông tin để tạo tài khoản
+                  </Txt>
+                </View>
+
+                {/* Bạn là ai? với 3 Tab (Học sinh / Giáo viên / Nhà trường) */}
+                <View style={{ gap: 6 }}>
+                  <Txt f="bold" size={13} color="#475569">
+                    Bạn là ai?
+                  </Txt>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {ROLES_LIST.map(({ key, label, Icon }) => {
+                      const isSel = selectedRole === key;
+                      return (
+                        <Pressable
+                          key={key}
+                          onPress={() => {
+                            setSelectedRole(key);
+                            setRegError(null);
+                          }}
+                          style={{
+                            flex: 1,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            paddingVertical: 10,
+                            paddingHorizontal: 6,
+                            borderRadius: 12,
+                            borderWidth: 1.5,
+                            borderColor: isSel ? '#16a34a' : '#e2e8f0',
+                            backgroundColor: isSel ? '#f0fdf4' : '#ffffff',
+                            gap: 4,
+                          }}
+                        >
+                          <Icon size={20} color={isSel ? '#16a34a' : '#64748b'} />
+                          <Txt f="bold" size={12} color={isSel ? '#16a34a' : '#475569'}>
+                            {label}
+                          </Txt>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {selectedRole === 'student' ? (
+                  signupStep === 'form' ? (
+                    // Đăng ký Học sinh: Bước 1 (Ảnh 4)
+                    <View style={{ gap: 12 }}>
+                      {/* Họ tên */}
+                      <View style={{ gap: 4 }}>
+                        <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 13, color: '#334155' }}>
+                          Họ tên <Text style={{ color: '#ef4444' }}>*</Text>
+                        </Text>
+                        <TextInput
+                          value={regName}
+                          onChangeText={setRegName}
+                          placeholder="Nhập họ và tên"
+                          placeholderTextColor="#94a3b8"
+                          style={{
+                            height: 44,
+                            borderRadius: 10,
+                            borderWidth: 1.5,
+                            borderColor: '#cbd5e1',
+                            paddingHorizontal: 12,
+                            backgroundColor: '#ffffff',
+                            fontSize: 14,
+                            color: '#0f172a',
+                          }}
+                        />
+                      </View>
+
+                      {/* Email */}
+                      <View style={{ gap: 4 }}>
+                        <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 13, color: '#334155' }}>
+                          Email <Text style={{ color: '#ef4444' }}>*</Text>
+                        </Text>
+                        <TextInput
+                          value={regEmail}
+                          onChangeText={setRegEmail}
+                          placeholder="Nhập email để nhận mã xác thực"
+                          placeholderTextColor="#94a3b8"
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                          style={{
+                            height: 44,
+                            borderRadius: 10,
+                            borderWidth: 1.5,
+                            borderColor: '#cbd5e1',
+                            paddingHorizontal: 12,
+                            backgroundColor: '#ffffff',
+                            fontSize: 14,
+                            color: '#0f172a',
+                          }}
+                        />
+                      </View>
+
+                      {/* Mật khẩu & Nhập lại mật khẩu */}
+                      <View style={{ flexDirection: wide ? 'row' : 'column', gap: 8 }}>
+                        <View style={{ flex: 1, gap: 4 }}>
+                          <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 13, color: '#334155' }}>
+                            Mật khẩu <Text style={{ color: '#ef4444' }}>*</Text>
+                          </Text>
+                          <TextInput
+                            value={regPassword}
+                            onChangeText={setRegPassword}
+                            placeholder="Tối thiểu 8 ký tự"
+                            placeholderTextColor="#94a3b8"
+                            secureTextEntry
+                            style={{
+                              height: 44,
+                              borderRadius: 10,
+                              borderWidth: 1.5,
+                              borderColor: '#cbd5e1',
+                              paddingHorizontal: 12,
+                              backgroundColor: '#ffffff',
+                              fontSize: 14,
+                              color: '#0f172a',
+                            }}
+                          />
+                        </View>
+                        <View style={{ flex: 1, gap: 4 }}>
+                          <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 13, color: '#334155' }}>
+                            Nhập lại mật khẩu <Text style={{ color: '#ef4444' }}>*</Text>
+                          </Text>
+                          <TextInput
+                            value={regConfirm}
+                            onChangeText={setRegConfirm}
+                            placeholder="Nhập lại mật khẩu"
+                            placeholderTextColor="#94a3b8"
+                            secureTextEntry
+                            style={{
+                              height: 44,
+                              borderRadius: 10,
+                              borderWidth: 1.5,
+                              borderColor: '#cbd5e1',
+                              paddingHorizontal: 12,
+                              backgroundColor: '#ffffff',
+                              fontSize: 14,
+                              color: '#0f172a',
+                            }}
+                          />
+                        </View>
+                      </View>
+
+                      {/* Biệt danh (tùy chọn) */}
+                      <View style={{ gap: 4 }}>
+                        <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 13, color: '#334155' }}>
+                          Biệt danh (không bắt buộc)
+                        </Text>
+                        <TextInput
+                          value={regNick}
+                          onChangeText={setRegNick}
+                          placeholder="Hiển thị trên bảng vàng vinh danh"
+                          placeholderTextColor="#94a3b8"
+                          style={{
+                            height: 44,
+                            borderRadius: 10,
+                            borderWidth: 1.5,
+                            borderColor: '#cbd5e1',
+                            paddingHorizontal: 12,
+                            backgroundColor: '#ffffff',
+                            fontSize: 14,
+                            color: '#0f172a',
+                          }}
+                        />
+                      </View>
+
+                      {/* Checkbox điều khoản */}
+                      <Pressable
+                        onPress={() => setRegAgreed(!regAgreed)}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}
+                      >
+                        <View
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: 4,
+                            borderWidth: 1.5,
+                            borderColor: regAgreed ? '#16a34a' : '#94a3b8',
+                            backgroundColor: regAgreed ? '#16a34a' : '#ffffff',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          {regAgreed ? <Check size={12} color="#ffffff" strokeWidth={3} /> : null}
+                        </View>
+                        <Text style={{ fontSize: 13, color: '#475569', flex: 1 }}>
+                          Tôi đồng ý với{' '}
+                          <Text style={{ color: '#16a34a', fontWeight: '700' }}>Điều khoản sử dụng</Text> và{' '}
+                          <Text style={{ color: '#16a34a', fontWeight: '700' }}>Chính sách bảo mật</Text>
+                        </Text>
+                      </Pressable>
+
+                      {regError && (
+                        <View style={{ padding: 10, borderRadius: 8, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca' }}>
+                          <Txt f="bold" size={13} color="#b91c1c">
+                            {regError}
+                          </Txt>
+                        </View>
+                      )}
+
+                      {/* Nút Đăng ký tài khoản (Ảnh 4) */}
+                      <Pressable
+                        onPress={handleRequestSignup}
+                        disabled={regLoading}
+                        style={({ pressed }) => ({
+                          height: 48,
+                          borderRadius: 9999,
+                          backgroundColor: '#16a34a',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          opacity: pressed ? 0.9 : 1,
+                          marginTop: 4,
+                        })}
+                      >
+                        {regLoading ? (
+                          <ActivityIndicator color="#ffffff" />
+                        ) : (
+                          <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 16, color: '#ffffff' }}>
+                            Đăng ký tài khoản
+                          </Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  ) : (
+                    // Đăng ký Học sinh: Bước 2 Nhập OTP
+                    <View style={{ gap: 14 }}>
+                      <View style={{ padding: 12, borderRadius: 10, backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0', gap: 4 }}>
+                        <Txt f="bold" size={13} color="#15803d">
+                          Mã xác thực 6 chữ số đã gửi tới {regEmail.trim()}
+                        </Txt>
+                        <Txt size={12} color="#166534">
+                          Mã có hiệu lực trong 5 phút. Hãy kiểm tra cả hộp thư rác (Spam).
+                        </Txt>
+                      </View>
+
+                      <View style={{ gap: 4 }}>
+                        <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 13, color: '#334155' }}>
+                          Mã xác thực OTP <Text style={{ color: '#ef4444' }}>*</Text>
+                        </Text>
+                        <TextInput
+                          value={regOtp}
+                          onChangeText={(v) => setRegOtp(v.replace(/\D/g, '').slice(0, 6))}
+                          placeholder="Nhập 6 chữ số"
+                          placeholderTextColor="#94a3b8"
+                          keyboardType="number-pad"
+                          maxLength={6}
+                          style={{
+                            height: 48,
+                            borderRadius: 12,
+                            borderWidth: 1.5,
+                            borderColor: '#cbd5e1',
+                            paddingHorizontal: 14,
+                            backgroundColor: '#ffffff',
+                            fontSize: 18,
+                            fontWeight: '700',
+                            letterSpacing: 4,
+                            textAlign: 'center',
+                            color: '#0f172a',
+                          }}
+                        />
+                      </View>
+
+                      {regError && (
+                        <View style={{ padding: 10, borderRadius: 8, backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca' }}>
+                          <Txt f="bold" size={13} color="#b91c1c">
+                            {regError}
+                          </Txt>
+                        </View>
+                      )}
+
+                      <Pressable
+                        onPress={handleCompleteSignup}
+                        disabled={regLoading}
+                        style={({ pressed }) => ({
+                          height: 48,
+                          borderRadius: 9999,
+                          backgroundColor: '#16a34a',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          opacity: pressed ? 0.9 : 1,
+                        })}
+                      >
+                        {regLoading ? (
+                          <ActivityIndicator color="#ffffff" />
+                        ) : (
+                          <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 16, color: '#ffffff' }}>
+                            Xác thực & Tạo tài khoản
+                          </Text>
+                        )}
+                      </Pressable>
+
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Pressable onPress={() => setSignupStep('form')}>
+                          <Text style={{ fontSize: 13, color: '#64748b' }}>← Nhập lại thông tin</Text>
+                        </Pressable>
+                        <Pressable onPress={handleRequestSignup}>
+                          <Text style={{ fontSize: 13, color: '#16a34a', fontWeight: '700' }}>Gửi lại mã</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  )
+                ) : selectedRole === 'teacher' ? (
+                  // Hướng dẫn Giáo viên (Ảnh 5)
+                  <View style={{ padding: 18, borderRadius: 16, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', gap: 10, alignItems: 'center' }}>
+                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#ecfdf5', alignItems: 'center', justifyContent: 'center' }}>
+                      <Presentation size={24} color="#16a34a" />
+                    </View>
+                    <Txt f="bold" size={15} color="#0f172a" center>
+                      Tài khoản Giáo viên
+                    </Txt>
+                    <Txt size={13} color="#475569" center style={{ lineHeight: 18 }}>
+                      Tài khoản giáo viên do Quản trị viên Nhà trường cấp và phân quyền giảng dạy môn Lịch sử theo chương trình GDPT mới.
+                    </Txt>
+                    <Txt size={13} color="#64748b" center style={{ lineHeight: 18 }}>
+                      Nếu thầy/cô chưa có tài khoản, vui lòng liên hệ Ban Giám hiệu hoặc Quản trị viên trường học của mình.
+                    </Txt>
+                    <Pressable
+                      onPress={() => {
+                        setMode('login');
+                        setSelectedRole('teacher');
+                      }}
+                      style={{
+                        marginTop: 6,
+                        paddingVertical: 10,
+                        paddingHorizontal: 20,
+                        borderRadius: 9999,
+                        backgroundColor: '#16a34a',
+                      }}
+                    >
+                      <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 14, color: '#ffffff' }}>
+                        Đã có tài khoản? Đăng nhập ngay
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  // Hướng dẫn Nhà trường (Ảnh 5)
+                  <View style={{ padding: 18, borderRadius: 16, backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', gap: 10, alignItems: 'center' }}>
+                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' }}>
+                      <School size={24} color="#0284c7" />
+                    </View>
+                    <Txt f="bold" size={15} color="#0f172a" center>
+                      Tài khoản Quản trị Nhà trường
+                    </Txt>
+                    <Txt size={13} color="#475569" center style={{ lineHeight: 18 }}>
+                      Hệ thống Quản lý Trường học Hào Khí Đông A dành cho các đơn vị giáo dục THCS & THPT toàn quốc.
+                    </Txt>
+                    <Txt size={13} color="#64748b" center style={{ lineHeight: 18 }}>
+                      Để kích hoạt tài khoản Quản trị trường, vui lòng liên hệ ban quản trị qua email:{' '}
+                      <Text style={{ fontWeight: '700', color: '#0284c7' }}>lienhe@dong-a.edu.vn</Text>
+                    </Txt>
+                    <Pressable
+                      onPress={() => {
+                        setMode('login');
+                        setSelectedRole('school_admin');
+                      }}
+                      style={{
+                        marginTop: 6,
+                        paddingVertical: 10,
+                        paddingHorizontal: 20,
+                        borderRadius: 9999,
+                        backgroundColor: '#0284c7',
+                      }}
+                    >
+                      <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 14, color: '#ffffff' }}>
+                        Đã có tài khoản? Đăng nhập ngay
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
+
+                {/* Chuyển lại Đăng nhập */}
+                <View style={{ alignItems: 'center', marginTop: 4 }}>
+                  <Text style={{ fontSize: 14, color: '#475569' }}>
+                    Bạn đã có tài khoản Đông A?{' '}
+                    <Text
+                      onPress={() => {
+                        setMode('login');
+                        setError(null);
+                      }}
+                      style={{ fontFamily: 'Manrope_700Bold', color: '#16a34a' }}
+                    >
+                      Đăng nhập tại đây
+                    </Text>
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
-        </Animated.ScrollView>
-      </View>
-      {signup && <SignupSheet onClose={() => setSignup(false)} onDone={(token, user) => { setSignup(false); onLogin(token, user); }} />}
+        </View>
+      </Animated.ScrollView>
+
+      {/* Sheet quên mật khẩu bằng OTP */}
       {forgot && (
         <ForgotPasswordSheet
           onClose={() => setForgot(false)}
@@ -415,7 +1202,18 @@ const LearnerLogin: React.FC<Omit<LoginProps, 'portal'> & { portal: LearnerPorta
           }}
         />
       )}
-    </View>
+
+      {/* Sheet đăng ký phụ nếu người dùng bấm đăng ký tự học */}
+      {signupModal && (
+        <SignupSheet
+          onClose={() => setSignupModal(false)}
+          onDone={(token, user) => {
+            setSignupModal(false);
+            onLogin(token, user);
+          }}
+        />
+      )}
+    </LinearGradient>
   );
 };
 

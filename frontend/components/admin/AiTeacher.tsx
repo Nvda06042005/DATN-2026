@@ -15,6 +15,7 @@ import { DetailSheet } from '@/components/portal/Library';
 import { Btn, Card, Chip, EmptyState, Field, InfoNote, Segmented, Spinner, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { DraftResult, PlanResult, QuestionDraft } from '@/types/ai';
+import { AiQuizModal } from '@/components/admin/AiQuizModal';
 
 type Part = 'ask' | 'topics' | 'questions' | 'plan';
 const KIND_LABEL: Record<string, string> = { figure: 'Nhân vật', event: 'Sự kiện', place: 'Địa danh', battle: 'Trận đánh', source: 'Tư liệu', term: 'Thuật ngữ', lesson: 'Bài học', doc: 'Tài liệu' };
@@ -77,6 +78,7 @@ const DraftCard: React.FC<{ session: Session; draft: QuestionDraft; onSaved: () 
 };
 
 const QuestionMaker: React.FC<{ session: Session }> = ({ session }) => {
+  const { c } = useTheme();
   const options = useLoad(() => api.aiSummaryOptions(session.token), [session.token], session.expired);
   const { busy, run } = useAction(session.expired);
   const [kind, setKind] = useState<'lessons' | 'battles' | 'events' | 'text'>('lessons');
@@ -85,6 +87,7 @@ const QuestionMaker: React.FC<{ session: Session }> = ({ session }) => {
   const [count, setCount] = useState(5);
   const [res, setRes] = useState<DraftResult | null>(null);
   const [drafts, setDrafts] = useState<QuestionDraft[]>([]);
+  const [quizModalOpen, setQuizModalOpen] = useState(false);
   const apiKind = { lessons: 'lesson', battles: 'battle', events: 'event', text: 'text' }[kind];
   const list = kind === 'text' ? [] : options.data?.[kind] ?? [];
   const go = async () => {
@@ -93,7 +96,18 @@ const QuestionMaker: React.FC<{ session: Session }> = ({ session }) => {
   };
   return (
     <View style={{ gap: 12 }}>
-      <Txt size={14}>Chọn một bài học, trận đánh, sự kiện hoặc dán văn bản. Hệ thống soạn bản nháp câu hỏi; thầy cô đọc, sửa và bấm lưu thì câu hỏi mới vào ngân hàng của thầy cô. Không có câu nào tự lưu.</Txt>
+            <Card flat pad={14} style={{ backgroundColor: c.the, borderColor: c.ngoc, borderWidth: 1.5, gap: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+        <View style={{ flex: 1, minWidth: 240, gap: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Txt f="bold" size={15} color={c.muc}>Soạn đề khảo thí chuẩn SGK 7 & DVSKTT</Txt>
+            <Chip text="5 nhóm chủ đề · Bloom" bg={c.ngocNhat} fg={c.ngocChu} />
+          </View>
+          <Txt size={13} color={c.muc2}>Sinh bộ trắc nghiệm 4 đáp án đối chiếu căn cứ sử liệu chính thức, phân bổ nhận thức và lưu thẳng vào Ngân hàng.</Txt>
+        </View>
+        <Btn icon={Sparkles} title="Mở bộ soạn đề AI" tone="ngoc" onPress={() => setQuizModalOpen(true)} />
+      </Card>
+      {quizModalOpen ? <AiQuizModal open={quizModalOpen} onClose={() => setQuizModalOpen(false)} session={session} /> : null}
+      <Txt size={14}>Hoặc chọn một bài học, trận đánh, sự kiện hoặc dán văn bản tự do: Hệ thống soạn bản nháp câu hỏi; thầy cô đọc, sửa và bấm lưu thì câu hỏi mới vào ngân hàng của thầy cô. Không có câu nào tự lưu.</Txt>
       <Segmented<typeof kind> label="Nguồn nội dung" value={kind} onChange={(k) => { setKind(k); setPicked(null); }} options={[{ value: 'lessons', label: 'Bài học' }, { value: 'battles', label: 'Trận đánh' }, { value: 'events', label: 'Sự kiện' }, { value: 'text', label: 'Dán văn bản' }]} />
       <ErrorNote message={options.error} />
       {kind === 'text' ? <Field label="Văn bản tư liệu (tối thiểu 80 ký tự)" value={text} onChangeText={setText} multiline numberOfLines={6} inputStyle={{ minHeight: 140, textAlignVertical: 'top' }} nativeID="draft-text" />

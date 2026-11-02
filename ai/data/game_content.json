@@ -1,0 +1,2759 @@
+{
+  "version": 1,
+  "about": "Nội dung game Hào Khí Đông A: ngân hàng câu hỏi (server chấm), cụm tri thức bổ sung cho BKT và thẻ Sử Ký cho các chủ đề chưa có trong knowledge_base.json. Không dùng để huấn luyện chatbot.",
+  "places": {
+    "lang_son": "Lạng Sơn",
+    "noi_bang": "Nội Bàng",
+    "binh_le_nguyen": "Bình Lệ Nguyên",
+    "thang_long": "Thăng Long",
+    "dong_bo_dau": "Đông Bộ Đầu",
+    "binh_than": "Bến Bình Than",
+    "van_kiep": "Vạn Kiếp",
+    "yen_tu": "Núi Yên Tử",
+    "bach_dang": "Sông Bạch Đằng",
+    "van_don": "Vân Đồn",
+    "chuong_duong": "Chương Dương",
+    "ham_tu": "Hàm Tử",
+    "tay_ket": "Tây Kết",
+    "thien_truong": "Thiên Trường",
+    "truong_yen": "Trường Yên",
+    "thanh_hoa": "Thanh Hóa",
+    "champa": "Chăm-pa"
+  },
+  "units": {
+    "GAME_NGU_BINH_U_NONG": {
+      "topic": "Chính sách ngụ binh ư nông",
+      "category": "NEN_TANG_QUAN_SU",
+      "cognitive_level": "THONG_HIEU",
+      "difficulty": 0.4,
+      "skills": [
+        "SKILL_NGU_BINH_U_NONG"
+      ]
+    },
+    "GAME_TRAN_KHANH_DU": {
+      "topic": "Trần Khánh Dư – từ người buôn than ở Chí Linh đến trận Vân Đồn",
+      "category": "DANH_TUONG_GIA_THAN",
+      "cognitive_level": "NHAN_BIET",
+      "difficulty": 0.4,
+      "skills": [
+        "SKILL_TRAN_KHANH_DU"
+      ]
+    },
+    "GAME_BINH_THU_YEU_LUOC": {
+      "topic": "Binh thư yếu lược của Trần Quốc Tuấn",
+      "category": "DIEN_HONG_HICH_TUONG_SI",
+      "cognitive_level": "NHAN_BIET",
+      "difficulty": 0.4,
+      "skills": [
+        "SKILL_BINH_THU_YEU_LUOC"
+      ]
+    },
+    "GAME_TRAN_NHAN_TONG": {
+      "topic": "Vua Trần Nhân Tông qua các giai đoạn cuộc đời",
+      "category": "DANH_TUONG_GIA_THAN",
+      "cognitive_level": "NHAN_BIET",
+      "difficulty": 0.4,
+      "skills": [
+        "SKILL_TRAN_NHAN_TONG"
+      ]
+    }
+  },
+  "codex": [
+    {
+      "unit_id": "GAME_NGU_BINH_U_NONG",
+      "category": "NEN_TANG_QUAN_SU",
+      "topic": "Chính sách ngụ binh ư nông",
+      "entity": "Nhà Lý, nhà Trần",
+      "event": "Tổ chức quân đội thời Lý – Trần",
+      "badge": "Ngụ binh ư nông",
+      "label": "chinh_su",
+      "fact_chunk": "“Ngụ binh ư nông” nghĩa là gửi binh ở nhà nông: thời bình, binh lính được luân phiên về quê làm ruộng; khi có chiến tranh, triều đình điều động họ ra trận. Nhờ vậy nhà nước vừa có lực lượng quân đội đông đảo, vừa bảo đảm sản xuất và lương thực.",
+      "answer": "• **Thời bình**: binh lính luân phiên về quê sản xuất, ruộng đồng không bị bỏ hoang.\n• **Khi có giặc**: triều đình nhanh chóng huy động được đông đảo quân lính đã quen việc quân.\n• **Ý nghĩa**: một nước không lớn như Đại Việt vẫn đủ lương thực và quân lực cho những cuộc kháng chiến dài, góp phần vào thắng lợi trước quân Mông – Nguyên.",
+      "source": "SGK Lịch sử và Địa lí 7 – Đại Việt thời Lý, Trần"
+    },
+    {
+      "unit_id": "GAME_TRAN_KHANH_DU",
+      "category": "DANH_TUONG_GIA_THAN",
+      "topic": "Trần Khánh Dư – từ người buôn than ở Chí Linh đến trận Vân Đồn",
+      "entity": "Nhân Huệ vương Trần Khánh Dư",
+      "event": "Trận Vân Đồn (cuối 1287 – đầu 1288)",
+      "badge": "Mưu thần Vân Đồn",
+      "label": "chinh_su",
+      "fact_chunk": "Trần Khánh Dư từng phạm lỗi, bị tước bỏ quan tước, về vùng Chí Linh sống bằng nghề buôn than. Năm 1282, trước nguy cơ quân Nguyên xâm lược, ông được tha tội để lập công. Trong kháng chiến lần thứ ba, ông trấn giữ vùng biển Vân Đồn, phục kích đánh đắm và thu giữ đoàn thuyền lương của Trương Văn Hổ.",
+      "answer": "• **Lỡ bước**: bị tước quan tước, về Chí Linh buôn than kiếm sống.\n• **Được dùng lại (1282)**: nhà Trần cho ông lập công chuộc tội khi đất nước sắp có giặc.\n• **Vân Đồn**: ông phục kích đoàn thuyền lương của Trương Văn Hổ, khiến quân Nguyên ở Thăng Long lâm vào cảnh thiếu lương – một bước ngoặt dẫn tới đại thắng Bạch Đằng.",
+      "source": "Tư liệu lịch sử về Trần Khánh Dư; SGK Lịch sử và Địa lí 7"
+    },
+    {
+      "unit_id": "GAME_BINH_THU_YEU_LUOC",
+      "category": "DIEN_HONG_HICH_TUONG_SI",
+      "topic": "Binh thư yếu lược của Trần Quốc Tuấn",
+      "entity": "Trần Quốc Tuấn (Trần Hưng Đạo)",
+      "event": "Chuẩn bị kháng chiến lần thứ hai",
+      "badge": "Binh thư yếu lược",
+      "label": "chinh_su",
+      "fact_chunk": "Binh thư yếu lược là sách binh pháp do Trần Quốc Tuấn biên soạn để dạy các tướng cách cầm quân. Trong Hịch tướng sĩ, ông viết: “Nay ta chọn binh pháp các nhà hợp thành một tuyển, gọi là Binh thư yếu lược”, khuyên tướng sĩ chăm chỉ luyện tập theo sách.",
+      "answer": "• **Tác giả**: Trần Quốc Tuấn (Hưng Đạo Đại vương).\n• **Nội dung**: tổng hợp binh pháp các nhà, dạy cách cầm quân đánh giặc.\n• **Gắn với Hịch tướng sĩ**: ông khuyên các tướng chuyên tâm học sách này để giữ nước.",
+      "source": "Hịch tướng sĩ – Trần Quốc Tuấn"
+    },
+    {
+      "unit_id": "GAME_TRAN_NHAN_TONG",
+      "category": "DANH_TUONG_GIA_THAN",
+      "topic": "Vua Trần Nhân Tông qua các giai đoạn cuộc đời",
+      "entity": "Trần Nhân Tông (Trần Khâm)",
+      "event": "Kháng chiến 1285 và 1287 – 1288",
+      "badge": "Phật hoàng Trúc Lâm",
+      "label": "chinh_su",
+      "fact_chunk": "Trần Nhân Tông (Trần Khâm, 1258 – 1308) sinh cuối năm 1258, sau cuộc kháng chiến lần thứ nhất. Ông được lập làm Hoàng thái tử năm 1274, lên ngôi năm 1278, triệu tập Hội nghị Bình Than năm 1282 và cùng Thượng hoàng Trần Thánh Tông lãnh đạo hai cuộc kháng chiến chống quân Nguyên. Năm 1293 ông nhường ngôi; năm 1299 xuất gia ở núi Yên Tử, sáng lập Thiền phái Trúc Lâm.",
+      "answer": "• **1258**: sinh ra, sau khi cuộc kháng chiến lần thứ nhất kết thúc.\n• **1274**: được lập làm Hoàng thái tử.\n• **1278**: lên ngôi vua; năm 1282 triệu tập Hội nghị Bình Than.\n• **1285, 1287 – 1288**: cùng Thượng hoàng Trần Thánh Tông lãnh đạo kháng chiến thắng lợi.\n• **1299**: xuất gia ở Yên Tử, sáng lập Thiền phái Trúc Lâm, được tôn là Phật hoàng.",
+      "source": "Tư liệu lịch sử về vua Trần Nhân Tông"
+    }
+  ],
+  "questions": [
+    {
+      "id": "kc1o-1",
+      "unit_id": "KC1_OVERVIEW",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Cuộc kháng chiến lần thứ nhất chống quân Mông Cổ diễn ra vào năm nào?",
+      "options": [
+        "Năm 1258",
+        "Năm 1285",
+        "Năm 1288",
+        "Năm 1282"
+      ],
+      "answer": 0,
+      "explanation": "Tháng 1/1258, quân Mông Cổ do Ngột Lương Hợp Thai chỉ huy xâm lược Đại Việt – đó là lần kháng chiến thứ nhất.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1o-2",
+      "unit_id": "KC1_OVERVIEW",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Ai chỉ huy quân Mông Cổ xâm lược Đại Việt năm 1258?",
+      "options": [
+        "Ngột Lương Hợp Thai",
+        "Thoát Hoan",
+        "Toa Đô",
+        "Ô Mã Nhi"
+      ],
+      "answer": 0,
+      "explanation": "Năm 1258, Ngột Lương Hợp Thai chỉ huy khoảng 3 vạn quân Mông Cổ tiến vào Đại Việt.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1o-3",
+      "unit_id": "KC1_OVERVIEW",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Năm 1258, vị vua nào trực tiếp chỉ huy quân dân Đại Việt chống quân Mông Cổ?",
+      "options": [
+        "Trần Thái Tông",
+        "Trần Nhân Tông",
+        "Trần Thánh Tông",
+        "Trần Anh Tông"
+      ],
+      "answer": 0,
+      "explanation": "Vua Trần Thái Tông trực tiếp chỉ huy kháng chiến năm 1258. Trần Nhân Tông sinh vào cuối năm 1258, sau cuộc kháng chiến này.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1o-4",
+      "unit_id": "KC1_OVERVIEW",
+      "type": "order",
+      "level": "THONG_HIEU",
+      "prompt": "Sắp xếp diễn biến cuộc kháng chiến năm 1258 theo đúng trình tự.",
+      "items": [
+        "Vua Trần chặn giặc ở Bình Lệ Nguyên",
+        "Quân Trần rút lui, thực hiện “vườn không nhà trống” ở Thăng Long",
+        "Quân Mông Cổ vào Thăng Long nhưng thiếu lương, rơi vào thế bị động",
+        "Quân Trần phản công thắng lợi ở Đông Bộ Đầu (29/1/1258)"
+      ],
+      "explanation": "Chặn giặc ở Bình Lệ Nguyên → rút lui, bỏ trống kinh thành → giặc đói kiệt, bị động → phản công thắng lợi ở Đông Bộ Đầu.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1o-5",
+      "unit_id": "KC1_OVERVIEW",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Cuộc kháng chiến lần thứ nhất kết thúc bằng trận phản công thắng lợi ở Đông Bộ Đầu.",
+      "answer": true,
+      "explanation": "Đúng. Ngày 29/1/1258, quân Trần phản công thắng lợi ở Đông Bộ Đầu, quét sạch giặc khỏi bờ cõi.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1o-6",
+      "unit_id": "KC1_OVERVIEW",
+      "type": "map",
+      "level": "NHAN_BIET",
+      "prompt": "Trên lược đồ, trận phản công quyết định năm 1258 diễn ra ở đâu?",
+      "options": [
+        "dong_bo_dau",
+        "bach_dang",
+        "van_don",
+        "ham_tu"
+      ],
+      "answer": "dong_bo_dau",
+      "explanation": "Trận phản công năm 1258 diễn ra ở bến Đông Bộ Đầu, ngay khu vực kinh thành Thăng Long (Hà Nội ngày nay).",
+      "source": "SGK Lịch sử và Địa lí 7 – Lược đồ kháng chiến lần thứ nhất"
+    },
+    {
+      "id": "kc1o-7",
+      "unit_id": "KC1_OVERVIEW",
+      "type": "map",
+      "level": "NHAN_BIET",
+      "prompt": "Kinh đô của Đại Việt thời Trần nằm ở đâu trên lược đồ?",
+      "options": [
+        "thang_long",
+        "thien_truong",
+        "thanh_hoa",
+        "van_don"
+      ],
+      "answer": "thang_long",
+      "explanation": "Kinh đô của Đại Việt thời Trần là Thăng Long (Hà Nội ngày nay).",
+      "source": "SGK Lịch sử và Địa lí 7"
+    },
+    {
+      "id": "kc1w-1",
+      "unit_id": "KC1_WHY_INVADE",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Vì sao năm 1258 quân Mông Cổ đánh Đại Việt?",
+      "options": [
+        "Để chiếm bàn đạp đánh từ phía nam lên, phối hợp tiêu diệt nhà Nam Tống",
+        "Để buôn bán hàng hóa với Đại Việt",
+        "Vì nhà Trần đem quân đánh Mông Cổ trước",
+        "Để giúp nhà Trần đánh Chăm-pa"
+      ],
+      "answer": 0,
+      "explanation": "Mông Cổ muốn chiếm Đại Việt làm bàn đạp, tạo thế gọng kìm từ phía nam để tiêu diệt nhà Nam Tống.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1w-2",
+      "unit_id": "KC1_WHY_INVADE",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Khi sứ giả Mông Cổ sang đòi mượn đường, vua Trần Thái Tông đã làm gì?",
+      "options": [
+        "Cự tuyệt, bắt giam sứ giả và lệnh cả nước sẵn sàng kháng chiến",
+        "Mở đường cho quân Mông Cổ đi qua",
+        "Gửi quân sang giúp Mông Cổ",
+        "Rời kinh thành vào Thanh Hóa"
+      ],
+      "answer": 0,
+      "explanation": "Vua Trần Thái Tông kiên quyết cự tuyệt, bắt giam sứ giả vào ngục và ban lệnh cho cả nước chuẩn bị kháng chiến.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1w-3",
+      "unit_id": "KC1_WHY_INVADE",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Mông Cổ muốn chiếm Đại Việt làm bàn đạp để tiêu diệt nhà Nam Tống.",
+      "answer": true,
+      "explanation": "Đúng. Đánh Đại Việt là một phần kế hoạch tạo gọng kìm từ phía nam để tiêu diệt Nam Tống.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1w-4",
+      "unit_id": "KC1_WHY_INVADE",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Việc vua Trần kiên quyết bắt giam sứ giả Mông Cổ cho thấy điều gì?",
+      "options": [
+        "Ý chí bảo vệ độc lập, không khuất phục trước kẻ mạnh",
+        "Sự lo sợ trước quân Mông Cổ",
+        "Mong muốn liên minh với Mông Cổ",
+        "Muốn đổi lấy vàng bạc"
+      ],
+      "answer": 0,
+      "explanation": "Hành động đó thể hiện ý chí độc lập, quyết không để giặc mượn đường xâm lược.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1b-1",
+      "unit_id": "KC1_BINH_LE_NGUYEN",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Năm 1258, vua Trần Thái Tông chặn giặc lần đầu ở đâu?",
+      "options": [
+        "Bình Lệ Nguyên",
+        "Bạch Đằng",
+        "Chương Dương",
+        "Hàm Tử"
+      ],
+      "answer": 0,
+      "explanation": "Vua Trần Thái Tông chặn giặc ở Bình Lệ Nguyên (Vĩnh Phúc ngày nay) rồi chủ động rút lui.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1b-2",
+      "unit_id": "KC1_BINH_LE_NGUYEN",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Tại Bình Lệ Nguyên, tướng Lê Phụ Trần (Lê Tần) đã làm gì?",
+      "options": [
+        "Lấy ván thuyền che tên cho vua và khuyên vua rút lui bảo toàn lực lượng",
+        "Một mình đánh tan quân Mông Cổ",
+        "Đầu hàng quân giặc",
+        "Đốt kho lương của giặc"
+      ],
+      "answer": 0,
+      "explanation": "Lê Tần lấy ván thuyền che tên cho vua Trần Thái Tông và khuyên vua rút lui để bảo toàn lực lượng.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1b-3",
+      "unit_id": "KC1_BINH_LE_NGUYEN",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Vì sao sau trận Bình Lệ Nguyên, quân Trần chủ động rút lui?",
+      "options": [
+        "Để bảo toàn lực lượng, tránh thế mạnh ban đầu của giặc",
+        "Vì quân Trần đã hết vũ khí",
+        "Vì vua Trần muốn đầu hàng",
+        "Vì quân Mông Cổ đã rút về nước"
+      ],
+      "answer": 0,
+      "explanation": "Giặc đang mạnh, đánh liều sẽ tổn thất lớn. Rút lui giữ được lực lượng để chờ thời cơ phản công.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1b-4",
+      "unit_id": "KC1_BINH_LE_NGUYEN",
+      "type": "map",
+      "level": "NHAN_BIET",
+      "prompt": "Bình Lệ Nguyên nằm ở đâu trên lược đồ?",
+      "options": [
+        "binh_le_nguyen",
+        "van_don",
+        "thanh_hoa",
+        "bach_dang"
+      ],
+      "answer": "binh_le_nguyen",
+      "explanation": "Bình Lệ Nguyên nằm ở phía tây bắc Thăng Long (Vĩnh Phúc ngày nay), trên đường quân Mông Cổ tiến xuống.",
+      "source": "SGK Lịch sử và Địa lí 7 – Lược đồ kháng chiến lần thứ nhất"
+    },
+    {
+      "id": "kc1v-1",
+      "unit_id": "KC1_VUON_KHONG_NHA_TRONG",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Kế sách “vườn không nhà trống” là gì?",
+      "options": [
+        "Sơ tán người và lương thực, không để lại gì cho giặc",
+        "Xây thành thật cao để cố thủ",
+        "Mở cửa thành đón giặc vào",
+        "Đem toàn bộ quân ra đánh trực diện"
+      ],
+      "answer": 0,
+      "explanation": "Đó là sơ tán toàn bộ nhân dân và lương thực, để giặc vào nơi trống không, không cướp được gì.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1v-2",
+      "unit_id": "KC1_VUON_KHONG_NHA_TRONG",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Vì sao “vườn không nhà trống” làm quân Mông Cổ suy yếu?",
+      "options": [
+        "Giặc đi xa, dựa vào lương cướp tại chỗ; không cướp được lương nên đói kiệt, hoang mang",
+        "Vì giặc bị mắc kẹt trong bãi cọc ngầm",
+        "Vì giặc bị thủy triều cuốn trôi",
+        "Vì quân Trần đông gấp nhiều lần quân giặc"
+      ],
+      "answer": 0,
+      "explanation": "Quân xâm lược đi xa, dựa vào cướp lương tại chỗ. Mất nguồn lương thì kiệt sức, mất tinh thần và buộc phải rút.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1v-3",
+      "unit_id": "KC1_VUON_KHONG_NHA_TRONG",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Khi vào Thăng Long năm 1258, quân Mông Cổ cướp được rất nhiều lương thực.",
+      "answer": false,
+      "explanation": "Sai. Quân dân Thăng Long đã sơ tán người và lương thực; giặc vào kinh thành trống, không cướp được lương.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1v-4",
+      "unit_id": "KC1_VUON_KHONG_NHA_TRONG",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Quân Mông Cổ chiếm được Thăng Long năm 1258 nhưng vẫn rơi vào thế bị động. Nguyên nhân chính là gì?",
+      "options": [
+        "Kinh thành bị bỏ trống, giặc không có lương ăn và không gặp quân chủ lực để đánh",
+        "Giặc không quen khí hậu lạnh",
+        "Giặc bị thủy quân bao vây trên biển",
+        "Giặc bị cọc ngầm chặn đường"
+      ],
+      "answer": 0,
+      "explanation": "Thăng Long trống không: không có lương để cướp, không có quân chủ lực để đánh, giặc càng ở lâu càng đói kiệt.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1v-5",
+      "unit_id": "KC1_VUON_KHONG_NHA_TRONG",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Kế sách “vườn không nhà trống” được quân dân nhà Trần thực hiện trong những lần kháng chiến nào?",
+      "options": [
+        "Cả ba lần kháng chiến",
+        "Chỉ lần thứ nhất (1258)",
+        "Chỉ lần thứ hai (1285)",
+        "Chỉ lần thứ ba (1287 – 1288)"
+      ],
+      "answer": 0,
+      "explanation": "Cả ba lần, quân dân nhà Trần đều bỏ trống kinh thành, sơ tán lương thực để giặc vào Thăng Long mà không có gì ăn.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1v-6",
+      "unit_id": "KC1_VUON_KHONG_NHA_TRONG",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Mục đích của kế sách vườn không nhà trống là làm cho giặc không cướp được lương thực.",
+      "answer": true,
+      "explanation": "Đúng. Không cướp được lương, quân xâm lược đói kiệt và mất tinh thần.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1t-1",
+      "unit_id": "KC1_TRAN_THU_DO_QUOTE",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Hoàn thành câu nói của Thái sư Trần Thủ Độ năm 1258: “Đầu thần chưa rơi xuống đất, …”",
+      "options": [
+        "xin bệ hạ đừng lo",
+        "xin bệ hạ hãy cầu hòa",
+        "thần xin về quê",
+        "giặc sẽ tự rút"
+      ],
+      "answer": 0,
+      "explanation": "Câu nói đầy đủ: “Đầu thần chưa rơi xuống đất, xin bệ hạ đừng lo!”",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1t-2",
+      "unit_id": "KC1_TRAN_THU_DO_QUOTE",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Câu nói “Đầu thần chưa rơi xuống đất, xin bệ hạ đừng lo” là của ai?",
+      "options": [
+        "Thái sư Trần Thủ Độ",
+        "Trần Bình Trọng",
+        "Trần Quốc Toản",
+        "Trần Khánh Dư"
+      ],
+      "answer": 0,
+      "explanation": "Năm 1258, khi vua Trần Thái Tông hỏi kế, Thái sư Trần Thủ Độ khẳng khái trả lời như vậy.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1t-3",
+      "unit_id": "KC1_TRAN_THU_DO_QUOTE",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Câu nói của Trần Thủ Độ thể hiện điều gì?",
+      "options": [
+        "Bản lĩnh vững vàng, quyết tâm đánh giặc đến cùng",
+        "Sự lo sợ trước quân giặc",
+        "Ý muốn cầu hòa",
+        "Sự xem thường nhà vua"
+      ],
+      "answer": 0,
+      "explanation": "Câu nói cho thấy bản lĩnh và quyết tâm chiến đấu đến cùng, giúp nhà vua vững lòng.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1d-1",
+      "unit_id": "KC1_DONG_BO_DAU",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Ngày 29/1/1258, quân Trần phản công thắng lợi ở đâu?",
+      "options": [
+        "Đông Bộ Đầu",
+        "Bạch Đằng",
+        "Vân Đồn",
+        "Tây Kết"
+      ],
+      "answer": 0,
+      "explanation": "Ngày 29/1/1258, quân Trần phản công đánh tan giặc ở bến Đông Bộ Đầu (Hà Nội).",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1d-2",
+      "unit_id": "KC1_DONG_BO_DAU",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Tàn quân Mông Cổ tháo chạy qua vùng Quy Hóa bị ai chặn đánh?",
+      "options": [
+        "Chủ trại Hà Khuất",
+        "Trần Khánh Dư",
+        "Yết Kiêu",
+        "Trần Quang Khải"
+      ],
+      "answer": 0,
+      "explanation": "Trên đường tháo chạy qua Quy Hóa, tàn quân Mông Cổ bị chủ trại Hà Khuất chặn đánh tan tác.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1d-3",
+      "unit_id": "KC1_DONG_BO_DAU",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Bến Đông Bộ Đầu nằm ở khu vực kinh thành Thăng Long (Hà Nội ngày nay).",
+      "answer": true,
+      "explanation": "Đúng. Đông Bộ Đầu là bến sông ở Thăng Long, nơi quân Trần phản công năm 1258.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc1d-4",
+      "unit_id": "KC1_DONG_BO_DAU",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Vì sao quân Trần phản công ở Đông Bộ Đầu khi quân Mông Cổ đã ở Thăng Long một thời gian?",
+      "options": [
+        "Lúc đó giặc đã đói kiệt, mệt mỏi vì thiếu lương",
+        "Lúc đó giặc vừa đến, còn sung sức nhất",
+        "Lúc đó có viện binh từ nước ngoài",
+        "Lúc đó thủy triều rút trên sông Bạch Đằng"
+      ],
+      "answer": 0,
+      "explanation": "Đợi giặc suy yếu vì thiếu lương rồi mới phản công – kết hợp “vườn không nhà trống” với chọn đúng thời cơ.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "tqto-1",
+      "unit_id": "TQT_WHY_ORANGE",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Vì sao Trần Quốc Toản bóp nát quả cam ở Hội nghị Bình Than?",
+      "options": [
+        "Vì còn nhỏ tuổi không được dự bàn việc nước, vừa căm giặc vừa hổ thẹn",
+        "Vì quả cam bị hỏng",
+        "Vì muốn khoe sức mạnh với các vương hầu",
+        "Vì vua không ban thưởng cho ông"
+      ],
+      "answer": 0,
+      "explanation": "Quốc Toản mới 15 – 16 tuổi nên không được dự họp. Vừa căm giặc vừa hổ thẹn, ông bóp nát quả cam vua ban lúc nào không hay.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "tqto-2",
+      "unit_id": "TQT_WHY_ORANGE",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Năm 1282, lúc diễn ra Hội nghị Bình Than, Trần Quốc Toản khoảng bao nhiêu tuổi?",
+      "options": [
+        "Khoảng 15 – 16 tuổi",
+        "Khoảng 25 tuổi",
+        "Khoảng 40 tuổi",
+        "Khoảng 8 tuổi"
+      ],
+      "answer": 0,
+      "explanation": "Trần Quốc Toản sinh năm 1267, năm 1282 ông mới khoảng 15 – 16 tuổi.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "tqto-3",
+      "unit_id": "TQT_WHY_ORANGE",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Vua Trần thấy Quốc Toản có chí khí nên không trị tội mà còn ban cho quả cam.",
+      "answer": true,
+      "explanation": "Đúng. Nhà vua quý chí khí của người thiếu niên nên không trị tội, còn ban cho quả cam.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "tqto-4",
+      "unit_id": "TQT_WHY_ORANGE",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Sau Hội nghị Bình Than, Trần Quốc Toản đã làm gì để được đánh giặc?",
+      "options": [
+        "Về chiêu mộ hơn 1.000 gia nô, thân tộc, lập đội quân riêng",
+        "Bỏ về quê, không tham gia kháng chiến",
+        "Xin làm sứ giả sang nhà Nguyên",
+        "Ở lại kinh thành học chữ"
+      ],
+      "answer": 0,
+      "explanation": "Ông về chiêu mộ hơn 1.000 gia nô, thân tộc, sắm vũ khí, dựng cờ thêu sáu chữ vàng rồi xông pha đánh giặc.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "tqts-1",
+      "unit_id": "TQT_SIX_GOLDEN_WORDS",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Lá cờ của Trần Quốc Toản thêu sáu chữ vàng nào?",
+      "options": [
+        "Phá cường địch, báo hoàng ân",
+        "Sát Thát, giữ non sông",
+        "Thà làm quỷ nước Nam",
+        "Đánh cho để dài tóc"
+      ],
+      "answer": 0,
+      "explanation": "Lá cờ thêu sáu chữ vàng “Phá cường địch, báo hoàng ân”.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "tqts-2",
+      "unit_id": "TQT_SIX_GOLDEN_WORDS",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "“Phá cường địch, báo hoàng ân” có nghĩa là gì?",
+      "options": [
+        "Phá giặc mạnh, đền ơn vua",
+        "Giữ nước, yêu dân",
+        "Đánh giặc ở phương Nam",
+        "Bảo vệ kinh thành"
+      ],
+      "answer": 0,
+      "explanation": "Sáu chữ vàng nghĩa là “Phá giặc mạnh, đền ơn vua”.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "tqts-3",
+      "unit_id": "TQT_SIX_GOLDEN_WORDS",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Đội quân do Trần Quốc Toản tự chiêu mộ gồm hơn 1.000 gia nô và thân tộc.",
+      "answer": true,
+      "explanation": "Đúng. Ông chiêu mộ hơn 1.000 gia nô, thân tộc dưới lá cờ sáu chữ vàng.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "tqtv-1",
+      "unit_id": "TQT_OVERVIEW",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Trần Quốc Toản mang tước hiệu nào?",
+      "options": [
+        "Hoài Văn hầu",
+        "Hưng Đạo vương",
+        "Nhân Huệ vương",
+        "Chiêu Văn vương"
+      ],
+      "answer": 0,
+      "explanation": "Trần Quốc Toản là Hoài Văn hầu. Hưng Đạo vương là Trần Quốc Tuấn, Nhân Huệ vương là Trần Khánh Dư, Chiêu Văn vương là Trần Nhật Duật.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "tqtv-2",
+      "unit_id": "TQT_OVERVIEW",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Trần Quốc Toản được nhớ đến là…",
+      "options": [
+        "thiếu niên anh hùng của hoàng tộc nhà Trần",
+        "vị vua lãnh đạo kháng chiến năm 1258",
+        "tướng giặc bị bắt ở Bạch Đằng",
+        "tác giả Hịch tướng sĩ"
+      ],
+      "answer": 0,
+      "explanation": "Hoài Văn hầu Trần Quốc Toản (1267 – 1285) là thiếu niên anh hùng của hoàng tộc nhà Trần.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "tqtv-3",
+      "unit_id": "TQT_OVERVIEW",
+      "type": "match",
+      "level": "THONG_HIEU",
+      "prompt": "Nối mỗi nhân vật với câu chuyện về họ.",
+      "left": [
+        "Trần Quốc Toản",
+        "Phạm Ngũ Lão",
+        "Lê Phụ Trần"
+      ],
+      "right": [
+        "Bóp nát quả cam ở Bình Than",
+        "Ngồi đan sọt mải nghĩ việc nước",
+        "Lấy ván thuyền che tên cho vua ở Bình Lệ Nguyên"
+      ],
+      "explanation": "Quốc Toản – quả cam ở Bình Than; Phạm Ngũ Lão – đan sọt bên đường; Lê Phụ Trần – che tên cho vua năm 1258.",
+      "source": "SGK Lịch sử và Địa lí 7"
+    },
+    {
+      "id": "bt-1",
+      "unit_id": "BINH_THAN_CONFERENCE",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Hội nghị Bình Than (tháng 10/1282) do ai triệu tập?",
+      "options": [
+        "Vua Trần Nhân Tông",
+        "Thượng hoàng Trần Thánh Tông",
+        "Thái sư Trần Thủ Độ",
+        "Trần Khánh Dư"
+      ],
+      "answer": 0,
+      "explanation": "Tháng 10/1282, vua Trần Nhân Tông triệu tập Hội nghị Bình Than để bàn kế đánh giặc.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "bt-2",
+      "unit_id": "BINH_THAN_CONFERENCE",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Thành phần dự Hội nghị Bình Than gồm những ai?",
+      "options": [
+        "Các vương hầu và trăm quan",
+        "Các bô lão trong cả nước",
+        "Toàn thể nhân dân",
+        "Sứ giả các nước láng giềng"
+      ],
+      "answer": 0,
+      "explanation": "Hội nghị Bình Than họp các vương hầu, trăm quan để bàn kế sách đánh giặc và phân công phòng thủ.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "bt-3",
+      "unit_id": "BINH_THAN_CONFERENCE",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Tại Hội nghị Bình Than, ai được cử làm Quốc công Tiết chế, chỉ huy toàn quân?",
+      "options": [
+        "Trần Quốc Tuấn (Trần Hưng Đạo)",
+        "Trần Quang Khải",
+        "Trần Nhật Duật",
+        "Trần Bình Trọng"
+      ],
+      "answer": 0,
+      "explanation": "Hội nghị cử Trần Quốc Tuấn làm Quốc công Tiết chế, tổng chỉ huy quân đội.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "bt-4",
+      "unit_id": "BINH_THAN_CONFERENCE",
+      "type": "match",
+      "level": "THONG_HIEU",
+      "prompt": "Nối mỗi sự kiện với nội dung chính của nó.",
+      "left": [
+        "Hội nghị Bình Than (1282)",
+        "Hội nghị Diên Hồng (đầu năm 1285)",
+        "Hịch tướng sĩ (1284)"
+      ],
+      "right": [
+        "Vương hầu, trăm quan bàn kế đánh giặc",
+        "Các bô lão cả nước được hỏi nên đánh hay nên hòa",
+        "Lời kêu gọi tướng sĩ của Trần Quốc Tuấn"
+      ],
+      "explanation": "Bình Than – hội nghị quân sự của vương hầu, trăm quan; Diên Hồng – hỏi ý kiến bô lão; Hịch tướng sĩ – lời kêu gọi tướng sĩ.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "bt-5",
+      "unit_id": "BINH_THAN_CONFERENCE",
+      "type": "map",
+      "level": "NHAN_BIET",
+      "prompt": "Bến Bình Than, nơi họp hội nghị năm 1282, nằm ở đâu trên lược đồ?",
+      "options": [
+        "binh_than",
+        "van_don",
+        "thanh_hoa",
+        "binh_le_nguyen"
+      ],
+      "answer": "binh_than",
+      "explanation": "Bến Bình Than nằm ở vùng Bắc Ninh – Hải Dương ngày nay, phía đông Thăng Long.",
+      "source": "SGK Lịch sử và Địa lí 7"
+    },
+    {
+      "id": "dh-1",
+      "unit_id": "DIEN_HONG_CONFERENCE",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Hội nghị Diên Hồng do ai triệu tập?",
+      "options": [
+        "Thượng hoàng Trần Thánh Tông",
+        "Vua Trần Thái Tông",
+        "Trần Quốc Toản",
+        "Trần Khánh Dư"
+      ],
+      "answer": 0,
+      "explanation": "Thượng hoàng Trần Thánh Tông triệu tập các bô lão cả nước về họp ở điện Diên Hồng.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "dh-2",
+      "unit_id": "DIEN_HONG_CONFERENCE",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Trước câu hỏi “Nên đánh hay nên hòa?”, các bô lão ở Diên Hồng trả lời thế nào?",
+      "options": [
+        "Đồng thanh hô “Đánh!”",
+        "Xin cầu hòa",
+        "Xin rút vào rừng sâu",
+        "Xin nhờ nước khác giúp"
+      ],
+      "answer": 0,
+      "explanation": "Muôn người như một, các bô lão đồng thanh hô vang: “Đánh!”.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "dh-3",
+      "unit_id": "DIEN_HONG_CONFERENCE",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Hội nghị Diên Hồng thể hiện điều gì?",
+      "options": [
+        "Ý chí đoàn kết, quyết tâm đánh giặc của toàn dân",
+        "Sự chia rẽ trong triều đình",
+        "Mong muốn cầu hòa của nhân dân",
+        "Sức mạnh riêng của quân đội"
+      ],
+      "answer": 0,
+      "explanation": "Hỏi ý kiến bô lão cả nước và nhận được câu trả lời “Đánh!” cho thấy cả dân tộc đồng lòng kháng chiến.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "dh-4",
+      "unit_id": "DIEN_HONG_CONFERENCE",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Thành phần chính của Hội nghị Diên Hồng là các bậc bô lão trong cả nước.",
+      "answer": true,
+      "explanation": "Đúng. Hội nghị Diên Hồng là hội nghị của các bô lão, khác với Hội nghị Bình Than của vương hầu, trăm quan.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "dh-5",
+      "unit_id": "DIEN_HONG_CONFERENCE",
+      "type": "order",
+      "level": "THONG_HIEU",
+      "prompt": "Sắp xếp các sự kiện sau theo thứ tự thời gian.",
+      "items": [
+        "Hội nghị Bình Than (10/1282)",
+        "Trần Quốc Tuấn soạn Hịch tướng sĩ (1284)",
+        "Hội nghị Diên Hồng (đầu năm 1285)",
+        "Thoát Hoan chui ống đồng tháo chạy (6/1285)"
+      ],
+      "explanation": "Bình Than (1282) → Hịch tướng sĩ (1284) → Diên Hồng (đầu 1285) → Thoát Hoan tháo chạy (6/1285).",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "hts-1",
+      "unit_id": "HICH_TUONG_SI",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Ai là tác giả của “Hịch tướng sĩ”?",
+      "options": [
+        "Trần Quốc Tuấn (Trần Hưng Đạo)",
+        "Trần Quang Khải",
+        "Trần Nhân Tông",
+        "Trần Thủ Độ"
+      ],
+      "answer": 0,
+      "explanation": "Năm 1284, Trần Quốc Tuấn soạn Hịch tướng sĩ để khích lệ tướng sĩ trước cuộc kháng chiến lần thứ hai.",
+      "source": "Hịch tướng sĩ – Trần Quốc Tuấn"
+    },
+    {
+      "id": "hts-2",
+      "unit_id": "HICH_TUONG_SI",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Mục đích của “Hịch tướng sĩ” là gì?",
+      "options": [
+        "Khích lệ lòng yêu nước, ý chí đánh giặc của tướng sĩ",
+        "Thông báo đầu hàng quân Nguyên",
+        "Kể chuyện về Hội nghị Diên Hồng",
+        "Hướng dẫn cách trồng lúa"
+      ],
+      "answer": 0,
+      "explanation": "Bài hịch khơi dậy lòng yêu nước, kêu gọi tướng sĩ chăm luyện tập, quyết tâm đánh giặc.",
+      "source": "Hịch tướng sĩ – Trần Quốc Tuấn"
+    },
+    {
+      "id": "hts-3",
+      "unit_id": "HICH_TUONG_SI",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Quân sĩ nhà Trần thích lên cánh tay hai chữ gì để tỏ quyết tâm?",
+      "options": [
+        "Sát Thát",
+        "Hòa bình",
+        "Đông A",
+        "Trung nghĩa"
+      ],
+      "answer": 0,
+      "explanation": "Quân sĩ tự nguyện thích hai chữ “Sát Thát” lên cánh tay, thề sống chết với giặc.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "hts-4",
+      "unit_id": "HICH_TUONG_SI",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Hai chữ “Sát Thát” có nghĩa là gì?",
+      "options": [
+        "Giết giặc Mông Cổ",
+        "Giữ gìn đất nước",
+        "Mừng chiến thắng",
+        "Kính yêu nhà vua"
+      ],
+      "answer": 0,
+      "explanation": "“Sát Thát” nghĩa là giết giặc Mông Cổ (Thát Đát).",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "hts-5",
+      "unit_id": "HICH_TUONG_SI",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Hịch tướng sĩ được viết trước cuộc kháng chiến lần thứ hai (1285).",
+      "answer": true,
+      "explanation": "Đúng. Hịch tướng sĩ ra đời năm 1284, trước khi quân Nguyên xâm lược lần thứ hai.",
+      "source": "Hịch tướng sĩ – Trần Quốc Tuấn"
+    },
+    {
+      "id": "thd-1",
+      "unit_id": "TRAN_HUNG_DAO_PORTRAIT",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Ai là tổng chỉ huy quân đội nhà Trần trong hai cuộc kháng chiến 1285 và 1287 – 1288?",
+      "options": [
+        "Trần Quốc Tuấn",
+        "Trần Thủ Độ",
+        "Trần Quốc Toản",
+        "Lê Phụ Trần"
+      ],
+      "answer": 0,
+      "explanation": "Quốc công Tiết chế Trần Quốc Tuấn (Hưng Đạo Đại vương) là tổng chỉ huy quân đội trong hai lần kháng chiến này.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "thd-2",
+      "unit_id": "TRAN_HUNG_DAO_PORTRAIT",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Hoàn thành câu nói của Trần Hưng Đạo: “Nếu bệ hạ muốn hàng, …”",
+      "options": [
+        "xin hãy chém đầu thần trước đã",
+        "xin cho thần về quê",
+        "thần xin đi sứ",
+        "thần xin theo hầu"
+      ],
+      "answer": 0,
+      "explanation": "Câu nói “Nếu bệ hạ muốn hàng, xin hãy chém đầu thần trước đã!” thể hiện ý chí quyết đánh của Trần Hưng Đạo.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "thd-3",
+      "unit_id": "TRAN_HUNG_DAO_PORTRAIT",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Trần Hưng Đạo chỉ huy chiến thắng nào năm 1288?",
+      "options": [
+        "Bạch Đằng",
+        "Đông Bộ Đầu",
+        "Bình Lệ Nguyên",
+        "Hàm Tử"
+      ],
+      "answer": 0,
+      "explanation": "Tháng 4/1288, Trần Hưng Đạo chỉ huy đại thắng trên sông Bạch Đằng.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "thd-4",
+      "unit_id": "TRAN_HUNG_DAO_PORTRAIT",
+      "type": "match",
+      "level": "THONG_HIEU",
+      "prompt": "Nối mỗi câu nói với người đã nói.",
+      "left": [
+        "“Đầu thần chưa rơi xuống đất, xin bệ hạ đừng lo”",
+        "“Nếu bệ hạ muốn hàng, xin hãy chém đầu thần trước đã”",
+        "“Ta thà làm quỷ nước Nam, chứ không thèm làm vương đất Bắc”"
+      ],
+      "right": [
+        "Trần Thủ Độ",
+        "Trần Hưng Đạo",
+        "Trần Bình Trọng"
+      ],
+      "explanation": "Ba câu nói lần lượt của Trần Thủ Độ (1258), Trần Hưng Đạo và Trần Bình Trọng (1285).",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc2-1",
+      "unit_id": "KC2_OVERVIEW",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Năm 1285, ai chỉ huy đạo quân Nguyên từ phía Bắc đánh vào Đại Việt?",
+      "options": [
+        "Thoát Hoan",
+        "Ngột Lương Hợp Thai",
+        "Trương Văn Hổ",
+        "Phàn Tiếp"
+      ],
+      "answer": 0,
+      "explanation": "Đầu năm 1285, Thoát Hoan đem đại quân Nguyên từ phía Bắc tiến vào Đại Việt.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc2-2",
+      "unit_id": "KC2_OVERVIEW",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Năm 1285, đạo quân của Toa Đô đánh vào Đại Việt từ hướng nào?",
+      "options": [
+        "Từ phía Nam (qua Chăm-pa) đánh lên",
+        "Từ phía Bắc đánh xuống",
+        "Từ biển vào Vân Đồn",
+        "Từ phía Tây xuống"
+      ],
+      "answer": 0,
+      "explanation": "Toa Đô từ Chăm-pa đánh lên phía Nam, phối hợp với đạo quân của Thoát Hoan từ phía Bắc.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc2-3",
+      "unit_id": "KC2_OVERVIEW",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo tư liệu, quân Nguyên xâm lược lần thứ hai (1285) với khoảng bao nhiêu quân?",
+      "options": [
+        "50 vạn",
+        "3 vạn",
+        "5 nghìn",
+        "100 vạn"
+      ],
+      "answer": 0,
+      "explanation": "Năm 1285, quân Nguyên huy động khoảng 50 vạn quân.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc2-4",
+      "unit_id": "KC2_OVERVIEW",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Vì sao cuộc tiến công năm 1285 của quân Nguyên được gọi là thế “gọng kìm”?",
+      "options": [
+        "Hai đạo quân từ phía Bắc và phía Nam cùng đánh kẹp lại",
+        "Quân Nguyên dùng kìm sắt làm vũ khí",
+        "Quân Nguyên chỉ đánh bằng đường biển",
+        "Ba đạo quân đều đánh từ phía Bắc"
+      ],
+      "answer": 0,
+      "explanation": "Thoát Hoan từ phía Bắc, Toa Đô từ phía Nam – hai cánh quân kẹp Đại Việt vào giữa như gọng kìm.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc2-5",
+      "unit_id": "KC2_OVERVIEW",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Tháng 5 – 6/1285, quân Trần mở cuộc phản công lớn ở Tây Kết, Hàm Tử, Chương Dương.",
+      "answer": true,
+      "explanation": "Đúng. Đó là cuộc tổng phản công giải phóng Thăng Long, đánh đuổi quân Nguyên năm 1285.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc2-6",
+      "unit_id": "KC2_OVERVIEW",
+      "type": "order",
+      "level": "THONG_HIEU",
+      "prompt": "Sắp xếp diễn biến cuộc kháng chiến lần thứ hai theo trình tự.",
+      "items": [
+        "Thoát Hoan và Toa Đô đem quân đánh Đại Việt (đầu 1285)",
+        "Trần Bình Trọng chặn giặc, bảo vệ hai vua rút lui",
+        "Quân Trần phản công ở Tây Kết, Hàm Tử, Chương Dương (5 – 6/1285)",
+        "Thoát Hoan chui ống đồng tháo chạy về nước"
+      ],
+      "explanation": "Giặc tiến công → quân ta rút lui, Trần Bình Trọng chặn giặc → tổng phản công mùa hè 1285 → Thoát Hoan tháo chạy.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "th-1",
+      "unit_id": "KC2_THOAT_HOAN_COPPER_PIPE",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Năm 1285, khi tháo chạy, Thoát Hoan đã làm gì để thoát thân?",
+      "options": [
+        "Chui vào ống đồng cho quân lính kéo về nước",
+        "Cải trang thành thương nhân",
+        "Lên thuyền chạy ra Vân Đồn",
+        "Trốn vào núi Yên Tử"
+      ],
+      "answer": 0,
+      "explanation": "Thoát Hoan chui vào ống đồng đặt trên xe, cho quân lính kéo chạy về nước.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "th-2",
+      "unit_id": "KC2_THOAT_HOAN_COPPER_PIPE",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Vì sao Thoát Hoan phải chui vào ống đồng?",
+      "options": [
+        "Vì quá sợ trúng tên tẩm thuốc độc của quân dân nhà Trần",
+        "Vì trời quá lạnh",
+        "Vì muốn mang theo vàng bạc",
+        "Vì bị thương ở chân"
+      ],
+      "answer": 0,
+      "explanation": "Bị truy kích ráo riết, Thoát Hoan sợ trúng tên độc nên chui vào ống đồng.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "th-3",
+      "unit_id": "KC2_THOAT_HOAN_COPPER_PIPE",
+      "type": "map",
+      "level": "NHAN_BIET",
+      "prompt": "Thoát Hoan chui ống đồng tháo chạy khi qua vùng nào?",
+      "options": [
+        "van_kiep",
+        "dong_bo_dau",
+        "thanh_hoa",
+        "binh_le_nguyen"
+      ],
+      "answer": "van_kiep",
+      "explanation": "Tháng 6/1285, Thoát Hoan tháo chạy qua Vạn Kiếp (Chí Linh, Hải Dương) thì bị quân Trần chặn đánh.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "tbt-1",
+      "unit_id": "KC2_TRAN_BINH_TRONG",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Hoàn thành câu nói của Trần Bình Trọng: “Ta thà làm quỷ nước Nam, …”",
+      "options": [
+        "chứ không thèm làm vương đất Bắc",
+        "còn hơn sống mà chịu nhục",
+        "để giữ lấy non sông",
+        "xin đừng hại dân ta"
+      ],
+      "answer": 0,
+      "explanation": "Câu nói bất tử: “Ta thà làm quỷ nước Nam, chứ không thèm làm vương đất Bắc!”",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "tbt-2",
+      "unit_id": "KC2_TRAN_BINH_TRONG",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Năm 1285, Trần Bình Trọng chỉ huy quân chặn giặc nhằm mục đích gì?",
+      "options": [
+        "Bảo vệ cuộc rút lui của hai vua và triều đình",
+        "Tấn công kinh đô nhà Nguyên",
+        "Đón quân Toa Đô vào Thăng Long",
+        "Bảo vệ kho lương ở Vân Đồn"
+      ],
+      "answer": 0,
+      "explanation": "Ông chặn đánh quân Nguyên để hai vua Trần và triều đình rút lui an toàn.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "tbt-3",
+      "unit_id": "KC2_TRAN_BINH_TRONG",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Câu nói của Trần Bình Trọng khi bị giặc dụ hàng thể hiện điều gì?",
+      "options": [
+        "Lòng yêu nước, khí phách kiên trung, không khuất phục",
+        "Mong muốn được làm vương",
+        "Sự sợ hãi trước cái chết",
+        "Ý muốn cầu hòa"
+      ],
+      "answer": 0,
+      "explanation": "Bị bắt và được dụ phong vương, ông vẫn khẳng khái từ chối – tấm gương khí phách của người Việt.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "hc-1",
+      "unit_id": "KC2_HAM_TU_CHUONG_DUONG",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Ai chỉ huy quân Trần thắng lớn ở Hàm Tử năm 1285?",
+      "options": [
+        "Trần Nhật Duật",
+        "Trần Quang Khải",
+        "Trần Khánh Dư",
+        "Trần Thủ Độ"
+      ],
+      "answer": 0,
+      "explanation": "Chiêu Văn vương Trần Nhật Duật chỉ huy trận thắng lớn ở Hàm Tử.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "hc-2",
+      "unit_id": "KC2_HAM_TU_CHUONG_DUONG",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Ai chỉ huy trận Chương Dương, mở đường giải phóng Thăng Long năm 1285?",
+      "options": [
+        "Trần Quang Khải",
+        "Trần Nhật Duật",
+        "Yết Kiêu",
+        "Lê Phụ Trần"
+      ],
+      "answer": 0,
+      "explanation": "Thượng tướng Trần Quang Khải chỉ huy trận Chương Dương, rồi tiến về giải phóng Thăng Long.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "hc-3",
+      "unit_id": "KC2_HAM_TU_CHUONG_DUONG",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Sau chiến thắng năm 1285, Trần Quang Khải làm bài thơ nào?",
+      "options": [
+        "Tụng giá hoàn kinh sư (Phò giá về kinh)",
+        "Hịch tướng sĩ",
+        "Thuật hoài",
+        "Nam quốc sơn hà"
+      ],
+      "answer": 0,
+      "explanation": "Trần Quang Khải làm bài “Tụng giá hoàn kinh sư” khi phò giá về kinh. “Thuật hoài” là thơ của Phạm Ngũ Lão.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "hc-4",
+      "unit_id": "KC2_HAM_TU_CHUONG_DUONG",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Câu thơ “Đoạt sáo Chương Dương độ” (Chương Dương cướp giáo giặc) nhắc tới chiến thắng nào?",
+      "options": [
+        "Trận Chương Dương",
+        "Trận Bạch Đằng",
+        "Trận Đông Bộ Đầu",
+        "Trận Vân Đồn"
+      ],
+      "answer": 0,
+      "explanation": "Câu thơ trong bài “Tụng giá hoàn kinh sư” nhắc đến chiến thắng Chương Dương năm 1285.",
+      "source": "Tụng giá hoàn kinh sư – Trần Quang Khải"
+    },
+    {
+      "id": "hc-5",
+      "unit_id": "KC2_HAM_TU_CHUONG_DUONG",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Toa Đô bị giết trong trận Chương Dương do Trần Quang Khải chỉ huy.",
+      "answer": false,
+      "explanation": "Sai. Toa Đô bị giết ở Tây Kết – một trận khác trong cuộc phản công năm 1285. Trần Quang Khải chỉ huy trận Chương Dương.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "hc-6",
+      "unit_id": "KC2_HAM_TU_CHUONG_DUONG",
+      "type": "match",
+      "level": "VAN_DUNG",
+      "prompt": "Nối mỗi trận đánh năm 1285 với kết quả của nó.",
+      "left": [
+        "Hàm Tử",
+        "Chương Dương",
+        "Tây Kết"
+      ],
+      "right": [
+        "Trần Nhật Duật thắng lớn",
+        "Trần Quang Khải đại phá giặc, mở đường về Thăng Long",
+        "Tướng giặc Toa Đô bị giết"
+      ],
+      "explanation": "Hàm Tử – Trần Nhật Duật; Chương Dương – Trần Quang Khải; Tây Kết – Toa Đô bị giết.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "hc-7",
+      "unit_id": "KC2_HAM_TU_CHUONG_DUONG",
+      "type": "map",
+      "level": "NHAN_BIET",
+      "prompt": "Trận Chương Dương diễn ra ở đâu trên lược đồ?",
+      "options": [
+        "chuong_duong",
+        "van_don",
+        "binh_le_nguyen",
+        "lang_son"
+      ],
+      "answer": "chuong_duong",
+      "explanation": "Bến Chương Dương nằm bên sông Hồng, phía nam Thăng Long (Thường Tín, Hà Nội ngày nay).",
+      "source": "SGK Lịch sử và Địa lí 7 – Lược đồ kháng chiến lần thứ hai"
+    },
+    {
+      "id": "hc-8",
+      "unit_id": "KC2_HAM_TU_CHUONG_DUONG",
+      "type": "map",
+      "level": "NHAN_BIET",
+      "prompt": "Trần Nhật Duật thắng lớn ở đâu năm 1285?",
+      "options": [
+        "ham_tu",
+        "bach_dang",
+        "van_don",
+        "lang_son"
+      ],
+      "answer": "ham_tu",
+      "explanation": "Trần Nhật Duật thắng lớn ở Hàm Tử (Khoái Châu, Hưng Yên ngày nay).",
+      "source": "SGK Lịch sử và Địa lí 7 – Lược đồ kháng chiến lần thứ hai"
+    },
+    {
+      "id": "vd-1",
+      "unit_id": "KC3_VAN_DON",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Ai chỉ huy trận phục kích đoàn thuyền lương của quân Nguyên ở Vân Đồn?",
+      "options": [
+        "Trần Khánh Dư",
+        "Trần Quang Khải",
+        "Trần Bình Trọng",
+        "Trần Quốc Toản"
+      ],
+      "answer": 0,
+      "explanation": "Nhân Huệ vương Trần Khánh Dư chỉ huy trận phục kích ở Vân Đồn.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "vd-2",
+      "unit_id": "KC3_VAN_DON",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Đoàn thuyền lương bị đánh ở Vân Đồn do tướng Nguyên nào chỉ huy?",
+      "options": [
+        "Trương Văn Hổ",
+        "Ô Mã Nhi",
+        "Toa Đô",
+        "Ngột Lương Hợp Thai"
+      ],
+      "answer": 0,
+      "explanation": "Đoàn thuyền lương do Trương Văn Hổ chỉ huy đi theo sau thủy quân Nguyên.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "vd-3",
+      "unit_id": "KC3_VAN_DON",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Vì sao chiến thắng Vân Đồn có ý nghĩa rất lớn?",
+      "options": [
+        "Quân Nguyên mất nguồn lương, lâm vào cảnh thiếu đói, phải tính đường rút",
+        "Quân Nguyên mất hết kỵ binh",
+        "Quân Trần bắt sống được Thoát Hoan",
+        "Cuộc kháng chiến kết thúc ngay sau trận này"
+      ],
+      "answer": 0,
+      "explanation": "Mất đoàn thuyền lương, quân Nguyên ở Thăng Long thiếu đói, tinh thần sa sút – tạo thời cơ cho đại thắng Bạch Đằng.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "vd-4",
+      "unit_id": "KC3_VAN_DON",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Ở Vân Đồn, quân Trần dùng hỏa công đốt sạch đoàn thuyền lương của giặc.",
+      "answer": false,
+      "explanation": "Sai. Tư liệu ghi Trần Khánh Dư phục kích, đánh đắm và thu giữ đoàn thuyền lương của Trương Văn Hổ; không ghi việc dùng hỏa công.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "vd-5",
+      "unit_id": "KC3_VAN_DON",
+      "type": "map",
+      "level": "NHAN_BIET",
+      "prompt": "Vân Đồn nằm ở đâu trên lược đồ?",
+      "options": [
+        "van_don",
+        "chuong_duong",
+        "binh_le_nguyen",
+        "thien_truong"
+      ],
+      "answer": "van_don",
+      "explanation": "Vân Đồn là vùng biển đảo ở Quảng Ninh ngày nay, trên đường thủy quân Nguyên tiến vào.",
+      "source": "SGK Lịch sử và Địa lí 7 – Lược đồ kháng chiến lần thứ ba"
+    },
+    {
+      "id": "bd-1",
+      "unit_id": "KC3_BACH_DANG_HOW",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Trận Bạch Đằng năm 1288 do ai chỉ huy?",
+      "options": [
+        "Trần Hưng Đạo",
+        "Trần Khánh Dư",
+        "Trần Thủ Độ",
+        "Trần Nhật Duật"
+      ],
+      "answer": 0,
+      "explanation": "Hưng Đạo Đại vương Trần Quốc Tuấn chỉ huy đại thắng Bạch Đằng tháng 4/1288.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "bd-2",
+      "unit_id": "KC3_BACH_DANG_HOW",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Quân Trần đã bố trí gì dưới lòng sông Bạch Đằng?",
+      "options": [
+        "Bãi cọc gỗ đầu bịt sắt cắm ngầm",
+        "Lưới sắt lớn",
+        "Thuyền chở đá chặn dòng",
+        "Kho lương ngầm"
+      ],
+      "answer": 0,
+      "explanation": "Trần Hưng Đạo cho cắm bãi cọc gỗ đầu bịt sắt dưới lòng sông, chìm khi triều lên, nhô ra khi triều rút.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "bd-3",
+      "unit_id": "KC3_BACH_DANG_HOW",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Quân Trần nhử thuyền giặc vào trận địa lúc nào và tổng công kích lúc nào?",
+      "options": [
+        "Nhử vào lúc triều lên, tổng công kích khi triều rút",
+        "Nhử vào lúc triều rút, tổng công kích khi triều lên",
+        "Đánh lúc nửa đêm khi trời không trăng",
+        "Đánh ngay khi giặc vừa đến cửa sông"
+      ],
+      "answer": 0,
+      "explanation": "Triều lên che kín bãi cọc để nhử giặc vào; khi triều rút, thuyền giặc va cọc vỡ đắm và quân ta tổng công kích.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "bd-4",
+      "unit_id": "KC3_BACH_DANG_HOW",
+      "type": "order",
+      "level": "VAN_DUNG",
+      "prompt": "Sắp xếp các bước của trận Bạch Đằng năm 1288.",
+      "items": [
+        "Cắm cọc gỗ đầu bịt sắt dưới lòng sông",
+        "Nhử thuyền giặc vào trận địa lúc triều lên",
+        "Tổng công kích khi thủy triều rút",
+        "Thuyền giặc va cọc, vỡ đắm; Ô Mã Nhi bị bắt sống"
+      ],
+      "explanation": "Đóng cọc → nhử giặc lúc triều lên → tổng công kích khi triều rút → thuyền giặc vỡ đắm, Ô Mã Nhi bị bắt sống.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "bd-5",
+      "unit_id": "KC3_BACH_DANG_HOW",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Ở trận Bạch Đằng năm 1288, tướng giặc Ô Mã Nhi bị bắt sống.",
+      "answer": true,
+      "explanation": "Đúng. Toàn bộ thủy quân giặc bị tiêu diệt, Ô Mã Nhi và Phàn Tiếp bị bắt sống.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "bd-6",
+      "unit_id": "KC3_BACH_DANG_HOW",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Cùng với Ô Mã Nhi, tướng giặc nào bị bắt sống ở trận Bạch Đằng năm 1288?",
+      "options": [
+        "Phàn Tiếp",
+        "Toa Đô",
+        "Thoát Hoan",
+        "Ngột Lương Hợp Thai"
+      ],
+      "answer": 0,
+      "explanation": "Ô Mã Nhi và Phàn Tiếp bị bắt sống. Toa Đô đã bị giết ở Tây Kết năm 1285, còn Thoát Hoan rút chạy về nước.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "bd-7",
+      "unit_id": "KC3_BACH_DANG_HOW",
+      "type": "map",
+      "level": "NHAN_BIET",
+      "prompt": "Trận thủy chiến lớn tháng 4/1288 diễn ra ở đâu trên lược đồ?",
+      "options": [
+        "bach_dang",
+        "dong_bo_dau",
+        "ham_tu",
+        "binh_le_nguyen"
+      ],
+      "answer": "bach_dang",
+      "explanation": "Đại thắng năm 1288 diễn ra trên sông Bạch Đằng, đoạn gần cửa biển (Quảng Ninh – Hải Phòng ngày nay).",
+      "source": "SGK Lịch sử và Địa lí 7 – Lược đồ kháng chiến lần thứ ba"
+    },
+    {
+      "id": "bd-8",
+      "unit_id": "KC3_BACH_DANG_HOW",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Chiến thắng Bạch Đằng năm 1288 thể hiện nghệ thuật quân sự nào?",
+      "options": [
+        "Lợi dụng địa hình sông nước và quy luật thủy triều",
+        "Chỉ dựa vào quân đông hơn giặc",
+        "Dùng voi chiến đánh trên bộ",
+        "Xây thành cao để cố thủ"
+      ],
+      "answer": 0,
+      "explanation": "Quân Trần biết chọn trận địa sông nước, tính đúng con nước thủy triều để biến thế mạnh thủy quân của giặc thành điểm yếu.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc3-1",
+      "unit_id": "KC3_OVERVIEW",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Cuộc kháng chiến lần thứ ba chống quân Nguyên diễn ra trong thời gian nào?",
+      "options": [
+        "Cuối năm 1287 – tháng 4/1288",
+        "Năm 1258",
+        "Năm 1282",
+        "Năm 1300"
+      ],
+      "answer": 0,
+      "explanation": "Cuối năm 1287 quân Nguyên xâm lược lần thứ ba; tháng 4/1288 quân Trần đại thắng ở Bạch Đằng.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc3-2",
+      "unit_id": "KC3_OVERVIEW",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo tư liệu, Thoát Hoan đem khoảng bao nhiêu quân xâm lược Đại Việt lần thứ ba?",
+      "options": [
+        "30 vạn",
+        "3 vạn",
+        "50 vạn",
+        "5 vạn"
+      ],
+      "answer": 0,
+      "explanation": "Lần thứ ba, Thoát Hoan đem khoảng 30 vạn quân, cùng đoàn thuyền lương của Trương Văn Hổ.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc3-3",
+      "unit_id": "KC3_OVERVIEW",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Trong lần xâm lược thứ ba, quân Nguyên có đoàn thuyền chở lương do Trương Văn Hổ chỉ huy đi theo.",
+      "answer": true,
+      "explanation": "Đúng. Đoàn thuyền lương này bị Trần Khánh Dư phục kích ở Vân Đồn.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc3-4",
+      "unit_id": "KC3_OVERVIEW",
+      "type": "order",
+      "level": "THONG_HIEU",
+      "prompt": "Sắp xếp diễn biến cuộc kháng chiến lần thứ ba theo trình tự.",
+      "items": [
+        "Quân Nguyên tiến vào Đại Việt (cuối 1287)",
+        "Trần Khánh Dư phục kích đoàn thuyền lương ở Vân Đồn",
+        "Quân Nguyên ở Thăng Long thiếu lương, phải tính đường rút",
+        "Đại thắng Bạch Đằng (4/1288)"
+      ],
+      "explanation": "Giặc tiến công → mất thuyền lương ở Vân Đồn → thiếu lương, phải rút → bị đánh tan ở Bạch Đằng.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "kc3-5",
+      "unit_id": "KC3_OVERVIEW",
+      "type": "match",
+      "level": "THONG_HIEU",
+      "prompt": "Nối mỗi tướng giặc với kết cục của họ.",
+      "left": [
+        "Toa Đô",
+        "Ô Mã Nhi",
+        "Thoát Hoan (1285)",
+        "Trương Văn Hổ"
+      ],
+      "right": [
+        "Bị giết ở Tây Kết",
+        "Bị bắt sống ở Bạch Đằng",
+        "Chui ống đồng tháo chạy",
+        "Mất đoàn thuyền lương ở Vân Đồn"
+      ],
+      "explanation": "Toa Đô – Tây Kết (1285); Ô Mã Nhi – Bạch Đằng (1288); Thoát Hoan – chui ống đồng (1285); Trương Văn Hổ – Vân Đồn.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "all-1",
+      "unit_id": "ALL_3_WARS_SUMMARY",
+      "type": "order",
+      "level": "THONG_HIEU",
+      "prompt": "Sắp xếp các chiến thắng tiêu biểu theo thứ tự thời gian.",
+      "items": [
+        "Đông Bộ Đầu (1258)",
+        "Chương Dương – Hàm Tử (1285)",
+        "Vân Đồn (đầu 1288)",
+        "Bạch Đằng (4/1288)"
+      ],
+      "explanation": "Đông Bộ Đầu (1258) → Chương Dương, Hàm Tử (1285) → Vân Đồn (đầu 1288) → Bạch Đằng (4/1288).",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "all-2",
+      "unit_id": "ALL_3_WARS_SUMMARY",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Ba lần kháng chiến chống quân Mông – Nguyên kéo dài trong khoảng bao nhiêu năm?",
+      "options": [
+        "Khoảng 30 năm (1258 – 1288)",
+        "Khoảng 3 năm",
+        "Khoảng 100 năm",
+        "Khoảng 10 năm"
+      ],
+      "answer": 0,
+      "explanation": "Từ năm 1258 đến năm 1288 – khoảng 30 năm.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "all-3",
+      "unit_id": "ALL_3_WARS_SUMMARY",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Vương triều nào lãnh đạo ba lần kháng chiến chống quân Mông – Nguyên?",
+      "options": [
+        "Nhà Trần",
+        "Nhà Lý",
+        "Nhà Lê sơ",
+        "Nhà Nguyễn"
+      ],
+      "answer": 0,
+      "explanation": "Cả ba lần kháng chiến (1258, 1285, 1287 – 1288) đều do nhà Trần lãnh đạo.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "all-4",
+      "unit_id": "ALL_3_WARS_SUMMARY",
+      "type": "match",
+      "level": "NHAN_BIET",
+      "prompt": "Nối mỗi lần kháng chiến với thời gian diễn ra.",
+      "left": [
+        "Lần thứ nhất",
+        "Lần thứ hai",
+        "Lần thứ ba"
+      ],
+      "right": [
+        "Năm 1258",
+        "Năm 1285",
+        "Năm 1287 – 1288"
+      ],
+      "explanation": "Lần thứ nhất: 1258; lần thứ hai: 1285; lần thứ ba: 1287 – 1288.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "all-5",
+      "unit_id": "ALL_3_WARS_SUMMARY",
+      "type": "match",
+      "level": "VAN_DUNG",
+      "prompt": "Nối mỗi kế sách với trận đánh tiêu biểu.",
+      "left": [
+        "Vườn không nhà trống",
+        "Phục kích đoàn thuyền lương",
+        "Cọc ngầm kết hợp thủy triều"
+      ],
+      "right": [
+        "Thăng Long năm 1258",
+        "Vân Đồn (đầu 1288)",
+        "Bạch Đằng (4/1288)"
+      ],
+      "explanation": "Vườn không nhà trống – Thăng Long 1258; phục kích thuyền lương – Vân Đồn; cọc ngầm và thủy triều – Bạch Đằng.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "all-6",
+      "unit_id": "ALL_3_WARS_SUMMARY",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Cả ba lần kháng chiến chống quân Mông – Nguyên của nhà Trần đều giành thắng lợi.",
+      "answer": true,
+      "explanation": "Đúng. Cả ba lần đều thắng lợi, gắn với các trận Đông Bộ Đầu, Chương Dương, Hàm Tử, Vân Đồn, Bạch Đằng.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "cv-1",
+      "unit_id": "CAUSES_OF_VICTORY",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Nguyên nhân quan trọng hàng đầu giúp nhà Trần ba lần thắng quân Mông – Nguyên là gì?",
+      "options": [
+        "Tinh thần đoàn kết của toàn dân, vua tôi đồng lòng",
+        "Quân đội nhà Trần đông hơn quân giặc",
+        "Nhờ nước khác sang giúp",
+        "Nhờ giặc tự rút lui"
+      ],
+      "answer": 0,
+      "explanation": "Khối đại đoàn kết toàn dân là nguyên nhân hàng đầu, cùng với tài chỉ huy và nghệ thuật quân sự sáng tạo.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "cv-2",
+      "unit_id": "CAUSES_OF_VICTORY",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Câu nào nói về tinh thần đoàn kết thời Trần?",
+      "options": [
+        "“Vua tôi đồng lòng, anh em hòa mục, cả nước góp sức”",
+        "“Đánh cho để dài tóc, đánh cho để đen răng”",
+        "“Sông núi nước Nam vua Nam ở”",
+        "“Ta thà làm quỷ nước Nam”"
+      ],
+      "answer": 0,
+      "explanation": "“Vua tôi đồng lòng, anh em hòa mục, cả nước góp sức” nói về khối đoàn kết làm nên chiến thắng.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "cv-3",
+      "unit_id": "CAUSES_OF_VICTORY",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Ai giữ vai trò lãnh đạo, chỉ huy tài giỏi trong ba lần kháng chiến?",
+      "options": [
+        "Các vua Trần, Trần Quốc Tuấn và nhiều danh tướng",
+        "Chỉ riêng các bô lão",
+        "Các sứ giả nhà Nguyên",
+        "Chỉ riêng quân đội nhà Lý"
+      ],
+      "answer": 0,
+      "explanation": "Các vua Trần, Trần Quốc Tuấn cùng nhiều danh tướng như Trần Quang Khải, Trần Nhật Duật, Trần Khánh Dư đã chỉ huy tài tình.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "cv-4",
+      "unit_id": "CAUSES_OF_VICTORY",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Nghệ thuật quân sự sáng tạo như “vườn không nhà trống”, lấy yếu chống mạnh là một nguyên nhân thắng lợi.",
+      "answer": true,
+      "explanation": "Đúng. Nhà Trần biết tránh chỗ mạnh, đánh chỗ yếu của giặc, chọn đúng thời cơ phản công.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "hs-1",
+      "unit_id": "HISTORICAL_SIGNIFICANCE",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Ý nghĩa quan trọng nhất của ba lần kháng chiến thắng lợi là gì?",
+      "options": [
+        "Đập tan tham vọng xâm lược của Mông – Nguyên, bảo vệ độc lập dân tộc",
+        "Giúp nhà Trần mở rộng lãnh thổ lên phương Bắc",
+        "Làm nhà Trần suy yếu",
+        "Không có ý nghĩa với các nước khác"
+      ],
+      "answer": 0,
+      "explanation": "Thắng lợi đã bảo vệ vững chắc độc lập, chủ quyền của Đại Việt trước đế chế hùng mạnh.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "hs-2",
+      "unit_id": "HISTORICAL_SIGNIFICANCE",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Thắng lợi của Đại Việt còn có ý nghĩa gì với khu vực?",
+      "options": [
+        "Góp phần ngăn chặn quân Nguyên bành trướng xuống Đông Nam Á và Nhật Bản",
+        "Giúp quân Nguyên chiếm được Nhật Bản",
+        "Làm Chăm-pa bị quân Nguyên chiếm",
+        "Không ảnh hưởng gì đến khu vực"
+      ],
+      "answer": 0,
+      "explanation": "Chiến thắng của Đại Việt góp phần làm suy yếu và ngăn chặn sự bành trướng của quân Nguyên.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "hs-3",
+      "unit_id": "HISTORICAL_SIGNIFICANCE",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Ba lần chiến thắng quân Mông – Nguyên đã củng cố niềm tự hào dân tộc.",
+      "answer": true,
+      "explanation": "Đúng. Chiến thắng để lại niềm tự hào và bài học quý về đoàn kết, ý chí giữ nước.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "hs-4",
+      "unit_id": "HISTORICAL_SIGNIFICANCE",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Bài học nào từ ba lần kháng chiến vẫn còn giá trị đến ngày nay?",
+      "options": [
+        "Đoàn kết toàn dân và biết lấy yếu chống mạnh",
+        "Chỉ cần quân đội thật đông là đủ",
+        "Nên dựa hoàn toàn vào nước ngoài",
+        "Không cần chuẩn bị trước"
+      ],
+      "answer": 0,
+      "explanation": "Đoàn kết, chủ động chuẩn bị và sáng tạo trong cách đánh là những bài học còn nguyên giá trị.",
+      "source": "SGK Lịch sử và Địa lí 7 – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên"
+    },
+    {
+      "id": "yk-1",
+      "unit_id": "YET_KIEU_DA_TUONG",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Yết Kiêu nổi tiếng với tài gì?",
+      "options": [
+        "Bơi lặn giỏi",
+        "Chỉ huy voi chiến",
+        "Bắn cung trên lưng ngựa",
+        "Làm thơ"
+      ],
+      "answer": 0,
+      "explanation": "Theo truyền thuyết, Yết Kiêu bơi lặn giỏi, có thể lặn xuống đục thủng thuyền giặc.",
+      "source": "Truyền thuyết về Yết Kiêu"
+    },
+    {
+      "id": "yk-2",
+      "unit_id": "YET_KIEU_DA_TUONG",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Dã Tượng có tài chỉ huy loại quân nào?",
+      "options": [
+        "Tượng binh (voi chiến)",
+        "Thủy binh",
+        "Kỵ binh",
+        "Cung nỏ"
+      ],
+      "answer": 0,
+      "explanation": "Dã Tượng giỏi chỉ huy tượng binh (voi chiến).",
+      "source": "Tư liệu về các gia tướng của Trần Hưng Đạo"
+    },
+    {
+      "id": "yk-3",
+      "unit_id": "YET_KIEU_DA_TUONG",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Yết Kiêu và Dã Tượng là hai gia tướng trung thành của Trần Hưng Đạo.",
+      "answer": true,
+      "explanation": "Đúng. Yết Kiêu từng trung kiên giữ thuyền chờ Trần Hưng Đạo ở bãi Tân Hưng.",
+      "source": "Tư liệu về các gia tướng của Trần Hưng Đạo"
+    },
+    {
+      "id": "pnl-1",
+      "unit_id": "PHAM_NGU_LAO",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Phạm Ngũ Lão nổi tiếng với giai thoại nào?",
+      "options": [
+        "Ngồi đan sọt mải nghĩ việc nước, bị giáo đâm vào đùi vẫn không hay",
+        "Bóp nát quả cam",
+        "Chui vào ống đồng",
+        "Lặn đục thuyền giặc"
+      ],
+      "answer": 0,
+      "explanation": "Phạm Ngũ Lão ngồi đan sọt bên đường, mải nghĩ việc nước đến mức bị giáo đâm vào đùi cũng không hay.",
+      "source": "Giai thoại về Phạm Ngũ Lão"
+    },
+    {
+      "id": "pnl-2",
+      "unit_id": "PHAM_NGU_LAO",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Ai đã phát hiện và trọng dụng Phạm Ngũ Lão?",
+      "options": [
+        "Trần Hưng Đạo",
+        "Trần Thủ Độ",
+        "Trần Khánh Dư",
+        "Trần Nhật Duật"
+      ],
+      "answer": 0,
+      "explanation": "Trần Hưng Đạo gặp Phạm Ngũ Lão ở Phù Ủng, trọng dụng ông và gả con gái cho ông.",
+      "source": "Giai thoại về Phạm Ngũ Lão"
+    },
+    {
+      "id": "pnl-3",
+      "unit_id": "PHAM_NGU_LAO",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Phạm Ngũ Lão lập công lớn trong các trận ở Vạn Kiếp và Bạch Đằng.",
+      "answer": true,
+      "explanation": "Đúng. Ông là một danh tướng lập nhiều chiến công trong kháng chiến chống quân Nguyên.",
+      "source": "Tư liệu về Phạm Ngũ Lão"
+    },
+    {
+      "id": "nb-1",
+      "unit_id": "GAME_NGU_BINH_U_NONG",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "“Ngụ binh ư nông” nghĩa là gì?",
+      "options": [
+        "Gửi binh ở nhà nông: thời bình binh lính về làm ruộng, có giặc thì ra trận",
+        "Chỉ chọn nông dân làm quan",
+        "Bắt nông dân bỏ ruộng vào ở trong doanh trại",
+        "Cho binh lính đi buôn bán"
+      ],
+      "answer": 0,
+      "explanation": "Thời bình, binh lính luân phiên về quê sản xuất; khi có chiến tranh thì được điều động ra trận.",
+      "source": "SGK Lịch sử và Địa lí 7 – Đại Việt thời Lý, Trần"
+    },
+    {
+      "id": "nb-2",
+      "unit_id": "GAME_NGU_BINH_U_NONG",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Chính sách ngụ binh ư nông đem lại lợi ích gì?",
+      "options": [
+        "Vừa bảo đảm sản xuất, có lương thực, vừa có quân đông khi cần",
+        "Làm quân đội ít đi",
+        "Làm ruộng đồng bị bỏ hoang",
+        "Quân đội không cần luyện tập"
+      ],
+      "answer": 0,
+      "explanation": "Ruộng đồng vẫn có người cày cấy, kho lương đầy đủ, còn khi có giặc thì huy động được nhiều quân.",
+      "source": "SGK Lịch sử và Địa lí 7 – Đại Việt thời Lý, Trần"
+    },
+    {
+      "id": "nb-3",
+      "unit_id": "GAME_NGU_BINH_U_NONG",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Theo chính sách ngụ binh ư nông, thời bình binh lính được luân phiên về quê sản xuất.",
+      "answer": true,
+      "explanation": "Đúng. Đó chính là nội dung của chính sách ngụ binh ư nông.",
+      "source": "SGK Lịch sử và Địa lí 7 – Đại Việt thời Lý, Trần"
+    },
+    {
+      "id": "nb-4",
+      "unit_id": "GAME_NGU_BINH_U_NONG",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Chính sách ngụ binh ư nông được thực hiện dưới những triều đại nào?",
+      "options": [
+        "Nhà Lý và nhà Trần",
+        "Chỉ nhà Nguyễn",
+        "Chỉ nhà Hồ",
+        "Nhà Tây Sơn"
+      ],
+      "answer": 0,
+      "explanation": "Nhà Lý thực hiện chính sách ngụ binh ư nông và nhà Trần tiếp tục duy trì.",
+      "source": "SGK Lịch sử và Địa lí 7 – Đại Việt thời Lý, Trần"
+    },
+    {
+      "id": "nb-5",
+      "unit_id": "GAME_NGU_BINH_U_NONG",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Chính sách ngụ binh ư nông góp phần vào thắng lợi trước quân Mông – Nguyên như thế nào?",
+      "options": [
+        "Có đủ lương thực và nhanh chóng huy động đông quân khi có giặc",
+        "Giúp quân đội không cần luyện tập",
+        "Giúp nhà Trần không phải đánh giặc",
+        "Giúp quân giặc có thêm lương"
+      ],
+      "answer": 0,
+      "explanation": "Nhờ sản xuất không bị bỏ dở và quân lính đông đảo khi cần, Đại Việt đủ sức kháng chiến lâu dài.",
+      "source": "SGK Lịch sử và Địa lí 7 – Đại Việt thời Lý, Trần"
+    },
+    {
+      "id": "nb-6",
+      "unit_id": "GAME_NGU_BINH_U_NONG",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Vì sao một nước không lớn như Đại Việt vẫn đủ sức kháng chiến lâu dài trước quân Mông – Nguyên?",
+      "options": [
+        "Nhờ lương thực đủ đầy, quân đông khi cần và tinh thần đoàn kết toàn dân",
+        "Nhờ có nhiều mỏ vàng",
+        "Nhờ quân Mông – Nguyên không biết đánh trận",
+        "Nhờ quân giặc chỉ đánh trong một ngày"
+      ],
+      "answer": 0,
+      "explanation": "Ngụ binh ư nông bảo đảm lương thực và quân lực; cùng với đoàn kết toàn dân, Đại Việt có thể đánh lâu dài.",
+      "source": "SGK Lịch sử và Địa lí 7"
+    },
+    {
+      "id": "tkd-1",
+      "unit_id": "GAME_TRAN_KHANH_DU",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Trước khi lập công ở Vân Đồn, Trần Khánh Dư từng bị tước quan tước và sống bằng nghề gì ở Chí Linh?",
+      "options": [
+        "Buôn than",
+        "Đánh cá",
+        "Dạy học",
+        "Bốc thuốc"
+      ],
+      "answer": 0,
+      "explanation": "Bị tước quan tước, Trần Khánh Dư về vùng Chí Linh sống bằng nghề buôn than.",
+      "source": "Tư liệu lịch sử về Trần Khánh Dư"
+    },
+    {
+      "id": "tkd-2",
+      "unit_id": "GAME_TRAN_KHANH_DU",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Trần Khánh Dư mang tước hiệu nào?",
+      "options": [
+        "Nhân Huệ vương",
+        "Hoài Văn hầu",
+        "Bảo Nghĩa vương",
+        "Chiêu Văn vương"
+      ],
+      "answer": 0,
+      "explanation": "Trần Khánh Dư là Nhân Huệ vương. Hoài Văn hầu là Trần Quốc Toản, Bảo Nghĩa vương là Trần Bình Trọng, Chiêu Văn vương là Trần Nhật Duật.",
+      "source": "Tư liệu lịch sử về Trần Khánh Dư"
+    },
+    {
+      "id": "tkd-3",
+      "unit_id": "GAME_TRAN_KHANH_DU",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Dù từng mắc lỗi, Trần Khánh Dư vẫn được nhà Trần cho lập công khi đất nước có giặc.",
+      "answer": true,
+      "explanation": "Đúng. Năm 1282, ông được tha tội để cùng chuẩn bị kháng chiến, sau lập công lớn ở Vân Đồn.",
+      "source": "Tư liệu lịch sử về Trần Khánh Dư"
+    },
+    {
+      "id": "btyl-1",
+      "unit_id": "GAME_BINH_THU_YEU_LUOC",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "“Binh thư yếu lược” là tác phẩm của ai?",
+      "options": [
+        "Trần Quốc Tuấn (Trần Hưng Đạo)",
+        "Trần Nhân Tông",
+        "Trần Quang Khải",
+        "Phạm Ngũ Lão"
+      ],
+      "answer": 0,
+      "explanation": "Binh thư yếu lược do Trần Quốc Tuấn biên soạn.",
+      "source": "Hịch tướng sĩ – Trần Quốc Tuấn"
+    },
+    {
+      "id": "btyl-2",
+      "unit_id": "GAME_BINH_THU_YEU_LUOC",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "“Binh thư yếu lược” viết về nội dung gì?",
+      "options": [
+        "Binh pháp, cách cầm quân đánh giặc",
+        "Cách trồng lúa nước",
+        "Lịch sử nhà Lý",
+        "Thơ ca ngợi cảnh đẹp"
+      ],
+      "answer": 0,
+      "explanation": "Đó là sách tổng hợp binh pháp các nhà, dạy cách cầm quân đánh giặc.",
+      "source": "Hịch tướng sĩ – Trần Quốc Tuấn"
+    },
+    {
+      "id": "btyl-3",
+      "unit_id": "GAME_BINH_THU_YEU_LUOC",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Trong Hịch tướng sĩ, Trần Quốc Tuấn khuyên các tướng chăm chỉ học tập “Binh thư yếu lược”.",
+      "answer": true,
+      "explanation": "Đúng. Ông viết: “Nay ta chọn binh pháp các nhà hợp thành một tuyển, gọi là Binh thư yếu lược”, khuyên tướng sĩ chuyên tâm học tập.",
+      "source": "Hịch tướng sĩ – Trần Quốc Tuấn"
+    },
+    {
+      "id": "tnt-1",
+      "unit_id": "GAME_TRAN_NHAN_TONG",
+      "type": "order",
+      "level": "NHAN_BIET",
+      "prompt": "Sắp xếp các mốc trong cuộc đời vua Trần Nhân Tông.",
+      "items": [
+        "Sinh năm 1258",
+        "Được lập làm Hoàng thái tử (1274)",
+        "Lên ngôi vua (1278)",
+        "Xuất gia tu hành ở Yên Tử (1299)"
+      ],
+      "explanation": "1258 sinh ra → 1274 làm Hoàng thái tử → 1278 lên ngôi → 1299 xuất gia ở Yên Tử.",
+      "source": "Tư liệu lịch sử về vua Trần Nhân Tông"
+    },
+    {
+      "id": "tnt-2",
+      "unit_id": "GAME_TRAN_NHAN_TONG",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Năm 1282, vua Trần Nhân Tông triệu tập hội nghị nào để bàn kế đánh giặc?",
+      "options": [
+        "Hội nghị Bình Than",
+        "Hội nghị Diên Hồng",
+        "Hội thề Lũng Nhai",
+        "Hội thề Đông Quan"
+      ],
+      "answer": 0,
+      "explanation": "Tháng 10/1282, vua Trần Nhân Tông triệu tập Hội nghị Bình Than. Hội nghị Diên Hồng do Thượng hoàng Trần Thánh Tông triệu tập.",
+      "source": "SGK Lịch sử và Địa lí 7"
+    },
+    {
+      "id": "tnt-3",
+      "unit_id": "GAME_TRAN_NHAN_TONG",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Trần Nhân Tông là vua nước ta trong cuộc kháng chiến chống quân Mông Cổ năm 1258.",
+      "answer": false,
+      "explanation": "Sai. Năm 1258, vua Trần Thái Tông lãnh đạo kháng chiến; Trần Nhân Tông sinh vào cuối năm 1258.",
+      "source": "Tư liệu lịch sử về vua Trần Nhân Tông"
+    },
+    {
+      "id": "tnt-4",
+      "unit_id": "GAME_TRAN_NHAN_TONG",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Sau khi nhường ngôi, Trần Nhân Tông xuất gia ở núi Yên Tử và sáng lập thiền phái nào?",
+      "options": [
+        "Thiền phái Trúc Lâm",
+        "Thiền phái Vô Ngôn Thông",
+        "Thiền phái Tỳ Ni Đa Lưu Chi",
+        "Thiền phái Thảo Đường"
+      ],
+      "answer": 0,
+      "explanation": "Năm 1299, Trần Nhân Tông xuất gia ở Yên Tử và sáng lập Thiền phái Trúc Lâm, được tôn là Phật hoàng.",
+      "source": "Tư liệu lịch sử về vua Trần Nhân Tông"
+    },
+    {
+      "id": "tnt-5",
+      "unit_id": "GAME_TRAN_NHAN_TONG",
+      "type": "map",
+      "level": "NHAN_BIET",
+      "prompt": "Trần Nhân Tông xuất gia tu hành ở đâu?",
+      "options": [
+        "yen_tu",
+        "binh_le_nguyen",
+        "thanh_hoa",
+        "chuong_duong"
+      ],
+      "answer": "yen_tu",
+      "explanation": "Ông tu hành ở núi Yên Tử (Quảng Ninh ngày nay), nơi ra đời Thiền phái Trúc Lâm.",
+      "source": "Tư liệu lịch sử về vua Trần Nhân Tông"
+    },
+    {
+      "id": "tnt-6",
+      "unit_id": "GAME_TRAN_NHAN_TONG",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Vua Trần Nhân Tông cùng ai lãnh đạo hai cuộc kháng chiến chống quân Nguyên (1285 và 1287 – 1288)?",
+      "options": [
+        "Thượng hoàng Trần Thánh Tông",
+        "Vua Trần Thái Tông",
+        "Thái sư Trần Thủ Độ",
+        "Lý Thường Kiệt"
+      ],
+      "answer": 0,
+      "explanation": "Hai cuộc kháng chiến 1285 và 1287 – 1288 do Thượng hoàng Trần Thánh Tông và vua Trần Nhân Tông lãnh đạo, Trần Quốc Tuấn làm tổng chỉ huy.",
+      "source": "SGK Lịch sử và Địa lí 7"
+    },
+    {
+      "id": "matd-1",
+      "unit_id": "MILITARY_ART_TRAN_DYNASTY",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Tư tưởng quân sự cốt lõi được Trần Hưng Đạo đúc kết trong ba lần kháng chiến chống Mông – Nguyên là gì?",
+      "options": [
+        "Lấy đoản binh thắng trường trận (lấy yếu chống mạnh, lấy ít địch nhiều)",
+        "Chỉ cố thủ trong thành Thăng Long chờ viện binh",
+        "Dàn quân đối đầu trực diện ngay từ đầu với kỵ binh giặc",
+        "Chỉ đánh thủy chiến mà không đánh bộ chiến"
+      ],
+      "answer": 0,
+      "explanation": "Trần Hưng Đạo đúc kết nghệ thuật dùng đoản binh chế trường trận, tránh thế giặc mạnh lúc ban đầu và phản công khi giặc suy yếu.",
+      "source": "SGK Lịch sử và Địa lí 7 & Đại Việt sử ký toàn thư"
+    },
+    {
+      "id": "matd-2",
+      "unit_id": "MILITARY_ART_TRAN_DYNASTY",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Nghệ thuật quân sự thời Trần kết hợp chặt chẽ giữa rút lui chiến lược, kế sách Vườn không nhà trống, đánh cắt hậu cần và quyết chiến đúng thời cơ.",
+      "answer": true,
+      "explanation": "Đúng. Đây là 4 nét độc đáo tạo nên sức mạnh chiến tranh nhân dân thời Trần.",
+      "source": "SGK Lịch sử và Địa lí 7"
+    },
+    {
+      "id": "rem-1",
+      "unit_id": "ROLE_OF_ETHNIC_MINORITIES",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Các vị tù trưởng dân tộc thiểu số miền núi phía Bắc tiêu biểu đã chỉ huy dân binh đánh giặc Mông – Nguyên là những ai?",
+      "options": [
+        "Hà Khuất, Hà Đặc, Hà Chương, Nguyễn Thế Lộc",
+        "Trần Ích Tắc, Trần Kiện, Trần Tú Viên",
+        "Thoát Hoan, Toa Đô, Ô Mã Nhi",
+        "Lý Thường Kiệt, Tôn Đản, Lưu Kỷ"
+      ],
+      "answer": 0,
+      "explanation": "Chủ trại Hà Khuất (Quy Hóa), anh em Hà Đặc – Hà Chương (Đà Giang) và Nguyễn Thế Lộc (Lạng Sơn) đã lập nhiều chiến công lớn.",
+      "source": "SGK Lịch sử và Địa lí 7 & Đại Việt sử ký toàn thư"
+    },
+    {
+      "id": "rem-2",
+      "unit_id": "ROLE_OF_ETHNIC_MINORITIES",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Trong kháng chiến lần thứ hai (1285), hai anh em tù trưởng Hà Đặc và Hà Chương đã dùng mưu làm hình người cỏ mặc áo giáp để nhử giặc bắn hết tên.",
+      "answer": true,
+      "explanation": "Đúng. Mưu kế tài tình của anh em Hà Đặc, Hà Chương đã góp phần tiêu hao sinh lực quân Nguyên vùng Đà Giang.",
+      "source": "Đại Việt sử ký toàn thư"
+    },
+    {
+      "id": "hlt-1",
+      "unit_id": "HISTORICAL_LESSONS_TODAY",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Trong di chúc dặn lại vua Trần Anh Tông năm 1300, Trần Hưng Đạo khẳng định thượng sách giữ nước là gì?",
+      "options": [
+        "Khoan thư sức dân để làm kế sâu rễ bền gốc",
+        "Xây dựng thật nhiều thành lũy kiên cố",
+        "Tăng thuế thật nặng để mua vũ khí",
+        "Cắt đất cầu hòa với phương Bắc"
+      ],
+      "answer": 0,
+      "explanation": "Trần Hưng Đạo căn dặn: Khoan thư sức dân để làm kế sâu rễ bền gốc, đó là thượng sách giữ nước.",
+      "source": "SGK Lịch sử và Địa lí 7 & Đại Việt sử ký toàn thư"
+    },
+    {
+      "id": "hlt-2",
+      "unit_id": "HISTORICAL_LESSONS_TODAY",
+      "type": "tf",
+      "level": "VAN_DUNG",
+      "prompt": "Bài học phát huy khối đại đoàn kết toàn dân tộc từ Hào khí Đông A vẫn còn nguyên giá trị trong sự nghiệp xây dựng và bảo vệ Tổ quốc ngày nay.",
+      "answer": true,
+      "explanation": "Đúng. Tinh thần Vua tôi đồng lòng, anh em hòa mục, cả nước góp sức là bài học xuyên suốt lịch sử dân tộc.",
+      "source": "SGK Lịch sử và Địa lí 7"
+    },
+    {
+      "id": "qtd-1",
+      "unit_id": "GAME_QUAN_THANH_DUC_SAT_THAT",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Đội cấm quân tinh nhuệ nào thời Trần chuyên bảo vệ nhà vua và kinh thành Thăng Long, từng hộ giá vua Trần Thái Tông năm 1258?",
+      "options": [
+        "Quân Thánh Dực",
+        "Quân Thiết Đột",
+        "Quân Cẩm Y Vệ",
+        "Quân Vũ Lâm"
+      ],
+      "answer": 0,
+      "explanation": "Quân Thánh Dực là cấm quân tinh nhuệ thời Trần, từng cùng Lê Phụ Trần bảo vệ vua Trần Thái Tông rút về Thiên Mạc và phản công Đông Bộ Đầu.",
+      "source": "Đại Việt sử ký toàn thư"
+    },
+    {
+      "id": "qtd-2",
+      "unit_id": "GAME_QUAN_THANH_DUC_SAT_THAT",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Tướng sĩ nhà Trần tự nguyện thích hai chữ “Sát Thát” (Giết giặc Mông Cổ) lên cánh tay để thể hiện quyết tâm chiến đấu bảo vệ Tổ quốc.",
+      "answer": true,
+      "explanation": "Đúng. Tinh thần Sát Thát là biểu tượng rực rỡ của Hào khí Đông A thời Trần.",
+      "source": "SGK Lịch sử và Địa lí 7"
+    },
+    {
+      "id": "vkt-1",
+      "unit_id": "GAME_VAN_KIEP_THIEN_TRUONG_BASES",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Năm 1284, Hưng Đạo vương Trần Quốc Tuấn đã hội 20 vạn quân và truyền Hịch tướng sĩ tại căn cứ quân sự trọng yếu nào?",
+      "options": [
+        "Vạn Kiếp (Chí Linh, Hải Dương)",
+        "Bình Lệ Nguyên (Vĩnh Phúc)",
+        "Quy Hóa (Lào Cai)",
+        "Tây Kết (Hưng Yên)"
+      ],
+      "answer": 0,
+      "explanation": "Vạn Kiếp (nơi hội tụ Lục Đầu Giang) là đại bản doanh tiền tiêu chiến lược phía Đông Bắc của nhà Trần.",
+      "source": "SGK Lịch sử và Địa lí 7 & Đại Việt sử ký toàn thư"
+    },
+    {
+      "id": "vkt-2",
+      "unit_id": "GAME_VAN_KIEP_THIEN_TRUONG_BASES",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Thiên Trường (Nam Định), Trường Yên (Ninh Bình) và Thanh Hóa đóng vai trò là hậu phương chiến lược giúp nhà Trần bảo toàn lực lượng và rèn quân chờ thời cơ phản công.",
+      "answer": true,
+      "explanation": "Đúng. Khi tạm rút khỏi Thăng Long, triều đình lui về Thiên Trường, Trường Yên, Thanh Hóa để dưỡng sức và chuẩn bị tổng phản công.",
+      "source": "SGK Lịch sử và Địa lí 7"
+    },
+    {
+      "id": "ttp-1",
+      "unit_id": "GAME_TRUNG_THAN_VS_PHAN_BOI",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Sự đối lập giữa câu nói “Ta thà làm quỷ nước Nam, chứ không thèm làm vương đất Bắc” của Trần Bình Trọng với hành động đầu hàng giặc của Trần Ích Tắc, Trần Kiện thể hiện điều gì?",
+      "options": [
+        "Khí tiết trung quân ái quốc bất khuất của các bậc trung thần đối lập với sự hèn nhát cầu vinh của kẻ phản bội",
+        "Nhà Trần hoàn toàn không có ai dám đánh giặc",
+        "Quân Nguyên đối xử rất tốt với tù binh",
+        "Trần Bình Trọng muốn sang phương Bắc làm quan"
+      ],
+      "answer": 0,
+      "explanation": "Trước cám dỗ tước vương của giặc, Trần Bình Trọng kiên quyết hy sinh giữ trọn khí tiết, đối lập hoàn toàn với sự phản bội của Trần Ích Tắc, Trần Kiện.",
+      "source": "SGK Lịch sử và Địa lí 7 & Đại Việt sử ký toàn thư"
+    },
+    {
+      "id": "ttp-2",
+      "unit_id": "GAME_TRUNG_THAN_VS_PHAN_BOI",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Năm 1285, tên quý tộc phản bội Trần Kiện trên đường được quân Nguyên hộ tống về phương Bắc đã bị gia nô của Trần Hưng Đạo là Nguyễn Địa Lô bắn chết tại Lạng Sơn.",
+      "answer": true,
+      "explanation": "Đúng. Tại trại Ma Lục (Lạng Sơn), dân binh Nguyễn Thế Lộc và gia nô Nguyễn Địa Lô đã phục kích bắn chết Trần Kiện.",
+      "source": "Đại Việt sử ký toàn thư"
+    },
+    {
+      "id": "dvsktt-nhcd-1",
+      "unit_id": "DVSKTT_TRAN_NHAT_HIEU_HOANG_CU_DA",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [22a], trang 520), năm 1258 tại sông Thiên Mạc, khi vua Trần Thái Tông hỏi kế, Thái úy Trần Nhật Hiệu đã viết hai chữ gì lên mạn thuyền?",
+      "options": [
+        "Nhập Tống (chạy sang nhà Tống)",
+        "Sát Thát (giết giặc Mông Cổ)",
+        "Đầu hàng (xin hàng quân Mông)",
+        "Phản công (đánh úp Đông Bộ Đầu)"
+      ],
+      "answer": 0,
+      "explanation": "Trần Nhật Hiệu hoảng sợ nắm mạn thuyền không bước sang được, lấy ngón tay chấm nước viết hai chữ “Nhập Tống” trên mạn thuyền.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [22a], trang 520"
+    },
+    {
+      "id": "dvsktt-nhcd-2",
+      "unit_id": "DVSKTT_TRAN_NHAT_HIEU_HOANG_CU_DA",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Trong Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [22b-23b], trang 521-522), câu chuyện Tiểu Hoàng môn Hoàng Cự Đà chỉ vì không được ban một quả xoài mà bỏ trốn khi giặc đến để lại bài học quản trị quốc gia sâu sắc nào?",
+      "options": [
+        "Thưởng phạt phải công minh và quan lại phải lấy đại nghĩa quốc gia làm trọng, không vì chuyện ăn uống nhỏ nhặt mà quên nghĩa lớn",
+        "Nhà vua không bao giờ nên ban thưởng trái cây cho các quan",
+        "Khi có giặc ngoại xâm thì ai cũng được phép tự ý bỏ trốn",
+        "Quân tinh nhuệ Tinh Cương đã đầu hàng quân Mông Cổ"
+      ],
+      "answer": 0,
+      "explanation": "Thái tử Trần Hoảng xin xử cực hình để răn kẻ bất trung, còn vua Trần Thái Tông tự trách mình (“Cự Đà tội đáng giết, song ngày trước trẫm có lỗi: ăn xoài mà không cho nó ăn...”) rồi tha chết nhưng bắt đánh giặc chuộc tội.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [22b-23b], trang 521-522"
+    },
+    {
+      "id": "dvsktt-nhcd-3",
+      "unit_id": "DVSKTT_TRAN_NHAT_HIEU_HOANG_CU_DA",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [22b]), lời nói “Đầu thần chưa rơi xuống đất, bệ hạ đừng lo gì khác” của Thái sư Trần Thủ Độ đã củng cố ý chí kháng chiến của vua Trần Thái Tông trái ngược với sự nao núng của Trần Nhật Hiệu.",
+      "answer": true,
+      "explanation": "Đúng. Sử thần Ngô Sĩ Liên nhận xét rằng nếu nghe lời Trần Nhật Hiệu thì nhà Trần đã mất nước, nhờ lời quyết đoán của Trần Thủ Độ mà xoay chuyển vận nước.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [22b], trang 521"
+    },
+    {
+      "id": "dvsktt-dkc-1",
+      "unit_id": "DVSKTT_DO_KHAC_CHUNG_SU_GIA",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [44b-45a], trang 564-565), năm 1285 tại Bình Than, ai đã tình nguyện đem thư sang trại tướng Nguyên Ô Mã Nhi để vờ cầu hòa và dò xét tình hình địch?",
+      "options": [
+        "Chi hậu cục thủ Đỗ Khắc Chung",
+        "Đoàn Nhữ Hài",
+        "Trương Hán Siêu",
+        "Mạc Đĩnh Chi"
+      ],
+      "answer": 0,
+      "explanation": "Chi hậu cục thủ Đỗ Khắc Chung dũng cảm sang trại Ô Mã Nhi, ứng đối đanh thép khiến Ô Mã Nhi phải thốt lên: “Nước nó đương lúc nguy cấp mà có người như thế, không thể coi thường được”.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [44b-45a], trang 564-565"
+    },
+    {
+      "id": "dvsktt-dkc-2",
+      "unit_id": "DVSKTT_DO_KHAC_CHUNG_SU_GIA",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Khi tướng Nguyên Ô Mã Nhi hạch hỏi việc quân Trần thích chữ “Sát Thát” vào cánh tay, sứ giả Đỗ Khắc Chung đã đối đáp khôn khéo như thế nào?",
+      "options": [
+        "Chó nhà cắn người lạ không phải tại chủ nó bảo, vì lòng trung nghĩa mà quân lính tự thích chữ vào tay, Quốc vương không biết việc đó",
+        "Xin lập tức xóa chữ Sát Thát và đầu hàng quân Nguyên",
+        "Đó là lệnh bắt buộc của vua Trần Nhân Tông đối với mọi người dân",
+        "Đó là ký hiệu riêng của thương nhân buôn bán vùng biên giới"
+      ],
+      "answer": 0,
+      "explanation": "Đỗ Khắc Chung vừa khẳng định khí thế tự giác giết giặc của quân sĩ Đại Việt, vừa khéo léo giữ lễ ngoại giao cho nhà vua để kéo dài thời gian hoãn binh.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [44b-45a], trang 564-565"
+    },
+    {
+      "id": "dvsktt-dkc-3",
+      "unit_id": "DVSKTT_DO_KHAC_CHUNG_SU_GIA",
+      "type": "tf",
+      "level": "VAN_DUNG",
+      "prompt": "Chuyến đi sứ trại Ô Mã Nhi năm 1285 của Đỗ Khắc Chung là minh chứng tiêu biểu cho nghệ thuật kết hợp đấu tranh quân sự với đấu tranh ngoại giao “vừa đánh vừa đàm” của nhà Trần.",
+      "answer": true,
+      "explanation": "Đúng. Hoạt động ngoại giao khôn khéo của Đỗ Khắc Chung giúp nhà Trần thăm dò hư thực quân Nguyên và tranh thủ thời gian bố trí lực lượng.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [44b-45a], trang 564-565"
+    },
+    {
+      "id": "dvsktt-gbs-1",
+      "unit_id": "DVSKTT_TRAN_QUOC_TUAN_GAY_BIT_SAT",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [47b-48a], trang 571), năm 1285 khi theo hầu hai vua Trần, vì sao Hưng Đạo Vương Trần Quốc Tuấn lại sai vứt bỏ đầu sắt nhọn của chiếc gậy chống, chỉ chống gậy gỗ không?",
+      "options": [
+        "Để xóa bỏ mọi hiềm nghi do mối thù riêng của cha là An Sinh Vương Trần Liễu, giữ trọn đạo trung thần",
+        "Vì đầu sắt của chiếc gậy quá nặng không mang qua sông được",
+        "Vì ông muốn lấy sắt rèn mũi tên bắn giặc",
+        "Vì vua Trần Nhân Tông ra lệnh tịch thu mọi vũ khí"
+      ],
+      "answer": 0,
+      "explanation": "Trước có lời di mệnh của cha là An Sinh Vương Trần Liễu bảo cướp ngôi, mọi người nhìn ông với con mắt nghi ngờ nên Quốc Tuấn rút bỏ đầu sắt nhọn của gậy chống để tỏ rõ tấm lòng trung nghĩa.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [47b-48a], trang 571"
+    },
+    {
+      "id": "dvsktt-gbs-2",
+      "unit_id": "DVSKTT_TRAN_QUOC_TUAN_GAY_BIT_SAT",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Trong lời bàn về hành động rút đầu sắt gậy gỗ của Trần Quốc Tuấn (Đại Việt Sử Ký Toàn Thư, Quyển V, tờ [48a], trang 571), Sử thần Ngô Sĩ Liên đã so sánh tài đức của ông với danh tướng nào và rút ra bài học gì?",
+      "options": [
+        "So sánh với Quách Tử Nghi đời Đường, khẳng định người làm tôi giữ tiết nghĩa một lòng vì xã tắc thì giữ trọn tiếng thơm muôn đời",
+        "So sánh với Triệu Đà và khuyên nên tự lập làm vương",
+        "So sánh với Hàn Tín và khuyên nên rút lui ở ẩn",
+        "So sánh với Tào Tháo và khuyên nên thâu tóm quyền lực"
+      ],
+      "answer": 0,
+      "explanation": "Sử thần Ngô Sĩ Liên khen ngợi Trần Quốc Tuấn gạt bỏ lời di mệnh tư thù của cha, đem hết sức trung nghĩa lập công lớn như Quách Tử Nghi nhà Đường.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [47b-48a], trang 571"
+    },
+    {
+      "id": "dvsktt-gbs-3",
+      "unit_id": "DVSKTT_TRAN_QUOC_TUAN_GAY_BIT_SAT",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển VI, tờ [9b], trang 620-621), khi Trần Hưng Đạo đem chuyện dặn dò của cha ra thử lòng hai con, Hưng Nhượng Vương Trần Quốc Tảng vì khuyên cha cướp ngôi nên đã bị Trần Hưng Đạo tuốt gươm định chém và giận không cho gặp mặt.",
+      "answer": true,
+      "explanation": "Đúng. Hưng Vũ Vương Nghiễn can ngăn nên được khen ngợi, còn Trần Quốc Tảng khuyên cha làm điều bất trung nên bị Trần Hưng Đạo nghiêm khắc trừng phạt.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VI, tờ [9b], trang 620-621"
+    },
+    {
+      "id": "dvsktt-dhnk-1",
+      "unit_id": "DVSKTT_BACH_DANG_DO_HANH_NGUYEN_KHOAI",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [53a-54b], trang 583-586), trong trận Bạch Đằng ngày 8 tháng 3 năm Mậu Tý (9/4/1288), vị tướng nào đã trực tiếp bắt sống Tham chính Ô Mã Nhi và Tích Lệ Cơ Ngọc?",
+      "options": [
+        "Nội Minh tự Đỗ Hành",
+        "Lê Phụ Trần",
+        "Trần Bình Trọng",
+        "Đoàn Nhữ Hài"
+      ],
+      "answer": 0,
+      "explanation": "Sử chép: “Nội Minh tự Đỗ Hành bắt được Ô Mã Nhi và Tích Lệ Cơ Ngọc dâng lên Thượng hoàng. Thượng hoàng sai dẫn lên thuyền ngự, cùng ngồi nói chuyện với chúng và uống rượu”.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [53a], trang 583"
+    },
+    {
+      "id": "dvsktt-dhnk-2",
+      "unit_id": "DVSKTT_BACH_DANG_DO_HANH_NGUYEN_KHOAI",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [54b], trang 586), khi xét công trận Bạch Đằng năm 1289, vì sao Nội Minh tự Đỗ Hành bắt sống được Ô Mã Nhi nhưng chỉ được phong tước Quan nội hầu mà không được phong tước Hầu?",
+      "options": [
+        "Vì Đỗ Hành đem Ô Mã Nhi dâng lên Thượng hoàng mà không dâng lên Quốc công Tiết chế Trần Hưng Đạo theo đúng quân pháp",
+        "Vì Đỗ Hành đến chiến trường Bạch Đằng muộn",
+        "Vì Ô Mã Nhi đã tự nhảy lên thuyền của Thượng hoàng",
+        "Vì Đỗ Hành làm mất ấn tín trong lúc giao chiến"
+      ],
+      "answer": 0,
+      "explanation": "Chi tiết này phản ánh kỷ luật quân sự nghiêm minh thời Trần: Trần Hưng Đạo là Quốc công Tiết chế thống lĩnh toàn quân nên tù binh bắt được phải giải nộp cho Tiết chế trước.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [54b], trang 586"
+    },
+    {
+      "id": "dvsktt-dhnk-3",
+      "unit_id": "DVSKTT_BACH_DANG_DO_HANH_NGUYEN_KHOAI",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Trong đại chiến Bạch Đằng năm 1288, tướng Nguyễn Khoái lĩnh quân Thánh Dực nghĩa dũng đánh chặn thượng lưu và sau chiến thắng được phong tước Liệt hầu, ban hẳn một hương làm湯 mộc ấp gọi là Khoái Lộ.",
+      "answer": true,
+      "explanation": "Đúng. Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [53a, 54b]) ghi rõ chiến công và phần thưởng phong Liệt hầu, ban Khoái Lộ cho Nguyễn Khoái.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [53a, 54b], trang 583-586"
+    },
+    {
+      "id": "dvsktt-htt-1",
+      "unit_id": "DVSKTT_HOANG_TA_THON_NGO_SI_LIEN_BAN",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [56b], trang 589-590), mùa xuân năm Kỷ Sửu (1289), nhà Trần đã dùng mưu của Trần Hưng Đạo xử lý tướng giặc hung bạo Ô Mã Nhi trên đường trao trả về nước như thế nào?",
+      "options": [
+        "Sai lực sĩ giỏi bơi lặn Hoàng Tá Thốn giả làm người chèo thuyền, nhân ban đêm lặn xuống dùi thủng thuyền làm Ô Mã Nhi chết đuối",
+        "Đem Ô Mã Nhi ra chém đầu công khai ở cửa thành Thăng Long",
+        "Giam cầm Ô Mã Nhi suốt đời ở đảo Vân Đồn",
+        "Phong tước vương cho Ô Mã Nhi ở lại Đại Việt"
+      ],
+      "answer": 0,
+      "explanation": "Ô Mã Nhi giết hại người nước ta rất nhiều, vua Trần bèn dùng mưu của Hưng Đạo Vương, sai lực sĩ Hoàng Tá Thốn ban đêm dùi đắm thuyền làm Ô Mã Nhi chết đuối mà nhà Nguyên không có cớ trách phạt.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [56b], trang 589-590"
+    },
+    {
+      "id": "dvsktt-htt-2",
+      "unit_id": "DVSKTT_HOANG_TA_THON_NGO_SI_LIEN_BAN",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Trong lời bàn tại Quyển V, tờ [56b] (trang 590) của Đại Việt Sử Ký Toàn Thư, Sử thần Ngô Sĩ Liên đánh giá như thế nào về kế sách xử lý Ô Mã Nhi của vua Trần Nhân Tông và Trần Hưng Đạo?",
+      "options": [
+        "Đó là mưu kế tất phải thế (quyền biến): vừa giữ danh nghĩa hiếu sinh để yên lòng nhà Nguyên, vừa trừ khử tên giặc đầu sỏ tàn bạo để rửa hận cho dân",
+        "Đó là việc làm sai lầm vì lẽ ra phải thả Ô Mã Nhi về nước an toàn để tiếp tục dẫn quân sang",
+        "Đó là hành động tự phát của Hoàng Tá Thốn mà triều đình không hề hay biết",
+        "Sử thần Ngô Sĩ Liên hoàn toàn phản đối mọi mưu kế trong binh pháp"
+      ],
+      "answer": 0,
+      "explanation": "Ngô Sĩ Liên bàn rằng Ô Mã Nhi là kẻ tàn sát nhân dân và xâm phạm lăng miếu, nếu thả sống về thì không trả được thù chung mà còn để hậu họa, nên kế của Hưng Đạo Vương là sự quyền biến cao tay.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [56b], trang 589-590"
+    },
+    {
+      "id": "dvsktt-htt-3",
+      "unit_id": "DVSKTT_HOANG_TA_THON_NGO_SI_LIEN_BAN",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Việc trao trả tù binh Phàn Tiếp, Tích Lệ Cơ Ngọc đồng thời bí mật trừ khử tên tướng hiếu sát Ô Mã Nhi thể hiện sự kết hợp nhuần nhuyễn giữa chính sách ngoại giao mềm dẻo và quyết tâm bảo vệ an ninh quốc gia của nhà Trần.",
+      "answer": true,
+      "explanation": "Đúng. Nhà Trần giữ thể diện cho triều Nguyên để củng cố hòa hiếu lâu dài nhưng không để tên tướng tàn bạo Ô Mã Nhi quay lại gây họa.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [56b], trang 589-590"
+    },
+    {
+      "id": "dvsktt-ttk-1",
+      "unit_id": "DVSKTT_TRAN_THI_KIEN_PHAP_LUAT",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển VI, tờ [4b-5a], trang 611-612), năm 1297 vị quan Kiểm pháp quan (sau làm An phủ Thiên Trường) nào đã thọc tay vào cổ họng mửa hết thức ăn tại chỗ khi biết mâm cỗ do người có việc kiện tụng ở trong hương biếu?",
+      "options": [
+        "Trần Thì Kiến",
+        "Trương Hán Siêu",
+        "Đoàn Nhữ Hài",
+        "Phạm Ngũ Lão"
+      ],
+      "answer": 0,
+      "explanation": "Khi giữ chức ở phủ Thiên Trường, có người dân biếu mâm cỗ, Trần Thì Kiến ăn xong hỏi ra biết người ấy có việc cầu xin kiện tụng liền thọc tay vào họng mửa ra ngay.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VI, tờ [4b-5a], trang 611-612"
+    },
+    {
+      "id": "dvsktt-ttk-2",
+      "unit_id": "DVSKTT_TRAN_THI_KIEN_PHAP_LUAT",
+      "type": "mcq",
+      "level": "VAN_DUNG",
+      "prompt": "Trong Đại Việt Sử Ký Toàn Thư (Quyển VI, tờ [4b-5a], trang 611-612), Sử thần Phan Phu Tiên và Ngô Sĩ Liên rút ra bài học trị nước gì từ lệnh cấm đánh bạc và tấm gương liêm chính của Trần Thì Kiến?",
+      "options": [
+        "Pháp luật nghiêm minh, ngăn chặn tệ cờ bạc và giữ gìn đạo lý liêm chính, không nhận hối lộ của quan lại là nền tảng làm nên sức mạnh quốc gia thời Trần",
+        "Quan lại địa phương được phép nhận quà biếu của người đi kiện miễn là xử thắng",
+        "Đánh bạc là trò tiêu khiển cần khuyến khích trong quân đội và quan trường",
+        "Chỉ cần quân đội mạnh là đủ, không cần quan tâm đến kỷ cương pháp luật thời bình"
+      ],
+      "answer": 0,
+      "explanation": "Phan Phu Tiên bàn về việc trị tận gốc tệ đánh bạc làm khuynh gia bại sản, còn Ngô Sĩ Liên ca ngợi khí tiết trong sạch, không để vật chất làm mờ mắt của Trần Thì Kiến.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VI, tờ [4a-5a], trang 611-612"
+    },
+    {
+      "id": "dvsktt-ttk-3",
+      "unit_id": "DVSKTT_TRAN_THI_KIEN_PHAP_LUAT",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Trần Thì Kiến vốn là môn khách của Hưng Đạo Vương Trần Quốc Tuấn, được tiến cử lên triều đình giữ chức Kiểm pháp quan rồi thăng làm Hành khiển nhờ tài năng và đức tính chính trực.",
+      "answer": true,
+      "explanation": "Đúng. Đại Việt Sử Ký Toàn Thư (Quyển VI, tờ [4b-5a]) ghi rõ Trần Thì Kiến người làng Cối Giang (Đông Triều), là môn khách được Hưng Đạo Vương tiến cử.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VI, tờ [4b-5a], trang 611-612"
+    },
+    {
+      "id": "dvsktt-tlnt-1",
+      "unit_id": "DVSKTT_THANH_LAP_NHA_TRAN_1225",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [1a], trang 478-479), vào tháng 12 âm lịch năm Ất Dậu (đầu năm 1226), Lý Chiêu Hoàng đã nhường ngôi cho ai tại điện Thiên An để lập nên vương triều nhà Trần?",
+      "options": [
+        "Trần Cảnh (vua Trần Thái Tông)",
+        "Trần Thủ Độ",
+        "Trần Quốc Tuấn",
+        "Trần Nhân Tông"
+      ],
+      "answer": 0,
+      "explanation": "Tại điện Thiên An, nữ hoàng Lý Chiêu Hoàng trút bỏ áo ngự mời chồng là Trần Cảnh lên ngôi Hoàng đế (tức vua Trần Thái Tông), mở đầu triều đại nhà Trần.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [1a-1b], trang 478-479"
+    },
+    {
+      "id": "dvsktt-tlnt-2",
+      "unit_id": "DVSKTT_THANH_LAP_NHA_TRAN_1225",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Điện tiền chỉ huy sứ Trần Thủ Độ (sau được phong Quốc thượng phụ, Thái sư) là người đóng vai trò quyết định trong việc chuyển giao vương quyền từ nhà Lý sang nhà Trần và củng cố vương triều mới.",
+      "answer": true,
+      "explanation": "Đúng. Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [1a-2b]) ghi rõ Trần Thủ Độ nắm giữ mọi việc quân quốc trọng sự giúp vua Trần Thái Tông ổn định đất nước.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [1a-2b], trang 478-481"
+    },
+    {
+      "id": "dvsktt-bmpl-1",
+      "unit_id": "DVSKTT_BO_MAY_PHAP_LUAT_QUOC_TRIEU_HINH_THU",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Bộ luật thành văn tiêu biểu được biên soạn và ban hành dưới triều đại nhà Trần có tên là gì?",
+      "options": [
+        "Quốc triều hình thư",
+        "Hình thư thời Lý",
+        "Quốc triều hình luật (Luật Hồng Đức)",
+        "Hoàng Việt luật lệ"
+      ],
+      "answer": 0,
+      "explanation": "Nhà Trần ban hành Quốc triều thông chế và Quốc triều hình thư, đặt cơ quan Thẩm hình viện để xét xử kiện tụng công minh.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [4a-15a], trang 484-505"
+    },
+    {
+      "id": "dvsktt-bmpl-2",
+      "unit_id": "DVSKTT_BO_MAY_PHAP_LUAT_QUOC_TRIEU_HINH_THU",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Điểm độc đáo nhất trong tổ chức bộ máy nhà nước quân chủ trung ương tập quyền thời Trần giúp việc truyền ngôi ổn định và đoàn kết nội bộ là gì?",
+      "options": [
+        "Thực hiện chế độ Thái thượng hoàng (vua cha nhường ngôi sớm cho con rồi cùng điều hành việc nước)",
+        "Bãi bỏ hoàn toàn các đơn vị hành chính địa phương",
+        "Giao toàn bộ quyền cai trị cho các sứ thần nước ngoài",
+        "Không lập sổ hộ tịch trong nhân dân"
+      ],
+      "answer": 0,
+      "explanation": "Chế độ Thái thượng hoàng giúp vua trẻ sớm rèn luyện bản lĩnh trị nước dưới sự dìu dắt của Thượng hoàng, tránh nạn tranh giành ngôi báu.",
+      "source": "SGK Lịch sử 7 (Bài 14) & Đại Việt Sử Ký Toàn Thư, Quyển V, trang 484-505"
+    },
+    {
+      "id": "dvsktt-ktdt-1",
+      "unit_id": "DVSKTT_KINH_TE_DIEN_TRANG_THAI_AP_DE_DINH_NHI",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [14b], trang 504), tháng 3 năm 1248 vua Trần Thái Tông đã lệnh cho các lộ đắp hệ thống đê nào từ đầu nguồn đến bờ biển để chống lũ lụt?",
+      "options": [
+        "Đê Đỉnh Nhĩ (Đê Quai Vạc) và đặt chức quan Hà đê sứ",
+        "Đê Cơ Xá dọc kinh thành Thăng Long",
+        "Kênh Nhà Lê ở vùng Thanh Hóa",
+        "Trường thành bằng đá dọc biên giới"
+      ],
+      "answer": 0,
+      "explanation": "Năm Mậu Thân (1248), nhà Trần đắp đê Đỉnh Nhĩ (đê Quai Vạc) suốt từ đầu nguồn đến bờ biển và đặt quan Hà đê chánh phó sứ trông coi.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [14b], trang 504"
+    },
+    {
+      "id": "dvsktt-ktdt-2",
+      "unit_id": "DVSKTT_KINH_TE_DIEN_TRANG_THAI_AP_DE_DINH_NHI",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [29a], trang 533), năm 1266 nhà Trần xuống chiếu cho phép vương hầu, công chúa, phò mã chiêu tập dân phiêu tán khai khẩn ruộng hoang để lập thành loại hình ruộng đất nào?",
+      "options": [
+        "Điền trang",
+        "Công điền quân phân",
+        "Ruộng tịch điền",
+        "Ruộng chùa"
+      ],
+      "answer": 0,
+      "explanation": "Chính sách lập Điền trang năm 1266 vừa mở rộng diện tích canh tác nông nghiệp, vừa tạo nguồn hậu cần và lực lượng quân sự tại chỗ của các vương hầu.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [29a], trang 533"
+    },
+    {
+      "id": "dvsktt-kcths-1",
+      "unit_id": "DVSKTT_KHOA_CU_THAI_HOC_SINH_NGUYEN_HIEN_MAC_DINH_CHI",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [14a], trang 503), trong khoa thi Thái học sinh tháng 2 năm Đinh Mùi (1247) lần đầu tiên đặt danh hiệu Tam khôi, ai đã đỗ Trạng nguyên khi mới 12 tuổi?",
+      "options": [
+        "Nguyễn Hiền",
+        "Mạc Đĩnh Chi",
+        "Chu Văn An",
+        "Trương Hán Siêu"
+      ],
+      "answer": 0,
+      "explanation": "Khoa thi năm 1247 lấy Nguyễn Hiền (12 tuổi) đỗ Trạng nguyên, Lê Văn Hưu (18 tuổi) đỗ Bảng nhãn và Đặng Ma La đỗ Thám hoa.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [14a], trang 503"
+    },
+    {
+      "id": "dvsktt-kcths-2",
+      "unit_id": "DVSKTT_KHOA_CU_THAI_HOC_SINH_NGUYEN_HIEN_MAC_DINH_CHI",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Ai là tác giả bộ Quốc sử 'Đại Việt Sử Ký' (30 quyển, hoàn thành năm 1272) dưới triều Trần?",
+      "options": [
+        "Bảng nhãn Lê Văn Hưu",
+        "Trạng nguyên Mạc Đĩnh Chi",
+        "Hàn Thuyên",
+        "Đoàn Nhữ Hài"
+      ],
+      "answer": 0,
+      "explanation": "Lê Văn Hưu (đỗ Bảng nhãn khoa thi 1247) giữ chức Hàn lâm viện Học sĩ kiêm Quốc sử viện Giám tu, hoàn thành bộ Đại Việt Sử Ký năm 1272.",
+      "source": "SGK Lịch sử 7 (Bài 14) & Đại Việt Sử Ký Toàn Thư, Quyển V, trang 503"
+    },
+    {
+      "id": "dvsktt-cva-1",
+      "unit_id": "DVSKTT_CHU_VAN_AN_THAT_TRAM_SO",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển VII, tờ [19a, 34b], trang 736, 765), vị danh nho nào giữ chức Quốc Tử Giám Tư nghiệp đã dâng 'Thất trảm sớ' xin chém 7 tên nịnh thần rồi cáo quan về núi Phượng Hoàng?",
+      "options": [
+        "Chu Văn An",
+        "Trương Hán Siêu",
+        "Mạc Đĩnh Chi",
+        "Lê Văn Hưu"
+      ],
+      "answer": 0,
+      "explanation": "Chu Văn An dâng Thất trảm sớ dưới triều Trần Dụ Tông nhưng vua không nghe nên treo mũ từ quan về dạy học ở núi Phượng Hoàng (Chí Linh), khi mất được thờ ở Văn Miếu.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VII, tờ [19a, 34b], trang 736, 765"
+    },
+    {
+      "id": "dvsktt-cva-2",
+      "unit_id": "DVSKTT_CHU_VAN_AN_THAT_TRAM_SO",
+      "type": "tf",
+      "level": "VAN_DUNG",
+      "prompt": "Hành động dâng Thất trảm sớ và từ quan không màng danh lợi của Chu Văn An là biểu tượng cao đẹp của khí tiết người trí thức và truyền thống tôn sư trọng đạo Việt Nam.",
+      "answer": true,
+      "explanation": "Đúng. Sử thần Ngô Sĩ Liên ca ngợi Chu Văn An là bậc đại nho tiết tháo cao khiết bậc nhất đời Trần.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VII, tờ [34b], trang 765"
+    },
+    {
+      "id": "dvsktt-ths-1",
+      "unit_id": "DVSKTT_TRUONG_HAN_SIEU_BACH_DANG_GIANG_PHU",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Ai là tác giả bài 'Phú sông Bạch Đằng' (Bạch Đằng giang phú) nổi tiếng với câu kết: 'Giặc tan muôn thuở thăng bình / Bởi đâu đất hiểm, cốt mình đức cao'?",
+      "options": [
+        "Trương Hán Siêu",
+        "Phạm Ngũ Lão",
+        "Trần Quang Khải",
+        "Hàn Thuyên"
+      ],
+      "answer": 0,
+      "explanation": "Tham tri chính sự Trương Hán Siêu (môn khách của Trần Hưng Đạo) là tác giả kiệt tác Bạch Đằng giang phú.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VII, tờ [17b], trang 733"
+    },
+    {
+      "id": "dvsktt-ths-2",
+      "unit_id": "DVSKTT_TRUONG_HAN_SIEU_BACH_DANG_GIANG_PHU",
+      "type": "tf",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [42a], trang 559), năm 1282 Nguyễn Thuyên (được vua ban họ Hàn Thuyên) làm văn tế cá sấu trên sông Lô bằng chữ Nôm, mở đầu việc dùng chữ Nôm sáng tác thơ phú ở nước ta.",
+      "answer": true,
+      "explanation": "Đúng. Đại Việt Sử Ký Toàn Thư ghi rõ nước ta làm thơ phú dùng nhiều quốc ngữ (chữ Nôm) bắt đầu từ Hàn Thuyên.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [42a], trang 559"
+    },
+    {
+      "id": "dvsktt-dnh-1",
+      "unit_id": "DVSKTT_DOAN_NHU_HAI_NGOAI_GIAO",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển VI, tờ [7a-7b], trang 616-617), năm 1299 chàng thư sinh 20 tuổi nào đã thảo bài biểu tạ tội giúp vua Trần Anh Tông và quỳ suốt đêm dưới mưa ở phủ Thiên Trường khiến Thượng hoàng Trần Nhân Tông cảm động?",
+      "options": [
+        "Đoàn Nhữ Hài",
+        "Trần Quốc Toản",
+        "Nguyễn Hiền",
+        "Đỗ Khắc Chung"
+      ],
+      "answer": 0,
+      "explanation": "Đoàn Nhữ Hài (20 tuổi) thảo bài biểu tạ tội và quỳ dưới mưa suốt đêm ở phủ Thiên Trường, được Thượng hoàng Trần Nhân Tông khen ngợi và vua Trần Anh Tông phong làm Ngự sử trung tán.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VI, tờ [7a-7b], trang 616-617"
+    },
+    {
+      "id": "dvsktt-dnh-2",
+      "unit_id": "DVSKTT_DOAN_NHU_HAI_NGOAI_GIAO",
+      "type": "tf",
+      "level": "THONG_HIEU",
+      "prompt": "Năm 1303, khi đi sứ Chiêm Thành, Đoàn Nhữ Hài đã mưu trí rước chiếu thư thiên tử đặt lên án rồi lạy chiếu thư, khiến Quốc vương Chiêm Thành cũng phải cúi lạy chiếu thư Đại Việt.",
+      "answer": true,
+      "explanation": "Đúng. Tài ứng biến ngoại giao của Đoàn Nhữ Hài được Đại Việt Sử Ký Toàn Thư (Quyển VI, tờ [18b], trang 637) ghi chép và ca ngợi.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển VI, tờ [18b], trang 637"
+    },
+    {
+      "id": "dvsktt-vhpv-1",
+      "unit_id": "DVSKTT_VAN_HOA_AN_NAM_TU_DAI_KHI_CHUA_PHAP_VAN",
+      "type": "mcq",
+      "level": "THONG_HIEU",
+      "prompt": "Theo Đại Việt Sử Ký Toàn Thư (Quyển V, tờ [8b-9a], trang 492-493), khi vua Trần Thái Tông đêm trốn lên núi Yên Tử năm 1237, Quốc sư Phù Vân đã khuyên nhà vua câu nói nổi tiếng nào?",
+      "options": [
+        "Trong núi vốn không có Phật, Phật ở ngay trong lòng; đấng nhân quân phải lấy ý muốn của thiên hạ làm ý muốn của mình",
+        "Hãy từ bỏ ngôi vua để ở ẩn suốt đời trên núi",
+        "Hãy dời kinh đô từ Thăng Long lên núi Yên Tử",
+        "Không cần quan tâm đến đời sống của muôn dân"
+      ],
+      "answer": 0,
+      "explanation": "Lời khuyên của Quốc sư Phù Vân thể hiện tinh thần Phật giáo nhập thế 'Phật tại tâm', gắn việc tu hành với trách nhiệm trị nước an dân.",
+      "source": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ, Quyển V, tờ [8b-9a], trang 492-493"
+    },
+    {
+      "id": "dvsktt-vhpv-2",
+      "unit_id": "DVSKTT_VAN_HOA_AN_NAM_TU_DAI_KHI_CHUA_PHAP_VAN",
+      "type": "mcq",
+      "level": "NHAN_BIET",
+      "prompt": "Những công trình kiến trúc – điêu khắc tiêu biểu nào sau đây được xây dựng dưới triều đại nhà Trần?",
+      "options": [
+        "Tháp Phổ Minh (Nam Định), tháp Bình Sơn (Vĩnh Phúc), tượng hổ lăng Trần Thủ Độ",
+        "Chùa Một Cột và tượng Phật A-di-đà chùa Phật Tích (thời Lý)",
+        "Thành nhà Hồ (Tây Đô, Thanh Hóa)",
+        "Kinh thành Huế và lăng Minh Mạng"
+      ],
+      "answer": 0,
+      "explanation": "Tháp Phổ Minh (Nam Định), tháp Bình Sơn (Vĩnh Phúc) và tượng hổ đá lăng Trần Thủ Độ là những di sản kiến trúc, điêu khắc tiêu biểu của thời Trần.",
+      "source": "SGK Lịch sử 7 (Bài 14) & Đại Việt Sử Ký Toàn Thư, Quyển V, trang 526"
+    }
+  ]
+}

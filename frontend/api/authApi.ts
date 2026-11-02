@@ -5,7 +5,7 @@ import type { TwoFactorChallenge } from '@/types/platform';
 /** Phiên server trả về phải có token và đúng vai trò của trang đăng nhập (trang quản trị không nhận phiên của vai trò khác) */
 function checkSession(session: AuthSession, portal: Portal | 'app'): AuthSession {
   if (!session?.user) throw new ApiError(502, 'Máy chủ chưa trả về phiên đăng nhập hợp lệ.');
-  const allowed = portal === 'app' ? ['teacher', 'student'] : [portal];
+  const allowed = portal === 'app' ? ['teacher', 'student', 'school_admin', 'root_admin'] : [portal];
   if (!allowed.includes(session.user.role)) throw new ApiError(403, 'Tài khoản không có quyền đăng nhập trang này.');
   if (!session.token || typeof session.token !== 'string') throw new ApiError(502, 'Máy chủ chưa trả về phiên đăng nhập hợp lệ.');
   return session;
