@@ -31,8 +31,10 @@ import { MyTab, QuestsTab } from '@/components/portal/Progress';
 import { QuizPlayer, ReviewScreen } from '@/components/portal/QuizPlayer';
 import { CampaignMapView, HomeTab, type NodeActions } from '@/components/portal/QuestMap';
 import { StudentNav, type Dots, type Tab } from '@/components/portal/StudentNav';
+import { AiHubDashboard } from '@/components/ai/AiHubDashboard';
+import { DuolingoRightPanel } from '@/components/portal/DuolingoRightPanel';
 import { StudyPlanTab } from '@/components/portal/StudyPlan';
-import { ExplainSheet, TieuTuongTab } from '@/components/portal/TieuTuong';
+import { ExplainSheet } from '@/components/portal/TieuTuong';
 import { WarCardsTab } from '@/components/portal/WarCards';
 import { BattlesHub, MarchTab, StageIntroSheet, TruthSheet, WarBattleScreen, WarReplaySheet } from '@/components/portal/WarPlay';
 import { afterSheet, Btn, PaperBg, Segmented, Sheet, Spinner, Stars, Txt, useToast } from '@/components/ui';
@@ -47,6 +49,7 @@ import type { BattleView } from '@/types/war';
 const VIEW_EVENT: Partial<Record<Tab, string>> = { library: 'view_library', timeline: 'view_timeline', map: 'view_map' };
 /** Màn hình có bố cục sidebar từ chiều rộng này */
 const WIDE = 900;
+const DUO_WIDE = 1100;
 
 type Overlayed =
   | { kind: 'lesson'; nodeId: number; title: string; assignmentId?: number; scroll?: boolean }
@@ -68,6 +71,7 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
   const [tab, setTab] = useState<Tab>(typeof linkPin === 'string' && /^\d{6}$/.test(linkPin) ? 'live' : 'learn');
   const { width } = useWindowDimensions();
   const wide = width >= WIDE;
+  const showRightPanel = wide && width >= DUO_WIDE;
   const [dots, setDots] = useState<MenuDots>({ practice: 0, live: 0 });
   const [campaignId, setCampaignId] = useState<number | null>(null);
   const [classSection, setClassSection] = useState<ClassSection>('classes');
@@ -183,54 +187,62 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
       <TopBar session={session} subtitle="Học lịch sử cùng Hào Khí Đông A" />
       {hud && !hud.has_character ? <CharacterSetup session={session} onDone={(next) => { setHud(next); bump(); }} /> : (
       <View style={{ flex: 1, flexDirection: wide ? 'row' : 'column' }}>
-      {wide ? <StudentNav tab={tab} wide dots={navDots} onSelect={select} hidden={hidden} /> : null}
-      <View style={{ flex: 1 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: c.the2 }}>
-        <View style={{ flex: 1 }}><HudBar hud={hud} /></View>
-        <SettingsButton session={session} prefs={prefs} onSaved={onPrefs} />
-        <NoticeBell session={session} refreshKey={refreshKey} onGo={goNotice} />
-      </View>
-      {tab === 'learn' ? <LearningPathTab session={session} refreshKey={refreshKey} actions={actions} /> : (
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 56, maxWidth: 880, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
-        {tab === 'practice' ? <PracticeTab session={session} refreshKey={refreshKey} onPractice={startPractice} onGoLearn={() => setTab('learn')} onGoBattles={() => setTab('battles')} /> : null}
-        {tab === 'shop' ? <ShopTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
-        {tab === 'home' && campaignId === null ? (
-          <View style={{ gap: 14 }}>
-            {warOn ? <Segmented<'march' | 'quest'> label="Kiểu chiến dịch" value={homeMode} onChange={setHomeMode} options={[{ value: 'march', label: 'Hành quân' }, { value: 'quest', label: 'Bản đồ nhiệm vụ' }]} /> : null}
-            {homeMode === 'march' && warOn
-              ? <MarchTab session={session} refreshKey={refreshKey} onStage={setStageId} onSource={(id) => open('source', id)} onChanged={bump} />
-              : <HomeTab session={session} refreshKey={refreshKey} onOpenCampaign={(id) => { setCampaignId(id); setFocusNode(null); }} onPractice={startPractice} onNode={(cid, nid) => { setCampaignId(cid); setFocusNode(nid); }} />}
+        {wide ? <StudentNav tab={tab} wide dots={navDots} onSelect={select} hidden={hidden} /> : null}
+        <View style={{ flex: 1, flexDirection: 'row' }}>
+          {/* Cột chính ở giữa */}
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: c.the2, borderBottomWidth: 1, borderBottomColor: c.vien }}>
+              <View style={{ flex: 1 }}>{!showRightPanel ? <HudBar hud={hud} /> : null}</View>
+              <SettingsButton session={session} prefs={prefs} onSaved={onPrefs} />
+              <NoticeBell session={session} refreshKey={refreshKey} onGo={goNotice} />
+            </View>
+            {tab === 'learn' ? <LearningPathTab session={session} refreshKey={refreshKey} actions={actions} /> :
+             tab === 'ai' ? <AiHubDashboard session={session} onOpenSource={(id) => open('source', typeof id === 'number' ? id : parseInt(String(id), 10) || 1)} /> : (
+            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 56, maxWidth: 880, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+              {tab === 'practice' ? <PracticeTab session={session} refreshKey={refreshKey} onPractice={startPractice} onGoLearn={() => setTab('learn')} onGoBattles={() => setTab('battles')} /> : null}
+              {tab === 'shop' ? <ShopTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
+              {tab === 'home' && campaignId === null ? (
+                <View style={{ gap: 14 }}>
+                  {warOn ? <Segmented<'march' | 'quest'> label="Kiểu chiến dịch" value={homeMode} onChange={setHomeMode} options={[{ value: 'march', label: 'Hành quân' }, { value: 'quest', label: 'Bản đồ nhiệm vụ' }]} /> : null}
+                  {homeMode === 'march' && warOn
+                    ? <MarchTab session={session} refreshKey={refreshKey} onStage={setStageId} onSource={(id) => open('source', id)} onChanged={bump} />
+                    : <HomeTab session={session} refreshKey={refreshKey} onOpenCampaign={(id) => { setCampaignId(id); setFocusNode(null); }} onPractice={startPractice} onNode={(cid, nid) => { setCampaignId(cid); setFocusNode(nid); }} />}
+                </View>
+              ) : null}
+              {tab === 'home' && campaignId !== null ? <CampaignMapView session={session} campaignId={campaignId} refreshKey={refreshKey} focusNode={focusNode} actions={actions} onBack={() => { setCampaignId(null); setFocusNode(null); }} /> : null}
+              {tab === 'library' ? <LibraryTab session={session} onOpen={open} /> : null}
+              {tab === 'timeline' ? <TimelineTab session={session} onOpen={open} /> : null}
+              {tab === 'map' ? <MapTab session={session} onOpen={open} /> : null}
+              {tab === 'sources' ? <SourcesTab session={session} refreshKey={refreshKey} onOpen={open} /> : null}
+              {tab === 'quests' ? <QuestsTab session={session} refreshKey={refreshKey} onGo={(cid, nid) => { setTab('home'); setCampaignId(cid); setFocusNode(nid); }} /> : null}
+              {tab === 'class' ? <ClassTab session={session} hud={hud} refreshKey={refreshKey} section={classSection} onChanged={bump} onStart={startAssignment} /> : null}
+              {tab === 'live' ? <LiveTab session={session} refreshKey={refreshKey} initialPin={typeof linkPin === 'string' ? linkPin : undefined} onPlay={(roomId, title) => setOverlay({ kind: 'live', roomId, title })} /> : null}
+              {tab === 'battles' ? (
+                <BattlesHub session={session} refreshKey={refreshKey} onIntro={setStageId}
+                  decision={<BattlesTab session={session} refreshKey={refreshKey} onPlay={(id, title, restart) => setOverlay({ kind: 'battle', scenarioId: id, title, restart })} onAnimation={(id, title) => setOverlay({ kind: 'anim', scenarioId: id, title })} onMini={(id, title, restart) => setOverlay({ kind: 'mini', id, title, restart })} onOpenLink={open} />} />
+              ) : null}
+              {tab === 'character' ? <CharacterTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} onShare={openShare} /> : null}
+              {tab === 'collection' ? (
+                <View style={{ gap: 14 }}>
+                  {warOn ? <Segmented<'war' | 'badges'> label="Bộ sưu tập" value={collMode} onChange={setCollMode} options={[{ value: 'war', label: 'Thẻ tướng' }, { value: 'badges', label: 'Huy hiệu và thẻ rơi' }]} /> : null}
+                  {collMode === 'war' && warOn ? <WarCardsTab session={session} refreshKey={refreshKey} onChanged={bump} /> : <CollectionTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} />}
+                </View>
+              ) : null}
+              {tab === 'ranking' ? <RankingTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
+              {tab === 'survey' ? <SurveyCenter session={session} refreshKey={refreshKey} /> : null}
+              {tab === 'help' ? <HelpCenter session={session} /> : null}
+              {tab === 'study' ? <StudyPlanTab session={session} refreshKey={refreshKey} actions={{ onNode: (cid, nid) => { if (cid) { setTab('home'); setCampaignId(cid); setFocusNode(nid); } else setTab('learn'); }, onTab: setTab, onAttempt: (attempt, title) => setOverlay({ kind: 'quiz', attempt, title, nodeId: null }) }} /> : null}
+              {tab === 'mine' ? <MyTab session={session} refreshKey={refreshKey} onPractice={startPractice} onReview={(id) => setOverlay({ kind: 'review', id })} onOpen={open} /> : null}
+            </ScrollView>
+            )}
           </View>
-        ) : null}
-        {tab === 'home' && campaignId !== null ? <CampaignMapView session={session} campaignId={campaignId} refreshKey={refreshKey} focusNode={focusNode} actions={actions} onBack={() => { setCampaignId(null); setFocusNode(null); }} /> : null}
-        {tab === 'library' ? <LibraryTab session={session} onOpen={open} /> : null}
-        {tab === 'timeline' ? <TimelineTab session={session} onOpen={open} /> : null}
-        {tab === 'map' ? <MapTab session={session} onOpen={open} /> : null}
-        {tab === 'sources' ? <SourcesTab session={session} refreshKey={refreshKey} onOpen={open} /> : null}
-        {tab === 'quests' ? <QuestsTab session={session} refreshKey={refreshKey} onGo={(cid, nid) => { setTab('home'); setCampaignId(cid); setFocusNode(nid); }} /> : null}
-        {tab === 'class' ? <ClassTab session={session} hud={hud} refreshKey={refreshKey} section={classSection} onChanged={bump} onStart={startAssignment} /> : null}
-        {tab === 'live' ? <LiveTab session={session} refreshKey={refreshKey} initialPin={typeof linkPin === 'string' ? linkPin : undefined} onPlay={(roomId, title) => setOverlay({ kind: 'live', roomId, title })} /> : null}
-        {tab === 'battles' ? (
-          <BattlesHub session={session} refreshKey={refreshKey} onIntro={setStageId}
-            decision={<BattlesTab session={session} refreshKey={refreshKey} onPlay={(id, title, restart) => setOverlay({ kind: 'battle', scenarioId: id, title, restart })} onAnimation={(id, title) => setOverlay({ kind: 'anim', scenarioId: id, title })} onMini={(id, title, restart) => setOverlay({ kind: 'mini', id, title, restart })} onOpenLink={open} />} />
-        ) : null}
-        {tab === 'character' ? <CharacterTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} onShare={openShare} /> : null}
-        {tab === 'collection' ? (
-          <View style={{ gap: 14 }}>
-            {warOn ? <Segmented<'war' | 'badges'> label="Bộ sưu tập" value={collMode} onChange={setCollMode} options={[{ value: 'war', label: 'Thẻ tướng' }, { value: 'badges', label: 'Huy hiệu và thẻ rơi' }]} /> : null}
-            {collMode === 'war' && warOn ? <WarCardsTab session={session} refreshKey={refreshKey} onChanged={bump} /> : <CollectionTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} />}
-          </View>
-        ) : null}
-        {tab === 'ranking' ? <RankingTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
-        {tab === 'ai' ? <TieuTuongTab session={session} onOpen={open} onChanged={bump} /> : null}
-        {tab === 'survey' ? <SurveyCenter session={session} refreshKey={refreshKey} /> : null}
-        {tab === 'help' ? <HelpCenter session={session} /> : null}
-        {tab === 'study' ? <StudyPlanTab session={session} refreshKey={refreshKey} actions={{ onNode: (cid, nid) => { if (cid) { setTab('home'); setCampaignId(cid); setFocusNode(nid); } else setTab('learn'); }, onTab: setTab, onAttempt: (attempt, title) => setOverlay({ kind: 'quiz', attempt, title, nodeId: null }) }} /> : null}
-        {tab === 'mine' ? <MyTab session={session} refreshKey={refreshKey} onPractice={startPractice} onReview={(id) => setOverlay({ kind: 'review', id })} onOpen={open} /> : null}
-      </ScrollView>
-      )}
-      </View>
-      {!wide ? <StudentNav tab={tab} wide={false} dots={navDots} onSelect={select} hidden={hidden} /> : null}
+
+          {/* Cột thứ 3 bên phải theo chuẩn Duolingo */}
+          {showRightPanel ? (
+            <DuolingoRightPanel session={session} hud={hud} refreshKey={refreshKey} onGoTab={select} />
+          ) : null}
+        </View>
+        {!wide ? <StudentNav tab={tab} wide={false} dots={navDots} onSelect={select} hidden={hidden} /> : null}
       </View>
       )}
 
