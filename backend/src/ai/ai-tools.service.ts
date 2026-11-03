@@ -307,9 +307,7 @@ export class AiToolsService {
   }
 
   async generateQuiz(_user: UserRow, body: { topic_group_id?: string; topic?: string; cognitive_level?: string; num_questions?: number; unit_ids?: string[] }) {
-    console.log('[AI Tools] generateQuiz called with:', body);
-    try {
-      const numQuestions = Math.min(20, Math.max(1, Math.round(Number(body.num_questions ?? 5)) || 5));
+    const numQuestions = Math.min(20, Math.max(1, Math.round(Number(body.num_questions ?? 5)) || 5));
     const effectiveGid = (body.topic_group_id && CURRICULUM_TOPIC_GROUPS[body.topic_group_id]) ? body.topic_group_id : 'TONG_HOP_TOAN_KHOA';
     const grpInfo = CURRICULUM_TOPIC_GROUPS[effectiveGid];
     const groupName = grpInfo?.title ?? 'Lịch sử thời Trần';
@@ -329,12 +327,7 @@ export class AiToolsService {
 
     let questions: any[] = [];
     let mode: 'llm' | 'grounded' = 'grounded';
-    let cfg: any = null;
-    try {
-      cfg = await this.settings.llm();
-    } catch {
-      cfg = null;
-    }
+    const cfg = await this.settings.llm();
     if (cfg) {
       try {
         const promptSystem = `Bạn là chuyên gia khảo thí Lịch sử THCS Việt Nam, chuyên biên soạn đề trắc nghiệm chuẩn SGK 7 và Đại Việt Sử Ký Toàn Thư.
@@ -473,19 +466,15 @@ Trả về DUY NHẤT một mảng JSON các object câu hỏi, không kèm ch�
       }
     }
 
-      return {
-        topic: displayTopic,
-        topic_group_id: effectiveGid,
-        topic_group_name: groupName,
-        total_generated: questions.length,
-        questions,
-        mode,
-        generation_notes: `Đã sinh ${questions.length} câu hỏi chuẩn hóa theo nhóm chủ đề '${groupName}', đối chiếu căn cứ sử liệu chính thức từ SGK Lịch sử 7 và Đại Việt Sử Ký Toàn Thư (${mode === 'llm' ? 'mô hình AI' : 'ngân hàng chuẩn hóa'}).`,
-      };
-    } catch (e) {
-      console.error('[AI Tools] ERROR IN generateQuiz:', e);
-      throw e;
-    }
+    return {
+      topic: displayTopic,
+      topic_group_id: effectiveGid,
+      topic_group_name: groupName,
+      total_generated: questions.length,
+      questions,
+      mode,
+      generation_notes: `Đã sinh ${questions.length} câu hỏi chuẩn hóa theo nhóm chủ đề '${groupName}', đối chiếu căn cứ sử liệu chính thức từ SGK Lịch sử 7 và Đại Việt Sử Ký Toàn Thư (${mode === 'llm' ? 'mô hình AI' : 'ngân hàng chuẩn hóa'}).`,
+    };
   }
 
 }

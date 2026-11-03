@@ -23,7 +23,7 @@ import {
 import * as aiApi from '@/api/aiApi';
 import { errorMessage } from '@/api/client';
 import { AiQuizModal } from '@/components/admin/AiQuizModal';
-import { createDemoUser, type Session } from '@/components/auth';
+import type { Session } from '@/components/auth';
 import { ChatPanel } from '@/components/portal/TieuTuong';
 import { Btn, Card, Chip, Spinner, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -107,24 +107,14 @@ const HISTORICAL_FIGURES = [
 ];
 
 export interface AiHubDashboardProps {
-  session?: Session;
+  session: Session;
   onOpenSource?: (kind: string, id: number) => void;
   onClose?: () => void;
 }
 
-export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session: propSession, onOpenSource, onClose }) => {
+export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenSource, onClose }) => {
   const { c } = useTheme();
   const toast = useToast();
-
-  const defaultSession: Session = {
-    token: 'demo-bypass-teacher',
-    user: createDemoUser('teacher'),
-    logout: () => undefined,
-    expired: () => undefined,
-    changePassword: () => undefined,
-    updateUser: () => undefined,
-  };
-  const session = propSession ?? defaultSession;
 
   const [activeView, setActiveView] = useState<AiHubView>('hub');
   const [quizModalOpen, setQuizModalOpen] = useState<boolean>(false);

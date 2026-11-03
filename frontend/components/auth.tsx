@@ -86,54 +86,6 @@ export interface Session {
   updateUser: (user: AuthUser) => void;
 }
 
-/** Tài khoản mẫu dùng cho chế độ vào thẳng / trải nghiệm nhanh khi đang phát triển hoặc kiểm thử */
-export const createDemoUser = (role: AuthRole): AuthUser => ({
-  id: role === 'teacher' ? 2 : role === 'student' ? 1 : role === 'school_admin' ? 3 : 4,
-  username:
-    role === 'teacher'
-      ? 'giaovien.demo'
-      : role === 'student'
-      ? 'hocsinh.demo'
-      : role === 'school_admin'
-      ? 'quantri.truong'
-      : 'quantri.tong',
-  full_name:
-    role === 'teacher'
-      ? 'Thầy Cô Giáo Viên (Bản Demo)'
-      : role === 'student'
-      ? 'Học Sinh Đông A (Bản Demo)'
-      : role === 'school_admin'
-      ? 'Quản Trị Trường (Bản Demo)'
-      : 'Quản Trị Tổng (Bản Demo)',
-  role,
-  class_name: role === 'student' ? '7A1' : null,
-  must_change_password: false,
-  is_active: true,
-  created_at: '2026-01-01T00:00:00Z',
-  last_login_at: '2026-01-01T00:00:00Z',
-  profile_confirmed_at: '2026-01-01T00:00:00Z',
-  school_id: 1,
-  user_code: role === 'teacher' ? 'GV001' : role === 'student' ? 'HS001' : 'AD001',
-  school_code: 'DA7',
-  region: 'Miền Bắc',
-  city: 'Hà Nội',
-  birth_date: '2012-05-15',
-  school_year: '2025-2026',
-  email: 'demo@donga.edu.vn',
-  grade: 7,
-  phone: '0987654321',
-  avatar_url: null,
-  bio: null,
-  nickname: null,
-  gender: null,
-  subject: role === 'teacher' ? 'Lịch sử' : null,
-  parent_email: null,
-  lock_reason: null,
-  locked_at: null,
-  admin_level: 2,
-  self_registered: false,
-});
-
 /** Bọc một trang: khôi phục phiên đã lưu, đăng nhập, đổi mật khẩu bắt buộc, rồi mới vẽ nội dung */
 export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) => React.ReactNode }> = ({ portal, children }) => {
   const toast = useToast();
@@ -148,24 +100,8 @@ export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) 
   useEffect(() => {
     let alive = true;
     (async () => {
-      // Hỗ trợ tham số URL ?bypass hoặc ?test để tự động mở thẳng giao diện
-      if (typeof window !== 'undefined' && (window.location?.search?.includes('bypass') || window.location?.search?.includes('test'))) {
-        const demoTok = `demo-bypass-${portal}-${Date.now()}`;
-        await saveToken(portal, demoTok);
-        if (!alive) return;
-        setToken(demoTok);
-        setUser(createDemoUser(portal));
-        return;
-      }
-
       const saved = await readToken(portal);
       if (!saved) return;
-      if (saved.startsWith('demo-bypass-') || saved.startsWith('demo-test-')) {
-        if (!alive) return;
-        setToken(saved);
-        setUser(createDemoUser(portal));
-        return;
-      }
       try {
         const u = await authApi.getMe(saved);
         if (!alive) return;
@@ -648,83 +584,6 @@ const LearnerLogin: React.FC<Omit<LoginProps, 'portal'> & { portal: LearnerPorta
                   </View>
                 </View>
 
-                {/* Chế độ Vào thẳng trải nghiệm (Bỏ qua đăng nhập) */}
-                <View
-                  style={{
-                    backgroundColor: '#f0fdf4',
-                    borderColor: '#86efac',
-                    borderWidth: 1.5,
-                    borderRadius: 14,
-                    padding: 12,
-                    gap: 8,
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Sparkles size={16} color="#16a34a" />
-                    <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 13, color: '#15803d' }}>
-                      ⚡ Vào thẳng giao diện chính (Bỏ qua đăng nhập)
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-                    <Pressable
-                      onPress={() => onLogin(`demo-bypass-student-${Date.now()}`, createDemoUser('student'))}
-                      style={({ pressed }) => ({
-                        flex: 1,
-                        minWidth: 78,
-                        paddingVertical: 8,
-                        borderRadius: 8,
-                        backgroundColor: pressed ? '#bfdbfe' : '#dbeafe',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      })}
-                    >
-                      <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 12, color: '#1e40af' }}>🎓 Học sinh</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => onLogin(`demo-bypass-teacher-${Date.now()}`, createDemoUser('teacher'))}
-                      style={({ pressed }) => ({
-                        flex: 1,
-                        minWidth: 78,
-                        paddingVertical: 8,
-                        borderRadius: 8,
-                        backgroundColor: pressed ? '#bbf7d0' : '#dcfce7',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      })}
-                    >
-                      <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 12, color: '#166534' }}>👨‍🏫 Giáo viên</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => onLogin(`demo-bypass-school_admin-${Date.now()}`, createDemoUser('school_admin'))}
-                      style={({ pressed }) => ({
-                        flex: 1,
-                        minWidth: 78,
-                        paddingVertical: 8,
-                        borderRadius: 8,
-                        backgroundColor: pressed ? '#fde68a' : '#fef3c7',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      })}
-                    >
-                      <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 12, color: '#92400e' }}>🏫 Nhà trường</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => router.push('/ai-hub' as any)}
-                      style={({ pressed }) => ({
-                        flex: 1,
-                        minWidth: 78,
-                        paddingVertical: 8,
-                        borderRadius: 8,
-                        backgroundColor: pressed ? '#e9d5ff' : '#f3e8ff',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      })}
-                    >
-                      <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 12, color: '#6b21a8' }}>🤖 AI Hub</Text>
-                    </Pressable>
-                  </View>
-                </View>
-
                 {/* Thông báo hệ thống / flash */}
                 {(notice || flash) && (
                   <View style={{ padding: 12, borderRadius: 10, backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe' }}>
@@ -857,36 +716,6 @@ const LearnerLogin: React.FC<Omit<LoginProps, 'portal'> & { portal: LearnerPorta
                       Đăng nhập
                     </Text>
                   )}
-                </Pressable>
-
-                {/* Nút vào thẳng theo vai trò đang chọn (Bỏ qua đăng nhập) */}
-                <Pressable
-                  onPress={() => {
-                    const role: AuthRole =
-                      selectedRole === 'school_admin'
-                        ? 'school_admin'
-                        : selectedRole === 'teacher'
-                        ? 'teacher'
-                        : 'student';
-                    onLogin(`demo-bypass-${role}-${Date.now()}`, createDemoUser(role));
-                  }}
-                  style={({ pressed }) => ({
-                    height: 46,
-                    borderRadius: 9999,
-                    backgroundColor: pressed ? '#f0fdf4' : '#ffffff',
-                    borderWidth: 1.5,
-                    borderColor: '#16a34a',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexDirection: 'row',
-                    gap: 8,
-                    marginTop: 4,
-                  })}
-                >
-                  <Sparkles size={16} color="#16a34a" />
-                  <Text style={{ fontFamily: 'Manrope_700Bold', fontSize: 14, color: '#16a34a' }}>
-                    ⚡ Vào thẳng giao diện {selectedRole === 'teacher' ? 'Giáo viên' : selectedRole === 'school_admin' ? 'Nhà trường' : 'Học sinh'} (Bỏ qua đăng nhập)
-                  </Text>
                 </Pressable>
 
                 {/* Đăng ký ngay */}
