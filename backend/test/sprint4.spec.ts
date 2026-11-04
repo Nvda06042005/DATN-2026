@@ -335,6 +335,25 @@ const MAP = { qtype: 'map', prompt: 'Kéo các địa danh lên bản đồ.', d
     expect((await api('GET', '/api/content/shares?status=pending', undefined, f.A.token)).body).toEqual([]);
   });
 
+  test('HK.QT.042 quản trị viên trường tạo, xem, sửa, xóa hành trình mẫu của trường; trường khác và giáo viên không sửa được', async () => {
+    const made = await api('POST', '/api/content/journeys', { title: 'Hành trình mẫu của trường A', campaign_id: campaignId, description: 'Dùng chung trong trường' }, f.A.token);
+    expect(made.body).toMatchObject({ scope: 'school', school_id: f.A.schoolId, can_edit: true, nodes: [] });
+    const id = made.body.id;
+    // xem: quản trị trường A thấy trong thư viện; bản nháp chưa lộ cho giáo viên; trường B không thấy
+    expect((await api('GET', '/api/content/journeys', undefined, f.A.token)).body.map((j: any) => j.id)).toContain(id);
+    expect((await api('GET', '/api/content/journeys', undefined, f.T1.token)).body.map((j: any) => j.id)).not.toContain(id);
+    expect([403, 404]).toContain((await api('GET', `/api/content/journeys/${id}`, undefined, f.B.token)).status);
+    // sửa: chỉ quản trị trường của trường đó
+    const edited = await api('PUT', `/api/content/journeys/${id}`, { title: 'Mẫu của trường A (đã sửa)', description: 'Bản sửa' }, f.A.token);
+    expect(edited.body).toMatchObject({ title: 'Mẫu của trường A (đã sửa)', description: 'Bản sửa', scope: 'school' });
+    for (const who of [f.T1, f.B]) expect([403, 404]).toContain((await api('PUT', `/api/content/journeys/${id}`, { title: 'Chiếm quyền' }, who.token)).status);
+    expect([403, 404]).toContain((await api('DELETE', `/api/content/journeys/${id}`, undefined, f.B.token)).status);
+    expect((await api('GET', `/api/content/journeys/${id}`, undefined, f.A.token)).body.title).toBe('Mẫu của trường A (đã sửa)');
+    // xóa
+    expect((await api('DELETE', `/api/content/journeys/${id}`, undefined, f.A.token)).status).toBe(204);
+    expect((await api('GET', `/api/content/journeys/${id}`, undefined, f.A.token)).status).toBe(404);
+  });
+
   test('HK.AD.045 quản trị tổng quản lý kho hệ thống: tạo, sửa, xóa; học sinh không dùng được các API soạn nội dung', async () => {
     const created = await api('POST', '/api/content/questions', TRUEFALSE, f.root);
     expect(created.body).toMatchObject({ scope: 'system', can_edit: true });
