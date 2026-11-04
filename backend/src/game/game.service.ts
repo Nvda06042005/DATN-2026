@@ -7,7 +7,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable 
 import { DatabaseService, Q, UserRow } from '../database/database.service';
 import { notFound } from '../content/access';
 import { addDays, dayKey, daysBetween, GameClock, weekKey } from './clock';
-import { DAILY_GOALS, GameSettings, LEAGUE_TIERS, SettingsService } from './settings';
+import { DAILY_GOALS, GameSettings, SettingsService, tierIndex } from './settings';
 
 export interface PlayerRow {
   user_id: number; class_id: number | null; hearts: number; hearts_at: Date; gold: number; xp: number; level: number; daily_goal: number; streak_current: number; streak_longest: number;
@@ -160,7 +160,7 @@ export class GameService {
     const ins = await q('INSERT INTO hk_points (user_id, points, reason, ref_key, created_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING RETURNING id', [user.id, applied, reason, refKey, this.clock.now()]);
     if (!ins.length) return 0;
     await q('UPDATE hk_players SET xp = xp + $2, updated_at = now() WHERE user_id = $1', [user.id, applied]);
-    await q('UPDATE hk_league_members SET xp = GREATEST(0, xp + $3) WHERE week_key = $1 AND user_id = $2', [weekKey(this.clock.now()), user.id, applied]);
+    await q('UPDATE hk_league_members SET xp = GREATEST(0, xp + $3) WHERE week_key = $1 AND user_id = $2', [(await this.settings.leagueWeek(q, this.clock.now())).key, user.id, applied]);
     return applied;
   }
 
@@ -307,15 +307,16 @@ export class GameService {
 
   /** Ghi điểm tuần vào nhóm giải đấu của học sinh (tạo chỗ trong nhóm cùng hạng còn trống nếu là lần đầu trong tuần) */
   async leagueAdd(q: Q, user: UserRow, points: number, now: Date): Promise<void> {
-    const week = weekKey(now);
+    const week = (await this.settings.leagueWeek(q, now)).key;
     const p = (await q<PlayerRow>('SELECT league_tier FROM hk_players WHERE user_id = $1', [user.id]))[0];
     const upd = await q('UPDATE hk_league_members SET xp = xp + $3 WHERE week_key = $1 AND user_id = $2 RETURNING user_id', [week, user.id, points]);
     if (upd.length) return;
     const s = await this.settings.get();
+    const tier = tierIndex(s.league.tiers, p.league_tier); // quản trị giảm số hạng: người ở hạng cao hơn được xếp vào hạng cao nhất còn lại
     const open = (await q<{ group_no: number }>(
-      `SELECT group_no FROM hk_league_members WHERE week_key = $1 AND tier = $2 GROUP BY group_no HAVING count(*) < $3 ORDER BY group_no LIMIT 1`, [week, p.league_tier, s.league.group_size]))[0];
-    const group = open?.group_no ?? Number((await q<{ n: number | null }>('SELECT max(group_no) AS n FROM hk_league_members WHERE week_key = $1 AND tier = $2', [week, p.league_tier]))[0].n ?? 0) + 1;
-    await q('INSERT INTO hk_league_members (week_key, user_id, tier, group_no, xp) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING', [week, user.id, p.league_tier, group, points]);
+      `SELECT group_no FROM hk_league_members WHERE week_key = $1 AND tier = $2 GROUP BY group_no HAVING count(*) < $3 ORDER BY group_no LIMIT 1`, [week, tier, s.league.group_size]))[0];
+    const group = open?.group_no ?? Number((await q<{ n: number | null }>('SELECT max(group_no) AS n FROM hk_league_members WHERE week_key = $1 AND tier = $2', [week, tier]))[0].n ?? 0) + 1;
+    await q('INSERT INTO hk_league_members (week_key, user_id, tier, group_no, xp) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING', [week, user.id, tier, group, points]);
   }
 
   // ------------------------------------------------------------------ nhiệm vụ hằng ngày / tuần (HK.HS.024)
@@ -638,7 +639,7 @@ export class GameService {
         hearts: await this.heartsInfo(q, user, p),
         streak: { current: active ? p.streak_current : 0, longest: p.streak_longest, freezes: p.freezes, freeze_max: s.streak.freeze_max, last_day: p.streak_last_day, at_risk: active && p.streak_last_day !== today },
         daily: { day: today, xp: day?.xp ?? 0, goal: day?.goal ?? p.daily_goal, reached: day?.reached ?? false, options: [...DAILY_GOALS], selected: p.daily_goal },
-        league: { tier: p.league_tier, name: LEAGUE_TIERS[p.league_tier] },
+        league: { tier: tierIndex(s.league.tiers, p.league_tier), name: s.league.tiers[tierIndex(s.league.tiers, p.league_tier)] },
         gift: { available: p.last_gift_day !== today },
         ap: { current: p.ap, max: this.apMax(cur?.level ?? p.level) }, buffs: p.buffs ?? {},
       };

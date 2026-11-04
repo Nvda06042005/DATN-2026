@@ -121,12 +121,16 @@ const GROUPS: Array<[string, string]> = [['hearts', 'Cơ chế tim'], ['daily_go
 const getPath = (obj: Row, path: string): unknown => path.split('.').reduce<any>((cur, k) => (cur === undefined || cur === null ? undefined : cur[k]), obj);
 const setPath = (obj: Row, path: string, value: unknown) => { const keys = path.split('.'); let cur = obj; for (const k of keys.slice(0, -1)) cur = cur[k] ??= {}; cur[keys[keys.length - 1]] = value; };
 
+const WEEKDAYS = ['thứ Hai', 'thứ Ba', 'thứ Tư', 'thứ Năm', 'thứ Sáu', 'thứ Bảy', 'Chủ nhật'];
+const fmtDay = (key: string): string => `${key.slice(8, 10)}/${key.slice(5, 7)}/${key.slice(0, 4)}`;
+
 export const GameSettings: React.FC<{ session: Session }> = ({ session }) => {
   const { c } = useTheme();
   const { run, busy } = useAction(session.expired);
   const settings = useLoad(() => api.adminSettings(session.token), [session.token], session.expired);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [gift, setGift] = useState<string | null>(null);
+  const [tiers, setTiers] = useState<string | null>(null);
   const view = settings.data;
   const rules = useMemo(() => Object.entries(view?.rules ?? {}), [view]);
   if (!view) return settings.error ? <ErrorNote message={settings.error} /> : <Spinner />;
@@ -136,6 +140,8 @@ export const GameSettings: React.FC<{ session: Session }> = ({ session }) => {
     return typeof v === 'boolean' ? (v ? '1' : '0') : v === undefined ? '' : String(v);
   };
   const giftText = gift ?? (view.values.gift?.gold ?? []).join(', ');
+  const tiersText = tiers ?? (view.values.league?.tiers ?? []).join('\n');
+  const schedule = view.league_schedule;
   const save = async () => {
     const patch: Row = {};
     for (const [path, text] of Object.entries(draft)) {
@@ -143,11 +149,12 @@ export const GameSettings: React.FC<{ session: Session }> = ({ session }) => {
       setPath(patch, path, rule?.bool ? text === '1' : Number(text));
     }
     if (gift !== null) setPath(patch, 'gift.gold', gift.split(/[,\s]+/).filter(Boolean).map(Number));
+    if (tiers !== null) setPath(patch, 'league.tiers', tiers.split(/\r?\n/).map((t) => t.trim()).filter(Boolean));
     if (!Object.keys(patch).length) return;
     const res = await run(() => api.updateAdminSettings(session.token, patch), 'Đã lưu cấu hình trò chơi hóa');
-    if (res) { setDraft({}); setGift(null); settings.reload(); }
+    if (res) { setDraft({}); setGift(null); setTiers(null); settings.reload(); }
   };
-  const reset = () => { const d: Record<string, string> = {}; for (const [path, rule] of rules) { const v = getPath(view.defaults, path); d[path] = rule.bool ? (v ? '1' : '0') : String(v ?? ''); } setDraft(d); setGift((view.defaults.gift?.gold ?? []).join(', ')); };
+  const reset = () => { const d: Record<string, string> = {}; for (const [path, rule] of rules) { const v = getPath(view.defaults, path); d[path] = rule.bool ? (v ? '1' : '0') : String(v ?? ''); } setDraft(d); setGift((view.defaults.gift?.gold ?? []).join(', ')); setTiers((view.defaults.league?.tiers ?? []).join('\n')); };
   return (
     <View style={{ gap: 14 }}>
       <Txt size={14}>Các giá trị mặc định này áp dụng cho toàn hệ thống. Thay đổi có hiệu lực ngay với lượt học tiếp theo; điểm và vàng đã ghi không bị tính lại.</Txt>
@@ -157,16 +164,29 @@ export const GameSettings: React.FC<{ session: Session }> = ({ session }) => {
         return (
           <Card key={title} flat pad={14} style={{ gap: 10 }}>
             <Txt f="bold" size={16}>{title}</Txt>
-            {list.map(([path, rule]) => rule.bool
+            {list.map(([path, rule]) => path === 'league.close_weekday'
+              ? <AdminSelect key={path} label={rule.label} value={current(path)} options={WEEKDAYS.map((label, i) => ({ value: String(i + 1), label }))} onChange={(v) => setDraft((d) => ({ ...d, [path]: v }))} />
+              : rule.bool
               ? <AdminSelect key={path} label={rule.label} value={current(path)} options={[{ value: '1', label: 'Bật' }, { value: '0', label: 'Tắt' }]} onChange={(v) => setDraft((d) => ({ ...d, [path]: v }))} />
               : <Field key={path} label={rule.label} value={current(path)} onChangeText={(v) => setDraft((d) => ({ ...d, [path]: v }))} keyboardType="numeric"
                 hint={rule.oneOf ? `Chỉ nhận ${rule.oneOf.join(', ')}` : rule.min !== undefined ? `Từ ${rule.min} đến ${rule.max}${rule.int ? ' (số nguyên)' : ''}` : undefined} />)}
+            {prefix === 'league' ? (
+              <>
+                <Field label="Tên các hạng, từ thấp lên cao (mỗi dòng một hạng)" value={tiersText} onChangeText={setTiers} multiline numberOfLines={8} inputStyle={{ minHeight: 168, textAlignVertical: 'top' }} hint="Từ 2 đến 8 hạng, mỗi tên tối đa 20 ký tự, không trùng nhau. Giảm số hạng thì người ở hạng cao hơn được xếp vào hạng cao nhất còn lại." />
+                {schedule ? (
+                  <Txt size={13} color={c.muc2}>
+                    Tuần giải đấu hiện tại bắt đầu {fmtDay(schedule.week)} và kết thúc {fmtDay(schedule.ends_on)}; đang chốt vào {WEEKDAYS[schedule.weekday - 1]}.
+                    {schedule.next ? ` Đã hẹn đổi sang chốt vào ${WEEKDAYS[schedule.next.weekday - 1]}, có hiệu lực từ ${fmtDay(schedule.next.from)} (tuần đầu của lịch mới có thể ngắn hơn 7 ngày).` : ''}
+                  </Txt>
+                ) : null}
+              </>
+            ) : null}
             {prefix === 'gift' ? <Field label="Vàng của 7 ngày liên tiếp (cách nhau bằng dấu phẩy)" value={giftText} onChangeText={setGift} hint="Đúng 7 số, mỗi số từ 0 đến 1000" /> : null}
           </Card>
         );
       })}
       <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
-        <Btn title="Lưu cấu hình" tone="son" loading={busy} disabled={!Object.keys(draft).length && gift === null} onPress={save} testID="game-settings-save" />
+        <Btn title="Lưu cấu hình" tone="son" loading={busy} disabled={!Object.keys(draft).length && gift === null && tiers === null} onPress={save} testID="game-settings-save" />
         <Btn title="Đặt về mặc định ban đầu" tone="giay" onPress={reset} />
       </View>
       <Txt size={12} color={c.muc3}>“Đặt về mặc định” chỉ điền lại các ô; bấm “Lưu cấu hình” để áp dụng.</Txt>

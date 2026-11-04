@@ -6,7 +6,7 @@ import { UserRow } from '../database/database.service';
 import { BoardService, ContestInput } from './board.service';
 import { BADGE_RULES, CatalogService } from './catalog.service';
 import { GameService } from './game.service';
-import { DAILY_GOALS, GAME_DEFAULTS, LEAGUE_TIERS, SETTING_RULES, SettingsService } from './settings';
+import { DAILY_GOALS, GAME_DEFAULTS, SETTING_RULES, SettingsService } from './settings';
 
 const num = () => Type(() => Number);
 
@@ -54,7 +54,7 @@ export class GameController {
   @Get('config') @Roles('student', 'teacher', 'school_admin', 'root_admin')
   async config() {
     const s = await this.settings.get();
-    return { hearts: s.hearts, daily_goal_options: [...DAILY_GOALS], gift: s.gift, hint_max: s.hint_max, streak_freeze_max: s.streak.freeze_max, league_tiers: [...LEAGUE_TIERS], card_rates: s.cards.rates, league: s.league };
+    return { hearts: s.hearts, daily_goal_options: [...DAILY_GOALS], gift: s.gift, hint_max: s.hint_max, streak_freeze_max: s.streak.freeze_max, league_tiers: s.league.tiers, card_rates: s.cards.rates, league: s.league };
   }
 
   @Get('classes') @Roles('student', 'teacher', 'school_admin', 'root_admin') classes() { return this.game.classes(); }
@@ -108,7 +108,7 @@ export class GameController {
   // ------------------------------------------------------------------ quản trị: cấu hình và danh mục
   @Get('admin/specs') @Roles('root_admin', 'school_admin') specs() { return { entities: this.catalog.specs(), badge_rules: BADGE_RULES.map(([value, label]) => ({ value, label })) }; }
   @Get('admin/settings') @Roles('root_admin')
-  async adminSettings() { return { values: await this.settings.get(), rules: SETTING_RULES, defaults: GAME_DEFAULTS }; }
+  async adminSettings() { return { values: await this.settings.get(), rules: SETTING_RULES, defaults: GAME_DEFAULTS, league_schedule: await this.board.leagueSchedule() }; }
   @Put('admin/settings') @Roles('root_admin')
   async updateSettings(@CurrentUser() user: UserRow, @Body() body: Record<string, unknown>) { return { values: await this.settings.update(user.id, body) }; }
 

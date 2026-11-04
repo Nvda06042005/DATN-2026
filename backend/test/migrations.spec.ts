@@ -364,6 +364,17 @@ describe('file migration', () => {
     expect(await count('SELECT count(*) AS n FROM hk_permissions')).toBe(152); // dữ liệu khởi tạo không nhân đôi
   });
 
+  test('037 (giải đấu cấu hình số hạng) nới ràng buộc hạng lên 0–9, mỗi cột còn đúng một ràng buộc và chạy lại không đổi gì', async () => {
+    await m.applyMigrations(url, dir);
+    for (const [table, col] of [['hk_players', 'league_tier'], ['hk_league_members', 'tier']]) {
+      const defs = await sql<{ def: string }>(url, `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conrelid = 'public.${table}'::regclass AND contype = 'c' AND pg_get_constraintdef(oid) LIKE '%${col}%'`);
+      expect(defs).toHaveLength(1);
+      expect(defs[0].def).toMatch(/<= 9/);
+      expect(defs[0].def).not.toMatch(/<= 3/);
+    }
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+  });
+
   test('035–036 (ver0.2 Sprint 7–8) thêm bảng ảnh tải lên, bản nháp Quiz, yêu cầu vào phòng, nhật ký phòng, gắn cửa – trận đều có RLS; ràng buộc đúng; sa bàn khởi tạo cho 6 trận', async () => {
     await m.applyMigrations(url, dir);
     const tables = ['hk_media', 'hk_quiz_drafts', 'hk_live_requests', 'hk_live_events', 'hk_class_battle_links'];

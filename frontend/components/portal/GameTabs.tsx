@@ -15,7 +15,7 @@ import { AvatarFigure, CardFace, iconOf, RARITY_COLOR, ruleText } from '@/compon
 import { Bar, Btn, Card, Chip, EmptyState, InfoNote, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { BadgeItem, CardAlbumItem, Hud, ShopItem } from '@/types/gamification';
-import { LEAGUE_TIERS, RARITY_TEXT } from '@/types/gamification';
+import { RARITY_TEXT } from '@/types/gamification';
 
 interface TabProps { session: Session; hud: Hud | null; refreshKey: number; onChanged: () => void }
 const KIND_TEXT: Record<ShopItem['kind'], string> = { outfit: 'Trang phục', weapon: 'Vũ khí', banner: 'Cờ hiệu', streak_freeze: 'Đóng băng chuỗi ngày', heart: 'Tim', hint: 'Gợi ý 50/50' };
@@ -178,7 +178,7 @@ export const CharacterTab: React.FC<TabProps & { onShare: () => void }> = ({ ses
           <View style={{ flex: 1, minWidth: 180, gap: 4 }}>
             <Txt f="displayHeavy" size={22}>{hud.user.name}</Txt>
             <Txt f="semibold" size={15} color={c.dongChu}>{hud.class?.name ?? 'Chưa chọn lớp'} · Cấp {hud.level.level} {hud.level.title}</Txt>
-            <Txt size={13} color={c.muc2}>{hud.xp} điểm · {hud.gold} vàng · giải đấu {LEAGUE_TIERS[hud.league.tier] ?? hud.league.name}</Txt>
+            <Txt size={13} color={c.muc2}>{hud.xp} điểm · {hud.gold} vàng · giải đấu {hud.league.name}</Txt>
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
               <Btn title="Chỉ số và kỹ năng" tone="giay" size="sm" onPress={() => setClassOpen(true)} />
               <Btn icon={Share2} title="Chia sẻ thành tích" tone="thuy" size="sm" onPress={onShare} testID="share-open" />

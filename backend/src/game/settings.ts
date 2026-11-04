@@ -3,7 +3,8 @@
  * tỉ lệ rơi thẻ, giải đấu tuần, quà hằng ngày. Giá trị lưu một dòng JSON trong `hk_settings`; khóa thiếu lấy từ mặc định ở đây.
  */
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import { DatabaseService, Q } from '../database/database.service';
+import { DEFAULT_LEAGUE_SCHEDULE, LeagueSchedule, LeagueWeek, leagueWeekOf, reconcileSchedule, sameSchedule, settleSchedule, dayKey } from './clock';
 
 export interface GameSettings {
   hearts: { enabled: boolean; max: number; regen_hours: number; per_practice_correct: number };
@@ -19,7 +20,8 @@ export interface GameSettings {
   war: { enabled: boolean; daily_minutes: number };
   hint_max: number;
   gift: { gold: number[]; freeze_on_day7: boolean };
-  league: { group_size: number; promote: number; demote: number };
+  /** Giải đấu tuần (HK.AD.054): số người mỗi nhóm, số thăng / giáng hạng, tên các hạng từ thấp lên cao (2–8 hạng) và thứ chốt bảng (1 = thứ Hai … 7 = Chủ nhật) */
+  league: { group_size: number; promote: number; demote: number; tiers: string[]; close_weekday: number };
   leaderboard_cache_seconds: number;
 }
 
@@ -35,12 +37,15 @@ export const GAME_DEFAULTS: GameSettings = {
   war: { enabled: true, daily_minutes: 0 },
   hint_max: 10,
   gift: { gold: [10, 15, 20, 25, 30, 40, 50], freeze_on_day7: true },
-  league: { group_size: 30, promote: 10, demote: 5 },
+  league: { group_size: 30, promote: 10, demote: 5, tiers: ['Đồng', 'Bạc', 'Vàng', 'Kim cương'], close_weekday: 1 },
   leaderboard_cache_seconds: 30,
 };
 
 export const DAILY_GOALS = [50, 100, 200] as const;
-export const LEAGUE_TIERS = ['Đồng', 'Bạc', 'Vàng', 'Kim cương'] as const;
+export const LEAGUE_TIERS_MIN = 2;
+export const LEAGUE_TIERS_MAX = 8;
+/** Chỉ số hạng hợp lệ: thấp hơn 0 hoặc vượt số hạng hiện có (sau khi giảm số hạng) thì kéo về giới hạn */
+export const tierIndex = (tiers: string[], tier: number): number => Math.max(0, Math.min(tier, tiers.length - 1));
 
 interface Rule { label: string; min?: number; max?: number; int?: boolean; bool?: boolean; oneOf?: number[] }
 /** Quy tắc kiểm tra từng khóa cho phép sửa (đường dẫn dạng a.b.c) */
@@ -76,6 +81,7 @@ export const SETTING_RULES: Record<string, Rule> = {
   'league.group_size': { label: 'Số người mỗi nhóm giải đấu', int: true, min: 5, max: 100 },
   'league.promote': { label: 'Số người đứng đầu được thăng hạng', int: true, min: 1, max: 50 },
   'league.demote': { label: 'Số người cuối bảng bị giáng hạng', int: true, min: 0, max: 50 },
+  'league.close_weekday': { label: 'Ngày chốt bảng giải đấu mỗi tuần (1 = thứ Hai … 7 = Chủ nhật; có hiệu lực từ tuần giải đấu kế tiếp)', int: true, oneOf: [1, 2, 3, 4, 5, 6, 7] },
   leaderboard_cache_seconds: { label: 'Thời gian lưu bảng xếp hạng trong bộ nhớ (giây)', int: true, min: 0, max: 600 },
 };
 
@@ -94,12 +100,22 @@ function setPath(target: Record<string, any>, path: string, value: unknown): voi
   cur[keys[keys.length - 1]] = value;
 }
 
+/** Tên các hạng giải đấu: 2–8 hạng, mỗi tên 1–20 ký tự, không trùng nhau (không phân biệt hoa thường) */
+function cleanTiers(raw: unknown): string[] {
+  if (!Array.isArray(raw)) throw new BadRequestException('Các hạng giải đấu: cần một danh sách tên, từ thấp lên cao');
+  const names = raw.map((x) => String(x ?? '').trim().replace(/\s+/g, ' '));
+  if (names.length < LEAGUE_TIERS_MIN || names.length > LEAGUE_TIERS_MAX) throw new BadRequestException(`Giải đấu cần từ ${LEAGUE_TIERS_MIN} đến ${LEAGUE_TIERS_MAX} hạng`);
+  if (names.some((n) => n.length < 1 || n.length > 20)) throw new BadRequestException('Tên mỗi hạng giải đấu từ 1 đến 20 ký tự');
+  if (new Set(names.map((n) => n.toLowerCase())).size !== names.length) throw new BadRequestException('Tên các hạng giải đấu không được trùng nhau');
+  return names;
+}
+
 /** Gộp một bản vá vào cấu hình hiện có, kiểm tra từng khóa; ném BadRequest tiếng Việt khi sai */
 export function applySettingsPatch(base: GameSettings, patch: unknown): GameSettings {
   if (!isObj(patch)) throw new BadRequestException('Cấu hình không hợp lệ');
   const next = clone(base);
   for (const [path, value] of flatten(patch)) {
-    if (path === 'gift.gold') continue;
+    if (path === 'gift.gold' || path === 'league.tiers') continue;
     const rule = SETTING_RULES[path];
     if (!rule) throw new BadRequestException(`Khóa cấu hình "${path}" không được phép sửa`);
     const n = Number(value);
@@ -116,6 +132,8 @@ export function applySettingsPatch(base: GameSettings, patch: unknown): GameSett
     if (!Array.isArray(gift) || gift.length !== 7 || !gift.every((g) => Number.isInteger(g) && g >= 0 && g <= 1000)) throw new BadRequestException('Quà hằng ngày: cần đúng 7 số nguyên từ 0 đến 1000 vàng');
     next.gift.gold = gift as number[];
   }
+  const tiers = isObj(patch) && isObj(patch.league) ? patch.league.tiers : undefined;
+  if (tiers !== undefined) next.league.tiers = cleanTiers(tiers);
   const rates = next.cards.rates;
   if (rates.common + rates.rare + rates.legendary <= 0) throw new BadRequestException('Tổng tỉ lệ rơi thẻ phải lớn hơn 0');
   if (next.league.promote + next.league.demote > next.league.group_size) throw new BadRequestException('Số người thăng hạng và giáng hạng không được vượt quá số người mỗi nhóm');
@@ -147,5 +165,20 @@ export class SettingsService {
 
   invalidate(): void {
     this.cache = null;
+  }
+
+  /**
+   * Tuần giải đấu đang chạy tại `now` theo lịch chốt (HK.AD.054). Lịch lưu ở `hk_settings` khóa `league_schedule`; mỗi lần gọi đối chiếu với ngày chốt trong cấu hình:
+   * quản trị đổi ngày chốt thì lịch mới có hiệu lực từ hết tuần đang chạy, nên khóa tuần đã lưu (và việc chốt tuần) không bị lệch. Chưa đổi gì thì không ghi.
+   */
+  async leagueWeek(q: Q, now: Date): Promise<LeagueWeek & { schedule: LeagueSchedule }> {
+    const target = (await this.get()).league.close_weekday;
+    const row = (await q<{ value: Partial<LeagueSchedule> }>("SELECT value FROM hk_settings WHERE key = 'league_schedule'"))[0];
+    const stored: LeagueSchedule = row ? { ...DEFAULT_LEAGUE_SCHEDULE, ...row.value } : DEFAULT_LEAGUE_SCHEDULE;
+    const next = reconcileSchedule(stored, target, now);
+    if (!sameSchedule(stored, next)) {
+      await q("INSERT INTO hk_settings (key, value) VALUES ('league_schedule', $1) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = now()", [JSON.stringify(next)]);
+    }
+    return { ...leagueWeekOf(next, now), schedule: settleSchedule(next, dayKey(now)) };
   }
 }

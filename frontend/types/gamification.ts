@@ -2,7 +2,6 @@
 
 export type Rarity = 'common' | 'rare' | 'legendary';
 export const RARITY_TEXT: Record<Rarity, string> = { common: 'Thường', rare: 'Hiếm', legendary: 'Huyền thoại' };
-export const LEAGUE_TIERS = ['Đồng', 'Bạc', 'Vàng', 'Kim cương'];
 
 export interface CharacterClass {
   id: number; code: string; name: string; description: string | null; icon: string; color: string;
@@ -23,7 +22,7 @@ export interface Hud {
 }
 export interface GameConfig {
   hearts: { enabled: boolean; max: number; regen_hours: number; per_practice_correct: number }; daily_goal_options: number[]; gift: { gold: number[]; freeze_on_day7: boolean };
-  hint_max: number; streak_freeze_max: number; league_tiers: string[]; card_rates: Record<Rarity, number>; league: { group_size: number; promote: number; demote: number };
+  hint_max: number; streak_freeze_max: number; league_tiers: string[]; card_rates: Record<Rarity, number>; league: { group_size: number; promote: number; demote: number; tiers?: string[]; close_weekday?: number };
 }
 
 export interface ShopItem {
@@ -53,6 +52,8 @@ export interface BoardEntry { rank: number; name: string; xp: number; me: boolea
 export interface Board { scope: string; period: string; label: string; entries: BoardEntry[]; me: { rank: number; xp: number } | null; size: number; disabled?: boolean; message?: string }
 export interface LeagueView {
   week: string; ends_at: string; tier: number; tier_name: string; tiers: string[]; size: number; promote: number; demote: number; saved_tier: number;
+  /** Thứ chốt bảng đang áp dụng (1 = thứ Hai … 7 = Chủ nhật) và lịch mới đang chờ tới tuần kế tiếp */
+  close_weekday?: number; next_close?: { weekday: number; from: string } | null;
   entries: Array<BoardEntry & { zone: 'promote' | 'demote' | 'stay' }>;
 }
 export interface StudentContest { id: number; title: string; description: string | null; starts_at: string; ends_at: string; rewards: Record<string, number>; settled_at: string | null; status: 'upcoming' | 'active' | 'ended'; my_xp: number; my_rank: number | null; participants: number }
@@ -66,4 +67,6 @@ export interface SchoolContest {
 
 export interface CatalogField { name: string; label: string; type: 'text' | 'textarea' | 'int' | 'bool' | 'enum' | 'color' | 'ref' | 'url'; required?: boolean; options?: Array<{ value: string; label: string }>; min?: number; max?: number; ref?: 'figure' | 'campaign'; createOnly?: boolean; hint?: string }
 export interface CatalogSpec { entity: string; label: string; plural: string; pk: string; fields: CatalogField[]; summary: string[] }
-export interface GameSettingsView { values: Record<string, any>; rules: Record<string, { label: string; min?: number; max?: number; int?: boolean; bool?: boolean; oneOf?: number[] }>; defaults: Record<string, any> }
+/** Lịch chốt giải đấu (HK.AD.054): tuần đang chạy, thứ chốt hiện tại và lịch mới đang chờ có hiệu lực */
+export interface LeagueSchedule { week: string; ends_on: string; weekday: number; next: { weekday: number; from: string } | null }
+export interface GameSettingsView { values: Record<string, any>; rules: Record<string, { label: string; min?: number; max?: number; int?: boolean; bool?: boolean; oneOf?: number[] }>; defaults: Record<string, any>; league_schedule?: LeagueSchedule }

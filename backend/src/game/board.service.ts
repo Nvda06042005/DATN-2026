@@ -8,7 +8,7 @@ import { DatabaseService, Q, UserRow } from '../database/database.service';
 import { notFound } from '../content/access';
 import { addDays, dayStart, GameClock, monthKey, weekKey } from './clock';
 import { GameService } from './game.service';
-import { LEAGUE_TIERS, SettingsService } from './settings';
+import { SettingsService, tierIndex } from './settings';
 
 export interface SchoolGameSettings { leaderboard_enabled: boolean; leaderboard_scope: 'grade' | 'school'; leaderboard_period: 'week' | 'month' }
 interface BoardRow { id: number; nickname: string | null; full_name: string; xp: number }
@@ -150,27 +150,39 @@ export class BoardService {
       await this.settleLeagues(q);
       const p = await this.game.fresh(q, user);
       const now = this.clock.now();
-      const week = weekKey(now);
+      const wk = await this.settings.leagueWeek(q, now);
+      const week = wk.key;
       await this.game.leagueAdd(q, user, 0, now);
       const mine = (await q<{ tier: number; group_no: number }>('SELECT tier, group_no FROM hk_league_members WHERE week_key = $1 AND user_id = $2', [week, user.id]))[0];
       const s = await this.settings.get();
+      const shown = tierIndex(s.league.tiers, mine.tier);
       const members = await q<{ user_id: number; nickname: string | null; xp: number }>(
         `SELECT m.user_id, u.nickname, m.xp FROM hk_league_members m JOIN app_users u ON u.id = m.user_id WHERE m.week_key = $1 AND m.tier = $2 AND m.group_no = $3 ORDER BY m.xp DESC, m.user_id`, [week, mine.tier, mine.group_no]);
       const size = members.length;
       const promote = Math.min(s.league.promote, Math.floor(size / 2));
       const demote = size > promote + s.league.demote ? s.league.demote : 0;
       return {
-        week, ends_at: dayStart(addDays(week, 7)), tier: mine.tier, tier_name: LEAGUE_TIERS[mine.tier], tiers: [...LEAGUE_TIERS], size, promote, demote, saved_tier: p.league_tier,
+        week, ends_at: dayStart(wk.ends_on), tier: shown, tier_name: s.league.tiers[shown], tiers: s.league.tiers, size, promote, demote, saved_tier: tierIndex(s.league.tiers, p.league_tier),
+        close_weekday: wk.schedule.weekday, next_close: wk.schedule.next,
         entries: members.map((m, i) => ({ rank: i + 1, name: m.user_id === user.id ? 'Em' : m.nickname || ANON, xp: m.xp, me: m.user_id === user.id, zone: m.xp > 0 && i < promote ? 'promote' : demote && i >= size - demote ? 'demote' : 'stay' })),
       };
     });
   }
 
+  /** Lịch chốt giải đấu đang chạy và lịch chờ (HK.AD.054), hiển thị ở trang cấu hình để quản trị biết khi nào ngày chốt mới có hiệu lực */
+  async leagueSchedule() {
+    return this.db.tx(async (q) => {
+      const wk = await this.settings.leagueWeek(q, this.clock.now());
+      return { week: wk.key, ends_on: wk.ends_on, weekday: wk.schedule.weekday, next: wk.schedule.next };
+    });
+  }
+
   /** Chốt các tuần đã qua một lần: top nhóm thăng hạng, cuối nhóm giáng hạng (nhóm quá nhỏ thì không giáng) */
   async settleLeagues(q: Q): Promise<number> {
-    const current = weekKey(this.clock.now());
+    const current = (await this.settings.leagueWeek(q, this.clock.now())).key;
     const weeks = await q<{ week_key: string }>('SELECT DISTINCT week_key FROM hk_league_members WHERE week_key < $1 AND week_key NOT IN (SELECT week_key FROM hk_league_weeks) ORDER BY week_key', [current]);
     const s = await this.settings.get();
+    const tiers = s.league.tiers;
     for (const { week_key } of weeks) {
       const claimed = await q('INSERT INTO hk_league_weeks (week_key, closed_at) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING week_key', [week_key, this.clock.now()]);
       if (!claimed.length) continue;
@@ -182,11 +194,12 @@ export class BoardService {
         const promote = Math.min(s.league.promote, Math.floor(size / 2));
         const demote = size > promote + s.league.demote ? s.league.demote : 0;
         for (const [i, m] of members.entries()) {
-          const up = m.xp > 0 && i < promote && m.tier < LEAGUE_TIERS.length - 1;
-          const down = !up && demote > 0 && i >= size - demote && m.tier > 0;
-          const tier = up ? m.tier + 1 : down ? m.tier - 1 : m.tier;
+          const was = tierIndex(tiers, m.tier);
+          const up = m.xp > 0 && i < promote && was < tiers.length - 1;
+          const down = !up && demote > 0 && i >= size - demote && was > 0;
+          const tier = up ? was + 1 : down ? was - 1 : was;
           await q('UPDATE hk_players SET league_tier = $2 WHERE user_id = $1', [m.user_id, tier]);
-          await q('INSERT INTO hk_celebrations (user_id, kind, payload, created_at) VALUES ($1, $2, $3, $4)', [m.user_id, 'league', JSON.stringify({ week: week_key, rank: i + 1, from: LEAGUE_TIERS[m.tier], to: LEAGUE_TIERS[tier], result: up ? 'promote' : down ? 'demote' : 'stay' }), this.clock.now()]);
+          await q('INSERT INTO hk_celebrations (user_id, kind, payload, created_at) VALUES ($1, $2, $3, $4)', [m.user_id, 'league', JSON.stringify({ week: week_key, rank: i + 1, from: tiers[was], to: tiers[tier], result: up ? 'promote' : down ? 'demote' : 'stay' }), this.clock.now()]);
         }
       }
     }
