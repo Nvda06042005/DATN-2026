@@ -1,16 +1,19 @@
-/** /portal – đăng nhập chung cho giáo viên và học sinh: đăng nhập xong tự chuyển tới trang của vai trò (giữ phiên của trang đó) */
-import { useRouter } from 'expo-router';
+/** /portal – đăng nhập chung cho học sinh, giáo viên và quản trị trường. */
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LoginScreen, PORTAL_PATH, PORTAL_TITLE, useDocumentTitle } from '@/components/auth';
+import { isSchoolRole, schoolRoleFromParam } from '@/lib/school-portal';
 import { saveToken } from '@/lib/storage';
 
 export default function PortalRoute() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ role?: string | string[]; notice?: string }>();
   useDocumentTitle(`${PORTAL_TITLE.app} – Đông A`);
   return (
     <LoginScreen
-      portal="app"
+      portal={schoolRoleFromParam(params.role)}
+      notice={typeof params.notice === 'string' ? params.notice : undefined}
       onLogin={async (token, user) => {
-        if (user.role !== 'teacher' && user.role !== 'student') return;
+        if (!isSchoolRole(user.role)) return;
         await saveToken(user.role, token);
         router.replace(PORTAL_PATH[user.role]);
       }}

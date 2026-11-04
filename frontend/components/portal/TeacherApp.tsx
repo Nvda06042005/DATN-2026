@@ -8,6 +8,7 @@ import { Pressable, View } from 'react-native';
 import * as learning from '@/api/learningApi';
 import { errorMessage } from '@/api/client';
 import { QuizStudio } from '@/components/admin/QuizStudio';
+import { AiQuizModal } from '@/components/admin/AiQuizModal';
 import { SandPresenter } from '@/components/admin/SandPresenter';
 import * as authApi from '@/api/authApi';
 import { AiTeacher } from '@/components/admin/AiTeacher';
@@ -46,10 +47,11 @@ const NAV = [
 ];
 
 /** Menu "+ Tạo" trên thanh công cụ: Quiz tương tác ngắn (trình soạn kiểu Kahoot), bộ đề từ ngân hàng câu hỏi, hành trình học, phòng thi đấu */
-const CreateMenu: React.FC<{ open: boolean; onClose: () => void; onPick: (what: 'quiz' | 'quizset' | 'journey' | 'live' | 'question') => void }> = ({ open, onClose, onPick }) => {
+const CreateMenu: React.FC<{ open: boolean; onClose: () => void; onPick: (what: 'quiz' | 'quizset' | 'journey' | 'live' | 'question' | 'ai_quiz') => void }> = ({ open, onClose, onPick }) => {
   const { c } = useTheme();
   const items = [
-    { id: 'quiz' as const, title: 'Quiz', desc: 'Bài học tương tác ngắn với các câu hỏi bình chọn và trắc nghiệm', icon: Sparkles },
+    { id: 'quiz' as const, title: 'Quiz (Kahoot-style)', desc: 'Bài học tương tác ngắn với các câu hỏi bình chọn và trắc nghiệm', icon: Sparkles },
+    { id: 'ai_quiz' as const, title: 'Soạn đề bằng AI', desc: 'Sinh bộ câu hỏi chuẩn SGK 7 & DVSKTT theo 5 nhóm chủ đề và ma trận Bloom', icon: Sparkles },
     { id: 'quizset' as const, title: 'Bộ đề', desc: 'Chọn câu hỏi có sẵn trong ngân hàng để làm bộ đề', icon: ListChecks },
     { id: 'question' as const, title: 'Câu hỏi', desc: 'Thêm câu hỏi nhiều dạng vào ngân hàng câu hỏi', icon: CircleHelp },
     { id: 'journey' as const, title: 'Hành trình học', desc: 'Thiết kế bản đồ nhiệm vụ cho lớp', icon: Route },
@@ -75,13 +77,15 @@ export const TeacherApp: React.FC<{ session: Session }> = ({ session }) => {
   const [tab, setTab] = useState<Tab>('classes');
   const [menu, setMenu] = useState(false);
   const [sand, setSand] = useState(false);
+  const [aiModal, setAiModal] = useState(false);
   const [studio, setStudio] = useState<number | null>(null);
   const [liveQuiz, setLiveQuiz] = useState<number | null>(null);
   const openStudio = async (fromQuizId?: number) => {
     try { const d = await learning.createStudioDraft(session.token, fromQuizId); setStudio(d.id); setTab('quizzes'); } catch (e) { toast(errorMessage(e)); }
   };
-  const pick = (what: 'quiz' | 'quizset' | 'journey' | 'live' | 'question') => {
+  const pick = (what: 'quiz' | 'quizset' | 'journey' | 'live' | 'question' | 'ai_quiz') => {
     setMenu(false);
+    if (what === 'ai_quiz') { setAiModal(true); return; }
     if (what === 'quiz') void openStudio();
     else { setStudio(null); setTab(what === 'quizset' ? 'quizzes' : what === 'journey' ? 'journeys' : what === 'live' ? 'live' : 'questions'); }
   };
@@ -105,6 +109,7 @@ export const TeacherApp: React.FC<{ session: Session }> = ({ session }) => {
           : <ShareInbox session={session} />}
       </AdminWorkspace>
       <CreateMenu open={menu} onClose={() => setMenu(false)} onPick={pick} />
+            {aiModal ? <AiQuizModal open={aiModal} onClose={() => setAiModal(false)} session={session} /> : null}
       {sand ? <SandPresenter session={session} onClose={() => setSand(false)} /> : null}
     </AdminUiContext.Provider>
   );

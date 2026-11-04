@@ -15,15 +15,16 @@ function checkSession(session: AuthSession, portal: Portal | 'app'): AuthSession
 export const loginToPortal = async (username: string, password: string, portal: Portal | 'app') =>
   checkSession(await apiRequest<AuthSession>('/api/auth/login', { body: { username, password, portal } }), portal);
 
-/** Đăng nhập cổng quản trị: tài khoản bật xác thực hai lớp (HK.AD.002) nhận mã thử thách thay cho phiên, rồi nhập mã ở bước hai */
-export const loginAdmin = async (username: string, password: string, portal: Portal): Promise<AuthSession | TwoFactorChallenge> => {
+/** Đăng nhập theo vai trò đã chọn; quản trị bật hai lớp phải hoàn tất thử thách trước khi có phiên. */
+export const loginWithPassword = async (username: string, password: string, portal: Portal): Promise<AuthSession | TwoFactorChallenge> => {
   const res = await apiRequest<AuthSession | TwoFactorChallenge>('/api/auth/login', { body: { username, password, portal } });
   return 'two_factor' in res ? res : checkSession(res, portal);
 };
+export const loginAdmin = loginWithPassword;
 export const verifyTwoFactor = async (challenge: string, code: string, portal: Portal) => checkSession(await apiRequest<AuthSession>('/api/auth/2fa/verify', { body: { challenge, code, portal } }), portal);
 
 /** Đăng nhập Google (HK.HS.002): chỉ học sinh có email Google trùng email trong hồ sơ */
-export const loginWithGoogle = (idToken: string) => apiRequest<AuthSession>('/api/auth/google', { body: { id_token: idToken, portal: 'student' } });
+export const loginWithGoogle = async (idToken: string) => checkSession(await apiRequest<AuthSession>('/api/auth/google', { body: { id_token: idToken, portal: 'student' } }), 'student');
 
 /** Đăng ký tự học (HK.HS.003): bước 1 gửi OTP tới email, bước 2 nhập OTP + họ tên + mật khẩu */
 export const requestSignup = (email: string) => apiRequest<{ ok: boolean }>('/api/auth/register/request', { body: { email } });

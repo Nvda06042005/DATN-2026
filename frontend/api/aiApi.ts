@@ -1,7 +1,7 @@
 /** API AI Tutor "Tiểu Tướng" (/api/ai, Sprint 9): hỏi đáp, giải thích, tóm tắt, nhập vai, lịch sử; công cụ giáo viên; quản trị. */
 import { apiBlob, apiRequest, apiUpload, type PickedFile } from '@/api/client';
 import type {
-  AiConversation, AiDoc, AiMessage, AiReply, AiReport, AiSettingsView, AiStatus, DraftResult, EvalSummary, IndexStatus, LimitsView, LogPage, PlanResult, Playground, SummaryOptions, SyncResult, TestResult, TopicsResult,
+  AiConversation, AiDoc, AiMessage, AiReply, AiReport, AiSettingsView, AiStatus, DraftResult, EvalSummary, IndexStatus, LimitsView, LogPage, PlanResult, Playground, SummaryOptions, SyncResult, TestResult, TopicsResult, TopicGroupsResponse, QuizGenerateRequest, QuizGenerateResponse,
 } from '@/types/ai';
 
 const base = '/api/ai';
@@ -26,6 +26,9 @@ export const aiReport = (token: string, messageId: number, reason: string) => ap
 export const aiQuestionDrafts = (token: string, body: { kind: string; id?: number; text?: string; count?: number }) => apiRequest<DraftResult>(`${base}/teacher/question-drafts`, { token, body });
 export const aiLessonPlan = (token: string, body: { journey_id?: number; battle_id?: number; minutes?: number; note?: string }) => apiRequest<PlanResult>(`${base}/teacher/lesson-plan`, { token, body });
 export const aiTopics = (token: string, days = 30) => apiRequest<TopicsResult>(`${base}/teacher/topics${qs({ days })}`, { token });
+export const aiTopicGroups = (token: string) => apiRequest<TopicGroupsResponse>(`${base}/teacher/topic-groups`, { token });
+export const aiGenerateQuiz = (token: string, body: QuizGenerateRequest) => apiRequest<QuizGenerateResponse>(`${base}/teacher/quiz-generate`, { token, body });
+
 
 // ---------------------------------------------------------------------- quản trị tổng
 export const aiSettings = (token: string) => apiRequest<AiSettingsView>(`${base}/admin/settings`, { token });

@@ -6,11 +6,13 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Platform, Pressable, View } from 'react-native';
-import { ArrowDown, ArrowUp, Check, Copy, Eye, GripVertical, ImagePlus, Palette, Pencil, Plus, Radio, Save, Send, Trash2, X } from 'lucide-react-native';
+import { ArrowDown, Sparkles, ArrowUp, Check, Copy, Eye, GripVertical, ImagePlus, Palette, Pencil, Plus, Radio, Save, Send, Trash2, X } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import * as classroom from '@/api/classroomApi';
 import { errorMessage } from '@/api/client';
 import { AdminSelect } from '@/components/admin/AdminSelect';
+import { AiQuizModal } from '@/components/admin/AiQuizModal';
+import type { GeneratedQuizQuestion } from '@/types/ai';
 import { useCampaignOptions } from '@/components/admin/ContentKit';
 import { ErrorNote, FormSheet, fromVn, Page, pickFile, toVn, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
@@ -177,6 +179,35 @@ export const QuizStudio: React.FC<{ session: Session; draftId: number; onClose: 
     set({ questions: next });
     setSel(to);
   };
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const handleInsertAiQuestions = (newQuestions: GeneratedQuizQuestion[]) => {
+    const converted: StudioQuestion[] = newQuestions.map((gq) => {
+      const opts = [...gq.options];
+      while (opts.length < 4) opts.push('');
+      return {
+        uid: newUid(),
+        question_id: null,
+        qtype: 'single' as const,
+        prompt: gq.question,
+        options: opts.slice(0, 4),
+        correct: [Math.min(3, Math.max(0, gq.correct_index))],
+        tf: true,
+        seconds: 30,
+        score_mode: 'standard' as const,
+        image_url: null,
+        video_url: null,
+        explanation: gq.explanation ? `${gq.explanation} [${gq.curriculum_reference}]` : gq.curriculum_reference,
+      };
+    });
+    let nextQs: StudioQuestion[];
+    if (qs.length === 1 && !qs[0].prompt.trim() && qs[0].options.every((o) => !o.trim())) {
+      nextQs = converted;
+    } else {
+      nextQs = [...qs, ...converted];
+    }
+    set({ questions: nextQs });
+    setSel(qs.length === 1 && !qs[0].prompt.trim() ? 0 : qs.length);
+  };
   const addQuestion = () => { set({ questions: [...qs, blankQuestion()] }); setSel(qs.length); };
   const copyQuestion = () => { set({ questions: [...qs.slice(0, idx + 1), { ...cur, uid: newUid(), question_id: null }, ...qs.slice(idx + 1)] }); setSel(idx + 1); };
   const removeQuestion = () => { const next = qs.filter((_, i) => i !== idx); set({ questions: next.length ? next : [blankQuestion()] }); setSel(Math.max(0, idx - 1)); setRemoving(false); };
@@ -253,6 +284,7 @@ export const QuizStudio: React.FC<{ session: Session; draftId: number; onClose: 
           ))}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             <Btn icon={Plus} title="Thêm câu" tone="son" size="sm" onPress={addQuestion} disabled={qs.length >= 50} testID="studio-add" />
+            <Btn icon={Sparkles} title="Soạn bằng AI" tone="ngoc" size="sm" onPress={() => setAiModalOpen(true)} disabled={qs.length >= 50} testID="studio-ai" />
             <Btn icon={Copy} label="Sao chép câu này" tone="giay" size="sm" onPress={copyQuestion} disabled={qs.length >= 50} testID="studio-copy" />
             <Btn icon={ArrowUp} label="Đưa câu lên" tone="giay" size="sm" onPress={() => move(idx, idx - 1)} disabled={idx === 0} testID="studio-up" />
             <Btn icon={ArrowDown} label="Đưa câu xuống" tone="giay" size="sm" onPress={() => move(idx, idx + 1)} disabled={idx === qs.length - 1} testID="studio-down" />
@@ -362,6 +394,14 @@ export const QuizStudio: React.FC<{ session: Session; draftId: number; onClose: 
       <ConfirmSheet open={removing} title={`Xóa câu ${idx + 1}?`} message="Câu hỏi bị gỡ khỏi Quiz này. Nếu đã lưu trước đó, câu vẫn còn trong ngân hàng câu hỏi." confirmLabel="Xóa câu" onCancel={() => setRemoving(false)} onConfirm={removeQuestion} />
       {media ? <MediaSheet session={session} target={media} initial={media === 'cover' ? { image: payload.cover_url, video: null } : { image: cur.image_url, video: cur.video_url }} onClose={() => setMedia(null)}
         onPick={(image, video) => { if (media === 'cover') set({ cover_url: image }); else setQ({ image_url: image, video_url: video }); setMedia(null); }} /> : null}
+            {aiModalOpen ? (
+        <AiQuizModal
+          open={aiModalOpen}
+          onClose={() => setAiModalOpen(false)}
+          session={session}
+          onInsertQuestions={handleInsertAiQuestions}
+        />
+      ) : null}
       {assign ? <AssignSheet session={session} quiz={assign} onClose={() => setAssign(null)} /> : null}
     </Page>
   );

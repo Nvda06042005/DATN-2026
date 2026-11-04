@@ -521,6 +521,13 @@ Cả hai tệp Excel (ver0.1: 348 chức năng, ver0.2: 408 chức năng) chỉ 
 
 Không thêm migration cho đợt này (nhật ký phát lại nằm trong cột `state` JSONB sẵn có của `hk_war_battles`; quyết sách dùng bảng `hk_game_runs` sẵn có). Vẫn còn "Một phần" và cần hạ tầng hoặc quyết định riêng: HK.GV.088 loại câu "Bình chọn" (đặc tả ghi "có thể mở rộng"), HK.GV.092 / HK.AD.038 / HK.AD.085 tải tệp, video và sprite lên (cần kho tệp), HK.AD.026 nối đủ 30 nhóm quyền còn lại vào máy chủ, HK.HS.054 / HK.GV.022 / HK.AD.037 kéo thả trên cảm ứng, HK.HS.074–077 + HK.SYS.005/006 + HK.AD.054 (bảng xếp hạng dùng Redis, giải đấu 4 hạng cố định), HK.HS.078 chia sẻ ảnh trên điện thoại, HK.HS.091 bộ lọc ngữ nghĩa cho nhập vai, HK.HS.116 / HK.HS.132 chân dung và hoạt ảnh chiêu thức (cần tranh vẽ), HK.SYS.013 (cố ý chỉ chọn câu, không sinh câu mới).
 
+## Đăng nhập chung và nút vào học (04/11/2026)
+
+- Thanh điều hướng công khai có nút **Vào học ngay**, khối cuối trang chủ cũng mở `/portal` thay cho liên kết câu hỏi thường gặp.
+- Học sinh, giáo viên và quản trị trường dùng cùng trang `/portal`, chọn vai trò bằng ba ô. Đăng nhập đúng tài khoản chuyển thẳng tới khu vực tương ứng; các URL khu vực cũ chuyển người chưa đăng nhập về trang chung và chọn sẵn vai trò. Quản trị tổng vẫn dùng `/admin` riêng.
+- Trang chung dùng ảnh thành lũy do người dùng cung cấp (`dang-nhap-thanh-luy.webp`), nền toàn màn hình, khung giữa hai cột trên máy tính và một cột trên điện thoại, chữ Manrope/Newsreader.
+- Giữ kiểm tra vai trò ở API, phiên riêng theo vai trò, xác thực hai lớp của quản trị trường, đổi mật khẩu bắt buộc, xác nhận hồ sơ học sinh, quên mật khẩu, đăng ký tự học và đăng nhập Google dành cho học sinh. Không thay đổi backend, schema hoặc migration cho đợt này.
+
 ## Chưa làm (ngoài Sprint 1–7) và đề xuất
 
 - Đặc tả ver0.2 (408 chức năng) đã có mã cho mọi mục. Còn "Một phần" / giới hạn: loại câu "Bình chọn" (HK.GV.088), tải video lên (HK.GV.092), sa bàn chỉ là sơ đồ minh họa chưa kiểm chứng, một số mục ở Sprint 11–12; nội dung khởi tạo (kho lịch sử, câu hỏi, trận đánh, sa bàn) vẫn là bản nháp chờ giáo viên Lịch sử kiểm chứng.
