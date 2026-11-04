@@ -3,7 +3,7 @@
  * /admin vẫn là cổng riêng của quản trị tổng. Mỗi vai trò giữ phiên riêng và kiểm tra lại bằng /api/auth/me.
  * Đổi mật khẩu mặc định và xác nhận hồ sơ lần đầu vẫn là bước bắt buộc trước khi truy cập nội dung.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Animated, Platform, View, useWindowDimensions } from 'react-native';
 import { Redirect } from 'expo-router';
 import { AlertTriangle, Eye, EyeOff, KeyRound, LogOut, User } from 'lucide-react-native';
@@ -189,19 +189,12 @@ export const LoginScreen: React.FC<LoginProps> = ({ portal, ...rest }) =>
   portal === 'root_admin' ? <AdminLogin portal={portal} {...rest} /> : <SchoolLoginWithRecovery initialRole={portal === 'app' ? 'student' : portal} {...rest} />;
 
 const SchoolLoginWithRecovery: React.FC<Omit<LoginProps, 'portal'> & { initialRole: SchoolRole }> = ({ initialRole, onLogin, notice }) => {
-  const toast = useToast();
   const [forgot, setForgot] = useState(false);
   const [signup, setSignup] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   return <>
     <SchoolLogin initialRole={initialRole} onLogin={onLogin} notice={flash ?? notice} onForgotPassword={() => setForgot(true)}
-      studentActions={<View style={{ alignItems: 'center', gap: 6 }}>
-        <Btn tone="ghost" size="sm" title="Đăng ký tự học bằng email" onPress={() => setSignup(true)} testID="signup-open" />
-        {GOOGLE_CLIENT_ID ? <GoogleButton onToken={async idToken => {
-          try { const res = await authApi.loginWithGoogle(idToken); await onLogin(res.token, res.user); }
-          catch (error) { toast(errorMessage(error, 'Đăng nhập Google thất bại.')); }
-        }} /> : null}
-      </View>}
+      studentActions={<Btn tone="ghost" size="sm" title="Đăng ký tự học" onPress={() => setSignup(true)} testID="signup-open" />}
     />
     {signup && <SignupSheet onClose={() => setSignup(false)} onDone={(token, user) => { setSignup(false); void onLogin(token, user); }} />}
     {forgot && <ForgotPasswordSheet onClose={() => setForgot(false)} onDone={() => { setForgot(false); setFlash('Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.'); }} />}
@@ -285,34 +278,6 @@ const ForgotPasswordSheet: React.FC<{ onClose: () => void; onDone: () => void }>
       )}
     </Sheet>
   );
-};
-
-// ---------------------------------------------------------------------- đăng nhập Google (HK.HS.002)
-/** OAuth client ID của ứng dụng web; để trống thì ẩn nút (EXPO_PUBLIC_GOOGLE_CLIENT_ID) */
-const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ?? '';
-
-/** Nút "Đăng nhập bằng Google" của Google Identity Services (chỉ web); mã trả về được máy chủ kiểm tra lại */
-const GoogleButton: React.FC<{ onToken: (idToken: string) => void }> = ({ onToken }) => {
-  const host = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !GOOGLE_CLIENT_ID) return undefined;
-    const render = () => {
-      const g = (window as unknown as { google?: { accounts: { id: { initialize: (o: object) => void; renderButton: (el: HTMLElement, o: object) => void } } } }).google;
-      const el = host.current;
-      if (!g || !el) return;
-      g.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: (r: { credential: string }) => onToken(r.credential) });
-      g.accounts.id.renderButton(el, { theme: 'outline', size: 'medium', text: 'signin_with', locale: 'vi' });
-    };
-    if ((window as unknown as { google?: unknown }).google) { render(); return undefined; }
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.onload = render;
-    document.head.appendChild(script);
-    return () => { script.onload = null; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  return Platform.OS === 'web' ? <div ref={host} aria-label="Đăng nhập bằng Google" style={{ minHeight: 44, display: 'flex', alignItems: 'center' }} /> : null;
 };
 
 // ---------------------------------------------------------------------- đăng ký tự học (HK.HS.003)

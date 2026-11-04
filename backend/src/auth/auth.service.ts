@@ -142,15 +142,19 @@ export class AuthService {
     }
     await this.assertCanLogin(user, username, portal);
     this.failed.delete(lockKey);
-    const second = await this.twofa.requirement(user);
-    if (second) {
-      // bước 2 (HK.AD.002): mật khẩu đúng nhưng cần thêm mã; trả mã thử thách 5 phút, chưa cấp phiên đăng nhập
-      if (second.method === 'email') await this.twofa.sendEmailCode(user);
-      const challenge = this.jwt.sign({ sub: user.id, purpose: '2fa', portal, pfp: passwordFingerprint(user.password_hash) }, { expiresIn: '5m' });
-      return { two_factor: true as const, method: second.method, challenge, expires_in: 300 };
-    }
+    const second = await this.twoFactorChallenge(user, portal);
+    if (second) return second;
     const upgraded = needsPasswordUpgrade(user.password_hash) && Buffer.byteLength(password, 'utf8') <= 72 ? await hashPassword(password) : null;
     return this.issueSession(user, username, portal, upgraded);
+  }
+
+  /** Mật khẩu và Google đều phải qua bước hai của tài khoản đã bật 2FA, chưa được cấp phiên. */
+  private async twoFactorChallenge(user: UserRow, portal: Portal) {
+    const second = await this.twofa.requirement(user);
+    if (!second) return null;
+    if (second.method === 'email') await this.twofa.sendEmailCode(user);
+    const challenge = this.jwt.sign({ sub: user.id, purpose: '2fa', portal, pfp: passwordFingerprint(user.password_hash) }, { expiresIn: '5m' });
+    return { two_factor: true as const, method: second.method, challenge, expires_in: 300 };
   }
 
   /** Bước 2 của đăng nhập có xác thực hai lớp: mã thử thách + mã 6 chữ số (hoặc mã dự phòng) → phiên đăng nhập */
@@ -183,16 +187,18 @@ export class AuthService {
     return { email: body.email.toLowerCase() };
   }
 
-  /** Đăng nhập Google: chỉ học sinh, và email Google phải trùng email đã khai báo trong hồ sơ (mỗi email chỉ thuộc một tài khoản) */
+  /** Google chỉ mở tài khoản học sinh/giáo viên/quản trị trường đã được cấp, không tạo hay nâng quyền tài khoản. */
   async googleLogin(idToken: string, portal: Portal) {
     const identity = await this.verifyGoogleToken(idToken);
     const user = await this.db.findByEmail(identity.email);
     const reject = async (): Promise<never> => {
       await this.security.login(user, identity.email, portal, 'credentials');
-      throw new UnauthorizedException('Email Google này chưa được khai báo trong hồ sơ học sinh. Hãy nhờ nhà trường cập nhật email hoặc đăng nhập bằng mật khẩu.');
+      throw new UnauthorizedException('Email Google này chưa gắn với tài khoản được cấp. Hãy nhờ quản lý cập nhật email hoặc đăng nhập bằng mật khẩu.');
     };
-    if (!user || user.role !== 'student') return reject();
+    if (!user || user.role === 'root_admin' || portal === 'root_admin') return reject();
     await this.assertCanLogin(user, identity.email, portal);
+    const second = await this.twoFactorChallenge(user, portal);
+    if (second) return second;
     return this.issueSession(user, identity.email, portal, null);
   }
 
