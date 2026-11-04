@@ -1,33 +1,26 @@
 /**
- * Phiên đăng nhập theo từng trang: học sinh (/hoc-sinh), giáo viên (/giao-vien), quản trị tổng (/admin),
- * quản trị trường (/school-manager-admin); /portal đăng nhập chung cho giáo viên và học sinh. Hai cổng quản trị tách biệt:
- * không có nút hay liên kết về trang chủ. Mỗi trang giữ token riêng (kho bảo mật của điện thoại hoặc localStorage trên web).
- * Lần đầu đăng nhập bằng mật khẩu mặc định: màn hình chính bị khóa, cửa sổ bắt buộc đặt mật khẩu mới; đổi mật khẩu làm token cũ hết hiệu lực.
- * Trang đăng nhập của hai cổng quản trị (kèm quên mật khẩu) nằm ở components/admin/AdminLogin.tsx; ở đây chỉ còn đăng nhập giáo viên/học sinh.
+ * Học sinh, giáo viên và quản trị trường đăng nhập chung tại /portal, rồi mở khu vực theo vai trò máy chủ trả về.
+ * /admin vẫn là cổng riêng của quản trị tổng. Mỗi vai trò giữ phiên riêng và kiểm tra lại bằng /api/auth/me.
+ * Đổi mật khẩu mặc định và xác nhận hồ sơ lần đầu vẫn là bước bắt buộc trước khi truy cập nội dung.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, View, useWindowDimensions, type TextInputInstance } from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { AlertTriangle, ChevronLeft, Eye, EyeOff, KeyRound, LogIn, LogOut, Presentation, User } from 'lucide-react-native';
+import { Animated, Platform, View, useWindowDimensions } from 'react-native';
+import { Redirect } from 'expo-router';
+import { AlertTriangle, Eye, EyeOff, KeyRound, LogOut, User } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { AdminLogin } from '@/components/admin/AdminLogin';
+import { SchoolLogin } from '@/components/school-login';
+import type { SchoolRole } from '@/lib/school-portal';
 import { BrandLogo, Mascot } from '@/components/art';
 import { ProfileSheet } from '@/components/profile';
-import { Avatar, Btn, Card, Chip, Field, Inset, PaperBg, Sheet, Spinner, Txt, useToast } from '@/components/ui';
-import { useShake } from '@/hooks/use-motion';
+import { Avatar, Btn, Card, Field, Inset, PaperBg, Sheet, Spinner, Txt, useToast } from '@/components/ui';
 import { useSystemBrand } from '@/hooks/use-system-brand';
 import { useTheme } from '@/hooks/use-theme';
 import { readToken, saveToken } from '@/lib/storage';
 import type { AuthRole, AuthUser, Portal, ProfileData, ProfilePatch } from '@/types/api';
 
-export const PORTAL_PATH: Record<Portal, '/hoc-sinh' | '/giao-vien' | '/admin' | '/school-manager-admin'> = {
-  student: '/hoc-sinh',
-  teacher: '/giao-vien',
-  root_admin: '/admin',
-  school_admin: '/school-manager-admin',
-};
+export { PORTAL_PATH } from '@/lib/school-portal';
 export const PORTAL_TITLE: Record<Portal | 'app', string> = {
   student: 'Trang học sinh',
   teacher: 'Trang giáo viên',
@@ -141,7 +134,10 @@ export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) 
       </View>
     );
   }
-  if (!user || !token) return <LoginScreen portal={portal} onLogin={start} notice={notice} />;
+  if (!user || !token) {
+    if (portal === 'root_admin') return <LoginScreen portal={portal} onLogin={start} notice={notice} />;
+    return <Redirect href={{ pathname: '/portal', params: { role: portal, ...(notice ? { notice } : {}) } }} />;
+  }
   const saved = (t: string, u: AuthUser) => {
     start(t, u);
     setChanging(false);
@@ -185,238 +181,31 @@ export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) 
   );
 };
 
-// ---------------------------------------------------------------------- đăng nhập
-/** Trang đăng nhập của người học: học sinh, giáo viên và /portal chung (hai cổng quản trị dùng AdminLogin) */
-type LearnerPortal = 'student' | 'teacher' | 'app';
+// ---------------------------------------------------------------------- đăng nhập chung
+type LoginProps = { portal: Portal | 'app'; onLogin: (token: string, user: AuthUser) => void | Promise<void>; notice?: string | null };
 
-const PORTAL_THEME: Record<LearnerPortal, { heading: string; sub: string; tone: 'son' | 'ngoc' | 'dong'; placeholder: string; panel: readonly [string, string, ...string[]]; panelTitle: string; panelText: string }> = {
-  app: {
-    heading: 'Đăng nhập học tập',
-    sub: 'Giáo viên và học sinh dùng tài khoản nhà trường cấp',
-    tone: 'dong',
-    placeholder: 'tên đăng nhập, email hoặc mã học sinh',
-    panel: ['#0b6cc0', '#0f4f8a', '#16253f'],
-    panelTitle: 'Hào Khí Đông A',
-    panelText: 'Một cổng đăng nhập cho giáo viên và học sinh: hệ thống tự đưa bạn tới đúng trang của mình.',
-  },
-  student: {
-    heading: 'Học sinh đăng nhập',
-    sub: 'Dùng tài khoản nhà trường cấp cho em, hoặc đăng ký tự học',
-    tone: 'son',
-    placeholder: 'tên đăng nhập, email hoặc mã học sinh',
-    panel: ['#b91c1c', '#991b1b', '#7f1d1d'],
-    panelTitle: 'Học lịch sử cùng Hào Khí Đông A',
-    panelText: 'Tham gia lớp bằng mã giáo viên cung cấp và khám phá ba cuộc kháng chiến chống Nguyên – Mông thời Trần.',
-  },
-  teacher: {
-    heading: 'Giáo viên đăng nhập',
-    sub: 'Dùng tài khoản quản trị viên nhà trường cấp',
-    tone: 'ngoc',
-    placeholder: 'tên đăng nhập hoặc email',
-    panel: ['#0b6cc0', '#0f4f8a', '#16253f'],
-    panelTitle: 'Không gian giáo viên',
-    panelText: 'Xem các lớp được phân công, mã tham gia lớp và hồ sơ cá nhân.',
-  },
-};
-
-const PortalArt: React.FC<{ portal: LearnerPortal; size?: number }> = ({ portal, size = 1 }) =>
-  portal === 'teacher' ? (
-    <View style={{ alignItems: 'center' }}>
-      <View style={{ width: 104 * size, height: 104 * size, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-        <Presentation size={60 * size} color="#ffffff" />
-      </View>
-      <Mascot size={104 * size} accessory="scholar" mood="happy" style={{ marginTop: -22 }} />
-    </View>
-  ) : (
-    <Mascot size={190 * size} accessory="conical" mood="excited" bob />
-  );
-
-type LoginProps = { portal: Portal | 'app'; onLogin: (token: string, user: AuthUser) => void; notice?: string | null };
-
-/** Đăng nhập một trang: hai cổng quản trị có trang riêng (AdminLogin); giáo viên, học sinh và /portal dùng màn LearnerLogin */
+/** Quản trị tổng vẫn dùng cổng riêng; ba vai trò của nhà trường dùng cùng một biểu mẫu. */
 export const LoginScreen: React.FC<LoginProps> = ({ portal, ...rest }) =>
-  isAdminPortal(portal) ? <AdminLogin portal={portal} {...rest} /> : <LearnerLogin portal={portal} {...rest} />;
+  portal === 'root_admin' ? <AdminLogin portal={portal} {...rest} /> : <SchoolLoginWithRecovery initialRole={portal === 'app' ? 'student' : portal} {...rest} />;
 
-const LearnerLogin: React.FC<Omit<LoginProps, 'portal'> & { portal: LearnerPortal }> = ({ portal, onLogin, notice }) => {
-  const { c } = useTheme();
-  const router = useRouter();
-  const { width } = useWindowDimensions();
-  const theme = PORTAL_THEME[portal];
-  const wide = width >= 1000;
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [show, setShow] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [tries, setTries] = useState(0);
+const SchoolLoginWithRecovery: React.FC<Omit<LoginProps, 'portal'> & { initialRole: SchoolRole }> = ({ initialRole, onLogin, notice }) => {
+  const toast = useToast();
   const [forgot, setForgot] = useState(false);
   const [signup, setSignup] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
-  const passwordRef = useRef<TextInputInstance>(null);
-  const shake = useShake(error ? tries : null);
-
-  const submit = async () => {
-    if (!username.trim() || !password) {
-      setError('Hãy nhập tên đăng nhập và mật khẩu.');
-      setTries((n) => n + 1);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await authApi.loginToPortal(username.trim(), password, portal);
-      onLogin(res.token, res.user);
-    } catch (err) {
-      setError(errorMessage(err, 'Đăng nhập thất bại.'));
-      setTries((n) => n + 1);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const others = (['student', 'teacher'] as Portal[]).filter((p) => p !== portal);
-
-  return (
-    <View style={{ flex: 1, flexDirection: 'row' }}>
-      <PaperBg />
-      {wide && (
-        <LinearGradient colors={theme.panel} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ flex: 1, padding: 40, justifyContent: 'space-between', overflow: 'hidden' }}>
-          <Pressable onPress={() => router.replace('/')} accessibilityRole="link" accessibilityLabel="Về trang chủ" style={{ alignSelf: 'flex-start' }}>
-            <BrandLogo light subtitle={PORTAL_TITLE[portal]} />
-          </Pressable>
-          <View style={{ alignItems: 'center', gap: 10 }}>
-            <PortalArt portal={portal} />
-            <Txt f="displayHeavy" size={30} color="#ffffff" center>
-              {theme.panelTitle}
-            </Txt>
-            <Txt f="bold" color="rgba(255,255,255,0.85)" center style={{ maxWidth: 440 }}>
-              {theme.panelText}
-            </Txt>
-          </View>
-          <Txt f="bold" size={12} color="rgba(255,255,255,0.8)">
-            © Hào Khí Đông A · Học lịch sử qua trải nghiệm
-          </Txt>
-        </LinearGradient>
-      )}
-      <View style={{ flex: 1, maxWidth: wide ? 560 : undefined }}>
-        <Animated.ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 20, paddingVertical: 40 }} keyboardShouldPersistTaps="handled">
-          <View style={{ width: '100%', maxWidth: 400, alignSelf: 'center', gap: 14 }}>
-            <Btn title="Trang chủ" icon={ChevronLeft} tone="ghost" size="sm" onPress={() => router.replace('/')} />
-            {!wide && (
-              <View style={{ alignItems: 'center' }}>
-                <PortalArt portal={portal} size={0.7} />
-              </View>
-            )}
-            <Chip
-              text={PORTAL_TITLE[portal].toUpperCase()}
-              bg={portal === 'student' ? c.sonNhat : portal === 'teacher' ? c.ngocNhat : c.dongNhat}
-              fg={portal === 'student' ? c.sonChu : portal === 'teacher' ? c.ngocChu : c.dongChu}
-              style={{ alignSelf: 'center' }}
-            />
-            <View>
-              <Txt f="displayHeavy" size={30} center accessibilityRole="header">
-                {theme.heading}
-              </Txt>
-              <Txt f="semibold" size={14} color={c.muc2} center>
-                {theme.sub}
-              </Txt>
-            </View>
-            {(notice || flash) && (
-              <Inset style={{ backgroundColor: c.thuyNhat }}>
-                <Txt f="bold" size={14} color={c.thuyChu} accessibilityLiveRegion="polite">
-                  {flash ?? notice}
-                </Txt>
-              </Inset>
-            )}
-            <Field
-              label="Tên đăng nhập, email hoặc mã học sinh"
-              nativeID="login-username"
-              value={username}
-              onChangeText={setUsername}
-              placeholder={theme.placeholder}
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="username"
-              textContentType="username"
-              returnKeyType="next"
-              onSubmitEditing={() => passwordRef.current?.focus()}
-              autoFocus={Platform.OS === 'web'}
-            />
-            <View>
-              <Field
-                label="Mật khẩu"
-                nativeID="login-password"
-                inputRef={passwordRef}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Mật khẩu"
-                secureTextEntry={!show}
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="current-password"
-                textContentType="password"
-                returnKeyType="go"
-                onSubmitEditing={submit}
-                inputStyle={{ paddingRight: 52 }}
-              />
-              <View style={{ position: 'absolute', right: 2, bottom: 2 }}>
-                <Btn tone="ghost" size="sm" icon={show ? EyeOff : Eye} label={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} onPress={() => setShow((v) => !v)} />
-              </View>
-            </View>
-            {error && (
-              <Animated.View style={shake}>
-                <Inset style={{ backgroundColor: c.sonNhat, flexDirection: 'row', gap: 8 }}>
-                  <AlertTriangle size={16} color={c.sonChu} style={{ marginTop: 2 }} />
-                  <Txt f="bold" size={14} color={c.sonChu} style={{ flex: 1 }} accessibilityRole="alert">
-                    {error}
-                  </Txt>
-                </Inset>
-              </Animated.View>
-            )}
-            <Btn title={loading ? 'Đang đăng nhập…' : 'Đăng nhập'} icon={LogIn} tone={theme.tone} size="lg" full loading={loading} onPress={submit} testID="login-submit" />
-            <Inset pad={16} style={{ gap: 6 }}>
-              <Txt size={14} color={c.muc2}>
-                <Txt f="bold" size={14}>
-                  Chưa có tài khoản?{' '}
-                </Txt>
-                Tài khoản do quản trị viên nhà trường cấp. Học sinh chưa thuộc trường có thể đăng ký tự học bằng email.
-              </Txt>
-              <Txt size={14} color={c.muc2}>
-                <Txt f="bold" size={14}>
-                  Quên mật khẩu?{' '}
-                </Txt>
-                Nhận mã xác thực qua email, hoặc nhờ quản trị viên đặt lại.
-              </Txt>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-                <Btn tone="ghost" size="sm" title="Quên mật khẩu? Nhận mã qua email" onPress={() => setForgot(true)} testID="forgot-open" />
-              </View>
-              {portal !== 'teacher' && (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-                  <Btn tone="ghost" size="sm" title="Đăng ký tự học bằng email" onPress={() => setSignup(true)} testID="signup-open" />
-                  {GOOGLE_CLIENT_ID ? <GoogleButton onToken={async (idToken) => { try { const res = await authApi.loginWithGoogle(idToken); onLogin(res.token, res.user); } catch (err) { setError(errorMessage(err, 'Đăng nhập Google thất bại.')); setTries((n) => n + 1); } }} /> : null}
-                </View>
-              )}
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-                {others.map((p) => (
-                  <Btn key={p} tone="ghost" size="sm" title={p === 'student' ? 'Em là học sinh? →' : 'Bạn là giáo viên? →'} onPress={() => router.replace(PORTAL_PATH[p])} />
-                ))}
-              </View>
-            </Inset>
-          </View>
-        </Animated.ScrollView>
-      </View>
-      {signup && <SignupSheet onClose={() => setSignup(false)} onDone={(token, user) => { setSignup(false); onLogin(token, user); }} />}
-      {forgot && (
-        <ForgotPasswordSheet
-          onClose={() => setForgot(false)}
-          onDone={() => {
-            setForgot(false);
-            setFlash('Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.');
-          }}
-        />
-      )}
-    </View>
-  );
+  return <>
+    <SchoolLogin initialRole={initialRole} onLogin={onLogin} notice={flash ?? notice} onForgotPassword={() => setForgot(true)}
+      studentActions={<View style={{ alignItems: 'center', gap: 6 }}>
+        <Btn tone="ghost" size="sm" title="Đăng ký tự học bằng email" onPress={() => setSignup(true)} testID="signup-open" />
+        {GOOGLE_CLIENT_ID ? <GoogleButton onToken={async idToken => {
+          try { const res = await authApi.loginWithGoogle(idToken); await onLogin(res.token, res.user); }
+          catch (error) { toast(errorMessage(error, 'Đăng nhập Google thất bại.')); }
+        }} /> : null}
+      </View>}
+    />
+    {signup && <SignupSheet onClose={() => setSignup(false)} onDone={(token, user) => { setSignup(false); void onLogin(token, user); }} />}
+    {forgot && <ForgotPasswordSheet onClose={() => setForgot(false)} onDone={() => { setForgot(false); setFlash('Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.'); }} />}
+  </>;
 };
 
 // ---------------------------------------------------------------------- quên mật khẩu bằng OTP (giáo viên, học sinh; HK.HS.005, HK.GV.002)

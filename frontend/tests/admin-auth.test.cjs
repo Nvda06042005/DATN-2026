@@ -23,7 +23,7 @@ function loadAuth({ baseUrl = 'https://api.example.test/', respond = () => ({}) 
     run(load, module, module.exports, { env: { EXPO_PUBLIC_API_URL: baseUrl } }, fetchMock, AbortController, setTimeout, clearTimeout);
     return module.exports;
   };
-  return { auth: load('@/api/authApi'), client: load('@/api/client'), requests };
+  return { auth: load('@/api/authApi'), client: load('@/api/client'), portals: load('@/lib/school-portal'), requests };
 }
 
 const rootUser = { id: 1, username: 'test-root', full_name: 'Test Root', role: 'root_admin', must_change_password: false };
@@ -84,4 +84,48 @@ test('Hiển thị lỗi xác thực và lỗi mất kết nối', async () => {
   await assert.rejects(invalid.auth.loginToPortal('test-root', 'invalid', 'root_admin'), error => error.status === 401 && error.message === 'Thông tin đăng nhập chưa đúng.');
   const offline = loadAuth({ respond: () => { throw new Error('offline'); } });
   await assert.rejects(offline.auth.getMe('test-token'), error => error.status === 0);
+});
+
+for (const role of ['student', 'teacher', 'school_admin']) {
+  test(`Đăng nhập chung gửi đúng vai trò ${role} và nhận phiên tương ứng`, async () => {
+    const user = { ...rootUser, id: 10, username: 'school-test', role };
+    const session = { token: 'school-test-token', user };
+    const { auth, requests } = loadAuth({ respond: () => session });
+    assert.deepEqual(await auth.loginWithPassword('school-test', 'example-password1', role), session);
+    assert.equal(JSON.parse(requests[0].body).portal, role);
+  });
+  test(`Chọn ${role} không nhận được phiên quản trị tổng`, async () => {
+    const { auth } = loadAuth({ respond: () => rootSession });
+    await assert.rejects(auth.loginWithPassword('school-test', 'example-password1', role), error => error.status === 403);
+  });
+}
+
+test('Quản trị trường có hai lớp chưa nhận token trước khi xác thực và phải giữ đúng cổng', async () => {
+  const challenge = { two_factor: true, method: 'totp', challenge: 'synthetic-challenge', expires_in: 300 };
+  const user = { ...rootUser, role: 'school_admin' };
+  const { auth, requests } = loadAuth({ respond: url => url.endsWith('/2fa/verify') ? { token: 'school-test-token', user } : challenge });
+  const pending = await auth.loginWithPassword('school-test', 'example-password1', 'school_admin');
+  assert.deepEqual(pending, challenge);
+  assert.equal(pending.token, undefined);
+  assert.deepEqual(await auth.verifyTwoFactor(pending.challenge, '123456', 'school_admin'), { token: 'school-test-token', user });
+  assert.deepEqual(JSON.parse(requests[1].body), { challenge: 'synthetic-challenge', code: '123456', portal: 'school_admin' });
+  const wrongSession = loadAuth({ respond: () => ({ token: 'other-token', user: { ...user, role: 'teacher' } }) });
+  await assert.rejects(wrongSession.auth.verifyTwoFactor('synthetic-challenge', '123456', 'school_admin'), error => error.status === 403);
+});
+
+test('Lựa chọn vai trò từ URL chỉ nhận ba vai trò nhà trường và trỏ đúng khu vực', () => {
+  const { portals } = loadAuth();
+  assert.deepEqual(portals.SCHOOL_ROLES, ['student', 'teacher', 'school_admin']);
+  assert.equal(portals.schoolRoleFromParam('teacher'), 'teacher');
+  assert.equal(portals.schoolRoleFromParam(['school_admin', 'root_admin']), 'school_admin');
+  for (const value of ['root_admin', 'admin', '', undefined]) assert.equal(portals.schoolRoleFromParam(value), 'student');
+  assert.equal(portals.PORTAL_PATH.student, '/hoc-sinh');
+  assert.equal(portals.PORTAL_PATH.teacher, '/giao-vien');
+  assert.equal(portals.PORTAL_PATH.school_admin, '/school-manager-admin');
+  assert.equal(portals.isSchoolRole('root_admin'), false);
+});
+
+test('Đăng nhập Google không nhận phiên của giáo viên hay quản trị', async () => {
+  const { auth } = loadAuth({ respond: () => rootSession });
+  await assert.rejects(auth.loginWithGoogle('synthetic-google-credential'), error => error.status === 403);
 });

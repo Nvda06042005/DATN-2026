@@ -263,10 +263,11 @@ export const Header: React.FC<{
 }) => {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { height: windowHeight } = useWindowDimensions();
-  const wide = WEB && width >= (items.length > 4 ? 1100 : 1000);
+  const wide = WEB && width >= (items.length > 4 ? 1280 : 1100);
   const showNavigation = !revealOnScroll || stuck;
-  const compactNav = width < 1240;
+  const compactNav = width < 1440;
   const [menuOpen, setMenuOpen] = useState(false);
   const menuVisible = menuOpen && showNavigation && !wide;
   const menuButton = useRef<ComponentRef<typeof Pressable>>(null);
@@ -292,7 +293,7 @@ export const Header: React.FC<{
   /** Thu gọn khoảng cách giữa các nút khi màn hình hẹp. */
   const small = width < 430;
   const clamp = { extrapolate: 'clamp' } as const;
-  const maxWidth = scrollY.interpolate({ inputRange: [0, 120], outputRange: [1240, 1180], ...clamp });
+  const maxWidth = scrollY.interpolate({ inputRange: [0, 120], outputRange: [1400, 1320], ...clamp });
   const height = scrollY.interpolate({ inputRange: [0, 80], outputRange: [64, 56], ...clamp });
   const marginTop = scrollY.interpolate({ inputRange: [0, 80], outputRange: [16, 8], ...clamp });
   const bg = scrollY.interpolate({ inputRange: [0, 60], outputRange: ['rgba(255,255,255,0)', c.kinhDac], ...clamp });
@@ -341,6 +342,9 @@ export const Header: React.FC<{
               <VietnamFlag width={small ? 30 : 34} />
             </View>
           )}
+          <Pressable testID="home-login" accessibilityRole="link" accessibilityLabel="Vào học ngay" onPress={() => { setMenuOpen(false); router.push('/portal'); }} style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: small ? 12 : 18, borderRadius: 999, backgroundColor: pressed ? c.logoInk : c.den, justifyContent: 'center' })}>
+            <Txt f="bold" size={small ? 12 : 14} color={c.trang} numberOfLines={1}>Vào học ngay</Txt>
+          </Pressable>
           {showNavigation && !wide && (
             <Pressable ref={menuButton} testID="home-menu-toggle" accessibilityRole="button" accessibilityLabel={menuOpen ? 'Đóng menu điều hướng' : 'Mở menu điều hướng'} accessibilityState={{ expanded: menuOpen }} aria-expanded={menuOpen} aria-controls="home-nav-panel" onPress={() => setMenuOpen((open) => !open)} style={{ width: 44, height: 44, borderRadius: 999, backgroundColor: c.the, alignItems: 'center', justifyContent: 'center' }}>
               {menuOpen ? <X size={22} color={c.logoInk} /> : <Menu size={22} color={c.logoInk} />}
@@ -1095,7 +1099,7 @@ const ClosingSection: React.FC<{ wide: boolean }> = ({ wide }) => {
       <View style={{ alignItems: 'center', gap: 22 }}>
         <ClosingTitle wide={wide} />
         <View style={{ alignSelf: 'center' }}>
-          <Cta title="Xem câu hỏi thường gặp" tone="trang" arrow lg onPress={() => router.push('/cau-hoi-thuong-gap')} testID="home-faq-bottom" />
+          <Cta title="Vào học ngay" tone="trang" arrow lg onPress={() => router.push('/portal')} testID="home-login-bottom" />
         </View>
       </View>
       </Reveal>
