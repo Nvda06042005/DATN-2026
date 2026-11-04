@@ -5,7 +5,7 @@ import { MailService } from '../admin/mail.service';
 import { config } from '../config';
 import { SecurityService } from './security.service';
 import { TwoFactorService } from '../platform/twofa.service';
-import { DatabaseService, nowIso, Role, searchText, UserRow } from '../database/database.service';
+import { DatabaseService, Role, searchText, UserRow } from '../database/database.service';
 import { hashPassword, needsPasswordUpgrade, passwordFingerprint, verifyPassword } from './passwords';
 
 export type PublicUser = Omit<UserRow, 'password_hash' | 'token_version'>;
@@ -35,7 +35,7 @@ function wrongPortal(role: Role, portal: Portal): string {
 const MAX_FAILS = 5;
 const LOCK_MS = 15 * 60_000;
 
-/** Quên mật khẩu / đăng ký tự học: mã OTP 6 chữ số hiệu lực 5 phút; mỗi định danh chỉ được yêu cầu 3 lần trong 15 phút (quá số lần vẫn trả lời như bình thường) */
+/** Quên mật khẩu: mã OTP 6 chữ số hiệu lực 5 phút; mỗi định danh chỉ được yêu cầu 3 lần trong 15 phút (quá số lần vẫn trả lời như bình thường) */
 const OTP_TTL_MIN = 5;
 const RESET_MAX_ASKS = 3;
 const RESET_WINDOW_MS = 15 * 60_000;
@@ -275,37 +275,6 @@ export class AuthService {
     if (!user || !(await this.db.consumePasswordOtp(user.id, hashOtp(user.id, otp)))) throw new BadRequestException(OTP_INVALID);
     await this.db.setPassword(user.id, passwordHash, false);
     this.failed.delete(`u${user.id}`);
-  }
-
-  // ------------------------------------------------------------------ đăng ký tự học (HK.HS.003)
-  /** Bước 1: gửi OTP tới email. Luôn trả lời giống nhau, kể cả khi email đã có tài khoản (không lộ email nào đã đăng ký) */
-  async requestSignup(rawEmail: string): Promise<void> {
-    if (!this.mail.configured) throw new ServiceUnavailableException('Máy chủ chưa cấu hình gửi thư nên chưa gửi được mã xác thực.');
-    const email = rawEmail.trim().toLowerCase();
-    if (this.tooManyResets(`signup:${email}`)) return;
-    const taken = (await this.db.query('SELECT 1 FROM app_users WHERE lower(email) = $1 AND deleted_at IS NULL', [email])).length > 0;
-    if (taken) return;
-    const otp = String(randomInt(0, 1_000_000)).padStart(6, '0');
-    void (async () => {
-      await this.db.createSignupOtp(email, hashOtp(email, otp), OTP_TTL_MIN);
-      await this.mail.sendPasswordOtp(email, email, otp, OTP_TTL_MIN, 'signup');
-    })().catch(() => this.logger.warn('Không gửi được thư mã đăng ký'));
-  }
-
-  /** Bước 2: nhập OTP, họ tên và mật khẩu; tạo tài khoản học sinh tự học (không thuộc trường, không có lớp) và đăng nhập luôn */
-  async completeSignup(rawEmail: string, otp: string, fullName: string, password: string, nickname?: string | null) {
-    const email = rawEmail.trim().toLowerCase();
-    const passwordHash = await hashPassword(password);
-    const user = await this.db.tx(async q => {
-      if (!(await this.db.consumeSignupOtp(email, hashOtp(email, otp), q))) throw new BadRequestException(OTP_INVALID);
-      if ((await q('SELECT 1 FROM app_users WHERE lower(email) = $1 AND deleted_at IS NULL', [email])).length) throw new ConflictException('Email này đã được dùng cho một tài khoản khác');
-      if (await this.db.getByUsername(email, q)) throw new ConflictException('Email này đã được dùng cho một tài khoản khác');
-      return this.db.createUser({
-        username: email, full_name: fullName, role: 'student', class_name: null, password_hash: passwordHash, must_change_password: false,
-        email, nickname: nickname?.trim() || null, self_registered: true, profile_confirmed_at: nowIso(),
-      }, q);
-    });
-    return this.issueSession(user, email, 'student', null);
   }
 
   // ------------------------------------------------------------------ hồ sơ cá nhân

@@ -1,6 +1,6 @@
 /**
  * Sprint 1 (HK.HS.001–010, HK.GV.001–006, HK.QT.001–005, HK.AD.001/003–005/011–016/018–025, HK.SYS.015):
- * xác thực, quên mật khẩu bằng OTP, hồ sơ, đăng ký tự học, đăng nhập Google, tham gia lớp bằng mã, quản lý trường và người dùng.
+ * xác thực, quên mật khẩu bằng OTP, hồ sơ, chặn đăng ký tự học, đăng nhập Google, tham gia lớp bằng mã, quản lý trường và người dùng.
  * Chạy HTTP thật trên PostgreSQL tạm; email chỉ ghi nhận trong bộ nhớ.
  */
 import { activate, adminLogin, call, hasPostgres, Started, startApp } from './harness';
@@ -295,24 +295,16 @@ async function newSchool(code: string, name: string, adminName: string, email: s
   });
 
   // ------------------------------------------------------------------ HK.HS.003
-  test('HK.HS.003 đăng ký tự học bằng email + OTP: tài khoản không thuộc trường, không vào lớp được; email đã dùng không lộ ra', async () => {
-    expect((await api('POST', '/api/auth/register/request', { email: 'tuhoc@example.com' }, '')).body).toEqual({ ok: true });
-    const code = await otpFor('tuhoc@example.com');
-    const body = { email: 'tuhoc@example.com', otp: code, full_name: 'Học Sinh Tự Học', nickname: 'Tự Học', password: 'Tu-hoc-12345' };
-    expect((await api('POST', '/api/auth/register/verify', { ...body, otp: code === '000000' ? '111111' : '000000' }, '')).status).toBe(400);
-    expect((await api('POST', '/api/auth/register/verify', { ...body, password: 'ngan1' }, '')).status).toBe(422);
-    const done = await api('POST', '/api/auth/register/verify', body, '');
-    expect(done.status).toBe(200);
-    expect(done.body.user).toMatchObject({ role: 'student', school_id: null, self_registered: true, must_change_password: false, email: 'tuhoc@example.com', nickname: 'Tự Học' });
-    expect((await api('POST', '/api/auth/register/verify', body, '')).status).toBe(400); // OTP dùng một lần
-    expect((await login('tuhoc@example.com', 'Tu-hoc-12345', 'student')).status).toBe(200);
-    const join = await call(s.base, 'POST', '/api/student/join-class', { code: classA.join_code }, done.body.token);
-    expect(join.status).toBe(403);
-    // Email đã có tài khoản: vẫn trả {ok:true} nhưng không gửi mã
-    const before = mail.sent.length;
-    expect((await api('POST', '/api/auth/register/request', { email: 'qt.a@example.edu.vn' }, '')).body).toEqual({ ok: true });
-    await new Promise((r) => setTimeout(r, 300));
-    expect(mail.sent.length).toBe(before);
+  test('Đã bỏ đăng ký tự học: API cũ không gửi OTP hay tạo tài khoản dù gọi trực tiếp', async () => {
+    const beforeUsers = (await db.query('SELECT count(*)::int AS n FROM app_users'))[0].n;
+    const beforeMail = mail.sent.length;
+    for (const email of ['tuhoc@example.com', 'qt.a@example.edu.vn']) {
+      expect((await api('POST', '/api/auth/register/request', { email }, '')).status).toBe(404);
+      const body = { email, otp: '123456', full_name: 'Học Sinh Tự Học', password: 'Tu-hoc-12345' };
+      expect((await api('POST', '/api/auth/register/verify', body, '')).status).toBe(404);
+    }
+    expect((await db.query('SELECT count(*)::int AS n FROM app_users'))[0].n).toBe(beforeUsers);
+    expect(mail.sent.length).toBe(beforeMail);
   });
 
   // ------------------------------------------------------------------ HK.HS.008
