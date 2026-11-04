@@ -46,3 +46,52 @@ export interface LimitsView { defaults: { daily_per_user: number; daily_per_scho
 
 export const REFUSAL_TEXT: Record<string, string> = { out_of_scope: 'Ngoài phạm vi', unsafe: 'Nội dung không phù hợp', quota: 'Hết lượt', not_configured: 'Chưa bật mô hình' };
 export const MODE_TEXT: Record<string, string> = { tutor: 'Hỏi đáp', roleplay: 'Nhập vai', teacher: 'Hỏi đáp', explain: 'Giải thích câu sai', summary: 'Tóm tắt', questions: 'Soạn câu hỏi', plan: 'Kịch bản tiết học' };
+
+
+// ---------------------------------------------------------------------- Khảo thí & Soạn đề chuẩn SGK 7
+export interface TopicGroupMeta {
+  id: string;
+  title: string;
+  short_title: string;
+  badge: string;
+  description: string;
+  sgk_reference: string;
+  unit_ids: string[];
+}
+
+export interface TopicGroupsResponse {
+  total_groups: number;
+  groups: TopicGroupMeta[];
+}
+
+export interface GeneratedQuizQuestion {
+  id: string;
+  question: string;
+  options: string[];
+  correct_index: number;
+  cognitive_level: string;
+  explanation: string;
+  curriculum_reference: string;
+  topic_group_id: string;
+  topic_group_name: string;
+  unit_id?: string;
+  topic?: string;
+}
+
+export interface QuizGenerateRequest {
+  topic_group_id?: string;
+  topic?: string;
+  cognitive_level?: string;
+  num_questions?: number;
+  unit_ids?: string[];
+}
+
+export interface QuizGenerateResponse {
+  topic: string;
+  topic_group_id: string;
+  topic_group_name: string;
+  total_generated: number;
+  questions: GeneratedQuizQuestion[];
+  mode?: 'llm' | 'grounded';
+  generation_notes?: string;
+}

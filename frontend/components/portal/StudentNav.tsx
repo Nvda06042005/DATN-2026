@@ -1,7 +1,7 @@
 /**
  * Thanh menu chính của học sinh (HK.HS.125): thanh bên trái trên máy tính, thanh dưới trên điện thoại.
- * Mục chính: Học, Chiến dịch, Bộ thẻ, Luyện tập, Bảng xếp hạng, Nhiệm vụ, Cửa hàng, Hồ sơ, Xem thêm; chấm đỏ báo mục có việc mới.
- * Điện thoại chỉ đặt 5 mục ở thanh dưới (Học, Chiến dịch, Bộ thẻ, Luyện tập, Xem thêm); các mục còn lại nằm trong "Xem thêm".
+ * Mục chính: Học, Luyện tập, Bảng xếp hạng, Nhiệm vụ, Trợ lý AI, Cửa hàng, Hồ sơ, Chiến dịch, Xem thêm; chấm đỏ báo mục có việc mới.
+ * Chuẩn bố cục Duolingo với AI Hub nằm trực tiếp trên thanh điều hướng chính.
  */
 import React, { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
@@ -17,18 +17,19 @@ export type Tab =
   | 'library' | 'timeline' | 'map' | 'sources' | 'class' | 'live' | 'battles' | 'character' | 'ai' | 'study' | 'survey' | 'help';
 
 interface NavItem { id: Tab; label: string; icon: IconType }
-/** Chín mục của thanh menu chính theo đặc tả (mục thứ chín "Xem thêm" mở các mục còn lại) */
+/** Các mục của thanh menu chính theo đặc tả và phong cách Duolingo */
 export const NAV_MAIN: NavItem[] = [
   { id: 'learn', label: 'Học', icon: GraduationCap },
-  { id: 'home', label: 'Chiến dịch', icon: Route },
-  { id: 'collection', label: 'Bộ thẻ', icon: Award },
   { id: 'practice', label: 'Luyện tập', icon: Dumbbell },
   { id: 'ranking', label: 'Bảng xếp hạng', icon: Trophy },
   { id: 'quests', label: 'Nhiệm vụ', icon: ListChecks },
+  { id: 'ai', label: 'Trợ lý AI', icon: Sparkles },
   { id: 'shop', label: 'Cửa hàng', icon: ShoppingBag },
   { id: 'mine', label: 'Hồ sơ', icon: UserRound },
+  { id: 'home', label: 'Chiến dịch', icon: Route },
 ];
 export const NAV_MORE: NavItem[] = [
+  { id: 'collection', label: 'Bộ thẻ', icon: Award },
   { id: 'study', label: 'Gợi ý học tập', icon: Lightbulb },
   { id: 'library', label: 'Thư viện', icon: LibraryIcon },
   { id: 'timeline', label: 'Dòng thời gian', icon: HistoryIcon },
@@ -38,12 +39,11 @@ export const NAV_MORE: NavItem[] = [
   { id: 'live', label: 'Thi đấu', icon: Radio },
   { id: 'battles', label: 'Trận đánh', icon: Swords },
   { id: 'character', label: 'Nhân vật', icon: Shield },
-  { id: 'ai', label: 'Tiểu Tướng', icon: Sparkles },
   { id: 'survey', label: 'Khảo sát', icon: ClipboardList },
   { id: 'help', label: 'Trợ giúp', icon: LifeBuoy },
 ];
-/** Năm mục ở thanh dưới trên điện thoại (cộng "Xem thêm") */
-const PHONE_MAIN: Tab[] = ['learn', 'home', 'collection', 'practice'];
+/** Năm mục ở thanh dưới trên điện thoại (chuẩn Duolingo) */
+const PHONE_MAIN: Tab[] = ['learn', 'practice', 'ranking', 'quests', 'ai'];
 
 export type Dots = Partial<Record<Tab | 'more', number>>;
 
@@ -63,11 +63,23 @@ export const StudentNav: React.FC<{ tab: Tab; wide: boolean; dots: Dots; onSelec
   if (wide) {
     const row = (it: NavItem) => {
       const on = it.id === tab, Icon = it.icon;
+      const isAi = it.id === 'ai';
       return (
         <Pressable key={it.id} testID={`student-tab-${it.id}`} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={it.label} onPress={() => onSelect(it.id)}
-          style={({ pressed }) => ({ minHeight: 46, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 2, borderColor: on ? c.ngoc : 'transparent', backgroundColor: on ? c.ngocNhat : pressed ? c.the2 : 'transparent' })}>
-          <Icon size={22} color={on ? c.ngocChu : c.muc2} />
-          <Txt f={on ? 'bold' : 'semibold'} size={15} color={on ? c.ngocChu : c.muc2} style={{ flex: 1 }}>{it.label}</Txt>
+          style={({ pressed }) => ({
+            minHeight: 46,
+            paddingHorizontal: 14,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 12,
+            borderRadius: 14,
+            borderWidth: 2,
+            borderColor: on ? (isAi ? c.vangDam : c.ngoc) : 'transparent',
+            backgroundColor: on ? (isAi ? c.vangNhat : c.ngocNhat) : pressed ? c.the2 : 'transparent',
+          })}>
+          <Icon size={22} color={on ? (isAi ? c.vangChu : c.ngocChu) : isAi ? c.vangChu : c.muc2} />
+          <Txt f={on ? 'bold' : 'semibold'} size={15} color={on ? (isAi ? c.vangChu : c.ngocChu) : c.muc2} style={{ flex: 1 }}>{it.label}</Txt>
+          {isAi && !on ? <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: c.vangNhat }}><Txt f="bold" size={10} color={c.vangChu}>AI</Txt></View> : null}
           <Dot n={dots[it.id]} />
         </Pressable>
       );
@@ -85,16 +97,19 @@ export const StudentNav: React.FC<{ tab: Tab; wide: boolean; dots: Dots; onSelec
   }
 
   const phone = [...main.filter((i) => PHONE_MAIN.includes(i.id))];
-  const tile = (key: string, label: string, Icon: IconType, on: boolean, dot: number | undefined, press: () => void, testID: string) => (
-    <Pressable key={key} testID={testID} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label} onPress={press}
-      style={{ flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 6 }}>
-      <View>
-        <Icon size={24} color={on ? c.ngocChu : c.muc2} />
-        <View style={{ position: 'absolute', right: -6, top: -2 }}><Dot n={dot} /></View>
-      </View>
-      <Txt f={on ? 'bold' : 'semibold'} size={11} color={on ? c.ngocChu : c.muc2} numberOfLines={1}>{label}</Txt>
-    </Pressable>
-  );
+  const tile = (key: string, label: string, Icon: IconType, on: boolean, dot: number | undefined, press: () => void, testID: string) => {
+    const isAi = key === 'ai';
+    return (
+      <Pressable key={key} testID={testID} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label} onPress={press}
+        style={{ flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 6 }}>
+        <View>
+          <Icon size={24} color={on ? (isAi ? c.vangChu : c.ngocChu) : isAi ? c.vangChu : c.muc2} />
+          <View style={{ position: 'absolute', right: -6, top: -2 }}><Dot n={dot} /></View>
+        </View>
+        <Txt f={on ? 'bold' : 'semibold'} size={11} color={on ? (isAi ? c.vangChu : c.ngocChu) : c.muc2} numberOfLines={1}>{label}</Txt>
+      </Pressable>
+    );
+  };
   return (
     <>
       <View accessibilityRole="tablist" accessibilityLabel="Menu chính" style={{ flexDirection: 'row', backgroundColor: c.the, borderTopWidth: 2, borderTopColor: c.vien }}>

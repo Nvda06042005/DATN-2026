@@ -1,0 +1,755 @@
+{
+  "KC1_OVERVIEW": {
+    "topic": "Toàn cảnh kháng chiến chống Mông Cổ lần 1 (1258)",
+    "category": "KHANG_CHIEN_LAN_1_1258",
+    "entity": "Trần Thái Tông",
+    "event": "Kháng chiến chống Mông Cổ lần 1 (1258)",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_KC1_TIMELINE",
+      "SKILL_DONG_BO_DAU"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [22a-23b], tr. 519-522",
+    "page_number": 519
+  },
+  "KC1_WHY_INVADE": {
+    "topic": "Âm mưu Mông Cổ xâm lược Đại Việt năm 1258",
+    "category": "KHANG_CHIEN_LAN_1_1258",
+    "entity": "Ngột Lương Hợp Thai & Vua Trần Thái Tông",
+    "event": "Mông Cổ xâm lược Đại Việt năm 1258",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_KC1_MOTIVE"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [22a], tr. 519",
+    "page_number": 519
+  },
+  "KC1_BINH_LE_NGUYEN": {
+    "topic": "Trận Bình Lệ Nguyên và Lê Phụ Trần (1258)",
+    "category": "KHANG_CHIEN_LAN_1_1258",
+    "entity": "Lê Phụ Trần (Lê Tần)",
+    "event": "Trận Bình Lệ Nguyên (Tháng 1/1258)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.6,
+    "skills": [
+      "SKILL_BINH_LE_NGUYEN",
+      "SKILL_LE_PHU_TRAN"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [22a-22b], tr. 519-520",
+    "page_number": 519
+  },
+  "KC1_VUON_KHONG_NHA_TRONG": {
+    "topic": "Kế sách Vườn không nhà trống tại Thăng Long (1258)",
+    "category": "KHANG_CHIEN_LAN_1_1258",
+    "entity": "Quân dân Thăng Long",
+    "event": "Kế sách Vườn không nhà trống (1258)",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.7,
+    "skills": [
+      "SKILL_VUON_KHONG_NHA_TRONG"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V tờ [22b] tr. 520 & Quyển VI tờ [9a] tr. 620",
+    "page_number": 520
+  },
+  "KC1_TRAN_THU_DO_QUOTE": {
+    "topic": "Thái sư Trần Thủ Độ và câu nói bất hủ (1258)",
+    "category": "KHANG_CHIEN_LAN_1_1258",
+    "entity": "Thái sư Trần Thủ Độ",
+    "event": "Kháng chiến chống Mông Cổ lần 1 (1258)",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.3,
+    "skills": [
+      "SKILL_TRAN_THU_DO"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [22b], tr. 520-521",
+    "page_number": 520
+  },
+  "KC1_DONG_BO_DAU": {
+    "topic": "Đại thắng Đông Bộ Đầu (29/1/1258)",
+    "category": "KHANG_CHIEN_LAN_1_1258",
+    "entity": "Trần Thái Tông & Hà Khuất",
+    "event": "Trận Đông Bộ Đầu (29/1/1258)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_DONG_BO_DAU",
+      "SKILL_HA_KHUAT"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [23a], tr. 521",
+    "page_number": 521
+  },
+  "TQT_WHY_ORANGE": {
+    "topic": "Vì sao Trần Quốc Toản bóp nát quả cam (1282)",
+    "category": "BINH_THAN_TRAN_QUOC_TOAN",
+    "entity": "Hoài Văn hầu Trần Quốc Toản",
+    "event": "Hội nghị Bình Than (Tháng 10/1282)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_TRAN_QUOC_TOAN",
+      "SKILL_BINH_THAN"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [43a], tr. 562-563",
+    "page_number": 562
+  },
+  "TQT_SIX_GOLDEN_WORDS": {
+    "topic": "Lá cờ thêu sáu chữ vàng của Trần Quốc Toản",
+    "category": "BINH_THAN_TRAN_QUOC_TOAN",
+    "entity": "Hoài Văn hầu Trần Quốc Toản",
+    "event": "Đội quân sáu chữ vàng (1282 - 1285)",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.3,
+    "skills": [
+      "SKILL_TRAN_QUOC_TOAN"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [43a], tr. 562-563",
+    "page_number": 563
+  },
+  "TQT_OVERVIEW": {
+    "topic": "Tiểu sử anh hùng thiếu niên Trần Quốc Toản",
+    "category": "BINH_THAN_TRAN_QUOC_TOAN",
+    "entity": "Hoài Văn hầu Trần Quốc Toản",
+    "event": "Kháng chiến chống Nguyên lần 2 (1285)",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.3,
+    "skills": [
+      "SKILL_TRAN_QUOC_TOAN"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [43a, 48b-49a], tr. 562-563, 574-575",
+    "page_number": 563
+  },
+  "BINH_THAN_CONFERENCE": {
+    "topic": "Hội nghị Bình Than (Tháng 10/1282)",
+    "category": "BINH_THAN_TRAN_QUOC_TOAN",
+    "entity": "Vua Trần Nhân Tông & Vương hầu",
+    "event": "Hội nghị Bình Than (1282)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_BINH_THAN"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [42a-43a], tr. 560-562",
+    "page_number": 560
+  },
+  "DIEN_HONG_CONFERENCE": {
+    "topic": "Hội nghị Diên Hồng (Đầu năm 1285)",
+    "category": "DIEN_HONG_HICH_TUONG_SI",
+    "entity": "Thượng hoàng Trần Thánh Tông & Các bô lão",
+    "event": "Hội nghị Diên Hồng (Đầu năm 1285)",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.6,
+    "skills": [
+      "SKILL_DIEN_HONG"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [44b], tr. 565",
+    "page_number": 565
+  },
+  "HICH_TUONG_SI": {
+    "topic": "Hịch tướng sĩ và Tinh thần Sát Thát (1284 - 1285)",
+    "category": "DIEN_HONG_HICH_TUONG_SI",
+    "entity": "Trần Quốc Tuấn & Binh sĩ",
+    "event": "Kháng chiến chống Nguyên lần 2 (1285)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_HICH_TUONG_SI",
+      "SKILL_SAT_THAT"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V tờ [45b] tr. 568 & Quyển VI tờ [11b-14a] tr. 625-630",
+    "page_number": 627
+  },
+  "TRAN_HUNG_DAO_PORTRAIT": {
+    "topic": "Quốc công Tiết chế Hưng Đạo Đại vương Trần Quốc Tuấn",
+    "category": "DIEN_HONG_HICH_TUONG_SI",
+    "entity": "Trần Quốc Tuấn (Trần Hưng Đạo)",
+    "event": "Kháng chiến chống Nguyên lần 2 và 3",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.3,
+    "skills": [
+      "SKILL_TRAN_HUNG_DAO"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V tờ [44a, 47b] & Quyển VI tờ [9a-11b], tr. 620-625",
+    "page_number": 625
+  },
+  "KC2_OVERVIEW": {
+    "topic": "Toàn cảnh cuộc kháng chiến chống quân Nguyên lần 2 (1285)",
+    "category": "KHANG_CHIEN_LAN_2_1285",
+    "entity": "Trần Hưng Đạo & Thoát Hoan",
+    "event": "Kháng chiến chống Nguyên lần 2 (1285)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_KC2_TIMELINE",
+      "SKILL_THOAT_HOAN"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [44b-50a], tr. 565-578",
+    "page_number": 575
+  },
+  "KC2_THOAT_HOAN_COPPER_PIPE": {
+    "topic": "Thoát Hoan chui ống đồng tháo chạy (Tháng 6/1285)",
+    "category": "KHANG_CHIEN_LAN_2_1285",
+    "entity": "Thoát Hoan",
+    "event": "Thoát Hoan tháo chạy qua Vạn Kiếp (Tháng 6/1285)",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.3,
+    "skills": [
+      "SKILL_THOAT_HOAN"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [50a], tr. 577",
+    "page_number": 577
+  },
+  "KC2_TRAN_BINH_TRONG": {
+    "topic": "Bảo Nghĩa vương Trần Bình Trọng và câu nói bất tử (1285)",
+    "category": "KHANG_CHIEN_LAN_2_1285",
+    "entity": "Trần Bình Trọng",
+    "event": "Trận bãi Tự Nhiên (Tháng 2/1285)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_TRAN_BINH_TRONG"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [47a], tr. 571",
+    "page_number": 571
+  },
+  "KC2_HAM_TU_CHUONG_DUONG": {
+    "topic": "Chiến thắng Hàm Tử, Chương Dương và bài thơ Tụng giá hoàn kinh",
+    "category": "KHANG_CHIEN_LAN_2_1285",
+    "entity": "Trần Quang Khải & Trần Nhật Duật",
+    "event": "Chiến thắng Hàm Tử - Chương Dương (Mùa hè 1285)",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.6,
+    "skills": [
+      "SKILL_CHUONG_DUONG",
+      "SKILL_HAM_TU",
+      "SKILL_TRAN_QUANG_KHAI"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [48b-50a, 59b], tr. 574-578",
+    "page_number": 575
+  },
+  "KC3_VAN_DON": {
+    "topic": "Hải chiến Vân Đồn - Tiêu diệt thuyền lương Trương Văn Hổ (1288)",
+    "category": "HAI_CHIEN_VAN_DON_1288",
+    "entity": "Trần Khánh Dư",
+    "event": "Trận Vân Đồn (Đầu năm 1288)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_VAN_DON",
+      "SKILL_TRAN_KHANH_DU"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [53a], tr. 583-584",
+    "page_number": 583
+  },
+  "KC3_BACH_DANG_HOW": {
+    "topic": "Đại thắng sông Bạch Đằng (Tháng 4/1288)",
+    "category": "DAI_THANG_BACH_DANG_1288",
+    "entity": "Trần Quốc Tuấn (Trần Hưng Đạo)",
+    "event": "Đại thắng Bạch Đằng Giang (Tháng 4/1288)",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.7,
+    "skills": [
+      "SKILL_BACH_DANG_1288",
+      "SKILL_TRAN_HUNG_DAO"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [54a-54b], tr. 585-586",
+    "page_number": 586
+  },
+  "KC3_OVERVIEW": {
+    "topic": "Toàn cảnh kháng chiến chống quân Nguyên lần 3 (1287 - 1288)",
+    "category": "DAI_THANG_BACH_DANG_1288",
+    "entity": "Trần Hưng Đạo & Trần Khánh Dư",
+    "event": "Kháng chiến chống Nguyên lần 3 (1287 - 1288)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_KC3_TIMELINE"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [51b-55a], tr. 580-587",
+    "page_number": 582
+  },
+  "ALL_3_WARS_SUMMARY": {
+    "topic": "Tổng quan ba lần kháng chiến chống Mông - Nguyên (1258 - 1288)",
+    "category": "NGUYEN_NHAN_Y_NGHIA",
+    "entity": "Vương triều Trần",
+    "event": "Ba lần kháng chiến chống Mông - Nguyên (1258 - 1288)",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_ALL_3_WARS"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V (tr. 519-587) & Quyển VI (tr. 620-621)",
+    "page_number": 586
+  },
+  "CAUSES_OF_VICTORY": {
+    "topic": "Nguyên nhân thắng lợi của ba lần kháng chiến",
+    "category": "NGUYEN_NHAN_Y_NGHIA",
+    "entity": "Vua tôi nhà Trần & Nhân dân",
+    "event": "Thắng lợi ba lần kháng chiến chống Mông - Nguyên",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.8,
+    "skills": [
+      "SKILL_VICTORY_CAUSES"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển VI, tờ [9a-9b], tr. 620-621",
+    "page_number": 620
+  },
+  "HISTORICAL_SIGNIFICANCE": {
+    "topic": "Ý nghĩa lịch sử của ba lần kháng chiến chống Mông - Nguyên",
+    "category": "NGUYEN_NHAN_Y_NGHIA",
+    "entity": "Dân tộc Đại Việt & Thế giới",
+    "event": "Ý nghĩa lịch sử ba lần chiến thắng (1258 - 1288)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.6,
+    "skills": [
+      "SKILL_HISTORICAL_SIGNIFICANCE"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V tờ [55a] tr. 587 & Quyển VI tờ [9a-9b] tr. 620-621",
+    "page_number": 587
+  },
+  "YET_KIEU_DA_TUONG": {
+    "topic": "Yết Kiêu và Dã Tượng - Hai gia tướng trung kiên",
+    "category": "DANH_TUONG_GIA_THAN",
+    "entity": "Yết Kiêu & Dã Tượng",
+    "event": "Kháng chiến chống Nguyên",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.3,
+    "skills": [
+      "SKILL_YET_KIEU_DA_TUONG"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V tờ [45a-45b] tr. 567 & Quyển VI tờ [10a, 11a] tr. 622, 624",
+    "page_number": 567
+  },
+  "PHAM_NGU_LAO": {
+    "topic": "Phạm Ngũ Lão và giai thoại đan sọt",
+    "category": "DANH_TUONG_GIA_THAN",
+    "entity": "Phạm Ngũ Lão",
+    "event": "Trần Hưng Đạo phát hiện Phạm Ngũ Lão tại Phù Ủng",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.3,
+    "skills": [
+      "SKILL_PHAM_NGU_LAO"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển VI, tờ [4b, 11a], tr. 611, 624",
+    "page_number": 611
+  },
+  "MILITARY_ART_TRAN_DYNASTY": {
+    "topic": "Nghệ thuật quân sự độc đáo thời Trần (Lấy yếu thắng mạnh, lấy đoản binh thắng trường trận)",
+    "category": "NGUYEN_NHAN_Y_NGHIA",
+    "entity": "Trần Hưng Đạo & Quân dân nhà Trần",
+    "event": "Nghệ thuật quân sự ba lần kháng chiến (1258 - 1288)",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.75,
+    "skills": [
+      "SKILL_MILITARY_ART"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V tờ [48b, 52a] tr. 574, 581 & Quyển VI tờ [9a-9b] tr. 620-621",
+    "page_number": 620
+  },
+  "ROLE_OF_ETHNIC_MINORITIES": {
+    "topic": "Vai trò của đồng bào dân tộc thiểu số và các tù trưởng miền núi (Hà Đặc, Hà Chương, Hà Khuất, Nguyễn Thế Lộc)",
+    "category": "DANH_TUONG_GIA_THAN",
+    "entity": "Hà Khuất, Hà Đặc, Hà Chương, Nguyễn Thế Lộc",
+    "event": "Chiến đấu bảo vệ biên cương phía Bắc (1258 - 1288)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.45,
+    "skills": [
+      "SKILL_ETHNIC_MINORITIES",
+      "SKILL_HA_KHUAT"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [22a, 23a, 47a, 49a-49b], tr. 519, 521, 571, 575-576",
+    "page_number": 576
+  },
+  "GAME_TRAN_NHAN_TONG": {
+    "topic": "Vua Trần Nhân Tông qua các giai đoạn cuộc đời",
+    "category": "DANH_TUONG_GIA_THAN",
+    "entity": "Trần Nhân Tông (Trần Khâm)",
+    "event": "Kháng chiến 1285 và 1287 – 1288",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_TRAN_NHAN_TONG"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V tờ [36a, 55a] tr. 534, 587 & Quyển VI tờ [7b] tr. 617",
+    "page_number": 587
+  },
+  "GAME_NGU_BINH_U_NONG": {
+    "topic": "Chính sách ngụ binh ư nông",
+    "category": "NEN_TANG_QUAN_SU",
+    "entity": "Nhà Lý, nhà Trần",
+    "event": "Tổ chức quân đội thời Lý – Trần",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_NGU_BINH_U_NONG"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V tờ [22a, 44a] tr. 519, 564 & Quyển VI tờ [4b] tr. 611",
+    "page_number": 564
+  },
+  "GAME_TRAN_KHANH_DU": {
+    "topic": "Trần Khánh Dư – từ người buôn than ở Chí Linh đến trận Vân Đồn",
+    "category": "DANH_TUONG_GIA_THAN",
+    "entity": "Nhân Huệ vương Trần Khánh Dư",
+    "event": "Trận Vân Đồn (cuối 1287 – đầu 1288)",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_TRAN_KHANH_DU"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [42a-43a, 53a-53b], tr. 560-562, 583-585",
+    "page_number": 561
+  },
+  "GAME_BINH_THU_YEU_LUOC": {
+    "topic": "Binh thư yếu lược của Trần Quốc Tuấn",
+    "category": "DIEN_HONG_HICH_TUONG_SI",
+    "entity": "Trần Quốc Tuấn (Trần Hưng Đạo)",
+    "event": "Chuẩn bị kháng chiến lần thứ hai",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_BINH_THU_YEU_LUOC"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển VI, tờ [11b, 14a], tr. 625, 630",
+    "page_number": 630
+  },
+  "HISTORICAL_LESSONS_TODAY": {
+    "topic": "Bài học kinh nghiệm lịch sử từ ba lần kháng chiến thời Trần đối với sự nghiệp bảo vệ Tổ quốc hiện nay",
+    "category": "NGUYEN_NHAN_Y_NGHIA",
+    "entity": "Dân tộc Việt Nam",
+    "event": "Bài học giữ nước từ Hào khí Đông A",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.85,
+    "skills": [
+      "SKILL_HISTORICAL_LESSONS"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển VI, tờ [9a-9b], tr. 620-621",
+    "page_number": 621
+  },
+  "GAME_QUAN_THANH_DUC_SAT_THAT": {
+    "topic": "Cấm quân Thánh Dực, Tinh binh Sát Thát và Nón Ma Lôi thời Trần",
+    "category": "NEN_TANG_QUAN_SU",
+    "entity": "Quân Thánh Dực & Quân Sát Thát",
+    "event": "Tổ chức lực lượng vũ trang nhà Trần (1258 - 1288)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.45,
+    "skills": [
+      "SKILL_THANH_DUC_SAT_THAT",
+      "SKILL_SAT_THAT"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [45b, 52b, 53b, 54b], tr. 568, 582, 584, 586",
+    "page_number": 584
+  },
+  "GAME_VAN_KIEP_THIEN_TRUONG_BASES": {
+    "topic": "Hệ thống căn cứ địa chiến lược: Vạn Kiếp – Nội Bàng và Hậu phương Thiên Trường – Trường Yên",
+    "category": "NEN_TANG_QUAN_SU",
+    "entity": "Trần Hưng Đạo & Vương triều Trần",
+    "event": "Bố phòng chiến lược trong ba lần kháng chiến (1258 - 1288)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.55,
+    "skills": [
+      "SKILL_STRATEGIC_BASES"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [22b, 45a, 47b, 49a], tr. 520, 566, 572, 575",
+    "page_number": 566
+  },
+  "GAME_TRUNG_THAN_VS_PHAN_BOI": {
+    "topic": "Sự đối lập giữa trung thần tiết nghĩa nhà Trần và kẻ phản bội đầu hàng (Trần Ích Tắc, Trần Kiện)",
+    "category": "DANH_TUONG_GIA_THAN",
+    "entity": "Trần Bình Trọng, Trần Quốc Tuấn vs. Trần Ích Tắc, Trần Kiện",
+    "event": "Kháng chiến chống quân Nguyên lần 2 (1285)",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.65,
+    "skills": [
+      "SKILL_LOYALTY_VS_TREASON",
+      "SKILL_TRAN_BINH_TRONG"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [46b-48a], tr. 570-573",
+    "page_number": 571
+  },
+  "INTENT_GREETING": {
+    "topic": "Chào hỏi làm quen tự nhiên",
+    "category": "CONVERSATIONAL_INTENT",
+    "entity": "Trợ lý AI Đông A",
+    "event": "Chào hỏi",
+    "cognitive_level": "GIAO_TIEP",
+    "difficulty": 0.1,
+    "skills": [
+      "SKILL_GREETING"
+    ],
+    "dvsktt_reference": "",
+    "page_number": null
+  },
+  "INTENT_STUDENT_STRUGGLE": {
+    "topic": "Học sinh gặp khó khăn hoặc quên kiến thức",
+    "category": "CONVERSATIONAL_INTENT",
+    "entity": "Trợ lý AI Đông A",
+    "event": "Hỗ trợ học tập",
+    "cognitive_level": "GIAO_TIEP",
+    "difficulty": 0.1,
+    "skills": [
+      "SKILL_HELP"
+    ],
+    "dvsktt_reference": "",
+    "page_number": null
+  },
+  "INTENT_THANKS": {
+    "topic": "Học sinh cảm ơn",
+    "category": "CONVERSATIONAL_INTENT",
+    "entity": "Trợ lý AI Đông A",
+    "event": "Cảm ơn",
+    "cognitive_level": "GIAO_TIEP",
+    "difficulty": 0.1,
+    "skills": [
+      "SKILL_THANKS"
+    ],
+    "dvsktt_reference": "",
+    "page_number": null
+  },
+  "CROSS_ERA_HAM_NGHI": {
+    "topic": "Phân biệt vua Hàm Nghi triều Nguyễn với thời Trần",
+    "category": "CROSS_ERA_SAFEGUARD",
+    "entity": "Vua Hàm Nghi",
+    "event": "Phong trào Cần Vương (1885)",
+    "cognitive_level": "PHAN_BIET",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_CROSS_ERA_HAM_NGHI"
+    ],
+    "dvsktt_reference": "",
+    "page_number": null
+  },
+  "CROSS_ERA_NGO_QUYEN": {
+    "topic": "Phân biệt Ngô Quyền (938) và Trần Hưng Đạo (1288) trên sông Bạch Đằng",
+    "category": "CROSS_ERA_SAFEGUARD",
+    "entity": "Ngô Quyền",
+    "event": "Chiến thắng Bạch Đằng năm 938",
+    "cognitive_level": "PHAN_BIET",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_CROSS_ERA_NGO_QUYEN"
+    ],
+    "dvsktt_reference": "",
+    "page_number": null
+  },
+  "CROSS_ERA_QUANG_TRUNG_LE_LOI_LY_THUONG_KIET": {
+    "topic": "Phân biệt anh hùng thời Lý, Lê, Tây Sơn",
+    "category": "CROSS_ERA_SAFEGUARD",
+    "entity": "Lý Thường Kiệt / Lê Lợi / Quang Trung",
+    "event": "Các triều đại khác",
+    "cognitive_level": "PHAN_BIET",
+    "difficulty": 0.4,
+    "skills": [
+      "SKILL_CROSS_ERA_OTHERS"
+    ],
+    "dvsktt_reference": "",
+    "page_number": null
+  },
+  "DVSKTT_TRAN_NHAT_HIEU_HOANG_CU_DA": {
+    "topic": "Thái úy Trần Nhật Hiệu viết chữ 'Nhập Tống', Hoàng Cự Đà ăn xoài và Lời bàn của Ngô Sĩ Liên (1258)",
+    "category": "KHANG_CHIEN_LAN_1_1258",
+    "entity": "Trần Nhật Hiệu, Hoàng Cự Đà & Sử thần Ngô Sĩ Liên",
+    "event": "Kháng chiến chống Mông Cổ lần 1 (1258) - Sông Thiên Mạc & Đông Bộ Đầu",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.65,
+    "skills": [
+      "SKILL_TRAN_THU_DO",
+      "SKILL_DVSKTT_PRIMARY"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [22b-23a], tr. 520-522",
+    "page_number": 520
+  },
+  "DVSKTT_DO_KHAC_CHUNG_SU_GIA": {
+    "topic": "Đỗ Khắc Chung đi sứ trại giặc Ô Mã Nhi và tài ứng đối về hai chữ 'Sát Thát' (1285)",
+    "category": "KHANG_CHIEN_LAN_2_1285",
+    "entity": "Chi hậu cục thủ Đỗ Khắc Chung & Ô Mã Nhi",
+    "event": "Đỗ Khắc Chung đi sứ dò xét trại quân Nguyên (Tháng Giêng năm 1285)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.55,
+    "skills": [
+      "SKILL_DO_KHAC_CHUNG",
+      "SKILL_SAT_THAT"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [45b-46b], tr. 568-570",
+    "page_number": 569
+  },
+  "DVSKTT_TRAN_QUOC_TUAN_GAY_BIT_SAT": {
+    "topic": "Trần Quốc Tuấn rút đầu sắt gậy gỗ xóa hiềm khích gia tộc, răn dạy các con và Lời bàn của Ngô Sĩ Liên",
+    "category": "DIEN_HONG_HICH_TUONG_SI",
+    "entity": "Hưng Đạo Đại Vương Trần Quốc Tuấn & Ngô Sĩ Liên",
+    "event": "Xóa bỏ hiềm khích gia tộc vì đại nghĩa dân tộc (1285 - 1300)",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.7,
+    "skills": [
+      "SKILL_TRAN_HUNG_DAO",
+      "SKILL_DVSKTT_PRIMARY"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V tờ [47b] tr. 572 & Quyển VI tờ [9b-10b] tr. 621-623",
+    "page_number": 572
+  },
+  "DVSKTT_BACH_DANG_DO_HANH_NGUYEN_KHOAI": {
+    "topic": "Chi tiết chính sử Đại thắng Bạch Đằng (1288): Nguyễn Khoái, Đỗ Hành bắt sống Ô Mã Nhi và lễ dâng thắng trận ở Chiêu Lăng",
+    "category": "DAI_THANG_BACH_DANG_1288",
+    "entity": "Nguyễn Khoái, Đỗ Hành, Trần Hưng Đạo & Vua Trần Nhân Tông",
+    "event": "Đại thắng Bạch Đằng và Lễ dâng thắng trận ở Chiêu Lăng (Tháng 3 năm Mậu Tý - 4/1288)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.55,
+    "skills": [
+      "SKILL_BACH_DANG_1288",
+      "SKILL_DVSKTT_PRIMARY"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [54a-55a], tr. 585-587",
+    "page_number": 586
+  },
+  "DVSKTT_HOANG_TA_THON_NGO_SI_LIEN_BAN": {
+    "topic": "Kế Hoàng Tá Thốn dùi đắm thuyền Ô Mã Nhi (1289) và Lời bàn của Sử thần Ngô Sĩ Liên",
+    "category": "DAI_THANG_BACH_DANG_1288",
+    "entity": "Hoàng Tá Thốn, Trần Hưng Đạo, Ô Mã Nhi & Ngô Sĩ Liên",
+    "event": "Xử lý tướng giặc Ô Mã Nhi sau chiến tranh (Tháng 2 năm Kỷ Sửu - 1289)",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.75,
+    "skills": [
+      "SKILL_BACH_DANG_1288",
+      "SKILL_DVSKTT_PRIMARY"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [56b], tr. 590",
+    "page_number": 590
+  },
+  "DVSKTT_TRAN_THI_KIEN_PHAP_LUAT": {
+    "topic": "Pháp luật thời Trần, tấm gương quan thanh liêm Trần Thì Kiến và Lời bàn của Phan Phu Tiên – Ngô Sĩ Liên",
+    "category": "DANH_TUONG_GIA_THAN",
+    "entity": "Kiểm pháp quan Trần Thì Kiến, Phan Phu Tiên & Ngô Sĩ Liên",
+    "event": "Quản trị đất nước và kỷ cương pháp luật thời Trần (1296 - 1297)",
+    "cognitive_level": "VAN_DUNG",
+    "difficulty": 0.65,
+    "skills": [
+      "SKILL_DVSKTT_PRIMARY"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển VI, tờ [4a-5a], tr. 610-612",
+    "page_number": 612
+  },
+  "DVSKTT_THANH_LAP_NHA_TRAN_1225": {
+    "topic": "Sự thành lập nhà Trần (1225 - 1226): Lý Chiêu Hoàng nhường ngôi cho Trần Cảnh và vai trò của Thái sư Trần Thủ Độ",
+    "category": "TONG_KET_NGUYEN_NHAN_Y_NGHIA",
+    "entity": "Vua Trần Thái Tông (Trần Cảnh), Lý Chiêu Hoàng & Thái sư Trần Thủ Độ",
+    "event": "Nhà Trần thành lập (Tháng 12 âm lịch năm Ất Dậu - Đầu năm 1226)",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.35,
+    "skills": [
+      "SKILL_THANH_LAP_NHA_TRAN",
+      "SKILL_DVSKTT_PRIMARY"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [1a-2b], tr. 478-481",
+    "page_number": 479
+  },
+  "DVSKTT_BO_MAY_PHAP_LUAT_QUOC_TRIEU_HINH_THU": {
+    "topic": "Tổ chức bộ máy nhà nước chế độ Thái thượng hoàng và luật pháp Quốc triều hình thư thời Trần",
+    "category": "TONG_KET_NGUYEN_NHAN_Y_NGHIA",
+    "entity": "Triều đình nhà Trần & Quốc triều hình thư",
+    "event": "Củng cố chế độ quân chủ trung ương tập quyền và ban hành Quốc triều hình thư",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_BO_MAY_NHA_TRAN",
+      "SKILL_DVSKTT_PRIMARY"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [4a-15a], tr. 484-505",
+    "page_number": 486
+  },
+  "DVSKTT_KINH_TE_DIEN_TRANG_THAI_AP_DE_DINH_NHI": {
+    "topic": "Kinh tế thời Trần: Đắp đê Đỉnh Nhĩ (Quai Vạc), chức quan Hà đê sứ và chính sách Điền trang – Thái ấp",
+    "category": "TONG_KET_NGUYEN_NHAN_Y_NGHIA",
+    "entity": "Hà đê sứ, Điền trang – Thái ấp & Thương cảng Vân Đồn",
+    "event": "Đắp đê Đỉnh Nhĩ (1248) và chiếu lập Điền trang (1266)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_KINH_TE_NHA_TRAN",
+      "SKILL_DVSKTT_PRIMARY"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [14b, 29a], tr. 504, 533",
+    "page_number": 504
+  },
+  "DVSKTT_KHOA_CU_THAI_HOC_SINH_NGUYEN_HIEN_MAC_DINH_CHI": {
+    "topic": "Giáo dục & Khoa cử thời Trần: Danh hiệu Tam khôi (1247), Trạng nguyên Nguyễn Hiền, Lê Văn Hưu và Mạc Đĩnh Chi",
+    "category": "DANH_TUONG_GIA_THAN",
+    "entity": "Trạng nguyên Nguyễn Hiền, Sử gia Lê Văn Hưu & Lưỡng quốc Trạng nguyên Mạc Đĩnh Chi",
+    "event": "Đặt danh hiệu Tam khôi khoa thi Thái học sinh năm Đinh Mùi (1247) và khoa thi năm Giáp Thìn (1304)",
+    "cognitive_level": "NHAN_BIET",
+    "difficulty": 0.45,
+    "skills": [
+      "SKILL_VAN_HOA_KHOA_CU",
+      "SKILL_DVSKTT_PRIMARY"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V tờ [14a] (tr. 503) & Quyển VI tờ [19b] (tr. 639)",
+    "page_number": 503
+  },
+  "DVSKTT_CHU_VAN_AN_THAT_TRAM_SO": {
+    "topic": "Vạn thế sư biểu Chu Văn An và tờ Thất trảm sớ trong Đại Việt Sử Ký Toàn Thư",
+    "category": "DANH_TUONG_GIA_THAN",
+    "entity": "Quốc Tử Giám Tư nghiệp Chu Văn An",
+    "event": "Chu Văn An dạy học ở Quốc Tử Giám và dâng Thất trảm sớ xin chém 7 nịnh thần",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.55,
+    "skills": [
+      "SKILL_VAN_HOA_KHOA_CU",
+      "SKILL_DVSKTT_PRIMARY"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển VII, tờ [6a, 19a, 34b], tr. 711, 736, 765",
+    "page_number": 765
+  },
+  "DVSKTT_TRUONG_HAN_SIEU_BACH_DANG_GIANG_PHU": {
+    "topic": "Văn học yêu nước thời Trần: Trương Hán Siêu với 'Bạch Đằng giang phú' và Hàn Thuyên phát triển chữ Nôm",
+    "category": "DANH_TUONG_GIA_THAN",
+    "entity": "Trương Hán Siêu & Hàn Thuyên (Nguyễn Thuyên)",
+    "event": "Sự phát triển rực rỡ của văn học chữ Hán yêu nước và văn học chữ Nôm thời Trần",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_VAN_HOA_KHOA_CU",
+      "SKILL_DVSKTT_PRIMARY"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V tờ [42a] (tr. 559) & Quyển VII tờ [17b] (tr. 733)",
+    "page_number": 733
+  },
+  "DVSKTT_DOAN_NHU_HAI_NGOAI_GIAO": {
+    "topic": "Tài năng trẻ Đoàn Nhữ Hài (20 tuổi) thảo biểu tạ tội ở Thiên Trường và đi sứ giữ vững quốc thể (1299 - 1303)",
+    "category": "DANH_TUONG_GIA_THAN",
+    "entity": "Ngự sử trung tán Đoàn Nhữ Hài & Vua Trần Anh Tông",
+    "event": "Đoàn Nhữ Hài dâng biểu ở phủ Thiên Trường (1299) và đi sứ Chiêm Thành (1303)",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.55,
+    "skills": [
+      "SKILL_DVSKTT_PRIMARY"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển VI, tờ [7a-18b], tr. 616-637",
+    "page_number": 616
+  },
+  "DVSKTT_VAN_HOA_AN_NAM_TU_DAI_KHI_CHUA_PHAP_VAN": {
+    "topic": "Tôn giáo & Kiến trúc thời Trần: Quốc sư Phù Vân trên núi Yên Tử ('Trong núi vốn không có Phật, Phật ở trong lòng') và Tháp Phổ Minh",
+    "category": "TONG_KET_NGUYEN_NHAN_Y_NGHIA",
+    "entity": "Quốc sư Phù Vân, Vua Trần Thái Tông & Tháp Phổ Minh",
+    "event": "Vua Trần Thái Tông lên núi Yên Tử (1237) và xây dựng các công trình kiến trúc thời Trần",
+    "cognitive_level": "THONG_HIEU",
+    "difficulty": 0.5,
+    "skills": [
+      "SKILL_VAN_HOA_KHOA_CU",
+      "SKILL_DVSKTT_PRIMARY"
+    ],
+    "dvsktt_reference": "Đại Việt Sử Ký Toàn Thư, Bản Kỷ Quyển V, tờ [8b-9a, 25a], tr. 492-493, 526",
+    "page_number": 492
+  },
+  "OOD_RANDOM_AND_OFFTOPIC": {
+    "topic": "Nội dung ngoài phạm vi lịch sử",
+    "category": "OUT_OF_DOMAIN",
+    "entity": "Không xác định",
+    "event": "Ngoài phạm vi",
+    "cognitive_level": "OOD",
+    "difficulty": 0.1,
+    "skills": [
+      "SKILL_OOD"
+    ],
+    "dvsktt_reference": "",
+    "page_number": null
+  }
+}
