@@ -190,13 +190,9 @@ export const LoginScreen: React.FC<LoginProps> = ({ portal, ...rest }) =>
 
 const SchoolLoginWithRecovery: React.FC<Omit<LoginProps, 'portal'> & { initialRole: SchoolRole }> = ({ initialRole, onLogin, notice }) => {
   const [forgot, setForgot] = useState(false);
-  const [signup, setSignup] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   return <>
-    <SchoolLogin initialRole={initialRole} onLogin={onLogin} notice={flash ?? notice} onForgotPassword={() => setForgot(true)}
-      studentActions={<Btn tone="ghost" size="sm" title="Đăng ký tự học" onPress={() => setSignup(true)} testID="signup-open" />}
-    />
-    {signup && <SignupSheet onClose={() => setSignup(false)} onDone={(token, user) => { setSignup(false); void onLogin(token, user); }} />}
+    <SchoolLogin initialRole={initialRole} onLogin={onLogin} notice={flash ?? notice} onForgotPassword={() => setForgot(true)} />
     {forgot && <ForgotPasswordSheet onClose={() => setForgot(false)} onDone={() => { setForgot(false); setFlash('Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.'); }} />}
   </>;
 };
@@ -274,65 +270,6 @@ const ForgotPasswordSheet: React.FC<{ onClose: () => void; onDone: () => void }>
           <Field label="Mật khẩu mới (tối thiểu 8 ký tự, có chữ và số)" nativeID="forgot-new" value={next} onChangeText={setNext} secureTextEntry={!show} autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" />
           <Field label="Nhập lại mật khẩu mới" nativeID="forgot-confirm" value={confirm} onChangeText={setConfirm} secureTextEntry={!show} autoCapitalize="none" autoComplete="new-password" returnKeyType="done" onSubmitEditing={submit} />
           <Btn tone="ghost" size="sm" icon={show ? EyeOff : Eye} title={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} onPress={() => setShow((v) => !v)} selected={show} />
-        </>
-      )}
-    </Sheet>
-  );
-};
-
-// ---------------------------------------------------------------------- đăng ký tự học (HK.HS.003)
-/** Hai bước: nhập email để nhận mã 6 chữ số (5 phút), rồi nhập mã, họ tên và mật khẩu; tài khoản tự học không thuộc trường nào */
-const SignupSheet: React.FC<{ onClose: () => void; onDone: (token: string, user: AuthUser) => void }> = ({ onClose, onDone }) => {
-  const { c } = useTheme();
-  const [step, setStep] = useState<'email' | 'form'>('email');
-  const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
-  const [name, setName] = useState('');
-  const [nick, setNick] = useState('');
-  const [pass, setPass] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const send = async () => {
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())) return setError('Hãy nhập đúng địa chỉ email.');
-    setLoading(true);
-    setError(null);
-    try {
-      await authApi.requestSignup(email.trim());
-      setStep('form');
-    } catch (err) {
-      setError(errorMessage(err, 'Chưa gửi được mã.'));
-    } finally {
-      setLoading(false);
-    }
-  };
-  const finish = async () => {
-    if (!/^\d{6}$/.test(otp)) return setError('Mã xác thực gồm 6 chữ số trong thư.');
-    if (name.trim().length < 2) return setError('Hãy nhập họ tên.');
-    if (pass.length < 8 || !/\p{L}/u.test(pass) || !/\p{N}/u.test(pass)) return setError('Mật khẩu tối thiểu 8 ký tự, gồm cả chữ và số.');
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await authApi.completeSignup({ email: email.trim(), otp, full_name: name.trim(), nickname: nick.trim() || undefined, password: pass });
-      onDone(res.token, res.user);
-    } catch (err) {
-      setError(errorMessage(err, 'Chưa đăng ký được.'));
-    } finally {
-      setLoading(false);
-    }
-  };
-  return (
-    <Sheet open onClose={onClose} title="Đăng ký tự học" subtitle="Dành cho học sinh chưa thuộc trường nào: chỉ có chế độ tự học, không có lớp"
-      footer={<View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}><Btn title="Đóng" tone="giay" onPress={onClose} /><Btn title={step === 'email' ? 'Gửi mã xác thực' : 'Tạo tài khoản'} tone="son" loading={loading} onPress={step === 'email' ? send : finish} testID="signup-submit" /></View>}>
-      {error && <Inset style={{ backgroundColor: c.sonNhat }}><Txt f="bold" size={14} color={c.sonChu} accessibilityRole="alert">{error}</Txt></Inset>}
-      {step === 'email' ? (
-        <Field label="Email của em" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" hint="Mã xác thực 6 chữ số được gửi tới email này, có hiệu lực 5 phút." onSubmitEditing={send} />
-      ) : (
-        <>
-          <Txt size={14} color={c.muc2}>Nếu email hợp lệ, mã đã được gửi tới {email.trim()} (xem cả thư rác).</Txt>
-          <Field label="Mã xác thực" value={otp} onChangeText={(v) => setOtp(v.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" autoComplete="one-time-code" />
-          <Field label="Họ và tên" value={name} onChangeText={setName} autoComplete="name" />
-          <Field label="Biệt danh (không bắt buộc)" value={nick} onChangeText={setNick} hint="2–24 ký tự; bảng xếp hạng chỉ hiện biệt danh." />
-          <Field label="Mật khẩu (tối thiểu 8 ký tự, có chữ và số)" value={pass} onChangeText={setPass} secureTextEntry autoCapitalize="none" autoComplete="new-password" onSubmitEditing={finish} />
         </>
       )}
     </Sheet>

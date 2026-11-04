@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, ImageBackground, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type TextInputInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,7 +16,7 @@ import type { TwoFactorChallenge } from '@/types/platform';
 
 const BACKGROUND = require('../assets/dang-nhap-thanh-luy.webp');
 const ROLE_COPY = {
-  student: { label: 'Học sinh', Icon: GraduationCap, hint: 'Tên đăng nhập, email hoặc mã học sinh', account: 'Dùng tài khoản nhà trường cấp, hoặc đăng ký tự học bằng email.' },
+  student: { label: 'Học sinh', Icon: GraduationCap, hint: 'Tên đăng nhập, email hoặc mã học sinh', account: 'Dùng tài khoản học sinh do nhà trường cấp để bắt đầu học.' },
   teacher: { label: 'Giáo viên', Icon: Presentation, hint: 'Tên đăng nhập hoặc email', account: 'Dùng tài khoản giáo viên do nhà trường cấp để vào các lớp được phân công.' },
   school_admin: { label: 'Quản trị trường', Icon: School, hint: 'Tên đăng nhập hoặc email', account: 'Dùng tài khoản được cấp để quản lý trường học của bạn.' },
 } as const;
@@ -26,11 +26,10 @@ type Props = {
   onLogin: (token: string, user: AuthUser) => void | Promise<void>;
   notice?: string | null;
   onForgotPassword: () => void;
-  studentActions: React.ReactNode;
 };
 
 /** Một trang, một biểu mẫu; lựa chọn vai trò được kiểm tra lại tại API trước khi mở khu vực tương ứng. */
-export function SchoolLogin({ initialRole, onLogin, notice, onForgotPassword, studentActions }: Props) {
+export function SchoolLogin({ initialRole, onLogin, notice, onForgotPassword }: Props) {
   const router = useRouter();
   const { c } = useTheme();
   const { width, height } = useWindowDimensions();
@@ -166,7 +165,6 @@ export function SchoolLogin({ initialRole, onLogin, notice, onForgotPassword, st
             </View>
             {!challenge && <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <GoogleSignIn disabled={loading} onToken={idToken => { void googleLogin(idToken); }} />
-              {role === 'student' ? studentActions : null}
             </View>}
             <Txt size={11} color={c.muc3} center>© 2026 · Bản quyền thuộc quản lý Đông A</Txt>
           </ScrollView>

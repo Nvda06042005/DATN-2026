@@ -535,6 +535,13 @@ Không thêm migration cho đợt này (nhật ký phát lại nằm trong cột
 - Google của quản trị trường đã bật xác thực hai lớp phải hoàn thành cùng bước OTP/TOTP trước khi được cấp phiên. Giữ kiểm tra tài khoản/trường bị khóa và các bước đổi mật khẩu, xác nhận hồ sơ hiện có. Không thay đổi schema hay thêm migration trong đợt này.
 - Kiểm tra local: typecheck/build frontend và backend đạt; 20 bài frontend, 22 bài xác thực và 15 bài nền tảng/2FA đạt trên PostgreSQL tạm. Kiểm thử trình duyệt ẩn ở 5 kích thước từ 360 × 640 đến 1366 × 768: khung nằm trong màn hình, Google gửi đúng vai trò sau khi chuyển lựa chọn và mở bước hai lớp cho quản trị trường. Luồng Google trong kiểm thử dùng danh tính giả, chưa thay thế việc đăng nhập thử bằng tài khoản Google thật.
 
+## Bỏ đăng ký tự học ngày 04/11/2026
+
+- Theo yêu cầu mới, bỏ nút, cửa sổ và lời mời đăng ký tự học tại `/portal`. Học sinh dùng tài khoản nhà trường cấp, đăng nhập bằng mật khẩu hoặc Google đã gắn với hồ sơ.
+- Gỡ hai endpoint công khai `/api/auth/register/request` và `/api/auth/register/verify`; gọi đường cũ trả 404, không gửi OTP hoặc tạo tài khoản. Giữ nguyên tài khoản và dữ liệu đã có, không thay đổi schema/migration.
+- Kiểm tra local: typecheck/build frontend và backend, 20 bài frontend và 22 bài xác thực trên PostgreSQL tạm đều đạt; có kiểm tra gọi trực tiếp hai API cũ không gửi thư hay tạo thêm tài khoản.
+- Tiếp tục xác minh trên Render: API xác thực từ chối thông tin sai, quên mật khẩu không lộ tài khoản, Google đã có Client ID. Gửi thư thật và đăng nhập Google thật cần xác nhận bằng kết quả từ nhà cung cấp/hộp thư và phiên người dùng; không dùng kiểm thử giả lập làm bằng chứng đã gửi/đăng nhập thật.
+
 ## Chưa làm (ngoài Sprint 1–7) và đề xuất
 
 - Đặc tả ver0.2 (408 chức năng) đã có mã cho mọi mục. Còn "Một phần" / giới hạn: loại câu "Bình chọn" (HK.GV.088), tải video lên (HK.GV.092), sa bàn chỉ là sơ đồ minh họa chưa kiểm chứng, một số mục ở Sprint 11–12; nội dung khởi tạo (kho lịch sử, câu hỏi, trận đánh, sa bàn) vẫn là bản nháp chờ giáo viên Lịch sử kiểm chứng.
@@ -545,5 +552,5 @@ Không thêm migration cho đợt này (nhật ký phát lại nằm trong cột
 - Giới hạn đã biết của Sprint 5: bảng xếp hạng lưu đệm trong bộ nhớ một máy chủ (nhiều máy chủ sẽ mỗi máy một đệm, cần Redis nếu mở rộng); giải đấu có 4 hạng cố định; lượt làm bài đang dở vẫn tiếp tục khi tim về 0 (chỉ chặn bài mới); ảnh thành tích chỉ tạo được trên web; nhân vật là biểu tượng ghép chứ chưa có ảnh vẽ; nội dung khởi tạo (tên cấp, huy hiệu, thẻ, nhiệm vụ) là bản nháp thiết kế chờ giáo viên duyệt.
 - Bản cũ có game 2D, thi đấu trực tiếp, chatbot AI, BKT, thống kê: đã gỡ khỏi mã; xây lại theo sprint sau từ đặc tả mới.
 - Giới hạn đã biết của Sprint 3–4: câu hỏi kéo thả bản đồ và bản đồ tương tác chỉ có trên bản web; đổi thứ tự (nút hành trình, mục sắp xếp, khối bài học) bằng nút mũi tên chứ chưa kéo thả; video trong bài học mở bằng liên kết; thông báo cho giáo viên khi nội dung được duyệt/từ chối chưa có (thông báo trong ứng dụng thuộc Sprint 11) – người gửi xem ở mục "Nội dung đã gửi".
-- Cần quyết định của bạn: (1) giữ hay bỏ đăng ký tự học (HK.HS.003); (2) **giáo viên Lịch sử kiểm chứng nội dung khởi tạo** (kho lịch sử, 27 câu hỏi, 3 bài học) trước khi công bố cho học sinh; (3) kéo thả dòng thời gian/nút hành trình và tải tệp lên (cần kho lưu trữ) có làm ngay không.
+- Cần quyết định của bạn: (1) **giáo viên Lịch sử kiểm chứng nội dung khởi tạo** (kho lịch sử, 27 câu hỏi, 3 bài học) trước khi công bố cho học sinh; (2) kéo thả dòng thời gian/nút hành trình và tải tệp lên (cần kho lưu trữ) có làm ngay không. Đăng ký tự học (HK.HS.003) đã được yêu cầu bỏ ngày 04/11/2026.
 - Đề xuất cho đặc tả: HK.GV.019 (Sprint 3) và HK.GV.026 (Sprint 7) trùng việc gán hành trình cho lớp (đã làm phần gán ở Sprint 3, Sprint 7 thêm lịch); HK.AD.050 cấp độ và HK.AD.066 quy tắc điểm đã có giá trị mặc định (xem Sprint 5) nhưng nên chốt lại cùng giáo viên; HK.SYS.005 ghi Redis nhưng chưa cần ở quy mô hiện tại.

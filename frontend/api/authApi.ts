@@ -30,11 +30,6 @@ export const loginWithGoogle = async (idToken: string, portal: SchoolRole = 'stu
   return 'two_factor' in res ? res : checkSession(res, portal);
 };
 
-/** Đăng ký tự học (HK.HS.003): bước 1 gửi OTP tới email, bước 2 nhập OTP + họ tên + mật khẩu */
-export const requestSignup = (email: string) => apiRequest<{ ok: boolean }>('/api/auth/register/request', { body: { email } });
-export const completeSignup = (body: { email: string; otp: string; full_name: string; nickname?: string; password: string }) =>
-  apiRequest<AuthSession>('/api/auth/register/verify', { body });
-
 /** Tài khoản của phiên đang lưu */
 export const getMe = (token: string) => apiRequest<AuthUser>('/api/auth/me', { token });
 

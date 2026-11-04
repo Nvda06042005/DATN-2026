@@ -37,18 +37,6 @@ class ResetPasswordDto {
   @Matches(PASSWORD_POLICY, { message: PASSWORD_MESSAGE }) new_password: string;
 }
 
-class SignupRequestDto {
-  @IsEmail() @MaxLength(254) email: string;
-}
-
-class SignupCompleteDto {
-  @IsEmail() @MaxLength(254) email: string;
-  @Matches(/^\d{6}$/, { message: 'Mã xác thực gồm 6 chữ số' }) otp: string;
-  @IsString() @Length(2, 80) full_name: string;
-  @IsOptional() @IsString() @Length(2, 24) nickname?: string | null;
-  @Matches(PASSWORD_POLICY, { message: PASSWORD_MESSAGE }) password: string;
-}
-
 class ProfileDto {
   @IsOptional() @IsString() @Length(2, 80) full_name?: string;
   @IsOptional() @IsEmail() @MaxLength(254) email?: string | null;
@@ -67,7 +55,7 @@ class ChangePasswordDto {
   @Matches(PASSWORD_POLICY, { message: PASSWORD_MESSAGE }) new_password: string;
 }
 
-/** /api/auth: đăng nhập, đăng ký tự học, quên mật khẩu, hồ sơ, đổi mật khẩu (mọi vai trò) */
+/** /api/auth: đăng nhập theo tài khoản được cấp, quên mật khẩu, hồ sơ, đổi mật khẩu. */
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -100,23 +88,6 @@ export class AuthController {
   google(@Body() body: GoogleLoginDto) {
     this.ensureReady();
     return this.auth.googleLogin(body.id_token, body.portal);
-  }
-
-  /** Đăng ký tự học bước 1: gửi OTP tới email; luôn trả {ok:true} để không lộ email nào đã có tài khoản */
-  @Post('register/request')
-  @HttpCode(200)
-  async registerRequest(@Body() body: SignupRequestDto) {
-    this.ensureReady();
-    await this.auth.requestSignup(body.email);
-    return { ok: true };
-  }
-
-  /** Đăng ký tự học bước 2: nhập OTP + họ tên + mật khẩu, tạo tài khoản học sinh không thuộc trường và đăng nhập luôn */
-  @Post('register/verify')
-  @HttpCode(200)
-  registerVerify(@Body() body: SignupCompleteDto) {
-    this.ensureReady();
-    return this.auth.completeSignup(body.email, body.otp, body.full_name, body.password, body.nickname);
   }
 
   /** Quên mật khẩu (mọi vai trò): gửi mã OTP 6 chữ số tới email tài khoản; luôn trả {ok:true} để không lộ tài khoản nào có thật */
