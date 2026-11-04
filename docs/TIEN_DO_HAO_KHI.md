@@ -528,6 +528,13 @@ Không thêm migration cho đợt này (nhật ký phát lại nằm trong cột
 - Trang chung dùng ảnh thành lũy do người dùng cung cấp (`dang-nhap-thanh-luy.webp`), nền toàn màn hình, khung giữa hai cột trên máy tính và một cột trên điện thoại, chữ Manrope/Newsreader.
 - Giữ kiểm tra vai trò ở API, phiên riêng theo vai trò, xác thực hai lớp của quản trị trường, đổi mật khẩu bắt buộc, xác nhận hồ sơ học sinh, quên mật khẩu, đăng ký tự học và đăng nhập Google dành cho học sinh. Không thay đổi backend, schema hoặc migration cho đợt này.
 
+## Cập nhật đăng nhập chung ngày 04/11/2026
+
+- Thu gọn `/portal` thành khung tối đa 940 × 620 trên desktop, giới hạn chiều cao theo màn hình và giữ ảnh thành lũy phía sau. Màn hình nhỏ dùng phần đầu gọn và cuộn bên trong biểu mẫu khi cần, không cắt tiêu đề hay nút đăng nhập.
+- Thêm Google cho giáo viên và quản trị trường bên cạnh học sinh. Email Google đã xác minh phải trùng tài khoản đã được cấp và đúng vai trò được chọn; không tự tạo tài khoản nhân sự, đổi vai trò hay mở dữ liệu trường khác. Quản trị tổng tiếp tục dùng `/admin` riêng.
+- Google của quản trị trường đã bật xác thực hai lớp phải hoàn thành cùng bước OTP/TOTP trước khi được cấp phiên. Giữ kiểm tra tài khoản/trường bị khóa và các bước đổi mật khẩu, xác nhận hồ sơ hiện có. Không thay đổi schema hay thêm migration trong đợt này.
+- Kiểm tra local: typecheck/build frontend và backend đạt; 20 bài frontend, 22 bài xác thực và 15 bài nền tảng/2FA đạt trên PostgreSQL tạm. Kiểm thử trình duyệt ẩn ở 5 kích thước từ 360 × 640 đến 1366 × 768: khung nằm trong màn hình, Google gửi đúng vai trò sau khi chuyển lựa chọn và mở bước hai lớp cho quản trị trường. Luồng Google trong kiểm thử dùng danh tính giả, chưa thay thế việc đăng nhập thử bằng tài khoản Google thật.
+
 ## Chưa làm (ngoài Sprint 1–7) và đề xuất
 
 - Đặc tả ver0.2 (408 chức năng) đã có mã cho mọi mục. Còn "Một phần" / giới hạn: loại câu "Bình chọn" (HK.GV.088), tải video lên (HK.GV.092), sa bàn chỉ là sơ đồ minh họa chưa kiểm chứng, một số mục ở Sprint 11–12; nội dung khởi tạo (kho lịch sử, câu hỏi, trận đánh, sa bàn) vẫn là bản nháp chờ giáo viên Lịch sử kiểm chứng.

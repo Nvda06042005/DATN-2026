@@ -216,8 +216,8 @@ async function newSchool(code: string, name: string, adminName: string, email: s
       expect(ok.body.user).toMatchObject({ id: created.body.user.id, role: 'student' });
       spy.mockResolvedValue({ email: 'khong-co@example.edu.vn' });
       expect((await api('POST', '/api/auth/google', { id_token: 'x'.repeat(40) }, '')).status).toBe(401);
-      spy.mockResolvedValue({ email: 'qt.a@example.edu.vn' }); // email của quản trị viên: không dùng Google để đăng nhập
-      expect((await api('POST', '/api/auth/google', { id_token: 'x'.repeat(40) }, '')).status).toBe(401);
+      spy.mockResolvedValue({ email: 'qt.a@example.edu.vn' }); // tài khoản quản trị không đăng nhập ở vai trò học sinh
+      expect((await api('POST', '/api/auth/google', { id_token: 'x'.repeat(40) }, '')).status).toBe(403);
       await api('POST', `/api/admin/users/${created.body.user.id}/lock`, { locked: true, reason: 'Thử khóa' }, a.token);
       spy.mockResolvedValue({ email: 'dogoogle@example.edu.vn' });
       const locked = await api('POST', '/api/auth/google', { id_token: 'x'.repeat(40) }, '');
@@ -228,6 +228,70 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     }
     const real = await api('POST', '/api/auth/google', { id_token: 'x'.repeat(40) }, '');
     expect([401, 503]).toContain(real.status); // không có mạng/Google: mã giả bị từ chối, không đăng nhập được
+  });
+
+  test('Google mở đúng tài khoản giáo viên/quản trị trường, giữ phạm vi trường và không tự tạo tài khoản', async () => {
+    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Google', email: 'gv.google@example.edu.vn' }, a.token);
+    expect(teacher.status).toBe(201);
+    const active = await activate(s.base, teacher.body.user.username, teacher.body.temporary_password, PW, 'teacher');
+    const auth: AuthService = s.moduleRef.get((await import('../src/auth/auth.service')).AuthService);
+    const spy = jest.spyOn(auth, 'verifyGoogleToken');
+    const google = (portal: string) => api('POST', '/api/auth/google', { id_token: 'x'.repeat(40), portal }, '');
+    try {
+      spy.mockResolvedValue({ email: 'gv.google@example.edu.vn' });
+      const gv = await google('teacher');
+      expect(gv.status).toBe(200);
+      expect(gv.body.user).toMatchObject({ id: active.user.id, role: 'teacher', school_id: a.id });
+      expect((await google('school_admin')).status).toBe(403);
+      expect((await api('GET', '/api/admin/schools', undefined, gv.body.token)).status).toBe(403);
+      spy.mockResolvedValue({ email: 'qt.a@example.edu.vn' });
+      const qt = await google('school_admin');
+      expect(qt.status).toBe(200);
+      expect(qt.body.user).toMatchObject({ id: a.admin.id, role: 'school_admin', school_id: a.id });
+      expect((await api('GET', '/api/admin/school', undefined, qt.body.token)).body.id).toBe(a.id);
+      expect((await api('GET', `/api/admin/schools/${b.id}`, undefined, qt.body.token)).status).toBe(404);
+      expect((await api('GET', `/api/admin/users/${b.admin.id}`, undefined, qt.body.token)).status).toBe(404);
+      expect((await google('teacher')).status).toBe(403);
+      await api('POST', `/api/admin/users/${active.user.id}/lock`, { locked: true, reason: 'Khóa Google giáo viên' }, a.token);
+      spy.mockResolvedValue({ email: 'gv.google@example.edu.vn' });
+      expect((await google('teacher')).status).toBe(403);
+      const paused = await newSchool('7087', 'Trường khóa Google', 'Quản Trị Khóa Google', 'qt.googlekhoa@example.edu.vn');
+      await api('PATCH', `/api/admin/schools/${paused.id}`, { is_active: false });
+      spy.mockResolvedValue({ email: 'qt.googlekhoa@example.edu.vn' });
+      expect((await google('school_admin')).status).toBe(403);
+      const before = (await db.query('SELECT count(*)::int AS n FROM app_users'))[0].n;
+      spy.mockResolvedValue({ email: 'chua-cap-google@example.edu.vn' });
+      for (const role of ['teacher', 'school_admin']) expect((await google(role)).status).toBe(401);
+      expect((await db.query('SELECT count(*)::int AS n FROM app_users'))[0].n).toBe(before);
+      const rootUser = await db.findForLogin('admin');
+      await db.query('UPDATE app_users SET email = $1 WHERE id = $2', ['root.google@example.edu.vn', rootUser!.id]);
+      spy.mockResolvedValue({ email: 'root.google@example.edu.vn' });
+      expect((await google('school_admin')).status).toBe(401);
+      expect((await google('root_admin')).status).toBe(422);
+      await db.query('UPDATE app_users SET email = $1 WHERE id = $2', [rootUser!.email, rootUser!.id]);
+    } finally { spy.mockRestore(); }
+  });
+
+  test('Google quản trị trường đã bật 2FA phải xác thực mã trước khi được cấp token', async () => {
+    const school = await newSchool('7088', 'Trường Google hai lớp', 'Quản Trị Google', 'qt.google2fa@example.edu.vn');
+    const auth: AuthService = s.moduleRef.get((await import('../src/auth/auth.service')).AuthService);
+    const spy = jest.spyOn(auth, 'verifyGoogleToken').mockResolvedValue({ email: 'qt.google2fa@example.edu.vn' });
+    const latestCode = () => /Mã xác thực của bạn là: (\d{6})/.exec(mail.sent[mail.sent.length - 1].text)![1];
+    try {
+      expect((await api('POST', '/api/platform/2fa/setup', { method: 'email' }, school.token)).status).toBe(200);
+      expect((await api('POST', '/api/platform/2fa/enable', { code: latestCode() }, school.token)).status).toBe(200);
+      const step = await api('POST', '/api/auth/google', { id_token: 'x'.repeat(40), portal: 'school_admin' }, '');
+      expect(step.status).toBe(200);
+      expect(step.body).toMatchObject({ two_factor: true, method: 'email', expires_in: 300 });
+      expect(step.body.token).toBeUndefined();
+      expect((await api('GET', '/api/auth/me', undefined, step.body.challenge)).status).toBe(401);
+      const body = { challenge: step.body.challenge, code: latestCode(), portal: 'school_admin' };
+      expect((await api('POST', '/api/auth/2fa/verify', { ...body, portal: 'teacher' }, '')).status).toBe(401);
+      const done = await api('POST', '/api/auth/2fa/verify', body, '');
+      expect(done.status).toBe(200);
+      expect(done.body.user).toMatchObject({ id: school.admin.id, role: 'school_admin', school_id: school.id });
+      expect((await api('POST', '/api/auth/2fa/verify', body, '')).status).toBe(401);
+    } finally { spy.mockRestore(); }
   });
 
   // ------------------------------------------------------------------ HK.HS.003

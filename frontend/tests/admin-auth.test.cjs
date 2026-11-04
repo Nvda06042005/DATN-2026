@@ -125,7 +125,26 @@ test('Lựa chọn vai trò từ URL chỉ nhận ba vai trò nhà trường và
   assert.equal(portals.isSchoolRole('root_admin'), false);
 });
 
-test('Đăng nhập Google không nhận phiên của giáo viên hay quản trị', async () => {
+test('Google mặc định là học sinh, không nhận phiên quản trị tổng', async () => {
   const { auth } = loadAuth({ respond: () => rootSession });
   await assert.rejects(auth.loginWithGoogle('synthetic-google-credential'), error => error.status === 403);
+});
+
+for (const role of ['student', 'teacher', 'school_admin']) {
+  test(`Google gửi đúng vai trò ${role} và từ chối phiên vai trò khác`, async () => {
+    const session = { token: 'test-school-token', user: { ...rootUser, role, school_id: 42 } };
+    const { auth, requests } = loadAuth({ respond: () => session });
+    assert.deepEqual(await auth.loginWithGoogle('synthetic-google-credential', role), session);
+    assert.deepEqual(JSON.parse(requests[0].body), { id_token: 'synthetic-google-credential', portal: role });
+    const wrong = loadAuth({ respond: () => rootSession });
+    await assert.rejects(wrong.auth.loginWithGoogle('synthetic-google-credential', role), error => error.status === 403);
+  });
+}
+
+test('Google của quản trị trường trả thử thách hai lớp, chưa phải phiên đăng nhập', async () => {
+  const challenge = { two_factor: true, method: 'email', challenge: 'test-google-challenge', expires_in: 300 };
+  const { auth } = loadAuth({ respond: () => challenge });
+  const result = await auth.loginWithGoogle('synthetic-google-credential', 'school_admin');
+  assert.deepEqual(result, challenge);
+  assert.equal(result.token, undefined);
 });

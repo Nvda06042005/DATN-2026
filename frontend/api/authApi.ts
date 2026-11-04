@@ -1,6 +1,7 @@
 import { ApiError, apiRequest } from '@/api/client';
 import type { AuthSession, AuthUser, ClassItem, Portal, ProfileData, ProfilePatch } from '@/types/api';
 import type { TwoFactorChallenge } from '@/types/platform';
+import type { SchoolRole } from '@/lib/school-portal';
 
 /** Phiên server trả về phải có token và đúng vai trò của trang đăng nhập (trang quản trị không nhận phiên của vai trò khác) */
 function checkSession(session: AuthSession, portal: Portal | 'app'): AuthSession {
@@ -23,8 +24,11 @@ export const loginWithPassword = async (username: string, password: string, port
 export const loginAdmin = loginWithPassword;
 export const verifyTwoFactor = async (challenge: string, code: string, portal: Portal) => checkSession(await apiRequest<AuthSession>('/api/auth/2fa/verify', { body: { challenge, code, portal } }), portal);
 
-/** Đăng nhập Google (HK.HS.002): chỉ học sinh có email Google trùng email trong hồ sơ */
-export const loginWithGoogle = async (idToken: string) => checkSession(await apiRequest<AuthSession>('/api/auth/google', { body: { id_token: idToken, portal: 'student' } }), 'student');
+/** Google dùng đúng vai trò đã chọn và vẫn yêu cầu hai lớp nếu tài khoản đã bật. */
+export const loginWithGoogle = async (idToken: string, portal: SchoolRole = 'student'): Promise<AuthSession | TwoFactorChallenge> => {
+  const res = await apiRequest<AuthSession | TwoFactorChallenge>('/api/auth/google', { body: { id_token: idToken, portal } });
+  return 'two_factor' in res ? res : checkSession(res, portal);
+};
 
 /** Đăng ký tự học (HK.HS.003): bước 1 gửi OTP tới email, bước 2 nhập OTP + họ tên + mật khẩu */
 export const requestSignup = (email: string) => apiRequest<{ ok: boolean }>('/api/auth/register/request', { body: { email } });
