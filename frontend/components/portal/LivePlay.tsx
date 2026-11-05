@@ -83,13 +83,13 @@ const Question: React.FC<{ view: LiveView; skew: number; onAnswer: (value: unkno
     try { await onAnswer(value); setSentLocal(q.index); } catch { /* lỗi hiển thị ở khung chính */ } finally { setSending(false); }
   };
   const opts = q.view.options ?? [];
-  const instant = q.qtype === 'single' || q.qtype === 'truefalse';
+  const instant = q.qtype === 'single' || q.qtype === 'truefalse' || q.qtype === 'poll';
   const locked = sending || closed || q.paused;
   return (
     <View style={{ gap: 14 }}>
       <View style={{ gap: 6 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <Txt f="bold" size={14} color={c.muc2}>Câu {q.index + 1}/{q.total} · {q.points_max > 0 ? `tối đa ${q.points_max} điểm` : 'không tính điểm'}</Txt>
+          <Txt f="bold" size={14} color={c.muc2}>Câu {q.index + 1}/{q.total} · {q.qtype === 'poll' ? 'bình chọn, không có đáp án đúng' : q.points_max > 0 ? `tối đa ${q.points_max} điểm` : 'không tính điểm'}</Txt>
           {view.me ? <Txt f="bold" size={14} color={c.dongChu}>{view.me.score} điểm · hạng {view.me.rank ?? '–'}</Txt> : null}
         </View>
         <LiveCountdown remaining={remaining} total={q.seconds} paused={q.paused} />
@@ -153,16 +153,17 @@ const Results: React.FC<{ view: LiveView }> = ({ view }) => {
   const { c } = useTheme();
   const r = view.results!, me = view.me, last = me?.last;
   const total = r.stats.correct + r.stats.wrong + r.stats.none;
+  const votes = (r.options ?? []).reduce((n, o) => n + o.count, 0); // câu bình chọn: số lượt chọn
   const right = r.options ? r.options.filter((o) => o.correct).map((o) => o.text) : keyLines(r.qtype, r.answer_key);
-  const tone = r.skipped ? 'muted' : !last || last.elapsed_ms === null ? 'none' : last.correct ? 'ok' : 'bad';
+  const tone = r.skipped ? 'muted' : !last || last.elapsed_ms === null ? 'none' : r.poll ? 'voted' : last.correct ? 'ok' : 'bad';
   return (
     <View style={{ gap: 14 }}>
       {view.boss ? <BossPanel boss={view.boss} hit={r.boss_hit} /> : null}
       <Card style={{ backgroundColor: tone === 'ok' ? c.ngocNhat : tone === 'bad' ? c.sonNhat : c.the2 }}>
         <View accessibilityLiveRegion="polite" style={{ alignItems: 'center', gap: 6 }}>
-        {tone === 'ok' ? <CheckCircle2 size={44} color={c.ngocChu} /> : tone === 'bad' ? <XCircle size={44} color={c.sonChu} /> : <Clock size={44} color={c.muc3} />}
+        {tone === 'ok' || tone === 'voted' ? <CheckCircle2 size={44} color={tone === 'voted' ? c.muc2 : c.ngocChu} /> : tone === 'bad' ? <XCircle size={44} color={c.sonChu} /> : <Clock size={44} color={c.muc3} />}
         <Txt f="displayHeavy" size={26} center color={tone === 'ok' ? c.ngocChu : tone === 'bad' ? c.sonChu : c.muc}>
-          {r.skipped ? 'Giáo viên đã bỏ qua câu này' : tone === 'ok' ? `Chính xác! ${last?.points ? `+${last.points} điểm` : 'Câu này không tính điểm'}${view.boss && last?.damage ? ` · đòn của em: -${last.damage} máu trùm` : ''}` : tone === 'bad' ? 'Chưa đúng' : 'Em chưa trả lời câu này'}
+          {r.skipped ? 'Giáo viên đã bỏ qua câu này' : tone === 'voted' ? 'Cảm ơn em đã bình chọn!' : tone === 'ok' ? `Chính xác! ${last?.points ? `+${last.points} điểm` : 'Câu này không tính điểm'}${view.boss && last?.damage ? ` · đòn của em: -${last.damage} máu trùm` : ''}` : tone === 'bad' ? 'Chưa đúng' : 'Em chưa trả lời câu này'}
         </Txt>
         {r.skipped ? <Txt size={14} color={c.muc2} center>Câu bị bỏ qua không tính điểm cho ai.</Txt> : null}
         {me ? <Txt f="bold" size={16}>Hạng {me.rank ?? '–'} · {me.score} điểm</Txt> : null}
@@ -171,12 +172,12 @@ const Results: React.FC<{ view: LiveView }> = ({ view }) => {
       {!r.skipped ? (
         <Card flat pad={14} style={{ gap: 6 }}>
           <Txt f="bold" size={15}>{r.prompt}</Txt>
-          <Txt f="semibold" size={15} color={c.ngocChu}>Đáp án đúng: {right.join('; ')}</Txt>
+          {r.poll ? null : <Txt f="semibold" size={15} color={c.ngocChu}>Đáp án đúng: {right.join('; ')}</Txt>}
           {r.explanation ? <Txt size={14} color={c.muc2}>{r.explanation}</Txt> : null}
-          <Txt size={13} color={c.muc3}>{r.stats.correct}/{total} bạn trả lời đúng</Txt>
+          <Txt size={13} color={c.muc3}>{r.poll ? `${votes} bạn đã bình chọn · câu này không có đáp án đúng` : `${r.stats.correct}/${total} bạn trả lời đúng`}</Txt>
         </Card>
       ) : null}
-      {r.options && !r.skipped ? <LiveDistribution options={r.options} total={total} /> : null}
+      {r.options && !r.skipped ? <LiveDistribution options={r.options} total={r.poll ? votes : total} poll={r.poll} /> : null}
       <Txt f="bold" size={16}>Bảng điểm</Txt>
       <LiveBoard rows={r.top} me={me?.nickname} />
       {me && !r.top.some((t) => t.nickname === me.nickname) ? <Txt size={14} color={c.muc2}>Em đang xếp hạng {me.rank ?? '–'} với {me.score} điểm.</Txt> : null}
@@ -196,15 +197,16 @@ const ReviewList: React.FC<{ review: LiveReview }> = ({ review }) => {
   const { c } = useTheme();
   return (
     <View style={{ gap: 10 }}>
-      <Txt size={14} color={c.muc2}>Hạng {review.summary.rank}/{review.summary.players} · {review.summary.score} điểm · đúng {review.summary.correct_count}/{review.items.filter((i) => !i.skipped).length} câu</Txt>
+      <Txt size={14} color={c.muc2}>Hạng {review.summary.rank}/{review.summary.players} · {review.summary.score} điểm · đúng {review.summary.correct_count}/{review.items.filter((i) => !i.skipped && !i.poll).length} câu</Txt>
       {review.items.map((it) => (
-        <Card key={it.index} flat pad={12} style={{ gap: 4, borderColor: it.skipped ? c.vien : it.correct ? c.ngoc : c.son }}>
+        <Card key={it.index} flat pad={12} style={{ gap: 4, borderColor: it.skipped || it.poll ? c.vien : it.correct ? c.ngoc : c.son }}>
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Chip text={it.skipped ? 'Bị bỏ qua' : it.correct ? `Đúng +${it.points}` : it.answered ? 'Sai' : 'Chưa trả lời'} bg={it.skipped ? c.dichNhat : it.correct ? c.ngocNhat : c.sonNhat} fg={it.skipped ? c.dich : it.correct ? c.ngocChu : c.sonChu} icon={it.correct ? CheckCircle2 : it.skipped ? Clock : XCircle} />
+            <Chip text={it.skipped ? 'Bị bỏ qua' : it.poll ? (it.answered ? 'Đã bình chọn' : 'Chưa bình chọn') : it.correct ? `Đúng +${it.points}` : it.answered ? 'Sai' : 'Chưa trả lời'} bg={it.skipped || it.poll ? c.dichNhat : it.correct ? c.ngocNhat : c.sonNhat} fg={it.skipped || it.poll ? c.dich : it.correct ? c.ngocChu : c.sonChu} icon={it.correct ? CheckCircle2 : it.skipped ? Clock : XCircle} />
             <Txt size={12} color={c.muc3}>Câu {it.index + 1}{it.class_correct_rate !== null ? ` · cả lớp đúng ${it.class_correct_rate}%` : ''}</Txt>
           </View>
           <Txt f="semibold" size={15}>{it.prompt}</Txt>
-          {!it.skipped ? <Txt size={14} color={c.ngocChu}>Đáp án: {keyLines(it.qtype, it.answer_key).join('; ')}</Txt> : null}
+          {!it.skipped && !it.poll ? <Txt size={14} color={c.ngocChu}>Đáp án: {keyLines(it.qtype, it.answer_key).join('; ')}</Txt> : null}
+          {it.poll && it.votes ? <Txt size={14} color={c.muc2}>Kết quả bình chọn: {it.votes.map((v) => `${v.text}: ${v.count}`).join(' · ')}</Txt> : null}
           {it.explanation && !it.skipped ? <Txt size={13} color={c.muc2}>{it.explanation}</Txt> : null}
         </Card>
       ))}

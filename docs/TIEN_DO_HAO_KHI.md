@@ -6,7 +6,7 @@ Nguồn: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức
 **Từ 01/11/2026 đặc tả có bản `ver0.2`** (408 chức năng; viết lại Sprint 5–8, thêm 60 chức năng, sửa 10). Đối chiếu và các điểm cần chốt: `DOI_CHIEU_HAO_KHI_V02.md`.
 Đang làm ver0.2 theo thứ tự Sprint 5 → 6 → 7 → 8; tiến độ nằm ở mục "ver0.2" cuối các bảng Sprint tương ứng (Sprint 5 ver0.2: lộ trình dạng đường đi, đã làm; Sprint 6 ver0.2: game thẻ tướng, đã làm trừ Sa bàn 3D; Sprint 7–8 ver0.2: đã làm nốt ở mục "Sprint 7–8 theo ver0.2" bên dưới). **Sprint 9 (AI Tutor), Sprint 10 (gợi ý học tập, thống kê, báo cáo), Sprint 11 (thông báo, hỗ trợ, cấu hình hệ thống, 2FA) và Sprint 12 (khảo sát, nghiên cứu) đã làm** theo yêu cầu chạy tiếp Sprint 9–12, làm trước khi xong Sprint 7–8 ver0.2.
 
-Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 367 bài trong 30 tệp, gồm migration trên dữ liệu cũ, Sprint 1–8, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu, trò chơi hóa, mô phỏng trận đánh, lớp học, bài tập, bản đồ rẽ nhánh, lộ trình dạng đường đi, thi đấu trực tiếp, bộ máy trận thẻ tướng game thẻ tướng, AI Tutor, gợi ý học tập, thống kê, báo cáo, nền tảng hệ thống, khảo sát và nghiên cứu);
+Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 378 bài trong 30 tệp, gồm migration trên dữ liệu cũ, Sprint 1–8, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu, trò chơi hóa, mô phỏng trận đánh, lớp học, bài tập, bản đồ rẽ nhánh, lộ trình dạng đường đi, thi đấu trực tiếp, bộ máy trận thẻ tướng game thẻ tướng, AI Tutor, gợi ý học tập, thống kê, báo cáo, nền tảng hệ thống, khảo sát và nghiên cứu);
 `cd frontend && npm run typecheck && npm run build`. Mỗi bài kiểm thử ghi mã HK.* trong tên.
 
 ## Sprint 1 – xác thực, tài khoản, hồ sơ, trường học, người dùng (40 chức năng)
@@ -438,12 +438,12 @@ Làm theo yêu cầu "làm tiếp Sprint 13–14" (file ver0.2 chỉ có 12 spri
 | HK.GV.085 | Xong | Menu "+ Tạo" trên thanh công cụ (Quiz, Bộ đề, Câu hỏi, Hành trình, Phòng thi đấu); Quiz có tên, mô tả, ảnh bìa; tạo trống hoặc mở bộ đề có sẵn để sửa (mục Bộ đề có nút "Sửa trong trình soạn Quiz") |
 | HK.GV.086 | Xong | Cột trái liệt kê câu (số, loại, thời gian, ảnh thu nhỏ, cảnh báo câu chưa đủ); thêm, sao chép, xóa (hỏi lại), kéo thả đổi thứ tự trên web và nút lên / xuống |
 | HK.GV.087 | Xong | Ô nhập câu hỏi; bốn đáp án ▲ đỏ, ◆ xanh lá, ● vàng, ■ xanh đậm, hai ô đầu bắt buộc; vòng tròn đánh dấu đáp án đúng; có ô giải thích đáp án |
-| HK.GV.088 | Một phần | Trắc nghiệm và Đúng / Sai (đổi loại thì ô đáp án tự điều chỉnh). **Chưa làm loại "Bình chọn" không có đáp án đúng** (đặc tả ghi "có thể mở rộng") |
+| HK.GV.088 | Xong | Trắc nghiệm, Đúng / Sai (đổi loại thì ô đáp án tự điều chỉnh) và **Bình chọn** không có đáp án đúng: 2–4 lựa chọn, không tính điểm, học sinh chọn một lựa chọn rồi cả lớp xem số lượt chọn. Quy tắc ở mục "Hoàn thiện Sprint 8" cuối tài liệu |
 | HK.GV.089 | Xong | 5 / 10 / 20 / 30 / 60 / 90 / 120 giây (mặc định 20) và nút "Áp dụng cho tất cả câu hỏi" |
 | HK.GV.090 | Xong | Tiêu chuẩn 1000, gấp đôi 2000, không tính điểm; điểm thực nhận giảm dần theo thời gian (từ 100% xuống 50%). Áp dụng khi thi đấu trực tiếp; bộ đề cũ giữ điểm gốc |
 | HK.GV.091 | Xong | Một đáp án hoặc nhiều đáp án (phải chọn đúng và đủ mới được điểm; cần ít nhất 3 đáp án và 2 đáp án đúng) |
-| HK.GV.092 | Xong | "Tìm và chèn phương tiện truyền thông": tải ảnh lên (PNG, JPEG, WEBP, GIF ≤ 1,5 MB, kiểm tra bằng nội dung thật, mỗi giáo viên ≤ 60 ảnh và 30 MB; ảnh nằm ngoài sao lưu trong cơ sở dữ liệu của quản trị hệ thống, chỉ có trong sao lưu của Supabase), chọn ảnh sử liệu đã công bố trong kho tư liệu (tìm không phân biệt dấu), dán liên kết ảnh https; video là liên kết YouTube / Vimeo (nhúng khung phát), tệp .mp4 / .webm hoặc liên kết mở trong tab mới. **Chưa tải video lên** |
-| HK.GV.093 | Xong | Nền theo chủ đề (Bạch Đằng, Thăng Long, Chương Dương, Đông Bộ Đầu) áp lên màn hình chiếu và trình xem trước; nhạc chờ ngũ cung (Trống trận, Sóng nước, Hào khí) do trình duyệt tự phát khi giáo viên bấm bật. **Không phải tệp nhạc thật** |
+| HK.GV.092 | Xong | "Tìm và chèn phương tiện truyền thông": tải ảnh lên (PNG, JPEG, WEBP, GIF ≤ 1,5 MB, kiểm tra bằng nội dung thật, mỗi giáo viên ≤ 60 ảnh và 30 MB; ảnh nằm ngoài sao lưu trong cơ sở dữ liệu của quản trị hệ thống, chỉ có trong sao lưu của Supabase), chọn ảnh sử liệu đã công bố trong kho tư liệu (tìm không phân biệt dấu), dán liên kết ảnh https; video là liên kết YouTube / Vimeo (nhúng khung phát), tệp .mp4 / .webm hoặc liên kết mở trong tab mới. **Tải video lên** (MP4, WebM, tối đa 8 MB, 5 video mỗi giáo viên; phát trong câu hỏi và tua được) ở tab "Tải video lên" của hộp chèn phương tiện |
+| HK.GV.093 | Xong | Nền theo chủ đề (Bạch Đằng, Thăng Long, Chương Dương, Đông Bộ Đầu) áp lên màn hình chiếu và trình xem trước; nhạc chờ ngũ cung (Trống trận, Sóng nước, Hào khí) do trình duyệt tự tạo, **hoặc tệp nhạc giáo viên tải lên** (MP3, OGG, tối đa 4 MB, 5 tệp mỗi giáo viên; có nghe thử ngay trong trình soạn); phát lặp khi giáo viên bấm bật. Hệ thống không kèm sẵn bản nhạc nào vì không có nhạc được cấp phép sử dụng |
 | HK.GV.094 | Xong | Tự lưu bản nháp lên máy chủ sau 1,2 giây (mở lại ở máy khác được); xem trước như học sinh có hiện đáp án; "Lưu Quiz" kiểm tra từng câu (báo "Câu N: …") rồi lưu vào ngân hàng câu hỏi và bộ đề (dùng chung dữ liệu với HK.GV.032 và HK.GV.041); "Tổ chức thi đấu" mở phòng với Quiz này, "Giao bài" tạo bài tập cho lớp. Câu riêng chưa dùng ở đâu khác được sửa tại chỗ, câu đã nằm trong bộ đề khác tạo bản mới; Quiz đã giao hoặc đã có học sinh làm thì khóa chỉnh sửa |
 | HK.GV.095 | Xong | Nút khóa / mở khóa phòng ở màn chờ và trong trận; phòng khóa thì mã PIN không nhận người mới ("Phòng đã khóa"); số người trong phòng luôn hiển thị |
 | HK.GV.096 | Xong | Khi tạo phòng chọn tự khóa ngay khi bấm Bắt đầu (mặc định bật), sau 30 / 60 giây hoặc không tự khóa; đổi được ở phòng chờ |
@@ -519,7 +519,7 @@ Cả hai tệp Excel (ver0.1: 348 chức năng, ver0.2: 408 chức năng) chỉ 
 | HK.AD.065 | Tên/logo chỉ lưu, giao diện không đổi | Thanh đầu trang đổi theo tên và logo hệ thống |
 | HK.HS.023 | Ghi "Một phần" | Ghi "Xong" (nhiệm vụ ngày/tuần đã có từ Sprint 5) |
 
-Không thêm migration cho đợt này (nhật ký phát lại nằm trong cột `state` JSONB sẵn có của `hk_war_battles`; quyết sách dùng bảng `hk_game_runs` sẵn có). Vẫn còn "Một phần" và cần hạ tầng hoặc quyết định riêng: HK.GV.088 loại câu "Bình chọn" (đặc tả ghi "có thể mở rộng"), HK.GV.092 / HK.AD.038 / HK.AD.085 tải tệp, video và sprite lên (cần kho tệp), HK.AD.026 nối đủ 30 nhóm quyền còn lại vào máy chủ, HK.HS.054 / HK.AD.037 kéo thả trên cảm ứng (HK.GV.022 đã thử bằng cảm ứng giả lập, chưa thử trên thiết bị thật), HK.SYS.005 (bảng xếp hạng dùng Redis khi chạy nhiều máy chủ), HK.HS.091 bộ lọc ngữ nghĩa cho nhập vai, HK.HS.116 / HK.HS.132 chân dung và hoạt ảnh chiêu thức (cần tranh vẽ), HK.SYS.013 (cố ý chỉ chọn câu, không sinh câu mới).
+Không thêm migration cho đợt này (nhật ký phát lại nằm trong cột `state` JSONB sẵn có của `hk_war_battles`; quyết sách dùng bảng `hk_game_runs` sẵn có). Vẫn còn "Một phần" và cần hạ tầng hoặc quyết định riêng: HK.AD.038 / HK.AD.085 tải tệp và sprite lên (cần kho tệp), HK.AD.026 nối đủ 30 nhóm quyền còn lại vào máy chủ, HK.HS.054 / HK.AD.037 kéo thả trên cảm ứng (HK.GV.022 đã thử bằng cảm ứng giả lập, chưa thử trên thiết bị thật), HK.SYS.005 (bảng xếp hạng dùng Redis khi chạy nhiều máy chủ), HK.HS.091 bộ lọc ngữ nghĩa cho nhập vai, HK.HS.116 / HK.HS.132 chân dung và hoạt ảnh chiêu thức (cần tranh vẽ), HK.SYS.013 (cố ý chỉ chọn câu, không sinh câu mới).
 
 ## Hoàn thiện giải đấu và các ghi chú Sprint 5 (04/11/2026)
 
@@ -567,7 +567,7 @@ Quyết định khi cho chỉnh số hạng và ngày chốt:
 
 ## Chưa làm (ngoài Sprint 1–7) và đề xuất
 
-- Đặc tả ver0.2 (408 chức năng) đã có mã cho mọi mục. Còn "Một phần" / giới hạn: loại câu "Bình chọn" (HK.GV.088), tải video lên (HK.GV.092), sa bàn chỉ là sơ đồ minh họa chưa kiểm chứng, một số mục ở Sprint 11–12; nội dung khởi tạo (kho lịch sử, câu hỏi, trận đánh, sa bàn) vẫn là bản nháp chờ giáo viên Lịch sử kiểm chứng.
+- Đặc tả ver0.2 (408 chức năng) đã có mã cho mọi mục. Còn "Một phần" / giới hạn: sa bàn chỉ là sơ đồ minh họa chưa kiểm chứng, một số mục ở Sprint 11–12; nội dung khởi tạo (kho lịch sử, câu hỏi, trận đánh, sa bàn) vẫn là bản nháp chờ giáo viên Lịch sử kiểm chứng.
 - Giới hạn đã biết của Sprint 11–12: ma trận phân quyền mới nối 8 nhóm vào máy chủ; hai lớp là tùy chọn của từng tài khoản quản trị; sao lưu nằm cùng cơ sở dữ liệu (cần tải về cất nơi khác) và chưa thử phục hồi trên Supabase thật; giới hạn tần suất và nhắc học tính trong bộ nhớ / một máy chủ; thư (nhắc học, nhận xét, mã OTP) chưa thử với máy chủ thư thật; ảnh chụp màn hình chọn bằng bộ chọn tệp (chưa thử trên điện thoại thật); nội dung hướng dẫn khởi tạo là chữ, chưa có ảnh / video; khảo sát và dữ liệu nghiên cứu cần sự đồng ý của nhà trường và phụ huynh trước khi dùng.
 - Giới hạn đã biết của Sprint 10: "gợi ý của AI" làm bằng quy tắc điểm số (chưa dùng mô hình để viết lời nhận xét); lộ trình ôn tập lấy hạn của bài tập lớp vì chưa có chức năng đặt lịch kiểm tra riêng; luyện tập cá nhân hóa chỉ **chọn** câu từ ngân hàng, không sinh câu mới; xuất Excel / PDF theo lớp và theo khối / lớp / giáo viên, chưa xuất riêng từng bài tập; thư nhận xét chưa thử với máy chủ thư thật; chi phí AI chỉ là ước tính theo giá nhập tay; biểu đồ vẽ bằng thành phần thuần nên chưa có tooltip khi rê chuột (số liệu hiển thị sẵn bằng chữ); chưa kiểm thử với lớp có hàng trăm học sinh (truy vấn thống kê tính theo tập học sinh của lớp, đã chạy tốt với dữ liệu thử nhỏ).
 - Giới hạn đã biết của Sprint 8: chưa kiểm tra với cả lớp thật (đã kiểm tra tải đồng thời nhỏ: ba người trả lời cùng lúc); Socket.IO chạy trên một máy chủ (chưa có Redis adapter); chưa có chế độ tự học theo nhịp riêng (Kahoot "assignment"), chưa có nhạc/âm thanh; câu kéo thả bản đồ trên điện thoại cần Leaflet nên chỉ có trên bản web; báo cáo PDF không có biểu đồ (có bảng và tỉ lệ đúng).
@@ -581,3 +581,33 @@ Quyết định khi cho chỉnh số hạng và ngày chốt:
 ## Hoàn thiện HK.GV.016 và thử cảm ứng HK.GV.022 (05/11/2026)
 
 Khi đối chiếu Sprint 7 với bảng chức năng, đặc tả HK.GV.016 yêu cầu chia đội "kéo thả thủ công, đặt tên và biểu tượng đội". Máy chủ đã nhận biểu tượng đội nhưng giao diện chia thủ công chỉ có tên và ô chọn đội, nên biểu tượng bị gán theo thứ tự mỗi lần lưu. Nay trình chia đội cho chọn biểu tượng, kéo thả học sinh (web) và hiện biểu tượng ở thẻ đội; không đổi máy chủ, không thêm migration. Kiểm tra trên trình duyệt: kéo 5 học sinh vào 2 đội, chọn Cúp và Ngọc, lưu; mở lại thì biểu tượng giữ nguyên; kéo một học sinh ra "Chưa có đội" rồi lưu thì đội còn đúng thành viên. Kiểm thử cấu trúc giao diện ở `frontend/tests/class-teams.test.cjs` (có đối chiếu danh sách biểu tượng với máy chủ). Cũng trong đợt này, kéo nút bản đồ rẽ nhánh (HK.GV.022) được thử bằng sự kiện cảm ứng giả lập của Chrome: nút di chuyển và vị trí được lưu đúng.
+
+## Hoàn thiện Sprint 8: câu "Bình chọn", video và nhạc tải lên (05/11/2026)
+
+Ba mục còn dở ở Sprint 8 nay đã làm; thêm migration `038_poll_and_media.sql` (chỉ nới ràng buộc CHECK, không tạo bảng, không đổi dữ liệu).
+
+| Mã | Trước | Nay |
+|---|---|---|
+| HK.GV.088 | Chưa có loại "Bình chọn" | Loại câu `poll` trong ngân hàng câu hỏi và trình soạn Quiz |
+| HK.GV.092 | Chỉ nhúng video YouTube / Vimeo hoặc liên kết | Tải video MP4 / WebM lên; máy chủ trả lời `Range` (HTTP 206) nên phát và tua được cả trên Safari |
+| HK.GV.093 | Chỉ nhạc ngũ cung trình duyệt tự tạo | Thêm tệp nhạc MP3 / OGG do giáo viên tải lên làm nhạc chờ |
+
+Quyết định cho câu bình chọn:
+- **Không điểm, không đúng/sai.** Câu bình chọn có 2–4 lựa chọn, 0 điểm trong phòng thi, không làm đổi bảng xếp hạng, không tính vào số câu đúng hay độ chính xác của học sinh, không thể là "câu khó nhất". Vẫn tính là đã tham gia trả lời (tỉ lệ tham gia, số câu đã trả lời). Kết quả hiện số lượt chọn từng lựa chọn cho cả lớp, ở màn chiếu, màn học sinh, phần xem lại sau trận, báo cáo, tệp Excel (cột "Kết quả bình chọn") và PDF.
+- **Chỉ phòng thi trực tiếp dùng câu bình chọn.** Làm bài, bài tập, nút của hành trình, thử thách trên bản đồ hành quân, câu hỏi tuyệt kỹ, luyện tập cá nhân hóa và câu kiểm tra nhanh của bài học đều bỏ qua loại này. Bộ đề chỉ có câu bình chọn không giao thành bài tập được (thông báo rõ), và không mở được phòng "Đánh trùm".
+- **Đánh trùm:** câu bình chọn không gây sát thương và không làm cả lớp mất máu dù chưa ai chọn; máu trùm chỉ tính theo các câu có đáp án đúng.
+- Máy chủ chỉ nhận một lựa chọn có thật của câu (lựa chọn lạ hoặc dạng đáp án khác bị từ chối), mỗi người một lần.
+
+Quy tắc kho tệp tải lên (ảnh, video, nhạc cùng nằm trong bảng `hk_media` của cơ sở dữ liệu, như ảnh từ trước):
+- Loại tệp xác định bằng nội dung thật: PNG, JPEG, WEBP, GIF; MP4, WebM; MP3, OGG. Tệp giả đổi đuôi hoặc khai sai loại bị từ chối.
+- Giới hạn mỗi tệp: ảnh 1,5 MB, nhạc 4 MB, video 8 MB. Mỗi giáo viên: 60 ảnh (30 MB), 5 video (32 MB), 5 tệp nhạc (16 MB). Cả hệ thống tối đa 200 MB để không làm đầy cơ sở dữ liệu; đầy thì báo "Kho tải lên của hệ thống đã đầy".
+- Giáo viên xóa được tệp của mình khi không còn dùng ở câu hỏi, ảnh bìa, nhạc chờ hay bản nháp nào (có nút xóa ở danh sách video); đang dùng thì từ chối và nói rõ.
+- **Giới hạn thật cần biết:** tệp nằm trong cơ sở dữ liệu nên chỉ có trong sao lưu của Supabase và chiếm dung lượng gói Supabase; video lớn hơn 8 MB hoặc nhiều hơn mức trên cần kho tệp riêng (Supabase Storage hoặc dịch vụ tương đương) mà dự án chưa có.
+- Hệ thống không kèm bản nhạc nào: không có tệp nhạc được cấp phép sử dụng, nên giáo viên tự tải bản nhạc mình có quyền dùng.
+- Đã kiểm tra trên trình duyệt thật: tải video và nhạc lên bằng giao diện (chọn tệp, gửi, máy chủ lưu, thẻ `<video>` và `<audio>` hiện với đường dẫn tới máy chủ, `Range` trả 206); học sinh trả lời câu bình chọn trên điện thoại, màn học sinh, màn giáo viên và báo cáo hiện đúng. Tệp dùng khi kiểm tra là tệp giả có chữ ký đúng (không phát được); chưa kiểm tra phát một video thật qua mạng chậm hoặc trên Safari.
+
+Hai lỗi tìm thấy khi kiểm tra và đã sửa:
+- **Trình soạn Quiz sập khi mở bản nháp (lỗi có sẵn trên `main`).** Một hook (`aiModalOpen`, thêm cùng tính năng sinh câu hỏi bằng AI) được khai báo sau lệnh `return` sớm của thành phần, nên lần dựng đầu (chưa có bản nháp) ít hook hơn lần sau và React báo lỗi #310. Đã chuyển hook lên trước; thêm bài kiểm thử `poll-media.test.cjs` kiểm tra không còn hook nào sau `return` sớm (đã thử: bài này thất bại trên bản cũ).
+- **Kiểm tra base64 của tệp tải lên có thể báo 500 ngẫu nhiên.** Biểu thức chính quy kiểm tra chuỗi base64 dài vài MB đôi khi tràn ngăn xếp (`Maximum call stack size exceeded`); với video 8 MB nguy cơ cao hơn. Thay bằng vòng lặp tuyến tính (`isBase64`), có bài kiểm thử với chuỗi ~40 triệu ký tự.
+
+Kiểm thử: `studio.spec.ts` (loại tệp, hạn mức, `Range`, xóa, nhạc chờ), `live_v2.spec.ts` (câu bình chọn trong phòng thi, báo cáo, đánh trùm, bài tập), `migrations.spec.ts` (038), `frontend/tests/poll-media.test.cjs`.

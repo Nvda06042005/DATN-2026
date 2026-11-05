@@ -135,9 +135,9 @@ export const BossPanel: React.FC<{ boss: BossView; hit?: BossHit | null; big?: b
 };
 
 /** Kết quả của câu: các đáp án kèm số người chọn */
-export const LiveDistribution: React.FC<{ options: LiveOption[]; total: number; big?: boolean }> = ({ options, total, big }) => (
+export const LiveDistribution: React.FC<{ options: LiveOption[]; total: number; big?: boolean; poll?: boolean }> = ({ options, total, big, poll }) => (
   <View style={{ gap: 10 }}>
-    {options.map((o, i) => <LiveChoice key={o.id} index={i} text={o.text} count={o.count} total={Math.max(1, total)} correct={o.correct} revealed big={big} />)}
+    {options.map((o, i) => <LiveChoice key={o.id} index={i} text={o.text} count={o.count} total={Math.max(1, total)} correct={o.correct} revealed={!poll} big={big} />)}
   </View>
 );
 

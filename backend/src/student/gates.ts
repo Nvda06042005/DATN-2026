@@ -18,7 +18,7 @@ export async function gatePool(q: Q, gateId: number): Promise<PoolQuestion[]> {
        SELECT k.question_id FROM hk_nodes n JOIN hk_lesson_checks k ON k.lesson_id = n.lesson_id WHERE n.gate_id = $1 AND n.kind = 'lesson'
        UNION
        SELECT qq.question_id FROM hk_nodes n JOIN hk_quiz_questions qq ON qq.quiz_id = n.quiz_id WHERE n.gate_id = $1 AND n.kind IN ('quiz', 'battle', 'listen')
-     ) ORDER BY t.id`, [gateId]);
+     ) AND t.qtype <> 'poll' ORDER BY t.id`, [gateId]);
 }
 
 export async function gatePoolSize(q: Q, gateId: number): Promise<number> {

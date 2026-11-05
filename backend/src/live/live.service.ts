@@ -40,7 +40,9 @@ export const BOSSES = [
 ] as const;
 /** Máu trùm = số người × số câu × 24 (tương đương cả lớp đúng khoảng 80% với tốc độ trung bình); máu cả lớp = 40% số lượt trả lời; sát thương mỗi câu đúng 20–40 */
 export const BOSS = { hpPerAnswer: 24, damageMax: 40, classHpRatio: 0.4, winXp: 25 } as const;
-const CHOICE_TYPES = ['single', 'multiple', 'truefalse'];
+const CHOICE_TYPES = ['single', 'multiple', 'truefalse', 'poll'];
+/** Câu bình chọn (HK.GV.088): không có đáp án đúng nên không điểm, không tính đúng/sai, không làm trùm mất máu; vẫn tính là đã tham gia trả lời */
+const isPollItem = (item: { snap: { qtype: string } } | null | undefined): boolean => item?.snap.qtype === 'poll';
 
 export interface PlanItem { question_id: number; points: number; seconds: number; seed: number; shuffle: boolean; snap: Omit<QuestionCore, 'id'> }
 interface BossState {
@@ -151,9 +153,10 @@ export class LiveService implements OnModuleInit, OnModuleDestroy {
     const id = await this.db.tx(async (q) => {
       const cls = await this.classes.mine(q, user, classId, true);
       const quiz = await this.quizzes.load(q, user, quizId);
-      const { items } = await this.quizzes.forPlay(q, quizId);
+      const { items } = await this.quizzes.forPlay(q, quizId, { polls: true });
       if (!items.length) throw new ConflictException('Bộ đề chưa có câu hỏi nào');
       if (items.length > 60) throw new ConflictException('Phòng thi tối đa 60 câu hỏi');
+      if (mode === 'boss' && !items.some((i) => i.qtype !== 'poll')) throw new ConflictException('Chế độ đánh trùm cần ít nhất một câu có đáp án đúng (câu bình chọn không tính)');
       if (mode === 'team') {
         const teams = Number((await q<{ n: string }>('SELECT count(DISTINCT team_id) AS n FROM hk_team_members WHERE class_id = $1', [classId]))[0].n);
         if (teams < 2) throw new ConflictException('Thi theo đội cần lớp đã chia ít nhất 2 đội (vào mục Lớp học → Đội)');
@@ -165,7 +168,7 @@ export class LiveService implements OnModuleInit, OnModuleDestroy {
       const seed = randomInt(1, 2_000_000_000);
       const ordered = quiz.shuffle_questions ? seededShuffle(items, seed) : items;
       const plan: PlanItem[] = ordered.map((i, idx) => ({
-        question_id: i.question_id, points: i.score_mode ? SCORE_BY_MODE[i.score_mode] : i.points, seconds: Math.min(MAX_SECONDS, Math.max(MIN_SECONDS, i.seconds ?? quiz.seconds_per_question)), seed: seed + idx * 101 + 1, shuffle: quiz.shuffle_options, snap: this.snap(i),
+        question_id: i.question_id, points: i.qtype === 'poll' ? 0 : i.score_mode ? SCORE_BY_MODE[i.score_mode] : i.points, seconds: Math.min(MAX_SECONDS, Math.max(MIN_SECONDS, i.seconds ?? quiz.seconds_per_question)), seed: seed + idx * 101 + 1, shuffle: quiz.shuffle_options, snap: this.snap(i),
       }));
       const title = String(body.title ?? '').trim() || `${quiz.title} – ${cls.name}`;
       if (title.length < 2 || title.length > 120) throw new BadRequestException('Tên phòng từ 2 đến 120 ký tự');
@@ -431,7 +434,8 @@ export class LiveService implements OnModuleInit, OnModuleDestroy {
         const players = Number((await q<{ n: string }>('SELECT count(*) AS n FROM hk_live_players WHERE room_id = $1 AND kicked_at IS NULL', [room.id]))[0].n);
         if (!players) throw new ConflictException('Chưa có học sinh nào vào phòng');
         if (room.boss) {
-          const hp = Math.max(100, Math.round(players * room.total * BOSS.hpPerAnswer)), classHp = Math.max(3, Math.ceil(players * room.total * BOSS.classHpRatio));
+          const graded = room.plan.filter((i) => !isPollItem(i)).length;
+          const hp = Math.max(100, Math.round(players * graded * BOSS.hpPerAnswer)), classHp = Math.max(3, Math.ceil(players * graded * BOSS.classHpRatio));
           await q('UPDATE hk_live_rooms SET boss = $2 WHERE id = $1', [room.id, JSON.stringify({ ...room.boss, max_hp: hp, hp, class_max_hp: classHp, class_hp: classHp })]);
         }
         // Tự khóa phòng khi bắt đầu hoặc sau N giây (HK.GV.096)
@@ -491,6 +495,10 @@ export class LiveService implements OnModuleInit, OnModuleDestroy {
   /** Chốt đòn đánh trùm của câu vừa kết thúc (HK.HS.142): sát thương theo tốc độ, mỗi câu sai hoặc bỏ trống của người đang trực tuyến làm cả lớp mất 1 máu */
   private async hitBoss(q: Q, room: RoomRow, boss: BossState): Promise<void> {
     const item = room.plan[room.q_index];
+    if (isPollItem(item)) {
+      await q('UPDATE hk_live_rooms SET boss = $2 WHERE id = $1', [room.id, JSON.stringify({ ...boss, applied: [...boss.applied, room.q_index] })]);
+      return;
+    }
     const limit = item.seconds * 1000;
     const rows = await q<{ nickname: string; avatar: string; correct: boolean; elapsed_ms: number }>(
       `SELECT p.nickname, p.avatar, a.correct, a.elapsed_ms FROM hk_live_answers a JOIN hk_live_players p ON p.id = a.player_id WHERE a.room_id = $1 AND a.q_index = $2 AND p.kicked_at IS NULL`, [room.id, room.q_index]);
@@ -603,6 +611,10 @@ export class LiveService implements OnModuleInit, OnModuleDestroy {
       const limit = item.seconds * 1000;
       const elapsed = Date.now() - (room.question_started_at?.getTime() ?? Date.now());
       if (elapsed > limit + GRACE_MS) throw new ConflictException('Đã hết giờ cho câu này');
+      if (isPollItem(item)) {
+        const choice = (body.answer as { choice?: unknown } | null | undefined)?.choice;
+        if (typeof choice !== 'string' || !((item.snap.data as { options?: Array<{ id: string }> }).options ?? []).some((o) => o.id === choice)) throw new BadRequestException('Hãy chọn một lựa chọn của câu bình chọn');
+      }
       const result = grade(item.snap, body.answer);
       const points = result.correct ? liveScore(item.points, limit, elapsed) : 0;
       const ins = await q('INSERT INTO hk_live_answers (room_id, player_id, q_index, answer, correct, points, elapsed_ms) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING RETURNING 1',
@@ -633,13 +645,13 @@ export class LiveService implements OnModuleInit, OnModuleDestroy {
   private distribution(item: PlanItem, answers: AnswerRow[]): Array<{ id: string; text: string; correct: boolean; count: number }> | null {
     const d = item.snap.data as Record<string, any>;
     const given = (a: AnswerRow) => (a.answer && typeof a.answer === 'object' ? (a.answer as Record<string, any>) : {});
-    if (item.snap.qtype === 'single' || item.snap.qtype === 'multiple') {
+    if (item.snap.qtype === 'single' || item.snap.qtype === 'multiple' || item.snap.qtype === 'poll') {
       const order = ((publicView(this.core(item), item.seed, item.shuffle) as { options?: Array<{ id: string }> }).options ?? []).map((o) => o.id);
       const texts = new Map((d.options as Array<{ id: string; text: string }>).map((o) => [o.id, o.text]));
-      const right = (id: string) => (item.snap.qtype === 'single' ? d.correct === id : (d.correct as string[]).includes(id));
+      const right = (id: string) => (item.snap.qtype === 'poll' ? false : item.snap.qtype === 'single' ? d.correct === id : (d.correct as string[]).includes(id));
       return order.map((id) => ({
         id, text: texts.get(id) ?? id, correct: right(id),
-        count: answers.filter((a) => (item.snap.qtype === 'single' ? given(a).choice === id : Array.isArray(given(a).choices) && given(a).choices.includes(id))).length,
+        count: answers.filter((a) => (item.snap.qtype === 'multiple' ? Array.isArray(given(a).choices) && given(a).choices.includes(id) : given(a).choice === id)).length,
       }));
     }
     if (item.snap.qtype === 'truefalse') {
@@ -704,8 +716,8 @@ export class LiveService implements OnModuleInit, OnModuleDestroy {
       const right = answers.filter((a) => a.correct).length;
       const hit = room.boss?.log.find((l) => l.q === room.q_index) ?? null;
       base.results = {
-        index: room.q_index, qtype: item.snap.qtype, prompt: item.snap.prompt, explanation: item.snap.explanation, answer_key: item.snap.data, skipped,
-        stats: { correct: right, wrong: answers.length - right, none: Math.max(0, eligible - answers.length) }, options: skipped ? null : this.distribution(item, answers),
+        index: room.q_index, qtype: item.snap.qtype, poll: isPollItem(item), prompt: item.snap.prompt, explanation: item.snap.explanation, answer_key: item.snap.data, skipped,
+        stats: { correct: right, wrong: isPollItem(item) ? 0 : answers.length - right, none: Math.max(0, eligible - answers.length) }, options: skipped ? null : this.distribution(item, answers),
         top: top(5), teams: teams ? teams.slice(0, 5) : null, last: room.q_index === room.total - 1 || Boolean(room.boss?.outcome), boss_hit: hit,
       };
     }
@@ -727,7 +739,7 @@ export class LiveService implements OnModuleInit, OnModuleDestroy {
           player_id: mine.id, nickname: mine.nickname, avatar: mine.avatar, team_id: mine.team_id, team_name: mine.team_name, score: mine.score, rank: rankOf.get(mine.id) ?? null, correct_count: mine.correct_count, answered_count: mine.answered_count,
           answered: Boolean(given), xp_awarded: mine.xp_awarded, joined_q: mine.joined_q,
           last: room.state === 'results' || room.state === 'ended'
-            ? (given && !skipped ? { correct: given.correct, points: given.points, elapsed_ms: given.elapsed_ms, damage: room.boss && given.correct && item ? bossDamage(item.seconds * 1000, given.elapsed_ms) : 0 } : { correct: false, points: 0, elapsed_ms: null, damage: 0 })
+            ? (given && !skipped ? { poll: isPollItem(item), correct: given.correct, points: given.points, elapsed_ms: given.elapsed_ms, damage: room.boss && given.correct && item ? bossDamage(item.seconds * 1000, given.elapsed_ms) : 0 } : { poll: isPollItem(item), correct: false, points: 0, elapsed_ms: null, damage: 0 })
             : null,
         };
       }
@@ -827,15 +839,20 @@ export class LiveService implements OnModuleInit, OnModuleDestroy {
     if (room.state !== 'ended') throw new ConflictException('Trận chưa kết thúc nên chưa xem lại được');
     const mine = await this.read<AnswerRow>('SELECT player_id, q_index, answer, correct, points, elapsed_ms FROM hk_live_answers WHERE room_id = $1 AND player_id = $2', [roomId, me.id]);
     const all = await this.read<{ q_index: number; correct: number; total: number }>('SELECT q_index, count(*) FILTER (WHERE correct)::int AS correct, count(*)::int AS total FROM hk_live_answers WHERE room_id = $1 GROUP BY q_index', [roomId]);
+    // Câu bình chọn (HK.GV.088) không có đúng/sai: hiện lựa chọn của em và kết quả bình chọn của cả lớp
+    const pollIndexes = room.plan.map((it, i) => (isPollItem(it) ? i : -1)).filter((i) => i >= 0);
+    const pollAnswers = pollIndexes.length ? await this.read<AnswerRow>('SELECT player_id, q_index, answer, correct, points, elapsed_ms FROM hk_live_answers WHERE room_id = $1 AND q_index = ANY($2::int[])', [roomId, pollIndexes]) : [];
     // Người vào muộn chỉ xem lại các câu từ lúc vào phòng
     const items = room.plan.slice(me.joined_q, room.q_index + 1).map((item, offset) => {
       const index = me.joined_q + offset;
       const a = mine.find((x) => x.q_index === index);
       const stat = all.find((x) => x.q_index === index);
       const skipped = room.skipped.includes(index);
+      const poll = isPollItem(item);
       return {
-        index, qtype: item.snap.qtype, prompt: item.snap.prompt, explanation: item.snap.explanation, answer_key: item.snap.data, skipped, answered: Boolean(a), my_answer: a?.answer ?? null,
-        correct: a?.correct ?? false, points: a?.points ?? 0, elapsed_ms: a?.elapsed_ms ?? null, class_correct_rate: stat && stat.total ? Math.round((stat.correct / stat.total) * 100) : null,
+        index, qtype: item.snap.qtype, poll, prompt: item.snap.prompt, explanation: item.snap.explanation, answer_key: item.snap.data, skipped, answered: Boolean(a), my_answer: a?.answer ?? null,
+        correct: a?.correct ?? false, points: a?.points ?? 0, elapsed_ms: a?.elapsed_ms ?? null, class_correct_rate: !poll && stat && stat.total ? Math.round((stat.correct / stat.total) * 100) : null,
+        votes: poll && !skipped ? this.distribution(item, pollAnswers.filter((x) => x.q_index === index)) : null,
       };
     });
     const players = await this.playersOf(this.read, roomId);
@@ -861,16 +878,19 @@ export class LiveService implements OnModuleInit, OnModuleDestroy {
       const right = given.filter((a) => a.correct).length;
       const skipped = room.skipped.includes(index);
       const eligible = players.filter((p) => p.joined_q <= index).length;
+      // Câu bình chọn: không có đúng/sai nên không có tỉ lệ đúng và không được xét là câu khó nhất; có kết quả bình chọn từng lựa chọn
+      const poll = isPollItem(item);
       return {
-        index, number: index + 1, qtype: item.snap.qtype, prompt: item.snap.prompt, skipped, answered: given.length, correct: right, wrong: given.length - right, none: skipped ? 0 : Math.max(0, eligible - given.length),
-        correct_rate: given.length && !skipped ? Math.round((right / given.length) * 100) : null, avg_seconds: given.length ? Math.round(given.reduce((n, a) => n + a.elapsed_ms, 0) / given.length / 100) / 10 : null,
+        index, number: index + 1, qtype: item.snap.qtype, poll, prompt: item.snap.prompt, skipped, answered: given.length, correct: right, wrong: poll ? 0 : given.length - right, none: skipped ? 0 : Math.max(0, eligible - given.length),
+        votes: poll && !skipped ? this.distribution(item, given) : null,
+        correct_rate: !poll && given.length && !skipped ? Math.round((right / given.length) * 100) : null, avg_seconds: given.length ? Math.round(given.reduce((n, a) => n + a.elapsed_ms, 0) / given.length / 100) / 10 : null,
       };
     });
     const scored = questions.filter((x) => !x.skipped && x.correct_rate !== null);
     const hardest = scored.length ? [...scored].sort((a, b) => (a.correct_rate as number) - (b.correct_rate as number) || b.number - a.number)[0] : null;
     const rows = this.rank(players).map((p) => {
       const mine = answers.filter((a) => a.player_id === p.id);
-      const takable = questions.filter((x) => !x.skipped && x.index >= p.joined_q).length;
+      const takable = questions.filter((x) => !x.skipped && !x.poll && x.index >= p.joined_q).length;
       return {
         rank: p.rank, nickname: p.nickname, full_name: p.full_name, user_code: p.user_code, team_name: p.team_name, score: p.score, correct_count: p.correct_count, answered_count: p.answered_count,
         accuracy: takable ? Math.round((p.correct_count / takable) * 100) : 0, avg_seconds: mine.length ? Math.round(mine.reduce((n, a) => n + a.elapsed_ms, 0) / mine.length / 100) / 10 : null, xp_awarded: p.xp_awarded,

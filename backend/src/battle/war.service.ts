@@ -285,7 +285,7 @@ export class WarService {
   private async prepareQuestion(q: Q, s: StageRow, r: RunRow): Promise<void> {
     const e = r.state.engine;
     const rows = s.quiz_id && r.state.opts?.skill_questions !== false ? await q<QuestionCore & { explanation: string | null }>(
-      'SELECT t.id, t.qtype, t.prompt, t.image_url, t.explanation, t.difficulty, t.data FROM hk_quiz_questions k JOIN hk_questions t ON t.id = k.question_id WHERE k.quiz_id = $1 ORDER BY k.position, t.id', [s.quiz_id]) : [];
+      "SELECT t.id, t.qtype, t.prompt, t.image_url, t.explanation, t.difficulty, t.data FROM hk_quiz_questions k JOIN hk_questions t ON t.id = k.question_id WHERE k.quiz_id = $1 AND t.qtype <> 'poll' ORDER BY k.position, t.id", [s.quiz_id]) : [];
     if (!rows.length) { resolveUltimate(e, { correct: true, inTime: true }); advance(e, null); return; }
     const pick = rows[(r.seed + e.turn * 7 + e.stats.ultimates * 3) % rows.length];
     r.state.question = { qid: pick.id, served_at: Date.now(), seconds: QUESTION_SECONDS, qtype: pick.qtype, data: pick.data, explanation: pick.explanation, prompt: pick.prompt, image_url: pick.image_url, difficulty: pick.difficulty };
@@ -538,7 +538,7 @@ export class WarService {
     const out: string[] = [];
     const b = (await q<{ status: string }>('SELECT status FROM hist_battles WHERE id = $1', [s.battle_id]))[0];
     if (!b || b.status !== 'published') out.push('Hồ sơ trận đánh trong kho lịch sử chưa công bố');
-    if (s.quiz_id && !(await q('SELECT 1 FROM hk_quiz_questions WHERE quiz_id = $1', [s.quiz_id])).length) out.push('Bộ câu hỏi tuyệt kỹ chưa có câu nào');
+    if (s.quiz_id && !(await q("SELECT 1 FROM hk_quiz_questions k JOIN hk_questions t ON t.id = k.question_id WHERE k.quiz_id = $1 AND t.qtype <> 'poll'", [s.quiz_id])).length) out.push('Bộ câu hỏi tuyệt kỹ chưa có câu nào');
     if (!s.waves.some((w) => w.units.some((u) => u.commander))) out.push('Nên có một chỉ huy địch để báo trước chiêu lớn');
     return out;
   }

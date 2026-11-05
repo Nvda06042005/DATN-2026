@@ -20,7 +20,7 @@ export function embedUrl(url: string): string | null {
   return vm ? `https://player.vimeo.com/video/${vm[1]}` : null;
 }
 
-const isFile = (url: string): boolean => /\.(mp4|webm)(\?|#|$)/i.test(url);
+const isFile = (url: string): boolean => /\.(mp4|webm)(\?|#|$)/i.test(url) || url.startsWith('/api/content/media/');
 
 export const MediaView: React.FC<{ image?: string | null; video?: string | null; label?: string; height?: number }> = ({ image, video, label, height = 220 }) => {
   const { c } = useTheme();
@@ -30,10 +30,10 @@ export const MediaView: React.FC<{ image?: string | null; video?: string | null;
     <View style={{ gap: 10 }}>
       {image ? <Image source={{ uri: mediaUri(image) }} accessibilityLabel={label ? `Hình minh họa: ${label}` : 'Hình minh họa câu hỏi'} resizeMode="contain" style={{ width: '100%', height, borderRadius: 12, backgroundColor: c.giay2 }} /> : null}
       {video && Platform.OS === 'web' && embed ? React.createElement('iframe', { src: embed, title: 'Video minh họa', allow: 'accelerometer; encrypted-media; picture-in-picture', allowFullScreen: true, style: { width: '100%', height, border: 0, borderRadius: 12, background: '#000' } }) : null}
-      {video && Platform.OS === 'web' && !embed && isFile(video) ? React.createElement('video', { src: video, controls: true, preload: 'metadata', 'aria-label': 'Video minh họa', style: { width: '100%', maxHeight: height, borderRadius: 12, background: '#000' } }) : null}
+      {video && Platform.OS === 'web' && !embed && isFile(video) ? React.createElement('video', { src: mediaUri(video), controls: true, preload: 'metadata', 'aria-label': 'Video minh họa', style: { width: '100%', maxHeight: height, borderRadius: 12, background: '#000' } }) : null}
       {video && (Platform.OS !== 'web' || (!embed && !isFile(video))) ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <Btn icon={Play} title="Xem video minh họa" tone="giay" size="sm" onPress={() => { void Linking.openURL(video); }} />
+          <Btn icon={Play} title="Xem video minh họa" tone="giay" size="sm" onPress={() => { void Linking.openURL(mediaUri(video)); }} />
           <Txt size={12} color={c.muc3}>Mở trong tab mới</Txt>
         </View>
       ) : null}

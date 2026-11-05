@@ -130,7 +130,7 @@ export class AssignmentService {
       let ref: [number | null, number | null, number | null] = [null, null, null];
       if (kind === 'quiz') {
         await this.quizzes.load(q, user, Number(body.quiz_id));
-        if (!Number((await q<{ n: string }>('SELECT count(*) AS n FROM hk_quiz_questions WHERE quiz_id = $1', [body.quiz_id]))[0].n)) throw new BadRequestException('Bộ đề chưa có câu hỏi nào');
+        if (!Number((await q<{ n: string }>("SELECT count(*) AS n FROM hk_quiz_questions k JOIN hk_questions t ON t.id = k.question_id WHERE k.quiz_id = $1 AND t.qtype <> 'poll'", [body.quiz_id]))[0].n)) throw new BadRequestException('Bộ đề chưa có câu hỏi chấm điểm được (câu bình chọn chỉ dùng khi thi đấu trực tiếp)');
         ref = [Number(body.quiz_id), null, null];
       } else if (kind === 'minigame') {
         if (!(await q("SELECT 1 FROM hk_minigames WHERE id = $1 AND status = 'published'", [body.minigame_id])).length) throw new BadRequestException('Mini-game không tồn tại hoặc chưa phát hành');

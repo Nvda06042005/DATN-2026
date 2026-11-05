@@ -10,7 +10,7 @@ export type LiveReport = Awaited<ReturnType<import('./live.service').LiveService
 
 const FONT_DIR = join(__dirname, '..', '..', 'assets', 'fonts');
 const MODE = { solo: 'Cá nhân', team: 'Theo đội', boss: 'Đánh trùm cả lớp' } as const;
-const QTYPE: Record<string, string> = { single: 'Một đáp án', multiple: 'Nhiều đáp án', truefalse: 'Đúng / sai', fill: 'Điền khuyết', order: 'Sắp xếp', map: 'Bản đồ' };
+const QTYPE: Record<string, string> = { single: 'Một đáp án', multiple: 'Nhiều đáp án', truefalse: 'Đúng / sai', fill: 'Điền khuyết', order: 'Sắp xếp', map: 'Bản đồ', poll: 'Bình chọn' };
 const when = (d: Date | string | null): string => (d ? new Date(d).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
 /** Chuỗi bắt đầu bằng = + - @ bị Excel coi là công thức: thêm dấu nháy đơn phía trước */
 const safe = (v: unknown): string | number => (typeof v === 'number' ? v : /^[=+\-@\t\r]/.test(String(v ?? '')) ? `'${String(v)}` : String(v ?? ''));
@@ -42,9 +42,9 @@ export async function reportWorkbook(r: LiveReport): Promise<Buffer> {
   questions.columns = [
     { header: 'Câu', key: 'number', width: 6 }, { header: 'Nội dung', key: 'prompt', width: 70 }, { header: 'Dạng', key: 'qtype', width: 14 }, { header: 'Đã trả lời', key: 'answered', width: 11 },
     { header: 'Đúng', key: 'correct', width: 8 }, { header: 'Sai', key: 'wrong', width: 8 }, { header: 'Chưa trả lời', key: 'none', width: 12 }, { header: 'Tỉ lệ đúng (%)', key: 'correct_rate', width: 14 },
-    { header: 'Thời gian trung bình (giây)', key: 'avg_seconds', width: 22 }, { header: 'Bị bỏ qua', key: 'skipped', width: 10 },
+    { header: 'Thời gian trung bình (giây)', key: 'avg_seconds', width: 22 }, { header: 'Bị bỏ qua', key: 'skipped', width: 10 }, { header: 'Kết quả bình chọn', key: 'votes', width: 50 },
   ];
-  for (const x of r.questions) questions.addRow({ ...x, prompt: safe(x.prompt), qtype: QTYPE[x.qtype] ?? x.qtype, skipped: x.skipped ? 'Có' : '' });
+  for (const x of r.questions) questions.addRow({ ...x, prompt: safe(x.prompt), qtype: QTYPE[x.qtype] ?? x.qtype, skipped: x.skipped ? 'Có' : '', votes: x.votes ? safe(x.votes.map((v) => `${v.text}: ${v.count}`).join('; ')) : '' });
   style(questions);
 
   if (r.teams) {
@@ -104,7 +104,7 @@ export function reportPdf(r: LiveReport): Promise<Buffer> {
     ], r.players);
     table('Kết quả từng câu hỏi', [
       { h: 'Câu', w: 5, get: (x) => String(x.number) }, { h: 'Nội dung', w: 50, get: (x) => x.prompt }, { h: 'Dạng', w: 12, get: (x) => QTYPE[x.qtype] ?? x.qtype },
-      { h: 'Đúng', w: 7, get: (x) => String(x.correct), right: true }, { h: 'Sai', w: 7, get: (x) => String(x.wrong), right: true }, { h: 'Chưa trả lời', w: 9, get: (x) => String(x.none), right: true },
+      { h: 'Đúng', w: 7, get: (x) => (x.poll ? '–' : String(x.correct)), right: true }, { h: 'Sai', w: 7, get: (x) => (x.poll ? '–' : String(x.wrong)), right: true }, { h: 'Chưa trả lời', w: 9, get: (x) => String(x.none), right: true },
       { h: 'Tỉ lệ đúng', w: 9, get: (x) => (x.skipped ? 'Bỏ qua' : x.correct_rate === null ? '' : `${x.correct_rate}%`), right: true },
     ], r.questions);
     if (r.teams) table('Bảng xếp hạng đội', [

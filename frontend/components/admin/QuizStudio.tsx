@@ -9,7 +9,7 @@ import { Image, Platform, Pressable, View } from 'react-native';
 import { ArrowDown, Sparkles, ArrowUp, Check, Copy, Eye, GripVertical, ImagePlus, Palette, Pencil, Plus, Radio, Save, Send, Trash2, X } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import * as classroom from '@/api/classroomApi';
-import { errorMessage } from '@/api/client';
+import { errorMessage, type PickedFile } from '@/api/client';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { AiQuizModal } from '@/components/admin/AiQuizModal';
 import type { GeneratedQuizQuestion } from '@/types/ai';
@@ -27,15 +27,32 @@ import {
   blankQuestion, newUid, problemOf, SCORE_TEXT, SOURCE_KIND_TEXT, STUDIO_SECONDS, type MediaLibrary, type ScoreMode, type StudioDraft, type StudioPayload, type StudioQType, type StudioQuestion,
 } from '@/types/studio';
 
-const QTYPE_TEXT: Record<StudioQType, string> = { single: 'Trắc nghiệm', multiple: 'Nhiều đáp án', truefalse: 'Đúng / Sai' };
+const QTYPE_TEXT: Record<StudioQType, string> = { single: 'Trắc nghiệm', multiple: 'Nhiều đáp án', truefalse: 'Đúng / Sai', poll: 'Bình chọn' };
 const SHAPE_COLOR = ['son', 'ngoc', 'vangDam', 'thuy'] as const;
 const SHAPE_MARK = ['▲', '◆', '●', '■'] as const;
 const hhmm = (iso: string) => new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
 
 // ---------------------------------------------------------------------- chèn ảnh / video (HK.GV.092)
+/** Video và nhạc tải lên (HK.GV.092, HK.GV.093): giới hạn trùng với máy chủ để báo lỗi sớm trước khi gửi tệp lớn */
+const FILE_KIND = {
+  video: { max: 8 * 1024 * 1024, types: ['video/mp4', 'video/webm'], label: 'Video', hint: 'MP4 hoặc WebM, tối đa 8 MB, mỗi tài khoản tối đa 5 video' },
+  audio: { max: 4 * 1024 * 1024, types: ['audio/mpeg', 'audio/ogg'], label: 'Tệp nhạc', hint: 'MP3 hoặc OGG, tối đa 4 MB, mỗi tài khoản tối đa 5 tệp nhạc' },
+} as const;
+async function readFileData(picked: PickedFile, kind: keyof typeof FILE_KIND): Promise<{ name: string; data: string }> {
+  const blob: Blob = (picked.file as Blob | undefined) ?? (await (await fetch(picked.uri)).blob());
+  if (blob.size > FILE_KIND[kind].max) throw new Error(`${FILE_KIND[kind].label} tối đa ${FILE_KIND[kind].max / 1048576} MB. Hãy chọn tệp nhỏ hơn.`);
+  const data = await new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(new Error('Không đọc được tệp.'));
+    r.readAsDataURL(blob);
+  });
+  return { name: picked.name || kind, data };
+}
+
 const MediaSheet: React.FC<{ session: Session; target: 'question' | 'cover'; initial: { image: string | null; video: string | null }; onClose: () => void; onPick: (image: string | null, video: string | null) => void }> = ({ session, target, initial, onClose, onPick }) => {
   const { c } = useTheme();
-  const [tab, setTab] = useState<'upload' | 'library' | 'link'>('upload');
+  const [tab, setTab] = useState<'upload' | 'library' | 'video' | 'link'>('upload');
   const [q, setQ] = useState('');
   const [image, setImage] = useState(initial.image && !initial.image.startsWith('/') ? initial.image : '');
   const [video, setVideo] = useState(initial.video ?? '');
@@ -53,6 +70,20 @@ const MediaSheet: React.FC<{ session: Session; target: 'question' | 'cover'; ini
       onPick(res.url, target === 'question' ? initial.video : null);
     } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
   };
+  const uploadVideo = async () => {
+    setError(null);
+    try {
+      const picked = await pickFile([...FILE_KIND.video.types]);
+      if (!picked) return;
+      setBusy(true);
+      const res = await api.uploadMedia(session.token, await readFileData(picked, 'video'));
+      onPick(initial.image, res.url);
+    } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+  };
+  const removeFile = async (token: string) => {
+    setError(null);
+    try { await api.deleteMedia(session.token, token); lib.reload(); } catch (e) { setError(errorMessage(e)); }
+  };
   const tile = (key: string, url: string, title: string, sub?: string) => (
     <Pressable key={key} accessibilityRole="button" accessibilityLabel={`Chọn ảnh ${title}`} onPress={() => onPick(url, target === 'question' ? initial.video : null)} testID={`media-pick-${key}`}
       style={({ pressed }) => ({ width: 132, gap: 4, padding: 6, borderRadius: 12, borderWidth: 2, borderColor: pressed ? c.son : c.vien, backgroundColor: c.the })}>
@@ -65,7 +96,7 @@ const MediaSheet: React.FC<{ session: Session; target: 'question' | 'cover'; ini
     <Sheet open onClose={onClose} title={target === 'question' ? 'Tìm và chèn phương tiện truyền thông' : 'Chọn ảnh bìa'} wide
       footer={<View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>{initial.image || initial.video ? <Btn icon={Trash2} title="Gỡ ảnh / video" tone="giay" onPress={() => onPick(null, null)} testID="media-clear" /> : null}<Btn title="Đóng" tone="giay" onPress={onClose} /></View>}>
       <ErrorNote message={error} />
-      <Segmented<'upload' | 'library' | 'link'> label="Nguồn ảnh" value={tab} onChange={setTab} options={[{ value: 'upload', label: 'Tải ảnh lên' }, { value: 'library', label: 'Kho tư liệu' }, ...(target === 'question' ? [{ value: 'link' as const, label: 'Liên kết' }] : [{ value: 'link' as const, label: 'Liên kết' }])]} />
+      <Segmented<'upload' | 'library' | 'video' | 'link'> label="Nguồn ảnh" value={tab} onChange={setTab} options={[{ value: 'upload', label: 'Tải ảnh lên' }, { value: 'library', label: 'Kho tư liệu' }, ...(target === 'question' ? [{ value: 'video' as const, label: 'Tải video lên' }] : []), ...(target === 'question' ? [{ value: 'link' as const, label: 'Liên kết' }] : [{ value: 'link' as const, label: 'Liên kết' }])]} />
       {tab === 'upload' ? (
         <View style={{ gap: 8 }}>
           <Txt size={14} color={c.muc2}>Chọn ảnh PNG, JPEG, WEBP hoặc GIF (tối đa 1,5 MB). Ảnh được lưu trên máy chủ và dùng cho học sinh xem.</Txt>
@@ -80,6 +111,24 @@ const MediaSheet: React.FC<{ session: Session; target: 'question' | 'cover'; ini
           <Txt f="bold" size={14}>Ảnh sử liệu trong kho tư liệu</Txt>
           {lib.data && !lib.data.library.length ? <Txt size={13} color={c.muc3}>Không có ảnh phù hợp.</Txt> : null}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>{lib.data?.library.map((l) => tile(`${l.kind}-${l.id}`, l.url, l.title, SOURCE_KIND_TEXT[l.kind]))}</View>
+        </View>
+      ) : null}
+      {tab === 'video' && target === 'question' ? (
+        <View style={{ gap: 10 }} testID="media-video-tab">
+          <Txt size={14} color={c.muc2}>{FILE_KIND.video.hint}. Video được lưu trên máy chủ, học sinh xem ngay trong câu hỏi và tua được.</Txt>
+          <Btn icon={ImagePlus} title="Chọn video từ máy" tone="son" loading={busy} onPress={uploadVideo} testID="media-video-upload" />
+          {lib.data?.videos.length ? (
+            <View style={{ gap: 8 }}>
+              <Txt f="bold" size={14}>Video tôi đã tải lên</Txt>
+              {lib.data.videos.map((v) => (
+                <View key={v.token} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <Txt size={14} style={{ flex: 1, minWidth: 160 }} numberOfLines={1}>{v.name ?? 'Video đã tải lên'} · {(v.size_bytes / 1048576).toFixed(1)} MB</Txt>
+                  <Btn title="Dùng video này" tone="giay" size="sm" onPress={() => onPick(initial.image, v.url)} testID={`media-video-pick-${v.token}`} />
+                  <Btn icon={Trash2} label={`Xóa video ${v.name ?? ''}`} tone="giay" size="sm" onPress={() => removeFile(v.token)} />
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
       ) : null}
       {tab === 'link' ? (
@@ -139,6 +188,12 @@ export const QuizStudio: React.FC<{ session: Session; draftId: number; onClose: 
   const [reveal, setReveal] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [media, setMedia] = useState<'question' | 'cover' | null>(null);
+  const [musicTick, setMusicTick] = useState(0);
+  const [musicBusy, setMusicBusy] = useState(false);
+  // Mọi hook phải nằm trước lệnh return sớm bên dưới: để sau thì lần dựng đầu (chưa có bản nháp) ít hook hơn lần sau và React báo lỗi #310 làm sập trình soạn
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  // Tệp nhạc đã tải lên của giáo viên (HK.GV.093): đặt trước lệnh return sớm để thứ tự hook không đổi
+  const files = useLoad<MediaLibrary>(() => api.mediaLibrary(session.token, ''), [session.token, musicTick], session.expired);
   const [assign, setAssign] = useState<QuizDetail | null>(null);
   const first = useRef(true);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -170,6 +225,18 @@ export const QuizStudio: React.FC<{ session: Session; draftId: number; onClose: 
   const cur = qs[Math.min(sel, qs.length - 1)];
   const idx = qs.indexOf(cur);
   const set = (patch: Partial<StudioPayload>) => setPayload((p) => (p ? { ...p, ...patch } : p));
+  // Tệp nhạc đã tải lên của giáo viên (HK.GV.093): chọn lại được mà không phải tải lại
+  const uploadMusic = async () => {
+    try {
+      const picked = await pickFile([...FILE_KIND.audio.types]);
+      if (!picked) return;
+      setMusicBusy(true);
+      const res = await api.uploadMedia(session.token, await readFileData(picked, 'audio'));
+      setMusicTick((t) => t + 1);
+      set({ theme: { bg: payload!.theme.bg, music: 'upload', music_url: res.url } });
+      toast('Đã tải nhạc chờ lên');
+    } catch (e) { toast(errorMessage(e)); } finally { setMusicBusy(false); }
+  };
   const setQ = (patch: Partial<StudioQuestion>) => setPayload((p) => (p ? { ...p, questions: p.questions.map((x, i) => (i === idx ? { ...x, ...patch } : x)) } : p));
   const move = (from: number, to: number) => {
     if (to < 0 || to >= qs.length) return;
@@ -179,7 +246,6 @@ export const QuizStudio: React.FC<{ session: Session; draftId: number; onClose: 
     set({ questions: next });
     setSel(to);
   };
-  const [aiModalOpen, setAiModalOpen] = useState(false);
   const handleInsertAiQuestions = (newQuestions: GeneratedQuizQuestion[]) => {
     const converted: StudioQuestion[] = newQuestions.map((gq) => {
       const opts = [...gq.options];
@@ -211,7 +277,7 @@ export const QuizStudio: React.FC<{ session: Session; draftId: number; onClose: 
   const addQuestion = () => { set({ questions: [...qs, blankQuestion()] }); setSel(qs.length); };
   const copyQuestion = () => { set({ questions: [...qs.slice(0, idx + 1), { ...cur, uid: newUid(), question_id: null }, ...qs.slice(idx + 1)] }); setSel(idx + 1); };
   const removeQuestion = () => { const next = qs.filter((_, i) => i !== idx); set({ questions: next.length ? next : [blankQuestion()] }); setSel(Math.max(0, idx - 1)); setRemoving(false); };
-  const changeType = (t: StudioQType) => setQ({ qtype: t, correct: t === 'single' ? cur.correct.slice(0, 1).length ? cur.correct.slice(0, 1) : [0] : cur.correct });
+  const changeType = (t: StudioQType) => setQ({ qtype: t, correct: t === 'poll' ? [] : t === 'single' ? (cur.correct.slice(0, 1).length ? cur.correct.slice(0, 1) : [0]) : cur.correct, ...(t === 'poll' ? { score_mode: 'none' as ScoreMode } : cur.qtype === 'poll' ? { score_mode: 'standard' as ScoreMode } : {}) });
   const toggleCorrect = (i: number) => {
     if (cur.qtype === 'single') setQ({ correct: [i] });
     else setQ({ correct: cur.correct.includes(i) ? cur.correct.filter((x) => x !== i) : [...cur.correct, i].sort() });
@@ -303,11 +369,11 @@ export const QuizStudio: React.FC<{ session: Session; draftId: number; onClose: 
               </Card>
               <View style={{ gap: 8 }}>
                 {(cur.qtype === 'truefalse' ? ['Đúng', 'Sai'] : cur.options).map((text, i) => (text.trim() || cur.qtype === 'truefalse' ? (
-                  <LiveChoice key={i} index={i} text={text} revealed={reveal} correct={cur.qtype === 'truefalse' ? (i === 0) === cur.tf : cur.correct.includes(i)} />
+                  <LiveChoice key={i} index={i} text={text} revealed={reveal && cur.qtype !== 'poll'} correct={cur.qtype === 'truefalse' ? (i === 0) === cur.tf : cur.correct.includes(i)} />
                 ) : null))}
               </View>
               <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-                <Btn title={reveal ? 'Ẩn đáp án đúng' : 'Hiện đáp án đúng'} tone="giay" size="sm" onPress={() => setReveal(!reveal)} />
+                {cur.qtype === 'poll' ? null : <Btn title={reveal ? 'Ẩn đáp án đúng' : 'Hiện đáp án đúng'} tone="giay" size="sm" onPress={() => setReveal(!reveal)} />}
                 <Btn icon={ArrowUp} label="Câu trước" tone="giay" size="sm" disabled={idx === 0} onPress={() => { setSel(idx - 1); setReveal(false); }} />
                 <Btn icon={ArrowDown} label="Câu sau" tone="giay" size="sm" disabled={idx === qs.length - 1} onPress={() => { setSel(idx + 1); setReveal(false); }} />
               </View>
@@ -335,14 +401,17 @@ export const QuizStudio: React.FC<{ session: Session; draftId: number; onClose: 
                 </View>
               ) : (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+                  {cur.qtype === 'poll' ? <Txt size={13} color={c.muc2} style={{ width: '100%' }}>Bình chọn không có đáp án đúng: không tính điểm, mỗi học sinh chọn một lựa chọn và cả lớp xem kết quả. Chỉ dùng khi thi đấu trực tiếp.</Txt> : null}
                   {cur.options.map((text, i) => (
                     <View key={i} style={{ flexGrow: 1, flexBasis: 240, borderRadius: 14, borderWidth: 3, borderColor: c[SHAPE_COLOR[i]], backgroundColor: c.the, flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8, overflow: 'hidden' }}>
                       <View style={{ width: 44, alignSelf: 'stretch', backgroundColor: c[SHAPE_COLOR[i]], alignItems: 'center', justifyContent: 'center' }}><Txt f="displayHeavy" size={22} color="#ffffff">{SHAPE_MARK[i]}</Txt></View>
-                      <Field label={`Đáp án ${i + 1}${i < 2 ? ' (bắt buộc)' : ' (không bắt buộc)'}`} value={text} onChangeText={(v) => setQ({ options: cur.options.map((o, j) => (j === i ? v : o)) })} style={{ flex: 1 }} maxLength={200} nativeID={`studio-option-${i}`} />
+                      <Field label={`${cur.qtype === 'poll' ? 'Lựa chọn' : 'Đáp án'} ${i + 1}${i < 2 ? ' (bắt buộc)' : ' (không bắt buộc)'}`} value={text} onChangeText={(v) => setQ({ options: cur.options.map((o, j) => (j === i ? v : o)) })} style={{ flex: 1 }} maxLength={200} nativeID={`studio-option-${i}`} />
+                      {cur.qtype === 'poll' ? null : (
                       <Pressable accessibilityRole={cur.qtype === 'single' ? 'radio' : 'checkbox'} accessibilityState={{ checked: cur.correct.includes(i) }} accessibilityLabel={`Đánh dấu đáp án ${i + 1} là đáp án đúng`} onPress={() => toggleCorrect(i)} hitSlop={6} testID={`studio-correct-${i}`}
                         style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 3, borderColor: cur.correct.includes(i) ? c.ngocChu : c.vien2, backgroundColor: cur.correct.includes(i) ? c.ngoc : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
                         {cur.correct.includes(i) ? <Check size={24} color="#ffffff" /> : null}
                       </Pressable>
+                      )}
                     </View>
                   ))}
                 </View>
@@ -356,8 +425,8 @@ export const QuizStudio: React.FC<{ session: Session; draftId: number; onClose: 
         <View style={{ flexGrow: 1, flexBasis: 250, maxWidth: 340, gap: 12 }} testID="studio-settings">
           <Card flat pad={12} style={{ gap: 8 }}>
             <Txt f="bold" size={15}>Loại câu hỏi</Txt>
-            <Segmented<StudioQType> label="Loại câu hỏi" value={cur.qtype === 'truefalse' ? 'truefalse' : 'single'} onChange={(v) => changeType(v === 'truefalse' ? 'truefalse' : cur.qtype === 'multiple' ? 'multiple' : 'single')} options={[{ value: 'single', label: 'Trắc nghiệm' }, { value: 'truefalse', label: 'Đúng / Sai' }]} />
-            {cur.qtype !== 'truefalse' ? (
+            <Segmented<StudioQType> label="Loại câu hỏi" value={cur.qtype === 'truefalse' ? 'truefalse' : cur.qtype === 'poll' ? 'poll' : 'single'} onChange={(v) => changeType(v === 'truefalse' || v === 'poll' ? v : cur.qtype === 'multiple' ? 'multiple' : 'single')} options={[{ value: 'single', label: 'Trắc nghiệm' }, { value: 'truefalse', label: 'Đúng / Sai' }, { value: 'poll', label: 'Bình chọn' }]} />
+            {cur.qtype !== 'truefalse' && cur.qtype !== 'poll' ? (
               <>
                 <Txt f="bold" size={15}>Phương án trả lời</Txt>
                 <Segmented<StudioQType> label="Phương án trả lời" value={cur.qtype} onChange={changeType} options={[{ value: 'single', label: 'Một đáp án' }, { value: 'multiple', label: 'Nhiều đáp án' }]} />
@@ -369,7 +438,9 @@ export const QuizStudio: React.FC<{ session: Session; draftId: number; onClose: 
             <AdminSelect label="Giới hạn thời gian trả lời" value={String(cur.seconds)} onChange={(v) => setQ({ seconds: Number(v) })} testID="studio-seconds" options={STUDIO_SECONDS.map((s) => ({ value: String(s), label: `${s} giây${s === 20 ? ' (mặc định)' : ''}` }))} />
             <Btn title="Áp dụng cho tất cả câu hỏi" tone="giay" size="sm" onPress={() => { set({ questions: qs.map((x) => ({ ...x, seconds: cur.seconds })) }); toast(`Đã đặt ${cur.seconds} giây cho cả ${qs.length} câu`); }} testID="studio-seconds-all" />
             <Txt f="bold" size={15}>Điểm của câu</Txt>
+            {cur.qtype === 'poll' ? <Txt size={13} color={c.muc3}>Câu bình chọn không có đáp án đúng nên không tính điểm.</Txt> : (
             <Segmented<ScoreMode> label="Điểm của câu" value={cur.score_mode} onChange={(v) => setQ({ score_mode: v })} options={[{ value: 'standard', label: '1000' }, { value: 'double', label: 'Gấp đôi' }, { value: 'none', label: 'Không điểm' }]} />
+            )}
             <Txt size={12} color={c.muc3}>{SCORE_TEXT[cur.score_mode]}; trả lời càng nhanh điểm thực nhận càng cao (từ 50% đến 100%).</Txt>
           </Card>
           <Card flat pad={12} style={{ gap: 8 }}>
@@ -380,8 +451,14 @@ export const QuizStudio: React.FC<{ session: Session; draftId: number; onClose: 
             </View>
             <Txt size={13} color={c.muc2}>Nhạc chờ (phòng chờ thi đấu)</Txt>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-              {LIVE_MUSIC.map((m) => <Btn key={m.id} title={m.label} tone={payload.theme.music === m.id ? 'son' : 'giay'} size="sm" onPress={() => set({ theme: { ...payload.theme, music: m.id } })} testID={`studio-music-${m.id}`} />)}
+              {LIVE_MUSIC.map((m) => <Btn key={m.id} title={m.label} tone={payload.theme.music === m.id ? 'son' : 'giay'} size="sm" onPress={() => set({ theme: { bg: payload.theme.bg, music: m.id } })} testID={`studio-music-${m.id}`} />)}
             </View>
+            <Txt size={13} color={c.muc2}>Hoặc dùng tệp nhạc của em: {FILE_KIND.audio.hint}</Txt>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              {(files.data?.audios ?? []).map((a) => <Btn key={a.token} title={a.name ?? 'Nhạc tải lên'} tone={payload.theme.music === 'upload' && payload.theme.music_url === a.url ? 'son' : 'giay'} size="sm" onPress={() => set({ theme: { bg: payload.theme.bg, music: 'upload', music_url: a.url } })} testID={`studio-music-file-${a.token}`} />)}
+              <Btn icon={ImagePlus} title="Tải nhạc lên" tone="giay" size="sm" loading={musicBusy} onPress={uploadMusic} testID="studio-music-upload" />
+            </View>
+            {payload.theme.music === 'upload' && payload.theme.music_url && Platform.OS === 'web' ? React.createElement('audio', { src: mediaUri(payload.theme.music_url), controls: true, preload: 'none', 'aria-label': 'Nghe thử nhạc chờ', style: { width: '100%' } }) : null}
           </Card>
           <Card flat pad={12} style={{ gap: 8 }}>
             <AdminSelect label="Chủ đề lịch sử" value={payload.campaign_id ? String(payload.campaign_id) : ''} options={campaigns} onChange={(v) => set({ campaign_id: v ? Number(v) : null })} />

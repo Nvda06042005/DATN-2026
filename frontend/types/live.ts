@@ -20,9 +20,9 @@ export interface BossHit { q: number; damage: number; wrong: number; hp: number;
 export interface BossView { key: string; name: string; max_hp: number | null; hp: number | null; class_max_hp: number | null; class_hp: number | null; outcome: 'win' | 'lose' | null }
 export interface LiveRequest { id: number; full_name: string; user_code: string | null; created_at: string }
 export interface LiveAlert { player_id: number; nickname: string; count: number }
-export interface LiveTheme { bg?: string; music?: string }
+export interface LiveTheme { bg?: string; music?: string; music_url?: string }
 export interface LiveResults {
-  index: number; qtype: QType; prompt: string; explanation: string | null; answer_key: QData; skipped: boolean; last: boolean;
+  index: number; qtype: QType; /** câu bình chọn: không có đúng/sai */ poll?: boolean; prompt: string; explanation: string | null; answer_key: QData; skipped: boolean; last: boolean;
   stats: { correct: number; wrong: number; none: number }; options: LiveOption[] | null; top: LiveTop[]; teams: LiveTeamRow[] | null; boss_hit: BossHit | null;
 }
 export interface LiveFinal {
@@ -31,7 +31,7 @@ export interface LiveFinal {
 }
 export interface LiveMe {
   player_id: number; nickname: string; avatar: string; team_id: number | null; team_name: string | null; score: number; rank: number | null; correct_count: number; answered_count: number;
-  answered: boolean; xp_awarded: number; joined_q: number; last: { correct: boolean; points: number; elapsed_ms: number | null; damage: number } | null;
+  answered: boolean; xp_awarded: number; joined_q: number; last: { poll?: boolean; correct: boolean; points: number; elapsed_ms: number | null; damage: number } | null;
 }
 /** Trạng thái phòng thi do máy chủ gửi, riêng cho từng người xem */
 export interface LiveView {
@@ -61,6 +61,7 @@ export interface LiveLookup {
 export interface LiveMatch { id: number; title: string; mode: LiveMode; total: number; ended_at: string | null; q_index: number; ended_early: boolean; class_name: string; score: number; correct_count: number; answered_count: number; xp_awarded: number; rank: number; players: number }
 export interface LiveReviewItem {
   index: number; qtype: QType; prompt: string; explanation: string | null; answer_key: QData; skipped: boolean; answered: boolean; my_answer: unknown; correct: boolean; points: number; elapsed_ms: number | null; class_correct_rate: number | null;
+  /** câu bình chọn: kết quả bình chọn của cả lớp */ poll?: boolean; votes?: LiveOption[] | null;
 }
 export interface LiveReview {
   room: { id: number; title: string; mode: LiveMode; ended_at: string | null; ended_early: boolean }; boss?: { name: string; outcome: 'win' | 'lose' | null } | null;
@@ -71,7 +72,7 @@ export interface LiveReport {
   room: { id: number; title: string; mode: LiveMode; state: LiveState; class_name: string; created_at: string; started_at: string | null; ended_at: string | null; ended_early: boolean; total: number; played: number };
   summary: { players: number; avg_score: number; participation_rate: number; skipped: number };
   hardest: { number: number; prompt: string; correct_rate: number | null } | null;
-  questions: Array<{ index: number; number: number; qtype: QType; prompt: string; skipped: boolean; answered: number; correct: number; wrong: number; none: number; correct_rate: number | null; avg_seconds: number | null }>;
+  questions: Array<{ index: number; number: number; qtype: QType; poll?: boolean; votes?: LiveOption[] | null; prompt: string; skipped: boolean; answered: number; correct: number; wrong: number; none: number; correct_rate: number | null; avg_seconds: number | null }>;
   players: Array<{ rank: number; nickname: string; full_name: string; user_code: string | null; team_name: string | null; score: number; correct_count: number; answered_count: number; accuracy: number; avg_seconds: number | null; xp_awarded: number; tab_switches: number; joined_q: number }>;
   teams: LiveTeamRow[] | null; removed: Array<{ nickname: string; full_name: string }>;
   boss: { name: string; max_hp: number | null; hp: number | null; class_max_hp: number | null; class_hp: number | null; outcome: 'win' | 'lose' | null; log: BossHit[] } | null;

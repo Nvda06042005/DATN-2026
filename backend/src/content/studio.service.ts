@@ -13,7 +13,7 @@ import { QuestionInput, QuestionService, QuestionRow } from './question.service'
 import { QuizInput, QuizService, ScoreMode, MAX_QUESTIONS } from './quiz.service';
 import { normalizeData, QType } from './questions';
 
-export const STUDIO_QTYPES = ['single', 'multiple', 'truefalse'] as const;
+export const STUDIO_QTYPES = ['single', 'multiple', 'truefalse', 'poll'] as const;
 export const STUDIO_SECONDS = [5, 10, 20, 30, 60, 90, 120] as const;
 const MAX_DRAFTS = 30;
 const MAX_PAYLOAD_BYTES = 400_000;
@@ -29,7 +29,7 @@ export interface StudioQuestion {
   options: string[]; correct: number[]; tf: boolean; seconds: number; score_mode: ScoreMode; image_url: string | null; video_url: string | null; explanation: string;
 }
 export interface StudioPayload {
-  title: string; description: string; cover_url: string | null; theme: { bg: string; music: string }; campaign_id: number | null; shuffle_questions: boolean; shuffle_options: boolean; questions: StudioQuestion[];
+  title: string; description: string; cover_url: string | null; theme: { bg: string; music: string; music_url?: string | null }; campaign_id: number | null; shuffle_questions: boolean; shuffle_options: boolean; questions: StudioQuestion[];
 }
 
 const blankQuestion = (): StudioQuestion => ({
@@ -48,7 +48,7 @@ export function sanitizeDraft(raw: unknown): StudioPayload {
   const list = Array.isArray(r.questions) ? r.questions.slice(0, MAX_QUESTIONS + 10) : [];
   return {
     title: text(r.title, 160), description: text(r.description, 1000), cover_url: link(r.cover_url),
-    theme: { bg: text(r.theme?.bg, 30) || 'default', music: text(r.theme?.music, 30) || 'none' },
+    theme: { bg: text(r.theme?.bg, 30) || 'default', music: text(r.theme?.music, 30) || 'none', ...(link(r.theme?.music_url) ? { music_url: link(r.theme?.music_url) } : {}) },
     campaign_id: Number.isInteger(r.campaign_id) && r.campaign_id > 0 ? r.campaign_id : null, shuffle_questions: Boolean(r.shuffle_questions), shuffle_options: Boolean(r.shuffle_options),
     questions: list.map((x: Record<string, any>): StudioQuestion => {
       const qtype = (STUDIO_QTYPES as readonly string[]).includes(x?.qtype) ? x.qtype : 'single';
@@ -78,7 +78,9 @@ export function toQuestionInput(x: StudioQuestion, n: number): QuestionInput {
     if (x.qtype === 'single' && correct.length !== 1) fail('hãy đánh dấu đúng một đáp án đúng');
     if (x.qtype === 'multiple' && filled.length < 3) fail('câu chọn nhiều đáp án cần ít nhất 3 đáp án');
     if (x.qtype === 'multiple' && correct.length < 2) fail('câu chọn nhiều đáp án cần đánh dấu từ 2 đáp án đúng');
-    data = { options: filled.map((o) => ({ id: slotId(o.i), text: o.t })), correct: x.qtype === 'single' ? slotId(correct[0]) : correct.map(slotId) };
+    const opts = filled.map((o) => ({ id: slotId(o.i), text: o.t }));
+    // Bình chọn không có đáp án đúng: chỉ cần hai lựa chọn đầu, dấu "đúng" nếu có bị bỏ qua
+    data = x.qtype === 'poll' ? { options: opts } : { options: opts, correct: x.qtype === 'single' ? slotId(correct[0]) : correct.map(slotId) };
   }
   try { normalizeData(x.qtype as QType, data, prompt); } catch (e) { fail((e as Error).message); }
   return { qtype: x.qtype, prompt, image_url: x.image_url, video_url: x.video_url, explanation: x.explanation.trim() || null, difficulty: 2, data };
@@ -96,7 +98,7 @@ function fromRow(r: QuestionRow, seconds: number, mode: ScoreMode | null, n: num
       if (o.id.length === 1 && slot >= 0 && slot < SLOTS && !options[slot]) options[slot] = o.text;
       else { const free = options.findIndex((t) => !t); if (free >= 0) options[free] = o.text; }
     }
-    const ids: string[] = r.qtype === 'single' ? [d.correct] : d.correct;
+    const ids: string[] = r.qtype === 'poll' ? [] : r.qtype === 'single' ? [d.correct] : d.correct;
     correct = ids.map((id) => (d.options as Array<{ id: string; text: string }>).find((o) => o.id === id)).map((o) => options.indexOf(o?.text ?? '\u0000')).filter((i) => i >= 0);
   }
   return {
@@ -105,13 +107,44 @@ function fromRow(r: QuestionRow, seconds: number, mode: ScoreMode | null, n: num
   };
 }
 
-// ---------------------------------------------------------------------- ảnh tải lên
-const SIGNATURES: Array<{ mime: string; test: (b: Buffer) => boolean }> = [
-  { mime: 'image/png', test: (b) => b.length > 8 && b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) },
-  { mime: 'image/jpeg', test: (b) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
-  { mime: 'image/gif', test: (b) => b.length > 6 && b.subarray(0, 4).toString('latin1') === 'GIF8' },
-  { mime: 'image/webp', test: (b) => b.length > 12 && b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP' },
+// ---------------------------------------------------------------------- tệp tải lên: ảnh, video, nhạc
+/** Loại tệp nhận được, xác định bằng nội dung thật (không tin tên tệp hay loại do trình duyệt khai) */
+export type MediaKind = 'image' | 'video' | 'audio';
+const SIGNATURES: Array<{ mime: string; kind: MediaKind; test: (b: Buffer) => boolean }> = [
+  { mime: 'image/png', kind: 'image', test: (b) => b.length > 8 && b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) },
+  { mime: 'image/jpeg', kind: 'image', test: (b) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+  { mime: 'image/gif', kind: 'image', test: (b) => b.length > 6 && b.subarray(0, 4).toString('latin1') === 'GIF8' },
+  { mime: 'image/webp', kind: 'image', test: (b) => b.length > 12 && b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP' },
+  // MP4: khối "ftyp" ở byte 4–8; WebM: tiêu đề EBML (1A 45 DF A3) có khai báo kiểu tài liệu "webm"
+  { mime: 'video/mp4', kind: 'video', test: (b) => b.length > 12 && b.subarray(4, 8).toString('latin1') === 'ftyp' },
+  { mime: 'video/webm', kind: 'video', test: (b) => b.length > 16 && b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3 && b.subarray(0, 64).includes('webm') },
+  // MP3: thẻ ID3 hoặc khung đồng bộ MPEG (11 bit 1); OGG: "OggS"
+  { mime: 'audio/mpeg', kind: 'audio', test: (b) => b.length > 4 && (b.subarray(0, 3).toString('latin1') === 'ID3' || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0)) },
+  { mime: 'audio/ogg', kind: 'audio', test: (b) => b.length > 4 && b.subarray(0, 4).toString('latin1') === 'OggS' },
 ];
+/** Giới hạn mỗi tệp, số tệp và tổng dung lượng mỗi giáo viên theo loại; `label` dùng trong thông báo */
+export const MEDIA_LIMITS: Record<MediaKind, { maxBytes: number; files: number; total: number; label: string; max: string }> = {
+  image: { maxBytes: MAX_IMAGE_BYTES, files: MAX_IMAGES_PER_USER, total: MAX_IMAGE_TOTAL, label: 'ảnh', max: '1,5 MB' },
+  video: { maxBytes: 8 * 1024 * 1024, files: 5, total: 32 * 1024 * 1024, label: 'video', max: '8 MB' },
+  audio: { maxBytes: 4 * 1024 * 1024, files: 5, total: 16 * 1024 * 1024, label: 'tệp nhạc', max: '4 MB' },
+};
+/** Tổng dung lượng mọi tệp tải lên của cả hệ thống: tệp nằm trong cơ sở dữ liệu nên cần một trần chung để không làm đầy cơ sở dữ liệu */
+export const MEDIA_SYSTEM_TOTAL = 200 * 1024 * 1024;
+/**
+ * Chuỗi base64 chuẩn (có thể thiếu dấu "="). Duyệt từng ký tự thay vì dùng biểu thức chính quy: với chuỗi dài hàng MB (video 8 MB mã hóa thành ~11 MB)
+ * bộ máy biểu thức chính quy của V8 có thể báo "Maximum call stack size exceeded" ngẫu nhiên và làm yêu cầu trả 500.
+ */
+export function isBase64(raw: string): boolean {
+  let end = raw.length;
+  while (end > 0 && raw.charCodeAt(end - 1) === 61) end -= 1;
+  if (end === 0 || raw.length - end > 2) return false;
+  for (let i = 0; i < end; i += 1) {
+    const c = raw.charCodeAt(i);
+    if (!((c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || c === 43 || c === 47)) return false;
+  }
+  return true;
+}
+const kindOfMime = (mime: string): MediaKind => (mime.startsWith('image/') ? 'image' : mime.startsWith('video/') ? 'video' : 'audio');
 
 @Injectable()
 export class MediaService {
@@ -120,31 +153,67 @@ export class MediaService {
   /** `data` là chuỗi base64 hoặc data URL; loại tệp được xác định bằng nội dung thật chứ không tin tên tệp */
   async upload(user: UserRow, body: { name?: unknown; data?: unknown }) {
     const raw = typeof body.data === 'string' ? body.data.replace(/^data:[^;,]*;base64,/, '').replace(/\s+/g, '') : '';
-    if (!raw || !/^[A-Za-z0-9+/]+={0,2}$/.test(raw)) throw new BadRequestException('Hãy chọn một tệp ảnh');
-    if (raw.length > Math.ceil((MAX_IMAGE_BYTES * 4) / 3) + 8) throw new BadRequestException('Ảnh tối đa 1,5 MB');
+    if (!isBase64(raw)) throw new BadRequestException('Hãy chọn một tệp ảnh, video hoặc nhạc');
+    if (raw.length > Math.ceil((MEDIA_LIMITS.video.maxBytes * 4) / 3) + 8) throw new BadRequestException('Tệp quá lớn: ảnh tối đa 1,5 MB, nhạc 4 MB, video 8 MB');
     const bytes = Buffer.from(raw, 'base64');
-    if (!bytes.length || bytes.length > MAX_IMAGE_BYTES) throw new BadRequestException('Ảnh tối đa 1,5 MB');
+    if (!bytes.length) throw new BadRequestException('Hãy chọn một tệp ảnh, video hoặc nhạc');
     const kind = SIGNATURES.find((s) => s.test(bytes));
-    if (!kind) throw new BadRequestException('Chỉ nhận ảnh PNG, JPEG, WEBP hoặc GIF');
-    const used = (await this.db.query<{ n: string; bytes: string }>('SELECT count(*) AS n, COALESCE(sum(size_bytes), 0) AS bytes FROM hk_media WHERE owner_id = $1', [user.id]))[0];
-    if (Number(used.n) >= MAX_IMAGES_PER_USER || Number(used.bytes) + bytes.length > MAX_IMAGE_TOTAL) throw new ConflictException(`Mỗi tài khoản tải lên tối đa ${MAX_IMAGES_PER_USER} ảnh (tổng 30 MB); hãy dùng lại ảnh đã tải hoặc dùng liên kết ảnh`);
+    if (!kind) throw new BadRequestException('Chỉ nhận ảnh PNG, JPEG, WEBP, GIF; video MP4, WebM; nhạc MP3, OGG');
+    const limit = MEDIA_LIMITS[kind.kind];
+    if (bytes.length > limit.maxBytes) throw new BadRequestException(`${limit.label[0].toUpperCase()}${limit.label.slice(1)} tối đa ${limit.max}`);
+    const like = `${kind.kind}/%`;
+    const used = (await this.db.query<{ n: string; bytes: string }>('SELECT count(*) AS n, COALESCE(sum(size_bytes), 0) AS bytes FROM hk_media WHERE owner_id = $1 AND mime LIKE $2', [user.id, like]))[0];
+    if (Number(used.n) >= limit.files || Number(used.bytes) + bytes.length > limit.total) {
+      throw new ConflictException(`Mỗi tài khoản tải lên tối đa ${limit.files} ${limit.label} (tổng ${Math.round(limit.total / 1048576)} MB); hãy dùng lại tệp đã tải hoặc xóa bớt tệp không còn dùng`);
+    }
+    const all = Number((await this.db.query<{ bytes: string }>('SELECT COALESCE(sum(size_bytes), 0) AS bytes FROM hk_media'))[0].bytes);
+    if (all + bytes.length > MEDIA_SYSTEM_TOTAL) throw new ConflictException('Kho tải lên của hệ thống đã đầy; hãy liên hệ quản trị viên');
     const token = randomBytes(16).toString('hex');
     const name = typeof body.name === 'string' ? body.name.trim().slice(0, 120) || null : null;
     await this.db.query('INSERT INTO hk_media (token, owner_id, mime, name, size_bytes, data) VALUES ($1, $2, $3, $4, $5, $6)', [token, user.id, kind.mime, name, bytes.length, bytes]);
-    return { token, url: `/api/content/media/${token}`, mime: kind.mime, size_bytes: bytes.length, name };
+    return { token, url: `/api/content/media/${token}`, mime: kind.mime, kind: kind.kind, size_bytes: bytes.length, name };
+  }
+
+  /** Thông tin tệp (không kèm nội dung) để trả lời yêu cầu `Range` mà không phải đọc cả tệp */
+  async meta(token: string): Promise<{ mime: string; size: number }> {
+    const row = /^[0-9a-f]{32}$/.test(token) ? (await this.db.query<{ mime: string; size_bytes: number }>('SELECT mime, size_bytes FROM hk_media WHERE token = $1', [token]))[0] : undefined;
+    if (!row) throw new NotFoundException('Không tìm thấy tệp');
+    return { mime: row.mime, size: row.size_bytes };
   }
 
   async file(token: string): Promise<{ mime: string; data: Buffer }> {
     const row = /^[0-9a-f]{32}$/.test(token) ? (await this.db.query<{ mime: string; data: Buffer }>('SELECT mime, data FROM hk_media WHERE token = $1', [token]))[0] : undefined;
-    if (!row) throw new NotFoundException('Không tìm thấy ảnh');
+    if (!row) throw new NotFoundException('Không tìm thấy tệp');
     return row;
   }
 
-  /** Ảnh để chèn vào câu hỏi: ảnh tôi đã tải lên và ảnh sử liệu đã công bố trong kho tư liệu (tranh, bản đồ, hiện vật, chân dung, địa danh) */
+  /** Một đoạn của tệp (byte `start` tới `start + length - 1`) cho phát video có tua: trình duyệt, nhất là Safari, đòi trả lời `Range` */
+  async slice(token: string, start: number, length: number): Promise<Buffer> {
+    const row = (await this.db.query<{ chunk: Buffer }>('SELECT substring(data FROM $2::int FOR $3::int) AS chunk FROM hk_media WHERE token = $1', [token, start + 1, length]))[0];
+    if (!row) throw new NotFoundException('Không tìm thấy tệp');
+    return row.chunk;
+  }
+
+  /** Xóa tệp của chính mình khi không còn dùng ở câu hỏi, ảnh bìa, nhạc chờ hay bản nháp nào */
+  async remove(user: UserRow, token: string) {
+    const row = /^[0-9a-f]{32}$/.test(token) ? (await this.db.query<{ owner_id: number | null }>('SELECT owner_id FROM hk_media WHERE token = $1', [token]))[0] : undefined;
+    if (!row || row.owner_id !== user.id) throw new NotFoundException('Không tìm thấy tệp');
+    const url = `/api/content/media/${token}`;
+    const used = Number((await this.db.query<{ n: string }>(
+      `SELECT (SELECT count(*) FROM hk_questions WHERE image_url = $1 OR video_url = $1) + (SELECT count(*) FROM hk_quizzes WHERE cover_url = $1 OR theme->>'music_url' = $1)
+            + (SELECT count(*) FROM hk_quiz_drafts WHERE payload::text LIKE '%' || $1 || '%') AS n`, [url]))[0].n);
+    if (used) throw new ConflictException('Tệp đang được dùng trong câu hỏi, Quiz hoặc bản nháp; hãy gỡ khỏi nơi đó trước');
+    await this.db.query('DELETE FROM hk_media WHERE token = $1', [token]);
+    return { deleted: true };
+  }
+
+  /** Tệp để chèn vào câu hỏi: ảnh, video, nhạc tôi đã tải lên và ảnh sử liệu đã công bố trong kho tư liệu (tranh, bản đồ, hiện vật, chân dung, địa danh) */
   async library(user: UserRow, q?: string) {
     // tìm không phân biệt hoa thường và dấu (lọc ở máy chủ ứng dụng vì chữ hoa có dấu phụ thuộc bộ ký tự của cơ sở dữ liệu)
     const term = searchText(String(q ?? ''));
-    const mine = await this.db.query<{ token: string; name: string | null }>('SELECT token, name FROM hk_media WHERE owner_id = $1 ORDER BY created_at DESC LIMIT 24', [user.id]);
+    const mineAll = await this.db.query<{ token: string; name: string | null; mime: string; size_bytes: number }>('SELECT token, name, mime, size_bytes FROM hk_media WHERE owner_id = $1 ORDER BY created_at DESC LIMIT 60', [user.id]);
+    const withUrl = (m: { token: string; name: string | null; mime: string; size_bytes: number }) => ({ ...m, url: `/api/content/media/${m.token}` });
+    const mine = mineAll.filter((m) => kindOfMime(m.mime) === 'image').slice(0, 24);
     const items = await this.db.query<{ kind: string; id: number; title: string; url: string }>(
       `SELECT * FROM (
          SELECT 'source' AS kind, id, title, attachment_url AS url FROM hist_sources WHERE status = 'published' AND kind IN ('hinh_anh', 'ban_do_co') AND attachment_url IS NOT NULL
@@ -153,7 +222,12 @@ export class MediaService {
          UNION ALL SELECT 'campaign', id, title, image_url FROM hist_campaigns WHERE status = 'published' AND image_url IS NOT NULL
        ) t ORDER BY t.kind, t.title LIMIT 600`);
     const library = items.filter((i) => !term || searchText(i.title).includes(term)).slice(0, 40);
-    return { uploads: mine.map((m) => ({ ...m, url: `/api/content/media/${m.token}` })), library };
+    return {
+      uploads: mine.map(withUrl),
+      videos: mineAll.filter((m) => kindOfMime(m.mime) === 'video').map(withUrl),
+      audios: mineAll.filter((m) => kindOfMime(m.mime) === 'audio').map(withUrl),
+      library,
+    };
   }
 }
 
@@ -205,7 +279,7 @@ export class QuizStudioService {
       questions.push(fromRow(row as unknown as QuestionRow, item.seconds ?? quiz.seconds_per_question, item.score_mode, n));
     }
     return {
-      title: quiz.title, description: quiz.description ?? '', cover_url: quiz.cover_url, theme: { bg: String((quiz.theme as any)?.bg ?? 'default'), music: String((quiz.theme as any)?.music ?? 'none') },
+      title: quiz.title, description: quiz.description ?? '', cover_url: quiz.cover_url, theme: { bg: String((quiz.theme as any)?.bg ?? 'default'), music: String((quiz.theme as any)?.music ?? 'none'), ...((quiz.theme as any)?.music_url ? { music_url: String((quiz.theme as any).music_url) } : {}) },
       campaign_id: quiz.campaign_id, shuffle_questions: quiz.shuffle_questions, shuffle_options: quiz.shuffle_options, questions: questions.length ? questions : [blankQuestion()],
     };
   }

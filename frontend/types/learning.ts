@@ -1,8 +1,9 @@
 /** Kiểu dữ liệu của học tập (Sprint 3–4): câu hỏi, bộ đề, bài học, hành trình, làm bài, kho lịch sử cho học sinh. Khớp với /api/content, /api/learn, /api/play. */
 
-export type QType = 'single' | 'multiple' | 'truefalse' | 'fill' | 'order' | 'map';
+/** `poll`: bình chọn không có đáp án đúng (HK.GV.088), chỉ dùng trong phòng thi trực tiếp */
+export type QType = 'single' | 'multiple' | 'truefalse' | 'fill' | 'order' | 'map' | 'poll';
 export const QTYPE_TEXT: Record<QType, string> = {
-  single: 'Một đáp án', multiple: 'Nhiều đáp án', truefalse: 'Đúng / sai', fill: 'Điền khuyết', order: 'Sắp xếp thứ tự', map: 'Kéo thả lên bản đồ',
+  single: 'Một đáp án', multiple: 'Nhiều đáp án', truefalse: 'Đúng / sai', fill: 'Điền khuyết', order: 'Sắp xếp thứ tự', map: 'Kéo thả lên bản đồ', poll: 'Bình chọn',
 };
 export type Store = 'mine' | 'school' | 'system' | 'all';
 export const STORE_TEXT: Record<Exclude<Store, 'all'>, string> = { mine: 'Của tôi', school: 'Kho của trường', system: 'Kho hệ thống' };

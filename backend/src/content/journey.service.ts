@@ -128,7 +128,7 @@ export class JourneyService {
               n.pos_x::float8 AS pos_x, n.pos_y::float8 AS pos_y, n.opens_at, n.min_percent, n.min_stars, n.reward_gold, n.reward_card_id, n.reward_badge_id,
               n.gate_id, n.audio_url, n.transcript, n.reward_binh_thu,
               l.title AS lesson_title, l.status AS lesson_status, l.read_minutes, z.title AS quiz_title,
-              (SELECT count(*)::int FROM hk_quiz_questions qq WHERE qq.quiz_id = z.id) AS quiz_questions,
+              (SELECT count(*)::int FROM hk_quiz_questions qq JOIN hk_questions pq ON pq.id = qq.question_id WHERE qq.quiz_id = z.id AND pq.qtype <> 'poll') AS quiz_questions,
               s.title AS source_title, s.status AS source_status, b.name AS battle_name, b.status AS battle_status,
               (SELECT count(*)::int FROM hk_node_progress p WHERE p.node_id = n.id AND p.completed_at IS NOT NULL) AS completed,
               COALESCE((SELECT json_agg(json_build_object('id', hs.id, 'title', hs.title) ORDER BY hs.title) FROM hk_node_unlocks u JOIN hist_sources hs ON hs.id = u.source_id WHERE u.node_id = n.id), '[]'::json) AS unlocks

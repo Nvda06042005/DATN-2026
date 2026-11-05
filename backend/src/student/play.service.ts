@@ -113,8 +113,8 @@ export class PlayService {
       if (n.lesson_id) c.lesson = (await q('SELECT id, title, read_minutes FROM hk_lessons WHERE id = $1', [n.lesson_id]))[0] ?? null;
       if (n.quiz_id) {
         c.quiz = (await q(
-          `SELECT z.id, z.title, z.pass_percent, (SELECT count(*)::int FROM hk_quiz_questions qq WHERE qq.quiz_id = z.id) AS questions,
-                  (SELECT COALESCE(sum(COALESCE(qq.seconds, z.seconds_per_question)), 0)::int FROM hk_quiz_questions qq WHERE qq.quiz_id = z.id) AS total_seconds FROM hk_quizzes z WHERE z.id = $1`, [n.quiz_id]))[0] ?? null;
+          `SELECT z.id, z.title, z.pass_percent, (SELECT count(*)::int FROM hk_quiz_questions qq JOIN hk_questions pq ON pq.id = qq.question_id WHERE qq.quiz_id = z.id AND pq.qtype <> 'poll') AS questions,
+                  (SELECT COALESCE(sum(COALESCE(qq.seconds, z.seconds_per_question)), 0)::int FROM hk_quiz_questions qq JOIN hk_questions pq ON pq.id = qq.question_id WHERE qq.quiz_id = z.id AND pq.qtype <> 'poll') AS total_seconds FROM hk_quizzes z WHERE z.id = $1`, [n.quiz_id]))[0] ?? null;
       }
       if (n.battle_id) c.battle = (await q("SELECT id, name, year, date_text FROM hist_battles WHERE id = $1 AND status = 'published'", [n.battle_id]))[0] ?? null;
       if (n.source_id) c.source = (await q("SELECT id, title, kind FROM hist_sources WHERE id = $1 AND status = 'published'", [n.source_id]))[0] ?? null;

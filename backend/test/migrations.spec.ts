@@ -375,6 +375,29 @@ describe('file migration', () => {
     expect(await m.applyMigrations(url, dir)).toHaveLength(0);
   });
 
+  test('038 (bình chọn, video và nhạc tải lên) nới ràng buộc loại câu hỏi, video câu hỏi và kho tệp; mỗi cột còn đúng một ràng buộc; chạy lại không đổi gì', async () => {
+    await m.applyMigrations(url, dir);
+    const one = async (table: string, like: string): Promise<string> => {
+      const defs = await sql<{ def: string }>(url, `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conrelid = 'public.${table}'::regclass AND contype = 'c' AND pg_get_constraintdef(oid) LIKE '%${like}%'`);
+      expect(defs).toHaveLength(1);
+      return defs[0].def;
+    };
+    expect(await one('hk_questions', 'qtype')).toMatch(/'poll'/);
+    expect(await one('hk_questions', 'video_url')).toMatch(/api\/content\/media/);
+    expect(await one('hk_media', 'audio/ogg')).toMatch(/video\/mp4.*video\/webm.*audio\/mpeg.*audio\/ogg/);
+    expect(await one('hk_media', '8388608')).toMatch(/size_bytes/);
+    // câu bình chọn lưu được; loại lạ và video lạ vẫn bị từ chối
+    await sql(url, "INSERT INTO hk_questions (scope, qtype, prompt, data) VALUES ('system', 'poll', 'Câu bình chọn thử nghiệm', '{\"options\": []}')");
+    await expect(sql(url, "INSERT INTO hk_questions (scope, qtype, prompt, data) VALUES ('system', 'vote', 'Loại câu hỏi lạ', '{}')")).rejects.toThrow();
+    await sql(url, "INSERT INTO hk_questions (scope, qtype, prompt, data, video_url) VALUES ('system', 'truefalse', 'Có video tải lên', '{\"correct\": true}', '/api/content/media/' || repeat('a', 32))");
+    await expect(sql(url, "INSERT INTO hk_questions (scope, qtype, prompt, data, video_url) VALUES ('system', 'truefalse', 'Video lạ', '{\"correct\": true}', 'http://khong-bao-mat.vn/v.mp4')")).rejects.toThrow();
+    // kho tệp: video và nhạc nhận tới 8 MB, ảnh vẫn tối đa 1,5 MB
+    const media = (mime: string, size: number) => `INSERT INTO hk_media (token, mime, size_bytes, data) VALUES (md5(random()::text), '${mime}', ${size}, '\\x00')`;
+    for (const ok of [media('video/mp4', 8388608), media('video/webm', 1000), media('audio/mpeg', 4000000), media('audio/ogg', 5), media('image/png', 1572864)]) await sql(url, ok);
+    for (const bad of [media('video/mp4', 8388609), media('image/png', 1572865), media('image/gif', 5000000), media('video/avi', 100), media('audio/wav', 100), media('video/mp4', 0)]) await expect(sql(url, bad)).rejects.toThrow();
+    expect(await m.applyMigrations(url, dir)).toHaveLength(0);
+  });
+
   test('035–036 (ver0.2 Sprint 7–8) thêm bảng ảnh tải lên, bản nháp Quiz, yêu cầu vào phòng, nhật ký phòng, gắn cửa – trận đều có RLS; ràng buộc đúng; sa bàn khởi tạo cho 6 trận', async () => {
     await m.applyMigrations(url, dir);
     const tables = ['hk_media', 'hk_quiz_drafts', 'hk_live_requests', 'hk_live_events', 'hk_class_battle_links'];

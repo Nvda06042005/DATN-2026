@@ -44,6 +44,7 @@ Ngày 31/10/2026 thư mục này từng bị xóa theo yêu cầu (website chỉ
 | `035_live_quiz_v2.sql` | Soạn Quiz và thi đấu nâng cao (ver0.2 Sprint 8): ảnh tải lên, ảnh bìa – giao diện – loại điểm của Quiz, bản nháp tự lưu, video câu hỏi; khóa phòng, tên theo hồ sơ, chống tra cứu, chế độ Đánh trùm, yêu cầu vào phòng và nhật ký phòng; mọi bảng mới bật RLS |
 | `036_class_battle_sandtable.sql` | Luật lớp bật / tắt game trận đánh và giới hạn phút (ver0.2 Sprint 7), gắn cửa học với trận đánh của lớp, Sa bàn 3D của trận kèm sa bàn khởi tạo cho 6 trận (Nháp) |
 | `037_league_tiers.sql` | Giải đấu tuần cấu hình số hạng (HK.AD.054): nới ràng buộc hạng của người chơi và thành viên nhóm từ 0–3 lên 0–9, không đổi dữ liệu; tên hạng và ngày chốt nằm trong `hk_settings` |
+| `038_poll_and_media.sql` | Loại câu "Bình chọn" (HK.GV.088), video và nhạc tải lên (HK.GV.092, HK.GV.093): nới ràng buộc CHECK của `hk_questions.qtype`, `hk_questions.video_url` và của `hk_media` (thêm mp4, webm, mp3, ogg; tối đa 8 MB, ảnh vẫn 1,5 MB); không tạo bảng, không đổi dữ liệu |
 
 Kiểm chứng trên PostgreSQL tạm bằng `cd backend && npm run build && npm test` trước khi triển khai.
 

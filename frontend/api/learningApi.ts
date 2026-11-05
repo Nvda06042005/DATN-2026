@@ -34,7 +34,8 @@ export const getStudioDraft = (token: string, id: number) => apiRequest<StudioDr
 export const saveStudioDraft = (token: string, id: number, payload: StudioPayload) => apiRequest<{ id: number; updated_at: string }>(`/api/content/studio/${id}`, { token, method: 'PUT', body: payload });
 export const commitStudio = (token: string, id: number) => apiRequest<CommitResult>(`/api/content/studio/${id}/commit`, { token, body: {} });
 export const deleteStudio = (token: string, id: number) => apiRequest<{ deleted: boolean }>(`/api/content/studio/${id}`, { token, method: 'DELETE' });
-export const uploadMedia = (token: string, body: { name: string; data: string }) => apiRequest<{ token: string; url: string; mime: string; size_bytes: number }>('/api/content/media', { token, body, timeoutMs: 120_000 });
+export const uploadMedia = (token: string, body: { name: string; data: string }) => apiRequest<{ token: string; url: string; mime: string; kind: 'image' | 'video' | 'audio'; size_bytes: number }>('/api/content/media', { token, body, timeoutMs: 180_000 });
+export const deleteMedia = (token: string, fileToken: string) => apiRequest<{ deleted: boolean }>(`/api/content/media/${fileToken}`, { token, method: 'DELETE' });
 export const mediaLibrary = (token: string, q: string) => apiRequest<MediaLibrary>(`/api/content/media-library${q ? `?q=${encodeURIComponent(q)}` : ''}`, { token });
 
 export const listQuizzes = (token: string, query: Query) => apiRequest<Listing<QuizItem>>(`/api/content/quizzes${qs(query)}`, { token });
