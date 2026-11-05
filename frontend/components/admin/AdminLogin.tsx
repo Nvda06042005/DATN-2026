@@ -3,15 +3,16 @@
  * TM.AUTH.001 đăng nhập bằng tài khoản được cấp (không có đăng ký tự do, không đăng nhập qua bên thứ ba), TM.AUTH.007 quên mật khẩu
  * (HK.QT.002/HK.AD: gửi mã OTP 6 chữ số hiệu lực 5 phút qua email rồi đặt mật khẩu mới). Đăng xuất là nút ở thanh trên cùng của
  * trang quản trị (AdminWorkspace).
- * Ảnh bìa chuyển động làm nền toàn trang; khung đăng nhập hai cột ở giữa như bố cục /portal.
+ * Khung nhỏ giữa màn hình, chia đôi bên trong bằng cạnh chéo: ảnh động/logo trắng bên trái, form hoa văn bên phải.
  * Manrope cho form và phần chính tiêu đề, Newsreader nghiêng đỏ cho chữ nhấn. Giữ logo nhỏ, không có khẩu hiệu lớn.
  * Màn hẹp thu phần nhận diện thành đầu khung; form gồm ô nhập có chữ gợi ý, nút đỏ và liên kết "Quên mật khẩu".
  * Cổng quản trị độc lập: không có nút hay liên kết về trang chủ hoặc cổng khác.
  */
-import React, { useRef, useState } from 'react';
+import React, { useId, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, TextInput, View, useWindowDimensions, type TextInputInstance, type TextInputProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Defs, Image as SvgImage, Pattern, Polygon } from 'react-native-svg';
 import { ArrowLeft, CircleCheck, Eye, EyeOff, Info, MailCheck, TriangleAlert } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { ApiError, errorMessage } from '@/api/client';
@@ -38,6 +39,7 @@ const COPY: Record<AdminPortal, { label: string; placeholder: string; account: s
     account: 'Quản trị trường chỉ truy cập trường được gán. Tài khoản do quản trị tổng cấp, không có đăng ký tự do.',
   },
 };
+const LOGIN_PATTERN = require('../../assets/hoa-tiet-nen.png');
 
 // ---------------------------------------------------------------------- thành phần nhỏ
 const Banner: React.FC<{ tone: 'error' | 'success' | 'info'; text: string }> = ({ tone, text }) => {
@@ -185,36 +187,39 @@ const Heading: React.FC<{ title: string; text?: string }> = ({ title, text }) =>
   );
 };
 
-// ---------------------------------------------------------------------- ảnh động toàn trang, khung đăng nhập hai cột ở giữa
+// ---------------------------------------------------------------------- khung nhỏ, ảnh động và form chia chéo bên trong
 const Shell: React.FC<{ portal: AdminPortal; children: React.ReactNode }> = ({ portal, children }) => {
   const { c } = useTheme();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const wide = width >= 860;
   const edge = height < 650 ? 12 : wide ? 24 : 16;
+  const cardWidth = Math.min(940, width - edge * 2);
   const cardHeight = Math.min(wide ? 620 : 740, Math.max(200, height - insets.top - insets.bottom - edge * 2));
+  const paperId = `admin-card-paper-${useId().replace(/:/g, '')}`;
   const copy = COPY[portal];
   const tint = [`${c.dem}db`, `${c.dem}b3`, `${c.dem}80`] as const;
 
   return (
     <View testID="admin-login-shell" style={{ flex: 1, minHeight: 0, backgroundColor: c.dem, overflow: 'hidden' }}>
-      <View testID="admin-login-art" style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
-        <FilmBackdrop wide={wide} />
-        <LinearGradient colors={tint} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.4 }} style={StyleSheet.absoluteFill} />
-      </View>
       <View style={{ flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: edge, paddingTop: insets.top + edge, paddingBottom: insets.bottom + edge }}>
-        <View testID="admin-login-card" style={{ width: '100%', maxWidth: 940, height: cardHeight, maxHeight: '100%', flexDirection: wide ? 'row' : 'column', backgroundColor: c.the, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)', boxShadow: '0 24px 80px rgba(12,24,18,0.24)', overflow: 'hidden' }}>
-          <View testID="admin-login-brand" style={{ width: wide ? '32%' : '100%', padding: wide ? 24 : 12, backgroundColor: c.logoPaper, borderRightWidth: wide ? 1 : 0, borderBottomWidth: wide ? 0 : 1, borderColor: c.vien }}>
-            <BrandLogo subtitle={copy.label} />
-            {wide && <View style={{ flex: 1, justifyContent: 'center', gap: 16 }}>
-              <Txt f="heavy" size={26} color={c.logoInk} style={{ lineHeight: 36 }}>{copy.label}</Txt>
-              <Txt size={13} color={c.muc2} style={{ lineHeight: 22 }}>{copy.account}</Txt>
-            </View>}
+        <View testID="admin-login-card" style={{ width: '100%', maxWidth: 940, height: cardHeight, maxHeight: '100%', backgroundColor: c.logoPaper, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)', boxShadow: '0 24px 80px rgba(12,24,18,0.24)', overflow: 'hidden' }}>
+          <View testID="admin-login-art" style={wide ? { position: 'absolute', left: 0, top: 0, bottom: 0, width: '52%', backgroundColor: c.dem, overflow: 'hidden' } : { height: height < 700 ? 96 : 144, backgroundColor: c.dem, overflow: 'hidden' }}>
+            <FilmBackdrop wide={wide} />
+            <LinearGradient colors={tint} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.4 }} style={StyleSheet.absoluteFill} />
+            <View testID="admin-login-brand" style={{ position: 'absolute', left: wide ? 24 : 16, top: wide ? 24 : 14 }}>
+              <BrandLogo light subtitle={copy.label} />
+            </View>
           </View>
-          <View testID="admin-login-paper" style={{ flex: 1, minHeight: 0, backgroundColor: c.logoPaper }}>
-            <PatternOverlay opacity={0.075} />
-            <Animated.ScrollView testID="admin-login-form" keyboardShouldPersistTaps="handled" style={{ flex: 1, minHeight: 0 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: wide ? 28 : 20 }}>
-              <View style={{ width: '100%', maxWidth: 570, alignSelf: 'center', gap: height < 700 ? 18 : 24 }}>
+          {wide && <Svg testID="admin-login-paper" pointerEvents="none" width="100%" height="100%" viewBox={`0 0 ${cardWidth} ${cardHeight}`} preserveAspectRatio="none" style={StyleSheet.absoluteFill}>
+            <Defs><Pattern id={paperId} width={382} height={512} patternUnits="userSpaceOnUse"><SvgImage href={LOGIN_PATTERN} width={382} height={512} opacity={0.075} /></Pattern></Defs>
+            <Polygon testID="admin-login-diagonal" points={`${cardWidth * 0.493},0 ${cardWidth},0 ${cardWidth},${cardHeight} ${cardWidth * 0.41},${cardHeight}`} fill={c.logoPaper} />
+            <Polygon points={`${cardWidth * 0.493},0 ${cardWidth},0 ${cardWidth},${cardHeight} ${cardWidth * 0.41},${cardHeight}`} fill={`url(#${paperId})`} />
+          </Svg>}
+          <View testID="admin-login-panel" style={wide ? { position: 'absolute', left: '52%', right: 0, top: 0, bottom: 0 } : { flex: 1, minHeight: 0 }}>
+            {!wide && <PatternOverlay opacity={0.075} />}
+            <Animated.ScrollView testID="admin-login-form" keyboardShouldPersistTaps="handled" style={{ flex: 1, minHeight: 0 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingLeft: wide ? Math.round(cardWidth * 0.07) : 20, paddingRight: wide ? 28 : 20, paddingTop: height < 700 ? 16 : 24, paddingBottom: height < 700 ? 16 : 24 }}>
+              <View style={{ width: '100%', maxWidth: 570, alignSelf: 'center', gap: height < 700 ? 14 : 24 }}>
                 {children}
                 <Txt size={11} color={c.muc3} center>© 2026 · Bản quyền thuộc quản lý Đông A</Txt>
               </View>
@@ -229,7 +234,6 @@ const Shell: React.FC<{ portal: AdminPortal; children: React.ReactNode }> = ({ p
 // ---------------------------------------------------------------------- đăng nhập (TM.AUTH.001)
 const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: AuthUser) => void; onForgot: () => void; notice?: string | null; success?: string | null }> = ({ portal, onLogin, onForgot, notice, success }) => {
   const { c } = useTheme();
-  const { width } = useWindowDimensions();
   const copy = COPY[portal];
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -337,9 +341,9 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
         <SubmitButton title={loading ? 'Đang đăng nhập…' : 'Đăng nhập'} loading={loading} onPress={submit} testID="login-submit" />
         <TextLink title="Quên mật khẩu" onPress={onForgot} />
       </View>
-      {width < 860 && <Txt size={14} color={c.muc2} style={{ maxWidth: 460 }}>
+      <Txt size={14} color={c.muc2} style={{ maxWidth: 460 }}>
         {copy.account}
-      </Txt>}
+      </Txt>
     </>
   );
 };

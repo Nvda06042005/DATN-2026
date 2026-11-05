@@ -568,9 +568,9 @@ Quyết định khi cho chỉnh số hạng và ngày chốt:
 ## Bố cục đăng nhập admin theo ảnh mẫu ngày 05/11/2026 (đính chính)
 
 - Người dùng xác nhận ảnh 1 là `/portal` cần giữ nguyên; chỉ sửa trang đăng nhập admin ở ảnh 2. Khôi phục nguyên văn `school-login.tsx` về bản trước lần hiểu nhầm (khung nổi hai cột, ảnh thành lũy, ba vai trò và Google); không sửa luồng xác thực của portal.
-- Trang `/admin` đổi từ hai mảng toàn màn hình có cạnh chéo thành khung nổi hai cột ở giữa: phần nhận diện và thông tin quyền bên trái, form bên phải. Giữ ảnh bìa chuyển động làm nền, hoa văn giấy, Manrope/Newsreader và nhãn Quản lý tổng. Màn nhỏ xếp phần nhận diện lên trên và cho cuộn trong form khi cần.
+- Trang `/admin` là khung nhỏ nổi ở giữa, tối đa 940 × 620 trên máy tính; theo mẫu người dùng bổ sung, **bên trong khung** chia đôi bằng cạnh chéo: ảnh động và logo trắng bên trái, form giấy hoa văn bên phải. Giữ Manrope/Newsreader và nhãn Quản lý tổng; chuyển thông tin quyền về dưới form. Màn nhỏ dùng dải ảnh trên form và cuộn bên trong khi cần.
 - Giữ nguyên đăng nhập bằng tài khoản được cấp, xác thực hai lớp và quên/đặt lại mật khẩu của admin; không thêm Google, vai trò học sinh hoặc liên kết công khai vào cổng quản trị. Không thay đổi API, quyền hay database.
-- Kiểm tra: portal trùng nguyên văn bản trước lần sửa nhầm; typecheck, 39 bài frontend và build đạt. Trình duyệt ẩn xác minh bố cục admin ở 6 kích thước (360 × 640 đến 1920 × 1080), cùng bước 2FA/quên mật khẩu giả lập; portal khôi phục được kiểm tra lại ở 5 kích thước và giữ Google cho đúng ba vai trò.
+- Kiểm tra: portal trùng nguyên văn bản trước lần sửa nhầm; typecheck, 39 bài frontend và build đạt. Trình duyệt ẩn xác minh bố cục admin ở 6 kích thước (360 × 640 đến 1920 × 1080), ảnh động/cạnh chéo nằm bên trong khung nhỏ, cùng bước 2FA/quên mật khẩu giả lập; portal khôi phục được kiểm tra lại ở 5 kích thước và giữ Google cho đúng ba vai trò.
 
 ## Chưa làm (ngoài Sprint 1–7) và đề xuất
 
