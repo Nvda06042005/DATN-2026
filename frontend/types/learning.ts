@@ -135,6 +135,8 @@ export interface NodeDetail extends Omit<MapNode, 'content'> {
   has_sim?: boolean; scenario_id?: number | null;
   /** Màn chơi bằng thẻ tướng của trận đánh (ver0.2, HK.HS.124) */
   stage_id?: number | null;
+  /** Điểm trận đánh tương ứng trên bản đồ hành quân (HK.HS.124); null nếu màn không có điểm trên bản đồ */
+  march?: { campaign_id: number; point_id: number } | null;
   /** Lộ trình dạng đường đi (ver0.2): số câu, Binh thư nhận được, Cửa chứa nút */
   question_count?: number | null; reward_binh_thu?: number; gate?: { id: number; title: string } | null;
 }

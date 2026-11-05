@@ -94,6 +94,8 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
   const [homeMode, setHomeMode] = useState<'march' | 'quest'>(warOn ? 'march' : 'quest');
   const [collMode, setCollMode] = useState<'war' | 'badges'>(warOn ? 'war' : 'badges');
   const [stageId, setStageId] = useState<number | null>(null);
+  // "Ra trận" từ lộ trình học (HK.HS.124): bản đồ hành quân dừng ở đúng điểm trận đánh
+  const [marchFocus, setMarchFocus] = useState<{ campaign_id: number; point_id: number } | null>(null);
   const [replayId, setReplayId] = useState<number | null>(null);
   // màn giới thiệu đang tạm đóng để nhường chỗ cho bản phát lại (hai hộp thoại không mở chồng nhau)
   const [replayBack, setReplayBack] = useState<number | null>(null);
@@ -104,6 +106,7 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
   const loadHud = useCallback(() => { game.gameMe(token).then(setHud).catch(() => undefined); }, [token]);
 
   useEffect(() => { const e = VIEW_EVENT[tab]; if (e) api.viewEvent(token, e); }, [tab, token]);
+  useEffect(() => { if (tab !== 'home') setMarchFocus(null); }, [tab]);
   useEffect(() => { loadHud(); }, [loadHud, refreshKey]);
   useEffect(() => { api.menuDots(token).then(setDots).catch(() => undefined); }, [token, refreshKey, tab]);
 
@@ -151,7 +154,10 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
       const res = await guarded(() => api.completeNode(token, n.id));
       if (res) { setDone(res); bump(); }
     },
-    onStage: setStageId,
+    onStage: (id, march) => {
+      if (march && warOn) { setMarchFocus(march); setHomeMode('march'); setCampaignId(null); setFocusNode(null); setTab('home'); return; }
+      setStageId(id);
+    },
   };
 
   // Bài tập của lớp (HK.HS.101): máy chủ tính lượt và hạn nộp; bộ đề mở lượt làm, mini-game và bài học tự xin dữ liệu khi mở
@@ -205,7 +211,7 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
                 <View style={{ gap: 14 }}>
                   {warOn ? <Segmented<'march' | 'quest'> label="Kiểu chiến dịch" value={homeMode} onChange={setHomeMode} options={[{ value: 'march', label: 'Hành quân' }, { value: 'quest', label: 'Bản đồ nhiệm vụ' }]} /> : null}
                   {homeMode === 'march' && warOn
-                    ? <MarchTab session={session} refreshKey={refreshKey} onStage={setStageId} onSource={(id) => open('source', id)} onChanged={bump} />
+                    ? <MarchTab session={session} refreshKey={refreshKey} focus={marchFocus} onFocusDone={() => setMarchFocus(null)} onStage={setStageId} onSource={(id) => open('source', id)} onChanged={bump} />
                     : <HomeTab session={session} refreshKey={refreshKey} onOpenCampaign={(id) => { setCampaignId(id); setFocusNode(null); }} onPractice={startPractice} onNode={(cid, nid) => { setCampaignId(cid); setFocusNode(nid); }} />}
                 </View>
               ) : null}

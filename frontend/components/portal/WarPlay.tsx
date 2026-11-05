@@ -33,12 +33,14 @@ export const WarBanner: React.FC<{ war: WarStatus | null | undefined }> = ({ war
 };
 
 // ---------------------------------------------------------------------- hành quân: danh sách và bản đồ
-export const MarchTab: React.FC<{ session: Session; refreshKey: number; onStage: (id: number) => void; onSource: (id: number) => void; onChanged: () => void }> = ({ session, refreshKey, onStage, onSource, onChanged }) => {
+export const MarchTab: React.FC<{ session: Session; refreshKey: number; focus?: { campaign_id: number; point_id: number } | null; onFocusDone?: () => void; onStage: (id: number) => void; onSource: (id: number) => void; onChanged: () => void }> = ({ session, refreshKey, focus, onFocusDone, onStage, onSource, onChanged }) => {
   const { c } = useTheme();
   const list = useLoad(() => api.marchList(session.token), [session.token, refreshKey], session.expired);
-  const [campaign, setCampaign] = useState<number | null>(null);
+  const [campaign, setCampaign] = useState<number | null>(focus?.campaign_id ?? null);
   const [log, setLog] = useState(false);
-  if (campaign !== null) return <MarchMapView session={session} campaignId={campaign} refreshKey={refreshKey} onBack={() => setCampaign(null)} onStage={onStage} onSource={onSource} onChanged={onChanged} />;
+  // "Ra trận" từ lộ trình học (HK.HS.124): mở thẳng bản đồ của cuộc kháng chiến chứa điểm trận đánh
+  useEffect(() => { if (focus) setCampaign(focus.campaign_id); }, [focus]);
+  if (campaign !== null) return <MarchMapView session={session} campaignId={campaign} refreshKey={refreshKey} focusPointId={focus && focus.campaign_id === campaign ? focus.point_id : null} onFocusDone={onFocusDone} onBack={() => { setCampaign(null); onFocusDone?.(); }} onStage={onStage} onSource={onSource} onChanged={onChanged} />;
   return (
     <View style={{ gap: 12 }}>
       <ErrorNote message={list.error} />
@@ -68,7 +70,7 @@ const Edge: React.FC<{ a: MarchPoint; b: MarchPoint; w: number; h: number; on: b
   return <View pointerEvents="none" style={{ position: 'absolute', left: (x1 + x2) / 2 - len / 2, top: (y1 + y2) / 2 - 1.5, width: len, height: 0, borderTopWidth: 3, borderStyle: on ? 'solid' : 'dashed', borderColor: on ? c.dong : c.vien2, transform: [{ rotate: `${Math.atan2(y2 - y1, x2 - x1)}rad` }] }} />;
 };
 
-const MarchMapView: React.FC<{ session: Session; campaignId: number; refreshKey: number; onBack: () => void; onStage: (id: number) => void; onSource: (id: number) => void; onChanged: () => void }> = ({ session, campaignId, refreshKey, onBack, onStage, onSource, onChanged }) => {
+const MarchMapView: React.FC<{ session: Session; campaignId: number; refreshKey: number; focusPointId?: number | null; onFocusDone?: () => void; onBack: () => void; onStage: (id: number) => void; onSource: (id: number) => void; onChanged: () => void }> = ({ session, campaignId, refreshKey, focusPointId, onFocusDone, onBack, onStage, onSource, onChanged }) => {
   const { c } = useTheme();
   const { width } = useWindowDimensions();
   const map = useLoad(() => api.marchMap(session.token, campaignId), [session.token, campaignId, refreshKey], session.expired);
@@ -87,9 +89,12 @@ const MarchMapView: React.FC<{ session: Session; campaignId: number; refreshKey:
   const w = base * zoom, h = w * 0.72;
   const here = data?.points.find((p) => p.id === data.current_point_id) ?? null;
   const hscroll = useRef<ScrollViewInstance>(null);
+  // Điểm cần tới khi vào từ nút "Ra trận" của lộ trình học (HK.HS.124)
+  const target = focusPointId ? data?.points.find((p) => p.id === focusPointId) ?? null : null;
 
   useEffect(() => { void AccessibilityInfo.isReduceMotionEnabled().then(setReduce).catch(() => undefined); }, []);
   useEffect(() => { if (here) hscroll.current?.scrollTo({ x: Math.max(0, (here.x / 100) * w - room / 2), animated: false }); }, [here?.id, zoom, room]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (target) hscroll.current?.scrollTo({ x: Math.max(0, (target.x / 100) * w - room / 2), animated: false }); }, [target?.id, zoom, room]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (here && !walking.current) { ax.setValue(here.x); ay.setValue(here.y); } }, [here?.id, here?.x, here?.y]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const walk = (path: number[]) => new Promise<void>((resolve) => {
@@ -108,6 +113,7 @@ const MarchMapView: React.FC<{ session: Session; campaignId: number; refreshKey:
     setNote(null);
     const res = await run(() => api.marchMove(session.token, p.id));
     if (!res) return;
+    if (target?.id === p.id) onFocusDone?.();
     await walk(res.path);
     map.reload(); onChanged();
     if (res.event) setEvent({ point: res.point, event: res.event });
@@ -129,6 +135,15 @@ const MarchMapView: React.FC<{ session: Session; campaignId: number; refreshKey:
             <Txt size={12} color={c.muc3}>Đã đi {data.progress.visited}/{data.progress.total} điểm</Txt>
           </View>
           <WarBanner war={data.war} />
+          {target ? (
+            <InfoNote>
+              <View style={{ gap: 8 }}>
+                <Txt f="semibold" size={15}>Ra trận: {target.name}</Txt>
+                <Txt size={14}>{target.state === 'locked' ? target.locked_reason ?? 'Điểm này chưa mở.' : target.state === 'current' ? 'Em đang đứng tại điểm trận đánh này.' : 'Điểm trận đánh đã mở. Dẫn quân tới để ra trận.'}</Txt>
+                {target.state !== 'locked' ? <Btn icon={Swords} title={`Ra trận tại ${target.name}`} tone="son" disabled={busy} onPress={() => go(target)} testID="march-focus-go" /> : null}
+              </View>
+            </InfoNote>
+          ) : null}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
             <Btn icon={ZoomOut} label="Thu nhỏ bản đồ" tone="giay" size="sm" disabled={zoom <= 1} onPress={() => setZoom((z) => Math.max(1, +(z - 0.4).toFixed(1)))} testID="march-zoom-out" />
             <Btn icon={ZoomIn} label="Phóng to bản đồ" tone="giay" size="sm" disabled={zoom >= 2.2} onPress={() => setZoom((z) => Math.min(2.2, +(z + 0.4).toFixed(1)))} testID="march-zoom-in" />
@@ -146,6 +161,7 @@ const MarchMapView: React.FC<{ session: Session; campaignId: number; refreshKey:
                       <Pressable key={p.id} testID={`march-point-${p.id}`} accessibilityRole="button" accessibilityLabel={`${p.name}, ${POINT_LABEL[p.kind]}, ${POINT_STATE_TEXT[p.state]}${p.done ? ', đã hoàn thành' : ''}${locked && p.locked_reason ? `. ${p.locked_reason}` : ''}`} onPress={() => go(p)}
                         style={{ position: 'absolute', left: (p.x / 100) * w - 48, top: (p.y / 100) * h - 22, width: 96, alignItems: 'center', gap: 2 }}>
                         <View style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: now ? c.ngoc : seen ? c.ngocChu : locked ? c.vien2 : c.dong, backgroundColor: locked ? c.vien : seen ? c.ngocNhat : c.dongNhat }}>
+                          {target?.id === p.id ? <View pointerEvents="none" style={{ position: 'absolute', left: -9, top: -9, right: -9, bottom: -9, borderRadius: 31, borderWidth: 3, borderColor: c.son }} /> : null}
                           {locked ? <Lock size={20} color={c.muc3} /> : <Icon size={22} color={seen ? c.ngocChu : c.dongChu} />}
                           {p.done && p.kind !== 'start' ? <View style={{ position: 'absolute', right: -4, top: -4, width: 18, height: 18, borderRadius: 9, backgroundColor: c.ngoc, alignItems: 'center', justifyContent: 'center' }}><Check size={12} color="#ffffff" /></View> : null}
                         </View>

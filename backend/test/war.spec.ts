@@ -449,11 +449,27 @@ async function playOut(who: { token: string }, battleId: number, right = true) {
       const nodes = await db.query<{ id: number }>("SELECT n.id FROM hk_nodes n JOIN hk_journeys j ON j.id = n.journey_id JOIN hist_battles b ON b.id = n.battle_id WHERE j.campaign_id = $1 AND j.is_default AND n.kind = 'battle' AND b.slug = 'bach-dang'", [campaigns[2].id]);
       const open = (await as(f.S2)('GET', `/api/play/nodes/${nodes[0].id}`)).body;
       expect(open.stage_id).toBe(stageBachDang);
+      // "Ra trận" đưa học sinh tới đúng điểm trận đánh trên bản đồ hành quân của cuộc kháng chiến đó
+      const point = (await db.query<{ id: number }>("SELECT p.id FROM hk_march_points p JOIN hk_march_maps m ON m.id = p.map_id WHERE m.campaign_id = $1 AND p.kind = 'battle' AND (p.payload->>'stage_id')::int = $2", [campaigns[2].id, stageBachDang]))[0];
+      expect(point).toBeDefined();
+      expect(open.march).toEqual({ campaign_id: campaigns[2].id, point_id: point.id });
+      // bản đồ hành quân đưa chính điểm đó ra với trạng thái đúng để màn hình tô nổi
+      const onMap = (await as(f.S2)('GET', `/api/war/march/${campaigns[2].id}`)).body.points.find((p: any) => p.id === point.id);
+      expect(onMap).toMatchObject({ kind: 'battle', stage_id: stageBachDang });
       // cuộc kháng chiến lần II em S2 chưa học tới: nút trận đánh còn khóa nên không lộ mã màn chơi
       const lockedNodes = await db.query<{ id: number }>("SELECT n.id FROM hk_nodes n JOIN hk_journeys j ON j.id = n.journey_id WHERE j.campaign_id = $1 AND j.is_default AND n.kind = 'battle' ORDER BY n.position LIMIT 1", [campaigns[1].id]);
       const locked = (await as(f.S2)('GET', `/api/play/nodes/${lockedNodes[0].id}`)).body;
       expect(locked.can_start).toBe(false);
       expect(locked.stage_id).toBeNull();
+      expect(locked.march).toBeNull();
+      // màn không có điểm trên bản đồ (hoặc bản đồ chưa phát hành) thì chỉ có mã màn chơi, không có điểm để tới
+      await db.query("UPDATE hk_march_maps SET status = 'draft' WHERE campaign_id = $1", [campaigns[2].id]);
+      try {
+        const noMap = (await as(f.S2)('GET', `/api/play/nodes/${nodes[0].id}`)).body;
+        expect(noMap).toMatchObject({ stage_id: stageBachDang, march: null });
+      } finally {
+        await db.query("UPDATE hk_march_maps SET status = 'published' WHERE campaign_id = $1", [campaigns[2].id]);
+      }
     });
   });
 

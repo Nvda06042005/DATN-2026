@@ -150,8 +150,14 @@ export class PlayService {
     const binhThu = await this.game.binhThuFor(node.kind, node.reward_binh_thu);
     // Màn chơi bằng thẻ tướng của trận đánh này (HK.HS.124): nút "Ra trận" chỉ hiện khi màn đã được phát hành
     const stage = node.battle_id && !locked ? (await q<{ id: number }>("SELECT id FROM hk_stages WHERE battle_id = $1 AND status = 'published'", [node.battle_id]))[0] : undefined;
+    // Điểm trận đánh tương ứng trên bản đồ hành quân đã phát hành: "Ra trận" đưa học sinh tới đúng điểm đó; màn không có điểm trên bản đồ thì chỉ mở màn giới thiệu
+    const march = stage
+      ? (await q<{ point_id: number; campaign_id: number }>(
+        `SELECT p.id AS point_id, m.campaign_id FROM hk_march_points p JOIN hk_march_maps m ON m.id = p.map_id
+         WHERE m.status = 'published' AND p.kind = 'battle' AND p.payload->>'stage_id' = $1::text ORDER BY p.id LIMIT 1`, [String(stage.id)]))[0] ?? null
+      : null;
     return {
-      ...this.nodeBrief(node), content: locked ? null : content, unlocks, can_start: !locked, has_sim: Boolean(sim), scenario_id: sim?.id ?? null, stage_id: stage?.id ?? null,
+      ...this.nodeBrief(node), content: locked ? null : content, unlocks, can_start: !locked, has_sim: Boolean(sim), scenario_id: sim?.id ?? null, stage_id: stage?.id ?? null, march,
       pass_percent: node.pass_percent ?? quiz?.pass_percent ?? null, hint: locked ? node.lock_reason : null,
       has_quiz: Boolean(node.quiz_id), needs_quiz: this.needsQuiz(node), question_count: questionCount, reward_binh_thu: binhThu,
       gate: node.gate_id ? (await q<{ id: number; title: string }>('SELECT id, title FROM hk_gates WHERE id = $1', [node.gate_id]))[0] ?? null : null,
