@@ -13,7 +13,7 @@ import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, TextInput
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, Image as SvgImage, Pattern, Polygon } from 'react-native-svg';
-import { ArrowLeft, CircleCheck, Eye, EyeOff, Info, MailCheck, TriangleAlert } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, CircleCheck, Eye, EyeOff, Info, MailCheck, TriangleAlert } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { BrandLogo, FilmBackdrop, PatternOverlay } from '@/components/art';
@@ -67,10 +67,12 @@ type InputProps = Omit<TextInputProps, 'style' | 'placeholder'> & {
   right?: React.ReactNode;
   /** Hiện nhãn phía trên thay cho chữ gợi ý, dùng khi hai ô cùng loại nằm cạnh nhau (đặt mật khẩu mới) */
   showLabel?: boolean;
+  placeholder?: string;
+  rounded?: boolean;
 };
 
-/** Ô nhập như trang LMS: viền mảnh, góc vuông, chỉ có chữ gợi ý (nhãn nằm ở accessibilityLabel); vòng sáng khi đang nhập */
-const AuthInput: React.FC<InputProps> = ({ label, nativeID, invalid, hint, inputRef, right, showLabel, ...rest }) => {
+/** Ô nhập có nhãn trợ năng; form đăng nhập dùng nhãn phía trên và góc bo như portal. */
+const AuthInput: React.FC<InputProps> = ({ label, nativeID, invalid, hint, inputRef, right, showLabel, placeholder, rounded, ...rest }) => {
   const { c } = useTheme();
   const [focus, setFocus] = useState(false);
   return (
@@ -85,21 +87,21 @@ const AuthInput: React.FC<InputProps> = ({ label, nativeID, invalid, hint, input
           ref={inputRef}
           nativeID={nativeID}
           accessibilityLabel={label}
-          placeholder={showLabel ? undefined : label}
+          placeholder={placeholder ?? (showLabel ? undefined : label)}
           placeholderTextColor={c.muc3}
           onFocus={() => setFocus(true)}
           onBlur={() => setFocus(false)}
           style={[
             {
-              minHeight: 54,
-              borderRadius: 4,
-              borderWidth: 1.5,
-              borderColor: invalid ? c.son : focus ? c.logoRed : c.muc3,
+              minHeight: rounded ? 46 : 54,
+              borderRadius: rounded ? 10 : 4,
+              borderWidth: rounded ? 1 : 1.5,
+              borderColor: invalid ? c.son : focus ? c.logoRed : rounded ? c.bienDam : c.muc3,
               backgroundColor: c.the,
-              paddingHorizontal: 20,
+              paddingHorizontal: rounded ? 14 : 20,
               paddingRight: right ? 58 : 20,
               fontFamily: FONT.medium,
-              fontSize: 17,
+              fontSize: rounded ? 14 : 17,
               color: c.logoInk,
             },
             focus && { boxShadow: `0 0 0 3px ${c.logoRed}33` },
@@ -131,7 +133,7 @@ const ShowToggle: React.FC<{ shown: boolean; onToggle: () => void }> = ({ shown,
 };
 
 /** Nút đỏ như trang LMS (đỏ cờ `son`, chữ trắng) */
-const SubmitButton: React.FC<{ title: string; loading?: boolean; onPress: () => void; testID?: string }> = ({ title, loading = false, onPress, testID }) => {
+const SubmitButton: React.FC<{ title: string; loading?: boolean; onPress: () => void; testID?: string; stretch?: boolean }> = ({ title, loading = false, onPress, testID, stretch = false }) => {
   const { c } = useTheme();
   return (
     <Pressable
@@ -141,12 +143,13 @@ const SubmitButton: React.FC<{ title: string; loading?: boolean; onPress: () => 
       accessibilityRole="button"
       accessibilityLabel={title}
       accessibilityState={{ disabled: loading, busy: loading }}
-      style={({ pressed }) => ({ minHeight: 54, minWidth: 140, borderRadius: 4, paddingHorizontal: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, alignSelf: 'flex-start', backgroundColor: pressed ? c.sonDam : c.son, opacity: loading ? 0.8 : 1 })}
+      style={({ pressed }) => ({ minHeight: stretch ? 46 : 54, minWidth: stretch ? 0 : 140, flex: stretch ? 1 : undefined, borderRadius: stretch ? 10 : 4, paddingHorizontal: stretch ? 12 : 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, alignSelf: stretch ? 'stretch' : 'flex-start', backgroundColor: pressed ? c.sonDam : stretch ? c.logoRed : c.son, opacity: loading ? 0.8 : 1 })}
     >
       {loading ? <ActivityIndicator size="small" color={c.trang} /> : null}
-      <Txt f="semibold" size={18} color={c.trang}>
+      <Txt f="semibold" size={stretch ? 14 : 18} color={c.trang}>
         {title}
       </Txt>
+      {stretch && !loading ? <ArrowRight size={18} color={c.trang} /> : null}
     </Pressable>
   );
 };
@@ -301,11 +304,14 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
 
   return (
     <>
-      <Heading title="Đăng nhập" />
+      <Heading title="Đăng nhập" text={copy.account} />
       {success ? <Banner tone="success" text={success} /> : null}
       {notice ? <Banner tone="info" text={notice} /> : null}
       <AuthInput
         label={copy.placeholder}
+        placeholder="Nhập tên đăng nhập"
+        showLabel
+        rounded
         nativeID="admin-username"
         value={username}
         onChangeText={setUsername}
@@ -320,6 +326,9 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
       />
       <AuthInput
         label="Mật khẩu"
+        placeholder="Nhập mật khẩu"
+        showLabel
+        rounded
         nativeID="admin-password"
         inputRef={passwordRef}
         value={password}
@@ -339,13 +348,12 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
           <Banner tone="error" text={error} />
         </Animated.View>
       ) : null}
-      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 24, rowGap: 8 }}>
-        <SubmitButton title={loading ? 'Đang đăng nhập…' : 'Đăng nhập'} loading={loading} onPress={submit} testID="login-submit" />
-        <TextLink title="Quên mật khẩu" onPress={onForgot} />
+      <View testID="admin-login-actions" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <Pressable accessibilityRole="link" accessibilityLabel="Quên mật khẩu" onPress={onForgot} style={{ minHeight: 44, justifyContent: 'center' }}>
+          <Txt f="semibold" size={12} color={c.logoRed}>Quên mật khẩu?</Txt>
+        </Pressable>
+        <SubmitButton title={loading ? 'Đang đăng nhập…' : 'Đăng nhập'} loading={loading} onPress={submit} testID="login-submit" stretch />
       </View>
-      <Txt size={14} color={c.muc2} style={{ maxWidth: 460 }}>
-        {copy.account}
-      </Txt>
     </>
   );
 };

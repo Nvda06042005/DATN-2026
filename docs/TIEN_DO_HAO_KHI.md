@@ -579,6 +579,12 @@ Quyết định khi cho chỉnh số hạng và ngày chốt:
 - Giữ khung nhỏ chia chéo với ảnh động/logo bên trái, form bên phải; chỉ đổi bóng đổ ngoài sang nâu ấm. Không đổi `/portal`, thông tin đăng nhập, API, database hoặc migration.
 - Kiểm tra: typecheck, 39 bài frontend và build đạt; kiểm tra trình duyệt riêng cho nền, chuyển động và chế độ Giảm chuyển động, cùng kiểm tra bố cục/2FA/quên mật khẩu hiện có.
 
+## Bố cục form quản lý tổng theo ảnh mẫu ngày 06/11/2026
+
+- Theo xác nhận của người dùng, chỉ chỉnh bố cục form `/admin` giống form portal: lời hướng dẫn dưới tiêu đề, nhãn trên hai ô nhập bo góc, liên kết Quên mật khẩu bên trái nút đăng nhập giãn rộng có mũi tên. Giữ đăng nhập quản lý tổng độc lập, không thêm bộ chọn ba vai trò hoặc Google.
+- Giữ nền giấy cổ/hoa văn của form, nền lịch sử bên ngoài và khung nhỏ chia chéo; không đổi `/portal`, API, quyền hoặc database. Luồng hai lớp, quên mật khẩu và đặt lại mật khẩu tiếp tục dùng logic hiện có.
+- Kiểm tra: typecheck, 39 bài frontend và build đạt; trình duyệt kiểm tra 6 kích thước (360 × 640 đến 1920 × 1080), nhãn trên ô, bo góc, vị trí liên kết/nút, nền hoa văn, luồng hai lớp/quên mật khẩu giả lập và portal không đổi.
+
 ## Chưa làm (ngoài Sprint 1–7) và đề xuất
 
 - Đặc tả ver0.2 (408 chức năng) đã có mã cho mọi mục. Còn "Một phần" / giới hạn: sa bàn chỉ là sơ đồ minh họa chưa kiểm chứng, một số mục ở Sprint 11–12; nội dung khởi tạo (kho lịch sử, câu hỏi, trận đánh, sa bàn) vẫn là bản nháp chờ giáo viên Lịch sử kiểm chứng.
