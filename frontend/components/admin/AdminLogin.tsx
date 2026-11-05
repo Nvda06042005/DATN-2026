@@ -3,15 +3,15 @@
  * TM.AUTH.001 đăng nhập bằng tài khoản được cấp (không có đăng ký tự do, không đăng nhập qua bên thứ ba), TM.AUTH.007 quên mật khẩu
  * (HK.QT.002/HK.AD: gửi mã OTP 6 chữ số hiệu lực 5 phút qua email rồi đặt mật khẩu mới). Đăng xuất là nút ở thanh trên cùng của
  * trang quản trị (AdminWorkspace).
- * Ảnh bìa chuyển động bên trái giữ nguyên, cạnh vát chéo; nền giấy kem và hoa văn trang chủ bên phải.
+ * Ảnh bìa chuyển động làm nền toàn trang; khung đăng nhập hai cột ở giữa như bố cục /portal.
  * Manrope cho form và phần chính tiêu đề, Newsreader nghiêng đỏ cho chữ nhấn. Giữ logo nhỏ, không có khẩu hiệu lớn.
- * Màn hẹp dùng ảnh thành dải đầu trang; form gồm ô nhập có chữ gợi ý, nút đỏ và liên kết "Quên mật khẩu".
+ * Màn hẹp thu phần nhận diện thành đầu khung; form gồm ô nhập có chữ gợi ý, nút đỏ và liên kết "Quên mật khẩu".
  * Cổng quản trị độc lập: không có nút hay liên kết về trang chủ hoặc cổng khác.
  */
-import React, { useId, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, TextInput, View, useWindowDimensions, type TextInputInstance, type TextInputProps } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Defs, Image as SvgImage, Pattern, Polygon } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, CircleCheck, Eye, EyeOff, Info, MailCheck, TriangleAlert } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { ApiError, errorMessage } from '@/api/client';
@@ -38,11 +38,6 @@ const COPY: Record<AdminPortal, { label: string; placeholder: string; account: s
     account: 'Quản trị trường chỉ truy cập trường được gán. Tài khoản do quản trị tổng cấp, không có đăng ký tự do.',
   },
 };
-
-/** Cạnh phải ảnh bìa vát chéo như bố cục đăng nhập cũ. */
-const SLANT_TOP = 49.3;
-const SLANT_BOTTOM = 41;
-const LOGIN_PATTERN = require('../../assets/hoa-tiet-nen.png');
 
 // ---------------------------------------------------------------------- thành phần nhỏ
 const Banner: React.FC<{ tone: 'error' | 'success' | 'info'; text: string }> = ({ tone, text }) => {
@@ -72,7 +67,7 @@ type InputProps = Omit<TextInputProps, 'style' | 'placeholder'> & {
 };
 
 /** Ô nhập như trang LMS: viền mảnh, góc vuông, chỉ có chữ gợi ý (nhãn nằm ở accessibilityLabel); vòng sáng khi đang nhập */
-export const AuthInput: React.FC<InputProps> = ({ label, nativeID, invalid, hint, inputRef, right, showLabel, ...rest }) => {
+const AuthInput: React.FC<InputProps> = ({ label, nativeID, invalid, hint, inputRef, right, showLabel, ...rest }) => {
   const { c } = useTheme();
   const [focus, setFocus] = useState(false);
   return (
@@ -190,60 +185,42 @@ const Heading: React.FC<{ title: string; text?: string }> = ({ title, text }) =>
   );
 };
 
-// ---------------------------------------------------------------------- ảnh động bên trái, form trên nền hoa văn trang chủ bên phải
+// ---------------------------------------------------------------------- ảnh động toàn trang, khung đăng nhập hai cột ở giữa
 const Shell: React.FC<{ portal: AdminPortal; children: React.ReactNode }> = ({ portal, children }) => {
   const { c } = useTheme();
   const { width, height } = useWindowDimensions();
-  const wide = width >= 1000;
-  const paperId = `admin-login-paper-${useId().replace(/:/g, '')}`;
+  const insets = useSafeAreaInsets();
+  const wide = width >= 860;
+  const edge = height < 650 ? 12 : wide ? 24 : 16;
+  const cardHeight = Math.min(wide ? 620 : 740, Math.max(200, height - insets.top - insets.bottom - edge * 2));
   const copy = COPY[portal];
-  /** Xanh đêm (màu `dem` cố định) phủ lên ảnh: đậm bên trái, nhạt dần về phía cạnh vát để còn thấy ảnh */
-  const tint = [`${c.dem}f2`, `${c.dem}d9`, `${c.dem}99`] as const;
-
-  if (!wide) {
-    return (
-      <View testID="admin-login-shell" style={{ flex: 1, backgroundColor: c.logoPaper }}>
-        <PatternOverlay opacity={0.075} />
-        <View testID="admin-login-art" style={{ height: 232, backgroundColor: c.dem, overflow: 'hidden' }}>
-          <FilmBackdrop wide={false} />
-          <LinearGradient colors={tint} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-          <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
-            <BrandLogo light subtitle={copy.label} />
-          </View>
-          <Svg pointerEvents="none" width="100%" height={32} viewBox="0 0 100 32" preserveAspectRatio="none" style={{ position: 'absolute', left: 0, right: 0, bottom: -1 }}>
-            <Polygon points="0,32 100,0 100,32" fill={c.logoPaper} />
-          </Svg>
-        </View>
-        <Animated.ScrollView testID="admin-login-form" style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, padding: 20, paddingTop: 12, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
-          <View style={{ width: '100%', maxWidth: 570, alignSelf: 'center', gap: 24 }}>{children}</View>
-        </Animated.ScrollView>
-      </View>
-    );
-  }
+  const tint = [`${c.dem}db`, `${c.dem}b3`, `${c.dem}80`] as const;
 
   return (
-    <View testID="admin-login-shell" style={{ flex: 1, backgroundColor: c.the, overflow: 'hidden' }}>
-      <View testID="admin-login-art" style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '52%', backgroundColor: c.dem }}>
-        <FilmBackdrop wide />
+    <View testID="admin-login-shell" style={{ flex: 1, minHeight: 0, backgroundColor: c.dem, overflow: 'hidden' }}>
+      <View testID="admin-login-art" style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
+        <FilmBackdrop wide={wide} />
         <LinearGradient colors={tint} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.4 }} style={StyleSheet.absoluteFill} />
-        <View style={{ position: 'absolute', left: '3.4%', top: 18 }}>
-          <BrandLogo light subtitle={copy.label} />
-        </View>
       </View>
-      <Svg testID="admin-login-paper" pointerEvents="none" width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={StyleSheet.absoluteFill}>
-        <Defs>
-          <Pattern id={paperId} width={382} height={512} patternUnits="userSpaceOnUse">
-            <SvgImage href={LOGIN_PATTERN} width={382} height={512} opacity={0.075} />
-          </Pattern>
-        </Defs>
-        <Polygon points={`${width * SLANT_TOP / 100},0 ${width},0 ${width},${height} ${width * SLANT_BOTTOM / 100},${height}`} fill={c.logoPaper} />
-        <Polygon points={`${width * SLANT_TOP / 100},0 ${width},0 ${width},${height} ${width * SLANT_BOTTOM / 100},${height}`} fill={`url(#${paperId})`} />
-      </Svg>
-      <View style={{ position: 'absolute', left: '52%', right: 0, top: 0, bottom: 0 }}>
-        <Animated.ScrollView testID="admin-login-form" style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingLeft: Math.round(width * 0.07), paddingRight: 48, paddingTop: Math.max(56, Math.round(height * 0.11)), paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
-          {/* Cột form chiếm khoảng 31 % bề ngang như trang LMS (tối đa 570 px) */}
-          <View style={{ width: '100%', maxWidth: Math.round(Math.min(570, Math.max(340, width * 0.31))), gap: 26 }}>{children}</View>
-        </Animated.ScrollView>
+      <View style={{ flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: edge, paddingTop: insets.top + edge, paddingBottom: insets.bottom + edge }}>
+        <View testID="admin-login-card" style={{ width: '100%', maxWidth: 940, height: cardHeight, maxHeight: '100%', flexDirection: wide ? 'row' : 'column', backgroundColor: c.the, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)', boxShadow: '0 24px 80px rgba(12,24,18,0.24)', overflow: 'hidden' }}>
+          <View testID="admin-login-brand" style={{ width: wide ? '32%' : '100%', padding: wide ? 24 : 12, backgroundColor: c.logoPaper, borderRightWidth: wide ? 1 : 0, borderBottomWidth: wide ? 0 : 1, borderColor: c.vien }}>
+            <BrandLogo subtitle={copy.label} />
+            {wide && <View style={{ flex: 1, justifyContent: 'center', gap: 16 }}>
+              <Txt f="heavy" size={26} color={c.logoInk} style={{ lineHeight: 36 }}>{copy.label}</Txt>
+              <Txt size={13} color={c.muc2} style={{ lineHeight: 22 }}>{copy.account}</Txt>
+            </View>}
+          </View>
+          <View testID="admin-login-paper" style={{ flex: 1, minHeight: 0, backgroundColor: c.logoPaper }}>
+            <PatternOverlay opacity={0.075} />
+            <Animated.ScrollView testID="admin-login-form" keyboardShouldPersistTaps="handled" style={{ flex: 1, minHeight: 0 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: wide ? 28 : 20 }}>
+              <View style={{ width: '100%', maxWidth: 570, alignSelf: 'center', gap: height < 700 ? 18 : 24 }}>
+                {children}
+                <Txt size={11} color={c.muc3} center>© 2026 · Bản quyền thuộc quản lý Đông A</Txt>
+              </View>
+            </Animated.ScrollView>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -252,6 +229,7 @@ const Shell: React.FC<{ portal: AdminPortal; children: React.ReactNode }> = ({ p
 // ---------------------------------------------------------------------- đăng nhập (TM.AUTH.001)
 const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: AuthUser) => void; onForgot: () => void; notice?: string | null; success?: string | null }> = ({ portal, onLogin, onForgot, notice, success }) => {
   const { c } = useTheme();
+  const { width } = useWindowDimensions();
   const copy = COPY[portal];
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -359,9 +337,9 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
         <SubmitButton title={loading ? 'Đang đăng nhập…' : 'Đăng nhập'} loading={loading} onPress={submit} testID="login-submit" />
         <TextLink title="Quên mật khẩu" onPress={onForgot} />
       </View>
-      <Txt size={14} color={c.muc2} style={{ maxWidth: 460 }}>
+      {width < 860 && <Txt size={14} color={c.muc2} style={{ maxWidth: 460 }}>
         {copy.account}
-      </Txt>
+      </Txt>}
     </>
   );
 };
