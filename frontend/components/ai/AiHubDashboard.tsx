@@ -15,6 +15,7 @@ import {
   Bot,
   Check,
   FileText,
+  Info,
   Layers,
   ListChecks,
   RefreshCw,
@@ -26,7 +27,7 @@ import { errorMessage } from '@/api/client';
 import { AiQuizModal } from '@/components/admin/AiQuizModal';
 import type { Session } from '@/components/auth';
 import { ChatPanel, MarkdownText } from '@/components/portal/TieuTuong';
-import { Btn, Card, Chip, Spinner, Txt, useToast } from '@/components/ui';
+import { Btn, Card, Chip, Sheet, Spinner, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { BktRecommendationItem, BktRecommendationsResponse } from '@/types/ai';
 
@@ -142,6 +143,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
   // State cho Lộ trình BKT Cá nhân hóa
   const [bktData, setBktData] = useState<BktRecommendationsResponse | null>(null);
   const [bktLoading, setBktLoading] = useState<boolean>(false);
+  const [bktExplainerOpen, setBktExplainerOpen] = useState<boolean>(false);
 
   const loadBktRecommendations = useCallback(async () => {
     setBktLoading(true);
@@ -232,10 +234,10 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
             </Txt>
           </View>
           <Txt f="bold" size={26} center color={c.muc}>
-            Hỏi đáp Sử liệu • Sinh đề Bloom • Hồ sơ BKT Cá nhân hóa
+            Hỏi đáp Sử liệu • Sinh đề Bloom • Hồ sơ Học tập Thông minh
           </Txt>
           <Txt size={15} center color={c.muc2} style={{ maxWidth: 680 }}>
-            Tích hợp Model NLP Đông A (81 chủ điểm chuyên sâu, 1.083 đoạn biên niên sử Đại Việt Sử Ký Toàn Thư) và thuật toán Bayesian Knowledge Tracing theo dõi mức độ nắm vững kiến thức P(L).
+            Trợ lý AI đồng hành học Lịch sử 7: Hỏi đáp đa lượt cùng Thầy Đông A, luyện đề trắc nghiệm chuẩn hóa và theo dõi lộ trình ôn tập cá nhân hóa.
           </Txt>
           {onClose ? (
             <Btn title="Đóng bảng điều khiển" tone="giay" size="sm" onPress={onClose} />
@@ -372,84 +374,137 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
           </Pressable>
         </View>
 
-        {/* BẢNG LỘ TRÌNH ÔN TẬP CÁ NHÂN HÓA (BAYESIAN KNOWLEDGE TRACING - BKT) */}
-        <Card style={{ padding: 20, gap: 14, borderRadius: 20 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.dongNhat, alignItems: 'center', justifyContent: 'center' }}>
-                <Target size={20} color={c.dongChu} />
+        {/* BẢNG LỘ TRÌNH ÔN TẬP CÁ NHÂN HÓA */}
+        <Card style={{ padding: 22, gap: 16, borderRadius: 20 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 260 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.dongNhat, alignItems: 'center', justifyContent: 'center' }}>
+                <Target size={22} color={c.dongChu} />
               </View>
               <View style={{ flex: 1 }}>
-                <Txt f="bold" size={16} color={c.muc}>
-                  Lộ trình Ôn tập Cá nhân hóa (Bayesian Knowledge Tracing — BKT)
-                </Txt>
-                <Txt size={12} color={c.muc3}>
-                  Mô hình xác suất Bayes tự động phát hiện lỗ hổng kiến thức P(L) &lt; {Math.round(params.mastery_threshold * 100)}% và gợi ý chủ điểm cần củng cố
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <Txt f="bold" size={17} color={c.muc}>
+                    Lộ trình Ôn tập Cá nhân hóa
+                  </Txt>
+                  {bktData?.profile?.mastery_rank ? (
+                    <Chip text={bktData.profile.mastery_rank} bg={c.thuyNhat} fg={c.thuyChu} />
+                  ) : null}
+                </View>
+                <Txt size={13} color={c.muc2} style={{ marginTop: 2 }}>
+                  AI theo dõi tiến độ tiếp thu và đề xuất những nội dung em cần củng cố nhất
                 </Txt>
               </View>
             </View>
-            <Btn icon={RefreshCw} title="Cập nhật BKT" tone="giay" size="sm" loading={bktLoading} onPress={loadBktRecommendations} />
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              <Btn
+                icon={Info}
+                title="Cơ chế AI (BKT)"
+                tone="giay"
+                size="sm"
+                onPress={() => setBktExplainerOpen(true)}
+              />
+              <Btn
+                icon={RefreshCw}
+                title="Làm mới"
+                tone="giay"
+                size="sm"
+                loading={bktLoading}
+                onPress={loadBktRecommendations}
+              />
+            </View>
           </View>
 
-          {/* 4 Tham số BKT chuẩn */}
+          {/* Nhãn định hướng thân thiện cho học sinh */}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            <Chip text={`Khởi tạo P(L₀) = ${Math.round(params.p_l0 * 100)}%`} bg={c.giay2} fg={c.muc2} />
-            <Chip text={`Tích lũy P(T) = +${Math.round(params.p_t * 100)}%`} bg={c.ngocNhat} fg={c.ngocChu} />
-            <Chip text={`Đoán mò P(G) = ${Math.round(params.p_g * 100)}%`} bg={c.thuyNhat} fg={c.thuyChu} />
-            <Chip text={`Sơ suất P(S) = ${Math.round(params.p_s * 100)}%`} bg={c.dongNhat} fg={c.dongChu} />
+            <Chip text="🎯 Đánh giá theo mức độ hiểu bài thực tế" bg={c.giay2} fg={c.muc2} />
+            <Chip text="📖 Bám sát SGK Lịch sử 7 Kết nối tri thức" bg={c.ngocNhat} fg={c.ngocChu} />
+            {recs.length > 0 ? (
+              <Chip text={`⚡ Đang có ${recs.length} chủ điểm cần ôn tập`} bg={c.dongNhat} fg={c.dongChu} />
+            ) : null}
           </View>
 
           {bktLoading && !recs.length ? (
-            <Spinner label="Đang phân tích hồ sơ năng lực BKT của em…" />
+            <Spinner label="Đang kiểm tra tiến độ học tập của em…" />
           ) : recs.length > 0 ? (
-            <View style={{ gap: 10 }}>
+            <View style={{ gap: 12 }}>
               {recs.slice(0, 4).map((rec) => {
-                const pct = Math.round((rec.current_p_l ?? 0.3) * 100);
+                const masteryVal = rec.current_mastery ?? rec.current_p_l ?? 0.3;
+                const pct = Math.round(masteryVal * 100);
+                const statusLabel = pct >= 80 ? 'Đã thành thạo' : pct >= 60 ? 'Đang tiếp thu tốt' : 'Cần củng cố';
+                const statusBg = pct >= 80 ? c.ngocNhat : pct >= 60 ? c.thuyNhat : c.dongNhat;
+                const statusFg = pct >= 80 ? c.ngocChu : pct >= 60 ? c.thuyChu : c.dongChu;
+                const progressFill = pct >= 80 ? c.ngoc : pct >= 60 ? c.thuy : c.dong;
+
                 return (
                   <View
                     key={rec.unit_id}
                     style={{
-                      padding: 14,
-                      borderRadius: 14,
+                      padding: 16,
+                      borderRadius: 16,
                       borderWidth: 1.5,
                       borderColor: c.vien,
-                      backgroundColor: c.giay2,
-                      gap: 8,
+                      backgroundColor: c.the,
+                      gap: 10,
                     }}
                   >
+                    {/* Header chủ điểm & Độ hiểu bài */}
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                        <Txt f="bold" size={14} color={c.muc} style={{ flexShrink: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 200 }}>
+                        <Txt f="bold" size={15} color={c.muc} style={{ flexShrink: 1 }}>
                           {rec.topic}
                         </Txt>
-                        <Chip text={rec.cognitive_level} bg={c.the} fg={c.muc2} />
+                        {rec.cognitive_level ? (
+                          <Chip text={rec.cognitive_level === 'NHAN_BIET' ? 'Nhận biết' : rec.cognitive_level === 'THONG_HIEU' ? 'Thông hiểu' : 'Vận dụng'} bg={c.giay2} fg={c.muc3} />
+                        ) : null}
                       </View>
                       <Chip
-                        text={`Mức nắm vững P(L): ${pct}%`}
-                        bg={pct >= 60 ? c.ngocNhat : c.dongNhat}
-                        fg={pct >= 60 ? c.ngocChu : c.dongChu}
+                        text={`Độ hiểu bài: ${pct}% • ${statusLabel}`}
+                        bg={statusBg}
+                        fg={statusFg}
                       />
                     </View>
-                    {/* Thanh tiến trình P(L) */}
+
+                    {/* Thanh tiến trình độ hiểu bài */}
                     <View style={{ height: 8, borderRadius: 4, backgroundColor: c.vien, overflow: 'hidden' }}>
                       <View
                         style={{
                           width: `${Math.min(100, Math.max(8, pct))}%`,
                           height: '100%',
-                          backgroundColor: pct >= 60 ? c.ngoc : c.dong,
+                          backgroundColor: progressFill,
                         }}
                       />
                     </View>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                      <Txt size={12} color={c.muc2} style={{ flex: 1 }}>
-                        {rec.recommendation_reason}
+
+                    {/* Vị trí SGK & Lời khuyên phương pháp học */}
+                    <View style={{ gap: 4, backgroundColor: c.giay2, padding: 10, borderRadius: 10 }}>
+                      {rec.sgk_reference ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <BookOpen size={14} color={c.muc2} />
+                          <Txt size={12} f="bold" color={c.muc2} style={{ flex: 1 }}>
+                            {rec.sgk_reference}
+                          </Txt>
+                        </View>
+                      ) : null}
+                      <Txt size={12} color={c.muc2} style={{ lineHeight: 18 }}>
+                        {rec.study_method || rec.reason || rec.recommendation_reason || 'Đọc kỹ diễn biến và ý nghĩa chiến lược của trận đánh.'}
                       </Txt>
+                    </View>
+
+                    {/* Nút hành động trực quan */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 8, paddingTop: 4 }}>
                       <Btn
                         icon={Sparkles}
-                        title="Hỏi Thầy Đông A"
+                        title="Hỏi Thầy giảng lại"
                         tone="thuy"
                         size="sm"
                         onPress={() => handleAskFromBkt(rec)}
+                      />
+                      <Btn
+                        icon={ListChecks}
+                        title="Luyện câu hỏi nhanh"
+                        tone="giay"
+                        size="sm"
+                        onPress={() => setQuizModalOpen(true)}
                       />
                     </View>
                   </View>
@@ -462,6 +517,56 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
             </Txt>
           )}
         </Card>
+
+        {/* Sheet giải thích thuật toán BKT (Dành cho Giáo viên & Báo cáo ĐATN) */}
+        {bktExplainerOpen ? (
+          <Sheet
+            open={bktExplainerOpen}
+            onClose={() => setBktExplainerOpen(false)}
+            title="Cơ chế AI Theo dõi Năng lực (BKT)"
+            subtitle="Mô hình Bayesian Knowledge Tracing 4 tham số & Đường cong quên lãng"
+            footer={
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+                <Btn title="Đã hiểu" tone="thuy" onPress={() => setBktExplainerOpen(false)} />
+              </View>
+            }
+          >
+            <View style={{ gap: 14 }}>
+              <Txt size={14} color={c.muc} style={{ lineHeight: 21 }}>
+                Hệ thống sử dụng mô hình <Txt f="bold" color={c.muc}>Bayesian Knowledge Tracing (BKT)</Txt> chuẩn quốc tế trong các hệ thống Gia sư Thông minh (ITS). AI tự động cập nhật xác suất nắm vững kiến thức thực tế của học sinh sau mỗi câu hỏi hoặc bài làm:
+              </Txt>
+
+              <View style={{ gap: 8 }}>
+                <View style={{ padding: 12, borderRadius: 12, backgroundColor: c.the, borderWidth: 1, borderColor: c.vien, gap: 4 }}>
+                  <Txt f="bold" size={13} color={c.muc}>1. Xác suất ban đầu P(L₀) = {Math.round(params.p_l0 * 100)}%</Txt>
+                  <Txt size={12} color={c.muc2}>Mức độ hiểu bài mặc định khi học sinh mới tiếp cận một chủ điểm lịch sử mới.</Txt>
+                </View>
+
+                <View style={{ padding: 12, borderRadius: 12, backgroundColor: c.the, borderWidth: 1, borderColor: c.vien, gap: 4 }}>
+                  <Txt f="bold" size={13} color={c.muc}>2. Tốc độ tiếp thu P(T) = +{Math.round(params.p_t * 100)}%</Txt>
+                  <Txt size={12} color={c.muc2}>Xác suất chuyển từ trạng thái &quot;chưa hiểu&quot; sang &quot;đã hiểu&quot; sau mỗi lượt tương tác hỏi đáp cùng AI hoặc làm bài tập.</Txt>
+                </View>
+
+                <View style={{ padding: 12, borderRadius: 12, backgroundColor: c.the, borderWidth: 1, borderColor: c.vien, gap: 4 }}>
+                  <Txt f="bold" size={13} color={c.muc}>3. Hệ số loại trừ đoán mò P(G) = {Math.round(params.p_g * 100)}%</Txt>
+                  <Txt size={12} color={c.muc2}>Hệ số trừ hao xác suất học sinh chọn đúng nhờ đoán may rủi trong câu hỏi trắc nghiệm 4 lựa chọn.</Txt>
+                </View>
+
+                <View style={{ padding: 12, borderRadius: 12, backgroundColor: c.the, borderWidth: 1, borderColor: c.vien, gap: 4 }}>
+                  <Txt f="bold" size={13} color={c.muc}>4. Hệ số bù trừ sơ suất P(S) = {Math.round(params.p_s * 100)}%</Txt>
+                  <Txt size={12} color={c.muc2}>Bảo vệ học sinh không bị trừ điểm oan nếu đã hiểu bài nhưng lỡ tay bấm nhầm đáp án.</Txt>
+                </View>
+              </View>
+
+              <View style={{ padding: 12, borderRadius: 12, backgroundColor: c.thuyNhat, gap: 4 }}>
+                <Txt f="bold" size={13} color={c.thuyChu}>Ngưỡng đạt chuẩn: ≥ {Math.round(params.mastery_threshold * 100)}%</Txt>
+                <Txt size={12} color={c.thuyChu}>
+                  Bất kỳ chủ điểm nào có độ hiểu bài dưới {Math.round(params.mastery_threshold * 100)}% sẽ được AI tự động đưa vào danh sách đề xuất ôn tập ưu tiên.
+                </Txt>
+              </View>
+            </View>
+          </Sheet>
+        ) : null}
 
         {/* Modal sinh đề trắc nghiệm AI */}
         {quizModalOpen ? (

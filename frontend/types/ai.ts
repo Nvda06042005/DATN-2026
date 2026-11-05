@@ -28,12 +28,17 @@ export interface SummaryOptions { lessons: Array<{ id: number; title: string }>;
 export interface BktRecommendationItem {
   unit_id: string;
   topic: string;
-  current_p_l: number;
-  cognitive_level: string;
-  difficulty: number;
-  attempts: number;
-  recommendation_reason: string;
-  suggested_action: string;
+  current_p_l?: number;
+  current_mastery?: number;
+  cognitive_level?: string;
+  difficulty?: number;
+  attempts?: number;
+  recommendation_reason?: string;
+  reason?: string;
+  suggested_action?: string;
+  sgk_reference?: string;
+  study_method?: string;
+  key_takeaways?: string[];
 }
 
 export interface BktRecommendationsResponse {

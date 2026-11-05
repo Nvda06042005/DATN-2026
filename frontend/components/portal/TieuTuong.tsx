@@ -180,7 +180,7 @@ export const AiBubble: React.FC<{ msg: AiMessage; onOpen?: OpenSource; onAsk?: (
           {msg.answer_mode === 'extractive' ? <Chip text="Trích nguyên văn tư liệu" bg={c.the2} fg={c.muc2} /> : null}
           {mastery ? (
             <Chip
-              text={`BKT P(L): ${Math.round(mastery.new_p_l * 100)}% (${mastery.mastery_status})`}
+              text={`Độ hiểu bài: ${Math.round(mastery.new_p_l * 100)}% (${mastery.mastery_status})`}
               bg={c.thuyNhat}
               fg={c.thuyChu}
             />

@@ -213,8 +213,8 @@ def handle_ask(rag_engine_inst: RAGEngine, payload: Dict[str, Any]) -> Dict[str,
         old_pct = int(round(float(chat_bkt.get("old_p_l", 0.3)) * 100))
         new_pct = int(round(float(chat_bkt.get("new_p_l", 0.3)) * 100))
         study_hint = (
-            f"📊 Hồ sơ BKT ghi nhận em vừa ôn tập chủ đề **{chat_bkt['topic']}** "
-            f"(Mức nắm vững P(L): `{old_pct}%` ➔ **`{new_pct}%`** — *{chat_bkt.get('mastery_status', 'Đang củng cố')}*)."
+            f"📊 Hồ sơ học tập ghi nhận em vừa ôn tập chủ đề **{chat_bkt['topic']}** "
+            f"(Độ hiểu bài: `{old_pct}%` ➔ **`{new_pct}%`** — *{chat_bkt.get('mastery_status', 'Đang củng cố')}*)."
         )
         if weak_names:
             study_hint += f" Gợi ý củng cố tiếp theo: **{weak_names}**."
