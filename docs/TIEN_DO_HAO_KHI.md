@@ -565,6 +565,12 @@ Quyết định khi cho chỉnh số hạng và ngày chốt:
 - Kiểm tra local: typecheck/build frontend và backend, 20 bài frontend và 22 bài xác thực trên PostgreSQL tạm đều đạt; có kiểm tra gọi trực tiếp hai API cũ không gửi thư hay tạo thêm tài khoản.
 - Tiếp tục xác minh trên Render: API xác thực từ chối thông tin sai, quên mật khẩu không lộ tài khoản, Google đã có Client ID. Gửi thư thật và đăng nhập Google thật cần xác nhận bằng kết quả từ nhà cung cấp/hộp thư và phiên người dùng; không dùng kiểm thử giả lập làm bằng chứng đã gửi/đăng nhập thật.
 
+## Bố cục đăng nhập `/portal` theo ảnh mẫu ngày 05/11/2026
+
+- Thay khung nổi giữa trang bằng bố cục toàn màn hình như đăng nhập quản trị: ảnh bìa chuyển động và lớp phủ xanh đêm bên trái, cạnh vát chéo, nền giấy kem/hoa văn trang chủ bên phải. Logo hiển thị vai trò đang chọn; giữ liên kết về trang chủ.
+- Tiêu đề dùng Manrope cho “Đăng” và Newsreader nghiêng đỏ cho “nhập”; dùng chung ô nhập với trang quản trị để đồng nhất viền, chữ gợi ý, hiện/ẩn mật khẩu và trạng thái focus. Giữ ba vai trò, Google, quên mật khẩu và xác thực hai lớp; không thay đổi API, quyền, database hoặc khôi phục đăng ký tự học.
+- Màn hình nhỏ dùng dải ảnh đầu trang và form bên dưới. Kiểm tra typecheck, 37 bài frontend, build và trình duyệt ẩn tại 7 kích thước từ 360 × 640 đến 1920 × 1080: form ban đầu vừa màn hình, không tràn ngang, chuyển vai trò/Google/2FA và hiện mật khẩu hoạt động; trang `/admin` giữ bố cục hiện có.
+
 ## Chưa làm (ngoài Sprint 1–7) và đề xuất
 
 - Đặc tả ver0.2 (408 chức năng) đã có mã cho mọi mục. Còn "Một phần" / giới hạn: sa bàn chỉ là sơ đồ minh họa chưa kiểm chứng, một số mục ở Sprint 11–12; nội dung khởi tạo (kho lịch sử, câu hỏi, trận đánh, sa bàn) vẫn là bản nháp chờ giáo viên Lịch sử kiểm chứng.

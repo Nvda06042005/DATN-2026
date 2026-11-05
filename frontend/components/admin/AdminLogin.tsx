@@ -72,7 +72,7 @@ type InputProps = Omit<TextInputProps, 'style' | 'placeholder'> & {
 };
 
 /** Ô nhập như trang LMS: viền mảnh, góc vuông, chỉ có chữ gợi ý (nhãn nằm ở accessibilityLabel); vòng sáng khi đang nhập */
-const AuthInput: React.FC<InputProps> = ({ label, nativeID, invalid, hint, inputRef, right, showLabel, ...rest }) => {
+export const AuthInput: React.FC<InputProps> = ({ label, nativeID, invalid, hint, inputRef, right, showLabel, ...rest }) => {
   const { c } = useTheme();
   const [focus, setFocus] = useState(false);
   return (
