@@ -29,6 +29,9 @@ export class AiController {
   @Post('summarize') @Roles(...ALL) @HttpCode(200) summarize(@CurrentUser() user: UserRow, @Body() body: Json) { return this.tutor.summarize(user, body); }
   @Get('summary/options') @Roles(...ALL) summaryOptions() { return this.tutor.summaryOptions(); }
   @Get('roleplay/figures') @Roles('student') figures() { return this.tutor.roleplayFigures(); }
+  @Get('bkt-recommendations') @Roles(...ALL) bktRecommendations(@CurrentUser() user: UserRow, @Query('top_k') topK?: string) { return this.tutor.bktRecommendations(user, topK ? Number(topK) : 6); }
+  @Post('reset-session') @Roles(...ALL) @HttpCode(200) resetSession(@CurrentUser() user: UserRow, @Body() body: Json) { return this.tutor.resetSession(user, body); }
+  @Post('teach') @Roles(...STAFF) @HttpCode(200) teach(@CurrentUser() user: UserRow, @Body() body: Json) { return this.tutor.teachKnowledge(user, body); }
   @Get('conversations') @Roles(...ALL) conversations(@CurrentUser() user: UserRow) { return this.tutor.conversations(user); }
   @Get('conversations/:id') @Roles(...ALL) conversation(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.tutor.conversationDetail(user, id); }
   @Delete('conversations/:id') @Roles(...ALL) @HttpCode(204) async removeConversation(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { await this.tutor.deleteConversation(user, id); }
@@ -52,7 +55,7 @@ export class AiController {
     if (!file && !body.text) throw new BadRequestException('Hãy chọn tệp PDF, DOCX, TXT hoặc dán văn bản');
     return this.index.addDoc(user, body, file);
   }
-  @Patch('admin/docs/:id') @Roles('root_admin') setDoc(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.index.setDocStatus(id, String(body.status)); }
+  @Patch('admin/docs/:id') @Roles('root_admin') setDoc(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.tutor ? this.index.setDocStatus(id, String(body.status)) : null; }
   @Delete('admin/docs/:id') @Roles('root_admin') @HttpCode(204) async removeDoc(@Param('id', ParseIntPipe) id: number) { await this.index.removeDoc(id); }
   @Post('admin/playground') @Roles('root_admin') @HttpCode(200) playground(@Body() body: Json) { return this.admin.playground(body); }
   @Get('admin/logs') @Roles('root_admin') logs(@Query() q: Json) { return this.admin.logs(q); }

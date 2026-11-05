@@ -1,7 +1,7 @@
-/** API AI Tutor "Tiểu Tướng" (/api/ai, Sprint 9): hỏi đáp, giải thích, tóm tắt, nhập vai, lịch sử; công cụ giáo viên; quản trị. */
+/** API AI Tutor "Tiểu Tướng" & Hệ thống AI Sử học Đông A (/api/ai, Sprint 9): hỏi đáp, giải thích, tóm tắt, nhập vai, BKT, lịch sử; công cụ giáo viên; quản trị. */
 import { apiBlob, apiRequest, apiUpload, type PickedFile } from '@/api/client';
 import type {
-  AiConversation, AiDoc, AiMessage, AiReply, AiReport, AiSettingsView, AiStatus, DraftResult, EvalSummary, IndexStatus, LimitsView, LogPage, PlanResult, Playground, SummaryOptions, SyncResult, TestResult, TopicsResult, TopicGroupsResponse, QuizGenerateRequest, QuizGenerateResponse,
+  AiConversation, AiDoc, AiMessage, AiReply, AiReport, AiSettingsView, AiStatus, BktRecommendationsResponse, DraftResult, EvalSummary, IndexStatus, LimitsView, LogPage, PlanResult, Playground, SummaryOptions, SyncResult, TestResult, TopicsResult, TopicGroupsResponse, QuizGenerateRequest, QuizGenerateResponse,
 } from '@/types/ai';
 
 const base = '/api/ai';
@@ -17,6 +17,9 @@ export const aiExplain = (token: string, attemptId: number, questionId: number) 
 export const aiSummarize = (token: string, kind: string, id: number) => apiRequest<AiReply>(`${base}/summarize`, { token, body: { kind, id } });
 export const aiSummaryOptions = (token: string) => apiRequest<SummaryOptions>(`${base}/summary/options`, { token });
 export const aiFigures = (token: string) => apiRequest<Array<{ id: number; name: string; honorific: string | null; role_text: string | null }>>(`${base}/roleplay/figures`, { token });
+export const aiBktRecommendations = (token: string, topK = 6) => apiRequest<BktRecommendationsResponse>(`${base}/bkt-recommendations${qs({ top_k: topK })}`, { token });
+export const aiResetSession = (token: string, conversationId?: number) => apiRequest<{ reset: boolean; session_id: string }>(`${base}/reset-session`, { token, body: { conversation_id: conversationId } });
+export const aiTeachKnowledge = (token: string, body: Record<string, unknown>) => apiRequest<Record<string, unknown>>(`${base}/teach`, { token, body });
 export const aiConversations = (token: string) => apiRequest<AiConversation[]>(`${base}/conversations`, { token });
 export const aiConversation = (token: string, id: number) => apiRequest<AiConversation & { messages: AiMessage[] }>(`${base}/conversations/${id}`, { token });
 export const aiDeleteConversation = (token: string, id: number) => apiRequest<void>(`${base}/conversations/${id}`, { token, method: 'DELETE' });

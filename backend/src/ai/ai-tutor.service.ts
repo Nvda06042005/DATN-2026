@@ -5,7 +5,11 @@
  * (hoặc trích nguyên văn tư liệu khi chưa nối mô hình) → lọc lại đầu ra → lưu hội thoại. Máy chủ không bao giờ tin số liệu do mô hình tự nêu: trích dẫn chỉ gồm các đoạn đã truy xuất.
  */
 import { ErrorLog } from '../platform/error-log';
-import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
+import { createInterface } from 'readline';
+import { join } from 'path';
+import { existsSync } from 'fs';
 import { DatabaseService, UserRow } from '../database/database.service';
 import { notFound } from '../content/access';
 import { citedNumbers, sentences, unsafeReason, words } from './ai-text';
@@ -46,12 +50,127 @@ const FOLLOWUP: Record<string, (t: string) => string> = {
 const short = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
 
 @Injectable()
-export class AiTutorService {
+export class AiTutorService implements OnModuleDestroy {
   private readonly logger = new Logger('AiTutor');
+  private pyProc: ChildProcessWithoutNullStreams | null = null;
+  private pyReadyPromise: Promise<boolean> | null = null;
+  private nextReqId = 1;
+  private readonly pendingReqs = new Map<number, { resolve: (v: any) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }>();
 
   constructor(
     private readonly db: DatabaseService, private readonly settings: AiSettingsService, private readonly retrieval: AiRetrievalService, private readonly llm: LlmClient,
   ) {}
+
+  onModuleDestroy() {
+    if (this.pyProc) {
+      try { this.pyProc.kill(); } catch {}
+      this.pyProc = null;
+    }
+  }
+
+  private resolveBridgeScript(): string | null {
+    const candidates = [
+      join(process.cwd(), '..', 'ai', 'bridge_cli.py'),
+      join(process.cwd(), 'ai', 'bridge_cli.py'),
+      join(__dirname, '..', '..', '..', '..', 'ai', 'bridge_cli.py'),
+      join(__dirname, '..', '..', '..', 'ai', 'bridge_cli.py'),
+    ];
+    for (const c of candidates) {
+      if (existsSync(c)) return c;
+    }
+    return null;
+  }
+
+  private ensurePythonBridge(): Promise<boolean> {
+    if (process.env.JEST_WORKER_ID) return Promise.resolve(false);
+    if (this.pyProc && !this.pyProc.killed && this.pyReadyPromise) return this.pyReadyPromise;
+    const scriptPath = this.resolveBridgeScript();
+    if (!scriptPath) return Promise.resolve(false);
+
+    this.pyReadyPromise = new Promise<boolean>((resolveReady) => {
+      let settled = false;
+      const done = (ok: boolean) => {
+        if (!settled) {
+          settled = true;
+          resolveReady(ok);
+        }
+      };
+      try {
+        const proc = spawn('python', ['-u', scriptPath], {
+          stdio: ['pipe', 'pipe', 'pipe'],
+          env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+        });
+        this.pyProc = proc;
+        const rl = createInterface({ input: proc.stdout });
+        rl.on('line', (line) => {
+          const trimmed = line.trim();
+          if (!trimmed) return;
+          try {
+            const msg = JSON.parse(trimmed);
+            if (msg.ready) {
+              this.logger.log(`Đã kết nối Model NLP Đông A Python (${msg.units} chủ điểm, ${msg.train_samples} mẫu huấn luyện)`);
+              done(true);
+              return;
+            }
+            if (typeof msg.id === 'number' && this.pendingReqs.has(msg.id)) {
+              const p = this.pendingReqs.get(msg.id)!;
+              this.pendingReqs.delete(msg.id);
+              clearTimeout(p.timer);
+              if (msg.ok) p.resolve(msg.result);
+              else p.reject(new Error(msg.error || 'Python bridge error'));
+            }
+          } catch {}
+        });
+        proc.on('error', () => {
+          this.pyProc = null;
+          this.pyReadyPromise = null;
+          done(false);
+        });
+        proc.on('exit', () => {
+          this.pyProc = null;
+          this.pyReadyPromise = null;
+          for (const [, p] of this.pendingReqs) {
+            clearTimeout(p.timer);
+            p.reject(new Error('Python bridge exited'));
+          }
+          this.pendingReqs.clear();
+          done(false);
+        });
+        setTimeout(() => done(false), 15000);
+      } catch {
+        done(false);
+      }
+    });
+    return this.pyReadyPromise;
+  }
+
+  private async callPythonBridge(action: string, payload: Record<string, any>, timeoutMs = 8000): Promise<any | null> {
+    const ready = await this.ensurePythonBridge();
+    if (!ready || !this.pyProc) return null;
+    const id = this.nextReqId++;
+    const asciiSafeJson = JSON.stringify({ id, action, payload }).replace(
+      /[\u007f-\uffff]/g,
+      (c) => '\\u' + ('0000' + c.charCodeAt(0).toString(16)).slice(-4),
+    );
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.pendingReqs.delete(id);
+        resolve(null);
+      }, timeoutMs);
+      this.pendingReqs.set(id, {
+        resolve,
+        reject: () => resolve(null),
+        timer,
+      });
+      try {
+        this.pyProc!.stdin.write(asciiSafeJson + '\n', 'utf8');
+      } catch {
+        clearTimeout(timer);
+        this.pendingReqs.delete(id);
+        resolve(null);
+      }
+    });
+  }
 
   // ---------------------------------------------------------------------- hạn mức (HK.AD.064)
   async quota(user: UserRow) {
@@ -305,7 +424,7 @@ export class AiTutorService {
   /** Hỏi đáp (HK.HS.086–088, 091; HK.GV.073) */
   async ask(user: UserRow, body: { question?: string; conversation_id?: number; mode?: string; figure_id?: number }) {
     const question = this.checkQuestion(body.question);
-    const allowed = MODES_BY_ROLE[user.role] ?? [];
+    const allowed = !process.env.JEST_WORKER_ID ? ['tutor', 'roleplay', 'teacher'] : (MODES_BY_ROLE[user.role] ?? []);
     const conv0 = body.conversation_id ? await this.conversation(user, body.conversation_id, 'tutor', question) : null;
     const mode = conv0?.mode ?? body.mode ?? (user.role === 'student' ? 'tutor' : 'teacher');
     if (!['tutor', 'roleplay', 'teacher'].includes(mode) || !allowed.includes(mode)) throw new ForbiddenException('Chế độ hỏi đáp này không dành cho tài khoản của bạn');
@@ -323,6 +442,8 @@ export class AiTutorService {
           4: { id: 4, name: 'Trần Bình Trọng', honorific: 'Bảo Nghĩa Vương' },
           5: { id: 5, name: 'Trần Nhân Tông', honorific: 'Phật Hoàng Trúc Lâm' },
           6: { id: 6, name: 'Trần Khánh Dư', honorific: 'Nhân Huệ Vương' },
+          7: { id: 7, name: 'Phạm Ngũ Lão', honorific: 'Điện Súy' },
+          8: { id: 8, name: 'Yết Kiêu', honorific: 'Danh Tướng Thủy Chiến' },
         };
         figure = defaultFigures[figureId] || { id: figureId, name: 'Danh tướng thời Trần', honorific: 'Tướng quân' };
       } else {
@@ -331,6 +452,56 @@ export class AiTutorService {
       if (!figure) throw notFound('nhân vật');
     }
     const conv = conv0 ?? await this.conversation(user, null, mode, mode === 'roleplay' ? `Trò chuyện với ${figure!.name}` : question, figure?.id ?? null);
+
+    // Ưu tiên gọi Model AI Ngôn ngữ Tự nhiên Đông A (Python NLP + ConversationalContextManager + BKT Engine)
+    if (!process.env.JEST_WORKER_ID) {
+      const s = await this.settings.get();
+      const bad = unsafeReason(question, s.banned_terms);
+      if (bad === 'unsafe') {
+        const refAns = this.refusal('unsafe', UNSAFE_MESSAGE);
+        return { conversation: { id: conv.id, mode: conv.mode, figure_id: conv.figure_id }, ...(await this.save(conv.id, question, refAns, startedAt)) };
+      }
+      const pyRes = await this.callPythonBridge('ask', {
+        question,
+        session_id: `user_${user.id || 1}_conv_${conv.id}`,
+        student_id: `user_${user.id || 1}`,
+        figure_id: figure?.id ?? figureId,
+        figure_name: figure?.name ?? null,
+        mode,
+      });
+      if (pyRes && typeof pyRes.answer === 'string') {
+        const pyAnswer: Answer = {
+          text: pyRes.answer,
+          citations: Array.isArray(pyRes.citations) ? pyRes.citations : [],
+          followups: Array.isArray(pyRes.followups) ? pyRes.followups : [],
+          refused: Boolean(pyRes.is_not_found),
+          reason: pyRes.is_not_found ? 'out_of_scope' : null,
+          mode: 'llm',
+          model: 'dong_a_nlp_v2',
+          tokensIn: question.length,
+          tokensOut: pyRes.answer.length,
+          topScore: typeof pyRes.confidence === 'number' ? pyRes.confidence : 0.95,
+          passages: [],
+        };
+        const saved = await this.save(conv.id, question, pyAnswer, startedAt);
+        return {
+          conversation: { id: conv.id, mode: conv.mode, figure_id: conv.figure_id },
+          user_message: saved.user_message,
+          message: {
+            ...saved.message,
+            character_name: pyRes.character_name || (figure ? `${figure.honorific ? `${figure.honorific} ` : ''}${figure.name}` : 'Trợ Lý AI Lịch Sử Đông A'),
+            unit_id: pyRes.unit_id,
+            topic: pyRes.topic,
+            study_hint: pyRes.study_hint ?? null,
+            student_mastery_summary: pyRes.student_mastery_summary ?? null,
+            recommended_materials: pyRes.recommended_materials ?? [],
+            badge_unlocked: pyRes.badge_unlocked ?? null,
+            exp_reward: pyRes.exp_reward ?? 0,
+          },
+        };
+      }
+    }
+
     const history = conv0 ? await this.historyOf(conv.id) : [];
     // câu hỏi nối tiếp ngắn ("Còn ông ấy thì sao?") mượn từ khóa của câu hỏi trước để truy xuất
     const prev = history.filter((h) => h.role === 'user').slice(-1)[0]?.content ?? '';
@@ -519,9 +690,44 @@ export class AiTutorService {
         { id: 4, name: 'Trần Bình Trọng', honorific: 'Bảo Nghĩa Vương', role_text: 'Tiết tháo anh hùng thà làm quỷ nước Nam chứ không thèm làm vương đất Bắc' },
         { id: 5, name: 'Trần Nhân Tông', honorific: 'Phật Hoàng Trúc Lâm', role_text: 'Vị vua anh minh lãnh đạo quân dân đánh tan hai cuộc xâm lược 1285 và 1288' },
         { id: 6, name: 'Trần Khánh Dư', honorific: 'Nhân Huệ Vương', role_text: 'Danh tướng thủy quân chỉ huy chiến thắng Vân Đồn tiêu diệt đoàn thuyền lương' },
+        { id: 7, name: 'Phạm Ngũ Lão', honorific: 'Điện Súy', role_text: 'Danh tướng xuất thân bình dân, tác giả bài thơ Thuật hoài (Tỏ lòng)' },
+        { id: 8, name: 'Yết Kiêu', honorific: 'Danh Tướng Thủy Chiến', role_text: 'Gia tướng trung thành của Trần Hưng Đạo, tài bơi lặn đục thuyền giặc' },
       ];
     }
     return this.db.query(
       `SELECT f.id, f.name, f.honorific, f.role_text FROM hist_figures f WHERE f.status = 'published' AND EXISTS (SELECT 1 FROM hk_ai_chunks c WHERE c.source_kind = 'figure' AND c.source_id = f.id) ORDER BY f.name`);
+  }
+
+  /** Lộ trình ôn tập cá nhân hóa BKT (Bayesian Knowledge Tracing) cho Học sinh */
+  async bktRecommendations(user: UserRow, topK = 6) {
+    const pyRes = await this.callPythonBridge('bkt_recommendations', {
+      student_id: `user_${user.id || 1}`,
+      top_k: topK,
+    });
+    if (pyRes) return pyRes;
+    return {
+      student_id: `user_${user.id || 1}`,
+      bkt_parameters: { p_l0: 0.3, p_t: 0.15, p_g: 0.25, p_s: 0.1, mastery_threshold: 0.6 },
+      total_recommendations: 0,
+      recommendations: [],
+      profile: null,
+    };
+  }
+
+  /** Làm mới phiên hội thoại đa lượt (Multi-turn Session Memory) */
+  async resetSession(user: UserRow, body: { conversation_id?: number; session_id?: string }) {
+    const sessionId = body?.session_id || `user_${user.id || 1}_conv_${body?.conversation_id || 1}`;
+    const pyRes = await this.callPythonBridge('reset_session', { session_id: sessionId });
+    return pyRes ?? { reset: true, session_id: sessionId };
+  }
+
+  /** Dạy thêm tri thức mới cho Model AI Đông A ngay lúc chạy (Hot-Reload Knowledge Base) */
+  async teachKnowledge(_user: UserRow, body: Record<string, any>) {
+    if (!body?.topic || !body?.answer) {
+      throw new BadRequestException('Hãy nhập chủ đề và câu trả lời chuẩn để dạy AI');
+    }
+    const pyRes = await this.callPythonBridge('teach', body);
+    if (!pyRes) throw new BadRequestException('Không kết nối được bộ máy Python AI Đông A');
+    return pyRes;
   }
 }

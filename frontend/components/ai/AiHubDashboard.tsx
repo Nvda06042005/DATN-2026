@@ -1,14 +1,13 @@
 /**
- * AI Hub Dashboard - Trung tâm Điều khiển Trợ lý AI (Thiết kế độc lập chuẩn EdTech)
- * Bố cục dạng Hub Grid 4 thẻ tính năng trọng tâm (đã lược bỏ Homework Helper & Course Creator theo yêu cầu):
- * 1. AI Tutor: Hỏi đáp trực tiếp cùng Tiểu Tướng & Nhập vai danh tướng (trích dẫn DVSKTT)
+ * AI Hub Dashboard - Trung tâm Điều khiển Trợ lý AI Sử học Đông A (Thiết kế độc lập chuẩn EdTech)
+ * Kết nối trực tiếp với Hệ thống AI Python của người dùng:
+ * 1. AI Tutor: Hỏi đáp đa lượt cùng Thầy Đông A & Nhập vai 8 danh tướng (Model NLP 81 chủ điểm + ĐVSKTT)
  * 2. Quizzes: Luyện đề trắc nghiệm thông minh theo 5 nhóm chủ đề & ma trận Bloom GDPT 2018
  * 3. Flash Cards: Bộ thẻ ghi nhớ mốc năm, danh tướng và chiến thuật 2 mặt tương tác
  * 4. Summarizer: Tóm tắt bài học, chiến dịch và sử liệu ngắn gọn
- *
- * Tách biệt hoàn toàn thành module riêng, không can thiệp hay ghi đè lên code của đồng đội.
+ * 5. Lộ trình BKT Cá nhân hóa (Bayesian Knowledge Tracing): Theo dõi xác suất nắm vững P(L) và gợi ý ôn tập
  */
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, View, type ScrollViewInstance } from 'react-native';
 import {
   ArrowLeft,
@@ -18,7 +17,9 @@ import {
   FileText,
   Layers,
   ListChecks,
+  RefreshCw,
   Sparkles,
+  Target,
 } from 'lucide-react-native';
 import * as aiApi from '@/api/aiApi';
 import { errorMessage } from '@/api/client';
@@ -27,6 +28,7 @@ import type { Session } from '@/components/auth';
 import { ChatPanel, MarkdownText } from '@/components/portal/TieuTuong';
 import { Btn, Card, Chip, Spinner, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import type { BktRecommendationItem, BktRecommendationsResponse } from '@/types/ai';
 
 export type AiHubView = 'hub' | 'tutor' | 'quizzes' | 'flashcards' | 'summarizer';
 
@@ -98,12 +100,14 @@ const HISTORICAL_FLASHCARDS: FlashcardItem[] = [
 ];
 
 const HISTORICAL_FIGURES = [
-  { id: 1, name: 'Trần Hưng Đạo', role: 'Quốc Công Tiết Chế', quote: 'Nếu bệ hạ muốn hàng, xin chém đầu tôi trước.' },
-  { id: 2, name: 'Trần Quốc Toản', role: 'Hoài Văn Hầu', quote: 'Phá cường địch, báo hoàng ân.' },
-  { id: 3, name: 'Trần Thủ Độ', role: 'Thái Sư', quote: 'Đầu thần chưa rơi xuống đất, xin bệ hạ đừng lo.' },
-  { id: 4, name: 'Trần Bình Trọng', role: 'Bảo Nghĩa Vương', quote: 'Ta thà làm quỷ nước Nam chứ không thèm làm vương đất Bắc.' },
+  { id: 1, name: 'Trần Hưng Đạo', role: 'Quốc Công Tiết Chế', quote: 'Nếu bệ hạ muốn hàng, xin hãy chém đầu thần trước đã!' },
+  { id: 2, name: 'Trần Quốc Toản', role: 'Hoài Văn Hầu', quote: 'Phá cường địch, báo hoàng ân!' },
+  { id: 3, name: 'Trần Thủ Độ', role: 'Thái Sư', quote: 'Đầu thần chưa rơi xuống đất, xin bệ hạ đừng lo!' },
+  { id: 4, name: 'Trần Bình Trọng', role: 'Bảo Nghĩa Vương', quote: 'Ta thà làm quỷ nước Nam, chứ không thèm làm vương đất Bắc!' },
   { id: 5, name: 'Trần Nhân Tông', role: 'Phật Hoàng Trúc Lâm', quote: 'Xã tắc hai phen chồn ngựa đá / Non sông nghìn thuở vững âu vàng.' },
-  { id: 6, name: 'Trần Khánh Dư', role: 'Nhân Huệ Vương', quote: 'Đánh đắm đoàn thuyền lương Vân Đồn, bẻ gãy nhuệ khí giặc Nguyên.' },
+  { id: 6, name: 'Trần Khánh Dư', role: 'Nhân Huệ Vương', quote: 'Đánh đắm đoàn thuyền lương Vân Đồn, bẻ gãy dạ dày giặc Nguyên!' },
+  { id: 7, name: 'Phạm Ngũ Lão', role: 'Điện Súy', quote: 'Múa giáo non sông trải mấy thu / Ba quân khí mạnh nuốt trôi trâu.' },
+  { id: 8, name: 'Yết Kiêu', role: 'Danh Tướng Thủy Chiến', quote: 'Dưới làn nước sâu sông Bạch Đằng, một lòng đục thuyền giặc giữ non sông!' },
 ];
 
 export interface AiHubDashboardProps {
@@ -132,7 +136,28 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
   // State cho AI Tutor / Roleplay
   const [tutorTab, setTutorTab] = useState<'chat' | 'roleplay'>('chat');
   const [selectedFigure, setSelectedFigure] = useState<typeof HISTORICAL_FIGURES[0] | null>(null);
+  const [pendingTutorQuestion, setPendingTutorQuestion] = useState<string | null>(null);
   const tutorScrollRef = useRef<ScrollViewInstance>(null);
+
+  // State cho Lộ trình BKT Cá nhân hóa
+  const [bktData, setBktData] = useState<BktRecommendationsResponse | null>(null);
+  const [bktLoading, setBktLoading] = useState<boolean>(false);
+
+  const loadBktRecommendations = useCallback(async () => {
+    setBktLoading(true);
+    try {
+      const res = await aiApi.aiBktRecommendations(session.token, 6);
+      setBktData(res);
+    } catch {
+      // Bỏ qua nếu chưa có dữ liệu
+    } finally {
+      setBktLoading(false);
+    }
+  }, [session.token]);
+
+  useEffect(() => {
+    loadBktRecommendations();
+  }, [loadBktRecommendations]);
 
   const scrollToBottom = () => {
     setTimeout(() => {
@@ -146,7 +171,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
     setSummaryText(null);
     try {
       const res = await aiApi.aiAsk(session.token, {
-        question: `Tóm tắt ngắn gọn, dễ nhớ (khoảng 3 đến 5 gạch đầu dòng) về: ${promptText}. Nêu rõ mốc thời gian, người chỉ huy và ý nghĩa.`,
+        question: `Tóm tắt 3 ý chính dễ thuộc về: ${promptText}`,
       });
       if (res?.message?.content) {
         setSummaryText(`### Tóm tắt: ${topicTitle}\n\n${res.message.content}`);
@@ -182,10 +207,20 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
     handleNextCard();
   };
 
+  const handleAskFromBkt = (rec: BktRecommendationItem) => {
+    setSelectedFigure(null);
+    setTutorTab('chat');
+    setPendingTutorQuestion(`Giải thích chi tiết giúp em về chủ đề: ${rec.topic}`);
+    setActiveView('tutor');
+  };
+
   // ======================================================================
-  // GIAO DIỆN TRANG CHỦ AI HUB (LƯỚI 4 THẺ CÂN ĐỐI 2x2)
+  // GIAO DIỆN TRANG CHỦ AI HUB (LƯỚI 4 THẺ CÂN ĐỐI 2x2 + LỘ TRÌNH BKT)
   // ======================================================================
   if (activeView === 'hub') {
+    const recs = bktData?.recommendations ?? [];
+    const params = bktData?.bkt_parameters ?? { p_l0: 0.3, p_t: 0.15, p_g: 0.25, p_s: 0.1, mastery_threshold: 0.6 };
+
     return (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingBottom: 60, gap: 24, maxWidth: 960, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
         {/* Header chào mừng */}
@@ -193,14 +228,14 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Txt size={22}>👋</Txt>
             <Txt f="displayHeavy" size={24} color={c.muc}>
-              Your AI Tutor — Hào Khí Đông A
+              Trợ lý AI Sử học Đông A — Hào Khí Đông A
             </Txt>
           </View>
-          <Txt f="bold" size={28} center color={c.muc}>
-            Chats, quizzes, and practice — together.
+          <Txt f="bold" size={26} center color={c.muc}>
+            Hỏi đáp Sử liệu • Sinh đề Bloom • Hồ sơ BKT Cá nhân hóa
           </Txt>
-          <Txt size={15} center color={c.muc2} style={{ maxWidth: 620 }}>
-            Khởi đầu từ một chủ đề hoặc bài học để luyện đề trắc nghiệm, ôn thẻ ghi nhớ hoặc hỏi đáp cùng trợ lý AI.
+          <Txt size={15} center color={c.muc2} style={{ maxWidth: 680 }}>
+            Tích hợp Model NLP Đông A (81 chủ điểm chuyên sâu, 1.083 đoạn biên niên sử Đại Việt Sử Ký Toàn Thư) và thuật toán Bayesian Knowledge Tracing theo dõi mức độ nắm vững kiến thức P(L).
           </Txt>
           {onClose ? (
             <Btn title="Đóng bảng điều khiển" tone="giay" size="sm" onPress={onClose} />
@@ -229,13 +264,16 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
               justifyContent: 'space-between',
             })}
           >
-            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }}>
-              <Bot size={24} color="#4F46E5" />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }}>
+                <Bot size={24} color="#4F46E5" />
+              </View>
+              <Chip text="81 Chủ điểm • 8 Danh tướng" bg={c.thuyNhat} fg={c.thuyChu} />
             </View>
             <View style={{ gap: 4 }}>
-              <Txt f="bold" size={18} color={c.muc}>AI Tutor</Txt>
+              <Txt f="bold" size={18} color={c.muc}>AI Tutor — Thầy Đông A & Nhập vai</Txt>
               <Txt size={13} color={c.muc2} numberOfLines={3}>
-                Hỏi đáp tự do về lịch sử thời Trần, truy xuất căn cứ sử liệu chính thức từ Đại Việt Sử Ký Toàn Thư và đàm đạo cùng danh tướng.
+                Hỏi đáp đa lượt nhớ ngữ cảnh, tự động đính chính lỗi sai lịch sử, khảo bài tự luận trực tiếp trên Chat và đàm đạo cùng 8 danh tướng thời Trần.
               </Txt>
             </View>
           </Pressable>
@@ -257,13 +295,16 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
               justifyContent: 'space-between',
             })}
           >
-            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center' }}>
-              <ListChecks size={24} color="#059669" />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center' }}>
+                <ListChecks size={24} color="#059669" />
+              </View>
+              <Chip text="Ma trận Bloom GDPT 2018" bg={c.ngocNhat} fg={c.ngocChu} />
             </View>
             <View style={{ gap: 4 }}>
-              <Txt f="bold" size={18} color={c.muc}>Quizzes</Txt>
+              <Txt f="bold" size={18} color={c.muc}>Quizzes — Khảo thí Thích ứng</Txt>
               <Txt size={13} color={c.muc2} numberOfLines={3}>
-                Sinh đề trắc nghiệm chuẩn hóa 4 mức độ nhận thức Bloom (Nhận biết, Thông hiểu, Vận dụng) theo 5 nhóm chủ đề SGK 7.
+                Sinh đề trắc nghiệm chuẩn hóa các mức độ nhận thức Bloom (Nhận biết, Thông hiểu, Vận dụng) theo 5 nhóm chuyên đề SGK Lịch sử 7.
               </Txt>
             </View>
           </Pressable>
@@ -285,11 +326,14 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
               justifyContent: 'space-between',
             })}
           >
-            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFEDD5', alignItems: 'center', justifyContent: 'center' }}>
-              <Layers size={24} color="#EA580C" />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFEDD5', alignItems: 'center', justifyContent: 'center' }}>
+                <Layers size={24} color="#EA580C" />
+              </View>
+              <Chip text={`${masteredIds.size}/${HISTORICAL_FLASHCARDS.length} đã thuộc`} bg={c.dongNhat} fg={c.dongChu} />
             </View>
             <View style={{ gap: 4 }}>
-              <Txt f="bold" size={18} color={c.muc}>Flash Cards</Txt>
+              <Txt f="bold" size={18} color={c.muc}>Flash Cards — Thẻ nhớ Sử liệu</Txt>
               <Txt size={13} color={c.muc2} numberOfLines={3}>
                 Bộ thẻ ghi nhớ 2 mặt tương tác, ôn luyện nhanh mốc thời gian (1258, 1285, 1288), danh tướng và kế sách kháng chiến.
               </Txt>
@@ -313,17 +357,111 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
               justifyContent: 'space-between',
             })}
           >
-            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FCE7F3', alignItems: 'center', justifyContent: 'center' }}>
-              <FileText size={24} color="#DB2777" />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FCE7F3', alignItems: 'center', justifyContent: 'center' }}>
+                <FileText size={24} color="#DB2777" />
+              </View>
+              <Chip text="Tóm tắt 3 ý cốt lõi" bg={c.sonNhat} fg={c.sonChu} />
             </View>
             <View style={{ gap: 4 }}>
-              <Txt f="bold" size={18} color={c.muc}>Summarizer</Txt>
+              <Txt f="bold" size={18} color={c.muc}>Summarizer — Tóm tắt Chuyên đề</Txt>
               <Txt size={13} color={c.muc2} numberOfLines={3}>
-                Tóm tắt diễn biến trận đánh, sự kiện và nhân vật lịch sử thời Trần thành các ý súc tích, dễ nhớ.
+                Tóm tắt diễn biến trận đánh, sự kiện và nghệ thuật quân sự thời Trần thành các luận điểm súc tích, dễ thuộc.
               </Txt>
             </View>
           </Pressable>
         </View>
+
+        {/* BẢNG LỘ TRÌNH ÔN TẬP CÁ NHÂN HÓA (BAYESIAN KNOWLEDGE TRACING - BKT) */}
+        <Card style={{ padding: 20, gap: 14, borderRadius: 20 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+              <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.dongNhat, alignItems: 'center', justifyContent: 'center' }}>
+                <Target size={20} color={c.dongChu} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Txt f="bold" size={16} color={c.muc}>
+                  Lộ trình Ôn tập Cá nhân hóa (Bayesian Knowledge Tracing — BKT)
+                </Txt>
+                <Txt size={12} color={c.muc3}>
+                  Mô hình xác suất Bayes tự động phát hiện lỗ hổng kiến thức P(L) &lt; {Math.round(params.mastery_threshold * 100)}% và gợi ý chủ điểm cần củng cố
+                </Txt>
+              </View>
+            </View>
+            <Btn icon={RefreshCw} title="Cập nhật BKT" tone="giay" size="sm" loading={bktLoading} onPress={loadBktRecommendations} />
+          </View>
+
+          {/* 4 Tham số BKT chuẩn */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            <Chip text={`Khởi tạo P(L₀) = ${Math.round(params.p_l0 * 100)}%`} bg={c.giay2} fg={c.muc2} />
+            <Chip text={`Tích lũy P(T) = +${Math.round(params.p_t * 100)}%`} bg={c.ngocNhat} fg={c.ngocChu} />
+            <Chip text={`Đoán mò P(G) = ${Math.round(params.p_g * 100)}%`} bg={c.thuyNhat} fg={c.thuyChu} />
+            <Chip text={`Sơ suất P(S) = ${Math.round(params.p_s * 100)}%`} bg={c.dongNhat} fg={c.dongChu} />
+          </View>
+
+          {bktLoading && !recs.length ? (
+            <Spinner label="Đang phân tích hồ sơ năng lực BKT của em…" />
+          ) : recs.length > 0 ? (
+            <View style={{ gap: 10 }}>
+              {recs.slice(0, 4).map((rec) => {
+                const pct = Math.round((rec.current_p_l ?? 0.3) * 100);
+                return (
+                  <View
+                    key={rec.unit_id}
+                    style={{
+                      padding: 14,
+                      borderRadius: 14,
+                      borderWidth: 1.5,
+                      borderColor: c.vien,
+                      backgroundColor: c.giay2,
+                      gap: 8,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                        <Txt f="bold" size={14} color={c.muc} style={{ flexShrink: 1 }}>
+                          {rec.topic}
+                        </Txt>
+                        <Chip text={rec.cognitive_level} bg={c.the} fg={c.muc2} />
+                      </View>
+                      <Chip
+                        text={`Mức nắm vững P(L): ${pct}%`}
+                        bg={pct >= 60 ? c.ngocNhat : c.dongNhat}
+                        fg={pct >= 60 ? c.ngocChu : c.dongChu}
+                      />
+                    </View>
+                    {/* Thanh tiến trình P(L) */}
+                    <View style={{ height: 8, borderRadius: 4, backgroundColor: c.vien, overflow: 'hidden' }}>
+                      <View
+                        style={{
+                          width: `${Math.min(100, Math.max(8, pct))}%`,
+                          height: '100%',
+                          backgroundColor: pct >= 60 ? c.ngoc : c.dong,
+                        }}
+                      />
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <Txt size={12} color={c.muc2} style={{ flex: 1 }}>
+                        {rec.recommendation_reason}
+                      </Txt>
+                      <Btn
+                        icon={Sparkles}
+                        title="Hỏi Thầy Đông A"
+                        tone="thuy"
+                        size="sm"
+                        onPress={() => handleAskFromBkt(rec)}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <Txt size={13} color={c.muc2}>
+              🎉 Tuyệt vời! Em đã nắm vững các chủ điểm trọng tâm. Hãy thử sức với chế độ khảo bài tự luận trên AI Tutor nhé!
+            </Txt>
+          )}
+        </Card>
 
         {/* Modal sinh đề trắc nghiệm AI */}
         {quizModalOpen ? (
@@ -422,7 +560,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
           <Txt f="bold" size={18} color={c.muc} style={{ flex: 1 }}>Summarizer — Tóm tắt sử liệu</Txt>
         </View>
 
-        <Txt size={14} color={c.muc2}>Chọn một chuyên đề lịch sử để AI tóm tắt thành 3–5 gạch đầu dòng cô đọng nhất:</Txt>
+        <Txt size={14} color={c.muc2}>Chọn một chuyên đề lịch sử để AI tóm tắt thành các luận điểm cô đọng nhất:</Txt>
 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
           {TOPICS.map((t) => (
@@ -443,7 +581,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
         {summaryLoading ? (
           <View style={{ alignItems: 'center', padding: 30, gap: 10 }}>
             <Spinner />
-            <Txt size={14} color={c.muc2}>Tiểu Tướng đang cô đọng sử liệu...</Txt>
+            <Txt size={14} color={c.muc2}>Trợ lý AI Đông A đang cô đọng sử liệu...</Txt>
           </View>
         ) : null}
 
@@ -459,12 +597,12 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
   if (activeView === 'tutor') {
     return (
       <ScrollView ref={tutorScrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 80, gap: 16, maxWidth: 920, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Btn icon={ArrowLeft} title="Quay lại AI Hub" tone="giay" size="sm" onPress={() => { setSelectedFigure(null); setActiveView('hub'); }} />
-          <Txt f="bold" size={18} color={c.muc} style={{ flex: 1 }}>AI Tutor — Trợ lý Tiểu Tướng</Txt>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <Btn icon={ArrowLeft} title="Quay lại AI Hub" tone="giay" size="sm" onPress={() => { setSelectedFigure(null); setActiveView('hub'); loadBktRecommendations(); }} />
+          <Txt f="bold" size={18} color={c.muc} style={{ flex: 1 }}>AI Tutor — Trợ lý Sử học Đông A</Txt>
           <View style={{ flexDirection: 'row', gap: 6 }}>
             <Btn
-              title="Hỏi đáp chung"
+              title="Hỏi đáp Thầy Đông A"
               tone={tutorTab === 'chat' && !selectedFigure ? 'son' : 'giay'}
               size="sm"
               onPress={() => { setSelectedFigure(null); setTutorTab('chat'); }}
@@ -482,26 +620,28 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
         {tutorTab === 'roleplay' ? (
           selectedFigure ? (
             <View style={{ gap: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Chip text={`Đang đàm đạo cùng: ${selectedFigure.name}`} bg={c.sonNhat} fg={c.sonChu} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <Chip text={`Đang đàm đạo cùng: ${selectedFigure.role} ${selectedFigure.name}`} bg={c.sonNhat} fg={c.sonChu} />
                 <Btn title="Chọn vị tướng khác" tone="giay" size="sm" onPress={() => setSelectedFigure(null)} />
               </View>
               <ChatPanel
+                key={`rp-${selectedFigure.id}`}
                 session={session}
                 mode="roleplay"
                 onScrollToEnd={scrollToBottom}
+                onChanged={loadBktRecommendations}
                 figure={{ id: selectedFigure.id, name: selectedFigure.name }}
                 placeholder={`Em muốn hỏi gì với ${selectedFigure.name}?`}
                 samples={[
-                  `Ngài nghĩ gì về âm mưu xâm lược của giặc Thát?`,
-                  `Kế sách giữ nước quan trọng nhất của ngài là gì?`,
-                  `Ý nghĩa câu nói nổi tiếng của ngài là gì?`,
+                  `Ngài nghĩ gì về âm mưu xâm lược của giặc Mông - Nguyên?`,
+                  `Kế sách đánh giặc quan trọng nhất của nhà Trần là gì?`,
+                  `Ý nghĩa câu nói nổi tiếng của ngài trong lịch sử là gì?`,
                 ]}
               />
             </View>
           ) : (
             <View style={{ gap: 14 }}>
-              <Txt size={14} color={c.muc2}>Chọn một nhân vật lịch sử thời Trần để đối thoại trực tiếp:</Txt>
+              <Txt size={14} color={c.muc2}>Chọn một nhân vật lịch sử thời Trần để đối thoại trực tiếp (hóa thân dựa trên chính sử):</Txt>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
                 {HISTORICAL_FIGURES.map((fig) => (
                   <Pressable
@@ -518,7 +658,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
                       gap: 6,
                     })}
                   >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                       <Txt f="bold" size={16} color={c.muc}>{fig.name}</Txt>
                       <Chip text={fig.role} bg={c.giay2} fg={c.muc2} />
                     </View>
@@ -529,11 +669,19 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
             </View>
           )
         ) : (
-          /* Chế độ Hỏi đáp Tiểu Tướng chung */
-          <ChatPanel session={session} mode="tutor" onOpen={onOpenSource} onScrollToEnd={scrollToBottom} />
+          /* Chế độ Hỏi đáp Thầy Đông A chung */
+          <ChatPanel
+            session={session}
+            mode="tutor"
+            initialQuestion={pendingTutorQuestion}
+            onInitialQuestionConsumed={() => setPendingTutorQuestion(null)}
+            onOpen={onOpenSource}
+            onChanged={loadBktRecommendations}
+            onScrollToEnd={scrollToBottom}
+          />
         )}
       </ScrollView>
-        );
+    );
   }
 
   return null;

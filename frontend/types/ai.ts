@@ -1,15 +1,54 @@
-/** Kiểu dữ liệu AI Tutor "Tiểu Tướng" (Sprint 9). Khớp với /api/ai. */
+/** Kiểu dữ liệu AI Tutor "Tiểu Tướng" & Hệ thống AI Sử học Đông A (NLP + BKT + RAG). Khớp với /api/ai. */
 export type AiMode = 'tutor' | 'roleplay' | 'teacher' | 'explain' | 'summary' | 'questions' | 'plan';
 export interface Citation { n: number; kind: string; kind_label: string; id: number; title: string; snippet: string; openable: boolean }
+export interface StudentMasterySummary {
+  unit_id: string;
+  topic: string;
+  old_p_l: number;
+  new_p_l: number;
+  mastery_status: string;
+}
 export interface AiMessage {
   id: number; role: 'user' | 'assistant'; content: string; citations?: Citation[]; followups?: string[]; refused?: boolean;
   refusal_reason?: 'out_of_scope' | 'unsafe' | 'quota' | 'not_configured' | null; answer_mode?: 'llm' | 'extractive' | null; reported?: boolean; created_at: string;
+  character_name?: string;
+  unit_id?: string;
+  topic?: string;
+  study_hint?: string | null;
+  student_mastery_summary?: StudentMasterySummary | null;
+  badge_unlocked?: string | null;
+  exp_reward?: number;
 }
 export interface AiConversation { id: number; title: string; mode: AiMode; figure_id: number | null; created_at: string; updated_at: string; questions?: number }
 export interface AiReply { conversation: { id: number; mode: AiMode; figure_id: number | null }; user_message: AiMessage; message: AiMessage }
 export interface AiQuota { limit: number; used: number; school_limit: number; school_used: number; remaining: number | null; unlimited: boolean }
-export interface AiStatus { mode: 'llm' | 'extractive'; ready: boolean; chunks: number; quota: AiQuota; roleplay: boolean; modes: AiMode[] }
+export interface AiStatus { mode: 'llm' | 'extractive' | 'grounded'; ready: boolean; chunks: number; quota: AiQuota; roleplay: boolean; modes: AiMode[] }
 export interface SummaryOptions { lessons: Array<{ id: number; title: string }>; battles: Array<{ id: number; title: string }>; events: Array<{ id: number; title: string }>; figures: Array<{ id: number; title: string }>; campaigns: Array<{ id: number; title: string }> }
+
+export interface BktRecommendationItem {
+  unit_id: string;
+  topic: string;
+  current_p_l: number;
+  cognitive_level: string;
+  difficulty: number;
+  attempts: number;
+  recommendation_reason: string;
+  suggested_action: string;
+}
+
+export interface BktRecommendationsResponse {
+  student_id: string;
+  bkt_parameters: {
+    p_l0: number;
+    p_t: number;
+    p_g: number;
+    p_s: number;
+    mastery_threshold: number;
+  };
+  total_recommendations: number;
+  recommendations: BktRecommendationItem[];
+  profile?: Record<string, any> | null;
+}
 
 // ---------------------------------------------------------------------- giáo viên
 export interface QuestionDraft { qtype: 'single' | 'truefalse' | 'fill'; prompt: string; explanation: string; difficulty: number; data: Record<string, unknown> }
