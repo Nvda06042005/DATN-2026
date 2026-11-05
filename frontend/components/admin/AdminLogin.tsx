@@ -17,6 +17,7 @@ import { ArrowLeft, CircleCheck, Eye, EyeOff, Info, MailCheck, TriangleAlert } f
 import * as authApi from '@/api/authApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { BrandLogo, FilmBackdrop, PatternOverlay } from '@/components/art';
+import { HeritageBackdrop } from '@/components/admin/HeritageBackdrop';
 import { Txt } from '@/components/ui';
 import { FONT } from '@/constants/theme';
 import { useShake } from '@/hooks/use-motion';
@@ -201,9 +202,10 @@ const Shell: React.FC<{ portal: AdminPortal; children: React.ReactNode }> = ({ p
   const tint = [`${c.dem}db`, `${c.dem}b3`, `${c.dem}80`] as const;
 
   return (
-    <View testID="admin-login-shell" style={{ flex: 1, minHeight: 0, backgroundColor: c.dem, overflow: 'hidden' }}>
+    <View testID="admin-login-shell" style={{ flex: 1, minHeight: 0, backgroundColor: c.logoPaper, overflow: 'hidden' }}>
+      <HeritageBackdrop />
       <View style={{ flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: edge, paddingTop: insets.top + edge, paddingBottom: insets.bottom + edge }}>
-        <View testID="admin-login-card" style={{ width: '100%', maxWidth: 940, height: cardHeight, maxHeight: '100%', backgroundColor: c.logoPaper, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)', boxShadow: '0 24px 80px rgba(12,24,18,0.24)', overflow: 'hidden' }}>
+        <View testID="admin-login-card" style={{ width: '100%', maxWidth: 940, height: cardHeight, maxHeight: '100%', backgroundColor: c.logoPaper, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)', boxShadow: '0 24px 80px rgba(85,49,19,0.22)', overflow: 'hidden' }}>
           <View testID="admin-login-art" style={wide ? { position: 'absolute', left: 0, top: 0, bottom: 0, width: '52%', backgroundColor: c.dem, overflow: 'hidden' } : { height: height < 700 ? 96 : 144, backgroundColor: c.dem, overflow: 'hidden' }}>
             <FilmBackdrop wide={wide} />
             <LinearGradient colors={tint} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.4 }} style={StyleSheet.absoluteFill} />

@@ -572,6 +572,13 @@ Quyết định khi cho chỉnh số hạng và ngày chốt:
 - Giữ nguyên đăng nhập bằng tài khoản được cấp, xác thực hai lớp và quên/đặt lại mật khẩu của admin; không thêm Google, vai trò học sinh hoặc liên kết công khai vào cổng quản trị. Không thay đổi API, quyền hay database.
 - Kiểm tra: portal trùng nguyên văn bản trước lần sửa nhầm; typecheck, 39 bài frontend và build đạt. Trình duyệt ẩn xác minh bố cục admin ở 6 kích thước (360 × 640 đến 1920 × 1080), ảnh động/cạnh chéo nằm bên trong khung nhỏ, cùng bước 2FA/quên mật khẩu giả lập; portal khôi phục được kiểm tra lại ở 5 kích thước và giữ Google cho đúng ba vai trò.
 
+## Nền lịch sử cho đăng nhập admin ngày 05/11/2026
+
+- Thay nền xanh đơn sắc phía ngoài khung `/admin` bằng component `HeritageBackdrop`: giấy dó tông kem/vàng cổ, hoa văn chìm, hai nét khắc trống đồng cách điệu ở góc, ánh đỏ son và viền vàng đồng mảnh. Hoa văn là thiết kế trang trí của giao diện, không phải ảnh hiện vật lịch sử.
+- Tái sử dụng `FlowingWaves` cho dải sáng và hạt nhỏ trôi chậm ở chân nền; không thêm thư viện. Hiệu ứng dừng khi tab bị ẩn, dùng bản tĩnh trên màn nhỏ hoặc khi bật Giảm chuyển động; lớp trang trí không nhận chuột/phím.
+- Giữ khung nhỏ chia chéo với ảnh động/logo bên trái, form bên phải; chỉ đổi bóng đổ ngoài sang nâu ấm. Không đổi `/portal`, thông tin đăng nhập, API, database hoặc migration.
+- Kiểm tra: typecheck, 39 bài frontend và build đạt; kiểm tra trình duyệt riêng cho nền, chuyển động và chế độ Giảm chuyển động, cùng kiểm tra bố cục/2FA/quên mật khẩu hiện có.
+
 ## Chưa làm (ngoài Sprint 1–7) và đề xuất
 
 - Đặc tả ver0.2 (408 chức năng) đã có mã cho mọi mục. Còn "Một phần" / giới hạn: sa bàn chỉ là sơ đồ minh họa chưa kiểm chứng, một số mục ở Sprint 11–12; nội dung khởi tạo (kho lịch sử, câu hỏi, trận đánh, sa bàn) vẫn là bản nháp chờ giáo viên Lịch sử kiểm chứng.
