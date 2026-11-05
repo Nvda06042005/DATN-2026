@@ -3,13 +3,14 @@
  * duyệt yêu cầu rời lớp, chia đội ngẫu nhiên (4–6 người) hoặc thủ công.
  */
 import React, { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 import { CheckSquare, FileUp, Shuffle, Square, Trash2, UserPlus, Users } from 'lucide-react-native';
 import * as api from '@/api/classroomApi';
 import { errorMessage } from '@/api/client';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { Cell, DataTable, DownloadButton, ErrorNote, FilterBar, FilterBox, StatusChip, pickFile, useAction, useDebounced, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
+import { iconOf } from '@/components/portal/GameKit';
 import { Btn, Card, Chip, ConfirmSheet, EmptyState, Field, Inset, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { ClassDetail, ClassStudent, TeamRow } from '@/types/classroom';
@@ -154,11 +155,34 @@ export const ClassStudents: React.FC<{ session: Session; cls: ClassDetail; onCha
 };
 
 // ---------------------------------------------------------------------- đội (HK.GV.016)
-interface Draft { name: string; ids: number[] }
+interface Draft { name: string; icon: string; ids: number[] }
+
+/** Biểu tượng đội: đúng danh sách máy chủ chấp nhận (TEAM_ICONS ở classroom.service.ts) */
+export const TEAM_ICONS = ['shield', 'swords', 'flag', 'crown', 'star', 'flame', 'heart', 'award', 'gem', 'lightbulb', 'target', 'trophy'] as const;
+const TEAM_ICON_LABEL: Record<string, string> = { shield: 'Khiên', swords: 'Kiếm', flag: 'Cờ', crown: 'Vương miện', star: 'Sao', flame: 'Lửa', heart: 'Trái tim', award: 'Huy chương', gem: 'Ngọc', lightbulb: 'Bóng đèn', target: 'Mục tiêu', trophy: 'Cúp' };
+const defaultIcon = (i: number): string => TEAM_ICONS[i % TEAM_ICONS.length];
+
+/** Kéo thả trên web (HK.GV.016): ô học sinh kéo được, khối đội và ô "chưa có đội" nhận học sinh thả vào. Cảm ứng và bàn phím dùng ô chọn đội cho từng học sinh bên dưới */
+const DragStudent: React.FC<{ id: number; children: React.ReactNode }> = ({ id, children }) => {
+  if (Platform.OS !== 'web') return <>{children}</>;
+  return React.createElement('div', {
+    draggable: true, 'data-testid': `team-drag-${id}`, style: { cursor: 'grab' },
+    onDragStart: (e: React.DragEvent) => { e.dataTransfer.setData('text/plain', String(id)); e.dataTransfer.effectAllowed = 'move'; },
+  }, children);
+};
+const DropTeam: React.FC<{ testID: string; onDrop: (id: number) => void; children: React.ReactNode }> = ({ testID, onDrop, children }) => {
+  if (Platform.OS !== 'web') return <>{children}</>;
+  return React.createElement('div', {
+    'data-testid': testID, onDragOver: (e: React.DragEvent) => e.preventDefault(),
+    onDrop: (e: React.DragEvent) => { e.preventDefault(); const id = Number(e.dataTransfer.getData('text/plain')); if (Number.isInteger(id) && id > 0) onDrop(id); },
+  }, children);
+};
 
 const TeamEditor: React.FC<{ session: Session; cls: ClassDetail; students: ClassStudent[]; teams: TeamRow[]; onClose: () => void; onDone: () => void }> = ({ session, cls, students, teams, onClose, onDone }) => {
   const { c } = useTheme();
-  const [drafts, setDrafts] = useState<Draft[]>(() => (teams.length ? teams.map((t) => ({ name: t.name, ids: t.members.map((m) => m.id) })) : [{ name: 'Đội 1', ids: [] }, { name: 'Đội 2', ids: [] }]));
+  const [drafts, setDrafts] = useState<Draft[]>(() => (teams.length
+    ? teams.map((t, i) => ({ name: t.name, icon: (TEAM_ICONS as readonly string[]).includes(t.icon) ? t.icon : defaultIcon(i), ids: t.members.map((m) => m.id) }))
+    : [{ name: 'Đội 1', icon: defaultIcon(0), ids: [] }, { name: 'Đội 2', icon: defaultIcon(1), ids: [] }]));
   const [error, setError] = useState<string | null>(null);
   const { busy, run } = useAction(session.expired);
   const teamOf = (id: number) => drafts.findIndex((d) => d.ids.includes(id));
@@ -166,23 +190,52 @@ const TeamEditor: React.FC<{ session: Session; cls: ClassDetail; students: Class
   const options = [{ value: '-1', label: '— Chưa chia đội —' }, ...drafts.map((d, i) => ({ value: String(i), label: d.name || `Đội ${i + 1}` }))];
   const save = async () => {
     setError(null);
-    const res = await run(() => api.setTeams(session.token, cls.id, drafts.filter((d) => d.ids.length).map((d) => ({ name: d.name, member_ids: d.ids }))), 'Đã lưu các đội');
+    const res = await run(() => api.setTeams(session.token, cls.id, drafts.filter((d) => d.ids.length).map((d) => ({ name: d.name, icon: d.icon, member_ids: d.ids }))), 'Đã lưu các đội');
     if (res) { onDone(); onClose(); } else setError('Chưa lưu được; kiểm tra tên đội (2–40 ký tự, không trùng).');
   };
   return (
-    <Sheet open onClose={onClose} title="Chia đội thủ công" subtitle="Đặt tên đội rồi chọn đội cho từng học sinh; đội trống sẽ bị bỏ" wide
+    <Sheet open onClose={onClose} title="Chia đội thủ công" subtitle="Đặt tên và chọn biểu tượng cho đội, rồi kéo học sinh vào đội (hoặc chọn đội ở danh sách); đội trống sẽ bị bỏ" wide
       footer={<View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}><Btn title="Hủy" tone="giay" onPress={onClose} disabled={busy} /><Btn title="Lưu các đội" tone="son" loading={busy} onPress={save} testID="team-save" /></View>}>
       <ErrorNote message={error} />
       <View style={{ gap: 8 }}>
         {drafts.map((d, i) => (
-          <View key={i} style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
-            <Field label={`Tên đội ${i + 1} (${d.ids.length} học sinh)`} value={d.name} onChangeText={(v) => setDrafts((ds) => ds.map((x, j) => (j === i ? { ...x, name: v } : x)))} style={{ flex: 1 }} />
-            <Btn icon={Trash2} label={`Xóa đội ${i + 1}`} tone="giay" size="sm" onPress={() => setDrafts((ds) => ds.filter((_, j) => j !== i))} />
-          </View>
+          <DropTeam key={i} testID={`team-drop-${i}`} onDrop={(id) => assign(id, i)}>
+            <View style={{ gap: 8, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: c.adminLine, backgroundColor: c.the }}>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
+                <Field label={`Tên đội ${i + 1} (${d.ids.length} học sinh)`} value={d.name} onChangeText={(v) => setDrafts((ds) => ds.map((x, j) => (j === i ? { ...x, name: v } : x)))} style={{ flex: 1 }} />
+                <Btn icon={Trash2} label={`Xóa đội ${i + 1}`} tone="giay" size="sm" onPress={() => setDrafts((ds) => ds.filter((_, j) => j !== i))} />
+              </View>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }} accessibilityLabel={`Biểu tượng của đội ${i + 1}`}>
+                {TEAM_ICONS.map((name) => {
+                  const on = d.icon === name, Icon = iconOf(name);
+                  return (
+                    <Pressable key={name} testID={`team-icon-${i}-${name}`} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={`Biểu tượng ${TEAM_ICON_LABEL[name]}${on ? ', đang chọn' : ''}`}
+                      onPress={() => setDrafts((ds) => ds.map((x, j) => (j === i ? { ...x, icon: name } : x)))}
+                      style={{ width: 36, height: 36, borderRadius: 8, borderWidth: on ? 2 : 1, borderColor: on ? c.ngoc : c.adminLine, backgroundColor: on ? c.ngocNhat : c.the, alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon size={18} color={on ? c.ngocChu : c.muc2} />
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, minHeight: 32 }}>
+                {d.ids.map((id) => { const s = students.find((x) => x.id === id); return s ? <DragStudent key={id} id={id}><Chip text={s.full_name} bg={c.thuyNhat} fg={c.thuyChu} /></DragStudent> : null; })}
+                {!d.ids.length ? <Txt size={13} color={c.muc3}>{Platform.OS === 'web' ? 'Kéo học sinh vào đây hoặc chọn đội ở danh sách bên dưới.' : 'Chọn đội cho học sinh ở danh sách bên dưới.'}</Txt> : null}
+              </View>
+              {d.ids.length > 6 ? <Txt size={12} color={c.vangChu}>Nên 4–6 học sinh mỗi đội (tối đa 8).</Txt> : null}
+            </View>
+          </DropTeam>
         ))}
-        {drafts.length < 12 ? <Btn icon={Users} title="Thêm đội" tone="giay" size="sm" onPress={() => setDrafts((ds) => [...ds, { name: `Đội ${ds.length + 1}`, ids: [] }])} /> : null}
+        {drafts.length < 12 ? <Btn icon={Users} title="Thêm đội" tone="giay" size="sm" onPress={() => setDrafts((ds) => [...ds, { name: `Đội ${ds.length + 1}`, icon: defaultIcon(ds.length), ids: [] }])} /> : null}
       </View>
-      <Txt f="bold" size={14} color={c.muc2}>Học sinh</Txt>
+      <DropTeam testID="team-drop-free" onDrop={(id) => assign(id, -1)}>
+        <View style={{ gap: 6, padding: 10, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: c.adminLine }}>
+          <Txt f="bold" size={14} color={c.muc2}>Chưa có đội ({students.filter((s) => teamOf(s.id) < 0).length})</Txt>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {students.filter((s) => teamOf(s.id) < 0).map((s) => <DragStudent key={s.id} id={s.id}><Chip text={s.full_name} bg={c.the2} fg={c.muc2} /></DragStudent>)}
+          </View>
+        </View>
+      </DropTeam>
+      <Txt f="bold" size={14} color={c.muc2}>Chọn đội cho từng học sinh</Txt>
       {students.map((s) => (
         <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <Txt size={14} style={{ flex: 1, minWidth: 140 }} numberOfLines={1}>{s.full_name}</Txt>
@@ -217,7 +270,10 @@ export const ClassTeams: React.FC<{ session: Session; cls: ClassDetail; onChange
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
         {(teams.data ?? []).map((t) => (
           <Card key={t.id} flat pad={14} style={{ gap: 8, flexGrow: 1, flexBasis: 240, minWidth: 220 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}><Txt f="displayHeavy" size={18}>{t.name}</Txt><Chip text={`${t.members.length} học sinh`} bg={c.thuyNhat} fg={c.thuyChu} /></View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>{React.createElement(iconOf(t.icon), { size: 20, color: c.ngocChu })}<Txt f="displayHeavy" size={18}>{t.name}</Txt></View>
+              <Chip text={`${t.members.length} học sinh`} bg={c.thuyNhat} fg={c.thuyChu} />
+            </View>
             {t.members.map((m) => <Txt key={m.id} size={14}>• {m.nickname || m.full_name}</Txt>)}
           </Card>
         ))}
