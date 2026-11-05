@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Put, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Put, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { toPdf, toXlsx, Section } from '../analytics/export';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { UploadedXlsx, XLSX_MIME, XLSX_UPLOAD } from '../admin/excel';
 import { UserRow } from '../database/database.service';
@@ -68,6 +69,32 @@ export class ClassroomController {
   @Post('classes/:id/assignments') @Roles(...STAFF) createAssignment(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.assignments.create(user, id, body); }
   @Get('assignments/:aid') @Roles(...STAFF) assignmentDetail(@CurrentUser() user: UserRow, @Param('aid', ParseIntPipe) aid: number) { return this.assignments.detail(user, aid); }
   @Put('assignments/:aid') @Roles(...STAFF) updateAssignment(@CurrentUser() user: UserRow, @Param('aid', ParseIntPipe) aid: number, @Body() body: Json) { return this.assignments.update(user, aid, body); }
+  /** Xuất báo cáo riêng cho một bài tập (HK.GV.071): tình trạng nộp, điểm và nhận xét của từng học sinh được giao; Excel hoặc PDF */
+  @Get('assignments/:aid/export') @Roles(...STAFF)
+  async exportAssignment(@CurrentUser() user: UserRow, @Param('aid', ParseIntPipe) aid: number, @Query('format') format = 'xlsx') {
+    if (format !== 'xlsx' && format !== 'pdf') throw new BadRequestException('Định dạng là xlsx hoặc pdf');
+    const d = await this.assignments.detail(user, aid);
+    const at = (iso: string | Date | null): string => (iso ? new Date(iso).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
+    const STATE = { todo: 'Chưa nộp', submitted: 'Đã nộp', late: 'Nộp muộn', graded: 'Đã chấm' } as Record<string, string>;
+    const scored = d.students.filter((s) => s.best_percent !== null && s.best_percent !== undefined);
+    const sections: Section[] = [
+      { title: 'Tổng quan', cols: [{ header: 'Mục', key: 'k', width: 30 }, { header: 'Giá trị', key: 'v', width: 46 }], rows: [
+        { k: 'Bài tập', v: d.title }, { k: 'Loại', v: d.kind_label }, { k: 'Nội dung', v: d.content_title ?? '' }, { k: 'Trạng thái', v: d.status === 'revoked' ? 'Đã thu hồi' : d.overdue ? 'Quá hạn' : 'Đang mở' },
+        { k: 'Hạn nộp (giờ Việt Nam)', v: at(d.due_at) }, { k: 'Số lần làm tối đa', v: d.max_attempts }, { k: 'Điểm thưởng nộp đúng hạn', v: d.bonus_points },
+        { k: 'Số học sinh được giao', v: d.summary.total }, { k: 'Đã nộp', v: d.summary.submitted }, { k: 'Nộp muộn', v: d.summary.late }, { k: 'Đã chấm', v: d.summary.graded }, { k: 'Chưa nộp', v: d.summary.total - d.summary.submitted },
+        { k: 'Điểm cao nhất trung bình (%)', v: scored.length ? Math.round(scored.reduce((n, s) => n + Number(s.best_percent), 0) / scored.length) : '' },
+      ] },
+      { title: 'Học sinh', cols: [
+        { header: 'Họ và tên', key: 'full_name', width: 26 }, { header: 'Mã học sinh', key: 'user_code', width: 14 }, { header: 'Tình trạng', key: 'state', width: 12 }, { header: 'Số lần làm', key: 'attempts', width: 11, right: true },
+        { header: 'Điểm cao nhất (%)', key: 'best_percent', width: 16, right: true }, { header: 'Nộp lúc', key: 'submitted_at', width: 18 }, { header: 'Điểm giáo viên', key: 'teacher_score', width: 15, right: true },
+        { header: 'Xếp loại', key: 'grade', width: 11 }, { header: 'Nhận xét', key: 'feedback', width: 40 }], rows: d.students.map((s) => ({ ...s, state: STATE[s.state] ?? s.state, submitted_at: at(s.submitted_at), attempts: s.attempts ?? 0, best_percent: s.best_percent ?? '', teacher_score: s.teacher_score ?? '', grade: s.grade ?? '', feedback: s.feedback ?? '' })) },
+    ];
+    const subtitle = `${d.kind_label} · hạn nộp ${at(d.due_at)}`;
+    const name = `bai-tap-${aid}`;
+    return format === 'pdf'
+      ? new StreamableFile(await toPdf(`Báo cáo bài tập: ${d.title}`, subtitle, sections), { type: 'application/pdf', disposition: `attachment; filename="${name}.pdf"` })
+      : new StreamableFile(await toXlsx(`Báo cáo bài tập: ${d.title}`, sections), { type: XLSX_MIME, disposition: `attachment; filename="${name}.xlsx"` });
+  }
   @Post('assignments/:aid/revoke') @Roles(...STAFF) @HttpCode(200) revoke(@CurrentUser() user: UserRow, @Param('aid', ParseIntPipe) aid: number) { return this.assignments.revoke(user, aid); }
   @Post('assignments/:aid/grade') @Roles(...STAFF) @HttpCode(200) grade(@CurrentUser() user: UserRow, @Param('aid', ParseIntPipe) aid: number, @Body() body: Json) { return this.assignments.grade(user, aid, body as never); }
   @Post('assignments/:aid/remind') @Roles(...STAFF) @HttpCode(200) remind(@CurrentUser() user: UserRow, @Param('aid', ParseIntPipe) aid: number) { return this.assignments.remind(user, aid); }

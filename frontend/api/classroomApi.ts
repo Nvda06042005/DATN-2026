@@ -64,6 +64,8 @@ export const revokeAssignment = (token: string, id: number) => apiRequest<Assign
 export const gradeAssignment = (token: string, id: number, body: { user_id: number; score: number; feedback?: string | null }) =>
   apiRequest<{ user_id: number; teacher_score: number; grade: string; feedback: string | null }>(`${base}/assignments/${id}/grade`, { token, body });
 export const remindAssignment = (token: string, id: number) => apiRequest<{ sent: number }>(`${base}/assignments/${id}/remind`, { token, body: {} });
+/** Báo cáo riêng cho một bài tập (HK.GV.071): Excel hoặc PDF */
+export const exportAssignment = (token: string, id: number, format: 'xlsx' | 'pdf') => apiBlob(`${base}/assignments/${id}/export${qs({ format })}`, token);
 export const skillRequests = (token: string, classId: number) => apiRequest<SkillRequestRow[]>(`${base}/classes/${classId}/skill-requests`, { token });
 export const decideSkill = (token: string, id: number, approve: boolean) => apiRequest<{ id: number; status: string; note: string | null }>(`${base}/skill-requests/${id}/decide`, { token, body: { approve } });
 
