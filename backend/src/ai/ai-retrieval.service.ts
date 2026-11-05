@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 /**
  * Truy xuất tư liệu cho câu hỏi (Sprint 9, HK.SYS.009): xếp hạng từ khóa BM25 trên mọi đoạn đã lập chỉ mục, thêm độ tương đồng cosine của vector nhúng khi có mô hình nhúng,
  * trộn hai bảng xếp hạng theo thứ hạng. Chỉ mục nằm trong bộ nhớ (vài nghìn đoạn) và được dựng lại sau mỗi lần lập chỉ mục. Nội dung vừa bị gỡ công bố không bao giờ được
@@ -27,14 +29,67 @@ export class AiRetrievalService {
 
   invalidate(): void { this.cache = null; }
 
+  private loadFallbackCorpus(): Row[] {
+    const candidates = [
+      path.resolve(__dirname, '../../../ai/data/knowledge_base.json'),
+      path.resolve(__dirname, '../../ai/data/knowledge_base.json'),
+      path.resolve(process.cwd(), '../ai/data/knowledge_base.json'),
+      path.resolve(process.cwd(), 'ai/data/knowledge_base.json'),
+    ];
+    for (const file of candidates) {
+      if (fs.existsSync(file)) {
+        try {
+          const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+          const items = Object.entries(raw);
+          return items.map(([key, item]: [string, any], idx) => {
+            const kind = item.category?.toLowerCase().includes('khang_chien') ? 'campaign'
+              : item.category?.toLowerCase().includes('bach_dang') ? 'battle'
+              : (item.category?.toLowerCase().includes('tuong') || item.category?.toLowerCase().includes('dien_hong')) ? 'figure'
+              : 'source';
+            const title = item.topic || item.event || item.entity || key;
+            const queries = Array.isArray(item.base_queries) ? item.base_queries.join(' ') : '';
+            const primaryText = item.answer || item.fact_chunk || '';
+            const fullContent = [
+              primaryText,
+              item.verbatim_quote ? `Trích sử liệu: ${item.verbatim_quote}` : '',
+              item.dvsktt_reference ? `Nguồn: ${item.dvsktt_reference}` : '',
+            ].filter(Boolean).join('\n');
+            return {
+              id: idx + 1,
+              source_kind: kind,
+              source_id: idx + 1,
+              title,
+              content: fullContent,
+              embedding: null,
+              search_text: queries,
+            };
+          });
+        } catch {
+          // ignore
+        }
+      }
+    }
+    return [];
+  }
+
   private async load(): Promise<{ corpus: Corpus; rows: Map<number, Row> }> {
     if (this.cache) return this.cache;
     this.loading ??= (async () => {
-      const list = await this.db.query<Row>(
-        `SELECT c.id::int AS id, c.source_kind, c.source_id, c.title, c.content, c.embedding FROM hk_ai_chunks c
-         WHERE c.source_kind <> 'doc' OR EXISTS (SELECT 1 FROM hk_ai_docs d WHERE d.id = c.source_id AND d.status <> 'disabled') ORDER BY c.id`);
+      let list: Row[] = [];
+      if (this.db.ready) {
+        try {
+          list = await this.db.query<Row>(
+            `SELECT c.id::int AS id, c.source_kind, c.source_id, c.title, c.content, c.embedding FROM hk_ai_chunks c
+             WHERE c.source_kind <> 'doc' OR EXISTS (SELECT 1 FROM hk_ai_docs d WHERE d.id = c.source_id AND d.status <> 'disabled') ORDER BY c.id`);
+        } catch {
+          list = [];
+        }
+      }
+      if (!list.length) {
+        list = this.loadFallbackCorpus();
+      }
       const rows = new Map(list.map((r) => [r.id, r]));
-      this.cache = { corpus: buildCorpus(list.map((r) => ({ id: r.id, text: `${r.title} ${r.title} ${r.content}` }))), rows };
+      this.cache = { corpus: buildCorpus(list.map((r) => ({ id: r.id, text: `${r.title} ${r.title} ${r.content} ${(r as any).search_text || ''}` }))), rows };
     })().finally(() => { this.loading = null; });
     await this.loading;
     return this.cache!;
@@ -85,6 +140,7 @@ export class AiRetrievalService {
 
   /** Giữ lại các đoạn mà nguồn còn được công bố (tránh dùng nội dung vừa gỡ trong lúc chờ lập chỉ mục lại) */
   private async live(list: Passage[]): Promise<Passage[]> {
+    if (!this.db.ready) return list;
     const ok = new Set<string>();
     for (const [kind, table] of Object.entries(TABLE)) {
       const ids = [...new Set(list.filter((p) => p.kind === kind).map((p) => p.sourceId))];

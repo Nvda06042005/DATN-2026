@@ -8,8 +8,8 @@
  *
  * Tách biệt hoàn toàn thành module riêng, không can thiệp hay ghi đè lên code của đồng đội.
  */
-import React, { useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Pressable, ScrollView, View, type ScrollViewInstance } from 'react-native';
 import {
   ArrowLeft,
   BookOpen,
@@ -24,7 +24,7 @@ import * as aiApi from '@/api/aiApi';
 import { errorMessage } from '@/api/client';
 import { AiQuizModal } from '@/components/admin/AiQuizModal';
 import type { Session } from '@/components/auth';
-import { ChatPanel } from '@/components/portal/TieuTuong';
+import { ChatPanel, MarkdownText } from '@/components/portal/TieuTuong';
 import { Btn, Card, Chip, Spinner, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -132,6 +132,13 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
   // State cho AI Tutor / Roleplay
   const [tutorTab, setTutorTab] = useState<'chat' | 'roleplay'>('chat');
   const [selectedFigure, setSelectedFigure] = useState<typeof HISTORICAL_FIGURES[0] | null>(null);
+  const tutorScrollRef = useRef<ScrollViewInstance>(null);
+
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      tutorScrollRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+  };
 
   // ---------------------------------------------------------------------- Xử lý Summarizer
   const handleSummarizeTopic = async (topicTitle: string, promptText: string) => {
@@ -180,7 +187,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
   // ======================================================================
   if (activeView === 'hub') {
     return (
-      <ScrollView contentContainerStyle={{ padding: 24, gap: 24, maxWidth: 960, alignSelf: 'center', width: '100%' }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingBottom: 60, gap: 24, maxWidth: 960, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
         {/* Header chào mừng */}
         <View style={{ alignItems: 'center', gap: 10, paddingTop: 10 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -335,7 +342,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
   // ======================================================================
   if (activeView === 'flashcards') {
     return (
-      <View style={{ padding: 20, gap: 18, maxWidth: 760, alignSelf: 'center', width: '100%' }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 60, gap: 18, maxWidth: 760, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Btn icon={ArrowLeft} title="Quay lại AI Hub" tone="giay" size="sm" onPress={() => setActiveView('hub')} />
           <Txt f="bold" size={18} color={c.muc} style={{ flex: 1 }}>Thẻ ghi nhớ Flashcards</Txt>
@@ -396,13 +403,10 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
 
           <Btn title="Câu sau →" tone="giay" size="sm" onPress={handleNextCard} />
         </View>
-      </View>
+      </ScrollView>
     );
   }
 
-  // ======================================================================
-  // GIAO DIỆN CON 2: SUMMARIZER (TÓM TẮT SỬ LIỆU)
-  // ======================================================================
   if (activeView === 'summarizer') {
     const TOPICS = [
       { id: 'kc1', title: 'Kháng chiến lần 1 (1258)', prompt: 'Cuộc kháng chiến chống Mông Cổ lần thứ nhất năm 1258, trận Bình Lệ Nguyên và Đông Bộ Đầu' },
@@ -412,7 +416,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
     ];
 
     return (
-      <View style={{ padding: 20, gap: 18, maxWidth: 840, alignSelf: 'center', width: '100%' }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 60, gap: 18, maxWidth: 840, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Btn icon={ArrowLeft} title="Quay lại AI Hub" tone="giay" size="sm" onPress={() => setActiveView('hub')} />
           <Txt f="bold" size={18} color={c.muc} style={{ flex: 1 }}>Summarizer — Tóm tắt sử liệu</Txt>
@@ -445,21 +449,16 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
 
         {summaryText && !summaryLoading ? (
           <Card style={{ padding: 18, gap: 10, backgroundColor: c.the, borderColor: c.vien }}>
-            <Txt size={15} color={c.muc} style={{ lineHeight: 24 }} selectable>
-              {summaryText}
-            </Txt>
+            <MarkdownText content={summaryText} size={15} lineHeight={24} />
           </Card>
         ) : null}
-      </View>
+      </ScrollView>
     );
   }
 
-  // ======================================================================
-  // GIAO DIỆN CON 3: AI TUTOR & NHẬP VAI DANH TƯỚNG
-  // ======================================================================
   if (activeView === 'tutor') {
     return (
-      <View style={{ padding: 20, gap: 16, maxWidth: 920, alignSelf: 'center', width: '100%' }}>
+      <ScrollView ref={tutorScrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 80, gap: 16, maxWidth: 920, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Btn icon={ArrowLeft} title="Quay lại AI Hub" tone="giay" size="sm" onPress={() => { setSelectedFigure(null); setActiveView('hub'); }} />
           <Txt f="bold" size={18} color={c.muc} style={{ flex: 1 }}>AI Tutor — Trợ lý Tiểu Tướng</Txt>
@@ -490,6 +489,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
               <ChatPanel
                 session={session}
                 mode="roleplay"
+                onScrollToEnd={scrollToBottom}
                 figure={{ id: selectedFigure.id, name: selectedFigure.name }}
                 placeholder={`Em muốn hỏi gì với ${selectedFigure.name}?`}
                 samples={[
@@ -530,10 +530,10 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
           )
         ) : (
           /* Chế độ Hỏi đáp Tiểu Tướng chung */
-          <ChatPanel session={session} mode="tutor" onOpen={onOpenSource} />
+          <ChatPanel session={session} mode="tutor" onOpen={onOpenSource} onScrollToEnd={scrollToBottom} />
         )}
-      </View>
-    );
+      </ScrollView>
+        );
   }
 
   return null;

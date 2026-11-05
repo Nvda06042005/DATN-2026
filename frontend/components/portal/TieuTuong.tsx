@@ -3,7 +3,7 @@
  * tóm tắt bài học / trận đánh, lịch sử trò chuyện theo ngày (xóa từng cuộc), và tờ "Hỏi Tiểu Tướng" giải thích câu làm sai ở màn xem lại bài.
  * Máy chủ kiểm soát phạm vi, hạn mức và nội dung; giao diện chỉ hiển thị. Khi chưa nối mô hình AI, câu trả lời là trích nguyên văn tư liệu và được ghi chú rõ.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { BookOpen, Flag, History as HistoryIcon, Plus, Search, SendHorizontal, ShieldQuestion, Sparkles, Trash2 } from 'lucide-react-native';
 import * as api from '@/api/aiApi';
@@ -28,6 +28,111 @@ const Suggest: React.FC<{ text: string; onPress: () => void }> = ({ text, onPres
 };
 
 // ---------------------------------------------------------------------- một tin nhắn
+// ---------------------------------------------------------------------- hiển thị Markdown / Text định dạng (bóc tách ký tự ** thành chữ in đậm)
+export const renderFormattedInline = (text: string, defaultColor?: string) => {
+  if (!text) return null;
+  if (!text.includes('**')) {
+    return text;
+  }
+
+  const parts = text.split('**');
+  const hasUnpaired = parts.length % 2 === 0;
+
+  return parts.map((part, idx) => {
+    if (!part) return null;
+    const isBold = idx % 2 === 1 && (!hasUnpaired || idx < parts.length - 1);
+    if (isBold) {
+      return (
+        <Txt key={idx} f="bold" color={defaultColor}>
+          {part}
+        </Txt>
+      );
+    }
+    return (
+      <Txt key={idx} color={defaultColor}>
+        {part}
+      </Txt>
+    );
+  });
+};
+
+export const MarkdownText: React.FC<{
+  content: string;
+  size?: number;
+  lineHeight?: number;
+  color?: string;
+  selectable?: boolean;
+}> = ({ content, size = 15, lineHeight = 23, color, selectable = true }) => {
+  const { c } = useTheme();
+  const textColor = color ?? c.muc;
+
+  if (!content) return null;
+
+  const lines = content.split('\n');
+
+  return (
+    <View style={{ gap: 4 }}>
+      {lines.map((rawLine, lIdx) => {
+        const line = rawLine.trimEnd();
+
+        if (!line.trim()) {
+          return <View key={lIdx} style={{ height: 4 }} />;
+        }
+
+        // Ordered list (1. 2. 3.)
+        const numMatch = line.match(/^(\d+)[.)]\s+(.*)$/);
+        if (numMatch) {
+          const num = numMatch[1];
+          const body = numMatch[2];
+          return (
+            <View key={lIdx} style={{ flexDirection: 'row', gap: 6, alignItems: 'flex-start' }}>
+              <Txt f="bold" size={size} color={c.dongChu} style={{ lineHeight }}>
+                {num}.
+              </Txt>
+              <Txt size={size} color={textColor} style={{ flex: 1, lineHeight }} selectable={selectable}>
+                {renderFormattedInline(body, textColor)}
+              </Txt>
+            </View>
+          );
+        }
+
+        // Bullet list (•, -, *)
+        const bulletMatch = line.match(/^[-•*]\s+(.*)$/);
+        if (bulletMatch) {
+          const body = bulletMatch[1];
+          return (
+            <View key={lIdx} style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+              <Txt size={size} color={c.dongChu} style={{ lineHeight }}>
+                •
+              </Txt>
+              <Txt size={size} color={textColor} style={{ flex: 1, lineHeight }} selectable={selectable}>
+                {renderFormattedInline(body, textColor)}
+              </Txt>
+            </View>
+          );
+        }
+
+        // Heading (###, ##, #)
+        const headingMatch = line.match(/^#{1,4}\s+(.*)$/);
+        if (headingMatch) {
+          return (
+            <Txt key={lIdx} f="bold" size={size + 1} color={c.dongChu} style={{ lineHeight: lineHeight + 2, marginTop: 4 }} selectable={selectable}>
+              {renderFormattedInline(headingMatch[1], c.dongChu)}
+            </Txt>
+          );
+        }
+
+        // Paragraph line
+        return (
+          <Txt key={lIdx} size={size} color={textColor} style={{ lineHeight }} selectable={selectable}>
+            {renderFormattedInline(line, textColor)}
+          </Txt>
+        );
+      })}
+    </View>
+  );
+};
+
 export const AiBubble: React.FC<{ msg: AiMessage; onOpen?: OpenSource; onAsk?: (q: string) => void; onReport?: (m: AiMessage) => void }> = ({ msg, onOpen, onAsk, onReport }) => {
   const { c } = useTheme();
   if (msg.role === 'user') {
@@ -43,7 +148,7 @@ export const AiBubble: React.FC<{ msg: AiMessage; onOpen?: OpenSource; onAsk?: (
           {refused && msg.refusal_reason ? <Chip text={REFUSAL_TEXT[msg.refusal_reason] ?? 'Từ chối'} bg={c.dongNhat} fg={c.dongChu} /> : null}
           {msg.answer_mode === 'extractive' ? <Chip text="Trích nguyên văn tư liệu" bg={c.the2} fg={c.muc2} /> : null}
         </View>
-        <Txt size={15} style={{ lineHeight: 23 }} selectable>{msg.content}</Txt>
+        <MarkdownText content={msg.content} size={15} lineHeight={23} />
         {msg.citations?.length ? (
           <View style={{ gap: 6 }}>
             <Txt f="bold" size={12} color={c.muc3}>Nguồn tư liệu</Txt>
@@ -86,9 +191,9 @@ export const ReportSheet: React.FC<{ session: Session; message: AiMessage; onClo
 };
 
 // ---------------------------------------------------------------------- khung trò chuyện
-interface ChatProps { session: Session; mode: 'tutor' | 'roleplay' | 'teacher'; figure?: { id: number; name: string } | null; initial?: { id: number; messages: AiMessage[] } | null; onOpen?: OpenSource; onChanged?: () => void; samples?: string[]; placeholder?: string }
+interface ChatProps { session: Session; mode: 'tutor' | 'roleplay' | 'teacher'; figure?: { id: number; name: string } | null; initial?: { id: number; messages: AiMessage[] } | null; onOpen?: OpenSource; onChanged?: () => void; samples?: string[]; placeholder?: string; onScrollToEnd?: () => void }
 
-export const ChatPanel: React.FC<ChatProps> = ({ session, mode, figure, initial, onOpen, onChanged, samples = SAMPLES, placeholder = 'Em muốn hỏi gì về lịch sử thời Trần?' }) => {
+export const ChatPanel: React.FC<ChatProps> = ({ session, mode, figure, initial, onOpen, onChanged, samples = SAMPLES, placeholder = 'Em muốn hỏi gì về lịch sử thời Trần?', onScrollToEnd }) => {
   const { c } = useTheme();
   const toast = useToast();
   const [conversation, setConversation] = useState<number | null>(initial?.id ?? null);
@@ -98,12 +203,20 @@ export const ChatPanel: React.FC<ChatProps> = ({ session, mode, figure, initial,
   const [error, setError] = useState<string | null>(null);
   const [reporting, setReporting] = useState<AiMessage | null>(null);
 
+  useEffect(() => {
+    if (messages.length > 0 || busy) {
+      const t = setTimeout(() => onScrollToEnd?.(), 80);
+      return () => clearTimeout(t);
+    }
+  }, [messages.length, busy, onScrollToEnd]);
+
   const send = useCallback(async (q: string) => {
     const question = q.trim();
     if (!question || busy) return;
     setBusy(true); setError(null); setText('');
     const pending: AiMessage = { id: -Date.now(), role: 'user', content: question, created_at: new Date().toISOString() };
     setMessages((m) => [...m, pending]);
+    setTimeout(() => onScrollToEnd?.(), 40);
     try {
       const res: AiReply = await api.aiAsk(session.token, { question, conversation_id: conversation ?? undefined, mode, figure_id: figure?.id });
       setConversation(res.conversation.id);
@@ -115,7 +228,7 @@ export const ChatPanel: React.FC<ChatProps> = ({ session, mode, figure, initial,
       setText(question);
       setError(errorMessage(e));
     } finally { setBusy(false); }
-  }, [busy, conversation, figure?.id, mode, onChanged, session]);
+  }, [busy, conversation, figure?.id, mode, onChanged, onScrollToEnd, session]);
 
   const last = messages[messages.length - 1];
   return (

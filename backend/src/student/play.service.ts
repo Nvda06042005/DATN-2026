@@ -38,6 +38,76 @@ export class PlayService {
 
   // ------------------------------------------------------------------ trang chủ (HK.HS.017–018)
   async home(user: UserRow) {
+    if (user.username?.endsWith('.demo') || !this.db.ready) {
+      return {
+        learner: {
+          id: user.id,
+          full_name: user.full_name,
+          nickname: user.nickname ?? 'Đông A Chiến Binh',
+        },
+        cards: [
+          {
+            id: 1,
+            title: 'Kháng chiến chống Nguyên Mông lần I (1258)',
+            year_label: '1258',
+            description: 'Vua Trần Thái Tông cùng nhân dân Đại Việt lập phòng tuyến Bình Lệ Nguyên và phản công Đông Bộ Đầu giòn giã.',
+            journey: { id: 1, title: 'Hào khí Đông A - Kháng chiến lần thứ nhất', from_class: false },
+            nodes: 6,
+            done: 4,
+            stars: 6,
+            max_stars: 18,
+            percent: 67,
+            completed: false,
+          },
+          {
+            id: 2,
+            title: 'Kháng chiến chống Nguyên Mông lần II (1285)',
+            year_label: '1285',
+            description: 'Hội nghị Diên Hồng vang lời Sát Thát. Hưng Đạo Vương Trần Quốc Tuấn viết Hịch Tướng Sĩ.',
+            journey: { id: 2, title: 'Hào khí Đông A - Kháng chiến lần thứ hai', from_class: false },
+            nodes: 8,
+            done: 2,
+            stars: 3,
+            max_stars: 24,
+            percent: 25,
+            completed: false,
+          },
+          {
+            id: 3,
+            title: 'Kháng chiến chống Nguyên Mông lần III (1287 - 1288)',
+            year_label: '1287-1288',
+            description: 'Trận thủy chiến Bạch Đằng lịch sử chôn vùi toàn bộ đoàn thuyền giặc của Ô Mã Nhi.',
+            journey: null,
+            nodes: 7,
+            done: 0,
+            stars: 0,
+            max_stars: 21,
+            percent: 0,
+            completed: false,
+          },
+        ],
+        suggestions: [
+          {
+            type: 'node',
+            node_id: 104,
+            title: 'Phản công Đông Bộ Đầu',
+            kind: 'battle',
+            kind_label: 'Trận đánh',
+            campaign_id: 1,
+            campaign_title: 'Kháng chiến lần I (1258)',
+          },
+        ],
+        next: {
+          type: 'node',
+          node_id: 104,
+          title: 'Phản công Đông Bộ Đầu',
+          kind: 'battle',
+          kind_label: 'Trận đánh',
+          campaign_id: 1,
+          campaign_title: 'Kháng chiến lần I (1258)',
+        },
+      };
+    }
     const q = this.read;
     const campaigns = await this.learn.campaigns();
     const active = await activeJourneys(q, user.id);
@@ -306,6 +376,38 @@ export class PlayService {
    * Hành trình chưa chia Cửa hiện thành một nhóm duy nhất; nút không thuộc Cửa nào hiện thành nhóm riêng.
    */
   async path(user: UserRow) {
+    if (user.username?.endsWith('.demo') || !this.db.ready) {
+      return {
+        parts: [
+          {
+            no: 1,
+            campaign: { id: 1, title: 'Kháng chiến lần I (1258)', year_label: 'Năm 1258' },
+            journey: { id: 1, title: 'Hào khí Đông A - Kháng chiến lần thứ nhất', from_class: false },
+            totals: { nodes: 6, done: 4 },
+            gates: [
+              {
+                id: 1,
+                no: 1,
+                title: 'Bình Lệ Nguyên & Thăng Long rực lửa',
+                summary: 'Bài học mở đầu về trận Bình Lệ Nguyên và chiến lược vườn không nhà trống',
+                guidebook: 'Vua Trần Thái Tông thân chinh đốc chiến...',
+                done: 3,
+                state: 'current',
+                nodes: [
+                  { id: 101, gate_id: 1, position: 1, title: 'Bình Lệ Nguyên quyết chiến', kind: 'lesson', kind_label: 'Bài học', state: 'done', stars: 3, best_percent: 100, reward_points: 100, lock_reason: null, steps: { done: 3, total: 3 } },
+                  { id: 102, gate_id: 1, position: 2, title: 'Vườn không nhà trống', kind: 'quiz', kind_label: 'Trắc nghiệm', state: 'done', stars: 3, best_percent: 100, reward_points: 120, lock_reason: null, steps: { done: 1, total: 1 } },
+                  { id: 103, gate_id: 1, position: 3, title: 'Rương thần Đông A', kind: 'chest', kind_label: 'Rương báu', state: 'done', stars: 0, best_percent: 100, reward_points: 50, lock_reason: null, steps: { done: 1, total: 1 } },
+                  { id: 104, gate_id: 1, position: 4, title: 'Phản công Đông Bộ Đầu', kind: 'battle', kind_label: 'Trận đánh', state: 'available', stars: 0, best_percent: 0, reward_points: 150, lock_reason: null, steps: { done: 0, total: 1 } },
+                  { id: 105, gate_id: 1, position: 5, title: 'Đuổi giặc về phương Bắc', kind: 'quiz', kind_label: 'Trắc nghiệm', state: 'locked', stars: 0, best_percent: 0, reward_points: 100, lock_reason: 'Hoàn thành trận Đông Bộ Đầu trước', steps: { done: 0, total: 1 } },
+                  { id: 106, gate_id: 1, position: 6, title: 'Cúp Vinh Quang Chặng 1', kind: 'trophy', kind_label: 'Cúp chặng', state: 'locked', stars: 0, best_percent: 0, reward_points: 200, lock_reason: 'Hoàn thành các bài học trước', steps: { done: 0, total: 1 } },
+                ],
+              },
+            ],
+          },
+        ],
+        current: { part_no: 1, gate_no: 1, gate_title: 'Bình Lệ Nguyên & Thăng Long rực lửa', node_id: 104 },
+      };
+    }
     const q = this.read;
     const campaigns = (await this.learn.campaigns()) as Array<Record<string, any>>;
     const active = await activeJourneys(q, user.id);

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, ImageBackground, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type TextInputInstance } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AlertTriangle, ArrowLeft, ArrowRight, Eye, EyeOff, GraduationCap, KeyRound, Presentation, School } from 'lucide-react-native';
+import { AlertTriangle, ArrowLeft, ArrowRight, Eye, EyeOff, GraduationCap, KeyRound, Presentation, School, Sparkles } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { errorMessage } from '@/api/client';
 import { BrandLogo } from '@/components/art';
@@ -163,6 +163,64 @@ export function SchoolLogin({ initialRole, onLogin, notice, onForgotPassword }: 
                 <Txt f="bold" size={14} color={c.trang}>{loading ? 'Đang đăng nhập…' : challenge ? 'Xác thực và đăng nhập' : 'Đăng nhập'}</Txt><ArrowRight size={18} color={c.trang} />
               </Pressable>
             </View>
+            {!challenge && (
+              <Pressable
+                onPress={() => {
+                  const targetRole = role === 'school_admin' ? 'school_admin' : role === 'teacher' ? 'teacher' : 'student';
+                  const demoToken = `demo-${targetRole}-${Date.now()}`;
+                  const mockUser: AuthUser = {
+                    id: targetRole === 'teacher' ? 2 : targetRole === 'student' ? 1 : 3,
+                    username: `${targetRole}.demo`,
+                    full_name: targetRole === 'teacher' ? 'Thầy Cô Giáo Viên (Bản Xem Thử)' : targetRole === 'student' ? 'Học Sinh Đông A (Bản Xem Thử)' : 'Quản Trị Nhà Trường (Bản Xem Thử)',
+                    role: targetRole,
+                    class_name: '7A1',
+                    must_change_password: false,
+                    is_active: true,
+                    created_at: '2026-01-01T00:00:00Z',
+                    last_login_at: '2026-01-01T00:00:00Z',
+                    school_id: 1,
+                    user_code: targetRole === 'teacher' ? 'GV001' : targetRole === 'student' ? 'HS001' : 'QT001',
+                    school_code: 'DA7',
+                    region: 'Miền Bắc',
+                    city: 'Hà Nội',
+                    birth_date: targetRole === 'teacher' ? '1985-01-01' : '2012-05-15',
+                    school_year: '2025-2026',
+                    email: `${targetRole}@donga.edu.vn`,
+                    grade: 7,
+                    phone: '0987654321',
+                    avatar_url: null,
+                    bio: targetRole === 'teacher' ? 'Giáo viên bộ môn Lịch sử' : 'Yêu thích lịch sử',
+                    nickname: null,
+                    gender: null,
+                    subject: targetRole === 'teacher' ? 'Lịch sử' : null,
+                    parent_email: null,
+                    lock_reason: null,
+                    locked_at: null,
+                    admin_level: targetRole === 'teacher' ? 2 : 1,
+                    profile_confirmed_at: '2026-01-01T00:00:00Z',
+                    self_registered: false,
+                  };
+                  void onLogin(demoToken, mockUser);
+                }}
+                style={({ pressed }) => ({
+                  minHeight: 42,
+                  borderRadius: 10,
+                  borderWidth: 1.5,
+                  borderColor: c.vien,
+                  backgroundColor: pressed ? c.the2 : '#f8fafc',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                })}
+                testID="demo-preview-btn"
+              >
+                <Sparkles size={16} color="#d97706" />
+                <Txt f="bold" size={13} color="#334155">
+                  {role === 'teacher' ? '⚡ Vào nhanh giao diện Giáo viên (Bản xem thử)' : role === 'student' ? '⚡ Vào nhanh giao diện Học sinh (Bản xem thử)' : '⚡ Vào nhanh Nhà trường (Bản xem thử)'}
+                </Txt>
+              </Pressable>
+            )}
             {!challenge && <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <GoogleSignIn disabled={loading} onToken={idToken => { void googleLogin(idToken); }} />
             </View>}

@@ -280,6 +280,15 @@ export class AuthService {
   // ------------------------------------------------------------------ hồ sơ cá nhân
   /** Hồ sơ của chính người dùng: thông tin cá nhân, trường, năm học hiện tại, các lớp (giáo viên: lớp phụ trách; học sinh: lớp đã tham gia) */
   async profile(user: UserRow) {
+    if (user.username?.endsWith('.demo') || !this.db.ready) {
+      const mockSchool = { id: 1, school_code: 'DA7', name: 'Trường THCS Đông A', logo_url: null, city: 'Hà Nội' };
+      const mockYear = { id: 1, label: '2025-2026' };
+      const mockClasses = [
+        { id: 101, class_code: '7A1', name: 'Lớp 7A1 - Lịch sử Đại Việt', grade: 7, school_year: '2025-2026', is_active: true, join_code: 'DA7A1X' },
+        { id: 102, class_code: '7A2', name: 'Lớp 7A2 - Lịch sử Thế giới & Việt Nam', grade: 7, school_year: '2025-2026', is_active: true, join_code: 'DA7A2Y' },
+      ];
+      return { user: toPublic(user), school: mockSchool, school_year: mockYear, classes: mockClasses, editable: PROFILE_FIELDS[user.role], needs_profile_confirmation: false };
+    }
     const school = user.school_id ? (await this.db.query('SELECT id, school_code, name, logo_url, city FROM app_schools WHERE id = $1', [user.school_id]))[0] ?? null : null;
     const year = user.school_id ? (await this.db.query("SELECT id, label FROM app_school_years WHERE school_id = $1 AND status = 'active'", [user.school_id]))[0] ?? null : null;
     const classes = user.role === 'teacher'

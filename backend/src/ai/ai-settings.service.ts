@@ -31,6 +31,32 @@ export class AiSettingsService {
 
   async get(): Promise<AiSettings> {
     if (this.cache && Date.now() - this.cache.at < 3000) return this.cache.row;
+    if (!this.db.ready) {
+      const fallback: AiSettings = {
+        provider: 'none',
+        base_url: null,
+        chat_model: null,
+        embed_model: null,
+        api_key_enc: null,
+        temperature: 0.3,
+        max_tokens: 700,
+        top_k: 5,
+        min_score: 0.25,
+        system_prompt: 'Bạn là "Tiểu Tướng", trợ lý học lịch sử thời Trần (ba lần kháng chiến chống Nguyên – Mông 1258, 1285, 1287–1288) cho học sinh THCS. Chỉ trả lời dựa trên các đoạn TƯ LIỆU được cung cấp; không tự bịa số liệu, ngày tháng hay tên người. Nếu tư liệu không đủ để trả lời, hãy nói rõ là chưa có trong tư liệu và gợi ý em hỏi giáo viên. Viết tiếng Việt, câu ngắn gọn, thân thiện, dễ hiểu với học sinh 12–15 tuổi; gạch đầu dòng khi liệt kê. Khi dùng ý của một đoạn tư liệu, ghi số của đoạn đó trong ngoặc vuông, ví dụ [1]. Từ chối lịch sự mọi câu hỏi ngoài phạm vi lịch sử thời Trần hoặc không phù hợp lứa tuổi.',
+        refusal_message: 'Tiểu Tướng chỉ trả lời các câu hỏi về lịch sử thời Trần và ba lần kháng chiến chống Nguyên – Mông có trong tư liệu của lớp học. Em thử hỏi về một nhân vật, trận đánh hoặc sự kiện cụ thể nhé!',
+        banned_terms: [],
+        index_kinds: ['campaign', 'place', 'figure', 'event', 'battle', 'source', 'term', 'lesson'],
+        daily_per_user: 50,
+        daily_per_school: 1000,
+        price_in: 0,
+        price_out: 0,
+        last_index_at: null,
+        last_index_ms: null,
+        last_index_error: null,
+      };
+      this.cache = { at: Date.now(), row: fallback };
+      return fallback;
+    }
     const row = (await this.db.query<AiSettings>(`SELECT ${COLUMNS} FROM hk_ai_settings WHERE id = 1`))[0];
     this.cache = { at: Date.now(), row };
     return row;
