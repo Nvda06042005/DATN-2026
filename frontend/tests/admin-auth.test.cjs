@@ -130,13 +130,13 @@ test('Google mặc định là học sinh, không nhận phiên quản trị t�
   await assert.rejects(auth.loginWithGoogle('synthetic-google-credential'), error => error.status === 403);
 });
 
-for (const role of ['student', 'teacher', 'school_admin']) {
+for (const role of ['student', 'teacher', 'school_admin', 'root_admin']) {
   test(`Google gửi đúng vai trò ${role} và từ chối phiên vai trò khác`, async () => {
-    const session = { token: 'test-school-token', user: { ...rootUser, role, school_id: 42 } };
+    const session = { token: 'test-google-token', user: { ...rootUser, role, school_id: role === 'root_admin' ? null : 42 } };
     const { auth, requests } = loadAuth({ respond: () => session });
     assert.deepEqual(await auth.loginWithGoogle('synthetic-google-credential', role), session);
     assert.deepEqual(JSON.parse(requests[0].body), { id_token: 'synthetic-google-credential', portal: role });
-    const wrong = loadAuth({ respond: () => rootSession });
+    const wrong = loadAuth({ respond: () => role === 'root_admin' ? { token: 'teacher-token', user: { ...rootUser, role: 'teacher' } } : rootSession });
     await assert.rejects(wrong.auth.loginWithGoogle('synthetic-google-credential', role), error => error.status === 403);
   });
 }
@@ -147,4 +147,14 @@ test('Google của quản trị trường trả thử thách hai lớp, chưa ph
   const result = await auth.loginWithGoogle('synthetic-google-credential', 'school_admin');
   assert.deepEqual(result, challenge);
   assert.equal(result.token, undefined);
+});
+
+test('Google quản lý tổng giữ thử thách hai lớp và chỉ nhận phiên root_admin sau khi xác thực', async () => {
+  const challenge = { two_factor: true, method: 'totp', challenge: 'root-google-challenge', expires_in: 300 };
+  const { auth, requests } = loadAuth({ respond: url => url.endsWith('/2fa/verify') ? rootSession : challenge });
+  const pending = await auth.loginWithGoogle('synthetic-google-credential', 'root_admin');
+  assert.deepEqual(pending, challenge);
+  assert.equal(pending.token, undefined);
+  assert.deepEqual(await auth.verifyTwoFactor(pending.challenge, '123456', 'root_admin'), rootSession);
+  assert.deepEqual(JSON.parse(requests[1].body), { challenge: pending.challenge, code: '123456', portal: 'root_admin' });
 });

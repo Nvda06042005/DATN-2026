@@ -1,7 +1,8 @@
 /** Kiểu dữ liệu trình soạn Quiz kiểu Kahoot (HK.GV.085–094). Khớp với backend/src/content/studio.service.ts và /api/content/studio, /api/content/media. */
 import type { QuizDetail } from '@/types/learning';
 
-export type StudioQType = 'single' | 'multiple' | 'truefalse';
+/** `poll`: bình chọn không có đáp án đúng (HK.GV.088); chỉ dùng khi thi đấu trực tiếp */
+export type StudioQType = 'single' | 'multiple' | 'truefalse' | 'poll';
 export type ScoreMode = 'standard' | 'double' | 'none';
 
 export interface StudioQuestion {
@@ -10,12 +11,15 @@ export interface StudioQuestion {
   options: string[]; correct: number[]; tf: boolean; seconds: number; score_mode: ScoreMode; image_url: string | null; video_url: string | null; explanation: string;
 }
 export interface StudioPayload {
-  title: string; description: string; cover_url: string | null; theme: { bg: string; music: string }; campaign_id: number | null; shuffle_questions: boolean; shuffle_options: boolean; questions: StudioQuestion[];
+  title: string; description: string; cover_url: string | null; theme: { bg: string; music: string; music_url?: string }; campaign_id: number | null; shuffle_questions: boolean; shuffle_options: boolean; questions: StudioQuestion[];
 }
 export interface StudioDraft { id: number; quiz_id: number | null; updated_at: string; payload: StudioPayload }
 export interface StudioListItem { id: number; quiz_id: number | null; title: string; questions: number; updated_at: string }
+export interface UploadedFile { token: string; name: string | null; url: string; mime: string; size_bytes: number }
 export interface MediaLibrary {
-  uploads: Array<{ token: string; name: string | null; url: string }>;
+  uploads: UploadedFile[];
+  /** Video và nhạc tải lên (HK.GV.092, 093) */
+  videos: UploadedFile[]; audios: UploadedFile[];
   library: Array<{ kind: 'source' | 'figure' | 'place' | 'campaign'; id: number; title: string; url: string }>;
 }
 export type CommitResult = { quiz: QuizDetail; draft: { id: number; quiz_id: number; payload: StudioPayload } };
@@ -34,7 +38,8 @@ export const blankQuestion = (): StudioQuestion => ({
 export function problemOf(q: StudioQuestion): string | null {
   if (q.prompt.trim().length < 3) return 'Chưa có nội dung câu hỏi';
   if (q.qtype === 'truefalse') return null;
-  if (!q.options[0].trim() || !q.options[1].trim()) return 'Cần nhập hai đáp án đầu';
+  if (!q.options[0].trim() || !q.options[1].trim()) return q.qtype === 'poll' ? 'Cần nhập hai lựa chọn đầu' : 'Cần nhập hai đáp án đầu';
+  if (q.qtype === 'poll') return null; // bình chọn không có đáp án đúng
   const filled = q.options.map((t, i) => (t.trim() ? i : -1)).filter((i) => i >= 0);
   const right = q.correct.filter((i) => filled.includes(i));
   if (q.qtype === 'single') return right.length === 1 ? null : 'Chưa chọn đáp án đúng';

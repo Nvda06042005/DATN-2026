@@ -19,7 +19,7 @@ class TwoFactorLoginDto {
 
 class GoogleLoginDto {
   @IsString() @Length(20, 4096) id_token: string;
-  @IsOptional() @IsIn(['student', 'teacher', 'school_admin', 'app']) portal: Portal = 'student';
+  @IsOptional() @IsIn(['root_admin', 'student', 'teacher', 'school_admin', 'app']) portal: Portal = 'student';
 }
 
 /** Mật khẩu người dùng tự đặt: tối thiểu 8 ký tự, gồm cả chữ và số (HK.*.006) */
@@ -82,7 +82,7 @@ export class AuthController {
     return this.auth.completeTwoFactor(body.challenge, body.code, body.portal);
   }
 
-  /** Google: email đã xác minh phải khớp tài khoản và vai trò đã chọn của nhà trường. */
+  /** Google: email đã xác minh phải khớp tài khoản được cấp và đúng cổng đăng nhập. */
   @Post('google')
   @HttpCode(200)
   google(@Body() body: GoogleLoginDto) {

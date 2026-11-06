@@ -1,7 +1,6 @@
 import { ApiError, apiRequest } from '@/api/client';
 import type { AuthSession, AuthUser, ClassItem, Portal, ProfileData, ProfilePatch } from '@/types/api';
 import type { TwoFactorChallenge } from '@/types/platform';
-import type { SchoolRole } from '@/lib/school-portal';
 
 /** Phiên server trả về phải có token và đúng vai trò của trang đăng nhập (trang quản trị không nhận phiên của vai trò khác) */
 function checkSession(session: AuthSession, portal: Portal | 'app'): AuthSession {
@@ -25,7 +24,7 @@ export const loginAdmin = loginWithPassword;
 export const verifyTwoFactor = async (challenge: string, code: string, portal: Portal) => checkSession(await apiRequest<AuthSession>('/api/auth/2fa/verify', { body: { challenge, code, portal } }), portal);
 
 /** Google dùng đúng vai trò đã chọn và vẫn yêu cầu hai lớp nếu tài khoản đã bật. */
-export const loginWithGoogle = async (idToken: string, portal: SchoolRole = 'student'): Promise<AuthSession | TwoFactorChallenge> => {
+export const loginWithGoogle = async (idToken: string, portal: Portal = 'student'): Promise<AuthSession | TwoFactorChallenge> => {
   const res = await apiRequest<AuthSession | TwoFactorChallenge>('/api/auth/google', { body: { id_token: idToken, portal } });
   return 'two_factor' in res ? res : checkSession(res, portal);
 };

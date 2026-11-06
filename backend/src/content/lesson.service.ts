@@ -133,8 +133,9 @@ export class LessonService {
     if (checks !== undefined) {
       if (checks.length > MAX_CHECKS || new Set(checks).size !== checks.length) return bad(`Mỗi bài học có tối đa ${MAX_CHECKS} câu kiểm tra nhanh, không trùng nhau`);
       for (const qid of checks) {
-        const found = (await q<{ scope: string }>('SELECT scope FROM hk_questions WHERE id = $1', [qid]))[0];
+        const found = (await q<{ scope: string; qtype: string }>('SELECT scope, qtype FROM hk_questions WHERE id = $1', [qid]))[0];
         if (!found || found.scope !== 'system') return bad(`Câu kiểm tra nhanh #${qid} phải là câu hỏi của kho hệ thống`);
+        if (found.qtype === 'poll') return bad(`Câu kiểm tra nhanh #${qid} là câu bình chọn, không có đáp án đúng nên không dùng được`);
       }
       await q('DELETE FROM hk_lesson_checks WHERE lesson_id = $1', [id]);
       let position = 1;

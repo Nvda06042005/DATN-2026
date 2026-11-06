@@ -7,6 +7,8 @@ import { activate, adminLogin, call, hasPostgres, Started, startApp } from './ha
 import type { MailService } from '../src/admin/mail.service';
 import type { AuthService } from '../src/auth/auth.service';
 import type { DatabaseService } from '../src/database/database.service';
+import { createSign, generateKeyPairSync } from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 
 let s: Started, db: DatabaseService, mail: MailService, root: string;
 const PW = 'Matkhau-12345';
@@ -267,7 +269,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
       await db.query('UPDATE app_users SET email = $1 WHERE id = $2', ['root.google@example.edu.vn', rootUser!.id]);
       spy.mockResolvedValue({ email: 'root.google@example.edu.vn' });
       expect((await google('school_admin')).status).toBe(401);
-      expect((await google('root_admin')).status).toBe(422);
+      expect((await google('root_admin')).status).toBe(401); // email ngoài Gmail/Workspace không mở cổng quản lý tổng
       await db.query('UPDATE app_users SET email = $1 WHERE id = $2', [rootUser!.email, rootUser!.id]);
     } finally { spy.mockRestore(); }
   });
@@ -291,6 +293,88 @@ async function newSchool(code: string, name: string, adminName: string, email: s
       expect(done.status).toBe(200);
       expect(done.body.user).toMatchObject({ id: school.admin.id, role: 'school_admin', school_id: school.id });
       expect((await api('POST', '/api/auth/2fa/verify', body, '')).status).toBe(401);
+    } finally { spy.mockRestore(); }
+  });
+
+  test('Google kiểm tra chữ ký, issuer, audience, hạn dùng và email đã xác minh bằng thư viện chính thức', async () => {
+    const auth: AuthService = s.moduleRef.get((await import('../src/auth/auth.service')).AuthService);
+    const { publicKey, privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const format = 'PEM' as Awaited<ReturnType<OAuth2Client['getFederatedSignonCertsAsync']>>['format'];
+    const certs = jest.spyOn(OAuth2Client.prototype, 'getFederatedSignonCertsAsync').mockResolvedValue({ certs: { fixture: publicKey.export({ type: 'spki', format: 'pem' }).toString() }, format });
+    const now = Math.floor(Date.now() / 1000);
+    const claims = { sub: 'synthetic-google-subject', iss: 'https://accounts.google.com', aud: 'test-client.apps.googleusercontent.com', iat: now, exp: now + 3600, email: 'root.google.test@gmail.com', email_verified: true };
+    const sign = (patch: Record<string, unknown> = {}) => {
+      const text = `${Buffer.from(JSON.stringify({ alg: 'RS256', kid: 'fixture' })).toString('base64url')}.${Buffer.from(JSON.stringify({ ...claims, ...patch })).toString('base64url')}`;
+      return `${text}.${createSign('RSA-SHA256').update(text).sign(privateKey, 'base64url')}`;
+    };
+    try {
+      expect(await auth.verifyGoogleToken(sign())).toEqual({ email: claims.email, authoritative: true });
+      expect(await auth.verifyGoogleToken(sign({ email: 'admin@example.edu.vn', hd: 'example.edu.vn' }))).toMatchObject({ authoritative: true });
+      expect(await auth.verifyGoogleToken(sign({ email: 'admin@third-party.test' }))).toMatchObject({ authoritative: false });
+      for (const patch of [{ aud: 'another-client' }, { iss: 'https://fake.test' }, { exp: now - 600 }, { email_verified: false }, { email: '' }, { sub: '' }]) {
+        await expect(auth.verifyGoogleToken(sign(patch))).rejects.toMatchObject({ status: 401 });
+      }
+      const forged = sign().split('.');
+      forged[1] = Buffer.from(JSON.stringify({ ...claims, email: 'other@gmail.com' })).toString('base64url');
+      await expect(auth.verifyGoogleToken(forged.join('.'))).rejects.toMatchObject({ status: 401 });
+    } finally { certs.mockRestore(); }
+  });
+
+  test('Google quản lý tổng chỉ mở tài khoản được cấp, không nâng quyền hoặc tự tạo tài khoản', async () => {
+    const created = await api('POST', '/api/admin/users', { full_name: 'Quản Lý Google Thử', role: 'root_admin', email: 'root.google.test@gmail.com', admin_level: 2 });
+    expect(created.status).toBe(201);
+    const active = await activate(s.base, created.body.user.username, created.body.temporary_password, PW, 'root_admin');
+    const auth: AuthService = s.moduleRef.get((await import('../src/auth/auth.service')).AuthService);
+    const spy = jest.spyOn(auth, 'verifyGoogleToken');
+    const google = (portal = 'root_admin') => api('POST', '/api/auth/google', { id_token: 'x'.repeat(40), portal }, '');
+    const before = (await db.query('SELECT count(*)::int AS n FROM app_users'))[0].n;
+    try {
+      spy.mockResolvedValue({ email: 'root.google.test@gmail.com', authoritative: true });
+      const ok = await google();
+      expect(ok.status).toBe(200);
+      expect(ok.body.user).toMatchObject({ id: active.user.id, role: 'root_admin', school_id: null, admin_level: 2 });
+      expect((await api('GET', '/api/auth/me', undefined, ok.body.token)).status).toBe(200);
+      for (const portal of ['student', 'teacher', 'school_admin', 'app']) expect((await google(portal)).status).toBe(401);
+      await api('POST', `/api/admin/users/${active.user.id}/lock`, { locked: true, reason: 'Khóa Google thử' });
+      expect((await google()).status).toBe(403);
+      expect((await api('GET', '/api/auth/me', undefined, ok.body.token)).status).toBe(401);
+      await api('POST', `/api/admin/users/${active.user.id}/lock`, { locked: false });
+      spy.mockResolvedValue({ email: 'root.google.test@gmail.com', authoritative: false });
+      expect((await google()).status).toBe(401);
+      for (const email of ['qt.a@example.edu.vn', 'dogoogle@example.edu.vn', 'gv.google@example.edu.vn', 'unregistered@gmail.com']) {
+        spy.mockResolvedValue({ email, authoritative: true });
+        expect((await google()).status).toBe(401);
+      }
+      expect((await db.query('SELECT count(*)::int AS n FROM app_users'))[0].n).toBe(before);
+      expect((await db.getById(active.user.id))?.role).toBe('root_admin');
+    } finally { spy.mockRestore(); }
+  });
+
+  test('Google quản lý tổng bật hai lớp chưa có phiên trước mã OTP và giữ đúng cổng quản trị', async () => {
+    const created = await api('POST', '/api/admin/users', { full_name: 'Quản Lý Google Hai Lớp', role: 'root_admin', email: 'root.google.2fa@gmail.com', admin_level: 2 });
+    expect(created.status).toBe(201);
+    const active = await activate(s.base, created.body.user.username, created.body.temporary_password, PW, 'root_admin');
+    const auth: AuthService = s.moduleRef.get((await import('../src/auth/auth.service')).AuthService);
+    const spy = jest.spyOn(auth, 'verifyGoogleToken').mockResolvedValue({ email: 'root.google.2fa@gmail.com', authoritative: true });
+    const latestCode = () => /Mã xác thực của bạn là: (\d{6})/.exec(mail.sent[mail.sent.length - 1].text)![1];
+    try {
+      expect((await api('POST', '/api/platform/2fa/setup', { method: 'email' }, active.token)).status).toBe(200);
+      expect((await api('POST', '/api/platform/2fa/enable', { code: latestCode() }, active.token)).status).toBe(200);
+      const step = await api('POST', '/api/auth/google', { id_token: 'x'.repeat(40), portal: 'root_admin' }, '');
+      expect(step.status).toBe(200);
+      expect(step.body).toMatchObject({ two_factor: true, method: 'email', expires_in: 300 });
+      expect(step.body.token).toBeUndefined();
+      expect((await api('GET', '/api/auth/me', undefined, step.body.challenge)).status).toBe(401);
+      const body = { challenge: step.body.challenge, code: latestCode(), portal: 'root_admin' };
+      expect((await api('POST', '/api/auth/2fa/verify', { ...body, portal: 'school_admin' }, '')).status).toBe(401);
+      const wrongCode = body.code === '111111' ? '222222' : '111111';
+      expect((await api('POST', '/api/auth/2fa/verify', { ...body, code: wrongCode }, '')).status).toBe(401);
+      const done = await api('POST', '/api/auth/2fa/verify', body, '');
+      expect(done.status).toBe(200);
+      expect(done.body.user).toMatchObject({ id: active.user.id, role: 'root_admin', school_id: null });
+      expect((await api('POST', '/api/auth/2fa/verify', body, '')).status).toBe(401);
+      expect((await api('POST', '/api/auth/logout', {}, done.body.token)).status).toBe(200);
+      expect((await api('GET', '/api/auth/me', undefined, done.body.token)).status).toBe(401);
     } finally { spy.mockRestore(); }
   });
 

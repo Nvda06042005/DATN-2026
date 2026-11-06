@@ -4,17 +4,22 @@
  */
 import { BadRequestException } from '@nestjs/common';
 
-export const QTYPES = ['single', 'multiple', 'truefalse', 'fill', 'order', 'map'] as const;
+export const QTYPES = ['single', 'multiple', 'truefalse', 'fill', 'order', 'map', 'poll'] as const;
 export type QType = (typeof QTYPES)[number];
 export const QTYPE_LABEL: Record<QType, string> = {
-  single: 'Một đáp án', multiple: 'Nhiều đáp án', truefalse: 'Đúng / sai', fill: 'Điền khuyết', order: 'Sắp xếp thứ tự', map: 'Kéo thả lên bản đồ',
+  single: 'Một đáp án', multiple: 'Nhiều đáp án', truefalse: 'Đúng / sai', fill: 'Điền khuyết', order: 'Sắp xếp thứ tự', map: 'Kéo thả lên bản đồ', poll: 'Bình chọn',
 };
+
+/** Câu bình chọn (HK.GV.088) không có đáp án đúng: chỉ phòng thi trực tiếp dùng, mọi luồng chấm điểm (bài làm, bài tập, hành trình, trận đánh) bỏ qua loại này */
+export const POLL: QType = 'poll';
+export const isPoll = (qtype: string): boolean => qtype === POLL;
 
 export interface Option { id: string; text: string }
 export interface MapTarget { id: string; label: string; lat: number; lng: number; radius_km: number }
 export type QData =
   | { options: Option[]; correct: string }
   | { options: Option[]; correct: string[] }
+  | { options: Option[] }
   | { correct: boolean }
   | { blanks: Array<{ accept: string[] }> }
   | { items: Option[] }
@@ -80,6 +85,10 @@ export function normalizeData(qtype: QType, raw: unknown, prompt: string): QData
   if (qtype === 'truefalse') {
     if (typeof raw.correct !== 'boolean') return bad('Hãy chọn đáp án đúng là "Đúng" hoặc "Sai"');
     return { correct: raw.correct };
+  }
+  if (qtype === 'poll') {
+    // Bình chọn: 2–4 lựa chọn (đủ bốn nút ▲ ◆ ● ■ trên thiết bị), không có đáp án đúng nên bỏ mọi khóa `correct` nếu có
+    return { options: options(raw.options, 2, 4, 'Câu bình chọn') };
   }
   if (qtype === 'fill') {
     if (!Array.isArray(raw.blanks) || raw.blanks.length < 1 || raw.blanks.length > 5) return bad('Câu điền khuyết cần từ 1 đến 5 chỗ trống');
@@ -163,7 +172,7 @@ function shuffleDifferent<T>(list: T[], seed: number): T[] {
 export function publicView(q: QuestionCore, seed: number, shuffleOptions: boolean): Record<string, unknown> {
   const base = { id: q.id, qtype: q.qtype, prompt: q.prompt, image_url: q.image_url, video_url: q.video_url ?? null, difficulty: q.difficulty };
   const d = q.data as Record<string, any>;
-  if (q.qtype === 'single' || q.qtype === 'multiple') {
+  if (q.qtype === 'single' || q.qtype === 'multiple' || q.qtype === 'poll') {
     const opts = (d.options as Option[]).map((o) => ({ id: o.id, text: o.text }));
     // `shape` là vị trí của đáp án trên màn chiếu (▲ ◆ ● ■); giữ nguyên khi thiết bị học sinh xáo lại thứ tự hiển thị
     return { ...base, options: (shuffleOptions ? seededShuffle(opts, seed) : opts).map((o, shape) => ({ ...o, shape })) };
@@ -193,6 +202,8 @@ export interface GradeResult { correct: boolean; detail?: unknown }
 export function grade(q: Pick<QuestionCore, 'qtype' | 'data'>, answer: unknown): GradeResult {
   const d = q.data as Record<string, any>;
   const a = isObj(answer) ? answer : {};
+  // Bình chọn không có đáp án đúng nên không bao giờ "đúng" và không được chấm; nơi dùng (phòng thi) tự xử lý lựa chọn
+  if (q.qtype === 'poll') return { correct: false };
   if (q.qtype === 'single') return { correct: typeof a.choice === 'string' && a.choice === d.correct };
   if (q.qtype === 'multiple') {
     const picked = Array.isArray(a.choices) ? [...new Set(a.choices.filter((c): c is string => typeof c === 'string'))] : [];

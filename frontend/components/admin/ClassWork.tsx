@@ -9,7 +9,7 @@ import * as battle from '@/api/battleApi';
 import * as api from '@/api/classroomApi';
 import * as learning from '@/api/learningApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
-import { Cell, DataTable, ErrorNote, FormSheet, StatusChip, fromVn, idsToValues, toVn, useAction, useLoad, valuesToIds, type FieldDef } from '@/components/admin/kit';
+import { Cell, DataTable, DownloadButton, ErrorNote, FormSheet, StatusChip, fromVn, idsToValues, toVn, useAction, useLoad, valuesToIds, type FieldDef } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Bar, Btn, ConfirmSheet, EmptyState, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -101,6 +101,10 @@ const AssignmentSheet: React.FC<{ session: Session; cls: ClassDetail; id: number
             <StatusChip kind="muted" text={`tối đa ${d.max_attempts} lần · thưởng ${d.bonus_points} điểm`} />
           </View>
           <Bar value={d.summary.submitted} max={Math.max(1, d.summary.total)} label={`Đã nộp ${d.summary.submitted}/${d.summary.total}`} />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            <DownloadButton title="Xuất Excel" fetchBlob={() => api.exportAssignment(session.token, id, 'xlsx')} filename={`bai-tap-${id}.xlsx`} />
+            <DownloadButton title="Xuất PDF" fetchBlob={() => api.exportAssignment(session.token, id, 'pdf')} filename={`bai-tap-${id}.pdf`} />
+          </View>
           {d.status === 'active' ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               <Btn icon={BellRing} title="Nhắc học sinh chưa nộp" tone="dong" size="sm" loading={busy} testID="assign-remind"

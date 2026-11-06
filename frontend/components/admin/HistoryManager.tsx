@@ -212,7 +212,7 @@ const RecordSheet: React.FC<{ session: Session; spec: HistorySpec; specs: Histor
                 return (
                   <View key={f.name} style={{ gap: 2 }}>
                     <Txt f="bold" size={12} color={c.muc3}>{f.label}</Txt>
-                    <Txt size={14} selectable style={{ fontFamily: undefined }}>{value === null || value === undefined || value === '' ? 'Chưa có' : String(value)}</Txt>
+                    <Txt size={14} selectable>{value === null || value === undefined || value === '' ? 'Chưa có' : String(value)}</Txt>
                   </View>
                 );
               })}

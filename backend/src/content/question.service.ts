@@ -36,7 +36,7 @@ function plainFields(input: Partial<QuestionInput>, existing?: QuestionRow) {
   const image = input.image_url === undefined ? (existing?.image_url ?? null) : input.image_url ? String(input.image_url).trim() : null;
   if (image && (!(/^https:\/\//.test(image) || MEDIA_PATH.test(image)) || image.length > 500)) throw new BadRequestException('Hình ảnh phải là liên kết https hoặc ảnh đã tải lên (tối đa 500 ký tự)');
   const video = input.video_url === undefined ? (existing?.video_url ?? null) : input.video_url ? String(input.video_url).trim() : null;
-  if (video && (!/^https:\/\//.test(video) || video.length > 500)) throw new BadRequestException('Video phải là liên kết https (tối đa 500 ký tự)');
+  if (video && (!(/^https:\/\//.test(video) || MEDIA_PATH.test(video)) || video.length > 500)) throw new BadRequestException('Video phải là liên kết https hoặc video đã tải lên (tối đa 500 ký tự)');
   const explanation = input.explanation === undefined ? (existing?.explanation ?? null) : tidy(input.explanation) || null;
   if (explanation && explanation.length > 2000) throw new BadRequestException('Giải thích tối đa 2000 ký tự');
   const difficulty = Number(input.difficulty ?? existing?.difficulty ?? 2);

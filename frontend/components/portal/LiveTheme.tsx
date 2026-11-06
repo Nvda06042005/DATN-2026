@@ -5,6 +5,7 @@
  */
 import React, { useEffect, useRef } from 'react';
 import { Platform, View } from 'react-native';
+import { mediaUri } from '@/components/portal/Media';
 import type { LiveTheme } from '@/types/live';
 
 export interface ThemeSpec { id: string; label: string; bg: string | null; accent: string | null }
@@ -43,8 +44,17 @@ const TRACKS: Record<string, { tempo: number; wave: OscillatorType; notes: Array
 };
 
 /** Phát vòng lặp nhạc chờ khi `on`; dừng và dọn dẹp khi tắt hoặc rời màn hình. Chỉ chạy trên web */
-export function useLobbyMusic(track: string | undefined, on: boolean): void {
+export function useLobbyMusic(track: string | undefined, on: boolean, url?: string | null): void {
   const ctx = useRef<AudioContext | null>(null);
+  // Nhạc chờ là tệp giáo viên tải lên (HK.GV.093): phát lặp bằng thẻ audio, chỉ khi giáo viên bấm bật
+  useEffect(() => {
+    if (!on || track !== 'upload' || !url || Platform.OS !== 'web' || typeof Audio === 'undefined') return undefined;
+    const el = new Audio(mediaUri(url));
+    el.loop = true;
+    el.volume = 0.5;
+    void el.play().catch(() => undefined);
+    return () => { el.pause(); el.removeAttribute('src'); el.load(); };
+  }, [track, on, url]);
   useEffect(() => {
     const spec = track ? TRACKS[track] : undefined;
     if (!on || !spec || Platform.OS !== 'web' || typeof window === 'undefined') return undefined;

@@ -14,8 +14,10 @@ export type ScoreMode = 'standard' | 'double' | 'none';
 export interface QuizItemInput { question_id: number; points?: number; seconds?: number | null; score_mode?: ScoreMode | null }
 /** Nền và nhạc chờ có sẵn cho giao diện Quiz (HK.GV.093); giao diện chỉ chọn trong danh sách này */
 export const QUIZ_BACKGROUNDS = ['default', 'bach-dang', 'thang-long', 'chuong-duong', 'dong-bo-dau'] as const;
-export const QUIZ_MUSIC = ['none', 'trong-tran', 'song-nuoc', 'hao-khi'] as const;
+/** `upload`: tệp nhạc do giáo viên tải lên (HK.GV.093), đường dẫn nằm ở `theme.music_url`; các mã còn lại là giai điệu ngũ cung có sẵn */
+export const QUIZ_MUSIC = ['none', 'trong-tran', 'song-nuoc', 'hao-khi', 'upload'] as const;
 const MEDIA_OR_HTTPS = /^(https:\/\/|\/api\/content\/media\/[0-9a-f]{32}$)/;
+const MEDIA_PATH_ONLY = /^\/api\/content\/media\/[0-9a-f]{32}$/;
 export interface QuizInput {
   title: string; description?: string | null; campaign_id?: number | null; seconds_per_question?: number; shuffle_questions?: boolean; shuffle_options?: boolean;
   pass_percent?: number; cover_url?: string | null; theme?: Record<string, unknown>; items: QuizItemInput[];
@@ -108,8 +110,16 @@ export class QuizService {
     const bg = String((rawTheme as Record<string, unknown>).bg ?? 'default'), music = String((rawTheme as Record<string, unknown>).music ?? 'none');
     if (!(QUIZ_BACKGROUNDS as readonly string[]).includes(bg)) throw new BadRequestException('Nền giao diện không có trong danh sách');
     if (!(QUIZ_MUSIC as readonly string[]).includes(music)) throw new BadRequestException('Nhạc chờ không có trong danh sách');
+    let musicUrl: string | null = null;
+    if (music === 'upload') {
+      const url = String((rawTheme as Record<string, unknown>).music_url ?? '');
+      if (!MEDIA_PATH_ONLY.test(url)) throw new BadRequestException('Hãy chọn một tệp nhạc đã tải lên làm nhạc chờ');
+      const file = (await q<{ mime: string }>('SELECT mime FROM hk_media WHERE token = $1', [url.slice(-32)]))[0];
+      if (!file || !file.mime.startsWith('audio/')) throw new BadRequestException('Nhạc chờ phải là tệp nhạc (MP3, OGG) đã tải lên');
+      musicUrl = url;
+    }
     return {
-      title, description, campaign_id: campaign, seconds_per_question: seconds, pass_percent: pass, cover_url: cover, theme: { bg, music },
+      title, description, campaign_id: campaign, seconds_per_question: seconds, pass_percent: pass, cover_url: cover, theme: musicUrl ? { bg, music, music_url: musicUrl } : { bg, music },
       shuffle_questions: input.shuffle_questions ?? existing?.shuffle_questions ?? false, shuffle_options: input.shuffle_options ?? existing?.shuffle_options ?? false,
       search_text: searchText(title, description),
     };
@@ -233,13 +243,16 @@ export class QuizService {
     return newId;
   }
 
-  /** Bộ đề và các câu hỏi (kèm đáp án) cho dịch vụ làm bài; nơi gọi phải tự kiểm tra quyền (qua nút của hành trình hoặc quyền xem của giáo viên) */
-  async forPlay(q: Q, id: number) {
+  /**
+   * Bộ đề và các câu hỏi (kèm đáp án) cho dịch vụ làm bài; nơi gọi phải tự kiểm tra quyền (qua nút của hành trình hoặc quyền xem của giáo viên).
+   * Câu bình chọn (HK.GV.088) không có đáp án đúng nên chỉ phòng thi trực tiếp lấy (`polls: true`); làm bài, bài tập và hành trình bỏ qua chúng.
+   */
+  async forPlay(q: Q, id: number, opts: { polls?: boolean } = {}) {
     const quiz = (await q<QuizRow>(`SELECT ${COLUMNS} FROM hk_quizzes WHERE id = $1`, [id]))[0];
     if (!quiz) throw notFound('bộ đề');
     const items = await q<{ question_id: number; position: number; points: number; seconds: number | null; score_mode: ScoreMode | null; qtype: QType; prompt: string; image_url: string | null; video_url: string | null; explanation: string | null; difficulty: number; data: Record<string, unknown> }>(
       `SELECT qq.question_id, qq.position, qq.points, qq.seconds, qq.score_mode, t.qtype, t.prompt, t.image_url, t.video_url, t.explanation, t.difficulty, t.data
-       FROM hk_quiz_questions qq JOIN hk_questions t ON t.id = qq.question_id WHERE qq.quiz_id = $1 ORDER BY qq.position`, [id]);
+       FROM hk_quiz_questions qq JOIN hk_questions t ON t.id = qq.question_id WHERE qq.quiz_id = $1${opts.polls ? '' : " AND t.qtype <> 'poll'"} ORDER BY qq.position`, [id]);
     return { quiz, items };
   }
 }

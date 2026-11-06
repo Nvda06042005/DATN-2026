@@ -199,7 +199,7 @@ export class WarMarchService {
   // ---------------------------------------------------------------------- thử thách câu hỏi tại điểm
   private async question(q: Q, user: UserRow, p: Point) {
     const rows = await q<QuestionCore>(
-      'SELECT t.id, t.qtype, t.prompt, t.image_url, t.explanation, t.difficulty, t.data FROM hk_quiz_questions k JOIN hk_questions t ON t.id = k.question_id WHERE k.quiz_id = $1 ORDER BY k.position, t.id', [Number(p.payload.quiz_id)]);
+      "SELECT t.id, t.qtype, t.prompt, t.image_url, t.explanation, t.difficulty, t.data FROM hk_quiz_questions k JOIN hk_questions t ON t.id = k.question_id WHERE k.quiz_id = $1 AND t.qtype <> 'poll' ORDER BY k.position, t.id", [Number(p.payload.quiz_id)]);
     if (!rows.length) return null;
     const pick = rows[(user.id + p.id) % rows.length];
     return publicView(pick, user.id * 31 + p.id, true);
@@ -211,7 +211,7 @@ export class WarMarchService {
       const p = (await q<Point>("SELECT p.id, p.map_id, p.code, p.name, p.description, p.x::float8 AS x, p.y::float8 AS y, p.kind, p.payload, p.sort_order FROM hk_march_points p JOIN hk_march_maps m ON m.id = p.map_id WHERE p.id = $1 AND m.status = 'published'", [pointId]))[0];
       if (!p || p.kind !== 'quiz') throw notFound('thử thách');
       if (!(await q('SELECT 1 FROM hk_march_visits WHERE user_id = $1 AND point_id = $2', [user.id, p.id])).length) throw new ConflictException('Hãy đi tới điểm này trước');
-      const rows = await q<QuestionCore>('SELECT t.id, t.qtype, t.prompt, t.image_url, t.explanation, t.difficulty, t.data FROM hk_quiz_questions k JOIN hk_questions t ON t.id = k.question_id WHERE k.quiz_id = $1 ORDER BY k.position, t.id', [Number(p.payload.quiz_id)]);
+      const rows = await q<QuestionCore>("SELECT t.id, t.qtype, t.prompt, t.image_url, t.explanation, t.difficulty, t.data FROM hk_quiz_questions k JOIN hk_questions t ON t.id = k.question_id WHERE k.quiz_id = $1 AND t.qtype <> 'poll' ORDER BY k.position, t.id", [Number(p.payload.quiz_id)]);
       if (!rows.length) throw new ConflictException('Thử thách này chưa có câu hỏi');
       const pick = rows[(user.id + p.id) % rows.length];
       const g = grade(pick, answer);

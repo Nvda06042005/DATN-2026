@@ -134,7 +134,9 @@ export function configureApp(app: INestApplication): INestApplication {
   app.use(requestMiddleware(ipLimit));
   // yêu cầu hỗ trợ kèm ảnh chụp màn hình và ảnh tải lên cho Quiz (tối đa 1,5 MB, mã hóa base64 nên lớn hơn): chỉ các tuyến này được nhận thân lớn hơn mặc định
   const largeJson = jsonBody({ limit: '3mb' });
-  app.use((req: { path?: string; originalUrl?: string }, res: unknown, next: () => void) => (/^\/api\/(platform\/support|content\/media)(\/|$|\?)/.test(req.originalUrl ?? '') ? (largeJson as any)(req, res, next) : next()));
+  // tải video lên (tối đa 8 MB, mã hóa base64 nên khoảng 10,7 MB): chỉ tuyến tải tệp được nhận thân lớn như vậy
+  const mediaJson = jsonBody({ limit: '12mb' });
+  app.use((req: { path?: string; originalUrl?: string }, res: unknown, next: () => void) => (/^\/api\/content\/media(\/|$|\?)/.test(req.originalUrl ?? '') ? (mediaJson as any)(req, res, next) : /^\/api\/platform\/support(\/|$|\?)/.test(req.originalUrl ?? '') ? (largeJson as any)(req, res, next) : next()));
   app.enableShutdownHooks();
   return app;
 }

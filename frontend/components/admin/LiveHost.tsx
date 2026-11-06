@@ -72,7 +72,7 @@ const Lobby: React.FC<{ view: LiveView; join: { join_url?: string; qr?: string }
         <Users size={26} color={c.thuyChu} />
         <Txt f="displayHeavy" size={26} accessibilityLiveRegion="polite" color={themeOf(view.room.theme).bg ? '#ffffff' : c.muc}>{view.player_count} học sinh đã vào phòng</Txt>
         <Chip text={LIVE_MODE_TEXT[view.room.mode]} bg={c.thuyNhat} fg={c.thuyChu} />
-        {hasMusic ? <Btn icon={music ? VolumeX : Music} title={music ? 'Tắt nhạc chờ' : `Bật nhạc chờ: ${LIVE_MUSIC.find((m) => m.id === view.room.theme.music)?.label ?? ''}`} tone="giay" size="sm" onPress={onMusic} testID="live-music" /> : null}
+        {hasMusic ? <Btn icon={music ? VolumeX : Music} title={music ? 'Tắt nhạc chờ' : `Bật nhạc chờ: ${view.room.theme.music === 'upload' ? 'nhạc của giáo viên' : (LIVE_MUSIC.find((m) => m.id === view.room.theme.music)?.label ?? '')}`} tone="giay" size="sm" onPress={onMusic} testID="live-music" /> : null}
       </View>
       {view.player_count === 0 ? <Note view={view}>Chưa có ai vào phòng. Học sinh của lớp {view.room.class_name} nhập mã PIN ở trên để vào.</Note> : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
@@ -119,6 +119,7 @@ const Results: React.FC<{ view: LiveView }> = ({ view }) => {
   const { c } = useTheme();
   const r = view.results!;
   const total = r.stats.correct + r.stats.wrong + r.stats.none;
+  const votes = (r.options ?? []).reduce((n, o) => n + o.count, 0); // câu bình chọn: số lượt chọn
   return (
     <View style={{ gap: 18 }}>
       <Txt f="bold" size={20} color={themeOf(view.room.theme).bg ? '#ffffff' : c.muc2}>Kết quả câu {r.index + 1}/{view.room.total}</Txt>
@@ -127,11 +128,11 @@ const Results: React.FC<{ view: LiveView }> = ({ view }) => {
       {r.skipped ? <Note view={view}>Câu này đã bị bỏ qua nên không tính điểm cho ai.</Note> : (
         <>
           <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
-            <Chip text={`${r.stats.correct} đúng`} bg={c.ngocNhat} fg={c.ngocChu} />
-            <Chip text={`${r.stats.wrong} sai`} bg={c.sonNhat} fg={c.sonChu} />
+            {r.poll ? <Chip text={`${votes} lượt bình chọn · không có đáp án đúng`} bg={c.thuyNhat} fg={c.thuyChu} /> : <Chip text={`${r.stats.correct} đúng`} bg={c.ngocNhat} fg={c.ngocChu} />}
+            {r.poll ? null : <Chip text={`${r.stats.wrong} sai`} bg={c.sonNhat} fg={c.sonChu} />}
             <Chip text={`${r.stats.none} chưa trả lời`} bg={c.dichNhat} fg={c.dich} />
           </View>
-          {r.options ? <LiveDistribution options={r.options} total={total} big /> : (
+          {r.options ? <LiveDistribution options={r.options} total={r.poll ? votes : total} poll={r.poll} big /> : (
             <Card flat pad={16} style={{ gap: 4 }}><Txt f="bold" size={18}>Đáp án đúng</Txt>{keyLines(r.qtype, r.answer_key).map((l) => <Txt key={l} size={18}>{l}</Txt>)}</Card>
           )}
           {r.explanation ? <Note view={view}>{r.explanation}</Note> : null}
@@ -212,7 +213,7 @@ export const LiveHost: React.FC<{ session: Session; roomId: number; onBack: () =
   const view = live.view;
   const room = view?.room;
   const q = view?.question;
-  useLobbyMusic(room?.theme.music, music && room?.state === 'lobby');
+  useLobbyMusic(room?.theme.music, music && room?.state === 'lobby', room?.theme.music_url);
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true);
     try { await fn(); await live.refresh(); } catch (e) { toast(errorMessage(e)); } finally { setBusy(false); setConfirm(null); setKicking(null); }

@@ -69,7 +69,9 @@ const Report: React.FC<{ session: Session; roomId: number; onBack: () => void }>
                   {r.hardest?.number === x.number ? <StatusChip kind="off" text="Khó nhất" /> : null}
                 </View>
                 <Txt size={14}>{x.prompt}</Txt>
-                {x.skipped ? null : (
+                {x.skipped ? null : x.poll ? (
+                  <Txt size={13} color={c.muc2}>Bình chọn (không có đáp án đúng): {x.votes ? x.votes.map((v) => `${v.text} ${v.count}`).join(' · ') : `${x.answered} lượt chọn`} · {x.none} chưa chọn</Txt>
+                ) : (
                   <>
                     <Bar value={x.correct_rate ?? 0} max={100} height={10} label={`Câu ${x.number}: ${x.correct_rate ?? 0}% đúng`} fill={(x.correct_rate ?? 0) >= 60 ? c.ngoc : c.son} />
                     <Txt size={12} color={c.muc3}>{x.correct} đúng · {x.wrong} sai · {x.none} chưa trả lời{x.avg_seconds !== null ? ` · trung bình ${x.avg_seconds} giây` : ''}</Txt>

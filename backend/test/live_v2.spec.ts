@@ -4,7 +4,8 @@
  * HTTP và WebSocket thật trên PostgreSQL tạm.
  */
 import { io, Socket } from 'socket.io-client';
-import { call, hasPostgres, Started, startApp } from './harness';
+import * as ExcelJS from 'exceljs';
+import { call, download, hasPostgres, Started, startApp } from './harness';
 import { bootstrap, Fixture } from './fixture';
 import type { DatabaseService } from '../src/database/database.service';
 import type { LiveService } from '../src/live/live.service';
@@ -379,5 +380,136 @@ const WRONG = [{ choice: 'b' }, { choices: ['b'] }, { value: false }];
     const rejoin = await emit(await connect(f.S1.token), 'room:subscribe', { room_id: r.room.id, device_id: 'dien-thoai' });
     expect(rejoin).toMatchObject({ ok: false });
     expect(rejoin.error).toMatch(/bị giáo viên loại/);
+  });
+
+  // ------------------------------------------------------------------ HK.GV.088 câu bình chọn (không có đáp án đúng)
+  describe('Bình chọn (HK.GV.088)', () => {
+    let pollQuiz: number, pollOnly: number;
+    const pq = (over: Record<string, unknown>) => ({ qtype: 'single', prompt: 'Câu hỏi bình chọn thử nghiệm', options: ['Đáp án A', 'Đáp án B', 'Đáp án C', ''], correct: [0], tf: true, seconds: 20, score_mode: 'standard', image_url: null, video_url: null, explanation: '', ...over });
+    const build = async (title: string, questions: unknown[]) => {
+      const d = (await api('POST', '/api/content/studio', {})).body;
+      await api('PUT', `/api/content/studio/${d.id}`, { title, theme: { bg: 'default', music: 'none' }, questions });
+      return api('POST', `/api/content/studio/${d.id}/commit`);
+    };
+    const POLL = pq({ prompt: 'Nếu là Trần Hưng Đạo, em chọn cách đánh nào?', qtype: 'poll', options: ['Đánh thẳng', 'Phòng thủ', 'Rút lui', ''], correct: [1], score_mode: 'double' });
+
+    beforeAll(async () => {
+      const mixed = await build('Quiz có bình chọn', [pq({ prompt: 'Câu 1 – một đáp án' }), POLL, pq({ prompt: 'Câu 3 – một đáp án' })]);
+      expect(mixed.status).toBe(200);
+      pollQuiz = mixed.body.quiz.id;
+      const only = await build('Quiz chỉ có bình chọn', [POLL]);
+      expect(only.status).toBe(200);
+      pollOnly = only.body.quiz.id;
+    });
+
+    test('soạn câu bình chọn: lưu vào ngân hàng không có đáp án đúng; dấu "đúng" bị bỏ qua; cần hai lựa chọn đầu; phòng thi cho 0 điểm', async () => {
+      const quiz = (await api('GET', `/api/content/quizzes/${pollQuiz}`)).body;
+      expect(quiz.items.map((i: any) => i.qtype)).toEqual(['single', 'poll', 'single']);
+      expect(quiz.items[1].qtype_label).toBe('Bình chọn');
+      const bank = (await api('GET', `/api/content/questions/${quiz.items[1].question_id}`)).body;
+      expect(bank.qtype).toBe('poll');
+      expect(bank.data).toEqual({ options: [{ id: 'a', text: 'Đánh thẳng' }, { id: 'b', text: 'Phòng thủ' }, { id: 'c', text: 'Rút lui' }] });
+      const bad = await build('Bình chọn thiếu', [pq({ qtype: 'poll', options: ['Chỉ một', '', '', ''] })]);
+      expect(bad.status).toBe(400);
+      expect(bad.body.detail).toMatch(/Câu 1: hai đáp án đầu/);
+      const r = await make({ quiz_id: pollQuiz });
+      expect((await db.query<any>('SELECT plan FROM hk_live_rooms WHERE id = $1', [r.room.id]))[0].plan.map((p: any) => [p.points, p.seconds])).toEqual([[1000, 20], [0, 20], [1000, 20]]);
+    });
+
+    test('trong phòng thi: ai cũng chọn được, không có điểm và đúng/sai; kết quả hiện số người chọn từng lựa chọn; tính là đã tham gia', async () => {
+      const r = await make({ quiz_id: pollQuiz });
+      await join(f.S1, r.room.pin);
+      await join(f.S2, r.room.pin);
+      await cmd(r.room.id, 'start');
+      expect((await answer(f.S1, r.room.id, 0, true)).status).toBe(200);
+      expect((await answer(f.S2, r.room.id, 0, false)).status).toBe(200);
+      await cmd(r.room.id, 'next');
+      const before = (await state(f.S1, r.room.id)).me;
+      const poll = (await cmd(r.room.id, 'next')).body;
+      expect(poll.question).toMatchObject({ qtype: 'poll', points_max: 0 });
+      expect(poll.question.view.options.map((o: any) => o.text)).toEqual(['Đánh thẳng', 'Phòng thủ', 'Rút lui']);
+      expect(JSON.stringify(poll.question)).not.toMatch(/correct/); // không có đáp án đúng nào để lộ
+      const seen = (await state(f.S1, r.room.id)).question.view; // thiết bị học sinh chỉ có nút hình – màu
+      expect(seen).toMatchObject({ hidden: true });
+      expect(seen.options).toHaveLength(3);
+      // chỉ nhận một lựa chọn có thật của câu
+      const send = (who: { token: string }, ans: unknown) => as(who)('POST', `/api/live/rooms/${r.room.id}/answer`, { q_index: 1, answer: ans });
+      expect((await send(f.S1, { choice: 'z' })).status).toBe(400);
+      expect((await send(f.S1, { value: true })).status).toBe(400);
+      expect((await send(f.S1, {})).status).toBe(400);
+      expect((await send(f.S1, { choice: 'a' })).status).toBe(200);
+      expect((await send(f.S2, { choice: 'b' })).status).toBe(200);
+      expect((await send(f.S2, { choice: 'c' })).status).toBe(409); // chỉ một lần mỗi câu
+      const res = (await cmd(r.room.id, 'next')).body.results;
+      expect(res).toMatchObject({ poll: true, qtype: 'poll', stats: { correct: 0, wrong: 0, none: 0 } });
+      expect(res.options.map((o: any) => [o.text, o.count, o.correct])).toEqual([['Đánh thẳng', 1, false], ['Phòng thủ', 1, false], ['Rút lui', 0, false]]);
+      const mine = (await state(f.S1, r.room.id)).me;
+      expect(mine.last).toMatchObject({ poll: true, correct: false, points: 0 });
+      expect(mine.score).toBe(before.score); // điểm không đổi
+      expect(mine.correct_count).toBe(before.correct_count);
+      expect(mine.answered_count).toBe(before.answered_count + 1); // nhưng tính là đã trả lời
+      await cmd(r.room.id, 'next');
+      await answer(f.S1, r.room.id, 2, false);
+      await answer(f.S2, r.room.id, 2, false);
+      await cmd(r.room.id, 'next');
+      expect((await cmd(r.room.id, 'next')).body.room.state).toBe('ended');
+
+      // báo cáo: câu bình chọn không có tỉ lệ đúng, không thể là câu khó nhất; độ chính xác chỉ tính các câu có đáp án; có kết quả bình chọn
+      const rep = (await api('GET', `/api/live/rooms/${r.room.id}/report`)).body;
+      const pollRow = rep.questions[1];
+      expect(pollRow).toMatchObject({ poll: true, qtype: 'poll', answered: 2, correct: 0, wrong: 0, correct_rate: null });
+      expect(pollRow.votes.map((v: any) => [v.text, v.count])).toEqual([['Đánh thẳng', 1], ['Phòng thủ', 1], ['Rút lui', 0]]);
+      expect(rep.hardest.number).toBe(3);
+      expect(rep.questions[0]).toMatchObject({ poll: false, correct_rate: 50 });
+      expect(rep.players.map((p: any) => p.accuracy).sort()).toEqual([0, 50]); // 2 câu có đáp án: một em đúng 1/2, một em 0/2
+      expect(rep.summary.participation_rate).toBe(100);
+      const xlsx = await download(s.base, `/api/live/rooms/${r.room.id}/export?format=xlsx`, f.T1.token);
+      expect(xlsx.status).toBe(200);
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(xlsx.buffer as never);
+      const rows = wb.getWorksheet('Câu hỏi')!;
+      expect(rows.getRow(3).getCell(3).value).toBe('Bình chọn');
+      expect(String(rows.getRow(3).getCell(11).value)).toBe('Đánh thẳng: 1; Phòng thủ: 1; Rút lui: 0');
+      expect((await download(s.base, `/api/live/rooms/${r.room.id}/export?format=pdf`, f.T1.token)).status).toBe(200);
+      // xem lại của học sinh: lựa chọn của em và kết quả bình chọn cả lớp, không có đúng/sai
+      const review = (await as(f.S1)('GET', `/api/live/my/${r.room.id}`)).body.items[1];
+      expect(review).toMatchObject({ poll: true, my_answer: { choice: 'a' }, class_correct_rate: null });
+      expect(review.votes.map((v: any) => v.count)).toEqual([1, 1, 0]);
+    });
+
+    test('đánh trùm: câu bình chọn không gây sát thương và không làm cả lớp mất máu dù chưa ai chọn; bộ đề chỉ có bình chọn không mở được phòng đánh trùm', async () => {
+      expect((await api('POST', '/api/live/rooms', { class_id: classId, quiz_id: pollOnly, mode: 'boss', boss: 'thoat-hoan' })).status).toBe(409);
+      expect((await api('POST', '/api/live/rooms', { class_id: classId, quiz_id: pollOnly })).status).toBe(201); // thi thường thì được
+      const r = await make({ quiz_id: pollQuiz, mode: 'boss', boss: 'o-ma-nhi' });
+      await join(f.S1, r.room.pin);
+      await join(f.S2, r.room.pin);
+      const started = (await cmd(r.room.id, 'start')).body;
+      expect(started.boss).toMatchObject({ max_hp: 100, class_max_hp: 3, class_hp: 3 }); // chỉ tính 2 câu có đáp án đúng
+      await answer(f.S1, r.room.id, 0, true);
+      await answer(f.S2, r.room.id, 0, true);
+      const hit = (await cmd(r.room.id, 'next')).body;
+      const hpAfterFirst = hit.boss.hp;
+      expect(hit.boss.class_hp).toBe(3);
+      await cmd(r.room.id, 'next'); // sang câu bình chọn, không ai chọn
+      const after = (await cmd(r.room.id, 'next')).body;
+      expect(after.results.poll).toBe(true);
+      expect(after.results.boss_hit).toBeNull();
+      expect(after.boss).toMatchObject({ hp: hpAfterFirst, class_hp: 3 });
+      expect((await db.query<any>('SELECT boss FROM hk_live_rooms WHERE id = $1', [r.room.id]))[0].boss.log).toHaveLength(1);
+    });
+
+    test('bộ đề có câu bình chọn: bài tập, làm bài và hành trình chỉ lấy câu có đáp án đúng; bộ đề chỉ có bình chọn không giao được', async () => {
+      const mk = (quiz: number) => api('POST', `/api/classroom/classes/${classId}/assignments`, { title: `Bài tập từ bộ đề ${quiz}`, kind: 'quiz', quiz_id: quiz, audience: 'class', due_at: new Date(Date.now() + 5 * 86400000).toISOString(), max_attempts: 2, bonus_points: 0 });
+      const refused = await mk(pollOnly);
+      expect(refused.status).toBe(400);
+      expect(refused.body.detail).toMatch(/câu bình chọn chỉ dùng khi thi đấu trực tiếp/);
+      const ok = await mk(pollQuiz);
+      expect(ok.status).toBe(201);
+      const start = (await as(f.S1)('POST', `/api/classroom/my-assignments/${ok.body.id}/start`)).body;
+      expect(start.attempt.total).toBe(2); // 3 câu trừ câu bình chọn
+      const planned = (await db.query<any>('SELECT plan FROM hk_attempts WHERE id = $1', [start.attempt.id]))[0].plan;
+      const kinds = await db.query<any>('SELECT qtype FROM hk_questions WHERE id = ANY($1)', [planned.map((p: any) => p.question_id ?? p)]);
+      expect(kinds.map((k: any) => k.qtype)).not.toContain('poll');
+    });
   });
 });

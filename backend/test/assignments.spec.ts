@@ -3,7 +3,8 @@
  * theo dõi nộp bài, gia hạn – đổi phạm vi – thu hồi, chấm điểm và nhận xét, nhắc học sinh chưa nộp; học sinh làm bài, xem điểm và nhận xét.
  * HTTP thật trên PostgreSQL tạm; nội dung học và mini-game khởi tạo (migration 019, 023) được dùng làm nội dung bài tập.
  */
-import { call, hasPostgres, Started, startApp } from './harness';
+import * as ExcelJS from 'exceljs';
+import { call, download, hasPostgres, Started, startApp } from './harness';
 import { bootstrap, Fixture, publishSeed } from './fixture';
 import type { DatabaseService } from '../src/database/database.service';
 import type { GameClock } from '../src/game/clock';
@@ -228,6 +229,39 @@ async function playQuiz(who: { token: string }, start: any, right: (index: numbe
     expect(detail.summary.graded).toBe(2);
     expect(detail.students.find((x: any) => x.id === f.S1.id)).toMatchObject({ state: 'graded', teacher_score: 70, grade: 'Khá' });
     expect((await api('GET', `/api/classroom/classes/${classId}/assignments`)).body.find((x: any) => x.id === a1.id).graded).toBe(2);
+  });
+
+  // ------------------------------------------------------------------ HK.GV.071 xuất báo cáo riêng cho từng bài tập
+  test('HK.GV.071 xuất báo cáo riêng cho một bài tập: Excel và PDF, tình trạng nộp, điểm và nhận xét từng học sinh; chỉ giáo viên của lớp', async () => {
+    const detail = (await api('GET', `/api/classroom/assignments/${a1.id}`)).body;
+    const xlsx = await download(s.base, `/api/classroom/assignments/${a1.id}/export?format=xlsx`, f.T1.token);
+    expect(xlsx.status).toBe(200);
+    expect(xlsx.type).toMatch(/spreadsheetml/);
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(xlsx.buffer as never);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(['Tổng quan', 'Học sinh']);
+    const overview = new Map<string, unknown>();
+    wb.getWorksheet('Tổng quan')!.eachRow((row, n) => { if (n > 1) overview.set(String(row.getCell(1).value), row.getCell(2).value); });
+    expect(overview.get('Bài tập')).toBe(detail.title);
+    expect(overview.get('Số học sinh được giao')).toBe(detail.summary.total);
+    expect(overview.get('Đã nộp')).toBe(detail.summary.submitted);
+    expect(overview.get('Đã chấm')).toBe(detail.summary.graded);
+    expect(overview.get('Chưa nộp')).toBe(detail.summary.total - detail.summary.submitted);
+    const rows: Array<Record<string, unknown>> = [];
+    wb.getWorksheet('Học sinh')!.eachRow((row, n) => { if (n > 1) rows.push({ name: row.getCell(1).value, state: row.getCell(3).value, score: row.getCell(7).value, grade: row.getCell(8).value }); });
+    expect(rows).toHaveLength(detail.students.length);
+    const label = { todo: 'Chưa nộp', submitted: 'Đã nộp', late: 'Nộp muộn', graded: 'Đã chấm' } as Record<string, string>;
+    for (const st of detail.students) expect(rows.find((r) => r.name === st.full_name)).toMatchObject({ state: label[st.state] });
+    const graded = detail.students.find((x: any) => x.state === 'graded');
+    expect(rows.find((r) => r.name === graded.full_name)).toMatchObject({ score: graded.teacher_score, grade: graded.grade });
+    const pdf = await download(s.base, `/api/classroom/assignments/${a1.id}/export?format=pdf`, f.T1.token);
+    expect(pdf.status).toBe(200);
+    expect(pdf.buffer.subarray(0, 4).toString()).toBe('%PDF');
+    expect((await download(s.base, `/api/classroom/assignments/${a1.id}/export?format=doc`, f.T1.token)).status).toBe(400);
+    expect((await download(s.base, `/api/classroom/assignments/${a1.id}/export`, f.T1.token)).status).toBe(200); // mặc định là Excel
+    expect((await download(s.base, `/api/classroom/assignments/${a1.id}/export?format=xlsx`, f.S1.token)).status).toBe(403); // học sinh không xuất được
+    expect((await download(s.base, `/api/classroom/assignments/${a1.id}/export?format=xlsx`, f.T2.token)).status).toBe(404); // giáo viên không phụ trách lớp
+    expect((await download(s.base, '/api/classroom/assignments/999999/export?format=xlsx', f.T1.token)).status).toBe(404);
   });
 
   // ------------------------------------------------------------------ HK.GV.050

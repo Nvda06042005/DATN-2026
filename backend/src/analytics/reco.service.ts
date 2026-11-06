@@ -64,7 +64,7 @@ export class RecoService {
     // 1) chủ đề yếu: câu hỏi dễ hơn còn nhiều thì càng nên luyện (độ khó phù hợp)
     for (const t of topics.filter((x) => x.level === 'weak').slice(0, 6)) {
       const easy = (await q<{ easy: number; total: number }>(
-        `SELECT count(*) FILTER (WHERE t.difficulty <= 2)::int AS easy, count(*)::int AS total FROM hk_question_links l JOIN hk_questions t ON t.id = l.question_id WHERE l.ref_type = $1 AND l.ref_id = $2`, [t.type, t.id]))[0];
+        `SELECT count(*) FILTER (WHERE t.difficulty <= 2)::int AS easy, count(*)::int AS total FROM hk_question_links l JOIN hk_questions t ON t.id = l.question_id WHERE l.ref_type = $1 AND l.ref_id = $2 AND t.qtype <> 'poll'`, [t.type, t.id]))[0];
       if (!easy.total) continue;
       const weak = (s.weak_threshold - t.percent) / s.weak_threshold;
       const time = Math.min(1, daysSince(t.last_at, now) / 14);
@@ -223,7 +223,7 @@ export class RecoService {
        FROM hk_questions t JOIN hk_question_links l ON l.question_id = t.id
        JOIN unnest($1::text[], $2::int[]) AS want(type, id) ON want.type = l.ref_type AND want.id = l.ref_id
        LEFT JOIN hk_wrong_questions w ON w.question_id = t.id AND w.user_id = $3
-       WHERE t.scope = 'system' OR (t.scope = 'school' AND t.school_id = $4)
+       WHERE (t.scope = 'system' OR (t.scope = 'school' AND t.school_id = $4)) AND t.qtype <> 'poll'
        ORDER BY wrong DESC, shuffle LIMIT $5`, [types, refs, user.id, user.school_id, size]);
     return rows.sort((a, b) => a.difficulty - b.difficulty).map((r) => r.id);
   }
