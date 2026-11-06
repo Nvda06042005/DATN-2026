@@ -34,19 +34,19 @@ python -X utf8 scripts/refresh-school-metadata.py --cache ../../downloads/school
 
 Mỗi tên miền có tối đa hai yêu cầu cùng lúc. HTML/ảnh gốc lưu ngoài Git; `coverage.json` liệt kê nguồn không truy cập được, tên trùng hoặc chưa ghép được. Một website không công bố logo hoặc không mở được không được tính là đã có logo. Lần chạy lại cùng đợt có thể dùng `--cached-portals` để tái sử dụng các cổng đã tải.
 
-## L?u trong Supabase v? t?i t?ng logo
+## Lưu trong Supabase và tải từng logo
 
-Migration **043** t?o `app_school_directory` v? `app_school_logo_assets`; **044** nh?p d? li?u tham chi?u c?ng ?nh WebP ?? n?n v?o PostgreSQL/Supabase. Kh?ng c?n bucket ho?c kh?a Storage ph?a tr?nh duy?t. ?nh t?i ?a 160 ? 160 px, d??i 80 KB/?nh; `bytea` l?u nguy?n WebP, kh?ng n?n ZIP th?m v? tr?nh duy?t c?n ??c tr?c ti?p ?nh.
+Migration **043** tạo app_school_directory và app_school_logo_assets; **044** nhập danh mục cùng WebP đã nén. Ảnh tối đa 160 × 160 px, dưới 80 KB/ảnh, lưu bytea trong PostgreSQL/Supabase; không cần khóa Storage trên trình duyệt. Không nén ZIP thêm vì WebP đã nén và trình duyệt cần đọc trực tiếp.
 
-Asset c? kh?a SHA-256 v? ki?m tra checksum trong PostgreSQL. Hai tr??ng ???c x?c minh d?ng c?ng m?t logo c? th? tham chi?u m?t asset; kh?ng t? g?n cho tr??ng kh?c ch? v? ?nh gi?ng nhau. B?ng b?t RLS, kh?ng c? policy c?ng khai; backend tr? ri?ng `GET /api/school-logos/<sha256>.webp`, k?m `image/webp`, `nosniff`, ETag v? cache immutable m?t n?m. Danh s?ch g?i ? ch? tr? URL, kh?ng t?i h?ng tr?m ?nh/base64 trong JSON. Giao di?n ch? t?i c?c logo ?ang hi?n th?.
+Asset có khóa SHA-256 duy nhất và kiểm tra checksum trong PostgreSQL. Hai trường được xác minh dùng cùng logo có thể tham chiếu một asset; không gán chéo chỉ vì ảnh giống. Bảng bật RLS, không có policy công khai. Backend trả riêng GET /api/school-logos/<sha256>.webp, image/webp, nosniff, ETag và cache immutable một năm. Gợi ý chỉ trả URL; giao diện tải ảnh đang hiển thị, không nhận hàng trăm ảnh base64 trong JSON. PUBLIC_API_URL có thể đặt địa chỉ HTTPS backend; mặc định dùng RENDER_EXTERNAL_URL trên Render.
 
-L?n ??i chi?u **07/11/2026** ?? th? 3.085 website: gh?p ???c 1.727 website v?i tr??ng, 420 tr??ng h?p c?n tr?ng t?n, 394 ch?a gh?p, 544 kh?ng truy c?p ???c. Metadata g?m 1.732 tr??ng (gi? c? ngu?n ?? ??i chi?u tr??c), trong ?? 1.373 ??a ch?. ?? xem b?ng ?nh 518 ?ng vi?n, lo?i 96 ?nh kh?ng ph? h?p ho?c g?n ch?a ch?c ch?n; gi? **422 logo**, t?ng **4.153.024 byte**, t?t c? hi?n c? n?i dung SHA-256 kh?c nhau. C?c s? n?y l? ?? ph? ?? x?c minh, kh?ng ph?i kh?ng ??nh ?? logo/??a ch? c?a c? 11.371 tr??ng hay ?? m?i v? s?p nh?p n?m 2026. Danh s?ch lo?i ?nh v? ngu?n: `scripts/school-logo-review.json`. Website kh?ng c?ng b? ?nh ri?ng gi? ? trung t?nh.
+Đối chiếu **07/11/2026**: đã thử 3.085 website, ghép được 1.727, 420 còn trùng tên, 394 chưa ghép, 544 không truy cập được. Metadata 1.732 trường (kể cả nguồn trước), 1.373 địa chỉ. Đã xem 518 ảnh, loại 96 ảnh không phù hợp hoặc chưa chắc gán đúng; giữ **422 logo**, **4.153.024 byte**, hiện có SHA-256 khác nhau. Đây là độ phủ xác minh, chưa đủ ảnh/địa chỉ toàn bộ 11.371 trường hay mọi vụ sáp nhập 2026. Danh sách loại: scripts/school-logo-review.json.
 
-T?o migration tham chi?u l?n sau, sau khi duy?t ?nh (ch?n s? SQL m?i, script t? ch?i ghi ??):
+Sau khi duyệt ảnh, tạo migration số mới (script từ chối ghi đè):
 
 ```powershell
 npm --prefix backend run build
 python -X utf8 scripts/build-school-catalog-seed.py 0XX_school_catalog_update.sql
 ```
 
-Script sinh SQL l? ngu?n seed. Kh?ng ch?nh Supabase Dashboard ri?ng, kh?ng s?a file 044 ?? ph?t h?nh. C?c tr??ng s?p nh?p ch? c?p nh?t khi c? quy?t ??nh ho?c ngu?n ch?nh th?c, gi? t?n/m? c? ?? t?m l?i. T?nh/th?nh ?? quy ??i theo 34 ??n v?; v?ng/huy?n ? ngu?n c? ???c gi? n?u ch?a x?c minh ph??ng/x? m?i, kh?ng t? suy ra ??a ch? n?m 2026.
+SQL là nguồn seed; không sửa file 044 đã phát hành hoặc chỉnh Supabase riêng. Tỉnh/thành được quy đổi 34 đơn vị; vùng/huyện nguồn cũ giữ nguyên nếu chưa xác minh phường/xã mới, không tự suy ra địa chỉ 2026.

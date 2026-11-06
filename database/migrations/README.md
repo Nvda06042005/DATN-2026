@@ -83,5 +83,5 @@ Giữ nguyên `app_users`, các bảng trường/lớp, thông báo, audit/login
 
 Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).
 
-- **043_school_catalog_logo_store.sql**: b?ng danh m?c tham chi?u v? asset WebP (bytea), SHA-256 duy nh?t, ki?m tra ??nh d?ng/k?ch th??c, RLS kh?ng c? policy c?ng khai.
-- **044_national_school_catalog_seed.sql**: 11.371 g?i ? v? 422 logo ?? r? (4.153.024 byte ?nh); kh?ng t?o tr??ng/ng??i d?ng. ?nh ???c t?i ri?ng theo hash v?i ETag/cache. Ngu?n/vintage v? ph?n ch?a x?c minh: `docs/DANH_MUC_TRUONG.md`.
+- **043_school_catalog_logo_store.sql**: bảng danh mục và asset WebP bytea, SHA-256 duy nhất, kiểm tra định dạng/kích thước, RLS không có policy công khai.
+- **044_national_school_catalog_seed.sql**: 11.371 gợi ý, 422 logo đã rà (4.153.024 byte ảnh), không tạo trường/người dùng; API tải từng ảnh. Xem docs/DANH_MUC_TRUONG.md.

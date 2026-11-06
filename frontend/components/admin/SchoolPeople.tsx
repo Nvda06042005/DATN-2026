@@ -7,7 +7,7 @@ import { FileUp, Plus } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AccountSheet, dateText, GENDER_TEXT } from '@/components/admin/AccountSheet';
 import { AdminSelect } from '@/components/admin/AdminSelect';
-import { Cell, CredentialSheet, DataTable, DownloadButton, ErrorNote, FilterBar, FilterBox, FormSheet, ImportSheet, Page, PageHeader, Pager, StatusChip, useDebounced, useLoad, yearOptions, type FieldDef } from '@/components/admin/kit';
+import { Cell, CredentialSheet, DataTable, DownloadButton, ErrorNote, FilterBar, FilterBox, FormSheet, ImportSheet, Page, PageHeader, Pager, StatusChip, useDebounced, useLoad, yearOptions, type FieldDef, usePageSize } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Field, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -23,11 +23,12 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const [grade, setGrade] = useState('');
   const [classId, setClassId] = useState('');
   const [page, setPage] = useState(1);
+  const size = usePageSize();
   const [yearSel, setYearSel] = useState('');
   const yearId = Number(yearSel || years.find((y) => y.status === 'active')?.id || years[0]?.id || 0);
   const dq = useDebounced(q), ds = useDebounced(subject);
   const query = { q: dq, active: active || undefined, subject: ds || undefined, grade: grade ? Number(grade) : undefined, class_id: classId ? Number(classId) : undefined };
-  const { data, error, loading, reload } = useLoad(() => api.listMembers(token, kind, { ...query, page, limit: 30 } as never), [token, kind, dq, active, ds, grade, classId, page], session.expired);
+  const { data, error, loading, reload } = useLoad(() => api.listMembers(token, kind, { ...query, page, limit: size } as never), [token, kind, dq, active, ds, grade, classId, page, size], session.expired);
   const { data: classes } = useLoad(() => api.listClasses(token, { year_id: yearId || undefined, limit: 200 }), [token, yearId], session.expired);
   const classOptions = useMemo(() => (classes?.items ?? []).filter((x) => x.is_active).map((x) => ({ value: String(x.id), label: x.name })), [classes]);
   const [open, setOpen] = useState<number | null>(null);
@@ -82,7 +83,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
               { key: 'last', label: 'Đăng nhập cuối', render: (u) => <Txt size={13} color={c.muc2}>{dateText(u.last_login_at)}</Txt> },
               { key: 'status', label: 'Trạng thái', render: (u) => <StatusChip kind={u.is_active ? (u.must_change_password ? 'warn' : 'on') : 'off'} text={u.is_active ? (u.must_change_password ? 'Chưa đổi mật khẩu' : 'Hoạt động') : 'Đã khóa'} /> },
             ]} />
-          <Pager page={page} limit={30} total={data.total} onPage={setPage} />
+          <Pager page={page} limit={size} total={data.total} onPage={setPage} />
         </>
       ) : null}
       {open ? <AccountSheet session={session} id={open} onClose={() => setOpen(null)} onChanged={reload} /> : null}

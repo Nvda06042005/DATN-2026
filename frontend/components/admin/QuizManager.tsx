@@ -9,7 +9,7 @@ import * as api from '@/api/learningApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { QuestionPicker, ScopeChip, useCampaignOptions } from '@/components/admin/ContentKit';
 import { AiQuizModal } from '@/components/admin/AiQuizModal';
-import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad } from '@/components/admin/kit';
+import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad, usePageSize } from '@/components/admin/kit';
 import { dateText } from '@/components/admin/AccountSheet';
 import type { Session } from '@/components/auth';
 import { Overlay } from '@/components/portal/LessonReader';
@@ -146,12 +146,13 @@ export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: numb
   const [store, setStore] = useState(role === 'school_admin' ? 'school' : 'all');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
+  const size = usePageSize();
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [aiModal, setAiModal] = useState(false);
   const [preview, setPreview] = useState<{ attempt: AttemptState; title: string } | null>(null);
   const term = useDebounced(q.trim(), 300);
-  const list = useLoad(() => api.listQuizzes(session.token, { store, q: term, page, limit: 15 }), [session.token, store, term, page], session.expired);
+  const list = useLoad(() => api.listQuizzes(session.token, { store, q: term, page, limit: size }), [session.token, store, term, page, size], session.expired);
   const canWrite = role === 'teacher' || role === 'school_admin' || role === 'root_admin';
   return (
     <>
@@ -177,7 +178,7 @@ export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: numb
               { key: 'used', label: 'Đã giao / làm', flex: 1, render: (r) => <Txt size={13}>{r.assigned} hành trình · {r.attempts} lượt{r.locked ? ' (khóa)' : ''}</Txt> },
               { key: 'owner', label: 'Người soạn', flex: 1.3, hideOnCard: true, render: (r) => <Cell main={r.owner_name ?? '—'} sub={dateText(r.updated_at)} /> },
             ]} />
-          <Pager page={page} limit={15} total={list.data.total} onPage={setPage} />
+          <Pager page={page} limit={size} total={list.data.total} onPage={setPage} />
         </>
       ) : null}
             {aiModal ? <AiQuizModal open={aiModal} onClose={() => { setAiModal(false); list.reload(); }} session={session} /> : null}

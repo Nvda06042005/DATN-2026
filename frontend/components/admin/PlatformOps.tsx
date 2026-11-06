@@ -7,7 +7,7 @@ import { Image, View } from 'react-native';
 import { KeyRound, Pencil, Plus, Send, ShieldCheck, Trash2 } from 'lucide-react-native';
 import * as api from '@/api/platformApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
-import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad } from '@/components/admin/kit';
+import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad, usePageSize } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { StatGrid, StatTile } from '@/components/charts';
 import { TicketImage } from '@/components/portal/HelpCenter';
@@ -62,7 +62,8 @@ export const SupportInbox: React.FC<{ session: Session }> = ({ session }) => {
   const q = useDebounced(query);
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState<number | null>(null);
-  const list = useLoad(() => api.allTickets(session.token, { status, role, q, page }), [session.token, status, role, q, page], session.expired);
+  const size = usePageSize();
+  const list = useLoad(() => api.allTickets(session.token, { status, role, q, page, limit: size }), [session.token, status, role, q, page, size], session.expired);
   const counts = list.data?.counts ?? {};
   return (
     <Page>
@@ -158,7 +159,8 @@ const AuditTable: React.FC<{ session: Session }> = ({ session }) => {
   const [ok, setOk] = useState('');
   const [students, setStudents] = useState('');
   const [page, setPage] = useState(1);
-  const data = useLoad(() => api.auditLog(session.token, { q, success: ok, students: students || undefined, page }), [session.token, q, ok, students, page], session.expired);
+  const size = usePageSize();
+  const data = useLoad(() => api.auditLog(session.token, { q, success: ok, students: students || undefined, page, limit: size }), [session.token, q, ok, students, page, size], session.expired);
   return (
     <View style={{ gap: 12 }}>
       <FilterBar>
@@ -191,7 +193,8 @@ const LoginTable: React.FC<{ session: Session }> = ({ session }) => {
   const q = useDebounced(query);
   const [ok, setOk] = useState('');
   const [page, setPage] = useState(1);
-  const data = useLoad(() => api.loginLog(session.token, { q, success: ok, page }), [session.token, q, ok, page], session.expired);
+  const size = usePageSize();
+  const data = useLoad(() => api.loginLog(session.token, { q, success: ok, page, limit: size }), [session.token, q, ok, page, size], session.expired);
   return (
     <View style={{ gap: 12 }}>
       <FilterBar>
@@ -225,7 +228,8 @@ const ErrorTable: React.FC<{ session: Session }> = ({ session }) => {
   const q = useDebounced(query);
   const [page, setPage] = useState(1);
   const { busy, run } = useAction(session.expired);
-  const data = useLoad(() => api.errorLog(session.token, { source, q, page }), [session.token, source, q, page], session.expired);
+  const size = usePageSize();
+  const data = useLoad(() => api.errorLog(session.token, { source, q, page, limit: size }), [session.token, source, q, page, size], session.expired);
   return (
     <View style={{ gap: 12 }}>
       {data.data ? <StatGrid>{Object.entries(SOURCE).map(([k, label]) => <StatTile key={k} label={`${label} (24 giờ)`} value={data.data!.last_24h[k] ?? 0} tone={data.data!.last_24h[k] ? 'son' : 'ngoc'} />)}</StatGrid> : null}
