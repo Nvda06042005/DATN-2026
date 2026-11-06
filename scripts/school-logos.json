@@ -1,0 +1,2274 @@
+{
+ "fetched": "2026-11-06",
+ "portal": "https://hcm.edu.vn/",
+ "schools": [
+  {
+   "code": "74723509",
+   "name": "Trường THCS Khánh Bình",
+   "district": "Thị xã Tân Uyên",
+   "site": "https://thcskhanhbinh.hcm.edu.vn/",
+   "ward": "PHƯỜNG CHÁNH HƯNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcskhanhbinh/logo-moi_6102025143.jpg",
+   "confidence": "icon",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 9328
+  },
+  {
+   "code": "74724505",
+   "name": "Trường THCS Tân Đông Hiệp",
+   "district": "Thị xã Dĩ An",
+   "site": "https://thcstandonghiep.hcm.edu.vn/",
+   "ward": "PHƯỜNG DĨ AN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcstandonghiep/logotruong_251120251058.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    600,
+    600
+   ],
+   "webp_bytes": 10950
+  },
+  {
+   "code": "74724506",
+   "name": "Trường THCS Bình Thắng",
+   "district": "Thị xã Dĩ An",
+   "site": "https://thcsbinhthang.hcm.edu.vn/",
+   "ward": "PHƯỜNG ĐÔNG HÒA",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsbinhthang/logo-truong_23320261423.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    2000,
+    2004
+   ],
+   "webp_bytes": 10948
+  },
+  {
+   "code": "74724508",
+   "name": "Trường THCS Dĩ An",
+   "district": "Thị xã Dĩ An",
+   "site": "https://thcsdian.hcm.edu.vn/",
+   "ward": "PHƯỜNG DĨ AN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsdian/logotruong_91202694.png",
+   "confidence": "logo-named",
+   "source_px": [
+    515,
+    485
+   ],
+   "webp_bytes": 25092
+  },
+  {
+   "code": "74725508",
+   "name": "Trường THCS Châu Văn Liêm",
+   "district": "Thị xã Thuận An",
+   "site": "https://thcsbcchauvanliem.hcm.edu.vn/",
+   "ward": "PHƯỜNG CẦU KIỆU",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcsbcchauvanliem/LOGO.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    211,
+    211
+   ],
+   "webp_bytes": 11806
+  },
+  {
+   "code": "77747504",
+   "name": "THCS Vũng Tàu",
+   "district": "Thành phố Vũng Tàu",
+   "site": "https://thcsvungtau.hcm.edu.vn/",
+   "ward": "PHƯỜNG VŨNG TÀU",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcschauthanh/tranthithaithu/z7258393631752bd8204c48a529e44b263c1ae10641a74_27112025723.jpg",
+   "confidence": "img-logo",
+   "source_px": [
+    1001,
+    1000
+   ],
+   "webp_bytes": 10570
+  },
+  {
+   "code": "77752504",
+   "name": "THCS Mạc Đĩnh Chi",
+   "district": "Huyện Long Điền",
+   "site": "https://thcsmacdinhchitb.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN HÒA",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsmacdinhchitb/logo-moi_21720251458.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    686,
+    599
+   ],
+   "webp_bytes": 10632
+  },
+  {
+   "code": "77755501",
+   "name": "THCS Lê Hồng Phong",
+   "district": "Huyện Côn Đảo",
+   "site": "https://thcslehongphong-condao.hcm.edu.vn/",
+   "ward": "ĐẶC KHU CÔN ĐẢO",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcslehongphong-condao/kogo-1_88202694.png",
+   "confidence": "icon",
+   "source_px": [
+    505,
+    494
+   ],
+   "webp_bytes": 13146
+  },
+  {
+   "code": "79760501",
+   "name": "THCS Chu Văn An",
+   "district": "Quận 1",
+   "site": "https://thcschuvananq1.hcm.edu.vn/",
+   "ward": "PHƯỜNG CẦU ÔNG LÃNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcschuvananq1/untitled_21020261354.png",
+   "confidence": "icon",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 9108
+  },
+  {
+   "code": "79760502",
+   "name": "THCS Trần Văn Ơn",
+   "district": "Quận 1",
+   "site": "https://thcstranvanon.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN ĐỊNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcstranvanon/anhbanner/logo-tvo-ko-nen-nho_26112025939.png",
+   "confidence": "icon",
+   "source_px": [
+    490,
+    490
+   ],
+   "webp_bytes": 15914
+  },
+  {
+   "code": "79760503",
+   "name": "THCS Minh Đức",
+   "district": "Quận 1",
+   "site": "https://thcsminhduc.hcm.edu.vn/",
+   "ward": "PHƯỜNG CẦU ÔNG LÃNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsminhduc/logo-minhduc_992026017.jpg",
+   "confidence": "icon",
+   "source_px": [
+    716,
+    716
+   ],
+   "webp_bytes": 9280
+  },
+  {
+   "code": "79761503",
+   "name": "THCS Phan Bội Châu",
+   "district": "Quận 12",
+   "site": "https://thcsphanboichauq12.hcm.edu.vn/",
+   "ward": "PHƯỜNG ĐÔNG HƯNG THUẬN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsphanboichauq12/logo-nhe_2522026954.png",
+   "confidence": "img-logo",
+   "source_px": [
+    591,
+    591
+   ],
+   "webp_bytes": 11684
+  },
+  {
+   "code": "79761505",
+   "name": "THCS Nguyễn Ảnh Thủ",
+   "district": "Quận 12",
+   "site": "https://thcsnguyenanhthu.hcm.edu.vn/",
+   "ward": "PHƯỜNG ĐÔNG HƯNG THUẬN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsnguyenanhthu/logo2425_21820251940.jpg",
+   "confidence": "img-logo",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 8426
+  },
+  {
+   "code": "79761506",
+   "name": "THCS Nguyễn Vĩnh Nghiệp",
+   "district": "Quận 12",
+   "site": "https://thcsnguyenvinhnghiep.hcm.edu.vn/",
+   "ward": "PHƯỜNG ĐÔNG HƯNG THUẬN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsnguyenvinhnghiep/blue-gold-illustration-university-circle-logo-6_18820251731.png",
+   "confidence": "logo-named",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 9748
+  },
+  {
+   "code": "79761507",
+   "name": "THCS Nguyễn Hiền",
+   "district": "Quận 12",
+   "site": "https://thcsnguyenhienq12.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN THỚI HIỆP",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsnguyenhienq12/2025_2026/logo-nh_26820251018.png",
+   "confidence": "logo-named",
+   "source_px": [
+    500,
+    500
+   ],
+   "webp_bytes": 11370
+  },
+  {
+   "code": "79761508",
+   "name": "THCS Trần Quang Khải",
+   "district": "Quận 12",
+   "site": "https://thcstranquangkhaiq12.hcm.edu.vn/",
+   "ward": "PHƯỜNG TRUNG MỸ TÂY",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcstranquangkhaiq12/logotqk2025new-co-nen_3820252049.jpg",
+   "confidence": "icon",
+   "source_px": [
+    2000,
+    2000
+   ],
+   "webp_bytes": 10272
+  },
+  {
+   "code": "79761509",
+   "name": "THCS Nguyễn Huệ",
+   "district": "Quận 12",
+   "site": "https://thcsnguyenhueq12.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN THỚI HIỆP",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsnguyenhueq12/logo_161120252149.jpg",
+   "confidence": "icon",
+   "source_px": [
+    750,
+    797
+   ],
+   "webp_bytes": 9302
+  },
+  {
+   "code": "79761513",
+   "name": "THCS Hà Huy Tập",
+   "district": "Quận 12",
+   "site": "https://thcshahuytapq12.hcm.edu.vn/",
+   "ward": "PHƯỜNG ĐÔNG HƯNG THUẬN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcshahuytapq12/logomoi-removebg-preview_13820251126.png",
+   "confidence": "logo-named",
+   "source_px": [
+    500,
+    500
+   ],
+   "webp_bytes": 14666
+  },
+  {
+   "code": "79761514",
+   "name": "THCS Trần Phú",
+   "district": "Quận 12",
+   "site": "https://thcstranphuq12.hcm.edu.vn/",
+   "ward": "PHƯỜNG ĐÔNG HƯNG THUẬN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcstranphuq12/logo-tran-phu-moi-do-ben-doi-tac-lam_18820251458.jpg",
+   "confidence": "img-logo",
+   "source_px": [
+    999,
+    1000
+   ],
+   "webp_bytes": 10404
+  },
+  {
+   "code": "79762501",
+   "name": "THCS Lê Quý Đôn",
+   "district": "Quận Thủ Đức",
+   "site": "https://thcslequydonthuduc.hcm.edu.vn/",
+   "ward": "PHƯỜNG THỦ ĐỨC",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcslequydonthuduc/logo_23120251319.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    709,
+    1000
+   ],
+   "webp_bytes": 9586
+  },
+  {
+   "code": "79762502",
+   "name": "THCS Trương Văn Ngư",
+   "district": "Quận Thủ Đức",
+   "site": "https://thcstruongvanngu.hcm.edu.vn/",
+   "ward": "PHƯỜNG THỦ ĐỨC",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcstruongvanngu/logo.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    866,
+    776
+   ],
+   "webp_bytes": 9400
+  },
+  {
+   "code": "79762504",
+   "name": "THCS Hiệp Bình",
+   "district": "Quận Thủ Đức",
+   "site": "https://thcshiepbinh.hcm.edu.vn/",
+   "ward": "PHƯỜNG HIỆP BÌNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/haydung/thcshiepbinh/anhhaydung/2425/LOGOTRUONG/logotruong_28120261554.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    1024,
+    962
+   ],
+   "webp_bytes": 8514
+  },
+  {
+   "code": "79762505",
+   "name": "THCS Thái Văn Lung",
+   "district": "Quận Thủ Đức",
+   "site": "https://thcsthaivanlung.hcm.edu.vn/",
+   "ward": "PHƯỜNG TAM BÌNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/thcsthaivanlung/logo_2_3.png?w=600",
+   "confidence": "img-logo",
+   "source_px": [
+    100,
+    95
+   ],
+   "webp_bytes": 3192
+  },
+  {
+   "code": "79762507",
+   "name": "THCS Xuân Trường",
+   "district": "Quận Thủ Đức",
+   "site": "https://thcsxuantruong.hcm.edu.vn/",
+   "ward": "PHƯỜNG LINH XUÂN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsxuantruong/logotruong-thcsxuan-truong-03-nen-trang-tron-linh-xuan_672025115.png",
+   "confidence": "logo-named",
+   "source_px": [
+    954,
+    934
+   ],
+   "webp_bytes": 14742
+  },
+  {
+   "code": "79762510",
+   "name": "THCS Bình Chiểu",
+   "district": "Quận Thủ Đức",
+   "site": "https://thcsbinhchieu.hcm.edu.vn/",
+   "ward": "PHƯỜNG TAM BÌNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsbinhchieu/logo-xoa-nen_12102026155.png",
+   "confidence": "logo-named",
+   "source_px": [
+    2000,
+    2000
+   ],
+   "webp_bytes": 13330
+  },
+  {
+   "code": "79762511",
+   "name": "THCS Bình Thọ",
+   "district": "Quận Thủ Đức",
+   "site": "https://thcsbinhtho.hcm.edu.vn/",
+   "ward": "PHƯỜNG THỦ ĐỨC",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsbinhtho/logo_41020251329.png",
+   "confidence": "logo-named",
+   "source_px": [
+    1014,
+    1000
+   ],
+   "webp_bytes": 9096
+  },
+  {
+   "code": "79762514",
+   "name": "THCS Nguyễn Văn Bá",
+   "district": "Quận Thủ Đức",
+   "site": "https://thcsnguyenvanba.hcm.edu.vn/",
+   "ward": "PHƯỜNG LINH XUÂN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsnguyenvanba/nguyen-van-ba-logo_13520261734.png",
+   "confidence": "logo-named",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 10754
+  },
+  {
+   "code": "79762515",
+   "name": "THCS Trường Thọ",
+   "district": "Quận Thủ Đức",
+   "site": "https://thcstruongtho.hcm.edu.vn/",
+   "ward": "PHƯỜNG THỦ ĐỨC",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcstruongtho/logovientrang.png",
+   "confidence": "img-logo",
+   "source_px": [
+    1100,
+    1142
+   ],
+   "webp_bytes": 15526
+  },
+  {
+   "code": "79763502",
+   "name": "THCS Hưng Bình",
+   "district": "Quận 9",
+   "site": "https://thcshungbinh.hcm.edu.vn/",
+   "ward": "PHƯỜNG LONG BÌNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcshungbinh/17888623404466150079244011514794615007924401151479409ba5749af7e902802353bf6f162_8920261713.jpg",
+   "confidence": "og-only",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 12552
+  },
+  {
+   "code": "79763507",
+   "name": "THCS Đặng Tấn Tài",
+   "district": "Quận 9",
+   "site": "https://thcsdangtantai.hcm.edu.vn/",
+   "ward": "PHƯỜNG PHƯỚC LONG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsdangtantai/z708071630694330f413c94dd3b57c547c54fc289fe2a9_8520261942.jpg",
+   "confidence": "img-logo",
+   "source_px": [
+    1125,
+    831
+   ],
+   "webp_bytes": 11156
+  },
+  {
+   "code": "79763508",
+   "name": "THCS Phú Hữu",
+   "district": "Quận 9",
+   "site": "https://thcsphuhuu.hcm.edu.vn/",
+   "ward": "PHƯỜNG LONG TRƯỜNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsphuhuu/logo-xoa-nen_6220261450.png",
+   "confidence": "logo-named",
+   "source_px": [
+    923,
+    924
+   ],
+   "webp_bytes": 10126
+  },
+  {
+   "code": "79763510",
+   "name": "THCS Trường Thạnh",
+   "district": "Quận 9",
+   "site": "https://th-thcstruongthanh.hcm.edu.vn/",
+   "ward": "PHƯỜNG LONG PHƯỚC",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/th-thcstruongthanh/logo_251020261137.png",
+   "confidence": "logo-named",
+   "source_px": [
+    1777,
+    1000
+   ],
+   "webp_bytes": 10864
+  },
+  {
+   "code": "79763512",
+   "name": "THCS Tăng Nhơn Phú B",
+   "district": "Quận 9",
+   "site": "https://thcstangnhonphub.hcm.edu.vn/",
+   "ward": "PHƯỜNG TĂNG NHƠN PHÚ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcstangnhonphub/Logo%20THCS%20TNPB_110x114.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    110,
+    110
+   ],
+   "webp_bytes": 5406
+  },
+  {
+   "code": "79763513",
+   "name": "THCS Hiệp Phú",
+   "district": "Quận 9",
+   "site": "https://thcshiepphu.hcm.edu.vn/",
+   "ward": "PHƯỜNG TĂNG NHƠN PHÚ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/haydung/thcshiepphu/anhhaydung/logo-thcs-hiep-phu-2025-tron_2920252358.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 11656
+  },
+  {
+   "code": "79764502",
+   "name": "THCS Nguyễn Du",
+   "district": "Quận Gò Vấp",
+   "site": "https://thcsnguyendugovap.hcm.edu.vn/",
+   "ward": "PHƯỜNG THÔNG TÂY HỘI",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsnguyendugovap/logo-moi-202525820251730_3920251018.png",
+   "confidence": "logo-named",
+   "source_px": [
+    822,
+    754
+   ],
+   "webp_bytes": 16218
+  },
+  {
+   "code": "79764504",
+   "name": "THCS Quang Trung",
+   "district": "Quận Gò Vấp",
+   "site": "https://thcsquangtrunggovap.hcm.edu.vn/",
+   "ward": "PHƯỜNG GÒ VẤP",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsquangtrunggovap/logo-truong_2872026161.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 11352
+  },
+  {
+   "code": "79764508",
+   "name": "THCS An Nhơn",
+   "district": "Quận Gò Vấp",
+   "site": "https://thcsannhon.hcm.edu.vn/",
+   "ward": "PHƯỜNG AN NHƠN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsannhon/logo-truong-sau-sap-nhap_29820261626.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    495,
+    528
+   ],
+   "webp_bytes": 10012
+  },
+  {
+   "code": "79764510",
+   "name": "THCS Trường Sơn",
+   "district": "Quận Gò Vấp",
+   "site": "https://thcstruongson.hcm.edu.vn/",
+   "ward": "PHƯỜNG HẠNH THÔNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcstruongson/truong-son-logo-01_8720251359.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    2000,
+    1956
+   ],
+   "webp_bytes": 8242
+  },
+  {
+   "code": "79764511",
+   "name": "THCS Thông Tây Hội",
+   "district": "Quận Gò Vấp",
+   "site": "https://thcsthongtayhoi.hcm.edu.vn/",
+   "ward": "PHƯỜNG THÔNG TÂY HỘI",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsthongtayhoi/logo-truong_11122025810.jpg",
+   "confidence": "img-logo",
+   "source_px": [
+    575,
+    523
+   ],
+   "webp_bytes": 9914
+  },
+  {
+   "code": "79764512",
+   "name": "THCS Lý Tự Trọng",
+   "district": "Quận Gò Vấp",
+   "site": "https://thcslytutrong.hcm.edu.vn/",
+   "ward": "PHƯỜNG AN HỘI ĐÔNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcslytutrong/0684d203b8bc5ce205ad.jpg",
+   "confidence": "icon",
+   "source_px": [
+    790,
+    800
+   ],
+   "webp_bytes": 8204
+  },
+  {
+   "code": "79764513",
+   "name": "THCS Nguyễn Trãi",
+   "district": "Quận Gò Vấp",
+   "site": "https://thcsnguyentraigovap.hcm.edu.vn/",
+   "ward": "PHƯỜNG AN HỘI ĐÔNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsnguyentraigovap/logo-truong_81120251053.png",
+   "confidence": "icon",
+   "source_px": [
+    1035,
+    1000
+   ],
+   "webp_bytes": 11956
+  },
+  {
+   "code": "79764514",
+   "name": "THCS Tân Sơn",
+   "district": "Quận Gò Vấp",
+   "site": "https://thcstanson.hcm.edu.vn/",
+   "ward": "PHƯỜNG AN HỘI TÂY",
+   "logo_source": "https://filethcs.hcm.shieldix.app/dataqig/2026/thcstanson/codinh/giaodien/admin/logo-2025_61120261638.png",
+   "confidence": "logo-named",
+   "source_px": [
+    2000,
+    2000
+   ],
+   "webp_bytes": 9724
+  },
+  {
+   "code": "79764515",
+   "name": "THCS Huỳnh Văn Nghệ",
+   "district": "Quận Gò Vấp",
+   "site": "https://thcshuynhvannghegovap.hcm.edu.vn/",
+   "ward": "PHƯỜNG AN HỘI TÂY",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcshuynhvannghegovap/logo_311020251745.png",
+   "confidence": "logo-named",
+   "source_px": [
+    448,
+    440
+   ],
+   "webp_bytes": 9476
+  },
+  {
+   "code": "79765504",
+   "name": "THCS Rạng Đông",
+   "district": "Quận Bình Thạnh",
+   "site": "https://thcsrangdong.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH THẠNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsrangdong/logo-truong-2025_2982025102.png",
+   "confidence": "logo-named",
+   "source_px": [
+    469,
+    532
+   ],
+   "webp_bytes": 12794
+  },
+  {
+   "code": "79765505",
+   "name": "THCS Bình Lợi Trung",
+   "district": "Quận Bình Thạnh",
+   "site": "https://thcsbinhloitrung.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH LỢI TRUNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsbinhloitrung/logothcsblt2025_25220261419.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    1198,
+    1000
+   ],
+   "webp_bytes": 9922
+  },
+  {
+   "code": "79765506",
+   "name": "THCS Lê Văn Tám",
+   "district": "Quận Bình Thạnh",
+   "site": "https://thcslevantam.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH THẠNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcslevantam/logo truong trang.png",
+   "confidence": "logo-named",
+   "source_px": [
+    800,
+    800
+   ],
+   "webp_bytes": 10728
+  },
+  {
+   "code": "79765507",
+   "name": "THCS Phú Mỹ",
+   "district": "Quận Bình Thạnh",
+   "site": "https://thcsphumy.hcm.edu.vn/",
+   "ward": "PHƯỜNG THẠNH MỸ TÂY",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsphumy/logo-truong-phu-my-new2025_2382025918.png",
+   "confidence": "logo-named",
+   "source_px": [
+    2000,
+    1999
+   ],
+   "webp_bytes": 13410
+  },
+  {
+   "code": "79765509",
+   "name": "THCS Đống Đa",
+   "district": "Quận Bình Thạnh",
+   "site": "https://thcsdongda.hcm.edu.vn/",
+   "ward": "PHƯỜNG THẠNH MỸ TÂY",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsdongda/logo-dong-da_281020261558.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    348,
+    346
+   ],
+   "webp_bytes": 11838
+  },
+  {
+   "code": "79765513",
+   "name": "THCS Điện Biên",
+   "district": "Quận Bình Thạnh",
+   "site": "https://thcsdienbien.hcm.edu.vn/",
+   "ward": "PHƯỜNG GIA ĐỊNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcsdienbien/logoDB2.png",
+   "confidence": "icon",
+   "source_px": [
+    797,
+    800
+   ],
+   "webp_bytes": 9560
+  },
+  {
+   "code": "79765515",
+   "name": "THCS Bình Quới Tây",
+   "district": "Quận Bình Thạnh",
+   "site": "https://thcsbinhquoitay.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH QUỚI",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsbinhquoitay/logo-bqt2-removebg2_1472025166.png",
+   "confidence": "logo-named",
+   "source_px": [
+    500,
+    500
+   ],
+   "webp_bytes": 11870
+  },
+  {
+   "code": "79766501",
+   "name": "THCS Ngô Sĩ Liên",
+   "district": "Quận Tân Bình",
+   "site": "https://thcsngosilien.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN SƠN HÒA",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsngosilien/danghoan83/logo_6820251336.png",
+   "confidence": "icon",
+   "source_px": [
+    2000,
+    1967
+   ],
+   "webp_bytes": 11180
+  },
+  {
+   "code": "79766504",
+   "name": "THCS Quang Trung",
+   "district": "Quận Tân Bình",
+   "site": "https://thcsquangtrungtanbinh.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN HÒA",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcsquangtrungtanbinh/LOGOQT1.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    800,
+    800
+   ],
+   "webp_bytes": 9202
+  },
+  {
+   "code": "79766508",
+   "name": "THCS Âu Lạc",
+   "district": "Quận Tân Bình",
+   "site": "https://thcsaulac.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN SƠN NHẤT",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsaulac/asset-1_6920251231.png",
+   "confidence": "og-only",
+   "source_px": [
+    547,
+    472
+   ],
+   "webp_bytes": 13708
+  },
+  {
+   "code": "79766510",
+   "name": "THCS Phạm Ngọc Thạch",
+   "district": "Quận Tân Bình",
+   "site": "https://thcsphamngocthach.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN HÒA",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsphamngocthach/logo2_1882026178.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    2000,
+    2000
+   ],
+   "webp_bytes": 9978
+  },
+  {
+   "code": "79766511",
+   "name": "THCS Ngô Quyền",
+   "district": "Quận Tân Bình",
+   "site": "https://thcsngoquyentanbinh.hcm.edu.vn/",
+   "ward": "PHƯỜNG BẢY HIỀN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsngoquyentanbinh/logo-nq-moi-chinh_1692025941.png",
+   "confidence": "logo-named",
+   "source_px": [
+    745,
+    858
+   ],
+   "webp_bytes": 10164
+  },
+  {
+   "code": "79766512",
+   "name": "THCS Trường Chinh",
+   "district": "Quận Tân Bình",
+   "site": "https://thcstruongchinh.hcm.edu.vn/",
+   "ward": "PHƯỜNG BẢY HIỀN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/haydung/thcstruongchinh/anhhaydung/NAM_HOC_25_26/chinh-thuc-logo_17820251737.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    2000,
+    1994
+   ],
+   "webp_bytes": 6616
+  },
+  {
+   "code": "79767501",
+   "name": "THCS Đặng Trần Côn",
+   "district": "Quận Tân Phú",
+   "site": "https://thcsdangtrancon.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN SƠN NHÌ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsdangtrancon/logo-moi-thay-doi-png_21820251356.png",
+   "confidence": "logo-named",
+   "source_px": [
+    2000,
+    2000
+   ],
+   "webp_bytes": 13194
+  },
+  {
+   "code": "79767502",
+   "name": "THCS Lê Lợi",
+   "district": "Quận Tân Phú",
+   "site": "https://thcsleloitanphu.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂY THẠNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2024/thcsleloitanphu/logo-truong-le-loi-nen-trong-suot-1_2222024211.png",
+   "confidence": "img-logo",
+   "source_px": [
+    2000,
+    2012
+   ],
+   "webp_bytes": 17680
+  },
+  {
+   "code": "79767503",
+   "name": "THCS Võ Thành Trang",
+   "district": "Quận Tân Phú",
+   "site": "https://thcsvothanhtrang.hcm.edu.vn/",
+   "ward": "PHƯỜNG PHÚ THỌ HÒA",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsvothanhtrang/logovtt2526_2820252020.png",
+   "confidence": "img-logo",
+   "source_px": [
+    775,
+    701
+   ],
+   "webp_bytes": 10942
+  },
+  {
+   "code": "79767504",
+   "name": "THCS Đồng Khởi",
+   "district": "Quận Tân Phú",
+   "site": "https://thcsdongkhoitanphu.hcm.edu.vn/",
+   "ward": "PHƯỜNG PHÚ THẠNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsdongkhoitanphu/geminigeneratedimageowovrwowovrwowov_21102025815.png",
+   "confidence": "icon",
+   "source_px": [
+    858,
+    767
+   ],
+   "webp_bytes": 11454
+  },
+  {
+   "code": "79767506",
+   "name": "THCS Lê Anh Xuân",
+   "district": "Quận Tân Phú",
+   "site": "https://thcsleanhxuantanphu.hcm.edu.vn/",
+   "ward": "PHƯỜNG PHÚ THỌ HÒA",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2023/thcsleanhxuantanphu/logo_banner/logo22122023744-removebg-preview_22122023184.png",
+   "confidence": "logo-named",
+   "source_px": [
+    500,
+    500
+   ],
+   "webp_bytes": 14902
+  },
+  {
+   "code": "79767507",
+   "name": "THCS Phan Bội Châu",
+   "district": "Quận Tân Phú",
+   "site": "https://thcsphanboichautanphu.hcm.edu.vn/",
+   "ward": "PHƯỜNG PHÚ THỌ HÒA",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsphanboichautanphu/logo-truong_2282025855.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    713,
+    713
+   ],
+   "webp_bytes": 9326
+  },
+  {
+   "code": "79767508",
+   "name": "THCS Tân Thới Hòa",
+   "district": "Quận Tân Phú",
+   "site": "https://thcstanthoihoa.hcm.edu.vn/",
+   "ward": "PHƯỜNG PHÚ THẠNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcstanthoihoa/logo-ok-chuan-2025_12920261125.png",
+   "confidence": "logo-named",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 13610
+  },
+  {
+   "code": "79767510",
+   "name": "THCS Trần Quang Khải",
+   "district": "Quận Tân Phú",
+   "site": "https://thcstranquangkhaitanphu.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN SƠN NHÌ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/thuvien/2023/thcstranquangkhaitanphu/2_2712202316.png?w=600",
+   "confidence": "img-logo",
+   "source_px": [
+    600,
+    600
+   ],
+   "webp_bytes": 13712
+  },
+  {
+   "code": "79767511",
+   "name": "THCS Nguyễn Huệ",
+   "district": "Quận Tân Phú",
+   "site": "https://thcsnguyenhuetanphu.hcm.edu.vn/",
+   "ward": "PHƯỜNG PHÚ THỌ HÒA",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsnguyenhuetanphu/logo-truong_2172025742.png",
+   "confidence": "img-logo",
+   "source_px": [
+    2000,
+    2000
+   ],
+   "webp_bytes": 12578
+  },
+  {
+   "code": "79767512",
+   "name": "THCS Hoàng Diệu",
+   "district": "Quận Tân Phú",
+   "site": "https://thcshoangdieu.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN PHÚ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2024/thcshoangdieu/logo-truong-ko-nen_412024173.png",
+   "confidence": "logo-named",
+   "source_px": [
+    500,
+    500
+   ],
+   "webp_bytes": 15876
+  },
+  {
+   "code": "79767514",
+   "name": "THCS Nguyễn Trãi",
+   "district": "Quận Tân Phú",
+   "site": "https://thcsthoaingochau.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN PHÚ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsthoaingochau/1_2392026843.png",
+   "confidence": "img-logo",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 12764
+  },
+  {
+   "code": "79768502",
+   "name": "TRƯỜNG THCS Độc Lập",
+   "district": "Quận Phú Nhuận",
+   "site": "https://thcsdoclap.hcm.edu.vn/",
+   "ward": "PHƯỜNG ĐỨC NHUẬN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/thcsdoclap/logo_doclap_.jpg?w=320",
+   "confidence": "img-logo",
+   "source_px": [
+    289,
+    298
+   ],
+   "webp_bytes": 11484
+  },
+  {
+   "code": "79768503",
+   "name": "THCS Ngô Tất Tố",
+   "district": "Quận Phú Nhuận",
+   "site": "https://thcsngotatto.hcm.edu.vn/",
+   "ward": "PHƯỜNG PHÚ THUẬN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcsngotatto/logo_THCS_NgoTatTo.jpg",
+   "confidence": "img-logo",
+   "source_px": [
+    582,
+    800
+   ],
+   "webp_bytes": 5428
+  },
+  {
+   "code": "79768506",
+   "name": "THCS Đào Duy Anh",
+   "district": "Quận Phú Nhuận",
+   "site": "https://thcsdaoduyanhphunhuan.hcm.edu.vn/",
+   "ward": "PHƯỜNG PHÚ NHUẬN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcsdaoduyanhphunhuan/logo dao duy anh.jpg",
+   "confidence": "icon",
+   "source_px": [
+    2116,
+    2116
+   ],
+   "webp_bytes": 11872
+  },
+  {
+   "code": "79769501",
+   "name": "THCS An Phú",
+   "district": "Quận 2",
+   "site": "https://thcsanphuq2.hcm.edu.vn/",
+   "ward": "PHƯỜNG AN KHÁNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsanphuq2/hoidongtruong/logo-thcs-an-phu_5112025143.png",
+   "confidence": "logo-named",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 14594
+  },
+  {
+   "code": "79769502",
+   "name": "THCS Giồng Ông Tố",
+   "district": "Quận 2",
+   "site": "https://thcsgiongongto.hcm.edu.vn/",
+   "ward": "Phường Bình Trưng",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsgiongongto/logo-got_7720262238.png",
+   "confidence": "logo-named",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 11828
+  },
+  {
+   "code": "79769504",
+   "name": "THCS Thạnh Mỹ Lợi",
+   "district": "Quận 2",
+   "site": "https://th-thcsthanhmyloi.hcm.edu.vn/",
+   "ward": "PHƯỜNG CÁT LÁI",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsthanhmyloi/logo-moi_1920261456.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 12276
+  },
+  {
+   "code": "79769506",
+   "name": "THCS Lương Định Của",
+   "district": "Quận 2",
+   "site": "https://thcsluongdinhcua.hcm.edu.vn/",
+   "ward": "PHƯỜNG CÁT LÁI",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcsluongdinhcua/LOGO TRƯỜNG ko nền.png",
+   "confidence": "logo-named",
+   "source_px": [
+    500,
+    500
+   ],
+   "webp_bytes": 14598
+  },
+  {
+   "code": "79769508",
+   "name": "THCS Nguyễn Thị Định",
+   "district": "Quận 2",
+   "site": "https://thcsnguyenthidinh.hcm.edu.vn/",
+   "ward": "PHƯỜNG CÁT LÁI",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcsnguyenthidinh/Logo%20truong%20NTD.png",
+   "confidence": "icon",
+   "source_px": [
+    110,
+    114
+   ],
+   "webp_bytes": 7518
+  },
+  {
+   "code": "79769510",
+   "name": "THCS Cát Lái",
+   "district": "Quận 2",
+   "site": "https://th-thcscatlai.hcm.edu.vn/",
+   "ward": "PHƯỜNG CÁT LÁI",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcscatlaiq2/LOGO/logo-truong-tih-thcs-catlai-tphcm_3920262130.png",
+   "confidence": "logo-named",
+   "source_px": [
+    2000,
+    2000
+   ],
+   "webp_bytes": 12494
+  },
+  {
+   "code": "79770501",
+   "name": "THCS Bàn Cờ",
+   "district": "Quận 3",
+   "site": "https://thcsbanco.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÀN CỜ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/haydung/thcsbanco/anhhaydung/logobcpbc-moi_71120251658.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    1182,
+    1000
+   ],
+   "webp_bytes": 9954
+  },
+  {
+   "code": "79770502",
+   "name": "THCS Colette",
+   "district": "Quận 3",
+   "site": "https://thcscolette.hcm.edu.vn/",
+   "ward": "PHƯỜNG XUÂN HÒA",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcscolette/logo-thcs-colette-x_882025811.png",
+   "confidence": "logo-named",
+   "source_px": [
+    2000,
+    2050
+   ],
+   "webp_bytes": 12642
+  },
+  {
+   "code": "79770503",
+   "name": "THCS Đoàn Thị Điểm",
+   "district": "Quận 3",
+   "site": "https://thcsdoanthidiem.hcm.edu.vn/",
+   "ward": "PHƯỜNG NHIÊU LỘC",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/haydung/thcsdoanthidiem/anhhaydung/logo-dtd_2542025657.png",
+   "confidence": "logo-named",
+   "source_px": [
+    2000,
+    2000
+   ],
+   "webp_bytes": 11550
+  },
+  {
+   "code": "79770504",
+   "name": "THCS Hai Bà Trưng",
+   "district": "Quận 3",
+   "site": "https://thcshaibatrungq3.hcm.edu.vn/",
+   "ward": "PHƯỜNG XUÂN HÒA",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcshaibatrungq3/hbt-p-xuan-hoa_582025953.png",
+   "confidence": "og-only",
+   "source_px": [
+    2000,
+    2000
+   ],
+   "webp_bytes": 14020
+  },
+  {
+   "code": "79770506",
+   "name": "THCS Lê Quý Đôn",
+   "district": "Quận 3",
+   "site": "https://thcslequydonq3.hcm.edu.vn/",
+   "ward": "PHƯỜNG XUÂN HÒA",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/thcslequydonq3/logo_.png?w=320",
+   "confidence": "img-logo",
+   "source_px": [
+    200,
+    150
+   ],
+   "webp_bytes": 5668
+  },
+  {
+   "code": "79770509",
+   "name": "THCS Bạch Đằng",
+   "district": "Quận 3",
+   "site": "https://thcsbachdangq3.hcm.edu.vn/",
+   "ward": "PHƯỜNG NHIÊU LỘC",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/haydung/thcsbachdangq3/anhhaydung/NH2526/logotruongbd_28102025119.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    788,
+    734
+   ],
+   "webp_bytes": 10536
+  },
+  {
+   "code": "79770511",
+   "name": "THCS Phan Sào Nam",
+   "district": "Quận 3",
+   "site": "https://thcsphansaonam.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÀN CỜ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/dataqig/2026/thcsphansaonam/codinh/giaodien/admin/17938528800892251543480027432644g8455189391020246445727f5db78aaecdc75c86dfdedb4_51120261313.jpg",
+   "confidence": "og-only",
+   "source_px": [
+    429,
+    430
+   ],
+   "webp_bytes": 11212
+  },
+  {
+   "code": "79771501",
+   "name": "THCS Hoàng Văn Thụ",
+   "district": "Quận 10",
+   "site": "https://thcshoangvanthu.hcm.edu.vn/",
+   "ward": "PHƯỜNG VƯỜN LÀI",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcshoangvanthu/hvtxoa-nen_19720251154.png",
+   "confidence": "img-logo",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 11894
+  },
+  {
+   "code": "79771502",
+   "name": "THCS Nguyễn Tri Phương",
+   "district": "Quận 10",
+   "site": "https://thcsnguyentriphuongq10.hcm.edu.vn/",
+   "ward": "PHƯỜNG DIÊN HỒNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsnguyentriphuongq10/z68109958444689f54e2361e14d588a92e41f5f444959e_177202596.jpg",
+   "confidence": "img-logo",
+   "source_px": [
+    1080,
+    762
+   ],
+   "webp_bytes": 7434
+  },
+  {
+   "code": "79771503",
+   "name": "THCS Nguyễn Văn Tố",
+   "district": "Quận 10",
+   "site": "https://thcsnguyenvanto.hcm.edu.vn/",
+   "ward": "PHƯỜNG DIÊN HỒNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsnguyenvanto/AnhLogo/logo-truong-thcs-nguyen-van-to_992025111.png",
+   "confidence": "logo-named",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 18252
+  },
+  {
+   "code": "79771504",
+   "name": "THCS Lạc Hồng",
+   "district": "Quận 10",
+   "site": "https://thcslachongq10.hcm.edu.vn/",
+   "ward": "PHƯỜNG HÒA HƯNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcslachongq10/logo-lh-2026-size-nho_28920262047.png",
+   "confidence": "logo-named",
+   "source_px": [
+    798,
+    1000
+   ],
+   "webp_bytes": 9744
+  },
+  {
+   "code": "79772501",
+   "name": "THCS Nguyễn Văn Phú",
+   "district": "Quận 11",
+   "site": "https://thcsnguyenvanphu.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH THỚI",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsnguyenvanphu/image001-removebg-preview_462026931.png",
+   "confidence": "img-logo",
+   "source_px": [
+    500,
+    500
+   ],
+   "webp_bytes": 21750
+  },
+  {
+   "code": "79772502",
+   "name": "THCS Lê Quý Đôn",
+   "district": "Quận 11",
+   "site": "https://thcslequydonq11.hcm.edu.vn/",
+   "ward": "PHƯỜNG HÒA BÌNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcslequydonq11/logo-truong_6220261523.png",
+   "confidence": "logo-named",
+   "source_px": [
+    500,
+    500
+   ],
+   "webp_bytes": 24040
+  },
+  {
+   "code": "79772504",
+   "name": "THCS Nguyễn Minh Hoàng",
+   "district": "Quận 11",
+   "site": "https://thcsnguyenminhhoang.hcm.edu.vn/",
+   "ward": "PHƯỜNG MINH PHỤNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsnguyenminhhoang/logo_141020251019.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    943,
+    1000
+   ],
+   "webp_bytes": 9726
+  },
+  {
+   "code": "79772505",
+   "name": "THCS Chu Văn An",
+   "district": "Quận 11",
+   "site": "https://thcschuvananq11.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH THỚI",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcschuvananq11/logo-truong_1242026945.jpg",
+   "confidence": "img-logo",
+   "source_px": [
+    562,
+    562
+   ],
+   "webp_bytes": 9692
+  },
+  {
+   "code": "79772506",
+   "name": "THCS Lê Anh Xuân",
+   "district": "Quận 11",
+   "site": "https://thcsleanhxuanq11.hcm.edu.vn/",
+   "ward": "PHƯỜNG MINH PHỤNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsleanhxuanq11/logo-lax-2025_4920252053.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    934,
+    925
+   ],
+   "webp_bytes": 11596
+  },
+  {
+   "code": "79772507",
+   "name": "THCS Phú Thọ",
+   "district": "Quận 11",
+   "site": "https://thcsphutho.hcm.edu.vn/",
+   "ward": "PHƯỜNG PHÚ THỌ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsphutho/logo-truong-pphu-tho_141120251637.png",
+   "confidence": "img-logo",
+   "source_px": [
+    291,
+    291
+   ],
+   "webp_bytes": 8828
+  },
+  {
+   "code": "79772509",
+   "name": "THCS Hậu Giang",
+   "district": "Quận 11",
+   "site": "https://thcshaugiangq11.hcm.edu.vn/",
+   "ward": "PHƯỜNG MINH PHỤNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/haydung/thcshaugiangq11/anhhaydung/logo/logo-thcs-hg-mp_13520261548.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    480,
+    480
+   ],
+   "webp_bytes": 11272
+  },
+  {
+   "code": "79773501",
+   "name": "THCS Nguyễn Huệ",
+   "district": "Quận 4",
+   "site": "https://thcsnguyenhueq4.hcm.edu.vn/",
+   "ward": "Phường Vĩnh Hội",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsnguyenhueq4/quocdung/logo-thcs-nguyen-huenewtach-nen_141020251834.png",
+   "confidence": "icon",
+   "source_px": [
+    582,
+    581
+   ],
+   "webp_bytes": 12418
+  },
+  {
+   "code": "79773503",
+   "name": "THCS Tăng Bạt Hổ",
+   "district": "Quận 4",
+   "site": "https://thcstangbatho.hcm.edu.vn/",
+   "ward": "PHƯỜNG XÓM CHIẾU",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcstangbatho/12.png",
+   "confidence": "og-only",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 12812
+  },
+  {
+   "code": "79773504",
+   "name": "THCS Vân Đồn",
+   "district": "Quận 4",
+   "site": "https://thcsvandon.hcm.edu.vn/",
+   "ward": "PHƯỜNG XÓM CHIẾU",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcsvandon/vandon.jpg",
+   "confidence": "og-only",
+   "source_px": [
+    231,
+    230
+   ],
+   "webp_bytes": 9264
+  },
+  {
+   "code": "79773506",
+   "name": "THCS Chi Lăng",
+   "district": "Quận 4",
+   "site": "https://thcschilang.hcm.edu.vn/",
+   "ward": "PHƯỜNG KHÁNH HỘI",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcschilang/LOGO CL.png",
+   "confidence": "logo-named",
+   "source_px": [
+    1217,
+    1217
+   ],
+   "webp_bytes": 11626
+  },
+  {
+   "code": "79773507",
+   "name": "THCS Khánh Hội",
+   "district": "Quận 4",
+   "site": "https://thcskhanhhoi.hcm.edu.vn/",
+   "ward": "PHƯỜNG XÓM CHIẾU",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcskhanhhoia/Logo Khanh Hoi.png",
+   "confidence": "logo-named",
+   "source_px": [
+    552,
+    552
+   ],
+   "webp_bytes": 13756
+  },
+  {
+   "code": "79774501",
+   "name": "THCS Ba Đình",
+   "district": "Quận 5",
+   "site": "https://thcsbadinh.hcm.edu.vn/",
+   "ward": "PHƯỜNG CHỢ QUÁN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsbadinh/artboard-115x_9720261048.png",
+   "confidence": "img-logo",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 13080
+  },
+  {
+   "code": "79774506",
+   "name": "THCS Mạch Kiếm Hùng",
+   "district": "Quận 5",
+   "site": "https://thcsmachkiemhung.hcm.edu.vn/",
+   "ward": "PHƯỜNG CHỢ LỚN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcsmachkiemhung/LOGO MKH.png",
+   "confidence": "img-logo",
+   "source_px": [
+    323,
+    277
+   ],
+   "webp_bytes": 13342
+  },
+  {
+   "code": "79775502",
+   "name": "THCS Phú Định",
+   "district": "Quận 6",
+   "site": "https://thcsphudinh.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH PHÚ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsphudinh/logo-truong-phu-dinh_23920261453.png",
+   "confidence": "img-logo",
+   "source_px": [
+    999,
+    1000
+   ],
+   "webp_bytes": 13776
+  },
+  {
+   "code": "79775505",
+   "name": "THCS Đoàn Kết",
+   "district": "Quận 6",
+   "site": "https://thcsdoanket.hcm.edu.vn/",
+   "ward": "PHƯỜNG PHÚ LÂM",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsdoanket/logomoidk-photoroom_6920252242.png",
+   "confidence": "logo-named",
+   "source_px": [
+    991,
+    1000
+   ],
+   "webp_bytes": 22382
+  },
+  {
+   "code": "79775507",
+   "name": "Trường THCS Lam Sơn",
+   "district": "Quận 6",
+   "site": "https://thcslamsonq6.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH PHÚ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcslamsonq6/logo-chinh-thuc_5920251047.jpg",
+   "confidence": "img-logo",
+   "source_px": [
+    503,
+    481
+   ],
+   "webp_bytes": 9964
+  },
+  {
+   "code": "79775509",
+   "name": "THCS Văn Thân",
+   "district": "Quận 6",
+   "site": "https://thcsvanthan.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH TIÊN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsvanthan/logo-truong_14420261546.png",
+   "confidence": "logo-named",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 20078
+  },
+  {
+   "code": "79775510",
+   "name": "THCS Hoàng Lê Kha",
+   "district": "Quận 6",
+   "site": "https://thcshoanglekha.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH TÂY",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcshoanglekha/logo-hlk2-09102025_10920251518.png",
+   "confidence": "logo-named",
+   "source_px": [
+    2000,
+    2000
+   ],
+   "webp_bytes": 12906
+  },
+  {
+   "code": "79776501",
+   "name": "THCS Dương Bá Trạc",
+   "district": "Quận 8",
+   "site": "https://thcsduongbatrac.hcm.edu.vn/",
+   "ward": "PHƯỜNG CHÁNH HƯNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsduongbatrac/logo_27920261355.png",
+   "confidence": "logo-named",
+   "source_px": [
+    238,
+    237
+   ],
+   "webp_bytes": 13872
+  },
+  {
+   "code": "79776503",
+   "name": "THCS Chánh Hưng",
+   "district": "Quận 8",
+   "site": "https://thcschanhhung.hcm.edu.vn/",
+   "ward": "PHƯỜNG CHÁNH HƯNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcschanhhung/hinh-tron-logo_287202582.png",
+   "confidence": "img-logo",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 13724
+  },
+  {
+   "code": "79776505",
+   "name": "THCS Phan Đăng Lưu",
+   "district": "Quận 8",
+   "site": "https://thcsphandangluu.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH ĐÔNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/thcsphandangluu/2022_3/logo041220209220221056_1320222119.jpg?w=320",
+   "confidence": "img-logo",
+   "source_px": [
+    320,
+    308
+   ],
+   "webp_bytes": 8412
+  },
+  {
+   "code": "79776506",
+   "name": "Tiểu học và THCS Trần Danh Ninh",
+   "district": "Quận 8",
+   "site": "https://thcstrandanhninh.hcm.edu.vn/",
+   "ward": "PHƯỜNG CHÁNH HƯNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcstrandanhninh/logo_13102026837.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 11638
+  },
+  {
+   "code": "79776507",
+   "name": "THCS Tùng Thiện Vương",
+   "district": "Quận 8",
+   "site": "https://thcstungthienvuong.hcm.edu.vn/",
+   "ward": "PHƯỜNG PHÚ ĐỊNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2024/thcstungthienvuong/images_312024157.jpg",
+   "confidence": "icon",
+   "source_px": [
+    204,
+    204
+   ],
+   "webp_bytes": 10476
+  },
+  {
+   "code": "79776508",
+   "name": "THCS Lê Lai",
+   "district": "Quận 8",
+   "site": "https://thcslelai.hcm.edu.vn/",
+   "ward": "PHƯỜNG PHÚ ĐỊNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcslelai/logonew-removebg-preview_1692026167.png",
+   "confidence": "icon",
+   "source_px": [
+    511,
+    489
+   ],
+   "webp_bytes": 20782
+  },
+  {
+   "code": "79776510",
+   "name": "THCS Bình Đông",
+   "district": "Quận 8",
+   "site": "https://thcsbinhdong.hcm.edu.vn/",
+   "ward": "PHƯỜNG PHÚ ĐỊNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcsbinhdong/Picture1.1.png",
+   "confidence": "img-logo",
+   "source_px": [
+    260,
+    274
+   ],
+   "webp_bytes": 12152
+  },
+  {
+   "code": "79776511",
+   "name": "THCS Lý Thánh Tông",
+   "district": "Quận 8",
+   "site": "https://thcslythanhtong.hcm.edu.vn/",
+   "ward": "PHƯỜNG CHÁNH HƯNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcslythanhtong/1_231020251413.png",
+   "confidence": "icon",
+   "source_px": [
+    693,
+    682
+   ],
+   "webp_bytes": 12648
+  },
+  {
+   "code": "79777501",
+   "name": "THCSCL An Lạc",
+   "district": "Quận Bình Tân",
+   "site": "https://thcsanlac.hcm.edu.vn/",
+   "ward": "PHƯỜNG AN LẠC",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/haydung/thcsanlac/anhhaydung/nksang/logothcsanlac1_185202609.png",
+   "confidence": "icon",
+   "source_px": [
+    698,
+    697
+   ],
+   "webp_bytes": 11590
+  },
+  {
+   "code": "79777502",
+   "name": "THCSCL Hồ Văn Long",
+   "district": "Quận Bình Tân",
+   "site": "https://thcshovanlong.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH TÂN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcshovanlong/tron_201020262151.png",
+   "confidence": "icon",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 15588
+  },
+  {
+   "code": "79777503",
+   "name": "THCSCL Bình Hưng Hòa",
+   "district": "Quận Bình Tân",
+   "site": "https://thcsbinhhunghoa.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH TÂN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsbinhhunghoa/logo-truong_11920251027.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 10128
+  },
+  {
+   "code": "79777504",
+   "name": "THCSCL Bình Trị Đông",
+   "district": "Quận Bình Tân",
+   "site": "https://thcsbinhtridong.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH TRỊ ĐÔNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsbinhtridong/logo-thcs-btd_1382025810.png",
+   "confidence": "logo-named",
+   "source_px": [
+    2000,
+    2011
+   ],
+   "webp_bytes": 12284
+  },
+  {
+   "code": "79777506",
+   "name": "THCSCL Lê Tấn Bê",
+   "district": "Quận Bình Tân",
+   "site": "https://thcsletanbe.hcm.edu.vn/",
+   "ward": "PHƯỜNG AN LẠC",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsletanbe/logo-truong_6220261455.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    116,
+    115
+   ],
+   "webp_bytes": 6258
+  },
+  {
+   "code": "79777507",
+   "name": "THCSCL Tân Tạo",
+   "district": "Quận Bình Tân",
+   "site": "https://thcstantao.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH TÂN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2024/thcstantao/logo-thcs-tan-tao_311020241111.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    2000,
+    2000
+   ],
+   "webp_bytes": 10196
+  },
+  {
+   "code": "79777510",
+   "name": "THCSCL Trần Quốc Toản",
+   "district": "Quận Bình Tân",
+   "site": "https://thcstranquoctoanbinhtan.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH HƯNG HÒA",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcstranquoctoanbinhtan/logo-thcstqt_9220261113.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 11496
+  },
+  {
+   "code": "79777511",
+   "name": "THCSCL Huỳnh Văn Nghệ",
+   "district": "Quận Bình Tân",
+   "site": "https://thcshuynhvannghebinhtan.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH TÂN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcshuynhvannghebinhtan/logo-truongmoico-tphcm-1_2632026750.jpg",
+   "confidence": "icon",
+   "source_px": [
+    2000,
+    2000
+   ],
+   "webp_bytes": 10600
+  },
+  {
+   "code": "79777512",
+   "name": "THCSCL Nguyễn Trãi",
+   "district": "Quận Bình Tân",
+   "site": "https://thcsnguyentraibinhtan.hcm.edu.vn/",
+   "ward": "PHƯỜNG BÌNH HƯNG HÒA",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsnguyentraibinhtan/logo_272026156.png",
+   "confidence": "logo-named",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 12298
+  },
+  {
+   "code": "79777513",
+   "name": "THCSCL Tân Tạo A",
+   "district": "Quận Bình Tân",
+   "site": "https://thcstantaoa.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN TẠO",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcstantaoa/logo_13720261340.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    765,
+    749
+   ],
+   "webp_bytes": 11486
+  },
+  {
+   "code": "79778501",
+   "name": "THCS Trần Quốc Tuấn",
+   "district": "Quận 7",
+   "site": "https://thcstranquoctuan.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN HƯNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcstranquoctuan/anh-chup-man-hinh-2025-08-29-165727_16320261555.png",
+   "confidence": "icon",
+   "source_px": [
+    702,
+    701
+   ],
+   "webp_bytes": 10352
+  },
+  {
+   "code": "79778502",
+   "name": "THCS Huỳnh Tấn Phát",
+   "district": "Quận 7",
+   "site": "https://thcshuynhtanphat.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN THUẬN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcshuynhtanphat/logohtptanthuan_11320261441.png",
+   "confidence": "logo-named",
+   "source_px": [
+    706,
+    1000
+   ],
+   "webp_bytes": 13432
+  },
+  {
+   "code": "79778503",
+   "name": "THCS Nguyễn Hữu Thọ",
+   "district": "Quận 7",
+   "site": "https://thcsnguyenhuutho.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN HƯNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/haydung/thcsnguyenhuutho/anhhaydung/logo-new_9920251638.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 7992
+  },
+  {
+   "code": "79778504",
+   "name": "THCS Nguyễn Hiền",
+   "district": "Quận 7",
+   "site": "https://thcsnguyenhienq7.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN THUẬN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsnguyenhienq7/AnhThongTinNhaTruong/logo2_21920251735.png",
+   "confidence": "logo-named",
+   "source_px": [
+    1000,
+    1000
+   ],
+   "webp_bytes": 13384
+  },
+  {
+   "code": "79778505",
+   "name": "THCS Hoàng Quốc Việt",
+   "district": "Quận 7",
+   "site": "https://thcshoangquocviet.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN MỸ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcshoangquocviet/picture1_14320251530.png",
+   "confidence": "icon",
+   "source_px": [
+    304,
+    300
+   ],
+   "webp_bytes": 12260
+  },
+  {
+   "code": "79778506",
+   "name": "THCS Nguyễn Thị Thập",
+   "district": "Quận 7",
+   "site": "https://thcsnguyenthithap.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN HƯNG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsnguyenthithap/logo-truong_9920251015.jpg",
+   "confidence": "icon",
+   "source_px": [
+    719,
+    723
+   ],
+   "webp_bytes": 9570
+  },
+  {
+   "code": "79778507",
+   "name": "THCS Phạm Hữu Lầu",
+   "district": "Quận 7",
+   "site": "https://thcsphamhuulau.hcm.edu.vn/",
+   "ward": "PHƯỜNG TÂN MỸ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsphamhuulau/z6786295906140816f169ac6ffa05f94b7946c6fd0de85_241020252138.jpg",
+   "confidence": "img-logo",
+   "source_px": [
+    1777,
+    1000
+   ],
+   "webp_bytes": 8808
+  },
+  {
+   "code": "79783503",
+   "name": "THCS Tân Tiến",
+   "district": "Huyện Củ Chi",
+   "site": "https://thcstantien.hcm.edu.vn/",
+   "ward": "XÃ CỦ CHI",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcstantien/logotan tien.png",
+   "confidence": "logo-named",
+   "source_px": [
+    326,
+    326
+   ],
+   "webp_bytes": 15974
+  },
+  {
+   "code": "79783506",
+   "name": "THCS Phước Vĩnh An",
+   "district": "Huyện Củ Chi",
+   "site": "https://thcsphuocvinhan.hcm.edu.vn/",
+   "ward": "XÃ CỦ CHI",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2024/thcsphuocvinhan/truong-dat-chuan-quoc-gia-muc-do-21_1612024935.png",
+   "confidence": "og-only",
+   "source_px": [
+    450,
+    450
+   ],
+   "webp_bytes": 20434
+  },
+  {
+   "code": "79783510",
+   "name": "THCS Trung Lập Hạ",
+   "district": "Huyện Củ Chi",
+   "site": "https://thcstrunglapha.hcm.edu.vn/",
+   "ward": "XÃ NHUẬN ĐỨC",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/haydung/thcstrunglapha/anhhaydung/lo-go-moi_25820251543.jpg",
+   "confidence": "og-only",
+   "source_px": [
+    439,
+    432
+   ],
+   "webp_bytes": 11356
+  },
+  {
+   "code": "79783516",
+   "name": "THCS Phú Hòa Đông",
+   "district": "Huyện Củ Chi",
+   "site": "https://thcsphuhoadong.hcm.edu.vn/",
+   "ward": "Xã Phú Hòa Đông",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcsphuhoadong/logo.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    110,
+    110
+   ],
+   "webp_bytes": 5852
+  },
+  {
+   "code": "79783518",
+   "name": "THCS Tân Thạnh Đông",
+   "district": "Huyện Củ Chi",
+   "site": "https://thcstanthanhdong.hcm.edu.vn/",
+   "ward": "Xã Phú Hòa Đông",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcstanthanhdong/logo-truong-3_261020261414.jpeg",
+   "confidence": "logo-named",
+   "source_px": [
+    766,
+    766
+   ],
+   "webp_bytes": 9324
+  },
+  {
+   "code": "79783519",
+   "name": "THCS Bình Hòa",
+   "district": "Huyện Củ Chi",
+   "site": "https://thcsbinhhoa.hcm.edu.vn/",
+   "ward": "XÃ BÌNH MỸ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/haydung/thcsbinhhoa/anhhaydung/logo/logotruong_13320261028.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    397,
+    353
+   ],
+   "webp_bytes": 9820
+  },
+  {
+   "code": "79783522",
+   "name": "THCS Tân An Hội",
+   "district": "Huyện Củ Chi",
+   "site": "https://thcstananhoi.hcm.edu.vn/",
+   "ward": "XÃ TÂN AN HỘI",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsthitran2/logo-chinh-thuc-tu-017-xoa-nen_27820251617.png",
+   "confidence": "img-logo",
+   "source_px": [
+    2000,
+    2000
+   ],
+   "webp_bytes": 21762
+  },
+  {
+   "code": "79783524",
+   "name": "THCS Trung An",
+   "district": "Huyện Củ Chi",
+   "site": "https://thcstrungan.hcm.edu.vn/",
+   "ward": "XÃ BÌNH MỸ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcstrungan/LOGO%20TRUONG_moi.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    110,
+    111
+   ],
+   "webp_bytes": 4876
+  },
+  {
+   "code": "79784501",
+   "name": "THCS Nguyễn An Khương",
+   "district": "Huyện Hóc Môn",
+   "site": "https://thcsnguyenankhuong.hcm.edu.vn/",
+   "ward": "XÃ HÓC MÔN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsnguyenankhuong/logo-nak_25720252158.png",
+   "confidence": "logo-named",
+   "source_px": [
+    2000,
+    2001
+   ],
+   "webp_bytes": 13348
+  },
+  {
+   "code": "79784506",
+   "name": "THCS Đông Thạnh",
+   "district": "Huyện Hóc Môn",
+   "site": "https://thcsdongthanh.hcm.edu.vn/",
+   "ward": "XÃ ĐÔNG THẠNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsdongthanh/logotruong_23102026917.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    389,
+    389
+   ],
+   "webp_bytes": 10192
+  },
+  {
+   "code": "79784509",
+   "name": "THCS Đỗ Văn Dậy",
+   "district": "Huyện Hóc Môn",
+   "site": "https://thcsdovanday.hcm.edu.vn/",
+   "ward": "XÃ HÓC MÔN",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcsdovanday/DVD new2.png",
+   "confidence": "img-logo",
+   "source_px": [
+    752,
+    703
+   ],
+   "webp_bytes": 10870
+  },
+  {
+   "code": "79784510",
+   "name": "THCS Phan Công Hớn",
+   "district": "Huyện Hóc Môn",
+   "site": "https://thcsphanconghon.hcm.edu.vn/",
+   "ward": "XÃ BÀ ĐIỂM",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsphanconghon/logoththcsphanconghon-removebg-preview_22920261955.png",
+   "confidence": "logo-named",
+   "source_px": [
+    500,
+    500
+   ],
+   "webp_bytes": 21842
+  },
+  {
+   "code": "79784512",
+   "name": "THCS Xuân Thới Thượng",
+   "district": "Huyện Hóc Môn",
+   "site": "https://thcsxuanthoithuong.hcm.edu.vn/",
+   "ward": "XÃ BÀ ĐIỂM",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsxuanthoithuong/image002_4820251431.jpg",
+   "confidence": "icon",
+   "source_px": [
+    287,
+    269
+   ],
+   "webp_bytes": 9572
+  },
+  {
+   "code": "79784515",
+   "name": "THCS Đặng Thúc Vịnh",
+   "district": "Huyện Hóc Môn",
+   "site": "https://th-thcsdangthucvinh.hcm.edu.vn/",
+   "ward": "XÃ ĐÔNG THẠNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/dataqig/2026/th-thcsdangthucvinh/codinh/giaodien/admin/logo-tach-nen_41120261319.png",
+   "confidence": "logo-named",
+   "source_px": [
+    500,
+    500
+   ],
+   "webp_bytes": 15414
+  },
+  {
+   "code": "79785501",
+   "name": "THCS Nguyễn Thái Bình",
+   "district": "Huyện Bình Chánh",
+   "site": "https://thcsnguyenthaibinh.hcm.edu.vn/",
+   "ward": "Xã Bình Hưng",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsnguyenthaibinh/logo_2472026210.jpg",
+   "confidence": "img-logo",
+   "source_px": [
+    2000,
+    1872
+   ],
+   "webp_bytes": 8460
+  },
+  {
+   "code": "79785502",
+   "name": "THCS Phong Phú",
+   "district": "Huyện Bình Chánh",
+   "site": "https://thcsphongphu.hcm.edu.vn/",
+   "ward": "Xã Bình Hưng",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcsphongphu/logo chan trang/lo2pp.png",
+   "confidence": "img-logo",
+   "source_px": [
+    61,
+    91
+   ],
+   "webp_bytes": 3908
+  },
+  {
+   "code": "79785503",
+   "name": "THCS Qui Đức",
+   "district": "Huyện Bình Chánh",
+   "site": "https://thcsquiduc.hcm.edu.vn/",
+   "ward": "XÃ HƯNG LONG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcsquiduc/logomoi.png",
+   "confidence": "logo-named",
+   "source_px": [
+    600,
+    600
+   ],
+   "webp_bytes": 12040
+  },
+  {
+   "code": "79785508",
+   "name": "THCS Tân Túc",
+   "district": "Huyện Bình Chánh",
+   "site": "https://thcstantuc.hcm.edu.vn/",
+   "ward": "XÃ TÂN NHỰT",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcstantuc/logott_11920251153.png",
+   "confidence": "logo-named",
+   "source_px": [
+    876,
+    1000
+   ],
+   "webp_bytes": 7800
+  },
+  {
+   "code": "79785510",
+   "name": "THCS Phạm Văn Hai",
+   "district": "Huyện Bình Chánh",
+   "site": "https://thcsphamvanhai.hcm.edu.vn/",
+   "ward": "XÃ TÂN VĨNH LỘC",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsphamvanhai/z707980673594075c5e08c3b47281752e107f57e7d99b9_241020251928.jpg",
+   "confidence": "img-logo",
+   "source_px": [
+    2000,
+    2000
+   ],
+   "webp_bytes": 11184
+  },
+  {
+   "code": "79785511",
+   "name": "THCS Gò Xoài",
+   "district": "Huyện Bình Chánh",
+   "site": "https://thcsgoxoai.hcm.edu.vn/",
+   "ward": "Xã Bình Lợi",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcsgoxoai/LogoGO_XOAI%20-%20Copy.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    100,
+    100
+   ],
+   "webp_bytes": 6302
+  },
+  {
+   "code": "79785512",
+   "name": "THCS Lê Minh Xuân",
+   "district": "Huyện Bình Chánh",
+   "site": "https://thcsleminhxuan.hcm.edu.vn/",
+   "ward": "Xã Bình Lợi",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsleminhxuan/3copy-removebg-preview-1_11020251634.png",
+   "confidence": "img-logo",
+   "source_px": [
+    500,
+    500
+   ],
+   "webp_bytes": 23000
+  },
+  {
+   "code": "79785514",
+   "name": "THCS Đồng Đen",
+   "district": "Huyện Bình Chánh",
+   "site": "https://thcsdongden.hcm.edu.vn/",
+   "ward": "Xã Vĩnh Lộc",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsdongden/logo_9720261049.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    1056,
+    992
+   ],
+   "webp_bytes": 9702
+  },
+  {
+   "code": "79785517",
+   "name": "THCS Đa Phước",
+   "district": "Huyện Bình Chánh",
+   "site": "https://thcsdaphuoc.hcm.edu.vn/",
+   "ward": "XÃ HƯNG LONG",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/haydung/thcsdaphuoc/anhhaydung/logo-2026_19620261121.jpg",
+   "confidence": "logo-named",
+   "source_px": [
+    512,
+    512
+   ],
+   "webp_bytes": 11824
+  },
+  {
+   "code": "79785518",
+   "name": "THCS Tân Nhựt",
+   "district": "Huyện Bình Chánh",
+   "site": "https://thcstannhut.hcm.edu.vn/",
+   "ward": "XÃ TÂN NHỰT",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcstannhut/logo-2_28820251511.jpg",
+   "confidence": "icon",
+   "source_px": [
+    654,
+    641
+   ],
+   "webp_bytes": 8658
+  },
+  {
+   "code": "79786501",
+   "name": "THCS Nguyễn Bỉnh Khiêm",
+   "district": "Huyện Nhà Bè",
+   "site": "https://thcsnguyenbinhkhiemnhabe.hcm.edu.vn/",
+   "ward": "XÃ NHÀ BÈ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcsnguyenbinhkhiemnhabe/logo-truong_872025913.png",
+   "confidence": "logo-named",
+   "source_px": [
+    500,
+    500
+   ],
+   "webp_bytes": 12636
+  },
+  {
+   "code": "79786503",
+   "name": "THCS Hiệp Phước",
+   "district": "Huyện Nhà Bè",
+   "site": "https://thcshiepphuoc.hcm.edu.vn/",
+   "ward": "XÃ HIỆP PHƯỚC",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcshiepphuoc/logo-hiep-phuoc-2025_2720251018.png",
+   "confidence": "logo-named",
+   "source_px": [
+    600,
+    600
+   ],
+   "webp_bytes": 10646
+  },
+  {
+   "code": "79786504",
+   "name": "THCS Nguyễn Văn Quỳ",
+   "district": "Huyện Nhà Bè",
+   "site": "https://thcsnguyenvanquy.hcm.edu.vn/",
+   "ward": "XÃ NHÀ BÈ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcsnguyenvanquy/logo NVQ tron.jpg",
+   "confidence": "img-logo",
+   "source_px": [
+    687,
+    687
+   ],
+   "webp_bytes": 8192
+  },
+  {
+   "code": "79786505",
+   "name": "THCS Hai Bà Trưng",
+   "district": "Huyện Nhà Bè",
+   "site": "https://thcshaibatrungnhabe.hcm.edu.vn/",
+   "ward": "XÃ HIỆP PHƯỚC",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcshaibatrungnhabe/logohbt123-removebg-preview.png",
+   "confidence": "logo-named",
+   "source_px": [
+    498,
+    501
+   ],
+   "webp_bytes": 16404
+  },
+  {
+   "code": "79786507",
+   "name": "THCS Lê Thành Công",
+   "district": "Huyện Nhà Bè",
+   "site": "https://thcslethanhcong.hcm.edu.vn/",
+   "ward": "XÃ NHÀ BÈ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcslethanhcong/logofooter.png",
+   "confidence": "logo-named",
+   "source_px": [
+    110,
+    94
+   ],
+   "webp_bytes": 4272
+  },
+  {
+   "code": "79786508",
+   "name": "THCS Nguyễn Thị Hương",
+   "district": "Huyện Nhà Bè",
+   "site": "https://thcsnguyenthihuong.hcm.edu.vn/",
+   "ward": "XÃ NHÀ BÈ",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsnguyenthihuong/179014755640053859901759688020865385990175968802086dad9566ed77738734f9d1acee0ac_23920261415.jpg",
+   "confidence": "og-only",
+   "source_px": [
+    2000,
+    2000
+   ],
+   "webp_bytes": 9928
+  },
+  {
+   "code": "79787506",
+   "name": "THCS Bình Khánh",
+   "district": "Huyện Cần Giờ",
+   "site": "https://thcsbinhkhanh.hcm.edu.vn/",
+   "ward": "XÃ BÌNH KHÁNH",
+   "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2026/thcsbinhkhanh/binh-khanh-new_15420261530.jpg",
+   "confidence": "icon",
+   "source_px": [
+    945,
+    945
+   ],
+   "webp_bytes": 13022
+  }
+ ]
+}

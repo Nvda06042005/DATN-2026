@@ -10,6 +10,7 @@ import { ApiError, errorMessage, type PickedFile } from '@/api/client';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { Btn, Card, Chip, EmptyState, Field, Inset, Sheet, Spinner, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import { copyText } from '@/lib/clipboard';
 import type { ImportResult } from '@/types/api';
 
 // ---------------------------------------------------------------------- tải dữ liệu
@@ -280,16 +281,14 @@ const MAIL_NOTE = { queued: 'Thư thông tin đăng nhập đã được xếp v
 export const CredentialSheet: React.FC<{ title: string; account: { full_name: string; username: string; temporary_password: string; mail: keyof typeof MAIL_NOTE }; onClose: () => void; extra?: React.ReactNode }> = ({ title, account, onClose, extra }) => {
   const { c } = useTheme();
   const toast = useToast();
+  const [copied, setCopied] = useState(false);
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(`Tên đăng nhập: ${account.username}\nMật khẩu tạm: ${account.temporary_password}`);
-      toast('Đã sao chép');
-    } catch {
-      toast('Không sao chép tự động được, hãy chọn và chép thủ công.');
-    }
+    const ok = await copyText(`Tên đăng nhập: ${account.username}\nMật khẩu tạm: ${account.temporary_password}`);
+    setCopied(ok);
+    toast(ok ? 'Đã sao chép' : 'Không sao chép tự động được, hãy chọn và chép thủ công.');
   };
   return (
-    <Sheet open onClose={onClose} title={title} subtitle={account.full_name} footer={<View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>{Platform.OS === 'web' && <Btn title="Sao chép" tone="giay" onPress={copy} />}<Btn title="Đã ghi lại" tone="son" onPress={onClose} /></View>}>
+    <Sheet open onClose={onClose} title={title} subtitle={account.full_name} footer={<View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>{Platform.OS === 'web' && <Btn title={copied ? 'Đã sao chép' : 'Sao chép'} tone="giay" onPress={copy} testID="credential-copy" />}<Btn title="Đã ghi lại" tone="son" onPress={onClose} /></View>}>
       <Inset style={{ gap: 6 }}>
         <Txt size={13} color={c.muc2}>Tên đăng nhập</Txt>
         <Txt f="bold" size={18} selectable testID="credential-username">{account.username}</Txt>

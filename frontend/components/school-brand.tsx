@@ -1,45 +1,32 @@
 /**
- * Nhận diện của một trường: huy hiệu tự tạo từ tên trường (khi chưa có logo riêng), tên + khu vực ở trang đăng nhập riêng,
- * và hộp đường dẫn riêng để quản trị tổng chép gửi cho trường.
+ * Nhận diện của một trường: logo chính thức (lấy từ website của Sở GD&ĐT, xem scripts/fetch-school-logos.py), tên + khu vực ở trang đăng nhập riêng,
+ * và hộp đường dẫn riêng để quản trị tổng chép gửi cho trường. Trường chưa có logo chính thức chỉ hiện khung trống trung tính, không vẽ logo giả.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Image, Linking, Platform, View } from 'react-native';
-import Svg, { Circle, Path, Text as SvgText } from 'react-native-svg';
-import { Copy, ExternalLink } from 'lucide-react-native';
+import { Check, Copy, ExternalLink, School } from 'lucide-react-native';
 import { Btn, Inset, Txt, useToast } from '@/components/ui';
 import { FONT } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { emblemColors, schoolInitials } from '@/lib/school-link';
+import { copyText } from '@/lib/clipboard';
+import { schoolLogoUrl } from '@/lib/school-logos';
 import type { SchoolLink } from '@/types/api';
 
-/** Ngôi sao năm cánh nhỏ ở đỉnh huy hiệu */
-const STAR = (() => {
-  const R = 8, r = 3.1, cx = 50, cy = 25;
-  return `M${Array.from({ length: 10 }, (_, i) => {
-    const a = (-90 + i * 36) * (Math.PI / 180);
-    const d = i % 2 === 0 ? R : r;
-    return `${(cx + d * Math.cos(a)).toFixed(2)} ${(cy + d * Math.sin(a)).toFixed(2)}`;
-  }).join(' L')} Z`;
-})();
-
-/** Logo riêng của trường nếu có; nếu chưa có thì huy hiệu vẽ từ tên và mã trường, nên không ai phải dán ảnh */
+/** Logo chính thức của trường: logo riêng đã đặt ở mục Sửa thì ưu tiên, nếu không thì logo lấy từ website Sở GD&ĐT; chưa có thì khung trống trung tính */
 export const SchoolEmblem: React.FC<{ name: string; code: string; logoUrl?: string | null; size?: number }> = ({ name, code, logoUrl, size = 56 }) => {
-  const [failed, setFailed] = useState(false);
-  if (logoUrl && !failed) {
-    return <Image source={{ uri: logoUrl }} onError={() => setFailed(true)} accessibilityLabel={`Logo ${name}`} accessibilityIgnoresInvertColors resizeMode="contain" style={{ width: size, height: size, borderRadius: 10 }} />;
+  const { c } = useTheme();
+  const [failed, setFailed] = useState<string | null>(null);
+  const src = logoUrl || schoolLogoUrl(code);
+  if (src && failed !== src) {
+    return (
+      <View accessible accessibilityRole="image" accessibilityLabel={`Logo ${name}`} style={{ width: size, height: size, borderRadius: Math.round(size * 0.22), backgroundColor: '#ffffff', borderWidth: 1, borderColor: c.vien, padding: Math.max(2, Math.round(size * 0.06)) }}>
+        <Image source={{ uri: src }} onError={() => setFailed(src)} accessibilityIgnoresInvertColors resizeMode="contain" style={{ width: '100%', height: '100%' }} />
+      </View>
+    );
   }
-  const { bg, ring } = emblemColors(code);
-  const letters = schoolInitials(name);
   return (
-    <View accessible accessibilityRole="image" accessibilityLabel={`Huy hiệu ${name}`} style={{ width: size, height: size }}>
-      <Svg width={size} height={size} viewBox="0 0 100 100">
-        <Circle cx="50" cy="50" r="48" fill={ring} />
-        <Circle cx="50" cy="50" r="44" fill={bg} />
-        <Circle cx="50" cy="50" r="37" fill="none" stroke={ring} strokeWidth="1.5" opacity="0.7" />
-        <Path d={STAR} fill={ring} />
-        <SvgText x="50" y="64" fontSize={letters.length > 1 ? 30 : 34} fontWeight="800" fill="#ffffff" textAnchor="middle" fontFamily={FONT.heavy}>{letters}</SvgText>
-        <Path d="M31 77 Q50 85 69 77" stroke={ring} strokeWidth="2.5" fill="none" strokeLinecap="round" />
-      </Svg>
+    <View accessible accessibilityRole="image" accessibilityLabel={`${name} (chưa có logo)`} style={{ width: size, height: size, borderRadius: Math.round(size * 0.22), backgroundColor: c.dichNhat, borderWidth: 1, borderColor: c.vien, alignItems: 'center', justifyContent: 'center' }}>
+      <School size={Math.round(size * 0.5)} color={c.muc3} strokeWidth={1.6} />
     </View>
   );
 };
@@ -65,22 +52,26 @@ export const SchoolBadge: React.FC<{ school: SchoolBrandInfo; light?: boolean }>
 export const SchoolLinkBox: React.FC<{ link: SchoolLink }> = ({ link }) => {
   const { c } = useTheme();
   const toast = useToast();
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(link.url);
-      toast('Đã sao chép đường dẫn của trường');
-    } catch {
-      toast('Không sao chép tự động được, hãy chọn và chép thủ công.');
-    }
+  const [copy, setCopy] = useState<'idle' | 'done' | 'failed'>('idle');
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  // phản hồi ngay tại nút (nhãn đổi thành "Đã sao chép") và bằng thông báo, vì thông báo chỉ là phần phụ
+  const copyLink = async () => {
+    const ok = await copyText(link.url);
+    setCopy(ok ? 'done' : 'failed');
+    toast(ok ? 'Đã sao chép đường dẫn của trường' : 'Không sao chép tự động được, hãy chọn đường dẫn rồi chép thủ công.');
+    if (timer.current) clearTimeout(timer.current);
+    if (ok) timer.current = setTimeout(() => setCopy('idle'), 2500);
   };
   return (
     <Inset style={{ gap: 8 }}>
       <Txt f="bold" size={13} color={c.muc2}>Đường dẫn riêng của trường</Txt>
       <Txt size={14} selectable testID="school-link-url" style={{ fontFamily: FONT.mono }}>{link.url}</Txt>
       <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-        {Platform.OS === 'web' && <Btn title="Sao chép" icon={Copy} tone="giay" size="sm" onPress={copy} testID="school-link-copy" />}
+        {Platform.OS === 'web' && <Btn title={copy === 'done' ? 'Đã sao chép' : 'Sao chép'} icon={copy === 'done' ? Check : Copy} tone="giay" size="sm" onPress={copyLink} testID="school-link-copy" />}
         <Btn title="Mở trang" icon={ExternalLink} tone="giay" size="sm" onPress={() => { void Linking.openURL(link.url); }} testID="school-link-open" />
       </View>
+      {copy === 'failed' ? <Txt size={12} f="semibold" color={c.sonChu} testID="school-link-copy-failed">Trình duyệt chặn sao chép tự động. Hãy chọn đường dẫn ở trên rồi chép thủ công.</Txt> : null}
       <Txt size={12} color={c.muc3}>Học sinh, giáo viên và quản trị viên của trường dùng đường dẫn này để đăng nhập; tài khoản của trường khác không vào được.</Txt>
     </Inset>
   );

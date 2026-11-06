@@ -1,5 +1,5 @@
 // Thêm trường từ danh mục (mã, khu vực, logo tự điền) và đường dẫn riêng donga_<mã>_<tên>_<khu vực> làm cổng đăng nhập của trường.
-// Logic thuần (nhận dạng đường dẫn, chữ và màu huy hiệu) chạy thật bằng cách biên dịch TypeScript; thành phần React Native không nạp được trong Node
+// Logic thuần (nhận dạng đường dẫn, danh sách logo chính thức) chạy thật bằng cách biên dịch TypeScript; thành phần React Native không nạp được trong Node
 // nên phần giao diện kiểm tra các mắt xích nối nhau (ô chọn → hàm gọi API → đường dẫn máy chủ).
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -27,26 +27,42 @@ test('nhận dạng đường dẫn của trường: chỉ dạng donga_<4–8 c
   assert.equal(lib.schoolCodeOfSlug('hoc-sinh'), null);
 });
 
-test('huy hiệu tự tạo: chữ viết tắt lấy từ tên riêng, không lấy từ "THCS"/"Trường", và không làm mất tên như "Trung Sơn"', () => {
-  assert.equal(lib.schoolInitials('THCS Phú Mỹ'), 'PM');
-  assert.equal(lib.schoolInitials('Trường THCS Trương Công Định'), 'TĐ');
-  assert.equal(lib.schoolInitials('Tiểu học và THCS Trần Danh Ninh'), 'TN');
-  assert.equal(lib.schoolInitials('THCS Trung Sơn'), 'TS');
-  assert.equal(lib.schoolInitials('TH&THCS Tân Hợp'), 'TH');
-  assert.equal(lib.schoolInitials('THCS Colette'), 'CO');
-  assert.equal(lib.schoolInitials('THCS Đoàn Thị Điểm'), 'ĐĐ');
-  assert.equal(lib.schoolInitials('  '), '?');
-  assert.deepEqual(Array.from(lib.ownNameWords('Trường THCS Lý Tự Trọng')), ['Lý', 'Tự', 'Trọng']);
+function loadLogos() {
+  const compiled = ts.transpileModule(read('lib', 'school-logos.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const module = { exports: {} };
+  new vm.Script(`(function(module,exports){${compiled}\n})`).runInThisContext()(module, module.exports);
+  return module.exports;
+}
+
+test('logo chính thức: mỗi mã trong danh sách có đúng một tệp ảnh, không có tệp mồ côi, và trường chưa có logo thì trả null (không vẽ logo giả)', () => {
+  const { SCHOOL_LOGO_CODES, schoolLogoUrl } = loadLogos();
+  const dir = path.join(root, 'public', 'school-logos');
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.webp')).map((f) => f.replace(/\.webp$/, '')).sort();
+  assert.deepEqual([...SCHOOL_LOGO_CODES].sort(), files);
+  assert.ok(files.length >= 100, `chỉ có ${files.length} logo`);
+  for (const code of files) assert.match(code, /^\d{4,8}$/);
+  assert.equal(schoolLogoUrl('79765507'), '/school-logos/79765507.webp');
+  assert.equal(schoolLogoUrl('01015507'), null);
+  assert.equal(schoolLogoUrl(''), null);
+  // mọi logo đã qua kiểm tra: tệp WebP hợp lệ, nhỏ gọn
+  for (const code of files) {
+    const buf = fs.readFileSync(path.join(dir, `${code}.webp`));
+    assert.equal(buf.subarray(0, 4).toString('latin1'), 'RIFF', code);
+    assert.equal(buf.subarray(8, 12).toString('latin1'), 'WEBP', code);
+    assert.ok(buf.length < 80 * 1024, `${code} nặng ${buf.length} byte`);
+  }
 });
 
-test('màu huy hiệu cố định theo mã trường, đủ tám bộ màu và luôn có màu chữ đọc được trên nền', () => {
-  assert.deepEqual(lib.emblemColors('79765507'), lib.emblemColors('79765507'));
-  const used = new Set(Array.from({ length: 80 }, (_, i) => JSON.stringify(lib.emblemColors(String(79760000 + i)))));
-  assert.equal(used.size, lib.EMBLEM_COLORS.length);
-  assert.equal(lib.EMBLEM_COLORS.length, 8);
-  const luminance = (hex) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
-  for (const { bg } of lib.EMBLEM_COLORS) assert.ok((1.05) / (luminance(bg) + 0.05) >= 7, `chữ trắng trên ${bg} cần tương phản từ 7:1`);
-  assert.deepEqual(lib.emblemColors(''), lib.EMBLEM_COLORS[0]);
+test('nguồn của từng logo được ghi lại và chỉ lấy từ website của Sở GD&ĐT TP.HCM (hcm.edu.vn)', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(root, '..', 'scripts', 'school-logos.json'), 'utf8'));
+  const { SCHOOL_LOGO_CODES } = loadLogos();
+  assert.equal(manifest.schools.length, SCHOOL_LOGO_CODES.size);
+  for (const m of manifest.schools) {
+    assert.ok(SCHOOL_LOGO_CODES.has(m.code), m.code);
+    assert.match(m.site, /^https:\/\/[a-z0-9-]+\.hcm\.edu\.vn\/$/, m.code);
+    assert.ok(['logo-named', 'img-logo', 'og-only', 'icon'].includes(m.confidence), `${m.code}: ${m.confidence}`);
+    assert.ok(m.logo_source.startsWith('https://'), m.code);
+  }
 });
 
 test('thêm trường: ô tên trường gợi ý từ danh mục và chọn xong tự điền tên, mã, khu vực, tỉnh/thành', () => {
@@ -65,7 +81,7 @@ test('thêm trường: ô tên trường gợi ý từ danh mục và chọn xon
   assert.match(admin, /disabled=\{r\.exists\}/);
   // không còn ô dán logo khi thêm trường: huy hiệu tự hiện
   assert.doesNotMatch(admin.slice(admin.indexOf('const CREATE_FIELDS'), admin.indexOf('const SchoolsPanel')), /name: 'logo_url'/);
-  assert.match(admin, /Logo tự tạo từ tên trường, không cần dán ảnh/);
+  assert.match(admin, /Logo chính thức của trường tự hiện, không cần dán ảnh/);
 });
 
 test('không có hook sau lệnh return sớm trong ô chọn trường (lỗi React #310 từng làm sập trình soạn Quiz)', () => {
@@ -84,7 +100,7 @@ test('tạo xong: hộp thông tin hiện đường dẫn riêng (sao chép, m�
   assert.match(read('components', 'admin', 'kit.tsx'), /onClose: \(\) => void; extra\?: React\.ReactNode \}> = \(\{ title, account, onClose, extra \}\)/);
   assert.match(read('components', 'admin', 'SchoolAdmin.tsx'), /<SchoolLinkBox link=\{school\.link\} \/>/);
   const brand = read('components', 'school-brand.tsx');
-  assert.match(brand, /navigator\.clipboard\.writeText\(link\.url\)/);
+  assert.match(brand, /copyText\(link\.url\)/);
   assert.match(brand, /Linking\.openURL\(link\.url\)/);
 });
 

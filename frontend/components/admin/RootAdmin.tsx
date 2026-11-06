@@ -14,6 +14,7 @@ import { FaqManager, LogsPanel, SupportInbox } from '@/components/admin/Platform
 import { Cell, CredentialSheet, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad, DataTable, type FieldDef } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { SchoolEmblem, SchoolLinkBox } from '@/components/school-brand';
+import { schoolLogoUrl } from '@/lib/school-logos';
 import { AdminUiContext, Btn, ConfirmSheet, Field, Inset, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { fmt } from '@/lib/format';
@@ -181,7 +182,7 @@ const SchoolPicker: React.FC<{ token: string; values: Record<string, string | st
 
   return (
     <View style={{ gap: 8 }}>
-      <Field label="Tên trường *" hint="Gõ tên trường (có dấu hoặc không dấu) rồi bấm một trường trong danh sách để tự điền mã, khu vực và logo." value={name} nativeID="field-name"
+      <Field label="Tên trường *" hint="Gõ tên trường (có dấu hoặc không dấu) rồi bấm một trường trong danh sách để tự điền mã, khu vực và logo chính thức." value={name} nativeID="field-name"
         onChangeText={(v) => set('name', v)} autoCapitalize="words" />
       {state === 'loading' ? <Txt size={13} color={c.muc3}>Đang tìm trong danh mục…</Txt> : null}
       {state === 'failed' ? <Txt size={13} color={c.sonChu}>Chưa tìm được trong danh mục. Bạn vẫn có thể tự nhập tên và mã trường.</Txt> : null}
@@ -202,12 +203,13 @@ const SchoolPicker: React.FC<{ token: string; values: Record<string, string | st
         </View>
       ) : null}
       {state === 'idle' && query.length >= 2 && !results.length && !justPicked ? <Txt size={13} color={c.muc3}>Không thấy trường này trong danh mục. Hãy tự nhập mã và khu vực ở các ô bên dưới.</Txt> : null}
-      {name.trim().length >= 2 && (justPicked || (state === 'idle' && !results.length && query === name.trim())) ? (
+      {justPicked ? (
         <Inset style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <SchoolEmblem name={name} code={code} size={56} />
           <View style={{ flex: 1, gap: 2 }}>
-            <Txt f="semibold" size={14}>Logo tự tạo từ tên trường, không cần dán ảnh</Txt>
-            <Txt size={12} color={c.muc2} selectable>{justPicked ? `Đường dẫn của trường: /${picked.slug}` : 'Đường dẫn riêng của trường được tạo khi bấm Tạo trường.'}</Txt>
+            <Txt f="semibold" size={14}>{schoolLogoUrl(code) ? 'Logo chính thức của trường tự hiện, không cần dán ảnh' : 'Chưa có logo chính thức của trường này trong danh mục'}</Txt>
+            {schoolLogoUrl(code) ? null : <Txt size={12} color={c.muc2}>Sau khi tạo, dán logo ở mục Sửa nếu có (liên kết https).</Txt>}
+            <Txt size={12} color={c.muc2} selectable>{`Đường dẫn của trường: /${picked.slug}`}</Txt>
           </View>
         </Inset>
       ) : null}
