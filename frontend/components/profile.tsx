@@ -101,8 +101,11 @@ export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (pa
 };
 
 /** Hồ sơ trong một Sheet riêng (giáo viên, quản trị) */
-export const ProfileSheet: React.FC<{ onClose: () => void; load: () => Promise<ProfileData>; save: (patch: ProfilePatch) => Promise<ProfileData>; onSaved?: (user: AuthUser) => void }> = ({ onClose, load, save, onSaved }) => (
+export const ProfileSheet: React.FC<{ onClose: () => void; load: () => Promise<ProfileData>; save: (patch: ProfilePatch) => Promise<ProfileData>; onSaved?: (user: AuthUser) => void; children?: React.ReactNode }> = ({ onClose, load, save, onSaved, children }) => (
   <Sheet open onClose={onClose} title="Hồ sơ cá nhân" subtitle="Xem và cập nhật thông tin của bạn">
-    <ProfileForm load={load} save={save} onSaved={onSaved} />
+    <View style={{ gap: 24 }}>
+      <ProfileForm load={load} save={save} onSaved={onSaved} />
+      {children}
+    </View>
   </Sheet>
 );

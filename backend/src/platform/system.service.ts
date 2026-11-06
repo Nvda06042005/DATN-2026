@@ -7,6 +7,7 @@ import { MailService } from '../admin/mail.service';
 import { config } from '../config';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
 import { DEFAULT_TEMPLATES, checkTemplate, TEMPLATE_KEYS, TemplateKey } from './templates';
+import { DEFAULT_RATE } from './request-context';
 
 export interface SystemSettings {
   system_name: string; logo_url: string | null; mail_from: string | null; language: string; timezone: string;
@@ -31,11 +32,23 @@ export class SystemService {
   constructor(private readonly db: DatabaseService, private readonly mail: MailService) {}
 
   // ---------------------------------------------------------------------- cấu hình chung (HK.AD.065)
-  async settings(): Promise<SystemSettings> {
+  private async storedSettings(): Promise<SystemSettings> {
     if (this.cache && Date.now() - this.cache.at < 5000) return this.cache.value;
     const value = (await this.db.query<SystemSettings>(`SELECT ${COLS} FROM hk_system_settings WHERE id = 1`))[0];
     this.cache = { at: Date.now(), value };
     return value;
+  }
+
+  /** Cấu hình vận hành có hiệu lực: tự nhận từ triển khai khi chưa có giá trị ghi đè. */
+  async settings(): Promise<SystemSettings> {
+    const value = await this.storedSettings();
+    return {
+      ...value,
+      mail_from: value.mail_from?.trim() || config.mailFrom,
+      rate_ip_per_min: value.rate_ip_per_min ?? DEFAULT_RATE.ip(),
+      rate_user_per_min: value.rate_user_per_min ?? DEFAULT_RATE.user(),
+      rate_ai_per_min: value.rate_ai_per_min ?? DEFAULT_RATE.ai(),
+    };
   }
 
   /** Thông tin công khai (tên, logo, múi giờ) cho mọi người dùng đã đăng nhập */
@@ -46,7 +59,8 @@ export class SystemService {
 
   async updateSettings(user: UserRow, body: Record<string, unknown>): Promise<SystemSettings> {
     assertSystemAdmin(user);
-    const cur = await this.settings();
+    // Giữ giá trị trống trong lưu trữ để tiếp tục nhận cấu hình triển khai khi nó thay đổi.
+    const cur = await this.storedSettings();
     const has = (k: string): boolean => Object.prototype.hasOwnProperty.call(body, k);
     const text = (k: string, min: number, max: number, label: string, cur_: string): string => {
       if (!has(k)) return cur_;

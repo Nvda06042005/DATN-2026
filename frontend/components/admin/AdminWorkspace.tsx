@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { KeyRound, LogOut, Menu, ShieldCheck, User, X } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { ProfileSheet } from '@/components/profile';
+import { AccountSecurity } from '@/components/admin/PlatformOps';
 import { BrandLogo, PatternOverlay } from '@/components/art';
 import { BrandWordmark } from '@/components/brand-wordmark';
 import { ROLE_LABEL, type Session } from '@/components/auth';
@@ -82,7 +83,9 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
       <View style={{ flex: 1, flexDirection: 'row', minHeight: 0 }}>
         {wide && sidebar}
         <View style={{ flex: 1, minWidth: 0 }}>{children}</View>
-        {profile && <ProfileSheet onClose={() => setProfile(false)} load={loadProfile} save={saveProfile} onSaved={session.updateUser} />}
+        {profile && <ProfileSheet onClose={() => setProfile(false)} load={loadProfile} save={saveProfile} onSaved={session.updateUser}>
+          {(session.user.role === 'root_admin' || session.user.role === 'school_admin') ? <AccountSecurity session={session} /> : null}
+        </ProfileSheet>}
         {!wide && open && <View style={{ position: 'absolute', inset: 0, zIndex: 40 }}><Pressable accessibilityRole="button" accessibilityLabel="Đóng menu quản trị" onPress={() => setOpen(false)} style={{ position: 'absolute', inset: 0, backgroundColor: c.scrim }} />{sidebar}</View>}
       </View>
     </View>

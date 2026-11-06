@@ -264,9 +264,9 @@ export const LogsPanel: React.FC<{ session: Session }> = ({ session }) => {
 };
 
 // ---------------------------------------------------------------------- bảo mật: xác thực hai lớp
-export const SecurityPanel: React.FC<{ session: Session }> = ({ session }) => {
+export const AccountSecurity: React.FC<{ session: Session }> = ({ session }) => {
   const { c } = useTheme();
-  const st = useLoad(() => api.twoFactor(session.token), [session.token], session.expired);
+  const st = useLoad(() => api.twoFactor(session.token), [session.token, session.user.email], session.expired);
   const { busy, run } = useAction(session.expired);
   const [setup, setSetup] = useState<{ method: 'email' | 'totp'; secret?: string; qr?: string; sent_to?: string } | null>(null);
   const [code, setCode] = useState('');
@@ -278,8 +278,8 @@ export const SecurityPanel: React.FC<{ session: Session }> = ({ session }) => {
   const enable = async () => { const r = await run(() => api.twoFactorEnable(session.token, code.trim()), 'Đã bật xác thực hai lớp'); if (r) { setCodes(r.backup_codes); setSetup(null); st.reload(); } };
   const off = async () => { if (await run(() => api.twoFactorDisable(session.token, password, code.trim()), 'Đã tắt xác thực hai lớp')) { setDisable(false); setPassword(''); setCode(''); st.reload(); } };
   return (
-    <Page>
-      <PageHeader title="Bảo mật tài khoản" subtitle="Xác thực hai lớp: sau mật khẩu, nhập thêm mã khi đăng nhập" />
+    <View testID="profile-security" style={{ gap: 12 }}>
+      <Txt f="bold" size={18} accessibilityRole="header">Đăng nhập và bảo mật</Txt>
       <ErrorNote message={st.error} />
       {st.loading && !d ? <Spinner /> : null}
       {d ? (
@@ -301,7 +301,7 @@ export const SecurityPanel: React.FC<{ session: Session }> = ({ session }) => {
                 <Btn title="Dùng ứng dụng xác thực (khuyên dùng)" tone="son" disabled={!d.totp_available} loading={busy} onPress={() => start('totp')} testID="2fa-totp" />
                 <Btn title="Nhận mã qua email" tone="giay" disabled={!d.has_email} loading={busy} onPress={() => start('email')} testID="2fa-email" />
               </View>
-              {!d.totp_available ? <Txt size={12} color={c.muc3}>Máy chủ chưa đặt khóa AUTH_SECRET_KEY cố định nên chưa bật được ứng dụng xác thực.</Txt> : null}
+              {!d.totp_available ? <Txt size={12} color={c.muc3}>Ứng dụng xác thực hiện chưa sẵn sàng. Bạn có thể chọn nhận mã qua email.</Txt> : null}
               {!d.has_email ? <Txt size={12} color={c.muc3}>Tài khoản chưa có email trong hồ sơ nên chưa dùng được mã qua email.</Txt> : null}
             </>
           )}
@@ -340,7 +340,7 @@ export const SecurityPanel: React.FC<{ session: Session }> = ({ session }) => {
           </View>
         </Sheet>
       ) : null}
-    </Page>
+    </View>
   );
 };
 

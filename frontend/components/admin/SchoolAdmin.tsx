@@ -4,14 +4,14 @@
  */
 import React, { useState } from 'react';
 import { Image, View } from 'react-native';
-import { Bell, CalendarDays, ChartColumn, CircleHelp, ClipboardList, History, LifeBuoy, ShieldCheck, GraduationCap, Inbox, ListChecks, Plus, Route, School, Trash2, Trophy, UserRound, Users } from 'lucide-react-native';
+import { Bell, CalendarDays, ChartColumn, CircleHelp, ClipboardList, History, LifeBuoy, GraduationCap, Inbox, ListChecks, Plus, Route, School, Trash2, Trophy, UserRound, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { dateText } from '@/components/admin/AccountSheet';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { SchoolReports } from '@/components/admin/AnalyticsAdmin';
 import { BroadcastManager, SurveyManager } from '@/components/admin/PlatformComms';
-import { LogsPanel, SecurityPanel } from '@/components/admin/PlatformOps';
+import { LogsPanel } from '@/components/admin/PlatformOps';
 import { HelpPage } from '@/components/portal/HelpCenter';
 import { NoticeBell } from '@/components/portal/NoticeCenter';
 import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, yearOptions, YEAR_TEXT } from '@/components/admin/kit';
@@ -53,7 +53,6 @@ const NAV = [
   { id: 'notices' as const, label: 'Thông báo', icon: Bell },
   { id: 'surveys' as const, label: 'Khảo sát', icon: ClipboardList },
   { id: 'logs' as const, label: 'Nhật ký', icon: History },
-  { id: 'security' as const, label: 'Bảo mật', icon: ShieldCheck },
   { id: 'help' as const, label: 'Trợ giúp', icon: LifeBuoy },
 ];
 type Tab = (typeof NAV)[number]['id'];
@@ -81,7 +80,7 @@ export const SchoolAdmin: React.FC<{ session: Session }> = ({ session }) => {
           : tab === 'review' ? <ShareInbox session={session} /> : tab === 'journeys' ? <JourneyManager session={session} />
           : tab === 'questions' ? <QuestionBank session={session} /> : tab === 'quizzes' ? <QuizManager session={session} />
           : tab === 'notices' ? <BroadcastManager session={session} /> : tab === 'surveys' ? <SurveyManager session={session} /> : tab === 'logs' ? <LogsPanel session={session} />
-          : tab === 'security' ? <SecurityPanel session={session} /> : tab === 'help' ? <HelpPage session={session} /> : <SchoolGame session={session} />}
+          : tab === 'help' ? <HelpPage session={session} /> : <SchoolGame session={session} />}
       </AdminWorkspace>
     </AdminUiContext.Provider>
   );

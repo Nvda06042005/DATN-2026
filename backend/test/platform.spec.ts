@@ -59,6 +59,28 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
   });
 
   // ------------------------------------------------------------------ HK.AD.071: cờ tính năng
+  test('cấu hình vận hành tự nhận môi trường, giữ ghi đè và không lưu giá trị tự nhận thành ghi đè',async()=>{
+    const names=['RATE_IP_PER_MIN','RATE_USER_PER_MIN','RATE_AI_PER_MIN'] as const;
+    const previous=names.map(name=>process.env[name]);
+    try{
+      process.env.RATE_IP_PER_MIN='777';process.env.RATE_USER_PER_MIN='333';process.env.RATE_AI_PER_MIN='17';
+      await root('PUT','/api/platform/settings',{rate_ip_per_min:null,rate_user_per_min:null,rate_ai_per_min:null});
+      expect((await root('GET','/api/platform/settings')).body).toMatchObject({rate_ip_per_min:777,rate_user_per_min:333,rate_ai_per_min:17});
+      await root('PUT','/api/platform/settings',{system_name:'Hào Khí Đông A'});
+      expect((await sql(s.url,'SELECT rate_ip_per_min,rate_user_per_min,rate_ai_per_min FROM hk_system_settings WHERE id=1'))[0])
+        .toEqual({rate_ip_per_min:null,rate_user_per_min:null,rate_ai_per_min:null});
+      await root('PUT','/api/platform/settings',{rate_user_per_min:222});
+      expect((await root('GET','/api/platform/settings')).body.rate_user_per_min).toBe(222);
+      process.env.RATE_USER_PER_MIN='444';
+      expect((await root('GET','/api/platform/settings')).body.rate_user_per_min).toBe(222);
+      await root('PUT','/api/platform/settings',{rate_user_per_min:null});
+      expect((await root('GET','/api/platform/settings')).body.rate_user_per_min).toBe(444);
+    }finally{
+      names.forEach((name,i)=>{if(previous[i]===undefined)delete process.env[name];else process.env[name]=previous[i];});
+      await root('PUT','/api/platform/settings',{rate_ip_per_min:null,rate_user_per_min:null,rate_ai_per_min:null});
+    }
+  });
+
   test('cờ bật / tắt tính năng: tắt cửa hàng, giải đấu, AI, thi đấu, game thẻ tướng, gợi ý và tim có hiệu lực ngay; bật lại thì dùng được', async () => {
     const flags = (await root('GET', '/api/platform/flags')).body;
     expect(flags.map((x: any) => x.key)).toEqual(['leagues', 'hearts', 'roleplay', 'ai_tutor', 'live_quiz', 'war_game', 'shop', 'recommendations']);

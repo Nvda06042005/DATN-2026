@@ -1,17 +1,16 @@
 /**
- * Cổng quản trị tổng (/admin): trường học, người dùng, thống kê, thông báo, nhật ký, hướng dẫn/FAQ, bảo mật, hệ thống và yêu cầu hỗ trợ.
+ * Cổng quản trị tổng: quản lý nghiệp vụ. Cấu hình vận hành chạy nội bộ; bảo mật tài khoản nằm trong Hồ sơ cá nhân.
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { Bell, Building2, ChartColumn, History, LifeBuoy, LibraryBig, Settings2, ShieldCheck, Plus, Trash2, Users } from 'lucide-react-native';
+import { Bell, Building2, ChartColumn, History, LifeBuoy, LibraryBig, Plus, Trash2, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AccountSheet, dateText, ROLE_TEXT } from '@/components/admin/AccountSheet';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { SystemStats } from '@/components/admin/AnalyticsAdmin';
 import { BroadcastManager } from '@/components/admin/PlatformComms';
-import { FaqManager, LogsPanel, SecurityPanel, SupportInbox } from '@/components/admin/PlatformOps';
-import { SystemAdmin } from '@/components/admin/PlatformSystem';
+import { FaqManager, LogsPanel, SupportInbox } from '@/components/admin/PlatformOps';
 import { Cell, CredentialSheet, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad, DataTable, type FieldDef } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { AdminUiContext, Btn, ConfirmSheet, Field, Inset, Sheet, Spinner, Txt } from '@/components/ui';
@@ -26,8 +25,6 @@ const NAV = [
   { id: 'notices' as const, label: 'Thông báo', icon: Bell },
   { id: 'logs' as const, label: 'Nhật ký', icon: History },
   { id: 'faq' as const, label: 'Hướng dẫn và FAQ', icon: LibraryBig },
-  { id: 'security' as const, label: 'Bảo mật', icon: ShieldCheck },
-  { id: 'system' as const, label: 'Hệ thống', icon: Settings2 },
   { id: 'support' as const, label: 'Yêu cầu hỗ trợ', icon: LifeBuoy },
 ];
 type Tab = (typeof NAV)[number]['id'];
@@ -42,7 +39,7 @@ export const RootAdmin: React.FC<{ session: Session }> = ({ session }) => {
         {tab === 'schools' ? <SchoolsPanel session={session} /> : tab === 'users' ? <UsersPanel session={session} schools={options} />
           : tab === 'stats' ? <SystemStats session={session} /> : tab === 'notices' ? <BroadcastManager session={session} />
           : tab === 'logs' ? <LogsPanel session={session} /> : tab === 'faq' ? <FaqManager session={session} />
-          : tab === 'security' ? <SecurityPanel session={session} /> : tab === 'system' ? <SystemAdmin session={session} /> : <SupportInbox session={session} />}
+          : <SupportInbox session={session} />}
       </AdminWorkspace>
     </AdminUiContext.Provider>
   );
