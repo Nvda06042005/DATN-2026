@@ -585,6 +585,15 @@ Quyết định khi cho chỉnh số hạng và ngày chốt:
 - Giữ nền giấy cổ/hoa văn của form, nền lịch sử bên ngoài và khung nhỏ chia chéo; không đổi `/portal`, API, quyền hoặc database. Luồng hai lớp, quên mật khẩu và đặt lại mật khẩu tiếp tục dùng logic hiện có.
 - Kiểm tra: typecheck, 39 bài frontend và build đạt; trình duyệt kiểm tra 6 kích thước (360 × 640 đến 1920 × 1080), nhãn trên ô, bo góc, vị trí liên kết/nút, nền hoa văn, luồng hai lớp/quên mật khẩu giả lập và portal không đổi.
 
+## Google cho quản lý tổng ngày 06/11/2026
+
+- Theo yêu cầu mới, thêm nút Google vào form `/admin` dùng chung component với `/portal`. Form quản lý tổng vẫn độc lập, giữ nền giấy cổ/hoa văn và bố cục nhỏ chia chéo; không thêm bộ chọn vai trò nhà trường.
+- API chấp nhận `portal=root_admin`, chỉ cấp phiên khi email Google trùng đúng một tài khoản quản lý tổng đã được cấp. Không tạo người dùng hay nâng vai trò. Quản lý tổng chỉ dùng danh tính email do Google quản lý (Gmail hoặc Workspace), tránh dựa vào email bên thứ ba đã từng xác minh từ trước; email khác tiếp tục đăng nhập bằng mật khẩu.
+- Dùng `google-auth-library` với audience từ `GOOGLE_CLIENT_ID` để kiểm tra chữ ký, issuer và hạn dùng; chỉ chấp nhận email đã xác minh. Khóa công khai của Google được thư viện lưu đệm; không dùng endpoint tokeninfo để xác thực production. Theo [hướng dẫn Google](https://developers.google.com/identity/gsi/web/guides/verify-google-id-token).
+- Giữ kiểm tra khóa/xóa tài khoản, đúng cổng, xác thực hai lớp và thu hồi phiên. Tài khoản bật OTP/TOTP chỉ nhận thử thách, chưa có access token trước khi xác thực mã. Không có schema/migration mới; tiếp tục dùng Client ID hiện có trên Render và Vercel, không cần Client Secret.
+- Kiểm thử danh tính Google dùng token RSA ký bằng khóa thử trong bộ nhớ và dữ liệu PostgreSQL tạm; không dùng dữ liệu production, không gửi thư thật. Đăng nhập bằng tài khoản Google thật vẫn cần người dùng chọn tài khoản trên website.
+- Kiểm tra local đạt: typecheck/build frontend và backend; 41 bài frontend, 25 bài xác thực và 15 bài nền tảng/2FA trên PostgreSQL tạm. Trình duyệt ẩn kiểm tra 6 kích thước, nút Google gửi đúng `root_admin`, mở bước 2FA trước khi có phiên, cùng đăng nhập mật khẩu/quên mật khẩu; Google trong lượt trình duyệt này dùng SDK/danh tính giả.
+
 ## Chưa làm (ngoài Sprint 1–7) và đề xuất
 
 - Đặc tả ver0.2 (408 chức năng) đã có mã cho mọi mục. Còn "Một phần" / giới hạn: sa bàn chỉ là sơ đồ minh họa chưa kiểm chứng, một số mục ở Sprint 11–12; nội dung khởi tạo (kho lịch sử, câu hỏi, trận đánh, sa bàn) vẫn là bản nháp chờ giáo viên Lịch sử kiểm chứng.

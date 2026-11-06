@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, ServiceUnavailableException, UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomInt, randomUUID } from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { MailService } from '../admin/mail.service';
 import { config } from '../config';
 import { SecurityService } from './security.service';
@@ -56,13 +57,14 @@ const PROFILE_FIELDS: Record<Role, string[]> = {
 };
 const FIELD_LABEL: Record<string, string> = { full_name: 'họ tên', email: 'email', phone: 'số điện thoại', avatar_url: 'ảnh đại diện', bio: 'giới thiệu', nickname: 'biệt danh' };
 
-export interface GoogleIdentity { email: string }
+export interface GoogleIdentity { email: string; authoritative?: boolean }
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger('Auth');
   private readonly failed = new Map<string, { fails: number; since: number }>();
   private readonly resetAsks = new Map<string, number[]>();
+  private readonly google = new OAuth2Client({ transporterOptions: { timeout: 10_000, retry: false } });
 
   constructor(
     private readonly db: DatabaseService,
@@ -173,29 +175,35 @@ export class AuthService {
     return this.issueSession(user, user.username, portal, null);
   }
 
-  /** Xác thực mã đăng nhập Google (HK.HS.002) bằng điểm kiểm tra của Google: chữ ký, hạn dùng, đúng ứng dụng, email đã xác minh */
+  /** Thư viện Google kiểm tra chữ ký, issuer, hạn dùng và audience; email phải được xác minh. */
   async verifyGoogleToken(idToken: string): Promise<GoogleIdentity> {
     if (!config.googleClientId) throw new ServiceUnavailableException('Chưa cấu hình đăng nhập bằng Google.');
-    let res: Response;
+    if (!/^[\w-]+\.[\w-]+\.[\w-]+$/.test(idToken)) throw new UnauthorizedException('Đăng nhập Google không hợp lệ.');
     try {
-      res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`, { signal: AbortSignal.timeout(10_000) });
-    } catch {
-      throw new ServiceUnavailableException('Không kết nối được Google. Thử lại sau.');
+      const ticket = await this.google.verifyIdToken({ idToken, audience: config.googleClientId });
+      const body = ticket.getPayload();
+      if (!body?.sub || !body.email || body.email_verified !== true) throw new UnauthorizedException('Đăng nhập Google không hợp lệ.');
+      const email = body.email.toLowerCase();
+      return { email, authoritative: email.endsWith('@gmail.com') || Boolean(body.hd) };
+    } catch (error) {
+      const failure = error as { code?: string; response?: { status?: number } };
+      if (['ENOTFOUND', 'EAI_AGAIN', 'ETIMEDOUT', 'ECONNRESET'].includes(failure.code ?? '') || (failure.response?.status ?? 0) >= 500) throw new ServiceUnavailableException('Không kết nối được Google. Thử lại sau.');
+      throw new UnauthorizedException('Đăng nhập Google không hợp lệ.');
     }
-    const body = res.ok ? ((await res.json().catch(() => null)) as { aud?: string; email?: string; email_verified?: string | boolean } | null) : null;
-    if (!body || body.aud !== config.googleClientId || !body.email || String(body.email_verified) !== 'true') throw new UnauthorizedException('Đăng nhập Google không hợp lệ.');
-    return { email: body.email.toLowerCase() };
   }
 
-  /** Google chỉ mở tài khoản học sinh/giáo viên/quản trị trường đã được cấp, không tạo hay nâng quyền tài khoản. */
+  /** Chỉ mở tài khoản được cấp, không tạo/nâng quyền. Quản lý tổng cần email do Google quản lý (Gmail/Workspace). */
   async googleLogin(idToken: string, portal: Portal) {
     const identity = await this.verifyGoogleToken(idToken);
     const user = await this.db.findByEmail(identity.email);
     const reject = async (): Promise<never> => {
       await this.security.login(user, identity.email, portal, 'credentials');
-      throw new UnauthorizedException('Email Google này chưa gắn với tài khoản được cấp. Hãy nhờ quản lý cập nhật email hoặc đăng nhập bằng mật khẩu.');
+      throw new UnauthorizedException(portal === 'root_admin'
+        ? 'Hãy dùng Gmail hoặc Google Workspace có email trùng hồ sơ quản lý tổng được cấp, hoặc đăng nhập bằng mật khẩu.'
+        : 'Email Google này chưa gắn với tài khoản được cấp. Hãy nhờ quản lý cập nhật email hoặc đăng nhập bằng mật khẩu.');
     };
-    if (!user || user.role === 'root_admin' || portal === 'root_admin') return reject();
+    if (!user || (user.role === 'root_admin' && portal !== 'root_admin')) return reject();
+    if (portal === 'root_admin' && (user.role !== 'root_admin' || !identity.authoritative)) return reject();
     await this.assertCanLogin(user, identity.email, portal);
     const second = await this.twoFactorChallenge(user, portal);
     if (second) return second;

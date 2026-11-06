@@ -28,7 +28,7 @@ services:
       # Địa chỉ website ghi trong thư cấp tài khoản
       - key: APP_URL
         value: https://datn-2026-indol.vercel.app
-      # Đăng nhập Google của học sinh (HK.HS.002): OAuth client ID của ứng dụng web; để trống thì tắt tính năng
+      # Google tại /portal và /admin: OAuth client ID của ứng dụng web; để trống thì tắt tính năng
       - key: GOOGLE_CLIENT_ID
         sync: false
       # Render Free: dùng Brevo SMTP cổng 2525 + STARTTLS, hoặc cầu Google Apps Script (backend/mail-relay.gs).

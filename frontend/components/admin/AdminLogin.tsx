@@ -1,6 +1,6 @@
 /**
  * Trang đăng nhập của hai cổng quản trị (/admin, /school-manager-admin), dựng theo danh sách chức năng nhóm "01. Tài khoản và xác thực":
- * TM.AUTH.001 đăng nhập bằng tài khoản được cấp (không có đăng ký tự do, không đăng nhập qua bên thứ ba), TM.AUTH.007 quên mật khẩu
+ * TM.AUTH.001 đăng nhập bằng tài khoản được cấp (mật khẩu hoặc Google đã gắn với hồ sơ, không đăng ký tự do), TM.AUTH.007 quên mật khẩu
  * (HK.QT.002/HK.AD: gửi mã OTP 6 chữ số hiệu lực 5 phút qua email rồi đặt mật khẩu mới). Đăng xuất là nút ở thanh trên cùng của
  * trang quản trị (AdminWorkspace).
  * Khung nhỏ giữa màn hình, chia đôi bên trong bằng cạnh chéo: ảnh động/logo trắng bên trái, form hoa văn bên phải.
@@ -18,6 +18,7 @@ import * as authApi from '@/api/authApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { BrandLogo, FilmBackdrop, PatternOverlay } from '@/components/art';
 import { HeritageBackdrop } from '@/components/admin/HeritageBackdrop';
+import { GoogleSignIn } from '@/components/google-sign-in';
 import { Txt } from '@/components/ui';
 import { FONT } from '@/constants/theme';
 import { useShake } from '@/hooks/use-motion';
@@ -32,7 +33,7 @@ const COPY: Record<AdminPortal, { label: string; placeholder: string; account: s
   root_admin: {
     label: 'Quản lý tổng',
     placeholder: 'Tên đăng nhập quản trị tổng',
-    account: 'Quản trị tổng xem và quản lý tất cả trường trên nền tảng. Chỉ dùng tài khoản được cấp, không có đăng ký tự do.',
+    account: 'Dùng tài khoản quản lý tổng được cấp, hoặc Google có email trùng hồ sơ.',
   },
   school_admin: {
     label: 'Quản trị trường',
@@ -267,6 +268,7 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
   };
 
   const submit = async () => {
+    if (loading) return;
     if (!username.trim() || !password) {
       setError('Hãy nhập tên đăng nhập và mật khẩu.');
       setTries((n) => n + 1);
@@ -284,6 +286,25 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
     } finally {
       setLoading(false);
     }
+  };
+
+  const googleLogin = async (idToken: string) => {
+    if (loading || challenge) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await authApi.loginWithGoogle(idToken, portal);
+      if ('two_factor' in res) {
+        setChallenge({ challenge: res.challenge, method: res.method });
+        setPassword('');
+        setCode('');
+        return;
+      }
+      onLogin(res.token, res.user);
+    } catch (err) {
+      setError(errorMessage(err, 'Đăng nhập Google thất bại.'));
+      setTries((n) => n + 1);
+    } finally { setLoading(false); }
   };
 
   if (challenge) {
@@ -354,6 +375,7 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
         </Pressable>
         <SubmitButton title={loading ? 'Đang đăng nhập…' : 'Đăng nhập'} loading={loading} onPress={submit} testID="login-submit" stretch />
       </View>
+      <GoogleSignIn disabled={loading} onToken={idToken => { void googleLogin(idToken); }} />
     </>
   );
 };
