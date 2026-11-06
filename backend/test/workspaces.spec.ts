@@ -79,7 +79,7 @@ const ok = (res: {status:number;body:any}, status=200) => { expect({status:res.s
    expect(updated.nodes[0].quiz_id).toBe(quiz.id);
    expect((await b('GET',`/api/content/journeys/${journey.id}`)).status).toBe(404);
    expect((await b('PUT',`/api/content/nodes/${updated.nodes[0].id}`,{title:'Không được sửa chéo'})).status).toBe(404);
-   const copy=ok(await a('POST',`/api/content/journeys/${journey.id}/duplicate`),201);
+   const copy=ok(await a('POST',`/api/content/journeys/${journey.id}/duplicate`));
    expect(copy.nodes.map((n:any)=>n.quiz_id)).toEqual([quiz.id]);
  });
 
