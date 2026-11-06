@@ -1,0 +1,40 @@
+{
+  "version": "2026-11-07",
+  "schools": [
+    {
+      "code": "hp-bachdang-2026",
+      "name": "Trường THCS Bạch Đằng",
+      "city": "Thành phố Hải Phòng",
+      "region": "Phường Bạch Đằng",
+      "website": "https://thcsbachdang-bachdang.haiphong.edu.vn/",
+      "source": "https://haiphong.gov.vn/tin-tuc-su-kien/phuong-bach-dang-cong-bo-cac-quyet-dinh-sap-xep-co-so-giao-duc-to-chuc-dang-va-cong-tac-can-bo-s-950874",
+      "additional": true,
+      "verified": true,
+      "previous_codes": [
+        "31311523"
+      ],
+      "aliases": [
+        "Trường THCS Minh Tân Thủy Nguyên",
+        "Trường THCS Trần Nhật Duật"
+      ]
+    },
+    {
+      "code": "hp-tranquocbao-2026",
+      "name": "Trường THCS Trần Quốc Bảo",
+      "city": "Thành phố Hải Phòng",
+      "region": "Phường Bạch Đằng",
+      "website": "https://thcstranquocbao.haiphong.edu.vn/",
+      "source": "https://haiphong.gov.vn/tin-tuc-su-kien/phuong-bach-dang-cong-bo-cac-quyet-dinh-sap-xep-co-so-giao-duc-to-chuc-dang-va-cong-tac-can-bo-s-950874",
+      "additional": true,
+      "verified": true,
+      "previous_codes": [
+        "31311522",
+        "31311524"
+      ],
+      "aliases": [
+        "Trường THCS Minh Đức Thủy Nguyên",
+        "Trường THCS Ngũ Lão"
+      ]
+    }
+  ]
+}

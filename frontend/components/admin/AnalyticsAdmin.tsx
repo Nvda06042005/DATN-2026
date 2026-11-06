@@ -8,13 +8,13 @@ import { View } from 'react-native';
 import * as api from '@/api/analyticsApi';
 import { ClassAnalytics, ResultsPanel } from '@/components/admin/AnalyticsTeacher';
 import { SystemDashboard } from '@/components/admin/SystemDashboard';
-import { DataTable, ErrorNote, Page, PageHeader, useLoad } from '@/components/admin/kit';
+import { ErrorNote, Page, PageHeader, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { ColumnChart, fmtPct, shortDay, StatGrid, StatTile } from '@/components/charts';
 import { Card, InfoNote, Segmented, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { fmt } from '@/lib/format';
-import type { ContentRow, Usage } from '@/types/analytics';
+import type { Usage } from '@/types/analytics';
 
 // ---------------------------------------------------------------------- mức độ sử dụng theo thời gian (HK.QT.007, HK.AD.007)
 export const UsagePanel: React.FC<{ session: Session }> = ({ session }) => {
@@ -120,49 +120,11 @@ export const SchoolReports: React.FC<{ session: Session }> = ({ session }) => {
 };
 
 // ---------------------------------------------------------------------- quản trị tổng (HK.AD.006–009, 063)
-const STATUS_COLS = (c: ReturnType<typeof useTheme>['c']) => [
-  { key: 'label', label: 'Nội dung', flex: 2, render: (r: ContentRow) => <Txt f="semibold" size={14}>{r.label}</Txt> },
-  { key: 'total', label: 'Tổng', render: (r: ContentRow) => <Txt size={14}>{r.total}</Txt> },
-  { key: 'draft', label: 'Bản nháp', render: (r: ContentRow) => <Txt size={14}>{r.draft}</Txt> },
-  { key: 'verified', label: 'Đã kiểm duyệt', render: (r: ContentRow) => <Txt size={14}>{r.verified}</Txt> },
-  { key: 'published', label: 'Đã xuất bản', render: (r: ContentRow) => <Txt f="bold" size={14} color={r.published ? c.ngocChu : c.muc3}>{r.published}</Txt> },
-];
-
-const ContentPanel: React.FC<{ session: Session }> = ({ session }) => {
-  const { c } = useTheme();
-  const data = useLoad(() => api.systemContent(session.token), [session.token], session.expired);
-  const d = data.data;
-  const cols = STATUS_COLS(c);
-  return (
-    <View style={{ gap: 12 }}>
-      <ErrorNote message={data.error} />
-      {data.loading && !d ? <Spinner /> : null}
-      {d ? (
-        <>
-          <Txt f="bold" size={16} accessibilityRole="header">Kho lịch sử</Txt>
-          <DataTable<ContentRow> rows={d.history} rowKey={(r) => r.key} empty="Chưa có nội dung lịch sử." columns={cols} />
-          <Txt f="bold" size={16} accessibilityRole="header">Nội dung học tập</Txt>
-          <DataTable<ContentRow> rows={d.learning} rowKey={(r) => r.key} empty="Chưa có nội dung học tập." columns={cols} />
-          <StatGrid>
-            <StatTile label="Câu hỏi" value={d.questions.total} hint={Object.entries(d.questions.by_scope).map(([k, v]) => `${k === 'system' ? 'hệ thống' : k === 'school' ? 'trường' : k === 'teacher' ? 'giáo viên' : k}: ${v}`).join(' · ')} />
-            <StatTile label="Bộ đề" value={d.quizzes} />
-            <StatTile label="Đoạn tư liệu của Tiểu Tướng" value={d.ai_chunks} />
-          </StatGrid>
-        </>
-      ) : null}
-    </View>
-  );
-};
-
-type SystemPart = 'overview' | 'content' | 'usage' | 'ai';
 export const SystemStats: React.FC<{ session: Session }> = ({ session }) => {
-  const [part, setPart] = useState<SystemPart>('overview');
   return (
     <Page>
-      <PageHeader title="Thống kê hệ thống" subtitle="Toàn cảnh trường học, người dùng và nhịp học tập trên Đông A" />
-      <Segmented<SystemPart> label="Thống kê hệ thống" value={part} onChange={setPart} options={[{ value: 'overview', label: 'Dashboard' }, { value: 'content', label: 'Nội dung' }, { value: 'usage', label: 'Sử dụng' }, { value: 'ai', label: 'AI' }]} />
-      {part === 'overview' ? <SystemDashboard session={session} /> : part === 'content' ? <ContentPanel session={session} /> : part === 'usage' ? <UsagePanel session={session} />
-        : <AiUsagePanel session={session} money />}
+      <PageHeader title="Thống kê hệ thống" subtitle="Dashboard tổng hợp trường học, người dùng, nội dung, sử dụng và AI" />
+      <SystemDashboard session={session} />
     </Page>
   );
 };

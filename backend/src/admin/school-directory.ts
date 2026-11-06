@@ -4,6 +4,9 @@
  * Đường dẫn trường: donga_<mã trường>_<tên trường>_<khu vực> không dấu, viết liền, ví dụ donga_79765507_phumy_binhthanh.
  */
 import directory from './school-directory.json';
+import extra from './school-directory-extra.json';
+import metadata from './school-metadata.json';
+import confirmed from './school-confirmed-2026.json';
 
 export interface DirectoryEntry {
   code: string;
@@ -13,35 +16,62 @@ export interface DirectoryEntry {
   /** Tỉnh/thành phố theo đơn vị hành chính cấp tỉnh từ 01/07/2025 */
   city: string;
   note: string | null;
+  address?: string | null;
+  website?: string | null;
+  logo_url?: string | null;
+  source?: string | null;
+  previous_codes?: string[];
 }
+
+interface SchoolMetadata { code: string; name: string; city: string; region: string; address?: string | null; website?: string | null; logo_url?: string | null; source?: string; additional?: boolean; verified: boolean; aliases?: string[]; previous_codes?: string[] }
 
 type Row = [string, string, number, string, string | null];
 const provinces = directory.provinces as string[];
-const rows = directory.schools as Row[];
+const rows = [...directory.schools, ...extra.schools] as Row[];
 const mergedAway = new Set((directory.merged as string[][]).map((m) => m[0]));
+const metadataRows = [...metadata.schools, ...confirmed.schools] as SchoolMetadata[];
+const mergedMetadata = new Map<string, SchoolMetadata>();
+for (const row of metadataRows.filter(row => row.verified)) {
+  const old = mergedMetadata.get(row.code);
+  mergedMetadata.set(row.code, { ...old, ...row, address: row.address ?? old?.address, logo_url: row.logo_url ?? old?.logo_url });
+}
+const verified = [...mergedMetadata.values()];
+for (const row of verified) for (const oldCode of row.previous_codes ?? []) if (oldCode !== row.code) mergedAway.add(oldCode);
+const metadataByCode = new Map(verified.map(row => [row.code, row]));
 
 /** Bỏ dấu tiếng Việt, hạ chữ thường; mọi ký tự không phải chữ/số thành một dấu cách */
 export const foldVi = (text: string): string =>
   text.replace(/đ/g, 'd').replace(/Đ/g, 'D').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
-const entries: DirectoryEntry[] = rows.map(([code, name, p, district, note]) => ({ code, name, region: district, city: provinces[p], note }));
-const folded = entries.map((e) => foldVi(`${e.name} ${e.region} ${e.city} ${e.code}`));
+const entries: DirectoryEntry[] = rows.filter(row => !mergedAway.has(row[0])).map(([code, name, p, district, note]) => {
+  const current = metadataByCode.get(code);
+  return { code, name: current?.name || name, region: current?.region || district, city: current?.city || provinces[p], note,
+    address: current?.address ?? null, website: current?.website ?? null, logo_url: current?.logo_url ?? null, source: current?.source ?? null,
+    previous_codes: (directory.merged as string[][]).filter(m => m[2] === code).map(m => m[0]).concat(current?.previous_codes ?? []) };
+});
+const baseCodes = new Set(entries.map(e => e.code));
+for (const item of verified) if (item.additional && !baseCodes.has(item.code)) entries.push({ ...item, note: null });
 const byCode = new Map(entries.map((e) => [e.code, e]));
+for (const entry of entries) for (const oldCode of entry.previous_codes ?? []) byCode.set(oldCode, entry);
 
-export const directoryInfo = () => ({ version: directory.version as string, sources: directory.sources as string[], schools: entries.length, merged: mergedAway.size });
+export const directoryInfo = () => ({ version: metadata.version || directory.version, sources: [...directory.sources, extra.source], schools: entries.length, merged: mergedAway.size, excluded: extra.excluded.length, source_rows: extra.source_rows });
 export const directoryEntry = (code: string): DirectoryEntry | null => byCode.get(code) ?? null;
 
 /** Tìm theo tên, mã, quận/huyện hoặc tỉnh/thành (không phân biệt dấu); tên bắt đầu bằng cụm tìm được xếp trước */
 export function searchDirectory(query: string, limit = 12): DirectoryEntry[] {
   const q = foldVi(query);
-  if (!q) return [];
+  if (!q) return entries.slice(0, limit);
   const tokens = q.split(' ');
+  const acronymOnly = tokens.every(token => token.length === 1);
+  const compact = tokens.join('');
   const scored: Array<{ at: number; score: number }> = [];
   for (let i = 0; i < entries.length; i++) {
-    const hay = folded[i];
-    if (!tokens.every((t) => hay.includes(t))) continue;
-    const name = foldVi(entries[i].name);
-    scored.push({ at: i, score: name.startsWith(q) ? 0 : name.includes(q) ? 1 : entries[i].code.startsWith(q) ? 2 : 3 });
+    const item = indexed[i];
+    const initials = item.initials.some(value => value.startsWith(compact));
+    const plain = !acronymOnly && tokens.every(t => item.full.includes(t));
+    const code = entries[i].code.toLowerCase().startsWith(q);
+    if (!initials && !plain && !code) continue;
+    scored.push({ at: i, score: item.names.some(name => name.startsWith(q)) ? 0 : initials ? 1 : code ? 2 : 3 });
   }
   scored.sort((a, b) => a.score - b.score || entries[a.at].name.localeCompare(entries[b.at].name, 'vi') || entries[a.at].code.localeCompare(entries[b.at].code));
   return scored.slice(0, limit).map((s) => entries[s.at]);
@@ -60,7 +90,7 @@ const TYPE_WORDS = [
 ];
 
 /** Bỏ các từ chỉ cấp học ở đầu tên ("THCS", "Trường", "Tiểu học và THCS"…) rồi viết liền: "THCS Phú Mỹ" → "phumy" */
-export function nameSlug(name: string): string {
+export function nameWords(name: string): string {
   const tokens = name.normalize('NFC').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
   let i = 0;
   for (let moved = true; moved && i < tokens.length - 1;) {
@@ -69,8 +99,15 @@ export function nameSlug(name: string): string {
       if (i + words.length < tokens.length && words.every((alts, k) => alts.includes(tokens[i + k]))) { i += words.length; moved = true; break; }
     }
   }
-  return foldVi(tokens.slice(i).join('')).replace(/ /g, '').slice(0, 40);
+  return foldVi(tokens.slice(i).join(' '));
 }
+
+export const nameSlug = (name: string): string => nameWords(name).replace(/ /g, '').slice(0, 40);
+const indexed = entries.map(entry => {
+  const aliases = (directory.merged as string[][]).filter(m => m[2] === entry.code).map(m => m[1]).concat(metadataByCode.get(entry.code)?.aliases ?? []);
+  const names = [entry.name, ...aliases].map(nameWords);
+  return { names, initials: names.map(name => name.split(' ').map(word => word[0]).join('')), full: foldVi(`${entry.name} ${aliases.join(' ')} ${entry.region} ${entry.city} ${entry.code}`) };
+});
 
 /** "Quận Bình Thạnh" → "binhthanh", "Huyện Củ Chi" → "cuchi", "Quận 7" → "7" */
 export function areaSlug(region: string | null | undefined): string {

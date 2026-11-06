@@ -9,7 +9,7 @@ import { generatePassword, hashPassword } from '../auth/passwords';
 import { config } from '../config';
 import { DatabaseService, DuplicateUsername, Q, UserRow } from '../database/database.service';
 import { MailService } from './mail.service';
-import { DirectoryEntry, schoolSlug, searchDirectory } from './school-directory';
+import { DirectoryEntry, directoryEntry, foldVi, schoolSlug, searchDirectory } from './school-directory';
 
 export const GRADES = [6, 7, 8, 9] as const;
 export const likeEscape = (s: string) => s.replace(/[\\%_]/g, (ch) => `\\${ch}`);
@@ -17,6 +17,7 @@ export const likeEscape = (s: string) => s.replace(/[\\%_]/g, (ch) => `\\${ch}`)
 export interface SchoolRow {
   id: number;
   school_code: string;
+  directory_code: string | null;
   name: string;
   region: string | null;
   city: string | null;
@@ -85,7 +86,14 @@ export class SchoolService {
   async list(f: { q?: string; city?: string; region?: string; active?: 'true' | 'false'; page?: number; limit?: number }) {
     const where: string[] = [], params: unknown[] = [];
     const add = (sql: string, v: unknown) => { params.push(v); where.push(sql.replaceAll('?', `$${params.length}`)); };
-    if (f.q?.trim()) add("(s.name || ' ' || s.school_code) ILIKE ? ESCAPE '\\'", `%${likeEscape(f.q.trim())}%`);
+    if (f.q?.trim()) {
+      const found = searchDirectory(f.q, 20000).flatMap(entry => [entry.code, ...(entry.previous_codes ?? [])]);
+      const start = params.length;
+      params.push(`%${likeEscape(foldVi(f.q))}%`, `%${likeEscape(f.q.trim())}%`, found);
+      where.push(`(lower(replace(replace(regexp_replace(normalize(s.name, NFD), '[̀-ͯ]', '', 'g'), 'Đ', 'D'), 'đ', 'd')) LIKE $${start + 1} ESCAPE '\\'
+        OR s.school_code ILIKE $${start + 2} ESCAPE '\\' OR s.directory_code = ANY($${start + 3}::text[])
+        OR (s.directory_code IS NULL AND s.school_code = ANY($${start + 3}::text[])))`);
+    }
     if (f.city) add('s.city = ?', f.city);
     if (f.region) add('s.region = ?', f.region);
     if (f.active) add('s.is_active = ?', f.active === 'true');
@@ -111,8 +119,11 @@ export class SchoolService {
   async directory(query: string, limit = 12): Promise<Array<DirectoryEntry & { exists: boolean; slug: string }>> {
     const found = searchDirectory(query, limit);
     if (!found.length) return [];
-    const used = new Set((await this.db.query<{ school_code: string }>('SELECT school_code FROM app_schools WHERE school_code = ANY($1::text[])', [found.map((e) => e.code)])).map((r) => r.school_code));
-    return found.map((e) => ({ ...e, exists: used.has(e.code), slug: schoolSlug({ school_code: e.code, name: e.name, region: e.region }) }));
+    const stored = await this.db.query<{code: string; logo_sha256: string | null}>('SELECT code, logo_sha256 FROM public.app_school_directory WHERE code = ANY($1::text[])', [found.map(entry => entry.code)]);
+    const logos = new Map(stored.map(row => [row.code, row.logo_sha256 ? `${config.publicApiUrl}/api/school-logos/${row.logo_sha256}.webp` : null]));
+    const keys = found.flatMap(entry => [entry.code, ...(entry.previous_codes ?? [])]);
+    const used = await this.db.query<{ school_code: string; directory_code: string | null }>('SELECT school_code, directory_code FROM app_schools WHERE directory_code = ANY($1::text[]) OR (directory_code IS NULL AND school_code = ANY($1::text[]))', [keys]);
+    return found.map(e => ({ ...e, logo_url: logos.get(e.code) ?? null, exists: used.some(row => row.directory_code === e.code || (!row.directory_code && [e.code, ...(e.previous_codes ?? [])].includes(row.school_code))), slug: schoolSlug({ school_code: e.code, name: e.name, region: e.region }) }));
   }
 
   async detail(actor: UserRow, id: number) {
@@ -131,21 +142,31 @@ export class SchoolService {
 
   /** Thêm trường kèm tài khoản quản trị viên trường đầu tiên và thư cấp mật khẩu tạm (HK.AD.013) */
   async create(actor: UserRow, body: {
-    school_code: string; name: string; region?: string | null; city?: string | null; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null;
+    school_code?: string; directory_code?: string; name: string; region?: string | null; city?: string | null; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null;
     admin: { full_name: string; email: string; phone?: string | null };
   }) {
     this.assertTopAdmin(actor);
-    const code = normCode(body.school_code);
-    if (!code) throw new UnprocessableEntityException('Mã số trường cần có chữ số');
+    const selected = body.directory_code ? directoryEntry(body.directory_code) : null;
+    if (body.directory_code && !selected) throw new UnprocessableEntityException('Không tìm thấy trường được chọn trong danh mục');
+    // Giữ tương thích client cũ; giao diện mới luôn bỏ school_code và dùng mã tự sinh.
+    const manualCode = selected ? '' : normCode(body.school_code);
+    if (body.school_code !== undefined && !selected && !manualCode) throw new UnprocessableEntityException('Mã số trường cần có chữ số');
     const email = body.admin.email.trim().toLowerCase();
     const password = generatePassword();
     const passwordHash = await hashPassword(password);
     return this.db.tx(async (q) => {
+      if (selected) {
+        await q('SELECT pg_advisory_xact_lock(9031, hashtext($1))', [selected.code]);
+        const keys = [selected.code, ...(selected.previous_codes ?? [])];
+        if ((await q('SELECT 1 FROM app_schools WHERE directory_code = $1 OR (directory_code IS NULL AND school_code = ANY($2::text[]))', [selected.code, keys])).length) throw new ConflictException('Trường được chọn đã có trong hệ thống');
+      }
+      const code = manualCode || (await q<{ code: string }>('SELECT public.next_school_registration_code() AS code'))[0].code;
+      const logoHash = selected ? (await q<{logo_sha256: string | null}>('SELECT logo_sha256 FROM public.app_school_directory WHERE code = $1', [selected.code]))[0]?.logo_sha256 : null;
       if ((await q('SELECT 1 FROM app_schools WHERE school_code = $1', [code])).length) throw new ConflictException(`Mã trường ${code} đã có trong hệ thống`);
       if ((await q('SELECT 1 FROM app_users WHERE lower(email) = $1 AND deleted_at IS NULL', [email])).length) throw new ConflictException('Email quản trị viên đã được dùng cho một tài khoản khác');
       const school = (await q<SchoolRow>(
-        `INSERT INTO app_schools (school_code, name, region, city, address, contact_name, contact_email, contact_phone) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-        [code, trimOrNull(body.name), trimOrNull(body.region), trimOrNull(body.city), trimOrNull(body.address), trimOrNull(body.contact_name), trimOrNull(body.contact_email)?.toLowerCase() ?? null, trimOrNull(body.contact_phone)],
+        `INSERT INTO app_schools (school_code, directory_code, name, region, city, address, contact_name, contact_email, contact_phone, logo_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+        [code, selected?.code ?? null, trimOrNull(selected?.name ?? body.name), trimOrNull(selected?.region ?? body.region), trimOrNull(selected?.city ?? body.city), trimOrNull(selected?.address ?? body.address), trimOrNull(body.contact_name), trimOrNull(body.contact_email)?.toLowerCase() ?? null, trimOrNull(body.contact_phone), logoHash ? `${config.publicApiUrl}/api/school-logos/${logoHash}.webp` : null],
       ))[0];
       const username = await this.db.uniqueUsername(body.admin.full_name, 'school_admin', q);
       let admin: UserRow;

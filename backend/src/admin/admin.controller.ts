@@ -30,7 +30,7 @@ class SchoolQuery extends Page {
 }
 
 class DirectoryQuery {
-  @IsString() @Length(1, 80) q: string;
+  @IsOptional() @IsString() @MaxLength(80) q?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(30) limit?: number;
 }
 
@@ -45,7 +45,8 @@ class FirstAdminDto {
 }
 
 class CreateSchoolDto {
-  @IsString() @Length(1, 20) school_code: string;
+  @IsOptional() @IsString() @Length(1, 20) school_code?: string;
+  @IsOptional() @IsString() @Length(1, 80) directory_code?: string;
   @Transform(squash) @IsString() @Length(2, 120) name: string;
   @IsOptional() @IsString() @MaxLength(80) region?: string | null;
   @IsOptional() @IsString() @MaxLength(80) city?: string | null;
@@ -244,7 +245,7 @@ export class AdminController {
   /** Gợi ý trường từ danh mục khi thêm trường: chọn một trường thì mã, khu vực, tỉnh/thành và đường dẫn tự điền */
   @Get('school-directory')
   @Roles('root_admin')
-  async schoolDirectory(@Query() query: DirectoryQuery) { return { items: await this.schools.directory(query.q, query.limit ?? 12) }; }
+  async schoolDirectory(@Query() query: DirectoryQuery) { return { items: await this.schools.directory(query.q ?? '', query.limit ?? 30) }; }
 
   @Post('schools')
   @Roles('root_admin')

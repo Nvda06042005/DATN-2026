@@ -2,11 +2,12 @@
  * Cổng quản trị tổng: quản lý nghiệp vụ. Cấu hình vận hành chạy nội bộ; bảo mật tài khoản nằm trong Hồ sơ cá nhân.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { Bell, Building2, ChartColumn, History, LifeBuoy, LibraryBig, Plus, Trash2, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AccountSheet, dateText, ROLE_TEXT } from '@/components/admin/AccountSheet';
 import { AdminSelect } from '@/components/admin/AdminSelect';
+import { SchoolSelect } from '@/components/admin/SchoolSelect';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { SystemStats } from '@/components/admin/AnalyticsAdmin';
 import { BroadcastManager } from '@/components/admin/PlatformComms';
@@ -53,22 +54,20 @@ const SCHOOL_FIELDS: FieldDef[] = [
   { name: 'city', label: 'Tỉnh / thành phố' },
   { name: 'region', label: 'Vùng / khu vực' },
   { name: 'address', label: 'Địa chỉ' },
-  { name: 'contact_name', label: 'Người liên hệ' },
-  { name: 'contact_email', label: 'Email liên hệ', type: 'email' },
-  { name: 'contact_phone', label: 'Điện thoại liên hệ', type: 'tel' },
-  { name: 'logo_url', label: 'Logo riêng (liên kết https, không bắt buộc)', hint: 'Để trống thì hệ thống dùng huy hiệu tự tạo từ tên trường.' },
+  { name: 'logo_url', label: 'Logo riêng (liên kết https, không bắt buộc)', hint: 'Để trống nếu chưa có logo chính thức.' },
 ];
 
 // Thêm trường: tên trường là ô chọn từ danh mục; chọn xong mã, tỉnh/thành, khu vực tự điền và huy hiệu tự hiện (không dán ảnh)
 const CREATE_FIELDS = (token: string): FieldDef[] => [
   { name: 'name', label: 'Tên trường', required: true, render: (values, set) => <SchoolPicker token={token} values={values} set={set} /> },
-  { name: 'school_code', label: 'Mã trường (chữ số)', required: true, hint: 'Tự điền khi chọn trường từ danh mục (mã 8 chữ số của Bộ GD&ĐT). Trường ngoài danh mục: tự nhập mã, tối đa 8 chữ số.' },
+  { name: 'school_code', label: 'Mã trường', readOnly: true },
   { name: 'city', label: 'Tỉnh / thành phố' },
   { name: 'region', label: 'Vùng / khu vực', hint: 'Quận, huyện hoặc thị xã; nằm trong đường dẫn riêng của trường.' },
   ...SCHOOL_FIELDS.filter((f) => !['name', 'city', 'region', 'logo_url'].includes(f.name)),
-  { name: 'admin_name', label: 'Quản trị viên đầu tiên – họ tên', required: true },
-  { name: 'admin_email', label: 'Quản trị viên đầu tiên – email', type: 'email', required: true },
-  { name: 'admin_phone', label: 'Quản trị viên đầu tiên – điện thoại', type: 'tel' },
+  { name: 'admin_section', label: 'Quản trị viên trường đầu tiên', render: () => <Txt f="bold" size={17} accessibilityRole="header">Quản trị viên trường đầu tiên</Txt> },
+  { name: 'admin_name', label: 'Họ và tên', required: true },
+  { name: 'admin_email', label: 'Email', type: 'email', required: true },
+  { name: 'admin_phone', label: 'Điện thoại', type: 'tel' },
 ];
 
 const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
@@ -122,14 +121,13 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
       ) : null}
 
       {creating ? (
-        <FormSheet title="Thêm trường" subtitle="Chọn trường để tự điền mã, khu vực và logo; hệ thống tạo đường dẫn riêng của trường, cùng tài khoản quản trị viên đầu tiên (mật khẩu tạm gửi qua email)" submitLabel="Tạo trường" wide
-          fields={CREATE_FIELDS(token)}
+        <FormSheet title="Thêm trường" subtitle="Chọn trường trong danh mục và cấp tài khoản quản trị viên trường đầu tiên" submitLabel="Tạo trường" wide
+          fields={CREATE_FIELDS(token)} initial={{ school_code: 'Tự sinh khi lưu' }}
           onClose={() => setCreating(false)}
           onSubmit={async (v) => {
             if (String(v.name).trim().length < 2) throw new Error('Hãy gõ tên trường rồi chọn trong danh sách gợi ý, hoặc tự nhập tên trường.');
-            if (!/\d/.test(String(v.school_code))) throw new Error('Mã trường cần có chữ số.');
-            const body: Record<string, unknown> = { school_code: v.school_code, admin: { full_name: v.admin_name, email: v.admin_email, phone: v.admin_phone || undefined } };
-            for (const f of CREATE_FIELDS(token)) if (!f.name.startsWith('admin_') && f.name !== 'school_code' && String(v[f.name]).trim()) body[f.name] = v[f.name];
+            const body: Record<string, unknown> = { directory_code: v.directory_code || undefined, admin: { full_name: v.admin_name, email: v.admin_email, phone: v.admin_phone || undefined } };
+            for (const name of ['name', 'city', 'region', 'address']) if (String(v[name] ?? '').trim()) body[name] = v[name];
             const res = await api.createSchool(token, body);
             setCreating(false);
             setCreated(res);
@@ -163,7 +161,7 @@ const SchoolPicker: React.FC<{ token: string; values: Record<string, string | st
   const justPicked = picked !== null && name === picked.name;
 
   useEffect(() => {
-    if (justPicked || query.length < 2) { setResults([]); setState('idle'); return undefined; }
+    if (justPicked) { setResults([]); setState('idle'); return undefined; }
     let live = true;
     setState('loading');
     api.searchSchoolDirectory(token, query).then((res) => { if (live) { setResults(res.items); setState('idle'); } }).catch(() => { if (live) { setResults([]); setState('failed'); } });
@@ -174,42 +172,43 @@ const SchoolPicker: React.FC<{ token: string; values: Record<string, string | st
     setPicked(item);
     setResults([]);
     set('name', item.name);
-    set('school_code', item.code);
+    set('directory_code', item.code);
     set('region', item.region);
     set('city', item.city);
+    set('address', item.address ?? '');
   };
-  const code = String(values.school_code ?? '');
+  const code = String(values.directory_code ?? '');
 
   return (
     <View style={{ gap: 8 }}>
-      <Field label="Tên trường *" hint="Gõ tên trường (có dấu hoặc không dấu) rồi bấm một trường trong danh sách để tự điền mã, khu vực và logo chính thức." value={name} nativeID="field-name"
-        onChangeText={(v) => set('name', v)} autoCapitalize="words" />
+      <Field label="Tên trường *" hint="Tìm theo tên, mã tham chiếu hoặc chữ viết tắt, ví dụ T,S." value={name} nativeID="field-name"
+        onChangeText={v => { set('name', v); set('directory_code', ''); if (picked) { setPicked(null); set('city', ''); set('region', ''); set('address', ''); } }} autoCapitalize="words" />
       {state === 'loading' ? <Txt size={13} color={c.muc3}>Đang tìm trong danh mục…</Txt> : null}
-      {state === 'failed' ? <Txt size={13} color={c.sonChu}>Chưa tìm được trong danh mục. Bạn vẫn có thể tự nhập tên và mã trường.</Txt> : null}
+      {state === 'failed' ? <Txt size={13} color={c.sonChu}>Chưa tải được danh mục. Bạn có thể nhập tên và địa chỉ của trường.</Txt> : null}
       {results.length ? (
-        <View style={{ borderWidth: 1, borderColor: c.adminLine, borderRadius: 8, backgroundColor: c.the, overflow: 'hidden' }} accessibilityRole="list">
+        <ScrollView nestedScrollEnabled style={{ maxHeight: 240, borderWidth: 1, borderColor: c.adminLine, borderRadius: 8, backgroundColor: c.the }} accessibilityRole="list">
           {results.map((r) => (
             <Pressable key={r.code} accessibilityRole="button" accessibilityLabel={`Chọn ${r.name}, ${r.region}`} disabled={r.exists} onPress={() => choose(r)} testID={`school-pick-${r.code}`}
               style={({ pressed }) => ({ minHeight: 52, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 10, opacity: r.exists ? 0.55 : 1, backgroundColor: pressed ? c.adminCanvas : c.the })}>
-              <SchoolEmblem name={r.name} code={r.code} size={32} />
+              <SchoolEmblem name={r.name} code={r.code} logoUrl={r.logo_url} size={32} />
               <View style={{ flex: 1 }}>
                 <Txt f="semibold" size={14}>{r.name}</Txt>
-                <Txt size={12} color={c.muc2}>Mã {r.code} · {r.region} · {r.city}</Txt>
+                <Txt size={12} color={c.muc2}>{r.region} · {r.city}</Txt>
                 {r.note ? <Txt size={12} color={c.vangChu}>{r.note}</Txt> : null}
               </View>
               {r.exists ? <StatusChip kind="muted" text="Đã có trong hệ thống" /> : null}
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
       ) : null}
-      {state === 'idle' && query.length >= 2 && !results.length && !justPicked ? <Txt size={13} color={c.muc3}>Không thấy trường này trong danh mục. Hãy tự nhập mã và khu vực ở các ô bên dưới.</Txt> : null}
+      {state === 'idle' && query.length >= 1 && !results.length && !justPicked ? <Txt size={13} color={c.muc3}>Chưa thấy trường phù hợp. Bạn có thể nhập tên và địa chỉ của trường.</Txt> : null}
       {justPicked ? (
         <Inset style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <SchoolEmblem name={name} code={code} size={56} />
+          <SchoolEmblem name={name} code={code} logoUrl={picked.logo_url} size={56} />
           <View style={{ flex: 1, gap: 2 }}>
-            <Txt f="semibold" size={14}>{schoolLogoUrl(code) ? 'Logo chính thức của trường tự hiện, không cần dán ảnh' : 'Chưa có logo chính thức của trường này trong danh mục'}</Txt>
-            {schoolLogoUrl(code) ? null : <Txt size={12} color={c.muc2}>Sau khi tạo, dán logo ở mục Sửa nếu có (liên kết https).</Txt>}
-            <Txt size={12} color={c.muc2} selectable>{`Đường dẫn của trường: /${picked.slug}`}</Txt>
+            <Txt f="semibold" size={14}>{name}</Txt>
+            <Txt size={12} color={c.muc2}>{picked.region} · {picked.city}</Txt>
+            {!picked.logo_url && !schoolLogoUrl(code) ? <Txt size={12} color={c.muc3}>Chưa có logo chính thức</Txt> : null}
           </View>
         </Inset>
       ) : null}
@@ -238,7 +237,7 @@ const SchoolDetailSheet: React.FC<{ session: Session; id: number; onClose: () =>
             <StatusChip kind="info" text={`${data.counts.classes} lớp`} />
             <StatusChip kind={data.current_year ? 'on' : 'warn'} text={data.current_year ? `Năm học ${data.current_year.label}` : 'Chưa kích hoạt năm học'} />
           </View>
-          {[['Địa chỉ', data.address], ['Người liên hệ', data.contact_name], ['Email liên hệ', data.contact_email], ['Điện thoại', data.contact_phone]].map(([k, v]) => (
+          {[['Địa chỉ', data.address]].map(([k, v]) => (
             <View key={k as string}><Txt f="bold" size={12} color={c.muc3}>{k}</Txt><Txt size={14}>{(v as string | null) || 'Chưa có'}</Txt></View>
           ))}
           <Txt f="bold" size={14}>Quản trị viên trường học</Txt>
@@ -300,12 +299,13 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
           fields={[
             { name: 'full_name', label: 'Họ và tên', required: true },
             { name: 'account_type', label: 'Loại tài khoản', readOnly: true },
-            { name: 'school_id', label: 'Trường', type: 'select', required: true, options: [{ value: '', label: 'Chọn trường' }, ...schools] },
+            { name: 'school_id', label: 'Trường', required: true, render: (values, set) => <SchoolSelect token={token} value={String(values.school_id ?? '')} onChange={value => set('school_id', value)} /> },
             { name: 'email', label: 'Email', type: 'email', required: true },
             { name: 'phone', label: 'Số điện thoại', type: 'tel' },
           ]}
           initial={{ account_type: 'Quản trị viên trường' }} onClose={() => setCreating(false)}
           onSubmit={async (v) => {
+            if (!Number.isInteger(Number(v.school_id)) || Number(v.school_id) < 1) throw new Error('Hãy chọn trường cho tài khoản quản trị.');
             const res = await api.createAdminAccount(token, { full_name: String(v.full_name), role: 'school_admin', email: String(v.email), phone: String(v.phone) || undefined, school_id: Number(v.school_id) });
             setCreating(false);
             setCredential(res);

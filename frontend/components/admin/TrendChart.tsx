@@ -24,7 +24,7 @@ export function TrendChart({ id, data, series, unit, summary }: {
   const magnitude = 10 ** Math.floor(Math.log10(max / 4));
   const step = Math.max(1, [1, 2, 5, 10].map(n => n * magnitude).find(n => n >= max / 4) ?? 1);
   const top = Math.ceil(max / step) * step;
-  const height = 300, left = 36, right = width < 400 ? 16 : 24, upper = 84, bottom = 38;
+  const height = shown.length > 2 ? 330 : 300, left = 36, right = width < 400 ? 16 : 24, upper = Math.max(84, 32 + shown.length * 16), bottom = 38;
   const plotWidth = Math.max(1, width - left - right), plotHeight = height - upper - bottom;
   const x = (i: number) => left + (data.length > 1 ? (i / (data.length - 1)) * plotWidth : plotWidth / 2);
   const y = (v: number) => upper + (1 - v / top) * plotHeight;

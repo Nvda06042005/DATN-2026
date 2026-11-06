@@ -10,13 +10,15 @@ import { FONT } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { copyText } from '@/lib/clipboard';
 import { schoolLogoUrl } from '@/lib/school-logos';
+import { API_BASE_URL } from '@/api/client';
 import type { SchoolLink } from '@/types/api';
 
 /** Logo chính thức của trường: logo riêng đã đặt ở mục Sửa thì ưu tiên, nếu không thì logo lấy từ website Sở GD&ĐT; chưa có thì khung trống trung tính */
 export const SchoolEmblem: React.FC<{ name: string; code: string; logoUrl?: string | null; size?: number }> = ({ name, code, logoUrl, size = 56 }) => {
   const { c } = useTheme();
   const [failed, setFailed] = useState<string | null>(null);
-  const src = logoUrl || schoolLogoUrl(code);
+  const source = logoUrl || schoolLogoUrl(code);
+  const src = source?.startsWith('/api/') ? `${API_BASE_URL}${source}` : source;
   if (src && failed !== src) {
     return (
       <View accessible accessibilityRole="image" accessibilityLabel={`Logo ${name}`} style={{ width: size, height: size, borderRadius: Math.round(size * 0.22), backgroundColor: '#ffffff', borderWidth: 1, borderColor: c.vien, padding: Math.max(2, Math.round(size * 0.06)) }}>

@@ -40,7 +40,7 @@ test('logo chính thức: mỗi mã trong danh sách có đúng một tệp ản
   const files = fs.readdirSync(dir).filter((f) => f.endsWith('.webp')).map((f) => f.replace(/\.webp$/, '')).sort();
   assert.deepEqual([...SCHOOL_LOGO_CODES].sort(), files);
   assert.ok(files.length >= 100, `chỉ có ${files.length} logo`);
-  for (const code of files) assert.match(code, /^\d{4,8}$/);
+  for (const code of files) assert.match(code, /^[a-zA-Z0-9_-]{4,80}$/);
   assert.equal(schoolLogoUrl('79765507'), '/school-logos/79765507.webp');
   assert.equal(schoolLogoUrl('01015507'), null);
   assert.equal(schoolLogoUrl(''), null);
@@ -53,35 +53,38 @@ test('logo chính thức: mỗi mã trong danh sách có đúng một tệp ản
   }
 });
 
-test('nguồn của từng logo được ghi lại và chỉ lấy từ website của Sở GD&ĐT TP.HCM (hcm.edu.vn)', () => {
+test('nguồn của từng logo được ghi lại từ website trường và cổng giáo dục chính thức', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, '..', 'scripts', 'school-logos.json'), 'utf8'));
   const { SCHOOL_LOGO_CODES } = loadLogos();
   assert.equal(manifest.schools.length, SCHOOL_LOGO_CODES.size);
   for (const m of manifest.schools) {
     assert.ok(SCHOOL_LOGO_CODES.has(m.code), m.code);
-    assert.match(m.site, /^https:\/\/[a-z0-9-]+\.hcm\.edu\.vn\/$/, m.code);
+    assert.match(new URL(m.site).hostname, /\.(edu|gov)\.vn$/, m.code);
+    assert.match(new URL(m.source ?? manifest.portal).hostname, /(?:^|\.)(?:[a-z0-9-]+\.)*(?:edu|gov)\.vn$/, m.code);
     assert.ok(['logo-named', 'img-logo', 'og-only', 'icon'].includes(m.confidence), `${m.code}: ${m.confidence}`);
-    assert.ok(m.logo_source.startsWith('https://'), m.code);
+    assert.ok(/^https?:\/\//.test(m.logo_source), m.code);
   }
 });
 
 test('thêm trường: ô tên trường gợi ý từ danh mục và chọn xong tự điền tên, mã, khu vực, tỉnh/thành', () => {
   const admin = read('components', 'admin', 'RootAdmin.tsx');
   const api = read('api', 'adminApi.ts');
-  assert.match(api, /export const searchSchoolDirectory = \(token: string, q: string\) => apiRequest<\{ items: SchoolDirectoryItem\[\] \}>\(`\/api\/admin\/school-directory\$\{qs\(\{ q, limit: 8 \}\)\}`, \{ token \}\)/);
+  assert.match(api, /export const searchSchoolDirectory = \(token: string, q: string\) => apiRequest<\{ items: SchoolDirectoryItem\[\] \}>\(`\/api\/admin\/school-directory\$\{qs\(\{ q, limit: 30 \}\)\}`, \{ token \}\)/);
   assert.match(admin, /\{ name: 'name', label: 'Tên trường', required: true, render: \(values, set\) => <SchoolPicker token=\{token\} values=\{values\} set=\{set\} \/> \}/);
   assert.match(admin, /fields=\{CREATE_FIELDS\(token\)\}/);
   const choose = /const choose = \(item: SchoolDirectoryItem\) => \{([\s\S]*?)\n  \};/.exec(admin)[1];
-  for (const field of ['name', 'school_code', 'region', 'city']) assert.match(choose, new RegExp(`set\\('${field}', item\\.${field === 'school_code' ? 'code' : field}\\)`));
+  for (const field of ['name', 'directory_code', 'region', 'city']) assert.match(choose, new RegExp(`set\\('${field}', item\\.${field === 'directory_code' ? 'code' : field}\\)`));
+  assert.match(choose, /set\('address', item\.address \?\? ''\)/);
+  assert.doesNotMatch(choose, /set\('school_code'/);
   // gợi ý tìm sau khi gõ, bỏ kết quả cũ khi gõ tiếp, và không tìm lại ngay sau khi vừa chọn
   assert.match(admin, /useDebounced\(name\.trim\(\), 250\)/);
   assert.match(admin, /let live = true;[\s\S]*return \(\) => \{ live = false; \};/);
-  assert.match(admin, /if \(justPicked \|\| query\.length < 2\)/);
+  assert.match(admin, /if \(justPicked\)/);
   // trường đã có trong hệ thống không chọn lại được
   assert.match(admin, /disabled=\{r\.exists\}/);
   // không còn ô dán logo khi thêm trường: huy hiệu tự hiện
   assert.doesNotMatch(admin.slice(admin.indexOf('const CREATE_FIELDS'), admin.indexOf('const SchoolsPanel')), /name: 'logo_url'/);
-  assert.match(admin, /Logo chính thức của trường tự hiện, không cần dán ảnh/);
+  assert.match(admin, /logoUrl=\{picked\.logo_url\}/);
 });
 
 test('không có hook sau lệnh return sớm trong ô chọn trường (lỗi React #310 từng làm sập trình soạn Quiz)', () => {

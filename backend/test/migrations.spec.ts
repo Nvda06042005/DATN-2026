@@ -101,6 +101,20 @@ describe('file migration', () => {
     expect(await count("SELECT count(*) AS n FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('app_school_years', 'app_class_teachers') AND 'dong_a_school_scope'=ANY(roles)")).toBe(2);
   });
 
+  test('042 thêm mã tham chiếu và bộ sinh mã, giữ nguyên trường và đường dẫn cũ', async () => {
+    for (const name of readdirSync(dir).filter(name => /^\d+_.*\.sql$/.test(name) && Number(name.split('_')[0]) > 42)) renameSync(join(dir,name),join(dir,`${name}.held`));
+    const change = readdirSync(dir).find(name => name.startsWith('042_'))!;
+    renameSync(join(dir, change), join(dir, `${change}.held`));
+    await m.applyMigrations(url, dir);
+    await sql(url, "INSERT INTO app_schools(id,school_code,name,region) VALUES(9901,'00000001','Trường giữ nguyên','Khu vực cũ')");
+    renameSync(join(dir, `${change}.held`), join(dir, change));
+    expect(await m.applyMigrations(url, dir)).toHaveLength(1);
+    expect(await sql(url, 'SELECT school_code,name,region,directory_code FROM app_schools WHERE id=9901')).toEqual([{ school_code: '00000001', name: 'Trường giữ nguyên', region: 'Khu vực cũ', directory_code: null }]);
+    expect(await sql(url, 'SELECT public.next_school_registration_code() AS code')).toEqual([{ code: '00000002' }]);
+    expect(await sql(url, 'SELECT public.next_school_registration_code() AS code')).toEqual([{ code: '00000003' }]);
+    expect(await count("SELECT count(*) AS n FROM information_schema.routine_privileges WHERE routine_schema='public' AND routine_name='next_school_registration_code' AND grantee='PUBLIC'")).toBe(0);
+  });
+
   test('040 chỉ xóa sáu bảng quản trị nội dung cũ; giữ nguyên tài khoản, trường và kho đang dùng', async () => {
     // Kiểm tra riêng bước 040, không áp dụng các điều chỉnh dữ liệu tham chiếu ở phiên bản sau.
     for (const name of readdirSync(dir).filter((name) => /^\d+_.*\.sql$/.test(name) && Number(name.split('_')[0]) > 40)) {
@@ -129,6 +143,7 @@ describe('file migration', () => {
   });
 
   test('041 giữ chính sách chung đã có và FAQ tự sửa, cập nhật đúng hướng dẫn khởi tạo', async () => {
+    for (const name of readdirSync(dir).filter(name => /^\d+_.*\.sql$/.test(name) && Number(name.split('_')[0]) > 41)) renameSync(join(dir,name),join(dir,`${name}.held`));
     const change=readdirSync(dir).find((name)=>name.startsWith('041_'))!;
     renameSync(join(dir,change),join(dir,`${change}.held`));
     expect(await m.applyMigrations(url,dir)).toHaveLength(40);

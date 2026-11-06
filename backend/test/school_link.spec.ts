@@ -42,7 +42,7 @@ describe('Danh mục trường và quy tắc đặt tên đường dẫn', () =>
     for (const q of ['phu my binh thanh', 'Phú Mỹ Bình Thạnh', '79765507']) {
       expect(searchDirectory(q)[0]).toMatchObject({ code: '79765507', name: 'THCS Phú Mỹ', region: 'Quận Bình Thạnh', city: 'Thành phố Hồ Chí Minh' });
     }
-    expect(searchDirectory('   ')).toEqual([]);
+    expect(searchDirectory('   ')).toHaveLength(12);
     expect(searchDirectory('khong-co-truong-nao-ten-nhu-the-xyz')).toEqual([]);
     expect(searchDirectory('thcs', 5)).toHaveLength(5);
     expect(directoryEntry('79765507')?.name).toBe('THCS Phú Mỹ');
@@ -51,7 +51,16 @@ describe('Danh mục trường và quy tắc đặt tên đường dẫn', () =>
 
   test('toàn bộ danh mục: mã duy nhất, 4–8 chữ số, đã đổi sang 34 tỉnh/thành từ 01/07/2025', () => {
     const rows = directory.schools as Array<[string, string, number, string, string | null]>;
-    expect(directoryInfo().schools).toBe(rows.length);
+    expect(directoryInfo().schools).toBeGreaterThan(rows.length);
+    expect(directoryInfo().source_rows).toBe(11391);
+    expect(directoryEntry('02000E04')).not.toBeNull();
+    expect(directoryEntry('011110759')?.name).toContain('Vinschool');
+    expect(directoryEntry('TEST01')).toBeNull();
+    const shorthand = searchDirectory('T,S', 30);
+    expect(shorthand.length).toBeGreaterThan(0);
+    expect(shorthand.some(row => /Trung Sơn|Tân Sơn|Trần Sơn/.test(row.name))).toBe(true);
+    expect(directoryEntry('31311522')?.code).toBe('hp-tranquocbao-2026');
+    expect(searchDirectory('Trần Nhật Duật Bạch Đằng')[0]?.code).toBe('hp-bachdang-2026');
     expect(rows.length).toBeGreaterThan(11000);
     expect(new Set(rows.map((r) => r[0])).size).toBe(rows.length);
     expect(rows.every((r) => /^\d{4,8}$/.test(r[0]) && r[1] === r[1].trim() && !/&amp;|\s{2}/.test(r[1]) && r[3])).toBe(true);
@@ -67,7 +76,7 @@ describe('Danh mục trường và quy tắc đặt tên đường dẫn', () =>
 
   test('sáp nhập 2026: trường bị gộp không còn trong danh mục, trường giữ lại ghi chú trường đã gộp', () => {
     // THCS Lam Sơn gộp vào THCS Trương Công Định (phường Gia Định, trước là quận Bình Thạnh)
-    expect(directoryEntry('79765501')).toBeNull();
+    expect(directoryEntry('79765501')?.code).toBe('79765511');
     expect(searchDirectory('lam son binh thanh').some((e) => e.code === '79765501')).toBe(false);
     expect(directoryEntry('79765511')).toMatchObject({ name: 'THCS Trương Công Định', region: 'Quận Bình Thạnh' });
     expect(directoryEntry('79765511')?.note).toContain('THCS Lam Sơn');
@@ -111,7 +120,7 @@ describe('Danh mục trường và quy tắc đặt tên đường dẫn', () =>
     const found = await api('GET', `/api/admin/school-directory?q=${encodeURIComponent('phú mỹ bình thạnh')}`);
     expect(found.status).toBe(200);
     expect(found.body.items[0]).toMatchObject({ code: '79765507', name: 'THCS Phú Mỹ', region: 'Quận Bình Thạnh', city: 'Thành phố Hồ Chí Minh', exists: false, slug: SLUG });
-    expect((await api('GET', '/api/admin/school-directory')).status).toBe(422);
+    expect((await api('GET', '/api/admin/school-directory')).body.items).toHaveLength(30);
     expect((await api('GET', '/api/admin/school-directory?q=x&limit=999')).status).toBe(422);
     expect((await api('GET', '/api/admin/school-directory?q=phu', undefined, '')).status).toBe(401);
   });

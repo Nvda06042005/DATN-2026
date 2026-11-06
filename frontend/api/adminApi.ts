@@ -14,7 +14,7 @@ const qs = (query: Query = {}) => {
 // ---------------------------------------------------------------------- trường học (HK.AD.011–017)
 export const listSchools = (token: string, query: Query) => apiRequest<Paged<SchoolItem> & { facets: { cities: string[]; regions: string[] } }>(`/api/admin/schools${qs(query)}`, { token });
 /** Gợi ý trường từ danh mục khi thêm trường (gõ tên, mã hoặc quận/huyện) */
-export const searchSchoolDirectory = (token: string, q: string) => apiRequest<{ items: SchoolDirectoryItem[] }>(`/api/admin/school-directory${qs({ q, limit: 8 })}`, { token });
+export const searchSchoolDirectory = (token: string, q: string) => apiRequest<{ items: SchoolDirectoryItem[] }>(`/api/admin/school-directory${qs({ q, limit: 30 })}`, { token });
 export const getSchool = (token: string, id: number) => apiRequest<SchoolDetail>(`/api/admin/schools/${id}`, { token });
 export const createSchool = (token: string, body: Record<string, unknown>) => apiRequest<CreatedSchool>('/api/admin/schools', { token, body });
 export const updateSchool = (token: string, id: number, body: Record<string, unknown>) => apiRequest<SchoolItem>(`/api/admin/schools/${id}`, { token, method: 'PATCH', body });

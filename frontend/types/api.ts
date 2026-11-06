@@ -69,6 +69,7 @@ export interface SchoolLink { slug: string; path: string; url: string }
 export interface SchoolItem {
   id: number;
   school_code: string;
+  directory_code?: string | null;
   name: string;
   region: string | null;
   city: string | null;
@@ -99,7 +100,7 @@ export interface YearItem {
 }
 
 /** Một trường trong danh mục: chọn thì mã, khu vực, tỉnh/thành và đường dẫn tự điền */
-export interface SchoolDirectoryItem { code: string; name: string; region: string; city: string; note: string | null; exists: boolean; slug: string }
+export interface SchoolDirectoryItem { code: string; name: string; region: string; city: string; address?: string | null; website?: string | null; logo_url?: string | null; note: string | null; exists: boolean; slug: string }
 
 /** Thông tin công khai tối thiểu để vẽ trang đăng nhập riêng của trường */
 export interface SchoolLinkInfo { school_code: string; name: string; region: string | null; city: string | null; logo_url: string | null; is_active: boolean; slug: string }

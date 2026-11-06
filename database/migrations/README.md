@@ -77,4 +77,11 @@ Giữ nguyên `app_users`, các bảng trường/lớp, thông báo, audit/login
 
 `041_background_recommendation_policy.sql` ghi rõ hai bảng gợi ý là dữ liệu nội bộ và cập nhật liên kết hướng dẫn mẫu từ “Gợi ý học tập” sang “Kế hoạch học”. Không đặt lại chính sách toàn hệ thống, không xóa kết quả cũ và không sửa câu trả lời FAQ do quản trị đã biên tập. Cấu hình vẫn chỉ có một dòng `hk_reco_settings(id=1)`; không thêm cấu hình theo trường/học sinh. Xem [quy ước thuật toán](../../docs/THUAT_TOAN_GOI_Y.md).
 
+## Mã đăng ký trường độc lập với danh mục (042)
+
+`042_school_catalog_identity.sql` thêm khóa tham chiếu danh mục và sequence sinh mã trường tám chữ số. Giữ nguyên mã, tài khoản và dữ liệu hiện có; không nhập hàng loạt trường từ danh mục. Quyền sequence/function không mở cho PUBLIC. Chọn cùng một trường đồng thời được backend khóa giao dịch và chặn trùng bằng chỉ mục; mã gốc có chữ/dài hơn tám số không còn bị cắt để làm mã đăng nhập. Xem [danh mục trường](../../docs/DANH_MUC_TRUONG.md).
+
 Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).
+
+- **043_school_catalog_logo_store.sql**: b?ng danh m?c tham chi?u v? asset WebP (bytea), SHA-256 duy nh?t, ki?m tra ??nh d?ng/k?ch th??c, RLS kh?ng c? policy c?ng khai.
+- **044_national_school_catalog_seed.sql**: 11.371 g?i ? v? 422 logo ?? r? (4.153.024 byte ?nh); kh?ng t?o tr??ng/ng??i d?ng. ?nh ???c t?i ri?ng theo hash v?i ETag/cache. Ngu?n/vintage v? ph?n ch?a x?c minh: `docs/DANH_MUC_TRUONG.md`.

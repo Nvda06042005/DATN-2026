@@ -1,0 +1,1541 @@
+{
+  "reviewed_at": "2026-11-07",
+  "reviewed_images": 518,
+  "rejected": [
+    {
+      "code": "08000E07",
+      "name": "Trường PTDTNT THCS Lâm Bình",
+      "city": "Tỉnh Tuyên Quang",
+      "district": "Huyện Lâm Bình",
+      "site": "http://c12lambinh.tuyenquang.edu.vn/",
+      "source": "https://tuyenquang.edu.vn/",
+      "logo_source": "http://c12lambinh.tuyenquang.edu.vn/upload/52924/20180116/logo.png",
+      "confidence": "logo-named",
+      "source_px": [
+        154,
+        163
+      ],
+      "webp_bytes": 10198,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "08076502",
+      "name": "Trường THCS Kỳ Lâm",
+      "city": "Tỉnh Tuyên Quang",
+      "district": "Huyện Sơn Dương",
+      "site": "http://c2kylam.tuyenquang.edu.vn/",
+      "source": "https://tuyenquang.edu.vn/",
+      "logo_source": "http://c2kylam.tuyenquang.edu.vn/upload/45053/20190403/46452187_2039158076144505_2054419467701583872_n45.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1200,
+        675
+      ],
+      "webp_bytes": 6100,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "17150511",
+      "name": "Trường THCS Thị trấn Đà Bắc",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Đà Bắc",
+      "site": "http://thcsdabac.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://thcsdabac.phutho.edu.vn/upload/41860/20180607/IMG_20170308_09332080.jpg",
+      "confidence": "icon",
+      "source_px": [
+        3328,
+        1872
+      ],
+      "webp_bytes": 6276,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "17151501",
+      "name": "Trường THCS Thị trấn Kỳ Sơn",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Thành phố Hòa Bình",
+      "site": "http://thcskyson.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://thcskyson.phutho.edu.vn/upload/41902/20260514/1778743568717_3389812368545826373_3389812368545826373_e81b35752721e876cc5b071c4a1a8e1a_5e3bf.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1926,
+        2568
+      ],
+      "webp_bytes": 7774,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "17157511",
+      "name": "Trường TH&THCS Phú Lương",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Lạc Sơn",
+      "site": "http://th-thcsphuluong.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://th-thcsphuluong.phutho.edu.vn/upload/42264/20251107/IMG_20251107_105905_10e9f.jpg",
+      "confidence": "img-logo",
+      "source_px": [
+        596,
+        596
+      ],
+      "webp_bytes": 8250,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "17157520",
+      "name": "Trường TH&THCS Liên Vũ",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Lạc Sơn",
+      "site": "http://th-thcslienvu.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://th-thcslienvu.phutho.edu.vn/upload/42262/20261105/LOGO1-removebg-preview_6d29c.png",
+      "confidence": "logo-named",
+      "source_px": [
+        560,
+        446
+      ],
+      "webp_bytes": 12770,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "17157522",
+      "name": "Trường TH&THCS Bình Chân",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Lạc Sơn",
+      "site": "http://thcslacson.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://thcslacson.phutho.edu.vn/upload/42257/20261105/LOGO1-removebg-preview_75d9f.png",
+      "confidence": "logo-named",
+      "source_px": [
+        560,
+        446
+      ],
+      "webp_bytes": 12770,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "17157523",
+      "name": "Trường TH&THCS Bình Cảng",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Lạc Sơn",
+      "site": "http://th-thcsbinhcang.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://th-thcsbinhcang.phutho.edu.vn/upload/42256/20180921/41229963_538439043257480_8051626489453477888_n96.jpg",
+      "confidence": "icon",
+      "source_px": [
+        960,
+        720
+      ],
+      "webp_bytes": 9044,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "17157527",
+      "name": "Trường TH&THCS Chí Đạo",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Lạc Sơn",
+      "site": "http://th-thcschidao.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://th-thcschidao.phutho.edu.vn/upload/52598/20180103/logo-truong-hoc27.png",
+      "confidence": "logo-named",
+      "source_px": [
+        89,
+        87
+      ],
+      "webp_bytes": 5886,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "17157703",
+      "name": "Trường TH&THCS Chí Thiện",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Lạc Sơn",
+      "site": "http://th-thcschithien.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://th-thcschithien.phutho.edu.vn/upload/42277/20251121/phu-tho__1__b896d.jpg",
+      "confidence": "img-logo",
+      "source_px": [
+        208,
+        188
+      ],
+      "webp_bytes": 6440,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "19164506",
+      "name": "THCS Quang Trung",
+      "city": "Tỉnh Thái Nguyên",
+      "district": "Thành phố Thái Nguyên",
+      "site": "http://thcsquangtrung.thainguyen.edu.vn/",
+      "source": "https://thainguyen.edu.vn/",
+      "logo_source": "http://thcsquangtrung.thainguyen.edu.vn/publish/thumbnail/50616/480x480xdefault/upload/50616/20191105/eye-care-logo-health-symbols-png_91575_8856802470.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        480,
+        480
+      ],
+      "webp_bytes": 2160,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "19164517",
+      "name": "THCS Đồng Quang",
+      "city": "Tỉnh Thái Nguyên",
+      "district": "Thành phố Thái Nguyên",
+      "site": "http://thcsdongquang.thainguyen.edu.vn/",
+      "source": "https://thainguyen.edu.vn/",
+      "logo_source": "http://thcsdongquang.thainguyen.edu.vn/publish/thumbnail/50605/800x533xdefault/upload/50605/20260520/logo_thong_bao_8c78c_7a9c0.png",
+      "confidence": "logo-named",
+      "source_px": [
+        800,
+        533
+      ],
+      "webp_bytes": 3436,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "19171527",
+      "name": "THCS Phú Cường",
+      "city": "Tỉnh Thái Nguyên",
+      "district": "Huyện Đại Từ",
+      "site": "http://thcsphucuong.thainguyen.edu.vn/",
+      "source": "https://thainguyen.edu.vn/",
+      "logo_source": "http://thcsphucuong.thainguyen.edu.vn/upload/48659/20251024/hn5_180ff.jpg",
+      "confidence": "icon",
+      "source_px": [
+        2048,
+        1536
+      ],
+      "webp_bytes": 8318,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "19173509",
+      "name": "Trung học cơ sở Tân Thành",
+      "city": "Tỉnh Thái Nguyên",
+      "district": "Huyện Phú Bình",
+      "site": "http://thcstanthanh.thainguyen.edu.vn/",
+      "source": "https://thainguyen.edu.vn/",
+      "logo_source": "http://thcstanthanh.thainguyen.edu.vn/upload/51174/20251021/z7138913944539_808ebe38209055adb29bd888041c4361_bf5c8.jpg",
+      "confidence": "icon",
+      "source_px": [
+        2560,
+        1707
+      ],
+      "webp_bytes": 5036,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "20183605",
+      "name": "PTDTNT THCS Cao Lộc",
+      "city": "Tỉnh Lạng Sơn",
+      "district": "Huyện Cao Lộc",
+      "site": "https://dtntcaoloc.langson.edu.vn/",
+      "source": "https://langson.edu.vn/",
+      "logo_source": "https://dtntcaoloc.langson.edu.vn/media/home_public/thpt/quoc-huy-default.png",
+      "confidence": "icon",
+      "source_px": [
+        500,
+        518
+      ],
+      "webp_bytes": 10176,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "24213516",
+      "name": "Trường THCS Nguyễn Khắc Nhu",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Thành phố Bắc Giang",
+      "site": "http://thcsnguyenkhacnhu.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcsnguyenkhacnhu.bacninh.edu.vn/publish/thumbnail/38253/800x533xdefault/upload/38253/20260430/logo-lich-cong-tac-tuan_8ff56.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        800,
+        533
+      ],
+      "webp_bytes": 2984,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "24215516",
+      "name": "Trường THCS Hương Vỹ",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Yên Thế",
+      "site": "http://thcshuongvy.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcshuongvy.bacninh.edu.vn/upload/38608/20191127/z1627073024661_2c2eb6a1fad8f4780f02f949e8057e55_ce9b8d08d9.jpg",
+      "confidence": "icon",
+      "source_px": [
+        2016,
+        1512
+      ],
+      "webp_bytes": 6452,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "24216507",
+      "name": "Trường THCS Liên Chung",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Tân Yên",
+      "site": "http://thcslienchung.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcslienchung.bacninh.edu.vn/upload/38328/20250124/Huy_hieu_Doi_TNTP_Ho_Chi_Minh__2018__629ba.png",
+      "confidence": "img-logo",
+      "source_px": [
+        430,
+        464
+      ],
+      "webp_bytes": 10854,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "24216519",
+      "name": "Trường THCS Ngọc Châu",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Tân Yên",
+      "site": "http://thcsngocchau.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcsngocchau.bacninh.edu.vn/upload/38329/20220606/logo_795a8.png",
+      "confidence": "logo-named",
+      "source_px": [
+        74,
+        74
+      ],
+      "webp_bytes": 3740,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "24217503",
+      "name": "Trường THCS Xương Lâm",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Lạng Giang",
+      "site": "http://thcsvoi.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcsvoi.bacninh.edu.vn/publish/thumbnail/38792/400x267xdefault/upload/38792/20260530/0__Logo_Anh_cong_truong_XL_db1b1.png",
+      "confidence": "logo-named",
+      "source_px": [
+        400,
+        267
+      ],
+      "webp_bytes": 6592,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "24218509",
+      "name": "Trường THCS Cẩm Lý",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Lục Nam",
+      "site": "http://thcscamly.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcscamly.bacninh.edu.vn/upload/26585/20211007/vi_su_nghiep_giao_duc_94f627e5b8.png",
+      "confidence": "img-logo",
+      "source_px": [
+        180,
+        180
+      ],
+      "webp_bytes": 10846,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "24219505",
+      "name": "Trường THCS Đèo Gia",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Lục Ngạn",
+      "site": "http://thcsdeogiaso2.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcsdeogiaso2.bacninh.edu.vn/upload/38885/20251030/z7072076903757_b5eba0275b64205471d9a200a337856d-removebg-preview_614b0.png",
+      "confidence": "img-logo",
+      "source_px": [
+        501,
+        498
+      ],
+      "webp_bytes": 9526,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "24221514",
+      "name": "Trường THCS Trí Yên",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Yên Dũng",
+      "site": "http://thcstriyen.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcstriyen.bacninh.edu.vn/upload/38493/20210610/logo_1570b96d6f.png",
+      "confidence": "logo-named",
+      "source_px": [
+        74,
+        74
+      ],
+      "webp_bytes": 3740,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "24221520",
+      "name": "Trường THCS Tiến Dũng",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Yên Dũng",
+      "site": "http://thcscanhthuy.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcscanhthuy.bacninh.edu.vn/upload/38491/20250913/z6978179720109_cca4a2539df18ee3b5cea492bb1bcaed_c4170.jpg",
+      "confidence": "icon",
+      "source_px": [
+        2568,
+        1926
+      ],
+      "webp_bytes": 6156,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "24223509",
+      "name": "Trường THCS Xuân Cẩm",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Hiệp Hòa",
+      "site": "http://thcsxuancam.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcsxuancam.bacninh.edu.vn/publish/thumbnail/39056/480x270xdefault/upload/39056/20260812/Logo_tuyen_truyen_be822.png",
+      "confidence": "logo-named",
+      "source_px": [
+        480,
+        270
+      ],
+      "webp_bytes": 6394,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "25230506",
+      "name": "THCS Hùng Quan",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Đoan Hùng",
+      "site": "http://thcshungquan.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://thcshungquan.phutho.edu.vn/upload/108532/20260425/z6004411571309_a5befa6e4475b1134f1c6f1230acd4f3_77256.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1725,
+        1015
+      ],
+      "webp_bytes": 6716,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "25231505",
+      "name": "THCS Đan Thượng",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Hạ Hòa",
+      "site": "http://thcsdanthuong.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://thcsdanthuong.phutho.edu.vn/publish/thumbnail/47207/480x320xdefault/upload/47207/20251008/logo_e4c25.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        480,
+        320
+      ],
+      "webp_bytes": 4442,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "25231601",
+      "name": "TH&THCS Phương Viên",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Hạ Hòa",
+      "site": "http://thcsphuongvien.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://thcsphuongvien.phutho.edu.vn/upload/18059/20170223/250px-ho-chi-minh-young-pioneers-svg.png",
+      "confidence": "img-logo",
+      "source_px": [
+        250,
+        257
+      ],
+      "webp_bytes": 6840,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "25232512",
+      "name": "THCS Ninh Dân",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Thanh Ba",
+      "site": "http://thcsninhdan.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://thcsninhdan.phutho.edu.vn/upload/47600/20251014/z7116859508222_4d0c45d59a4545a1234aa25f4e5317e2_4aa9e.jpg",
+      "confidence": "icon",
+      "source_px": [
+        960,
+        960
+      ],
+      "webp_bytes": 10916,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "25233519",
+      "name": "THCS Vĩnh Phú",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Phù Ninh",
+      "site": "http://thcsvinhphu.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://thcsvinhphu.phutho.edu.vn/upload/47100/20251110/z7208765357972_f034962337bb0a417c70eb5984a0aa5c_6b3c0.jpg",
+      "confidence": "icon",
+      "source_px": [
+        960,
+        550
+      ],
+      "webp_bytes": 7420,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "25240507",
+      "name": "Trường THCS Mỹ Thuận",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Tân Sơn",
+      "site": "http://thcsmythuan.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://thcsmythuan.phutho.edu.vn/upload/41159/20251026/z6653915141013_ba23284249ed736ac989267b38cb0522_31722.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1276,
+        956
+      ],
+      "webp_bytes": 6986,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "26246523",
+      "name": "THCS Bàn Giản",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Lập Thạch",
+      "site": "http://thcsbangian.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://thcsbangian.phutho.edu.vn/upload/108033/20251025/z7153143061087_03b13889f8e01a1ce93fe09c09546330_fbeaf.jpg",
+      "confidence": "icon",
+      "source_px": [
+        2560,
+        1707
+      ],
+      "webp_bytes": 9504,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "26246530",
+      "name": "THCS Thái Hòa",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Lập Thạch",
+      "site": "http://thcsthaihoa.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://thcsthaihoa.phutho.edu.vn/publish/thumbnail/108169/800x533xdefault/upload/108169/20260530/logo-ts6_762021162_8296d.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        800,
+        533
+      ],
+      "webp_bytes": 4358,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "26248501",
+      "name": "THCS Tam Đảo",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Tam Đảo",
+      "site": "http://thcstamdao.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://thcstamdao.phutho.edu.vn/upload/108112/20251031/TTD_9301_2a2dd.jpg",
+      "confidence": "icon",
+      "source_px": [
+        3024,
+        2016
+      ],
+      "webp_bytes": 6970,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "26251507",
+      "name": "THCS Yên Phương",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Yên Lạc",
+      "site": "http://thcsyenphuong.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://thcsyenphuong.phutho.edu.vn/upload/108128/20260106/Quoc_Huy_Viet_Nam_Chuan_c23b2.png",
+      "confidence": "icon",
+      "source_px": [
+        1180,
+        1200
+      ],
+      "webp_bytes": 9088,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "26252527",
+      "name": "THCS Vĩnh Thịnh",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Vĩnh Tường",
+      "site": "http://thcsvinhthinh.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://thcsvinhthinh.phutho.edu.vn/publish/thumbnail/108222/800x533xdefault/upload/108222/20260410/logo_doan_88570.png",
+      "confidence": "logo-named",
+      "source_px": [
+        800,
+        533
+      ],
+      "webp_bytes": 5244,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "27258525",
+      "name": "Trường THCS Hoà Tiến",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Yên Phong",
+      "site": "http://thcshoatien.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcshoatien.bacninh.edu.vn/publish/thumbnail/63171/500x281xdefault/upload/63171/20240909/logo_4ef2d.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        500,
+        281
+      ],
+      "webp_bytes": 5918,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "27258534",
+      "name": "Trường THCS Yên Phụ",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Yên Phong",
+      "site": "http://thcsyenphu.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcsyenphu.bacninh.edu.vn/upload/63180/20240302/logo_141c2.png",
+      "confidence": "logo-named",
+      "source_px": [
+        104,
+        116
+      ],
+      "webp_bytes": 6124,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "27260508",
+      "name": "Trường THCS Việt Đoàn",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Tiên Du",
+      "site": "http://thcsvietdoan.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcsvietdoan.bacninh.edu.vn/upload/63211/20240308/Huy_Hieu_Doan_f646d.png",
+      "confidence": "img-logo",
+      "source_px": [
+        425,
+        468
+      ],
+      "webp_bytes": 8834,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "27260509",
+      "name": "Trường THCS Cảnh Hưng",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Tiên Du",
+      "site": "http://th-thcscanhhung.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://th-thcscanhhung.bacninh.edu.vn/upload/63212/20221123/Huy_Hieu_Doan_def4a.png",
+      "confidence": "img-logo",
+      "source_px": [
+        425,
+        468
+      ],
+      "webp_bytes": 8834,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "27260512",
+      "name": "Trường THCS Lim",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Tiên Du",
+      "site": "http://thcsthitranlim.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcsthitranlim.bacninh.edu.vn/upload/63215/20240625/z5573040749223_df7a8f956c256b5d24637368b92e41bc_8575e.jpg",
+      "confidence": "img-logo",
+      "source_px": [
+        1120,
+        1464
+      ],
+      "webp_bytes": 4448,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "27261504",
+      "name": "THCS Đồng Nguyên",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Thị xã Từ Sơn",
+      "site": "http://thcsdongnguyen.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcsdongnguyen.bacninh.edu.vn/publish/thumbnail/63221/480x270xdefault/upload/63221/20260109/logo_cong_khai_ttin_f3393_40599.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        480,
+        270
+      ],
+      "webp_bytes": 3574,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "27262517",
+      "name": "Trường THCS Nghĩa Đạo",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Thuận Thành",
+      "site": "http://thcsnghiadao.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcsnghiadao.bacninh.edu.vn/upload/104674/20240328/Blue_and_Yellow_Modern_Education_Logo_7f59f.gif",
+      "confidence": "logo-named",
+      "source_px": [
+        500,
+        500
+      ],
+      "webp_bytes": 108,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "30295503",
+      "name": "Trường THCS Lương Điền",
+      "city": "Thành phố Hải Phòng",
+      "district": "Huyện Cẩm Giàng",
+      "site": "https://thcscamgiang2.haiphong.edu.vn/",
+      "source": "https://haiphong.edu.vn/",
+      "logo_source": "https://admintruong.haiphong.shieldix.app/UploadImages/config/haiphong/2026/thcsluongdien/logo-moi_8920261552.png",
+      "confidence": "icon",
+      "source_px": [
+        983,
+        1000
+      ],
+      "webp_bytes": 11282,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "30297523",
+      "name": "THCS Thống Nhất",
+      "city": "Thành phố Hải Phòng",
+      "district": "Huyện Gia Lộc",
+      "site": "https://thcsthongnhat.haiphong.edu.vn/",
+      "source": "https://haiphong.edu.vn/",
+      "logo_source": "https://admintruong.haiphong.shieldix.app/UploadImages/news/haiphong/2025/thcsthongnhat/2025_9/18/logo-tn-1_1892025155.jpg?w=350",
+      "confidence": "logo-named",
+      "source_px": [
+        350,
+        350
+      ],
+      "webp_bytes": 5328,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "31303507",
+      "name": "THCS Hồng Bàng",
+      "city": "Thành phố Hải Phòng",
+      "district": "Quận Hồng Bàng",
+      "site": "https://thcshongbang.haiphong.edu.vn/",
+      "source": "https://haiphong.edu.vn/",
+      "logo_source": "https://admintruong.haiphong.shieldix.app/UploadImages/news/haiphong/2026/thcshongbang/2026_10/6/logo-cong-van_61020261414.png?w=800&format=jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        800,
+        800
+      ],
+      "webp_bytes": 6016,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "31316508",
+      "name": "THCS Hiệp Hòa - Hùng Tiến",
+      "city": "Thành phố Hải Phòng",
+      "district": "Huyện Vĩnh Bảo",
+      "site": "https://thcshiephoa-hungtien.haiphong.edu.vn/",
+      "source": "https://haiphong.edu.vn/",
+      "logo_source": "https://admintruong.haiphong.shieldix.app/UploadImages/config/haiphong/2024/thcshiephoa-hungtien/logo-truong_8520241449.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        769,
+        769
+      ],
+      "webp_bytes": 10406,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "31317602",
+      "name": "THCS Thị trấn Cát Bà",
+      "city": "Thành phố Hải Phòng",
+      "district": "Huyện Cát Hải",
+      "site": "https://thcsttcatba.haiphong.edu.vn/",
+      "source": "https://haiphong.edu.vn/",
+      "logo_source": "https://admintruong.haiphong.shieldix.app/UploadImages/haydung/haiphong/thcsttcatba/anhhaydung/logo-thong-bao_19620241435.png?w=500&format=jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        500,
+        281
+      ],
+      "webp_bytes": 3282,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "34338501",
+      "name": "Trường THCS An Đồng",
+      "city": "Tỉnh Hưng Yên",
+      "district": "Huyện Quỳnh Phụ",
+      "site": "http://thcsasao.hungyen.edu.vn/",
+      "source": "https://hungyen.edu.vn/",
+      "logo_source": "http://thcsasao.hungyen.edu.vn/upload/37752/20180208/IMAG0291.jpg",
+      "confidence": "img-logo",
+      "source_px": [
+        2688,
+        1520
+      ],
+      "webp_bytes": 4072,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "34338510",
+      "name": "Trường THCS An Ninh",
+      "city": "Tỉnh Hưng Yên",
+      "district": "Huyện Quỳnh Phụ",
+      "site": "http://thcsanninhqp.hungyen.edu.vn/",
+      "source": "https://hungyen.edu.vn/",
+      "logo_source": "http://thcsanninhqp.hungyen.edu.vn/upload/37758/20190725/logogdquynhphu.png",
+      "confidence": "logo-named",
+      "source_px": [
+        145,
+        145
+      ],
+      "webp_bytes": 8202,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "34338518",
+      "name": "Trường THCS Đồng Tiến",
+      "city": "Tỉnh Hưng Yên",
+      "district": "Huyện Quỳnh Phụ",
+      "site": "http://thcsdongtien.hungyen.edu.vn/",
+      "source": "https://hungyen.edu.vn/",
+      "logo_source": "http://thcsdongtien.hungyen.edu.vn/upload/37766/20251027/Bieu_tuong_Nganh_Giao_Duc_Tan_Tien_22e19.png",
+      "confidence": "img-logo",
+      "source_px": [
+        1024,
+        1024
+      ],
+      "webp_bytes": 6744,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "34338524",
+      "name": "Trường THCS Quỳnh Hội",
+      "city": "Tỉnh Hưng Yên",
+      "district": "Huyện Quỳnh Phụ",
+      "site": "http://thcsquynhhoi.hungyen.edu.vn/",
+      "source": "https://hungyen.edu.vn/",
+      "logo_source": "http://thcsquynhhoi.hungyen.edu.vn/upload/37772/20190725/logogdquynhphu.png",
+      "confidence": "logo-named",
+      "source_px": [
+        145,
+        145
+      ],
+      "webp_bytes": 8202,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "34339513",
+      "name": "Trường THCS Lý Nam Đế",
+      "city": "Tỉnh Hưng Yên",
+      "district": "Huyện Hưng Hà",
+      "site": "http://thcslynamde.hungyen.edu.vn/",
+      "source": "https://hungyen.edu.vn/",
+      "logo_source": "http://thcslynamde.hungyen.edu.vn/upload/32807/20191106/logolnd_c9b4f7ca11.png",
+      "confidence": "logo-named",
+      "source_px": [
+        852,
+        868
+      ],
+      "webp_bytes": 7164,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "34340503",
+      "name": "Trường THCS Dương Tiến",
+      "city": "Tỉnh Hưng Yên",
+      "district": "Huyện Đông Hưng",
+      "site": "http://thcsduongtien.hungyen.edu.vn/",
+      "source": "https://hungyen.edu.vn/",
+      "logo_source": "http://thcsduongtien.hungyen.edu.vn/upload/37420/20250711/DUONG_TIEN_SECOND_school__1__79ae9.jpg",
+      "confidence": "img-logo",
+      "source_px": [
+        500,
+        500
+      ],
+      "webp_bytes": 6402,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "34340505",
+      "name": "TH&THCS Đông Á",
+      "city": "Tỉnh Hưng Yên",
+      "district": "Huyện Đông Hưng",
+      "site": "http://donga.hungyen.edu.vn/",
+      "source": "https://hungyen.edu.vn/",
+      "logo_source": "http://donga.hungyen.edu.vn/upload/37408/20230803/Emblem_of_Vietnam_svg_09f57.png",
+      "confidence": "img-logo",
+      "source_px": [
+        250,
+        253
+      ],
+      "webp_bytes": 10732,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "34340536",
+      "name": "Trường THCS Liên Giang",
+      "city": "Tỉnh Hưng Yên",
+      "district": "Huyện Đông Hưng",
+      "site": "http://thcsliengiang.hungyen.edu.vn/",
+      "source": "https://hungyen.edu.vn/",
+      "logo_source": "http://thcsliengiang.hungyen.edu.vn/publish/thumbnail/37424/320x180xdefault/upload/37424/20260722/logo_gd_8cf15.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        320,
+        180
+      ],
+      "webp_bytes": 2910,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "34340542",
+      "name": "Trường THCS Phú Lương",
+      "city": "Tỉnh Hưng Yên",
+      "district": "Huyện Đông Hưng",
+      "site": "http://thcsphuluong.hungyen.edu.vn/",
+      "source": "https://hungyen.edu.vn/",
+      "logo_source": "http://thcsphuluong.hungyen.edu.vn/upload/37433/20181214/44997128_1175478842599868_865466967052517376_n12.jpg",
+      "confidence": "img-logo",
+      "source_px": [
+        960,
+        720
+      ],
+      "webp_bytes": 5052,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "34341534",
+      "name": "Trường THCS Thụy Liên",
+      "city": "Tỉnh Hưng Yên",
+      "district": "Huyện Thái Thụy",
+      "site": "http://thcsthuylien.hungyen.edu.vn/",
+      "source": "https://hungyen.edu.vn/",
+      "logo_source": "http://thcsthuylien.hungyen.edu.vn/publish/thumbnail/37906/480x480xdefault/upload/37906/20230920/logo-vnpt_18450.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        480,
+        480
+      ],
+      "webp_bytes": 2716,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "34342503",
+      "name": "Trường Tiểu học và THCS Đông Cơ",
+      "city": "Tỉnh Hưng Yên",
+      "district": "Huyện Tiền Hải",
+      "site": "http://dongco.hungyen.edu.vn/",
+      "source": "https://hungyen.edu.vn/",
+      "logo_source": "http://dongco.hungyen.edu.vn/upload/38007/20251128/gen-h-z7262889795606_6cec462082281ce669a77f3f7cc7dada_f165b.jpg",
+      "confidence": "img-logo",
+      "source_px": [
+        1800,
+        1350
+      ],
+      "webp_bytes": 8570,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "34342516",
+      "name": "Trường THCS Nam Hải",
+      "city": "Tỉnh Hưng Yên",
+      "district": "Huyện Tiền Hải",
+      "site": "http://thcsnamhai.hungyen.edu.vn/",
+      "source": "https://hungyen.edu.vn/",
+      "logo_source": "http://thcsnamhai.hungyen.edu.vn/upload/38021/20221024/0_9f05c.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1080,
+        761
+      ],
+      "webp_bytes": 5460,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "34342518",
+      "name": "Trường Tiểu học và THCS Nam Hưng",
+      "city": "Tỉnh Hưng Yên",
+      "district": "Huyện Tiền Hải",
+      "site": "http://namhung.hungyen.edu.vn/",
+      "source": "https://hungyen.edu.vn/",
+      "logo_source": "http://namhung.hungyen.edu.vn/upload/38023/20230409/Huy-Hieu-doan-thanh-nien_ba84f.jpg",
+      "confidence": "img-logo",
+      "source_px": [
+        462,
+        484
+      ],
+      "webp_bytes": 5730,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "42437505",
+      "name": "THCS Đậu Liêu",
+      "city": "Tỉnh Hà Tĩnh",
+      "district": "Thị xã Hồng Lĩnh",
+      "site": "http://thnamhonglinh.hatinh.edu.vn/",
+      "source": "https://hatinh.edu.vn/",
+      "logo_source": "http://thnamhonglinh.hatinh.edu.vn/upload/56531/20180531/IMG_5616.jpg",
+      "confidence": "icon",
+      "source_px": [
+        2592,
+        1936
+      ],
+      "webp_bytes": 6668,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "42439501",
+      "name": "THCS Sơn Kim",
+      "city": "Tỉnh Hà Tĩnh",
+      "district": "Huyện Hương Sơn",
+      "site": "http://thcssonkim.huongson.edu.vn/",
+      "source": "https://hatinh.edu.vn/",
+      "logo_source": "http://thcssonkim.huongson.edu.vn/upload/55803/20231226/Giao_duc_76256.png",
+      "confidence": "img-logo",
+      "source_px": [
+        223,
+        223
+      ],
+      "webp_bytes": 9130,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "42439523",
+      "name": "THCS Lê Bình .",
+      "city": "Tỉnh Hà Tĩnh",
+      "district": "Huyện Hương Sơn",
+      "site": "http://thcslebinh.huongson.edu.vn/",
+      "source": "https://hatinh.edu.vn/",
+      "logo_source": "http://thcslebinh.huongson.edu.vn/upload/55548/20260204/z7498329259617_46e0f3d5d513dbf3e501246a1a3b6b31_41f46.jpg",
+      "confidence": "img-logo",
+      "source_px": [
+        2276,
+        1305
+      ],
+      "webp_bytes": 6748,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "42440504",
+      "name": "THCS Đậu Quang Lĩnh",
+      "city": "Tỉnh Hà Tĩnh",
+      "district": "Huyện Đức Thọ",
+      "site": "http://thcsdauquanglinh.ductho.edu.vn/",
+      "source": "https://hatinh.edu.vn/",
+      "logo_source": "http://thcsdauquanglinh.ductho.edu.vn/upload/15799/20170930/logo.png",
+      "confidence": "logo-named",
+      "source_px": [
+        154,
+        163
+      ],
+      "webp_bytes": 10600,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "42440508",
+      "name": "THCS Lê Văn Thiêm .",
+      "city": "Tỉnh Hà Tĩnh",
+      "district": "Huyện Đức Thọ",
+      "site": "http://thcslevanthiemducthinh.hatinh.edu.vn/",
+      "source": "https://hatinh.edu.vn/",
+      "logo_source": "http://thcslevanthiemducthinh.hatinh.edu.vn/publish/thumbnail/52660/480x320xdefault/upload/52660/20260429/logo-30-4-4_fbf5c.webp.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        480,
+        320
+      ],
+      "webp_bytes": 3208,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "42440515",
+      "name": "THCS Yên Trấn",
+      "city": "Tỉnh Hà Tĩnh",
+      "district": "Huyện Đức Thọ",
+      "site": "http://thcsyentran.ductho.edu.vn/",
+      "source": "https://hatinh.edu.vn/",
+      "logo_source": "http://thcsyentran.ductho.edu.vn/upload/51503/20251006/logo_1__3fb88.png",
+      "confidence": "logo-named",
+      "source_px": [
+        80,
+        80
+      ],
+      "webp_bytes": 3736,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "42442511",
+      "name": "THCS Phổ Hải",
+      "city": "Tỉnh Hà Tĩnh",
+      "district": "Huyện Nghi Xuân",
+      "site": "http://thcsphohai.nghixuan.edu.vn/",
+      "source": "https://hatinh.edu.vn/",
+      "logo_source": "http://thcsphohai.nghixuan.edu.vn/upload/59070/20251222/1_30dd0.jpg",
+      "confidence": "img-logo",
+      "source_px": [
+        1039,
+        1032
+      ],
+      "webp_bytes": 10402,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "42443523",
+      "name": "THCS Đặng Dung",
+      "city": "Tỉnh Hà Tĩnh",
+      "district": "Huyện Can Lộc",
+      "site": "http://thcsdangdung.hatinh.edu.vn/",
+      "source": "https://hatinh.edu.vn/",
+      "logo_source": "http://thcsdangdung.hatinh.edu.vn/upload/100285/20260906/anh_5_d9674.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1239,
+        878
+      ],
+      "webp_bytes": 7788,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "42444506",
+      "name": "THCS Hương Trà",
+      "city": "Tỉnh Hà Tĩnh",
+      "district": "Huyện Hương Khê",
+      "site": "http://thvathcshuongdo.hatinh.edu.vn/",
+      "source": "https://hatinh.edu.vn/",
+      "logo_source": "http://thvathcshuongdo.hatinh.edu.vn/publish/thumbnail/55335/400x267xdefault/upload/55335/20220110/logo_thu_vien_htra_770f9a6ca8.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        400,
+        267
+      ],
+      "webp_bytes": 4418,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "52545512",
+      "name": "Trường THCS Mỹ Châu",
+      "city": "Tỉnh Gia Lai",
+      "district": "Huyện Phù Mỹ",
+      "site": "http://thcsmychau.gialai.edu.vn/",
+      "source": "https://gialai.edu.vn/",
+      "logo_source": "http://thcsmychau.gialai.edu.vn/upload/15799/20171030/images97.jpg",
+      "confidence": "img-logo",
+      "source_px": [
+        200,
+        150
+      ],
+      "webp_bytes": 4980,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "52549509",
+      "name": "Trường THCS Nhơn Mỹ",
+      "city": "Tỉnh Gia Lai",
+      "district": "Thị xã An Nhơn",
+      "site": "http://thcsnhonmyannhon.gialai.edu.vn/",
+      "source": "https://gialai.edu.vn/",
+      "logo_source": "http://thcsnhonmyannhon.gialai.edu.vn/publish/thumbnail/22588/800x533xdefault/upload/22588/20240409/Library_Logo_d5f56.png",
+      "confidence": "logo-named",
+      "source_px": [
+        800,
+        533
+      ],
+      "webp_bytes": 3978,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "52549512",
+      "name": "Trường THCS Nhơn Thành",
+      "city": "Tỉnh Gia Lai",
+      "district": "Thị xã An Nhơn",
+      "site": "http://thcsannhonbac.gialai.edu.vn/",
+      "source": "https://gialai.edu.vn/",
+      "logo_source": "http://thcsannhonbac.gialai.edu.vn/publish/thumbnail/22589/800x533xdefault/upload/22589/20261009/LOGO_BAO_VE_VE_SINH_8e7de.png",
+      "confidence": "logo-named",
+      "source_px": [
+        767,
+        432
+      ],
+      "webp_bytes": 6732,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "52550502",
+      "name": "Trường THCS Phước An",
+      "city": "Tỉnh Gia Lai",
+      "district": "Huyện Tuy Phước",
+      "site": "http://thcstuyphuoctay.gialai.edu.vn/",
+      "source": "https://gialai.edu.vn/",
+      "logo_source": "http://thcstuyphuoctay.gialai.edu.vn/publish/thumbnail/23053/480x320xdefault/upload/23053/20261027/logo-doan-thanh-nien-3-500x500_8ad6b.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        500,
+        500
+      ],
+      "webp_bytes": 5572,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "52550506",
+      "name": "Trường THCS Phước Hiệp",
+      "city": "Tỉnh Gia Lai",
+      "district": "Huyện Tuy Phước",
+      "site": "http://thcsphuochiep.gialai.edu.vn/",
+      "source": "https://gialai.edu.vn/",
+      "logo_source": "http://thcsphuochiep.gialai.edu.vn/publish/thumbnail/23057/480x320xdefault/upload/23057/20250818/logo_bien_che_lop_d3bfc.png",
+      "confidence": "logo-named",
+      "source_px": [
+        480,
+        320
+      ],
+      "webp_bytes": 4138,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "56568514",
+      "name": "THCS Phan Sào Nam",
+      "city": "Tỉnh Khánh Hòa",
+      "district": "Thành phố Nha Trang",
+      "site": "http://c2psnam-nt.khanhhoa.edu.vn/",
+      "source": "https://khanhhoa.edu.vn/",
+      "logo_source": "http://c2psnam-nt.khanhhoa.edu.vn/publish/thumbnail/108508/256x144xdefault/upload/108508/20251117/Logo-Ke_hoach-PSN__2__4661c.png",
+      "confidence": "logo-named",
+      "source_px": [
+        256,
+        144
+      ],
+      "webp_bytes": 3188,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "58000E02",
+      "name": "PTDTNT THCS Ninh Sơn",
+      "city": "Tỉnh Khánh Hòa",
+      "district": "Trường trực thuộc sở",
+      "site": "http://ptdtnt-ns.khanhhoa.edu.vn/",
+      "source": "https://khanhhoa.edu.vn/",
+      "logo_source": "http://ptdtnt-ns.khanhhoa.edu.vn/upload/109262/20260915/Logo_Ke_hoach_chuyen_mon_b57cd.png",
+      "confidence": "logo-named",
+      "source_px": [
+        1254,
+        1254
+      ],
+      "webp_bytes": 9514,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "64629504",
+      "name": "Trường THCS Lê Quý Đôn",
+      "city": "Tỉnh Gia Lai",
+      "district": "Huyện Mang Yang",
+      "site": "http://thcslequydonxamangyang.gialai.edu.vn/",
+      "source": "https://gialai.edu.vn/",
+      "logo_source": "http://thcslequydonxamangyang.gialai.edu.vn/upload/23431/20251007/1_8eb37.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1280,
+        960
+      ],
+      "webp_bytes": 7196,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "64629602",
+      "name": "Trường TH&THCS Đăk Trôi",
+      "city": "Tỉnh Gia Lai",
+      "district": "Huyện Mang Yang",
+      "site": "http://th-thcsdaktroi.gialai.edu.vn/",
+      "source": "https://gialai.edu.vn/",
+      "logo_source": "http://th-thcsdaktroi.gialai.edu.vn/upload/15799/20170926/Picture161.jpg",
+      "confidence": "icon",
+      "source_px": [
+        957,
+        718
+      ],
+      "webp_bytes": 7770,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "64630501",
+      "name": "Trường THCS Quang Trung",
+      "city": "Tỉnh Gia Lai",
+      "district": "Huyện Kông Chro",
+      "site": "http://thcsquangtrungkcr.gialai.edu.vn/",
+      "source": "https://gialai.edu.vn/",
+      "logo_source": "http://thcsquangtrungkcr.gialai.edu.vn/publish/thumbnail/26348/480x320xdefault/upload/26348/20240618/logo_truong_4b289.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        480,
+        320
+      ],
+      "webp_bytes": 5582,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "64637501",
+      "name": "Trường THCS Nguyễn Bỉnh Khiêm",
+      "city": "Tỉnh Gia Lai",
+      "district": "Huyện Krông Pa",
+      "site": "http://thcsnguyenbinhkhiemkrongpa.gialai.edu.vn/",
+      "source": "https://gialai.edu.vn/",
+      "logo_source": "http://thcsnguyenbinhkhiemkrongpa.gialai.edu.vn/publish/thumbnail/26044/256x144xdefault/upload/26044/20180401/kns-logo-2014_small.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        256,
+        144
+      ],
+      "webp_bytes": 2952,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "74723509",
+      "name": "Trường THCS Khánh Bình",
+      "district": "Thị xã Tân Uyên",
+      "site": "https://thcskhanhbinh.hcm.edu.vn/",
+      "ward": "PHƯỜNG CHÁNH HƯNG",
+      "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcskhanhbinh/logo-moi_6102025143.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1000,
+        1000
+      ],
+      "webp_bytes": 9328,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "74724508",
+      "name": "Trường THCS Dĩ An",
+      "city": "Thành phố Hồ Chí Minh",
+      "district": "Thị xã Dĩ An",
+      "site": "https://thcsdian.hcm.edu.vn/",
+      "source": "https://phuongdian.hcm.edu.vn",
+      "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/news/2026/thcsdian/logo-xep-lop_15820261324.jpg?w=800",
+      "confidence": "logo-named",
+      "source_px": [
+        256,
+        256
+      ],
+      "webp_bytes": 6862,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "77754509",
+      "name": "THCS Tóc Tiên",
+      "city": "Thành phố Hồ Chí Minh",
+      "district": "Huyện Tân Thành",
+      "site": "https://thcstoctien-chaupha.hcm.edu.vn/",
+      "source": "https://xachaupha.hcm.edu.vn",
+      "logo_source": "https://storage-edu.vnpt.vn/edu-vtu/sitefolders/thcstoctientt/349/images/logo_tkb.png",
+      "confidence": "logo-named",
+      "source_px": [
+        220,
+        211
+      ],
+      "webp_bytes": 5030,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "79764509",
+      "name": "THCS Nguyễn Văn Nghi",
+      "city": "Thành phố Hồ Chí Minh",
+      "district": "Quận Gò Vấp",
+      "site": "https://thcsnguyenvannghi.hcm.edu.vn/",
+      "source": "https://phuongannhon.hcm.edu.vn",
+      "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/haydung/thcsnguyenvannghi/anhhaydung/logolich-cong-tacjpg2252023123_19122023833.jpg?w=800",
+      "confidence": "logo-named",
+      "source_px": [
+        320,
+        213
+      ],
+      "webp_bytes": 3560,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "79770501",
+      "name": "THCS Bàn Cờ",
+      "city": "Thành phố Hồ Chí Minh",
+      "district": "Quận 3",
+      "site": "https://thcsbanco.hcm.edu.vn/",
+      "source": "https://phuongbanco.hcm.edu.vn",
+      "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/news/2025/thcsbanco/2025_7/18/logo80nam1945-2025_18720251021.jpg?w=500",
+      "confidence": "logo-named",
+      "source_px": [
+        500,
+        333
+      ],
+      "webp_bytes": 4022,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "79774503",
+      "name": "THCS Hồng Bàng",
+      "city": "Thành phố Hồ Chí Minh",
+      "district": "Quận 5",
+      "site": "https://thcshongbang.hcm.edu.vn/",
+      "source": "https://phuongcholon.hcm.edu.vn",
+      "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcshongbang/logo viền trắng 250.png",
+      "confidence": "icon",
+      "source_px": [
+        2030,
+        1560
+      ],
+      "webp_bytes": 7972,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "79777503",
+      "name": "THCSCL Bình Hưng Hòa",
+      "city": "Thành phố Hồ Chí Minh",
+      "district": "Quận Bình Tân",
+      "site": "https://thcsbinhhunghoa.hcm.edu.vn/",
+      "source": "https://phuongbinhtan.hcm.edu.vn",
+      "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/news/2026/thcsbinhhunghoa/2026_7/15/logo-thong-bao-tiep-nhan-hs15-thg-7-2026_15720261611.png?w=320&format=jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        320,
+        213
+      ],
+      "webp_bytes": 7354,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "92000814",
+      "name": "THCS và THPT Tân Lộc",
+      "city": "Thành phố Cần Thơ",
+      "district": "Trường trực thuộc sở",
+      "site": "http://thcsvathpttanloc.edu.vn/",
+      "source": "https://cantho.edu.vn/",
+      "logo_source": "http://thcsvathpttanloc.edu.vn/upload/64813/20230407/332754394_875020793575457_6977651256019636241_n_d8d54.jpg",
+      "confidence": "icon",
+      "source_px": [
+        2048,
+        1366
+      ],
+      "webp_bytes": 8142,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "92916511",
+      "name": "THCS An Khánh",
+      "city": "Thành phố Cần Thơ",
+      "district": "Quận Ninh Kiều",
+      "site": "http://thcsankhanh.cantho.edu.vn/",
+      "source": "https://cantho.edu.vn/",
+      "logo_source": "http://thcsankhanh.cantho.edu.vn/publish/thumbnail/26112/800x533xdefault/upload/26112/20260822/logo_3ddae.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        800,
+        533
+      ],
+      "webp_bytes": 3156,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "92925504",
+      "name": "THCS Đông Thuận",
+      "city": "Thành phố Cần Thơ",
+      "district": "Huyện Thới Lai",
+      "site": "http://thcsdongthuan.cantho.edu.vn/",
+      "source": "https://cantho.edu.vn/",
+      "logo_source": "http://thcsdongthuan.cantho.edu.vn/publish/thumbnail/15799/480x320xdefault/upload/15799/20171004/Logo_quyet_dinh.bmp",
+      "confidence": "logo-named",
+      "source_px": [
+        480,
+        320
+      ],
+      "webp_bytes": 3612,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "92926506",
+      "name": "THCS Thị trấn Phong Điền",
+      "city": "Thành phố Cần Thơ",
+      "district": "Huyện Phong Điền",
+      "site": "http://thcsttphongdien.cantho.edu.vn/",
+      "source": "https://cantho.edu.vn/",
+      "logo_source": "http://thcsttphongdien.cantho.edu.vn/upload/15799/20171026/logo-truong-hoc26.png",
+      "confidence": "logo-named",
+      "source_px": [
+        89,
+        87
+      ],
+      "webp_bytes": 5702,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "93932505",
+      "name": "Trường THCS Trường Long A",
+      "city": "Thành phố Cần Thơ",
+      "district": "Huyện Châu Thành A",
+      "site": "http://c2truonglonga.cantho.edu.vn/",
+      "source": "https://cantho.edu.vn/",
+      "logo_source": "http://c2truonglonga.cantho.edu.vn/publish/thumbnail/49270/480x320xdefault/upload/49270/20261006/LOGO_CONG_KHAI_d2ed3.png",
+      "confidence": "logo-named",
+      "source_px": [
+        1254,
+        1254
+      ],
+      "webp_bytes": 8556,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "94941501",
+      "name": "Trường THCS Dương Kỳ Hiệp",
+      "city": "Thành phố Cần Thơ",
+      "district": "Thành phố Sóc Trăng",
+      "site": "http://thcsduongkyhiep.cantho.edu.vn/",
+      "source": "https://cantho.edu.vn/",
+      "logo_source": "http://thcsduongkyhiep.cantho.edu.vn/upload/54990/20180607/logo_do_copy_12__22.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        835,
+        1110
+      ],
+      "webp_bytes": 4504,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "94946504",
+      "name": "Trường THCS Tân Hưng",
+      "city": "Thành phố Cần Thơ",
+      "district": "Huyện Long Phú",
+      "site": "http://thcs-tanhung.cantho.edu.vn/",
+      "source": "https://cantho.edu.vn/",
+      "logo_source": "http://thcs-tanhung.cantho.edu.vn/publish/thumbnail/52683/320x180xdefault/upload/52683/20260720/logo-hinh-quyen-sach-va-cay-but-3-min_6e10d.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        320,
+        180
+      ],
+      "webp_bytes": 2572,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    },
+    {
+      "code": "94947501",
+      "name": "Trường THCS Mỹ Xuyên",
+      "city": "Thành phố Cần Thơ",
+      "district": "Huyện Mỹ Xuyên",
+      "site": "http://ptdtntthcsmyxuyen.cantho.edu.vn/",
+      "source": "https://cantho.edu.vn/",
+      "logo_source": "http://ptdtntthcsmyxuyen.cantho.edu.vn/publish/thumbnail/106757/800x533xdefault/upload/106757/20261102/logo_ich_lam_viec_61d1c.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        300,
+        300
+      ],
+      "webp_bytes": 4542,
+      "reason": "?nh t?p th?/c?ng tr??ng/t?i li?u/bi?u t??ng d?ng chung ho?c t?n tr?n ?nh ch?a x?c minh tr?ng tr??ng; kh?ng d?ng l?m logo ri?ng."
+    }
+  ]
+}

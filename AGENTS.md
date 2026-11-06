@@ -33,3 +33,5 @@ Người dùng đã cho phép tự động cập nhật dự án sau mỗi yêu 
 - Chỉ báo đồng bộ thành công khi có bằng chứng cho từng dịch vụ; nêu rõ lỗi triển khai hoặc thiếu kết nối.
 - CI trên GitHub: `.github/workflows/ci.yml` chạy backend/migration với PostgreSQL tạm, frontend và hồi quy auto-sync; tài liệu `docs/GITHUB_ACTIONS.md`. Không thêm credential production vào workflow, không bỏ qua kiểm thử database để lấy dấu tích xanh. Kết quả CI không thay cho xác minh deploy Render/Vercel/Supabase.
 - Khi thêm dependency backend, cập nhật `package-lock.json` bằng npm `10.9.4` như CI/Render (ví dụ `npx npm@10.9.4 install ...`); npm 11 có thể bỏ khóa peer webpack mà npm 10 cần cho `npm ci`.
+
+- C?p nh?t 07/11/2026: Th?ng k? h? th?ng l? m?t dashboard g?m t?ng quan, n?i dung, s? d?ng v? AI. Danh m?c tr??ng ch? g?i ?, kh?ng t?o tenant h?ng lo?t; m? ??ng A sinh b?ng sequence, t?ch kh?i directory_code. Migration 043?044 l?u danh m?c/?nh WebP ?? duy?t trong PostgreSQL, kh? tr?ng SHA-256, RLS kh?ng c?p quy?n b?ng c?ng khai; API ch? tr? t?ng ?nh theo hash. Kh?ng s?a c?c migration ?? ph?t h?nh, kh?ng g?n ?nh ng?nh d?ng chung l?m logo ri?ng. Ngu?n v? ph?m vi: docs/DANH_MUC_TRUONG.md.
