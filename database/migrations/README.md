@@ -73,4 +73,8 @@ Theo yêu cầu xóa phần quản trị ngoài chín mục còn giữ ngày 06/
 
 Giữ nguyên `app_users`, các bảng trường/lớp, thông báo, audit/login, FAQ, bảo mật, hệ thống/hỗ trợ và các kho `hist_*`/`hk_*` đang phục vụ quản trị trường, giáo viên, học sinh. Không sửa hoặc xóa migration 011 đã áp dụng; không đụng `_prisma_migrations`. Kiểm thử nâng 039 → 040 xác nhận chỉ sáu bảng bị xóa và mọi dòng ở các bảng còn lại giữ nguyên.
 
+## Chính sách gợi ý chỉ chạy nền (041)
+
+`041_background_recommendation_policy.sql` ghi rõ hai bảng gợi ý là dữ liệu nội bộ và cập nhật liên kết hướng dẫn mẫu từ “Gợi ý học tập” sang “Kế hoạch học”. Không đặt lại chính sách toàn hệ thống, không xóa kết quả cũ và không sửa câu trả lời FAQ do quản trị đã biên tập. Cấu hình vẫn chỉ có một dòng `hk_reco_settings(id=1)`; không thêm cấu hình theo trường/học sinh. Xem [quy ước thuật toán](../../docs/THUAT_TOAN_GOI_Y.md).
+
 Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).

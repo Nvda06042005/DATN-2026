@@ -220,7 +220,7 @@ const inbox = async (who: { token: string }) => (await as(who)('GET', '/api/plat
     expect((await root('PUT', `/api/platform/experiments/groups/${treat.body.id}`, { description: 'Có đủ trò chơi hóa và AI' })).body.description).toBe('Có đủ trò chơi hóa và AI');
     const probes = async (who: { token: string }) => ({
       shop: (await as(who)('GET', '/api/game/shop')).status, quests: (await as(who)('GET', '/api/game/quests')).status, war: (await as(who)('GET', '/api/war/status')).status,
-      ai: (await as(who)('GET', '/api/ai/status')).status, reco: (await as(who)('GET', '/api/analytics/me/recommendations')).status, me: (await as(who)('GET', '/api/game/me')).status, learn: (await as(who)('GET', '/api/play/path')).status,
+      ai: (await as(who)('GET', '/api/ai/status')).status, reco: (await as(who)('GET', '/api/analytics/me/strengths')).status, me: (await as(who)('GET', '/api/game/me')).status, learn: (await as(who)('GET', '/api/play/path')).status,
     });
     expect(await probes(f.S1)).toEqual({ shop: 200, quests: 200, war: 200, ai: 200, reco: 200, me: 200, learn: 200 });
     // gán lớp 7A1 vào nhóm đối chứng, 7A2 vào nhóm đầy đủ

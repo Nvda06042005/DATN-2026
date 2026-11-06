@@ -1,20 +1,19 @@
 /**
  * Báo cáo và thống kê cho quản trị (Sprint 10): quản trị trường xem tổng quan (HK.QT.006), mức độ sử dụng theo ngày / tuần / tháng (HK.QT.007), kết quả theo khối / lớp / giáo viên (HK.QT.008, 047),
- * thống kê AI (HK.QT.009), hồ sơ học sinh (HK.QT.033) và xuất báo cáo (HK.QT.048). Quản trị tổng xem toàn hệ thống (HK.AD.006–009) và chỉnh thuật toán gợi ý học tập (HK.AD.063).
+ * thống kê AI (HK.QT.009), hồ sơ học sinh (HK.QT.033) và xuất báo cáo (HK.QT.048). Quản trị tổng xem toàn hệ thống (HK.AD.006–009) ; thuật toán gợi ý chỉ chạy nội bộ trên máy chủ.
  * Chi phí AI là ước tính theo giá quản trị tổng nhập ở mục Mô hình; số liệu về câu hỏi của học sinh luôn ẩn danh.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View } from 'react-native';
-import { RefreshCw, Save } from 'lucide-react-native';
 import * as api from '@/api/analyticsApi';
 import { ClassAnalytics, ResultsPanel } from '@/components/admin/AnalyticsTeacher';
-import { DataTable, ErrorNote, Page, PageHeader, useAction, useLoad } from '@/components/admin/kit';
+import { DataTable, ErrorNote, Page, PageHeader, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { ColumnChart, fmtPct, shortDay, StatGrid, StatTile } from '@/components/charts';
-import { Btn, Card, Field, InfoNote, Segmented, Spinner, Txt, useToast } from '@/components/ui';
+import { Card, InfoNote, Segmented, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { fmt } from '@/lib/format';
-import type { ContentRow, RecoSettings, Usage } from '@/types/analytics';
+import type { ContentRow, Usage } from '@/types/analytics';
 
 // ---------------------------------------------------------------------- mức độ sử dụng theo thời gian (HK.QT.007, HK.AD.007)
 export const UsagePanel: React.FC<{ session: Session }> = ({ session }) => {
@@ -119,56 +118,6 @@ export const SchoolReports: React.FC<{ session: Session }> = ({ session }) => {
   );
 };
 
-// ---------------------------------------------------------------------- thuật toán gợi ý (HK.AD.063)
-const RECO_FIELDS: Array<{ key: keyof RecoSettings; label: string; hint: string }> = [
-  { key: 'weight_weak', label: 'Trọng số điểm yếu', hint: 'Số từ 0 đến 10. Càng cao càng ưu tiên chủ đề em làm sai nhiều.' },
-  { key: 'weight_time', label: 'Trọng số thời gian', hint: 'Số từ 0 đến 10. Càng cao càng ưu tiên việc lâu rồi chưa ôn.' },
-  { key: 'weight_difficulty', label: 'Trọng số độ khó phù hợp', hint: 'Số từ 0 đến 10. Càng cao càng ưu tiên chủ đề còn nhiều câu dễ để luyện.' },
-  { key: 'weak_threshold', label: 'Ngưỡng điểm yếu (%)', hint: 'Số nguyên 10–95. Chủ đề đúng dưới mức này là “cần ôn”.' },
-  { key: 'min_answers', label: 'Số câu tối thiểu mỗi chủ đề', hint: 'Số nguyên 1–50. Ít hơn thì chủ đề chưa được xếp mạnh hay yếu.' },
-  { key: 'refresh_hours', label: 'Cập nhật gợi ý sau (giờ)', hint: 'Số nguyên 1–168. Gợi ý cũ hơn mức này được tính lại.' },
-  { key: 'max_items', label: 'Số gợi ý mỗi lần', hint: 'Số nguyên 1–6.' },
-  { key: 'practice_size', label: 'Số câu mỗi lượt luyện tập', hint: 'Số nguyên 3–20.' },
-  { key: 'penalty_not_helpful', label: 'Hệ số giảm điểm khi bị đánh giá chưa hữu ích', hint: 'Số từ 0 đến 1. Ví dụ 0,5 là giảm một nửa điểm của loại gợi ý đó.' },
-];
-
-const RecoSettingsForm: React.FC<{ session: Session }> = ({ session }) => {
-  const { token } = session;
-  const cfg = useLoad(() => api.recoSettings(token), [token], session.expired);
-  const { busy, run } = useAction(session.expired);
-  const toast = useToast();
-  const [f, setF] = useState<Record<string, string>>({});
-  useEffect(() => { if (cfg.data) setF(Object.fromEntries(RECO_FIELDS.map((x) => [x.key, String(cfg.data![x.key])]))); }, [cfg.data]);
-  const save = async () => {
-    const body: Record<string, number> = {};
-    for (const x of RECO_FIELDS) body[x.key] = Number(String(f[x.key]).replace(',', '.'));
-    const out = await run(() => api.saveRecoSettings(token, body), 'Đã lưu cấu hình gợi ý');
-    if (out) cfg.setData(out);
-  };
-  return (
-    <View style={{ gap: 12 }}>
-      <ErrorNote message={cfg.error} />
-      {cfg.loading && !cfg.data ? <Spinner /> : null}
-      {cfg.data ? (
-        <>
-          <InfoNote><Txt size={14}>Điểm một gợi ý = trọng số điểm yếu × mức yếu + trọng số thời gian × thời gian chưa ôn + trọng số độ khó × độ phù hợp. Thay đổi có hiệu lực ở lần tính gợi ý kế tiếp của từng học sinh.</Txt></InfoNote>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-            {RECO_FIELDS.map((x) => (
-              <View key={x.key} style={{ flexGrow: 1, flexBasis: 240, minWidth: 220 }}>
-                <Field label={x.label} hint={x.hint} value={f[x.key] ?? ''} onChangeText={(v) => setF({ ...f, [x.key]: v })} keyboardType="decimal-pad" nativeID={`reco-${x.key}`} />
-              </View>
-            ))}
-          </View>
-          <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
-            <Btn icon={Save} title="Lưu cấu hình" tone="son" loading={busy} onPress={save} testID="reco-save" />
-            <Btn icon={RefreshCw} title="Tính lại gợi ý cho học sinh đang học" tone="giay" loading={busy} onPress={async () => { const r = await run(() => api.recoRefreshAll(token)); if (r) toast(`Đã tính lại gợi ý cho ${r.refreshed} học sinh`); }} testID="reco-refresh-all" />
-          </View>
-        </>
-      ) : null}
-    </View>
-  );
-};
-
 // ---------------------------------------------------------------------- quản trị tổng (HK.AD.006–009, 063)
 const ROLE_NAME: Record<string, string> = { student: 'Học sinh', teacher: 'Giáo viên', school_admin: 'Quản trị trường', root_admin: 'Quản trị tổng' };
 const STATUS_COLS = (c: ReturnType<typeof useTheme>['c']) => [
@@ -232,15 +181,15 @@ const ContentPanel: React.FC<{ session: Session }> = ({ session }) => {
   );
 };
 
-type SystemPart = 'overview' | 'content' | 'usage' | 'ai' | 'reco';
+type SystemPart = 'overview' | 'content' | 'usage' | 'ai';
 export const SystemStats: React.FC<{ session: Session }> = ({ session }) => {
   const [part, setPart] = useState<SystemPart>('overview');
   return (
     <Page>
-      <PageHeader title="Thống kê hệ thống" subtitle="Người dùng, nội dung, mức độ sử dụng, chi phí AI và thuật toán gợi ý học tập" />
-      <Segmented<SystemPart> label="Thống kê hệ thống" value={part} onChange={setPart} options={[{ value: 'overview', label: 'Tổng quan' }, { value: 'content', label: 'Nội dung' }, { value: 'usage', label: 'Sử dụng' }, { value: 'ai', label: 'AI' }, { value: 'reco', label: 'Thuật toán gợi ý' }]} />
+      <PageHeader title="Thống kê hệ thống" subtitle="Người dùng, nội dung, mức độ sử dụng và chi phí AI" />
+      <Segmented<SystemPart> label="Thống kê hệ thống" value={part} onChange={setPart} options={[{ value: 'overview', label: 'Tổng quan' }, { value: 'content', label: 'Nội dung' }, { value: 'usage', label: 'Sử dụng' }, { value: 'ai', label: 'AI' }]} />
       {part === 'overview' ? <SystemOverviewPanel session={session} /> : part === 'content' ? <ContentPanel session={session} /> : part === 'usage' ? <UsagePanel session={session} />
-        : part === 'ai' ? <AiUsagePanel session={session} money /> : <RecoSettingsForm session={session} />}
+        : <AiUsagePanel session={session} money />}
     </Page>
   );
 };

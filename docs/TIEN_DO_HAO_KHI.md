@@ -2,6 +2,7 @@
 
 ## Điều chỉnh phạm vi quản lý theo yêu cầu ngày 06/11/2026
 
+- Theo yêu cầu tiếp theo cùng ngày, ẩn toàn bộ cấu hình thuật toán ở admin và thẻ gợi ý ở học sinh. Gỡ API cấu hình/hiển thị/tính lại/phản hồi; thuật toán chỉ chạy nền sau khởi động và mỗi giờ, phân trang hết người đủ điều kiện. Một chính sách chung `hk_reco_settings(id=1)` cho toàn hệ thống; không có cấu hình riêng theo học sinh. Mục còn lại của học sinh đổi thành “Kế hoạch học”. Migration **041** ghi chú chính sách nội bộ và sửa đúng FAQ mẫu cũ; giữ nguyên các tham số đã lưu và FAQ do quản trị tự biên tập. Chi tiết: [Quy ước thuật toán gợi ý](THUAT_TOAN_GOI_Y.md).
 - Rà soát bổ sung theo yêu cầu xóa dữ liệu admin thừa: migration **040** xóa sáu bảng quản trị nội dung cũ không còn mã chạy sử dụng (`app_content_history`, `app_curriculum_nodes`, `app_question_bank`, `app_ai_sources`, `app_hero_cards`, `app_exp_rules`). Các bảng của chín mục còn giữ và kho nội dung/game/AI/nghiên cứu đang dùng trong trường được giữ nguyên. Xóa thành phần `RootGame` không còn được gọi; giao diện trò chơi hóa của trường vẫn dùng các thành phần riêng.
 - Quản lý tổng `/admin` còn đúng 9 mục: **Trường học, Người dùng, Thống kê hệ thống, Thông báo, Nhật ký, Hướng dẫn và FAQ, Bảo mật, Hệ thống, Yêu cầu hỗ trợ**.
 - Kho lịch sử, bài học, ngân hàng câu hỏi, bộ đề, hành trình, duyệt nội dung, mô phỏng/mini-game, game thẻ tướng, trò chơi hóa, AI Tutor và nghiên cứu nằm trong cổng quản trị trường. Đây là chuyển chức năng và dữ liệu theo trường, không chỉ đổi menu.

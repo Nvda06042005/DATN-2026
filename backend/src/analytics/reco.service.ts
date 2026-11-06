@@ -1,12 +1,11 @@
 /**
- * Gợi ý học tập cá nhân hóa (Sprint 10, HK.HS.094–098, HK.AD.063, HK.SYS.012–013): từ kết quả quiz theo chủ đề, tiến độ hành trình, bài tập sắp đến hạn và thời gian
- * học, máy chủ chấm điểm các ứng viên "nên học gì hôm nay" bằng công thức có trọng số do quản trị cấu hình, lấy vài gợi ý cao nhất (tối đa hai gợi ý cùng loại) và ghi lại để
- * học sinh đánh giá "hữu ích / không hữu ích"; loại bị đánh giá không hữu ích thì lần sau bị giảm điểm. Gợi ý tự tính lại khi cũ quá số giờ cấu hình, theo lịch nền và lúc học sinh mở màn.
+ * Máy chủ chấm điểm ứng viên từ kết quả quiz, tiến độ và bài tập theo một chính sách chung toàn hệ thống.
+ * Chỉ lưu kết quả nội bộ, không có API hiển thị, cấu hình hoặc tính lại thủ công. Phản hồi cũ được giữ làm dữ liệu lịch sử;
+ * không nhận phản hồi mới từ giao diện. Toàn bộ lượt nền đọc cùng một dòng hk_reco_settings (id=1).
  * Ngoài ra: bộ câu hỏi luyện tập theo chủ đề yếu (độ khó tăng dần) và lộ trình ôn tập theo ngày trước hạn các bài tập của lớp. Không gọi mô hình AI nên chạy được mọi lúc.
  */
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import { AssignmentService } from '../classroom/assignment.service';
-import { notFound } from '../content/access';
 import { DatabaseService, Q, toUser, USER_COLUMNS, UserRow } from '../database/database.service';
 import { PlayService } from '../student/play.service';
 import { activeJourneys, nodesWithState } from '../student/progress';
@@ -19,7 +18,6 @@ export type RecoKind = 'continue' | 'weak_topic' | 'review' | 'assignment' | 'st
 interface Candidate { kind: RecoKind; title: string; reason: string; ref_type: string | null; ref_id: number | null; campaign_id: number | null; score: number }
 
 const COLUMNS = 'weight_weak::float8 AS weight_weak, weight_time::float8 AS weight_time, weight_difficulty::float8 AS weight_difficulty, weak_threshold, min_answers, refresh_hours, max_items, practice_size, penalty_not_helpful::float8 AS penalty_not_helpful';
-const KIND_LABEL: Record<RecoKind, string> = { continue: 'Học tiếp', weak_topic: 'Luyện chủ đề yếu', review: 'Ôn lại', assignment: 'Bài tập sắp đến hạn', streak: 'Giữ chuỗi ngày học' };
 const DAY = 86_400_000;
 const daysSince = (iso: string | Date | null, now: number): number => (iso ? Math.max(0, (now - new Date(iso).getTime()) / DAY) : 30);
 const round = (n: number): number => Math.round(n * 1000) / 1000;
@@ -33,27 +31,6 @@ export class RecoService {
   // ---------------------------------------------------------------------- cấu hình (HK.AD.063)
   async settings(): Promise<RecoSettings> {
     return (await this.db.query<RecoSettings>(`SELECT ${COLUMNS} FROM hk_reco_settings WHERE id = 1`))[0];
-  }
-
-  async updateSettings(user: UserRow, body: Record<string, any>): Promise<RecoSettings> {
-    const cur = await this.settings();
-    const num = (k: keyof RecoSettings, min: number, max: number, label: string, int = false): number => {
-      if (body[k] === undefined) return cur[k];
-      const v = Number(body[k]);
-      if (!Number.isFinite(v) || v < min || v > max || (int && !Number.isInteger(v))) throw new BadRequestException(`${label}: ${int ? 'số nguyên' : 'số'} từ ${min} đến ${max}`);
-      return v;
-    };
-    const next = {
-      weight_weak: num('weight_weak', 0, 10, 'Trọng số điểm yếu'), weight_time: num('weight_time', 0, 10, 'Trọng số thời gian'), weight_difficulty: num('weight_difficulty', 0, 10, 'Trọng số độ khó'),
-      weak_threshold: num('weak_threshold', 10, 95, 'Ngưỡng điểm yếu (%)', true), min_answers: num('min_answers', 1, 50, 'Số câu tối thiểu', true), refresh_hours: num('refresh_hours', 1, 168, 'Tần suất cập nhật (giờ)', true),
-      max_items: num('max_items', 1, 6, 'Số gợi ý mỗi lần', true), practice_size: num('practice_size', 3, 20, 'Số câu luyện tập', true), penalty_not_helpful: num('penalty_not_helpful', 0, 1, 'Hệ số giảm điểm'),
-    };
-    if (next.weight_weak + next.weight_time + next.weight_difficulty <= 0) throw new BadRequestException('Cần ít nhất một trọng số lớn hơn 0');
-    await this.db.query(
-      `UPDATE hk_reco_settings SET weight_weak = $1, weight_time = $2, weight_difficulty = $3, weak_threshold = $4, min_answers = $5, refresh_hours = $6, max_items = $7, practice_size = $8,
-              penalty_not_helpful = $9, updated_by = $10, updated_at = now() WHERE id = 1`,
-      [next.weight_weak, next.weight_time, next.weight_difficulty, next.weak_threshold, next.min_answers, next.refresh_hours, next.max_items, next.practice_size, next.penalty_not_helpful, user.id]);
-    return this.settings();
   }
 
   // ---------------------------------------------------------------------- sinh gợi ý (HK.SYS.012)
@@ -137,8 +114,7 @@ export class RecoService {
   }
 
   /** Tính và lưu gợi ý mới cho một học sinh */
-  async generate(user: UserRow): Promise<void> {
-    const s = await this.settings();
+  private async generate(user: UserRow, s: RecoSettings): Promise<void> {
     await this.db.tx(async (q) => {
       const now = Date.now();
       const fb = new Map<RecoKind, { good: number; bad: number }>();
@@ -154,49 +130,30 @@ export class RecoService {
     });
   }
 
-  /** Gợi ý hiện tại của học sinh (HK.HS.094); tự tính lại khi chưa có hoặc đã cũ quá `refresh_hours` */
-  async current(user: UserRow) {
-    if (user.role !== 'student') throw new ForbiddenException('Gợi ý học tập dành cho học sinh');
-    const s = await this.settings();
-    const latest = (await this.db.query<{ generation: string }>('SELECT max(generation) AS generation FROM hk_recommendations WHERE user_id = $1', [user.id]))[0].generation;
-    if (!latest || Date.now() - new Date(latest).getTime() > s.refresh_hours * 3_600_000) await this.generate(user);
-    const generation = (await this.db.query<{ generation: string }>('SELECT max(generation) AS generation FROM hk_recommendations WHERE user_id = $1', [user.id]))[0].generation;
-    const items = generation ? await this.db.query(
-      `SELECT id::int AS id, kind, title, reason, ref_type, ref_id, campaign_id, score::float8 AS score, feedback FROM hk_recommendations WHERE user_id = $1 AND generation = $2 ORDER BY score DESC, id`, [user.id, generation]) : [];
-    return { generated_at: generation, refresh_hours: s.refresh_hours, items: items.map((i: Record<string, any>) => ({ ...i, kind_label: KIND_LABEL[i.kind as RecoKind] })) };
-  }
-
-  /** Làm mới ngay theo yêu cầu của học sinh */
-  async refresh(user: UserRow) {
-    if (user.role !== 'student') throw new ForbiddenException('Gợi ý học tập dành cho học sinh');
-    await this.generate(user);
-    return this.current(user);
-  }
-
-  /** Đánh giá gợi ý (HK.HS.098) */
-  async feedback(user: UserRow, id: number, value: unknown) {
-    if (value !== 'helpful' && value !== 'not_helpful' && value !== null) throw new BadRequestException('Đánh giá là helpful (hữu ích) hoặc not_helpful (không hữu ích)');
-    const res = await this.db.query('UPDATE hk_recommendations SET feedback = $3, feedback_at = CASE WHEN $3::text IS NULL THEN NULL ELSE now() END WHERE id = $1 AND user_id = $2 RETURNING id', [id, user.id, value]);
-    if (!res.length) throw notFound('gợi ý');
-    return { id, feedback: value };
-  }
-
   /** Việc nền theo lịch (HK.SYS.012): tính lại gợi ý cho học sinh còn hoạt động mà gợi ý đã cũ */
-  async refreshStale(limit = 100): Promise<number> {
+  async refreshStale(batchSize = 100): Promise<number> {
+    // Chỉ một chính sách chung trong suốt lượt chạy, không có cấu hình riêng theo người học.
     const s = await this.settings();
-    const rows = await this.db.query<Record<string, unknown>>(
+    let afterId = 0;
+    let done = 0;
+    for (;;) {
+      const rows = await this.db.query<Record<string, unknown>>(
       `SELECT ${USER_COLUMNS.split(', ').map((c) => `u.${c}`).join(', ')} FROM app_users u
        WHERE u.role = 'student' AND u.is_active = 1 AND u.deleted_at IS NULL
+         AND u.id > $2
          AND EXISTS (SELECT 1 FROM hk_events e WHERE e.user_id = u.id AND e.created_at >= now() - interval '14 days')
          AND COALESCE((SELECT max(r.generation) FROM hk_recommendations r WHERE r.user_id = u.id), 'epoch') < now() - ($1 || ' hours')::interval
-       ORDER BY u.id LIMIT ${Math.max(1, Math.min(500, limit))}`, [String(s.refresh_hours)]);
-    let done = 0;
-    for (const row of rows) {
-      try {
-        const user = toUser(row);
-        await this.db.withWorkspace(user, () => this.generate(user));
-        done += 1;
-      } catch (e) { this.logger.warn(`Không tính được gợi ý cho học sinh ${row.id}: ${(e as Error).message}`); }
+       ORDER BY u.id LIMIT ${Math.max(1, Math.min(500, batchSize))}`, [String(s.refresh_hours), afterId]);
+      if (!rows.length) break;
+      // Phân trang bằng ID để đi hết toàn hệ thống, kể cả người chưa có ứng viên hoặc bị lỗi.
+      afterId = Number(rows[rows.length - 1].id);
+      for (const row of rows) {
+        try {
+          const user = toUser(row);
+          await this.db.withWorkspace(user, () => this.generate(user, s));
+          done += 1;
+        } catch (e) { this.logger.warn(`Không tính được gợi ý cho học sinh ${row.id}: ${(e as Error).message}`); }
+      }
     }
     return done;
   }

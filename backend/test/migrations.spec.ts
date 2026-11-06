@@ -102,6 +102,10 @@ describe('file migration', () => {
   });
 
   test('040 chỉ xóa sáu bảng quản trị nội dung cũ; giữ nguyên tài khoản, trường và kho đang dùng', async () => {
+    // Kiểm tra riêng bước 040, không áp dụng các điều chỉnh dữ liệu tham chiếu ở phiên bản sau.
+    for (const name of readdirSync(dir).filter((name) => /^\d+_.*\.sql$/.test(name) && Number(name.split('_')[0]) > 40)) {
+      renameSync(join(dir, name), join(dir, `${name}.held`));
+    }
     const removal = readdirSync(dir).find((name) => name.startsWith('040_'))!;
     renameSync(join(dir, removal), join(dir, `${removal}.held`));
     expect(await m.applyMigrations(url, dir)).toHaveLength(39);
@@ -122,6 +126,20 @@ describe('file migration', () => {
     expect(after.map((r) => r.tab)).toEqual(before.map((r) => r.tab).filter((tab) => !obsolete.includes(tab)));
     for (const tab of retained) expect(await snapshot(tab)).toEqual(snapshots.get(tab));
     expect(await m.applyMigrations(url, dir)).toEqual([]);
+  });
+
+  test('041 giữ chính sách chung đã có và FAQ tự sửa, cập nhật đúng hướng dẫn khởi tạo', async () => {
+    const change=readdirSync(dir).find((name)=>name.startsWith('041_'))!;
+    renameSync(join(dir,change),join(dir,`${change}.held`));
+    expect(await m.applyMigrations(url,dir)).toHaveLength(40);
+    await sql(url,"UPDATE hk_reco_settings SET max_items=2 WHERE id=1; INSERT INTO hk_faq(audience,category,question,answer) VALUES('student','Lớp học','Tôi thấy bài tập của lớp ở đâu?','Hướng dẫn riêng của quản trị');");
+    renameSync(join(dir,`${change}.held`),join(dir,change));
+    expect(await m.applyMigrations(url,dir)).toEqual([change]);
+    expect((await sql(url,'SELECT id,max_items FROM hk_reco_settings'))).toEqual([{id:1,max_items:2}]);
+    const answers=(await sql<{answer:string}>(url,"SELECT answer FROM hk_faq WHERE audience='student' AND question='Tôi thấy bài tập của lớp ở đâu?' ORDER BY id")).map((r)=>r.answer);
+    expect(answers[0]).toContain('Kế hoạch học');
+    expect(answers[0]).not.toContain('Gợi ý học tập');
+    expect(answers[1]).toBe('Hướng dẫn riêng của quản trị');
   });
 
   test('giữ nguyên dữ liệu đã nhập và lịch sử _prisma_migrations', async () => {

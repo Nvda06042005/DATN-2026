@@ -13,7 +13,9 @@ Ngày 31/10/2026 dự án từng được rút gọn còn trang chủ, Điều k
 
 # Database migrations
 
-Mọi thay đổi cấu trúc PostgreSQL và dữ liệu seed/reference phải có một file SQL mới trong `database/migrations/` (đánh số tăng dần; hiện tới `040`). Không sửa, đổi tên hoặc xóa migration đã áp dụng (runner từ chối). Ngày 31/10/2026 thư mục này từng bị xóa theo yêu cầu rồi được khôi phục nguyên văn từ Git (001–013) vì Supabase vẫn giữ lịch sử đó; xem `database/migrations/README.md`. Kiểm tra lịch sử migration của database đích trước khi chọn số tiếp theo; không tự coi đó là database mới.
+Theo yêu cầu ngày 06/11/2026, thuật toán gợi ý chỉ tính nội bộ theo lịch nền: không khôi phục tab cấu hình admin, thẻ gợi ý học sinh hay API hiển thị/chỉnh/tính lại/phản hồi. Chính sách chung duy nhất là `hk_reco_settings(id=1)`; không tạo cấu hình theo trường/học sinh. Quy ước và lịch chạy: `docs/THUAT_TOAN_GOI_Y.md`. Migration 041 chỉ cập nhật ghi chú và FAQ mẫu, giữ chính sách đã lưu.
+
+Mọi thay đổi cấu trúc PostgreSQL và dữ liệu seed/reference phải có một file SQL mới trong `database/migrations/` (đánh số tăng dần; hiện tới `041`). Không sửa, đổi tên hoặc xóa migration đã áp dụng (runner từ chối). Ngày 31/10/2026 thư mục này từng bị xóa theo yêu cầu rồi được khôi phục nguyên văn từ Git (001–013) vì Supabase vẫn giữ lịch sử đó; xem `database/migrations/README.md`. Kiểm tra lịch sử migration của database đích trước khi chọn số tiếp theo; không tự coi đó là database mới.
 
 Ngày 06/11/2026 người dùng yêu cầu xóa phần admin ngoài chín mục đang giữ, gồm database liên quan. Migration `040` xóa đúng sáu bảng quản trị nội dung cũ không còn runtime sử dụng: `app_content_history`, `app_curriculum_nodes`, `app_question_bank`, `app_ai_sources`, `app_hero_cards`, `app_exp_rules`. Đây là phạm vi xóa được yêu cầu; giữ các bảng trường/người dùng, chín mục còn lại và `hist_*`/`hk_*` đang dùng cho trường, giáo viên, học sinh. Không sửa migration 011 và không xóa lan bằng CASCADE.
 

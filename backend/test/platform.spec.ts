@@ -69,7 +69,7 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
       ['ai_tutor', 'AI Tutor', () => as(f.S1)('GET', '/api/ai/status')],
       ['live_quiz', 'Thi đấu', () => as(f.S1)('GET', '/api/live/open')],
       ['war_game', 'thẻ tướng', () => as(f.S1)('GET', '/api/war/status')],
-      ['recommendations', 'Gợi ý', () => as(f.S1)('GET', '/api/analytics/me/recommendations')],
+      ['recommendations', 'Gợi ý', () => as(f.S1)('GET', '/api/analytics/me/strengths')],
     ];
     for (const [key, word, run] of probe) {
       expect((await run(null)).status).toBe(200);

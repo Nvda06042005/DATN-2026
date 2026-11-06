@@ -237,7 +237,7 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
               {tab === 'ranking' ? <RankingTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
               {tab === 'survey' ? <SurveyCenter session={session} refreshKey={refreshKey} /> : null}
               {tab === 'help' ? <HelpCenter session={session} /> : null}
-              {tab === 'study' ? <StudyPlanTab session={session} refreshKey={refreshKey} actions={{ onNode: (cid, nid) => { if (cid) { setTab('home'); setCampaignId(cid); setFocusNode(nid); } else setTab('learn'); }, onTab: setTab, onAttempt: (attempt, title) => setOverlay({ kind: 'quiz', attempt, title, nodeId: null }) }} /> : null}
+              {tab === 'study' ? <StudyPlanTab session={session} refreshKey={refreshKey} actions={{ onTab: setTab, onAttempt: (attempt, title) => setOverlay({ kind: 'quiz', attempt, title, nodeId: null }) }} /> : null}
               {tab === 'mine' ? <MyTab session={session} refreshKey={refreshKey} onPractice={startPractice} onReview={(id) => setOverlay({ kind: 'review', id })} onOpen={open} /> : null}
             </ScrollView>
             )}

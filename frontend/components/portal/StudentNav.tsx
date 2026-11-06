@@ -30,7 +30,7 @@ export const NAV_MAIN: NavItem[] = [
 ];
 export const NAV_MORE: NavItem[] = [
   { id: 'collection', label: 'Bộ thẻ', icon: Award },
-  { id: 'study', label: 'Gợi ý học tập', icon: Lightbulb },
+  { id: 'study', label: 'Kế hoạch học', icon: Lightbulb },
   { id: 'library', label: 'Thư viện', icon: LibraryIcon },
   { id: 'timeline', label: 'Dòng thời gian', icon: HistoryIcon },
   { id: 'map', label: 'Bản đồ', icon: MapIcon },
