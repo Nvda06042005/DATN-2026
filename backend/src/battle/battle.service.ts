@@ -87,11 +87,11 @@ export class BattleService {
     });
   }
 
-  private async scenarioFor(q: Q, user: UserRow, id: number, lock = false) {
+  private async scenarioFor(q: Q, user: UserRow, id: number) {
     const row = (await q<Record<string, any>>(
-      `SELECT s.id, s.title, s.summary, s.difficulty, s.battle_id, s.status, s.content, b.name AS battle_name, b.year, b.date_text, b.context, b.forces, b.course, b.result, b.status AS battle_status, b.campaign_id,
+      `SELECT s.id, s.school_id, s.title, s.summary, s.difficulty, s.battle_id, s.status, s.content, b.name AS battle_name, b.year, b.date_text, b.context, b.forces, b.course, b.result, b.status AS battle_status, b.campaign_id,
               c.title AS campaign_title
-       FROM hk_scenarios s JOIN hist_battles b ON b.id = s.battle_id LEFT JOIN hist_campaigns c ON c.id = b.campaign_id WHERE s.id = $1${lock ? ' FOR UPDATE OF s' : ''}`, [id]))[0];
+       FROM hk_scenarios s JOIN hist_battles b ON b.id = s.battle_id LEFT JOIN hist_campaigns c ON c.id = b.campaign_id WHERE s.id = $1`, [id]))[0];
     if (!row || (row.status !== 'published' && user.role !== 'root_admin' && !(user.role==='school_admin' && row.school_id===user.school_id))) throw notFound('trận đánh mô phỏng');
     return row;
   }
@@ -135,7 +135,10 @@ export class BattleService {
 
   async startScenario(user: UserRow, id: number, opts: { restart?: boolean; preview?: boolean }) {
     return this.db.tx(async (q) => {
-      const row = await this.scenarioFor(q, user, id, true);
+      // Khóa người chơi để hai yêu cầu đồng thời không tạo hai lượt đang chơi.
+      // Không khóa mẫu hệ thống: trường chỉ có quyền đọc các kịch bản dùng chung.
+      await q('SELECT id FROM app_users WHERE id=$1 FOR UPDATE', [user.id]);
+      const row = await this.scenarioFor(q, user, id);
       const sc = row.content as Scenario;
       const preview = Boolean(opts.preview);
       if (!isStudent(user) && !preview) throw new ForbiddenException('Giáo viên và quản trị chỉ chơi thử (chế độ xem trước)');
@@ -263,7 +266,8 @@ export class BattleService {
   // ------------------------------------------------------------------ mini-game (HK.HS.058–060)
   async startMinigame(user: UserRow, id: number, opts: { restart?: boolean; preview?: boolean; assignmentId?: number }) {
     return this.db.tx(async (q) => {
-      const row = (await q<Record<string, any>>('SELECT * FROM hk_minigames WHERE id = $1 FOR UPDATE', [id]))[0];
+      await q('SELECT id FROM app_users WHERE id=$1 FOR UPDATE', [user.id]);
+      const row = (await q<Record<string, any>>('SELECT * FROM hk_minigames WHERE id = $1', [id]))[0];
       if (!row || (row.status !== 'published' && user.role !== 'root_admin' && !(user.role==='school_admin' && row.school_id===user.school_id))) throw notFound('mini-game');
       const preview = Boolean(opts.preview);
       if (!isStudent(user) && !preview) throw new ForbiddenException('Giáo viên và quản trị chỉ chơi thử (chế độ xem trước)');

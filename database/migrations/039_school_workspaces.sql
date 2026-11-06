@@ -1,6 +1,12 @@
 -- Chuyển kho nội dung, trò chơi, AI và nghiên cứu sang không gian riêng của trường.
 -- Các dòng cũ vẫn là mẫu hệ thống, chỉ đọc từ không gian trường. Không xóa dữ liệu.
 SET CONSTRAINTS ALL IMMEDIATE;
+-- Các quyền đã chuyển sang trường; những quyền quản lý toàn hệ thống vẫn giữ nguyên.
+UPDATE public.hk_permissions SET baseline=true,allowed=true
+ WHERE role='school_admin' AND feature_key IN
+ ('history_warehouse','game_content','war_content','ai_manage','quiz_author','journey_design','ai_tutor');
+UPDATE public.hk_permission_features SET note='Quản trị trường chỉ quản lý bản riêng trong trường; mẫu hệ thống chỉ đọc.'
+ WHERE key IN ('history_warehouse','game_content','war_content','ai_manage');
 CREATE FUNCTION public.app_workspace_school() RETURNS integer LANGUAGE sql STABLE AS $$
  SELECT NULLIF(NULLIF(current_setting('app.school_id', true), ''), '0')::integer
 $$;
@@ -120,7 +126,10 @@ BEGIN
    WHERE k.conrelid=tab AND k.contype='f' AND array_length(k.conkey,1)=1
      AND a.attname NOT IN ('created_by','updated_by','assigned_by','awarded_by','uploaded_by','labeled_by','handled_by','locked_by','deleted_by','graded_by')
      AND (k.confrelid<>'public.app_users'::regclass OR a.attname IN ('user_id','student_id','teacher_id','owner_id'))
-   ORDER BY CASE a.attname WHEN 'user_id' THEN 0 WHEN 'class_id' THEN 1 WHEN 'quiz_id' THEN 2 WHEN 'journey_id' THEN 3 WHEN 'lesson_id' THEN 4 ELSE 5 END
+   -- Xác định chủ sở hữu qua bản ghi chứa nội dung, trước các tư liệu được tham chiếu.
+   -- Ví dụ nút thuộc hành trình riêng vẫn có thể dùng quiz mẫu của hệ thống.
+   ORDER BY CASE a.attname WHEN 'user_id' THEN 0 WHEN 'class_id' THEN 1 WHEN 'owner_id' THEN 1 WHEN 'journey_id' THEN 2
+     WHEN 'lesson_id' THEN 3 WHEN 'quiz_id' THEN 4 WHEN 'node_id' THEN 5 ELSE 6 END
  LOOP
    IF data->>f.local_col IS NULL THEN CONTINUE; END IF;
    EXECUTE format('SELECT to_jsonb(p) FROM %s p WHERE %I::text=$1',f.target::regclass,f.target_col) INTO parent USING data->>f.local_col;

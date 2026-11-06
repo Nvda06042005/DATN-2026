@@ -192,7 +192,11 @@ export class RecoService {
        ORDER BY u.id LIMIT ${Math.max(1, Math.min(500, limit))}`, [String(s.refresh_hours)]);
     let done = 0;
     for (const row of rows) {
-      try { await this.generate(toUser(row)); done += 1; } catch (e) { this.logger.warn(`Không tính được gợi ý cho học sinh ${row.id}: ${(e as Error).message}`); }
+      try {
+        const user = toUser(row);
+        await this.db.withWorkspace(user, () => this.generate(user));
+        done += 1;
+      } catch (e) { this.logger.warn(`Không tính được gợi ý cho học sinh ${row.id}: ${(e as Error).message}`); }
     }
     return done;
   }

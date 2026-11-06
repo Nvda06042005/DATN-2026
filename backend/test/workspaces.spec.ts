@@ -21,7 +21,7 @@ const ok = (res: {status:number;body:any}, status=200) => { expect({status:res.s
  test('tất cả màn đã chuyển có API hoạt động cho quản trị trường, không cấp cho giáo viên',async()=>{
    for(const path of ['/api/admin/history/overview','/api/content/lessons','/api/content/questions','/api/content/quizzes','/api/content/journeys',
     '/api/battle/admin/scenarios','/api/battle/admin/minigames','/api/war/admin/stages','/api/war/admin/maps','/api/war/admin/commanders','/api/war/admin/assets',
-    '/api/game/admin/settings','/api/game/admin/levels','/api/game/admin/classes','/api/ai/admin/settings','/api/ai/admin/sources','/api/ai/admin/logs',
+    '/api/game/admin/settings','/api/game/admin/levels','/api/game/admin/classes','/api/ai/status','/api/ai/admin/settings','/api/ai/admin/sources','/api/ai/admin/logs',
     '/api/ai/admin/reports','/api/ai/admin/limits','/api/platform/experiments/groups','/api/platform/experiments/classes','/api/platform/research/compare']){
      const res=await a('GET',path); expect([path,res.status,res.body?.detail]).toEqual([path,200,undefined]);
    }
@@ -68,6 +68,19 @@ const ok = (res: {status:number;body:any}, status=200) => { expect({status:res.s
    expect(ok(await a('GET','/api/ai/admin/settings')).daily_per_user).toBe(17);
    expect(ok(await b('GET','/api/ai/admin/settings')).daily_per_user).toBe(29);
    expect(ok(await api(f.S1,'GET','/api/game/config')).hearts.max).toBe(7);
+ });
+
+ test('nút hành trình thuộc trường đang soạn dù tham chiếu quiz mẫu chung',async()=>{
+   const campaign=(await db.query<any>('SELECT id FROM hist_campaigns WHERE school_id IS NULL ORDER BY id LIMIT 1'))[0];
+   const quiz=(await db.query<any>("SELECT id FROM hk_quizzes WHERE scope='system' ORDER BY id LIMIT 1"))[0];
+   const journey=ok(await a('POST','/api/content/journeys',{title:'Hành trình riêng của trường A',campaign_id:campaign.id}),201);
+   const updated=ok(await a('POST',`/api/content/journeys/${journey.id}/nodes`,{kind:'quiz',quiz_id:quiz.id,title:'Nút dùng quiz mẫu'}),201);
+   expect(updated.nodes).toHaveLength(1);
+   expect(updated.nodes[0].quiz_id).toBe(quiz.id);
+   expect((await b('GET',`/api/content/journeys/${journey.id}`)).status).toBe(404);
+   expect((await b('PUT',`/api/content/nodes/${updated.nodes[0].id}`,{title:'Không được sửa chéo'})).status).toBe(404);
+   const copy=ok(await a('POST',`/api/content/journeys/${journey.id}/duplicate`),201);
+   expect(copy.nodes.map((n:any)=>n.quiz_id)).toEqual([quiz.id]);
  });
 
  test('danh mục game và mini-game riêng có thể dùng cùng mã ở hai trường',async()=>{
