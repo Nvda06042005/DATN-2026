@@ -3,9 +3,9 @@
  * chọn nhiều, hiển thị mật khẩu tạm một lần, nhập Excel có xem trước. Giao diện phẳng (AdminUiContext) theo bảng màu sáng của dự án.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, TextInput, View, useWindowDimensions } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, TextInput, View, useWindowDimensions } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import { AlertTriangle, Check, CheckSquare, ChevronDown, ChevronLeft, ChevronRight, Download, FileUp, Search, SlidersHorizontal, Square, X } from 'lucide-react-native';
+import { AlertTriangle, Check, CheckSquare, ChevronDown, ChevronLeft, ChevronRight, Download, FileUp, Funnel, Search, SlidersHorizontal, Square, X } from 'lucide-react-native';
 import { ApiError, errorMessage, type PickedFile } from '@/api/client';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { Btn, Card, Chip, EmptyState, Field, Inset, Sheet, Spinner, Txt, useToast } from '@/components/ui';
@@ -115,11 +115,14 @@ export interface SearchFilter {
 }
 
 /**
- * Một thanh duy nhất cho tìm kiếm và lọc: ô tìm kiếm có nút "Bộ lọc" (kèm số bộ lọc đang bật) nằm liền bên phải. Bấm nút mở khung chọn các bộ lọc;
- * khi khung đóng, bộ lọc đang bật hiện thành nhãn bấm để bỏ từng cái. Giá trị rỗng nghĩa là không lọc.
+ * Thanh tìm kiếm kèm lọc. Trên màn hình đủ rộng để hiện bảng, mỗi bộ lọc nằm ngay tiêu đề cột tương ứng (nút mũi tên ở `Column.filter`, như bộ lọc của Excel) nên thanh
+ * này chỉ có ô tìm kiếm và nút "Xóa lọc" khi đang lọc. Trên màn hẹp (danh sách thẻ, không có tiêu đề cột) vẫn có nút "Bộ lọc" liền bên phải ô tìm kiếm, bấm mở khung
+ * chọn các bộ lọc; khi khung đóng, bộ lọc đang bật hiện thành nhãn bấm để bỏ từng cái. Giá trị rỗng nghĩa là không lọc.
  */
 export const SearchFilterBar: React.FC<{ placeholder: string; value: string; onChange: (value: string) => void; filters?: SearchFilter[]; extra?: React.ReactNode; searchId?: string }> = ({ placeholder, value, onChange, filters = [], extra, searchId }) => {
   const { c } = useTheme();
+  const { width } = useWindowDimensions();
+  const inHeader = width >= TABLE_MIN_WIDTH;
   const [open, setOpen] = useState(false);
   const active = filters.filter((f) => f.value !== '');
   const chip = (f: SearchFilter) => `${f.label}: ${f.options.find((o) => o.value === f.value)?.label ?? f.value}`;
@@ -131,7 +134,7 @@ export const SearchFilterBar: React.FC<{ placeholder: string; value: string; onC
           <TextInput nativeID={searchId} testID={searchId} accessibilityLabel={placeholder} placeholder={placeholder} placeholderTextColor={c.muc3} value={value} onChangeText={onChange} autoCapitalize="none" autoCorrect={false} returnKeyType="search"
             style={[{ flex: 1, minWidth: 0, minHeight: 42, paddingHorizontal: 12, fontFamily: FONT.medium, fontSize: 14, color: c.logoInk }, Platform.OS === 'web' ? ({ outlineStyle: 'solid', outlineWidth: 0 } as object) : null]} />
           {value ? <Pressable testID="search-clear" accessibilityRole="button" accessibilityLabel="Xóa từ khóa tìm kiếm" onPress={() => onChange('')} style={{ width: 36, height: 44, alignItems: 'center', justifyContent: 'center' }}><X size={16} color={c.muc3} /></Pressable> : null}
-          {filters.length ? (
+          {filters.length && !inHeader ? (
             <Pressable testID="filter-toggle" accessibilityRole="button" accessibilityLabel={active.length ? `Bộ lọc, đang bật ${active.length}` : 'Bộ lọc'} accessibilityState={{ expanded: open }} onPress={() => setOpen((v) => !v)}
               style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 6, borderLeftWidth: 1, borderLeftColor: c.bienXanh, backgroundColor: open ? c.adminTint : pressed ? c.adminCanvas : c.the })}>
               <SlidersHorizontal size={17} color={active.length || open ? c.logoRed : c.logoInk} />
@@ -141,9 +144,16 @@ export const SearchFilterBar: React.FC<{ placeholder: string; value: string; onC
             </Pressable>
           ) : null}
         </View>
+        {inHeader && active.length ? (
+          <Pressable testID="filter-clear-all" accessibilityRole="button" accessibilityLabel="Xóa mọi bộ lọc" onPress={() => active.forEach((f) => f.onChange(''))}
+            style={({ pressed }) => ({ minHeight: 36, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: c.logoRed, backgroundColor: pressed ? c.sonNhat : c.adminTint, flexDirection: 'row', alignItems: 'center', gap: 6 })}>
+            <Funnel size={14} color={c.logoRed} />
+            <Txt f="semibold" size={13} color={c.logoRed}>Xóa lọc ({active.length})</Txt>
+          </Pressable>
+        ) : null}
         {extra}
       </View>
-      {open && filters.length ? (
+      {!inHeader && open && filters.length ? (
         <View testID="filter-panel" style={{ alignSelf: 'flex-start', width: '100%', maxWidth: 680, borderWidth: 1, borderColor: c.adminLine, borderRadius: 16, backgroundColor: c.the, padding: 12, gap: 10 }}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
             {filters.map((f) => <FilterBox key={f.key}><AdminSelect<string> label={f.label} value={f.value} options={f.options} onChange={f.onChange} testID={f.testID ?? `filter-${f.key}`} /></FilterBox>)}
@@ -154,7 +164,7 @@ export const SearchFilterBar: React.FC<{ placeholder: string; value: string; onC
           </View>
         </View>
       ) : null}
-      {!open && active.length ? (
+      {!inHeader && !open && active.length ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
           {active.map((f) => (
             <Pressable key={f.key} testID={`filter-chip-${f.key}`} accessibilityRole="button" accessibilityLabel={`Bỏ bộ lọc ${chip(f)}`} onPress={() => f.onChange('')}
@@ -211,7 +221,63 @@ export interface Column<T> {
   render: (row: T) => React.ReactNode;
   /** Ẩn cột trên danh sách thẻ (điện thoại) */
   hideOnCard?: boolean;
+  /** Bộ lọc của cột: hiện nút mũi tên ở tiêu đề cột (kiểu Excel); bấm mở danh sách giá trị, chọn một giá trị để lọc, chọn dòng đầu ("Tất cả") để bỏ lọc */
+  filter?: SearchFilter;
 }
+
+/** Nút lọc ở tiêu đề cột: ô vuông nhỏ có mũi tên (đỏ kèm phễu khi đang lọc), bấm mở danh sách giá trị ngay dưới nút. Danh sách dài có ô tìm trong danh sách. */
+const ColumnFilter: React.FC<{ filter: SearchFilter }> = ({ filter }) => {
+  const { c } = useTheme();
+  const { width, height } = useWindowDimensions();
+  const ref = useRef<React.ComponentRef<typeof Pressable>>(null);
+  const [anchor, setAnchor] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [term, setTerm] = useState('');
+  const on = filter.value !== '';
+  const close = () => { setAnchor(null); setTerm(''); };
+  const needle = term.trim().toLowerCase();
+  const shown = needle ? filter.options.filter((o) => o.label.toLowerCase().includes(needle)) : filter.options;
+  const menuWidth = Math.min(264, width - 16);
+  const left = anchor ? Math.max(8, Math.min(anchor.x + anchor.w - menuWidth, width - menuWidth - 8)) : 0;
+  const top = anchor ? anchor.y + anchor.h + 6 : 0;
+  const chosen = filter.options.find((o) => o.value === filter.value)?.label;
+  return (
+    <>
+      <Pressable ref={ref} testID={`col-filter-${filter.key}`} accessibilityRole="button" accessibilityLabel={on ? `Lọc theo ${filter.label}, đang lọc: ${chosen ?? filter.value}` : `Lọc theo ${filter.label}`} accessibilityState={{ expanded: !!anchor }}
+        onPress={() => ref.current?.measureInWindow((x, y, w, h) => setAnchor({ x, y, w, h }))}
+        style={({ pressed }) => ({ width: 24, height: 24, borderRadius: 4, borderWidth: 1, borderColor: on ? c.logoRed : c.bienXanh, backgroundColor: on ? c.logoRed : pressed ? c.adminTint : c.the, alignItems: 'center', justifyContent: 'center' })}>
+        {on ? <Funnel size={13} color={c.trang} /> : <ChevronDown size={14} color={c.logoInk} />}
+      </Pressable>
+      {anchor ? (
+        <Modal transparent visible animationType="none" onRequestClose={close} statusBarTranslucent>
+          <Pressable accessibilityRole="button" accessibilityLabel="Đóng danh sách lọc" onPress={close} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          <View testID="col-filter-menu" accessibilityViewIsModal style={{ position: 'absolute', left, top, width: menuWidth, maxHeight: Math.max(180, Math.min(400, height - top - 16)), borderRadius: 10, borderWidth: 1, borderColor: c.adminLine, backgroundColor: c.the, padding: 6, boxShadow: '0 12px 32px rgba(35, 56, 47, 0.18)' } as object}>
+            <Txt f="bold" size={12} color={c.muc3} style={{ paddingHorizontal: 10, paddingTop: 6, paddingBottom: 4 }}>Lọc theo {filter.label.toLowerCase()}</Txt>
+            {filter.options.length > 8 ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 4, marginBottom: 4, paddingHorizontal: 10, minHeight: 38, borderRadius: 8, borderWidth: 1, borderColor: c.adminLine }}>
+                <Search size={15} color={c.muc3} />
+                <TextInput testID="col-filter-search" accessibilityLabel={`Tìm trong danh sách ${filter.label.toLowerCase()}`} placeholder="Tìm trong danh sách" placeholderTextColor={c.muc3} value={term} onChangeText={setTerm} autoCapitalize="none" autoCorrect={false}
+                  style={[{ flex: 1, minWidth: 0, minHeight: 36, fontFamily: FONT.medium, fontSize: 13, color: c.logoInk }, Platform.OS === 'web' ? ({ outlineStyle: 'solid', outlineWidth: 0 } as object) : null]} />
+              </View>
+            ) : null}
+            <ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled">
+              {shown.map((o) => {
+                const picked = o.value === filter.value;
+                return (
+                  <Pressable key={o.value || '__all'} testID={`col-filter-${filter.key}-option-${o.value || 'all'}`} accessibilityRole="radio" accessibilityState={{ checked: picked }} onPress={() => { filter.onChange(o.value); close(); }}
+                    style={({ pressed }) => ({ minHeight: 40, paddingHorizontal: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: picked ? c.adminTint : pressed ? c.adminCanvas : 'transparent' })}>
+                    <View style={{ width: 16 }}>{picked ? <Check size={16} color={c.logoRed} /> : null}</View>
+                    <Txt f={picked ? 'bold' : 'medium'} size={14} color={picked ? c.logoRed : c.logoInk} numberOfLines={2} style={{ flex: 1 }}>{o.label}</Txt>
+                  </Pressable>
+                );
+              })}
+              {!shown.length ? <Txt size={13} color={c.muc3} style={{ padding: 12 }}>Không có giá trị nào khớp.</Txt> : null}
+            </ScrollView>
+          </View>
+        </Modal>
+      ) : null}
+    </>
+  );
+};
 
 /** Bảng khi đủ rộng; danh sách thẻ "nhãn: giá trị" trên màn hẹp. Hàng có thể bấm để mở chi tiết. */
 export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions, actionsWidth = 150, paginate = true }: {
@@ -228,7 +294,8 @@ export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions
   const pages = Math.max(1, Math.ceil(rows.length / size));
   const current = Math.min(page, pages);
   useEffect(() => { if (page > pages) setPage(pages); }, [page, pages]);
-  if (!rows.length) return <EmptyState mood="thinking" title={empty} />;
+  const filterable = table && columns.some((col) => col.filter);
+  if (!rows.length && !filterable) return <EmptyState mood="thinking" title={empty} />;
   const shown = paged ? rows.slice((current - 1) * size, current * size) : rows;
   const pager = paged ? <Pager page={current} limit={size} total={rows.length} onPage={setPage} /> : null;
   if (!table) {
@@ -254,10 +321,16 @@ export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions
   return (
     <View style={{ gap: 10 }}>
     <View style={{ borderWidth: 1, borderColor: c.adminLine, borderRadius: 5, backgroundColor: c.the, overflow: 'hidden' }}>
-      <View style={{ flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 10, backgroundColor: c.adminCanvas, borderBottomWidth: 1, borderBottomColor: c.adminLine, gap: 12 }}>
-        {columns.map((col) => <Txt key={col.key} f="bold" size={12} color={c.muc2} style={{ flex: col.flex ?? 1 }}>{col.label}</Txt>)}
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: filterable ? 8 : 10, backgroundColor: c.adminCanvas, borderBottomWidth: 1, borderBottomColor: c.adminLine, gap: 12 }}>
+        {columns.map((col) => (
+          <View key={col.key} style={{ flex: col.flex ?? 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Txt f="bold" size={12} color={col.filter?.value ? c.logoRed : c.muc2} style={{ flexShrink: 1 }}>{col.label}</Txt>
+            {col.filter ? <ColumnFilter filter={col.filter} /> : null}
+          </View>
+        ))}
         {actions ? <View style={{ width: actionsWidth }} /> : null}
       </View>
+      {!rows.length ? <View style={{ padding: 8 }}><EmptyState mood="thinking" title={empty} /></View> : null}
       {shown.map((row, i) => (
         <Pressable key={rowKey(row)} accessibilityRole={onRowPress ? 'button' : undefined} disabled={!onRowPress} onPress={() => onRowPress?.(row)}
           style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, minHeight: 52, paddingVertical: 8, gap: 12, borderTopWidth: i ? 1 : 0, borderTopColor: c.adminLine, backgroundColor: pressed ? c.adminCanvas : c.the })}>

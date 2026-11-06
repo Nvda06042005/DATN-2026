@@ -120,11 +120,4 @@ export const SchoolReports: React.FC<{ session: Session }> = ({ session }) => {
 };
 
 // ---------------------------------------------------------------------- quản trị tổng (HK.AD.006–009, 063)
-export const SystemStats: React.FC<{ session: Session }> = ({ session }) => {
-  return (
-    <Page>
-      <PageHeader title="Thống kê hệ thống" subtitle="Dashboard tổng hợp trường học, người dùng, nội dung, sử dụng và AI" />
-      <SystemDashboard session={session} />
-    </Page>
-  );
-};
+export const SystemStats: React.FC<{ session: Session }> = ({ session }) => <SystemDashboard session={session} />; // trang tổng quan tự có tiêu đề và vừa một màn hình, không đặt trong Page cuộn

@@ -80,8 +80,11 @@ test('thanh tìm kiếm kèm nút Bộ lọc: ô tìm kiếm, nút lọc có s�
 test('trường, người dùng và ba mục nhật ký, yêu cầu hỗ trợ dùng thanh tìm kiếm kèm Bộ lọc, đổi lọc về trang 1', () => {
   const admin = read('components', 'admin', 'RootAdmin.tsx');
   assert.equal((admin.match(/<SearchFilterBar/g) ?? []).length, 2);
-  assert.match(admin, /searchId="school-search"[\s\S]*?key: 'city'[\s\S]*?key: 'active'/);
-  assert.match(admin, /searchId="user-search"[\s\S]*?key: 'role'[\s\S]*?key: 'school'[\s\S]*?key: 'active'/);
+  // bộ lọc khai báo một lần rồi dùng cho cả thanh tìm kiếm (màn hẹp) và tiêu đề cột (màn rộng)
+  assert.match(admin, /const f_city: SearchFilter = \{ key: 'city'[\s\S]*?const f_active: SearchFilter = \{ key: 'active'/);
+  assert.match(admin, /searchId="school-search"\s+filters=\{\[f_city, f_active\]\}/);
+  assert.match(admin, /const f_role: SearchFilter = \{ key: 'role'[\s\S]*?const f_school: SearchFilter = \{ key: 'school'[\s\S]*?const f_active: SearchFilter = \{ key: 'active'/);
+  assert.match(admin, /searchId="user-search"\s+filters=\{\[f_role, f_school, f_active\]\}/);
   assert.ok(!admin.includes('<FilterBar>'), 'RootAdmin còn FilterBar cũ');
   const ops = read('components', 'admin', 'PlatformOps.tsx');
   assert.equal((ops.match(/<SearchFilterBar/g) ?? []).length, 4);
@@ -92,6 +95,9 @@ test('trường, người dùng và ba mục nhật ký, yêu cầu hỗ trợ d
   // mọi thay đổi tìm kiếm hoặc bộ lọc đều quay về trang đầu
   for (const src of [admin, ops]) {
     const bars = src.match(/<SearchFilterBar[\s\S]*?\/>/g) ?? [];
-    for (const bar of bars) assert.ok((bar.match(/setPage\(1\)/g) ?? []).length >= 2, bar.slice(0, 80));
+    for (const bar of bars) assert.ok(bar.includes('setPage(1)'), bar.slice(0, 80));
+    const filters = src.match(/const f_\w+: SearchFilter = \{.*\};/g) ?? [];
+    assert.ok(filters.length >= bars.length);
+    for (const f of filters) assert.ok(f.includes('setPage(1)'), f.slice(0, 80));
   }
 });
