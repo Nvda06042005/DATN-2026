@@ -50,7 +50,8 @@ def build(target):
         values.append('(' + ','.join(quoted(v) for v in [row['code'], row['name'], row['city'], row['region'], row.get('address'), row.get('website'), row.get('source') or 'https://gist.github.com/ngoan98tv/b9111580b75562b45185f90d00e5b1ff', ('2026-11-07' if row['code'].startswith('hp-') else '2020-10-06'), row.get('note'), json.dumps(row.get('previous_codes', []), ensure_ascii=False), hashes.get(row['code']), logo['logo_source'] if logo else None, checked]) + ')')
     columns = 'code,name,city,region,address,website,source_url,source_date,note,previous_codes,logo_sha256,logo_source_url,checked_at'
     for i in range(0, len(values), 250):
-        sql.append(f'INSERT INTO public.app_school_directory({columns}) VALUES\n' + ',\n'.join(values[i:i + 250]) + '\nON CONFLICT(code) DO NOTHING;')
+        updates = ','.join(f'{column}=EXCLUDED.{column}' for column in columns.split(',') if column != 'code')
+        sql.append(f'INSERT INTO public.app_school_directory({columns}) VALUES\n' + ',\n'.join(values[i:i + 250]) + f'\nON CONFLICT(code) DO UPDATE SET {updates};')
     target.write_text('\n'.join(sql) + '\n', encoding='utf-8')
     print(json.dumps({'entries': len(entries), 'logo_schools': len(hashes), 'unique_images': len(assets), 'image_bytes': sum(len(a[0]) for a in assets.values()), 'migration_bytes': target.stat().st_size}))
 
