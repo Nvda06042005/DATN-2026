@@ -264,7 +264,6 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [credential, setCredential] = useState<CreatedAccount | null>(null);
-  const top = session.user.admin_level === 1;
   const refresh = useCallback(() => reload(), [reload]);
 
   if (credential) return <CredentialSheet title="Tài khoản quản trị đã được tạo" account={{ full_name: credential.user.full_name, username: credential.user.username, temporary_password: credential.temporary_password, mail: credential.mail }} onClose={() => setCredential(null)} />;
@@ -298,15 +297,14 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
         <FormSheet title="Tạo tài khoản quản trị" subtitle="Mật khẩu tạm được gửi vào email; người dùng phải đổi ở lần đăng nhập đầu tiên" submitLabel="Tạo tài khoản"
           fields={[
             { name: 'full_name', label: 'Họ và tên', required: true },
-            { name: 'role', label: 'Loại tài khoản', type: 'select', required: true, options: [...(top ? [{ value: 'root_admin', label: 'Quản trị viên tổng' }] : []), { value: 'school_admin', label: 'Quản trị viên trường học' }] },
-            { name: 'admin_level', label: 'Cấp quản trị tổng', type: 'select', options: [{ value: '2', label: 'Cấp 2 (không quản lý quản trị tổng, không tạo/xóa trường)' }, { value: '1', label: 'Cấp 1 (toàn quyền)' }], when: (v) => v.role === 'root_admin' },
-            { name: 'school_id', label: 'Trường', type: 'select', required: true, options: schools, when: (v) => v.role === 'school_admin' },
+            { name: 'account_type', label: 'Loại tài khoản', readOnly: true },
+            { name: 'school_id', label: 'Trường', type: 'select', required: true, options: [{ value: '', label: 'Chọn trường' }, ...schools] },
             { name: 'email', label: 'Email', type: 'email', required: true },
             { name: 'phone', label: 'Số điện thoại', type: 'tel' },
           ]}
-          initial={{ role: top ? 'root_admin' : 'school_admin', admin_level: '2' }} onClose={() => setCreating(false)}
+          initial={{ account_type: 'Quản trị viên trường' }} onClose={() => setCreating(false)}
           onSubmit={async (v) => {
-            const res = await api.createAdminAccount(token, { full_name: String(v.full_name), role: v.role as 'root_admin' | 'school_admin', email: String(v.email), phone: String(v.phone) || undefined, school_id: v.role === 'school_admin' ? Number(v.school_id) : undefined, admin_level: v.role === 'root_admin' ? (Number(v.admin_level) === 1 ? 1 : 2) : undefined });
+            const res = await api.createAdminAccount(token, { full_name: String(v.full_name), role: 'school_admin', email: String(v.email), phone: String(v.phone) || undefined, school_id: Number(v.school_id) });
             setCreating(false);
             setCredential(res);
             reload();
