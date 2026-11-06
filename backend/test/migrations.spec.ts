@@ -157,14 +157,14 @@ describe('file migration', () => {
     expect(answers[1]).toBe('Hướng dẫn riêng của quản trị');
   });
 
-  test('045 (ảnh đại diện tải lên) nới ràng buộc avatar_url: nhận đường dẫn kho tệp, vẫn nhận liên kết https cũ, từ chối dạng khác; không đổi dữ liệu', async () => {
-    const later = readdirSync(dir).find((name) => name.startsWith('045_'))!;
+  test('046 (ảnh đại diện tải lên) nới ràng buộc avatar_url: nhận đường dẫn kho tệp, vẫn nhận liên kết https cũ, từ chối dạng khác; không đổi dữ liệu', async () => {
+    const later = readdirSync(dir).find((name) => name.startsWith('046_'))!;
     renameSync(join(dir, later), join(dir, `${later}.held`));
     await m.applyMigrations(url, dir);
-    await sql(url, `INSERT INTO app_schools(id,school_code,name) VALUES(9101,'9101','Trường thử 045');
+    await sql(url, `INSERT INTO app_schools(id,school_code,name) VALUES(9101,'9101','Trường thử 046');
       INSERT INTO app_users(id,username,full_name,role,password_hash,school_id,is_active,avatar_url,created_at)
       VALUES(9101,'cu.https','Dùng liên kết https','student','synthetic-hash',9101,1,'https://example.edu.vn/a.png','2026-11-06T00:00:00Z')`);
-    // trước 045: đường dẫn kho tệp bị từ chối
+    // trước 046: đường dẫn kho tệp bị từ chối
     await expect(sql(url, "UPDATE app_users SET avatar_url = '/api/content/media/' || repeat('a', 32) WHERE id = 9101")).rejects.toThrow();
     renameSync(join(dir, `${later}.held`), join(dir, later));
     expect(await m.applyMigrations(url, dir)).toEqual([later]);

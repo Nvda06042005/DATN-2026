@@ -81,9 +81,9 @@ Giữ nguyên `app_users`, các bảng trường/lớp, thông báo, audit/login
 
 `042_school_catalog_identity.sql` thêm khóa tham chiếu danh mục và sequence sinh mã trường tám chữ số. Giữ nguyên mã, tài khoản và dữ liệu hiện có; không nhập hàng loạt trường từ danh mục. Quyền sequence/function không mở cho PUBLIC. Chọn cùng một trường đồng thời được backend khóa giao dịch và chặn trùng bằng chỉ mục; mã gốc có chữ/dài hơn tám số không còn bị cắt để làm mã đăng nhập. Xem [danh mục trường](../../docs/DANH_MUC_TRUONG.md).
 
-## Ảnh đại diện tải lên (045)
+## Ảnh đại diện tải lên (046)
 
-`045_avatar_upload.sql` chỉ nới ràng buộc CHECK của `app_users.avatar_url`: ngoài liên kết `https://` đã lưu trước đây, nhận thêm đường dẫn kho tệp `/api/content/media/<mã 32 ký tự>`. Không tạo bảng, không đổi dữ liệu. Ảnh đại diện nằm trong `hk_media` với tên riêng `avatar:user` (chỉ ảnh PNG/JPEG/WEBP/GIF tối đa 1,5 MB, backend xác định loại bằng nội dung thật), mỗi người một ảnh; ảnh này không tính vào hạn mức ảnh Quiz và không hiện trong thư viện của giáo viên. Hồ sơ không còn nhận liên kết dán tay.
+`046_avatar_upload.sql` chỉ nới ràng buộc CHECK của `app_users.avatar_url`: ngoài liên kết `https://` đã lưu trước đây, nhận thêm đường dẫn kho tệp `/api/content/media/<mã 32 ký tự>`. Không tạo bảng, không đổi dữ liệu. Ảnh đại diện nằm trong `hk_media` với tên riêng `avatar:user` (chỉ ảnh PNG/JPEG/WEBP/GIF tối đa 1,5 MB, backend xác định loại bằng nội dung thật), mỗi người một ảnh; ảnh này không tính vào hạn mức ảnh Quiz và không hiện trong thư viện của giáo viên. Hồ sơ không còn nhận liên kết dán tay.
 
 Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).
 
