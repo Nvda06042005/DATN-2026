@@ -54,6 +54,7 @@ export class AiTutorService implements OnModuleDestroy {
   private readonly logger = new Logger('AiTutor');
   private pyProc: ChildProcessWithoutNullStreams | null = null;
   private pyReadyPromise: Promise<boolean> | null = null;
+  private pyIsReady = false;
   private nextReqId = 1;
   private readonly pendingReqs = new Map<number, { resolve: (v: any) => void; reject: (e: Error) => void; timer: NodeJS.Timeout }>();
 
@@ -62,6 +63,7 @@ export class AiTutorService implements OnModuleDestroy {
   ) {}
 
   onModuleDestroy() {
+    this.pyIsReady = false;
     if (this.pyProc) {
       try { this.pyProc.kill(); } catch {}
       this.pyProc = null;
@@ -83,6 +85,7 @@ export class AiTutorService implements OnModuleDestroy {
 
   private ensurePythonBridge(): Promise<boolean> {
     if (process.env.JEST_WORKER_ID) return Promise.resolve(false);
+    if (this.pyIsReady && this.pyProc && !this.pyProc.killed) return Promise.resolve(true);
     if (this.pyProc && !this.pyProc.killed && this.pyReadyPromise) return this.pyReadyPromise;
     const scriptPath = this.resolveBridgeScript();
     if (!scriptPath) return Promise.resolve(false);
@@ -108,6 +111,7 @@ export class AiTutorService implements OnModuleDestroy {
           try {
             const msg = JSON.parse(trimmed);
             if (msg.ready) {
+              this.pyIsReady = true;
               this.logger.log(`Đã kết nối Model NLP Đông A Python (${msg.units} chủ điểm, ${msg.train_samples} mẫu huấn luyện)`);
               done(true);
               return;
@@ -124,11 +128,13 @@ export class AiTutorService implements OnModuleDestroy {
         proc.on('error', () => {
           this.pyProc = null;
           this.pyReadyPromise = null;
+          this.pyIsReady = false;
           done(false);
         });
         proc.on('exit', () => {
           this.pyProc = null;
           this.pyReadyPromise = null;
+          this.pyIsReady = false;
           for (const [, p] of this.pendingReqs) {
             clearTimeout(p.timer);
             p.reject(new Error('Python bridge exited'));
@@ -136,8 +142,15 @@ export class AiTutorService implements OnModuleDestroy {
           this.pendingReqs.clear();
           done(false);
         });
-        setTimeout(() => done(false), 15000);
+        setTimeout(() => {
+          if (!this.pyIsReady) {
+            this.pyReadyPromise = null;
+            done(false);
+          }
+        }, 45000);
       } catch {
+        this.pyReadyPromise = null;
+        this.pyIsReady = false;
         done(false);
       }
     });
