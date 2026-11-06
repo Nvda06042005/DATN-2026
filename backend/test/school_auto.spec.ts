@@ -67,6 +67,7 @@ import { createHash } from 'node:crypto';
     expect(counts.entries).toBe(11371);
     expect(counts.assets).toBe(422);
     const choice = (await api('GET', '/api/admin/school-directory?q=79765507')).body.items[0];
+    expect(choice).toMatchObject({ region: 'Phường Thạnh Mỹ Tây', address: '120B Ngô Tất Tố, phường Thạnh Mỹ Tây, Thành phố Hồ Chí Minh' });
     expect(choice.logo_url).toMatch(/^https:\/\/[^/]+\/api\/school-logos\/[a-f0-9]{64}\.webp$/);
     const logoPath = new URL(choice.logo_url).pathname;
     expect(choice.image_data).toBeUndefined();

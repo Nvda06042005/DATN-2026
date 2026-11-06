@@ -42,7 +42,7 @@ Migration **043** tạo app_school_directory và app_school_logo_assets; **044**
 
 Asset có khóa SHA-256 duy nhất và kiểm tra checksum trong PostgreSQL. Hai trường được xác minh dùng cùng logo có thể tham chiếu một asset; không gán chéo chỉ vì ảnh giống. Bảng bật RLS, không có policy công khai. Backend trả riêng GET /api/school-logos/<sha256>.webp, image/webp, nosniff, ETag và cache immutable một năm. Gợi ý chỉ trả URL; giao diện tải ảnh đang hiển thị, không nhận hàng trăm ảnh base64 trong JSON. PUBLIC_API_URL có thể đặt địa chỉ HTTPS backend; mặc định dùng RENDER_EXTERNAL_URL trên Render.
 
-Đối chiếu **07/11/2026**: đã thử 3.085 website, ghép được 1.727, 420 còn trùng tên, 394 chưa ghép, 544 không truy cập được. Metadata 1.732 trường (kể cả nguồn trước), 1.373 địa chỉ. Đã xem 518 ảnh, loại 96 ảnh không phù hợp hoặc chưa chắc gán đúng; giữ **422 logo**, **4.153.024 byte**, hiện có SHA-256 khác nhau. Đây là độ phủ xác minh, chưa đủ ảnh/địa chỉ toàn bộ 11.371 trường hay mọi vụ sáp nhập 2026. Danh sách loại: scripts/school-logo-review.json.
+Đối chiếu **07/11/2026**: đã thử 3.085 website, ghép được 1.727, 420 còn trùng tên, 394 chưa ghép, 544 không truy cập được. Metadata 1.732 trường (kể cả nguồn trước), 1.374 địa chỉ. Đã xem 518 ảnh, loại 96 ảnh không phù hợp hoặc chưa chắc gán đúng; giữ **422 logo**, **4.153.024 byte**, hiện có SHA-256 khác nhau. Đây là độ phủ xác minh, chưa đủ ảnh/địa chỉ toàn bộ 11.371 trường hay mọi vụ sáp nhập 2026. Danh sách loại: scripts/school-logo-review.json.
 
 Sau khi duyệt ảnh, tạo migration số mới (script từ chối ghi đè):
 
@@ -52,3 +52,5 @@ python -X utf8 scripts/build-school-catalog-seed.py 0XX_school_catalog_update.sq
 ```
 
 SQL là nguồn seed; không sửa file 044 đã phát hành hoặc chỉnh Supabase riêng. Tỉnh/thành được quy đổi 34 đơn vị; vùng/huyện nguồn cũ giữ nguyên nếu chưa xác minh phường/xã mới, không tự suy ra địa chỉ 2026.
+
+Migration **045** xác minh địa chỉ THCS Phú Mỹ từ footer website trường: 120B Ngô Tất Tố, phường Thạnh Mỹ Tây, TP.HCM. Tìm theo khu vực cũ Bình Thạnh vẫn trỏ đúng mã 79765507.

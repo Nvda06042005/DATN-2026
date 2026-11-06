@@ -169,7 +169,8 @@ def run(args):
     entries = [{'code': row[0], 'name': row[1], 'city': base['provinces'][row[2]], 'region': row[3]} for row in base['schools'] + extra['schools']]
     confirmed = json.loads((ROOT / 'backend/src/admin/school-confirmed-2026.json').read_text(encoding='utf-8'))['schools']
     removed = {code for row in confirmed for code in row.get('previous_codes', [])}
-    entries = [entry for entry in entries if entry['code'] not in removed] + confirmed
+    confirmed_codes = {entry['code'] for entry in confirmed}
+    entries = [entry for entry in entries if entry['code'] not in removed | confirmed_codes] + confirmed
     by_name = defaultdict(list)
     by_code = {entry['code']: entry for entry in entries}
     for entry in entries:

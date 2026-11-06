@@ -35,6 +35,20 @@
         "Trường THCS Minh Đức Thủy Nguyên",
         "Trường THCS Ngũ Lão"
       ]
+    },
+    {
+      "code": "79765507",
+      "name": "THCS Phú Mỹ",
+      "city": "Thành phố Hồ Chí Minh",
+      "region": "Phường Thạnh Mỹ Tây",
+      "address": "120B Ngô Tất Tố, phường Thạnh Mỹ Tây, Thành phố Hồ Chí Minh",
+      "website": "https://thcsphumy.hcm.edu.vn/",
+      "source": "https://thcsphumy.hcm.edu.vn/",
+      "verified": true,
+      "aliases": [
+        "THCS Phú Mỹ Bình Thạnh"
+      ],
+      "checked_at": "2026-11-07"
     }
   ]
 }

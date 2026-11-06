@@ -40,7 +40,7 @@ describe('Danh mục trường và quy tắc đặt tên đường dẫn', () =>
 
   test('tìm theo tên, có dấu hay không dấu, theo mã hoặc theo quận; trường THCS Phú Mỹ (Bình Thạnh) có mã Bộ GD&ĐT, khu vực và tỉnh/thành', () => {
     for (const q of ['phu my binh thanh', 'Phú Mỹ Bình Thạnh', '79765507']) {
-      expect(searchDirectory(q)[0]).toMatchObject({ code: '79765507', name: 'THCS Phú Mỹ', region: 'Quận Bình Thạnh', city: 'Thành phố Hồ Chí Minh' });
+      expect(searchDirectory(q)[0]).toMatchObject({ code: '79765507', name: 'THCS Phú Mỹ', region: 'Phường Thạnh Mỹ Tây', city: 'Thành phố Hồ Chí Minh' });
     }
     expect(searchDirectory('   ')).toHaveLength(12);
     expect(searchDirectory('khong-co-truong-nao-ten-nhu-the-xyz')).toEqual([]);
@@ -119,7 +119,7 @@ describe('Danh mục trường và quy tắc đặt tên đường dẫn', () =>
   test('gợi ý từ danh mục chỉ dành cho quản trị tổng, kèm cờ "đã có trong hệ thống" và đường dẫn sẽ tạo', async () => {
     const found = await api('GET', `/api/admin/school-directory?q=${encodeURIComponent('phú mỹ bình thạnh')}`);
     expect(found.status).toBe(200);
-    expect(found.body.items[0]).toMatchObject({ code: '79765507', name: 'THCS Phú Mỹ', region: 'Quận Bình Thạnh', city: 'Thành phố Hồ Chí Minh', exists: false, slug: SLUG });
+    expect(found.body.items[0]).toMatchObject({ code: '79765507', name: 'THCS Phú Mỹ', region: 'Phường Thạnh Mỹ Tây', city: 'Thành phố Hồ Chí Minh', exists: false, slug: 'donga_79765507_phumy_phuongthanhmytay' });
     expect((await api('GET', '/api/admin/school-directory')).body.items).toHaveLength(30);
     expect((await api('GET', '/api/admin/school-directory?q=x&limit=999')).status).toBe(422);
     expect((await api('GET', '/api/admin/school-directory?q=phu', undefined, '')).status).toBe(401);

@@ -85,3 +85,5 @@ Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).
 
 - **043_school_catalog_logo_store.sql**: bảng danh mục và asset WebP bytea, SHA-256 duy nhất, kiểm tra định dạng/kích thước, RLS không có policy công khai.
 - **044_national_school_catalog_seed.sql**: 11.371 gợi ý, 422 logo đã rà (4.153.024 byte ảnh), không tạo trường/người dùng; API tải từng ảnh. Xem docs/DANH_MUC_TRUONG.md.
+
+- **045_phu_my_verified_address.sql**: địa chỉ và phường hiện hành của THCS Phú Mỹ theo website trường; chỉ dữ liệu tham chiếu.
