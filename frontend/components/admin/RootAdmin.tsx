@@ -11,7 +11,7 @@ import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { SystemStats } from '@/components/admin/AnalyticsAdmin';
 import { BroadcastManager } from '@/components/admin/PlatformComms';
 import { FaqManager, LogsPanel, SupportInbox } from '@/components/admin/PlatformOps';
-import { Cell, CredentialSheet, ErrorNote, FormSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, usePageSize, DataTable, type FieldDef } from '@/components/admin/kit';
+import { Cell, CredentialSheet, ErrorNote, FormSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, usePageSize, DataTable, type FieldDef, type SearchFilter } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { SchoolEmblem, SchoolLinkBox } from '@/components/school-brand';
 import { schoolLogoUrl } from '@/lib/school-logos';
@@ -21,9 +21,9 @@ import { fmt } from '@/lib/format';
 import type { AuthRole, CreatedAccount, CreatedSchool, SchoolDirectoryItem, SchoolItem } from '@/types/api';
 
 const NAV = [
+  { id: 'stats' as const, label: 'Thống kê hệ thống', icon: ChartColumn },
   { id: 'schools' as const, label: 'Trường học', icon: Building2 },
   { id: 'users' as const, label: 'Người dùng', icon: Users },
-  { id: 'stats' as const, label: 'Thống kê hệ thống', icon: ChartColumn },
   { id: 'notices' as const, label: 'Thông báo', icon: Bell },
   { id: 'logs' as const, label: 'Nhật ký', icon: History },
   { id: 'faq' as const, label: 'Hướng dẫn và FAQ', icon: LibraryBig },
@@ -32,7 +32,7 @@ const NAV = [
 type Tab = (typeof NAV)[number]['id'];
 
 export const RootAdmin: React.FC<{ session: Session }> = ({ session }) => {
-  const [tab, setTab] = useState<Tab>('schools');
+  const [tab, setTab] = useState<Tab>('stats');
   const { data: schools } = useLoad(() => api.listSchools(session.token, { limit: 200 }), [session.token], session.expired);
   const options = useMemo(() => (schools?.items ?? []).map((s) => ({ value: String(s.id), label: `${s.name} (${s.school_code})` })), [schools]);
   return (
@@ -91,14 +91,13 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
     extra={<View style={{ gap: 10 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><SchoolEmblem name={created.school.name} code={created.school.school_code} logoUrl={created.school.logo_url} size={48} /><Txt f="bold" size={15} style={{ flex: 1 }}>{created.school.name} · mã {created.school.school_code}</Txt></View><SchoolLinkBox link={created.school.link} /></View>} />;
   const cities = [{ value: '', label: 'Mọi tỉnh / thành' }, ...(data?.facets.cities ?? []).map((x) => ({ value: x, label: x }))];
 
+  const f_city: SearchFilter = { key: 'city', label: 'Tỉnh / thành', value: city, options: cities, onChange: (v) => { setCity(v); setPage(1); } };
+  const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã vô hiệu hóa' }], onChange: (v) => { setActive(v); setPage(1); } };
   return (
     <Page>
       <PageHeader title="Trường học" subtitle="Thêm trường kèm quản trị viên đầu tiên, sửa thông tin, vô hiệu hóa hoặc xóa trường chưa có dữ liệu." actions={<Btn title="Thêm trường" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="school-add" />} />
       <SearchFilterBar placeholder="Tìm theo tên hoặc mã trường" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="school-search"
-        filters={[
-          { key: 'city', label: 'Tỉnh / thành', value: city, options: cities, onChange: (v) => { setCity(v); setPage(1); } },
-          { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã vô hiệu hóa' }], onChange: (v) => { setActive(v); setPage(1); } },
-        ]} />
+        filters={[f_city, f_active]} />
       <ErrorNote message={error} />
       {loading && !data ? <Spinner label="Đang tải danh sách trường…" /> : null}
       {data ? (
@@ -106,9 +105,9 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
           <DataTable rows={data.items} rowKey={(s) => s.id} empty="Không có trường nào khớp bộ lọc." onRowPress={(s) => setDetail(s.id)}
             columns={[
               { key: 'name', label: 'Trường', flex: 2.2, render: (s) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><SchoolEmblem name={s.name} code={s.school_code} logoUrl={s.logo_url} size={36} /><View style={{ flex: 1 }}><Cell main={s.name} sub={`Mã ${s.school_code}${s.region ? ` · ${s.region}` : ''}`} /></View></View> },
-              { key: 'city', label: 'Tỉnh / thành', render: (s) => <Txt size={14}>{s.city || 'Chưa có'}</Txt> },
+              { key: 'city', filter: f_city, label: 'Tỉnh / thành', render: (s) => <Txt size={14}>{s.city || 'Chưa có'}</Txt> },
               { key: 'users', label: 'Người dùng', render: (s) => <Cell main={fmt(s.users)} sub={`${s.teachers} GV · ${s.students} HS · ${s.classes} lớp`} /> },
-              { key: 'status', label: 'Trạng thái', render: (s) => <StatusChip kind={s.is_active ? 'on' : 'off'} text={s.is_active ? 'Hoạt động' : 'Vô hiệu hóa'} /> },
+              { key: 'status', filter: f_active, label: 'Trạng thái', render: (s) => <StatusChip kind={s.is_active ? 'on' : 'off'} text={s.is_active ? 'Hoạt động' : 'Vô hiệu hóa'} /> },
               { key: 'created', label: 'Ngày tạo', render: (s) => <Txt size={13} color={c.muc2}>{dateText(s.created_at)}</Txt> },
             ]}
             actions={(s) => (<>
@@ -270,15 +269,14 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
   const refresh = useCallback(() => reload(), [reload]);
 
   if (credential) return <CredentialSheet title="Tài khoản quản trị đã được tạo" account={{ full_name: credential.user.full_name, username: credential.user.username, temporary_password: credential.temporary_password, mail: credential.mail }} onClose={() => setCredential(null)} />;
+  const f_role: SearchFilter = { key: 'role', label: 'Vai trò', value: role, options: [{ value: '', label: 'Mọi vai trò' }, ...(Object.keys(ROLE_TEXT) as AuthRole[]).map((r) => ({ value: r, label: ROLE_TEXT[r] }))], onChange: (v) => { setRole(v); setPage(1); } };
+  const f_school: SearchFilter = { key: 'school', label: 'Trường', value: schoolId, options: [{ value: '', label: 'Mọi trường' }, ...schools], onChange: (v) => { setSchoolId(v); setPage(1); } };
+  const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }], onChange: (v) => { setActive(v); setPage(1); } };
   return (
     <Page>
       <PageHeader title="Người dùng toàn hệ thống" subtitle="Xem, tìm, lọc; sửa, đổi vai trò, khóa/mở khóa, đặt lại mật khẩu hoặc xóa tài khoản chưa phát sinh dữ liệu." actions={<Btn title="Tạo tài khoản quản trị" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="user-add" />} />
       <SearchFilterBar placeholder="Tìm theo tên, tên đăng nhập, email, mã" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="user-search"
-        filters={[
-          { key: 'role', label: 'Vai trò', value: role, options: [{ value: '', label: 'Mọi vai trò' }, ...(Object.keys(ROLE_TEXT) as AuthRole[]).map((r) => ({ value: r, label: ROLE_TEXT[r] }))], onChange: (v) => { setRole(v); setPage(1); } },
-          { key: 'school', label: 'Trường', value: schoolId, options: [{ value: '', label: 'Mọi trường' }, ...schools], onChange: (v) => { setSchoolId(v); setPage(1); } },
-          { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }], onChange: (v) => { setActive(v); setPage(1); } },
-        ]} />
+        filters={[f_role, f_school, f_active]} />
       <ErrorNote message={error} />
       {loading && !data ? <Spinner label="Đang tải danh sách…" /> : null}
       {data ? (
@@ -286,11 +284,11 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
           <DataTable rows={data.items} rowKey={(u) => u.id} empty="Không có người dùng nào khớp bộ lọc." onRowPress={(u) => setOpen(u.id)}
             columns={[
               { key: 'name', label: 'Họ tên', flex: 2, render: (u) => <Cell main={u.full_name} sub={u.username} /> },
-              { key: 'role', label: 'Vai trò', render: (u) => <Cell main={ROLE_TEXT[u.role]} sub={u.role === 'root_admin' ? `Cấp ${u.admin_level}` : null} /> },
-              { key: 'school', label: 'Trường', flex: 1.5, render: (u) => <Txt size={14}>{u.school_name || '—'}</Txt> },
+              { key: 'role', filter: f_role, label: 'Vai trò', render: (u) => <Cell main={ROLE_TEXT[u.role]} sub={u.role === 'root_admin' ? `Cấp ${u.admin_level}` : null} /> },
+              { key: 'school', filter: f_school, label: 'Trường', flex: 1.5, render: (u) => <Txt size={14}>{u.school_name || '—'}</Txt> },
               { key: 'email', label: 'Email', flex: 1.6, render: (u) => <Txt size={13} color={c.muc2} numberOfLines={2}>{u.email || 'Chưa có'}</Txt> },
               { key: 'last', label: 'Đăng nhập cuối', render: (u) => <Txt size={13} color={c.muc2}>{dateText(u.last_login_at)}</Txt> },
-              { key: 'status', label: 'Trạng thái', render: (u) => <StatusChip kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
+              { key: 'status', filter: f_active, label: 'Trạng thái', render: (u) => <StatusChip kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
             ]} />
           <Pager page={page} limit={size} total={data.total} onPage={setPage} />
         </>

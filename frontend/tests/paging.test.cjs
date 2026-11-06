@@ -63,7 +63,7 @@ test('bảng tự chia trang khi nhiều dòng hơn một trang (mặc định b
   assert.match(kit, /useEffect\(\(\) => \{ if \(page > pages\) setPage\(pages\); \}, \[page, pages\]\);/);
   // hook đặt trước lệnh return sớm (lỗi React #310 từng làm sập trình soạn Quiz)
   const body = kit.slice(kit.indexOf('export function DataTable'));
-  assert.ok(body.indexOf('useEffect(') < body.indexOf('if (!rows.length) return'));
+  assert.ok(body.indexOf('useEffect(') < body.indexOf('if (!rows.length &&'));
   assert.equal((body.match(/\{pager\}/g) ?? []).length >= 2, true, 'cả bảng và danh sách thẻ đều có nút chuyển trang');
 });
 

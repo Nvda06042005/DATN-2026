@@ -65,3 +65,66 @@ test('thu nhỏ vừa đủ: trang hẹp lại, thanh tìm kiếm và khung lọ
   assert.match(profile, /display: tab === 'security' \? 'flex' : 'none'/);
   assert.match(profile, /<Avatar name=\{user\.full_name\} uri=\{user\.avatar_url\} size=\{56\} \/>/);
 });
+
+test('bộ lọc kiểu Excel: nút mũi tên ở tiêu đề từng cột mở danh sách giá trị; thanh tìm kiếm chỉ còn ô tìm và nút Xóa lọc ở màn rộng', () => {
+  // cột nhận bộ lọc, tiêu đề cột có nút, nút mở danh sách đặt ngay dưới nút bằng Modal (không bị bảng cắt)
+  assert.match(kit, /Bộ lọc của cột: hiện nút mũi tên ở tiêu đề cột \(kiểu Excel\)/);
+  assert.match(kit, /filter\?: SearchFilter;/);
+  assert.match(kit, /\{col\.filter \? <ColumnFilter filter=\{col\.filter\} \/> : null\}/);
+  assert.match(kit, /ref\.current\?\.measureInWindow\(\(x, y, w, h\) => setAnchor/);
+  assert.match(kit, /<Modal transparent visible animationType="none" onRequestClose=\{close\}/);
+  for (const id of ['col-filter-menu', 'col-filter-search', 'col-filter-${filter.key}-option-', 'testID={`col-filter-${filter.key}`}']) assert.ok(kit.includes(id), id);
+  // chọn một giá trị rồi đóng; dòng đầu của mỗi danh sách là "Tất cả" (giá trị rỗng) để bỏ lọc; danh sách dài (hơn 8 giá trị) có ô tìm
+  assert.match(kit, /filter\.onChange\(o\.value\); close\(\);/);
+  assert.match(kit, /filter\.options\.length > 8/);
+  // đang lọc: nút đỏ có phễu; bảng rỗng do lọc vẫn giữ tiêu đề để bỏ lọc được
+  assert.match(kit, /backgroundColor: on \? c\.logoRed/);
+  assert.match(kit, /const filterable = table && columns\.some\(\(col\) => col\.filter\);/);
+  assert.match(kit, /if \(!rows\.length && !filterable\) return <EmptyState/);
+  // màn rộng: không còn nút "Bộ lọc" và khung lọc trong thanh tìm kiếm; màn hẹp (danh sách thẻ không có tiêu đề cột) vẫn có
+  assert.match(kit, /const inHeader = width >= TABLE_MIN_WIDTH;/);
+  assert.match(kit, /\{filters\.length && !inHeader \? \(/);
+  assert.match(kit, /\{!inHeader && open && filters\.length \? \(/);
+  assert.match(kit, /Xóa lọc \(\{active\.length\}\)/);
+  // sáu bảng dùng bộ lọc cột: trường, người dùng, yêu cầu hỗ trợ, nhật ký thao tác, nhật ký đăng nhập, lỗi hệ thống
+  const admin = read('components', 'admin', 'RootAdmin.tsx');
+  const ops = read('components', 'admin', 'PlatformOps.tsx');
+  for (const [src, col, f] of [[admin, 'city', 'city'], [admin, 'status', 'active'], [admin, 'role', 'role'], [admin, 'school', 'school'], [ops, 'from', 'role'], [ops, 'status', 'status'], [ops, 'who', 'students'], [ops, 'res', 'ok'], [ops, 'src', 'source']]) {
+    assert.ok(src.includes(`key: '${col}', filter: f_${f}, `), `${col} ← f_${f}`);
+  }
+});
+
+test('menu quản trị tổng: Thống kê hệ thống đứng đầu rồi Trường học, Người dùng; các mục còn lại giữ nguyên thứ tự; mở trang là Thống kê', () => {
+  const root = read('components', 'admin', 'RootAdmin.tsx');
+  const ids = [...root.slice(root.indexOf('const NAV'), root.indexOf('type Tab')).matchAll(/id: '(\w+)'/g)].map((m) => m[1]);
+  assert.deepEqual(ids, ['stats', 'schools', 'users', 'notices', 'logs', 'faq', 'support']);
+  assert.match(root, /useState<Tab>\('stats'\)/);
+});
+
+test('thống kê hệ thống: một trang tổng quan vừa một màn hình, có đồng hồ nửa vòng; số liệu thực từ bốn API; cửa sổ nhỏ thì xếp chồng và cuộn', () => {
+  const dash = read('components', 'admin', 'SystemDashboard.tsx');
+  const panels = read('components', 'admin', 'DashboardPanels.tsx');
+  const gauge = read('components', 'admin', 'DashboardGauge.tsx');
+  assert.match(read('components', 'admin', 'AnalyticsAdmin.tsx'), /export const SystemStats: React\.FC<\{ session: Session \}> = \(\{ session \}\) => <SystemDashboard session=\{session\} \/>;/);
+  // bốn nguồn dữ liệu, một khoảng thời gian chung
+  for (const call of ['api.systemOverview(token)', 'api.systemContent(token)', "api.usage(token, 'day', days)", 'api.aiUsage(token, days)']) assert.ok(dash.includes(call), call);
+  assert.match(dash, /\(\[7, 14, 30\] as const\)/);
+  // hàng chỉ số + biểu đồ chuyển tab + ba đồng hồ + bốn thẻ; hàng biểu đồ co giãn theo chiều cao cửa sổ, tối đa 470 px
+  for (const id of ['dashboard-metrics', 'dashboard-gauges', 'dashboard-gauge-${g.id}', 'dashboard-tab-${t.value}', 'dashboard-users-trend', 'dashboard-learning-trend', 'dashboard-ai-trend']) assert.ok(dash.includes(id), id);
+  // sáu đồng hồ: ba đồng hồ đầu luôn hiện, ba đồng hồ sau chỉ hiện khi ô đủ cao (màn hình lớn)
+  for (const id of ['activity', 'content', 'ai', 'schools', 'week', 'today']) assert.ok(dash.includes(`id: '${id}'`), id);
+  assert.match(dash, /const moreGauges = wide && gaugeArea >= 360;/);
+  assert.match(dash, /flexGrow: 1, flexShrink: 0, flexBasis: 236, maxHeight: 560/);
+  assert.match(dash, /contentContainerStyle=\{\{ flexGrow: 1, padding: 10/);
+  assert.match(dash, /flexDirection: wide \? 'row' : 'column'/);
+  for (const card of ['RolesCard', 'ContentCard', 'UsageCard', 'AiCard']) assert.ok(dash.includes(`<${card} `), card);
+  for (const id of ['dashboard-roles', 'dashboard-content', 'dashboard-usage', 'dashboard-ai']) assert.ok(panels.includes(`testID="${id}"`), id);
+  // đồng hồ: cung xám nền, cung màu theo tỉ lệ, số lớn, nhãn mức có 5 ô
+  assert.match(gauge, /export const gaugeArc = /);
+  assert.match(gauge, /const PIPS = 5;/);
+  assert.match(gauge, /strokeLinecap="round"/);
+  // biểu đồ gọn: số liệu mốc đang chọn là một dòng phía trên, không phủ lên biểu đồ
+  const trend = read('components', 'admin', 'TrendChart.tsx');
+  assert.match(trend, /compact\?: boolean; chartHeight\?: number/);
+  assert.match(trend, /\{point && !compact && <View pointerEvents="none"/);
+});
