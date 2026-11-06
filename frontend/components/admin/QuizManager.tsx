@@ -4,11 +4,12 @@
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { ArrowDown, ArrowUp, Copy, Pencil, Play, Plus, Send, Sparkles, Trash2 } from 'lucide-react-native';
+import { ArrowDown, ArrowUp, Copy, FileUp, Pencil, Play, Plus, Send, Shuffle, Sparkles, Trash2 } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { QuestionPicker, ScopeChip, useCampaignOptions } from '@/components/admin/ContentKit';
 import { AiQuizModal } from '@/components/admin/AiQuizModal';
+import { SmartExamStudio, type SmartStudioMode } from '@/components/admin/SmartExamStudio';
 import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad } from '@/components/admin/kit';
 import { dateText } from '@/components/admin/AccountSheet';
 import type { Session } from '@/components/auth';
@@ -149,15 +150,33 @@ export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: numb
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [aiModal, setAiModal] = useState(false);
+  const [smartMode, setSmartMode] = useState<SmartStudioMode | null>(null);
   const [preview, setPreview] = useState<{ attempt: AttemptState; title: string } | null>(null);
   const term = useDebounced(q.trim(), 300);
   const list = useLoad(() => api.listQuizzes(session.token, { store, q: term, page, limit: 15 }), [session.token, store, term, page], session.expired);
   const canWrite = role === 'teacher' || role === 'root_admin';
+  if (smartMode !== null) {
+    return (
+      <Page>
+        <SmartExamStudio
+          session={session}
+          initialMode={smartMode}
+          onClose={() => setSmartMode(null)}
+          onSavedQuiz={(quizId) => {
+            setSmartMode(null);
+            list.reload();
+            setOpen(quizId);
+          }}
+          onOpenKahootStudio={onStudio}
+        />
+      </Page>
+    );
+  }
   return (
     <>
     <Page>
       <PageHeader title="Bộ đề" subtitle="Bộ câu hỏi dùng ở các nút trên bản đồ hành trình. Bộ đề đang được giao hoặc đã có học sinh làm thì khóa chỉnh sửa; hãy nhân bản để thay đổi."
-        actions={canWrite ? <><Btn icon={Sparkles} title="Soạn đề bằng AI" tone="ngoc" size="sm" onPress={() => setAiModal(true)} testID="quiz-ai" />{onStudio ? <Btn icon={Sparkles} title="Soạn Quiz kiểu Kahoot" tone="ngoc" size="sm" onPress={() => onStudio()} testID="quiz-studio" /> : null}<Btn icon={Plus} title="Tạo bộ đề" tone="son" size="sm" onPress={() => setCreating(true)} testID="quiz-create" /></> : undefined} />
+        actions={canWrite ? <><Btn icon={FileUp} title="Tải đề từ Word/PDF" tone="thuy" size="sm" onPress={() => setSmartMode('upload')} testID="quiz-word-import" /><Btn icon={Shuffle} title="Trộn đề thi" tone="thuy" size="sm" onPress={() => setSmartMode('mix')} testID="quiz-mix" />{onStudio ? <Btn icon={Sparkles} title="Soạn Quiz kiểu Kahoot" tone="ngoc" size="sm" onPress={() => onStudio()} testID="quiz-studio" /> : null}<Btn icon={Plus} title="Tạo bộ đề" tone="son" size="sm" onPress={() => setCreating(true)} testID="quiz-create" /></> : undefined} />
       <FilterBar>
         <FilterBox><AdminSelect label="Kho" value={store} onChange={(v) => { setStore(v); setPage(1); }}
           options={role === 'root_admin' ? [{ value: 'all', label: 'Kho hệ thống và đề xuất' }, { value: 'system', label: 'Kho hệ thống' }, { value: 'school', label: 'Kho của các trường' }]

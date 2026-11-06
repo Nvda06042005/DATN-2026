@@ -16,6 +16,7 @@ import { Btn, Card, Chip, EmptyState, Field, InfoNote, Segmented, Spinner, Txt, 
 import { useTheme } from '@/hooks/use-theme';
 import type { DraftResult, PlanResult, QuestionDraft } from '@/types/ai';
 import { AiQuizModal } from '@/components/admin/AiQuizModal';
+import { SmartExamStudio } from '@/components/admin/SmartExamStudio';
 
 type Part = 'ask' | 'topics' | 'questions' | 'plan';
 const KIND_LABEL: Record<string, string> = { figure: 'Nhân vật', event: 'Sự kiện', place: 'Địa danh', battle: 'Trận đánh', source: 'Tư liệu', term: 'Thuật ngữ', lesson: 'Bài học', doc: 'Tài liệu' };
@@ -88,6 +89,7 @@ const QuestionMaker: React.FC<{ session: Session }> = ({ session }) => {
   const [res, setRes] = useState<DraftResult | null>(null);
   const [drafts, setDrafts] = useState<QuestionDraft[]>([]);
   const [quizModalOpen, setQuizModalOpen] = useState(false);
+  const [smartExamOpen, setSmartExamOpen] = useState(false);
   const apiKind = { lessons: 'lesson', battles: 'battle', events: 'event', text: 'text' }[kind];
   const list = kind === 'text' ? [] : options.data?.[kind] ?? [];
   const go = async () => {
@@ -104,8 +106,9 @@ const QuestionMaker: React.FC<{ session: Session }> = ({ session }) => {
           </View>
           <Txt size={13} color={c.muc2}>Sinh bộ trắc nghiệm 4 đáp án đối chiếu căn cứ sử liệu chính thức, phân bổ nhận thức và lưu thẳng vào Ngân hàng.</Txt>
         </View>
-        <Btn icon={Sparkles} title="Mở bộ soạn đề AI" tone="ngoc" onPress={() => setQuizModalOpen(true)} />
+        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}><Btn icon={Sparkles} title="Số hóa Đề Word (.docx) & Trộn đề" tone="thuy" onPress={() => setSmartExamOpen(!smartExamOpen)} /></View>
       </Card>
+      {smartExamOpen ? <SmartExamStudio session={session} initialMode="upload" onClose={() => setSmartExamOpen(false)} /> : null}
       {quizModalOpen ? <AiQuizModal open={quizModalOpen} onClose={() => setQuizModalOpen(false)} session={session} /> : null}
       <Txt size={14}>Hoặc chọn một bài học, trận đánh, sự kiện hoặc dán văn bản tự do: Hệ thống soạn bản nháp câu hỏi; thầy cô đọc, sửa và bấm lưu thì câu hỏi mới vào ngân hàng của thầy cô. Không có câu nào tự lưu.</Txt>
       <Segmented<typeof kind> label="Nguồn nội dung" value={kind} onChange={(k) => { setKind(k); setPicked(null); }} options={[{ value: 'lessons', label: 'Bài học' }, { value: 'battles', label: 'Trận đánh' }, { value: 'events', label: 'Sự kiện' }, { value: 'text', label: 'Dán văn bản' }]} />

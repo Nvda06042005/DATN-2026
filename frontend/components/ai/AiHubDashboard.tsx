@@ -1,11 +1,10 @@
 /**
- * AI Hub Dashboard - Trung tâm Điều khiển Trợ lý AI Sử học Đông A (Thiết kế độc lập chuẩn EdTech)
+ * AI Hub Dashboard - Trung tâm Điều khiển Trợ lý AI Sử học Đông A (Thiết kế tinh gọn, hiện đại)
  * Kết nối trực tiếp với Hệ thống AI Python của người dùng:
  * 1. AI Tutor: Hỏi đáp đa lượt cùng Thầy Đông A & Nhập vai 8 danh tướng (Model NLP 81 chủ điểm + ĐVSKTT)
- * 2. Quizzes: Luyện đề trắc nghiệm thông minh theo 5 nhóm chủ đề & ma trận Bloom GDPT 2018
+ * 2. Quizzes: Số hóa Đề thi từ File Word (.docx), biên tập đề chuẩn 2048.vn & Trộn mã đề 101–104
  * 3. Flash Cards: Bộ thẻ ghi nhớ mốc năm, danh tướng và chiến thuật 2 mặt tương tác
- * 4. Summarizer: Tóm tắt bài học, chiến dịch và sử liệu ngắn gọn
- * 5. Lộ trình BKT Cá nhân hóa (Bayesian Knowledge Tracing): Theo dõi xác suất nắm vững P(L) và gợi ý ôn tập
+ * 4. Lộ trình BKT Cá nhân hóa (Compact UI): Theo dõi tiến độ nắm vững kiến thức gọn gàng, trực quan
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, View, type ScrollViewInstance } from 'react-native';
@@ -14,24 +13,23 @@ import {
   BookOpen,
   Bot,
   Check,
-  FileText,
   Info,
   Layers,
   ListChecks,
   RefreshCw,
   Sparkles,
   Target,
+  Upload,
 } from 'lucide-react-native';
 import * as aiApi from '@/api/aiApi';
-import { errorMessage } from '@/api/client';
-import { AiQuizModal } from '@/components/admin/AiQuizModal';
+import { SmartExamStudio } from '@/components/admin/SmartExamStudio';
 import type { Session } from '@/components/auth';
-import { ChatPanel, MarkdownText } from '@/components/portal/TieuTuong';
-import { Btn, Card, Chip, Sheet, Spinner, Txt, useToast } from '@/components/ui';
+import { ChatPanel } from '@/components/portal/TieuTuong';
+import { Btn, Card, Chip, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { BktRecommendationItem, BktRecommendationsResponse } from '@/types/ai';
 
-export type AiHubView = 'hub' | 'tutor' | 'quizzes' | 'flashcards' | 'summarizer';
+export type AiHubView = 'hub' | 'tutor' | 'quizzes' | 'flashcards';
 
 interface FlashcardItem {
   id: string;
@@ -119,20 +117,13 @@ export interface AiHubDashboardProps {
 
 export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenSource, onClose }) => {
   const { c } = useTheme();
-  const toast = useToast();
 
   const [activeView, setActiveView] = useState<AiHubView>('hub');
-  const [quizModalOpen, setQuizModalOpen] = useState<boolean>(false);
 
   // State cho Flashcards
   const [fcIndex, setFcIndex] = useState<number>(0);
   const [fcFlipped, setFcFlipped] = useState<boolean>(false);
   const [masteredIds, setMasteredIds] = useState<Set<string>>(new Set());
-
-  // State cho Summarizer
-  const [summaryKind, setSummaryKind] = useState<string>('all');
-  const [summaryText, setSummaryText] = useState<string | null>(null);
-  const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
 
   // State cho AI Tutor / Roleplay
   const [tutorTab, setTutorTab] = useState<'chat' | 'roleplay'>('chat');
@@ -167,24 +158,6 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
     }, 100);
   };
 
-  // ---------------------------------------------------------------------- Xử lý Summarizer
-  const handleSummarizeTopic = async (topicTitle: string, promptText: string) => {
-    setSummaryLoading(true);
-    setSummaryText(null);
-    try {
-      const res = await aiApi.aiAsk(session.token, {
-        question: `Tóm tắt 3 ý chính dễ thuộc về: ${promptText}`,
-      });
-      if (res?.message?.content) {
-        setSummaryText(`### Tóm tắt: ${topicTitle}\n\n${res.message.content}`);
-      }
-    } catch (e) {
-      toast(errorMessage(e));
-    } finally {
-      setSummaryLoading(false);
-    }
-  };
-
   // ---------------------------------------------------------------------- Xử lý Flashcards
   const currentCard = HISTORICAL_FLASHCARDS[fcIndex];
   const isMastered = masteredIds.has(currentCard.id);
@@ -217,35 +190,35 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
   };
 
   // ======================================================================
-  // GIAO DIỆN TRANG CHỦ AI HUB (LƯỚI 4 THẺ CÂN ĐỐI 2x2 + LỘ TRÌNH BKT)
+  // GIAO DIỆN TRANG CHỦ AI HUB (3 THẺ CHÍNH + BANNER WORD + LỘ TRÌNH GỌN NHẸ)
   // ======================================================================
   if (activeView === 'hub') {
     const recs = bktData?.recommendations ?? [];
     const params = bktData?.bkt_parameters ?? { p_l0: 0.3, p_t: 0.15, p_g: 0.25, p_s: 0.1, mastery_threshold: 0.6 };
 
     return (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingBottom: 60, gap: 24, maxWidth: 960, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingBottom: 60, gap: 22, maxWidth: 960, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
         {/* Header chào mừng */}
-        <View style={{ alignItems: 'center', gap: 10, paddingTop: 10 }}>
+        <View style={{ alignItems: 'center', gap: 8, paddingTop: 6 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Txt size={22}>👋</Txt>
             <Txt f="displayHeavy" size={24} color={c.muc}>
               Trợ lý AI Sử học Đông A — Hào Khí Đông A
             </Txt>
           </View>
-          <Txt f="bold" size={26} center color={c.muc}>
-            Hỏi đáp Sử liệu • Sinh đề Bloom • Hồ sơ Học tập Thông minh
+          <Txt f="bold" size={22} center color={c.muc}>
+            Hỏi đáp Sử liệu • Số hóa Đề thi • Hồ sơ Học tập Thông minh
           </Txt>
-          <Txt size={15} center color={c.muc2} style={{ maxWidth: 680 }}>
-            Trợ lý AI đồng hành học Lịch sử 7: Hỏi đáp đa lượt cùng Thầy Đông A, luyện đề trắc nghiệm chuẩn hóa và theo dõi lộ trình ôn tập cá nhân hóa.
+          <Txt size={14} center color={c.muc2} style={{ maxWidth: 680 }}>
+            Trợ lý đồng hành học Lịch sử 7: Hỏi đáp đa lượt cùng Thầy Đông A, số hóa đề thi Word (.docx) và theo dõi lộ trình ôn tập cá nhân hóa.
           </Txt>
           {onClose ? (
             <Btn title="Đóng bảng điều khiển" tone="giay" size="sm" onPress={onClose} />
           ) : null}
         </View>
 
-        {/* Lưới 4 thẻ tính năng chính (2x2 Grid) */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 18, justifyContent: 'center' }}>
+        {/* Lưới 3 thẻ tính năng chính (Đã bỏ chức năng Summarizer theo Note 3) */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, justifyContent: 'center' }}>
           {/* Card 1: AI Tutor (Hỏi đáp & Nhập vai) */}
           <Pressable
             onPress={() => {
@@ -254,59 +227,59 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
             }}
             style={({ pressed }) => ({
               flexGrow: 1,
-              flexBasis: 360,
-              maxWidth: 440,
-              minHeight: 180,
-              padding: 22,
-              borderRadius: 20,
+              flexBasis: 270,
+              maxWidth: 310,
+              minHeight: 168,
+              padding: 20,
+              borderRadius: 18,
               backgroundColor: pressed ? c.the2 : c.the,
-              borderWidth: 2,
+              borderWidth: 1.5,
               borderColor: c.vien,
-              gap: 12,
+              gap: 10,
               justifyContent: 'space-between',
             })}
           >
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }}>
-                <Bot size={24} color="#4F46E5" />
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }}>
+                <Bot size={22} color="#4F46E5" />
               </View>
               <Chip text="81 Chủ điểm • 8 Danh tướng" bg={c.thuyNhat} fg={c.thuyChu} />
             </View>
             <View style={{ gap: 4 }}>
-              <Txt f="bold" size={18} color={c.muc}>AI Tutor — Thầy Đông A & Nhập vai</Txt>
+              <Txt f="bold" size={17} color={c.muc}>AI Tutor — Thầy Đông A</Txt>
               <Txt size={13} color={c.muc2} numberOfLines={3}>
-                Hỏi đáp đa lượt nhớ ngữ cảnh, tự động đính chính lỗi sai lịch sử, khảo bài tự luận trực tiếp trên Chat và đàm đạo cùng 8 danh tướng thời Trần.
+                Hỏi đáp đa lượt nhớ ngữ cảnh, tự động đính chính lỗi sai lịch sử và đàm đạo cùng 8 danh tướng thời Trần.
               </Txt>
             </View>
           </Pressable>
 
-          {/* Card 2: Quizzes (Luyện đề trắc nghiệm Bloom) */}
+          {/* Card 2: Quizzes (Số hóa Đề Word/PDF & Trộn đề) */}
           <Pressable
-            onPress={() => setQuizModalOpen(true)}
+            onPress={() => setActiveView('quizzes')}
             style={({ pressed }) => ({
               flexGrow: 1,
-              flexBasis: 360,
-              maxWidth: 440,
-              minHeight: 180,
-              padding: 22,
-              borderRadius: 20,
+              flexBasis: 270,
+              maxWidth: 310,
+              minHeight: 168,
+              padding: 20,
+              borderRadius: 18,
               backgroundColor: pressed ? c.the2 : c.the,
-              borderWidth: 2,
+              borderWidth: 1.5,
               borderColor: c.vien,
-              gap: 12,
+              gap: 10,
               justifyContent: 'space-between',
             })}
           >
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center' }}>
-                <ListChecks size={24} color="#059669" />
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center' }}>
+                <ListChecks size={22} color="#059669" />
               </View>
-              <Chip text="Ma trận Bloom GDPT 2018" bg={c.ngocNhat} fg={c.ngocChu} />
+              <Chip text="Word .docx • Trộn đề" bg={c.ngocNhat} fg={c.ngocChu} />
             </View>
             <View style={{ gap: 4 }}>
-              <Txt f="bold" size={18} color={c.muc}>Quizzes — Khảo thí Thích ứng</Txt>
+              <Txt f="bold" size={17} color={c.muc}>Quizzes — Số hóa Đề Word</Txt>
               <Txt size={13} color={c.muc2} numberOfLines={3}>
-                Sinh đề trắc nghiệm chuẩn hóa các mức độ nhận thức Bloom (Nhận biết, Thông hiểu, Vận dụng) theo 5 nhóm chuyên đề SGK Lịch sử 7.
+                Tải lên đề thi .docx bất kỳ để tự động bóc tách câu hỏi, biên tập trực quan, trộn mã đề 101–104 và làm bài thử.
               </Txt>
             </View>
           </Pressable>
@@ -316,89 +289,98 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
             onPress={() => setActiveView('flashcards')}
             style={({ pressed }) => ({
               flexGrow: 1,
-              flexBasis: 360,
-              maxWidth: 440,
-              minHeight: 180,
-              padding: 22,
-              borderRadius: 20,
+              flexBasis: 270,
+              maxWidth: 310,
+              minHeight: 168,
+              padding: 20,
+              borderRadius: 18,
               backgroundColor: pressed ? c.the2 : c.the,
-              borderWidth: 2,
+              borderWidth: 1.5,
               borderColor: c.vien,
-              gap: 12,
+              gap: 10,
               justifyContent: 'space-between',
             })}
           >
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FFEDD5', alignItems: 'center', justifyContent: 'center' }}>
-                <Layers size={24} color="#EA580C" />
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFEDD5', alignItems: 'center', justifyContent: 'center' }}>
+                <Layers size={22} color="#EA580C" />
               </View>
               <Chip text={`${masteredIds.size}/${HISTORICAL_FLASHCARDS.length} đã thuộc`} bg={c.dongNhat} fg={c.dongChu} />
             </View>
             <View style={{ gap: 4 }}>
-              <Txt f="bold" size={18} color={c.muc}>Flash Cards — Thẻ nhớ Sử liệu</Txt>
+              <Txt f="bold" size={17} color={c.muc}>Flash Cards — Thẻ nhớ Sử liệu</Txt>
               <Txt size={13} color={c.muc2} numberOfLines={3}>
-                Bộ thẻ ghi nhớ 2 mặt tương tác, ôn luyện nhanh mốc thời gian (1258, 1285, 1288), danh tướng và kế sách kháng chiến.
-              </Txt>
-            </View>
-          </Pressable>
-
-          {/* Card 4: Summarizer (Tóm tắt sử liệu) */}
-          <Pressable
-            onPress={() => setActiveView('summarizer')}
-            style={({ pressed }) => ({
-              flexGrow: 1,
-              flexBasis: 360,
-              maxWidth: 440,
-              minHeight: 180,
-              padding: 22,
-              borderRadius: 20,
-              backgroundColor: pressed ? c.the2 : c.the,
-              borderWidth: 2,
-              borderColor: c.vien,
-              gap: 12,
-              justifyContent: 'space-between',
-            })}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: '#FCE7F3', alignItems: 'center', justifyContent: 'center' }}>
-                <FileText size={24} color="#DB2777" />
-              </View>
-              <Chip text="Tóm tắt 3 ý cốt lõi" bg={c.sonNhat} fg={c.sonChu} />
-            </View>
-            <View style={{ gap: 4 }}>
-              <Txt f="bold" size={18} color={c.muc}>Summarizer — Tóm tắt Chuyên đề</Txt>
-              <Txt size={13} color={c.muc2} numberOfLines={3}>
-                Tóm tắt diễn biến trận đánh, sự kiện và nghệ thuật quân sự thời Trần thành các luận điểm súc tích, dễ thuộc.
+                Bộ thẻ ghi nhớ 2 mặt tương tác, ôn luyện nhanh mốc thời gian (1258, 1285, 1288), danh tướng và kế sách.
               </Txt>
             </View>
           </Pressable>
         </View>
 
-        {/* BẢNG LỘ TRÌNH ÔN TẬP CÁ NHÂN HÓA */}
-        <Card style={{ padding: 22, gap: 16, borderRadius: 20 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 260 }}>
-              <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.dongNhat, alignItems: 'center', justifyContent: 'center' }}>
-                <Target size={22} color={c.dongChu} />
+        {/* BANNER SỐ HÓA ĐỀ THI TỪ WORD (.DOCX) (Giao diện tinh gọn theo Note 4) */}
+        <Card
+          style={{
+            padding: 18,
+            borderRadius: 18,
+            borderWidth: 1.5,
+            borderColor: c.thuy,
+            backgroundColor: c.the,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 14,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 260 }}>
+            <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.thuyNhat, alignItems: 'center', justifyContent: 'center' }}>
+              <Upload size={22} color={c.thuyChu} />
+            </View>
+            <View style={{ flex: 1, gap: 3 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <Txt f="bold" size={16} color={c.muc}>
+                  Số hóa Đề thi từ File Word (.docx) & Trộn đề tự động
+                </Txt>
+                <Chip text="Hỗ trợ 9 dạng câu hỏi" bg={c.ngocNhat} fg={c.ngocChu} />
+              </View>
+              <Txt size={13} color={c.muc2}>
+                Kéo thả bất kỳ file đề thi .docx nào để tự động nhận diện câu hỏi, chỉnh sửa trực quan, trộn mã đề 101–104 và làm bài chấm điểm ngay.
+              </Txt>
+            </View>
+          </View>
+          <Btn
+            icon={Upload}
+            title="Tải Đề Word (.docx) & Biên tập"
+            tone="thuy"
+            onPress={() => setActiveView('quizzes')}
+            testID="aihub-smart-exam-btn"
+          />
+        </Card>
+
+        {/* LỘ TRÌNH ÔN TẬP CÁ NHÂN HÓA — THIẾT KẾ COMPACT LƯỚI 2 CỘT GỌN GÀNG (NOTE 5) */}
+        <Card style={{ padding: 18, gap: 14, borderRadius: 18 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 240 }}>
+              <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: c.dongNhat, alignItems: 'center', justifyContent: 'center' }}>
+                <Target size={19} color={c.dongChu} />
               </View>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <Txt f="bold" size={17} color={c.muc}>
+                  <Txt f="bold" size={16} color={c.muc}>
                     Lộ trình Ôn tập Cá nhân hóa
                   </Txt>
                   {bktData?.profile?.mastery_rank ? (
                     <Chip text={bktData.profile.mastery_rank} bg={c.thuyNhat} fg={c.thuyChu} />
                   ) : null}
                 </View>
-                <Txt size={13} color={c.muc2} style={{ marginTop: 2 }}>
-                  AI theo dõi tiến độ tiếp thu và đề xuất những nội dung em cần củng cố nhất
+                <Txt size={12} color={c.muc2}>
+                  Các chủ điểm lịch sử gợi ý ôn tập theo tiến độ học của em
                 </Txt>
               </View>
             </View>
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
               <Btn
                 icon={Info}
-                title="Cơ chế AI (BKT)"
+                title="Cơ chế BKT"
                 tone="giay"
                 size="sm"
                 onPress={() => setBktExplainerOpen(true)}
@@ -414,58 +396,44 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
             </View>
           </View>
 
-          {/* Nhãn định hướng thân thiện cho học sinh */}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            <Chip text="🎯 Đánh giá theo mức độ hiểu bài thực tế" bg={c.giay2} fg={c.muc2} />
-            <Chip text="📖 Bám sát SGK Lịch sử 7 Kết nối tri thức" bg={c.ngocNhat} fg={c.ngocChu} />
-            {recs.length > 0 ? (
-              <Chip text={`⚡ Đang có ${recs.length} chủ điểm cần ôn tập`} bg={c.dongNhat} fg={c.dongChu} />
-            ) : null}
-          </View>
-
           {bktLoading && !recs.length ? (
-            <Spinner label="Đang kiểm tra tiến độ học tập của em…" />
+            <Spinner label="Đang tải lộ trình ôn tập…" />
           ) : recs.length > 0 ? (
-            <View style={{ gap: 12 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
               {recs.slice(0, 4).map((rec) => {
                 const masteryVal = rec.current_mastery ?? rec.current_p_l ?? 0.3;
                 const pct = Math.round(masteryVal * 100);
-                const statusLabel = pct >= 80 ? 'Đã thành thạo' : pct >= 60 ? 'Đang tiếp thu tốt' : 'Cần củng cố';
-                const statusBg = pct >= 80 ? c.ngocNhat : pct >= 60 ? c.thuyNhat : c.dongNhat;
-                const statusFg = pct >= 80 ? c.ngocChu : pct >= 60 ? c.thuyChu : c.dongChu;
                 const progressFill = pct >= 80 ? c.ngoc : pct >= 60 ? c.thuy : c.dong;
 
                 return (
                   <View
                     key={rec.unit_id}
                     style={{
-                      padding: 16,
-                      borderRadius: 16,
-                      borderWidth: 1.5,
+                      width: '48%',
+                      flexGrow: 1,
+                      minWidth: 280,
+                      padding: 12,
+                      borderRadius: 12,
+                      borderWidth: 1,
                       borderColor: c.vien,
                       backgroundColor: c.the,
-                      gap: 10,
+                      gap: 8,
+                      justifyContent: 'space-between',
                     }}
                   >
-                    {/* Header chủ điểm & Độ hiểu bài */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 200 }}>
-                        <Txt f="bold" size={15} color={c.muc} style={{ flexShrink: 1 }}>
-                          {rec.topic}
-                        </Txt>
-                        {rec.cognitive_level ? (
-                          <Chip text={rec.cognitive_level === 'NHAN_BIET' ? 'Nhận biết' : rec.cognitive_level === 'THONG_HIEU' ? 'Thông hiểu' : 'Vận dụng'} bg={c.giay2} fg={c.muc3} />
-                        ) : null}
-                      </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                      <Txt f="bold" size={14} color={c.muc} style={{ flex: 1 }} numberOfLines={2}>
+                        {rec.topic}
+                      </Txt>
                       <Chip
-                        text={`Độ hiểu bài: ${pct}% • ${statusLabel}`}
-                        bg={statusBg}
-                        fg={statusFg}
+                        text={`${pct}%`}
+                        bg={pct >= 60 ? c.thuyNhat : c.dongNhat}
+                        fg={pct >= 60 ? c.thuyChu : c.dongChu}
                       />
                     </View>
 
-                    {/* Thanh tiến trình độ hiểu bài */}
-                    <View style={{ height: 8, borderRadius: 4, backgroundColor: c.vien, overflow: 'hidden' }}>
+                    {/* Thanh tiến độ mảnh gọn */}
+                    <View style={{ height: 5, borderRadius: 3, backgroundColor: c.vien, overflow: 'hidden' }}>
                       <View
                         style={{
                           width: `${Math.min(100, Math.max(8, pct))}%`,
@@ -475,36 +443,20 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
                       />
                     </View>
 
-                    {/* Vị trí SGK & Lời khuyên phương pháp học */}
-                    <View style={{ gap: 4, backgroundColor: c.giay2, padding: 10, borderRadius: 10 }}>
-                      {rec.sgk_reference ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <BookOpen size={14} color={c.muc2} />
-                          <Txt size={12} f="bold" color={c.muc2} style={{ flex: 1 }}>
-                            {rec.sgk_reference}
-                          </Txt>
-                        </View>
-                      ) : null}
-                      <Txt size={12} color={c.muc2} style={{ lineHeight: 18 }}>
-                        {rec.study_method || rec.reason || rec.recommendation_reason || 'Đọc kỹ diễn biến và ý nghĩa chiến lược của trận đánh.'}
-                      </Txt>
-                    </View>
-
-                    {/* Nút hành động trực quan */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 8, paddingTop: 4 }}>
+                    {/* Dòng dưới gọn gàng: SGK tham chiếu + nút Hỏi Thầy */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 }}>
+                        <BookOpen size={12} color={c.muc3} />
+                        <Txt size={11} color={c.muc3} numberOfLines={1} style={{ flex: 1 }}>
+                          {rec.sgk_reference || 'SGK Lịch sử 7 - Bài 15'}
+                        </Txt>
+                      </View>
                       <Btn
                         icon={Sparkles}
-                        title="Hỏi Thầy giảng lại"
+                        title="Hỏi Thầy"
                         tone="thuy"
                         size="sm"
                         onPress={() => handleAskFromBkt(rec)}
-                      />
-                      <Btn
-                        icon={ListChecks}
-                        title="Luyện câu hỏi nhanh"
-                        tone="giay"
-                        size="sm"
-                        onPress={() => setQuizModalOpen(true)}
                       />
                     </View>
                   </View>
@@ -513,69 +465,61 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
             </View>
           ) : (
             <Txt size={13} color={c.muc2}>
-              🎉 Tuyệt vời! Em đã nắm vững các chủ điểm trọng tâm. Hãy thử sức với chế độ khảo bài tự luận trên AI Tutor nhé!
+              🎉 Tuyệt vời! Em đã nắm vững các chủ điểm trọng tâm.
             </Txt>
           )}
         </Card>
 
-        {/* Sheet giải thích thuật toán BKT (Dành cho Giáo viên & Báo cáo ĐATN) */}
+        {/* Sheet giải thích thuật toán BKT */}
         {bktExplainerOpen ? (
           <Sheet
             open={bktExplainerOpen}
             onClose={() => setBktExplainerOpen(false)}
             title="Cơ chế AI Theo dõi Năng lực (BKT)"
-            subtitle="Mô hình Bayesian Knowledge Tracing 4 tham số & Đường cong quên lãng"
+            subtitle="Mô hình Bayesian Knowledge Tracing 4 tham số"
             footer={
               <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
                 <Btn title="Đã hiểu" tone="thuy" onPress={() => setBktExplainerOpen(false)} />
               </View>
             }
           >
-            <View style={{ gap: 14 }}>
+            <View style={{ gap: 12 }}>
               <Txt size={14} color={c.muc} style={{ lineHeight: 21 }}>
-                Hệ thống sử dụng mô hình <Txt f="bold" color={c.muc}>Bayesian Knowledge Tracing (BKT)</Txt> chuẩn quốc tế trong các hệ thống Gia sư Thông minh (ITS). AI tự động cập nhật xác suất nắm vững kiến thức thực tế của học sinh sau mỗi câu hỏi hoặc bài làm:
+                Hệ thống sử dụng mô hình <Txt f="bold" color={c.muc}>Bayesian Knowledge Tracing (BKT)</Txt> để tự động cập nhật xác suất nắm vững kiến thức của học sinh sau mỗi câu hỏi hoặc bài tập:
               </Txt>
-
               <View style={{ gap: 8 }}>
-                <View style={{ padding: 12, borderRadius: 12, backgroundColor: c.the, borderWidth: 1, borderColor: c.vien, gap: 4 }}>
+                <View style={{ padding: 10, borderRadius: 10, backgroundColor: c.the, borderWidth: 1, borderColor: c.vien }}>
                   <Txt f="bold" size={13} color={c.muc}>1. Xác suất ban đầu P(L₀) = {Math.round(params.p_l0 * 100)}%</Txt>
-                  <Txt size={12} color={c.muc2}>Mức độ hiểu bài mặc định khi học sinh mới tiếp cận một chủ điểm lịch sử mới.</Txt>
                 </View>
-
-                <View style={{ padding: 12, borderRadius: 12, backgroundColor: c.the, borderWidth: 1, borderColor: c.vien, gap: 4 }}>
+                <View style={{ padding: 10, borderRadius: 10, backgroundColor: c.the, borderWidth: 1, borderColor: c.vien }}>
                   <Txt f="bold" size={13} color={c.muc}>2. Tốc độ tiếp thu P(T) = +{Math.round(params.p_t * 100)}%</Txt>
-                  <Txt size={12} color={c.muc2}>Xác suất chuyển từ trạng thái &quot;chưa hiểu&quot; sang &quot;đã hiểu&quot; sau mỗi lượt tương tác hỏi đáp cùng AI hoặc làm bài tập.</Txt>
                 </View>
-
-                <View style={{ padding: 12, borderRadius: 12, backgroundColor: c.the, borderWidth: 1, borderColor: c.vien, gap: 4 }}>
+                <View style={{ padding: 10, borderRadius: 10, backgroundColor: c.the, borderWidth: 1, borderColor: c.vien }}>
                   <Txt f="bold" size={13} color={c.muc}>3. Hệ số loại trừ đoán mò P(G) = {Math.round(params.p_g * 100)}%</Txt>
-                  <Txt size={12} color={c.muc2}>Hệ số trừ hao xác suất học sinh chọn đúng nhờ đoán may rủi trong câu hỏi trắc nghiệm 4 lựa chọn.</Txt>
                 </View>
-
-                <View style={{ padding: 12, borderRadius: 12, backgroundColor: c.the, borderWidth: 1, borderColor: c.vien, gap: 4 }}>
+                <View style={{ padding: 10, borderRadius: 10, backgroundColor: c.the, borderWidth: 1, borderColor: c.vien }}>
                   <Txt f="bold" size={13} color={c.muc}>4. Hệ số bù trừ sơ suất P(S) = {Math.round(params.p_s * 100)}%</Txt>
-                  <Txt size={12} color={c.muc2}>Bảo vệ học sinh không bị trừ điểm oan nếu đã hiểu bài nhưng lỡ tay bấm nhầm đáp án.</Txt>
                 </View>
-              </View>
-
-              <View style={{ padding: 12, borderRadius: 12, backgroundColor: c.thuyNhat, gap: 4 }}>
-                <Txt f="bold" size={13} color={c.thuyChu}>Ngưỡng đạt chuẩn: ≥ {Math.round(params.mastery_threshold * 100)}%</Txt>
-                <Txt size={12} color={c.thuyChu}>
-                  Bất kỳ chủ điểm nào có độ hiểu bài dưới {Math.round(params.mastery_threshold * 100)}% sẽ được AI tự động đưa vào danh sách đề xuất ôn tập ưu tiên.
-                </Txt>
               </View>
             </View>
           </Sheet>
         ) : null}
+      </ScrollView>
+    );
+  }
 
-        {/* Modal sinh đề trắc nghiệm AI */}
-        {quizModalOpen ? (
-          <AiQuizModal
-            open={quizModalOpen}
-            onClose={() => setQuizModalOpen(false)}
-            session={session}
-          />
-        ) : null}
+  // ======================================================================
+  // GIAO DIỆN CON 0: SỐ HÓA ĐỀ THI WORD (.DOCX) & BIÊN TẬP ĐỀ
+  // ======================================================================
+  if (activeView === 'quizzes') {
+    return (
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 60, gap: 16, maxWidth: 1180, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
+        <SmartExamStudio
+          session={session}
+          initialMode="upload"
+          studentMode={session.user.role === 'student'}
+          onClose={() => setActiveView('hub')}
+        />
       </ScrollView>
     );
   }
@@ -592,7 +536,6 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
           <Chip text={`${masteredIds.size}/${HISTORICAL_FLASHCARDS.length} đã nhớ`} bg={c.ngocNhat} fg={c.ngocChu} />
         </View>
 
-        {/* Thẻ 2 mặt */}
         <Pressable
           onPress={() => setFcFlipped(!fcFlipped)}
           style={{
@@ -632,10 +575,8 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
           </View>
         </Pressable>
 
-        {/* Nút điều hướng & đánh dấu */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
           <Btn title="← Câu trước" tone="giay" size="sm" onPress={handlePrevCard} />
-
           <Btn
             icon={isMastered ? Check : Sparkles}
             title={isMastered ? 'Đã nhớ vững' : 'Đánh dấu đã thuộc'}
@@ -643,62 +584,15 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
             size="md"
             onPress={handleToggleMastered}
           />
-
           <Btn title="Câu sau →" tone="giay" size="sm" onPress={handleNextCard} />
         </View>
       </ScrollView>
     );
   }
 
-  if (activeView === 'summarizer') {
-    const TOPICS = [
-      { id: 'kc1', title: 'Kháng chiến lần 1 (1258)', prompt: 'Cuộc kháng chiến chống Mông Cổ lần thứ nhất năm 1258, trận Bình Lệ Nguyên và Đông Bộ Đầu' },
-      { id: 'kc2', title: 'Kháng chiến lần 2 (1285)', prompt: 'Cuộc kháng chiến chống quân Nguyên lần 2 năm 1285, Hội nghị Bình Than, Diên Hồng và Hàm Tử - Chương Dương' },
-      { id: 'kc3', title: 'Kháng chiến lần 3 (1287-1288)', prompt: 'Cuộc kháng chiến chống quân Nguyên lần 3 năm 1287-1288, trận Vân Đồn và Bạch Đằng' },
-      { id: 'qs', title: 'Nghệ thuật quân sự thời Trần', prompt: 'Nghệ thuật quân sự đánh giặc giữ nước của nhà Trần và bài học Khoan thư sức dân' },
-    ];
-
-    return (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 60, gap: 18, maxWidth: 840, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Btn icon={ArrowLeft} title="Quay lại AI Hub" tone="giay" size="sm" onPress={() => setActiveView('hub')} />
-          <Txt f="bold" size={18} color={c.muc} style={{ flex: 1 }}>Summarizer — Tóm tắt sử liệu</Txt>
-        </View>
-
-        <Txt size={14} color={c.muc2}>Chọn một chuyên đề lịch sử để AI tóm tắt thành các luận điểm cô đọng nhất:</Txt>
-
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          {TOPICS.map((t) => (
-            <Btn
-              key={t.id}
-              icon={BookOpen}
-              title={t.title}
-              tone={summaryKind === t.id ? 'son' : 'giay'}
-              size="sm"
-              onPress={() => {
-                setSummaryKind(t.id);
-                handleSummarizeTopic(t.title, t.prompt);
-              }}
-            />
-          ))}
-        </View>
-
-        {summaryLoading ? (
-          <View style={{ alignItems: 'center', padding: 30, gap: 10 }}>
-            <Spinner />
-            <Txt size={14} color={c.muc2}>Trợ lý AI Đông A đang cô đọng sử liệu...</Txt>
-          </View>
-        ) : null}
-
-        {summaryText && !summaryLoading ? (
-          <Card style={{ padding: 18, gap: 10, backgroundColor: c.the, borderColor: c.vien }}>
-            <MarkdownText content={summaryText} size={15} lineHeight={24} />
-          </Card>
-        ) : null}
-      </ScrollView>
-    );
-  }
-
+  // ======================================================================
+  // GIAO DIỆN CON 2: AI TUTOR & NHẬP VAI DANH TƯỚNG
+  // ======================================================================
   if (activeView === 'tutor') {
     return (
       <ScrollView ref={tutorScrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 80, gap: 16, maxWidth: 920, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
@@ -721,7 +615,6 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
           </View>
         </View>
 
-        {/* Chế độ Nhập vai */}
         {tutorTab === 'roleplay' ? (
           selectedFigure ? (
             <View style={{ gap: 12 }}>
@@ -774,7 +667,6 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
             </View>
           )
         ) : (
-          /* Chế độ Hỏi đáp Thầy Đông A chung */
           <ChatPanel
             session={session}
             mode="tutor"

@@ -1,7 +1,7 @@
 /**
  * AI Tutor "Tiểu Tướng" & Hệ thống Trợ lý AI Sử học Đông A (Sprint 9, HK.HS.086–093; HK.GV.073):
  * Kết nối trực tiếp với Model NLP Đông A (81 chủ điểm chuyên sâu, Giải quyết đồng tham chiếu đa lượt,
- * Kiểm chứng Đồ thị Tri thức, Nhập vai 14 danh tướng, Khảo bài tương tác trên Chat & Hồ sơ BKT).
+ * Kiểm chứng Đồ thị Tri thức, Nhập vai danh tướng & Hồ sơ BKT).
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, View } from 'react-native';
@@ -24,12 +24,6 @@ const SAMPLES = [
   'Tại sao Thoát Hoan phải chui vào ống đồng?',
 ];
 
-const QUICK_AI_ACTIONS = [
-  { label: '🎯 Thầy đố em 1 câu tự luận', query: 'Thầy đố em một câu đi' },
-  { label: '📋 Tạo đề ôn tập theo BKT', query: 'Tạo đề ôn tập riêng cho em' },
-  { label: '🧭 Gợi ý lộ trình học tập', query: 'Em không biết nên hỏi gì' },
-];
-
 /** Gợi ý câu hỏi: chữ dài xuống dòng trong khung thay vì tràn khỏi màn hình điện thoại */
 const Suggest: React.FC<{ text: string; onPress: () => void }> = ({ text, onPress }) => {
   const { c } = useTheme();
@@ -43,7 +37,6 @@ const Suggest: React.FC<{ text: string; onPress: () => void }> = ({ text, onPres
 // ---------------------------------------------------------------------- hiển thị Markdown / Text định dạng (bóc tách ký tự **, *, ` thành chữ định dạng)
 export const renderFormattedInline = (rawText: string, defaultColor?: string) => {
   if (!rawText) return null;
-  // Làm sạch ký hiệu LaTeX $P(L)$ và backtick `...` thành dạng dễ đọc
   const cleaned = rawText
     .replace(/\$P\(L_0\)\$/g, 'P(L₀)')
     .replace(/\$P\(L\)\$/g, 'P(L)')
@@ -322,29 +315,14 @@ export const ChatPanel: React.FC<ChatProps> = ({
           <Txt size={14} color={c.muc2}>
             {figure
               ? 'Nhân vật hóa thân dựa trên chính sử Đại Việt Sử Ký Toàn Thư và SGK Lịch sử 7. Em hãy đặt câu hỏi để đàm đạo cùng danh tướng!'
-              : 'Hệ thống AI hiểu câu hỏi tự nhiên đa lượt (nhớ ngữ cảnh ông ấy, trận đó), tự động sửa lỗi chính tả, bắt lỗi nhầm lẫn lịch sử và cập nhật hồ sơ năng lực BKT sau mỗi câu hỏi.'}
+              : 'Hệ thống AI hiểu câu hỏi tự nhiên đa lượt (nhớ ngữ cảnh ông ấy, trận đó), tự động sửa lỗi chính tả và đối chiếu trực tiếp với SGK Lịch sử 7.'}
           </Txt>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {samples.map((q) => <Suggest key={q} text={q} onPress={() => send(q)} />)}
           </View>
-          {mode !== 'roleplay' ? (
-            <View style={{ gap: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: c.vien }}>
-              <Txt f="bold" size={12} color={c.muc3}>⚡ Chế độ tương tác thông minh trên Chat:</Txt>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {QUICK_AI_ACTIONS.map((act) => (
-                  <Btn key={act.query} title={act.label} tone="giay" size="sm" onPress={() => send(act.query)} />
-                ))}
-              </View>
-            </View>
-          ) : null}
         </Card>
       ) : (
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {mode !== 'roleplay' && QUICK_AI_ACTIONS.map((act) => (
-              <Btn key={act.query} title={act.label} tone="giay" size="sm" disabled={busy} onPress={() => send(act.query)} />
-            ))}
-          </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}>
           <Btn icon={RotateCcw} title="Làm mới hội thoại" tone="giay" size="sm" disabled={busy} onPress={handleResetChat} />
         </View>
       )}
@@ -408,16 +386,11 @@ export const HistorySheet: React.FC<{ session: Session; onClose: () => void; onP
   );
 };
 
-// ---------------------------------------------------------------------- tab Tiểu Tướng
-const SUMMARY_KINDS: Array<{ value: 'lessons' | 'battles' | 'events' | 'figures' | 'campaigns'; label: string; kind: string }> = [
-  { value: 'lessons', label: 'Bài học', kind: 'lesson' }, { value: 'battles', label: 'Trận đánh', kind: 'battle' }, { value: 'events', label: 'Sự kiện', kind: 'event' },
-  { value: 'figures', label: 'Nhân vật', kind: 'figure' }, { value: 'campaigns', label: 'Cuộc kháng chiến', kind: 'campaign' },
-];
-
+// ---------------------------------------------------------------------- tab Tiểu Tướng (Đã bỏ tab Tóm tắt theo Note 3)
 export const TieuTuongTab: React.FC<{ session: Session; onOpen: OpenSource; onChanged?: () => void }> = ({ session, onOpen, onChanged }) => {
   const { c } = useTheme();
   const status = useLoad(() => api.aiStatus(session.token), [session.token], session.expired);
-  const [part, setPart] = useState<'chat' | 'roleplay' | 'summary'>('chat');
+  const [part, setPart] = useState<'chat' | 'roleplay'>('chat');
   const [fresh, setFresh] = useState(0);
   const [history, setHistory] = useState(false);
   const [initial, setInitial] = useState<{ id: number; messages: AiMessage[] } | null>(null);
@@ -449,11 +422,10 @@ export const TieuTuongTab: React.FC<{ session: Session; onOpen: OpenSource; onCh
         </View>
       ) : null}
       {st && !st.ready ? <InfoNote><Txt size={14}>Kho tư liệu của Tiểu Tướng còn trống: quản trị viên cần công bố nội dung lịch sử và lập chỉ mục thì Tiểu Tướng mới trả lời được.</Txt></InfoNote> : null}
-      <Segmented<'chat' | 'roleplay' | 'summary'> label="Tiểu Tướng làm gì?" value={part} onChange={(v) => { setPart(v); setInitial(null); setFresh((k) => k + 1); }}
-        options={[{ value: 'chat', label: 'Hỏi đáp' }, { value: 'roleplay', label: 'Nhập vai' }, { value: 'summary', label: 'Tóm tắt' }]} />
+      <Segmented<'chat' | 'roleplay'> label="Tiểu Tướng làm gì?" value={part} onChange={(v) => { setPart(v); setInitial(null); setFresh((k) => k + 1); }}
+        options={[{ value: 'chat', label: 'Hỏi đáp' }, { value: 'roleplay', label: 'Nhập vai' }]} />
       {part === 'chat' ? <ChatPanel key={`chat${fresh}`} session={session} mode="tutor" initial={initial} onOpen={onOpen} onChanged={() => { status.reload(); onChanged?.(); }} /> : null}
       {part === 'roleplay' ? <RoleplayPart key={`rp${fresh}`} session={session} enabled={Boolean(st?.roleplay)} figure={figure} setFigure={setFigure} initial={initial} onOpen={onOpen} onChanged={() => status.reload()} /> : null}
-      {part === 'summary' ? <SummaryPart key={`sm${fresh}`} session={session} onOpen={onOpen} onChanged={() => status.reload()} /> : null}
       {history ? <HistorySheet session={session} onClose={() => setHistory(false)} onPick={openConversation} reloadKey={fresh} /> : null}
     </View>
   );
@@ -483,37 +455,6 @@ const RoleplayPart: React.FC<{ session: Session; enabled: boolean; figure: { id:
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {(list.data ?? []).map((f) => <Btn key={f.id} icon={Search} title={f.name} tone="dong" size="sm" onPress={() => setFigure({ id: f.id, name: f.name })} testID={`ai-figure-${f.id}`} />)}
       </View>
-    </View>
-  );
-};
-
-const SummaryPart: React.FC<{ session: Session; onOpen: OpenSource; onChanged: () => void }> = ({ session, onOpen, onChanged }) => {
-  const { c } = useTheme();
-  const options = useLoad(() => api.aiSummaryOptions(session.token), [session.token], session.expired);
-  const { busy, run } = useAction(session.expired);
-  const [kind, setKind] = useState<(typeof SUMMARY_KINDS)[number]['value']>('lessons');
-  const [results, setResults] = useState<Array<{ title: string; message: AiMessage }>>([]);
-  const def = SUMMARY_KINDS.find((k) => k.value === kind)!;
-  const go = async (id: number, title: string) => {
-    const res = await run(() => api.aiSummarize(session.token, def.kind, id));
-    if (res) { setResults((r) => [{ title, message: res.message }, ...r]); onChanged(); }
-  };
-  return (
-    <View style={{ gap: 12 }}>
-      <Txt size={14} color={c.muc2}>Chọn một mục để Tiểu Tướng tóm tắt thành vài ý ngắn gọn, dễ nhớ.</Txt>
-      <Segmented<typeof kind> label="Loại nội dung" value={kind} onChange={setKind} options={SUMMARY_KINDS.map((k) => ({ value: k.value, label: k.label }))} />
-      <ErrorNote message={options.error} />
-      {options.loading && !options.data ? <Spinner /> : null}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {(options.data?.[kind] ?? []).map((o) => <Btn key={o.id} title={o.title} tone="giay" size="sm" disabled={busy} onPress={() => go(o.id, o.title)} />)}
-      </View>
-      {busy ? <Spinner label="Tiểu Tướng đang tóm tắt…" /> : null}
-      {results.map((r, i) => (
-        <View key={`${r.message.id}${i}`} style={{ gap: 6 }}>
-          <Txt f="bold" size={15}>Tóm tắt: {r.title}</Txt>
-          <AiBubble msg={r.message} onOpen={onOpen} />
-        </View>
-      ))}
     </View>
   );
 };
