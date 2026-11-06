@@ -3,7 +3,7 @@
  * học sinh (HK.QT.024–034), lớp học (HK.QT.035–040). Chỉ làm việc trên trường ghi trong token.
  */
 import React, { useState } from 'react';
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
 import { Bell, CalendarDays, ChartColumn, CircleHelp, ClipboardList, History, LifeBuoy, GraduationCap, Inbox, ListChecks, Plus, Route, School, Trash2, Trophy, UserRound, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { dateText } from '@/components/admin/AccountSheet';
@@ -12,6 +12,7 @@ import { AdminSelect } from '@/components/admin/AdminSelect';
 import { SchoolReports } from '@/components/admin/AnalyticsAdmin';
 import { BroadcastManager, SurveyManager } from '@/components/admin/PlatformComms';
 import { LogsPanel } from '@/components/admin/PlatformOps';
+import { SchoolEmblem, SchoolLinkBox } from '@/components/school-brand';
 import { HelpPage } from '@/components/portal/HelpCenter';
 import { NoticeBell } from '@/components/portal/NoticeCenter';
 import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, yearOptions, YEAR_TEXT } from '@/components/admin/kit';
@@ -88,7 +89,7 @@ export const SchoolAdmin: React.FC<{ session: Session }> = ({ session }) => {
 
 const SCHOOL_FIELDS = [
   { name: 'name', label: 'Tên hiển thị của trường', required: true },
-  { name: 'logo_url', label: 'Logo (liên kết https)', hint: 'Dán địa chỉ ảnh bắt đầu bằng https://' },
+  { name: 'logo_url', label: 'Logo riêng (liên kết https, không bắt buộc)', hint: 'Để trống thì hệ thống dùng huy hiệu tự tạo từ tên trường.' },
   { name: 'address', label: 'Địa chỉ' },
   { name: 'contact_name', label: 'Người liên hệ' },
   { name: 'contact_email', label: 'Email liên hệ', type: 'email' as const },
@@ -113,7 +114,7 @@ const SchoolPanel: React.FC<{ session: Session; school: Awaited<ReturnType<typeo
       {!school ? <Spinner label="Đang tải thông tin trường…" /> : (
         <Card flat pad={16} style={{ gap: 12 }}>
           <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-            {school.logo_url ? <Image source={{ uri: school.logo_url }} accessibilityLabel={`Logo ${school.name}`} style={{ width: 64, height: 64, borderRadius: 8, backgroundColor: c.dichNhat }} resizeMode="contain" /> : null}
+            <SchoolEmblem name={school.name} code={school.school_code} logoUrl={school.logo_url} size={64} />
             <View style={{ flex: 1, minWidth: 200 }}>
               <Txt f="displayHeavy" size={20}>{school.name}</Txt>
               <Txt size={14} color={c.muc2}>Mã trường {school.school_code}{school.city ? ` · ${school.city}` : ''}</Txt>
@@ -126,6 +127,7 @@ const SchoolPanel: React.FC<{ session: Session; school: Awaited<ReturnType<typeo
               <View key={k as string} style={{ flexBasis: 220, flexGrow: 1 }}><Txt f="bold" size={12} color={c.muc3}>{k}</Txt><Txt size={14}>{(v as string | null) || 'Chưa có'}</Txt></View>
             ))}
           </View>
+          <SchoolLinkBox link={school.link} />
         </Card>
       )}
 

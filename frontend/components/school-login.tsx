@@ -7,6 +7,7 @@ import * as authApi from '@/api/authApi';
 import { errorMessage } from '@/api/client';
 import { LoginLayout, LoginHeading, LoginInput, LoginActions, LoginPasswordToggle, useLoginDensity } from '@/components/login-layout';
 import { GoogleSignIn } from '@/components/google-sign-in';
+import { SchoolBadge, type SchoolBrandInfo } from '@/components/school-brand';
 import { Btn, Inset, Txt } from '@/components/ui';
 import { useShake } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
@@ -25,10 +26,12 @@ type Props = {
   onLogin: (token: string, user: AuthUser) => void | Promise<void>;
   notice?: string | null;
   onForgotPassword: () => void;
+  /** Đăng nhập qua đường dẫn riêng của trường: hiện nhận diện của trường và chỉ nhận tài khoản của trường đó */
+  school?: SchoolBrandInfo;
 };
 
 /** Một trang, một biểu mẫu; lựa chọn vai trò được kiểm tra lại tại API trước khi mở khu vực tương ứng. */
-export function SchoolLogin({ initialRole, onLogin, notice, onForgotPassword }: Props) {
+export function SchoolLogin({ initialRole, onLogin, notice, onForgotPassword, school }: Props) {
   const router = useRouter();
   const { c } = useTheme();
   const dense = useLoginDensity();
@@ -81,7 +84,7 @@ export function SchoolLogin({ initialRole, onLogin, notice, onForgotPassword }: 
     try {
       const result = challenge
         ? await authApi.verifyTwoFactor(challenge.challenge, code.trim(), role)
-        : await authApi.loginWithPassword(username.trim(), password, role);
+        : await authApi.loginWithPassword(username.trim(), password, role, school?.school_code);
       await acceptResult(result);
     } catch (err) {
       setError(errorMessage(err, 'Đăng nhập thất bại.'));
@@ -94,7 +97,7 @@ export function SchoolLogin({ initialRole, onLogin, notice, onForgotPassword }: 
     if (loading || challenge) return;
     setLoading(true);
     setError(null);
-    try { await acceptResult(await authApi.loginWithGoogle(idToken, role)); }
+    try { await acceptResult(await authApi.loginWithGoogle(idToken, role, school?.school_code)); }
     catch (err) {
       setError(errorMessage(err, 'Đăng nhập Google thất bại.'));
       setTries(n => n + 1);
@@ -102,8 +105,8 @@ export function SchoolLogin({ initialRole, onLogin, notice, onForgotPassword }: 
   };
 
   return (
-    <LoginLayout kind="school" subtitle="Cổng học tập" onHome={() => router.replace('/')}>
-      <LoginHeading title="Đăng nhập" text={copy.account} testIDPrefix="school-auth" />
+    <LoginLayout kind="school" subtitle="Cổng học tập" onHome={() => router.replace('/')} brand={school ? <SchoolBadge school={school} light /> : undefined}>
+      <LoginHeading title="Đăng nhập" text={school ? `${copy.account} Cổng riêng của ${school.name}.` : copy.account} testIDPrefix="school-auth" />
       <View accessibilityRole="radiogroup" accessibilityLabel="Chọn vai trò đăng nhập" style={{ flexDirection: 'row', gap: dense ? 6 : 10 }}>
         {SCHOOL_ROLES.map(item => {
           const selected = item === role;

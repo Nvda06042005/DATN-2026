@@ -6,8 +6,10 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { toPublic } from '../auth/auth.service';
 import { generatePassword, hashPassword } from '../auth/passwords';
+import { config } from '../config';
 import { DatabaseService, DuplicateUsername, Q, UserRow } from '../database/database.service';
 import { MailService } from './mail.service';
+import { DirectoryEntry, schoolSlug, searchDirectory } from './school-directory';
 
 export const GRADES = [6, 7, 8, 9] as const;
 export const likeEscape = (s: string) => s.replace(/[\\%_]/g, (ch) => `\\${ch}`);
@@ -29,11 +31,23 @@ export interface SchoolRow {
 
 export interface YearRow { id: number; school_id: number; label: string; starts_on: string; ends_on: string; status: 'planned' | 'active' | 'ended'; ended_at: string | null }
 
-/** Mã trường chuẩn hóa 4 chữ số: chỉ giữ chữ số, lấy 4 số cuối, thêm 0 phía trước */
+/**
+ * Mã trường chuẩn hóa: chỉ giữ chữ số. Mã ngắn thêm số 0 phía trước cho đủ 4 chữ số; mã Bộ GD&ĐT (8 chữ số) giữ nguyên;
+ * mã dài hơn 8 lấy 8 chữ số cuối. Không cắt còn 4 số vì chỉ 4 số cuối thì 95% trường trong danh mục trùng mã nhau.
+ */
 export const normCode = (code: string | null | undefined): string => {
   const digits = String(code ?? '').replace(/\D/g, '');
-  return digits ? digits.slice(-4).padStart(4, '0') : '';
+  if (!digits) return '';
+  return digits.length <= 4 ? digits.padStart(4, '0') : digits.slice(-8);
 };
+
+/** Đường dẫn riêng của trường (donga_<mã>_<tên>_<khu vực>): trường dùng làm cổng đăng nhập của mình */
+export interface SchoolLink { slug: string; path: string; url: string }
+export const schoolLink = (s: { school_code: string; name: string; region?: string | null }): SchoolLink => {
+  const slug = schoolSlug(s);
+  return { slug, path: `/${slug}`, url: `${config.appUrl}/${slug}` };
+};
+const withLink = <T extends { school_code: string; name: string; region: string | null }>(row: T): T & { link: SchoolLink } => ({ ...row, link: schoolLink(row) });
 
 const trimOrNull = (v: unknown): string | null => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') || null : null);
 
@@ -90,7 +104,15 @@ export class SchoolService {
     );
     const places = await this.db.query<{ city: string | null; region: string | null }>('SELECT DISTINCT city, region FROM app_schools');
     const uniq = (v: Array<string | null>) => [...new Set(v.filter((x): x is string => !!x))].sort();
-    return { items, total, page, limit, facets: { cities: uniq(places.map((x) => x.city)), regions: uniq(places.map((x) => x.region)) } };
+    return { items: items.map((row) => withLink(row as unknown as SchoolRow)), total, page, limit, facets: { cities: uniq(places.map((x) => x.city)), regions: uniq(places.map((x) => x.region)) } };
+  }
+
+  /** Gợi ý trường từ danh mục khi thêm trường: kèm cờ đã có trong hệ thống và đường dẫn sẽ được tạo */
+  async directory(query: string, limit = 12): Promise<Array<DirectoryEntry & { exists: boolean; slug: string }>> {
+    const found = searchDirectory(query, limit);
+    if (!found.length) return [];
+    const used = new Set((await this.db.query<{ school_code: string }>('SELECT school_code FROM app_schools WHERE school_code = ANY($1::text[])', [found.map((e) => e.code)])).map((r) => r.school_code));
+    return found.map((e) => ({ ...e, exists: used.has(e.code), slug: schoolSlug({ school_code: e.code, name: e.name, region: e.region }) }));
   }
 
   async detail(actor: UserRow, id: number) {
@@ -103,7 +125,7 @@ export class SchoolService {
       const classes = (await q<{ n: number }>('SELECT count(*)::int AS n FROM app_classes WHERE school_id = $1', [id]))[0].n;
       const admins = (await q('SELECT id, username, full_name, email, phone, is_active, last_login_at FROM app_users WHERE school_id = $1 AND role = \'school_admin\' AND deleted_at IS NULL ORDER BY full_name', [id]));
       const year = (await q<YearRow>("SELECT * FROM app_school_years WHERE school_id = $1 AND status = 'active'", [id]))[0] ?? null;
-      return { ...school, counts: { ...counts, classes }, admins, current_year: year };
+      return { ...withLink(school), counts: { ...counts, classes }, admins, current_year: year };
     });
   }
 
@@ -140,7 +162,7 @@ export class SchoolService {
         school_id: school.id, user_id: admin.id, batch_id: null, kind: 'bulk', to: email, subject: '[Đông A EDU] Kích hoạt tài khoản quản trị viên trường học',
         payload: { type: 'account', full_name: admin.full_name, username, password, role: 'school_admin', school: school.name },
       });
-      return { school, admin: toPublic(admin), temporary_password: password, mail: this.mail.configured ? 'queued' : 'not_configured' };
+      return { school: withLink(school), admin: toPublic(admin), temporary_password: password, mail: this.mail.configured ? 'queued' : 'not_configured' };
     }).then((result) => { this.mail.kick(); return result; });
   }
 
@@ -156,7 +178,7 @@ export class SchoolService {
         if (body.is_active !== undefined && body.is_active !== old.is_active) await q('UPDATE app_users SET token_version = token_version + 1 WHERE school_id = $1', [id]);
         if (body.region !== undefined || body.city !== undefined) await q('UPDATE app_users SET region = s.region, city = s.city FROM app_schools s WHERE app_users.school_id = s.id AND s.id = $1', [id]);
       }
-      return (await q<SchoolRow>('SELECT * FROM app_schools WHERE id = $1', [id]))[0];
+      return withLink((await q<SchoolRow>('SELECT * FROM app_schools WHERE id = $1', [id]))[0]);
     });
   }
 

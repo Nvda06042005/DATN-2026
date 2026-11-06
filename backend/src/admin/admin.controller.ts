@@ -29,6 +29,11 @@ class SchoolQuery extends Page {
   @IsOptional() @IsIn(['true', 'false']) active?: 'true' | 'false';
 }
 
+class DirectoryQuery {
+  @IsString() @Length(1, 80) q: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(30) limit?: number;
+}
+
 class SchoolScope {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number;
 }
@@ -235,6 +240,11 @@ export class AdminController {
   @Get('schools')
   @Roles('root_admin')
   listSchools(@Query() query: SchoolQuery) { return this.schools.list(query); }
+
+  /** Gợi ý trường từ danh mục khi thêm trường: chọn một trường thì mã, khu vực, tỉnh/thành và đường dẫn tự điền */
+  @Get('school-directory')
+  @Roles('root_admin')
+  async schoolDirectory(@Query() query: DirectoryQuery) { return { items: await this.schools.directory(query.q, query.limit ?? 12) }; }
 
   @Post('schools')
   @Roles('root_admin')
