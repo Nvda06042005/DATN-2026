@@ -183,7 +183,7 @@ const SchoolPicker: React.FC<{ token: string; values: Record<string, string | st
 
   return (
     <View style={{ gap: 8 }}>
-      <Field label="Tên trường *" hint="Tìm theo tên, mã tham chiếu hoặc chữ viết tắt, ví dụ T,S." value={name} nativeID="field-name"
+      <Field label="Tên trường *" value={name} nativeID="field-name"
         onChangeText={v => { set('name', v); set('directory_code', ''); if (picked) { setPicked(null); set('city', ''); set('region', ''); set('address', ''); } }} autoCapitalize="words" />
       {state === 'loading' ? <Txt size={13} color={c.muc3}>Đang tìm trong danh mục…</Txt> : null}
       {state === 'failed' ? <Txt size={13} color={c.sonChu}>Chưa tải được danh mục. Bạn có thể nhập tên và địa chỉ của trường.</Txt> : null}
