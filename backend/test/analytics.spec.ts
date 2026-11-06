@@ -338,6 +338,38 @@ const download = async (who: { token: string }, path: string) => {
     expect((await as(f.A)('GET', '/api/analytics/system/content')).status).toBe(403);
   });
 
+  test('dashboard có đủ 30 ngày theo giờ Việt Nam, đếm người duy nhất và giữ ngày không hoạt động', async () => {
+    const dates = (await db.query<{ today: string; first: string; outside: string; future: string }>(
+      `SELECT to_char(now() AT TIME ZONE 'Asia/Ho_Chi_Minh','YYYY-MM-DD') AS today,
+        to_char((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date-29,'YYYY-MM-DD') AS first,
+        to_char((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date-30,'YYYY-MM-DD') AS outside,
+        to_char((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date+1,'YYYY-MM-DD') AS future`))[0];
+    const inserted = await db.query<{ id: number }>(
+      `INSERT INTO hk_events(user_id,school_id,event,created_at) VALUES
+        ($1,$3,'view_campaign',($4::date::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')),
+        ($1,$3,'view_campaign',(($4::date::timestamp + interval '23 hours') AT TIME ZONE 'Asia/Ho_Chi_Minh')),
+        ($2,$3,'view_campaign',(($4::date::timestamp + interval '1 minute') AT TIME ZONE 'Asia/Ho_Chi_Minh')),
+        ($1,$3,'view_campaign',($5::date::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')),
+        ($1,$3,'view_campaign',($6::date::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')) RETURNING id`,
+      [f.S1.id, f.S2.id, f.A.schoolId, dates.first, dates.outside, dates.future]);
+    try {
+      const result = await root('GET', '/api/analytics/system/overview');
+      expect(result.status).toBe(200);
+      expect(result.body.as_of).toBe(dates.today);
+      expect(result.body.series).toHaveLength(30);
+      expect(result.body.series[0]).toEqual({ day: dates.first, users: 2 });
+      expect(result.body.series.at(-1).day).toBe(dates.today);
+      expect(result.body.series.some((p: any) => p.users === 0)).toBe(true);
+      const keys = result.body.series.map((p: any) => p.day);
+      expect(new Set(keys).size).toBe(30);
+      expect(keys).not.toContain(dates.outside);
+      expect(keys).not.toContain(dates.future);
+      for (let i = 1; i < keys.length; i += 1) expect(Date.parse(keys[i]) - Date.parse(keys[i - 1])).toBe(86400000);
+    } finally {
+      await db.query('DELETE FROM hk_events WHERE id = ANY($1::bigint[])', [inserted.map(e => e.id)]);
+    }
+  });
+
   // ------------------------------------------------------------------ HK.QT.009, HK.AD.008: sử dụng AI
   test('thống kê AI: số câu hỏi, từ chối, token, chi phí ước tính theo giá cấu hình, hạn mức còn lại của trường', async () => {
     await root('POST', '/api/ai/admin/reindex', {});

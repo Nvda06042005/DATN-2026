@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { View } from 'react-native';
 import * as api from '@/api/analyticsApi';
 import { ClassAnalytics, ResultsPanel } from '@/components/admin/AnalyticsTeacher';
+import { SystemDashboard } from '@/components/admin/SystemDashboard';
 import { DataTable, ErrorNote, Page, PageHeader, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { ColumnChart, fmtPct, shortDay, StatGrid, StatTile } from '@/components/charts';
@@ -119,7 +120,6 @@ export const SchoolReports: React.FC<{ session: Session }> = ({ session }) => {
 };
 
 // ---------------------------------------------------------------------- quản trị tổng (HK.AD.006–009, 063)
-const ROLE_NAME: Record<string, string> = { student: 'Học sinh', teacher: 'Giáo viên', school_admin: 'Quản trị trường', root_admin: 'Quản trị tổng' };
 const STATUS_COLS = (c: ReturnType<typeof useTheme>['c']) => [
   { key: 'label', label: 'Nội dung', flex: 2, render: (r: ContentRow) => <Txt f="semibold" size={14}>{r.label}</Txt> },
   { key: 'total', label: 'Tổng', render: (r: ContentRow) => <Txt size={14}>{r.total}</Txt> },
@@ -127,33 +127,6 @@ const STATUS_COLS = (c: ReturnType<typeof useTheme>['c']) => [
   { key: 'verified', label: 'Đã kiểm duyệt', render: (r: ContentRow) => <Txt size={14}>{r.verified}</Txt> },
   { key: 'published', label: 'Đã xuất bản', render: (r: ContentRow) => <Txt f="bold" size={14} color={r.published ? c.ngocChu : c.muc3}>{r.published}</Txt> },
 ];
-
-const SystemOverviewPanel: React.FC<{ session: Session }> = ({ session }) => {
-  const data = useLoad(() => api.systemOverview(session.token), [session.token], session.expired);
-  const d = data.data;
-  return (
-    <View style={{ gap: 12 }}>
-      <ErrorNote message={data.error} />
-      {data.loading && !d ? <Spinner /> : null}
-      {d ? (
-        <>
-          <StatGrid>
-            <StatTile label="Trường đang hoạt động" value={d.schools} hint={`${d.schools_total} trường đã tạo`} />
-            {Object.entries(d.users_by_role).map(([role, n]) => <StatTile key={role} label={ROLE_NAME[role] ?? role} value={fmt(n)} />)}
-            <StatTile label="Người học hôm nay (DAU)" value={d.dau} tone="ngoc" />
-            <StatTile label="7 ngày (WAU)" value={d.wau} tone="thuy" />
-            <StatTile label="30 ngày (MAU)" value={d.mau} tone="vang" />
-            <StatTile label="Tài khoản mới 30 ngày" value={d.new_users_30d} />
-          </StatGrid>
-          <Card pad={14} style={{ gap: 10 }}>
-            <Txt f="bold" size={16} accessibilityRole="header">Người dùng hoạt động mỗi ngày (30 ngày)</Txt>
-            <ColumnChart height={130} unit="người dùng" summary="Biểu đồ số người dùng hoạt động theo ngày" data={d.series.map((s) => ({ label: shortDay(s.day), values: { users: s.users } }))} series={[{ key: 'users', label: 'Người dùng' }]} />
-          </Card>
-        </>
-      ) : null}
-    </View>
-  );
-};
 
 const ContentPanel: React.FC<{ session: Session }> = ({ session }) => {
   const { c } = useTheme();
@@ -186,9 +159,9 @@ export const SystemStats: React.FC<{ session: Session }> = ({ session }) => {
   const [part, setPart] = useState<SystemPart>('overview');
   return (
     <Page>
-      <PageHeader title="Thống kê hệ thống" subtitle="Người dùng, nội dung, mức độ sử dụng và chi phí AI" />
-      <Segmented<SystemPart> label="Thống kê hệ thống" value={part} onChange={setPart} options={[{ value: 'overview', label: 'Tổng quan' }, { value: 'content', label: 'Nội dung' }, { value: 'usage', label: 'Sử dụng' }, { value: 'ai', label: 'AI' }]} />
-      {part === 'overview' ? <SystemOverviewPanel session={session} /> : part === 'content' ? <ContentPanel session={session} /> : part === 'usage' ? <UsagePanel session={session} />
+      <PageHeader title="Thống kê hệ thống" subtitle="Toàn cảnh trường học, người dùng và nhịp học tập trên Đông A" />
+      <Segmented<SystemPart> label="Thống kê hệ thống" value={part} onChange={setPart} options={[{ value: 'overview', label: 'Dashboard' }, { value: 'content', label: 'Nội dung' }, { value: 'usage', label: 'Sử dụng' }, { value: 'ai', label: 'AI' }]} />
+      {part === 'overview' ? <SystemDashboard session={session} /> : part === 'content' ? <ContentPanel session={session} /> : part === 'usage' ? <UsagePanel session={session} />
         : <AiUsagePanel session={session} money />}
     </Page>
   );

@@ -299,8 +299,17 @@ export class AnalyticsService {
     const one = async (sql: string): Promise<number> => num((await this.db.query<{ n: string }>(sql))[0].n);
     const roles = await this.db.query<{ role: string; n: number }>("SELECT role, count(*)::int AS n FROM app_users WHERE deleted_at IS NULL AND is_active = 1 GROUP BY role");
     const series = await this.db.query<{ day: string; users: number }>(
-      `SELECT to_char(created_at AT TIME ZONE ${VN}, 'YYYY-MM-DD') AS day, count(DISTINCT user_id)::int AS users FROM hk_events WHERE created_at >= now() - interval '30 days' GROUP BY 1 ORDER BY 1`);
+      `WITH calendar AS (
+         SELECT (now() AT TIME ZONE ${VN})::date - (29 - n) AS day FROM generate_series(0, 29) n
+       ), activity AS (
+         SELECT (created_at AT TIME ZONE ${VN})::date AS day, count(DISTINCT user_id)::int AS users
+         FROM hk_events WHERE created_at >= (((now() AT TIME ZONE ${VN})::date - 29)::timestamp AT TIME ZONE ${VN})
+           AND created_at < (((now() AT TIME ZONE ${VN})::date + 1)::timestamp AT TIME ZONE ${VN}) GROUP BY 1
+       )
+       SELECT to_char(c.day, 'YYYY-MM-DD') AS day, COALESCE(a.users, 0)::int AS users
+       FROM calendar c LEFT JOIN activity a ON a.day = c.day ORDER BY c.day`);
     return {
+      as_of: series[series.length - 1].day,
       schools: await one('SELECT count(*) AS n FROM app_schools WHERE is_active'), schools_total: await one('SELECT count(*) AS n FROM app_schools'),
       users_by_role: Object.fromEntries(roles.map((r) => [r.role, r.n])),
       dau: await one(`SELECT count(DISTINCT user_id) AS n FROM hk_events WHERE (created_at AT TIME ZONE ${VN})::date = (now() AT TIME ZONE ${VN})::date`),

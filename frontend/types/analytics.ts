@@ -69,7 +69,7 @@ export interface AiUsage {
   quota?: { limit: number; used_today: number; remaining: number };
 }
 export interface SystemOverview {
-  schools: number; schools_total: number; users_by_role: Record<string, number>; dau: number; wau: number; mau: number; new_users_30d: number; series: Array<{ day: string; users: number }>;
+  as_of: string; schools: number; schools_total: number; users_by_role: Record<string, number>; dau: number; wau: number; mau: number; new_users_30d: number; series: Array<{ day: string; users: number }>;
 }
 export interface ContentRow { key: string; label: string; total: number; draft: number; verified: number; published: number }
 export interface ContentStats { history: ContentRow[]; learning: ContentRow[]; questions: { total: number; by_scope: Record<string, number> }; quizzes: number; ai_chunks: number }
