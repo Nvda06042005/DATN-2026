@@ -50,6 +50,9 @@ export const updateProfile = (token: string, body: ProfilePatch) => apiRequest<P
 /** Học sinh xác nhận hồ sơ ở lần đăng nhập đầu tiên (HK.HS.004) */
 export const confirmProfile = (token: string, email?: string | null) => apiRequest<ProfileData>('/api/auth/confirm-profile', { token, body: { email: email || undefined } });
 
+/** Ảnh đại diện tải lên (mọi vai trò): chỉ nhận ảnh PNG, JPEG, WEBP, GIF tối đa 1,5 MB; trả lại hồ sơ đã cập nhật. Bỏ ảnh: updateProfile({ avatar_url: null }) */
+export const uploadAvatar = (token: string, body: { data: string }) => apiRequest<ProfileData>('/api/auth/avatar', { token, body });
+
 /** Đổi mật khẩu; server trả phiên mới (token cũ hết hiệu lực) */
 export const changePassword = async (token: string, currentPassword: string, newPassword: string) => {
   const session = await apiRequest<AuthSession>('/api/auth/change-password', { token, body: { current_password: currentPassword, new_password: newPassword } });

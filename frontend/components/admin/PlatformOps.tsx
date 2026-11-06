@@ -7,7 +7,7 @@ import { Image, View } from 'react-native';
 import { KeyRound, Pencil, Plus, Send, ShieldCheck, Trash2 } from 'lucide-react-native';
 import * as api from '@/api/platformApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
-import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad, usePageSize } from '@/components/admin/kit';
+import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, usePageSize } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { StatGrid, StatTile } from '@/components/charts';
 import { TicketImage } from '@/components/portal/HelpCenter';
@@ -73,11 +73,11 @@ export const SupportInbox: React.FC<{ session: Session }> = ({ session }) => {
         <StatTile label="Đang xử lý" value={counts.processing ?? 0} tone="thuy" />
         <StatTile label="Đã xong" value={counts.done ?? 0} tone="ngoc" />
       </StatGrid>
-      <FilterBar>
-        <FilterBox><AdminSelect<string> label="Trạng thái" value={status} onChange={(v) => { setStatus(v); setPage(1); }} options={[{ value: '', label: 'Tất cả' }, ...(['new', 'processing', 'done'] as TicketStatus[]).map((s) => ({ value: s, label: TICKET_STATUS_TEXT[s] }))]} testID="support-status" /></FilterBox>
-        <FilterBox><AdminSelect<string> label="Người gửi" value={role} onChange={(v) => { setRole(v); setPage(1); }} options={[{ value: '', label: 'Tất cả' }, { value: 'student', label: 'Học sinh' }, { value: 'teacher', label: 'Giáo viên' }, { value: 'school_admin', label: 'Quản trị trường' }]} /></FilterBox>
-        <FilterBox flex={2}><Field label="Tìm theo tiêu đề, nội dung, tên" value={query} onChangeText={(v) => { setQuery(v); setPage(1); }} nativeID="support-search" /></FilterBox>
-      </FilterBar>
+      <SearchFilterBar placeholder="Tìm theo tiêu đề, nội dung, tên" value={query} onChange={(v) => { setQuery(v); setPage(1); }} searchId="support-search"
+        filters={[
+          { key: 'status', label: 'Trạng thái', value: status, options: [{ value: '', label: 'Tất cả' }, ...(['new', 'processing', 'done'] as TicketStatus[]).map((s) => ({ value: s, label: TICKET_STATUS_TEXT[s] }))], onChange: (v) => { setStatus(v); setPage(1); }, testID: 'support-status' },
+          { key: 'role', label: 'Người gửi', value: role, options: [{ value: '', label: 'Tất cả' }, { value: 'student', label: 'Học sinh' }, { value: 'teacher', label: 'Giáo viên' }, { value: 'school_admin', label: 'Quản trị trường' }], onChange: (v) => { setRole(v); setPage(1); } },
+        ]} />
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data ? (
@@ -163,11 +163,11 @@ const AuditTable: React.FC<{ session: Session }> = ({ session }) => {
   const data = useLoad(() => api.auditLog(session.token, { q, success: ok, students: students || undefined, page, limit: size }), [session.token, q, ok, students, page, size], session.expired);
   return (
     <View style={{ gap: 12 }}>
-      <FilterBar>
-        <FilterBox flex={2}><Field label="Tìm theo người thực hiện hoặc thao tác" value={query} onChangeText={(v) => { setQuery(v); setPage(1); }} nativeID="audit-search" /></FilterBox>
-        <FilterBox><AdminSelect<string> label="Kết quả" value={ok} onChange={(v) => { setOk(v); setPage(1); }} options={[{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Thành công' }, { value: 'false', label: 'Thất bại' }]} /></FilterBox>
-        <FilterBox><AdminSelect<string> label="Người thực hiện" value={students} onChange={(v) => { setStudents(v); setPage(1); }} options={[{ value: '', label: 'Giáo viên và quản trị' }, { value: 'true', label: 'Cả học sinh' }]} testID="audit-students" /></FilterBox>
-      </FilterBar>
+      <SearchFilterBar placeholder="Tìm theo người thực hiện hoặc thao tác" value={query} onChange={(v) => { setQuery(v); setPage(1); }} searchId="audit-search"
+        filters={[
+          { key: 'ok', label: 'Kết quả', value: ok, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Thành công' }, { value: 'false', label: 'Thất bại' }], onChange: (v) => { setOk(v); setPage(1); } },
+          { key: 'students', label: 'Người thực hiện', value: students, options: [{ value: '', label: 'Giáo viên và quản trị' }, { value: 'true', label: 'Cả học sinh' }], onChange: (v) => { setStudents(v); setPage(1); }, testID: 'audit-students' },
+        ]} />
       <ErrorNote message={data.error} />
       {data.loading && !data.data ? <Spinner /> : null}
       {data.data ? (
@@ -197,10 +197,8 @@ const LoginTable: React.FC<{ session: Session }> = ({ session }) => {
   const data = useLoad(() => api.loginLog(session.token, { q, success: ok, page, limit: size }), [session.token, q, ok, page, size], session.expired);
   return (
     <View style={{ gap: 12 }}>
-      <FilterBar>
-        <FilterBox flex={2}><Field label="Tìm theo tên đăng nhập" value={query} onChangeText={(v) => { setQuery(v); setPage(1); }} nativeID="login-search" /></FilterBox>
-        <FilterBox><AdminSelect<string> label="Kết quả" value={ok} onChange={(v) => { setOk(v); setPage(1); }} options={[{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Thành công' }, { value: 'false', label: 'Thất bại' }]} /></FilterBox>
-      </FilterBar>
+      <SearchFilterBar placeholder="Tìm theo tên đăng nhập" value={query} onChange={(v) => { setQuery(v); setPage(1); }} searchId="login-search"
+        filters={[{ key: 'ok', label: 'Kết quả', value: ok, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Thành công' }, { value: 'false', label: 'Thất bại' }], onChange: (v) => { setOk(v); setPage(1); } }]} />
       <ErrorNote message={data.error} />
       {data.loading && !data.data ? <Spinner /> : null}
       {data.data ? (
@@ -233,11 +231,9 @@ const ErrorTable: React.FC<{ session: Session }> = ({ session }) => {
   return (
     <View style={{ gap: 12 }}>
       {data.data ? <StatGrid>{Object.entries(SOURCE).map(([k, label]) => <StatTile key={k} label={`${label} (24 giờ)`} value={data.data!.last_24h[k] ?? 0} tone={data.data!.last_24h[k] ? 'son' : 'ngoc'} />)}</StatGrid> : null}
-      <FilterBar>
-        <FilterBox><AdminSelect<string> label="Nguồn lỗi" value={source} onChange={(v) => { setSource(v); setPage(1); }} options={[{ value: '', label: 'Tất cả' }, ...Object.entries(SOURCE).map(([value, label]) => ({ value, label }))]} /></FilterBox>
-        <FilterBox flex={2}><Field label="Tìm trong nội dung lỗi" value={query} onChangeText={(v) => { setQuery(v); setPage(1); }} nativeID="error-search" /></FilterBox>
-        {session.user.admin_level === 1 ? <Btn icon={Trash2} title="Xóa lỗi cũ hơn 30 ngày" tone="giay" size="sm" loading={busy} onPress={async () => { const r = await run(() => api.clearErrors(session.token, 30)); if (r) { data.reload(); } }} /> : null}
-      </FilterBar>
+      <SearchFilterBar placeholder="Tìm trong nội dung lỗi" value={query} onChange={(v) => { setQuery(v); setPage(1); }} searchId="error-search"
+        filters={[{ key: 'source', label: 'Nguồn lỗi', value: source, options: [{ value: '', label: 'Tất cả' }, ...Object.entries(SOURCE).map(([value, label]) => ({ value, label }))], onChange: (v) => { setSource(v); setPage(1); } }]}
+        extra={session.user.admin_level === 1 ? <Btn icon={Trash2} title="Xóa lỗi cũ hơn 30 ngày" tone="giay" size="sm" loading={busy} onPress={async () => { const r = await run(() => api.clearErrors(session.token, 30)); if (r) { data.reload(); } }} /> : null} />
       <ErrorNote message={data.error} />
       {data.loading && !data.data ? <Spinner /> : null}
       {data.data ? (

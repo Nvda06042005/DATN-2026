@@ -157,6 +157,29 @@ describe('file migration', () => {
     expect(answers[1]).toBe('Hướng dẫn riêng của quản trị');
   });
 
+  test('045 (ảnh đại diện tải lên) nới ràng buộc avatar_url: nhận đường dẫn kho tệp, vẫn nhận liên kết https cũ, từ chối dạng khác; không đổi dữ liệu', async () => {
+    const later = readdirSync(dir).find((name) => name.startsWith('045_'))!;
+    renameSync(join(dir, later), join(dir, `${later}.held`));
+    await m.applyMigrations(url, dir);
+    await sql(url, `INSERT INTO app_schools(id,school_code,name) VALUES(9101,'9101','Trường thử 045');
+      INSERT INTO app_users(id,username,full_name,role,password_hash,school_id,is_active,avatar_url,created_at)
+      VALUES(9101,'cu.https','Dùng liên kết https','student','synthetic-hash',9101,1,'https://example.edu.vn/a.png','2026-11-06T00:00:00Z')`);
+    // trước 045: đường dẫn kho tệp bị từ chối
+    await expect(sql(url, "UPDATE app_users SET avatar_url = '/api/content/media/' || repeat('a', 32) WHERE id = 9101")).rejects.toThrow();
+    renameSync(join(dir, `${later}.held`), join(dir, later));
+    expect(await m.applyMigrations(url, dir)).toEqual([later]);
+    expect(await sql(url, 'SELECT avatar_url FROM app_users WHERE id = 9101')).toEqual([{ avatar_url: 'https://example.edu.vn/a.png' }]);
+    const defs = await sql<{ def: string }>(url, "SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint WHERE conrelid = 'public.app_users'::regclass AND contype = 'c' AND pg_get_constraintdef(oid) LIKE '%avatar_url%'");
+    expect(defs).toHaveLength(1);
+    expect(defs[0].def).toMatch(/api\/content\/media/);
+    await sql(url, "UPDATE app_users SET avatar_url = '/api/content/media/' || repeat('a', 32) WHERE id = 9101");
+    await sql(url, 'UPDATE app_users SET avatar_url = NULL WHERE id = 9101');
+    for (const bad of ["'http://khong-bao-mat.vn/a.png'", "'/api/content/media/abc'", "'/api/content/media/' || repeat('A', 32)", "'/api/khac/' || repeat('a', 32)", "'javascript:alert(1)'"]) {
+      await expect(sql(url, `UPDATE app_users SET avatar_url = ${bad} WHERE id = 9101`)).rejects.toThrow();
+    }
+    expect(await m.applyMigrations(url, dir)).toEqual([]);
+  });
+
   test('giữ nguyên dữ liệu đã nhập và lịch sử _prisma_migrations', async () => {
     await sql(url, readFileSync(join(dir, '001_initial_postgres_schema.sql'), 'utf8'));
     await sql(url, `INSERT INTO public."User" (id, email, "passwordHash", "fullName", "updatedAt") VALUES ('legacy-id', 'fixture@example.invalid', 'fake-hash', 'Fixture', now())`);

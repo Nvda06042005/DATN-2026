@@ -138,7 +138,7 @@ export function configureApp(app: INestApplication): INestApplication {
   const largeJson = jsonBody({ limit: '3mb' });
   // tải video lên (tối đa 8 MB, mã hóa base64 nên khoảng 10,7 MB): chỉ tuyến tải tệp được nhận thân lớn như vậy
   const mediaJson = jsonBody({ limit: '12mb' });
-  app.use((req: { path?: string; originalUrl?: string }, res: unknown, next: () => void) => (/^\/api\/content\/media(\/|$|\?)/.test(req.originalUrl ?? '') ? (mediaJson as any)(req, res, next) : /^\/api\/platform\/support(\/|$|\?)/.test(req.originalUrl ?? '') ? (largeJson as any)(req, res, next) : next()));
+  app.use((req: { path?: string; originalUrl?: string }, res: unknown, next: () => void) => (/^\/api\/content\/media(\/|$|\?)/.test(req.originalUrl ?? '') ? (mediaJson as any)(req, res, next) : /^\/api\/(platform\/support|auth\/avatar)(\/|$|\?)/.test(req.originalUrl ?? '') ? (largeJson as any)(req, res, next) : next()));
   app.enableShutdownHooks();
   return app;
 }

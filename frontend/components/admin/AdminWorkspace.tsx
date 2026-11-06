@@ -34,6 +34,7 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
   const [profile, setProfile] = useState(false);
   const loadProfile = useCallback(() => authApi.getProfile(session.token), [session.token]);
   const saveProfile = useCallback((patch: ProfilePatch) => authApi.updateProfile(session.token, patch), [session.token]);
+  const uploadAvatar = useCallback((img: { data: string }) => authApi.uploadAvatar(session.token, img), [session.token]);
   const label = nav.find(item => item.id === active)?.label ?? 'Quản trị';
   useEffect(() => {
     if (!open || Platform.OS !== 'web') return undefined;
@@ -79,7 +80,10 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
         {wide && <Txt f="semibold" size={12} color={c.muc3} numberOfLines={1} style={{ flex: 1 }}>{trail}</Txt>}
         <View style={{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           {extra}
-          {roomy && <><Avatar name={session.user.full_name} size={34} /><View style={{ maxWidth: 190 }}><Txt f="bold" size={12} numberOfLines={1}>{session.user.full_name}</Txt><Txt size={10} color={c.muc3}>{ROLE_LABEL[session.user.role]}</Txt></View></>}
+          <Pressable testID="admin-profile-open" accessibilityRole="button" accessibilityLabel="Mở hồ sơ cá nhân" onPress={() => setProfile(true)} style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 4, paddingRight: roomy ? 12 : 4, borderRadius: 999, backgroundColor: pressed ? c.adminCanvas : 'transparent' })}>
+            <Avatar name={session.user.full_name} uri={session.user.avatar_url} size={34} />
+            {roomy && <View style={{ maxWidth: 190 }}><Txt f="bold" size={12} numberOfLines={1}>{session.user.full_name}</Txt><Txt size={10} color={c.muc3}>{ROLE_LABEL[session.user.role]}</Txt></View>}
+          </Pressable>
           <Pressable testID="admin-logout" accessibilityRole="button" accessibilityLabel="Đăng xuất" onPress={() => session.logout()} style={({ pressed }) => ({ minHeight: 44, minWidth: 44, paddingHorizontal: roomy ? 18 : 12, borderRadius: 999, backgroundColor: pressed ? c.logoInk : c.den, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 })}>
             <LogOut size={16} color={c.trang} />{roomy && <Txt f="bold" size={14} color={c.trang}>Đăng xuất</Txt>}
           </Pressable>
@@ -91,7 +95,7 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
           <View style={{ flex: 1, minHeight: 0 }}>{children}</View>
           <Txt testID="admin-copyright" f="body" size={11} color={c.muc3} center style={{ paddingVertical: 8 }}>© 2026 · Bản quyền thuộc quản lý Đông A</Txt>
         </View>
-        {profile && <ProfileSheet onClose={() => setProfile(false)} load={loadProfile} save={saveProfile} onSaved={session.updateUser}>
+        {profile && <ProfileSheet onClose={() => setProfile(false)} load={loadProfile} save={saveProfile} upload={uploadAvatar} onSaved={session.updateUser}>
           {(session.user.role === 'root_admin' || session.user.role === 'school_admin') ? <AccountSecurity session={session} /> : null}
         </ProfileSheet>}
         {!wide && open && <View style={{ position: 'absolute', inset: 0, zIndex: 40 }}><Pressable accessibilityRole="button" accessibilityLabel="Đóng menu quản trị" onPress={() => setOpen(false)} style={{ position: 'absolute', inset: 0, backgroundColor: c.scrim }} />{sidebar}</View>}
