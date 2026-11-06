@@ -27,3 +27,4 @@ Người dùng đã cho phép tự động cập nhật dự án sau mỗi yêu 
 - Supabase: thay đổi schema hoặc seed/reference data phải có migration mới theo quy tắc ở trên. Backend áp dụng migration khi khởi động; xác minh bằng `schema_version` của `/api/database/health`.
 - Chỉ báo đồng bộ thành công khi có bằng chứng cho từng dịch vụ; nêu rõ lỗi triển khai hoặc thiếu kết nối.
 - CI trên GitHub: `.github/workflows/ci.yml` chạy backend/migration với PostgreSQL tạm, frontend và hồi quy auto-sync; tài liệu `docs/GITHUB_ACTIONS.md`. Không thêm credential production vào workflow, không bỏ qua kiểm thử database để lấy dấu tích xanh. Kết quả CI không thay cho xác minh deploy Render/Vercel/Supabase.
+- Khi thêm dependency backend, cập nhật `package-lock.json` bằng npm `10.9.4` như CI/Render (ví dụ `npx npm@10.9.4 install ...`); npm 11 có thể bỏ khóa peer webpack mà npm 10 cần cho `npm ci`.
