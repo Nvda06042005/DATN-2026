@@ -24,7 +24,7 @@ Máy chủ chấm các ứng viên học tiếp, ôn tập, chủ đề yếu, b
 
 ## Lịch chạy
 
-- Sau khi backend và database sẵn sàng: lên lịch chạy sau 10 giây; sau đó kiểm tra mỗi giờ.
+- Sau khi backend và database sẵn sàng: `onApplicationBootstrap` lên lịch chạy sau 10 giây; sau đó kiểm tra mỗi giờ. Đợi toàn bộ `onModuleInit` (bao gồm migration/database) để không bỏ qua lịch khi database khởi tạo chậm.
 - Chỉ xử lý tài khoản học sinh đang hoạt động, chưa xóa, có sự kiện trong 14 ngày và kết quả đã quá hạn hoặc chưa có.
 - Mỗi lô tối đa 200 người trong job hiện tại. Phân trang theo ID cho đến hết người đủ điều kiện, không dừng sau lô đầu; lỗi của một người không chặn lô tiếp theo.
 - Mỗi người chạy trong `withWorkspace` với RLS theo trường. Kết quả giữ trong database tối đa 30 ngày; không đẩy lên giao diện.
@@ -32,4 +32,4 @@ Máy chủ chấm các ứng viên học tiếp, ôn tập, chủ đề yếu, b
 
 Các màn điểm mạnh/yếu, luyện tập và kế hoạch ôn tập vẫn hoạt động qua mục **Kế hoạch học**. Những màn này không tải hay tự sinh thẻ gợi ý.
 
-Kiểm thử: `analytics.spec.ts` kiểm tra API đã gỡ, một chính sách chung, kết quả tính nền, tuổi dữ liệu và nhiều lô; `analytics-job.spec.ts` kiểm tra tự lên lịch và dừng lịch; `migrations.spec.ts` kiểm tra 041 giữ chính sách hiện có và không ghi đè FAQ quản trị tự sửa.
+Kiểm thử: `analytics.spec.ts` kiểm tra API đã gỡ, một chính sách chung, kết quả tính nền, tuổi dữ liệu và nhiều lô; `analytics-job.spec.ts` kiểm tra tự lên lịch/dừng lịch và khởi động Nest thật với database khởi tạo chậm (thất bại trên cách dùng `onModuleInit` cũ); `migrations.spec.ts` kiểm tra 041 giữ chính sách hiện có và không ghi đè FAQ quản trị tự sửa.
