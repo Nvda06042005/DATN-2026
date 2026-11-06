@@ -159,7 +159,8 @@ describe('file migration', () => {
 
   test('046 (ảnh đại diện tải lên) nới ràng buộc avatar_url: nhận đường dẫn kho tệp, vẫn nhận liên kết https cũ, từ chối dạng khác; không đổi dữ liệu', async () => {
     const later = readdirSync(dir).find((name) => name.startsWith('046_'))!;
-    renameSync(join(dir, later), join(dir, `${later}.held`));
+    const held = readdirSync(dir).filter(name => /^\d+_.*\.sql$/.test(name) && Number(name.slice(0, 3)) >= 46);
+    for (const file of held) renameSync(join(dir, file), join(dir, `${file}.held`));
     await m.applyMigrations(url, dir);
     await sql(url, `INSERT INTO app_schools(id,school_code,name) VALUES(9101,'9101','Trường thử 046');
       INSERT INTO app_users(id,username,full_name,role,password_hash,school_id,is_active,avatar_url,created_at)
@@ -178,6 +179,7 @@ describe('file migration', () => {
       await expect(sql(url, `UPDATE app_users SET avatar_url = ${bad} WHERE id = 9101`)).rejects.toThrow();
     }
     expect(await m.applyMigrations(url, dir)).toEqual([]);
+    for (const file of held.filter(file => file !== later)) renameSync(join(dir, `${file}.held`), join(dir, file));
   });
 
   test('giữ nguyên dữ liệu đã nhập và lịch sử _prisma_migrations', async () => {

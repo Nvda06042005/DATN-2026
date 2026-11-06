@@ -49,6 +49,314 @@
         "THCS Phú Mỹ Bình Thạnh"
       ],
       "checked_at": "2026-11-07"
+    },
+    {
+      "code": "79775507",
+      "name": "Trường THCS Lam Sơn",
+      "city": "Thành phố Hồ Chí Minh",
+      "region": "Quận 6",
+      "source": "https://thcslamsonq6.hcm.edu.vn/",
+      "source_date": null,
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [],
+      "aliases": [],
+      "website": "https://thcslamsonq6.hcm.edu.vn/"
+    },
+    {
+      "code": "tn-daiphuc-2026",
+      "name": "Trường THCS Đại Phúc",
+      "city": "Tỉnh Thái Nguyên",
+      "region": "Xã Đại Phúc",
+      "source": "https://daiphuc.thainguyen.gov.vn/tin-tuc-su-kien/dai-phuc-to-chuc-le-trao-tang-huan-chuong-lao-dong-hang-ba-cho-truong-tieu-hoc-dong-doan-khue-cong--288197",
+      "source_date": null,
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "19164521",
+        "19164519",
+        "19172508"
+      ],
+      "aliases": [
+        "THCS Phúc Trìu",
+        "THCS Phúc Xuân",
+        "THCS Phúc Tân"
+      ],
+      "additional": true,
+      "website": "https://thcsdaiphuc.thainguyen.edu.vn/"
+    },
+    {
+      "code": "tn-phubinh1-2026",
+      "name": "Trường THCS Phú Bình 1",
+      "city": "Tỉnh Thái Nguyên",
+      "region": "Xã Phú Bình",
+      "source": "https://thcsthitranhuongson.phubinh.edu.vn/gioi-thieu/gioi-thieu-ve-truong-thcs-phu-binh-1.html",
+      "source_date": null,
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "19173505",
+        "19173512",
+        "19173506"
+      ],
+      "aliases": [
+        "Trung học cơ sở thị trấn Hương Sơn",
+        "THCS Bảo Lý",
+        "Trung học cơ sở Xuân Phương"
+      ],
+      "additional": true,
+      "website": "https://thcsthitranhuongson.phubinh.edu.vn/"
+    },
+    {
+      "code": "ht-danhai-2026",
+      "name": "Trường THCS Đan Hải",
+      "city": "Tỉnh Hà Tĩnh",
+      "region": "Xã Đan Hải",
+      "source": "https://danhai.hatinh.gov.vn/vi/bai-viet/xa-dan-hai-cong-bo-quyet-dinh-thanh-lap-cac-truong-hoc-va-cong-tac-can-bo-sau-sap-xep",
+      "source_date": "2026-08-28",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "42442512",
+        "42442511"
+      ],
+      "aliases": [
+        "THCS Đan Trường Hội",
+        "THCS Phổ Hải"
+      ],
+      "additional": true,
+      "website": "https://thcsdanhai.hatinh.edu.vn/"
+    },
+    {
+      "code": "79784505",
+      "name": "Trường THCS Hà Huy Tập",
+      "city": "Thành phố Hồ Chí Minh",
+      "region": "Xã Bà Điểm",
+      "source": "https://filethcs.hcm.edu.vn/data/doc/2024/thcshahuytaphm/2024_9/23/bao-cao-thuong-nien-nam-2024_239202410.pdf",
+      "source_date": "2024-05-21",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [],
+      "aliases": [
+        "THCS Trung Mỹ Tây 1"
+      ],
+      "website": "https://thcshahuytaphm.hcm.edu.vn/"
+    },
+    {
+      "code": "31305506",
+      "name": "THCS Trương Công Định",
+      "city": "Thành phố Hải Phòng",
+      "region": "Phường Lê Chân",
+      "source": "https://haiphong.gov.vn/phuong-le-chan/phuong-le-chan-cong-bo-quyet-dinh-ve-sap-xep-cac-co-so-giao-duc-mam-non-tieu-hoc-trung-hoc-co-so-951305",
+      "source_date": "2026-08-19",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "31305501"
+      ],
+      "aliases": [
+        "THCS Hoàng Diệu"
+      ]
+    },
+    {
+      "code": "30292523",
+      "name": "THCS Phú Thứ",
+      "city": "Thành phố Hải Phòng",
+      "region": "Phường Nhị Chiểu",
+      "source": "https://nhichieu.haiphong.gov.vn/tin-tuc-su-kien/so-1224-qd-ubnd-ngay-18-thang-8-nam-2026-quyet-dinh-ve-viec-sap-nhap-truong-thcs-tan-dan-va-truo-952367",
+      "source_date": "2026-08-18",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "30292524"
+      ],
+      "aliases": [
+        "Trường THCS Tân Dân"
+      ]
+    },
+    {
+      "code": "hn-vuongthuavu-2026",
+      "name": "THCS Vương Thừa Vũ",
+      "city": "Thành phố Hà Nội",
+      "region": "Xã Đại Thanh",
+      "source": "https://thcsvinhquynh.hanoi.edu.vn/chuyen-muc-khac/hanh-trinh-moi-tam-cao-moi-truong-thcs-vuong-thua-vu-chinh-thuc-duoc-thanh-lap/ctmb/1839/52669",
+      "source_date": "2026-08-05",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "01020516",
+        "01020510"
+      ],
+      "aliases": [
+        "Trường THCS Vĩnh Quỳnh",
+        "Trường THCS Tam Hiệp"
+      ],
+      "additional": true,
+      "website": "https://thcsvuongthuavu.hanoi.edu.vn/"
+    },
+    {
+      "code": "hn-dongocdu-2026",
+      "name": "THCS Đỗ Ngọc Du",
+      "city": "Thành phố Hà Nội",
+      "region": "Xã Đại Thanh",
+      "source": "https://thcsdongocdu.hanoi.edu.vn/hoat-dong-chung/hop-hoi-dong-su-pham-dau-nam-hoc-20262027-cua-truong-thcs-do-ngoc-du-doan-ket-h/ctfull/357/52725",
+      "source_date": "2026-08-11",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "01020514",
+        "01020513"
+      ],
+      "aliases": [
+        "Trường THCS Tả Thanh Oai",
+        "Trường THCS Hữu Hoà",
+        "THCS Đỗ Ngọc Du trước sáp nhập"
+      ],
+      "additional": true,
+      "website": "https://thcsdongocdu.hanoi.edu.vn/"
+    },
+    {
+      "code": "hn-thanhoai-2026",
+      "name": "THCS Thanh Oai",
+      "city": "Thành phố Hà Nội",
+      "region": "Xã Thanh Oai",
+      "source": "https://thcsthanhoai.hanoi.edu.vn/tin-tuc-su-kien/truong-thcs-thanh-oai-to-chuc-hoi-nghi-ban-dai-dien-cha-me-hoc-sinh-dau-nam-hoc/ctfull/3212/25617",
+      "source_date": null,
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "01278513",
+        "01278516",
+        "01278517"
+      ],
+      "aliases": [
+        "THCS Thanh Mai",
+        "THCS Kim An",
+        "THCS Kim Thư"
+      ],
+      "additional": true,
+      "website": "https://thcsthanhoai.hanoi.edu.vn/"
+    },
+    {
+      "code": "01004503",
+      "name": "THCS Ngọc Lâm",
+      "city": "Thành phố Hà Nội",
+      "region": "Phường Bồ Đề",
+      "source": "https://thcsngoclam.hanoi.edu.vn/hoat-dong-chung/c/1553/2",
+      "source_date": "2026-08-04",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "01004502"
+      ],
+      "aliases": [
+        "THCS Bồ Đề"
+      ],
+      "website": "https://thcsngoclam.hanoi.edu.vn/"
+    },
+    {
+      "code": "hn-thuanan-2026",
+      "name": "THCS Thuận An",
+      "city": "Thành phố Hà Nội",
+      "region": "Xã Thuận An",
+      "source": "https://thcsduongquang.hanoi.edu.vn/tin-tuc-su-kien/truong-thcs-thuan-an-to-chuc-hoi-nghi-hoc-tap-trien-khai-nhiem-vu-nam-hoc-20262/ct/671/229480",
+      "source_date": null,
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "01018512",
+        "01018513",
+        "01018508"
+      ],
+      "aliases": [
+        "THCS Kim Sơn",
+        "THCS Lệ Chi",
+        "THCS Dương Quang"
+      ],
+      "additional": true,
+      "website": "https://thcskimson.hanoi.edu.vn/"
+    },
+    {
+      "code": "01018503",
+      "name": "THCS Đa Tốn",
+      "city": "Thành phố Hà Nội",
+      "region": "Xã Bát Tràng",
+      "source": "https://thcsdaton.hanoi.edu.vn/tin-tuc-su-kien/thcs-da-ton-ra-mat-mo-hinh-truong-hoc-so/ctfull/621/231735",
+      "source_date": "2026-10-28",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "01018506"
+      ],
+      "aliases": [
+        "THCS Đông Dư"
+      ],
+      "website": "https://thcsdaton.hanoi.edu.vn/"
+    },
+    {
+      "code": "hn-lythuongkiet-daphuc-2026",
+      "name": "Trường TH và THCS Lý Thường Kiệt",
+      "city": "Thành phố Hà Nội",
+      "region": "Xã Đa Phúc",
+      "source": "https://thcsduchoa.hanoi.edu.vn/lich-su-hinh-thanh-va-phat-trien/hoi-nghi-cong-bo-quyet-dinh-thanh-lap-truong-th-va-thcs-ly-thuong-kiet-chang-du/ctfull/2671/16676",
+      "source_date": "2026-08-01",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "01016504"
+      ],
+      "aliases": [
+        "Trường THCS Đức Hoà"
+      ],
+      "additional": true,
+      "website": "https://thcsduchoa.hanoi.edu.vn/"
+    },
+    {
+      "code": "01279522",
+      "name": "THCS Nguyễn Trãi A",
+      "city": "Thành phố Hà Nội",
+      "region": "Xã Thường Tín",
+      "source": "https://thcsnguyentraia-thuongtin.hanoi.edu.vn/tin-tuc-su-kien/thanh-lap-truong-thcs-nguyen-trai-a-sau-sap-nhap-mo-ra-chang-duong-phat-trien-m/ctfull/2086/25122",
+      "source_date": "2026-07-30",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "01279528"
+      ],
+      "aliases": [
+        "Trường THCS Văn Phú",
+        "THCS Thị trấn Thường Tín"
+      ],
+      "website": "https://thcsnguyentraia-thuongtin.hanoi.edu.vn/"
+    },
+    {
+      "code": "kh-nhatrang-2026",
+      "name": "Trường THCS Nha Trang",
+      "city": "Tỉnh Khánh Hòa",
+      "region": "Phường Nha Trang",
+      "source": "https://nhatrang.khanhhoa.gov.vn/tin-bai/giao-duc/phuong-nha-trang-cong-bo-quyet-dinh-thanh-lap-cac-co-so-giao-duc-cong-lap-va-to-chuc-bo-may-2247",
+      "source_date": "2026-08-26",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "56568515",
+        "56568501",
+        "56568502",
+        "56568516",
+        "56568520",
+        "56568517",
+        "56568525"
+      ],
+      "aliases": [
+        "THCS Thái Nguyên",
+        "THCS Âu Cơ",
+        "THCS Bùi Thị Xuân",
+        "THCS Trần Nhật Duật",
+        "THCS Trần Quốc Toản",
+        "THCS Trưng Vương",
+        "THCS Yersin"
+      ],
+      "additional": true
     }
   ]
 }

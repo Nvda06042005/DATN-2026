@@ -727,6 +727,14 @@ Theo yêu cầu: (1) ảnh đại diện không dán liên kết https nữa mà
 - Kiểm thử: `backend/test/avatar.spec.ts` (6 bài: mọi vai trò tải được, từ chối Word/Excel/PowerPoint/PDF/văn bản/video kể cả đổi đuôi, 1,5 MB, mỗi người một ảnh, xóa, không lẫn vào thư viện/hạn mức), `migrations.spec.ts` (046), `sprint1.spec.ts` (hồ sơ), `frontend/tests/avatar-search.test.cjs` (5 bài); thử trên Chrome thật bằng hộp chọn tệp: tải PNG, bị từ chối `.docx`, `.xlsx`, `.pptx` và Word đổi đuôi `.png`, xóa ảnh; lọc người dùng theo vai trò kết hợp tìm kiếm, nhật ký, yêu cầu hỗ trợ.
 
 
+## Đối chiếu tiếp logo và trường sau sáp nhập (07/11/2026)
+
+- Bỏ câu hướng dẫn tìm kiếm mà người dùng yêu cầu. Nghiên cứu 740 trang nguồn/danh bạ và 3.399 website; rà thêm 184 ảnh, không coi danh sách Gist năm 2020 là danh sách đã xác minh 2026.
+- Bộ hiện hành 460 logo WebP (4.299.330 byte), 80 trường mới có ảnh; rút 42 liên kết nghi ngờ hoặc mã trước sáp nhập, giữ 45 trường chờ đối chiếu nhận diện. Chưa đủ toàn bộ logo trong Gist.
+- Danh mục 11.349 gợi ý; 19 hồ sơ xác nhận có nguồn riêng. Mã cũ tìm về trường mới; không tự gộp dữ liệu/tài khoản của trường đã đăng ký. Chặn tạo trùng khi trường đã đăng ký bằng mã tham chiếu cũ.
+- Migration 047 bổ sung chênh lệch 370 dòng và 141 asset mới trong Supabase; không sửa các migration đã áp dụng. Logo tham chiếu được làm mới ở danh sách/chi tiết/trang đăng nhập; URL ảnh riêng của trường được giữ. Nguồn, kiểm tra ảnh trùng và phạm vi: `docs/DANH_MUC_TRUONG.md`.
+- Kiểm tra local: backend build, 55 bài PostgreSQL/migration/trường, 5 bài công cụ đọc nguồn; frontend typecheck, build và 76 bài; Chrome headless 6 tình huống desktop/điện thoại với API giả lập đều đạt. Bổ sung tìm theo mã trước sáp nhập và sửa bài nâng cấp 046 để giữ các migration sau 046 trong vùng chờ; cụm PostgreSQL fixture không ghi đồng bộ đĩa, không đổi cấu hình production.
+
 ## Thu nhỏ vừa đủ: hộp hồ sơ, thanh tìm kiếm, hộp nhập liệu, nút chuyển trang (07/11/2026)
 
 Theo yêu cầu "làm nhỏ vừa đủ, không trải hết màn hình": các thành phần dưới đây co theo nội dung thay vì kéo dài hết chiều ngang hoặc chiều cao màn hình. Chỉ đổi giao diện; không đổi API, cơ sở dữ liệu hay migration.

@@ -5,6 +5,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { MailService } from '../admin/mail.service';
 import { parseSchoolSlug, schoolSlug } from '../admin/school-directory';
 import { config } from '../config';
+import { currentSchoolLogo } from '../admin/school-brand';
 import { SecurityService } from './security.service';
 import { TwoFactorService } from '../platform/twofa.service';
 import { DatabaseService, Role, searchText, UserRow } from '../database/database.service';
@@ -131,10 +132,11 @@ export class AuthService {
   async schoolByLink(slug: string) {
     const parsed = parseSchoolSlug(slug);
     if (!parsed) throw new NotFoundException('Đường dẫn trường không đúng.');
-    const school = (await this.db.query<{ school_code: string; name: string; region: string | null; city: string | null; logo_url: string | null; is_active: boolean }>(
-      'SELECT school_code, name, region, city, logo_url, is_active FROM app_schools WHERE school_code = $1', [parsed.code]))[0];
+    const school = (await this.db.query<{ school_code: string; directory_code: string | null; name: string; region: string | null; city: string | null; logo_url: string | null; is_active: boolean }>(
+      'SELECT school_code, directory_code, name, region, city, logo_url, is_active FROM app_schools WHERE school_code = $1', [parsed.code]))[0];
     if (!school) throw new NotFoundException('Không tìm thấy trường với đường dẫn này.');
-    return { ...school, slug: schoolSlug(school) };
+    const { directory_code: _reference, ...publicSchool } = currentSchoolLogo(school);
+    return { ...publicSchool, slug: schoolSlug(school) };
   }
 
   /** Ghi nhận đăng nhập thành công trong một giao dịch, rồi cấp token; phát hiện tài khoản vừa bị đổi trong lúc đăng nhập */
@@ -309,7 +311,8 @@ export class AuthService {
   // ------------------------------------------------------------------ hồ sơ cá nhân
   /** Hồ sơ của chính người dùng: thông tin cá nhân, trường, năm học hiện tại, các lớp (giáo viên: lớp phụ trách; học sinh: lớp đã tham gia) */
   async profile(user: UserRow) {
-    const school = user.school_id ? (await this.db.query('SELECT id, school_code, name, logo_url, city FROM app_schools WHERE id = $1', [user.school_id]))[0] ?? null : null;
+    const schoolRow = user.school_id ? (await this.db.query<{id: number; school_code: string; directory_code: string | null; name: string; logo_url: string | null; city: string | null}>('SELECT id, school_code, directory_code, name, logo_url, city FROM app_schools WHERE id = $1', [user.school_id]))[0] ?? null : null;
+    const school = schoolRow ? currentSchoolLogo(schoolRow) : null;
     const year = user.school_id ? (await this.db.query("SELECT id, label FROM app_school_years WHERE school_id = $1 AND status = 'active'", [user.school_id]))[0] ?? null : null;
     const classes = user.role === 'teacher'
       ? await this.db.query(`SELECT c.id, c.class_code, c.name, c.grade, c.school_year, c.is_active, c.join_code FROM app_class_teachers t JOIN app_classes c ON c.id = t.class_id

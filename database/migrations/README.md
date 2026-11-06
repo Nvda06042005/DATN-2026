@@ -91,3 +91,5 @@ Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).
 - **044_national_school_catalog_seed.sql**: 11.371 gợi ý, 422 logo đã rà (4.153.024 byte ảnh), không tạo trường/người dùng; API tải từng ảnh. Xem docs/DANH_MUC_TRUONG.md.
 
 - **045_phu_my_verified_address.sql**: địa chỉ và phường hiện hành của THCS Phú Mỹ theo website trường; chỉ dữ liệu tham chiếu.
+
+- **047_verified_school_logos_and_mergers.sql**: 370 dòng tham chiếu thay đổi, 141 asset mới (gồm phiên bản ảnh rõ hơn); bộ hiện hành 460 logo WebP. Đối chiếu thêm sáp nhập/đổi tên có nguồn. Giữ bản ghi lịch sử, chỉ bỏ liên kết ảnh của mã đã sáp nhập hoặc chưa chắc đúng. Không tạo/gộp/xóa trường đăng ký, tài khoản hoặc dữ liệu học tập. SQL sinh dạng chênh lệch từ snapshot tham chiếu, không chép lại toàn bộ 044 và không sửa migration cũ.

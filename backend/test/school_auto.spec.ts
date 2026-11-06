@@ -1,5 +1,6 @@
 import { adminLogin, call, hasPostgres, sql, Started, startApp } from './harness';
 import { createHash } from 'node:crypto';
+import { directoryInfo } from '../src/admin/school-directory';
 
 (hasPostgres() ? describe : describe.skip)('Mã trường tự sinh và liên kết danh mục', () => {
   let s: Started, root: string;
@@ -62,10 +63,25 @@ import { createHash } from 'node:crypto';
     expect((await api('GET', '/api/admin/school-directory', undefined, '')).status).toBe(401);
   });
 
+  test('trường đã đăng ký bằng mã trước sáp nhập không bị tạo thêm qua mã hoặc tên mới', async () => {
+    const legacy = (await api('POST', '/api/admin/schools', { name: 'Trường đã đăng ký từ trước', admin: admin('old-directory') })).body.school;
+    await sql(s.url, 'UPDATE app_schools SET directory_code=$1 WHERE id=$2', ['01020513', legacy.id]);
+    const found = await api('GET', '/api/admin/school-directory?q=01020513');
+    expect(found.body.items[0]).toMatchObject({ code: 'hn-dongocdu-2026', exists: true });
+    for (const directory_code of ['01020513', '01020514', 'hn-dongocdu-2026']) {
+      expect((await api('POST', '/api/admin/schools', { directory_code, name: 'Trường trùng sau sáp nhập', admin: admin('should-not-exist') })).status).toBe(409);
+    }
+    const other = (await api('POST', '/api/admin/schools', { name: 'Trường khác', admin: admin('other-directory') })).body.school;
+    expect((await api('PATCH', `/api/admin/schools/${other.id}`, { directory_code: 'hn-dongocdu-2026' })).status).toBe(409);
+    expect((await api('GET', `/api/admin/schools/${legacy.id}`)).body).toMatchObject({ id: legacy.id, school_code: legacy.school_code, directory_code: '01020513' });
+    expect((await call(s.base, 'GET', '/api/auth/school-link/' + legacy.link.slug)).status).toBe(200);
+    expect((await api('GET', `/api/admin/users?school_id=${legacy.id}`)).body.total).toBe(1);
+  });
+
   test('logo đã nén nằm trong PostgreSQL, tải riêng từng ảnh, có checksum và cache 304', async () => {
     const counts = (await sql<{ entries: number; assets: number }>(s.url, 'SELECT (SELECT count(*)::int FROM app_school_directory) AS entries, (SELECT count(*)::int FROM app_school_logo_assets) AS assets'))[0];
-    expect(counts.entries).toBe(11371);
-    expect(counts.assets).toBe(422);
+    expect(counts.entries).toBeGreaterThanOrEqual(directoryInfo().schools);
+    expect(counts.assets).toBeGreaterThanOrEqual(422); // lịch sử asset không bị xóa khi danh mục đổi tên
     const choice = (await api('GET', '/api/admin/school-directory?q=79765507')).body.items[0];
     expect(choice).toMatchObject({ region: 'Phường Thạnh Mỹ Tây', address: '120B Ngô Tất Tố, phường Thạnh Mỹ Tây, Thành phố Hồ Chí Minh' });
     expect(choice.logo_url).toMatch(/^https:\/\/[^/]+\/api\/school-logos\/[a-f0-9]{64}\.webp$/);
@@ -86,16 +102,26 @@ import { createHash } from 'node:crypto';
     const made = await api('POST', '/api/admin/schools', { directory_code: choice.code, name: choice.name, admin: admin('logo') });
     expect(made.status).toBe(201);
     expect(made.body.school.logo_url).toBe(choice.logo_url);
+    const oldUrl = `https://previous-api.example.invalid/api/school-logos/${'0'.repeat(64)}.webp`;
+    await sql(s.url, 'UPDATE app_schools SET logo_url=$1 WHERE id=$2', [oldUrl, made.body.school.id]);
+    expect((await api('GET', `/api/admin/schools/${made.body.school.id}`)).body.logo_url).toBe(choice.logo_url);
+    expect((await call(s.base, 'GET', '/api/auth/school-link/' + made.body.school.link.slug)).body.logo_url).toBe(choice.logo_url);
+    // Chỉ làm mới ảnh dẫn xuất trong response; không ghi đè ảnh trường tự cung cấp.
+    const custom = 'https://school.example.invalid/custom-logo.webp';
+    await sql(s.url, 'UPDATE app_schools SET logo_url=$1 WHERE id=$2', [custom, made.body.school.id]);
+    expect((await api('GET', `/api/admin/schools/${made.body.school.id}`)).body.logo_url).toBe(custom);
+    expect((await call(s.base, 'GET', '/api/auth/school-link/' + made.body.school.link.slug)).body.logo_url).toBe(custom);
   });
 
   test('hai trường có thể dùng một asset đã xác minh; không nhân đôi ảnh hoặc mở quyền bảng', async () => {
+    const before = (await sql<{n:number}>(s.url, 'SELECT count(*)::int AS n FROM app_school_logo_assets'))[0].n;
     const asset = (await sql<{sha256: string}>(s.url, 'SELECT sha256 FROM app_school_logo_assets ORDER BY sha256 LIMIT 1'))[0];
     // Chỉ là dữ liệu kiểm thử dùng chung ảnh, không suy đoán tên trường trên production.
     await sql(s.url, 'UPDATE app_school_directory SET logo_sha256=$1,logo_source_url=$2 WHERE code=ANY($3::text[])', [asset.sha256, 'https://school.example.invalid/logo.webp', ['02000E04','011110759']]);
     const a = (await api('GET', '/api/admin/school-directory?q=02000E04')).body.items[0];
     const b = (await api('GET', '/api/admin/school-directory?q=011110759')).body.items[0];
     expect(a.logo_url).toBe(b.logo_url);
-    expect((await sql<{n:number}>(s.url, 'SELECT count(*)::int AS n FROM app_school_logo_assets'))[0].n).toBe(422);
+    expect((await sql<{n:number}>(s.url, 'SELECT count(*)::int AS n FROM app_school_logo_assets'))[0].n).toBe(before);
     expect((await sql(s.url, "SELECT tablename FROM pg_tables WHERE tablename IN ('app_school_logo_assets','app_school_directory') AND rowsecurity")).length).toBe(2);
     expect((await sql(s.url, "SELECT * FROM pg_policies WHERE tablename IN ('app_school_logo_assets','app_school_directory')")).length).toBe(0);
     await expect(sql(s.url, 'SET ROLE dong_a_school_scope; SELECT * FROM public.app_school_directory')).rejects.toThrow(/permission denied/);

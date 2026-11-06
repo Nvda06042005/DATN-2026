@@ -82,6 +82,21 @@ describe('Danh mục trường và quy tắc đặt tên đường dẫn', () =>
     expect(directoryEntry('79765511')?.note).toContain('THCS Lam Sơn');
     expect(directoryInfo().merged).toBeGreaterThanOrEqual(15);
   });
+
+  test('đối chiếu tên cũ 2026 theo đúng địa bàn, không gộp trường trùng tên ở tỉnh khác', () => {
+    expect(directoryEntry('01020513')).toMatchObject({ code: 'hn-dongocdu-2026', name: 'THCS Đỗ Ngọc Du', region: 'Xã Đại Thanh' });
+    expect(directoryEntry('01020514')?.code).toBe('hn-dongocdu-2026');
+    expect(searchDirectory('Hữu Hoà Đại Thanh')[0]?.code).toBe('hn-dongocdu-2026');
+    expect(directoryEntry('56568501')?.code).toBe('kh-nhatrang-2026');
+    expect(directoryEntry('19164521')?.name).toBe('Trường THCS Đại Phúc');
+    expect(directoryEntry('31305501')?.code).toBe('31305506');
+    expect(directoryEntry('30297509')?.name).toContain('Hoàng Diệu');
+    expect(directoryEntry('79784505')?.name).toBe('Trường THCS Hà Huy Tập');
+    expect(searchDirectory('Trung Mỹ Tây 1')[0]?.code).toBe('79784505');
+    const all = searchDirectory('', 20000);
+    expect(all.some(row => row.code === '01020513' || row.code === '56568501')).toBe(false);
+    expect(new Set(all.map(row => row.code)).size).toBe(all.length);
+  });
 });
 
 (hasPostgres() ? describe : describe.skip)('Thêm trường từ danh mục và đăng nhập qua đường dẫn của trường', () => {

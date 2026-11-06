@@ -9,6 +9,7 @@ import io
 import json
 from pathlib import Path
 import subprocess
+import re
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,12 +19,14 @@ def quoted(value):
         return 'NULL'
     return "'" + str(value).replace("'", "''") + "'"
 
-def build(target):
+def build(target, baseline_path=None, snapshot_path=None):
     if target.exists():
         raise SystemExit('Không ghi đè migration: chọn số migration mới.')
     entries = json.loads(subprocess.check_output(['node', '-e', "process.stdout.write(JSON.stringify(require('./backend/dist/admin/school-directory').searchDirectory('',20000)))"], cwd=ROOT))
     manifest = json.loads((ROOT / 'scripts/school-logos.json').read_text(encoding='utf-8'))
     metadata = {r['code']: r for r in json.loads((ROOT / 'backend/src/admin/school-metadata.json').read_text(encoding='utf-8'))['schools']}
+    confirmed = {r['code']: r for r in json.loads((ROOT / 'backend/src/admin/school-confirmed-2026.json').read_text(encoding='utf-8'))['schools']}
+    baseline = json.loads(Path(baseline_path).read_text(encoding='utf-8')) if baseline_path else {}
     logos = {row['code']: row for row in manifest['schools']}
     assets = {}
     hashes = {}
@@ -41,25 +44,48 @@ def build(target):
     sql = ['-- Danh mục gốc 06/10/2020 + nguồn chính thức đã đối chiếu 07/11/2026.',
            '-- Chỉ dữ liệu tham chiếu; không tạo app_schools hay app_users.',
            '-- Sinh bằng scripts/build-school-catalog-seed.py; không sửa sau khi áp dụng.']
+    previous_assets = set()
+    for migration in sorted((ROOT / 'database/migrations').glob('*.sql')):
+        previous_assets.update(re.findall(r"INSERT INTO public\.app_school_logo_assets\([^\n]+?VALUES\('([a-f0-9]{64})'", migration.read_text(encoding='utf-8')))
     for digest, (data, width, height) in sorted(assets.items()):
+        if digest in previous_assets:
+            continue
         sql.append(f"INSERT INTO public.app_school_logo_assets(sha256,image_data,width,height) VALUES('{digest}',decode('{data.hex()}','hex'),{width},{height}) ON CONFLICT(sha256) DO NOTHING;")
     values = []
+    snapshot = {}
     for row in entries:
         logo = logos.get(row['code'])
         checked = metadata.get(row['code'], {}).get('checked_at')
-        values.append('(' + ','.join(quoted(v) for v in [row['code'], row['name'], row['city'], row['region'], row.get('address'), row.get('website'), row.get('source') or 'https://gist.github.com/ngoan98tv/b9111580b75562b45185f90d00e5b1ff', ('2026-11-07' if row['code'].startswith('hp-') else '2020-10-06'), row.get('note'), json.dumps(row.get('previous_codes', []), ensure_ascii=False), hashes.get(row['code']), logo['logo_source'] if logo else None, checked]) + ')')
+        source_date = confirmed.get(row['code'], {}).get('source_date') or ('2026-11-07' if row['code'] in confirmed else '2020-10-06')
+        data = [row['code'], row['name'], row['city'], row['region'], row.get('address'), row.get('website'), row.get('source') or 'https://gist.github.com/ngoan98tv/b9111580b75562b45185f90d00e5b1ff', source_date, row.get('note'), json.dumps(row.get('previous_codes', []), ensure_ascii=False), hashes.get(row['code']), logo['logo_source'] if logo else None, checked]
+        snapshot[row['code']] = data
+        if baseline.get(row['code']) != data:
+            values.append('(' + ','.join(quoted(v) for v in data) + ')')
     columns = 'code,name,city,region,address,website,source_url,source_date,note,previous_codes,logo_sha256,logo_source_url,checked_at'
     for i in range(0, len(values), 250):
         updates = ','.join(f'{column}=EXCLUDED.{column}' for column in columns.split(',') if column != 'code')
         sql.append(f'INSERT INTO public.app_school_directory({columns}) VALUES\n' + ',\n'.join(values[i:i + 250]) + f'\nON CONFLICT(code) DO UPDATE SET {updates};')
+    # Giữ bản ghi lịch sử và mọi trường/tài khoản đã đăng ký; chỉ bỏ liên kết ảnh cũ
+    # của mã tham chiếu đã được xác minh sáp nhập vào đơn vị khác.
+    for row in confirmed.values():
+        for previous in row.get('previous_codes', []):
+            if previous != row['code']:
+                sql.append(f"UPDATE public.app_school_directory SET logo_sha256=NULL,logo_source_url=NULL,note={quoted('Đã sáp nhập: ' + row['name'] + ' · ' + row['code'])} WHERE code={quoted(previous)};")
+    if snapshot_path:
+        Path(snapshot_path).write_text(json.dumps(snapshot, ensure_ascii=False), encoding='utf-8')
+        if not baseline_path:
+            print(json.dumps({'snapshot_entries': len(snapshot)}))
+            return
     target.write_text('\n'.join(sql) + '\n', encoding='utf-8')
-    print(json.dumps({'entries': len(entries), 'logo_schools': len(hashes), 'unique_images': len(assets), 'image_bytes': sum(len(a[0]) for a in assets.values()), 'migration_bytes': target.stat().st_size}))
+    print(json.dumps({'entries': len(entries), 'changed_entries': len(values), 'logo_schools': len(hashes), 'unique_images': len(assets), 'new_images': len(set(assets) - previous_assets), 'image_bytes': sum(len(a[0]) for a in assets.values()), 'migration_bytes': target.stat().st_size}))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('migration', help='Tên file SQL mới trong database/migrations')
+    parser.add_argument('--baseline', help='Snapshot danh mục trước khi thay đổi; chỉ xuất các dòng khác biệt')
+    parser.add_argument('--snapshot', help='Lưu snapshot dữ liệu tham chiếu; không chứa tài khoản')
     args = parser.parse_args()
     target = (ROOT / 'database/migrations' / args.migration).resolve()
     if target.parent != (ROOT / 'database/migrations').resolve() or not target.name.endswith('.sql'):
         raise SystemExit('Chỉ tạo migration SQL mới trong database/migrations')
-    build(target)
+    build(target, args.baseline, args.snapshot)

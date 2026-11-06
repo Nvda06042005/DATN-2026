@@ -23,7 +23,7 @@ export interface DirectoryEntry {
   previous_codes?: string[];
 }
 
-interface SchoolMetadata { code: string; name: string; city: string; region: string; address?: string | null; website?: string | null; logo_url?: string | null; source?: string; additional?: boolean; verified: boolean; aliases?: string[]; previous_codes?: string[] }
+interface SchoolMetadata { code: string; name: string; city: string; region: string; address?: string | null; website?: string | null; logo_url?: string | null; logo_sha256?: string | null; source?: string; additional?: boolean; verified: boolean; aliases?: string[]; previous_codes?: string[] }
 
 type Row = [string, string, number, string, string | null];
 const provinces = directory.provinces as string[];
@@ -56,6 +56,8 @@ for (const entry of entries) for (const oldCode of entry.previous_codes ?? []) b
 
 export const directoryInfo = () => ({ version: metadata.version || directory.version, sources: [...directory.sources, extra.source], schools: entries.length, merged: mergedAway.size, excluded: extra.excluded.length, source_rows: extra.source_rows });
 export const directoryEntry = (code: string): DirectoryEntry | null => byCode.get(code) ?? null;
+/** Chỉ checksum của ảnh tham chiếu đã duyệt; bytes vẫn được tải riêng từ PostgreSQL. */
+export const directoryLogoHash = (code: string): string | null => metadataByCode.get(byCode.get(code)?.code ?? code)?.logo_sha256 ?? null;
 
 /** Tìm theo tên, mã, quận/huyện hoặc tỉnh/thành (không phân biệt dấu); tên bắt đầu bằng cụm tìm được xếp trước */
 export function searchDirectory(query: string, limit = 12): DirectoryEntry[] {
@@ -106,7 +108,7 @@ export const nameSlug = (name: string): string => nameWords(name).replace(/ /g, 
 const indexed = entries.map(entry => {
   const aliases = (directory.merged as string[][]).filter(m => m[2] === entry.code).map(m => m[1]).concat(metadataByCode.get(entry.code)?.aliases ?? []);
   const names = [entry.name, ...aliases].map(nameWords);
-  return { names, initials: names.map(name => name.split(' ').map(word => word[0]).join('')), full: foldVi(`${entry.name} ${aliases.join(' ')} ${entry.region} ${entry.city} ${entry.code}`) };
+  return { names, initials: names.map(name => name.split(' ').map(word => word[0]).join('')), full: foldVi(`${entry.name} ${aliases.join(' ')} ${entry.region} ${entry.city} ${entry.code} ${(entry.previous_codes ?? []).join(' ')}`) };
 });
 
 /** "Quận Bình Thạnh" → "binhthanh", "Huyện Củ Chi" → "cuchi", "Quận 7" → "7" */

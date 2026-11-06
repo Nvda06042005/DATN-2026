@@ -54,3 +54,26 @@ python -X utf8 scripts/build-school-catalog-seed.py 0XX_school_catalog_update.sq
 SQL là nguồn seed; không sửa file 044 đã phát hành hoặc chỉnh Supabase riêng. Tỉnh/thành được quy đổi 34 đơn vị; vùng/huyện nguồn cũ giữ nguyên nếu chưa xác minh phường/xã mới, không tự suy ra địa chỉ 2026.
 
 Migration **045** xác minh địa chỉ THCS Phú Mỹ từ footer website trường: 120B Ngô Tất Tố, phường Thạnh Mỹ Tây, TP.HCM. Tìm theo khu vực cũ Bình Thạnh vẫn trỏ đúng mã 79765507.
+
+## Rà soát tiếp ngày 07/11/2026
+
+- Bỏ câu hướng dẫn tìm kiếm mà người dùng yêu cầu; không bỏ khả năng tìm nhanh.
+- Đối chiếu thêm tên cũ/tên mới từ thông báo chính quyền hoặc chính website trường. `school-confirmed-2026.json` có nguồn cho từng quan hệ; mã bắt đầu `hn-`, `tn-`, `ht-`, `kh-` là khóa tham chiếu nội bộ khi chưa có mã ngành mới, không phải mã Bộ tự suy đoán. Ngày không được nguồn ghi rõ được để trống, không tự đặt ngày sáp nhập.
+- Thêm kiểm tra trường đã đăng ký bằng `directory_code` cũ: mã cũ và mã mới cùng được xem là đã có. Không tạo trùng trường/tài khoản và không tự gộp dữ liệu của các trường đã đăng ký.
+- Nguồn tìm kiếm chỉ để khám phá URL. Tên miền hạ tầng Sở ràng buộc lại tỉnh/thành; không lấy tỉnh của truy vấn tìm kiếm để gán một trường trùng tên ở nơi khác. Các tên mới chưa đủ chứng cứ nối với mã cũ được giữ trong danh sách chờ đối chiếu.
+- Bộ đọc theo cả liên kết/option/ô website của danh bạ và trang chi tiết công khai mà JavaScript của chính cổng dẫn tới. Không đoán API riêng tư. `http://#` là ô chưa có website, không phải một trường đã được kiểm tra.
+- Ưu tiên ảnh cấu hình và favicon riêng của trường, bỏ ảnh bài tin/thông báo, ảnh tập thể và biểu tượng ngành dùng chung. Vẫn phải xem bảng ảnh và đối chiếu chữ/địa bàn trước khi đưa vào danh mục. Logo giống nhau chỉ được dùng chung khi cùng nhận diện đã xác minh; SHA-256 khử trùng bytes, không chứng minh hai trường là một.
+- `currentSchoolLogo` làm mới URL ảnh tham chiếu trong response danh sách/chi tiết/trang đăng nhập theo danh mục đã duyệt; không ghi đè URL logo riêng của trường, không sửa ID/mã đăng nhập/đường dẫn hay tài khoản. Checksum trong metadata phải khớp asset của migration; bytes vẫn tải từng ảnh từ PostgreSQL.
+
+Rà trong vùng staging trước khi phát hành:
+
+```powershell
+python -X utf8 scripts/refresh-school-metadata.py --cache ../../downloads/school-research/cache --input-sites ../../downloads/school-research/websites.json --output ../../downloads/school-review --neighbor-rounds 1 --workers 12
+python -X utf8 scripts/test-school-logo-tools.py
+```
+
+`--skip-unavailable` chỉ tái sử dụng các URL lỗi ở báo cáo ngay trước đó khi rà lại cùng đợt; lần nghiên cứu mới không dùng tùy chọn này. `--only-codes` dùng rà lại ảnh đã bị loại hoặc nguồn logo mới của các mã cụ thể. Thư mục staging và HTML ngoài Git; không tự phát hành ảnh vừa tải mà chưa duyệt.
+
+Kết quả vòng tiếp: đã đi 740 trang nguồn/danh bạ công khai và 3.399 website trường; vòng đầy đủ có 1.510 khớp, 326 cần đối chiếu tên hiện tại, 11 trang lịch sử, 537 chưa khớp, 445 còn trùng tên, 570 không truy cập được. Sau đó rà riêng 321 website có ảnh cấu hình; xem thêm 184 ảnh và loại 39 ảnh không phù hợp. Bộ hiện hành **460 trường có logo**, **4.299.330 byte**, gồm **80 trường mới có logo**; đã rút 42 liên kết cũ chưa chắc đúng hoặc thuộc mã trước sáp nhập. **45 trường** nằm trong danh sách chờ đối chiếu nhận diện, không hiển thị logo đang nghi ngờ. Số ảnh khác với số trường trong danh mục: **11.349 gợi ý hiện hành** sau khi nối thêm 31 mã cũ vào các trường hiện tại. Danh mục xác nhận có 19 hồ sơ (17 hồ sơ sáp nhập/đổi tên, Phú Mỹ và Lam Sơn quận 6 đối chiếu địa chỉ/website). Chưa xác nhận logo/địa chỉ/sáp nhập cho toàn bộ Gist.
+
+Migration **047** chỉ thêm 141 asset chưa từng lưu và cập nhật 370 dòng tham chiếu. `app_school_directory` vẫn giữ bản ghi lịch sử nên số dòng SQL có thể lớn hơn số gợi ý đang hiện. Bytes ảnh cũ giữ nguyên cho lịch sử; không xóa ảnh hay URL tùy chỉnh do trường cung cấp. Metadata hiện có 1.805 hồ sơ, trong đó 1.760 được dùng để bổ sung danh mục.

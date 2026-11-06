@@ -1,0 +1,216 @@
+{
+  "checked_at": "2026-11-07",
+  "source": "https://gist.github.com/ngoan98tv/b9111580b75562b45185f90d00e5b1ff",
+  "source_date": "2020-10-06",
+  "current_suggestions": 11349,
+  "verified_logos": 460,
+  "missing_verified_logo": 10889,
+  "pending_identity": 45,
+  "image_bytes": 4299330,
+  "provinces": [
+    {
+      "city": "Thành phố Cần Thơ",
+      "schools": 278,
+      "with_logo": 25,
+      "missing_verified_logo": 253
+    },
+    {
+      "city": "Thành phố Huế",
+      "schools": 134,
+      "with_logo": 0,
+      "missing_verified_logo": 134
+    },
+    {
+      "city": "Thành phố Hà Nội",
+      "schools": 668,
+      "with_logo": 18,
+      "missing_verified_logo": 650
+    },
+    {
+      "city": "Thành phố Hải Phòng",
+      "schools": 459,
+      "with_logo": 65,
+      "missing_verified_logo": 394
+    },
+    {
+      "city": "Thành phố Hồ Chí Minh",
+      "schools": 510,
+      "with_logo": 179,
+      "missing_verified_logo": 331
+    },
+    {
+      "city": "Thành phố Đà Nẵng",
+      "schools": 290,
+      "with_logo": 0,
+      "missing_verified_logo": 290
+    },
+    {
+      "city": "Tỉnh An Giang",
+      "schools": 365,
+      "with_logo": 1,
+      "missing_verified_logo": 364
+    },
+    {
+      "city": "Tỉnh Bắc Ninh",
+      "schools": 381,
+      "with_logo": 36,
+      "missing_verified_logo": 345
+    },
+    {
+      "city": "Tỉnh Cao Bằng",
+      "schools": 190,
+      "with_logo": 0,
+      "missing_verified_logo": 190
+    },
+    {
+      "city": "Tỉnh Cà Mau",
+      "schools": 195,
+      "with_logo": 0,
+      "missing_verified_logo": 195
+    },
+    {
+      "city": "Tỉnh Gia Lai",
+      "schools": 395,
+      "with_logo": 29,
+      "missing_verified_logo": 366
+    },
+    {
+      "city": "Tỉnh Hà Tĩnh",
+      "schools": 152,
+      "with_logo": 7,
+      "missing_verified_logo": 145
+    },
+    {
+      "city": "Tỉnh Hưng Yên",
+      "schools": 449,
+      "with_logo": 22,
+      "missing_verified_logo": 427
+    },
+    {
+      "city": "Tỉnh Khánh Hòa",
+      "schools": 186,
+      "with_logo": 0,
+      "missing_verified_logo": 186
+    },
+    {
+      "city": "Tỉnh Lai Châu",
+      "schools": 110,
+      "with_logo": 0,
+      "missing_verified_logo": 110
+    },
+    {
+      "city": "Tỉnh Lào Cai",
+      "schools": 385,
+      "with_logo": 1,
+      "missing_verified_logo": 384
+    },
+    {
+      "city": "Tỉnh Lâm Đồng",
+      "schools": 391,
+      "with_logo": 1,
+      "missing_verified_logo": 390
+    },
+    {
+      "city": "Tỉnh Lạng Sơn",
+      "schools": 228,
+      "with_logo": 2,
+      "missing_verified_logo": 226
+    },
+    {
+      "city": "Tỉnh Nghệ An",
+      "schools": 405,
+      "with_logo": 0,
+      "missing_verified_logo": 405
+    },
+    {
+      "city": "Tỉnh Ninh Bình",
+      "schools": 487,
+      "with_logo": 0,
+      "missing_verified_logo": 487
+    },
+    {
+      "city": "Tỉnh Phú Thọ",
+      "schools": 642,
+      "with_logo": 45,
+      "missing_verified_logo": 597
+    },
+    {
+      "city": "Tỉnh Quảng Ngãi",
+      "schools": 307,
+      "with_logo": 1,
+      "missing_verified_logo": 306
+    },
+    {
+      "city": "Tỉnh Quảng Ninh",
+      "schools": 207,
+      "with_logo": 0,
+      "missing_verified_logo": 207
+    },
+    {
+      "city": "Tỉnh Quảng Trị",
+      "schools": 306,
+      "with_logo": 0,
+      "missing_verified_logo": 306
+    },
+    {
+      "city": "Tỉnh Sơn La",
+      "schools": 240,
+      "with_logo": 0,
+      "missing_verified_logo": 240
+    },
+    {
+      "city": "Tỉnh Thanh Hóa",
+      "schools": 650,
+      "with_logo": 0,
+      "missing_verified_logo": 650
+    },
+    {
+      "city": "Tỉnh Thái Nguyên",
+      "schools": 293,
+      "with_logo": 23,
+      "missing_verified_logo": 270
+    },
+    {
+      "city": "Tỉnh Tuyên Quang",
+      "schools": 366,
+      "with_logo": 4,
+      "missing_verified_logo": 362
+    },
+    {
+      "city": "Tỉnh Tây Ninh",
+      "schools": 262,
+      "with_logo": 0,
+      "missing_verified_logo": 262
+    },
+    {
+      "city": "Tỉnh Vĩnh Long",
+      "schools": 340,
+      "with_logo": 0,
+      "missing_verified_logo": 340
+    },
+    {
+      "city": "Tỉnh Điện Biên",
+      "schools": 123,
+      "with_logo": 0,
+      "missing_verified_logo": 123
+    },
+    {
+      "city": "Tỉnh Đắk Lắk",
+      "schools": 352,
+      "with_logo": 1,
+      "missing_verified_logo": 351
+    },
+    {
+      "city": "Tỉnh Đồng Nai",
+      "schools": 328,
+      "with_logo": 0,
+      "missing_verified_logo": 328
+    },
+    {
+      "city": "Tỉnh Đồng Tháp",
+      "schools": 275,
+      "with_logo": 0,
+      "missing_verified_logo": 275
+    }
+  ]
+}

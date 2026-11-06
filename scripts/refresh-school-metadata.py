@@ -29,13 +29,25 @@ spec.loader.exec_module(builder)
 UA = 'DongA-school-directory/2.0 (public school directory and logo verification)'
 DAY = datetime.now(timezone(timedelta(hours=7))).date().isoformat()
 HOST_LIMITS = defaultdict(lambda: threading.BoundedSemaphore(2))
+SKIP_URLS = set()
+DOMAIN_CITIES = {'hcm.edu.vn': 'Thành phố Hồ Chí Minh'}
+for old_city, new_city in builder.PROVINCE_2026.items():
+    DOMAIN_CITIES[builder.fold(re.sub(r'^(Tỉnh|Thành phố)\s+', '', old_city)).replace(' ', '') + '.edu.vn'] = new_city
+
+def website_city(url):
+    host = urllib.parse.urlsplit(url).hostname or ''
+    return next((city for domain, city in DOMAIN_CITIES.items() if host == domain or host.endswith('.' + domain)), None)
 KNOWN = [('https://hcm.edu.vn/', 'Thành phố Hồ Chí Minh'), ('https://haiphong.edu.vn/', 'Thành phố Hải Phòng'), ('https://hanoi.edu.vn/DsDonViGiaoDuc?caphoc=THCS', 'Thành phố Hà Nội')]
 
 def safe_url(url):
-    parsed = urllib.parse.urlsplit(html.unescape(url).strip())
+    try:
+        parsed = urllib.parse.urlsplit(html.unescape(url).strip())
+        port = parsed.port
+    except ValueError:
+        return None
     if parsed.scheme not in ('http', 'https') or not parsed.hostname or parsed.username or parsed.password:
         return None
-    if parsed.port not in (None, 80, 443) or parsed.hostname.lower() in ('localhost',) or re.match(r'^[0-9.:]+$', parsed.hostname):
+    if port not in (None, 80, 443) or parsed.hostname.lower() in ('localhost',) or re.match(r'^[0-9.:]+$', parsed.hostname):
         return None
     if any(re.search(r'^(token|secret|password|access_token|api_key)$', key, re.I) for key, _ in urllib.parse.parse_qsl(parsed.query)):
         return None
@@ -49,6 +61,16 @@ def fetch(url, cache, binary=False):
     target = cache / (key + ('.bin' if binary else '.html'))
     if target.exists():
         return target.read_bytes() if binary else target.read_text(encoding='utf-8', errors='replace')
+    if url in SKIP_URLS:
+        return None
+    if url.startswith('http://'):
+        upgraded = fetch('https://' + url[7:], cache, binary)
+        if upgraded is not None:
+            if binary:
+                target.write_bytes(upgraded)
+            else:
+                target.write_text(upgraded, encoding='utf-8')
+            return upgraded
     try:
         time.sleep(.12)
         quoted = urllib.parse.quote(url, safe=":/?&=%#~@!$'()*+,;-")
@@ -76,8 +98,11 @@ def links_from_portal(url, city, text):
     soup = BeautifulSoup(text, 'html.parser')
     records, pages = [], []
     root_host = urllib.parse.urlsplit(url).hostname
-    for anchor in soup.find_all('a', href=True):
-        href = safe_url(urllib.parse.urljoin(url, anchor['href']))
+    for anchor in soup.find_all(['a', 'option']):
+        raw = anchor.get('href') or anchor.get('value')
+        if not raw or not isinstance(raw, str) or not raw.strip():
+            continue
+        href = safe_url(urllib.parse.urljoin(url, raw))
         if not href:
             continue
         host = urllib.parse.urlsplit(href).hostname or ''
@@ -86,7 +111,7 @@ def links_from_portal(url, city, text):
             if not school_name(label):
                 continue
             records.append({'site': f'{urllib.parse.urlsplit(href).scheme}://{host}/', 'name': label, 'city': city, 'source': url})
-        elif host == root_host and re.search(r'danh bạ|danh sách.*trường|đơn vị.*giáo dục|khối thcs|cơ sở giáo dục', label, re.I):
+        elif host == root_host and (re.search(r'danh bạ|danh sách.*trường|đơn vị.*giáo dục|khối thcs|cơ sở giáo dục', label, re.I) or re.search(r'/dsdonvi(?:giaoduc)?(?:mb)?(?:\.aspx)?(?:\?|$)', href, re.I)):
             pages.append(href)
         elif root_host == 'hcm.edu.vn' and re.match(r'^(phuong|xa|dackhu)[a-z0-9-]*\.hcm\.edu\.vn$', host):
             pages.append(href)
@@ -100,6 +125,13 @@ def links_from_portal(url, city, text):
         names = [cell for cell in cells if school_name(cell) and not re.search(r'https?://', cell)]
         if not names:
             continue
+        # Chỉ theo chi tiết công khai mà JavaScript của chính danh bạ khai báo.
+        # Không đoán API, không đọc trường liên hệ riêng tư hoặc đăng nhập vào Sở.
+        if re.search(r'modalImg\.src\s*=\s*[\"\']/DsDonViGiaoDucChitiet\.aspx\?id=', text):
+            for button in row.select('[onclick]'):
+                match = re.fullmatch(r"openModal\('([0-9]+)'\)", button['onclick'])
+                if match:
+                    pages.append(urllib.parse.urljoin(url, '/DsDonViGiaoDucChitiet.aspx?id=' + match[1]))
         urls = re.findall(r'https?://[^\s<>"\']+', ' '.join(cells))
         for raw in urls:
             parsed = urllib.parse.urlsplit(html.unescape(raw))
@@ -132,18 +164,28 @@ def address_from(soup):
                 return value
     return None
 
-def logo_from(soup, site, cache):
+def logo_from(soup, site, cache, rejected_sources=None):
     candidates = []
     for image in soup.find_all('img', src=True):
         source = urllib.parse.urljoin(site, image.get('data-src') or image['src'])
         attrs = ' '.join([str(image.get('id', '')), ' '.join(image.get('class', [])), str(image.get('alt', '')), source])
+        # Ảnh bài báo có chữ "logo" trong tiêu đề thường là ảnh tập thể,
+        # không phải nhận diện mà website trường đang dùng.
+        if re.search(r'/news/|/thumbnail/|/tin-tuc/', source, re.I):
+            continue
         if re.search(r'logo|school[-_]?icon', attrs, re.I) and not re.search(r'logo[-_ ]?(?:bo|so)[-_ ]?giao|bgddt|quoc[-_ ]?huy', attrs, re.I):
             candidates.append((source, 'logo-named' if re.search(r'logo', source, re.I) else 'img-logo'))
     for link in soup.find_all('link', href=True):
         if any('icon' in part for part in link.get('rel', [])):
             candidates.append((urllib.parse.urljoin(site, link['href']), 'icon'))
+    # Nhận diện cấu hình/favicon được ưu tiên trước ảnh nội dung bất kỳ.
+    candidates.sort(key=lambda item: 0 if '/config/' in item[0].lower() or item[1] == 'icon' else 1)
     for source, confidence in dict(candidates).items():
-        if not safe_url(source):
+        if not safe_url(source) or source in (rejected_sources or set()):
+            continue
+        if re.search(r'thong.?bao|tuyen.?sinh|lich.?cong.?tac|danh.?sach|calendar|announcement', builder.fold(urllib.parse.unquote(source)), re.I):
+            continue
+        if re.search(r'/images/logohanoi\.|logo[-_ ]?so[-_ ]?gddt|logo[-_ ]?nganh', source, re.I):
             continue
         content = fetch(source, cache, binary=True)
         if not content:
@@ -164,6 +206,16 @@ def logo_from(soup, site, cache):
 
 def run(args):
     cache = Path(args.cache).resolve(); cache.mkdir(parents=True, exist_ok=True)
+    if args.skip_unavailable and (cache.parent / 'coverage.json').exists():
+        report = json.loads((cache.parent / 'coverage.json').read_text(encoding='utf-8'))
+        for row in report.get('unresolved', []):
+            if row.get('status') == 'unavailable':
+                url = row['site']; SKIP_URLS.add(url)
+                SKIP_URLS.add(url.replace('http://', 'https://'))
+                SKIP_URLS.add(url.replace('https://', 'http://'))
+    output = Path(args.output).resolve() if args.output else ROOT
+    for relative in ['backend/src/admin', 'scripts', 'frontend/lib', 'frontend/public/school-logos']:
+        (output / relative).mkdir(parents=True, exist_ok=True)
     base = json.loads((ROOT / 'backend/src/admin/school-directory.json').read_text(encoding='utf-8'))
     extra = json.loads((ROOT / 'backend/src/admin/school-directory-extra.json').read_text(encoding='utf-8'))
     entries = [{'code': row[0], 'name': row[1], 'city': base['provinces'][row[2]], 'region': row[3]} for row in base['schools'] + extra['schools']]
@@ -185,14 +237,20 @@ def run(args):
     rejected_sources = {row['logo_source'] for row in reviewed['rejected']}
     old_manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
     records = [{'site': row['site'], 'name': row['name'], 'city': row.get('city') or by_code.get(row['code'], {}).get('city', 'Thành phố Hồ Chí Minh'), 'source': row.get('source') or old_manifest['portal']} for row in old_manifest['schools']]
-    records.extend({'site': row['website'], 'name': row['name'], 'city': row['city'], 'source': row['source']} for row in confirmed)
+    if args.input_sites:
+        records.extend(json.loads(Path(args.input_sites).read_text(encoding='utf-8-sig')))
+    # Dữ liệu đã đối chiếu có ưu tiên hơn tên/địa bàn cũ trong danh bạ.
+    records.extend({'site': row['website'], 'name': row['name'], 'city': row['city'], 'source': row['source'], 'code': row['code']} for row in confirmed if row.get('website'))
+    if args.only_codes:
+        selected = set(args.only_codes.split(','))
+        records = [row for row in records if row.get('code') in selected or any(entry['code'] in selected for entry in by_name[(row['city'], builder.core(row['name']))])]
     seeds = list(KNOWN)
     if args.all_provinces:
         for old, city in builder.PROVINCE_2026.items():
             slug = builder.fold(re.sub(r'^(Tỉnh|Thành phố)\s+', '', old)).replace(' ', '')
             for host in (f'{slug}.edu.vn', f'sgddt.{slug}.gov.vn', f'sogddt.{slug}.gov.vn'):
                 seeds.append((f'https://{host}/', city))
-    seeds = list(dict.fromkeys(seeds))
+    seeds = [] if args.input_sites else list(dict.fromkeys(seeds))
     source_report = []
     secondary = []
     def portal(seed):
@@ -223,25 +281,45 @@ def run(args):
         for rows in pool.map(directory_page, secondary):
             records.extend(rows)
     sites = {row['site']: row for row in records}
+    # Chỉ theo liên kết trường trên hạ tầng tỉnh đã xác định; không đoán tên miền trường.
+    domain_cities = {}
+    for old_city, current_city in builder.PROVINCE_2026.items():
+        slug = builder.fold(re.sub(r'^(Tỉnh|Thành phố)\s+', '', old_city)).replace(' ', '')
+        domain_cities[slug + '.edu.vn'] = current_city
+    for _ in range(args.neighbor_rounds):
+        fresh = []
+        def neighbors(row):
+            content = fetch(row['site'], cache)
+            return links_from_portal(row['site'], row['city'], content)[0] if content else []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as pool:
+            for rows in pool.map(neighbors, list(sites.values())):
+                for row in rows:
+                    host = urllib.parse.urlsplit(row['site']).hostname or ''
+                    city = next((city for domain, city in domain_cities.items() if host.endswith('.' + domain)), None)
+                    if city and row['site'] not in sites:
+                        row['city'] = city; sites[row['site']] = row; fresh.append(row)
+        print(json.dumps({'phase': 'neighbors', 'new': len(fresh), 'total': len(sites)}), flush=True)
+        if not fresh:
+            break
     (cache.parent / 'portals-report.json').write_text(json.dumps(source_report, ensure_ascii=False, indent=2), encoding='utf-8')
     (cache.parent / 'websites.json').write_text(json.dumps(list(sites.values()), ensure_ascii=False, indent=2), encoding='utf-8')
     print(json.dumps({'phase': 'schools', 'websites': len(sites), 'directory_pages': len(secondary)}), flush=True)
     def inspect(row):
+        # Không dùng tỉnh của truy vấn Google để gán trường: một trang danh bạ
+        # có thể dẫn trường ở tỉnh khác. Tên miền hạ tầng Sở là ràng buộc địa bàn.
+        row = {**row, 'city': website_city(row['site']) or website_city(row['source']) or row['city']}
         text = fetch(row['site'], cache)
         if not text:
             return {'site': row['site'], 'status': 'unavailable'}
         soup = BeautifulSoup(text, 'html.parser')
-        candidates = list({entry['code']: entry for entry in by_name[(row['city'], builder.core(row['name']))]}.values())
+        candidates = [by_code[row['code']]] if row.get('code') in by_code else list({entry['code']: entry for entry in by_name[(row['city'], builder.core(row['name']))]}.values())
         address = address_from(BeautifulSoup(text, 'html.parser'))
-        direct = [entry for entry in candidates if len(entry['code']) >= 7 and entry['code'] in text]
         exact_site = [entry for entry in candidates if entry.get('website') == row['site']]
         if len(exact_site) == 1:
             candidates = exact_site
-        elif len(direct) == 1:
-            candidates = direct
         elif len(candidates) > 1 and address:
             area = builder.fold(address)
-            local = [entry for entry in candidates if builder.core(entry['region']) and builder.core(entry['region']) in area]
+            local = [entry for entry in candidates if builder.fold(entry['region']) and re.search(r'(?<![a-z0-9])' + re.escape(builder.fold(entry['region'])) + r'(?![a-z0-9])', area)]
             if len(local) == 1:
                 candidates = local
         if len(candidates) != 1:
@@ -249,7 +327,13 @@ def run(args):
         entry = candidates[0]
         if entry.get('website') and entry['website'] != row['site']:
             return {'site': row['site'], 'status': 'historical_site', 'name': row['name'], 'current_website': entry['website']}
-        logo = logo_from(soup, row['site'], cache)
+        title = soup.title.get_text(' ', strip=True) if soup.title else ''
+        known_names = [entry['name'], *entry.get('aliases', []), *[m[1] for m in base['merged'] if m[2] == entry['code']]]
+        identity = ' '.join([title, *[node.get_text(' ', strip=True) for node in soup.select('header, footer, h1, #siteTitle, .qirp-ten-donvi')]])
+        expected = any((' ' + builder.core(name) + ' ') in (' ' + builder.fold(identity) + ' ') for name in known_names)
+        if (school_name(title) and not any((' ' + builder.core(name) + ' ') in (' ' + builder.fold(title) + ' ') for name in known_names)) or not expected:
+            return {'site': row['site'], 'status': 'identity_changed', 'code': entry['code'], 'name': entry['name'], 'current_title': title, 'source': row['source']}
+        logo = logo_from(soup, row['site'], cache, rejected_sources)
         return {'code': entry['code'], 'name': entry['name'], 'city': entry['city'], 'region': entry['region'], 'address': address, 'website': row['site'], 'source': row['source'], 'verified': True, 'checked_at': DAY, 'status': 'matched', '_logo': logo}
     inspected = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as pool:
@@ -258,9 +342,11 @@ def run(args):
             if len(inspected) % 25 == 0:
                 print(json.dumps({'phase': 'schools', 'checked': len(inspected), 'total': len(sites), 'matched': sum(row['status'] == 'matched' for row in inspected)}), flush=True)
     duplicates = Counter(row['_logo']['fingerprint'] for row in inspected if row.get('_logo'))
-    output_dir = ROOT / 'frontend/public/school-logos'
-    current_metadata = {row['code']: row for row in json.loads((ROOT / 'backend/src/admin/school-metadata.json').read_text(encoding='utf-8'))['schools']}
-    logos = {row['code']: row for row in old_manifest['schools']}
+    output_dir = output / 'frontend/public/school-logos'
+    metadata_path = output / 'backend/src/admin/school-metadata.json'
+    current_metadata = {row['code']: row for row in json.loads((metadata_path if metadata_path.exists() else ROOT / 'backend/src/admin/school-metadata.json').read_text(encoding='utf-8'))['schools']}
+    output_manifest = output / 'scripts/school-logos.json'
+    logos = {row['code']: row for row in (json.loads(output_manifest.read_text(encoding='utf-8')) if output_manifest.exists() else old_manifest)['schools']}
     for code, logo in logos.items():
         if code in by_code and code not in current_metadata:
             entry = by_code[code]
@@ -286,12 +372,12 @@ def run(args):
             row['logo_url'] = old['logo_url']
         current_metadata[row['code']] = row
     metadata = {'version': DAY, 'schools': sorted(current_metadata.values(), key=lambda row: row['code'])}
-    (ROOT / 'backend/src/admin/school-metadata.json').write_text(json.dumps(metadata, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
+    (output / 'backend/src/admin/school-metadata.json').write_text(json.dumps(metadata, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     old_manifest['fetched'] = DAY; old_manifest['schools'] = sorted(logos.values(), key=lambda row: row['code'])
-    manifest_path.write_text(json.dumps(old_manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    (output / 'scripts/school-logos.json').write_text(json.dumps(old_manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     codes = '\n'.join(f'  {json.dumps(code)},' for code in sorted(logos))
     registry = f'/** Logo lấy từ website trường được dẫn bởi cổng Sở GD&ĐT; nguồn từng ảnh: scripts/school-logos.json. */\nexport const SCHOOL_LOGO_CODES = new Set<string>([\n{codes}\n]);\nexport const schoolLogoUrl = (code: string): string | null => SCHOOL_LOGO_CODES.has(code) ? `/school-logos/${{code}}.webp` : null;\n'
-    (ROOT / 'frontend/lib/school-logos.ts').write_text(registry, encoding='utf-8')
+    (output / 'frontend/lib/school-logos.ts').write_text(registry, encoding='utf-8')
     report = {'checked_at': DAY, 'catalogue_entries': len(entries), 'portals': source_report, 'websites': len(sites), 'statuses': dict(Counter(row.get('status', 'matched') for row in inspected)), 'metadata': len(current_metadata), 'logos': len(logos), 'unresolved': [row for row in inspected if row.get('status') and row['status'] != 'matched']}
     (cache.parent / 'coverage.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
     print(json.dumps({key: report[key] for key in ('catalogue_entries', 'websites', 'statuses', 'metadata', 'logos')}, ensure_ascii=False), flush=True)
@@ -302,4 +388,9 @@ if __name__ == '__main__':
     parser.add_argument('--all-provinces', action='store_true')
     parser.add_argument('--cached-portals', action='store_true')
     parser.add_argument('--workers', type=int, choices=range(1, 13), default=4)
+    parser.add_argument('--input-sites', help='Danh sách URL công khai đã tìm thấy, tiếp tục thay vì dò lại cổng Sở')
+    parser.add_argument('--output', help='Thư mục staging để rà ảnh trước khi cập nhật dự án')
+    parser.add_argument('--neighbor-rounds', type=int, choices=range(3), default=0)
+    parser.add_argument('--only-codes', help='Rà lại các mã được chỉ định sau khi duyệt ảnh, phân cách bằng dấu phẩy')
+    parser.add_argument('--skip-unavailable', action='store_true', help='Tái sử dụng các URL đã không truy cập được trong báo cáo vừa chạy')
     run(parser.parse_args())

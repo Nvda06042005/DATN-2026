@@ -1,6 +1,6 @@
 {
   "reviewed_at": "2026-11-07",
-  "reviewed_images": 518,
+  "reviewed_images": 702,
   "rejected": [
     {
       "code": "08000E07",
@@ -1536,6 +1536,985 @@
       ],
       "webp_bytes": 4542,
       "reason": "Ảnh tập thể/cổng trường/tài liệu/biểu tượng dùng chung hoặc tên trên ảnh chưa xác minh trùng trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "01016509",
+      "name": "Trường THCS Minh Phú",
+      "city": "Thành phố Hà Nội",
+      "district": "Huyện Sóc Sơn",
+      "site": "https://th-thcsminhphu.hanoi.edu.vn/",
+      "source": "https://th-thcsminhtri.hanoi.edu.vn/",
+      "logo_source": "https://quantrisocson.shieldix.app/UploadImages/config/2026/thcsminhphu/screenshot-2026-04-02-092216_242026923.png",
+      "confidence": "icon",
+      "source_px": [
+        843,
+        841
+      ],
+      "webp_bytes": 9956,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "01018504",
+      "name": "THCS Đặng Xá",
+      "city": "Thành phố Hà Nội",
+      "district": "Huyện Gia Lâm",
+      "site": "http://thcsdangxa.hanoi.edu.vn/",
+      "source": "https://thcskimson.hanoi.edu.vn/",
+      "logo_source": "https://quantrigialam.hanoi.shieldix.app/UploadImages/Config/thcsdangxa/logo_1.png",
+      "confidence": "logo-named",
+      "source_px": [
+        125,
+        125
+      ],
+      "webp_bytes": 8666,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "01020522",
+      "name": "Trường THCS Đông Mỹ",
+      "city": "Thành phố Hà Nội",
+      "district": "Huyện Thanh Trì",
+      "site": "https://thcsdongmy.hanoi.edu.vn/",
+      "source": "https://hanoi.edu.vn/DsDonViGiaoDuc?caphoc=THCS&trang=12",
+      "logo_source": "https://thanhtri.hanoi.shieldix.app/UploadImages/config/2025/thcsdongmy/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_2820251521.png",
+      "confidence": "icon",
+      "source_px": [
+        500,
+        500
+      ],
+      "webp_bytes": 12698,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "01020525",
+      "name": "Trường THCS Liên Ninh",
+      "city": "Thành phố Hà Nội",
+      "district": "Huyện Thanh Trì",
+      "site": "https://th-thcslienninh.hanoi.edu.vn/",
+      "source": "https://thcsngochoi.hanoi.edu.vn/",
+      "logo_source": "https://thanhtri.hanoi.shieldix.app/UploadImages/config/2026/thcslienninh/logo-ln_25820261818.jpg",
+      "confidence": "icon",
+      "source_px": [
+        2000,
+        1703
+      ],
+      "webp_bytes": 6392,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "02034506",
+      "name": "Trường THCS Vô Điếm",
+      "city": "Tỉnh Tuyên Quang",
+      "district": "Huyện Bắc Quang",
+      "site": "https://ththcsvodiem.gddt.edu.vn/",
+      "source": "https://ththcsvodiem.gddt.edu.vn/",
+      "logo_source": "https://ththcsvodiem.gddt.edu.vn/media/77/2026/05/06/z6591514644939_fd22dc6de180cf8f065cf00f4e43223d.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1280,
+        964
+      ],
+      "webp_bytes": 7366,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "17152510",
+      "name": "Tiểu học và THCS Hòa Sơn",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Lương Sơn",
+      "site": "http://th-thcshoason.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://th-thcshoason.phutho.edu.vn/upload/108302/20251203/AnhLogoCSDLNganh_f7fcc.png",
+      "confidence": "logo-named",
+      "source_px": [
+        453,
+        464
+      ],
+      "webp_bytes": 2552,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "19171529",
+      "name": "THCS Đức Lương",
+      "city": "Tỉnh Thái Nguyên",
+      "district": "Huyện Đại Từ",
+      "site": "http://thvathcsducluong.thainguyen.edu.vn/",
+      "source": "https://thainguyen.edu.vn/",
+      "logo_source": "http://thvathcsducluong.thainguyen.edu.vn/upload/48661/20250930/z6978867105459_68c5e565a00a7734e99b35cae9bb5243_f9d24.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1280,
+        889
+      ],
+      "webp_bytes": 7350,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "24216519",
+      "name": "Trường THCS Ngọc Châu",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Tân Yên",
+      "site": "http://thcsngocchau.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcsngocchau.bacninh.edu.vn/upload/38329/20220606/logo_30cac.png",
+      "confidence": "logo-named",
+      "source_px": [
+        74,
+        74
+      ],
+      "webp_bytes": 3740,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "24219505",
+      "name": "Trường THCS Đèo Gia",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Lục Ngạn",
+      "site": "http://thcsdeogiaso2.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcsdeogiaso2.bacninh.edu.vn/upload/38885/20251004/z7081146411326_19d1d8eba3eaf35a0079a599a4c28e87_dbaea.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1280,
+        960
+      ],
+      "webp_bytes": 7130,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "24221514",
+      "name": "Trường THCS Trí Yên",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Huyện Yên Dũng",
+      "site": "http://thcstriyen.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcstriyen.bacninh.edu.vn/upload/38493/20210610/logo__2__723dfb7860.png",
+      "confidence": "logo-named",
+      "source_px": [
+        74,
+        74
+      ],
+      "webp_bytes": 3740,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "25230517",
+      "name": "THCS Tiêu Sơn",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Đoan Hùng",
+      "site": "http://thcstieuson.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://thcstieuson.phutho.edu.vn/upload/47008/20260707/Anh_dai_din_THCS_Tieu_Son_fdc7b.jpg",
+      "confidence": "icon",
+      "source_px": [
+        2543,
+        1462
+      ],
+      "webp_bytes": 5618,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "25238504",
+      "name": "THCS Đông Cửu",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Thanh Sơn",
+      "site": "http://thcsdongcuu.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://thcsdongcuu.phutho.edu.vn/upload/47325/20230710/325448157_2415888351892407_3427392358381688097_n_fcc8f.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1280,
+        960
+      ],
+      "webp_bytes": 5978,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "26246530",
+      "name": "THCS Thái Hòa",
+      "city": "Tỉnh Phú Thọ",
+      "district": "Huyện Lập Thạch",
+      "site": "http://thcsthaihoa.phutho.edu.vn/",
+      "source": "https://phutho.edu.vn/",
+      "logo_source": "http://thcsthaihoa.phutho.edu.vn/publish/thumbnail/108169/320x213xdefault/upload/108169/20260530/logo-ts6_762021162_8296d.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        320,
+        213
+      ],
+      "webp_bytes": 4368,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "27261504",
+      "name": "THCS Đồng Nguyên",
+      "city": "Tỉnh Bắc Ninh",
+      "district": "Thị xã Từ Sơn",
+      "site": "http://thcsdongnguyen.bacninh.edu.vn/",
+      "source": "https://bacninh.edu.vn/",
+      "logo_source": "http://thcsdongnguyen.bacninh.edu.vn/publish/thumbnail/63221/640x360xdefault/upload/63221/20210725/logo_83e0896d6f.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        640,
+        360
+      ],
+      "webp_bytes": 5092,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "30290514",
+      "name": "Trường TH&THCS Hoàng Tân",
+      "city": "Thành phố Hải Phòng",
+      "district": "Thị xã Chí Linh",
+      "site": "https://th-thcshoangtan.haiphong.edu.vn/",
+      "source": "https://haiphong.edu.vn/",
+      "logo_source": "https://admintruong.haiphong.shieldix.app/UploadImages/config/haiphong/2025/th-thcshoangtan/truong-ththcs-hoang-tan_1892025104.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1280,
+        914
+      ],
+      "webp_bytes": 7324,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "30292525",
+      "name": "Trường THCS Duy Tân",
+      "city": "Thành phố Hải Phòng",
+      "district": "Huyện Kinh Môn",
+      "site": "https://thcsduytan-tanky.haiphong.edu.vn/",
+      "source": "https://haiphong.edu.vn/",
+      "logo_source": "https://admintruong.haiphong.shieldix.app/UploadImages/config/haiphong/2026/thcsduytan-tanky/anh-nho-1791175328090842282419323408075842282419323408075f825633046faecb2d8f406_171020262123.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1672,
+        941
+      ],
+      "webp_bytes": 7736,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "30294502",
+      "name": "THCS Cẩm Chế",
+      "city": "Thành phố Hải Phòng",
+      "district": "Huyện Thanh Hà",
+      "site": "https://thcscamche.haiphong.edu.vn/",
+      "source": "https://haiphong.edu.vn/",
+      "logo_source": "https://admintruong.haiphong.shieldix.app/UploadImages/haydung/haiphong/thcscamche/anhhaydung/z704213158436087a61ef21e2ae20b3ab41e0953aeb7e9_28920251659.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1280,
+        914
+      ],
+      "webp_bytes": 8584,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "30294513",
+      "name": "Trường THCS Thanh Khê",
+      "city": "Thành phố Hải Phòng",
+      "district": "Huyện Thanh Hà",
+      "site": "https://thcsthanhkhe.haiphong.edu.vn/",
+      "source": "https://haiphong.edu.vn/",
+      "logo_source": "https://admintruong.haiphong.shieldix.app/UploadImages/config/haiphong/2025/thcsthanhkhe/z687433330535875a9942fe8ab5ef2e6a9260e91da66dd_1192025949.jpg",
+      "confidence": "icon",
+      "source_px": [
+        480,
+        480
+      ],
+      "webp_bytes": 7156,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "30296517",
+      "name": "THCS Vĩnh Hồng",
+      "city": "Thành phố Hải Phòng",
+      "district": "Huyện Bình Giang",
+      "site": "https://thcsvinhhong.haiphong.edu.vn/",
+      "source": "https://haiphong.edu.vn/",
+      "logo_source": "https://admintruong.haiphong.shieldix.app/UploadImages/config/haiphong/2025/thcsvinhhong/z69992059269167adc1b330413514c0d7d7969d0bdffda_11920251021.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1280,
+        960
+      ],
+      "webp_bytes": 8256,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "30297525",
+      "name": "THCS Yết Kiêu",
+      "city": "Thành phố Hải Phòng",
+      "district": "Huyện Gia Lộc",
+      "site": "https://thcsyetkieu.haiphong.edu.vn/",
+      "source": "https://haiphong.edu.vn/",
+      "logo_source": "https://admintruong.haiphong.shieldix.app/UploadImages/config/haiphong/2025/thcsgiahoa/z6999545061755f87dd237b35d5c325a2d859fa0d3675d_11920251024.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1280,
+        960
+      ],
+      "webp_bytes": 5622,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "31005508",
+      "name": "THCS Lê Chân",
+      "city": "Thành phố Hải Phòng",
+      "district": "Quận Lê Chân",
+      "site": "https://thcslechan.haiphong.edu.vn/",
+      "source": "https://haiphong.edu.vn/",
+      "logo_source": "https://admintruong.haiphong.shieldix.app/UploadImages/haiphong/thcslechan/Config/2022_9_28/download-4_28920228.jpg",
+      "confidence": "icon",
+      "source_px": [
+        130,
+        130
+      ],
+      "webp_bytes": 6508,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "31311519",
+      "name": "Trường Trung học cơ sở Liên Khê",
+      "city": "Thành phố Hải Phòng",
+      "district": "Huyện Thủy Nguyên",
+      "site": "https://thcslienkhe.haiphong.edu.vn/",
+      "source": "https://haiphong.edu.vn/",
+      "logo_source": "https://admintruong.haiphong.shieldix.app/UploadImages/haiphong/thcslienkhe/Config/2022_8_6/anh-lien-khe_68202216.jpg",
+      "confidence": "icon",
+      "source_px": [
+        485,
+        348
+      ],
+      "webp_bytes": 5556,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "31312502",
+      "name": "Trường THCS Nam Hải",
+      "city": "Thành phố Hải Phòng",
+      "district": "Quận Hải An",
+      "site": "https://th-thcsnamhai.haiphong.edu.vn/",
+      "source": "https://haiphong.edu.vn/",
+      "logo_source": "https://admintruong.haiphong.shieldix.app/UploadImages/haiphong/thnamhai/Config/2023_11_13/z4876291646847f7a702038adeff65489fa3984e216ed0_1311202315.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1280,
+        1280
+      ],
+      "webp_bytes": 10558,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "31313503",
+      "name": "THCS Lê Khắc Cẩn",
+      "city": "Thành phố Hải Phòng",
+      "district": "Huyện An Lão",
+      "site": "https://th-thcslekhaccan.haiphong.edu.vn/",
+      "source": "https://haiphong.edu.vn/",
+      "logo_source": "https://admintruong.haiphong.shieldix.app/UploadImages/haydung/haiphong/th-thcslekhaccan/anhhaydung/cc2_2592024959.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1276,
+        956
+      ],
+      "webp_bytes": 7242,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "34338518",
+      "name": "Trường THCS Đồng Tiến",
+      "city": "Tỉnh Hưng Yên",
+      "district": "Huyện Quỳnh Phụ",
+      "site": "http://thcsdongtien.hungyen.edu.vn/",
+      "source": "https://hungyen.edu.vn/",
+      "logo_source": "http://thcsdongtien.hungyen.edu.vn/upload/37766/20241130/logo_e6cff.png",
+      "confidence": "logo-named",
+      "source_px": [
+        103,
+        102
+      ],
+      "webp_bytes": 4270,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "34339513",
+      "name": "Trường THCS Lý Nam Đế",
+      "city": "Tỉnh Hưng Yên",
+      "district": "Huyện Hưng Hà",
+      "site": "http://thcslynamde.hungyen.edu.vn/",
+      "source": "https://hungyen.edu.vn/",
+      "logo_source": "http://thcslynamde.hungyen.edu.vn/publish/thumbnail/32807/320x180xdefault/upload/32807/20191106/logolnd_8bf547ca11.png",
+      "confidence": "logo-named",
+      "source_px": [
+        320,
+        180
+      ],
+      "webp_bytes": 5870,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "34340536",
+      "name": "Trường THCS Liên Giang",
+      "city": "Tỉnh Hưng Yên",
+      "district": "Huyện Đông Hưng",
+      "site": "http://thcsliengiang.hungyen.edu.vn/",
+      "source": "https://hungyen.edu.vn/",
+      "logo_source": "http://thcsliengiang.hungyen.edu.vn/publish/thumbnail/37424/256x144xdefault/upload/37424/20260429/logo_gd_95a1b.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        256,
+        144
+      ],
+      "webp_bytes": 2914,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "34342517",
+      "name": "Trường THCS Nam Hồng",
+      "city": "Tỉnh Hưng Yên",
+      "district": "Huyện Tiền Hải",
+      "site": "http://thcsnamhong.hungyen.edu.vn/",
+      "source": "https://hungyen.edu.vn/",
+      "logo_source": "http://thcsnamhong.hungyen.edu.vn/upload/38022/20180816/ANH_TRUONG__9_.jpg",
+      "confidence": "icon",
+      "source_px": [
+        960,
+        720
+      ],
+      "webp_bytes": 8392,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "52550502",
+      "name": "Trường THCS Phước An",
+      "city": "Tỉnh Gia Lai",
+      "district": "Huyện Tuy Phước",
+      "site": "http://thcstuyphuoctay.gialai.edu.vn/",
+      "source": "https://gialai.edu.vn/",
+      "logo_source": "http://thcstuyphuoctay.gialai.edu.vn/publish/thumbnail/23053/480x320xdefault/upload/23053/20260727/logo-doan-thanh-nien-3-500x500_36fee.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        480,
+        320
+      ],
+      "webp_bytes": 4894,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "58000E02",
+      "name": "PTDTNT THCS Ninh Sơn",
+      "city": "Tỉnh Khánh Hòa",
+      "district": "Trường trực thuộc sở",
+      "site": "http://ptdtnt-ns.khanhhoa.edu.vn/",
+      "source": "https://khanhhoa.edu.vn/",
+      "logo_source": "http://ptdtnt-ns.khanhhoa.edu.vn/publish/thumbnail/109262/480x270xdefault/upload/109262/20260913/logo_thoi_khoa_bieu_cb391.png",
+      "confidence": "logo-named",
+      "source_px": [
+        1254,
+        1254
+      ],
+      "webp_bytes": 12598,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "77747504",
+      "name": "THCS Vũng Tàu",
+      "city": "Thành phố Hồ Chí Minh",
+      "district": "Thành phố Vũng Tàu",
+      "site": "https://thcsvungtau.hcm.edu.vn/",
+      "source": "https://phuongvungtau.hcm.edu.vn",
+      "logo_source": "https://filethcs.hcm.shieldix.app/uploadimages/config/2025/thcschauthanh/tranthithaithu/z7258393631752bd8204c48a529e44b263c1ae10641a74_27112025723.jpg",
+      "confidence": "icon",
+      "source_px": [
+        1001,
+        1000
+      ],
+      "webp_bytes": 9586,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "79762509",
+      "name": "THCS Linh Đông",
+      "city": "Thành phố Hồ Chí Minh",
+      "district": "Quận Thủ Đức",
+      "site": "https://thcslinhdong.hcm.edu.vn/",
+      "source": "https://pgdnhabe.hcm.edu.vn/DsDonViGiaoDuc?trang=12",
+      "logo_source": "https://filethcs.hcm.shieldix.app/UploadImages/Config/thcslinhdong/DSC_1941.jpg",
+      "confidence": "icon",
+      "source_px": [
+        3104,
+        1746
+      ],
+      "webp_bytes": 5116,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "92916509",
+      "name": "THCS Chu Văn An",
+      "city": "Thành phố Cần Thơ",
+      "district": "Quận Ninh Kiều",
+      "site": "http://cva.edu.vn/",
+      "source": "https://pgdnhabe.hcm.edu.vn/DsDonViGiaoDuc?trang=4",
+      "logo_source": "https://cva.edu.vn/upload/photo/lg-5043-3743.png",
+      "confidence": "icon",
+      "source_px": [
+        112,
+        112
+      ],
+      "webp_bytes": 6318,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "92916511",
+      "name": "THCS An Khánh",
+      "city": "Thành phố Cần Thơ",
+      "district": "Quận Ninh Kiều",
+      "site": "http://thcsankhanh.cantho.edu.vn/",
+      "source": "https://cantho.edu.vn/",
+      "logo_source": "http://thcsankhanh.cantho.edu.vn/publish/thumbnail/26112/800x533xdefault/upload/26112/20260820/logo_befb9.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        800,
+        533
+      ],
+      "webp_bytes": 3156,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "92925501",
+      "name": "THCS Đinh Môn",
+      "city": "Thành phố Cần Thơ",
+      "district": "Huyện Thới Lai",
+      "site": "http://thcsdinhmon.cantho.edu.vn/",
+      "source": "https://cantho.edu.vn/",
+      "logo_source": "http://thcsdinhmon.cantho.edu.vn/upload/18349/20210430/LOGO_111111_e6a1fdf417.png",
+      "confidence": "icon",
+      "source_px": [
+        1108,
+        624
+      ],
+      "webp_bytes": 3584,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "92925504",
+      "name": "THCS Đông Thuận",
+      "city": "Thành phố Cần Thơ",
+      "district": "Huyện Thới Lai",
+      "site": "http://thcsdongthuan.cantho.edu.vn/",
+      "source": "https://cantho.edu.vn/",
+      "logo_source": "http://thcsdongthuan.cantho.edu.vn/publish/thumbnail/15799/440x440xdefault/upload/15799/20171004/Logo_quyet_dinh.bmp",
+      "confidence": "logo-named",
+      "source_px": [
+        440,
+        440
+      ],
+      "webp_bytes": 4400,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "92926506",
+      "name": "THCS Thị trấn Phong Điền",
+      "city": "Thành phố Cần Thơ",
+      "district": "Huyện Phong Điền",
+      "site": "http://thcsttphongdien.cantho.edu.vn/",
+      "source": "https://cantho.edu.vn/",
+      "logo_source": "http://thcsttphongdien.cantho.edu.vn/upload/57705/20190325/nhung-cau-noi-hay-ve-cuoc-song-7.jpg",
+      "confidence": "icon",
+      "source_px": [
+        650,
+        384
+      ],
+      "webp_bytes": 4636,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "93932505",
+      "name": "Trường THCS Trường Long A",
+      "city": "Thành phố Cần Thơ",
+      "district": "Huyện Châu Thành A",
+      "site": "http://c2truonglonga.cantho.edu.vn/",
+      "source": "https://cantho.edu.vn/",
+      "logo_source": "http://c2truonglonga.cantho.edu.vn/publish/thumbnail/49270/480x320xdefault/upload/49270/20260720/LOGO_CONG_KHAI_a4f35.png",
+      "confidence": "logo-named",
+      "source_px": [
+        480,
+        320
+      ],
+      "webp_bytes": 5784,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    },
+    {
+      "code": "94947501",
+      "name": "Trường THCS Mỹ Xuyên",
+      "city": "Thành phố Cần Thơ",
+      "district": "Huyện Mỹ Xuyên",
+      "site": "http://ptdtntthcsmyxuyen.cantho.edu.vn/",
+      "source": "https://cantho.edu.vn/",
+      "logo_source": "http://ptdtntthcsmyxuyen.cantho.edu.vn/publish/thumbnail/106757/800x533xdefault/upload/106757/20261028/logo_ich_lam_viec_8019d.jpg",
+      "confidence": "logo-named",
+      "source_px": [
+        300,
+        300
+      ],
+      "webp_bytes": 4542,
+      "reason": "Đã xem ảnh: ảnh tập thể/cổng trường/thông báo/biểu tượng chung/ảnh bị cắt, hoặc chữ và địa bàn trên ảnh không khớp trường; không dùng làm logo riêng."
+    }
+  ],
+  "pending_identity": [
+    {
+      "site": "http://th-thcstrungthanh.phutho.edu.vn/",
+      "status": "identity_changed",
+      "code": "17150606",
+      "name": "Trường TH&THCS Trung Thành",
+      "current_title": "Trường TH & THCS Quy Đức 2",
+      "source": "https://phutho.edu.vn/"
+    },
+    {
+      "site": "http://thyentri.phutho.edu.vn/",
+      "status": "identity_changed",
+      "code": "17158705",
+      "name": "TH&THCS Hữu Lợi",
+      "current_title": "Trường Tiểu học Yên Trị",
+      "source": "https://phutho.edu.vn/"
+    },
+    {
+      "site": "http://thcslucba.thainguyen.edu.vn/",
+      "status": "identity_changed",
+      "code": "19171510",
+      "name": "THCS Lục Ba",
+      "current_title": "Trường TH&THCS Đại Từ 1",
+      "source": "https://thainguyen.edu.vn/"
+    },
+    {
+      "site": "http://thcsphucthuan.thainguyen.edu.vn/",
+      "status": "identity_changed",
+      "code": "19172517",
+      "name": "THCS Bắc Sơn",
+      "current_title": "TRƯỜNG TRUNG HỌC CƠ SỞ PHÚC THUẬN",
+      "source": "https://thainguyen.edu.vn/"
+    },
+    {
+      "site": "https://ththcsbinhla.langson.edu.vn/",
+      "status": "identity_changed",
+      "code": "20181515",
+      "name": "PTDTBT TH&THCS Bình La",
+      "current_title": "",
+      "source": "https://langson.edu.vn/?keyword=&page=search"
+    },
+    {
+      "site": "http://thcsgiaphai.bacninh.edu.vn/",
+      "status": "identity_changed",
+      "code": "24213503",
+      "name": "Trường THCS Dĩnh Kế",
+      "current_title": "Trường THCS Giáp Hải",
+      "source": "https://bacninh.edu.vn/"
+    },
+    {
+      "site": "http://thcsdongky2.bacninh.edu.vn/",
+      "status": "identity_changed",
+      "code": "24215504",
+      "name": "Trường THCS Đồng Vương",
+      "current_title": "",
+      "source": "https://bacninh.edu.vn/"
+    },
+    {
+      "site": "http://thcstanyen2.bacninh.edu.vn/",
+      "status": "identity_changed",
+      "code": "24216506",
+      "name": "Trường THCS Cao Xá",
+      "current_title": "Trường THCS Tân Yên 2",
+      "source": "https://bacninh.edu.vn/"
+    },
+    {
+      "site": "http://thcstanyen.bacninh.edu.vn/",
+      "status": "identity_changed",
+      "code": "24216523",
+      "name": "Trường THCS TT Cao Thượng",
+      "current_title": "Trường THCS Tân Yên",
+      "source": "https://bacninh.edu.vn/"
+    },
+    {
+      "site": "http://thcstienlucso5.bacninh.edu.vn/",
+      "status": "identity_changed",
+      "code": "24217512",
+      "name": "Trường THCS Nghĩa Hoà",
+      "current_title": "Trường THCS Tiên Lục số 5",
+      "source": "https://bacninh.edu.vn/"
+    },
+    {
+      "site": "http://thcsbaodaiso2.bacninh.edu.vn/",
+      "status": "identity_changed",
+      "code": "24218501",
+      "name": "Trường THCS Bảo Sơn",
+      "current_title": "Trường THCS Bảo Đài Số 2",
+      "source": "https://bacninh.edu.vn/"
+    },
+    {
+      "site": "http://thcscuongson.bacninh.edu.vn/",
+      "status": "identity_changed",
+      "code": "24218508",
+      "name": "Trường THCS Cương Sơn",
+      "current_title": "Trường THCS Lục Nam",
+      "source": "https://bacninh.edu.vn/"
+    },
+    {
+      "site": "http://thcsdeogiaso1.bacninh.edu.vn/",
+      "status": "identity_changed",
+      "code": "24219507",
+      "name": "Trường THCS Tân Lập",
+      "current_title": "Trường THCS ĐÈO GIA SỐ 1",
+      "source": "https://bacninh.edu.vn/"
+    },
+    {
+      "site": "http://thcslangson.bacninh.edu.vn/",
+      "status": "identity_changed",
+      "code": "24221513",
+      "name": "Trường THCS Lãng Sơn",
+      "current_title": "Trường THCS Tân An số 2",
+      "source": "https://bacninh.edu.vn/"
+    },
+    {
+      "site": "http://thcstulanso2.bacninh.edu.vn/",
+      "status": "identity_changed",
+      "code": "24222507",
+      "name": "Trường THCS Việt Tiến",
+      "current_title": "Trường THCS Tự Lạn số 2",
+      "source": "https://bacninh.edu.vn/"
+    },
+    {
+      "site": "http://thcsphulang.bacninh.edu.vn/",
+      "status": "identity_changed",
+      "code": "27259503",
+      "name": "Trường THCS Châu Phong",
+      "current_title": "Trường trung học cơ sở Phù Lãng",
+      "source": "https://bacninh.edu.vn/"
+    },
+    {
+      "site": "http://thcsdaidong.bacninh.edu.vn/",
+      "status": "identity_changed",
+      "code": "27260504",
+      "name": "Trường THCS Hoàn Sơn",
+      "current_title": "Trường THCS Đại Đồng",
+      "source": "https://bacninh.edu.vn/"
+    },
+    {
+      "site": "http://thsonglieu.bacninh.edu.vn/",
+      "status": "identity_changed",
+      "code": "27262508",
+      "name": "Trường THCS Xuân Lâm",
+      "current_title": "Trường Tiểu học Song Liễu",
+      "source": "https://bacninh.edu.vn/"
+    },
+    {
+      "site": "http://thcscaolovuong.bacninh.edu.vn/",
+      "status": "identity_changed",
+      "code": "27263511",
+      "name": "Trường THCS Cao Đức",
+      "current_title": "Trường THCS Cao Lỗ Vương",
+      "source": "https://bacninh.edu.vn/"
+    },
+    {
+      "site": "https://thcsthitrangialoc.haiphong.edu.vn/",
+      "status": "identity_changed",
+      "code": "30297517",
+      "name": "THCS Thị trấn Gia Lộc",
+      "current_title": "THCS GIA LỘC I",
+      "source": "https://haiphong.edu.vn/"
+    },
+    {
+      "site": "https://thcslaixuan.haiphong.edu.vn/",
+      "status": "identity_changed",
+      "code": "31311516",
+      "name": "Trường Trung học cơ sở Lại Xuân",
+      "current_title": "Trường Trung học cơ sở Việt Khê",
+      "source": "https://haiphong.edu.vn/"
+    },
+    {
+      "site": "http://thcslequydonhh.hungyen.edu.vn/",
+      "status": "identity_changed",
+      "code": "34339512",
+      "name": "Trường THCS Hồng An",
+      "current_title": "Trường THCS Lê Quý Đôn",
+      "source": "https://hungyen.edu.vn/"
+    },
+    {
+      "site": "http://thcsthaithuy.hungyen.edu.vn/",
+      "status": "identity_changed",
+      "code": "34341549",
+      "name": "Trường THCS Nguyễn Đức Cảnh",
+      "current_title": "Trường THCS Thái Thụy",
+      "source": "https://hungyen.edu.vn/"
+    },
+    {
+      "site": "http://thcsdongtienhai.hungyen.edu.vn/",
+      "status": "identity_changed",
+      "code": "34342513",
+      "name": "Trường Tiểu học và THCS Đông Xuyên",
+      "current_title": "Trường THCS Đông Tiền Hải",
+      "source": "https://hungyen.edu.vn/"
+    },
+    {
+      "site": "http://thcsthutri.hungyen.edu.vn/",
+      "status": "identity_changed",
+      "code": "34344510",
+      "name": "Trường THCS Minh Lãng",
+      "current_title": "Trường THCS Thư Trì",
+      "source": "https://hungyen.edu.vn/"
+    },
+    {
+      "site": "http://thcstrungluong.honglinh.edu.vn/",
+      "status": "identity_changed",
+      "code": "42437502",
+      "name": "THCS Trung Lương",
+      "current_title": "Trường THCS Bắc Hồng Lĩnh-Phân hiệu 2",
+      "source": "https://hatinh.edu.vn/"
+    },
+    {
+      "site": "http://th-thcssonle.huongson.edu.vn/",
+      "status": "identity_changed",
+      "code": "42439520",
+      "name": "TH&THCS Sơn Lễ",
+      "current_title": "Đơn vị chủ quản: Trường TH & THCS Nguyễn Khắc Viện (Phân hiệu I)",
+      "source": "https://hatinh.edu.vn/"
+    },
+    {
+      "site": "http://thvathcsso2vinhquang.gialai.edu.vn/",
+      "status": "identity_changed",
+      "code": "52546602",
+      "name": "Trường TH&THCS Vĩnh Hòa",
+      "current_title": "Trường Tiểu học và Trung học cơ sở số 2 Vĩnh Quang",
+      "source": "https://gialai.edu.vn/"
+    },
+    {
+      "site": "http://thcsngomaycu-xangomay.gialai.edu.vn/",
+      "status": "identity_changed",
+      "code": "52548511",
+      "name": "Trường THCS Cát Chánh",
+      "current_title": "Trường THCS Ngô Mây",
+      "source": "https://gialai.edu.vn/"
+    },
+    {
+      "site": "http://thcsannhon.gialai.edu.vn/",
+      "status": "identity_changed",
+      "code": "52549504",
+      "name": "Trường THCS Nhơn Hậu",
+      "current_title": "Trường Trung học sơ sở An Nhơn",
+      "source": "https://gialai.edu.vn/"
+    },
+    {
+      "site": "https://thcsphuchanh.hcm.edu.vn/",
+      "status": "identity_changed",
+      "code": "74723513",
+      "name": "Trường THCS Phú Chánh",
+      "current_title": "Trường THCS Bình Dương (Phân hiệu)",
+      "source": "https://phuongbinhduong.hcm.edu.vn"
+    },
+    {
+      "site": "https://thcsvinhlocb.hcm.edu.vn/",
+      "status": "identity_changed",
+      "code": "79785516",
+      "name": "THCS Vĩnh Lộc B",
+      "current_title": "Trường THCS Trần Văn Giàu",
+      "source": "https://pgdnhabe.hcm.edu.vn/DsDonViGiaoDuc?trang=12"
+    },
+    {
+      "site": "http://thcscaikhe.cantho.edu.vn/",
+      "status": "identity_changed",
+      "code": "92916502",
+      "name": "THCS An Hoà 2",
+      "current_title": "Trường THCS Cái Khế",
+      "source": "https://cantho.edu.vn/"
+    },
+    {
+      "site": "http://thcsdongphuoc.cantho.edu.vn/",
+      "status": "identity_changed",
+      "code": "93932504",
+      "name": "Trường THCS Thị Trấn Cái Tắc",
+      "current_title": "Trường THCS Đông Phước",
+      "source": "https://cantho.edu.vn/"
+    },
+    {
+      "site": "http://thcsanhiep.cantho.edu.vn/",
+      "status": "identity_changed",
+      "code": "94942508",
+      "name": "Trường THCS An Ninh",
+      "current_title": "Trường THCS An Hiệp",
+      "source": "https://cantho.edu.vn/"
+    },
+    {
+      "site": "http://thcshuongcan.phutho.edu.vn/",
+      "status": "identity_changed",
+      "code": "25238519",
+      "name": "THCS Yên Lãng",
+      "current_title": "Trường THCS Hương Cần",
+      "source": "https://phutho.edu.vn/"
+    },
+    {
+      "site": "http://ptthcsdtnt.cantho.edu.vn/",
+      "status": "identity_changed",
+      "code": "94000837",
+      "name": "Trường THCS&THPT Trần Đề",
+      "current_title": "Trường Phổ Thông Dân Tộc Nội Trú THCS Lịch Hội Thượng",
+      "source": "https://cantho.edu.vn/"
+    },
+    {
+      "site": "https://thcsphuochiep.hcm.edu.vn/",
+      "status": "identity_changed",
+      "code": "79783522",
+      "name": "THCS Tân An Hội",
+      "current_title": "",
+      "source": "https://pgdnhabe.hcm.edu.vn/DsDonViGiaoDuc?trang=13"
+    },
+    {
+      "code": "01016509",
+      "name": "Trường THCS Minh Phú",
+      "site": "https://th-thcsminhphu.hanoi.edu.vn/",
+      "status": "identity_needs_review",
+      "reason": "Tên/địa bàn trên biểu trưng khác dữ liệu tham chiếu; chưa đủ nguồn để nối mã cũ với đơn vị mới."
+    },
+    {
+      "code": "01018504",
+      "name": "THCS Đặng Xá",
+      "site": "http://thcsdangxa.hanoi.edu.vn/",
+      "status": "identity_needs_review",
+      "reason": "Tên/địa bàn trên biểu trưng khác dữ liệu tham chiếu; chưa đủ nguồn để nối mã cũ với đơn vị mới."
+    },
+    {
+      "code": "01020522",
+      "name": "Trường THCS Đông Mỹ",
+      "site": "https://thcsdongmy.hanoi.edu.vn/",
+      "status": "identity_needs_review",
+      "reason": "Tên/địa bàn trên biểu trưng khác dữ liệu tham chiếu; chưa đủ nguồn để nối mã cũ với đơn vị mới."
+    },
+    {
+      "code": "01020525",
+      "name": "Trường THCS Liên Ninh",
+      "site": "https://th-thcslienninh.hanoi.edu.vn/",
+      "status": "identity_needs_review",
+      "reason": "Tên/địa bàn trên biểu trưng khác dữ liệu tham chiếu; chưa đủ nguồn để nối mã cũ với đơn vị mới."
+    },
+    {
+      "code": "34339513",
+      "name": "Trường THCS Lý Nam Đế",
+      "site": "http://thcslynamde.hungyen.edu.vn/",
+      "status": "identity_needs_review",
+      "reason": "Tên/địa bàn trên biểu trưng khác dữ liệu tham chiếu; chưa đủ nguồn để nối mã cũ với đơn vị mới."
+    },
+    {
+      "code": "77747504",
+      "name": "THCS Vũng Tàu",
+      "site": "https://thcsvungtau.hcm.edu.vn/",
+      "status": "identity_needs_review",
+      "reason": "Tên/địa bàn trên biểu trưng khác dữ liệu tham chiếu; chưa đủ nguồn để nối mã cũ với đơn vị mới."
+    },
+    {
+      "code": "92916509",
+      "name": "THCS Chu Văn An",
+      "site": "http://cva.edu.vn/",
+      "status": "province_mismatch",
+      "reason": "Nguồn thuộc tỉnh/thành khác; không gán theo trường trùng tên."
     }
   ]
 }

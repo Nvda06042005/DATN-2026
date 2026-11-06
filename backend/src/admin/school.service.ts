@@ -10,6 +10,7 @@ import { config } from '../config';
 import { DatabaseService, DuplicateUsername, Q, UserRow } from '../database/database.service';
 import { MailService } from './mail.service';
 import { DirectoryEntry, directoryEntry, foldVi, schoolSlug, searchDirectory } from './school-directory';
+import { currentSchoolLogo } from './school-brand';
 
 export const GRADES = [6, 7, 8, 9] as const;
 export const likeEscape = (s: string) => s.replace(/[\\%_]/g, (ch) => `\\${ch}`);
@@ -112,7 +113,7 @@ export class SchoolService {
     );
     const places = await this.db.query<{ city: string | null; region: string | null }>('SELECT DISTINCT city, region FROM app_schools');
     const uniq = (v: Array<string | null>) => [...new Set(v.filter((x): x is string => !!x))].sort();
-    return { items: items.map((row) => withLink(row as unknown as SchoolRow)), total, page, limit, facets: { cities: uniq(places.map((x) => x.city)), regions: uniq(places.map((x) => x.region)) } };
+    return { items: items.map((row) => withLink(currentSchoolLogo(row as unknown as SchoolRow))), total, page, limit, facets: { cities: uniq(places.map((x) => x.city)), regions: uniq(places.map((x) => x.region)) } };
   }
 
   /** Gợi ý trường từ danh mục khi thêm trường: kèm cờ đã có trong hệ thống và đường dẫn sẽ được tạo */
@@ -123,7 +124,7 @@ export class SchoolService {
     const logos = new Map(stored.map(row => [row.code, row.logo_sha256 ? `${config.publicApiUrl}/api/school-logos/${row.logo_sha256}.webp` : null]));
     const keys = found.flatMap(entry => [entry.code, ...(entry.previous_codes ?? [])]);
     const used = await this.db.query<{ school_code: string; directory_code: string | null }>('SELECT school_code, directory_code FROM app_schools WHERE directory_code = ANY($1::text[]) OR (directory_code IS NULL AND school_code = ANY($1::text[]))', [keys]);
-    return found.map(e => ({ ...e, logo_url: logos.get(e.code) ?? null, exists: used.some(row => row.directory_code === e.code || (!row.directory_code && [e.code, ...(e.previous_codes ?? [])].includes(row.school_code))), slug: schoolSlug({ school_code: e.code, name: e.name, region: e.region }) }));
+    return found.map(e => ({ ...e, logo_url: logos.get(e.code) ?? null, exists: used.some(row => [e.code, ...(e.previous_codes ?? [])].includes(row.directory_code ?? row.school_code)), slug: schoolSlug({ school_code: e.code, name: e.name, region: e.region }) }));
   }
 
   async detail(actor: UserRow, id: number) {
@@ -136,7 +137,7 @@ export class SchoolService {
       const classes = (await q<{ n: number }>('SELECT count(*)::int AS n FROM app_classes WHERE school_id = $1', [id]))[0].n;
       const admins = (await q('SELECT id, username, full_name, email, phone, is_active, last_login_at FROM app_users WHERE school_id = $1 AND role = \'school_admin\' AND deleted_at IS NULL ORDER BY full_name', [id]));
       const year = (await q<YearRow>("SELECT * FROM app_school_years WHERE school_id = $1 AND status = 'active'", [id]))[0] ?? null;
-      return { ...withLink(school), counts: { ...counts, classes }, admins, current_year: year };
+      return { ...withLink(currentSchoolLogo(school)), counts: { ...counts, classes }, admins, current_year: year };
     });
   }
 
@@ -158,7 +159,7 @@ export class SchoolService {
       if (selected) {
         await q('SELECT pg_advisory_xact_lock(9031, hashtext($1))', [selected.code]);
         const keys = [selected.code, ...(selected.previous_codes ?? [])];
-        if ((await q('SELECT 1 FROM app_schools WHERE directory_code = $1 OR (directory_code IS NULL AND school_code = ANY($2::text[]))', [selected.code, keys])).length) throw new ConflictException('Trường được chọn đã có trong hệ thống');
+        if ((await q('SELECT 1 FROM app_schools WHERE directory_code = ANY($1::text[]) OR (directory_code IS NULL AND school_code = ANY($1::text[]))', [keys])).length) throw new ConflictException('Trường được chọn đã có trong hệ thống');
       }
       const code = manualCode || (await q<{ code: string }>('SELECT public.next_school_registration_code() AS code'))[0].code;
       const logoHash = selected ? (await q<{logo_sha256: string | null}>('SELECT logo_sha256 FROM public.app_school_directory WHERE code = $1', [selected.code]))[0]?.logo_sha256 : null;
@@ -196,7 +197,7 @@ export class SchoolService {
         if (!selected) throw new UnprocessableEntityException('Không tìm thấy trường được chọn trong danh mục');
         await q('SELECT pg_advisory_xact_lock(9031, hashtext($1))', [selected.code]);
         const keys = [selected.code, ...(selected.previous_codes ?? [])];
-        if ((await q('SELECT 1 FROM app_schools WHERE id <> $1 AND (directory_code = $2 OR (directory_code IS NULL AND school_code = ANY($3::text[])))', [id, selected.code, keys])).length) throw new ConflictException('Trường được chọn đã liên kết với trường khác trong hệ thống');
+        if ((await q('SELECT 1 FROM app_schools WHERE id <> $1 AND (directory_code = ANY($2::text[]) OR (directory_code IS NULL AND school_code = ANY($2::text[])))', [id, keys])).length) throw new ConflictException('Trường được chọn đã liên kết với trường khác trong hệ thống');
         const logo = (await q<{logo_sha256: string | null}>('SELECT logo_sha256 FROM app_school_directory WHERE code=$1', [selected.code]))[0]?.logo_sha256;
         body = { ...body, directory_code: selected.code, name: selected.name, city: selected.city, region: selected.region,
           address: selected.address ?? body.address ?? old.address, logo_url: logo ? `${config.publicApiUrl}/api/school-logos/${logo}.webp` : body.logo_url ?? old.logo_url };
