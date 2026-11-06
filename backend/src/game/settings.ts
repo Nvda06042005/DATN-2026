@@ -148,18 +148,18 @@ export class SettingsService {
   constructor(private readonly db: DatabaseService) {}
 
   async get(): Promise<GameSettings> {
-    if (this.cache && Date.now() - this.cache.at < 10_000) return this.cache.value;
-    const row = (await this.db.query<{ value: Record<string, unknown> }>("SELECT value FROM hk_settings WHERE key = 'game'"))[0];
+    if (!this.db.inWorkspace && this.cache && Date.now() - this.cache.at < 10_000) return this.cache.value;
+    const row = (await this.db.query<{ value: Record<string, unknown> }>("SELECT value FROM hk_settings WHERE key = 'game' AND (school_id IS NULL OR (school_id=$1 AND is_customized)) ORDER BY school_id NULLS LAST LIMIT 1", [this.db.workspaceSchoolId]))[0];
     const value = row ? applySettingsPatch(clone(GAME_DEFAULTS), row.value) : clone(GAME_DEFAULTS);
-    this.cache = { at: Date.now(), value };
+    if (!this.db.inWorkspace) this.cache = { at: Date.now(), value };
     return value;
   }
 
   async update(userId: number, patch: unknown): Promise<GameSettings> {
     const next = applySettingsPatch(await this.get(), patch);
     await this.db.query(
-      `INSERT INTO hk_settings (key, value, updated_by) VALUES ('game', $1, $2) ON CONFLICT (key) DO UPDATE SET value = $1, updated_by = $2, updated_at = now()`, [JSON.stringify(next), userId]);
-    this.cache = { at: Date.now(), value: next };
+      `INSERT INTO hk_settings (key, value, updated_by,is_customized) VALUES ('game', $1, $2,true) ON CONFLICT (workspace_key,key) DO UPDATE SET value = $1, updated_by = $2,is_customized=true, updated_at = now()`, [JSON.stringify(next), userId]);
+    if (!this.db.inWorkspace) this.cache = { at: Date.now(), value: next };
     return next;
   }
 
@@ -173,11 +173,11 @@ export class SettingsService {
    */
   async leagueWeek(q: Q, now: Date): Promise<LeagueWeek & { schedule: LeagueSchedule }> {
     const target = (await this.get()).league.close_weekday;
-    const row = (await q<{ value: Partial<LeagueSchedule> }>("SELECT value FROM hk_settings WHERE key = 'league_schedule'"))[0];
+    const row = (await q<{ value: Partial<LeagueSchedule> }>("SELECT value FROM hk_settings WHERE key = 'league_schedule' AND school_id IS NOT DISTINCT FROM $1", [this.db.workspaceSchoolId]))[0];
     const stored: LeagueSchedule = row ? { ...DEFAULT_LEAGUE_SCHEDULE, ...row.value } : DEFAULT_LEAGUE_SCHEDULE;
     const next = reconcileSchedule(stored, target, now);
-    if (!sameSchedule(stored, next)) {
-      await q("INSERT INTO hk_settings (key, value) VALUES ('league_schedule', $1) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = now()", [JSON.stringify(next)]);
+    if (!sameSchedule(stored, next) && !(this.db.inWorkspace && !this.db.workspaceSchoolId)) {
+      await q("INSERT INTO hk_settings (key, value) VALUES ('league_schedule', $1) ON CONFLICT (workspace_key,key) DO UPDATE SET value = $1, updated_at = now()", [JSON.stringify(next)]);
     }
     return { ...leagueWeekOf(next, now), schedule: settleSchedule(next, dayKey(now)) };
   }

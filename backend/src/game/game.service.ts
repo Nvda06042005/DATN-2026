@@ -290,7 +290,7 @@ export class GameService {
   }
 
   private async levels(q: Q): Promise<LevelRow[]> {
-    return q<LevelRow>('SELECT level, title, xp_required, reward_gold FROM hk_levels ORDER BY level');
+    return q<LevelRow>('SELECT level, title, xp_required, reward_gold FROM hk_levels WHERE school_id IS NOT DISTINCT FROM $1 ORDER BY level', [this.db.workspaceSchoolId]);
   }
 
   private async checkLevel(q: Q, user: UserRow): Promise<void> {
@@ -399,7 +399,7 @@ export class GameService {
   async evaluateBadges(q: Q, user: UserRow): Promise<void> {
     const badges = await q<BadgeRow>(
       `SELECT id, code, scope, school_id, name, description, icon, color, rule, sort_order FROM hk_badges
-       WHERE is_active AND rule IS NOT NULL AND id NOT IN (SELECT badge_id FROM hk_user_badges WHERE user_id = $1)`, [user.id]);
+       WHERE is_active AND rule IS NOT NULL AND (scope='system' OR school_id=$2) AND id NOT IN (SELECT badge_id FROM hk_user_badges WHERE user_id = $1)`, [user.id,user.school_id]);
     if (!badges.length) return;
     const p = (await q<PlayerRow>('SELECT * FROM hk_players WHERE user_id = $1', [user.id]))[0];
     for (const b of badges) if (await this.ruleMet(q, user, p, b.rule!)) await this.awardBadge(q, user, b, null);

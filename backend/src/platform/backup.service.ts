@@ -138,12 +138,15 @@ export class BackupService {
         const existing = new Set(await this.tableNames(run));
         const names = Object.keys(parsed.tables).filter((n) => existing.has(n));
         const order = await this.insertOrder(run, names);
+        const columns = await run<{table_name:string;column_name:string}>(`SELECT table_name,column_name FROM information_schema.columns
+          WHERE table_schema='public' AND is_generated='NEVER' ORDER BY table_name,ordinal_position`);
         for (const n of [...order].reverse()) await run(`DELETE FROM public.${q(n)}`);
         let rows = 0;
         for (const n of order) {
           const list = parsed.tables[n] ?? [];
+          const writable = columns.filter(c=>c.table_name===n).map(c=>q(c.column_name)).join(',');
           for (let i = 0; i < list.length; i += 2000) {
-            await run(`INSERT INTO public.${q(n)} SELECT * FROM jsonb_populate_recordset(NULL::public.${q(n)}, $1::jsonb)`, [JSON.stringify(list.slice(i, i + 2000))]);
+            await run(`INSERT INTO public.${q(n)} (${writable}) SELECT ${writable} FROM jsonb_populate_recordset(NULL::public.${q(n)}, $1::jsonb)`, [JSON.stringify(list.slice(i, i + 2000))]);
           }
           rows += list.length;
         }
@@ -156,6 +159,7 @@ export class BackupService {
         }
         return { tables: names.length, rows };
       });
+      this.db.invalidateWorkspaces();
       return { restored: true, backup_id: id, safety_backup_id: before.id, ...restored, note: 'Mọi người dùng có thể phải đăng nhập lại bằng mật khẩu tại thời điểm sao lưu.' };
     } finally {
       this.running = false;

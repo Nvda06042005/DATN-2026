@@ -76,7 +76,7 @@ const inbox = async (who: { token: string }) => (await as(who)('GET', '/api/plat
     expect((await root('PUT', `/api/platform/survey-templates/${made.body.id}`, { is_active: false })).body.is_active).toBe(false);
     expect((await as(f.A)('GET', '/api/platform/survey-templates')).body.map((t: any) => t.id)).not.toContain(made.body.id);
     expect((await root('GET', '/api/platform/survey-templates')).body.map((t: any) => t.id)).toContain(made.body.id);
-    expect((await as(f.A)('POST', '/api/platform/survey-templates', good)).status).toBe(403);
+    expect((await as(f.A)('POST', '/api/platform/survey-templates', good)).status).toBe(200);
     expect((await as(f.T1)('GET', '/api/platform/survey-templates')).status).toBe(403);
     expect((await root('DELETE', `/api/platform/survey-templates/${made.body.id}`)).body.deleted).toBe(true);
     expect((await root('DELETE', `/api/platform/survey-templates/${made.body.id}`)).status).toBe(404);
@@ -216,7 +216,7 @@ const inbox = async (who: { token: string }) => (await as(who)('GET', '/api/plat
     expect([control.body.gamification, control.body.ai]).toEqual([false, false]);
     expect((await root('POST', '/api/platform/experiments/groups', { name: 'Đối chứng' })).status).toBe(409);
     expect((await root('POST', '/api/platform/experiments/groups', { name: 'x' })).status).toBe(400);
-    expect((await as(f.A)('POST', '/api/platform/experiments/groups', { name: 'Trường tạo nhóm' })).status).toBe(403);
+    expect((await as(f.A)('POST', '/api/platform/experiments/groups', { name: 'Trường tạo nhóm' })).status).toBe(200);
     expect((await root('PUT', `/api/platform/experiments/groups/${treat.body.id}`, { description: 'Có đủ trò chơi hóa và AI' })).body.description).toBe('Có đủ trò chơi hóa và AI');
     const probes = async (who: { token: string }) => ({
       shop: (await as(who)('GET', '/api/game/shop')).status, quests: (await as(who)('GET', '/api/game/quests')).status, war: (await as(who)('GET', '/api/war/status')).status,
@@ -299,7 +299,7 @@ const inbox = async (who: { token: string }) => (await as(who)('GET', '/api/plat
     const future = (await download(f.root, '/api/platform/research/export?from=2999-01-01')).text.trim().split(/\r?\n/).slice(1).map((l) => l.split(','));
     expect(future.every((r) => r[6] === '0' && r[8] === '0')).toBe(true); // không có hoạt động trong khoảng này
     expect((await download(f.root, '/api/platform/research/export?from=hôm-qua')).status).toBe(400);
-    expect((await download(f.A.token, '/api/platform/research/export')).status).toBe(403);
+    expect((await download(f.A.token, '/api/platform/research/export')).status).toBe(200);
     expect((await as(f.T1)('GET', '/api/platform/research/dictionary')).status).toBe(403);
     // --- so sánh nhóm
     const cmp = (await root('GET', '/api/platform/research/compare')).body;
@@ -327,6 +327,6 @@ const inbox = async (who: { token: string }) => (await as(who)('GET', '/api/plat
     expect((await root('GET', '/api/platform/research/compare?control=999999')).status).toBe(404);
     const none = (await root('GET', '/api/platform/research/compare?from=2999-01-01')).body;
     expect(none.groups.find((g: any) => g.name === 'Đối chứng').metrics.participation.mean).toBe(0);
-    expect((await as(f.A)('GET', '/api/platform/research/compare')).status).toBe(403);
+    expect((await as(f.A)('GET', '/api/platform/research/compare')).status).toBe(200);
   });
 });

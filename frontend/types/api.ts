@@ -238,6 +238,7 @@ export interface HistorySpec {
 }
 
 export interface HistoryRecord {
+  can_edit?: boolean;
   id: number;
   slug: string;
   status: HistoryStatus;

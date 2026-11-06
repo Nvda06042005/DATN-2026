@@ -1,5 +1,13 @@
 # Tiến độ xây dựng Hào Khí Đông A (theo mã HK.*)
 
+## Điều chỉnh phạm vi quản lý theo yêu cầu ngày 06/11/2026
+
+- Quản lý tổng `/admin` còn đúng 9 mục: **Trường học, Người dùng, Thống kê hệ thống, Thông báo, Nhật ký, Hướng dẫn và FAQ, Bảo mật, Hệ thống, Yêu cầu hỗ trợ**.
+- Kho lịch sử, bài học, ngân hàng câu hỏi, bộ đề, hành trình, duyệt nội dung, mô phỏng/mini-game, game thẻ tướng, trò chơi hóa, AI Tutor và nghiên cứu nằm trong cổng quản trị trường. Đây là chuyển chức năng và dữ liệu theo trường, không chỉ đổi menu.
+- Migration **039** bổ sung sở hữu và RLS của vai trò nội bộ `dong_a_workspace_scope`. Phạm vi luôn lấy từ tài khoản đã xác thực; API không dùng trường do người gọi tự khai. Mẫu hệ thống cũ được giữ và chỉ đọc; trường tạo hoặc sao chép bản riêng để chỉnh sửa. Các tham chiếu FK chéo trường bị chặn ở database. Quyền giáo viên/học sinh và quyền quản lý toàn nền tảng của quản lý tổng được giữ tại API.
+- Cấu hình game/AI, danh mục cấp độ, hành trình mặc định, chỉ mục RAG, bộ nhớ đệm, hạn mức và dấu chốt giải đấu tách theo trường. Khóa AI riêng lưu mã hóa; khóa hệ thống không sao chép và không hiện gợi ý ký tự cuối ở cổng trường. Cấu hình mô hình riêng của trường chỉ dùng endpoint HTTPS của OpenAI/Anthropic; cấu hình hệ thống vẫn do máy chủ quản lý.
+- Kiểm thử mới `workspaces.spec.ts`: hai trường có toàn bộ màn được chuyển, tạo/sửa dữ liệu riêng, chống truy cập chéo/giả `school_id`, bảo vệ mẫu chung, kiểm tra FK và cách ly RAG/cache. Kiểm thử hồi quy cũ cập nhật các quyền trường mới được yêu cầu; quyền học sinh/giáo viên vẫn bị chặn tương ứng.
+
 Nguồn: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). Tài liệu này ghi **Sprint 1 đến Sprint 12**
 (356 chức năng; riêng Sprint 5–8 theo ver0.1, phần ver0.2 còn lại ghi ở bên dưới) đã làm được gì, quyết định đã chọn khi đặc tả chưa nói rõ, và những gì cố ý chưa làm. Phân tích đối chiếu ban đầu: `DOI_CHIEU_HAO_KHI_V01.md`.
 

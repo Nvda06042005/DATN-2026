@@ -127,7 +127,7 @@ const QuizDetailSheet: React.FC<{ session: Session; id: number; onClose: () => v
             <Btn icon={Play} title="Làm thử như học sinh" tone="ngoc" size="sm" loading={busy} onPress={async () => { const a = await run(() => api.previewQuiz(session.token, d.id)); if (a) { onPreview(a, d.title); onClose(); } }} testID="quiz-preview" />
             {d.can_edit ? <Btn icon={Pencil} title="Sửa" tone="son" size="sm" disabled={d.locked} onPress={() => setEditing(true)} testID="quiz-edit" /> : null}
             {d.can_edit && onStudio ? <Btn icon={Sparkles} title="Sửa trong trình soạn Quiz" tone="ngoc" size="sm" disabled={d.locked} onPress={() => { onClose(); onStudio(d.id); }} testID="quiz-edit-studio" /> : null}
-            {role === 'teacher' || role === 'root_admin' ? <Btn icon={Copy} title="Nhân bản" tone="giay" size="sm" loading={busy} onPress={async () => { if (await run(() => api.duplicateQuiz(session.token, d.id), 'Đã nhân bản bộ đề')) { onChanged(); onClose(); } }} /> : null}
+            {role === 'teacher' || role === 'school_admin' || role === 'root_admin' ? <Btn icon={Copy} title="Nhân bản" tone="giay" size="sm" loading={busy} onPress={async () => { if (await run(() => api.duplicateQuiz(session.token, d.id), 'Đã nhân bản bộ đề')) { onChanged(); onClose(); } }} /> : null}
             {shareTarget ? <Btn icon={Send} title={shareTarget === 'school' ? 'Gửi vào kho của trường' : 'Đề xuất lên kho hệ thống'} tone="giay" size="sm" loading={busy} disabled={shared?.status === 'pending'}
               onPress={async () => { if (await run(() => api.requestShare(session.token, 'quiz', d.id, shareTarget), 'Đã gửi đi duyệt')) detail.reload(); }} /> : null}
             {d.can_edit ? <Btn icon={Trash2} title="Xóa" tone="giay" size="sm" onPress={() => setRemoving(true)} /> : null}
@@ -152,7 +152,7 @@ export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: numb
   const [preview, setPreview] = useState<{ attempt: AttemptState; title: string } | null>(null);
   const term = useDebounced(q.trim(), 300);
   const list = useLoad(() => api.listQuizzes(session.token, { store, q: term, page, limit: 15 }), [session.token, store, term, page], session.expired);
-  const canWrite = role === 'teacher' || role === 'root_admin';
+  const canWrite = role === 'teacher' || role === 'school_admin' || role === 'root_admin';
   return (
     <>
     <Page>

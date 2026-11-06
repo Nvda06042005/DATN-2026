@@ -43,7 +43,7 @@ const LessonForm: React.FC<{ session: Session; initial?: LessonDetail; onClose: 
         title, summary: summary.trim() || null, campaign_id: campaign ? Number(campaign) : null, blocks: clean as LessonBlock[], ...(minutes.trim() ? { read_minutes: Number(minutes) } : {}),
         links: links.map((l) => ({ ref_type: l.ref_type, ref_id: l.ref_id })), check_question_ids: checks.map((k) => k.id),
       };
-      onSaved(initial ? await api.updateLesson(session.token, initial.id, body) : await api.createLesson(session.token, body));
+      onSaved(initial?.id ? await api.updateLesson(session.token, initial.id, body) : await api.createLesson(session.token, body));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Chưa lưu được bài học.');
     } finally {
@@ -51,7 +51,7 @@ const LessonForm: React.FC<{ session: Session; initial?: LessonDetail; onClose: 
     }
   };
   return (
-    <Sheet open onClose={onClose} title={initial ? 'Sửa bài học' : 'Tạo bài học'} wide
+    <Sheet open onClose={onClose} title={initial?.id ? 'Sửa bài học' : 'Tạo bài học riêng'} wide
       footer={<View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}><Btn title="Hủy" tone="giay" onPress={onClose} disabled={busy} /><Btn title="Lưu bài học" tone="son" onPress={submit} loading={busy} testID="lesson-save" /></View>}>
       <ErrorNote message={error} />
       <Field label="Tên bài học *" value={title} onChangeText={setTitle} nativeID="lesson-title" />
@@ -115,7 +115,7 @@ const LessonForm: React.FC<{ session: Session; initial?: LessonDetail; onClose: 
         <Btn icon={Plus} title="Chọn câu kiểm tra" tone="giay" size="sm" disabled={checks.length >= 3} onPress={() => setPicking(true)} />
       </View>
       <LinksEditor session={session} value={links} onChange={setLinks} allowTerm />
-      {picking ? <QuestionPicker session={session} title="Chọn câu kiểm tra nhanh" scopeFilter="system" exclude={checks.map((k) => k.id)} onClose={() => setPicking(false)}
+      {picking ? <QuestionPicker session={session} title="Chọn câu kiểm tra nhanh" scopeFilter={session.user.role==='root_admin'?'system':undefined} exclude={checks.map((k) => k.id)} onClose={() => setPicking(false)}
         onPick={(items) => { setChecks((x) => [...x, ...items.map((i) => ({ id: i.id, prompt: i.prompt }))].slice(0, 3)); setPicking(false); }} /> : null}
     </Sheet>
   );
@@ -131,7 +131,8 @@ export const LessonManager: React.FC<{ session: Session }> = ({ session }) => {
   const campaigns = useCampaignOptions(session);
   const list = useLoad(() => api.listLessons(session.token, { q: term, status, campaign_id: campaign }), [session.token, term, status, campaign], session.expired);
   const { busy, run } = useAction(session.expired);
-  const edit = async (l: LessonItem) => { const d = await run(() => api.getLesson(session.token, l.id)); if (d) setForm({ lesson: d }); };
+  const writable = (l:LessonItem) => session.user.role==='root_admin' || l.school_id===session.user.school_id;
+  const edit = async (l: LessonItem) => { const d = await run(() => api.getLesson(session.token, l.id)); if (d) setForm({ lesson: writable(l) ? d : {...d,id:0} }); };
   return (
     <Page>
       <PageHeader title="Bài học" subtitle="Bài học gắn với nút trên bản đồ hành trình. Chỉ bài đã công bố mới chọn được vào hành trình của giáo viên và được học sinh đọc."
@@ -152,14 +153,14 @@ export const LessonManager: React.FC<{ session: Session }> = ({ session }) => {
             { key: 'checks', label: 'Câu kiểm tra', flex: 0.9, render: (r) => <Txt size={13}>{r.checks}</Txt> },
             { key: 'used', label: 'Dùng ở nút', flex: 0.9, render: (r) => <Txt size={13}>{r.used_in}</Txt> },
           ]}
-          actions={(r) => (
+          actions={(r) => writable(r) ? (
             <>
               <Btn icon={r.status === 'published' ? EyeOff : Eye} label={r.status === 'published' ? `Gỡ công bố ${r.title}` : `Công bố ${r.title}`} tone="giay" size="sm" disabled={busy}
                 onPress={async () => { if (await run(() => api.setLessonStatus(session.token, r.id, r.status === 'published' ? 'draft' : 'published'), r.status === 'published' ? 'Đã gỡ về bản nháp' : 'Đã công bố bài học')) list.reload(); }} />
               <Btn icon={Pencil} label={`Sửa ${r.title}`} tone="giay" size="sm" onPress={() => edit(r)} />
               <Btn icon={Trash2} label={`Xóa ${r.title}`} tone="giay" size="sm" onPress={() => setRemoving(r)} />
             </>
-          )} />
+          ) : <Btn icon={Plus} title="Tạo bản riêng" tone="giay" size="sm" onPress={() => edit(r)} />} />
       ) : null}
       {form ? <LessonForm session={session} initial={form.lesson} onClose={() => setForm(null)} onSaved={() => { setForm(null); list.reload(); }} /> : null}
       <ConfirmSheet open={!!removing} title="Xóa bài học?" message={`Xóa bài “${removing?.title ?? ''}”. Chỉ xóa được bài chưa nằm trong hành trình nào.`} confirmLabel="Xóa" busy={busy}

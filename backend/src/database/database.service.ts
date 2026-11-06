@@ -1,4 +1,5 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { Pool, PoolClient, types } from 'pg';
 import { config } from '../config';
 import { baseUsername, hashPassword } from '../auth/passwords';
@@ -118,6 +119,16 @@ export const searchText = (...parts: Array<string | number | null | undefined>):
 /** Kho dữ liệu PostgreSQL: tài khoản, trường, năm học, lớp, kho lịch sử, hàng đợi email. */
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
+  private readonly workspace = new AsyncLocalStorage<{ schoolId: number | null; userId: number; q?: Q }>();
+  private readonly initializedSchools = new Set<number>();
+  get workspaceSchoolId(): number | null { return this.workspace.getStore()?.schoolId ?? null; }
+  get inWorkspace(): boolean { return Boolean(this.workspace.getStore()); }
+  invalidateWorkspaces(): void { this.initializedSchools.clear(); }
+  /** Tác vụ hẹn giờ giữ đúng trường, nhưng không giữ kết nối giao dịch đã đóng. */
+  detachedWorkspace<T>(run: () => Promise<T>): () => Promise<T> {
+    const ctx = this.workspace.getStore();
+    return () => ctx ? this.workspace.run({ schoolId:ctx.schoolId,userId:ctx.userId }, run) : run();
+  }
   private readonly logger = new Logger('Database');
   private pool: Pool | null = null;
   ready = false;
@@ -147,6 +158,9 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   async query<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
+    const ctx = this.workspace.getStore();
+    if (ctx?.q) return ctx.q<T>(sql, params);
+    if (ctx) return this.workspaceTx((q) => q<T>(sql, params));
     if (!this.pool) throw new ServiceUnavailableException('Kho tài khoản chưa sẵn sàng. Kiểm tra cấu hình cơ sở dữ liệu.');
     return (await this.pool.query(sql, params)).rows as T[];
   }
@@ -172,6 +186,11 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
    * nên kể cả khi một truy vấn thiếu điều kiện WHERE cũng không chạm được dữ liệu trường khác. Truy vấn vẫn lọc school_id.
    */
   async scoped<T>(schoolId: number, run: (q: Q) => Promise<T>): Promise<T> {
+    const ctx = this.workspace.getStore();
+    if (ctx) {
+      if (schoolId !== ctx.schoolId) throw new ForbiddenException('Không truy cập dữ liệu trường khác');
+      return ctx.q ? run(ctx.q) : this.workspaceTx(run);
+    }
     return this.transaction(async (c) => {
       if (this.rlsReady) await c.query('SET LOCAL ROLE dong_a_school_scope');
       await c.query("SELECT set_config('app.school_id', $1, true)", [String(schoolId)]);
@@ -181,7 +200,55 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   /** Giao dịch với quyền đầy đủ (quản trị tổng, tiến trình nền) */
   async tx<T>(run: (q: Q) => Promise<T>): Promise<T> {
+    const ctx = this.workspace.getStore();
+    if (ctx) return ctx.q ? run(ctx.q) : this.workspaceTx(run);
     return this.transaction((c) => run(async <R = Record<string, unknown>>(sql: string, params: unknown[] = []) => (await c.query(sql, params)).rows as R[]));
+  }
+
+  /** Ngữ cảnh chỉ lấy từ người dùng đã xác thực; không nhận school_id từ query/body. */
+  async withWorkspace<T>(user: Pick<UserRow, 'id' | 'role' | 'school_id'>, run: () => Promise<T>): Promise<T> {
+    if (user.role === 'root_admin') return run();
+    const current = this.workspace.getStore();
+    if (current && (current.schoolId !== user.school_id || current.userId !== user.id)) throw new ForbiddenException('Không đổi phạm vi trường trong yêu cầu');
+    if (user.role === 'school_admin' && !user.school_id) throw new ForbiddenException('Tài khoản chưa được gán trường');
+    if (user.school_id && !this.initializedSchools.has(user.school_id)) {
+      await this.initializeWorkspace(user.school_id);
+      this.initializedSchools.add(user.school_id);
+    }
+    return this.workspace.run({ schoolId: user.school_id, userId: user.id }, run);
+  }
+
+  private async workspaceTx<T>(run: (q: Q) => Promise<T>): Promise<T> {
+    const ctx = this.workspace.getStore()!;
+    return this.transaction(async (c) => {
+      // Không có vai trò RLS thì dừng, tuyệt đối không rơi về kết nối có toàn quyền.
+      await c.query('SET LOCAL ROLE dong_a_workspace_scope');
+      await c.query("SELECT set_config('app.school_id',$1,true),set_config('app.user_id',$2,true)", [String(ctx.schoolId ?? 0), String(ctx.userId)]);
+      const q: Q = async (sql, params = []) => (await c.query(sql, params)).rows;
+      return this.workspace.run({ ...ctx, q }, () => run(q));
+    });
+  }
+
+  /** Sao chép cấu hình mặc định đúng một lần; không sao chép bí mật AI hoặc dữ liệu cá nhân. */
+  private async initializeWorkspace(schoolId: number): Promise<void> {
+    await this.transaction(async (c) => {
+      await c.query('SELECT pg_advisory_xact_lock(39901,$1)', [schoolId]);
+      if ((await c.query('SELECT 1 FROM app_school_workspaces WHERE school_id=$1', [schoolId])).rows.length) return;
+      await c.query('INSERT INTO hk_levels(school_id,level,title,xp_required,reward_gold) SELECT $1,level,title,xp_required,reward_gold FROM hk_levels WHERE school_id IS NULL', [schoolId]);
+      await c.query('INSERT INTO hk_settings(school_id,key,value) SELECT $1,key,value FROM hk_settings WHERE school_id IS NULL', [schoolId]);
+      await c.query(`INSERT INTO hk_ai_settings(school_id,id,provider,base_url,chat_model,embed_model,temperature,max_tokens,top_k,min_score,system_prompt,refusal_message,banned_terms,index_kinds,daily_per_user,daily_per_school,price_in,price_out)
+        SELECT $1,id,'none',NULL,chat_model,embed_model,temperature,max_tokens,top_k,min_score,system_prompt,refusal_message,banned_terms,index_kinds,daily_per_user,daily_per_school,price_in,price_out FROM hk_ai_settings WHERE school_id IS NULL`, [schoolId]);
+      await c.query('INSERT INTO app_school_workspaces(school_id) VALUES($1)', [schoolId]);
+    });
+  }
+
+  /** Kiểm tra chủ sở hữu trước thao tác sửa/xóa; các mẫu chung chỉ được đọc. */
+  async assertWorkspaceWritable(table: string, id: number, pk = 'id'): Promise<void> {
+    if (!this.inWorkspace) return;
+    if (!/^[a-z_]+$/.test(table) || !/^[a-z_]+$/.test(pk)) throw new Error('Invalid internal table');
+    const row = (await this.query<{ school_id: number | null }>(`SELECT school_id FROM ${table} WHERE ${pk}=$1`, [id]))[0];
+    if (!row) throw new NotFoundException('Không tìm thấy dữ liệu trong trường của bạn');
+    if (row.school_id !== this.workspaceSchoolId || row.school_id === null) throw new ForbiddenException('Mẫu hệ thống chỉ để tham khảo; hãy tạo bản riêng cho trường');
   }
 
   async ping(): Promise<boolean> {

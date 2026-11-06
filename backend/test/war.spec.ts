@@ -674,7 +674,7 @@ async function playOut(who: { token: string }, battleId: number, right = true) {
   describe('quản trị', () => {
     test('thẻ tướng nâng cao: chỉ số, binh chủng, mảnh, thẻ chiến thuật; chiêu thức kiểm tra từng trường', async () => {
       const id = await cardId('tran-thanh-tong');
-      expect((await as(f.A)('GET', '/api/war/admin/cards')).status).toBe(403);
+      expect((await as(f.A)('GET', '/api/war/admin/cards')).status).toBe(200);
       expect((await root('GET', '/api/war/admin/cards')).body).toHaveLength(17);
       expect((await root('PUT', `/api/war/admin/cards/${id}`, { branch: 'khong' })).status).toBe(400);
       expect((await root('PUT', `/api/war/admin/cards/${id}`, { base_stats: { atk: 5000 } })).status).toBe(400);

@@ -92,7 +92,7 @@ export class BattleService {
       `SELECT s.id, s.title, s.summary, s.difficulty, s.battle_id, s.status, s.content, b.name AS battle_name, b.year, b.date_text, b.context, b.forces, b.course, b.result, b.status AS battle_status, b.campaign_id,
               c.title AS campaign_title
        FROM hk_scenarios s JOIN hist_battles b ON b.id = s.battle_id LEFT JOIN hist_campaigns c ON c.id = b.campaign_id WHERE s.id = $1${lock ? ' FOR UPDATE OF s' : ''}`, [id]))[0];
-    if (!row || (row.status !== 'published' && user.role !== 'root_admin')) throw notFound('trận đánh mô phỏng');
+    if (!row || (row.status !== 'published' && user.role !== 'root_admin' && !(user.role==='school_admin' && row.school_id===user.school_id))) throw notFound('trận đánh mô phỏng');
     return row;
   }
 
@@ -264,7 +264,7 @@ export class BattleService {
   async startMinigame(user: UserRow, id: number, opts: { restart?: boolean; preview?: boolean; assignmentId?: number }) {
     return this.db.tx(async (q) => {
       const row = (await q<Record<string, any>>('SELECT * FROM hk_minigames WHERE id = $1 FOR UPDATE', [id]))[0];
-      if (!row || (row.status !== 'published' && user.role !== 'root_admin')) throw notFound('mini-game');
+      if (!row || (row.status !== 'published' && user.role !== 'root_admin' && !(user.role==='school_admin' && row.school_id===user.school_id))) throw notFound('mini-game');
       const preview = Boolean(opts.preview);
       if (!isStudent(user) && !preview) throw new ForbiddenException('Giáo viên và quản trị chỉ chơi thử (chế độ xem trước)');
       if (preview && isStudent(user)) throw new ForbiddenException('Học sinh không dùng chế độ xem trước');
@@ -409,7 +409,7 @@ export class BattleService {
     return this.db.query(
       `SELECT s.id, s.title, s.difficulty, s.status, s.battle_id, b.name AS battle_name, b.status AS battle_status, c.title AS campaign_title, s.updated_at,
               jsonb_array_length(s.content->'steps')::int AS steps, (SELECT count(*)::int FROM hk_game_runs r WHERE r.scenario_id = s.id AND r.mode = 'play') AS plays
-       FROM hk_scenarios s JOIN hist_battles b ON b.id = s.battle_id LEFT JOIN hist_campaigns c ON c.id = b.campaign_id ORDER BY b.year, b.sort_order, s.id`);
+       FROM hk_scenarios s JOIN hist_battles b ON b.id = s.battle_id LEFT JOIN hist_campaigns c ON c.id = b.campaign_id WHERE s.school_id IS NOT DISTINCT FROM $1 ORDER BY b.year, b.sort_order, s.id`, [this.db.workspaceSchoolId]);
   }
 
   async adminScenario(id: number) {
@@ -424,7 +424,7 @@ export class BattleService {
   /** Các trận đánh trong kho lịch sử để chọn khi soạn kịch bản, kèm đã có kịch bản hay chưa */
   async battleOptions() {
     return this.db.query(
-      `SELECT b.id, b.name, b.year, b.status, c.title AS campaign_title, s.id AS scenario_id FROM hist_battles b LEFT JOIN hist_campaigns c ON c.id = b.campaign_id LEFT JOIN hk_scenarios s ON s.battle_id = b.id
+      `SELECT b.id, b.name, b.year, b.status, c.title AS campaign_title, s.id AS scenario_id FROM hist_battles b LEFT JOIN hist_campaigns c ON c.id = b.campaign_id LEFT JOIN hk_scenarios s ON s.battle_id = b.id AND s.school_id IS NOT DISTINCT FROM public.app_workspace_school()
        ORDER BY b.year, b.sort_order, b.id`);
   }
 
@@ -438,7 +438,7 @@ export class BattleService {
     const content = normalizeScenario(body.content);
     return this.db.tx(async (q) => {
       if (!(await q('SELECT 1 FROM hist_battles WHERE id = $1', [body.battle_id])).length) throw notFound('trận đánh');
-      if ((await q('SELECT 1 FROM hk_scenarios WHERE battle_id = $1', [body.battle_id])).length) throw new ConflictException('Trận đánh này đã có kịch bản; hãy sửa kịch bản hiện có');
+      if ((await q('SELECT 1 FROM hk_scenarios WHERE battle_id = $1 AND school_id IS NOT DISTINCT FROM $2', [body.battle_id,this.db.workspaceSchoolId])).length) throw new ConflictException('Trận đánh này đã có kịch bản; hãy sửa kịch bản hiện có');
       await this.scenarioLinks(q, content);
       const title = String(body.title ?? '').trim();
       if (title.length < 2 || title.length > 160) throw new BadRequestException('Tên kịch bản từ 2 đến 160 ký tự');
@@ -456,6 +456,7 @@ export class BattleService {
   }
 
   async updateScenario(user: UserRow, id: number, body: ScenarioInput) {
+    await this.db.assertWorkspaceWritable('hk_scenarios', id);
     return this.db.tx(async (q) => {
       const cur = (await q<Record<string, any>>('SELECT * FROM hk_scenarios WHERE id = $1 FOR UPDATE', [id]))[0];
       if (!cur) throw notFound('kịch bản');
@@ -471,6 +472,7 @@ export class BattleService {
   }
 
   async setScenarioStatus(id: number, status: string) {
+    await this.db.assertWorkspaceWritable('hk_scenarios', id);
     if (status !== 'draft' && status !== 'published') throw new BadRequestException('Trạng thái là draft hoặc published');
     return this.db.tx(async (q) => {
       const row = (await q<Record<string, any>>('SELECT s.id, b.status AS battle_status FROM hk_scenarios s JOIN hist_battles b ON b.id = s.battle_id WHERE s.id = $1 FOR UPDATE OF s', [id]))[0];
@@ -482,6 +484,7 @@ export class BattleService {
   }
 
   async deleteScenario(id: number) {
+    await this.db.assertWorkspaceWritable('hk_scenarios', id);
     await this.db.tx(async (q) => {
       if (!(await q('SELECT 1 FROM hk_scenarios WHERE id = $1 FOR UPDATE', [id])).length) throw notFound('kịch bản');
       const plays = Number((await q<{ n: string }>("SELECT count(*) AS n FROM hk_game_runs WHERE scenario_id = $1 AND mode = 'play'", [id]))[0].n);
@@ -495,7 +498,7 @@ export class BattleService {
     return this.db.query(
       `SELECT m.id, m.kind, m.title, m.description, m.status, m.seconds, m.points, m.campaign_id, c.title AS campaign_title, m.updated_at,
               (SELECT count(*)::int FROM hk_game_runs r WHERE r.minigame_id = m.id AND r.mode = 'play') AS plays
-       FROM hk_minigames m LEFT JOIN hist_campaigns c ON c.id = m.campaign_id ORDER BY m.kind, m.id`);
+       FROM hk_minigames m LEFT JOIN hist_campaigns c ON c.id = m.campaign_id WHERE m.school_id IS NOT DISTINCT FROM $1 ORDER BY m.kind, m.id`, [this.db.workspaceSchoolId]);
   }
 
   async adminMinigame(id: number) {
@@ -534,6 +537,7 @@ export class BattleService {
   }
 
   async updateMinigame(user: UserRow, id: number, body: MinigameInput) {
+    await this.db.assertWorkspaceWritable('hk_minigames', id);
     return this.db.tx(async (q) => {
       const cur = (await q<Record<string, any>>('SELECT * FROM hk_minigames WHERE id = $1 FOR UPDATE', [id]))[0];
       if (!cur) throw notFound('mini-game');
@@ -545,6 +549,7 @@ export class BattleService {
   }
 
   async setMinigameStatus(id: number, status: string) {
+    await this.db.assertWorkspaceWritable('hk_minigames', id);
     if (status !== 'draft' && status !== 'published') throw new BadRequestException('Trạng thái là draft hoặc published');
     const rows = await this.db.query("UPDATE hk_minigames SET status = $2, published_at = CASE WHEN $2 = 'published' THEN now() END, updated_at = now() WHERE id = $1 RETURNING *", [id, status]);
     if (!rows.length) throw notFound('mini-game');
@@ -552,6 +557,7 @@ export class BattleService {
   }
 
   async deleteMinigame(id: number) {
+    await this.db.assertWorkspaceWritable('hk_minigames', id);
     await this.db.tx(async (q) => {
       if (!(await q('SELECT 1 FROM hk_minigames WHERE id = $1 FOR UPDATE', [id])).length) throw notFound('mini-game');
       const plays = Number((await q<{ n: string }>("SELECT count(*) AS n FROM hk_game_runs WHERE minigame_id = $1 AND mode = 'play'", [id]))[0].n);

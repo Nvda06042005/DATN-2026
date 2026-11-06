@@ -172,10 +172,11 @@ export class WarCardsService {
   async adminCards() {
     return this.db.query(
       `SELECT c.id, c.code, c.name, c.rarity, c.kind, c.branch, c.is_active, c.base_stats, (SELECT count(*)::int FROM hk_card_moves m WHERE m.card_id = c.id) AS moves
-       FROM hk_cards c ORDER BY ${RARITY_ORDER}, c.id`);
+       FROM hk_cards c WHERE c.school_id IS NOT DISTINCT FROM $1 ORDER BY ${RARITY_ORDER}, c.id`, [this.db.workspaceSchoolId]);
   }
 
   async updateCardWar(id: number, body: Record<string, any>) {
+    await this.db.assertWorkspaceWritable('hk_cards',id);
     const cur = await this.adminCard(id);
     const kind = body.kind ?? cur.kind;
     if (!['general', 'tactic'].includes(kind)) throw new BadRequestException('Loại thẻ là thẻ tướng hoặc thẻ chiến thuật');
@@ -203,6 +204,7 @@ export class WarCardsService {
   }
 
   async upsertMove(cardId: number, slot: string, body: Record<string, any>) {
+    await this.db.assertWorkspaceWritable('hk_cards',cardId);
     if (!(SLOTS as readonly string[]).includes(slot)) throw new BadRequestException('Loại chiêu: đòn thường, chủ động, tuyệt kỹ hoặc nội tại');
     await this.adminCard(cardId);
     const name = String(body.name ?? '').trim().replace(/\s+/g, ' ');
@@ -231,6 +233,7 @@ export class WarCardsService {
   }
 
   async deleteMove(cardId: number, slot: string) {
+    await this.db.assertWorkspaceWritable('hk_cards', cardId);
     await this.db.query('DELETE FROM hk_card_moves WHERE card_id = $1 AND slot = $2', [cardId, slot]);
     return this.adminCard(cardId);
   }

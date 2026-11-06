@@ -59,4 +59,12 @@ Lỗi `npm ci` báo thiếu `webpack@5.112.2` đã xuất hiện lại sau Sprin
 tạo ra thiếu optional peer mà npm 10 cần. Giữ entry này trong `backend/package-lock.json`.
 Kiểm thử `migrations.spec.ts` có lượt nâng từ schema 24, xác minh tài khoản, điểm, vàng và nút cũ được giữ.
 
+## Không gian quản lý riêng của trường (039)
+
+`039_school_workspaces.sql` giữ dữ liệu cũ làm mẫu hệ thống và thêm chủ sở hữu trường cho kho lịch sử, bài học, danh mục game, mô phỏng, AI và nghiên cứu. Mẫu dùng chung chỉ đọc trong cổng trường. Cấu hình game/AI mặc định được kế thừa cho đến khi trường lưu thay đổi riêng. Khóa AI hệ thống không được sao chép vào cấu hình của trường.
+
+Backend lấy phạm vi từ tài khoản đã xác thực qua `WorkspaceInterceptor` và `DatabaseService.withWorkspace`, chạy truy vấn bằng vai trò nội bộ `dong_a_workspace_scope`. Không nhận phạm vi từ `school_id` do trình duyệt gửi. RLS bảo vệ đọc/ghi; trigger kiểm tra FK ngăn liên kết sang dữ liệu của trường khác. Không cấp quyền cho `anon`, `authenticated` hoặc `PUBLIC`. Nếu không đổi được vai trò RLS, yêu cầu thất bại, không chạy lại bằng kết nối có toàn quyền.
+
+Hành trình mặc định, chỉ mục AI, bộ nhớ đệm và dấu chốt tuần cũng tách theo trường. Tác vụ nền giữ phạm vi trường và không giữ lại kết nối giao dịch đã đóng. `backend/test/workspaces.spec.ts` kiểm tra API thật và PostgreSQL tạm với hai trường, gồm truy cập chéo ID, giả phạm vi, FK, yêu cầu đồng thời và RAG.
+
 Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).

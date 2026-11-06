@@ -246,7 +246,7 @@ export const QuestionBank: React.FC<{ session: Session }> = ({ session }) => {
   const campaigns = useCampaignOptions(session);
   const filters = useMemo(() => ({ store, q: term, qtype, difficulty, campaign_id: campaign }), [store, term, qtype, difficulty, campaign]);
   const list = useLoad(() => api.listQuestions(session.token, { ...filters, page, limit: 15 }), [session.token, filters, page], session.expired);
-  const canWrite = role === 'teacher' || role === 'root_admin';
+  const canWrite = role === 'teacher' || role === 'school_admin' || role === 'root_admin';
   const storeOptions = role === 'root_admin'
     ? [{ value: 'all', label: 'Kho hệ thống và đề xuất' }, { value: 'system', label: 'Kho hệ thống' }, { value: 'school', label: 'Kho của các trường' }]
     : [{ value: 'all', label: 'Tất cả kho' }, ...(role === 'teacher' ? [{ value: 'mine', label: 'Của tôi' }] : []), { value: 'school', label: 'Kho của trường' }, { value: 'system', label: 'Kho hệ thống' }];

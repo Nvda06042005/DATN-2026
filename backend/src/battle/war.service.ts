@@ -447,7 +447,7 @@ export class WarService {
   async adminStages() {
     return this.db.query(
       `SELECT s.id, s.title, s.status, s.difficulty, b.name AS battle_name, b.year, jsonb_array_length(s.waves)::int AS waves, (SELECT count(DISTINCT user_id)::int FROM hk_stage_progress p WHERE p.stage_id = s.id AND p.attempts > 0) AS players
-       FROM hk_stages s JOIN hist_battles b ON b.id = s.battle_id ORDER BY b.year, s.id`);
+       FROM hk_stages s JOIN hist_battles b ON b.id = s.battle_id WHERE s.school_id IS NOT DISTINCT FROM $1 ORDER BY b.year, s.id`, [this.db.workspaceSchoolId]);
   }
 
   async adminStage(id: number) {
@@ -456,7 +456,7 @@ export class WarService {
   }
 
   async battleOptions() {
-    return this.db.query("SELECT b.id, b.name, b.year, b.status, EXISTS (SELECT 1 FROM hk_stages s WHERE s.battle_id = b.id) AS has_stage FROM hist_battles b ORDER BY b.year, b.id");
+    return this.db.query("SELECT b.id, b.name, b.year, b.status, EXISTS (SELECT 1 FROM hk_stages s WHERE s.battle_id = b.id AND s.school_id IS NOT DISTINCT FROM public.app_workspace_school()) AS has_stage FROM hist_battles b ORDER BY b.year, b.id");
   }
 
   private cleanUnit(u: Record<string, any>, where: string): EnemyDef {
@@ -525,6 +525,7 @@ export class WarService {
   }
 
   async updateStage(user: UserRow, id: number, body: Record<string, any>) {
+    await this.db.assertWorkspaceWritable('hk_stages', id);
     const cur = await this.stage(this.db.query.bind(this.db) as Q, id, false);
     const f = await this.db.tx((q) => this.stageFields(q, body, cur));
     await this.db.query(
@@ -544,6 +545,7 @@ export class WarService {
   }
 
   async setStageStatus(id: number, status: string) {
+    await this.db.assertWorkspaceWritable('hk_stages', id);
     if (!['draft', 'published'].includes(status)) throw new BadRequestException('Trạng thái là bản nháp hoặc đã phát hành');
     const s = await this.stage(this.db.query.bind(this.db) as Q, id, false);
     if (status === 'published') {
@@ -555,6 +557,7 @@ export class WarService {
   }
 
   async deleteStage(id: number) {
+    await this.db.assertWorkspaceWritable('hk_stages', id);
     const played = Number((await this.db.query<{ n: string }>('SELECT count(*) AS n FROM hk_stage_progress WHERE stage_id = $1 AND attempts > 0', [id]))[0].n);
     if (played) throw new ConflictException(`Đã có ${played} học sinh chơi màn này; hãy gỡ phát hành thay vì xóa`);
     await this.db.query('DELETE FROM hk_stages WHERE id = $1', [id]);
@@ -582,7 +585,7 @@ export class WarService {
   }
 
   // ---------------------------------------------------------------------- chỉ huy đối phương (HK.HS.130), tài nguyên (HK.AD.085)
-  async adminCommanders() { return this.db.query('SELECT id, code, name, role_text, forces, tactics, outcome, source_id, status FROM hk_commanders ORDER BY id'); }
+  async adminCommanders() { return this.db.query('SELECT id, code, name, role_text, forces, tactics, outcome, source_id, status FROM hk_commanders WHERE school_id IS NOT DISTINCT FROM $1 ORDER BY id', [this.db.workspaceSchoolId]); }
 
   private commanderFields(body: Record<string, any>, cur?: Record<string, any>) {
     const t = (k: string, max: number, label: string, req = false): string | null => {
@@ -604,6 +607,7 @@ export class WarService {
   }
 
   async updateCommander(id: number, body: Record<string, any>) {
+    await this.db.assertWorkspaceWritable('hk_commanders', id);
     const cur = (await this.db.query<Record<string, any>>('SELECT * FROM hk_commanders WHERE id = $1', [id]))[0];
     if (!cur) throw notFound('chỉ huy');
     const f = this.commanderFields(body, cur);
@@ -613,9 +617,10 @@ export class WarService {
     return (await this.db.query('SELECT id, code, name, role_text, forces, tactics, outcome, source_id, status FROM hk_commanders WHERE id = $1', [id]))[0];
   }
 
-  async deleteCommander(id: number) { await this.db.query('DELETE FROM hk_commanders WHERE id = $1', [id]); }
+  async deleteCommander(id: number) {
+    await this.db.assertWorkspaceWritable('hk_commanders', id); await this.db.query('DELETE FROM hk_commanders WHERE id = $1', [id]); }
 
-  async assets() { return this.db.query('SELECT id, kind, name, url, source, license, note, created_at FROM hk_game_assets ORDER BY id DESC LIMIT 300'); }
+  async assets() { return this.db.query('SELECT id, kind, name, url, source, license, note, created_at FROM hk_game_assets WHERE school_id IS NOT DISTINCT FROM $1 ORDER BY id DESC LIMIT 300', [this.db.workspaceSchoolId]); }
 
   async addAsset(user: UserRow, body: Record<string, any>) {
     const kinds = ['sprite', 'animation', 'effect', 'music', 'sfx', 'background', 'model3d'];
@@ -629,7 +634,8 @@ export class WarService {
       [body.kind, s('name', 2, 120, 'Tên'), url, s('source', 2, 300, 'Nguồn (bắt buộc ghi)'), s('license', 2, 120, 'Giấy phép (bắt buộc ghi)'), note || null, user.id]))[0];
   }
 
-  async deleteAsset(id: number) { await this.db.query('DELETE FROM hk_game_assets WHERE id = $1', [id]); }
+  async deleteAsset(id: number) {
+    await this.db.assertWorkspaceWritable('hk_game_assets', id); await this.db.query('DELETE FROM hk_game_assets WHERE id = $1', [id]); }
 
   // ---------------------------------------------------------------------- bật/tắt cho trường, khung giờ, thời gian tối đa (HK.QT.056)
   async schoolWar(schoolId: number) {

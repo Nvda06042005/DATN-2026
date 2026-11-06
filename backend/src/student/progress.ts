@@ -22,8 +22,8 @@ export async function activeJourneys(q: Q, userId: number): Promise<ActiveJourne
        SELECT cj.journey_id, max(cj.assigned_at) AS assigned_at FROM hk_class_journeys cj
        JOIN app_class_members m ON m.class_id = cj.class_id AND m.user_id = $1 WHERE ${WINDOW} GROUP BY cj.journey_id
      ) a ON a.journey_id = j.id
-     WHERE j.status = 'published' AND (a.journey_id IS NOT NULL OR j.is_default)
-     ORDER BY j.campaign_id, (a.journey_id IS NOT NULL) DESC, a.assigned_at DESC NULLS LAST, j.id`, [userId]);
+     WHERE j.status = 'published' AND (a.journey_id IS NOT NULL OR (j.is_default AND (j.scope='system' OR j.school_id=(SELECT school_id FROM app_users WHERE id=$1))))
+     ORDER BY j.campaign_id, (a.journey_id IS NOT NULL) DESC, a.assigned_at DESC NULLS LAST, (j.scope='school') DESC, j.id`, [userId]);
 }
 
 export interface ProgressNode {
@@ -78,8 +78,8 @@ export async function lockedSources(q: Q, userId: number): Promise<Map<number, {
        SELECT DISTINCT ON (j.campaign_id) j.id AS journey_id
        FROM hk_journeys j JOIN hist_campaigns c ON c.id = j.campaign_id AND c.status = 'published'
        LEFT JOIN (SELECT cj.journey_id, max(cj.assigned_at) AS assigned_at FROM hk_class_journeys cj JOIN app_class_members m ON m.class_id = cj.class_id AND m.user_id = $1 WHERE ${WINDOW} GROUP BY cj.journey_id) a ON a.journey_id = j.id
-       WHERE j.status = 'published' AND (a.journey_id IS NOT NULL OR j.is_default)
-       ORDER BY j.campaign_id, (a.journey_id IS NOT NULL) DESC, a.assigned_at DESC NULLS LAST, j.id
+       WHERE j.status = 'published' AND (a.journey_id IS NOT NULL OR (j.is_default AND (j.scope='system' OR j.school_id=(SELECT school_id FROM app_users WHERE id=$1))))
+       ORDER BY j.campaign_id, (a.journey_id IS NOT NULL) DESC, a.assigned_at DESC NULLS LAST, (j.scope='school') DESC, j.id
      ), gated AS (
        SELECT u.source_id, n.id AS node_id, n.title AS node_title, n.position FROM hk_node_unlocks u JOIN hk_nodes n ON n.id = u.node_id WHERE n.journey_id IN (SELECT journey_id FROM act)
        UNION ALL

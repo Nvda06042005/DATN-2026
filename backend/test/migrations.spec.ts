@@ -96,9 +96,9 @@ describe('file migration', () => {
     expect(await count('SELECT count(*) AS n FROM public.app_schema_migrations')).toBe(TOTAL);
     expect(await count("SELECT count(*) AS n FROM pg_tables WHERE schemaname = 'public' AND NOT rowsecurity")).toBe(0);
     // Chính sách RLS theo trường chỉ dành cho vai trò dong_a_school_scope, không mở cho vai trò khác (kho lịch sử không có chính sách nào)
-    expect(await count("SELECT count(*) AS n FROM pg_policies WHERE schemaname = 'public' AND NOT ('dong_a_school_scope' = ANY(roles))")).toBe(0);
-    expect(await count("SELECT count(*) AS n FROM pg_policies WHERE schemaname = 'public' AND tablename LIKE 'hist\\_%'")).toBe(0);
-    expect(await count("SELECT count(*) AS n FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('app_school_years', 'app_class_teachers')")).toBe(2);
+    expect(await count("SELECT count(*) AS n FROM pg_policies WHERE schemaname = 'public' AND NOT ('dong_a_school_scope' = ANY(roles) OR 'dong_a_workspace_scope' = ANY(roles))")).toBe(0);
+    expect(await count("SELECT count(*) AS n FROM pg_policies WHERE schemaname = 'public' AND tablename LIKE 'hist\\_%' AND NOT ('dong_a_workspace_scope'=ANY(roles))")).toBe(0);
+    expect(await count("SELECT count(*) AS n FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('app_school_years', 'app_class_teachers') AND 'dong_a_school_scope'=ANY(roles)")).toBe(2);
   });
 
   test('giữ nguyên dữ liệu đã nhập và lịch sử _prisma_migrations', async () => {

@@ -94,6 +94,7 @@ export class BoardService {
   }
 
   private async rows(key: string, sql: string, params: unknown[]): Promise<BoardRow[]> {
+    key = `${this.db.workspaceSchoolId ?? 'system'}:${key}`;
     const ttl = (await this.settings.get()).leaderboard_cache_seconds * 1000;
     const hit = this.cache.get(key);
     if (hit && ttl > 0 && Date.now() - hit.at < ttl) return hit.rows;

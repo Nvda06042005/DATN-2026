@@ -36,20 +36,20 @@ export class SurveyController {
 
   // ---------------------------------------------------------------------- mẫu khảo sát (HK.AD.070)
   @Get('survey-templates') @Roles('school_admin', 'root_admin') templates(@CurrentUser() user: UserRow) { return this.surveys.templates(user); }
-  @Post('survey-templates') @Roles('root_admin') @HttpCode(200) createTemplate(@CurrentUser() user: UserRow, @Body() body: Json) { return this.surveys.createTemplate(user, body); }
-  @Put('survey-templates/:id') @Roles('root_admin') updateTemplate(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.surveys.updateTemplate(user, id, body); }
-  @Delete('survey-templates/:id') @Roles('root_admin') removeTemplate(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.surveys.removeTemplate(user, id); }
+  @Post('survey-templates') @Roles('root_admin', 'school_admin') @HttpCode(200) createTemplate(@CurrentUser() user: UserRow, @Body() body: Json) { return this.surveys.createTemplate(user, body); }
+  @Put('survey-templates/:id') @Roles('root_admin', 'school_admin') updateTemplate(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.surveys.updateTemplate(user, id, body); }
+  @Delete('survey-templates/:id') @Roles('root_admin', 'school_admin') removeTemplate(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.surveys.removeTemplate(user, id); }
 
   // ---------------------------------------------------------------------- nhóm thử nghiệm và nghiên cứu (HK.AD.077–079)
-  @Get('experiments/groups') @Roles('root_admin') groups(@CurrentUser() user: UserRow) { return this.research.groups(user); }
-  @Post('experiments/groups') @Roles('root_admin') @HttpCode(200) createGroup(@CurrentUser() user: UserRow, @Body() body: Json) { return this.research.createGroup(user, body); }
-  @Put('experiments/groups/:id') @Roles('root_admin') updateGroup(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.research.updateGroup(user, id, body); }
-  @Delete('experiments/groups/:id') @Roles('root_admin') removeGroup(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.research.removeGroup(user, id); }
-  @Get('experiments/classes') @Roles('root_admin') classes(@CurrentUser() user: UserRow) { return this.research.classes(user); }
-  @Put('experiments/classes/:id') @Roles('root_admin') assign(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.research.assign(user, id, body.group_id); }
-  @Get('research/dictionary') @Roles('root_admin') dictionary() { return DICTIONARY; }
-  @Get('research/compare') @Roles('root_admin') compare(@CurrentUser() user: UserRow, @Query() q: Json) { return this.research.compare(user, { from: q.from, to: q.to, control: num(q.control) }); }
-  @Get('research/export') @Roles('root_admin')
+  @Get('experiments/groups') @Roles('root_admin', 'school_admin') groups(@CurrentUser() user: UserRow) { return this.research.groups(user); }
+  @Post('experiments/groups') @Roles('root_admin', 'school_admin') @HttpCode(200) createGroup(@CurrentUser() user: UserRow, @Body() body: Json) { return this.research.createGroup(user, body); }
+  @Put('experiments/groups/:id') @Roles('root_admin', 'school_admin') updateGroup(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.research.updateGroup(user, id, body); }
+  @Delete('experiments/groups/:id') @Roles('root_admin', 'school_admin') removeGroup(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.research.removeGroup(user, id); }
+  @Get('experiments/classes') @Roles('root_admin', 'school_admin') classes(@CurrentUser() user: UserRow) { return this.research.classes(user); }
+  @Put('experiments/classes/:id') @Roles('root_admin', 'school_admin') assign(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.research.assign(user, id, body.group_id); }
+  @Get('research/dictionary') @Roles('root_admin', 'school_admin') dictionary() { return DICTIONARY; }
+  @Get('research/compare') @Roles('root_admin', 'school_admin') compare(@CurrentUser() user: UserRow, @Query() q: Json) { return this.research.compare(user, { from: q.from, to: q.to, control: num(q.control) }); }
+  @Get('research/export') @Roles('root_admin', 'school_admin')
   async exportCsv(@CurrentUser() user: UserRow, @Query() q: Json) {
     const f = await this.research.exportCsv(user, { from: q.from, to: q.to, group_id: num(q.group_id) });
     return new StreamableFile(f.data, { type: 'text/csv; charset=utf-8', disposition: `attachment; filename="${f.name}"` });

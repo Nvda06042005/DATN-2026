@@ -76,8 +76,8 @@ export class AnalyticsService {
               FROM me CROSS JOIN hk_journeys j JOIN hist_campaigns c ON c.id = j.campaign_id AND c.status = 'published'
               LEFT JOIN (SELECT m.user_id, cj.journey_id, max(cj.assigned_at) AS assigned_at FROM hk_class_journeys cj JOIN app_class_members m ON m.class_id = cj.class_id
                          WHERE m.user_id = ANY($1) AND ${WINDOW} GROUP BY m.user_id, cj.journey_id) a ON a.user_id = me.user_id AND a.journey_id = j.id
-              WHERE j.status = 'published' AND (a.journey_id IS NOT NULL OR j.is_default)
-              ORDER BY me.user_id, j.campaign_id, (a.journey_id IS NOT NULL) DESC, a.assigned_at DESC NULLS LAST, j.id)
+              WHERE j.status = 'published' AND (a.journey_id IS NOT NULL OR (j.is_default AND (j.scope='system' OR j.school_id=(SELECT school_id FROM app_users WHERE id=me.user_id))))
+              ORDER BY me.user_id, j.campaign_id, (a.journey_id IS NOT NULL) DESC, a.assigned_at DESC NULLS LAST, (j.scope='school') DESC, j.id)
        SELECT aj.user_id, count(n.id)::int AS total, count(np.completed_at)::int AS done
        FROM aj JOIN hk_nodes n ON n.journey_id = aj.journey_id LEFT JOIN hk_node_progress np ON np.node_id = n.id AND np.user_id = aj.user_id GROUP BY aj.user_id`, [ids]);
     return new Map(rows.map((r) => [r.user_id, { done: r.done, total: r.total }]));
@@ -356,7 +356,7 @@ export class AnalyticsService {
       `SELECT to_char(m.created_at AT TIME ZONE ${VN}, 'YYYY-MM-DD') AS day, count(*) FILTER (WHERE m.role = 'user')::int AS questions, COALESCE(sum(m.tokens_in + m.tokens_out), 0)::int AS tokens ${base} GROUP BY 1 ORDER BY 1`, params);
     const topics = await this.db.query<{ kind: string; id: number; title: string; asked: number }>(
       `SELECT cit->>'kind' AS kind, (cit->>'id')::int AS id, cit->>'title' AS title, count(DISTINCT m.id)::int AS asked ${base.replace('WHERE', ', jsonb_array_elements(m.citations) cit WHERE')} AND m.role = 'assistant' AND NOT m.refused GROUP BY 1, 2, 3 ORDER BY asked DESC, title LIMIT 10`, params);
-    const price = (await this.db.query<{ price_in: number; price_out: number; daily_per_school: number }>('SELECT price_in::float8 AS price_in, price_out::float8 AS price_out, daily_per_school FROM hk_ai_settings WHERE id = 1'))[0];
+    const price = (await this.db.query<{ price_in: number; price_out: number; daily_per_school: number }>('SELECT price_in::float8 AS price_in, price_out::float8 AS price_out, daily_per_school FROM hk_ai_settings WHERE id = 1 AND school_id IS NULL'))[0];
     const out: Record<string, unknown> = {
       days, questions: t.questions, answers, refused: t.refused, refusal_rate: pct(t.refused, answers), tokens_in: num(t.tokens_in), tokens_out: num(t.tokens_out), llm_answers: t.llm, users: t.users, reported: t.reports, series, topics,
       cost_usd: Math.round(((num(t.tokens_in) * price.price_in + num(t.tokens_out) * price.price_out) / 1_000_000) * 10000) / 10000, price,

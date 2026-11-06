@@ -9,6 +9,8 @@ import { decryptSecret, encryptSecret } from './ai-text';
 import { DEFAULT_CHAT_MODEL, LlmConfig } from './llm.client';
 
 export interface AiSettings {
+  school_id?: number | null;
+  use_system_model?: boolean;
   provider: 'none' | 'anthropic' | 'openai';
   base_url: string | null; chat_model: string | null; embed_model: string | null; api_key_enc: string | null;
   temperature: number; max_tokens: number; top_k: number; min_score: number;
@@ -18,7 +20,7 @@ export interface AiSettings {
 }
 
 export const INDEX_KINDS = ['campaign', 'place', 'figure', 'event', 'battle', 'source', 'term', 'lesson'] as const;
-const COLUMNS = 'provider, base_url, chat_model, embed_model, api_key_enc, temperature::float8 AS temperature, max_tokens, top_k, min_score::float8 AS min_score, system_prompt, refusal_message, banned_terms, index_kinds, daily_per_user, daily_per_school, price_in::float8 AS price_in, price_out::float8 AS price_out, last_index_at, last_index_ms, last_index_error';
+const COLUMNS = 'use_system_model, provider, base_url, chat_model, embed_model, api_key_enc, temperature::float8 AS temperature, max_tokens, top_k, min_score::float8 AS min_score, system_prompt, refusal_message, banned_terms, index_kinds, daily_per_user, daily_per_school, price_in::float8 AS price_in, price_out::float8 AS price_out, last_index_at, last_index_ms, last_index_error';
 
 @Injectable()
 export class AiSettingsService {
@@ -30,37 +32,44 @@ export class AiSettingsService {
   invalidate(): void { this.cache = null; }
 
   async get(): Promise<AiSettings> {
-    if (this.cache && Date.now() - this.cache.at < 3000) return this.cache.row;
-    const row = (await this.db.query<AiSettings>(`SELECT ${COLUMNS} FROM hk_ai_settings WHERE id = 1`))[0];
-    this.cache = { at: Date.now(), row };
+    if (!this.db.inWorkspace && this.cache && Date.now() - this.cache.at < 3000) return this.cache.row;
+    const row = (await this.db.query<AiSettings>(`SELECT ${COLUMNS},school_id FROM hk_ai_settings WHERE id=1 AND (school_id IS NULL OR (school_id=$1 AND is_customized)) ORDER BY school_id NULLS LAST LIMIT 1`, [this.db.workspaceSchoolId]))[0];
+    if (this.db.inWorkspace && this.db.workspaceSchoolId && row.school_id === null) {
+      const own = (await this.db.query<Pick<AiSettings,'last_index_at'|'last_index_ms'|'last_index_error'>>('SELECT last_index_at,last_index_ms,last_index_error FROM hk_ai_settings WHERE school_id=$1 AND id=1',[this.db.workspaceSchoolId]))[0];
+      if (own) Object.assign(row,own);
+    }
+    if (!this.db.inWorkspace) this.cache = { at: Date.now(), row };
     return row;
   }
 
   /** Cấu hình dùng thật: biến môi trường (nếu có) thay cho cấu hình lưu; null khi chưa có mô hình hoặc chưa có khóa */
   async llm(): Promise<LlmConfig | null> {
-    const s = await this.get();
-    const provider = (config.aiProvider === 'anthropic' || config.aiProvider === 'openai' ? config.aiProvider : s.provider) as AiSettings['provider'];
+    let s = await this.get();
+    const inherited = !this.db.inWorkspace || s.school_id === null || s.use_system_model;
+    if (this.db.inWorkspace && s.school_id !== null && s.use_system_model) s = (await this.db.query<AiSettings>(`SELECT ${COLUMNS},school_id FROM hk_ai_settings WHERE school_id IS NULL AND id=1`))[0];
+    const provider = (inherited && (config.aiProvider === 'anthropic' || config.aiProvider === 'openai') ? config.aiProvider : s.provider) as AiSettings['provider'];
     if (provider === 'none') return null;
-    const key = config.aiApiKey || decryptSecret(s.api_key_enc, config.authSecret);
+    const key = (inherited ? config.aiApiKey : '') || decryptSecret(s.api_key_enc, config.authSecret);
     if (!key) { if (s.api_key_enc) this.logger.warn('Không giải mã được khóa API đã lưu (AUTH_SECRET_KEY đã đổi?); hãy nhập lại khóa ở trang quản trị'); return null; }
     return {
-      provider, apiKey: key, baseUrl: config.aiBaseUrl || s.base_url || '',
-      chatModel: config.aiChatModel || s.chat_model || DEFAULT_CHAT_MODEL[provider],
-      embedModel: provider === 'openai' ? config.aiEmbedModel || s.embed_model || null : null,
+      provider, apiKey: key, baseUrl: (inherited ? config.aiBaseUrl : '') || s.base_url || '',
+      chatModel: (inherited ? config.aiChatModel : '') || s.chat_model || DEFAULT_CHAT_MODEL[provider],
+      embedModel: provider === 'openai' ? (inherited ? config.aiEmbedModel : '') || s.embed_model || null : null,
     };
   }
 
   async publicView() {
     const s = await this.get();
-    const envKey = Boolean(config.aiApiKey);
-    const key = envKey ? config.aiApiKey : decryptSecret(s.api_key_enc, config.authSecret);
+    const inherited = !this.db.inWorkspace || s.school_id === null || s.use_system_model;
+    const envKey = Boolean(config.aiApiKey) && inherited;
     const llm = await this.llm();
+    const key = llm?.apiKey ?? decryptSecret(s.api_key_enc, config.authSecret);
     const { api_key_enc: _enc, ...rest } = s;
     return {
       ...rest,
       provider_effective: llm?.provider ?? 'none',
-      has_key: Boolean(key), key_hint: key ? `••••${key.slice(-4)}` : null, key_source: envKey ? 'env' : key ? 'db' : 'none', key_unreadable: Boolean(s.api_key_enc) && !key,
-      env_overrides: [config.aiProvider && 'AI_PROVIDER', config.aiApiKey && 'AI_API_KEY', config.aiBaseUrl && 'AI_BASE_URL', config.aiChatModel && 'AI_CHAT_MODEL', config.aiEmbedModel && 'AI_EMBED_MODEL'].filter(Boolean),
+      has_key: Boolean(key), key_hint: key && !(this.db.inWorkspace && inherited) ? `••••${key.slice(-4)}` : null, key_source: envKey ? 'env' : key ? 'db' : 'none', key_unreadable: Boolean(s.api_key_enc) && !key,
+      env_overrides: inherited ? [config.aiProvider && 'AI_PROVIDER', config.aiApiKey && 'AI_API_KEY', config.aiBaseUrl && 'AI_BASE_URL', config.aiChatModel && 'AI_CHAT_MODEL', config.aiEmbedModel && 'AI_EMBED_MODEL'].filter(Boolean) : [],
       mode: llm ? 'llm' : 'extractive', embeddings: Boolean(llm?.embedModel),
       default_chat_model: { anthropic: DEFAULT_CHAT_MODEL.anthropic, openai: DEFAULT_CHAT_MODEL.openai },
     };
@@ -84,7 +93,13 @@ export class AiSettingsService {
     if (!['none', 'anthropic', 'openai'].includes(provider)) throw new BadRequestException('Nhà cung cấp là none (tra cứu), anthropic hoặc openai (API tương thích)');
     const base = text('base_url', 300, 'Địa chỉ API');
     if (base && !/^https?:\/\/[^\s]+$/.test(base)) throw new BadRequestException('Địa chỉ API phải bắt đầu bằng https:// (hoặc http:// khi chạy nội bộ)');
-    let keyEnc = cur.api_key_enc;
+    if (this.db.inWorkspace && base) {
+      const url = new URL(base);
+      if (url.protocol !== 'https:' || url.username || url.password || url.port || !['api.openai.com','api.anthropic.com'].includes(url.hostname)) {
+        throw new BadRequestException('Cấu hình riêng của trường chỉ dùng HTTPS của api.openai.com hoặc api.anthropic.com');
+      }
+    }
+    let keyEnc = this.db.inWorkspace && cur.school_id === null ? null : cur.api_key_enc;
     if (body.api_key !== undefined) {
       const k = String(body.api_key ?? '').trim();
       if (!k) keyEnc = null;
@@ -108,11 +123,12 @@ export class AiSettingsService {
     }
     await this.db.query(
       `UPDATE hk_ai_settings SET provider = $1, base_url = $2, chat_model = $3, embed_model = $4, api_key_enc = $5, temperature = $6, max_tokens = $7, top_k = $8, min_score = $9,
-              system_prompt = $10, refusal_message = $11, banned_terms = $12, index_kinds = $13, daily_per_user = $14, daily_per_school = $15, updated_by = $16, price_in = $17, price_out = $18, updated_at = now() WHERE id = 1`,
+              system_prompt = $10, refusal_message = $11, banned_terms = $12, index_kinds = $13, daily_per_user = $14, daily_per_school = $15, updated_by = $16, price_in = $17, price_out = $18, is_customized=true,use_system_model=$20, updated_at = now() WHERE id = 1 AND school_id IS NOT DISTINCT FROM $19`,
       [provider, base, text('chat_model', 100, 'Mô hình trả lời'), text('embed_model', 100, 'Mô hình nhúng'), keyEnc, num('temperature', 0, 1, 'Nhiệt độ'), num('max_tokens', 100, 4000, 'Giới hạn token', true),
         num('top_k', 1, 12, 'Số đoạn truy xuất', true), num('min_score', 0, 1, 'Ngưỡng liên quan'), system, refusal, banned, kinds,
         num('daily_per_user', 1, 500, 'Số câu hỏi mỗi người mỗi ngày', true), num('daily_per_school', 1, 100000, 'Số câu hỏi mỗi trường mỗi ngày', true), user.id,
-        num('price_in', 0, 1000, 'Giá token đầu vào (USD cho 1 triệu token)'), num('price_out', 0, 1000, 'Giá token đầu ra (USD cho 1 triệu token)')]);
+        num('price_in', 0, 1000, 'Giá token đầu vào (USD cho 1 triệu token)'), num('price_out', 0, 1000, 'Giá token đầu ra (USD cho 1 triệu token)'), this.db.workspaceSchoolId,
+        ['provider','base_url','chat_model','embed_model','api_key'].some(k=>body[k]!==undefined) ? false : (cur.use_system_model ?? true)]);
     this.invalidate();
     return this.publicView();
   }

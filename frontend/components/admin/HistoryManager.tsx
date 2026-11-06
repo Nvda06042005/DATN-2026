@@ -166,7 +166,7 @@ const RecordForm: React.FC<{ session: Session; spec: HistorySpec; specs: History
         const links: Record<string, number[]> = {};
         for (const type of spec.links) links[type] = (v[`links_${type}`] as string[]).map(Number);
         body.links = links;
-        if (record) await api.historyUpdate(token, spec.entity, record.id, { ...body, note: note || undefined });
+        if (record?.id) await api.historyUpdate(token, spec.entity, record.id, { ...body, note: note || undefined });
         else await api.historyCreate(token, spec.entity, body);
         onSaved();
       }} />
@@ -198,11 +198,11 @@ const RecordSheet: React.FC<{ session: Session; spec: HistorySpec; specs: Histor
               {r.published_at ? <Txt size={12} color={c.muc3}>Công bố: {dateText(r.published_at)}</Txt> : null}
             </View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {next ? <Btn title={next === 'verified' ? 'Đánh dấu đã kiểm chứng' : 'Công bố'} icon={CheckCircle2} tone="son" size="sm" loading={busy} onPress={() => move(next)} testID="history-advance" /> : null}
-              {prev ? <Btn title={prev === 'draft' ? 'Đưa về Nháp' : 'Hủy công bố'} tone="giay" size="sm" loading={busy} onPress={() => move(prev)} testID="history-back" /> : null}
-              <Btn title="Sửa" icon={Pencil} tone="giay" size="sm" onPress={() => { onClose(); onEdit(r); }} />
+              {next && r.can_edit ? <Btn title={next === 'verified' ? 'Đánh dấu đã kiểm chứng' : 'Công bố'} icon={CheckCircle2} tone="son" size="sm" loading={busy} onPress={() => move(next)} testID="history-advance" /> : null}
+              {prev && r.can_edit ? <Btn title={prev === 'draft' ? 'Đưa về Nháp' : 'Hủy công bố'} tone="giay" size="sm" loading={busy} onPress={() => move(prev)} testID="history-back" /> : null}
+              <Btn title={r.can_edit ? 'Sửa' : 'Tạo bản riêng cho trường'} icon={Pencil} tone="giay" size="sm" onPress={() => { onClose(); onEdit(r.can_edit ? r : {...r,id:0,status:'draft'}); }} />
               <Btn title="Lịch sử chỉnh sửa" icon={History} tone="giay" size="sm" onPress={() => setVersions(true)} />
-              <Btn title="Xóa" icon={Trash2} tone="giay" size="sm" onPress={() => setRemoving(true)} />
+              {r.can_edit ? <Btn title="Xóa" icon={Trash2} tone="giay" size="sm" onPress={() => setRemoving(true)} /> : null}
             </View>
             {r.status === 'published' ? <Txt size={13} color={c.muc3}>Đang công bố: sửa nội dung sẽ đưa bản ghi về Nháp và ẩn khỏi học sinh/AI cho đến khi kiểm chứng lại.</Txt> : null}
             <View style={{ gap: 10 }}>
@@ -232,12 +232,12 @@ const RecordSheet: React.FC<{ session: Session; spec: HistorySpec; specs: Histor
       <ConfirmSheet open={removing} title={`Xóa ${spec.label.toLowerCase()}`} busy={busy} confirmLabel="Xóa" onCancel={() => setRemoving(false)}
         message="Xóa bản ghi này? Không xóa được khi còn liên kết với bản ghi khác hoặc đang công bố; lịch sử phiên bản vẫn được lưu."
         onConfirm={async () => { const ok = await run(() => api.historyDelete(token, spec.entity, id).then(() => true), 'Đã xóa'); setRemoving(false); if (ok) { onChanged(); onClose(); } }} />
-      {versions ? <VersionsSheet session={session} spec={spec} id={id} onClose={() => setVersions(false)} onRestored={() => { refresh(); }} /> : null}
+      {versions ? <VersionsSheet session={session} spec={spec} id={id} canRestore={!!r?.can_edit} onClose={() => setVersions(false)} onRestored={() => { refresh(); }} /> : null}
     </>
   );
 };
 
-const VersionsSheet: React.FC<{ session: Session; spec: HistorySpec; id: number; onClose: () => void; onRestored: () => void }> = ({ session, spec, id, onClose, onRestored }) => {
+const VersionsSheet: React.FC<{ session: Session; spec: HistorySpec; id: number; canRestore: boolean; onClose: () => void; onRestored: () => void }> = ({ session, spec, id, canRestore, onClose, onRestored }) => {
   const { c } = useTheme();
   const { token } = session;
   const { data, error, reload } = useLoad(() => api.historyVersions(token, spec.entity, id), [token, id], session.expired);
@@ -262,7 +262,7 @@ const VersionsSheet: React.FC<{ session: Session; spec: HistorySpec; id: number;
           {v.note ? <Txt size={13} color={c.muc2}>{v.note}</Txt> : null}
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
             <Btn title={pair.includes(v.version_no) ? 'Bỏ chọn so sánh' : 'Chọn để so sánh'} tone="giay" size="sm" selected={pair.includes(v.version_no)} onPress={() => toggle(v.version_no)} />
-            {v.version_no !== data[0].version_no ? <Btn title="Khôi phục bản này" tone="giay" size="sm" onPress={() => setRestoring(v.version_no)} /> : null}
+            {canRestore && v.version_no !== data[0].version_no ? <Btn title="Khôi phục bản này" tone="giay" size="sm" onPress={() => setRestoring(v.version_no)} /> : null}
           </View>
         </Card>
       ))}

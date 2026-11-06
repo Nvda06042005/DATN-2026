@@ -60,7 +60,7 @@ class ExportQuery {
  */
 @Controller('admin/history')
 @UseGuards(AuthGuard)
-@Roles('root_admin')
+@Roles('root_admin', 'school_admin')
 export class HistoryController {
   constructor(private readonly history: HistoryService) {}
 

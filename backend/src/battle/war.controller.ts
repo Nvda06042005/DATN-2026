@@ -66,42 +66,42 @@ export class WarController {
   }
 
   // ------------------------------------------------------------------ quản trị tổng
-  @Get('admin/cards') @Roles('root_admin') adminCards() { return this.cards.adminCards(); }
-  @Get('admin/cards/:id') @Roles('root_admin') adminCard(@Param('id', ParseIntPipe) id: number) { return this.cards.adminCard(id); }
-  @Put('admin/cards/:id') @Roles('root_admin') updateCard(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.cards.updateCardWar(id, body); }
-  @Put('admin/cards/:id/moves/:slot') @Roles('root_admin') upsertMove(@Param('id', ParseIntPipe) id: number, @Param('slot') slot: string, @Body() body: Json) { return this.cards.upsertMove(id, slot, body); }
-  @Delete('admin/cards/:id/moves/:slot') @Roles('root_admin') deleteMove(@Param('id', ParseIntPipe) id: number, @Param('slot') slot: string) { return this.cards.deleteMove(id, slot); }
+  @Get('admin/cards') @Roles('root_admin', 'school_admin') adminCards() { return this.cards.adminCards(); }
+  @Get('admin/cards/:id') @Roles('root_admin', 'school_admin') adminCard(@Param('id', ParseIntPipe) id: number) { return this.cards.adminCard(id); }
+  @Put('admin/cards/:id') @Roles('root_admin', 'school_admin') updateCard(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.cards.updateCardWar(id, body); }
+  @Put('admin/cards/:id/moves/:slot') @Roles('root_admin', 'school_admin') upsertMove(@Param('id', ParseIntPipe) id: number, @Param('slot') slot: string, @Body() body: Json) { return this.cards.upsertMove(id, slot, body); }
+  @Delete('admin/cards/:id/moves/:slot') @Roles('root_admin', 'school_admin') deleteMove(@Param('id', ParseIntPipe) id: number, @Param('slot') slot: string) { return this.cards.deleteMove(id, slot); }
 
-  @Get('admin/maps') @Roles('root_admin') adminMaps() { return this.march.adminMaps(); }
-  @Post('admin/maps') @Roles('root_admin') createMap(@Body() body: Json) { return this.march.createMap(body); }
-  @Get('admin/maps/:id') @Roles('root_admin') adminMap(@Param('id', ParseIntPipe) id: number) { return this.march.adminMap(id); }
-  @Put('admin/maps/:id') @Roles('root_admin') updateMap(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.march.updateMap(id, body); }
-  @Put('admin/maps/:id/layout') @Roles('root_admin') layout(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.march.saveLayout(id, body); }
-  @Post('admin/maps/:id/status') @Roles('root_admin') @HttpCode(200) mapStatus(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.march.setMapStatus(id, body.status); }
-  @Delete('admin/maps/:id') @Roles('root_admin') @HttpCode(204) async deleteMap(@Param('id', ParseIntPipe) id: number) { await this.march.deleteMap(id); }
+  @Get('admin/maps') @Roles('root_admin', 'school_admin') adminMaps() { return this.march.adminMaps(); }
+  @Post('admin/maps') @Roles('root_admin', 'school_admin') createMap(@Body() body: Json) { return this.march.createMap(body); }
+  @Get('admin/maps/:id') @Roles('root_admin', 'school_admin') adminMap(@Param('id', ParseIntPipe) id: number) { return this.march.adminMap(id); }
+  @Put('admin/maps/:id') @Roles('root_admin', 'school_admin') updateMap(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.march.updateMap(id, body); }
+  @Put('admin/maps/:id/layout') @Roles('root_admin', 'school_admin') layout(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.march.saveLayout(id, body); }
+  @Post('admin/maps/:id/status') @Roles('root_admin', 'school_admin') @HttpCode(200) mapStatus(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.march.setMapStatus(id, body.status); }
+  @Delete('admin/maps/:id') @Roles('root_admin', 'school_admin') @HttpCode(204) async deleteMap(@Param('id', ParseIntPipe) id: number) { await this.march.deleteMap(id); }
 
-  @Get('admin/dialogs') @Roles('root_admin') adminDialogs() { return this.march.adminDialogs(); }
-  @Post('admin/dialogs') @Roles('root_admin') createDialog(@Body() body: Json) { return this.march.createDialog(body); }
-  @Get('admin/dialogs/:id') @Roles('root_admin') adminDialog(@Param('id', ParseIntPipe) id: number) { return this.march.adminDialog(id); }
-  @Put('admin/dialogs/:id') @Roles('root_admin') updateDialog(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.march.updateDialog(id, body); }
-  @Post('admin/dialogs/:id/status') @Roles('root_admin') @HttpCode(200) dialogStatus(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.march.setDialogStatus(id, body.status); }
-  @Delete('admin/dialogs/:id') @Roles('root_admin') @HttpCode(204) async deleteDialog(@Param('id', ParseIntPipe) id: number) { await this.march.deleteDialog(id); }
+  @Get('admin/dialogs') @Roles('root_admin', 'school_admin') adminDialogs() { return this.march.adminDialogs(); }
+  @Post('admin/dialogs') @Roles('root_admin', 'school_admin') createDialog(@Body() body: Json) { return this.march.createDialog(body); }
+  @Get('admin/dialogs/:id') @Roles('root_admin', 'school_admin') adminDialog(@Param('id', ParseIntPipe) id: number) { return this.march.adminDialog(id); }
+  @Put('admin/dialogs/:id') @Roles('root_admin', 'school_admin') updateDialog(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.march.updateDialog(id, body); }
+  @Post('admin/dialogs/:id/status') @Roles('root_admin', 'school_admin') @HttpCode(200) dialogStatus(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.march.setDialogStatus(id, body.status); }
+  @Delete('admin/dialogs/:id') @Roles('root_admin', 'school_admin') @HttpCode(204) async deleteDialog(@Param('id', ParseIntPipe) id: number) { await this.march.deleteDialog(id); }
 
-  @Get('admin/options') @Roles('root_admin') options() { return this.war.battleOptions(); }
-  @Get('admin/stages') @Roles('root_admin') adminStages() { return this.war.adminStages(); }
-  @Post('admin/stages') @Roles('root_admin') createStage(@CurrentUser() user: UserRow, @Body() body: Json) { return this.war.createStage(user, body); }
-  @Get('admin/stages/:id') @Roles('root_admin') adminStage(@Param('id', ParseIntPipe) id: number) { return this.war.adminStage(id); }
-  @Put('admin/stages/:id') @Roles('root_admin') updateStage(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.war.updateStage(user, id, body); }
-  @Post('admin/stages/:id/status') @Roles('root_admin') @HttpCode(200) stageStatus(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.war.setStageStatus(id, body.status); }
-  @Post('admin/stages/:id/balance') @Roles('root_admin') @HttpCode(200) balance(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.war.balance(id, body); }
-  @Delete('admin/stages/:id') @Roles('root_admin') @HttpCode(204) async deleteStage(@Param('id', ParseIntPipe) id: number) { await this.war.deleteStage(id); }
+  @Get('admin/options') @Roles('root_admin', 'school_admin') options() { return this.war.battleOptions(); }
+  @Get('admin/stages') @Roles('root_admin', 'school_admin') adminStages() { return this.war.adminStages(); }
+  @Post('admin/stages') @Roles('root_admin', 'school_admin') createStage(@CurrentUser() user: UserRow, @Body() body: Json) { return this.war.createStage(user, body); }
+  @Get('admin/stages/:id') @Roles('root_admin', 'school_admin') adminStage(@Param('id', ParseIntPipe) id: number) { return this.war.adminStage(id); }
+  @Put('admin/stages/:id') @Roles('root_admin', 'school_admin') updateStage(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.war.updateStage(user, id, body); }
+  @Post('admin/stages/:id/status') @Roles('root_admin', 'school_admin') @HttpCode(200) stageStatus(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.war.setStageStatus(id, body.status); }
+  @Post('admin/stages/:id/balance') @Roles('root_admin', 'school_admin') @HttpCode(200) balance(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.war.balance(id, body); }
+  @Delete('admin/stages/:id') @Roles('root_admin', 'school_admin') @HttpCode(204) async deleteStage(@Param('id', ParseIntPipe) id: number) { await this.war.deleteStage(id); }
 
-  @Get('admin/commanders') @Roles('root_admin') adminCommanders() { return this.war.adminCommanders(); }
-  @Post('admin/commanders') @Roles('root_admin') createCommander(@Body() body: Json) { return this.war.createCommander(body); }
-  @Put('admin/commanders/:id') @Roles('root_admin') updateCommander(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.war.updateCommander(id, body); }
-  @Delete('admin/commanders/:id') @Roles('root_admin') @HttpCode(204) async deleteCommander(@Param('id', ParseIntPipe) id: number) { await this.war.deleteCommander(id); }
+  @Get('admin/commanders') @Roles('root_admin', 'school_admin') adminCommanders() { return this.war.adminCommanders(); }
+  @Post('admin/commanders') @Roles('root_admin', 'school_admin') createCommander(@Body() body: Json) { return this.war.createCommander(body); }
+  @Put('admin/commanders/:id') @Roles('root_admin', 'school_admin') updateCommander(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.war.updateCommander(id, body); }
+  @Delete('admin/commanders/:id') @Roles('root_admin', 'school_admin') @HttpCode(204) async deleteCommander(@Param('id', ParseIntPipe) id: number) { await this.war.deleteCommander(id); }
 
-  @Get('admin/assets') @Roles('root_admin') assets() { return this.war.assets(); }
-  @Post('admin/assets') @Roles('root_admin') addAsset(@CurrentUser() user: UserRow, @Body() body: Json) { return this.war.addAsset(user, body); }
-  @Delete('admin/assets/:id') @Roles('root_admin') @HttpCode(204) async deleteAsset(@Param('id', ParseIntPipe) id: number) { await this.war.deleteAsset(id); }
+  @Get('admin/assets') @Roles('root_admin', 'school_admin') assets() { return this.war.assets(); }
+  @Post('admin/assets') @Roles('root_admin', 'school_admin') addAsset(@CurrentUser() user: UserRow, @Body() body: Json) { return this.war.addAsset(user, body); }
+  @Delete('admin/assets/:id') @Roles('root_admin', 'school_admin') @HttpCode(204) async deleteAsset(@Param('id', ParseIntPipe) id: number) { await this.war.deleteAsset(id); }
 }

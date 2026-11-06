@@ -163,7 +163,7 @@ export class SystemService {
       `SELECT s.name, s.max_students, (SELECT count(*)::int FROM app_users u WHERE u.school_id = s.id AND u.role = 'student' AND u.deleted_at IS NULL) AS students,
               l.ai_enabled, l.daily_per_school, l.daily_per_user FROM app_schools s LEFT JOIN hk_ai_school_limits l ON l.school_id = s.id WHERE s.id = $1`, [schoolId]))[0];
     if (!row) throw new NotFoundException('Không tìm thấy trường');
-    const def = (await this.db.query<{ daily_per_school: number; daily_per_user: number }>('SELECT daily_per_school, daily_per_user FROM hk_ai_settings WHERE id = 1'))[0];
+    const def = (await this.db.query<{ daily_per_school: number; daily_per_user: number }>('SELECT daily_per_school, daily_per_user FROM hk_ai_settings WHERE id = 1 AND school_id IS NULL'))[0];
     return {
       school_id: schoolId, school_name: row.name, students: row.students, max_students: row.max_students, ai_enabled: row.ai_enabled ?? true,
       ai_daily_per_school: row.daily_per_school, ai_daily_per_school_default: def?.daily_per_school ?? null, ai_daily_per_user: row.daily_per_user, ai_daily_per_user_default: def?.daily_per_user ?? null,

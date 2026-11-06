@@ -16,6 +16,12 @@ import { HelpPage } from '@/components/portal/HelpCenter';
 import { NoticeBell } from '@/components/portal/NoticeCenter';
 import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, yearOptions, YEAR_TEXT } from '@/components/admin/kit';
 import { SchoolGame } from '@/components/admin/GameAdmin';
+import { AiAdmin } from '@/components/admin/AiAdmin';
+import { BattleAdmin } from '@/components/admin/BattleAdmin';
+import { HistoryManager } from '@/components/admin/HistoryManager';
+import { LessonManager } from '@/components/admin/LessonManager';
+import { ResearchAdmin } from '@/components/admin/ResearchAdmin';
+import { WarAdmin } from '@/components/admin/WarAdmin';
 import { JourneyManager } from '@/components/admin/JourneyManager';
 import { QuestionBank } from '@/components/admin/QuestionBank';
 import { QuizManager } from '@/components/admin/QuizManager';
@@ -27,7 +33,6 @@ import { AdminUiContext, Btn, Card, ConfirmSheet, Inset, Spinner, Txt } from '@/
 import { useTheme } from '@/hooks/use-theme';
 import type { YearItem } from '@/types/api';
 
-type Tab = 'school' | 'teachers' | 'students' | 'classes' | 'reports' | 'review' | 'journeys' | 'questions' | 'quizzes' | 'game' | 'notices' | 'surveys' | 'logs' | 'security' | 'help';
 const NAV = [
   { id: 'school' as const, label: 'Trường và năm học', icon: School },
   { id: 'teachers' as const, label: 'Giáo viên', icon: UserRound },
@@ -35,16 +40,23 @@ const NAV = [
   { id: 'classes' as const, label: 'Lớp học', icon: Users },
   { id: 'reports' as const, label: 'Báo cáo', icon: ChartColumn },
   { id: 'review' as const, label: 'Duyệt nội dung', icon: Inbox },
+  { id: 'history' as const, label: 'Kho lịch sử', icon: History },
   { id: 'journeys' as const, label: 'Hành trình mẫu', icon: Route },
+  { id: 'lessons' as const, label: 'Bài học', icon: ListChecks },
   { id: 'questions' as const, label: 'Ngân hàng câu hỏi', icon: CircleHelp },
   { id: 'quizzes' as const, label: 'Bộ đề', icon: ListChecks },
   { id: 'game' as const, label: 'Trò chơi hóa', icon: Trophy },
+  { id: 'battle' as const, label: 'Mô phỏng và mini-game', icon: Trophy },
+  { id: 'war' as const, label: 'Game thẻ tướng', icon: Trophy },
+  { id: 'ai' as const, label: 'AI Tutor', icon: CircleHelp },
+  { id: 'research' as const, label: 'Nghiên cứu', icon: ChartColumn },
   { id: 'notices' as const, label: 'Thông báo', icon: Bell },
   { id: 'surveys' as const, label: 'Khảo sát', icon: ClipboardList },
   { id: 'logs' as const, label: 'Nhật ký', icon: History },
   { id: 'security' as const, label: 'Bảo mật', icon: ShieldCheck },
   { id: 'help' as const, label: 'Trợ giúp', icon: LifeBuoy },
 ];
+type Tab = (typeof NAV)[number]['id'];
 const YEAR_KIND = { planned: 'info', active: 'on', ended: 'muted' } as const;
 
 export const SchoolAdmin: React.FC<{ session: Session }> = ({ session }) => {
@@ -60,6 +72,12 @@ export const SchoolAdmin: React.FC<{ session: Session }> = ({ session }) => {
           : tab === 'students' ? <SchoolPeople session={session} kind="students" years={years ?? []} />
           : tab === 'classes' ? <SchoolClasses session={session} years={years ?? []} onYearsChanged={reloadYears} />
           : tab === 'reports' ? <SchoolReports session={session} />
+          : tab === 'history' ? <HistoryManager session={session} />
+          : tab === 'lessons' ? <LessonManager session={session} />
+          : tab === 'battle' ? <BattleAdmin session={session} />
+          : tab === 'war' ? <WarAdmin session={session} />
+          : tab === 'ai' ? <AiAdmin session={session} />
+          : tab === 'research' ? <ResearchAdmin session={session} />
           : tab === 'review' ? <ShareInbox session={session} /> : tab === 'journeys' ? <JourneyManager session={session} />
           : tab === 'questions' ? <QuestionBank session={session} /> : tab === 'quizzes' ? <QuizManager session={session} />
           : tab === 'notices' ? <BroadcastManager session={session} /> : tab === 'surveys' ? <SurveyManager session={session} /> : tab === 'logs' ? <LogsPanel session={session} />
