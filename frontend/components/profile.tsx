@@ -8,7 +8,7 @@ import { View } from 'react-native';
 import { ImagePlus, Trash2 } from 'lucide-react-native';
 import { errorMessage, type PickedFile } from '@/api/client';
 import { pickFile } from '@/components/admin/kit';
-import { Avatar, Btn, Field, Inset, Sheet, Spinner, Txt, useToast } from '@/components/ui';
+import { Avatar, Btn, Field, Inset, Segmented, Sheet, Spinner, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { AVATAR_MAX, AVATAR_ONLY_IMAGES, AVATAR_TYPES, isAvatarImage } from '@/lib/avatar';
 import type { AuthUser, ProfileData, ProfilePatch } from '@/types/api';
@@ -82,7 +82,7 @@ export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (pa
   const textFields = editable.filter((k) => k !== 'avatar_url');
   const dirty = textFields.some((k) => (form[k] ?? '') !== ((user[k] as string | null) ?? ''));
   const info = (label: string, value: string | null | undefined) => (
-    <View key={label} style={{ gap: 2, flexGrow: 1, flexBasis: 200 }}>
+    <View key={label} style={{ gap: 1, flexGrow: 1, flexBasis: 170, minWidth: 0 }}>
       <Txt f="bold" size={12} color={c.muc3}>{label}</Txt>
       <Txt size={14} selectable>{value || 'Chưa có'}</Txt>
     </View>
@@ -103,16 +103,25 @@ export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (pa
       setBusy(false);
     }
   };
+  const avatarEditable = editable.includes('avatar_url') && Boolean(upload);
   return (
-    <View testID="profile-form" style={{ gap: 14 }}>
+    <View testID="profile-form" style={{ gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Avatar name={user.full_name} uri={user.avatar_url} size={64} />
-        <View style={{ flex: 1 }}>
-          <Txt f="bold" size={18}>{user.nickname || user.full_name}</Txt>
-          <Txt size={13} color={c.muc2}>{ROLE_TEXT[user.role]}{user.subject ? ` · ${user.subject}` : ''}</Txt>
+        <Avatar name={user.full_name} uri={user.avatar_url} size={56} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Txt f="bold" size={17} numberOfLines={1}>{user.nickname || user.full_name}</Txt>
+          <Txt size={12} color={c.muc2}>{ROLE_TEXT[user.role]}{user.subject ? ` · ${user.subject}` : ''}</Txt>
+          {avatarEditable ? (
+            <View testID="avatar-editor" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+              <Btn title={user.avatar_url ? 'Đổi ảnh' : 'Chọn ảnh'} label="Ảnh đại diện: chọn ảnh từ máy" icon={ImagePlus} tone="giay" size="sm" loading={avatarBusy} onPress={pickAvatar} testID="avatar-pick" />
+              {user.avatar_url ? <Btn title="Xóa ảnh" icon={Trash2} tone="giay" size="sm" disabled={avatarBusy} onPress={removeAvatar} testID="avatar-remove" /> : null}
+            </View>
+          ) : null}
         </View>
       </View>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+      {avatarEditable ? <Txt size={11} color={c.muc3}>Chỉ nhận ảnh PNG, JPG, WEBP hoặc GIF, tối đa 1,5 MB. Không nhận tệp Word, Excel, PowerPoint, PDF hay tệp khác.</Txt> : null}
+      {avatarError ? <Txt size={13} f="semibold" color={c.sonChu} accessibilityRole="alert" testID="avatar-error">{avatarError}</Txt> : null}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 8 }}>
         {info('Tên đăng nhập', user.username)}
         {user.user_code ? info('Mã người dùng', user.user_code) : null}
         {!editable.includes('full_name') ? info('Họ và tên', user.full_name) : null}
@@ -123,29 +132,17 @@ export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (pa
         {classes.length ? info(user.role === 'teacher' ? 'Lớp phụ trách' : 'Lớp đã tham gia', classes.map((k) => `${k.class_code} (${k.school_year})`).join(', ')) : null}
       </View>
       {error ? <Inset style={{ backgroundColor: c.sonNhat }}><Txt color={c.sonChu} accessibilityRole="alert">{error}</Txt></Inset> : null}
-      {editable.includes('avatar_url') && upload ? (
-        <View testID="avatar-editor" style={{ gap: 8 }}>
-          <Txt f="bold" size={14} color={c.muc2}>{LABEL.avatar_url.label}</Txt>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-            <Avatar name={user.full_name} uri={user.avatar_url} size={72} />
-            <View style={{ gap: 8, flex: 1, minWidth: 200 }}>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                <Btn title={user.avatar_url ? 'Đổi ảnh' : 'Chọn ảnh'} icon={ImagePlus} tone="giay" size="sm" loading={avatarBusy} onPress={pickAvatar} testID="avatar-pick" />
-                {user.avatar_url ? <Btn title="Xóa ảnh" icon={Trash2} tone="giay" size="sm" disabled={avatarBusy} onPress={removeAvatar} testID="avatar-remove" /> : null}
-              </View>
-              <Txt size={12} color={c.muc3}>Chỉ nhận ảnh PNG, JPG, WEBP hoặc GIF, tối đa 1,5 MB. Không nhận tệp Word, Excel, PowerPoint, PDF hay tệp khác.</Txt>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+        {textFields.map((k) => {
+          const meta = LABEL[k];
+          return (
+            <View key={k} style={{ flexGrow: 1, flexBasis: meta.multiline ? '100%' : 220, minWidth: 0 }}>
+              <Field label={meta.label} hint={meta.hint} value={form[k] ?? ''} onChangeText={(v) => setForm((f) => ({ ...f, [k]: v }))} autoCapitalize={k === 'email' ? 'none' : 'sentences'}
+                keyboardType={k === 'phone' ? 'phone-pad' : k === 'email' ? 'email-address' : 'default'} multiline={meta.multiline} numberOfLines={meta.multiline ? 3 : 1} inputStyle={meta.multiline ? { minHeight: 72, textAlignVertical: 'top' } : undefined} />
             </View>
-          </View>
-          {avatarError ? <Txt size={13} f="semibold" color={c.sonChu} accessibilityRole="alert" testID="avatar-error">{avatarError}</Txt> : null}
-        </View>
-      ) : null}
-      {textFields.map((k) => {
-        const meta = LABEL[k];
-        return (
-          <Field key={k} label={meta.label} hint={meta.hint} value={form[k] ?? ''} onChangeText={(v) => setForm((f) => ({ ...f, [k]: v }))} autoCapitalize={k === 'email' ? 'none' : 'sentences'}
-            keyboardType={k === 'phone' ? 'phone-pad' : k === 'email' ? 'email-address' : 'default'} multiline={meta.multiline} numberOfLines={meta.multiline ? 3 : 1} inputStyle={meta.multiline ? { minHeight: 84, textAlignVertical: 'top' } : undefined} />
-        );
-      })}
+          );
+        })}
+      </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         <Btn title="Lưu hồ sơ" tone="ngoc" loading={busy} disabled={!dirty} onPress={submit} testID="profile-save" />
         {dirty && <Btn title="Hoàn tác" tone="giay" disabled={busy} onPress={() => apply(data)} />}
@@ -157,12 +154,16 @@ export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (pa
   );
 };
 
-/** Hồ sơ trong một Sheet riêng (giáo viên, quản trị) */
-export const ProfileSheet: React.FC<{ onClose: () => void; load: () => Promise<ProfileData>; save: (patch: ProfilePatch) => Promise<ProfileData>; upload?: (img: { data: string }) => Promise<ProfileData>; onSaved?: (user: AuthUser) => void; children?: React.ReactNode }> = ({ onClose, load, save, upload, onSaved, children }) => (
-  <Sheet open onClose={onClose} title="Hồ sơ cá nhân" subtitle="Xem và cập nhật thông tin của bạn">
-    <View style={{ gap: 24 }}>
-      <ProfileForm load={load} save={save} upload={upload} onSaved={onSaved} />
-      {children}
-    </View>
-  </Sheet>
-);
+/** Hồ sơ trong một Sheet riêng (giáo viên, quản trị). Có phần bảo mật (quản trị) thì chia hai tab để hộp thấp và gọn; cả hai tab luôn được giữ nguyên nội dung đang gõ */
+export const ProfileSheet: React.FC<{ onClose: () => void; load: () => Promise<ProfileData>; save: (patch: ProfilePatch) => Promise<ProfileData>; upload?: (img: { data: string }) => Promise<ProfileData>; onSaved?: (user: AuthUser) => void; children?: React.ReactNode }> = ({ onClose, load, save, upload, onSaved, children }) => {
+  const [tab, setTab] = useState<'info' | 'security'>('info');
+  return (
+    <Sheet open onClose={onClose} title="Hồ sơ cá nhân" subtitle="Xem và cập nhật thông tin của bạn" panelStyle={{ maxWidth: 520 }}>
+      <View style={{ gap: 14 }}>
+        {children ? <Segmented<'info' | 'security'> label="Mục hồ sơ" value={tab} onChange={setTab} options={[{ value: 'info', label: 'Thông tin' }, { value: 'security', label: 'Đăng nhập và bảo mật' }]} /> : null}
+        <View style={{ display: tab === 'info' ? 'flex' : 'none' }}><ProfileForm load={load} save={save} upload={upload} onSaved={onSaved} /></View>
+        {children ? <View style={{ display: tab === 'security' ? 'flex' : 'none' }}>{children}</View> : null}
+      </View>
+    </Sheet>
+  );
+};

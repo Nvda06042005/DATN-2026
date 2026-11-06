@@ -42,3 +42,26 @@ test('tiêu đề trang: chữ cuối nghiêng đỏ như tiêu đề ở trang 
   assert.match(kit, /const accent = words\.length > 1 \? words\[words\.length - 1\] : null;/);
   assert.match(kit, /f="displayHeavy" size=\{26\} color=\{c\.logoInk\} accessibilityRole="header"/);
 });
+
+test('thu nhỏ vừa đủ: trang hẹp lại, thanh tìm kiếm và khung lọc có giới hạn rộng, hộp nhập liệu hai cột, nút chuyển trang gọn, hộp hồ sơ chia tab', () => {
+  // nội dung trang không trải hết màn hình lớn
+  assert.match(kit, /gap: 16, maxWidth: 1120, width: '100%', alignSelf: 'center'/);
+  // thanh tìm kiếm + Bộ lọc và khung lọc
+  assert.match(kit, /accessibilityRole="search" style=\{\{ flex: 1, minWidth: 260, maxWidth: 520, minHeight: 44,/);
+  assert.match(kit, /testID="filter-panel" style=\{\{ alignSelf: 'flex-start', width: '100%', maxWidth: 680,/);
+  assert.match(kit, /maxWidth: flex > 1 \? 360 : 280/);
+  // hộp nhập liệu: ô ngắn xếp hai cột, ô dài/tùy biến/chọn nhiều chiếm cả hàng; hộp rộng giới hạn 720 px
+  assert.match(kit, /const full = Boolean\(f\.render\) \|\| f\.type === 'textarea' \|\| f\.type === 'multi';/);
+  assert.match(kit, /flexBasis: full \? '100%' : 240/);
+  assert.match(kit, /panelStyle=\{wide \? \{ maxWidth: 720 \} : undefined\}/);
+  // nút chuyển trang gọn, nằm giữa
+  assert.match(kit, /minWidth: 34, height: 34, paddingHorizontal: 10, borderRadius: 999/);
+  assert.match(kit, /testID="pager"[^\n]*justifyContent: 'center'/);
+  // hộp Hồ sơ cá nhân: hẹp 520 px, tab Thông tin / Đăng nhập và bảo mật khi có phần bảo mật, giữ cả hai tab trong bộ nhớ
+  const profile = read('components', 'profile.tsx');
+  assert.match(profile, /panelStyle=\{\{ maxWidth: 520 \}\}/);
+  assert.match(profile, /label: 'Thông tin' \}, \{ value: 'security', label: 'Đăng nhập và bảo mật' \}/);
+  assert.match(profile, /display: tab === 'info' \? 'flex' : 'none'/);
+  assert.match(profile, /display: tab === 'security' \? 'flex' : 'none'/);
+  assert.match(profile, /<Avatar name=\{user\.full_name\} uri=\{user\.avatar_url\} size=\{56\} \/>/);
+});

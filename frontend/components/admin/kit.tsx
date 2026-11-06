@@ -80,7 +80,7 @@ export const PageHeader: React.FC<{ title: string; subtitle?: string; actions?: 
 };
 
 export const Page: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 16, maxWidth: 1240, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 16, maxWidth: 1120, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
     {children}
   </ScrollView>
 );
@@ -102,7 +102,7 @@ export const FilterBar: React.FC<{ children: React.ReactNode }> = ({ children })
 );
 
 export const FilterBox: React.FC<{ children: React.ReactNode; flex?: number }> = ({ children, flex = 1 }) => (
-  <View style={{ flexGrow: flex, flexBasis: 180, minWidth: 160, maxWidth: 360 }}>{children}</View>
+  <View style={{ flexGrow: flex, flexBasis: 180, minWidth: 160, maxWidth: flex > 1 ? 360 : 280 }}>{children}</View>
 );
 
 export interface SearchFilter {
@@ -126,14 +126,14 @@ export const SearchFilterBar: React.FC<{ placeholder: string; value: string; onC
   return (
     <View style={{ gap: 10 }}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-        <View accessibilityRole="search" style={{ flex: 1, minWidth: 260, minHeight: 48, flexDirection: 'row', alignItems: 'center', borderRadius: 999, borderWidth: 1, borderColor: open ? c.logoRed : c.bienXanh, backgroundColor: c.the, paddingLeft: 16, overflow: 'hidden' }}>
+        <View accessibilityRole="search" style={{ flex: 1, minWidth: 260, maxWidth: 520, minHeight: 44, flexDirection: 'row', alignItems: 'center', borderRadius: 999, borderWidth: 1, borderColor: open ? c.logoRed : c.bienXanh, backgroundColor: c.the, paddingLeft: 16, overflow: 'hidden' }}>
           <Search size={18} color={c.muc3} />
           <TextInput nativeID={searchId} testID={searchId} accessibilityLabel={placeholder} placeholder={placeholder} placeholderTextColor={c.muc3} value={value} onChangeText={onChange} autoCapitalize="none" autoCorrect={false} returnKeyType="search"
-            style={[{ flex: 1, minWidth: 0, minHeight: 46, paddingHorizontal: 12, fontFamily: FONT.medium, fontSize: 14, color: c.logoInk }, Platform.OS === 'web' ? ({ outlineStyle: 'solid', outlineWidth: 0 } as object) : null]} />
+            style={[{ flex: 1, minWidth: 0, minHeight: 42, paddingHorizontal: 12, fontFamily: FONT.medium, fontSize: 14, color: c.logoInk }, Platform.OS === 'web' ? ({ outlineStyle: 'solid', outlineWidth: 0 } as object) : null]} />
           {value ? <Pressable testID="search-clear" accessibilityRole="button" accessibilityLabel="Xóa từ khóa tìm kiếm" onPress={() => onChange('')} style={{ width: 36, height: 44, alignItems: 'center', justifyContent: 'center' }}><X size={16} color={c.muc3} /></Pressable> : null}
           {filters.length ? (
             <Pressable testID="filter-toggle" accessibilityRole="button" accessibilityLabel={active.length ? `Bộ lọc, đang bật ${active.length}` : 'Bộ lọc'} accessibilityState={{ expanded: open }} onPress={() => setOpen((v) => !v)}
-              style={({ pressed }) => ({ minHeight: 48, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 8, borderLeftWidth: 1, borderLeftColor: c.bienXanh, backgroundColor: open ? c.adminTint : pressed ? c.adminCanvas : c.the })}>
+              style={({ pressed }) => ({ minHeight: 44, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 6, borderLeftWidth: 1, borderLeftColor: c.bienXanh, backgroundColor: open ? c.adminTint : pressed ? c.adminCanvas : c.the })}>
               <SlidersHorizontal size={17} color={active.length || open ? c.logoRed : c.logoInk} />
               <Txt f="bold" size={14} color={active.length || open ? c.logoRed : c.logoInk}>Bộ lọc</Txt>
               {active.length ? <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: c.logoRed, alignItems: 'center', justifyContent: 'center' }}><Txt f="bold" size={11} color={c.trang}>{active.length}</Txt></View> : null}
@@ -144,7 +144,7 @@ export const SearchFilterBar: React.FC<{ placeholder: string; value: string; onC
         {extra}
       </View>
       {open && filters.length ? (
-        <View testID="filter-panel" style={{ borderWidth: 1, borderColor: c.adminLine, borderRadius: 16, backgroundColor: c.the, padding: 14, gap: 12 }}>
+        <View testID="filter-panel" style={{ alignSelf: 'flex-start', width: '100%', maxWidth: 680, borderWidth: 1, borderColor: c.adminLine, borderRadius: 16, backgroundColor: c.the, padding: 12, gap: 10 }}>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
             {filters.map((f) => <FilterBox key={f.key}><AdminSelect<string> label={f.label} value={f.value} options={f.options} onChange={f.onChange} testID={f.testID ?? `filter-${f.key}`} /></FilterBox>)}
           </View>
@@ -184,19 +184,19 @@ export const Pager: React.FC<{ page: number; limit: number; total: number; onPag
   const from = (page - 1) * limit + 1, to = Math.min(total, page * limit);
   const pill = (props: { key: string; testID: string; label: string; disabled?: boolean; on?: boolean; onPress: () => void; children: React.ReactNode }) => (
     <Pressable key={props.key} testID={props.testID} accessibilityRole="button" accessibilityLabel={props.label} accessibilityState={{ disabled: props.disabled, selected: props.on }} disabled={props.disabled} onPress={props.onPress}
-      style={({ pressed }) => ({ minWidth: 40, height: 40, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: props.on ? c.den : c.bienXanh, backgroundColor: props.on ? c.den : pressed ? c.adminCanvas : c.the, opacity: props.disabled ? 0.4 : 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 })}>
+      style={({ pressed }) => ({ minWidth: 34, height: 34, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: props.on ? c.den : c.bienXanh, backgroundColor: props.on ? c.den : pressed ? c.adminCanvas : c.the, opacity: props.disabled ? 0.4 : 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3 })}>
       {props.children}
     </Pressable>
   );
   return (
-    <View testID="pager" accessibilityRole="toolbar" accessibilityLabel="Chuyển trang" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-      <Txt size={13} color={c.muc2}>Hiển thị {from}–{to} / {total} kết quả</Txt>
-      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-        {pill({ key: 'prev', testID: 'pager-prev', label: 'Trang trước', disabled: page <= 1, onPress: () => onPage(page - 1), children: <><ChevronLeft size={16} color={c.logoInk} /><Txt f="bold" size={13}>Trước</Txt></> })}
+    <View testID="pager" accessibilityRole="toolbar" accessibilityLabel="Chuyển trang" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', columnGap: 14, rowGap: 8 }}>
+      <Txt size={12} color={c.muc2}>Hiển thị {from}–{to} / {total} kết quả</Txt>
+      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+        {pill({ key: 'prev', testID: 'pager-prev', label: 'Trang trước', disabled: page <= 1, onPress: () => onPage(page - 1), children: <><ChevronLeft size={14} color={c.logoInk} /><Txt f="bold" size={12}>Trước</Txt></> })}
         {pageWindow(page, pages).map((n, i) => n === '…'
-          ? <Txt key={`gap${i}`} size={13} color={c.muc3} style={{ paddingHorizontal: 2 }}>…</Txt>
-          : pill({ key: `p${n}`, testID: `pager-page-${n}`, label: `Trang ${n}`, on: n === page, onPress: () => onPage(n), children: <Txt f="bold" size={13} color={n === page ? c.trang : c.logoInk}>{n}</Txt> }))}
-        {pill({ key: 'next', testID: 'pager-next', label: 'Trang sau', disabled: page >= pages, onPress: () => onPage(page + 1), children: <><Txt f="bold" size={13}>Sau</Txt><ChevronRight size={16} color={c.logoInk} /></> })}
+          ? <Txt key={`gap${i}`} size={12} color={c.muc3} style={{ paddingHorizontal: 2 }}>…</Txt>
+          : pill({ key: `p${n}`, testID: `pager-page-${n}`, label: `Trang ${n}`, on: n === page, onPress: () => onPage(n), children: <Txt f="bold" size={12} color={n === page ? c.trang : c.logoInk}>{n}</Txt> }))}
+        {pill({ key: 'next', testID: 'pager-next', label: 'Trang sau', disabled: page >= pages, onPress: () => onPage(page + 1), children: <><Txt f="bold" size={12}>Sau</Txt><ChevronRight size={14} color={c.logoInk} /></> })}
       </View>
     </View>
   );
@@ -333,10 +333,20 @@ export const FormSheet: React.FC<{
   };
 
   return (
-    <Sheet open onClose={onClose} title={title} subtitle={subtitle} wide={wide}
+    <Sheet open onClose={onClose} title={title} subtitle={subtitle} wide={wide} panelStyle={wide ? { maxWidth: 720 } : undefined}
       footer={<View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>{footerExtra}<Btn title="Hủy" tone="giay" onPress={onClose} disabled={busy} /><Btn title={submitLabel} tone="son" onPress={submit} loading={busy} testID="form-submit" /></View>}>
       <ErrorNote message={error} />
-      {visible.map((f) => f.render ? <View key={f.name}>{f.render(values, set)}</View> : <FormField key={f.name} def={f} value={values[f.name]} error={missing[f.name] ? 'Ô này bắt buộc.' : null} onChange={(v) => set(f.name, v)} />)}
+      {/* hai cột khi đủ rộng (ô dài, ô tùy biến và danh sách chọn nhiều chiếm cả hàng) để hộp thấp, không phải cuộn dài */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+        {visible.map((f) => {
+          const full = Boolean(f.render) || f.type === 'textarea' || f.type === 'multi';
+          return (
+            <View key={f.name} style={{ flexGrow: 1, flexBasis: full ? '100%' : 240, minWidth: 0 }}>
+              {f.render ? f.render(values, set) : <FormField def={f} value={values[f.name]} error={missing[f.name] ? 'Ô này bắt buộc.' : null} onChange={(v) => set(f.name, v)} />}
+            </View>
+          );
+        })}
+      </View>
     </Sheet>
   );
 };
