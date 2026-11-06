@@ -1,6 +1,6 @@
 /**
- * Quản trị trò chơi hóa (Sprint 5): danh mục dùng chung do quản trị tổng quản lý (cấp độ, lớp nhân vật và kỹ năng, huy hiệu, thẻ, cửa hàng, nhiệm vụ mẫu – HK.AD.048–054),
- * cấu hình mặc định (HK.AD.066), cấu hình bảng xếp hạng trường (HK.QT.044), sự kiện – giải đấu cấp trường (HK.QT.045), huy hiệu riêng của trường (HK.QT.046),
+ * Quản trị trò chơi hóa trong trường: cấp độ, lớp nhân vật và kỹ năng, huy hiệu, thẻ, cửa hàng, nhiệm vụ mẫu,
+ * cấu hình riêng, bảng xếp hạng trường (HK.QT.044), sự kiện – giải đấu cấp trường (HK.QT.045), huy hiệu riêng của trường (HK.QT.046),
  * cơ chế tim theo lớp và trao huy hiệu của trường cho học sinh (giáo viên, quản trị viên trường).
  * Giao diện chỉ mô tả và gửi giá trị; máy chủ kiểm tra mọi giới hạn.
  */
@@ -191,17 +191,6 @@ export const GameSettings: React.FC<{ session: Session }> = ({ session }) => {
       </View>
       <Txt size={12} color={c.muc3}>“Đặt về mặc định” chỉ điền lại các ô; bấm “Lưu cấu hình” để áp dụng.</Txt>
     </View>
-  );
-};
-
-export const RootGame: React.FC<{ session: Session }> = ({ session }) => {
-  const [view, setView] = useState<'settings' | 'catalog'>('settings');
-  return (
-    <Page>
-      <PageHeader title="Trò chơi hóa" subtitle="Cấu hình mặc định và các danh mục dùng chung: cấp độ, lớp nhân vật, huy hiệu, thẻ, cửa hàng, nhiệm vụ mẫu." />
-      <Segmented<'settings' | 'catalog'> label="Mục quản trị" value={view} onChange={setView} options={[{ value: 'settings', label: 'Cấu hình mặc định' }, { value: 'catalog', label: 'Danh mục' }]} />
-      {view === 'settings' ? <GameSettings session={session} /> : <GameCatalog session={session} entities={['levels', 'classes', 'badges', 'cards', 'items', 'quests']} />}
-    </Page>
   );
 };
 

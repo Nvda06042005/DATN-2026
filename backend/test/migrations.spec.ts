@@ -101,6 +101,29 @@ describe('file migration', () => {
     expect(await count("SELECT count(*) AS n FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('app_school_years', 'app_class_teachers') AND 'dong_a_school_scope'=ANY(roles)")).toBe(2);
   });
 
+  test('040 chỉ xóa sáu bảng quản trị nội dung cũ; giữ nguyên tài khoản, trường và kho đang dùng', async () => {
+    const removal = readdirSync(dir).find((name) => name.startsWith('040_'))!;
+    renameSync(join(dir, removal), join(dir, `${removal}.held`));
+    expect(await m.applyMigrations(url, dir)).toHaveLength(39);
+    const obsolete = ['app_content_history', 'app_curriculum_nodes', 'app_question_bank', 'app_ai_sources', 'app_hero_cards', 'app_exp_rules'];
+    await sql(url, `INSERT INTO app_schools(id,school_code,name) VALUES(9001,'9001','Trường được giữ lại');
+      INSERT INTO app_users(id,username,full_name,role,password_hash,school_id,is_active,created_at)
+      VALUES(9001,'migration.student','Học sinh kiểm thử','student','synthetic-hash',9001,1,'2026-11-06T00:00:00Z');`);
+    const before = await sql<{ tab: string }>(url, "SELECT tablename AS tab FROM pg_tables WHERE schemaname='public' ORDER BY tablename");
+    const retained = before.map((r) => r.tab).filter((tab) => !obsolete.includes(tab) && tab !== 'app_schema_migrations');
+    const snapshots = new Map<string, unknown>();
+    // So sánh toàn bộ dòng của các bảng được giữ, không chỉ đếm dòng.
+    const snapshot = (tab: string) => sql(url, `SELECT to_jsonb(t) AS row FROM public."${tab}" t ORDER BY to_jsonb(t)::text`);
+    for (const tab of retained) snapshots.set(tab, await snapshot(tab));
+    expect(obsolete.every((tab) => before.some((r) => r.tab === tab))).toBe(true);
+    renameSync(join(dir, `${removal}.held`), join(dir, removal));
+    expect(await m.applyMigrations(url, dir)).toEqual([removal]);
+    const after = await sql<{ tab: string }>(url, "SELECT tablename AS tab FROM pg_tables WHERE schemaname='public' ORDER BY tablename");
+    expect(after.map((r) => r.tab)).toEqual(before.map((r) => r.tab).filter((tab) => !obsolete.includes(tab)));
+    for (const tab of retained) expect(await snapshot(tab)).toEqual(snapshots.get(tab));
+    expect(await m.applyMigrations(url, dir)).toEqual([]);
+  });
+
   test('giữ nguyên dữ liệu đã nhập và lịch sử _prisma_migrations', async () => {
     await sql(url, readFileSync(join(dir, '001_initial_postgres_schema.sql'), 'utf8'));
     await sql(url, `INSERT INTO public."User" (id, email, "passwordHash", "fullName", "updatedAt") VALUES ('legacy-id', 'fixture@example.invalid', 'fake-hash', 'Fixture', now())`);

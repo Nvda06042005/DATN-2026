@@ -67,4 +67,10 @@ Backend lấy phạm vi từ tài khoản đã xác thực qua `WorkspaceInterce
 
 Hành trình mặc định, chỉ mục AI, bộ nhớ đệm và dấu chốt tuần cũng tách theo trường. Tác vụ nền giữ phạm vi trường và không giữ lại kết nối giao dịch đã đóng. `backend/test/workspaces.spec.ts` kiểm tra API thật và PostgreSQL tạm với hai trường, gồm truy cập chéo ID, giả phạm vi, FK, yêu cầu đồng thời và RAG.
 
+## Dọn bảng quản trị nội dung cũ (040)
+
+Theo yêu cầu xóa phần quản trị ngoài chín mục còn giữ ngày 06/11/2026, `040_remove_legacy_admin_content.sql` xóa đúng sáu bảng của migration 011: `app_content_history`, `app_curriculum_nodes`, `app_question_bank`, `app_ai_sources`, `app_hero_cards`, `app_exp_rules`. Backend và frontend hiện tại không còn tham chiếu các bảng này. Dữ liệu trong sáu bảng cũ được xóa theo yêu cầu; không dùng `CASCADE` để tránh xóa lan.
+
+Giữ nguyên `app_users`, các bảng trường/lớp, thông báo, audit/login, FAQ, bảo mật, hệ thống/hỗ trợ và các kho `hist_*`/`hk_*` đang phục vụ quản trị trường, giáo viên, học sinh. Không sửa hoặc xóa migration 011 đã áp dụng; không đụng `_prisma_migrations`. Kiểm thử nâng 039 → 040 xác nhận chỉ sáu bảng bị xóa và mọi dòng ở các bảng còn lại giữ nguyên.
+
 Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).

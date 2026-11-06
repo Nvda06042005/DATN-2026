@@ -2,6 +2,7 @@
 
 ## Điều chỉnh phạm vi quản lý theo yêu cầu ngày 06/11/2026
 
+- Rà soát bổ sung theo yêu cầu xóa dữ liệu admin thừa: migration **040** xóa sáu bảng quản trị nội dung cũ không còn mã chạy sử dụng (`app_content_history`, `app_curriculum_nodes`, `app_question_bank`, `app_ai_sources`, `app_hero_cards`, `app_exp_rules`). Các bảng của chín mục còn giữ và kho nội dung/game/AI/nghiên cứu đang dùng trong trường được giữ nguyên. Xóa thành phần `RootGame` không còn được gọi; giao diện trò chơi hóa của trường vẫn dùng các thành phần riêng.
 - Quản lý tổng `/admin` còn đúng 9 mục: **Trường học, Người dùng, Thống kê hệ thống, Thông báo, Nhật ký, Hướng dẫn và FAQ, Bảo mật, Hệ thống, Yêu cầu hỗ trợ**.
 - Kho lịch sử, bài học, ngân hàng câu hỏi, bộ đề, hành trình, duyệt nội dung, mô phỏng/mini-game, game thẻ tướng, trò chơi hóa, AI Tutor và nghiên cứu nằm trong cổng quản trị trường. Đây là chuyển chức năng và dữ liệu theo trường, không chỉ đổi menu.
 - Migration **039** bổ sung sở hữu và RLS của vai trò nội bộ `dong_a_workspace_scope`. Phạm vi luôn lấy từ tài khoản đã xác thực; API không dùng trường do người gọi tự khai. Mẫu hệ thống cũ được giữ và chỉ đọc; trường tạo hoặc sao chép bản riêng để chỉnh sửa. Các tham chiếu FK chéo trường bị chặn ở database. Quyền giáo viên/học sinh và quyền quản lý toàn nền tảng của quản lý tổng được giữ tại API.
