@@ -136,9 +136,10 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
           }} />
       ) : null}
       {editing ? (
-        <FormSheet title="Sửa thông tin trường" subtitle={`Mã trường ${editing.school_code} không đổi được`} fields={SCHOOL_FIELDS} wide
-          initial={Object.fromEntries(SCHOOL_FIELDS.map((f) => [f.name, String((editing as unknown as Record<string, unknown>)[f.name] ?? '')]))} onClose={() => setEditing(null)}
-          onSubmit={async (v) => { await api.updateSchool(token, editing.id, Object.fromEntries(SCHOOL_FIELDS.map((f) => [f.name, String(v[f.name]).trim() || null]))); setEditing(null); reload(); }} />
+        <FormSheet title="Sửa thông tin trường" subtitle={`Chọn đúng trường trong danh mục để liên kết logo; mã ${editing.school_code} được giữ nguyên.`}
+          fields={[{ name: 'school_code', label: 'Mã trường', readOnly: true }, ...SCHOOL_FIELDS.map(field => field.name === 'name' ? { ...field, render: (values: Record<string, string | string[]>, set: (name: string, value: string | string[]) => void) => <SchoolPicker token={token} values={values} set={set} currentDirectoryCode={editing.directory_code ?? undefined} /> } : field)]} wide
+          initial={{ ...Object.fromEntries(SCHOOL_FIELDS.map((f) => [f.name, String((editing as unknown as Record<string, unknown>)[f.name] ?? '')])), school_code: editing.school_code, directory_code: editing.directory_code ?? '' }} onClose={() => setEditing(null)}
+          onSubmit={async (v) => { await api.updateSchool(token, editing.id, { ...Object.fromEntries(SCHOOL_FIELDS.map((f) => [f.name, String(v[f.name]).trim() || null])), ...(v.directory_code ? { directory_code: v.directory_code } : {}) }); setEditing(null); reload(); }} />
       ) : null}
       <ConfirmSheet open={!!toggling} title={toggling?.is_active ? 'Vô hiệu hóa trường' : 'Kích hoạt lại trường'} busy={busy} confirmLabel={toggling?.is_active ? 'Vô hiệu hóa' : 'Kích hoạt'} onCancel={() => setToggling(null)}
         message={toggling?.is_active ? `Toàn bộ tài khoản của ${toggling?.name} sẽ không đăng nhập được và mọi phiên hiện tại bị thu hồi. Dữ liệu được giữ nguyên.` : `Cho phép tài khoản của ${toggling?.name} đăng nhập trở lại?`}
@@ -152,7 +153,7 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
 };
 
 /** Ô tên trường kèm gợi ý từ danh mục: bấm một trường thì tên, mã, tỉnh/thành, khu vực tự điền, huy hiệu hiện ngay và đường dẫn riêng được báo trước */
-const SchoolPicker: React.FC<{ token: string; values: Record<string, string | string[]>; set: (name: string, value: string | string[]) => void }> = ({ token, values, set }) => {
+const SchoolPicker: React.FC<{ token: string; values: Record<string, string | string[]>; set: (name: string, value: string | string[]) => void; currentDirectoryCode?: string }> = ({ token, values, set, currentDirectoryCode }) => {
   const { c } = useTheme();
   const name = String(values.name ?? '');
   const query = useDebounced(name.trim(), 250);
@@ -189,7 +190,7 @@ const SchoolPicker: React.FC<{ token: string; values: Record<string, string | st
       {results.length ? (
         <ScrollView nestedScrollEnabled style={{ maxHeight: 240, borderWidth: 1, borderColor: c.adminLine, borderRadius: 8, backgroundColor: c.the }} accessibilityRole="list">
           {results.map((r) => (
-            <Pressable key={r.code} accessibilityRole="button" accessibilityLabel={`Chọn ${r.name}, ${r.region}`} disabled={r.exists} onPress={() => choose(r)} testID={`school-pick-${r.code}`}
+            <Pressable key={r.code} accessibilityRole="button" accessibilityLabel={`Chọn ${r.name}, ${r.region}`} disabled={r.exists && r.code !== currentDirectoryCode} onPress={() => choose(r)} testID={`school-pick-${r.code}`}
               style={({ pressed }) => ({ minHeight: 52, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 10, opacity: r.exists ? 0.55 : 1, backgroundColor: pressed ? c.adminCanvas : c.the })}>
               <SchoolEmblem name={r.name} code={r.code} logoUrl={r.logo_url} size={32} />
               <View style={{ flex: 1 }}>

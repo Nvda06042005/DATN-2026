@@ -713,3 +713,4 @@ Theo yêu cầu: các danh sách ở trang admin dùng nút qua trang thay vì c
 - Giới hạn: số dòng là ước lượng theo chiều cao cửa sổ (mỗi dòng ~68 px); trang có nhiều bộ lọc hoặc hàng cao hơn bình thường vẫn có thể cuộn một chút. Cuộn trong cửa sổ trình duyệt rất thấp (dưới khoảng 880 px) vẫn xảy ra vì tối thiểu 5 dòng.
 
 - 07/11/2026: bổ sung migration 043–044 lưu 11.371 gợi ý và 422 logo WebP (~4 MB) trong Supabase; SHA-256, API từng ảnh có cache. Đã rà 518 ảnh, loại 96 ảnh không phù hợp; chỉ cập nhật sáp nhập/địa chỉ có nguồn xác minh. Xem docs/DANH_MUC_TRUONG.md.
+- Bổ sung chọn danh mục khi sửa trường cũ để liên kết logo, giữ mã/tài khoản/đường dẫn cũ. Sửa kiểm thử khung giờ chơi: modulo giờ âm phải cộng 24 trước khi lấy dư; kiểm tra PUT khung giờ qua nửa đêm trả 200 thay vì bỏ qua lỗi dữ liệu kiểm thử.

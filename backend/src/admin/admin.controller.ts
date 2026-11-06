@@ -67,6 +67,7 @@ class UpdateMySchoolDto {
 }
 
 class UpdateSchoolDto extends UpdateMySchoolDto {
+  @IsOptional() @IsString() @Length(1, 80) directory_code?: string;
   @IsOptional() @IsString() @MaxLength(80) region?: string | null;
   @IsOptional() @IsString() @MaxLength(80) city?: string | null;
   @ValidateIf((_, v) => v !== undefined) @IsBoolean() is_active?: boolean;

@@ -16,6 +16,8 @@ Giao diện mới không gửi `school_code`; máy chủ sinh mã khi lưu. API 
 
 Form đã bỏ các ô Người liên hệ/Email liên hệ/Điện thoại liên hệ. Thông tin của **Quản trị viên trường đầu tiên** được tách thành một nhóm họ tên/email/điện thoại. Các cột dữ liệu liên hệ cũ được giữ nguyên, không có migration xóa thông tin người dùng.
 
+Trường đã tạo bằng mã ngắn như `0001` có thể chọn **Sửa → tên trường trong danh mục → Lưu** để liên kết nhận diện chính thức. Backend giữ nguyên ID, mã trường, tài khoản; đường dẫn cũ vẫn dùng được. Không tự đoán trường khi có nhiều trường cùng tên: Phú Mỹ tại Bình Thạnh, Thủ Dầu Một và Tân Thành là những đơn vị khác nhau. Danh mục đã liên kết không được gán cho hai trường đăng ký khác nhau.
+
 ## Tìm nhanh
 
 Tìm có dấu/không dấu, mã tham chiếu, địa bàn, tên cũ và chữ viết tắt. `T,S` hoặc `TS` tìm theo chữ đầu tên riêng, không khớp mọi trường chỉ vì đều có tiền tố THCS. Một ký tự cũng có gợi ý. Kết quả nằm trong danh sách cuộn, trả tối đa 30 mục mỗi lần; có thể gõ thêm để thu hẹp.

@@ -99,4 +99,21 @@ import { createHash } from 'node:crypto';
     expect((await sql(s.url, "SELECT * FROM pg_policies WHERE tablename IN ('app_school_logo_assets','app_school_directory')")).length).toBe(0);
     await expect(sql(s.url, 'SET ROLE dong_a_school_scope; SELECT * FROM public.app_school_directory')).rejects.toThrow(/permission denied/);
   });
+
+  test('liên kết trường cũ với danh mục giữ mã, tài khoản và đường dẫn cũ; chặn gán trùng', async () => {
+    const before = (await api('GET', '/api/admin/schools?q=00000001')).body.items[0];
+    const users = (await api('GET', `/api/admin/users?school_id=${before.id}`)).body.items;
+    const updated = await api('PATCH', `/api/admin/schools/${before.id}`, { directory_code: '31303501', name: 'Tên không tin cậy', city: 'Sai địa bàn' });
+    expect(updated.status).toBe(200);
+    expect(updated.body).toMatchObject({ id: before.id, school_code: '00000001', directory_code: '31303501', city: 'Thành phố Hải Phòng' });
+    expect(updated.body.name).not.toBe('Tên không tin cậy');
+    expect(updated.body.logo_url).toMatch(/^https:\/\/.+\/api\/school-logos\/[a-f0-9]{64}\.webp$/);
+    const afterUsers = (await api('GET', `/api/admin/users?school_id=${before.id}`)).body.items;
+    const identity = (rows: any[]) => rows.map(({ city, region, school_name, ...account }) => account);
+    expect(identity(afterUsers)).toEqual(identity(users));
+    expect(afterUsers[0]).toMatchObject({ city: updated.body.city, region: updated.body.region, school_name: updated.body.name });
+    expect((await call(s.base, 'GET', '/api/auth/school-link/' + before.link.slug)).status).toBe(200);
+    expect((await api('POST', '/api/admin/schools', { directory_code: '31303501', name: 'Trường trùng', admin: admin('edit-duplicate') })).status).toBe(409);
+    expect((await api('PATCH', `/api/admin/schools/${before.id}`, { directory_code: 'NO-SUCH-SCHOOL' })).status).toBe(422);
+  });
 });

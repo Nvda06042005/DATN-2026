@@ -187,11 +187,21 @@ export class SchoolService {
     }).then((result) => { this.mail.kick(); return result; });
   }
 
-  async update(id: number, body: { name?: string; region?: string | null; city?: string | null; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null; logo_url?: string | null; is_active?: boolean }) {
+  async update(id: number, body: { directory_code?: string; name?: string; region?: string | null; city?: string | null; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null; logo_url?: string | null; is_active?: boolean }) {
     return this.db.tx(async (q) => {
       const old = (await q<SchoolRow>('SELECT * FROM app_schools WHERE id = $1 FOR UPDATE', [id]))[0];
       if (!old) throw new NotFoundException('Không tìm thấy trường');
-      const entries = Object.entries(body).filter(([k, v]) => ['name', 'region', 'city', 'address', 'contact_name', 'contact_email', 'contact_phone', 'logo_url', 'is_active'].includes(k) && v !== undefined);
+      if (body.directory_code) {
+        const selected = directoryEntry(body.directory_code);
+        if (!selected) throw new UnprocessableEntityException('Không tìm thấy trường được chọn trong danh mục');
+        await q('SELECT pg_advisory_xact_lock(9031, hashtext($1))', [selected.code]);
+        const keys = [selected.code, ...(selected.previous_codes ?? [])];
+        if ((await q('SELECT 1 FROM app_schools WHERE id <> $1 AND (directory_code = $2 OR (directory_code IS NULL AND school_code = ANY($3::text[])))', [id, selected.code, keys])).length) throw new ConflictException('Trường được chọn đã liên kết với trường khác trong hệ thống');
+        const logo = (await q<{logo_sha256: string | null}>('SELECT logo_sha256 FROM app_school_directory WHERE code=$1', [selected.code]))[0]?.logo_sha256;
+        body = { ...body, directory_code: selected.code, name: selected.name, city: selected.city, region: selected.region,
+          address: selected.address ?? body.address ?? old.address, logo_url: logo ? `${config.publicApiUrl}/api/school-logos/${logo}.webp` : body.logo_url ?? old.logo_url };
+      }
+      const entries = Object.entries(body).filter(([k, v]) => ['directory_code', 'name', 'region', 'city', 'address', 'contact_name', 'contact_email', 'contact_phone', 'logo_url', 'is_active'].includes(k) && v !== undefined);
       if (entries.length) {
         const values = entries.map(([k, v]) => (typeof v === 'string' ? (k === 'contact_email' ? v.trim().toLowerCase() : v.trim().replace(/\s+/g, ' ')) || null : v));
         await q(`UPDATE app_schools SET ${entries.map(([k], i) => `${k} = $${i + 2}`).join(', ')} WHERE id = $1`, [id, ...values]);

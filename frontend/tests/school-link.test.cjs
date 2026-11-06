@@ -81,7 +81,7 @@ test('thêm trường: ô tên trường gợi ý từ danh mục và chọn xon
   assert.match(admin, /let live = true;[\s\S]*return \(\) => \{ live = false; \};/);
   assert.match(admin, /if \(justPicked\)/);
   // trường đã có trong hệ thống không chọn lại được
-  assert.match(admin, /disabled=\{r\.exists\}/);
+  assert.match(admin, /disabled=\{r\.exists && r\.code !== currentDirectoryCode\}/);
   // không còn ô dán logo khi thêm trường: huy hiệu tự hiện
   assert.doesNotMatch(admin.slice(admin.indexOf('const CREATE_FIELDS'), admin.indexOf('const SchoolsPanel')), /name: 'logo_url'/);
   assert.match(admin, /logoUrl=\{picked\.logo_url\}/);
