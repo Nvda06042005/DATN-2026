@@ -63,6 +63,9 @@ export interface AuthSession {
 }
 
 // ---------------------------------------------------------------------- trường, năm học, khối
+/** Đường dẫn riêng của trường (donga_<mã>_<tên>_<khu vực>) dùng làm cổng đăng nhập của trường */
+export interface SchoolLink { slug: string; path: string; url: string }
+
 export interface SchoolItem {
   id: number;
   school_code: string;
@@ -74,6 +77,7 @@ export interface SchoolItem {
   contact_email: string | null;
   contact_phone: string | null;
   logo_url: string | null;
+  link: SchoolLink;
   is_active: boolean;
   created_at: string;
   users: number;
@@ -93,6 +97,12 @@ export interface YearItem {
   ended_at: string | null;
   classes?: number;
 }
+
+/** Một trường trong danh mục: chọn thì mã, khu vực, tỉnh/thành và đường dẫn tự điền */
+export interface SchoolDirectoryItem { code: string; name: string; region: string; city: string; note: string | null; exists: boolean; slug: string }
+
+/** Thông tin công khai tối thiểu để vẽ trang đăng nhập riêng của trường */
+export interface SchoolLinkInfo { school_code: string; name: string; region: string | null; city: string | null; logo_url: string | null; is_active: boolean; slug: string }
 
 export interface SchoolDetail extends Omit<SchoolItem, 'users' | 'admins' | 'teachers' | 'students' | 'classes'> {
   counts: { admins: number; teachers: number; students: number; classes: number };

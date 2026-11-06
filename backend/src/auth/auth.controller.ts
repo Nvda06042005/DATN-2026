@@ -1,14 +1,18 @@
-import { Body, Controller, Get, HttpCode, Patch, Post, Req, ServiceUnavailableException, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Req, ServiceUnavailableException, UseGuards } from '@nestjs/common';
 import { IsEmail, IsIn, IsOptional, IsString, IsUrl, Length, Matches, MaxLength } from 'class-validator';
 import { DatabaseService, UserRow } from '../database/database.service';
 import { AllowTempPassword, AuthGuard, CurrentUser } from './auth.guard';
 import { AuthService, Portal, toPublic } from './auth.service';
+
+const SCHOOL_CODE = /^\d{4,8}$/;
 
 class LoginDto {
   @IsString() @Length(1, 96) username: string;
   @IsString() @Length(1, 128) password: string;
   /** Trang đăng nhập: root_admin (/admin), school_admin (/school-manager-admin), teacher (/giao-vien), student (/hoc-sinh); "app" = /portal */
   @IsOptional() @IsIn(['root_admin', 'school_admin', 'teacher', 'student', 'app']) portal: Portal = 'app';
+  /** Mã trường của đường dẫn riêng (donga_<mã>_…): chỉ tài khoản của trường này đăng nhập được */
+  @IsOptional() @Matches(SCHOOL_CODE, { message: 'Mã trường gồm 4–8 chữ số' }) school_code?: string;
 }
 
 class TwoFactorLoginDto {
@@ -20,6 +24,7 @@ class TwoFactorLoginDto {
 class GoogleLoginDto {
   @IsString() @Length(20, 4096) id_token: string;
   @IsOptional() @IsIn(['root_admin', 'student', 'teacher', 'school_admin', 'app']) portal: Portal = 'student';
+  @IsOptional() @Matches(SCHOOL_CODE, { message: 'Mã trường gồm 4–8 chữ số' }) school_code?: string;
 }
 
 /** Mật khẩu người dùng tự đặt: tối thiểu 8 ký tự, gồm cả chữ và số (HK.*.006) */
@@ -71,7 +76,14 @@ export class AuthController {
   @HttpCode(200)
   login(@Body() body: LoginDto) {
     this.ensureReady();
-    return this.auth.login(body.username, body.password, body.portal);
+    return this.auth.login(body.username, body.password, body.portal, body.school_code);
+  }
+
+  /** Trang đăng nhập riêng của trường (đường dẫn donga_<mã>_<tên>_<khu vực>): thông tin công khai tối thiểu của trường */
+  @Get('school-link/:slug')
+  schoolLink(@Param('slug') slug: string) {
+    this.ensureReady();
+    return this.auth.schoolByLink(slug);
   }
 
   /** Bước 2 của đăng nhập có xác thực hai lớp (HK.AD.002) */
@@ -87,7 +99,7 @@ export class AuthController {
   @HttpCode(200)
   google(@Body() body: GoogleLoginDto) {
     this.ensureReady();
-    return this.auth.googleLogin(body.id_token, body.portal);
+    return this.auth.googleLogin(body.id_token, body.portal, body.school_code);
   }
 
   /** Quên mật khẩu (mọi vai trò): gửi mã OTP 6 chữ số tới email tài khoản; luôn trả {ok:true} để không lộ tài khoản nào có thật */

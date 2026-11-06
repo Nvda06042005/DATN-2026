@@ -277,7 +277,7 @@ const FormField: React.FC<{ def: FieldDef; value: string | string[]; error: stri
 // ---------------------------------------------------------------------- mật khẩu tạm (chỉ hiện một lần)
 const MAIL_NOTE = { queued: 'Thư thông tin đăng nhập đã được xếp vào hàng đợi gửi.', no_email: 'Tài khoản chưa có email nên chưa gửi thư: hãy chuyển thông tin này cho người dùng.', not_configured: 'Máy chủ chưa cấu hình gửi thư: hãy chuyển thông tin này cho người dùng.' } as const;
 
-export const CredentialSheet: React.FC<{ title: string; account: { full_name: string; username: string; temporary_password: string; mail: keyof typeof MAIL_NOTE }; onClose: () => void }> = ({ title, account, onClose }) => {
+export const CredentialSheet: React.FC<{ title: string; account: { full_name: string; username: string; temporary_password: string; mail: keyof typeof MAIL_NOTE }; onClose: () => void; extra?: React.ReactNode }> = ({ title, account, onClose, extra }) => {
   const { c } = useTheme();
   const toast = useToast();
   const copy = async () => {
@@ -297,6 +297,7 @@ export const CredentialSheet: React.FC<{ title: string; account: { full_name: st
         <Txt f="bold" size={22} selectable testID="credential-password">{account.temporary_password}</Txt>
       </Inset>
       <Txt size={14} color={c.muc2}>{MAIL_NOTE[account.mail]} Mật khẩu này chỉ hiện một lần; người dùng phải đổi mật khẩu ở lần đăng nhập đầu tiên.</Txt>
+      {extra}
     </Sheet>
   );
 };

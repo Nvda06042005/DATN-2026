@@ -11,6 +11,7 @@ import * as authApi from '@/api/authApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { AdminLogin } from '@/components/admin/AdminLogin';
 import { SchoolLogin } from '@/components/school-login';
+import type { SchoolBrandInfo } from '@/components/school-brand';
 import type { SchoolRole } from '@/lib/school-portal';
 import { BrandLogo, Mascot } from '@/components/art';
 import { ProfileSheet } from '@/components/profile';
@@ -182,17 +183,17 @@ export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) 
 };
 
 // ---------------------------------------------------------------------- đăng nhập chung
-type LoginProps = { portal: Portal | 'app'; onLogin: (token: string, user: AuthUser) => void | Promise<void>; notice?: string | null };
+type LoginProps = { portal: Portal | 'app'; onLogin: (token: string, user: AuthUser) => void | Promise<void>; notice?: string | null; school?: SchoolBrandInfo };
 
 /** Quản trị tổng vẫn dùng cổng riêng; ba vai trò của nhà trường dùng cùng một biểu mẫu. */
 export const LoginScreen: React.FC<LoginProps> = ({ portal, ...rest }) =>
   portal === 'root_admin' ? <AdminLogin portal={portal} {...rest} /> : <SchoolLoginWithRecovery initialRole={portal === 'app' ? 'student' : portal} {...rest} />;
 
-const SchoolLoginWithRecovery: React.FC<Omit<LoginProps, 'portal'> & { initialRole: SchoolRole }> = ({ initialRole, onLogin, notice }) => {
+const SchoolLoginWithRecovery: React.FC<Omit<LoginProps, 'portal'> & { initialRole: SchoolRole }> = ({ initialRole, onLogin, notice, school }) => {
   const [forgot, setForgot] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   return <>
-    <SchoolLogin initialRole={initialRole} onLogin={onLogin} notice={flash ?? notice} onForgotPassword={() => setForgot(true)} />
+    <SchoolLogin initialRole={initialRole} onLogin={onLogin} notice={flash ?? notice} onForgotPassword={() => setForgot(true)} school={school} />
     {forgot && <ForgotPasswordSheet onClose={() => setForgot(false)} onDone={() => { setForgot(false); setFlash('Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.'); }} />}
   </>;
 };

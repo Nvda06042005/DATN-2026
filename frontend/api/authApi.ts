@@ -1,5 +1,5 @@
 import { ApiError, apiRequest } from '@/api/client';
-import type { AuthSession, AuthUser, ClassItem, Portal, ProfileData, ProfilePatch } from '@/types/api';
+import type { AuthSession, AuthUser, ClassItem, Portal, ProfileData, ProfilePatch, SchoolLinkInfo } from '@/types/api';
 import type { TwoFactorChallenge } from '@/types/platform';
 
 /** Phiên server trả về phải có token và đúng vai trò của trang đăng nhập (trang quản trị không nhận phiên của vai trò khác) */
@@ -16,18 +16,21 @@ export const loginToPortal = async (username: string, password: string, portal: 
   checkSession(await apiRequest<AuthSession>('/api/auth/login', { body: { username, password, portal } }), portal);
 
 /** Đăng nhập theo vai trò đã chọn; quản trị bật hai lớp phải hoàn tất thử thách trước khi có phiên. */
-export const loginWithPassword = async (username: string, password: string, portal: Portal): Promise<AuthSession | TwoFactorChallenge> => {
-  const res = await apiRequest<AuthSession | TwoFactorChallenge>('/api/auth/login', { body: { username, password, portal } });
+export const loginWithPassword = async (username: string, password: string, portal: Portal, schoolCode?: string): Promise<AuthSession | TwoFactorChallenge> => {
+  const res = await apiRequest<AuthSession | TwoFactorChallenge>('/api/auth/login', { body: { username, password, portal, ...(schoolCode ? { school_code: schoolCode } : {}) } });
   return 'two_factor' in res ? res : checkSession(res, portal);
 };
 export const loginAdmin = loginWithPassword;
 export const verifyTwoFactor = async (challenge: string, code: string, portal: Portal) => checkSession(await apiRequest<AuthSession>('/api/auth/2fa/verify', { body: { challenge, code, portal } }), portal);
 
 /** Google dùng đúng vai trò đã chọn và vẫn yêu cầu hai lớp nếu tài khoản đã bật. */
-export const loginWithGoogle = async (idToken: string, portal: Portal = 'student'): Promise<AuthSession | TwoFactorChallenge> => {
-  const res = await apiRequest<AuthSession | TwoFactorChallenge>('/api/auth/google', { body: { id_token: idToken, portal } });
+export const loginWithGoogle = async (idToken: string, portal: Portal = 'student', schoolCode?: string): Promise<AuthSession | TwoFactorChallenge> => {
+  const res = await apiRequest<AuthSession | TwoFactorChallenge>('/api/auth/google', { body: { id_token: idToken, portal, ...(schoolCode ? { school_code: schoolCode } : {}) } });
   return 'two_factor' in res ? res : checkSession(res, portal);
 };
+
+/** Trang đăng nhập riêng của trường (đường dẫn donga_<mã>_<tên>_<khu vực>): tên, khu vực và logo công khai của trường */
+export const getSchoolLink = (slug: string) => apiRequest<SchoolLinkInfo>(`/api/auth/school-link/${encodeURIComponent(slug)}`);
 
 /** Tài khoản của phiên đang lưu */
 export const getMe = (token: string) => apiRequest<AuthUser>('/api/auth/me', { token });
