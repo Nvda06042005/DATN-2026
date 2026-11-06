@@ -6,13 +6,12 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { Bell, Building2, ChartColumn, History, LifeBuoy, LibraryBig, Plus, Trash2, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AccountSheet, dateText, ROLE_TEXT } from '@/components/admin/AccountSheet';
-import { AdminSelect } from '@/components/admin/AdminSelect';
 import { SchoolSelect } from '@/components/admin/SchoolSelect';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { SystemStats } from '@/components/admin/AnalyticsAdmin';
 import { BroadcastManager } from '@/components/admin/PlatformComms';
 import { FaqManager, LogsPanel, SupportInbox } from '@/components/admin/PlatformOps';
-import { Cell, CredentialSheet, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad, usePageSize, DataTable, type FieldDef } from '@/components/admin/kit';
+import { Cell, CredentialSheet, ErrorNote, FormSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, usePageSize, DataTable, type FieldDef } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { SchoolEmblem, SchoolLinkBox } from '@/components/school-brand';
 import { schoolLogoUrl } from '@/lib/school-logos';
@@ -95,11 +94,11 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
   return (
     <Page>
       <PageHeader title="Trường học" subtitle="Thêm trường kèm quản trị viên đầu tiên, sửa thông tin, vô hiệu hóa hoặc xóa trường chưa có dữ liệu." actions={<Btn title="Thêm trường" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="school-add" />} />
-      <FilterBar>
-        <FilterBox flex={2}><Field label="Tìm theo tên hoặc mã trường" value={q} onChangeText={(v) => { setQ(v); setPage(1); }} autoCapitalize="none" /></FilterBox>
-        <FilterBox><AdminSelect label="Tỉnh / thành" value={city} options={cities} onChange={(v) => { setCity(String(v)); setPage(1); }} /></FilterBox>
-        <FilterBox><AdminSelect label="Trạng thái" value={active} options={[{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã vô hiệu hóa' }]} onChange={(v) => { setActive(String(v)); setPage(1); }} /></FilterBox>
-      </FilterBar>
+      <SearchFilterBar placeholder="Tìm theo tên hoặc mã trường" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="school-search"
+        filters={[
+          { key: 'city', label: 'Tỉnh / thành', value: city, options: cities, onChange: (v) => { setCity(v); setPage(1); } },
+          { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã vô hiệu hóa' }], onChange: (v) => { setActive(v); setPage(1); } },
+        ]} />
       <ErrorNote message={error} />
       {loading && !data ? <Spinner label="Đang tải danh sách trường…" /> : null}
       {data ? (
@@ -274,12 +273,12 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
   return (
     <Page>
       <PageHeader title="Người dùng toàn hệ thống" subtitle="Xem, tìm, lọc; sửa, đổi vai trò, khóa/mở khóa, đặt lại mật khẩu hoặc xóa tài khoản chưa phát sinh dữ liệu." actions={<Btn title="Tạo tài khoản quản trị" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="user-add" />} />
-      <FilterBar>
-        <FilterBox flex={2}><Field label="Tìm theo tên, tên đăng nhập, email, mã" value={q} onChangeText={(v) => { setQ(v); setPage(1); }} autoCapitalize="none" /></FilterBox>
-        <FilterBox><AdminSelect label="Vai trò" value={role} options={[{ value: '', label: 'Mọi vai trò' }, ...(Object.keys(ROLE_TEXT) as AuthRole[]).map((r) => ({ value: r, label: ROLE_TEXT[r] }))]} onChange={(v) => { setRole(String(v)); setPage(1); }} /></FilterBox>
-        <FilterBox><AdminSelect label="Trường" value={schoolId} options={[{ value: '', label: 'Mọi trường' }, ...schools]} onChange={(v) => { setSchoolId(String(v)); setPage(1); }} /></FilterBox>
-        <FilterBox><AdminSelect label="Trạng thái" value={active} options={[{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }]} onChange={(v) => { setActive(String(v)); setPage(1); }} /></FilterBox>
-      </FilterBar>
+      <SearchFilterBar placeholder="Tìm theo tên, tên đăng nhập, email, mã" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="user-search"
+        filters={[
+          { key: 'role', label: 'Vai trò', value: role, options: [{ value: '', label: 'Mọi vai trò' }, ...(Object.keys(ROLE_TEXT) as AuthRole[]).map((r) => ({ value: r, label: ROLE_TEXT[r] }))], onChange: (v) => { setRole(v); setPage(1); } },
+          { key: 'school', label: 'Trường', value: schoolId, options: [{ value: '', label: 'Mọi trường' }, ...schools], onChange: (v) => { setSchoolId(v); setPage(1); } },
+          { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }], onChange: (v) => { setActive(v); setPage(1); } },
+        ]} />
       <ErrorNote message={error} />
       {loading && !data ? <Spinner label="Đang tải danh sách…" /> : null}
       {data ? (

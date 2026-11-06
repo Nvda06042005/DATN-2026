@@ -434,10 +434,11 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     const view = await call(s.base, 'GET', '/api/auth/profile', undefined, st.token);
     expect(view.body).toMatchObject({ school: { name: 'THCS Kiểm Thử A' }, editable: ['nickname', 'avatar_url', 'bio'] });
     expect(view.body.classes.map((c: any) => [c.name, c.school_year])).toEqual([['7A1', '2026-2027']]);
-    const edited = await call(s.base, 'PATCH', '/api/auth/profile', { nickname: 'Hồ Sơ Bự', avatar_url: 'https://example.edu.vn/a.png' }, st.token);
-    expect(edited.body.user).toMatchObject({ nickname: 'Hồ Sơ Bự', avatar_url: 'https://example.edu.vn/a.png' });
+    const edited = await call(s.base, 'PATCH', '/api/auth/profile', { nickname: 'Hồ Sơ Bự' }, st.token);
+    expect(edited.body.user).toMatchObject({ nickname: 'Hồ Sơ Bự', avatar_url: null });
     for (const bad of [{ full_name: 'Tên Khác' }, { email: 'x@example.edu.vn' }]) expect((await call(s.base, 'PATCH', '/api/auth/profile', bad, st.token)).status).toBe(422);
-    expect((await call(s.base, 'PATCH', '/api/auth/profile', { avatar_url: 'http://khong-https.example/a.png' }, st.token)).status).toBe(422);
+    // ảnh đại diện chỉ đổi bằng cách tải ảnh lên (POST /api/auth/avatar), không dán liên kết nữa
+    for (const link of ['http://khong-https.example/a.png', 'https://example.edu.vn/a.png']) expect((await call(s.base, 'PATCH', '/api/auth/profile', { avatar_url: link }, st.token)).status).toBe(422);
 
     const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Cô Giáo Hồ Sơ', email: 'gv.hoso@example.edu.vn', subject: 'Lịch sử' }, a.token);
     const gv = await activate(s.base, teacher.body.user.username, teacher.body.temporary_password, PW, 'teacher');

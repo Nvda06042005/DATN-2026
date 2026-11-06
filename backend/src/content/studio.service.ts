@@ -130,6 +130,8 @@ export const MEDIA_LIMITS: Record<MediaKind, { maxBytes: number; files: number; 
 };
 /** Tổng dung lượng mọi tệp tải lên của cả hệ thống: tệp nằm trong cơ sở dữ liệu nên cần một trần chung để không làm đầy cơ sở dữ liệu */
 export const MEDIA_SYSTEM_TOTAL = 200 * 1024 * 1024;
+/** Ảnh đại diện của người dùng nằm cùng kho nhưng có tên riêng: không tính vào hạn mức ảnh Quiz và không hiện trong thư viện của giáo viên */
+export const AVATAR_NAME = 'avatar:user';
 /**
  * Chuỗi base64 chuẩn (có thể thiếu dấu "="). Duyệt từng ký tự thay vì dùng biểu thức chính quy: với chuỗi dài hàng MB (video 8 MB mã hóa thành ~11 MB)
  * bộ máy biểu thức chính quy của V8 có thể báo "Maximum call stack size exceeded" ngẫu nhiên và làm yêu cầu trả 500.
@@ -162,16 +164,50 @@ export class MediaService {
     const limit = MEDIA_LIMITS[kind.kind];
     if (bytes.length > limit.maxBytes) throw new BadRequestException(`${limit.label[0].toUpperCase()}${limit.label.slice(1)} tối đa ${limit.max}`);
     const like = `${kind.kind}/%`;
-    const used = (await this.db.query<{ n: string; bytes: string }>('SELECT count(*) AS n, COALESCE(sum(size_bytes), 0) AS bytes FROM hk_media WHERE owner_id = $1 AND mime LIKE $2', [user.id, like]))[0];
+    const used = (await this.db.query<{ n: string; bytes: string }>('SELECT count(*) AS n, COALESCE(sum(size_bytes), 0) AS bytes FROM hk_media WHERE owner_id = $1 AND mime LIKE $2 AND name IS DISTINCT FROM $3', [user.id, like, AVATAR_NAME]))[0];
     if (Number(used.n) >= limit.files || Number(used.bytes) + bytes.length > limit.total) {
       throw new ConflictException(`Mỗi tài khoản tải lên tối đa ${limit.files} ${limit.label} (tổng ${Math.round(limit.total / 1048576)} MB); hãy dùng lại tệp đã tải hoặc xóa bớt tệp không còn dùng`);
     }
     const all = Number((await this.db.query<{ bytes: string }>('SELECT COALESCE(sum(size_bytes), 0) AS bytes FROM hk_media'))[0].bytes);
     if (all + bytes.length > MEDIA_SYSTEM_TOTAL) throw new ConflictException('Kho tải lên của hệ thống đã đầy; hãy liên hệ quản trị viên');
     const token = randomBytes(16).toString('hex');
-    const name = typeof body.name === 'string' ? body.name.trim().slice(0, 120) || null : null;
+    const asked = typeof body.name === 'string' ? body.name.trim().slice(0, 120) || null : null;
+    const name = asked === AVATAR_NAME ? null : asked; // tên dành riêng cho ảnh đại diện
     await this.db.query('INSERT INTO hk_media (token, owner_id, mime, name, size_bytes, data) VALUES ($1, $2, $3, $4, $5, $6)', [token, user.id, kind.mime, name, bytes.length, bytes]);
     return { token, url: `/api/content/media/${token}`, mime: kind.mime, kind: kind.kind, size_bytes: bytes.length, name };
+  }
+
+  /**
+   * Ảnh đại diện của chính người dùng (mọi vai trò): chỉ nhận ảnh PNG, JPEG, WEBP, GIF tối đa 1,5 MB; loại tệp xác định bằng nội dung thật nên đổi đuôi
+   * tệp Word, Excel, PowerPoint, PDF… thành .png vẫn bị từ chối. Mỗi người chỉ giữ một ảnh: ảnh cũ bị xóa khi đổi ảnh mới.
+   */
+  async setAvatar(user: UserRow, body: { data?: unknown }) {
+    const raw = typeof body.data === 'string' ? body.data.replace(/^data:[^;,]*;base64,/, '').replace(/\s+/g, '') : '';
+    if (!isBase64(raw)) throw new BadRequestException('Hãy chọn một tệp ảnh làm ảnh đại diện');
+    const limit = MEDIA_LIMITS.image;
+    if (raw.length > Math.ceil((limit.maxBytes * 4) / 3) + 8) throw new BadRequestException(`Ảnh đại diện tối đa ${limit.max}`);
+    const bytes = Buffer.from(raw, 'base64');
+    const kind = SIGNATURES.find((s) => s.test(bytes));
+    if (!kind || kind.kind !== 'image') throw new BadRequestException('Ảnh đại diện chỉ nhận ảnh PNG, JPEG, WEBP hoặc GIF; không nhận tệp Word, Excel, PowerPoint, PDF hay tệp khác');
+    if (bytes.length > limit.maxBytes) throw new BadRequestException(`Ảnh đại diện tối đa ${limit.max}`);
+    const all = Number((await this.db.query<{ bytes: string }>('SELECT COALESCE(sum(size_bytes), 0) AS bytes FROM hk_media'))[0].bytes);
+    if (all + bytes.length > MEDIA_SYSTEM_TOTAL) throw new ConflictException('Kho tải lên của hệ thống đã đầy; hãy liên hệ quản trị viên');
+    const token = randomBytes(16).toString('hex');
+    const url = `/api/content/media/${token}`;
+    await this.db.tx(async (q) => {
+      await q('INSERT INTO hk_media (token, owner_id, mime, name, size_bytes, data) VALUES ($1, $2, $3, $4, $5, $6)', [token, user.id, kind.mime, AVATAR_NAME, bytes.length, bytes]);
+      await q('UPDATE app_users SET avatar_url = $2 WHERE id = $1', [user.id, url]);
+      await q('DELETE FROM hk_media WHERE owner_id = $1 AND name = $2 AND token <> $3', [user.id, AVATAR_NAME, token]);
+    });
+    return { avatar_url: url };
+  }
+
+  /** Bỏ ảnh đại diện: về lại chữ cái đầu, xóa tệp ảnh đã tải lên */
+  async removeAvatar(user: UserRow) {
+    await this.db.tx(async (q) => {
+      await q('UPDATE app_users SET avatar_url = NULL WHERE id = $1', [user.id]);
+      await q('DELETE FROM hk_media WHERE owner_id = $1 AND name = $2', [user.id, AVATAR_NAME]);
+    });
   }
 
   /** Thông tin tệp (không kèm nội dung) để trả lời yêu cầu `Range` mà không phải đọc cả tệp */
@@ -201,8 +237,8 @@ export class MediaService {
     const url = `/api/content/media/${token}`;
     const used = Number((await this.db.query<{ n: string }>(
       `SELECT (SELECT count(*) FROM hk_questions WHERE image_url = $1 OR video_url = $1) + (SELECT count(*) FROM hk_quizzes WHERE cover_url = $1 OR theme->>'music_url' = $1)
-            + (SELECT count(*) FROM hk_quiz_drafts WHERE payload::text LIKE '%' || $1 || '%') AS n`, [url]))[0].n);
-    if (used) throw new ConflictException('Tệp đang được dùng trong câu hỏi, Quiz hoặc bản nháp; hãy gỡ khỏi nơi đó trước');
+            + (SELECT count(*) FROM hk_quiz_drafts WHERE payload::text LIKE '%' || $1 || '%') + (SELECT count(*) FROM app_users WHERE avatar_url = $1) AS n`, [url]))[0].n);
+    if (used) throw new ConflictException('Tệp đang được dùng trong câu hỏi, Quiz, bản nháp hoặc làm ảnh đại diện; hãy gỡ khỏi nơi đó trước');
     await this.db.query('DELETE FROM hk_media WHERE token = $1', [token]);
     return { deleted: true };
   }
@@ -211,7 +247,7 @@ export class MediaService {
   async library(user: UserRow, q?: string) {
     // tìm không phân biệt hoa thường và dấu (lọc ở máy chủ ứng dụng vì chữ hoa có dấu phụ thuộc bộ ký tự của cơ sở dữ liệu)
     const term = searchText(String(q ?? ''));
-    const mineAll = await this.db.query<{ token: string; name: string | null; mime: string; size_bytes: number }>('SELECT token, name, mime, size_bytes FROM hk_media WHERE owner_id = $1 ORDER BY created_at DESC LIMIT 60', [user.id]);
+    const mineAll = await this.db.query<{ token: string; name: string | null; mime: string; size_bytes: number }>('SELECT token, name, mime, size_bytes FROM hk_media WHERE owner_id = $1 AND name IS DISTINCT FROM $2 ORDER BY created_at DESC LIMIT 60', [user.id, AVATAR_NAME]);
     const withUrl = (m: { token: string; name: string | null; mime: string; size_bytes: number }) => ({ ...m, url: `/api/content/media/${m.token}` });
     const mine = mineAll.filter((m) => kindOfMime(m.mime) === 'image').slice(0, 24);
     const items = await this.db.query<{ kind: string; id: number; title: string; url: string }>(

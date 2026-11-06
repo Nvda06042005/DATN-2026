@@ -3,12 +3,13 @@
  * chọn nhiều, hiển thị mật khẩu tạm một lần, nhập Excel có xem trước. Giao diện phẳng (AdminUiContext) theo bảng màu sáng của dự án.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, ScrollView, TextInput, View, useWindowDimensions } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import { AlertTriangle, Check, CheckSquare, ChevronLeft, ChevronRight, Download, FileUp, Square } from 'lucide-react-native';
+import { AlertTriangle, Check, CheckSquare, ChevronDown, ChevronLeft, ChevronRight, Download, FileUp, Search, SlidersHorizontal, Square, X } from 'lucide-react-native';
 import { ApiError, errorMessage, type PickedFile } from '@/api/client';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { Btn, Card, Chip, EmptyState, Field, Inset, Sheet, Spinner, Txt, useToast } from '@/components/ui';
+import { FONT } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { copyText } from '@/lib/clipboard';
 import { pageSizeFor, pageWindow, TABLE_MIN_WIDTH } from '@/lib/paging';
@@ -103,6 +104,71 @@ export const FilterBar: React.FC<{ children: React.ReactNode }> = ({ children })
 export const FilterBox: React.FC<{ children: React.ReactNode; flex?: number }> = ({ children, flex = 1 }) => (
   <View style={{ flexGrow: flex, flexBasis: 180, minWidth: 160, maxWidth: 360 }}>{children}</View>
 );
+
+export interface SearchFilter {
+  key: string;
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (value: string) => void;
+  testID?: string;
+}
+
+/**
+ * Một thanh duy nhất cho tìm kiếm và lọc: ô tìm kiếm có nút "Bộ lọc" (kèm số bộ lọc đang bật) nằm liền bên phải. Bấm nút mở khung chọn các bộ lọc;
+ * khi khung đóng, bộ lọc đang bật hiện thành nhãn bấm để bỏ từng cái. Giá trị rỗng nghĩa là không lọc.
+ */
+export const SearchFilterBar: React.FC<{ placeholder: string; value: string; onChange: (value: string) => void; filters?: SearchFilter[]; extra?: React.ReactNode; searchId?: string }> = ({ placeholder, value, onChange, filters = [], extra, searchId }) => {
+  const { c } = useTheme();
+  const [open, setOpen] = useState(false);
+  const active = filters.filter((f) => f.value !== '');
+  const chip = (f: SearchFilter) => `${f.label}: ${f.options.find((o) => o.value === f.value)?.label ?? f.value}`;
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+        <View accessibilityRole="search" style={{ flex: 1, minWidth: 260, minHeight: 48, flexDirection: 'row', alignItems: 'center', borderRadius: 999, borderWidth: 1, borderColor: open ? c.logoRed : c.bienXanh, backgroundColor: c.the, paddingLeft: 16, overflow: 'hidden' }}>
+          <Search size={18} color={c.muc3} />
+          <TextInput nativeID={searchId} testID={searchId} accessibilityLabel={placeholder} placeholder={placeholder} placeholderTextColor={c.muc3} value={value} onChangeText={onChange} autoCapitalize="none" autoCorrect={false} returnKeyType="search"
+            style={[{ flex: 1, minWidth: 0, minHeight: 46, paddingHorizontal: 12, fontFamily: FONT.medium, fontSize: 14, color: c.logoInk }, Platform.OS === 'web' ? ({ outlineStyle: 'solid', outlineWidth: 0 } as object) : null]} />
+          {value ? <Pressable testID="search-clear" accessibilityRole="button" accessibilityLabel="Xóa từ khóa tìm kiếm" onPress={() => onChange('')} style={{ width: 36, height: 44, alignItems: 'center', justifyContent: 'center' }}><X size={16} color={c.muc3} /></Pressable> : null}
+          {filters.length ? (
+            <Pressable testID="filter-toggle" accessibilityRole="button" accessibilityLabel={active.length ? `Bộ lọc, đang bật ${active.length}` : 'Bộ lọc'} accessibilityState={{ expanded: open }} onPress={() => setOpen((v) => !v)}
+              style={({ pressed }) => ({ minHeight: 48, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 8, borderLeftWidth: 1, borderLeftColor: c.bienXanh, backgroundColor: open ? c.adminTint : pressed ? c.adminCanvas : c.the })}>
+              <SlidersHorizontal size={17} color={active.length || open ? c.logoRed : c.logoInk} />
+              <Txt f="bold" size={14} color={active.length || open ? c.logoRed : c.logoInk}>Bộ lọc</Txt>
+              {active.length ? <View style={{ minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 6, backgroundColor: c.logoRed, alignItems: 'center', justifyContent: 'center' }}><Txt f="bold" size={11} color={c.trang}>{active.length}</Txt></View> : null}
+              <ChevronDown size={16} color={c.muc3} style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }} />
+            </Pressable>
+          ) : null}
+        </View>
+        {extra}
+      </View>
+      {open && filters.length ? (
+        <View testID="filter-panel" style={{ borderWidth: 1, borderColor: c.adminLine, borderRadius: 16, backgroundColor: c.the, padding: 14, gap: 12 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+            {filters.map((f) => <FilterBox key={f.key}><AdminSelect<string> label={f.label} value={f.value} options={f.options} onChange={f.onChange} testID={f.testID ?? `filter-${f.key}`} /></FilterBox>)}
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
+            {active.length ? <Btn testID="filter-clear" title="Xóa bộ lọc" tone="giay" size="sm" onPress={() => active.forEach((f) => f.onChange(''))} /> : null}
+            <Btn title="Xong" tone="son" size="sm" onPress={() => setOpen(false)} />
+          </View>
+        </View>
+      ) : null}
+      {!open && active.length ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+          {active.map((f) => (
+            <Pressable key={f.key} testID={`filter-chip-${f.key}`} accessibilityRole="button" accessibilityLabel={`Bỏ bộ lọc ${chip(f)}`} onPress={() => f.onChange('')}
+              style={({ pressed }) => ({ minHeight: 32, paddingLeft: 12, paddingRight: 8, borderRadius: 999, borderWidth: 1, borderColor: c.logoRed, backgroundColor: pressed ? c.sonNhat : c.adminTint, flexDirection: 'row', alignItems: 'center', gap: 6 })}>
+              <Txt f="semibold" size={12} color={c.logoRed}>{chip(f)}</Txt>
+              <X size={14} color={c.logoRed} />
+            </Pressable>
+          ))}
+          <Pressable testID="filter-clear-all" accessibilityRole="button" accessibilityLabel="Xóa mọi bộ lọc" onPress={() => active.forEach((f) => f.onChange(''))} style={{ minHeight: 32, justifyContent: 'center', paddingHorizontal: 6 }}><Txt f="semibold" size={12} color={c.muc2}>Xóa tất cả</Txt></Pressable>
+        </View>
+      ) : null}
+    </View>
+  );
+};
 
 /** Số dòng mỗi trang để bảng và nút chuyển trang vừa một màn hình, không phải cuộn dài xuống (cách tính ở lib/paging.ts) */
 export const usePageSize = (): number => {

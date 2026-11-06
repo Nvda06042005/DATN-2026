@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, Patch, Post, Req, ServiceUnavailableException, UseGuards } from '@nestjs/common';
-import { IsEmail, IsIn, IsOptional, IsString, IsUrl, Length, Matches, MaxLength } from 'class-validator';
+import { Equals, IsEmail, IsIn, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
 import { DatabaseService, UserRow } from '../database/database.service';
+import { MediaService } from '../content/studio.service';
 import { AllowTempPassword, AuthGuard, CurrentUser } from './auth.guard';
 import { AuthService, Portal, toPublic } from './auth.service';
 
@@ -46,9 +47,15 @@ class ProfileDto {
   @IsOptional() @IsString() @Length(2, 80) full_name?: string;
   @IsOptional() @IsEmail() @MaxLength(254) email?: string | null;
   @IsOptional() @Matches(/^[0-9+() .-]{8,20}$/, { message: 'Số điện thoại gồm 8–20 chữ số hoặc ký hiệu + ( ) - .' }) phone?: string | null;
-  @IsOptional() @IsUrl({ protocols: ['https'], require_protocol: true }, { message: 'Ảnh đại diện phải là liên kết https' }) @MaxLength(500) avatar_url?: string | null;
+  /** Ảnh đại diện chỉ đổi bằng cách tải ảnh lên (POST /auth/avatar); ở đây chỉ nhận null để xóa ảnh */
+  @IsOptional() @Equals(null, { message: 'Ảnh đại diện chỉ đổi bằng cách tải ảnh lên; gửi null để xóa ảnh' }) avatar_url?: null;
   @IsOptional() @IsString() @MaxLength(300) bio?: string | null;
   @IsOptional() @IsString() @Length(2, 24) nickname?: string | null;
+}
+
+class AvatarDto {
+  /** Ảnh dạng base64 hoặc data URL (tối đa 1,5 MB; mã hóa base64 nên lớn hơn) */
+  @IsString() @MaxLength(2_400_000) data: string;
 }
 
 class ConfirmProfileDto {
@@ -66,6 +73,7 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly db: DatabaseService,
+    private readonly media: MediaService,
   ) {}
 
   private ensureReady(): void {
@@ -147,8 +155,19 @@ export class AuthController {
   @Patch('profile')
   @UseGuards(AuthGuard)
   @AllowTempPassword()
-  updateProfile(@CurrentUser() user: UserRow, @Body() body: ProfileDto) {
+  async updateProfile(@CurrentUser() user: UserRow, @Body() body: ProfileDto) {
+    if (body.avatar_url === null) await this.media.removeAvatar(user);
     return this.auth.updateProfile(user, body as Record<string, string | null | undefined>);
+  }
+
+  /** Ảnh đại diện tải lên (mọi vai trò): chỉ nhận ảnh; trả lại hồ sơ đã cập nhật */
+  @Post('avatar')
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  @AllowTempPassword()
+  async uploadAvatar(@CurrentUser() user: UserRow, @Body() body: AvatarDto) {
+    await this.media.setAvatar(user, body);
+    return this.auth.profile((await this.db.getById(user.id))!);
   }
 
   /** Học sinh xác nhận hồ sơ ở lần đăng nhập đầu tiên (HK.HS.004) */

@@ -4,7 +4,7 @@
  * Đổi mật khẩu mặc định và xác nhận hồ sơ lần đầu vẫn là bước bắt buộc trước khi truy cập nội dung.
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { Animated, Platform, View, useWindowDimensions } from 'react-native';
+import { Animated, Platform, Pressable, View, useWindowDimensions } from 'react-native';
 import { Redirect } from 'expo-router';
 import { AlertTriangle, Eye, EyeOff, KeyRound, LogOut, User } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
@@ -413,6 +413,7 @@ export const TopBar: React.FC<{ session: Session; subtitle: string; extra?: Reac
   const [profile, setProfile] = useState(false);
   const loadProfile = useCallback(() => authApi.getProfile(session.token), [session.token]);
   const saveProfile = useCallback((patch: ProfilePatch) => authApi.updateProfile(session.token, patch), [session.token]);
+  const uploadAvatar = useCallback((img: { data: string }) => authApi.uploadAvatar(session.token, img), [session.token]);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: c.the, borderBottomWidth: 2, borderBottomColor: c.vien }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
@@ -425,23 +426,25 @@ export const TopBar: React.FC<{ session: Session; subtitle: string; extra?: Reac
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         {extra}
-        <Avatar name={user.full_name} size={34} />
-        {width >= 760 && (
-          <View>
-            <Txt f="bold" size={14} numberOfLines={1} style={{ maxWidth: 180 }}>
-              {user.full_name}
-            </Txt>
-            <Txt size={12} color={c.muc2}>
-              {ROLE_LABEL[user.role]}
-              {user.class_name ? ` · Lớp ${user.class_name}` : ''}
-            </Txt>
-          </View>
-        )}
+        <Pressable testID="topbar-profile-open" accessibilityRole="button" accessibilityLabel="Mở hồ sơ cá nhân" onPress={() => setProfile(true)} style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 999, paddingRight: 6, backgroundColor: pressed ? c.dichNhat : 'transparent' })}>
+          <Avatar name={user.full_name} uri={user.avatar_url} size={34} />
+          {width >= 760 && (
+            <View>
+              <Txt f="bold" size={14} numberOfLines={1} style={{ maxWidth: 180 }}>
+                {user.full_name}
+              </Txt>
+              <Txt size={12} color={c.muc2}>
+                {ROLE_LABEL[user.role]}
+                {user.class_name ? ` · Lớp ${user.class_name}` : ''}
+              </Txt>
+            </View>
+          )}
+        </Pressable>
         <Btn tone="giay" size="sm" icon={User} label="Hồ sơ cá nhân" onPress={() => setProfile(true)} testID="open-profile" />
         <Btn tone="giay" size="sm" icon={KeyRound} label="Đổi mật khẩu" onPress={session.changePassword} />
         <Btn tone="giay" size="sm" icon={LogOut} title={width >= 520 ? 'Đăng xuất' : undefined} label="Đăng xuất" onPress={() => session.logout()} />
       </View>
-      {profile && <ProfileSheet onClose={() => setProfile(false)} load={loadProfile} save={saveProfile} onSaved={session.updateUser} />}
+      {profile && <ProfileSheet onClose={() => setProfile(false)} load={loadProfile} save={saveProfile} upload={uploadAvatar} onSaved={session.updateUser} />}
     </View>
   );
 };

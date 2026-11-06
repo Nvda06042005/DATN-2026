@@ -4,12 +4,13 @@
  */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AccessibilityInfo, ActivityIndicator, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  AccessibilityInfo, ActivityIndicator, Animated, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
   useWindowDimensions, type StyleProp, type TextInputInstance, type TextInputProps, type TextStyle, type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Path, Pattern, Rect } from 'react-native-svg';
 import { Info, Star, X } from 'lucide-react-native';
+import { API_BASE_URL } from '@/api/client';
 import { Mascot, PatternOverlay, type MascotMood } from '@/components/art';
 import { FONT, ON_BRIGHT, toneColors, type FontName, type Palette, type Tone } from '@/constants/theme';
 import { avatarColor, initialsOf } from '@/lib/format';
@@ -410,18 +411,25 @@ export const RichText: React.FC<{ text: string; size?: number; color?: string }>
   );
 };
 
-/** Ảnh đại diện chữ cái đầu */
-export const Avatar: React.FC<{ name: string; size?: number }> = ({ name, size = 40 }) => (
-  <View
-    accessibilityElementsHidden
-    importantForAccessibility="no-hide-descendants"
-    style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: avatarColor(name), alignItems: 'center', justifyContent: 'center' }}
-  >
-    <Txt f="display" size={size * 0.4} color="#ffffff">
-      {initialsOf(name)}
-    </Txt>
-  </View>
-);
+/** Ảnh đại diện: ảnh người dùng đã tải lên (`uri`, đường dẫn kho tệp hoặc liên kết https); chưa có hoặc ảnh lỗi thì hiện chữ cái đầu */
+export const Avatar: React.FC<{ name: string; size?: number; uri?: string | null }> = ({ name, size = 40, uri }) => {
+  const [failed, setFailed] = useState<string | null>(null);
+  const src = uri ? (uri.startsWith('/') ? `${API_BASE_URL}${uri}` : uri) : null;
+  if (src && failed !== src) {
+    return <Image source={{ uri: src }} onError={() => setFailed(src)} accessibilityLabel={`Ảnh đại diện của ${name}`} accessibilityIgnoresInvertColors style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: avatarColor(name) }} />;
+  }
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: avatarColor(name), alignItems: 'center', justifyContent: 'center' }}
+    >
+      <Txt f="display" size={size * 0.4} color="#ffffff">
+        {initialsOf(name)}
+      </Txt>
+    </View>
+  );
+};
 
 // ---------------------------------------------------------------------- ô nhập
 const fieldStyles = (c: Palette) => ({
