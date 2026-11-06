@@ -8,19 +8,17 @@
  * Màn hẹp thu phần nhận diện thành đầu khung; form gồm ô nhập có chữ gợi ý, nút đỏ và liên kết "Quên mật khẩu".
  * Cổng quản trị độc lập: không có nút hay liên kết về trang chủ hoặc cổng khác.
  */
-import React, { useId, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Platform, Pressable, StyleSheet, TextInput, View, useWindowDimensions, type TextInputInstance, type TextInputProps } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Defs, Image as SvgImage, Pattern, Polygon } from 'react-native-svg';
-import { ArrowLeft, ArrowRight, CircleCheck, Eye, EyeOff, Info, MailCheck, TriangleAlert } from 'lucide-react-native';
+import React, { useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Platform, Pressable, View, type TextInputInstance } from 'react-native';
+
+import { ArrowLeft, ArrowRight, CircleCheck, Info, MailCheck, TriangleAlert } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { ApiError, errorMessage } from '@/api/client';
-import { BrandLogo, FilmBackdrop, PatternOverlay } from '@/components/art';
-import { HeritageBackdrop } from '@/components/admin/HeritageBackdrop';
+
 import { GoogleSignIn } from '@/components/google-sign-in';
 import { Txt } from '@/components/ui';
-import { FONT } from '@/constants/theme';
+import { LoginLayout, LoginHeading as Heading, LoginInput as AuthInput, LoginPasswordToggle as ShowToggle, LoginActions } from '@/components/login-layout';
+
 import { useShake } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
 import type { AuthUser } from '@/types/api';
@@ -41,7 +39,6 @@ const COPY: Record<AdminPortal, { label: string; placeholder: string; account: s
     account: 'Quản trị trường chỉ truy cập trường được gán. Tài khoản do quản trị tổng cấp, không có đăng ký tự do.',
   },
 };
-const LOGIN_PATTERN = require('../../assets/hoa-tiet-nen.png');
 
 // ---------------------------------------------------------------------- thành phần nhỏ
 const Banner: React.FC<{ tone: 'error' | 'success' | 'info'; text: string }> = ({ tone, text }) => {
@@ -54,82 +51,6 @@ const Banner: React.FC<{ tone: 'error' | 'success' | 'info'; text: string }> = (
         {text}
       </Txt>
     </View>
-  );
-};
-
-type InputProps = Omit<TextInputProps, 'style' | 'placeholder'> & {
-  /** Vừa là chữ gợi ý trong ô vừa là nhãn cho trình đọc màn hình */
-  label: string;
-  nativeID: string;
-  invalid?: boolean;
-  hint?: string;
-  inputRef?: React.Ref<TextInputInstance>;
-  /** Nút trong ô (ví dụ hiện/ẩn mật khẩu) */
-  right?: React.ReactNode;
-  /** Hiện nhãn phía trên thay cho chữ gợi ý, dùng khi hai ô cùng loại nằm cạnh nhau (đặt mật khẩu mới) */
-  showLabel?: boolean;
-  placeholder?: string;
-  rounded?: boolean;
-};
-
-/** Ô nhập có nhãn trợ năng; form đăng nhập dùng nhãn phía trên và góc bo như portal. */
-const AuthInput: React.FC<InputProps> = ({ label, nativeID, invalid, hint, inputRef, right, showLabel, placeholder, rounded, ...rest }) => {
-  const { c } = useTheme();
-  const [focus, setFocus] = useState(false);
-  return (
-    <View style={{ gap: 6 }}>
-      {showLabel ? (
-        <Txt f="bold" size={14} color={c.muc2}>
-          {label}
-        </Txt>
-      ) : null}
-      <View>
-        <TextInput
-          ref={inputRef}
-          nativeID={nativeID}
-          accessibilityLabel={label}
-          placeholder={placeholder ?? (showLabel ? undefined : label)}
-          placeholderTextColor={c.muc3}
-          onFocus={() => setFocus(true)}
-          onBlur={() => setFocus(false)}
-          style={[
-            {
-              minHeight: rounded ? 46 : 54,
-              borderRadius: rounded ? 10 : 4,
-              borderWidth: rounded ? 1 : 1.5,
-              borderColor: invalid ? c.son : focus ? c.logoRed : rounded ? c.bienDam : c.muc3,
-              backgroundColor: c.the,
-              paddingHorizontal: rounded ? 14 : 20,
-              paddingRight: right ? 58 : 20,
-              fontFamily: FONT.medium,
-              fontSize: rounded ? 14 : 17,
-              color: c.logoInk,
-            },
-            focus && { boxShadow: `0 0 0 3px ${c.logoRed}33` },
-            // Trình duyệt vẽ thêm viền mặc định khi nhập: vòng sáng ở trên đã thay thế
-            Platform.OS === 'web' && { outlineStyle: 'solid', outlineWidth: 0 },
-          ]}
-          {...rest}
-        />
-        {right ? <View style={{ position: 'absolute', right: 4, top: 0, bottom: 0, justifyContent: 'center' }}>{right}</View> : null}
-      </View>
-      {hint ? (
-        <Txt size={13} color={c.muc2}>
-          {hint}
-        </Txt>
-      ) : null}
-    </View>
-  );
-};
-
-/** Nút hiện/ẩn mật khẩu trong ô nhập */
-const ShowToggle: React.FC<{ shown: boolean; onToggle: () => void }> = ({ shown, onToggle }) => {
-  const { c } = useTheme();
-  const Icon = shown ? EyeOff : Eye;
-  return (
-    <Pressable onPress={onToggle} accessibilityRole="button" accessibilityLabel={shown ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} accessibilityState={{ selected: shown }} style={{ width: 46, height: 46, alignItems: 'center', justifyContent: 'center' }}>
-      <Icon size={22} color={c.muc3} />
-    </Pressable>
   );
 };
 
@@ -168,78 +89,10 @@ const TextLink: React.FC<{ title: string; onPress: () => void; icon?: IconType }
   );
 };
 
-const Heading: React.FC<{ title: string; text?: string }> = ({ title, text }) => {
-  const { c } = useTheme();
-  const parts: Record<string, [string, string]> = {
-    'Đăng nhập': ['Đăng', 'nhập'],
-    'Quên mật khẩu': ['Quên', 'mật khẩu'],
-    'Đặt mật khẩu mới': ['Đặt', 'mật khẩu mới'],
-    'Kiểm tra hộp thư': ['Kiểm tra', 'hộp thư'],
-  };
-  const [main, accent] = parts[title] ?? [title, ''];
-  return (
-    <View testID="admin-auth-heading" style={{ gap: 12 }}>
-      <Txt testID="admin-auth-title" f="heavy" size={34} color={c.logoInk} accessibilityRole="header" style={{ lineHeight: 44 }}>
-        {main}{accent ? ' ' : ''}
-        {accent && <Txt testID="admin-auth-title-accent" f="serifItalic" size={34} color={c.logoRed} style={{ lineHeight: 44 }}>{accent}</Txt>}
-      </Txt>
-      {text ? (
-        <Txt size={16} color={c.muc2}>
-          {text}
-        </Txt>
-      ) : null}
-    </View>
-  );
-};
-
-// ---------------------------------------------------------------------- khung nhỏ, ảnh động và form chia chéo bên trong
-const Shell: React.FC<{ portal: AdminPortal; children: React.ReactNode }> = ({ portal, children }) => {
-  const { c } = useTheme();
-  const { width, height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
-  const wide = width >= 860;
-  const edge = height < 650 ? 12 : wide ? 24 : 16;
-  const cardWidth = Math.min(940, width - edge * 2);
-  const cardHeight = Math.min(wide ? 620 : 740, Math.max(200, height - insets.top - insets.bottom - edge * 2));
-  const paperId = `admin-card-paper-${useId().replace(/:/g, '')}`;
-  const copy = COPY[portal];
-  const tint = [`${c.dem}db`, `${c.dem}b3`, `${c.dem}80`] as const;
-
-  return (
-    <View testID="admin-login-shell" style={{ flex: 1, minHeight: 0, backgroundColor: c.logoPaper, overflow: 'hidden' }}>
-      <HeritageBackdrop />
-      <View style={{ flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: edge, paddingTop: insets.top + edge, paddingBottom: insets.bottom + edge }}>
-        <View testID="admin-login-card" style={{ width: '100%', maxWidth: 940, height: cardHeight, maxHeight: '100%', backgroundColor: c.logoPaper, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)', boxShadow: '0 24px 80px rgba(85,49,19,0.22)', overflow: 'hidden' }}>
-          <View testID="admin-login-art" style={wide ? { position: 'absolute', left: 0, top: 0, bottom: 0, width: '52%', backgroundColor: c.dem, overflow: 'hidden' } : { height: height < 700 ? 96 : 144, backgroundColor: c.dem, overflow: 'hidden' }}>
-            <FilmBackdrop wide={wide} />
-            <LinearGradient colors={tint} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.4 }} style={StyleSheet.absoluteFill} />
-            <View testID="admin-login-brand" style={{ position: 'absolute', left: wide ? 24 : 16, top: wide ? 24 : 14 }}>
-              <BrandLogo light subtitle={copy.label} />
-            </View>
-          </View>
-          {wide && <Svg testID="admin-login-paper" pointerEvents="none" width="100%" height="100%" viewBox={`0 0 ${cardWidth} ${cardHeight}`} preserveAspectRatio="none" style={StyleSheet.absoluteFill}>
-            <Defs><Pattern id={paperId} width={382} height={512} patternUnits="userSpaceOnUse"><SvgImage href={LOGIN_PATTERN} width={382} height={512} opacity={0.075} /></Pattern></Defs>
-            <Polygon testID="admin-login-diagonal" points={`${cardWidth * 0.493},0 ${cardWidth},0 ${cardWidth},${cardHeight} ${cardWidth * 0.41},${cardHeight}`} fill={c.logoPaper} />
-            <Polygon points={`${cardWidth * 0.493},0 ${cardWidth},0 ${cardWidth},${cardHeight} ${cardWidth * 0.41},${cardHeight}`} fill={`url(#${paperId})`} />
-          </Svg>}
-          <View testID="admin-login-panel" style={wide ? { position: 'absolute', left: '52%', right: 0, top: 0, bottom: 0 } : { flex: 1, minHeight: 0 }}>
-            {!wide && <PatternOverlay opacity={0.075} />}
-            <Animated.ScrollView testID="admin-login-form" keyboardShouldPersistTaps="handled" style={{ flex: 1, minHeight: 0 }} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingLeft: wide ? Math.round(cardWidth * 0.07) : 20, paddingRight: wide ? 28 : 20, paddingTop: height < 700 ? 16 : 24, paddingBottom: height < 700 ? 16 : 24 }}>
-              <View style={{ width: '100%', maxWidth: 570, alignSelf: 'center', gap: height < 700 ? 14 : 24 }}>
-                {children}
-                <Txt size={11} color={c.muc3} center>© 2026 · Bản quyền thuộc quản lý Đông A</Txt>
-              </View>
-            </Animated.ScrollView>
-          </View>
-        </View>
-      </View>
-    </View>
-  );
-};
+const Shell: React.FC<{ portal: AdminPortal; children: React.ReactNode }> = ({ portal, children }) => <LoginLayout kind="admin" subtitle={COPY[portal].label}>{children}</LoginLayout>;
 
 // ---------------------------------------------------------------------- đăng nhập (TM.AUTH.001)
 const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: AuthUser) => void; onForgot: () => void; notice?: string | null; success?: string | null }> = ({ portal, onLogin, onForgot, notice, success }) => {
-  const { c } = useTheme();
   const copy = COPY[portal];
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -332,7 +185,6 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
         label={copy.placeholder}
         placeholder="Nhập tên đăng nhập"
         showLabel
-        rounded
         nativeID="admin-username"
         value={username}
         onChangeText={setUsername}
@@ -349,7 +201,6 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
         label="Mật khẩu"
         placeholder="Nhập mật khẩu"
         showLabel
-        rounded
         nativeID="admin-password"
         inputRef={passwordRef}
         value={password}
@@ -369,12 +220,7 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
           <Banner tone="error" text={error} />
         </Animated.View>
       ) : null}
-      <View testID="admin-login-actions" style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Pressable accessibilityRole="link" accessibilityLabel="Quên mật khẩu" onPress={onForgot} style={{ minHeight: 44, justifyContent: 'center' }}>
-          <Txt f="semibold" size={12} color={c.logoRed}>Quên mật khẩu?</Txt>
-        </Pressable>
-        <SubmitButton title={loading ? 'Đang đăng nhập…' : 'Đăng nhập'} loading={loading} onPress={submit} testID="login-submit" stretch />
-      </View>
+      <LoginActions loading={loading} onPress={submit} onForgot={onForgot} actionsTestID="admin-login-actions" />
       <GoogleSignIn disabled={loading} onToken={idToken => { void googleLogin(idToken); }} />
     </>
   );

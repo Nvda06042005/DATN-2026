@@ -594,6 +594,14 @@ Quyết định khi cho chỉnh số hạng và ngày chốt:
 - Kiểm thử danh tính Google dùng token RSA ký bằng khóa thử trong bộ nhớ và dữ liệu PostgreSQL tạm; không dùng dữ liệu production, không gửi thư thật. Đăng nhập bằng tài khoản Google thật vẫn cần người dùng chọn tài khoản trên website.
 - Kiểm tra local đạt: typecheck/build frontend và backend; 41 bài frontend, 25 bài xác thực và 15 bài nền tảng/2FA trên PostgreSQL tạm. Trình duyệt ẩn kiểm tra 6 kích thước, nút Google gửi đúng `root_admin`, mở bước 2FA trước khi có phiên, cùng đăng nhập mật khẩu/quên mật khẩu; Google trong lượt trình duyệt này dùng SDK/danh tính giả.
 
+## Đồng nhất bố cục và phông admin/portal ngày 06/11/2026
+
+- Theo yêu cầu mới, dùng chung `LoginLayout`, `LoginHeading`, `LoginInput`, `LoginActions` và nút hiện/ẩn mật khẩu cho `/admin` và `/portal`. Cả hai có nền giấy cổ/trống đồng, ảnh động/logo bên trái, form hoa văn bên phải với cạnh chéo; portal thêm bộ chọn ba vai trò và liên kết về trang chủ.
+- Cân lại khung tối đa 1000 × 680 trên máy tính, mở rộng cột form và giới hạn nội dung 460px ở giữa. Dùng cùng cỡ chữ, khoảng cách, viền ấm và nút đăng nhập toàn chiều ngang; khi màn thấp thì liên kết/nút nằm chung hàng để vừa màn hình. Màn hẹp dùng dải ảnh đầu khung, cuộn trong form khi cần.
+- Manrope cho tiêu đề chính, mô tả, nhãn, ô nhập, nút và footer; Newsreader nghiêng cho chữ nhấn trong tiêu đề của cả hai trang. Bỏ một chỗ ghi đè font mặc định ở chi tiết kho lịch sử admin để nội dung tiếp tục dùng Manrope.
+- Giữ nguyên xử lý vai trò, mật khẩu, Google, hai lớp, quên mật khẩu và điều hướng vào khu vực tương ứng; không đổi API hoặc database/migration.
+- Kiểm tra: typecheck, 41 bài frontend và build đạt; trình duyệt so sánh cả hai trang ở 6 kích thước từ 360 × 640 đến 1920 × 1080. Khung/cột/ô nhập/nút cùng kích thước, Manrope và Newsreader xác nhận bằng computed style, form ban đầu vừa màn hình. Thử ba vai trò, hiện/ẩn mật khẩu, Google/mật khẩu gửi đúng vai trò, bước hai lớp và quên mật khẩu bằng API/SDK giả lập.
+
 ## Chưa làm (ngoài Sprint 1–7) và đề xuất
 
 - Đặc tả ver0.2 (408 chức năng) đã có mã cho mọi mục. Còn "Một phần" / giới hạn: sa bàn chỉ là sơ đồ minh họa chưa kiểm chứng, một số mục ở Sprint 11–12; nội dung khởi tạo (kho lịch sử, câu hỏi, trận đánh, sa bàn) vẫn là bản nháp chờ giáo viên Lịch sử kiểm chứng.

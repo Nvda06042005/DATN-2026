@@ -7,6 +7,7 @@ Ngày 31/10/2026 dự án từng được rút gọn còn trang chủ, Điều k
 - Import mã `src` trong kiểm thử phải dùng `import()` động sau khi `startApp` đặt biến môi trường (cấu hình đọc khi import).
 - Dùng bảng màu sáng trong `constants/theme.ts`, `useTheme()` và các phông Manrope/Newsreader đã nạp ở `_layout.tsx`. Nút có nhãn trợ năng và vùng chạm ít nhất 44pt.
 - Theo yêu cầu ngày 06/11/2026, `/admin` có Google như `/portal`, chỉ mở tài khoản `root_admin` đã được cấp với email Gmail/Workspace trùng hồ sơ. Thư viện Google xác minh ID token tại API; giữ kiểm tra vai trò, khóa tài khoản và 2FA. Không tạo tài khoản hoặc nâng quyền từ Google; không thêm quản lý tổng vào bộ chọn ba vai trò của `/portal`.
+- Cập nhật tiếp ngày 06/11/2026: admin và portal dùng chung `components/login-layout.tsx` (nền lịch sử, ảnh động, form hoa văn chia chéo, Manrope/Newsreader và bộ điều khiển). Portal giữ ba vai trò cùng liên kết về trang chủ; admin vẫn là cổng quản lý tổng riêng. Không khôi phục bố cục portal cũ nền thành lũy khi sửa tiếp.
 - Ghi công ảnh và bản đồ nằm ở trang riêng `/thong-tin-hinh-anh` (liên kết từ footer), `assets/hero-photos/ATTRIBUTION.md` và `constants/map-credits.ts`. Trang này dùng `InfoShell`, Manrope/Newsreader như Điều khoản sử dụng. Giữ thông báo giấy phép của mã bên thứ ba còn dùng (React Bits, Leaflet).
 - Kiểm tra giao diện bằng `cd frontend`, `npm run typecheck`, `npm test`, `npm run build`; thay đổi cổng quản trị nên chụp thử trên bản web (xem ghi chú dự án về Chrome CDP).
 
