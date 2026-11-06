@@ -11,6 +11,7 @@ import { AdminSelect } from '@/components/admin/AdminSelect';
 import { Btn, Card, Chip, EmptyState, Field, Inset, Sheet, Spinner, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { copyText } from '@/lib/clipboard';
+import { pageSizeFor, pageWindow, TABLE_MIN_WIDTH } from '@/lib/paging';
 import type { ImportResult } from '@/types/api';
 
 // ---------------------------------------------------------------------- tải dữ liệu
@@ -103,15 +104,34 @@ export const FilterBox: React.FC<{ children: React.ReactNode; flex?: number }> =
   <View style={{ flexGrow: flex, flexBasis: 180, minWidth: 160, maxWidth: 360 }}>{children}</View>
 );
 
+/** Số dòng mỗi trang để bảng và nút chuyển trang vừa một màn hình, không phải cuộn dài xuống (cách tính ở lib/paging.ts) */
+export const usePageSize = (): number => {
+  const { width, height } = useWindowDimensions();
+  return pageSizeFor(width, height);
+};
+
+/** Nút chuyển trang: Trước, các số trang, Sau; chỉ hiện khi có nhiều hơn một trang (còn không thì chỉ ghi số kết quả) */
 export const Pager: React.FC<{ page: number; limit: number; total: number; onPage: (page: number) => void }> = ({ page, limit, total, onPage }) => {
   const { c } = useTheme();
   const pages = Math.max(1, Math.ceil(total / limit));
   if (total <= limit) return <Txt size={13} color={c.muc3}>{total} kết quả</Txt>;
+  const from = (page - 1) * limit + 1, to = Math.min(total, page * limit);
+  const pill = (props: { key: string; testID: string; label: string; disabled?: boolean; on?: boolean; onPress: () => void; children: React.ReactNode }) => (
+    <Pressable key={props.key} testID={props.testID} accessibilityRole="button" accessibilityLabel={props.label} accessibilityState={{ disabled: props.disabled, selected: props.on }} disabled={props.disabled} onPress={props.onPress}
+      style={({ pressed }) => ({ minWidth: 40, height: 40, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: props.on ? c.den : c.bienXanh, backgroundColor: props.on ? c.den : pressed ? c.adminCanvas : c.the, opacity: props.disabled ? 0.4 : 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 })}>
+      {props.children}
+    </Pressable>
+  );
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-      <Btn icon={ChevronLeft} label="Trang trước" tone="giay" size="sm" disabled={page <= 1} onPress={() => onPage(page - 1)} />
-      <Txt size={13} color={c.muc2}>Trang {page}/{pages} · {total} kết quả</Txt>
-      <Btn icon={ChevronRight} label="Trang sau" tone="giay" size="sm" disabled={page >= pages} onPress={() => onPage(page + 1)} />
+    <View testID="pager" accessibilityRole="toolbar" accessibilityLabel="Chuyển trang" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+      <Txt size={13} color={c.muc2}>Hiển thị {from}–{to} / {total} kết quả</Txt>
+      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+        {pill({ key: 'prev', testID: 'pager-prev', label: 'Trang trước', disabled: page <= 1, onPress: () => onPage(page - 1), children: <><ChevronLeft size={16} color={c.logoInk} /><Txt f="bold" size={13}>Trước</Txt></> })}
+        {pageWindow(page, pages).map((n, i) => n === '…'
+          ? <Txt key={`gap${i}`} size={13} color={c.muc3} style={{ paddingHorizontal: 2 }}>…</Txt>
+          : pill({ key: `p${n}`, testID: `pager-page-${n}`, label: `Trang ${n}`, on: n === page, onPress: () => onPage(n), children: <Txt f="bold" size={13} color={n === page ? c.trang : c.logoInk}>{n}</Txt> }))}
+        {pill({ key: 'next', testID: 'pager-next', label: 'Trang sau', disabled: page >= pages, onPress: () => onPage(page + 1), children: <><Txt f="bold" size={13}>Sau</Txt><ChevronRight size={16} color={c.logoInk} /></> })}
+      </View>
     </View>
   );
 };
@@ -128,17 +148,27 @@ export interface Column<T> {
 }
 
 /** Bảng khi đủ rộng; danh sách thẻ "nhãn: giá trị" trên màn hẹp. Hàng có thể bấm để mở chi tiết. */
-export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions, actionsWidth = 150 }: {
+export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions, actionsWidth = 150, paginate = true }: {
   columns: Column<T>[]; rows: T[]; rowKey: (row: T) => string | number; onRowPress?: (row: T) => void; empty: string; actions?: (row: T) => React.ReactNode; actionsWidth?: number;
+  /** Tự chia trang theo màn hình khi nhiều dòng hơn một trang (mặc định bật). Tắt khi bảng đã được chia trang ở máy chủ và có nút Pager riêng. */
+  paginate?: boolean;
 }) {
   const { c } = useTheme();
   const { width } = useWindowDimensions();
-  const table = width >= 1000;
+  const size = usePageSize();
+  const [page, setPage] = useState(1);
+  const table = width >= TABLE_MIN_WIDTH;
+  const paged = paginate && rows.length > size;
+  const pages = Math.max(1, Math.ceil(rows.length / size));
+  const current = Math.min(page, pages);
+  useEffect(() => { if (page > pages) setPage(pages); }, [page, pages]);
   if (!rows.length) return <EmptyState mood="thinking" title={empty} />;
+  const shown = paged ? rows.slice((current - 1) * size, current * size) : rows;
+  const pager = paged ? <Pager page={current} limit={size} total={rows.length} onPage={setPage} /> : null;
   if (!table) {
     return (
       <View style={{ gap: 10 }}>
-        {rows.map((row) => (
+        {shown.map((row) => (
           <Card key={rowKey(row)} flat pad={14} style={{ gap: 6 }}>
             <Pressable accessibilityRole={onRowPress ? 'button' : undefined} disabled={!onRowPress} onPress={() => onRowPress?.(row)} style={{ gap: 6 }}>
               {columns.filter((col) => !col.hideOnCard).map((col, index) => (
@@ -151,22 +181,26 @@ export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions
             {actions ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 }}>{actions(row)}</View> : null}
           </Card>
         ))}
+        {pager}
       </View>
     );
   }
   return (
+    <View style={{ gap: 10 }}>
     <View style={{ borderWidth: 1, borderColor: c.adminLine, borderRadius: 5, backgroundColor: c.the, overflow: 'hidden' }}>
       <View style={{ flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 10, backgroundColor: c.adminCanvas, borderBottomWidth: 1, borderBottomColor: c.adminLine, gap: 12 }}>
         {columns.map((col) => <Txt key={col.key} f="bold" size={12} color={c.muc2} style={{ flex: col.flex ?? 1 }}>{col.label}</Txt>)}
         {actions ? <View style={{ width: actionsWidth }} /> : null}
       </View>
-      {rows.map((row, i) => (
+      {shown.map((row, i) => (
         <Pressable key={rowKey(row)} accessibilityRole={onRowPress ? 'button' : undefined} disabled={!onRowPress} onPress={() => onRowPress?.(row)}
           style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, minHeight: 52, paddingVertical: 8, gap: 12, borderTopWidth: i ? 1 : 0, borderTopColor: c.adminLine, backgroundColor: pressed ? c.adminCanvas : c.the })}>
           {columns.map((col) => <View key={col.key} style={{ flex: col.flex ?? 1, minWidth: 0 }}>{col.render(row)}</View>)}
           {actions ? <View style={{ width: actionsWidth, flexDirection: 'row', gap: 6, justifyContent: 'flex-end' }}>{actions(row)}</View> : null}
         </Pressable>
       ))}
+    </View>
+    {pager}
     </View>
   );
 }

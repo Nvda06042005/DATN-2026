@@ -698,3 +698,14 @@ Theo yêu cầu: xóa thanh "Quản trị tổng · Toàn hệ thống – Bạn
 - **Giống trang chủ**: nền giấy dó kem có hoa văn trống đồng (cùng nền với trang chủ và trang đăng nhập); thanh đầu dạng viên thuốc nổi bằng kính mờ viền xanh nhạt; nút Đăng xuất tối bo tròn như nút "Vào học ngay"; thanh bên đỏ bo góc nổi (điện thoại vẫn là ngăn kéo); tiêu đề trang có chữ cuối nghiêng đỏ như "Chín màn *chiến dịch*" (đổi ở `PageHeader` nên mọi trang quản trị đổi theo). Thẻ và bảng giữ nền trắng nên nổi trên nền giấy.
 - **Bản quyền**: dòng "© 2026 · Bản quyền thuộc quản lý Đông A" ở chân khung, ngoài vùng cuộn, cùng chữ và kiểu với trang đăng nhập.
 - Kiểm thử: `frontend/tests/admin-shell.test.cjs` (5 bài); chụp trên Chrome thật cho quản trị tổng (máy tính, điện thoại, có menu), quản trị trường và giáo viên, không lỗi console.
+
+## Bảng quản trị chia trang bằng nút chuyển trang, không cuộn dài xuống (06/11/2026)
+
+Theo yêu cầu: các danh sách ở trang admin dùng nút qua trang thay vì cuộn dài xuống.
+
+- **Số dòng mỗi trang theo màn hình** (`frontend/lib/paging.ts`): màn máy tính cao 1030 px được 7 dòng, tối thiểu 5, tối đa 30; màn hẹp (danh sách thẻ) 5 thẻ. Bảng và nút chuyển trang vừa một màn hình nên trang không còn thanh cuộn (đã đo trên Chrome 1920 × 1030: không có vùng nào bị cuộn).
+- **Nút chuyển trang** (`Pager` ở `kit.tsx`): "Hiển thị 1–7 / 14 kết quả", nút Trước, các số trang (luôn có trang đầu, cuối và trang kề, chỗ cách quãng là …), nút Sau; trang đang xem là nút tối bo tròn như nút Đăng xuất. Chỉ hiện khi có nhiều hơn một trang.
+- **Mọi bảng đều chia trang**: `DataTable` tự chia trang khi nhiều dòng hơn một trang (cả bảng lẫn danh sách thẻ). Các danh sách vốn đã chia trang ở máy chủ (trường, người dùng, giáo viên/học sinh, ngân hàng câu hỏi, bộ đề, nhật ký thao tác/đăng nhập/lỗi, yêu cầu hỗ trợ) gửi số dòng của màn hình lên máy chủ nên chỉ có một bộ nút; hộp chọn câu hỏi trong bảng trượt giữ 10 dòng/trang của máy chủ.
+- **Máy chủ**: danh sách yêu cầu hỗ trợ nhận thêm `limit` (mặc định 30, tối đa 100); nhật ký thao tác/đăng nhập/lỗi vốn đã nhận.
+- Kiểm thử: `frontend/tests/paging.test.cjs` (7 bài: số dòng theo màn hình, dãy số trang, hook không đặt sau return sớm, mọi danh sách dùng cùng số dòng), một dòng mới ở `platform.spec.ts`; chụp trên Chrome thật: người dùng (trang 1 và 2), nhật ký đăng nhập, điện thoại.
+- Giới hạn: số dòng là ước lượng theo chiều cao cửa sổ (mỗi dòng ~68 px); trang có nhiều bộ lọc hoặc hàng cao hơn bình thường vẫn có thể cuộn một chút. Cuộn trong cửa sổ trình duyệt rất thấp (dưới khoảng 880 px) vẫn xảy ra vì tối thiểu 5 dòng.

@@ -84,7 +84,7 @@ export const QuestionPicker: React.FC<{ session: Session; title: string; exclude
       </FilterBar>
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
-      <DataTable<QuestionItem> rows={(list.data?.items ?? []).filter((x) => !exclude.includes(x.id))} rowKey={(r) => r.id} empty="Không có câu hỏi phù hợp"
+      <DataTable<QuestionItem> paginate={false} rows={(list.data?.items ?? []).filter((x) => !exclude.includes(x.id))} rowKey={(r) => r.id} empty="Không có câu hỏi phù hợp"
         onRowPress={(r) => setPicked(multi ? (has(r.id) ? picked.filter((p) => p.id !== r.id) : [...picked, r]) : [r])}
         columns={[
           { key: 'pick', label: '', flex: 0.3, render: (r) => <StatusChip kind={has(r.id) ? 'on' : 'muted'} text={has(r.id) ? 'Đã chọn' : 'Chọn'} /> },

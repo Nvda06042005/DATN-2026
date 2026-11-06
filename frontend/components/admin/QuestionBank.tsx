@@ -9,7 +9,7 @@ import * as api from '@/api/learningApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { MapPicker } from '@/components/admin/MapPicker';
 import { DIFFICULTY_TEXT, LinksEditor, ScopeChip, useCampaignOptions } from '@/components/admin/ContentKit';
-import { Cell, DataTable, DownloadButton, ErrorNote, FilterBar, FilterBox, ImportSheet, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad } from '@/components/admin/kit';
+import { Cell, DataTable, DownloadButton, ErrorNote, FilterBar, FilterBox, ImportSheet, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad, usePageSize } from '@/components/admin/kit';
 import { dateText } from '@/components/admin/AccountSheet';
 import type { Session } from '@/components/auth';
 import { keyLines } from '@/components/portal/QuizPlayer';
@@ -239,13 +239,14 @@ export const QuestionBank: React.FC<{ session: Session }> = ({ session }) => {
   const [difficulty, setDifficulty] = useState('');
   const [campaign, setCampaign] = useState('');
   const [page, setPage] = useState(1);
+  const size = usePageSize();
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
   const term = useDebounced(q.trim(), 300);
   const campaigns = useCampaignOptions(session);
   const filters = useMemo(() => ({ store, q: term, qtype, difficulty, campaign_id: campaign }), [store, term, qtype, difficulty, campaign]);
-  const list = useLoad(() => api.listQuestions(session.token, { ...filters, page, limit: 15 }), [session.token, filters, page], session.expired);
+  const list = useLoad(() => api.listQuestions(session.token, { ...filters, page, limit: size }), [session.token, filters, page, size], session.expired);
   const canWrite = role === 'teacher' || role === 'school_admin' || role === 'root_admin';
   const storeOptions = role === 'root_admin'
     ? [{ value: 'all', label: 'Kho hệ thống và đề xuất' }, { value: 'system', label: 'Kho hệ thống' }, { value: 'school', label: 'Kho của các trường' }]
@@ -277,7 +278,7 @@ export const QuestionBank: React.FC<{ session: Session }> = ({ session }) => {
               { key: 'used', label: 'Bộ đề', flex: 0.7, render: (r) => <Txt size={13}>{r.used_in}</Txt> },
               { key: 'owner', label: 'Người soạn', flex: 1.4, hideOnCard: true, render: (r) => <Cell main={r.owner_name ?? '—'} sub={dateText(r.updated_at)} /> },
             ]} />
-          <Pager page={page} limit={15} total={list.data.total} onPage={setPage} />
+          <Pager page={page} limit={size} total={list.data.total} onPage={setPage} />
         </>
       ) : null}
       {open !== null ? <QuestionDetailSheet session={session} id={open} onClose={() => setOpen(null)} onChanged={list.reload} /> : null}

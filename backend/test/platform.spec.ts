@@ -427,6 +427,11 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     expect(all.counts).toMatchObject({ new: 3 });
     expect((await root('GET', '/api/platform/support?role=teacher')).body.items.map((x: any) => x.id)).toEqual([tt.body.id]);
     expect((await root('GET', '/api/platform/support?q=Excel')).body.total).toBe(1);
+    // số dòng mỗi trang do giao diện chọn theo màn hình: chia trang đúng, tổng không đổi, mặc định 30, tối đa 100
+    const paged = (await root('GET', '/api/platform/support?limit=2&page=2')).body;
+    expect([paged.limit, paged.page, paged.total, paged.items.length]).toEqual([2, 2, 3, 1]);
+    expect((await root('GET', '/api/platform/support')).body.limit).toBe(30);
+    expect((await root('GET', '/api/platform/support?limit=9999')).body.limit).toBe(100);
     expect((await as(f.A)('GET', '/api/platform/support')).status).toBe(403);
     // phản hồi và trạng thái
     const rep = await root('POST', `/api/platform/support/${t.body.id}/reply`, { body: 'Cảm ơn em, thầy cô đang kiểm tra.' });

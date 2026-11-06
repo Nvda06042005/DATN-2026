@@ -11,7 +11,7 @@ import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { SystemStats } from '@/components/admin/AnalyticsAdmin';
 import { BroadcastManager } from '@/components/admin/PlatformComms';
 import { FaqManager, LogsPanel, SupportInbox } from '@/components/admin/PlatformOps';
-import { Cell, CredentialSheet, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad, DataTable, type FieldDef } from '@/components/admin/kit';
+import { Cell, CredentialSheet, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad, usePageSize, DataTable, type FieldDef } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { SchoolEmblem, SchoolLinkBox } from '@/components/school-brand';
 import { schoolLogoUrl } from '@/lib/school-logos';
@@ -78,8 +78,9 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
   const [city, setCity] = useState('');
   const [active, setActive] = useState('');
   const [page, setPage] = useState(1);
+  const size = usePageSize();
   const dq = useDebounced(q);
-  const { data, error, loading, reload } = useLoad(() => api.listSchools(token, { q: dq, city, active, page, limit: 30 }), [token, dq, city, active, page], session.expired);
+  const { data, error, loading, reload } = useLoad(() => api.listSchools(token, { q: dq, city, active, page, limit: size }), [token, dq, city, active, page, size], session.expired);
   const { busy, run } = useAction(session.expired);
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<CreatedSchool | null>(null);
@@ -117,7 +118,7 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
               <Btn title={s.is_active ? 'Vô hiệu' : 'Kích hoạt'} tone="giay" size="sm" onPress={() => setToggling(s)} />
               <Btn icon={Trash2} label={`Xóa ${s.name}`} tone="giay" size="sm" onPress={() => setRemoving(s)} />
             </>)} />
-          <Pager page={page} limit={30} total={data.total} onPage={setPage} />
+          <Pager page={page} limit={size} total={data.total} onPage={setPage} />
         </>
       ) : null}
 
@@ -260,9 +261,10 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
   const [schoolId, setSchoolId] = useState('');
   const [active, setActive] = useState('');
   const [page, setPage] = useState(1);
+  const size = usePageSize();
   const dq = useDebounced(q);
-  const { data, error, loading, reload } = useLoad(() => api.listUsers(token, { q: dq, role: (role || undefined) as AuthRole | undefined, school_id: schoolId ? Number(schoolId) : undefined, active: (active || undefined) as 'true' | 'false' | undefined, page, limit: 30 }),
-    [token, dq, role, schoolId, active, page], session.expired);
+  const { data, error, loading, reload } = useLoad(() => api.listUsers(token, { q: dq, role: (role || undefined) as AuthRole | undefined, school_id: schoolId ? Number(schoolId) : undefined, active: (active || undefined) as 'true' | 'false' | undefined, page, limit: size }),
+    [token, dq, role, schoolId, active, page, size], session.expired);
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [credential, setCredential] = useState<CreatedAccount | null>(null);
@@ -291,7 +293,7 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
               { key: 'last', label: 'Đăng nhập cuối', render: (u) => <Txt size={13} color={c.muc2}>{dateText(u.last_login_at)}</Txt> },
               { key: 'status', label: 'Trạng thái', render: (u) => <StatusChip kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
             ]} />
-          <Pager page={page} limit={30} total={data.total} onPage={setPage} />
+          <Pager page={page} limit={size} total={data.total} onPage={setPage} />
         </>
       ) : null}
       {open ? <AccountSheet session={session} id={open} schools={schools} onClose={() => setOpen(null)} onChanged={refresh} /> : null}
