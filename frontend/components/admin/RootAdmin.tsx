@@ -37,7 +37,7 @@ export const RootAdmin: React.FC<{ session: Session }> = ({ session }) => {
   const options = useMemo(() => (schools?.items ?? []).map((s) => ({ value: String(s.id), label: `${s.name} (${s.school_code})` })), [schools]);
   return (
     <AdminUiContext.Provider value>
-      <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab} schoolCount={schools?.total}>
+      <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab}>
         {tab === 'schools' ? <SchoolsPanel session={session} /> : tab === 'users' ? <UsersPanel session={session} schools={options} />
           : tab === 'stats' ? <SystemStats session={session} /> : tab === 'notices' ? <BroadcastManager session={session} />
           : tab === 'logs' ? <LogsPanel session={session} /> : tab === 'faq' ? <FaqManager session={session} />

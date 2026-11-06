@@ -689,3 +689,12 @@ Theo yêu cầu mới: ở trang quản trị tổng, mục **Trường học �
 - **Lỗi**: bấm Sao chép đường dẫn của trường (và Sao chép mật khẩu tạm) không thấy phản hồi gì. Nguyên nhân gốc: `ToastProvider` không còn được gắn ở `frontend/app/_layout.tsx` (bị bỏ khi dọn các trang công khai, commit `11bc9a4`), nên **mọi lệnh `toast()` trong ứng dụng im lặng**, kể cả "Đã sao chép", "Đã lưu"… Chữ vẫn vào clipboard nhưng người dùng không biết.
 - **Sửa**: gắn lại `ToastProvider` bao quanh `Stack` ở bố cục gốc (thông báo hiện cả trên hộp thoại, vì mỗi bảng trượt tự vẽ thêm một bản). Hai nút Sao chép đổi nhãn ngay tại nút thành "Đã sao chép" (2,5 giây) và hiện dòng báo lỗi nếu trình duyệt chặn. Thêm `frontend/lib/clipboard.ts`: dùng Clipboard API, nếu bị chặn hoặc không có thì dùng ô nhập tạm với lệnh sao chép cũ, đặt cạnh phần tử đang chọn để hộp thoại không kéo tiêu điểm đi.
 - Kiểm tra trên Chrome thật: bấm chuột thật vào nút → clipboard có đúng đường dẫn, thông báo "Đã sao chép đường dẫn của trường" hiện; khi ghi đè `navigator.clipboard.writeText` để từ chối, cách dự phòng vẫn chép được ngay trong hộp thoại.
+
+## Khung cổng quản trị theo ngôn ngữ trang chủ, bỏ thanh phạm vi, thêm bản quyền (06/11/2026)
+
+Theo yêu cầu: xóa thanh "Quản trị tổng · Toàn hệ thống – Bạn quản lý mọi trường…", chỉnh trang admin giống trang chủ và thêm dòng bản quyền như trang đăng nhập. Áp dụng cho khung chung `AdminWorkspace` của **quản trị tổng, quản trị trường và giáo viên**; chỉ đổi giao diện, không đổi API, quyền hay cơ sở dữ liệu.
+
+- **Đã xóa** thanh vai trò/phạm vi dưới thanh đầu trang (ở cả ba vai trò). Với quản trị trường và giáo viên, tên trường chuyển lên đường dẫn trang ở thanh đầu ("THCS Phú Mỹ · Quản trị / Trường và năm học") để không mất thông tin.
+- **Giống trang chủ**: nền giấy dó kem có hoa văn trống đồng (cùng nền với trang chủ và trang đăng nhập); thanh đầu dạng viên thuốc nổi bằng kính mờ viền xanh nhạt; nút Đăng xuất tối bo tròn như nút "Vào học ngay"; thanh bên đỏ bo góc nổi (điện thoại vẫn là ngăn kéo); tiêu đề trang có chữ cuối nghiêng đỏ như "Chín màn *chiến dịch*" (đổi ở `PageHeader` nên mọi trang quản trị đổi theo). Thẻ và bảng giữ nền trắng nên nổi trên nền giấy.
+- **Bản quyền**: dòng "© 2026 · Bản quyền thuộc quản lý Đông A" ở chân khung, ngoài vùng cuộn, cùng chữ và kiểu với trang đăng nhập.
+- Kiểm thử: `frontend/tests/admin-shell.test.cjs` (5 bài); chụp trên Chrome thật cho quản trị tổng (máy tính, điện thoại, có menu), quản trị trường và giáo viên, không lỗi console.

@@ -62,10 +62,14 @@ export function useAction(onExpired?: () => void) {
 // ---------------------------------------------------------------------- bố cục trang
 export const PageHeader: React.FC<{ title: string; subtitle?: string; actions?: React.ReactNode }> = ({ title, subtitle, actions }) => {
   const { c } = useTheme();
+  // chữ cuối của tiêu đề viết nghiêng, màu đỏ: cùng kiểu với tiêu đề ở trang chủ ("Chín màn chiến dịch") và trang đăng nhập
+  const words = title.trim().split(' ');
+  const accent = words.length > 1 ? words[words.length - 1] : null;
+  const main = accent ? `${words.slice(0, -1).join(' ')} ` : title;
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
       <View style={{ flexShrink: 1, minWidth: 220 }}>
-        <Txt f="displayHeavy" size={24} accessibilityRole="header">{title}</Txt>
+        <Txt f="displayHeavy" size={26} color={c.logoInk} accessibilityRole="header" style={{ lineHeight: 34 }}>{main}{accent ? <Txt f="serifItalic" size={26} color={c.logoRed} style={{ lineHeight: 34 }}>{accent}</Txt> : null}</Txt>
         {subtitle ? <Txt size={14} color={c.muc2}>{subtitle}</Txt> : null}
       </View>
       {actions ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, maxWidth: '100%' }}>{actions}</View> : null}
