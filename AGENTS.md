@@ -1,43 +1,31 @@
+# Phạm vi dự án hiện tại
+
+Ngày 31/10/2026 dự án từng được rút gọn còn trang chủ, Điều khoản sử dụng và Câu hỏi thường gặp. Cùng ngày, theo yêu cầu mới của người dùng ("đọc danh sách chức năng `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` rồi triển khai Sprint 1 và 2"), dự án có lại backend NestJS, cơ sở dữ liệu PostgreSQL và bốn cổng đăng nhập theo đặc tả mới (mã `HK.*`). Bản game/AI/thi đấu trực tiếp cũ **không** được khôi phục; chúng sẽ được xây lại theo các sprint sau của đặc tả. Tiến độ và quyết định nằm ở `docs/TIEN_DO_HAO_KHI.md`; cập nhật tài liệu này mỗi khi xong một nhóm chức năng.
+
+- `frontend/app/`: `index.tsx`, `dieu-khoan-su-dung.tsx`, `cau-hoi-thuong-gap.tsx` (công khai), `portal.tsx`, `hoc-sinh.tsx`, `giao-vien.tsx`, `school-manager-admin.tsx`, `admin.tsx` và `_layout.tsx`. Theo yêu cầu ngày 04/11/2026, `/portal` là trang đăng nhập chung của học sinh, giáo viên và quản trị trường; nút Vào học ngay trên trang chủ mở trang này. Người chưa đăng nhập ở các khu vực cũ được chuyển tới `/portal` với vai trò chọn sẵn. Quản trị tổng vẫn đăng nhập riêng tại `/admin`, không liên kết từ trang chủ. Cổng quản trị: `components/admin/` (giao diện phẳng qua `AdminUiContext`, thành phần dùng chung trong `kit.tsx`).
+- `backend/`: NestJS. Quyền theo vai trò (`root_admin`, `school_admin`, `teacher`, `student`) kiểm tra ở mọi route; dữ liệu quản trị trường chạy trong `db.scoped(school_id)` (Row-Level Security). Kho lịch sử chỉ quản trị tổng. Nội dung học (`/api/content`) có ba kho giáo viên/trường/hệ thống (`src/content/access.ts`); học sinh chỉ đọc nội dung Công bố qua `/api/learn` và học qua `/api/play`, máy chủ giữ đồng hồ và chấm điểm. Kiểm thử bằng `cd backend && npm run build && npm test` (PostgreSQL tạm; cần Program Files/PostgreSQL hoặc `POSTGRES_BIN`).
+- Import mã `src` trong kiểm thử phải dùng `import()` động sau khi `startApp` đặt biến môi trường (cấu hình đọc khi import).
+- Dùng bảng màu sáng trong `constants/theme.ts`, `useTheme()` và các phông Manrope/Newsreader đã nạp ở `_layout.tsx`. Nút có nhãn trợ năng và vùng chạm ít nhất 44pt.
+- Theo yêu cầu ngày 06/11/2026, `/admin` có Google như `/portal`, chỉ mở tài khoản `root_admin` đã được cấp với email Gmail/Workspace trùng hồ sơ. Thư viện Google xác minh ID token tại API; giữ kiểm tra vai trò, khóa tài khoản và 2FA. Không tạo tài khoản hoặc nâng quyền từ Google; không thêm quản lý tổng vào bộ chọn ba vai trò của `/portal`.
+- Cập nhật tiếp ngày 06/11/2026: admin và portal dùng chung `components/login-layout.tsx` (nền lịch sử, ảnh động, form hoa văn chia chéo, Manrope/Newsreader và bộ điều khiển). Portal giữ ba vai trò cùng liên kết về trang chủ; admin vẫn là cổng quản lý tổng riêng. Không khôi phục bố cục portal cũ nền thành lũy khi sửa tiếp.
+- Ghi công ảnh và bản đồ nằm ở trang riêng `/thong-tin-hinh-anh` (liên kết từ footer), `assets/hero-photos/ATTRIBUTION.md` và `constants/map-credits.ts`. Trang này dùng `InfoShell`, Manrope/Newsreader như Điều khoản sử dụng. Giữ thông báo giấy phép của mã bên thứ ba còn dùng (React Bits, Leaflet).
+- Kiểm tra giao diện bằng `cd frontend`, `npm run typecheck`, `npm test`, `npm run build`; thay đổi cổng quản trị nên chụp thử trên bản web (xem ghi chú dự án về Chrome CDP).
+
 # Database migrations
 
-Với mọi thay đổi schema PostgreSQL hoặc seed/reference data, luôn thêm migration SQL đánh số tiếp theo trong `database/migrations/`, giữ nguyên các migration đã chạy, và kiểm tra bằng `python database/migrate.py check` (chạy từ thư mục gốc dự án) cùng các bài kiểm thử migration.
+Mọi thay đổi cấu trúc PostgreSQL và dữ liệu seed/reference phải có một file SQL mới trong `database/migrations/` (đánh số tăng dần; hiện tới `016`). Không sửa, đổi tên hoặc xóa migration đã áp dụng (runner từ chối). Ngày 31/10/2026 thư mục này từng bị xóa theo yêu cầu rồi được khôi phục nguyên văn từ Git (001–013) vì Supabase vẫn giữ lịch sử đó; xem `database/migrations/README.md`. Kiểm tra lịch sử migration của database đích trước khi chọn số tiếp theo; không tự coi đó là database mới.
 
-Backend tự áp dụng migration mới khi khởi động với `DATABASE_URL`. Các thay đổi database trong những lần làm việc tiếp theo cũng phải theo quy trình này. Không đưa dữ liệu tài khoản thật hoặc bí mật vào migration.
-
-# Cấu trúc dự án
-
-- `frontend/`: giao diện React chia thư mục theo vai trò (giống repo tham khảo tronect-mobile-app): `app/` màn hình theo trang (`_layout.tsx`, `(tabs)/`, …), `api/` hàm gọi backend, `components/ui` (dùng chung, kebab-case) và `components/customs` (riêng Đông A, PascalCase), `constants/`, `hooks/` (`use-*.ts`), `lib/`, `providers/`, `store/`, `types/` (`*Type.ts`), `utils/`, `assets/`. Import bằng `@/…`. Xem `frontend/README.md`.
-- `backend/`: máy chủ FastAPI – API, xác thực, logic học tập (`app/`).
-- `ai/`: BKT, RAG, Gemini/Hugging Face, mô hình NLP, huấn luyện/đánh giá, bộ dữ liệu. Giữ tên module phẳng (`create_model`, `context_manager`, ...) vì `models/dong_a_nlp_model.joblib` được pickle theo các tên này.
-- `database/`: kho tài khoản & tiến độ (`user_store.py`), migration PostgreSQL (`migrator.py`, `migrate.py`, `migrations/`), SQLite cục bộ (`data/users.db`).
-
-# Game Hào Khí Đông A (cổng học sinh)
-
-- Mã game nằm trong `frontend/app/student/` (khung và các tab), `frontend/components/customs/game/`, `frontend/constants/game/`, `frontend/lib/game/` và `frontend/store/game.store.ts`. Thiết kế theo `KE_HOACH_GAME_HAO_KHI_DONG_A.md`.
-- Gọi backend qua hàm trong `frontend/api/`, không gọi `fetch` thẳng trong component. File component chỉ export component (oxlint `only-export-components`).
-- Câu hỏi của game nằm ở `ai/data/game_content.json`; server giữ đáp án và tự chấm (`backend/app/core/question_bank.py`). Ấn Tín (cột `gems`) và XP chỉ được cộng ở server khi chấm; client chỉ được tiêu Ấn Tín.
-- Nội dung câu hỏi phải khớp `ai/data/knowledge_base.json`; không sửa tay `knowledge_base.json`/`q_matrix.json` (được sinh từ `ai/data_splitter.py`).
-- Kiểm thử backend: `python -m unittest discover -s backend/tests -v` (từ thư mục gốc).
-
-# Thi đấu cả lớp (thời gian thực)
-
-- WebSocket `/api/live/ws` (`backend/app/api/live.py`), điều phối phòng ở `backend/app/core/live.py`. Token gửi trong tin nhắn đầu tiên `{"type":"auth","token":...}`, không đặt trên URL (URL WebSocket được ghi vào log truy cập).
-- Phòng đang chơi chỉ nằm trong bộ nhớ của tiến trình backend: chạy MỘT tiến trình uvicorn (không `--workers` > 1). Cần `websockets` trong `backend/requirements.txt`.
-- Chỉ học sinh cùng lớp với giáo viên vào được phòng. Câu trả lời đi qua `record_answer` (BKT, XP, Ấn Tín) như khi luyện tập; trận kết thúc lưu vào `app_live_sessions`/`app_live_results` (migration 005).
-- Lưu tiến độ bằng `_save` trong `learning.py` (không ghi `game_state`), để không đè trạng thái game client vừa tự lưu.
-
-# Chatbot (mô hình NLP)
-
-- Thêm/sửa chủ đề: sửa `KNOWLEDGE_UNITS` và `REAL_STUDENT_TEST_SET` trong `ai/data_splitter.py`, rồi từ thư mục `ai/` chạy `python data_splitter.py`, `python create_model.py`, `python test_model.py`, `python test_regression_suite.py`. Ghi lại số liệu đánh giá mới (`ai/KET_QUA_DANH_GIA.md`).
-- Mô hình được pickle bằng scikit-learn 1.7.x + numpy 2.x; đổi phiên bản chính thì phải huấn luyện lại.
+Không nhúng DDL vào TypeScript/Python, không chứa bí mật hay dữ liệu tài khoản thật. Không thêm BEGIN/COMMIT/ROLLBACK hoặc lệnh chỉ chạy ngoài transaction. Bảng mới chứa dữ liệu người dùng phải bật RLS, không mở quyền công khai; bảng chỉ backend dùng (kho lịch sử) không cấp quyền cho vai trò theo trường. Kiểm tra bằng PostgreSQL thử nghiệm trước khi áp dụng; thay đổi phá hủy dữ liệu cần được người dùng cho phép rõ ràng. Không tự sửa `_prisma_migrations` hay lịch sử `app_schema_migrations`. Dữ liệu nghiệp vụ phát sinh qua API dùng truy vấn có tham số, không tạo migration cho từng thao tác của người dùng.
 
 # Tự động đồng bộ sau khi hoàn tất công việc
 
-Người dùng đã cho phép tự động cập nhật dự án sau mỗi yêu cầu sửa đổi hoàn tất; không cần hỏi lại để commit, push hoặc triển khai các thay đổi thuộc yêu cầu đó. Đây là quy trình kết thúc mỗi lần làm việc của agent, không phải dịch vụ theo dõi mọi lần lưu file khi agent không hoạt động.
+Người dùng đã cho phép tự động cập nhật dự án sau mỗi yêu cầu sửa đổi hoàn tất; không cần hỏi lại để commit, push hoặc triển khai các thay đổi thuộc yêu cầu đó. Ngày 01/11/2026 người dùng còn cho phép bộ theo dõi local chạy nền, tự commit và gộp nhánh đang làm vào `main` sau khi toàn bộ kiểm tra đạt. Cách bật/tắt, điều kiện hoạt động và trạng thái nằm ở `docs/TU_DONG_DONG_BO.md`, `scripts/auto-sync.ps1` và `.auto-sync/status.json` (file local bị bỏ qua bởi Git). Trước khi agent tự commit/gộp nhánh, kiểm tra worker; nên dừng và chờ `stopped` rồi làm việc, sau đó chạy lại để tránh phát hành cạnh tranh. Không coi worker đang chạy là bằng chứng các dịch vụ đã cập nhật: phải có trạng thái `synced` với đúng commit.
 
-- Chạy kiểm tra phù hợp với thay đổi; xử lý lỗi trước khi phát hành. Không tự đưa thay đổi không liên quan hoặc bí mật vào commit.
-- Commit và push lên nhánh `main` của `https://github.com/Nvda06042005/DATN-2026`. Nếu đang làm trong bản giải nén không có `.git`, dùng checkout Git liên kết đúng repo và đối chiếu thay đổi trước khi push; không force-push.
-- Vercel triển khai frontend từ GitHub: `https://datn-2026-indol.vercel.app/`. Kiểm tra trạng thái triển khai và website sau push.
-- Render triển khai backend từ GitHub: `https://datn-2026-gm5g.onrender.com/`. Kiểm tra `/api/health`, `/api/database/health` và API liên quan đến thay đổi. Nếu không tự triển khai, dùng kết nối Render được cấp để deploy; nếu thiếu quyền truy cập, báo rõ phần chưa hoàn tất.
-- Supabase: thay đổi schema hoặc seed/reference data phải có migration mới theo quy tắc ở trên. Backend áp dụng migration khi khởi động; xác minh migration đã chạy. Không cần sửa database nếu yêu cầu không thay đổi database.
-- Chỉ báo đồng bộ thành công khi có bằng chứng cho từng dịch vụ; nêu rõ lỗi triển khai hoặc thiếu kết nối. Không yêu cầu lại quyền triển khai đã được cấp trong mục này.
+- Chạy kiểm tra phù hợp với thay đổi; xử lý lỗi trước khi phát hành. Không tự đưa thay đổi không liên quan hoặc bí mật vào commit (xem `git status`: người dùng có thể đang sửa file khác, chỉ `git add` đúng file thuộc yêu cầu).
+- Commit và push lên `https://github.com/Nvda06042005/DATN-2026`. Thư mục dự án chính là repo Git: xem lại `git status`/`git diff` trước khi push; không force-push. Thay đổi kiến trúc lớn (đổi backend/runtime, thêm lại backend) đưa lên nhánh riêng trước, chỉ gộp vào `main` khi dịch vụ Render tương ứng đã sẵn sàng và người dùng đồng ý. Sprint 1–2 đã được người dùng yêu cầu triển khai và gộp vào `main` ngày 31/10/2026.
+- Website chính thức duy nhất: `https://datn-2026-indol.vercel.app/`. Vercel chỉ tự triển khai từ nhánh `main` (thư mục `frontend`, `frontend/vercel.json`); không dùng URL Preview hoặc URL có mã deployment để bàn giao. Kiểm tra trạng thái triển khai và website sau khi gộp vào `main`.
+- Render triển khai backend `dong-a-api` từ GitHub theo `render.yaml`. Kiểm tra `/api/health`, `/api/database/health` (có `schema_version`) và API liên quan. Dịch vụ `dong-a-ai` của bản cũ không còn trong `render.yaml`. Nếu thiếu quyền truy cập, báo rõ phần chưa hoàn tất.
+- Supabase: thay đổi schema hoặc seed/reference data phải có migration mới theo quy tắc ở trên. Backend áp dụng migration khi khởi động; xác minh bằng `schema_version` của `/api/database/health`.
+- Chỉ báo đồng bộ thành công khi có bằng chứng cho từng dịch vụ; nêu rõ lỗi triển khai hoặc thiếu kết nối.
+- CI trên GitHub: `.github/workflows/ci.yml` chạy backend/migration với PostgreSQL tạm, frontend và hồi quy auto-sync; tài liệu `docs/GITHUB_ACTIONS.md`. Không thêm credential production vào workflow, không bỏ qua kiểm thử database để lấy dấu tích xanh. Kết quả CI không thay cho xác minh deploy Render/Vercel/Supabase.
+- Khi thêm dependency backend, cập nhật `package-lock.json` bằng npm `10.9.4` như CI/Render (ví dụ `npx npm@10.9.4 install ...`); npm 11 có thể bỏ khóa peer webpack mà npm 10 cần cho `npm ci`.

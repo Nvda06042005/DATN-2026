@@ -1,0 +1,654 @@
+# Tiến độ xây dựng Hào Khí Đông A (theo mã HK.*)
+
+Nguồn: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). Tài liệu này ghi **Sprint 1 đến Sprint 12**
+(356 chức năng; riêng Sprint 5–8 theo ver0.1, phần ver0.2 còn lại ghi ở bên dưới) đã làm được gì, quyết định đã chọn khi đặc tả chưa nói rõ, và những gì cố ý chưa làm. Phân tích đối chiếu ban đầu: `DOI_CHIEU_HAO_KHI_V01.md`.
+
+**Từ 01/11/2026 đặc tả có bản `ver0.2`** (408 chức năng; viết lại Sprint 5–8, thêm 60 chức năng, sửa 10). Đối chiếu và các điểm cần chốt: `DOI_CHIEU_HAO_KHI_V02.md`.
+Đang làm ver0.2 theo thứ tự Sprint 5 → 6 → 7 → 8; tiến độ nằm ở mục "ver0.2" cuối các bảng Sprint tương ứng (Sprint 5 ver0.2: lộ trình dạng đường đi, đã làm; Sprint 6 ver0.2: game thẻ tướng, đã làm trừ Sa bàn 3D; Sprint 7–8 ver0.2: đã làm nốt ở mục "Sprint 7–8 theo ver0.2" bên dưới). **Sprint 9 (AI Tutor), Sprint 10 (gợi ý học tập, thống kê, báo cáo), Sprint 11 (thông báo, hỗ trợ, cấu hình hệ thống, 2FA) và Sprint 12 (khảo sát, nghiên cứu) đã làm** theo yêu cầu chạy tiếp Sprint 9–12, làm trước khi xong Sprint 7–8 ver0.2.
+
+Kiểm thử: `cd backend && npm run build && npm test` (PostgreSQL tạm, HTTP thật; 379 bài trong 30 tệp, gồm migration trên dữ liệu cũ, Sprint 1–8, quản trị trường, kho lịch sử, chấm điểm, nội dung học mẫu, trò chơi hóa, mô phỏng trận đánh, lớp học, bài tập, bản đồ rẽ nhánh, lộ trình dạng đường đi, thi đấu trực tiếp, bộ máy trận thẻ tướng game thẻ tướng, AI Tutor, gợi ý học tập, thống kê, báo cáo, nền tảng hệ thống, khảo sát và nghiên cứu);
+`cd frontend && npm run typecheck && npm run build`. Mỗi bài kiểm thử ghi mã HK.* trong tên.
+
+## Sprint 1 – xác thực, tài khoản, hồ sơ, trường học, người dùng (40 chức năng)
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.HS.001, HK.GV.001, HK.QT.001, HK.AD.001 | Xong | Đăng nhập bằng tên đăng nhập, email hoặc mã học sinh; 5 lần sai khóa 15 phút **theo tài khoản** (đổi qua lại tên/email/mã không né được); mỗi vai trò một cổng (`/hoc-sinh`, `/giao-vien`, `/school-manager-admin`, `/admin`, `/portal` chung cho giáo viên và học sinh) |
+| HK.HS.002 | Xong, **cần cấu hình** | Máy chủ kiểm tra mã Google qua `oauth2.googleapis.com/tokeninfo`, chỉ học sinh và chỉ khi email trùng đúng một tài khoản. Cần `GOOGLE_CLIENT_ID` (backend) và `EXPO_PUBLIC_GOOGLE_CLIENT_ID` (frontend); chưa có thì nút ẩn. Kiểm thử dùng bản giả lập, chưa thử với Google thật |
+| HK.HS.003 | Xong | Đăng ký tự học bằng email + OTP 5 phút; tài khoản không thuộc trường, không vào lớp được (trả lời rõ ràng). Đặc tả ghi "cân nhắc bỏ" nhưng ma trận phân quyền cho phép nên đã làm |
+| HK.HS.004 | Xong | Mật khẩu tạm chặn mọi route trừ đổi mật khẩu / hồ sơ / đăng xuất; sau đó học sinh xác nhận hồ sơ (họ tên, mã, ngày sinh, trường, lớp, email) |
+| HK.HS.005, HK.GV.002, HK.QT.002 | Xong | Quên mật khẩu bằng OTP 6 số, 5 phút, dùng một lần, sai 5 lần thì vô hiệu; luôn trả lời giống nhau để không lộ tài khoản; cần cấu hình gửi thư |
+| HK.HS.006/007, HK.GV.003/004, HK.QT.003/004, HK.AD.003/004 | Xong | Đổi mật khẩu (tối thiểu 8 ký tự, có chữ và số, phải khác mật khẩu cũ) làm token cũ hết hiệu lực; đăng xuất thu hồi đúng phiên đó |
+| HK.HS.008 | Xong | Mã lớp 6 ký tự (không có I, O, 0, 1), không mật khẩu; học sinh thuộc nhiều lớp; mã của trường khác trả như mã sai; lớp lưu trữ, tắt tự tham gia, năm học đã kết thúc đều từ chối |
+| HK.HS.009/010, HK.GV.005/006, HK.QT.005, HK.AD.005 | Xong | Mỗi vai trò chỉ tự sửa trường được phép (học sinh: biệt danh, ảnh, giới thiệu; giáo viên: điện thoại, ảnh, giới thiệu; quản trị: họ tên, email, điện thoại, ảnh). **Ảnh đại diện chỉ nhận liên kết https**, chưa tải tệp lên |
+| HK.AD.011–016 | Xong | Danh sách/lọc trường; thêm trường **kèm quản trị viên đầu tiên và thư mật khẩu tạm**; sửa (có logo https); vô hiệu hóa thu hồi mọi phiên của trường; xóa chỉ khi trường chưa có dữ liệu |
+| HK.AD.018–025 | Xong | Danh sách/lọc người dùng; tạo quản trị tổng cấp 1/2 và quản trị viên trường; sửa; đổi vai trò; khóa **bắt buộc ghi lý do** (hiện lý do khi họ đăng nhập); đặt lại mật khẩu; xóa chỉ khi chưa phát sinh dữ liệu |
+| HK.SYS.015 | Xong | JWT + vai trò kiểm tra ở mọi route; quản trị trường chạy trong Row-Level Security của trường mình (kiểm thử truy vấn thiếu `WHERE school_id`); nhật ký thao tác không ghi mật khẩu |
+
+## Sprint 2 – trường, năm học, giáo viên, học sinh, lớp, kho dữ liệu lịch sử (45 chức năng)
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.QT.010/011 | Xong | Xem và sửa tên hiển thị, logo, địa chỉ, liên hệ; không tự đổi mã trường hay vô hiệu hóa |
+| HK.QT.012 | Xong | Năm học là bảng riêng; mỗi trường một năm đang hoạt động; kích hoạt, kết thúc; **năm đã kết thúc không sửa được** lớp, học sinh trong lớp, khối |
+| HK.QT.013 | Xong | Thêm/bật/tắt/xóa khối 6–9 theo năm học; không tắt/xóa khối còn lớp; năm mới chép khối từ năm trước |
+| HK.QT.014–016, 018–021, 023 | Xong | Giáo viên: thêm (email bắt buộc), tìm/lọc (tên, email, bộ môn, trạng thái), sửa, khóa/mở khóa, đặt lại mật khẩu, xóa khi chưa có dữ liệu, xuất Excel |
+| HK.QT.017 | Xong | Nhập Excel có **xem trước** báo lỗi từng dòng (trùng email trong file và trong hệ thống, thiếu dữ liệu, sai định dạng) rồi lưu các dòng hợp lệ; trả mật khẩu tạm một lần và tải CSV |
+| HK.QT.022 | Xong | Một lớp nhiều giáo viên (`app_class_teachers`); cột `teacher_id` cũ chỉ còn để đọc dữ liệu trước đây |
+| HK.QT.024–028, 030–032, 034 | Xong | Học sinh: thêm (mã, ngày sinh, giới tính, lớp), tìm/lọc (tên, mã, khối, lớp, trạng thái), sửa, nhập Excel có xem trước (kể cả cột Lớp), khóa, đặt lại mật khẩu, xóa, xuất Excel. Mã học sinh duy nhất trong trường, được phép trùng giữa các trường (nên đăng nhập bằng mã chỉ dùng được khi mã là duy nhất toàn hệ thống; luôn dùng được tên đăng nhập hoặc email) |
+| HK.QT.029 | Xong | Chuyển lớp **cùng khối và cùng năm học**; dữ liệu học giữ nguyên (lên lớp dùng nhân bản lớp) |
+| HK.QT.035–038 | Xong | Danh sách lớp (lọc năm, khối, giáo viên, từ khóa), tạo (khối phải đang bật, tên không trùng trong năm), sửa, lưu trữ/khôi phục, xóa **chỉ khi lớp chưa có học sinh** |
+| HK.QT.039 | Xong | Xếp nhiều học sinh vào lớp (chọn hoặc Excel có xem trước), gỡ khỏi lớp |
+| HK.QT.040 | Xong | Nhân bản lớp sang năm học mới: khối + 1, học sinh và giáo viên được chọn; lớp khối 9, lớp trùng tên, khối chưa bật được bỏ qua kèm lý do |
+| HK.AD.028–031 | Xong | Cuộc kháng chiến, nhân vật (vua, tướng lĩnh, quan lại, khác), tìm/lọc, thêm |
+| HK.AD.032/033 | Xong | Sửa lưu phiên bản; không xóa khi còn liên kết hoặc đang công bố |
+| HK.AD.034–036, 038, 039 | Xong | Sự kiện, địa điểm (tên gọi xưa – nay, **chọn tọa độ trên bản đồ**, bản web), trận đánh (nối sự kiện, địa điểm, nhân vật, mã mini-game), tư liệu gốc, thuật ngữ |
+| HK.AD.037 | Một phần | Xem dòng thời gian theo cuộc kháng chiến và đổi thứ tự **bằng nút mũi tên**, chưa kéo thả; mỗi lần đổi lưu một phiên bản |
+| HK.AD.038 (tệp đính kèm) | Một phần | Tư liệu nhận **liên kết https** tới ảnh/PDF, chưa tải tệp lên (cần kho lưu trữ tệp) |
+| HK.AD.040 | Xong | Nháp → Đã kiểm chứng → Công bố: không nhảy cấp; công bố phải sau khi cha (cuộc kháng chiến, địa điểm, sự kiện) đã công bố; **sửa nội dung bản ghi đã kiểm chứng/công bố đưa nó về Nháp**; ghi người và thời điểm |
+| HK.AD.041 | Xong | Xuất JSON và Excel; nhập JSON/Excel có xem trước; mọi bản ghi nhập vào ở trạng thái Nháp |
+| HK.AD.042 | Xong | Danh sách phiên bản, so sánh hai phiên bản (kể cả liên kết), khôi phục (về Nháp) |
+
+Dữ liệu khởi tạo (migration 016): 3 cuộc kháng chiến, 17 nhân vật, 12 địa điểm, 11 sự kiện, 6 trận đánh, 2 tư liệu, 8 thuật ngữ, lấy từ nội dung đã có trong dự án.
+**Tất cả ở trạng thái Nháp** vì chưa ai kiểm chứng với sách giáo khoa; không ghi số quân của kháng chiến lần hai và ba (các nguồn chưa thống nhất);
+chỉ 2 địa điểm (Thăng Long, Vân Đồn) có tọa độ vì vị trí hiện nay không tranh cãi, còn lại để quản trị tổng chọn trên bản đồ.
+
+## Sprint 3 – học sinh học trên bản đồ hành trình, đọc kho lịch sử (32 chức năng)
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.HS.017/018 | Xong | Trang chủ ba cuộc kháng chiến: năm, địa danh tiêu biểu, % hoàn thành, sao; điểm, **chuỗi ngày học** (tính từ nhật ký học tập, chưa có việc chạy 0h và đóng băng chuỗi: Sprint 5); gợi ý nút kế tiếp và luyện câu đã sai |
+| HK.HS.019 | Xong | Bản đồ nhiệm vụ gồm các nút nối tiếp (bài học, câu hỏi, trận đánh, tư liệu, Quyết chiến), avatar ở nút hiện tại. Dựng bằng thành phần React Native (không dùng SVG/Canvas); vị trí nút theo thứ tự, kéo thả vị trí và nhánh rẽ thuộc Sprint 7 (HK.GV.022) |
+| HK.HS.020, HK.SYS.007 | Xong | Hoàn thành nút (đạt điểm tối thiểu) mới mở nút sau; trận Quyết chiến luôn ở cuối; tư liệu mở khi hoàn thành nút gắn với nó. Trạng thái mở khóa tính ở máy chủ khi đọc, không tin dữ liệu từ trình duyệt |
+| HK.HS.021/022 | Xong | Chi tiết nút: loại, mục tiêu, thưởng, sao, điểm cao nhất, tư liệu sẽ mở. Sao: chưa đạt 0; đạt ngưỡng 1; đúng từ 80% thì 2; đúng tuyệt đối hoặc đúng từ 90% và dùng không quá 70% thời gian thì 3; chơi lại để tăng sao |
+| HK.HS.023 | Xong | Mỗi nút của hành trình đang học là một nhiệm vụ (đang làm / đã xong / chưa mở, điều kiện, thưởng); nhiệm vụ hằng ngày, hằng tuần (HK.HS.024, Sprint 5) có tab “Nhiệm vụ” với tiến độ và thưởng. Hai nguồn này đã đủ cho mô tả; ghi “Một phần” ở Sprint 3 chỉ vì khi đó chưa có nhiệm vụ ngày/tuần |
+| HK.HS.025/026 | Xong | Dòng thời gian sự kiện và trận đánh; lọc theo cuộc kháng chiến, nhân vật, địa điểm và khoảng năm (ô “Từ năm / Đến năm”, 1258–1288) |
+| HK.HS.027 | Xong (web) | Bản đồ Leaflet + OpenStreetMap: bấm điểm xem địa danh, sự kiện, trận đánh, tư liệu. Trên điện thoại chỉ hiện danh sách địa danh |
+| HK.HS.029/030 | Xong | Bài học gồm khối văn bản, hình, video (liên kết mở ngoài, chưa nhúng), bản đồ; thời lượng và tiến độ đọc (lưu ở máy chủ, chỉ tăng); hoàn thành khi đọc hết và đúng mọi câu kiểm tra nhanh (làm lại không giới hạn); sao 3 nếu đúng ngay lần đầu, 2 nếu sai trước đó |
+| HK.HS.031/032/034 | Xong | Hồ sơ nhân vật (vua, tướng, quan, khác), sự kiện, địa điểm kèm nhân vật/trận đánh/tư liệu liên quan; chỉ nội dung **Công bố** |
+| HK.HS.033 | Xong | Hồ sơ trận đánh đủ bối cảnh, lực lượng, diễn biến, kết quả, bản đồ; **ba nút chơi ngay** (học sinh): “Ra trận bằng thẻ tướng”, “Mô phỏng quyết định của chỉ huy” và “Mini-game liên quan” (mini-game của đúng cuộc kháng chiến hoặc cùng loại với `minigame_key` của trận xếp trước, rồi mini-game chung); chỉ hiện mục đã phát hành |
+| HK.HS.035/036 | Xong | Tìm không dấu trên nhân vật, sự kiện, địa điểm, trận đánh, tư liệu, thuật ngữ; từ điển thuật ngữ |
+| HK.HS.037 | Xong | Một ghi chú riêng cho mỗi bài học hoặc tư liệu đã mở khóa |
+| HK.HS.038–042 | Xong | Danh sách tư liệu với trạng thái khóa/mở (tư liệu khóa chỉ lộ tên và nút cần hoàn thành, **không lộ nội dung** kể cả trong tìm kiếm), lọc theo cuộc kháng chiến, loại, nhân vật, trạng thái, yêu thích; chi tiết nguyên văn – phiên âm – dịch nghĩa – chú giải – nguồn; yêu thích |
+| HK.GV.018 | Xong | Thư viện hành trình mẫu của hệ thống và của trường (chỉ bản đã phát hành), xem nội dung từng nút |
+| HK.GV.019 | Xong | Tạo trống hoặc từ mẫu cùng cuộc kháng chiến; giao cho lớp mình phụ trách (việc giao tự phát hành, phải đủ điều kiện). Học sinh trong lớp học theo hành trình giao mới nhất của cuộc kháng chiến đó, nếu không có thì theo hành trình mặc định của hệ thống. Ảnh nền hiển thị đầu bản đồ. Xếp lịch bắt đầu/kết thúc và nhiều hành trình cùng lúc: HK.GV.026 (Sprint 7) |
+| HK.GV.020/021 | Xong | Thêm nút theo loại, nội dung chọn từ kho (bài học đã công bố, bộ đề của mình/trường/hệ thống, trận đánh, tư liệu); sửa, đổi thứ tự bằng nút mũi tên, xóa nút chưa có học sinh hoàn thành; khi đã có học sinh hoàn thành thì chỉ đổi tên, biểu tượng, mục tiêu, điểm thưởng |
+| HK.AD.043 | Xong | Quản trị tổng soạn hành trình mẫu cho ba cuộc kháng chiến; phát hành (nội dung liên quan phải đã công bố, bộ câu hỏi không rỗng); đặt hành trình **mặc định** (mỗi cuộc kháng chiến một hành trình, phải kết thúc bằng Quyết chiến) |
+| HK.AD.044 | Xong | Soạn bài học bằng khối nội dung (văn bản, hình, video, bản đồ chọn tọa độ), gắn dữ liệu lịch sử và tối đa 3 câu kiểm tra nhanh; nháp → công bố. Trình soạn là danh sách khối, chưa phải trình soạn văn bản có định dạng |
+| HK.SYS.014 | Xong | Nhật ký sự kiện học tập (`hk_events`): trả lời, bắt đầu/kết thúc làm bài, hoàn thành nút và bài học, xem bài/tư liệu/nhân vật/sự kiện/trận đánh/địa điểm/bản đồ/dòng thời gian, tìm kiếm. Chỉ ghi cho học sinh, chưa có báo cáo hay AI đọc (các sprint sau) |
+
+## Sprint 4 – ngân hàng câu hỏi, bộ đề, làm bài (24 chức năng)
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.HS.043/044 | Xong | Làm bài ở nút: mỗi lần một câu, số câu và điểm hiện tại. Sáu dạng: một đáp án, nhiều đáp án, đúng/sai, điền khuyết, sắp xếp thứ tự (nút mũi tên), kéo thả địa danh lên bản đồ (chạm vào bản đồ để đặt; chỉ bản web). Máy chủ giữ đề, chấm điểm và chỉ gửi đáp án **sau khi đã trả lời** |
+| HK.HS.045 | Xong | Đồng hồ mỗi câu (mặc định 20 giây, bộ đề/câu có thể đặt riêng) do máy chủ tính; trả lời muộn quá 3 giây ân hạn bị tính hết giờ; đúng và nhanh được thưởng tối đa nửa điểm gốc của câu. Đồng hồ câu kế chỉ chạy khi học sinh bấm sang câu |
+| HK.HS.046 | Xong | Sau mỗi câu: đúng/sai/hết giờ (có chữ và biểu tượng, không chỉ màu), đáp án đúng, giải thích, mục lịch sử liên quan (chỉ mục đã công bố); sau bài: tổng kết, xem lại từng câu |
+| HK.HS.048 | Xong (phần điểm) | Các câu sai gom lại; luyện tối đa 10 câu mỗi lượt, làm đúng thì gỡ khỏi danh sách và cộng 10 điểm (một lần cho mỗi lần sai). "Hồi tim" thuộc cơ chế tim HK.HS.047 (Sprint 5) |
+| HK.HS.049 | Xong | Lịch sử làm bài có phân trang, điểm, đúng/sai, thời gian, xem lại từng câu |
+| HK.HS.050 | Xong | Quyết chiến cuối chiến dịch: đạt từ 70% (đặt riêng được) mới hoàn thành; hoàn thành nút cuối là hoàn thành chiến dịch |
+| HK.GV.030/031 | Xong | Danh sách theo kho (của tôi / trường / hệ thống) và theo chủ đề; lọc theo từ khóa không dấu, cuộc kháng chiến, dạng, độ khó, mục lịch sử gắn kèm; phân trang |
+| HK.GV.032/033 | Xong | Tạo/sửa đủ sáu dạng; kiểm tra cấu trúc ở máy chủ (số lựa chọn, đáp án đúng, số chỗ trống khớp đề, địa danh trong khung Việt Nam…); mỗi lần sửa có đổi nội dung sinh một phiên bản, xem được lịch sử |
+| HK.GV.034 | Xong | Chỉ xóa câu do mình soạn trong kho riêng, chưa nằm trong bộ đề, bài học và chưa có học sinh trả lời |
+| HK.GV.035/036 | Xong | Nhập Excel theo mẫu (một đáp án, nhiều đáp án, đúng/sai, điền khuyết, sắp xếp) có xem trước báo lỗi từng dòng, lưu các dòng hợp lệ; xuất danh sách đã lọc. Dạng kéo thả bản đồ chỉ tạo trên giao diện |
+| HK.GV.037 | Xong | Gắn câu hỏi với cuộc kháng chiến, nhân vật, sự kiện, địa điểm, trận đánh, tư liệu; lọc theo liên kết. Thống kê điểm yếu theo chủ đề sẽ dùng nhật ký sự kiện ở sprint báo cáo |
+| HK.GV.039, HK.QT.041 | Xong | Giáo viên gửi câu hỏi/bộ đề/hành trình vào kho trường; quản trị viên trường xem nội dung, duyệt (nội dung được **sao** sang kho trường, bản của giáo viên giữ nguyên) hoặc từ chối kèm lý do bắt buộc; gửi lại sau khi bị từ chối; rút lại khi còn chờ. Bộ đề/hành trình được sao kèm các câu hỏi riêng của giáo viên |
+| HK.GV.040–044 | Xong | Danh sách bộ đề (số câu, thời gian, số hành trình đang dùng, số lượt làm); tạo (chọn câu, thứ tự, điểm 10–1000, giây riêng, xáo trộn câu/đáp án, điểm đạt); **khóa chỉnh sửa khi đang nằm trong hành trình đã phát hành hoặc đã có học sinh làm** (nhân bản để sửa); xóa bộ đề chưa dùng; nhân bản; làm thử như học sinh (không ghi tiến độ, điểm, câu sai) |
+| HK.QT.042 | Xong | Quản trị viên trường tạo, xem, sửa, xóa hành trình mẫu của trường; duyệt hành trình giáo viên chia sẻ |
+| HK.AD.045 | Xong | Quản trị tổng soạn kho câu hỏi và bộ đề hệ thống, nhập/xuất Excel, duyệt nội dung các trường đề xuất (quản trị viên trường đề xuất từ kho trường lên hệ thống) |
+
+Nội dung học khởi tạo (migration 019): 27 câu hỏi (đủ sáu dạng), 9 bộ đề, 3 bài học và 3 hành trình mẫu cho ba cuộc kháng chiến, chỉ dùng sự kiện đã có trong
+kho lịch sử của migration 016. **Bài học và hành trình ở trạng thái Nháp**: học sinh chưa thấy gì cho đến khi quản trị tổng (cùng giáo viên Lịch sử) đối chiếu với sách giáo khoa,
+công bố nội dung lịch sử liên quan, công bố bài học rồi phát hành và đặt mặc định ba hành trình. Kiểm thử `seed.spec.ts` chạy trọn quy trình đó và để một học sinh hoàn thành cả ba hành trình.
+
+## Sprint 5 – trò chơi hóa (38 chức năng)
+
+Học sinh có thêm các mục **Nhân vật, Bộ sưu tập, Xếp hạng**, thanh chỉ số ở mọi màn hình học và hộp chúc mừng; giáo viên, quản trị viên trường và quản trị tổng có mục **Trò chơi hóa**. Mọi điểm, vàng, tim, thẻ, huy hiệu do máy chủ tính; giao diện chỉ hiển thị và gửi lựa chọn.
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.HS.011/012 | Xong | Lần đầu vào học phải chọn 1 trong 3 lớp nhân vật (Tướng quân, Quân sư, Lương y) với chỉ số và kỹ năng; không đổi được sau khi chọn. Ngoại hình ghép từ trang phục, vũ khí, cờ hiệu (biểu tượng + màu, **không có ảnh nhân vật vẽ riêng**); trang phục mở theo cấp hoặc mua bằng vàng |
+| HK.HS.013 | Xong | Thanh chỉ số luôn hiện: tim, cấp (kèm % tiến tới cấp sau), vàng, chuỗi ngày, điểm hôm nay trên mục tiêu; trạng thái luôn kèm chữ |
+| HK.HS.014 | Xong | Mục tiêu ngày 50/100/200 điểm (mặc định 50); đạt mục tiêu được vàng thưởng và tính vào chuỗi |
+| HK.HS.024, HK.AD.053 | Xong | 3 nhiệm vụ ngày + 2 nhiệm vụ tuần giao tự động từ mẫu (xoay theo học sinh và ngày/tuần), đo bằng số câu đúng, nút/trận/bài học xong, điểm kiếm được, bài 100%; xong là tự cộng thưởng. Quản trị tổng thêm/sửa/xóa mẫu |
+| HK.HS.047, HK.SYS.004 | Xong | 5 tim, mất 1 tim khi trả lời sai ở bài của nút, hồi 1 tim mỗi 4 giờ (tính khi đọc, không cần job), hồi tim khi luyện lại câu sai đúng (đóng nốt phần còn lại của HK.HS.048). Hết tim thì không vào được bài mới. Giáo viên tắt tim theo lớp; lớp nào tắt thì học sinh thuộc lớp đó không bị giới hạn |
+| HK.HS.062, HK.HS.063, HK.SYS.001, HK.AD.050 | Xong | Điểm (XP) là tổng sổ điểm, mỗi khoản cộng một lần theo (học sinh, lý do, khóa); 10 cấp từ Lính mới đến Anh hùng Đông A, mỗi cấp thưởng vàng; lên cấp hiện hộp chúc mừng. Quản trị tổng sửa bảng cấp |
+| HK.HS.064, HK.HS.065, HK.SYS.003 | Xong | Chuỗi chỉ tăng ở ngày đạt mục tiêu; ngày bỏ lỡ dùng 1 lượt đóng băng (tối đa 2), hết thì về 0. Tính khi học sinh mở ứng dụng và có job nền quét 10 phút một lần để chuỗi của người không mở app vẫn được chốt đúng (thay cho một job cố định 0 giờ). Đóng băng mua ở cửa hàng hoặc nhận ở quà ngày 7 |
+| HK.HS.066/067, HK.SYS.002, HK.AD.049 | Xong | Huy hiệu hệ thống tự trao theo quy tắc: hoàn thành hành trình, chuỗi ngày, số câu đúng, số nút, cấp độ, số thẻ, số bài 100%, tổng điểm; xem được cả huy hiệu chưa đạt kèm điều kiện. Quản trị tổng sửa huy hiệu và quy tắc |
+| HK.HS.068/069, HK.SYS.008, HK.AD.048 | Xong | Thẻ rơi khi **lần đầu** hoàn thành nút trận đánh hoặc nút cuối; máy chủ chọn thẻ theo tỉ lệ độ hiếm (Thường 70 / Hiếm 25 / Huyền thoại 5, đổi được) rồi trọng số; học sinh lật để xem. Thẻ trùng đổi thành vàng. Thẻ gắn nhân vật trong kho lịch sử nên hiện tiểu sử và câu nói chỉ khi mục đó đã công bố |
+| HK.HS.070, HK.AD.051 | Xong | Cửa hàng: trang phục, vũ khí, cờ hiệu, đóng băng chuỗi, hồi tim, gợi ý 50/50. Giá 0 + cấp yêu cầu = mở khóa miễn phí khi đủ cấp. Gợi ý 50/50 do máy chủ loại đáp án sai (chỉ câu một đáp án từ 3 lựa chọn) |
+| HK.HS.073 | Xong | Quà 7 ngày liên tiếp (10–50 vàng, ngày 7 thêm 1 đóng băng); bỏ một ngày thì về ngày 1 |
+| HK.HS.074/075, HK.SYS.005 | Xong (khác công nghệ) | Bảng xếp hạng lớp (hiện tên thật), trường và hệ thống (chỉ biệt danh "Học sinh ẩn danh", trừ chính học sinh), theo tuần/tháng/từ trước đến nay. Lưu đệm 30 giây **trong bộ nhớ của máy chủ thay cho Redis**: Render đang chạy một máy chủ (gói miễn phí) nên đệm nhất quán; khi mở rộng nhiều máy chủ mỗi máy sẽ có một đệm riêng (lệch tối đa 30 giây) và lúc đó cần Redis. Chưa làm vì chưa có dịch vụ Redis để kiểm chứng |
+| HK.HS.077, HK.SYS.006, HK.AD.054 | Xong | Giải đấu tuần: nhóm 30 người cùng hạng, 10 người đầu lên hạng, 5 người cuối xuống hạng (chỉ khi nhóm đủ lớn), chốt một lần khi hết tuần (job hoặc khi có người mở). Quản trị tổng chỉnh được **số người mỗi nhóm, số thăng / giáng, số hạng (2–8) cùng tên từng hạng, và thứ chốt bảng** (mặc định 4 hạng Đồng, Bạc, Vàng, Kim cương; chốt thứ Hai). Đổi thứ chốt không cắt ngang tuần đang chạy mà có hiệu lực từ tuần kế tiếp (tuần đầu của lịch mới có thể ngắn hơn 7 ngày); trang cấu hình hiện lịch đang chờ. Giảm số hạng thì người ở hạng cao hơn được xếp vào hạng cao nhất còn lại. Xem mục "Hoàn thiện giải đấu" bên dưới |
+| HK.HS.078 | Xong (web) | Ảnh thành tích (tên hiển thị, cấp, điểm, huy hiệu, thẻ) tạo ngay ở trình duyệt, tải về hoặc chia sẻ bằng bộ chia sẻ của thiết bị. Chỉ có trên bản web (sản phẩm chỉ phát hành bản web) và không có liên kết công khai: ảnh chứa tên và thành tích của học sinh nên chỉ do chính học sinh chọn chia sẻ. Đặc tả chỉ yêu cầu tạo ảnh để chia sẻ. Không có bài kiểm thử tự động vì là tính năng của trình duyệt |
+| HK.QT.044 | Xong | Quản trị viên trường bật/tắt bảng xếp hạng trường, phạm vi (toàn trường/khối), kỳ (tuần/tháng) |
+| HK.QT.045 | Xong | Sự kiện – giải đấu cấp trường: thời gian giờ Việt Nam, lớp tham gia, vàng thưởng hạng 1–3 và tham gia, huy hiệu cho người thắng, bảng điểm riêng; chỉ sửa khi chưa bắt đầu; thưởng trao một lần khi kết thúc |
+| HK.QT.046 | Xong | Huy hiệu riêng của trường (không có điều kiện tự trao); giáo viên và quản trị viên trường trao cho học sinh trong lớp mình phụ trách |
+| HK.AD.052 | Xong | Quản trị tổng sửa 3 lớp nhân vật, chỉ số, kỹ năng và chi phí sử dụng (mỗi dòng: mã, tên, mô tả, chi phí 0–99 điểm hành động). Kỹ năng dùng được ở hoạt động lớp học từ Sprint 7 (HK.HS.072) |
+| HK.AD.066 | Xong | Một bảng cấu hình mặc định cho tim, thưởng tốc độ, điểm luyện tập, mục tiêu ngày, vàng thưởng, đóng băng, tỉ lệ thẻ, quà ngày, giải đấu, thời gian lưu đệm; mỗi giá trị có giới hạn kiểm tra ở máy chủ; đổi không tính lại điểm đã ghi |
+
+Nội dung khởi tạo (migration 021): 10 cấp, 3 lớp nhân vật, 14 vật phẩm, 8 mẫu nhiệm vụ, huy hiệu hệ thống và thẻ nhân vật gắn với nhân vật trong kho lịch sử. **Nội dung khởi tạo là bản nháp thiết kế**, giáo viên Lịch sử cần xem lại tên, mô tả và tiểu sử trước khi dùng thật.
+
+## Sprint 6 – mô phỏng trận đánh và mini-game (14 chức năng)
+
+Học sinh có mục **Trận đánh**: vào vai người chỉ huy, ra quyết định từng bước, bố trí lực lượng trên bản đồ, nhận phản hồi đối chiếu diễn biến thật, xem hoạt ảnh, chơi ba mini-game. Quản trị tổng soạn kịch bản (JSON) và tham số mini-game. Máy chủ giữ đáp án, chấm điểm và đồng hồ; mỗi lượt chơi lưu bản chụp kịch bản lúc bắt đầu nên sửa kịch bản giữa chừng không làm hỏng lượt đang chơi.
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.HS.051/052 | Xong | Danh sách 6 trận (Đông Bộ Đầu, Hàm Tử, Chương Dương, Tây Kết, Vân Đồn, Bạch Đằng) kèm khóa/mở, sao, điểm cao nhất, lượt chơi dở; màn giới thiệu gồm tình hình, lực lượng, nhiệm vụ của người chỉ huy, điều kiện thắng. Trận nằm trong hành trình của học sinh thì khóa tới khi đến nút đó; trận chưa thuộc hành trình nào mở sẵn |
+| HK.HS.053/055 | Xong | Chơi theo lượt: bước **quyết định** (2–5 phương án, mỗi phương án có điểm riêng và hệ quả) và bước **bố trí** lực lượng; sau mỗi bước hiện đối chiếu với diễn biến thật, hệ quả, phương án phù hợp nhất và liên kết tới kho lịch sử (chỉ mục đã công bố). Không lộ điểm, đáp án hay khu vực đúng trước khi trả lời |
+| HK.HS.054 | Xong, một phần | Bố trí bằng cách **chọn lực lượng rồi bấm lên bản đồ** (hoặc chọn khu vực trong danh sách, dùng được cả bằng bàn phím); chưa kéo thả bằng chuột. Máy chủ kiểm tra từng lực lượng nằm trong khu vực chấp nhận (vòng tròn bán kính 10–30 km, có chủ ý rộng vì tọa độ minh họa). Trên điện thoại chưa có bản đồ Leaflet nên dùng danh sách khu vực |
+| HK.HS.056 | Xong | Kết quả: thắng khi đạt từ 60% điểm (đặt riêng được cho từng kịch bản), **toàn thắng (đúng mọi bước) +150 điểm**, sao 1/2 (từ 80%)/3 (toàn thắng), thời gian, thẻ nhân vật rơi ở lần đầu hoàn thành nút. Mô phỏng ở nút trận đánh hoàn thành nút như làm bài (mở nút kế, mở tư liệu, thưởng nút, rơi thẻ) |
+| HK.HS.057 | Xong | Chơi lại tùy ý; chỉ phần điểm vượt kỷ lục cũ được cộng (không "cày" điểm); thẻ chỉ rơi lần đầu |
+| HK.HS.061 | Xong | Lượt chơi dở được lưu sau từng bước; mở lại trận thì tiếp tục đúng chỗ, hoặc làm lại từ đầu |
+| HK.HS.028 | Xong | Hoạt ảnh diễn biến trên bản đồ: các khung vị trí hai bên (xanh = quân Trần, đỏ = đối phương), phát tự động hoặc chuyển từng khung. Vị trí chỉ mang tính minh họa |
+| HK.HS.058 | Xong | Ghép thẻ trong thời gian giới hạn: máy chủ kiểm tra từng lần ghép, ghép sai bị trừ điểm, hết giờ tự kết thúc với phần đã ghép |
+| HK.HS.059 | Xong | Sắp xếp dòng thời gian bằng nút mũi tên; sau khi nộp hiện thứ tự đúng kèm mốc thời gian |
+| HK.HS.060 | Xong | Ô chữ: bố cục tự xếp từ danh sách từ, gợi ý hiện cho học sinh, so khớp đáp án không dấu và không phân biệt hoa thường |
+| HK.AD.046 | Xong | Soạn kịch bản bằng **JSON** có mẫu, nút kiểm tra cấu trúc (báo lỗi tiếng Việt chỉ rõ bước/lựa chọn), chơi thử (không ghi điểm), phát hành chỉ khi hồ sơ trận đánh trong kho lịch sử đã công bố. Chưa có trình soạn từng bước bằng biểu mẫu |
+| HK.AD.047 | Xong | Soạn ghép thẻ, dòng thời gian, ô chữ bằng bảng nhập từng dòng; kiểm tra tham số (ô chữ cho biết kích thước lưới), phát hành, chơi thử |
+
+Nội dung khởi tạo (migration 023): 6 kịch bản (có hoạt ảnh) và 4 mini-game (2 ghép thẻ, 1 dòng thời gian, 1 ô chữ). **Tất cả ở trạng thái Nháp.** Diễn biến đối chiếu với các bài "Chiến tranh Nguyên Mông – Đại Việt lần 1/2/3" trên vi.wikipedia; những chỗ nguồn chép khác nhau (người chỉ huy trận Tây Kết, tướng Nguyên có dự trận Hàm Tử hay không, vai trò Trần Quốc Toản) **không được khẳng định**. Kịch bản Tây Kết ngắn (2 bước) vì hồ sơ trận trong kho còn thiếu mô tả. Cần giáo viên Lịch sử duyệt trước khi phát hành. Dựng bằng thành phần React Native và Leaflet, **không dùng Phaser/Canvas** như ghi chú trong đặc tả.
+
+## Sprint 7 – lớp học, bài tập, bản đồ rẽ nhánh, kỹ năng nhân vật (42 chức năng)
+
+Giáo viên có mục **Lớp học** để quản lý trọn một lớp (học sinh, đội, luật lớp, thưởng/phạt, bài tập, tiến độ, thông báo) và trình thiết kế **bản đồ rẽ nhánh**. Học sinh có mục **Lớp học** (lớp của em, bài tập, xếp hạng đội, kỹ năng) và chuông thông báo. Mọi điểm, hạn nộp, lượt làm và điều kiện mở nút do máy chủ quyết định; giao diện chỉ hiển thị và gửi yêu cầu.
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.GV.007 | Xong | Danh sách lớp phụ trách: sĩ số, số đội, mã lớp, hành trình đang chạy kèm tiến độ từng hành trình và tiến độ trung bình, số yêu cầu chờ duyệt |
+| HK.GV.008 | Xong | Giáo viên tự tạo lớp (khối 6–9) trong năm học đang hoạt động của trường; lớp tự tạo ghi nhận người tạo |
+| HK.GV.009/010 | Xong | Sửa tên, mô tả, ảnh bìa (liên kết https). **Lớp do nhà trường tạo**: giáo viên chỉ sửa mô tả và ảnh bìa, lưu trữ/xóa thuộc quản trị viên trường. **Lớp tự tạo**: lưu trữ và khôi phục tùy ý, chỉ xóa khi chưa có hành trình, bài tập hay thưởng/phạt |
+| HK.GV.011 | Xong | Tạo lại mã tham gia (mã cũ hết dùng), đóng/mở cho học sinh tự vào bằng mã |
+| HK.GV.012 | Xong | Thêm học sinh từ danh sách học sinh của trường (tìm không dấu) hoặc file Excel mẫu (mỗi dòng một mã học sinh; báo từng dòng lỗi: mã lạ, mã lặp, đã trong lớp) |
+| HK.GV.013 | Xong | Xóa học sinh khỏi lớp: rời lớp và rời đội, **dữ liệu học vẫn giữ nguyên** |
+| HK.GV.014/015 | Xong | Danh sách học sinh kèm nhân vật, cấp, điểm, vàng, tim (theo HP tối đa của lớp), đội, lần học gần nhất; tìm theo tên, mã hoặc biệt danh không dấu |
+| HK.GV.016 | Xong | Chia đội ngẫu nhiên (mỗi đội 4–6 học sinh, số đội làm tròn cho đều) hoặc thủ công: đặt tên đội, **chọn biểu tượng đội (12 biểu tượng)**, **kéo học sinh vào đội trên web** (có ô "Chưa có đội" để kéo ra) hoặc chọn đội cho từng học sinh bằng danh sách (dùng cho cảm ứng và bàn phím); tối đa 12 đội, mỗi học sinh chỉ một đội. Thẻ đội hiện biểu tượng đã chọn |
+| HK.GV.017 | Xong | Học sinh xin rời lớp (HK.HS.105) → giáo viên nhận thông báo và đồng ý/từ chối; đồng ý thì học sinh rời lớp (dữ liệu giữ) |
+| HK.GV.022 | Xong, một phần | Bản đồ rẽ nhánh: **kéo nút bằng chuột/ngón tay** đến vị trí mong muốn, bật "Nối đường" rồi bấm hai nút để nối hoặc bỏ đường; thay thế cho người không kéo được: nhập vị trí bằng số và chọn nút nối bằng danh sách. Máy chủ từ chối đường nối tạo vòng lặp, nối nút với chính nó, nút Quyết chiến đi tiếp hoặc không có đường vào. Hành trình đã có học sinh học thì không đổi được đường nối (chỉ đổi vị trí); hãy nhân bản để chỉnh. Đã kiểm tra kéo nút bằng chuột và bằng sự kiện cảm ứng giả lập trên trình duyệt (vị trí lưu đúng); chưa thử trên điện thoại hoặc máy tính bảng thật |
+| HK.GV.023 | Xong | Điều kiện mở nút: nút mở khi **mọi nút nối vào đã hoàn thành**; kèm điểm tối thiểu (%), số sao tối thiểu ở nút trước và ngày giờ mở (giờ Việt Nam). Lý do khóa hiện bằng chữ cho học sinh. Hành trình không có đường nối chạy tuần tự như trước |
+| HK.GV.024 | Xong | Phần thưởng riêng của nút: vàng, một thẻ nhân vật, một huy hiệu (của hệ thống hoặc của trường); chỉ trao ở lần hoàn thành đầu tiên, chơi lại không trao lại |
+| HK.GV.025 | Xong | Xem trước như học sinh: giáo viên chạm vào nút để đánh dấu "đã xong" và chọn thời điểm (bây giờ / sau 1 ngày / 3 ngày / 1 tuần) để xem nút mở ra thế nào; không ghi gì vào dữ liệu học sinh |
+| HK.GV.026 | Xong | Giao hành trình cho lớp có **lịch bắt đầu và kết thúc** (bỏ trống là chạy ngay, không hết hạn); một lớp có thể được giao nhiều hành trình, học sinh học bản mới giao nhất đang chạy; hết hạn thì học sinh quay về hành trình trước hoặc mặc định |
+| HK.GV.027 | Xong | Nhân bản hành trình sang lớp khác hoặc năm học mới: sao nút, đường nối, vị trí, điều kiện, thưởng (ngày giờ mở không sao chép), có thể giao ngay |
+| HK.GV.028 | Xong | Tiến độ lớp trên bản đồ: số học sinh đã xong và đang ở từng nút; danh sách học sinh kèm lý do học chậm (chậm so với lịch, 7 ngày không học, hoặc thấp hơn trung bình lớp) |
+| HK.GV.029 | Xong từ Sprint 4 | Gửi hành trình vào kho của trường (đã làm cùng HK.GV.039) |
+| HK.GV.045/046 | Xong | Giao **bộ đề, mini-game hoặc bài học** cho cả lớp, một số đội hoặc một số học sinh với hạn nộp (tối đa một năm), số lần làm (1–10) và điểm thưởng đúng hạn (0–500); học sinh thuộc phạm vi được thông báo; danh sách bài tập có tỷ lệ nộp |
+| HK.GV.047/048 | Xong | Gia hạn, đổi phạm vi, số lần làm, điểm thưởng (không đổi nội dung đã giao; không bỏ học sinh đã nộp khỏi phạm vi; không giảm số lần dưới số lần đã làm); thu hồi chỉ khi chưa ai nộp. Tình trạng nộp từng học sinh: chưa nộp / đã nộp / nộp muộn / đã chấm |
+| HK.GV.049 | Xong | Chấm điểm 0–100 kèm nhận xét cho học sinh đã nộp; **điểm của giáo viên là điểm cuối**; xếp loại Giỏi (≥80), Khá (≥65), Trung bình (≥50), Yếu; học sinh được thông báo |
+| HK.GV.050 | Xong | Nhắc học sinh chưa nộp (mỗi học sinh tối đa một lần mỗi 6 giờ cho một bài tập) |
+| HK.GV.059 | Xong | Thưởng/phạt điểm, vàng, tim cho học sinh hoặc cả đội kèm lý do (chọn nhanh từ hành vi trong luật lớp hoặc tự nhập); điểm và vàng không xuống dưới 0, tim trong 0 đến HP tối đa, cấp độ không bị hạ; học sinh nhận thông báo; có lịch sử |
+| HK.GV.060 | Xong | Luật lớp: danh sách hành vi và mức thưởng/phạt (có danh sách mẫu), HP tối đa của lớp, bật/tắt tim, bật/tắt bảng xếp hạng lớp và đội, bật duyệt kỹ năng, mục tiêu điểm tuần mỗi người của đội |
+| HK.GV.061 | Xong | Trao huy hiệu riêng của trường cho học sinh hoặc cả đội (không trao hai lần; không trao huy hiệu hệ thống) |
+| HK.GV.062 | Xong | **Vòng quay vận mệnh**: máy chủ chọn ngẫu nhiên một trong 8 sự kiện đầu giờ (thưởng điểm, vàng, tim, trừ nhẹ, hoặc "một ngày bình yên") và áp cho cả lớp hoặc một đội |
+| HK.GV.063 | Xong | Duyệt kỹ năng: khi lớp bật duyệt, kỹ năng hồi tim của học sinh chờ giáo viên; từ chối thì hoàn lại điểm hành động |
+| HK.GV.064 | Xong | Bảng xếp hạng lớp và đội theo tuần/tháng/từ đầu; lớp tắt bảng thì học sinh thấy thông báo thay cho bảng |
+| HK.GV.065 | Xong | Hộp quà của lớp: mục tiêu điểm chung (không tính điểm giáo viên thưởng); đạt thì giáo viên mở hộp, mỗi học sinh nhận vàng/điểm một lần |
+| HK.HS.071 | Xong | Đội của em: thành viên kèm cấp và điểm tuần, hạng đội, nhiệm vụ đội (cả đội ghi đủ điểm trong tuần; mọi thành viên đạt mục tiêu ngày) |
+| HK.HS.072 | Xong | **Sáu kỹ năng** của ba lớp nhân vật tiêu tốn điểm hành động (3 ở cấp 1, thêm 1 sau mỗi 2 cấp, hồi đầy mỗi ngày): Xung phong (nhân đôi thưởng tốc độ câu đúng kế tiếp), Hộ giáp (bỏ qua một lần mất tim), Mưu kế (loại bớt đáp án sai ngay trong câu hỏi), Trận đồ (xem mục lịch sử liên quan), Thuốc quý (hồi một tim cho mình), Hồi sinh (hồi một tim cho bạn cùng lớp). Chỉ dùng khi em thuộc một lớp |
+| HK.HS.076 | Xong | Bảng xếp hạng đội của lớp (tuần/tháng/từ đầu), đánh dấu đội của em |
+| HK.HS.099/103 | Xong | Lớp đã tham gia (nhiều lớp): giáo viên, bạn cùng lớp kèm nhân vật, cấp, đội; hành trình đang chạy; hộp quà và thông báo của lớp. Không lộ mã học sinh hay họ tên đầy đủ khi đã có biệt danh |
+| HK.HS.100/102 | Xong | Danh sách bài tập chia "Cần làm / Quá hạn / Đã nộp" kèm hạn, lượt còn lại, điểm cao nhất; điểm, xếp loại và nhận xét của giáo viên |
+| HK.HS.101 | Xong | Làm bài tập: bộ đề (QuizPlayer), mini-game (lượt chơi gắn với bài tập), bài học (đọc hết và trả lời đúng mọi câu kiểm tra nhanh). Máy chủ giữ lượt làm và hạn nộp; quá hạn không bắt đầu được (lượt đang làm dở vẫn nộp được và tính nộp muộn); điểm cao nhất của các lần được giữ; điểm thưởng đúng hạn chỉ cộng một lần |
+| HK.HS.104 | Xong | Chuông thông báo (thăm dò mỗi 60 giây) với số chưa đọc, đánh dấu đã đọc; có cho cả giáo viên (yêu cầu rời lớp, xin dùng kỹ năng) |
+| HK.HS.105 | Xong | Xin rời lớp kèm lý do; chờ giáo viên đồng ý |
+
+Dữ liệu: migration 024 (bảng đội, yêu cầu rời lớp, thưởng/phạt, hộp quà, bài tập, bài nộp, lượt dùng kỹ năng, đường nối nút; cột vị trí – điều kiện – thưởng của nút, lịch giao hành trình, điểm hành động và hiệu ứng chờ của người chơi). Mọi bảng mới bật RLS và chỉ máy chủ đọc/ghi.
+
+## Sprint 8 – thi đấu trực tiếp kiểu Kahoot (16 chức năng)
+
+Giáo viên tạo phòng thi từ một bộ đề, chiếu mã PIN 6 số và mã QR lên lớp; học sinh của lớp vào bằng điện thoại hoặc máy tính, trả lời cùng lúc, xem bảng điểm sau mỗi câu và bục vinh quang cuối trận. Trạng thái trận nằm trong PostgreSQL (khởi động lại máy chủ hay mất mạng không làm mất trận); WebSocket (Socket.IO, đường dẫn `/api/live/ws`) chỉ phát lại trạng thái cho từng người xem, mọi lệnh có API HTTP tương đương làm đường dự phòng.
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.GV.051 | Xong | Tạo phòng từ bộ đề (của mình, của trường hoặc của hệ thống) cho một lớp mình phụ trách, chế độ cá nhân hoặc theo đội (lớp cần đã chia ít nhất 2 đội); hệ thống sinh mã PIN 6 số (duy nhất giữa các phòng chưa kết thúc) và mã QR dẫn tới `/hoc-sinh?pin=…`. Phòng lưu **bản chụp** các câu hỏi lúc tạo nên sửa bộ đề giữa chừng không ảnh hưởng. Tối đa 5 phòng chưa kết thúc mỗi giáo viên; phòng bỏ quên quá 6 giờ tự đóng |
+| HK.GV.052 | Xong | Màn hình chờ chiếu lớp: mã PIN rất lớn, mã QR, danh sách người tham gia (biệt danh, hình đại diện, đội, chấm xanh khi đang trực tuyến) cập nhật theo thời gian thực, nút bắt đầu (cần ít nhất một học sinh), nút toàn màn hình (web) |
+| HK.GV.053 | Xong | Điều khiển trận: **bắt đầu**, **kết thúc câu / câu tiếp theo**, **tạm dừng và tiếp tục** (đồng hồ giữ đúng thời gian còn lại), **bỏ qua câu** (không tính điểm cho ai, điểm đã nhận của câu đó được thu hồi), **kết thúc sớm** (có hộp xác nhận). Chỉ giáo viên chủ phòng điều khiển được |
+| HK.GV.054 | Xong | Kết quả từng câu: biểu đồ phân bố đáp án (trắc nghiệm một/nhiều đáp án và đúng/sai; dạng khác hiện số đúng/sai/chưa trả lời), đáp án đúng, giải thích, bảng xếp hạng top 5 tức thời, điểm đội |
+| HK.GV.055 | Xong | Bục vinh quang cuối trận: top 3 (cá nhân, hoặc đội ở chế độ đội) với hiệu ứng dâng bục (tắt khi người dùng chọn giảm chuyển động), bảng xếp hạng đầy đủ |
+| HK.GV.056 | Xong | Báo cáo trận: điểm từng học sinh (họ tên, mã, biệt danh, đội), tỉ lệ đúng và thời gian trả lời trung bình từng câu, **câu khó nhất** (câu bị bỏ qua không tính), tỉ lệ tham gia trả lời, xếp hạng đội; lưu **lịch sử phòng thi** theo lớp |
+| HK.GV.057 | Xong | Xuất Excel (trang Tổng quan, Học sinh, Câu hỏi, Đội; chuỗi người dùng nhập được làm sạch để không thành công thức) và PDF (A4 ngang, chữ Manrope nhúng sẵn nên đủ dấu tiếng Việt) |
+| HK.GV.058, HK.HS.085 | Xong | Thi theo đội: học sinh tự vào đội của lớp (đã chia ở mục Lớp học → Đội); **điểm đội = trung bình điểm các thành viên đã tham gia** (công bằng khi đội đông ít khác nhau); học sinh chưa có đội vẫn thi được nhưng không nằm trong bảng đội |
+| HK.HS.079 | Xong | Nhập mã PIN 6 số (hoặc mở đường dẫn từ mã QR đã điền sẵn mã) → xem trước phòng → vào phòng chờ. Chỉ học sinh thuộc lớp của phòng; giới hạn 20 lần thử mỗi phút để không dò mã; có danh sách phòng đang mở của các lớp em (không kèm mã PIN) |
+| HK.HS.080 | Xong | Chọn biệt danh (2–20 ký tự, không trùng trong phòng, không phân biệt hoa thường) và 1 trong 12 hình đại diện; đổi được ở phòng chờ; vào lại phòng giữ nguyên người chơi. Giáo viên vẫn thấy tên thật trong báo cáo |
+| HK.HS.081 | Xong | Câu hỏi hiện đồng bộ với màn hình giáo viên, đếm ngược theo **giờ máy chủ** (có bù lệch đồng hồ). Điểm mỗi câu: đúng được từ 50% đến 100% điểm của câu tùy tốc độ, sai hoặc quá giờ 0 điểm; chỉ nhận một đáp án mỗi câu và không báo đúng/sai cho đến khi hết câu. Hỗ trợ cả sáu dạng câu hỏi (trắc nghiệm và đúng/sai bấm một lần; dạng khác có nút gửi) |
+| HK.HS.082 | Xong | Sau mỗi câu: kết quả của em (+điểm, hạng), đáp án đúng, phân bố đáp án, top 5 và hạng của em. Câu kết thúc khi hết giờ, hoặc khi mọi người đang trực tuyến đã trả lời, hoặc giáo viên kết thúc câu |
+| HK.HS.083 | Xong | Bục vinh quang top 3 và bảng xếp hạng cuối trận; điểm trận quy đổi thành **điểm tài khoản** (điểm ÷ 10, tối đa 150, thêm 20/10/5 cho hạng 1/2/3), cộng đúng một lần mỗi trận |
+| HK.HS.084 | Xong | Lịch sử các trận đã thi và xem lại từng câu: đúng/sai, điểm, đáp án đúng, giải thích, tỉ lệ đúng của cả lớp |
+| HK.SYS.016 | Xong | Đồng bộ thời gian thực bằng Socket.IO: đăng nhập bằng token như API, `live:state` riêng cho từng người xem (học sinh không bao giờ nhận đáp án trong lúc làm), `live:answered` cho số người đã trả lời; tự kết nối lại và hỏi lại trạng thái, trong lúc chưa có WebSocket thì lệnh và đáp án đi qua HTTP và trạng thái được hỏi lại mỗi 4 giây. Đồng hồ chốt câu chạy ở máy chủ và được dựng lại khi khởi động |
+
+Dữ liệu: migration 025 (phòng thi, người chơi, câu trả lời; mã PIN chỉ duy nhất giữa các phòng chưa kết thúc; lý do điểm `live`). Mọi bảng mới bật RLS, chỉ máy chủ đọc/ghi.
+
+## Sprint 5 theo ver0.2 – lộ trình học dạng đường đi kiểu Duolingo (9 chức năng mới)
+
+Hành trình mẫu được chia thành **Phần** (mỗi cuộc kháng chiến) và **Cửa** (chủ đề, nhóm các nút liên tiếp). Màn **Học** vẽ các nút thành đường uốn lượn; bốn loại nút mới: luyện tập, nghe kể chuyện, rương, kiểm tra cuối cửa. Nút vẫn mở tuần tự (hoặc theo đường nối nếu giáo viên thiết kế nhánh rẽ), nên qua bài kiểm tra cuối cửa mới mở Cửa kế tiếp. Thẻ nhân vật (HK.HS.068/069, HK.AD.048, HK.SYS.008) chuyển sang Sprint 6; phần đã làm ở bản cũ vẫn chạy nguyên.
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.HS.117 | Xong | Màn **Học**: đường uốn lượn chia Phần/Cửa, băng tiêu đề dính "Phần 1, Cửa 4 – tên cửa" đổi theo vị trí cuộn, nút đã xong / đang học / bị khóa khác màu và có chữ, linh vật đứng cạnh nút hiện tại, tự cuộn tới nút hiện tại. Hành trình chưa chia Cửa hiện thành một nhóm duy nhất; nút không thuộc Cửa nào hiện thành nhóm "Chặng khác" |
+| HK.HS.118 | Xong | Nút hiện tại có nhãn "BẮT ĐẦU" và vòng tiến độ (số bước đã qua / tổng số bước); bấm mở tờ chi tiết với tên bài, số câu hỏi, điểm thưởng, Binh thư rồi vào học |
+| HK.HS.119 | Xong | Bài học từng bước: thẻ kiến thức xen kẽ câu hỏi kiểm tra nhanh, thanh tiến độ và số tim ở trên cùng, "Kiểm tra" báo đúng/sai kèm giải thích ngay (máy chủ chấm), sai mất một tim và câu được ghi vào danh sách luyện lại (hết tim không chặn việc học); cuối bài báo điểm, độ chính xác, thời gian, thưởng. Có nút "Đọc cả bài một lượt" quay lại trình đọc cuộn cũ (giữ ghi chú); bài tập của lớp vẫn dùng trình đọc cũ |
+| HK.HS.120 | Xong | Nút rương: mở khi đã tới (chưa tới hiện khóa), nhận vàng và Binh thư riêng của nút một lần; **từ Sprint 6 ver0.2 còn trao 1–2 mảnh thẻ tướng** (chọn theo độ hiếm, đủ mảnh thì ghép thành thẻ) |
+| HK.HS.121 | Xong | Nút luyện tập: máy chủ tự ghép tối đa 8 câu đã gặp trong Cửa (câu kiểm tra nhanh của bài học, câu của bộ đề), làm đúng ít nhất một câu là hoàn thành, sai không mất tim và không thưởng vàng "100%" (chống cày). Nút nghe kể chuyện: lời kể hiện thành phụ đề từng dòng, phát âm thanh thu sẵn nếu có, không thì máy đọc tiếng Việt của thiết bị (nếu thiết bị không đọc được thì phụ đề tự chạy), có thể hỏi câu hỏi về nội dung vừa nghe nếu nút gắn bộ đề |
+| HK.HS.122 | Xong | Kiểm tra cuối cửa: bộ đề riêng hoặc tự ghép câu hỏi của Cửa, cần từ 70% mới hoàn thành Cửa và mở Cửa kế tiếp (làm lại không giới hạn) |
+| HK.HS.123 | Xong | Nút "Hướng dẫn" trên băng tiêu đề mở **Cẩm nang** của Cửa, tự tạo từ kho lịch sử đã Công bố gắn với các bài học và trận đánh trong Cửa: mốc thời gian, nhân vật (cả nhân vật tham gia các sự kiện/trận đánh của Cửa), địa danh, thuật ngữ, câu nói nổi tiếng, kèm ghi chú của người biên soạn; chạm vào mục để mở chi tiết |
+| HK.HS.125 | Xong | Thanh menu chính theo bố cục kiểu Duolingo (cập nhật 03/11/2026): thanh bên trái trên máy tính (từ 900 px) hiện 8 mục chính (Học, Luyện tập, Bảng xếp hạng, Nhiệm vụ, Trợ lý AI, Cửa hàng, Hồ sơ, Chiến dịch) rồi nhóm "Xem thêm" với các mục còn lại (Bộ thẻ, Gợi ý học tập, Thư viện, …); thanh dưới trên điện thoại có 5 mục (Học, Luyện tập, Bảng xếp hạng, Nhiệm vụ, Trợ lý AI) và ô "Xem thêm" chứa các mục còn lại, kể cả Chiến dịch, Bộ thẻ, Cửa hàng, Hồ sơ. **Vị trí khác danh sách trong đặc tả** (đặc tả để Chiến dịch và Bộ thẻ ở thanh chính) nhưng mọi mục đều vào được trên cả hai kiểu hiển thị; chấm đỏ cho câu cần luyện lại, thẻ chưa lật, phòng thi đang mở. Kiểm thử cấu trúc ở `frontend/tests/student-nav.test.cjs` |
+| HK.AD.080 | Xong | Trình quản lý hành trình có mục **Các Cửa** (thêm/sửa/xóa, mô tả, ghi chú Cẩm nang), chọn loại nút mới, Cửa của nút, âm thanh và lời kể, Binh thư thưởng riêng; nhân bản hành trình sao cả Cửa. Phát hành/đặt mặc định bị chặn nếu nút luyện tập hoặc kiểm tra cuối cửa chưa có câu hỏi để ôn |
+| HK.HS.068, 069, HK.AD.048, HK.SYS.008 | Chuyển sang Sprint 6 | Theo ver0.2; chưa nâng cấp (mảnh thẻ, sao, độ hiếm Sử thi) |
+
+**Binh thư** (chốt mặc định, xem `DOI_CHIEU_HAO_KHI_V02.md` mục A1): tài nguyên dùng nâng cấp thẻ tướng ở Sprint 6, có sổ cái riêng `hk_binh_thu_ledger` (mỗi khoản duy nhất theo học sinh – lý do – đối tượng nên làm lại không nhận trùng), hiện trên thanh chỉ số cạnh vàng. Nhận khi hoàn thành nút lần đầu: mặc định bài học/câu hỏi/tư liệu/nghe kể chuyện 2, luyện tập 1, kiểm tra cuối cửa 6, trận đánh 4, Quyết chiến 10, rương 5; quản trị tổng sửa mức mặc định ở "Cấu hình trò chơi hóa → Binh thư" và đặt riêng cho từng nút.
+
+Dữ liệu: migration 026 (bảng `hk_gates`; cột Cửa, âm thanh, lời kể, Binh thư của nút; bốn loại nút mới; cột `binh_thu` và sổ cái Binh thư, có RLS), migration 027 (chia ba hành trình mẫu còn là bản nháp thành 2 Cửa mỗi hành trình, thêm 15 nút nghe kể chuyện / luyện tập / rương / kiểm tra cuối cửa; chỉ động vào hành trình chưa phát hành, chưa có học sinh học và chưa chia Cửa; lời kể chỉ dùng lại các sự kiện đã có trong bài học mẫu, vẫn cần giáo viên Lịch sử kiểm tra).
+
+## Sprint 6 theo ver0.2 – game mô phỏng trận đánh bằng thẻ tướng (45 chức năng)
+
+Sprint 6 được viết lại thành game thẻ tướng đánh theo lượt: bộ thẻ có độ hiếm – cấp – sao, nâng cấp bằng Binh thư và mảnh thẻ, đội hình 5 thẻ, **bản đồ hành quân** nối với lộ trình học, màn chơi có địa hình và chỉ huy địch báo chiêu lớn, tuyệt kỹ kích hoạt bằng câu hỏi 15 giây, "Sự thật lịch sử" sau trận. Các phần ver0.1 đã làm (mô phỏng quyết định của chỉ huy, hoạt ảnh diễn biến, ba mini-game) **giữ nguyên** và nằm ở mục "Trận đánh → Quyết định của chỉ huy".
+
+Kiến trúc: lõi trận là một bộ máy lượt thuần, xác định theo hạt giống (`backend/src/battle/war-engine.ts`, kiểm thử riêng 10 bài); máy chủ giữ trạng thái trận, đo thời gian trả lời, chấm câu hỏi và trao thưởng; trình duyệt chỉ hiển thị và gửi hành động (`/api/war/*`).
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.HS.113 | Xong (khác công nghệ) | Bản đồ hành quân: điểm tròn có tên, đường nối nét đứt (đoạn đã đi nét liền), dấu ✓ cho điểm đã xong, kéo (cuộn) và phóng to / thu nhỏ. Dựng bằng thành phần React Native, **không dùng Phaser/PixiJS**; ảnh nền minh họa do quản trị tải lên (https, ghi nguồn), chưa có ảnh nền mẫu |
+| HK.HS.114 | Xong | Chạm điểm đã mở thì nhân vật đi dọc đường nối qua từng điểm (hoạt ảnh, tắt khi bật "giảm chuyển động"); máy chủ tìm đường qua các điểm đã đi và từ chối đi tắt; vị trí lưu cho lần sau. Nhân vật hiện là biểu tượng khiên, **chưa là lớp nhân vật đã chọn** |
+| HK.HS.115 | Xong | Sự kiện theo loại điểm: cốt truyện, thẻ / mảnh thẻ, thử thách câu hỏi, tư liệu, rương, trận đánh. Phần thưởng chỉ nhận một lần (sổ cái khóa theo điểm). Điểm trận đánh khóa tới khi nút trận đó trong lộ trình học đã mở |
+| HK.HS.116 | Một phần | Hội thoại có lựa chọn trả lời, Nhật ký hành quân xem lại được, lời thoại gắn tư liệu nguồn, nút “Tiếp” từng câu và **“Tua nhanh”** (hiện liền các câu kế tiếp, dừng ở câu có lựa chọn trả lời). **Chưa có chân dung nhân vật** |
+| HK.HS.124 | Xong | Nút trận đánh trong lộ trình có nút "Ra trận bằng thẻ tướng" (chi tiết nút trả `stage_id` và `march` khi màn đã phát hành); màn vẫn khóa tới khi học tới nút đó. Nút đưa học sinh tới **đúng điểm trận đánh trên bản đồ hành quân** của cuộc kháng chiến đó: bản đồ cuộn tới điểm, viền đỏ quanh điểm và hộp "Ra trận: <tên điểm>"; điểm đã mở thì có nút "Ra trận tại …" (dẫn quân tới rồi mở màn chơi), điểm chưa mở thì hộp nêu lý do (ví dụ phải đi qua điểm kề bên). Trận không có điểm trên bản đồ đã phát hành, hoặc game đang tắt, thì vẫn mở màn giới thiệu của màn chơi |
+| HK.HS.068 | Xong | Nhận thẻ / mảnh thẻ từ điểm thẻ, thắng trận (lần đầu), **mở rương của lộ trình (1–2 mảnh, chọn theo độ hiếm)** và thẻ rơi trùng (1 mảnh); đủ mảnh thì tự ghép. Bốn độ hiếm Thường / Hiếm / Sử thi / Huyền thoại. Không có đường mua bằng tiền thật. Chưa có thẻ nào trao riêng khi "học xong cửa" ngoài các nút rương trong cửa |
+| HK.HS.069 | Xong | Lưới thẻ: khung màu theo độ hiếm, sao, cấp, lực chiến; thẻ chưa có hiện bóng mờ kèm tiến độ mảnh; lọc loại thẻ / binh chủng / độ hiếm, sắp xếp theo độ hiếm / cấp / sao / lực chiến. lọc theo **cuộc kháng chiến** (qua các trận mà nhân vật của thẻ đã tham gia; thẻ chiến thuật không gắn nhân vật nên chỉ hiện ở “Mọi cuộc kháng chiến”); chân dung là biểu tượng binh chủng và chữ cái tên (chưa có ảnh vẽ) |
+| HK.HS.126 | Xong | Chi tiết thẻ hai mặt: trước (chân dung, độ hiếm, sao, cấp, binh chủng, Công – Thủ – Máu – Tốc, chỉ số cấp kế tiếp), sau (tiểu sử chỉ khi nhân vật đã công bố, câu nói, trận đã tham gia, chiêu thức kèm giai thoại) |
+| HK.HS.127 | Xong | Nâng cấp tốn 2 × cấp Binh thư; thăng sao 1→5 tốn 2, 3, 4, 5 mảnh; **cấp thẻ không vượt cấp độ học tập của học sinh** (có lời nhắc học thêm) |
+| HK.HS.128 | Xong | 3 đội hình, mỗi đội tối đa 5 thẻ chia hàng tiên phong / hậu quân, kèm một thẻ chiến thuật; hiện tổng lực chiến; tướng từng tham gia trận đó (liên kết kho lịch sử) được "Hào khí" +10% chỉ số. Chọn thẻ bằng chạm (chưa kéo thả) |
+| HK.HS.129 | Xong | 4 thẻ chiến thuật (Hịch tướng sĩ, Hội nghị Diên Hồng, Vườn không nhà trống, Cọc gỗ Bạch Đằng); mang một thẻ vào trận, dùng một lần, **không mất lượt** |
+| HK.HS.130 | Xong | Sổ tay chỉ huy đối phương: hồ sơ mở sau khi chạm trán trong trận, chỉ để tra cứu |
+| HK.HS.051, 052 | Xong | Danh sách màn (trạng thái khóa kèm lý do, sao cao nhất, số lần thắng) và màn giới thiệu: bối cảnh, nhiệm vụ, quân địch theo đợt, chỉ huy, địa hình, tướng nên mang, điều kiện sao, thưởng, chọn đội hình |
+| HK.HS.053, 054, 055 | Xong (khác thiết kế) | Quyết sách theo giai đoạn, bố trí lực lượng và phản hồi lịch sử vẫn là chế độ **"Quyết định của chỉ huy"** (ver0.1). **Nay đã nối vào ván thẻ tướng**: ở giới thiệu màn, học sinh làm bài quyết sách của đúng trận đó; kết quả có hiệu lực 12 giờ, dùng cho một trận và đổi thành lợi thế **−15% … +15% công và thủ** của cả đội (50% hòa vốn, 100% = +15%, 0% = −15%); chip “Quyết sách …%” hiện trong trận và bản phát lại. Không bắt buộc: bỏ qua thì đánh như cũ. Không nhận cùng một kết quả hai lần (kể cả sau khi trận kết thúc); “Đánh lại từ đầu” khi trận dở thì kết quả chưa bị tính là đã dùng. Ván thẻ tướng vẫn có địa hình, thẻ chiến thuật và "Hào khí" |
+| HK.HS.056, 057, 061 | Xong | Kết quả: thắng / thua, sao (thắng 1, không tướng ngã +1, trong số vòng quy định +1), số lượt, tướng xuất sắc nhất, thưởng vàng – Binh thư – kinh nghiệm – mảnh thẻ (lần thắng đầu); "Đánh lại"; trận dở được lưu và tiếp tục. Thưởng chỉ ở lần thắng đầu nên chơi lại không cày; **chưa có bảng xếp hạng riêng cho điểm trận** |
+| HK.HS.058, 059, 060, 028 | Giữ nguyên | Ba mini-game và hoạt ảnh diễn biến của ver0.1 |
+| HK.HS.131 | Xong (đơn giản hóa) | Hai phe, thanh thứ tự lượt, máu – nộ – hiệu ứng từng đơn vị, tối đa N lượt (mặc định 15). Quân ta ở khối trên, quân địch ở khối dưới (không đứng trái / phải), ảnh nền màn chơi nếu có |
+| HK.HS.132 | Một phần | Đòn thường, chiêu chủ động (tốn nộ), tuyệt kỹ, nội tại (cộng chỉ số cả đội từ đầu trận) kèm giai thoại ở mặt sau thẻ; sát thương hiện trong nhật ký diễn biến. **Chưa có hoạt ảnh chiêu thức** |
+| HK.HS.133 | Xong | Tuyệt kỹ cần nộ đầy; hiện câu hỏi 15 giây từ bộ đề của màn: đúng và kịp giờ ×1,6, sai hoặc chậm ×0,6 kèm giải thích; máy chủ đo giờ (cho thêm 3 giây bù mạng). Màn không có bộ đề thì tuyệt kỹ luôn đủ sức |
+| HK.HS.134 | Xong | Địa hình: thủy triều lên / rút, cọc ngầm làm thuyền địch mất máu khi triều rút, thưởng chỉ số cho thủy binh trên sông, thiếu lương làm địch mất máu mỗi vòng từ một vòng định trước |
+| HK.HS.135 | Xong | Chỉ huy địch báo trước chiêu lớn một lượt: khung đỏ và nhãn "Bị nhắm!" trên các đơn vị bị nhắm; phòng thủ giảm một nửa sát thương; hạ chỉ huy thì chiêu bị hủy |
+| HK.HS.136 | Xong | "Tự động đánh" (máy chọn đòn, thẻ chiến thuật tự dùng), tốc độ x1 / x2, hiệu ứng hiện bằng chữ, "Bỏ qua" chỉ cho màn đã 3 sao (nhận nửa thưởng, mỗi màn mỗi ngày một lần); lượt có câu hỏi luôn dừng chờ |
+| HK.HS.137 | Xong (làm ở mục Sprint 7–8 theo ver0.2) | Sa bàn 3D bằng Three.js trên web, mặc định bản vẽ 2D nhẹ; xem ở màn giới thiệu trận |
+| HK.HS.138 | Xong | "Sự thật lịch sử": diễn biến và kết quả thật, chỉ huy đối phương, điểm khác giữa ván chơi và lịch sử, nhân vật và tư liệu gốc; học sinh chỉ xem được sau khi đã chơi màn đó |
+| HK.QT.056 | Xong | Quản trị viên trường: bật / tắt game, giới hạn khối lớp (6–9), khung giờ (giờ Việt Nam) và số phút tối đa mỗi ngày. Hệ thống cũng có công tắc và số phút mặc định; học sinh chịu mức chặt nhất; chỉ chặn game, học bài vẫn bình thường |
+| HK.AD.046, 047 | Giữ nguyên | Quản lý kịch bản quyết định và mini-game của ver0.1 |
+| HK.AD.048, 083 | Xong | Quản trị tổng chỉnh chỉ số, binh chủng, số mảnh, cách nhận thẻ, chiêu thức (mục tiêu, hệ số, hiệu ứng, nộ, hồi chiêu, giai thoại) và thẻ chiến thuật. Thêm thẻ mới vẫn ở "Trò chơi hóa → Danh mục → Thẻ" |
+| HK.AD.081, 082 | Xong | Bản đồ hành quân: bố cục điểm + đường nối + sự kiện soạn bằng JSON có mẫu, cảnh báo thiếu sót; hội thoại: lời thoại JSON, **chỉ phát hành khi đã gắn tư liệu nguồn đã công bố**. Chưa có trình vẽ trực quan / xem trước (xem bằng giao diện học sinh) |
+| HK.AD.084 | Xong | Màn chơi: đợt quân, địa hình, thưởng, bộ câu hỏi tuyệt kỹ, số vòng, điều kiện sao, điểm khác lịch sử; chơi thử không ghi điểm (quản trị tổng có nút; máy chủ đã cho giáo viên chơi thử nhưng **trang giáo viên chưa có nút** – làm cùng Sprint 7, xem mục A5 ở `DOI_CHIEU_HAO_KHI_V02.md`); phát hành chỉ khi hồ sơ trận đánh đã công bố |
+| HK.AD.085 | Một phần | Kho tài nguyên **chỉ ghi liên kết kèm nguồn và giấy phép bắt buộc**; chưa tải tệp lên và chưa dùng sprite / âm thanh trong trận (chưa có kho lưu trữ) |
+| HK.AD.086 | Xong | Chạy cân bằng: máy tự đánh N trận với đội hình mẫu (cấp, sao, tỉ lệ trả lời đúng chỉnh được) để xem tỉ lệ thắng |
+| HK.SYS.008 | Xong | Thẻ rơi chọn theo độ hiếm và trọng số; thêm độ hiếm Sử thi (tỉ lệ `cards.rates.epic`); thẻ rơi có thể là thẻ chiến thuật, còn rương mảnh chỉ trao mảnh thẻ tướng |
+| HK.SYS.021 | Xong | Đồng bộ học → game: điểm trận đánh trên bản đồ mở khi nút cùng trận trong hành trình mặc định đã mở; Binh thư cộng từ Sprint 5 |
+| HK.SYS.022 | Xong | Bộ máy lượt chạy ở máy chủ với hạt giống; trạng thái trận lưu mỗi lượt để tiếp tục. **Nhật ký phát lại**: sau mỗi hành động (mỗi bước “tự động đánh” là một khung) máy chủ ghi trạng thái các đơn vị và những dòng diễn biến mới, tối đa 250 khung mỗi trận; học sinh mở “Xem lại trận” ở màn kết quả hoặc “Trận gần đây” trong giới thiệu màn (từng bước hoặc tự phát). Chỉ xem được trận của chính mình và sau khi trận kết thúc; trận cũ trước khi có nhật ký trả danh sách rỗng kèm ghi chú. Phát lại là xem lại các khung đã ghi, không chạy lại động cơ |
+
+**Giao diện:** "Bộ thẻ" (Thẻ tướng | Huy hiệu và thẻ rơi; trong Thẻ tướng có Thẻ / Đội hình / Sổ tay chỉ huy), "Chiến dịch" (Hành quân | Bản đồ nhiệm vụ), "Trận đánh" (Chiến trường thẻ tướng | Quyết định của chỉ huy). Quản trị tổng có mục **Game thẻ tướng** (thẻ và chiêu, bản đồ hành quân, hội thoại, màn chơi, chỉ huy địch, tài nguyên); quản trị viên trường có mục **Trò chơi hóa → Game thẻ tướng**.
+
+**Nội dung khởi tạo (migration 029) là bản nháp thiết kế, chờ giáo viên Lịch sử kiểm chứng:** chỉ số và độ hiếm của 13 tướng, 31 chiêu thức kèm giai thoại, 4 thẻ chiến thuật, 5 chỉ huy đối phương, 6 màn chơi (chỉ số quân địch đã cân bằng bằng máy: đội thẻ thường thắng ít, đội mạnh thắng nhiều), 3 bản đồ hành quân (6 / 8 / 6 điểm) và 6 hội thoại cốt truyện. Các màn, bản đồ, hội thoại và chỉ huy đều ở trạng thái **Nháp**; hội thoại chỉ phát hành được khi gắn tư liệu nguồn (hiện mới chỉ hội thoại "Hịch tướng sĩ" có nguồn). Chưa có chân dung tướng: dùng biểu tượng binh chủng và chữ cái tên, không dùng ảnh người thật.
+
+**Quyết định mặc định:** nâng cấp 2 × cấp Binh thư; thăng sao tốn 2 / 3 / 4 / 5 mảnh; chỉ số thẻ = gốc × (1 + 0,1 × (cấp − 1)) × (1 + 0,2 × (sao − 1)); nộ: +25 khi ra đòn, +15 khi bị đánh, chiêu chủ động 40, tuyệt kỹ 100; chỉ huy địch báo chiêu lớn ×1,8 sát thương; thưởng chỉ ở lần thắng đầu, "Bỏ qua" nhận nửa thưởng và chỉ nhận được một lần mỗi ngày; rương học tập trao 2 mảnh (thường, hiếm) hoặc 1 mảnh (sử thi, huyền thoại).
+
+Dữ liệu: migration 028 (độ hiếm Sử thi, thẻ tướng / chiến thuật, chiêu thức, đội hình, chỉ huy, màn chơi, trận đang chơi, tiến độ màn, bản đồ – điểm – đường nối, hội thoại, nhật ký, vị trí hành quân, kho tài nguyên, cài đặt của trường, giờ chơi; bảng mới đều bật RLS), migration 029 (nội dung khởi tạo ở trên, chỉ thêm mới và cập nhật bản ghi thẻ do migration 021 tạo).
+
+## Sprint 9 – AI Tutor "Tiểu Tướng" (RAG) (24 chức năng)
+
+Học sinh hỏi đáp bằng lời tự nhiên; Tiểu Tướng chỉ trả lời dựa trên **nội dung đã công bố** (kho lịch sử, bài học) và tài liệu quản trị tải lên, kèm trích dẫn mở được và gợi ý câu hỏi tiếp theo; câu ngoài phạm vi hoặc không phù hợp bị từ chối. Máy chủ làm toàn bộ: truy xuất, kiểm soát phạm vi, hạn mức, gọi mô hình, lưu nhật ký (`backend/src/ai/*`, `/api/ai`).
+
+**Hai chế độ (quyết định quan trọng):** (1) **Chế độ trích tư liệu** – mặc định, không cần khóa API: câu trả lời là các câu khớp nhất trong tư liệu, ghi rõ "Trích nguyên văn tư liệu"; (2) **Trợ lý AI** – quản trị chọn nhà cung cấp (Anthropic hoặc API tương thích OpenAI như Gemini, Ollama, vLLM) và nhập khóa thì mô hình viết lời giải thích, nhập vai, soạn câu hỏi. Mô hình lỗi giữa chừng thì câu hỏi vẫn được trả lời bằng chế độ trích tư liệu. **Hệ thống chưa được thử với một mô hình thật** (kiểm thử dùng máy chủ AI giả tương thích OpenAI), và trên Render chưa có khóa nên đang ở chế độ trích tư liệu cho tới khi quản trị cấu hình.
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.HS.086 | Xong | Hỏi đáp tự nhiên; truy xuất BM25 (và vector nhúng nếu có), câu hỏi nối tiếp ngắn mượn ngữ cảnh câu trước; ngoài phạm vi → lời từ chối do quản trị soạn kèm 3 câu hỏi mẫu đúng phạm vi |
+| HK.HS.087 | Xong | Mỗi câu trả lời có danh sách nguồn [n]; nhân vật, sự kiện, địa danh, trận đánh, tư liệu, thuật ngữ **mở được** chi tiết; bài học, tài liệu tải lên và cuộc kháng chiến chỉ hiện tên nguồn. Số [n] không có thật mà mô hình tự nêu bị bỏ |
+| HK.HS.088 | Xong | 3 câu hỏi gợi ý: do mô hình nêu, hoặc dựng từ các nguồn liên quan đã truy xuất |
+| HK.HS.089 | Xong | Nút "Hỏi Tiểu Tướng" ở từng câu làm sai trong màn xem lại bài: dùng đáp án đúng và giải thích của câu hỏi; chỉ chủ lượt làm bài, chỉ khi đã làm xong |
+| HK.HS.090 | Xong | Tóm tắt bài học, trận đánh, sự kiện, nhân vật, cuộc kháng chiến đã công bố; chưa có mô hình thì chọn đều các câu trong nội dung |
+| HK.HS.091 | Một phần | Nhập vai nhân vật (ưu tiên đoạn tiểu sử và các nguồn liên kết, xưng "ta"); **chỉ khi có mô hình AI** (chưa có thì báo rõ); lọc từ cấm vẫn áp dụng. Chưa có bộ lọc ngữ nghĩa riêng cho nhập vai |
+| HK.HS.092 | Xong | Danh sách cuộc trò chuyện theo ngày (Hôm nay / Hôm qua / ngày), mở lại, xóa từng cuộc. Xóa là **ẩn với học sinh**; bản ẩn danh còn trong nhật ký quản trị để kiểm tra báo cáo sai |
+| HK.HS.093 | Xong | Báo cáo câu trả lời chưa chính xác kèm lý do; báo lại thì cập nhật |
+| HK.GV.038 | Xong | Soạn bản nháp câu hỏi từ bài học / trận đánh / sự kiện / văn bản: dạng một đáp án, đúng–sai, điền khuyết; mô hình sinh JSON và máy chủ kiểm tra bằng đúng bộ kiểm tra của ngân hàng câu hỏi; chưa có mô hình thì soạn theo mẫu từ câu có mốc năm. **Không tự lưu**: giáo viên sửa rồi bấm lưu qua API câu hỏi bình thường |
+| HK.GV.073 | Xong | Hỏi đáp tư liệu có trích dẫn (cùng quy trình, hạn mức gấp 3 lần học sinh) |
+| HK.GV.074 | Xong | Chủ đề được nhắc tới nhiều trong câu hỏi của học sinh các lớp mình dạy (quản trị trường: mọi lớp của trường), **ẩn danh**; từ khóa chỉ hiện khi có ít nhất 3 học sinh cùng hỏi |
+| HK.GV.075 | Xong | Gợi ý kịch bản tiết học 15–90 phút từ hành trình hoặc trận đánh; chưa có mô hình thì dựng theo mẫu từ cấu trúc hành trình |
+| HK.AD.055 | Xong | Chọn loại nội dung đưa vào chỉ mục (bật/tắt từng loại) và tải thêm tài liệu **PDF, DOCX, TXT** hoặc dán văn bản (PDF dạng ảnh quét chưa đọc được); bật/tắt/xóa từng tài liệu |
+| HK.AD.056 | Xong | Số nguồn, số đoạn, số đoạn có vector, lần lập chỉ mục cuối, lỗi; nút lập lại chỉ mục (một phần hoặc toàn bộ) |
+| HK.AD.057 | Xong | Nhà cung cấp, địa chỉ API, mô hình trả lời và nhúng, nhiệt độ, giới hạn token, số đoạn truy xuất; khóa API **mã hóa AES-256-GCM** trong CSDL, chỉ hiện 4 ký tự cuối; biến môi trường `AI_PROVIDER`, `AI_API_KEY`, `AI_BASE_URL`, `AI_CHAT_MODEL`, `AI_EMBED_MODEL` ưu tiên hơn; nút kiểm tra kết nối |
+| HK.AD.058 | Xong | Prompt hệ thống, lời từ chối, ngưỡng liên quan, danh sách từ cấm bổ sung (đã có sẵn danh sách mặc định) |
+| HK.AD.059 | Xong | Thử câu hỏi: các đoạn được truy xuất kèm điểm phủ và cosine, câu trả lời, token, thời gian; không lưu và không tính hạn mức |
+| HK.AD.060 | Xong | Nhật ký hội thoại ẩn danh (mã người hỏi ngắn, không tên); lọc theo trường, khoảng ngày, câu bị báo cáo, câu bị từ chối |
+| HK.AD.061 | Xong | Danh sách báo cáo theo trạng thái (chưa xử lý / đang kiểm tra / đã xử lý / bỏ qua) kèm câu hỏi, câu trả lời, nguồn đã trích, ghi chú xử lý. Việc **sửa tư liệu nguồn** làm ở Kho dữ liệu lịch sử; công bố lại thì chỉ mục tự cập nhật |
+| HK.AD.062 | Xong | Gắn nhãn đúng / sai cho câu trả lời, tỉ lệ đúng, tải bộ dữ liệu đánh giá (JSON) |
+| HK.AD.064 | Xong | Hạn mức câu hỏi mỗi ngày (giờ Việt Nam): mặc định theo người và theo trường, trường có mức riêng; giáo viên gấp 3; hết hạn mức trả 429 kèm lời nhắn |
+| HK.SYS.009 | Xong (khác công nghệ) | Câu hỏi → (nhúng) → truy xuất top-k → mô hình trả lời kèm trích dẫn. **Không dùng pgvector hay Qdrant**: vector lưu `REAL[]` trong PostgreSQL và tính cosine trong bộ nhớ máy chủ (vài trăm đến vài nghìn đoạn), nên chạy được trên Supabase và PostgreSQL thử nghiệm không cần cài tiện ích; chưa có vector nhúng thì xếp hạng từ khóa BM25. Anthropic không có API nhúng nên chỉ dùng từ khóa |
+| HK.SYS.010 | Xong | Từ chối khi độ phủ từ khóa của câu hỏi thấp hơn ngưỡng (mặc định 0,4; hiệu chỉnh bằng bộ câu hỏi trong và ngoài phạm vi), khi chứa từ cấm hoặc cố gài lệnh ("bỏ qua hướng dẫn…"), và lọc lại câu trả lời của mô hình. **Chưa phải bộ lọc ngữ nghĩa**: câu ngoài đề nhưng có từ trùng tư liệu (ví dụ "thời tiết Hà Nội") có thể lọt ở chế độ trích tư liệu; khi có mô hình thì mô hình được dặn từ chối nên chặt hơn |
+| HK.SYS.011 | Xong | Công bố, sửa, gỡ, xóa, khôi phục, nhập Excel nội dung kho lịch sử hoặc bài học → hẹn lập chỉ mục nền (gộp thay đổi liên tiếp, chỉ làm lại phần đổi theo băm nội dung); gỡ công bố thì truy xuất lập tức không dùng nữa vì máy chủ kiểm tra lại trạng thái công bố. Lúc khởi động cũng lập chỉ mục |
+
+Dữ liệu: migration 030 (cấu hình AI một dòng, hạn mức theo trường, tài liệu và đoạn tư liệu, hội thoại – tin nhắn – báo cáo; mọi bảng bật RLS; không có khóa API hay dữ liệu thật trong migration). Thêm thư viện `pdf-parse@1.1.1` và `jszip@3.10.1` (đọc PDF và DOCX); lockfile tạo bằng npm 10.9.4.
+
+**Giao diện:** học sinh có mục **Tiểu Tướng** (Hỏi đáp | Nhập vai | Tóm tắt, Lịch sử, Cuộc mới) trong "Xem thêm"; nút **Hỏi Tiểu Tướng** ở màn xem lại bài; giáo viên có mục **Trợ lý AI** (Hỏi đáp tư liệu | Học sinh hỏi gì | Soạn câu hỏi | Kịch bản tiết học); quản trị tổng có mục **AI Tutor** (Nguồn và chỉ mục | Mô hình | Prompt và phạm vi | Thử câu hỏi | Nhật ký | Báo cáo và đánh giá | Hạn mức).
+
+**Quyết định mặc định:** không dùng mô hình thì vẫn hữu ích (trích tư liệu); khóa API không bao giờ trả lại giao diện; học sinh "xóa" cuộc trò chuyện chỉ là ẩn; câu hỏi tính vào hạn mức kể cả khi bị từ chối vì ngoài phạm vi (chống dò); soạn câu hỏi và kịch bản tiết học cũng tính hạn mức giáo viên; AI không bao giờ tự lưu câu hỏi.
+
+## Sprint 10 – gợi ý học tập, thống kê và báo cáo (26 chức năng)
+
+Báo cáo **đọc từ dữ liệu có sẵn** (lượt làm bài, tiến độ nút, sự kiện học tập, trận đánh, thi đấu, hội thoại AI) nên migration chỉ thêm cấu hình, gợi ý, nhật ký thư và giá token. Máy chủ tính mọi số liệu theo phạm vi của người dùng (`backend/src/analytics/*`, `/api/analytics`); giao diện chỉ hiển thị. Mỗi câu hỏi gắn với nhân vật / sự kiện / địa danh / trận đánh / tư liệu / cuộc kháng chiến qua bảng liên kết câu hỏi có sẵn, nên "chủ đề" lấy từ đó; lượt xem thử của giáo viên (`preview`) không bao giờ được tính.
+
+**Không dùng mô hình AI cho phần này (quyết định quan trọng):** "gợi ý của AI" trong đặc tả (HK.HS.094, 097, GV.069) được làm bằng **quy tắc có điểm số minh bạch** do quản trị tổng chỉnh (HK.AD.063); dữ liệu học của học sinh không gửi ra dịch vụ ngoài. Muốn viết lời nhận xét bằng mô hình thì nối thêm ở Sprint sau.
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.HS.094 | Xong | "Hôm nay nên học gì?": tối đa 3 gợi ý (mặc định) có lý do, xếp theo điểm = trọng số điểm yếu × mức yếu + trọng số thời gian × thời gian chưa ôn + trọng số độ khó × độ phù hợp. Năm loại: học tiếp, luyện chủ đề yếu, ôn lại nút điểm thấp, bài tập sắp đến hạn, giữ chuỗi ngày học; mỗi loại tối đa 2, bỏ trùng đích. Tự tính lại khi cũ hơn `refresh_hours` và có nút Làm mới |
+| HK.HS.095 | Xong | Tỉ lệ đúng theo loại chủ đề (cuộc kháng chiến, nhân vật, sự kiện, địa danh, trận đánh, tư liệu) và từng chủ đề, có chữ mức (Mạnh ≥ 85% / Khá / Cần ôn dưới ngưỡng / chưa đủ dữ liệu) chứ không chỉ màu. Chủ đề cần tối thiểu 3 câu (cấu hình) mới được xếp mạnh hay yếu |
+| HK.HS.096 | Xong | Nút "Luyện" ở từng chủ đề yếu, hoặc "Luyện tất cả chủ đề yếu": 3–20 câu (mặc định 8) của chủ đề, ưu tiên câu em từng làm sai, **sắp từ dễ đến khó**, chỉ câu em được phép thấy (kho hệ thống và kho trường); mở thành lượt luyện tập thường (tính điểm như bình thường) và chỉ có một lượt luyện tập mở. Chủ đề chưa đủ 3 câu hỏi thì từ chối, không tự bịa câu |
+| HK.HS.097 | Xong (quy tắc, không phải AI) | Lộ trình theo ngày cho các bài tập giáo viên giao còn 1–21 ngày nữa là đến hạn: tối đa 7 ngày ôn (luyện chủ đề yếu liên quan đến bộ đề, làm lại câu sai, nghỉ ngơi), ngày cuối là làm bài. Giáo viên chưa có chức năng "đặt lịch kiểm tra" riêng nên lấy hạn nộp của **bài tập của lớp** |
+| HK.HS.098 | Xong | Hữu ích / Chưa hữu ích (bấm lại để bỏ chọn). Loại gợi ý bị đánh giá chưa hữu ích nhiều hơn hữu ích trong 30 ngày bị nhân hệ số giảm (mặc định 0,5), ngược lại được nhân 1,1 |
+| HK.GV.066 | Xong | Lớp: tiến độ trung bình, tỉ lệ hoàn thành, điểm TB, tỉ lệ đúng, hoạt động 7 ngày, số học sinh giữ chuỗi từ 3 ngày, thời gian học, biểu đồ hoạt động theo ngày (7–90 ngày), phân bố tiến độ, danh sách học sinh; lọc theo khoảng ngày |
+| HK.GV.067 | Xong | Hồ sơ một học sinh: tiến độ từng hành trình (nút đang mở và nút làm chưa tốt), bài làm gần đây, trận đánh / mini-game / màn thẻ tướng, thời gian học, dòng thời gian hoạt động, chủ đề mạnh / yếu, huy hiệu. Giáo viên chỉ xem học sinh trong lớp mình dạy; học sinh ngoài lớp trả 404 |
+| HK.GV.068 | Xong | Tỉ lệ đúng của cả lớp theo loại chủ đề và danh sách chủ đề cả lớp còn yếu (ngưỡng số câu tối thiểu nhân theo sĩ số, tối đa 3 lần) |
+| HK.GV.069 | Xong (quy tắc, không phải AI) | Học sinh cần hỗ trợ theo quy tắc: chưa hoạt động lần nào hoặc 7 ngày không học, tỉ lệ đúng thấp (từ 5 câu), tiến độ thấp hơn trung bình lớp từ 25 điểm; kèm chủ đề yếu và gợi ý việc nên làm. Giao diện ghi rõ đây là đề xuất theo quy tắc, giáo viên quyết định |
+| HK.GV.070 | Xong | So sánh các lớp phụ trách: bảng xếp hạng (điểm TB, tiến độ, tham gia, tỉ lệ đúng) và biểu đồ thanh; lọc theo khoảng ngày |
+| HK.GV.071 | Xong | Xuất **Excel** (xlsx) và **PDF** theo lớp và khoảng thời gian: tổng quan, từng học sinh, chủ đề cần ôn, danh sách bài tập (số bài đã nộp, điểm TB). **Xuất riêng cho từng bài tập** (Excel, PDF) ở nút "Xuất Excel" / "Xuất PDF" trong chi tiết bài tập: tổng quan và tình trạng nộp, điểm, xếp loại, nhận xét từng học sinh được giao. Ô văn bản do người dùng nhập được làm sạch để Excel không hiểu nhầm là công thức; PDF dùng phông Manrope |
+| HK.GV.072 | Xong | Bản nháp nhận xét dựng từ số liệu thật; giáo viên sửa rồi chọn gửi học sinh và / hoặc phụ huynh (nếu hồ sơ có email); thư đi qua hàng đợi email của hệ thống (loại `feedback`), ghi nhật ký người gửi; tối đa 5 thư / học sinh / 24 giờ. **Chưa thử với máy chủ thư thật** (kiểm thử dùng bộ gửi JSON) |
+| HK.QT.006 | Xong | Số lớp, giáo viên, học sinh, hành trình đang chạy, hoạt động và người học hôm nay, người học trong 7 ngày |
+| HK.QT.007 | Xong | Biểu đồ cột chồng: bài học, quiz, trận đánh + mini-game, phòng thi đấu, theo ngày (30 ngày), tuần (90 ngày), tháng (12 tháng); mốc ngày theo giờ Việt Nam |
+| HK.QT.008, HK.QT.047 | Xong | Kết quả theo lớp, theo khối, theo giáo viên: điểm TB, tiến độ, tham gia, tỉ lệ đúng, **hạng**; lọc khoảng ngày; học sinh học nhiều lớp chỉ tính một lần ở nhóm khối / giáo viên |
+| HK.QT.009 | Xong | Số câu hỏi Tiểu Tướng, tỉ lệ bị từ chối, token, câu bị báo sai, tư liệu được hỏi nhiều nhất (ẩn danh), lượt còn lại hôm nay của trường |
+| HK.QT.033 | Xong | Quản trị trường mở hồ sơ học tập tổng hợp của học sinh trong trường mình (cùng màn với giáo viên) |
+| HK.QT.048 | Xong | Xuất Excel / PDF kết quả theo lớp, khối hoặc giáo viên |
+| HK.AD.006 | Xong | Số trường, người dùng theo vai trò, người học hôm nay / 7 ngày / 30 ngày, tài khoản mới 30 ngày, biểu đồ người dùng hoạt động theo ngày |
+| HK.AD.007 | Xong | Cùng biểu đồ sử dụng như HK.QT.007 nhưng toàn hệ thống |
+| HK.AD.008 | Xong (ước tính) | Số câu hỏi, token, tỉ lệ từ chối, câu báo sai, và **chi phí ước tính** = token × giá do quản trị tổng nhập (mục AI Tutor → Mô hình, USD / 1 triệu token; mặc định 0 = chưa nhập giá). Không lấy số tiền thật từ nhà cung cấp |
+| HK.AD.009 | Xong | Số bản ghi theo trạng thái nháp / kiểm duyệt / xuất bản của kho lịch sử (cuộc kháng chiến, nhân vật, sự kiện, địa danh, trận đánh, tư liệu, thuật ngữ) và nội dung học (bài học, hành trình, kịch bản trận, mini-game, màn thẻ tướng), số câu hỏi theo kho, bộ đề, đoạn tư liệu AI |
+| HK.AD.063 | Xong | Trọng số điểm yếu / thời gian / độ khó (0–10), ngưỡng điểm yếu (10–95%), số câu tối thiểu, tần suất cập nhật (1–168 giờ), số gợi ý, số câu luyện tập, hệ số giảm điểm; máy chủ kiểm tra giới hạn, có nút tính lại ngay |
+| HK.SYS.012 | Xong | Việc nền chạy mỗi giờ tính lại gợi ý cho học sinh có hoạt động trong 14 ngày mà gợi ý đã cũ hơn `refresh_hours`; ngoài ra gợi ý được tính lười khi học sinh mở màn nên đúng cả khi máy chủ miễn phí "ngủ". Tắt bằng `ANALYTICS_JOB=off` (kiểm thử) |
+| HK.SYS.013 | Một phần (khác đặc tả) | **Chọn** câu hỏi theo chủ đề yếu và độ khó tăng dần từ ngân hàng câu hỏi; **không sinh câu mới bằng AI** để học sinh không gặp câu chưa kiểm duyệt. Giáo viên soạn câu mới bằng công cụ AI ở HK.GV.038 |
+
+Dữ liệu: migration 031 (cấu hình thuật toán một dòng, gợi ý đã sinh kèm đánh giá, nhật ký thư nhận xét, loại thư `feedback` trong hàng đợi email, giá token AI; mọi bảng mới bật RLS). Không thêm thư viện: dùng `exceljs` và `pdfkit` có từ trước.
+
+**Giao diện:** học sinh có mục **Gợi ý học tập** trong "Xem thêm" (Hôm nay nên học gì | Điểm mạnh và điểm yếu | Lộ trình ôn tập); giáo viên có mục **Thống kê lớp** (Tổng quan | Học sinh | Chủ đề | Cần hỗ trợ | So sánh, hồ sơ học sinh, gửi nhận xét, xuất Excel / PDF); quản trị trường có mục **Báo cáo** (Tổng quan | Lớp và học sinh | Kết quả | Sử dụng | AI); quản trị tổng có mục **Thống kê hệ thống** (Tổng quan | Nội dung | Sử dụng | AI | Thuật toán gợi ý). Biểu đồ vẽ bằng thành phần thuần (không thư viện), luôn có chữ và con số kèm màu, có nhãn cho trình đọc màn hình.
+
+**Quyết định mặc định:** chủ đề chỉ xếp mạnh / yếu khi đủ số câu tối thiểu; chỉ tính lượt làm bài thật; thống kê chỉ trả số liệu tổng hợp của học sinh trong phạm vi người xem (giáo viên: lớp mình dạy; quản trị trường: trường mình; quản trị tổng: tất cả); số liệu về câu hỏi AI luôn ẩn danh (từ khóa chỉ hiện khi từ 3 học sinh cùng hỏi, ở Sprint 9); giáo viên và quản trị trường **chỉ thấy** học sinh của mình, nên báo cáo không dùng để đối chiếu học sinh giữa các trường.
+
+## Sprint 11 – thông báo, hỗ trợ, nhật ký, cấu hình hệ thống, 2FA, giao diện sáng / tối (39 chức năng)
+
+Phần dùng chung của mọi vai trò nằm ở `backend/src/platform/*` (`/api/platform`) và `frontend/components/{portal/NoticeCenter,portal/HelpCenter,admin/PlatformComms,admin/PlatformOps,admin/PlatformSystem}.tsx`. Hai việc nền (`PlatformJob`, mỗi phút) gửi thông báo hẹn giờ, tạo thông báo tự động, sao lưu hằng ngày và dọn dữ liệu cũ; mỗi lượt ghi nhịp chạy để trang giám sát thấy. Chính sách (giới hạn tần suất, cờ tính năng, ma trận phân quyền, công tắc AI từng trường) áp dụng bằng một interceptor sau bước xác thực nên không đụng vào mã của từng chức năng.
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.HS.015 | Xong | Biểu tượng bánh răng cạnh chuông: bật nhắc học, chọn giờ (0–23) và kênh (thông báo web, email, cả hai). Chỉ nhắc khi hôm nay chưa học bài nào; mỗi ngày một lần, email tối đa một thư mỗi 20 giờ. **Thư đi qua hàng đợi, chưa thử với máy chủ thư thật** |
+| HK.HS.016 | Xong (trang học sinh) | Sáng (mặc định) / tối / theo thiết bị, lưu theo tài khoản. Bảng màu tối chỉ áp dụng cho trang học sinh; trang giáo viên và quản trị giữ giao diện sáng như thiết kế từ trước (quyết định chưa đổi) |
+| HK.HS.106, HK.GV.077, HK.QT.053 | Xong | Chuông có số chưa đọc; danh sách chia Hệ thống / Lớp học / Thành tích kèm số chưa đọc từng nhóm. Cập nhật bằng thăm dò 60 giây (chưa đẩy thời gian thực) |
+| HK.HS.107, HK.GV.078 | Xong | Đọc từng thông báo hoặc tất cả; xóa từng cái hoặc xóa tất cả thông báo đã đọc; không xóa được thông báo của người khác |
+| HK.HS.108, HK.SYS.017 | Xong | Tự động: nhắc học và giữ chuỗi (19 giờ cho em có chuỗi từ 2 ngày nếu chưa cài giờ riêng), bài tập sắp hết hạn trong 24 giờ chưa nộp, lên cấp, huy hiệu mới; thưởng điểm của giáo viên đã có từ Sprint 7. Có khóa chống trùng nên chạy bù khi máy chủ miễn phí "ngủ" không gửi lặp |
+| HK.HS.110, HK.GV.080, HK.QT.054 | Xong (nội dung chữ) | 11 mục cho học sinh, 8 cho giáo viên, 9 cho quản trị trường và 3 mục chung (bản nháp do hệ thống soạn từ tính năng hiện có). Mục có trường ảnh và video do quản trị thêm; **bộ nội dung khởi tạo chưa kèm ảnh hay video** |
+| HK.HS.111, HK.GV.081, HK.QT.052 | Xong | Gửi phản hồi / báo lỗi kèm ảnh chụp màn hình (png, jpeg, webp, tối đa 1,5 MB, kiểm tra chữ ký tệp), theo dõi trạng thái Mới / Đang xử lý / Đã xong, trả lời qua lại; tối đa 5 yêu cầu mỗi 24 giờ. Chọn ảnh bằng bộ chọn tệp (đã thử trên web; chưa thử trên điện thoại thật) |
+| HK.HS.112, HK.GV.082, HK.QT.055 | Xong | Trang 404 và trang lỗi thân thiện (nút Về trang chủ, Thử lại); chi tiết kỹ thuật chỉ ghi ra bảng điều khiển |
+| HK.GV.076 | Xong | Giáo viên chọn một hoặc nhiều lớp mình phụ trách, gửi ngay hoặc hẹn giờ |
+| HK.QT.043 | Xong | Cả trường, theo khối hoặc theo lớp, giới hạn vai trò nhận; hẹn giờ; sửa đợt chưa gửi; sửa chữ hoặc **thu hồi** đợt đã gửi (xóa luôn thông báo của người nhận); xem số người nhận trước khi gửi và số người đã đọc |
+| HK.QT.051 | Xong | Nhật ký thao tác trong trường có nhãn dễ đọc ("Tạo / thực hiện giáo viên", "Đặt lại mật khẩu tài khoản"…) và lịch sử đăng nhập của người dùng trường; lọc theo người, thao tác, kết quả |
+| HK.AD.002 | Xong | Tài khoản quản trị tổng và quản trị trường bật tùy chọn: mã 6 chữ số qua email hoặc ứng dụng xác thực (TOTP, RFC 6238), kèm 8 mã dự phòng dùng một lần. Đăng nhập hai bước (mật khẩu → mã), sai 5 lần khóa 15 phút. Khẩn cấp: biến `TWO_FACTOR_BYPASS=true`, hoặc quản trị tổng cấp 1 đặt lại cho tài khoản khác. **Không bắt buộc** (người dùng tự bật); TOTP chỉ bật khi máy chủ có `AUTH_SECRET_KEY` cố định; đã kiểm chứng bằng vector chuẩn RFC 6238, chưa thử với ứng dụng Authenticator trên điện thoại thật |
+| HK.AD.010 | Xong | Trạng thái cơ sở dữ liệu (độ trễ, phiên bản schema), thời gian chạy, bộ nhớ, hàng đợi thư (chờ, lỗi 24 giờ), số lỗi theo nguồn, nhịp các việc nền, lưu lượng yêu cầu 15 phút (4xx, 5xx, bị chặn), người dùng hoạt động. Chỉ tính từ lần khởi động hiện tại, chưa có biểu đồ uptime dài hạn |
+| HK.AD.017 | Xong | Mỗi trường: số học sinh tối đa (từ chối khi tạo thêm, không đặt thấp hơn số hiện có), bật / tắt AI, hạn mức AI của trường và mỗi người mỗi ngày |
+| HK.AD.026 | Một phần | Đủ 38 nhóm × 4 vai trò theo sheet "Phân quyền". **8 nhóm đã nối vào máy chủ** (AI Tutor, gợi ý học tập, báo cáo, tổ chức thi đấu, gửi thông báo, khảo sát, hỗ trợ, nhật ký) và tắt được từng vai trò; 30 nhóm còn lại là quyền cố định trong mã nguồn nên chỉ xem. Chỉ **thu hẹp** hoặc khôi phục, không cấp thêm ngoài đặc tả, không đổi quyền quản trị tổng. Cấp 2 chỉ xem |
+| HK.AD.027 | Xong | Lịch sử đăng nhập có thiết bị (trình duyệt, hệ điều hành) và địa chỉ IP; phía sau proxy lấy mục bên phải nhất của `X-Forwarded-For` |
+| HK.AD.065 | Một phần | Tên hệ thống, logo, email gửi, múi giờ, ngôn ngữ được lưu: **email gửi có tác dụng ngay** (thay `MAIL_FROM`), múi giờ dùng cho nhắc học và giờ sao lưu; tên và logo trả qua `/api/platform/config` và **thanh đầu trang của học sinh, giáo viên và quản trị đổi theo** (tên khác mặc định thì hiện chữ thay chữ ký thương hiệu; logo https thay biểu tượng, lỗi tải ảnh thì dùng lại biểu tượng gốc); màn đăng nhập và trang chủ công khai vẫn dùng thương hiệu gốc vì chưa có đăng nhập để hỏi cấu hình; ngôn ngữ chỉ có tiếng Việt |
+| HK.AD.067 | Xong | Thêm / sửa / ẩn / xóa mục hướng dẫn theo vai trò, kèm ảnh và video https, thứ tự hiển thị |
+| HK.AD.068 | Xong | Bốn mẫu: mã OTP, mật khẩu tạm, nhắc học, thông báo thành tích; kiểm tra biến lạ và biến bắt buộc; về mặc định bất cứ lúc nào. Tiêu đề thư mật khẩu tạm do chức năng tạo tài khoản đặt nên chỉ chỉnh nội dung |
+| HK.AD.069 | Xong | Toàn hệ thống hoặc theo trường và vai trò, hẹn giờ |
+| HK.AD.071 | Xong | Tám cờ: giải đấu, tim, nhập vai, AI Tutor, thi đấu trực tiếp, game thẻ tướng, cửa hàng, gợi ý học tập. Tắt là có hiệu lực ngay (máy chủ trả lời "đang tạm tắt", giao diện ẩn mục menu); dữ liệu giữ nguyên |
+| HK.AD.072, HK.SYS.019 | Xong (có giới hạn) | Sao lưu thủ công và tự động hằng ngày (giờ và số bản giữ lại cấu hình được): JSON nén gzip của mọi bảng nghiệp vụ, kèm ảnh hỗ trợ; tải về, xóa; phục hồi trong **một giao dịch** (lỗi thì giữ nguyên) sau khi tạo bản "trước khi phục hồi", cần gõ cụm xác nhận và cùng phiên bản schema. **Bản sao lưu nằm trong chính cơ sở dữ liệu nên chỉ chống thao tác nhầm**, hãy tải về cất nơi khác; không sao lưu chỉ mục AI, gợi ý, nhật ký lỗi; tối đa 25 MB sau nén. Chưa thử phục hồi trên cơ sở dữ liệu Supabase thật |
+| HK.AD.073, HK.AD.074 | Xong | Danh sách lọc theo trạng thái, vai trò, từ khóa; xem ảnh đính kèm, phản hồi, đổi trạng thái; người gửi được báo bằng thông báo |
+| HK.AD.075, HK.AD.076, HK.SYS.020 | Xong | Nhật ký thao tác (mọi thao tác ghi dữ liệu của người đã đăng nhập, không ghi nội dung) và nhật ký lỗi (API 500, AI, gửi thư, việc nền) truy vấn được ở trang quản trị; lỗi lặp trong 10 giây chỉ ghi một lần; dọn lỗi quá 90 ngày |
+| HK.SYS.018 | Xong (một máy chủ) | Mặc định 600 yêu cầu / phút / IP, 300 / phút / người dùng, 20 câu hỏi AI / phút / người; chỉnh được trong cấu hình. Quá giới hạn trả 429 kèm `Retry-After`. Bộ đếm nằm trong bộ nhớ nên nhiều máy chủ sẽ đếm riêng (cần Redis nếu mở rộng) |
+
+Dữ liệu: migration 032 (tùy chọn người dùng, thông báo hàng loạt, yêu cầu hỗ trợ, hướng dẫn, cấu hình hệ thống, cờ tính năng, mẫu thư, ma trận phân quyền, hai lớp, nhật ký lỗi, nhịp việc nền, sao lưu; cột IP / thiết bị cho nhật ký đăng nhập; giới hạn trường; mọi bảng bật RLS) và 033 (nội dung hướng dẫn khởi tạo). Không thêm thư viện.
+
+**Giao diện:** học sinh có bánh răng Cài đặt, chuông thông báo 3 nhóm, mục **Khảo sát** và **Trợ giúp** trong "Xem thêm"; giáo viên thêm **Thông báo, Khảo sát, Trợ giúp**; quản trị trường thêm **Thông báo, Khảo sát, Nhật ký, Bảo mật, Trợ giúp** và chuông; quản trị tổng thêm **Thông báo, Yêu cầu hỗ trợ, Hướng dẫn và FAQ, Nghiên cứu, Nhật ký, Hệ thống, Bảo mật**. Cổng quản trị nhập thêm mã ở bước hai khi tài khoản bật hai lớp.
+
+**Quyết định mặc định:** hai lớp là tùy chọn của người dùng (chưa ép buộc); thu hồi thông báo xóa khỏi hộp thư người nhận; chỉ quản trị tổng cấp 1 sửa cấu hình hệ thống (cờ, phân quyền, sao lưu, giới hạn tần suất), cấp 2 vẫn xử lý hỗ trợ, hướng dẫn, mẫu thư, thông báo và giới hạn trường; một yêu cầu hỗ trợ có tối đa một ảnh.
+
+## Sprint 12 – khảo sát, nhóm thử nghiệm, dữ liệu nghiên cứu (8 chức năng)
+
+Phục vụ mục tiêu nghiên cứu 5 (đánh giá hiệu quả trò chơi hóa và AI): `backend/src/platform/{survey,research}.service.ts`, `stats.ts`, migration 034; giao diện `components/portal/SurveyCenter.tsx`, `components/admin/{PlatformComms,ResearchAdmin}.tsx`.
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.AD.070 | Xong | Ba mẫu có sẵn (trải nghiệm học tập, trò chơi hóa và AI Tiểu Tướng, trải nghiệm giảng dạy: thang Likert 1–5, mức giới thiệu 0–10, chọn một, chọn nhiều, ý kiến); quản trị tổng thêm, sửa, ẩn, xóa. Khảo sát đã tạo giữ bản chụp câu hỏi nên sửa mẫu không làm đổi |
+| HK.QT.049 | Xong | Tạo từ mẫu hoặc tự soạn (tối đa 30 câu), chọn đối tượng học sinh / giáo viên / cả hai, cả trường hoặc theo lớp, hẹn giờ mở và đóng, lưu nháp. Mở khảo sát thì người nhận được thông báo (đúng một lần, kể cả hẹn giờ) |
+| HK.QT.050 | Xong | Tỉ lệ trả lời; theo câu: phân bố, trung bình, tỉ lệ đồng ý, điểm NPS, tỉ lệ từng lựa chọn, danh sách ý kiến; **xuất dữ liệu thô Excel hoặc CSV không có tên, lớp hay email** (mã ngẫu nhiên riêng của từng khảo sát). Ý kiến tự do bị ẩn khi có dưới 3 người trả lời |
+| HK.HS.109, HK.GV.079 | Xong | Danh sách khảo sát gửi tới mình (đúng đối tượng và lớp), biểu mẫu đủ năm loại câu hỏi, kiểm tra bắt buộc và giá trị, trả lời một lần, ẩn danh với người xem kết quả |
+| HK.AD.078 | Xong | Nhóm thử nghiệm (có / không trò chơi hóa, có / không AI) và gán lớp. **Có tác dụng thật:** học sinh của lớp "không trò chơi hóa" không thấy và bị máy chủ chặn cửa hàng, xếp hạng, giải đấu, thẻ, huy hiệu, nhiệm vụ, quà, game thẻ tướng; lớp "không AI" không dùng Tiểu Tướng và gợi ý học tập. Vẫn học và làm bài bình thường, điểm vẫn ghi để so sánh. Một lớp trong nhiều nhóm thì tính nhóm có mã nhỏ nhất |
+| HK.AD.077 | Xong | CSV (UTF-8) mỗi dòng một học sinh thuộc lớp đã gán nhóm: mã ẩn danh (băm HMAC có khóa máy chủ), mã trường ẩn danh, khối, nhóm, hoạt động, ngày học, phút học, số bài, điểm, độ chính xác, tiến độ, điểm kinh nghiệm, cấp, chuỗi, số câu hỏi AI (chỉ đếm), số khảo sát đã trả lời; lọc theo nhóm và khoảng ngày; có từ điển cột. **Không có tên, tài khoản, email, mã học sinh, tên trường.** Mã ẩn danh đổi nếu đổi `AUTH_SECRET_KEY` |
+| HK.AD.079 | Xong | Từng nhóm: số học sinh, trung bình ± độ lệch chuẩn của điểm, thời gian học, số ngày học, tiến độ, mức tham gia; so với nhóm đối chứng bằng kiểm định Welch (hiệu số, t, bậc tự do, p hai phía, hệ số Cohen d); cảnh báo nhóm dưới 10 học sinh. Hàm tính p đã đối chiếu với giá trị chuẩn của phân phối t. **Chỉ là công cụ thống kê mô tả và kiểm định, không chứng minh nhân quả nếu các lớp không được chọn ngẫu nhiên** |
+
+Dữ liệu: migration 034 (mẫu khảo sát và ba mẫu khởi tạo, khảo sát, câu trả lời, nhóm thử nghiệm, lớp thuộc nhóm; mọi bảng bật RLS).
+
+**Lưu ý đạo đức và pháp lý:** dùng dữ liệu của học sinh vào nghiên cứu cần được nhà trường và phụ huynh đồng ý trước (ngoài phạm vi phần mềm); dữ liệu xuất ra là ẩn danh nhưng một nhóm rất nhỏ có thể bị nhận diện gián tiếp.
+
+## Sprint 7–8 theo ver0.2 (phần còn lại) – Quiz kiểu Kahoot, thi đấu nâng cao, luật lớp, Sa bàn 3D (25 chức năng)
+
+Làm theo yêu cầu "làm tiếp Sprint 13–14" (file ver0.2 chỉ có 12 sprint; bạn chọn làm nốt phần Sprint 7–8 ver0.2 còn thiếu). Mã nguồn: `backend/src/content/{studio.service,studio.controller}.ts` (trình soạn Quiz, ảnh tải lên), `backend/src/live/*` (thi đấu nâng cao), `backend/src/battle/{war-class.service,sandtable}.ts` (gắn cửa – trận, sa bàn), `backend/src/classroom/classroom.service.ts` (luật lớp), migration 035–036; giao diện `components/admin/{QuizStudio,SandPresenter,ClassBattleLinks,LiveHost,LiveManager}.tsx`, `components/portal/{SandTableView,SandCanvas,LivePlay,LiveTab,LiveKit,LiveTheme,Media}.tsx`.
+
+| Mã | Trạng thái | Ghi chú |
+| --- | --- | --- |
+| HK.GV.060 | Xong | Luật lớp có thêm "Cho phép game trận đánh" và "Thời gian chơi mỗi ngày" (5–240 phút). Tắt thì học sinh của lớp không vào được bản đồ hành quân và đánh thẻ (máy chủ chặn, hiện lý do); học và làm bài vẫn bình thường. Cấp nào chặt hơn thì thắng (lớp, trường, hệ thống); học sinh học nhiều lớp thì lớp nào tắt cũng tắt |
+| HK.GV.083 | Xong | Mục "Trận đánh" trong từng lớp: với mỗi trận chọn **cửa** học sinh phải hoàn thành mới ra trận (khóa ở danh sách trận, bản đồ hành quân và khi vào trận, kèm lý do), **độ khó** thay độ khó gốc (quân địch ×0,8 / ×1 / ×1,25 máu và sức đánh so với độ khó gốc), và **bật / tắt câu hỏi kích hoạt tuyệt kỹ**. Giáo viên chơi thử không bị ảnh hưởng; bỏ gắn thì trở lại như cũ |
+| HK.GV.084, HK.HS.137 | Xong | Nút "Mở Sa bàn 3D" trên thanh công cụ giáo viên: chọn một trận, dựng địa hình 3D (đồi núi, sông, biển, địa điểm, bãi cọc ngầm) bằng Three.js, xoay – phóng to – kéo, phát lại tiến quân (mũi tên xanh) và rút quân (mũi tên đỏ) của hai bên theo từng bước, tốc độ 0,5× / 1× / 2×. Học sinh xem ở màn giới thiệu trận (mặc định bản vẽ 2D nhẹ, bật 3D khi máy đủ mạnh); máy không có WebGL tự dùng 2D. Cảnh dùng chung dữ liệu cho cả hai bản, lời dẫn từng bước là văn bản (trình đọc màn hình đọc được) |
+| HK.GV.085 | Xong | Menu "+ Tạo" trên thanh công cụ (Quiz, Bộ đề, Câu hỏi, Hành trình, Phòng thi đấu); Quiz có tên, mô tả, ảnh bìa; tạo trống hoặc mở bộ đề có sẵn để sửa (mục Bộ đề có nút "Sửa trong trình soạn Quiz") |
+| HK.GV.086 | Xong | Cột trái liệt kê câu (số, loại, thời gian, ảnh thu nhỏ, cảnh báo câu chưa đủ); thêm, sao chép, xóa (hỏi lại), kéo thả đổi thứ tự trên web và nút lên / xuống |
+| HK.GV.087 | Xong | Ô nhập câu hỏi; bốn đáp án ▲ đỏ, ◆ xanh lá, ● vàng, ■ xanh đậm, hai ô đầu bắt buộc; vòng tròn đánh dấu đáp án đúng; có ô giải thích đáp án |
+| HK.GV.088 | Xong | Trắc nghiệm, Đúng / Sai (đổi loại thì ô đáp án tự điều chỉnh) và **Bình chọn** không có đáp án đúng: 2–4 lựa chọn, không tính điểm, học sinh chọn một lựa chọn rồi cả lớp xem số lượt chọn. Quy tắc ở mục "Hoàn thiện Sprint 8" cuối tài liệu |
+| HK.GV.089 | Xong | 5 / 10 / 20 / 30 / 60 / 90 / 120 giây (mặc định 20) và nút "Áp dụng cho tất cả câu hỏi" |
+| HK.GV.090 | Xong | Tiêu chuẩn 1000, gấp đôi 2000, không tính điểm; điểm thực nhận giảm dần theo thời gian (từ 100% xuống 50%). Áp dụng khi thi đấu trực tiếp; bộ đề cũ giữ điểm gốc |
+| HK.GV.091 | Xong | Một đáp án hoặc nhiều đáp án (phải chọn đúng và đủ mới được điểm; cần ít nhất 3 đáp án và 2 đáp án đúng) |
+| HK.GV.092 | Xong | "Tìm và chèn phương tiện truyền thông": tải ảnh lên (PNG, JPEG, WEBP, GIF ≤ 1,5 MB, kiểm tra bằng nội dung thật, mỗi giáo viên ≤ 60 ảnh và 30 MB; ảnh nằm ngoài sao lưu trong cơ sở dữ liệu của quản trị hệ thống, chỉ có trong sao lưu của Supabase), chọn ảnh sử liệu đã công bố trong kho tư liệu (tìm không phân biệt dấu), dán liên kết ảnh https; video là liên kết YouTube / Vimeo (nhúng khung phát), tệp .mp4 / .webm hoặc liên kết mở trong tab mới. **Tải video lên** (MP4, WebM, tối đa 8 MB, 5 video mỗi giáo viên; phát trong câu hỏi và tua được) ở tab "Tải video lên" của hộp chèn phương tiện |
+| HK.GV.093 | Xong | Nền theo chủ đề (Bạch Đằng, Thăng Long, Chương Dương, Đông Bộ Đầu) áp lên màn hình chiếu và trình xem trước; nhạc chờ ngũ cung (Trống trận, Sóng nước, Hào khí) do trình duyệt tự tạo, **hoặc tệp nhạc giáo viên tải lên** (MP3, OGG, tối đa 4 MB, 5 tệp mỗi giáo viên; có nghe thử ngay trong trình soạn); phát lặp khi giáo viên bấm bật. Hệ thống không kèm sẵn bản nhạc nào vì không có nhạc được cấp phép sử dụng |
+| HK.GV.094 | Xong | Tự lưu bản nháp lên máy chủ sau 1,2 giây (mở lại ở máy khác được); xem trước như học sinh có hiện đáp án; "Lưu Quiz" kiểm tra từng câu (báo "Câu N: …") rồi lưu vào ngân hàng câu hỏi và bộ đề (dùng chung dữ liệu với HK.GV.032 và HK.GV.041); "Tổ chức thi đấu" mở phòng với Quiz này, "Giao bài" tạo bài tập cho lớp. Câu riêng chưa dùng ở đâu khác được sửa tại chỗ, câu đã nằm trong bộ đề khác tạo bản mới; Quiz đã giao hoặc đã có học sinh làm thì khóa chỉnh sửa |
+| HK.GV.095 | Xong | Nút khóa / mở khóa phòng ở màn chờ và trong trận; phòng khóa thì mã PIN không nhận người mới ("Phòng đã khóa"); số người trong phòng luôn hiển thị |
+| HK.GV.096 | Xong | Khi tạo phòng chọn tự khóa ngay khi bấm Bắt đầu (mặc định bật), sau 30 / 60 giây hoặc không tự khóa; đổi được ở phòng chờ |
+| HK.GV.097, HK.HS.141 | Xong | Học sinh gặp phòng khóa bấm "Xin giáo viên cho vào" (chỉ một yêu cầu, bị từ chối thì không xin lại); giáo viên duyệt / từ chối ngay trên màn hình điều khiển; người được duyệt tự vào phòng và chỉ làm từ câu đang diễn ra (không xem lại câu đã qua, báo cáo và xem lại chỉ tính từ lúc vào) |
+| HK.GV.098 | Xong | Chỉ học sinh thuộc lớp đã chọn; một tài khoản chỉ vào từ một thiết bị cùng lúc (mã thiết bị lưu trong trình duyệt; thiết bị cũ đã ngắt thì chuyển sang thiết bị mới được); tên hiển thị lấy theo hồ sơ (mặc định, tắt được để học sinh tự đặt biệt danh) |
+| HK.GV.099 | Xong | Bấm vào tên trong phòng chờ hoặc danh sách người chơi để loại; người bị loại nhận thông báo, bị đưa khỏi kênh, không vào lại được, điểm và đáp án không còn tính; có trong báo cáo ("Đã loại khỏi phòng") |
+| HK.GV.100, HK.HS.139 | Xong | Mặc định thiết bị học sinh chỉ có nút hình – màu (câu một đáp án, nhiều đáp án có nút Gửi, đúng / sai), nội dung chỉ hiện trên màn chiếu — **máy chủ không gửi nội dung cho thiết bị** nên không thể xem trong mã nguồn trang; giáo viên bật "hiện đầy đủ" khi học từ xa (đổi được giữa trận); xáo thứ tự đáp án theo từng thiết bị (hình – màu của đáp án đi theo đáp án); cảnh báo học sinh chuyển tab / thu nhỏ trình duyệt (tên và số lần hiện trên màn hình điều khiển, có trong báo cáo) |
+| HK.GV.101, HK.HS.142 | Xong | Chế độ "Đánh trùm cả lớp": chọn trùm (Ngột Lương Hợp Thai, Thoát Hoan, Ô Mã Nhi, Toa Đô, Trương Văn Hổ); máu trùm = số người × số câu × 24 (tính lúc bắt đầu), máu cả lớp = 40% số lượt trả lời; câu đúng gây 20–40 sát thương tùy tốc độ, mỗi câu sai hoặc bỏ trống (của người đang trực tuyến) làm cả lớp mất 1 máu; thanh máu và đòn đánh hiện sau mỗi câu; hạ được trùm trước khi hết máu cả lớp / hết câu thì thắng (mỗi người đã trả lời nhận thêm 25 điểm tài khoản) |
+| HK.HS.140 | Xong | Học sinh đã trong phòng rớt mạng vào lại bằng đúng tài khoản dù phòng đã khóa, giữ điểm và tiếp tục từ câu hiện tại |
+| HK.SYS.023 | Xong | WebSocket (Socket.IO): từ chối kết nối mới của người chưa trong phòng khi phòng khóa, cho người đã trong phòng nối lại theo tài khoản, chặn thiết bị thứ hai, gửi cảnh báo chuyển tab về màn hình giáo viên, báo `live:kicked` cho người bị loại |
+
+Dữ liệu: migration 035 (ảnh tải lên, bản nháp Quiz, cột phòng thi, yêu cầu vào phòng, nhật ký phòng; mọi bảng mới bật RLS) và 036 (luật lớp, gắn cửa – trận, sa bàn của màn chơi). Sa bàn khởi tạo cho 6 trận (Đông Bộ Đầu, Hàm Tử, Chương Dương, Tây Kết, Vân Đồn, Bạch Đằng) là **sơ đồ minh họa viết lại từ tóm tắt trận đã có, thuộc màn chơi Nháp**; chờ giáo viên Lịch sử kiểm chứng trước khi phát hành.
+
+Quyết định khi đặc tả chưa nói rõ: thiết bị ẩn nội dung và tự khóa phòng khi bắt đầu là **mặc định** (đúng mục đích chống tra cứu; giáo viên đổi được); bộ đề soạn bằng trình soạn Quiz lưu ba loại câu (một đáp án, nhiều đáp án, đúng / sai), bộ đề có câu điền khuyết, sắp xếp, kéo thả bản đồ vẫn sửa ở mục Bộ đề; ảnh tải lên lưu trong cơ sở dữ liệu (không dùng kho tệp ngoài) nên giới hạn 1,5 MB mỗi ảnh, 60 ảnh và 30 MB mỗi giáo viên.
+
+Giới hạn đã biết: Sa bàn 3D mới thử trên Chrome không GPU (WebGL phần mềm) qua trình chiếu của giáo viên — chưa thử trên máy phòng tin học và điện thoại thật; nút "Xem Sa bàn của trận" ở màn giới thiệu trận của học sinh dùng chung thành phần nhưng chưa được bấm thử trong trình duyệt (đã kiểm bằng API và kiểm tra kiểu); không có mô hình 3D, hoạt ảnh chiến đấu hay âm thanh; sơ đồ chỉ minh họa. Kéo thả đổi thứ tự câu chỉ có trên web. Nhạc chờ là giai điệu tự phát. Giới hạn nhập mã PIN (20 lần mỗi phút mỗi học sinh) tính chung cả tra cứu, xin vào và vào phòng; học sinh chờ duyệt kiểm tra lại mỗi 5 giây. Thi đấu vẫn chạy trên một máy chủ (chưa có Redis adapter).
+
+## Quyết định khi đặc tả chưa nói rõ
+
+- **Quản trị tổng cấp 2 (HK.AD.020):** có cột `admin_level`. Cấp 2 quản lý quản trị viên trường học nhưng không tạo/sửa/khóa/xóa quản trị tổng, không tạo hay xóa trường. Ma trận RBAC thực sự (HK.AD.026) thuộc Sprint 11.
+- **"Chưa phát sinh dữ liệu" (HK.AD.016/025, HK.QT.021/032):** tài khoản đã đăng nhập, có tiến độ học, có thao tác trong nhật ký, hoặc giáo viên đang được phân công lớp thì chỉ khóa được. Trường đã có lớp, giáo viên/học sinh, hoặc quản trị viên đã dùng hệ thống thì chỉ vô hiệu hóa được. Thay cho thùng rác 45 ngày của bản cũ.
+- **Mật khẩu tạm:** sinh ngẫu nhiên, hiện một lần cho người tạo và gửi qua hàng đợi email (bcrypt cost 8 cho lô lớn); thư bị hủy nếu người dùng đã đổi mật khẩu.
+- **Mật khẩu lớp cũ (migration 012):** thay bằng mã tham gia; cột `join_password_hash` còn trong CSDL nhưng không dùng nữa.
+- **Ba kho nội dung (Sprint 4):** câu hỏi, bộ đề, hành trình thuộc kho giáo viên, kho trường hoặc kho hệ thống. Giáo viên chỉ sửa nội dung của mình trong kho riêng; kho trường do quản trị viên trường duyệt; kho hệ thống do quản trị tổng. Duyệt = sao nội dung sang kho đích để người gửi vẫn tự sửa bản của mình.
+- **Học sinh học theo hành trình nào:** mỗi cuộc kháng chiến một hành trình – hành trình giáo viên giao cho lớp mới nhất, nếu không có thì hành trình mặc định của hệ thống. Tiến độ tính theo từng nút nên đổi hành trình thì tiến độ riêng.
+- **Chống gian lận:** máy chủ giữ danh sách câu, đồng hồ, đáp án và chấm điểm; bản chụp câu hỏi được lưu theo lượt nên sửa câu hỏi giữa chừng không làm sai lượt đang làm. Điểm làm bài chỉ cộng phần vượt kỷ lục cũ nên chơi lại không "cày" điểm; sổ điểm có khóa duy nhất cho mỗi khoản thưởng.
+- **Bộ đề không có trạng thái nháp/công bố:** dùng quy tắc khóa theo việc sử dụng (hành trình đã phát hành hoặc đã có học sinh làm). Hành trình của giáo viên tự phát hành khi giao cho lớp.
+- **Điểm, vàng, tim (Sprint 5):** điểm là tổng sổ điểm `hk_points` (mỗi khoản duy nhất theo học sinh – lý do – khóa nên gọi lại không cộng trùng); vàng có sổ riêng `hk_gold_ledger` cũng chống trùng. Cấp độ, tim, chuỗi ngày là số liệu lưu sẵn trong `hk_players` và được cập nhật lười khi đọc, nên không phụ thuộc job chạy đúng giờ.
+- **Chuỗi ngày:** chỉ ngày đạt mục tiêu điểm mới tăng chuỗi (khác Sprint 3 tính theo nhật ký học). Mốc ngày theo giờ Việt Nam.
+- **Bảng xếp hạng ẩn danh:** bảng trường/hệ thống không trả họ tên cho học sinh khác; bảng lớp hiện tên thật vì các bạn đã quen nhau trong lớp.
+- **Cơ chế tim theo lớp:** nếu học sinh thuộc nhiều lớp và **bất kỳ lớp nào** tắt tim thì tim tắt cho học sinh đó (hướng có lợi cho học sinh).
+- **Thẻ nhân vật:** rơi quyết định ở máy chủ khi hoàn thành lần đầu, học sinh chỉ lật; thẻ nối với nhân vật của kho lịch sử nhưng tiểu sử chỉ hiện khi nhân vật đó đã **Công bố**.
+- **Mô phỏng trận đánh (Sprint 6):** kịch bản là một JSON do máy chủ kiểm tra; mỗi trận đánh trong kho lịch sử có tối đa một kịch bản. Điểm thưởng toàn thắng (150) và ngưỡng thắng (60%) nằm trong từng kịch bản. Nút trận đánh có kịch bản đã phát hành thì phải chơi mô phỏng (hoặc làm bộ câu hỏi nếu nút có) mới hoàn thành, không còn "đọc là xong".
+- **Lớp học (Sprint 7):** thao tác lớp của giáo viên đi qua dịch vụ lớp của quản trị trường sau khi kiểm tra giáo viên có phụ trách lớp (lớp của trường khác hoặc của giáo viên khác trả 404). Giáo viên chỉ lưu trữ/xóa lớp **do mình tạo**.
+- **Bản đồ rẽ nhánh:** không có đường nối nào thì nút mở tuần tự như cũ; có đường nối thì nút mở khi **mọi** nút nối vào đã xong (nút không có đường vào là điểm xuất phát). Điều kiện điểm/sao đặt ở nút đích nhưng kiểm tra trên các nút nối vào. Ngày giờ mở nhập theo giờ Việt Nam.
+- **Điểm bài tập:** điểm tự động là tỷ lệ đúng của lượt tốt nhất; nếu giáo viên chấm thì điểm của giáo viên là điểm cuối. Thưởng đúng hạn dùng khóa duy nhất theo bài tập nên không cộng trùng khi làm lại.
+- **Thưởng/phạt của giáo viên:** ghi vào sổ điểm/vàng với lý do riêng (`teacher`), trừ không xuống dưới 0 và không hạ cấp; không tính vào mục tiêu hộp quà của lớp để giáo viên không "tự mở" hộp quà. HP tối đa của lớp là mức thấp nhất giữa mặc định và giá trị giáo viên đặt.
+- **Kỹ năng và điểm hành động:** điểm hành động tính theo cấp và hồi đầy khi sang ngày mới (giờ Việt Nam); lên cấp giữa ngày chưa nâng điểm đang có đến hôm sau. Xung phong và Hộ giáp là hiệu ứng chờ (mỗi loại tối đa một cái), dùng đúng một lần.
+- **Thông báo:** dùng bảng thông báo chung, học sinh và giáo viên thăm dò 60 giây một lần (chưa đẩy thời gian thực, chưa gửi email).
+- **Thi đấu trực tiếp (Sprint 8):** phòng thi gắn với một lớp và chỉ học sinh của lớp đó vào được (giữ riêng tư và có đội để tính điểm đội); học sinh có thể vào muộn khi trận đã chạy (điểm các câu trước là 0). Chốt sớm một câu chỉ chờ những người **đang trực tuyến** (học sinh chỉ dùng đường HTTP dự phòng không được chờ); không ai trực tuyến thì đợi hết giờ. Máy chủ chỉ một tiến trình giữ đồng hồ: nếu sau này chạy nhiều máy chủ cần dùng bộ điều hợp Redis cho Socket.IO và khóa đồng hồ chốt câu.
+- **Cột lớp học sinh `class_name` và giáo viên `teacher_id` cũ:** để nguyên (không xóa dữ liệu); mã mới chỉ đọc bảng thành viên / giáo viên–lớp.
+
+## Triển khai và dữ liệu hiện có
+
+- GitHub Actions ngày 01/11/2026: workflow `CI` tự chạy khi push hoặc mở pull request vào `main`, kiểm tra backend/migration trên PostgreSQL tạm, frontend typecheck/test/build và hồi quy bộ đồng bộ. Kết quả gắn với commit để hiện Check status; không dùng credential Supabase. Xem `GITHUB_ACTIONS.md`.
+- Tự đồng bộ local ngày 01/11/2026: theo yêu cầu người dùng, thêm worker Windows chờ code ổn định, kiểm tra trên worktree riêng rồi commit/gộp/push nguyên tử lên `main`; Render/Supabase/Vercel tự cập nhật. Chỉ xác nhận khi Render và Vercel chạy đúng SHA và Supabase đạt schema cần thiết. Nền tảng và điều kiện hoạt động: `TU_DONG_DONG_BO.md`. Không thêm hoặc sửa migration SQL cho cơ chế này.
+- Sửa triển khai Render ngày 01/11/2026: các bản Sprint 8 và Sprint 5 ver0.2 dừng ở `npm ci` vì lockfile thiếu peer tùy chọn `webpack@5.112.2`. Tạo lại lockfile bằng npm 10.9.4 cùng dòng npm của Render; giữ nguyên lệnh build/start và các migration 001–027. Đã kiểm tra cài sạch, build, kiểm tra migration và nâng PostgreSQL thử nghiệm từ schema 24 lên 27, giữ tài khoản, tiến độ và sổ điểm cũ. Xem quy trình khóa dependency trong `database/migrations/README.md`.
+- Sprint 11–12 (nhánh `fuctionlist`, migration 032–034): mong đợi `schema_version` 34 ở `/api/database/health` sau khi Render khởi động bản mới; các đường `/api/platform/*` trả 401 khi chưa đăng nhập. Biến môi trường tùy chọn: `RATE_IP_PER_MIN`, `RATE_USER_PER_MIN`, `RATE_AI_PER_MIN` (giới hạn tần suất mặc định), `TWO_FACTOR_BYPASS=true` (chỉ khi khẩn cấp để tạm bỏ bước hai lớp); `AUTH_SECRET_KEY` phải đặt cố định thì mới bật được ứng dụng xác thực.
+- Sprint 10 (migration 031): mong đợi `schema_version` 31 ở `/api/database/health` sau khi Render khởi động bản mới; các đường `/api/analytics/*` trả 401 khi chưa đăng nhập. Không có biến môi trường mới: quản trị tổng nhập giá token ở mục AI Tutor → Mô hình nếu muốn xem chi phí ước tính.
+- Sprint 9 (nhánh `feat/hao-khi-sprint-9`, migration 030): `schema_version` 30; Render chưa có khóa AI nên chạy chế độ trích tư liệu.
+- Sprint 6 ver0.2 (nhánh `feat/hao-khi-v02-sprint-6`, migration 028–029): mong đợi `schema_version` 29 ở `/api/database/health` sau khi Render khởi động bản mới. Các màn, bản đồ, hội thoại, chỉ huy khởi tạo đều là **Nháp**: quản trị tổng cần phát hành (hội thoại phải gắn tư liệu nguồn trước) thì học sinh mới thấy bản đồ hành quân và màn chơi; bộ thẻ tướng (13 thẻ tướng, 4 thẻ chiến thuật) có sẵn.
+- Sprint 5 ver0.2 (nhánh `feat/hao-khi-v02-sprint-5`, migration 026–027): mong đợi `schema_version` 27 ở `/api/database/health` sau khi Render khởi động bản mới (bản này kéo theo cả migration 025 của Sprint 8 nếu Render chưa chạy).
+- Sprint 8 (nhánh `feat/hao-khi-sprint-8`, migration 025, thêm Socket.IO, pdfkit, qrcode); mong đợi `schema_version` 25 ở `/api/database/health` sau khi Render khởi động bản mới. Render hỗ trợ WebSocket; nếu một mạng chặn WebSocket thì Socket.IO tự dùng polling và giao diện dùng thêm đường HTTP dự phòng.
+- Sprint 6 (nhánh `feat/hao-khi-sprint-6`, migration 022–023) gộp vào `main` ngày 01/11/2026 (Render chạy `schema_version` 23). Sprint 7 (nhánh `feat/hao-khi-sprint-7`, migration 024) gộp vào `main` cùng ngày (3d1d650); Render và Supabase chạy `schema_version` 24 (xác nhận ở `/api/database/health`), các đường dẫn `/api/classroom/*` trả 401 khi chưa đăng nhập, bản web trên Vercel có mã Sprint 7.
+- Cập nhật trang công khai ngày 31/10/2026: toàn bộ ghi công bản đồ/ảnh được chuyển khỏi Điều khoản sử dụng sang `/thong-tin-hinh-anh`, mở từ footer chung. Trang riêng dùng `InfoShell`, nền và Manrope/Newsreader như Điều khoản sử dụng; giữ đủ tác giả, nguồn và giấy phép. Không thay đổi database.
+- Sprint 1–2 đã gộp vào `main` ngày 31/10/2026 (nhánh `feat/hao-khi-sprint-1-2`); khi đó Render và Supabase đã chạy `schema_version` 16. Sprint 3–4 (nhánh `feat/hao-khi-sprint-3-4`) được gộp vào `main` cùng ngày (Render và Supabase chạy `schema_version` 19). Sprint 5 (nhánh `feat/hao-khi-sprint-5`) thêm migration 020–021; backend áp dụng khi khởi động với `DATABASE_URL`; xác minh bằng `schema_version` ở `/api/database/health` (mong đợi 21 sau khi Render khởi động bản mới).
+- Supabase vẫn giữ migration 001–013 đã áp dụng; 001–013 đã được khôi phục từ lịch sử Git nguyên văn (runner từ chối khi thiếu hoặc sửa file đã chạy).
+- Bản cũ có các tài khoản/lớp thử; migration 014 giữ nguyên chúng (kiểm thử `014 giữ nguyên lớp...` trên dữ liệu giả): năm học được suy ra từ lớp/khối cũ (năm mới nhất = đang hoạt động, các năm trước = đã kết thúc), mỗi lớp cũ nhận mã tham gia ngẫu nhiên, giáo viên cũ được chép sang bảng giáo viên–lớp, khóa ngoại giáo viên không còn xóa lớp khi xóa tài khoản.
+- Cần đặt trên Render: `DATABASE_URL`, `ADMIN_PASSWORD`, `ADMIN_EMAIL`, gửi thư (`SMTP_URL` hoặc `MAIL_RELAY_*`), tùy chọn `GOOGLE_CLIENT_ID`; Vercel: `EXPO_PUBLIC_API_URL`, tùy chọn `EXPO_PUBLIC_GOOGLE_CLIENT_ID`.
+
+## Làm nốt các mục "Một phần" (02/11/2026, thay cho "Sprint 13–14" vì đặc tả chỉ có Sprint 1–12)
+
+Cả hai tệp Excel (ver0.1: 348 chức năng, ver0.2: 408 chức năng) chỉ có Sprint 1–12; mọi mã chức năng đều đã có dòng trong tài liệu này. Đợt này đóng các mục còn ghi "Một phần" mà làm được trọn vẹn không cần hạ tầng mới:
+
+| Mã | Trước | Nay |
+|---|---|---|
+| HK.HS.053–055 | Quyết sách chỉ ở chế độ riêng, không ảnh hưởng ván thẻ tướng | Bước "Quyết sách trước trận": kết quả đổi thành −15% … +15% công và thủ cho một trận (xem dòng HK.HS.053 ở trên) |
+| HK.SYS.022 | Chưa có nhật ký phát lại | Nhật ký phát lại từng bước + màn "Xem lại trận" |
+| HK.HS.033 | Hồ sơ trận chưa có đường vào mini-game | Ba nút chơi ngay ngay trong hồ sơ trận đánh |
+| HK.HS.069 | Chưa lọc theo cuộc kháng chiến | Có ô lọc cuộc kháng chiến |
+| HK.HS.026 | Chưa có ô lọc năm | Có "Từ năm / Đến năm" |
+| HK.HS.116 | Chưa có tua nhanh | Có nút "Tua nhanh" (dừng ở câu có lựa chọn) |
+| HK.AD.065 | Tên/logo chỉ lưu, giao diện không đổi | Thanh đầu trang đổi theo tên và logo hệ thống |
+| HK.HS.023 | Ghi "Một phần" | Ghi "Xong" (nhiệm vụ ngày/tuần đã có từ Sprint 5) |
+
+Không thêm migration cho đợt này (nhật ký phát lại nằm trong cột `state` JSONB sẵn có của `hk_war_battles`; quyết sách dùng bảng `hk_game_runs` sẵn có). Vẫn còn "Một phần" và cần hạ tầng hoặc quyết định riêng: HK.AD.038 / HK.AD.085 tải tệp và sprite lên (cần kho tệp), HK.AD.026 nối đủ 30 nhóm quyền còn lại vào máy chủ, HK.HS.054 / HK.AD.037 kéo thả trên cảm ứng (HK.GV.022 đã thử bằng cảm ứng giả lập, chưa thử trên thiết bị thật), HK.SYS.005 (bảng xếp hạng dùng Redis khi chạy nhiều máy chủ), HK.HS.091 bộ lọc ngữ nghĩa cho nhập vai, HK.HS.116 / HK.HS.132 chân dung và hoạt ảnh chiêu thức (cần tranh vẽ), HK.SYS.013 (cố ý chỉ chọn câu, không sinh câu mới).
+
+## Hoàn thiện giải đấu và các ghi chú Sprint 5 (04/11/2026)
+
+Làm nốt các "điểm cần biết" còn lại sau khi đối chiếu Sprint 5 với bảng chức năng:
+
+| Mã | Trước | Nay |
+|---|---|---|
+| HK.AD.054 | Số hạng cố định 4, lịch chốt cố định thứ Hai | Quản trị tổng đặt 2–8 hạng với tên tùy ý và thứ chốt bảng (thứ Hai … Chủ nhật) ở Trò chơi hóa → Cấu hình mặc định → Giải đấu tuần |
+| HK.AD.052 | Ghi "Một phần" (kỹ năng chỉ hiển thị) | Ghi "Xong": kỹ năng đã dùng được từ Sprint 7, quản trị sửa được cả chi phí |
+| HK.SYS.005 | Ghi "Một phần" vì chưa dùng Redis | Ghi "Xong (khác công nghệ)", nêu rõ giới hạn khi chạy nhiều máy chủ |
+| HK.HS.078 | Ghi "Một phần" | Ghi "Xong (web)", nêu lý do không có liên kết công khai |
+| HK.HS.125 | Mô tả thanh menu cũ | Mô tả đúng bố cục hiện tại và thêm bài kiểm thử cấu trúc |
+
+## Hoàn thiện HK.HS.124 — "Ra trận" tới điểm trên bản đồ hành quân (05/11/2026)
+
+Khi đối chiếu Sprint 6 với bảng chức năng, đặc tả HK.HS.124 yêu cầu nút "Ra trận" mở đúng điểm trận đó trên bản đồ hành quân, trong khi bản làm trước chỉ mở màn giới thiệu của màn chơi. Nay `GET /api/play/nodes/:id` trả thêm `march: { campaign_id, point_id }` (điểm trận đánh của bản đồ đã phát hành gắn với màn chơi đó, hoặc `null`); ứng dụng học sinh chuyển sang tab Chiến dịch ở chế độ "Hành quân", mở bản đồ của cuộc kháng chiến và dừng ở điểm đó. Không thêm migration; có bài kiểm thử backend (`war.spec.ts`) và bài kiểm thử cấu trúc giao diện (`frontend/tests/march-focus.test.cjs`).
+
+Quyết định khi cho chỉnh số hạng và ngày chốt:
+- **Dữ liệu cũ không đổi.** Migration `037_league_tiers.sql` chỉ nới ràng buộc cột hạng từ 0–3 lên 0–9; mọi giá trị có sẵn vẫn hợp lệ. Tên hạng nằm trong cấu hình trò chơi hóa (`hk_settings`, khóa `game`); cấu hình lưu từ trước chưa có hai khóa mới thì dùng mặc định (4 hạng, chốt thứ Hai), nên hành vi hiện tại giữ nguyên cho tới khi quản trị đổi.
+- **Đổi ngày chốt có hiệu lực từ tuần giải đấu kế tiếp.** Khóa tuần là ngày bắt đầu tuần và đã lưu trong `hk_league_members`; cắt ngang tuần đang chạy sẽ làm lệch điểm. Lịch được lưu ở `hk_settings` khóa `league_schedule` (thứ hiện tại, ngày bắt đầu áp dụng, lịch chờ). Tuần đầu của lịch mới kéo dài từ ngày hẹn tới thứ chốt kế tiếp nên có thể ngắn hơn 7 ngày; các tuần sau đủ 7 ngày. Đổi lại như cũ trước khi có hiệu lực thì hủy lịch chờ.
+- **Giảm số hạng** (ví dụ từ 6 xuống 3): người đang lưu hạng cao hơn được tính ở hạng cao nhất còn lại, không lỗi và không thăng quá hạng cuối; khi chốt tuần, hạng lưu được kéo về giới hạn mới.
+- **Bảng xếp hạng tuần, nhiệm vụ tuần và các bảng "theo tuần" khác vẫn tính theo tuần bắt đầu thứ Hai**; chỉ giải đấu tuần dùng thứ chốt cấu hình.
+- Kiểm thử: `league_schedule.spec.ts` (hàm lịch thuần: mặc định trùng khóa tuần cũ, tuần chuyển tiếp, đổi lịch lần hai), `league_config.spec.ts` (HTTP thật: cấu hình cũ, kiểm tra đầu vào, 6 hạng, giảm hạng, đổi ngày chốt qua nhiều tuần), bài thêm ở `migrations.spec.ts`, và kiểm tra trên trình duyệt thật trang cấu hình (lưu 3 hạng tự nhập kèm thứ chốt từ giao diện, đặt lại mặc định rồi lưu, lưu chỉ một hạng bị máy chủ từ chối và giữ nguyên cấu hình).
+
+## Đăng nhập chung và nút vào học (04/11/2026)
+
+- Thanh điều hướng công khai có nút **Vào học ngay**, khối cuối trang chủ cũng mở `/portal` thay cho liên kết câu hỏi thường gặp.
+- Học sinh, giáo viên và quản trị trường dùng cùng trang `/portal`, chọn vai trò bằng ba ô. Đăng nhập đúng tài khoản chuyển thẳng tới khu vực tương ứng; các URL khu vực cũ chuyển người chưa đăng nhập về trang chung và chọn sẵn vai trò. Quản trị tổng vẫn dùng `/admin` riêng.
+- Trang chung dùng ảnh thành lũy do người dùng cung cấp (`dang-nhap-thanh-luy.webp`), nền toàn màn hình, khung giữa hai cột trên máy tính và một cột trên điện thoại, chữ Manrope/Newsreader.
+- Giữ kiểm tra vai trò ở API, phiên riêng theo vai trò, xác thực hai lớp của quản trị trường, đổi mật khẩu bắt buộc, xác nhận hồ sơ học sinh, quên mật khẩu, đăng ký tự học và đăng nhập Google dành cho học sinh. Không thay đổi backend, schema hoặc migration cho đợt này.
+
+## Cập nhật đăng nhập chung ngày 04/11/2026
+
+- Thu gọn `/portal` thành khung tối đa 940 × 620 trên desktop, giới hạn chiều cao theo màn hình và giữ ảnh thành lũy phía sau. Màn hình nhỏ dùng phần đầu gọn và cuộn bên trong biểu mẫu khi cần, không cắt tiêu đề hay nút đăng nhập.
+- Thêm Google cho giáo viên và quản trị trường bên cạnh học sinh. Email Google đã xác minh phải trùng tài khoản đã được cấp và đúng vai trò được chọn; không tự tạo tài khoản nhân sự, đổi vai trò hay mở dữ liệu trường khác. Quản trị tổng tiếp tục dùng `/admin` riêng.
+- Google của quản trị trường đã bật xác thực hai lớp phải hoàn thành cùng bước OTP/TOTP trước khi được cấp phiên. Giữ kiểm tra tài khoản/trường bị khóa và các bước đổi mật khẩu, xác nhận hồ sơ hiện có. Không thay đổi schema hay thêm migration trong đợt này.
+- Kiểm tra local: typecheck/build frontend và backend đạt; 20 bài frontend, 22 bài xác thực và 15 bài nền tảng/2FA đạt trên PostgreSQL tạm. Kiểm thử trình duyệt ẩn ở 5 kích thước từ 360 × 640 đến 1366 × 768: khung nằm trong màn hình, Google gửi đúng vai trò sau khi chuyển lựa chọn và mở bước hai lớp cho quản trị trường. Luồng Google trong kiểm thử dùng danh tính giả, chưa thay thế việc đăng nhập thử bằng tài khoản Google thật.
+
+## Bỏ đăng ký tự học ngày 04/11/2026
+
+- Theo yêu cầu mới, bỏ nút, cửa sổ và lời mời đăng ký tự học tại `/portal`. Học sinh dùng tài khoản nhà trường cấp, đăng nhập bằng mật khẩu hoặc Google đã gắn với hồ sơ.
+- Gỡ hai endpoint công khai `/api/auth/register/request` và `/api/auth/register/verify`; gọi đường cũ trả 404, không gửi OTP hoặc tạo tài khoản. Giữ nguyên tài khoản và dữ liệu đã có, không thay đổi schema/migration.
+- Kiểm tra local: typecheck/build frontend và backend, 20 bài frontend và 22 bài xác thực trên PostgreSQL tạm đều đạt; có kiểm tra gọi trực tiếp hai API cũ không gửi thư hay tạo thêm tài khoản.
+- Tiếp tục xác minh trên Render: API xác thực từ chối thông tin sai, quên mật khẩu không lộ tài khoản, Google đã có Client ID. Gửi thư thật và đăng nhập Google thật cần xác nhận bằng kết quả từ nhà cung cấp/hộp thư và phiên người dùng; không dùng kiểm thử giả lập làm bằng chứng đã gửi/đăng nhập thật.
+
+## Bố cục đăng nhập admin theo ảnh mẫu ngày 05/11/2026 (đính chính)
+
+- Người dùng xác nhận ảnh 1 là `/portal` cần giữ nguyên; chỉ sửa trang đăng nhập admin ở ảnh 2. Khôi phục nguyên văn `school-login.tsx` về bản trước lần hiểu nhầm (khung nổi hai cột, ảnh thành lũy, ba vai trò và Google); không sửa luồng xác thực của portal.
+- Trang `/admin` là khung nhỏ nổi ở giữa, tối đa 940 × 620 trên máy tính; theo mẫu người dùng bổ sung, **bên trong khung** chia đôi bằng cạnh chéo: ảnh động và logo trắng bên trái, form giấy hoa văn bên phải. Giữ Manrope/Newsreader và nhãn Quản lý tổng; chuyển thông tin quyền về dưới form. Màn nhỏ dùng dải ảnh trên form và cuộn bên trong khi cần.
+- Giữ nguyên đăng nhập bằng tài khoản được cấp, xác thực hai lớp và quên/đặt lại mật khẩu của admin; không thêm Google, vai trò học sinh hoặc liên kết công khai vào cổng quản trị. Không thay đổi API, quyền hay database.
+- Kiểm tra: portal trùng nguyên văn bản trước lần sửa nhầm; typecheck, 39 bài frontend và build đạt. Trình duyệt ẩn xác minh bố cục admin ở 6 kích thước (360 × 640 đến 1920 × 1080), ảnh động/cạnh chéo nằm bên trong khung nhỏ, cùng bước 2FA/quên mật khẩu giả lập; portal khôi phục được kiểm tra lại ở 5 kích thước và giữ Google cho đúng ba vai trò.
+
+## Nền lịch sử cho đăng nhập admin ngày 05/11/2026
+
+- Thay nền xanh đơn sắc phía ngoài khung `/admin` bằng component `HeritageBackdrop`: giấy dó tông kem/vàng cổ, hoa văn chìm, hai nét khắc trống đồng cách điệu ở góc, ánh đỏ son và viền vàng đồng mảnh. Hoa văn là thiết kế trang trí của giao diện, không phải ảnh hiện vật lịch sử.
+- Tái sử dụng `FlowingWaves` cho dải sáng và hạt nhỏ trôi chậm ở chân nền; không thêm thư viện. Hiệu ứng dừng khi tab bị ẩn, dùng bản tĩnh trên màn nhỏ hoặc khi bật Giảm chuyển động; lớp trang trí không nhận chuột/phím.
+- Giữ khung nhỏ chia chéo với ảnh động/logo bên trái, form bên phải; chỉ đổi bóng đổ ngoài sang nâu ấm. Không đổi `/portal`, thông tin đăng nhập, API, database hoặc migration.
+- Kiểm tra: typecheck, 39 bài frontend và build đạt; kiểm tra trình duyệt riêng cho nền, chuyển động và chế độ Giảm chuyển động, cùng kiểm tra bố cục/2FA/quên mật khẩu hiện có.
+
+## Bố cục form quản lý tổng theo ảnh mẫu ngày 06/11/2026
+
+- Theo xác nhận của người dùng, chỉ chỉnh bố cục form `/admin` giống form portal: lời hướng dẫn dưới tiêu đề, nhãn trên hai ô nhập bo góc, liên kết Quên mật khẩu bên trái nút đăng nhập giãn rộng có mũi tên. Giữ đăng nhập quản lý tổng độc lập, không thêm bộ chọn ba vai trò hoặc Google.
+- Giữ nền giấy cổ/hoa văn của form, nền lịch sử bên ngoài và khung nhỏ chia chéo; không đổi `/portal`, API, quyền hoặc database. Luồng hai lớp, quên mật khẩu và đặt lại mật khẩu tiếp tục dùng logic hiện có.
+- Kiểm tra: typecheck, 39 bài frontend và build đạt; trình duyệt kiểm tra 6 kích thước (360 × 640 đến 1920 × 1080), nhãn trên ô, bo góc, vị trí liên kết/nút, nền hoa văn, luồng hai lớp/quên mật khẩu giả lập và portal không đổi.
+
+## Google cho quản lý tổng ngày 06/11/2026
+
+- Theo yêu cầu mới, thêm nút Google vào form `/admin` dùng chung component với `/portal`. Form quản lý tổng vẫn độc lập, giữ nền giấy cổ/hoa văn và bố cục nhỏ chia chéo; không thêm bộ chọn vai trò nhà trường.
+- API chấp nhận `portal=root_admin`, chỉ cấp phiên khi email Google trùng đúng một tài khoản quản lý tổng đã được cấp. Không tạo người dùng hay nâng vai trò. Quản lý tổng chỉ dùng danh tính email do Google quản lý (Gmail hoặc Workspace), tránh dựa vào email bên thứ ba đã từng xác minh từ trước; email khác tiếp tục đăng nhập bằng mật khẩu.
+- Dùng `google-auth-library` với audience từ `GOOGLE_CLIENT_ID` để kiểm tra chữ ký, issuer và hạn dùng; chỉ chấp nhận email đã xác minh. Khóa công khai của Google được thư viện lưu đệm; không dùng endpoint tokeninfo để xác thực production. Theo [hướng dẫn Google](https://developers.google.com/identity/gsi/web/guides/verify-google-id-token).
+- Giữ kiểm tra khóa/xóa tài khoản, đúng cổng, xác thực hai lớp và thu hồi phiên. Tài khoản bật OTP/TOTP chỉ nhận thử thách, chưa có access token trước khi xác thực mã. Không có schema/migration mới; tiếp tục dùng Client ID hiện có trên Render và Vercel, không cần Client Secret.
+- Kiểm thử danh tính Google dùng token RSA ký bằng khóa thử trong bộ nhớ và dữ liệu PostgreSQL tạm; không dùng dữ liệu production, không gửi thư thật. Đăng nhập bằng tài khoản Google thật vẫn cần người dùng chọn tài khoản trên website.
+- Kiểm tra local đạt: typecheck/build frontend và backend; 41 bài frontend, 25 bài xác thực và 15 bài nền tảng/2FA trên PostgreSQL tạm. Trình duyệt ẩn kiểm tra 6 kích thước, nút Google gửi đúng `root_admin`, mở bước 2FA trước khi có phiên, cùng đăng nhập mật khẩu/quên mật khẩu; Google trong lượt trình duyệt này dùng SDK/danh tính giả.
+
+## Đồng nhất bố cục và phông admin/portal ngày 06/11/2026
+
+- Theo yêu cầu mới, dùng chung `LoginLayout`, `LoginHeading`, `LoginInput`, `LoginActions` và nút hiện/ẩn mật khẩu cho `/admin` và `/portal`. Cả hai có nền giấy cổ/trống đồng, ảnh động/logo bên trái, form hoa văn bên phải với cạnh chéo; portal thêm bộ chọn ba vai trò và liên kết về trang chủ.
+- Cân lại khung tối đa 1000 × 680 trên máy tính, mở rộng cột form và giới hạn nội dung 460px ở giữa. Dùng cùng cỡ chữ, khoảng cách, viền ấm và nút đăng nhập toàn chiều ngang; khi màn thấp thì liên kết/nút nằm chung hàng để vừa màn hình. Màn hẹp dùng dải ảnh đầu khung, cuộn trong form khi cần.
+- Manrope cho tiêu đề chính, mô tả, nhãn, ô nhập, nút và footer; Newsreader nghiêng cho chữ nhấn trong tiêu đề của cả hai trang. Bỏ một chỗ ghi đè font mặc định ở chi tiết kho lịch sử admin để nội dung tiếp tục dùng Manrope.
+- Giữ nguyên xử lý vai trò, mật khẩu, Google, hai lớp, quên mật khẩu và điều hướng vào khu vực tương ứng; không đổi API hoặc database/migration.
+- Kiểm tra: typecheck, 41 bài frontend và build đạt; trình duyệt so sánh cả hai trang ở 6 kích thước từ 360 × 640 đến 1920 × 1080. Khung/cột/ô nhập/nút cùng kích thước, Manrope và Newsreader xác nhận bằng computed style, form ban đầu vừa màn hình. Thử ba vai trò, hiện/ẩn mật khẩu, Google/mật khẩu gửi đúng vai trò, bước hai lớp và quên mật khẩu bằng API/SDK giả lập.
+
+## Chưa làm (ngoài Sprint 1–7) và đề xuất
+
+- Đặc tả ver0.2 (408 chức năng) đã có mã cho mọi mục. Còn "Một phần" / giới hạn: sa bàn chỉ là sơ đồ minh họa chưa kiểm chứng, một số mục ở Sprint 11–12; nội dung khởi tạo (kho lịch sử, câu hỏi, trận đánh, sa bàn) vẫn là bản nháp chờ giáo viên Lịch sử kiểm chứng.
+- Giới hạn đã biết của Sprint 11–12: ma trận phân quyền mới nối 8 nhóm vào máy chủ; hai lớp là tùy chọn của từng tài khoản quản trị; sao lưu nằm cùng cơ sở dữ liệu (cần tải về cất nơi khác) và chưa thử phục hồi trên Supabase thật; giới hạn tần suất và nhắc học tính trong bộ nhớ / một máy chủ; thư (nhắc học, nhận xét, mã OTP) chưa thử với máy chủ thư thật; ảnh chụp màn hình chọn bằng bộ chọn tệp (chưa thử trên điện thoại thật); nội dung hướng dẫn khởi tạo là chữ, chưa có ảnh / video; khảo sát và dữ liệu nghiên cứu cần sự đồng ý của nhà trường và phụ huynh trước khi dùng.
+- Giới hạn đã biết của Sprint 10: "gợi ý của AI" làm bằng quy tắc điểm số (chưa dùng mô hình để viết lời nhận xét); lộ trình ôn tập lấy hạn của bài tập lớp vì chưa có chức năng đặt lịch kiểm tra riêng; luyện tập cá nhân hóa chỉ **chọn** câu từ ngân hàng, không sinh câu mới; xuất Excel / PDF theo lớp và theo khối / lớp / giáo viên, chưa xuất riêng từng bài tập; thư nhận xét chưa thử với máy chủ thư thật; chi phí AI chỉ là ước tính theo giá nhập tay; biểu đồ vẽ bằng thành phần thuần nên chưa có tooltip khi rê chuột (số liệu hiển thị sẵn bằng chữ); chưa kiểm thử với lớp có hàng trăm học sinh (truy vấn thống kê tính theo tập học sinh của lớp, đã chạy tốt với dữ liệu thử nhỏ).
+- Giới hạn đã biết của Sprint 8: chưa kiểm tra với cả lớp thật (đã kiểm tra tải đồng thời nhỏ: ba người trả lời cùng lúc); Socket.IO chạy trên một máy chủ (chưa có Redis adapter); chưa có chế độ tự học theo nhịp riêng (Kahoot "assignment"), chưa có nhạc/âm thanh; câu kéo thả bản đồ trên điện thoại cần Leaflet nên chỉ có trên bản web; báo cáo PDF không có biểu đồ (có bảng và tỉ lệ đúng).
+- Giới hạn đã biết của Sprint 7: kéo thả nút mới thử trên trình duyệt web (chưa thử trên điện thoại thật; có cách nhập số và chọn nút thay thế); bài tập chỉ có ba loại (bộ đề, mini-game, bài học), chưa có bài nộp tệp hay tự luận; thông báo thăm dò chứ chưa đẩy thời gian thực; chưa xuất bảng điểm bài tập ra Excel; huy hiệu riêng của trường do quản trị viên trường tạo, giáo viên chỉ trao; hành trình đang có học sinh học không đổi được đường nối (nhân bản để chỉnh).
+- Giới hạn đã biết của Sprint 5: bảng xếp hạng lưu đệm trong bộ nhớ một máy chủ (nhiều máy chủ sẽ mỗi máy một đệm, cần Redis nếu mở rộng); lượt làm bài đang dở vẫn tiếp tục khi tim về 0 (chỉ chặn bài mới); ảnh thành tích chỉ tạo được trên web; nhân vật là biểu tượng ghép chứ chưa có ảnh vẽ; nội dung khởi tạo (tên cấp, huy hiệu, thẻ, nhiệm vụ) là bản nháp thiết kế chờ giáo viên duyệt.
+- Bản cũ có game 2D, thi đấu trực tiếp, chatbot AI, BKT, thống kê: đã gỡ khỏi mã; xây lại theo sprint sau từ đặc tả mới.
+- Giới hạn đã biết của Sprint 3–4: câu hỏi kéo thả bản đồ và bản đồ tương tác chỉ có trên bản web; đổi thứ tự (nút hành trình, mục sắp xếp, khối bài học) bằng nút mũi tên chứ chưa kéo thả; video trong bài học mở bằng liên kết; thông báo cho giáo viên khi nội dung được duyệt/từ chối chưa có (thông báo trong ứng dụng thuộc Sprint 11) – người gửi xem ở mục "Nội dung đã gửi".
+- Cần quyết định của bạn: (1) **giáo viên Lịch sử kiểm chứng nội dung khởi tạo** (kho lịch sử, 27 câu hỏi, 3 bài học) trước khi công bố cho học sinh; (2) kéo thả dòng thời gian/nút hành trình và tải tệp lên (cần kho lưu trữ) có làm ngay không. Đăng ký tự học (HK.HS.003) đã được yêu cầu bỏ ngày 04/11/2026.
+- Đề xuất cho đặc tả: HK.GV.019 (Sprint 3) và HK.GV.026 (Sprint 7) trùng việc gán hành trình cho lớp (đã làm phần gán ở Sprint 3, Sprint 7 thêm lịch); HK.AD.050 cấp độ và HK.AD.066 quy tắc điểm đã có giá trị mặc định (xem Sprint 5) nhưng nên chốt lại cùng giáo viên; HK.SYS.005 ghi Redis nhưng chưa cần ở quy mô hiện tại.
+
+## Hoàn thiện HK.GV.016 và thử cảm ứng HK.GV.022 (05/11/2026)
+
+Khi đối chiếu Sprint 7 với bảng chức năng, đặc tả HK.GV.016 yêu cầu chia đội "kéo thả thủ công, đặt tên và biểu tượng đội". Máy chủ đã nhận biểu tượng đội nhưng giao diện chia thủ công chỉ có tên và ô chọn đội, nên biểu tượng bị gán theo thứ tự mỗi lần lưu. Nay trình chia đội cho chọn biểu tượng, kéo thả học sinh (web) và hiện biểu tượng ở thẻ đội; không đổi máy chủ, không thêm migration. Kiểm tra trên trình duyệt: kéo 5 học sinh vào 2 đội, chọn Cúp và Ngọc, lưu; mở lại thì biểu tượng giữ nguyên; kéo một học sinh ra "Chưa có đội" rồi lưu thì đội còn đúng thành viên. Kiểm thử cấu trúc giao diện ở `frontend/tests/class-teams.test.cjs` (có đối chiếu danh sách biểu tượng với máy chủ). Cũng trong đợt này, kéo nút bản đồ rẽ nhánh (HK.GV.022) được thử bằng sự kiện cảm ứng giả lập của Chrome: nút di chuyển và vị trí được lưu đúng.
+
+## Hoàn thiện Sprint 8: câu "Bình chọn", video và nhạc tải lên (05/11/2026)
+
+Ba mục còn dở ở Sprint 8 nay đã làm; thêm migration `038_poll_and_media.sql` (chỉ nới ràng buộc CHECK, không tạo bảng, không đổi dữ liệu).
+
+| Mã | Trước | Nay |
+|---|---|---|
+| HK.GV.088 | Chưa có loại "Bình chọn" | Loại câu `poll` trong ngân hàng câu hỏi và trình soạn Quiz |
+| HK.GV.092 | Chỉ nhúng video YouTube / Vimeo hoặc liên kết | Tải video MP4 / WebM lên; máy chủ trả lời `Range` (HTTP 206) nên phát và tua được cả trên Safari |
+| HK.GV.093 | Chỉ nhạc ngũ cung trình duyệt tự tạo | Thêm tệp nhạc MP3 / OGG do giáo viên tải lên làm nhạc chờ |
+
+Quyết định cho câu bình chọn:
+- **Không điểm, không đúng/sai.** Câu bình chọn có 2–4 lựa chọn, 0 điểm trong phòng thi, không làm đổi bảng xếp hạng, không tính vào số câu đúng hay độ chính xác của học sinh, không thể là "câu khó nhất". Vẫn tính là đã tham gia trả lời (tỉ lệ tham gia, số câu đã trả lời). Kết quả hiện số lượt chọn từng lựa chọn cho cả lớp, ở màn chiếu, màn học sinh, phần xem lại sau trận, báo cáo, tệp Excel (cột "Kết quả bình chọn") và PDF.
+- **Chỉ phòng thi trực tiếp dùng câu bình chọn.** Làm bài, bài tập, nút của hành trình, thử thách trên bản đồ hành quân, câu hỏi tuyệt kỹ, luyện tập cá nhân hóa và câu kiểm tra nhanh của bài học đều bỏ qua loại này. Bộ đề chỉ có câu bình chọn không giao thành bài tập được (thông báo rõ), và không mở được phòng "Đánh trùm".
+- **Đánh trùm:** câu bình chọn không gây sát thương và không làm cả lớp mất máu dù chưa ai chọn; máu trùm chỉ tính theo các câu có đáp án đúng.
+- Máy chủ chỉ nhận một lựa chọn có thật của câu (lựa chọn lạ hoặc dạng đáp án khác bị từ chối), mỗi người một lần.
+
+Quy tắc kho tệp tải lên (ảnh, video, nhạc cùng nằm trong bảng `hk_media` của cơ sở dữ liệu, như ảnh từ trước):
+- Loại tệp xác định bằng nội dung thật: PNG, JPEG, WEBP, GIF; MP4, WebM; MP3, OGG. Tệp giả đổi đuôi hoặc khai sai loại bị từ chối.
+- Giới hạn mỗi tệp: ảnh 1,5 MB, nhạc 4 MB, video 8 MB. Mỗi giáo viên: 60 ảnh (30 MB), 5 video (32 MB), 5 tệp nhạc (16 MB). Cả hệ thống tối đa 200 MB để không làm đầy cơ sở dữ liệu; đầy thì báo "Kho tải lên của hệ thống đã đầy".
+- Giáo viên xóa được tệp của mình khi không còn dùng ở câu hỏi, ảnh bìa, nhạc chờ hay bản nháp nào (có nút xóa ở danh sách video); đang dùng thì từ chối và nói rõ.
+- **Giới hạn thật cần biết:** tệp nằm trong cơ sở dữ liệu nên chỉ có trong sao lưu của Supabase và chiếm dung lượng gói Supabase; video lớn hơn 8 MB hoặc nhiều hơn mức trên cần kho tệp riêng (Supabase Storage hoặc dịch vụ tương đương) mà dự án chưa có.
+- Hệ thống không kèm bản nhạc nào: không có tệp nhạc được cấp phép sử dụng, nên giáo viên tự tải bản nhạc mình có quyền dùng.
+- Đã kiểm tra trên trình duyệt thật: tải video và nhạc lên bằng giao diện (chọn tệp, gửi, máy chủ lưu, thẻ `<video>` và `<audio>` hiện với đường dẫn tới máy chủ, `Range` trả 206); học sinh trả lời câu bình chọn trên điện thoại, màn học sinh, màn giáo viên và báo cáo hiện đúng. Tệp dùng khi kiểm tra là tệp giả có chữ ký đúng (không phát được); chưa kiểm tra phát một video thật qua mạng chậm hoặc trên Safari.
+
+Hai lỗi tìm thấy khi kiểm tra và đã sửa:
+- **Trình soạn Quiz sập khi mở bản nháp (lỗi có sẵn trên `main`).** Một hook (`aiModalOpen`, thêm cùng tính năng sinh câu hỏi bằng AI) được khai báo sau lệnh `return` sớm của thành phần, nên lần dựng đầu (chưa có bản nháp) ít hook hơn lần sau và React báo lỗi #310. Đã chuyển hook lên trước; thêm bài kiểm thử `poll-media.test.cjs` kiểm tra không còn hook nào sau `return` sớm (đã thử: bài này thất bại trên bản cũ).
+- **Kiểm tra base64 của tệp tải lên có thể báo 500 ngẫu nhiên.** Biểu thức chính quy kiểm tra chuỗi base64 dài vài MB đôi khi tràn ngăn xếp (`Maximum call stack size exceeded`); với video 8 MB nguy cơ cao hơn. Thay bằng vòng lặp tuyến tính (`isBase64`), có bài kiểm thử với chuỗi ~40 triệu ký tự.
+
+Kiểm thử: `studio.spec.ts` (loại tệp, hạn mức, `Range`, xóa, nhạc chờ), `live_v2.spec.ts` (câu bình chọn trong phòng thi, báo cáo, đánh trùm, bài tập), `migrations.spec.ts` (038), `frontend/tests/poll-media.test.cjs`.
+
+## Hoàn thiện HK.GV.071 — xuất báo cáo riêng cho từng bài tập (05/11/2026)
+
+Khi đối chiếu Sprint 10, đặc tả HK.GV.071 ghi "Excel / PDF theo lớp, bài tập, khoảng thời gian" nhưng bản làm trước chỉ xuất theo lớp (có bảng liệt kê chung các bài tập), chưa xuất riêng từng bài. Nay `GET /api/classroom/assignments/:id/export?format=xlsx|pdf` trả báo cáo của một bài tập (trang "Tổng quan": loại, nội dung, hạn nộp, số lần làm, thưởng, số đã nộp / muộn / đã chấm / chưa nộp, điểm cao nhất trung bình; trang "Học sinh": tình trạng, số lần làm, điểm cao nhất, nộp lúc, điểm và xếp loại của giáo viên, nhận xét). Giáo viên chỉ xuất được bài tập của lớp mình (không phụ trách thì 404, học sinh 403); ô văn bản do người dùng nhập được làm sạch để Excel không hiểu nhầm là công thức. Không thêm migration; có bài kiểm thử ở `assignments.spec.ts` và `frontend/tests/assignment-export.test.cjs`.

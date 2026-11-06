@@ -1,8 +1,8 @@
-﻿# PostgreSQL / Supabase và SQL migrations
+# PostgreSQL / Supabase và SQL migrations
 
 Mọi thay đổi database từ nay có file SQL đánh số trong `database/migrations/`.
-Khi backend khởi động với `DATABASE_URL`, migration runner tự áp dụng các file mới
-trước khi mở kho tài khoản. Cả `python run.py` và lệnh Uvicorn trên Render đều chạy bước này.
+Khi backend NestJS khởi động với `DATABASE_URL`, migration runner (`backend/src/database/migrator.ts`)
+tự áp dụng các file mới trước khi mở kho tài khoản. Cả `npm start` trên máy và dịch vụ `dong-a-api` trên Render đều chạy bước này.
 
 ## Cấu hình một lần
 
@@ -18,16 +18,17 @@ Ví dụ mẫu, không phải thông tin kết nối thật:
 DATABASE_URL=postgresql://postgres.PROJECT_REF:YOUR_PASSWORD@YOUR_POOLER_HOST:5432/postgres?sslmode=require
 ```
 
-Không đưa URI có mật khẩu lên GitHub hoặc vào biến `VITE_*` của frontend.
+Không đưa URI có mật khẩu lên GitHub hoặc vào biến `EXPO_PUBLIC_*` của frontend.
 `https://PROJECT_REF.supabase.co` là API URL, không phải URI PostgreSQL.
 Chi tiết các kiểu kết nối: [tài liệu Supabase](https://supabase.com/docs/guides/database/connecting-to-postgres).
 
 ## Thêm thay đổi database
 
-Chạy từ thư mục gốc dự án:
+Chạy từ thư mục `backend/`:
 
 ```powershell
-python database/migrate.py new add_student_badges
+npm run build
+npm run migrate -- new add_student_badges
 ```
 
 Lệnh tạo `006_add_student_badges.sql` nếu hiện có 001–005. Viết SQL vào file mới,
@@ -42,9 +43,9 @@ ALTER TABLE public.app_progress
 Sau đó:
 
 ```powershell
-python database/migrate.py check
-python database/migrate.py status
-python database/migrate.py up
+npm run migrate -- check
+npm run migrate -- status
+npm run migrate -- up
 ```
 
 - `check`: kiểm tra số thứ tự, tên file và các quy tắc SQL cơ bản, không kết nối database.
@@ -52,7 +53,7 @@ python database/migrate.py up
 - `status`: chỉ đọc lịch sử, liệt kê `APPLIED` / `PENDING`.
 - `up`: áp dụng file mới vào database mà `DATABASE_URL` trỏ tới.
 - Khi deploy code mới lên Render, startup tự làm bước `up`; không cần dán SQL thủ công.
-- Build Render chạy `check` để phát hiện file chưa hoàn thành trước lúc startup.
+- Build Render (`render.yaml`) chạy `check` để phát hiện file chưa hoàn thành trước lúc startup.
 
 Không sửa/đổi tên/xóa file đã chạy. Nếu cần điều chỉnh, tạo migration số tiếp theo.
 Không thêm `BEGIN`, `COMMIT`, `ROLLBACK`, `VACUUM` hoặc `CREATE INDEX CONCURRENTLY`:
@@ -61,16 +62,17 @@ rollback và backend dừng khởi động. Các đợt đã chạy thành công
 
 Lịch sử nằm trong `public.app_schema_migrations`, gồm tên file, phiên bản, SHA-256 và
 thời điểm áp dụng. Runner kiểm tra checksum và dùng transaction advisory lock để các
-worker không cùng chạy migration. Cách quản lý transaction dựa trên
-[Psycopg](https://www.psycopg.org/psycopg3/docs/basic/transactions.html) và
+tiến trình không cùng chạy migration. Cách quản lý transaction dựa trên
+[node-postgres](https://node-postgres.com/features/transactions) và
 [PostgreSQL advisory locks](https://www.postgresql.org/docs/current/functions-admin.html#FUNCTIONS-ADVISORY-LOCKS).
+Lịch sử tương thích hoàn toàn với runner Python trước đây (cùng bảng, cùng checksum).
 
 ## Các migration ban đầu
 
 | File | Nội dung |
 | --- | --- |
 | `001_initial_postgres_schema.sql` | Baseline của `User`, `Profile`, `UserSettings`, `_prisma_migrations` và enum `UserRole` đã nhập từ `do_an_tot_nghiep`. Giữ dữ liệu và lịch sử Prisma đang có. |
-| `002_app_users.sql` | Bảng tài khoản `app_users` mà Python backend đang sử dụng. |
+| `002_app_users.sql` | Bảng tài khoản `app_users` (backend dùng để đăng nhập, phân quyền). |
 | `003_app_progress.sql` | Bảng tiến độ học tập `app_progress`. |
 | `004_app_progress_game_state.sql` | Cột cho game Hào Khí Đông A trong `app_progress`: `game_state` (trạng thái game, tối đa 16 KB), `question_stats` (số lần trả lời/sai theo câu), `day_gems`, `week_xp`, `week_key`, `freeze_week`. Không xóa hay đổi dữ liệu cũ. |
 | `005_app_live_sessions.sql` | Lịch sử thi đấu cả lớp: `app_live_sessions` (trận, giáo viên, lớp, thống kê từng câu) và `app_live_results` (hạng, điểm, số câu đúng của từng học sinh). Khóa ngoại tới `app_users` với `ON DELETE CASCADE`, bật RLS, không có policy công khai. Chỉ tạo bảng mới. |
@@ -86,12 +88,13 @@ File SQL mới → deploy/restart backend với `DATABASE_URL` Supabase → tự
 Đây là đồng bộ các thay đổi được ghi thành migration. Một lần sửa trực tiếp trong pgAdmin,
 hoặc thêm dòng vào một database local riêng, không tự xuất hiện trên Supabase.
 Dữ liệu phát sinh qua API sẽ ghi thẳng vào Supabase khi backend dùng URI Supabase.
-Nếu không có `DATABASE_URL`, backend vẫn dùng SQLite local và không chạy migration PostgreSQL.
+Backend NestJS chỉ dùng PostgreSQL: thiếu `DATABASE_URL` thì các API cần tài khoản trả lỗi 503.
 
 ## Kiểm tra
 
 ```powershell
-python -m unittest discover -s database/tests -p "test_migrations.py" -v
+cd backend
+npm test
 ```
 
 Các kiểm thử tích hợp tự tạo PostgreSQL cluster tạm bằng `initdb`/`pg_ctl`, bind localhost,
@@ -99,5 +102,5 @@ dùng dữ liệu giả và dừng/xóa cluster sau khi chạy. Không dùng dat
 Đặt `POSTGRES_BIN` nếu công cụ PostgreSQL không nằm trong PATH/vị trí cài mặc định.
 Các bài tích hợp sẽ báo skip nếu không tìm thấy PostgreSQL binaries.
 
-Kiểm tra triển khai: `/api/database/health`, rồi `python database/migrate.py status` trên môi trường
-backend để xác nhận các migration đã được áp dụng.
+Kiểm tra triển khai: `/api/database/health`, rồi `npm run migrate -- status` trên môi trường
+backend (Render Shell) để xác nhận các migration đã được áp dụng.

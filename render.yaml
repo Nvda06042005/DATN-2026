@@ -1,20 +1,43 @@
+# Render Blueprint: một dịch vụ web.
+#  - dong-a-api: backend NestJS (xác thực, trường, năm học, tài khoản, lớp học, kho dữ liệu lịch sử, PostgreSQL/Supabase).
+#    Tự chạy database/migrations/*.sql khi khởi động; lỗi migration sẽ dừng khởi động.
+# Dịch vụ AI Python (dong-a-ai) thuộc bản cũ không còn trong mã nguồn; chức năng AI quay lại ở Sprint 9 của danh sách chức năng.
 services:
   - type: web
-    name: dong-a-edu-backend
-    runtime: python
-    # Chạy từ thư mục gốc: backend cần cả ai/ và database/ bên cạnh
-    buildCommand: pip install -r backend/requirements.txt && python database/migrate.py check
-    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    name: dong-a-api
+    runtime: node
+    plan: free
+    rootDir: .
+    branch: main
+    autoDeployTrigger: commit
+    buildCommand: cd backend && npm ci && npm run build && npm run migrate -- check
+    startCommand: cd backend && npm run start
+    healthCheckPath: /api/health
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.9
-      - key: GEMINI_MODEL
-        value: gemini-flash-latest
-      - key: GEMINI_API_KEY
+      - key: NODE_VERSION
+        value: 22.21.0
+      - key: DATABASE_URL
         sync: false
       - key: AUTH_SECRET_KEY
         generateValue: true
       - key: ADMIN_PASSWORD
         sync: false
-      - key: DATABASE_URL
+      # Email nhận mã OTP "Quên mật khẩu" của quản trị tổng (cần cấu hình gửi thư bên dưới)
+      - key: ADMIN_EMAIL
+        sync: false
+      # Địa chỉ website ghi trong thư cấp tài khoản
+      - key: APP_URL
+        value: https://datn-2026-indol.vercel.app
+      # Google tại /portal và /admin: OAuth client ID của ứng dụng web; để trống thì tắt tính năng
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      # Render Free: dùng Brevo SMTP cổng 2525 + STARTTLS, hoặc cầu Google Apps Script (backend/mail-relay.gs).
+      # Không cấu hình gửi thư thì mật khẩu tạm chỉ hiện một lần trên trang quản trị và OTP không gửi được.
+      - key: SMTP_URL
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: MAIL_RELAY_URL
+        sync: false
+      - key: MAIL_RELAY_SECRET
         sync: false

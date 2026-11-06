@@ -1,8 +1,14 @@
 {
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "main": true
     }
-  ]
+  },
+  "framework": null,
+  "installCommand": "npm ci",
+  "buildCommand": "EXPO_PUBLIC_API_URL=${EXPO_PUBLIC_API_URL:-${VITE_API_URL:-https://dong-a-api.onrender.com}} npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

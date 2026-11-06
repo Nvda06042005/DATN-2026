@@ -1,2 +1,0 @@
-# Thư viện Python của backend (gồm cả ai/ và database/)
--r backend/requirements.txt

@@ -1,80 +1,66 @@
-# Hào Khí Đông A – Học Lịch sử 7 qua game
+# Hào Khí Đông A
 
-Web-game về ba lần kháng chiến chống quân Mông – Nguyên (1258 – 1288) cho học sinh lớp 7, kèm trang giáo viên và trang quản trị. Thiết kế chi tiết: [KE_HOACH_GAME_HAO_KHI_DONG_A.md](KE_HOACH_GAME_HAO_KHI_DONG_A.md).
+Nền tảng học lịch sử game hóa về ba lần kháng chiến chống Nguyên – Mông thời Trần cho học sinh THCS (đề tài khóa luận).
+Đặc tả: `fuction list/HaoKhiDongA_DanhSachChucNang_ver0.1 (1).xlsx` (348 chức năng, 12 sprint). **Đã làm: Sprint 1 đến 12** (Sprint 9: AI Tutor "Tiểu Tướng"; Sprint 10: gợi ý học tập, thống kê và báo cáo; Sprint 11: thông báo, hỗ trợ, cấu hình hệ thống, 2FA, sao lưu; Sprint 12: khảo sát và nghiên cứu; phần còn lại của Sprint 7–8 theo ver0.2: soạn Quiz kiểu Kahoot, thi đấu nâng cao – khóa phòng, chống tra cứu, đánh trùm, luật lớp, gắn cửa học với trận đánh và Sa bàn 3D) – xem
+[docs/TIEN_DO_HAO_KHI.md](docs/TIEN_DO_HAO_KHI.md) (từng mã HK.*, quyết định, phần chưa làm).
+Đặc tả `ver0.2` (408 chức năng, viết lại Sprint 5–8) đang được làm tiếp theo thứ tự Sprint 5 → 8 (đã xong: Sprint 5 lộ trình dạng đường đi và Sprint 6 game thẻ tướng, trừ Sa bàn 3D); đối chiếu và các điểm cần chốt ở
+[docs/DOI_CHIEU_HAO_KHI_V02.md](docs/DOI_CHIEU_HAO_KHI_V02.md).
 
-Dự án chia thành 4 phần độc lập:
+## Trang web
 
-| Thư mục | Nội dung |
-| --- | --- |
-| `frontend/` | Giao diện React + Vite + Tailwind, chia thư mục `app/` (màn hình theo trang), `api/`, `components/`, `constants/`, `hooks/`, `lib/`, `providers/`, `store/`, `types/`, `utils/` – xem `frontend/README.md`. Trang `/hoc-sinh` (game), `/giao-vien`, `/admin`. |
-| `backend/` | Máy chủ FastAPI (`app/`): API đăng nhập, quản trị, học sinh (câu hỏi, chấm điểm, trạng thái game), giáo viên, chat, quiz, truyện. |
-| `ai/` | BKT, RAG, Gemini/Hugging Face, mô hình NLP (`models/`), bộ dữ liệu (`data/`), ngân hàng câu hỏi của game (`data/game_content.json`). |
-| `database/` | Kho tài khoản & tiến độ (`user_store.py`), migration PostgreSQL (`migrations/`, `migrate.py`), SQLite cục bộ (`data/users.db`). |
+- `/`, `/dieu-khoan-su-dung`, `/cau-hoi-thuong-gap`: trang công khai (trang chủ, điều khoản kèm ghi công hình ảnh, câu hỏi thường gặp).
+- `/portal`: đăng nhập chung của giáo viên và học sinh.
+- `/hoc-sinh`: trang chủ ba cuộc kháng chiến, bản đồ nhiệm vụ (bài học, trận đánh, câu hỏi, tư liệu, Quyết chiến), làm bài có đồng hồ, thư viện lịch sử, dòng thời gian, bản đồ, kho tư liệu, nhiệm vụ (kèm nhiệm vụ ngày/tuần), lịch sử làm bài, luyện câu sai, vào lớp bằng mã 6 ký tự; trò chơi hóa: nhân vật, tim, điểm – cấp độ, chuỗi ngày, cửa hàng, huy hiệu, thẻ nhân vật, quà hằng ngày, bảng xếp hạng lớp/trường/hệ thống, giải đấu tuần, sự kiện của trường; mô phỏng trận đánh theo lượt (quyết định, bố trí lực lượng trên bản đồ, hoạt ảnh diễn biến) và ba mini-game (ghép thẻ, sắp xếp dòng thời gian, ô chữ).
+- `/giao-vien`: lớp phụ trách, hành trình học (mẫu, tạo, giao cho lớp), ngân hàng câu hỏi, bộ đề (làm thử), nội dung đã gửi duyệt, cơ chế tim theo lớp và trao huy hiệu của trường.
+- `/school-manager-admin`: quản trị viên trường học – trường và năm học, khối lớp, giáo viên, học sinh, lớp, nhập/xuất Excel, nhân bản lớp sang năm mới, duyệt nội dung giáo viên chia sẻ, hành trình mẫu của trường, ngân hàng câu hỏi và bộ đề của trường.
+- `/admin`: quản trị tổng – trường học, người dùng toàn hệ thống, **kho dữ liệu lịch sử** (cuộc kháng chiến, nhân vật, sự kiện, địa điểm trên bản đồ, trận đánh, dòng thời gian, tư liệu gốc, thuật ngữ; kiểm chứng và công bố; lịch sử chỉnh sửa; nhập/xuất), **hành trình mẫu, bài học, ngân hàng câu hỏi, bộ đề, duyệt đề xuất của các trường**.
+- Hai cổng quản trị không có liên kết từ trang chủ.
 
-## Cổng học sinh: game Hào Khí Đông A
+## Cấu trúc
 
-| Tab | Nội dung |
-| --- | --- |
-| Điền Trang | Bàn căn cứ 8 công trình, ruộng tự sinh Lương Thảo, nâng cấp phải trả lời đúng 1 câu, sự kiện “Giặc cướp lương” với kế “Vườn không nhà trống”, nhiệm vụ ngày. |
-| Doanh Trại | 14 tướng theo 5 hệ, tiến hóa theo giai đoạn cuộc đời (có mốc năm), Hội Quán Vạn Kiếp (thẻ Nhân lực + thẻ Sự kiện → lệnh bài → câu hỏi), cổ vật. |
-| Chiến Dịch | 3 màn × 3 pha, đánh theo lượt 3v3: ý đồ địch báo trước, sức bền (lương) của giặc, kế sách của màn, đồng hồ thủy triều Bạch Đằng. |
-| Quốc Tử Giám | Thi đấu cả lớp (nhập mã PIN), luyện nhanh, theo chủ đề, Tháp Khảo Thí 10 tầng, ôn điểm yếu theo BKT, đề do Quân Sư AI soạn. |
-| Sử Ký | Dòng thời gian 1258 – 1288 trên lược đồ, thẻ tri thức lấy từ `knowledge_base.json`, chat Quân Sư AI (RAG). |
-
-Câu hỏi được server chọn và chấm, nên Ấn Tín và XP chỉ tăng khi trả lời đúng (tối đa 300 Ấn Tín/ngày). Trạng thái game (công trình, tướng, cổ vật…) tự lưu lên server.
-
-## Thi đấu cả lớp (thời gian thực)
-
-1. Giáo viên bấm **Thi đấu trực tiếp**, chọn số câu (5/10/15) và phạm vi (cả bài hoặc từng lần kháng chiến), rồi **Mở phòng**. Màn hình hiện mã PIN 6 chữ số và đường link có sẵn mã.
-2. Học sinh cùng lớp vào **Quốc Tử Giám → Thi đấu cả lớp**, nhập PIN (hoặc mở link). Học sinh lớp khác không vào được.
-3. Mỗi câu 20 giây. Server chấm, tính điểm theo tốc độ và chuỗi câu đúng, công bố đáp án khi hết giờ hoặc khi cả lớp đã trả lời. Giáo viên trình chiếu phân bố đáp án, bảng điểm, bục vinh quang.
-4. Mỗi câu trả lời được cộng vào tiến độ thật (XP, Ấn Tín, BKT) như khi luyện tập. Kết quả trận lưu vào thẻ **Thi đấu gần đây** ở trang giáo viên.
-
-Kết nối qua WebSocket `/api/live/ws`; mất mạng hoặc tải lại trang thì tự vào lại đúng phòng. Phòng đang chơi nằm trong bộ nhớ backend, nên backend phải chạy **một tiến trình**. Trang web chạy bằng `https` thì backend cũng phải có `https` (trình duyệt dùng `wss://`).
+- `frontend/`: Expo (React Native + web, Expo Router), Manrope và Newsreader. `app/` (route), `components/admin/` (cổng quản trị), `components/portal/` (trang học sinh và giáo viên), `api/`, `types/`.
+- `backend/`: NestJS 11 + PostgreSQL. `src/auth` (đăng nhập, OTP, hồ sơ), `src/admin` (trường, năm học, tài khoản, lớp, Excel, hàng đợi email), `src/history` (kho lịch sử), `src/content` (câu hỏi, bộ đề, bài học, hành trình, chia sẻ/duyệt), `src/student` (vào lớp, đọc kho lịch sử, học và làm bài chấm ở máy chủ), `test/` (Jest, PostgreSQL tạm).
+- `database/migrations/`: SQL theo số thứ tự, nguồn thay đổi cơ sở dữ liệu duy nhất; xem [README của thư mục](database/migrations/README.md).
+- `docs/`: [tiến độ theo mã HK.*](docs/TIEN_DO_HAO_KHI.md), [đối chiếu đặc tả với hệ thống](docs/DOI_CHIEU_HAO_KHI_V01.md).
+- `render.yaml`: dịch vụ `dong-a-api` trên Render. `frontend/vercel.json`: Vercel build thư mục `frontend/`.
 
 ## Chạy trên máy
 
-```bash
-# 1. Cài thư viện Python (từ thư mục gốc)
-pip install -r backend/requirements.txt
+Backend (cần PostgreSQL; chuỗi kết nối đặt trong `backend/.env`, mẫu ở `backend/.env.example`):
 
-# 2. Backend – http://localhost:8000
+```sh
 cd backend
-cp .env.example .env   # điền GEMINI_API_KEY, DATABASE_URL (nếu dùng Supabase)
-python run.py
+npm ci
+npm run build
+npm run migrate -- check     # kiểm tra file migration, không cần CSDL
+npm run start                # tự chạy migration mới khi khởi động; tạo tài khoản quản trị tổng lần đầu (ADMIN_USERNAME/ADMIN_PASSWORD)
+npm test                     # tự dựng PostgreSQL tạm (initdb/pg_ctl); đặt POSTGRES_BIN nếu không tìm thấy
+```
 
-# 3. Frontend – http://localhost:5173
+Frontend (địa chỉ backend đặt bằng `EXPO_PUBLIC_API_URL`, mặc định `http://localhost:8000`):
+
+```sh
 cd frontend
-npm install
-npm run dev            # hoặc: npm run build:single -> frontend/dist-single/index.html (1 file)
+npm ci
+npm run web
+npm run typecheck
+npm test                     # kiểm thử hợp đồng xác thực của lớp gọi API (không cần máy chủ)
+npm run build                # xuất web vào frontend/dist/
 ```
 
-Không có `DATABASE_URL` thì backend dùng SQLite `database/data/users.db` (file cũ được tự bổ sung cột mới, giữ nguyên dữ liệu).
-Đăng nhập quản trị tại `/admin` (mặc định `admin` / `admin@123`, đổi bằng `ADMIN_PASSWORD`).
+Bản chính thức không đoán địa chỉ máy chủ: nếu thiếu `EXPO_PUBLIC_API_URL` thì các cổng báo lỗi rõ ràng và không gửi thông tin đăng nhập đi đâu cả (chỉ khi chạy `npm run web` mới mặc định `http://localhost:8000`).
 
-## Kiểm thử
+Gửi thư (mật khẩu tạm, mã OTP) cần `SMTP_URL`/`SMTP_*` hoặc cầu `MAIL_RELAY_*` (xem `backend/.env.example`, `backend/mail-relay.gs`); chưa cấu hình thì mật khẩu tạm vẫn hiện một lần trên trang quản trị nhưng OTP quên mật khẩu không gửi được. Đăng nhập Google của học sinh cần `GOOGLE_CLIENT_ID` (backend) và `EXPO_PUBLIC_GOOGLE_CLIENT_ID` (frontend).
 
-Chạy từ thư mục gốc:
+## Triển khai
 
-```bash
-python -m unittest discover -s backend/tests -v                          # API game, chấm điểm, Ấn Tín, bảng giáo viên, phòng thi đấu WebSocket
-python database/migrate.py check                                         # kiểm tra file migration
-python -m unittest discover -s database/tests -p "test_migrations.py" -v # migration PostgreSQL + SQLite
-cd ai && python test_model.py && python test_regression_suite.py         # đánh giá chatbot (số liệu: ai/KET_QUA_DANH_GIA.md)
-cd frontend && npx tsc -b && npx oxlint && npm run build
-```
+GitHub Actions chạy build/test backend, PostgreSQL migration, frontend và bộ tự đồng bộ trên mỗi push/pull request: [cách xem Check status](docs/GITHUB_ACTIONS.md).
 
-## Database
+Theo dõi code local, kiểm tra rồi tự gộp/push và xác minh GitHub → Render/Supabase/Vercel: [hướng dẫn tự đồng bộ](docs/TU_DONG_DONG_BO.md). Bộ theo dõi chạy ẩn trên Windows khi được bật bằng `scripts/auto-sync.ps1`; không cần giữ cuộc chat mở.
 
-```bash
-python database/migrate.py status   # xem migration đã chạy trên DATABASE_URL
-```
+Website chính thức: https://datn-2026-indol.vercel.app/ (Vercel chỉ triển khai nhánh `main`; `frontend/vercel.json` lấy địa chỉ API từ `EXPO_PUBLIC_API_URL`, nếu chưa đặt thì dùng biến cũ `VITE_API_URL`, và cuối cùng là backend chính thức `https://dong-a-api.onrender.com`; địa chỉ này công khai, không chứa bí mật). Backend trên Render (`render.yaml`), cơ sở dữ liệu Supabase PostgreSQL; backend áp dụng migration mới khi khởi động. Sprint 1–2 đã được gộp vào `main` ngày 31/10/2026; Sprint 3–4 (migration 017–019) sau khi gộp cần backend khởi động lại để áp dụng migration.
 
-Mọi thay đổi schema thêm file SQL đánh số mới trong `database/migrations/` – xem `AGENTS.md` và `database/HUONG_DAN_SUPABASE.md`. Migration mới nhất: `005_app_live_sessions.sql` (lịch sử thi đấu cả lớp).
+## Ghi công
 
-## Lưu ý
-
-- Module trong `ai/` giữ tên phẳng (`create_model`, `context_manager`, …) vì `ai/models/dong_a_nlp_model.joblib` được pickle theo các tên này. `backend/app/__init__.py` tự thêm thư mục gốc và `ai/` vào `sys.path`.
-- Chatbot đã học 4 chủ đề mới của game (ngụ binh ư nông, Trần Khánh Dư ở Chí Linh, Binh thư yếu lược, Trần Nhân Tông). Số liệu trước/sau khi huấn luyện lại và cách chạy lại: `ai/KET_QUA_DANH_GIA.md`.
-- Mô hình `.joblib` được tạo bằng scikit-learn 1.7.x và numpy 2.x (đã ghim trong `backend/requirements.txt`). Đổi phiên bản chính của hai thư viện này thì phải huấn luyện lại.
-- Không đưa `DATABASE_URL` hay khoá bí mật vào biến `VITE_*` của frontend.
+Nguồn và giấy phép ảnh nhân vật: `frontend/assets/hero-photos/ATTRIBUTION.md` và trang “Thông tin hình ảnh” (`/thong-tin-hinh-anh`), mở từ footer. Ba bản đồ của Lưu Ly thuộc phạm vi công cộng; liên kết nguồn nằm trong `frontend/constants/map-credits.ts` và cùng trang ghi công trên website.
+Bản đồ chọn tọa độ của quản trị tổng dùng Leaflet (giấy phép BSD-2) và dữ liệu nền © OpenStreetMap, ghi công hiển thị ngay trên bản đồ. Các hiệu ứng có mã từ React Bits giữ thông báo giấy phép trong `frontend/third-party/react-bits/LICENSE.md`.
