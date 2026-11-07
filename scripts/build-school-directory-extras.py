@@ -13,7 +13,7 @@ spec.loader.exec_module(builder)
 
 def build(source):
     base = json.loads((ROOT / 'backend/src/admin/school-directory.json').read_text(encoding='utf-8'))
-    known = {row[0] for row in base['schools']} | {row[0] for row in base['merged']}
+    known = {row[0] for row in base['schools']} | {row[0] for row in base['merged']} | set(builder.confirmed_retirements())
     provinces = base['provinces']
     rows, excluded, count = [], [], 0
     for old_city, districts in source.items():

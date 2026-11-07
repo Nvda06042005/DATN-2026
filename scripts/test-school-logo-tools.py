@@ -12,6 +12,16 @@ crawler = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(crawler)
 
 class SchoolLogoTools(unittest.TestCase):
+    def test_rebuilding_extras_does_not_restore_a_confirmed_old_school(self):
+        spec = importlib.util.spec_from_file_location('extras_builder', Path(__file__).with_name('build-school-directory-extras.py'))
+        extras = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(extras)
+        source = {'Thành phố Hà Nội': {'Huyện Thanh Trì': ['THCS Hữu Hoà (01020513)', 'THCS kiểm thử hợp lệ (REFNEW123)']}}
+        result = extras.build(source)
+        self.assertEqual([row[0] for row in result['schools']], ['REFNEW123'])
+        self.assertEqual(result['source_rows'], 2)
+        self.assertEqual(crawler.builder.confirmed_retirements()['01020513'], 'hn-dongocdu-2026')
+
     def test_provincial_host_prevents_matching_a_namesake_in_another_province(self):
         self.assertEqual(crawler.website_city('https://thcslythuongkiettanbinh.hcm.edu.vn/'), 'Thành phố Hồ Chí Minh')
         self.assertEqual(crawler.website_city('https://thcsx.hanoi.edu.vn/'), 'Thành phố Hà Nội')

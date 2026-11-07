@@ -191,12 +191,21 @@ def apply_merges(rows, events, report):
     return [r for r in rows if r['code'] not in gone], merged
 
 
+def confirmed_retirements():
+    """Chỉ mã cũ đã có nguồn sáp nhập xác nhận; không suy đoán theo tên trùng."""
+    path = Path(__file__).resolve().parents[1] / 'backend/src/admin/school-confirmed-2026.json'
+    confirmed = json.loads(path.read_text(encoding='utf-8'))
+    return {code: row['code'] for row in confirmed['schools'] if row.get('verified') for code in row.get('previous_codes', []) if code != row['code']}
+
+
 def main():
     src = Path(sys.argv[1]); out = Path(sys.argv[2]) if len(sys.argv) > 2 else Path(__file__).resolve().parents[1] / 'backend/src/admin/school-directory.json'
     rows, skipped = load_gist(src / 'thcs.json')
     report = {k: [] for k in ('merged', 'renamed', 'combined', 'flagged', 'ambiguous', 'unmatched')}
     events = dantri_events(src / 'dantri.html') + vnexpress_events(src / 'vnexpress.html')
     rows, merged = apply_merges(rows, events, report)
+    retired = confirmed_retirements()
+    rows = [row for row in rows if row['code'] not in retired]
     provinces = sorted({r['province'] for r in rows})
     pidx = {p: i for i, p in enumerate(provinces)}
     rows.sort(key=lambda r: (r['province'], r['district'], r['name'], r['code']))

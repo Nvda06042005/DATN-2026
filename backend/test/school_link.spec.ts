@@ -5,6 +5,8 @@
 import { activate, adminLogin, call, hasPostgres, Started, startApp } from './harness';
 import { areaSlug, directoryEntry, directoryInfo, nameSlug, parseSchoolSlug, schoolSlug, searchDirectory } from '../src/admin/school-directory';
 import directory from '../src/admin/school-directory.json';
+import extra from '../src/admin/school-directory-extra.json';
+import confirmed from '../src/admin/school-confirmed-2026.json';
 import type { MailService } from '../src/admin/mail.service';
 
 describe('Danh mục trường và quy tắc đặt tên đường dẫn', () => {
@@ -96,6 +98,18 @@ describe('Danh mục trường và quy tắc đặt tên đường dẫn', () =>
     const all = searchDirectory('', 20000);
     expect(all.some(row => row.code === '01020513' || row.code === '56568501')).toBe(false);
     expect(new Set(all.map(row => row.code)).size).toBe(all.length);
+  });
+
+  test('nguồn danh mục không còn mục cũ đã sáp nhập; tên và mã cũ chỉ trả trường hiện tại', () => {
+    const retired = new Set<string>([...directory.merged.map(row => row[0]), ...confirmed.schools.flatMap(row => ('previous_codes' in row ? row.previous_codes : []) ?? [])]);
+    const source = [...directory.schools, ...extra.schools] as Array<[string, string, number, string, string | null]>;
+    expect(source.filter(row => retired.has(row[0]))).toEqual([]);
+    const current = searchDirectory('', 20000);
+    for (const entry of current) for (const code of entry.previous_codes ?? []) {
+      expect(current.some(row => row.code === code)).toBe(false);
+      expect(directoryEntry(code)?.code).toBe(entry.code);
+      expect(searchDirectory(code, 30).some(row => row.code === entry.code)).toBe(true);
+    }
   });
 });
 

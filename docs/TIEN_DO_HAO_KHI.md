@@ -727,6 +727,13 @@ Theo yêu cầu: (1) ảnh đại diện không dán liên kết https nữa mà
 - Kiểm thử: `backend/test/avatar.spec.ts` (6 bài: mọi vai trò tải được, từ chối Word/Excel/PowerPoint/PDF/văn bản/video kể cả đổi đuôi, 1,5 MB, mỗi người một ảnh, xóa, không lẫn vào thư viện/hạn mức), `migrations.spec.ts` (046), `sprint1.spec.ts` (hồ sơ), `frontend/tests/avatar-search.test.cjs` (5 bài); thử trên Chrome thật bằng hộp chọn tệp: tải PNG, bị từ chối `.docx`, `.xlsx`, `.pptx` và Word đổi đuôi `.png`, xóa ảnh; lọc người dùng theo vai trò kết hợp tìm kiếm, nhật ký, yêu cầu hỗ trợ.
 
 
+## Xóa mục tham chiếu cũ sau sáp nhập (07/11/2026)
+
+- Yêu cầu tiếp theo: xóa mục trường cũ đã sáp nhập. Migration 048 dọn 31 bản ghi cũ còn trong Supabase sau 047, chỉ khi trường thay thế đã được xác nhận và có trong bảng; không xóa trường đăng ký/tài khoản/lớp/kết quả.
+- Dọn 34 dòng cũ trong nguồn JSON; sửa cả hai bộ dựng danh mục để không nhập lại từ Gist 2020. Tên/mã cũ chỉ còn làm alias để tìm trường hiện tại. Giữ 11.349 gợi ý và 460 logo đã duyệt.
+- Kiểm thử nâng 047 → 048 giữ nguyên fixture trường/người dùng và số asset; kiểm tra trường trùng tên ở địa bàn khác không bị xóa, tìm tên/mã cũ trả trường mới.
+- Kiểm tra local: backend build, kiểm tra đủ 48 file SQL; 42 bài migration/tạo trường và 15 bài danh mục/đăng nhập trường đạt; 6 bài công cụ dựng/đọc nguồn đạt. Không thay giao diện frontend.
+
 ## Đối chiếu tiếp logo và trường sau sáp nhập (07/11/2026)
 
 - Bỏ câu hướng dẫn tìm kiếm mà người dùng yêu cầu. Nghiên cứu 740 trang nguồn/danh bạ và 3.399 website; rà thêm 184 ảnh, không coi danh sách Gist năm 2020 là danh sách đã xác minh 2026.

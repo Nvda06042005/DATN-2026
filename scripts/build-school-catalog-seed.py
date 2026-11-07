@@ -65,12 +65,12 @@ def build(target, baseline_path=None, snapshot_path=None):
     for i in range(0, len(values), 250):
         updates = ','.join(f'{column}=EXCLUDED.{column}' for column in columns.split(',') if column != 'code')
         sql.append(f'INSERT INTO public.app_school_directory({columns}) VALUES\n' + ',\n'.join(values[i:i + 250]) + f'\nON CONFLICT(code) DO UPDATE SET {updates};')
-    # Giữ bản ghi lịch sử và mọi trường/tài khoản đã đăng ký; chỉ bỏ liên kết ảnh cũ
-    # của mã tham chiếu đã được xác minh sáp nhập vào đơn vị khác.
-    for row in confirmed.values():
+    # Từ 048: xóa đúng mục tham chiếu cũ đã xác minh, tên/mã cũ vẫn là alias
+    # của trường hiện tại. Không sửa app_schools, app_users hoặc bytes ảnh lịch sử.
+    for row in entries:
         for previous in row.get('previous_codes', []):
             if previous != row['code']:
-                sql.append(f"UPDATE public.app_school_directory SET logo_sha256=NULL,logo_source_url=NULL,note={quoted('Đã sáp nhập: ' + row['name'] + ' · ' + row['code'])} WHERE code={quoted(previous)};")
+                sql.append(f"DELETE FROM public.app_school_directory old WHERE old.code={quoted(previous)} AND EXISTS (SELECT 1 FROM public.app_school_directory current WHERE current.code={quoted(row['code'])});")
     if snapshot_path:
         Path(snapshot_path).write_text(json.dumps(snapshot, ensure_ascii=False), encoding='utf-8')
         if not baseline_path:
