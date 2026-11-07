@@ -20,6 +20,7 @@ import { useSystemBrand } from '@/hooks/use-system-brand';
 import { useTheme } from '@/hooks/use-theme';
 import { readToken, saveToken } from '@/lib/storage';
 import { schoolSessionPath } from '@/lib/school-session';
+import { newPasswordError, PASSWORD_HINT } from '@/lib/password-policy';
 import type { AuthRole, AuthUser, Portal, ProfileData, ProfilePatch, SchoolLinkInfo } from '@/types/api';
 
 export { PORTAL_PATH } from '@/lib/school-portal';
@@ -258,7 +259,8 @@ const ForgotPasswordSheet: React.FC<{ onClose: () => void; onDone: () => void }>
   };
   const submit = async () => {
     if (!/^\d{6}$/.test(otp)) return setError('Mã xác thực gồm 6 chữ số trong thư.');
-    if (next.length < 8 || !/\p{L}/u.test(next) || !/\p{N}/u.test(next)) return setError('Mật khẩu mới tối thiểu 8 ký tự, gồm cả chữ và số.');
+    const passwordError = newPasswordError(next);
+    if (passwordError) return setError(passwordError);
     if (next !== confirm) return setError('Mật khẩu nhập lại chưa khớp.');
     setLoading(true);
     setError(null);
@@ -300,7 +302,7 @@ const ForgotPasswordSheet: React.FC<{ onClose: () => void; onDone: () => void }>
         <>
           <Txt size={14} color={c.muc2}>Nếu thông tin khớp với một tài khoản có email, mã đã được gửi (xem cả mục thư rác). Nhập mã và đặt mật khẩu mới; các phiên đăng nhập cũ sẽ bị đăng xuất.</Txt>
           <Field label="Mã xác thực" nativeID="forgot-otp" value={otp} onChangeText={(v) => setOtp(v.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" autoComplete="one-time-code" autoFocus={Platform.OS === 'web'} />
-          <Field label="Mật khẩu mới (tối thiểu 8 ký tự, có chữ và số)" nativeID="forgot-new" value={next} onChangeText={setNext} secureTextEntry={!show} autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" />
+          <Field label="Mật khẩu mới" hint={PASSWORD_HINT} nativeID="forgot-new" value={next} onChangeText={setNext} secureTextEntry={!show} autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" />
           <Field label="Nhập lại mật khẩu mới" nativeID="forgot-confirm" value={confirm} onChangeText={setConfirm} secureTextEntry={!show} autoCapitalize="none" autoComplete="new-password" returnKeyType="done" onSubmitEditing={submit} />
           <Btn tone="ghost" size="sm" icon={show ? EyeOff : Eye} title={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} onPress={() => setShow((v) => !v)} selected={show} />
         </>
@@ -379,7 +381,8 @@ const ChangePasswordForm: React.FC<ChangePasswordProps> = ({ user, token, forced
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
-    if (next.length < 8 || !/\p{L}/u.test(next) || !/\p{N}/u.test(next)) return setError('Mật khẩu mới tối thiểu 8 ký tự, gồm cả chữ và số.');
+    const passwordError = newPasswordError(next);
+    if (passwordError) return setError(passwordError);
     if (next !== confirm) return setError('Mật khẩu nhập lại chưa khớp.');
     if (next === current) return setError('Mật khẩu mới phải khác mật khẩu hiện tại.');
     setLoading(true);
@@ -416,7 +419,7 @@ const ChangePasswordForm: React.FC<ChangePasswordProps> = ({ user, token, forced
         </View>
       )}
       <Field label={forced ? 'Mật khẩu mặc định được cấp' : 'Mật khẩu hiện tại'} nativeID="cp-current" value={current} onChangeText={setCurrent} secureTextEntry={!show} autoCapitalize="none" autoComplete="current-password" />
-      <Field label="Mật khẩu mới (tối thiểu 8 ký tự, có chữ và số)" nativeID="cp-new" value={next} onChangeText={setNext} secureTextEntry={!show} autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" />
+      <Field label="Mật khẩu mới" hint={PASSWORD_HINT} nativeID="cp-new" value={next} onChangeText={setNext} secureTextEntry={!show} autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" />
       <Field label="Nhập lại mật khẩu mới" nativeID="cp-confirm" value={confirm} onChangeText={setConfirm} secureTextEntry={!show} autoCapitalize="none" autoComplete="new-password" returnKeyType="done" onSubmitEditing={submit} />
       <Btn tone="ghost" size="sm" icon={show ? EyeOff : Eye} title={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} onPress={() => setShow((v) => !v)} selected={show} />
       {error && (

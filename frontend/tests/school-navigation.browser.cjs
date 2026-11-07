@@ -52,6 +52,12 @@ try { for (const width of [1440,390]) for(const role of ['root_admin','school_ad
   await page.locator('#login-username').fill('fixture');await page.locator('#login-password').fill('Fixture-only-123');await page.getByTestId('login-submit').click();
   await page.locator('#cp-current').waitFor();assert.ok(page.url().includes('/'+slug));assert.ok(!page.url().includes('school-manager-admin'));
   await page.getByText('THCS Giồng Ông Tố · Bắt buộc ở lần đăng nhập đầu tiên',{exact:true}).waitFor();
+  await page.getByText('Ít nhất 12 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt (ví dụ @, #, !).',{exact:true}).waitFor();
+  await page.locator('#cp-current').fill('Fixture-only-123');
+  await page.locator('#cp-new').fill('Newfixture456');await page.locator('#cp-confirm').fill('Newfixture456');await page.getByTestId('cp-submit').click();
+  await page.getByRole('alert').filter({hasText:'Mật khẩu cần ít nhất 12 ký tự'}).waitFor();
+  assert.equal(calls.filter(c=>c.path==='/api/auth/change-password').length,0);
+  await page.screenshot({path:`${out}/${width}-${role}-password-policy.png`});
   await page.locator('#cp-current').fill('Fixture-only-123');await page.locator('#cp-new').fill('New-fixture-456');await page.locator('#cp-confirm').fill('New-fixture-456');await page.getByTestId('cp-submit').click();
  } else await page.goto(base+'/admin',{waitUntil:'domcontentloaded'});
  const first=role==='student'?'practice':role==='teacher'?'questions':role==='school_admin'?'teachers':'schools';
@@ -79,5 +85,28 @@ try { for (const width of [1440,390]) for(const role of ['root_admin','school_ad
  { const ctx=await browser.newContext();await ctx.addInitScript(()=>localStorage.setItem('donga_token_school_admin','fixture-school-one'));
    await ctx.route('**/api/**',async r=>{const p=new URL(r.request().url()).pathname;let data={};if(p.startsWith('/api/auth/school-link/'))data={...school,school_code:'00000002',slug:'donga_00000002_truongkhac',name:'THCS Trường Khác'};else if(p==='/api/auth/me')data=user('school_admin');await r.fulfill({json:data});});
    const p=await ctx.newPage();await p.goto(base+'/donga_00000002_truongkhac');await p.locator('#login-username:visible').waitFor();assert.equal(await p.getByTestId('admin-workspace').count(),0);assert.equal(await p.evaluate(()=>localStorage.getItem('donga_token_school_admin')),'fixture-school-one');results.push({crossSchoolSessionRejected:true});await ctx.close(); }
+ // Hai form đặt lại mật khẩu dùng cùng chính sách; OTP/email hoàn toàn giả lập.
+ for(const width of [1440,390]) for(const root of [true,false]) {
+  const ctx=await browser.newContext({viewport:{width,height:900}}),resets=[];
+  await ctx.route('**/api/**',async route=>{
+   const p=new URL(route.request().url()).pathname;
+   if(p==='/api/auth/reset-password')resets.push(route.request().postDataJSON());
+   await route.fulfill({json:p.startsWith('/api/auth/school-link/')?school:p==='/api/platform/config'?{flags:{},features:{}}:{ok:true}});
+  });
+  const page=await ctx.newPage();
+  await page.goto(base+(root?'/admin':'/'+slug));
+  await page.getByTestId('forgot-open').click();
+  await page.locator(root?'#admin-forgot':'#forgot-identifier').fill('fixture@example.invalid');await page.getByTestId('forgot-submit').click();
+  await page.locator(root?'#admin-otp':'#forgot-otp').fill('123456');
+  await page.getByText('Ít nhất 12 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt (ví dụ @, #, !).',{exact:true}).waitFor();
+  const next=page.locator(root?'#admin-new-password':'#forgot-new'),confirm=page.locator(root?'#admin-confirm-password':'#forgot-confirm'),submit=page.getByTestId(root?'reset-submit':'forgot-submit');
+  await next.fill('Newfixture456');await confirm.fill('Newfixture456');await submit.click();
+  await page.getByRole('alert').filter({hasText:'Mật khẩu cần ít nhất 12 ký tự'}).waitFor();assert.equal(resets.length,0);
+  await page.screenshot({path:`${out}/${width}-${root?'admin':'school'}-reset-policy.png`});
+  await next.fill('Mật-khẩu-2026!');await confirm.fill('Mật-khẩu-2026!');await submit.click();
+  await page.locator(root?'#admin-username':'#login-username').waitFor();
+  assert.equal(resets.length,1);assert.equal(resets[0].new_password,'Mật-khẩu-2026!');
+  results.push({width,passwordReset:root?'root_admin':'school',weakBlocked:true,unicodePasswordSubmitted:true});await ctx.close();
+ }
  fs.writeFileSync(out+'/results.json',JSON.stringify(results,null,2));console.log(JSON.stringify(results));
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1});

@@ -4,6 +4,7 @@ import { DatabaseService, UserRow } from '../database/database.service';
 import { MediaService } from '../content/studio.service';
 import { AllowTempPassword, AuthGuard, CurrentUser } from './auth.guard';
 import { AuthService, Portal, toPublic } from './auth.service';
+import { PASSWORD_MESSAGE, PASSWORD_POLICY } from './password-policy';
 
 const SCHOOL_CODE = /^\d{4,8}$/;
 
@@ -27,10 +28,6 @@ class GoogleLoginDto {
   @IsOptional() @IsIn(['root_admin', 'student', 'teacher', 'school_admin', 'app']) portal: Portal = 'student';
   @IsOptional() @Matches(SCHOOL_CODE, { message: 'Mã trường gồm 4–8 chữ số' }) school_code?: string;
 }
-
-/** Mật khẩu người dùng tự đặt: tối thiểu 8 ký tự, gồm cả chữ và số (HK.*.006) */
-export const PASSWORD_POLICY = /^(?=.*\p{L})(?=.*\p{N}).{8,128}$/u;
-export const PASSWORD_MESSAGE = 'Mật khẩu tối thiểu 8 ký tự, gồm cả chữ và số';
 
 class ForgotPasswordDto {
   /** Tên đăng nhập, email hoặc mã người dùng của tài khoản (mọi vai trò) */

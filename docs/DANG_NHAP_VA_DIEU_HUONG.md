@@ -15,6 +15,10 @@ Cập nhật 07/11/2026 theo yêu cầu giữ khu vực của từng trường t
 
 Thư cấp tài khoản/đặt lại mật khẩu tạm tra lại trường của người nhận ở lúc gửi. Thư đang chờ từ trước khi trường đổi tên cũng nhận tên và URL hiện tại, kèm role; thư của quản lý tổng vẫn tới `/admin`. Không cập nhật template đã lưu hoặc seed; không cần migration mới.
 
+## Mật khẩu mới
+
+Đổi mật khẩu lần đầu, đổi chủ động và đặt lại bằng OTP (cả cổng quản lý tổng lẫn nhà trường) dùng cùng quy tắc: ít nhất 12 ký tự, có chữ hoa, chữ thường, số và ký tự đặc biệt. Form có hướng dẫn bên dưới ô nhập; API cũng từ chối mật khẩu thiếu điều kiện, không chỉ kiểm tra ở trình duyệt. Cho phép chữ có dấu và khoảng trắng, nhưng khoảng trắng không thay thế ký tự đặc biệt. Giữ giới hạn 72 byte UTF-8 của Bcrypt, không cắt/trim mật khẩu. Chỉ áp dụng lúc đặt mật khẩu mới; tài khoản cũ và mật khẩu tạm vẫn đăng nhập được. Không cần migration.
+
 ## Các mục tạm ẩn
 
 - Học sinh: Bộ thẻ, Kế hoạch học, Dòng thời gian, Bản đồ, Trận đánh. Cả thanh bên, Xem thêm trên điện thoại và lối tắt Trận đánh ở Luyện tập đều ẩn. URL tab cũ không mở lại mục đã ẩn.
