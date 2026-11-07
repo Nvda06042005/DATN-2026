@@ -1,7 +1,7 @@
 /** Quy tắc mật khẩu mới; giữ đồng bộ với backend/src/auth/password-policy.ts. */
-export const PASSWORD_POLICY = /^(?=.*\p{Lu})(?=.*\p{Ll})(?=.*\p{N})(?=.*[\p{P}\p{S}])[^\p{C}]{12,72}$/u;
-export const PASSWORD_MESSAGE = 'Mật khẩu cần ít nhất 12 ký tự, có chữ hoa, chữ thường, số và ký tự đặc biệt.';
-export const PASSWORD_HINT = 'Ít nhất 12 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt (ví dụ @, #, !).';
+export const PASSWORD_POLICY = /^(?=.*\p{L})(?=.*\p{N})(?=.*[\p{P}\p{S}])[^\p{C}]{6,72}$/u;
+export const PASSWORD_MESSAGE = 'Mật khẩu cần ít nhất 6 ký tự, có chữ, số và ký tự đặc biệt.';
+export const PASSWORD_HINT = 'Từ 6 ký tự, có chữ, số và ký tự đặc biệt (ví dụ @, #, !).';
 export const PASSWORD_MAX_BYTES_MESSAGE = 'Mật khẩu tối đa 72 byte UTF-8 (ký tự có dấu có thể chiếm nhiều byte).';
 
 /** Đếm UTF-8 trên cả web/native, không cắt hoặc chuẩn hóa mật khẩu người dùng. */

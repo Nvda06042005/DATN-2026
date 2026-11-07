@@ -1,11 +1,11 @@
 import { hashPassword, verifyPassword } from '../src/auth/passwords';
 import { PASSWORD_POLICY } from '../src/auth/password-policy';
 
-test.each(['Aa1!aaaaaaa', 'abcdefghijk1!', 'ABCDEFGHIJK1!', 'Abcdefghijkl!', 'Abcdefghijk12', 'Abcdefghijk1 ', 'Abcdefghij1!\u0000'])('new password policy rejects missing requirements: %s', password => {
+test.each(['abc1!', 'abcdef!', '123456!', 'Abcdefghijk12', 'Abcdefghijk1 ', 'Abcdefghij1!\u0000'])('new password policy rejects missing requirements: %s', password => {
   expect(PASSWORD_POLICY.test(password)).toBe(false);
 });
 
-test.each(['Abcdefghij1!', 'Mật khẩu @123', 'LịchSửĐôngA2026!', 'Long phrase with space 1!'])('new password policy supports Unicode and punctuation: %s', password => {
+test.each(['ab1!cd', 'AB1!CD', 'mật1!x', 'Abcdefghij1!', 'Mật khẩu @123', 'LịchSửĐôngA2026!', 'Long phrase with space 1!'])('new password policy supports short passwords, Unicode and punctuation: %s', password => {
   expect(PASSWORD_POLICY.test(password)).toBe(true);
 });
 

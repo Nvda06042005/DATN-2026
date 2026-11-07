@@ -167,16 +167,16 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     for (const [email, role] of who) {
       expect((await api('POST', '/api/auth/forgot-password', { identifier: email }, '')).body).toEqual({ ok: true });
       const code = await otpFor(email);
-      for (const weak of ['abc123', 'Aa1!aaaaaaa', 'abcdefghijk1!', 'ABCDEFGHIJK1!', 'Abcdefghijkl!', 'Abcdefghijk12', 'Abcdefghijk1 ']) {
+      for (const weak of ['abc1!', 'abcdef!', '123456!', 'Abcdefghijk12', 'Abcdefghijk1 ']) {
         const rejected = await api('POST', '/api/auth/reset-password', { identifier: email, otp: code, new_password: weak }, '');
         expect(rejected.status).toBe(422);
-        expect(rejected.body.detail).toContainEqual(expect.objectContaining({ loc: ['body', 'new_password'], msg: expect.stringContaining('ít nhất 12 ký tự') }));
+        expect(rejected.body.detail).toContainEqual(expect.objectContaining({ loc: ['body', 'new_password'], msg: expect.stringContaining('ít nhất 6 ký tự') }));
       }
-      const ok = await api('POST', '/api/auth/reset-password', { identifier: email, otp: code, new_password: `Moi-${role}-2026!` }, '');
+      const ok = await api('POST', '/api/auth/reset-password', { identifier: email, otp: code, new_password: 'ab1!cd' }, '');
       expect(ok.status).toBe(200);
       expect((await api('POST', '/api/auth/reset-password', { identifier: email, otp: code, new_password: 'Khac-lan2-2026!' }, '')).status).toBe(400); // dùng một lần
       const username = email === 'qt.a@example.edu.vn' ? a.admin.username : email === 'gv.quen@example.edu.vn' ? teacher.body.user.username : 'admin';
-      expect((await login(username, `Moi-${role}-2026!`, role)).status).toBe(200);
+      expect((await login(username, 'ab1!cd', role)).status).toBe(200);
     }
     // Khôi phục mật khẩu cũ của quản trị tổng cho các bài sau
     await db.query("UPDATE app_users SET password_hash = $1, token_version = token_version + 1 WHERE username = 'admin'", [await (await import('../src/auth/passwords')).hashPassword('admin@123', 4)]);
@@ -202,10 +202,10 @@ async function newSchool(code: string, name: string, adminName: string, email: s
 
   test('HK.*.006/007 đổi mật khẩu cần mật khẩu cũ và chính sách; đăng xuất thu hồi đúng phiên đó', async () => {
     const t1 = (await login(a.admin.username, PW, 'school_admin')).body.token as string, t2 = (await login(a.admin.username, PW, 'school_admin')).body.token as string;
-    for (const weak of ['abc123', 'Aa1!aaaaaaa', 'abcdefghijk1!', 'ABCDEFGHIJK1!', 'Abcdefghijkl!', 'Abcdefghijk12', 'Abcdefghijk1 ']) {
+    for (const weak of ['abc1!', 'abcdef!', '123456!', 'Abcdefghijk12', 'Abcdefghijk1 ']) {
       const rejected = await api('POST', '/api/auth/change-password', { current_password: PW, new_password: weak }, t1);
       expect(rejected.status).toBe(422);
-      expect(rejected.body.detail).toContainEqual(expect.objectContaining({ loc: ['body', 'new_password'], msg: expect.stringContaining('ít nhất 12 ký tự') }));
+      expect(rejected.body.detail).toContainEqual(expect.objectContaining({ loc: ['body', 'new_password'], msg: expect.stringContaining('ít nhất 6 ký tự') }));
     }
     expect((await api('GET', '/api/auth/me', undefined, t1)).status).toBe(200); // nhập yếu không đổi mật khẩu hay thu hồi phiên
     expect((await api('POST', '/api/auth/change-password', { current_password: 'sai-mat-khau-1', new_password: 'Mat-khau-moi-9' }, t1)).status).toBe(400);

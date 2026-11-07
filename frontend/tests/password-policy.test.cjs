@@ -15,8 +15,8 @@ const front = load(path.join(__dirname, '../lib/password-policy.ts'));
 const back = load(path.join(__dirname, '../../backend/src/auth/password-policy.ts'));
 
 test('Client and API enforce the same new-password requirements and Bcrypt byte limit', () => {
-  const valid = ['Abcdefghij1!', 'Mật khẩu @123', 'LịchSửĐôngA2026!', 'Long phrase with space 1!', 'Ab1!' + 'x'.repeat(68), 'Áá' + 'á'.repeat(33) + '1!'];
-  const invalid = ['', 'Aa1!aaaaaaa', 'abcdefghijk1!', 'ABCDEFGHIJK1!', 'Abcdefghijkl!', 'Abcdefghijk12', 'Abcdefghijk1 ', 'Abcdefghij1!\u0000', 'Ab1!' + 'x'.repeat(69), 'Áá' + 'á'.repeat(34) + '1!'];
+  const valid = ['ab1!cd', 'AB1!CD', 'mật1!x', 'Abcdefghij1!', 'Mật khẩu @123', 'LịchSửĐôngA2026!', 'Long phrase with space 1!', 'Ab1!' + 'x'.repeat(68), 'Áá' + 'á'.repeat(33) + '1!'];
+  const invalid = ['', 'abc1!', 'abcdef!', '123456!', 'Abcdefghijk12', 'Abcdefghijk1 ', 'Abcdefghij1!\u0000', 'Ab1!' + 'x'.repeat(69), 'Áá' + 'á'.repeat(34) + '1!'];
   assert.equal(front.PASSWORD_MESSAGE, back.PASSWORD_MESSAGE);
   for (const password of [...valid, ...invalid]) {
     const acceptedByApi = back.PASSWORD_POLICY.test(password) && Buffer.byteLength(password, 'utf8') <= 72;
