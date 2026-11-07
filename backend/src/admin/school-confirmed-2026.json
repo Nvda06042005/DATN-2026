@@ -46,9 +46,13 @@
       "source": "https://thcsphumy.hcm.edu.vn/",
       "verified": true,
       "aliases": [
-        "THCS Phú Mỹ Bình Thạnh"
+        "THCS Phú Mỹ Bình Thạnh",
+        "THCS Cửu Long"
       ],
-      "checked_at": "2026-11-07"
+      "checked_at": "2026-11-07",
+      "previous_codes": [
+        "79765508"
+      ]
     },
     {
       "code": "79775507",
@@ -357,6 +361,254 @@
         "THCS Yersin"
       ],
       "additional": true
+    },
+    {
+      "code": "79760504",
+      "name": "THCS Nguyễn Du Q1",
+      "city": "Thành phố Hồ Chí Minh",
+      "region": "Quận 1",
+      "source": "https://dantri.com.vn/giao-duc/danh-sach-chi-tiet-cac-truong-hoc-sap-nhap-doi-ten-o-tphcm-20260824111612695.htm",
+      "source_date": "2026-09-02",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "79760508"
+      ],
+      "aliases": [
+        "THCS Đồng Khởi"
+      ]
+    },
+    {
+      "code": "79764503",
+      "name": "THCS Gò Vấp",
+      "city": "Thành phố Hồ Chí Minh",
+      "region": "Quận Gò Vấp",
+      "source": "https://dantri.com.vn/giao-duc/danh-sach-chi-tiet-cac-truong-hoc-sap-nhap-doi-ten-o-tphcm-20260824111612695.htm",
+      "source_date": "2026-09-02",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "79764510"
+      ],
+      "aliases": [
+        "THCS Trường Sơn"
+      ]
+    },
+    {
+      "code": "79776505",
+      "name": "THCS Phan Đăng Lưu",
+      "city": "Thành phố Hồ Chí Minh",
+      "region": "Quận 8",
+      "source": "https://dantri.com.vn/giao-duc/danh-sach-chi-tiet-cac-truong-hoc-sap-nhap-doi-ten-o-tphcm-20260824111612695.htm",
+      "source_date": "2026-09-02",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "79776504"
+      ],
+      "aliases": [
+        "THCS Sương Nguyệt Anh"
+      ]
+    },
+    {
+      "code": "79776509",
+      "name": "THCS Bình An",
+      "city": "Thành phố Hồ Chí Minh",
+      "region": "Quận 8",
+      "source": "https://dantri.com.vn/giao-duc/danh-sach-chi-tiet-cac-truong-hoc-sap-nhap-doi-ten-o-tphcm-20260824111612695.htm",
+      "source_date": "2026-09-02",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "79776512"
+      ],
+      "aliases": [
+        "THCS Phú Lợi"
+      ]
+    },
+    {
+      "code": "77751510",
+      "name": "THCS Xuyên Mộc",
+      "city": "Thành phố Hồ Chí Minh",
+      "region": "Huyện Xuyên Mộc",
+      "source": "https://dantri.com.vn/giao-duc/danh-sach-chi-tiet-cac-truong-hoc-sap-nhap-doi-ten-o-tphcm-20260824111612695.htm",
+      "source_date": "2026-09-02",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "previous_codes": [
+        "77751513",
+        "77751503"
+      ],
+      "aliases": [
+        "THCS Bông Trang",
+        "THCS Bưng Riềng"
+      ]
+    },
+    {
+      "code": "hcm-tandinh-2026",
+      "name": "Tiểu học - THCS Tân Định",
+      "city": "Thành phố Hồ Chí Minh",
+      "region": "Phường Tân Định",
+      "source": "https://dantri.com.vn/giao-duc/danh-sach-chi-tiet-cac-truong-hoc-sap-nhap-doi-ten-o-tphcm-20260824111612695.htm",
+      "source_date": "2026-09-02",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "additional": true,
+      "previous_codes": [
+        "79760505"
+      ],
+      "aliases": [
+        "THCS Văn Lang",
+        "Tiểu học Đuốc Sống",
+        "Tiểu học Trần Khánh Dư"
+      ]
+    },
+    {
+      "code": "hcm-phanvantri-2026",
+      "name": "Tiểu học - THCS Phan Văn Trị",
+      "city": "Thành phố Hồ Chí Minh",
+      "region": "Phường Cầu Ông Lãnh",
+      "source": "https://dantri.com.vn/giao-duc/danh-sach-chi-tiet-cac-truong-hoc-sap-nhap-doi-ten-o-tphcm-20260824111612695.htm",
+      "source_date": "2026-09-02",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "additional": true,
+      "previous_codes": [
+        "79760507"
+      ],
+      "aliases": [
+        "THCS Đức Trí",
+        "Tiểu học Phan Văn Trị"
+      ]
+    },
+    {
+      "code": "hcm-tanthoi-2026",
+      "name": "Tiểu học - THCS Tân Thới",
+      "city": "Thành phố Hồ Chí Minh",
+      "region": "Phường Lái Thiêu",
+      "source": "https://dantri.com.vn/giao-duc/danh-sach-chi-tiet-cac-truong-hoc-sap-nhap-doi-ten-o-tphcm-20260824111612695.htm",
+      "source_date": "2026-09-02",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "additional": true,
+      "previous_codes": [
+        "74725512"
+      ],
+      "aliases": [
+        "THCS Nguyễn Trường Tộ"
+      ]
+    },
+    {
+      "code": "hcm-vinhphu-2026",
+      "name": "Tiểu học - THCS Vĩnh Phú",
+      "city": "Thành phố Hồ Chí Minh",
+      "region": "Phường Lái Thiêu",
+      "source": "https://dantri.com.vn/giao-duc/danh-sach-chi-tiet-cac-truong-hoc-sap-nhap-doi-ten-o-tphcm-20260824111612695.htm",
+      "source_date": "2026-09-02",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "additional": true,
+      "previous_codes": [
+        "74725508"
+      ],
+      "aliases": [
+        "THCS Châu Văn Liêm",
+        "Tiểu học Vĩnh Phú"
+      ]
+    },
+    {
+      "code": "hcm-binhduong-2026",
+      "name": "THCS Bình Dương",
+      "city": "Thành phố Hồ Chí Minh",
+      "region": "Phường Bình Dương",
+      "source": "https://dantri.com.vn/giao-duc/danh-sach-chi-tiet-cac-truong-hoc-sap-nhap-doi-ten-o-tphcm-20260824111612695.htm",
+      "source_date": "2026-09-02",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "additional": true,
+      "previous_codes": [
+        "74718514",
+        "74723513"
+      ],
+      "aliases": [
+        "THCS Hòa Phú",
+        "THCS Phú Chánh"
+      ]
+    },
+    {
+      "code": "hcm-phuochoa-2026",
+      "name": "Tiểu học và THCS Phước Hòa",
+      "city": "Thành phố Hồ Chí Minh",
+      "region": "Phường Tân Phước",
+      "source": "https://dantri.com.vn/giao-duc/danh-sach-chi-tiet-cac-truong-hoc-sap-nhap-doi-ten-o-tphcm-20260824111612695.htm",
+      "source_date": "2026-09-02",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "additional": true,
+      "previous_codes": [
+        "77754503"
+      ],
+      "aliases": [
+        "THCS Phước Hòa",
+        "Tiểu học Lý Thường Kiệt",
+        "Tiểu học Nguyễn Thị Minh Khai"
+      ]
+    },
+    {
+      "code": "hcm-chuvanan-hotram-2026",
+      "name": "Tiểu học và THCS Chu Văn An",
+      "city": "Thành phố Hồ Chí Minh",
+      "region": "Xã Hồ Tràm",
+      "source": "https://dantri.com.vn/giao-duc/danh-sach-chi-tiet-cac-truong-hoc-sap-nhap-doi-ten-o-tphcm-20260824111612695.htm",
+      "source_date": "2026-09-02",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "additional": true,
+      "previous_codes": [
+        "77751506"
+      ],
+      "aliases": [
+        "THCS Chu Văn An",
+        "Tiểu học Trần Quốc Toản"
+      ]
+    },
+    {
+      "code": "ht-thachha-2026",
+      "name": "Trường THCS Thạch Hà",
+      "city": "Tỉnh Hà Tĩnh",
+      "region": "Xã Thạch Hà",
+      "source": "https://thcsphanhuychu.edu.vn/tin-tuc-nha-truong/quyet-dinh-thanh-lap-truong-thcs-thach-ha-tren-co-so-sap-nhap-truong-thcs-phan-huy-chu-va-truong-thcs-long-son-244.html",
+      "source_date": "2026-08-27",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "additional": true,
+      "previous_codes": [
+        "42445505",
+        "42445504"
+      ],
+      "aliases": [
+        "THCS Phan Huy Chú",
+        "THCS Long Sơn"
+      ]
+    },
+    {
+      "code": "nb-anphong-2026",
+      "name": "Trường THCS An Phong",
+      "city": "Tỉnh Ninh Bình",
+      "region": "Phường Nam Hoa Lư",
+      "source": "https://namhoalu.ninhbinh.gov.vn/vanban/chitietvb-71.html",
+      "source_date": "2026-08-19",
+      "checked_at": "2026-11-07",
+      "verified": true,
+      "additional": true,
+      "previous_codes": [
+        "37374516",
+        "37369510"
+      ],
+      "aliases": [
+        "THCS Ninh An",
+        "THCS Ninh Phong"
+      ]
     }
   ]
 }

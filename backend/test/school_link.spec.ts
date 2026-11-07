@@ -85,6 +85,32 @@ describe('Danh mục trường và quy tắc đặt tên đường dẫn', () =>
     expect(directoryInfo().merged).toBeGreaterThanOrEqual(15);
   });
 
+  test('sáp nhập đã công bố: THCS Cửu Long gộp vào THCS Phú Mỹ và các trường khác trong danh sách Dân trí không còn là mục riêng; tên và mã cũ trỏ tới trường hiện tại', () => {
+    const gone: Array<[string, string]> = [
+      ['79765508', '79765507'], ['79760508', '79760504'], ['79764510', '79764503'], ['79776504', '79776505'], ['79776512', '79776509'], ['77751513', '77751510'], ['77751503', '77751510'],
+      ['79760505', 'hcm-tandinh-2026'], ['79760507', 'hcm-phanvantri-2026'], ['74725512', 'hcm-tanthoi-2026'], ['74725508', 'hcm-vinhphu-2026'], ['74718514', 'hcm-binhduong-2026'],
+      ['74723513', 'hcm-binhduong-2026'], ['77754503', 'hcm-phuochoa-2026'], ['77751506', 'hcm-chuvanan-hotram-2026'],
+      ['42445505', 'ht-thachha-2026'], ['42445504', 'ht-thachha-2026'], ['37374516', 'nb-anphong-2026'], ['37369510', 'nb-anphong-2026'],
+    ];
+    const all = searchDirectory('', 20000);
+    for (const [old, current] of gone) {
+      expect(all.some(row => row.code === old)).toBe(false);
+      expect(directoryEntry(old)?.code).toBe(current);
+      expect(directoryEntry(current)?.previous_codes).toContain(old);
+    }
+    // gõ tên cũ vẫn ra trường hiện tại; không còn mục THCS Cửu Long riêng
+    expect(searchDirectory('THCS Cửu Long Bình Thạnh')[0]?.code).toBe('79765507');
+    expect(searchDirectory('Phan Huy Chú Thạch Hà')[0]?.code).toBe('ht-thachha-2026');
+    expect(searchDirectory('Ninh Phong')[0]?.code).toBe('nb-anphong-2026');
+    // trường mới hình thành: tên theo nguồn, thuộc đúng tỉnh/thành
+    expect(directoryEntry('hcm-tandinh-2026')).toMatchObject({ name: 'Tiểu học - THCS Tân Định', city: 'Thành phố Hồ Chí Minh', region: 'Phường Tân Định' });
+    expect(directoryEntry('ht-thachha-2026')).toMatchObject({ name: 'Trường THCS Thạch Hà', city: 'Tỉnh Hà Tĩnh' });
+    expect(directoryEntry('nb-anphong-2026')).toMatchObject({ name: 'Trường THCS An Phong', city: 'Tỉnh Ninh Bình' });
+    // trường cùng tên ở nơi khác không bị ảnh hưởng
+    expect(directoryEntry('87874501')?.name).toBe('Trường THCS An Phong');
+    expect(directoryEntry('79767504')?.name).toBe('THCS Đồng Khởi');
+  });
+
   test('đối chiếu tên cũ 2026 theo đúng địa bàn, không gộp trường trùng tên ở tỉnh khác', () => {
     expect(directoryEntry('01020513')).toMatchObject({ code: 'hn-dongocdu-2026', name: 'THCS Đỗ Ngọc Du', region: 'Xã Đại Thanh' });
     expect(directoryEntry('01020514')?.code).toBe('hn-dongocdu-2026');
