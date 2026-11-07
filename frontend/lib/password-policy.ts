@@ -1,16 +1,9 @@
 /** Quy tắc mật khẩu mới; giữ đồng bộ với backend/src/auth/password-policy.ts. */
-export const PASSWORD_POLICY = /^(?=.*\p{L})(?=.*\p{N})(?=.*[\p{P}\p{S}])[^\p{C}]{6,72}$/u;
-export const PASSWORD_MESSAGE = 'Mật khẩu cần ít nhất 6 ký tự, có chữ, số và ký tự đặc biệt.';
-export const PASSWORD_HINT = 'Từ 6 ký tự, có chữ, số và ký tự đặc biệt (ví dụ @, #, !).';
-export const PASSWORD_MAX_BYTES_MESSAGE = 'Mật khẩu tối đa 72 byte UTF-8 (ký tự có dấu có thể chiếm nhiều byte).';
+export const PASSWORD_POLICY = /^(?=.*[A-Za-z])(?=.*[0-9])(?=.*[^A-Za-z0-9])[\x21-\x7E]{6,72}(?![\s\S])/;
+export const PASSWORD_MESSAGE = 'Mật khẩu cần ít nhất 6 ký tự, có chữ không dấu, số và ký tự đặc biệt; không có khoảng trắng.';
+export const PASSWORD_HINT = 'Từ 6 ký tự, có chữ không dấu, số và ký tự đặc biệt (@, #, !), không có khoảng trắng.';
 
-/** Đếm UTF-8 trên cả web/native, không cắt hoặc chuẩn hóa mật khẩu người dùng. */
+/** Chỉ nhận ASCII hiển thị; không tự bỏ dấu, trim hay cắt mật khẩu người dùng. */
 export function newPasswordError(password: string): string | null {
-  if (!PASSWORD_POLICY.test(password)) return PASSWORD_MESSAGE;
-  let bytes = 0;
-  for (const character of password) {
-    const point = character.codePointAt(0)!;
-    bytes += point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
-  }
-  return bytes > 72 ? PASSWORD_MAX_BYTES_MESSAGE : null;
+  return PASSWORD_POLICY.test(password) ? null : PASSWORD_MESSAGE;
 }

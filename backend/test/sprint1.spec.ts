@@ -167,7 +167,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     for (const [email, role] of who) {
       expect((await api('POST', '/api/auth/forgot-password', { identifier: email }, '')).body).toEqual({ ok: true });
       const code = await otpFor(email);
-      for (const weak of ['abc1!', 'abcdef!', '123456!', 'Abcdefghijk12', 'Abcdefghijk1 ']) {
+      for (const weak of ['abc1!', 'abcdef!', '123456!', 'Abcdefghijk12', ' ab1!cd', 'ab1!cd ', 'ab1 !cd', 'mật1!x', 'mat1!đ', 'a1!\u00a0bc', 'a1!\tbc']) {
         const rejected = await api('POST', '/api/auth/reset-password', { identifier: email, otp: code, new_password: weak }, '');
         expect(rejected.status).toBe(422);
         expect(rejected.body.detail).toContainEqual(expect.objectContaining({ loc: ['body', 'new_password'], msg: expect.stringContaining('ít nhất 6 ký tự') }));
@@ -202,7 +202,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
 
   test('HK.*.006/007 đổi mật khẩu cần mật khẩu cũ và chính sách; đăng xuất thu hồi đúng phiên đó', async () => {
     const t1 = (await login(a.admin.username, PW, 'school_admin')).body.token as string, t2 = (await login(a.admin.username, PW, 'school_admin')).body.token as string;
-    for (const weak of ['abc1!', 'abcdef!', '123456!', 'Abcdefghijk12', 'Abcdefghijk1 ']) {
+    for (const weak of ['abc1!', 'abcdef!', '123456!', 'Abcdefghijk12', ' ab1!cd', 'ab1!cd ', 'ab1 !cd', 'mật1!x', 'mat1!đ', 'a1!\u00a0bc', 'a1!\tbc']) {
       const rejected = await api('POST', '/api/auth/change-password', { current_password: PW, new_password: weak }, t1);
       expect(rejected.status).toBe(422);
       expect(rejected.body.detail).toContainEqual(expect.objectContaining({ loc: ['body', 'new_password'], msg: expect.stringContaining('ít nhất 6 ký tự') }));

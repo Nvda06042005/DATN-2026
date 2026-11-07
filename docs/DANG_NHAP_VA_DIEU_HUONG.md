@@ -17,7 +17,7 @@ Thư cấp tài khoản/đặt lại mật khẩu tạm tra lại trường củ
 
 ## Mật khẩu mới
 
-Theo điều chỉnh tiếp ngày 07/11, đổi mật khẩu lần đầu, đổi chủ động và đặt lại bằng OTP (cả cổng quản lý tổng lẫn nhà trường) dùng cùng quy tắc: từ 6 ký tự, có chữ, số và ký tự đặc biệt; không bắt buộc chữ hoa/chữ thường. Form có hướng dẫn bên dưới ô nhập; API cũng từ chối mật khẩu thiếu điều kiện, không chỉ kiểm tra ở trình duyệt. Cho phép chữ có dấu và khoảng trắng, nhưng khoảng trắng không thay thế ký tự đặc biệt. Giữ giới hạn 72 byte UTF-8 của Bcrypt, không cắt/trim mật khẩu. Chỉ áp dụng lúc đặt mật khẩu mới; tài khoản cũ và mật khẩu tạm vẫn đăng nhập được. Không cần migration.
+Theo điều chỉnh tiếp ngày 07/11, đổi mật khẩu lần đầu, đổi chủ động và đặt lại bằng OTP (cả cổng quản lý tổng lẫn nhà trường) dùng cùng quy tắc: từ 6 đến 72 ký tự ASCII hiển thị, có chữ không dấu, số và ký tự đặc biệt; không bắt buộc chữ hoa/chữ thường. Không nhận dấu tiếng Việt, khoảng trắng (kể cả ở đầu/cuối), tab, xuống dòng, khoảng trắng Unicode hay emoji. Form có hướng dẫn bên dưới ô nhập; API cũng từ chối mật khẩu thiếu điều kiện, không chỉ kiểm tra ở trình duyệt. Báo lỗi thay vì tự bỏ dấu, trim hoặc cắt mật khẩu. Giới hạn 72 ký tự ASCII tương ứng 72 byte của Bcrypt. Chỉ áp dụng lúc đặt mật khẩu mới; tài khoản cũ (kể cả mật khẩu có dấu) và mật khẩu tạm vẫn đăng nhập được. Không cần migration.
 
 ## Các mục tạm ẩn
 

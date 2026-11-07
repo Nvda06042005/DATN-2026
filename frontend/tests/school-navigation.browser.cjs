@@ -52,11 +52,15 @@ try { for (const width of [1440,390]) for(const role of ['root_admin','school_ad
   await page.locator('#login-username').fill('fixture');await page.locator('#login-password').fill('Fixture-only-123');await page.getByTestId('login-submit').click();
   await page.locator('#cp-current').waitFor();assert.ok(page.url().includes('/'+slug));assert.ok(!page.url().includes('school-manager-admin'));
   await page.getByText('THCS Giồng Ông Tố · Bắt buộc ở lần đăng nhập đầu tiên',{exact:true}).waitFor();
-  await page.getByText('Từ 6 ký tự, có chữ, số và ký tự đặc biệt (ví dụ @, #, !).',{exact:true}).waitFor();
+  await page.getByText('Từ 6 ký tự, có chữ không dấu, số và ký tự đặc biệt (@, #, !), không có khoảng trắng.',{exact:true}).waitFor();
   await page.locator('#cp-current').fill('Fixture-only-123');
   await page.locator('#cp-new').fill('Newfixture456');await page.locator('#cp-confirm').fill('Newfixture456');await page.getByTestId('cp-submit').click();
   await page.getByRole('alert').filter({hasText:'Mật khẩu cần ít nhất 6 ký tự'}).waitFor();
   assert.equal(calls.filter(c=>c.path==='/api/auth/change-password').length,0);
+  for(const invalid of ['mật1!x','ab1 !cd']){
+   await page.locator('#cp-new').fill(invalid);await page.locator('#cp-confirm').fill(invalid);await page.getByTestId('cp-submit').click();
+   await page.getByRole('alert').filter({hasText:'không có khoảng trắng'}).waitFor();assert.equal(await page.locator('#cp-new').inputValue(),invalid);assert.equal(calls.filter(c=>c.path==='/api/auth/change-password').length,0);
+  }
   await page.screenshot({path:`${out}/${width}-${role}-password-policy.png`});
   await page.locator('#cp-current').fill('Fixture-only-123');await page.locator('#cp-new').fill('new1!x');await page.locator('#cp-confirm').fill('new1!x');await page.getByTestId('cp-submit').click();
  } else await page.goto(base+'/admin',{waitUntil:'domcontentloaded'});
@@ -98,15 +102,18 @@ try { for (const width of [1440,390]) for(const role of ['root_admin','school_ad
   await page.getByTestId('forgot-open').click();
   await page.locator(root?'#admin-forgot':'#forgot-identifier').fill('fixture@example.invalid');await page.getByTestId('forgot-submit').click();
   await page.locator(root?'#admin-otp':'#forgot-otp').fill('123456');
-  await page.getByText('Từ 6 ký tự, có chữ, số và ký tự đặc biệt (ví dụ @, #, !).',{exact:true}).waitFor();
+  await page.getByText('Từ 6 ký tự, có chữ không dấu, số và ký tự đặc biệt (@, #, !), không có khoảng trắng.',{exact:true}).waitFor();
   const next=page.locator(root?'#admin-new-password':'#forgot-new'),confirm=page.locator(root?'#admin-confirm-password':'#forgot-confirm'),submit=page.getByTestId(root?'reset-submit':'forgot-submit');
   await next.fill('Newfixture456');await confirm.fill('Newfixture456');await submit.click();
   await page.getByRole('alert').filter({hasText:'Mật khẩu cần ít nhất 6 ký tự'}).waitFor();assert.equal(resets.length,0);
+  for(const invalid of ['mật1!x','ab1 !cd']){
+   await next.fill(invalid);await confirm.fill(invalid);await submit.click();await page.getByRole('alert').filter({hasText:'không có khoảng trắng'}).waitFor();assert.equal(await next.inputValue(),invalid);assert.equal(resets.length,0);
+  }
   await page.screenshot({path:`${out}/${width}-${root?'admin':'school'}-reset-policy.png`});
-  await next.fill('mật1!x');await confirm.fill('mật1!x');await submit.click();
+  await next.fill('mat1!x');await confirm.fill('mat1!x');await submit.click();
   await page.locator(root?'#admin-username':'#login-username').waitFor();
-  assert.equal(resets.length,1);assert.equal(resets[0].new_password,'mật1!x');
-  results.push({width,passwordReset:root?'root_admin':'school',weakBlocked:true,unicodePasswordSubmitted:true});await ctx.close();
+  assert.equal(resets.length,1);assert.equal(resets[0].new_password,'mat1!x');
+  results.push({width,passwordReset:root?'root_admin':'school',weakBlocked:true,accentsAndSpacesRejected:true,asciiPasswordSubmitted:true});await ctx.close();
  }
  fs.writeFileSync(out+'/results.json',JSON.stringify(results,null,2));console.log(JSON.stringify(results));
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1});

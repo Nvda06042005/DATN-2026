@@ -15,13 +15,14 @@ const front = load(path.join(__dirname, '../lib/password-policy.ts'));
 const back = load(path.join(__dirname, '../../backend/src/auth/password-policy.ts'));
 
 test('Client and API enforce the same new-password requirements and Bcrypt byte limit', () => {
-  const valid = ['ab1!cd', 'AB1!CD', 'mật1!x', 'Abcdefghij1!', 'Mật khẩu @123', 'LịchSửĐôngA2026!', 'Long phrase with space 1!', 'Ab1!' + 'x'.repeat(68), 'Áá' + 'á'.repeat(33) + '1!'];
-  const invalid = ['', 'abc1!', 'abcdef!', '123456!', 'Abcdefghijk12', 'Abcdefghijk1 ', 'Abcdefghij1!\u0000', 'Ab1!' + 'x'.repeat(69), 'Áá' + 'á'.repeat(34) + '1!'];
+  const valid = ['ab1!cd', 'AB1!CD', 'Abcdefghij1!', 'abc1_2', 'abc1@2', 'abc1#2', 'Ab1!' + 'x'.repeat(68)];
+  const invalid = ['', 'abc1!', 'abcdef!', '123456!', 'Abcdefghijk12', 'Abcdefghijk1 ', ' ab1!cd', 'ab1!cd ', 'ab1 !cd', 'mật1!x', 'mat1!đ', 'a1!😀bc', 'a1!\u00a0bc', 'a1!\tbc', 'ab1!cd\n', 'Abcdefghij1!\u0000', 'Ab1!' + 'x'.repeat(69)];
   assert.equal(front.PASSWORD_MESSAGE, back.PASSWORD_MESSAGE);
   for (const password of [...valid, ...invalid]) {
     const acceptedByApi = back.PASSWORD_POLICY.test(password) && Buffer.byteLength(password, 'utf8') <= 72;
     assert.equal(front.newPasswordError(password) === null, acceptedByApi);
     assert.equal(acceptedByApi, valid.includes(password));
   }
-  assert.match(front.newPasswordError(invalid.at(-1)), /72 byte UTF-8/);
+  assert.match(front.PASSWORD_HINT, /không dấu/);
+  assert.match(front.PASSWORD_HINT, /không có khoảng trắng/);
 });
