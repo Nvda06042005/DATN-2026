@@ -104,7 +104,7 @@ export function SystemDashboard({ session }: { session: Session }) {
   return <ScrollView testID="system-dashboard" style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, padding: 10, paddingBottom: 12, gap: rowGap, width: '100%', maxWidth: 1680, alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
       <View style={{ flexShrink: 1, minWidth: 220 }}>
-        <Txt f="displayHeavy" size={22} color={c.logoInk} accessibilityRole="header" style={{ lineHeight: 28 }}>Thống kê hệ thống</Txt>
+        <Txt f="displayHeavy" size={22} color={c.logoInk} accessibilityRole="header" style={{ lineHeight: 28 }}>Thống kê <Txt f="serifItalic" size={22} color={c.logoRed} style={{ lineHeight: 28 }}>hệ thống</Txt></Txt>
         <Txt size={12} color={c.muc3}>{d?.as_of ? `Số liệu đến ${dateText(d.as_of)} · Giờ Việt Nam · AI chỉ thống kê số lượng và chủ đề` : 'Trường học, người dùng, nội dung, sử dụng và trợ lý AI'}</Txt>
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>

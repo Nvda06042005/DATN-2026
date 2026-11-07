@@ -13,6 +13,7 @@ import { FONT } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { copyText } from '@/lib/clipboard';
 import { pageSizeFor, pageWindow, TABLE_MIN_WIDTH } from '@/lib/paging';
+import { splitTitle } from '@/lib/title-split';
 import type { ImportResult } from '@/types/api';
 
 // ---------------------------------------------------------------------- tải dữ liệu
@@ -68,11 +69,12 @@ export const WRAP_PRETTY = (Platform.OS === 'web' ? { textWrap: 'pretty' } : nul
 
 export const PageHeader: React.FC<{ title: string; subtitle?: string; actions?: React.ReactNode }> = ({ title, subtitle, actions }) => {
   const { c } = useTheme();
-  // Cả tiêu đề một kiểu chữ, một màu: không tách từ cuối sang chữ nghiêng đỏ vì sẽ cắt đôi từ ghép ("Trường | học", "hệ | thống")
+  // hai nửa đều nhau như tiêu đề ở trang chủ: nửa đầu chữ đậm màu mực, nửa sau chữ nghiêng màu đỏ ("Trường | học", "Thống kê | hệ thống")
+  const [head, tail] = splitTitle(title);
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
       <View style={{ flexShrink: 1, minWidth: 220, gap: 2 }}>
-        <Txt f="displayHeavy" size={26} color={c.logoInk} accessibilityRole="header" style={[{ lineHeight: 34 }, WRAP_BALANCE]}>{title}</Txt>
+        <Txt f="displayHeavy" size={26} color={c.logoInk} accessibilityRole="header" style={[{ lineHeight: 34 }, WRAP_BALANCE]}>{head}{tail ? ' ' : ''}{tail ? <Txt f="serifItalic" size={26} color={c.logoRed} style={{ lineHeight: 34 }}>{tail}</Txt> : null}</Txt>
         {subtitle ? <Txt size={14} color={c.muc2} style={WRAP_PRETTY}>{subtitle}</Txt> : null}
       </View>
       {actions ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, maxWidth: '100%' }}>{actions}</View> : null}
