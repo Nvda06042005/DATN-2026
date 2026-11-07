@@ -63,7 +63,8 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     const sent = mail.sent.find((m) => m.to === 'chua.kichhoat@example.edu.vn');
     expect(sent?.subject).toContain('Kích hoạt tài khoản quản trị viên trường học');
     expect(sent?.text).toContain(pending.body.temporary_password);
-    expect(sent?.text).toContain('/school-manager-admin');
+    expect(sent?.text).toContain(`${pending.body.school.link.url}?role=school_admin`);
+    expect(sent?.text).not.toContain('/school-manager-admin');
     expect((await api('POST', '/api/admin/schools', { school_code: '7001', name: 'Trùng mã', admin: { full_name: 'Ai Đó', email: 'khac@example.edu.vn' } })).status).toBe(409);
     expect((await api('POST', '/api/admin/schools', { school_code: '7003', name: 'Trùng email', admin: { full_name: 'Ai Đó', email: 'QT.A@example.edu.vn' } })).status).toBe(409);
     expect((await api('POST', '/api/admin/schools', { school_code: '7003', name: 'Thiếu quản trị' })).status).toBe(422);
