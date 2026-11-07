@@ -167,7 +167,7 @@ export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: numb
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data ? (
         <>
-          <DataTable<QuizItem> rows={list.data.items} rowKey={(r) => r.id} onRowPress={(r) => setOpen(r.id)} empty="Chưa có bộ đề nào"
+          <DataTable<QuizItem> paginate={false} rows={list.data.items} rowKey={(r) => r.id} onRowPress={(r) => setOpen(r.id)} empty="Chưa có bộ đề nào"
             columns={[
               { key: 'title', label: 'Bộ đề', flex: 3, render: (r) => <Cell main={r.title} sub={r.campaign_title ?? 'Chưa gắn chủ đề'} /> },
               { key: 'scope', filter: f_store, label: 'Kho', flex: 1.2, render: (r) => <ScopeChip scope={r.scope} /> },

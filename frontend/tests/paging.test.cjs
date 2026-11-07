@@ -1,5 +1,5 @@
-// Bảng quản trị chia trang bằng nút chuyển trang thay vì cuộn dài xuống: số dòng mỗi trang theo màn hình, nút Trước / số trang / Sau,
-// bảng tự chia trang khi nhiều dòng, danh sách chia trang ở máy chủ dùng cùng số dòng. Phần tính toán chạy thật; giao diện kiểm tra mã nguồn.
+// Bảng quản trị chia trang bằng nút chuyển trang thay vì cuộn dài xuống: số dòng mỗi trang do người dùng chọn (10 / 25 / 30) ở ô chọn cạnh nút chuyển trang,
+// nút Trước / số trang / Sau, bảng tự chia trang khi nhiều dòng, danh sách chia trang ở máy chủ dùng cùng số dòng. Phần tính toán chạy thật; giao diện kiểm tra mã nguồn.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -12,24 +12,36 @@ const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8');
 const compiled = ts.transpileModule(read('lib', 'paging.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const mod = { exports: {} };
 new vm.Script(`(function(module,exports){${compiled}\n})`).runInThisContext()(mod, mod.exports);
-const { pageSizeFor, pageWindow, MIN_PAGE_SIZE, MAX_PAGE_SIZE, TABLE_MIN_WIDTH } = mod.exports;
+const { PAGE_SIZES, DEFAULT_PAGE_SIZE, parsePageSize, getPageSize, setPageSize, subscribePageSize, pageWindow, TABLE_MIN_WIDTH } = mod.exports;
 
-test('số dòng mỗi trang theo chiều cao màn hình: màn máy tính 1030 px cao được 7 dòng, màn thấp không dưới 5, màn rất cao không quá 30', () => {
-  assert.equal(pageSizeFor(1920, 1030), 7);
-  assert.equal(pageSizeFor(1280, 900), 5);
-  assert.equal(pageSizeFor(1280, 600), MIN_PAGE_SIZE);
-  assert.equal(pageSizeFor(1920, 1440), 13);
-  assert.equal(pageSizeFor(3840, 5000), MAX_PAGE_SIZE);
-  // cao hơn thì nhiều dòng hơn, không bao giờ giảm
-  let last = 0;
-  for (let h = 600; h <= 2400; h += 50) { const n = pageSizeFor(1600, h); assert.ok(n >= last, `h=${h}`); last = n; }
+test('số dòng mỗi trang chọn trong 10 / 25 / 30, mặc định 10; giá trị lạ quay về 10', () => {
+  assert.deepEqual([...PAGE_SIZES], [10, 25, 30]);
+  assert.equal(DEFAULT_PAGE_SIZE, 10);
+  for (const n of PAGE_SIZES) assert.equal(parsePageSize(n), n);
+  for (const bad of [0, 5, 7, 50, -10, NaN, null, undefined, 'abc', '']) assert.equal(parsePageSize(bad), 10, String(bad));
+  assert.equal(parsePageSize('25'), 25, 'giá trị đọc từ bộ nhớ trình duyệt là chuỗi');
+  assert.equal(TABLE_MIN_WIDTH, 1000);
 });
 
-test('màn hẹp (danh sách thẻ) mỗi trang 5 thẻ, đúng ngưỡng chuyển từ bảng sang thẻ', () => {
-  assert.equal(TABLE_MIN_WIDTH, 1000);
-  assert.equal(pageSizeFor(390, 844), 5);
-  assert.equal(pageSizeFor(999, 2000), 5);
-  assert.ok(pageSizeFor(1000, 2000) > 5);
+test('đổi số dòng báo cho mọi bảng đang mở cùng lúc; chọn lại đúng mức đang dùng thì không báo thừa', () => {
+  assert.equal(getPageSize(), 10);
+  let calls = 0;
+  const off = subscribePageSize(() => { calls += 1; });
+  setPageSize(25);
+  assert.equal(getPageSize(), 25);
+  assert.equal(calls, 1);
+  setPageSize(25);
+  assert.equal(calls, 1, 'không đổi thì không báo');
+  setPageSize(30);
+  assert.equal(getPageSize(), 30);
+  assert.equal(calls, 2);
+  setPageSize(7);
+  assert.equal(getPageSize(), 10, 'mức không có trong danh sách quay về mặc định');
+  assert.equal(calls, 3);
+  off();
+  setPageSize(25);
+  assert.equal(calls, 3, 'đã hủy đăng ký thì không nhận thông báo');
+  setPageSize(10);
 });
 
 test('dãy số trang: ít trang thì hiện hết; nhiều trang luôn có trang đầu, cuối, trang kề và dấu …', () => {
@@ -47,19 +59,24 @@ test('dãy số trang: ít trang thì hiện hết; nhiều trang luôn có tran
   }
 });
 
-test('nút chuyển trang có Trước, số trang, Sau; chỉ hiện khi nhiều hơn một trang', () => {
+test('nút chuyển trang có Trước, số trang, Sau và ô chọn số dòng 10 / 25 / 30; một trang thì chỉ ghi số kết quả', () => {
   const kit = read('components', 'admin', 'kit.tsx');
-  assert.match(kit, /if \(total <= limit\) return <Txt size=\{13\} color=\{c\.muc3\}>\{total\} kết quả<\/Txt>;/);
-  for (const id of ['pager-prev', 'pager-next', 'pager-page-${n}']) assert.ok(kit.includes(id), id);
+  assert.match(kit, /if \(total <= limit\) return sizeSelect \?/);
+  for (const id of ['pager-prev', 'pager-next', 'pager-page-${n}', 'page-size-select']) assert.ok(kit.includes(id), id);
   assert.match(kit, /Hiển thị \{from\}–\{to\} \/ \{total\} kết quả/);
   assert.match(kit, /label: 'Trang trước', disabled: page <= 1/);
   assert.match(kit, /label: 'Trang sau', disabled: page >= pages/);
+  // ô chọn số dòng: hiện khi nhiều hơn 10 kết quả (cả khi đang chọn 25 hoặc 30), đổi thì mọi bảng đổi theo và quay về trang 1
+  assert.match(kit, /const sizeSelect = total > PAGE_SIZES\[0\] \? <PageSizeSelect onChanged=\{\(\) => onPage\(1\)\} \/> : null;/);
+  assert.match(kit, /onChange=\{\(n\) => \{ setPageSize\(n\); onChanged\(\); \}\}/);
+  assert.match(kit, /export const usePageSize = \(\): number => useSyncExternalStore\(subscribePageSize, getPageSize, \(\) => DEFAULT_PAGE_SIZE\);/);
 });
 
 test('bảng tự chia trang khi nhiều dòng hơn một trang (mặc định bật), kẹp số trang khi danh sách ngắn lại, có thể tắt', () => {
   const kit = read('components', 'admin', 'kit.tsx');
   assert.match(kit, /actionsWidth = 150, paginate = true \}/);
   assert.match(kit, /const paged = paginate && rows\.length > size;/);
+  assert.match(kit, /const pager = paginate && rows\.length > PAGE_SIZES\[0\] \? <Pager page=\{current\} limit=\{size\} total=\{rows\.length\} onPage=\{setPage\} \/> : null;/);
   assert.match(kit, /useEffect\(\(\) => \{ if \(page > pages\) setPage\(pages\); \}, \[page, pages\]\);/);
   // hook đặt trước lệnh return sớm (lỗi React #310 từng làm sập trình soạn Quiz)
   const body = kit.slice(kit.indexOf('export function DataTable'));
@@ -67,7 +84,7 @@ test('bảng tự chia trang khi nhiều dòng hơn một trang (mặc định b
   assert.equal((body.match(/\{pager\}/g) ?? []).length >= 2, true, 'cả bảng và danh sách thẻ đều có nút chuyển trang');
 });
 
-test('danh sách chia trang ở máy chủ dùng cùng số dòng của màn hình, nên bảng không chia trang lần nữa', () => {
+test('danh sách chia trang ở máy chủ dùng cùng số dòng đang chọn, nên bảng không chia trang lần nữa', () => {
   const need = {
     'RootAdmin.tsx': [/api\.listSchools\(token, \{[^}]*limit: size \}\)/, /api\.listUsers\(token, \{[\s\S]*?limit: size/, /<Pager page=\{page\} limit=\{size\} total=\{data\.total\}/],
     'SchoolPeople.tsx': [/limit: size \} as never\)/, /<Pager page=\{page\} limit=\{size\}/],
@@ -80,6 +97,12 @@ test('danh sách chia trang ở máy chủ dùng cùng số dòng của màn hì
     assert.match(src, /const size = usePageSize\(\);/, file);
     for (const re of patterns) assert.match(src, re, `${file}: ${re}`);
     assert.doesNotMatch(src, /limit: 30 \}|limit=\{30\}|limit: 15 \}|limit=\{15\}/, `${file} còn số dòng cố định`);
+  }
+  // bảng đã chia trang ở máy chủ có nút Pager riêng nên tắt chia trang của bảng: không thì ô chọn số dòng hiện hai lần
+  for (const file of ['RootAdmin.tsx', 'SchoolPeople.tsx', 'QuestionBank.tsx', 'QuizManager.tsx', 'PlatformOps.tsx']) {
+    const src = read('components', 'admin', file);
+    const pagers = (src.match(/<Pager /g) ?? []).length;
+    assert.equal((src.match(/<DataTable(<[^>\n]*>)? paginate=\{false\}/g) ?? []).length, pagers, `${file}: mỗi bảng có Pager riêng phải tắt chia trang của bảng`);
   }
   // hộp chọn câu hỏi trong bảng trượt vẫn do máy chủ chia 10 dòng/trang: tắt chia trang của bảng để không có hai bộ nút
   assert.match(read('components', 'admin', 'ContentKit.tsx'), /<DataTable<QuestionItem> paginate=\{false\}/);

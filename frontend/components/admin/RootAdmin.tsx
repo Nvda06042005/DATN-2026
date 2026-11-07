@@ -18,7 +18,7 @@ import { schoolLogoUrl } from '@/lib/school-logos';
 import { AdminUiContext, Btn, ConfirmSheet, Field, Inset, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { fmt } from '@/lib/format';
-import type { AuthRole, CreatedAccount, CreatedSchool, SchoolDirectoryItem, SchoolItem } from '@/types/api';
+import type { AuthRole, CreatedAccount, CreatedSchool, SchoolDirectoryItem, SchoolDuplicate, SchoolItem } from '@/types/api';
 
 const NAV = [
   { id: 'stats' as const, label: 'Thống kê hệ thống', icon: ChartColumn },
@@ -59,7 +59,7 @@ const SCHOOL_FIELDS: FieldDef[] = [
 // Thêm trường: tên trường là ô chọn từ danh mục; chọn xong mã, tỉnh/thành, khu vực tự điền và huy hiệu tự hiện (không dán ảnh)
 const CREATE_FIELDS = (token: string): FieldDef[] => [
   { name: 'name', label: 'Tên trường', required: true, render: (values, set) => <SchoolPicker token={token} values={values} set={set} /> },
-  { name: 'school_code', label: 'Mã trường', readOnly: true },
+  { name: 'school_code', label: 'Mã trường', readOnly: true, hint: 'Bấm Tạo trường: hệ thống cấp mã trường, lưu ngay và hiện mã ở bước kế tiếp. Mã trong danh mục (nếu chọn) được lưu riêng.' },
   { name: 'city', label: 'Tỉnh / thành phố' },
   { name: 'region', label: 'Vùng / khu vực', hint: 'Quận, huyện hoặc thị xã; nằm trong đường dẫn riêng của trường.' },
   ...SCHOOL_FIELDS.filter((f) => !['name', 'city', 'region', 'logo_url'].includes(f.name)),
@@ -88,7 +88,7 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
   const [removing, setRemoving] = useState<SchoolItem | null>(null);
 
   if (created) return <CredentialSheet title="Trường đã được tạo" account={{ full_name: `${created.admin.full_name} – quản trị viên ${created.school.name}`, username: created.admin.username, temporary_password: created.temporary_password, mail: created.mail }} onClose={() => setCreated(null)}
-    extra={<View style={{ gap: 10 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><SchoolEmblem name={created.school.name} code={created.school.school_code} logoUrl={created.school.logo_url} size={48} /><Txt f="bold" size={15} style={{ flex: 1 }}>{created.school.name} · mã {created.school.school_code}</Txt></View><SchoolLinkBox link={created.school.link} /></View>} />;
+    extra={<View style={{ gap: 10 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><SchoolEmblem name={created.school.name} code={created.school.school_code} logoUrl={created.school.logo_url} size={48} /><View style={{ flex: 1 }}><Txt f="bold" size={15}>{created.school.name}</Txt><Txt size={12} color={c.muc2}>Đã lưu vào danh sách Trường học</Txt></View></View><Inset style={{ gap: 4 }}><Txt f="bold" size={12} color={c.muc3}>Mã trường</Txt><Txt f="displayHeavy" size={26} selectable testID="created-school-code">{created.school.school_code}</Txt></Inset><SchoolLinkBox link={created.school.link} /></View>} />;
   const cities = [{ value: '', label: 'Mọi tỉnh / thành' }, ...(data?.facets.cities ?? []).map((x) => ({ value: x, label: x }))];
 
   const f_city: SearchFilter = { key: 'city', label: 'Tỉnh / thành', value: city, options: cities, onChange: (v) => { setCity(v); setPage(1); } };
@@ -102,7 +102,7 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
       {loading && !data ? <Spinner label="Đang tải danh sách trường…" /> : null}
       {data ? (
         <>
-          <DataTable rows={data.items} rowKey={(s) => s.id} empty="Không có trường nào khớp bộ lọc." onRowPress={(s) => setDetail(s.id)}
+          <DataTable paginate={false} rows={data.items} rowKey={(s) => s.id} empty="Không có trường nào khớp bộ lọc." onRowPress={(s) => setDetail(s.id)}
             columns={[
               { key: 'name', label: 'Trường', flex: 2, render: (s) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><SchoolEmblem name={s.name} code={s.school_code} logoUrl={s.logo_url} size={36} /><View style={{ flex: 1 }}><Cell main={s.name} sub={`Mã ${s.school_code}${s.region ? ` · ${s.region}` : ''}`} /></View></View> },
               { key: 'city', filter: f_city, label: 'Tỉnh / thành', flex: 1.4, render: (s) => <Txt size={14}>{s.city || 'Chưa có'}</Txt> },
@@ -135,7 +135,7 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
       ) : null}
       {editing ? (
         <FormSheet title="Sửa thông tin trường" subtitle={`Chọn đúng trường trong danh mục để liên kết logo; mã ${editing.school_code} được giữ nguyên.`}
-          fields={[{ name: 'school_code', label: 'Mã trường', readOnly: true }, ...SCHOOL_FIELDS.map(field => field.name === 'name' ? { ...field, render: (values: Record<string, string | string[]>, set: (name: string, value: string | string[]) => void) => <SchoolPicker token={token} values={values} set={set} currentDirectoryCode={editing.directory_code ?? undefined} /> } : field)]} wide
+          fields={[{ name: 'school_code', label: 'Mã trường', readOnly: true }, ...SCHOOL_FIELDS.map(field => field.name === 'name' ? { ...field, render: (values: Record<string, string | string[]>, set: (name: string, value: string | string[]) => void) => <SchoolPicker token={token} values={values} set={set} currentDirectoryCode={editing.directory_code ?? undefined} excludeSchoolId={editing.id} /> } : field)]} wide
           initial={{ ...Object.fromEntries(SCHOOL_FIELDS.map((f) => [f.name, String((editing as unknown as Record<string, unknown>)[f.name] ?? '')])), school_code: editing.school_code, directory_code: editing.directory_code ?? '' }} onClose={() => setEditing(null)}
           onSubmit={async (v) => { await api.updateSchool(token, editing.id, { ...Object.fromEntries(SCHOOL_FIELDS.map((f) => [f.name, String(v[f.name]).trim() || null])), ...(v.directory_code ? { directory_code: v.directory_code } : {}) }); setEditing(null); reload(); }} />
       ) : null}
@@ -145,18 +145,19 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
       <ConfirmSheet open={!!removing} title="Xóa trường" busy={busy} confirmLabel="Xóa trường" onCancel={() => setRemoving(null)}
         message={`Xóa hẳn ${removing?.name}? Chỉ xóa được trường chưa phát sinh dữ liệu (không lớp, giáo viên, học sinh; quản trị viên chưa dùng hệ thống). Trường đã có dữ liệu chỉ vô hiệu hóa được.`}
         onConfirm={async () => { if (removing) { await run(() => api.deleteSchool(token, removing.id).then(() => true), 'Đã xóa trường').then((ok) => { if (ok) { setRemoving(null); reload(); } else setRemoving(null); }); } }} />
-      {detail ? <SchoolDetailSheet session={session} id={detail} onClose={() => setDetail(null)} /> : null}
+      {detail ? <SchoolDetailSheet session={session} id={detail} onClose={() => setDetail(null)} onChanged={reload} /> : null}
     </Page>
   );
 };
 
 /** Ô tên trường kèm gợi ý từ danh mục: bấm một trường thì tên, mã, tỉnh/thành, khu vực tự điền, huy hiệu hiện ngay và đường dẫn riêng được báo trước */
-const SchoolPicker: React.FC<{ token: string; values: Record<string, string | string[]>; set: (name: string, value: string | string[]) => void; currentDirectoryCode?: string }> = ({ token, values, set, currentDirectoryCode }) => {
+const SchoolPicker: React.FC<{ token: string; values: Record<string, string | string[]>; set: (name: string, value: string | string[]) => void; currentDirectoryCode?: string; excludeSchoolId?: number }> = ({ token, values, set, currentDirectoryCode, excludeSchoolId }) => {
   const { c } = useTheme();
   const name = String(values.name ?? '');
   const query = useDebounced(name.trim(), 250);
   const [picked, setPicked] = useState<SchoolDirectoryItem | null>(null);
   const [results, setResults] = useState<SchoolDirectoryItem[]>([]);
+  const [duplicates, setDuplicates] = useState<SchoolDuplicate[]>([]);
   const [state, setState] = useState<'idle' | 'loading' | 'failed'>('idle');
   const justPicked = picked !== null && name === picked.name;
 
@@ -164,9 +165,9 @@ const SchoolPicker: React.FC<{ token: string; values: Record<string, string | st
     if (justPicked) { setResults([]); setState('idle'); return undefined; }
     let live = true;
     setState('loading');
-    api.searchSchoolDirectory(token, query).then((res) => { if (live) { setResults(res.items); setState('idle'); } }).catch(() => { if (live) { setResults([]); setState('failed'); } });
+    api.searchSchoolDirectory(token, query, excludeSchoolId).then((res) => { if (live) { setResults(res.items); setDuplicates(res.duplicates ?? []); setState('idle'); } }).catch(() => { if (live) { setResults([]); setDuplicates([]); setState('failed'); } });
     return () => { live = false; };
-  }, [token, query, justPicked]);
+  }, [token, query, justPicked, excludeSchoolId]);
 
   const choose = (item: SchoolDirectoryItem) => {
     setPicked(item);
@@ -183,6 +184,13 @@ const SchoolPicker: React.FC<{ token: string; values: Record<string, string | st
     <View style={{ gap: 8 }}>
       <Field label="Tên trường *" value={name} nativeID="field-name"
         onChangeText={v => { set('name', v); set('directory_code', ''); if (picked) { setPicked(null); set('city', ''); set('region', ''); set('address', ''); } }} autoCapitalize="words" />
+      {duplicates.length ? (
+        <View testID="school-duplicate"><Inset style={{ gap: 4, backgroundColor: c.vangNhat }}>
+          <Txt f="bold" size={13} color={c.vangChu}>Trường này đã có trong hệ thống, đừng tạo thêm</Txt>
+          {duplicates.slice(0, 3).map((d) => <Txt key={d.id} size={13} color={c.muc}>{d.name} · mã {d.school_code}{d.region || d.city ? ` · ${[d.region, d.city].filter(Boolean).join(', ')}` : ''}{d.directory_code ? '' : ' (chưa liên kết danh mục)'}</Txt>)}
+          {excludeSchoolId ? null : <Txt size={12} color={c.muc2}>Mở trường đó trong danh sách, bấm “Sửa” và chọn đúng trường trong danh mục để dùng logo chính thức.</Txt>}
+        </Inset></View>
+      ) : null}
       {state === 'loading' ? <Txt size={13} color={c.muc3}>Đang tìm trong danh mục…</Txt> : null}
       {state === 'failed' ? <Txt size={13} color={c.sonChu}>Chưa tải được danh mục. Bạn có thể nhập tên và địa chỉ của trường.</Txt> : null}
       {results.length ? (
@@ -196,7 +204,7 @@ const SchoolPicker: React.FC<{ token: string; values: Record<string, string | st
                 <Txt size={12} color={c.muc2}>{r.region} · {r.city}</Txt>
                 {r.note ? <Txt size={12} color={c.vangChu}>{r.note}</Txt> : null}
               </View>
-              {r.exists ? <StatusChip kind="muted" text="Đã có trong hệ thống" /> : null}
+              {r.exists ? <StatusChip kind="muted" text={r.existing_code ? `Đã có · mã ${r.existing_code}` : 'Đã có trong hệ thống'} /> : null}
             </Pressable>
           ))}
         </ScrollView>
@@ -216,9 +224,13 @@ const SchoolPicker: React.FC<{ token: string; values: Record<string, string | st
   );
 };
 
-const SchoolDetailSheet: React.FC<{ session: Session; id: number; onClose: () => void }> = ({ session, id, onClose }) => {
+const SchoolDetailSheet: React.FC<{ session: Session; id: number; onClose: () => void; onChanged?: () => void }> = ({ session, id, onClose, onChanged }) => {
   const { c } = useTheme();
-  const { data, error } = useLoad(() => api.getSchool(session.token, id), [id], session.expired);
+  const { data, error, reload } = useLoad(() => api.getSchool(session.token, id), [id], session.expired);
+  const { busy, run } = useAction(session.expired);
+  // trường nhập tay chưa gắn danh mục: tìm bản ghi danh mục cùng tên và tỉnh/thành để dùng logo chính thức (chỉ liên kết, giữ nguyên tên, khu vực, đường dẫn riêng)
+  const match = useLoad(() => (data && !data.directory_code ? api.searchSchoolDirectory(session.token, data.name, data.id) : Promise.resolve(null)), [data?.id, data?.directory_code, data?.name], session.expired);
+  const suggestions = (match.data?.items ?? []).filter((item) => item.matches_school && !item.exists);
   return (
     <Sheet open onClose={onClose} title={data?.name ?? 'Trường học'} subtitle={data ? `Mã ${data.school_code}${data.city ? ` · ${data.city}` : ''}` : undefined} wide>
       <ErrorNote message={error} />
@@ -230,6 +242,22 @@ const SchoolDetailSheet: React.FC<{ session: Session; id: number; onClose: () =>
             <Txt size={13} color={c.muc2} style={{ flex: 1 }}>{[data.region, data.city].filter(Boolean).join(' · ') || 'Chưa ghi khu vực'}</Txt>
           </View>
           <SchoolLinkBox link={data.link} />
+          {suggestions.map((item) => (
+            <View key={item.code} testID={`school-link-suggestion-${item.code}`}><Inset style={{ gap: 8 }}>
+              <Txt f="bold" size={14}>Trường này khớp danh mục, dùng logo chính thức?</Txt>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <SchoolEmblem name={item.name} code={item.code} logoUrl={item.logo_url} size={48} />
+                <View style={{ flex: 1 }}>
+                  <Txt f="semibold" size={14}>{item.name}</Txt>
+                  <Txt size={12} color={c.muc2}>{item.region} · {item.city} · mã danh mục {item.code}</Txt>
+                  {!item.logo_url && !schoolLogoUrl(item.code) ? <Txt size={12} color={c.muc3}>Danh mục chưa có logo cho trường này</Txt> : null}
+                </View>
+              </View>
+              <Txt size={12} color={c.muc2}>Chỉ liên kết với danh mục để lấy logo; tên, khu vực, mã {data.school_code} và đường dẫn riêng của trường giữ nguyên.</Txt>
+              <Btn title="Dùng logo chính thức" tone="son" size="sm" disabled={busy} testID={`school-link-apply-${item.code}`}
+                onPress={async () => { if (await run(() => api.updateSchool(session.token, data.id, { directory_code: item.code, link_only: true }), 'Đã liên kết danh mục và đổi logo')) { reload(); onChanged?.(); } }} />
+            </Inset></View>
+          ))}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             <StatusChip kind={data.is_active ? 'on' : 'off'} text={data.is_active ? 'Đang hoạt động' : 'Đã vô hiệu hóa'} />
             <StatusChip kind="info" text={`${data.counts.teachers} giáo viên`} />
@@ -281,7 +309,7 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
       {loading && !data ? <Spinner label="Đang tải danh sách…" /> : null}
       {data ? (
         <>
-          <DataTable rows={data.items} rowKey={(u) => u.id} empty="Không có người dùng nào khớp bộ lọc." onRowPress={(u) => setOpen(u.id)}
+          <DataTable paginate={false} rows={data.items} rowKey={(u) => u.id} empty="Không có người dùng nào khớp bộ lọc." onRowPress={(u) => setOpen(u.id)}
             columns={[
               { key: 'name', label: 'Họ tên', flex: 1.8, render: (u) => <Cell main={u.full_name} sub={u.username} /> },
               { key: 'role', filter: f_role, label: 'Vai trò', flex: 1.5, render: (u) => <Cell main={ROLE_TEXT[u.role]} sub={u.role === 'root_admin' ? `Cấp ${u.admin_level}` : null} /> },

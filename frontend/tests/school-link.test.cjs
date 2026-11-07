@@ -69,13 +69,14 @@ test('nguồn của từng logo được ghi lại từ website trường và c�
 test('thêm trường: ô tên trường gợi ý từ danh mục và chọn xong tự điền tên, mã, khu vực, tỉnh/thành', () => {
   const admin = read('components', 'admin', 'RootAdmin.tsx');
   const api = read('api', 'adminApi.ts');
-  assert.match(api, /export const searchSchoolDirectory = \(token: string, q: string\) => apiRequest<\{ items: SchoolDirectoryItem\[\] \}>\(`\/api\/admin\/school-directory\$\{qs\(\{ q, limit: 30 \}\)\}`, \{ token \}\)/);
+  assert.match(api, /export const searchSchoolDirectory = \(token: string, q: string, excludeSchoolId\?: number\) => apiRequest<\{ items: SchoolDirectoryItem\[\]; duplicates: SchoolDuplicate\[\] \}>\(`\/api\/admin\/school-directory\$\{qs\(\{ q, limit: 30, exclude_school_id: excludeSchoolId \}\)\}`, \{ token \}\)/);
   assert.match(admin, /\{ name: 'name', label: 'Tên trường', required: true, render: \(values, set\) => <SchoolPicker token=\{token\} values=\{values\} set=\{set\} \/> \}/);
   assert.match(admin, /fields=\{CREATE_FIELDS\(token\)\}/);
   const choose = /const choose = \(item: SchoolDirectoryItem\) => \{([\s\S]*?)\n  \};/.exec(admin)[1];
   for (const field of ['name', 'directory_code', 'region', 'city']) assert.match(choose, new RegExp(`set\\('${field}', item\\.${field === 'directory_code' ? 'code' : field}\\)`));
   assert.match(choose, /set\('address', item\.address \?\? ''\)/);
-  assert.doesNotMatch(choose, /set\('school_code'/);
+  // thêm trường: mã trường hiện ngay trong ô Mã trường khi chọn từ danh mục (không gửi lên máy chủ, mã lấy từ directory_code); sửa trường thì giữ mã đang có
+  assert.doesNotMatch(choose, /set\('school_code'/); // mã trường do hệ thống cấp khi lưu (khác mã trong danh mục) nên chọn danh mục không điền mã vào ô Mã trường
   // gợi ý tìm sau khi gõ, bỏ kết quả cũ khi gõ tiếp, và không tìm lại ngay sau khi vừa chọn
   assert.match(admin, /useDebounced\(name\.trim\(\), 250\)/);
   assert.match(admin, /let live = true;[\s\S]*return \(\) => \{ live = false; \};/);
@@ -136,4 +137,34 @@ test('đường dẫn máy chủ khớp với hàm gọi API', () => {
   const auth = fs.readFileSync(path.join(server, 'auth', 'auth.controller.ts'), 'utf8');
   assert.match(auth, /@Get\('school-link\/:slug'\)/);
   assert.match(auth, /school_code\?: string/);
+});
+
+test('thêm trường: bấm Tạo trường thì hệ thống cấp mã, lưu ngay và hộp kết quả nêu mã to; không tạo thêm trường đã có', () => {
+  const admin = read('components', 'admin', 'RootAdmin.tsx');
+  // ô Mã trường ghi "Tự sinh khi lưu"; bấm Tạo trường thì hệ thống cấp mã và hiện to ở hộp kết quả
+  assert.match(admin, /\{ name: 'school_code', label: 'Mã trường', readOnly: true, hint: 'Bấm Tạo trường: hệ thống cấp mã trường, lưu ngay và hiện mã ở bước kế tiếp\./);
+  assert.match(admin, /testID="created-school-code">\{created\.school\.school_code\}<\/Txt>/);
+  assert.match(admin, /Đã lưu vào danh sách Trường học/);
+  // báo trước trường đã có (kể cả trường nhập tay chưa gắn danh mục), nêu mã; trường đã có không chọn lại được
+  assert.match(admin, /testID="school-duplicate"/);
+  assert.match(admin, /Trường này đã có trong hệ thống, đừng tạo thêm/);
+  assert.match(admin, /text=\{r\.existing_code \? `Đã có · mã \$\{r\.existing_code\}` : 'Đã có trong hệ thống'\}/);
+  assert.match(admin, /api\.searchSchoolDirectory\(token, query, excludeSchoolId\)/);
+  assert.match(admin, /excludeSchoolId=\{editing\.id\}/);
+});
+
+test('chi tiết trường nhập tay: gợi ý liên kết danh mục để dùng logo chính thức, chỉ liên kết và giữ nguyên tên, khu vực, mã, đường dẫn riêng', () => {
+  const admin = read('components', 'admin', 'RootAdmin.tsx');
+  assert.match(admin, /const suggestions = \(match\.data\?\.items \?\? \[\]\)\.filter\(\(item\) => item\.matches_school && !item\.exists\);/);
+  assert.match(admin, /data && !data\.directory_code \? api\.searchSchoolDirectory\(session\.token, data\.name, data\.id\)/);
+  assert.match(admin, /api\.updateSchool\(session\.token, data\.id, \{ directory_code: item\.code, link_only: true \}\)/);
+  assert.match(admin, /testID=\{`school-link-apply-\$\{item\.code\}`\}/);
+  assert.match(admin, /<SchoolDetailSheet session=\{session\} id=\{detail\} onClose=\{\(\) => setDetail\(null\)\} onChanged=\{reload\} \/>/);
+  assert.match(read('types', 'api.ts'), /matches_school\?: boolean;/);
+  // máy chủ: link_only chỉ nhận cùng directory_code, không đụng tên, khu vực, địa chỉ
+  const server = path.join(root, '..', 'backend', 'src', 'admin');
+  if (!fs.existsSync(server)) return;
+  const service = fs.readFileSync(path.join(server, 'school.service.ts'), 'utf8');
+  assert.match(service, /body\.link_only\s*\? \{ directory_code: selected\.code, logo_url: logoUrl \}/);
+  assert.match(service, /không tạo thêm một trường đã có/);
 });

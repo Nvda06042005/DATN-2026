@@ -127,3 +127,14 @@ export function parseSchoolSlug(slug: string): { code: string } | null {
   const m = /^donga_(\d{4,8})(?:_[a-z0-9_]{0,80})?$/.exec(String(slug).trim().toLowerCase());
   return m ? { code: m[1] } : null;
 }
+
+/**
+ * Hai tên trường là một trường khi bỏ dấu và bỏ từ chỉ cấp học ở đầu ("THCS", "Trường"…) vẫn giống nhau ("THCS Phú Mỹ" = "Trường THCS Phu My"),
+ * và tỉnh/thành không mâu thuẫn (một bên để trống thì coi là không mâu thuẫn). Dùng để không tạo thêm một trường đã có.
+ */
+export const sameSchoolName = (a: { name: string; city?: string | null }, b: { name: string; city?: string | null }): boolean => {
+  const key = nameWords(a.name);
+  if (!key || key !== nameWords(b.name)) return false;
+  const ca = foldVi(a.city ?? ''), cb = foldVi(b.city ?? '');
+  return !ca || !cb || ca === cb;
+};

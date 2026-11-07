@@ -100,7 +100,15 @@ export interface YearItem {
 }
 
 /** Một trường trong danh mục: chọn thì mã, khu vực, tỉnh/thành và đường dẫn tự điền */
-export interface SchoolDirectoryItem { code: string; name: string; region: string; city: string; address?: string | null; website?: string | null; logo_url?: string | null; note: string | null; exists: boolean; slug: string }
+export interface SchoolDirectoryItem {
+  code: string; name: string; region: string; city: string; address?: string | null; website?: string | null; logo_url?: string | null; note: string | null; exists: boolean; slug: string;
+  /** Mã trường đang giữ chỗ trường này trong hệ thống (kể cả trường nhập tay trùng tên) */
+  existing_code?: string | null;
+  /** Khi đang sửa một trường: bản ghi danh mục này khớp tên và tỉnh/thành của chính trường đó (gợi ý liên kết logo) */
+  matches_school?: boolean;
+}
+/** Trường đã có trong hệ thống trùng tên với chữ đang gõ khi thêm trường */
+export interface SchoolDuplicate { id: number; school_code: string; name: string; region: string | null; city: string | null; directory_code: string | null }
 
 /** Thông tin công khai tối thiểu để vẽ trang đăng nhập riêng của trường */
 export interface SchoolLinkInfo { school_code: string; name: string; region: string | null; city: string | null; logo_url: string | null; is_active: boolean; slug: string }
