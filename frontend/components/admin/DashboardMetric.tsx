@@ -13,8 +13,9 @@ export function DashboardMetric({ label, value, hint, icon: Icon, color, backgro
   const { width } = useWindowDimensions();
   const text = typeof value === 'number' ? fmt(value) : value;
   if (compact) {
+    const showIcon = width >= 1400 || width < 1240;
     return <Card flat pad={9} style={{ flexGrow: 1, flexBasis: width >= 1240 ? 150 : width >= 650 ? 230 : '45%', minWidth: 130, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: background, alignItems: 'center', justifyContent: 'center' }}><Icon size={18} color={color} /></View>
+      {showIcon ? <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: background, alignItems: 'center', justifyContent: 'center' }}><Icon size={18} color={color} /></View> : null}
       <View accessible accessibilityLabel={`${label}: ${text}. ${hint}`} style={{ flex: 1, minWidth: 0 }}>
         <Txt size={11} f="semibold" color={c.muc2} numberOfLines={1}>{label}</Txt>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 5 }}>
