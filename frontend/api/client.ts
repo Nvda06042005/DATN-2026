@@ -3,6 +3,8 @@
  * điện thoại chạy thử trên mạng LAN cần địa chỉ IP của máy tính (ví dụ http://192.168.1.10:8000), không dùng localhost.
  * Không bao giờ đặt chuỗi kết nối CSDL hay khóa bí mật vào biến EXPO_PUBLIC_*: chúng nằm công khai trong gói app.
  */
+import { forgetVerifiedUser } from '@/lib/verified-session';
+
 const DEV_API = typeof __DEV__ !== 'undefined' && __DEV__ ? 'http://localhost:8000' : '';
 export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL || DEV_API).trim().replace(/\/+$/, '');
 
@@ -54,7 +56,7 @@ export async function apiRequest<T>(path: string, opts: RequestOptions = {}): Pr
   } catch {
     throw new ApiError(0, OFFLINE);
   }
-  return readResponse<T>(res);
+  return readResponse<T>(res, opts.token);
 }
 
 /** File người dùng chọn (expo-document-picker): web có đối tượng File, điện thoại có uri */
@@ -78,7 +80,7 @@ export async function apiUpload<T>(path: string, file: PickedFile, token: string
   } catch {
     throw new ApiError(0, OFFLINE);
   }
-  return readResponse<T>(res);
+  return readResponse<T>(res, token);
 }
 
 /** Nội dung văn bản của một API cần đăng nhập (ví dụ danh sách tài khoản CSV) */
@@ -90,7 +92,7 @@ export async function apiText(path: string, token: string): Promise<string> {
   } catch {
     throw new ApiError(0, OFFLINE);
   }
-  if (!res.ok) await readResponse(res);
+  if (!res.ok) await readResponse(res, token);
   return res.text();
 }
 
@@ -100,11 +102,12 @@ export async function apiBlob(path:string,token:string):Promise<Blob> {
   let res:Response;
   try { res=await fetch(`${API_BASE_URL}${path}`,{headers:{Authorization:`Bearer ${token}`},signal:timeoutSignal(75_000)}); }
   catch { throw new ApiError(0,OFFLINE); }
-  if(!res.ok) await readResponse(res);
+  if(!res.ok) await readResponse(res, token);
   return res.blob();
 }
 
-async function readResponse<T>(res: Response): Promise<T> {
+async function readResponse<T>(res: Response, token?: string | null): Promise<T> {
+  if (res.status === 401 && token) forgetVerifiedUser(token);
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => null);
   if (!res.ok) {

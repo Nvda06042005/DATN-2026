@@ -26,3 +26,15 @@ test('Client and API enforce the same new-password requirements and Bcrypt byte 
   assert.match(front.PASSWORD_HINT, /không dấu/);
   assert.match(front.PASSWORD_HINT, /không có khoảng trắng/);
 });
+
+test('Password error reports only unmet conditions without disclosing the password', () => {
+  const short = 'abc12';
+  const error = front.newPasswordError(short);
+  assert.match(error, /hiện có 5/);
+  assert.match(error, /ký tự đặc biệt/);
+  assert.equal(error.includes(short), false);
+  assert.equal(front.newPasswordError('abc12!'), null);
+  assert.equal(front.newPasswordError('abc123'), 'Mật khẩu cần: có ký tự đặc biệt như @, #, !.');
+  assert.match(front.newPasswordError('abc1! '), /không có khoảng trắng/);
+  assert.match(front.newPasswordError('mật1!x'), /chữ không dấu/);
+});

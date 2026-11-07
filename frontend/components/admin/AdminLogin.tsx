@@ -328,7 +328,7 @@ const ResetForm: React.FC<{ identifier: string; onDone: () => void; onRequestNew
         showLabel
         inputRef={nextRef}
         value={next}
-        onChangeText={setNext}
+        onChangeText={value => { setNext(value); setError(null); }}
         hint={PASSWORD_HINT}
         secureTextEntry={!show}
         autoCapitalize="none"

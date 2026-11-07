@@ -7,7 +7,7 @@ function load(name, dependencies, extra = {}) {
 }
 test('phiên riêng theo vai trò và trường: lưu/đổi/xóa một phiên không chạm phiên của trường khác hoặc quản lý tổng', async () => {
   const map = new Map(), store = { getItem: key => map.get(key) ?? null, setItem: (key, value) => map.set(key, value), removeItem: key => map.delete(key) };
-  const storage = load('lib/storage', { 'react-native': { Platform: { OS: 'web' } }, 'expo-secure-store': {} }, { window: { localStorage: store, sessionStorage: store } });
+  const storage = load('lib/storage', { 'react-native': { Platform: { OS: 'web' } }, 'expo-secure-store': {}, '@/lib/verified-session': load('lib/verified-session', {}) }, { window: { localStorage: store, sessionStorage: store } });
   await storage.saveToken('school_admin', 'one', '00000001');
   await storage.saveToken('school_admin', 'two', '00000002');
   await storage.saveToken('teacher', 'teacher', '00000001');

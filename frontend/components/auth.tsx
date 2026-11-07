@@ -3,7 +3,7 @@
  * /admin vẫn là cổng riêng của quản trị tổng. Mỗi vai trò giữ phiên riêng và kiểm tra lại bằng /api/auth/me.
  * Đổi mật khẩu mặc định và xác nhận hồ sơ lần đầu vẫn là bước bắt buộc trước khi truy cập nội dung.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, View, useWindowDimensions } from 'react-native';
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { AlertTriangle, Eye, EyeOff, KeyRound, LogOut, User } from 'lucide-react-native';
@@ -18,7 +18,8 @@ import { ProfileSheet } from '@/components/profile';
 import { Avatar, Btn, Card, Field, Inset, PaperBg, Sheet, Spinner, Txt, useToast } from '@/components/ui';
 import { useSystemBrand } from '@/hooks/use-system-brand';
 import { useTheme } from '@/hooks/use-theme';
-import { readToken, saveToken } from '@/lib/storage';
+import { readToken, readTokenNow, saveToken } from '@/lib/storage';
+import { forgetVerifiedUser, peekVerifiedUser, rememberVerifiedUser } from '@/lib/verified-session';
 import { schoolSessionPath } from '@/lib/school-session';
 import { newPasswordError, PASSWORD_HINT } from '@/lib/password-policy';
 import type { AuthRole, AuthUser, Portal, ProfileData, ProfilePatch, SchoolLinkInfo } from '@/types/api';
@@ -59,25 +60,40 @@ export interface Session {
 export const PortalApp: React.FC<{ portal: Portal; school?: SchoolLinkInfo; onRoleChange?: (role: SchoolRole) => void; children: (session: Session) => React.ReactNode }> = ({ portal, school, onRoleChange, children }) => {
   const toast = useToast();
   const { c } = useTheme();
-  const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [checking, setChecking] = useState(true);
+  const [restored] = useState(() => {
+    const saved = readTokenNow(portal, school?.school_code) ?? (school ? readTokenNow(portal) : null);
+    const known = saved ? peekVerifiedUser(saved) : null;
+    return known?.role === portal && (!school || known.school_code === school.school_code) ? { token: saved!, user: known } : null;
+  });
+  const [token, setToken] = useState<string | null>(restored?.token ?? null);
+  const [user, setUser] = useState<AuthUser | null>(restored?.user ?? null);
+  const [checking, setChecking] = useState(!restored);
+  const verification = useRef(0);
   const [changing, setChanging] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const updateUser = useCallback((updated: AuthUser) => {
+    if (token) rememberVerifiedUser(token, updated);
+    setUser(updated);
+  }, [token]);
   useDocumentTitle(`${school ? `${school.name} – ` : ''}${PORTAL_TITLE[portal]} – Đông A`);
 
   useFocusEffect(useCallback(() => {
     let alive = true;
-    setChecking(true);
-    (async () => {
+    const run = async (force = false) => {
+      const request = ++verification.current;
+      const current = () => alive && request === verification.current;
+      setChecking(true);
+      try {
       const scoped = await readToken(portal, school?.school_code);
       const saved = scoped ?? (school ? await readToken(portal) : null);
-      if (!saved) { if (alive) { setToken(null); setUser(null); } return; }
+      if (!current()) return;
+      if (!saved) { setToken(null); setUser(null); return; }
       try {
-        const u = await authApi.getMe(saved);
-        if (!alive) return;
+        const u = await authApi.getMe(saved, force);
+        if (!current()) return;
         if (u.role === portal && (!school || u.school_code === school.school_code)) {
           if (school) await saveToken(portal, saved, school.school_code);
+          if (!current()) return;
           setToken(saved);
           setUser(u);
         } else {
@@ -85,39 +101,62 @@ export const PortalApp: React.FC<{ portal: Portal; school?: SchoolLinkInfo; onRo
           if (scoped) await saveToken(portal, null, school?.school_code);
         }
       } catch (err) {
-        if (!alive) return;
+        if (!current()) return;
         if (err instanceof ApiError && err.status === 0) setNotice(err.message);
         else if (err instanceof ApiError && err.status === 401) {
-          await saveToken(portal, null, scoped ? school?.school_code : undefined);
+          const code = scoped ? school?.school_code : undefined;
+          if (await readToken(portal, code) === saved) await saveToken(portal, null, code);
+          if (!current()) return;
           setToken(null); setUser(null);
         }
       }
-    })().finally(() => alive && setChecking(false));
+      } finally { if (current()) setChecking(false); }
+    };
+    void run();
+    const active = () => { if (document.visibilityState === 'visible') void run(true); };
+    const storageChanged = (event: StorageEvent) => {
+      if (event.key === null || event.key === `donga_token_${portal}` || event.key === `donga_token_${portal}_school_${school?.school_code}`) void run(true);
+    };
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      document.addEventListener('visibilitychange', active);
+      window.addEventListener('storage', storageChanged);
+    }
     return () => {
       alive = false;
+      ++verification.current;
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        document.removeEventListener('visibilitychange', active);
+        window.removeEventListener('storage', storageChanged);
+      }
     };
   }, [portal, school?.school_code]));
 
   const start = useCallback(
     (t: string, u: AuthUser) => {
       if (u.role !== portal || (school && u.school_code !== school.school_code)) throw new ApiError(403, 'Tài khoản không thuộc vai trò hoặc trường của đường dẫn này.');
+      ++verification.current;
+      rememberVerifiedUser(t, u);
       saveToken(portal, t, school?.school_code);
       if (school) saveToken(portal, t); // Tương thích dấu trang cũ; chỉ dùng sau khi /me kiểm tra lại vai trò và trường.
       setToken(t);
       setUser(u);
       setNotice(null);
+      setChecking(false);
     },
     [portal, school?.school_code],
   );
 
   const end = useCallback(
     (msg: string | null = null) => {
-      saveToken(portal, null, school?.school_code);
+      ++verification.current;
+      if (token) forgetVerifiedUser(token);
+      void readToken(portal, school?.school_code).then(saved => { if (saved === token) return saveToken(portal, null, school?.school_code); });
       if (school && token) void readToken(portal).then(saved => { if (saved === token) return saveToken(portal, null); });
       setToken(null);
       setUser(null);
       setChanging(false);
       setNotice(msg);
+      setChecking(false);
     },
     [portal, school?.school_code, token],
   );
@@ -181,7 +220,7 @@ export const PortalApp: React.FC<{ portal: Portal; school?: SchoolLinkInfo; onRo
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
         <PaperBg />
-        <ConfirmProfileSheet session={{ token, updateUser: setUser }} onLogout={() => { void logout(); }} />
+        <ConfirmProfileSheet session={{ token, updateUser }} onLogout={() => { void logout(); }} />
       </View>
     );
   }
@@ -194,9 +233,8 @@ export const PortalApp: React.FC<{ portal: Portal; school?: SchoolLinkInfo; onRo
         logout: message => { void logout(message); },
         expired: () => end('Phiên đăng nhập đã hết hạn, hãy đăng nhập lại.'),
         changePassword: () => setChanging(true),
-        updateUser: setUser,
+        updateUser,
       })}
-      {checking ? <View style={{ position: 'absolute', inset: 0, zIndex: 100, backgroundColor: c.scrim, alignItems: 'center', justifyContent: 'center' }}><Spinner label="Đang kiểm tra phiên đăng nhập…" /></View> : null}
     </>
   );
 };
@@ -302,7 +340,7 @@ const ForgotPasswordSheet: React.FC<{ onClose: () => void; onDone: () => void }>
         <>
           <Txt size={14} color={c.muc2}>Nếu thông tin khớp với một tài khoản có email, mã đã được gửi (xem cả mục thư rác). Nhập mã và đặt mật khẩu mới; các phiên đăng nhập cũ sẽ bị đăng xuất.</Txt>
           <Field label="Mã xác thực" nativeID="forgot-otp" value={otp} onChangeText={(v) => setOtp(v.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" autoComplete="one-time-code" autoFocus={Platform.OS === 'web'} />
-          <Field label="Mật khẩu mới" hint={PASSWORD_HINT} nativeID="forgot-new" value={next} onChangeText={setNext} secureTextEntry={!show} autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" />
+          <Field label="Mật khẩu mới" hint={PASSWORD_HINT} nativeID="forgot-new" value={next} onChangeText={value => { setNext(value); setError(null); }} secureTextEntry={!show} autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" />
           <Field label="Nhập lại mật khẩu mới" nativeID="forgot-confirm" value={confirm} onChangeText={setConfirm} secureTextEntry={!show} autoCapitalize="none" autoComplete="new-password" returnKeyType="done" onSubmitEditing={submit} />
           <Btn tone="ghost" size="sm" icon={show ? EyeOff : Eye} title={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} onPress={() => setShow((v) => !v)} selected={show} />
         </>
@@ -419,7 +457,7 @@ const ChangePasswordForm: React.FC<ChangePasswordProps> = ({ user, token, forced
         </View>
       )}
       <Field label={forced ? 'Mật khẩu mặc định được cấp' : 'Mật khẩu hiện tại'} nativeID="cp-current" value={current} onChangeText={setCurrent} secureTextEntry={!show} autoCapitalize="none" autoComplete="current-password" />
-      <Field label="Mật khẩu mới" hint={PASSWORD_HINT} nativeID="cp-new" value={next} onChangeText={setNext} secureTextEntry={!show} autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" />
+      <Field label="Mật khẩu mới" hint={PASSWORD_HINT} nativeID="cp-new" value={next} onChangeText={value => { setNext(value); setError(null); }} secureTextEntry={!show} autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" />
       <Field label="Nhập lại mật khẩu mới" nativeID="cp-confirm" value={confirm} onChangeText={setConfirm} secureTextEntry={!show} autoCapitalize="none" autoComplete="new-password" returnKeyType="done" onSubmitEditing={submit} />
       <Btn tone="ghost" size="sm" icon={show ? EyeOff : Eye} title={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} onPress={() => setShow((v) => !v)} selected={show} />
       {error && (

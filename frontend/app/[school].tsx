@@ -11,6 +11,7 @@ import { ErrorPage } from '@/components/error-page';
 import { Spinner } from '@/components/ui';
 import { isSchoolRole, schoolRoleFromParam } from '@/lib/school-portal';
 import { isSchoolSlug } from '@/lib/school-link';
+import { loadSchoolIdentity, peekSchoolIdentity } from '@/lib/school-identity-cache';
 import type { SchoolLinkInfo } from '@/types/api';
 
 export default function SchoolLinkRoute() {
@@ -24,14 +25,14 @@ function SchoolLinkLogin({ slug }: { slug: string }) {
   const router = useRouter();
   const params = useLocalSearchParams<{ role?: string; tab?: string; pin?: string }>();
   const role = isSchoolRole(params.role) ? schoolRoleFromParam(params.role) : 'school_admin';
-  const [school, setSchool] = useState<SchoolLinkInfo | null>(null);
+  const [school, setSchool] = useState<SchoolLinkInfo | null>(() => peekSchoolIdentity(slug));
   const [status, setStatus] = useState<'loading' | 'missing' | 'failed'>('loading');
   const [message, setMessage] = useState<string | undefined>();
 
   const load = useCallback(() => {
     let live = true;
     setStatus('loading');
-    authApi.getSchoolLink(slug).then((info) => {
+    loadSchoolIdentity(slug, () => authApi.getSchoolLink(slug)).then((info) => {
       if (!live) return;
       setSchool(info);
       // Tên hoặc khu vực trong đường dẫn cũ/gõ sai vẫn mở đúng trường; đưa về đường dẫn chuẩn của trường

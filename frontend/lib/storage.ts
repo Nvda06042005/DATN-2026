@@ -5,6 +5,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import type { Portal } from '@/types/api';
+import { forgetVerifiedUser } from '@/lib/verified-session';
 
 const tokenKey = (portal: Portal, schoolCode?: string) => `donga_token_${portal}${schoolCode ? `_school_${schoolCode}` : ''}`;
 
@@ -25,8 +26,16 @@ export async function readToken(portal: Portal, schoolCode?: string): Promise<st
   }
 }
 
+/** Khôi phục tức thì trên web, chỉ kết hợp với user đã được API xác minh trong bộ nhớ. */
+export function readTokenNow(portal: Portal, schoolCode?: string): string | null {
+  try { return Platform.OS === 'web' ? webStore('local')?.getItem(tokenKey(portal, schoolCode)) ?? null : null; }
+  catch { return null; }
+}
+
 export async function saveToken(portal: Portal, token: string | null, schoolCode?: string): Promise<void> {
   try {
+    const previous = await readToken(portal, schoolCode);
+    if (previous && previous !== token) forgetVerifiedUser(previous);
     if (Platform.OS === 'web') {
       const store = webStore('local');
       if (token) store?.setItem(tokenKey(portal, schoolCode), token);

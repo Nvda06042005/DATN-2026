@@ -11,8 +11,8 @@ try { for (const width of [1440,390]) for(const role of ['root_admin','school_ad
  const ctx=await browser.newContext({viewport:{width,height:900}}); const errors=[],calls=[]; let active = user(role), logged = role==='root_admin', changed=false;
  if(role==='root_admin') await ctx.addInitScript(()=>localStorage.setItem('donga_token_root_admin','fixture-root_admin'));
  await ctx.route('**/api/**',async route=>{ const req=route.request(),u=new URL(req.url()),p=u.pathname;calls.push({path:p,method:req.method(),body:req.postData(),token:req.headers().authorization});let data=[],status=200;
- if(p==='/api/auth/me'){const token=req.headers().authorization; if(!logged||token?.includes('wrong-school')){status=401;data={detail:'Phiên không hợp lệ'};}else data=active;}
- else if(p.startsWith('/api/auth/school-link/')) data={...school};
+ if(p==='/api/auth/me'){await new Promise(resolve=>setTimeout(resolve,role==='school_admin'?2000:100));const token=req.headers().authorization; if(!logged||token?.includes('wrong-school')){status=401;data={detail:'Phiên không hợp lệ'};}else data=active;}
+ else if(p.startsWith('/api/auth/school-link/')) {await new Promise(resolve=>setTimeout(resolve,role==='school_admin'?2000:100));data={...school};}
  else if(p==='/api/auth/login'){const b=req.postDataJSON();assert.equal(b.portal,role);assert.equal(b.school_code,'00000001');logged=true;active={...user(role),must_change_password:true};data={token:'fixture-'+role,user:active};}
  else if(p==='/api/auth/change-password'){changed=true;active={...active,must_change_password:false};data={token:'changed-'+role,user:active};}
  else if(p==='/api/auth/logout'){logged=false;data={ok:true};}
@@ -55,20 +55,28 @@ try { for (const width of [1440,390]) for(const role of ['root_admin','school_ad
   await page.getByText('Từ 6 ký tự, có chữ không dấu, số và ký tự đặc biệt (@, #, !), không có khoảng trắng.',{exact:true}).waitFor();
   await page.locator('#cp-current').fill('Fixture-only-123');
   await page.locator('#cp-new').fill('Newfixture456');await page.locator('#cp-confirm').fill('Newfixture456');await page.getByTestId('cp-submit').click();
-  await page.getByRole('alert').filter({hasText:'Mật khẩu cần ít nhất 6 ký tự'}).waitFor();
+  await page.getByRole('alert').filter({hasText:'Mật khẩu cần: có ký tự đặc biệt'}).waitFor();
   assert.equal(calls.filter(c=>c.path==='/api/auth/change-password').length,0);
+  await page.locator('#cp-new').fill('abc12');await page.locator('#cp-confirm').fill('abc12');await page.getByTestId('cp-submit').click();
+  await page.getByRole('alert').filter({hasText:'hiện có 5'}).waitFor();assert.ok((await page.getByRole('alert').textContent()).includes('ký tự đặc biệt'));
   for(const invalid of ['mật1!x','ab1 !cd']){
    await page.locator('#cp-new').fill(invalid);await page.locator('#cp-confirm').fill(invalid);await page.getByTestId('cp-submit').click();
-   await page.getByRole('alert').filter({hasText:'không có khoảng trắng'}).waitFor();assert.equal(await page.locator('#cp-new').inputValue(),invalid);assert.equal(calls.filter(c=>c.path==='/api/auth/change-password').length,0);
+   await page.getByRole('alert').filter({hasText:invalid.includes(' ')?'không có khoảng trắng':'chỉ dùng chữ không dấu'}).waitFor();assert.equal(await page.locator('#cp-new').inputValue(),invalid);assert.equal(calls.filter(c=>c.path==='/api/auth/change-password').length,0);
   }
   await page.screenshot({path:`${out}/${width}-${role}-password-policy.png`});
   await page.locator('#cp-current').fill('Fixture-only-123');await page.locator('#cp-new').fill('new1!x');await page.locator('#cp-confirm').fill('new1!x');await page.getByTestId('cp-submit').click();
  } else await page.goto(base+'/admin',{waitUntil:'domcontentloaded'});
  const first=role==='student'?'practice':role==='teacher'?'questions':role==='school_admin'?'teachers':'schools';
  const second=role==='student'?'sources':role==='teacher'?'shares':role==='school_admin'?'students':'users';
- await nav(first);await activeTab(first);await nav(second);await activeTab(second);
+ await visible(role==='student'?'student-tab-practice':'admin-workspace').waitFor();
+ const checksBefore=calls.filter(c=>c.path==='/api/auth/me').length, identitiesBefore=calls.filter(c=>c.path.startsWith('/api/auth/school-link/')).length;
+ const navigate=async id=>{const started=Date.now();await nav(id);await activeTab(id);assert.ok(Date.now()-started<1800,'Menu must not wait for slow /me');assert.equal(await page.getByText('Đang kiểm tra phiên đăng nhập…',{exact:true}).filter({visible:true}).count(),0);};
+ await navigate(first);await navigate(second);
  await page.goBack();await activeTab(first);assert.ok(await page.locator('input#login-username').count()===0);
- await page.goForward();await activeTab(second);await page.reload();await activeTab(second);assert.ok(await page.locator('input#login-username').count()===0);
+ await page.goForward();await activeTab(second);
+ assert.equal(calls.filter(c=>c.path==='/api/auth/me').length,checksBefore,'Menu and Back/Forward must reuse recent verification');
+ assert.equal(calls.filter(c=>c.path.startsWith('/api/auth/school-link/')).length,identitiesBefore,'Menu must not reload school identity');
+ await page.reload();await activeTab(second);assert.ok(await page.locator('input#login-username').count()===0);
  assert.equal(page.url().includes('school-manager-admin'),false);
  if(role==='teacher') { if(width<1000)await visible('admin-menu-toggle').click(); for(const id of ['journeys','quizzes','game'])assert.equal(await page.getByTestId('admin-nav-'+id).count(),0);if(width<1000)await visible('admin-menu-toggle').click();await visible('create-menu').click();assert.equal(await page.getByTestId('create-journey').count(),0);assert.equal(await page.getByTestId('create-quizset').count(),0);await page.getByTestId('create-quiz').click();await visible('studio-save').waitFor();assert.equal(new URL(page.url()).searchParams.get('draft'),'70');await page.reload();await visible('studio-save').waitFor();await page.goBack();await activeTab(second); }
  if(role==='student') {if(width<900)await page.getByTestId('student-tab-more').click();for(const id of ['collection','study','timeline','map','battles'])assert.equal(await page.getByTestId('student-tab-'+id).count(),0);if(width<900)await page.getByRole('button',{name:'Đóng',exact:true}).first().click();}
@@ -82,13 +90,27 @@ try { for (const width of [1440,390]) for(const role of ['root_admin','school_ad
  const loginInput=role==='root_admin'?'#admin-username:visible':'#login-username:visible';
  await page.locator(loginInput).waitFor();await page.goBack();await page.locator(loginInput).waitFor();
  await page.screenshot({path:`${out}/${width}-${role}.png`});
- assert.deepEqual(errors,[]);results.push({width,role,changedPassword:changed,backForwardAndReload:true});
+ assert.deepEqual(errors,[]);results.push({width,role,changedPassword:changed,backForwardAndReload:true,noExtraSessionOrIdentityRequestsOnMenu:true});
  }catch(e){await page.screenshot({path:`${out}/${width}-${role}-failure.png`});fs.writeFileSync(out+'/failure-calls.json',JSON.stringify({calls,errors},null,2));throw e;}finally{await ctx.close();}
  }
  // Phiên hợp lệ của trường 1 không được nhận khi mở đường dẫn riêng của trường 2.
  { const ctx=await browser.newContext();await ctx.addInitScript(()=>localStorage.setItem('donga_token_school_admin','fixture-school-one'));
    await ctx.route('**/api/**',async r=>{const p=new URL(r.request().url()).pathname;let data={};if(p.startsWith('/api/auth/school-link/'))data={...school,school_code:'00000002',slug:'donga_00000002_truongkhac',name:'THCS Trường Khác'};else if(p==='/api/auth/me')data=user('school_admin');await r.fulfill({json:data});});
    const p=await ctx.newPage();await p.goto(base+'/donga_00000002_truongkhac');await p.locator('#login-username:visible').waitFor();assert.equal(await p.getByTestId('admin-workspace').count(),0);assert.equal(await p.evaluate(()=>localStorage.getItem('donga_token_school_admin')),'fixture-school-one');results.push({crossSchoolSessionRejected:true});await ctx.close(); }
+ // Đổi tab trình duyệt phải xác minh nền; đăng xuất ở tab khác phải đóng phiên cũ.
+ for(const reason of ['expired','other-tab-logout']) {
+  const ctx=await browser.newContext();let revoked=false;
+  await ctx.addInitScript(()=>localStorage.setItem('donga_token_school_admin_school_00000001','fixture-active'));
+  await ctx.route('**/api/**',async route=>{
+   const p=new URL(route.request().url()).pathname;
+   await route.fulfill({status:p==='/api/auth/me'&&revoked?401:200,json:p.startsWith('/api/auth/school-link/')?school:p==='/api/auth/me'?revoked?{detail:'Hết phiên'}:{...user('school_admin'),must_change_password:true}:{}});
+  });
+  const page=await ctx.newPage();await page.goto(base+'/'+slug);await page.locator('#cp-current').waitFor();
+  if(reason==='expired'){revoked=true;await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));}
+  else {const other=await ctx.newPage();await other.goto(base+'/cau-hoi-thuong-gap');await other.evaluate(()=>localStorage.removeItem('donga_token_school_admin_school_00000001'));}
+  await page.locator('#login-username').waitFor();assert.equal(await page.locator('#cp-current').count(),0);
+  results.push({sessionInvalidation:reason,closedCachedSession:true});await ctx.close();
+ }
  // Hai form đặt lại mật khẩu dùng cùng chính sách; OTP/email hoàn toàn giả lập.
  for(const width of [1440,390]) for(const root of [true,false]) {
   const ctx=await browser.newContext({viewport:{width,height:900}}),resets=[];
@@ -105,9 +127,9 @@ try { for (const width of [1440,390]) for(const role of ['root_admin','school_ad
   await page.getByText('Từ 6 ký tự, có chữ không dấu, số và ký tự đặc biệt (@, #, !), không có khoảng trắng.',{exact:true}).waitFor();
   const next=page.locator(root?'#admin-new-password':'#forgot-new'),confirm=page.locator(root?'#admin-confirm-password':'#forgot-confirm'),submit=page.getByTestId(root?'reset-submit':'forgot-submit');
   await next.fill('Newfixture456');await confirm.fill('Newfixture456');await submit.click();
-  await page.getByRole('alert').filter({hasText:'Mật khẩu cần ít nhất 6 ký tự'}).waitFor();assert.equal(resets.length,0);
+  await page.getByRole('alert').filter({hasText:'Mật khẩu cần: có ký tự đặc biệt'}).waitFor();assert.equal(resets.length,0);
   for(const invalid of ['mật1!x','ab1 !cd']){
-   await next.fill(invalid);await confirm.fill(invalid);await submit.click();await page.getByRole('alert').filter({hasText:'không có khoảng trắng'}).waitFor();assert.equal(await next.inputValue(),invalid);assert.equal(resets.length,0);
+   await next.fill(invalid);await confirm.fill(invalid);await submit.click();await page.getByRole('alert').filter({hasText:invalid.includes(' ')?'không có khoảng trắng':'chỉ dùng chữ không dấu'}).waitFor();assert.equal(await next.inputValue(),invalid);assert.equal(resets.length,0);
   }
   await page.screenshot({path:`${out}/${width}-${root?'admin':'school'}-reset-policy.png`});
   await next.fill('mat1!x');await confirm.fill('mat1!x');await submit.click();

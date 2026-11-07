@@ -1,5 +1,6 @@
 /** API quản trị: quản trị tổng và quản trị trường (/api/admin) và kho dữ liệu lịch sử (/api/admin/history) */
 import { apiBlob, apiRequest, apiUpload, type PickedFile } from '@/api/client';
+import { clearSchoolIdentities } from '@/lib/school-identity-cache';
 import type {
   Account, AccountDetail, AuthRole, ClassDetail, ClassEvent, ClassItem, CloneResult, CreatedAccount, CreatedSchool, Gender, GradeRow, HistoryDiff, HistoryEntity, HistoryImportResult,
   HistoryList, HistoryRecord, HistorySpec, HistoryStatus, HistoryVersion, ImportResult, MemberInput, Paged, SchoolDetail, SchoolDirectoryItem, SchoolDuplicate, SchoolItem, TimelineView, YearItem,
@@ -17,13 +18,20 @@ export const listSchools = (token: string, query: Query) => apiRequest<Paged<Sch
 export const searchSchoolDirectory = (token: string, q: string, excludeSchoolId?: number) => apiRequest<{ items: SchoolDirectoryItem[]; duplicates: SchoolDuplicate[] }>(`/api/admin/school-directory${qs({ q, limit: 30, exclude_school_id: excludeSchoolId })}`, { token });
 export const getSchool = (token: string, id: number) => apiRequest<SchoolDetail>(`/api/admin/schools/${id}`, { token });
 export const createSchool = (token: string, body: Record<string, unknown>) => apiRequest<CreatedSchool>('/api/admin/schools', { token, body });
-export const updateSchool = (token: string, id: number, body: Record<string, unknown>) => apiRequest<SchoolItem>(`/api/admin/schools/${id}`, { token, method: 'PATCH', body });
+export const updateSchool = async (token: string, id: number, body: Record<string, unknown>) => {
+  const school = await apiRequest<SchoolItem>(`/api/admin/schools/${id}`, { token, method: 'PATCH', body });
+  clearSchoolIdentities();
+  return school;
+};
 export const deleteSchool = (token: string, id: number) => apiRequest<void>(`/api/admin/schools/${id}`, { token, method: 'DELETE' });
 
 // ---------------------------------------------------------------------- thông tin trường, năm học, khối (HK.QT.010–013)
 export const getMySchool = (token: string, schoolId?: number | null) => apiRequest<SchoolDetail>(`/api/admin/school${qs({ school_id: schoolId })}`, { token });
-export const updateMySchool = (token: string, body: Record<string, unknown>, schoolId?: number | null) =>
-  apiRequest<SchoolDetail>(`/api/admin/school${qs({ school_id: schoolId })}`, { token, method: 'PATCH', body });
+export const updateMySchool = async (token: string, body: Record<string, unknown>, schoolId?: number | null) => {
+  const school = await apiRequest<SchoolDetail>(`/api/admin/school${qs({ school_id: schoolId })}`, { token, method: 'PATCH', body });
+  clearSchoolIdentities();
+  return school;
+};
 export const listYears = (token: string, schoolId?: number | null) => apiRequest<YearItem[]>(`/api/admin/school-years${qs({ school_id: schoolId })}`, { token });
 export const createYear = (token: string, body: { school_id?: number | null; label: string; starts_on: string; ends_on: string }) => apiRequest<YearItem>('/api/admin/school-years', { token, body });
 export const updateYear = (token: string, id: number, body: Partial<{ label: string; starts_on: string; ends_on: string }>) => apiRequest<YearItem>(`/api/admin/school-years/${id}`, { token, method: 'PATCH', body });

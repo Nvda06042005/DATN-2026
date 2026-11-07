@@ -1,4 +1,5 @@
 import { ApiError, apiRequest } from '@/api/client';
+import { forgetVerifiedUser, rememberVerifiedUser, verifyUser } from '@/lib/verified-session';
 import type { AuthSession, AuthUser, ClassItem, Portal, ProfileData, ProfilePatch, SchoolLinkInfo } from '@/types/api';
 import type { TwoFactorChallenge } from '@/types/platform';
 
@@ -8,6 +9,7 @@ function checkSession(session: AuthSession, portal: Portal | 'app'): AuthSession
   const allowed = portal === 'app' ? ['teacher', 'student'] : [portal];
   if (!allowed.includes(session.user.role)) throw new ApiError(403, 'Tài khoản không có quyền đăng nhập trang này.');
   if (!session.token || typeof session.token !== 'string') throw new ApiError(502, 'Máy chủ chưa trả về phiên đăng nhập hợp lệ.');
+  rememberVerifiedUser(session.token, session.user);
   return session;
 }
 
@@ -33,7 +35,7 @@ export const loginWithGoogle = async (idToken: string, portal: Portal = 'student
 export const getSchoolLink = (slug: string) => apiRequest<SchoolLinkInfo>(`/api/auth/school-link/${encodeURIComponent(slug)}`);
 
 /** Tài khoản của phiên đang lưu */
-export const getMe = (token: string) => apiRequest<AuthUser>('/api/auth/me', { token });
+export const getMe = (token: string, force = false) => verifyUser(token, () => apiRequest<AuthUser>('/api/auth/me', { token }), force);
 
 /** Quên mật khẩu (mọi vai trò): server gửi mã OTP 6 chữ số (hiệu lực 5 phút) tới email của tài khoản; luôn trả ok để không lộ tài khoản nào có thật */
 export const requestPasswordReset = (identifier: string) => apiRequest<{ ok: boolean }>('/api/auth/forgot-password', { body: { identifier } });
@@ -57,11 +59,17 @@ export const uploadAvatar = (token: string, body: { data: string }) => apiReques
 export const changePassword = async (token: string, currentPassword: string, newPassword: string) => {
   const session = await apiRequest<AuthSession>('/api/auth/change-password', { token, body: { current_password: currentPassword, new_password: newPassword } });
   if (!session?.token || typeof session.token !== 'string' || !session.user) throw new ApiError(502, 'Máy chủ chưa trả về phiên đăng nhập hợp lệ.');
+  forgetVerifiedUser(token);
+  rememberVerifiedUser(session.token, session.user);
   return session;
 };
 
 /** Revoke the current access token on the server before clearing the local session. */
-export const logout = (token: string) => apiRequest<{ ok: boolean }>('/api/auth/logout', { token, body: {} });
+export const logout = async (token: string) => {
+  const result = await apiRequest<{ ok: boolean }>('/api/auth/logout', { token, body: {} });
+  forgetVerifiedUser(token);
+  return result;
+};
 
 /** Học sinh tham gia lớp bằng mã 6 ký tự (HK.HS.008) và xem các lớp đã tham gia */
 export const joinClass = (token: string, code: string) => apiRequest<ClassItem>('/api/student/join-class', { token, body: { code } });
