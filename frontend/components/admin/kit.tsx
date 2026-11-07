@@ -13,6 +13,7 @@ import { FONT } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { copyText } from '@/lib/clipboard';
 import { pageSizeFor, pageWindow, TABLE_MIN_WIDTH } from '@/lib/paging';
+import { splitTitle } from '@/lib/title-split';
 import type { ImportResult } from '@/types/api';
 
 // ---------------------------------------------------------------------- tải dữ liệu
@@ -62,17 +63,19 @@ export function useAction(onExpired?: () => void) {
 }
 
 // ---------------------------------------------------------------------- bố cục trang
+/** Khi chữ phải xuống dòng thì chia đều hai dòng (không để lẻ một từ ở dòng cuối); chỉ có tác dụng trên web. */
+export const WRAP_BALANCE = (Platform.OS === 'web' ? { textWrap: 'balance' } : null) as object;
+export const WRAP_PRETTY = (Platform.OS === 'web' ? { textWrap: 'pretty' } : null) as object;
+
 export const PageHeader: React.FC<{ title: string; subtitle?: string; actions?: React.ReactNode }> = ({ title, subtitle, actions }) => {
   const { c } = useTheme();
-  // chữ cuối của tiêu đề viết nghiêng, màu đỏ: cùng kiểu với tiêu đề ở trang chủ ("Chín màn chiến dịch") và trang đăng nhập
-  const words = title.trim().split(' ');
-  const accent = words.length > 1 ? words[words.length - 1] : null;
-  const main = accent ? `${words.slice(0, -1).join(' ')} ` : title;
+  // hai nửa đều nhau như tiêu đề ở trang chủ: nửa đầu chữ đậm màu mực, nửa sau chữ nghiêng màu đỏ ("Trường | học", "Thống kê | hệ thống")
+  const [head, tail] = splitTitle(title);
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
-      <View style={{ flexShrink: 1, minWidth: 220 }}>
-        <Txt f="displayHeavy" size={26} color={c.logoInk} accessibilityRole="header" style={{ lineHeight: 34 }}>{main}{accent ? <Txt f="serifItalic" size={26} color={c.logoRed} style={{ lineHeight: 34 }}>{accent}</Txt> : null}</Txt>
-        {subtitle ? <Txt size={14} color={c.muc2}>{subtitle}</Txt> : null}
+      <View style={{ flexShrink: 1, minWidth: 220, gap: 2 }}>
+        <Txt f="displayHeavy" size={26} color={c.logoInk} accessibilityRole="header" style={[{ lineHeight: 34 }, WRAP_BALANCE]}>{head}{tail ? ' ' : ''}{tail ? <Txt f="serifItalic" size={26} color={c.logoRed} style={{ lineHeight: 34 }}>{tail}</Txt> : null}</Txt>
+        {subtitle ? <Txt size={14} color={c.muc2} style={WRAP_PRETTY}>{subtitle}</Txt> : null}
       </View>
       {actions ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, maxWidth: '100%' }}>{actions}</View> : null}
     </View>
@@ -348,8 +351,8 @@ export const Cell: React.FC<{ main: string; sub?: string | null }> = ({ main, su
   const { c } = useTheme();
   return (
     <View style={{ minWidth: 0 }}>
-      <Txt f="semibold" size={14} numberOfLines={2}>{main}</Txt>
-      {sub ? <Txt size={12} color={c.muc3} numberOfLines={2}>{sub}</Txt> : null}
+      <Txt f="semibold" size={14} numberOfLines={2} style={WRAP_BALANCE}>{main}</Txt>
+      {sub ? <Txt size={12} color={c.muc3} numberOfLines={2} style={WRAP_BALANCE}>{sub}</Txt> : null}
     </View>
   );
 };

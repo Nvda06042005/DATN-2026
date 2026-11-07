@@ -17,6 +17,8 @@ import type { IconType } from '@/types/game';
 
 /** Kính mờ của thanh đầu trang, giống thanh đầu trang của trang chủ */
 const GLASS = (Platform.OS === 'web' ? { backdropFilter: 'blur(10px)' } : null) as unknown as ViewStyle;
+/** `text-wrap: pretty` được kế thừa: mọi đoạn chữ trong khung quản trị không còn dòng cuối chỉ có một từ lẻ ("… cho học / sinh."). */
+const WRAP_PRETTY = (Platform.OS === 'web' ? { textWrap: 'pretty' } : null) as unknown as ViewStyle;
 
 /**
  * Khung chung của cổng quản trị tổng, quản trị trường và giáo viên. Dùng cùng ngôn ngữ thiết kế với trang chủ: nền giấy dó có hoa văn trống đồng,
@@ -72,7 +74,7 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
   const trail = [schoolName, `${session.user.role === 'teacher' ? 'Giáo viên' : 'Quản trị'} / ${label}`].filter(Boolean).join(' · ');
   const roomy = width >= 680;
   return (
-    <View testID="admin-workspace" style={{ flex: 1, backgroundColor: c.logoPaper }}>
+    <View testID="admin-workspace" style={[{ flex: 1, backgroundColor: c.logoPaper }, WRAP_PRETTY]}>
       <PatternOverlay opacity={0.075} />
       <View testID="admin-topbar" style={[{ minHeight: wide ? 64 : 58, marginHorizontal: wide ? 16 : 10, marginTop: wide ? 14 : 8, marginBottom: wide ? 12 : 8, borderRadius: 999, borderWidth: 1, borderColor: c.bienXanh, backgroundColor: c.kinhDac, paddingHorizontal: wide ? 14 : 6, flexDirection: 'row', alignItems: 'center', gap: wide ? 20 : 6, zIndex: 20 }, GLASS]}>
         {!wide && <Pressable testID="admin-menu-toggle" accessibilityRole="button" accessibilityLabel={open ? 'Đóng menu quản trị' : 'Mở menu quản trị'} accessibilityState={{ expanded: open }} onPress={() => setOpen(value => !value)} style={{ width: 44, height: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center' }}>{open ? <X size={23} color={c.logoInk} /> : <Menu size={23} color={c.logoInk} />}</Pressable>}

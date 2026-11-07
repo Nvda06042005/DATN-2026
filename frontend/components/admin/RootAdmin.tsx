@@ -104,8 +104,8 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
         <>
           <DataTable rows={data.items} rowKey={(s) => s.id} empty="Không có trường nào khớp bộ lọc." onRowPress={(s) => setDetail(s.id)}
             columns={[
-              { key: 'name', label: 'Trường', flex: 2.2, render: (s) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><SchoolEmblem name={s.name} code={s.school_code} logoUrl={s.logo_url} size={36} /><View style={{ flex: 1 }}><Cell main={s.name} sub={`Mã ${s.school_code}${s.region ? ` · ${s.region}` : ''}`} /></View></View> },
-              { key: 'city', filter: f_city, label: 'Tỉnh / thành', render: (s) => <Txt size={14}>{s.city || 'Chưa có'}</Txt> },
+              { key: 'name', label: 'Trường', flex: 2, render: (s) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><SchoolEmblem name={s.name} code={s.school_code} logoUrl={s.logo_url} size={36} /><View style={{ flex: 1 }}><Cell main={s.name} sub={`Mã ${s.school_code}${s.region ? ` · ${s.region}` : ''}`} /></View></View> },
+              { key: 'city', filter: f_city, label: 'Tỉnh / thành', flex: 1.4, render: (s) => <Txt size={14}>{s.city || 'Chưa có'}</Txt> },
               { key: 'users', label: 'Người dùng', render: (s) => <Cell main={fmt(s.users)} sub={`${s.teachers} GV · ${s.students} HS · ${s.classes} lớp`} /> },
               { key: 'status', filter: f_active, label: 'Trạng thái', render: (s) => <StatusChip kind={s.is_active ? 'on' : 'off'} text={s.is_active ? 'Hoạt động' : 'Vô hiệu hóa'} /> },
               { key: 'created', label: 'Ngày tạo', render: (s) => <Txt size={13} color={c.muc2}>{dateText(s.created_at)}</Txt> },
@@ -283,10 +283,10 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
         <>
           <DataTable rows={data.items} rowKey={(u) => u.id} empty="Không có người dùng nào khớp bộ lọc." onRowPress={(u) => setOpen(u.id)}
             columns={[
-              { key: 'name', label: 'Họ tên', flex: 2, render: (u) => <Cell main={u.full_name} sub={u.username} /> },
-              { key: 'role', filter: f_role, label: 'Vai trò', render: (u) => <Cell main={ROLE_TEXT[u.role]} sub={u.role === 'root_admin' ? `Cấp ${u.admin_level}` : null} /> },
-              { key: 'school', filter: f_school, label: 'Trường', flex: 1.5, render: (u) => <Txt size={14}>{u.school_name || '—'}</Txt> },
-              { key: 'email', label: 'Email', flex: 1.6, render: (u) => <Txt size={13} color={c.muc2} numberOfLines={2}>{u.email || 'Chưa có'}</Txt> },
+              { key: 'name', label: 'Họ tên', flex: 1.8, render: (u) => <Cell main={u.full_name} sub={u.username} /> },
+              { key: 'role', filter: f_role, label: 'Vai trò', flex: 1.5, render: (u) => <Cell main={ROLE_TEXT[u.role]} sub={u.role === 'root_admin' ? `Cấp ${u.admin_level}` : null} /> },
+              { key: 'school', filter: f_school, label: 'Trường', flex: 1.4, render: (u) => <Txt size={14}>{u.school_name || '—'}</Txt> },
+              { key: 'email', label: 'Email', flex: 1.5, render: (u) => <Txt size={13} color={c.muc2} numberOfLines={2}>{u.email || 'Chưa có'}</Txt> },
               { key: 'last', label: 'Đăng nhập cuối', render: (u) => <Txt size={13} color={c.muc2}>{dateText(u.last_login_at)}</Txt> },
               { key: 'status', filter: f_active, label: 'Trạng thái', render: (u) => <StatusChip kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
             ]} />

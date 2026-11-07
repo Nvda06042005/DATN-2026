@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -49,10 +49,10 @@ export function DashboardGauge({ id, label, value, level, levelText, hint }: {
         {value != null ? <Txt size={12} color={c.muc3}>%</Txt> : null}
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 3, paddingHorizontal: 9, borderRadius: 999, backgroundColor: tone[0], maxWidth: '100%' }}>
-        <View style={{ flexDirection: 'row', gap: 2 }}>{Array.from({ length: PIPS }, (_, i) => <View key={i} style={{ width: 5, height: 9, borderRadius: 2, backgroundColor: i < pips ? tone[1] : c.adminLine }} />)}</View>
+        {width >= 130 ? <View style={{ flexDirection: 'row', gap: 2 }}>{Array.from({ length: PIPS }, (_, i) => <View key={i} style={{ width: 5, height: 9, borderRadius: 2, backgroundColor: i < pips ? tone[1] : c.adminLine }} />)}</View> : null}
         <Txt f="semibold" size={11} color={tone[1]} numberOfLines={1} style={{ flexShrink: 1 }}>{levelText}</Txt>
       </View>
-      {hint ? <Txt size={10} color={c.muc3} center numberOfLines={2}>{hint}</Txt> : null}
+      {hint ? <Txt size={10} color={c.muc3} center numberOfLines={2} style={Platform.OS === 'web' ? ({ textWrap: 'balance' } as object) : undefined}>{hint}</Txt> : null}
     </View>
   );
 }

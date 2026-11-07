@@ -81,7 +81,7 @@ export function SystemDashboard({ session }: { session: Session }) {
   const share = (part: number | undefined, whole: number) => (part != null && whole > 0 ? Math.min(100, (part / whole) * 100) : null);
   // đồng hồ: hàng đầu luôn có; hàng thứ hai chỉ hiện khi ô đủ cao (màn hình lớn) để không phải cuộn ở cửa sổ thấp
   const gauges = [
-    { id: 'activity', label: 'Mức hoạt động', value: activity, good: 50, ok: 25, texts: ['Sôi nổi', 'Khá', 'Cần thúc đẩy'], hint: `${fmt(d?.mau ?? 0)} / ${fmt(totalUsers)} tài khoản hoạt động 30 ngày` },
+    { id: 'activity', label: 'Mức hoạt động', value: activity, good: 50, ok: 25, texts: ['Sôi nổi', 'Khá', 'Cần thúc đẩy'], hint: `${fmt(d?.mau ?? 0)} / ${fmt(totalUsers)} tài khoản\nhoạt động 30 ngày` },
     { id: 'content', label: 'Nội dung xuất bản', value: publishedPct, good: 80, ok: 50, texts: ['Tốt', 'Khá', 'Cần xuất bản'], hint: published ? `${fmt(published.published)} / ${fmt(published.total)} nội dung` : 'Đang tải…' },
     { id: 'ai', label: 'Tiểu Tướng trả lời', value: answeredPct, good: 90, ok: 75, texts: ['Ổn định', 'Khá', 'Thiếu tư liệu'], hint: ai.data ? `${fmt(ai.data.answers - ai.data.refused)} / ${fmt(ai.data.answers)} câu · ${days} ngày` : 'Đang tải…' },
     { id: 'schools', label: 'Trường hoạt động', value: share(d?.schools, d?.schools_total ?? 0), good: 90, ok: 70, texts: ['Ổn định', 'Khá', 'Cần rà soát'], hint: `${fmt(d?.schools ?? 0)} / ${fmt(d?.schools_total ?? 0)} trường` },
@@ -104,7 +104,7 @@ export function SystemDashboard({ session }: { session: Session }) {
   return <ScrollView testID="system-dashboard" style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, padding: 10, paddingBottom: 12, gap: rowGap, width: '100%', maxWidth: 1680, alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
       <View style={{ flexShrink: 1, minWidth: 220 }}>
-        <Txt f="displayHeavy" size={22} color={c.logoInk} accessibilityRole="header" style={{ lineHeight: 28 }}>Thống kê hệ <Txt f="serifItalic" size={22} color={c.logoRed} style={{ lineHeight: 28 }}>thống</Txt></Txt>
+        <Txt f="displayHeavy" size={22} color={c.logoInk} accessibilityRole="header" style={{ lineHeight: 28 }}>Thống kê <Txt f="serifItalic" size={22} color={c.logoRed} style={{ lineHeight: 28 }}>hệ thống</Txt></Txt>
         <Txt size={12} color={c.muc3}>{d?.as_of ? `Số liệu đến ${dateText(d.as_of)} · Giờ Việt Nam · AI chỉ thống kê số lượng và chủ đề` : 'Trường học, người dùng, nội dung, sử dụng và trợ lý AI'}</Txt>
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>

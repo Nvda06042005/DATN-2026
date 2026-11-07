@@ -22,7 +22,7 @@ test('tên trường (quản trị trường, giáo viên) chuyển lên đườ
 });
 
 test('cùng ngôn ngữ thiết kế với trang chủ: nền giấy dó có hoa văn, thanh đầu viên thuốc nổi, nút Đăng xuất tối bo tròn', () => {
-  assert.match(shell, /backgroundColor: c\.logoPaper \}\}>\s*<PatternOverlay opacity=\{0\.075\} \/>/);
+  assert.match(shell, /backgroundColor: c\.logoPaper \}, WRAP_PRETTY\]\}>\s*<PatternOverlay opacity=\{0\.075\} \/>/);
   assert.match(shell, /testID="admin-topbar" style=\{\[\{[^\]]*borderRadius: 999, borderWidth: 1, borderColor: c\.bienXanh, backgroundColor: c\.kinhDac/);
   assert.match(shell, /backdropFilter: 'blur\(10px\)'/);
   assert.match(shell, /testID="admin-logout"[^\n]*backgroundColor: pressed \? c\.logoInk : c\.den[^\n]*borderRadius: 999|borderRadius: 999, backgroundColor: pressed \? c\.logoInk : c\.den/);
@@ -37,10 +37,29 @@ test('dòng bản quyền giống trang đăng nhập nằm ở chân khung, ngo
   assert.ok(shell.indexOf('{children}') < shell.indexOf('admin-copyright'));
 });
 
-test('tiêu đề trang: chữ cuối nghiêng đỏ như tiêu đề ở trang chủ và trang đăng nhập; mọi trang quản trị dùng chung PageHeader', () => {
-  assert.match(kit, /<Txt f="serifItalic" size=\{26\} color=\{c\.logoRed\}[^>]*>\{accent\}<\/Txt>/);
-  assert.match(kit, /const accent = words\.length > 1 \? words\[words\.length - 1\] : null;/);
-  assert.match(kit, /f="displayHeavy" size=\{26\} color=\{c\.logoInk\} accessibilityRole="header"/);
+test('tiêu đề trang quản trị: hai nửa đều nhau như trang chủ (nửa đầu đậm mực, nửa sau nghiêng đỏ), chia theo cụm từ; mọi trang dùng chung PageHeader', () => {
+  const header = kit.slice(kit.indexOf('export const PageHeader'), kit.indexOf('export const Page:'));
+  assert.match(header, /const \[head, tail\] = splitTitle\(title\);/);
+  assert.match(header, /<Txt f="displayHeavy" size=\{26\} color=\{c\.logoInk\} accessibilityRole="header" style=\{\[\{ lineHeight: 34 \}, WRAP_BALANCE\]\}>\{head\}\{tail \? ' ' : ''\}\{tail \? <Txt f="serifItalic" size=\{26\} color=\{c\.logoRed\} style=\{\{ lineHeight: 34 \}\}>\{tail\}<\/Txt> : null\}<\/Txt>/);
+  assert.ok(!header.includes('words[words.length - 1]'), 'không còn tách riêng chữ cuối');
+  // trang Thống kê hệ thống có tiêu đề riêng, cùng kiểu: "Thống kê | hệ thống"
+  const dash = read('components', 'admin', 'SystemDashboard.tsx');
+  assert.match(dash, /accessibilityRole="header" style=\{\{ lineHeight: 28 \}\}>Thống kê <Txt f="serifItalic" size=\{22\} color=\{c\.logoRed\} style=\{\{ lineHeight: 28 \}\}>hệ thống<\/Txt><\/Txt>/);
+  // chữ phải xuống dòng thì chia đều hai dòng, không để lẻ một từ (web)
+  assert.match(kit, /export const WRAP_BALANCE = \(Platform\.OS === 'web' \? \{ textWrap: 'balance' \} : null\) as object;/);
+  assert.match(kit, /<Txt f="semibold" size=\{14\} numberOfLines=\{2\} style=\{WRAP_BALANCE\}>\{main\}<\/Txt>/);
+  // khung quản trị đặt text-wrap: pretty ở gốc (thuộc tính được kế thừa) để mọi đoạn chữ không còn dòng cuối chỉ có một từ lẻ
+  assert.match(shell, /const WRAP_PRETTY = \(Platform\.OS === 'web' \? \{ textWrap: 'pretty' \} : null\)/);
+  assert.match(shell, /testID="admin-workspace" style=\{\[\{ flex: 1, backgroundColor: c\.logoPaper \}, WRAP_PRETTY\]\}/);
+});
+
+test('cột bảng đủ rộng để tên thường gặp không phải xuống dòng: "Thành phố Hồ Chí Minh", "Quản trị viên trường học"', () => {
+  const admin = read('components', 'admin', 'RootAdmin.tsx');
+  assert.match(admin, /key: 'city', filter: f_city, label: 'Tỉnh \/ thành', flex: 1\.4,/);
+  assert.match(admin, /key: 'role', filter: f_role, label: 'Vai trò', flex: 1\.5,/);
+  assert.match(read('components', 'admin', 'SystemDashboard.tsx'), /tài khoản\\nhoạt động 30 ngày` \}/);
+  // ô số liệu gọn ở cửa sổ 1240–1400 px bỏ ô biểu tượng để nhãn không bị cắt thành "Hoạt động hôm …"
+  assert.match(read('components', 'admin', 'DashboardMetric.tsx'), /const showIcon = width >= 1400 \|\| width < 1240;/);
 });
 
 test('thu nhỏ vừa đủ: trang hẹp lại, thanh tìm kiếm và khung lọc có giới hạn rộng, hộp nhập liệu hai cột, nút chuyển trang gọn, hộp hồ sơ chia tab', () => {
@@ -123,6 +142,8 @@ test('thống kê hệ thống: một trang tổng quan vừa một màn hình, 
   assert.match(gauge, /export const gaugeArc = /);
   assert.match(gauge, /const PIPS = 5;/);
   assert.match(gauge, /strokeLinecap="round"/);
+  // gauge hẹp (cửa sổ 1280 px) bỏ 5 ô nhỏ để nhãn mức ('Cần xuất bản', 'Thiếu tư liệu') không bị cắt thành 'Cần xuất…'
+  assert.match(gauge, /\{width >= 130 \? <View style=\{\{ flexDirection: 'row', gap: 2 \}\}>\{Array\.from\(\{ length: PIPS \}/);
   // biểu đồ gọn: số liệu mốc đang chọn là một dòng phía trên, không phủ lên biểu đồ
   const trend = read('components', 'admin', 'TrendChart.tsx');
   assert.match(trend, /compact\?: boolean; chartHeight\?: number/);
