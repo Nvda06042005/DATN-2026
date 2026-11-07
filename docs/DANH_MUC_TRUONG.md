@@ -20,6 +20,10 @@ Trường đã tạo bằng mã ngắn như `0001` có thể chọn **Sửa → 
 
 ## Tìm nhanh
 
+Trong **Người dùng → Tạo tài khoản quản trị**, họ tên và email có danh sách cuộn từ các quản trị viên trường đã lưu. Bấm ô hoặc mũi tên để mở, gõ để tìm, bấm **Xem thêm người** để tải tiếp; mỗi mục hiện tên, email và trường để phân biệt người trùng tên. Chọn trường trước thì danh sách người chỉ thuộc trường đó. Chọn họ tên hoặc email tự điền cả họ tên, email, số điện thoại và trường theo ID, không phụ thuộc trang kết quả hiện tại.
+
+Quản trị viên trường đầu tiên được tạo cùng trường đã nằm trong danh sách này ngay khi mở form; không cần tạo lại tài khoản. Chọn người đã có chuyển nút chính thành **Mở hồ sơ tài khoản**; nút **Nhập người mới** xóa lựa chọn để cấp thêm người. Trường có danh sách phân trang riêng từ các trường đã đăng ký, không lấy từ danh mục gợi ý chưa tạo. Tra cứu luôn gọi API quản trị có xác thực, không lưu họ tên/email vào localStorage. Không thêm bảng hay migration cho hành vi này.
+
 Tìm có dấu/không dấu, mã tham chiếu, địa bàn, tên cũ và chữ viết tắt. `T,S` hoặc `TS` tìm theo chữ đầu tên riêng, không khớp mọi trường chỉ vì đều có tiền tố THCS. Một ký tự cũng có gợi ý. Kết quả nằm trong danh sách cuộn, trả tối đa 30 mục mỗi lần; có thể gõ thêm để thu hẹp.
 
 ## Logo và địa chỉ

@@ -6,7 +6,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { Bell, Building2, ChartColumn, History, LifeBuoy, LibraryBig, Plus, Trash2, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AccountSheet, dateText, ROLE_TEXT } from '@/components/admin/AccountSheet';
-import { SchoolSelect } from '@/components/admin/SchoolSelect';
+import { CreateSchoolAdminSheet } from '@/components/admin/CreateSchoolAdminSheet';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { SystemStats } from '@/components/admin/AnalyticsAdmin';
 import { BroadcastManager } from '@/components/admin/PlatformComms';
@@ -294,24 +294,9 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
         </>
       ) : null}
       {open ? <AccountSheet session={session} id={open} schools={schools} onClose={() => setOpen(null)} onChanged={refresh} /> : null}
-      {creating ? (
-        <FormSheet title="Tạo tài khoản quản trị" subtitle="Mật khẩu tạm được gửi vào email; người dùng phải đổi ở lần đăng nhập đầu tiên" submitLabel="Tạo tài khoản"
-          fields={[
-            { name: 'full_name', label: 'Họ và tên', required: true },
-            { name: 'account_type', label: 'Loại tài khoản', readOnly: true },
-            { name: 'school_id', label: 'Trường', required: true, render: (values, set) => <SchoolSelect token={token} value={String(values.school_id ?? '')} onChange={value => set('school_id', value)} /> },
-            { name: 'email', label: 'Email', type: 'email', required: true },
-            { name: 'phone', label: 'Số điện thoại', type: 'tel' },
-          ]}
-          initial={{ account_type: 'Quản trị viên trường' }} onClose={() => setCreating(false)}
-          onSubmit={async (v) => {
-            if (!Number.isInteger(Number(v.school_id)) || Number(v.school_id) < 1) throw new Error('Hãy chọn trường cho tài khoản quản trị.');
-            const res = await api.createAdminAccount(token, { full_name: String(v.full_name), role: 'school_admin', email: String(v.email), phone: String(v.phone) || undefined, school_id: Number(v.school_id) });
-            setCreating(false);
-            setCredential(res);
-            reload();
-          }} />
-      ) : null}
+      {creating ? <CreateSchoolAdminSheet session={session} onClose={() => setCreating(false)}
+        onCreated={res => { setCreating(false); setCredential(res); reload(); }}
+        onExisting={id => { setCreating(false); setOpen(id); }} /> : null}
     </Page>
   );
 };
