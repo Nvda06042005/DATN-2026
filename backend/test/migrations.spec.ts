@@ -4,7 +4,7 @@ import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import { createDatabase, hasPostgres, sql } from './harness';
 import type * as Migrator from '../src/database/migrator';
-import { directoryInfo, searchDirectory } from '../src/admin/school-directory';
+import { directoryEntry, directoryInfo, searchDirectory } from '../src/admin/school-directory';
 
 const MIGRATIONS = resolve(__dirname, '..', '..', 'database', 'migrations');
 const TOTAL = readdirSync(MIGRATIONS).filter((n) => n.endsWith('.sql')).length;
@@ -183,7 +183,7 @@ describe('file migration', () => {
     for (const file of held.filter(file => file !== later)) renameSync(join(dir, `${file}.held`), join(dir, file));
   });
 
-  test('048 xóa các mục tham chiếu cũ đã sáp nhập, giữ trường đăng ký và mọi tài khoản', async () => {
+  test('048 và 049 xóa các mục tham chiếu cũ đã sáp nhập, thêm trường mới hình thành sau sáp nhập, giữ trường đăng ký và mọi tài khoản', async () => {
     const held = readdirSync(dir).filter(name => /^\d+_.*\.sql$/.test(name) && Number(name.split('_')[0]) >= 48);
     for (const file of held) renameSync(join(dir, file), join(dir, `${file}.held`));
     await m.applyMigrations(url, dir);
@@ -192,21 +192,35 @@ describe('file migration', () => {
     expect((await sql(url, 'SELECT code FROM app_school_directory WHERE code=$1', ['hn-dongocdu-2026'])).length).toBe(1);
     await sql(url, `INSERT INTO app_schools(id,school_code,directory_code,name,region) VALUES(9481,'9481','01020513','Trường đã đăng ký','Khu vực giữ lại');
       INSERT INTO app_users(id,username,full_name,role,password_hash,school_id,is_active,created_at)
-      VALUES(9481,'fixture.retired','Tài khoản được giữ','student','synthetic-hash',9481,1,'2026-11-07T00:00:00Z')`);
+      VALUES(9481,'fixture.retired','Tài khoản được giữ','student','synthetic-hash',9481,1,'2026-11-07T00:00:00Z');
+      INSERT INTO app_schools(id,school_code,directory_code,name,region) VALUES(9482,'9482','79765508','THCS Cửu Long đã đăng ký','Khu vực giữ lại 2')`);
+    expect((await sql(url, 'SELECT code FROM app_school_directory WHERE code=$1', ['79765508'])).length).toBe(1);
     const school = await sql(url, 'SELECT * FROM app_schools WHERE id=9481');
+    const school2 = await sql(url, 'SELECT * FROM app_schools WHERE id=9482');
     const user = await sql(url, 'SELECT * FROM app_users WHERE id=9481');
     const assets = await count('SELECT count(*) AS n FROM app_school_logo_assets');
-    const change = held.find(file => file.startsWith('048_'))!;
-    renameSync(join(dir, `${change}.held`), join(dir, change));
-    expect(await m.applyMigrations(url, dir)).toEqual([change]);
+    // 048 xóa các mục cũ đã sáp nhập đến 06/11; 049 gỡ thêm các trường TP.HCM đã gộp (danh sách Dân trí) và thêm trường mới: sau cả hai, CSDL khớp danh mục trong mã nguồn
+    const changes = held.filter(file => /^04[89]_/.test(file)).sort();
+    expect(changes).toHaveLength(2);
+    for (const file of changes) renameSync(join(dir, `${file}.held`), join(dir, file));
+    expect(await m.applyMigrations(url, dir)).toEqual(changes);
     expect(await sql(url, 'SELECT code FROM app_school_directory WHERE code=ANY($1::text[])', [retired])).toEqual([]);
+    // 049: THCS Cửu Long gộp vào THCS Phú Mỹ và các trường THCS khác đã gộp không còn trong danh mục; tên và mã cũ trỏ tới trường hiện tại
+    const merged049 = ['79765508', '79760508', '79764510', '79776504', '79776512', '77751513', '77751503', '79760505', '79760507', '74725512', '74725508', '74718514', '74723513', '77754503', '77751506', '42445505', '42445504', '37374516', '37369510'];
+    expect(await sql(url, 'SELECT code FROM app_school_directory WHERE code=ANY($1::text[])', [merged049])).toEqual([]);
+    expect((await sql<{ previous_codes: string[] }>(url, "SELECT previous_codes FROM app_school_directory WHERE code='79765507'"))[0].previous_codes).toContain('79765508');
+    expect((await sql(url, "SELECT name FROM app_school_directory WHERE code='hcm-tandinh-2026'"))[0]).toEqual({ name: 'Tiểu học - THCS Tân Định' });
+    expect((await sql(url, "SELECT name, previous_codes FROM app_school_directory WHERE code='ht-thachha-2026'"))[0]).toEqual({ name: 'Trường THCS Thạch Hà', previous_codes: ['42445504', '42445505'] });
+    expect(directoryEntry('79765508')?.code).toBe('79765507');
+    expect(searchDirectory('Cửu Long Bình Thạnh').some(row => row.code === '79765508')).toBe(false);
     expect(await count('SELECT count(*) AS n FROM app_school_directory')).toBe(directoryInfo().schools);
     expect((await sql(url, 'SELECT name FROM app_school_directory WHERE code=$1', ['30297509']))[0]).toEqual({ name: 'Trường THCS Hoàng Diệu' });
     expect(await sql(url, 'SELECT * FROM app_schools WHERE id=9481')).toEqual(school);
+    expect(await sql(url, 'SELECT * FROM app_schools WHERE id=9482')).toEqual(school2);
     expect(await sql(url, 'SELECT * FROM app_users WHERE id=9481')).toEqual(user);
     expect(await count('SELECT count(*) AS n FROM app_school_logo_assets')).toBe(assets);
     expect(await m.applyMigrations(url, dir)).toEqual([]);
-    for (const file of held.filter(file => file !== change)) renameSync(join(dir, `${file}.held`), join(dir, file));
+    for (const file of held.filter(file => !changes.includes(file))) renameSync(join(dir, `${file}.held`), join(dir, file));
   });
 
   test('giữ nguyên dữ liệu đã nhập và lịch sử _prisma_migrations', async () => {
