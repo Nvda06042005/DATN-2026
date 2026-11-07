@@ -81,7 +81,7 @@ export const SupportInbox: React.FC<{ session: Session }> = ({ session }) => {
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data ? (
         <>
-          <DataTable<Ticket> rows={list.data.items} rowKey={(t) => t.id} empty="Không có yêu cầu nào khớp bộ lọc." onRowPress={(t) => setOpen(t.id)}
+          <DataTable<Ticket> paginate={false} rows={list.data.items} rowKey={(t) => t.id} empty="Không có yêu cầu nào khớp bộ lọc." onRowPress={(t) => setOpen(t.id)}
             columns={[
               { key: 'subject', label: 'Yêu cầu', flex: 2.4, render: (t) => <Cell main={t.subject} sub={t.body} /> },
               { key: 'from', filter: f_role, label: 'Người gửi', flex: 1.4, render: (t) => <Cell main={t.user_name ?? '—'} sub={`${ROLE_TEXT[t.role] ?? t.role}${t.school_name ? ` · ${t.school_name}` : ''}`} /> },
@@ -170,7 +170,7 @@ const AuditTable: React.FC<{ session: Session }> = ({ session }) => {
       {data.loading && !data.data ? <Spinner /> : null}
       {data.data ? (
         <>
-          <DataTable<AuditItem> rows={data.data.items} rowKey={(i) => i.id} empty="Chưa có thao tác nào được ghi lại."
+          <DataTable<AuditItem> paginate={false} rows={data.data.items} rowKey={(i) => i.id} empty="Chưa có thao tác nào được ghi lại."
             columns={[
               { key: 'time', label: 'Thời điểm', render: (i) => <Txt size={13}>{when(i.created_at)}</Txt> },
               { key: 'who', filter: f_students, label: 'Người thực hiện', flex: 1.3, render: (i) => <Cell main={i.actor_name} sub={ROLE_TEXT[i.actor_role] ?? i.actor_role} /> },
@@ -202,7 +202,7 @@ const LoginTable: React.FC<{ session: Session }> = ({ session }) => {
       {data.loading && !data.data ? <Spinner /> : null}
       {data.data ? (
         <>
-          <DataTable<LoginItem> rows={data.data.items} rowKey={(i) => i.id} empty="Chưa có lượt đăng nhập nào."
+          <DataTable<LoginItem> paginate={false} rows={data.data.items} rowKey={(i) => i.id} empty="Chưa có lượt đăng nhập nào."
             columns={[
               { key: 'time', label: 'Thời điểm', render: (i) => <Txt size={13}>{when(i.created_at)}</Txt> },
               { key: 'user', label: 'Tài khoản', flex: 1.2, render: (i) => <Cell main={i.username} sub={i.school_name ?? undefined} /> },
@@ -238,7 +238,7 @@ const ErrorTable: React.FC<{ session: Session }> = ({ session }) => {
       {data.loading && !data.data ? <Spinner /> : null}
       {data.data ? (
         <>
-          <DataTable<ErrorItem> rows={data.data.items} rowKey={(i) => i.id} empty="Không có lỗi nào được ghi lại."
+          <DataTable<ErrorItem> paginate={false} rows={data.data.items} rowKey={(i) => i.id} empty="Không có lỗi nào được ghi lại."
             columns={[
               { key: 'time', label: 'Thời điểm', render: (i) => <Txt size={13}>{when(i.created_at)}</Txt> },
               { key: 'src', filter: f_source, label: 'Nguồn', render: (i) => <StatusChip kind={i.source === 'api' ? 'off' : 'warn'} text={SOURCE[i.source] ?? i.source} /> },

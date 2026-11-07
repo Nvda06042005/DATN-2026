@@ -69,7 +69,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
       {loading && !data ? <Spinner label="Đang tải danh sách…" /> : null}
       {data ? (
         <>
-          <DataTable rows={data.items} rowKey={(u) => u.id} empty={teacher ? 'Chưa có giáo viên nào khớp bộ lọc.' : 'Chưa có học sinh nào khớp bộ lọc.'} onRowPress={(u) => setOpen(u.id)}
+          <DataTable paginate={false} rows={data.items} rowKey={(u) => u.id} empty={teacher ? 'Chưa có giáo viên nào khớp bộ lọc.' : 'Chưa có học sinh nào khớp bộ lọc.'} onRowPress={(u) => setOpen(u.id)}
             columns={teacher ? [
               { key: 'name', label: 'Giáo viên', flex: 2, render: (u) => <Cell main={u.full_name} sub={u.username} /> },
               { key: 'email', label: 'Email / điện thoại', flex: 2, render: (u) => <Cell main={u.email || 'Chưa có email'} sub={u.phone} /> },

@@ -270,7 +270,7 @@ export const QuestionBank: React.FC<{ session: Session }> = ({ session }) => {
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data ? (
         <>
-          <DataTable<QuestionItem> rows={list.data.items} rowKey={(r) => r.id} onRowPress={(r) => setOpen(r.id)} empty="Chưa có câu hỏi nào phù hợp"
+          <DataTable<QuestionItem> paginate={false} rows={list.data.items} rowKey={(r) => r.id} onRowPress={(r) => setOpen(r.id)} empty="Chưa có câu hỏi nào phù hợp"
             columns={[
               { key: 'prompt', label: 'Câu hỏi', flex: 3.5, render: (r) => <Cell main={r.prompt} /> },
               { key: 'qtype', filter: f_qtype, label: 'Dạng', flex: 1.1, render: (r) => <Txt size={13}>{r.qtype_label}</Txt> },

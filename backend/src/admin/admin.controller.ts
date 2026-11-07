@@ -32,6 +32,8 @@ class SchoolQuery extends Page {
 class DirectoryQuery {
   @IsOptional() @IsString() @MaxLength(80) q?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(30) limit?: number;
+  /** Đang sửa một trường: không tính chính trường đó là "đã có" và báo bản ghi danh mục khớp với nó */
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) exclude_school_id?: number;
 }
 
 class SchoolScope {
@@ -68,6 +70,8 @@ class UpdateMySchoolDto {
 
 class UpdateSchoolDto extends UpdateMySchoolDto {
   @IsOptional() @IsString() @Length(1, 80) directory_code?: string;
+  /** Chỉ liên kết danh mục để lấy logo chính thức, không đổi tên, khu vực, địa chỉ */
+  @ValidateIf((_, v) => v !== undefined) @IsBoolean() link_only?: boolean;
   @IsOptional() @IsString() @MaxLength(80) region?: string | null;
   @IsOptional() @IsString() @MaxLength(80) city?: string | null;
   @ValidateIf((_, v) => v !== undefined) @IsBoolean() is_active?: boolean;
@@ -246,7 +250,7 @@ export class AdminController {
   /** Gợi ý trường từ danh mục khi thêm trường: chọn một trường thì mã, khu vực, tỉnh/thành và đường dẫn tự điền */
   @Get('school-directory')
   @Roles('root_admin')
-  async schoolDirectory(@Query() query: DirectoryQuery) { return { items: await this.schools.directory(query.q ?? '', query.limit ?? 30) }; }
+  async schoolDirectory(@Query() query: DirectoryQuery) { return this.schools.directory(query.q ?? '', query.limit ?? 30, query.exclude_school_id); }
 
   @Post('schools')
   @Roles('root_admin')

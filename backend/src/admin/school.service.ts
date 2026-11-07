@@ -9,7 +9,7 @@ import { generatePassword, hashPassword } from '../auth/passwords';
 import { config } from '../config';
 import { DatabaseService, DuplicateUsername, Q, UserRow } from '../database/database.service';
 import { MailService } from './mail.service';
-import { DirectoryEntry, directoryEntry, foldVi, schoolSlug, searchDirectory } from './school-directory';
+import { DirectoryEntry, directoryEntry, foldVi, nameWords, sameSchoolName, schoolSlug, searchDirectory } from './school-directory';
 import { currentSchoolLogo } from './school-brand';
 
 export const GRADES = [6, 7, 8, 9] as const;
@@ -50,6 +50,8 @@ export const schoolLink = (s: { school_code: string; name: string; region?: stri
   return { slug, path: `/${slug}`, url: `${config.appUrl}/${slug}` };
 };
 const withLink = <T extends { school_code: string; name: string; region: string | null }>(row: T): T & { link: SchoolLink } => ({ ...row, link: schoolLink(row) });
+
+const describeSchool = (s: { name: string; school_code: string; region?: string | null }): string => `“${s.name}” (mã ${s.school_code}${s.region ? `, ${s.region}` : ''})`;
 
 const trimOrNull = (v: unknown): string | null => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') || null : null);
 
@@ -117,14 +119,25 @@ export class SchoolService {
   }
 
   /** Gợi ý trường từ danh mục khi thêm trường: kèm cờ đã có trong hệ thống và đường dẫn sẽ được tạo */
-  async directory(query: string, limit = 12): Promise<Array<DirectoryEntry & { exists: boolean; slug: string }>> {
+  async directory(query: string, limit = 12, excludeSchoolId?: number): Promise<{ items: Array<DirectoryEntry & { exists: boolean; existing_code: string | null; matches_school: boolean; slug: string }>; duplicates: Array<{ id: number; school_code: string; name: string; region: string | null; city: string | null; directory_code: string | null }> }> {
     const found = searchDirectory(query, limit);
-    if (!found.length) return [];
+    // trường đã có cùng tên với chữ đang gõ (kể cả trường nhập tay chưa gắn danh mục): báo trước để không tạo thêm một trường nữa
+    const typed = query.trim().length >= 3 ? query.trim() : '';
+    const schools = await this.db.query<{ id: number; school_code: string; name: string; region: string | null; city: string | null; directory_code: string | null }>('SELECT id, school_code, name, region, city, directory_code FROM app_schools WHERE ($1::integer IS NULL OR id <> $1)', [excludeSchoolId ?? null]);
+    const duplicates = typed ? schools.filter(s => nameWords(s.name) === nameWords(typed)) : [];
+    const own = excludeSchoolId ? (await this.db.query<{ name: string; city: string | null }>('SELECT name, city FROM app_schools WHERE id = $1', [excludeSchoolId]))[0] : null;
+    if (!found.length) return { items: [], duplicates };
     const stored = await this.db.query<{code: string; logo_sha256: string | null}>('SELECT code, logo_sha256 FROM public.app_school_directory WHERE code = ANY($1::text[])', [found.map(entry => entry.code)]);
     const logos = new Map(stored.map(row => [row.code, row.logo_sha256 ? `${config.publicApiUrl}/api/school-logos/${row.logo_sha256}.webp` : null]));
     const keys = found.flatMap(entry => [entry.code, ...(entry.previous_codes ?? [])]);
-    const used = await this.db.query<{ school_code: string; directory_code: string | null }>('SELECT school_code, directory_code FROM app_schools WHERE directory_code = ANY($1::text[]) OR (directory_code IS NULL AND school_code = ANY($1::text[]))', [keys]);
-    return found.map(e => ({ ...e, logo_url: logos.get(e.code) ?? null, exists: used.some(row => [e.code, ...(e.previous_codes ?? [])].includes(row.directory_code ?? row.school_code)), slug: schoolSlug({ school_code: e.code, name: e.name, region: e.region }) }));
+    const used = await this.db.query<{ school_code: string; directory_code: string | null }>('SELECT school_code, directory_code FROM app_schools WHERE ($2::integer IS NULL OR id <> $2) AND (directory_code = ANY($1::text[]) OR (directory_code IS NULL AND school_code = ANY($1::text[])))', [keys, excludeSchoolId ?? null]);
+    const items = found.map(e => {
+      const linked = used.find(row => [e.code, ...(e.previous_codes ?? [])].includes(row.directory_code ?? row.school_code));
+      // trường nhập tay chưa gắn danh mục nhưng trùng tên và tỉnh/thành: vẫn là trường đã có
+      const twin = linked ? null : schools.find(s => !s.directory_code && sameSchoolName(s, e));
+      return { ...e, logo_url: logos.get(e.code) ?? null, exists: !!linked || !!twin, existing_code: linked?.school_code ?? twin?.school_code ?? null, matches_school: !!own && sameSchoolName(own, e), slug: schoolSlug({ school_code: e.code, name: e.name, region: e.region }) };
+    });
+    return { items, duplicates };
   }
 
   async detail(actor: UserRow, id: number) {
@@ -161,6 +174,10 @@ export class SchoolService {
         const keys = [selected.code, ...(selected.previous_codes ?? [])];
         if ((await q('SELECT 1 FROM app_schools WHERE directory_code = ANY($1::text[]) OR (directory_code IS NULL AND school_code = ANY($1::text[]))', [keys])).length) throw new ConflictException('Trường được chọn đã có trong hệ thống');
       }
+      // không tạo thêm một trường đã có: chọn từ danh mục thì chặn trường nhập tay chưa gắn danh mục cùng tên; nhập tay thì chặn mọi trường cùng tên và tỉnh/thành
+      const candidate = { name: selected?.name ?? body.name, city: selected?.city ?? body.city };
+      const twin = (await q<SchoolRow>('SELECT * FROM app_schools')).find(s => (!selected || !s.directory_code) && sameSchoolName(s, candidate));
+      if (twin) throw new ConflictException(`Trường ${describeSchool(twin)} đã có trong hệ thống nên không tạo thêm. ${twin.directory_code ? '' : 'Hãy mở trường đó trong danh sách, bấm “Sửa” và chọn đúng trường trong danh mục để dùng logo chính thức.'}`.trim());
       const code = manualCode || (await q<{ code: string }>('SELECT public.next_school_registration_code() AS code'))[0].code;
       const logoHash = selected ? (await q<{logo_sha256: string | null}>('SELECT logo_sha256 FROM public.app_school_directory WHERE code = $1', [selected.code]))[0]?.logo_sha256 : null;
       if ((await q('SELECT 1 FROM app_schools WHERE school_code = $1', [code])).length) throw new ConflictException(`Mã trường ${code} đã có trong hệ thống`);
@@ -188,7 +205,7 @@ export class SchoolService {
     }).then((result) => { this.mail.kick(); return result; });
   }
 
-  async update(id: number, body: { directory_code?: string; name?: string; region?: string | null; city?: string | null; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null; logo_url?: string | null; is_active?: boolean }) {
+  async update(id: number, body: { directory_code?: string; link_only?: boolean; name?: string; region?: string | null; city?: string | null; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null; logo_url?: string | null; is_active?: boolean }) {
     return this.db.tx(async (q) => {
       const old = (await q<SchoolRow>('SELECT * FROM app_schools WHERE id = $1 FOR UPDATE', [id]))[0];
       if (!old) throw new NotFoundException('Không tìm thấy trường');
@@ -199,8 +216,11 @@ export class SchoolService {
         const keys = [selected.code, ...(selected.previous_codes ?? [])];
         if ((await q('SELECT 1 FROM app_schools WHERE id <> $1 AND (directory_code = ANY($2::text[]) OR (directory_code IS NULL AND school_code = ANY($2::text[])))', [id, keys])).length) throw new ConflictException('Trường được chọn đã liên kết với trường khác trong hệ thống');
         const logo = (await q<{logo_sha256: string | null}>('SELECT logo_sha256 FROM app_school_directory WHERE code=$1', [selected.code]))[0]?.logo_sha256;
-        body = { ...body, directory_code: selected.code, name: selected.name, city: selected.city, region: selected.region,
-          address: selected.address ?? body.address ?? old.address, logo_url: logo ? `${config.publicApiUrl}/api/school-logos/${logo}.webp` : body.logo_url ?? old.logo_url };
+        const logoUrl = logo ? `${config.publicApiUrl}/api/school-logos/${logo}.webp` : body.logo_url ?? old.logo_url;
+        // link_only: chỉ gắn trường với danh mục để lấy mã danh mục và logo chính thức, giữ nguyên tên, khu vực, địa chỉ đang dùng (đường dẫn riêng của trường không đổi)
+        body = body.link_only
+          ? { directory_code: selected.code, logo_url: logoUrl }
+          : { ...body, directory_code: selected.code, name: selected.name, city: selected.city, region: selected.region, address: selected.address ?? body.address ?? old.address, logo_url: logoUrl };
       }
       const entries = Object.entries(body).filter(([k, v]) => ['directory_code', 'name', 'region', 'city', 'address', 'contact_name', 'contact_email', 'contact_phone', 'logo_url', 'is_active'].includes(k) && v !== undefined);
       if (entries.length) {

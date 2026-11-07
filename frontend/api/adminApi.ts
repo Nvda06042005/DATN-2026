@@ -2,7 +2,7 @@
 import { apiBlob, apiRequest, apiUpload, type PickedFile } from '@/api/client';
 import type {
   Account, AccountDetail, AuthRole, ClassDetail, ClassEvent, ClassItem, CloneResult, CreatedAccount, CreatedSchool, Gender, GradeRow, HistoryDiff, HistoryEntity, HistoryImportResult,
-  HistoryList, HistoryRecord, HistorySpec, HistoryStatus, HistoryVersion, ImportResult, MemberInput, Paged, SchoolDetail, SchoolDirectoryItem, SchoolItem, TimelineView, YearItem,
+  HistoryList, HistoryRecord, HistorySpec, HistoryStatus, HistoryVersion, ImportResult, MemberInput, Paged, SchoolDetail, SchoolDirectoryItem, SchoolDuplicate, SchoolItem, TimelineView, YearItem,
 } from '@/types/api';
 
 type Query = Record<string, string | number | boolean | null | undefined>;
@@ -14,7 +14,7 @@ const qs = (query: Query = {}) => {
 // ---------------------------------------------------------------------- trường học (HK.AD.011–017)
 export const listSchools = (token: string, query: Query) => apiRequest<Paged<SchoolItem> & { facets: { cities: string[]; regions: string[] } }>(`/api/admin/schools${qs(query)}`, { token });
 /** Gợi ý trường từ danh mục khi thêm trường (gõ tên, mã hoặc quận/huyện) */
-export const searchSchoolDirectory = (token: string, q: string) => apiRequest<{ items: SchoolDirectoryItem[] }>(`/api/admin/school-directory${qs({ q, limit: 30 })}`, { token });
+export const searchSchoolDirectory = (token: string, q: string, excludeSchoolId?: number) => apiRequest<{ items: SchoolDirectoryItem[]; duplicates: SchoolDuplicate[] }>(`/api/admin/school-directory${qs({ q, limit: 30, exclude_school_id: excludeSchoolId })}`, { token });
 export const getSchool = (token: string, id: number) => apiRequest<SchoolDetail>(`/api/admin/schools/${id}`, { token });
 export const createSchool = (token: string, body: Record<string, unknown>) => apiRequest<CreatedSchool>('/api/admin/schools', { token, body });
 export const updateSchool = (token: string, id: number, body: Record<string, unknown>) => apiRequest<SchoolItem>(`/api/admin/schools/${id}`, { token, method: 'PATCH', body });

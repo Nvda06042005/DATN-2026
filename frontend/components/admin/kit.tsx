@@ -2,7 +2,7 @@
  * Bộ thành phần dùng chung của các cổng quản trị: tải dữ liệu, bảng/danh sách thích ứng, thanh lọc, phân trang, biểu mẫu từ mô tả,
  * chọn nhiều, hiển thị mật khẩu tạm một lần, nhập Excel có xem trước. Giao diện phẳng (AdminUiContext) theo bảng màu sáng của dự án.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Modal, Platform, Pressable, ScrollView, TextInput, View, useWindowDimensions } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { AlertTriangle, Check, CheckSquare, ChevronDown, ChevronLeft, ChevronRight, Download, FileUp, Funnel, Search, SlidersHorizontal, Square, X } from 'lucide-react-native';
@@ -12,7 +12,7 @@ import { Btn, Card, Chip, EmptyState, Field, Inset, Sheet, Spinner, Txt, useToas
 import { FONT } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { copyText } from '@/lib/clipboard';
-import { pageSizeFor, pageWindow, TABLE_MIN_WIDTH } from '@/lib/paging';
+import { DEFAULT_PAGE_SIZE, getPageSize, PAGE_SIZES, pageWindow, setPageSize, subscribePageSize, TABLE_MIN_WIDTH } from '@/lib/paging';
 import { splitTitle } from '@/lib/title-split';
 import type { ImportResult } from '@/types/api';
 
@@ -185,17 +185,29 @@ export const SearchFilterBar: React.FC<{ placeholder: string; value: string; onC
   );
 };
 
-/** Số dòng mỗi trang để bảng và nút chuyển trang vừa một màn hình, không phải cuộn dài xuống (cách tính ở lib/paging.ts) */
-export const usePageSize = (): number => {
-  const { width, height } = useWindowDimensions();
-  return pageSizeFor(width, height);
+/** Số dòng mỗi trang do người dùng chọn ở ô chọn cạnh nút chuyển trang (10, 25 hoặc 30); dùng chung cho mọi bảng quản trị (cách lưu ở lib/paging.ts) */
+export const usePageSize = (): number => useSyncExternalStore(subscribePageSize, getPageSize, () => DEFAULT_PAGE_SIZE);
+
+/** Ô chọn số dòng mỗi trang; đổi thì mọi bảng đổi theo và quay về trang 1 */
+const PageSizeSelect: React.FC<{ onChanged: () => void }> = ({ onChanged }) => {
+  const { c } = useTheme();
+  const size = usePageSize();
+  return (
+    <View testID="page-size" style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <Txt size={12} color={c.muc2}>Số dòng</Txt>
+      <View style={{ width: 76 }}>
+        <AdminSelect<number> compact bare label="Số dòng mỗi trang" value={size} options={PAGE_SIZES.map((n) => ({ value: n, label: String(n) }))} testID="page-size-select" onChange={(n) => { setPageSize(n); onChanged(); }} />
+      </View>
+    </View>
+  );
 };
 
-/** Nút chuyển trang: Trước, các số trang, Sau; chỉ hiện khi có nhiều hơn một trang (còn không thì chỉ ghi số kết quả) */
+/** Nút chuyển trang: Trước, các số trang, Sau và ô chọn số dòng mỗi trang (khi nhiều hơn 10 kết quả); chỉ có một trang thì chỉ ghi số kết quả */
 export const Pager: React.FC<{ page: number; limit: number; total: number; onPage: (page: number) => void }> = ({ page, limit, total, onPage }) => {
   const { c } = useTheme();
   const pages = Math.max(1, Math.ceil(total / limit));
-  if (total <= limit) return <Txt size={13} color={c.muc3}>{total} kết quả</Txt>;
+  const sizeSelect = total > PAGE_SIZES[0] ? <PageSizeSelect onChanged={() => onPage(1)} /> : null;
+  if (total <= limit) return sizeSelect ? <View testID="pager" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', columnGap: 14, rowGap: 8 }}><Txt size={13} color={c.muc3}>{total} kết quả</Txt>{sizeSelect}</View> : <Txt size={13} color={c.muc3}>{total} kết quả</Txt>;
   const from = (page - 1) * limit + 1, to = Math.min(total, page * limit);
   const pill = (props: { key: string; testID: string; label: string; disabled?: boolean; on?: boolean; onPress: () => void; children: React.ReactNode }) => (
     <Pressable key={props.key} testID={props.testID} accessibilityRole="button" accessibilityLabel={props.label} accessibilityState={{ disabled: props.disabled, selected: props.on }} disabled={props.disabled} onPress={props.onPress}
@@ -213,6 +225,7 @@ export const Pager: React.FC<{ page: number; limit: number; total: number; onPag
           : pill({ key: `p${n}`, testID: `pager-page-${n}`, label: `Trang ${n}`, on: n === page, onPress: () => onPage(n), children: <Txt f="bold" size={12} color={n === page ? c.trang : c.logoInk}>{n}</Txt> }))}
         {pill({ key: 'next', testID: 'pager-next', label: 'Trang sau', disabled: page >= pages, onPress: () => onPage(page + 1), children: <><Txt f="bold" size={12}>Sau</Txt><ChevronRight size={14} color={c.logoInk} /></> })}
       </View>
+      {sizeSelect}
     </View>
   );
 };
@@ -319,7 +332,8 @@ export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions
   const filterable = table && columns.some((col) => col.filter);
   if (!rows.length && !filterable) return <EmptyState mood="thinking" title={empty} />;
   const shown = paged ? rows.slice((current - 1) * size, current * size) : rows;
-  const pager = paged ? <Pager page={current} limit={size} total={rows.length} onPage={setPage} /> : null;
+  // bảng nhiều hơn 10 dòng luôn có ô chọn số dòng, kể cả khi đang chọn 25 hoặc 30 và cả bảng vừa một trang
+  const pager = paginate && rows.length > PAGE_SIZES[0] ? <Pager page={current} limit={size} total={rows.length} onPage={setPage} /> : null;
   if (!table) {
     return (
       <View style={{ gap: 10 }}>

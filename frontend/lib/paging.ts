@@ -1,19 +1,45 @@
-/** Chia trang cho các bảng quản trị: số dòng mỗi trang theo chiều cao màn hình, và dãy số trang hiện ra ở nút chuyển trang. */
+/** Chia trang cho các bảng quản trị: số dòng mỗi trang do người dùng chọn (10, 25 hoặc 30), và dãy số trang hiện ra ở nút chuyển trang. */
 
-/** Từ độ rộng này bảng chuyển sang danh sách thẻ (mỗi thẻ cao khoảng 190 px) */
+/** Từ độ rộng này bảng chuyển sang danh sách thẻ */
 export const TABLE_MIN_WIDTH = 1000;
-const CARDS_PER_PAGE = 5;
-/** Phần trên bảng (thanh đầu, tiêu đề, bộ lọc) + hàng tiêu đề, nút chuyển trang và chân trang chiếm khoảng 540 px */
-const RESERVED_HEIGHT = 540;
-/** Mỗi dòng của bảng cao khoảng 68 px */
-const ROW_HEIGHT = 68;
-export const MIN_PAGE_SIZE = 5;
-export const MAX_PAGE_SIZE = 30;
 
-/** Số dòng mỗi trang để cả bảng và nút chuyển trang vừa một màn hình, không phải cuộn dài xuống */
-export function pageSizeFor(width: number, height: number): number {
-  if (width < TABLE_MIN_WIDTH) return CARDS_PER_PAGE;
-  return Math.max(MIN_PAGE_SIZE, Math.min(MAX_PAGE_SIZE, Math.floor((height - RESERVED_HEIGHT) / ROW_HEIGHT)));
+/** Các mức số dòng mỗi trang trong ô chọn cạnh nút chuyển trang */
+export const PAGE_SIZES = [10, 25, 30] as const;
+export const DEFAULT_PAGE_SIZE = 10;
+const STORE_KEY = 'donga_admin_page_size';
+
+/** Giá trị không hợp lệ (hỏng bộ nhớ, sửa tay) quay về mặc định 10 */
+export const parsePageSize = (raw: unknown): number => {
+  const n = Number(raw);
+  return (PAGE_SIZES as readonly number[]).includes(n) ? n : DEFAULT_PAGE_SIZE;
+};
+
+let current: number = DEFAULT_PAGE_SIZE;
+let loaded = false;
+const listeners = new Set<() => void>();
+const webStore = (): Storage | null => {
+  try { return typeof window !== 'undefined' ? window.localStorage : null; } catch { return null; } // trình duyệt chặn lưu trữ: chỉ nhớ tới khi tải lại trang
+};
+
+/** Số dòng mỗi trang đang chọn; lần đầu đọc từ bộ nhớ trình duyệt (chỉ trên web) */
+export function getPageSize(): number {
+  if (!loaded) { loaded = true; current = parsePageSize(webStore()?.getItem(STORE_KEY)); }
+  return current;
+}
+
+/** Đổi số dòng mỗi trang cho mọi bảng quản trị cùng lúc và nhớ cho lần mở sau */
+export function setPageSize(size: number): void {
+  const next = parsePageSize(size);
+  if (loaded && next === current) return;
+  loaded = true;
+  current = next;
+  try { webStore()?.setItem(STORE_KEY, String(next)); } catch { /* không lưu được: giữ cho tới khi tải lại trang */ }
+  listeners.forEach((listener) => listener());
+}
+
+export function subscribePageSize(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
 }
 
 /** Các số trang hiện ra: luôn có trang đầu, trang cuối và trang kề trang đang xem; chỗ cách quãng là "…" */
