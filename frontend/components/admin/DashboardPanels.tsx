@@ -3,8 +3,9 @@ import { View } from 'react-native';
 import { BookOpen, Brain, GraduationCap, Swords, Trophy } from 'lucide-react-native';
 import { Card, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import { fmtPct } from '@/components/charts';
 import { fmt } from '@/lib/format';
-import type { AiUsage, ContentRow, ContentStats, Usage } from '@/types/analytics';
+import type { AiUsage, ContentRow, ContentStats, ResultGroup, Usage } from '@/types/analytics';
 
 /**
  * Các thẻ nhỏ của trang "Thống kê hệ thống" (một màn hình, không cuộn). Dữ liệu do SystemDashboard tải; thẻ chỉ trình bày.
@@ -35,21 +36,22 @@ function Waiting({ text }: { text: string }) {
 }
 
 /** Cơ cấu tài khoản đang hoạt động theo vai trò: thanh chồng và bốn dòng số liệu. */
-export function RolesCard({ roles, newUsers }: { roles: Record<string, number>; newUsers: number }) {
+export function RolesCard({ roles, newUsers, only }: { roles: Record<string, number>; newUsers?: number; only?: string[] }) {
   const { c } = useTheme();
+  const shown = only ? ROLES.filter((role) => only.includes(role.key)) : ROLES;
   const total = Object.values(roles).reduce((sum, n) => sum + n, 0);
   return <Card flat pad={12} style={cardStyle} testID="dashboard-roles">
     <Title title="Cơ cấu người dùng" note={`${fmt(total)} tài khoản`} />
     <View style={{ height: 8, borderRadius: 4, overflow: 'hidden', flexDirection: 'row', backgroundColor: c.adminLine }}>
-      {ROLES.map((role) => (roles[role.key] ?? 0) > 0 ? <View key={role.key} style={{ flex: roles[role.key], backgroundColor: role.color }} /> : null)}
+      {shown.map((role) => (roles[role.key] ?? 0) > 0 ? <View key={role.key} style={{ flex: roles[role.key], backgroundColor: role.color }} /> : null)}
     </View>
-    {ROLES.map((role) => <View key={role.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+    {shown.map((role) => <View key={role.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: role.color }} />
       <Txt size={12} color={c.muc2} style={{ flex: 1 }}>{role.label}</Txt>
       <Txt f="bold" size={13}>{fmt(roles[role.key] ?? 0)}</Txt>
       <Txt size={11} color={c.muc3} style={{ width: 34, textAlign: 'right' }}>{percentOf(roles[role.key] ?? 0, total)}%</Txt>
     </View>)}
-    <Txt size={11} color={c.muc3}>Tài khoản mới 30 ngày: <Txt f="bold" size={11} color={c.muc2}>+{fmt(newUsers)}</Txt></Txt>
+    {newUsers != null ? <Txt size={11} color={c.muc3}>Tài khoản mới 30 ngày: <Txt f="bold" size={11} color={c.muc2}>+{fmt(newUsers)}</Txt></Txt> : null}
   </Card>;
 }
 
@@ -103,15 +105,32 @@ export function UsageCard({ d, days }: { d: Usage | null; days: number }) {
   </Card>;
 }
 
+/** Kết quả học tập theo khối (quản trị trường): mỗi khối một dòng gồm tên khối, số học sinh, điểm trung bình và thanh điểm. `null` là đang tải. */
+export function ResultsCard({ groups }: { groups: ResultGroup[] | null }) {
+  const { c } = useTheme();
+  return <Card flat pad={12} style={cardStyle} testID="school-results">
+    <Title title="Kết quả theo khối" note="điểm trung bình" />
+    {!groups ? <Waiting text="Đang tải kết quả học tập…" /> : !groups.length ? <Waiting text="Chưa có dữ liệu kết quả." /> : groups.slice(0, 4).map((g) => (
+      <View key={g.key} accessible accessibilityLabel={`${g.label}: ${g.students} học sinh, điểm trung bình ${fmtPct(g.avg_percent)}, ${fmtPct(g.participation)} học sinh tham gia`} style={{ gap: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Txt size={12} color={c.muc2} numberOfLines={1} style={{ flex: 1 }}>{g.label} · {fmt(g.students)} học sinh</Txt>
+          <Txt f="bold" size={13}>{fmtPct(g.avg_percent)}</Txt>
+        </View>
+        <View style={{ height: 4, borderRadius: 2, backgroundColor: c.adminLine }}><View style={{ width: `${Math.max(0, Math.min(100, g.avg_percent ?? 0))}%`, height: 4, borderRadius: 2, backgroundColor: GREEN }} /></View>
+      </View>
+    ))}
+  </Card>;
+}
+
 /** Trợ lý AI Tiểu Tướng: số câu hỏi, người dùng, token, chi phí ước tính và các tư liệu được hỏi nhiều (kiểu bảng xếp hạng). */
-export function AiCard({ d, days, topN }: { d: AiUsage | null; days: number; topN: number }) {
+export function AiCard({ d, days, topN, money = true }: { d: AiUsage | null; days: number; topN: number; /** Quản trị trường không xem chi phí: hiện hạn mức câu hỏi hôm nay thay vào đó */ money?: boolean }) {
   const { c } = useTheme();
   const priced = !!d && (d.price.price_in > 0 || d.price.price_out > 0);
   const stats = d ? [
     ['Câu hỏi', fmt(d.questions)],
     ['Người dùng AI', fmt(d.users)],
     ['Token đã dùng', fmt(d.tokens_in + d.tokens_out)],
-    ['Chi phí ước tính', priced ? `${d.cost_usd.toLocaleString('vi-VN', { maximumFractionDigits: 4 })} USD` : 'Chưa có giá'],
+    money ? ['Chi phí ước tính', priced ? `${d.cost_usd.toLocaleString('vi-VN', { maximumFractionDigits: 4 })} USD` : 'Chưa có giá'] : ['Hạn mức hôm nay', d.quota ? `${fmt(d.quota.used_today)} / ${fmt(d.quota.limit)}` : '—'],
   ] : [];
   const top = Math.max(1, ...(d?.topics ?? []).map((t) => t.asked));
   return <Card flat pad={12} style={cardStyle} testID="dashboard-ai">

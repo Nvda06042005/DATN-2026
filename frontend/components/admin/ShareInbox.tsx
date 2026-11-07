@@ -6,8 +6,7 @@ import React, { useState } from 'react';
 import { View } from 'react-native';
 import { Check, Trash2, X } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
-import { AdminSelect } from '@/components/admin/AdminSelect';
-import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, Page, PageHeader, StatusChip, useAction, useLoad } from '@/components/admin/kit';
+import { Cell, DataTable, ErrorNote, Page, PageHeader, SearchFilterBar, StatusChip, useAction, useLoad, type SearchFilter } from '@/components/admin/kit';
 import { dateText } from '@/components/admin/AccountSheet';
 import type { Session } from '@/components/auth';
 import { Btn, Card, Field, Sheet, Spinner, Txt } from '@/components/ui';
@@ -109,23 +108,26 @@ export const ShareInbox: React.FC<{ session: Session }> = ({ session }) => {
   const [open, setOpen] = useState<number | null>(null);
   const list = useLoad(() => api.listShares(session.token, { status, entity }), [session.token, status, entity], session.expired);
   const { busy, run } = useAction(session.expired);
+  const [q, setQ] = useState('');
+  const term = q.trim().toLowerCase();
+  const rows = (list.data ?? []).filter((r) => !term || `${r.title} ${r.requester ?? ''} ${r.school_name ?? ''}`.toLowerCase().includes(term));
+  const f_status: SearchFilter = { key: 'status', label: 'Trạng thái', value: status, options: [{ value: '', label: 'Tất cả' }, { value: 'pending', label: 'Chờ duyệt' }, { value: 'approved', label: 'Đã duyệt' }, { value: 'rejected', label: 'Bị từ chối' }], onChange: setStatus };
+  const f_entity: SearchFilter = { key: 'entity', label: 'Loại nội dung', value: entity, options: [{ value: '', label: 'Tất cả' }, { value: 'question', label: 'Câu hỏi' }, { value: 'quiz', label: 'Bộ đề' }, { value: 'journey', label: 'Hành trình' }], onChange: setEntity };
   return (
     <Page>
       <PageHeader title={reviewer ? 'Duyệt nội dung' : 'Nội dung đã gửi'}
         subtitle={role === 'root_admin' ? 'Câu hỏi, bộ đề, hành trình do các trường đề xuất lên kho hệ thống.' : role === 'school_admin' ? 'Câu hỏi, bộ đề, hành trình giáo viên chia sẻ vào kho chung của trường, và nội dung trường đã đề xuất lên hệ thống.' : 'Theo dõi câu hỏi, bộ đề, hành trình đã gửi vào kho chung của trường. Có thể rút lại khi còn chờ duyệt.'} />
-      <FilterBar>
-        <FilterBox><AdminSelect label="Trạng thái" value={status} options={[{ value: '', label: 'Tất cả' }, { value: 'pending', label: 'Chờ duyệt' }, { value: 'approved', label: 'Đã duyệt' }, { value: 'rejected', label: 'Bị từ chối' }]} onChange={setStatus} testID="share-status" /></FilterBox>
-        <FilterBox><AdminSelect label="Loại nội dung" value={entity} options={[{ value: '', label: 'Tất cả' }, { value: 'question', label: 'Câu hỏi' }, { value: 'quiz', label: 'Bộ đề' }, { value: 'journey', label: 'Hành trình' }]} onChange={setEntity} /></FilterBox>
-      </FilterBar>
+      <SearchFilterBar placeholder="Tìm theo tên nội dung hoặc người gửi" value={q} onChange={setQ} searchId="share-search" filters={[f_status, f_entity]} />
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data ? (
-        <DataTable<ShareItem> rows={list.data} rowKey={(r) => r.id} onRowPress={(r) => setOpen(r.id)} empty={status === 'pending' ? 'Không có nội dung nào chờ duyệt' : 'Chưa có nội dung nào'}
+        <DataTable<ShareItem> rows={rows} rowKey={(r) => r.id} onRowPress={(r) => setOpen(r.id)} empty={status === 'pending' ? 'Không có nội dung nào chờ duyệt' : 'Chưa có nội dung nào'}
           columns={[
-            { key: 'title', label: 'Nội dung', flex: 3, render: (r) => <Cell main={r.title} sub={r.entity_label} /> },
+            { key: 'title', label: 'Nội dung', flex: 3, render: (r) => <Cell main={r.title} /> },
+            { key: 'entity', filter: f_entity, label: 'Loại', flex: 1, render: (r) => <Txt size={13}>{r.entity_label}</Txt> },
             { key: 'target', label: 'Gửi tới', flex: 1.2, render: (r) => <Txt size={13}>{r.target === 'school' ? 'Kho của trường' : 'Kho hệ thống'}</Txt> },
             { key: 'who', label: 'Người gửi', flex: 1.5, render: (r) => <Cell main={r.requester ?? '—'} sub={r.school_name} /> },
-            { key: 'status', label: 'Trạng thái', flex: 1.2, render: (r) => <StatusChip kind={STATUS_KIND[r.status]} text={STATUS_TEXT[r.status]} /> },
+            { key: 'status', filter: f_status, label: 'Trạng thái', flex: 1.2, render: (r) => <StatusChip kind={STATUS_KIND[r.status]} text={STATUS_TEXT[r.status]} /> },
             { key: 'time', label: 'Ngày gửi', flex: 1, hideOnCard: true, render: (r) => <Txt size={13}>{dateText(r.created_at)}</Txt> },
           ]}
           actions={role === 'teacher' || role === 'school_admin' ? (r) => (r.status === 'pending' && r.requested_by === session.user.id

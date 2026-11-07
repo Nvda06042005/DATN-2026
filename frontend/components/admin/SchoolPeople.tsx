@@ -3,15 +3,18 @@
  * xuất Excel; mở một người để sửa, khóa, đặt lại mật khẩu, xóa (AccountSheet).
  */
 import React, { useMemo, useState } from 'react';
+import { View } from 'react-native';
 import { FileUp, Plus } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AccountSheet, dateText, GENDER_TEXT } from '@/components/admin/AccountSheet';
 import { AdminSelect } from '@/components/admin/AdminSelect';
-import { Cell, CredentialSheet, DataTable, DownloadButton, ErrorNote, FilterBar, FilterBox, FormSheet, ImportSheet, Page, PageHeader, Pager, StatusChip, useDebounced, useLoad, yearOptions, type FieldDef, usePageSize } from '@/components/admin/kit';
+import { Cell, CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, ImportSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useDebounced, useLoad, yearOptions, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
-import { Btn, Field, Spinner, Txt } from '@/components/ui';
+import { Btn, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { CreatedAccount, YearItem } from '@/types/api';
+
+const SUBJECTS = ['Lịch sử', 'Địa lí', 'Ngữ văn', 'Toán', 'Tiếng Anh', 'Khoa học tự nhiên', 'Giáo dục công dân', 'Tin học'].map((value) => ({ value, label: value }));
 
 export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'students'; years: YearItem[] }> = ({ session, kind, years }) => {
   const { c } = useTheme();
@@ -31,6 +34,11 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const { data, error, loading, reload } = useLoad(() => api.listMembers(token, kind, { ...query, page, limit: size } as never), [token, kind, dq, active, ds, grade, classId, page, size], session.expired);
   const { data: classes } = useLoad(() => api.listClasses(token, { year_id: yearId || undefined, limit: 200 }), [token, yearId], session.expired);
   const classOptions = useMemo(() => (classes?.items ?? []).filter((x) => x.is_active).map((x) => ({ value: String(x.id), label: x.name })), [classes]);
+  // mỗi bộ lọc khai báo một lần: nút mũi tên ở tiêu đề cột (màn rộng) và nút "Bộ lọc" của thanh tìm kiếm (màn hẹp) dùng chung
+  const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }], onChange: (v) => { setActive(v); setPage(1); } };
+  const f_subject: SearchFilter = { key: 'subject', label: 'Bộ môn', custom: true, value: subject, options: [{ value: '', label: 'Mọi bộ môn' }, ...SUBJECTS], onChange: (v) => { setSubject(v); setPage(1); } };
+  const f_grade: SearchFilter = { key: 'grade', label: 'Khối', value: grade, options: [{ value: '', label: 'Mọi khối' }, ...[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }))], onChange: (v) => { setGrade(v); setPage(1); } };
+  const f_class: SearchFilter = { key: 'class', label: 'Lớp', value: classId, options: [{ value: '', label: 'Mọi lớp' }, ...classOptions], onChange: (v) => { setClassId(v); setPage(1); } };
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -54,17 +62,9 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
           <Btn title="Nhập từ Excel" icon={FileUp} tone="giay" size="sm" onPress={() => setImporting(true)} testID="import-open" />
           <Btn title={teacher ? 'Thêm giáo viên' : 'Thêm học sinh'} icon={Plus} tone="son" size="sm" onPress={() => setCreating(true)} testID="member-add" />
         </>} />
-      <FilterBar>
-        <FilterBox flex={2}><Field label={teacher ? 'Tìm theo tên, email' : 'Tìm theo tên, mã học sinh'} value={q} onChangeText={(v) => { setQ(v); setPage(1); }} autoCapitalize="none" /></FilterBox>
-        {teacher ? <FilterBox><Field label="Bộ môn" value={subject} onChangeText={(v) => { setSubject(v); setPage(1); }} /></FilterBox> : (
-          <>
-            <FilterBox><AdminSelect label="Năm học (để lọc lớp)" value={String(yearId)} options={yearOptions(years)} onChange={(v) => { setYearSel(String(v)); setClassId(''); setPage(1); }} /></FilterBox>
-            <FilterBox><AdminSelect label="Khối" value={grade} options={[{ value: '', label: 'Mọi khối' }, ...[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }))]} onChange={(v) => { setGrade(String(v)); setPage(1); }} /></FilterBox>
-            <FilterBox><AdminSelect label="Lớp" value={classId} options={[{ value: '', label: 'Mọi lớp' }, ...classOptions]} onChange={(v) => { setClassId(String(v)); setPage(1); }} /></FilterBox>
-          </>
-        )}
-        <FilterBox><AdminSelect label="Trạng thái tài khoản" value={active} options={[{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }]} onChange={(v) => { setActive(String(v)); setPage(1); }} /></FilterBox>
-      </FilterBar>
+      <SearchFilterBar placeholder={teacher ? 'Tìm theo tên, email' : 'Tìm theo tên, mã học sinh'} value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="member-search"
+        filters={teacher ? [f_subject, f_active] : [f_grade, f_class, f_active]}
+        extra={teacher ? null : <View style={{ width: 270 }}><AdminSelect bare label="Năm học (để lọc lớp)" value={String(yearId)} options={yearOptions(years)} onChange={(v) => { setYearSel(String(v)); setClassId(''); setPage(1); }} testID="member-year" /></View>} />
       <ErrorNote message={error} />
       {loading && !data ? <Spinner label="Đang tải danh sách…" /> : null}
       {data ? (
@@ -73,15 +73,16 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
             columns={teacher ? [
               { key: 'name', label: 'Giáo viên', flex: 2, render: (u) => <Cell main={u.full_name} sub={u.username} /> },
               { key: 'email', label: 'Email / điện thoại', flex: 2, render: (u) => <Cell main={u.email || 'Chưa có email'} sub={u.phone} /> },
-              { key: 'subject', label: 'Bộ môn', render: (u) => <Txt size={14}>{u.subject || '—'}</Txt> },
+              { key: 'subject', filter: f_subject, label: 'Bộ môn', render: (u) => <Txt size={14}>{u.subject || '—'}</Txt> },
               { key: 'classes', label: 'Lớp phụ trách', render: (u) => <Txt size={13}>{u.classes.map((k) => k.name).join(', ') || '—'}</Txt> },
-              { key: 'status', label: 'Trạng thái', render: (u) => <StatusChip kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
+              { key: 'status', filter: f_active, label: 'Trạng thái', render: (u) => <StatusChip kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
             ] : [
               { key: 'code', label: 'Mã', render: (u) => <Txt f="semibold" size={14}>{u.user_code || '—'}</Txt> },
               { key: 'name', label: 'Học sinh', flex: 2, render: (u) => <Cell main={u.full_name} sub={[u.birth_date, u.gender ? GENDER_TEXT[u.gender] : null].filter(Boolean).join(' · ')} /> },
-              { key: 'classes', label: 'Lớp', flex: 1.5, render: (u) => <Txt size={13}>{u.classes.map((k) => `${k.name} (${k.school_year})`).join(', ') || 'Chưa xếp lớp'}</Txt> },
+              { key: 'grade', filter: f_grade, label: 'Khối', flex: 0.7, render: (u) => <Txt size={13}>{[...new Set(u.classes.map((k) => k.grade).filter(Boolean))].map((g) => `Khối ${g}`).join(', ') || '—'}</Txt> },
+              { key: 'classes', filter: f_class, label: 'Lớp', flex: 1.5, render: (u) => <Txt size={13}>{u.classes.map((k) => `${k.name} (${k.school_year})`).join(', ') || 'Chưa xếp lớp'}</Txt> },
               { key: 'last', label: 'Đăng nhập cuối', render: (u) => <Txt size={13} color={c.muc2}>{dateText(u.last_login_at)}</Txt> },
-              { key: 'status', label: 'Trạng thái', render: (u) => <StatusChip kind={u.is_active ? (u.must_change_password ? 'warn' : 'on') : 'off'} text={u.is_active ? (u.must_change_password ? 'Chưa đổi mật khẩu' : 'Hoạt động') : 'Đã khóa'} /> },
+              { key: 'status', filter: f_active, label: 'Trạng thái', render: (u) => <StatusChip kind={u.is_active ? (u.must_change_password ? 'warn' : 'on') : 'off'} text={u.is_active ? (u.must_change_password ? 'Chưa đổi mật khẩu' : 'Hoạt động') : 'Đã khóa'} /> },
             ]} />
           <Pager page={page} limit={size} total={data.total} onPage={setPage} />
         </>

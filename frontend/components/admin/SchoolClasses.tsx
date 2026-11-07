@@ -7,10 +7,10 @@ import { View } from 'react-native';
 import { Archive, ArrowRightLeft, FileUp, Plus, RefreshCw, Trash2, UserPlus } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
-import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, idsToValues, ImportSheet, Page, PageHeader, StatusChip, useAction, useDebounced, useLoad, valuesToIds, yearOptions, YEAR_TEXT, type FieldDef } from '@/components/admin/kit';
+import { Cell, DataTable, ErrorNote, FormSheet, idsToValues, ImportSheet, Page, PageHeader, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, valuesToIds, yearOptions, YEAR_TEXT, type FieldDef, type SearchFilter } from '@/components/admin/kit';
 import { dateText } from '@/components/admin/AccountSheet';
 import type { Session } from '@/components/auth';
-import { Btn, Card, ConfirmSheet, Field, Inset, Sheet, Spinner, Txt } from '@/components/ui';
+import { Btn, Card, ConfirmSheet, Inset, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { ClassDetail, ClassItem, CloneResult, YearItem } from '@/types/api';
 
@@ -39,6 +39,8 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
   const [importing, setImporting] = useState(false);
   const [cloned, setCloned] = useState<CloneResult | null>(null);
   const ended = year?.status === 'ended';
+  const f_grade: SearchFilter = { key: 'grade', label: 'Khối', value: grade, options: [{ value: '', label: 'Mọi khối' }, ...[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }))], onChange: setGrade };
+  const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã lưu trữ' }], onChange: setActive };
 
   return (
     <Page>
@@ -49,23 +51,20 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
           <Btn title="Tạo lớp" icon={Plus} tone="son" size="sm" disabled={!yearId || ended} onPress={() => setCreating(true)} testID="class-add" />
         </>} />
       {!years.length ? <Inset><Txt size={14}>Chưa có năm học nào. Hãy thêm và kích hoạt năm học ở mục “Trường và năm học” trước khi tạo lớp.</Txt></Inset> : null}
-      <FilterBar>
-        <FilterBox><AdminSelect label="Năm học" value={String(yearId)} options={yearOptions(years)} onChange={(v) => setYearSel(String(v))} /></FilterBox>
-        <FilterBox><AdminSelect label="Khối" value={grade} options={[{ value: '', label: 'Mọi khối' }, ...[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }))]} onChange={(v) => setGrade(String(v))} /></FilterBox>
-        <FilterBox><Field label="Tìm theo tên lớp" value={q} onChangeText={setQ} autoCapitalize="none" /></FilterBox>
-        <FilterBox><AdminSelect label="Trạng thái" value={active} options={[{ value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã lưu trữ' }, { value: '', label: 'Tất cả' }]} onChange={(v) => setActive(String(v))} /></FilterBox>
-      </FilterBar>
+      <SearchFilterBar placeholder="Tìm theo tên lớp" value={q} onChange={setQ} searchId="class-search" filters={[f_grade, f_active]}
+        extra={<View style={{ width: 270 }}><AdminSelect bare label="Năm học" value={String(yearId)} options={yearOptions(years)} onChange={(v) => setYearSel(String(v))} testID="class-year" /></View>} />
       {ended ? <Inset><Txt size={13}>Năm học đã kết thúc: chỉ xem được, không sửa lớp hay học sinh của năm này.</Txt></Inset> : null}
       <ErrorNote message={error} />
       {loading && !data ? <Spinner label="Đang tải danh sách lớp…" /> : null}
       {data ? (
         <DataTable rows={data.items} rowKey={(x) => x.id} empty="Chưa có lớp nào khớp bộ lọc." onRowPress={(x) => setOpen(x.id)}
           columns={[
-            { key: 'name', label: 'Lớp', render: (x) => <Cell main={x.name} sub={`Khối ${x.grade ?? '?'} · ${x.school_year}`} /> },
+            { key: 'name', label: 'Lớp', render: (x) => <Cell main={x.name} sub={x.school_year} /> },
+            { key: 'grade', filter: f_grade, label: 'Khối', flex: 0.7, render: (x) => <Txt size={14}>Khối {x.grade ?? '?'}</Txt> },
             { key: 'teachers', label: 'Giáo viên phụ trách', flex: 2, render: (x) => <Txt size={14}>{x.teachers.map((t) => t.full_name).join(', ') || 'Chưa phân công'}</Txt> },
             { key: 'students', label: 'Sĩ số', render: (x) => <Txt size={14}>{x.students}{x.expected_size ? ` / ${x.expected_size}` : ''}</Txt> },
             { key: 'code', label: 'Mã tham gia', render: (x) => <Txt f="bold" size={15} selectable style={{ letterSpacing: 2 }}>{x.join_code ?? '—'}</Txt> },
-            { key: 'status', label: 'Trạng thái', render: (x) => <StatusChip kind={x.is_active ? 'on' : 'muted'} text={x.is_active ? (x.join_open ? 'Hoạt động' : 'Đóng tự tham gia') : 'Đã lưu trữ'} /> },
+            { key: 'status', filter: f_active, label: 'Trạng thái', render: (x) => <StatusChip kind={x.is_active ? 'on' : 'muted'} text={x.is_active ? (x.join_open ? 'Hoạt động' : 'Đóng tự tham gia') : 'Đã lưu trữ'} /> },
           ]} />
       ) : null}
 

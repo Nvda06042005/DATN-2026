@@ -4,12 +4,13 @@
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { Bell, CalendarDays, ChartColumn, CircleHelp, ClipboardList, History, LifeBuoy, GraduationCap, Inbox, ListChecks, Plus, Route, School, Trash2, Trophy, UserRound, Users } from 'lucide-react-native';
+import { Bell, CalendarDays, ChartColumn, CircleHelp, ClipboardList, FileText, History, LifeBuoy, GraduationCap, Inbox, ListChecks, Plus, Route, School, Trash2, Trophy, UserRound, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { dateText } from '@/components/admin/AccountSheet';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { SchoolReports } from '@/components/admin/AnalyticsAdmin';
+import { SchoolDashboard } from '@/components/admin/SchoolDashboard';
 import { BroadcastManager, SurveyManager } from '@/components/admin/PlatformComms';
 import { LogsPanel } from '@/components/admin/PlatformOps';
 import { SchoolEmblem, SchoolLinkBox } from '@/components/school-brand';
@@ -35,11 +36,12 @@ import { useTheme } from '@/hooks/use-theme';
 import type { YearItem } from '@/types/api';
 
 const NAV = [
+  { id: 'stats' as const, label: 'Thống kê trường', icon: ChartColumn },
   { id: 'school' as const, label: 'Trường và năm học', icon: School },
   { id: 'teachers' as const, label: 'Giáo viên', icon: UserRound },
   { id: 'students' as const, label: 'Học sinh', icon: GraduationCap },
   { id: 'classes' as const, label: 'Lớp học', icon: Users },
-  { id: 'reports' as const, label: 'Báo cáo', icon: ChartColumn },
+  { id: 'reports' as const, label: 'Báo cáo', icon: FileText },
   { id: 'review' as const, label: 'Duyệt nội dung', icon: Inbox },
   { id: 'history' as const, label: 'Kho lịch sử', icon: History },
   { id: 'journeys' as const, label: 'Hành trình mẫu', icon: Route },
@@ -60,14 +62,15 @@ type Tab = (typeof NAV)[number]['id'];
 const YEAR_KIND = { planned: 'info', active: 'on', ended: 'muted' } as const;
 
 export const SchoolAdmin: React.FC<{ session: Session }> = ({ session }) => {
-  const [tab, setTab] = useState<Tab>('school');
+  const [tab, setTab] = useState<Tab>('stats');
   const { data: school, reload: reloadSchool } = useLoad(() => api.getMySchool(session.token), [session.token], session.expired);
   const { data: years, reload: reloadYears } = useLoad(() => api.listYears(session.token), [session.token], session.expired);
   const reloadAll = () => { reloadSchool(); reloadYears(); };
   return (
     <AdminUiContext.Provider value>
       <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab} schoolName={school?.name} extra={<NoticeBell session={session} onGo={(n) => setTab(n.kind === 'survey' ? 'surveys' : n.kind === 'support' ? 'help' : 'school')} />}>
-        {tab === 'school' ? <SchoolPanel session={session} school={school} years={years ?? []} onChanged={reloadAll} />
+        {tab === 'stats' ? <SchoolDashboard session={session} schoolName={school?.name} />
+          : tab === 'school' ? <SchoolPanel session={session} school={school} years={years ?? []} onChanged={reloadAll} />
           : tab === 'teachers' ? <SchoolPeople session={session} kind="teachers" years={years ?? []} />
           : tab === 'students' ? <SchoolPeople session={session} kind="students" years={years ?? []} />
           : tab === 'classes' ? <SchoolClasses session={session} years={years ?? []} onYearsChanged={reloadYears} />

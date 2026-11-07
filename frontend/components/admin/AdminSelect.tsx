@@ -5,13 +5,15 @@ import { Sheet, Txt } from '@/components/ui';
 import { FONT } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-export function AdminSelect<T extends string | number>({ label, value, options, onChange, testID }: {
+export function AdminSelect<T extends string | number>({ label, value, options, onChange, testID, bare }: {
   label: string; value: T; options: Array<{ value: T; label: string }>; onChange: (value: T) => void; testID?: string;
+  /** Không hiện nhãn phía trên (đặt cạnh ô tìm kiếm, nhãn đi kèm trong danh sách chọn); vẫn đọc nhãn cho trình đọc màn hình */
+  bare?: boolean;
 }) {
   const { c } = useTheme();
   const [open, setOpen] = useState(false);
   return <View style={{ gap: 6, minWidth: 0 }}>
-    <Txt f="bold" size={14} color={c.muc2}>{label}</Txt>
+    {bare ? null : <Txt f="bold" size={14} color={c.muc2}>{label}</Txt>}
     {Platform.OS === 'web' ? <select data-testid={testID} aria-label={label} value={String(value)} onChange={event => { const option = options.find(item => String(item.value) === event.target.value); if (option) onChange(option.value); }} style={{ height: 44, width: '100%', minWidth: 0, border: `1px solid ${c.adminLine}`, borderRadius: 5, background: c.the, color: c.muc, padding: '0 12px', fontFamily: FONT.body, fontSize: 14 }}>
       {options.map(option => <option key={option.value} value={String(option.value)}>{option.label}</option>)}
     </select> : <>

@@ -9,7 +9,7 @@ import * as api from '@/api/learningApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { MapPicker } from '@/components/admin/MapPicker';
 import { DIFFICULTY_TEXT, LinksEditor, ScopeChip, useCampaignOptions } from '@/components/admin/ContentKit';
-import { Cell, DataTable, DownloadButton, ErrorNote, FilterBar, FilterBox, ImportSheet, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad, usePageSize } from '@/components/admin/kit';
+import { Cell, DataTable, DownloadButton, ErrorNote, FilterBar, FilterBox, ImportSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, usePageSize, type SearchFilter } from '@/components/admin/kit';
 import { dateText } from '@/components/admin/AccountSheet';
 import type { Session } from '@/components/auth';
 import { keyLines } from '@/components/portal/QuizPlayer';
@@ -251,6 +251,11 @@ export const QuestionBank: React.FC<{ session: Session }> = ({ session }) => {
   const storeOptions = role === 'root_admin'
     ? [{ value: 'all', label: 'Kho hệ thống và đề xuất' }, { value: 'system', label: 'Kho hệ thống' }, { value: 'school', label: 'Kho của các trường' }]
     : [{ value: 'all', label: 'Tất cả kho' }, ...(role === 'teacher' ? [{ value: 'mine', label: 'Của tôi' }] : []), { value: 'school', label: 'Kho của trường' }, { value: 'system', label: 'Kho hệ thống' }];
+  // mỗi bộ lọc khai báo một lần: nút mũi tên ở tiêu đề cột (màn rộng) và nút "Bộ lọc" của thanh tìm kiếm (màn hẹp) dùng chung
+  const f_store: SearchFilter = { key: 'store', label: 'Kho', value: store === 'all' ? '' : store, options: [{ value: '', label: storeOptions[0].label }, ...storeOptions.slice(1)], onChange: (v) => { setStore(v || 'all'); setPage(1); } };
+  const f_qtype: SearchFilter = { key: 'qtype', label: 'Dạng câu hỏi', value: qtype, options: [{ value: '', label: 'Mọi dạng' }, ...Object.entries(QTYPE_TEXT).map(([value, label]) => ({ value, label }))], onChange: (v) => { setQtype(v); setPage(1); } };
+  const f_difficulty: SearchFilter = { key: 'difficulty', label: 'Độ khó', value: difficulty, options: [{ value: '', label: 'Mọi độ khó' }, { value: '1', label: 'Dễ' }, { value: '2', label: 'Vừa' }, { value: '3', label: 'Khó' }], onChange: (v) => { setDifficulty(v); setPage(1); } };
+  const f_campaign: SearchFilter = { key: 'campaign', label: 'Chủ đề', value: campaign, options: [{ value: '', label: 'Mọi chủ đề' }, ...campaigns.slice(1)], onChange: (v) => { setCampaign(v); setPage(1); } };
   return (
     <Page>
       <PageHeader title="Ngân hàng câu hỏi" subtitle={role === 'root_admin' ? 'Kho câu hỏi của hệ thống dùng chung cho mọi trường.' : role === 'school_admin' ? 'Kho câu hỏi chung của trường và kho hệ thống. Duyệt câu giáo viên gửi ở mục Duyệt nội dung.' : 'Câu hỏi của bạn, kho của trường và kho hệ thống.'}
@@ -259,22 +264,19 @@ export const QuestionBank: React.FC<{ session: Session }> = ({ session }) => {
           {canWrite ? <Btn icon={FileUp} title="Nhập từ Excel" tone="giay" size="sm" onPress={() => setImporting(true)} /> : null}
           <DownloadButton title="Xuất Excel" fetchBlob={() => api.exportQuestions(session.token, filters)} filename="cau-hoi.xlsx" />
         </>} />
-      <FilterBar>
-        <FilterBox><AdminSelect label="Kho" value={store} options={storeOptions} onChange={(v) => { setStore(v); setPage(1); }} testID="question-store" /></FilterBox>
-        <FilterBox><AdminSelect label="Dạng câu hỏi" value={qtype} options={[{ value: '', label: 'Mọi dạng' }, ...Object.entries(QTYPE_TEXT).map(([value, label]) => ({ value, label }))]} onChange={(v) => { setQtype(v); setPage(1); }} /></FilterBox>
-        <FilterBox><AdminSelect label="Độ khó" value={difficulty} options={[{ value: '', label: 'Mọi độ khó' }, { value: '1', label: 'Dễ' }, { value: '2', label: 'Vừa' }, { value: '3', label: 'Khó' }]} onChange={(v) => { setDifficulty(v); setPage(1); }} /></FilterBox>
-        <FilterBox><AdminSelect label="Chủ đề" value={campaign} options={[{ value: '', label: 'Mọi chủ đề' }, ...campaigns.slice(1)]} onChange={(v) => { setCampaign(v); setPage(1); }} /></FilterBox>
-        <FilterBox flex={2}><Field label="Tìm kiếm (không cần dấu)" value={q} onChangeText={(v) => { setQ(v); setPage(1); }} placeholder="Nội dung câu hỏi, lựa chọn…" nativeID="question-search" /></FilterBox>
-      </FilterBar>
+      <SearchFilterBar placeholder="Tìm theo nội dung câu hỏi, lựa chọn (không cần dấu)" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="question-search"
+        filters={[f_store, f_qtype, f_difficulty, f_campaign]} />
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data ? (
         <>
           <DataTable<QuestionItem> rows={list.data.items} rowKey={(r) => r.id} onRowPress={(r) => setOpen(r.id)} empty="Chưa có câu hỏi nào phù hợp"
             columns={[
-              { key: 'prompt', label: 'Câu hỏi', flex: 4, render: (r) => <Cell main={r.prompt} sub={`${r.qtype_label}${r.campaign_title ? ` · ${r.campaign_title}` : ' · chưa gắn chủ đề'}`} /> },
-              { key: 'scope', label: 'Kho', flex: 1.2, render: (r) => <ScopeChip scope={r.scope} /> },
-              { key: 'diff', label: 'Độ khó', flex: 0.8, render: (r) => <Txt size={13}>{DIFFICULTY_TEXT[r.difficulty]}</Txt> },
+              { key: 'prompt', label: 'Câu hỏi', flex: 3.5, render: (r) => <Cell main={r.prompt} /> },
+              { key: 'qtype', filter: f_qtype, label: 'Dạng', flex: 1.1, render: (r) => <Txt size={13}>{r.qtype_label}</Txt> },
+              { key: 'campaign', filter: f_campaign, label: 'Chủ đề', flex: 1.4, render: (r) => <Txt size={13}>{r.campaign_title ?? 'Chưa gắn chủ đề'}</Txt> },
+              { key: 'scope', filter: f_store, label: 'Kho', flex: 1.2, render: (r) => <ScopeChip scope={r.scope} /> },
+              { key: 'diff', filter: f_difficulty, label: 'Độ khó', flex: 0.9, render: (r) => <Txt size={13}>{DIFFICULTY_TEXT[r.difficulty]}</Txt> },
               { key: 'used', label: 'Bộ đề', flex: 0.7, render: (r) => <Txt size={13}>{r.used_in}</Txt> },
               { key: 'owner', label: 'Người soạn', flex: 1.4, hideOnCard: true, render: (r) => <Cell main={r.owner_name ?? '—'} sub={dateText(r.updated_at)} /> },
             ]} />

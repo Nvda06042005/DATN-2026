@@ -9,7 +9,7 @@ import * as api from '@/api/learningApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { QuestionPicker, ScopeChip, useCampaignOptions } from '@/components/admin/ContentKit';
 import { AiQuizModal } from '@/components/admin/AiQuizModal';
-import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad, usePageSize } from '@/components/admin/kit';
+import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, usePageSize, type SearchFilter } from '@/components/admin/kit';
 import { dateText } from '@/components/admin/AccountSheet';
 import type { Session } from '@/components/auth';
 import { Overlay } from '@/components/portal/LessonReader';
@@ -154,17 +154,15 @@ export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: numb
   const term = useDebounced(q.trim(), 300);
   const list = useLoad(() => api.listQuizzes(session.token, { store, q: term, page, limit: size }), [session.token, store, term, page, size], session.expired);
   const canWrite = role === 'teacher' || role === 'school_admin' || role === 'root_admin';
+  const storeOptions = role === 'root_admin' ? [{ value: 'all', label: 'Kho hệ thống và đề xuất' }, { value: 'system', label: 'Kho hệ thống' }, { value: 'school', label: 'Kho của các trường' }]
+    : [{ value: 'all', label: 'Tất cả kho' }, ...(role === 'teacher' ? [{ value: 'mine', label: 'Của tôi' }] : []), { value: 'school', label: 'Kho của trường' }, { value: 'system', label: 'Kho hệ thống' }];
+  const f_store: SearchFilter = { key: 'store', label: 'Kho', value: store === 'all' ? '' : store, options: [{ value: '', label: storeOptions[0].label }, ...storeOptions.slice(1)], onChange: (v) => { setStore(v || 'all'); setPage(1); } };
   return (
     <>
     <Page>
       <PageHeader title="Bộ đề" subtitle="Bộ câu hỏi dùng ở các nút trên bản đồ hành trình. Bộ đề đang được giao hoặc đã có học sinh làm thì khóa chỉnh sửa; hãy nhân bản để thay đổi."
         actions={canWrite ? <><Btn icon={Sparkles} title="Soạn đề bằng AI" tone="ngoc" size="sm" onPress={() => setAiModal(true)} testID="quiz-ai" />{onStudio ? <Btn icon={Sparkles} title="Soạn Quiz kiểu Kahoot" tone="ngoc" size="sm" onPress={() => onStudio()} testID="quiz-studio" /> : null}<Btn icon={Plus} title="Tạo bộ đề" tone="son" size="sm" onPress={() => setCreating(true)} testID="quiz-create" /></> : undefined} />
-      <FilterBar>
-        <FilterBox><AdminSelect label="Kho" value={store} onChange={(v) => { setStore(v); setPage(1); }}
-          options={role === 'root_admin' ? [{ value: 'all', label: 'Kho hệ thống và đề xuất' }, { value: 'system', label: 'Kho hệ thống' }, { value: 'school', label: 'Kho của các trường' }]
-            : [{ value: 'all', label: 'Tất cả kho' }, ...(role === 'teacher' ? [{ value: 'mine', label: 'Của tôi' }] : []), { value: 'school', label: 'Kho của trường' }, { value: 'system', label: 'Kho hệ thống' }]} /></FilterBox>
-        <FilterBox flex={2}><Field label="Tìm bộ đề" value={q} onChangeText={(v) => { setQ(v); setPage(1); }} /></FilterBox>
-      </FilterBar>
+      <SearchFilterBar placeholder="Tìm bộ đề" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="quiz-search" filters={[f_store]} />
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data ? (
@@ -172,7 +170,7 @@ export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: numb
           <DataTable<QuizItem> rows={list.data.items} rowKey={(r) => r.id} onRowPress={(r) => setOpen(r.id)} empty="Chưa có bộ đề nào"
             columns={[
               { key: 'title', label: 'Bộ đề', flex: 3, render: (r) => <Cell main={r.title} sub={r.campaign_title ?? 'Chưa gắn chủ đề'} /> },
-              { key: 'scope', label: 'Kho', flex: 1.2, render: (r) => <ScopeChip scope={r.scope} /> },
+              { key: 'scope', filter: f_store, label: 'Kho', flex: 1.2, render: (r) => <ScopeChip scope={r.scope} /> },
               { key: 'n', label: 'Số câu', flex: 0.7, render: (r) => <Txt size={13}>{r.question_count}</Txt> },
               { key: 'time', label: 'Thời gian', flex: 0.9, render: (r) => <Txt size={13}>{Math.ceil(r.total_seconds / 60)} phút</Txt> },
               { key: 'used', label: 'Đã giao / làm', flex: 1, render: (r) => <Txt size={13}>{r.assigned} hành trình · {r.attempts} lượt{r.locked ? ' (khóa)' : ''}</Txt> },

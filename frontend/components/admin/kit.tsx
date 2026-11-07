@@ -115,6 +115,8 @@ export interface SearchFilter {
   options: Array<{ value: string; label: string }>;
   onChange: (value: string) => void;
   testID?: string;
+  /** Cột có giá trị tự do (như Bộ môn): ô tìm trong danh sách luôn hiện, gõ chữ rồi chọn dòng "Lọc theo …" để lọc theo chữ vừa gõ */
+  custom?: boolean;
 }
 
 /**
@@ -242,7 +244,10 @@ const ColumnFilter: React.FC<{ filter: SearchFilter }> = ({ filter }) => {
   const menuWidth = Math.min(264, width - 16);
   const left = anchor ? Math.max(8, Math.min(anchor.x + anchor.w - menuWidth, width - menuWidth - 8)) : 0;
   const top = anchor ? anchor.y + anchor.h + 6 : 0;
-  const chosen = filter.options.find((o) => o.value === filter.value)?.label;
+  const customValue = filter.custom && filter.value && !filter.options.some((o) => o.value === filter.value) ? filter.value : '';
+  const chosen = filter.options.find((o) => o.value === filter.value)?.label ?? (customValue || undefined);
+  const typed = filter.custom ? term.trim() : '';
+  const canUseTyped = !!typed && typed.toLowerCase() !== customValue.toLowerCase() && !filter.options.some((o) => o.label.toLowerCase() === typed.toLowerCase());
   return (
     <>
       <Pressable ref={ref} testID={`col-filter-${filter.key}`} accessibilityRole="button" accessibilityLabel={on ? `Lọc theo ${filter.label}, đang lọc: ${chosen ?? filter.value}` : `Lọc theo ${filter.label}`} accessibilityState={{ expanded: !!anchor }}
@@ -255,14 +260,28 @@ const ColumnFilter: React.FC<{ filter: SearchFilter }> = ({ filter }) => {
           <Pressable accessibilityRole="button" accessibilityLabel="Đóng danh sách lọc" onPress={close} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
           <View testID="col-filter-menu" accessibilityViewIsModal style={{ position: 'absolute', left, top, width: menuWidth, maxHeight: Math.max(180, Math.min(400, height - top - 16)), borderRadius: 10, borderWidth: 1, borderColor: c.adminLine, backgroundColor: c.the, padding: 6, boxShadow: '0 12px 32px rgba(35, 56, 47, 0.18)' } as object}>
             <Txt f="bold" size={12} color={c.muc3} style={{ paddingHorizontal: 10, paddingTop: 6, paddingBottom: 4 }}>Lọc theo {filter.label.toLowerCase()}</Txt>
-            {filter.options.length > 8 ? (
+            {filter.options.length > 8 || filter.custom ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 4, marginBottom: 4, paddingHorizontal: 10, minHeight: 38, borderRadius: 8, borderWidth: 1, borderColor: c.adminLine }}>
                 <Search size={15} color={c.muc3} />
-                <TextInput testID="col-filter-search" accessibilityLabel={`Tìm trong danh sách ${filter.label.toLowerCase()}`} placeholder="Tìm trong danh sách" placeholderTextColor={c.muc3} value={term} onChangeText={setTerm} autoCapitalize="none" autoCorrect={false}
+                <TextInput testID="col-filter-search" accessibilityLabel={`Tìm trong danh sách ${filter.label.toLowerCase()}`} placeholder={filter.custom ? 'Gõ để lọc hoặc tìm' : 'Tìm trong danh sách'} placeholderTextColor={c.muc3} value={term} onChangeText={setTerm} autoCapitalize="none" autoCorrect={false}
                   style={[{ flex: 1, minWidth: 0, minHeight: 36, fontFamily: FONT.medium, fontSize: 13, color: c.logoInk }, Platform.OS === 'web' ? ({ outlineStyle: 'solid', outlineWidth: 0 } as object) : null]} />
               </View>
             ) : null}
             <ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled">
+              {canUseTyped ? (
+                <Pressable testID={`col-filter-${filter.key}-option-custom`} accessibilityRole="button" onPress={() => { filter.onChange(typed); close(); }}
+                  style={({ pressed }) => ({ minHeight: 40, paddingHorizontal: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: pressed ? c.adminCanvas : c.adminTint })}>
+                  <View style={{ width: 16 }}><Search size={14} color={c.logoRed} /></View>
+                  <Txt f="semibold" size={14} color={c.logoRed} numberOfLines={2} style={{ flex: 1 }}>Lọc theo “{typed}”</Txt>
+                </Pressable>
+              ) : null}
+              {customValue ? (
+                <Pressable testID={`col-filter-${filter.key}-option-current`} accessibilityRole="radio" accessibilityState={{ checked: true }} onPress={close}
+                  style={{ minHeight: 40, paddingHorizontal: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.adminTint }}>
+                  <View style={{ width: 16 }}><Check size={16} color={c.logoRed} /></View>
+                  <Txt f="bold" size={14} color={c.logoRed} numberOfLines={2} style={{ flex: 1 }}>{customValue}</Txt>
+                </Pressable>
+              ) : null}
               {shown.map((o) => {
                 const picked = o.value === filter.value;
                 return (

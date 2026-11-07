@@ -8,7 +8,7 @@ import { ArrowDown, ArrowUp, CheckCircle2, History, Pencil, Plus, Trash2 } from 
 import * as api from '@/api/adminApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { MapPicker } from '@/components/admin/MapPicker';
-import { Cell, DataTable, DownloadButton, ErrorNote, FilterBar, FilterBox, FormSheet, ImportSheet, Page, PageHeader, StatusChip, useAction, useDebounced, useLoad, type FieldDef } from '@/components/admin/kit';
+import { Cell, DataTable, DownloadButton, ErrorNote, FilterBar, FilterBox, FormSheet, ImportSheet, Page, PageHeader, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, type Column, type FieldDef, type SearchFilter } from '@/components/admin/kit';
 import { dateText } from '@/components/admin/AccountSheet';
 import type { Session } from '@/components/auth';
 import { Btn, Card, ConfirmSheet, Field, Inset, Sheet, Spinner, Txt } from '@/components/ui';
@@ -32,8 +32,8 @@ const PREV: Record<HistoryStatus, HistoryStatus | null> = { draft: null, verifie
 const SUMMARY: Record<HistoryEntity, (r: HistoryRecord) => { main: string; sub?: string | null }> = {
   campaign: (r) => ({ main: String(r.title), sub: `Năm ${r.year_label}` }),
   place: (r) => ({ main: String(r.name), sub: [r.old_name && `xưa: ${r.old_name}`, r.province, r.lat != null ? `${r.lat}, ${r.lng}` : 'chưa có tọa độ'].filter(Boolean).join(' · ') }),
-  figure: (r) => ({ main: String(r.name), sub: [ENUM_TEXT[String(r.figure_group)], r.honorific].filter(Boolean).join(' · ') }),
-  event: (r) => ({ main: String(r.name), sub: [r.date_text ?? r.year_from, r.ref_labels.campaign_id].filter(Boolean).join(' · ') }),
+  figure: (r) => ({ main: String(r.name), sub: r.honorific ? String(r.honorific) : null }),
+  event: (r) => ({ main: String(r.name), sub: String(r.date_text ?? r.year_from ?? '') || null }),
   battle: (r) => ({ main: String(r.name), sub: [r.date_text ?? r.year, r.ref_labels.place_id].filter(Boolean).join(' · ') }),
   source: (r) => ({ main: String(r.title), sub: [ENUM_TEXT[String(r.kind)], r.citation].filter(Boolean).join(' · ') }),
   term: (r) => ({ main: String(r.term), sub: String(r.definition ?? '').slice(0, 90) }),
@@ -81,27 +81,28 @@ const EntityPanel: React.FC<{ session: Session; spec: HistorySpec; specs: Histor
   const changed = () => { reload(); onChanged(); };
   const campaignOptions = [{ value: '', label: 'Mọi cuộc kháng chiến' }, ...(campaigns?.items ?? []).map((x) => ({ value: String(x.id), label: String(x.title) }))];
   const hasCampaign = ['figure', 'event', 'battle', 'source'].includes(e);
+  const f_status: SearchFilter = { key: 'status', label: 'Trạng thái', value: status, options: [{ value: '', label: 'Mọi trạng thái' }, ...(Object.keys(STATUS_TEXT) as HistoryStatus[]).map((s) => ({ value: s, label: `${STATUS_TEXT[s]}${data ? ` (${data.status_counts[s]})` : ''}` }))], onChange: setStatus };
+  const f_campaign: SearchFilter = { key: 'campaign', label: 'Cuộc kháng chiến', value: campaign, options: campaignOptions, onChange: setCampaign };
+  const f_group: SearchFilter = { key: 'group', label: 'Nhóm', value: group, options: [{ value: '', label: 'Mọi nhóm' }, ...['king', 'general', 'official', 'other'].map((g) => ({ value: g, label: ENUM_TEXT[g] }))], onChange: setGroup };
+  const columns: Column<HistoryRecord>[] = [
+    { key: 'main', label: spec.label, flex: 3, render: (r) => <Cell main={SUMMARY[e](r).main} sub={SUMMARY[e](r).sub} /> },
+    ...(hasCampaign ? [{ key: 'campaign', filter: f_campaign, label: 'Cuộc kháng chiến', flex: 1.6, render: (r: HistoryRecord) => <Txt size={13}>{String(r.ref_labels?.campaign_id ?? '—')}</Txt> }] : []),
+    ...(e === 'figure' ? [{ key: 'group', filter: f_group, label: 'Nhóm', flex: 1, render: (r: HistoryRecord) => <Txt size={13}>{ENUM_TEXT[String(r.figure_group)] ?? '—'}</Txt> }] : []),
+    { key: 'status', filter: f_status, label: 'Trạng thái', render: (r) => <StatusChip kind={STATUS_KIND[r.status]} text={STATUS_TEXT[r.status]} /> },
+    { key: 'ver', label: 'Phiên bản', render: (r) => <Txt size={13}>v{r.version_no} · {dateText(r.updated_at)}</Txt> },
+  ];
   return (
     <>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
         <Txt f="bold" size={18}>{spec.plural}{data ? ` (${data.total})` : ''}</Txt>
         <Btn title={`Thêm ${spec.label.toLowerCase()}`} icon={Plus} tone="son" onPress={() => setForm({ record: null })} testID="history-add" />
       </View>
-      <FilterBar>
-        <FilterBox flex={2}><Field label="Tìm kiếm (không cần dấu)" value={q} onChangeText={setQ} autoCapitalize="none" /></FilterBox>
-        <FilterBox><AdminSelect label="Trạng thái" value={status} options={[{ value: '', label: 'Mọi trạng thái' }, ...(Object.keys(STATUS_TEXT) as HistoryStatus[]).map((s) => ({ value: s, label: `${STATUS_TEXT[s]}${data ? ` (${data.status_counts[s]})` : ''}` }))]} onChange={(v) => setStatus(String(v))} /></FilterBox>
-        {hasCampaign ? <FilterBox><AdminSelect label="Cuộc kháng chiến" value={campaign} options={campaignOptions} onChange={(v) => setCampaign(String(v))} /></FilterBox> : null}
-        {e === 'figure' ? <FilterBox><AdminSelect label="Nhóm" value={group} options={[{ value: '', label: 'Mọi nhóm' }, ...['king', 'general', 'official', 'other'].map((g) => ({ value: g, label: ENUM_TEXT[g] }))]} onChange={(v) => setGroup(String(v))} /></FilterBox> : null}
-      </FilterBar>
+      <SearchFilterBar placeholder="Tìm kiếm (không cần dấu)" value={q} onChange={setQ} searchId="history-search" filters={[f_status, ...(hasCampaign ? [f_campaign] : []), ...(e === 'figure' ? [f_group] : [])]} />
       <ErrorNote message={error} />
       {loading && !data ? <Spinner label="Đang tải…" /> : null}
       {data ? (
         <DataTable rows={data.items} rowKey={(r) => r.id} empty={`Chưa có ${spec.label.toLowerCase()} nào khớp bộ lọc.`} onRowPress={(r) => setOpen(r.id)}
-          columns={[
-            { key: 'main', label: spec.label, flex: 3, render: (r) => <Cell main={SUMMARY[e](r).main} sub={SUMMARY[e](r).sub} /> },
-            { key: 'status', label: 'Trạng thái', render: (r) => <StatusChip kind={STATUS_KIND[r.status]} text={STATUS_TEXT[r.status]} /> },
-            { key: 'ver', label: 'Phiên bản', render: (r) => <Txt size={13}>v{r.version_no} · {dateText(r.updated_at)}</Txt> },
-          ]} />
+          columns={columns} />
       ) : null}
       {open ? <RecordSheet session={session} spec={spec} specs={specs} id={open} onClose={() => setOpen(null)} onChanged={changed} onEdit={(record) => setForm({ record })} /> : null}
       {form ? <RecordForm session={session} spec={spec} specs={specs} record={form.record} onClose={() => setForm(null)} onSaved={() => { setForm(null); changed(); }} /> : null}

@@ -149,3 +149,58 @@ test('thống kê hệ thống: một trang tổng quan vừa một màn hình, 
   assert.match(trend, /compact\?: boolean; chartHeight\?: number/);
   assert.match(trend, /\{point && !compact && <View pointerEvents="none"/);
 });
+
+test('quản trị trường học theo quản trị tổng: Thống kê trường đứng đầu menu và là trang mở đầu; Báo cáo giữ nguyên thứ tự còn lại', () => {
+  const school = read('components', 'admin', 'SchoolAdmin.tsx');
+  const ids = [...school.slice(school.indexOf('const NAV'), school.indexOf('type Tab')).matchAll(/id: '(\w+)'/g)].map((m) => m[1]);
+  assert.deepEqual(ids, ['stats', 'school', 'teachers', 'students', 'classes', 'reports', 'review', 'history', 'journeys', 'lessons', 'questions', 'quizzes', 'game', 'battle', 'war', 'ai', 'research', 'notices', 'surveys', 'logs', 'help']);
+  assert.match(school, /useState<Tab>\('stats'\)/);
+  assert.match(school, /\{ id: 'stats' as const, label: 'Thống kê trường', icon: ChartColumn \}/);
+  assert.match(school, /\{tab === 'stats' \? <SchoolDashboard session=\{session\} schoolName=\{school\?\.name\} \/>/);
+});
+
+test('trang Thống kê trường: cùng bố cục một màn hình với Thống kê hệ thống, số liệu từ bốn API có sẵn, tiêu đề hai nửa đều nhau', () => {
+  const dash = read('components', 'admin', 'SchoolDashboard.tsx');
+  const panels = read('components', 'admin', 'DashboardPanels.tsx');
+  for (const call of ['api.schoolOverview(token)', "api.usage(token, 'day', days)", 'api.aiUsage(token, days)', "api.results(token, 'grade')"]) assert.ok(dash.includes(call), call);
+  for (const id of ['school-metrics', 'school-gauges', 'school-gauge-${g.id}', 'school-tab-${t.value}', 'school-users-trend', 'school-learning-trend', 'school-ai-trend', 'school-range-${n}']) assert.ok(dash.includes(id), id);
+  // sáu đồng hồ: ba đồng hồ đầu luôn hiện, ba đồng hồ sau chỉ hiện khi ô đủ cao
+  for (const id of ['week', 'today', 'ai', 'participation', 'score', 'accuracy']) assert.ok(dash.includes(`id: '${id}'`), id);
+  assert.match(dash, /const moreGauges = wide && gaugeArea >= 360;/);
+  assert.match(dash, /flexGrow: 1, flexShrink: 0, flexBasis: 236, maxHeight: 560/);
+  assert.match(dash, /const \[titleHead, titleTail\] = splitTitle\('Thống kê trường'\);/);
+  // bốn thẻ: cơ cấu người dùng (chỉ giáo viên và học sinh), kết quả theo khối, sử dụng, trợ lý AI không có chi phí
+  assert.match(dash, /<RolesCard key="roles" roles=\{\{ student: o\.students, teacher: o\.teachers \}\} only=\{\['student', 'teacher'\]\} \/>/);
+  for (const card of ['ResultsCard', 'UsageCard', 'AiCard']) assert.ok(dash.includes(`<${card} `), card);
+  assert.match(dash, /<AiCard key="ai" d=\{ai\.data\} days=\{days\} topN=\{height >= 860 \? 3 : 2\} money=\{false\} \/>/);
+  assert.match(panels, /testID="school-results"/);
+  assert.match(panels, /money \? \['Chi phí ước tính'/);
+  assert.match(panels, /newUsers != null \?/);
+});
+
+test('quản trị trường học theo quản trị tổng: bộ lọc kiểu Excel ở tiêu đề cột cho giáo viên, học sinh, lớp học, câu hỏi, bộ đề, bài học, hành trình, duyệt nội dung và kho lịch sử', () => {
+  const read2 = (f) => read('components', 'admin', f);
+  const want = {
+    'SchoolPeople.tsx': ["key: 'subject', filter: f_subject", "key: 'status', filter: f_active", "key: 'grade', filter: f_grade", "key: 'classes', filter: f_class"],
+    'SchoolClasses.tsx': ["key: 'grade', filter: f_grade", "key: 'status', filter: f_active"],
+    'QuestionBank.tsx': ["key: 'qtype', filter: f_qtype", "key: 'campaign', filter: f_campaign", "key: 'scope', filter: f_store", "key: 'diff', filter: f_difficulty"],
+    'QuizManager.tsx': ["key: 'scope', filter: f_store"],
+    'LessonManager.tsx': ["key: 'campaign', filter: f_campaign", "key: 'status', filter: f_status"],
+    'JourneyManager.tsx': ["key: 'campaign', filter: f_campaign", "key: 'scope', filter: f_store"],
+    'ShareInbox.tsx': ["key: 'entity', filter: f_entity", "key: 'status', filter: f_status"],
+    'HistoryManager.tsx': ["filter: f_campaign", "filter: f_group", "key: 'status', filter: f_status"],
+  };
+  for (const [file, parts] of Object.entries(want)) {
+    const src = read2(file);
+    for (const part of parts) assert.ok(src.includes(part), `${file}: ${part}`);
+    assert.ok(src.includes('<SearchFilterBar '), `${file} dùng thanh tìm kiếm chung`);
+  }
+  // giá trị tự do (Bộ môn): gõ chữ rồi chọn dòng "Lọc theo …"
+  assert.match(read2('SchoolPeople.tsx'), /key: 'subject', label: 'Bộ môn', custom: true/);
+  assert.match(kit, /custom\?: boolean;/);
+  assert.match(kit, /col-filter-\$\{filter\.key\}-option-custom/);
+  // năm học đặt cạnh ô tìm kiếm bằng ô chọn không nhãn, các trang chọn theo năm vẫn chọn được
+  assert.match(read2('AdminSelect.tsx'), /bare\?: boolean;/);
+  assert.match(read2('SchoolPeople.tsx'), /<AdminSelect bare label="Năm học \(để lọc lớp\)"/);
+  assert.match(read2('SchoolClasses.tsx'), /<AdminSelect bare label="Năm học"/);
+});

@@ -9,7 +9,7 @@ import * as api from '@/api/learningApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { MapPicker } from '@/components/admin/MapPicker';
 import { LinksEditor, QuestionPicker, useCampaignOptions } from '@/components/admin/ContentKit';
-import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, Page, PageHeader, StatusChip, useAction, useDebounced, useLoad } from '@/components/admin/kit';
+import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, Page, PageHeader, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, type SearchFilter } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Card, ConfirmSheet, Field, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -131,24 +131,23 @@ export const LessonManager: React.FC<{ session: Session }> = ({ session }) => {
   const campaigns = useCampaignOptions(session);
   const list = useLoad(() => api.listLessons(session.token, { q: term, status, campaign_id: campaign }), [session.token, term, status, campaign], session.expired);
   const { busy, run } = useAction(session.expired);
+  const f_status: SearchFilter = { key: 'status', label: 'Trạng thái', value: status, options: [{ value: '', label: 'Tất cả' }, { value: 'draft', label: 'Bản nháp' }, { value: 'published', label: 'Đã công bố' }], onChange: setStatus };
+  const f_campaign: SearchFilter = { key: 'campaign', label: 'Cuộc kháng chiến', value: campaign, options: [{ value: '', label: 'Tất cả' }, ...campaigns.slice(1)], onChange: setCampaign };
   const writable = (l:LessonItem) => session.user.role==='root_admin' || l.school_id===session.user.school_id;
   const edit = async (l: LessonItem) => { const d = await run(() => api.getLesson(session.token, l.id)); if (d) setForm({ lesson: writable(l) ? d : {...d,id:0} }); };
   return (
     <Page>
       <PageHeader title="Bài học" subtitle="Bài học gắn với nút trên bản đồ hành trình. Chỉ bài đã công bố mới chọn được vào hành trình của giáo viên và được học sinh đọc."
         actions={<Btn icon={Plus} title="Tạo bài học" tone="son" size="sm" onPress={() => setForm({})} testID="lesson-create" />} />
-      <FilterBar>
-        <FilterBox><AdminSelect label="Trạng thái" value={status} options={[{ value: '', label: 'Tất cả' }, { value: 'draft', label: 'Bản nháp' }, { value: 'published', label: 'Đã công bố' }]} onChange={setStatus} /></FilterBox>
-        <FilterBox><AdminSelect label="Cuộc kháng chiến" value={campaign} options={[{ value: '', label: 'Tất cả' }, ...campaigns.slice(1)]} onChange={setCampaign} /></FilterBox>
-        <FilterBox flex={2}><Field label="Tìm bài học" value={q} onChangeText={setQ} /></FilterBox>
-      </FilterBar>
+      <SearchFilterBar placeholder="Tìm bài học" value={q} onChange={setQ} searchId="lesson-search" filters={[f_status, f_campaign]} />
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data ? (
         <DataTable<LessonItem> rows={list.data} rowKey={(r) => r.id} onRowPress={edit} empty="Chưa có bài học nào"
           columns={[
-            { key: 'title', label: 'Bài học', flex: 3, render: (r) => <Cell main={r.title} sub={r.campaign_title ?? 'Chưa gắn cuộc kháng chiến'} /> },
-            { key: 'status', label: 'Trạng thái', flex: 1.2, render: (r) => <StatusChip kind={r.status === 'published' ? 'on' : 'muted'} text={r.status === 'published' ? 'Đã công bố' : 'Bản nháp'} /> },
+            { key: 'title', label: 'Bài học', flex: 3, render: (r) => <Cell main={r.title} /> },
+            { key: 'campaign', filter: f_campaign, label: 'Cuộc kháng chiến', flex: 1.6, render: (r) => <Txt size={13}>{r.campaign_title ?? 'Chưa gắn cuộc kháng chiến'}</Txt> },
+            { key: 'status', filter: f_status, label: 'Trạng thái', flex: 1.2, render: (r) => <StatusChip kind={r.status === 'published' ? 'on' : 'muted'} text={r.status === 'published' ? 'Đã công bố' : 'Bản nháp'} /> },
             { key: 'time', label: 'Thời lượng', flex: 0.8, render: (r) => <Txt size={13}>{r.read_minutes} phút</Txt> },
             { key: 'checks', label: 'Câu kiểm tra', flex: 0.9, render: (r) => <Txt size={13}>{r.checks}</Txt> },
             { key: 'used', label: 'Dùng ở nút', flex: 0.9, render: (r) => <Txt size={13}>{r.used_in}</Txt> },

@@ -14,13 +14,13 @@ import { useTheme } from '@/hooks/use-theme';
 import { calendarBuckets, rollingAverage } from '@/lib/dashboard-trend';
 import { fmt } from '@/lib/format';
 
-const dateText = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}`;
-type Tab = 'users' | 'learning' | 'ai';
-const TABS: Array<{ value: Tab; label: string }> = [{ value: 'users', label: 'Người dùng' }, { value: 'learning', label: 'Học tập' }, { value: 'ai', label: 'Tiểu Tướng' }];
-const grade = (value: number | null, good: number, ok: number): GaugeLevel => (value == null ? 'none' : value >= good ? 'good' : value >= ok ? 'ok' : 'low');
+export const dateText = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}`;
+export type Tab = 'users' | 'learning' | 'ai';
+export const TABS: Array<{ value: Tab; label: string }> = [{ value: 'users', label: 'Người dùng' }, { value: 'learning', label: 'Học tập' }, { value: 'ai', label: 'Tiểu Tướng' }];
+export const grade = (value: number | null, good: number, ok: number): GaugeLevel => (value == null ? 'none' : value >= good ? 'good' : value >= ok ? 'ok' : 'low');
 
 /** Nút nhỏ dạng thẻ chọn (khoảng thời gian, tab biểu đồ) */
-function Pill({ testID, label, on, onPress, accessibilityLabel }: { testID: string; label: string; on: boolean; onPress: () => void; accessibilityLabel?: string }) {
+export function Pill({ testID, label, on, onPress, accessibilityLabel }: { testID: string; label: string; on: boolean; onPress: () => void; accessibilityLabel?: string }) {
   const { c } = useTheme();
   return <Pressable testID={testID} accessibilityRole="tab" accessibilityLabel={accessibilityLabel ?? label} accessibilityState={{ selected: on }} onPress={onPress}
     style={{ minHeight: 32, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: on ? c.son : c.adminLine, backgroundColor: on ? c.sonNhat : c.the }}>
