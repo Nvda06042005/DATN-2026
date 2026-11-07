@@ -64,8 +64,8 @@ export function SchoolSelect({ token, value, onChange, onExpired }: { token: str
       </Pressable>)}
       {loading || query.trim() !== search.trim() ? <Txt size={12} color={c.muc3} style={{ padding: 12 }}>Đang tìm trường…</Txt> : null}
       {!loading && !error && query.trim() === search.trim() && !visibleItems.length && <Txt size={12} color={c.muc3} style={{ padding: 12 }}>Không tìm thấy trường đã tạo phù hợp.</Txt>}
-      {error && <Btn title="Thử lại" tone="ghost" size="sm" onPress={() => setRetry(n => n + 1)} />}
-      {visibleItems.length > 0 && visibleItems.length < total && <Btn title="Xem thêm trường" tone="ghost" size="sm" onPress={() => setPage(n => n + 1)} loading={loading} testID="existing-school-more" />}
+      {error && <Btn title="Thử lại" tone="ghost" size="sm" onPress={() => { if (blurTimer.current) clearTimeout(blurTimer.current); setRetry(n => n + 1); }} />}
+      {visibleItems.length > 0 && visibleItems.length < total && <Btn title="Xem thêm trường" tone="ghost" size="sm" onPress={() => { if (blurTimer.current) clearTimeout(blurTimer.current); setPage(n => n + 1); }} loading={loading} testID="existing-school-more" />}
     </ScrollView>}
     {selected && <Txt size={12} color={c.ngocChu}>Đã chọn: {selected.name}</Txt>}
   </View>;

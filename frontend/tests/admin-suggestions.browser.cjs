@@ -67,8 +67,9 @@ const account = id => ({ ...root, id, username: `qa-person-${id}`, full_name: `Q
    await page.getByTestId('form-submit').click(); await page.getByTestId('credential-username').waitFor(); await close();
    await nav('users'); await page.getByTestId('user-add').click();
    await page.getByTestId('admin-suggest-toggle-full_name').click();
+   await field('full_name').click();
    await page.getByTestId('admin-suggest-full_name-10').waitFor();
-   await page.getByTestId('admin-suggest-more-full_name').click(); await page.getByTestId('admin-suggest-full_name-49').waitFor();
+   await page.getByTestId('admin-suggest-more-full_name').click(); await page.waitForTimeout(350); await page.getByTestId('admin-suggest-full_name-49').waitFor();
    await field('full_name').fill('Nguyen Tan Son'); await clickOption('admin-suggest-full_name-999');
    assert.equal(await field('full_name').inputValue(), 'Nguyễn Tân Sơn'); assert.equal(await field('email').inputValue(), 'new-school@example.invalid'); assert.equal(await field('phone').inputValue(), '0900000001');
    await page.getByText('Đã chọn: THCS Tân Sơn', { exact: true }).waitFor();
@@ -78,7 +79,7 @@ const account = id => ({ ...root, id, username: `qa-person-${id}`, full_name: `Q
    await page.getByTestId('user-add').click(); await field('email').fill('new-school@'); await clickOption('admin-suggest-email-999');
    assert.equal(await field('full_name').inputValue(), 'Nguyễn Tân Sơn'); await page.getByTestId('admin-new-person').click();
    // Pick a school beyond the first page; name and email suggestions must be scoped to it.
-   await page.getByTestId('existing-school-toggle').click(); await page.getByTestId('existing-school-10').waitFor(); await page.getByTestId('existing-school-more').click(); await clickOption('existing-school-54');
+   await page.getByTestId('existing-school-toggle').click(); await field('school-search').click(); await page.getByTestId('existing-school-10').waitFor(); await page.getByTestId('existing-school-more').click(); await page.waitForTimeout(350); await clickOption('existing-school-54');
    await page.getByTestId('admin-suggest-toggle-full_name').click(); await page.getByTestId('admin-suggest-full_name-54').waitFor();
    assert.equal(await page.getByTestId('admin-suggest-full_name-10').count(), 0);
    await field('full_name').fill('cham'); await page.waitForTimeout(320); await field('full_name').fill('Quản trị thử 54'); await page.getByTestId('admin-suggest-full_name-54').waitFor(); await page.waitForTimeout(750);

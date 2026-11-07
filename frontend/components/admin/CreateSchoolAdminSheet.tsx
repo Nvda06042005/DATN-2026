@@ -42,7 +42,8 @@ function AccountSuggestField({ token, kind, value, schoolId, onChange, onSelect,
   }, [token, open, query, search, key, schoolId, page, onExpired, retry]);
   const items = result.key === key && query === search && !error ? result.items : [];
   const choose = (account: Account) => { setOpen(false); setBrowse(false); onSelect(account); };
-  const show = () => { if (blurTimer.current) clearTimeout(blurTimer.current); setOpen(true); setPage(1); };
+  const keepOpen = () => { if (blurTimer.current) clearTimeout(blurTimer.current); setOpen(true); };
+  const show = () => { keepOpen(); setPage(1); };
   const label = kind === 'email' ? 'Email *' : 'Họ và tên *';
   return <View style={{ gap: 6, flexGrow: 1, flexBasis: 240, minWidth: 0 }}>
     <View style={{ flexDirection: 'row', gap: 6, alignItems: 'flex-end' }}>
@@ -69,9 +70,9 @@ function AccountSuggestField({ token, kind, value, schoolId, onChange, onSelect,
           <Txt size={11} color={c.muc3}>{account.school_name} · {account.school_code}{!account.is_active ? ' · Đã khóa' : ''}</Txt>
         </Pressable>)}
         {loading || query !== search ? <Txt size={12} color={c.muc3} style={{ padding: 10 }}>Đang tìm quản trị viên trường…</Txt> : null}
-        {error ? <View style={{ padding: 10, gap: 6 }}><Txt size={12} color={c.sonChu}>{error}</Txt><Btn title="Thử lại" tone="ghost" size="sm" onPress={() => setRetry(n => n + 1)} /></View> : null}
+        {error ? <View style={{ padding: 10, gap: 6 }}><Txt size={12} color={c.sonChu}>{error}</Txt><Btn title="Thử lại" tone="ghost" size="sm" onPress={() => { keepOpen(); setRetry(n => n + 1); }} /></View> : null}
         {!loading && query === search && !error && !items.length ? <Txt size={12} color={c.muc3} style={{ padding: 10 }}>Chưa có người phù hợp. Bạn có thể nhập thông tin để tạo tài khoản mới.</Txt> : null}
-        {items.length > 0 && items.length < result.total && <Btn title="Xem thêm người" tone="ghost" size="sm" loading={loading} onPress={() => setPage(n => n + 1)} testID={`admin-suggest-more-${kind}`} />}
+        {items.length > 0 && items.length < result.total && <Btn title="Xem thêm người" tone="ghost" size="sm" loading={loading} onPress={() => { keepOpen(); setPage(n => n + 1); }} testID={`admin-suggest-more-${kind}`} />}
       </ScrollView>
     </View>}
   </View>;
