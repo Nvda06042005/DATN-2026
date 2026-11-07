@@ -98,16 +98,24 @@ try { for (const width of [1440,390]) for(const role of ['root_admin','school_ad
    await ctx.route('**/api/**',async r=>{const p=new URL(r.request().url()).pathname;let data={};if(p.startsWith('/api/auth/school-link/'))data={...school,school_code:'00000002',slug:'donga_00000002_truongkhac',name:'THCS Trường Khác'};else if(p==='/api/auth/me')data=user('school_admin');await r.fulfill({json:data});});
    const p=await ctx.newPage();await p.goto(base+'/donga_00000002_truongkhac');await p.locator('#login-username:visible').waitFor();assert.equal(await p.getByTestId('admin-workspace').count(),0);assert.equal(await p.evaluate(()=>localStorage.getItem('donga_token_school_admin')),'fixture-school-one');results.push({crossSchoolSessionRejected:true});await ctx.close(); }
  // Đổi tab trình duyệt phải xác minh nền; đăng xuất ở tab khác phải đóng phiên cũ.
- for(const reason of ['expired','other-tab-logout']) {
+ for(const reason of ['expired','other-tab-logout','other-tab-account-change']) {
   const ctx=await browser.newContext();let revoked=false;
   await ctx.addInitScript(()=>localStorage.setItem('donga_token_school_admin_school_00000001','fixture-active'));
   await ctx.route('**/api/**',async route=>{
    const p=new URL(route.request().url()).pathname;
-   await route.fulfill({status:p==='/api/auth/me'&&revoked?401:200,json:p.startsWith('/api/auth/school-link/')?school:p==='/api/auth/me'?revoked?{detail:'Hết phiên'}:{...user('school_admin'),must_change_password:true}:{}});
+   const replaced=route.request().headers().authorization?.includes('fixture-replacement');
+   if(replaced)await new Promise(resolve=>setTimeout(resolve,2000));
+   await route.fulfill({status:p==='/api/auth/me'&&revoked?401:200,json:p.startsWith('/api/auth/school-link/')?school:p==='/api/auth/me'?revoked?{detail:'Hết phiên'}:{...user('school_admin'),school_code:replaced?'00000002':'00000001',must_change_password:true}:{}});
   });
   const page=await ctx.newPage();await page.goto(base+'/'+slug);await page.locator('#cp-current').waitFor();
   if(reason==='expired'){revoked=true;await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));}
-  else {const other=await ctx.newPage();await other.goto(base+'/cau-hoi-thuong-gap');await other.evaluate(()=>localStorage.removeItem('donga_token_school_admin_school_00000001'));}
+  else {
+   const other=await ctx.newPage();await other.goto(base+'/cau-hoi-thuong-gap');
+   if(reason==='other-tab-account-change'){
+    await other.evaluate(()=>localStorage.setItem('donga_token_school_admin_school_00000001','fixture-replacement'));
+    await page.locator('#cp-current').waitFor({state:'hidden',timeout:1500});
+   }else await other.evaluate(()=>localStorage.removeItem('donga_token_school_admin_school_00000001'));
+  }
   await page.locator('#login-username').waitFor();assert.equal(await page.locator('#cp-current').count(),0);
   results.push({sessionInvalidation:reason,closedCachedSession:true});await ctx.close();
  }

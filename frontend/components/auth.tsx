@@ -67,6 +67,8 @@ export const PortalApp: React.FC<{ portal: Portal; school?: SchoolLinkInfo; onRo
   });
   const [token, setToken] = useState<string | null>(restored?.token ?? null);
   const [user, setUser] = useState<AuthUser | null>(restored?.user ?? null);
+  const visibleToken = useRef(token);
+  visibleToken.current = token;
   const [checking, setChecking] = useState(!restored);
   const verification = useRef(0);
   const [changing, setChanging] = useState(false);
@@ -87,7 +89,12 @@ export const PortalApp: React.FC<{ portal: Portal; school?: SchoolLinkInfo; onRo
       const scoped = await readToken(portal, school?.school_code);
       const saved = scoped ?? (school ? await readToken(portal) : null);
       if (!current()) return;
-      if (!saved) { setToken(null); setUser(null); return; }
+      if (!saved) {
+        if (visibleToken.current) forgetVerifiedUser(visibleToken.current);
+        setToken(null); setUser(null); return;
+      }
+      // Đổi tài khoản/token ở tab khác: không giữ dữ liệu của phiên trước khi chờ xác minh phiên mới.
+      if (saved !== visibleToken.current) { setToken(null); setUser(null); }
       try {
         const u = await authApi.getMe(saved, force);
         if (!current()) return;
@@ -115,7 +122,10 @@ export const PortalApp: React.FC<{ portal: Portal; school?: SchoolLinkInfo; onRo
     void run();
     const active = () => { if (document.visibilityState === 'visible') void run(true); };
     const storageChanged = (event: StorageEvent) => {
-      if (event.key === null || event.key === `donga_token_${portal}` || event.key === `donga_token_${portal}_school_${school?.school_code}`) void run(true);
+      if (event.key === null || event.key === `donga_token_${portal}` || event.key === `donga_token_${portal}_school_${school?.school_code}`) {
+        if (event.oldValue) forgetVerifiedUser(event.oldValue);
+        void run(true);
+      }
     };
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       document.addEventListener('visibilitychange', active);
