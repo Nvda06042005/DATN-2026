@@ -18,7 +18,8 @@ test('chi tiết nút trận đánh mang điểm trận trên bản đồ và n�
 });
 
 test('ứng dụng học sinh: có điểm trên bản đồ và game đang mở thì sang bản đồ hành quân, không thì mở màn giới thiệu; rời tab Chiến dịch thì bỏ điểm đã chọn', () => {
-  assert.match(app, /onStage: \(id, march\) => \{\s*if \(march && warOn\) \{ setMarchFocus\(march\); setHomeMode\('march'\); setCampaignId\(null\); setFocusNode\(null\); setTab\('home'\); return; \}\s*setStageId\(id\);/);
+  assert.match(app, /onStage: \(id, march\) => \{\s*if \(march && warOn\) \{ setMarchFocus\(march\); setHomeMode\('march'\); setCampaignId\(null\); setFocusNode\(null\); setTab\('home', \{ march_campaign: String\(march.campaign_id\), march_point: String\(march.point_id\)/);
+  assert.match(app, /campaign_id: positive\(params.march_campaign\)!, point_id: positive\(params.march_point\)!/);
   assert.match(app, /if \(tab !== 'home'\) setMarchFocus\(null\)/);
   assert.match(app, /<MarchTab [^>]*focus=\{marchFocus\} onFocusDone=\{\(\) => setMarchFocus\(null\)\}/);
 });

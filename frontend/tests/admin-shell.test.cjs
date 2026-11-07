@@ -117,7 +117,7 @@ test('menu quản trị tổng: Thống kê hệ thống đứng đầu rồi Tr
   const root = read('components', 'admin', 'RootAdmin.tsx');
   const ids = [...root.slice(root.indexOf('const NAV'), root.indexOf('type Tab')).matchAll(/id: '(\w+)'/g)].map((m) => m[1]);
   assert.deepEqual(ids, ['stats', 'schools', 'users', 'notices', 'logs', 'faq', 'support']);
-  assert.match(root, /useState<Tab>\('stats'\)/);
+  assert.match(root, /usePortalTab<Tab>\('stats', NAV\.map/);
 });
 
 test('thống kê hệ thống: một trang tổng quan vừa một màn hình, có đồng hồ nửa vòng; số liệu thực từ bốn API; cửa sổ nhỏ thì xếp chồng và cuộn', () => {
@@ -154,7 +154,7 @@ test('quản trị trường học theo quản trị tổng: Thống kê trườ
   const school = read('components', 'admin', 'SchoolAdmin.tsx');
   const ids = [...school.slice(school.indexOf('const NAV'), school.indexOf('type Tab')).matchAll(/id: '(\w+)'/g)].map((m) => m[1]);
   assert.deepEqual(ids, ['stats', 'school', 'teachers', 'students', 'classes', 'reports', 'review', 'history', 'journeys', 'lessons', 'questions', 'quizzes', 'game', 'battle', 'war', 'ai', 'research', 'notices', 'surveys', 'logs', 'help']);
-  assert.match(school, /useState<Tab>\('stats'\)/);
+  assert.match(school, /usePortalTab<Tab>\('stats', NAV\.map/);
   assert.match(school, /\{ id: 'stats' as const, label: 'Thống kê trường', icon: ChartColumn \}/);
   assert.match(school, /\{tab === 'stats' \? <SchoolDashboard session=\{session\} schoolName=\{school\?\.name\} \/>/);
 });

@@ -51,3 +51,15 @@ test('máy tính: thanh bên hiện các mục chính, rồi nhóm "Xem thêm" v
   assert.match(source, /\{extra\.map\(row\)\}/);
   assert.match(source, /<Dot n=\{dots\[it\.id\]\} \/>/);
 });
+
+test('trang học sinh tạm thời ẩn Bộ thẻ, Kế hoạch học, Dòng thời gian, Bản đồ, Trận đánh; trang giáo viên ẩn Hành trình học, Bộ đề và bỏ Trò chơi hóa', () => {
+  const hiddenStudent = [...source.slice(source.indexOf('TEMP_HIDDEN_STUDENT_TABS: Tab[] = ['), source.indexOf('];', source.indexOf('TEMP_HIDDEN_STUDENT_TABS: Tab[] = ['))).matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
+  assert.deepEqual(hiddenStudent, ['collection', 'study', 'timeline', 'map', 'battles']);
+  assert.match(source, /const hide = new Set<Tab>\(\[\.\.\.TEMP_HIDDEN_STUDENT_TABS, \.\.\.hidden\]\);/);
+  const teacher = fs.readFileSync(path.join(__dirname, '..', 'components', 'portal', 'TeacherApp.tsx'), 'utf8');
+  const hiddenTeacher = [...teacher.slice(teacher.indexOf('TEMP_HIDDEN_TEACHER_TABS: Tab[] = ['), teacher.indexOf('];', teacher.indexOf('TEMP_HIDDEN_TEACHER_TABS: Tab[] = ['))).matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
+  assert.deepEqual(hiddenTeacher, ['journeys', 'quizzes']);
+  assert.match(teacher, /const VISIBLE_NAV = NAV\.filter\(\(it\) => !TEMP_HIDDEN_TEACHER_TABS\.includes\(it\.id\)\);/);
+  assert.match(teacher, /nav=\{VISIBLE_NAV\}/);
+  assert.ok(!teacher.includes('TeacherGame') && !teacher.includes('Trò chơi hóa'), 'TeacherApp không còn mục Trò chơi hóa');
+});

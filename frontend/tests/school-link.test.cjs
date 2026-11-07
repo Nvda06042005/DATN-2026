@@ -109,11 +109,12 @@ test('tạo xong: hộp thông tin hiện đường dẫn riêng (sao chép, m�
 
 test('đường dẫn của trường mở trang đăng nhập riêng: kiểm tra dạng đường dẫn, lấy thông tin trường, 404 khi không có', () => {
   const route = read('app', '[school].tsx');
-  assert.match(route, /isSchoolSlug\(slug\) \? <SchoolLinkLogin slug=\{slug\} \/> : <ErrorPage kind="not-found" \/>/);
+  assert.match(route, /isSchoolSlug\(slug\) \? <SchoolLinkLogin key=\{slug\} slug=\{slug\} \/> : <ErrorPage kind="not-found" \/>/);
   assert.match(route, /authApi\.getSchoolLink\(slug\)/);
   assert.match(route, /error instanceof ApiError && error\.status === 404\) setStatus\('missing'\)/);
-  assert.match(route, /<LoginScreen[\s\S]*school=\{school\}/);
-  assert.match(route, /await saveToken\(user\.role, token\);\s*router\.replace\(PORTAL_PATH\[user\.role\]\)/);
+  assert.match(route, /<PortalApp[^>]*portal=\{role\} school=\{school\}/);
+  assert.match(route, /role === 'school_admin' \? <SchoolAdmin session=\{session\} \/>/);
+  assert.doesNotMatch(route, /router\.replace\(PORTAL_PATH/);
   assert.match(read('api', 'authApi.ts'), /export const getSchoolLink = \(slug: string\) => apiRequest<SchoolLinkInfo>\(`\/api\/auth\/school-link\/\$\{encodeURIComponent\(slug\)\}`\)/);
 });
 

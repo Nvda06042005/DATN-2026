@@ -281,7 +281,7 @@ export const LearningPathTab: React.FC<{ session: Session; refreshKey: number; a
 };
 
 // ---------------------------------------------------------------------- mục Luyện tập của thanh menu (HK.HS.125)
-export const PracticeTab: React.FC<{ session: Session; refreshKey: number; onPractice: () => void; onGoLearn: () => void; onGoBattles: () => void }> = ({ session, refreshKey, onPractice, onGoLearn, onGoBattles }) => {
+export const PracticeTab: React.FC<{ session: Session; refreshKey: number; onPractice: () => void; onGoLearn: () => void; onGoBattles?: () => void }> = ({ session, refreshKey, onPractice, onGoLearn, onGoBattles }) => {
   const { c } = useTheme();
   const wrong = useLoad(() => api.practiceInfo(session.token), [session.token, refreshKey], session.expired);
   const list = wrong.data ?? [];
@@ -303,11 +303,11 @@ export const PracticeTab: React.FC<{ session: Session; refreshKey: number; onPra
         <Txt size={14} color={c.muc2}>Mỗi cửa trên lộ trình có nút Luyện tập (biểu tượng tạ) ôn lại những gì em vừa học, làm sai không mất tim.</Txt>
         <Btn title="Về lộ trình học" tone="ngoc" size="sm" onPress={onGoLearn} />
       </Card>
-      <Card flat style={{ gap: 8 }}>
+      {onGoBattles ? <Card flat style={{ gap: 8 }}>
         <Txt f="bold" size={16}>Trận đánh và mini-game</Txt>
         <Txt size={14} color={c.muc2}>Chơi mô phỏng trận đánh và các trò chơi ghép thẻ, sắp xếp dòng thời gian, ô chữ.</Txt>
         <Btn title="Mở trận đánh" tone="thuy" size="sm" onPress={onGoBattles} />
-      </Card>
+      </Card> : null}
     </View>
   );
 };

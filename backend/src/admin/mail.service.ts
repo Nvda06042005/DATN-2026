@@ -10,6 +10,7 @@ import { createTransport, Transport, Transporter } from 'nodemailer';
 import { config } from '../config';
 import { DatabaseService, Q } from '../database/database.service';
 import { DEFAULT_TEMPLATES, fill, TemplateKey } from '../platform/templates';
+import { schoolSlug } from './school-directory';
 
 export type MailKind = 'bulk' | 'delta' | 'class' | 'feedback' | 'notice';
 
@@ -17,14 +18,14 @@ export type MailKind = 'bulk' | 'delta' | 'class' | 'feedback' | 'notice';
 export type TemplateOverrides = Partial<Record<TemplateKey, { subject: string; body: string }>>;
 
 /** Dữ liệu dựng thư: thông tin đăng nhập kèm mật khẩu tạm (tài khoản mới hoặc đặt lại mật khẩu) */
-export type AccountPayload = { type: 'account'; full_name: string; username: string; password: string; role: 'root_admin' | 'school_admin' | 'teacher' | 'student'; school: string; reset?: boolean };
+export type AccountPayload = { type: 'account'; full_name: string; username: string; password: string; role: 'root_admin' | 'school_admin' | 'teacher' | 'student'; school: string; reset?: boolean; login_path?: string };
 /** Thư nhận xét học tập giáo viên gửi (Sprint 10, HK.GV.072): nội dung văn bản thuần, không có mật khẩu */
 export type NotePayload = { type: 'note'; text: string };
 export type MailPayload = AccountPayload | NotePayload;
 
 const ROLE_LABEL = { root_admin: 'quản trị tổng', school_admin: 'quản trị viên trường học', teacher: 'giáo viên', student: 'học sinh' } as const;
 /** Trang đăng nhập của từng vai trò */
-const LOGIN_PATH = { root_admin: '/admin', school_admin: '/school-manager-admin', teacher: '/portal', student: '/portal' } as const;
+const LOGIN_PATH = { root_admin: '/admin', school_admin: '/portal?role=school_admin', teacher: '/portal?role=teacher', student: '/portal?role=student' } as const;
 
 /** Giãn cách giữa các lần thử lại (phút) */
 const BACKOFF_MIN = [1, 5, 15, 60];
@@ -254,11 +255,11 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
 
   render(payload: MailPayload, tpl: TemplateOverrides = {}): { text: string; html: string } {
     if (payload.type === 'note') { const rows = payload.text.split('\n'); return { text: payload.text, html: rows.map((l) => (l ? `<p>${escapeHtml(l)}</p>` : '')).join('') }; }
-    const login = `${config.appUrl}${LOGIN_PATH[payload.role]}`;
+    const login = `${config.appUrl}${payload.login_path ?? LOGIN_PATH[payload.role]}`;
     const body = (tpl.temp_password ?? DEFAULT_TEMPLATES.temp_password).body;
     const lines = fill(body, {
       ten: payload.full_name,
-      mo_dau: payload.reset ? `Mật khẩu tài khoản ${ROLE_LABEL[payload.role]} của bạn trên Đông A EDU đã được đặt lại.` : `${payload.school} đã cấp cho bạn tài khoản ${ROLE_LABEL[payload.role]} trên Đông A EDU.`,
+      mo_dau: payload.reset ? `Mật khẩu tài khoản ${ROLE_LABEL[payload.role]} của bạn${payload.role === 'root_admin' ? '' : ` tại ${payload.school}`} trên Đông A EDU đã được đặt lại.` : `${payload.school} đã cấp cho bạn tài khoản ${ROLE_LABEL[payload.role]} trên Đông A EDU.`,
       tai_khoan: payload.username, mat_khau: payload.password, duong_dan: login, vai_tro: ROLE_LABEL[payload.role], truong: payload.school,
     }).split('\n');
     return { text: lines.join('\n'), html: lines.map((l) => (l ? `<p>${escapeHtml(l)}</p>` : '')).join('') };
@@ -286,10 +287,16 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
         }
         if (payload.type === 'account' && job.user_id) {
           // Người dùng đã đổi mật khẩu hoặc tài khoản vào thùng rác: mật khẩu mặc định không còn dùng được, không gửi nữa
-          const u = await this.db.query<{ must_change_password: number; deleted_at: Date | null }>('SELECT must_change_password, deleted_at FROM app_users WHERE id = $1', [job.user_id]);
+          const u = await this.db.query<{ must_change_password: number; deleted_at: Date | null; school_code: string | null; name: string; region: string | null }>(
+            'SELECT u.must_change_password, u.deleted_at, s.school_code, s.name, s.region FROM app_users u LEFT JOIN app_schools s ON s.id = u.school_id WHERE u.id = $1', [job.user_id]);
           if (!u.length || !u[0].must_change_password || u[0].deleted_at) {
             await this.db.query("UPDATE app_email_outbox SET status = 'cancelled', body_encrypted = NULL, locked_at = NULL WHERE id = $1", [job.id]);
             continue;
+          }
+          // Dựng theo trường hiện tại khi gửi, kể cả thư đang đợi từ trước khi trường đổi tên.
+          if (u[0].school_code && payload.role !== 'root_admin') {
+            payload.school = u[0].name;
+            payload.login_path = `/${schoolSlug({ school_code: u[0].school_code, name: u[0].name, region: u[0].region })}?role=${payload.role}`;
           }
         }
         const { text, html } = this.render(payload, await this.overrides());

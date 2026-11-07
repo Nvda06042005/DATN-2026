@@ -121,7 +121,7 @@ test('Lựa chọn vai trò từ URL chỉ nhận ba vai trò nhà trường và
   for (const value of ['root_admin', 'admin', '', undefined]) assert.equal(portals.schoolRoleFromParam(value), 'student');
   assert.equal(portals.PORTAL_PATH.student, '/hoc-sinh');
   assert.equal(portals.PORTAL_PATH.teacher, '/giao-vien');
-  assert.equal(portals.PORTAL_PATH.school_admin, '/school-manager-admin');
+  assert.equal(portals.PORTAL_PATH.school_admin, '/portal?role=school_admin');
   assert.equal(portals.isSchoolRole('root_admin'), false);
 });
 

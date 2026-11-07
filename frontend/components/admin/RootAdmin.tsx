@@ -17,6 +17,7 @@ import { SchoolEmblem, SchoolLinkBox } from '@/components/school-brand';
 import { schoolLogoUrl } from '@/lib/school-logos';
 import { AdminUiContext, Btn, ConfirmSheet, Field, Inset, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import { usePortalTab } from '@/hooks/use-portal-tab';
 import { fmt } from '@/lib/format';
 import type { AuthRole, CreatedAccount, CreatedSchool, SchoolDirectoryItem, SchoolItem } from '@/types/api';
 
@@ -32,7 +33,7 @@ const NAV = [
 type Tab = (typeof NAV)[number]['id'];
 
 export const RootAdmin: React.FC<{ session: Session }> = ({ session }) => {
-  const [tab, setTab] = useState<Tab>('stats');
+  const [tab, setTab] = usePortalTab<Tab>('stats', NAV.map(item => item.id));
   const { data: schools } = useLoad(() => api.listSchools(session.token, { limit: 200 }), [session.token], session.expired);
   const options = useMemo(() => (schools?.items ?? []).map((s) => ({ value: String(s.id), label: `${s.name} (${s.school_code})` })), [schools]);
   return (

@@ -6,7 +6,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import type { Portal } from '@/types/api';
 
-const tokenKey = (portal: Portal) => `donga_token_${portal}`;
+const tokenKey = (portal: Portal, schoolCode?: string) => `donga_token_${portal}${schoolCode ? `_school_${schoolCode}` : ''}`;
 
 const webStore = (kind: 'local' | 'session'): Storage | null => {
   try {
@@ -16,23 +16,23 @@ const webStore = (kind: 'local' | 'session'): Storage | null => {
   }
 };
 
-export async function readToken(portal: Portal): Promise<string | null> {
+export async function readToken(portal: Portal, schoolCode?: string): Promise<string | null> {
   try {
-    if (Platform.OS === 'web') return webStore('local')?.getItem(tokenKey(portal)) ?? null;
-    return await SecureStore.getItemAsync(tokenKey(portal));
+    if (Platform.OS === 'web') return webStore('local')?.getItem(tokenKey(portal, schoolCode)) ?? null;
+    return await SecureStore.getItemAsync(tokenKey(portal, schoolCode));
   } catch {
     return null;
   }
 }
 
-export async function saveToken(portal: Portal, token: string | null): Promise<void> {
+export async function saveToken(portal: Portal, token: string | null, schoolCode?: string): Promise<void> {
   try {
     if (Platform.OS === 'web') {
       const store = webStore('local');
-      if (token) store?.setItem(tokenKey(portal), token);
-      else store?.removeItem(tokenKey(portal));
-    } else if (token) await SecureStore.setItemAsync(tokenKey(portal), token);
-    else await SecureStore.deleteItemAsync(tokenKey(portal));
+      if (token) store?.setItem(tokenKey(portal, schoolCode), token);
+      else store?.removeItem(tokenKey(portal, schoolCode));
+    } else if (token) await SecureStore.setItemAsync(tokenKey(portal, schoolCode), token);
+    else await SecureStore.deleteItemAsync(tokenKey(portal, schoolCode));
   } catch {
     // Không lưu được: người dùng đăng nhập lại ở lần mở sau
   }

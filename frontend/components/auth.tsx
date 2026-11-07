@@ -5,13 +5,13 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { Animated, Platform, Pressable, View, useWindowDimensions } from 'react-native';
-import { Redirect } from 'expo-router';
+import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { AlertTriangle, Eye, EyeOff, KeyRound, LogOut, User } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { AdminLogin } from '@/components/admin/AdminLogin';
 import { SchoolLogin } from '@/components/school-login';
-import type { SchoolBrandInfo } from '@/components/school-brand';
+import { SchoolBadge, type SchoolBrandInfo } from '@/components/school-brand';
 import type { SchoolRole } from '@/lib/school-portal';
 import { BrandLogo, Mascot } from '@/components/art';
 import { ProfileSheet } from '@/components/profile';
@@ -19,7 +19,8 @@ import { Avatar, Btn, Card, Field, Inset, PaperBg, Sheet, Spinner, Txt, useToast
 import { useSystemBrand } from '@/hooks/use-system-brand';
 import { useTheme } from '@/hooks/use-theme';
 import { readToken, saveToken } from '@/lib/storage';
-import type { AuthRole, AuthUser, Portal, ProfileData, ProfilePatch } from '@/types/api';
+import { schoolSessionPath } from '@/lib/school-session';
+import type { AuthRole, AuthUser, Portal, ProfileData, ProfilePatch, SchoolLinkInfo } from '@/types/api';
 
 export { PORTAL_PATH } from '@/lib/school-portal';
 export const PORTAL_TITLE: Record<Portal | 'app', string> = {
@@ -54,7 +55,7 @@ export interface Session {
 }
 
 /** Bọc một trang: khôi phục phiên đã lưu, đăng nhập, đổi mật khẩu bắt buộc, rồi mới vẽ nội dung */
-export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) => React.ReactNode }> = ({ portal, children }) => {
+export const PortalApp: React.FC<{ portal: Portal; school?: SchoolLinkInfo; onRoleChange?: (role: SchoolRole) => void; children: (session: Session) => React.ReactNode }> = ({ portal, school, onRoleChange, children }) => {
   const toast = useToast();
   const { c } = useTheme();
   const [token, setToken] = useState<string | null>(null);
@@ -62,50 +63,62 @@ export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) 
   const [checking, setChecking] = useState(true);
   const [changing, setChanging] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  useDocumentTitle(`${PORTAL_TITLE[portal]} – Đông A`);
+  useDocumentTitle(`${school ? `${school.name} – ` : ''}${PORTAL_TITLE[portal]} – Đông A`);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let alive = true;
+    setChecking(true);
     (async () => {
-      const saved = await readToken(portal);
-      if (!saved) return;
+      const scoped = await readToken(portal, school?.school_code);
+      const saved = scoped ?? (school ? await readToken(portal) : null);
+      if (!saved) { if (alive) { setToken(null); setUser(null); } return; }
       try {
         const u = await authApi.getMe(saved);
         if (!alive) return;
-        if (u.role === portal) {
+        if (u.role === portal && (!school || u.school_code === school.school_code)) {
+          if (school) await saveToken(portal, saved, school.school_code);
           setToken(saved);
           setUser(u);
-        } else await saveToken(portal, null);
+        } else {
+          setToken(null); setUser(null);
+          if (scoped) await saveToken(portal, null, school?.school_code);
+        }
       } catch (err) {
         if (!alive) return;
         if (err instanceof ApiError && err.status === 0) setNotice(err.message);
-        else await saveToken(portal, null);
+        else if (err instanceof ApiError && err.status === 401) {
+          await saveToken(portal, null, scoped ? school?.school_code : undefined);
+          setToken(null); setUser(null);
+        }
       }
     })().finally(() => alive && setChecking(false));
     return () => {
       alive = false;
     };
-  }, [portal]);
+  }, [portal, school?.school_code]));
 
   const start = useCallback(
     (t: string, u: AuthUser) => {
-      saveToken(portal, t);
+      if (u.role !== portal || (school && u.school_code !== school.school_code)) throw new ApiError(403, 'Tài khoản không thuộc vai trò hoặc trường của đường dẫn này.');
+      saveToken(portal, t, school?.school_code);
+      if (school) saveToken(portal, t); // Tương thích dấu trang cũ; chỉ dùng sau khi /me kiểm tra lại vai trò và trường.
       setToken(t);
       setUser(u);
       setNotice(null);
     },
-    [portal],
+    [portal, school?.school_code],
   );
 
   const end = useCallback(
     (msg: string | null = null) => {
-      saveToken(portal, null);
+      saveToken(portal, null, school?.school_code);
+      if (school && token) void readToken(portal).then(saved => { if (saved === token) return saveToken(portal, null); });
       setToken(null);
       setUser(null);
       setChanging(false);
       setNotice(msg);
     },
-    [portal],
+    [portal, school?.school_code, token],
   );
 
   const logout = useCallback(async (message?: string) => {
@@ -118,7 +131,7 @@ export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) 
     }
   }, [token, end, portal, toast]);
 
-  if (checking) {
+  if (checking && (!token || !user)) {
     // Cổng quản trị: chỉ một vòng chờ trên nền trắng, cùng nền với trang đăng nhập sắp hiện
     if (isAdminPortal(portal)) {
       return (
@@ -137,8 +150,11 @@ export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) 
   }
   if (!user || !token) {
     if (portal === 'root_admin') return <LoginScreen portal={portal} onLogin={start} notice={notice} />;
+    if (school) return <LoginScreen portal={portal} school={school} onRoleChange={onRoleChange} onLogin={start} notice={notice ?? (school.is_active ? null : 'Trường đang tạm ngưng hoạt động. Hãy liên hệ quản trị tổng.')} />;
     return <Redirect href={{ pathname: '/portal', params: { role: portal, ...(notice ? { notice } : {}) } }} />;
   }
+  // Địa chỉ quản trị trường cũ chỉ chuyển tiếp; kể cả tài khoản còn mật khẩu tạm cũng đi về đường dẫn chuẩn trước.
+  if (portal === 'school_admin' && !school) return <SchoolSessionRedirect token={token} user={user} />;
   const saved = (t: string, u: AuthUser) => {
     start(t, u);
     setChanging(false);
@@ -149,11 +165,12 @@ export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) 
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, padding: 24 }}>
         <PaperBg />
+        {school ? <SchoolBadge school={school} /> : null}
         <Mascot size={110} mood="sleepy" accessory={isAdminPortal(portal) ? 'crown' : 'scholar'} />
         <Txt f="display" size={18} color={c.muc2} center>
           Trang đang khóa – hãy đặt mật khẩu mới để tiếp tục
         </Txt>
-        <Sheet open persistent onClose={() => undefined} title="Đặt mật khẩu mới" subtitle="Bắt buộc ở lần đăng nhập đầu tiên">
+        <Sheet open persistent onClose={() => undefined} title="Đặt mật khẩu mới" subtitle={`${school ? `${school.name} · ` : ''}Bắt buộc ở lần đăng nhập đầu tiên`}>
           <ChangePasswordForm user={user} token={token} forced onDone={saved} onCancel={() => { void logout(); }} />
         </Sheet>
       </View>
@@ -178,22 +195,37 @@ export const PortalApp: React.FC<{ portal: Portal; children: (session: Session) 
         changePassword: () => setChanging(true),
         updateUser: setUser,
       })}
+      {checking ? <View style={{ position: 'absolute', inset: 0, zIndex: 100, backgroundColor: c.scrim, alignItems: 'center', justifyContent: 'center' }}><Spinner label="Đang kiểm tra phiên đăng nhập…" /></View> : null}
     </>
   );
 };
 
+/** Chuyển tiếp một lần bằng replace, giữ mục menu và không tạo bước đăng nhập thừa trong lịch sử. */
+function SchoolSessionRedirect({ token, user }: { token: string; user: AuthUser }) {
+  const router = useRouter();
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
+  const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let live = true;
+    schoolSessionPath(token, user).then(path => { if (live) router.replace(`${path}${tab ? `&tab=${encodeURIComponent(tab)}` : ''}` as '/portal'); }).catch(e => { if (live) setError(errorMessage(e)); });
+    return () => { live = false; };
+  }, [token, user, tab, router, retry]);
+  return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}><PaperBg />{error ? <><Txt>{error}</Txt><Btn title="Thử lại" onPress={() => { setError(null); setRetry(n => n + 1); }} /></> : <Spinner label="Đang mở đường dẫn riêng của trường…" />}</View>;
+}
+
 // ---------------------------------------------------------------------- đăng nhập chung
-type LoginProps = { portal: Portal | 'app'; onLogin: (token: string, user: AuthUser) => void | Promise<void>; notice?: string | null; school?: SchoolBrandInfo };
+type LoginProps = { portal: Portal | 'app'; onLogin: (token: string, user: AuthUser) => void | Promise<void>; notice?: string | null; school?: SchoolBrandInfo; onRoleChange?: (role: SchoolRole) => void };
 
 /** Quản trị tổng vẫn dùng cổng riêng; ba vai trò của nhà trường dùng cùng một biểu mẫu. */
 export const LoginScreen: React.FC<LoginProps> = ({ portal, ...rest }) =>
   portal === 'root_admin' ? <AdminLogin portal={portal} {...rest} /> : <SchoolLoginWithRecovery initialRole={portal === 'app' ? 'student' : portal} {...rest} />;
 
-const SchoolLoginWithRecovery: React.FC<Omit<LoginProps, 'portal'> & { initialRole: SchoolRole }> = ({ initialRole, onLogin, notice, school }) => {
+const SchoolLoginWithRecovery: React.FC<Omit<LoginProps, 'portal'> & { initialRole: SchoolRole }> = ({ initialRole, onLogin, notice, school, onRoleChange }) => {
   const [forgot, setForgot] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   return <>
-    <SchoolLogin initialRole={initialRole} onLogin={onLogin} notice={flash ?? notice} onForgotPassword={() => setForgot(true)} school={school} />
+    <SchoolLogin initialRole={initialRole} onLogin={onLogin} notice={flash ?? notice} onForgotPassword={() => setForgot(true)} school={school} onRoleChange={onRoleChange} />
     {forgot && <ForgotPasswordSheet onClose={() => setForgot(false)} onDone={() => { setForgot(false); setFlash('Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.'); }} />}
   </>;
 };

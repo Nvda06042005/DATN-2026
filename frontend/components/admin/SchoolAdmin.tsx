@@ -33,6 +33,7 @@ import { SchoolPeople } from '@/components/admin/SchoolPeople';
 import type { Session } from '@/components/auth';
 import { AdminUiContext, Btn, Card, ConfirmSheet, Inset, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import { usePortalTab } from '@/hooks/use-portal-tab';
 import type { YearItem } from '@/types/api';
 
 const NAV = [
@@ -62,7 +63,7 @@ type Tab = (typeof NAV)[number]['id'];
 const YEAR_KIND = { planned: 'info', active: 'on', ended: 'muted' } as const;
 
 export const SchoolAdmin: React.FC<{ session: Session }> = ({ session }) => {
-  const [tab, setTab] = useState<Tab>('stats');
+  const [tab, setTab] = usePortalTab<Tab>('stats', NAV.map(item => item.id));
   const { data: school, reload: reloadSchool } = useLoad(() => api.getMySchool(session.token), [session.token], session.expired);
   const { data: years, reload: reloadYears } = useLoad(() => api.listYears(session.token), [session.token], session.expired);
   const reloadAll = () => { reloadSchool(); reloadYears(); };
