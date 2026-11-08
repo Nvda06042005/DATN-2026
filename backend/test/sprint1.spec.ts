@@ -551,7 +551,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     expect((await api('POST', `/api/admin/users/${(await db.getByUsername('admin'))!.id}/lock`, { locked: true, reason: 'tự khóa' })).status).toBe(400);
   });
 
-  test('HK.AD.025 chỉ xóa tài khoản chưa phát sinh dữ liệu; đã đăng nhập hoặc đang dạy thì chỉ khóa', async () => {
+  test('HK.AD.025 quản trị tổng xóa tài khoản đã dùng; quản trị trường vẫn chỉ xóa khi chưa có dữ liệu', async () => {
     const fresh = await api('POST', '/api/admin/teachers', { full_name: 'Cô Chưa Dùng', email: 'chuadung.gv@example.edu.vn' }, a.token);
     const detail = await api('GET', `/api/admin/users/${fresh.body.user.id}`);
     expect(detail.body).toMatchObject({ deletable: true, delete_blocker: null, school_name: 'THCS Kiểm Thử A' });
@@ -559,13 +559,16 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     expect(await db.getById(fresh.body.user.id)).toBeNull();
     const used = await api('POST', '/api/admin/teachers', { full_name: 'Cô Đã Dùng', email: 'dadung.gv@example.edu.vn' }, a.token);
     await login(used.body.user.username, used.body.temporary_password, 'teacher');
-    const blocked = await api('DELETE', `/api/admin/users/${used.body.user.id}`);
+    const blocked = await api('DELETE', `/api/admin/users/${used.body.user.id}`, undefined, a.token);
     expect(blocked.status).toBe(409);
     expect(blocked.body.detail).toContain('đã từng đăng nhập');
-    expect((await api('GET', `/api/admin/users/${used.body.user.id}`)).body.deletable).toBe(false);
+    expect((await api('GET', `/api/admin/users/${used.body.user.id}`, undefined, a.token)).body.deletable).toBe(false);
+    expect((await api('GET', `/api/admin/users/${used.body.user.id}`)).body.deletable).toBe(true);
+    expect((await api('DELETE', `/api/admin/users/${used.body.user.id}`)).status).toBe(204);
+    expect(await db.getById(used.body.user.id)).toBeNull();
     const teaching = await api('POST', '/api/admin/teachers', { full_name: 'Cô Được Phân Công', email: 'phancong@example.edu.vn' }, a.token);
     await call(s.base, 'PATCH', `/api/admin/classes/${classA.id}`, { teacher_ids: [teaching.body.user.id] }, a.token);
-    expect((await api('DELETE', `/api/admin/users/${teaching.body.user.id}`)).body.detail).toContain('phụ trách lớp');
+    expect((await api('DELETE', `/api/admin/users/${teaching.body.user.id}`, undefined, a.token)).body.detail).toContain('phụ trách lớp');
     await call(s.base, 'PATCH', `/api/admin/classes/${classA.id}`, { teacher_ids: [] }, a.token);
     expect((await api('DELETE', `/api/admin/users/${(await db.getByUsername('admin'))!.id}`)).status).toBe(400);
   });

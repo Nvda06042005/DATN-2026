@@ -311,7 +311,7 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }], onChange: (v) => { setActive(v); setPage(1); } };
   return (
     <Page>
-      <PageHeader title="Người dùng toàn hệ thống" subtitle="Xem, tìm, lọc; sửa, đổi vai trò, khóa/mở khóa hoặc đặt lại mật khẩu. Không xóa tài khoản ở đây: muốn xóa, hãy xóa trường ở mục Trường học." actions={<Btn title="Tạo tài khoản quản trị" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="user-add" />} />
+      <PageHeader title="Người dùng toàn hệ thống" subtitle="Xem, tìm, lọc; sửa, đổi vai trò, khóa/mở khóa, đặt lại mật khẩu hoặc xóa từng tài khoản." actions={<Btn title="Tạo tài khoản quản trị" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="user-add" />} />
       <SearchFilterBar placeholder="Tìm theo tên, tên đăng nhập, email, mã" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="user-search"
         filters={[f_role, f_school, f_active]} />
       <ErrorNote message={error} />
@@ -330,7 +330,7 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
           <Pager page={page} limit={size} total={data.total} onPage={setPage} />
         </>
       ) : null}
-      {open ? <AccountSheet session={session} id={open} schools={schools} canDelete={false} onClose={() => setOpen(null)} onChanged={refresh} /> : null}
+      {open ? <AccountSheet session={session} id={open} schools={schools} onClose={() => setOpen(null)} onChanged={refresh} /> : null}
       {creating ? <CreateSchoolAdminSheet session={session} onClose={() => setCreating(false)}
         onCreated={res => { setCreating(false); setCredential(res); reload(); }}
         onExisting={id => { setCreating(false); setOpen(id); }} /> : null}

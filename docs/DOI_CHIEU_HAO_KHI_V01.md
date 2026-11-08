@@ -33,7 +33,7 @@ S10 gợi ý cá nhân hóa, dashboard (26) · S11 thông báo, cấu hình, 2FA
 - **Tham gia lớp bằng mã lớp 6 ký tự do giáo viên cung cấp, không có mật khẩu lớp**; một học sinh thuộc **nhiều lớp**; giáo viên có thể **tạo lại mã**.
 - **Giáo viên tạo lớp** được; nhưng “lớp do trường tạo thì giáo viên chỉ được phân công”. QTV trường gán **một hoặc nhiều giáo viên** cho lớp theo năm học.
 - **Năm học là thực thể quản lý** (thêm, sửa, kích hoạt, kết thúc); năm học đã kết thúc không được sửa dữ liệu. Có “nhân bản lớp sang năm học mới” (lên lớp).
-- Xóa chỉ khi chưa phát sinh dữ liệu, nếu không chỉ khóa hoặc lưu trữ (giáo viên, học sinh, lớp, tài khoản). Ngoại lệ theo yêu cầu 08/11/2026: quản trị tổng xóa **trường** thì xóa luôn toàn bộ tài khoản và dữ liệu của trường; trang Người dùng của quản trị tổng không có mục Xóa.
+- Quản trị trường chỉ xóa giáo viên/học sinh chưa phát sinh dữ liệu; lớp có dữ liệu thì khóa hoặc lưu trữ. Theo yêu cầu mới nhất 08/11/2026, quản trị tổng được xóa **riêng từng tài khoản kể cả đã đăng nhập/có dữ liệu** ở mục Người dùng; chặn tự xóa và cấp 2 xóa quản trị tổng. Xóa tài khoản giữ trường, lớp, tài khoản khác và nhật ký; dữ liệu cá nhân và phiên của tài khoản bị xóa mất hiệu lực. Xóa **trường** vẫn xóa toàn bộ tài khoản/dữ liệu của trường như hộp xác nhận.
 - Nhập Excel phải **báo lỗi dòng trùng/sai định dạng trước khi lưu** (xem trước).
 - Nội dung lịch sử có vòng đời **Nháp → Đã kiểm chứng → Công bố**; chỉ nội dung đã công bố hiển thị cho học sinh **và được dùng cho AI**; có lịch sử chỉnh sửa, so sánh, khôi phục.
 - Câu hỏi do AI sinh bắt buộc giáo viên duyệt. Bảng xếp hạng học sinh chỉ thấy biệt danh. Trò chuyện nhập vai với nhân vật lịch sử cần bộ lọc an toàn.

@@ -1,4 +1,4 @@
-// Xóa trường kèm toàn bộ dữ liệu (quản trị tổng, mục Trường học) và trang Người dùng toàn hệ thống chỉ xem/sửa/khóa, không có mục Xóa.
+// Xóa trường kèm toàn bộ dữ liệu và xóa riêng từng tài khoản của quản trị tổng.
 // Thành phần React Native không nạp được trong Node nên kiểm tra các mắt xích nối nhau trong mã nguồn.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -21,17 +21,22 @@ test('xóa trường: hộp xác nhận nêu rõ sẽ xóa cả tài khoản, l�
   assert.match(src, /label=\{`Xóa \$\{s\.name\}`\} tone="giay" size="sm" onPress=\{\(\) => setRemoving\(s\)\}/);
 });
 
-test('trang Người dùng toàn hệ thống không có mục Xóa; quản trị trường vẫn xóa được tài khoản chưa phát sinh dữ liệu', () => {
+test('trang Người dùng cho xóa từng tài khoản theo quyền API; xác nhận riêng cho quản trị tổng và quản trị trường', () => {
   const root_ = read('components', 'admin', 'RootAdmin.tsx');
-  assert.match(root_, /<AccountSheet session=\{session\} id=\{open\} schools=\{schools\} canDelete=\{false\}/);
-  assert.doesNotMatch(root_, /hoặc xóa tài khoản chưa phát sinh dữ liệu/);
-  assert.match(root_, /Không xóa tài khoản ở đây: muốn xóa, hãy xóa trường ở mục Trường học\./);
+  assert.match(root_, /<AccountSheet session=\{session\} id=\{open\} schools=\{schools\} onClose=/);
+  assert.doesNotMatch(root_, /canDelete=\{false\}/);
+  assert.doesNotMatch(root_, /Không xóa tài khoản ở đây/);
   const sheet = read('components', 'admin', 'AccountSheet.tsx');
   assert.match(sheet, /canDelete\?: boolean;/);
   assert.match(sheet, /\}> = \(\{ session, id, schools = \[\], onClose, onChanged, canDelete = true \}\) =>/);
   assert.match(sheet, /\{canDelete \? <Btn title="Xóa" icon=\{Trash2\}[^\n]*testID="acc-delete" \/> : null\}/);
   assert.match(sheet, /\{canAct && canDelete && !u\.deletable \?/);
   assert.match(sheet, /<ConfirmSheet open=\{canDelete && dialog === 'delete'\}/);
+  assert.match(sheet, /message=\{root/);
+  assert.match(sheet, /Xóa vĩnh viễn tài khoản/);
+  assert.match(sheet, /Mọi phiên đăng nhập của tài khoản sẽ mất hiệu lực/);
+  assert.match(sheet, /Trường, lớp, tài khoản khác và nhật ký được giữ lại/);
+  assert.match(sheet, /if \(!u\?\.deletable\) return/);
   // các thao tác còn lại của quản trị tổng vẫn có
   for (const id of ['acc-edit', 'acc-role', 'acc-lock', 'acc-reset']) assert.ok(sheet.includes(`testID="${id}"`), id);
   // trang giáo viên/học sinh của quản trị trường dùng mặc định canDelete = true

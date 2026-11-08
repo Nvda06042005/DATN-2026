@@ -481,8 +481,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Xóa hẳn tài khoản (các bảng liên quan tự xóa theo khóa ngoại ON DELETE CASCADE/SET NULL). Tài khoản có tiến độ học không bao giờ tới đây
-   * (accountHasData chặn); dòng tiến độ rỗng nếu có thì để lại vì mã tài khoản không được dùng lại và vai trò theo trường không được xóa bảng này.
+   * Xóa hẳn tài khoản (các bảng liên quan theo FK CASCADE/SET NULL). AccountService kiểm tra quyền/quy tắc trước khi gọi;
+   * quản trị tổng dọn app_progress (bảng cũ không có FK) trong cùng giao dịch. Vai trò theo trường chỉ xóa tài khoản chưa dùng.
    */
   async deleteUser(id: number, q: Q = (sql, params) => this.query(sql, params)): Promise<void> {
     await q('DELETE FROM app_users WHERE id = $1', [id]);

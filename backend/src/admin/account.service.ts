@@ -1,7 +1,7 @@
 /**
  * Tài khoản (HK.AD.018–025, HK.QT.014–034): quản trị tổng quản lý người dùng toàn hệ thống; quản trị trường quản lý giáo viên và học sinh của trường mình.
  * Mọi thao tác chạy trong giao dịch có khóa, kiểm tra lại quyền của người thao tác; mật khẩu tạm chỉ trả về một lần và gửi qua hàng đợi email.
- * Xóa chỉ khi tài khoản chưa phát sinh dữ liệu, ngược lại chỉ khóa. Nhập Excel có bước xem trước báo lỗi từng dòng trước khi lưu.
+ * Quản trị tổng được xóa từng tài khoản đã dùng; quản trị trường chỉ xóa tài khoản chưa phát sinh dữ liệu. Nhập Excel có xem trước báo lỗi từng dòng.
  */
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { toPublic } from '../auth/auth.service';
@@ -70,22 +70,30 @@ export class AccountService {
     if (actor.role === 'root_admin' && actor.admin_level !== 1 && target.role === 'root_admin') throw new ForbiddenException('Quản trị tổng cấp 2 không được thay đổi tài khoản quản trị tổng');
   }
 
-  private async load(q: Q, scope: number | null, id: number): Promise<UserRow> {
-    const rows = await q(`SELECT ${USER_COLUMNS} FROM app_users WHERE id = $1 AND deleted_at IS NULL AND ($2::integer IS NULL OR school_id = $2)`, [id, scope]);
+  private async load(q: Q, scope: number | null, id: number, forUpdate = false): Promise<UserRow> {
+    const rows = await q(`SELECT ${USER_COLUMNS} FROM app_users WHERE id = $1 AND deleted_at IS NULL AND ($2::integer IS NULL OR school_id = $2)${forUpdate ? ' FOR UPDATE' : ''}`, [id, scope]);
     if (!rows.length) throw new NotFoundException('Không tìm thấy tài khoản');
     return toUser(rows[0]);
   }
 
   /** Tuần tự hóa các thay đổi nhạy cảm và kiểm tra lại người thao tác sau khi chờ khóa */
-  private async managed<T>(actor: UserRow, id: number, fn: (q: Q, target: UserRow, actor: UserRow) => Promise<T>): Promise<T> {
+  private async managed<T>(actor: UserRow, id: number, fn: (q: Q, target: UserRow, actor: UserRow) => Promise<T>, lockRows = false): Promise<T> {
     return this.schools.run(actor, async (q, scope) => {
       await q('SELECT pg_advisory_xact_lock(7412026)');
-      const fresh = await this.load(q, scope, actor.id);
+      const fresh = await this.load(q, scope, actor.id, lockRows);
       if (!fresh.is_active || fresh.role !== actor.role || fresh.token_version !== actor.token_version || fresh.admin_level !== actor.admin_level) throw new ForbiddenException('Quyền của phiên đã thay đổi. Hãy đăng nhập lại.');
-      const target = await this.load(q, scope, id);
+      const target = await this.load(q, scope, id, lockRows);
       this.canManage(fresh, target);
       return fn(q, target, fresh);
     });
+  }
+
+  /** Cùng một quy tắc cho chi tiết và DELETE: quản trị tổng được xóa tài khoản đã dùng; quản trị trường chỉ xóa khi chưa có dữ liệu. */
+  private async deletionBlocker(actor: UserRow, target: UserRow, q: Q): Promise<string | null> {
+    if (actor.id === target.id) return 'là tài khoản đang đăng nhập';
+    if (target.role === 'root_admin' && actor.admin_level !== 1) return 'là quản trị tổng được bảo vệ';
+    if (actor.role === 'root_admin') return null;
+    return this.db.accountHasData(target.id, q);
   }
 
   private async schoolOf(q: Q, id: number) {
@@ -144,7 +152,7 @@ export class AccountService {
         `SELECT c.id, c.name, c.grade, c.school_year, c.is_active, 'teacher' AS relation FROM app_class_teachers t JOIN app_classes c ON c.id = t.class_id WHERE t.teacher_id = $1
          UNION ALL SELECT c.id, c.name, c.grade, c.school_year, c.is_active, 'student' FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = $1
          ORDER BY school_year DESC, name`, [id]);
-      const blocker = await this.db.accountHasData(id, q);
+      const blocker = await this.deletionBlocker(actor, user, q);
       return { ...toPublic(user), school_name: school?.name ?? null, classes, deletable: blocker === null, delete_blocker: blocker };
     });
   }
@@ -333,13 +341,22 @@ export class AccountService {
     });
   }
 
-  /** Xóa tài khoản chưa phát sinh dữ liệu (HK.AD.025, HK.QT.021/032); đã có dữ liệu thì chỉ cho phép khóa */
+  /**
+   * Quản trị tổng được xóa từng tài khoản kể cả đã đăng nhập/có dữ liệu (08/11/2026).
+   * Quản trị trường vẫn chỉ xóa giáo viên/học sinh chưa dùng. Khóa hàng phối hợp với đăng nhập/đổi mật khẩu;
+   * dọn tiến độ cũ không có FK, xóa tài khoản và ghi nhật ký trong cùng giao dịch. Không xóa trường hoặc lớp.
+   */
   async remove(actor: UserRow, id: number): Promise<void> {
-    await this.managed(actor, id, async (q) => {
-      const blocker = await this.db.accountHasData(id, q);
+    await this.managed(actor, id, async (q, target, me) => {
+      const blocker = await this.deletionBlocker(me, target, q);
       if (blocker) throw new ConflictException(`Không xóa được vì tài khoản ${blocker}; hãy khóa tài khoản thay vì xóa.`);
+      // app_progress không có FK và không cấp quyền DELETE cho vai trò RLS của trường.
+      if (me.role === 'root_admin') await q('DELETE FROM app_progress WHERE user_id = $1', [id]);
       await this.db.deleteUser(id, q);
-    });
+      if (me.role === 'root_admin') await q(
+        'INSERT INTO app_audit_events (actor_id, actor_name, actor_role, school_id, action, target_type, target_id, success) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+        [me.id, me.full_name, me.role, target.school_id, `Xóa tài khoản “${target.full_name}” (${target.username}, ${target.role}) kèm dữ liệu cá nhân`, 'user', String(id), true]);
+    }, true);
   }
 
   // ------------------------------------------------------------------ nhập / xuất Excel
