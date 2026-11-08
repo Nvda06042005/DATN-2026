@@ -56,7 +56,7 @@ export function ErrorBoundary({ error, retry }: { error: Error; retry: () => Pro
   return (
     <SafeAreaProvider>
       <ThemeContext.Provider value={LIGHT}>
-        <ErrorPage kind="crash" detail={error?.message} onRetry={() => { void retry(); }} />
+        <ErrorPage kind="crash" detail={error?.message} onRetry={() => { void retry(); }} reloadOnRecover />
       </ThemeContext.Provider>
     </SafeAreaProvider>
   );
