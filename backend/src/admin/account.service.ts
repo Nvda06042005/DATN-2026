@@ -402,7 +402,7 @@ export class AccountService {
       },
       guide: [
         'Khối VÍ DỤ CÁCH ĐIỀN ở đầu sheet chỉ minh họa; không được nhập thành tài khoản. Điền giáo viên thật trong DANH SÁCH CỦA BẠN ở bên dưới. Cột có dấu * là bắt buộc (Họ và tên, Email).',
-        'Số thứ tự tự tăng theo những dòng đã nhập họ tên, kể cả khi có dòng trống ở giữa. File có sẵn 1000 dòng công thức.',
+        'Số thứ tự đã được đánh sẵn từ 1 đến 1000 và hiện ngay khi mở file, không cần nhập họ tên hoặc bấm tính công thức. Không sửa cột Số thứ tự.',
         `Mã giáo viên tự hiện sau khi nhập họ tên và ngày sinh: ${initials} + ${year} + ngày sinh ddmmyyyy + STT 3 chữ số.`,
         `${initials}: viết tắt của ${school ?? 'tên trường'}. ${year}: hai số cuối năm tải mẫu. Phần ddmmyyyy: ngày, tháng, năm sinh của giáo viên. STT giúp phân biệt người có cùng ngày sinh.`,
         `Ví dụ ngày sinh 15/03/1985, STT 1: ${prefix}15031985001. Với THCS Giồng Ông Tố trong năm 2026: GOT2615031985001.`,

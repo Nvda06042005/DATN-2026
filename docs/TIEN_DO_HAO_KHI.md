@@ -896,6 +896,10 @@ Theo yêu cầu của quản trị trường (menu Giáo viên → Nhập từ E
 - Thêm khối VÍ DỤ CÁCH ĐIỀN ngay trong sheet Giáo viên, có sẵn STT 1, mã ghép theo trường, họ tên/email minh họa và ngày sinh thật kiểu ngày. Giải thích từng phần mã ngay dưới ví dụ, không cần mở sheet Hướng dẫn mới thấy.
 - Bảng nhập thật nằm dưới nhãn DANH SÁCH CỦA BẠN, bắt đầu dòng 12; STT/mã chỉ tính từ bảng này. Khối ví dụ có nhãn cột riêng để bộ đọc không nhận thành dòng dữ liệu. Tải nguyên mẫu chưa điền lên vẫn báo không có dữ liệu, không tạo tài khoản hoặc gửi thư.
 - Giữ 1000 dòng công thức, ngày sinh dd/mm/yyyy, danh sách giới tính, logo và các cột hiện có. Cập nhật hướng dẫn ở hộp nhập Excel. Không đổi database/migration (vẫn 055).
+
+### STT phải hiện sẵn khi mở file
+
+Theo phản hồi tiếp theo: không để STT trống chờ nhập họ tên hoặc bấm tính. Cột STT trong bảng nhập được đánh sẵn số 1–1000, là số thực trong ô, không dùng công thức. Các dòng chưa nhập họ tên/email/ngày sinh vẫn được bỏ qua khi import. Mã giáo viên lấy đúng STT của dòng, kể cả khi có dòng trống; mẫu cũ có STT công thức vẫn đọc được. Giữ khối ví dụ và phần nhập riêng. Kiểm tra bản sao bằng bảng tính, không gọi CalculateFull: STT thấy trước khi nhập; mã tự cập nhật sau khi nhập họ tên/ngày sinh. Không đổi database.
 ## Logo Đông A thật ở đầu file Excel giáo viên (08/11/2026)
 
 Theo yêu cầu: đầu file mẫu và file danh sách giáo viên chỉ có chữ "Đông A" in đậm đỏ thông thường; đổi sang đúng logo và kiểu chữ của logo ở trang chủ (biểu tượng chiến binh cầm cờ đỏ và chữ "Đông A edu" gốc với chữ Đ, ô và nét A riêng).

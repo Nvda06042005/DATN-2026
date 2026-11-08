@@ -58,7 +58,7 @@ test('trang Giáo viên: hai cách thêm, biểu mẫu cùng cột với file m�
   assert.match(form, /name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1940-01-01', max: today/);
   assert.doesNotMatch(people, /bộ môn|Bộ môn|subject/);
   assert.match(people, /File mẫu có ví dụ và cách ghép mã ngay ở đầu/);
-  assert.match(people, /DANH SÁCH CỦA BẠN; STT và mã tự hiện khi nhập họ tên và ngày sinh dd\/mm\/yyyy/);
+  assert.match(people, /DANH SÁCH CỦA BẠN; STT đã đánh sẵn từ 1 đến 1000, mã tự hiện khi nhập họ tên và ngày sinh dd\/mm\/yyyy/);
   const sheet = read('components', 'admin', 'AccountSheet.tsx');
   assert.match(sheet, /u\.role === 'student' \|\| u\.role === 'teacher' \? \['Ngày sinh', u\.birth_date\]/);
   assert.match(sheet, /birth_date: v\.birth_date \|\| null, gender: v\.gender \|\| null/);

@@ -111,7 +111,8 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
       expect(sheet.getCell(n, 7).numFmt).toBe('dd/mm/yyyy');
       expect(sheet.getCell(n, 5).numFmt).toBe('@');
       expect(sheet.getCell(n, 2).numFmt).toBe('@');
-      expect(sheet.getCell(n, 1).value).toMatchObject({ formula: expect.stringContaining('COUNTIFS') });
+      expect(sheet.getCell(n, 1).value).toBe(n - headerRow);
+      expect(sheet.getCell(n, 1).formula).toBeUndefined();
       expect(sheet.getCell(n, 2).value).toMatchObject({ formula: expect.stringContaining('TEXT(G' + n + ',"ddmmyyyy")') });
     }
     expect(sheet.getCell(headerRow + 1001, 4).dataValidation).toBeFalsy();
@@ -136,7 +137,7 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     expect(await sql(s.url, "SELECT id FROM app_users WHERE email='giao.vien@example.invalid'")).toEqual([]);
   });
 
-  test('mã công thức được nhập đúng dù file chưa có kết quả tính; có dòng trống vẫn tăng STT, người cùng ngày sinh khác mã, không đổi mã đã lưu', async () => {
+  test('mã dùng đúng STT của dòng dù có dòng trống và chưa tính công thức; vẫn đọc được mẫu cũ có STT công thức', async () => {
     const template = (await download(s.base, '/api/admin/teachers/template', A.token)).buffer;
     const wb = await open(template), sheet = wb.getWorksheet('Giáo viên')!;
     let first = 0;
@@ -150,7 +151,11 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     expect(preview.status).toBe(200);
     expect(preview.body.total).toBe(2);
     const prefix = 'ME' + vnDayLabel().slice(8,10);
-    expect(preview.body.rows.map((r: {user_code:string})=>r.user_code)).toEqual([prefix+'15031985001',prefix+'15031985002']);
+    expect(preview.body.rows.map((r: {user_code:string})=>r.user_code)).toEqual([prefix+'15031985001',prefix+'15031985003']);
+    const old = await open(buffer), oldSheet = old.getWorksheet('Giáo viên')!;
+    for(const n of [first,first+2]) oldSheet.getCell(n,1).value={formula:`IF(C${n}="","",COUNTIFS($C$${first}:C${n},"?*"))`,result:''};
+    const legacy = await upload(s.base,'/api/admin/teachers/import','mau-cu.xlsx',Buffer.from(await old.xlsx.writeBuffer()),A.token);
+    expect(legacy.body.rows.map((r:{user_code:string})=>r.user_code)).toEqual([prefix+'15031985001',prefix+'15031985002']);
     const saved = await upload(s.base, '/api/admin/teachers/import?commit=true', 'cong-thuc.xlsx', buffer, A.token);
     expect(saved.body.created).toBe(2);
     expect(saved.body.rows.map((r: {user_code:string})=>r.user_code)).toEqual(preview.body.rows.map((r:{user_code:string})=>r.user_code));
