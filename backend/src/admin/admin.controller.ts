@@ -80,8 +80,9 @@ class UpdateSchoolDto extends UpdateMySchoolDto {
 class YearDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number;
   @Matches(YEAR_LABEL, { message: 'Năm học có dạng 2026-2027' }) label: string;
-  @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) starts_on: string;
-  @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) ends_on: string;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) starts_on?: string;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) ends_on?: string;
+  @IsOptional() @IsIn(['national', 'manual']) calendar_mode?: 'national' | 'manual';
   @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term1_starts_on?: string | null;
   @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term1_ends_on?: string | null;
   @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term2_starts_on?: string | null;
@@ -89,6 +90,7 @@ class YearDto {
 }
 
 class UpdateYearDto {
+  @IsOptional() @IsIn(['national', 'manual']) calendar_mode?: 'national' | 'manual';
   @IsOptional() @Matches(YEAR_LABEL, { message: 'Năm học có dạng 2026-2027' }) label?: string;
   @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) starts_on?: string;
   @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) ends_on?: string;
@@ -289,6 +291,9 @@ export class AdminController {
   updateMySchool(@CurrentUser() user: UserRow, @Query() query: SchoolScope, @Body() body: UpdateMySchoolDto) { return this.schools.updateMine(user, query.school_id, body); }
 
   // ------------------------------------------------------------------ năm học và khối lớp (HK.QT.012–013)
+  @Get('school-year-options')
+  yearOptions() { return this.schools.yearOptions(); }
+
   @Get('school-years')
   years(@CurrentUser() user: UserRow, @Query() query: SchoolScope) { return this.schools.years(user, query.school_id); }
 

@@ -1,5 +1,8 @@
 # SQL migrations
 
+- `050_school_year_terms.sql`: thêm bốn ngày học kỳ, giữ dữ liệu cũ.
+- `051_managed_school_year_framework.sql`: khung đã xác minh theo năm, tự bổ sung học kỳ còn trống và sửa đúng mẫu ngày tự sinh 050; giữ lịch riêng và trạng thái. Form chỉ chọn năm, máy chủ tự áp dụng khung; xem [quy tắc và nguồn](../../docs/LICH_NAM_HOC.md).
+
 Thêm file mới theo số thứ tự, ví dụ `020_ten_thay_doi.sql`.
 Tạo file bằng lệnh (từ thư mục `backend/`): `npm run build && npm run migrate -- new ten_thay_doi`.
 

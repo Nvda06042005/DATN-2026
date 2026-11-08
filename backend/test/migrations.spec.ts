@@ -247,6 +247,35 @@ describe('file migration', () => {
     for (const file of held.filter(file => !applied.includes(file))) renameSync(join(dir, `${file}.held`), join(dir, file));
   });
 
+  test('051 bổ sung/sửa đúng mẫu khung cũ, giữ lịch riêng, trạng thái và dữ liệu; không mở quyền thực thi công khai', async () => {
+    const held = readdirSync(dir).filter(name => /^\d+_.*\.sql$/.test(name) && Number(name.split('_')[0]) >= 51);
+    for (const file of held) renameSync(join(dir, file), join(dir, `${file}.held`));
+    await m.applyMigrations(url, dir);
+    await sql(url, `INSERT INTO app_schools(id,school_code,name) VALUES(9511,'9511','Trường kiểm thử khung');
+      INSERT INTO app_school_years(school_id,label,starts_on,ends_on,status,ended_at,term1_starts_on,term1_ends_on,term2_starts_on,term2_ends_on) VALUES
+      (9511,'2025-2026','2025-09-05','2026-05-31','ended','2026-06-01',NULL,NULL,NULL,NULL),
+      (9511,'2026-2027','2026-09-05','2027-05-31','planned',NULL,'2026-09-05','2027-01-16','2027-01-18','2027-05-31'),
+      (9511,'2020-2021','2020-09-05','2021-05-31','planned',NULL,'2020-09-05','2021-01-16','2021-01-18','2021-05-31'),
+      (9511,'2024-2025','2024-09-09','2025-05-28','active',NULL,'2024-09-09','2025-01-10','2025-01-13','2025-05-28')`);
+    const before = await sql(url, 'SELECT id,label,status,ended_at FROM app_school_years WHERE school_id=9511 ORDER BY id');
+    const custom = await sql<any>(url, "SELECT to_jsonb(y) AS row FROM app_school_years y WHERE school_id=9511 AND label='2024-2025'");
+    const applied = held.filter(name => name.startsWith('051_'));
+    expect(applied).toHaveLength(1);
+    for (const file of applied) renameSync(join(dir, `${file}.held`), join(dir, file));
+    expect(await m.applyMigrations(url, dir)).toEqual(applied);
+    expect(await sql(url, 'SELECT id,label,status,ended_at FROM app_school_years WHERE school_id=9511 ORDER BY id')).toEqual(before);
+    const years = (await sql<any>(url, 'SELECT to_jsonb(y) AS row FROM app_school_years y WHERE school_id=9511 ORDER BY label')).map(item => item.row);
+    expect(years.find(y => y.label === '2025-2026')).toMatchObject({ calendar_mode: 'national', term1_ends_on: '2026-01-17', term2_ends_on: '2026-05-30' });
+    expect(years.find(y => y.label === '2026-2027')).toMatchObject({ calendar_mode: 'national', term1_ends_on: '2027-01-17', term2_starts_on: '2027-01-18' });
+    expect(years.find(y => y.label === '2020-2021')).toMatchObject({ calendar_mode: 'national', term1_ends_on: '2021-01-15', term2_ends_on: '2021-05-24' });
+    expect(years.find(y => y.label === '2024-2025')).toEqual({ ...custom[0].row, calendar_mode: 'manual' });
+    expect((await sql<any>(url, "SELECT public.school_year_framework('2029-2030') AS f"))[0].f).toMatchObject({ decision: '2308/QĐ-BGDĐT', term1_finish_before: '2030-01-18', term1_teaching_weeks: 18, term2_teaching_weeks: 17 });
+    for (const invalid of ['invalid', '2019-2020', '2026-2028']) expect((await sql<any>(url, 'SELECT public.school_year_framework($1) AS f', [invalid]))[0].f).toBeNull();
+    expect(await sql(url, "SELECT a.privilege_type FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid='public.school_year_framework(text)'::regprocedure AND a.grantee=0 AND a.privilege_type='EXECUTE'")).toEqual([]);
+    expect(await m.applyMigrations(url, dir)).toEqual([]);
+    for (const file of held.filter(file => !applied.includes(file))) renameSync(join(dir, `${file}.held`), join(dir, file));
+  });
+
   test('giữ nguyên dữ liệu đã nhập và lịch sử _prisma_migrations', async () => {
     await sql(url, readFileSync(join(dir, '001_initial_postgres_schema.sql'), 'utf8'));
     await sql(url, `INSERT INTO public."User" (id, email, "passwordHash", "fullName", "updatedAt") VALUES ('legacy-id', 'fixture@example.invalid', 'fake-hash', 'Fixture', now())`);

@@ -29,6 +29,8 @@ Không nhúng DDL vào TypeScript/Python, không chứa bí mật hay dữ liệ
 
 # Tự động đồng bộ sau khi hoàn tất công việc
 
+Năm học cập nhật ngày 08/11: migration 051 lưu khung Bộ theo từng năm qua hàm `school_year_framework`, sửa/bổ sung đúng các mẫu 050 tự sinh; giữ lịch riêng. Form chỉ có danh sách năm, không khôi phục gợi ý hoặc ô cấu hình ngày. Bảng hiển thị 18/17 tuần thực học và hạn hoàn thành “trước ngày”; không biến số tuần lịch thành tuần thực học, không lấy thứ Bảy làm ngày Bộ quy định. `national` là khoảng phân loại nội bộ theo khung, `manual` giữ lịch riêng; RLS và năm đã kết thúc vẫn chặn chỉnh sửa. Chi tiết nguồn, giới hạn và cập nhật văn bản: `docs/LICH_NAM_HOC.md`. Database hiện tới migration 051.
+
 Người dùng đã cho phép tự động cập nhật dự án sau mỗi yêu cầu sửa đổi hoàn tất; không cần hỏi lại để commit, push hoặc triển khai các thay đổi thuộc yêu cầu đó. Ngày 01/11/2026 người dùng còn cho phép bộ theo dõi local chạy nền, tự commit và gộp nhánh đang làm vào `main` sau khi toàn bộ kiểm tra đạt. Cách bật/tắt, điều kiện hoạt động và trạng thái nằm ở `docs/TU_DONG_DONG_BO.md`, `scripts/auto-sync.ps1` và `.auto-sync/status.json` (file local bị bỏ qua bởi Git). Trước khi agent tự commit/gộp nhánh, kiểm tra worker; nên dừng và chờ `stopped` rồi làm việc, sau đó chạy lại để tránh phát hành cạnh tranh. Không coi worker đang chạy là bằng chứng các dịch vụ đã cập nhật: phải có trạng thái `synced` với đúng commit.
 
 - Chạy kiểm tra phù hợp với thay đổi; xử lý lỗi trước khi phát hành. Không tự đưa thay đổi không liên quan hoặc bí mật vào commit (xem `git status`: người dùng có thể đang sửa file khác, chỉ `git add` đúng file thuộc yêu cầu).

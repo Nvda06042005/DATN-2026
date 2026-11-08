@@ -3,7 +3,7 @@ import { apiBlob, apiRequest, apiUpload, type PickedFile } from '@/api/client';
 import { clearSchoolIdentities } from '@/lib/school-identity-cache';
 import type {
   Account, AccountDetail, AuthRole, ClassDetail, ClassEvent, ClassItem, CloneResult, CreatedAccount, CreatedSchool, Gender, GradeRow, HistoryDiff, HistoryEntity, HistoryImportResult,
-  HistoryList, HistoryRecord, HistorySpec, HistoryStatus, HistoryVersion, ImportResult, MemberInput, Paged, SchoolDetail, SchoolDirectoryItem, SchoolDuplicate, SchoolItem, TimelineView, YearItem,
+  HistoryList, HistoryRecord, HistorySpec, HistoryStatus, HistoryVersion, ImportResult, MemberInput, Paged, SchoolDetail, SchoolDirectoryItem, SchoolDuplicate, SchoolItem, TimelineView, YearFramework, YearItem,
 } from '@/types/api';
 
 type Query = Record<string, string | number | boolean | null | undefined>;
@@ -35,8 +35,9 @@ export const updateMySchool = async (token: string, body: Record<string, unknown
 };
 export const listYears = (token: string, schoolId?: number | null) => apiRequest<YearItem[]>(`/api/admin/school-years${qs({ school_id: schoolId })}`, { token });
 type YearTerms = Partial<Record<'term1_starts_on' | 'term1_ends_on' | 'term2_starts_on' | 'term2_ends_on', string | null>>;
-export const createYear = (token: string, body: { school_id?: number | null; label: string; starts_on: string; ends_on: string } & YearTerms) => apiRequest<YearItem>('/api/admin/school-years', { token, body });
-export const updateYear = (token: string, id: number, body: Partial<{ label: string; starts_on: string; ends_on: string }> & YearTerms) => apiRequest<YearItem>(`/api/admin/school-years/${id}`, { token, method: 'PATCH', body });
+export const schoolYearOptions = (token: string) => apiRequest<{ items: Array<{ label: string; framework: YearFramework }> }>('/api/admin/school-year-options', { token });
+export const createYear = (token: string, body: { school_id?: number | null; label: string; starts_on?: string; ends_on?: string; calendar_mode?: 'national' | 'manual' } & YearTerms) => apiRequest<YearItem>('/api/admin/school-years', { token, body });
+export const updateYear = (token: string, id: number, body: Partial<{ label: string; starts_on: string; ends_on: string; calendar_mode: 'national' | 'manual' }> & YearTerms) => apiRequest<YearItem>(`/api/admin/school-years/${id}`, { token, method: 'PATCH', body });
 export const activateYear = (token: string, id: number) => apiRequest<YearItem>(`/api/admin/school-years/${id}/activate`, { token, body: {} });
 export const endYear = (token: string, id: number) => apiRequest<YearItem>(`/api/admin/school-years/${id}/end`, { token, body: {} });
 export const listGrades = (token: string, yearId: number) => apiRequest<{ year: YearItem; grades: GradeRow[] }>(`/api/admin/school-grades${qs({ year_id: yearId })}`, { token });

@@ -88,6 +88,12 @@ export interface SchoolItem {
   classes: number;
 }
 
+export interface YearFramework {
+  label: string; decision: string; source_url: string;
+  opening_on: string; term1_finish_before: string; term2_finish_before: string; year_finish_before: string;
+  term1_teaching_weeks: number; term2_teaching_weeks: number;
+}
+
 export interface YearItem {
   id: number;
   school_id: number;
@@ -101,6 +107,8 @@ export interface YearItem {
   term1_ends_on: string | null;
   term2_starts_on: string | null;
   term2_ends_on: string | null;
+  calendar_mode?: 'manual' | 'national';
+  framework?: YearFramework | null;
   classes?: number;
 }
 

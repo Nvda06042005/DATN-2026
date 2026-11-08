@@ -35,6 +35,13 @@ export interface YearRow {
   id: number; school_id: number; label: string; starts_on: string; ends_on: string; status: 'planned' | 'active' | 'ended'; ended_at: string | null;
   /** Học kỳ 1 và học kỳ 2: hoặc cả bốn ngày đều trống (chưa đặt học kỳ) hoặc cả bốn ngày đều có */
   term1_starts_on: string | null; term1_ends_on: string | null; term2_starts_on: string | null; term2_ends_on: string | null;
+  calendar_mode: 'manual' | 'national';
+}
+interface YearFramework {
+  label: string; starts_on: string; ends_on: string;
+  term1_starts_on: string; term1_ends_on: string; term2_starts_on: string; term2_ends_on: string;
+  opening_on: string; term1_finish_before: string; term2_finish_before: string; year_finish_before: string;
+  term1_teaching_weeks: number; term2_teaching_weeks: number; decision: string; source_url: string;
 }
 export const TERM_KEYS = ['term1_starts_on', 'term1_ends_on', 'term2_starts_on', 'term2_ends_on'] as const;
 export type YearTerms = Partial<Record<(typeof TERM_KEYS)[number], string | null>>;
@@ -177,7 +184,7 @@ export class SchoolService {
          FROM app_users WHERE school_id = $1 AND deleted_at IS NULL`, [id]))[0];
       const classes = (await q<{ n: number }>('SELECT count(*)::int AS n FROM app_classes WHERE school_id = $1', [id]))[0].n;
       const admins = (await q('SELECT id, username, full_name, email, phone, is_active, last_login_at FROM app_users WHERE school_id = $1 AND role = \'school_admin\' AND deleted_at IS NULL ORDER BY full_name', [id]));
-      const year = (await q<YearRow>("SELECT * FROM app_school_years WHERE school_id = $1 AND status = 'active'", [id]))[0] ?? null;
+      const year = (await q<YearRow>("SELECT y.*, CASE WHEN calendar_mode='national' THEN public.school_year_framework(label) END AS framework FROM app_school_years y WHERE school_id = $1 AND status = 'active'", [id]))[0] ?? null;
       return { ...withLink(currentSchoolLogo(school)), counts: { ...counts, classes }, admins, current_year: year };
     });
   }
@@ -295,10 +302,31 @@ export class SchoolService {
   }
 
   // ------------------------------------------------------------------ năm học (HK.QT.012)
+  async yearOptions() {
+    const current = new Date(Date.now() + 7 * 3600000).getUTCFullYear();
+    const rows = await this.db.query<{ framework: YearFramework }>(
+      `SELECT public.school_year_framework(y::text || '-' || (y+1)::text) AS framework
+       FROM generate_series(2020, $1::int) y ORDER BY y DESC`, [current + 2]);
+    return { items: rows.filter(r => r.framework).map(r => ({ label: r.framework.label, framework: r.framework })) };
+  }
+
+  private async yearFramework(label: string): Promise<YearFramework> {
+    const framework = (await this.db.query<{ framework: YearFramework | null }>('SELECT public.school_year_framework($1) AS framework', [label]))[0]?.framework;
+    if (!framework) throw new UnprocessableEntityException('Năm học chưa có khung thời gian đã xác minh');
+    return framework;
+  }
+
+  private async withYearFramework(q: Q, year: YearRow) {
+    const framework = year.calendar_mode === 'national'
+      ? (await q<{ framework: YearFramework }>('SELECT public.school_year_framework($1) AS framework', [year.label]))[0].framework : null;
+    return { ...year, framework };
+  }
+
   async years(actor: UserRow, schoolId?: number | null) {
     const id = this.target(actor, schoolId);
     return this.run(actor, async (q) => q<YearRow & { classes: number }>(
-      `SELECT y.*, (SELECT count(*)::int FROM app_classes c WHERE c.year_id = y.id) AS classes FROM app_school_years y WHERE y.school_id = $1 ORDER BY y.label DESC`, [id]));
+      `SELECT y.*, CASE WHEN y.calendar_mode='national' THEN public.school_year_framework(y.label) END AS framework,
+        (SELECT count(*)::int FROM app_classes c WHERE c.year_id = y.id) AS classes FROM app_school_years y WHERE y.school_id = $1 ORDER BY y.label DESC`, [id]));
   }
 
   private validYear(label: string, starts_on: string, ends_on: string): void {
@@ -309,8 +337,8 @@ export class SchoolService {
 
   /**
    * Học kỳ phải đặt đủ cả hai (hoặc để trống cả bốn ngày), nối tiếp nhau và nằm trong năm học: học kỳ 1 từ ngày bắt đầu năm học trở đi,
-   * học kỳ 2 bắt đầu sau khi học kỳ 1 kết thúc và kết thúc không muộn hơn năm học. Ngày chuẩn theo khung kế hoạch của Bộ GD&ĐT chỉ là gợi ý ở giao diện,
-   * mỗi địa phương và trường có thể khác nên máy chủ không ép ngày cụ thể.
+   * học kỳ 2 bắt đầu sau khi học kỳ 1 kết thúc và kết thúc không muộn hơn năm học. Lịch riêng còn được API hỗ trợ;
+   * chế độ national lấy khoảng phân loại từ khung đã xác minh ở database, không nhận ngày do client suy đoán.
    */
   private validTerms(starts_on: string, ends_on: string, t: Record<(typeof TERM_KEYS)[number], string | null>): void {
     const given = TERM_KEYS.filter((k) => t[k]);
@@ -324,22 +352,26 @@ export class SchoolService {
     if (b2 > ends_on) throw new UnprocessableEntityException('Học kỳ 2 phải kết thúc trước hoặc đúng ngày kết thúc năm học');
   }
 
-  async createYear(actor: UserRow, body: { school_id?: number | null; label: string; starts_on: string; ends_on: string } & YearTerms) {
+  async createYear(actor: UserRow, body: { school_id?: number | null; label: string; starts_on?: string; ends_on?: string; calendar_mode?: 'national' | 'manual' } & YearTerms) {
     const schoolId = this.target(actor, body.school_id);
     const label = body.label.trim();
-    this.validYear(label, body.starts_on, body.ends_on);
-    const terms = Object.fromEntries(TERM_KEYS.map((k) => [k, body[k] ?? null])) as Record<(typeof TERM_KEYS)[number], string | null>;
-    this.validTerms(body.starts_on, body.ends_on, terms);
+    const national = body.calendar_mode === 'national' || (!body.starts_on && !body.ends_on && body.calendar_mode !== 'manual');
+    const dates = national ? await this.yearFramework(label) : body;
+    if (!dates.starts_on || !dates.ends_on) throw new UnprocessableEntityException('Hãy nhập đủ ngày bắt đầu và kết thúc năm học');
+    const starts_on = dates.starts_on, ends_on = dates.ends_on;
+    this.validYear(label, starts_on, ends_on);
+    const terms = Object.fromEntries(TERM_KEYS.map((k) => [k, dates[k] ?? null])) as Record<(typeof TERM_KEYS)[number], string | null>;
+    this.validTerms(starts_on, ends_on, terms);
     return this.run(actor, async (q) => {
       if ((await q('SELECT 1 FROM app_school_years WHERE school_id = $1 AND label = $2', [schoolId, label])).length) throw new ConflictException(`Năm học ${label} đã có`);
-      const year = (await q<YearRow>('INSERT INTO app_school_years (school_id, label, starts_on, ends_on, term1_starts_on, term1_ends_on, term2_starts_on, term2_ends_on, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-        [schoolId, label, body.starts_on, body.ends_on, terms.term1_starts_on, terms.term1_ends_on, terms.term2_starts_on, terms.term2_ends_on, actor.id]))[0];
+      const year = (await q<YearRow>('INSERT INTO app_school_years (school_id, label, starts_on, ends_on, term1_starts_on, term1_ends_on, term2_starts_on, term2_ends_on, calendar_mode, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+        [schoolId, label, starts_on, ends_on, terms.term1_starts_on, terms.term1_ends_on, terms.term2_starts_on, terms.term2_ends_on, national ? 'national' : 'manual', actor.id]))[0];
       // Khối của năm mới chép từ năm gần nhất của trường (hoặc bật cả bốn khối 6–9 nếu là năm đầu tiên); quản trị viên chỉnh lại ở mục khối lớp
       const previous = await q<{ grade: number; is_active: boolean }>(
         `SELECT grade, is_active FROM app_school_grades WHERE school_id = $1 AND school_year = (SELECT max(school_year) FROM app_school_grades WHERE school_id = $1 AND school_year < $2)`, [schoolId, label]);
       const grades = previous.length ? previous : GRADES.map((grade) => ({ grade, is_active: true }));
       for (const g of grades) await q('INSERT INTO app_school_grades (school_id, school_year, grade, is_active, created_by) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING', [schoolId, label, g.grade, g.is_active, actor.id]);
-      return year;
+      return this.withYearFramework(q, year);
     });
   }
 
@@ -350,15 +382,18 @@ export class SchoolService {
     return year;
   }
 
-  async updateYear(actor: UserRow, id: number, body: { label?: string; starts_on?: string; ends_on?: string } & YearTerms) {
+  async updateYear(actor: UserRow, id: number, body: { label?: string; starts_on?: string; ends_on?: string; calendar_mode?: 'national' | 'manual' } & YearTerms) {
     return this.run(actor, async (q) => {
       const year = await this.yearOf(q, actor, id);
       if (year.status === 'ended') throw new ConflictException('Năm học đã kết thúc, không sửa được');
-      const label = body.label?.trim() ?? year.label, starts_on = body.starts_on ?? year.starts_on, ends_on = body.ends_on ?? year.ends_on;
+      const label = body.label?.trim() ?? year.label;
+      const national = body.calendar_mode === 'national' || (year.calendar_mode === 'national' && body.calendar_mode !== 'manual' && !body.starts_on && !body.ends_on && !TERM_KEYS.some(k => body[k] !== undefined));
+      const dates = national ? await this.yearFramework(label) : body;
+      const starts_on = dates.starts_on ?? year.starts_on, ends_on = dates.ends_on ?? year.ends_on;
       this.validYear(label, starts_on, ends_on);
       // gửi bất kỳ ngày học kỳ nào (kể cả null) là thay cả bộ học kỳ; không gửi thì giữ học kỳ đang có và kiểm tra lại với ngày năm học mới
-      const sent = TERM_KEYS.some((k) => body[k] !== undefined);
-      const terms = Object.fromEntries(TERM_KEYS.map((k) => [k, sent ? (body[k] ?? null) : year[k]])) as Record<(typeof TERM_KEYS)[number], string | null>;
+      const sent = TERM_KEYS.some((k) => dates[k] !== undefined);
+      const terms = Object.fromEntries(TERM_KEYS.map((k) => [k, sent ? (dates[k] ?? null) : year[k]])) as Record<(typeof TERM_KEYS)[number], string | null>;
       this.validTerms(starts_on, ends_on, terms);
       if (label !== year.label) {
         const used = (await q<{ n: number }>('SELECT (SELECT count(*) FROM app_classes WHERE year_id = $1)::int AS n', [id]))[0].n;
@@ -366,8 +401,9 @@ export class SchoolService {
         if ((await q('SELECT 1 FROM app_school_years WHERE school_id = $1 AND label = $2 AND id <> $3', [year.school_id, label, id])).length) throw new ConflictException(`Năm học ${label} đã có`);
         await q('UPDATE app_school_grades SET school_year = $3 WHERE school_id = $1 AND school_year = $2', [year.school_id, year.label, label]);
       }
-      return (await q<YearRow>('UPDATE app_school_years SET label = $2, starts_on = $3, ends_on = $4, term1_starts_on = $5, term1_ends_on = $6, term2_starts_on = $7, term2_ends_on = $8, updated_at = now() WHERE id = $1 RETURNING *',
-        [id, label, starts_on, ends_on, terms.term1_starts_on, terms.term1_ends_on, terms.term2_starts_on, terms.term2_ends_on]))[0];
+      const updated = (await q<YearRow>('UPDATE app_school_years SET label = $2, starts_on = $3, ends_on = $4, term1_starts_on = $5, term1_ends_on = $6, term2_starts_on = $7, term2_ends_on = $8, calendar_mode = $9, updated_at = now() WHERE id = $1 RETURNING *',
+        [id, label, starts_on, ends_on, terms.term1_starts_on, terms.term1_ends_on, terms.term2_starts_on, terms.term2_ends_on, national ? 'national' : 'manual']))[0];
+      return this.withYearFramework(q, updated);
     });
   }
 
