@@ -7,7 +7,7 @@ import { Pressable, View } from 'react-native';
 import { Plus, X } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
-import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, Pager, StatusChip, useDebounced, useLoad } from '@/components/admin/kit';
+import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, Pager, StatusChip, useDebounced, useLoad, usePageSize } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Field, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -72,7 +72,8 @@ export const QuestionPicker: React.FC<{ session: Session; title: string; exclude
   const [page, setPage] = useState(1);
   const [picked, setPicked] = useState<QuestionItem[]>([]);
   const term = useDebounced(q.trim(), 300);
-  const list = useLoad(() => api.listQuestions(session.token, { store, q: term, qtype, page, limit: 10 }), [session.token, store, term, qtype, page], session.expired);
+  const size = usePageSize();
+  const list = useLoad(() => api.listQuestions(session.token, { store, q: term, qtype, page, limit: size }), [session.token, store, term, qtype, page, size], session.expired);
   const has = (id: number) => picked.some((p) => p.id === id);
   return (
     <Sheet open onClose={onClose} title={title} subtitle={`Đã chọn ${picked.length} câu`} wide
@@ -91,7 +92,7 @@ export const QuestionPicker: React.FC<{ session: Session; title: string; exclude
           { key: 'prompt', label: 'Câu hỏi', flex: 3, render: (r) => <Cell main={r.prompt} sub={`${r.qtype_label} · ${DIFFICULTY_TEXT[r.difficulty]}${r.campaign_title ? ` · ${r.campaign_title}` : ''}`} /> },
           { key: 'scope', label: 'Kho', render: (r) => <ScopeChip scope={r.scope} /> },
         ]} />
-      {list.data ? <Pager page={page} limit={10} total={list.data.total} onPage={setPage} /> : null}
+      {list.data ? <Pager page={page} limit={size} total={list.data.total} onPage={setPage} /> : null}
     </Sheet>
   );
 };

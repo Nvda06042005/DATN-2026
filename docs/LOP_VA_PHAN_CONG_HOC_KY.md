@@ -6,7 +6,7 @@ Học kỳ 1/2 dùng ngày đã lưu của năm học tại Trường và năm h
 
 Sửa lớp cho chọn học kỳ cần cập nhật. Chọn học kỳ khác sẽ nạp đúng giáo viên đã phân công của học kỳ đó. Phân công ở học kỳ chưa có hiệu lực có thể đổi với xác nhận `confirm_reassignment`. Trong học kỳ đang có hiệu lực của năm học hoạt động, không đổi/gỡ trực tiếp: giáo viên A đang phụ trách mở lớp → Đề nghị đổi giáo viên → chọn giáo viên B cùng trường → Gửi đề nghị. A giữ nguyên quyền, B chưa có quyền cho tới khi quản trị trường duyệt ở Lớp học → Đề nghị đổi giáo viên. Sau khi duyệt, A hết quyền phụ trách ở học kỳ đó, B có quyền ngay; dữ liệu lớp và học kỳ khác được giữ nguyên. Có thể từ chối, người gửi có thể hủy đề nghị đang chờ. Không liệt kê lý do cá nhân.
 
-Migration 054 lưu `app_class_teacher_change_requests` với RLS theo trường, chỉ một đề nghị đang chờ cho lớp/học kỳ. API chỉ nhận đề nghị từ giáo viên đang phụ trách; giáo viên tiếp nhận phải đang hoạt động và đúng trường. Duyệt khóa lớp và đề nghị, kiểm tra lại phân công, học kỳ, năm học, trạng thái giáo viên; không duyệt lặp hoặc đề nghị đã lỗi thời. Phân công, quyết định, nhật ký và thông báo trong ứng dụng cùng giao dịch; lỗi ghi thì hoàn tác. Thông báo gửi quản trị trường khi có đề nghị, gửi hai giáo viên khi có quyết định. Năm đã kết thúc vẫn chỉ xem. Bảng mới được đăng ký kho xóa một năm.
+Migration 055 lưu `app_class_teacher_change_requests` với RLS theo trường, chỉ một đề nghị đang chờ cho lớp/học kỳ. API chỉ nhận đề nghị từ giáo viên đang phụ trách; giáo viên tiếp nhận phải đang hoạt động và đúng trường. Duyệt khóa lớp và đề nghị, kiểm tra lại phân công, học kỳ, năm học, trạng thái giáo viên; không duyệt lặp hoặc đề nghị đã lỗi thời. Phân công, quyết định, nhật ký và thông báo trong ứng dụng cùng giao dịch; lỗi ghi thì hoàn tác. Thông báo gửi quản trị trường khi có đề nghị, gửi hai giáo viên khi có quyết định. Năm đã kết thúc vẫn chỉ xem. Bảng mới được đăng ký kho xóa một năm.
 
 ## Mã tự sinh
 
@@ -17,7 +17,7 @@ Migration 054 lưu `app_class_teacher_change_requests` với RLS theo trường,
 
 ## Nâng cấp và quyền dữ liệu
 
-Giữ bảng `app_class_teachers` cũ để không mất phân công trước đây. Lớp cũ có đúng một giáo viên hợp lệ được chép sang cả hai học kỳ, giữ quyền hiện có cho đến khi trường phân công lại. Lớp cũ có nhiều giáo viên không tự chọn người thay nhà trường: chi tiết lớp báo cần chọn lại một giáo viên cho từng học kỳ; quyền cũ được giữ cho tới lần phân công đầu tiên. Lần đó chuyển lớp sang hai ô học kỳ, học kỳ chưa chọn để trống. Không xóa dòng phân công cũ.
+Giữ bảng `app_class_teachers` cũ để không mất phân công trước đây. Lớp cũ có đúng một giáo viên hợp lệ được chép sang cả hai học kỳ, giữ quyền hiện có cho đến khi trường phân công lại. Lớp cũ có nhiều giáo viên không tự chọn người thay nhà trường: học kỳ đang hoạt động cần giáo viên gửi đề nghị và quản trị trường duyệt; học kỳ chưa diễn ra có thể phân công trực tiếp. Quyền cũ được giữ tới lần phân công đầu tiên. Lần đó chuyển lớp sang hai ô học kỳ, học kỳ chưa chọn để trống. Không xóa dòng phân công cũ.
 
 `app_class_term_teachers` có RLS theo trường, FK ghép lớp/trường và trigger kiểm tra giáo viên đúng vai trò/trường. Hai view dùng `security_invoker`; thu hồi quyền công khai và các vai trò API Supabase. Thay đổi mã/phân công không bỏ kiểm tra tài khoản đang hoạt động hoặc phạm vi trường. Hàm cấp mã chỉ cho backend và vai trò RLS nội bộ, endpoint preview yêu cầu quản trị. Bảng mới đã đăng ký vào kho dữ liệu xóa một năm. Xóa tài khoản giáo viên giữ lớp, xóa liên kết và đưa liên kết đã xóa vào kho.
 

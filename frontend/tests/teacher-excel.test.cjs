@@ -56,7 +56,8 @@ test('trang Giáo viên: hai cách thêm, biểu mẫu cùng cột với file m�
   assert.deepEqual(labels.filter((l) => !['Chưa chọn', 'Nam', 'Nữ'].includes(l)), ['Mã giáo viên', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh']);
   assert.doesNotMatch(form, /Bộ môn/);
   assert.match(form, /name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1940-01-01', max: today/);
-  assert.match(people, /bộ môn mặc định là Lịch sử/);
+  assert.doesNotMatch(people, /bộ môn|Bộ môn|subject/);
+  assert.match(people, /ngày sinh chọn trên lịch hoặc gõ dd\/mm\/yyyy/);
   const sheet = read('components', 'admin', 'AccountSheet.tsx');
   assert.match(sheet, /u\.role === 'student' \|\| u\.role === 'teacher' \? \['Ngày sinh', u\.birth_date\]/);
   assert.match(sheet, /birth_date: v\.birth_date \|\| null, gender: v\.gender \|\| null/);
@@ -64,4 +65,21 @@ test('trang Giáo viên: hai cách thêm, biểu mẫu cùng cột với file m�
   const kit = read('components', 'admin', 'kit.tsx');
   assert.match(kit, /if \(def\.type === 'date' && def\.calendar && Platform\.OS === 'web'\) return <CalendarInput/);
   assert.match(kit, /type: 'date', id: `field-\$\{def\.name\}`/);
+});
+
+test('bảng danh sách giáo viên cùng cột với file Excel: Số thứ tự, Mã giáo viên, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh, rồi Lớp phụ trách và Trạng thái', () => {
+  const people = read('components', 'admin', 'SchoolPeople.tsx');
+  const table = people.slice(people.indexOf('columns={teacher ? ['), people.search(/\] : \[\s*\{ key: 'code', label: 'Mã'/));
+  const labels = [...table.matchAll(/label: '([^']+)'/g)].map((m) => m[1]);
+  assert.deepEqual(labels, ['Số thứ tự', 'Mã giáo viên', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh', 'Lớp phụ trách', 'Trạng thái']);
+  // số thứ tự nối tiếp qua các trang; ngày sinh hiện dd/mm/yyyy như trong Excel; chỉ còn bộ lọc Trạng thái
+  assert.match(table, /\(page - 1\) \* size \+ data\.items\.indexOf\(u\) \+ 1/);
+  assert.match(people, /`\$\{iso\.slice\(8, 10\)\}\/\$\{iso\.slice\(5, 7\)\}\/\$\{iso\.slice\(0, 4\)\}`/);
+  assert.match(people, /filters=\{teacher \? \[f_active\] : \[f_grade, f_class, f_active\]\}/);
+  // không còn Bộ môn ở chi tiết, biểu mẫu sửa, nhãn chọn giáo viên của lớp và hồ sơ cá nhân
+  assert.doesNotMatch(read('components', 'admin', 'AccountSheet.tsx'), /Bộ môn|subject/);
+  assert.doesNotMatch(read('components', 'admin', 'SchoolClasses.tsx'), /\.subject/);
+  assert.doesNotMatch(read('components', 'profile.tsx'), /user\.subject/);
+  assert.doesNotMatch(read('types', 'api.ts'), /\bsubject\b/);
+  assert.doesNotMatch(read('api', 'adminApi.ts'), /\bsubject\b/);
 });

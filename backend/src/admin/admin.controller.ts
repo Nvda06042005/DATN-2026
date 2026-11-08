@@ -122,7 +122,6 @@ class UserQuery extends Page {
   @IsOptional() @IsIn(['true', 'false']) active?: 'true' | 'false';
   @IsOptional() @Type(() => Number) @IsInt() @Min(6) @Max(9) grade?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) class_id?: number;
-  @IsOptional() @IsString() @MaxLength(60) subject?: string;
 }
 
 class CreateAdminDto {
@@ -139,7 +138,6 @@ class CreateMemberDto {
   @Transform(squash) @IsString() @Length(2, 80) full_name: string;
   @IsOptional() @IsEmail() @MaxLength(254) email?: string | null;
   @IsOptional() @Matches(PHONE, { message: PHONE_MESSAGE }) phone?: string | null;
-  @IsOptional() @IsString() @MaxLength(60) subject?: string | null;
   @IsOptional() @IsString() @MaxLength(40) user_code?: string | null;
   @IsOptional() @Matches(DATE, { message: 'Ngày sinh có dạng YYYY-MM-DD' }) birth_date?: string | null;
   @IsOptional() @IsIn(['male', 'female', 'other']) gender?: 'male' | 'female' | 'other' | null;
@@ -151,7 +149,6 @@ class UpdateUserDto {
   @IsOptional() @Transform(squash) @IsString() @Length(2, 80) full_name?: string;
   @IsOptional() @IsEmail() @MaxLength(254) email?: string | null;
   @IsOptional() @Matches(PHONE, { message: PHONE_MESSAGE }) phone?: string | null;
-  @IsOptional() @IsString() @MaxLength(60) subject?: string | null;
   @IsOptional() @IsString() @MaxLength(40) user_code?: string | null;
   @IsOptional() @Matches(DATE, { message: 'Ngày sinh có dạng YYYY-MM-DD' }) birth_date?: string | null;
   @IsOptional() @IsIn(['male', 'female', 'other']) gender?: 'male' | 'female' | 'other' | null;

@@ -1,5 +1,5 @@
 /**
- * Lớp học (HK.QT.022, HK.QT.035–040, HK.HS.008): quản trị trường tạo lớp theo năm học và khối, phân công một hoặc nhiều giáo viên,
+ * Lớp học (HK.QT.022, HK.QT.035–040, HK.HS.008): quản trị trường tạo lớp theo năm học và khối, phân công một giáo viên mỗi học kỳ,
  * xếp học sinh hàng loạt, chuyển lớp cùng khối, nhân bản sang năm học mới (lên lớp); học sinh tham gia lớp bằng mã 6 ký tự, không mật khẩu.
  * Lớp đã có học sinh chỉ được lưu trữ, không xóa; năm học đã kết thúc không cho sửa dữ liệu.
  */

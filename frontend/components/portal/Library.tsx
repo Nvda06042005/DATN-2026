@@ -7,7 +7,7 @@ import { Pressable, TextInput, View } from 'react-native';
 import { Heart, Lock, MapPin, Save, Trash2, Unlock } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
-import { ErrorNote, useAction, useDebounced, useLoad } from '@/components/admin/kit';
+import { ErrorNote, useAction, useDebounced, useLoad, usePaged } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { LeafletMap } from '@/components/portal/LeafletMap';
 import { Btn, Card, Chip, EmptyState, Field, InfoNote, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
@@ -187,6 +187,11 @@ export const LibraryTab: React.FC<{ session: Session; onOpen: OpenDetail }> = ({
   const places = useLoad(() => api.learnPlaces(token), [token], session.expired);
   const terms = useLoad(() => api.learnTerms(token), [token], session.expired);
   const searching = debounced.length >= 2;
+  // mỗi danh sách chia trang với cùng ô chọn số dòng 5-10-25-30-50 như các bảng quản trị
+  const pagedSearch = usePaged(search.data ?? [], debounced);
+  const pagedFigures = usePaged(figures.data ?? [], group);
+  const pagedPlaces = usePaged(places.data ?? [], 'places');
+  const pagedTerms = usePaged(terms.data ?? [], 'terms');
   return (
     <View style={{ gap: 14 }}>
       <Txt f="displayHeavy" size={24} accessibilityRole="header">Thư viện lịch sử</Txt>
@@ -196,7 +201,7 @@ export const LibraryTab: React.FC<{ session: Session; onOpen: OpenDetail }> = ({
           <ErrorNote message={search.error} />
           {search.loading ? <Spinner label="Đang tìm…" /> : null}
           {!search.loading && (search.data ?? []).length === 0 ? <EmptyState mood="thinking" title="Không tìm thấy kết quả" text="Thử từ khóa ngắn hơn hoặc gõ không dấu." /> : null}
-          {(search.data ?? []).map((h) => (
+          {pagedSearch.shown.map((h) => (
             <Pressable key={`${h.type}${h.id}`} accessibilityRole="button" onPress={() => onOpen(h.type, h.id)} style={({ pressed }) => ({ minHeight: 56, padding: 12, borderRadius: 14, borderWidth: 2, borderColor: c.vien, backgroundColor: pressed ? c.the2 : c.the, gap: 2 })}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Chip text={TYPE_TEXT[h.type]} bg={c.thuyNhat} fg={c.thuyChu} />
@@ -206,6 +211,7 @@ export const LibraryTab: React.FC<{ session: Session; onOpen: OpenDetail }> = ({
               {h.snippet ? <Txt size={13} color={c.muc2} numberOfLines={2}>{h.snippet}</Txt> : null}
             </Pressable>
           ))}
+          {(search.data ?? []).length ? pagedSearch.pager : null}
         </View>
       ) : (
         <>
@@ -217,7 +223,7 @@ export const LibraryTab: React.FC<{ session: Session; onOpen: OpenDetail }> = ({
               {figures.loading && !figures.data ? <Spinner /> : null}
               {figures.data && figures.data.length === 0 ? <EmptyState mood="thinking" title="Chưa có hồ sơ nhân vật" text="Hồ sơ sẽ hiện khi được công bố." /> : null}
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-                {(figures.data ?? []).map((f) => (
+                {pagedFigures.shown.map((f) => (
                   <Pressable key={f.id} accessibilityRole="button" accessibilityLabel={`${f.name}, ${GROUP_TEXT[f.figure_group]}`} onPress={() => onOpen('figure', f.id)}
                     style={({ pressed }) => ({ flexGrow: 1, flexBasis: 260, minHeight: 88, padding: 14, borderRadius: 16, borderWidth: 2, borderColor: c.vien, backgroundColor: pressed ? c.the2 : c.the, gap: 4 })}>
                     <Txt f="displayHeavy" size={19}>{f.name}</Txt>
@@ -226,30 +232,33 @@ export const LibraryTab: React.FC<{ session: Session; onOpen: OpenDetail }> = ({
                   </Pressable>
                 ))}
               </View>
+              {(figures.data ?? []).length ? pagedFigures.pager : null}
             </View>
           ) : null}
           {tab === 'places' ? (
             <View style={{ gap: 8 }}>
               <ErrorNote message={places.error} />
               {places.loading && !places.data ? <Spinner /> : null}
-              {(places.data ?? []).map((p) => (
+              {pagedPlaces.shown.map((p) => (
                 <Pressable key={p.id} accessibilityRole="button" onPress={() => onOpen('place', p.id)} style={({ pressed }) => ({ minHeight: 56, padding: 12, borderRadius: 14, borderWidth: 2, borderColor: c.vien, backgroundColor: pressed ? c.the2 : c.the, gap: 2 })}>
                   <Txt f="bold" size={16}>{p.name}</Txt>
                   <Txt size={13} color={c.muc2}>{[p.old_name && `Tên xưa: ${p.old_name}`, p.province].filter(Boolean).join(' · ')}</Txt>
                 </Pressable>
               ))}
+              {(places.data ?? []).length ? pagedPlaces.pager : null}
             </View>
           ) : null}
           {tab === 'terms' ? (
             <View style={{ gap: 8 }}>
               <ErrorNote message={terms.error} />
               {terms.loading && !terms.data ? <Spinner /> : null}
-              {(terms.data ?? []).map((t) => (
+              {pagedTerms.shown.map((t) => (
                 <Card key={t.id} flat pad={14} style={{ gap: 4 }}>
                   <Txt f="displayHeavy" size={19}>{t.term}</Txt>
                   <Txt size={15} color={c.muc2}>{t.definition}</Txt>
                 </Card>
               ))}
+              {(terms.data ?? []).length ? pagedTerms.pager : null}
             </View>
           ) : null}
         </>
@@ -351,6 +360,7 @@ export const SourcesTab: React.FC<{ session: Session; refreshKey: number; onOpen
   const sources = useLoad<SourceItem[]>(
     () => api.learnSources(token, { q: debounced, kind, campaign_id: campaign, unlocked: lock, favorites: fav ? 'true' : '' }),
     [token, debounced, kind, campaign, lock, fav, refreshKey], session.expired);
+  const pagedSources = usePaged(sources.data ?? [], `${debounced}|${kind}|${campaign}|${lock}|${fav}`);
   const { run } = useAction(session.expired);
   const toggle = async (s: SourceItem) => { if (await run(() => api.setFavorite(token, s.id, !s.favorite))) sources.reload(); };
   return (
@@ -365,7 +375,7 @@ export const SourcesTab: React.FC<{ session: Session; refreshKey: number; onOpen
       {sources.loading && !sources.data ? <Spinner /> : null}
       {sources.data && sources.data.length === 0 ? <EmptyState mood="thinking" title="Không có tư liệu phù hợp" text="Thử bỏ bớt bộ lọc." /> : null}
       <View style={{ gap: 10 }}>
-        {(sources.data ?? []).map((s) => (
+        {pagedSources.shown.map((s) => (
           <View key={s.id} style={{ flexDirection: 'row', gap: 8, alignItems: 'stretch' }}>
             <Pressable accessibilityRole="button" accessibilityLabel={`${s.title}, ${s.locked ? 'chưa mở khóa' : 'đã mở khóa'}`} onPress={() => onOpen('source', s.id)}
               style={({ pressed }) => ({ flex: 1, minHeight: 64, padding: 12, borderRadius: 14, borderWidth: 2, borderColor: s.locked ? c.vien : c.ngoc, backgroundColor: pressed ? c.the2 : c.the, gap: 4 })}>
@@ -380,6 +390,7 @@ export const SourcesTab: React.FC<{ session: Session; refreshKey: number; onOpen
           </View>
         ))}
       </View>
+      {(sources.data ?? []).length ? pagedSources.pager : null}
     </View>
   );
 };

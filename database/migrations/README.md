@@ -3,6 +3,7 @@
 - `050_school_year_terms.sql`: thêm bốn ngày học kỳ, giữ dữ liệu cũ.
 - `051_managed_school_year_framework.sql`: khung đã xác minh theo năm, tự bổ sung học kỳ còn trống và sửa đúng mẫu ngày tự sinh 050; giữ lịch riêng và trạng thái. Form chỉ chọn năm, máy chủ tự áp dụng khung; xem [quy tắc và nguồn](../../docs/LICH_NAM_HOC.md).
 - `052_deleted_records_one_year.sql`: kho riêng `app_deleted_records` lưu dữ liệu xóa qua giao diện và CASCADE trong một năm; RLS owner-only, loại bí mật, Supabase Cron và backend dự phòng dọn hết hạn. Xem [cách kiểm tra kho](../../docs/KHO_DU_LIEU_DA_XOA.md).
+- `053_drop_teacher_subject.sql`: bỏ cột `app_users.subject` (Bộ môn của giáo viên) và dữ liệu cũ theo yêu cầu quản trị trường 08/11/2026; không đụng cột nào khác.
 
 Thêm file mới theo số thứ tự, ví dụ `020_ten_thay_doi.sql`.
 Tạo file bằng lệnh (từ thư mục `backend/`): `npm run build && npm run migrate -- new ten_thay_doi`.
@@ -102,4 +103,5 @@ Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).
 
 - **048_remove_retired_school_references.sql**: theo yêu cầu xóa mục cũ sau sáp nhập, xóa đúng dòng danh mục tham chiếu có trường thay thế đã xác minh; 52 mã được bao phủ, 31 dòng còn tồn tại sau 047 được xóa. Không xóa trường đăng ký, người dùng, lớp, dữ liệu học hoặc ảnh. Tên/mã cũ là alias về trường hiện tại; các bộ dựng nguồn đã chặn nhập lại mã cũ từ Gist 2020.
 
-- 053_class_semester_teachers_and_codes.sql: mã giáo viên/học sinh/lớp tăng dần, phân công một giáo viên mỗi học kỳ; RLS, quyền theo lịch năm học và kho xóa một năm. Giữ mã và phân công cũ. Xem docs/LOP_VA_PHAN_CONG_HOC_KY.md.
+- 054_class_semester_teachers_and_codes.sql: mã giáo viên/học sinh/lớp tăng dần, phân công một giáo viên mỗi học kỳ; RLS, quyền theo lịch năm học và kho xóa một năm. Giữ mã và phân công cũ. Xem docs/LOP_VA_PHAN_CONG_HOC_KY.md.
+- 055_class_teacher_change_requests.sql: giáo viên đang phụ trách gửi đề nghị chuyển lớp trong học kỳ; quản trị trường duyệt thì phân công mới có hiệu lực. RLS theo trường, một đề nghị chờ mỗi lớp/học kỳ và lưu vào kho xóa một năm.
