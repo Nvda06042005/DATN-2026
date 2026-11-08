@@ -394,10 +394,14 @@ export class AccountService {
     const initials = schoolInitials(school ?? ''), year = vnDayLabel(now).slice(8, 10), prefix = `${initials}${year}`;
     return buildFormSheet({
       sheetName: 'Giáo viên', title: 'Đông A', subtitle: `Mẫu nhập danh sách giáo viên${school ? ` · ${school}` : ''}`,
-      meta: [{ label: 'Ngày bắt đầu nhập', value: vnDayLabel(now) }], note: 'Điền mỗi giáo viên một dòng bên dưới. Cột có dấu * là bắt buộc.',
+      meta: [{ label: 'Ngày bắt đầu nhập', value: vnDayLabel(now) }], note: 'Xem ví dụ rồi điền vào DANH SÁCH CỦA BẠN bên dưới. Cột có dấu * là bắt buộc.',
       columns: TEACHER_FORM_COLUMNS.map(c => c.key === 'user_code' ? { ...c, kind: 'teacher-code', width: 29, watch: 'full_name', birthKey: 'birth_date', codePrefix: prefix } : c), blankRows: 1000, now,
+      example: {
+        values: { stt: 1, user_code: `${prefix}15031985001`, full_name: 'Nguyễn Văn Mẫu', gender: 'Nam', phone: '0900000000', email: 'giao.vien@example.invalid', birth_date: '1985-03-15' },
+        explanation: `${initials} = ${school ?? 'viết tắt tên trường'}; ${year} = năm ${vnDayLabel(now).slice(6,10)}; 15 + 03 + 1985 = ngày sinh; 001 = số thứ tự. Mã ví dụ: ${prefix}15031985001.`,
+      },
       guide: [
-        'Điền mỗi giáo viên một dòng trong bảng ở sheet "Giáo viên", ngay dưới dòng tiêu đề. Cột có dấu * là bắt buộc (Họ và tên, Email).',
+        'Khối VÍ DỤ CÁCH ĐIỀN ở đầu sheet chỉ minh họa; không được nhập thành tài khoản. Điền giáo viên thật trong DANH SÁCH CỦA BẠN ở bên dưới. Cột có dấu * là bắt buộc (Họ và tên, Email).',
         'Số thứ tự tự tăng theo những dòng đã nhập họ tên, kể cả khi có dòng trống ở giữa. File có sẵn 1000 dòng công thức.',
         `Mã giáo viên tự hiện sau khi nhập họ tên và ngày sinh: ${initials} + ${year} + ngày sinh ddmmyyyy + STT 3 chữ số.`,
         `${initials}: viết tắt của ${school ?? 'tên trường'}. ${year}: hai số cuối năm tải mẫu. Phần ddmmyyyy: ngày, tháng, năm sinh của giáo viên. STT giúp phân biệt người có cùng ngày sinh.`,

@@ -192,6 +192,8 @@ export interface FormSheetSpec {
   /** Dữ liệu có sẵn (danh sách xuất); không có thì là file mẫu trống với `blankRows` dòng định dạng sẵn */
   rows?: Array<Record<string, unknown>>;
   blankRows?: number;
+  /** Khối ví dụ riêng phía trên bảng nhập, không nằm trong dữ liệu được đọc khi import. */
+  example?: { values: Record<string, string | number>; explanation: string };
   guide?: string[];
   now?: Date;
 }
@@ -212,7 +214,8 @@ export async function buildFormSheet(spec: FormSheetSpec): Promise<Buffer> {
   workbook.creator = 'Hào Khí Đông A';
   workbook.created = now;
   workbook.calcProperties.fullCalcOnLoad = true;
-  const headerRow = 3 + spec.meta.length + (spec.note ? 1 : 0) + 1;
+  const baseHeaderRow = 3 + spec.meta.length + (spec.note ? 1 : 0) + 1;
+  const headerRow = baseHeaderRow + (spec.example ? 5 : 0);
   const sheet = workbook.addWorksheet(spec.sheetName, { views: [{ state: 'frozen', ySplit: headerRow }] });
   const cols = spec.columns;
   cols.forEach((c, i) => { sheet.getColumn(i + 1).width = c.width ?? 22; });
@@ -246,6 +249,39 @@ export async function buildFormSheet(spec: FormSheetSpec): Promise<Buffer> {
     r += 1;
   }
   sheet.getRow(r).height = 8;
+
+  if (spec.example) {
+    const start = baseHeaderRow, end = colLetter(cols.length);
+    const banner = (n: number, text: string, height: number) => {
+      sheet.mergeCells(`A${n}:${end}${n}`);
+      const cell = sheet.getCell(n, 1);
+      cell.value = text;
+      cell.font = { name: 'Calibri', size: 10, bold: n !== start + 3, color: { argb: 'FF92400E' } };
+      cell.alignment = { vertical: 'middle', wrapText: true };
+      sheet.getRow(n).height = height;
+    };
+    banner(start, 'VÍ DỤ CÁCH ĐIỀN · Chỉ minh họa, không tạo tài khoản', 20);
+    cols.forEach((c, i) => {
+      const title = sheet.getCell(start + 1, i + 1), cell = sheet.getCell(start + 2, i + 1);
+      // Không dùng lại đúng nhãn cột bắt buộc: bộ đọc phải tìm dòng tiêu đề bảng nhập bên dưới.
+      title.value = `Ví dụ ${c.header.replace(/\s*\*/g, '')}`;
+      title.font = { name: 'Calibri', size: 9, bold: true };
+      title.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+      title.border = BORDER;
+      const raw = spec.example!.values[c.key] ?? '';
+      cell.value = c.kind === 'date' && typeof raw === 'string' && parseDate(raw) ? new Date(`${parseDate(raw)}T00:00:00.000Z`) : raw;
+      cell.numFmt = c.kind === 'date' ? 'dd/mm/yyyy' : c.kind === 'index' ? '0' : '@';
+      cell.font = { name: 'Calibri', size: 10 };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF8EB' } };
+      cell.alignment = { vertical: 'middle', horizontal: c.kind === 'index' || c.kind === 'date' || c.kind === 'list' ? 'center' : 'left' };
+      cell.border = BORDER;
+    });
+    sheet.getRow(start + 1).height = 28;
+    sheet.getRow(start + 2).height = 22;
+    banner(start + 3, spec.example.explanation, 28);
+    banner(start + 4, `DANH SÁCH CỦA BẠN · Nhập giáo viên từ dòng ${headerRow + 1}. STT và mã tự hiện khi điền họ tên và ngày sinh.`, 24);
+  }
 
   // dòng tiêu đề của bảng
   const head = sheet.getRow(headerRow);

@@ -94,7 +94,13 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     expect(String(sheet.getCell('C3').value)).toMatch(/^\d{2}\/\d{2}\/\d{4} \((Chủ Nhật|Thứ (Hai|Ba|Tư|Năm|Sáu|Bảy))\)$/);
     let headerRow = 0;
     sheet.eachRow((row, n) => { if (!headerRow && (row.values as unknown[]).includes('Họ và tên *')) headerRow = n; });
-    expect(headerRow).toBe(6); // 1 Đông A, 2 trường, 3 ngày, 4 ghi chú, 5 dòng đệm, 6 tiêu đề bảng
+    expect(headerRow).toBe(11); // ví dụ riêng ở phía trên; bảng nhập thật bắt đầu dưới dòng tiêu đề này
+    expect(sheet.getCell('A6').value).toContain('VÍ DỤ CÁCH ĐIỀN');
+    expect(sheet.getCell('B8').value).toBe('ME' + vnDayLabel().slice(8,10) + '15031985001');
+    expect(sheet.getCell('C8').value).toBe('Nguyễn Văn Mẫu');
+    expect(sheet.getCell('G8').value).toBeInstanceOf(Date);
+    expect(sheet.getCell('A9').value).toContain('15 + 03 + 1985');
+    expect(sheet.getCell('A10').value).toContain('Nhập giáo viên từ dòng 12');
     expect((sheet.getRow(headerRow).values as unknown[]).slice(1)).toEqual(HEADER);
     expect(HEADER).not.toContain('Bộ môn');
     expect(sheet.views[0]).toMatchObject({ state: 'frozen', ySplit: headerRow });
@@ -120,10 +126,22 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     expect(String(other.getWorksheet('Giáo viên')!.getCell('A2').value)).toContain('THCS Trường Khác');
   });
 
+  test('khối ví dụ không tạo tài khoản hoặc gửi thư khi tải nguyên mẫu lên', async () => {
+    const before = await sql(s.url, 'SELECT count(*)::int AS n FROM app_users');
+    const template = (await download(s.base, '/api/admin/teachers/template', A.token)).buffer;
+    const res = await upload(s.base, '/api/admin/teachers/import?commit=true', 'chua-dien.xlsx', template, A.token);
+    expect(res.status).toBe(400);
+    expect(res.body.detail).toContain('không có dòng dữ liệu');
+    expect(await sql(s.url, 'SELECT count(*)::int AS n FROM app_users')).toEqual(before);
+    expect(await sql(s.url, "SELECT id FROM app_users WHERE email='giao.vien@example.invalid'")).toEqual([]);
+  });
+
   test('mã công thức được nhập đúng dù file chưa có kết quả tính; có dòng trống vẫn tăng STT, người cùng ngày sinh khác mã, không đổi mã đã lưu', async () => {
     const template = (await download(s.base, '/api/admin/teachers/template', A.token)).buffer;
     const wb = await open(template), sheet = wb.getWorksheet('Giáo viên')!;
-    for (const [n, name, email] of [[7,'Mẫu Tự Động Một','tu.dong.1@example.edu.vn'],[9,'Mẫu Tự Động Hai','tu.dong.2@example.edu.vn']] as const) {
+    let first = 0;
+    sheet.eachRow((row, n) => { if (!first && (row.values as unknown[]).includes('Họ và tên *')) first = n + 1; });
+    for (const [n, name, email] of [[first,'Mẫu Tự Động Một','tu.dong.1@example.edu.vn'],[first+2,'Mẫu Tự Động Hai','tu.dong.2@example.edu.vn']] as const) {
       sheet.getCell(n,3).value=name; sheet.getCell(n,6).value=email;
       sheet.getCell(n,7).value=new Date('1985-03-15T00:00:00.000Z');
     }

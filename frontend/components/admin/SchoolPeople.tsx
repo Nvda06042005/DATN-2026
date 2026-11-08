@@ -112,7 +112,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
       ) : null}
       {importing ? (
         <ImportSheet title={teacher ? 'Nhập danh sách giáo viên' : 'Nhập danh sách học sinh'}
-          hint={teacher ? 'Thêm hàng loạt: tải file mẫu, điền mỗi giáo viên một dòng (họ tên và email bắt buộc; giới tính chọn Nam hoặc Nữ; ngày sinh chọn trên lịch hoặc gõ dd/mm/yyyy), rồi chọn file đã điền. Hệ thống báo dòng trùng email, thiếu hoặc sai dữ liệu trước khi lưu; lưu xong danh sách giáo viên tự cập nhật.' : `Tải file mẫu, điền mỗi học sinh một dòng. Cột Lớp (nếu có) là tên lớp trong năm học ${years.find((y) => y.id === yearId)?.label ?? 'đã chọn'}. Hệ thống báo dòng trùng mã, sai ngày sinh, lớp không có trước khi lưu.`}
+          hint={teacher ? 'File mẫu có ví dụ và cách ghép mã ngay ở đầu. Điền mỗi giáo viên một dòng trong DANH SÁCH CỦA BẠN; STT và mã tự hiện khi nhập họ tên và ngày sinh dd/mm/yyyy. Họ tên và email là bắt buộc. Chọn file đã điền để kiểm tra trước khi lưu; phần ví dụ không tạo tài khoản.' : `Tải file mẫu, điền mỗi học sinh một dòng. Cột Lớp (nếu có) là tên lớp trong năm học ${years.find((y) => y.id === yearId)?.label ?? 'đã chọn'}. Hệ thống báo dòng trùng mã, sai ngày sinh, lớp không có trước khi lưu.`}
           template={{ fetchBlob: () => api.downloadFile(token, `/api/admin/${kind}/template`), filename: teacher ? 'mau-giao-vien.xlsx' : 'mau-hoc-sinh.xlsx' }}
           run={(file, commit) => api.importMembers(token, kind, file, { commit, year_id: teacher ? undefined : yearId })} onClose={() => setImporting(false)} onDone={reload} />
       ) : null}

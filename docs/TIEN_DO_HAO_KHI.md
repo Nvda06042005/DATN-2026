@@ -890,6 +890,12 @@ Theo yêu cầu của quản trị trường (menu Giáo viên → Nhập từ E
 - Giữ migration 053 bỏ Bộ môn đã chạy trên Supabase. Mã/học kỳ mới dùng 054; hai migration mới không đổi checksum lịch sử đã áp dụng.
 - Mẫu Excel giáo viên giữ logo/các cột, có 1.000 dòng tự tính STT và mã: viết tắt tên riêng trường + năm tải mẫu (2 số) + ngày sinh ddmmyyyy + STT tối thiểu 3 chữ số. Ví dụ GOT2615031985001. Hướng dẫn giải thích từng phần, ô ngày định dạng dd/mm/yyyy và kiểm tra ngày. Mã đã lưu không đổi khi sửa ngày sinh. API tính lại đúng công thức mẫu khi file chưa có kết quả tính, không thực thi công thức tùy ý; kiểm tra trùng trước khi lưu.
 - Xác minh bằng Excel thật trên bản sao thử nghiệm: người cùng ngày sinh ở dòng 7/9 ra STT 1/2 và hai mã khác nhau; giữ số 0 điện thoại và ngày sinh. Kiểm thử giao diện gửi/duyệt ở 1440/390 px bằng API giả; PostgreSQL thử nghiệm kiểm tra quyền, đồng thời, rollback và migration nâng cấp.
+
+### Mẫu Excel mở lên thấy ngay ví dụ
+
+- Thêm khối VÍ DỤ CÁCH ĐIỀN ngay trong sheet Giáo viên, có sẵn STT 1, mã ghép theo trường, họ tên/email minh họa và ngày sinh thật kiểu ngày. Giải thích từng phần mã ngay dưới ví dụ, không cần mở sheet Hướng dẫn mới thấy.
+- Bảng nhập thật nằm dưới nhãn DANH SÁCH CỦA BẠN, bắt đầu dòng 12; STT/mã chỉ tính từ bảng này. Khối ví dụ có nhãn cột riêng để bộ đọc không nhận thành dòng dữ liệu. Tải nguyên mẫu chưa điền lên vẫn báo không có dữ liệu, không tạo tài khoản hoặc gửi thư.
+- Giữ 1000 dòng công thức, ngày sinh dd/mm/yyyy, danh sách giới tính, logo và các cột hiện có. Cập nhật hướng dẫn ở hộp nhập Excel. Không đổi database/migration (vẫn 055).
 ## Logo Đông A thật ở đầu file Excel giáo viên (08/11/2026)
 
 Theo yêu cầu: đầu file mẫu và file danh sách giáo viên chỉ có chữ "Đông A" in đậm đỏ thông thường; đổi sang đúng logo và kiểu chữ của logo ở trang chủ (biểu tượng chiến binh cầm cờ đỏ và chữ "Đông A edu" gốc với chữ Đ, ô và nét A riêng).
