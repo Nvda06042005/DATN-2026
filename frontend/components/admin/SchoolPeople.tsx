@@ -12,6 +12,7 @@ import { Cell, CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet,
 import type { Session } from '@/components/auth';
 import { Btn, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import { todayVn } from '@/lib/school-terms';
 import type { CreatedAccount, YearItem } from '@/types/api';
 
 const SUBJECTS = ['Lịch sử', 'Địa lí', 'Ngữ văn', 'Toán', 'Tiếng Anh', 'Khoa học tự nhiên', 'Giáo dục công dân', 'Tin học'].map((value) => ({ value, label: value }));
@@ -47,16 +48,21 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
 
   if (credential) return <CredentialSheet title="Tài khoản đã được tạo" account={{ full_name: credential.user.full_name, username: credential.user.username, temporary_password: credential.temporary_password, mail: credential.mail }} onClose={() => setCredential(null)} />;
 
+  const today = todayVn();
+  // thêm từng người: cùng các cột với file mẫu Excel (mã, họ tên, giới tính, SĐT, email, ngày sinh); bộ môn mặc định là Lịch sử nên không phải nhập
   const fields: FieldDef[] = teacher
-    ? [{ name: 'full_name', label: 'Họ và tên', required: true }, { name: 'email', label: 'Email', type: 'email', required: true, hint: 'Mật khẩu tạm được gửi vào email này.' }, { name: 'subject', label: 'Bộ môn' }, { name: 'phone', label: 'Số điện thoại', type: 'tel' }, { name: 'user_code', label: 'Mã giáo viên' }]
-    : [{ name: 'user_code', label: 'Mã học sinh', required: true }, { name: 'full_name', label: 'Họ và tên', required: true }, { name: 'birth_date', label: 'Ngày sinh', type: 'date', required: true },
+    ? [{ name: 'user_code', label: 'Mã giáo viên' }, { name: 'full_name', label: 'Họ và tên', required: true },
+      { name: 'gender', label: 'Giới tính', type: 'select', options: [{ value: '', label: 'Chưa chọn' }, { value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }] },
+      { name: 'phone', label: 'SĐT', type: 'tel' }, { name: 'email', label: 'Email', type: 'email', required: true, hint: 'Mật khẩu tạm được gửi vào email này.' },
+      { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1940-01-01', max: today }]
+    : [{ name: 'user_code', label: 'Mã học sinh', required: true }, { name: 'full_name', label: 'Họ và tên', required: true }, { name: 'birth_date', label: 'Ngày sinh', type: 'date', calendar: true, min: '2000-01-01', max: today, required: true },
       { name: 'gender', label: 'Giới tính', type: 'select', options: [{ value: '', label: 'Chưa chọn' }, { value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }, { value: 'other', label: 'Khác' }] },
       { name: 'class_id', label: 'Xếp vào lớp (năm học đang chọn)', type: 'select', options: [{ value: '', label: 'Chưa xếp lớp' }, ...classOptions] },
       { name: 'email', label: 'Email học sinh', type: 'email' }, { name: 'parent_email', label: 'Email phụ huynh', type: 'email', hint: 'Dữ liệu của trẻ vị thành niên: chỉ dùng cho việc liên lạc của nhà trường.' }];
 
   return (
     <Page>
-      <PageHeader title={teacher ? 'Giáo viên' : 'Học sinh'} subtitle={teacher ? 'Tạo tài khoản giáo viên, nhập danh sách từ Excel, khóa hoặc đặt lại mật khẩu.' : 'Tạo tài khoản học sinh (mã, ngày sinh, lớp), nhập danh sách từ Excel, chuyển lớp, khóa hoặc đặt lại mật khẩu.'}
+      <PageHeader title={teacher ? 'Giáo viên' : 'Học sinh'} subtitle={teacher ? 'Có hai cách thêm giáo viên: nút Thêm giáo viên để thêm từng người, hoặc Nhập từ Excel để thêm hàng loạt. Khóa hoặc đặt lại mật khẩu khi cần.' : 'Tạo tài khoản học sinh (mã, ngày sinh, lớp), nhập danh sách từ Excel, chuyển lớp, khóa hoặc đặt lại mật khẩu.'}
         actions={<>
           <DownloadButton title="Xuất Excel" fetchBlob={() => api.downloadFile(token, `/api/admin/${kind}/export${exportQuery ? `?${exportQuery}` : ''}`)} filename={teacher ? 'danh-sach-giao-vien.xlsx' : 'danh-sach-hoc-sinh.xlsx'} />
           <Btn title="Nhập từ Excel" icon={FileUp} tone="giay" size="sm" onPress={() => setImporting(true)} testID="import-open" />
@@ -89,7 +95,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
       ) : null}
       {open ? <AccountSheet session={session} id={open} onClose={() => setOpen(null)} onChanged={reload} /> : null}
       {creating ? (
-        <FormSheet title={teacher ? 'Thêm giáo viên' : 'Thêm học sinh'} subtitle="Hệ thống sinh tên đăng nhập và mật khẩu tạm; người dùng đổi mật khẩu ở lần đăng nhập đầu tiên" submitLabel="Tạo tài khoản" fields={fields} wide onClose={() => setCreating(false)}
+        <FormSheet title={teacher ? 'Thêm giáo viên' : 'Thêm học sinh'} subtitle={teacher ? 'Thêm từng giáo viên (muốn thêm nhiều người cùng lúc, hãy dùng Nhập từ Excel). Hệ thống sinh tên đăng nhập và mật khẩu tạm; giáo viên đổi mật khẩu ở lần đăng nhập đầu tiên.' : 'Hệ thống sinh tên đăng nhập và mật khẩu tạm; người dùng đổi mật khẩu ở lần đăng nhập đầu tiên'} submitLabel="Tạo tài khoản" fields={fields} wide onClose={() => setCreating(false)}
           onSubmit={async (v) => {
             const body: Record<string, unknown> = {};
             for (const f of fields) { const raw = String(v[f.name] ?? '').trim(); if (raw) body[f.name] = f.name === 'class_id' ? Number(raw) : raw; }
@@ -101,7 +107,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
       ) : null}
       {importing ? (
         <ImportSheet title={teacher ? 'Nhập danh sách giáo viên' : 'Nhập danh sách học sinh'}
-          hint={teacher ? 'Tải file mẫu, điền mỗi giáo viên một dòng (họ tên, email bắt buộc). Hệ thống báo dòng trùng email, thiếu hoặc sai dữ liệu trước khi lưu.' : `Tải file mẫu, điền mỗi học sinh một dòng. Cột Lớp (nếu có) là tên lớp trong năm học ${years.find((y) => y.id === yearId)?.label ?? 'đã chọn'}. Hệ thống báo dòng trùng mã, sai ngày sinh, lớp không có trước khi lưu.`}
+          hint={teacher ? 'Thêm hàng loạt: tải file mẫu, điền mỗi giáo viên một dòng (họ tên và email bắt buộc; giới tính chọn Nam hoặc Nữ; bộ môn mặc định là Lịch sử), rồi chọn file đã điền. Hệ thống báo dòng trùng email, thiếu hoặc sai dữ liệu trước khi lưu; lưu xong danh sách giáo viên tự cập nhật.' : `Tải file mẫu, điền mỗi học sinh một dòng. Cột Lớp (nếu có) là tên lớp trong năm học ${years.find((y) => y.id === yearId)?.label ?? 'đã chọn'}. Hệ thống báo dòng trùng mã, sai ngày sinh, lớp không có trước khi lưu.`}
           template={{ fetchBlob: () => api.downloadFile(token, `/api/admin/${kind}/template`), filename: teacher ? 'mau-giao-vien.xlsx' : 'mau-hoc-sinh.xlsx' }}
           run={(file, commit) => api.importMembers(token, kind, file, { commit, year_id: teacher ? undefined : yearId })} onClose={() => setImporting(false)} onDone={reload} />
       ) : null}

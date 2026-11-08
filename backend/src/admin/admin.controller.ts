@@ -363,7 +363,7 @@ export class AdminController {
   createTeacher(@CurrentUser() user: UserRow, @Body() body: CreateMemberDto) { return this.accounts.createMember(user, 'teacher', body); }
 
   @Get('teachers/template')
-  async teacherTemplate() { return download(await this.accounts.template('teachers'), 'mau-giao-vien.xlsx'); }
+  async teacherTemplate(@CurrentUser() user: UserRow, @Query() query: SchoolScope) { return download(await this.accounts.teacherTemplate(user, query.school_id), 'mau-giao-vien.xlsx'); }
 
   @Get('teachers/export')
   async exportTeachers(@CurrentUser() user: UserRow, @Query() query: UserQuery) { return download(await this.accounts.exportMembers(user, 'teacher', query), 'danh-sach-giao-vien.xlsx'); }

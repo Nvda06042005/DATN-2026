@@ -5,7 +5,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Modal, Platform, Pressable, ScrollView, TextInput, View, useWindowDimensions } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import { AlertTriangle, Check, CheckSquare, ChevronDown, ChevronLeft, ChevronRight, Download, FileUp, Funnel, Search, SlidersHorizontal, Square, X } from 'lucide-react-native';
+import { AlertTriangle, Check, CheckSquare, ChevronDown, ChevronLeft, ChevronRight, Download, FileUp, Funnel, Info, Search, SlidersHorizontal, Square, X } from 'lucide-react-native';
 import { ApiError, errorMessage, type PickedFile } from '@/api/client';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { Btn, Card, Chip, EmptyState, Field, Inset, Sheet, Spinner, Txt, useToast } from '@/components/ui';
@@ -14,6 +14,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { copyText } from '@/lib/clipboard';
 import { DEFAULT_PAGE_SIZE, getPageSize, PAGE_SIZES, pageWindow, setPageSize, subscribePageSize, TABLE_MIN_WIDTH } from '@/lib/paging';
 import { splitTitle } from '@/lib/title-split';
+import { acceptNote, checkPickedFile } from '@/lib/upload-rules';
 import type { ImportResult } from '@/types/api';
 
 // ---------------------------------------------------------------------- tải dữ liệu
@@ -408,6 +409,10 @@ export interface FieldDef {
   /** Ẩn ô theo giá trị hiện tại của biểu mẫu */
   when?: (values: Record<string, string | string[]>) => boolean;
   readOnly?: boolean;
+  /** Ô ngày (type 'date') chọn bằng lịch của trình duyệt trên web; điện thoại vẫn gõ YYYY-MM-DD. `min`/`max` dạng YYYY-MM-DD */
+  calendar?: boolean;
+  min?: string;
+  max?: string;
   /** Ô tùy biến (ví dụ bản đồ chọn tọa độ): tự vẽ và tự ghi vào các giá trị khác */
   render?: (values: Record<string, string | string[]>, set: (name: string, value: string | string[]) => void) => React.ReactNode;
 }
@@ -491,10 +496,30 @@ const FormField: React.FC<{ def: FieldDef; value: string | string[]; error: stri
       </View>
     );
   }
+  if (def.type === 'date' && def.calendar && Platform.OS === 'web') return <CalendarInput def={def} label={label} value={String(value ?? '')} error={error} onChange={onChange} />;
   return (
     <Field label={label} hint={def.hint} error={error} value={String(value ?? '')} onChangeText={(v) => onChange(v)} placeholder={def.placeholder ?? (def.type === 'date' ? 'YYYY-MM-DD' : undefined)}
       editable={!def.readOnly} multiline={def.type === 'textarea'} numberOfLines={def.type === 'textarea' ? 4 : 1} inputStyle={def.type === 'textarea' ? { minHeight: 96, textAlignVertical: 'top' } : undefined}
       autoCapitalize={def.type === 'email' ? 'none' : 'sentences'} keyboardType={def.type === 'email' ? 'email-address' : def.type === 'tel' ? 'phone-pad' : def.type === 'number' ? 'numeric' : 'default'} nativeID={`field-${def.name}`} />
+  );
+};
+
+/** Ô ngày chọn bằng lịch (web): thẻ input type="date" của trình duyệt, giá trị YYYY-MM-DD như ô gõ tay; chỉ chọn trong khoảng min–max */
+const CalendarInput: React.FC<{ def: FieldDef; label: string; value: string; error: string | null; onChange: (v: string) => void }> = ({ def, label, value, error, onChange }) => {
+  const { c } = useTheme();
+  const [focus, setFocus] = useState(false);
+  const input = React.createElement('input', {
+    type: 'date', id: `field-${def.name}`, 'data-testid': `field-${def.name}`, 'aria-label': label, value, min: def.min, max: def.max, disabled: def.readOnly,
+    onChange: (e: { target: { value: string } }) => onChange(e.target.value),
+    onFocus: () => setFocus(true), onBlur: () => setFocus(false),
+    style: { minHeight: 44, boxSizing: 'border-box', width: '100%', padding: '0 12px', borderRadius: 5, border: `1px solid ${error ? c.son : focus ? c.son : c.adminLine}`, backgroundColor: c.the, color: c.logoInk, fontFamily: FONT.body, fontSize: 14, outline: 'none' },
+  });
+  return (
+    <View style={{ gap: 6 }}>
+      <Txt f="bold" size={14} color={c.muc2}>{label}</Txt>
+      {input}
+      {error ? <Txt size={13} f="semibold" color={c.sonChu}>{error}</Txt> : def.hint ? <Txt size={13} color={c.muc2}>{def.hint}</Txt> : <Txt size={13} color={c.muc3}>Bấm vào ô rồi chọn ngày trên lịch.</Txt>}
+    </View>
   );
 };
 
@@ -597,8 +622,10 @@ export const ImportSheet: React.FC<{
   const choose = async () => {
     const picked = await pickFile(types);
     if (!picked) return;
-    setFile(picked);
     setResult(null);
+    const wrong = checkPickedFile(picked, types);
+    if (wrong) { setFile(null); setError(wrong); return; }
+    setFile(picked);
     await go(false, picked);
   };
 
@@ -618,6 +645,12 @@ export const ImportSheet: React.FC<{
         {!committed && file ? <Btn title={valid ? `Lưu ${valid} dòng hợp lệ${result && result.errors ? `, bỏ qua ${result.errors} dòng lỗi` : ''}` : 'Không có dòng hợp lệ'} tone="son" disabled={!result || !valid} loading={busy} onPress={() => go(true)} testID="import-commit" /> : null}
       </View>}>
       <Txt size={14} color={c.muc2}>{hint}</Txt>
+      <View testID="import-accept-note">
+        <Inset style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+          <Info size={16} color={c.muc2} style={{ marginTop: 2 }} />
+          <Txt size={13} style={{ flex: 1 }}>{acceptNote(types)}</Txt>
+        </Inset>
+      </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {template ? <DownloadButton title="Tải file mẫu" fetchBlob={template.fetchBlob} filename={template.filename} /> : null}
         <Btn title={file ? `Chọn file khác (${file.name})` : 'Chọn file'} icon={FileUp} tone="giay" size="sm" onPress={choose} disabled={busy || committed} testID="import-choose" />
@@ -643,7 +676,7 @@ export const ImportSheet: React.FC<{
               <Txt size={13} color={c.sonChu}>• {r.message}</Txt>
             </Inset>
           ))}
-          {rows.filter((r) => r.status !== 'error').length ? <Txt size={13} color={c.muc2}>{rows.filter((r) => r.status !== 'error').length} dòng hợp lệ{committed ? ' đã được xử lý.' : ' sẽ được lưu khi bạn bấm nút bên dưới.'}</Txt> : null}
+          {rows.filter((r) => r.status !== 'error').length ? <Txt size={13} color={c.muc2}>{rows.filter((r) => r.status !== 'error').length} dòng hợp lệ{committed ? ' đã được xử lý; danh sách trong trang đã tự cập nhật.' : ' sẽ được lưu khi bạn bấm nút bên dưới.'}</Txt> : null}
           {committed && credentials.length ? (
             <Inset style={{ gap: 8 }}>
               <Txt f="bold" size={14}><Check size={14} color={c.mocChu} /> Mật khẩu tạm của {credentials.length} tài khoản mới chỉ hiện một lần.</Txt>

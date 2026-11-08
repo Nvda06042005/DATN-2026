@@ -180,15 +180,19 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect((await upload(s.base, '/api/admin/teachers/import', 'x.xlsx', Buffer.from('khong phai zip'), A.token)).status).toBe(400);
     const template = await download(s.base, '/api/admin/teachers/template', A.token);
     expect(template.status).toBe(200);
-    expect((await readRows(template.buffer))[0]).toEqual(['Họ và tên *', 'Email *', 'Bộ môn', 'Số điện thoại', 'Mã giáo viên']);
+    // mẫu mới: khối tiêu đề "Đông A" phía trên, bảng Số thứ tự, Mã giáo viên, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh (không có Bộ môn); chi tiết ở teacher_excel.spec.ts
+    const sheet = await readRows(template.buffer);
+    expect(sheet[0]).toEqual(['Đông A']);
+    expect(sheet.find((r) => r.includes('Họ và tên *'))).toEqual(['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới tính', 'SĐT', 'Email *', 'Ngày tháng năm sinh']);
   });
 
   test('HK.QT.023 xuất danh sách giáo viên ra Excel theo bộ lọc', async () => {
-    const all = await readRows((await download(s.base, '/api/admin/teachers/export', A.token)).buffer);
-    expect(all[0]).toEqual(['Họ và tên', 'Email', 'Bộ môn', 'Số điện thoại', 'Mã giáo viên', 'Lớp phụ trách', 'Trạng thái']);
-    expect(all.length).toBe(1 + (await qa('GET', '/api/admin/teachers')).body.total);
-    const filtered = await readRows((await download(s.base, '/api/admin/teachers/export?subject=Địa', A.token)).buffer);
-    expect(filtered.slice(1).map((r) => r[0]).sort()).toEqual(['Nguyễn Văn Sử Mới', 'Phạm Thị Nhập Hai', 'Trần Thị Địa'].sort()); // bộ môn chứa "Địa"
+    const table = (rows: string[][]) => { const at = rows.findIndex((r) => r.includes('Họ và tên')); return { header: rows[at], data: rows.slice(at + 1) }; };
+    const all = table(await readRows((await download(s.base, '/api/admin/teachers/export', A.token)).buffer));
+    expect(all.header).toEqual(['Số thứ tự', 'Mã giáo viên', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh', 'Lớp phụ trách', 'Trạng thái']);
+    expect(all.data.length).toBe((await qa('GET', '/api/admin/teachers')).body.total);
+    const filtered = table(await readRows((await download(s.base, '/api/admin/teachers/export?subject=Địa', A.token)).buffer));
+    expect(filtered.data.map((r) => r[2]).sort()).toEqual(['Nguyễn Văn Sử Mới', 'Phạm Thị Nhập Hai', 'Trần Thị Địa'].sort()); // bộ môn chứa "Địa"
   });
 
   // ------------------------------------------------------------------ HK.QT.035–040 (lớp) và HK.QT.022

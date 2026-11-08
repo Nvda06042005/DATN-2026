@@ -10,6 +10,7 @@ import * as api from '@/api/adminApi';
 import { CredentialSheet, ErrorNote, FormSheet, StatusChip, useAction, useLoad, type FieldDef } from '@/components/admin/kit';
 import { Btn, ConfirmSheet, Inset, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import { todayVn } from '@/lib/school-terms';
 import type { Session } from '@/components/auth';
 import type { AccountDetail, AuthRole, CreatedAccount, Gender } from '@/types/api';
 
@@ -51,7 +52,7 @@ export const AccountSheet: React.FC<{
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
               {([
                 ['Tên đăng nhập', u.username], ['Mã người dùng', u.user_code], ['Email', u.email], ['Số điện thoại', u.phone], ['Trường', u.school_name],
-                u.role === 'teacher' ? ['Bộ môn', u.subject] : null, u.role === 'student' ? ['Ngày sinh', u.birth_date] : null, u.role === 'student' ? ['Giới tính', u.gender ? GENDER_TEXT[u.gender] : null] : null,
+                u.role === 'teacher' ? ['Bộ môn', u.subject] : null, u.role === 'student' || u.role === 'teacher' ? ['Ngày sinh', u.birth_date] : null, u.role === 'student' || u.role === 'teacher' ? ['Giới tính', u.gender ? GENDER_TEXT[u.gender] : null] : null,
                 u.role === 'student' ? ['Email phụ huynh', u.parent_email] : null, u.role === 'root_admin' ? ['Cấp quản trị', `Cấp ${u.admin_level}`] : null,
                 ['Đăng nhập lần cuối', dateText(u.last_login_at)], ['Ngày tạo', dateText(u.created_at)],
               ] as Array<[string, string | null] | null>).filter((x): x is [string, string | null] => !!x).map(([k, v]) => (
@@ -97,7 +98,7 @@ export const AccountSheet: React.FC<{
             const body: Record<string, unknown> = { full_name: v.full_name, email: v.email || null, phone: v.phone || null };
             if (u.role === 'teacher') Object.assign(body, { subject: v.subject || null });
             if (u.role === 'student') Object.assign(body, { user_code: v.user_code, birth_date: v.birth_date || null, gender: v.gender || null, parent_email: v.parent_email || null });
-            if (u.role === 'teacher') Object.assign(body, { user_code: v.user_code || null });
+            if (u.role === 'teacher') Object.assign(body, { user_code: v.user_code || null, birth_date: v.birth_date || null, gender: v.gender || null });
             if (root && u.role !== 'root_admin' && v.school_id && Number(v.school_id) !== u.school_id) body.school_id = Number(v.school_id);
             await api.updateUser(token, u.id, body);
             setDialog(null);
@@ -141,8 +142,9 @@ function editFields(u: AccountDetail, schools: Array<{ value: string; label: str
     { name: 'email', label: 'Email', type: 'email', required: u.role !== 'student', hint: 'Dùng để nhận mật khẩu tạm và mã OTP khi quên mật khẩu.' },
     { name: 'phone', label: 'Số điện thoại', type: 'tel' },
   ];
-  if (u.role === 'teacher') fields.push({ name: 'subject', label: 'Bộ môn' }, { name: 'user_code', label: 'Mã giáo viên' });
-  if (u.role === 'student') fields.push({ name: 'user_code', label: 'Mã học sinh', required: true }, { name: 'birth_date', label: 'Ngày sinh', type: 'date', required: true }, { name: 'gender', label: 'Giới tính', type: 'select', options: GENDER_OPTIONS }, { name: 'parent_email', label: 'Email phụ huynh', type: 'email' });
+  const today = todayVn();
+  if (u.role === 'teacher') fields.push({ name: 'subject', label: 'Bộ môn' }, { name: 'user_code', label: 'Mã giáo viên' }, { name: 'gender', label: 'Giới tính', type: 'select', options: GENDER_OPTIONS.filter((o) => o.value !== 'other') }, { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1940-01-01', max: today });
+  if (u.role === 'student') fields.push({ name: 'user_code', label: 'Mã học sinh', required: true }, { name: 'birth_date', label: 'Ngày sinh', type: 'date', calendar: true, min: '2000-01-01', max: today, required: true }, { name: 'gender', label: 'Giới tính', type: 'select', options: GENDER_OPTIONS }, { name: 'parent_email', label: 'Email phụ huynh', type: 'email' });
   if (schools.length && u.role !== 'root_admin') fields.push({ name: 'school_id', label: 'Trường', type: 'select', options: schools, hint: 'Chỉ chuyển trường được khi tài khoản chưa thuộc lớp nào.' });
   return fields;
 }
