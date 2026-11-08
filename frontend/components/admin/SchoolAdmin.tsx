@@ -13,7 +13,7 @@ import { SchoolReports } from '@/components/admin/AnalyticsAdmin';
 import { SchoolDashboard } from '@/components/admin/SchoolDashboard';
 import { BroadcastManager, SurveyManager } from '@/components/admin/PlatformComms';
 import { LogsPanel } from '@/components/admin/PlatformOps';
-import { SchoolEmblem, SchoolLinkBox } from '@/components/school-brand';
+import { SchoolEmblem } from '@/components/school-brand';
 import { HelpPage } from '@/components/portal/HelpCenter';
 import { NoticeBell } from '@/components/portal/NoticeCenter';
 import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, yearOptions, YEAR_TEXT } from '@/components/admin/kit';
@@ -131,7 +131,6 @@ const SchoolPanel: React.FC<{ session: Session; school: Awaited<ReturnType<typeo
               <View key={k as string} style={{ flexBasis: 220, flexGrow: 1 }}><Txt f="bold" size={12} color={c.muc3}>{k}</Txt><Txt size={14}>{(v as string | null) || 'Chưa có'}</Txt></View>
             ))}
           </View>
-          <SchoolLinkBox link={school.link} />
         </Card>
       )}
 

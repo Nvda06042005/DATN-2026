@@ -96,13 +96,14 @@ test('không có hook sau lệnh return sớm trong ô chọn trường (lỗi R
   assert.doesNotMatch(picker.slice(firstReturn), /\buse(State|Effect|Memo|Callback|Debounced|Load)\(/);
 });
 
-test('tạo xong: hộp thông tin hiện đường dẫn riêng (sao chép, mở); danh sách và chi tiết trường cũng có đường dẫn và huy hiệu', () => {
+test('tạo xong: hộp thông tin hiện đường dẫn riêng (sao chép, mở); danh sách và chi tiết trường của quản trị tổng cũng có đường dẫn và huy hiệu; quản trị trường không hiện', () => {
   const admin = read('components', 'admin', 'RootAdmin.tsx');
   assert.match(admin, /extra=\{<View style=\{\{ gap: 10 \}\}>[\s\S]*<SchoolLinkBox link=\{created\.school\.link\} \/>/);
   assert.match(admin, /<SchoolLinkBox link=\{data\.link\} \/>/);
   assert.match(admin, /<SchoolEmblem name=\{s\.name\} code=\{s\.school_code\} logoUrl=\{s\.logo_url\} size=\{36\} \/>/);
   assert.match(read('components', 'admin', 'kit.tsx'), /onClose: \(\) => void; extra\?: React\.ReactNode \}> = \(\{ title, account, onClose, extra \}\)/);
-  assert.match(read('components', 'admin', 'SchoolAdmin.tsx'), /<SchoolLinkBox link=\{school\.link\} \/>/);
+  // cổng quản trị trường không hiện lại đường dẫn riêng: quản trị viên đã ở trong cổng của trường, đường dẫn do quản trị tổng chép và gửi cho trường
+  assert.doesNotMatch(read('components', 'admin', 'SchoolAdmin.tsx'), /SchoolLinkBox/);
   const brand = read('components', 'school-brand.tsx');
   assert.match(brand, /copyText\(link\.url\)/);
   assert.match(brand, /Linking\.openURL\(link\.url\)/);
