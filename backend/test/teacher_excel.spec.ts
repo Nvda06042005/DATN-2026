@@ -168,6 +168,44 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     expect(repeated.body.rows.every((r:{errors:string[]})=>r.errors.some(e=>/đã được dùng|trùng/.test(e)))).toBe(true);
   });
 
+  test('file đã lưu bằng Excel thật (công thức điền xuống được lưu dạng dùng chung) vẫn đọc ra đúng mã, giống file chưa gộp công thức', async () => {
+    const template = (await download(s.base, '/api/admin/teachers/template', A.token)).buffer;
+    const wb = await open(template), sheet = wb.getWorksheet('Giáo viên')!;
+    let first = 0;
+    sheet.eachRow((row, n) => { if (!first && (row.values as unknown[]).includes('Họ và tên *')) first = n + 1; });
+    for (const [n, name, email] of [[first, 'Dùng Chung Một', 'dung.chung.1@example.edu.vn'], [first + 2, 'Dùng Chung Hai', 'dung.chung.2@example.edu.vn']] as const) {
+      sheet.getCell(n, 3).value = name; sheet.getCell(n, 6).value = email; sheet.getCell(n, 7).value = new Date('1991-08-20T00:00:00.000Z');
+    }
+    const plain = Buffer.from(await wb.xlsx.writeBuffer());
+    // Excel gộp các công thức giống nhau của một cột thành "công thức dùng chung": ô gốc giữ chữ công thức, các ô con chỉ trỏ về ô gốc
+    const JSZip = (await import('jszip')).default;
+    const zip = await JSZip.loadAsync(plain);
+    const entry = 'xl/worksheets/sheet1.xml';
+    let xml = await zip.file(entry)!.async('string');
+    let si = 0;
+    for (const col of ['A', 'B']) {
+      let rows = 0;
+      xml = xml.replace(new RegExp(`<c r="${col}(\\d+)"([^>]*)><f>([^<]*)</f>`, 'g'), (whole, row: string, attrs: string, formula: string) => {
+        if (Number(row) < first) return whole;
+        rows += 1;
+        return rows === 1 ? `<c r="${col}${row}"${attrs}><f t="shared" ref="${col}${first}:${col}${first + 999}" si="${si}">${formula}</f>` : `<c r="${col}${row}"${attrs}><f t="shared" si="${si}"/>`;
+      });
+      expect(rows).toBe(1000);
+      si += 1;
+    }
+    zip.file(entry, xml);
+    const shared = Buffer.from(await zip.generateAsync({ type: 'nodebuffer' }));
+    expect(((await open(shared)).getWorksheet('Giáo viên')!.getCell(first + 2, 2).value as { sharedFormula?: string }).sharedFormula).toBe(`B${first}`);
+    const control = await upload(s.base, '/api/admin/teachers/import', await teacherFileName(), plain, A.token);
+    const preview = await upload(s.base, '/api/admin/teachers/import', await teacherFileName(), shared, A.token);
+    expect(preview.status).toBe(200);
+    const codes = preview.body.rows.map((r: { user_code: string }) => r.user_code);
+    const prefix = 'ME' + vnDayLabel().slice(8, 10) + '20081991';
+    expect(codes).toHaveLength(2);
+    expect(codes.every((c: string) => c.startsWith(prefix))).toBe(true); // máy chủ tự cấp lại mã giáo viên từ bộ đếm của trường nên tiền tố luôn đúng
+    expect(codes).toEqual(control.body.rows.map((r: { user_code: string }) => r.user_code)); // giống hệt khi không dùng công thức dùng chung
+  });
+
   test('mã tự đổi tiền tố theo trường; ngày sinh dạng chữ dd/mm/yyyy hoặc ISO vẫn nhập đúng, ngày không tồn tại bị chặn', async () => {
     for(const [token,initials] of [[A.token,'ME'],[B.token,'TK']]) {
       const next=(await api('GET','/api/admin/registration-code/teacher',undefined,token)).body.serial;

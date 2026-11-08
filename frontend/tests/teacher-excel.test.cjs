@@ -51,9 +51,12 @@ test('trang Giáo viên: hai cách thêm, biểu mẫu cùng cột với file m�
   const people = read('components', 'admin', 'SchoolPeople.tsx');
   assert.match(people, /Có hai cách thêm giáo viên: nút Thêm giáo viên để thêm từng người, hoặc Nhập từ Excel để thêm hàng loạt/);
   assert.match(people, /Thêm từng giáo viên \(muốn thêm nhiều người cùng lúc, hãy dùng Nhập từ Excel\)/);
-  const form = people.slice(people.indexOf('const fields: FieldDef[] = teacher'), people.indexOf(': [{ name: \'user_code\', label: \'Mã học sinh\''));
-  const labels = [...form.matchAll(/label: '([^']+)'/g)].map((m) => m[1]);
-  assert.deepEqual(labels.filter((l) => !['Chưa chọn', 'Nam', 'Nữ'].includes(l)), ['Mã giáo viên', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh']);
+  const form = people.slice(people.indexOf('const fields: FieldDef[] = teacher'), people.indexOf(": [{ name: 'user_code', label: 'Mã học sinh'"));
+  // thứ tự giống các cột của file Excel: (Số thứ tự và Mã giáo viên), Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh
+  const order = ['kind="teacher" showSerial', "name: 'full_name'", "name: 'gender'", "name: 'phone'", "name: 'email'", "name: 'birth_date'"].map((part) => form.indexOf(part));
+  assert.ok(order.every((n, i) => n >= 0 && (i === 0 || n > order[i - 1])), `thứ tự các ô: ${order}`);
+  assert.deepEqual([...form.matchAll(/name: '(\w+)', label: '([^']+)'/g)].map((m) => m[2]), ['Mã giáo viên', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh']);
+  assert.match(form, /name: 'gender', label: 'Giới tính', type: 'select'/);
   assert.doesNotMatch(form, /Bộ môn/);
   assert.match(form, /name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1940-01-01', max: today/);
   assert.doesNotMatch(people, /bộ môn|Bộ môn|subject/);
@@ -71,7 +74,7 @@ test('trang Giáo viên: hai cách thêm, biểu mẫu cùng cột với file m�
 
 test('bảng danh sách giáo viên cùng cột với file Excel: Số thứ tự, Mã giáo viên, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh, rồi Lớp phụ trách và Trạng thái', () => {
   const people = read('components', 'admin', 'SchoolPeople.tsx');
-  const table = people.slice(people.indexOf('columns={teacher ? ['), people.search(/\] : \[\s*\{ key: 'code', label: 'Mã'/));
+  const table = people.slice(people.indexOf('columns={teacher ? ['), people.search(/\] : \[\s*\/\/ cùng các cột với file Excel: Số thứ tự, Mã học sinh/));
   const labels = [...table.matchAll(/label: '([^']+)'/g)].map((m) => m[1]);
   assert.deepEqual(labels, ['Số thứ tự', 'Mã giáo viên', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh', 'Lớp phụ trách', 'Trạng thái']);
   // số thứ tự nối tiếp qua các trang; ngày sinh hiện dd/mm/yyyy như trong Excel; chỉ còn bộ lọc Trạng thái
@@ -84,4 +87,48 @@ test('bảng danh sách giáo viên cùng cột với file Excel: Số thứ t�
   assert.doesNotMatch(read('components', 'profile.tsx'), /user\.subject/);
   assert.doesNotMatch(read('types', 'api.ts'), /\bsubject\b/);
   assert.doesNotMatch(read('api', 'adminApi.ts'), /\bsubject\b/);
+});
+
+test('trang Học sinh làm như Giáo viên: bỏ ô chọn năm học, bảng cùng cột với file Excel, biểu mẫu cùng thứ tự cột, mẫu Excel không còn tham số năm học', () => {
+  const people = read('components', 'admin', 'SchoolPeople.tsx');
+  // ô chọn năm học bị bỏ: lớp luôn theo năm học đang hoạt động
+  assert.doesNotMatch(people, /yearSel|setYearSel|member-year|AdminSelect|yearOptions/);
+  assert.match(people, /const yearId = years\.find\(\(y\) => y\.status === 'active'\)\?\.id \?\? years\[0\]\?\.id \?\? 0;/);
+  // bảng: cùng cột với file Excel (Số thứ tự, Mã, Họ và tên, Giới tính, SĐT, Email, Ngày sinh) rồi Lớp, Khối, Trạng thái
+  const start = people.search(/\] : \[\s*\/\/ cùng các cột với file Excel: Số thứ tự, Mã học sinh/);
+  const table = people.slice(start, people.indexOf('<Pager page={page}'));
+  assert.deepEqual([...table.matchAll(/label: '([^']+)'/g)].map((m) => m[1]), ['Số thứ tự', 'Mã học sinh', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh', 'Lớp', 'Khối', 'Trạng thái']);
+  assert.match(table, /\(page - 1\) \* size \+ data\.items\.indexOf\(u\) \+ 1/);
+  assert.match(table, /key: 'classes', filter: f_class, label: 'Lớp'/);
+  assert.match(table, /key: 'grade', filter: f_grade, label: 'Khối'/);
+  assert.doesNotMatch(table, /parent_email|Email phụ huynh'/);
+  // biểu mẫu thêm học sinh: đúng các ô của file Excel (Số thứ tự và Mã, Họ và tên, Giới tính, SĐT, Email, Ngày sinh), không còn Lớp và Email phụ huynh
+  const form = people.slice(people.indexOf(": [{ name: 'user_code', label: 'Mã học sinh'"), people.search(/return \(\s*<Page>/));
+  const order = ['kind="student" showSerial', "name: 'full_name'", "name: 'gender'", "name: 'phone'", "name: 'email'", "name: 'birth_date'"].map((part) => form.indexOf(part));
+  assert.ok(order.every((n, i) => n >= 0 && (i === 0 || n > order[i - 1])), `thứ tự các ô: ${order}`);
+  assert.deepEqual([...form.matchAll(/name: '(\w+)', label: '([^']+)'/g)].map((m) => m[2]), ['Mã học sinh', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh']);
+  assert.match(form, /name: 'email', label: 'Email', type: 'email', required: true/); // Email * bắt buộc như giáo viên
+  assert.doesNotMatch(form, /class_id|parent_email/);
+  assert.match(form, /name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '2000-01-01', max: today, required: true/);
+  assert.match(people, /Có hai cách thêm học sinh: nút Thêm học sinh để thêm từng em, hoặc Nhập từ Excel để thêm hàng loạt/);
+  // nhập Excel: mẫu tải không kèm năm học, lời nhắc nêu đúng năm cột người dùng nhập và việc mã/STT tự hiện
+  assert.match(people, /api\.downloadFile\(token, '\/api\/admin\/students\/template'\)/);
+  assert.doesNotMatch(people, /template\?year_id/);
+  assert.match(people, /Bạn chỉ nhập Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh \(họ tên, email và ngày sinh bắt buộc\): mã học sinh tự sinh, số thứ tự tự hiện khi nhấn Enter/);
+});
+
+test('biểu mẫu thêm giáo viên và học sinh giống file Excel: Số thứ tự và Mã hiện khi chọn ngày sinh (ô chỉ đọc), máy chủ cấp mã lúc tạo', () => {
+  const people = read('components', 'admin', 'SchoolPeople.tsx');
+  const code = read('components', 'admin', 'RegistrationCode.tsx');
+  // hai ô đầu của file Excel: Số thứ tự rồi Mã; chỉ đọc, trống cho đến khi chọn ngày sinh
+  assert.match(code, /showSerial\?:boolean/);
+  assert.match(code, /<Field label="Số thứ tự" value=\{serial\} editable=\{false\} testID=\{`registration-serial-\$\{kind\}`\} \/>/);
+  assert.match(code, /placeholder=\{loading\?'…':kind==='class'\?'':'Chọn ngày sinh để hiện mã'\}/);
+  assert.match(people, /<RegistrationCode token=\{token\} kind="teacher" showSerial birthDate=\{String\(v\.birth_date\|\|''\)\}\/>/);
+  assert.match(people, /<RegistrationCode token=\{token\} kind="student" showSerial birthDate=\{String\(v\.birth_date\|\|''\)\}\/>/);
+  // ô render (mã) không gửi lên: máy chủ cấp mã chính thức trong cùng giao dịch tạo tài khoản
+  assert.match(people, /if\(f\.render\)continue;/);
+  // học sinh dùng chung điểm xem trước registration-code với giáo viên, không còn điểm vào riêng
+  assert.doesNotMatch(read('api', 'adminApi.ts'), /previewMemberCode|member-code/);
+  assert.match(read('api', 'adminApi.ts'), /previewRegistrationCode = \(token:string,kind:'teacher'\|'student'\|'class',query:Query=\{\}\)/);
 });

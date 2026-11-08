@@ -413,7 +413,7 @@ export class AdminController {
   createStudent(@CurrentUser() user: UserRow, @Body() body: CreateMemberDto) { return this.accounts.createMember(user, 'student', body); }
 
   @Get('students/template')
-  async studentTemplate() { return download(await this.accounts.template('students'), 'mau-hoc-sinh.xlsx'); }
+  async studentTemplate(@CurrentUser() user: UserRow, @Query() query: ImportQuery) { return download(await this.accounts.studentTemplate(user, query.school_id), 'mau-hoc-sinh.xlsx'); }
 
   @Get('students/export')
   async exportStudents(@CurrentUser() user: UserRow, @Query() query: UserQuery) { return download(await this.accounts.exportMembers(user, 'student', query), 'danh-sach-hoc-sinh.xlsx'); }
@@ -435,6 +435,8 @@ export class AdminController {
   @Post('teacher-change-requests/:id/decision')
   @HttpCode(200)
   teacherChangeDecision(@CurrentUser() user:UserRow,@Param('id',ParseIntPipe) id:number,@Body() body:TeacherChangeDecisionDto){return this.classes.decideTeacherChange(user,id,body.decision,body.note);}
+
+  /** Xem trước mã giáo viên/học sinh theo ngày sinh (cùng công thức với mẫu Excel) cho biểu mẫu thêm từng người */
 
   @Get('registration-code/:kind')
   @Header('Cache-Control', 'no-store')

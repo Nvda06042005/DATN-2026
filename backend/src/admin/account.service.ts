@@ -7,7 +7,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { toPublic } from '../auth/auth.service';
 import { generatePassword, hashPassword } from '../auth/passwords';
 import { DatabaseService, DuplicateUsername, Q, Role, searchText, toUser, USER_COLUMNS, UserRow } from '../database/database.service';
-import { buildFormSheet, buildWorkbook, checkUpload, Column, FormColumn, parseDate, readSheet, schoolInitials, teacherTemplateFilename, UploadedXlsx, vnDayLabel } from './excel';
+import { buildFormSheet, checkUpload, Column, FormColumn, memberCode, parseDate, readSheet, schoolInitials, studentCodePrefix, teacherTemplateFilename, UploadedXlsx, vnDayLabel } from './excel';
 import { SystemService } from '../platform/system.service';
 import { MailService } from './mail.service';
 import { likeEscape, SchoolService } from './school.service';
@@ -37,14 +37,28 @@ const TEACHER_FORM_COLUMNS: FormColumn[] = [
   { ...TEACHER_COLUMNS[4], kind: 'text' },
   { ...TEACHER_COLUMNS[5], kind: 'date', prompt: 'Chọn ngày trên lịch hoặc gõ dd/mm/yyyy, ví dụ 15/03/1985' },
 ];
+/**
+ * Cột của file nhập học sinh: cùng bảy cột với giáo viên (số thứ tự chỉ để nhìn, không đọc). Học sinh bắt buộc có ngày sinh vì mã học sinh ghép từ ngày sinh.
+ * Hai cột cuối (Lớp, Email phụ huynh) không có trong file mẫu mới nhưng vẫn được nhận nếu file cũ hoặc file xuất còn giữ, để không mất cách xếp lớp và nhập email phụ huynh hàng loạt.
+ */
 export const STUDENT_COLUMNS: Column[] = [
-  { key: 'user_code', header: 'Mã học sinh', width: 16 },
-  { key: 'full_name', header: 'Họ và tên *', required: true, width: 28 },
-  { key: 'birth_date', header: 'Ngày sinh *', required: true, width: 16 },
-  { key: 'gender', header: 'Giới tính', width: 12 },
-  { key: 'class_name', header: 'Lớp', width: 12 },
-  { key: 'email', header: 'Email', width: 30 },
-  { key: 'parent_email', header: 'Email phụ huynh', width: 30 },
+  { key: 'user_code', header: 'Mã học sinh', width: 29 },
+  { key: 'full_name', header: 'Họ và tên *', required: true, width: 30 },
+  { key: 'gender', header: 'Giới tính', width: 13 },
+  { key: 'phone', header: 'SĐT', aliases: ['Số điện thoại', 'Điện thoại'], width: 16 },
+  { key: 'email', header: 'Email *', required: true, width: 32 },
+  { key: 'birth_date', header: 'Ngày tháng năm sinh *', aliases: ['Ngày sinh'], required: true, width: 22 },
+  { key: 'class_name', header: 'Lớp', width: 14 },
+  { key: 'parent_email', header: 'Email phụ huynh', width: 32 },
+];
+const STUDENT_FORM_COLUMNS: FormColumn[] = [
+  { key: 'stt', header: 'Số thứ tự', kind: 'index', autoIndex: true, watch: 'full_name', width: 11 },
+  { ...STUDENT_COLUMNS[0], kind: 'text' },
+  { ...STUDENT_COLUMNS[1], kind: 'text' },
+  { ...STUDENT_COLUMNS[2], kind: 'list', options: ['Nam', 'Nữ'] },
+  { ...STUDENT_COLUMNS[3], kind: 'phone' },
+  { ...STUDENT_COLUMNS[4], kind: 'text' },
+  { ...STUDENT_COLUMNS[5], kind: 'date', prompt: 'Chọn ngày trên lịch hoặc gõ dd/mm/yyyy, ví dụ 02/04/2013' },
 ];
 
 export interface AccountFilter {
@@ -76,7 +90,29 @@ export class AccountService {
       if(opts.birth_date && (!parseDate(opts.birth_date)||opts.birth_date>todayVn())) throw new UnprocessableEntityException('Ngày sinh không hợp lệ');
       return this.teacherCode(q,schoolId,opts.birth_date||null,undefined,target?.id);
     });
+    if(kind==='student') return this.studentCodePreview(actor,opts.birth_date,opts.school_id);
     return this.schools.run(actor,async q=>(await q<{code:string}>('SELECT public.app_registration_code($1,false) AS code',[kind]))[0]);
+  }
+  /**
+   * Xem trước mã học sinh cho biểu mẫu thêm từng em: cùng công thức với mẫu Excel (HS + viết tắt trường + năm + ngày sinh + số thứ tự); số thứ tự là số kế tiếp chưa dùng của cùng ngày sinh trong trường.
+   * Chưa chọn ngày sinh thì chưa có mã; học sinh có tiền tố HS nên dãy số riêng với giáo viên. Xem trước không giữ chỗ: mã lưu là mã được gửi kèm lúc tạo, trùng thì báo lỗi.
+   */
+  private async studentCodePreview(actor: UserRow, birthDate: string | undefined, schoolId?: number | null): Promise<{ prefix: string; code: string | null; serial: number | null }> {
+    const sid = this.schools.target(actor, schoolId);
+    const iso = birthDate ? parseDate(birthDate) : null;
+    if (birthDate && (!iso || iso > todayVn())) throw new UnprocessableEntityException('Ngày sinh không hợp lệ');
+    return this.schools.run(actor, (q) => this.studentCode(q, sid, iso));
+  }
+  /** Mã học sinh kế tiếp của một ngày sinh trong trường; chưa có ngày sinh thì chưa có mã. Dùng cho cả xem trước lẫn lúc tạo tài khoản (trong cùng giao dịch, dưới khóa chung). */
+  private async studentCode(q: Q, schoolId: number, born: string | null): Promise<{ prefix: string; code: string | null; serial: number | null }> {
+    const school = await this.schoolOf(q, schoolId);
+    const prefix = studentCodePrefix(school.name);
+    if (!born) return { prefix, code: null, serial: null };
+    const stem = memberCode(prefix, born, 0).slice(0, -3);
+    const used = await q<{ user_code: string }>('SELECT user_code FROM app_users WHERE school_id = $1 AND user_code LIKE $2', [schoolId, `${likeEscape(stem)}%`]);
+    const tail = new RegExp(`^${stem}(\\d{3,})$`);
+    const serial = used.reduce((max, r) => Math.max(max, Number(tail.exec(r.user_code)?.[1] ?? 0)), 0) + 1;
+    return { prefix, code: memberCode(prefix, born, serial), serial };
   }
   /** Xem trước không cấp số; trigger PostgreSQL chốt số trong cùng giao dịch tạo tài khoản. */
   private async teacherCode(q:Q,schoolId:number,born:string|null,requested?:string|null,userId?:number,next?:number) {
@@ -277,6 +313,8 @@ export class AccountService {
 
   private async insertMember(q: Q, school: { id: number; school_code: string; region: string | null; city: string | null }, role: MemberRole, input: MemberInput, passwordHash: string, cls: { id: number; grade: number | null; school_year: string } | null): Promise<UserRow> {
     if(role==='teacher' && input.birth_date) input={...input,user_code:(await this.teacherCode(q,school.id,input.birth_date,input.user_code)).code};
+    // học sinh chưa có mã (biểu mẫu thêm từng em, hoặc file không có công thức mã) thì cấp mã HS + viết tắt trường + năm + ngày sinh + STT, giống mẫu Excel
+    else if(role==='student' && input.birth_date && !input.user_code) input={...input,user_code:(await this.studentCode(q,school.id,input.birth_date)).code};
     input={...input,user_code:input.user_code || (await q<{code:string}>('SELECT public.app_registration_code($1,true) AS code',[role]))[0].code};
     await this.assertUnique(q, school.id, input.email ?? null, input.user_code ?? null);
     if (role === 'student') await SystemService.assertStudentRoom(q, school.id);
@@ -477,13 +515,39 @@ export class AccountService {
     });
   }
 
-  async template(kind: 'students' | 'class-members'): Promise<Buffer> {
-    if (kind === 'students') {
-      return buildWorkbook('Học sinh', STUDENT_COLUMNS, [{ user_code: 'HS0001', full_name: 'Trần Thị Bình', birth_date: '15/03/2013', gender: 'Nữ', class_name: '7A1', email: '', parent_email: 'phuhuynh@example.com' }],
-        ['Cột có dấu * là bắt buộc. Mã học sinh không được trùng trong trường.', 'Ngày sinh dạng dd/mm/yyyy hoặc yyyy-mm-dd. Giới tính: Nam, Nữ hoặc Khác.', 'Cột Lớp (không bắt buộc) là tên lớp đã tạo trong năm học được chọn khi nhập.', 'Xóa dòng ví dụ trước khi nhập.']);
-    }
-    return buildWorkbook('Phân lớp', [{ key: 'user_code', header: 'Mã học sinh *', required: true, width: 16 }, { key: 'class_name', header: 'Lớp *', required: true, width: 14 }],
-      [{ user_code: 'HS0001', class_name: '7A1' }], ['Mỗi dòng xếp một học sinh vào một lớp của năm học được chọn.', 'Học sinh đã ở trong lớp sẽ được bỏ qua.']);
+  /**
+   * File mẫu nhập học sinh cùng bố cục với mẫu giáo viên: logo Đông A, tên trường, ngày bắt đầu nhập (tự cập nhật theo lúc tải), khối ví dụ, rồi bảng Số thứ tự (tự hiện khi nhập họ tên và nhấn Enter),
+   * Mã học sinh (tự sinh: HS + viết tắt trường + năm + ngày sinh + STT), Họ và tên, Giới tính (chọn Nam/Nữ), SĐT, Email, Ngày tháng năm sinh (ô ngày).
+   */
+  async studentTemplate(actor: UserRow, schoolId?: number | null, now: Date = new Date()): Promise<Buffer> {
+    const school = await this.schoolNameOf(actor, schoolId);
+    const initials = schoolInitials(school ?? ''), yy = vnDayLabel(now).slice(8, 10), prefix = studentCodePrefix(school, now);
+    return buildFormSheet({
+      sheetName: 'Học sinh', title: 'Đông A', subtitle: `Mẫu nhập danh sách học sinh${school ? ` · ${school}` : ''}`,
+      meta: [{ label: 'Ngày bắt đầu nhập', value: vnDayLabel(now) }], note: 'Xem ví dụ rồi nhập danh sách bên dưới. Cột có dấu * là bắt buộc.',
+      entryNote: 'Bạn chỉ nhập Họ và tên *, Giới tính, SĐT, Email *, Ngày tháng năm sinh *. Mã học sinh tự động sinh; Số thứ tự tự xuất hiện khi bạn nhấn Enter.',
+      columns: STUDENT_FORM_COLUMNS.map((c) => c.key === 'user_code' ? { ...c, kind: 'teacher-code' as const, watch: 'full_name', birthKey: 'birth_date', codePrefix: prefix } : c), blankRows: 1000, now,
+      example: {
+        values: { stt: 1, user_code: `${prefix}02042013001`, full_name: 'Trần Thị Mẫu', gender: 'Nữ', phone: '0900000000', email: 'hoc.sinh@example.invalid', birth_date: '2013-04-02' },
+        explanation: `HS = học sinh; ${initials} = ${school ?? 'viết tắt tên trường'}; ${yy} = năm ${vnDayLabel(now).slice(6, 10)}; 02 + 04 + 2013 = ngày sinh; 001 = số thứ tự. Mã ví dụ: ${prefix}02042013001.`,
+      },
+      guide: [
+        'Khối VÍ DỤ CÁCH ĐIỀN ở đầu sheet chỉ minh họa; không được nhập thành tài khoản. Điền học sinh thật trong bảng bên dưới. Cột có dấu * là bắt buộc (Họ và tên, Email, Ngày tháng năm sinh).',
+        'Bạn chỉ nhập các cột Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh (họ tên, email và ngày sinh bắt buộc). Số thứ tự tự xuất hiện khi bạn nhập họ tên rồi nhấn Enter, kể cả khi có dòng trống ở giữa. File có sẵn 1000 dòng công thức.',
+        `Mã học sinh tự động sinh sau khi nhập họ tên và ngày sinh: HS + ${initials} + ${yy} + ngày sinh ddmmyyyy + STT 3 chữ số.`,
+        `HS: học sinh. ${initials}: viết tắt của ${school ?? 'tên trường'}. ${yy}: hai số cuối năm tải mẫu. Phần ddmmyyyy: ngày, tháng, năm sinh của học sinh. STT giúp phân biệt học sinh có cùng ngày sinh.`,
+        `Ví dụ ngày sinh 02/04/2013, STT 1: ${prefix}02042013001.`,
+        'Mã đã lưu là định danh cố định; sửa ngày sinh hoặc tải file mới không tự đổi mã của tài khoản cũ. Nếu nhập lại mã đã có, hệ thống báo trùng trước khi lưu.',
+        'Giới tính: bấm vào ô rồi chọn Nam hoặc Nữ trong danh sách.',
+        'Ngày tháng năm sinh: chọn ngày trên lịch nếu phần mềm bảng tính của bạn có (Google Sheets, Excel Microsoft 365 bản mới) hoặc gõ dd/mm/yyyy, ví dụ 02/04/2013. Ngày sai bị chặn ngay trong ô.',
+        'Email phải khác nhau và chưa dùng cho tài khoản nào khác. Hệ thống sinh mật khẩu tạm và gửi vào email này; học sinh đổi mật khẩu ở lần đăng nhập đầu tiên. SĐT giữ nguyên số 0 đầu.',
+        'Lớp và Email phụ huynh không có trong mẫu này: xếp lớp ở trang Lớp học (chọn học sinh hoặc nhập Excel theo mã học sinh), còn Email phụ huynh nhập ở phần sửa tài khoản học sinh.',
+        'Không cần gõ cột Số thứ tự hoặc Mã học sinh. Để trống ngày sinh thì mã chưa hiện và dòng đó bị báo thiếu ngày sinh.',
+        'Chỉ nhận file Excel .xlsx (tối đa 2 MB, tối đa 1000 học sinh mỗi lần). Đừng xóa hay đổi tên dòng tiêu đề của bảng.',
+        'Mở và lưu file bằng Excel/WPS có bật tính công thức tự động trước khi tải lên. Ngày bắt đầu nhập là ngày tải mẫu, không thay đổi khi mở lại.',
+        'Sau khi chọn file, hệ thống kiểm tra từng dòng và báo lỗi trước khi lưu; lưu xong danh sách học sinh tự cập nhật.',
+      ],
+    });
   }
 
   /**
@@ -497,7 +561,7 @@ export class AccountService {
       const spec=await this.teacherImportSpec(actor,schoolId);
       if(upload.originalname!==spec.filename) throw new BadRequestException(`Sai tên file. Chỉ nhận ${spec.filename}. Hãy giữ đúng tên file mẫu của trường.`);
     }
-    const parsed = await readSheet(upload, role === 'teacher' ? TEACHER_COLUMNS : STUDENT_COLUMNS, undefined, role === 'teacher');
+    const parsed = await readSheet(upload, role === 'teacher' ? TEACHER_COLUMNS : STUDENT_COLUMNS, undefined, true);
     if (!parsed.length) throw new BadRequestException('File không có dòng dữ liệu nào');
     return this.schools.run(actor, async (q) => {
       if (opts.commit) await q('SELECT pg_advisory_xact_lock(7412026)');
@@ -515,7 +579,7 @@ export class AccountService {
           parent_email: clean(values.parent_email)?.toLowerCase() ?? null, gender: null, birth_date: null, class_id: null,
         };
         if (input.full_name.length < 2) errors.push('Thiếu họ tên');
-        if (role === 'teacher' && !input.email) errors.push('Thiếu email');
+        if (!input.email) errors.push('Thiếu email'); // giáo viên và học sinh đều cần email để nhận mật khẩu tạm
         if (input.email && !EMAIL.test(input.email)) errors.push('Email không hợp lệ');
         if (input.parent_email && !EMAIL.test(input.parent_email)) errors.push('Email phụ huynh không hợp lệ');
         if (input.phone && !PHONE.test(input.phone)) errors.push('Số điện thoại không hợp lệ');
@@ -588,7 +652,13 @@ export class AccountService {
         rows, now,
       });
     }
-    const columns: Column[] = [...STUDENT_COLUMNS.map((c) => ({ ...c, header: c.header.replace(' *', '') })), { key: 'status', header: 'Trạng thái', width: 16 }];
-    return buildWorkbook('Học sinh', columns, rows);
+    const school = await this.schoolNameOf(actor, f.school_id);
+    const now = new Date();
+    const grades = (u: { classes: unknown }) => [...new Set((u.classes as Array<{ grade: number | null }>).map((c) => c.grade).filter(Boolean))].map((g) => `Khối ${g}`).join(', ');
+    return buildFormSheet({
+      sheetName: 'Học sinh', title: 'Đông A', subtitle: `Danh sách học sinh${school ? ` · ${school}` : ''}`, meta: [{ label: 'Ngày xuất', value: vnDayLabel(now) }, { label: 'Số học sinh', value: String(rows.length) }],
+      columns: [...STUDENT_FORM_COLUMNS.map((c) => ({ ...c, header: c.header.replace(' *', '') })), { key: 'class_name', header: 'Lớp', kind: 'text' as const, width: 14 }, { key: 'grade_text', header: 'Khối', kind: 'text' as const, width: 14 }, { key: 'status', header: 'Trạng thái', kind: 'text' as const, width: 18 }],
+      rows: rows.map((r) => ({ ...r, grade_text: grades(r) })), now,
+    });
   }
 }

@@ -3,14 +3,12 @@
  * xuất Excel; mở một người để sửa, khóa, đặt lại mật khẩu, xóa (AccountSheet).
  */
 import React, { useMemo, useState } from 'react';
-import { View } from 'react-native';
 import { FileUp, Plus } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
-import { AccountSheet, dateText, GENDER_TEXT } from '@/components/admin/AccountSheet';
-import { AdminSelect } from '@/components/admin/AdminSelect';
+import { AccountSheet, GENDER_TEXT } from '@/components/admin/AccountSheet';
 import { RegistrationCode } from './RegistrationCode';
 import { TeacherImportSheet } from './TeacherImportSheet';
-import { Cell, CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, ImportSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useDebounced, useLoad, yearOptions, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
+import { Cell, CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, ImportSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useDebounced, useLoad, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -30,8 +28,8 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const [classId, setClassId] = useState('');
   const [page, setPage] = useState(1);
   const size = usePageSize();
-  const [yearSel, setYearSel] = useState('');
-  const yearId = Number(yearSel || years.find((y) => y.status === 'active')?.id || years[0]?.id || 0);
+  // lớp của học sinh luôn theo năm học đang hoạt động (không còn ô chọn năm học)
+  const yearId = years.find((y) => y.status === 'active')?.id ?? years[0]?.id ?? 0;
   const dq = useDebounced(q);
   const query = { q: dq, active: active || undefined, grade: grade ? Number(grade) : undefined, class_id: classId ? Number(classId) : undefined };
   const { data, error, loading, reload } = useLoad(() => api.listMembers(token, kind, { ...query, page, limit: size } as never), [token, kind, dq, active, grade, classId, page, size], session.expired);
@@ -52,26 +50,25 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const today = todayVn();
   // thêm từng người: cùng các cột với file mẫu Excel (mã, họ tên, giới tính, SĐT, email, ngày sinh); nền tảng chỉ dạy Lịch sử nên không có ô chọn môn
   const fields: FieldDef[] = teacher
-    ? [{ name: 'user_code', label: 'Mã giáo viên', render:(v)=> <RegistrationCode token={token} kind="teacher" birthDate={String(v.birth_date||'')}/> }, { name: 'full_name', label: 'Họ và tên', required: true },
+    ? [{ name: 'user_code', label: 'Mã giáo viên', render:(v)=> <RegistrationCode token={token} kind="teacher" showSerial birthDate={String(v.birth_date||'')}/> }, { name: 'full_name', label: 'Họ và tên', required: true },
       { name: 'gender', label: 'Giới tính', type: 'select', options: [{ value: '', label: 'Chưa chọn' }, { value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }] },
       { name: 'phone', label: 'SĐT', type: 'tel' }, { name: 'email', label: 'Email', type: 'email', required: true, hint: 'Mật khẩu tạm được gửi vào email này.' },
       { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1940-01-01', max: today, required: true }]
-    : [{ name: 'user_code', label: 'Mã học sinh', render:()=> <RegistrationCode token={token} kind="student"/> }, { name: 'full_name', label: 'Họ và tên', required: true }, { name: 'birth_date', label: 'Ngày sinh', type: 'date', calendar: true, min: '2000-01-01', max: today, required: true },
+    : [{ name: 'user_code', label: 'Mã học sinh', render:(v)=> <RegistrationCode token={token} kind="student" showSerial birthDate={String(v.birth_date||'')}/> }, { name: 'full_name', label: 'Họ và tên', required: true },
       { name: 'gender', label: 'Giới tính', type: 'select', options: [{ value: '', label: 'Chưa chọn' }, { value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }, { value: 'other', label: 'Khác' }] },
-      { name: 'class_id', label: 'Xếp vào lớp (năm học đang chọn)', type: 'select', options: [{ value: '', label: 'Chưa xếp lớp' }, ...classOptions] },
-      { name: 'email', label: 'Email học sinh', type: 'email' }, { name: 'parent_email', label: 'Email phụ huynh', type: 'email', hint: 'Dữ liệu của trẻ vị thành niên: chỉ dùng cho việc liên lạc của nhà trường.' }];
+      { name: 'phone', label: 'SĐT', type: 'tel' }, { name: 'email', label: 'Email', type: 'email', required: true, hint: 'Mật khẩu tạm được gửi vào email này.' },
+      { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '2000-01-01', max: today, required: true }];
 
   return (
     <Page>
-      <PageHeader title={teacher ? 'Giáo viên' : 'Học sinh'} subtitle={teacher ? 'Có hai cách thêm giáo viên: nút Thêm giáo viên để thêm từng người, hoặc Nhập từ Excel để thêm hàng loạt. Khóa hoặc đặt lại mật khẩu khi cần.' : 'Tạo tài khoản học sinh (mã, ngày sinh, lớp), nhập danh sách từ Excel, chuyển lớp, khóa hoặc đặt lại mật khẩu.'}
+      <PageHeader title={teacher ? 'Giáo viên' : 'Học sinh'} subtitle={teacher ? 'Có hai cách thêm giáo viên: nút Thêm giáo viên để thêm từng người, hoặc Nhập từ Excel để thêm hàng loạt. Khóa hoặc đặt lại mật khẩu khi cần.' : 'Có hai cách thêm học sinh: nút Thêm học sinh để thêm từng em, hoặc Nhập từ Excel để thêm hàng loạt. Chuyển lớp, khóa hoặc đặt lại mật khẩu khi cần.'}
         actions={<>
           <DownloadButton title="Xuất Excel" fetchBlob={() => api.downloadFile(token, `/api/admin/${kind}/export${exportQuery ? `?${exportQuery}` : ''}`)} filename={teacher ? 'danh-sach-giao-vien.xlsx' : 'danh-sach-hoc-sinh.xlsx'} />
           <Btn title="Nhập từ Excel" icon={FileUp} tone="giay" size="sm" onPress={() => setImporting(true)} testID="import-open" />
           <Btn title={teacher ? 'Thêm giáo viên' : 'Thêm học sinh'} icon={Plus} tone="son" size="sm" onPress={() => setCreating(true)} testID="member-add" />
         </>} />
       <SearchFilterBar placeholder={teacher ? 'Tìm theo tên, email' : 'Tìm theo tên, mã học sinh'} value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="member-search"
-        filters={teacher ? [f_active] : [f_grade, f_class, f_active]}
-        extra={teacher ? null : <View style={{ width: 270 }}><AdminSelect bare label="Năm học (để lọc lớp)" value={String(yearId)} options={yearOptions(years)} onChange={(v) => { setYearSel(String(v)); setClassId(''); setPage(1); }} testID="member-year" /></View>} />
+        filters={teacher ? [f_active] : [f_grade, f_class, f_active]} />
       <ErrorNote message={error} />
       {loading && !data ? <Spinner label="Đang tải danh sách…" /> : null}
       {data ? (
@@ -89,19 +86,24 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
               { key: 'classes', label: 'Lớp phụ trách', flex: 1, render: (u) => <Txt size={13}>{u.classes.map((k) => k.name).join(', ') || '—'}</Txt> },
               { key: 'status', filter: f_active, label: 'Trạng thái', flex: 1.1, render: (u) => <StatusChip kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
             ] : [
-              { key: 'code', label: 'Mã', render: (u) => <Txt f="semibold" size={14}>{u.user_code || '—'}</Txt> },
-              { key: 'name', label: 'Học sinh', flex: 2, render: (u) => <Cell main={u.full_name} sub={[u.birth_date, u.gender ? GENDER_TEXT[u.gender] : null].filter(Boolean).join(' · ')} /> },
+              // cùng các cột với file Excel: Số thứ tự, Mã học sinh, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh; thêm Lớp, Khối và Trạng thái (Email phụ huynh xem và sửa ở hộp sửa tài khoản)
+              { key: 'stt', label: 'Số thứ tự', flex: 0.7, render: (u) => <Txt size={13} color={c.muc2}>{(page - 1) * size + data.items.indexOf(u) + 1}</Txt> },
+              { key: 'code', label: 'Mã học sinh', flex: 1.9, render: (u) => <Txt f="semibold" size={13}>{u.user_code || '—'}</Txt> },
+              { key: 'name', label: 'Họ và tên', flex: 1.5, render: (u) => <Cell main={u.full_name} sub={u.username} /> },
+              { key: 'gender', label: 'Giới tính', flex: 0.7, render: (u) => <Txt size={13}>{u.gender ? GENDER_TEXT[u.gender] : '—'}</Txt> },
+              { key: 'phone', label: 'SĐT', flex: 1.1, render: (u) => <Txt size={13}>{u.phone || '—'}</Txt> },
+              { key: 'email', label: 'Email', flex: 1.6, render: (u) => <Txt size={13} numberOfLines={2}>{u.email || '—'}</Txt> },
+              { key: 'birth', label: 'Ngày tháng năm sinh', flex: 1.2, render: (u) => <Txt size={13}>{fmtBirth(u.birth_date)}</Txt> },
+              { key: 'classes', filter: f_class, label: 'Lớp', flex: 0.9, render: (u) => <Txt size={13}>{u.classes.map((k) => k.name).join(', ') || 'Chưa xếp lớp'}</Txt> },
               { key: 'grade', filter: f_grade, label: 'Khối', flex: 0.7, render: (u) => <Txt size={13}>{[...new Set(u.classes.map((k) => k.grade).filter(Boolean))].map((g) => `Khối ${g}`).join(', ') || '—'}</Txt> },
-              { key: 'classes', filter: f_class, label: 'Lớp', flex: 1.5, render: (u) => <Txt size={13}>{u.classes.map((k) => `${k.name} (${k.school_year})`).join(', ') || 'Chưa xếp lớp'}</Txt> },
-              { key: 'last', label: 'Đăng nhập cuối', render: (u) => <Txt size={13} color={c.muc2}>{dateText(u.last_login_at)}</Txt> },
-              { key: 'status', filter: f_active, label: 'Trạng thái', render: (u) => <StatusChip kind={u.is_active ? (u.must_change_password ? 'warn' : 'on') : 'off'} text={u.is_active ? (u.must_change_password ? 'Chưa đổi mật khẩu' : 'Hoạt động') : 'Đã khóa'} /> },
+              { key: 'status', filter: f_active, label: 'Trạng thái', flex: 1.7, render: (u) => <StatusChip kind={u.is_active ? (u.must_change_password ? 'warn' : 'on') : 'off'} text={u.is_active ? (u.must_change_password ? 'Chưa đổi mật khẩu' : 'Hoạt động') : 'Đã khóa'} /> },
             ]} />
           <Pager page={page} limit={size} total={data.total} onPage={setPage} />
         </>
       ) : null}
       {open ? <AccountSheet session={session} id={open} onClose={() => setOpen(null)} onChanged={reload} /> : null}
       {creating ? (
-        <FormSheet title={teacher ? 'Thêm giáo viên' : 'Thêm học sinh'} subtitle={teacher ? 'Thêm từng giáo viên (muốn thêm nhiều người cùng lúc, hãy dùng Nhập từ Excel). Hệ thống sinh tên đăng nhập và mật khẩu tạm; giáo viên đổi mật khẩu ở lần đăng nhập đầu tiên.' : 'Hệ thống sinh tên đăng nhập và mật khẩu tạm; người dùng đổi mật khẩu ở lần đăng nhập đầu tiên'} submitLabel="Tạo tài khoản" fields={fields} wide onClose={() => setCreating(false)}
+        <FormSheet title={teacher ? 'Thêm giáo viên' : 'Thêm học sinh'} subtitle={teacher ? 'Thêm từng giáo viên (muốn thêm nhiều người cùng lúc, hãy dùng Nhập từ Excel). Hệ thống sinh tên đăng nhập và mật khẩu tạm; giáo viên đổi mật khẩu ở lần đăng nhập đầu tiên.' : 'Thêm từng học sinh (muốn thêm nhiều em cùng lúc, hãy dùng Nhập từ Excel). Hệ thống sinh tên đăng nhập và mật khẩu tạm; học sinh đổi mật khẩu ở lần đăng nhập đầu tiên.'} submitLabel="Tạo tài khoản" fields={fields} wide onClose={() => setCreating(false)}
           onSubmit={async (v) => {
             const body: Record<string, unknown> = {};
             for (const f of fields) { if(f.render)continue; const raw = String(v[f.name] ?? '').trim(); if (raw) body[f.name] = f.name === 'class_id' ? Number(raw) : raw; }
@@ -113,7 +115,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
       ) : null}
       {importing && teacher ? <TeacherImportSheet session={session} onClose={()=>setImporting(false)} onDone={reload}/> : importing ? (
         <ImportSheet title="Nhập danh sách học sinh"
-          hint={`Tải file mẫu, điền mỗi học sinh một dòng. Cột Lớp (nếu có) là tên lớp trong năm học ${years.find((y) => y.id === yearId)?.label ?? 'đã chọn'}. Hệ thống báo dòng trùng mã, sai ngày sinh, lớp không có trước khi lưu.`}
+          hint="File mẫu có ví dụ và cách ghép mã ngay ở đầu. Bạn chỉ nhập Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh (họ tên, email và ngày sinh bắt buộc): mã học sinh tự sinh, số thứ tự tự hiện khi nhấn Enter. Chọn file đã điền để kiểm tra trước khi lưu; phần ví dụ không tạo tài khoản. Lớp xếp ở trang Lớp học."
           template={{ fetchBlob: () => api.downloadFile(token, '/api/admin/students/template'), filename: 'mau-hoc-sinh.xlsx' }}
           run={(file, commit) => api.importMembers(token, 'students', file, { commit, year_id: yearId })} onClose={() => setImporting(false)} onDone={reload} />
       ) : null}

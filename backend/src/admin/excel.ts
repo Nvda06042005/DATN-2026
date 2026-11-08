@@ -110,12 +110,17 @@ export async function readSheet(file: UploadedXlsx, columns: Column[], sheetName
       const birthCol = cols.find(c => c.key === 'birth_date')?.col;
       const indexCol = header.byHeader.get(normHeader('Số thứ tự'));
       const cell = codeCol ? sheet.getCell(r, codeCol) : null;
-      const formula = cell?.formula;
+      // Excel lưu công thức điền xuống nhiều dòng dạng "công thức dùng chung": ô con chỉ trỏ về ô gốc, còn ExcelJS tự dịch công thức gốc sang dòng của ô con
+      // và dịch luôn chữ "GOT26" trong dấu nháy như một địa chỉ ô (thành GOT28). Vì vậy đọc công thức và số dòng từ ô gốc.
+      const shared = (cell?.value as { sharedFormula?: string } | null | undefined)?.sharedFormula;
+      const formulaCell = shared ? sheet.getCell(shared) : cell;
+      const formula = formulaCell?.formula;
+      const formulaRow = formulaCell ? Number(formulaCell.row) : r;
       const prefix = formula?.match(/,"([A-Z0-9]+)"&TEXT\(/)?.[1];
       // Chỉ tính đúng công thức do mẫu tạo; không chạy/eval công thức tùy ý từ file tải lên.
       const offset = Number(formula?.match(/TEXT\(\([A-Z]+\d+\+(\d{1,9})\),"000"\)/)?.[1]??0);
-      const indexRef=indexCol?`${colLetter(indexCol)}${r}`:'';
-      const formulaArgs = nameCol && birthCol && indexCol ? [`${colLetter(nameCol)}${r}`, `${colLetter(birthCol)}${r}`, offset?`(${indexRef}+${offset})`:indexRef] as const : null;
+      const indexRef=indexCol?`${colLetter(indexCol)}${formulaRow}`:'';
+      const formulaArgs = nameCol && birthCol && indexCol ? [`${colLetter(nameCol)}${formulaRow}`, `${colLetter(birthCol)}${formulaRow}`, offset?`(${indexRef}+${offset})`:indexRef] as const : null;
       if (prefix && formulaArgs && indexCol && (formula === teacherCodeFormula(prefix, ...formulaArgs) || formula === teacherCodeFormula(prefix, ...formulaArgs, false) || formula === legacyTeacherCodeFormula(prefix, ...formulaArgs))) {
         const born = parseDate(values.birth_date);
         const indexCell = sheet.getCell(r, indexCol);
@@ -164,16 +169,25 @@ export function vnDayLabel(now: Date = new Date()): string {
 }
 
 /**
- * Cột của file mẫu/danh sách. `index`: số thứ tự đánh sẵn theo dòng; `text`/`phone`: ô văn bản (giữ số 0 đầu);
+ * Cột của file mẫu/danh sách. `index`: số thứ tự đánh sẵn theo dòng; `autoIndex`: số thứ tự là công thức, trống cho đến khi dòng có họ tên (cột `watch`) rồi tự hiện khi người dùng
+ * nhập xong và nhấn Enter (mẫu học sinh); `text`/`phone`: ô văn bản (giữ số 0 đầu);
  * `list`: chọn trong danh sách `options`; `date`: ô ngày dd/mm/yyyy chỉ nhận ngày hợp lệ, kèm gợi ý chọn ngày.
  */
-export interface FormColumn extends Column { kind: 'index' | 'text' | 'phone' | 'list' | 'date' | 'teacher-code'; options?: string[]; watch?: string; prompt?: string; codePrefix?: string; codeOffset?:number; birthKey?: string }
+export interface FormColumn extends Column { kind: 'index' | 'text' | 'phone' | 'list' | 'date' | 'teacher-code'; options?: string[]; watch?: string; prompt?: string; codePrefix?: string; codeOffset?:number; birthKey?: string; autoIndex?: boolean }
 
 /** Tên riêng của trường, không gồm tiền tố cấp học; dùng chữ Latin viết hoa. */
 export function schoolInitials(name: string): string {
   const plain = normHeader(name).replace(/^(truong\s+)?(trung hoc co so|trung hoc pho thong|tieu hoc|thcs|thpt|th)(\s+|$)/, '');
   return plain.split(/\s+/).filter(Boolean).map(word => word[0]).join('').toUpperCase().slice(0, 12) || 'GV';
 }
+
+/**
+ * Tiền tố mã học sinh: `HS` + viết tắt tên riêng của trường + hai số cuối của năm (giờ Việt Nam), ví dụ HSGOT26. Có thêm HS ở đầu nên mã học sinh không bao giờ trùng mã giáo viên.
+ * Giáo viên dùng bộ sinh mã riêng trong cơ sở dữ liệu (xem docs/MA_GIAO_VIEN.md), không dùng hàm này.
+ */
+export const studentCodePrefix = (school: string | null | undefined, now: Date = new Date()): string => `HS${schoolInitials(school ?? '')}${vnDayLabel(now).slice(8, 10)}`;
+/** Mã đầy đủ: tiền tố + ngày sinh ddmmyyyy + số thứ tự tối thiểu 3 chữ số, ví dụ HSGOT2602042013001 */
+export const memberCode = (prefix: string, birthIso: string, serial: number): string => `${prefix}${birthIso.slice(8, 10)}${birthIso.slice(5, 7)}${birthIso.slice(0, 4)}${String(serial).padStart(3, '0')}`;
 
 export function teacherTemplateFilename(name:string):string {
   const school=normHeader(name).replace(/^(truong\s+)?(trung hoc co so|trung hoc pho thong|tieu hoc|thcs|thpt|th)(\s+|$)/,'').replace(/\s+/g,'-');
@@ -346,7 +360,10 @@ export async function buildFormSheet(spec: FormSheetSpec): Promise<Buffer> {
       cell.border = BORDER;
       cell.alignment = { vertical: 'middle', horizontal: c.kind === 'index' || c.kind === 'list' || c.kind === 'date' ? 'center' : 'left' };
       if (c.kind === 'index') {
-        cell.value = !spec.rows && spec.completedIndex ? {formula:completedIndexFormula(`${nameLetter('full_name')}${rowNo}`,`${nameLetter('email')}${rowNo}`,`${nameLetter('birth_date')}${rowNo}`,headerRow+1),result:''} : i + 1;
+        const watched = nameLetter(c.watch);
+        cell.value = !spec.rows && spec.completedIndex ? {formula:completedIndexFormula(`${nameLetter('full_name')}${rowNo}`,`${nameLetter('email')}${rowNo}`,`${nameLetter('birth_date')}${rowNo}`,headerRow+1),result:''}
+          // autoIndex: đếm các dòng đã có họ tên, kể cả khi có dòng trống ở giữa; danh sách xuất luôn đánh số sẵn
+          : !spec.rows && c.autoIndex ? { formula: `IF(${watched}${rowNo}="","",COUNTIFS($${watched}$${headerRow + 1}:${watched}${rowNo},"?*"))`, result: '' } : i + 1;
         cell.numFmt = '0';
       } else if (c.kind === 'teacher-code') {
         const name = `${nameLetter(c.watch)}${rowNo}`, birth = `${nameLetter(c.birthKey)}${rowNo}`, index = `${nameLetter('stt')}${rowNo}`;

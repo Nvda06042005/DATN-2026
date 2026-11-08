@@ -308,15 +308,15 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
   test('HK.QT.027 nhập học sinh từ Excel: xem trước báo trùng mã, sai định dạng, lớp không có; lưu dòng hợp lệ kèm xếp lớp', async () => {
     const file = await makeXlsx(STUDENT_HEADER, [
       ['HS101', 'Đỗ Văn Một Trăm', '01/02/2013', 'Nam', '7A1', 'hs101@example.edu.vn', 'ph101@example.com'],
-      ['HS102', 'Vũ Thị Một Không Hai', '2013-05-06', 'Nữ', '7a2', '', ''],
-      ['HS101', 'Trùng Mã Trong File', '2013-01-01', '', '', '', ''],
-      ['HS001', 'Trùng Mã Trong Trường', '2013-01-01', '', '', '', ''],
-      ['HS103', 'Ngày Sinh Sai', '31/02/2013', '', '', '', ''],
-      ['HS104', 'Giới Tính Sai', '2013-01-01', 'Robot', '', '', ''],
-      ['HS105', 'Lớp Không Có', '2013-01-01', '', '9Z9', '', ''],
+      ['HS102', 'Vũ Thị Một Không Hai', '2013-05-06', 'Nữ', '7a2', 'hs102@example.edu.vn', ''],
+      ['HS101', 'Trùng Mã Trong File', '2013-01-01', '', '', 'dup101@example.edu.vn', ''],
+      ['HS001', 'Trùng Mã Trong Trường', '2013-01-01', '', '', 'dup001@example.edu.vn', ''],
+      ['HS103', 'Ngày Sinh Sai', '31/02/2013', '', '', 'hs103@example.edu.vn', ''],
+      ['HS104', 'Giới Tính Sai', '2013-01-01', 'Robot', '', 'hs104@example.edu.vn', ''],
+      ['HS105', 'Lớp Không Có', '2013-01-01', '', '9Z9', 'hs105@example.edu.vn', ''],
       ['', '', '2013-01-01', '', '', '', ''],
       ['HS106', 'Email Học Sinh Trùng', '2013-01-01', '', '', 'hs002@example.edu.vn', ''],
-      ['HS107', 'Không Lớp', '2013-01-01', '', '', '', ''],
+      ['HS107', 'Không Lớp', '2013-01-01', '', '', 'hs107@example.edu.vn', ''],
     ]);
     const preview = await upload(s.base, `/api/admin/students/import?year_id=${y25}`, 'hoc-sinh.xlsx', file, A.token);
     expect(preview.body).toMatchObject({ committed: false, total: 10, valid: 3, errors: 7, year_id: y25 });
@@ -337,13 +337,16 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect(mail.sent.find((m) => m.to === 'hs101@example.edu.vn')?.text).toContain(commit.body.credentials[0].password);
     // Năm học đã kết thúc: không nhập vào lớp của năm đó
     const template = await download(s.base, '/api/admin/students/template', A.token);
-    expect((await readRows(template.buffer))[0]).toEqual(STUDENT_HEADER);
+    // mẫu mới cùng bố cục với giáo viên (chi tiết ở student_excel.spec.ts); file cũ theo STUDENT_HEADER ở trên vẫn nhập được
+    const sheet = await readRows(template.buffer);
+    expect(sheet.find((r) => r.includes('Họ và tên *'))).toEqual(['Số thứ tự', 'Mã học sinh', 'Họ và tên *', 'Giới tính', 'SĐT', 'Email *', 'Ngày tháng năm sinh *']);
   });
 
   test('HK.QT.034 xuất danh sách học sinh ra Excel theo lớp', async () => {
-    const rows = await readRows((await download(s.base, `/api/admin/students/export?class_id=${c7a.id}`, A.token)).buffer);
-    expect(rows[0]).toEqual(['Mã học sinh', 'Họ và tên', 'Ngày sinh', 'Giới tính', 'Lớp', 'Email', 'Email phụ huynh', 'Trạng thái']);
-    expect(rows.slice(1).map((r) => [r[0], r[4]]).sort()).toEqual([['HS002', '7A1'], ['HS101', '7A1']]);
+    const all = await readRows((await download(s.base, `/api/admin/students/export?class_id=${c7a.id}`, A.token)).buffer);
+    const at = all.findIndex((r) => r.includes('Họ và tên'));
+    expect(all[at]).toEqual(['Số thứ tự', 'Mã học sinh', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh', 'Lớp', 'Khối', 'Trạng thái']);
+    expect(all.slice(at + 1).map((r) => [r[1], r[7]]).sort()).toEqual([['HS002', '7A1'], ['HS101', '7A1']]);
   });
 
   // ------------------------------------------------------------------ HK.QT.038–040
