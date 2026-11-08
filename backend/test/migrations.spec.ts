@@ -102,6 +102,31 @@ describe('file migration', () => {
     expect(await count("SELECT count(*) AS n FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('app_school_years', 'app_class_teachers') AND 'dong_a_school_scope'=ANY(roles)")).toBe(2);
   });
 
+  test('052 thêm kho xóa một năm, giữ dữ liệu đang dùng và ngày xóa cũ của hội thoại ẩn, không mở quyền API', async () => {
+    const change = readdirSync(dir).find(name => name.startsWith('052_'))!;
+    renameSync(join(dir,change),join(dir,`${change}.held`));
+    await m.applyMigrations(url,dir);
+    // Mô phỏng default privileges trực tiếp của Supabase, không chỉ quyền qua PUBLIC.
+    await sql(url, `DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon NOLOGIN; END IF; END $$;
+      ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon;
+      ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT,INSERT,UPDATE,DELETE ON TABLES TO anon;
+      INSERT INTO app_users(id,username,full_name,role,password_hash,is_active,created_at) VALUES(88001,'archive.fixture','Giữ tài khoản','student','fixture-hash',1,'2026-01-01');
+      INSERT INTO hk_ai_conversations(id,user_id,title,deleted_at) VALUES(88001,88001,'Đã ẩn',now()-interval '2 months'),(88002,88001,'Đang dùng',NULL);
+      INSERT INTO hk_ai_messages(conversation_id,role,content) VALUES(88001,'assistant','Giữ nội dung hội thoại');`);
+    const before = await sql(url, 'SELECT username,password_hash FROM app_users WHERE id=88001');
+    renameSync(join(dir,`${change}.held`),join(dir,change));
+    expect(await m.applyMigrations(url,dir)).toEqual([change]);
+    expect(await sql(url, 'SELECT username,password_hash FROM app_users WHERE id=88001')).toEqual(before);
+    const copied = await sql<any>(url, "SELECT actor_role,delete_kind,related_data,expires_at=deleted_at+interval '1 year' AS valid,deleted_at= (SELECT deleted_at FROM hk_ai_conversations WHERE id=88001) AS original_date FROM app_deleted_records");
+    expect(copied).toHaveLength(1); expect(copied[0]).toMatchObject({ actor_role: 'system', delete_kind: 'legacy_soft_delete', valid: true, original_date: true });
+    expect(copied[0].related_data.hk_ai_messages[0].content).toBe('Giữ nội dung hội thoại');
+    expect(await sql(url, "SELECT has_table_privilege('anon','app_deleted_records','SELECT') AS read,has_function_privilege('anon','app_purge_deleted_records()','EXECUTE') AS purge,has_function_privilege('anon','app_install_delete_archives()','EXECUTE') AS install")).toEqual([{ read:false,purge:false,install:false }]);
+    expect(await m.applyMigrations(url,dir)).toEqual([]);
+    expect(await sql(url, 'SELECT count(*)::int AS n FROM app_deleted_records')).toEqual([{n:1}]);
+    expect(await sql(url, 'SELECT id FROM hk_ai_conversations ORDER BY id')).toHaveLength(2);
+    await sql(url, 'ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM anon; ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE SELECT,INSERT,UPDATE,DELETE ON TABLES FROM anon');
+  });
+
   test('042 thêm mã tham chiếu và bộ sinh mã, giữ nguyên trường và đường dẫn cũ', async () => {
     for (const name of readdirSync(dir).filter(name => /^\d+_.*\.sql$/.test(name) && Number(name.split('_')[0]) > 42)) renameSync(join(dir,name),join(dir,`${name}.held`));
     const change = readdirSync(dir).find(name => name.startsWith('042_'))!;

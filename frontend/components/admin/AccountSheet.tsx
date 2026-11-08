@@ -129,8 +129,8 @@ export const AccountSheet: React.FC<{
       <ConfirmSheet open={dialog === 'reset'} title="Đặt lại mật khẩu" message={`Sinh mật khẩu tạm mới cho ${u?.full_name}${u?.email ? ' và gửi vào email của họ' : ''}? Mật khẩu cũ và các phiên đăng nhập hiện tại sẽ mất hiệu lực.`} confirmLabel="Đặt lại" busy={busy} onCancel={() => setDialog(null)}
         onConfirm={async () => { if (!u) return; const res = await run(() => api.resetUserPassword(token, u.id)); if (res) { setDialog(null); setCredential(res); changed(); } }} />
       <ConfirmSheet open={canDelete && dialog === 'delete'} title="Xóa tài khoản" message={root
-        ? `Xóa vĩnh viễn tài khoản ${u?.full_name} (${u?.username}) và dữ liệu cá nhân liên quan, gồm tiến độ, điểm, bài làm và thành viên lớp? Mọi phiên đăng nhập của tài khoản sẽ mất hiệu lực. Trường, lớp, tài khoản khác và nhật ký được giữ lại. Không thể hoàn tác.`
-        : `Xóa hẳn tài khoản ${u?.full_name}? Thao tác này không hoàn tác được. Chỉ xóa được tài khoản chưa phát sinh dữ liệu.`} confirmLabel="Xóa" busy={busy} onCancel={() => setDialog(null)}
+        ? `Xóa tài khoản ${u?.full_name} (${u?.username}) và dữ liệu cá nhân liên quan khỏi hệ thống đang dùng? Mọi phiên đăng nhập của tài khoản sẽ mất hiệu lực. Trường, lớp, tài khoản khác và nhật ký được giữ lại. Bản dữ liệu đã xóa được lưu riêng một năm để kiểm tra rồi tự xóa; chưa có chức năng khôi phục trên giao diện.`
+        : `Xóa tài khoản ${u?.full_name} khỏi danh sách? Chỉ xóa được tài khoản chưa phát sinh dữ liệu. Bản dữ liệu đã xóa được lưu riêng một năm để kiểm tra rồi tự xóa.`} confirmLabel="Xóa" busy={busy} onCancel={() => setDialog(null)}
         onConfirm={async () => { if (!u?.deletable) return; const ok = await run(() => api.deleteUser(token, u.id).then(() => true), 'Đã xóa tài khoản'); if (ok) { setDialog(null); onChanged(); onClose(); } }} />
     </>
   );

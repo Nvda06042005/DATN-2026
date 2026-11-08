@@ -10,8 +10,8 @@ const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8');
 
 test('xóa trường: hộp xác nhận nêu rõ sẽ xóa cả tài khoản, lớp, nội dung; không còn câu "chỉ xóa được trường chưa phát sinh dữ liệu"', () => {
   const src = read('components', 'admin', 'RootAdmin.tsx');
-  assert.match(src, /Xóa hẳn \$\{removing\.name\} cùng toàn bộ dữ liệu của trường: \$\{removing\.users\} tài khoản \(\$\{removing\.admins\} quản trị viên, \$\{removing\.teachers\} giáo viên, \$\{removing\.students\} học sinh\), \$\{removing\.classes\} lớp/);
-  assert.match(src, /Không thể hoàn tác/);
+  assert.match(src, /Xóa \$\{removing\.name\} cùng toàn bộ dữ liệu đang sử dụng của trường: \$\{removing\.users\} tài khoản \(\$\{removing\.admins\} quản trị viên, \$\{removing\.teachers\} giáo viên, \$\{removing\.students\} học sinh\), \$\{removing\.classes\} lớp/);
+  assert.match(src, /Bản dữ liệu đã xóa được lưu riêng một năm/);
   assert.match(src, /api\.deleteSchool\(token, removing\.id\)[^\n]*'Đã xóa trường và toàn bộ dữ liệu của trường'/);
   assert.doesNotMatch(src, /Chỉ xóa được trường chưa phát sinh dữ liệu/);
   assert.doesNotMatch(src, /Trường đã có dữ liệu chỉ vô hiệu hóa được/);
@@ -33,7 +33,7 @@ test('trang Người dùng cho xóa từng tài khoản theo quyền API; xác n
   assert.match(sheet, /\{canAct && canDelete && !u\.deletable \?/);
   assert.match(sheet, /<ConfirmSheet open=\{canDelete && dialog === 'delete'\}/);
   assert.match(sheet, /message=\{root/);
-  assert.match(sheet, /Xóa vĩnh viễn tài khoản/);
+  assert.match(sheet, /Bản dữ liệu đã xóa được lưu riêng một năm/);
   assert.match(sheet, /Mọi phiên đăng nhập của tài khoản sẽ mất hiệu lực/);
   assert.match(sheet, /Trường, lớp, tài khoản khác và nhật ký được giữ lại/);
   assert.match(sheet, /if \(!u\?\.deletable\) return/);

@@ -24,7 +24,8 @@ export class AppController {
     try {
       if (!(await this.db.ping())) throw new Error('unexpected');
       const rows = await this.db.query<{ version: number | null }>('SELECT max(version) AS version FROM public.app_schema_migrations');
-      return { status: 'connected', database: 'postgresql', schema_version: Number(rows[0]?.version ?? 0) };
+      const retention = await this.db.query<{ retention: { enabled: boolean; retention_years: number; database_schedule: boolean; backend_fallback: boolean } }>('SELECT public.app_deleted_records_status() AS retention');
+      return { status: 'connected', database: 'postgresql', schema_version: Number(rows[0]?.version ?? 0), deletion_archive: retention[0]?.retention };
     } catch {
       throw new ServiceUnavailableException('Database unavailable. Check connection settings on Render and Supabase.');
     }

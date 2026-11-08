@@ -20,9 +20,10 @@ export class PlatformJob implements OnApplicationBootstrap, OnModuleDestroy {
 
   constructor(private readonly db: DatabaseService, private readonly notices: NoticeService, private readonly backups: BackupService, private readonly system: SystemService, private readonly surveys: SurveyService) {}
 
-  onApplicationBootstrap(): void {
+  async onApplicationBootstrap(): Promise<void> {
     // Chỉ lên lịch sau khi migration và database đã sẵn sàng.
     if (process.env.PLATFORM_JOB === 'off' || !this.db.ready) return;
+    await this.step('deleted_records_retention', () => this.db.query('SELECT public.app_purge_deleted_records()'));
     this.timer = setInterval(() => void this.tick(), 60_000);
     this.timer.unref?.();
   }
@@ -48,6 +49,7 @@ export class PlatformJob implements OnApplicationBootstrap, OnModuleDestroy {
       await this.step('surveys', () => this.surveys.dispatchDue());
       if (force.automatic || this.ticks % 5 === 0) await this.step('notices_auto', () => this.notices.automatic());
       if (force.hourly || this.ticks % 60 === 1) {
+        await this.step('deleted_records_retention', () => this.db.query('SELECT public.app_purge_deleted_records()'));
         await this.step('backup', () => this.backups.autoIfDue());
         await this.step('retention', async () => {
           await this.db.query("DELETE FROM hk_error_log WHERE created_at < now() - interval '90 days'");

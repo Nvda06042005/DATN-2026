@@ -4,6 +4,7 @@ import { Pool, PoolClient, types } from 'pg';
 import { config } from '../config';
 import { baseUsername, hashPassword } from '../auth/passwords';
 import { applyMigrations, MigrationError, pgConfig } from './migrator';
+import { deletionContext } from './deletion-context';
 
 // Cột DATE (ngày sinh, ngày năm học) giữ dạng chuỗi YYYY-MM-DD, không đổi theo múi giờ máy chủ
 types.setTypeParser(1082, (v: string) => v);
@@ -162,14 +163,17 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     if (ctx?.q) return ctx.q<T>(sql, params);
     if (ctx) return this.workspaceTx((q) => q<T>(sql, params));
     if (!this.pool) throw new ServiceUnavailableException('Kho tài khoản chưa sẵn sàng. Kiểm tra cấu hình cơ sở dữ liệu.');
+    if (deletionContext.getStore()) return this.transaction(async c => (await c.query(sql, params)).rows as T[]);
     return (await this.pool.query(sql, params)).rows as T[];
   }
 
-  private async transaction<T>(run: (client: PoolClient) => Promise<T>): Promise<T> {
+  private async transaction<T>(run: (client: PoolClient) => Promise<T>, repeatableRead = false): Promise<T> {
     if (!this.pool) throw new ServiceUnavailableException('Kho tài khoản chưa sẵn sàng. Kiểm tra cấu hình cơ sở dữ liệu.');
     const client = await this.pool.connect();
     try {
-      await client.query('BEGIN');
+      await client.query(repeatableRead ? 'BEGIN ISOLATION LEVEL REPEATABLE READ' : 'BEGIN');
+      const deletion = deletionContext.getStore();
+      if (deletion) await client.query("SELECT set_config('app.deletion_context',$1,true)", [JSON.stringify(deletion)]);
       const result = await run(client);
       await client.query('COMMIT');
       return result;
@@ -199,10 +203,10 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** Giao dịch với quyền đầy đủ (quản trị tổng, tiến trình nền) */
-  async tx<T>(run: (q: Q) => Promise<T>): Promise<T> {
+  async tx<T>(run: (q: Q) => Promise<T>, options: { repeatableRead?: boolean } = {}): Promise<T> {
     const ctx = this.workspace.getStore();
     if (ctx) return ctx.q ? run(ctx.q) : this.workspaceTx(run);
-    return this.transaction((c) => run(async <R = Record<string, unknown>>(sql: string, params: unknown[] = []) => (await c.query(sql, params)).rows as R[]));
+    return this.transaction((c) => run(async <R = Record<string, unknown>>(sql: string, params: unknown[] = []) => (await c.query(sql, params)).rows as R[]), options.repeatableRead);
   }
 
   /** Ngữ cảnh chỉ lấy từ người dùng đã xác thực; không nhận school_id từ query/body. */
