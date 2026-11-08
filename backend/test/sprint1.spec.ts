@@ -99,17 +99,24 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     expect((await login(c.admin.username, PW, 'school_admin')).status).toBe(200);
   });
 
-  test('HK.AD.016 chỉ xóa trường chưa phát sinh dữ liệu', async () => {
+  test('HK.AD.016 xóa trường kèm toàn bộ dữ liệu của trường (không còn chặn khi trường đã dùng); chi tiết ở school_delete.spec.ts', async () => {
     const empty = await api('POST', '/api/admin/schools', { school_code: '7091', name: 'Trường trống', admin: { full_name: 'Chưa Dùng', email: 'chuadung@example.edu.vn' } });
     expect((await api('DELETE', `/api/admin/schools/${empty.body.school.id}`)).status).toBe(204);
     expect(await db.query('SELECT 1 FROM app_schools WHERE school_code = $1', ['7091'])).toHaveLength(0);
     expect(await db.query('SELECT 1 FROM app_users WHERE email = $1', ['chuadung@example.edu.vn'])).toHaveLength(0);
-    const used = await api('DELETE', `/api/admin/schools/${a.id}`);
-    expect(used.status).toBe(409);
-    expect(used.body.detail).toContain('chỉ có thể vô hiệu hóa');
-    // Quản trị viên đã đăng nhập nên cũng tính là đã sử dụng
-    const loggedIn = await newSchool('7092', 'Trường đã dùng', 'Đã Đăng Nhập', 'dadung@example.edu.vn');
-    expect((await api('DELETE', `/api/admin/schools/${loggedIn.id}`)).status).toBe(409);
+    // Quản trị viên đã đăng nhập và có năm học đã kích hoạt: vẫn xóa được, tài khoản đi theo trường
+    const used = await newSchool('7092', 'Trường đã dùng', 'Đã Đăng Nhập', 'dadung@example.edu.vn');
+    const usedYear = await call(s.base, 'POST', '/api/admin/school-years', { label: '2026-2027', starts_on: '2026-09-05', ends_on: '2027-05-31' }, used.token);
+    await call(s.base, 'POST', `/api/admin/school-years/${usedYear.body.id}/activate`, undefined, used.token);
+    expect((await api('DELETE', `/api/admin/schools/${used.id}`)).status).toBe(204);
+    expect(await db.query('SELECT 1 FROM app_schools WHERE id = $1', [used.id])).toHaveLength(0);
+    expect(await db.query('SELECT 1 FROM app_users WHERE id = $1', [used.admin.id])).toHaveLength(0);
+    expect(await db.query('SELECT 1 FROM app_school_years WHERE school_id = $1', [used.id])).toHaveLength(0);
+    expect((await call(s.base, 'GET', '/api/auth/me', undefined, used.token)).status).toBe(401);
+    // trường khác và quản trị tổng không bị ảnh hưởng
+    expect((await api('GET', `/api/admin/schools/${a.id}`)).status).toBe(200);
+    expect((await api('DELETE', `/api/admin/schools/${used.id}`)).status).toBe(404);
+    expect((await api('DELETE', `/api/admin/schools/${b.id + 1000}`, undefined, a.token)).status).toBe(403);
   });
 
   // ------------------------------------------------------------------ HK.HS.001, GV.001, QT.001, AD.001

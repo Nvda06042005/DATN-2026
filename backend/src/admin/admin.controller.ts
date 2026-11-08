@@ -281,7 +281,11 @@ export class AdminController {
   @Delete('schools/:id')
   @Roles('root_admin')
   @HttpCode(204)
-  async removeSchool(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { await this.schools.remove(user, id); }
+  async removeSchool(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) {
+    const gone = await this.schools.remove(user, id);
+    // Sau khi xóa, mã số trong nhật ký không còn trỏ tới đâu: ghi thêm tên trường và số dữ liệu đã xóa để truy vết
+    await this.security.audit(user, `Xóa trường “${gone.name}” (mã ${gone.school_code}) kèm ${gone.admins + gone.teachers + gone.students} tài khoản, ${gone.classes} lớp, ${gone.years} năm học`, 'school', String(id), null, true);
+  }
 
   // ------------------------------------------------------------------ thông tin trường của quản trị trường (HK.QT.010–011)
   @Get('school')

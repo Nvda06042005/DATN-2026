@@ -104,7 +104,7 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã vô hiệu hóa' }], onChange: (v) => { setActive(v); setPage(1); } };
   return (
     <Page>
-      <PageHeader title="Trường học" subtitle="Thêm trường kèm quản trị viên đầu tiên, sửa thông tin, vô hiệu hóa hoặc xóa trường chưa có dữ liệu." actions={<Btn title="Thêm trường" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="school-add" />} />
+      <PageHeader title="Trường học" subtitle="Thêm trường kèm quản trị viên đầu tiên, sửa thông tin, vô hiệu hóa hoặc xóa trường. Xóa trường là xóa luôn toàn bộ tài khoản và dữ liệu của trường." actions={<Btn title="Thêm trường" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="school-add" />} />
       <SearchFilterBar placeholder="Tìm theo tên hoặc mã trường" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="school-search"
         filters={[f_city, f_active]} />
       <ErrorNote message={error} />
@@ -152,8 +152,8 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
         message={toggling?.is_active ? `Toàn bộ tài khoản của ${toggling?.name} sẽ không đăng nhập được và mọi phiên hiện tại bị thu hồi. Dữ liệu được giữ nguyên.` : `Cho phép tài khoản của ${toggling?.name} đăng nhập trở lại?`}
         onConfirm={async () => { if (toggling && (await run(() => api.updateSchool(token, toggling.id, { is_active: !toggling.is_active }), 'Đã cập nhật trạng thái trường'))) { setToggling(null); reload(); } }} />
       <ConfirmSheet open={!!removing} title="Xóa trường" busy={busy} confirmLabel="Xóa trường" onCancel={() => setRemoving(null)}
-        message={`Xóa hẳn ${removing?.name}? Chỉ xóa được trường chưa phát sinh dữ liệu (không lớp, giáo viên, học sinh; quản trị viên chưa dùng hệ thống). Trường đã có dữ liệu chỉ vô hiệu hóa được.`}
-        onConfirm={async () => { if (removing) { await run(() => api.deleteSchool(token, removing.id).then(() => true), 'Đã xóa trường').then((ok) => { if (ok) { setRemoving(null); reload(); } else setRemoving(null); }); } }} />
+        message={removing ? `Xóa hẳn ${removing.name} cùng toàn bộ dữ liệu của trường: ${removing.users} tài khoản (${removing.admins} quản trị viên, ${removing.teachers} giáo viên, ${removing.students} học sinh), ${removing.classes} lớp, năm học, nội dung và tiến độ học. Không thể hoàn tác. Nếu chỉ muốn tạm dừng, hãy chọn Vô hiệu hóa.` : ''}
+        onConfirm={async () => { if (removing) { await run(() => api.deleteSchool(token, removing.id).then(() => true), 'Đã xóa trường và toàn bộ dữ liệu của trường').then((ok) => { if (ok) { setRemoving(null); reload(); } else setRemoving(null); }); } }} />
       {detail ? <SchoolDetailSheet session={session} id={detail} onClose={() => setDetail(null)} onChanged={reload} /> : null}
     </Page>
   );
@@ -311,7 +311,7 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }], onChange: (v) => { setActive(v); setPage(1); } };
   return (
     <Page>
-      <PageHeader title="Người dùng toàn hệ thống" subtitle="Xem, tìm, lọc; sửa, đổi vai trò, khóa/mở khóa, đặt lại mật khẩu hoặc xóa tài khoản chưa phát sinh dữ liệu." actions={<Btn title="Tạo tài khoản quản trị" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="user-add" />} />
+      <PageHeader title="Người dùng toàn hệ thống" subtitle="Xem, tìm, lọc; sửa, đổi vai trò, khóa/mở khóa hoặc đặt lại mật khẩu. Không xóa tài khoản ở đây: muốn xóa, hãy xóa trường ở mục Trường học." actions={<Btn title="Tạo tài khoản quản trị" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="user-add" />} />
       <SearchFilterBar placeholder="Tìm theo tên, tên đăng nhập, email, mã" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="user-search"
         filters={[f_role, f_school, f_active]} />
       <ErrorNote message={error} />
@@ -330,7 +330,7 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
           <Pager page={page} limit={size} total={data.total} onPage={setPage} />
         </>
       ) : null}
-      {open ? <AccountSheet session={session} id={open} schools={schools} onClose={() => setOpen(null)} onChanged={refresh} /> : null}
+      {open ? <AccountSheet session={session} id={open} schools={schools} canDelete={false} onClose={() => setOpen(null)} onChanged={refresh} /> : null}
       {creating ? <CreateSchoolAdminSheet session={session} onClose={() => setCreating(false)}
         onCreated={res => { setCreating(false); setCredential(res); reload(); }}
         onExisting={id => { setCreating(false); setOpen(id); }} /> : null}

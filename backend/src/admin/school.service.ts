@@ -31,6 +31,9 @@ export interface SchoolRow {
   created_at: string;
 }
 
+/** Kết quả xóa trường: số tài khoản, lớp, năm học đã xóa kèm trường (dùng ghi nhật ký) */
+export interface RemovedSchool { id: number; school_code: string; name: string; admins: number; teachers: number; students: number; classes: number; years: number }
+
 export interface YearRow {
   id: number; school_id: number; label: string; starts_on: string; ends_on: string; status: 'planned' | 'active' | 'ended'; ended_at: string | null;
   /** Học kỳ 1 và học kỳ 2: hoặc cả bốn ngày đều trống (chưa đặt học kỳ) hoặc cả bốn ngày đều có */
@@ -269,23 +272,29 @@ export class SchoolService {
     });
   }
 
-  /** Xóa trường chưa phát sinh dữ liệu (HK.AD.016): không lớp, không giáo viên/học sinh, quản trị viên chưa từng đăng nhập hay thao tác */
-  async remove(actor: UserRow, id: number): Promise<void> {
+  /**
+   * Xóa trường cùng toàn bộ dữ liệu của trường (HK.AD.016; theo yêu cầu quản trị tổng 08/11/2026 không còn chặn khi trường đã có dữ liệu):
+   * tài khoản quản trị viên, giáo viên, học sinh của trường (kéo theo tiến độ, điểm, huy hiệu, bài làm... của họ qua khóa ngoại CASCADE),
+   * năm học, khối, lớp, nội dung và cấu hình riêng của trường. Khóa ngoại app_users.school_id chỉ là SET NULL nên phải xóa tài khoản trước,
+   * nếu không họ thành tài khoản mồ côi không thuộc trường nào. Không bao giờ xóa quản trị tổng. Nhật ký kiểm toán và nhật ký đăng nhập được giữ lại
+   * (chỉ mất liên kết tới trường). Một giao dịch: lỗi ở đâu thì không xóa gì cả.
+   */
+  async remove(actor: UserRow, id: number): Promise<RemovedSchool> {
     this.assertTopAdmin(actor);
-    await this.db.tx(async (q) => {
+    return this.db.tx(async (q) => {
       const school = (await q<SchoolRow>('SELECT * FROM app_schools WHERE id = $1 FOR UPDATE', [id]))[0];
       if (!school) throw new NotFoundException('Không tìm thấy trường');
-      const r = (await q<{ classes: number; members: number; used_admins: number; years: number }>(
-        `SELECT (SELECT count(*)::int FROM app_classes WHERE school_id = $1) AS classes,
-                (SELECT count(*)::int FROM app_users WHERE school_id = $1 AND role IN ('teacher', 'student')) AS members,
-                (SELECT count(*)::int FROM app_users u WHERE u.school_id = $1 AND u.role = 'school_admin' AND (u.last_login_at IS NOT NULL OR EXISTS (SELECT 1 FROM app_audit_events a WHERE a.actor_id = u.id))) AS used_admins,
-                (SELECT count(*)::int FROM app_school_years WHERE school_id = $1 AND status <> 'planned') AS years`, [id]))[0];
-      const reasons = [
-        r.classes && `${r.classes} lớp`, r.members && `${r.members} giáo viên/học sinh`, r.used_admins && `${r.used_admins} quản trị viên đã sử dụng hệ thống`, r.years && `${r.years} năm học đã kích hoạt`,
-      ].filter(Boolean);
-      if (reasons.length) throw new ConflictException(`Trường đã phát sinh dữ liệu (${reasons.join(', ')}); chỉ có thể vô hiệu hóa trường.`);
-      await q("DELETE FROM app_users WHERE school_id = $1 AND role = 'school_admin'", [id]);
+      const r = (await q<{ admins: number; teachers: number; students: number; classes: number; years: number }>(
+        `SELECT (SELECT count(*)::int FROM app_users WHERE school_id = $1 AND role = 'school_admin') AS admins,
+                (SELECT count(*)::int FROM app_users WHERE school_id = $1 AND role = 'teacher') AS teachers,
+                (SELECT count(*)::int FROM app_users WHERE school_id = $1 AND role = 'student') AS students,
+                (SELECT count(*)::int FROM app_classes WHERE school_id = $1) AS classes,
+                (SELECT count(*)::int FROM app_school_years WHERE school_id = $1) AS years`, [id]))[0];
+      // app_progress (tiến độ học) là bảng duy nhất theo user_id không có khóa ngoại tới app_users nên không tự đi theo tài khoản: xóa tường minh
+      await q("DELETE FROM app_progress WHERE user_id IN (SELECT id FROM app_users WHERE school_id = $1 AND role <> 'root_admin')", [id]);
+      await q("DELETE FROM app_users WHERE school_id = $1 AND role <> 'root_admin'", [id]);
       await q('DELETE FROM app_schools WHERE id = $1', [id]);
+      return { id, school_code: school.school_code, name: school.name, ...r };
     });
   }
 

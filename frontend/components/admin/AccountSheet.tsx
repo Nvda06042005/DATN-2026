@@ -1,6 +1,7 @@
 /**
  * Chi tiết và thao tác trên một tài khoản (HK.AD.021–025, HK.QT.018–021, HK.QT.028–032): sửa thông tin, đổi vai trò (quản trị tổng),
- * khóa/mở khóa kèm lý do, đặt lại mật khẩu, xóa khi chưa phát sinh dữ liệu. Dùng chung cho danh sách người dùng, giáo viên và học sinh.
+ * khóa/mở khóa kèm lý do, đặt lại mật khẩu, xóa khi chưa phát sinh dữ liệu (quản trị trường; quản trị tổng không xóa ở đây mà xóa trường).
+ * Dùng chung cho danh sách người dùng, giáo viên và học sinh.
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
@@ -21,7 +22,9 @@ type Dialog = null | 'edit' | 'role' | 'lock' | 'unlock' | 'reset' | 'delete';
 
 export const AccountSheet: React.FC<{
   session: Session; id: number; schools?: Array<{ value: string; label: string }>; onClose: () => void; onChanged: () => void;
-}> = ({ session, id, schools = [], onClose, onChanged }) => {
+  /** false ở trang Người dùng của quản trị tổng: chỉ xem, sửa, khóa, đặt lại mật khẩu; việc xóa nằm ở mục Trường học (xóa trường kèm toàn bộ tài khoản) */
+  canDelete?: boolean;
+}> = ({ session, id, schools = [], onClose, onChanged, canDelete = true }) => {
   const { c } = useTheme();
   const { token } = session;
   const root = session.user.role === 'root_admin';
@@ -78,10 +81,10 @@ export const AccountSheet: React.FC<{
                 {root && session.user.admin_level === 1 ? <Btn title="Đổi vai trò" icon={UserCog} tone="giay" size="sm" onPress={() => setDialog('role')} testID="acc-role" /> : null}
                 {locked ? <Btn title="Mở khóa" icon={Unlock} tone="giay" size="sm" onPress={() => setDialog('unlock')} /> : <Btn title="Khóa tài khoản" icon={Lock} tone="giay" size="sm" onPress={() => setDialog('lock')} testID="acc-lock" />}
                 <Btn title="Đặt lại mật khẩu" icon={KeyRound} tone="giay" size="sm" onPress={() => setDialog('reset')} testID="acc-reset" />
-                <Btn title="Xóa" icon={Trash2} tone="giay" size="sm" disabled={!u.deletable} onPress={() => setDialog('delete')} testID="acc-delete" />
+                {canDelete ? <Btn title="Xóa" icon={Trash2} tone="giay" size="sm" disabled={!u.deletable} onPress={() => setDialog('delete')} testID="acc-delete" /> : null}
               </View>
             ) : null}
-            {canAct && !u.deletable ? <Txt size={13} color={c.muc3}>Không xóa được vì tài khoản {u.delete_blocker}; chỉ khóa được để giữ nguyên dữ liệu.</Txt> : null}
+            {canAct && canDelete && !u.deletable ?<Txt size={13} color={c.muc3}>Không xóa được vì tài khoản {u.delete_blocker}; chỉ khóa được để giữ nguyên dữ liệu.</Txt> : null}
           </>
         ) : null}
       </Sheet>
@@ -124,7 +127,7 @@ export const AccountSheet: React.FC<{
         onConfirm={async () => { if (u && (await run(() => api.lockUser(token, u.id, false), 'Đã mở khóa'))) { setDialog(null); changed(); } }} />
       <ConfirmSheet open={dialog === 'reset'} title="Đặt lại mật khẩu" message={`Sinh mật khẩu tạm mới cho ${u?.full_name}${u?.email ? ' và gửi vào email của họ' : ''}? Mật khẩu cũ và các phiên đăng nhập hiện tại sẽ mất hiệu lực.`} confirmLabel="Đặt lại" busy={busy} onCancel={() => setDialog(null)}
         onConfirm={async () => { if (!u) return; const res = await run(() => api.resetUserPassword(token, u.id)); if (res) { setDialog(null); setCredential(res); changed(); } }} />
-      <ConfirmSheet open={dialog === 'delete'} title="Xóa tài khoản" message={`Xóa hẳn tài khoản ${u?.full_name}? Thao tác này không hoàn tác được. Chỉ xóa được tài khoản chưa phát sinh dữ liệu.`} confirmLabel="Xóa" busy={busy} onCancel={() => setDialog(null)}
+      <ConfirmSheet open={canDelete && dialog === 'delete'} title="Xóa tài khoản" message={`Xóa hẳn tài khoản ${u?.full_name}? Thao tác này không hoàn tác được. Chỉ xóa được tài khoản chưa phát sinh dữ liệu.`} confirmLabel="Xóa" busy={busy} onCancel={() => setDialog(null)}
         onConfirm={async () => { if (!u) return; const ok = await run(() => api.deleteUser(token, u.id).then(() => true), 'Đã xóa tài khoản'); if (ok) { setDialog(null); onChanged(); onClose(); } }} />
     </>
   );
