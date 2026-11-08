@@ -142,8 +142,10 @@ test('đường dẫn máy chủ khớp với hàm gọi API', () => {
 
 test('thêm trường: bấm Tạo trường thì hệ thống cấp mã, lưu ngay và hộp kết quả nêu mã to; không tạo thêm trường đã có', () => {
   const admin = read('components', 'admin', 'RootAdmin.tsx');
-  // ô Mã trường ghi "Tự sinh khi lưu"; bấm Tạo trường thì hệ thống cấp mã và hiện to ở hộp kết quả
-  assert.match(admin, /\{ name: 'school_code', label: 'Mã trường', readOnly: true, hint: 'Bấm Tạo trường: hệ thống cấp mã trường, lưu ngay và hiện mã ở bước kế tiếp\./);
+  // Form tạo không có ô mã giả hoặc chú thích dài; mã số thực tế chỉ hiện từ phản hồi tạo trường.
+  assert.doesNotMatch(admin, /Tự sinh khi lưu|Bấm Tạo trường: hệ thống cấp mã trường/);
+  const createFields = admin.slice(admin.indexOf('const CREATE_FIELDS'), admin.indexOf('const SchoolsPanel'));
+  assert.doesNotMatch(createFields, /name: 'school_code'/);
   assert.match(admin, /testID="created-school-code">\{created\.school\.school_code\}<\/Txt>/);
   assert.match(admin, /Đã lưu vào danh sách Trường học/);
   // báo trước trường đã có (kể cả trường nhập tay chưa gắn danh mục), nêu mã; trường đã có không chọn lại được

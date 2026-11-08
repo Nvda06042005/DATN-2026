@@ -57,10 +57,9 @@ const SCHOOL_FIELDS: FieldDef[] = [
   { name: 'logo_url', label: 'Logo riêng (liên kết https, không bắt buộc)', hint: 'Để trống nếu chưa có logo chính thức.' },
 ];
 
-// Thêm trường: tên trường là ô chọn từ danh mục; chọn xong mã, tỉnh/thành, khu vực tự điền và huy hiệu tự hiện (không dán ảnh)
+// Chọn danh mục để điền địa bàn/logo; máy chủ cấp mã tăng dần khi lưu, hộp kết quả hiện mã số thực tế.
 const CREATE_FIELDS = (token: string): FieldDef[] => [
   { name: 'name', label: 'Tên trường', required: true, render: (values, set) => <SchoolPicker token={token} values={values} set={set} /> },
-  { name: 'school_code', label: 'Mã trường', readOnly: true, hint: 'Bấm Tạo trường: hệ thống cấp mã trường, lưu ngay và hiện mã ở bước kế tiếp. Mã trong danh mục (nếu chọn) được lưu riêng.' },
   { name: 'city', label: 'Tỉnh / thành phố' },
   { name: 'region', label: 'Vùng / khu vực', hint: 'Quận, huyện hoặc thị xã; nằm trong đường dẫn riêng của trường.' },
   ...SCHOOL_FIELDS.filter((f) => !['name', 'city', 'region', 'logo_url'].includes(f.name)),
@@ -122,7 +121,7 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
 
       {creating ? (
         <FormSheet title="Thêm trường" subtitle="Chọn trường trong danh mục và cấp tài khoản quản trị viên trường đầu tiên" submitLabel="Tạo trường" wide
-          fields={CREATE_FIELDS(token)} initial={{ school_code: 'Tự sinh khi lưu' }}
+          fields={CREATE_FIELDS(token)}
           onClose={() => setCreating(false)}
           onSubmit={async (v) => {
             if (String(v.name).trim().length < 2) throw new Error('Hãy gõ tên trường rồi chọn trong danh sách gợi ý, hoặc tự nhập tên trường.');
