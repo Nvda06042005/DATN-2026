@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Put, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, HttpCode, Param, ParseIntPipe, Patch, Post, Put, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { Transform, Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsBoolean, IsDefined, IsEmail, IsIn, IsInt, IsOptional, IsString, IsUrl, Length, Matches, Max, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
@@ -246,6 +246,11 @@ export class AdminController {
   @Get('schools')
   @Roles('root_admin')
   listSchools(@Query() query: SchoolQuery) { return this.schools.list(query); }
+
+  @Get('school-code-preview')
+  @Roles('root_admin')
+  @Header('Cache-Control', 'no-store')
+  schoolCodePreview(@CurrentUser() user: UserRow) { return this.schools.codePreview(user); }
 
   /** Gợi ý trường từ danh mục khi thêm trường: chọn một trường thì mã, khu vực, tỉnh/thành và đường dẫn tự điền */
   @Get('school-directory')

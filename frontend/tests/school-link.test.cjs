@@ -141,12 +141,17 @@ test('đường dẫn máy chủ khớp với hàm gọi API', () => {
   assert.match(auth, /school_code\?: string/);
 });
 
-test('thêm trường: bấm Tạo trường thì hệ thống cấp mã, lưu ngay và hộp kết quả nêu mã to; không tạo thêm trường đã có', () => {
+test('thêm trường: xem số kế tiếp từ máy chủ, không gửi mã xem trước; hộp kết quả hiện mã chính thức', () => {
   const admin = read('components', 'admin', 'RootAdmin.tsx');
-  // Form tạo không có ô mã giả hoặc chú thích dài; mã số thực tế chỉ hiện từ phản hồi tạo trường.
+  // Chỉ xem bộ cấp mã; không đoán từ danh sách đang phân trang hoặc gửi số xem trước để đặt mã.
   assert.doesNotMatch(admin, /Tự sinh khi lưu|Bấm Tạo trường: hệ thống cấp mã trường/);
   const createFields = admin.slice(admin.indexOf('const CREATE_FIELDS'), admin.indexOf('const SchoolsPanel'));
   assert.doesNotMatch(createFields, /name: 'school_code'/);
+  assert.match(createFields, /name: 'code_preview', label: 'Mã trường'/);
+  assert.match(admin, /api\.previewSchoolCode\(token\)/);
+  assert.match(admin, /value=\{data\?\.school_code \?\? ''\} editable=\{false\}[\s\S]*?testID="school-code-preview"/);
+  const submit = admin.slice(admin.indexOf("if (String(v.name)"), admin.indexOf('setCreated(res)'));
+  assert.doesNotMatch(submit, /body\.(school_code|code_preview)|v\.(school_code|code_preview)/);
   assert.match(admin, /testID="created-school-code">\{created\.school\.school_code\}<\/Txt>/);
   assert.match(admin, /Đã lưu vào danh sách Trường học/);
   // báo trước trường đã có (kể cả trường nhập tay chưa gắn danh mục), nêu mã; trường đã có không chọn lại được

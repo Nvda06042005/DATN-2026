@@ -57,9 +57,10 @@ const SCHOOL_FIELDS: FieldDef[] = [
   { name: 'logo_url', label: 'Logo riêng (liên kết https, không bắt buộc)', hint: 'Để trống nếu chưa có logo chính thức.' },
 ];
 
-// Chọn danh mục để điền địa bàn/logo; máy chủ cấp mã tăng dần khi lưu, hộp kết quả hiện mã số thực tế.
+// Xem trước số kế tiếp không giữ chỗ; mã thực tế luôn lấy từ phản hồi tạo trường của máy chủ.
 const CREATE_FIELDS = (token: string): FieldDef[] => [
   { name: 'name', label: 'Tên trường', required: true, render: (values, set) => <SchoolPicker token={token} values={values} set={set} /> },
+  { name: 'code_preview', label: 'Mã trường', render: () => <SchoolCodePreview token={token} /> },
   { name: 'city', label: 'Tỉnh / thành phố' },
   { name: 'region', label: 'Vùng / khu vực', hint: 'Quận, huyện hoặc thị xã; nằm trong đường dẫn riêng của trường.' },
   ...SCHOOL_FIELDS.filter((f) => !['name', 'city', 'region', 'logo_url'].includes(f.name)),
@@ -68,6 +69,14 @@ const CREATE_FIELDS = (token: string): FieldDef[] => [
   { name: 'admin_email', label: 'Email', type: 'email', required: true },
   { name: 'admin_phone', label: 'Điện thoại', type: 'tel' },
 ];
+
+const SchoolCodePreview: React.FC<{ token: string }> = ({ token }) => {
+  const { data, error, loading, reload } = useLoad(() => api.previewSchoolCode(token), [token]);
+  return <View style={{ gap: 8 }}>
+    <Field label="Mã trường" value={data?.school_code ?? ''} editable={false} placeholder={loading ? '…' : ''} testID="school-code-preview" />
+    {error ? <><ErrorNote message={error} /><Btn title="Thử lại" tone="giay" size="sm" onPress={reload} /></> : null}
+  </View>;
+};
 
 const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
   const { c } = useTheme();

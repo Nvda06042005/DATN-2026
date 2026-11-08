@@ -1,4 +1,4 @@
-import { adminLogin, call, hasPostgres, sql, Started, startApp } from './harness';
+import { activate, adminLogin, call, hasPostgres, sql, Started, startApp } from './harness';
 import { createHash } from 'node:crypto';
 import { directoryInfo } from '../src/admin/school-directory';
 
@@ -9,10 +9,26 @@ import { directoryInfo } from '../src/admin/school-directory';
   beforeAll(async () => { s = await startApp('school_auto_test'); root = await adminLogin(s.base); });
   afterAll(async () => { await s?.close(); });
 
+  test('xem mã kế tiếp không cấp số, không tạo trường/tài khoản và không cache phản hồi', async () => {
+    const state = () => sql(s.url, `SELECT last_value::text, is_called,
+      (SELECT count(*)::int FROM app_schools) AS schools,
+      (SELECT count(*)::int FROM app_users) AS users FROM app_school_registration_code_seq`);
+    const before = await state();
+    for (let i = 0; i < 3; i++) {
+      const result = await fetch(s.base + '/api/admin/school-code-preview', { headers: { Authorization: `Bearer ${root}` } });
+      expect(result.status).toBe(200);
+      expect(result.headers.get('cache-control')).toBe('no-store');
+      expect(await result.json()).toEqual({ school_code: '00000001' });
+    }
+    expect(await state()).toEqual(before);
+    expect((await api('GET', '/api/admin/school-code-preview', undefined, '')).status).toBe(401);
+  });
+
   test('mã mới tăng dần, bỏ qua mã cũ trùng và không sửa mã/đường dẫn đã có', async () => {
     const legacy = await api('POST', '/api/admin/schools', { school_code: '00000001', name: 'Trường mã cũ', admin: admin('legacy') });
     expect(legacy.status).toBe(201);
     const before = legacy.body.school.link;
+    expect((await api('GET', '/api/admin/school-code-preview')).body).toEqual({ school_code: '00000002' });
     const first = await api('POST', '/api/admin/schools', { name: 'Trường tự nhập A', admin: admin('auto-a') });
     expect(first.status).toBe(201);
     expect(first.body.school.school_code).toBe('00000002');
@@ -21,6 +37,22 @@ import { directoryInfo } from '../src/admin/school-directory';
     expect(next.body.school.school_code).toBe('00000003');
     expect(next.body.admin).toMatchObject({ role: 'school_admin', school_id: next.body.school.id, school_code: '00000003' });
     expect((await api('GET', `/api/admin/schools/${legacy.body.school.id}`)).body.link).toEqual(before);
+  });
+
+  test('mã xem trước không giữ chỗ: tạo đồng thời vẫn nhận mã riêng; quản trị trường không được xem bộ cấp mã', async () => {
+    const preview = (await api('GET', '/api/admin/school-code-preview')).body.school_code;
+    const results = await Promise.all(['preview-a', 'preview-b'].map(suffix => api('POST', '/api/admin/schools', { name: `Trường kiểm thử ${suffix}`, admin: admin(suffix) })));
+    expect(results.map(r => r.status)).toEqual([201, 201]);
+    const codes = results.map(r => r.body.school.school_code).sort();
+    expect(codes).toEqual([preview, String(Number(preview) + 1).padStart(8, '0')]);
+    expect((await api('GET', '/api/admin/school-code-preview')).body.school_code).toBe(String(Number(preview) + 2).padStart(8, '0'));
+    const made = results[0].body;
+    const schoolAdmin = await activate(s.base, made.admin.username, made.temporary_password, 'Preview@123', 'school_admin');
+    expect((await api('GET', '/api/admin/school-code-preview', undefined, schoolAdmin.token)).status).toBe(403);
+    const level2 = await api('POST', '/api/admin/users', { role: 'root_admin', admin_level: 2, full_name: 'Quản Trị Cấp Hai', email: 'preview-root2@example.invalid' });
+    expect(level2.status).toBe(201);
+    const secondRoot = await activate(s.base, level2.body.user.username, level2.body.temporary_password, 'Preview@456', 'root_admin');
+    expect((await api('GET', '/api/admin/school-code-preview', undefined, secondRoot.token)).status).toBe(403);
   });
 
   test('mã tham chiếu dài không làm hỏng mã đăng nhập; tên và khu vực lấy từ danh mục máy chủ', async () => {

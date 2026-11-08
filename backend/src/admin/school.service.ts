@@ -86,6 +86,28 @@ export class SchoolService {
   }
 
   // ------------------------------------------------------------------ trường (quản trị tổng)
+  /** Xem số kế tiếp mà không gọi nextval hoặc giữ chỗ; create() luôn cấp mã chính thức trong giao dịch. */
+  async codePreview(actor: UserRow): Promise<{ school_code: string }> {
+    this.assertTopAdmin(actor);
+    const rows = await this.db.query<{ school_code: string }>(`
+      WITH RECURSIVE candidates(n) AS (
+        SELECT last_value + CASE WHEN is_called THEN 1 ELSE 0 END
+        FROM public.app_school_registration_code_seq
+        UNION ALL
+        SELECT n + 1 FROM candidates
+        WHERE n < 99999999 AND EXISTS (
+          SELECT 1 FROM public.app_schools WHERE school_code = lpad(n::text, 8, '0')
+        )
+      )
+      SELECT lpad(n::text, 8, '0') AS school_code FROM candidates
+      WHERE n <= 99999999 AND NOT EXISTS (
+        SELECT 1 FROM public.app_schools WHERE school_code = lpad(n::text, 8, '0')
+      ) LIMIT 1
+    `);
+    if (!rows.length) throw new ConflictException('Đã hết mã trường có thể cấp');
+    return rows[0];
+  }
+
   async list(f: { q?: string; city?: string; region?: string; active?: 'true' | 'false'; page?: number; limit?: number }) {
     const where: string[] = [], params: unknown[] = [];
     const add = (sql: string, v: unknown) => { params.push(v); where.push(sql.replaceAll('?', `$${params.length}`)); };

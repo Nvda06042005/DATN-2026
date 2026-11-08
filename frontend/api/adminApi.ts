@@ -18,6 +18,7 @@ export const listSchools = (token: string, query: Query) => apiRequest<Paged<Sch
 export const searchSchoolDirectory = (token: string, q: string, excludeSchoolId?: number) => apiRequest<{ items: SchoolDirectoryItem[]; duplicates: SchoolDuplicate[] }>(`/api/admin/school-directory${qs({ q, limit: 30, exclude_school_id: excludeSchoolId })}`, { token });
 export const getSchool = (token: string, id: number) => apiRequest<SchoolDetail>(`/api/admin/schools/${id}`, { token });
 export const createSchool = (token: string, body: Record<string, unknown>) => apiRequest<CreatedSchool>('/api/admin/schools', { token, body });
+export const previewSchoolCode = (token: string) => apiRequest<{ school_code: string }>('/api/admin/school-code-preview', { token });
 export const updateSchool = async (token: string, id: number, body: Record<string, unknown>) => {
   const school = await apiRequest<SchoolItem>(`/api/admin/schools/${id}`, { token, method: 'PATCH', body });
   clearSchoolIdentities();
