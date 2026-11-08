@@ -182,7 +182,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect(template.status).toBe(200);
     // mẫu mới: khối tiêu đề "Đông A" phía trên, bảng Số thứ tự, Mã giáo viên, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh (không có Bộ môn); chi tiết ở teacher_excel.spec.ts
     const sheet = await readRows(template.buffer);
-    expect(sheet[0]).toEqual(['Đông A']);
+    expect(sheet[0][0]).toMatch(/^Mẫu nhập danh sách giáo viên · /); // logo Đông A là ảnh ở dòng 1 (không có ô chữ), dòng có chữ đầu tiên là tên trường
     expect(sheet.find((r) => r.includes('Họ và tên *'))).toEqual(['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới tính', 'SĐT', 'Email *', 'Ngày tháng năm sinh']);
   });
 
