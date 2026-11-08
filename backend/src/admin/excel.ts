@@ -68,7 +68,7 @@ const headerNames = (c: Column): string[] => [c.header, ...(c.aliases ?? [])].ma
  * Đọc sheet đầu tiên. Dòng tiêu đề là dòng đầu tiên (trong 30 dòng đầu) có đủ các cột bắt buộc, nên đọc được cả file mẫu có khối tiêu đề phía trên lẫn file cũ có tiêu đề ở dòng 1.
  * Mỗi dòng dưới tiêu đề thành một đối tượng theo khóa cột; bỏ qua dòng trống; `row` là số dòng thật trong Excel để báo lỗi đúng chỗ.
  */
-export async function readSheet(file: UploadedXlsx, columns: Column[], sheetName?: string): Promise<Array<{ row: number; values: Record<string, string> }>> {
+export async function readSheet(file: UploadedXlsx, columns: Column[], sheetName?: string, teacherCodes = false): Promise<Array<{ row: number; values: Record<string, string> }>> {
   const workbook = new ExcelJS.Workbook();
   try {
     await workbook.xlsx.load(file.buffer as unknown as ExcelJS.Buffer);
@@ -93,6 +93,7 @@ export async function readSheet(file: UploadedXlsx, columns: Column[], sheetName
   }
   const cols = columns.map((c) => ({ key: c.key, col: headerNames(c).map((h) => header!.byHeader.get(h)).find((n) => n !== undefined) }));
   const rows: Array<{ row: number; values: Record<string, string> }> = [];
+  let teacherIndex = 0;
   for (let r = header.row + 1; r <= Math.min(sheet.rowCount, header.row + MAX_SCAN_ROWS); r += 1) {
     const values: Record<string, string> = {};
     let any = false;
@@ -100,6 +101,21 @@ export async function readSheet(file: UploadedXlsx, columns: Column[], sheetName
       const text = c.col ? cellText(sheet.getRow(r).getCell(c.col).value) : '';
       values[c.key] = text;
       if (text) any = true;
+    }
+    if (teacherCodes && values.full_name) {
+      teacherIndex += 1;
+      const codeCol = cols.find(c => c.key === 'user_code')?.col;
+      const nameCol = cols.find(c => c.key === 'full_name')?.col;
+      const birthCol = cols.find(c => c.key === 'birth_date')?.col;
+      const indexCol = header.byHeader.get(normHeader('Số thứ tự'));
+      const cell = codeCol ? sheet.getCell(r, codeCol) : null;
+      const formula = cell?.formula;
+      const prefix = formula?.match(/,"([A-Z0-9]+)"&TEXT\(/)?.[1];
+      // Chỉ tính đúng công thức do mẫu tạo; không chạy/eval công thức tùy ý từ file tải lên.
+      if (prefix && nameCol && birthCol && indexCol && formula === teacherCodeFormula(prefix, `${colLetter(nameCol)}${r}`, `${colLetter(birthCol)}${r}`, `${colLetter(indexCol)}${r}`)) {
+        const born = parseDate(values.birth_date);
+        values.user_code = born ? `${prefix}${born.slice(8,10)}${born.slice(5,7)}${born.slice(0,4)}${String(teacherIndex).padStart(3,'0')}` : '';
+      }
     }
     if (any) rows.push({ row: r, values });
   }
@@ -138,7 +154,16 @@ export function vnDayLabel(now: Date = new Date()): string {
  * Cột của file mẫu/danh sách. `index`: số thứ tự (mẫu: tự hiện khi dòng có tên, không đọc khi nhập); `text`/`phone`: ô văn bản (giữ số 0 đầu);
  * `list`: chọn trong danh sách `options`; `date`: ô ngày dd/mm/yyyy chỉ nhận ngày hợp lệ, kèm gợi ý chọn ngày.
  */
-export interface FormColumn extends Column { kind: 'index' | 'text' | 'phone' | 'list' | 'date'; options?: string[]; watch?: string; prompt?: string }
+export interface FormColumn extends Column { kind: 'index' | 'text' | 'phone' | 'list' | 'date' | 'teacher-code'; options?: string[]; watch?: string; prompt?: string; codePrefix?: string; birthKey?: string }
+
+/** Tên riêng của trường, không gồm tiền tố cấp học; dùng chữ Latin viết hoa. */
+export function schoolInitials(name: string): string {
+  const plain = normHeader(name).replace(/^(truong\s+)?(trung hoc co so|trung hoc pho thong|tieu hoc|thcs|thpt|th)(\s+|$)/, '');
+  return plain.split(/\s+/).filter(Boolean).map(word => word[0]).join('').toUpperCase().slice(0, 12) || 'GV';
+}
+
+const teacherCodeFormula = (prefix: string, name: string, birth: string, index: string): string =>
+  `IF(AND(${name}<>"",ISNUMBER(${birth})),"${prefix}"&TEXT(${birth},"ddmmyyyy")&TEXT(${index},"000"),"")`;
 
 /**
  * Logo ngang của Đông A (biểu tượng chiến binh + chữ "Đông A edu" gốc, giống thanh đầu trang): Excel không nhúng được phông chữ riêng nên chữ được vẽ sẵn trong ảnh.
@@ -186,6 +211,7 @@ export async function buildFormSheet(spec: FormSheetSpec): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Hào Khí Đông A';
   workbook.created = now;
+  workbook.calcProperties.fullCalcOnLoad = true;
   const headerRow = 3 + spec.meta.length + (spec.note ? 1 : 0) + 1;
   const sheet = workbook.addWorksheet(spec.sheetName, { views: [{ state: 'frozen', ySplit: headerRow }] });
   const cols = spec.columns;
@@ -247,7 +273,15 @@ export async function buildFormSheet(spec: FormSheetSpec): Promise<Buffer> {
       cell.border = BORDER;
       cell.alignment = { vertical: 'middle', horizontal: c.kind === 'index' || c.kind === 'list' || c.kind === 'date' ? 'center' : 'left' };
       if (c.kind === 'index') {
-        cell.value = spec.rows ? i + 1 : { formula: `IF(${nameLetter(c.watch)}${rowNo}="","",ROW()-${headerRow})` };
+        const name = nameLetter(c.watch);
+        cell.value = spec.rows ? i + 1 : { formula: `IF(${name}${rowNo}="","",COUNTIFS($${name}$${headerRow + 1}:${name}${rowNo},"?*"))`, result: '' };
+      } else if (c.kind === 'teacher-code') {
+        const name = `${nameLetter(c.watch)}${rowNo}`, birth = `${nameLetter(c.birthKey)}${rowNo}`, index = `${nameLetter('stt')}${rowNo}`;
+        const prefix = (c.codePrefix ?? 'GV').replace(/[^A-Z0-9]/g, '');
+        cell.numFmt = '@';
+        cell.value = { formula: teacherCodeFormula(prefix, name, birth, index), result: '' };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+        cell.note = 'Tự ghép từ tên trường viết tắt, năm nhập, ngày sinh và số thứ tự. Nhập họ tên và ngày sinh để hiện mã.';
       } else if (c.kind === 'date') {
         cell.numFmt = 'dd/mm/yyyy';
         const iso = typeof raw === 'string' ? parseDate(raw) : null;
@@ -255,8 +289,8 @@ export async function buildFormSheet(spec: FormSheetSpec): Promise<Buffer> {
         if (!spec.rows) {
           cell.dataValidation = {
             type: 'date', operator: 'between', allowBlank: true, formulae: [dateMin, dateMax],
-            showInputMessage: true, promptTitle: c.header.replace(/\*/g, '').trim(), prompt: c.prompt ?? 'Chọn ngày trên lịch hoặc gõ dd/mm/yyyy',
-            showErrorMessage: true, errorStyle: 'stop', errorTitle: 'Ngày không hợp lệ', error: 'Hãy chọn ngày trên lịch hoặc gõ dd/mm/yyyy (từ 01/01/1940 đến hôm nay).',
+            showInputMessage: true, promptTitle: c.header.replace(/\*/g, '').trim(), prompt: c.prompt ?? 'Nhập ngày dd/mm/yyyy; chọn trên lịch nếu phần mềm hỗ trợ.',
+            showErrorMessage: true, errorStyle: 'stop', errorTitle: 'Ngày không hợp lệ', error: 'Nhập ngày dd/mm/yyyy từ 01/01/1940 đến ngày tải mẫu.',
           };
         }
       } else if (c.kind === 'list') {

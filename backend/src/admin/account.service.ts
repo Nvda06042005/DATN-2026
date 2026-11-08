@@ -7,7 +7,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { toPublic } from '../auth/auth.service';
 import { generatePassword, hashPassword } from '../auth/passwords';
 import { DatabaseService, DuplicateUsername, Q, Role, searchText, toUser, USER_COLUMNS, UserRow } from '../database/database.service';
-import { buildFormSheet, buildWorkbook, checkUpload, Column, FormColumn, parseDate, readSheet, UploadedXlsx, vnDayLabel } from './excel';
+import { buildFormSheet, buildWorkbook, checkUpload, Column, FormColumn, parseDate, readSheet, schoolInitials, UploadedXlsx, vnDayLabel } from './excel';
 import { SystemService } from '../platform/system.service';
 import { MailService } from './mail.service';
 import { likeEscape, SchoolService } from './school.service';
@@ -397,20 +397,25 @@ export class AccountService {
    */
   async teacherTemplate(actor: UserRow, schoolId?: number | null, now: Date = new Date()): Promise<Buffer> {
     const school = await this.schoolNameOf(actor, schoolId);
+    const initials = schoolInitials(school ?? ''), year = vnDayLabel(now).slice(8, 10), prefix = `${initials}${year}`;
     return buildFormSheet({
       sheetName: 'Giáo viên', title: 'Đông A', subtitle: `Mẫu nhập danh sách giáo viên${school ? ` · ${school}` : ''}`,
       meta: [{ label: 'Ngày bắt đầu nhập', value: vnDayLabel(now) }], note: 'Điền mỗi giáo viên một dòng bên dưới. Cột có dấu * là bắt buộc.',
-      columns: TEACHER_FORM_COLUMNS, blankRows: 200, now,
+      columns: TEACHER_FORM_COLUMNS.map(c => c.key === 'user_code' ? { ...c, kind: 'teacher-code', width: 29, watch: 'full_name', birthKey: 'birth_date', codePrefix: prefix } : c), blankRows: 1000, now,
       guide: [
         'Điền mỗi giáo viên một dòng trong bảng ở sheet "Giáo viên", ngay dưới dòng tiêu đề. Cột có dấu * là bắt buộc (Họ và tên, Email).',
-        'Số thứ tự tự hiện khi bạn nhập họ tên, không cần gõ.',
+        'Số thứ tự tự tăng theo những dòng đã nhập họ tên, kể cả khi có dòng trống ở giữa. File có sẵn 1000 dòng công thức.',
+        `Mã giáo viên tự hiện sau khi nhập họ tên và ngày sinh: ${initials} + ${year} + ngày sinh ddmmyyyy + STT 3 chữ số.`,
+        `${initials}: viết tắt của ${school ?? 'tên trường'}. ${year}: hai số cuối năm tải mẫu. Phần ddmmyyyy: ngày, tháng, năm sinh của giáo viên. STT giúp phân biệt người có cùng ngày sinh.`,
+        `Ví dụ ngày sinh 15/03/1985, STT 1: ${prefix}15031985001. Với THCS Giồng Ông Tố trong năm 2026: GOT2615031985001.`,
+        'Mã đã lưu là định danh cố định; sửa ngày sinh hoặc tải file mới không tự đổi mã của tài khoản cũ. Nếu nhập lại mã đã có, hệ thống báo trùng trước khi lưu.',
         'Giới tính: bấm vào ô rồi chọn Nam hoặc Nữ trong danh sách.',
         'Ngày tháng năm sinh: chọn ngày trên lịch nếu phần mềm bảng tính của bạn có (Google Sheets, Excel Microsoft 365 bản mới) hoặc gõ dd/mm/yyyy, ví dụ 15/03/1985. Ngày sai bị chặn ngay trong ô.',
         'Email phải khác nhau và chưa dùng cho tài khoản nào khác. Hệ thống sinh mật khẩu tạm và gửi vào email này; giáo viên đổi mật khẩu ở lần đăng nhập đầu tiên.',
-        'Để trống Mã giáo viên để hệ thống cấp mã tăng dần. Mã đã có không được trùng trong trường. SĐT gõ như bình thường, số 0 ở đầu được giữ nguyên.',
+        'Không cần gõ cột Số thứ tự hoặc Mã giáo viên. Để trống ngày sinh thì mã chưa hiện; khi nhập lên hệ thống, mã còn trống được cấp theo dãy GV. SĐT giữ nguyên số 0 đầu.',
         'Bộ môn mặc định là Lịch sử nên không cần nhập.',
         'Chỉ nhận file Excel .xlsx (tối đa 2 MB, tối đa 1000 giáo viên mỗi lần). Đừng xóa hay đổi tên dòng tiêu đề của bảng.',
-        'Ví dụ một dòng: GV001 | Nguyễn Văn An | Nam | 0901234567 | an.nguyen@example.edu.vn | 15/03/1985',
+        'Mở và lưu file bằng Excel/WPS có bật tính công thức tự động trước khi tải lên. Ngày bắt đầu nhập là ngày tải mẫu, không thay đổi khi mở lại.',
         'Sau khi chọn file, hệ thống kiểm tra từng dòng và báo lỗi trước khi lưu; lưu xong danh sách giáo viên tự cập nhật.',
       ],
     });
@@ -432,7 +437,7 @@ export class AccountService {
   async importMembers(actor: UserRow, role: MemberRole, file: UploadedXlsx | undefined, opts: { commit: boolean; school_id?: number | null; year_id?: number | null }) {
     const upload = checkUpload(file);
     const schoolId = this.schools.target(actor, opts.school_id);
-    const parsed = await readSheet(upload, role === 'teacher' ? TEACHER_IMPORT_COLUMNS : STUDENT_COLUMNS);
+    const parsed = await readSheet(upload, role === 'teacher' ? TEACHER_IMPORT_COLUMNS : STUDENT_COLUMNS, undefined, role === 'teacher');
     if (!parsed.length) throw new BadRequestException('File không có dòng dữ liệu nào');
     return this.schools.run(actor, async (q) => {
       if (opts.commit) await q('SELECT pg_advisory_xact_lock(7412026)');

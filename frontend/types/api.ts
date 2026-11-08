@@ -211,9 +211,14 @@ export interface ClassItem {
 }
 
 export interface ClassDetail extends ClassItem {
+  active_semester:number;
   legacy_teacher_review?: boolean;
   term_teachers: Array<{semester:number;teacher_id:number|null;teacher_name:string|null;starts_on:string|null;ends_on:string|null}>;
   members: Array<{ id: number; full_name: string; user_code: string | null; username: string; birth_date: string | null; gender: Gender | null; is_active: boolean; nickname: string | null }>;
+}
+export interface TeacherChangeRequest {
+  id:number|string;class_id:number;class_name:string;semester:number;from_teacher_id:number|null;to_teacher_id:number|null;requested_by:number|null;
+  from_teacher_name:string|null;to_teacher_name:string|null;note:string|null;status:'pending'|'approved'|'rejected'|'cancelled';requested_at:string;
 }
 
 export interface ClassEvent { id: number; kind: string; note: string | null; created_at: string; actor_name: string | null; user_name: string | null; teacher_name: string | null }

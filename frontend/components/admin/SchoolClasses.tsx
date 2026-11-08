@@ -8,6 +8,7 @@ import { Archive, ArrowRightLeft, FileUp, Plus, RefreshCw, Trash2, UserPlus } fr
 import * as api from '@/api/adminApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { RegistrationCode } from './RegistrationCode';
+import { TeacherChangeReview } from './ClassTeacherChange';
 import { fmtDay,todayVn } from '@/lib/school-terms';
 import { Cell, DataTable, ErrorNote, FormSheet, ImportSheet, Page, PageHeader, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, valuesToIds, yearOptions, YEAR_TEXT, type FieldDef, type SearchFilter } from '@/components/admin/kit';
 import { dateText } from '@/components/admin/AccountSheet';
@@ -44,6 +45,8 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
   const [cloning, setCloning] = useState(false);
   const [importing, setImporting] = useState(false);
   const [cloned, setCloned] = useState<CloneResult | null>(null);
+  const requests=useLoad(()=>api.teacherChangeRequests(token),[token],session.expired);
+  const [reviewing,setReviewing]=useState(false);
   const ended = year?.status === 'ended';
   const f_grade: SearchFilter = { key: 'grade', label: 'Khối', value: grade, options: [{ value: '', label: 'Mọi khối' }, ...[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }))], onChange: setGrade };
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã lưu trữ' }], onChange: setActive };
@@ -52,11 +55,13 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
     <Page>
       <PageHeader title="Lớp học" subtitle="Tạo lớp theo năm học và khối, phân công giáo viên, xếp học sinh và nhân bản sang năm học mới."
         actions={<>
+          <Btn title={`Đề nghị đổi giáo viên${requests.data?.length ? ` (${requests.data.length})`:''}`} tone="giay" size="sm" testID="teacher-change-review" onPress={()=>{requests.reload();setReviewing(true);}}/>
           <Btn title="Nhân bản sang năm học mới" icon={RefreshCw} tone="giay" size="sm" disabled={!yearId} onPress={() => setCloning(true)} testID="class-clone" />
           <Btn title="Xếp lớp từ Excel" icon={FileUp} tone="giay" size="sm" disabled={!yearId || ended} onPress={() => setImporting(true)} />
           <Btn title="Tạo lớp" icon={Plus} tone="son" size="sm" disabled={!yearId || ended} onPress={() => setCreating(true)} testID="class-add" />
         </>} />
       {!years.length ? <Inset><Txt size={14}>Chưa có năm học nào. Hãy thêm và kích hoạt năm học ở mục “Trường và năm học” trước khi tạo lớp.</Txt></Inset> : null}
+      {reviewing?<TeacherChangeReview session={session} requests={requests.data??[]} loading={requests.loading} error={requests.error} onReload={()=>{requests.reload();reload();}} onClose={()=>{setReviewing(false);reload();}}/>:null}
       <SearchFilterBar placeholder="Tìm theo tên lớp" value={q} onChange={setQ} searchId="class-search" filters={[f_grade, f_active]}
         extra={<View style={{flexDirection:'row',flexWrap:'wrap',gap:12}}><View style={{ width: 220 }}><AdminSelect bare label="Năm học" value={String(yearId)} options={yearOptions(years)} onChange={(v) => {setYearSel(String(v));setSemesterSel('');}} testID="class-year" /></View><View style={{width:160}}><AdminSelect bare label="Học kỳ" value={String(semester)} options={SEMESTERS} onChange={setSemesterSel} testID="class-semester"/></View></View>} />
       {ended ? <Inset><Txt size={13}>Năm học đã kết thúc: chỉ xem được, không sửa lớp hay học sinh của năm này.</Txt></Inset> : null}
@@ -143,7 +148,11 @@ const ClassSheet: React.FC<{
     {name:'registration_code',label:'Mã lớp',readOnly:true},
     { name: 'name', label: 'Tên lớp', required: true }, { name: 'grade', label: 'Khối', type: 'select', options: gradeOptions, hint: k?.students ? 'Lớp đã có học sinh nên không đổi khối được.' : undefined },
     {name:'semester',label:'Học kỳ',render:(v,set)=><AdminSelect label="Học kỳ" value={String(v.semester)} options={SEMESTERS} onChange={s=>{set('semester',s);const matches=k?.term_teachers?.filter(t=>t.semester===Number(s))??[];set('teacher_id',matches.length===1&&matches[0].teacher_id ? String(matches[0].teacher_id):'');}} testID="edit-class-semester"/>},
-    { name: 'teacher_id', label: 'Giáo viên phụ trách lớp', type: 'select', options: [{value:'',label:'Chưa phân công'},...teacherOptions] }, { name: 'expected_size', label: 'Sĩ số dự kiến', type: 'number' }, { name: 'description', label: 'Mô tả', type: 'textarea' },
+    { name: 'teacher_id', label: 'Giáo viên phụ trách lớp', render:(v,set)=>{
+      const term=k?.term_teachers?.filter(t=>t.semester===Number(v.semester))??[];
+      const needsApproval=k?.year_status==='active' && Number(v.semester)===k.active_semester && (term.some(t=>t.teacher_id!==null)||k.legacy_teacher_review);
+      return needsApproval?<View style={{gap:8}}><Txt f="bold" size={14}>Giáo viên phụ trách lớp</Txt><Txt size={14}>{term.map(t=>t.teacher_name).filter(Boolean).join(', ')||'Chưa phân công'}</Txt><Txt size={13}>Thay đổi trong học kỳ được thực hiện qua đề nghị của giáo viên và quản trị trường duyệt.</Txt></View>:<AdminSelect label="Giáo viên phụ trách lớp" value={String(v.teacher_id)} options={[{value:'',label:'Chưa phân công'},...teacherOptions]} onChange={value=>set('teacher_id',value)} testID="field-teacher_id"/>;
+    } }, { name: 'expected_size', label: 'Sĩ số dự kiến', type: 'number' }, { name: 'description', label: 'Mô tả', type: 'textarea' },
   ];
 
   return (
@@ -196,9 +205,11 @@ const ClassSheet: React.FC<{
         <FormSheet title="Sửa lớp" fields={editFields} wide onClose={() => setDialog(null)}
           initial={{ registration_code:k.registration_code,name: k.name, grade: String(k.grade ?? ''), semester:String(k.semester),teacher_id:k.teachers.length===1?String(k.teachers[0].id):'', expected_size: k.expected_size ? String(k.expected_size) : '', description: k.description ?? '' }}
           onSubmit={async (v) => {
-            const body={ name: String(v.name), grade: Number(v.grade) || undefined,semester:Number(v.semester), teacher_ids: v.teacher_id?[Number(v.teacher_id)]:[], expected_size: String(v.expected_size) ? Number(v.expected_size) : null, description: String(v.description) || null };
+            const term=k.term_teachers?.filter(t=>t.semester===Number(v.semester))??[];
+            const needsApproval=k.year_status==='active' && Number(v.semester)===k.active_semester && (term.some(t=>t.teacher_id!==null)||k.legacy_teacher_review);
+            const body={ name: String(v.name), grade: Number(v.grade) || undefined,semester:Number(v.semester), teacher_ids: needsApproval ? undefined : v.teacher_id?[Number(v.teacher_id)]:[], expected_size: String(v.expected_size) ? Number(v.expected_size) : null, description: String(v.description) || null };
             const old=k.term_teachers?.find(t=>t.semester===body.semester)?.teacher_id;
-            if(k.legacy_teacher_review || (old && old!==(body.teacher_ids[0]??null))){setReassign(body);return;}
+            if(!needsApproval && (k.legacy_teacher_review || (old && old!==(body.teacher_ids?.[0]??null)))){setReassign(body);return;}
             await api.updateClass(token, id,body);
             setDialog(null);
             refresh();

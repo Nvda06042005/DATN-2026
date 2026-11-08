@@ -6,7 +6,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { activate, adminLogin, call, download, hasPostgres, sql, Started, startApp, upload } from './harness';
-import { brandLogo, BRAND_LOGO_SIZE, buildFormSheet, vnDayLabel } from '../src/admin/excel';
+import { brandLogo, BRAND_LOGO_SIZE, buildFormSheet, schoolInitials, vnDayLabel } from '../src/admin/excel';
 
 const LOGO_FILE = join(__dirname, '..', 'assets', 'brand', 'dong-a-edu-lockup.png');
 
@@ -20,6 +20,12 @@ describe('Logo ở đầu file Excel', () => {
     expect([file.readUInt32BE(16), file.readUInt32BE(20)]).toEqual([BRAND_LOGO_SIZE.width * 3, BRAND_LOGO_SIZE.height * 3]); // vẽ ở 3 lần kích thước hiển thị cho nét
     expect(file[25]).toBe(6); // có kênh trong suốt: nền ô hiện qua logo
     expect(brandLogo()?.equals(file)).toBe(true);
+  });
+
+  test('phần viết tắt lấy tên riêng của trường, bỏ cấp học và dấu tiếng Việt', () => {
+    expect(schoolInitials('THCS Giồng Ông Tố')).toBe('GOT');
+    expect(schoolInitials('Trường Trung học cơ sở Nguyễn Văn Quy')).toBe('NVQ');
+    expect(schoolInitials('THCS Phú Mỹ')).toBe('PM');
   });
 
   test('có logo thì đặt ảnh ở góc trên bên trái, không có ô chữ; không có ảnh thì dùng chữ thay thế', async () => {
@@ -92,24 +98,47 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     expect((sheet.getRow(headerRow).values as unknown[]).slice(1)).toEqual(HEADER);
     expect(HEADER).not.toContain('Bộ môn');
     expect(sheet.views[0]).toMatchObject({ state: 'frozen', ySplit: headerRow });
-    // 200 dòng định dạng sẵn: ô giới tính là danh sách Nam/Nữ, ô ngày chỉ nhận ngày hợp lệ, SĐT và mã là văn bản
-    for (const n of [headerRow + 1, headerRow + 200]) {
+    // 1000 dòng định dạng sẵn: giới tính, ngày sinh, STT và mã tự ghép.
+    for (const n of [headerRow + 1, headerRow + 1000]) {
       expect(sheet.getCell(n, 4).dataValidation).toMatchObject({ type: 'list', formulae: ['"Nam,Nữ"'], allowBlank: true, showErrorMessage: true });
       expect(sheet.getCell(n, 7).dataValidation).toMatchObject({ type: 'date', operator: 'between', allowBlank: true, showErrorMessage: true });
       expect(sheet.getCell(n, 7).numFmt).toBe('dd/mm/yyyy');
       expect(sheet.getCell(n, 5).numFmt).toBe('@');
       expect(sheet.getCell(n, 2).numFmt).toBe('@');
-      expect(sheet.getCell(n, 1).value).toMatchObject({ formula: expect.stringContaining('ROW()') }); // số thứ tự tự hiện khi có họ tên
+      expect(sheet.getCell(n, 1).value).toMatchObject({ formula: expect.stringContaining('COUNTIFS') });
+      expect(sheet.getCell(n, 2).value).toMatchObject({ formula: expect.stringContaining('TEXT(G' + n + ',"ddmmyyyy")') });
     }
-    expect(sheet.getCell(headerRow + 201, 4).dataValidation).toBeFalsy();
+    expect(sheet.getCell(headerRow + 1001, 4).dataValidation).toBeFalsy();
     const guide = wb.getWorksheet('Hướng dẫn')!;
     const lines: string[] = [];
     guide.eachRow((row) => lines.push(String(row.getCell(1).value ?? '')));
     expect(lines.join('\n')).toContain('Chỉ nhận file Excel .xlsx');
     expect(lines.join('\n')).toContain('Bộ môn mặc định là Lịch sử');
+    expect(lines.join('\n')).toContain('GOT2615031985001');
     // tải lại lần nữa ở trường khác: tên trường đổi theo trường của người tải
     const other = await open((await download(s.base, '/api/admin/teachers/template', B.token)).buffer);
     expect(String(other.getWorksheet('Giáo viên')!.getCell('A2').value)).toContain('THCS Trường Khác');
+  });
+
+  test('mã công thức được nhập đúng dù file chưa có kết quả tính; có dòng trống vẫn tăng STT, người cùng ngày sinh khác mã, không đổi mã đã lưu', async () => {
+    const template = (await download(s.base, '/api/admin/teachers/template', A.token)).buffer;
+    const wb = await open(template), sheet = wb.getWorksheet('Giáo viên')!;
+    for (const [n, name, email] of [[7,'Mẫu Tự Động Một','tu.dong.1@example.edu.vn'],[9,'Mẫu Tự Động Hai','tu.dong.2@example.edu.vn']] as const) {
+      sheet.getCell(n,3).value=name; sheet.getCell(n,6).value=email;
+      sheet.getCell(n,7).value=new Date('1985-03-15T00:00:00.000Z');
+    }
+    const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+    const preview = await upload(s.base, '/api/admin/teachers/import', 'cong-thuc.xlsx', buffer, A.token);
+    expect(preview.status).toBe(200);
+    expect(preview.body.total).toBe(2);
+    const prefix = 'ME' + vnDayLabel().slice(8,10);
+    expect(preview.body.rows.map((r: {user_code:string})=>r.user_code)).toEqual([prefix+'15031985001',prefix+'15031985002']);
+    const saved = await upload(s.base, '/api/admin/teachers/import?commit=true', 'cong-thuc.xlsx', buffer, A.token);
+    expect(saved.body.created).toBe(2);
+    expect(saved.body.rows.map((r: {user_code:string})=>r.user_code)).toEqual(preview.body.rows.map((r:{user_code:string})=>r.user_code));
+    const repeated = await upload(s.base, '/api/admin/teachers/import', 'cong-thuc.xlsx', buffer, A.token);
+    expect(repeated.body.errors).toBe(2);
+    expect(repeated.body.rows.every((r:{errors:string[]})=>r.errors.some(e=>/đã được dùng|trùng/.test(e)))).toBe(true);
   });
 
   test('điền file mẫu rồi nhập: xem trước báo lỗi đúng số dòng trong Excel, lưu dòng hợp lệ, giới tính/ngày sinh/mã/số 0 đầu đúng, bộ môn mặc định Lịch sử', async () => {

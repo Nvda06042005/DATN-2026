@@ -51,6 +51,9 @@ const clampInt = (v: unknown, min: number, max: number, label: string): number =
 @Injectable()
 export class ClassroomService {
   constructor(private readonly db: DatabaseService, private readonly classes: ClassService, private readonly game: GameService) {}
+  teacherChangeOptions(user:UserRow,id:number){return this.classes.teacherChangeOptions(user,id);}
+  requestTeacherChange(user:UserRow,id:number,teacherId:unknown,note:unknown){return this.classes.requestTeacherChange(user,id,teacherId,note);}
+  cancelTeacherChange(user:UserRow,id:number){return this.classes.cancelTeacherChange(user,id);}
 
   // ------------------------------------------------------------------ truy cập
   /** Lớp giáo viên phụ trách (hoặc lớp của trường với quản trị viên trường); `open` chặn thao tác ghi trên lớp lưu trữ hoặc năm học đã kết thúc */

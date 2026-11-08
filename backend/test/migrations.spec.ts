@@ -103,6 +103,7 @@ describe('file migration', () => {
   });
 
   test('053 giữ mã cũ/phân công cũ; chuyển lớp một giáo viên sang cả hai học kỳ, không tự chọn ở lớp nhiều giáo viên', async () => {
+    for(const name of readdirSync(dir).filter(name=>/^\d+_.*\.sql$/.test(name)&&Number(name.split('_')[0])>53)) renameSync(join(dir,name),join(dir,`${name}.held`));
     const change=readdirSync(dir).find(name=>name.startsWith('053_'))!;
     renameSync(join(dir,change),join(dir,change+'.held'));
     await m.applyMigrations(url,dir);

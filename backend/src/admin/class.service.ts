@@ -8,6 +8,7 @@ import { randomInt } from 'crypto';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
 import { buildWorkbook, checkUpload, readSheet, UploadedXlsx } from './excel';
 import { likeEscape, SchoolService } from './school.service';
+import { notify } from '../classroom/notify';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 /** Mã tham gia lớp: 6 ký tự, bỏ I, O, 0, 1 dễ nhầm */
@@ -53,6 +54,7 @@ export class ClassService {
       `SELECT c.id, c.school_id, c.year_id, c.school_year, c.class_code, c.registration_code, c.name, c.grade, c.is_active, c.join_code, c.join_open, c.expected_size, c.description, c.status, c.closed_at, c.created_at,
               y.status AS year_status,
               COALESCE($2::int,public.app_class_semester(c.year_id),1) AS semester,
+              COALESCE(public.app_class_semester(c.year_id),1) AS active_semester,
               EXISTS(SELECT 1 FROM app_class_teachers old WHERE old.class_id=c.id GROUP BY old.class_id HAVING count(*)>1)
                 AND NOT EXISTS(SELECT 1 FROM app_class_term_teachers t WHERE t.class_id=c.id) AS legacy_teacher_review,
               COALESCE((SELECT json_agg(json_build_object('id', u.id, 'full_name', u.full_name, 'email', u.email, 'is_active', u.is_active) ORDER BY u.full_name)
@@ -188,16 +190,99 @@ export class ClassService {
     });
   }
 
-  private async setTeachers(q: Q, actor: UserRow, cls: ClassRow, wanted: number[],semester: number,confirmed: boolean): Promise<void> {
+  private async setTeachers(q: Q, actor: UserRow, cls: ClassRow, wanted: number[],semester: number,confirmed: boolean,approvedRequest=false): Promise<void> {
     if (![1,2].includes(semester)) throw new UnprocessableEntityException('Học kỳ không hợp lệ');
     const current=await q<{teacher_id:number|null}>('SELECT teacher_id FROM app_class_term_teachers WHERE class_id=$1 AND semester=$2',[cls.id,semester]);
     const legacy=current.length ? [] : await q<{teacher_id:number}>('SELECT teacher_id FROM app_class_teachers WHERE class_id=$1',[cls.id]);
     const previous=current[0]?.teacher_id ?? (legacy.length===1 ? legacy[0].teacher_id : null), next=wanted[0] ?? null;
+    if((previous!==null || legacy.length>1) && (previous!==next || legacy.length>1) && !approvedRequest){
+      const year=(await q<{status:string;semester:number}>('SELECT status,COALESCE(public.app_class_semester(id),1) AS semester FROM app_school_years WHERE id=$1',[cls.year_id]))[0];
+      if(year?.status==='active' && year.semester===semester) throw new ConflictException('Giáo viên phụ trách lớp cần gửi đề nghị thay đổi và được quản trị trường duyệt trong học kỳ này');
+    }
     if (previous!==null && previous!==next && !confirmed) throw new ConflictException('Vui lòng xác nhận thay đổi giáo viên phụ trách lớp');
     await q('INSERT INTO app_class_term_teachers(class_id,school_id,semester,teacher_id,assigned_by) SELECT $1,$2,s.n,NULL,$3 FROM (VALUES(1),(2)) s(n) ON CONFLICT DO NOTHING',[cls.id,cls.school_id,actor.id]);
     if (previous===next && !legacy.length) return;
     await q('UPDATE app_class_term_teachers SET teacher_id=$3,assigned_by=$4,assigned_at=now() WHERE class_id=$1 AND semester=$2',[cls.id,semester,next,actor.id]);
     await this.log(q,cls,previous===null ? 'assign' : next===null ? 'unassign' : 'change_teacher',actor,{teacher_id:next,note:`Học kỳ ${semester}: ${previous ?? 'chưa phân công'} → ${next ?? 'chưa phân công'}`});
+  }
+
+  private async teacherRequestContext(q:Q,actor:UserRow,id:number){
+    if(actor.role!=='teacher')throw new ForbiddenException('Chức năng này dành cho giáo viên phụ trách lớp');
+    const cls=await this.openClass(q,actor,id);
+    if(cls.school_id!==actor.school_id || !cls.is_active)throw new NotFoundException('Không tìm thấy lớp đang phụ trách');
+    if(!(await q("SELECT 1 FROM app_school_years WHERE id=$1 AND status='active'",[cls.year_id])).length)throw new ConflictException('Chỉ gửi đề nghị trong năm học đang hoạt động');
+    const semester=(await q<{n:number}>('SELECT COALESCE(public.app_class_semester($1),1) AS n',[cls.year_id]))[0].n;
+    if(!(await q('SELECT 1 FROM app_current_class_teachers WHERE class_id=$1 AND teacher_id=$2',[id,actor.id])).length)throw new ForbiddenException('Bạn không phụ trách lớp trong học kỳ hiện tại');
+    return {cls,semester};
+  }
+
+  async teacherChangeOptions(actor:UserRow,id:number){
+    return this.schools.run(actor,async q=>{
+      const {cls,semester}=await this.teacherRequestContext(q,actor,id);
+      const candidates=await q("SELECT id,full_name,user_code FROM app_users WHERE school_id=$1 AND role='teacher' AND is_active=1 AND deleted_at IS NULL AND id<>$2 ORDER BY full_name,id",[cls.school_id,actor.id]);
+      const requests=await this.requestRows(q,'r.class_id=$1',[id]);
+      return {semester,class_name:cls.name,teacher_name:actor.full_name,candidates,requests};
+    });
+  }
+
+  async requestTeacherChange(actor:UserRow,id:number,teacherId:unknown,note:unknown){
+    if(!Number.isInteger(teacherId) || Number(teacherId)<1 || teacherId===actor.id)throw new UnprocessableEntityException('Hãy chọn giáo viên khác tiếp nhận lớp');
+    const text=note==null ? null : String(note).trim() || null;
+    if(text && text.length>1000)throw new UnprocessableEntityException('Nội dung đề nghị tối đa 1000 ký tự');
+    return this.schools.run(actor,async q=>{
+      const {cls,semester}=await this.teacherRequestContext(q,actor,id);
+      await this.validTeachers(q,cls.school_id,[Number(teacherId)]);
+      if((await q("SELECT 1 FROM app_class_teacher_change_requests WHERE class_id=$1 AND semester=$2 AND status='pending'",[id,semester])).length)throw new ConflictException('Lớp đã có đề nghị đổi giáo viên đang chờ duyệt trong học kỳ này');
+      const row=(await q<{id:string}>(`INSERT INTO app_class_teacher_change_requests(class_id,school_id,semester,from_teacher_id,to_teacher_id,requested_by,note) VALUES($1,$2,$3,$4,$5,$4,$6) RETURNING id`,[id,cls.school_id,semester,actor.id,teacherId,text]))[0];
+      const admins=await q<{id:number}>("SELECT id FROM app_users WHERE school_id=$1 AND role='school_admin' AND is_active=1 AND deleted_at IS NULL",[cls.school_id]);
+      await notify(q,admins.map(a=>a.id),{kind:'teacher_change',title:'Đề nghị đổi giáo viên phụ trách lớp',body:`${actor.full_name} gửi đề nghị cho lớp ${cls.name}, Học kỳ ${semester}.`,class_id:id,school_id:cls.school_id,by:actor.id,ref:{request_id:row.id}});
+      return (await this.requestRows(q,'r.id=$1',[row.id]))[0];
+    });
+  }
+
+  private requestRows(q:Q,where:string,params:unknown[]){
+    return q<Record<string,any>>(`SELECT r.*,c.name AS class_name,c.registration_code,f.full_name AS from_teacher_name,t.full_name AS to_teacher_name,a.full_name AS reviewer_name
+      FROM app_class_teacher_change_requests r JOIN app_classes c ON c.id=r.class_id LEFT JOIN app_users f ON f.id=r.from_teacher_id LEFT JOIN app_users t ON t.id=r.to_teacher_id LEFT JOIN app_users a ON a.id=r.reviewed_by
+      WHERE ${where} ORDER BY r.requested_at DESC,r.id DESC LIMIT 200`,params);
+  }
+
+  async teacherChangeRequests(actor:UserRow){
+    if(!['school_admin','root_admin'].includes(actor.role))throw new ForbiddenException('Chức năng này dành cho quản trị trường');
+    return this.schools.run(actor,q=>this.requestRows(q,"r.status='pending'",[]));
+  }
+
+  async decideTeacherChange(actor:UserRow,requestId:number,decision:'approved'|'rejected',reviewNote?:string){
+    if(!['school_admin','root_admin'].includes(actor.role))throw new ForbiddenException('Chức năng này dành cho quản trị trường');
+    return this.schools.run(actor,async q=>{
+      const found=(await q<{class_id:number}>('SELECT class_id FROM app_class_teacher_change_requests WHERE id=$1',[requestId]))[0];
+      if(!found)throw new NotFoundException('Không tìm thấy đề nghị');
+      const cls=await this.load(q,actor,found.class_id,true);
+      const request=(await q<Record<string,any>>('SELECT * FROM app_class_teacher_change_requests WHERE id=$1 FOR UPDATE',[requestId]))[0];
+      if(request.status!=='pending')throw new ConflictException('Đề nghị đã được xử lý');
+      if(decision==='approved'){
+        await this.schools.assertYearOpen(q,cls.year_id);
+        const semester=(await q<{n:number}>('SELECT COALESCE(public.app_class_semester($1),1) AS n',[cls.year_id]))[0].n;
+        if(!cls.is_active || semester!==request.semester || !(await q("SELECT 1 FROM app_school_years WHERE id=$1 AND status='active'",[cls.year_id])).length || !(await q('SELECT 1 FROM app_current_class_teachers WHERE class_id=$1 AND teacher_id=$2',[cls.id,request.from_teacher_id])).length)throw new ConflictException('Phân công đã thay đổi hoặc học kỳ không còn phù hợp; hãy gửi đề nghị mới');
+        const teachers=await this.validTeachers(q,cls.school_id,[request.to_teacher_id]);
+        await this.setTeachers(q,actor,cls,teachers,request.semester,true,true);
+      }
+      await q('UPDATE app_class_teacher_change_requests SET status=$2,reviewed_by=$3,reviewed_at=now(),review_note=$4 WHERE id=$1',[requestId,decision,actor.id,reviewNote?.trim()||null]);
+      await this.log(q,cls,'teachers',actor,{teacher_id:request.to_teacher_id,note:`${decision==='approved'?'Đã duyệt':'Từ chối'} đề nghị #${requestId} · Học kỳ ${request.semester}`});
+      await notify(q,[request.from_teacher_id,request.to_teacher_id].filter((id):id is number=>typeof id==='number'),{kind:'teacher_change',title:decision==='approved'?'Đã duyệt thay đổi giáo viên':'Đề nghị đổi giáo viên chưa được duyệt',body:`Lớp ${cls.name} · Học kỳ ${request.semester}.`,class_id:cls.id,school_id:cls.school_id,by:actor.id,ref:{request_id:requestId}});
+      return (await this.requestRows(q,'r.id=$1',[requestId]))[0];
+    });
+  }
+
+  async cancelTeacherChange(actor:UserRow,requestId:number){
+    if(actor.role!=='teacher')throw new ForbiddenException('Chức năng này dành cho giáo viên');
+    return this.schools.run(actor,async q=>{
+      const found=(await q<{class_id:number}>('SELECT class_id FROM app_class_teacher_change_requests WHERE id=$1 AND requested_by=$2',[requestId,actor.id]))[0];
+      if(!found)throw new NotFoundException('Không tìm thấy đề nghị');
+      await this.load(q,actor,found.class_id,true);
+      const row=await q("UPDATE app_class_teacher_change_requests SET status='cancelled',reviewed_at=now() WHERE id=$1 AND requested_by=$2 AND status='pending' RETURNING id",[requestId,actor.id]);
+      if(!row.length)throw new ConflictException('Đề nghị đã được xử lý');
+      return {ok:true};
+    });
   }
 
   /** Lưu trữ / khôi phục lớp (HK.QT.038): lớp lưu trữ không nhận học sinh mới và mã tham gia ngừng dùng được */

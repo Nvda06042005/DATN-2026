@@ -69,7 +69,7 @@ export const SchoolAdmin: React.FC<{ session: Session }> = ({ session }) => {
   const reloadAll = () => { reloadSchool(); reloadYears(); };
   return (
     <AdminUiContext.Provider value>
-      <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab} schoolName={school?.name} extra={<NoticeBell session={session} onGo={(n) => setTab(n.kind === 'survey' ? 'surveys' : n.kind === 'support' ? 'help' : 'school')} />}>
+      <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab} schoolName={school?.name} extra={<NoticeBell session={session} onGo={(n) => setTab(n.kind === 'survey' ? 'surveys' : n.kind === 'support' ? 'help' : n.kind==='teacher_change'?'classes':'school')} />}>
         {tab === 'stats' ? <SchoolDashboard session={session} schoolName={school?.name} />
           : tab === 'school' ? <SchoolPanel session={session} school={school} years={years ?? []} onChanged={reloadAll} />
           : tab === 'teachers' ? <SchoolPeople session={session} kind="teachers" years={years ?? []} />

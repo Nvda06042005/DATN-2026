@@ -520,9 +520,10 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     expect((await api('PATCH', `/api/admin/users/${t.body.user.id}`, { email: 'qt.b@example.edu.vn' })).status).toBe(409);
     expect((await api('PATCH', `/api/admin/users/${t.body.user.id}`, { email: 'khong-phai-email' })).status).toBe(422);
     const gv = await api('POST', '/api/admin/teachers', { full_name: 'Cô Đang Dạy', email: 'dangday@example.edu.vn' }, a.token);
-    await call(s.base, 'PATCH', `/api/admin/classes/${classA.id}`, { teacher_ids: [gv.body.user.id] }, a.token);
+    const assigned=await call(s.base,'POST','/api/admin/classes',{year_id:yearA,grade:7,name:'7ChuyenTruong',teacher_ids:[gv.body.user.id]},a.token);
+    expect(assigned.status).toBe(201);
     expect((await api('PATCH', `/api/admin/users/${gv.body.user.id}`, { school_id: b.id })).status).toBe(409);
-    await call(s.base, 'PATCH', `/api/admin/classes/${classA.id}`, { teacher_ids: [], confirm_reassignment:true }, a.token);
+    expect((await call(s.base,'DELETE',`/api/admin/classes/${assigned.body.id}`,undefined,a.token)).status).toBe(204);
   });
 
   test('HK.AD.023/024 khóa kèm lý do (bắt buộc), thu hồi phiên, hiện lý do khi đăng nhập; mở khóa; đặt lại mật khẩu gửi thư', async () => {
@@ -567,9 +568,10 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     expect((await api('DELETE', `/api/admin/users/${used.body.user.id}`)).status).toBe(204);
     expect(await db.getById(used.body.user.id)).toBeNull();
     const teaching = await api('POST', '/api/admin/teachers', { full_name: 'Cô Được Phân Công', email: 'phancong@example.edu.vn' }, a.token);
-    await call(s.base, 'PATCH', `/api/admin/classes/${classA.id}`, { teacher_ids: [teaching.body.user.id] }, a.token);
+    const assigned=await call(s.base,'POST','/api/admin/classes',{year_id:yearA,grade:7,name:'7XoaGiaoVien',teacher_ids:[teaching.body.user.id]},a.token);
+    expect(assigned.status).toBe(201);
     expect((await api('DELETE', `/api/admin/users/${teaching.body.user.id}`, undefined, a.token)).body.detail).toContain('phụ trách lớp');
-    await call(s.base, 'PATCH', `/api/admin/classes/${classA.id}`, { teacher_ids: [], confirm_reassignment:true }, a.token);
+    expect((await call(s.base,'DELETE',`/api/admin/classes/${assigned.body.id}`,undefined,a.token)).status).toBe(204);
     expect((await api('DELETE', `/api/admin/users/${(await db.getByUsername('admin'))!.id}`)).status).toBe(400);
   });
 

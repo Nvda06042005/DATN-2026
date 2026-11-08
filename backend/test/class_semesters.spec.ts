@@ -42,9 +42,7 @@ import { bootstrap, Fixture } from './fixture';
     expect(first.term_teachers[0]).toMatchObject(dates);
     expect((await api('PATCH',`/api/admin/classes/${id}`,{semester:1,teacher_ids:[f.T2.id]})).status).toBe(409);
     expect((await api('GET',`/api/admin/classes/${id}?semester=1`)).body.teachers[0].id).toBe(f.T1.id);
-    expect((await api('PATCH',`/api/admin/classes/${id}`,{semester:1,teacher_ids:[f.T2.id],confirm_reassignment:true})).status).toBe(200);
-    expect((await api('GET',`/api/admin/classes/${id}/events`)).body.some((e:any)=>e.kind==='change_teacher'&&e.note.includes('Học kỳ 1'))).toBe(true);
-    await api('PATCH',`/api/admin/classes/${id}`,{semester:1,teacher_ids:[f.T1.id],confirm_reassignment:true});
+    expect((await api('PATCH',`/api/admin/classes/${id}`,{semester:1,teacher_ids:[f.T2.id],confirm_reassignment:true})).status).toBe(409);
   });
   test('quyền giáo viên chuyển đúng học kỳ ở API lớp, hồ sơ và thống kê; không truy cập trường khác',async()=>{
     const id=f.class7a.id;

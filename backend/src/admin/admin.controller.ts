@@ -210,6 +210,10 @@ class UpdateClassDto {
 class ArchiveDto {
   @IsBoolean() archived: boolean;
 }
+class TeacherChangeDecisionDto {
+  @IsIn(['approved','rejected']) decision:'approved'|'rejected';
+  @IsOptional() @IsString() @MaxLength(1000) note?:string;
+}
 
 class MembersDto {
   @IsArray() @ArrayMaxSize(500) @IsInt({ each: true }) student_ids: number[];
@@ -401,6 +405,13 @@ export class AdminController {
   // ------------------------------------------------------------------ lớp học (HK.QT.022, HK.QT.035–040)
   @Get('classes')
   classList(@CurrentUser() user: UserRow, @Query() query: ClassQuery) { return this.classes.list(user, query); }
+
+  @Get('teacher-change-requests')
+  teacherChangeRequests(@CurrentUser() user:UserRow){return this.classes.teacherChangeRequests(user);}
+
+  @Post('teacher-change-requests/:id/decision')
+  @HttpCode(200)
+  teacherChangeDecision(@CurrentUser() user:UserRow,@Param('id',ParseIntPipe) id:number,@Body() body:TeacherChangeDecisionDto){return this.classes.decideTeacherChange(user,id,body.decision,body.note);}
 
   @Get('registration-code/:kind')
   @Header('Cache-Control', 'no-store')

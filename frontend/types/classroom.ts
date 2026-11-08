@@ -12,6 +12,7 @@ export interface ClassSettings {
   war_enabled: boolean; war_minutes: number | null;
 }
 export interface ClassRow {
+  year_status?: 'planned'|'active'|'ended'|null;
   id: number; name: string; grade: number | null; school_year: string; description: string | null; cover_url: string | null; join_code: string; join_open: boolean; is_active: boolean;
   own: boolean; students: number; teams: number; pending_leaves: number; pending_skills: number; journeys: Array<{ id: number; title: string; percent: number }>; avg_progress: number | null;
 }

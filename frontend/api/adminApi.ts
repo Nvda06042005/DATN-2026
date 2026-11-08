@@ -7,6 +7,8 @@ import type {
 } from '@/types/api';
 
 type Query = Record<string, string | number | boolean | null | undefined>;
+export const teacherChangeRequests=(token:string)=>apiRequest<import('@/types/api').TeacherChangeRequest[]>('/api/admin/teacher-change-requests',{token});
+export const decideTeacherChange=(token:string,id:number|string,decision:'approved'|'rejected')=>apiRequest<import('@/types/api').TeacherChangeRequest>(`/api/admin/teacher-change-requests/${id}/decision`,{token,body:{decision}});
 const qs = (query: Query = {}) => {
   const parts = Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
   return parts.length ? `?${parts.join('&')}` : '';
