@@ -66,9 +66,34 @@ const clean = (v: unknown): string | null => (typeof v === 'string' ? v.trim().r
 
 @Injectable()
 export class AccountService {
-  async codePreview(actor: UserRow,kind: string) {
+  async codePreview(actor: UserRow,kind: string, opts: {birth_date?:string;school_id?:number;user_id?:number}={}) {
     if (!['teacher','student','class'].includes(kind)) throw new BadRequestException('Loại mã không hợp lệ');
+    if(kind==='teacher') return this.schools.run(actor,async(q,scope)=>{
+      const target=opts.user_id ? await this.load(q,scope,opts.user_id) : null;
+      if(target && target.role!=='teacher') throw new BadRequestException('Tài khoản không phải giáo viên');
+      const schoolId=this.schools.target(actor,opts.school_id??target?.school_id??undefined);
+      if(target) this.canManage(actor,target);
+      if(opts.birth_date && (!parseDate(opts.birth_date)||opts.birth_date>todayVn())) throw new UnprocessableEntityException('Ngày sinh không hợp lệ');
+      return this.teacherCode(q,schoolId,opts.birth_date||null,undefined,target?.id);
+    });
     return this.schools.run(actor,async q=>(await q<{code:string}>('SELECT public.app_registration_code($1,false) AS code',[kind]))[0]);
+  }
+  /** Xem trước không cấp số; trigger PostgreSQL chốt số trong cùng giao dịch tạo tài khoản. */
+  private async teacherCode(q:Q,schoolId:number,born:string|null,requested?:string|null,userId?:number,next?:number) {
+    const meta=(await q<{name:string;serial:number|null;year:number|null;prefix:string;next:number}>(`SELECT s.name,
+      CASE WHEN u.school_id=s.id THEN u.teacher_code_serial END AS serial,
+      CASE WHEN u.school_id=s.id THEN u.teacher_code_year END AS year,
+      public.app_school_initials(s.name) AS prefix,
+      coalesce(c.last_serial,0)+1 AS next FROM app_schools s
+      LEFT JOIN app_teacher_code_counters c ON c.school_id=s.id
+      LEFT JOIN app_users u ON u.id=$2 AND u.role='teacher' WHERE s.id=$1`,[schoolId,userId??null]))[0];
+    if(!meta) throw new NotFoundException('Không tìm thấy trường');
+    const year=meta.year??Number(todayVn().slice(2,4));
+    let serial=meta.serial??next??meta.next;
+    const base=`${meta.prefix}${String(year).padStart(2,'0')}${born?born.slice(8,10)+born.slice(5,7)+born.slice(0,4):''}`;
+    if(!meta.serial && born && requested?.startsWith(base) && /^\d{3,9}$/.test(requested.slice(base.length))) serial=Math.max(serial,Number(requested.slice(base.length)));
+    const code=born?(await q<{code:string}>('SELECT public.app_teacher_identity($1,$2,$3::date,$4) AS code',[meta.name,year,born,serial]))[0].code:null;
+    return {code,serial,year,prefix:meta.prefix};
   }
   constructor(
     private readonly db: DatabaseService,
@@ -251,6 +276,7 @@ export class AccountService {
   }
 
   private async insertMember(q: Q, school: { id: number; school_code: string; region: string | null; city: string | null }, role: MemberRole, input: MemberInput, passwordHash: string, cls: { id: number; grade: number | null; school_year: string } | null): Promise<UserRow> {
+    if(role==='teacher' && input.birth_date) input={...input,user_code:(await this.teacherCode(q,school.id,input.birth_date,input.user_code)).code};
     input={...input,user_code:input.user_code || (await q<{code:string}>('SELECT public.app_registration_code($1,true) AS code',[role]))[0].code};
     await this.assertUnique(q, school.id, input.email ?? null, input.user_code ?? null);
     if (role === 'student') await SystemService.assertStudentRoom(q, school.id);
@@ -294,12 +320,13 @@ export class AccountService {
       }
       if (target.role === 'student' || target.role === 'teacher') {
         if (body.birth_date !== undefined) {
-          if (body.birth_date !== null && !parseDate(body.birth_date)) throw new UnprocessableEntityException('Ngày sinh có dạng YYYY-MM-DD');
+          if (target.role==='teacher' && target.birth_date && !body.birth_date) throw new UnprocessableEntityException('Giáo viên cần ngày sinh để sinh mã');
+          if (body.birth_date !== null && (!parseDate(body.birth_date)||body.birth_date>todayVn())) throw new UnprocessableEntityException('Ngày sinh không hợp lệ (YYYY-MM-DD, không ở tương lai)');
           fields.birth_date = body.birth_date;
         }
         if (body.gender !== undefined) fields.gender = body.gender;
       }
-      if (body.user_code !== undefined) fields.user_code = clean(body.user_code);
+      if (body.user_code !== undefined && target.role !== 'teacher') fields.user_code = clean(body.user_code);
       if (fields.user_code === null && target.role === 'student') throw new UnprocessableEntityException('Học sinh cần có mã học sinh');
       await this.assertUnique(q, target.school_id, (fields.email as string | null) ?? null, (fields.user_code as string | null) ?? null, id);
       if (body.school_id !== undefined && body.school_id !== target.school_id) {
@@ -392,10 +419,12 @@ export class AccountService {
   async teacherTemplate(actor: UserRow, schoolId?: number | null, now: Date = new Date()): Promise<Buffer> {
     const school = await this.schoolNameOf(actor, schoolId);
     const initials = schoolInitials(school ?? ''), year = vnDayLabel(now).slice(8, 10), prefix = `${initials}${year}`;
+    const id=actor.role==='school_admin'?actor.school_id:schoolId;
+    const offset=id?await this.schools.run(actor,async q=>Number((await q<{n:number}>('SELECT coalesce((SELECT last_serial FROM app_teacher_code_counters WHERE school_id=$1),0) AS n',[id]))[0]?.n??0)):0;
     return buildFormSheet({
       sheetName: 'Giáo viên', title: 'Đông A', subtitle: `Mẫu nhập danh sách giáo viên${school ? ` · ${school}` : ''}`,
       meta: [{ label: 'Ngày bắt đầu nhập', value: vnDayLabel(now) }], note: 'Xem ví dụ rồi điền vào DANH SÁCH CỦA BẠN bên dưới. Cột có dấu * là bắt buộc.',
-      columns: TEACHER_FORM_COLUMNS.map(c => c.key === 'user_code' ? { ...c, kind: 'teacher-code', width: 29, watch: 'full_name', birthKey: 'birth_date', codePrefix: prefix } : c), blankRows: 1000, now,
+      columns: TEACHER_FORM_COLUMNS.map(c => c.key === 'user_code' ? { ...c, kind: 'teacher-code', width: 29, watch: 'full_name', birthKey: 'birth_date', codePrefix: prefix, codeOffset:offset } : c), blankRows: 1000, now,
       example: {
         values: { stt: 1, user_code: `${prefix}15031985001`, full_name: 'Nguyễn Văn Mẫu', gender: 'Nam', phone: '0900000000', email: 'giao.vien@example.invalid', birth_date: '1985-03-15' },
         explanation: `${initials} = ${school ?? 'viết tắt tên trường'}; ${year} = năm ${vnDayLabel(now).slice(6,10)}; 15 + 03 + 1985 = ngày sinh; 001 = số thứ tự. Mã ví dụ: ${prefix}15031985001.`,
@@ -406,7 +435,8 @@ export class AccountService {
         `Mã giáo viên tự hiện sau khi nhập họ tên và ngày sinh: ${initials} + ${year} + ngày sinh ddmmyyyy + STT 3 chữ số.`,
         `${initials}: viết tắt của ${school ?? 'tên trường'}. ${year}: hai số cuối năm tải mẫu. Phần ddmmyyyy: ngày, tháng, năm sinh của giáo viên. STT giúp phân biệt người có cùng ngày sinh.`,
         `Ví dụ ngày sinh 15/03/1985, STT 1: ${prefix}15031985001. Với THCS Giồng Ông Tố trong năm 2026: GOT2615031985001.`,
-        'Mã đã lưu là định danh cố định; sửa ngày sinh hoặc tải file mới không tự đổi mã của tài khoản cũ. Nếu nhập lại mã đã có, hệ thống báo trùng trước khi lưu.',
+        'Mã dùng chung quy tắc với form Thêm/Sửa giáo viên trên web. Sửa ngày sinh sẽ cập nhật phần ngày sinh trong mã, giữ năm nhập và STT đã cấp; tên đăng nhập và lớp không đổi.',
+        `Dãy mã nối tiếp số đã cấp trong trường (mẫu này bắt đầu từ ${String(offset+1).padStart(3,'0')}). Khi nhiều người thêm cùng lúc, số chính thức được chốt lúc lưu; xem mã ở kết quả và danh sách giáo viên.`,
         'Giới tính: bấm vào ô rồi chọn Nam hoặc Nữ trong danh sách.',
         'Ngày tháng năm sinh: chọn ngày trên lịch nếu phần mềm bảng tính của bạn có (Google Sheets, Excel Microsoft 365 bản mới) hoặc gõ dd/mm/yyyy, ví dụ 15/03/1985. Ngày sai bị chặn ngay trong ô.',
         'Email phải khác nhau và chưa dùng cho tài khoản nào khác. Hệ thống sinh mật khẩu tạm và gửi vào email này; giáo viên đổi mật khẩu ở lần đăng nhập đầu tiên.',
@@ -443,6 +473,7 @@ export class AccountService {
       const yearId = opts.year_id ?? (await q<{ id: number }>("SELECT id FROM app_school_years WHERE school_id = $1 AND status = 'active'", [schoolId]))[0]?.id ?? null;
       if (opts.year_id && !(await q('SELECT 1 FROM app_school_years WHERE id = $1 AND school_id = $2', [opts.year_id, schoolId])).length) throw new NotFoundException('Không tìm thấy năm học');
       const seenEmail = new Set<string>(), seenCode = new Set<string>();
+      let nextTeacherSerial=role==='teacher'?(await this.teacherCode(q,schoolId,null)).serial:0;
       const rows: ImportRow[] = [];
       const credentials: Array<{ row: number; username: string; password: string; full_name: string; email: string | null }> = [];
       for (const { row, values } of parsed) {
@@ -471,6 +502,11 @@ export class AccountService {
           const found = yearId ? (await q<{ id: number }>('SELECT id FROM app_classes WHERE school_id = $1 AND year_id = $2 AND lower(name) = lower($3)', [schoolId, yearId, clean(values.class_name)]))[0] : null;
           if (!found) errors.push(`Không có lớp "${clean(values.class_name)}" trong năm học đã chọn`);
           else cls = await this.classTarget(q, schoolId, found.id).catch((e: Error) => { errors.push(e.message); return null; });
+        }
+        if(role==='teacher' && input.birth_date && !errors.length){
+          const generated=await this.teacherCode(q,schoolId,input.birth_date,input.user_code,undefined,nextTeacherSerial);
+          input.user_code=generated.code;
+          nextTeacherSerial=generated.serial+1;
         }
         const emailKey = input.email?.toLowerCase(), codeKey = input.user_code?.toLowerCase();
         if (emailKey && seenEmail.has(emailKey)) errors.push('Email trùng với dòng trước trong file');

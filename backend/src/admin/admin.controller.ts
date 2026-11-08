@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Header, HttpCode, Param, ParseIntPipe, Patch, Post, Put, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Header, HttpCode, Param, ParseIntPipe, Patch, Post, Put, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { Transform, Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsBoolean, IsDefined, IsEmail, IsIn, IsInt, IsOptional, IsString, IsUrl, Length, Matches, Max, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
@@ -412,7 +412,11 @@ export class AdminController {
 
   @Get('registration-code/:kind')
   @Header('Cache-Control', 'no-store')
-  registrationCode(@CurrentUser() user: UserRow, @Param('kind') kind: string) { return this.accounts.codePreview(user,kind); }
+  registrationCode(@CurrentUser() user: UserRow, @Param('kind') kind: string,
+    @Query('birth_date') birth_date?:string,@Query('school_id') school_id?:string,@Query('user_id') user_id?:string) {
+    for(const n of [school_id,user_id]) if(n!==undefined && !/^[1-9]\d{0,8}$/.test(n)) throw new BadRequestException('Mã định danh không hợp lệ');
+    return this.accounts.codePreview(user,kind,{birth_date,school_id:school_id?Number(school_id):undefined,user_id:user_id?Number(user_id):undefined});
+  }
 
   @Post('classes')
   createClass(@CurrentUser() user: UserRow, @Body() body: ClassDto) { return this.classes.create(user, body); }

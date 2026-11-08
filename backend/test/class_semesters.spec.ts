@@ -7,9 +7,9 @@ import { bootstrap, Fixture } from './fixture';
   beforeAll(async()=>{s=await startApp('class_semesters_test');f=await bootstrap(s,await adminLogin(s.base),true);});
   afterAll(async()=>{await s?.close();});
   test('xem mã không giữ chỗ; tạo giáo viên/học sinh không cần nhập mã; giữ mã cũ khi sửa',async()=>{
-    const first=await api('GET','/api/admin/registration-code/teacher'); expect(first.status).toBe(200);expect(first.body.code).toMatch(/^GV\d{8}$/);
-    expect((await api('GET','/api/admin/registration-code/teacher')).body).toEqual(first.body);
-    const t=await api('POST','/api/admin/teachers',{full_name:'Giáo viên mã tự động',email:'auto-code@example.invalid'});
+    const first=await api('GET','/api/admin/registration-code/teacher?birth_date=1985-03-15'); expect(first.status).toBe(200);expect(first.body.code).toMatch(/15031985\d{3}$/);
+    expect((await api('GET','/api/admin/registration-code/teacher?birth_date=1985-03-15')).body).toEqual(first.body);
+    const t=await api('POST','/api/admin/teachers',{full_name:'Giáo viên mã tự động',email:'auto-code@example.invalid',birth_date:'1985-03-15'});
     expect(t.status).toBe(201);expect(t.body.user.user_code).toBe(first.body.code);
     expect((await api('PATCH',`/api/admin/users/${t.body.user.id}`,{full_name:'Giáo viên sửa tên'})).body.user_code).toBe(first.body.code);
     const st=await api('POST','/api/admin/students',{full_name:'Học sinh mã tự động',birth_date:'2013-03-15'});

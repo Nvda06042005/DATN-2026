@@ -51,10 +51,10 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const today = todayVn();
   // thêm từng người: cùng các cột với file mẫu Excel (mã, họ tên, giới tính, SĐT, email, ngày sinh); nền tảng chỉ dạy Lịch sử nên không có ô chọn môn
   const fields: FieldDef[] = teacher
-    ? [{ name: 'user_code', label: 'Mã giáo viên', render:()=> <RegistrationCode token={token} kind="teacher"/> }, { name: 'full_name', label: 'Họ và tên', required: true },
+    ? [{ name: 'user_code', label: 'Mã giáo viên', render:(v)=> <RegistrationCode token={token} kind="teacher" birthDate={String(v.birth_date||'')}/> }, { name: 'full_name', label: 'Họ và tên', required: true },
       { name: 'gender', label: 'Giới tính', type: 'select', options: [{ value: '', label: 'Chưa chọn' }, { value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }] },
       { name: 'phone', label: 'SĐT', type: 'tel' }, { name: 'email', label: 'Email', type: 'email', required: true, hint: 'Mật khẩu tạm được gửi vào email này.' },
-      { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1940-01-01', max: today }]
+      { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1940-01-01', max: today, required: true }]
     : [{ name: 'user_code', label: 'Mã học sinh', render:()=> <RegistrationCode token={token} kind="student"/> }, { name: 'full_name', label: 'Họ và tên', required: true }, { name: 'birth_date', label: 'Ngày sinh', type: 'date', calendar: true, min: '2000-01-01', max: today, required: true },
       { name: 'gender', label: 'Giới tính', type: 'select', options: [{ value: '', label: 'Chưa chọn' }, { value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }, { value: 'other', label: 'Khác' }] },
       { name: 'class_id', label: 'Xếp vào lớp (năm học đang chọn)', type: 'select', options: [{ value: '', label: 'Chưa xếp lớp' }, ...classOptions] },

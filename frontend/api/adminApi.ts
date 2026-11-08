@@ -21,7 +21,7 @@ export const searchSchoolDirectory = (token: string, q: string, excludeSchoolId?
 export const getSchool = (token: string, id: number) => apiRequest<SchoolDetail>(`/api/admin/schools/${id}`, { token });
 export const createSchool = (token: string, body: Record<string, unknown>) => apiRequest<CreatedSchool>('/api/admin/schools', { token, body });
 export const previewSchoolCode = (token: string) => apiRequest<{ school_code: string }>('/api/admin/school-code-preview', { token });
-export const previewRegistrationCode = (token:string,kind:'teacher'|'student'|'class') => apiRequest<{code:string}>(`/api/admin/registration-code/${kind}`,{token});
+export const previewRegistrationCode = (token:string,kind:'teacher'|'student'|'class',query:Query={}) => apiRequest<{code:string|null;serial?:number}>(`/api/admin/registration-code/${kind}${qs(query)}`,{token});
 export const updateSchool = async (token: string, id: number, body: Record<string, unknown>) => {
   const school = await apiRequest<SchoolItem>(`/api/admin/schools/${id}`, { token, method: 'PATCH', body });
   clearSchoolIdentities();

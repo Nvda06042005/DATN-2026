@@ -153,7 +153,10 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     const prefix = 'ME' + vnDayLabel().slice(8,10);
     expect(preview.body.rows.map((r: {user_code:string})=>r.user_code)).toEqual([prefix+'15031985001',prefix+'15031985003']);
     const old = await open(buffer), oldSheet = old.getWorksheet('Giáo viên')!;
-    for(const n of [first,first+2]) oldSheet.getCell(n,1).value={formula:`IF(C${n}="","",COUNTIFS($C$${first}:C${n},"?*"))`,result:''};
+    for(const n of [first,first+2]) {
+      oldSheet.getCell(n,1).value={formula:`IF(C${n}="","",COUNTIFS($C$${first}:C${n},"?*"))`,result:''};
+      oldSheet.getCell(n,2).value={formula:`IF(AND(C${n}<>"",ISNUMBER(G${n})),"${prefix}"&TEXT(G${n},"ddmmyyyy")&TEXT(A${n},"000"),"")`,result:''};
+    }
     const legacy = await upload(s.base,'/api/admin/teachers/import','mau-cu.xlsx',Buffer.from(await old.xlsx.writeBuffer()),A.token);
     expect(legacy.body.rows.map((r:{user_code:string})=>r.user_code)).toEqual([prefix+'15031985001',prefix+'15031985002']);
     const saved = await upload(s.base, '/api/admin/teachers/import?commit=true', 'cong-thuc.xlsx', buffer, A.token);
@@ -162,6 +165,20 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     const repeated = await upload(s.base, '/api/admin/teachers/import', 'cong-thuc.xlsx', buffer, A.token);
     expect(repeated.body.errors).toBe(2);
     expect(repeated.body.rows.every((r:{errors:string[]})=>r.errors.some(e=>/đã được dùng|trùng/.test(e)))).toBe(true);
+  });
+
+  test('mã tự đổi tiền tố theo trường; ngày sinh dạng chữ dd/mm/yyyy hoặc ISO vẫn nhập đúng, ngày không tồn tại bị chặn', async () => {
+    for(const [token,initials] of [[A.token,'ME'],[B.token,'TK']]) {
+      const next=(await api('GET','/api/admin/registration-code/teacher',undefined,token)).body.serial;
+      const template=(await download(s.base,'/api/admin/teachers/template',token)).buffer;
+      const {file}=await fill(template,[[null,'Giáo viên Ngày Chữ',null,null,'ngay.chu@example.edu.vn','15/03/1985'],[null,'Giáo viên ISO',null,null,'ngay.iso@example.edu.vn','1985-03-15'],[null,'Giáo viên Ngày Sai',null,null,'ngay.sai.text@example.edu.vn','31/02/1985']]);
+      const preview=await upload(s.base,'/api/admin/teachers/import','ngay-chu.xlsx',file,token);
+      expect(preview.status).toBe(200);
+      expect(preview.body).toMatchObject({valid:2,errors:1});
+      const prefix=initials+vnDayLabel().slice(8,10);
+      expect(preview.body.rows.slice(0,2).map((r:{user_code:string})=>r.user_code)).toEqual([prefix+'15031985'+String(next).padStart(3,'0'),prefix+'15031985'+String(next+1).padStart(3,'0')]);
+      expect(preview.body.rows[2].errors).toContain('Ngày sinh sai định dạng (dd/mm/yyyy)');
+    }
   });
 
   test('điền file mẫu rồi nhập: xem trước báo lỗi đúng số dòng trong Excel, lưu dòng hợp lệ, giới tính/ngày sinh/mã/số 0 đầu đúng', async () => {
@@ -189,10 +206,12 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     const saved = await sql<{ full_name: string; user_code: string | null; gender: string | null; birth_date: string | null; phone: string | null; school_id: number }>(s.url,
       "SELECT full_name, user_code, gender, birth_date::text AS birth_date, phone, school_id FROM app_users WHERE role = 'teacher' AND email IN ('hoa.nguyen@example.edu.vn','nam.tran@example.edu.vn','khongsex@example.edu.vn') AND school_id = " + A.id + ' ORDER BY id');
     expect(saved).toEqual([
-      { full_name: 'Nguyễn Thị Hoa', user_code: 'GV101', gender: 'female', birth_date: '1985-03-15', phone: '0901234567', school_id: A.id },
-      { full_name: 'Trần Văn Nam', user_code: 'GV102', gender: 'male', birth_date: '1979-11-20', phone: null, school_id: A.id },
+      { full_name: 'Nguyễn Thị Hoa', user_code: preview.body.rows[0].user_code, gender: 'female', birth_date: '1985-03-15', phone: '0901234567', school_id: A.id },
+      { full_name: 'Trần Văn Nam', user_code: preview.body.rows[1].user_code, gender: 'male', birth_date: '1979-11-20', phone: null, school_id: A.id },
       { full_name: 'Lê Không Giới Tính', user_code: expect.stringMatching(/^GV\d{8}$/), gender: null, birth_date: null, phone: null, school_id: A.id },
     ]);
+    expect(saved[0].user_code).toMatch(/^ME\d{2}15031985\d{3}$/);
+    expect(saved[1].user_code).toMatch(/^ME\d{2}20111979\d{3}$/);
     // danh sách giáo viên của trường tự có người mới (trang Giáo viên tải lại danh sách sau khi lưu)
     const list = await api('GET', '/api/admin/teachers');
     expect(list.body.items.map((t: { full_name: string }) => t.full_name)).toEqual(expect.arrayContaining(['Nguyễn Thị Hoa', 'Trần Văn Nam', 'Lê Không Giới Tính']));
@@ -241,7 +260,7 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     expect(rows).toHaveLength(total);
     expect(rows.map((r) => r.stt)).toEqual(rows.map((_, i) => i + 1));
     const hoa = rows.find((r) => r.name === 'Nguyễn Thị Hoa')!;
-    expect(hoa).toMatchObject({ code: 'GV101', gender: 'Nữ', phone: '0901234567', email: 'hoa.nguyen@example.edu.vn', status: 'Đang hoạt động' });
+    expect(hoa).toMatchObject({ code: expect.stringMatching(/^ME\d{2}15031985\d{3}$/), gender: 'Nữ', phone: '0901234567', email: 'hoa.nguyen@example.edu.vn', status: 'Đang hoạt động' });
     expect((hoa.born as Date).toISOString().slice(0, 10)).toBe('1985-03-15');
     // file xuất tải lên lại ở trường khác: đọc đủ dòng (email đã dùng nên báo lỗi trùng, không phải lỗi định dạng file)
     const again = await upload(s.base, '/api/admin/teachers/import', 'danh-sach.xlsx', res.buffer, B.token);
@@ -253,7 +272,7 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
   test('hai cách thêm giáo viên: biểu mẫu từng người (giới tính, ngày sinh; không có bộ môn) và nhập file hàng loạt; ngày sinh sai bị chặn; sửa được giới tính, ngày sinh', async () => {
     const one = await api('POST', '/api/admin/teachers', { full_name: 'Phạm Thị Từng Người', email: 'tung.nguoi@example.edu.vn', user_code: 'GV201', phone: '0933 444 555', gender: 'female', birth_date: '1990-07-01' });
     expect(one.status).toBe(201);
-    expect(one.body.user).toMatchObject({ role: 'teacher', gender: 'female', birth_date: '1990-07-01', user_code: 'GV201' });
+    expect(one.body.user).toMatchObject({ role: 'teacher', gender: 'female', birth_date: '1990-07-01', user_code: expect.stringMatching(/^ME\d{2}01071990\d{3}$/) });
     expect(one.body.user).not.toHaveProperty('subject');
     const withSubject = await api('POST', '/api/admin/teachers', { full_name: 'Gửi Bộ Môn', email: 'bo.mon.khac@example.edu.vn', subject: 'Địa lí' }); // bộ môn gửi lên bị bỏ qua
     expect(withSubject.status).toBe(201);

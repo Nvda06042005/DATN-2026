@@ -112,14 +112,17 @@ export async function readSheet(file: UploadedXlsx, columns: Column[], sheetName
       const formula = cell?.formula;
       const prefix = formula?.match(/,"([A-Z0-9]+)"&TEXT\(/)?.[1];
       // Chỉ tính đúng công thức do mẫu tạo; không chạy/eval công thức tùy ý từ file tải lên.
-      if (prefix && nameCol && birthCol && indexCol && formula === teacherCodeFormula(prefix, `${colLetter(nameCol)}${r}`, `${colLetter(birthCol)}${r}`, `${colLetter(indexCol)}${r}`)) {
+      const offset = Number(formula?.match(/TEXT\(\([A-Z]+\d+\+(\d{1,9})\),"000"\)/)?.[1]??0);
+      const indexRef=indexCol?`${colLetter(indexCol)}${r}`:'';
+      const formulaArgs = nameCol && birthCol && indexCol ? [`${colLetter(nameCol)}${r}`, `${colLetter(birthCol)}${r}`, offset?`(${indexRef}+${offset})`:indexRef] as const : null;
+      if (prefix && formulaArgs && indexCol && (formula === teacherCodeFormula(prefix, ...formulaArgs) || formula === legacyTeacherCodeFormula(prefix, ...formulaArgs))) {
         const born = parseDate(values.birth_date);
         const indexCell = sheet.getCell(r, indexCol);
         const storedIndex = Number(cellText(indexCell.value));
         // Mẫu cũ tính STT theo tên; mẫu mới đánh số sẵn theo dòng, kể cả dòng còn trống.
         const serial = indexCell.formula && !storedIndex ? teacherIndex : storedIndex;
         if (!Number.isInteger(serial) || serial < 1 || serial > MAX_ROWS) throw new BadRequestException(`Số thứ tự ở dòng ${r} phải là số nguyên từ 1 đến ${MAX_ROWS}.`);
-        values.user_code = born ? `${prefix}${born.slice(8,10)}${born.slice(5,7)}${born.slice(0,4)}${String(serial).padStart(3,'0')}` : '';
+        values.user_code = born ? `${prefix}${born.slice(8,10)}${born.slice(5,7)}${born.slice(0,4)}${String(serial+offset).padStart(3,'0')}` : '';
       }
     }
     if (any) rows.push({ row: r, values });
@@ -159,7 +162,7 @@ export function vnDayLabel(now: Date = new Date()): string {
  * Cột của file mẫu/danh sách. `index`: số thứ tự đánh sẵn theo dòng; `text`/`phone`: ô văn bản (giữ số 0 đầu);
  * `list`: chọn trong danh sách `options`; `date`: ô ngày dd/mm/yyyy chỉ nhận ngày hợp lệ, kèm gợi ý chọn ngày.
  */
-export interface FormColumn extends Column { kind: 'index' | 'text' | 'phone' | 'list' | 'date' | 'teacher-code'; options?: string[]; watch?: string; prompt?: string; codePrefix?: string; birthKey?: string }
+export interface FormColumn extends Column { kind: 'index' | 'text' | 'phone' | 'list' | 'date' | 'teacher-code'; options?: string[]; watch?: string; prompt?: string; codePrefix?: string; codeOffset?:number; birthKey?: string }
 
 /** Tên riêng của trường, không gồm tiền tố cấp học; dùng chữ Latin viết hoa. */
 export function schoolInitials(name: string): string {
@@ -167,8 +170,18 @@ export function schoolInitials(name: string): string {
   return plain.split(/\s+/).filter(Boolean).map(word => word[0]).join('').toUpperCase().slice(0, 12) || 'GV';
 }
 
-const teacherCodeFormula = (prefix: string, name: string, birth: string, index: string): string =>
+const legacyTeacherCodeFormula = (prefix: string, name: string, birth: string, index: string): string =>
   `IF(AND(${name}<>"",ISNUMBER(${birth})),"${prefix}"&TEXT(${birth},"ddmmyyyy")&TEXT(${index},"000"),"")`;
+
+/** Excel/WPS có thể giữ ngày được dán vào dưới dạng chữ. Đọc theo đúng định dạng, không phụ thuộc locale của DATEVALUE. */
+const teacherCodeFormula = (prefix: string, name: string, birth: string, index: string): string => {
+  const text = `TRIM(${birth})`;
+  const code = (date: string) => `"${prefix}"&TEXT(${date},"ddmmyyyy")&TEXT(${index},"000")`;
+  const iso = `DATE(VALUE(LEFT(${text},4)),VALUE(MID(${text},6,2)),VALUE(RIGHT(${text},2)))`;
+  const dmy = `DATE(VALUE(RIGHT(${text},4)),VALUE(MID(${text},4,2)),VALUE(LEFT(${text},2)))`;
+  const parsedCode = (date: string, format: string) => `IFERROR(IF(TEXT(${date},"${format}")=${text},${code(date)},""),"")`;
+  return `IF(AND(${name}<>"",${birth}<>""),IF(ISNUMBER(${birth}),${code(birth)},IF(MID(${text},5,1)="-",${parsedCode(iso,'yyyy-mm-dd')},${parsedCode(dmy,'dd/mm/yyyy')})),"")`;
+};
 
 /**
  * Logo ngang của Đông A (biểu tượng chiến binh + chữ "Đông A edu" gốc, giống thanh đầu trang): Excel không nhúng được phông chữ riêng nên chữ được vẽ sẵn trong ảnh.
@@ -320,7 +333,7 @@ export async function buildFormSheet(spec: FormSheetSpec): Promise<Buffer> {
         const name = `${nameLetter(c.watch)}${rowNo}`, birth = `${nameLetter(c.birthKey)}${rowNo}`, index = `${nameLetter('stt')}${rowNo}`;
         const prefix = (c.codePrefix ?? 'GV').replace(/[^A-Z0-9]/g, '');
         cell.numFmt = '@';
-        cell.value = { formula: teacherCodeFormula(prefix, name, birth, index), result: '' };
+        cell.value = { formula: teacherCodeFormula(prefix, name, birth, c.codeOffset?`(${index}+${c.codeOffset})`:index), result: '' };
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
         cell.note = 'Tự ghép từ tên trường viết tắt, năm nhập, ngày sinh và số thứ tự. Nhập họ tên và ngày sinh để hiện mã.';
       } else if (c.kind === 'date') {

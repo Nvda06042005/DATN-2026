@@ -105,3 +105,4 @@ Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).
 
 - 054_class_semester_teachers_and_codes.sql: mã giáo viên/học sinh/lớp tăng dần, phân công một giáo viên mỗi học kỳ; RLS, quyền theo lịch năm học và kho xóa một năm. Giữ mã và phân công cũ. Xem docs/LOP_VA_PHAN_CONG_HOC_KY.md.
 - 055_class_teacher_change_requests.sql: giáo viên đang phụ trách gửi đề nghị chuyển lớp trong học kỳ; quản trị trường duyệt thì phân công mới có hiệu lực. RLS theo trường, một đề nghị chờ mỗi lớp/học kỳ và lưu vào kho xóa một năm.
+- 056_school_teacher_identity_codes.sql: mã giáo viên theo viết tắt trường + năm nhập + ngày sinh + STT riêng của trường, thống nhất form và Excel. Cập nhật mã tài khoản đã có ngày sinh, giữ id/username/lớp; thiếu ngày sinh giữ mã cũ. Bộ đếm có RLS, khóa giao dịch và kho xóa một năm. Xem [quy tắc mã giáo viên](../../docs/MA_GIAO_VIEN.md).
