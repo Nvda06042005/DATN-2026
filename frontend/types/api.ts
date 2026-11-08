@@ -189,6 +189,8 @@ export interface MemberInput {
 
 // ---------------------------------------------------------------------- lớp học
 export interface ClassItem {
+  registration_code: string;
+  semester: number;
   id: number;
   school_id: number;
   year_id: number | null;
@@ -209,6 +211,8 @@ export interface ClassItem {
 }
 
 export interface ClassDetail extends ClassItem {
+  legacy_teacher_review?: boolean;
+  term_teachers: Array<{semester:number;teacher_id:number|null;teacher_name:string|null;starts_on:string|null;ends_on:string|null}>;
   members: Array<{ id: number; full_name: string; user_code: string | null; username: string; birth_date: string | null; gender: Gender | null; is_active: boolean; nickname: string | null }>;
 }
 

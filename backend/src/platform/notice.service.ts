@@ -81,7 +81,7 @@ export class NoticeService {
       `SELECT DISTINCT u.id FROM app_classes c JOIN app_users u ON ${active} AND u.school_id = c.school_id
        WHERE ${classes} AND c.school_id = $2 AND c.is_active AND (
          (u.role = 'student' AND 'student' = ANY($3) AND EXISTS (SELECT 1 FROM app_class_members m WHERE m.class_id = c.id AND m.user_id = u.id))
-         OR (u.role = 'teacher' AND 'teacher' = ANY($3) AND EXISTS (SELECT 1 FROM app_class_teachers t WHERE t.class_id = c.id AND t.teacher_id = u.id)))`, [ids, b.school_id, roles]);
+         OR (u.role = 'teacher' AND 'teacher' = ANY($3) AND EXISTS (SELECT 1 FROM app_current_class_teachers t WHERE t.class_id = c.id AND t.teacher_id = u.id)))`, [ids, b.school_id, roles]);
     return rows.map((r) => r.id);
   }
 
@@ -101,7 +101,7 @@ export class NoticeService {
       out.roles = roles.filter((r) => r === 'student');
       out.class_ids = [...new Set(ints(body.class_ids))];
       if (!out.class_ids.length) throw new BadRequestException('Chọn ít nhất một lớp');
-      const mine = await q<{ id: number }>('SELECT c.id FROM app_classes c JOIN app_class_teachers t ON t.class_id = c.id AND t.teacher_id = $2 WHERE c.id = ANY($1) AND c.school_id = $3 AND c.is_active', [out.class_ids, user.id, user.school_id]);
+      const mine = await q<{ id: number }>('SELECT c.id FROM app_classes c JOIN app_current_class_teachers t ON t.class_id = c.id AND t.teacher_id = $2 WHERE c.id = ANY($1) AND c.school_id = $3 AND c.is_active', [out.class_ids, user.id, user.school_id]);
       if (mine.length !== out.class_ids.length) throw new NotFoundException('Có lớp không thuộc quyền phụ trách của bạn');
     } else if (user.role === 'school_admin') {
       if (!user.school_id) throw new ForbiddenException('Tài khoản chưa được gán trường');

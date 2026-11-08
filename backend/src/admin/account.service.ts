@@ -42,7 +42,7 @@ const TEACHER_FORM_COLUMNS: FormColumn[] = [
   { ...TEACHER_COLUMNS[5], kind: 'date', prompt: 'Chọn ngày trên lịch hoặc gõ dd/mm/yyyy, ví dụ 15/03/1985' },
 ];
 export const STUDENT_COLUMNS: Column[] = [
-  { key: 'user_code', header: 'Mã học sinh *', required: true, width: 16 },
+  { key: 'user_code', header: 'Mã học sinh', width: 16 },
   { key: 'full_name', header: 'Họ và tên *', required: true, width: 28 },
   { key: 'birth_date', header: 'Ngày sinh *', required: true, width: 16 },
   { key: 'gender', header: 'Giới tính', width: 12 },
@@ -70,6 +70,10 @@ const clean = (v: unknown): string | null => (typeof v === 'string' ? v.trim().r
 
 @Injectable()
 export class AccountService {
+  async codePreview(actor: UserRow,kind: string) {
+    if (!['teacher','student','class'].includes(kind)) throw new BadRequestException('Loại mã không hợp lệ');
+    return this.schools.run(actor,async q=>(await q<{code:string}>('SELECT public.app_registration_code($1,false) AS code',[kind]))[0]);
+  }
   constructor(
     private readonly db: DatabaseService,
     private readonly schools: SchoolService,
@@ -134,7 +138,7 @@ export class AccountService {
       if (f.active) add('u.is_active = ?', f.active === 'true' ? 1 : 0);
       if (f.subject) add('u.subject ILIKE ?', `%${likeEscape(f.subject.trim())}%`);
       if (f.grade) add('(u.grade = ? OR EXISTS (SELECT 1 FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = u.id AND c.grade = ?::smallint))', f.grade);
-      if (f.class_id) add('(EXISTS (SELECT 1 FROM app_class_members m WHERE m.user_id = u.id AND m.class_id = ?) OR EXISTS (SELECT 1 FROM app_class_teachers t WHERE t.teacher_id = u.id AND t.class_id = ?))', f.class_id);
+      if (f.class_id) add('(EXISTS (SELECT 1 FROM app_class_members m WHERE m.user_id = u.id AND m.class_id = ?) OR EXISTS (SELECT 1 FROM app_current_class_teachers t WHERE t.teacher_id = u.id AND t.class_id = ?))', f.class_id);
       const text = searchText(f.q);
       if (text) add("u.search_text LIKE ? ESCAPE '\\'", `%${likeEscape(text)}%`);
       const limit = Math.min(200, Math.max(1, f.limit ?? 50));
@@ -143,7 +147,7 @@ export class AccountService {
       const rows = await q<Record<string, unknown>>(
         `SELECT ${USER_COLUMNS.split(', ').map((c) => `u.${c}`).join(', ')}, s.name AS school_name,
                 COALESCE((SELECT json_agg(json_build_object('id', c.id, 'name', c.name, 'school_year', c.school_year, 'grade', c.grade) ORDER BY c.school_year DESC, c.name)
-                          FROM app_class_teachers t JOIN app_classes c ON c.id = t.class_id WHERE t.teacher_id = u.id), '[]'::json) AS teaching_classes,
+                          FROM app_current_class_teachers t JOIN app_classes c ON c.id = t.class_id WHERE t.teacher_id = u.id), '[]'::json) AS teaching_classes,
                 COALESCE((SELECT json_agg(json_build_object('id', c.id, 'name', c.name, 'school_year', c.school_year, 'grade', c.grade) ORDER BY c.school_year DESC, c.name)
                           FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = u.id), '[]'::json) AS member_classes
          FROM app_users u LEFT JOIN app_schools s ON s.id = u.school_id
@@ -166,7 +170,7 @@ export class AccountService {
       if (scope !== null && !['teacher', 'student'].includes(user.role)) throw new NotFoundException('Không tìm thấy tài khoản');
       const school = user.school_id ? await this.schoolOf(q, user.school_id) : null;
       const classes = await q(
-        `SELECT c.id, c.name, c.grade, c.school_year, c.is_active, 'teacher' AS relation FROM app_class_teachers t JOIN app_classes c ON c.id = t.class_id WHERE t.teacher_id = $1
+        `SELECT c.id, c.name, c.grade, c.school_year, c.is_active, 'teacher' AS relation FROM app_current_class_teachers t JOIN app_classes c ON c.id = t.class_id WHERE t.teacher_id = $1
          UNION ALL SELECT c.id, c.name, c.grade, c.school_year, c.is_active, 'student' FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = $1
          ORDER BY school_year DESC, name`, [id]);
       const blocker = await this.deletionBlocker(actor, user, q);
@@ -235,7 +239,6 @@ export class AccountService {
     };
     if (!input.full_name || input.full_name.length < 2) throw new UnprocessableEntityException('Họ tên tối thiểu 2 ký tự');
     if (role === 'teacher' && !input.email) throw new UnprocessableEntityException('Giáo viên cần có email để nhận mật khẩu tạm');
-    if (role === 'student' && !input.user_code) throw new UnprocessableEntityException('Học sinh cần có mã học sinh');
     if (role === 'student' && !input.birth_date) throw new UnprocessableEntityException('Học sinh cần có ngày sinh');
     if (input.email && !EMAIL.test(input.email)) throw new UnprocessableEntityException('Email không hợp lệ');
     if (input.parent_email && !EMAIL.test(input.parent_email)) throw new UnprocessableEntityException('Email phụ huynh không hợp lệ');
@@ -253,6 +256,7 @@ export class AccountService {
   }
 
   private async insertMember(q: Q, school: { id: number; school_code: string; region: string | null; city: string | null }, role: MemberRole, input: MemberInput, passwordHash: string, cls: { id: number; grade: number | null; school_year: string } | null): Promise<UserRow> {
+    input={...input,user_code:input.user_code || (await q<{code:string}>('SELECT public.app_registration_code($1,true) AS code',[role]))[0].code};
     await this.assertUnique(q, school.id, input.email ?? null, input.user_code ?? null);
     if (role === 'student') await SystemService.assertStudentRoom(q, school.id);
     const username = await this.db.uniqueUsername(input.full_name, role, q);
@@ -307,7 +311,7 @@ export class AccountService {
       if (body.school_id !== undefined && body.school_id !== target.school_id) {
         if (me.role !== 'root_admin') throw new ForbiddenException('Không được chuyển trường');
         if (target.role === 'teacher' || target.role === 'student') {
-          const linked = (await q<{ n: number }>('SELECT ((SELECT count(*) FROM app_class_members WHERE user_id = $1) + (SELECT count(*) FROM app_class_teachers WHERE teacher_id = $1))::int AS n', [id]))[0].n;
+          const linked = (await q<{ n: number }>('SELECT ((SELECT count(*) FROM app_class_members WHERE user_id = $1) + (SELECT count(*) FROM app_class_teacher_assignments WHERE teacher_id = $1))::int AS n', [id]))[0].n;
           if (linked) throw new ConflictException('Tài khoản đang thuộc lớp; hãy gỡ khỏi lớp trước khi chuyển trường');
         }
         if (target.role !== 'root_admin' && !body.school_id) throw new UnprocessableEntityException('Tài khoản này cần thuộc một trường');
@@ -347,7 +351,7 @@ export class AccountService {
   async changeRole(actor: UserRow, id: number, role: Role, schoolId?: number | null, adminLevel?: 1 | 2) {
     this.schools.assertTopAdmin(actor);
     return this.managed(actor, id, async (q, target) => {
-      const linked = (await q<{ n: number }>('SELECT ((SELECT count(*) FROM app_class_members WHERE user_id = $1) + (SELECT count(*) FROM app_class_teachers WHERE teacher_id = $1))::int AS n', [id]))[0].n;
+      const linked = (await q<{ n: number }>('SELECT ((SELECT count(*) FROM app_class_members WHERE user_id = $1) + (SELECT count(*) FROM app_class_teacher_assignments WHERE teacher_id = $1))::int AS n', [id]))[0].n;
       if (linked && (role !== target.role || (schoolId !== undefined && schoolId !== target.school_id))) throw new ConflictException('Tài khoản đang thuộc lớp; hãy gỡ khỏi lớp trước khi đổi vai trò hoặc trường');
       const sid = role === 'root_admin' ? null : schoolId === undefined ? target.school_id : schoolId;
       if (role !== 'root_admin' && !sid) throw new UnprocessableEntityException('Hãy gán trường trước khi cấp vai trò này');
@@ -403,7 +407,7 @@ export class AccountService {
         'Giới tính: bấm vào ô rồi chọn Nam hoặc Nữ trong danh sách.',
         'Ngày tháng năm sinh: chọn ngày trên lịch nếu phần mềm bảng tính của bạn có (Google Sheets, Excel Microsoft 365 bản mới) hoặc gõ dd/mm/yyyy, ví dụ 15/03/1985. Ngày sai bị chặn ngay trong ô.',
         'Email phải khác nhau và chưa dùng cho tài khoản nào khác. Hệ thống sinh mật khẩu tạm và gửi vào email này; giáo viên đổi mật khẩu ở lần đăng nhập đầu tiên.',
-        'Mã giáo viên (không bắt buộc) không được trùng trong trường. SĐT gõ như bình thường, số 0 ở đầu được giữ nguyên.',
+        'Để trống Mã giáo viên để hệ thống cấp mã tăng dần. Mã đã có không được trùng trong trường. SĐT gõ như bình thường, số 0 ở đầu được giữ nguyên.',
         'Bộ môn mặc định là Lịch sử nên không cần nhập.',
         'Chỉ nhận file Excel .xlsx (tối đa 2 MB, tối đa 1000 giáo viên mỗi lần). Đừng xóa hay đổi tên dòng tiêu đề của bảng.',
         'Ví dụ một dòng: GV001 | Nguyễn Văn An | Nam | 0901234567 | an.nguyen@example.edu.vn | 15/03/1985',
@@ -446,7 +450,6 @@ export class AccountService {
         };
         if (input.full_name.length < 2) errors.push('Thiếu họ tên');
         if (role === 'teacher' && !input.email) errors.push('Thiếu email');
-        if (role === 'student' && !input.user_code) errors.push('Thiếu mã học sinh');
         if (input.email && !EMAIL.test(input.email)) errors.push('Email không hợp lệ');
         if (input.parent_email && !EMAIL.test(input.parent_email)) errors.push('Email phụ huynh không hợp lệ');
         if (input.phone && !PHONE.test(input.phone)) errors.push('Số điện thoại không hợp lệ');
@@ -481,6 +484,7 @@ export class AccountService {
           await this.queueAccountMail(q, user, password, school.name);
           result.status = 'created';
           result.username = user.username;
+          result.user_code = user.user_code;
           credentials.push({ row, username: user.username, password, full_name: user.full_name, email: user.email });
         }
         rows.push(result);

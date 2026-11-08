@@ -106,7 +106,7 @@ export class SurveyService {
          AND (NOT $3 OR EXISTS (SELECT 1 FROM app_class_members m WHERE m.user_id = u.id AND m.class_id = ANY($2)))`, [s.school_id, s.class_ids, scoped])).map((r) => r.id);
     const teachers = s.audience === 'student' ? [] : (await q<{ id: number }>(
       `SELECT u.id FROM app_users u WHERE u.role = 'teacher' AND u.school_id = $1 AND u.deleted_at IS NULL AND u.is_active = 1
-         AND (NOT $3 OR EXISTS (SELECT 1 FROM app_class_teachers t WHERE t.teacher_id = u.id AND t.class_id = ANY($2)))`, [s.school_id, s.class_ids, scoped])).map((r) => r.id);
+         AND (NOT $3 OR EXISTS (SELECT 1 FROM app_current_class_teachers t WHERE t.teacher_id = u.id AND t.class_id = ANY($2)))`, [s.school_id, s.class_ids, scoped])).map((r) => r.id);
     return { students, teachers };
   }
 
@@ -114,7 +114,7 @@ export class SurveyService {
     if (s.school_id !== user.school_id || !['student', 'teacher'].includes(user.role)) return false;
     if (s.audience !== 'both' && s.audience !== user.role) return false;
     if (!s.class_ids.length) return true;
-    const table = user.role === 'student' ? 'app_class_members m WHERE m.user_id' : 'app_class_teachers m WHERE m.teacher_id';
+    const table = user.role === 'student' ? 'app_class_members m WHERE m.user_id' : 'app_current_class_teachers m WHERE m.teacher_id';
     return (await q(`SELECT 1 FROM ${table} = $1 AND m.class_id = ANY($2) LIMIT 1`, [user.id, s.class_ids])).length > 0;
   }
 

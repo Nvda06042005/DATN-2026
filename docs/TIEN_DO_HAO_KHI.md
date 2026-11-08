@@ -877,3 +877,9 @@ Theo yêu cầu của quản trị trường (menu Giáo viên → Nhập từ E
 - Loại credential/OTP/phiên/email outbox chứa mật khẩu, redaction khóa bí mật lồng trong JSON. Bản gzip backup chỉ lưu metadata. Không đưa kho vào BackupService, kể cả khi restore. Giữ mức REPEATABLE READ của backup ngay ở BEGIN trước khi đặt ngữ cảnh.
 - Hội thoại AI xóa mềm lưu bản gốc và tin nhắn/báo cáo, vẫn giữ cách ẩn với người học; dữ liệu ẩn đủ một năm được dọn cùng kho. Nhập hội thoại đã ẩn còn tồn tại từ trước theo ngày xóa gốc; không khôi phục được dữ liệu đã hard delete trước 052.
 - Supabase Cron `dong-a-deleted-records-retention` dọn phút 17 mỗi giờ; backend dự phòng lúc khởi động/mỗi giờ. Health có trạng thái lịch thật. Kiểm thử PostgreSQL tạm gồm upgrade 051→052, các vai trò, CASCADE, xóa mềm, hết hạn không tái lưu, RLS/ACL, redaction, rollback, đồng thời và backup/restore. Xem [cách kiểm tra kho trên Supabase](KHO_DU_LIEU_DA_XOA.md).
+
+## 08/11/2026 – Mã tự động và phân công lớp theo học kỳ
+
+- Một lớp cả năm, chọn Học kỳ 1/2 và một Giáo viên phụ trách lớp; một giáo viên có nhiều lớp. Đổi phân công có xác nhận/lịch sử, không liệt kê lý do cá nhân.
+- Sinh mã GV/HS/LH tăng dần, có ô xem mã ở form; mã định danh lớp khác mã tham gia 6 ký tự. Giữ mã đã có, hỗ trợ mã trống khi nhập Excel.
+- Migration 053, RLS và view phân công theo lịch năm học; bảo toàn phân công cũ và kho xóa 052. Chi tiết: docs/LOP_VA_PHAN_CONG_HOC_KY.md.

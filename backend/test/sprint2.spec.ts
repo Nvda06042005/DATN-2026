@@ -10,7 +10,7 @@ let s: Started, db: DatabaseService, mail: MailService, root: string;
 const PW = 'Matkhau-12345';
 const api = (method: string, path: string, body?: unknown, token = root) => call(s.base, method, path, body, token);
 const TEACHER_HEADER = ['Họ và tên *', 'Email *', 'Bộ môn', 'Số điện thoại', 'Mã giáo viên'];
-const STUDENT_HEADER = ['Mã học sinh *', 'Họ và tên *', 'Ngày sinh *', 'Giới tính', 'Lớp', 'Email', 'Email phụ huynh'];
+const STUDENT_HEADER = ['Mã học sinh', 'Họ và tên *', 'Ngày sinh *', 'Giới tính', 'Lớp', 'Email', 'Email phụ huynh'];
 
 async function readRows(buffer: Buffer): Promise<string[][]> {
   const ExcelJS = await import('exceljs');
@@ -196,15 +196,15 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
   });
 
   // ------------------------------------------------------------------ HK.QT.035–040 (lớp) và HK.QT.022
-  let c7a: { id: number; join_code: string }, c7b: { id: number }, t1: number, t2: number;
-  test('HK.QT.036/022 tạo lớp theo năm học và khối, phân công một hoặc nhiều giáo viên; tên lớp không trùng trong năm; mã tham gia duy nhất', async () => {
-    [t1, t2] = (await qa('GET', '/api/admin/teachers?q=nhap')).body.items.map((t: any) => t.id);
-    const created = await qa('POST', '/api/admin/classes', { year_id: y25, grade: 7, name: '7A1', teacher_ids: [t1, t2], expected_size: 40, description: 'Lớp chọn' });
+  let c7a: { id: number; join_code: string }, c7b: { id: number }, t1: number;
+  test('HK.QT.036/022 tạo lớp theo năm học và khối, phân công một giáo viên mỗi học kỳ; tên lớp không trùng trong năm; mã tham gia duy nhất', async () => {
+    [t1] = (await qa('GET', '/api/admin/teachers?q=nhap')).body.items.map((t: any) => t.id);
+    const created = await qa('POST', '/api/admin/classes', { year_id: y25, grade: 7, name: '7A1', teacher_ids: [t1], expected_size: 40, description: 'Lớp chọn' });
     expect(created.status).toBe(201);
     c7a = created.body;
     expect(created.body).toMatchObject({ name: '7A1', grade: 7, school_year: '2025-2026', is_active: true, join_open: true, expected_size: 40, students: 0, year_status: 'active' });
     expect(created.body.join_code).toMatch(/^[A-Z2-9]{6}$/);
-    expect(created.body.teachers.map((t: any) => t.id).sort()).toEqual([t1, t2].sort());
+    expect(created.body.teachers.map((t: any) => t.id).sort()).toEqual([t1]);
     c7b = (await qa('POST', '/api/admin/classes', { year_id: y25, grade: 7, name: '7A2' })).body;
     expect(c7b).toMatchObject({ teachers: [], students: 0 });
     expect(new Set([c7a.join_code, (c7b as any).join_code]).size).toBe(2);
@@ -218,16 +218,16 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
 
   test('HK.QT.035/037 xem danh sách lớp (lọc theo năm, khối, giáo viên, từ khóa) và sửa lớp, đổi giáo viên phụ trách', async () => {
     const list = await qa('GET', `/api/admin/classes?year_id=${y25}`);
-    expect(list.body.items.map((c: any) => [c.name, c.teachers.length, c.students])).toEqual([['6A1', 0, 0], ['7A1', 2, 0], ['7A2', 0, 0]]);
+    expect(list.body.items.map((c: any) => [c.name, c.teachers.length, c.students])).toEqual([['6A1', 0, 0], ['7A1', 1, 0], ['7A2', 0, 0]]);
     expect((await qa('GET', `/api/admin/classes?year_id=${y25}&grade=7&q=a2`)).body.items.map((c: any) => c.name)).toEqual(['7A2']);
     expect((await qa('GET', `/api/admin/classes?teacher_id=${t1}`)).body.items.map((c: any) => c.name)).toEqual(['7A1']);
     const edited = await qa('PATCH', `/api/admin/classes/${c7a.id}`, { name: '7A1 chọn', teacher_ids: [t1], expected_size: 35 });
     expect(edited.body).toMatchObject({ name: '7A1 chọn', expected_size: 35 });
     expect(edited.body.teachers.map((t: any) => t.id)).toEqual([t1]);
-    await qa('PATCH', `/api/admin/classes/${c7a.id}`, { name: '7A1', teacher_ids: [t1, t2] });
+    await qa('PATCH', `/api/admin/classes/${c7a.id}`, { name: '7A1', teacher_ids: [t1] });
     expect((await qa('PATCH', `/api/admin/classes/${c7a.id}`, { name: '7A2' })).status).toBe(409);
     const events = await qa('GET', `/api/admin/classes/${c7a.id}/events`);
-    expect(events.body.map((e: any) => e.kind)).toEqual(expect.arrayContaining(['create', 'teachers', 'update', 'unassign', 'assign']));
+    expect(events.body.map((e: any) => e.kind)).toEqual(expect.arrayContaining(['create', 'update', 'assign']));
     expect((await call(s.base, 'GET', `/api/admin/classes/${c7a.id}`, undefined, B.token)).status).toBe(404);
     expect((await call(s.base, 'PATCH', `/api/admin/classes/${c7a.id}`, { name: 'Hack' }, B.token)).status).toBe(404);
   });
@@ -243,7 +243,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     const s2 = await qa('POST', '/api/admin/students', { user_code: 'HS002', full_name: 'Trần Thị Hai', birth_date: '2013-07-20', gender: 'female', class_id: c7a.id, email: 'hs002@example.edu.vn' });
     const s3 = await qa('POST', '/api/admin/students', { user_code: 'HS003', full_name: 'Lê Văn Ba', birth_date: '2013-11-01', class_id: c7b.id });
     students = [s1.body.user.id, s2.body.user.id, s3.body.user.id];
-    for (const bad of [{ full_name: 'Thiếu Mã', birth_date: '2013-01-01' }, { user_code: 'HS9', full_name: 'Thiếu Sinh' }, { user_code: 'HS9', full_name: 'Sinh Sai', birth_date: '15/03/2013' }, { user_code: 'HS9', full_name: 'Phụ Huynh Sai', birth_date: '2013-01-01', parent_email: 'x' }]) {
+    for (const bad of [{ full_name: '', birth_date: '2013-01-01' }, { user_code: 'HS9', full_name: 'Thiếu Sinh' }, { user_code: 'HS9', full_name: 'Sinh Sai', birth_date: '15/03/2013' }, { user_code: 'HS9', full_name: 'Phụ Huynh Sai', birth_date: '2013-01-01', parent_email: 'x' }]) {
       expect([JSON.stringify(bad), (await qa('POST', '/api/admin/students', bad)).status]).toEqual([JSON.stringify(bad), 422]);
     }
     expect((await qa('POST', '/api/admin/students', { user_code: 'hs001', full_name: 'Trùng Mã', birth_date: '2013-01-01' })).status).toBe(409);
@@ -312,7 +312,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
       ['HS103', 'Ngày Sinh Sai', '31/02/2013', '', '', '', ''],
       ['HS104', 'Giới Tính Sai', '2013-01-01', 'Robot', '', '', ''],
       ['HS105', 'Lớp Không Có', '2013-01-01', '', '9Z9', '', ''],
-      ['', 'Thiếu Mã', '2013-01-01', '', '', '', ''],
+      ['', '', '2013-01-01', '', '', '', ''],
       ['HS106', 'Email Học Sinh Trùng', '2013-01-01', '', '', 'hs002@example.edu.vn', ''],
       ['HS107', 'Không Lớp', '2013-01-01', '', '', '', ''],
     ]);
@@ -320,7 +320,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect(preview.body).toMatchObject({ committed: false, total: 10, valid: 3, errors: 7, year_id: y25 });
     expect(preview.body.rows.filter((r: any) => r.status === 'error').map((r: any) => r.errors[0])).toEqual([
       'Mã trùng với dòng trước trong file', 'Mã HS001 đã có trong trường', 'Ngày sinh sai định dạng (dd/mm/yyyy)', 'Giới tính phải là Nam, Nữ hoặc Khác',
-      'Không có lớp "9Z9" trong năm học đã chọn', 'Thiếu mã học sinh', expect.stringContaining('hs002@example.edu.vn'),
+      'Không có lớp "9Z9" trong năm học đã chọn', 'Thiếu họ tên', expect.stringContaining('hs002@example.edu.vn'),
     ]);
     expect(await db.query("SELECT 1 FROM app_users WHERE user_code IN ('HS101', 'HS102', 'HS107')")).toHaveLength(0);
     const commit = await upload(s.base, `/api/admin/students/import?commit=true&year_id=${y25}`, 'hoc-sinh.xlsx', file, A.token);
@@ -397,7 +397,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect(await db.getById(hs101.id)).toMatchObject({ grade: 8, school_year: '2026-2027' });
     const clone = (await qa('GET', `/api/admin/classes/${eight.id}`)).body;
     expect(clone).toMatchObject({ school_year: '2026-2027', grade: 8, year_status: 'planned' });
-    expect(clone.teachers.map((t: any) => t.id).sort()).toEqual([t1, t2].sort());
+    expect(clone.teachers.map((t: any) => t.id).sort()).toEqual([t1]);
     expect(clone.join_code).not.toBe(c7a.join_code);
     expect((await qa('GET', `/api/admin/classes/${eight.id}/events`)).body.map((e: any) => e.kind)).toContain('clone');
     // Chạy lại: mọi lớp đã nhân bản nên bị bỏ qua, không tạo trùng

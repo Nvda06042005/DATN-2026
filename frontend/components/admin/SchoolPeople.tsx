@@ -8,6 +8,7 @@ import { FileUp, Plus } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AccountSheet, dateText, GENDER_TEXT } from '@/components/admin/AccountSheet';
 import { AdminSelect } from '@/components/admin/AdminSelect';
+import { RegistrationCode } from './RegistrationCode';
 import { Cell, CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, ImportSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useDebounced, useLoad, yearOptions, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Spinner, Txt } from '@/components/ui';
@@ -51,11 +52,11 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const today = todayVn();
   // thêm từng người: cùng các cột với file mẫu Excel (mã, họ tên, giới tính, SĐT, email, ngày sinh); bộ môn mặc định là Lịch sử nên không phải nhập
   const fields: FieldDef[] = teacher
-    ? [{ name: 'user_code', label: 'Mã giáo viên' }, { name: 'full_name', label: 'Họ và tên', required: true },
+    ? [{ name: 'user_code', label: 'Mã giáo viên', render:()=> <RegistrationCode token={token} kind="teacher"/> }, { name: 'full_name', label: 'Họ và tên', required: true },
       { name: 'gender', label: 'Giới tính', type: 'select', options: [{ value: '', label: 'Chưa chọn' }, { value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }] },
       { name: 'phone', label: 'SĐT', type: 'tel' }, { name: 'email', label: 'Email', type: 'email', required: true, hint: 'Mật khẩu tạm được gửi vào email này.' },
       { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1940-01-01', max: today }]
-    : [{ name: 'user_code', label: 'Mã học sinh', required: true }, { name: 'full_name', label: 'Họ và tên', required: true }, { name: 'birth_date', label: 'Ngày sinh', type: 'date', calendar: true, min: '2000-01-01', max: today, required: true },
+    : [{ name: 'user_code', label: 'Mã học sinh', render:()=> <RegistrationCode token={token} kind="student"/> }, { name: 'full_name', label: 'Họ và tên', required: true }, { name: 'birth_date', label: 'Ngày sinh', type: 'date', calendar: true, min: '2000-01-01', max: today, required: true },
       { name: 'gender', label: 'Giới tính', type: 'select', options: [{ value: '', label: 'Chưa chọn' }, { value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }, { value: 'other', label: 'Khác' }] },
       { name: 'class_id', label: 'Xếp vào lớp (năm học đang chọn)', type: 'select', options: [{ value: '', label: 'Chưa xếp lớp' }, ...classOptions] },
       { name: 'email', label: 'Email học sinh', type: 'email' }, { name: 'parent_email', label: 'Email phụ huynh', type: 'email', hint: 'Dữ liệu của trẻ vị thành niên: chỉ dùng cho việc liên lạc của nhà trường.' }];
@@ -77,6 +78,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
         <>
           <DataTable paginate={false} rows={data.items} rowKey={(u) => u.id} empty={teacher ? 'Chưa có giáo viên nào khớp bộ lọc.' : 'Chưa có học sinh nào khớp bộ lọc.'} onRowPress={(u) => setOpen(u.id)}
             columns={teacher ? [
+              { key: 'code', label: 'Mã giáo viên', render: (u) => <Txt f="semibold" size={14}>{u.user_code || '—'}</Txt> },
               { key: 'name', label: 'Giáo viên', flex: 2, render: (u) => <Cell main={u.full_name} sub={u.username} /> },
               { key: 'email', label: 'Email / điện thoại', flex: 2, render: (u) => <Cell main={u.email || 'Chưa có email'} sub={u.phone} /> },
               { key: 'subject', filter: f_subject, label: 'Bộ môn', render: (u) => <Txt size={14}>{u.subject || '—'}</Txt> },
@@ -98,7 +100,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
         <FormSheet title={teacher ? 'Thêm giáo viên' : 'Thêm học sinh'} subtitle={teacher ? 'Thêm từng giáo viên (muốn thêm nhiều người cùng lúc, hãy dùng Nhập từ Excel). Hệ thống sinh tên đăng nhập và mật khẩu tạm; giáo viên đổi mật khẩu ở lần đăng nhập đầu tiên.' : 'Hệ thống sinh tên đăng nhập và mật khẩu tạm; người dùng đổi mật khẩu ở lần đăng nhập đầu tiên'} submitLabel="Tạo tài khoản" fields={fields} wide onClose={() => setCreating(false)}
           onSubmit={async (v) => {
             const body: Record<string, unknown> = {};
-            for (const f of fields) { const raw = String(v[f.name] ?? '').trim(); if (raw) body[f.name] = f.name === 'class_id' ? Number(raw) : raw; }
+            for (const f of fields) { if(f.render)continue; const raw = String(v[f.name] ?? '').trim(); if (raw) body[f.name] = f.name === 'class_id' ? Number(raw) : raw; }
             const res = await api.createMember(token, kind, body as never);
             setCreating(false);
             setCredential(res);

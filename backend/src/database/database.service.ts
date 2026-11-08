@@ -409,7 +409,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       `SELECT (u.last_login_at IS NOT NULL) AS logged_in,
               EXISTS (SELECT 1 FROM app_progress p WHERE p.user_id = u.id AND (p.xp > 0 OR p.questions_answered > 0 OR p.lessons_completed > 0)) AS learned,
               EXISTS (SELECT 1 FROM app_audit_events a WHERE a.actor_id = u.id) AS acted,
-              (EXISTS (SELECT 1 FROM app_class_teachers t WHERE t.teacher_id = u.id) OR EXISTS (SELECT 1 FROM app_classes c WHERE c.teacher_id = u.id)) AS teaching
+              (EXISTS (SELECT 1 FROM app_class_teacher_assignments t WHERE t.teacher_id = u.id) OR EXISTS (SELECT 1 FROM app_classes c WHERE c.teacher_id = u.id)) AS teaching
        FROM app_users u WHERE u.id = $1`,
       [id],
     );

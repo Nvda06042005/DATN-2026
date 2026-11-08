@@ -63,7 +63,7 @@ export class BoardService {
     if (actor.role === 'teacher') {
       return this.db.query(
         `SELECT c.id, c.name, c.grade, c.school_year, COALESCE(cs.hearts_enabled, true) AS hearts_enabled, (SELECT count(*)::int FROM app_class_members m WHERE m.class_id = c.id) AS students
-         FROM app_classes c JOIN app_class_teachers t ON t.class_id = c.id LEFT JOIN hk_class_settings cs ON cs.class_id = c.id
+         FROM app_classes c JOIN app_current_class_teachers t ON t.class_id = c.id LEFT JOIN hk_class_settings cs ON cs.class_id = c.id
          WHERE t.teacher_id = $1 AND c.is_active ORDER BY c.school_year DESC, c.name`, [actor.id]);
     }
     return this.db.query(
@@ -73,7 +73,7 @@ export class BoardService {
 
   async setClassHearts(actor: UserRow, classId: number, enabled: boolean) {
     const ok = actor.role === 'teacher'
-      ? (await this.db.query('SELECT 1 FROM app_class_teachers WHERE class_id = $1 AND teacher_id = $2', [classId, actor.id])).length > 0
+      ? (await this.db.query('SELECT 1 FROM app_current_class_teachers WHERE class_id = $1 AND teacher_id = $2', [classId, actor.id])).length > 0
       : (await this.db.query('SELECT 1 FROM app_classes WHERE id = $1 AND school_id = $2', [classId, actor.school_id])).length > 0;
     if (!ok) throw notFound('lớp');
     await this.db.query(
@@ -362,7 +362,7 @@ export class BoardService {
   /** Học sinh của một lớp (giáo viên phụ trách lớp hoặc quản trị viên trường) để chọn người nhận huy hiệu */
   async classStudents(actor: UserRow, classId: number) {
     const ok = actor.role === 'teacher'
-      ? (await this.db.query('SELECT 1 FROM app_class_teachers WHERE class_id = $1 AND teacher_id = $2', [classId, actor.id])).length > 0
+      ? (await this.db.query('SELECT 1 FROM app_current_class_teachers WHERE class_id = $1 AND teacher_id = $2', [classId, actor.id])).length > 0
       : (await this.db.query('SELECT 1 FROM app_classes WHERE id = $1 AND school_id = $2', [classId, actor.school_id])).length > 0;
     if (!ok) throw notFound('lớp');
     return this.db.query(
@@ -382,7 +382,7 @@ export class BoardService {
       if (!badge || badge.scope !== 'school' || badge.school_id !== actor.school_id) throw notFound('huy hiệu của trường');
       const students = await q<UserRow>(
         actor.role === 'teacher'
-          ? `SELECT DISTINCT u.* FROM app_users u JOIN app_class_members m ON m.user_id = u.id JOIN app_class_teachers t ON t.class_id = m.class_id AND t.teacher_id = $2 WHERE u.id = ANY($1) AND u.role = 'student' AND u.school_id = $3`
+          ? `SELECT DISTINCT u.* FROM app_users u JOIN app_class_members m ON m.user_id = u.id JOIN app_current_class_teachers t ON t.class_id = m.class_id AND t.teacher_id = $2 WHERE u.id = ANY($1) AND u.role = 'student' AND u.school_id = $3`
           : `SELECT u.* FROM app_users u WHERE u.id = ANY($1) AND u.role = 'student' AND u.school_id = $3 AND $2::int IS NOT NULL`, [userIds, actor.id, actor.school_id]);
       if (students.length !== new Set(userIds).size) throw new ForbiddenException(actor.role === 'teacher' ? 'Chỉ trao được cho học sinh trong lớp bạn phụ trách' : 'Có học sinh không thuộc trường của bạn');
       let awarded = 0;

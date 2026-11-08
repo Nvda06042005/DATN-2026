@@ -104,7 +104,7 @@ export class SkillService {
         if (cls.skill_approval) {
           await this.spend(q, user, skill.cost);
           const req = (await q<{ id: number }>("INSERT INTO hk_skill_uses (user_id, class_id, skill, target_user_id, cost, status) VALUES ($1, $2, $3, $4, $5, 'pending') RETURNING id::int AS id", [user.id, cls.id, code, code === 'hoi_sinh' ? target.id : null, skill.cost]))[0];
-          const teachers = (await q<{ teacher_id: number }>('SELECT teacher_id FROM app_class_teachers WHERE class_id = $1', [cls.id])).map((r) => r.teacher_id);
+          const teachers = (await q<{ teacher_id: number }>('SELECT teacher_id FROM app_current_class_teachers WHERE class_id = $1', [cls.id])).map((r) => r.teacher_id);
           await notify(q, teachers, { kind: 'skill', title: 'Học sinh xin dùng kỹ năng', body: `${user.nickname || user.full_name} xin dùng "${skill.name}"${code === 'hoi_sinh' ? ` cho ${target.nickname || target.full_name}` : ''}`, class_id: cls.id, ref: { request_id: req.id }, by: user.id, school_id: cls.school_id });
           return { skill: code, status: 'pending', message: 'Đã gửi giáo viên duyệt; điểm hành động được hoàn lại nếu bị từ chối', ap: await this.apLeftIn(q, user) };
         }

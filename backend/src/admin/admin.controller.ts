@@ -176,6 +176,7 @@ class ImportQuery extends SchoolScope {
 }
 
 class ClassQuery extends Page {
+  @IsOptional() @Type(() => Number) @IsIn([1,2]) semester?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) year_id?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(6) @Max(9) grade?: number;
@@ -185,22 +186,25 @@ class ClassQuery extends Page {
 }
 
 class ClassDto {
+  @IsOptional() @Type(() => Number) @IsIn([1,2]) semester?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number | null;
   @Type(() => Number) @IsInt() @Min(1) year_id: number;
   @Type(() => Number) @IsInt() @Min(6) @Max(9) grade: number;
   @Transform(squash) @IsString() @Length(2, 40) name: string;
-  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsInt({ each: true }) teacher_ids?: number[];
+  @IsOptional() @IsArray() @ArrayMaxSize(1) @IsInt({ each: true }) teacher_ids?: number[];
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) expected_size?: number | null;
   @IsOptional() @IsString() @MaxLength(300) description?: string | null;
 }
 
 class UpdateClassDto {
+  @IsOptional() @Type(() => Number) @IsIn([1,2]) semester?: number;
+  @IsOptional() @IsBoolean() confirm_reassignment?: boolean;
   @IsOptional() @Transform(squash) @IsString() @Length(2, 40) name?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(6) @Max(9) grade?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) expected_size?: number | null;
   @IsOptional() @IsString() @MaxLength(300) description?: string | null;
   @IsOptional() @IsBoolean() join_open?: boolean;
-  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsInt({ each: true }) teacher_ids?: number[];
+  @IsOptional() @IsArray() @ArrayMaxSize(1) @IsInt({ each: true }) teacher_ids?: number[];
 }
 
 class ArchiveDto {
@@ -398,6 +402,10 @@ export class AdminController {
   @Get('classes')
   classList(@CurrentUser() user: UserRow, @Query() query: ClassQuery) { return this.classes.list(user, query); }
 
+  @Get('registration-code/:kind')
+  @Header('Cache-Control', 'no-store')
+  registrationCode(@CurrentUser() user: UserRow, @Param('kind') kind: string) { return this.accounts.codePreview(user,kind); }
+
   @Post('classes')
   createClass(@CurrentUser() user: UserRow, @Body() body: ClassDto) { return this.classes.create(user, body); }
 
@@ -420,7 +428,7 @@ export class AdminController {
   }
 
   @Get('classes/:id')
-  classDetail(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.classes.detail(user, id); }
+  classDetail(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number,@Query() query: ClassQuery) { return this.classes.detail(user, id,query.semester); }
 
   @Get('classes/:id/events')
   classEvents(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.classes.events(user, id); }

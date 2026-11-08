@@ -1,6 +1,9 @@
 /** Kho đã xóa một năm: HTTP thật của cả bốn vai trò, CASCADE, RLS, bí mật, rollback, hết hạn; chỉ PostgreSQL tạm. */
 import { adminLogin, call, hasPostgres, sql, Started, startApp } from './harness';
 import { bootstrap, Fixture } from './fixture';
+import { readdirSync } from 'fs';
+import { join } from 'path';
+const latestSchema=readdirSync(join(__dirname,'../../database/migrations')).filter(f=>f.endsWith('.sql')).length;
 
 (hasPostgres() ? describe : describe.skip)('Kho dữ liệu đã xóa một năm', () => {
   let s: Started, f: Fixture;
@@ -20,7 +23,7 @@ import { bootstrap, Fixture } from './fixture';
       expect((await sql(s.url, "SELECT has_table_privilege($1,'app_deleted_records','SELECT') AS read,has_table_privilege($1,'app_deleted_records','INSERT') AS write,has_function_privilege($1,'app_purge_deleted_records()','EXECUTE') AS purge,has_function_privilege($1,'app_install_delete_archives()','EXECUTE') AS install", [role]))[0]).toEqual({ read: false, write: false, purge: false, install: false });
       await expect(sql(s.url, `BEGIN; SET LOCAL ROLE ${role}; SELECT * FROM public.app_deleted_records`)).rejects.toThrow(/permission denied/);
     }
-    expect((await api('GET', '/api/database/health', undefined, '')).body).toMatchObject({ schema_version: 52, deletion_archive: { enabled: true, retention_years: 1, backend_fallback: true } });
+    expect((await api('GET', '/api/database/health', undefined, '')).body).toMatchObject({ schema_version: latestSchema, deletion_archive: { enabled: true, retention_years: 1, backend_fallback: true } });
     expect((await api('GET', '/api/admin/deleted-records')).status).toBe(404);
   });
 

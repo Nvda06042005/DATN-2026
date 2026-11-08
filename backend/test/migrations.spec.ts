@@ -102,7 +102,31 @@ describe('file migration', () => {
     expect(await count("SELECT count(*) AS n FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('app_school_years', 'app_class_teachers') AND 'dong_a_school_scope'=ANY(roles)")).toBe(2);
   });
 
+  test('053 giữ mã cũ/phân công cũ; chuyển lớp một giáo viên sang cả hai học kỳ, không tự chọn ở lớp nhiều giáo viên', async () => {
+    const change=readdirSync(dir).find(name=>name.startsWith('053_'))!;
+    renameSync(join(dir,change),join(dir,change+'.held'));
+    await m.applyMigrations(url,dir);
+    await sql(url,`INSERT INTO app_schools(id,school_code,name) VALUES(9531,'9531','Trường nâng cấp');
+      INSERT INTO app_users(id,username,full_name,role,password_hash,school_id,user_code,created_at) VALUES
+      (9531,'fixture-up-1','Giáo viên một','teacher','fixture-hash',9531,'MA-CU',now()),
+      (9532,'fixture-up-2','Giáo viên hai','teacher','fixture-hash',9531,NULL,now());
+      INSERT INTO app_classes(id,school_id,school_year,class_code,name,grade) VALUES
+      (9531,9531,'2026-2027','7A1','7A1',7),(9532,9531,'2026-2027','7A2','7A2',7);
+      INSERT INTO app_class_teachers(class_id,teacher_id) VALUES(9531,9531),(9532,9531),(9532,9532);`);
+    renameSync(join(dir,change+'.held'),join(dir,change));
+    expect(await m.applyMigrations(url,dir)).toEqual([change]);
+    expect(await sql(url,'SELECT user_code FROM app_users WHERE id=9531')).toEqual([{user_code:'MA-CU'}]);
+    expect((await sql<any>(url,'SELECT user_code FROM app_users WHERE id=9532'))[0].user_code).toMatch(/^GV\d{8}$/);
+    expect(await sql(url,'SELECT class_code,name FROM app_classes WHERE id=9531')).toEqual([{class_code:'7A1',name:'7A1'}]);
+    expect((await sql<any>(url,'SELECT registration_code FROM app_classes WHERE id=9531'))[0].registration_code).toMatch(/^LH\d{8}$/);
+    expect(await sql(url,'SELECT semester,teacher_id FROM app_class_term_teachers WHERE class_id=9531 ORDER BY semester')).toEqual([{semester:1,teacher_id:9531},{semester:2,teacher_id:9531}]);
+    expect(await sql(url,'SELECT * FROM app_class_term_teachers WHERE class_id=9532')).toEqual([]);
+    expect(await count('SELECT count(*) AS n FROM app_class_teachers WHERE class_id IN(9531,9532)')).toBe(3);
+    expect(await m.applyMigrations(url,dir)).toEqual([]);
+  });
+
   test('052 thêm kho xóa một năm, giữ dữ liệu đang dùng và ngày xóa cũ của hội thoại ẩn, không mở quyền API', async () => {
+    for(const name of readdirSync(dir).filter(name=>/^\d+_.*\.sql$/.test(name)&&Number(name.split('_')[0])>52)) renameSync(join(dir,name),join(dir,`${name}.held`));
     const change = readdirSync(dir).find(name => name.startsWith('052_'))!;
     renameSync(join(dir,change),join(dir,`${change}.held`));
     await m.applyMigrations(url,dir);

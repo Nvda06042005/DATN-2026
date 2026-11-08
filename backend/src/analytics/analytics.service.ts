@@ -42,13 +42,13 @@ export class AnalyticsService {
   async classes(user: UserRow): Promise<ClassInfo[]> {
     const params: unknown[] = [];
     let where = 'TRUE';
-    if (user.role === 'teacher') { params.push(user.id); where = 'c.id IN (SELECT class_id FROM app_class_teachers WHERE teacher_id = $1)'; }
+    if (user.role === 'teacher') { params.push(user.id); where = 'c.id IN (SELECT class_id FROM app_current_class_teachers WHERE teacher_id = $1)'; }
     else if (user.role === 'school_admin') { params.push(user.school_id); where = 'c.school_id = $1'; }
     else if (user.role !== 'root_admin') throw new ForbiddenException('Không có quyền xem báo cáo lớp');
     return this.db.query<ClassInfo>(
       `SELECT c.id, c.name, c.grade, c.school_id, s.name AS school_name, y.label AS year_label, c.is_active,
-              (SELECT string_agg(u.full_name, ', ' ORDER BY u.full_name) FROM app_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id) AS teachers,
-              COALESCE((SELECT array_agg(t.teacher_id) FROM app_class_teachers t WHERE t.class_id = c.id), '{}') AS teacher_ids,
+              (SELECT string_agg(u.full_name, ', ' ORDER BY u.full_name) FROM app_current_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id) AS teachers,
+              COALESCE((SELECT array_agg(t.teacher_id) FROM app_current_class_teachers t WHERE t.class_id = c.id), '{}') AS teacher_ids,
               (SELECT count(*)::int FROM app_class_members m JOIN app_users u ON u.id = m.user_id AND u.role = 'student' AND u.deleted_at IS NULL WHERE m.class_id = c.id) AS students
        FROM app_classes c JOIN app_schools s ON s.id = c.school_id LEFT JOIN app_school_years y ON y.id = c.year_id WHERE ${where} ORDER BY s.name, c.grade NULLS LAST, c.name`, params);
   }
@@ -149,7 +149,7 @@ export class AnalyticsService {
     if (user.role === 'root_admin' || (user.role === 'student' && user.id === studentId)) return s;
     if (user.role === 'school_admin' && s.school_id === user.school_id) return s;
     if (user.role === 'teacher' && (await this.db.query(
-      'SELECT 1 FROM app_class_members m JOIN app_class_teachers t ON t.class_id = m.class_id WHERE m.user_id = $1 AND t.teacher_id = $2 LIMIT 1', [studentId, user.id])).length) return s;
+      'SELECT 1 FROM app_class_members m JOIN app_current_class_teachers t ON t.class_id = m.class_id WHERE m.user_id = $1 AND t.teacher_id = $2 LIMIT 1', [studentId, user.id])).length) return s;
     throw notFound('học sinh');
   }
 

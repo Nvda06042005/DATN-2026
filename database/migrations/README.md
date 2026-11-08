@@ -101,3 +101,5 @@ Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).
 - **047_verified_school_logos_and_mergers.sql**: 370 dòng tham chiếu thay đổi, 141 asset mới (gồm phiên bản ảnh rõ hơn); bộ hiện hành 460 logo WebP. Đối chiếu thêm sáp nhập/đổi tên có nguồn. Giữ bản ghi lịch sử, chỉ bỏ liên kết ảnh của mã đã sáp nhập hoặc chưa chắc đúng. Không tạo/gộp/xóa trường đăng ký, tài khoản hoặc dữ liệu học tập. SQL sinh dạng chênh lệch từ snapshot tham chiếu, không chép lại toàn bộ 044 và không sửa migration cũ.
 
 - **048_remove_retired_school_references.sql**: theo yêu cầu xóa mục cũ sau sáp nhập, xóa đúng dòng danh mục tham chiếu có trường thay thế đã xác minh; 52 mã được bao phủ, 31 dòng còn tồn tại sau 047 được xóa. Không xóa trường đăng ký, người dùng, lớp, dữ liệu học hoặc ảnh. Tên/mã cũ là alias về trường hiện tại; các bộ dựng nguồn đã chặn nhập lại mã cũ từ Gist 2020.
+
+- 053_class_semester_teachers_and_codes.sql: mã giáo viên/học sinh/lớp tăng dần, phân công một giáo viên mỗi học kỳ; RLS, quyền theo lịch năm học và kho xóa một năm. Giữ mã và phân công cũ. Xem docs/LOP_VA_PHAN_CONG_HOC_KY.md.

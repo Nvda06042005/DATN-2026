@@ -19,7 +19,7 @@ interface ClassRow {
   join_code: string | null; join_open: boolean; expected_size: number | null; description: string | null; status: string; closed_at: string | null;
 }
 
-export interface ClassFilter { school_id?: number; year_id?: number; grade?: number; q?: string; active?: 'true' | 'false'; teacher_id?: number; page?: number; limit?: number }
+export interface ClassFilter { school_id?: number; year_id?: number; semester?: number; grade?: number; q?: string; active?: 'true' | 'false'; teacher_id?: number; page?: number; limit?: number }
 
 @Injectable()
 export class ClassService {
@@ -48,20 +48,27 @@ export class ClassService {
     return cls;
   }
 
-  private async view(q: Q, id: number) {
+  private async view(q: Q, id: number, semester?: number) {
     const cls = (await q<Record<string, unknown>>(
-      `SELECT c.id, c.school_id, c.year_id, c.school_year, c.class_code, c.name, c.grade, c.is_active, c.join_code, c.join_open, c.expected_size, c.description, c.status, c.closed_at, c.created_at,
+      `SELECT c.id, c.school_id, c.year_id, c.school_year, c.class_code, c.registration_code, c.name, c.grade, c.is_active, c.join_code, c.join_open, c.expected_size, c.description, c.status, c.closed_at, c.created_at,
               y.status AS year_status,
+              COALESCE($2::int,public.app_class_semester(c.year_id),1) AS semester,
+              EXISTS(SELECT 1 FROM app_class_teachers old WHERE old.class_id=c.id GROUP BY old.class_id HAVING count(*)>1)
+                AND NOT EXISTS(SELECT 1 FROM app_class_term_teachers t WHERE t.class_id=c.id) AS legacy_teacher_review,
               COALESCE((SELECT json_agg(json_build_object('id', u.id, 'full_name', u.full_name, 'email', u.email, 'is_active', u.is_active) ORDER BY u.full_name)
-                        FROM app_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id), '[]'::json) AS teachers,
+                        FROM app_class_teacher_assignments t JOIN app_users u ON u.id=t.teacher_id WHERE t.class_id=c.id AND t.semester=COALESCE($2::int,public.app_class_semester(c.year_id),1)), '[]'::json) AS teachers,
+              (SELECT json_agg(json_build_object('semester',s.n,'teacher_id',t.teacher_id,'teacher_name',u.full_name,'starts_on',CASE s.n WHEN 1 THEN y.term1_starts_on ELSE y.term2_starts_on END,
+                'ends_on',CASE s.n WHEN 1 THEN y.term1_ends_on ELSE y.term2_ends_on END) ORDER BY s.n)
+                FROM (VALUES(1),(2)) s(n) LEFT JOIN app_class_teacher_assignments t ON t.class_id=c.id AND t.semester=s.n LEFT JOIN app_users u ON u.id=t.teacher_id) AS term_teachers,
               (SELECT count(*)::int FROM app_class_members m JOIN app_users u ON u.id = m.user_id WHERE m.class_id = c.id AND u.role = 'student' AND u.deleted_at IS NULL) AS students
-       FROM app_classes c LEFT JOIN app_school_years y ON y.id = c.year_id WHERE c.id = $1`, [id]))[0];
+       FROM app_classes c LEFT JOIN app_school_years y ON y.id = c.year_id WHERE c.id = $1`, [id,semester ?? null]))[0];
     return cls;
   }
 
   /** Giáo viên hợp lệ của trường để phân công: đang hoạt động, đúng trường */
   private async validTeachers(q: Q, schoolId: number, ids: number[]): Promise<number[]> {
     const unique = [...new Set(ids)];
+    if (unique.length>1) throw new UnprocessableEntityException('Mỗi lớp chỉ có một giáo viên phụ trách lớp trong một học kỳ');
     if (!unique.length) return [];
     const rows = await q<{ id: number }>("SELECT id FROM app_users WHERE id = ANY($1) AND school_id = $2 AND role = 'teacher' AND is_active = 1 AND deleted_at IS NULL", [unique, schoolId]);
     if (rows.length !== unique.length) throw new UnprocessableEntityException('Có giáo viên không thuộc trường hoặc đang bị khóa');
@@ -76,28 +83,29 @@ export class ClassService {
       if (f.year_id) add('c.year_id = ?', f.year_id);
       if (f.grade) add('c.grade = ?', f.grade);
       if (f.active) add('c.is_active = ?', f.active === 'true');
-      if (f.teacher_id) add('EXISTS (SELECT 1 FROM app_class_teachers t WHERE t.class_id = c.id AND t.teacher_id = ?)', f.teacher_id);
-      if (f.q?.trim()) add("(c.name || ' ' || c.class_code) ILIKE ? ESCAPE '\\'", `%${likeEscape(f.q.trim())}%`);
+      if (f.teacher_id) add('EXISTS (SELECT 1 FROM app_class_teacher_assignments t WHERE t.class_id=c.id AND t.semester=COALESCE('+ (f.semester === 1 || f.semester === 2 ? String(f.semester) : 'public.app_class_semester(c.year_id)') +',1) AND t.teacher_id=?)', f.teacher_id);
+      if (f.q?.trim()) add("(c.name || ' ' || c.class_code || ' ' || c.registration_code) ILIKE ? ESCAPE '\\'", `%${likeEscape(f.q.trim())}%`);
       const condition = where.length ? where.join(' AND ') : 'TRUE';
       const page = f.page ?? 1, limit = f.limit ?? 50;
       const total = Number((await q<{ n: string }>(`SELECT count(*) AS n FROM app_classes c WHERE ${condition}`, params))[0].n);
       const items = await q(
-        `SELECT c.id, c.school_id, c.year_id, c.school_year, c.class_code, c.name, c.grade, c.is_active, c.join_code, c.join_open, c.expected_size, c.status, y.status AS year_status,
-                COALESCE((SELECT json_agg(json_build_object('id', u.id, 'full_name', u.full_name) ORDER BY u.full_name) FROM app_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id), '[]'::json) AS teachers,
+        `SELECT c.id, c.school_id, c.year_id, c.school_year, c.class_code, c.registration_code, c.name, c.grade, c.is_active, c.join_code, c.join_open, c.expected_size, c.status, y.status AS year_status,
+                COALESCE($${params.length+3}::int,public.app_class_semester(c.year_id),1) AS semester,
+                COALESCE((SELECT json_agg(json_build_object('id', u.id, 'full_name', u.full_name) ORDER BY u.full_name) FROM app_class_teacher_assignments t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id AND t.semester=COALESCE($${params.length+3}::int,public.app_class_semester(c.year_id),1)), '[]'::json) AS teachers,
                 (SELECT count(*)::int FROM app_class_members m JOIN app_users u ON u.id = m.user_id WHERE m.class_id = c.id AND u.role = 'student' AND u.deleted_at IS NULL) AS students
          FROM app_classes c LEFT JOIN app_school_years y ON y.id = c.year_id WHERE ${condition}
-         ORDER BY c.school_year DESC, c.grade NULLS LAST, c.name, c.id LIMIT $${params.length + 1} OFFSET $${params.length + 2}`, [...params, limit, (page - 1) * limit]);
+         ORDER BY c.school_year DESC, c.grade NULLS LAST, c.name, c.id LIMIT $${params.length + 1} OFFSET $${params.length + 2}`, [...params, limit, (page - 1) * limit,f.semester ?? null]);
       return { items, total, page, limit };
     });
   }
 
-  async detail(actor: UserRow, id: number) {
+  async detail(actor: UserRow, id: number, semester?: number) {
     return this.schools.run(actor, async (q) => {
       const cls = await this.load(q, actor, id);
       const students = await q(
         `SELECT u.id, u.full_name, u.user_code, u.username, u.birth_date, u.gender, u.is_active, u.nickname, m.joined_at FROM app_class_members m JOIN app_users u ON u.id = m.user_id
          WHERE m.class_id = $1 AND u.role = 'student' AND u.deleted_at IS NULL ORDER BY u.full_name, u.id`, [id]);
-      return { ...(await this.view(q, cls.id)), members: students };
+      return { ...(await this.view(q, cls.id,semester)), members: students };
     });
   }
 
@@ -112,7 +120,7 @@ export class ClassService {
   }
 
   /** Tạo lớp (HK.QT.036): thuộc một năm học còn mở và một khối đang bật; có thể phân công giáo viên ngay */
-  async create(actor: UserRow, body: { school_id?: number | null; year_id: number; grade: number; name: string; teacher_ids?: number[]; expected_size?: number | null; description?: string | null }) {
+  async create(actor: UserRow, body: { school_id?: number | null; year_id: number; grade: number; name: string; semester?: number; teacher_ids?: number[]; expected_size?: number | null; description?: string | null }) {
     const schoolId = this.schools.target(actor, body.school_id);
     const name = body.name.trim().replace(/\s+/g, ' ');
     return this.schools.run(actor, async (q) => {
@@ -122,9 +130,10 @@ export class ClassService {
       await this.assertGradeOpen(q, schoolId, year.label, body.grade);
       const teachers = await this.validTeachers(q, schoolId, body.teacher_ids ?? []);
       const id = await this.insertClass(q, actor, { schoolId, year, grade: body.grade, name, expected_size: body.expected_size ?? null, description: body.description?.trim() || null });
-      for (const teacher of teachers) await q('INSERT INTO app_class_teachers (class_id, teacher_id, assigned_by) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [id, teacher, actor.id]);
-      if (teachers.length) await this.log(q, { id, school_id: schoolId }, 'teachers', actor, { note: `Phân công ${teachers.length} giáo viên` });
-      return this.view(q, id);
+      const cls=await this.load(q,actor,id);
+      const semester=body.semester ?? (await q<{n:number}>('SELECT COALESCE(public.app_class_semester($1),1) AS n',[year.id]))[0].n;
+      await this.setTeachers(q,actor,cls,teachers,semester,true);
+      return this.view(q, id,semester);
     });
   }
 
@@ -150,7 +159,7 @@ export class ClassService {
   }
 
   /** Sửa lớp (HK.QT.037) và phân công giáo viên (HK.QT.022): `teacher_ids` thay toàn bộ danh sách giáo viên của lớp */
-  async update(actor: UserRow, id: number, body: { name?: string; grade?: number; expected_size?: number | null; description?: string | null; join_open?: boolean; teacher_ids?: number[] }) {
+  async update(actor: UserRow, id: number, body: { name?: string; grade?: number; expected_size?: number | null; description?: string | null; join_open?: boolean; teacher_ids?: number[]; semester?: number; confirm_reassignment?: boolean }) {
     return this.schools.run(actor, async (q) => {
       const cls = await this.openClass(q, actor, id);
       const fields: Array<[string, unknown]> = [];
@@ -173,22 +182,22 @@ export class ClassService {
         await q(`UPDATE app_classes SET ${fields.map(([k], i) => `${k} = $${i + 2}`).join(', ')} WHERE id = $1`, [id, ...fields.map(([, v]) => v)]);
         await this.log(q, cls, body.join_open !== undefined && fields.length === 1 ? (body.join_open ? 'join_open' : 'join_closed') : 'update', actor);
       }
-      if (body.teacher_ids !== undefined) await this.setTeachers(q, actor, cls, await this.validTeachers(q, cls.school_id, body.teacher_ids));
-      return this.view(q, id);
+      const semester=body.semester ?? (await q<{n:number}>('SELECT COALESCE(public.app_class_semester($1),1) AS n',[cls.year_id]))[0].n;
+      if (body.teacher_ids !== undefined) await this.setTeachers(q, actor, cls, await this.validTeachers(q, cls.school_id, body.teacher_ids),semester,body.confirm_reassignment ?? false);
+      return this.view(q, id,semester);
     });
   }
 
-  private async setTeachers(q: Q, actor: UserRow, cls: ClassRow, wanted: number[]): Promise<void> {
-    const current = (await q<{ teacher_id: number }>('SELECT teacher_id FROM app_class_teachers WHERE class_id = $1', [cls.id])).map((r) => r.teacher_id);
-    const add = wanted.filter((t) => !current.includes(t)), drop = current.filter((t) => !wanted.includes(t));
-    for (const t of add) {
-      await q('INSERT INTO app_class_teachers (class_id, teacher_id, assigned_by) VALUES ($1, $2, $3)', [cls.id, t, actor.id]);
-      await this.log(q, cls, 'assign', actor, { teacher_id: t });
-    }
-    for (const t of drop) {
-      await q('DELETE FROM app_class_teachers WHERE class_id = $1 AND teacher_id = $2', [cls.id, t]);
-      await this.log(q, cls, 'unassign', actor, { teacher_id: t });
-    }
+  private async setTeachers(q: Q, actor: UserRow, cls: ClassRow, wanted: number[],semester: number,confirmed: boolean): Promise<void> {
+    if (![1,2].includes(semester)) throw new UnprocessableEntityException('Học kỳ không hợp lệ');
+    const current=await q<{teacher_id:number|null}>('SELECT teacher_id FROM app_class_term_teachers WHERE class_id=$1 AND semester=$2',[cls.id,semester]);
+    const legacy=current.length ? [] : await q<{teacher_id:number}>('SELECT teacher_id FROM app_class_teachers WHERE class_id=$1',[cls.id]);
+    const previous=current[0]?.teacher_id ?? (legacy.length===1 ? legacy[0].teacher_id : null), next=wanted[0] ?? null;
+    if (previous!==null && previous!==next && !confirmed) throw new ConflictException('Vui lòng xác nhận thay đổi giáo viên phụ trách lớp');
+    await q('INSERT INTO app_class_term_teachers(class_id,school_id,semester,teacher_id,assigned_by) SELECT $1,$2,s.n,NULL,$3 FROM (VALUES(1),(2)) s(n) ON CONFLICT DO NOTHING',[cls.id,cls.school_id,actor.id]);
+    if (previous===next && !legacy.length) return;
+    await q('UPDATE app_class_term_teachers SET teacher_id=$3,assigned_by=$4,assigned_at=now() WHERE class_id=$1 AND semester=$2',[cls.id,semester,next,actor.id]);
+    await this.log(q,cls,previous===null ? 'assign' : next===null ? 'unassign' : 'change_teacher',actor,{teacher_id:next,note:`Học kỳ ${semester}: ${previous ?? 'chưa phân công'} → ${next ?? 'chưa phân công'}`});
   }
 
   /** Lưu trữ / khôi phục lớp (HK.QT.038): lớp lưu trữ không nhận học sinh mới và mã tham gia ngừng dùng được */
@@ -341,8 +350,12 @@ export class ClassService {
         let students = 0;
         for (const m of members) if (!selected || selected.has(m.id)) if (await this.addStudent(q, actor, cls, m.id)) students += 1;
         if (copyTeachers) {
-          const teachers = await q<{ teacher_id: number }>("SELECT t.teacher_id FROM app_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = $1 AND u.is_active = 1 AND u.deleted_at IS NULL", [src.id]);
-          for (const t of teachers) await q('INSERT INTO app_class_teachers (class_id, teacher_id, assigned_by) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [id, t.teacher_id, actor.id]);
+          for (const semester of [1,2]) {
+            const teachers = await q<{ teacher_id: number }>(`SELECT t.teacher_id FROM app_class_teacher_assignments t JOIN app_users u ON u.id=t.teacher_id WHERE t.class_id=$1 AND t.semester=$2 AND u.is_active=1 AND u.deleted_at IS NULL`,[src.id,semester]);
+            await this.setTeachers(q,actor,cls,teachers.length===1 ? [teachers[0].teacher_id] : [],semester,true);
+          }
+        } else {
+          await this.setTeachers(q,actor,cls,[],1,true);
         }
         await this.log(q, cls, 'clone', actor, { related_class_id: src.id, note: `Nhân bản từ lớp ${src.name} (${from.label})` });
         created.push({ id, name, grade, students, from_class: src.name });

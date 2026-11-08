@@ -315,11 +315,11 @@ export class AuthService {
     const school = schoolRow ? currentSchoolLogo(schoolRow) : null;
     const year = user.school_id ? (await this.db.query("SELECT id, label FROM app_school_years WHERE school_id = $1 AND status = 'active'", [user.school_id]))[0] ?? null : null;
     const classes = user.role === 'teacher'
-      ? await this.db.query(`SELECT c.id, c.class_code, c.name, c.grade, c.school_year, c.is_active, c.join_code FROM app_class_teachers t JOIN app_classes c ON c.id = t.class_id
+      ? await this.db.query(`SELECT c.id, c.class_code, c.name, c.grade, c.school_year, c.is_active, c.join_code FROM app_current_class_teachers t JOIN app_classes c ON c.id = t.class_id
           WHERE t.teacher_id = $1 AND c.school_id = $2 ORDER BY c.school_year DESC, c.name`, [user.id, user.school_id])
       : user.role === 'student'
         ? await this.db.query(`SELECT c.id, c.class_code, c.name, c.grade, c.school_year, c.is_active,
-            COALESCE((SELECT json_agg(u.full_name ORDER BY u.full_name) FROM app_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id), '[]'::json) AS teachers
+            COALESCE((SELECT json_agg(u.full_name ORDER BY u.full_name) FROM app_current_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id), '[]'::json) AS teachers
             FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = $1 ORDER BY c.school_year DESC, c.name`, [user.id])
         : [];
     return { user: toPublic(user), school, school_year: year, classes, editable: PROFILE_FIELDS[user.role], needs_profile_confirmation: user.role === 'student' && !user.profile_confirmed_at };

@@ -46,3 +46,5 @@ Người dùng đã cho phép tự động cập nhật dự án sau mỗi yêu 
 
 
 - Cập nhật 07/11/2026: Thống kê hệ thống là một dashboard gồm tổng quan, nội dung, sử dụng và AI. Danh mục chỉ gợi ý, không tạo tenant hàng loạt; mã Đông A sinh bằng sequence, tách directory_code. Migration 043–044 lưu danh mục và WebP trong PostgreSQL, khử trùng SHA-256, RLS không cấp quyền bảng công khai; API trả từng ảnh theo hash. Giữ nguồn và phạm vi trong docs/DANH_MUC_TRUONG.md.
+
+- Cập nhật 08/11/2026: migration 053 thêm mã tự sinh GV/HS/LH và phân công một giáo viên mỗi học kỳ cho lớp cả năm. Dùng app_current_class_teachers cho kiểm tra quyền đang có hiệu lực; app_class_teacher_assignments cho lịch phân công. Giữ mã/phân công cũ; không tự chọn giáo viên khi dữ liệu cũ có nhiều người. Xem docs/LOP_VA_PHAN_CONG_HOC_KY.md. Database hiện tới 053.

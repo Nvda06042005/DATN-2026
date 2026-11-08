@@ -558,7 +558,7 @@ export class JourneyService {
     return this.db.query(
       `SELECT c.id, c.name, c.grade, c.school_year, (SELECT count(*)::int FROM app_class_members m WHERE m.class_id = c.id) AS students,
               COALESCE((SELECT json_agg(json_build_object('id', j.id, 'title', j.title) ORDER BY j.title) FROM hk_class_journeys cj JOIN hk_journeys j ON j.id = cj.journey_id WHERE cj.class_id = c.id), '[]'::json) AS journeys
-       FROM app_classes c JOIN app_class_teachers t ON t.class_id = c.id LEFT JOIN app_school_years y ON y.id = c.year_id
+       FROM app_classes c JOIN app_current_class_teachers t ON t.class_id = c.id LEFT JOIN app_school_years y ON y.id = c.year_id
        WHERE t.teacher_id = $1 AND c.is_active AND c.status = 'APPROVED' AND COALESCE(y.status, 'active') <> 'ended' ORDER BY c.school_year DESC, c.name`, [user.id]);
   }
 
@@ -571,7 +571,7 @@ export class JourneyService {
       const row = await this.load(q, user, journeyId, true);
       this.mustEdit(user, row);
       const mine = await q<{ id: number }>(
-        `SELECT c.id FROM app_classes c JOIN app_class_teachers t ON t.class_id = c.id LEFT JOIN app_school_years y ON y.id = c.year_id
+        `SELECT c.id FROM app_classes c JOIN app_current_class_teachers t ON t.class_id = c.id LEFT JOIN app_school_years y ON y.id = c.year_id
          WHERE t.teacher_id = $1 AND c.id = ANY($2) AND c.is_active AND c.status = 'APPROVED' AND COALESCE(y.status, 'active') <> 'ended'`, [user.id, classIds]);
       if (mine.length !== new Set(classIds).size) throw new ForbiddenException('Chỉ giao được cho lớp bạn phụ trách và còn đang hoạt động');
       const problems = await this.problems(q, journeyId, row);

@@ -19,6 +19,7 @@ export const searchSchoolDirectory = (token: string, q: string, excludeSchoolId?
 export const getSchool = (token: string, id: number) => apiRequest<SchoolDetail>(`/api/admin/schools/${id}`, { token });
 export const createSchool = (token: string, body: Record<string, unknown>) => apiRequest<CreatedSchool>('/api/admin/schools', { token, body });
 export const previewSchoolCode = (token: string) => apiRequest<{ school_code: string }>('/api/admin/school-code-preview', { token });
+export const previewRegistrationCode = (token:string,kind:'teacher'|'student'|'class') => apiRequest<{code:string}>(`/api/admin/registration-code/${kind}`,{token});
 export const updateSchool = async (token: string, id: number, body: Record<string, unknown>) => {
   const school = await apiRequest<SchoolItem>(`/api/admin/schools/${id}`, { token, method: 'PATCH', body });
   clearSchoolIdentities();
@@ -68,11 +69,11 @@ export const downloadFile = (token: string, path: string) => apiBlob(path, token
 
 // ---------------------------------------------------------------------- lớp học (HK.QT.022, HK.QT.035–040)
 export const listClasses = (token: string, query: Query) => apiRequest<Paged<ClassItem>>(`/api/admin/classes${qs(query)}`, { token });
-export const getClass = (token: string, id: number) => apiRequest<ClassDetail>(`/api/admin/classes/${id}`, { token });
+export const getClass = (token: string, id: number,semester?:number) => apiRequest<ClassDetail>(`/api/admin/classes/${id}${qs({semester})}`, { token });
 export const classEvents = (token: string, id: number) => apiRequest<ClassEvent[]>(`/api/admin/classes/${id}/events`, { token });
-export const createClass = (token: string, body: { school_id?: number | null; year_id: number; grade: number; name: string; teacher_ids?: number[]; expected_size?: number | null; description?: string | null }) =>
+export const createClass = (token: string, body: { school_id?: number | null; year_id: number; grade: number; name: string; semester?:number; teacher_ids?: number[]; expected_size?: number | null; description?: string | null }) =>
   apiRequest<ClassItem>('/api/admin/classes', { token, body });
-export const updateClass = (token: string, id: number, body: Partial<{ name: string; grade: number; expected_size: number | null; description: string | null; join_open: boolean; teacher_ids: number[] }>) =>
+export const updateClass = (token: string, id: number, body: Partial<{ name: string; grade: number; semester:number; confirm_reassignment:boolean; expected_size: number | null; description: string | null; join_open: boolean; teacher_ids: number[] }>) =>
   apiRequest<ClassItem>(`/api/admin/classes/${id}`, { token, method: 'PATCH', body });
 export const archiveClass = (token: string, id: number, archived: boolean) => apiRequest<ClassItem>(`/api/admin/classes/${id}/archive`, { token, body: { archived } });
 export const regenerateJoinCode = (token: string, id: number) => apiRequest<ClassItem>(`/api/admin/classes/${id}/regenerate-code`, { token, body: {} });
