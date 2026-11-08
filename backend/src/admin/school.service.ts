@@ -31,7 +31,13 @@ export interface SchoolRow {
   created_at: string;
 }
 
-export interface YearRow { id: number; school_id: number; label: string; starts_on: string; ends_on: string; status: 'planned' | 'active' | 'ended'; ended_at: string | null }
+export interface YearRow {
+  id: number; school_id: number; label: string; starts_on: string; ends_on: string; status: 'planned' | 'active' | 'ended'; ended_at: string | null;
+  /** Học kỳ 1 và học kỳ 2: hoặc cả bốn ngày đều trống (chưa đặt học kỳ) hoặc cả bốn ngày đều có */
+  term1_starts_on: string | null; term1_ends_on: string | null; term2_starts_on: string | null; term2_ends_on: string | null;
+}
+export const TERM_KEYS = ['term1_starts_on', 'term1_ends_on', 'term2_starts_on', 'term2_ends_on'] as const;
+export type YearTerms = Partial<Record<(typeof TERM_KEYS)[number], string | null>>;
 
 /**
  * Mã trường chuẩn hóa: chỉ giữ chữ số. Mã ngắn thêm số 0 phía trước cho đủ 4 chữ số; mã Bộ GD&ĐT (8 chữ số) giữ nguyên;
@@ -301,13 +307,33 @@ export class SchoolService {
     if (!(starts_on < ends_on)) throw new UnprocessableEntityException('Ngày bắt đầu phải trước ngày kết thúc');
   }
 
-  async createYear(actor: UserRow, body: { school_id?: number | null; label: string; starts_on: string; ends_on: string }) {
+  /**
+   * Học kỳ phải đặt đủ cả hai (hoặc để trống cả bốn ngày), nối tiếp nhau và nằm trong năm học: học kỳ 1 từ ngày bắt đầu năm học trở đi,
+   * học kỳ 2 bắt đầu sau khi học kỳ 1 kết thúc và kết thúc không muộn hơn năm học. Ngày chuẩn theo khung kế hoạch của Bộ GD&ĐT chỉ là gợi ý ở giao diện,
+   * mỗi địa phương và trường có thể khác nên máy chủ không ép ngày cụ thể.
+   */
+  private validTerms(starts_on: string, ends_on: string, t: Record<(typeof TERM_KEYS)[number], string | null>): void {
+    const given = TERM_KEYS.filter((k) => t[k]);
+    if (!given.length) return;
+    if (given.length !== TERM_KEYS.length) throw new UnprocessableEntityException('Hãy nhập đủ ngày bắt đầu và kết thúc của cả hai học kỳ, hoặc để trống cả bốn ô');
+    const [a1, b1, a2, b2] = TERM_KEYS.map((k) => t[k] as string);
+    if (a1 < starts_on) throw new UnprocessableEntityException('Học kỳ 1 phải bắt đầu từ ngày bắt đầu năm học trở đi');
+    if (a1 > b1) throw new UnprocessableEntityException('Học kỳ 1 phải kết thúc sau ngày bắt đầu');
+    if (b1 >= a2) throw new UnprocessableEntityException('Học kỳ 2 phải bắt đầu sau khi học kỳ 1 kết thúc');
+    if (a2 > b2) throw new UnprocessableEntityException('Học kỳ 2 phải kết thúc sau ngày bắt đầu');
+    if (b2 > ends_on) throw new UnprocessableEntityException('Học kỳ 2 phải kết thúc trước hoặc đúng ngày kết thúc năm học');
+  }
+
+  async createYear(actor: UserRow, body: { school_id?: number | null; label: string; starts_on: string; ends_on: string } & YearTerms) {
     const schoolId = this.target(actor, body.school_id);
     const label = body.label.trim();
     this.validYear(label, body.starts_on, body.ends_on);
+    const terms = Object.fromEntries(TERM_KEYS.map((k) => [k, body[k] ?? null])) as Record<(typeof TERM_KEYS)[number], string | null>;
+    this.validTerms(body.starts_on, body.ends_on, terms);
     return this.run(actor, async (q) => {
       if ((await q('SELECT 1 FROM app_school_years WHERE school_id = $1 AND label = $2', [schoolId, label])).length) throw new ConflictException(`Năm học ${label} đã có`);
-      const year = (await q<YearRow>('INSERT INTO app_school_years (school_id, label, starts_on, ends_on, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING *', [schoolId, label, body.starts_on, body.ends_on, actor.id]))[0];
+      const year = (await q<YearRow>('INSERT INTO app_school_years (school_id, label, starts_on, ends_on, term1_starts_on, term1_ends_on, term2_starts_on, term2_ends_on, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+        [schoolId, label, body.starts_on, body.ends_on, terms.term1_starts_on, terms.term1_ends_on, terms.term2_starts_on, terms.term2_ends_on, actor.id]))[0];
       // Khối của năm mới chép từ năm gần nhất của trường (hoặc bật cả bốn khối 6–9 nếu là năm đầu tiên); quản trị viên chỉnh lại ở mục khối lớp
       const previous = await q<{ grade: number; is_active: boolean }>(
         `SELECT grade, is_active FROM app_school_grades WHERE school_id = $1 AND school_year = (SELECT max(school_year) FROM app_school_grades WHERE school_id = $1 AND school_year < $2)`, [schoolId, label]);
@@ -324,19 +350,24 @@ export class SchoolService {
     return year;
   }
 
-  async updateYear(actor: UserRow, id: number, body: { label?: string; starts_on?: string; ends_on?: string }) {
+  async updateYear(actor: UserRow, id: number, body: { label?: string; starts_on?: string; ends_on?: string } & YearTerms) {
     return this.run(actor, async (q) => {
       const year = await this.yearOf(q, actor, id);
       if (year.status === 'ended') throw new ConflictException('Năm học đã kết thúc, không sửa được');
       const label = body.label?.trim() ?? year.label, starts_on = body.starts_on ?? year.starts_on, ends_on = body.ends_on ?? year.ends_on;
       this.validYear(label, starts_on, ends_on);
+      // gửi bất kỳ ngày học kỳ nào (kể cả null) là thay cả bộ học kỳ; không gửi thì giữ học kỳ đang có và kiểm tra lại với ngày năm học mới
+      const sent = TERM_KEYS.some((k) => body[k] !== undefined);
+      const terms = Object.fromEntries(TERM_KEYS.map((k) => [k, sent ? (body[k] ?? null) : year[k]])) as Record<(typeof TERM_KEYS)[number], string | null>;
+      this.validTerms(starts_on, ends_on, terms);
       if (label !== year.label) {
         const used = (await q<{ n: number }>('SELECT (SELECT count(*) FROM app_classes WHERE year_id = $1)::int AS n', [id]))[0].n;
         if (used) throw new ConflictException('Năm học đã có lớp nên không đổi được tên; chỉ sửa được ngày bắt đầu và kết thúc');
         if ((await q('SELECT 1 FROM app_school_years WHERE school_id = $1 AND label = $2 AND id <> $3', [year.school_id, label, id])).length) throw new ConflictException(`Năm học ${label} đã có`);
         await q('UPDATE app_school_grades SET school_year = $3 WHERE school_id = $1 AND school_year = $2', [year.school_id, year.label, label]);
       }
-      return (await q<YearRow>('UPDATE app_school_years SET label = $2, starts_on = $3, ends_on = $4, updated_at = now() WHERE id = $1 RETURNING *', [id, label, starts_on, ends_on]))[0];
+      return (await q<YearRow>('UPDATE app_school_years SET label = $2, starts_on = $3, ends_on = $4, term1_starts_on = $5, term1_ends_on = $6, term2_starts_on = $7, term2_ends_on = $8, updated_at = now() WHERE id = $1 RETURNING *',
+        [id, label, starts_on, ends_on, terms.term1_starts_on, terms.term1_ends_on, terms.term2_starts_on, terms.term2_ends_on]))[0];
     });
   }
 

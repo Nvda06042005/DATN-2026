@@ -96,6 +96,11 @@ export interface YearItem {
   ends_on: string;
   status: 'planned' | 'active' | 'ended';
   ended_at: string | null;
+  /** Học kỳ 1 và học kỳ 2: hoặc cả bốn ngày đều null (chưa đặt) hoặc cả bốn ngày đều có */
+  term1_starts_on: string | null;
+  term1_ends_on: string | null;
+  term2_starts_on: string | null;
+  term2_ends_on: string | null;
   classes?: number;
 }
 

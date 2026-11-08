@@ -4,19 +4,20 @@
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { Bell, CalendarDays, ChartColumn, CircleHelp, ClipboardList, FileText, History, LifeBuoy, GraduationCap, Inbox, ListChecks, Plus, Route, School, Trash2, Trophy, UserRound, Users } from 'lucide-react-native';
+import { Bell, CalendarDays, ChartColumn, CircleHelp, ClipboardList, FileText, History, LifeBuoy, GraduationCap, Inbox, ListChecks, Route, School, Trash2, Trophy, UserRound, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
-import { dateText } from '@/components/admin/AccountSheet';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { SchoolReports } from '@/components/admin/AnalyticsAdmin';
 import { SchoolDashboard } from '@/components/admin/SchoolDashboard';
+import { SchoolYears } from '@/components/admin/SchoolYears';
+import { phaseText, todayVn } from '@/lib/school-terms';
 import { BroadcastManager, SurveyManager } from '@/components/admin/PlatformComms';
 import { LogsPanel } from '@/components/admin/PlatformOps';
 import { SchoolEmblem } from '@/components/school-brand';
 import { HelpPage } from '@/components/portal/HelpCenter';
 import { NoticeBell } from '@/components/portal/NoticeCenter';
-import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, yearOptions, YEAR_TEXT } from '@/components/admin/kit';
+import { ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, yearOptions } from '@/components/admin/kit';
 import { SchoolGame } from '@/components/admin/GameAdmin';
 import { AiAdmin } from '@/components/admin/AiAdmin';
 import { BattleAdmin } from '@/components/admin/BattleAdmin';
@@ -31,7 +32,7 @@ import { SchoolClasses } from '@/components/admin/SchoolClasses';
 import { ShareInbox } from '@/components/admin/ShareInbox';
 import { SchoolPeople } from '@/components/admin/SchoolPeople';
 import type { Session } from '@/components/auth';
-import { AdminUiContext, Btn, Card, ConfirmSheet, Inset, Spinner, Txt } from '@/components/ui';
+import { AdminUiContext, Btn, Card, Inset, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { usePortalTab } from '@/hooks/use-portal-tab';
 import type { YearItem } from '@/types/api';
@@ -60,7 +61,6 @@ const NAV = [
   { id: 'help' as const, label: 'Trợ giúp', icon: LifeBuoy },
 ];
 type Tab = (typeof NAV)[number]['id'];
-const YEAR_KIND = { planned: 'info', active: 'on', ended: 'muted' } as const;
 
 export const SchoolAdmin: React.FC<{ session: Session }> = ({ session }) => {
   const [tab, setTab] = usePortalTab<Tab>('stats', NAV.map(item => item.id));
@@ -104,9 +104,6 @@ const SchoolPanel: React.FC<{ session: Session; school: Awaited<ReturnType<typeo
   const { c } = useTheme();
   const { token } = session;
   const [editing, setEditing] = useState(false);
-  const [yearForm, setYearForm] = useState<{ year: YearItem | null } | null>(null);
-  const [confirm, setConfirm] = useState<{ year: YearItem; action: 'activate' | 'end' } | null>(null);
-  const { busy, run } = useAction(session.expired);
   const [selected, setSelected] = useState('');
   const yearId = Number(selected || years.find((y) => y.status === 'active')?.id || years[0]?.id || 0);
   const grades = useLoad(async () => (yearId ? api.listGrades(token, yearId) : null), [token, yearId, years.length], session.expired);
@@ -127,26 +124,14 @@ const SchoolPanel: React.FC<{ session: Session; school: Awaited<ReturnType<typeo
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
             {[['Địa chỉ', school.address], ['Người liên hệ', school.contact_name], ['Email liên hệ', school.contact_email], ['Điện thoại', school.contact_phone],
-              ['Năm học hiện tại', school.current_year?.label ?? 'Chưa kích hoạt năm học'], ['Quy mô', `${school.counts.teachers} giáo viên · ${school.counts.students} học sinh · ${school.counts.classes} lớp`]].map(([k, v]) => (
+              ['Năm học hiện tại', school.current_year ? [school.current_year.label, phaseText(school.current_year, todayVn())].filter(Boolean).join(' · ') : 'Chưa kích hoạt năm học'], ['Quy mô', `${school.counts.teachers} giáo viên · ${school.counts.students} học sinh · ${school.counts.classes} lớp`]].map(([k, v]) => (
               <View key={k as string} style={{ flexBasis: 220, flexGrow: 1 }}><Txt f="bold" size={12} color={c.muc3}>{k}</Txt><Txt size={14}>{(v as string | null) || 'Chưa có'}</Txt></View>
             ))}
           </View>
         </Card>
       )}
 
-      <PageHeader title="Năm học" actions={<Btn title="Thêm năm học" icon={Plus} tone="son" size="sm" onPress={() => setYearForm({ year: null })} testID="year-add" />} />
-      <DataTable rows={years} rowKey={(y) => y.id} empty="Chưa có năm học nào. Hãy thêm năm học đầu tiên." onRowPress={(y) => setSelected(String(y.id))}
-        columns={[
-          { key: 'label', label: 'Năm học', render: (y) => <Cell main={y.label} sub={`${y.starts_on} → ${y.ends_on}`} /> },
-          { key: 'status', label: 'Trạng thái', render: (y) => <StatusChip kind={YEAR_KIND[y.status]} text={YEAR_TEXT[y.status]} /> },
-          { key: 'classes', label: 'Số lớp', render: (y) => <Txt size={14}>{y.classes ?? 0}</Txt> },
-          { key: 'ended', label: 'Kết thúc lúc', hideOnCard: true, render: (y) => <Txt size={13} color={c.muc2}>{y.ended_at ? dateText(y.ended_at) : '—'}</Txt> },
-        ]}
-        actions={(y) => (<>
-          {y.status !== 'ended' ? <Btn title="Sửa" tone="giay" size="sm" onPress={() => setYearForm({ year: y })} /> : null}
-          {y.status === 'planned' ? <Btn title="Kích hoạt" tone="giay" size="sm" onPress={() => setConfirm({ year: y, action: 'activate' })} /> : null}
-          {y.status === 'active' ? <Btn title="Kết thúc" tone="giay" size="sm" onPress={() => setConfirm({ year: y, action: 'end' })} /> : null}
-        </>)} />
+      <SchoolYears session={session} years={years} onSelect={setSelected} onChanged={onChanged} />
 
       {yearId ? (
         <>
@@ -183,22 +168,6 @@ const SchoolPanel: React.FC<{ session: Session; school: Awaited<ReturnType<typeo
           initial={Object.fromEntries(SCHOOL_FIELDS.map((f) => [f.name, String((school as unknown as Record<string, unknown>)[f.name] ?? '')]))} onClose={() => setEditing(false)}
           onSubmit={async (v) => { await api.updateMySchool(token, Object.fromEntries(SCHOOL_FIELDS.map((f) => [f.name, String(v[f.name]).trim() || null]))); setEditing(false); onChanged(); }} />
       ) : null}
-      {yearForm ? (
-        <FormSheet title={yearForm.year ? `Sửa năm học ${yearForm.year.label}` : 'Thêm năm học'} subtitle="Năm học gồm hai năm liên tiếp, ví dụ 2026-2027" submitLabel={yearForm.year ? 'Lưu' : 'Thêm năm học'}
-          fields={[{ name: 'label', label: 'Năm học', required: true, placeholder: '2026-2027', hint: yearForm.year && yearForm.year.classes ? 'Năm học đã có lớp nên chỉ sửa được ngày.' : undefined }, { name: 'starts_on', label: 'Ngày bắt đầu', type: 'date', required: true }, { name: 'ends_on', label: 'Ngày kết thúc', type: 'date', required: true }]}
-          initial={yearForm.year ? { label: yearForm.year.label, starts_on: yearForm.year.starts_on, ends_on: yearForm.year.ends_on } : undefined} onClose={() => setYearForm(null)}
-          onSubmit={async (v) => {
-            const body = { label: String(v.label).trim(), starts_on: String(v.starts_on), ends_on: String(v.ends_on) };
-            if (yearForm.year) await api.updateYear(token, yearForm.year.id, yearForm.year.classes ? { starts_on: body.starts_on, ends_on: body.ends_on } : body);
-            else await api.createYear(token, body);
-            setYearForm(null);
-            onChanged();
-          }} />
-      ) : null}
-      <ConfirmSheet open={!!confirm} busy={busy} onCancel={() => setConfirm(null)} confirmLabel={confirm?.action === 'activate' ? 'Kích hoạt' : 'Kết thúc năm học'}
-        title={confirm?.action === 'activate' ? 'Kích hoạt năm học' : 'Kết thúc năm học'}
-        message={confirm?.action === 'activate' ? `Đặt ${confirm?.year.label} làm năm học đang hoạt động? Mỗi trường chỉ có một năm học đang hoạt động.` : `Kết thúc năm học ${confirm?.year.label}? Sau đó không sửa được lớp, học sinh trong lớp và khối của năm học này; không thể hoàn tác.`}
-        onConfirm={async () => { if (confirm && (await run(() => (confirm.action === 'activate' ? api.activateYear(token, confirm.year.id) : api.endYear(token, confirm.year.id)), 'Đã cập nhật năm học'))) { setConfirm(null); onChanged(); } }} />
     </Page>
   );
 };

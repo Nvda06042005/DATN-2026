@@ -82,12 +82,20 @@ class YearDto {
   @Matches(YEAR_LABEL, { message: 'Năm học có dạng 2026-2027' }) label: string;
   @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) starts_on: string;
   @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) ends_on: string;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term1_starts_on?: string | null;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term1_ends_on?: string | null;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term2_starts_on?: string | null;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term2_ends_on?: string | null;
 }
 
 class UpdateYearDto {
   @IsOptional() @Matches(YEAR_LABEL, { message: 'Năm học có dạng 2026-2027' }) label?: string;
   @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) starts_on?: string;
   @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) ends_on?: string;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term1_starts_on?: string | null;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term1_ends_on?: string | null;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term2_starts_on?: string | null;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term2_ends_on?: string | null;
 }
 
 class YearQuery extends SchoolScope {

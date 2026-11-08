@@ -223,6 +223,30 @@ describe('file migration', () => {
     for (const file of held.filter(file => !changes.includes(file))) renameSync(join(dir, `${file}.held`), join(dir, file));
   });
 
+  test('050 thêm học kỳ 1 và 2 vào năm học: năm học cũ giữ nguyên và chưa có học kỳ, CSDL chặn học kỳ sai', async () => {
+    const held = readdirSync(dir).filter(name => /^\d+_.*\.sql$/.test(name) && Number(name.split('_')[0]) >= 50);
+    expect(held.some(name => name.startsWith('050_'))).toBe(true);
+    for (const file of held) renameSync(join(dir, file), join(dir, `${file}.held`));
+    await m.applyMigrations(url, dir);
+    await sql(url, `INSERT INTO app_schools(id,school_code,name,region) VALUES(9501,'9501','Trường có năm học cũ','Khu vực thử');
+      INSERT INTO app_school_years(school_id,label,starts_on,ends_on,status) VALUES(9501,'2025-2026','2025-09-05','2026-05-31','active')`);
+    const before = await sql(url, "SELECT id,label,starts_on,ends_on,status FROM app_school_years WHERE school_id=9501");
+    expect(before).toHaveLength(1);
+    const applied = held.filter(name => name.startsWith('050_'));
+    for (const file of applied) renameSync(join(dir, `${file}.held`), join(dir, file));
+    expect(await m.applyMigrations(url, dir)).toEqual(applied);
+    // năm học đã có không đổi gì, bốn ngày học kỳ đều trống
+    expect(await sql(url, "SELECT id,label,starts_on,ends_on,status FROM app_school_years WHERE school_id=9501")).toEqual(before);
+    expect(await sql(url, "SELECT term1_starts_on,term1_ends_on,term2_starts_on,term2_ends_on FROM app_school_years WHERE school_id=9501")).toEqual([{ term1_starts_on: null, term1_ends_on: null, term2_starts_on: null, term2_ends_on: null }]);
+    const insert = (terms: string) => sql(url, `INSERT INTO app_school_years(school_id,label,starts_on,ends_on,term1_starts_on,term1_ends_on,term2_starts_on,term2_ends_on) VALUES(9501,'2026-2027','2026-09-05','2027-05-31',${terms})`);
+    await expect(insert("'2026-09-05',NULL,NULL,NULL")).rejects.toThrow(/app_school_years_terms_ok/);
+    await expect(insert("'2026-09-05','2027-01-16','2027-01-10','2027-05-31'")).rejects.toThrow(/app_school_years_terms_ok/);
+    await expect(insert("'2026-09-01','2027-01-16','2027-01-18','2027-05-31'")).rejects.toThrow(/app_school_years_terms_ok/);
+    await insert("'2026-09-05','2027-01-16','2027-01-18','2027-05-31'");
+    expect(await m.applyMigrations(url, dir)).toEqual([]);
+    for (const file of held.filter(file => !applied.includes(file))) renameSync(join(dir, `${file}.held`), join(dir, file));
+  });
+
   test('giữ nguyên dữ liệu đã nhập và lịch sử _prisma_migrations', async () => {
     await sql(url, readFileSync(join(dir, '001_initial_postgres_schema.sql'), 'utf8'));
     await sql(url, `INSERT INTO public."User" (id, email, "passwordHash", "fullName", "updatedAt") VALUES ('legacy-id', 'fixture@example.invalid', 'fake-hash', 'Fixture', now())`);
