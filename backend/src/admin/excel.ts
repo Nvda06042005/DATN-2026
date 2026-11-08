@@ -1,4 +1,6 @@
 /** Đọc và ghi file Excel (.xlsx) cho nhập/xuất danh sách giáo viên, học sinh, phân lớp và kho dữ liệu lịch sử (ExcelJS). */
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { BadRequestException, PayloadTooLargeException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as ExcelJS from 'exceljs';
@@ -138,9 +140,25 @@ export function vnDayLabel(now: Date = new Date()): string {
  */
 export interface FormColumn extends Column { kind: 'index' | 'text' | 'phone' | 'list' | 'date'; options?: string[]; watch?: string; prompt?: string }
 
+/**
+ * Logo ngang của Đông A (biểu tượng chiến binh + chữ "Đông A edu" gốc, giống thanh đầu trang): Excel không nhúng được phông chữ riêng nên chữ được vẽ sẵn trong ảnh.
+ * Tạo lại bằng scripts/build-brand-lockup.cjs; cùng thư mục assets với phông chữ của báo cáo PDF nên chạy được cả khi triển khai.
+ */
+export const BRAND_LOGO_SIZE = { width: 222, height: 56 };
+let logoFile: Buffer | null | undefined;
+export function brandLogo(): Buffer | null {
+  if (logoFile === undefined) {
+    try { logoFile = readFileSync(join(__dirname, '..', '..', 'assets', 'brand', 'dong-a-edu-lockup.png')); } catch { logoFile = null; }
+  }
+  return logoFile;
+}
+
 export interface FormSheetSpec {
   sheetName: string;
+  /** Chữ thay cho logo khi không đọc được ảnh logo */
   title: string;
+  /** Ảnh logo PNG đặt ở đầu file; bỏ trống thì dùng logo của hệ thống, `null` thì chỉ dùng chữ `title` */
+  logo?: Buffer | null;
   subtitle: string;
   /** Các dòng "nhãn: giá trị" dưới tiêu đề, ví dụ Ngày bắt đầu nhập */
   meta: Array<{ label: string; value: string }>;
@@ -173,9 +191,16 @@ export async function buildFormSheet(spec: FormSheetSpec): Promise<Buffer> {
   const cols = spec.columns;
   cols.forEach((c, i) => { sheet.getColumn(i + 1).width = c.width ?? 22; });
 
-  sheet.getCell('A1').value = spec.title;
-  sheet.getCell('A1').font = { name: 'Calibri', size: 22, bold: true, color: { argb: BRAND } };
-  sheet.getRow(1).height = 34;
+  const logo = spec.logo === undefined ? brandLogo() : spec.logo;
+  if (logo) {
+    const image = workbook.addImage({ buffer: logo, extension: 'png' });
+    sheet.addImage(image, { tl: { col: 0.05, row: 0.08 }, ext: BRAND_LOGO_SIZE, editAs: 'oneCell' });
+    sheet.getRow(1).height = 46;
+  } else {
+    sheet.getCell('A1').value = spec.title;
+    sheet.getCell('A1').font = { name: 'Calibri', size: 22, bold: true, color: { argb: BRAND } };
+    sheet.getRow(1).height = 34;
+  }
   sheet.getCell('A2').value = spec.subtitle;
   sheet.getCell('A2').font = { name: 'Calibri', size: 11, color: { argb: 'FF4B5563' } };
   let r = 3;

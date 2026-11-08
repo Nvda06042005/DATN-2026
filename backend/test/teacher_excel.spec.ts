@@ -1,10 +1,41 @@
 /**
  * Nhập danh sách giáo viên từ Excel và danh sách xuất theo bố cục chuẩn của Đông A: "Đông A", tên trường, ngày (tự cập nhật khi tải), rồi bảng
- * Số thứ tự, Mã giáo viên, Họ và tên, Giới tính (chọn Nam/Nữ), SĐT, Email, Ngày tháng năm sinh (ô ngày); không có Bộ môn (mặc định Lịch sử).
+ * Số thứ tự, Mã giáo viên, Họ và tên, Giới tính (chọn Nam/Nữ), SĐT, Email, Ngày tháng năm sinh (ô ngày); không có Bộ môn (mặc định Lịch sử). Đầu file là logo ngang của Đông A (ảnh).
  * Hai cách thêm giáo viên: biểu mẫu "Thêm giáo viên" (từng người) và nhập file (hàng loạt).
  */
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { activate, adminLogin, call, download, hasPostgres, sql, Started, startApp, upload } from './harness';
-import { vnDayLabel } from '../src/admin/excel';
+import { brandLogo, BRAND_LOGO_SIZE, buildFormSheet, vnDayLabel } from '../src/admin/excel';
+
+const LOGO_FILE = join(__dirname, '..', 'assets', 'brand', 'dong-a-edu-lockup.png');
+
+describe('Logo ở đầu file Excel', () => {
+  const spec = { sheetName: 'Thử', title: 'Đông A', subtitle: 'Phụ đề', meta: [{ label: 'Ngày', value: 'x' }], columns: [{ key: 'a', header: 'Cột A', kind: 'text' as const }], blankRows: 2 };
+  const load = async (buffer: Buffer) => { const wb = new (await import('exceljs')).Workbook(); await wb.xlsx.load(buffer as unknown as Parameters<typeof wb.xlsx.load>[0]); return wb; };
+
+  test('ảnh logo là PNG thật đúng kích thước, đọc được từ thư mục assets', () => {
+    const file = readFileSync(LOGO_FILE);
+    expect(file.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
+    expect([file.readUInt32BE(16), file.readUInt32BE(20)]).toEqual([BRAND_LOGO_SIZE.width * 3, BRAND_LOGO_SIZE.height * 3]); // vẽ ở 3 lần kích thước hiển thị cho nét
+    expect(file[25]).toBe(6); // có kênh trong suốt: nền ô hiện qua logo
+    expect(brandLogo()?.equals(file)).toBe(true);
+  });
+
+  test('có logo thì đặt ảnh ở góc trên bên trái, không có ô chữ; không có ảnh thì dùng chữ thay thế', async () => {
+    const withLogo = (await load(await buildFormSheet(spec))).getWorksheet('Thử')!;
+    expect(withLogo.getCell('A1').value).toBeNull();
+    expect(withLogo.getImages()).toHaveLength(1);
+    expect(withLogo.getRow(1).height).toBe(46);
+    const wbLogo = await load(await buildFormSheet(spec));
+    const media = wbLogo.getImage(Number(wbLogo.getWorksheet('Thử')!.getImages()[0].imageId));
+    expect(media.extension).toBe('png');
+    expect(Buffer.from(media.buffer as ArrayBuffer).equals(readFileSync(LOGO_FILE))).toBe(true);
+    const fallback = (await load(await buildFormSheet({ ...spec, logo: null }))).getWorksheet('Thử')!;
+    expect(fallback.getCell('A1').value).toBe('Đông A');
+    expect(fallback.getImages()).toHaveLength(0);
+  });
+});
 
 const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới tính', 'SĐT', 'Email *', 'Ngày tháng năm sinh'];
 
@@ -49,7 +80,8 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     expect(res.status).toBe(200);
     const wb = await open(res.buffer);
     const sheet = wb.getWorksheet('Giáo viên')!;
-    expect(sheet.getCell('A1').value).toBe('Đông A');
+    expect(sheet.getCell('A1').value).toBeNull(); // logo ngang là ảnh, không phải chữ thường
+    expect(sheet.getImages()).toHaveLength(1);
     expect(String(sheet.getCell('A2').value)).toBe('Mẫu nhập danh sách giáo viên · THCS Mẫu Excel');
     expect(sheet.getCell('B3').value).toBe('Ngày bắt đầu nhập:');
     expect([before, after]).toContain(sheet.getCell('C3').value); // ngày của lúc tải, dạng 08/11/2026 (Chủ Nhật)
@@ -138,7 +170,8 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     expect(res.status).toBe(200);
     const wb = await open(res.buffer);
     const sheet = wb.getWorksheet('Giáo viên')!;
-    expect(sheet.getCell('A1').value).toBe('Đông A');
+    expect(sheet.getCell('A1').value).toBeNull();
+    expect(sheet.getImages()).toHaveLength(1);
     expect(String(sheet.getCell('A2').value)).toBe('Danh sách giáo viên · THCS Mẫu Excel');
     expect(sheet.getCell('B3').value).toBe('Ngày xuất:');
     expect(String(sheet.getCell('C3').value)).toMatch(/^\d{2}\/\d{2}\/\d{4} \(/);
