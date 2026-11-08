@@ -19,8 +19,6 @@ const PHONE = /^[0-9+() .-]{8,20}$/;
 const GENDERS: Record<string, 'male' | 'female' | 'other'> = { nam: 'male', male: 'male', nu: 'female', female: 'female', khac: 'other', other: 'other' };
 const GENDER_LABEL = { male: 'Nam', female: 'Nữ', other: 'Khác' } as const;
 
-/** Bộ môn mặc định của giáo viên (nền tảng dạy Lịch sử): không còn phải nhập ở mẫu Excel và biểu mẫu thêm giáo viên */
-export const DEFAULT_SUBJECT = 'Lịch sử';
 /** Cột của file nhập giáo viên (số thứ tự chỉ để nhìn, không đọc). Tên cột khác như "Số điện thoại", "Ngày sinh" cũng được nhận */
 export const TEACHER_COLUMNS: Column[] = [
   { key: 'user_code', header: 'Mã giáo viên', width: 22 },
@@ -30,8 +28,6 @@ export const TEACHER_COLUMNS: Column[] = [
   { key: 'email', header: 'Email *', required: true, width: 32 },
   { key: 'birth_date', header: 'Ngày tháng năm sinh', aliases: ['Ngày sinh'], width: 22 },
 ];
-/** File nhập giáo viên theo mẫu cũ còn cột "Bộ môn" thì vẫn đọc được; mẫu mới không có cột này */
-const TEACHER_IMPORT_COLUMNS: Column[] = [...TEACHER_COLUMNS, { key: 'subject', header: 'Bộ môn' }];
 const TEACHER_FORM_COLUMNS: FormColumn[] = [
   { key: 'stt', header: 'Số thứ tự', kind: 'index', watch: 'full_name', width: 11 },
   { ...TEACHER_COLUMNS[0], kind: 'text' },
@@ -52,7 +48,7 @@ export const STUDENT_COLUMNS: Column[] = [
 ];
 
 export interface AccountFilter {
-  q?: string; role?: Role; school_id?: number; active?: 'true' | 'false'; grade?: number; class_id?: number; subject?: string; page?: number; limit?: number;
+  q?: string; role?: Role; school_id?: number; active?: 'true' | 'false'; grade?: number; class_id?: number; page?: number; limit?: number;
 }
 
 export interface ImportRow { row: number; full_name: string; user_code: string | null; email: string | null; status: 'ok' | 'error' | 'created'; errors: string[]; username?: string }
@@ -60,7 +56,7 @@ export interface ImportRow { row: number; full_name: string; user_code: string |
 interface ClassTarget { id: number; name: string; grade: number | null; school_year: string; year_id: number | null; is_active: boolean }
 
 interface MemberInput {
-  full_name: string; email?: string | null; phone?: string | null; subject?: string | null; user_code?: string | null;
+  full_name: string; email?: string | null; phone?: string | null; user_code?: string | null;
   birth_date?: string | null; gender?: 'male' | 'female' | 'other' | null; parent_email?: string | null; class_id?: number | null;
 }
 
@@ -132,7 +128,6 @@ export class AccountService {
       } else if (f.school_id) add('u.school_id = ?', f.school_id);
       if (role) add('u.role = ?', role);
       if (f.active) add('u.is_active = ?', f.active === 'true' ? 1 : 0);
-      if (f.subject) add('u.subject ILIKE ?', `%${likeEscape(f.subject.trim())}%`);
       if (f.grade) add('(u.grade = ? OR EXISTS (SELECT 1 FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = u.id AND c.grade = ?::smallint))', f.grade);
       if (f.class_id) add('(EXISTS (SELECT 1 FROM app_class_members m WHERE m.user_id = u.id AND m.class_id = ?) OR EXISTS (SELECT 1 FROM app_class_teachers t WHERE t.teacher_id = u.id AND t.class_id = ?))', f.class_id);
       const text = searchText(f.q);
@@ -230,7 +225,7 @@ export class AccountService {
 
   private checkMember(role: MemberRole, body: MemberInput): MemberInput {
     const input: MemberInput = {
-      full_name: clean(body.full_name) as string, email: clean(body.email)?.toLowerCase() ?? null, phone: clean(body.phone), subject: clean(body.subject) ?? (role === 'teacher' ? DEFAULT_SUBJECT : null), user_code: clean(body.user_code),
+      full_name: clean(body.full_name) as string, email: clean(body.email)?.toLowerCase() ?? null, phone: clean(body.phone), user_code: clean(body.user_code),
       birth_date: body.birth_date ?? null, gender: body.gender ?? null, parent_email: clean(body.parent_email)?.toLowerCase() ?? null, class_id: body.class_id ?? null,
     };
     if (!input.full_name || input.full_name.length < 2) throw new UnprocessableEntityException('Họ tên tối thiểu 2 ký tự');
@@ -259,7 +254,7 @@ export class AccountService {
     let user: UserRow;
     try {
       user = await this.db.createUser({
-        username, full_name: input.full_name, role, class_name: null, password_hash: passwordHash, must_change_password: true, email: input.email, phone: input.phone, subject: role === 'teacher' ? input.subject : null,
+        username, full_name: input.full_name, role, class_name: null, password_hash: passwordHash, must_change_password: true, email: input.email, phone: input.phone,
         user_code: input.user_code, birth_date: input.birth_date, gender: input.gender, parent_email: role === 'student' ? input.parent_email : null,
         school_id: school.id, school_code: school.school_code, region: school.region, city: school.city, grade: cls?.grade ?? null, school_year: cls?.school_year ?? null,
       }, q);
@@ -289,7 +284,6 @@ export class AccountService {
         if (phone && !PHONE.test(phone)) throw new UnprocessableEntityException('Số điện thoại không hợp lệ');
         fields.phone = phone;
       }
-      if (target.role === 'teacher') set('subject', body.subject);
       if (target.role === 'student') {
         set('parent_email', body.parent_email, (v) => clean(v)?.toLowerCase() ?? null);
         if (fields.parent_email && !EMAIL.test(fields.parent_email as string)) throw new UnprocessableEntityException('Email phụ huynh không hợp lệ');
@@ -404,7 +398,7 @@ export class AccountService {
         'Ngày tháng năm sinh: chọn ngày trên lịch nếu phần mềm bảng tính của bạn có (Google Sheets, Excel Microsoft 365 bản mới) hoặc gõ dd/mm/yyyy, ví dụ 15/03/1985. Ngày sai bị chặn ngay trong ô.',
         'Email phải khác nhau và chưa dùng cho tài khoản nào khác. Hệ thống sinh mật khẩu tạm và gửi vào email này; giáo viên đổi mật khẩu ở lần đăng nhập đầu tiên.',
         'Mã giáo viên (không bắt buộc) không được trùng trong trường. SĐT gõ như bình thường, số 0 ở đầu được giữ nguyên.',
-        'Bộ môn mặc định là Lịch sử nên không cần nhập.',
+        'Nền tảng dạy Lịch sử nên không có cột Bộ môn (file cũ còn cột này vẫn nhập được, cột bị bỏ qua).',
         'Chỉ nhận file Excel .xlsx (tối đa 2 MB, tối đa 1000 giáo viên mỗi lần). Đừng xóa hay đổi tên dòng tiêu đề của bảng.',
         'Ví dụ một dòng: GV001 | Nguyễn Văn An | Nam | 0901234567 | an.nguyen@example.edu.vn | 15/03/1985',
         'Sau khi chọn file, hệ thống kiểm tra từng dòng và báo lỗi trước khi lưu; lưu xong danh sách giáo viên tự cập nhật.',
@@ -428,7 +422,7 @@ export class AccountService {
   async importMembers(actor: UserRow, role: MemberRole, file: UploadedXlsx | undefined, opts: { commit: boolean; school_id?: number | null; year_id?: number | null }) {
     const upload = checkUpload(file);
     const schoolId = this.schools.target(actor, opts.school_id);
-    const parsed = await readSheet(upload, role === 'teacher' ? TEACHER_IMPORT_COLUMNS : STUDENT_COLUMNS);
+    const parsed = await readSheet(upload, role === 'teacher' ? TEACHER_COLUMNS : STUDENT_COLUMNS);
     if (!parsed.length) throw new BadRequestException('File không có dòng dữ liệu nào');
     return this.schools.run(actor, async (q) => {
       if (opts.commit) await q('SELECT pg_advisory_xact_lock(7412026)');
@@ -441,7 +435,7 @@ export class AccountService {
       for (const { row, values } of parsed) {
         const errors: string[] = [];
         const input: MemberInput = {
-          full_name: clean(values.full_name) ?? '', email: clean(values.email)?.toLowerCase() ?? null, phone: clean(values.phone), subject: clean(values.subject) ?? (role === 'teacher' ? DEFAULT_SUBJECT : null), user_code: clean(values.user_code),
+          full_name: clean(values.full_name) ?? '', email: clean(values.email)?.toLowerCase() ?? null, phone: clean(values.phone), user_code: clean(values.user_code),
           parent_email: clean(values.parent_email)?.toLowerCase() ?? null, gender: null, birth_date: null, class_id: null,
         };
         if (input.full_name.length < 2) errors.push('Thiếu họ tên');

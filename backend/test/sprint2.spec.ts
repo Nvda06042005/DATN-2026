@@ -103,13 +103,14 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
 
   // ------------------------------------------------------------------ HK.QT.014–016, 018–021, 023
   test('HK.QT.014–016/018–021 giáo viên: thêm (mật khẩu tạm + email), tìm/lọc, sửa, khóa/mở khóa, đặt lại mật khẩu, xóa khi chưa có dữ liệu', async () => {
-    const created = await qa('POST', '/api/admin/teachers', { full_name: '  Nguyễn  Văn  Sử ', email: 'Su.Nguyen@Example.edu.vn', subject: 'Lịch sử', phone: '0901 234 567', user_code: 'GV01' });
+    const created = await qa('POST', '/api/admin/teachers', { full_name: '  Nguyễn  Văn  Sử ', email: 'Su.Nguyen@Example.edu.vn', phone: '0901 234 567', user_code: 'GV01' });
     expect(created.status).toBe(201);
-    expect(created.body).toMatchObject({ user: { role: 'teacher', full_name: 'Nguyễn Văn Sử', email: 'su.nguyen@example.edu.vn', subject: 'Lịch sử', school_id: A.id, must_change_password: true }, mail: 'queued' });
+    expect(created.body).toMatchObject({ user: { role: 'teacher', full_name: 'Nguyễn Văn Sử', email: 'su.nguyen@example.edu.vn', school_id: A.id, must_change_password: true }, mail: 'queued' });
+    expect(created.body.user).not.toHaveProperty('subject'); // bộ môn đã bỏ hẳn (migration 053)
     expect(created.body.temporary_password).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}$/);
     await mail.tick();
     expect(mail.sent.find((m) => m.to === 'su.nguyen@example.edu.vn')?.text).toContain(created.body.temporary_password);
-    await qa('POST', '/api/admin/teachers', { full_name: 'Trần Thị Địa', email: 'dia@example.edu.vn', subject: 'Địa lí' });
+    await qa('POST', '/api/admin/teachers', { full_name: 'Trần Thị Địa', email: 'dia@example.edu.vn' });
     for (const bad of [{ full_name: 'Thiếu Email' }, { full_name: 'Email Hỏng', email: 'khong-phai-email' }, { full_name: 'X', email: 'x@example.edu.vn' }, { full_name: 'Điện Thoại', email: 'dt@example.edu.vn', phone: 'abc' }]) {
       expect([JSON.stringify(bad), (await qa('POST', '/api/admin/teachers', bad)).status]).toEqual([JSON.stringify(bad), 422]);
     }
@@ -122,11 +123,12 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect(all.body.items.every((t: any) => t.role === 'teacher' && t.school_id === A.id && !('password_hash' in t))).toBe(true);
     expect((await qa('GET', '/api/admin/teachers?q=nguyen%20van%20su')).body.items).toHaveLength(1);
     expect((await qa('GET', '/api/admin/teachers?q=dia@example')).body.items).toHaveLength(1);
-    expect((await qa('GET', '/api/admin/teachers?subject=lịch')).body.items.map((t: any) => t.subject)).toEqual(['Lịch sử']);
+    expect((await qa('GET', '/api/admin/teachers?subject=lịch')).body.items).toHaveLength(2); // không còn lọc theo bộ môn: tham số bị bỏ qua
 
     const id = created.body.user.id;
     const edited = await qa('PATCH', `/api/admin/users/${id}`, { full_name: 'Nguyễn Văn Sử Mới', email: 'su.moi@example.edu.vn', subject: 'Lịch sử – Địa lí', phone: '0988 000 111' });
-    expect(edited.body).toMatchObject({ full_name: 'Nguyễn Văn Sử Mới', email: 'su.moi@example.edu.vn', subject: 'Lịch sử – Địa lí', phone: '0988 000 111' });
+    expect(edited.body).toMatchObject({ full_name: 'Nguyễn Văn Sử Mới', email: 'su.moi@example.edu.vn', phone: '0988 000 111' });
+    expect(edited.body).not.toHaveProperty('subject'); // gửi subject cũng bị bỏ qua
     expect((await qa('PATCH', `/api/admin/users/${id}`, { email: 'dia@example.edu.vn' })).status).toBe(409);
     expect((await qa('PATCH', `/api/admin/users/${id}`, { email: null })).status).toBe(422);
     expect((await qa('GET', '/api/admin/teachers?q=su%20moi')).body.items).toHaveLength(1); // chuỗi tìm kiếm cập nhật theo tên mới
@@ -191,8 +193,8 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     const all = table(await readRows((await download(s.base, '/api/admin/teachers/export', A.token)).buffer));
     expect(all.header).toEqual(['Số thứ tự', 'Mã giáo viên', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh', 'Lớp phụ trách', 'Trạng thái']);
     expect(all.data.length).toBe((await qa('GET', '/api/admin/teachers')).body.total);
-    const filtered = table(await readRows((await download(s.base, '/api/admin/teachers/export?subject=Địa', A.token)).buffer));
-    expect(filtered.data.map((r) => r[2]).sort()).toEqual(['Nguyễn Văn Sử Mới', 'Phạm Thị Nhập Hai', 'Trần Thị Địa'].sort()); // bộ môn chứa "Địa"
+    const filtered = table(await readRows((await download(s.base, '/api/admin/teachers/export?q=nhap', A.token)).buffer));
+    expect(filtered.data.map((r) => r[2]).sort()).toEqual(['Lê Văn Nhập Một', 'Phạm Thị Nhập Hai'].sort()); // lọc theo từ khóa như ở danh sách
   });
 
   // ------------------------------------------------------------------ HK.QT.035–040 (lớp) và HK.QT.022

@@ -45,7 +45,7 @@ export const setGrade = (token: string, body: { year_id: number; grade: number; 
 export const removeGrade = (token: string, yearId: number, grade: number) => apiRequest<void>(`/api/admin/school-grades${qs({ year_id: yearId, grade })}`, { token, method: 'DELETE' });
 
 // ---------------------------------------------------------------------- người dùng (HK.AD.018–025) và giáo viên, học sinh của trường
-export interface AccountQuery extends Query { q?: string; role?: AuthRole; school_id?: number; active?: 'true' | 'false'; grade?: number; class_id?: number; subject?: string; page?: number; limit?: number }
+export interface AccountQuery extends Query { q?: string; role?: AuthRole; school_id?: number; active?: 'true' | 'false'; grade?: number; class_id?: number; page?: number; limit?: number }
 export const listUsers = (token: string, query: AccountQuery) => apiRequest<Paged<Account>>(`/api/admin/users${qs(query)}`, { token });
 export const listMembers = (token: string, kind: 'teachers' | 'students', query: AccountQuery) => apiRequest<Paged<Account>>(`/api/admin/${kind}${qs(query)}`, { token });
 export const getUser = (token: string, id: number) => apiRequest<AccountDetail>(`/api/admin/users/${id}`, { token });

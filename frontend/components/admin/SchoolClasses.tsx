@@ -31,7 +31,7 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
   const { data, error, loading, reload } = useLoad(() => (yearId ? api.listClasses(token, { year_id: yearId, grade: grade || undefined, q: dq, active: active || undefined, limit: 200 }) : Promise.resolve(null)), [token, yearId, grade, dq, active], session.expired);
   const { data: teachers } = useLoad(() => api.listMembers(token, 'teachers', { active: 'true', limit: 200 }), [token], session.expired);
   const { data: gradeData } = useLoad(() => (yearId ? api.listGrades(token, yearId) : Promise.resolve(null)), [token, yearId], session.expired);
-  const teacherOptions = useMemo(() => (teachers?.items ?? []).map((t) => ({ value: String(t.id), label: `${t.full_name}${t.subject ? ` – ${t.subject}` : ''}` })), [teachers]);
+  const teacherOptions = useMemo(() => (teachers?.items ?? []).map((t) => ({ value: String(t.id), label: t.full_name })), [teachers]);
   const openGrades = (gradeData?.grades ?? []).filter((g) => g.is_active).map((g) => ({ value: String(g.grade), label: `Khối ${g.grade}` }));
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);

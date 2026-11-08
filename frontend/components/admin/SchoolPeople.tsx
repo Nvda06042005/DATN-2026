@@ -15,7 +15,8 @@ import { useTheme } from '@/hooks/use-theme';
 import { todayVn } from '@/lib/school-terms';
 import type { CreatedAccount, YearItem } from '@/types/api';
 
-const SUBJECTS = ['Lịch sử', 'Địa lí', 'Ngữ văn', 'Toán', 'Tiếng Anh', 'Khoa học tự nhiên', 'Giáo dục công dân', 'Tin học'].map((value) => ({ value, label: value }));
+/** Ngày YYYY-MM-DD hiển thị dd/mm/yyyy như trong file Excel */
+const fmtBirth = (iso: string | null | undefined): string => (iso && /^\d{4}-\d{2}-\d{2}/.test(iso) ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '—');
 
 export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'students'; years: YearItem[] }> = ({ session, kind, years }) => {
   const { c } = useTheme();
@@ -23,21 +24,19 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const teacher = kind === 'teachers';
   const [q, setQ] = useState('');
   const [active, setActive] = useState('');
-  const [subject, setSubject] = useState('');
   const [grade, setGrade] = useState('');
   const [classId, setClassId] = useState('');
   const [page, setPage] = useState(1);
   const size = usePageSize();
   const [yearSel, setYearSel] = useState('');
   const yearId = Number(yearSel || years.find((y) => y.status === 'active')?.id || years[0]?.id || 0);
-  const dq = useDebounced(q), ds = useDebounced(subject);
-  const query = { q: dq, active: active || undefined, subject: ds || undefined, grade: grade ? Number(grade) : undefined, class_id: classId ? Number(classId) : undefined };
-  const { data, error, loading, reload } = useLoad(() => api.listMembers(token, kind, { ...query, page, limit: size } as never), [token, kind, dq, active, ds, grade, classId, page, size], session.expired);
+  const dq = useDebounced(q);
+  const query = { q: dq, active: active || undefined, grade: grade ? Number(grade) : undefined, class_id: classId ? Number(classId) : undefined };
+  const { data, error, loading, reload } = useLoad(() => api.listMembers(token, kind, { ...query, page, limit: size } as never), [token, kind, dq, active, grade, classId, page, size], session.expired);
   const { data: classes } = useLoad(() => api.listClasses(token, { year_id: yearId || undefined, limit: 200 }), [token, yearId], session.expired);
   const classOptions = useMemo(() => (classes?.items ?? []).filter((x) => x.is_active).map((x) => ({ value: String(x.id), label: x.name })), [classes]);
   // mỗi bộ lọc khai báo một lần: nút mũi tên ở tiêu đề cột (màn rộng) và nút "Bộ lọc" của thanh tìm kiếm (màn hẹp) dùng chung
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }], onChange: (v) => { setActive(v); setPage(1); } };
-  const f_subject: SearchFilter = { key: 'subject', label: 'Bộ môn', custom: true, value: subject, options: [{ value: '', label: 'Mọi bộ môn' }, ...SUBJECTS], onChange: (v) => { setSubject(v); setPage(1); } };
   const f_grade: SearchFilter = { key: 'grade', label: 'Khối', value: grade, options: [{ value: '', label: 'Mọi khối' }, ...[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }))], onChange: (v) => { setGrade(v); setPage(1); } };
   const f_class: SearchFilter = { key: 'class', label: 'Lớp', value: classId, options: [{ value: '', label: 'Mọi lớp' }, ...classOptions], onChange: (v) => { setClassId(v); setPage(1); } };
   const [open, setOpen] = useState<number | null>(null);
@@ -49,7 +48,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   if (credential) return <CredentialSheet title="Tài khoản đã được tạo" account={{ full_name: credential.user.full_name, username: credential.user.username, temporary_password: credential.temporary_password, mail: credential.mail }} onClose={() => setCredential(null)} />;
 
   const today = todayVn();
-  // thêm từng người: cùng các cột với file mẫu Excel (mã, họ tên, giới tính, SĐT, email, ngày sinh); bộ môn mặc định là Lịch sử nên không phải nhập
+  // thêm từng người: cùng các cột với file mẫu Excel (mã, họ tên, giới tính, SĐT, email, ngày sinh); nền tảng chỉ dạy Lịch sử nên không có ô chọn môn
   const fields: FieldDef[] = teacher
     ? [{ name: 'user_code', label: 'Mã giáo viên' }, { name: 'full_name', label: 'Họ và tên', required: true },
       { name: 'gender', label: 'Giới tính', type: 'select', options: [{ value: '', label: 'Chưa chọn' }, { value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }] },
@@ -69,7 +68,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
           <Btn title={teacher ? 'Thêm giáo viên' : 'Thêm học sinh'} icon={Plus} tone="son" size="sm" onPress={() => setCreating(true)} testID="member-add" />
         </>} />
       <SearchFilterBar placeholder={teacher ? 'Tìm theo tên, email' : 'Tìm theo tên, mã học sinh'} value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="member-search"
-        filters={teacher ? [f_subject, f_active] : [f_grade, f_class, f_active]}
+        filters={teacher ? [f_active] : [f_grade, f_class, f_active]}
         extra={teacher ? null : <View style={{ width: 270 }}><AdminSelect bare label="Năm học (để lọc lớp)" value={String(yearId)} options={yearOptions(years)} onChange={(v) => { setYearSel(String(v)); setClassId(''); setPage(1); }} testID="member-year" /></View>} />
       <ErrorNote message={error} />
       {loading && !data ? <Spinner label="Đang tải danh sách…" /> : null}
@@ -77,11 +76,16 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
         <>
           <DataTable paginate={false} rows={data.items} rowKey={(u) => u.id} empty={teacher ? 'Chưa có giáo viên nào khớp bộ lọc.' : 'Chưa có học sinh nào khớp bộ lọc.'} onRowPress={(u) => setOpen(u.id)}
             columns={teacher ? [
-              { key: 'name', label: 'Giáo viên', flex: 2, render: (u) => <Cell main={u.full_name} sub={u.username} /> },
-              { key: 'email', label: 'Email / điện thoại', flex: 2, render: (u) => <Cell main={u.email || 'Chưa có email'} sub={u.phone} /> },
-              { key: 'subject', filter: f_subject, label: 'Bộ môn', render: (u) => <Txt size={14}>{u.subject || '—'}</Txt> },
-              { key: 'classes', label: 'Lớp phụ trách', render: (u) => <Txt size={13}>{u.classes.map((k) => k.name).join(', ') || '—'}</Txt> },
-              { key: 'status', filter: f_active, label: 'Trạng thái', render: (u) => <StatusChip kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
+              // cùng các cột với file Excel (mẫu nhập và danh sách xuất): Số thứ tự, Mã giáo viên, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh; thêm Lớp phụ trách và Trạng thái
+              { key: 'stt', label: 'Số thứ tự', flex: 0.7, render: (u) => <Txt size={13} color={c.muc2}>{(page - 1) * size + data.items.indexOf(u) + 1}</Txt> },
+              { key: 'code', label: 'Mã giáo viên', flex: 1, render: (u) => <Txt f="semibold" size={13}>{u.user_code || '—'}</Txt> },
+              { key: 'name', label: 'Họ và tên', flex: 1.8, render: (u) => <Cell main={u.full_name} sub={u.username} /> },
+              { key: 'gender', label: 'Giới tính', flex: 0.8, render: (u) => <Txt size={13}>{u.gender ? GENDER_TEXT[u.gender] : '—'}</Txt> },
+              { key: 'phone', label: 'SĐT', flex: 1.1, render: (u) => <Txt size={13}>{u.phone || '—'}</Txt> },
+              { key: 'email', label: 'Email', flex: 2, render: (u) => <Txt size={13} numberOfLines={2}>{u.email || 'Chưa có email'}</Txt> },
+              { key: 'birth', label: 'Ngày tháng năm sinh', flex: 1.2, render: (u) => <Txt size={13}>{fmtBirth(u.birth_date)}</Txt> },
+              { key: 'classes', label: 'Lớp phụ trách', flex: 1, render: (u) => <Txt size={13}>{u.classes.map((k) => k.name).join(', ') || '—'}</Txt> },
+              { key: 'status', filter: f_active, label: 'Trạng thái', flex: 1.1, render: (u) => <StatusChip kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
             ] : [
               { key: 'code', label: 'Mã', render: (u) => <Txt f="semibold" size={14}>{u.user_code || '—'}</Txt> },
               { key: 'name', label: 'Học sinh', flex: 2, render: (u) => <Cell main={u.full_name} sub={[u.birth_date, u.gender ? GENDER_TEXT[u.gender] : null].filter(Boolean).join(' · ')} /> },
@@ -107,7 +111,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
       ) : null}
       {importing ? (
         <ImportSheet title={teacher ? 'Nhập danh sách giáo viên' : 'Nhập danh sách học sinh'}
-          hint={teacher ? 'Thêm hàng loạt: tải file mẫu, điền mỗi giáo viên một dòng (họ tên và email bắt buộc; giới tính chọn Nam hoặc Nữ; bộ môn mặc định là Lịch sử), rồi chọn file đã điền. Hệ thống báo dòng trùng email, thiếu hoặc sai dữ liệu trước khi lưu; lưu xong danh sách giáo viên tự cập nhật.' : `Tải file mẫu, điền mỗi học sinh một dòng. Cột Lớp (nếu có) là tên lớp trong năm học ${years.find((y) => y.id === yearId)?.label ?? 'đã chọn'}. Hệ thống báo dòng trùng mã, sai ngày sinh, lớp không có trước khi lưu.`}
+          hint={teacher ? 'Thêm hàng loạt: tải file mẫu, điền mỗi giáo viên một dòng (họ tên và email bắt buộc; giới tính chọn Nam hoặc Nữ; ngày sinh chọn trên lịch hoặc gõ dd/mm/yyyy), rồi chọn file đã điền. Hệ thống báo dòng trùng email, thiếu hoặc sai dữ liệu trước khi lưu; lưu xong danh sách giáo viên tự cập nhật.' : `Tải file mẫu, điền mỗi học sinh một dòng. Cột Lớp (nếu có) là tên lớp trong năm học ${years.find((y) => y.id === yearId)?.label ?? 'đã chọn'}. Hệ thống báo dòng trùng mã, sai ngày sinh, lớp không có trước khi lưu.`}
           template={{ fetchBlob: () => api.downloadFile(token, `/api/admin/${kind}/template`), filename: teacher ? 'mau-giao-vien.xlsx' : 'mau-hoc-sinh.xlsx' }}
           run={(file, commit) => api.importMembers(token, kind, file, { commit, year_id: teacher ? undefined : yearId })} onClose={() => setImporting(false)} onDone={reload} />
       ) : null}

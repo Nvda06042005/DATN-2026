@@ -6,7 +6,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Bell, Minus, Plus, Settings, Trash2 } from 'lucide-react-native';
 import * as api from '@/api/platformApi';
-import { ErrorNote, useAction, useLoad } from '@/components/admin/kit';
+import { ErrorNote, useAction, useLoad, usePaged } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Card, Chip, EmptyState, InfoNote, Segmented, Sheet, Spinner, ToggleRow, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -43,6 +43,7 @@ const NoticeSheet: React.FC<{ session: Session; onClose: () => void; onGo?: (n: 
   const list = useLoad(() => api.notices(session.token, { category: category === 'all' ? undefined : category }), [session.token, category], session.expired);
   const { busy, run } = useAction(session.expired);
   const items = list.data?.items ?? [];
+  const paged = usePaged(items, category);
   const by = list.data?.unread_by_category;
   const open = async (n: NoticeItem) => {
     if (!n.read_at) { await api.readNotices(session.token, [n.id]).catch(() => undefined); list.reload(); }
@@ -61,7 +62,7 @@ const NoticeSheet: React.FC<{ session: Session; onClose: () => void; onGo?: (n: 
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data && !items.length ? <EmptyState mood="thinking" title="Chưa có thông báo nào" text="Thông báo của lớp, hệ thống và thành tích sẽ hiện ở đây." /> : null}
       <View style={{ gap: 8, marginTop: 10 }}>
-        {items.map((n) => (
+        {paged.shown.map((n) => (
           <View key={n.id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, borderRadius: 12, borderWidth: 2, borderColor: n.read_at ? c.vien : c.thuy, backgroundColor: n.read_at ? c.the : c.thuyNhat }}>
             <Pressable accessibilityRole="button" accessibilityLabel={`${n.title}${n.read_at ? '' : ', chưa đọc'}`} onPress={() => open(n)} style={{ flex: 1, gap: 4, padding: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -80,6 +81,7 @@ const NoticeSheet: React.FC<{ session: Session; onClose: () => void; onGo?: (n: 
           </View>
         ))}
       </View>
+      {items.length ? paged.pager : null}
     </Sheet>
   );
 };

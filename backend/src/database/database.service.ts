@@ -40,7 +40,6 @@ export interface UserRow {
   bio: string | null;
   nickname: string | null;
   gender: 'male' | 'female' | 'other' | null;
-  subject: string | null;
   parent_email: string | null;
   lock_reason: string | null;
   locked_at: string | null;
@@ -62,7 +61,6 @@ export interface UserProfile {
   grade?: number | null;
   phone?: string | null;
   gender?: 'male' | 'female' | 'other' | null;
-  subject?: string | null;
   parent_email?: string | null;
   nickname?: string | null;
   admin_level?: 1 | 2;
@@ -77,14 +75,14 @@ export type Q = <T = Record<string, unknown>>(sql: string, params?: unknown[]) =
 
 export const USER_COLUMNS =
   'id, username, full_name, role, class_name, password_hash, must_change_password, is_active, created_at, last_login_at, ' +
-  'school_id, user_code, school_code, region, city, birth_date, school_year, email, grade, deleted_at, purge_at, token_version, phone, avatar_url, bio, nickname, gender, subject, parent_email, ' +
+  'school_id, user_code, school_code, region, city, birth_date, school_year, email, grade, deleted_at, purge_at, token_version, phone, avatar_url, bio, nickname, gender, parent_email, ' +
   'lock_reason, locked_at, admin_level, profile_confirmed_at, self_registered';
 const PROFILE_FIELDS = [
   'school_id', 'user_code', 'school_code', 'region', 'city', 'birth_date', 'school_year', 'email', 'grade',
-  'phone', 'gender', 'subject', 'parent_email', 'nickname', 'admin_level', 'self_registered', 'profile_confirmed_at',
+  'phone', 'gender', 'parent_email', 'nickname', 'admin_level', 'self_registered', 'profile_confirmed_at',
 ] as const;
 /** Cột cho phép sửa qua updateUser */
-const UPDATABLE = ['full_name', 'class_name', 'is_active', 'email', 'grade', 'phone', 'subject', 'gender', 'birth_date', 'parent_email', 'user_code', 'nickname'] as const;
+const UPDATABLE = ['full_name', 'class_name', 'is_active', 'email', 'grade', 'phone', 'gender', 'birth_date', 'parent_email', 'user_code', 'nickname'] as const;
 
 export const nowIso = (): string => new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
 

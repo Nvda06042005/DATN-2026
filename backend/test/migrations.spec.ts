@@ -103,8 +103,10 @@ describe('file migration', () => {
   });
 
   test('052 thêm kho xóa một năm, giữ dữ liệu đang dùng và ngày xóa cũ của hội thoại ẩn, không mở quyền API', async () => {
-    const change = readdirSync(dir).find(name => name.startsWith('052_'))!;
-    renameSync(join(dir,change),join(dir,`${change}.held`));
+    // giữ 052 và mọi migration sau nó: migration mới hơn không được chạy trước 052
+    const later = readdirSync(dir).filter(name => /^\d+_.*\.sql$/.test(name) && Number(name.split('_')[0]) >= 52);
+    const change = later.find(name => name.startsWith('052_'))!;
+    for (const file of later) renameSync(join(dir,file),join(dir,`${file}.held`));
     await m.applyMigrations(url,dir);
     // Mô phỏng default privileges trực tiếp của Supabase, không chỉ quyền qua PUBLIC.
     await sql(url, `DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon NOLOGIN; END IF; END $$;
@@ -125,6 +127,7 @@ describe('file migration', () => {
     expect(await sql(url, 'SELECT count(*)::int AS n FROM app_deleted_records')).toEqual([{n:1}]);
     expect(await sql(url, 'SELECT id FROM hk_ai_conversations ORDER BY id')).toHaveLength(2);
     await sql(url, 'ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM anon; ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE SELECT,INSERT,UPDATE,DELETE ON TABLES FROM anon');
+    for (const file of later.filter(file => file !== change)) renameSync(join(dir,`${file}.held`),join(dir,file));
   });
 
   test('042 thêm mã tham chiếu và bộ sinh mã, giữ nguyên trường và đường dẫn cũ', async () => {
@@ -297,6 +300,26 @@ describe('file migration', () => {
     expect((await sql<any>(url, "SELECT public.school_year_framework('2029-2030') AS f"))[0].f).toMatchObject({ decision: '2308/QĐ-BGDĐT', term1_finish_before: '2030-01-18', term1_teaching_weeks: 18, term2_teaching_weeks: 17 });
     for (const invalid of ['invalid', '2019-2020', '2026-2028']) expect((await sql<any>(url, 'SELECT public.school_year_framework($1) AS f', [invalid]))[0].f).toBeNull();
     expect(await sql(url, "SELECT a.privilege_type FROM pg_proc p CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE p.oid='public.school_year_framework(text)'::regprocedure AND a.grantee=0 AND a.privilege_type='EXECUTE'")).toEqual([]);
+    expect(await m.applyMigrations(url, dir)).toEqual([]);
+    for (const file of held.filter(file => !applied.includes(file))) renameSync(join(dir, `${file}.held`), join(dir, file));
+  });
+
+  test('053 bỏ cột bộ môn của giáo viên: dữ liệu bộ môn cũ mất cùng cột, mọi cột và tài khoản khác giữ nguyên', async () => {
+    const held = readdirSync(dir).filter(name => /^\d+_.*\.sql$/.test(name) && Number(name.split('_')[0]) >= 53);
+    expect(held.some(name => name.startsWith('053_'))).toBe(true);
+    for (const file of held) renameSync(join(dir, file), join(dir, `${file}.held`));
+    await m.applyMigrations(url, dir);
+    await sql(url, `INSERT INTO app_schools(id,school_code,name,region) VALUES(9531,'9531','Trường có giáo viên','Khu vực thử');
+      INSERT INTO app_users(id,username,full_name,role,password_hash,school_id,is_active,created_at,subject,email) VALUES(9531,'gv.bomon','Giáo viên bộ môn cũ','teacher','synthetic-hash',9531,1,'2026-11-08T00:00:00Z','Địa lí','gv.bomon@example.edu.vn')`);
+    expect((await sql(url, 'SELECT subject FROM app_users WHERE id = 9531'))[0]).toEqual({ subject: 'Địa lí' });
+    const { subject, ...before } = (await sql(url, 'SELECT * FROM app_users WHERE id = 9531'))[0];
+    expect(subject).toBe('Địa lí');
+    const applied = held.filter(name => name.startsWith('053_'));
+    for (const file of applied) renameSync(join(dir, `${file}.held`), join(dir, file));
+    expect(await m.applyMigrations(url, dir)).toEqual(applied);
+    expect(await sql(url, "SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'app_users' AND column_name = 'subject'")).toEqual([]);
+    expect((await sql(url, 'SELECT * FROM app_users WHERE id = 9531'))[0]).toEqual(before);
+    await expect(sql(url, "UPDATE app_users SET subject = 'x' WHERE id = 9531")).rejects.toThrow(/subject/);
     expect(await m.applyMigrations(url, dir)).toEqual([]);
     for (const file of held.filter(file => !applied.includes(file))) renameSync(join(dir, `${file}.held`), join(dir, file));
   });

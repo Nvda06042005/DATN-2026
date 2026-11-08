@@ -1,10 +1,10 @@
-/** Chia trang cho các bảng quản trị: số dòng mỗi trang do người dùng chọn (10, 25 hoặc 30), và dãy số trang hiện ra ở nút chuyển trang. */
+/** Chia trang cho các bảng quản trị: số dòng mỗi trang do người dùng chọn (5, 10, 25, 30 hoặc 50), và dãy số trang hiện ra ở nút chuyển trang. */
 
 /** Từ độ rộng này bảng chuyển sang danh sách thẻ */
 export const TABLE_MIN_WIDTH = 1000;
 
 /** Các mức số dòng mỗi trang trong ô chọn cạnh nút chuyển trang */
-export const PAGE_SIZES = [10, 25, 30] as const;
+export const PAGE_SIZES = [5, 10, 25, 30, 50] as const;
 export const DEFAULT_PAGE_SIZE = 10;
 const STORE_KEY = 'donga_admin_page_size';
 

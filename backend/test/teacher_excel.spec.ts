@@ -1,6 +1,6 @@
 /**
  * Nhập danh sách giáo viên từ Excel và danh sách xuất theo bố cục chuẩn của Đông A: "Đông A", tên trường, ngày (tự cập nhật khi tải), rồi bảng
- * Số thứ tự, Mã giáo viên, Họ và tên, Giới tính (chọn Nam/Nữ), SĐT, Email, Ngày tháng năm sinh (ô ngày); không có Bộ môn (mặc định Lịch sử). Đầu file là logo ngang của Đông A (ảnh).
+ * Số thứ tự, Mã giáo viên, Họ và tên, Giới tính (chọn Nam/Nữ), SĐT, Email, Ngày tháng năm sinh (ô ngày); không có Bộ môn (đã bỏ hẳn). Đầu file là logo ngang của Đông A (ảnh).
  * Hai cách thêm giáo viên: biểu mẫu "Thêm giáo viên" (từng người) và nhập file (hàng loạt).
  */
 import { readFileSync } from 'fs';
@@ -106,13 +106,13 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     const lines: string[] = [];
     guide.eachRow((row) => lines.push(String(row.getCell(1).value ?? '')));
     expect(lines.join('\n')).toContain('Chỉ nhận file Excel .xlsx');
-    expect(lines.join('\n')).toContain('Bộ môn mặc định là Lịch sử');
+    expect(lines.join('\n')).toContain('không có cột Bộ môn');
     // tải lại lần nữa ở trường khác: tên trường đổi theo trường của người tải
     const other = await open((await download(s.base, '/api/admin/teachers/template', B.token)).buffer);
     expect(String(other.getWorksheet('Giáo viên')!.getCell('A2').value)).toContain('THCS Trường Khác');
   });
 
-  test('điền file mẫu rồi nhập: xem trước báo lỗi đúng số dòng trong Excel, lưu dòng hợp lệ, giới tính/ngày sinh/mã/số 0 đầu đúng, bộ môn mặc định Lịch sử', async () => {
+  test('điền file mẫu rồi nhập: xem trước báo lỗi đúng số dòng trong Excel, lưu dòng hợp lệ, giới tính/ngày sinh/mã/số 0 đầu đúng', async () => {
     const template = (await download(s.base, '/api/admin/teachers/template', A.token)).buffer;
     const { file, first } = await fill(template, [
       ['GV101', 'Nguyễn Thị Hoa', 'Nữ', '0901234567', 'hoa.nguyen@example.edu.vn', new Date('1985-03-15T00:00:00.000Z')],
@@ -134,12 +134,12 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     expect(await sql(s.url, "SELECT 1 FROM app_users WHERE email = 'hoa.nguyen@example.edu.vn'")).toEqual([]); // xem trước không lưu
     const commit = await upload(s.base, '/api/admin/teachers/import?commit=true', 'mau-giao-vien.xlsx', file, A.token);
     expect(commit.body).toMatchObject({ committed: true, created: 3, errors: 4 });
-    const saved = await sql<{ full_name: string; user_code: string | null; gender: string | null; birth_date: string | null; phone: string | null; subject: string | null; school_id: number }>(s.url,
-      "SELECT full_name, user_code, gender, birth_date::text AS birth_date, phone, subject, school_id FROM app_users WHERE role = 'teacher' AND email LIKE '%@example.edu.vn' AND school_id = " + A.id + ' ORDER BY id');
+    const saved = await sql<{ full_name: string; user_code: string | null; gender: string | null; birth_date: string | null; phone: string | null; school_id: number }>(s.url,
+      "SELECT full_name, user_code, gender, birth_date::text AS birth_date, phone, school_id FROM app_users WHERE role = 'teacher' AND email LIKE '%@example.edu.vn' AND school_id = " + A.id + ' ORDER BY id');
     expect(saved).toEqual([
-      { full_name: 'Nguyễn Thị Hoa', user_code: 'GV101', gender: 'female', birth_date: '1985-03-15', phone: '0901234567', subject: 'Lịch sử', school_id: A.id },
-      { full_name: 'Trần Văn Nam', user_code: 'GV102', gender: 'male', birth_date: '1979-11-20', phone: null, subject: 'Lịch sử', school_id: A.id },
-      { full_name: 'Lê Không Giới Tính', user_code: null, gender: null, birth_date: null, phone: null, subject: 'Lịch sử', school_id: A.id },
+      { full_name: 'Nguyễn Thị Hoa', user_code: 'GV101', gender: 'female', birth_date: '1985-03-15', phone: '0901234567', school_id: A.id },
+      { full_name: 'Trần Văn Nam', user_code: 'GV102', gender: 'male', birth_date: '1979-11-20', phone: null, school_id: A.id },
+      { full_name: 'Lê Không Giới Tính', user_code: null, gender: null, birth_date: null, phone: null, school_id: A.id },
     ]);
     // danh sách giáo viên của trường tự có người mới (trang Giáo viên tải lại danh sách sau khi lưu)
     const list = await api('GET', '/api/admin/teachers');
@@ -153,7 +153,7 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     const legacy = await makeXlsx(['Họ và tên *', 'Email *', 'Bộ môn', 'Số điện thoại', 'Mã giáo viên'], [['Cô Cũ Địa Lí', 'co.cu@example.edu.vn', 'Địa lí', '0912 345 678', 'GV901']]);
     const ok = await upload(s.base, '/api/admin/teachers/import?commit=true', 'cu.xlsx', legacy, A.token);
     expect(ok.body).toMatchObject({ created: 1, errors: 0 });
-    expect((await sql(s.url, "SELECT subject FROM app_users WHERE email = 'co.cu@example.edu.vn'"))[0]).toEqual({ subject: 'Địa lí' });
+    expect((await sql(s.url, "SELECT column_name FROM information_schema.columns WHERE table_name = 'app_users' AND column_name = 'subject'"))).toEqual([]); // cột Bộ môn của file cũ bị bỏ qua, CSDL không còn cột này
     const missing = await upload(s.base, '/api/admin/teachers/import', 'x.xlsx', await makeXlsx(['Mã giáo viên', 'Giới tính'], [['GV1', 'Nam']]), A.token);
     expect(missing.status).toBe(400);
     expect(missing.body.detail).toBe('File thiếu cột bắt buộc: Họ và tên, Email. Hãy dùng đúng file mẫu.');
@@ -198,12 +198,14 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     expect(again.body.rows.every((r: { errors: string[] }) => r.errors.every((e) => /đã được dùng|trùng/i.test(e)))).toBe(true);
   });
 
-  test('hai cách thêm giáo viên: biểu mẫu từng người (bộ môn mặc định Lịch sử, giới tính, ngày sinh) và nhập file hàng loạt; ngày sinh sai bị chặn; sửa được giới tính, ngày sinh', async () => {
+  test('hai cách thêm giáo viên: biểu mẫu từng người (giới tính, ngày sinh; không có bộ môn) và nhập file hàng loạt; ngày sinh sai bị chặn; sửa được giới tính, ngày sinh', async () => {
     const one = await api('POST', '/api/admin/teachers', { full_name: 'Phạm Thị Từng Người', email: 'tung.nguoi@example.edu.vn', user_code: 'GV201', phone: '0933 444 555', gender: 'female', birth_date: '1990-07-01' });
     expect(one.status).toBe(201);
-    expect(one.body.user).toMatchObject({ role: 'teacher', subject: 'Lịch sử', gender: 'female', birth_date: '1990-07-01', user_code: 'GV201' });
-    expect((await api('POST', '/api/admin/teachers', { full_name: 'Thiếu Bộ Môn', email: 'khong.bo.mon@example.edu.vn' })).body.user.subject).toBe('Lịch sử');
-    expect((await api('POST', '/api/admin/teachers', { full_name: 'Bộ Môn Khác', email: 'bo.mon.khac@example.edu.vn', subject: 'Địa lí' })).body.user.subject).toBe('Địa lí'); // API vẫn nhận bộ môn nếu có
+    expect(one.body.user).toMatchObject({ role: 'teacher', gender: 'female', birth_date: '1990-07-01', user_code: 'GV201' });
+    expect(one.body.user).not.toHaveProperty('subject');
+    const withSubject = await api('POST', '/api/admin/teachers', { full_name: 'Gửi Bộ Môn', email: 'bo.mon.khac@example.edu.vn', subject: 'Địa lí' }); // bộ môn gửi lên bị bỏ qua
+    expect(withSubject.status).toBe(201);
+    expect(withSubject.body.user).not.toHaveProperty('subject');
     expect((await api('POST', '/api/admin/teachers', { full_name: 'Ngày Sai', email: 'ngay.sai@example.edu.vn', birth_date: '2999-01-01' })).status).toBe(422);
     expect((await api('POST', '/api/admin/teachers', { full_name: 'Ngày Sai Hai', email: 'ngay.sai2@example.edu.vn', birth_date: '1990-02-31' })).status).toBe(422);
     expect((await api('POST', '/api/admin/teachers', { full_name: 'Giới Tính Sai', email: 'gt.sai@example.edu.vn', gender: 'x' })).status).toBe(422);

@@ -34,7 +34,6 @@ export interface AuthUser {
   bio: string | null;
   nickname: string | null;
   gender: Gender | null;
-  subject: string | null;
   parent_email: string | null;
   lock_reason: string | null;
   locked_at: string | null;
@@ -179,7 +178,6 @@ export interface MemberInput {
   full_name: string;
   email?: string | null;
   phone?: string | null;
-  subject?: string | null;
   user_code?: string | null;
   birth_date?: string | null;
   gender?: Gender | null;

@@ -110,7 +110,7 @@ export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (pa
         <Avatar name={user.full_name} uri={user.avatar_url} size={56} />
         <View style={{ flex: 1, gap: 2 }}>
           <Txt f="bold" size={17} numberOfLines={1}>{user.nickname || user.full_name}</Txt>
-          <Txt size={12} color={c.muc2}>{ROLE_TEXT[user.role]}{user.subject ? ` · ${user.subject}` : ''}</Txt>
+          <Txt size={12} color={c.muc2}>{ROLE_TEXT[user.role]}</Txt>
           {avatarEditable ? (
             <View testID="avatar-editor" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
               <Btn title={user.avatar_url ? 'Đổi ảnh' : 'Chọn ảnh'} label="Ảnh đại diện: chọn ảnh từ máy" icon={ImagePlus} tone="giay" size="sm" loading={avatarBusy} onPress={pickAvatar} testID="avatar-pick" />

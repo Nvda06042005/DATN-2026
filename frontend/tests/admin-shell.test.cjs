@@ -181,7 +181,7 @@ test('trang Thống kê trường: cùng bố cục một màn hình với Thố
 test('quản trị trường học theo quản trị tổng: bộ lọc kiểu Excel ở tiêu đề cột cho giáo viên, học sinh, lớp học, câu hỏi, bộ đề, bài học, hành trình, duyệt nội dung và kho lịch sử', () => {
   const read2 = (f) => read('components', 'admin', f);
   const want = {
-    'SchoolPeople.tsx': ["key: 'subject', filter: f_subject", "key: 'status', filter: f_active", "key: 'grade', filter: f_grade", "key: 'classes', filter: f_class"],
+    'SchoolPeople.tsx': ["key: 'status', filter: f_active", "key: 'grade', filter: f_grade", "key: 'classes', filter: f_class"],
     'SchoolClasses.tsx': ["key: 'grade', filter: f_grade", "key: 'status', filter: f_active"],
     'QuestionBank.tsx': ["key: 'qtype', filter: f_qtype", "key: 'campaign', filter: f_campaign", "key: 'scope', filter: f_store", "key: 'diff', filter: f_difficulty"],
     'QuizManager.tsx': ["key: 'scope', filter: f_store"],
@@ -195,8 +195,8 @@ test('quản trị trường học theo quản trị tổng: bộ lọc kiểu E
     for (const part of parts) assert.ok(src.includes(part), `${file}: ${part}`);
     assert.ok(src.includes('<SearchFilterBar '), `${file} dùng thanh tìm kiếm chung`);
   }
-  // giá trị tự do (Bộ môn): gõ chữ rồi chọn dòng "Lọc theo …"
-  assert.match(read2('SchoolPeople.tsx'), /key: 'subject', label: 'Bộ môn', custom: true/);
+  // Bộ môn đã bỏ khỏi trang Giáo viên (nền tảng dạy Lịch sử): không còn cột hay bộ lọc theo bộ môn
+  assert.doesNotMatch(read2('SchoolPeople.tsx'), /Bộ môn|subject/);
   assert.match(kit, /custom\?: boolean;/);
   assert.match(kit, /col-filter-\$\{filter\.key\}-option-custom/);
   // năm học đặt cạnh ô tìm kiếm bằng ô chọn không nhãn, các trang chọn theo năm vẫn chọn được

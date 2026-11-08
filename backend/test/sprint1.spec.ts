@@ -456,7 +456,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     // ảnh đại diện chỉ đổi bằng cách tải ảnh lên (POST /api/auth/avatar), không dán liên kết nữa
     for (const link of ['http://khong-https.example/a.png', 'https://example.edu.vn/a.png']) expect((await call(s.base, 'PATCH', '/api/auth/profile', { avatar_url: link }, st.token)).status).toBe(422);
 
-    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Cô Giáo Hồ Sơ', email: 'gv.hoso@example.edu.vn', subject: 'Lịch sử' }, a.token);
+    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Cô Giáo Hồ Sơ', email: 'gv.hoso@example.edu.vn' }, a.token);
     const gv = await activate(s.base, teacher.body.user.username, teacher.body.temporary_password, PW, 'teacher');
     await call(s.base, 'PATCH', `/api/admin/classes/${classA.id}`, { teacher_ids: [gv.user.id] }, a.token);
     const gvView = await call(s.base, 'GET', '/api/auth/profile', undefined, gv.token);

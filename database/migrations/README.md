@@ -3,6 +3,7 @@
 - `050_school_year_terms.sql`: thêm bốn ngày học kỳ, giữ dữ liệu cũ.
 - `051_managed_school_year_framework.sql`: khung đã xác minh theo năm, tự bổ sung học kỳ còn trống và sửa đúng mẫu ngày tự sinh 050; giữ lịch riêng và trạng thái. Form chỉ chọn năm, máy chủ tự áp dụng khung; xem [quy tắc và nguồn](../../docs/LICH_NAM_HOC.md).
 - `052_deleted_records_one_year.sql`: kho riêng `app_deleted_records` lưu dữ liệu xóa qua giao diện và CASCADE trong một năm; RLS owner-only, loại bí mật, Supabase Cron và backend dự phòng dọn hết hạn. Xem [cách kiểm tra kho](../../docs/KHO_DU_LIEU_DA_XOA.md).
+- `053_drop_teacher_subject.sql`: bỏ cột `app_users.subject` (Bộ môn của giáo viên) và dữ liệu cũ theo yêu cầu quản trị trường 08/11/2026; không đụng cột nào khác.
 
 Thêm file mới theo số thứ tự, ví dụ `020_ten_thay_doi.sql`.
 Tạo file bằng lệnh (từ thư mục `backend/`): `npm run build && npm run migrate -- new ten_thay_doi`.
