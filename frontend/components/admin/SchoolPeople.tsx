@@ -9,6 +9,7 @@ import * as api from '@/api/adminApi';
 import { AccountSheet, dateText, GENDER_TEXT } from '@/components/admin/AccountSheet';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { RegistrationCode } from './RegistrationCode';
+import { TeacherImportSheet } from './TeacherImportSheet';
 import { Cell, CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, ImportSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useDebounced, useLoad, yearOptions, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Spinner, Txt } from '@/components/ui';
@@ -110,11 +111,11 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
             reload();
           }} />
       ) : null}
-      {importing ? (
-        <ImportSheet title={teacher ? 'Nhập danh sách giáo viên' : 'Nhập danh sách học sinh'}
-          hint={teacher ? 'File mẫu có ví dụ và cách ghép mã ngay ở đầu. Điền mỗi giáo viên một dòng trong DANH SÁCH CỦA BẠN; STT đã đánh sẵn từ 1 đến 1000, mã tự hiện khi nhập họ tên và ngày sinh dd/mm/yyyy. Họ tên và email là bắt buộc. Chọn file đã điền để kiểm tra trước khi lưu; phần ví dụ không tạo tài khoản.' : `Tải file mẫu, điền mỗi học sinh một dòng. Cột Lớp (nếu có) là tên lớp trong năm học ${years.find((y) => y.id === yearId)?.label ?? 'đã chọn'}. Hệ thống báo dòng trùng mã, sai ngày sinh, lớp không có trước khi lưu.`}
-          template={{ fetchBlob: () => api.downloadFile(token, `/api/admin/${kind}/template`), filename: teacher ? 'mau-giao-vien.xlsx' : 'mau-hoc-sinh.xlsx' }}
-          run={(file, commit) => api.importMembers(token, kind, file, { commit, year_id: teacher ? undefined : yearId })} onClose={() => setImporting(false)} onDone={reload} />
+      {importing && teacher ? <TeacherImportSheet session={session} onClose={()=>setImporting(false)} onDone={reload}/> : importing ? (
+        <ImportSheet title="Nhập danh sách học sinh"
+          hint={`Tải file mẫu, điền mỗi học sinh một dòng. Cột Lớp (nếu có) là tên lớp trong năm học ${years.find((y) => y.id === yearId)?.label ?? 'đã chọn'}. Hệ thống báo dòng trùng mã, sai ngày sinh, lớp không có trước khi lưu.`}
+          template={{ fetchBlob: () => api.downloadFile(token, '/api/admin/students/template'), filename: 'mau-hoc-sinh.xlsx' }}
+          run={(file, commit) => api.importMembers(token, 'students', file, { commit, year_id: yearId })} onClose={() => setImporting(false)} onDone={reload} />
       ) : null}
     </Page>
   );

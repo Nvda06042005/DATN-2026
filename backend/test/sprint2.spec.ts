@@ -161,7 +161,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
       ['Trùng Trong Trường', 'dia@example.edu.vn', '', '', ''],
       ['Điện Thoại Sai', 'dt.sai@example.edu.vn', '', 'abc', ''],
     ]);
-    const preview = await upload(s.base, '/api/admin/teachers/import', 'giao-vien.xlsx', file, A.token);
+    const preview = await upload(s.base, '/api/admin/teachers/import', (await qa('GET','/api/admin/teachers/import-spec')).body.filename, file, A.token);
     expect(preview.status).toBe(200);
     expect(preview.body).toMatchObject({ committed: false, total: 8, valid: 2, errors: 6, created: 0, credentials: [] });
     expect(preview.body.rows.map((r: any) => [r.row, r.status])).toEqual([[2, 'ok'], [3, 'ok'], [4, 'error'], [5, 'error'], [6, 'error'], [7, 'error'], [8, 'error'], [9, 'error']]);
@@ -169,13 +169,13 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect(preview.body.rows[3].errors).toEqual(['Thiếu họ tên']);
     expect(preview.body.rows[6].errors[0]).toContain('đã được dùng cho một tài khoản khác');
     expect(await db.query("SELECT 1 FROM app_users WHERE email IN ('nhap1@example.edu.vn', 'nhap2@example.edu.vn')")).toHaveLength(0); // xem trước không lưu
-    const commit = await upload(s.base, '/api/admin/teachers/import?commit=true', 'giao-vien.xlsx', file, A.token);
+    const commit = await upload(s.base, '/api/admin/teachers/import?commit=true', (await qa('GET','/api/admin/teachers/import-spec')).body.filename, file, A.token);
     expect(commit.body).toMatchObject({ committed: true, created: 2, errors: 6 });
     expect(commit.body.credentials.map((c: any) => c.email)).toEqual(['nhap1@example.edu.vn', 'nhap2@example.edu.vn']);
     expect(commit.body.credentials[0].password).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}$/);
     expect(await db.query("SELECT 1 FROM app_users WHERE role = 'teacher' AND email IN ('nhap1@example.edu.vn', 'nhap2@example.edu.vn')")).toHaveLength(2);
     // Chạy lại cùng file: hai dòng đầu giờ là trùng
-    expect((await upload(s.base, '/api/admin/teachers/import?commit=true', 'giao-vien.xlsx', file, A.token)).body.created).toBe(0);
+    expect((await upload(s.base, '/api/admin/teachers/import?commit=true', (await qa('GET','/api/admin/teachers/import-spec')).body.filename, file, A.token)).body.created).toBe(0);
     // File sai: thiếu cột, đuôi sai, không phải xlsx
     expect((await upload(s.base, '/api/admin/teachers/import', 'x.xlsx', await makeXlsx(['Họ và tên *'], [['A B']]), A.token)).status).toBe(400);
     expect((await upload(s.base, '/api/admin/teachers/import', 'x.csv', Buffer.from('a,b'), A.token)).status).toBe(400);

@@ -97,10 +97,10 @@ export async function apiText(path: string, token: string): Promise<string> {
 }
 
 /** Authenticated file download: keep access tokens in headers, never put them in download URLs. */
-export async function apiBlob(path:string,token:string):Promise<Blob> {
+export async function apiBlob(path:string,token:string,body?:unknown):Promise<Blob> {
   requireBase();
   let res:Response;
-  try { res=await fetch(`${API_BASE_URL}${path}`,{headers:{Authorization:`Bearer ${token}`},signal:timeoutSignal(75_000)}); }
+  try { res=await fetch(`${API_BASE_URL}${path}`,{method:body===undefined?'GET':'POST',headers:{Authorization:`Bearer ${token}`,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body),signal:timeoutSignal(75_000)}); }
   catch { throw new ApiError(0,OFFLINE); }
   if(!res.ok) await readResponse(res, token);
   return res.blob();

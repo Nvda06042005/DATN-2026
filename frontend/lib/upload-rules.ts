@@ -8,6 +8,10 @@ export const JSON_MIME = 'application/json';
 /** Giới hạn của máy chủ cho file Excel nhập danh sách */
 export const MAX_XLSX_BYTES = 2 * 1024 * 1024;
 
+export function checkTemplateFilename(actual:string,expected?:string):string|null {
+  return expected && actual!==expected ? `Sai tên file. Chỉ nhận ${expected}. Hãy giữ đúng tên file mẫu của trường.` : null;
+}
+
 const EXTENSION: Record<string, string> = { [XLSX_MIME]: '.xlsx', [JSON_MIME]: '.json' };
 
 /** Đuôi file được nhận theo danh sách loại (MIME) của hộp chọn file */

@@ -145,6 +145,17 @@ class CreateMemberDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) class_id?: number | null;
 }
 
+class TeacherDraftRowDto {
+  @Transform(squash) @IsString() @Length(2,80) full_name:string;
+  @IsEmail() @MaxLength(254) email:string;
+  @IsOptional() @Matches(PHONE,{message:PHONE_MESSAGE}) phone?:string|null;
+  @Matches(DATE,{message:'Ngày sinh có dạng YYYY-MM-DD'}) birth_date:string;
+  @IsOptional() @IsIn(['male','female']) gender?:'male'|'female'|null;
+}
+class TeacherWorkbookDto {
+  @IsArray() @ArrayMaxSize(1000) @ValidateNested({each:true}) @Type(()=>TeacherDraftRowDto) rows:TeacherDraftRowDto[];
+}
+
 class UpdateUserDto {
   @IsOptional() @Transform(squash) @IsString() @Length(2, 80) full_name?: string;
   @IsOptional() @IsEmail() @MaxLength(254) email?: string | null;
@@ -368,7 +379,22 @@ export class AdminController {
   createTeacher(@CurrentUser() user: UserRow, @Body() body: CreateMemberDto) { return this.accounts.createMember(user, 'teacher', body); }
 
   @Get('teachers/template')
-  async teacherTemplate(@CurrentUser() user: UserRow, @Query() query: SchoolScope) { return download(await this.accounts.teacherTemplate(user, query.school_id), 'mau-giao-vien.xlsx'); }
+  @Header('Cache-Control','no-store')
+  async teacherTemplate(@CurrentUser() user: UserRow, @Query() query: SchoolScope) {
+    const spec=await this.accounts.teacherImportSpec(user,query.school_id);
+    return download(await this.accounts.teacherTemplate(user, query.school_id),spec.filename);
+  }
+
+  @Get('teachers/import-spec')
+  @Header('Cache-Control','no-store')
+  teacherImportSpec(@CurrentUser() user:UserRow,@Query() query:SchoolScope){return this.accounts.teacherImportSpec(user,query.school_id);}
+
+  @Post('teachers/workbook')
+  @HttpCode(200)
+  async teacherWorkbook(@CurrentUser() user:UserRow,@Query() query:SchoolScope,@Body() body:TeacherWorkbookDto){
+    const spec=await this.accounts.teacherImportSpec(user,query.school_id);
+    return download(await this.accounts.teacherWorkbook(user,body.rows,query.school_id),spec.filename);
+  }
 
   @Get('teachers/export')
   async exportTeachers(@CurrentUser() user: UserRow, @Query() query: UserQuery) { return download(await this.accounts.exportMembers(user, 'teacher', query), 'danh-sach-giao-vien.xlsx'); }

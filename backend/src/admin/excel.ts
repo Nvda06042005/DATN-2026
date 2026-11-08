@@ -93,7 +93,7 @@ export async function readSheet(file: UploadedXlsx, columns: Column[], sheetName
   }
   const cols = columns.map((c) => ({ key: c.key, col: headerNames(c).map((h) => header!.byHeader.get(h)).find((n) => n !== undefined) }));
   const rows: Array<{ row: number; values: Record<string, string> }> = [];
-  let teacherIndex = 0;
+  let teacherIndex = 0, completedTeacherIndex = 0;
   for (let r = header.row + 1; r <= Math.min(sheet.rowCount, header.row + MAX_SCAN_ROWS); r += 1) {
     const values: Record<string, string> = {};
     let any = false;
@@ -104,6 +104,7 @@ export async function readSheet(file: UploadedXlsx, columns: Column[], sheetName
     }
     if (teacherCodes && values.full_name) {
       teacherIndex += 1;
+      if(values.email && values.birth_date) completedTeacherIndex+=1;
       const codeCol = cols.find(c => c.key === 'user_code')?.col;
       const nameCol = cols.find(c => c.key === 'full_name')?.col;
       const birthCol = cols.find(c => c.key === 'birth_date')?.col;
@@ -115,12 +116,16 @@ export async function readSheet(file: UploadedXlsx, columns: Column[], sheetName
       const offset = Number(formula?.match(/TEXT\(\([A-Z]+\d+\+(\d{1,9})\),"000"\)/)?.[1]??0);
       const indexRef=indexCol?`${colLetter(indexCol)}${r}`:'';
       const formulaArgs = nameCol && birthCol && indexCol ? [`${colLetter(nameCol)}${r}`, `${colLetter(birthCol)}${r}`, offset?`(${indexRef}+${offset})`:indexRef] as const : null;
-      if (prefix && formulaArgs && indexCol && (formula === teacherCodeFormula(prefix, ...formulaArgs) || formula === legacyTeacherCodeFormula(prefix, ...formulaArgs))) {
+      if (prefix && formulaArgs && indexCol && (formula === teacherCodeFormula(prefix, ...formulaArgs) || formula === teacherCodeFormula(prefix, ...formulaArgs, false) || formula === legacyTeacherCodeFormula(prefix, ...formulaArgs))) {
         const born = parseDate(values.birth_date);
         const indexCell = sheet.getCell(r, indexCol);
         const storedIndex = Number(cellText(indexCell.value));
-        // Mẫu cũ tính STT theo tên; mẫu mới đánh số sẵn theo dòng, kể cả dòng còn trống.
-        const serial = indexCell.formula && !storedIndex ? teacherIndex : storedIndex;
+        const emailCol=cols.find(c=>c.key==='email')?.col;
+        const readyFormula=emailCol&&nameCol&&birthCol?completedIndexFormula(`${colLetter(nameCol)}${r}`,`${colLetter(emailCol)}${r}`,`${colLetter(birthCol)}${r}`,header.row+1):null;
+        const conditional=indexCell.formula===readyFormula;
+        if(conditional && (!values.email || !values.birth_date)){values.user_code='';if(any) rows.push({row:r,values});continue;}
+        // Mẫu mới tính theo dòng đã hoàn tất; vẫn đọc STT đánh sẵn và công thức mẫu cũ.
+        const serial = conditional?completedTeacherIndex:indexCell.formula && !storedIndex ? teacherIndex : storedIndex;
         if (!Number.isInteger(serial) || serial < 1 || serial > MAX_ROWS) throw new BadRequestException(`Số thứ tự ở dòng ${r} phải là số nguyên từ 1 đến ${MAX_ROWS}.`);
         values.user_code = born ? `${prefix}${born.slice(8,10)}${born.slice(5,7)}${born.slice(0,4)}${String(serial+offset).padStart(3,'0')}` : '';
       }
@@ -170,17 +175,28 @@ export function schoolInitials(name: string): string {
   return plain.split(/\s+/).filter(Boolean).map(word => word[0]).join('').toUpperCase().slice(0, 12) || 'GV';
 }
 
+export function teacherTemplateFilename(name:string):string {
+  const school=normHeader(name).replace(/^(truong\s+)?(trung hoc co so|trung hoc pho thong|tieu hoc|thcs|thpt|th)(\s+|$)/,'').replace(/\s+/g,'-');
+  return `file_mau_giao-vien_${school||'truong'}.xlsx`;
+}
+
+const completedIndexFormula=(name:string,email:string,birth:string,first:number):string=>{
+  const col=(ref:string)=>ref.replace(/\d+$/,'');
+  return `IF(AND(${name}<>"",${email}<>"",${birth}<>""),COUNTIFS($${col(name)}$${first}:${name},"?*",$${col(email)}$${first}:${email},"?*",$${col(birth)}$${first}:${birth},"<>"),"")`;
+};
+
 const legacyTeacherCodeFormula = (prefix: string, name: string, birth: string, index: string): string =>
   `IF(AND(${name}<>"",ISNUMBER(${birth})),"${prefix}"&TEXT(${birth},"ddmmyyyy")&TEXT(${index},"000"),"")`;
 
 /** Excel/WPS có thể giữ ngày được dán vào dưới dạng chữ. Đọc theo đúng định dạng, không phụ thuộc locale của DATEVALUE. */
-const teacherCodeFormula = (prefix: string, name: string, birth: string, index: string): string => {
+const teacherCodeFormula = (prefix: string, name: string, birth: string, index: string, requireIndex=true): string => {
   const text = `TRIM(${birth})`;
   const code = (date: string) => `"${prefix}"&TEXT(${date},"ddmmyyyy")&TEXT(${index},"000")`;
   const iso = `DATE(VALUE(LEFT(${text},4)),VALUE(MID(${text},6,2)),VALUE(RIGHT(${text},2)))`;
   const dmy = `DATE(VALUE(RIGHT(${text},4)),VALUE(MID(${text},4,2)),VALUE(LEFT(${text},2)))`;
   const parsedCode = (date: string, format: string) => `IFERROR(IF(TEXT(${date},"${format}")=${text},${code(date)},""),"")`;
-  return `IF(AND(${name}<>"",${birth}<>""),IF(ISNUMBER(${birth}),${code(birth)},IF(MID(${text},5,1)="-",${parsedCode(iso,'yyyy-mm-dd')},${parsedCode(dmy,'dd/mm/yyyy')})),"")`;
+  const ready=requireIndex?`,${index.match(/[A-Z]+\d+/)?.[0]??index}<>""`:'';
+  return `IF(AND(${name}<>"",${birth}<>""${ready}),IF(ISNUMBER(${birth}),${code(birth)},IF(MID(${text},5,1)="-",${parsedCode(iso,'yyyy-mm-dd')},${parsedCode(dmy,'dd/mm/yyyy')})),"")`;
 };
 
 /**
@@ -206,6 +222,9 @@ export interface FormSheetSpec {
   /** Các dòng "nhãn: giá trị" dưới tiêu đề, ví dụ Ngày bắt đầu nhập */
   meta: Array<{ label: string; value: string }>;
   note?: string;
+  entryNote?:string;
+  /** STT chỉ hiện khi đủ các ô bắt buộc của dòng nhập. */
+  completedIndex?:boolean;
   columns: FormColumn[];
   /** Dữ liệu có sẵn (danh sách xuất); không có thì là file mẫu trống với `blankRows` dòng định dạng sẵn */
   rows?: Array<Record<string, unknown>>;
@@ -298,7 +317,7 @@ export async function buildFormSheet(spec: FormSheetSpec): Promise<Buffer> {
     sheet.getRow(start + 1).height = 28;
     sheet.getRow(start + 2).height = 22;
     banner(start + 3, spec.example.explanation, 28);
-    banner(start + 4, `DANH SÁCH CỦA BẠN · Nhập giáo viên từ dòng ${headerRow + 1}. STT đã đánh sẵn; mã tự hiện khi điền họ tên và ngày sinh.`, 24);
+    banner(start + 4, spec.entryNote??'DANH SÁCH CỦA BẠN', 24);
   }
 
   // dòng tiêu đề của bảng
@@ -327,7 +346,7 @@ export async function buildFormSheet(spec: FormSheetSpec): Promise<Buffer> {
       cell.border = BORDER;
       cell.alignment = { vertical: 'middle', horizontal: c.kind === 'index' || c.kind === 'list' || c.kind === 'date' ? 'center' : 'left' };
       if (c.kind === 'index') {
-        cell.value = i + 1;
+        cell.value = !spec.rows && spec.completedIndex ? {formula:completedIndexFormula(`${nameLetter('full_name')}${rowNo}`,`${nameLetter('email')}${rowNo}`,`${nameLetter('birth_date')}${rowNo}`,headerRow+1),result:''} : i + 1;
         cell.numFmt = '0';
       } else if (c.kind === 'teacher-code') {
         const name = `${nameLetter(c.watch)}${rowNo}`, birth = `${nameLetter(c.birthKey)}${rowNo}`, index = `${nameLetter('stt')}${rowNo}`;
@@ -367,7 +386,7 @@ export async function buildFormSheet(spec: FormSheetSpec): Promise<Buffer> {
     guide.getColumn(1).width = 110;
     guide.getCell('A1').value = 'Hướng dẫn';
     guide.getCell('A1').font = { size: 16, bold: true, color: { argb: BRAND } };
-    spec.guide.forEach((line, i) => { guide.getCell(i + 3, 1).value = line; guide.getCell(i + 3, 1).alignment = { wrapText: true, vertical: 'top' }; });
+    spec.guide.forEach((line, i) => { guide.getCell(i + 3, 1).value = line; guide.getCell(i + 3, 1).alignment = { wrapText: true, vertical: 'top' }; guide.getRow(i+3).height=Math.ceil(line.length/100)*16+4; });
   }
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }

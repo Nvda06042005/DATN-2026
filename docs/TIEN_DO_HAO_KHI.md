@@ -921,3 +921,7 @@ Theo yêu cầu của quản trị trường: (1) xóa bộ môn và dữ liệu
 ## Mã giáo viên thống nhất — 09/11/2026
 
 Theo yêu cầu đổi mã GV ở form Thêm/Sửa sang cấu trúc `GOT2615031985001`: viết tắt trường + năm nhập + ngày sinh + STT trường. Migration 056 cập nhật tài khoản đã có ngày sinh từ dữ liệu đã lưu, giữ id/tên đăng nhập/lớp/lịch sử; tài khoản thiếu ngày sinh giữ mã cũ đến khi bổ sung. Thêm/Sửa xem trước theo ngày sinh, không cho gõ mã tùy ý. Dãy riêng mỗi trường, cấp số trong giao dịch; danh sách và xuất Excel lấy mã đã lưu. Excel nhận ngày dạng chữ hoặc kiểu ngày, tiếp nối dãy số của trường, giữ STT 1–1000 và ví dụ ở đầu. Chi tiết: `docs/MA_GIAO_VIEN.md`.
+
+## Nhập giáo viên bằng bảng có lịch và mẫu theo tên trường — 09/11/2026
+
+Theo lựa chọn giữ .xlsx: thêm bảng nhập trên web có lịch ngày sinh và Enter cuối dòng về ô Họ và tên dòng tiếp theo; STT/mã chỉ hiện khi đủ thông tin. File mẫu/đã điền được tải với tên file_mau_giao-vien_<tên-trường>.xlsx, tên chính xác bắt buộc ở client và API preview/commit. Rút gọn hướng dẫn trong hộp nhập và dòng mô tả đầu bảng Excel, bỏ STT đánh sẵn 1–1000. Tải workbook không tạo tài khoản/gửi email; chỉ xác nhận nhập mới tạo tài khoản. Không đổi schema 056. Chi tiết: docs/MA_GIAO_VIEN.md.

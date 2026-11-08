@@ -39,7 +39,7 @@ test('chặn ngay file sai loại hoặc quá lớn, không phân biệt hoa th�
 
 test('hộp nhập Excel: câu báo trước ở chỗ nút Chọn file, kiểm tra file ngay sau khi chọn, báo danh sách đã tự cập nhật', () => {
   const kit = read('components', 'admin', 'kit.tsx');
-  assert.match(kit, /import \{ acceptNote, checkPickedFile \} from '@\/lib\/upload-rules';/);
+  assert.match(kit, /import \{ acceptNote, checkPickedFile, checkTemplateFilename \} from '@\/lib\/upload-rules';/);
   assert.match(kit, /testID="import-accept-note"[\s\S]*?\{acceptNote\(types\)\}/);
   assert.match(kit, /const wrong = checkPickedFile\(picked, types\);\s+if \(wrong\) \{ setFile\(null\); setError\(wrong\); return; \}/);
   // câu báo nằm trước nút "Chọn file"
@@ -57,8 +57,9 @@ test('trang Giáo viên: hai cách thêm, biểu mẫu cùng cột với file m�
   assert.doesNotMatch(form, /Bộ môn/);
   assert.match(form, /name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1940-01-01', max: today/);
   assert.doesNotMatch(people, /bộ môn|Bộ môn|subject/);
-  assert.match(people, /File mẫu có ví dụ và cách ghép mã ngay ở đầu/);
-  assert.match(people, /DANH SÁCH CỦA BẠN; STT đã đánh sẵn từ 1 đến 1000, mã tự hiện khi nhập họ tên và ngày sinh dd\/mm\/yyyy/);
+  assert.match(people, /TeacherImportSheet session=\{session\}/);
+  const importer=read('components','admin','TeacherImportSheet.tsx');
+  assert.match(importer, /Chỉ nhận đúng file mẫu của trường\. Nhập trên bảng để chọn ngày sinh và tự sinh mã\./);
   const sheet = read('components', 'admin', 'AccountSheet.tsx');
   assert.match(sheet, /u\.role === 'student' \|\| u\.role === 'teacher' \? \['Ngày sinh', u\.birth_date\]/);
   assert.match(sheet, /birth_date: v\.birth_date \|\| null, gender: v\.gender \|\| null/);
