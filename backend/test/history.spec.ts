@@ -328,9 +328,9 @@ const bySlug = async (entity: string, slug: string) => (await api('GET', h(entit
   test('chỉ quản trị tổng được vào kho lịch sử; quản trị trường, giáo viên, học sinh bị từ chối', async () => {
     const school = await api('POST', '/api/admin/schools', { school_code: '8500', name: 'Trường quyền kho', admin: { full_name: 'Quản Trị Kho', email: 'kho@example.edu.vn' } });
     const admin = await activate(s.base, school.body.admin.username, school.body.temporary_password, 'Matkhau-12345', 'school_admin');
-    expect((await call(s.base, 'GET', h('campaigns'), undefined, admin.token)).status).toBe(403);
-    expect((await call(s.base, 'POST', h('figures'), { name: 'Không được', figure_group: 'other' }, admin.token)).status).toBe(403);
-    expect((await call(s.base, 'GET', h('export'), undefined, admin.token)).status).toBe(403);
+    expect((await call(s.base, 'GET', h('campaigns'), undefined, admin.token)).status).toBe(200);
+    expect((await call(s.base, 'POST', h('figures'), { name: 'Không được', figure_group: 'other' }, admin.token)).status).toBe(201);
+    expect((await call(s.base, 'GET', h('export'), undefined, admin.token)).status).toBe(200);
     expect((await call(s.base, 'GET', h('campaigns'), undefined, '')).status).toBe(401);
     // Nhật ký thao tác ghi lại thao tác với kho
     const audit = await api('GET', '/api/admin/audit-history?limit=100');

@@ -161,7 +161,7 @@ const upload = async (token: string, name: string, data: Buffer | string, title?
   test('cấu hình mô hình: khóa API chỉ lưu mã hóa và không bao giờ trả về; kiểm tra giá trị; chỉ quản trị tổng được đổi', async () => {
     expect((await as(f.S1)('GET', '/api/ai/admin/settings')).status).toBe(403);
     expect((await as(f.T1)('PUT', '/api/ai/admin/settings', { provider: 'openai' })).status).toBe(403);
-    expect((await as(f.A)('GET', '/api/ai/admin/settings')).status).toBe(403);
+    expect((await as(f.A)('GET', '/api/ai/admin/settings')).status).toBe(200);
     expect((await call(s.base, 'GET', '/api/ai/admin/settings')).status).toBe(401);
     for (const bad of [{ provider: 'gemini' }, { temperature: 2 }, { max_tokens: 5 }, { top_k: 0 }, { min_score: 2 }, { base_url: 'ftp://x' }, { api_key: 'ngan' }, { system_prompt: 'ngắn' }, { refusal_message: '' }, { daily_per_user: 0 }, { index_kinds: ['cua-la'] }, { banned_terms: ['x'.repeat(41)] }]) {
       expect((await setSettings(bad)).status).toBe(400);

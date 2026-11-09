@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, Put, Query, StreamableFile, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, Query, StreamableFile, UseGuards } from '@nestjs/common';
 import { XLSX_MIME } from '../admin/excel';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { UserRow } from '../database/database.service';
@@ -15,7 +15,7 @@ const when = (iso: string | null): string => (iso ? new Date(iso).toLocaleDateSt
 /**
  * /api/analytics – gợi ý học tập và báo cáo (Sprint 10). Học sinh: gợi ý "nên học gì hôm nay", điểm mạnh / yếu, luyện tập cá nhân hóa, lộ trình ôn tập.
  * Giáo viên và quản trị trường: bảng điều khiển lớp, hồ sơ học sinh, báo cáo chủ đề, học sinh cần hỗ trợ, so sánh, xuất file, nhận xét qua email.
- * Quản trị trường: tổng quan, mức độ sử dụng, kết quả theo khối / lớp / giáo viên, AI. Quản trị tổng: thống kê hệ thống và cấu hình thuật toán gợi ý.
+ * Quản trị trường: tổng quan, mức độ sử dụng, kết quả theo khối / lớp / giáo viên, AI. Quản trị tổng: thống kê hệ thống. Thuật toán gợi ý chỉ chạy nội bộ theo lịch nền.
  */
 @Controller('analytics')
 @UseGuards(AuthGuard)
@@ -23,9 +23,6 @@ export class AnalyticsController {
   constructor(private readonly analytics: AnalyticsService, private readonly reco: RecoService, private readonly feedback: FeedbackService) {}
 
   // ---------------------------------------------------------------------- học sinh
-  @Get('me/recommendations') @Roles('student') recommendations(@CurrentUser() user: UserRow) { return this.reco.current(user); }
-  @Post('me/recommendations/refresh') @Roles('student') @HttpCode(200) refresh(@CurrentUser() user: UserRow) { return this.reco.refresh(user); }
-  @Post('me/recommendations/:id/feedback') @Roles('student') @HttpCode(200) rate(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.reco.feedback(user, id, body.value); }
   @Get('me/strengths') @Roles('student') strengths(@CurrentUser() user: UserRow) { return this.analytics.strengths(user); }
   @Post('me/practice') @Roles('student') @HttpCode(200) practice(@CurrentUser() user: UserRow, @Body() body: Json) { return this.reco.practice(user, body); }
   @Get('me/exam-plan') @Roles('student') examPlan(@CurrentUser() user: UserRow) { return this.reco.examPlan(user); }
@@ -97,7 +94,4 @@ export class AnalyticsController {
   @Get('ai') @Roles('school_admin', 'root_admin') ai(@CurrentUser() user: UserRow, @Query() q: Json) { return this.analytics.aiUsage(user, q.days ? Number(q.days) : undefined); }
   @Get('system/overview') @Roles('root_admin') systemOverview() { return this.analytics.systemOverview(); }
   @Get('system/content') @Roles('root_admin') content() { return this.analytics.contentStats(); }
-  @Get('admin/reco-settings') @Roles('root_admin') recoSettings() { return this.reco.settings(); }
-  @Put('admin/reco-settings') @Roles('root_admin') updateReco(@CurrentUser() user: UserRow, @Body() body: Json) { return this.reco.updateSettings(user, body); }
-  @Post('admin/reco-refresh') @Roles('root_admin') @HttpCode(200) async recoRefresh() { return { refreshed: await this.reco.refreshStale(200) }; }
 }

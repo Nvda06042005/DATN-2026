@@ -8,12 +8,11 @@ import React, { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { ArrowDown, ArrowLeft, ArrowUp, CalendarClock, Copy, CopyPlus, Pencil, Plus, Rocket, Send, Star, Trash2, Users } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
-import { AdminSelect } from '@/components/admin/AdminSelect';
 import { ScopeChip, useCampaignOptions } from '@/components/admin/ContentKit';
 import { JourneyDesigner } from '@/components/admin/JourneyDesigner';
-import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, fromVn, toVn, useAction, useDebounced, useLoad, valuesToIds, idsToValues, type FieldDef } from '@/components/admin/kit';
+import { Cell, DataTable, ErrorNote, FormSheet, Page, PageHeader, SearchFilterBar, StatusChip, fromVn, toVn, useAction, useDebounced, useLoad, valuesToIds, idsToValues, type FieldDef, type SearchFilter } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
-import { Btn, Card, ConfirmSheet, Field, Inset, Segmented, Spinner, Txt } from '@/components/ui';
+import { Btn, Card, ConfirmSheet, Inset, Segmented, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { Gate, JourneyDetail, JourneyItem, JourneyNode } from '@/types/learning';
 import { NODE_ICONS, NODE_KIND_TEXT } from '@/types/learning';
@@ -175,7 +174,7 @@ const JourneyEditor: React.FC<{ session: Session; id: number; onBack: () => void
             {j.can_edit ? <Btn icon={Plus} title="Thêm nút" tone="son" size="sm" onPress={() => setNodeForm({})} testID="journey-add-node" /> : null}
             {j.can_edit && role !== 'teacher' ? <Btn icon={Rocket} title={j.status === 'published' ? 'Gỡ phát hành' : 'Phát hành'} tone={j.status === 'published' ? 'giay' : 'ngoc'} size="sm" loading={busy} disabled={j.is_default && j.status === 'published'}
               onPress={async () => { const next = await run(() => api.setJourneyStatus(token, j.id, j.status === 'published' ? 'draft' : 'published'), j.status === 'published' ? 'Đã gỡ phát hành' : 'Đã phát hành'); if (next) apply(next); }} testID="journey-publish" /> : null}
-            {role === 'root_admin' && j.scope === 'system' ? <Btn icon={Star} title={j.is_default ? 'Bỏ mặc định' : 'Đặt làm mặc định'} tone="giay" size="sm" loading={busy} disabled={!j.is_default && j.status !== 'published'}
+            {(role === 'root_admin' && j.scope === 'system') || (role === 'school_admin' && j.scope === 'school') ? <Btn icon={Star} title={j.is_default ? 'Bỏ mặc định' : 'Đặt làm mặc định'} tone="giay" size="sm" loading={busy} disabled={!j.is_default && j.status !== 'published'}
               onPress={async () => { const next = await run(() => api.setJourneyDefault(token, j.id, !j.is_default), j.is_default ? 'Đã bỏ mặc định' : 'Đã đặt làm hành trình mặc định'); if (next) apply(next); }} testID="journey-default" /> : null}
             {role === 'teacher' && j.can_edit ? <Btn icon={Users} title="Giao cho lớp" tone="ngoc" size="sm" onPress={() => setAssign(true)} testID="journey-assign" /> : null}
             {role === 'teacher' && j.can_edit ? <Btn icon={CopyPlus} title="Nhân bản sang lớp / năm học mới" tone="giay" size="sm" onPress={() => setCopying(true)} testID="journey-copy" /> : null}
@@ -300,25 +299,24 @@ export const JourneyManager: React.FC<{ session: Session }> = ({ session }) => {
   const list = useLoad(() => api.listJourneys(session.token, { store, q: term, campaign_id: campaign }), [session.token, store, term, campaign], session.expired);
   const templates = useMemo(() => (list.data ?? []).filter((x) => x.node_count > 0), [list.data]);
   if (open !== null) return <JourneyEditor session={session} id={open} onBack={() => setOpen(null)} onChanged={list.reload} />;
+  const storeOptions = role === 'root_admin' ? [{ value: 'all', label: 'Hệ thống và đề xuất' }, { value: 'system', label: 'Kho hệ thống' }, { value: 'school', label: 'Kho của các trường' }]
+    : [{ value: 'all', label: 'Tất cả' }, { value: 'mine', label: role === 'teacher' ? 'Của tôi' : 'Soạn bởi tôi' }, { value: 'school', label: 'Kho của trường' }, { value: 'system', label: 'Kho hệ thống' }];
+  const f_store: SearchFilter = { key: 'store', label: 'Kho', value: store === 'all' ? '' : store, options: [{ value: '', label: storeOptions[0].label }, ...storeOptions.slice(1)], onChange: (v) => setStore(v || 'all') };
+  const f_campaign: SearchFilter = { key: 'campaign', label: 'Cuộc kháng chiến', value: campaign, options: [{ value: '', label: 'Tất cả' }, ...campaigns.slice(1)], onChange: setCampaign };
   const title = role === 'teacher' ? 'Hành trình học' : role === 'school_admin' ? 'Hành trình mẫu của trường' : 'Hành trình mẫu của hệ thống';
   return (
     <Page>
       <PageHeader title={title} subtitle={role === 'teacher' ? 'Xem hành trình mẫu của hệ thống và của trường, tạo hành trình riêng cho lớp (từ mẫu hoặc trống), rồi giao cho lớp.' : role === 'school_admin' ? 'Xem, sửa, xóa hành trình mẫu dùng chung trong trường; duyệt hành trình giáo viên chia sẻ ở mục Duyệt nội dung.' : 'Hành trình mẫu cho ba cuộc kháng chiến. Học sinh chưa được giáo viên giao hành trình sẽ học theo hành trình mặc định đã phát hành.'}
         actions={<Btn icon={Plus} title="Tạo hành trình" tone="son" size="sm" onPress={() => setCreating(true)} testID="journey-create" />} />
-      <FilterBar>
-        <FilterBox><AdminSelect label="Kho" value={store} onChange={setStore}
-          options={role === 'root_admin' ? [{ value: 'all', label: 'Hệ thống và đề xuất' }, { value: 'system', label: 'Kho hệ thống' }, { value: 'school', label: 'Kho của các trường' }]
-            : [{ value: 'all', label: 'Tất cả' }, { value: 'mine', label: role === 'teacher' ? 'Của tôi' : 'Soạn bởi tôi' }, { value: 'school', label: 'Kho của trường' }, { value: 'system', label: 'Kho hệ thống' }]} /></FilterBox>
-        <FilterBox><AdminSelect label="Cuộc kháng chiến" value={campaign} options={[{ value: '', label: 'Tất cả' }, ...campaigns.slice(1)]} onChange={setCampaign} /></FilterBox>
-        <FilterBox flex={2}><Field label="Tìm hành trình" value={q} onChangeText={setQ} /></FilterBox>
-      </FilterBar>
+      <SearchFilterBar placeholder="Tìm hành trình" value={q} onChange={setQ} searchId="journey-search" filters={[f_store, f_campaign]} />
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data ? (
         <DataTable<JourneyItem> rows={list.data} rowKey={(r) => r.id} onRowPress={(r) => setOpen(r.id)} empty="Chưa có hành trình nào"
           columns={[
-            { key: 'title', label: 'Hành trình', flex: 3, render: (r) => <Cell main={r.title} sub={r.campaign_title} /> },
-            { key: 'scope', label: 'Kho', flex: 1.2, render: (r) => <ScopeChip scope={r.scope} /> },
+            { key: 'title', label: 'Hành trình', flex: 3, render: (r) => <Cell main={r.title} /> },
+            { key: 'campaign', filter: f_campaign, label: 'Cuộc kháng chiến', flex: 1.5, render: (r) => <Txt size={13}>{r.campaign_title ?? '—'}</Txt> },
+            { key: 'scope', filter: f_store, label: 'Kho', flex: 1.2, render: (r) => <ScopeChip scope={r.scope} /> },
             { key: 'status', label: 'Trạng thái', flex: 1.2, render: (r) => <StatusChip kind={r.is_default ? 'info' : r.status === 'published' ? 'on' : 'muted'} text={r.is_default ? 'Mặc định' : r.status === 'published' ? 'Đã phát hành' : 'Nháp'} /> },
             { key: 'nodes', label: 'Số nút', flex: 0.7, render: (r) => <Txt size={13}>{r.node_count}</Txt> },
             { key: 'use', label: 'Đang dùng', flex: 1.2, render: (r) => <Txt size={13}>{r.classes} lớp · {r.learners} học sinh</Txt> },

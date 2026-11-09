@@ -285,7 +285,7 @@ export class PlayService {
 
   /** Kịch bản mô phỏng đã phát hành của một trận đánh (Sprint 6): nút trận đánh có kịch bản thì hoàn thành bằng cách chơi mô phỏng */
   private async simulationOf(q: Q, battleId: number): Promise<{ id: number } | null> {
-    return (await q<{ id: number }>("SELECT id FROM hk_scenarios WHERE battle_id = $1 AND status = 'published'", [battleId]))[0] ?? null;
+    return (await q<{ id: number }>("SELECT id FROM hk_scenarios WHERE battle_id = $1 AND status = 'published' ORDER BY school_id NULLS LAST,id LIMIT 1", [battleId]))[0] ?? null;
   }
 
   /** Nút tư liệu / trận đánh không kèm bộ câu hỏi hoàn thành khi học sinh đã đọc */

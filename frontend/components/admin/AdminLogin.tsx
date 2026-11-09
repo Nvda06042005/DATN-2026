@@ -21,6 +21,7 @@ import { LoginLayout, LoginHeading as Heading, LoginInput as AuthInput, LoginPas
 
 import { useShake } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
+import { newPasswordError, PASSWORD_HINT } from '@/lib/password-policy';
 import type { AuthUser } from '@/types/api';
 import type { IconType } from '@/types/game';
 
@@ -288,7 +289,8 @@ const ResetForm: React.FC<{ identifier: string; onDone: () => void; onRequestNew
 
   const submit = async () => {
     if (!/^\d{6}$/.test(otp)) return setError('Mã xác thực gồm 6 chữ số trong thư.');
-    if (next.length < 8 || !/\p{L}/u.test(next) || !/\p{N}/u.test(next)) return setError('Mật khẩu mới tối thiểu 8 ký tự, gồm cả chữ và số.');
+    const passwordError = newPasswordError(next);
+    if (passwordError) return setError(passwordError);
     if (next !== confirm) return setError('Mật khẩu nhập lại chưa khớp.');
     setLoading(true);
     setError(null);
@@ -326,8 +328,8 @@ const ResetForm: React.FC<{ identifier: string; onDone: () => void; onRequestNew
         showLabel
         inputRef={nextRef}
         value={next}
-        onChangeText={setNext}
-        hint="Tối thiểu 8 ký tự, gồm cả chữ và số."
+        onChangeText={value => { setNext(value); setError(null); }}
+        hint={PASSWORD_HINT}
         secureTextEntry={!show}
         autoCapitalize="none"
         autoCorrect={false}

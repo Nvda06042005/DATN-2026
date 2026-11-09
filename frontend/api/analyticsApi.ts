@@ -1,7 +1,7 @@
 /** API gợi ý học tập, thống kê và báo cáo (/api/analytics, Sprint 10). */
 import { apiBlob, apiRequest } from '@/api/client';
 import type {
-  AiUsage, ClassDashboard, ClassInfo, ClassTopics, ContentStats, ExamPlans, FeedbackDraft, FeedbackLog, RecoList, RecoSettings, Results, SchoolOverview, Strengths, StudentProfile, SupportList, SystemOverview, Usage,
+  AiUsage, ClassDashboard, ClassInfo, ClassTopics, ContentStats, ExamPlans, FeedbackDraft, FeedbackLog, Results, SchoolOverview, Strengths, StudentProfile, SupportList, SystemOverview, Usage,
 } from '@/types/analytics';
 import type { AttemptState } from '@/types/learning';
 
@@ -13,9 +13,6 @@ const qs = (q: Record<string, string | number | undefined>): string => {
 };
 
 // ---------------------------------------------------------------------- học sinh
-export const recommendations = (token: string) => apiRequest<RecoList>(`${base}/me/recommendations`, { token });
-export const refreshRecommendations = (token: string) => apiRequest<RecoList>(`${base}/me/recommendations/refresh`, { token, body: {} });
-export const rateRecommendation = (token: string, id: number, value: 'helpful' | 'not_helpful' | null) => apiRequest<{ id: number; feedback: string | null }>(`${base}/me/recommendations/${id}/feedback`, { token, body: { value } });
 export const strengths = (token: string) => apiRequest<Strengths>(`${base}/me/strengths`, { token });
 export const personalPractice = (token: string, topic?: { type: string; id: number }) => apiRequest<AttemptState>(`${base}/me/practice`, { token, body: topic ? { topic_type: topic.type, topic_id: topic.id } : {} });
 export const examPlan = (token: string) => apiRequest<ExamPlans>(`${base}/me/exam-plan`, { token });
@@ -39,6 +36,3 @@ export const usage = (token: string, granularity: 'day' | 'week' | 'month', days
 export const aiUsage = (token: string, days = 30) => apiRequest<AiUsage>(`${base}/ai${qs({ days })}`, { token });
 export const systemOverview = (token: string) => apiRequest<SystemOverview>(`${base}/system/overview`, { token });
 export const systemContent = (token: string) => apiRequest<ContentStats>(`${base}/system/content`, { token });
-export const recoSettings = (token: string) => apiRequest<RecoSettings>(`${base}/admin/reco-settings`, { token });
-export const saveRecoSettings = (token: string, body: Partial<RecoSettings>) => apiRequest<RecoSettings>(`${base}/admin/reco-settings`, { token, method: 'PUT', body });
-export const recoRefreshAll = (token: string) => apiRequest<{ refreshed: number }>(`${base}/admin/reco-refresh`, { token, body: {} });

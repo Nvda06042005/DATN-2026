@@ -60,7 +60,8 @@ export class QuizService {
   }
 
   async load(q: Q, user: UserRow, id: number, lock = false): Promise<QuizRow> {
-    const row = (await q<QuizRow>(`SELECT ${COLUMNS} FROM hk_quizzes WHERE id = $1${lock ? ' FOR UPDATE' : ''}`, [id]))[0];
+    let row = (await q<QuizRow>(`SELECT ${COLUMNS} FROM hk_quizzes WHERE id=$1`,[id]))[0];
+    if (row && lock && canEdit(user,row)) row = (await q<QuizRow>(`SELECT ${COLUMNS} FROM hk_quizzes WHERE id=$1 FOR UPDATE`,[id]))[0];
     if (!row || !canSee(user, row)) throw notFound('bộ đề');
     return row;
   }

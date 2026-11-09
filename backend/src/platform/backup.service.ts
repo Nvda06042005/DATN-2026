@@ -13,7 +13,7 @@ import { ErrorLog } from './error-log';
 import { assertSystemAdmin, SystemService } from './system.service';
 
 // hk_media (ảnh tải lên, dạng nhị phân) không nằm trong sao lưu trong cơ sở dữ liệu vì làm bản sao lưu vượt giới hạn; ảnh nằm trong sao lưu của Supabase
-const SKIP = new Set(['hk_media', 'hk_backups', 'app_schema_migrations', 'app_revoked_tokens', '_prisma_migrations', 'hk_ai_chunks', 'hk_recommendations', 'hk_error_log', 'hk_two_factor_codes', 'hk_job_heartbeats']);
+const SKIP = new Set(['app_deleted_records', 'hk_media', 'hk_backups', 'app_schema_migrations', 'app_revoked_tokens', '_prisma_migrations', 'hk_ai_chunks', 'hk_recommendations', 'hk_error_log', 'hk_two_factor_codes', 'hk_job_heartbeats']);
 const MAX_BYTES = 25 * 1024 * 1024;
 const q = (name: string): string => `"${name.replace(/"/g, '""')}"`;
 export const CONFIRM_PHRASE = 'PHUC HOI';
@@ -50,7 +50,6 @@ export class BackupService {
     this.running = true;
     try {
       const { json, tables, rows, version } = await this.db.tx(async (run) => {
-        await run('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
         const names = await this.tableNames(run);
         const parts: string[] = [];
         let total = 0;
@@ -61,7 +60,7 @@ export class BackupService {
         }
         const version = await this.schemaVersion(run);
         return { json: `{"format":1,"created_at":${JSON.stringify(new Date().toISOString())},"schema_version":${version},"tables":{${parts.join(',')}}}`, tables: names.length, rows: total, version };
-      });
+      }, { repeatableRead: true });
       const data = gzipSync(Buffer.from(json, 'utf8'), { level: 6 });
       if (data.length > MAX_BYTES) throw new ServiceUnavailableException('Dữ liệu quá lớn để sao lưu trong cơ sở dữ liệu (trên 25 MB sau nén); hãy dùng sao lưu của Supabase');
       const meta = (await this.db.query<Meta>(
@@ -138,12 +137,15 @@ export class BackupService {
         const existing = new Set(await this.tableNames(run));
         const names = Object.keys(parsed.tables).filter((n) => existing.has(n));
         const order = await this.insertOrder(run, names);
+        const columns = await run<{table_name:string;column_name:string}>(`SELECT table_name,column_name FROM information_schema.columns
+          WHERE table_schema='public' AND is_generated='NEVER' ORDER BY table_name,ordinal_position`);
         for (const n of [...order].reverse()) await run(`DELETE FROM public.${q(n)}`);
         let rows = 0;
         for (const n of order) {
           const list = parsed.tables[n] ?? [];
+          const writable = columns.filter(c=>c.table_name===n).map(c=>q(c.column_name)).join(',');
           for (let i = 0; i < list.length; i += 2000) {
-            await run(`INSERT INTO public.${q(n)} SELECT * FROM jsonb_populate_recordset(NULL::public.${q(n)}, $1::jsonb)`, [JSON.stringify(list.slice(i, i + 2000))]);
+            await run(`INSERT INTO public.${q(n)} (${writable}) SELECT ${writable} FROM jsonb_populate_recordset(NULL::public.${q(n)}, $1::jsonb)`, [JSON.stringify(list.slice(i, i + 2000))]);
           }
           rows += list.length;
         }
@@ -156,6 +158,7 @@ export class BackupService {
         }
         return { tables: names.length, rows };
       });
+      this.db.invalidateWorkspaces();
       return { restored: true, backup_id: id, safety_backup_id: before.id, ...restored, note: 'Mọi người dùng có thể phải đăng nhập lại bằng mật khẩu tại thời điểm sao lưu.' };
     } finally {
       this.running = false;

@@ -51,6 +51,9 @@ const clampInt = (v: unknown, min: number, max: number, label: string): number =
 @Injectable()
 export class ClassroomService {
   constructor(private readonly db: DatabaseService, private readonly classes: ClassService, private readonly game: GameService) {}
+  teacherChangeOptions(user:UserRow,id:number){return this.classes.teacherChangeOptions(user,id);}
+  requestTeacherChange(user:UserRow,id:number,teacherId:unknown,note:unknown){return this.classes.requestTeacherChange(user,id,teacherId,note);}
+  cancelTeacherChange(user:UserRow,id:number){return this.classes.cancelTeacherChange(user,id);}
 
   // ------------------------------------------------------------------ truy cập
   /** Lớp giáo viên phụ trách (hoặc lớp của trường với quản trị viên trường); `open` chặn thao tác ghi trên lớp lưu trữ hoặc năm học đã kết thúc */
@@ -59,7 +62,7 @@ export class ClassroomService {
     const row = (await q<ClassInfo>(
       `SELECT c.id, c.school_id, c.name, c.grade, c.school_year, c.year_id, c.created_by, c.is_active, c.join_code, c.join_open, c.description, c.cover_url, y.status AS year_status
        FROM app_classes c LEFT JOIN app_school_years y ON y.id = c.year_id
-       WHERE c.id = $1 AND (($2 = 'teacher' AND EXISTS (SELECT 1 FROM app_class_teachers t WHERE t.class_id = c.id AND t.teacher_id = $3)) OR ($2 = 'school_admin' AND c.school_id = $4))`,
+       WHERE c.id = $1 AND (($2 = 'teacher' AND EXISTS (SELECT 1 FROM app_current_class_teachers t WHERE t.class_id = c.id AND t.teacher_id = $3)) OR ($2 = 'school_admin' AND c.school_id = $4))`,
       [classId, user.role, user.id, user.school_id]))[0];
     if (!row) throw notFound('lớp');
     if (open) {
@@ -162,7 +165,7 @@ export class ClassroomService {
               (SELECT count(*)::int FROM hk_leave_requests r WHERE r.class_id = c.id AND r.status = 'pending') AS pending_leaves,
               (SELECT count(*)::int FROM hk_skill_uses s WHERE s.class_id = c.id AND s.status = 'pending') AS pending_skills
        FROM app_classes c LEFT JOIN app_school_years y ON y.id = c.year_id
-       WHERE ${user.role === 'teacher' ? 'EXISTS (SELECT 1 FROM app_class_teachers t WHERE t.class_id = c.id AND t.teacher_id = $1)' : 'c.school_id = $1'}
+       WHERE ${user.role === 'teacher' ? 'EXISTS (SELECT 1 FROM app_current_class_teachers t WHERE t.class_id = c.id AND t.teacher_id = $1)' : 'c.school_id = $1'}
        ORDER BY c.is_active DESC, c.school_year DESC, c.grade NULLS LAST, c.name`, [user.role === 'teacher' ? user.id : user.school_id]);
     const out = [];
     for (const c of rows) {
@@ -197,7 +200,7 @@ export class ClassroomService {
     }
     return this.db.tx(async (q) => {
       const cls = await this.mine(q, user, id);
-      const teachers = await q('SELECT u.id, u.full_name FROM app_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = $1 ORDER BY u.full_name', [id]);
+      const teachers = await q('SELECT u.id, u.full_name FROM app_current_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = $1 ORDER BY u.full_name', [id]);
       const students = (await this.studentIds(q, id)).length;
       return {
         ...cls, own: cls.created_by === user.id, teachers, students, journeys: await this.journeysOf(q, id, students), settings: await this.settingsOf(q, id),
@@ -407,7 +410,7 @@ export class ClassroomService {
       if ((await q("SELECT 1 FROM hk_leave_requests WHERE class_id = $1 AND user_id = $2 AND status = 'pending'", [classId, user.id])).length) throw new ConflictException('Em đã gửi yêu cầu rời lớp, hãy chờ giáo viên xác nhận');
       const text = String(reason ?? '').trim().slice(0, 300) || null;
       const req = (await q<{ id: number }>('INSERT INTO hk_leave_requests (class_id, user_id, reason) VALUES ($1, $2, $3) RETURNING id', [classId, user.id, text]))[0];
-      const teachers = (await q<{ teacher_id: number }>('SELECT teacher_id FROM app_class_teachers WHERE class_id = $1', [classId])).map((t) => t.teacher_id);
+      const teachers = (await q<{ teacher_id: number }>('SELECT teacher_id FROM app_current_class_teachers WHERE class_id = $1', [classId])).map((t) => t.teacher_id);
       await notify(q, teachers, { kind: 'leave', title: 'Yêu cầu rời lớp', body: `${user.nickname || user.full_name} xin rời lớp ${cls.name}${text ? `: ${text}` : ''}`, class_id: classId, ref: { request_id: req.id }, by: user.id, school_id: cls.school_id });
       return { id: req.id, status: 'pending' };
     });
@@ -745,7 +748,7 @@ export class ClassroomService {
     const q = this.db.query.bind(this.db) as Q;
     const rows = await q<Record<string, any>>(
       `SELECT c.id, c.name, c.grade, c.school_year, c.description, c.cover_url, c.is_active,
-              COALESCE((SELECT json_agg(json_build_object('id', u.id, 'full_name', u.full_name) ORDER BY u.full_name) FROM app_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id), '[]'::json) AS teachers,
+              COALESCE((SELECT json_agg(json_build_object('id', u.id, 'full_name', u.full_name) ORDER BY u.full_name) FROM app_current_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id), '[]'::json) AS teachers,
               (SELECT count(*)::int FROM app_class_members x JOIN app_users u ON u.id = x.user_id AND u.role = 'student' WHERE x.class_id = c.id) AS members,
               (SELECT t.name FROM hk_team_members tm JOIN hk_teams t ON t.id = tm.team_id WHERE tm.class_id = c.id AND tm.user_id = $1) AS team_name,
               (SELECT count(*)::int FROM hk_leave_requests r WHERE r.class_id = c.id AND r.user_id = $1 AND r.status = 'pending') AS leave_pending
@@ -759,7 +762,7 @@ export class ClassroomService {
     return this.db.tx(async (q) => {
       const cls = await this.studentClass(q, user, classId);
       const info = (await q<Record<string, any>>('SELECT c.id, c.name, c.grade, c.school_year, c.description, c.cover_url FROM app_classes c WHERE c.id = $1', [classId]))[0];
-      const teachers = await q('SELECT u.id, u.full_name FROM app_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = $1 ORDER BY u.full_name', [classId]);
+      const teachers = await q('SELECT u.id, u.full_name FROM app_current_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = $1 ORDER BY u.full_name', [classId]);
       const members = await q<Record<string, any>>(
         `SELECT u.id, COALESCE(NULLIF(u.nickname, ''), u.full_name) AS name, COALESCE(p.level, 1) AS level, cc.name AS character_name, cc.icon AS character_icon, cc.color AS character_color, t.id AS team_id, t.name AS team_name, (u.id = $2) AS me
          FROM app_class_members m JOIN app_users u ON u.id = m.user_id AND u.role = 'student' LEFT JOIN hk_players p ON p.user_id = u.id LEFT JOIN hk_character_classes cc ON cc.id = p.class_id

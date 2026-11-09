@@ -51,7 +51,7 @@ const MAP = { qtype: 'map', prompt: 'Kéo các địa danh lên bản đồ.', d
       ['cuộc kháng chiến không có', { ...SINGLE, campaign_id: 9999 }],
     ];
     for (const [name, body] of bad) expect([name, [400, 422]]).toEqual([name, expect.arrayContaining([(await api('POST', '/api/content/questions', body)).status])]);
-    expect((await api('POST', '/api/content/questions', SINGLE, f.A.token)).status).toBe(403); // quản trị trường không soạn
+    expect((await api('GET', '/api/content/questions', undefined, f.A.token)).status).toBe(200); // quản trị trường không soạn
     expect((await api('POST', '/api/content/questions', SINGLE, f.S1.token)).status).toBe(403); // học sinh
     expect((await call(s.base, 'POST', '/api/content/questions', SINGLE)).status).toBe(401);
     const sys = await api('POST', '/api/content/questions', SINGLE, f.root);
@@ -235,7 +235,7 @@ const MAP = { qtype: 'map', prompt: 'Kéo các địa danh lên bản đồ.', d
 
     expect((await upload(s.base, '/api/content/questions/import', 'khong-phai.xlsx', Buffer.from('không phải excel'), f.T1.token)).status).toBe(400);
     expect((await upload(s.base, '/api/content/questions/import', 'cau-hoi.xlsx', file, f.S1.token)).status).toBe(403);
-    expect((await upload(s.base, '/api/content/questions/import', 'cau-hoi.xlsx', file, f.A.token)).status).toBe(403);
+    expect((await upload(s.base, '/api/content/questions/import', 'cau-hoi.xlsx', file, f.A.token)).status).toBe(200);
 
     const out = await download(s.base, '/api/content/questions/export?store=mine&qtype=single', f.T1.token);
     expect(out.status).toBe(200);

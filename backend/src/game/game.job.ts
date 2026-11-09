@@ -30,10 +30,15 @@ export class GameJob implements OnModuleInit, OnModuleDestroy {
     if (this.running) return { streaks: 0, weeks: 0, contests: 0 };
     this.running = true;
     try {
-      const streaks = await this.game.settleAll();
-      const weeks = await this.db.tx((q) => this.board.settleLeagues(q));
-      const contests = await this.board.settleContests();
-      return { streaks, weeks, contests };
+      const schools = await this.db.query<{ id:number; school_id:number | null }>(`SELECT DISTINCT ON (coalesce(school_id,-id)) id,school_id FROM app_users
+        WHERE role<>'root_admin' AND deleted_at IS NULL ORDER BY coalesce(school_id,-id),id`);
+      const totals = {streaks:0,weeks:0,contests:0};
+      for (const user of schools) await this.db.withWorkspace({...user,role:'student'},async()=>{
+        totals.streaks += await this.game.settleAll();
+        totals.weeks += await this.db.tx((q)=>this.board.settleLeagues(q));
+        totals.contests += await this.board.settleContests();
+      });
+      return totals;
     } catch (e) {
       this.logger.warn(`Việc chạy nền lỗi: ${(e as Error).message}`);
       return { streaks: 0, weeks: 0, contests: 0 };

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Put, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Header, HttpCode, Param, ParseIntPipe, Patch, Post, Put, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { Transform, Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsBoolean, IsDefined, IsEmail, IsIn, IsInt, IsOptional, IsString, IsUrl, Length, Matches, Max, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
@@ -29,6 +29,13 @@ class SchoolQuery extends Page {
   @IsOptional() @IsIn(['true', 'false']) active?: 'true' | 'false';
 }
 
+class DirectoryQuery {
+  @IsOptional() @IsString() @MaxLength(80) q?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(30) limit?: number;
+  /** Đang sửa một trường: không tính chính trường đó là "đã có" và báo bản ghi danh mục khớp với nó */
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) exclude_school_id?: number;
+}
+
 class SchoolScope {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number;
 }
@@ -40,7 +47,8 @@ class FirstAdminDto {
 }
 
 class CreateSchoolDto {
-  @IsString() @Length(1, 20) school_code: string;
+  @IsOptional() @IsString() @Length(1, 20) school_code?: string;
+  @IsOptional() @IsString() @Length(1, 80) directory_code?: string;
   @Transform(squash) @IsString() @Length(2, 120) name: string;
   @IsOptional() @IsString() @MaxLength(80) region?: string | null;
   @IsOptional() @IsString() @MaxLength(80) city?: string | null;
@@ -61,6 +69,9 @@ class UpdateMySchoolDto {
 }
 
 class UpdateSchoolDto extends UpdateMySchoolDto {
+  @IsOptional() @IsString() @Length(1, 80) directory_code?: string;
+  /** Chỉ liên kết danh mục để lấy logo chính thức, không đổi tên, khu vực, địa chỉ */
+  @ValidateIf((_, v) => v !== undefined) @IsBoolean() link_only?: boolean;
   @IsOptional() @IsString() @MaxLength(80) region?: string | null;
   @IsOptional() @IsString() @MaxLength(80) city?: string | null;
   @ValidateIf((_, v) => v !== undefined) @IsBoolean() is_active?: boolean;
@@ -69,14 +80,24 @@ class UpdateSchoolDto extends UpdateMySchoolDto {
 class YearDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number;
   @Matches(YEAR_LABEL, { message: 'Năm học có dạng 2026-2027' }) label: string;
-  @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) starts_on: string;
-  @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) ends_on: string;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) starts_on?: string;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) ends_on?: string;
+  @IsOptional() @IsIn(['national', 'manual']) calendar_mode?: 'national' | 'manual';
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term1_starts_on?: string | null;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term1_ends_on?: string | null;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term2_starts_on?: string | null;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term2_ends_on?: string | null;
 }
 
 class UpdateYearDto {
+  @IsOptional() @IsIn(['national', 'manual']) calendar_mode?: 'national' | 'manual';
   @IsOptional() @Matches(YEAR_LABEL, { message: 'Năm học có dạng 2026-2027' }) label?: string;
   @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) starts_on?: string;
   @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) ends_on?: string;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term1_starts_on?: string | null;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term1_ends_on?: string | null;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term2_starts_on?: string | null;
+  @IsOptional() @Matches(DATE, { message: 'Ngày có dạng YYYY-MM-DD' }) term2_ends_on?: string | null;
 }
 
 class YearQuery extends SchoolScope {
@@ -101,7 +122,6 @@ class UserQuery extends Page {
   @IsOptional() @IsIn(['true', 'false']) active?: 'true' | 'false';
   @IsOptional() @Type(() => Number) @IsInt() @Min(6) @Max(9) grade?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) class_id?: number;
-  @IsOptional() @IsString() @MaxLength(60) subject?: string;
 }
 
 class CreateAdminDto {
@@ -118,7 +138,6 @@ class CreateMemberDto {
   @Transform(squash) @IsString() @Length(2, 80) full_name: string;
   @IsOptional() @IsEmail() @MaxLength(254) email?: string | null;
   @IsOptional() @Matches(PHONE, { message: PHONE_MESSAGE }) phone?: string | null;
-  @IsOptional() @IsString() @MaxLength(60) subject?: string | null;
   @IsOptional() @IsString() @MaxLength(40) user_code?: string | null;
   @IsOptional() @Matches(DATE, { message: 'Ngày sinh có dạng YYYY-MM-DD' }) birth_date?: string | null;
   @IsOptional() @IsIn(['male', 'female', 'other']) gender?: 'male' | 'female' | 'other' | null;
@@ -126,11 +145,21 @@ class CreateMemberDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) class_id?: number | null;
 }
 
+class TeacherDraftRowDto {
+  @Transform(squash) @IsString() @Length(2,80) full_name:string;
+  @IsEmail() @MaxLength(254) email:string;
+  @IsOptional() @Matches(PHONE,{message:PHONE_MESSAGE}) phone?:string|null;
+  @Matches(DATE,{message:'Ngày sinh có dạng YYYY-MM-DD'}) birth_date:string;
+  @IsOptional() @IsIn(['male','female']) gender?:'male'|'female'|null;
+}
+class TeacherWorkbookDto {
+  @IsArray() @ArrayMaxSize(1000) @ValidateNested({each:true}) @Type(()=>TeacherDraftRowDto) rows:TeacherDraftRowDto[];
+}
+
 class UpdateUserDto {
   @IsOptional() @Transform(squash) @IsString() @Length(2, 80) full_name?: string;
   @IsOptional() @IsEmail() @MaxLength(254) email?: string | null;
   @IsOptional() @Matches(PHONE, { message: PHONE_MESSAGE }) phone?: string | null;
-  @IsOptional() @IsString() @MaxLength(60) subject?: string | null;
   @IsOptional() @IsString() @MaxLength(40) user_code?: string | null;
   @IsOptional() @Matches(DATE, { message: 'Ngày sinh có dạng YYYY-MM-DD' }) birth_date?: string | null;
   @IsOptional() @IsIn(['male', 'female', 'other']) gender?: 'male' | 'female' | 'other' | null;
@@ -155,6 +184,7 @@ class ImportQuery extends SchoolScope {
 }
 
 class ClassQuery extends Page {
+  @IsOptional() @Type(() => Number) @IsIn([1,2]) semester?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) year_id?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(6) @Max(9) grade?: number;
@@ -164,26 +194,33 @@ class ClassQuery extends Page {
 }
 
 class ClassDto {
+  @IsOptional() @Type(() => Number) @IsIn([1,2]) semester?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number | null;
   @Type(() => Number) @IsInt() @Min(1) year_id: number;
   @Type(() => Number) @IsInt() @Min(6) @Max(9) grade: number;
   @Transform(squash) @IsString() @Length(2, 40) name: string;
-  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsInt({ each: true }) teacher_ids?: number[];
+  @IsOptional() @IsArray() @ArrayMaxSize(1) @IsInt({ each: true }) teacher_ids?: number[];
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) expected_size?: number | null;
   @IsOptional() @IsString() @MaxLength(300) description?: string | null;
 }
 
 class UpdateClassDto {
+  @IsOptional() @Type(() => Number) @IsIn([1,2]) semester?: number;
+  @IsOptional() @IsBoolean() confirm_reassignment?: boolean;
   @IsOptional() @Transform(squash) @IsString() @Length(2, 40) name?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(6) @Max(9) grade?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) expected_size?: number | null;
   @IsOptional() @IsString() @MaxLength(300) description?: string | null;
   @IsOptional() @IsBoolean() join_open?: boolean;
-  @IsOptional() @IsArray() @ArrayMaxSize(20) @IsInt({ each: true }) teacher_ids?: number[];
+  @IsOptional() @IsArray() @ArrayMaxSize(1) @IsInt({ each: true }) teacher_ids?: number[];
 }
 
 class ArchiveDto {
   @IsBoolean() archived: boolean;
+}
+class TeacherChangeDecisionDto {
+  @IsIn(['approved','rejected']) decision:'approved'|'rejected';
+  @IsOptional() @IsString() @MaxLength(1000) note?:string;
 }
 
 class MembersDto {
@@ -236,6 +273,16 @@ export class AdminController {
   @Roles('root_admin')
   listSchools(@Query() query: SchoolQuery) { return this.schools.list(query); }
 
+  @Get('school-code-preview')
+  @Roles('root_admin')
+  @Header('Cache-Control', 'no-store')
+  schoolCodePreview(@CurrentUser() user: UserRow) { return this.schools.codePreview(user); }
+
+  /** Gợi ý trường từ danh mục khi thêm trường: chọn một trường thì mã, khu vực, tỉnh/thành và đường dẫn tự điền */
+  @Get('school-directory')
+  @Roles('root_admin')
+  async schoolDirectory(@Query() query: DirectoryQuery) { return this.schools.directory(query.q ?? '', query.limit ?? 30, query.exclude_school_id); }
+
   @Post('schools')
   @Roles('root_admin')
   createSchool(@CurrentUser() user: UserRow, @Body() body: CreateSchoolDto) { return this.schools.create(user, body); }
@@ -250,7 +297,11 @@ export class AdminController {
   @Delete('schools/:id')
   @Roles('root_admin')
   @HttpCode(204)
-  async removeSchool(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { await this.schools.remove(user, id); }
+  async removeSchool(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) {
+    const gone = await this.schools.remove(user, id);
+    // Sau khi xóa, mã số trong nhật ký không còn trỏ tới đâu: ghi thêm tên trường và số dữ liệu đã xóa để truy vết
+    await this.security.audit(user, `Xóa trường “${gone.name}” (mã ${gone.school_code}) kèm ${gone.admins + gone.teachers + gone.students} tài khoản, ${gone.classes} lớp, ${gone.years} năm học`, 'school', String(id), null, true);
+  }
 
   // ------------------------------------------------------------------ thông tin trường của quản trị trường (HK.QT.010–011)
   @Get('school')
@@ -260,6 +311,9 @@ export class AdminController {
   updateMySchool(@CurrentUser() user: UserRow, @Query() query: SchoolScope, @Body() body: UpdateMySchoolDto) { return this.schools.updateMine(user, query.school_id, body); }
 
   // ------------------------------------------------------------------ năm học và khối lớp (HK.QT.012–013)
+  @Get('school-year-options')
+  yearOptions() { return this.schools.yearOptions(); }
+
   @Get('school-years')
   years(@CurrentUser() user: UserRow, @Query() query: SchoolScope) { return this.schools.years(user, query.school_id); }
 
@@ -325,7 +379,22 @@ export class AdminController {
   createTeacher(@CurrentUser() user: UserRow, @Body() body: CreateMemberDto) { return this.accounts.createMember(user, 'teacher', body); }
 
   @Get('teachers/template')
-  async teacherTemplate() { return download(await this.accounts.template('teachers'), 'mau-giao-vien.xlsx'); }
+  @Header('Cache-Control','no-store')
+  async teacherTemplate(@CurrentUser() user: UserRow, @Query() query: SchoolScope) {
+    const spec=await this.accounts.teacherImportSpec(user,query.school_id);
+    return download(await this.accounts.teacherTemplate(user, query.school_id),spec.filename);
+  }
+
+  @Get('teachers/import-spec')
+  @Header('Cache-Control','no-store')
+  teacherImportSpec(@CurrentUser() user:UserRow,@Query() query:SchoolScope){return this.accounts.teacherImportSpec(user,query.school_id);}
+
+  @Post('teachers/workbook')
+  @HttpCode(200)
+  async teacherWorkbook(@CurrentUser() user:UserRow,@Query() query:SchoolScope,@Body() body:TeacherWorkbookDto){
+    const spec=await this.accounts.teacherImportSpec(user,query.school_id);
+    return download(await this.accounts.teacherWorkbook(user,body.rows,query.school_id),spec.filename);
+  }
 
   @Get('teachers/export')
   async exportTeachers(@CurrentUser() user: UserRow, @Query() query: UserQuery) { return download(await this.accounts.exportMembers(user, 'teacher', query), 'danh-sach-giao-vien.xlsx'); }
@@ -360,6 +429,21 @@ export class AdminController {
   @Get('classes')
   classList(@CurrentUser() user: UserRow, @Query() query: ClassQuery) { return this.classes.list(user, query); }
 
+  @Get('teacher-change-requests')
+  teacherChangeRequests(@CurrentUser() user:UserRow){return this.classes.teacherChangeRequests(user);}
+
+  @Post('teacher-change-requests/:id/decision')
+  @HttpCode(200)
+  teacherChangeDecision(@CurrentUser() user:UserRow,@Param('id',ParseIntPipe) id:number,@Body() body:TeacherChangeDecisionDto){return this.classes.decideTeacherChange(user,id,body.decision,body.note);}
+
+  @Get('registration-code/:kind')
+  @Header('Cache-Control', 'no-store')
+  registrationCode(@CurrentUser() user: UserRow, @Param('kind') kind: string,
+    @Query('birth_date') birth_date?:string,@Query('school_id') school_id?:string,@Query('user_id') user_id?:string) {
+    for(const n of [school_id,user_id]) if(n!==undefined && !/^[1-9]\d{0,8}$/.test(n)) throw new BadRequestException('Mã định danh không hợp lệ');
+    return this.accounts.codePreview(user,kind,{birth_date,school_id:school_id?Number(school_id):undefined,user_id:user_id?Number(user_id):undefined});
+  }
+
   @Post('classes')
   createClass(@CurrentUser() user: UserRow, @Body() body: ClassDto) { return this.classes.create(user, body); }
 
@@ -382,7 +466,7 @@ export class AdminController {
   }
 
   @Get('classes/:id')
-  classDetail(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.classes.detail(user, id); }
+  classDetail(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number,@Query() query: ClassQuery) { return this.classes.detail(user, id,query.semester); }
 
   @Get('classes/:id/events')
   classEvents(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.classes.events(user, id); }

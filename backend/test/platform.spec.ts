@@ -59,6 +59,28 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
   });
 
   // ------------------------------------------------------------------ HK.AD.071: cờ tính năng
+  test('cấu hình vận hành tự nhận môi trường, giữ ghi đè và không lưu giá trị tự nhận thành ghi đè',async()=>{
+    const names=['RATE_IP_PER_MIN','RATE_USER_PER_MIN','RATE_AI_PER_MIN'] as const;
+    const previous=names.map(name=>process.env[name]);
+    try{
+      process.env.RATE_IP_PER_MIN='777';process.env.RATE_USER_PER_MIN='333';process.env.RATE_AI_PER_MIN='17';
+      await root('PUT','/api/platform/settings',{rate_ip_per_min:null,rate_user_per_min:null,rate_ai_per_min:null});
+      expect((await root('GET','/api/platform/settings')).body).toMatchObject({rate_ip_per_min:777,rate_user_per_min:333,rate_ai_per_min:17});
+      await root('PUT','/api/platform/settings',{system_name:'Hào Khí Đông A'});
+      expect((await sql(s.url,'SELECT rate_ip_per_min,rate_user_per_min,rate_ai_per_min FROM hk_system_settings WHERE id=1'))[0])
+        .toEqual({rate_ip_per_min:null,rate_user_per_min:null,rate_ai_per_min:null});
+      await root('PUT','/api/platform/settings',{rate_user_per_min:222});
+      expect((await root('GET','/api/platform/settings')).body.rate_user_per_min).toBe(222);
+      process.env.RATE_USER_PER_MIN='444';
+      expect((await root('GET','/api/platform/settings')).body.rate_user_per_min).toBe(222);
+      await root('PUT','/api/platform/settings',{rate_user_per_min:null});
+      expect((await root('GET','/api/platform/settings')).body.rate_user_per_min).toBe(444);
+    }finally{
+      names.forEach((name,i)=>{if(previous[i]===undefined)delete process.env[name];else process.env[name]=previous[i];});
+      await root('PUT','/api/platform/settings',{rate_ip_per_min:null,rate_user_per_min:null,rate_ai_per_min:null});
+    }
+  });
+
   test('cờ bật / tắt tính năng: tắt cửa hàng, giải đấu, AI, thi đấu, game thẻ tướng, gợi ý và tim có hiệu lực ngay; bật lại thì dùng được', async () => {
     const flags = (await root('GET', '/api/platform/flags')).body;
     expect(flags.map((x: any) => x.key)).toEqual(['leagues', 'hearts', 'roleplay', 'ai_tutor', 'live_quiz', 'war_game', 'shop', 'recommendations']);
@@ -69,7 +91,7 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
       ['ai_tutor', 'AI Tutor', () => as(f.S1)('GET', '/api/ai/status')],
       ['live_quiz', 'Thi đấu', () => as(f.S1)('GET', '/api/live/open')],
       ['war_game', 'thẻ tướng', () => as(f.S1)('GET', '/api/war/status')],
-      ['recommendations', 'Gợi ý', () => as(f.S1)('GET', '/api/analytics/me/recommendations')],
+      ['recommendations', 'Gợi ý', () => as(f.S1)('GET', '/api/analytics/me/strengths')],
     ];
     for (const [key, word, run] of probe) {
       expect((await run(null)).status).toBe(200);
@@ -405,6 +427,11 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     expect(all.counts).toMatchObject({ new: 3 });
     expect((await root('GET', '/api/platform/support?role=teacher')).body.items.map((x: any) => x.id)).toEqual([tt.body.id]);
     expect((await root('GET', '/api/platform/support?q=Excel')).body.total).toBe(1);
+    // số dòng mỗi trang do giao diện chọn theo màn hình: chia trang đúng, tổng không đổi, mặc định 30, tối đa 100
+    const paged = (await root('GET', '/api/platform/support?limit=2&page=2')).body;
+    expect([paged.limit, paged.page, paged.total, paged.items.length]).toEqual([2, 2, 3, 1]);
+    expect((await root('GET', '/api/platform/support')).body.limit).toBe(30);
+    expect((await root('GET', '/api/platform/support?limit=9999')).body.limit).toBe(100);
     expect((await as(f.A)('GET', '/api/platform/support')).status).toBe(403);
     // phản hồi và trạng thái
     const rep = await root('POST', `/api/platform/support/${t.body.id}/reply`, { body: 'Cảm ơn em, thầy cô đang kiểm tra.' });

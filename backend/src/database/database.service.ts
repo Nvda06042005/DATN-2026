@@ -1,8 +1,10 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { Pool, PoolClient, types } from 'pg';
 import { config } from '../config';
 import { baseUsername, hashPassword } from '../auth/passwords';
 import { applyMigrations, MigrationError, pgConfig } from './migrator';
+import { deletionContext } from './deletion-context';
 
 // Cột DATE (ngày sinh, ngày năm học) giữ dạng chuỗi YYYY-MM-DD, không đổi theo múi giờ máy chủ
 types.setTypeParser(1082, (v: string) => v);
@@ -38,7 +40,6 @@ export interface UserRow {
   bio: string | null;
   nickname: string | null;
   gender: 'male' | 'female' | 'other' | null;
-  subject: string | null;
   parent_email: string | null;
   lock_reason: string | null;
   locked_at: string | null;
@@ -60,7 +61,6 @@ export interface UserProfile {
   grade?: number | null;
   phone?: string | null;
   gender?: 'male' | 'female' | 'other' | null;
-  subject?: string | null;
   parent_email?: string | null;
   nickname?: string | null;
   admin_level?: 1 | 2;
@@ -75,14 +75,14 @@ export type Q = <T = Record<string, unknown>>(sql: string, params?: unknown[]) =
 
 export const USER_COLUMNS =
   'id, username, full_name, role, class_name, password_hash, must_change_password, is_active, created_at, last_login_at, ' +
-  'school_id, user_code, school_code, region, city, birth_date, school_year, email, grade, deleted_at, purge_at, token_version, phone, avatar_url, bio, nickname, gender, subject, parent_email, ' +
+  'school_id, user_code, school_code, region, city, birth_date, school_year, email, grade, deleted_at, purge_at, token_version, phone, avatar_url, bio, nickname, gender, parent_email, ' +
   'lock_reason, locked_at, admin_level, profile_confirmed_at, self_registered';
 const PROFILE_FIELDS = [
   'school_id', 'user_code', 'school_code', 'region', 'city', 'birth_date', 'school_year', 'email', 'grade',
-  'phone', 'gender', 'subject', 'parent_email', 'nickname', 'admin_level', 'self_registered', 'profile_confirmed_at',
+  'phone', 'gender', 'parent_email', 'nickname', 'admin_level', 'self_registered', 'profile_confirmed_at',
 ] as const;
 /** Cột cho phép sửa qua updateUser */
-const UPDATABLE = ['full_name', 'class_name', 'is_active', 'email', 'grade', 'phone', 'subject', 'gender', 'birth_date', 'parent_email', 'user_code', 'nickname'] as const;
+const UPDATABLE = ['full_name', 'class_name', 'is_active', 'email', 'grade', 'phone', 'gender', 'birth_date', 'parent_email', 'user_code', 'nickname'] as const;
 
 export const nowIso = (): string => new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
 
@@ -118,6 +118,16 @@ export const searchText = (...parts: Array<string | number | null | undefined>):
 /** Kho dữ liệu PostgreSQL: tài khoản, trường, năm học, lớp, kho lịch sử, hàng đợi email. */
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
+  private readonly workspace = new AsyncLocalStorage<{ schoolId: number | null; userId: number; q?: Q }>();
+  private readonly initializedSchools = new Set<number>();
+  get workspaceSchoolId(): number | null { return this.workspace.getStore()?.schoolId ?? null; }
+  get inWorkspace(): boolean { return Boolean(this.workspace.getStore()); }
+  invalidateWorkspaces(): void { this.initializedSchools.clear(); }
+  /** Tác vụ hẹn giờ giữ đúng trường, nhưng không giữ kết nối giao dịch đã đóng. */
+  detachedWorkspace<T>(run: () => Promise<T>): () => Promise<T> {
+    const ctx = this.workspace.getStore();
+    return () => ctx ? this.workspace.run({ schoolId:ctx.schoolId,userId:ctx.userId }, run) : run();
+  }
   private readonly logger = new Logger('Database');
   private pool: Pool | null = null;
   ready = false;
@@ -147,15 +157,21 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   async query<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
+    const ctx = this.workspace.getStore();
+    if (ctx?.q) return ctx.q<T>(sql, params);
+    if (ctx) return this.workspaceTx((q) => q<T>(sql, params));
     if (!this.pool) throw new ServiceUnavailableException('Kho tài khoản chưa sẵn sàng. Kiểm tra cấu hình cơ sở dữ liệu.');
+    if (deletionContext.getStore()) return this.transaction(async c => (await c.query(sql, params)).rows as T[]);
     return (await this.pool.query(sql, params)).rows as T[];
   }
 
-  private async transaction<T>(run: (client: PoolClient) => Promise<T>): Promise<T> {
+  private async transaction<T>(run: (client: PoolClient) => Promise<T>, repeatableRead = false): Promise<T> {
     if (!this.pool) throw new ServiceUnavailableException('Kho tài khoản chưa sẵn sàng. Kiểm tra cấu hình cơ sở dữ liệu.');
     const client = await this.pool.connect();
     try {
-      await client.query('BEGIN');
+      await client.query(repeatableRead ? 'BEGIN ISOLATION LEVEL REPEATABLE READ' : 'BEGIN');
+      const deletion = deletionContext.getStore();
+      if (deletion) await client.query("SELECT set_config('app.deletion_context',$1,true)", [JSON.stringify(deletion)]);
       const result = await run(client);
       await client.query('COMMIT');
       return result;
@@ -172,6 +188,11 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
    * nên kể cả khi một truy vấn thiếu điều kiện WHERE cũng không chạm được dữ liệu trường khác. Truy vấn vẫn lọc school_id.
    */
   async scoped<T>(schoolId: number, run: (q: Q) => Promise<T>): Promise<T> {
+    const ctx = this.workspace.getStore();
+    if (ctx) {
+      if (schoolId !== ctx.schoolId) throw new ForbiddenException('Không truy cập dữ liệu trường khác');
+      return ctx.q ? run(ctx.q) : this.workspaceTx(run);
+    }
     return this.transaction(async (c) => {
       if (this.rlsReady) await c.query('SET LOCAL ROLE dong_a_school_scope');
       await c.query("SELECT set_config('app.school_id', $1, true)", [String(schoolId)]);
@@ -180,8 +201,56 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   /** Giao dịch với quyền đầy đủ (quản trị tổng, tiến trình nền) */
-  async tx<T>(run: (q: Q) => Promise<T>): Promise<T> {
-    return this.transaction((c) => run(async <R = Record<string, unknown>>(sql: string, params: unknown[] = []) => (await c.query(sql, params)).rows as R[]));
+  async tx<T>(run: (q: Q) => Promise<T>, options: { repeatableRead?: boolean } = {}): Promise<T> {
+    const ctx = this.workspace.getStore();
+    if (ctx) return ctx.q ? run(ctx.q) : this.workspaceTx(run);
+    return this.transaction((c) => run(async <R = Record<string, unknown>>(sql: string, params: unknown[] = []) => (await c.query(sql, params)).rows as R[]), options.repeatableRead);
+  }
+
+  /** Ngữ cảnh chỉ lấy từ người dùng đã xác thực; không nhận school_id từ query/body. */
+  async withWorkspace<T>(user: Pick<UserRow, 'id' | 'role' | 'school_id'>, run: () => Promise<T>): Promise<T> {
+    if (user.role === 'root_admin') return run();
+    const current = this.workspace.getStore();
+    if (current && (current.schoolId !== user.school_id || current.userId !== user.id)) throw new ForbiddenException('Không đổi phạm vi trường trong yêu cầu');
+    if (user.role === 'school_admin' && !user.school_id) throw new ForbiddenException('Tài khoản chưa được gán trường');
+    if (user.school_id && !this.initializedSchools.has(user.school_id)) {
+      await this.initializeWorkspace(user.school_id);
+      this.initializedSchools.add(user.school_id);
+    }
+    return this.workspace.run({ schoolId: user.school_id, userId: user.id }, run);
+  }
+
+  private async workspaceTx<T>(run: (q: Q) => Promise<T>): Promise<T> {
+    const ctx = this.workspace.getStore()!;
+    return this.transaction(async (c) => {
+      // Không có vai trò RLS thì dừng, tuyệt đối không rơi về kết nối có toàn quyền.
+      await c.query('SET LOCAL ROLE dong_a_workspace_scope');
+      await c.query("SELECT set_config('app.school_id',$1,true),set_config('app.user_id',$2,true)", [String(ctx.schoolId ?? 0), String(ctx.userId)]);
+      const q: Q = async (sql, params = []) => (await c.query(sql, params)).rows;
+      return this.workspace.run({ ...ctx, q }, () => run(q));
+    });
+  }
+
+  /** Sao chép cấu hình mặc định đúng một lần; không sao chép bí mật AI hoặc dữ liệu cá nhân. */
+  private async initializeWorkspace(schoolId: number): Promise<void> {
+    await this.transaction(async (c) => {
+      await c.query('SELECT pg_advisory_xact_lock(39901,$1)', [schoolId]);
+      if ((await c.query('SELECT 1 FROM app_school_workspaces WHERE school_id=$1', [schoolId])).rows.length) return;
+      await c.query('INSERT INTO hk_levels(school_id,level,title,xp_required,reward_gold) SELECT $1,level,title,xp_required,reward_gold FROM hk_levels WHERE school_id IS NULL', [schoolId]);
+      await c.query('INSERT INTO hk_settings(school_id,key,value) SELECT $1,key,value FROM hk_settings WHERE school_id IS NULL', [schoolId]);
+      await c.query(`INSERT INTO hk_ai_settings(school_id,id,provider,base_url,chat_model,embed_model,temperature,max_tokens,top_k,min_score,system_prompt,refusal_message,banned_terms,index_kinds,daily_per_user,daily_per_school,price_in,price_out)
+        SELECT $1,id,'none',NULL,chat_model,embed_model,temperature,max_tokens,top_k,min_score,system_prompt,refusal_message,banned_terms,index_kinds,daily_per_user,daily_per_school,price_in,price_out FROM hk_ai_settings WHERE school_id IS NULL`, [schoolId]);
+      await c.query('INSERT INTO app_school_workspaces(school_id) VALUES($1)', [schoolId]);
+    });
+  }
+
+  /** Kiểm tra chủ sở hữu trước thao tác sửa/xóa; các mẫu chung chỉ được đọc. */
+  async assertWorkspaceWritable(table: string, id: number, pk = 'id'): Promise<void> {
+    if (!this.inWorkspace) return;
+    if (!/^[a-z_]+$/.test(table) || !/^[a-z_]+$/.test(pk)) throw new Error('Invalid internal table');
+    const row = (await this.query<{ school_id: number | null }>(`SELECT school_id FROM ${table} WHERE ${pk}=$1`, [id]))[0];
+    if (!row) throw new NotFoundException('Không tìm thấy dữ liệu trong trường của bạn');
+    if (row.school_id !== this.workspaceSchoolId || row.school_id === null) throw new ForbiddenException('Mẫu hệ thống chỉ để tham khảo; hãy tạo bản riêng cho trường');
   }
 
   async ping(): Promise<boolean> {
@@ -338,7 +407,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       `SELECT (u.last_login_at IS NOT NULL) AS logged_in,
               EXISTS (SELECT 1 FROM app_progress p WHERE p.user_id = u.id AND (p.xp > 0 OR p.questions_answered > 0 OR p.lessons_completed > 0)) AS learned,
               EXISTS (SELECT 1 FROM app_audit_events a WHERE a.actor_id = u.id) AS acted,
-              (EXISTS (SELECT 1 FROM app_class_teachers t WHERE t.teacher_id = u.id) OR EXISTS (SELECT 1 FROM app_classes c WHERE c.teacher_id = u.id)) AS teaching
+              (EXISTS (SELECT 1 FROM app_class_teacher_assignments t WHERE t.teacher_id = u.id) OR EXISTS (SELECT 1 FROM app_classes c WHERE c.teacher_id = u.id)) AS teaching
        FROM app_users u WHERE u.id = $1`,
       [id],
     );
@@ -414,8 +483,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Xóa hẳn tài khoản (các bảng liên quan tự xóa theo khóa ngoại ON DELETE CASCADE/SET NULL). Tài khoản có tiến độ học không bao giờ tới đây
-   * (accountHasData chặn); dòng tiến độ rỗng nếu có thì để lại vì mã tài khoản không được dùng lại và vai trò theo trường không được xóa bảng này.
+   * Xóa hẳn tài khoản (các bảng liên quan theo FK CASCADE/SET NULL). AccountService kiểm tra quyền/quy tắc trước khi gọi;
+   * quản trị tổng dọn app_progress (bảng cũ không có FK) trong cùng giao dịch. Vai trò theo trường chỉ xóa tài khoản chưa dùng.
    */
   async deleteUser(id: number, q: Q = (sql, params) => this.query(sql, params)): Promise<void> {
     await q('DELETE FROM app_users WHERE id = $1', [id]);

@@ -107,9 +107,9 @@ export class GameController {
 
   // ------------------------------------------------------------------ quản trị: cấu hình và danh mục
   @Get('admin/specs') @Roles('root_admin', 'school_admin') specs() { return { entities: this.catalog.specs(), badge_rules: BADGE_RULES.map(([value, label]) => ({ value, label })) }; }
-  @Get('admin/settings') @Roles('root_admin')
+  @Get('admin/settings') @Roles('root_admin', 'school_admin')
   async adminSettings() { return { values: await this.settings.get(), rules: SETTING_RULES, defaults: GAME_DEFAULTS, league_schedule: await this.board.leagueSchedule() }; }
-  @Put('admin/settings') @Roles('root_admin')
+  @Put('admin/settings') @Roles('root_admin', 'school_admin')
   async updateSettings(@CurrentUser() user: UserRow, @Body() body: Record<string, unknown>) { return { values: await this.settings.update(user.id, body) }; }
 
   @Get('admin/:entity') @Roles('root_admin', 'school_admin') list(@CurrentUser() user: UserRow, @Param('entity') entity: string, @Query() query: CatalogQuery) { return this.catalog.list(user, entity, query.q); }

@@ -30,7 +30,7 @@ const TemplateSheet: React.FC<{ session: Session; tpl: SurveyTemplate | null; on
   const [questions, setQuestions] = useState<Question[]>(tpl?.questions.map((q) => ({ ...q })) ?? [{ id: 'q1', type: 'likert5', text: '', required: true }]);
   const ready = title.trim().length >= 3 && questions.length > 0 && questions.every((q) => q.text.trim().length >= 3 && (q.type !== 'single' && q.type !== 'multi' ? true : (q.options ?? []).filter((o) => o.trim()).length >= 2));
   const save = async () => {
-    const out = await run(() => api.saveSurveyTemplate(session.token, tpl?.id ?? null, {
+    const out = await run(() => api.saveSurveyTemplate(session.token, tpl?.id || null, {
       title: title.trim(), description: description.trim() || null, audience, is_active: active,
       questions: questions.map((q, i) => ({ ...q, id: `q${i + 1}`, text: q.text.trim(), options: q.options?.map((o) => o.trim()).filter(Boolean) })),
     }), 'Đã lưu mẫu khảo sát');
@@ -63,14 +63,14 @@ const Templates: React.FC<{ session: Session }> = ({ session }) => {
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data ? (
-        <DataTable<SurveyTemplate> rows={list.data} rowKey={(t) => t.id} empty="Chưa có mẫu nào." onRowPress={setEdit}
+        <DataTable<SurveyTemplate> rows={list.data} rowKey={(t) => t.id} empty="Chưa có mẫu nào." onRowPress={(r) => setEdit(r.can_edit ? r : {...r,id:0})}
           columns={[
             { key: 't', label: 'Mẫu', flex: 3, render: (t) => <Cell main={t.title} sub={t.description} /> },
             { key: 'a', label: 'Đối tượng', render: (t) => <Txt size={13}>{AUDIENCE_TEXT[t.audience]}</Txt> },
             { key: 'q', label: 'Số câu', render: (t) => <Txt size={13}>{t.questions.length}</Txt> },
             { key: 's', label: 'Trạng thái', render: (t) => <StatusChip kind={t.is_active ? 'on' : 'muted'} text={t.is_active ? 'Đang dùng' : 'Tạm ẩn'} /> },
           ]}
-          actions={(t) => <><Btn icon={Pencil} label={`Sửa mẫu ${t.title}`} tone="giay" size="sm" onPress={() => setEdit(t)} /><Btn icon={Trash2} label={`Xóa mẫu ${t.title}`} tone="giay" size="sm" onPress={() => setRemove(t)} /></>} actionsWidth={110} />
+          actions={(t) => t.can_edit ? <><Btn icon={Pencil} label={`Sửa mẫu ${t.title}`} tone="giay" size="sm" onPress={() => setEdit(t)} /><Btn icon={Trash2} label={`Xóa mẫu ${t.title}`} tone="giay" size="sm" onPress={() => setRemove(t)} /></> : <Btn icon={Plus} title="Tạo bản riêng" tone="giay" size="sm" onPress={()=>setEdit({...t,id:0})} />} actionsWidth={110} />
       ) : null}
       {edit ? <TemplateSheet session={session} tpl={edit === 'new' ? null : edit} onClose={() => setEdit(null)} onSaved={() => list.reload()} /> : null}
       <ConfirmSheet open={Boolean(remove)} title="Xóa mẫu khảo sát?" message={`Mẫu “${remove?.title}” sẽ bị xóa; các khảo sát đã tạo từ mẫu này không bị ảnh hưởng.`} confirmLabel="Xóa" tone="son" busy={busy} onCancel={() => setRemove(null)}
@@ -103,14 +103,14 @@ const Groups: React.FC<{ session: Session }> = ({ session }) => {
       <ErrorNote message={groups.error ?? classes.error} />
       {groups.loading && !groups.data ? <Spinner /> : null}
       {groups.data ? (
-        <DataTable<ExperimentGroup> rows={groups.data} rowKey={(g) => g.id} empty="Chưa có nhóm nào. Thêm nhóm “Đối chứng” (không trò chơi hóa, không AI) và nhóm “Thử nghiệm”." onRowPress={setEdit}
+        <DataTable<ExperimentGroup> rows={groups.data} rowKey={(g) => g.id} empty="Chưa có nhóm nào. Thêm nhóm “Đối chứng” (không trò chơi hóa, không AI) và nhóm “Thử nghiệm”." onRowPress={(g)=>{if(g.can_edit)setEdit(g);}}
           columns={[
             { key: 'n', label: 'Nhóm', flex: 2, render: (g) => <Cell main={g.name} sub={g.description} /> },
             { key: 'g', label: 'Trò chơi hóa', render: (g) => <StatusChip kind={g.gamification ? 'on' : 'muted'} text={g.gamification ? 'Có' : 'Không'} /> },
             { key: 'a', label: 'AI', render: (g) => <StatusChip kind={g.ai ? 'on' : 'muted'} text={g.ai ? 'Có' : 'Không'} /> },
             { key: 'c', label: 'Lớp / học sinh', render: (g) => <Txt size={13}>{g.classes} lớp · {g.students} học sinh</Txt> },
           ]}
-          actions={(g) => <><Btn icon={Pencil} label={`Sửa nhóm ${g.name}`} tone="giay" size="sm" onPress={() => setEdit(g)} /><Btn icon={Trash2} label={`Xóa nhóm ${g.name}`} tone="giay" size="sm" onPress={() => setRemove(g)} /></>} actionsWidth={110} />
+          actions={(g) => g.can_edit ? <><Btn icon={Pencil} label={`Sửa nhóm ${g.name}`} tone="giay" size="sm" onPress={() => setEdit(g)} /><Btn icon={Trash2} label={`Xóa nhóm ${g.name}`} tone="giay" size="sm" onPress={() => setRemove(g)} /></> : null} actionsWidth={110} />
       ) : null}
       <Txt f="bold" size={16} accessibilityRole="header">Gán lớp vào nhóm</Txt>
       {classes.data ? (

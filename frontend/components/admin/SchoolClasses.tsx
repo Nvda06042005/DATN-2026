@@ -7,76 +7,88 @@ import { View } from 'react-native';
 import { Archive, ArrowRightLeft, FileUp, Plus, RefreshCw, Trash2, UserPlus } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
-import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, idsToValues, ImportSheet, Page, PageHeader, StatusChip, useAction, useDebounced, useLoad, valuesToIds, yearOptions, YEAR_TEXT, type FieldDef } from '@/components/admin/kit';
+import { RegistrationCode } from './RegistrationCode';
+import { TeacherChangeReview } from './ClassTeacherChange';
+import { fmtDay,todayVn } from '@/lib/school-terms';
+import { Cell, DataTable, ErrorNote, FormSheet, ImportSheet, Page, PageHeader, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, valuesToIds, yearOptions, YEAR_TEXT, type FieldDef, type SearchFilter } from '@/components/admin/kit';
 import { dateText } from '@/components/admin/AccountSheet';
 import type { Session } from '@/components/auth';
-import { Btn, Card, ConfirmSheet, Field, Inset, Sheet, Spinner, Txt } from '@/components/ui';
+import { Btn, Card, ConfirmSheet, Inset, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { ClassDetail, ClassItem, CloneResult, YearItem } from '@/types/api';
 
 const KIND_TEXT: Record<string, string> = {
+  change_teacher:'Đổi giáo viên phụ trách lớp',
   create: 'Tạo lớp', update: 'Sửa lớp', assign: 'Phân công giáo viên', unassign: 'Gỡ giáo viên', teachers: 'Phân công giáo viên', transfer: 'Chuyển lớp', close: 'Lưu trữ lớp', reopen: 'Khôi phục lớp',
   join: 'Học sinh tự tham gia bằng mã', member_add: 'Thêm học sinh', member_remove: 'Gỡ học sinh', code: 'Đổi mã tham gia', clone: 'Nhân bản từ năm học trước', join_open: 'Cho phép tự tham gia', join_closed: 'Tắt tự tham gia',
 };
+const SEMESTERS=[{value:'1',label:'Học kỳ 1'},{value:'2',label:'Học kỳ 2'}];
 
 export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYearsChanged: () => void }> = ({ session, years }) => {
   const { token } = session;
   const [yearSel, setYearSel] = useState('');
   const yearId = Number(yearSel || years.find((y) => y.status === 'active')?.id || years[0]?.id || 0);
   const year = years.find((y) => y.id === yearId);
+  const [semesterSel,setSemesterSel]=useState('');
+  const semester=Number(semesterSel || (year?.term2_starts_on && todayVn()>=year.term2_starts_on ? '2':'1'));
   const [grade, setGrade] = useState('');
   const [q, setQ] = useState('');
   const [active, setActive] = useState('true');
   const dq = useDebounced(q);
-  const { data, error, loading, reload } = useLoad(() => (yearId ? api.listClasses(token, { year_id: yearId, grade: grade || undefined, q: dq, active: active || undefined, limit: 200 }) : Promise.resolve(null)), [token, yearId, grade, dq, active], session.expired);
+  const { data, error, loading, reload } = useLoad(() => (yearId ? api.listClasses(token, { year_id: yearId,semester, grade: grade || undefined, q: dq, active: active || undefined, limit: 200 }) : Promise.resolve(null)), [token, yearId,semester, grade, dq, active], session.expired);
   const { data: teachers } = useLoad(() => api.listMembers(token, 'teachers', { active: 'true', limit: 200 }), [token], session.expired);
   const { data: gradeData } = useLoad(() => (yearId ? api.listGrades(token, yearId) : Promise.resolve(null)), [token, yearId], session.expired);
-  const teacherOptions = useMemo(() => (teachers?.items ?? []).map((t) => ({ value: String(t.id), label: `${t.full_name}${t.subject ? ` – ${t.subject}` : ''}` })), [teachers]);
+  const teacherOptions = useMemo(() => (teachers?.items ?? []).map((t) => ({ value: String(t.id), label: t.full_name })), [teachers]);
   const openGrades = (gradeData?.grades ?? []).filter((g) => g.is_active).map((g) => ({ value: String(g.grade), label: `Khối ${g.grade}` }));
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [cloning, setCloning] = useState(false);
   const [importing, setImporting] = useState(false);
   const [cloned, setCloned] = useState<CloneResult | null>(null);
+  const requests=useLoad(()=>api.teacherChangeRequests(token),[token],session.expired);
+  const [reviewing,setReviewing]=useState(false);
   const ended = year?.status === 'ended';
+  const f_grade: SearchFilter = { key: 'grade', label: 'Khối', value: grade, options: [{ value: '', label: 'Mọi khối' }, ...[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }))], onChange: setGrade };
+  const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã lưu trữ' }], onChange: setActive };
 
   return (
     <Page>
       <PageHeader title="Lớp học" subtitle="Tạo lớp theo năm học và khối, phân công giáo viên, xếp học sinh và nhân bản sang năm học mới."
         actions={<>
+          <Btn title={`Đề nghị đổi giáo viên${requests.data?.length ? ` (${requests.data.length})`:''}`} tone="giay" size="sm" testID="teacher-change-review" onPress={()=>{requests.reload();setReviewing(true);}}/>
           <Btn title="Nhân bản sang năm học mới" icon={RefreshCw} tone="giay" size="sm" disabled={!yearId} onPress={() => setCloning(true)} testID="class-clone" />
           <Btn title="Xếp lớp từ Excel" icon={FileUp} tone="giay" size="sm" disabled={!yearId || ended} onPress={() => setImporting(true)} />
           <Btn title="Tạo lớp" icon={Plus} tone="son" size="sm" disabled={!yearId || ended} onPress={() => setCreating(true)} testID="class-add" />
         </>} />
       {!years.length ? <Inset><Txt size={14}>Chưa có năm học nào. Hãy thêm và kích hoạt năm học ở mục “Trường và năm học” trước khi tạo lớp.</Txt></Inset> : null}
-      <FilterBar>
-        <FilterBox><AdminSelect label="Năm học" value={String(yearId)} options={yearOptions(years)} onChange={(v) => setYearSel(String(v))} /></FilterBox>
-        <FilterBox><AdminSelect label="Khối" value={grade} options={[{ value: '', label: 'Mọi khối' }, ...[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }))]} onChange={(v) => setGrade(String(v))} /></FilterBox>
-        <FilterBox><Field label="Tìm theo tên lớp" value={q} onChangeText={setQ} autoCapitalize="none" /></FilterBox>
-        <FilterBox><AdminSelect label="Trạng thái" value={active} options={[{ value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã lưu trữ' }, { value: '', label: 'Tất cả' }]} onChange={(v) => setActive(String(v))} /></FilterBox>
-      </FilterBar>
+      {reviewing?<TeacherChangeReview session={session} requests={requests.data??[]} loading={requests.loading} error={requests.error} onReload={()=>{requests.reload();reload();}} onClose={()=>{setReviewing(false);reload();}}/>:null}
+      <SearchFilterBar placeholder="Tìm theo tên lớp" value={q} onChange={setQ} searchId="class-search" filters={[f_grade, f_active]}
+        extra={<View style={{flexDirection:'row',flexWrap:'wrap',gap:12}}><View style={{ width: 220 }}><AdminSelect bare label="Năm học" value={String(yearId)} options={yearOptions(years)} onChange={(v) => {setYearSel(String(v));setSemesterSel('');}} testID="class-year" /></View><View style={{width:160}}><AdminSelect bare label="Học kỳ" value={String(semester)} options={SEMESTERS} onChange={setSemesterSel} testID="class-semester"/></View></View>} />
       {ended ? <Inset><Txt size={13}>Năm học đã kết thúc: chỉ xem được, không sửa lớp hay học sinh của năm này.</Txt></Inset> : null}
       <ErrorNote message={error} />
       {loading && !data ? <Spinner label="Đang tải danh sách lớp…" /> : null}
       {data ? (
         <DataTable rows={data.items} rowKey={(x) => x.id} empty="Chưa có lớp nào khớp bộ lọc." onRowPress={(x) => setOpen(x.id)}
           columns={[
-            { key: 'name', label: 'Lớp', render: (x) => <Cell main={x.name} sub={`Khối ${x.grade ?? '?'} · ${x.school_year}`} /> },
-            { key: 'teachers', label: 'Giáo viên phụ trách', flex: 2, render: (x) => <Txt size={14}>{x.teachers.map((t) => t.full_name).join(', ') || 'Chưa phân công'}</Txt> },
+            { key: 'name', label: 'Lớp', render: (x) => <Cell main={x.name} sub={x.school_year} /> },
+            {key:'registration',label:'Mã lớp',render:x=><Txt size={14} selectable>{x.registration_code}</Txt>},
+            { key: 'grade', filter: f_grade, label: 'Khối', flex: 0.7, render: (x) => <Txt size={14}>Khối {x.grade ?? '?'}</Txt> },
+            { key: 'teachers', label: 'Giáo viên phụ trách lớp', flex: 2, render: (x) => <Cell main={x.teachers.map((t) => t.full_name).join(', ') || 'Chưa phân công'} sub={`Học kỳ ${semester}`} /> },
             { key: 'students', label: 'Sĩ số', render: (x) => <Txt size={14}>{x.students}{x.expected_size ? ` / ${x.expected_size}` : ''}</Txt> },
             { key: 'code', label: 'Mã tham gia', render: (x) => <Txt f="bold" size={15} selectable style={{ letterSpacing: 2 }}>{x.join_code ?? '—'}</Txt> },
-            { key: 'status', label: 'Trạng thái', render: (x) => <StatusChip kind={x.is_active ? 'on' : 'muted'} text={x.is_active ? (x.join_open ? 'Hoạt động' : 'Đóng tự tham gia') : 'Đã lưu trữ'} /> },
+            { key: 'status', filter: f_active, label: 'Trạng thái', render: (x) => <StatusChip kind={x.is_active ? 'on' : 'muted'} text={x.is_active ? (x.join_open ? 'Hoạt động' : 'Đóng tự tham gia') : 'Đã lưu trữ'} /> },
           ]} />
       ) : null}
 
-      {open ? <ClassSheet session={session} id={open} classes={data?.items ?? []} teacherOptions={teacherOptions} gradeOptions={openGrades} onClose={() => setOpen(null)} onChanged={reload} /> : null}
+      {open ? <ClassSheet session={session} id={open} semester={semester} classes={data?.items ?? []} teacherOptions={teacherOptions} gradeOptions={openGrades} onClose={() => setOpen(null)} onChanged={reload} /> : null}
       {creating && year ? (
         <FormSheet title={`Tạo lớp – năm học ${year.label}`} subtitle="Mã tham gia 6 ký tự được tạo tự động" submitLabel="Tạo lớp"
-          fields={[{ name: 'name', label: 'Tên lớp', required: true, placeholder: '7A1' }, { name: 'grade', label: 'Khối', type: 'select', required: true, options: openGrades.length ? openGrades : [{ value: '', label: 'Chưa bật khối nào' }] },
-            { name: 'teacher_ids', label: 'Giáo viên phụ trách (chọn một hoặc nhiều)', type: 'multi', options: teacherOptions }, { name: 'expected_size', label: 'Sĩ số dự kiến', type: 'number' }, { name: 'description', label: 'Mô tả', type: 'textarea' }]}
-          initial={{ grade: openGrades[0]?.value ?? '' }} onClose={() => setCreating(false)}
+          fields={[{name:'registration_code',label:'Mã lớp',render:()=> <RegistrationCode token={token} kind="class"/>},{ name: 'name', label: 'Tên lớp', required: true, placeholder: '7A1' }, { name: 'grade', label: 'Khối', type: 'select', required: true, options: openGrades.length ? openGrades : [{ value: '', label: 'Chưa bật khối nào' }] },
+            {name:'semester',label:'Học kỳ',type:'select',required:true,options:SEMESTERS},
+            { name: 'teacher_id', label: 'Giáo viên phụ trách lớp', type: 'select', options: [{value:'',label:'Chưa phân công'},...teacherOptions] }, { name: 'expected_size', label: 'Sĩ số dự kiến', type: 'number' }, { name: 'description', label: 'Mô tả', type: 'textarea' }]}
+          initial={{ grade: openGrades[0]?.value ?? '',semester:String(semester) }} onClose={() => setCreating(false)}
           onSubmit={async (v) => {
-            await api.createClass(token, { year_id: year.id, grade: Number(v.grade), name: String(v.name), teacher_ids: valuesToIds(v.teacher_ids), expected_size: String(v.expected_size) ? Number(v.expected_size) : null, description: String(v.description) || null });
+            await api.createClass(token, { year_id: year.id,semester:Number(v.semester), grade: Number(v.grade), name: String(v.name), teacher_ids: v.teacher_id ? [Number(v.teacher_id)] : [], expected_size: String(v.expected_size) ? Number(v.expected_size) : null, description: String(v.description) || null });
             setCreating(false);
             reload();
           }} />
@@ -113,17 +125,18 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
 
 // ---------------------------------------------------------------------- chi tiết một lớp
 const ClassSheet: React.FC<{
-  session: Session; id: number; classes: ClassItem[]; teacherOptions: Array<{ value: string; label: string }>; gradeOptions: Array<{ value: string; label: string }>; onClose: () => void; onChanged: () => void;
-}> = ({ session, id, classes, teacherOptions, gradeOptions, onClose, onChanged }) => {
+  session: Session; id: number; semester:number; classes: ClassItem[]; teacherOptions: Array<{ value: string; label: string }>; gradeOptions: Array<{ value: string; label: string }>; onClose: () => void; onChanged: () => void;
+}> = ({ session, id,semester, classes, teacherOptions, gradeOptions, onClose, onChanged }) => {
   const { c } = useTheme();
   const { token } = session;
-  const { data, error, reload } = useLoad(() => api.getClass(token, id), [token, id], session.expired);
+  const { data, error, reload } = useLoad(() => api.getClass(token, id,semester), [token, id,semester], session.expired);
   const events = useLoad(() => api.classEvents(token, id), [token, id], session.expired);
   const { data: students } = useLoad(() => api.listMembers(token, 'students', { active: 'true', limit: 200 }), [token], session.expired);
   const { busy, run } = useAction(session.expired);
   const [dialog, setDialog] = useState<null | 'edit' | 'add' | 'archive' | 'delete' | 'code'>(null);
   const [moving, setMoving] = useState<ClassDetail['members'][number] | null>(null);
   const [removing, setRemoving] = useState<ClassDetail['members'][number] | null>(null);
+  const [reassign,setReassign]=useState<Parameters<typeof api.updateClass>[2]|null>(null);
   const refresh = () => { reload(); events.reload(); onChanged(); };
   const k = data as ClassDetail | null;
   const locked = k?.year_status === 'ended';
@@ -132,8 +145,14 @@ const ClassSheet: React.FC<{
   const sameGrade = classes.filter((x) => x.id !== id && x.grade === k?.grade && x.year_id === k?.year_id && x.is_active).map((x) => ({ value: String(x.id), label: x.name }));
 
   const editFields: FieldDef[] = [
+    {name:'registration_code',label:'Mã lớp',readOnly:true},
     { name: 'name', label: 'Tên lớp', required: true }, { name: 'grade', label: 'Khối', type: 'select', options: gradeOptions, hint: k?.students ? 'Lớp đã có học sinh nên không đổi khối được.' : undefined },
-    { name: 'teacher_ids', label: 'Giáo viên phụ trách (chọn một hoặc nhiều)', type: 'multi', options: teacherOptions }, { name: 'expected_size', label: 'Sĩ số dự kiến', type: 'number' }, { name: 'description', label: 'Mô tả', type: 'textarea' },
+    {name:'semester',label:'Học kỳ',render:(v,set)=><AdminSelect label="Học kỳ" value={String(v.semester)} options={SEMESTERS} onChange={s=>{set('semester',s);const matches=k?.term_teachers?.filter(t=>t.semester===Number(s))??[];set('teacher_id',matches.length===1&&matches[0].teacher_id ? String(matches[0].teacher_id):'');}} testID="edit-class-semester"/>},
+    { name: 'teacher_id', label: 'Giáo viên phụ trách lớp', render:(v,set)=>{
+      const term=k?.term_teachers?.filter(t=>t.semester===Number(v.semester))??[];
+      const needsApproval=k?.year_status==='active' && Number(v.semester)===k.active_semester && (term.some(t=>t.teacher_id!==null)||k.legacy_teacher_review);
+      return needsApproval?<View style={{gap:8}}><Txt f="bold" size={14}>Giáo viên phụ trách lớp</Txt><Txt size={14}>{term.map(t=>t.teacher_name).filter(Boolean).join(', ')||'Chưa phân công'}</Txt><Txt size={13}>Thay đổi trong học kỳ được thực hiện qua đề nghị của giáo viên và quản trị trường duyệt.</Txt></View>:<AdminSelect label="Giáo viên phụ trách lớp" value={String(v.teacher_id)} options={[{value:'',label:'Chưa phân công'},...teacherOptions]} onChange={value=>set('teacher_id',value)} testID="field-teacher_id"/>;
+    } }, { name: 'expected_size', label: 'Sĩ số dự kiến', type: 'number' }, { name: 'description', label: 'Mô tả', type: 'textarea' },
   ];
 
   return (
@@ -156,7 +175,9 @@ const ClassSheet: React.FC<{
                 <Btn title={k.join_open ? 'Tắt tự tham gia' : 'Bật tự tham gia'} tone="giay" size="sm" disabled={locked} onPress={async () => { if (await run(() => api.updateClass(token, id, { join_open: !k.join_open }), 'Đã cập nhật')) refresh(); }} />
               </View>
             </Inset>
-            <Txt size={14}><Txt f="bold" size={14}>Giáo viên phụ trách: </Txt>{k.teachers.map((t) => t.full_name).join(', ') || 'Chưa phân công'}</Txt>
+            <Txt size={14}><Txt f="bold" size={14}>Mã lớp: </Txt>{k.registration_code}</Txt>
+            {k.legacy_teacher_review ? <Inset><Txt size={14}>Chọn một giáo viên phụ trách lớp cho từng học kỳ ở mục Sửa lớp / phân công.</Txt></Inset>:null}
+            {(k.term_teachers??[]).map((t,i)=><View key={`${t.semester}-${i}`} style={{gap:4}}><Txt size={14}><Txt f="bold" size={14}>Học kỳ {t.semester} · Giáo viên phụ trách lớp: </Txt>{t.teacher_name||'Chưa phân công'}</Txt><Txt size={12} color={c.muc3}>{fmtDay(t.starts_on)} → {fmtDay(t.ends_on)}</Txt></View>)}
             {k.description ? <Txt size={14} color={c.muc2}>{k.description}</Txt> : null}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               <Btn title="Sửa lớp / phân công" tone="giay" size="sm" disabled={locked} onPress={() => setDialog('edit')} testID="class-edit" />
@@ -182,13 +203,19 @@ const ClassSheet: React.FC<{
 
       {dialog === 'edit' && k ? (
         <FormSheet title="Sửa lớp" fields={editFields} wide onClose={() => setDialog(null)}
-          initial={{ name: k.name, grade: String(k.grade ?? ''), teacher_ids: idsToValues(k.teachers.map((t) => t.id)), expected_size: k.expected_size ? String(k.expected_size) : '', description: k.description ?? '' }}
+          initial={{ registration_code:k.registration_code,name: k.name, grade: String(k.grade ?? ''), semester:String(k.semester),teacher_id:k.teachers.length===1?String(k.teachers[0].id):'', expected_size: k.expected_size ? String(k.expected_size) : '', description: k.description ?? '' }}
           onSubmit={async (v) => {
-            await api.updateClass(token, id, { name: String(v.name), grade: Number(v.grade) || undefined, teacher_ids: valuesToIds(v.teacher_ids), expected_size: String(v.expected_size) ? Number(v.expected_size) : null, description: String(v.description) || null });
+            const term=k.term_teachers?.filter(t=>t.semester===Number(v.semester))??[];
+            const needsApproval=k.year_status==='active' && Number(v.semester)===k.active_semester && (term.some(t=>t.teacher_id!==null)||k.legacy_teacher_review);
+            const body={ name: String(v.name), grade: Number(v.grade) || undefined,semester:Number(v.semester), teacher_ids: needsApproval ? undefined : v.teacher_id?[Number(v.teacher_id)]:[], expected_size: String(v.expected_size) ? Number(v.expected_size) : null, description: String(v.description) || null };
+            const old=k.term_teachers?.find(t=>t.semester===body.semester)?.teacher_id;
+            if(!needsApproval && (k.legacy_teacher_review || (old && old!==(body.teacher_ids?.[0]??null)))){setReassign(body);return;}
+            await api.updateClass(token, id,body);
             setDialog(null);
             refresh();
           }} />
       ) : null}
+      {reassign ? <ConfirmSheet open title="Đổi giáo viên phụ trách lớp" message={`Thay đổi giáo viên phụ trách lớp trong Học kỳ ${reassign.semester}? Phân công học kỳ khác và dữ liệu của lớp được giữ lại.`} confirmLabel="Xác nhận thay đổi" busy={busy} onCancel={()=>setReassign(null)} onConfirm={async()=>{if(await run(()=>api.updateClass(token,id,{...reassign,confirm_reassignment:true}),'Đã cập nhật phân công')){setReassign(null);setDialog(null);refresh();}}}/> : null}
       {dialog === 'add' ? (
         <FormSheet title="Thêm học sinh vào lớp" subtitle="Chọn nhiều học sinh của trường; học sinh có thể thuộc nhiều lớp" submitLabel="Thêm vào lớp"
           fields={[{ name: 'ids', label: 'Học sinh', type: 'multi', required: true, options: addOptions }]} onClose={() => setDialog(null)}

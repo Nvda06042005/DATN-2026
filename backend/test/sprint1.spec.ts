@@ -63,7 +63,8 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     const sent = mail.sent.find((m) => m.to === 'chua.kichhoat@example.edu.vn');
     expect(sent?.subject).toContain('Kích hoạt tài khoản quản trị viên trường học');
     expect(sent?.text).toContain(pending.body.temporary_password);
-    expect(sent?.text).toContain('/school-manager-admin');
+    expect(sent?.text).toContain(`${pending.body.school.link.url}?role=school_admin`);
+    expect(sent?.text).not.toContain('/school-manager-admin');
     expect((await api('POST', '/api/admin/schools', { school_code: '7001', name: 'Trùng mã', admin: { full_name: 'Ai Đó', email: 'khac@example.edu.vn' } })).status).toBe(409);
     expect((await api('POST', '/api/admin/schools', { school_code: '7003', name: 'Trùng email', admin: { full_name: 'Ai Đó', email: 'QT.A@example.edu.vn' } })).status).toBe(409);
     expect((await api('POST', '/api/admin/schools', { school_code: '7003', name: 'Thiếu quản trị' })).status).toBe(422);
@@ -98,17 +99,24 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     expect((await login(c.admin.username, PW, 'school_admin')).status).toBe(200);
   });
 
-  test('HK.AD.016 chỉ xóa trường chưa phát sinh dữ liệu', async () => {
+  test('HK.AD.016 xóa trường kèm toàn bộ dữ liệu của trường (không còn chặn khi trường đã dùng); chi tiết ở school_delete.spec.ts', async () => {
     const empty = await api('POST', '/api/admin/schools', { school_code: '7091', name: 'Trường trống', admin: { full_name: 'Chưa Dùng', email: 'chuadung@example.edu.vn' } });
     expect((await api('DELETE', `/api/admin/schools/${empty.body.school.id}`)).status).toBe(204);
     expect(await db.query('SELECT 1 FROM app_schools WHERE school_code = $1', ['7091'])).toHaveLength(0);
     expect(await db.query('SELECT 1 FROM app_users WHERE email = $1', ['chuadung@example.edu.vn'])).toHaveLength(0);
-    const used = await api('DELETE', `/api/admin/schools/${a.id}`);
-    expect(used.status).toBe(409);
-    expect(used.body.detail).toContain('chỉ có thể vô hiệu hóa');
-    // Quản trị viên đã đăng nhập nên cũng tính là đã sử dụng
-    const loggedIn = await newSchool('7092', 'Trường đã dùng', 'Đã Đăng Nhập', 'dadung@example.edu.vn');
-    expect((await api('DELETE', `/api/admin/schools/${loggedIn.id}`)).status).toBe(409);
+    // Quản trị viên đã đăng nhập và có năm học đã kích hoạt: vẫn xóa được, tài khoản đi theo trường
+    const used = await newSchool('7092', 'Trường đã dùng', 'Đã Đăng Nhập', 'dadung@example.edu.vn');
+    const usedYear = await call(s.base, 'POST', '/api/admin/school-years', { label: '2026-2027', starts_on: '2026-09-05', ends_on: '2027-05-31' }, used.token);
+    await call(s.base, 'POST', `/api/admin/school-years/${usedYear.body.id}/activate`, undefined, used.token);
+    expect((await api('DELETE', `/api/admin/schools/${used.id}`)).status).toBe(204);
+    expect(await db.query('SELECT 1 FROM app_schools WHERE id = $1', [used.id])).toHaveLength(0);
+    expect(await db.query('SELECT 1 FROM app_users WHERE id = $1', [used.admin.id])).toHaveLength(0);
+    expect(await db.query('SELECT 1 FROM app_school_years WHERE school_id = $1', [used.id])).toHaveLength(0);
+    expect((await call(s.base, 'GET', '/api/auth/me', undefined, used.token)).status).toBe(401);
+    // trường khác và quản trị tổng không bị ảnh hưởng
+    expect((await api('GET', `/api/admin/schools/${a.id}`)).status).toBe(200);
+    expect((await api('DELETE', `/api/admin/schools/${used.id}`)).status).toBe(404);
+    expect((await api('DELETE', `/api/admin/schools/${b.id + 1000}`, undefined, a.token)).status).toBe(403);
   });
 
   // ------------------------------------------------------------------ HK.HS.001, GV.001, QT.001, AD.001
@@ -166,13 +174,16 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     for (const [email, role] of who) {
       expect((await api('POST', '/api/auth/forgot-password', { identifier: email }, '')).body).toEqual({ ok: true });
       const code = await otpFor(email);
-      const weak = await api('POST', '/api/auth/reset-password', { identifier: email, otp: code, new_password: 'abc123' }, '');
-      expect(weak.status).toBe(422);
-      const ok = await api('POST', '/api/auth/reset-password', { identifier: email, otp: code, new_password: `Moi-${role}-9` }, '');
+      for (const weak of ['abc1!', 'abcdef!', '123456!', 'Abcdefghijk12', ' ab1!cd', 'ab1!cd ', 'ab1 !cd', 'mật1!x', 'mat1!đ', 'a1!\u00a0bc', 'a1!\tbc']) {
+        const rejected = await api('POST', '/api/auth/reset-password', { identifier: email, otp: code, new_password: weak }, '');
+        expect(rejected.status).toBe(422);
+        expect(rejected.body.detail).toContainEqual(expect.objectContaining({ loc: ['body', 'new_password'], msg: expect.stringContaining('ít nhất 6 ký tự') }));
+      }
+      const ok = await api('POST', '/api/auth/reset-password', { identifier: email, otp: code, new_password: 'ab1!cd' }, '');
       expect(ok.status).toBe(200);
-      expect((await api('POST', '/api/auth/reset-password', { identifier: email, otp: code, new_password: 'Khac-lan2-9' }, '')).status).toBe(400); // dùng một lần
+      expect((await api('POST', '/api/auth/reset-password', { identifier: email, otp: code, new_password: 'Khac-lan2-2026!' }, '')).status).toBe(400); // dùng một lần
       const username = email === 'qt.a@example.edu.vn' ? a.admin.username : email === 'gv.quen@example.edu.vn' ? teacher.body.user.username : 'admin';
-      expect((await login(username, `Moi-${role}-9`, role)).status).toBe(200);
+      expect((await login(username, 'ab1!cd', role)).status).toBe(200);
     }
     // Khôi phục mật khẩu cũ của quản trị tổng cho các bài sau
     await db.query("UPDATE app_users SET password_hash = $1, token_version = token_version + 1 WHERE username = 'admin'", [await (await import('../src/auth/passwords')).hashPassword('admin@123', 4)]);
@@ -198,7 +209,12 @@ async function newSchool(code: string, name: string, adminName: string, email: s
 
   test('HK.*.006/007 đổi mật khẩu cần mật khẩu cũ và chính sách; đăng xuất thu hồi đúng phiên đó', async () => {
     const t1 = (await login(a.admin.username, PW, 'school_admin')).body.token as string, t2 = (await login(a.admin.username, PW, 'school_admin')).body.token as string;
-    for (const weak of ['abc123', 'chicochuuu', '1234567890', 'a1b2c3d']) expect((await api('POST', '/api/auth/change-password', { current_password: PW, new_password: weak }, t1)).status).toBe(422);
+    for (const weak of ['abc1!', 'abcdef!', '123456!', 'Abcdefghijk12', ' ab1!cd', 'ab1!cd ', 'ab1 !cd', 'mật1!x', 'mat1!đ', 'a1!\u00a0bc', 'a1!\tbc']) {
+      const rejected = await api('POST', '/api/auth/change-password', { current_password: PW, new_password: weak }, t1);
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.detail).toContainEqual(expect.objectContaining({ loc: ['body', 'new_password'], msg: expect.stringContaining('ít nhất 6 ký tự') }));
+    }
+    expect((await api('GET', '/api/auth/me', undefined, t1)).status).toBe(200); // nhập yếu không đổi mật khẩu hay thu hồi phiên
     expect((await api('POST', '/api/auth/change-password', { current_password: 'sai-mat-khau-1', new_password: 'Mat-khau-moi-9' }, t1)).status).toBe(400);
     expect((await api('POST', '/api/auth/change-password', { current_password: PW, new_password: PW }, t1)).status).toBe(400);
     expect((await api('POST', '/api/auth/logout', {}, t1)).status).toBe(200);
@@ -434,12 +450,13 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     const view = await call(s.base, 'GET', '/api/auth/profile', undefined, st.token);
     expect(view.body).toMatchObject({ school: { name: 'THCS Kiểm Thử A' }, editable: ['nickname', 'avatar_url', 'bio'] });
     expect(view.body.classes.map((c: any) => [c.name, c.school_year])).toEqual([['7A1', '2026-2027']]);
-    const edited = await call(s.base, 'PATCH', '/api/auth/profile', { nickname: 'Hồ Sơ Bự', avatar_url: 'https://example.edu.vn/a.png' }, st.token);
-    expect(edited.body.user).toMatchObject({ nickname: 'Hồ Sơ Bự', avatar_url: 'https://example.edu.vn/a.png' });
+    const edited = await call(s.base, 'PATCH', '/api/auth/profile', { nickname: 'Hồ Sơ Bự' }, st.token);
+    expect(edited.body.user).toMatchObject({ nickname: 'Hồ Sơ Bự', avatar_url: null });
     for (const bad of [{ full_name: 'Tên Khác' }, { email: 'x@example.edu.vn' }]) expect((await call(s.base, 'PATCH', '/api/auth/profile', bad, st.token)).status).toBe(422);
-    expect((await call(s.base, 'PATCH', '/api/auth/profile', { avatar_url: 'http://khong-https.example/a.png' }, st.token)).status).toBe(422);
+    // ảnh đại diện chỉ đổi bằng cách tải ảnh lên (POST /api/auth/avatar), không dán liên kết nữa
+    for (const link of ['http://khong-https.example/a.png', 'https://example.edu.vn/a.png']) expect((await call(s.base, 'PATCH', '/api/auth/profile', { avatar_url: link }, st.token)).status).toBe(422);
 
-    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Cô Giáo Hồ Sơ', email: 'gv.hoso@example.edu.vn', subject: 'Lịch sử' }, a.token);
+    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Cô Giáo Hồ Sơ', email: 'gv.hoso@example.edu.vn' }, a.token);
     const gv = await activate(s.base, teacher.body.user.username, teacher.body.temporary_password, PW, 'teacher');
     await call(s.base, 'PATCH', `/api/admin/classes/${classA.id}`, { teacher_ids: [gv.user.id] }, a.token);
     const gvView = await call(s.base, 'GET', '/api/auth/profile', undefined, gv.token);
@@ -503,9 +520,10 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     expect((await api('PATCH', `/api/admin/users/${t.body.user.id}`, { email: 'qt.b@example.edu.vn' })).status).toBe(409);
     expect((await api('PATCH', `/api/admin/users/${t.body.user.id}`, { email: 'khong-phai-email' })).status).toBe(422);
     const gv = await api('POST', '/api/admin/teachers', { full_name: 'Cô Đang Dạy', email: 'dangday@example.edu.vn' }, a.token);
-    await call(s.base, 'PATCH', `/api/admin/classes/${classA.id}`, { teacher_ids: [gv.body.user.id] }, a.token);
+    const assigned=await call(s.base,'POST','/api/admin/classes',{year_id:yearA,grade:7,name:'7ChuyenTruong',teacher_ids:[gv.body.user.id]},a.token);
+    expect(assigned.status).toBe(201);
     expect((await api('PATCH', `/api/admin/users/${gv.body.user.id}`, { school_id: b.id })).status).toBe(409);
-    await call(s.base, 'PATCH', `/api/admin/classes/${classA.id}`, { teacher_ids: [] }, a.token);
+    expect((await call(s.base,'DELETE',`/api/admin/classes/${assigned.body.id}`,undefined,a.token)).status).toBe(204);
   });
 
   test('HK.AD.023/024 khóa kèm lý do (bắt buộc), thu hồi phiên, hiện lý do khi đăng nhập; mở khóa; đặt lại mật khẩu gửi thư', async () => {
@@ -534,7 +552,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     expect((await api('POST', `/api/admin/users/${(await db.getByUsername('admin'))!.id}/lock`, { locked: true, reason: 'tự khóa' })).status).toBe(400);
   });
 
-  test('HK.AD.025 chỉ xóa tài khoản chưa phát sinh dữ liệu; đã đăng nhập hoặc đang dạy thì chỉ khóa', async () => {
+  test('HK.AD.025 quản trị tổng xóa tài khoản đã dùng; quản trị trường vẫn chỉ xóa khi chưa có dữ liệu', async () => {
     const fresh = await api('POST', '/api/admin/teachers', { full_name: 'Cô Chưa Dùng', email: 'chuadung.gv@example.edu.vn' }, a.token);
     const detail = await api('GET', `/api/admin/users/${fresh.body.user.id}`);
     expect(detail.body).toMatchObject({ deletable: true, delete_blocker: null, school_name: 'THCS Kiểm Thử A' });
@@ -542,14 +560,18 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     expect(await db.getById(fresh.body.user.id)).toBeNull();
     const used = await api('POST', '/api/admin/teachers', { full_name: 'Cô Đã Dùng', email: 'dadung.gv@example.edu.vn' }, a.token);
     await login(used.body.user.username, used.body.temporary_password, 'teacher');
-    const blocked = await api('DELETE', `/api/admin/users/${used.body.user.id}`);
+    const blocked = await api('DELETE', `/api/admin/users/${used.body.user.id}`, undefined, a.token);
     expect(blocked.status).toBe(409);
     expect(blocked.body.detail).toContain('đã từng đăng nhập');
-    expect((await api('GET', `/api/admin/users/${used.body.user.id}`)).body.deletable).toBe(false);
+    expect((await api('GET', `/api/admin/users/${used.body.user.id}`, undefined, a.token)).body.deletable).toBe(false);
+    expect((await api('GET', `/api/admin/users/${used.body.user.id}`)).body.deletable).toBe(true);
+    expect((await api('DELETE', `/api/admin/users/${used.body.user.id}`)).status).toBe(204);
+    expect(await db.getById(used.body.user.id)).toBeNull();
     const teaching = await api('POST', '/api/admin/teachers', { full_name: 'Cô Được Phân Công', email: 'phancong@example.edu.vn' }, a.token);
-    await call(s.base, 'PATCH', `/api/admin/classes/${classA.id}`, { teacher_ids: [teaching.body.user.id] }, a.token);
-    expect((await api('DELETE', `/api/admin/users/${teaching.body.user.id}`)).body.detail).toContain('phụ trách lớp');
-    await call(s.base, 'PATCH', `/api/admin/classes/${classA.id}`, { teacher_ids: [] }, a.token);
+    const assigned=await call(s.base,'POST','/api/admin/classes',{year_id:yearA,grade:7,name:'7XoaGiaoVien',teacher_ids:[teaching.body.user.id]},a.token);
+    expect(assigned.status).toBe(201);
+    expect((await api('DELETE', `/api/admin/users/${teaching.body.user.id}`, undefined, a.token)).body.detail).toContain('phụ trách lớp');
+    expect((await call(s.base,'DELETE',`/api/admin/classes/${assigned.body.id}`,undefined,a.token)).status).toBe(204);
     expect((await api('DELETE', `/api/admin/users/${(await db.getByUsername('admin'))!.id}`)).status).toBe(400);
   });
 

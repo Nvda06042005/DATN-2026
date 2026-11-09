@@ -14,7 +14,7 @@ const PAPER_PATTERN = require('../assets/hoa-tiet-nen.png');
 export const useLoginDensity = () => useWindowDimensions().height < 700;
 
 /** One visual system for the independent admin and school sign-in flows. */
-export function LoginLayout({ kind, subtitle, children, onHome }: { kind: 'admin' | 'school'; subtitle: string; children: React.ReactNode; onHome?: () => void }) {
+export function LoginLayout({ kind, subtitle, children, onHome, brand }: { kind: 'admin' | 'school'; subtitle: string; children: React.ReactNode; onHome?: () => void; /** Thay logo hệ thống, ví dụ nhận diện của một trường ở đường dẫn riêng của trường */ brand?: React.ReactNode }) {
   const { c } = useTheme();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -32,7 +32,7 @@ export function LoginLayout({ kind, subtitle, children, onHome }: { kind: 'admin
         <View testID={`${prefix}-art`} style={wide ? { position: 'absolute', left: 0, top: 0, bottom: 0, width: '50%', overflow: 'hidden', backgroundColor: c.dem } : { height: dense ? 64 : 112, overflow: 'hidden', backgroundColor: c.dem }}>
           <FilmBackdrop wide={wide} />
           <LinearGradient colors={[`${c.dem}db`, `${c.dem}b3`, `${c.dem}80`]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0.4 }} style={StyleSheet.absoluteFill} />
-          <View testID={`${prefix}-brand`} style={{ position: 'absolute', left: wide ? 28 : 16, top: wide ? 28 : dense ? 9 : 18 }}><BrandLogo light subtitle={subtitle} /></View>
+          <View testID={`${prefix}-brand`} style={{ position: 'absolute', left: wide ? 28 : 16, top: wide ? 28 : dense ? 9 : 18 }}>{brand ?? <BrandLogo light subtitle={subtitle} />}</View>
           {onHome && <Pressable onPress={onHome} accessibilityRole="link" accessibilityLabel="Về trang chủ" style={wide ? { position: 'absolute', left: 28, bottom: 20, minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 } : { position: 'absolute', top: dense ? 9 : 18, right: 12, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
             <ArrowLeft size={18} color={c.trang} />{wide && <Txt f="semibold" size={12} color={c.trang}>Về trang chủ</Txt>}
           </Pressable>}

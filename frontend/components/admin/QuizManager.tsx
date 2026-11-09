@@ -10,7 +10,7 @@ import { AdminSelect } from '@/components/admin/AdminSelect';
 import { QuestionPicker, ScopeChip, useCampaignOptions } from '@/components/admin/ContentKit';
 import { AiQuizModal } from '@/components/admin/AiQuizModal';
 import { SmartExamStudio, type SmartStudioMode } from '@/components/admin/SmartExamStudio';
-import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, Page, PageHeader, Pager, StatusChip, useAction, useDebounced, useLoad } from '@/components/admin/kit';
+import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, usePageSize, type SearchFilter } from '@/components/admin/kit';
 import { dateText } from '@/components/admin/AccountSheet';
 import type { Session } from '@/components/auth';
 import { Overlay } from '@/components/portal/LessonReader';
@@ -128,7 +128,7 @@ const QuizDetailSheet: React.FC<{ session: Session; id: number; onClose: () => v
             <Btn icon={Play} title="Làm thử như học sinh" tone="ngoc" size="sm" loading={busy} onPress={async () => { const a = await run(() => api.previewQuiz(session.token, d.id)); if (a) { onPreview(a, d.title); onClose(); } }} testID="quiz-preview" />
             {d.can_edit ? <Btn icon={Pencil} title="Sửa" tone="son" size="sm" disabled={d.locked} onPress={() => setEditing(true)} testID="quiz-edit" /> : null}
             {d.can_edit && onStudio ? <Btn icon={Sparkles} title="Sửa trong trình soạn Quiz" tone="ngoc" size="sm" disabled={d.locked} onPress={() => { onClose(); onStudio(d.id); }} testID="quiz-edit-studio" /> : null}
-            {role === 'teacher' || role === 'root_admin' ? <Btn icon={Copy} title="Nhân bản" tone="giay" size="sm" loading={busy} onPress={async () => { if (await run(() => api.duplicateQuiz(session.token, d.id), 'Đã nhân bản bộ đề')) { onChanged(); onClose(); } }} /> : null}
+            {role === 'teacher' || role === 'school_admin' || role === 'root_admin' ? <Btn icon={Copy} title="Nhân bản" tone="giay" size="sm" loading={busy} onPress={async () => { if (await run(() => api.duplicateQuiz(session.token, d.id), 'Đã nhân bản bộ đề')) { onChanged(); onClose(); } }} /> : null}
             {shareTarget ? <Btn icon={Send} title={shareTarget === 'school' ? 'Gửi vào kho của trường' : 'Đề xuất lên kho hệ thống'} tone="giay" size="sm" loading={busy} disabled={shared?.status === 'pending'}
               onPress={async () => { if (await run(() => api.requestShare(session.token, 'quiz', d.id, shareTarget), 'Đã gửi đi duyệt')) detail.reload(); }} /> : null}
             {d.can_edit ? <Btn icon={Trash2} title="Xóa" tone="giay" size="sm" onPress={() => setRemoving(true)} /> : null}
@@ -147,14 +147,18 @@ export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: numb
   const [store, setStore] = useState(role === 'school_admin' ? 'school' : 'all');
   const [q, setQ] = useState('');
   const [page, setPage] = useState(1);
+  const size = usePageSize();
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [aiModal, setAiModal] = useState(false);
   const [smartMode, setSmartMode] = useState<SmartStudioMode | null>(null);
   const [preview, setPreview] = useState<{ attempt: AttemptState; title: string } | null>(null);
   const term = useDebounced(q.trim(), 300);
-  const list = useLoad(() => api.listQuizzes(session.token, { store, q: term, page, limit: 15 }), [session.token, store, term, page], session.expired);
-  const canWrite = role === 'teacher' || role === 'root_admin';
+  const list = useLoad(() => api.listQuizzes(session.token, { store, q: term, page, limit: size }), [session.token, store, term, page, size], session.expired);
+  const canWrite = role === 'teacher' || role === 'school_admin' || role === 'root_admin';
+  const storeOptions = role === 'root_admin' ? [{ value: 'all', label: 'Kho hệ thống và đề xuất' }, { value: 'system', label: 'Kho hệ thống' }, { value: 'school', label: 'Kho của các trường' }]
+    : [{ value: 'all', label: 'Tất cả kho' }, ...(role === 'teacher' ? [{ value: 'mine', label: 'Của tôi' }] : []), { value: 'school', label: 'Kho của trường' }, { value: 'system', label: 'Kho hệ thống' }];
+  const f_store: SearchFilter = { key: 'store', label: 'Kho', value: store === 'all' ? '' : store, options: [{ value: '', label: storeOptions[0].label }, ...storeOptions.slice(1)], onChange: (v) => { setStore(v || 'all'); setPage(1); } };
   if (smartMode !== null) {
     return (
       <Page>
@@ -177,26 +181,21 @@ export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: numb
     <Page>
       <PageHeader title="Bộ đề" subtitle="Bộ câu hỏi dùng ở các nút trên bản đồ hành trình. Bộ đề đang được giao hoặc đã có học sinh làm thì khóa chỉnh sửa; hãy nhân bản để thay đổi."
         actions={canWrite ? <><Btn icon={FileUp} title="Tải đề từ Word/PDF" tone="thuy" size="sm" onPress={() => setSmartMode('upload')} testID="quiz-word-import" /><Btn icon={Shuffle} title="Trộn đề thi" tone="thuy" size="sm" onPress={() => setSmartMode('mix')} testID="quiz-mix" />{onStudio ? <Btn icon={Sparkles} title="Soạn Quiz kiểu Kahoot" tone="ngoc" size="sm" onPress={() => onStudio()} testID="quiz-studio" /> : null}<Btn icon={Plus} title="Tạo bộ đề" tone="son" size="sm" onPress={() => setCreating(true)} testID="quiz-create" /></> : undefined} />
-      <FilterBar>
-        <FilterBox><AdminSelect label="Kho" value={store} onChange={(v) => { setStore(v); setPage(1); }}
-          options={role === 'root_admin' ? [{ value: 'all', label: 'Kho hệ thống và đề xuất' }, { value: 'system', label: 'Kho hệ thống' }, { value: 'school', label: 'Kho của các trường' }]
-            : [{ value: 'all', label: 'Tất cả kho' }, ...(role === 'teacher' ? [{ value: 'mine', label: 'Của tôi' }] : []), { value: 'school', label: 'Kho của trường' }, { value: 'system', label: 'Kho hệ thống' }]} /></FilterBox>
-        <FilterBox flex={2}><Field label="Tìm bộ đề" value={q} onChangeText={(v) => { setQ(v); setPage(1); }} /></FilterBox>
-      </FilterBar>
+      <SearchFilterBar placeholder="Tìm bộ đề" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="quiz-search" filters={[f_store]} />
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data ? (
         <>
-          <DataTable<QuizItem> rows={list.data.items} rowKey={(r) => r.id} onRowPress={(r) => setOpen(r.id)} empty="Chưa có bộ đề nào"
+          <DataTable<QuizItem> paginate={false} rows={list.data.items} rowKey={(r) => r.id} onRowPress={(r) => setOpen(r.id)} empty="Chưa có bộ đề nào"
             columns={[
               { key: 'title', label: 'Bộ đề', flex: 3, render: (r) => <Cell main={r.title} sub={r.campaign_title ?? 'Chưa gắn chủ đề'} /> },
-              { key: 'scope', label: 'Kho', flex: 1.2, render: (r) => <ScopeChip scope={r.scope} /> },
+              { key: 'scope', filter: f_store, label: 'Kho', flex: 1.2, render: (r) => <ScopeChip scope={r.scope} /> },
               { key: 'n', label: 'Số câu', flex: 0.7, render: (r) => <Txt size={13}>{r.question_count}</Txt> },
               { key: 'time', label: 'Thời gian', flex: 0.9, render: (r) => <Txt size={13}>{Math.ceil(r.total_seconds / 60)} phút</Txt> },
               { key: 'used', label: 'Đã giao / làm', flex: 1, render: (r) => <Txt size={13}>{r.assigned} hành trình · {r.attempts} lượt{r.locked ? ' (khóa)' : ''}</Txt> },
               { key: 'owner', label: 'Người soạn', flex: 1.3, hideOnCard: true, render: (r) => <Cell main={r.owner_name ?? '—'} sub={dateText(r.updated_at)} /> },
             ]} />
-          <Pager page={page} limit={15} total={list.data.total} onPage={setPage} />
+          <Pager page={page} limit={size} total={list.data.total} onPage={setPage} />
         </>
       ) : null}
             {aiModal ? <AiQuizModal open={aiModal} onClose={() => { setAiModal(false); list.reload(); }} session={session} /> : null}

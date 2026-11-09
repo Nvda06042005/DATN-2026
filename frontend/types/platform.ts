@@ -54,7 +54,7 @@ export interface TwoFactorChallenge { two_factor: true; method: 'email' | 'totp'
 export type QType = 'likert5' | 'nps' | 'single' | 'multi' | 'text';
 export interface Question { id: string; type: QType; text: string; options?: string[]; required: boolean }
 export const QTYPE_TEXT: Record<QType, string> = { likert5: 'Thang 1–5', nps: 'Giới thiệu 0–10', single: 'Chọn một', multi: 'Chọn nhiều', text: 'Ý kiến' };
-export interface SurveyTemplate { id: number; title: string; description: string | null; audience: 'student' | 'teacher' | 'both'; questions: Question[]; is_active: boolean }
+export interface SurveyTemplate { can_edit?:boolean; id: number; title: string; description: string | null; audience: 'student' | 'teacher' | 'both'; questions: Question[]; is_active: boolean }
 export interface Survey {
   id: number; title: string; description: string | null; audience: 'student' | 'teacher' | 'both'; questions: Question[]; class_ids: number[]; status: 'draft' | 'open' | 'closed'; phase: 'draft' | 'scheduled' | 'open' | 'closed';
   opens_at: string | null; closes_at: string | null; targets: number; responses: number; response_rate: number | null; created_at: string;
@@ -68,7 +68,7 @@ export interface SurveyResult {
 }
 
 // ---------------------------------------------------------------------- nghiên cứu
-export interface ExperimentGroup { id: number; name: string; description: string | null; gamification: boolean; ai: boolean; classes: number; students: number }
+export interface ExperimentGroup { can_edit?:boolean; id: number; name: string; description: string | null; gamification: boolean; ai: boolean; classes: number; students: number }
 export interface ExperimentClass { id: number; name: string; grade: number | null; school_name: string; group_id: number | null; group_name: string | null; students: number }
 export interface Summary { n: number; mean: number | null; sd: number | null }
 export interface Welch { diff: number; t: number | null; df: number | null; p: number | null; cohen_d: number | null }

@@ -10,7 +10,7 @@ let s: Started, db: DatabaseService, mail: MailService, root: string;
 const PW = 'Matkhau-12345';
 const api = (method: string, path: string, body?: unknown, token = root) => call(s.base, method, path, body, token);
 const TEACHER_HEADER = ['Họ và tên *', 'Email *', 'Bộ môn', 'Số điện thoại', 'Mã giáo viên'];
-const STUDENT_HEADER = ['Mã học sinh *', 'Họ và tên *', 'Ngày sinh *', 'Giới tính', 'Lớp', 'Email', 'Email phụ huynh'];
+const STUDENT_HEADER = ['Mã học sinh', 'Họ và tên *', 'Ngày sinh *', 'Giới tính', 'Lớp', 'Email', 'Email phụ huynh'];
 
 async function readRows(buffer: Buffer): Promise<string[][]> {
   const ExcelJS = await import('exceljs');
@@ -103,13 +103,14 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
 
   // ------------------------------------------------------------------ HK.QT.014–016, 018–021, 023
   test('HK.QT.014–016/018–021 giáo viên: thêm (mật khẩu tạm + email), tìm/lọc, sửa, khóa/mở khóa, đặt lại mật khẩu, xóa khi chưa có dữ liệu', async () => {
-    const created = await qa('POST', '/api/admin/teachers', { full_name: '  Nguyễn  Văn  Sử ', email: 'Su.Nguyen@Example.edu.vn', subject: 'Lịch sử', phone: '0901 234 567', user_code: 'GV01' });
+    const created = await qa('POST', '/api/admin/teachers', { full_name: '  Nguyễn  Văn  Sử ', email: 'Su.Nguyen@Example.edu.vn', phone: '0901 234 567', user_code: 'GV01' });
     expect(created.status).toBe(201);
-    expect(created.body).toMatchObject({ user: { role: 'teacher', full_name: 'Nguyễn Văn Sử', email: 'su.nguyen@example.edu.vn', subject: 'Lịch sử', school_id: A.id, must_change_password: true }, mail: 'queued' });
+    expect(created.body).toMatchObject({ user: { role: 'teacher', full_name: 'Nguyễn Văn Sử', email: 'su.nguyen@example.edu.vn', school_id: A.id, must_change_password: true }, mail: 'queued' });
+    expect(created.body.user).not.toHaveProperty('subject'); // bộ môn đã bỏ hẳn (migration 053)
     expect(created.body.temporary_password).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}$/);
     await mail.tick();
     expect(mail.sent.find((m) => m.to === 'su.nguyen@example.edu.vn')?.text).toContain(created.body.temporary_password);
-    await qa('POST', '/api/admin/teachers', { full_name: 'Trần Thị Địa', email: 'dia@example.edu.vn', subject: 'Địa lí' });
+    await qa('POST', '/api/admin/teachers', { full_name: 'Trần Thị Địa', email: 'dia@example.edu.vn' });
     for (const bad of [{ full_name: 'Thiếu Email' }, { full_name: 'Email Hỏng', email: 'khong-phai-email' }, { full_name: 'X', email: 'x@example.edu.vn' }, { full_name: 'Điện Thoại', email: 'dt@example.edu.vn', phone: 'abc' }]) {
       expect([JSON.stringify(bad), (await qa('POST', '/api/admin/teachers', bad)).status]).toEqual([JSON.stringify(bad), 422]);
     }
@@ -122,11 +123,12 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect(all.body.items.every((t: any) => t.role === 'teacher' && t.school_id === A.id && !('password_hash' in t))).toBe(true);
     expect((await qa('GET', '/api/admin/teachers?q=nguyen%20van%20su')).body.items).toHaveLength(1);
     expect((await qa('GET', '/api/admin/teachers?q=dia@example')).body.items).toHaveLength(1);
-    expect((await qa('GET', '/api/admin/teachers?subject=lịch')).body.items.map((t: any) => t.subject)).toEqual(['Lịch sử']);
+    expect((await qa('GET', '/api/admin/teachers?subject=lịch')).body.items).toHaveLength(2); // không còn lọc theo bộ môn: tham số bị bỏ qua
 
     const id = created.body.user.id;
     const edited = await qa('PATCH', `/api/admin/users/${id}`, { full_name: 'Nguyễn Văn Sử Mới', email: 'su.moi@example.edu.vn', subject: 'Lịch sử – Địa lí', phone: '0988 000 111' });
-    expect(edited.body).toMatchObject({ full_name: 'Nguyễn Văn Sử Mới', email: 'su.moi@example.edu.vn', subject: 'Lịch sử – Địa lí', phone: '0988 000 111' });
+    expect(edited.body).toMatchObject({ full_name: 'Nguyễn Văn Sử Mới', email: 'su.moi@example.edu.vn', phone: '0988 000 111' });
+    expect(edited.body).not.toHaveProperty('subject'); // gửi subject cũng bị bỏ qua
     expect((await qa('PATCH', `/api/admin/users/${id}`, { email: 'dia@example.edu.vn' })).status).toBe(409);
     expect((await qa('PATCH', `/api/admin/users/${id}`, { email: null })).status).toBe(422);
     expect((await qa('GET', '/api/admin/teachers?q=su%20moi')).body.items).toHaveLength(1); // chuỗi tìm kiếm cập nhật theo tên mới
@@ -159,7 +161,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
       ['Trùng Trong Trường', 'dia@example.edu.vn', '', '', ''],
       ['Điện Thoại Sai', 'dt.sai@example.edu.vn', '', 'abc', ''],
     ]);
-    const preview = await upload(s.base, '/api/admin/teachers/import', 'giao-vien.xlsx', file, A.token);
+    const preview = await upload(s.base, '/api/admin/teachers/import', (await qa('GET','/api/admin/teachers/import-spec')).body.filename, file, A.token);
     expect(preview.status).toBe(200);
     expect(preview.body).toMatchObject({ committed: false, total: 8, valid: 2, errors: 6, created: 0, credentials: [] });
     expect(preview.body.rows.map((r: any) => [r.row, r.status])).toEqual([[2, 'ok'], [3, 'ok'], [4, 'error'], [5, 'error'], [6, 'error'], [7, 'error'], [8, 'error'], [9, 'error']]);
@@ -167,40 +169,44 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect(preview.body.rows[3].errors).toEqual(['Thiếu họ tên']);
     expect(preview.body.rows[6].errors[0]).toContain('đã được dùng cho một tài khoản khác');
     expect(await db.query("SELECT 1 FROM app_users WHERE email IN ('nhap1@example.edu.vn', 'nhap2@example.edu.vn')")).toHaveLength(0); // xem trước không lưu
-    const commit = await upload(s.base, '/api/admin/teachers/import?commit=true', 'giao-vien.xlsx', file, A.token);
+    const commit = await upload(s.base, '/api/admin/teachers/import?commit=true', (await qa('GET','/api/admin/teachers/import-spec')).body.filename, file, A.token);
     expect(commit.body).toMatchObject({ committed: true, created: 2, errors: 6 });
     expect(commit.body.credentials.map((c: any) => c.email)).toEqual(['nhap1@example.edu.vn', 'nhap2@example.edu.vn']);
     expect(commit.body.credentials[0].password).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}$/);
     expect(await db.query("SELECT 1 FROM app_users WHERE role = 'teacher' AND email IN ('nhap1@example.edu.vn', 'nhap2@example.edu.vn')")).toHaveLength(2);
     // Chạy lại cùng file: hai dòng đầu giờ là trùng
-    expect((await upload(s.base, '/api/admin/teachers/import?commit=true', 'giao-vien.xlsx', file, A.token)).body.created).toBe(0);
+    expect((await upload(s.base, '/api/admin/teachers/import?commit=true', (await qa('GET','/api/admin/teachers/import-spec')).body.filename, file, A.token)).body.created).toBe(0);
     // File sai: thiếu cột, đuôi sai, không phải xlsx
     expect((await upload(s.base, '/api/admin/teachers/import', 'x.xlsx', await makeXlsx(['Họ và tên *'], [['A B']]), A.token)).status).toBe(400);
     expect((await upload(s.base, '/api/admin/teachers/import', 'x.csv', Buffer.from('a,b'), A.token)).status).toBe(400);
     expect((await upload(s.base, '/api/admin/teachers/import', 'x.xlsx', Buffer.from('khong phai zip'), A.token)).status).toBe(400);
     const template = await download(s.base, '/api/admin/teachers/template', A.token);
     expect(template.status).toBe(200);
-    expect((await readRows(template.buffer))[0]).toEqual(['Họ và tên *', 'Email *', 'Bộ môn', 'Số điện thoại', 'Mã giáo viên']);
+    // mẫu mới: khối tiêu đề "Đông A" phía trên, bảng Số thứ tự, Mã giáo viên, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh (không có Bộ môn); chi tiết ở teacher_excel.spec.ts
+    const sheet = await readRows(template.buffer);
+    expect(sheet[0][0]).toMatch(/^Mẫu nhập danh sách giáo viên · /); // logo Đông A là ảnh ở dòng 1 (không có ô chữ), dòng có chữ đầu tiên là tên trường
+    expect(sheet.find((r) => r.includes('Họ và tên *'))).toEqual(['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới tính', 'SĐT', 'Email *', 'Ngày tháng năm sinh']);
   });
 
   test('HK.QT.023 xuất danh sách giáo viên ra Excel theo bộ lọc', async () => {
-    const all = await readRows((await download(s.base, '/api/admin/teachers/export', A.token)).buffer);
-    expect(all[0]).toEqual(['Họ và tên', 'Email', 'Bộ môn', 'Số điện thoại', 'Mã giáo viên', 'Lớp phụ trách', 'Trạng thái']);
-    expect(all.length).toBe(1 + (await qa('GET', '/api/admin/teachers')).body.total);
-    const filtered = await readRows((await download(s.base, '/api/admin/teachers/export?subject=Địa', A.token)).buffer);
-    expect(filtered.slice(1).map((r) => r[0]).sort()).toEqual(['Nguyễn Văn Sử Mới', 'Phạm Thị Nhập Hai', 'Trần Thị Địa'].sort()); // bộ môn chứa "Địa"
+    const table = (rows: string[][]) => { const at = rows.findIndex((r) => r.includes('Họ và tên')); return { header: rows[at], data: rows.slice(at + 1) }; };
+    const all = table(await readRows((await download(s.base, '/api/admin/teachers/export', A.token)).buffer));
+    expect(all.header).toEqual(['Số thứ tự', 'Mã giáo viên', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh', 'Lớp phụ trách', 'Trạng thái']);
+    expect(all.data.length).toBe((await qa('GET', '/api/admin/teachers')).body.total);
+    const filtered = table(await readRows((await download(s.base, '/api/admin/teachers/export?q=nhap', A.token)).buffer));
+    expect(filtered.data.map((r) => r[2]).sort()).toEqual(['Lê Văn Nhập Một', 'Phạm Thị Nhập Hai'].sort()); // lọc theo từ khóa như ở danh sách
   });
 
   // ------------------------------------------------------------------ HK.QT.035–040 (lớp) và HK.QT.022
-  let c7a: { id: number; join_code: string }, c7b: { id: number }, t1: number, t2: number;
-  test('HK.QT.036/022 tạo lớp theo năm học và khối, phân công một hoặc nhiều giáo viên; tên lớp không trùng trong năm; mã tham gia duy nhất', async () => {
-    [t1, t2] = (await qa('GET', '/api/admin/teachers?q=nhap')).body.items.map((t: any) => t.id);
-    const created = await qa('POST', '/api/admin/classes', { year_id: y25, grade: 7, name: '7A1', teacher_ids: [t1, t2], expected_size: 40, description: 'Lớp chọn' });
+  let c7a: { id: number; join_code: string }, c7b: { id: number }, t1: number;
+  test('HK.QT.036/022 tạo lớp theo năm học và khối, phân công một giáo viên mỗi học kỳ; tên lớp không trùng trong năm; mã tham gia duy nhất', async () => {
+    [t1] = (await qa('GET', '/api/admin/teachers?q=nhap')).body.items.map((t: any) => t.id);
+    const created = await qa('POST', '/api/admin/classes', { year_id: y25, grade: 7, name: '7A1', teacher_ids: [t1], expected_size: 40, description: 'Lớp chọn' });
     expect(created.status).toBe(201);
     c7a = created.body;
     expect(created.body).toMatchObject({ name: '7A1', grade: 7, school_year: '2025-2026', is_active: true, join_open: true, expected_size: 40, students: 0, year_status: 'active' });
     expect(created.body.join_code).toMatch(/^[A-Z2-9]{6}$/);
-    expect(created.body.teachers.map((t: any) => t.id).sort()).toEqual([t1, t2].sort());
+    expect(created.body.teachers.map((t: any) => t.id).sort()).toEqual([t1]);
     c7b = (await qa('POST', '/api/admin/classes', { year_id: y25, grade: 7, name: '7A2' })).body;
     expect(c7b).toMatchObject({ teachers: [], students: 0 });
     expect(new Set([c7a.join_code, (c7b as any).join_code]).size).toBe(2);
@@ -214,16 +220,16 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
 
   test('HK.QT.035/037 xem danh sách lớp (lọc theo năm, khối, giáo viên, từ khóa) và sửa lớp, đổi giáo viên phụ trách', async () => {
     const list = await qa('GET', `/api/admin/classes?year_id=${y25}`);
-    expect(list.body.items.map((c: any) => [c.name, c.teachers.length, c.students])).toEqual([['6A1', 0, 0], ['7A1', 2, 0], ['7A2', 0, 0]]);
+    expect(list.body.items.map((c: any) => [c.name, c.teachers.length, c.students])).toEqual([['6A1', 0, 0], ['7A1', 1, 0], ['7A2', 0, 0]]);
     expect((await qa('GET', `/api/admin/classes?year_id=${y25}&grade=7&q=a2`)).body.items.map((c: any) => c.name)).toEqual(['7A2']);
     expect((await qa('GET', `/api/admin/classes?teacher_id=${t1}`)).body.items.map((c: any) => c.name)).toEqual(['7A1']);
     const edited = await qa('PATCH', `/api/admin/classes/${c7a.id}`, { name: '7A1 chọn', teacher_ids: [t1], expected_size: 35 });
     expect(edited.body).toMatchObject({ name: '7A1 chọn', expected_size: 35 });
     expect(edited.body.teachers.map((t: any) => t.id)).toEqual([t1]);
-    await qa('PATCH', `/api/admin/classes/${c7a.id}`, { name: '7A1', teacher_ids: [t1, t2] });
+    await qa('PATCH', `/api/admin/classes/${c7a.id}`, { name: '7A1', teacher_ids: [t1] });
     expect((await qa('PATCH', `/api/admin/classes/${c7a.id}`, { name: '7A2' })).status).toBe(409);
     const events = await qa('GET', `/api/admin/classes/${c7a.id}/events`);
-    expect(events.body.map((e: any) => e.kind)).toEqual(expect.arrayContaining(['create', 'teachers', 'update', 'unassign', 'assign']));
+    expect(events.body.map((e: any) => e.kind)).toEqual(expect.arrayContaining(['create', 'update', 'assign']));
     expect((await call(s.base, 'GET', `/api/admin/classes/${c7a.id}`, undefined, B.token)).status).toBe(404);
     expect((await call(s.base, 'PATCH', `/api/admin/classes/${c7a.id}`, { name: 'Hack' }, B.token)).status).toBe(404);
   });
@@ -239,7 +245,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     const s2 = await qa('POST', '/api/admin/students', { user_code: 'HS002', full_name: 'Trần Thị Hai', birth_date: '2013-07-20', gender: 'female', class_id: c7a.id, email: 'hs002@example.edu.vn' });
     const s3 = await qa('POST', '/api/admin/students', { user_code: 'HS003', full_name: 'Lê Văn Ba', birth_date: '2013-11-01', class_id: c7b.id });
     students = [s1.body.user.id, s2.body.user.id, s3.body.user.id];
-    for (const bad of [{ full_name: 'Thiếu Mã', birth_date: '2013-01-01' }, { user_code: 'HS9', full_name: 'Thiếu Sinh' }, { user_code: 'HS9', full_name: 'Sinh Sai', birth_date: '15/03/2013' }, { user_code: 'HS9', full_name: 'Phụ Huynh Sai', birth_date: '2013-01-01', parent_email: 'x' }]) {
+    for (const bad of [{ full_name: '', birth_date: '2013-01-01' }, { user_code: 'HS9', full_name: 'Thiếu Sinh' }, { user_code: 'HS9', full_name: 'Sinh Sai', birth_date: '15/03/2013' }, { user_code: 'HS9', full_name: 'Phụ Huynh Sai', birth_date: '2013-01-01', parent_email: 'x' }]) {
       expect([JSON.stringify(bad), (await qa('POST', '/api/admin/students', bad)).status]).toEqual([JSON.stringify(bad), 422]);
     }
     expect((await qa('POST', '/api/admin/students', { user_code: 'hs001', full_name: 'Trùng Mã', birth_date: '2013-01-01' })).status).toBe(409);
@@ -308,7 +314,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
       ['HS103', 'Ngày Sinh Sai', '31/02/2013', '', '', '', ''],
       ['HS104', 'Giới Tính Sai', '2013-01-01', 'Robot', '', '', ''],
       ['HS105', 'Lớp Không Có', '2013-01-01', '', '9Z9', '', ''],
-      ['', 'Thiếu Mã', '2013-01-01', '', '', '', ''],
+      ['', '', '2013-01-01', '', '', '', ''],
       ['HS106', 'Email Học Sinh Trùng', '2013-01-01', '', '', 'hs002@example.edu.vn', ''],
       ['HS107', 'Không Lớp', '2013-01-01', '', '', '', ''],
     ]);
@@ -316,7 +322,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect(preview.body).toMatchObject({ committed: false, total: 10, valid: 3, errors: 7, year_id: y25 });
     expect(preview.body.rows.filter((r: any) => r.status === 'error').map((r: any) => r.errors[0])).toEqual([
       'Mã trùng với dòng trước trong file', 'Mã HS001 đã có trong trường', 'Ngày sinh sai định dạng (dd/mm/yyyy)', 'Giới tính phải là Nam, Nữ hoặc Khác',
-      'Không có lớp "9Z9" trong năm học đã chọn', 'Thiếu mã học sinh', expect.stringContaining('hs002@example.edu.vn'),
+      'Không có lớp "9Z9" trong năm học đã chọn', 'Thiếu họ tên', expect.stringContaining('hs002@example.edu.vn'),
     ]);
     expect(await db.query("SELECT 1 FROM app_users WHERE user_code IN ('HS101', 'HS102', 'HS107')")).toHaveLength(0);
     const commit = await upload(s.base, `/api/admin/students/import?commit=true&year_id=${y25}`, 'hoc-sinh.xlsx', file, A.token);
@@ -393,7 +399,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect(await db.getById(hs101.id)).toMatchObject({ grade: 8, school_year: '2026-2027' });
     const clone = (await qa('GET', `/api/admin/classes/${eight.id}`)).body;
     expect(clone).toMatchObject({ school_year: '2026-2027', grade: 8, year_status: 'planned' });
-    expect(clone.teachers.map((t: any) => t.id).sort()).toEqual([t1, t2].sort());
+    expect(clone.teachers.map((t: any) => t.id).sort()).toEqual([t1]);
     expect(clone.join_code).not.toBe(c7a.join_code);
     expect((await qa('GET', `/api/admin/classes/${eight.id}/events`)).body.map((e: any) => e.kind)).toContain('clone');
     // Chạy lại: mọi lớp đã nhân bản nên bị bỏ qua, không tạo trùng

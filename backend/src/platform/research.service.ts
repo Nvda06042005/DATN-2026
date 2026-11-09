@@ -46,14 +46,14 @@ export class ResearchService {
   constructor(private readonly db: DatabaseService, private readonly analytics: AnalyticsService) {}
 
   private root(user: UserRow): void {
-    if (user.role !== 'root_admin') throw new ForbiddenException('Chỉ quản trị viên tổng quản lý nghiên cứu');
+    if (user.role !== 'root_admin' && !(user.role === 'school_admin' && user.school_id)) throw new ForbiddenException('Chỉ quản trị viên tổng quản lý nghiên cứu');
   }
 
   // ---------------------------------------------------------------------- nhóm thử nghiệm (HK.AD.078)
   async groups(user: UserRow) {
     this.root(user);
     return this.db.query(
-      `SELECT g.id::int AS id, g.name, g.description, g.gamification, g.ai, g.created_at, count(DISTINCT ec.class_id)::int AS classes,
+      `SELECT g.id::int AS id,g.school_id, (g.school_id IS NOT DISTINCT FROM public.app_workspace_school()) AS can_edit, g.name, g.description, g.gamification, g.ai, g.created_at, count(DISTINCT ec.class_id)::int AS classes,
               (SELECT count(DISTINCT m.user_id)::int FROM hk_experiment_classes x JOIN app_class_members m ON m.class_id = x.class_id JOIN app_users u ON u.id = m.user_id AND u.role = 'student' AND u.deleted_at IS NULL WHERE x.group_id = g.id) AS students
        FROM hk_experiment_groups g LEFT JOIN hk_experiment_classes ec ON ec.group_id = g.id GROUP BY g.id ORDER BY g.id`);
   }
@@ -79,6 +79,7 @@ export class ResearchService {
   }
 
   async updateGroup(user: UserRow, id: number, body: Record<string, unknown>) {
+    await this.db.assertWorkspaceWritable('hk_experiment_groups', id);
     this.root(user);
     const cur = (await this.db.query<Record<string, any>>('SELECT * FROM hk_experiment_groups WHERE id = $1', [id]))[0];
     if (!cur) throw new NotFoundException('Không tìm thấy nhóm');
@@ -92,6 +93,7 @@ export class ResearchService {
   }
 
   async removeGroup(user: UserRow, id: number) {
+    await this.db.assertWorkspaceWritable('hk_experiment_groups', id);
     this.root(user);
     const rows = await this.db.query('DELETE FROM hk_experiment_groups WHERE id = $1 RETURNING id', [id]); // các lớp đã gán tự trở về không thuộc nhóm
     if (!rows.length) throw new NotFoundException('Không tìm thấy nhóm');

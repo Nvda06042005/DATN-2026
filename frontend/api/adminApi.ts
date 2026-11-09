@@ -1,11 +1,14 @@
 /** API quản trị: quản trị tổng và quản trị trường (/api/admin) và kho dữ liệu lịch sử (/api/admin/history) */
 import { apiBlob, apiRequest, apiUpload, type PickedFile } from '@/api/client';
+import { clearSchoolIdentities } from '@/lib/school-identity-cache';
 import type {
   Account, AccountDetail, AuthRole, ClassDetail, ClassEvent, ClassItem, CloneResult, CreatedAccount, CreatedSchool, Gender, GradeRow, HistoryDiff, HistoryEntity, HistoryImportResult,
-  HistoryList, HistoryRecord, HistorySpec, HistoryStatus, HistoryVersion, ImportResult, MemberInput, Paged, SchoolDetail, SchoolItem, TimelineView, YearItem,
+  HistoryList, HistoryRecord, HistorySpec, HistoryStatus, HistoryVersion, ImportResult, MemberInput, Paged, SchoolDetail, SchoolDirectoryItem, SchoolDuplicate, SchoolItem, TimelineView, YearFramework, YearItem,
 } from '@/types/api';
 
 type Query = Record<string, string | number | boolean | null | undefined>;
+export const teacherChangeRequests=(token:string)=>apiRequest<import('@/types/api').TeacherChangeRequest[]>('/api/admin/teacher-change-requests',{token});
+export const decideTeacherChange=(token:string,id:number|string,decision:'approved'|'rejected')=>apiRequest<import('@/types/api').TeacherChangeRequest>(`/api/admin/teacher-change-requests/${id}/decision`,{token,body:{decision}});
 const qs = (query: Query = {}) => {
   const parts = Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
   return parts.length ? `?${parts.join('&')}` : '';
@@ -13,18 +16,35 @@ const qs = (query: Query = {}) => {
 
 // ---------------------------------------------------------------------- trường học (HK.AD.011–017)
 export const listSchools = (token: string, query: Query) => apiRequest<Paged<SchoolItem> & { facets: { cities: string[]; regions: string[] } }>(`/api/admin/schools${qs(query)}`, { token });
+/** Gợi ý trường từ danh mục khi thêm trường (gõ tên, mã hoặc quận/huyện) */
+export const searchSchoolDirectory = (token: string, q: string, excludeSchoolId?: number) => apiRequest<{ items: SchoolDirectoryItem[]; duplicates: SchoolDuplicate[] }>(`/api/admin/school-directory${qs({ q, limit: 30, exclude_school_id: excludeSchoolId })}`, { token });
 export const getSchool = (token: string, id: number) => apiRequest<SchoolDetail>(`/api/admin/schools/${id}`, { token });
 export const createSchool = (token: string, body: Record<string, unknown>) => apiRequest<CreatedSchool>('/api/admin/schools', { token, body });
-export const updateSchool = (token: string, id: number, body: Record<string, unknown>) => apiRequest<SchoolItem>(`/api/admin/schools/${id}`, { token, method: 'PATCH', body });
+export const previewSchoolCode = (token: string) => apiRequest<{ school_code: string }>('/api/admin/school-code-preview', { token });
+export const previewRegistrationCode = (token:string,kind:'teacher'|'student'|'class',query:Query={}) => apiRequest<{code:string|null;serial?:number}>(`/api/admin/registration-code/${kind}${qs(query)}`,{token});
+export interface TeacherImportSpec {filename:string;school_name:string;prefix:string;next_serial:number}
+export interface TeacherDraftRow {full_name:string;email:string;phone?:string;gender?:'male'|'female';birth_date:string}
+export const teacherImportSpec=(token:string)=>apiRequest<TeacherImportSpec>('/api/admin/teachers/import-spec',{token});
+export const teacherDraftWorkbook=(token:string,rows:TeacherDraftRow[])=>apiBlob('/api/admin/teachers/workbook',token,{rows});
+export const updateSchool = async (token: string, id: number, body: Record<string, unknown>) => {
+  const school = await apiRequest<SchoolItem>(`/api/admin/schools/${id}`, { token, method: 'PATCH', body });
+  clearSchoolIdentities();
+  return school;
+};
 export const deleteSchool = (token: string, id: number) => apiRequest<void>(`/api/admin/schools/${id}`, { token, method: 'DELETE' });
 
 // ---------------------------------------------------------------------- thông tin trường, năm học, khối (HK.QT.010–013)
 export const getMySchool = (token: string, schoolId?: number | null) => apiRequest<SchoolDetail>(`/api/admin/school${qs({ school_id: schoolId })}`, { token });
-export const updateMySchool = (token: string, body: Record<string, unknown>, schoolId?: number | null) =>
-  apiRequest<SchoolDetail>(`/api/admin/school${qs({ school_id: schoolId })}`, { token, method: 'PATCH', body });
+export const updateMySchool = async (token: string, body: Record<string, unknown>, schoolId?: number | null) => {
+  const school = await apiRequest<SchoolDetail>(`/api/admin/school${qs({ school_id: schoolId })}`, { token, method: 'PATCH', body });
+  clearSchoolIdentities();
+  return school;
+};
 export const listYears = (token: string, schoolId?: number | null) => apiRequest<YearItem[]>(`/api/admin/school-years${qs({ school_id: schoolId })}`, { token });
-export const createYear = (token: string, body: { school_id?: number | null; label: string; starts_on: string; ends_on: string }) => apiRequest<YearItem>('/api/admin/school-years', { token, body });
-export const updateYear = (token: string, id: number, body: Partial<{ label: string; starts_on: string; ends_on: string }>) => apiRequest<YearItem>(`/api/admin/school-years/${id}`, { token, method: 'PATCH', body });
+type YearTerms = Partial<Record<'term1_starts_on' | 'term1_ends_on' | 'term2_starts_on' | 'term2_ends_on', string | null>>;
+export const schoolYearOptions = (token: string) => apiRequest<{ items: Array<{ label: string; framework: YearFramework }> }>('/api/admin/school-year-options', { token });
+export const createYear = (token: string, body: { school_id?: number | null; label: string; starts_on?: string; ends_on?: string; calendar_mode?: 'national' | 'manual' } & YearTerms) => apiRequest<YearItem>('/api/admin/school-years', { token, body });
+export const updateYear = (token: string, id: number, body: Partial<{ label: string; starts_on: string; ends_on: string; calendar_mode: 'national' | 'manual' }> & YearTerms) => apiRequest<YearItem>(`/api/admin/school-years/${id}`, { token, method: 'PATCH', body });
 export const activateYear = (token: string, id: number) => apiRequest<YearItem>(`/api/admin/school-years/${id}/activate`, { token, body: {} });
 export const endYear = (token: string, id: number) => apiRequest<YearItem>(`/api/admin/school-years/${id}/end`, { token, body: {} });
 export const listGrades = (token: string, yearId: number) => apiRequest<{ year: YearItem; grades: GradeRow[] }>(`/api/admin/school-grades${qs({ year_id: yearId })}`, { token });
@@ -32,7 +52,7 @@ export const setGrade = (token: string, body: { year_id: number; grade: number; 
 export const removeGrade = (token: string, yearId: number, grade: number) => apiRequest<void>(`/api/admin/school-grades${qs({ year_id: yearId, grade })}`, { token, method: 'DELETE' });
 
 // ---------------------------------------------------------------------- người dùng (HK.AD.018–025) và giáo viên, học sinh của trường
-export interface AccountQuery extends Query { q?: string; role?: AuthRole; school_id?: number; active?: 'true' | 'false'; grade?: number; class_id?: number; subject?: string; page?: number; limit?: number }
+export interface AccountQuery extends Query { q?: string; role?: AuthRole; school_id?: number; active?: 'true' | 'false'; grade?: number; class_id?: number; page?: number; limit?: number }
 export const listUsers = (token: string, query: AccountQuery) => apiRequest<Paged<Account>>(`/api/admin/users${qs(query)}`, { token });
 export const listMembers = (token: string, kind: 'teachers' | 'students', query: AccountQuery) => apiRequest<Paged<Account>>(`/api/admin/${kind}${qs(query)}`, { token });
 export const getUser = (token: string, id: number) => apiRequest<AccountDetail>(`/api/admin/users/${id}`, { token });
@@ -55,11 +75,11 @@ export const downloadFile = (token: string, path: string) => apiBlob(path, token
 
 // ---------------------------------------------------------------------- lớp học (HK.QT.022, HK.QT.035–040)
 export const listClasses = (token: string, query: Query) => apiRequest<Paged<ClassItem>>(`/api/admin/classes${qs(query)}`, { token });
-export const getClass = (token: string, id: number) => apiRequest<ClassDetail>(`/api/admin/classes/${id}`, { token });
+export const getClass = (token: string, id: number,semester?:number) => apiRequest<ClassDetail>(`/api/admin/classes/${id}${qs({semester})}`, { token });
 export const classEvents = (token: string, id: number) => apiRequest<ClassEvent[]>(`/api/admin/classes/${id}/events`, { token });
-export const createClass = (token: string, body: { school_id?: number | null; year_id: number; grade: number; name: string; teacher_ids?: number[]; expected_size?: number | null; description?: string | null }) =>
+export const createClass = (token: string, body: { school_id?: number | null; year_id: number; grade: number; name: string; semester?:number; teacher_ids?: number[]; expected_size?: number | null; description?: string | null }) =>
   apiRequest<ClassItem>('/api/admin/classes', { token, body });
-export const updateClass = (token: string, id: number, body: Partial<{ name: string; grade: number; expected_size: number | null; description: string | null; join_open: boolean; teacher_ids: number[] }>) =>
+export const updateClass = (token: string, id: number, body: Partial<{ name: string; grade: number; semester:number; confirm_reassignment:boolean; expected_size: number | null; description: string | null; join_open: boolean; teacher_ids: number[] }>) =>
   apiRequest<ClassItem>(`/api/admin/classes/${id}`, { token, method: 'PATCH', body });
 export const archiveClass = (token: string, id: number, archived: boolean) => apiRequest<ClassItem>(`/api/admin/classes/${id}/archive`, { token, body: { archived } });
 export const regenerateJoinCode = (token: string, id: number) => apiRequest<ClassItem>(`/api/admin/classes/${id}/regenerate-code`, { token, body: {} });

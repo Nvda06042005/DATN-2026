@@ -3,7 +3,8 @@
  * ngân hàng câu hỏi, bộ đề (làm thử như học sinh), nội dung đã gửi duyệt. Dùng cùng khung và giao diện phẳng với các cổng quản trị.
  */
 import React, { useState } from 'react';
-import { Bell, ChartColumn, CircleHelp, ClipboardList, Cuboid, LifeBuoy, ListChecks, Plus, Radio, Route, Send, Sparkles, Trophy, Users } from 'lucide-react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Bell, ChartColumn, CircleHelp, ClipboardList, Cuboid, LifeBuoy, ListChecks, Plus, Radio, Route, Send, Sparkles, Users } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 import * as learning from '@/api/learningApi';
 import { errorMessage } from '@/api/client';
@@ -15,13 +16,11 @@ import { AiTeacher } from '@/components/admin/AiTeacher';
 import { TeacherAnalytics } from '@/components/admin/AnalyticsTeacher';
 import { ClassManager } from '@/components/admin/ClassManager';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
-import { TeacherGame } from '@/components/admin/GameAdmin';
 import { JourneyManager } from '@/components/admin/JourneyManager';
 import { BroadcastManager } from '@/components/admin/PlatformComms';
 import { LiveManager } from '@/components/admin/LiveManager';
 import { useLoad } from '@/components/admin/kit';
 import { QuestionBank } from '@/components/admin/QuestionBank';
-import { QuizManager } from '@/components/admin/QuizManager';
 import { ShareInbox } from '@/components/admin/ShareInbox';
 import type { Session } from '@/components/auth';
 import { NoticeBell } from '@/components/portal/NoticeCenter';
@@ -29,8 +28,10 @@ import { HelpPage } from '@/components/portal/HelpCenter';
 import { SurveyPage } from '@/components/portal/SurveyCenter';
 import { AdminUiContext, Btn, Sheet, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import { usePortalTab } from '@/hooks/use-portal-tab';
 
-type Tab = 'classes' | 'analytics' | 'journeys' | 'questions' | 'quizzes' | 'live' | 'ai' | 'game' | 'shares' | 'notices' | 'surveys' | 'help';
+type Tab = 'classes' | 'analytics' | 'journeys' | 'questions' | 'quizzes' | 'studio' | 'live' | 'ai' | 'shares' | 'notices' | 'surveys' | 'help';
+const TEMP_HIDDEN_TEACHER_TABS: Tab[] = ['journeys', 'quizzes'];
 const NAV = [
   { id: 'classes' as const, label: 'Lớp học', icon: Users },
   { id: 'analytics' as const, label: 'Thống kê lớp', icon: ChartColumn },
@@ -39,12 +40,12 @@ const NAV = [
   { id: 'quizzes' as const, label: 'Bộ đề', icon: ListChecks },
   { id: 'live' as const, label: 'Thi đấu trực tiếp', icon: Radio },
   { id: 'ai' as const, label: 'Trợ lý AI', icon: Sparkles },
-  { id: 'game' as const, label: 'Trò chơi hóa', icon: Trophy },
   { id: 'shares' as const, label: 'Nội dung đã gửi', icon: Send },
   { id: 'notices' as const, label: 'Thông báo', icon: Bell },
   { id: 'surveys' as const, label: 'Khảo sát', icon: ClipboardList },
   { id: 'help' as const, label: 'Trợ giúp', icon: LifeBuoy },
 ];
+const VISIBLE_NAV = NAV.filter((it) => !TEMP_HIDDEN_TEACHER_TABS.includes(it.id));
 
 /** Menu "+ Tạo" trên thanh công cụ: Quiz tương tác ngắn (trình soạn kiểu Kahoot), bộ đề từ ngân hàng câu hỏi, hành trình học, phòng thi đấu */
 const CreateMenu: React.FC<{ open: boolean; onClose: () => void; onPick: (what: 'quiz' | 'quizset' | 'journey' | 'live' | 'question' | 'ai_quiz') => void }> = ({ open, onClose, onPick }) => {
@@ -60,7 +61,7 @@ const CreateMenu: React.FC<{ open: boolean; onClose: () => void; onPick: (what: 
   return (
     <Sheet open={open} onClose={onClose} title="Tạo mới">
       <View style={{ gap: 10 }}>
-        {items.map((it) => (
+        {items.filter(it => it.id !== 'quizset' && it.id !== 'journey').map((it) => (
           <Pressable key={it.id} accessibilityRole="button" accessibilityLabel={`${it.title}: ${it.desc}`} onPress={() => onPick(it.id)} testID={`create-${it.id}`}
             style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, minHeight: 64, borderRadius: 12, borderWidth: 2, borderColor: c.vien, backgroundColor: pressed ? c.the2 : c.the })}>
             <it.icon size={26} color={c.sonChu} />
@@ -74,14 +75,17 @@ const CreateMenu: React.FC<{ open: boolean; onClose: () => void; onPick: (what: 
 
 export const TeacherApp: React.FC<{ session: Session }> = ({ session }) => {
   const toast = useToast();
-  const [tab, setTab] = useState<Tab>('classes');
+  const router = useRouter();
+  const params = useLocalSearchParams<{ draft?: string; quiz?: string }>();
+  const [tab, setTab] = usePortalTab<Tab>('classes', [...VISIBLE_NAV.map(item => item.id), 'studio']);
   const [menu, setMenu] = useState(false);
   const [sand, setSand] = useState(false);
   const [aiModal, setAiModal] = useState(false);
-  const [studio, setStudio] = useState<number | null>(null);
+  const studio = params.draft && /^\d+$/.test(params.draft) ? Number(params.draft) : null;
+  const setStudio = (id: number | null) => router.setParams({ draft: id === null ? '' : String(id) });
   const [liveQuiz, setLiveQuiz] = useState<number | null>(null);
   const openStudio = async (fromQuizId?: number) => {
-    try { const d = await learning.createStudioDraft(session.token, fromQuizId); setStudio(d.id); setTab('quizzes'); } catch (e) { toast(errorMessage(e)); }
+    try { const d = await learning.createStudioDraft(session.token, fromQuizId); setTab('studio', { draft: String(d.id) }); } catch (e) { toast(errorMessage(e)); }
   };
   const pick = (what: 'quiz' | 'quizset' | 'journey' | 'live' | 'question' | 'ai_quiz') => {
     setMenu(false);
@@ -92,17 +96,16 @@ export const TeacherApp: React.FC<{ session: Session }> = ({ session }) => {
   const profile = useLoad(() => authApi.getProfile(session.token), [session.token, session.user.profile_confirmed_at], session.expired);
   return (
     <AdminUiContext.Provider value>
-      <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab} schoolName={profile.data?.school?.name} extra={<View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Btn icon={Plus} title="Tạo" tone="son" size="sm" onPress={() => setMenu(true)} testID="create-menu" /><Btn icon={Cuboid} title="Mở Sa bàn 3D" tone="giay" size="sm" onPress={() => setSand(true)} testID="sand-open" /><NoticeBell session={session} onGo={(n) => { setStudio(null); setTab(n.kind === 'survey' ? 'surveys' : n.kind === 'support' ? 'help' : 'classes'); }} /></View>}>
+      <AdminWorkspace session={session} nav={VISIBLE_NAV} active={tab} onSelect={setTab} schoolName={profile.data?.school?.name} extra={<View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Btn icon={Plus} title="Tạo" tone="son" size="sm" onPress={() => setMenu(true)} testID="create-menu" /><Btn icon={Cuboid} title="Mở Sa bàn 3D" tone="giay" size="sm" onPress={() => setSand(true)} testID="sand-open" /><NoticeBell session={session} onGo={(n) => { setStudio(null); setTab(n.kind === 'survey' ? 'surveys' : n.kind === 'support' ? 'help' : 'classes'); }} /></View>}>
         {tab === 'classes' ? <ClassManager session={session} />
           : tab === 'analytics' ? <TeacherAnalytics session={session} />
           : tab === 'journeys' ? <JourneyManager session={session} />
           : tab === 'questions' ? <QuestionBank session={session} />
-          : tab === 'quizzes' ? (studio !== null
-            ? <QuizStudio session={session} draftId={studio} onClose={() => setStudio(null)} onOpenRoom={(quizId) => { setStudio(null); setLiveQuiz(quizId); setTab('live'); }} />
-            : <QuizManager session={session} onStudio={(quizId) => { void openStudio(quizId); }} />)
-          : tab === 'live' ? <LiveManager session={session} startQuizId={liveQuiz} onStarted={() => setLiveQuiz(null)} />
+          : tab === 'studio' ? (studio !== null
+            ? <QuizStudio session={session} draftId={studio} onClose={() => setTab('classes')} onOpenRoom={(quizId) => { setLiveQuiz(quizId); setTab('live', { quiz: String(quizId) }); }} />
+            : <View style={{ padding: 20, gap: 12 }}><Txt>Chọn Tạo → Quiz để mở trình soạn Quiz tương tác.</Txt><Btn title="Soạn Quiz" onPress={() => { void openStudio(); }} /></View>)
+          : tab === 'live' ? <LiveManager session={session} startQuizId={liveQuiz ?? (typeof params.quiz === 'string' && /^\d+$/.test(params.quiz) ? Number(params.quiz) : null)} onStarted={() => { setLiveQuiz(null); router.setParams({ quiz: '' }); }} />
           : tab === 'ai' ? <AiTeacher session={session} />
-          : tab === 'game' ? <TeacherGame session={session} />
           : tab === 'notices' ? <BroadcastManager session={session} />
           : tab === 'surveys' ? <SurveyPage session={session} />
           : tab === 'help' ? <HelpPage session={session} />

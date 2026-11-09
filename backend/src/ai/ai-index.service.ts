@@ -13,7 +13,7 @@ import { AiRetrievalService } from './ai-retrieval.service';
 
 const jszip = (): typeof import('jszip') => require('jszip');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = (): ((buf: Buffer) => Promise<{ text: string }>) => require('pdf-parse/lib/pdf-parse.js');
+const pdfParse = (): ((buf: Uint8Array) => Promise<{ text: string }>) => require('pdf-parse/lib/pdf-parse.js');
 
 export type SourceKind = (typeof INDEX_KINDS)[number];
 interface Entity { kind: SourceKind; id: number; title: string; text: string }
@@ -50,30 +50,32 @@ export const lessonText = (blocks: unknown): string =>
 @Injectable()
 export class AiIndexService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger('AiIndex');
-  private timer: NodeJS.Timeout | null = null;
-  private running = false;
-  private again = false;
+  private timers = new Map<string, NodeJS.Timeout>();
+  private running = new Set<string>();
+  private again = new Set<string>();
 
   constructor(private readonly db: DatabaseService, private readonly settings: AiSettingsService, private readonly llm: LlmClient, private readonly retrieval: AiRetrievalService) {}
 
   onModuleInit(): void { if (config.aiIndexJob && this.db.ready) this.touch(4000); }
-  onModuleDestroy(): void { if (this.timer) clearTimeout(this.timer); }
+  onModuleDestroy(): void { for (const t of this.timers.values()) clearTimeout(t); }
 
   /** Hẹn một lần đồng bộ nền; các thay đổi liên tiếp gộp làm một (HK.SYS.011) */
   touch(delayMs = 1500): void {
     if (!config.aiIndexJob || !this.db.ready) return;
-    if (this.timer) clearTimeout(this.timer);
-    this.timer = setTimeout(() => { this.timer = null; void this.sync().catch((e) => this.logger.warn(`Lập chỉ mục lỗi: ${(e as Error).message}`)); }, delayMs);
-    this.timer.unref?.();
+    const key = String(this.db.workspaceSchoolId ?? 'system');
+    const old = this.timers.get(key); if (old) clearTimeout(old);
+    const sync = this.db.detachedWorkspace(() => this.sync());
+    const timer = setTimeout(() => { this.timers.delete(key); void sync().catch((e) => this.logger.warn(`Lập chỉ mục lỗi: ${(e as Error).message}`)); }, delayMs);
+    this.timers.set(key,timer); timer.unref?.();
   }
 
   private async collect(q: Q, kinds: string[]): Promise<Entity[]> {
     const out: Entity[] = [];
     for (const kind of kinds as SourceKind[]) {
       if (kind === 'lesson') {
-        for (const r of await q<{ id: number; title: string; summary: string | null; blocks: unknown }>("SELECT id, title, summary, blocks FROM hk_lessons WHERE status = 'published'")) out.push({ kind, id: r.id, title: r.title, text: lines(r.summary, lessonText(r.blocks)) });
+        for (const r of await q<{ id: number; title: string; summary: string | null; blocks: unknown }>("SELECT id, title, summary, blocks FROM hk_lessons WHERE status = 'published' AND school_id IS NOT DISTINCT FROM $1", [this.db.workspaceSchoolId])) out.push({ kind, id: r.id, title: r.title, text: lines(r.summary, lessonText(r.blocks)) });
       } else if (COLLECT[kind]) {
-        for (const r of await q<Record<string, any>>(COLLECT[kind])) out.push({ kind, id: r.id, title: String(r.title), text: TEXT_OF[kind](r) });
+        for (const r of await q<Record<string, any>>(`${COLLECT[kind]} AND school_id IS NOT DISTINCT FROM $1`, [this.db.workspaceSchoolId])) out.push({ kind, id: r.id, title: String(r.title), text: TEXT_OF[kind](r) });
       }
     }
     return out;
@@ -81,8 +83,9 @@ export class AiIndexService implements OnModuleInit, OnModuleDestroy {
 
   /** Đồng bộ chỉ mục với nội dung đã công bố; trả số liệu để hiển thị ở trang quản trị */
   async sync(opts: { force?: boolean } = {}): Promise<{ added: number; updated: number; removed: number; embedded: number; failed: number; chunks: number; ms: number; error: string | null }> {
-    if (this.running) { this.again = true; return { added: 0, updated: 0, removed: 0, embedded: 0, failed: 0, chunks: 0, ms: 0, error: null }; }
-    this.running = true;
+    const key = String(this.db.workspaceSchoolId ?? 'system');
+    if (this.running.has(key)) { this.again.add(key); return { added: 0, updated: 0, removed: 0, embedded: 0, failed: 0, chunks: 0, ms: 0, error: null }; }
+    this.running.add(key);
     const started = Date.now();
     let error: string | null = null;
     const stat = { added: 0, updated: 0, removed: 0, embedded: 0, failed: 0 };
@@ -95,7 +98,7 @@ export class AiIndexService implements OnModuleInit, OnModuleDestroy {
         for (const e of await this.collect(q, kinds)) {
           chunkText(e.text).forEach((content, no) => wanted.set(`${e.kind}:${e.id}:${no}`, { kind: e.kind, id: e.id, no, title: e.title, content, hash: hashOf(`${e.title}\n${content}`) }));
         }
-        const have = await q<{ id: number; source_kind: string; source_id: number; chunk_no: number; content_hash: string; title: string }>("SELECT id, source_kind, source_id, chunk_no, content_hash, title FROM hk_ai_chunks WHERE source_kind <> 'doc'");
+        const have = await q<{ id: number; source_kind: string; source_id: number; chunk_no: number; content_hash: string; title: string }>("SELECT id, source_kind, source_id, chunk_no, content_hash, title FROM hk_ai_chunks WHERE source_kind <> 'doc' AND school_id IS NOT DISTINCT FROM $1", [this.db.workspaceSchoolId]);
         const seen = new Set<string>();
         for (const row of have) {
           const key = `${row.source_kind}:${row.source_id}:${row.chunk_no}`;
@@ -119,14 +122,14 @@ export class AiIndexService implements OnModuleInit, OnModuleDestroy {
       error = (e as Error).message.slice(0, 400);
       this.logger.warn(`Lập chỉ mục lỗi: ${error}`);
     } finally {
-      this.running = false;
+      this.running.delete(key);
     }
     const ms = Date.now() - started;
     const chunks = Number((await this.db.query<{ n: string }>('SELECT count(*) AS n FROM hk_ai_chunks'))[0].n);
-    await this.db.query('UPDATE hk_ai_settings SET last_index_at = now(), last_index_ms = $1, last_index_error = $2 WHERE id = 1', [ms, error]);
+    await this.db.query('UPDATE hk_ai_settings SET last_index_at = now(), last_index_ms = $1, last_index_error = $2 WHERE id = 1 AND school_id IS NOT DISTINCT FROM $3', [ms, error, this.db.workspaceSchoolId]);
     this.settings.invalidate();
     this.retrieval.invalidate();
-    if (this.again) { this.again = false; this.touch(500); }
+    if (this.again.has(key)) { this.again.delete(key); this.touch(500); }
     return { ...stat, chunks, ms, error };
   }
 
@@ -135,7 +138,7 @@ export class AiIndexService implements OnModuleInit, OnModuleDestroy {
     const cfg = await this.settings.llm();
     if (!cfg?.embedModel) return { done: 0, failed: 0, error: null };
     const rows = await this.db.query<{ id: number; title: string; content: string }>(
-      "SELECT c.id, c.title, c.content FROM hk_ai_chunks c WHERE c.embedding IS NULL OR c.embed_model IS DISTINCT FROM $1 ORDER BY c.id LIMIT 2000", [cfg.embedModel]);
+      "SELECT c.id, c.title, c.content FROM hk_ai_chunks c WHERE c.school_id IS NOT DISTINCT FROM $2 AND (c.embedding IS NULL OR c.embed_model IS DISTINCT FROM $1) ORDER BY c.id LIMIT 2000", [cfg.embedModel, this.db.workspaceSchoolId]);
     let done = 0, failed = 0;
     let error: string | null = null;
     for (let i = 0; i < rows.length; i += 32) {
@@ -168,7 +171,7 @@ export class AiIndexService implements OnModuleInit, OnModuleDestroy {
     }));
     return {
       kinds, docs, totals: { chunks: kinds.reduce((n, k) => n + k.chunks, 0), embedded: kinds.reduce((n, k) => n + k.embedded, 0), sources: kinds.reduce((n, k) => n + k.sources, 0) },
-      last_index_at: s.last_index_at, last_index_ms: s.last_index_ms, last_index_error: s.last_index_error, running: this.running,
+      last_index_at: s.last_index_at, last_index_ms: s.last_index_ms, last_index_error: s.last_index_error, running: this.running.has(String(this.db.workspaceSchoolId ?? 'system')),
     };
   }
 
@@ -193,7 +196,8 @@ export class AiIndexService implements OnModuleInit, OnModuleDestroy {
       return { text, kind: 'docx' };
     }
     if (name.endsWith('.pdf')) {
-      const res = await pdfParse()(file.buffer).catch(() => { throw new BadRequestException('Tệp PDF bị hỏng hoặc có mật khẩu'); });
+      // PDF.js cũ cần mảng có vùng nhớ riêng, không phải Buffer dùng chung slab có byteOffset.
+      const res = await pdfParse()(new Uint8Array(file.buffer)).catch(() => { throw new BadRequestException('Tệp PDF bị hỏng hoặc có mật khẩu'); });
       return { text: res.text, kind: 'pdf' };
     }
     throw new BadRequestException('Chỉ nhận tệp PDF, DOCX hoặc TXT');
@@ -225,6 +229,7 @@ export class AiIndexService implements OnModuleInit, OnModuleDestroy {
   }
 
   async setDocStatus(id: number, status: string) {
+    await this.db.assertWorkspaceWritable('hk_ai_docs', id);
     if (!['indexed', 'disabled'].includes(status)) throw new BadRequestException('Trạng thái tài liệu là indexed hoặc disabled');
     const res = await this.db.query('UPDATE hk_ai_docs SET status = $2 WHERE id = $1 RETURNING id', [id, status]);
     if (!res.length) throw new BadRequestException('Không tìm thấy tài liệu');
@@ -233,6 +238,7 @@ export class AiIndexService implements OnModuleInit, OnModuleDestroy {
   }
 
   async removeDoc(id: number): Promise<void> {
+    await this.db.assertWorkspaceWritable('hk_ai_docs', id);
     await this.db.tx(async (q) => {
       await q("DELETE FROM hk_ai_chunks WHERE source_kind = 'doc' AND source_id = $1", [id]);
       await q('DELETE FROM hk_ai_docs WHERE id = $1', [id]);

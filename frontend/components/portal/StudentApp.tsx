@@ -30,7 +30,7 @@ import { MiniScreen } from '@/components/portal/MiniGames';
 import { MyTab, QuestsTab } from '@/components/portal/Progress';
 import { QuizPlayer, ReviewScreen } from '@/components/portal/QuizPlayer';
 import { CampaignMapView, HomeTab, type NodeActions } from '@/components/portal/QuestMap';
-import { StudentNav, type Dots, type Tab } from '@/components/portal/StudentNav';
+import { StudentNav, NAV_MAIN, NAV_MORE, TEMP_HIDDEN_STUDENT_TABS, type Dots, type Tab } from '@/components/portal/StudentNav';
 import { AiHubDashboard } from '@/components/ai/AiHubDashboard';
 import { DuolingoRightPanel } from '@/components/portal/DuolingoRightPanel';
 import { StudyPlanTab } from '@/components/portal/StudyPlan';
@@ -40,6 +40,7 @@ import { BattlesHub, MarchTab, StageIntroSheet, TruthSheet, WarBattleScreen, War
 import { afterSheet, Btn, PaperBg, Segmented, Sheet, Spinner, Stars, Txt, useToast } from '@/components/ui';
 import { PALETTES } from '@/constants/theme';
 import { ThemeContext, useTheme } from '@/hooks/use-theme';
+import { usePortalTab } from '@/hooks/use-portal-tab';
 import type { MyAssignment } from '@/types/classroom';
 import type { NoticeItem, PlatformConfig, Prefs } from '@/types/platform';
 import type { Hud } from '@/types/gamification';
@@ -67,15 +68,16 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
   const toast = useToast();
   const { token } = session;
   // Mã QR của phòng thi mở trang này kèm ?pin=…: vào thẳng tab Thi đấu với mã đã điền sẵn
-  const { pin: linkPin } = useLocalSearchParams<{ pin?: string }>();
-  const [tab, setTab] = useState<Tab>(typeof linkPin === 'string' && /^\d{6}$/.test(linkPin) ? 'live' : 'learn');
+  const params = useLocalSearchParams<{ pin?: string; campaign?: string; focus_node?: string; march_campaign?: string; march_point?: string }>();
+  const linkPin = params.pin;
+  const positive = (value: string | undefined) => value && /^\d+$/.test(value) && Number(value) > 0 ? Number(value) : null;
   const { width } = useWindowDimensions();
   const wide = width >= WIDE;
   const showRightPanel = wide && width >= DUO_WIDE;
   const [dots, setDots] = useState<MenuDots>({ practice: 0, live: 0 });
-  const [campaignId, setCampaignId] = useState<number | null>(null);
+  const [campaignId, setCampaignId] = useState<number | null>(positive(params.campaign));
   const [classSection, setClassSection] = useState<ClassSection>('classes');
-  const [focusNode, setFocusNode] = useState<number | null>(null);
+  const [focusNode, setFocusNode] = useState<number | null>(positive(params.focus_node));
   const [refreshKey, setRefreshKey] = useState(0);
   const [overlay, setOverlay] = useState<Overlayed | null>(null);
   const [detail, setDetail] = useState<{ type: string; id: number } | null>(null);
@@ -88,14 +90,16 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
   const gam = cfg?.features.gamification !== false, ai = cfg?.features.ai !== false, flag = (k: string): boolean => cfg?.flags[k] !== false;
   const warOn = gam && flag('war_game');
   const hidden = useMemo<Tab[]>(() => [
+    ...TEMP_HIDDEN_STUDENT_TABS,
     ...(gam ? [] : ['collection', 'ranking', 'quests', 'shop', 'character'] as Tab[]), ...(flag('shop') ? [] : ['shop'] as Tab[]),
     ...(ai && flag('ai_tutor') ? [] : ['ai'] as Tab[]), ...(ai && flag('recommendations') ? [] : ['study'] as Tab[]), ...(flag('live_quiz') ? [] : ['live'] as Tab[]),
   ], [gam, ai, cfg]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [tab, setTab] = usePortalTab<Tab>(typeof linkPin === 'string' && /^\d{6}$/.test(linkPin) ? 'live' : 'learn', [...NAV_MAIN, ...NAV_MORE].map(item => item.id).filter(id => !hidden.includes(id)));
   const [homeMode, setHomeMode] = useState<'march' | 'quest'>(warOn ? 'march' : 'quest');
   const [collMode, setCollMode] = useState<'war' | 'badges'>(warOn ? 'war' : 'badges');
   const [stageId, setStageId] = useState<number | null>(null);
   // "Ra trận" từ lộ trình học (HK.HS.124): bản đồ hành quân dừng ở đúng điểm trận đánh
-  const [marchFocus, setMarchFocus] = useState<{ campaign_id: number; point_id: number } | null>(null);
+  const [marchFocus, setMarchFocus] = useState<{ campaign_id: number; point_id: number } | null>(positive(params.march_campaign) && positive(params.march_point) ? { campaign_id: positive(params.march_campaign)!, point_id: positive(params.march_point)! } : null);
   const [replayId, setReplayId] = useState<number | null>(null);
   // màn giới thiệu đang tạm đóng để nhường chỗ cho bản phát lại (hai hộp thoại không mở chồng nhau)
   const [replayBack, setReplayBack] = useState<number | null>(null);
@@ -132,7 +136,7 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
     if (attempt) setOverlay({ kind: 'quiz', attempt, title, nodeId });
   }, [guarded, token]);
 
-  const select = (t: Tab) => { setTab(t); if (t === 'home') { setCampaignId(null); setFocusNode(null); } };
+  const select = (t: Tab) => { setTab(t, { campaign: undefined, focus_node: undefined, march_campaign: undefined, march_point: undefined }); if (t === 'home') { setCampaignId(null); setFocusNode(null); } };
   // Chấm đỏ của thanh menu: câu cần luyện lại, thẻ chưa lật, phòng thi đang mở
   const navDots: Dots = { practice: dots.practice, collection: hud?.pending_drops ?? 0, live: dots.live };
 
@@ -155,7 +159,7 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
       if (res) { setDone(res); bump(); }
     },
     onStage: (id, march) => {
-      if (march && warOn) { setMarchFocus(march); setHomeMode('march'); setCampaignId(null); setFocusNode(null); setTab('home'); return; }
+      if (march && warOn) { setMarchFocus(march); setHomeMode('march'); setCampaignId(null); setFocusNode(null); setTab('home', { march_campaign: String(march.campaign_id), march_point: String(march.point_id), campaign: undefined, focus_node: undefined }); return; }
       setStageId(id);
     },
   };
@@ -205,22 +209,22 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
             {tab === 'learn' ? <LearningPathTab session={session} refreshKey={refreshKey} actions={actions} /> :
              tab === 'ai' ? <AiHubDashboard session={session} onOpenSource={(id) => open('source', typeof id === 'number' ? id : parseInt(String(id), 10) || 1)} /> : (
             <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 56, maxWidth: 880, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
-              {tab === 'practice' ? <PracticeTab session={session} refreshKey={refreshKey} onPractice={startPractice} onGoLearn={() => setTab('learn')} onGoBattles={() => setTab('battles')} /> : null}
+              {tab === 'practice' ? <PracticeTab session={session} refreshKey={refreshKey} onPractice={startPractice} onGoLearn={() => setTab('learn')} /> : null}
               {tab === 'shop' ? <ShopTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
               {tab === 'home' && campaignId === null ? (
                 <View style={{ gap: 14 }}>
                   {warOn ? <Segmented<'march' | 'quest'> label="Kiểu chiến dịch" value={homeMode} onChange={setHomeMode} options={[{ value: 'march', label: 'Hành quân' }, { value: 'quest', label: 'Bản đồ nhiệm vụ' }]} /> : null}
                   {homeMode === 'march' && warOn
                     ? <MarchTab session={session} refreshKey={refreshKey} focus={marchFocus} onFocusDone={() => setMarchFocus(null)} onStage={setStageId} onSource={(id) => open('source', id)} onChanged={bump} />
-                    : <HomeTab session={session} refreshKey={refreshKey} onOpenCampaign={(id) => { setCampaignId(id); setFocusNode(null); }} onPractice={startPractice} onNode={(cid, nid) => { setCampaignId(cid); setFocusNode(nid); }} />}
+                    : <HomeTab session={session} refreshKey={refreshKey} onOpenCampaign={(id) => setTab('home', { campaign: String(id), focus_node: undefined })} onPractice={startPractice} onNode={(cid, nid) => setTab('home', { campaign: String(cid), focus_node: String(nid) })} />}
                 </View>
               ) : null}
-              {tab === 'home' && campaignId !== null ? <CampaignMapView session={session} campaignId={campaignId} refreshKey={refreshKey} focusNode={focusNode} actions={actions} onBack={() => { setCampaignId(null); setFocusNode(null); }} /> : null}
+              {tab === 'home' && campaignId !== null ? <CampaignMapView session={session} campaignId={campaignId} refreshKey={refreshKey} focusNode={focusNode} actions={actions} onBack={() => setTab('home', { campaign: undefined, focus_node: undefined })} /> : null}
               {tab === 'library' ? <LibraryTab session={session} onOpen={open} /> : null}
               {tab === 'timeline' ? <TimelineTab session={session} onOpen={open} /> : null}
               {tab === 'map' ? <MapTab session={session} onOpen={open} /> : null}
               {tab === 'sources' ? <SourcesTab session={session} refreshKey={refreshKey} onOpen={open} /> : null}
-              {tab === 'quests' ? <QuestsTab session={session} refreshKey={refreshKey} onGo={(cid, nid) => { setTab('home'); setCampaignId(cid); setFocusNode(nid); }} /> : null}
+              {tab === 'quests' ? <QuestsTab session={session} refreshKey={refreshKey} onGo={(cid, nid) => setTab('home', { campaign: String(cid), focus_node: String(nid) })} /> : null}
               {tab === 'class' ? <ClassTab session={session} hud={hud} refreshKey={refreshKey} section={classSection} onChanged={bump} onStart={startAssignment} /> : null}
               {tab === 'live' ? <LiveTab session={session} refreshKey={refreshKey} initialPin={typeof linkPin === 'string' ? linkPin : undefined} onPlay={(roomId, title) => setOverlay({ kind: 'live', roomId, title })} /> : null}
               {tab === 'battles' ? (
@@ -237,7 +241,7 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
               {tab === 'ranking' ? <RankingTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
               {tab === 'survey' ? <SurveyCenter session={session} refreshKey={refreshKey} /> : null}
               {tab === 'help' ? <HelpCenter session={session} /> : null}
-              {tab === 'study' ? <StudyPlanTab session={session} refreshKey={refreshKey} actions={{ onNode: (cid, nid) => { if (cid) { setTab('home'); setCampaignId(cid); setFocusNode(nid); } else setTab('learn'); }, onTab: setTab, onAttempt: (attempt, title) => setOverlay({ kind: 'quiz', attempt, title, nodeId: null }) }} /> : null}
+              {tab === 'study' ? <StudyPlanTab session={session} refreshKey={refreshKey} actions={{ onTab: setTab, onAttempt: (attempt, title) => setOverlay({ kind: 'quiz', attempt, title, nodeId: null }) }} /> : null}
               {tab === 'mine' ? <MyTab session={session} refreshKey={refreshKey} onPractice={startPractice} onReview={(id) => setOverlay({ kind: 'review', id })} onOpen={open} /> : null}
             </ScrollView>
             )}

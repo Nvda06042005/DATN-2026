@@ -631,10 +631,10 @@ async function playOut(who: { token: string }, battleId: number, right = true) {
       // khung giờ: đặt khung giờ không chứa lúc này
       const vn = new Date(Date.now() + 7 * 3600_000);
       const hour = vn.getUTCHours();
-      const away = (h: number) => `${String((hour + h) % 24).padStart(2, '0')}:00`;
+      const away = (h: number) => `${String((hour + h + 24) % 24).padStart(2, '0')}:00`;
       await as(f.A)('PUT', '/api/war/school-war', { war_minutes: null, war_from: away(2), war_to: away(4) });
       expect((await me()).reason).toMatch(/chỉ mở từ/);
-      await as(f.A)('PUT', '/api/war/school-war', { war_from: away(-2), war_to: away(2) }); // khung giờ có thể qua nửa đêm
+      expect((await as(f.A)('PUT', '/api/war/school-war', { war_from: away(-2), war_to: away(2) })).status).toBe(200); // khung giờ có thể qua nửa đêm
       expect((await me()).open).toBe(true);
       await as(f.A)('PUT', '/api/war/school-war', { war_from: null, war_to: null });
       // công tắc toàn hệ thống
@@ -674,7 +674,7 @@ async function playOut(who: { token: string }, battleId: number, right = true) {
   describe('quản trị', () => {
     test('thẻ tướng nâng cao: chỉ số, binh chủng, mảnh, thẻ chiến thuật; chiêu thức kiểm tra từng trường', async () => {
       const id = await cardId('tran-thanh-tong');
-      expect((await as(f.A)('GET', '/api/war/admin/cards')).status).toBe(403);
+      expect((await as(f.A)('GET', '/api/war/admin/cards')).status).toBe(200);
       expect((await root('GET', '/api/war/admin/cards')).body).toHaveLength(17);
       expect((await root('PUT', `/api/war/admin/cards/${id}`, { branch: 'khong' })).status).toBe(400);
       expect((await root('PUT', `/api/war/admin/cards/${id}`, { base_stats: { atk: 5000 } })).status).toBe(400);

@@ -1,5 +1,10 @@
 # SQL migrations
 
+- `050_school_year_terms.sql`: thêm bốn ngày học kỳ, giữ dữ liệu cũ.
+- `051_managed_school_year_framework.sql`: khung đã xác minh theo năm, tự bổ sung học kỳ còn trống và sửa đúng mẫu ngày tự sinh 050; giữ lịch riêng và trạng thái. Form chỉ chọn năm, máy chủ tự áp dụng khung; xem [quy tắc và nguồn](../../docs/LICH_NAM_HOC.md).
+- `052_deleted_records_one_year.sql`: kho riêng `app_deleted_records` lưu dữ liệu xóa qua giao diện và CASCADE trong một năm; RLS owner-only, loại bí mật, Supabase Cron và backend dự phòng dọn hết hạn. Xem [cách kiểm tra kho](../../docs/KHO_DU_LIEU_DA_XOA.md).
+- `053_drop_teacher_subject.sql`: bỏ cột `app_users.subject` (Bộ môn của giáo viên) và dữ liệu cũ theo yêu cầu quản trị trường 08/11/2026; không đụng cột nào khác.
+
 Thêm file mới theo số thứ tự, ví dụ `020_ten_thay_doi.sql`.
 Tạo file bằng lệnh (từ thư mục `backend/`): `npm run build && npm run migrate -- new ten_thay_doi`.
 
@@ -59,4 +64,45 @@ Lỗi `npm ci` báo thiếu `webpack@5.112.2` đã xuất hiện lại sau Sprin
 tạo ra thiếu optional peer mà npm 10 cần. Giữ entry này trong `backend/package-lock.json`.
 Kiểm thử `migrations.spec.ts` có lượt nâng từ schema 24, xác minh tài khoản, điểm, vàng và nút cũ được giữ.
 
+## Không gian quản lý riêng của trường (039)
+
+`039_school_workspaces.sql` giữ dữ liệu cũ làm mẫu hệ thống và thêm chủ sở hữu trường cho kho lịch sử, bài học, danh mục game, mô phỏng, AI và nghiên cứu. Mẫu dùng chung chỉ đọc trong cổng trường. Cấu hình game/AI mặc định được kế thừa cho đến khi trường lưu thay đổi riêng. Khóa AI hệ thống không được sao chép vào cấu hình của trường.
+
+Backend lấy phạm vi từ tài khoản đã xác thực qua `WorkspaceInterceptor` và `DatabaseService.withWorkspace`, chạy truy vấn bằng vai trò nội bộ `dong_a_workspace_scope`. Không nhận phạm vi từ `school_id` do trình duyệt gửi. RLS bảo vệ đọc/ghi; trigger kiểm tra FK ngăn liên kết sang dữ liệu của trường khác. Không cấp quyền cho `anon`, `authenticated` hoặc `PUBLIC`. Nếu không đổi được vai trò RLS, yêu cầu thất bại, không chạy lại bằng kết nối có toàn quyền.
+
+Hành trình mặc định, chỉ mục AI, bộ nhớ đệm và dấu chốt tuần cũng tách theo trường. Tác vụ nền giữ phạm vi trường và không giữ lại kết nối giao dịch đã đóng. `backend/test/workspaces.spec.ts` kiểm tra API thật và PostgreSQL tạm với hai trường, gồm truy cập chéo ID, giả phạm vi, FK, yêu cầu đồng thời và RAG.
+
+## Dọn bảng quản trị nội dung cũ (040)
+
+Theo yêu cầu xóa phần quản trị ngoài chín mục còn giữ ngày 06/11/2026, `040_remove_legacy_admin_content.sql` xóa đúng sáu bảng của migration 011: `app_content_history`, `app_curriculum_nodes`, `app_question_bank`, `app_ai_sources`, `app_hero_cards`, `app_exp_rules`. Backend và frontend hiện tại không còn tham chiếu các bảng này. Dữ liệu trong sáu bảng cũ được xóa theo yêu cầu; không dùng `CASCADE` để tránh xóa lan.
+
+Giữ nguyên `app_users`, các bảng trường/lớp, thông báo, audit/login, FAQ, bảo mật, hệ thống/hỗ trợ và các kho `hist_*`/`hk_*` đang phục vụ quản trị trường, giáo viên, học sinh. Không sửa hoặc xóa migration 011 đã áp dụng; không đụng `_prisma_migrations`. Kiểm thử nâng 039 → 040 xác nhận chỉ sáu bảng bị xóa và mọi dòng ở các bảng còn lại giữ nguyên.
+
+## Chính sách gợi ý chỉ chạy nền (041)
+
+`041_background_recommendation_policy.sql` ghi rõ hai bảng gợi ý là dữ liệu nội bộ và cập nhật liên kết hướng dẫn mẫu từ “Gợi ý học tập” sang “Kế hoạch học”. Không đặt lại chính sách toàn hệ thống, không xóa kết quả cũ và không sửa câu trả lời FAQ do quản trị đã biên tập. Cấu hình vẫn chỉ có một dòng `hk_reco_settings(id=1)`; không thêm cấu hình theo trường/học sinh. Xem [quy ước thuật toán](../../docs/THUAT_TOAN_GOI_Y.md).
+
+## Mã đăng ký trường độc lập với danh mục (042)
+
+`042_school_catalog_identity.sql` thêm khóa tham chiếu danh mục và sequence sinh mã trường tám chữ số. Giữ nguyên mã, tài khoản và dữ liệu hiện có; không nhập hàng loạt trường từ danh mục. Quyền sequence/function không mở cho PUBLIC. Chọn cùng một trường đồng thời được backend khóa giao dịch và chặn trùng bằng chỉ mục; mã gốc có chữ/dài hơn tám số không còn bị cắt để làm mã đăng nhập. Xem [danh mục trường](../../docs/DANH_MUC_TRUONG.md).
+
+## Ảnh đại diện tải lên (046)
+
+Kho đã xóa (052): `052_deleted_records_one_year.sql` tạo bảng `app_deleted_records` chỉ chủ database xem, lưu OLD trước khi xóa qua giao diện và CASCADE, loại credential/OTP, giữ một năm lịch. Supabase Cron + việc nền dự phòng dọn hết hạn. Bảng nghiệp vụ mới gọi `app_install_delete_archives()` trong migration mới. Không sửa migration đã áp dụng, không tạo migration cho từng thao tác xóa. Xem [quy trình và SQL kiểm tra kho](../../docs/KHO_DU_LIEU_DA_XOA.md).
+
+`046_avatar_upload.sql` chỉ nới ràng buộc CHECK của `app_users.avatar_url`: ngoài liên kết `https://` đã lưu trước đây, nhận thêm đường dẫn kho tệp `/api/content/media/<mã 32 ký tự>`. Không tạo bảng, không đổi dữ liệu. Ảnh đại diện nằm trong `hk_media` với tên riêng `avatar:user` (chỉ ảnh PNG/JPEG/WEBP/GIF tối đa 1,5 MB, backend xác định loại bằng nội dung thật), mỗi người một ảnh; ảnh này không tính vào hạn mức ảnh Quiz và không hiện trong thư viện của giáo viên. Hồ sơ không còn nhận liên kết dán tay.
+
 Xem [tiến độ theo mã HK.*](../../docs/TIEN_DO_HAO_KHI.md).
+
+- **043_school_catalog_logo_store.sql**: bảng danh mục và asset WebP bytea, SHA-256 duy nhất, kiểm tra định dạng/kích thước, RLS không có policy công khai.
+- **044_national_school_catalog_seed.sql**: 11.371 gợi ý, 422 logo đã rà (4.153.024 byte ảnh), không tạo trường/người dùng; API tải từng ảnh. Xem docs/DANH_MUC_TRUONG.md.
+
+- **045_phu_my_verified_address.sql**: địa chỉ và phường hiện hành của THCS Phú Mỹ theo website trường; chỉ dữ liệu tham chiếu.
+
+- **047_verified_school_logos_and_mergers.sql**: 370 dòng tham chiếu thay đổi, 141 asset mới (gồm phiên bản ảnh rõ hơn); bộ hiện hành 460 logo WebP. Đối chiếu thêm sáp nhập/đổi tên có nguồn. Giữ bản ghi lịch sử, chỉ bỏ liên kết ảnh của mã đã sáp nhập hoặc chưa chắc đúng. Không tạo/gộp/xóa trường đăng ký, tài khoản hoặc dữ liệu học tập. SQL sinh dạng chênh lệch từ snapshot tham chiếu, không chép lại toàn bộ 044 và không sửa migration cũ.
+
+- **048_remove_retired_school_references.sql**: theo yêu cầu xóa mục cũ sau sáp nhập, xóa đúng dòng danh mục tham chiếu có trường thay thế đã xác minh; 52 mã được bao phủ, 31 dòng còn tồn tại sau 047 được xóa. Không xóa trường đăng ký, người dùng, lớp, dữ liệu học hoặc ảnh. Tên/mã cũ là alias về trường hiện tại; các bộ dựng nguồn đã chặn nhập lại mã cũ từ Gist 2020.
+
+- 054_class_semester_teachers_and_codes.sql: mã giáo viên/học sinh/lớp tăng dần, phân công một giáo viên mỗi học kỳ; RLS, quyền theo lịch năm học và kho xóa một năm. Giữ mã và phân công cũ. Xem docs/LOP_VA_PHAN_CONG_HOC_KY.md.
+- 055_class_teacher_change_requests.sql: giáo viên đang phụ trách gửi đề nghị chuyển lớp trong học kỳ; quản trị trường duyệt thì phân công mới có hiệu lực. RLS theo trường, một đề nghị chờ mỗi lớp/học kỳ và lưu vào kho xóa một năm.
+- 056_school_teacher_identity_codes.sql: mã giáo viên theo viết tắt trường + năm nhập + ngày sinh + STT riêng của trường, thống nhất form và Excel. Cập nhật mã tài khoản đã có ngày sinh, giữ id/username/lớp; thiếu ngày sinh giữ mã cũ. Bộ đếm có RLS, khóa giao dịch và kho xóa một năm. Xem [quy tắc mã giáo viên](../../docs/MA_GIAO_VIEN.md).

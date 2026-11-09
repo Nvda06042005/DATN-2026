@@ -7,7 +7,7 @@ import { Pressable, View } from 'react-native';
 import { Heart, NotebookPen, RotateCcw } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import * as gameApi from '@/api/gameApi';
-import { ErrorNote, Pager, useLoad } from '@/components/admin/kit';
+import { ErrorNote, Pager, useLoad, usePageSize } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import type { OpenDetail } from '@/components/portal/Library';
 import { ClassesPanel } from '@/components/portal/LearnerHome';
@@ -96,7 +96,8 @@ export const MyTab: React.FC<{ session: Session; refreshKey: number; onPractice:
   const { c } = useTheme();
   const [tab, setTab] = useState<Mine>('history');
   const [page, setPage] = useState(1);
-  const history = useLoad(() => api.attemptHistory(session.token, { page, limit: 10 }), [session.token, page, refreshKey], session.expired);
+  const size = usePageSize();
+  const history = useLoad(() => api.attemptHistory(session.token, { page, limit: size }), [session.token, page, size, refreshKey], session.expired);
   const practice = useLoad(() => api.practiceInfo(session.token), [session.token, refreshKey], session.expired);
   const notes = useLoad(() => api.listNotes(session.token), [session.token, refreshKey, tab], session.expired);
   const favorites = useLoad(() => api.learnSources(session.token, { favorites: 'true' }), [session.token, refreshKey, tab], session.expired);
@@ -134,7 +135,7 @@ export const MyTab: React.FC<{ session: Session; refreshKey: number; onPractice:
               </View>
             </Pressable>
           ))}
-          {history.data ? <Pager page={page} limit={10} total={history.data.total} onPage={setPage} /> : null}
+          {history.data ? <Pager page={page} limit={size} total={history.data.total} onPage={setPage} /> : null}
         </View>
       ) : null}
       {tab === 'notes' ? (

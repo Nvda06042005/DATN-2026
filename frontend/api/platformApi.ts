@@ -53,13 +53,13 @@ export const restoreBackup = (token: string, id: number, confirm: string) => api
 export const faqAll = (token: string) => apiRequest<FaqItem[]>(`${base}/faq/all`, { token });
 export const saveFaq = (token: string, id: number | null, body: Partial<FaqItem>) => (id ? apiRequest<FaqItem>(`${base}/faq/${id}`, { token, method: 'PUT', body }) : apiRequest<FaqItem>(`${base}/faq`, { token, body }));
 export const deleteFaq = (token: string, id: number) => apiRequest<{ deleted: boolean }>(`${base}/faq/${id}`, { token, method: 'DELETE' });
-export const allTickets = (token: string, q: { status?: string; role?: string; q?: string; page?: number }) => apiRequest<TicketPage>(`${base}/support${qs(q)}`, { token });
+export const allTickets = (token: string, q: { status?: string; role?: string; q?: string; page?: number; limit?: number }) => apiRequest<TicketPage>(`${base}/support${qs(q)}`, { token });
 export const setTicketStatus = (token: string, id: number, status: string) => apiRequest<TicketDetail>(`${base}/support/${id}/status`, { token, method: 'PATCH', body: { status } });
 
 // ---------------------------------------------------------------------- nhật ký
-export const auditLog = (token: string, q: { q?: string; success?: string; students?: string; page?: number }) => apiRequest<Paged<AuditItem>>(`${base}/logs/audit${qs(q)}`, { token });
-export const loginLog = (token: string, q: { q?: string; success?: string; page?: number }) => apiRequest<Paged<LoginItem>>(`${base}/logs/logins${qs(q)}`, { token });
-export const errorLog = (token: string, q: { source?: string; q?: string; page?: number }) => apiRequest<Paged<ErrorItem> & { last_24h: Record<string, number> }>(`${base}/logs/errors${qs(q)}`, { token });
+export const auditLog = (token: string, q: { q?: string; success?: string; students?: string; page?: number; limit?: number }) => apiRequest<Paged<AuditItem>>(`${base}/logs/audit${qs(q)}`, { token });
+export const loginLog = (token: string, q: { q?: string; success?: string; page?: number; limit?: number }) => apiRequest<Paged<LoginItem>>(`${base}/logs/logins${qs(q)}`, { token });
+export const errorLog = (token: string, q: { source?: string; q?: string; page?: number; limit?: number }) => apiRequest<Paged<ErrorItem> & { last_24h: Record<string, number> }>(`${base}/logs/errors${qs(q)}`, { token });
 export const clearErrors = (token: string, days: number) => apiRequest<{ deleted: number }>(`${base}/logs/errors${qs({ older_than_days: days })}`, { token, method: 'DELETE' });
 
 // ---------------------------------------------------------------------- hai lớp

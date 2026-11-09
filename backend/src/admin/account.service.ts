@@ -1,13 +1,13 @@
 /**
  * Tài khoản (HK.AD.018–025, HK.QT.014–034): quản trị tổng quản lý người dùng toàn hệ thống; quản trị trường quản lý giáo viên và học sinh của trường mình.
  * Mọi thao tác chạy trong giao dịch có khóa, kiểm tra lại quyền của người thao tác; mật khẩu tạm chỉ trả về một lần và gửi qua hàng đợi email.
- * Xóa chỉ khi tài khoản chưa phát sinh dữ liệu, ngược lại chỉ khóa. Nhập Excel có bước xem trước báo lỗi từng dòng trước khi lưu.
+ * Quản trị tổng được xóa từng tài khoản đã dùng; quản trị trường chỉ xóa tài khoản chưa phát sinh dữ liệu. Nhập Excel có xem trước báo lỗi từng dòng.
  */
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { toPublic } from '../auth/auth.service';
 import { generatePassword, hashPassword } from '../auth/passwords';
 import { DatabaseService, DuplicateUsername, Q, Role, searchText, toUser, USER_COLUMNS, UserRow } from '../database/database.service';
-import { buildWorkbook, checkUpload, Column, parseDate, readSheet, UploadedXlsx } from './excel';
+import { buildFormSheet, buildWorkbook, checkUpload, Column, FormColumn, parseDate, readSheet, schoolInitials, teacherTemplateFilename, UploadedXlsx, vnDayLabel } from './excel';
 import { SystemService } from '../platform/system.service';
 import { MailService } from './mail.service';
 import { likeEscape, SchoolService } from './school.service';
@@ -19,15 +19,26 @@ const PHONE = /^[0-9+() .-]{8,20}$/;
 const GENDERS: Record<string, 'male' | 'female' | 'other'> = { nam: 'male', male: 'male', nu: 'female', female: 'female', khac: 'other', other: 'other' };
 const GENDER_LABEL = { male: 'Nam', female: 'Nữ', other: 'Khác' } as const;
 
+/** Cột của file nhập giáo viên (số thứ tự chỉ để nhìn, không đọc). Tên cột khác như "Số điện thoại", "Ngày sinh" cũng được nhận */
 export const TEACHER_COLUMNS: Column[] = [
-  { key: 'full_name', header: 'Họ và tên *', required: true, width: 28 },
-  { key: 'email', header: 'Email *', required: true, width: 30 },
-  { key: 'subject', header: 'Bộ môn', width: 18 },
-  { key: 'phone', header: 'Số điện thoại', width: 18 },
-  { key: 'user_code', header: 'Mã giáo viên', width: 16 },
+  { key: 'user_code', header: 'Mã giáo viên', width: 22 },
+  { key: 'full_name', header: 'Họ và tên *', required: true, width: 30 },
+  { key: 'gender', header: 'Giới tính', width: 13 },
+  { key: 'phone', header: 'SĐT', aliases: ['Số điện thoại', 'Điện thoại'], width: 16 },
+  { key: 'email', header: 'Email *', required: true, width: 32 },
+  { key: 'birth_date', header: 'Ngày tháng năm sinh', aliases: ['Ngày sinh'], width: 22 },
+];
+const TEACHER_FORM_COLUMNS: FormColumn[] = [
+  { key: 'stt', header: 'Số thứ tự', kind: 'index', watch: 'full_name', width: 11 },
+  { ...TEACHER_COLUMNS[0], kind: 'text' },
+  { ...TEACHER_COLUMNS[1], kind: 'text' },
+  { ...TEACHER_COLUMNS[2], kind: 'list', options: ['Nam', 'Nữ'] },
+  { ...TEACHER_COLUMNS[3], kind: 'phone' },
+  { ...TEACHER_COLUMNS[4], kind: 'text' },
+  { ...TEACHER_COLUMNS[5], kind: 'date', prompt: 'Chọn ngày trên lịch hoặc gõ dd/mm/yyyy, ví dụ 15/03/1985' },
 ];
 export const STUDENT_COLUMNS: Column[] = [
-  { key: 'user_code', header: 'Mã học sinh *', required: true, width: 16 },
+  { key: 'user_code', header: 'Mã học sinh', width: 16 },
   { key: 'full_name', header: 'Họ và tên *', required: true, width: 28 },
   { key: 'birth_date', header: 'Ngày sinh *', required: true, width: 16 },
   { key: 'gender', header: 'Giới tính', width: 12 },
@@ -37,7 +48,7 @@ export const STUDENT_COLUMNS: Column[] = [
 ];
 
 export interface AccountFilter {
-  q?: string; role?: Role; school_id?: number; active?: 'true' | 'false'; grade?: number; class_id?: number; subject?: string; page?: number; limit?: number;
+  q?: string; role?: Role; school_id?: number; active?: 'true' | 'false'; grade?: number; class_id?: number; page?: number; limit?: number;
 }
 
 export interface ImportRow { row: number; full_name: string; user_code: string | null; email: string | null; status: 'ok' | 'error' | 'created'; errors: string[]; username?: string }
@@ -45,14 +56,45 @@ export interface ImportRow { row: number; full_name: string; user_code: string |
 interface ClassTarget { id: number; name: string; grade: number | null; school_year: string; year_id: number | null; is_active: boolean }
 
 interface MemberInput {
-  full_name: string; email?: string | null; phone?: string | null; subject?: string | null; user_code?: string | null;
+  full_name: string; email?: string | null; phone?: string | null; user_code?: string | null;
   birth_date?: string | null; gender?: 'male' | 'female' | 'other' | null; parent_email?: string | null; class_id?: number | null;
 }
 
+/** Ngày hôm nay theo giờ Việt Nam, dạng YYYY-MM-DD */
+const todayVn = (): string => new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
 const clean = (v: unknown): string | null => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') || null : null);
 
 @Injectable()
 export class AccountService {
+  async codePreview(actor: UserRow,kind: string, opts: {birth_date?:string;school_id?:number;user_id?:number}={}) {
+    if (!['teacher','student','class'].includes(kind)) throw new BadRequestException('Loại mã không hợp lệ');
+    if(kind==='teacher') return this.schools.run(actor,async(q,scope)=>{
+      const target=opts.user_id ? await this.load(q,scope,opts.user_id) : null;
+      if(target && target.role!=='teacher') throw new BadRequestException('Tài khoản không phải giáo viên');
+      const schoolId=this.schools.target(actor,opts.school_id??target?.school_id??undefined);
+      if(target) this.canManage(actor,target);
+      if(opts.birth_date && (!parseDate(opts.birth_date)||opts.birth_date>todayVn())) throw new UnprocessableEntityException('Ngày sinh không hợp lệ');
+      return this.teacherCode(q,schoolId,opts.birth_date||null,undefined,target?.id);
+    });
+    return this.schools.run(actor,async q=>(await q<{code:string}>('SELECT public.app_registration_code($1,false) AS code',[kind]))[0]);
+  }
+  /** Xem trước không cấp số; trigger PostgreSQL chốt số trong cùng giao dịch tạo tài khoản. */
+  private async teacherCode(q:Q,schoolId:number,born:string|null,requested?:string|null,userId?:number,next?:number) {
+    const meta=(await q<{name:string;serial:number|null;year:number|null;prefix:string;next:number}>(`SELECT s.name,
+      CASE WHEN u.school_id=s.id THEN u.teacher_code_serial END AS serial,
+      CASE WHEN u.school_id=s.id THEN u.teacher_code_year END AS year,
+      public.app_school_initials(s.name) AS prefix,
+      coalesce(c.last_serial,0)+1 AS next FROM app_schools s
+      LEFT JOIN app_teacher_code_counters c ON c.school_id=s.id
+      LEFT JOIN app_users u ON u.id=$2 AND u.role='teacher' WHERE s.id=$1`,[schoolId,userId??null]))[0];
+    if(!meta) throw new NotFoundException('Không tìm thấy trường');
+    const year=meta.year??Number(todayVn().slice(2,4));
+    let serial=meta.serial??next??meta.next;
+    const base=`${meta.prefix}${String(year).padStart(2,'0')}${born?born.slice(8,10)+born.slice(5,7)+born.slice(0,4):''}`;
+    if(!meta.serial && born && requested?.startsWith(base) && /^\d{3,9}$/.test(requested.slice(base.length))) serial=Math.max(serial,Number(requested.slice(base.length)));
+    const code=born?(await q<{code:string}>('SELECT public.app_teacher_identity($1,$2,$3::date,$4) AS code',[meta.name,year,born,serial]))[0].code:null;
+    return {code,serial,year,prefix:meta.prefix};
+  }
   constructor(
     private readonly db: DatabaseService,
     private readonly schools: SchoolService,
@@ -70,22 +112,30 @@ export class AccountService {
     if (actor.role === 'root_admin' && actor.admin_level !== 1 && target.role === 'root_admin') throw new ForbiddenException('Quản trị tổng cấp 2 không được thay đổi tài khoản quản trị tổng');
   }
 
-  private async load(q: Q, scope: number | null, id: number): Promise<UserRow> {
-    const rows = await q(`SELECT ${USER_COLUMNS} FROM app_users WHERE id = $1 AND deleted_at IS NULL AND ($2::integer IS NULL OR school_id = $2)`, [id, scope]);
+  private async load(q: Q, scope: number | null, id: number, forUpdate = false): Promise<UserRow> {
+    const rows = await q(`SELECT ${USER_COLUMNS} FROM app_users WHERE id = $1 AND deleted_at IS NULL AND ($2::integer IS NULL OR school_id = $2)${forUpdate ? ' FOR UPDATE' : ''}`, [id, scope]);
     if (!rows.length) throw new NotFoundException('Không tìm thấy tài khoản');
     return toUser(rows[0]);
   }
 
   /** Tuần tự hóa các thay đổi nhạy cảm và kiểm tra lại người thao tác sau khi chờ khóa */
-  private async managed<T>(actor: UserRow, id: number, fn: (q: Q, target: UserRow, actor: UserRow) => Promise<T>): Promise<T> {
+  private async managed<T>(actor: UserRow, id: number, fn: (q: Q, target: UserRow, actor: UserRow) => Promise<T>, lockRows = false): Promise<T> {
     return this.schools.run(actor, async (q, scope) => {
       await q('SELECT pg_advisory_xact_lock(7412026)');
-      const fresh = await this.load(q, scope, actor.id);
+      const fresh = await this.load(q, scope, actor.id, lockRows);
       if (!fresh.is_active || fresh.role !== actor.role || fresh.token_version !== actor.token_version || fresh.admin_level !== actor.admin_level) throw new ForbiddenException('Quyền của phiên đã thay đổi. Hãy đăng nhập lại.');
-      const target = await this.load(q, scope, id);
+      const target = await this.load(q, scope, id, lockRows);
       this.canManage(fresh, target);
       return fn(q, target, fresh);
     });
+  }
+
+  /** Cùng một quy tắc cho chi tiết và DELETE: quản trị tổng được xóa tài khoản đã dùng; quản trị trường chỉ xóa khi chưa có dữ liệu. */
+  private async deletionBlocker(actor: UserRow, target: UserRow, q: Q): Promise<string | null> {
+    if (actor.id === target.id) return 'là tài khoản đang đăng nhập';
+    if (target.role === 'root_admin' && actor.admin_level !== 1) return 'là quản trị tổng được bảo vệ';
+    if (actor.role === 'root_admin') return null;
+    return this.db.accountHasData(target.id, q);
   }
 
   private async schoolOf(q: Q, id: number) {
@@ -107,9 +157,8 @@ export class AccountService {
       } else if (f.school_id) add('u.school_id = ?', f.school_id);
       if (role) add('u.role = ?', role);
       if (f.active) add('u.is_active = ?', f.active === 'true' ? 1 : 0);
-      if (f.subject) add('u.subject ILIKE ?', `%${likeEscape(f.subject.trim())}%`);
       if (f.grade) add('(u.grade = ? OR EXISTS (SELECT 1 FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = u.id AND c.grade = ?::smallint))', f.grade);
-      if (f.class_id) add('(EXISTS (SELECT 1 FROM app_class_members m WHERE m.user_id = u.id AND m.class_id = ?) OR EXISTS (SELECT 1 FROM app_class_teachers t WHERE t.teacher_id = u.id AND t.class_id = ?))', f.class_id);
+      if (f.class_id) add('(EXISTS (SELECT 1 FROM app_class_members m WHERE m.user_id = u.id AND m.class_id = ?) OR EXISTS (SELECT 1 FROM app_current_class_teachers t WHERE t.teacher_id = u.id AND t.class_id = ?))', f.class_id);
       const text = searchText(f.q);
       if (text) add("u.search_text LIKE ? ESCAPE '\\'", `%${likeEscape(text)}%`);
       const limit = Math.min(200, Math.max(1, f.limit ?? 50));
@@ -118,7 +167,7 @@ export class AccountService {
       const rows = await q<Record<string, unknown>>(
         `SELECT ${USER_COLUMNS.split(', ').map((c) => `u.${c}`).join(', ')}, s.name AS school_name,
                 COALESCE((SELECT json_agg(json_build_object('id', c.id, 'name', c.name, 'school_year', c.school_year, 'grade', c.grade) ORDER BY c.school_year DESC, c.name)
-                          FROM app_class_teachers t JOIN app_classes c ON c.id = t.class_id WHERE t.teacher_id = u.id), '[]'::json) AS teaching_classes,
+                          FROM app_current_class_teachers t JOIN app_classes c ON c.id = t.class_id WHERE t.teacher_id = u.id), '[]'::json) AS teaching_classes,
                 COALESCE((SELECT json_agg(json_build_object('id', c.id, 'name', c.name, 'school_year', c.school_year, 'grade', c.grade) ORDER BY c.school_year DESC, c.name)
                           FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = u.id), '[]'::json) AS member_classes
          FROM app_users u LEFT JOIN app_schools s ON s.id = u.school_id
@@ -141,10 +190,10 @@ export class AccountService {
       if (scope !== null && !['teacher', 'student'].includes(user.role)) throw new NotFoundException('Không tìm thấy tài khoản');
       const school = user.school_id ? await this.schoolOf(q, user.school_id) : null;
       const classes = await q(
-        `SELECT c.id, c.name, c.grade, c.school_year, c.is_active, 'teacher' AS relation FROM app_class_teachers t JOIN app_classes c ON c.id = t.class_id WHERE t.teacher_id = $1
+        `SELECT c.id, c.name, c.grade, c.school_year, c.is_active, 'teacher' AS relation FROM app_current_class_teachers t JOIN app_classes c ON c.id = t.class_id WHERE t.teacher_id = $1
          UNION ALL SELECT c.id, c.name, c.grade, c.school_year, c.is_active, 'student' FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = $1
          ORDER BY school_year DESC, name`, [id]);
-      const blocker = await this.db.accountHasData(id, q);
+      const blocker = await this.deletionBlocker(actor, user, q);
       return { ...toPublic(user), school_name: school?.name ?? null, classes, deletable: blocker === null, delete_blocker: blocker };
     });
   }
@@ -205,16 +254,16 @@ export class AccountService {
 
   private checkMember(role: MemberRole, body: MemberInput): MemberInput {
     const input: MemberInput = {
-      full_name: clean(body.full_name) as string, email: clean(body.email)?.toLowerCase() ?? null, phone: clean(body.phone), subject: clean(body.subject), user_code: clean(body.user_code),
+      full_name: clean(body.full_name) as string, email: clean(body.email)?.toLowerCase() ?? null, phone: clean(body.phone), user_code: clean(body.user_code),
       birth_date: body.birth_date ?? null, gender: body.gender ?? null, parent_email: clean(body.parent_email)?.toLowerCase() ?? null, class_id: body.class_id ?? null,
     };
     if (!input.full_name || input.full_name.length < 2) throw new UnprocessableEntityException('Họ tên tối thiểu 2 ký tự');
     if (role === 'teacher' && !input.email) throw new UnprocessableEntityException('Giáo viên cần có email để nhận mật khẩu tạm');
-    if (role === 'student' && !input.user_code) throw new UnprocessableEntityException('Học sinh cần có mã học sinh');
     if (role === 'student' && !input.birth_date) throw new UnprocessableEntityException('Học sinh cần có ngày sinh');
     if (input.email && !EMAIL.test(input.email)) throw new UnprocessableEntityException('Email không hợp lệ');
     if (input.parent_email && !EMAIL.test(input.parent_email)) throw new UnprocessableEntityException('Email phụ huynh không hợp lệ');
     if (input.phone && !PHONE.test(input.phone)) throw new UnprocessableEntityException('Số điện thoại không hợp lệ');
+    if (input.birth_date && (!parseDate(input.birth_date) || input.birth_date > todayVn())) throw new UnprocessableEntityException('Ngày sinh không hợp lệ (dạng YYYY-MM-DD, không ở tương lai)');
     return input;
   }
 
@@ -227,13 +276,15 @@ export class AccountService {
   }
 
   private async insertMember(q: Q, school: { id: number; school_code: string; region: string | null; city: string | null }, role: MemberRole, input: MemberInput, passwordHash: string, cls: { id: number; grade: number | null; school_year: string } | null): Promise<UserRow> {
+    if(role==='teacher' && input.birth_date) input={...input,user_code:(await this.teacherCode(q,school.id,input.birth_date,input.user_code)).code};
+    input={...input,user_code:input.user_code || (await q<{code:string}>('SELECT public.app_registration_code($1,true) AS code',[role]))[0].code};
     await this.assertUnique(q, school.id, input.email ?? null, input.user_code ?? null);
     if (role === 'student') await SystemService.assertStudentRoom(q, school.id);
     const username = await this.db.uniqueUsername(input.full_name, role, q);
     let user: UserRow;
     try {
       user = await this.db.createUser({
-        username, full_name: input.full_name, role, class_name: null, password_hash: passwordHash, must_change_password: true, email: input.email, phone: input.phone, subject: role === 'teacher' ? input.subject : null,
+        username, full_name: input.full_name, role, class_name: null, password_hash: passwordHash, must_change_password: true, email: input.email, phone: input.phone,
         user_code: input.user_code, birth_date: input.birth_date, gender: input.gender, parent_email: role === 'student' ? input.parent_email : null,
         school_id: school.id, school_code: school.school_code, region: school.region, city: school.city, grade: cls?.grade ?? null, school_year: cls?.school_year ?? null,
       }, q);
@@ -263,23 +314,25 @@ export class AccountService {
         if (phone && !PHONE.test(phone)) throw new UnprocessableEntityException('Số điện thoại không hợp lệ');
         fields.phone = phone;
       }
-      if (target.role === 'teacher') set('subject', body.subject);
       if (target.role === 'student') {
         set('parent_email', body.parent_email, (v) => clean(v)?.toLowerCase() ?? null);
         if (fields.parent_email && !EMAIL.test(fields.parent_email as string)) throw new UnprocessableEntityException('Email phụ huynh không hợp lệ');
+      }
+      if (target.role === 'student' || target.role === 'teacher') {
         if (body.birth_date !== undefined) {
-          if (body.birth_date !== null && !parseDate(body.birth_date)) throw new UnprocessableEntityException('Ngày sinh có dạng YYYY-MM-DD');
+          if (target.role==='teacher' && target.birth_date && !body.birth_date) throw new UnprocessableEntityException('Giáo viên cần ngày sinh để sinh mã');
+          if (body.birth_date !== null && (!parseDate(body.birth_date)||body.birth_date>todayVn())) throw new UnprocessableEntityException('Ngày sinh không hợp lệ (YYYY-MM-DD, không ở tương lai)');
           fields.birth_date = body.birth_date;
         }
         if (body.gender !== undefined) fields.gender = body.gender;
       }
-      if (body.user_code !== undefined) fields.user_code = clean(body.user_code);
+      if (body.user_code !== undefined && target.role !== 'teacher') fields.user_code = clean(body.user_code);
       if (fields.user_code === null && target.role === 'student') throw new UnprocessableEntityException('Học sinh cần có mã học sinh');
       await this.assertUnique(q, target.school_id, (fields.email as string | null) ?? null, (fields.user_code as string | null) ?? null, id);
       if (body.school_id !== undefined && body.school_id !== target.school_id) {
         if (me.role !== 'root_admin') throw new ForbiddenException('Không được chuyển trường');
         if (target.role === 'teacher' || target.role === 'student') {
-          const linked = (await q<{ n: number }>('SELECT ((SELECT count(*) FROM app_class_members WHERE user_id = $1) + (SELECT count(*) FROM app_class_teachers WHERE teacher_id = $1))::int AS n', [id]))[0].n;
+          const linked = (await q<{ n: number }>('SELECT ((SELECT count(*) FROM app_class_members WHERE user_id = $1) + (SELECT count(*) FROM app_class_teacher_assignments WHERE teacher_id = $1))::int AS n', [id]))[0].n;
           if (linked) throw new ConflictException('Tài khoản đang thuộc lớp; hãy gỡ khỏi lớp trước khi chuyển trường');
         }
         if (target.role !== 'root_admin' && !body.school_id) throw new UnprocessableEntityException('Tài khoản này cần thuộc một trường');
@@ -319,7 +372,7 @@ export class AccountService {
   async changeRole(actor: UserRow, id: number, role: Role, schoolId?: number | null, adminLevel?: 1 | 2) {
     this.schools.assertTopAdmin(actor);
     return this.managed(actor, id, async (q, target) => {
-      const linked = (await q<{ n: number }>('SELECT ((SELECT count(*) FROM app_class_members WHERE user_id = $1) + (SELECT count(*) FROM app_class_teachers WHERE teacher_id = $1))::int AS n', [id]))[0].n;
+      const linked = (await q<{ n: number }>('SELECT ((SELECT count(*) FROM app_class_members WHERE user_id = $1) + (SELECT count(*) FROM app_class_teacher_assignments WHERE teacher_id = $1))::int AS n', [id]))[0].n;
       if (linked && (role !== target.role || (schoolId !== undefined && schoolId !== target.school_id))) throw new ConflictException('Tài khoản đang thuộc lớp; hãy gỡ khỏi lớp trước khi đổi vai trò hoặc trường');
       const sid = role === 'root_admin' ? null : schoolId === undefined ? target.school_id : schoolId;
       if (role !== 'root_admin' && !sid) throw new UnprocessableEntityException('Hãy gán trường trước khi cấp vai trò này');
@@ -333,21 +386,98 @@ export class AccountService {
     });
   }
 
-  /** Xóa tài khoản chưa phát sinh dữ liệu (HK.AD.025, HK.QT.021/032); đã có dữ liệu thì chỉ cho phép khóa */
+  /**
+   * Quản trị tổng được xóa từng tài khoản kể cả đã đăng nhập/có dữ liệu (08/11/2026).
+   * Quản trị trường vẫn chỉ xóa giáo viên/học sinh chưa dùng. Khóa hàng phối hợp với đăng nhập/đổi mật khẩu;
+   * dọn tiến độ cũ không có FK, xóa tài khoản và ghi nhật ký trong cùng giao dịch. Không xóa trường hoặc lớp.
+   */
   async remove(actor: UserRow, id: number): Promise<void> {
-    await this.managed(actor, id, async (q) => {
-      const blocker = await this.db.accountHasData(id, q);
+    await this.managed(actor, id, async (q, target, me) => {
+      const blocker = await this.deletionBlocker(me, target, q);
       if (blocker) throw new ConflictException(`Không xóa được vì tài khoản ${blocker}; hãy khóa tài khoản thay vì xóa.`);
+      // app_progress không có FK và không cấp quyền DELETE cho vai trò RLS của trường.
+      if (me.role === 'root_admin') await q('DELETE FROM app_progress WHERE user_id = $1', [id]);
       await this.db.deleteUser(id, q);
-    });
+      if (me.role === 'root_admin') await q(
+        'INSERT INTO app_audit_events (actor_id, actor_name, actor_role, school_id, action, target_type, target_id, success) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+        [me.id, me.full_name, me.role, target.school_id, `Xóa tài khoản “${target.full_name}” (${target.username}, ${target.role}) kèm dữ liệu cá nhân`, 'user', String(id), true]);
+    }, true);
   }
 
   // ------------------------------------------------------------------ nhập / xuất Excel
-  async template(kind: 'teachers' | 'students' | 'class-members'): Promise<Buffer> {
-    if (kind === 'teachers') {
-      return buildWorkbook('Giáo viên', TEACHER_COLUMNS, [{ full_name: 'Nguyễn Văn An', email: 'an.nguyen@example.edu.vn', subject: 'Lịch sử', phone: '0901234567', user_code: 'GV001' }],
-        ['Cột có dấu * là bắt buộc. Email phải khác nhau và chưa dùng cho tài khoản nào khác.', 'Hệ thống sinh mật khẩu tạm và gửi vào email của giáo viên; giáo viên đổi mật khẩu ở lần đăng nhập đầu tiên.', 'Xóa dòng ví dụ trước khi nhập.']);
-    }
+  /** Tên trường để in lên đầu file mẫu/danh sách (quản trị tổng chưa chọn trường thì để trống) */
+  private async schoolNameOf(actor: UserRow, schoolId?: number | null): Promise<string | null> {
+    const id = actor.role === 'school_admin' ? actor.school_id : schoolId ?? null;
+    if (!id) return null;
+    return this.schools.run(actor, async (q) => (await q<{ name: string }>('SELECT name FROM app_schools WHERE id = $1', [id]))[0]?.name ?? null);
+  }
+
+  /**
+   * File mẫu nhập giáo viên theo bố cục chuẩn: "Đông A", tên trường, ngày bắt đầu nhập (tự cập nhật theo lúc tải), rồi bảng Số thứ tự, Mã giáo viên, Họ và tên,
+   * Giới tính (chọn Nam/Nữ), SĐT, Email, Ngày tháng năm sinh (ô ngày). Không có cột Bộ môn vì mặc định là Lịch sử.
+   */
+  async teacherImportSpec(actor:UserRow,schoolId?:number|null){
+    const id=this.schools.target(actor,schoolId);
+    return this.schools.run(actor,async q=>{
+      const school=await this.schoolOf(q,id);
+      const next=await this.teacherCode(q,id,null);
+      return {filename:teacherTemplateFilename(school.name),school_name:school.name,prefix:`${next.prefix}${String(next.year).padStart(2,'0')}`,next_serial:next.serial};
+    });
+  }
+
+  /** Chỉ tạo workbook trong bộ nhớ; chưa tạo tài khoản hoặc gửi email. */
+  async teacherWorkbook(actor:UserRow,rows:MemberInput[],schoolId?:number|null):Promise<Buffer>{
+    if(!rows.length||rows.length>1000) throw new BadRequestException('Nhập từ 1 đến 1000 giáo viên');
+    const seen=new Set<string>();
+    const checked=rows.map(row=>{
+      const value=this.checkMember('teacher',row);
+      if(!value.birth_date) throw new UnprocessableEntityException('Chọn ngày sinh của từng giáo viên');
+      if(value.birth_date<'1940-01-01') throw new UnprocessableEntityException('Ngày sinh từ 01/01/1940');
+      if(seen.has(value.email!)) throw new UnprocessableEntityException('Email trùng trong danh sách');
+      seen.add(value.email!);
+      return value;
+    });
+    return this.teacherTemplate(actor,schoolId,new Date(),checked);
+  }
+
+  async teacherTemplate(actor: UserRow, schoolId?: number | null, now: Date = new Date(), rows?:MemberInput[]): Promise<Buffer> {
+    const school = await this.schoolNameOf(actor, schoolId);
+    const initials = schoolInitials(school ?? ''), year = vnDayLabel(now).slice(8, 10), prefix = `${initials}${year}`;
+    const id=actor.role==='school_admin'?actor.school_id:schoolId;
+    const offset=id?await this.schools.run(actor,async q=>Number((await q<{n:number}>('SELECT coalesce((SELECT last_serial FROM app_teacher_code_counters WHERE school_id=$1),0) AS n',[id]))[0]?.n??0)):0;
+    return buildFormSheet({
+      sheetName: 'Giáo viên', title: 'Đông A', subtitle: `Mẫu nhập danh sách giáo viên${school ? ` · ${school}` : ''}`,
+      meta: [{ label: 'Ngày bắt đầu nhập', value: vnDayLabel(now) }], note: 'Xem ví dụ rồi nhập danh sách bên dưới. Cột có dấu * là bắt buộc.',
+      entryNote:'Bạn nhập họ tên, email và chọn ngày sinh; STT và mã giáo viên tự sinh.',
+      completedIndex:true,
+      columns: TEACHER_FORM_COLUMNS.map(c => c.key === 'user_code' && !rows ? { ...c, kind: 'teacher-code', width: 29, watch: 'full_name', birthKey: 'birth_date', codePrefix: prefix, codeOffset:offset } : c), blankRows: 1000, now,
+      rows:rows?.map((row,i)=>({...row,gender:row.gender?GENDER_LABEL[row.gender]:'',user_code:`${prefix}${row.birth_date!.slice(8,10)}${row.birth_date!.slice(5,7)}${row.birth_date!.slice(0,4)}${String(offset+i+1).padStart(3,'0')}`})),
+      example: {
+        values: { stt: 1, user_code: `${prefix}15031985001`, full_name: 'Nguyễn Văn Mẫu', gender: 'Nam', phone: '0900000000', email: 'giao.vien@example.invalid', birth_date: '1985-03-15' },
+        explanation: `${initials} = ${school ?? 'viết tắt tên trường'}; ${year} = năm ${vnDayLabel(now).slice(6,10)}; 15 + 03 + 1985 = ngày sinh; 001 = số thứ tự. Mã ví dụ: ${prefix}15031985001.`,
+      },
+      guide: [
+        'Khối VÍ DỤ CÁCH ĐIỀN ở đầu sheet chỉ minh họa, không tạo tài khoản. Điền giáo viên thật trong bảng bên dưới. Cột có dấu * là bắt buộc.',
+        'STT và mã giáo viên tự hiện khi dòng có đủ họ tên, email và ngày sinh. Không nhập hai cột này.',
+        `Mã giáo viên tự hiện sau khi nhập họ tên và ngày sinh: ${initials} + ${year} + ngày sinh ddmmyyyy + STT 3 chữ số.`,
+        `${initials}: viết tắt của ${school ?? 'tên trường'}. ${year}: hai số cuối năm tải mẫu. Phần ddmmyyyy: ngày, tháng, năm sinh của giáo viên. STT giúp phân biệt người có cùng ngày sinh.`,
+        `Ví dụ ngày sinh 15/03/1985, STT 1: ${prefix}15031985001. Với THCS Giồng Ông Tố trong năm 2026: GOT2615031985001.`,
+        'Mã dùng chung quy tắc với form Thêm/Sửa giáo viên trên web. Sửa ngày sinh sẽ cập nhật phần ngày sinh trong mã, giữ năm nhập và STT đã cấp; tên đăng nhập và lớp không đổi.',
+        `Dãy mã nối tiếp số đã cấp trong trường (mẫu này bắt đầu từ ${String(offset+1).padStart(3,'0')}). Khi nhiều người thêm cùng lúc, số chính thức được chốt lúc lưu; xem mã ở kết quả và danh sách giáo viên.`,
+        'Giới tính: bấm vào ô rồi chọn Nam hoặc Nữ trong danh sách.',
+        'Để chọn ngày bằng lịch: trên website, mở Nhập từ Excel rồi chọn Nhập trên bảng. Nhấn Enter ở ô ngày sinh để sang Họ và tên dòng tiếp theo, sau đó tải file Excel.',
+        'Email phải khác nhau và chưa dùng cho tài khoản nào khác. Hệ thống sinh mật khẩu tạm và gửi vào email này; giáo viên đổi mật khẩu ở lần đăng nhập đầu tiên.',
+        'File .xlsx không chứa lịch tùy chỉnh hay điều khiển phím Enter trong WPS. Dùng bảng nhập trên website để thực hiện các thao tác này. SĐT giữ nguyên số 0 đầu.',
+        `Giữ đúng tên file ${teacherTemplateFilename(school??'truong')}. File khác tên sẽ không được nhận khi import.`,
+        'Nền tảng dạy Lịch sử nên không có cột Bộ môn (file cũ còn cột này vẫn nhập được, cột bị bỏ qua).',
+        'Chỉ nhận file Excel .xlsx (tối đa 2 MB, tối đa 1000 giáo viên mỗi lần). Đừng xóa hay đổi tên dòng tiêu đề của bảng.',
+        'Mở và lưu file bằng Excel/WPS có bật tính công thức tự động trước khi tải lên. Ngày bắt đầu nhập là ngày tải mẫu, không thay đổi khi mở lại.',
+        'Sau khi chọn file, hệ thống kiểm tra từng dòng và báo lỗi trước khi lưu; lưu xong danh sách giáo viên tự cập nhật.',
+      ],
+    });
+  }
+
+  async template(kind: 'students' | 'class-members'): Promise<Buffer> {
     if (kind === 'students') {
       return buildWorkbook('Học sinh', STUDENT_COLUMNS, [{ user_code: 'HS0001', full_name: 'Trần Thị Bình', birth_date: '15/03/2013', gender: 'Nữ', class_name: '7A1', email: '', parent_email: 'phuhuynh@example.com' }],
         ['Cột có dấu * là bắt buộc. Mã học sinh không được trùng trong trường.', 'Ngày sinh dạng dd/mm/yyyy hoặc yyyy-mm-dd. Giới tính: Nam, Nữ hoặc Khác.', 'Cột Lớp (không bắt buộc) là tên lớp đã tạo trong năm học được chọn khi nhập.', 'Xóa dòng ví dụ trước khi nhập.']);
@@ -363,7 +493,11 @@ export class AccountService {
   async importMembers(actor: UserRow, role: MemberRole, file: UploadedXlsx | undefined, opts: { commit: boolean; school_id?: number | null; year_id?: number | null }) {
     const upload = checkUpload(file);
     const schoolId = this.schools.target(actor, opts.school_id);
-    const parsed = await readSheet(upload, role === 'teacher' ? TEACHER_COLUMNS : STUDENT_COLUMNS);
+    if(role==='teacher'){
+      const spec=await this.teacherImportSpec(actor,schoolId);
+      if(upload.originalname!==spec.filename) throw new BadRequestException(`Sai tên file. Chỉ nhận ${spec.filename}. Hãy giữ đúng tên file mẫu của trường.`);
+    }
+    const parsed = await readSheet(upload, role === 'teacher' ? TEACHER_COLUMNS : STUDENT_COLUMNS, undefined, role === 'teacher');
     if (!parsed.length) throw new BadRequestException('File không có dòng dữ liệu nào');
     return this.schools.run(actor, async (q) => {
       if (opts.commit) await q('SELECT pg_advisory_xact_lock(7412026)');
@@ -371,33 +505,40 @@ export class AccountService {
       const yearId = opts.year_id ?? (await q<{ id: number }>("SELECT id FROM app_school_years WHERE school_id = $1 AND status = 'active'", [schoolId]))[0]?.id ?? null;
       if (opts.year_id && !(await q('SELECT 1 FROM app_school_years WHERE id = $1 AND school_id = $2', [opts.year_id, schoolId])).length) throw new NotFoundException('Không tìm thấy năm học');
       const seenEmail = new Set<string>(), seenCode = new Set<string>();
+      let nextTeacherSerial=role==='teacher'?(await this.teacherCode(q,schoolId,null)).serial:0;
       const rows: ImportRow[] = [];
       const credentials: Array<{ row: number; username: string; password: string; full_name: string; email: string | null }> = [];
       for (const { row, values } of parsed) {
         const errors: string[] = [];
         const input: MemberInput = {
-          full_name: clean(values.full_name) ?? '', email: clean(values.email)?.toLowerCase() ?? null, phone: clean(values.phone), subject: clean(values.subject), user_code: clean(values.user_code),
+          full_name: clean(values.full_name) ?? '', email: clean(values.email)?.toLowerCase() ?? null, phone: clean(values.phone), user_code: clean(values.user_code),
           parent_email: clean(values.parent_email)?.toLowerCase() ?? null, gender: null, birth_date: null, class_id: null,
         };
         if (input.full_name.length < 2) errors.push('Thiếu họ tên');
         if (role === 'teacher' && !input.email) errors.push('Thiếu email');
-        if (role === 'student' && !input.user_code) errors.push('Thiếu mã học sinh');
         if (input.email && !EMAIL.test(input.email)) errors.push('Email không hợp lệ');
         if (input.parent_email && !EMAIL.test(input.parent_email)) errors.push('Email phụ huynh không hợp lệ');
         if (input.phone && !PHONE.test(input.phone)) errors.push('Số điện thoại không hợp lệ');
-        if (role === 'student') {
+        // học sinh bắt buộc có ngày sinh; giáo viên có thì kiểm tra, để trống thì bỏ qua
+        if (role === 'student' || values.birth_date) {
           if (!values.birth_date) errors.push('Thiếu ngày sinh');
           else if (!(input.birth_date = parseDate(values.birth_date))) errors.push('Ngày sinh sai định dạng (dd/mm/yyyy)');
-          if (values.gender) {
-            const g = GENDERS[searchText(values.gender)];
-            if (!g) errors.push('Giới tính phải là Nam, Nữ hoặc Khác'); else input.gender = g;
-          }
+          else if (input.birth_date > todayVn()) errors.push('Ngày sinh không được ở tương lai');
+        }
+        if (values.gender) {
+          const g = GENDERS[searchText(values.gender)];
+          if (!g || (role === 'teacher' && g === 'other')) errors.push(role === 'teacher' ? 'Giới tính phải là Nam hoặc Nữ' : 'Giới tính phải là Nam, Nữ hoặc Khác'); else input.gender = g;
         }
         let cls: ClassTarget | null = null;
         if (role === 'student' && clean(values.class_name)) {
           const found = yearId ? (await q<{ id: number }>('SELECT id FROM app_classes WHERE school_id = $1 AND year_id = $2 AND lower(name) = lower($3)', [schoolId, yearId, clean(values.class_name)]))[0] : null;
           if (!found) errors.push(`Không có lớp "${clean(values.class_name)}" trong năm học đã chọn`);
           else cls = await this.classTarget(q, schoolId, found.id).catch((e: Error) => { errors.push(e.message); return null; });
+        }
+        if(role==='teacher' && input.birth_date && !errors.length){
+          const generated=await this.teacherCode(q,schoolId,input.birth_date,input.user_code,undefined,nextTeacherSerial);
+          input.user_code=generated.code;
+          nextTeacherSerial=generated.serial+1;
         }
         const emailKey = input.email?.toLowerCase(), codeKey = input.user_code?.toLowerCase();
         if (emailKey && seenEmail.has(emailKey)) errors.push('Email trùng với dòng trước trong file');
@@ -414,6 +555,7 @@ export class AccountService {
           await this.queueAccountMail(q, user, password, school.name);
           result.status = 'created';
           result.username = user.username;
+          result.user_code = user.user_code;
           credentials.push({ row, username: user.username, password, full_name: user.full_name, email: user.email });
         }
         rows.push(result);
@@ -434,12 +576,19 @@ export class AccountService {
       if (chunk.length < 200) break;
     }
     const names = (u: { classes: unknown }) => (u.classes as Array<{ name: string }>).map((c) => c.name).join(', ');
-    const columns: Column[] = role === 'teacher'
-      ? [...TEACHER_COLUMNS.map((c) => ({ ...c, header: c.header.replace(' *', '') })), { key: 'classes_text', header: 'Lớp phụ trách', width: 26 }, { key: 'status', header: 'Trạng thái', width: 16 }]
-      : [...STUDENT_COLUMNS.map((c) => ({ ...c, header: c.header.replace(' *', '') })), { key: 'status', header: 'Trạng thái', width: 16 }];
     const rows = all.map((u) => ({
       ...u, gender: u.gender ? GENDER_LABEL[u.gender] : '', birth_date: u.birth_date ?? '', class_name: names(u), classes_text: names(u), status: u.is_active ? 'Đang hoạt động' : 'Đã khóa',
     }));
-    return buildWorkbook(role === 'teacher' ? 'Giáo viên' : 'Học sinh', columns, rows);
+    if (role === 'teacher') {
+      const school = await this.schoolNameOf(actor, f.school_id);
+      const now = new Date();
+      return buildFormSheet({
+        sheetName: 'Giáo viên', title: 'Đông A', subtitle: `Danh sách giáo viên${school ? ` · ${school}` : ''}`, meta: [{ label: 'Ngày xuất', value: vnDayLabel(now) }, { label: 'Số giáo viên', value: String(rows.length) }],
+        columns: [...TEACHER_FORM_COLUMNS.map((c) => ({ ...c, header: c.header.replace(' *', '') })), { key: 'classes_text', header: 'Lớp phụ trách', kind: 'text' as const, width: 26 }, { key: 'status', header: 'Trạng thái', kind: 'text' as const, width: 18 }],
+        rows, now,
+      });
+    }
+    const columns: Column[] = [...STUDENT_COLUMNS.map((c) => ({ ...c, header: c.header.replace(' *', '') })), { key: 'status', header: 'Trạng thái', width: 16 }];
+    return buildWorkbook('Học sinh', columns, rows);
   }
 }

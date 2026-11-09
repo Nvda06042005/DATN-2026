@@ -1,9 +1,11 @@
-import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, ServiceUnavailableException, UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, NotFoundException, ServiceUnavailableException, UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomInt, randomUUID } from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { MailService } from '../admin/mail.service';
+import { parseSchoolSlug, schoolSlug } from '../admin/school-directory';
 import { config } from '../config';
+import { currentSchoolLogo } from '../admin/school-brand';
 import { SecurityService } from './security.service';
 import { TwoFactorService } from '../platform/twofa.service';
 import { DatabaseService, Role, searchText, UserRow } from '../database/database.service';
@@ -106,7 +108,7 @@ export class AuthService {
   }
 
   /** Kiểm tra trạng thái tài khoản sau khi đã xác thực danh tính (mật khẩu hoặc Google) và chọn đúng cổng đăng nhập */
-  private async assertCanLogin(user: UserRow, username: string, portal: Portal): Promise<void> {
+  private async assertCanLogin(user: UserRow, username: string, portal: Portal, schoolCode?: string | null): Promise<void> {
     if (user.deleted_at) { await this.security.login(user, username, portal, 'deleted'); throw new ForbiddenException('Tài khoản đang ở thùng rác. Liên hệ quản trị trường để khôi phục.'); }
     if (!user.is_active) {
       await this.security.login(user, username, portal, 'locked');
@@ -114,6 +116,27 @@ export class AuthService {
     }
     if (!(await this.db.schoolActive(user.school_id))) { await this.security.login(user, username, portal, 'locked'); throw new ForbiddenException('Trường đang tạm ngưng hoạt động. Liên hệ quản trị tổng.'); }
     if (!ALLOWED[portal].includes(user.role)) { await this.security.login(user, username, portal, 'portal'); throw new ForbiddenException(wrongPortal(user.role, portal)); }
+    await this.assertSchoolLink(user, username, portal, schoolCode);
+  }
+
+  /** Đăng nhập qua đường dẫn riêng của trường: chỉ tài khoản thuộc đúng trường đó được vào (tài khoản trường khác và quản trị tổng thì không) */
+  private async assertSchoolLink(user: UserRow, username: string, portal: Portal, schoolCode?: string | null): Promise<void> {
+    if (!schoolCode) return;
+    const school = (await this.db.query<{ id: number }>('SELECT id FROM app_schools WHERE school_code = $1', [schoolCode]))[0];
+    if (school && user.school_id === school.id) return;
+    await this.security.login(user, username, portal, 'portal');
+    throw new ForbiddenException('Tài khoản này không thuộc trường của đường dẫn này. Hãy dùng đúng đường dẫn của trường bạn.');
+  }
+
+  /** Thông tin công khai tối thiểu để vẽ trang đăng nhập riêng của trường (tên, khu vực, logo); không lộ người dùng hay số liệu */
+  async schoolByLink(slug: string) {
+    const parsed = parseSchoolSlug(slug);
+    if (!parsed) throw new NotFoundException('Đường dẫn trường không đúng.');
+    const school = (await this.db.query<{ school_code: string; directory_code: string | null; name: string; region: string | null; city: string | null; logo_url: string | null; is_active: boolean }>(
+      'SELECT school_code, directory_code, name, region, city, logo_url, is_active FROM app_schools WHERE school_code = $1', [parsed.code]))[0];
+    if (!school) throw new NotFoundException('Không tìm thấy trường với đường dẫn này.');
+    const { directory_code: _reference, ...publicSchool } = currentSchoolLogo(school);
+    return { ...publicSchool, slug: schoolSlug(school) };
   }
 
   /** Ghi nhận đăng nhập thành công trong một giao dịch, rồi cấp token; phát hiện tài khoản vừa bị đổi trong lúc đăng nhập */
@@ -131,7 +154,7 @@ export class AuthService {
     return { token: this.createToken(fresh), user: toPublic(fresh) };
   }
 
-  async login(rawUsername: string, password: string, portal: Portal) {
+  async login(rawUsername: string, password: string, portal: Portal, schoolCode?: string | null) {
     const username = rawUsername.trim().toLowerCase();
     const user = await this.db.findForLogin(username);
     // Khóa theo tài khoản (không theo chuỗi gõ) để đổi qua lại giữa tên đăng nhập, email và mã không né được giới hạn
@@ -142,32 +165,32 @@ export class AuthService {
       await this.security.login(user, username, portal, 'credentials');
       throw new UnauthorizedException('Sai tên đăng nhập hoặc mật khẩu');
     }
-    await this.assertCanLogin(user, username, portal);
+    await this.assertCanLogin(user, username, portal, schoolCode);
     this.failed.delete(lockKey);
-    const second = await this.twoFactorChallenge(user, portal);
+    const second = await this.twoFactorChallenge(user, portal, schoolCode);
     if (second) return second;
     const upgraded = needsPasswordUpgrade(user.password_hash) && Buffer.byteLength(password, 'utf8') <= 72 ? await hashPassword(password) : null;
     return this.issueSession(user, username, portal, upgraded);
   }
 
   /** Mật khẩu và Google đều phải qua bước hai của tài khoản đã bật 2FA, chưa được cấp phiên. */
-  private async twoFactorChallenge(user: UserRow, portal: Portal) {
+  private async twoFactorChallenge(user: UserRow, portal: Portal, schoolCode?: string | null) {
     const second = await this.twofa.requirement(user);
     if (!second) return null;
     if (second.method === 'email') await this.twofa.sendEmailCode(user);
-    const challenge = this.jwt.sign({ sub: user.id, purpose: '2fa', portal, pfp: passwordFingerprint(user.password_hash) }, { expiresIn: '5m' });
+    const challenge = this.jwt.sign({ sub: user.id, purpose: '2fa', portal, ...(schoolCode ? { sc: schoolCode } : {}), pfp: passwordFingerprint(user.password_hash) }, { expiresIn: '5m' });
     return { two_factor: true as const, method: second.method, challenge, expires_in: 300 };
   }
 
   /** Bước 2 của đăng nhập có xác thực hai lớp: mã thử thách + mã 6 chữ số (hoặc mã dự phòng) → phiên đăng nhập */
   async completeTwoFactor(challenge: string, code: string, portal: Portal) {
     const expired = new UnauthorizedException('Phiên xác thực đã hết hạn. Hãy đăng nhập lại.');
-    let payload: { sub?: number; purpose?: string; portal?: string; pfp?: string };
+    let payload: { sub?: number; purpose?: string; portal?: string; sc?: string; pfp?: string };
     try { payload = this.jwt.verify(challenge); } catch { throw expired; }
     if (payload.purpose !== '2fa' || payload.portal !== portal || typeof payload.sub !== 'number') throw expired;
     const user = await this.db.getById(payload.sub);
     if (!user || payload.pfp !== passwordFingerprint(user.password_hash)) throw expired;
-    await this.assertCanLogin(user, user.username, portal);
+    await this.assertCanLogin(user, user.username, portal, payload.sc);
     if (!(await this.twofa.verify(user, code))) {
       await this.security.login(user, user.username, portal, 'two_factor');
       throw new UnauthorizedException('Mã xác thực không đúng hoặc đã hết hạn');
@@ -193,7 +216,7 @@ export class AuthService {
   }
 
   /** Chỉ mở tài khoản được cấp, không tạo/nâng quyền. Quản lý tổng cần email do Google quản lý (Gmail/Workspace). */
-  async googleLogin(idToken: string, portal: Portal) {
+  async googleLogin(idToken: string, portal: Portal, schoolCode?: string | null) {
     const identity = await this.verifyGoogleToken(idToken);
     const user = await this.db.findByEmail(identity.email);
     const reject = async (): Promise<never> => {
@@ -204,8 +227,8 @@ export class AuthService {
     };
     if (!user || (user.role === 'root_admin' && portal !== 'root_admin')) return reject();
     if (portal === 'root_admin' && (user.role !== 'root_admin' || !identity.authoritative)) return reject();
-    await this.assertCanLogin(user, identity.email, portal);
-    const second = await this.twoFactorChallenge(user, portal);
+    await this.assertCanLogin(user, identity.email, portal, schoolCode);
+    const second = await this.twoFactorChallenge(user, portal, schoolCode);
     if (second) return second;
     return this.issueSession(user, identity.email, portal, null);
   }
@@ -297,14 +320,15 @@ export class AuthService {
       ];
       return { user: toPublic(user), school: mockSchool, school_year: mockYear, classes: mockClasses, editable: PROFILE_FIELDS[user.role], needs_profile_confirmation: false };
     }
-    const school = user.school_id ? (await this.db.query('SELECT id, school_code, name, logo_url, city FROM app_schools WHERE id = $1', [user.school_id]))[0] ?? null : null;
+    const schoolRow = user.school_id ? (await this.db.query<{id: number; school_code: string; directory_code: string | null; name: string; logo_url: string | null; city: string | null}>('SELECT id, school_code, directory_code, name, logo_url, city FROM app_schools WHERE id = $1', [user.school_id]))[0] ?? null : null;
+    const school = schoolRow ? currentSchoolLogo(schoolRow) : null;
     const year = user.school_id ? (await this.db.query("SELECT id, label FROM app_school_years WHERE school_id = $1 AND status = 'active'", [user.school_id]))[0] ?? null : null;
     const classes = user.role === 'teacher'
-      ? await this.db.query(`SELECT c.id, c.class_code, c.name, c.grade, c.school_year, c.is_active, c.join_code FROM app_class_teachers t JOIN app_classes c ON c.id = t.class_id
+      ? await this.db.query(`SELECT c.id, c.class_code, c.name, c.grade, c.school_year, c.is_active, c.join_code FROM app_current_class_teachers t JOIN app_classes c ON c.id = t.class_id
           WHERE t.teacher_id = $1 AND c.school_id = $2 ORDER BY c.school_year DESC, c.name`, [user.id, user.school_id])
       : user.role === 'student'
         ? await this.db.query(`SELECT c.id, c.class_code, c.name, c.grade, c.school_year, c.is_active,
-            COALESCE((SELECT json_agg(u.full_name ORDER BY u.full_name) FROM app_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id), '[]'::json) AS teachers
+            COALESCE((SELECT json_agg(u.full_name ORDER BY u.full_name) FROM app_current_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id), '[]'::json) AS teachers
             FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = $1 ORDER BY c.school_year DESC, c.name`, [user.id])
         : [];
     return { user: toPublic(user), school, school_year: year, classes, editable: PROFILE_FIELDS[user.role], needs_profile_confirmation: user.role === 'student' && !user.profile_confirmed_at };

@@ -3,7 +3,7 @@
  * hết hạn, lên cấp, huy hiệu); mỗi giờ kiểm tra sao lưu hằng ngày và dọn dữ liệu cũ. Mỗi lượt ghi nhịp chạy để trang giám sát biết việc nền còn sống.
  * Máy chủ miễn phí có thể "ngủ": các việc đều có khóa chống trùng nên chạy bù khi thức dậy không gửi lặp. Tắt bằng PLATFORM_JOB=off (kiểm thử).
  */
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { BackupService } from './backup.service';
 import { ErrorLog } from './error-log';
@@ -12,7 +12,7 @@ import { SurveyService } from './survey.service';
 import { SystemService } from './system.service';
 
 @Injectable()
-export class PlatformJob implements OnModuleInit, OnModuleDestroy {
+export class PlatformJob implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger('PlatformJob');
   private timer: NodeJS.Timeout | null = null;
   private ticks = 0;
@@ -20,8 +20,10 @@ export class PlatformJob implements OnModuleInit, OnModuleDestroy {
 
   constructor(private readonly db: DatabaseService, private readonly notices: NoticeService, private readonly backups: BackupService, private readonly system: SystemService, private readonly surveys: SurveyService) {}
 
-  onModuleInit(): void {
+  async onApplicationBootstrap(): Promise<void> {
+    // Chỉ lên lịch sau khi migration và database đã sẵn sàng.
     if (process.env.PLATFORM_JOB === 'off' || !this.db.ready) return;
+    await this.step('deleted_records_retention', () => this.db.query('SELECT public.app_purge_deleted_records()'));
     this.timer = setInterval(() => void this.tick(), 60_000);
     this.timer.unref?.();
   }
@@ -47,6 +49,7 @@ export class PlatformJob implements OnModuleInit, OnModuleDestroy {
       await this.step('surveys', () => this.surveys.dispatchDue());
       if (force.automatic || this.ticks % 5 === 0) await this.step('notices_auto', () => this.notices.automatic());
       if (force.hourly || this.ticks % 60 === 1) {
+        await this.step('deleted_records_retention', () => this.db.query('SELECT public.app_purge_deleted_records()'));
         await this.step('backup', () => this.backups.autoIfDue());
         await this.step('retention', async () => {
           await this.db.query("DELETE FROM hk_error_log WHERE created_at < now() - interval '90 days'");

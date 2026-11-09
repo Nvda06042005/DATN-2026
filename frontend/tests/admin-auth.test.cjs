@@ -29,6 +29,16 @@ function loadAuth({ baseUrl = 'https://api.example.test/', respond = () => ({}) 
 const rootUser = { id: 1, username: 'test-root', full_name: 'Test Root', role: 'root_admin', must_change_password: false };
 const rootSession = { token: 'test-token', user: rootUser };
 
+test('Recent /me is reused, forced verification and 401/logout invalidate it', async () => {
+  let unauthorized = false;
+  const { auth, requests } = loadAuth({ respond: url => url.endsWith('/logout') ? { ok: true } : unauthorized ? { status: 401, body: { detail: 'Hết phiên' } } : rootUser });
+  await auth.getMe('cached-token'); await auth.getMe('cached-token');
+  assert.equal(requests.length, 1);
+  unauthorized = true; await assert.rejects(auth.getMe('cached-token', true), e => e.status === 401);
+  unauthorized = false; await auth.getMe('cached-token'); assert.equal(requests.length, 3);
+  await auth.logout('cached-token'); await auth.getMe('cached-token'); assert.equal(requests.length, 5);
+});
+
 test('Không gửi thông tin đăng nhập khi chưa cấu hình địa chỉ API', async () => {
   const { auth, requests } = loadAuth({ baseUrl: '' });
   await assert.rejects(auth.loginToPortal('test-root', 'test-password', 'root_admin'), error => error.status === 0);
@@ -121,7 +131,7 @@ test('Lựa chọn vai trò từ URL chỉ nhận ba vai trò nhà trường và
   for (const value of ['root_admin', 'admin', '', undefined]) assert.equal(portals.schoolRoleFromParam(value), 'student');
   assert.equal(portals.PORTAL_PATH.student, '/hoc-sinh');
   assert.equal(portals.PORTAL_PATH.teacher, '/giao-vien');
-  assert.equal(portals.PORTAL_PATH.school_admin, '/school-manager-admin');
+  assert.equal(portals.PORTAL_PATH.school_admin, '/portal?role=school_admin');
   assert.equal(portals.isSchoolRole('root_admin'), false);
 });
 

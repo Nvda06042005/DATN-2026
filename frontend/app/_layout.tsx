@@ -16,6 +16,7 @@ import { Newsreader_700Bold_Italic } from '@expo-google-fonts/newsreader/700Bold
 import { PALETTES } from '@/constants/theme';
 import { ReduceMotionContext, useSystemReduceMotion } from '@/hooks/use-motion';
 import { ErrorPage } from '@/components/error-page';
+import { ToastProvider } from '@/components/ui';
 import { ThemeContext } from '@/hooks/use-theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -40,7 +41,10 @@ export default function RootLayout() {
       <ReduceMotionContext.Provider value={reduceMotion}>
         <ThemeContext.Provider value={LIGHT}>
           <StatusBar style="dark" />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: PALETTES.light.giay }, animation: 'fade' }} />
+          {/* Thông báo ngắn ("Đã sao chép", "Đã lưu"…) của mọi màn hình; thiếu lớp này thì các lệnh toast() im lặng không hiện gì */}
+          <ToastProvider>
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: PALETTES.light.giay }, animation: 'fade' }} />
+          </ToastProvider>
         </ThemeContext.Provider>
       </ReduceMotionContext.Provider>
     </SafeAreaProvider>
@@ -52,7 +56,7 @@ export function ErrorBoundary({ error, retry }: { error: Error; retry: () => Pro
   return (
     <SafeAreaProvider>
       <ThemeContext.Provider value={LIGHT}>
-        <ErrorPage kind="crash" detail={error?.message} onRetry={() => { void retry(); }} />
+        <ErrorPage kind="crash" detail={error?.message} onRetry={() => { void retry(); }} reloadOnRecover />
       </ThemeContext.Provider>
     </SafeAreaProvider>
   );

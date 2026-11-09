@@ -73,6 +73,12 @@ export class AiRetrievalService {
   }
 
   private async load(): Promise<{ corpus: Corpus; rows: Map<number, Row> }> {
+    // Không dùng bộ nhớ đệm hệ thống cho dữ liệu riêng của trường.
+    if (this.db.inWorkspace) {
+      const list = await this.db.query<Row>(`SELECT c.id::int AS id,c.source_kind,c.source_id,c.title,c.content,c.embedding FROM hk_ai_chunks c
+        WHERE c.source_kind<>'doc' OR EXISTS(SELECT 1 FROM hk_ai_docs d WHERE d.id=c.source_id AND d.status<>'disabled') ORDER BY c.id`);
+      return { corpus: buildCorpus(list.map((r) => ({ id:r.id,text:`${r.title} ${r.title} ${r.content}` }))), rows:new Map(list.map((r) => [r.id,r])) };
+    }
     if (this.cache) return this.cache;
     this.loading ??= (async () => {
       let list: Row[] = [];
@@ -80,7 +86,7 @@ export class AiRetrievalService {
         try {
           list = await this.db.query<Row>(
             `SELECT c.id::int AS id, c.source_kind, c.source_id, c.title, c.content, c.embedding FROM hk_ai_chunks c
-             WHERE c.source_kind <> 'doc' OR EXISTS (SELECT 1 FROM hk_ai_docs d WHERE d.id = c.source_id AND d.status <> 'disabled') ORDER BY c.id`);
+             WHERE c.school_id IS NULL AND (c.source_kind <> 'doc' OR EXISTS (SELECT 1 FROM hk_ai_docs d WHERE d.id = c.source_id AND d.status <> 'disabled')) ORDER BY c.id`);
         } catch {
           list = [];
         }
