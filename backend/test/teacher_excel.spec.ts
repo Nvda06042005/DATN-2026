@@ -101,7 +101,7 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     expect(sheet.getCell('C8').value).toBe('Nguyễn Văn Mẫu');
     expect(sheet.getCell('G8').value).toBeInstanceOf(Date);
     expect(sheet.getCell('A9').value).toContain('15 + 03 + 1985');
-    expect(sheet.getCell('A10').value).toBe('Bạn nhập họ tên, email và chọn ngày sinh; STT và mã giáo viên tự sinh.');
+    expect(sheet.getCell('A10').value).toBe('Nhập trên bảng của website để chọn ngày sinh; nhấn Enter để sinh STT và mã.');
     expect((sheet.getRow(headerRow).values as unknown[]).slice(1)).toEqual(HEADER);
     expect(HEADER).not.toContain('Bộ môn');
     expect(sheet.views[0]).toMatchObject({ state: 'frozen', ySplit: headerRow });

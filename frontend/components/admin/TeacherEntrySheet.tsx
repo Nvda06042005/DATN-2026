@@ -21,13 +21,18 @@ export const TeacherEntrySheet:React.FC<{token:string;spec:TeacherImportSpec;onC
   const refs=useRef<Record<string,HTMLInputElement|HTMLSelectElement|null>>({});
   const numbered=numberedTeacherRows(rows,spec,today);
   const focus=(index:number,key:InputKey)=>setTimeout(()=>refs.current[`${index}-${key}`]?.focus(),0);
-  const update=(index:number,key:InputKey,value:string)=>{setRows(previous=>previous.map((row,i)=>i===index?{...row,[key]:value}:row));setError(null);};
+  const update=(index:number,key:InputKey,value:string)=>{setRows(previous=>previous.map((row,i)=>i===index?{...row,[key]:value,confirmed:false}:row));setError(null);};
   const enter=(index:number,key:InputKey)=>{
     const next=FIELDS.findIndex(field=>field.key===key)+1;
     if(next<FIELDS.length){focus(index,FIELDS[next].key);return;}
     const problem=teacherRowError(rows[index],today);
     if(problem){setError(`Dòng ${index+1}: ${problem}`);return;}
-    if(index===rows.length-1){if(rows.length>=1000){setError('Tối đa 1000 giáo viên mỗi file.');return;}setRows(previous=>[...previous,blankTeacherRow()]);}
+    setRows(previous=>{
+      const confirmed=previous.map((row,i)=>i===index?{...row,confirmed:true}:row);
+      return index===previous.length-1&&previous.length<1000?[...confirmed,blankTeacherRow()]:confirmed;
+    });
+    setError(null);
+    if(index===999)return;
     focus(index+1,'full_name');
   };
   const download=async()=>{
@@ -37,6 +42,7 @@ export const TeacherEntrySheet:React.FC<{token:string;spec:TeacherImportSpec;onC
     for(const {row,index} of selected){
       const problem=teacherRowError(row,today),email=row.email.trim().toLowerCase();
       if(problem||seen.has(email)){setError(`Dòng ${index+1}: ${problem||'Email trùng với dòng trước.'}`);return;}
+      if(!row.confirmed){setError(`Dòng ${index+1}: Nhấn Enter tại ô ngày sinh để xác nhận dòng.`);focus(index,'birth_date');return;}
       seen.add(email);
     }
     setBusy(true);setError(null);
@@ -54,15 +60,16 @@ export const TeacherEntrySheet:React.FC<{token:string;spec:TeacherImportSpec;onC
   };
   return <Sheet open wide panelStyle={compact?undefined:{maxWidth:1280}} title="Nhập danh sách giáo viên" subtitle={spec.school_name} onClose={onClose}
     footer={<View style={{flexDirection:'row',justifyContent:'flex-end',gap:10}}><Btn title="Quay lại" tone="giay" onPress={onClose} disabled={busy}/><Btn title="Tải Excel" icon={Download} tone="son" onPress={download} loading={busy} testID="teacher-entry-download"/></View>}>
-    <Txt size={14} color={c.muc2}>Chọn ngày sinh trên lịch. Nhấn Enter ở cuối dòng để sang Họ và tên dòng tiếp theo; STT và mã tự sinh.</Txt>
+    <Txt size={14} color={c.muc2}>Chọn ngày sinh trên lịch rồi nhấn Enter để sinh STT, mã và sang Họ và tên dòng tiếp theo.</Txt>
     <ErrorNote message={error}/>
     {Platform.OS==='web'?<ScrollView horizontal={!compact}>
       <View style={{gap:compact?12:5,minWidth:compact?undefined:1160,flex:1}}>
         {!compact?<View style={{flexDirection:'row',gap:8,paddingBottom:6}}><View style={{width:40}}><Txt f="bold" size={13}>STT</Txt></View><View style={{width:170}}><Txt f="bold" size={13}>Mã giáo viên</Txt></View>{FIELDS.map(field=><View key={field.key} style={{width:field.width}}><Txt f="bold" size={13}>{field.label}</Txt></View>)}</View>:null}
         {rows.map((_row,index)=><View key={index} testID={`teacher-entry-row-${index}`} style={{flexDirection:compact?'column':'row',gap:8,...(compact?{padding:12,borderWidth:1,borderColor:c.vien,borderRadius:10}:{alignItems:'center'})}}>
-          <View style={{width:compact?undefined:40}}><Txt size={13}>{compact?'STT: ':''}{numbered[index].stt??'—'}</Txt></View>
+          <View style={{width:compact?undefined:40}}><Txt size={13} testID={`teacher-entry-stt-${index}`}>{compact?'STT: ':''}{numbered[index].stt??'—'}</Txt></View>
           <View style={{width:compact?undefined:170}}><Txt size={13} f="semibold" testID={`teacher-entry-code-${index}`}>{numbered[index].code||(compact?'Mã giáo viên: —':'—')}</Txt></View>
           {FIELDS.map(field=><View key={field.key} style={{width:compact?'100%':field.width,gap:5}}>{compact?<Txt size={13} f="semibold">{field.label}</Txt>:null}{input(index,field.key)}</View>)}
+          {compact?<Btn title="Xác nhận dòng" tone="son" size="sm" disabled={busy||_row.confirmed} onPress={()=>enter(index,'birth_date')} testID={`teacher-entry-confirm-${index}`}/>:null}
           <Btn title="" label={`Xóa dòng ${index+1}`} icon={Trash2} size="sm" tone="giay" disabled={busy} onPress={()=>setRows(previous=>previous.length===1?[blankTeacherRow()]:previous.filter((_,i)=>i!==index))}/>
         </View>)}
       </View>

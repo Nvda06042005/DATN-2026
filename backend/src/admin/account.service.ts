@@ -448,7 +448,7 @@ export class AccountService {
     return buildFormSheet({
       sheetName: 'Giáo viên', title: 'Đông A', subtitle: `Mẫu nhập danh sách giáo viên${school ? ` · ${school}` : ''}`,
       meta: [{ label: 'Ngày bắt đầu nhập', value: vnDayLabel(now) }], note: 'Xem ví dụ rồi nhập danh sách bên dưới. Cột có dấu * là bắt buộc.',
-      entryNote:'Bạn nhập họ tên, email và chọn ngày sinh; STT và mã giáo viên tự sinh.',
+      entryNote:'Nhập trên bảng của website để chọn ngày sinh; nhấn Enter để sinh STT và mã.',
       completedIndex:true,
       columns: TEACHER_FORM_COLUMNS.map(c => c.key === 'user_code' && !rows ? { ...c, kind: 'teacher-code', width: 29, watch: 'full_name', birthKey: 'birth_date', codePrefix: prefix, codeOffset:offset } : c), blankRows: 1000, now,
       rows:rows?.map((row,i)=>({...row,gender:row.gender?GENDER_LABEL[row.gender]:'',user_code:`${prefix}${row.birth_date!.slice(8,10)}${row.birth_date!.slice(5,7)}${row.birth_date!.slice(0,4)}${String(offset+i+1).padStart(3,'0')}`})),
@@ -465,7 +465,7 @@ export class AccountService {
         'Mã dùng chung quy tắc với form Thêm/Sửa giáo viên trên web. Sửa ngày sinh sẽ cập nhật phần ngày sinh trong mã, giữ năm nhập và STT đã cấp; tên đăng nhập và lớp không đổi.',
         `Dãy mã nối tiếp số đã cấp trong trường (mẫu này bắt đầu từ ${String(offset+1).padStart(3,'0')}). Khi nhiều người thêm cùng lúc, số chính thức được chốt lúc lưu; xem mã ở kết quả và danh sách giáo viên.`,
         'Giới tính: bấm vào ô rồi chọn Nam hoặc Nữ trong danh sách.',
-        'Để chọn ngày bằng lịch: trên website, mở Nhập từ Excel rồi chọn Nhập trên bảng. Nhấn Enter ở ô ngày sinh để sang Họ và tên dòng tiếp theo, sau đó tải file Excel.',
+        'Để chọn ngày bằng lịch: trên website, mở Nhập từ Excel rồi chọn Nhập trên bảng. Nhấn Enter ở ô ngày sinh để sinh STT, mã và sang Họ và tên dòng tiếp theo, sau đó tải file Excel.',
         'Email phải khác nhau và chưa dùng cho tài khoản nào khác. Hệ thống sinh mật khẩu tạm và gửi vào email này; giáo viên đổi mật khẩu ở lần đăng nhập đầu tiên.',
         'File .xlsx không chứa lịch tùy chỉnh hay điều khiển phím Enter trong WPS. Dùng bảng nhập trên website để thực hiện các thao tác này. SĐT giữ nguyên số 0 đầu.',
         `Giữ đúng tên file ${teacherTemplateFilename(school??'truong')}. File khác tên sẽ không được nhận khi import.`,

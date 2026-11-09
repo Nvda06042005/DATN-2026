@@ -177,7 +177,7 @@ export function schoolInitials(name: string): string {
 
 export function teacherTemplateFilename(name:string):string {
   const school=normHeader(name).replace(/^(truong\s+)?(trung hoc co so|trung hoc pho thong|tieu hoc|thcs|thpt|th)(\s+|$)/,'').replace(/\s+/g,'-');
-  return `file_mau_giao-vien_${school||'truong'}.xlsx`;
+  return `file_mau_giao-vien_truong_${school||'chua-dat-ten'}.xlsx`;
 }
 
 const completedIndexFormula=(name:string,email:string,birth:string,first:number):string=>{

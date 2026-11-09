@@ -1,7 +1,7 @@
 import type { TeacherDraftRow, TeacherImportSpec } from '@/api/adminApi';
-export type TeacherEntryRow={full_name:string;gender:string;phone:string;email:string;birth_date:string};
-export const blankTeacherRow=():TeacherEntryRow=>({full_name:'',gender:'',phone:'',email:'',birth_date:''});
-export const hasTeacherInput=(row:TeacherEntryRow)=>Object.values(row).some(value=>value.trim());
+export type TeacherEntryRow={full_name:string;gender:string;phone:string;email:string;birth_date:string;confirmed:boolean};
+export const blankTeacherRow=():TeacherEntryRow=>({full_name:'',gender:'',phone:'',email:'',birth_date:'',confirmed:false});
+export const hasTeacherInput=(row:TeacherEntryRow)=>[row.full_name,row.gender,row.phone,row.email,row.birth_date].some(value=>value.trim());
 export function teacherRowError(row:TeacherEntryRow,today:string):string|null {
   if(row.full_name.trim().length<2) return 'Nhập họ và tên.';
   if(!/^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/.test(row.email.trim())) return 'Nhập email hợp lệ.';
@@ -12,7 +12,7 @@ export function teacherRowError(row:TeacherEntryRow,today:string):string|null {
 export function numberedTeacherRows(rows:TeacherEntryRow[],spec:TeacherImportSpec,today:string){
   let count=0;
   return rows.map(row=>{
-    if(teacherRowError(row,today)) return {stt:null,code:''};
+    if(!row.confirmed||teacherRowError(row,today)) return {stt:null,code:''};
     const stt=++count,born=row.birth_date;
     return {stt,code:`${spec.prefix}${born.slice(8,10)}${born.slice(5,7)}${born.slice(0,4)}${String(spec.next_serial+stt-1).padStart(3,'0')}`};
   });
