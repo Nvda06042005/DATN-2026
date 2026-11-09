@@ -159,7 +159,6 @@ export function SchoolLogin({ initialRole, onLogin, notice, onForgotPassword, sc
               bio: targetRole === 'teacher' ? 'Giáo viên bộ môn Lịch sử' : 'Yêu thích lịch sử',
               nickname: null,
               gender: null,
-              subject: targetRole === 'teacher' ? 'Lịch sử' : null,
               parent_email: null,
               lock_reason: null,
               locked_at: null,

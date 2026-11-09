@@ -67,7 +67,6 @@ export class AuthGuard implements CanActivate {
         bio: 'Giáo viên bộ môn Lịch sử',
         nickname: null,
         gender: null,
-        subject: role === 'teacher' ? 'Lịch sử' : null,
         parent_email: null,
         lock_reason: null,
         locked_at: null,
