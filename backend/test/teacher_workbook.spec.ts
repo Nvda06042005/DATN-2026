@@ -3,15 +3,15 @@ import {teacherTemplateFilename} from '../src/admin/excel';
 
 describe('Tên file mẫu theo trường',()=>{
   test('bỏ cấp học, dấu và khoảng trắng; giữ đúng tên trường',()=>{
-    expect(teacherTemplateFilename('THCS Giồng Ông Tố')).toBe('file_mau_giao-vien_truong_giong-ong-to.xlsx');
-    expect(teacherTemplateFilename('Trường Trung học cơ sở Nguyễn Văn Quy')).toBe('file_mau_giao-vien_truong_nguyen-van-quy.xlsx');
+    expect(teacherTemplateFilename('THCS Giồng Ông Tố')).toBe('file_mau_giao-vien_truong_giong-ong-to.xlsm');
+    expect(teacherTemplateFilename('Trường Trung học cơ sở Nguyễn Văn Quy')).toBe('file_mau_giao-vien_truong_nguyen-van-quy.xlsm');
   });
 });
 (hasPostgres()?describe:describe.skip)('Bảng nhập có lịch và file Excel giáo viên',()=>{
   let s:Started,root:string,A:{id:number;token:string},B:{id:number;token:string},workbook:Buffer;
   const row={full_name:'Giáo viên Từ Bảng',email:'draft@example.invalid',birth_date:'1985-03-15',gender:'female',phone:'0901234567'};
   const api=(method:string,path:string,body?:unknown,token?:string)=>call(s.base,method,path,body,token??A.token);
-  const xlsx=async(rows:unknown[],token=A.token)=>fetch(s.base+'/api/admin/teachers/workbook',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({rows})});
+
   beforeAll(async()=>{
     s=await startApp('teacher_workbook_test');root=await adminLogin(s.base);
     const school=async(name:string,email:string)=>{
@@ -24,27 +24,25 @@ describe('Tên file mẫu theo trường',()=>{
   afterAll(async()=>{await s?.close();});
   test('quy tắc file đúng trường, endpoint được bảo vệ',async()=>{
     const spec=await api('GET','/api/admin/teachers/import-spec');expect(spec.status).toBe(200);
-    expect(spec.body).toMatchObject({filename:'file_mau_giao-vien_truong_giong-ong-to.xlsx',prefix:'GOT26',next_serial:1});
-    expect((await api('GET','/api/admin/teachers/import-spec',undefined,B.token)).body.filename).toBe('file_mau_giao-vien_truong_phu-my.xlsx');
+    expect(spec.body).toMatchObject({filename:'file_mau_giao-vien_truong_giong-ong-to.xlsm',prefix:'GOT26',next_serial:1});
+    expect((await api('GET','/api/admin/teachers/import-spec',undefined,B.token)).body.filename).toBe('file_mau_giao-vien_truong_phu-my.xlsm');
     expect((await api('GET',`/api/admin/teachers/import-spec?school_id=${B.id}`)).status).toBe(403);
     expect((await call(s.base,'GET','/api/admin/teachers/import-spec')).status).toBe(401);
     const file=await fetch(s.base+'/api/admin/teachers/template',{headers:{Authorization:`Bearer ${A.token}`}});
-    expect(file.headers.get('content-disposition')).toContain('file_mau_giao-vien_truong_giong-ong-to.xlsx');
+    expect(file.headers.get('content-disposition')).toContain('file_mau_giao-vien_truong_giong-ong-to.xlsm');
   });
-  test('tạo workbook có STT/mã/ngày kiểu Date và không lưu tài khoản, không gửi thư, không giữ số',async()=>{
+  test('mẫu Excel có VBA lịch, STT/mã trống trước Enter; không tạo tài khoản hoặc giữ số',async()=>{
     const before=await sql(s.url,'SELECT (SELECT count(*)::int FROM app_users) AS users,(SELECT count(*)::int FROM app_email_outbox) AS mail');
-    const res=await xlsx([row]);expect(res.status).toBe(200);expect(res.headers.get('content-disposition')).toContain('file_mau_giao-vien_truong_giong-ong-to.xlsx');
-    workbook=Buffer.from(await res.arrayBuffer());const wb=new (await import('exceljs')).Workbook();await wb.xlsx.load(workbook as any);
-    const sheet=wb.getWorksheet('Giáo viên')!;expect(sheet.getCell('A12').value).toBe(1);expect(sheet.getCell('B12').value).toBe('GOT2615031985001');expect(sheet.getCell('G12').value).toBeInstanceOf(Date);
-    expect(await sql(s.url,'SELECT (SELECT count(*)::int FROM app_users) AS users,(SELECT count(*)::int FROM app_email_outbox) AS mail')).toEqual(before);
-    expect((await api('GET','/api/admin/teachers/import-spec')).body.next_serial).toBe(1);
-    expect((await xlsx([{...row,birth_date:'1985-02-31'}])).status).toBe(422);
-    expect((await xlsx([row,{...row,full_name:'Trùng Email'}])).status).toBe(422);
-    expect((await xlsx([])).status).toBe(400);
+    const res=await fetch(s.base+'/api/admin/teachers/template',{headers:{Authorization:`Bearer ${A.token}`}});expect(res.status).toBe(200);expect(res.headers.get('content-type')).toContain('macroEnabled');
+    workbook=Buffer.from(await res.arrayBuffer());const zip=await(await import('jszip')).default.loadAsync(workbook);expect(zip.file('xl/vbaProject.bin')).toBeTruthy();expect(await zip.file('xl/workbook.xml')!.async('string')).toContain('DongAPrefix');
+    const wb=new(await import('exceljs')).Workbook();await wb.xlsx.load(workbook as any);const sheet=wb.getWorksheet('Giáo viên')!;expect(sheet.getCell('A12').text).toBe('');expect(sheet.getCell('B12').text).toBe('');
+    sheet.getCell('A12').value=1;sheet.getCell('B12').value='GOT2615031985001';sheet.getCell('C12').value=row.full_name;sheet.getCell('D12').value='Nữ';sheet.getCell('E12').value=row.phone;sheet.getCell('F12').value=row.email;sheet.getCell('G12').value=new Date(row.birth_date);workbook=Buffer.from(await wb.xlsx.writeBuffer());
+    expect(await sql(s.url,'SELECT (SELECT count(*)::int FROM app_users) AS users,(SELECT count(*)::int FROM app_email_outbox) AS mail')).toEqual(before);expect((await api('GET','/api/admin/teachers/import-spec')).body.next_serial).toBe(1);
+    expect((await api('POST','/api/admin/teachers/workbook',{rows:[row]})).status).toBe(404);
   });
   test('sai tên, file tải trùng (1), file trường khác đều bị chặn ở preview và commit; đúng tên mới nhập',async()=>{
-    const expected='file_mau_giao-vien_truong_giong-ong-to.xlsx';
-    for(const name of ['mau-giao-vien.xlsx','file_mau_giao-vien_truong_giong-ong-to (1).xlsx','file_mau_giao-vien_truong_phu-my.xlsx']){
+    const expected='file_mau_giao-vien_truong_giong-ong-to.xlsm';
+    for(const name of ['mau-giao-vien.xlsm','file_mau_giao-vien_truong_giong-ong-to (1).xlsm','file_mau_giao-vien_truong_phu-my.xlsm']){
       for(const mode of ['', '?commit=true']){const r=await upload(s.base,'/api/admin/teachers/import'+mode,name,workbook,A.token);expect(r.status).toBe(400);expect(r.body.detail).toContain(`Chỉ nhận ${expected}`);}
     }
     const preview=await upload(s.base,'/api/admin/teachers/import',expected,workbook,A.token);expect(preview.status).toBe(200);expect(preview.body.valid).toBe(1);expect(preview.body.created).toBe(0);

@@ -8,6 +8,7 @@ import { AccountService } from './account.service';
 import { ClassService } from './class.service';
 import { UploadedXlsx, XLSX_MIME, XLSX_UPLOAD } from './excel';
 import { MailService } from './mail.service';
+import {withEntryMacros,XLSM_MIME} from './entry-macros';
 import { SchoolService } from './school.service';
 
 /** "  Đặng   Thu  Hà " -> "Đặng Thu Hà" */
@@ -145,17 +146,6 @@ class CreateMemberDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) class_id?: number | null;
 }
 
-class TeacherDraftRowDto {
-  @Transform(squash) @IsString() @Length(2,80) full_name:string;
-  @IsEmail() @MaxLength(254) email:string;
-  @IsOptional() @Matches(PHONE,{message:PHONE_MESSAGE}) phone?:string|null;
-  @Matches(DATE,{message:'Ngày sinh có dạng YYYY-MM-DD'}) birth_date:string;
-  @IsOptional() @IsIn(['male','female']) gender?:'male'|'female'|null;
-}
-class TeacherWorkbookDto {
-  @IsArray() @ArrayMaxSize(1000) @ValidateNested({each:true}) @Type(()=>TeacherDraftRowDto) rows:TeacherDraftRowDto[];
-}
-
 class UpdateUserDto {
   @IsOptional() @Transform(squash) @IsString() @Length(2, 80) full_name?: string;
   @IsOptional() @IsEmail() @MaxLength(254) email?: string | null;
@@ -250,7 +240,7 @@ class SecurityQuery extends Page {
   @IsOptional() @IsIn(['true', 'false']) success?: 'true' | 'false';
 }
 
-const download = (buffer: Buffer, name: string) => new StreamableFile(buffer, { type: XLSX_MIME, disposition: `attachment; filename="${name}"` });
+const download = (buffer: Buffer, name: string) => new StreamableFile(buffer, { type: name.endsWith('.xlsm')?XLSM_MIME:XLSX_MIME, disposition: `attachment; filename="${name}"` });
 
 /**
  * /api/admin – hai cấp quản trị độc lập: quản trị tổng (toàn hệ thống) và quản trị trường (chỉ trường ghi trong token; truy vấn chạy dưới
@@ -382,19 +372,12 @@ export class AdminController {
   @Header('Cache-Control','no-store')
   async teacherTemplate(@CurrentUser() user: UserRow, @Query() query: SchoolScope) {
     const spec=await this.accounts.teacherImportSpec(user,query.school_id);
-    return download(await this.accounts.teacherTemplate(user, query.school_id),spec.filename);
+    return download(await withEntryMacros(await this.accounts.teacherTemplate(user,query.school_id),'teachers',spec.prefix,spec.next_serial-1),spec.filename);
   }
 
   @Get('teachers/import-spec')
   @Header('Cache-Control','no-store')
   teacherImportSpec(@CurrentUser() user:UserRow,@Query() query:SchoolScope){return this.accounts.teacherImportSpec(user,query.school_id);}
-
-  @Post('teachers/workbook')
-  @HttpCode(200)
-  async teacherWorkbook(@CurrentUser() user:UserRow,@Query() query:SchoolScope,@Body() body:TeacherWorkbookDto){
-    const spec=await this.accounts.teacherImportSpec(user,query.school_id);
-    return download(await this.accounts.teacherWorkbook(user,body.rows,query.school_id),spec.filename);
-  }
 
   @Get('teachers/export')
   async exportTeachers(@CurrentUser() user: UserRow, @Query() query: UserQuery) { return download(await this.accounts.exportMembers(user, 'teacher', query), 'danh-sach-giao-vien.xlsx'); }
@@ -413,7 +396,14 @@ export class AdminController {
   createStudent(@CurrentUser() user: UserRow, @Body() body: CreateMemberDto) { return this.accounts.createMember(user, 'student', body); }
 
   @Get('students/template')
-  async studentTemplate() { return download(await this.accounts.template('students'), 'mau-hoc-sinh.xlsx'); }
+  @Header('Cache-Control','no-store')
+  async studentTemplate(@CurrentUser() user:UserRow,@Query() query:SchoolScope){
+    const spec=await this.accounts.studentImportSpec(user,query.school_id);
+    return download(await withEntryMacros(await this.accounts.studentTemplate(user,query.school_id),'students',spec.prefix,spec.next_serial-1),spec.filename);
+  }
+  @Get('students/import-spec')
+  @Header('Cache-Control','no-store')
+  studentImportSpec(@CurrentUser() user:UserRow,@Query() query:SchoolScope){return this.accounts.studentImportSpec(user,query.school_id);}
 
   @Get('students/export')
   async exportStudents(@CurrentUser() user: UserRow, @Query() query: UserQuery) { return download(await this.accounts.exportMembers(user, 'student', query), 'danh-sach-hoc-sinh.xlsx'); }
@@ -435,6 +425,8 @@ export class AdminController {
   @Post('teacher-change-requests/:id/decision')
   @HttpCode(200)
   teacherChangeDecision(@CurrentUser() user:UserRow,@Param('id',ParseIntPipe) id:number,@Body() body:TeacherChangeDecisionDto){return this.classes.decideTeacherChange(user,id,body.decision,body.note);}
+
+  /** Xem trước mã giáo viên/học sinh theo ngày sinh (cùng công thức với mẫu Excel) cho biểu mẫu thêm từng người */
 
   @Get('registration-code/:kind')
   @Header('Cache-Control', 'no-store')

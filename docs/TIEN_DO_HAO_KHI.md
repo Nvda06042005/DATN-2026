@@ -925,3 +925,7 @@ Theo yêu cầu đổi mã GV ở form Thêm/Sửa sang cấu trúc `GOT26150319
 ## Nhập giáo viên bằng bảng có lịch và mẫu theo tên trường — 09/11/2026
 
 Theo lựa chọn giữ .xlsx: thêm bảng nhập trên web có lịch ngày sinh và Enter cuối dòng về ô Họ và tên dòng tiếp theo; STT/mã trên bảng web chỉ hiện sau Enter xác nhận dòng đủ thông tin; sửa dữ liệu cần xác nhận lại. File mẫu/đã điền được tải với tên file_mau_giao-vien_truong_<tên-trường>.xlsx, tên chính xác bắt buộc ở client và API preview/commit. Rút gọn hướng dẫn trong hộp nhập và dòng mô tả đầu bảng Excel, bỏ STT đánh sẵn 1–1000. Tải workbook không tạo tài khoản/gửi email; chỉ xác nhận nhập mới tạo tài khoản. Không đổi schema 056. Chi tiết: docs/MA_GIAO_VIEN.md.
+
+## Học sinh dùng chung quy trình nhập với giáo viên — 09/11/2026
+
+Mở rộng bảng nhập có lịch và Enter xác nhận sang Học sinh; bảy cột cùng bố cục giáo viên, email học sinh giữ tùy chọn. File đúng tên file_mau_hoc-sinh_truong_<tên-trường>.xlsx, kiểm tra ở client và API. Mã HS + viết tắt trường + năm nhập + ngày sinh + STT do máy chủ cấp trong giao dịch; migration 057 giữ dữ liệu và dãy số riêng giáo viên. Xem docs/MA_HOC_SINH.md.

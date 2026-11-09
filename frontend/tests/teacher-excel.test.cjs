@@ -39,7 +39,7 @@ test('chặn ngay file sai loại hoặc quá lớn, không phân biệt hoa th�
 
 test('hộp nhập Excel: câu báo trước ở chỗ nút Chọn file, kiểm tra file ngay sau khi chọn, báo danh sách đã tự cập nhật', () => {
   const kit = read('components', 'admin', 'kit.tsx');
-  assert.match(kit, /import \{ acceptNote, checkPickedFile, checkTemplateFilename \} from '@\/lib\/upload-rules';/);
+  assert.match(kit, /import \{ acceptNote, checkPickedFile, checkTemplateFilename, XLSM_MIME \} from '@\/lib\/upload-rules';/);
   assert.match(kit, /testID="import-accept-note"[\s\S]*?\{acceptNote\(types\)\}/);
   assert.match(kit, /const wrong = checkPickedFile\(picked, types\);\s+if \(wrong\) \{ setFile\(null\); setError\(wrong\); return; \}/);
   // câu báo nằm trước nút "Chọn file"
@@ -59,7 +59,7 @@ test('trang Giáo viên: hai cách thêm, biểu mẫu cùng cột với file m�
   assert.doesNotMatch(people, /bộ môn|Bộ môn|subject/);
   assert.match(people, /TeacherImportSheet session=\{session\}/);
   const importer=read('components','admin','TeacherImportSheet.tsx');
-  assert.match(importer, /Chỉ nhận đúng file mẫu của trường\. Nhập trên bảng để chọn ngày sinh và tự sinh mã\./);
+  assert.match(importer, /Chỉ nhận đúng file mẫu của trường\. Chọn ngày sinh trong Excel để tự sinh mã\./);
   const sheet = read('components', 'admin', 'AccountSheet.tsx');
   assert.match(sheet, /u\.role === 'student' \|\| u\.role === 'teacher' \? \['Ngày sinh', u\.birth_date\]/);
   assert.match(sheet, /birth_date: v\.birth_date \|\| null, gender: v\.gender \|\| null/);
@@ -71,7 +71,8 @@ test('trang Giáo viên: hai cách thêm, biểu mẫu cùng cột với file m�
 
 test('bảng danh sách giáo viên cùng cột với file Excel: Số thứ tự, Mã giáo viên, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh, rồi Lớp phụ trách và Trạng thái', () => {
   const people = read('components', 'admin', 'SchoolPeople.tsx');
-  const table = people.slice(people.indexOf('columns={teacher ? ['), people.search(/\] : \[\s*\{ key: 'code', label: 'Mã'/));
+  const tableStart=people.indexOf('columns={teacher ? [');
+  const table = people.slice(tableStart, people.indexOf('] : [',tableStart));
   const labels = [...table.matchAll(/label: '([^']+)'/g)].map((m) => m[1]);
   assert.deepEqual(labels, ['Số thứ tự', 'Mã giáo viên', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh', 'Lớp phụ trách', 'Trạng thái']);
   // số thứ tự nối tiếp qua các trang; ngày sinh hiện dd/mm/yyyy như trong Excel; chỉ còn bộ lọc Trạng thái

@@ -12,8 +12,9 @@ import { bootstrap, Fixture } from './fixture';
     const t=await api('POST','/api/admin/teachers',{full_name:'Giáo viên mã tự động',email:'auto-code@example.invalid',birth_date:'1985-03-15'});
     expect(t.status).toBe(201);expect(t.body.user.user_code).toBe(first.body.code);
     expect((await api('PATCH',`/api/admin/users/${t.body.user.id}`,{full_name:'Giáo viên sửa tên'})).body.user_code).toBe(first.body.code);
+    const studentPreview=(await api('GET','/api/admin/registration-code/student?birth_date=2013-03-15')).body.code;
     const st=await api('POST','/api/admin/students',{full_name:'Học sinh mã tự động',birth_date:'2013-03-15'});
-    expect(st.status).toBe(201);expect(st.body.user.user_code).toMatch(/^HS\d{8}$/);
+    expect(st.status).toBe(201);expect(st.body.user.user_code).toBe(studentPreview); // HS + viết tắt trường + năm + ngày sinh + STT, giống mẫu Excel học sinh
     expect((await api('GET','/api/admin/registration-code/student',undefined,f.S1.token)).status).toBe(403);
     expect((await api('GET','/api/admin/registration-code/invalid')).status).toBe(400);
   });

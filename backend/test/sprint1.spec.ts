@@ -136,10 +136,10 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     const created = await api('POST', '/api/admin/students', { user_code: 'HS7001', full_name: 'Lê Thị Đăng Nhập', birth_date: '2013-04-02', gender: 'female', email: 'dangnhap@example.edu.vn' }, a.token);
     expect(created.status).toBe(201);
     const { username } = created.body.user, temp = created.body.temporary_password;
-    for (const who of [username, 'DangNhap@Example.edu.vn', ' hs7001 ']) expect([(await login(who, temp, 'student')).status, who]).toEqual([200, who]);
-    const ids = [username, 'dangnhap@example.edu.vn', 'HS7001', username, 'dangnhap@example.edu.vn'];
+    for (const who of [username, 'DangNhap@Example.edu.vn', ` ${created.body.user.user_code.toLowerCase()} `]) expect([(await login(who, temp, 'student')).status, who]).toEqual([200, who]);
+    const ids = [username,'dangnhap@example.edu.vn',created.body.user.user_code, username, 'dangnhap@example.edu.vn'];
     for (const id of ids) expect((await login(id, 'sai-mat-khau1', 'student')).status).toBe(401);
-    const locked = await login('hs7001', temp, 'student');
+    const locked = await login(created.body.user.user_code.toLowerCase(),temp,'student');
     expect(locked.status).toBe(429);
     expect(locked.body.detail).toMatch(/^Sai quá nhiều lần\. Thử lại sau (14|15) phút\.$/);
     expect((await login(a.admin.username, PW, 'school_admin')).status).toBe(200);

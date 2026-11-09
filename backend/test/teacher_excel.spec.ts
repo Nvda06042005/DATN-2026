@@ -5,10 +5,21 @@
  */
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { activate, adminLogin, call, download, hasPostgres, sql, Started, startApp, upload } from './harness';
+import { activate, adminLogin, call, download as actualDownload, hasPostgres, sql, Started, startApp, upload } from './harness';
 import { brandLogo, BRAND_LOGO_SIZE, buildFormSheet, schoolInitials, vnDayLabel } from '../src/admin/excel';
 
 const LOGO_FILE = join(__dirname, '..', 'assets', 'brand', 'dong-a-edu-lockup.png');
+// Test legacy .xlsx formula compatibility internally; macro template delivery is covered in teacher_workbook.spec.
+async function download(base:string,path:string,token:string){
+ if(path==='/api/admin/teachers/template'){
+  const actor=(await call(base,'GET','/api/auth/me',undefined,token)).body;
+  // Filled below by this suite after startApp.
+  return {status:200,buffer:await teacherAccounts!.teacherTemplate(actor),type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'};
+ }
+ return actualDownload(base,path,token);
+}
+let teacherAccounts:import('../src/admin/account.service').AccountService;
+
 
 describe('Logo ở đầu file Excel', () => {
   const spec = { sheetName: 'Thử', title: 'Đông A', subtitle: 'Phụ đề', meta: [{ label: 'Ngày', value: 'x' }], columns: [{ key: 'a', header: 'Cột A', kind: 'text' as const }], blankRows: 2 };
@@ -73,7 +84,7 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
   }
 
   beforeAll(async () => {
-    s = await startApp('teacher_excel_test');
+    s = await startApp('teacher_excel_test'); teacherAccounts=s.moduleRef.get((await import('../src/admin/account.service')).AccountService);
     root = await adminLogin(s.base);
     A = await school('THCS Mẫu Excel', 'qt.excel.a@example.edu.vn');
     B = await school('THCS Trường Khác', 'qt.excel.b@example.edu.vn');
@@ -101,7 +112,7 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     expect(sheet.getCell('C8').value).toBe('Nguyễn Văn Mẫu');
     expect(sheet.getCell('G8').value).toBeInstanceOf(Date);
     expect(sheet.getCell('A9').value).toContain('15 + 03 + 1985');
-    expect(sheet.getCell('A10').value).toBe('Nhập trên bảng của website để chọn ngày sinh; nhấn Enter để sinh STT và mã.');
+    expect(sheet.getCell('A10').value).toBe('Chọn ngày sinh trên lịch trong Excel; nhấn Enter để sinh STT và mã.');
     expect((sheet.getRow(headerRow).values as unknown[]).slice(1)).toEqual(HEADER);
     expect(HEADER).not.toContain('Bộ môn');
     expect(sheet.views[0]).toMatchObject({ state: 'frozen', ySplit: headerRow });
@@ -120,7 +131,7 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     const guide = wb.getWorksheet('Hướng dẫn')!;
     const lines: string[] = [];
     guide.eachRow((row) => lines.push(String(row.getCell(1).value ?? '')));
-    expect(lines.join('\n')).toContain('Chỉ nhận file Excel .xlsx');
+    expect(lines.join('\n')).toContain('Nhận đúng tên mẫu .xlsm');
     expect(lines.join('\n')).toContain('không có cột Bộ môn');
     expect(lines.join('\n')).toContain('GOT2615031985001');
     // tải lại lần nữa ở trường khác: tên trường đổi theo trường của người tải
@@ -166,6 +177,44 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     const repeated = await upload(s.base, '/api/admin/teachers/import', await teacherFileName(), buffer, A.token);
     expect(repeated.body.errors).toBe(2);
     expect(repeated.body.rows.every((r:{errors:string[]})=>r.errors.some(e=>/đã được dùng|trùng/.test(e)))).toBe(true);
+  });
+
+  test('file đã lưu bằng Excel thật (công thức điền xuống được lưu dạng dùng chung) vẫn đọc ra đúng mã, giống file chưa gộp công thức', async () => {
+    const template = (await download(s.base, '/api/admin/teachers/template', A.token)).buffer;
+    const wb = await open(template), sheet = wb.getWorksheet('Giáo viên')!;
+    let first = 0;
+    sheet.eachRow((row, n) => { if (!first && (row.values as unknown[]).includes('Họ và tên *')) first = n + 1; });
+    for (const [n, name, email] of [[first, 'Dùng Chung Một', 'dung.chung.1@example.edu.vn'], [first + 2, 'Dùng Chung Hai', 'dung.chung.2@example.edu.vn']] as const) {
+      sheet.getCell(n, 3).value = name; sheet.getCell(n, 6).value = email; sheet.getCell(n, 7).value = new Date('1991-08-20T00:00:00.000Z');
+    }
+    const plain = Buffer.from(await wb.xlsx.writeBuffer());
+    // Excel gộp các công thức giống nhau của một cột thành "công thức dùng chung": ô gốc giữ chữ công thức, các ô con chỉ trỏ về ô gốc
+    const JSZip = (await import('jszip')).default;
+    const zip = await JSZip.loadAsync(plain);
+    const entry = 'xl/worksheets/sheet1.xml';
+    let xml = await zip.file(entry)!.async('string');
+    let si = 0;
+    for (const col of ['A', 'B']) {
+      let rows = 0;
+      xml = xml.replace(new RegExp(`<c r="${col}(\\d+)"([^>]*)><f>([^<]*)</f>`, 'g'), (whole, row: string, attrs: string, formula: string) => {
+        if (Number(row) < first) return whole;
+        rows += 1;
+        return rows === 1 ? `<c r="${col}${row}"${attrs}><f t="shared" ref="${col}${first}:${col}${first + 999}" si="${si}">${formula}</f>` : `<c r="${col}${row}"${attrs}><f t="shared" si="${si}"/>`;
+      });
+      expect(rows).toBe(1000);
+      si += 1;
+    }
+    zip.file(entry, xml);
+    const shared = Buffer.from(await zip.generateAsync({ type: 'nodebuffer' }));
+    expect(((await open(shared)).getWorksheet('Giáo viên')!.getCell(first + 2, 2).value as { sharedFormula?: string }).sharedFormula).toBe(`B${first}`);
+    const control = await upload(s.base, '/api/admin/teachers/import', await teacherFileName(), plain, A.token);
+    const preview = await upload(s.base, '/api/admin/teachers/import', await teacherFileName(), shared, A.token);
+    expect(preview.status).toBe(200);
+    const codes = preview.body.rows.map((r: { user_code: string }) => r.user_code);
+    const prefix = 'ME' + vnDayLabel().slice(8, 10) + '20081991';
+    expect(codes).toHaveLength(2);
+    expect(codes.every((c: string) => c.startsWith(prefix))).toBe(true); // máy chủ tự cấp lại mã giáo viên từ bộ đếm của trường nên tiền tố luôn đúng
+    expect(codes).toEqual(control.body.rows.map((r: { user_code: string }) => r.user_code)); // giống hệt khi không dùng công thức dùng chung
   });
 
   test('mã tự đổi tiền tố theo trường; ngày sinh dạng chữ dd/mm/yyyy hoặc ISO vẫn nhập đúng, ngày không tồn tại bị chặn', async () => {

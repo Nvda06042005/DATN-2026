@@ -14,7 +14,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { copyText } from '@/lib/clipboard';
 import { DEFAULT_PAGE_SIZE, getPageSize, PAGE_SIZES, pageWindow, setPageSize, subscribePageSize, TABLE_MIN_WIDTH } from '@/lib/paging';
 import { splitTitle } from '@/lib/title-split';
-import { acceptNote, checkPickedFile, checkTemplateFilename } from '@/lib/upload-rules';
+import { acceptNote, checkPickedFile, checkTemplateFilename, XLSM_MIME } from '@/lib/upload-rules';
 import type { ImportResult } from '@/types/api';
 
 // ---------------------------------------------------------------------- tải dữ liệu
@@ -593,12 +593,13 @@ export const DownloadButton: React.FC<{ title: string; fetchBlob: () => Promise<
 const XLSX_TYPES = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
 
 export const ImportSheet: React.FC<{
-  title: string; hint: string; template?: { fetchBlob: () => Promise<Blob>; filename: string }; types?: string[]; expectedFilename?:string; actions?:React.ReactNode;
+  title: string; hint: string; template?: { fetchBlob: () => Promise<Blob>; filename: string }; types?: string[]; expectedFilename?:string; legacyFilename?:string; acceptMacro?:boolean;
   run: (file: PickedFile, commit: boolean) => Promise<ImportResult | { committed: boolean; total: number; errors: number; created: number; updated: number; report: Array<{ entity: string; slug: string; action: string; message?: string }> }>;
   onClose: () => void; onDone: () => void;
-}> = ({ title, hint, template, types = XLSX_TYPES, expectedFilename, actions, run, onClose, onDone }) => {
+}> = ({ title, hint, template, types: baseTypes = XLSX_TYPES, expectedFilename, legacyFilename, acceptMacro=false, run, onClose, onDone }) => {
   const { c } = useTheme();
   const toast = useToast();
+  const types=acceptMacro?[...XLSX_TYPES,XLSM_MIME]:baseTypes;
   const [file, setFile] = useState<PickedFile | null>(null);
   const [result, setResult] = useState<Awaited<ReturnType<typeof run>> | null>(null);
   const [busy, setBusy] = useState(false);
@@ -625,7 +626,7 @@ export const ImportSheet: React.FC<{
     setResult(null);
     const wrong = checkPickedFile(picked, types);
     if (wrong) { setFile(null); setError(wrong); return; }
-    const wrongName=checkTemplateFilename(picked.name,expectedFilename);
+    const wrongName=checkTemplateFilename(picked.name,expectedFilename,legacyFilename);
     if(wrongName){setFile(null);setError(wrongName);return;}
     setFile(picked);
     await go(false, picked);
@@ -655,7 +656,6 @@ export const ImportSheet: React.FC<{
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {template ? <DownloadButton title="Tải file mẫu" fetchBlob={template.fetchBlob} filename={template.filename} /> : null}
-        {actions}
         <Btn title={file ? `Chọn file khác (${file.name})` : 'Chọn file'} icon={FileUp} tone="giay" size="sm" onPress={choose} disabled={busy || committed} testID="import-choose" />
       </View>
       <ErrorNote message={error} />

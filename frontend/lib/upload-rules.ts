@@ -1,27 +1,29 @@
 /**
  * Quy tắc file tải lên ở hộp "Nhập từ Excel": báo cho người dùng biết trước chỉ nhận loại file nào, và chặn ngay file sai loại hoặc quá lớn
- * mà không phải gửi lên máy chủ (máy chủ vẫn kiểm tra lại: đuôi .xlsx, chữ ký zip, tối đa 2 MB).
+ * mà không phải gửi lên máy chủ (máy chủ vẫn kiểm tra lại chữ ký zip, loại mẫu và tối đa 2 MB).
  */
 
 export const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+export const XLSM_MIME = 'application/vnd.ms-excel.sheet.macroEnabled.12';
 export const JSON_MIME = 'application/json';
 /** Giới hạn của máy chủ cho file Excel nhập danh sách */
 export const MAX_XLSX_BYTES = 2 * 1024 * 1024;
 
-export function checkTemplateFilename(actual:string,expected?:string):string|null {
-  return expected && actual!==expected ? `Sai tên file. Chỉ nhận ${expected}. Hãy giữ đúng tên file mẫu của trường.` : null;
+export function checkTemplateFilename(actual:string,expected?:string,legacy?:string):string|null {
+  return expected && actual!==expected && actual!==legacy ? `Sai tên file. Chỉ nhận ${expected}${legacy?` hoặc ${legacy}`:''}. Hãy giữ đúng tên file mẫu của trường.` : null;
 }
 
-const EXTENSION: Record<string, string> = { [XLSX_MIME]: '.xlsx', [JSON_MIME]: '.json' };
+const EXTENSION: Record<string, string> = { [XLSX_MIME]: '.xlsx', [XLSM_MIME]: '.xlsm', [JSON_MIME]: '.json' };
 
 /** Đuôi file được nhận theo danh sách loại (MIME) của hộp chọn file */
 export const acceptedExtensions = (types: string[]): string[] => [...new Set(types.map((t) => EXTENSION[t]).filter((x): x is string => !!x))];
 
-/** Câu báo trước chỗ nút "Chọn file": chỉ nhận Excel (.xlsx) và dung lượng tối đa */
+/** Câu báo trước chỗ nút "Chọn file"; .xlsm chỉ được bật cho hộp nhập danh sách thành viên. */
 export function acceptNote(types: string[]): string {
   const ext = acceptedExtensions(types);
   const excelOnly = ext.length === 1 && ext[0] === '.xlsx';
   if (excelOnly) return 'Chỉ nhận file Excel (.xlsx), tối đa 2 MB. Các loại file khác (PDF, Word, ảnh, .xls, .csv…) sẽ bị từ chối.';
+  if (ext.length && ext.every(e=>e==='.xlsx'||e==='.xlsm') && ext.includes('.xlsm')) return 'Chỉ nhận file mẫu Excel (.xlsm hoặc .xlsx), tối đa 2 MB. Dùng Microsoft Excel trên Windows để chọn ngày trên lịch.';
   if (ext.includes('.xlsx') && ext.includes('.json')) return 'Chỉ nhận file Excel (.xlsx) hoặc JSON (.json). Các loại file khác sẽ bị từ chối.';
   return `Chỉ nhận file ${ext.join(', ') || 'đúng định dạng của mẫu'}.`;
 }
@@ -38,6 +40,6 @@ export function checkPickedFile(file: { name: string; size?: number | null }, ty
         : `Chỉ nhận file ${ext.join(' hoặc ')}. File "${file.name}" không đúng loại.`;
     }
   }
-  if (ext.length === 1 && ext[0] === '.xlsx' && typeof file.size === 'number' && file.size > MAX_XLSX_BYTES) return `File "${file.name}" quá lớn (tối đa 2 MB). Hãy chia nhỏ danh sách rồi nhập từng lần.`;
+  if (ext.length && ext.every(e=>e==='.xlsx'||e==='.xlsm') && typeof file.size === 'number' && file.size > MAX_XLSX_BYTES) return `File "${file.name}" quá lớn (tối đa 2 MB). Hãy chia nhỏ danh sách rồi nhập từng lần.`;
   return null;
 }

@@ -10,7 +10,7 @@ import { AccountSheet, dateText, GENDER_TEXT } from '@/components/admin/AccountS
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { RegistrationCode } from './RegistrationCode';
 import { TeacherImportSheet } from './TeacherImportSheet';
-import { Cell, CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, ImportSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useDebounced, useLoad, yearOptions, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
+import { Cell, CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useDebounced, useLoad, yearOptions, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -52,14 +52,16 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const today = todayVn();
   // thêm từng người: cùng các cột với file mẫu Excel (mã, họ tên, giới tính, SĐT, email, ngày sinh); nền tảng chỉ dạy Lịch sử nên không có ô chọn môn
   const fields: FieldDef[] = teacher
-    ? [{ name: 'user_code', label: 'Mã giáo viên', render:(v)=> <RegistrationCode token={token} kind="teacher" birthDate={String(v.birth_date||'')}/> }, { name: 'full_name', label: 'Họ và tên', required: true },
+    ? [{ name: 'user_code', label: 'Mã giáo viên', render:(v)=> <RegistrationCode token={token} kind="teacher" showSerial birthDate={String(v.birth_date||'')}/> }, { name: 'full_name', label: 'Họ và tên', required: true },
       { name: 'gender', label: 'Giới tính', type: 'select', options: [{ value: '', label: 'Chưa chọn' }, { value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }] },
       { name: 'phone', label: 'SĐT', type: 'tel' }, { name: 'email', label: 'Email', type: 'email', required: true, hint: 'Mật khẩu tạm được gửi vào email này.' },
       { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1940-01-01', max: today, required: true }]
-    : [{ name: 'user_code', label: 'Mã học sinh', render:()=> <RegistrationCode token={token} kind="student"/> }, { name: 'full_name', label: 'Họ và tên', required: true }, { name: 'birth_date', label: 'Ngày sinh', type: 'date', calendar: true, min: '2000-01-01', max: today, required: true },
+    : [{ name: 'user_code', label: 'Mã học sinh', render:(v)=> <RegistrationCode token={token} kind="student" showSerial birthDate={String(v.birth_date||'')}/> }, { name: 'full_name', label: 'Họ và tên', required: true },
       { name: 'gender', label: 'Giới tính', type: 'select', options: [{ value: '', label: 'Chưa chọn' }, { value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }, { value: 'other', label: 'Khác' }] },
+      { name: 'phone', label: 'SĐT', type: 'tel' }, { name: 'email', label: 'Email', type: 'email' },
+      { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '2000-01-01', max: today, required: true },
       { name: 'class_id', label: 'Xếp vào lớp (năm học đang chọn)', type: 'select', options: [{ value: '', label: 'Chưa xếp lớp' }, ...classOptions] },
-      { name: 'email', label: 'Email học sinh', type: 'email' }, { name: 'parent_email', label: 'Email phụ huynh', type: 'email', hint: 'Dữ liệu của trẻ vị thành niên: chỉ dùng cho việc liên lạc của nhà trường.' }];
+      { name: 'parent_email', label: 'Email phụ huynh', type: 'email', hint: 'Dữ liệu của trẻ vị thành niên: chỉ dùng cho việc liên lạc của nhà trường.' }];
 
   return (
     <Page>
@@ -89,8 +91,13 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
               { key: 'classes', label: 'Lớp phụ trách', flex: 1, render: (u) => <Txt size={13}>{u.classes.map((k) => k.name).join(', ') || '—'}</Txt> },
               { key: 'status', filter: f_active, label: 'Trạng thái', flex: 1.1, render: (u) => <StatusChip kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
             ] : [
-              { key: 'code', label: 'Mã', render: (u) => <Txt f="semibold" size={14}>{u.user_code || '—'}</Txt> },
-              { key: 'name', label: 'Học sinh', flex: 2, render: (u) => <Cell main={u.full_name} sub={[u.birth_date, u.gender ? GENDER_TEXT[u.gender] : null].filter(Boolean).join(' · ')} /> },
+              { key: 'stt', label: 'Số thứ tự', flex: 0.7, render: (u) => <Txt size={13} color={c.muc2}>{(page - 1) * size + data.items.indexOf(u) + 1}</Txt> },
+              { key: 'code', label: 'Mã học sinh', flex: 1.9, render: (u) => <Txt f="semibold" size={13}>{u.user_code || '—'}</Txt> },
+              { key: 'name', label: 'Họ và tên', flex: 1.8, render: (u) => <Cell main={u.full_name} sub={u.username} /> },
+              { key: 'gender', label: 'Giới tính', flex: 0.8, render: (u) => <Txt size={13}>{u.gender ? GENDER_TEXT[u.gender] : '—'}</Txt> },
+              { key: 'phone', label: 'SĐT', flex: 1.1, render: (u) => <Txt size={13}>{u.phone || '—'}</Txt> },
+              { key: 'email', label: 'Email', flex: 2, render: (u) => <Txt size={13} numberOfLines={2}>{u.email || '—'}</Txt> },
+              { key: 'birth', label: 'Ngày tháng năm sinh', flex: 1.2, render: (u) => <Txt size={13}>{fmtBirth(u.birth_date)}</Txt> },
               { key: 'grade', filter: f_grade, label: 'Khối', flex: 0.7, render: (u) => <Txt size={13}>{[...new Set(u.classes.map((k) => k.grade).filter(Boolean))].map((g) => `Khối ${g}`).join(', ') || '—'}</Txt> },
               { key: 'classes', filter: f_class, label: 'Lớp', flex: 1.5, render: (u) => <Txt size={13}>{u.classes.map((k) => `${k.name} (${k.school_year})`).join(', ') || 'Chưa xếp lớp'}</Txt> },
               { key: 'last', label: 'Đăng nhập cuối', render: (u) => <Txt size={13} color={c.muc2}>{dateText(u.last_login_at)}</Txt> },
@@ -111,12 +118,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
             reload();
           }} />
       ) : null}
-      {importing && teacher ? <TeacherImportSheet session={session} onClose={()=>setImporting(false)} onDone={reload}/> : importing ? (
-        <ImportSheet title="Nhập danh sách học sinh"
-          hint={`Tải file mẫu, điền mỗi học sinh một dòng. Cột Lớp (nếu có) là tên lớp trong năm học ${years.find((y) => y.id === yearId)?.label ?? 'đã chọn'}. Hệ thống báo dòng trùng mã, sai ngày sinh, lớp không có trước khi lưu.`}
-          template={{ fetchBlob: () => api.downloadFile(token, '/api/admin/students/template'), filename: 'mau-hoc-sinh.xlsx' }}
-          run={(file, commit) => api.importMembers(token, 'students', file, { commit, year_id: yearId })} onClose={() => setImporting(false)} onDone={reload} />
-      ) : null}
+      {importing ? <TeacherImportSheet session={session} kind={kind} yearId={yearId} onClose={()=>setImporting(false)} onDone={reload}/> : null}
     </Page>
   );
 };

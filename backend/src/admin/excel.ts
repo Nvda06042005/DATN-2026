@@ -49,10 +49,10 @@ export function parseDate(text: string): string | null {
   return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
-export function checkUpload(file: UploadedXlsx | undefined): UploadedXlsx {
+export function checkUpload(file: UploadedXlsx | undefined,allowMacro=false): UploadedXlsx {
   if (!file) throw new BadRequestException('Hãy chọn file Excel (.xlsx)');
   if (file.size > MAX_FILE_BYTES) throw new PayloadTooLargeException('File quá lớn (tối đa 2 MB)');
-  if (!/\.xlsx$/i.test(file.originalname) || !ACCEPTED_MIMES.includes(file.mimetype) || file.buffer.subarray(0, 2).toString('latin1') !== 'PK') {
+  if (!(allowMacro?/\.xls[mx]$/i:/\.xlsx$/i).test(file.originalname) || !(ACCEPTED_MIMES.includes(file.mimetype)||(allowMacro&&file.mimetype==='application/vnd.ms-excel.sheet.macroEnabled.12')) || file.buffer.subarray(0, 2).toString('latin1') !== 'PK') {
     throw new BadRequestException('Chỉ nhận file Excel .xlsx tải từ mẫu của hệ thống');
   }
   return file;
@@ -93,6 +93,7 @@ export async function readSheet(file: UploadedXlsx, columns: Column[], sheetName
   }
   const cols = columns.map((c) => ({ key: c.key, col: headerNames(c).map((h) => header!.byHeader.get(h)).find((n) => n !== undefined) }));
   const rows: Array<{ row: number; values: Record<string, string> }> = [];
+  const requireEmail=columns.find(c=>c.key==='email')?.required===true;
   let teacherIndex = 0, completedTeacherIndex = 0;
   for (let r = header.row + 1; r <= Math.min(sheet.rowCount, header.row + MAX_SCAN_ROWS); r += 1) {
     const values: Record<string, string> = {};
@@ -104,26 +105,31 @@ export async function readSheet(file: UploadedXlsx, columns: Column[], sheetName
     }
     if (teacherCodes && values.full_name) {
       teacherIndex += 1;
-      if(values.email && values.birth_date) completedTeacherIndex+=1;
+      if((!requireEmail||values.email) && values.birth_date) completedTeacherIndex+=1;
       const codeCol = cols.find(c => c.key === 'user_code')?.col;
       const nameCol = cols.find(c => c.key === 'full_name')?.col;
       const birthCol = cols.find(c => c.key === 'birth_date')?.col;
       const indexCol = header.byHeader.get(normHeader('Số thứ tự'));
       const cell = codeCol ? sheet.getCell(r, codeCol) : null;
-      const formula = cell?.formula;
+      // Excel lưu công thức điền xuống nhiều dòng dạng "công thức dùng chung": ô con chỉ trỏ về ô gốc, còn ExcelJS tự dịch công thức gốc sang dòng của ô con
+      // và dịch luôn chữ "GOT26" trong dấu nháy như một địa chỉ ô (thành GOT28). Vì vậy đọc công thức và số dòng từ ô gốc.
+      const shared = (cell?.value as { sharedFormula?: string } | null | undefined)?.sharedFormula;
+      const formulaCell = shared ? sheet.getCell(shared) : cell;
+      const formula = formulaCell?.formula;
+      const formulaRow = formulaCell ? Number(formulaCell.row) : r;
       const prefix = formula?.match(/,"([A-Z0-9]+)"&TEXT\(/)?.[1];
       // Chỉ tính đúng công thức do mẫu tạo; không chạy/eval công thức tùy ý từ file tải lên.
       const offset = Number(formula?.match(/TEXT\(\([A-Z]+\d+\+(\d{1,9})\),"000"\)/)?.[1]??0);
-      const indexRef=indexCol?`${colLetter(indexCol)}${r}`:'';
-      const formulaArgs = nameCol && birthCol && indexCol ? [`${colLetter(nameCol)}${r}`, `${colLetter(birthCol)}${r}`, offset?`(${indexRef}+${offset})`:indexRef] as const : null;
+      const indexRef=indexCol?`${colLetter(indexCol)}${formulaRow}`:'';
+      const formulaArgs = nameCol && birthCol && indexCol ? [`${colLetter(nameCol)}${formulaRow}`, `${colLetter(birthCol)}${formulaRow}`, offset?`(${indexRef}+${offset})`:indexRef] as const : null;
       if (prefix && formulaArgs && indexCol && (formula === teacherCodeFormula(prefix, ...formulaArgs) || formula === teacherCodeFormula(prefix, ...formulaArgs, false) || formula === legacyTeacherCodeFormula(prefix, ...formulaArgs))) {
         const born = parseDate(values.birth_date);
         const indexCell = sheet.getCell(r, indexCol);
         const storedIndex = Number(cellText(indexCell.value));
         const emailCol=cols.find(c=>c.key==='email')?.col;
-        const readyFormula=emailCol&&nameCol&&birthCol?completedIndexFormula(`${colLetter(nameCol)}${r}`,`${colLetter(emailCol)}${r}`,`${colLetter(birthCol)}${r}`,header.row+1):null;
+        const readyFormula=emailCol&&nameCol&&birthCol?completedIndexFormula(`${colLetter(nameCol)}${r}`,`${colLetter(emailCol)}${r}`,`${colLetter(birthCol)}${r}`,header.row+1,!requireEmail):null;
         const conditional=indexCell.formula===readyFormula;
-        if(conditional && (!values.email || !values.birth_date)){values.user_code='';if(any) rows.push({row:r,values});continue;}
+        if(conditional && ((requireEmail&&!values.email) || !values.birth_date)){values.user_code='';if(any) rows.push({row:r,values});continue;}
         // Mẫu mới tính theo dòng đã hoàn tất; vẫn đọc STT đánh sẵn và công thức mẫu cũ.
         const serial = conditional?completedTeacherIndex:indexCell.formula && !storedIndex ? teacherIndex : storedIndex;
         if (!Number.isInteger(serial) || serial < 1 || serial > MAX_ROWS) throw new BadRequestException(`Số thứ tự ở dòng ${r} phải là số nguyên từ 1 đến ${MAX_ROWS}.`);
@@ -164,10 +170,11 @@ export function vnDayLabel(now: Date = new Date()): string {
 }
 
 /**
- * Cột của file mẫu/danh sách. `index`: số thứ tự đánh sẵn theo dòng; `text`/`phone`: ô văn bản (giữ số 0 đầu);
+ * Cột của file mẫu/danh sách. `index`: số thứ tự đánh sẵn theo dòng; `autoIndex`: số thứ tự là công thức, trống cho đến khi dòng có họ tên (cột `watch`) rồi tự hiện khi người dùng
+ * nhập xong và nhấn Enter (mẫu học sinh); `text`/`phone`: ô văn bản (giữ số 0 đầu);
  * `list`: chọn trong danh sách `options`; `date`: ô ngày dd/mm/yyyy chỉ nhận ngày hợp lệ, kèm gợi ý chọn ngày.
  */
-export interface FormColumn extends Column { kind: 'index' | 'text' | 'phone' | 'list' | 'date' | 'teacher-code'; options?: string[]; watch?: string; prompt?: string; codePrefix?: string; codeOffset?:number; birthKey?: string }
+export interface FormColumn extends Column { kind: 'index' | 'text' | 'phone' | 'list' | 'date' | 'teacher-code'; options?: string[]; watch?: string; prompt?: string; codePrefix?: string; codeOffset?:number; birthKey?: string; autoIndex?: boolean }
 
 /** Tên riêng của trường, không gồm tiền tố cấp học; dùng chữ Latin viết hoa. */
 export function schoolInitials(name: string): string {
@@ -175,13 +182,24 @@ export function schoolInitials(name: string): string {
   return plain.split(/\s+/).filter(Boolean).map(word => word[0]).join('').toUpperCase().slice(0, 12) || 'GV';
 }
 
+/**
+ * Tiền tố mã học sinh: `HS` + viết tắt tên riêng của trường + hai số cuối của năm (giờ Việt Nam), ví dụ HSGOT26. Có thêm HS ở đầu nên mã học sinh không bao giờ trùng mã giáo viên.
+ * Giáo viên dùng bộ sinh mã riêng trong cơ sở dữ liệu (xem docs/MA_GIAO_VIEN.md), không dùng hàm này.
+ */
+export const studentCodePrefix = (school: string | null | undefined, now: Date = new Date()): string => `HS${schoolInitials(school ?? '')}${vnDayLabel(now).slice(8, 10)}`;
+/** Mã đầy đủ: tiền tố + ngày sinh ddmmyyyy + số thứ tự tối thiểu 3 chữ số, ví dụ HSGOT2602042013001 */
+export const memberCode = (prefix: string, birthIso: string, serial: number): string => `${prefix}${birthIso.slice(8, 10)}${birthIso.slice(5, 7)}${birthIso.slice(0, 4)}${String(serial).padStart(3, '0')}`;
+
 export function teacherTemplateFilename(name:string):string {
   const school=normHeader(name).replace(/^(truong\s+)?(trung hoc co so|trung hoc pho thong|tieu hoc|thcs|thpt|th)(\s+|$)/,'').replace(/\s+/g,'-');
-  return `file_mau_giao-vien_truong_${school||'chua-dat-ten'}.xlsx`;
+  return `file_mau_giao-vien_truong_${school||'chua-dat-ten'}.xlsm`;
 }
 
-const completedIndexFormula=(name:string,email:string,birth:string,first:number):string=>{
+export const studentTemplateFilename=(name:string):string=>teacherTemplateFilename(name).replace("file_mau_giao-vien_","file_mau_hoc-sinh_");
+
+const completedIndexFormula=(name:string,email:string,birth:string,first:number,optionalEmail=false):string=>{
   const col=(ref:string)=>ref.replace(/\d+$/,'');
+  if(optionalEmail) return `IF(AND(${name}<>"",${birth}<>""),COUNTIFS($${col(name)}$${first}:${name},"?*",$${col(birth)}$${first}:${birth},"<>"),"")`;
   return `IF(AND(${name}<>"",${email}<>"",${birth}<>""),COUNTIFS($${col(name)}$${first}:${name},"?*",$${col(email)}$${first}:${email},"?*",$${col(birth)}$${first}:${birth},"<>"),"")`;
 };
 
@@ -225,6 +243,7 @@ export interface FormSheetSpec {
   entryNote?:string;
   /** STT chỉ hiện khi đủ các ô bắt buộc của dòng nhập. */
   completedIndex?:boolean;
+  optionalIndexEmail?:boolean;
   columns: FormColumn[];
   /** Dữ liệu có sẵn (danh sách xuất); không có thì là file mẫu trống với `blankRows` dòng định dạng sẵn */
   rows?: Array<Record<string, unknown>>;
@@ -346,7 +365,10 @@ export async function buildFormSheet(spec: FormSheetSpec): Promise<Buffer> {
       cell.border = BORDER;
       cell.alignment = { vertical: 'middle', horizontal: c.kind === 'index' || c.kind === 'list' || c.kind === 'date' ? 'center' : 'left' };
       if (c.kind === 'index') {
-        cell.value = !spec.rows && spec.completedIndex ? {formula:completedIndexFormula(`${nameLetter('full_name')}${rowNo}`,`${nameLetter('email')}${rowNo}`,`${nameLetter('birth_date')}${rowNo}`,headerRow+1),result:''} : i + 1;
+        const watched = nameLetter(c.watch);
+        cell.value = !spec.rows && spec.completedIndex ? {formula:completedIndexFormula(`${nameLetter('full_name')}${rowNo}`,`${nameLetter('email')}${rowNo}`,`${nameLetter('birth_date')}${rowNo}`,headerRow+1,spec.optionalIndexEmail),result:''}
+          // autoIndex: đếm các dòng đã có họ tên, kể cả khi có dòng trống ở giữa; danh sách xuất luôn đánh số sẵn
+          : !spec.rows && c.autoIndex ? { formula: `IF(${watched}${rowNo}="","",COUNTIFS($${watched}$${headerRow + 1}:${watched}${rowNo},"?*"))`, result: '' } : i + 1;
         cell.numFmt = '0';
       } else if (c.kind === 'teacher-code') {
         const name = `${nameLetter(c.watch)}${rowNo}`, birth = `${nameLetter(c.birthKey)}${rowNo}`, index = `${nameLetter('stt')}${rowNo}`;

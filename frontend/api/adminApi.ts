@@ -22,10 +22,10 @@ export const getSchool = (token: string, id: number) => apiRequest<SchoolDetail>
 export const createSchool = (token: string, body: Record<string, unknown>) => apiRequest<CreatedSchool>('/api/admin/schools', { token, body });
 export const previewSchoolCode = (token: string) => apiRequest<{ school_code: string }>('/api/admin/school-code-preview', { token });
 export const previewRegistrationCode = (token:string,kind:'teacher'|'student'|'class',query:Query={}) => apiRequest<{code:string|null;serial?:number}>(`/api/admin/registration-code/${kind}${qs(query)}`,{token});
-export interface TeacherImportSpec {filename:string;school_name:string;prefix:string;next_serial:number}
-export interface TeacherDraftRow {full_name:string;email:string;phone?:string;gender?:'male'|'female';birth_date:string}
+export interface TeacherImportSpec {filename:string;legacy_filename?:string;school_name:string;prefix:string;next_serial:number}
+export type StudentImportSpec=TeacherImportSpec;
 export const teacherImportSpec=(token:string)=>apiRequest<TeacherImportSpec>('/api/admin/teachers/import-spec',{token});
-export const teacherDraftWorkbook=(token:string,rows:TeacherDraftRow[])=>apiBlob('/api/admin/teachers/workbook',token,{rows});
+export const studentImportSpec=(token:string)=>apiRequest<StudentImportSpec>('/api/admin/students/import-spec',{token});
 export const updateSchool = async (token: string, id: number, body: Record<string, unknown>) => {
   const school = await apiRequest<SchoolItem>(`/api/admin/schools/${id}`, { token, method: 'PATCH', body });
   clearSchoolIdentities();
