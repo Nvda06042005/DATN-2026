@@ -305,38 +305,15 @@ export class AiTutorService implements OnModuleDestroy {
     const bad = unsafeReason(o.question, s.banned_terms);
     if (bad === 'unsafe') return this.refusal('unsafe', UNSAFE_MESSAGE);
     if (bad === 'injection') return this.refusal('out_of_scope', s.refusal_message, await this.exampleQuestions());
-
+    if (o.needLlm && !cfg) return this.refusal('not_configured', 'Tính năng này cần bật mô hình AI. Em nhờ thầy cô hoặc quản trị viên cấu hình giúp nhé; trong lúc chờ em vẫn hỏi đáp bình thường được.');
 
     let queryVector: number[] | null = null;
     if (cfg?.embedModel && !o.fixed) { try { queryVector = (await this.llm.embed(cfg, [o.question]))[0]; } catch (e) { this.logger.warn(`Không nhúng được câu hỏi: ${(e as Error).message}`); } }
     const passages = o.fixed ?? await this.retrieval.search(o.searchText ?? o.question, s.top_k, { only: o.only, focus: o.focus, queryVector });
     const best = passages[0];
     const topScore = best ? Math.max(best.coverage, best.cos) : 0;
-    const inScope = o.skipGate || Boolean(best && (best.coverage >= 0.1 || best.cos >= 0.5 || best.score >= 0.04));
+    const inScope = o.skipGate || Boolean(best && (best.coverage >= s.min_score || best.cos >= 0.5));
     if (!inScope) return { ...this.refusal('out_of_scope', s.refusal_message, await this.exampleQuestions()), topScore };
-
-    if (o.needLlm && !cfg) {
-      if (o.persona) {
-        const ex = this.extract(o.question, passages);
-        const personaText = `Ta là ${o.persona.honorific ? `${o.persona.honorific} ` : ''}${o.persona.name}.\n\n`
-          + `Về việc này, sử sách nước Nam ta ghi lại rõ ràng:\n\n${ex.text}\n\n`
-          + `Các em hãy ghi lòng tạc dạ để noi gương người xưa, giữ gìn giang sơn đất nước!`;
-        return {
-          text: personaText,
-          citations: this.citations(passages, [1]),
-          followups: this.followupsFrom(passages),
-          refused: false,
-          reason: null,
-          mode: 'extractive',
-          model: null,
-          tokensIn: 0,
-          tokensOut: 0,
-          topScore: best ? Math.max(best.coverage, best.cos) : 0.8,
-          passages,
-        };
-      }
-      return this.refusal('not_configured', 'Tính năng này cần bật mô hình AI. Em nhờ thầy cô hoặc quản trị viên cấu hình giúp nhé; trong lúc chờ em vẫn hỏi đáp bình thường được.');
-    }
 
     if (cfg) {
       try {
@@ -437,7 +414,7 @@ export class AiTutorService implements OnModuleDestroy {
   /** Hỏi đáp (HK.HS.086–088, 091; HK.GV.073) */
   async ask(user: UserRow, body: { question?: string; conversation_id?: number; mode?: string; figure_id?: number }) {
     const question = this.checkQuestion(body.question);
-    const allowed = !process.env.JEST_WORKER_ID ? ['tutor', 'roleplay', 'teacher'] : (MODES_BY_ROLE[user.role] ?? []);
+    const allowed = MODES_BY_ROLE[user.role] ?? [];
     const conv0 = body.conversation_id ? await this.conversation(user, body.conversation_id, 'tutor', question) : null;
     const mode = conv0?.mode ?? body.mode ?? (user.role === 'student' ? 'tutor' : 'teacher');
     if (!['tutor', 'roleplay', 'teacher'].includes(mode) || !allowed.includes(mode)) throw new ForbiddenException('Chế độ hỏi đáp này không dành cho tài khoản của bạn');
