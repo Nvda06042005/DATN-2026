@@ -12,10 +12,12 @@ Migration `056_school_teacher_identity_codes.sql` lưu STT/năm trên tài kho�
 
 Kiểm thử: API với PostgreSQL tạm (tiền tố có dấu, ngày không hợp lệ, xem trước, tạo đồng thời, sửa/lấy danh sách, RLS và truy cập chéo trường); nâng 055→056 với dữ liệu fixture; hồi quy nhập/xuất Excel và kiểm tra công thức bằng phiên bảng tính riêng. Không tạo/sửa tài khoản thật để kiểm thử production.
 
-## Bảng có lịch trên website và tên file theo trường
+## Nhập trực tiếp trong Excel Windows
 
-Người dùng đã chọn giữ .xlsx, nhập bằng bảng có lịch trên website rồi tải file (09/11/2026). Vào Giáo viên → Nhập từ Excel → Nhập trên bảng. Chọn ngày sinh bằng lịch của trình duyệt; Enter ở cuối dòng kiểm tra và xác nhận dòng hiện tại, sinh STT/mã rồi chuyển con trỏ đến Họ và tên của dòng kế tiếp. Sửa thông tin phải xác nhận lại; Tải Excel chặn dòng chưa xác nhận. Điện thoại có nút Xác nhận dòng tương đương Enter. Sau đó Tải Excel → Quay lại → Chọn file → kiểm tra trước khi lưu. Trong WPS, bản .xlsx dùng công thức khi đủ dữ liệu, không điều khiển bàn phím hay chứa lịch tùy chỉnh.
+Lựa chọn mới nhất ngày 09/11/2026 thay quy trình bảng web trước đó. Vào Giáo viên → Nhập từ Excel → Tải file mẫu. File tải là `file_mau_giao-vien_truong_giong-ong-to.xlsm` (tên trường thay tự động). Mở bằng Microsoft Excel Windows, cho phép nội dung macro của đúng file mẫu nếu Excel yêu cầu. Không tắt bảo vệ macro toàn cục.
 
-Tên file lấy đúng tên trường hiện tại, bỏ cấp học/dấu và nối bằng dấu gạch ngang. Ví dụ THCS Giồng Ông Tố: file_mau_giao-vien_truong_giong-ong-to.xlsx. Tên phải khớp chính xác ở cả preview lẫn commit; bản tải trùng có hậu tố (1) cần đổi về đúng tên. Hạn mức 2 MB/1000 dòng và kiểm tra nội dung/trùng email vẫn giữ.
+Điền các cột Họ tên, Giới tính, SĐT, Email, bấm ô ngày sinh để mở lịch chọn tháng/năm/ngày. Nhấn Enter ở ô ngày sinh khi đủ họ tên, email và ngày sinh: STT/mã hiện, con trỏ về Họ tên dòng kế tiếp. Dòng trống không có dãy STT 1–1000; sửa thông tin sẽ xóa xác nhận và cần Enter lại. Lưu file, quay về website chọn file để xem trước rồi lưu danh sách. Tải mẫu không tạo tài khoản hoặc gửi thư.
 
-GET /api/admin/teachers/import-spec cấp quy tắc theo trường của phiên đăng nhập. POST /api/admin/teachers/workbook chỉ sinh file trong bộ nhớ, không tạo tài khoản hoặc gửi email, không giữ chỗ số thứ tự. API xác thực/phạm vi trường không phụ thuộc tên file. Không thêm migration vì không đổi schema hay dữ liệu tham chiếu.
+Chỉ nhận đúng tên mẫu `.xlsm` hoặc bản `.xlsx` cũ cùng tên, tối đa 2 MB/1000 dòng. File tải trùng có hậu tố `(1)` cần đổi về đúng tên. Import chỉ đọc dữ liệu, không chạy VBA từ file người dùng. Lịch và điều khiển Enter dùng VBA cục bộ; Excel web/WPS không bảo đảm hỗ trợ.
+
+`GET /api/admin/teachers/import-spec` trả tên file, tiền tố và số kế tiếp theo trường đã xác thực. `GET /api/admin/teachers/template` đính kèm binary VBA đã kiểm tra từ `backend/assets/excel-entry`, không tạo VBA từ nội dung người dùng. Điểm vào workbook/bảng web đã gỡ. API vẫn kiểm tra vai trò và trường, không dựa vào tên file để cấp quyền.

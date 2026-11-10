@@ -1,5 +1,6 @@
 Option Explicit
 Private Sub Workbook_Open()
+    MoveCalendarButton 12
     BindEntryKeys
 End Sub
 Private Sub Workbook_Activate()

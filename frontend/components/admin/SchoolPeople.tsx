@@ -3,14 +3,12 @@
  * xuất Excel; mở một người để sửa, khóa, đặt lại mật khẩu, xóa (AccountSheet).
  */
 import React, { useMemo, useState } from 'react';
-import { View } from 'react-native';
 import { FileUp, Plus } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AccountSheet, dateText, GENDER_TEXT } from '@/components/admin/AccountSheet';
-import { AdminSelect } from '@/components/admin/AdminSelect';
 import { RegistrationCode } from './RegistrationCode';
 import { TeacherImportSheet } from './TeacherImportSheet';
-import { Cell, CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useDebounced, useLoad, yearOptions, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
+import { Cell, CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useDebounced, useLoad, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -30,8 +28,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const [classId, setClassId] = useState('');
   const [page, setPage] = useState(1);
   const size = usePageSize();
-  const [yearSel, setYearSel] = useState('');
-  const yearId = Number(yearSel || years.find((y) => y.status === 'active')?.id || years[0]?.id || 0);
+  const yearId = years.find((y) => y.status === 'active')?.id ?? years[0]?.id ?? 0;
   const dq = useDebounced(q);
   const query = { q: dq, active: active || undefined, grade: grade ? Number(grade) : undefined, class_id: classId ? Number(classId) : undefined };
   const { data, error, loading, reload } = useLoad(() => api.listMembers(token, kind, { ...query, page, limit: size } as never), [token, kind, dq, active, grade, classId, page, size], session.expired);
@@ -60,7 +57,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
       { name: 'gender', label: 'Giới tính', type: 'select', options: [{ value: '', label: 'Chưa chọn' }, { value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }, { value: 'other', label: 'Khác' }] },
       { name: 'phone', label: 'SĐT', type: 'tel' }, { name: 'email', label: 'Email', type: 'email' },
       { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '2000-01-01', max: today, required: true },
-      { name: 'class_id', label: 'Xếp vào lớp (năm học đang chọn)', type: 'select', options: [{ value: '', label: 'Chưa xếp lớp' }, ...classOptions] },
+      { name: 'class_id', label: 'Xếp vào lớp (năm học đang hoạt động)', type: 'select', options: [{ value: '', label: 'Chưa xếp lớp' }, ...classOptions] },
       { name: 'parent_email', label: 'Email phụ huynh', type: 'email', hint: 'Dữ liệu của trẻ vị thành niên: chỉ dùng cho việc liên lạc của nhà trường.' }];
 
   return (
@@ -73,7 +70,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
         </>} />
       <SearchFilterBar placeholder={teacher ? 'Tìm theo tên, email' : 'Tìm theo tên, mã học sinh'} value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="member-search"
         filters={teacher ? [f_active] : [f_grade, f_class, f_active]}
-        extra={teacher ? null : <View style={{ width: 270 }}><AdminSelect bare label="Năm học (để lọc lớp)" value={String(yearId)} options={yearOptions(years)} onChange={(v) => { setYearSel(String(v)); setClassId(''); setPage(1); }} testID="member-year" /></View>} />
+        />
       <ErrorNote message={error} />
       {loading && !data ? <Spinner label="Đang tải danh sách…" /> : null}
       {data ? (

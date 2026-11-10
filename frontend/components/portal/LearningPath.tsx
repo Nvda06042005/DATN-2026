@@ -70,13 +70,13 @@ const PathButton: React.FC<{ node: PathNode; current: boolean; x: number; onPres
   const Icon = NODE_ICON[node.icon ?? KIND_ICON[node.kind]] ?? NODE_ICON.star;
   const bg = done ? c.ngoc : locked ? c.vien : node.kind === 'chest' ? c.vang : c.dong;
   const edge = done ? c.ngocDam : locked ? c.vien2 : node.kind === 'chest' ? c.vangDam : c.dongDam;
-  const steps = node.steps;
+  const steps = node.steps ?? { done: 0, total: 1 };
   const label = `${node.kind_label}: ${node.title}. ${STATE_TEXT[node.state]}${done && node.stars ? `, ${node.stars} sao` : ''}${current ? '. Bài hiện tại, bấm để bắt đầu' : ''}${locked && node.lock_reason ? `. ${node.lock_reason}` : ''}`;
   return (
     <View style={{ height: ROW_H, alignItems: 'center' }}>
       <View style={{ marginTop: CENTER_Y - CIRCLE / 2, width: 168, alignItems: 'center', transform: [{ translateX: x }] }}>
         <View style={{ width: CIRCLE, height: CIRCLE }}>
-          {!locked && !done ? <Ring done={steps.done} total={steps.total} color={c.ngoc} track={c.vien} /> : null}
+          {!locked && !done && steps ? <Ring done={steps.done} total={steps.total} color={c.ngoc} track={c.vien} /> : null}
           <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} testID={`path-node-${node.id}`}
             style={({ pressed }) => ({ width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE / 2, backgroundColor: bg, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 6, borderBottomColor: edge, opacity: pressed ? 0.85 : 1 })}>
             {locked ? <Lock size={26} color={c.muc3} /> : <Icon size={32} color="#ffffff" />}
@@ -91,7 +91,7 @@ const PathButton: React.FC<{ node: PathNode; current: boolean; x: number; onPres
           ) : null}
         </View>
         <Txt f={current ? 'bold' : 'semibold'} size={13} center numberOfLines={2} color={locked ? c.muc3 : c.muc} style={{ marginTop: 6, width: 160 }}>{node.title}</Txt>
-        {current && steps.total > 1 ? <Txt size={11} color={c.muc2}>{steps.done}/{steps.total} bước</Txt> : done ? <Stars n={node.stars} size={13} /> : null}
+        {current && steps && steps.total > 1 ? <Txt size={11} color={c.muc2}>{steps.done}/{steps.total} bước</Txt> : done ? <Stars n={node.stars} size={13} /> : null}
       </View>
     </View>
   );

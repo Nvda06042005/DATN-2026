@@ -8,6 +8,66 @@ End Function
 Public Sub BindEntryKeys()
     Application.OnKey "~", "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!EntryEnter"
     Application.OnKey "{ENTER}", "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!EntryEnter"
+    If ActiveWorkbook Is ThisWorkbook Then
+        If ActiveSheet.Index = 1 Then MoveCalendarButton ActiveCell.Row
+    End If
+End Sub
+
+' One small vector calendar button follows the entry row; no ActiveX/add-in required.
+Public Sub MoveCalendarButton(ByVal row As Long)
+    Dim sh As Worksheet, cell As Range, button As Shape, part As Shape
+    Dim names As Variant, i As Long, x As Double, y As Double, dx As Double, dy As Double
+    Set sh = ThisWorkbook.Worksheets(1)
+    names = Array("DongADateButton", "DAcalBody", "DAcalRing1", "DAcalRing2", "DAcalRule")
+    If row < 12 Or row > 1011 Then row = 12
+    Set cell = sh.Cells(row, 7)
+    On Error Resume Next
+    Set button = sh.Shapes("DongADateButton")
+    On Error GoTo 0
+    If button Is Nothing Then
+        x = cell.Left + cell.Width - 21
+        y = cell.Top + 1
+        Set part = sh.Shapes.AddShape(5, x, y, 19, 18)
+        part.Name = names(0)
+        part.Fill.ForeColor.RGB = RGB(255, 253, 247)
+        part.Line.Visible = 0
+        Set part = sh.Shapes.AddShape(1, x + 4, y + 5, 11, 10)
+        part.Name = names(1)
+        part.Fill.Visible = 0
+        part.Line.ForeColor.RGB = RGB(32, 55, 45)
+        Set part = sh.Shapes.AddLine(x + 6, y + 2, x + 6, y + 6)
+        part.Name = names(2)
+        Set part = sh.Shapes.AddLine(x + 12, y + 2, x + 12, y + 6)
+        part.Name = names(3)
+        Set part = sh.Shapes.AddLine(x + 4, y + 8, x + 15, y + 8)
+        part.Name = names(4)
+        For i = 2 To 4
+            sh.Shapes(CStr(names(i))).Line.ForeColor.RGB = RGB(32, 55, 45)
+            sh.Shapes(CStr(names(i))).Line.Weight = 1.25
+        Next i
+        Set button = sh.Shapes(CStr(names(0)))
+    End If
+    dx = cell.Left + cell.Width - 21 - button.Left
+    dy = cell.Top + (cell.Height - button.Height) / 2 - button.Top
+    For i = 0 To 4
+        Set part = sh.Shapes(CStr(names(i)))
+        part.Placement = 1
+        part.Left = part.Left + dx
+        part.Top = part.Top + dy
+        part.OnAction = "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!OpenBirthdayCalendar"
+    Next i
+    button.AlternativeText = "Chon ngay sinh - dong " & CStr(row)
+    button.Title = CStr(row)
+    button.OnAction = "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!OpenBirthdayCalendar"
+End Sub
+
+Public Sub OpenBirthdayCalendar()
+    If Not ActiveWorkbook Is ThisWorkbook Then Exit Sub
+    Dim row As Long, target As Range
+    row = CLng(ThisWorkbook.Worksheets(1).Shapes("DongADateButton").Title)
+    Set target = ThisWorkbook.Worksheets(1).Cells(row, 7)
+    target.Select
+    DongACalendar.OpenFor target
 End Sub
 
 Public Sub ReleaseEntryKeys()
@@ -19,6 +79,7 @@ End Sub
 
 Public Sub EntrySelection(ByVal sh As Object, ByVal target As Range)
     If busy Or sh.Index <> 1 Or target.CountLarge <> 1 Then Exit Sub
+    If target.Row >= 12 And target.Row <= 1011 Then MoveCalendarButton target.Row
     If target.Row >= 12 And target.Row <= 1011 And target.Column = 7 Then
         DongACalendar.OpenFor target
     Else

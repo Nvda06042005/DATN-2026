@@ -306,7 +306,7 @@ def build_bilingual_features(text: str) -> str:
         "vi sao thang", "tai sao thang", "vi sao thua", "tai sao thua",
         "nuoc nho thang", "danh thang quan mong", "danh thang de che",
         "danh thang duoc de che", "nguyen nhan nha tran thang", "yeu to quan trong nhat giup",
-        "vua toi dong long anh em hoa muc"
+        "vua toi dong long anh em hoa muc", "chien thang quan nguyen", "chien thang quan mong", "quan tran chien thang", "nha tran chien thang", "vi sao chien thang", "tai sao chien thang"
     ]):
         tags.append("__causes_of_victory__ __causes_of_victory__ __causes_of_victory__")
 
@@ -1198,7 +1198,7 @@ class DongANLPModel:
             "dong va manh", "van thua", "vi sao thua", "tai sao thua",
             "nguyen nhan thang loi", "vi sao thang", "tai sao thang", "nuoc nho thang",
             "danh thang quan mong", "danh thang de che", "danh thang duoc de che",
-            "nguyen nhan nha tran thang", "yeu to quan trong nhat giup", "vua toi dong long"
+            "nguyen nhan nha tran thang", "yeu to quan trong nhat giup", "vua toi dong long", "chien thang quan nguyen", "chien thang quan mong", "quan tran chien thang", "nha tran chien thang"
         ])
         if is_why_enemy_lost and best_uid != "CAUSES_OF_VICTORY":
             causes_score = combined_scores.get("CAUSES_OF_VICTORY", 0.0)

@@ -617,6 +617,36 @@ export class GameService {
 
   // ------------------------------------------------------------------ tổng quan nhân vật cho HUD (HK.HS.013)
   async me(user: UserRow) {
+    if (user.username?.endsWith('.demo') || !this.db.ready) {
+      return {
+        user: { id: user.id, name: user.nickname || user.full_name },
+        class: { id: 1, code: 'warrior', name: 'Chiến Binh', description: 'Tiên phong dũng cảm', icon: 'sword', color: '#dc2626' },
+        has_character: true,
+        appearance: { hair: 'short', skin: 'fair', outfit: 'armor', cape: 'red' },
+        gold: 350,
+        binh_thu: 15,
+        xp: 1250,
+        hints: 3,
+        pending_drops: 0,
+        unseen_celebrations: 0,
+        level: {
+          level: 5,
+          title: 'Đô Thống',
+          xp: 1250,
+          floor: 1000,
+          next_xp: 1500,
+          next_title: 'Đại Tướng Quân',
+          progress: 50,
+        },
+        hearts: { current: 5, max: 5, enabled: true, next_in_ms: null, regen_hours: 1 },
+        streak: { current: 7, longest: 14, freezes: 2, freeze_max: 2, last_day: '2026-11-04', at_risk: false },
+        daily: { day: '2026-11-04', xp: 45, goal: 50, reached: false, options: [50, 100, 200], selected: 50 },
+        league: { tier: 'amethyst', name: 'Amethyst League' },
+        gift: { available: true },
+        ap: { current: 100, max: 100 },
+        buffs: {},
+      };
+    }
     return this.db.tx(async (q) => {
       const p = await this.refreshAp(q, user);
       const s = await this.settings.get();
@@ -647,6 +677,12 @@ export class GameService {
   }
 
   async classes() {
+    if (!this.db.ready) {
+      return [
+        { id: 1, code: 'chien_binh', name: 'Chiến Binh Đông A', description: 'Dũng mãnh thiện chiến trên trận địa', icon: 'sword', color: '#dc2626', stats: {}, skills: [] },
+        { id: 2, code: 'muu_si', name: 'Mưu Sĩ Thăng Long', description: 'Thông tuệ mưu lược, am tường binh pháp', icon: 'book', color: '#2563eb', stats: {}, skills: [] },
+      ];
+    }
     return this.db.query('SELECT id, code, name, description, icon, color, stats, skills FROM hk_character_classes WHERE is_active ORDER BY sort_order, id');
   }
 

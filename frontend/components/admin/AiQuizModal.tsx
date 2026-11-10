@@ -7,7 +7,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { BookOpen, Check, CheckCircle2, Save, Sparkles } from 'lucide-react-native';
+import { BookOpen, Check, CheckCircle2, Save, Sparkles, Upload } from 'lucide-react-native';
 import * as aiApi from '@/api/aiApi';
 import * as learning from '@/api/learningApi';
 import { errorMessage } from '@/api/client';
@@ -16,6 +16,8 @@ import type { Session } from '@/components/auth';
 import { Btn, Card, Chip, Field, InfoNote, Segmented, Sheet, Spinner, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { GeneratedQuizQuestion, TopicGroupMeta } from '@/types/ai';
+import { pickFile } from '@/components/admin/kit';
+import { convertDocxXmlToText, extractXmlFromDocxBuffer, parseExamDocumentText, SAMPLE_DOCX_RAW_TEXT_GIUA_HK1, SAMPLE_DOCX_RAW_TEXT_NHA_TRAN } from '@/utils/docxQuizParser';
 
 const DEFAULT_TOPIC_GROUPS: TopicGroupMeta[] = [
   {
@@ -205,6 +207,67 @@ export const AiQuizModal: React.FC<AiQuizModalProps> = ({
     onClose();
   };
 
+  const handleLoadFromDocxText = (rawText: string, sourceTitle: string) => {
+    const parsed = parseExamDocumentText(rawText, sourceTitle);
+    const mcqs = parsed.questions.filter((q) => q.qtype === 'mcq');
+    if (!mcqs.length) {
+      toast('Không tìm thấy câu hỏi trắc nghiệm 4 lựa chọn trong tệp.');
+      return;
+    }
+    const converted: GeneratedQuizQuestion[] = mcqs.map((q, idx) => {
+      let fixedOpts = [...q.options];
+      let fixedPrompt = q.prompt;
+      for (const w of q.warnings) {
+        if (w.autoFixPatch?.options) fixedOpts = w.autoFixPatch.options;
+        if (w.autoFixPatch?.prompt) fixedPrompt = w.autoFixPatch.prompt;
+      }
+      const correctLetter = String.fromCharCode(65 + q.correctIndex);
+      return {
+        id: `docx-q-${Date.now()}-${idx}`,
+        unit_id: `DOCX_${idx + 1}`,
+        topic_group_id: selectedGroupId || 'TONG_HOP_TOAN_KHOA',
+        topic_group_name: parsed.title,
+        question: `[${q.subject}] ${fixedPrompt}`,
+        options: fixedOpts,
+        correct_index: q.correctIndex,
+        correct_letter: correctLetter,
+        cognitive_level: q.bloomLevel,
+        topic: q.unitTitle || parsed.subject,
+        explanation: q.explanation || `Đáp án đúng là ${correctLetter}: ${fixedOpts[q.correctIndex]}`,
+        curriculum_reference: q.unitTitle || `${parsed.title} (${parsed.subject})`,
+      };
+    });
+    setGeneratedQuestions(converted);
+    setGenerationNote(
+      `Đã số hóa & AI chuẩn hóa ${converted.length} câu hỏi trắc nghiệm từ "${sourceTitle}" (Đã tự động đối chiếu Bảng đáp án cuối file & sửa lỗi trùng đáp án).`
+    );
+    toast(`Đã nạp ${converted.length} câu hỏi từ "${sourceTitle}"!`);
+  };
+
+  const handleUploadDocxInModal = async () => {
+    try {
+      const picked = await pickFile([
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.docx',
+        'text/plain',
+        '.txt',
+      ]);
+      if (!picked) return;
+      const blob: Blob = (picked.file as Blob | undefined) ?? (await (await fetch(picked.uri)).blob());
+      const name = picked.name || 'De-thi.docx';
+      let text = '';
+      if (name.toLowerCase().endsWith('.docx')) {
+        const xml = await extractXmlFromDocxBuffer(await blob.arrayBuffer());
+        text = convertDocxXmlToText(xml);
+      } else {
+        text = await blob.text();
+      }
+      handleLoadFromDocxText(text, name);
+    } catch (e) {
+      toast(errorMessage(e));
+    }
+  };
+
   const getBloomColors = (lvl: string): { bg: string; fg: string } => {
     if (lvl.includes('Nhận biết')) return { bg: c.thuyNhat, fg: c.thuyChu };
     if (lvl.includes('Thông hiểu')) return { bg: c.ngocNhat, fg: c.ngocChu };
@@ -247,6 +310,19 @@ export const AiQuizModal: React.FC<AiQuizModalProps> = ({
         </InfoNote>
 
         {/* Cấu hình sinh đề */}
+        <Card style={{ padding: 14, gap: 10, backgroundColor: c.the, borderColor: c.thuy, borderWidth: 1.5 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <View style={{ flex: 1, minWidth: 220 }}>
+              <Txt f="bold" size={14} color={c.muc}>Số hóa nhanh từ File Word (.docx) hoặc Đề mẫu GDPT 2018</Txt>
+              <Txt size={12} color={c.muc2}>Tự động bóc tách câu hỏi, đọc bảng đáp án cuối trang và sửa lỗi trùng phương án bằng AI.</Txt>
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+              <Btn icon={Upload} title="Tải File .docx" tone="thuy" size="sm" onPress={handleUploadDocxInModal} testID="modal-upload-docx" />
+              <Btn icon={BookOpen} title="Đề mẫu Giữa HK1" tone="giay" size="sm" onPress={() => handleLoadFromDocxText(SAMPLE_DOCX_RAW_TEXT_GIUA_HK1, 'De-kiem-tra-giua-HK1-Su-Dia-7.docx')} testID="modal-sample-hk1" />
+              <Btn icon={Sparkles} title="Đề mẫu Nhà Trần" tone="giay" size="sm" onPress={() => handleLoadFromDocxText(SAMPLE_DOCX_RAW_TEXT_NHA_TRAN, 'De-chuyen-de-Nha-Tran.docx')} testID="modal-sample-tran" />
+            </View>
+          </View>
+        </Card>
         <Card style={{ padding: 14, gap: 12, backgroundColor: c.the, borderColor: c.vien }}>
           <Txt f="bold" size={15} color={c.muc}>
             1. Chọn nhóm chủ đề khảo thí chuẩn

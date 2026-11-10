@@ -6,23 +6,20 @@ Yêu cầu 09/11/2026: học sinh dùng cùng bố cục và thao tác nhập nh
 
 Migration `057_school_student_identity_codes.sql` bổ sung bộ đếm và thông tin năm/STT cho học sinh. Dữ liệu có ngày sinh thật được cập nhật mã theo thông tin đã lưu; thiếu ngày sinh giữ mã cũ, không suy đoán ngày sinh. Giữ id, tên đăng nhập, mật khẩu, trường, lớp, tiến độ và lịch sử. Sửa ngày sinh cập nhật phần ngày sinh của mã, giữ năm và số đã cấp. Không sửa migration 056 của giáo viên.
 
-## Nhập trên website rồi tải Excel
+## Nhập trực tiếp trong Excel Windows
 
-Vào **Học sinh → Nhập từ Excel → Nhập trên bảng**. Bảng có bảy cột như giáo viên: Số thứ tự, Mã học sinh, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh. Họ tên và ngày sinh bắt buộc; email học sinh vẫn không bắt buộc, nếu nhập thì phải đúng định dạng.
+Vào Học sinh → Nhập từ Excel → Tải file mẫu. Mở `file_mau_hoc-sinh_truong_giong-ong-to.xlsm` trong Microsoft Excel Windows. Bảy cột như giáo viên: STT, Mã học sinh, Họ tên, Giới tính, SĐT, Email, Ngày sinh. Họ tên/ngày sinh bắt buộc; email học sinh tùy chọn, có nhập thì phải đúng định dạng.
 
-Chọn ngày sinh bằng lịch của trình duyệt, nhấn Enter tại ô ngày sinh để xác nhận dòng. Sau đó STT/mã xuất hiện và con trỏ chuyển sang Họ và tên dòng tiếp theo. Sửa thông tin cần xác nhận lại. Điện thoại có nút Xác nhận dòng tương đương Enter. Không đánh sẵn STT từ 1 đến 1000. Dòng trống cuối không được xuất; dòng có dữ liệu nhưng chưa xác nhận bị chặn tải.
+Bấm biểu tượng lịch bên phải ô ngày sinh hoặc bấm chính ô ngày sinh để chọn tháng/năm/ngày. Biểu tượng đi theo dòng đang nhập. Nhấn Enter ở ô ngày sinh để xác nhận dòng, sinh STT/mã rồi về Họ tên dòng tiếp theo. Sửa dữ liệu cần xác nhận lại. Không có dãy STT 1–1000 ở dòng trống. Lưu file và tải lên để xem trước, xác nhận nhập mới tạo tài khoản. Không còn bảng nhập trên website.
 
-Chọn **Tải Excel → Quay lại → Chọn file** để xem trước, rồi xác nhận nhập mới tạo tài khoản. Lịch và thao tác chuyển ô bằng Enter nằm trên bảng web theo lựa chọn giữ `.xlsx`; file không chứa VBA hay lịch tùy chỉnh cho WPS.
+File `.xlsm` chứa macro cục bộ cho lịch và bàn phím, không gọi mạng. Chỉ cho phép nội dung của đúng mẫu đã tải nếu Excel yêu cầu; không tắt bảo vệ macro toàn cục. Excel web/WPS có thể không hỗ trợ chức năng này.
 
-Tên file luôn lấy từ tên trường hiện tại, ví dụ `file_mau_hoc-sinh_truong_giong-ong-to.xlsx`. Cả website và API kiểm tra chính xác tên file của trường ở bước xem trước và lưu; bản tải trùng có hậu tố `(1)` cần đổi về đúng tên. Tên file không thay thế kiểm tra quyền và phạm vi trường. Giới hạn vẫn là 2 MB, tối đa 1000 dòng.
-
-Lớp và email phụ huynh trong file cũ vẫn được đọc khi có; không đưa vào bảy cột của mẫu mới. Xếp lớp thực hiện ở mục Lớp học. Đối với file Excel có công thức, máy chủ chỉ đọc các mẫu công thức do hệ thống sinh, không thực thi công thức tùy ý và không tin mã người tải lên tự sửa.
+Chỉ nhận chính xác tên mẫu `.xlsm` hoặc bản `.xlsx` cũ cùng tên (tối đa 2 MB/1000 dòng). Hậu tố tải trùng `(1)` cần bỏ trước khi nhập. Tên file không thay kiểm tra quyền/trường. API chỉ đọc dữ liệu, không thực thi VBA tải lên; máy chủ chốt mã theo bộ đếm nên không tin mã người nhập tự sửa. Lớp/Email phụ huynh trong file cũ vẫn được đọc, giữ quy trình xếp lớp hiện có.
 
 ## API
 
 - `GET /api/admin/students/import-spec`: quy tắc tên file, tiền tố và số tiếp theo theo trường đã xác thực.
 - `GET /api/admin/students/template`: mẫu theo trường.
-- `POST /api/admin/students/workbook`: tạo file từ bảng nhập, không tạo tài khoản, không gửi thư, không cấp số.
 - `POST /api/admin/students/import`: xem trước/lưu danh sách với kiểm tra tên file và quyền trường.
 - `GET /api/admin/registration-code/student`: xem trước mã khi có ngày sinh; số chính thức chỉ cấp khi lưu.
 

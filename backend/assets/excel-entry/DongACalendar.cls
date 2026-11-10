@@ -5,6 +5,24 @@ Private visibleMonth As Date
 
 Public Sub Prepare(ByVal target As Range)
     Dim y As Long, m As Long, start As Date
+    ' Apply runtime point dimensions so Windows display scaling cannot clip day 7.
+    Me.Width = 252
+    Me.Height = 286
+    Me.Font.Name = "Segoe UI"
+    Me.Font.Size = 9
+    PlaceControl "PreviousButton", 8, 8, 26, 24
+    PlaceControl "MonthBox", 38, 8, 94, 24
+    PlaceControl "YearBox", 138, 8, 68, 24
+    PlaceControl "NextButton", 210, 8, 26, 24
+    Dim index As Long
+    For index = 0 To 6
+        PlaceControl "Week" & index, 9 + index * 33, 40, 31, 18
+    Next index
+    For index = 1 To 42
+        PlaceControl "Day" & index, 8 + ((index - 1) Mod 7) * 33, 58 + ((index - 1) \ 7) * 27, 32, 26
+    Next index
+    PlaceControl "TodayButton", 8, 224, 112, 26
+    PlaceControl "CloseButton", 124, 224, 112, 26
     changing = True
     Set chosenCell = target
     If IsDate(target.Value) And Len(CStr(target.Value)) > 0 Then
@@ -24,6 +42,17 @@ Public Sub Prepare(ByVal target As Range)
     Me.Caption = "Chon ngay sinh"
     changing = False
     DrawMonth
+End Sub
+
+Private Sub PlaceControl(ByVal key As String, ByVal x As Single, ByVal y As Single, ByVal w As Single, ByVal h As Single)
+    With Me.Controls(key)
+        .Left = x
+        .Top = y
+        .Width = w
+        .Height = h
+        .Font.Name = "Segoe UI"
+        .Font.Size = 9
+    End With
 End Sub
 
 Public Sub OpenFor(ByVal target As Range)
