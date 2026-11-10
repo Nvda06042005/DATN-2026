@@ -125,13 +125,16 @@ try { for (const width of [1440,390]) for(const role of ['root_admin','school_ad
   await ctx.route('**/api/**',async route=>{
    const p=new URL(route.request().url()).pathname;
    if(p==='/api/auth/reset-password')resets.push(route.request().postDataJSON());
-   await route.fulfill({json:p.startsWith('/api/auth/school-link/')?school:p==='/api/platform/config'?{flags:{},features:{}}:{ok:true}});
+   await route.fulfill({json:p.startsWith('/api/auth/school-link/')?school:p==='/api/platform/config'?{flags:{},features:{}}:p==='/api/auth/verify-reset-code'?{reset_token:'x'.repeat(40),expires_in:600}:{ok:true}});
   });
   const page=await ctx.newPage();
   await page.goto(base+(root?'/admin':'/'+slug));
   await page.getByTestId('forgot-open').click();
   await page.locator(root?'#admin-forgot':'#forgot-identifier').fill('fixture@example.invalid');await page.getByTestId('forgot-submit').click();
+  // bước nhập mã chỉ có ô mã; ô mật khẩu mới chỉ hiện sau khi bấm Xác nhận mã
   await page.locator(root?'#admin-otp':'#forgot-otp').fill('123456');
+  assert.equal(await page.locator(root?'#admin-new-password':'#forgot-new').count(),0);assert.equal(await page.locator(root?'#admin-confirm-password':'#forgot-confirm').count(),0);
+  await page.getByTestId(root?'reset-verify':'forgot-verify').click();
   await page.getByText('Từ 6 ký tự, có chữ không dấu, số và ký tự đặc biệt (@, #, !), không có khoảng trắng.',{exact:true}).waitFor();
   const next=page.locator(root?'#admin-new-password':'#forgot-new'),confirm=page.locator(root?'#admin-confirm-password':'#forgot-confirm'),submit=page.getByTestId(root?'reset-submit':'forgot-submit');
   await next.fill('Newfixture456');await confirm.fill('Newfixture456');await submit.click();
@@ -142,7 +145,7 @@ try { for (const width of [1440,390]) for(const role of ['root_admin','school_ad
   await page.screenshot({path:`${out}/${width}-${root?'admin':'school'}-reset-policy.png`});
   await next.fill('mat1!x');await confirm.fill('mat1!x');await submit.click();
   await page.locator(root?'#admin-username':'#login-username').waitFor();
-  assert.equal(resets.length,1);assert.equal(resets[0].new_password,'mat1!x');
+  assert.equal(resets.length,1);assert.equal(resets[0].new_password,'mat1!x');assert.equal(resets[0].reset_token,'x'.repeat(40));assert.equal(resets[0].otp,undefined);
   results.push({width,passwordReset:root?'root_admin':'school',weakBlocked:true,accentsAndSpacesRejected:true,asciiPasswordSubmitted:true});await ctx.close();
  }
  fs.writeFileSync(out+'/results.json',JSON.stringify(results,null,2));console.log(JSON.stringify(results));

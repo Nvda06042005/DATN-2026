@@ -59,7 +59,7 @@ export function LoginLayout({ kind, subtitle, children, onHome, brand }: { kind:
 export function LoginHeading({ title, text, testIDPrefix = 'admin-auth' }: { title: string; text?: string; testIDPrefix?: string }) {
   const { c } = useTheme();
   const dense = useLoginDensity();
-  const parts: Record<string, [string, string]> = { 'Đăng nhập': ['Đăng', 'nhập'], 'Quên mật khẩu': ['Quên', 'mật khẩu'], 'Đặt mật khẩu mới': ['Đặt', 'mật khẩu mới'], 'Kiểm tra hộp thư': ['Kiểm tra', 'hộp thư'] };
+  const parts: Record<string, [string, string]> = { 'Đăng nhập': ['Đăng', 'nhập'], 'Quên mật khẩu': ['Quên', 'mật khẩu'], 'Đặt mật khẩu mới': ['Đặt', 'mật khẩu mới'], 'Nhập mã xác thực': ['Nhập mã', 'xác thực'], 'Kiểm tra hộp thư': ['Kiểm tra', 'hộp thư'] };
   const [main, accent] = parts[title] ?? [title, ''];
   const size = dense ? 28 : 32;
   return <View testID={`${testIDPrefix}-heading`} style={{ gap: dense ? 6 : 8 }}>

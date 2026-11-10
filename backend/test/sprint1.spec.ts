@@ -453,6 +453,54 @@ async function newSchool(code: string, name: string, adminName: string, email: s
   });
 
   // ------------------------------------------------------------------ HK.HS.009/010, GV.005/006, QT.005, AD.005
+  test('quên mật khẩu ba bước: nhập đúng mã mới cấp phiếu 10 phút; phiếu dùng một lần, mã mới làm phiếu cũ hết hiệu lực, không dùng làm phiên đăng nhập; cách cũ một bước vẫn chạy', async () => {
+    const email = 'gv.buoc@example.edu.vn';
+    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Ba Bước', email }, a.token);
+    expect(teacher.status).toBe(201);
+    // yêu cầu mã rồi chờ thư mới (khác mã trước) vì thư gửi nền
+    const ask = async (previous = '', identifier = email) => {
+      expect((await api('POST', '/api/auth/forgot-password', { identifier }, '')).body).toEqual({ ok: true });
+      for (let i = 0; i < 50; i += 1) { const got = await otpFor(email); if (got !== previous) return got; await new Promise((r) => setTimeout(r, 100)); }
+      throw new Error('Không có thư mã mới');
+    };
+    const verify = (otp: string, identifier = email) => api('POST', '/api/auth/verify-reset-code', { identifier, otp }, '');
+    const code = await ask();
+    // bước 2: mã sai bị từ chối, chưa cấp phiếu; bước 3 với phiếu giả cũng bị từ chối
+    const wrong = code === '000000' ? '111111' : '000000';
+    expect((await verify(wrong)).status).toBe(400);
+    expect((await api('POST', '/api/auth/reset-password', { reset_token: 'x'.repeat(40), new_password: 'Buoc-moi-9' }, '')).status).toBe(400);
+    expect((await api('POST', '/api/auth/reset-password', { new_password: 'Buoc-moi-9' }, '')).status).toBe(422); // thiếu cả phiếu lẫn mã
+    expect((await verify('12345')).status).toBe(422);
+    const ok = await verify(code);
+    expect(ok.status).toBe(200);
+    expect(ok.body).toMatchObject({ reset_token: expect.any(String), expires_in: 600 });
+    const ticket = ok.body.reset_token as string;
+    // phiếu không phải phiên đăng nhập
+    expect((await api('GET', '/api/auth/me', undefined, ticket)).status).toBe(401);
+    // mật khẩu yếu bị từ chối nhưng phiếu vẫn còn dùng được
+    expect((await api('POST', '/api/auth/reset-password', { reset_token: ticket, new_password: 'abc1!' }, '')).status).toBe(422);
+    expect((await api('POST', '/api/auth/reset-password', { reset_token: ticket, new_password: 'Buoc-moi-9' }, '')).status).toBe(200);
+    expect((await login(teacher.body.user.username, 'Buoc-moi-9', 'teacher')).status).toBe(200);
+    // phiếu và mã đều dùng một lần
+    expect((await api('POST', '/api/auth/reset-password', { reset_token: ticket, new_password: 'Khac-lan2-9' }, '')).status).toBe(400);
+    expect((await api('POST', '/api/auth/reset-password', { identifier: email, otp: code, new_password: 'Khac-lan2-9' }, '')).status).toBe(400);
+    expect((await verify(code)).status).toBe(400);
+    // yêu cầu mã mới làm phiếu của mã trước hết hiệu lực
+    const first = await ask(code);
+    const firstTicket = (await verify(first)).body.reset_token as string;
+    const second = await ask(first);
+    expect((await api('POST', '/api/auth/reset-password', { reset_token: firstTicket, new_password: 'Buoc-moi-9x' }, '')).status).toBe(400);
+    const secondTicket = (await verify(second)).body.reset_token as string;
+    expect((await api('POST', '/api/auth/reset-password', { reset_token: secondTicket, new_password: 'Buoc-moi-9x' }, '')).status).toBe(200);
+    // sai quá 5 lần ở bước nhập mã thì mã bị vô hiệu, kể cả khi sau đó nhập đúng
+    const third = await ask(second, teacher.body.user.username);
+    const bad = third === '000000' ? '111111' : '000000';
+    for (let i = 0; i < 5; i += 1) expect((await verify(bad)).status).toBe(400);
+    expect((await verify(third)).status).toBe(400);
+    // tài khoản không tồn tại: trả lời giống mã sai
+    expect((await verify('123456', 'khong.co.buoc@example.edu.vn')).status).toBe(400);
+  });
+
   test('HK.*.009/010 hồ sơ cá nhân: mỗi vai trò chỉ tự sửa trường được phép; học sinh thấy lớp, trường', async () => {
     const student = await api('POST', '/api/admin/students', { user_code: 'HS7020', full_name: 'Bùi Hồ Sơ', birth_date: '2013-08-08', class_id: classA.id }, a.token);
     const st = await activate(s.base, student.body.user.username, student.body.temporary_password, PW, 'student');

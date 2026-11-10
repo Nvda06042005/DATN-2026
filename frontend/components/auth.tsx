@@ -280,12 +280,14 @@ const SchoolLoginWithRecovery: React.FC<Omit<LoginProps, 'portal'> & { initialRo
 };
 
 // ---------------------------------------------------------------------- quên mật khẩu bằng OTP (giáo viên, học sinh; HK.HS.005, HK.GV.002)
-/** Hai bước trong một cửa sổ: nhập tên/email để nhận mã 6 chữ số (5 phút), rồi nhập mã và mật khẩu mới */
+/** Ba bước trong một cửa sổ: nhập tên/email để nhận mã 6 chữ số (5 phút) → nhập mã (đúng mới sang bước sau) → đặt mật khẩu mới và nhập lại */
 const ForgotPasswordSheet: React.FC<{ onClose: () => void; onDone: () => void }> = ({ onClose, onDone }) => {
   const { c } = useTheme();
-  const [step, setStep] = useState<'ask' | 'code'>('ask');
+  const [step, setStep] = useState<'ask' | 'code' | 'password'>('ask');
   const [identifier, setIdentifier] = useState('');
   const [otp, setOtp] = useState('');
+  const [ticket, setTicket] = useState('');
+  const [dead, setDead] = useState(false);
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const [show, setShow] = useState(false);
@@ -305,34 +307,54 @@ const ForgotPasswordSheet: React.FC<{ onClose: () => void; onDone: () => void }>
       setLoading(false);
     }
   };
-  const submit = async () => {
+  // bước 2: chỉ khi mã đúng máy chủ mới cấp phiếu và giao diện mới hiện ô mật khẩu mới
+  const verify = async () => {
     if (!/^\d{6}$/.test(otp)) return setError('Mã xác thực gồm 6 chữ số trong thư.');
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await authApi.verifyResetCode(identifier.trim(), otp);
+      setTicket(res.reset_token);
+      setDead(false);
+      setStep('password');
+    } catch (err) {
+      setError(errorMessage(err, 'Chưa xác nhận được mã. Hãy thử lại.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+  const submit = async () => {
     const passwordError = newPasswordError(next);
     if (passwordError) return setError(passwordError);
     if (next !== confirm) return setError('Mật khẩu nhập lại chưa khớp.');
     setLoading(true);
     setError(null);
     try {
-      await authApi.resetPassword(identifier.trim(), otp, next);
+      await authApi.resetPasswordWithTicket(ticket, next);
       onDone();
     } catch (err) {
       setError(errorMessage(err, 'Chưa đặt lại được mật khẩu.'));
+      if (err instanceof ApiError && err.status === 400) setDead(true); // phiếu hết hạn hoặc đã dùng: phải xin mã mới
     } finally {
       setLoading(false);
     }
   };
+  const restart = () => { setStep('ask'); setOtp(''); setTicket(''); setNext(''); setConfirm(''); setDead(false); setError(null); };
 
   return (
     <Sheet
       open
       onClose={onClose}
       title="Quên mật khẩu"
-      subtitle={step === 'ask' ? 'Mã xác thực được gửi tới email đã khai báo trong hồ sơ' : 'Mã có hiệu lực 5 phút và chỉ dùng được một lần'}
+      subtitle={step === 'ask' ? 'Mã xác thực được gửi tới email đã khai báo trong hồ sơ' : step === 'code' ? 'Mã có hiệu lực 5 phút và chỉ dùng được một lần' : 'Mã đã đúng. Đặt mật khẩu mới cho tài khoản'}
       footer={
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
           <Btn title="Đóng" tone="giay" onPress={onClose} />
-          {step === 'code' && <Btn title="Gửi lại mã" tone="giay" onPress={() => { setStep('ask'); setOtp(''); setError(null); }} />}
-          <Btn title={step === 'ask' ? 'Gửi mã xác thực' : 'Lưu mật khẩu'} tone="ngoc" loading={loading} onPress={step === 'ask' ? ask : submit} testID="forgot-submit" />
+          {step === 'code' && <Btn title="Gửi lại mã" tone="giay" onPress={restart} />}
+          {step === 'password' && dead && <Btn title="Yêu cầu mã mới" tone="giay" onPress={restart} testID="forgot-restart" />}
+          {step === 'code'
+            ? <Btn title="Xác nhận mã" tone="ngoc" loading={loading} onPress={verify} testID="forgot-verify" />
+            : <Btn title={step === 'ask' ? 'Gửi mã xác thực' : 'Lưu mật khẩu'} tone="ngoc" loading={loading} onPress={step === 'ask' ? ask : submit} testID="forgot-submit" />}
         </View>
       }
     >
@@ -346,11 +368,15 @@ const ForgotPasswordSheet: React.FC<{ onClose: () => void; onDone: () => void }>
           <Txt size={14} color={c.muc2}>Nhập tên đăng nhập, email hoặc mã học sinh. Nếu tài khoản có email, mã xác thực 6 chữ số sẽ được gửi tới đó. Chưa có email trong hồ sơ thì nhờ quản trị viên nhà trường đặt lại mật khẩu.</Txt>
           <Field label="Tên đăng nhập, email hoặc mã học sinh" nativeID="forgot-identifier" value={identifier} onChangeText={setIdentifier} autoCapitalize="none" autoCorrect={false} returnKeyType="send" onSubmitEditing={ask} autoFocus={Platform.OS === 'web'} />
         </>
+      ) : step === 'code' ? (
+        <>
+          <Txt size={14} color={c.muc2}>Nếu thông tin khớp với một tài khoản có email, mã 6 chữ số đã được gửi (xem cả mục thư rác). Nhập mã để tiếp tục; ô đặt mật khẩu mới chỉ hiện sau khi mã đúng.</Txt>
+          <Field label="Mã xác thực" nativeID="forgot-otp" value={otp} onChangeText={(v) => { setOtp(v.replace(/\D/g, '').slice(0, 6)); setError(null); }} keyboardType="number-pad" autoComplete="one-time-code" returnKeyType="go" onSubmitEditing={verify} autoFocus={Platform.OS === 'web'} />
+        </>
       ) : (
         <>
-          <Txt size={14} color={c.muc2}>Nếu thông tin khớp với một tài khoản có email, mã đã được gửi (xem cả mục thư rác). Nhập mã và đặt mật khẩu mới; các phiên đăng nhập cũ sẽ bị đăng xuất.</Txt>
-          <Field label="Mã xác thực" nativeID="forgot-otp" value={otp} onChangeText={(v) => setOtp(v.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad" autoComplete="one-time-code" autoFocus={Platform.OS === 'web'} />
-          <Field label="Mật khẩu mới" hint={PASSWORD_HINT} nativeID="forgot-new" value={next} onChangeText={value => { setNext(value); setError(null); }} secureTextEntry={!show} autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" />
+          <Txt size={14} color={c.muc2}>Mã xác thực đã đúng. Bạn có 10 phút để đặt mật khẩu mới; các phiên đăng nhập cũ sẽ bị đăng xuất.</Txt>
+          <Field label="Mật khẩu mới" hint={PASSWORD_HINT} nativeID="forgot-new" value={next} onChangeText={value => { setNext(value); setError(null); }} secureTextEntry={!show} autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" autoFocus={Platform.OS === 'web'} />
           <Field label="Nhập lại mật khẩu mới" nativeID="forgot-confirm" value={confirm} onChangeText={setConfirm} secureTextEntry={!show} autoCapitalize="none" autoComplete="new-password" returnKeyType="done" onSubmitEditing={submit} />
           <Btn tone="ghost" size="sm" icon={show ? EyeOff : Eye} title={show ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} onPress={() => setShow((v) => !v)} selected={show} />
         </>

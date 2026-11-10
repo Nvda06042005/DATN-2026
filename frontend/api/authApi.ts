@@ -40,7 +40,14 @@ export const getMe = (token: string, force = false) => verifyUser(token, () => a
 /** Quên mật khẩu (mọi vai trò): server gửi mã OTP 6 chữ số (hiệu lực 5 phút) tới email của tài khoản; luôn trả ok để không lộ tài khoản nào có thật */
 export const requestPasswordReset = (identifier: string) => apiRequest<{ ok: boolean }>('/api/auth/forgot-password', { body: { identifier } });
 
-/** Đặt mật khẩu mới bằng mã OTP trong thư (dùng một lần, sai quá 5 lần thì vô hiệu) */
+/** Quên mật khẩu, bước nhập mã: mã đúng thì máy chủ cấp phiếu đổi mật khẩu có hạn 10 phút (sai quá 5 lần thì mã bị vô hiệu). Chưa đổi mật khẩu ở bước này. */
+export const verifyResetCode = (identifier: string, otp: string) => apiRequest<{ reset_token: string; expires_in: number }>('/api/auth/verify-reset-code', { body: { identifier, otp } });
+
+/** Quên mật khẩu, bước đặt mật khẩu: dùng phiếu của bước nhập mã (dùng một lần) */
+export const resetPasswordWithTicket = (resetToken: string, newPassword: string) =>
+  apiRequest<{ ok: boolean }>('/api/auth/reset-password', { body: { reset_token: resetToken, new_password: newPassword } });
+
+/** Đặt mật khẩu mới bằng mã OTP trong thư ngay trong một bước (cách cũ, giao diện không còn dùng; dùng một lần, sai quá 5 lần thì vô hiệu) */
 export const resetPassword = (identifier: string, otp: string, newPassword: string) =>
   apiRequest<{ ok: boolean }>('/api/auth/reset-password', { body: { identifier, otp, new_password: newPassword } });
 
