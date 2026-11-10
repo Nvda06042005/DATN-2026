@@ -26,7 +26,7 @@ import type { AuthUser } from '@/types/api';
 import type { IconType } from '@/types/game';
 
 export type AdminPortal = 'root_admin' | 'school_admin';
-type Step = 'login' | 'forgot' | 'reset';
+type Step = 'login' | 'forgot' | 'reset' | 'password';
 
 const COPY: Record<AdminPortal, { label: string; placeholder: string; account: string }> = {
   root_admin: {
@@ -275,31 +275,23 @@ const ForgotForm: React.FC<{ onBack: () => void; onSent: (identifier: string) =>
   );
 };
 
-// ---------------------------------------------------------------------- nhập mã OTP và đặt mật khẩu mới
-const ResetForm: React.FC<{ identifier: string; onDone: () => void; onRequestNew: () => void }> = ({ identifier, onDone, onRequestNew }) => {
+// ---------------------------------------------------------------------- bước 2: nhập mã OTP (đúng mới sang bước đặt mật khẩu)
+const CodeForm: React.FC<{ identifier: string; onVerified: (ticket: string) => void; onRequestNew: () => void }> = ({ identifier, onVerified, onRequestNew }) => {
   const [otp, setOtp] = useState('');
-  const [next, setNext] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dead, setDead] = useState(false);
-  const nextRef = useRef<TextInputInstance>(null);
-  const confirmRef = useRef<TextInputInstance>(null);
 
   const submit = async () => {
     if (!/^\d{6}$/.test(otp)) return setError('Mã xác thực gồm 6 chữ số trong thư.');
-    const passwordError = newPasswordError(next);
-    if (passwordError) return setError(passwordError);
-    if (next !== confirm) return setError('Mật khẩu nhập lại chưa khớp.');
     setLoading(true);
     setError(null);
     try {
-      await authApi.resetPassword(identifier, otp, next);
-      onDone();
+      const res = await authApi.verifyResetCode(identifier, otp);
+      onVerified(res.reset_token);
     } catch (err) {
-      setError(errorMessage(err, 'Chưa đặt lại được mật khẩu. Hãy thử lại sau.'));
-      if (err instanceof ApiError && err.status === 400) setDead(true);
+      setError(errorMessage(err, 'Chưa xác nhận được mã. Hãy thử lại sau.'));
+      if (err instanceof ApiError && err.status === 400) setDead(true); // mã sai hoặc đã hết hạn; sai quá 5 lần thì mã bị vô hiệu
     } finally {
       setLoading(false);
     }
@@ -307,26 +299,64 @@ const ResetForm: React.FC<{ identifier: string; onDone: () => void; onRequestNew
 
   return (
     <>
-      <Heading title="Nhập mã xác thực" text="Nếu thông tin khớp với một tài khoản có email, mã 6 chữ số đã được gửi (hiệu lực 5 phút, dùng một lần; xem cả mục thư rác). Nhập mã rồi đặt mật khẩu mới; các phiên đăng nhập cũ sẽ bị đăng xuất." />
+      <Heading title="Nhập mã xác thực" text="Nếu thông tin khớp với một tài khoản có email, mã 6 chữ số đã được gửi (hiệu lực 5 phút, dùng một lần; xem cả mục thư rác). Nhập mã để tiếp tục; ô đặt mật khẩu mới chỉ hiện sau khi mã đúng." />
       <AuthInput
         label="Mã xác thực"
         nativeID="admin-otp"
         showLabel
         value={otp}
-        onChangeText={(v) => setOtp(v.replace(/\D/g, '').slice(0, 6))}
-        invalid={Boolean(error) && !dead && !/^\d{6}$/.test(otp)}
+        onChangeText={(v) => { setOtp(v.replace(/\D/g, '').slice(0, 6)); setError(null); }}
+        invalid={Boolean(error) && !/^\d{6}$/.test(otp)}
         keyboardType="number-pad"
         autoComplete="one-time-code"
         textContentType="oneTimeCode"
-        returnKeyType="next"
-        onSubmitEditing={() => nextRef.current?.focus()}
+        returnKeyType="go"
+        onSubmitEditing={submit}
         autoFocus={Platform.OS === 'web'}
       />
+      {error ? <Banner tone="error" text={error} /> : null}
+      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 24, rowGap: 8 }}>
+        <SubmitButton title={loading ? 'Đang kiểm tra…' : 'Xác nhận mã'} loading={loading} onPress={submit} testID="reset-verify" />
+        <TextLink title={dead ? 'Yêu cầu mã mới' : 'Gửi lại mã'} icon={MailCheck} onPress={onRequestNew} />
+      </View>
+    </>
+  );
+};
+
+// ---------------------------------------------------------------------- bước 3: mật khẩu mới và nhập lại
+const NewPasswordForm: React.FC<{ ticket: string; onDone: () => void; onRequestNew: () => void }> = ({ ticket, onDone, onRequestNew }) => {
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [show, setShow] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dead, setDead] = useState(false);
+  const confirmRef = useRef<TextInputInstance>(null);
+
+  const submit = async () => {
+    const passwordError = newPasswordError(next);
+    if (passwordError) return setError(passwordError);
+    if (next !== confirm) return setError('Mật khẩu nhập lại chưa khớp.');
+    setLoading(true);
+    setError(null);
+    try {
+      await authApi.resetPasswordWithTicket(ticket, next);
+      onDone();
+    } catch (err) {
+      setError(errorMessage(err, 'Chưa đặt lại được mật khẩu. Hãy thử lại sau.'));
+      if (err instanceof ApiError && err.status === 400) setDead(true); // phiếu hết hạn (10 phút) hoặc đã dùng: phải xin mã mới
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <Heading title="Đặt mật khẩu mới" text="Mã xác thực đã đúng. Bạn có 10 phút để đặt mật khẩu mới; các phiên đăng nhập cũ sẽ bị đăng xuất." />
       <AuthInput
         label="Mật khẩu mới"
         nativeID="admin-new-password"
         showLabel
-        inputRef={nextRef}
         value={next}
         onChangeText={value => { setNext(value); setError(null); }}
         hint={PASSWORD_HINT}
@@ -338,6 +368,7 @@ const ResetForm: React.FC<{ identifier: string; onDone: () => void; onRequestNew
         returnKeyType="next"
         onSubmitEditing={() => confirmRef.current?.focus()}
         right={<ShowToggle shown={show} onToggle={() => setShow((v) => !v)} />}
+        autoFocus={Platform.OS === 'web'}
       />
       <AuthInput
         label="Nhập lại mật khẩu mới"
@@ -357,7 +388,7 @@ const ResetForm: React.FC<{ identifier: string; onDone: () => void; onRequestNew
       {error ? <Banner tone="error" text={error} /> : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 24, rowGap: 8 }}>
         <SubmitButton title={loading ? 'Đang lưu…' : 'Lưu mật khẩu'} loading={loading} onPress={submit} testID="reset-submit" />
-        <TextLink title={dead ? 'Yêu cầu mã mới' : 'Gửi lại mã'} icon={MailCheck} onPress={onRequestNew} />
+        {dead ? <TextLink title="Yêu cầu mã mới" icon={MailCheck} onPress={onRequestNew} /> : null}
       </View>
     </>
   );
@@ -367,6 +398,7 @@ const ResetForm: React.FC<{ identifier: string; onDone: () => void; onRequestNew
 export const AdminLogin: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: AuthUser) => void; notice?: string | null }> = ({ portal, onLogin, notice }) => {
   const [view, setView] = useState<Step>('login');
   const [identifier, setIdentifier] = useState('');
+  const [ticket, setTicket] = useState('');
   const [flash, setFlash] = useState<string | null>(null);
 
   return (
@@ -382,10 +414,21 @@ export const AdminLogin: React.FC<{ portal: AdminPortal; onLogin: (token: string
         />
       )}
       {view === 'reset' && (
-        <ResetForm
+        <CodeForm
           identifier={identifier}
+          onVerified={(t) => {
+            setTicket(t);
+            setView('password');
+          }}
+          onRequestNew={() => setView('forgot')}
+        />
+      )}
+      {view === 'password' && (
+        <NewPasswordForm
+          ticket={ticket}
           onDone={() => {
             setFlash('Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.');
+            setTicket('');
             setView('login');
           }}
           onRequestNew={() => setView('forgot')}

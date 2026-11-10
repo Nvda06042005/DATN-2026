@@ -467,6 +467,27 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /**
+   * Bước "nhập mã" của quên mật khẩu: kiểm tra OTP giống consumePasswordOtp (sai thì tăng số lần thử, quá 5 lần mã bị vô hiệu) nhưng khi đúng
+   * chưa đánh dấu đã dùng, chỉ trả về số hiệu của mã để cấp phiếu đổi mật khẩu; mã được đánh dấu đã dùng ở bước đặt mật khẩu (consumePasswordReset).
+   */
+  async checkPasswordOtp(userId: number, tokenHash: string): Promise<number | null> {
+    return this.transaction(async (c) => {
+      const row = (await c.query('SELECT id, token_hash, attempts FROM app_password_resets WHERE user_id = $1 AND used_at IS NULL AND expires_at > now() ORDER BY id DESC LIMIT 1 FOR UPDATE', [userId])).rows[0];
+      if (!row || Number(row.attempts) >= 5) return null;
+      if (row.token_hash !== tokenHash) {
+        await c.query('UPDATE app_password_resets SET attempts = attempts + 1 WHERE id = $1', [row.id]);
+        return null;
+      }
+      return Number(row.id);
+    });
+  }
+
+  /** Dùng mã đã được xác nhận ở bước nhập mã: chỉ thành công một lần và chỉ khi chưa có mã mới thay thế (yêu cầu mã mới làm mã cũ hết hiệu lực) */
+  async consumePasswordReset(resetId: number, userId: number): Promise<boolean> {
+    return (await this.query('UPDATE app_password_resets SET used_at = now() WHERE id = $1 AND user_id = $2 AND used_at IS NULL RETURNING id', [resetId, userId])).length > 0;
+  }
+
   /** OTP đăng ký tự học (HK.HS.003): cùng cách kiểm tra như quên mật khẩu nhưng theo email, chưa có tài khoản */
   async createSignupOtp(email: string, otpHash: string, ttlMinutes: number): Promise<void> {
     await this.tx(async (q) => {

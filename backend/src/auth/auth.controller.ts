@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Param, Patch, Post, Req, ServiceUnavailableException, UseGuards } from '@nestjs/common';
-import { Equals, IsEmail, IsIn, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
+import { Equals, IsEmail, IsIn, IsOptional, IsString, Length, Matches, MaxLength, ValidateIf } from 'class-validator';
 import { DatabaseService, UserRow } from '../database/database.service';
 import { MediaService } from '../content/studio.service';
 import { AllowTempPassword, AuthGuard, CurrentUser } from './auth.guard';
@@ -34,9 +34,17 @@ class ForgotPasswordDto {
   @IsString() @Length(1, 254) identifier: string;
 }
 
-class ResetPasswordDto {
+/** Bước nhập mã của quên mật khẩu: kiểm tra mã OTP trước khi cho đặt mật khẩu mới */
+class VerifyResetCodeDto {
   @IsString() @Length(1, 254) identifier: string;
   @Matches(/^\d{6}$/, { message: 'Mã xác thực gồm 6 chữ số' }) otp: string;
+}
+
+/** Đặt mật khẩu mới: bằng phiếu của bước nhập mã (reset_token), hoặc theo cách cũ gửi cả định danh và mã OTP một lần */
+class ResetPasswordDto {
+  @ValidateIf((o: ResetPasswordDto) => !o.reset_token) @IsString() @Length(1, 254) identifier?: string;
+  @ValidateIf((o: ResetPasswordDto) => !o.reset_token) @Matches(/^\d{6}$/, { message: 'Mã xác thực gồm 6 chữ số' }) otp?: string;
+  @ValidateIf((o: ResetPasswordDto) => Boolean(o.reset_token)) @IsString() @Length(20, 1000) reset_token?: string;
   @Matches(PASSWORD_POLICY, { message: PASSWORD_MESSAGE }) new_password: string;
 }
 
@@ -116,12 +124,21 @@ export class AuthController {
     return { ok: true };
   }
 
-  /** Đặt mật khẩu mới bằng OTP trong thư (dùng một lần, hiệu lực 5 phút, sai quá 5 lần thì vô hiệu) */
+  /** Quên mật khẩu, bước nhập mã: mã OTP đúng thì cấp phiếu đổi mật khẩu 10 phút (sai quá 5 lần thì mã bị vô hiệu) */
+  @Post('verify-reset-code')
+  @HttpCode(200)
+  async verifyResetCode(@Body() body: VerifyResetCodeDto) {
+    this.ensureReady();
+    return this.auth.verifyResetCode(body.identifier, body.otp);
+  }
+
+  /** Đặt mật khẩu mới bằng phiếu của bước nhập mã (hoặc cách cũ: OTP trong thư gửi cùng mật khẩu mới; mã dùng một lần, hiệu lực 5 phút, sai quá 5 lần thì vô hiệu) */
   @Post('reset-password')
   @HttpCode(200)
   async resetPassword(@Body() body: ResetPasswordDto) {
     this.ensureReady();
-    await this.auth.resetPassword(body.identifier, body.otp, body.new_password);
+    if (body.reset_token) await this.auth.resetPasswordWithTicket(body.reset_token, body.new_password);
+    else await this.auth.resetPassword(body.identifier as string, body.otp as string, body.new_password);
     return { ok: true };
   }
 

@@ -45,6 +45,9 @@ const RESET_WINDOW_MS = 15 * 60_000;
 const RESET_MAP_LIMIT = 5000;
 const ALL_ROLES: Role[] = ['root_admin', 'school_admin', 'teacher', 'student'];
 const OTP_INVALID = 'Mã xác thực không đúng hoặc đã hết hạn. Hãy yêu cầu mới.';
+/** Sau khi nhập đúng mã, người dùng có 10 phút để đặt mật khẩu mới (phiếu dùng một lần, mất hiệu lực khi yêu cầu mã mới) */
+const RESET_TICKET_TTL_S = 600;
+const RESET_TICKET_INVALID = 'Phiên đổi mật khẩu đã hết hạn hoặc đã dùng. Hãy yêu cầu mã xác thực mới.';
 
 const hashToken = (token: string): string => createHash('sha256').update(token).digest('hex');
 /** Băm OTP kèm định danh để cùng một mã của hai người không trùng giá trị lưu */
@@ -299,7 +302,29 @@ export class AuthService {
     await this.mail.sendPasswordOtp(email, user.full_name, otp, OTP_TTL_MIN);
   }
 
-  /** Đặt mật khẩu mới bằng OTP: mã dùng một lần, sai quá 5 lần thì bị vô hiệu; các phiên đăng nhập cũ mất hiệu lực vì dấu vân tay mật khẩu đổi */
+  /**
+   * Quên mật khẩu, bước 2: kiểm tra mã OTP trong thư (sai quá 5 lần thì mã bị vô hiệu như trước). Mã đúng thì cấp phiếu đổi mật khẩu có hạn 10 phút
+   * (JWT mục đích "pwreset" gắn với đúng mã đã xác nhận, không dùng được làm phiên đăng nhập); chưa đổi mật khẩu ở bước này.
+   */
+  async verifyResetCode(identifier: string, otp: string): Promise<{ reset_token: string; expires_in: number }> {
+    const user = await this.db.findForPasswordReset(identifier.trim().toLowerCase(), ALL_ROLES);
+    const resetId = user ? await this.db.checkPasswordOtp(user.id, hashOtp(user.id, otp)) : null;
+    if (!user || resetId === null) throw new BadRequestException(OTP_INVALID);
+    return { reset_token: this.jwt.sign({ sub: user.id, purpose: 'pwreset', rid: resetId }, { expiresIn: RESET_TICKET_TTL_S }), expires_in: RESET_TICKET_TTL_S };
+  }
+
+  /** Quên mật khẩu, bước 3: đặt mật khẩu mới bằng phiếu của bước 2; mã OTP tương ứng được dùng ngay (một lần), các phiên cũ mất hiệu lực vì dấu vân tay mật khẩu đổi */
+  async resetPasswordWithTicket(ticket: string, newPassword: string): Promise<void> {
+    let payload: { sub?: number; purpose?: string; rid?: number };
+    try { payload = this.jwt.verify(ticket); } catch { throw new BadRequestException(RESET_TICKET_INVALID); }
+    if (payload.purpose !== 'pwreset' || typeof payload.sub !== 'number' || typeof payload.rid !== 'number') throw new BadRequestException(RESET_TICKET_INVALID);
+    const passwordHash = await hashPassword(newPassword);
+    if (!(await this.db.consumePasswordReset(payload.rid, payload.sub))) throw new BadRequestException(RESET_TICKET_INVALID);
+    await this.db.setPassword(payload.sub, passwordHash, false);
+    this.failed.delete(`u${payload.sub}`);
+  }
+
+  /** Đặt mật khẩu mới bằng OTP trong một bước (cách cũ, giữ cho tab đã mở trước khi tách bước): mã dùng một lần, sai quá 5 lần thì bị vô hiệu; các phiên đăng nhập cũ mất hiệu lực vì dấu vân tay mật khẩu đổi */
   async resetPassword(identifier: string, otp: string, newPassword: string): Promise<void> {
     const passwordHash = await hashPassword(newPassword);
     const user = await this.db.findForPasswordReset(identifier.trim().toLowerCase(), ALL_ROLES);

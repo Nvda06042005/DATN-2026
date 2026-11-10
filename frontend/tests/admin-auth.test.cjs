@@ -78,6 +78,20 @@ test('Quên mật khẩu và đặt lại bằng OTP dùng đúng API', async ()
   assert.equal(requests[1].headers.Authorization, undefined);
 });
 
+test('Quên mật khẩu ba bước: nhập mã nhận phiếu, rồi đặt mật khẩu bằng phiếu (không gửi lại mã, không kèm token đăng nhập)', async () => {
+  const ticket = 't'.repeat(40);
+  const { auth, requests } = loadAuth({ respond: (url) => (url.endsWith('/verify-reset-code') ? { reset_token: ticket, expires_in: 600 } : { ok: true }) });
+  const res = await auth.verifyResetCode('test-root', '123456');
+  assert.deepEqual(res, { reset_token: ticket, expires_in: 600 });
+  await auth.resetPasswordWithTicket(res.reset_token, 'new-test-password1');
+  assert.equal(requests[0].url, 'https://api.example.test/api/auth/verify-reset-code');
+  assert.equal(requests[0].method, 'POST');
+  assert.deepEqual(JSON.parse(requests[0].body), { identifier: 'test-root', otp: '123456' });
+  assert.equal(requests[1].url, 'https://api.example.test/api/auth/reset-password');
+  assert.deepEqual(JSON.parse(requests[1].body), { reset_token: ticket, new_password: 'new-test-password1' });
+  for (const r of requests) assert.equal(r.headers.Authorization, undefined);
+});
+
 test('Đổi mật khẩu nhận phiên mới và đăng xuất thu hồi đúng phiên', async () => {
   const { auth, requests } = loadAuth({ respond: () => rootSession });
   await auth.changePassword('test-token', 'old-test-password', 'new-test-password1');
