@@ -2,6 +2,7 @@
 
 ## Lịch Đông A cho Excel – 10/11/2026
 
+- Bổ sung 11/11: sửa fixture hồi quy build identity để chép tài nguyên lịch như bước Expo build trước khi đóng ZIP; không bỏ qua lỗi thiếu manifest. CI frontend đã đạt ở a837687, backend 546/551 với đúng 5 lỗi AI/analytics có sẵn; lịch chưa được phát hành từ nhánh main tại thời điểm ghi chú này.
 - Theo lựa chọn mới nhất, thay Vertex42 bằng Content Add-in Đông A trong mẫu giáo viên/học sinh không macro. Bấm tháng/năm mở danh sách; chọn ngày ghi đúng G cùng dòng, tính lại STT/mã, chuyển C dòng tiếp khi đủ dữ liệu. Email học sinh vẫn tùy chọn. Khi lịch mở, sửa riêng G rồi Enter cũng xử lý qua onChanged, không bắt phím toàn Excel.
 - Giao diện không có liên kết Vertex42; menu quản lý/bảo mật Office giữ nguyên. Kiểm tra đúng mẫu và một ô C–G, chặn ngoài bảng, dòng ví dụ, ngày sai/tương lai, worksheet đã đổi; không tự chuyển do paste nhiều ô hoặc người cộng tác.
 - Mẫu tham chiếu Registry/developer theo file ví dụ Microsoft; bộ cài riêng chỉ đăng ký đúng một ID cho Windows user hiện tại, có Status/Uninstall. Không đổi chính sách macro/PowerShell/Protected View, không có server nhận dữ liệu workbook. Nút Cài lịch Đông A ở cả hai hộp nhập. Xem [Lịch Excel](LICH_EXCEL.md).
