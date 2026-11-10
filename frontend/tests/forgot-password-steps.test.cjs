@@ -29,14 +29,14 @@ test('quản trị tổng: màn nhập mã chỉ có ô mã; ô mật khẩu m�
   assert.match(pw, /testID="reset-submit"/);
   assert.doesNotMatch(pw, /admin-otp|verifyResetCode/);
   // màn đổi mật khẩu chỉ mở khi đã có phiếu
-  assert.match(src, /onVerified=\{\(t\) => \{\s*setTicket\(t\);\s*setView\('password'\);/);
+  assert.match(src, /onVerified=\{\(t\) => \{[\s\S]*?setTicket\(t\);\s*setView\('password'\);/);
   assert.match(src, /\{view === 'password' && \(\s*<NewPasswordForm\s+ticket=\{ticket\}/);
 });
 
 test('giáo viên, học sinh, quản trị trường: hộp Quên mật khẩu có ba bước ask, code, password; ô mật khẩu chỉ ở bước cuối', () => {
   const src = read('components', 'auth.tsx');
   const sheet = between(src, 'const ForgotPasswordSheet:', '// ----------------------------------------------------------------------');
-  assert.match(sheet, /useState<'ask' \| 'code' \| 'password'>\('ask'\)/);
+  assert.match(sheet, /useState<'ask' \| 'code' \| 'password'>\(saved\?\.step \?\? 'ask'\)/);
   assert.match(sheet, /authApi\.verifyResetCode\(identifier\.trim\(\), otp\)/);
   assert.match(sheet, /setStep\('password'\)/);
   assert.match(sheet, /authApi\.resetPasswordWithTicket\(ticket, next\)/);
