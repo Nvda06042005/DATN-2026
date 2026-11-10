@@ -36,10 +36,10 @@ import type { MailService } from '../src/admin/mail.service';
 
   test('Tạo tài khoản quản trị (trang Người dùng): tên gọi bỏ dấu, 4 số cuối bỏ ký hiệu, trùng thì thêm số; thư gửi tên đăng nhập và mật khẩu', async () => {
     const school = (await api('POST', '/api/admin/schools', { name: 'THCS Phú Mỹ', city: 'Thành phố Hồ Chí Minh', admin: { full_name: 'Quản Trị Đầu Tiên', email: 'dau.pm@example.edu.vn' } })).body.school;
-    const body = { role: 'school_admin', school_id: school.id, full_name: 'Lê Thị Bình', email: 'binh.pm@example.edu.vn', phone: '(090) 123-4567', birth_date: '1990-12-31' };
+    const body = { role: 'school_admin', school_id: school.id, full_name: 'Lê Thị Bình', email: 'binh.pm@example.edu.vn', phone: '0901234567', birth_date: '1990-12-31' };
     const one = await api('POST', '/api/admin/users', body);
     expect(one.status).toBe(201);
-    expect(one.body.user).toMatchObject({ username: 'qlypmbinh4567', birth_date: '1990-12-31', phone: '(090) 123-4567', email: 'binh.pm@example.edu.vn' });
+    expect(one.body.user).toMatchObject({ username: 'qlypmbinh4567', birth_date: '1990-12-31', phone: '0901234567', email: 'binh.pm@example.edu.vn' });
     expect(one.body.temporary_password).toBe('DongA31121990@BINH');
     const sent = await mailTo('binh.pm@example.edu.vn');
     expect(sent?.text).toContain('QLYPMBINH4567');

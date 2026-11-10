@@ -140,7 +140,7 @@ function editFields(u: AccountDetail, schools: Array<{ value: string; label: str
   const fields: FieldDef[] = [
     { name: 'full_name', label: 'Họ và tên', required: true },
     { name: 'email', label: 'Email', type: 'email', required: u.role !== 'student', hint: 'Dùng để nhận mật khẩu tạm và mã OTP khi quên mật khẩu.' },
-    { name: 'phone', label: 'Số điện thoại', type: 'tel' },
+    { name: 'phone', label: 'Số điện thoại', type: 'phone', hint: 'Đúng 10 chữ số, ví dụ 0901234567.' },
   ];
   const today = todayVn();
   if (u.role === 'teacher') fields.push({ name: 'user_code', label: 'Mã giáo viên', render:(v)=><RegistrationCode token={token} kind="teacher" showSerial userId={u.id} schoolId={Number(v.school_id)||u.school_id||undefined} birthDate={String(v.birth_date||'')}/> }, { name: 'gender', label: 'Giới tính', type: 'select', options: GENDER_OPTIONS.filter((o) => o.value !== 'other') }, { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1940-01-01', max: today, required:true });

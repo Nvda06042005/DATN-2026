@@ -51,11 +51,11 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const fields: FieldDef[] = teacher
     ? [{ name: 'user_code', label: 'Mã giáo viên', render:(v)=> <RegistrationCode token={token} kind="teacher" showSerial birthDate={String(v.birth_date||'')}/> }, { name: 'full_name', label: 'Họ và tên', required: true },
       { name: 'gender', label: 'Giới tính', type: 'select', options: [{ value: '', label: 'Chưa chọn' }, { value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }] },
-      { name: 'phone', label: 'SĐT', type: 'tel' }, { name: 'email', label: 'Email', type: 'email', required: true, hint: 'Mật khẩu tạm được gửi vào email này.' },
+      { name: 'phone', label: 'SĐT', type: 'phone', hint: 'Đúng 10 chữ số, ví dụ 0901234567.' }, { name: 'email', label: 'Email', type: 'email', required: true, hint: 'Mật khẩu tạm được gửi vào email này.' },
       { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1940-01-01', max: today, required: true }]
     : [{ name: 'user_code', label: 'Mã học sinh', render:(v)=> <RegistrationCode token={token} kind="student" showSerial birthDate={String(v.birth_date||'')}/> }, { name: 'full_name', label: 'Họ và tên', required: true },
       { name: 'gender', label: 'Giới tính', type: 'select', options: [{ value: '', label: 'Chưa chọn' }, { value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }, { value: 'other', label: 'Khác' }] },
-      { name: 'phone', label: 'SĐT', type: 'tel' }, { name: 'email', label: 'Email', type: 'email' },
+      { name: 'phone', label: 'SĐT', type: 'phone', hint: 'Đúng 10 chữ số, ví dụ 0901234567.' }, { name: 'email', label: 'Email', type: 'email' },
       { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '2000-01-01', max: today, required: true },
       { name: 'class_id', label: 'Xếp vào lớp (năm học đang hoạt động)', type: 'select', options: [{ value: '', label: 'Chưa xếp lớp' }, ...classOptions] },
       { name: 'parent_email', label: 'Email phụ huynh', type: 'email', hint: 'Dữ liệu của trẻ vị thành niên: chỉ dùng cho việc liên lạc của nhà trường.' }];

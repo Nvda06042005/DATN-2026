@@ -8,12 +8,13 @@ import * as DocumentPicker from 'expo-document-picker';
 import { AlertTriangle, Check, CheckSquare, ChevronDown, ChevronLeft, ChevronRight, Download, FileUp, Funnel, Info, Search, SlidersHorizontal, Square, X } from 'lucide-react-native';
 import { ApiError, errorMessage, type PickedFile } from '@/api/client';
 import { AdminSelect } from '@/components/admin/AdminSelect';
-import { Btn, Card, Chip, EmptyState, Field, Inset, Sheet, Spinner, Txt, useToast } from '@/components/ui';
+import { Btn, Card, Chip, EmptyState, Field, Inset, Sheet, Spinner, Txt, useToast, PhoneField } from '@/components/ui';
 import { FONT } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { copyText } from '@/lib/clipboard';
 import { DEFAULT_PAGE_SIZE, getPageSize, PAGE_SIZES, pageWindow, setPageSize, subscribePageSize, TABLE_MIN_WIDTH } from '@/lib/paging';
 import { splitTitle } from '@/lib/title-split';
+import { normalizePhone, phoneError } from '@/lib/phone';
 import { acceptNote, checkPickedFile, checkTemplateFilename, XLSM_MIME } from '@/lib/upload-rules';
 import type { ImportResult } from '@/types/api';
 
@@ -401,7 +402,7 @@ export const StatusChip: React.FC<{ kind: 'on' | 'off' | 'warn' | 'info' | 'mute
 export interface FieldDef {
   name: string;
   label: string;
-  type?: 'text' | 'email' | 'tel' | 'date' | 'number' | 'textarea' | 'select' | 'multi';
+  type?: 'text' | 'email' | 'tel' | 'phone' | 'date' | 'number' | 'textarea' | 'select' | 'multi';
   required?: boolean;
   hint?: string;
   placeholder?: string;
@@ -424,7 +425,8 @@ export const FormSheet: React.FC<{
   title: string; subtitle?: string; fields: FieldDef[]; initial?: Values; submitLabel?: string; wide?: boolean; footerExtra?: React.ReactNode;
   onSubmit: (values: Values) => Promise<void>; onClose: () => void;
 }> = ({ title, subtitle, fields, initial, submitLabel = 'Lưu', wide, footerExtra, onSubmit, onClose }) => {
-  const [values, setValues] = useState<Values>(() => Object.fromEntries(fields.map((f) => [f.name, initial?.[f.name] ?? (f.type === 'multi' ? [] : '')])));
+  // ô số điện thoại (quản trị, giáo viên, học sinh): số cũ có dấu cách mà đủ 10 chữ số thì làm sạch, số lạ giữ nguyên để người dùng thấy cảnh báo và tự sửa
+  const [values, setValues] = useState<Values>(() => Object.fromEntries(fields.map((f) => [f.name, f.type === 'phone' ? normalizePhone(String(initial?.[f.name] ?? '')) : initial?.[f.name] ?? (f.type === 'multi' ? [] : '')])));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [missing, setMissing] = useState<Record<string, boolean>>({});
@@ -435,6 +437,8 @@ export const FormSheet: React.FC<{
     const gaps = Object.fromEntries(visible.filter((f) => f.required && !f.readOnly && !f.render && (f.type === 'multi' ? !(values[f.name] as string[]).length : !String(values[f.name] ?? '').trim())).map((f) => [f.name, true]));
     setMissing(gaps);
     if (Object.keys(gaps).length) return setError('Hãy điền các ô bắt buộc (đánh dấu *).');
+    const badPhone = visible.map((f) => (f.type === 'phone' ? phoneError(String(values[f.name] ?? '')) : null)).find(Boolean);
+    if (badPhone) return setError(badPhone);
     setBusy(true);
     setError(null);
     try {
@@ -497,6 +501,7 @@ const FormField: React.FC<{ def: FieldDef; value: string | string[]; error: stri
     );
   }
   if (def.type === 'date' && def.calendar && Platform.OS === 'web') return <CalendarInput def={def} label={label} value={String(value ?? '')} error={error} onChange={onChange} />;
+  if (def.type === 'phone') return <PhoneField label={label} hint={def.hint} error={error} value={String(value ?? '')} onChange={(v) => onChange(v)} placeholder={def.placeholder} nativeID={`field-${def.name}`} editable={!def.readOnly} />;
   return (
     <Field label={label} hint={def.hint} error={error} value={String(value ?? '')} onChangeText={(v) => onChange(v)} placeholder={def.placeholder ?? (def.type === 'date' ? 'YYYY-MM-DD' : undefined)}
       editable={!def.readOnly} multiline={def.type === 'textarea'} numberOfLines={def.type === 'textarea' ? 4 : 1} inputStyle={def.type === 'textarea' ? { minHeight: 96, textAlignVertical: 'top' } : undefined}

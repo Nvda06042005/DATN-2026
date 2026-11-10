@@ -43,7 +43,7 @@ class ResetPasswordDto {
 class ProfileDto {
   @IsOptional() @IsString() @Length(2, 80) full_name?: string;
   @IsOptional() @IsEmail() @MaxLength(254) email?: string | null;
-  @IsOptional() @Matches(/^[0-9+() .-]{8,20}$/, { message: 'Số điện thoại gồm 8–20 chữ số hoặc ký hiệu + ( ) - .' }) phone?: string | null;
+  @IsOptional() @Matches(/^[0-9]{10}$/, { message: 'Số điện thoại gồm đúng 10 chữ số' }) phone?: string | null;
   /** Ảnh đại diện chỉ đổi bằng cách tải ảnh lên (POST /auth/avatar); ở đây chỉ nhận null để xóa ảnh */
   @IsOptional() @Equals(null, { message: 'Ảnh đại diện chỉ đổi bằng cách tải ảnh lên; gửi null để xóa ảnh' }) avatar_url?: null;
   @IsOptional() @IsString() @MaxLength(300) bio?: string | null;

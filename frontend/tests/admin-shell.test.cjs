@@ -209,14 +209,14 @@ test('tài khoản quản trị trường theo quy ước: điện thoại và n
   const sheet = read('components', 'admin', 'CreateSchoolAdminSheet.tsx');
   assert.match(sheet, /label="Số điện thoại \*"/);
   assert.match(sheet, /label="Ngày tháng năm sinh \*"/);
-  assert.ok(sheet.includes("phone.replace(/\\D/g, '').length < 4"));
+  assert.ok(sheet.includes('!/^\\d{10}$/.test(phone)'));
   assert.ok(sheet.includes("/^\\d{4}-\\d{2}-\\d{2}$/.test(birth)"));
-  assert.match(sheet, /phone: phone\.trim\(\), birth_date: birth, school_id: Number\(schoolId\)/);
+  assert.match(sheet, /phone, birth_date: birth, school_id: Number\(schoolId\)/);
   assert.match(sheet, /QLYGOTAN6720/);
   assert.match(sheet, /DongA06042005@AN/);
   assert.match(read('api', 'adminApi.ts'), /createAdminAccount = \(token: string, body: \{[^}]*birth_date\?: string \| null/);
   const root = read('components', 'admin', 'RootAdmin.tsx');
-  assert.match(root, /name: 'admin_phone', label: 'Điện thoại', type: 'tel', required: true/);
+  assert.match(root, /name: 'admin_phone', label: 'Điện thoại', type: 'phone', required: true/);
   assert.match(root, /name: 'admin_birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true[^}]*required: true/);
   assert.match(root, /birth_date: v\.admin_birth_date \|\| undefined/);
   assert.match(root, /username: created\.admin\.username\.toUpperCase\(\)/);

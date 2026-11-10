@@ -15,8 +15,9 @@ import { SchoolService } from './school.service';
 const squash = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.split(/\s+/).filter(Boolean).join(' ') : value);
 const YEAR_LABEL = /^\d{4}-\d{4}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const PHONE = /^[0-9+() .-]{8,20}$/;
-const PHONE_MESSAGE = 'Số điện thoại gồm 8–20 chữ số hoặc ký hiệu + ( ) - .';
+// Số điện thoại của quản trị tổng, quản trị trường, giáo viên và học sinh: đúng 10 chữ số, không dấu cách hay ký hiệu (điện thoại liên hệ của trường không bị giới hạn)
+const PHONE = /^[0-9]{10}$/;
+const PHONE_MESSAGE = 'Số điện thoại gồm đúng 10 chữ số';
 
 class Page {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page?: number;

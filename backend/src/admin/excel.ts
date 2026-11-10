@@ -397,6 +397,17 @@ export async function buildFormSheet(spec: FormSheetSpec): Promise<Buffer> {
             showErrorMessage: true, errorStyle: 'stop', errorTitle: c.header.replace(/\*/g, '').trim(), error: `Hãy chọn ${(c.options ?? []).join(' hoặc ')} trong danh sách.`,
           };
         }
+      } else if (c.kind === 'phone') {
+        cell.numFmt = '@';
+        if (raw !== undefined && raw !== null && raw !== '') cell.value = String(raw);
+        // số điện thoại đúng 10 chữ số (ô văn bản nên giữ số 0 đầu); gõ sai độ dài bị chặn ngay trong ô
+        if (!spec.rows) {
+          cell.dataValidation = {
+            type: 'textLength', operator: 'equal', allowBlank: true, formulae: [10],
+            showInputMessage: true, promptTitle: 'Số điện thoại', prompt: 'Nhập đúng 10 chữ số, ví dụ 0901234567',
+            showErrorMessage: true, errorStyle: 'stop', errorTitle: 'Số điện thoại', error: 'Số điện thoại gồm đúng 10 chữ số.',
+          };
+        }
       } else {
         cell.numFmt = '@';
         if (raw !== undefined && raw !== null && raw !== '') cell.value = String(raw);

@@ -471,14 +471,14 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     const gvView = await call(s.base, 'GET', '/api/auth/profile', undefined, gv.token);
     expect(gvView.body.editable).toEqual(['phone', 'avatar_url', 'bio']);
     expect(gvView.body.classes.map((c: any) => c.name)).toEqual(['7A1']);
-    expect((await call(s.base, 'PATCH', '/api/auth/profile', { phone: '0912 345 678', bio: 'Dạy Lịch sử 7.' }, gv.token)).body.user).toMatchObject({ phone: '0912 345 678', bio: 'Dạy Lịch sử 7.' });
+    expect((await call(s.base, 'PATCH', '/api/auth/profile', { phone: '0912345678', bio: 'Dạy Lịch sử 7.' }, gv.token)).body.user).toMatchObject({ phone: '0912345678', bio: 'Dạy Lịch sử 7.' });
     expect((await call(s.base, 'PATCH', '/api/auth/profile', { full_name: 'Tên Khác' }, gv.token)).status).toBe(422);
 
-    const qt = await call(s.base, 'PATCH', '/api/auth/profile', { full_name: 'Nguyễn Quản Trị Đổi', phone: '0987 654 321', email: 'qt.a.moi@example.edu.vn' }, a.token);
-    expect(qt.body.user).toMatchObject({ full_name: 'Nguyễn Quản Trị Đổi', phone: '0987 654 321', email: 'qt.a.moi@example.edu.vn' });
+    const qt = await call(s.base, 'PATCH', '/api/auth/profile', { full_name: 'Nguyễn Quản Trị Đổi', phone: '0987654321', email: 'qt.a.moi@example.edu.vn' }, a.token);
+    expect(qt.body.user).toMatchObject({ full_name: 'Nguyễn Quản Trị Đổi', phone: '0987654321', email: 'qt.a.moi@example.edu.vn' });
     expect((await call(s.base, 'PATCH', '/api/auth/profile', { email: 'gv.hoso@example.edu.vn' }, a.token)).status).toBe(409); // email của người khác
     await call(s.base, 'PATCH', '/api/auth/profile', { email: 'qt.a@example.edu.vn' }, a.token);
-    expect((await api('PATCH', '/api/auth/profile', { full_name: 'Quản Trị Tổng', phone: '0900 000 000' })).body.user.full_name).toBe('Quản Trị Tổng');
+    expect((await api('PATCH', '/api/auth/profile', { full_name: 'Quản Trị Tổng', phone: '0900000000' })).body.user.full_name).toBe('Quản Trị Tổng');
   });
 
   // ------------------------------------------------------------------ HK.AD.018–025
@@ -502,7 +502,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     const l2 = await activate(s.base, level2.body.user.username, level2.body.temporary_password, PW, 'root_admin');
     // Cấp 2 quản lý được quản trị viên trường nhưng không tạo/sửa/khóa quản trị tổng
     expect((await call(s.base, 'POST', '/api/admin/users', { full_name: 'Không Được', role: 'root_admin', email: 'khong@example.edu.vn' }, l2.token)).status).toBe(403);
-    expect((await call(s.base, 'PATCH', `/api/admin/users/1`, { phone: '0900 111 222' }, l2.token)).status).toBe(403);
+    expect((await call(s.base, 'PATCH', `/api/admin/users/1`, { phone: '0900111222' }, l2.token)).status).toBe(403);
     expect((await call(s.base, 'POST', '/api/admin/users/1/lock', { locked: true, reason: 'x' }, l2.token)).status).toBe(403);
     expect((await call(s.base, 'POST', '/api/admin/schools', { school_code: '7099', name: 'Cấp 2 không tạo trường', admin: { full_name: 'Ai Đó', email: 'ai.do@example.edu.vn' } }, l2.token)).status).toBe(403);
     const sa = await call(s.base, 'POST', '/api/admin/users', { full_name: 'Quản Trị Trường Thêm', role: 'school_admin', email: 'qt.them@example.edu.vn', school_id: a.id, phone: '0912345678', birth_date: '1990-02-03' }, l2.token);
@@ -524,8 +524,8 @@ async function newSchool(code: string, name: string, adminName: string, email: s
 
   test('HK.AD.021 sửa thông tin người dùng; chuyển trường chỉ khi chưa thuộc lớp', async () => {
     const t = await api('POST', '/api/admin/teachers', { full_name: 'Cô Chuyển Trường', email: 'chuyen@example.edu.vn' }, a.token);
-    const edited = await api('PATCH', `/api/admin/users/${t.body.user.id}`, { full_name: 'Cô Chuyển Trường Mới', email: 'chuyen.moi@example.edu.vn', phone: '0911 222 333', school_id: b.id });
-    expect(edited.body).toMatchObject({ full_name: 'Cô Chuyển Trường Mới', email: 'chuyen.moi@example.edu.vn', phone: '0911 222 333', school_id: b.id });
+    const edited = await api('PATCH', `/api/admin/users/${t.body.user.id}`, { full_name: 'Cô Chuyển Trường Mới', email: 'chuyen.moi@example.edu.vn', phone: '0911222333', school_id: b.id });
+    expect(edited.body).toMatchObject({ full_name: 'Cô Chuyển Trường Mới', email: 'chuyen.moi@example.edu.vn', phone: '0911222333', school_id: b.id });
     expect((await api('PATCH', `/api/admin/users/${t.body.user.id}`, { email: 'qt.b@example.edu.vn' })).status).toBe(409);
     expect((await api('PATCH', `/api/admin/users/${t.body.user.id}`, { email: 'khong-phai-email' })).status).toBe(422);
     const gv = await api('POST', '/api/admin/teachers', { full_name: 'Cô Đang Dạy', email: 'dangday@example.edu.vn' }, a.token);
