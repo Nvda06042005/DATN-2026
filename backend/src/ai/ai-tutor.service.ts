@@ -389,7 +389,7 @@ export class AiTutorService implements OnModuleDestroy {
   }
 
   private async historyOf(conversationId: number): Promise<LlmMessage[]> {
-    if (!this.db.ready || conversationId === 1) return [];
+    if (!this.db.ready) return [];
     const rows = await this.db.query<{ role: 'user' | 'assistant'; content: string; refused: boolean }>(
       'SELECT role, content, refused FROM hk_ai_messages WHERE conversation_id = $1 ORDER BY id DESC LIMIT 6', [conversationId]);
     return rows.reverse().filter((r) => !r.refused).map((r) => ({ role: r.role, content: short(r.content, 800) }));
@@ -397,7 +397,7 @@ export class AiTutorService implements OnModuleDestroy {
 
   /** Lưu cặp tin nhắn người hỏi – trợ lý và trả về dạng hiển thị */
   async save(conversationId: number, question: string, a: Answer, startedAt: number) {
-    if (!this.db.ready || conversationId === 1) {
+    if (!this.db.ready) {
       const now = new Date().toISOString();
       return {
         user_message: { id: Date.now(), role: 'user', content: question, created_at: now },
