@@ -12,7 +12,7 @@ Vào Học sinh → Nhập từ Excel → Tải file mẫu. File mới là `file
 
 Nhập đủ họ tên và ngày sinh rồi nhấn Enter để lưu ô: công thức tự tính STT/mã, không phụ thuộc macro. Dòng trống hoặc thiếu dữ liệu không hiện STT/mã; không đánh sẵn 1–1000. STT đếm liên tiếp qua dòng trống. Đổi ngày sinh cập nhật phần ngày trong mã. Nếu Excel đang tính thủ công, chọn Formulas → Calculation Options → Automatic. Lưu file và tải lên để xem trước; xác nhận nhập mới tạo tài khoản. Không khôi phục bảng nhập trên website.
 
-Theo xác nhận tiếp ngày 10/11, mẫu nhúng tham chiếu **Mini Calendar and Date Picker của Vertex42** từ Office Store. Mở bằng Excel máy tính có Internet, chọn ô ngày sinh cột G rồi chọn ngày trên lịch nổi bên phải bảng. Excel giữ xác nhận tiện ích khi mở lần đầu; không tắt bảo vệ Office. Không cần Excel trên web. Chi tiết quyền, cách dùng và giới hạn kiểm tra: [Lịch Excel](LICH_EXCEL.md).
+Theo lựa chọn mới nhất ngày 10/11, dùng **Lịch Đông A riêng**, cài một lần trong Microsoft Excel Windows từ nút Cài lịch Đông A. Bấm tháng/năm để chọn nhanh, chọn ngày ghi cột G; dòng đủ họ tên/ngày sinh tính STT/mã rồi chọn Họ tên dòng tiếp. Email học sinh vẫn tùy chọn. Mẫu mới không còn Vertex42. Chi tiết: [Lịch Excel](LICH_EXCEL.md).
 
 Enter di chuyển theo cài đặt Excel; file không macro không chặn phím để tự nhảy từ ngày sinh về Họ tên dòng kế. Chỉ nhận chính xác tên mẫu `.xlsx` hoặc bản `.xlsm` cũ cùng tên (tối đa 2 MB/1000 dòng). Hậu tố tải trùng `(1)` cần bỏ trước khi nhập. Tên file không thay kiểm tra quyền/trường. API chỉ đọc dữ liệu, không thực thi VBA tải lên; máy chủ chốt mã theo bộ đếm nên không tin mã người nhập tự sửa. Lớp/Email phụ huynh trong file cũ vẫn được đọc, giữ quy trình xếp lớp hiện có.
 

@@ -23,7 +23,8 @@ test('chỉ mẫu .xlsx hoặc mẫu .xlsm cũ đúng trường được nhận,
 test('hộp nhập của hai vai trò dùng mẫu Excel có lịch, không còn bảng nhập trên website',()=>{
  const importer=read('components/admin/TeacherImportSheet.tsx'),kit=read('components/admin/kit.tsx');
  assert.match(importer,/kind\?:'teachers'\|'students'/);
- assert.match(importer,/hint="Mẫu \.xlsx không macro, có lịch Vertex42 cho Excel máy tính/);
+ assert.match(importer,/hint="Mẫu \.xlsx không macro, dùng lịch Đông A/);
+ assert.match(importer,/title="Cài lịch Đông A"/);
  assert.match(importer,/expectedFilename=\{spec\.filename\} legacyFilename=\{spec\.legacy_filename\}/);
  assert.doesNotMatch(importer,/Nhập trên bảng|TeacherEntrySheet|Grid2X2|entry-open/);
  assert.match(kit,/acceptMacro=false/);assert.match(kit,/const types=acceptMacro\?\[\.\.\.XLSX_TYPES,XLSM_MIME\]:baseTypes/);
