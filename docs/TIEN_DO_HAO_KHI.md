@@ -1,5 +1,12 @@
 # Tiến độ xây dựng Hào Khí Đông A (theo mã HK.*)
 
+## Lịch Đông A cho Excel – 10/11/2026
+
+- Theo lựa chọn mới nhất, thay Vertex42 bằng Content Add-in Đông A trong mẫu giáo viên/học sinh không macro. Bấm tháng/năm mở danh sách; chọn ngày ghi đúng G cùng dòng, tính lại STT/mã, chuyển C dòng tiếp khi đủ dữ liệu. Email học sinh vẫn tùy chọn. Khi lịch mở, sửa riêng G rồi Enter cũng xử lý qua onChanged, không bắt phím toàn Excel.
+- Giao diện không có liên kết Vertex42; menu quản lý/bảo mật Office giữ nguyên. Kiểm tra đúng mẫu và một ô C–G, chặn ngoài bảng, dòng ví dụ, ngày sai/tương lai, worksheet đã đổi; không tự chuyển do paste nhiều ô hoặc người cộng tác.
+- Mẫu tham chiếu Registry/developer theo file ví dụ Microsoft; bộ cài riêng chỉ đăng ký đúng một ID cho Windows user hiện tại, có Status/Uninstall. Không đổi chính sách macro/PowerShell/Protected View, không có server nhận dữ liệu workbook. Nút Cài lịch Đông A ở cả hai hộp nhập. Xem [Lịch Excel](LICH_EXCEL.md).
+- Kiểm tra: manifest hợp lệ bằng công cụ Microsoft; frontend 135/135 trước ca đổi worksheet bổ sung (ca mới và 17 ca liên quan đạt); backend Excel 24/24, hai phía typecheck/build; UI lịch có danh sách tháng/năm, ghi đúng ô và chọn C tiếp ở cả hai loại qua Office API giả. Open XML không thêm lỗi so với mẫu nền. Chưa xác nhận tương tác trong Excel thật khi native pipe vẫn mất kết nối. Không có migration mới.
+
 ## Điều chỉnh phạm vi quản lý theo yêu cầu ngày 06/11/2026
 
 - Cập nhật 08/11: form Năm học chỉ có danh sách chọn năm, gỡ toàn bộ khung/nút gợi ý và ô chỉnh ngày. Khung đã xác minh chuyển vào migration **051**; máy chủ tự đặt theo năm được chọn. Bảng hiển thị 18/17 tuần **thực học** và hạn hoàn thành theo đúng văn bản từng năm, không đếm tuần lịch hoặc tự đoán thứ Bảy. Bổ sung học kỳ trống/sửa đúng mẫu sinh từ 050 trên Supabase khi backend triển khai, giữ lịch riêng, lớp và trạng thái. Quyết định 2308 tiếp tục áp dụng cho các năm sau, không tự thu thập văn bản mới. Xem [Khung năm học](LICH_NAM_HOC.md).

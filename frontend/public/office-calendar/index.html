@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lịch Đông A</title>
+<link rel="stylesheet" href="calendar.css">
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<script defer src="calendar-core.js"></script><script defer src="excel-bridge.js"></script><script defer src="calendar-ui.js"></script></head>
+<body><main id="calendar" aria-label="Lịch chọn ngày sinh Đông A">
+<div class="brand">Đông A <span>Chọn ngày sinh</span></div>
+<div class="heading"><button id="previous" aria-label="Lùi lịch">‹</button><button id="month" aria-label="Chọn tháng"></button><button id="year" aria-label="Chọn năm"></button><button id="next" aria-label="Tiến lịch">›</button></div>
+<div id="period" class="period" hidden></div><div id="weekdays" class="weekdays" aria-hidden="true"><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span></div>
+<div id="choices" class="days" aria-label="Chọn ngày"></div>
+<div class="target" id="target">Đang kết nối Excel…</div>
+<p id="status" role="status" aria-live="polite">Mở lịch trong Microsoft Excel để ghi ngày vào mẫu.</p>
+<button id="reconnect" class="reconnect" hidden>Kết nối lại</button>
+</main></body></html>

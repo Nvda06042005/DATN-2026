@@ -1,28 +1,35 @@
-# Lịch chọn ngày trong Excel máy tính
+# Lịch Đông A trong Excel máy tính
 
-Người dùng đồng ý dùng **Mini Calendar and Date Picker của Vertex42** ngày 10/11/2026 sau khi biết quyền đọc/sửa workbook và kết nối Internet. Mẫu giáo viên và học sinh vẫn là .xlsx, không có VBA/ActiveX. STT và mã giữ công thức, không đánh sẵn ở dòng trống; bộ đếm chính thức trong PostgreSQL không đổi.
+Ngày 10/11/2026 người dùng chọn thay Vertex42 bằng lịch Đông A riêng: bấm tháng/năm để hiện danh sách, bỏ liên kết Vertex42 trong lịch, dòng hoàn tất chuyển sang Họ tên dòng tiếp. Mẫu giáo viên/học sinh vẫn là .xlsx không VBA/ActiveX; giữ công thức STT/mã và bộ đếm PostgreSQL. Không khôi phục bảng nhập web.
 
-## Cách dùng
+## Cài một lần trên Windows
 
-1. Tải lại mẫu mới từ Giáo viên/Học sinh → Nhập từ Excel → Tải file mẫu.
-2. Mở bằng Microsoft Excel trên máy tính có Internet. Excel giữ quy trình xác nhận tiện ích thông thường; người dùng tự kiểm tra và chấp thuận Vertex42 nếu được hỏi. Không tắt bảo vệ Office hoặc thêm thư mục tin cậy.
-3. Chọn ô ngày sinh cột G (G12 cho dòng đầu), rồi chọn ngày trên lịch nổi bên phải bảng. Tiện ích ghi ngày vào ô đang chọn, hiển thị dd/mm/yyyy. Bấm ô của dòng kế rồi chọn ngày tiếp theo. Lịch là đối tượng trên sheet, không tự hiện dưới từng ô như date input của trình duyệt.
-4. Điền đủ họ tên/ngày sinh (và email với giáo viên), lưu ô để công thức tự tính STT/mã. Enter giữ hành vi bình thường của Excel, không tự chuyển về cột Họ tên.
-5. Lưu đúng tên .xlsx rồi nhập lên Đông A để xem trước và xác nhận. Nếu lịch không hiện, vào Home → Add-ins → More Add-ins, tìm đúng tên và nhà phát hành Vertex42. Nếu tổ chức chặn Office Add-ins, liên hệ người quản lý Office; không vượt chặn.
+Từ Giáo viên/Học sinh → Nhập từ Excel → **Cài lịch Đông A**, tải gói, giải nén rồi chạy `Install-DongACalendar.ps1`. Bộ cài kiểm tra manifest, chép vào `%LOCALAPPDATA%\DongAEdu\ExcelCalendar` và đăng ký đúng ID `bc75b058-92b8-4dd1-84fb-8792db3f7e72` cho người dùng hiện tại. Đây là bản triển khai riêng theo cơ chế register của công cụ Microsoft, chưa phải ứng dụng trên Marketplace. Không tự đóng Excel có dữ liệu chưa lưu.
 
-## Cách đóng gói
+Lưu công việc, đóng/mở lại Microsoft Excel, tải mẫu mới và chấp thuận quyền Lịch Đông A nếu Office hỏi. Không cần quyền quản trị Windows. `-Action Status` kiểm tra đăng ký; `-Action Uninstall` gỡ đúng giá trị của tiện ích, giữ workbook/dữ liệu. Không đổi chính sách PowerShell, macro, Protected View, thư mục tin cậy, TLS hoặc debugger. Nếu tổ chức chặn script/tiện ích, người quản lý Office phải triển khai manifest; không vượt chặn.
 
-`calendar-addin.ts` thêm **tham chiếu chính thức Office Store** `wa102957665`, catalog OMEX/en-US, vào Content Web Extension của workbook. Mỗi file có GUID riêng; không có token, cache trạng thái người dùng, mã JS/HTML của bên thứ ba hoặc snapshot lịch giả. Không sao chép nội dung/ảnh/VBA của workbook mẫu Vertex42. Backend không liên lạc Vertex42 khi tạo file; Excel mới tải tiện ích theo quyền người dùng cho phép.
+## Sử dụng
 
-Lịch đặt H1 cạnh bảy cột, không đè ô dữ liệu hoặc logo. Mẫu có/không logo đều có relationship DrawingML hợp lệ. Công thức, giá trị, định dạng, validation và tiêu đề import được giữ nguyên. Import không chạy tiện ích hoặc VBA do người dùng tải lên; vẫn kiểm tra quyền trường và chỉ nhận tên file đúng. Đây là thay đổi file Excel, không có migration Supabase mới.
+- Nhập Họ tên → Giới tính → SĐT → Email → Ngày sinh; có thể dùng Tab giữa các cột.
+- Bấm **Tháng** để chọn một trong 12 tháng. Bấm **Năm** để chọn trong nhóm 12 năm; mũi tên đổi nhóm. Chọn năm mở danh sách tháng, rồi chọn ngày.
+- Chỉ chấp nhận đúng tiêu đề A11:G11, ô công thức STT/mã, dòng 12–1011 và một ô trong C–G. Ngày ghi vào G cùng dòng; không ghi ô ngoài bảng đang chọn nhầm.
+- Ghi ngày Excel dạng số và dd/mm/yyyy, tính lại công thức. Dòng đủ họ tên/ngày sinh (thêm email hợp lệ với giáo viên) chuyển sang C dòng kế. Không ghi đè STT/mã bằng JavaScript hoặc cấp số database khi nhập trong Excel.
+- Khi lịch đang mở, sửa riêng ô G rồi Enter cũng xử lý qua onChanged của Excel. Không bắt phím Enter toàn ứng dụng. Đóng/chưa cài lịch thì Enter bình thường, công thức vẫn tính. Paste nhiều ô, thay đổi từ người cộng tác hoặc bảng khác không tự chuyển con trỏ.
+- Không chuyển khi thiếu dữ liệu; dòng cuối không chọn ô ngoài mẫu. Ngày từ 01/01/1940 đến hôm nay theo giờ Việt Nam.
 
-## Nguồn
+## Đóng gói và quyền
 
-- [Microsoft hướng dẫn dùng tiện ích lịch trên Excel 64-bit](https://learn.microsoft.com/en-us/answers/questions/5418759/how-to-insert-a-date-picker).
-- [Office Store: tiện ích, nhà phát hành và quyền](https://marketplace.microsoft.com/en-us/product/WA102957665).
-- [Vertex42: lịch nhúng và chọn ngày vào ô hiện tại](https://www.vertex42.com/apps/minicalendar.html). Đã đối chiếu tham chiếu/relationship trong file mẫu công khai của nhà phát hành; không dùng file mẫu đó làm nền cho dữ liệu Đông A.
-- [MS-OWEXML: Content Web Extension](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-owexml/d59d5543-252a-47dd-a566-1503dbf6a233).
+Giao diện tĩnh `frontend/public/office-calendar/` qua HTTPS website chính, Office.js Microsoft, ExcelApi 1.7. Không analytics, API tài khoản, token, localStorage hoặc gửi dữ liệu workbook lên server. Quyền ReadWriteDocument cần để đọc đúng mẫu, ghi ngày, tính lại và chọn ô; Office giữ xác nhận quyền.
 
-## Giới hạn xác minh
+`calendar-addin.ts` tham chiếu Content Web Extension Registry/developer theo mẫu Microsoft, ID manifest ổn định, ID instance riêng cho từng workbook. Lịch ở H1 cạnh bảng; fallback chỉ là hướng dẫn, không là ảnh lịch giả. Menu quản lý/bảo mật do Excel vẫn hiện. Mẫu Vertex42 cũ không tự đổi; tải mẫu mới và giữ dữ liệu đã nhập.
 
-Kết nối Windows Computer Use hiện báo `Computer Use native pipe is unavailable`; không có phiên Excel qua connector. Có thể kiểm tra cấu trúc Open XML, công thức và nhập lại file nhưng chưa xác nhận bằng thao tác lịch trực tiếp trong phiên Excel người dùng. Không ghi nhận đã cài/đã chấp thuận tiện ích trên máy khi chưa quan sát được.
+Build frontend tạo ZIP bằng `scripts/calendar-package.mjs`: manifest, script cài, hướng dẫn. Không nhúng JavaScript vào .xlsx. Import không chạy tiện ích/macro được tải lên. Không có migration Supabase mới.
+
+## Nguồn và xác minh
+
+- [Microsoft: manifest Content Add-in](https://learn.microsoft.com/en-us/office/dev/add-ins/develop/xml-manifest-overview).
+- [Mẫu Content Add-in của Microsoft](https://github.com/OfficeDev/Office-Addin-Scripts/blob/master/packages/office-addin-dev-settings/templates/ExcelWorkbookWithContent.xlsx).
+- [Microsoft: đăng ký trên Windows](https://github.com/OfficeDev/Office-Addin-Scripts/blob/master/packages/office-addin-dev-settings/src/dev-settings-windows.ts).
+- [Microsoft: sự kiện thay đổi worksheet](https://learn.microsoft.com/en-us/javascript/api/excel/excel.worksheetchangedeventargs).
+
+Kiểm thử quy tắc ngày/mẫu, mock Excel API, Open XML và giao diện trình duyệt không thay cho chạy Excel thật. Kết nối điều khiển Windows trước đó báo native pipe is unavailable; chỉ ghi nhận đã cài/chạy/kiểm tra Excel khi có bằng chứng tương ứng.

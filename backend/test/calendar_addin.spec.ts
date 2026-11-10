@@ -1,23 +1,24 @@
 import { buildFormSheet } from '../src/admin/excel';
-import { CALENDAR_STORE_ID, withCalendarAddin } from '../src/admin/calendar-addin';
+import { CALENDAR_ADDIN_ID, withCalendarAddin } from '../src/admin/calendar-addin';
 import JSZip from 'jszip';
 import * as ExcelJS from 'exceljs';
 
-describe('Lịch Office Store trong mẫu .xlsx không macro', () => {
+describe('Lịch Đông A trong mẫu .xlsx không macro', () => {
   const make = (logo?: null) => buildFormSheet({ sheetName:'Học sinh',title:'Đông A',subtitle:'Fixture',meta:[],logo,blankRows:3,
     columns:[{key:'stt',header:'STT',kind:'index',watch:'full_name',autoIndex:true},{key:'full_name',header:'Họ tên',kind:'text'},{key:'birth_date',header:'Ngày sinh',kind:'date'}] });
-  test.each([true,false])('giữ logo=%s, dữ liệu/công thức; lịch tham chiếu đúng tiện ích chính thức, không kèm mã thực thi', async logo => {
+  test.each([true,false])('giữ logo=%s, dữ liệu/công thức; lịch tham chiếu đúng tiện ích Đông A, không kèm mã thực thi', async logo => {
     const original = await make(logo ? undefined : null), source = await JSZip.loadAsync(original);
     const output = await withCalendarAddin(original), zip = await JSZip.loadAsync(output);
     const app = await zip.file('xl/webextensions/dongaCalendar.xml')!.async('string');
-    expect(app).toContain(`id="${CALENDAR_STORE_ID}" version="1.0" store="en-US" storeType="OMEX"`);
+    expect(app).toContain(`id="${CALENDAR_ADDIN_ID}" version="1.0.0.0" store="developer" storeType="Registry"`);
+    expect(app).not.toContain('wa102957665');
     expect(app).not.toMatch(/token|trust|autoopen|<script|https?:\/\/(?!schemas\.)/i);
     expect(Object.keys(zip.files).some(n => /vba|activeX|\.js$|\.html$/i.test(n))).toBe(false);
     expect(await zip.file('[Content_Types].xml')!.async('string')).not.toContain('macroEnabled');
     for (const name of ['xl/styles.xml','xl/sharedStrings.xml']) expect(await zip.file(name)!.async('string')).toBe(await source.file(name)!.async('string'));
     const drawingName = logo ? 'xl/drawings/drawing1.xml' : 'xl/drawings/dongaCalendar.xml';
     const drawing = await zip.file(drawingName)!.async('string');
-    expect(drawing).toContain('Mini Calendar and Date Picker');expect(drawing).toContain('<xdr:col>7</xdr:col>');
+    expect(drawing).toContain('Lịch Đông A');expect(drawing).toContain('<xdr:col>7</xdr:col>');
     const wb = new ExcelJS.Workbook(); await wb.xlsx.load(output as any);
     expect(wb.worksheets[0].getImages()).toHaveLength(logo ? 1 : 0);
     expect(wb.worksheets[0].getCell('A5').formula).toContain('COUNTIFS(');

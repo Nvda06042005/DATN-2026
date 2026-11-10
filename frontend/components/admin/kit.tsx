@@ -598,10 +598,10 @@ export const DownloadButton: React.FC<{ title: string; fetchBlob: () => Promise<
 const XLSX_TYPES = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
 
 export const ImportSheet: React.FC<{
-  title: string; hint: string; template?: { fetchBlob: () => Promise<Blob>; filename: string }; types?: string[]; expectedFilename?:string; legacyFilename?:string; acceptMacro?:boolean;
+  title: string; hint: string; template?: { fetchBlob: () => Promise<Blob>; filename: string }; types?: string[]; expectedFilename?:string; legacyFilename?:string; acceptMacro?:boolean; extra?:React.ReactNode;
   run: (file: PickedFile, commit: boolean) => Promise<ImportResult | { committed: boolean; total: number; errors: number; created: number; updated: number; report: Array<{ entity: string; slug: string; action: string; message?: string }> }>;
   onClose: () => void; onDone: () => void;
-}> = ({ title, hint, template, types: baseTypes = XLSX_TYPES, expectedFilename, legacyFilename, acceptMacro=false, run, onClose, onDone }) => {
+}> = ({ title, hint, template, types: baseTypes = XLSX_TYPES, expectedFilename, legacyFilename, acceptMacro=false, extra, run, onClose, onDone }) => {
   const { c } = useTheme();
   const toast = useToast();
   const types=acceptMacro?[...XLSX_TYPES,XLSM_MIME]:baseTypes;
@@ -661,6 +661,7 @@ export const ImportSheet: React.FC<{
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {template ? <DownloadButton title="Tải file mẫu" fetchBlob={template.fetchBlob} filename={template.filename} /> : null}
+        {extra}
         <Btn title={file ? `Chọn file khác (${file.name})` : 'Chọn file'} icon={FileUp} tone="giay" size="sm" onPress={choose} disabled={busy || committed} testID="import-choose" />
       </View>
       <ErrorNote message={error} />

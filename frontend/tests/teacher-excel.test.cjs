@@ -59,7 +59,7 @@ test('trang Giáo viên: hai cách thêm, biểu mẫu cùng cột với file m�
   assert.doesNotMatch(people, /bộ môn|Bộ môn|subject/);
   assert.match(people, /TeacherImportSheet session=\{session\}/);
   const importer=read('components','admin','TeacherImportSheet.tsx');
-  assert.match(importer, /Mẫu \.xlsx không macro, có lịch Vertex42 cho Excel máy tính/);
+  assert.match(importer, /Mẫu \.xlsx không macro, dùng lịch Đông A/);
   const sheet = read('components', 'admin', 'AccountSheet.tsx');
   assert.match(sheet, /u\.role === 'student' \|\| u\.role === 'teacher' \? \['Ngày sinh', u\.birth_date\]/);
   assert.match(sheet, /birth_date: v\.birth_date \|\| null, gender: v\.gender \|\| null/);
