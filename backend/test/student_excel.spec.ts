@@ -14,7 +14,7 @@ const SCHOOL='THCS Giồng Ông Tố',SHORT_SCHOOL='THCS A';
  });
  afterAll(async()=>{await s?.close();});
  test('file đúng tên trường, bảy cột có mẫu, STT/mã trống ở1000dòng; phạm vi và xác thực',async()=>{
-  expect(studentTemplateFilename(SCHOOL)).toBe('file_mau_hoc-sinh_truong_giong-ong-to.xlsm');
+  expect(studentTemplateFilename(SCHOOL)).toBe('file_mau_hoc-sinh_truong_giong-ong-to.xlsx');
   const spec=await api('GET','/api/admin/students/import-spec');expect(spec.body).toMatchObject({filename:studentTemplateFilename(SCHOOL),prefix:'HSGOT26',next_serial:1});
   expect((await call(s.base,'GET','/api/admin/students/import-spec')).status).toBe(401);
   expect((await api('GET',`/api/admin/students/import-spec?school_id=${B.id}`)).status).toBe(403);
@@ -24,7 +24,7 @@ const SCHOOL='THCS Giồng Ông Tố',SHORT_SCHOOL='THCS A';
   expect(sheet.getCell('B8').value).toBe('HSGOT2602042013001');expect(sheet.getCell('G8').value).toBeInstanceOf(Date);
   expect((sheet.getRow(11).values as unknown[]).slice(1)).toEqual(['Số thứ tự','Mã học sinh','Họ và tên *','Giới tính','SĐT','Email','Ngày tháng năm sinh *']);
   expect(sheet.getCell('A12').text).toBe('');expect(sheet.getCell('B12').text).toBe('');expect(sheet.getCell('A1011').text).toBe('');
-  expect(sheet.getCell('A12').formula).toBeUndefined();const zip=await(await import('jszip')).default.loadAsync(res.buffer);expect(zip.file('xl/vbaProject.bin')).toBeTruthy();
+  expect(sheet.getCell('A12').formula).toContain('COUNTIFS(');expect(sheet.getCell('B12').formula).toContain('HSGOT26');const zip=await(await import('jszip')).default.loadAsync(res.buffer);expect(Object.keys(zip.files).some(name=>/vba|activeX/i.test(name))).toBe(false);expect(await zip.file('[Content_Types].xml')!.async('string')).not.toContain('macroEnabled');
   expect(sheet.getCell('D12').dataValidation.formulae).toEqual(['"Nam,Nữ,Khác"']);expect(sheet.getCell('G12').numFmt).toBe('dd/mm/yyyy');
   const raw=await fetch(s.base+'/api/admin/students/template',{headers:{Authorization:'Bearer '+A.token}});expect(raw.headers.get('content-disposition')).toContain(spec.body.filename);
  });

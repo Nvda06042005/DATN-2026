@@ -35,7 +35,7 @@ const TEACHER_FORM_COLUMNS: FormColumn[] = [
   { ...TEACHER_COLUMNS[2], kind: 'list', options: ['Nam', 'Nữ'] },
   { ...TEACHER_COLUMNS[3], kind: 'phone' },
   { ...TEACHER_COLUMNS[4], kind: 'text' },
-  { ...TEACHER_COLUMNS[5], kind: 'date', prompt: 'Chọn ngày trên lịch hoặc gõ dd/mm/yyyy, ví dụ 15/03/1985' },
+  { ...TEACHER_COLUMNS[5], kind: 'date', prompt: 'Ngày sinh dd/mm/yyyy, ví dụ 15/03/1985. Cách mở lịch xem ở sheet Hướng dẫn.' },
 ];
 /**
  * Cột của file nhập học sinh: cùng bảy cột với giáo viên (số thứ tự chỉ để nhìn, không đọc). Học sinh bắt buộc có ngày sinh vì mã học sinh ghép từ ngày sinh.
@@ -58,7 +58,7 @@ const STUDENT_FORM_COLUMNS: FormColumn[] = [
   { ...STUDENT_COLUMNS[2], kind: 'list', options: ['Nam', 'Nữ', 'Khác'] },
   { ...STUDENT_COLUMNS[3], kind: 'phone' },
   { ...STUDENT_COLUMNS[4], kind: 'text' },
-  { ...STUDENT_COLUMNS[5], kind: 'date', prompt: 'Chọn ngày trên lịch hoặc gõ dd/mm/yyyy, ví dụ 02/04/2013' },
+  { ...STUDENT_COLUMNS[5], kind: 'date', prompt: 'Ngày sinh dd/mm/yyyy, ví dụ 02/04/2013. Cách mở lịch xem ở sheet Hướng dẫn.' },
 ];
 
 export interface AccountFilter {
@@ -464,7 +464,7 @@ export class AccountService {
     return this.schools.run(actor,async q=>{
       const school=await this.schoolOf(q,id);
       const next=await this.teacherCode(q,id,null);
-      return {filename:teacherTemplateFilename(school.name),legacy_filename:teacherTemplateFilename(school.name).replace(/\.xlsm$/,'.xlsx'),school_name:school.name,prefix:`${next.prefix}${String(next.year).padStart(2,'0')}`,next_serial:next.serial};
+      return {filename:teacherTemplateFilename(school.name),legacy_filename:teacherTemplateFilename(school.name).replace(/\.xlsx$/,'.xlsm'),school_name:school.name,prefix:`${next.prefix}${String(next.year).padStart(2,'0')}`,next_serial:next.serial};
     });
   }
 
@@ -476,7 +476,7 @@ export class AccountService {
     return buildFormSheet({
       sheetName: 'Giáo viên', title: 'Đông A', subtitle: `Mẫu nhập danh sách giáo viên${school ? ` · ${school}` : ''}`,
       meta: [{ label: 'Ngày bắt đầu nhập', value: vnDayLabel(now) }], note: 'Xem ví dụ rồi nhập danh sách bên dưới. Cột có dấu * là bắt buộc.',
-      entryNote:'Chọn ngày sinh trên lịch trong Excel; nhấn Enter để sinh STT và mã.',
+      entryNote:'Điền họ tên, email và ngày sinh; nhấn Enter, STT và mã tự tính.',
       completedIndex:true,
       columns: TEACHER_FORM_COLUMNS.map(c => c.key === 'user_code' && !rows ? { ...c, kind: 'teacher-code', width: 29, watch: 'full_name', birthKey: 'birth_date', codePrefix: prefix, codeOffset:offset } : c), blankRows: 1000, now,
       rows:rows?.map((row,i)=>({...row,gender:row.gender?GENDER_LABEL[row.gender]:'',user_code:`${prefix}${row.birth_date!.slice(8,10)}${row.birth_date!.slice(5,7)}${row.birth_date!.slice(0,4)}${String(offset+i+1).padStart(3,'0')}`})),
@@ -486,20 +486,21 @@ export class AccountService {
       },
       guide: [
         'Khối VÍ DỤ CÁCH ĐIỀN ở đầu sheet chỉ minh họa, không tạo tài khoản. Điền giáo viên thật trong bảng bên dưới. Cột có dấu * là bắt buộc.',
-        'Nhấn Enter ở ô ngày sinh sau khi điền đủ họ tên, email và ngày sinh để sinh STT/mã; con trỏ trở về Họ và tên dòng kế tiếp. Không nhập hai cột này.',
-        `Mã giáo viên sinh sau khi xác nhận dòng bằng Enter: ${initials} + ${year} + ngày sinh ddmmyyyy + STT 3 chữ số.`,
+        'File .xlsx không chứa macro. Sau khi điền đủ họ tên, email và ngày sinh rồi nhấn Enter để lưu ô, công thức tự hiện STT/mã. Dòng trống hoặc chưa đủ thông tin vẫn để trống hai cột này.',
+        `Mã giáo viên: ${initials} + ${year} + ngày sinh ddmmyyyy + STT ít nhất 3 chữ số.`,
         `${initials}: viết tắt của ${school ?? 'tên trường'}. ${year}: hai số cuối năm tải mẫu. Phần ddmmyyyy: ngày, tháng, năm sinh của giáo viên. STT giúp phân biệt người có cùng ngày sinh.`,
         `Ví dụ ngày sinh 15/03/1985, STT 1: ${prefix}15031985001. Với THCS Giồng Ông Tố trong năm 2026: GOT2615031985001.`,
         'Mã dùng chung quy tắc với form Thêm/Sửa giáo viên trên web. Sửa ngày sinh sẽ cập nhật phần ngày sinh trong mã, giữ năm nhập và STT đã cấp; tên đăng nhập và lớp không đổi.',
         `Dãy mã nối tiếp số đã cấp trong trường (mẫu này bắt đầu từ ${String(offset+1).padStart(3,'0')}). Khi nhiều người thêm cùng lúc, số chính thức được chốt lúc lưu; xem mã ở kết quả và danh sách giáo viên.`,
         'Giới tính: bấm vào ô rồi chọn Nam hoặc Nữ trong danh sách.',
-        'Mở file .xlsm trong Excel Windows, cho phép macro của file mẫu sau khi kiểm tra nguồn. Bấm ô ngày sinh để chọn lịch; nhấn Enter xác nhận dòng, sinh STT/mã rồi về Họ và tên dòng tiếp theo.',
+        'Dùng Excel trên web: tải file .xlsx này lên OneDrive, mở bằng Excel trên web, bấm đúp ô ngày sinh để mở lịch và chọn ngày. Sau khi điền, dùng File → Save As → Download a Copy để tải bản .xlsx về rồi nhập lên Đông A với đúng tên file.',
+        'Ô đã định dạng dd/mm/yyyy. Định dạng ngày không tạo lịch bật lên trong Excel Windows; lịch không macro của quy trình này dùng Excel trên web.',
         'Email phải khác nhau và chưa dùng cho tài khoản nào khác. Hệ thống sinh mật khẩu tạm và gửi vào email này; giáo viên đổi mật khẩu ở lần đăng nhập đầu tiên.',
-        'Lịch và Enter dùng VBA trong file mẫu .xlsm trên Excel Windows. WPS/Excel web có thể không hỗ trợ VBA; không tắt bảo vệ macro toàn cục. SĐT giữ số 0 đầu.',
+        'Enter lưu ô theo cài đặt của Excel; file không macro không đổi được phím Enter để tự nhảy về cột Họ tên. Để tự tính mã, dùng Formulas → Calculation Options → Automatic nếu Excel đang tính thủ công. SĐT giữ số 0 đầu.',
         `Giữ đúng tên file ${teacherTemplateFilename(school??'truong')}. File khác tên sẽ không được nhận khi import.`,
         'Nền tảng dạy Lịch sử nên không có cột Bộ môn (file cũ còn cột này vẫn nhập được, cột bị bỏ qua).',
-        'Nhận đúng tên mẫu .xlsm hoặc bản .xlsx cũ cùng tên (tối đa 2 MB, tối đa 1000 giáo viên mỗi lần). Đừng xóa hay đổi tên dòng tiêu đề của bảng.',
-        'Lưu file .xlsm bằng Excel Windows sau khi nhập. Ngày bắt đầu nhập là ngày tải mẫu, không thay đổi khi mở lại.',
+        'Nhận đúng tên mẫu .xlsx hoặc bản .xlsm cũ cùng tên (tối đa 2 MB, tối đa 1000 giáo viên mỗi lần). Đừng xóa hay đổi tên dòng tiêu đề của bảng.',
+        'Lưu file .xlsx sau khi nhập. Ngày bắt đầu nhập là ngày tải mẫu, không thay đổi khi mở lại.',
         'Sau khi chọn file, hệ thống kiểm tra từng dòng và báo lỗi trước khi lưu; lưu xong danh sách giáo viên tự cập nhật.',
       ],
     });
@@ -509,7 +510,7 @@ export class AccountService {
     const id=this.schools.target(actor,schoolId);
     return this.schools.run(actor,async q=>{
       const school=await this.schoolOf(q,id),next=await this.studentCode(q,id,null);
-      return {filename:studentTemplateFilename(school.name),legacy_filename:studentTemplateFilename(school.name).replace(/\.xlsm$/,'.xlsx'),school_name:school.name,prefix:`${next.prefix}${String(next.year).padStart(2,'0')}`,next_serial:next.serial};
+      return {filename:studentTemplateFilename(school.name),legacy_filename:studentTemplateFilename(school.name).replace(/\.xlsx$/,'.xlsm'),school_name:school.name,prefix:`${next.prefix}${String(next.year).padStart(2,'0')}`,next_serial:next.serial};
     });
   }
   async studentTemplate(actor:UserRow,schoolId?:number|null,now:Date=new Date(),rows?:MemberInput[]):Promise<Buffer>{
@@ -519,16 +520,19 @@ export class AccountService {
     return buildFormSheet({
       sheetName:'Học sinh',title:'Đông A',subtitle:`Mẫu nhập danh sách học sinh · ${school}`,
       meta:[{label:'Ngày bắt đầu nhập',value:vnDayLabel(now)}],note:'Xem ví dụ rồi nhập danh sách bên dưới. Cột có dấu * là bắt buộc.',
-      entryNote:'Chọn ngày sinh trên lịch trong Excel; nhấn Enter để sinh STT và mã.',
+      entryNote:'Điền họ tên và ngày sinh; nhấn Enter, STT và mã tự tính.',
       completedIndex:true,optionalIndexEmail:true,
       columns:STUDENT_FORM_COLUMNS.map(c=>c.key==='user_code'&&!rows?{...c,kind:'teacher-code' as const,watch:'full_name',birthKey:'birth_date',codePrefix:prefix,codeOffset:offset}:c),blankRows:1000,now,
       rows:rows?.map((row,i)=>({...row,gender:row.gender?GENDER_LABEL[row.gender]:'',user_code:memberCode(prefix,row.birth_date!,offset+i+1)})),
       example:{values:{stt:1,user_code:`${prefix}02042013001`,full_name:'Trần Thị Mẫu',gender:'Nữ',phone:'0900000000',email:'hoc.sinh@example.invalid',birth_date:'2013-04-02'},explanation:`HS = học sinh; ${initials} = ${school}; ${yy} = năm nhập; 02 + 04 + 2013 = ngày sinh; 001 = số thứ tự. Mã ví dụ: ${prefix}02042013001.`},
       guide:[
         'Khối VÍ DỤ chỉ minh họa, không tạo tài khoản. Họ tên và ngày sinh là bắt buộc; email học sinh không bắt buộc.',
-        'Mở mẫu .xlsm trong Excel Windows, cho phép macro của file mẫu sau khi kiểm tra nguồn; bấm ô ngày sinh để chọn lịch. Nhấn Enter để xác nhận, sinh STT/mã rồi về Họ và tên dòng kế tiếp.',
+        'File .xlsx không chứa macro. Điền họ tên và ngày sinh rồi nhấn Enter để lưu ô, công thức tự hiện STT/mã. Email học sinh không bắt buộc.',
         `Mã học sinh: HS + ${initials} + năm nhập yy + ngày sinh ddmmyyyy + STT ít nhất 3 chữ số. Dãy số riêng trong trường, không dùng lại số đã cấp.`,
-        'STT/mã để trống đến khi xác nhận dòng bằng Enter. Lịch và Enter dùng VBA trong Excel Windows; không tắt bảo vệ macro toàn cục. Bản .xlsx cũ cùng tên vẫn được nhập.',
+        'Dòng trống hoặc thiếu họ tên/ngày sinh không hiện STT/mã. Bản .xlsm cũ cùng tên vẫn được nhập; máy chủ không thực thi macro tải lên.',
+        'Dùng Excel trên web: tải file .xlsx này lên OneDrive, mở bằng Excel trên web, bấm đúp ô ngày sinh để mở lịch và chọn ngày. Sau khi điền, dùng File → Save As → Download a Copy để tải bản .xlsx về rồi nhập lên Đông A với đúng tên file.',
+        'Ô đã định dạng dd/mm/yyyy. Định dạng ngày không tạo lịch bật lên trong Excel Windows; lịch không macro của quy trình này dùng Excel trên web.',
+        'Enter lưu ô theo cài đặt Excel, không tự chuyển về cột Họ tên. Nếu mã chưa tính, kiểm tra Formulas → Calculation Options → Automatic. Lưu file dạng .xlsx sau khi nhập.',
         'Xem trước không giữ chỗ số. Khi lưu, máy chủ chốt số chống trùng và trả mã chính thức; sửa ngày sinh giữ năm nhập và STT đã cấp.',
         `Giữ đúng tên file ${spec.filename}. File khác tên không được nhận khi import.`,
         'Nếu có email, email phải hợp lệ và chưa dùng cho tài khoản khác. Không có email vẫn tạo tài khoản, quản trị trường tải thông tin tài khoản để cấp trực tiếp.',

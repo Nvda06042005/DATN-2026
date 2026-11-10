@@ -955,6 +955,14 @@ Tên mẫu là file_mau_giao-vien_truong_<tên-trường>.xlsm và file_mau_hoc-
 
 Đã kiểm tra bằng Microsoft Excel 16 trên Windows với hai file giả lập: lịch ghi ngày kiểu Date, STT/mã trống trước Enter, Enter chuyển về C dòng kế tiếp, sửa dòng hủy xác nhận, lưu và đọc lại bằng bộ nhập API. Theo yêu cầu tiếp 10/11, thêm biểu tượng lịch cạnh ô ngày sinh, đi theo dòng đang nhập; kiểm tra nút mở lịch thật, đủ bảy cột ngày và không cắt nút ở mức phóng màn hình Windows hiện tại. Kiểm tra PostgreSQL tạm nâng 056→057 và tám bộ liên quan đạt 87/87 trước gộp với 578dfd6; sau gộp bảy bộ đạt và sprint1 đạt 25/25 khi chạy lại sau timeout khởi tạo. Frontend 122/122 đạt, typecheck/build sạch. Trạng thái triển khai mới sẽ được ghi sau khi kiểm tra bản gộp. Chi tiết: docs/MA_GIAO_VIEN.md, docs/MA_HOC_SINH.md và backend/assets/excel-entry/README.md.
 
+## Mẫu giáo viên/học sinh không macro, dùng lịch Excel web (10/11/2026)
+
+Yêu cầu mới nhất: không dùng macro; người dùng chọn Excel trên web để chọn ngày sinh. Mẫu tải mới đổi về `file_mau_giao-vien_truong_<tên-trường>.xlsx` và `file_mau_hoc-sinh_truong_<tên-trường>.xlsx`, không có VBA/ActiveX. STT/mã dùng công thức, không hiện ở dòng trống hoặc chưa đủ thông tin. Enter lưu nội dung ô để Excel tự tính; không hứa đổi hành vi Enter để nhảy về Họ tên. Email học sinh vẫn tùy chọn, giáo viên vẫn bắt buộc.
+
+Lịch: tải mẫu lên OneDrive, mở bằng Excel trên web, bấm đúp ô ngày sinh đã định dạng `dd/mm/yyyy` để chọn ngày; tải bản .xlsx đã điền về để import đúng tên. Không có bảng nhập web và không yêu cầu giảm bảo mật Office. Định dạng ngày/validation không tạo lịch bật lên trong Excel Windows. Vẫn đọc .xlsm cũ đúng tên trường, không thực thi VBA tải lên. API/phạm vi trường, quy tắc mã và bộ đếm 056–057 giữ nguyên, không có migration mới.
+
+Kiểm tra cục bộ: 5 bộ backend liên quan đạt 28/28 với PostgreSQL tạm; frontend 124/124, typecheck hai phía và build đạt. Microsoft Excel Windows riêng với macro tắt: công thức tự tính khi nhập đủ dữ liệu, dòng trống/thiếu dữ liệu không hiện số, sửa/xóa ngày sinh cập nhật mã, mã nối tiếp bộ đếm; lưu lại và đọc bằng bộ nhập API đều đúng. Đã render/xem hai mẫu. Chưa thử trực tiếp lịch trong Excel web vì kết nối trình duyệt không khả dụng; mô tả theo hướng dẫn Microsoft, không coi kiểm tra Excel Windows là bằng chứng lịch trên web. CI nền `9886284` còn 5 lỗi AI/analytics đã có trước thay đổi này (không sửa/ẩn chúng).
+
 ## Tài khoản quản trị viên trường theo quy ước, gửi thư thông tin (10/11/2026)
 
 Yêu cầu: quản trị tổng tạo tài khoản cho quản trị viên trường thì email bắt buộc vì hệ thống gửi tên đăng nhập và mật khẩu vào đó; tên đăng nhập và mật khẩu theo quy ước thay cho tên tự sinh và mật khẩu ngẫu nhiên.

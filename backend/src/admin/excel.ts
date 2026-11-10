@@ -192,7 +192,7 @@ export const memberCode = (prefix: string, birthIso: string, serial: number): st
 
 export function teacherTemplateFilename(name:string):string {
   const school=normHeader(name).replace(/^(truong\s+)?(trung hoc co so|trung hoc pho thong|tieu hoc|thcs|thpt|th)(\s+|$)/,'').replace(/\s+/g,'-');
-  return `file_mau_giao-vien_truong_${school||'chua-dat-ten'}.xlsm`;
+  return `file_mau_giao-vien_truong_${school||'chua-dat-ten'}.xlsx`;
 }
 
 export const studentTemplateFilename=(name:string):string=>teacherTemplateFilename(name).replace("file_mau_giao-vien_","file_mau_hoc-sinh_");

@@ -6,15 +6,15 @@ Yêu cầu 09/11/2026: học sinh dùng cùng bố cục và thao tác nhập nh
 
 Migration `057_school_student_identity_codes.sql` bổ sung bộ đếm và thông tin năm/STT cho học sinh. Dữ liệu có ngày sinh thật được cập nhật mã theo thông tin đã lưu; thiếu ngày sinh giữ mã cũ, không suy đoán ngày sinh. Giữ id, tên đăng nhập, mật khẩu, trường, lớp, tiến độ và lịch sử. Sửa ngày sinh cập nhật phần ngày sinh của mã, giữ năm và số đã cấp. Không sửa migration 056 của giáo viên.
 
-## Nhập trực tiếp trong Excel Windows
+## Mẫu Excel không macro (cập nhật 10/11/2026)
 
-Vào Học sinh → Nhập từ Excel → Tải file mẫu. Mở `file_mau_hoc-sinh_truong_giong-ong-to.xlsm` trong Microsoft Excel Windows. Bảy cột như giáo viên: STT, Mã học sinh, Họ tên, Giới tính, SĐT, Email, Ngày sinh. Họ tên/ngày sinh bắt buộc; email học sinh tùy chọn, có nhập thì phải đúng định dạng.
+Vào Học sinh → Nhập từ Excel → Tải file mẫu. File mới là `file_mau_hoc-sinh_truong_giong-ong-to.xlsx`, không có VBA/ActiveX và không cần bật macro. Bảy cột như giáo viên: STT, Mã học sinh, Họ tên, Giới tính, SĐT, Email, Ngày sinh. Họ tên/ngày sinh bắt buộc; email học sinh tùy chọn, có nhập thì phải đúng định dạng.
 
-Bấm biểu tượng lịch bên phải ô ngày sinh hoặc bấm chính ô ngày sinh để chọn tháng/năm/ngày. Biểu tượng đi theo dòng đang nhập. Nhấn Enter ở ô ngày sinh để xác nhận dòng, sinh STT/mã rồi về Họ tên dòng tiếp theo. Sửa dữ liệu cần xác nhận lại. Không có dãy STT 1–1000 ở dòng trống. Lưu file và tải lên để xem trước, xác nhận nhập mới tạo tài khoản. Không còn bảng nhập trên website.
+Nhập đủ họ tên và ngày sinh rồi nhấn Enter để lưu ô: công thức tự tính STT/mã, không phụ thuộc macro. Dòng trống hoặc thiếu dữ liệu không hiện STT/mã; không đánh sẵn 1–1000. STT đếm liên tiếp qua dòng trống. Đổi ngày sinh cập nhật phần ngày trong mã. Nếu Excel đang tính thủ công, chọn Formulas → Calculation Options → Automatic. Lưu file và tải lên để xem trước; xác nhận nhập mới tạo tài khoản. Không khôi phục bảng nhập trên website.
 
-File `.xlsm` chứa macro cục bộ cho lịch và bàn phím, không gọi mạng. Chỉ cho phép nội dung của đúng mẫu đã tải nếu Excel yêu cầu; không tắt bảo vệ macro toàn cục. Excel web/WPS có thể không hỗ trợ chức năng này.
+Lịch không macro: Excel trên web có lịch khi bấm đúp ô định dạng ngày; Excel Windows cần tiện ích lịch từ Office Add-ins, ví dụ Mini Calendar and Date Picker. File .xlsx chỉ có định dạng/kiểm tra ngày, không tự tạo lịch bật lên trong Excel Windows hoặc tự cài tiện ích. Không thay bảo mật Office. Nguồn: [Microsoft](https://learn.microsoft.com/en-gb/answers/questions/5418759/how-to-insert-a-date-picker). Việc cài tiện ích hoặc mở file trên web là bước riêng theo lựa chọn người dùng.
 
-Chỉ nhận chính xác tên mẫu `.xlsm` hoặc bản `.xlsx` cũ cùng tên (tối đa 2 MB/1000 dòng). Hậu tố tải trùng `(1)` cần bỏ trước khi nhập. Tên file không thay kiểm tra quyền/trường. API chỉ đọc dữ liệu, không thực thi VBA tải lên; máy chủ chốt mã theo bộ đếm nên không tin mã người nhập tự sửa. Lớp/Email phụ huynh trong file cũ vẫn được đọc, giữ quy trình xếp lớp hiện có.
+Enter di chuyển theo cài đặt Excel; file không macro không chặn phím để tự nhảy từ ngày sinh về Họ tên dòng kế. Chỉ nhận chính xác tên mẫu `.xlsx` hoặc bản `.xlsm` cũ cùng tên (tối đa 2 MB/1000 dòng). Hậu tố tải trùng `(1)` cần bỏ trước khi nhập. Tên file không thay kiểm tra quyền/trường. API chỉ đọc dữ liệu, không thực thi VBA tải lên; máy chủ chốt mã theo bộ đếm nên không tin mã người nhập tự sửa. Lớp/Email phụ huynh trong file cũ vẫn được đọc, giữ quy trình xếp lớp hiện có.
 
 ## API
 

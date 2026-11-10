@@ -8,7 +8,6 @@ import { AccountService } from './account.service';
 import { ClassService } from './class.service';
 import { UploadedXlsx, XLSX_MIME, XLSX_UPLOAD } from './excel';
 import { MailService } from './mail.service';
-import {withEntryMacros,XLSM_MIME} from './entry-macros';
 import { SchoolService } from './school.service';
 
 /** "  Đặng   Thu  Hà " -> "Đặng Thu Hà" */
@@ -242,7 +241,7 @@ class SecurityQuery extends Page {
   @IsOptional() @IsIn(['true', 'false']) success?: 'true' | 'false';
 }
 
-const download = (buffer: Buffer, name: string) => new StreamableFile(buffer, { type: name.endsWith('.xlsm')?XLSM_MIME:XLSX_MIME, disposition: `attachment; filename="${name}"` });
+const download = (buffer: Buffer, name: string) => new StreamableFile(buffer, { type: XLSX_MIME, disposition: `attachment; filename="${name}"` });
 
 /**
  * /api/admin – hai cấp quản trị độc lập: quản trị tổng (toàn hệ thống) và quản trị trường (chỉ trường ghi trong token; truy vấn chạy dưới
@@ -374,7 +373,7 @@ export class AdminController {
   @Header('Cache-Control','no-store')
   async teacherTemplate(@CurrentUser() user: UserRow, @Query() query: SchoolScope) {
     const spec=await this.accounts.teacherImportSpec(user,query.school_id);
-    return download(await withEntryMacros(await this.accounts.teacherTemplate(user,query.school_id),'teachers',spec.prefix,spec.next_serial-1),spec.filename);
+    return download(await this.accounts.teacherTemplate(user,query.school_id),spec.filename);
   }
 
   @Get('teachers/import-spec')
@@ -401,7 +400,7 @@ export class AdminController {
   @Header('Cache-Control','no-store')
   async studentTemplate(@CurrentUser() user:UserRow,@Query() query:SchoolScope){
     const spec=await this.accounts.studentImportSpec(user,query.school_id);
-    return download(await withEntryMacros(await this.accounts.studentTemplate(user,query.school_id),'students',spec.prefix,spec.next_serial-1),spec.filename);
+    return download(await this.accounts.studentTemplate(user,query.school_id),spec.filename);
   }
   @Get('students/import-spec')
   @Header('Cache-Control','no-store')

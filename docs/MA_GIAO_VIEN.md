@@ -12,12 +12,12 @@ Migration `056_school_teacher_identity_codes.sql` lưu STT/năm trên tài kho�
 
 Kiểm thử: API với PostgreSQL tạm (tiền tố có dấu, ngày không hợp lệ, xem trước, tạo đồng thời, sửa/lấy danh sách, RLS và truy cập chéo trường); nâng 055→056 với dữ liệu fixture; hồi quy nhập/xuất Excel và kiểm tra công thức bằng phiên bảng tính riêng. Không tạo/sửa tài khoản thật để kiểm thử production.
 
-## Nhập trực tiếp trong Excel Windows
+## Mẫu Excel không macro (cập nhật 10/11/2026)
 
-Lựa chọn mới nhất ngày 09/11/2026 thay quy trình bảng web trước đó. Vào Giáo viên → Nhập từ Excel → Tải file mẫu. File tải là `file_mau_giao-vien_truong_giong-ong-to.xlsm` (tên trường thay tự động). Mở bằng Microsoft Excel Windows, cho phép nội dung macro của đúng file mẫu nếu Excel yêu cầu. Không tắt bảo vệ macro toàn cục.
+Yêu cầu mới nhất ngày 10/11/2026 bỏ phụ thuộc macro. Vào Giáo viên → Nhập từ Excel → Tải file mẫu. File tải là `file_mau_giao-vien_truong_giong-ong-to.xlsx` (tên trường thay tự động), không có VBA/ActiveX, không cần bật macro.
 
-Điền các cột Họ tên, Giới tính, SĐT, Email, bấm ô ngày sinh để mở lịch chọn tháng/năm/ngày. Nhấn Enter ở ô ngày sinh khi đủ họ tên, email và ngày sinh: STT/mã hiện, con trỏ về Họ tên dòng kế tiếp. Dòng trống không có dãy STT 1–1000; sửa thông tin sẽ xóa xác nhận và cần Enter lại. Lưu file, quay về website chọn file để xem trước rồi lưu danh sách. Tải mẫu không tạo tài khoản hoặc gửi thư.
+Điền Họ tên, Giới tính, SĐT, Email và Ngày sinh. Khi đủ họ tên, email, ngày sinh rồi nhấn Enter lưu ô, công thức hiện STT/mã. Dòng trống/chưa đủ dữ liệu vẫn trống, không có dãy 1–1000. Nếu Excel đang tính thủ công, chọn Formulas → Calculation Options → Automatic. Enter di chuyển theo cài đặt Excel, không tự về cột Họ tên dòng tiếp theo. Lưu file, quay về website chọn file để xem trước rồi lưu danh sách. Tải mẫu không tạo tài khoản hoặc gửi thư.
 
-Chỉ nhận đúng tên mẫu `.xlsm` hoặc bản `.xlsx` cũ cùng tên, tối đa 2 MB/1000 dòng. File tải trùng có hậu tố `(1)` cần đổi về đúng tên. Import chỉ đọc dữ liệu, không chạy VBA từ file người dùng. Lịch và điều khiển Enter dùng VBA cục bộ; Excel web/WPS không bảo đảm hỗ trợ.
+Lịch không macro: Excel trên web có lịch khi bấm đúp ô định dạng ngày; Excel Windows cần tiện ích lịch từ Office Add-ins, ví dụ Mini Calendar and Date Picker. Định dạng ngày/kiểm tra dữ liệu trong .xlsx không tự tạo lịch bật lên cho Excel Windows. File không tự cài tiện ích; không thay bảo mật Office. Nguồn: [Microsoft](https://learn.microsoft.com/en-gb/answers/questions/5418759/how-to-insert-a-date-picker).
 
-`GET /api/admin/teachers/import-spec` trả tên file, tiền tố và số kế tiếp theo trường đã xác thực. `GET /api/admin/teachers/template` đính kèm binary VBA đã kiểm tra từ `backend/assets/excel-entry`, không tạo VBA từ nội dung người dùng. Điểm vào workbook/bảng web đã gỡ. API vẫn kiểm tra vai trò và trường, không dựa vào tên file để cấp quyền.
+Chỉ nhận đúng tên mẫu `.xlsx` hoặc bản `.xlsm` cũ cùng tên, tối đa 2 MB/1000 dòng. File tải trùng có hậu tố `(1)` cần đổi về đúng tên. Import chỉ đọc dữ liệu, không chạy VBA từ file người dùng. `GET /api/admin/teachers/import-spec` trả tên file, tiền tố và số kế tiếp theo trường đã xác thực. `GET /api/admin/teachers/template` trả .xlsx với công thức, không nhúng binary VBA. Điểm vào workbook/bảng web đã gỡ. API vẫn kiểm tra vai trò và trường, không dựa vào tên file để cấp quyền.
