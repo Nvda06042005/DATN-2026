@@ -5,6 +5,7 @@ import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { SecurityService } from '../auth/security.service';
 import { Role, UserRow } from '../database/database.service';
 import { AccountService } from './account.service';
+import { withCalendarAddin } from './calendar-addin';
 import { ClassService } from './class.service';
 import { UploadedXlsx, XLSX_MIME, XLSX_UPLOAD } from './excel';
 import { MailService } from './mail.service';
@@ -373,7 +374,7 @@ export class AdminController {
   @Header('Cache-Control','no-store')
   async teacherTemplate(@CurrentUser() user: UserRow, @Query() query: SchoolScope) {
     const spec=await this.accounts.teacherImportSpec(user,query.school_id);
-    return download(await this.accounts.teacherTemplate(user,query.school_id),spec.filename);
+    return download(await withCalendarAddin(await this.accounts.teacherTemplate(user,query.school_id)),spec.filename);
   }
 
   @Get('teachers/import-spec')
@@ -400,7 +401,7 @@ export class AdminController {
   @Header('Cache-Control','no-store')
   async studentTemplate(@CurrentUser() user:UserRow,@Query() query:SchoolScope){
     const spec=await this.accounts.studentImportSpec(user,query.school_id);
-    return download(await this.accounts.studentTemplate(user,query.school_id),spec.filename);
+    return download(await withCalendarAddin(await this.accounts.studentTemplate(user,query.school_id)),spec.filename);
   }
   @Get('students/import-spec')
   @Header('Cache-Control','no-store')

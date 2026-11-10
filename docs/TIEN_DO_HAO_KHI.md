@@ -963,6 +963,12 @@ Lịch: tải mẫu lên OneDrive, mở bằng Excel trên web, bấm đúp ô n
 
 Kiểm tra cục bộ: 5 bộ backend liên quan đạt 28/28 với PostgreSQL tạm; frontend 124/124, typecheck hai phía và build đạt. Microsoft Excel Windows riêng với macro tắt: công thức tự tính khi nhập đủ dữ liệu, dòng trống/thiếu dữ liệu không hiện số, sửa/xóa ngày sinh cập nhật mã, mã nối tiếp bộ đếm; lưu lại và đọc bằng bộ nhập API đều đúng. Đã render/xem hai mẫu. Chưa thử trực tiếp lịch trong Excel web vì kết nối trình duyệt không khả dụng; mô tả theo hướng dẫn Microsoft, không coi kiểm tra Excel Windows là bằng chứng lịch trên web. CI nền `9886284` còn 5 lỗi AI/analytics đã có trước thay đổi này (không sửa/ẩn chúng).
 
+## Lịch Vertex42 trong mẫu Excel máy tính, không VBA (10/11/2026)
+
+Người dùng đổi lựa chọn sang Excel máy tính và đồng ý dùng Mini Calendar and Date Picker của Vertex42, biết quyền đọc/sửa workbook và Internet. `calendar-addin.ts` nhúng tham chiếu chính thức Office Store `wa102957665` qua Content Web Extension trong hai mẫu .xlsx. Lịch đặt H1 cạnh bảng; chọn ô ngày sinh G12/G dòng tương ứng rồi chọn ngày. Excel giữ xác nhận tiện ích lần đầu; không cài sideload, không hạ bảo mật hoặc tự chấp thuận quyền. Không chép JS/HTML/token/snapshot từ file nhà phát hành, không có VBA/ActiveX. STT/mã giữ công thức, tên file và bộ đếm hiện tại; không có migration mới. Xem docs/LICH_EXCEL.md.
+
+Kiểm tra: bốn bộ backend liên quan đạt 24/24 với PostgreSQL tạm; mẫu có/không logo giữ dữ liệu/công thức, đúng relationship tới Office Store, API nhập lại được. Open XML SDK 3.3.0 không thấy lỗi cấu trúc phát sinh so với mẫu nền (8 lỗi có sẵn ở cả trước/sau). Typecheck/build hai phía đạt; các bài giao diện Excel liên quan đạt 9/9. Kết nối Windows Computer Use vẫn báo native pipe unavailable và không có phiên Excel connector, nên chưa xác minh lịch tương tác trong tài khoản Excel người dùng; không mô tả là đã cài/đã chấp thuận trên máy. Thay lựa chọn Excel web ở mục trước.
+
 ## Tài khoản quản trị viên trường theo quy ước, gửi thư thông tin (10/11/2026)
 
 Yêu cầu: quản trị tổng tạo tài khoản cho quản trị viên trường thì email bắt buộc vì hệ thống gửi tên đăng nhập và mật khẩu vào đó; tên đăng nhập và mật khẩu theo quy ước thay cho tên tự sinh và mật khẩu ngẫu nhiên.
