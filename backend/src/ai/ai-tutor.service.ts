@@ -187,7 +187,7 @@ export class AiTutorService implements OnModuleDestroy {
 
   // ---------------------------------------------------------------------- hạn mức (HK.AD.064)
   async quota(user: UserRow) {
-    if (!this.db.ready || user.username?.includes('demo')) {
+    if (!this.db.ready) {
       return { limit: 50, used: 0, school_limit: 1000, school_used: 0, remaining: 50, unlimited: true };
     }
     const s = await this.settings.get();
@@ -204,7 +204,7 @@ export class AiTutorService implements OnModuleDestroy {
   }
 
   async assertQuota(user: UserRow): Promise<void> {
-    if (!this.db.ready || user.username?.includes('demo')) return;
+    if (!this.db.ready) return;
     const q = await this.quota(user);
     if (q.unlimited) return;
     if (q.used >= q.limit) throw new HttpException(`Hôm nay em đã dùng hết ${q.limit} lượt hỏi Tiểu Tướng. Ngày mai em quay lại nhé!`, HttpStatus.TOO_MANY_REQUESTS);
@@ -212,7 +212,7 @@ export class AiTutorService implements OnModuleDestroy {
   }
 
   async status(user: UserRow) {
-    if (!this.db.ready || user.username?.includes('demo')) {
+    if (!this.db.ready) {
       const chunks = await this.retrieval.size().catch(() => 56);
       return { mode: 'grounded', ready: true, chunks: chunks || 56, quota: { limit: 50, used: 0, school_limit: 1000, school_used: 0, remaining: 50, unlimited: true }, roleplay: true, modes: MODES_BY_ROLE[user.role] ?? ['tutor', 'roleplay', 'explain', 'summary'] };
     }
@@ -376,7 +376,7 @@ export class AiTutorService implements OnModuleDestroy {
 
   // ---------------------------------------------------------------------- hội thoại
   private async conversation(user: UserRow, id: number | null | undefined, mode: string, title: string, figureId: number | null = null): Promise<{ id: number; mode: string; figure_id: number | null }> {
-    if (!this.db.ready || user.username?.includes('demo')) {
+    if (!this.db.ready) {
       return { id: id || 1, mode, figure_id: figureId };
     }
     if (id) {

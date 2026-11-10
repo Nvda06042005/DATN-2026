@@ -38,7 +38,7 @@ export class PlayService {
 
   // ------------------------------------------------------------------ trang chủ (HK.HS.017–018)
   async home(user: UserRow) {
-    if (user.username?.endsWith('.demo') || !this.db.ready) {
+    if (!this.db.ready) {
       return {
         learner: {
           id: user.id,
@@ -376,7 +376,7 @@ export class PlayService {
    * Hành trình chưa chia Cửa hiện thành một nhóm duy nhất; nút không thuộc Cửa nào hiện thành nhóm riêng.
    */
   async path(user: UserRow) {
-    if (user.username?.endsWith('.demo') || !this.db.ready) {
+    if (!this.db.ready) {
       return {
         parts: [
           {

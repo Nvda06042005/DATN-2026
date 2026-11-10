@@ -132,6 +132,15 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     expect(wrongUser.body.detail).toBe(wrongPass.body.detail);
   });
 
+  test('token giả dạng demo-<vai trò> không phải phiên đăng nhập: mọi route cần đăng nhập trả 401, không còn lối vào xem thử', async () => {
+    for (const token of ['demo-teacher-1', 'demo-student-1', 'demo-school_admin-1', 'demo-root_admin-1']) {
+      for (const path of ['/api/auth/me', '/api/admin/schools', '/api/admin/teachers']) {
+        const res = await api('GET', path, undefined, token);
+        expect([token, path, res.status]).toEqual([token, path, 401]);
+      }
+    }
+  });
+
   test('HK.HS.001 đăng nhập bằng tên đăng nhập, email hoặc mã học sinh; 5 lần sai khóa 15 phút theo tài khoản', async () => {
     const created = await api('POST', '/api/admin/students', { user_code: 'HS7001', full_name: 'Lê Thị Đăng Nhập', birth_date: '2013-04-02', gender: 'female', email: 'dangnhap@example.edu.vn' }, a.token);
     expect(created.status).toBe(201);

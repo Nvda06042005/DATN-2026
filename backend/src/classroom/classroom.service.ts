@@ -114,7 +114,7 @@ export class ClassroomService {
 
   async myClasses(user: UserRow) {
     if (user.role !== 'teacher' && user.role !== 'school_admin') throw new ForbiddenException('Chức năng này dành cho giáo viên và quản trị viên trường');
-    if (user.username?.endsWith('.demo') || !this.db.ready) {
+    if (!this.db.ready) {
       return [
         {
           id: 101,
@@ -177,7 +177,7 @@ export class ClassroomService {
   }
 
   async classDetail(user: UserRow, id: number) {
-    if (user.username?.endsWith('.demo') || !this.db.ready) {
+    if (!this.db.ready) {
       return {
         id,
         name: id === 101 ? 'Lớp 7A1 - Lịch sử Đại Việt' : 'Lớp 7A2 - Lịch sử Thế giới & Việt Nam',
@@ -312,7 +312,7 @@ export class ClassroomService {
 
   /** Danh sách học sinh kèm nhân vật (HK.GV.015) và tìm theo tên, mã, biệt danh (HK.GV.014) */
   async students(user: UserRow, classId: number, term?: string) {
-    if (user.username?.endsWith('.demo') || !this.db.ready) {
+    if (!this.db.ready) {
       return [
         { id: 11, full_name: 'Nguyễn Văn An', nickname: 'An Đông A', user_code: 'HS0001', username: 'an.nv', level: 5, xp: 1250, gold: 350, hearts: 5, streak: 7, character_name: 'Chiến Binh', character_icon: 'sword', character_color: '#dc2626', team_id: 1, team_name: 'Đội Hưng Đạo', last_active: '2026-11-04T08:30:00Z', hearts_max: 5 },
         { id: 12, full_name: 'Trần Thị Bình', nickname: 'Bình Bình', user_code: 'HS0002', username: 'binh.tt', level: 6, xp: 1820, gold: 520, hearts: 4, streak: 12, character_name: 'Pháp Sư', character_icon: 'wand', character_color: '#2563eb', team_id: 1, team_name: 'Đội Hưng Đạo', last_active: '2026-11-04T09:15:00Z', hearts_max: 5 },

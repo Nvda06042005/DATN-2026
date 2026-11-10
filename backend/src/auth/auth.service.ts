@@ -311,7 +311,7 @@ export class AuthService {
   // ------------------------------------------------------------------ hồ sơ cá nhân
   /** Hồ sơ của chính người dùng: thông tin cá nhân, trường, năm học hiện tại, các lớp (giáo viên: lớp phụ trách; học sinh: lớp đã tham gia) */
   async profile(user: UserRow) {
-    if (user.username?.endsWith('.demo') || !this.db.ready) {
+    if (!this.db.ready) {
       const mockSchool = { id: 1, school_code: 'DA7', name: 'Trường THCS Đông A', logo_url: null, city: 'Hà Nội' };
       const mockYear = { id: 1, label: '2025-2026' };
       const mockClasses = [
