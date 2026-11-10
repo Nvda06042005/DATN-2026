@@ -617,7 +617,7 @@ export class GameService {
 
   // ------------------------------------------------------------------ tổng quan nhân vật cho HUD (HK.HS.013)
   async me(user: UserRow) {
-    if (user.username?.endsWith('.demo') || !this.db.ready) {
+    if (!this.db.ready) {
       return {
         user: { id: user.id, name: user.nickname || user.full_name },
         class: { id: 1, code: 'warrior', name: 'Chiến Binh', description: 'Tiên phong dũng cảm', icon: 'sword', color: '#dc2626' },

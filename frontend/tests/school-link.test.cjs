@@ -177,3 +177,12 @@ test('chi tiết trường nhập tay: gợi ý liên kết danh mục để dù
   assert.match(service, /body\.link_only\s*\? \{ directory_code: selected\.code, logo_url: logoUrl \}/);
   assert.match(service, /không tạo thêm một trường đã có/);
 });
+
+test('trang đăng nhập không còn nút "Vào nhanh giao diện ... (Bản xem thử)" và không tự tạo người dùng giả', () => {
+  const login = read('components', 'school-login.tsx');
+  assert.doesNotMatch(login, /demo|Bản xem thử|Vào nhanh|Sparkles/i);
+  assert.doesNotMatch(login, /mockUser|onLogin\(demo/);
+  // đăng nhập duy nhất qua máy chủ: tên đăng nhập và mật khẩu, hoặc Google
+  assert.match(login, /authApi\./);
+  assert.match(login, /GoogleSignIn/);
+});
