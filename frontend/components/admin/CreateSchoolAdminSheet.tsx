@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { Platform, Pressable, ScrollView, View } from 'react-native';
 import { ChevronDown } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { ApiError, errorMessage } from '@/api/client';
-import { ErrorNote, useDebounced } from '@/components/admin/kit';
+import { CalendarInput, ErrorNote, useDebounced } from '@/components/admin/kit';
 import { SchoolSelect } from '@/components/admin/SchoolSelect';
 import type { Session } from '@/components/auth';
 import { Btn, Field, Inset, Sheet, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import { todayVn } from '@/lib/school-terms';
 import type { Account, CreatedAccount } from '@/types/api';
 
 /** Tra cứu dữ liệu đã lưu; không lưu họ tên/email vào localStorage hay lấy từ danh mục trường công khai. */
@@ -85,6 +86,7 @@ export function CreateSchoolAdminSheet({ session, onClose, onCreated, onExisting
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [birth, setBirth] = useState('');
   const [schoolId, setSchoolId] = useState('');
   const [selected, setSelected] = useState<Account | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -92,18 +94,20 @@ export function CreateSchoolAdminSheet({ session, onClose, onCreated, onExisting
   const choose = (account: Account) => {
     setSelected(account); setName(account.full_name); setEmail(account.email ?? ''); setPhone(account.phone ?? ''); setSchoolId(String(account.school_id ?? '')); setError(null);
   };
-  const clear = () => { setSelected(null); setName(''); setEmail(''); setPhone(''); setSchoolId(''); setError(null); };
+  const clear = () => { setSelected(null); setName(''); setEmail(''); setPhone(''); setBirth(''); setSchoolId(''); setError(null); };
   const submit = async () => {
     if (selected) { onExisting(selected.id); return; }
     if (!name.trim() || !email.trim()) { setError('Hãy điền họ tên và email của quản trị viên trường.'); return; }
     if (!Number.isInteger(Number(schoolId)) || Number(schoolId) < 1) { setError('Hãy chọn trường cho tài khoản quản trị.'); return; }
+    if (phone.replace(/\D/g, '').length < 4) { setError('Hãy nhập số điện thoại của quản trị viên (ít nhất 4 chữ số): 4 số cuối dùng để ghép tên đăng nhập.'); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(birth)) { setError('Hãy chọn ngày tháng năm sinh của quản trị viên: dùng để ghép mật khẩu.'); return; }
     setBusy(true); setError(null);
     try {
-      onCreated(await api.createAdminAccount(session.token, { full_name: name.trim(), role: 'school_admin', email: email.trim(), phone: phone.trim() || undefined, school_id: Number(schoolId) }));
+      onCreated(await api.createAdminAccount(session.token, { full_name: name.trim(), role: 'school_admin', email: email.trim(), phone: phone.trim(), birth_date: birth, school_id: Number(schoolId) }));
     } catch (e) { setError(errorMessage(e)); if (e instanceof ApiError && e.status === 401) session.expired(); }
     finally { setBusy(false); }
   };
-  return <Sheet open onClose={onClose} title="Tạo tài khoản quản trị" subtitle="Mật khẩu tạm được gửi vào email; người dùng phải đổi ở lần đăng nhập đầu tiên" panelStyle={{ maxWidth: 720 }}
+  return <Sheet open onClose={onClose} title="Tạo tài khoản quản trị" subtitle="Tên đăng nhập và mật khẩu theo quy ước được gửi vào email; người dùng phải đổi mật khẩu ở lần đăng nhập đầu tiên" panelStyle={{ maxWidth: 720 }}
     footer={<View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 10 }}><Btn title="Hủy" tone="giay" disabled={busy} onPress={onClose} /><Btn title={selected ? 'Mở hồ sơ tài khoản' : 'Tạo tài khoản'} tone="son" loading={busy} onPress={submit} testID="form-submit" /></View>}>
     <ErrorNote message={error} />
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
@@ -113,8 +117,19 @@ export function CreateSchoolAdminSheet({ session, onClose, onCreated, onExisting
     <SchoolSelect token={session.token} value={schoolId} onChange={id => { if (selected && id !== schoolId) { setSelected(null); setName(''); setEmail(''); setPhone(''); } setSchoolId(id); }} onExpired={session.expired} />
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
       <AccountSuggestField token={session.token} kind="email" value={email} schoolId={schoolId} onChange={text => { setSelected(null); setEmail(text); }} onSelect={choose} onExpired={session.expired} />
-      <Field label="Số điện thoại" nativeID="field-phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" style={{ flexGrow: 1, flexBasis: 240, minWidth: 0 }} />
+      <Field label="Số điện thoại *" nativeID="field-phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" style={{ flexGrow: 1, flexBasis: 240, minWidth: 0 }} />
     </View>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+      <View style={{ flexGrow: 1, flexBasis: 240, minWidth: 0 }}>
+        {Platform.OS === 'web'
+          ? <CalendarInput def={{ name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1930-01-01', max: todayVn(), required: true }} label="Ngày tháng năm sinh *" value={birth} error={null} onChange={setBirth} />
+          : <Field label="Ngày tháng năm sinh * (YYYY-MM-DD)" nativeID="field-birth_date" value={birth} onChangeText={setBirth} placeholder="2005-04-06" />}
+      </View>
+    </View>
+    <View testID="admin-credential-rule"><Inset style={{ gap: 4 }}>
+      <Txt size={13} color={c.muc2}>Tên đăng nhập: QLY + chữ viết tắt của trường + tên + 4 số cuối điện thoại. Ví dụ QLYGOTAN6720.</Txt>
+      <Txt size={13} color={c.muc2}>Mật khẩu: DongA + ngày sinh (ngày, tháng, năm) + @ + tên. Ví dụ DongA06042005@AN. Hệ thống gửi cả hai vào email này.</Txt>
+    </Inset></View>
     {selected && <View testID="admin-existing-account"><Inset style={{ gap: 8 }}>
       <Txt size={13} color={c.muc2}>Người này đã có tài khoản tại {selected.school_name}. Mở hồ sơ để xem hoặc chỉnh sửa thông tin.</Txt>
       <Btn title="Nhập người mới" tone="ghost" size="sm" onPress={clear} testID="admin-new-person" />

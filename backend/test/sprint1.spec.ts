@@ -505,10 +505,10 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     expect((await call(s.base, 'PATCH', `/api/admin/users/1`, { phone: '0900 111 222' }, l2.token)).status).toBe(403);
     expect((await call(s.base, 'POST', '/api/admin/users/1/lock', { locked: true, reason: 'x' }, l2.token)).status).toBe(403);
     expect((await call(s.base, 'POST', '/api/admin/schools', { school_code: '7099', name: 'Cấp 2 không tạo trường', admin: { full_name: 'Ai Đó', email: 'ai.do@example.edu.vn' } }, l2.token)).status).toBe(403);
-    const sa = await call(s.base, 'POST', '/api/admin/users', { full_name: 'Quản Trị Trường Thêm', role: 'school_admin', email: 'qt.them@example.edu.vn', school_id: a.id }, l2.token);
+    const sa = await call(s.base, 'POST', '/api/admin/users', { full_name: 'Quản Trị Trường Thêm', role: 'school_admin', email: 'qt.them@example.edu.vn', school_id: a.id, phone: '0912345678', birth_date: '1990-02-03' }, l2.token);
     expect(sa.status).toBe(201);
     expect((await api('POST', '/api/admin/users', { full_name: 'Thiếu Trường', role: 'school_admin', email: 'thieu@example.edu.vn' })).status).toBe(422);
-    expect((await api('POST', '/api/admin/users', { full_name: 'Email Trùng', role: 'school_admin', email: 'QT.THEM@example.edu.vn', school_id: a.id })).status).toBe(409);
+    expect((await api('POST', '/api/admin/users', { full_name: 'Email Trùng', role: 'school_admin', email: 'QT.THEM@example.edu.vn', school_id: a.id, phone: '0912345678', birth_date: '1990-02-03' })).status).toBe(409);
     // Đổi vai trò: phiên cũ bị thu hồi, vai trò mới có hiệu lực
     const tok = (await activate(s.base, sa.body.user.username, sa.body.temporary_password, PW, 'school_admin')).token;
     const changed = await api('PATCH', `/api/admin/users/${sa.body.user.id}/role`, { role: 'teacher' });

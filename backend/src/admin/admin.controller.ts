@@ -45,6 +45,7 @@ class FirstAdminDto {
   @Transform(squash) @IsString() @Length(2, 80) full_name: string;
   @IsEmail() @MaxLength(254) email: string;
   @IsOptional() @Matches(PHONE, { message: PHONE_MESSAGE }) phone?: string | null;
+  @IsOptional() @Matches(DATE, { message: 'Ngày sinh có dạng YYYY-MM-DD' }) birth_date?: string | null;
 }
 
 class CreateSchoolDto {
@@ -132,6 +133,7 @@ class CreateAdminDto {
   @IsOptional() @Matches(PHONE, { message: PHONE_MESSAGE }) phone?: string | null;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number | null;
   @IsOptional() @Type(() => Number) @IsIn([1, 2]) admin_level?: 1 | 2;
+  @IsOptional() @Matches(DATE, { message: 'Ngày sinh có dạng YYYY-MM-DD' }) birth_date?: string | null;
 }
 
 class CreateMemberDto {

@@ -505,7 +505,7 @@ const FormField: React.FC<{ def: FieldDef; value: string | string[]; error: stri
 };
 
 /** Ô ngày chọn bằng lịch (web): thẻ input type="date" của trình duyệt, giá trị YYYY-MM-DD như ô gõ tay; chỉ chọn trong khoảng min–max */
-const CalendarInput: React.FC<{ def: FieldDef; label: string; value: string; error: string | null; onChange: (v: string) => void }> = ({ def, label, value, error, onChange }) => {
+export const CalendarInput: React.FC<{ def: FieldDef; label: string; value: string; error: string | null; onChange: (v: string) => void }> = ({ def, label, value, error, onChange }) => {
   const { c } = useTheme();
   const [focus, setFocus] = useState(false);
   const input = React.createElement('input', {

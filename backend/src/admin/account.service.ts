@@ -10,7 +10,7 @@ import { DatabaseService, DuplicateUsername, Q, Role, searchText, toUser, USER_C
 import { buildFormSheet, checkUpload, Column, FormColumn, memberCode, parseDate, readSheet, schoolInitials, studentTemplateFilename, teacherTemplateFilename, UploadedXlsx, vnDayLabel } from './excel';
 import { SystemService } from '../platform/system.service';
 import { MailService } from './mail.service';
-import { likeEscape, SchoolService } from './school.service';
+import { likeEscape, schoolAdminCredentials, SchoolService } from './school.service';
 
 export type MemberRole = 'teacher' | 'student';
 const BATCH_ROUNDS = 8;
@@ -237,12 +237,12 @@ export class AccountService {
   }
 
   // ------------------------------------------------------------------ tạo tài khoản
-  private async queueAccountMail(q: Q, user: UserRow, password: string, schoolName: string | null, reset = false): Promise<'queued' | 'no_email' | 'not_configured'> {
+  private async queueAccountMail(q: Q, user: UserRow, password: string, schoolName: string | null, reset = false, shownUsername?: string): Promise<'queued' | 'no_email' | 'not_configured'> {
     if (!user.email) return 'no_email';
     await this.mail.enqueue(q, {
       school_id: user.school_id, user_id: user.id, batch_id: null, kind: 'bulk', to: user.email,
       subject: reset ? '[Đông A EDU] Mật khẩu tạm mới' : '[Đông A EDU] Thông tin tài khoản',
-      payload: { type: 'account', full_name: user.full_name, username: user.username, password, role: user.role, school: schoolName ?? 'Hệ thống Đông A', reset },
+      payload: { type: 'account', full_name: user.full_name, username: shownUsername ?? user.username, password, role: user.role, school: schoolName ?? 'Hệ thống Đông A', reset },
     });
     return this.mail.configured ? 'queued' : 'not_configured';
   }
@@ -253,23 +253,26 @@ export class AccountService {
   }
 
   /** Quản trị tổng cấp tài khoản quản trị (HK.AD.020): quản trị tổng cấp 1/2 hoặc quản trị viên trường học */
-  async createAdmin(actor: UserRow, body: { full_name: string; role: 'root_admin' | 'school_admin'; email: string; phone?: string | null; school_id?: number | null; admin_level?: 1 | 2 }) {
+  async createAdmin(actor: UserRow, body: { full_name: string; role: 'root_admin' | 'school_admin'; email: string; phone?: string | null; birth_date?: string | null; school_id?: number | null; admin_level?: 1 | 2 }) {
     if (body.role === 'root_admin') this.schools.assertTopAdmin(actor);
     if (body.role === 'school_admin' && !body.school_id) throw new UnprocessableEntityException('Quản trị viên trường học cần thuộc một trường');
     const email = body.email.trim().toLowerCase();
-    const password = generatePassword();
-    const passwordHash = await hashPassword(password, BATCH_ROUNDS);
     return this.db.tx(async (q) => {
       await q('SELECT pg_advisory_xact_lock(7412026)');
       await this.assertUnique(q, null, email, null);
       const school = body.role === 'school_admin' ? await this.schoolOf(q, body.school_id as number) : null;
-      const username = await this.db.uniqueUsername(body.full_name, body.role, q);
+      // quản trị viên trường: tên đăng nhập QLY + viết tắt trường + tên + 4 số cuối điện thoại, mật khẩu DongA + ngày sinh + @ + tên (gửi vào email); quản trị tổng giữ mật khẩu tạm ngẫu nhiên
+      const conventional = school ? schoolAdminCredentials(school.name, body.full_name, body.phone, body.birth_date) : null;
+      const password = conventional?.password ?? generatePassword();
+      const passwordHash = await hashPassword(password, BATCH_ROUNDS);
+      const username = conventional ? await this.db.uniqueUsernameFrom(conventional.username, q) : await this.db.uniqueUsername(body.full_name, body.role, q);
       const user = await this.db.createUser({
         username, full_name: clean(body.full_name) as string, role: body.role, class_name: null, password_hash: passwordHash, must_change_password: true, email, phone: clean(body.phone),
         school_id: school?.id ?? null, school_code: school?.school_code ?? null, region: school?.region ?? null, city: school?.city ?? null,
+        birth_date: conventional ? parseDate(body.birth_date as string) : null,
         admin_level: body.role === 'root_admin' ? (body.admin_level ?? 2) : 1,
       }, q);
-      const mail = await this.queueAccountMail(q, user, password, school?.name ?? null);
+      const mail = await this.queueAccountMail(q, user, password, school?.name ?? null, false, conventional ? user.username.toUpperCase() : undefined);
       return { user: toPublic(user), temporary_password: password, mail };
     }).then((r) => { this.mail.kick(); return r; });
   }

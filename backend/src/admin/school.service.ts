@@ -11,9 +11,37 @@ import { DatabaseService, DuplicateUsername, Q, UserRow } from '../database/data
 import { MailService } from './mail.service';
 import { DirectoryEntry, directoryEntry, foldVi, nameWords, sameSchoolName, schoolSlug, searchDirectory } from './school-directory';
 import { currentSchoolLogo } from './school-brand';
+import { parseDate, schoolInitials } from './excel';
 
 export const GRADES = [6, 7, 8, 9] as const;
 export const likeEscape = (s: string) => s.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+
+/** Tên gọi của người quản lý dùng để ghép tên đăng nhập và mật khẩu: từ cuối của họ tên, viết hoa, bỏ dấu, chỉ giữ chữ và số. "Nguyễn Hoài An" → "AN". */
+export function managerGivenName(fullName: string): string {
+  const last = fullName.trim().split(/\s+/).pop() ?? '';
+  return last.normalize('NFD').replace(/\p{Mn}/gu, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/**
+ * Tên đăng nhập và mật khẩu của quản trị viên trường theo quy ước (yêu cầu 10/11/2026):
+ * tên đăng nhập = QLY + viết tắt tên trường + tên người quản lý + 4 số cuối điện thoại, ví dụ QLYGOTAN6720 (Giồng Ông Tố, An, ...6720);
+ * mật khẩu = DongA + ngày sinh ddmmyyyy + @ + tên người quản lý, ví dụ DongA06042005@AN. Mật khẩu này chỉ dùng cho lần đăng nhập đầu: tài khoản bị buộc đổi mật khẩu.
+ * Tên đăng nhập lưu chữ thường (đăng nhập không phân biệt hoa thường); hiển thị và gửi thư bằng chữ hoa như ví dụ.
+ */
+export function schoolAdminCredentials(schoolName: string, fullName: string, phone: string | null | undefined, birthDate: string | null | undefined): { username: string; password: string } {
+  const given = managerGivenName(fullName);
+  if (!given) throw new UnprocessableEntityException('Họ tên của quản trị viên cần có tên gọi để tạo tên đăng nhập');
+  const digits = (phone ?? '').replace(/\D/g, '');
+  if (digits.length < 4) throw new UnprocessableEntityException('Quản trị viên trường cần có số điện thoại từ 4 chữ số trở lên (dùng 4 số cuối để ghép tên đăng nhập)');
+  const born = birthDate ? parseDate(birthDate) : null;
+  const today = new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
+  if (!born) throw new UnprocessableEntityException('Chọn ngày tháng năm sinh của quản trị viên (dùng để ghép mật khẩu)');
+  if (born > today || born < '1930-01-01') throw new UnprocessableEntityException('Ngày sinh của quản trị viên không hợp lệ');
+  return {
+    username: `QLY${schoolInitials(schoolName)}${given}${digits.slice(-4)}`,
+    password: `DongA${born.slice(8, 10)}${born.slice(5, 7)}${born.slice(0, 4)}@${given}`,
+  };
+}
 
 export interface SchoolRow {
   id: number;
@@ -195,7 +223,7 @@ export class SchoolService {
   /** Thêm trường kèm tài khoản quản trị viên trường đầu tiên và thư cấp mật khẩu tạm (HK.AD.013) */
   async create(actor: UserRow, body: {
     school_code?: string; directory_code?: string; name: string; region?: string | null; city?: string | null; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null;
-    admin: { full_name: string; email: string; phone?: string | null };
+    admin: { full_name: string; email: string; phone?: string | null; birth_date?: string | null };
   }) {
     this.assertTopAdmin(actor);
     const selected = body.directory_code ? directoryEntry(body.directory_code) : null;
@@ -204,7 +232,10 @@ export class SchoolService {
     const manualCode = selected ? '' : normCode(body.school_code);
     if (body.school_code !== undefined && !selected && !manualCode) throw new UnprocessableEntityException('Mã số trường cần có chữ số');
     const email = body.admin.email.trim().toLowerCase();
-    const password = generatePassword();
+    // có số điện thoại và ngày sinh của quản trị viên thì tên đăng nhập và mật khẩu theo quy ước (QLY + viết tắt trường + tên + 4 số cuối; DongA + ngày sinh + @ + tên); không thì mật khẩu tạm ngẫu nhiên như trước
+    const conventional = body.admin.phone || body.admin.birth_date
+      ? schoolAdminCredentials(selected?.name ?? body.name, body.admin.full_name, body.admin.phone, body.admin.birth_date) : null;
+    const password = conventional?.password ?? generatePassword();
     const passwordHash = await hashPassword(password);
     return this.db.tx(async (q) => {
       if (selected) {
@@ -224,12 +255,13 @@ export class SchoolService {
         `INSERT INTO app_schools (school_code, directory_code, name, region, city, address, contact_name, contact_email, contact_phone, logo_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
         [code, selected?.code ?? null, trimOrNull(selected?.name ?? body.name), trimOrNull(selected?.region ?? body.region), trimOrNull(selected?.city ?? body.city), trimOrNull(selected?.address ?? body.address), trimOrNull(body.contact_name), trimOrNull(body.contact_email)?.toLowerCase() ?? null, trimOrNull(body.contact_phone), logoHash ? `${config.publicApiUrl}/api/school-logos/${logoHash}.webp` : null],
       ))[0];
-      const username = await this.db.uniqueUsername(body.admin.full_name, 'school_admin', q);
+      const username = conventional ? await this.db.uniqueUsernameFrom(conventional.username, q) : await this.db.uniqueUsername(body.admin.full_name, 'school_admin', q);
       let admin: UserRow;
       try {
         admin = await this.db.createUser({
           username, full_name: body.admin.full_name, role: 'school_admin', class_name: null, password_hash: passwordHash, must_change_password: true,
           school_id: school.id, school_code: school.school_code, region: school.region, city: school.city, email, phone: trimOrNull(body.admin.phone),
+          birth_date: conventional ? parseDate(body.admin.birth_date as string) : null,
         }, q);
       } catch (exc) {
         if (exc instanceof DuplicateUsername) throw new ConflictException('Tên đăng nhập của quản trị viên bị trùng, thử lại');
@@ -237,7 +269,7 @@ export class SchoolService {
       }
       await this.mail.enqueue(q, {
         school_id: school.id, user_id: admin.id, batch_id: null, kind: 'bulk', to: email, subject: '[Đông A EDU] Kích hoạt tài khoản quản trị viên trường học',
-        payload: { type: 'account', full_name: admin.full_name, username, password, role: 'school_admin', school: school.name },
+        payload: { type: 'account', full_name: admin.full_name, username: conventional ? username.toUpperCase() : username, password, role: 'school_admin', school: school.name },
       });
       return { school: withLink(school), admin: toPublic(admin), temporary_password: password, mail: this.mail.configured ? 'queued' : 'not_configured' };
     }).then((result) => { this.mail.kick(); return result; });

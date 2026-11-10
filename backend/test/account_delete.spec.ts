@@ -24,7 +24,7 @@ import { activate, adminLogin, call, hasPostgres, sql, Started, startApp } from 
   async function member(role: 'teacher' | 'student' | 'school_admin', school = a) {
     const n = ++serial, full_name = `Tài khoản kiểm thử ${n}`, email = `account.${n}@example.invalid`;
     const made = role === 'school_admin'
-      ? await api('POST', '/api/admin/users', { full_name, email, role, school_id: school.id })
+      ? await api('POST', '/api/admin/users', { full_name, email, role, school_id: school.id, phone: '0912345678', birth_date: '1990-02-03' })
       : await api('POST', `/api/admin/${role === 'teacher' ? 'teachers' : 'students'}`, { full_name, email, user_code: `USER-${n}`, birth_date: '2013-04-02' }, school.admin.token);
     expect(made.status).toBe(201);
     return made.body as { user: { id: number; username: string; full_name: string }; temporary_password: string };

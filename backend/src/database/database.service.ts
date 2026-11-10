@@ -338,6 +338,14 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     return rows.length ? toUser(rows[0]) : null;
   }
 
+  /** Giữ nguyên tên đăng nhập cho sẵn (đã đặt theo quy ước); trùng thì thêm số 2, 3, ... phía sau. Tên đăng nhập luôn lưu chữ thường. */
+  async uniqueUsernameFrom(base: string, q: Q = (sql, params) => this.query(sql, params)): Promise<string> {
+    const stem = base.trim().toLowerCase();
+    let candidate = stem;
+    for (let n = 2; await this.getByUsername(candidate, q); n += 1) candidate = `${stem}${n}`;
+    return candidate;
+  }
+
   /** Tên đăng nhập kiểu cũ cho tài khoản tạo tay (gv.long.nv, long.nv; quản trị trường: qt.long.nv) */
   async uniqueUsername(fullName: string, role: Role, q: Q = (sql, params) => this.query(sql, params)): Promise<string> {
     const base = role === 'school_admin' ? `qt.${baseUsername(fullName, 'student')}` : role === 'root_admin' ? `ad.${baseUsername(fullName, 'student')}` : baseUsername(fullName, role);

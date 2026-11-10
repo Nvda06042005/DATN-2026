@@ -7,6 +7,7 @@ import { Bell, Building2, ChartColumn, History, LifeBuoy, LibraryBig, Plus, Tras
 import * as api from '@/api/adminApi';
 import { AccountSheet, dateText, ROLE_TEXT } from '@/components/admin/AccountSheet';
 import { CreateSchoolAdminSheet } from '@/components/admin/CreateSchoolAdminSheet';
+import { todayVn } from '@/lib/school-terms';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { SystemStats } from '@/components/admin/AnalyticsAdmin';
 import { BroadcastManager } from '@/components/admin/PlatformComms';
@@ -67,7 +68,8 @@ const CREATE_FIELDS = (token: string): FieldDef[] => [
   { name: 'admin_section', label: 'Quản trị viên trường đầu tiên', render: () => <Txt f="bold" size={17} accessibilityRole="header">Quản trị viên trường đầu tiên</Txt> },
   { name: 'admin_name', label: 'Họ và tên', required: true },
   { name: 'admin_email', label: 'Email', type: 'email', required: true },
-  { name: 'admin_phone', label: 'Điện thoại', type: 'tel' },
+  { name: 'admin_phone', label: 'Điện thoại', type: 'tel', required: true, hint: '4 số cuối dùng để ghép tên đăng nhập: QLY + viết tắt trường + tên + 4 số cuối (ví dụ QLYGOTAN6720).' },
+  { name: 'admin_birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1930-01-01', max: todayVn(), required: true, hint: 'Dùng để ghép mật khẩu: DongA + ngày sinh + @ + tên (ví dụ DongA06042005@AN). Cả hai được gửi vào email.' },
 ];
 
 const SchoolCodePreview: React.FC<{ token: string }> = ({ token }) => {
@@ -96,7 +98,7 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
   const [toggling, setToggling] = useState<SchoolItem | null>(null);
   const [removing, setRemoving] = useState<SchoolItem | null>(null);
 
-  if (created) return <CredentialSheet title="Trường đã được tạo" account={{ full_name: `${created.admin.full_name} – quản trị viên ${created.school.name}`, username: created.admin.username, temporary_password: created.temporary_password, mail: created.mail }} onClose={() => setCreated(null)}
+  if (created) return <CredentialSheet title="Trường đã được tạo" account={{ full_name: `${created.admin.full_name} – quản trị viên ${created.school.name}`, username: created.admin.username.toUpperCase(), temporary_password: created.temporary_password, mail: created.mail }} onClose={() => setCreated(null)}
     extra={<View style={{ gap: 10 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><SchoolEmblem name={created.school.name} code={created.school.school_code} logoUrl={created.school.logo_url} size={48} /><View style={{ flex: 1 }}><Txt f="bold" size={15}>{created.school.name}</Txt><Txt size={12} color={c.muc2}>Đã lưu vào danh sách Trường học</Txt></View></View><Inset style={{ gap: 4 }}><Txt f="bold" size={12} color={c.muc3}>Mã trường</Txt><Txt f="displayHeavy" size={26} selectable testID="created-school-code">{created.school.school_code}</Txt></Inset><SchoolLinkBox link={created.school.link} /></View>} />;
   const cities = [{ value: '', label: 'Mọi tỉnh / thành' }, ...(data?.facets.cities ?? []).map((x) => ({ value: x, label: x }))];
 
@@ -134,7 +136,7 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
           onClose={() => setCreating(false)}
           onSubmit={async (v) => {
             if (String(v.name).trim().length < 2) throw new Error('Hãy gõ tên trường rồi chọn trong danh sách gợi ý, hoặc tự nhập tên trường.');
-            const body: Record<string, unknown> = { directory_code: v.directory_code || undefined, admin: { full_name: v.admin_name, email: v.admin_email, phone: v.admin_phone || undefined } };
+            const body: Record<string, unknown> = { directory_code: v.directory_code || undefined, admin: { full_name: v.admin_name, email: v.admin_email, phone: v.admin_phone || undefined, birth_date: v.admin_birth_date || undefined } };
             for (const name of ['name', 'city', 'region', 'address']) if (String(v[name] ?? '').trim()) body[name] = v[name];
             const res = await api.createSchool(token, body);
             setCreating(false);
@@ -305,7 +307,7 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
   const [credential, setCredential] = useState<CreatedAccount | null>(null);
   const refresh = useCallback(() => reload(), [reload]);
 
-  if (credential) return <CredentialSheet title="Tài khoản quản trị đã được tạo" account={{ full_name: credential.user.full_name, username: credential.user.username, temporary_password: credential.temporary_password, mail: credential.mail }} onClose={() => setCredential(null)} />;
+  if (credential) return <CredentialSheet title="Tài khoản quản trị đã được tạo" account={{ full_name: credential.user.full_name, username: credential.user.role === 'school_admin' ? credential.user.username.toUpperCase() : credential.user.username, temporary_password: credential.temporary_password, mail: credential.mail }} onClose={() => setCredential(null)} />;
   const f_role: SearchFilter = { key: 'role', label: 'Vai trò', value: role, options: [{ value: '', label: 'Mọi vai trò' }, ...(Object.keys(ROLE_TEXT) as AuthRole[]).map((r) => ({ value: r, label: ROLE_TEXT[r] }))], onChange: (v) => { setRole(v); setPage(1); } };
   const f_school: SearchFilter = { key: 'school', label: 'Trường', value: schoolId, options: [{ value: '', label: 'Mọi trường' }, ...schools], onChange: (v) => { setSchoolId(v); setPage(1); } };
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }], onChange: (v) => { setActive(v); setPage(1); } };

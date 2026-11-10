@@ -56,7 +56,7 @@ export interface AccountQuery extends Query { q?: string; role?: AuthRole; schoo
 export const listUsers = (token: string, query: AccountQuery) => apiRequest<Paged<Account>>(`/api/admin/users${qs(query)}`, { token });
 export const listMembers = (token: string, kind: 'teachers' | 'students', query: AccountQuery) => apiRequest<Paged<Account>>(`/api/admin/${kind}${qs(query)}`, { token });
 export const getUser = (token: string, id: number) => apiRequest<AccountDetail>(`/api/admin/users/${id}`, { token });
-export const createAdminAccount = (token: string, body: { full_name: string; role: 'root_admin' | 'school_admin'; email: string; phone?: string | null; school_id?: number | null; admin_level?: 1 | 2 }) =>
+export const createAdminAccount = (token: string, body: { full_name: string; role: 'root_admin' | 'school_admin'; email: string; phone?: string | null; birth_date?: string | null; school_id?: number | null; admin_level?: 1 | 2 }) =>
   apiRequest<CreatedAccount>('/api/admin/users', { token, body });
 export const createMember = (token: string, kind: 'teachers' | 'students', body: MemberInput & { school_id?: number | null }) => apiRequest<CreatedAccount>(`/api/admin/${kind}`, { token, body });
 export const updateUser = (token: string, id: number, body: Partial<MemberInput> & { school_id?: number | null; birth_date?: string | null; gender?: Gender | null }) =>
