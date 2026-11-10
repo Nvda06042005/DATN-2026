@@ -22,6 +22,7 @@ import { LoginLayout, LoginHeading as Heading, LoginInput as AuthInput, LoginPas
 import { useShake } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
 import { newPasswordError, PASSWORD_HINT } from '@/lib/password-policy';
+import { clearForgotProgress, loadForgotProgress, saveForgotProgress } from '@/lib/forgot-progress';
 import type { AuthUser } from '@/types/api';
 import type { IconType } from '@/types/game';
 
@@ -344,7 +345,7 @@ const NewPasswordForm: React.FC<{ ticket: string; onDone: () => void; onRequestN
       onDone();
     } catch (err) {
       setError(errorMessage(err, 'Chưa đặt lại được mật khẩu. Hãy thử lại sau.'));
-      if (err instanceof ApiError && err.status === 400) setDead(true); // phiếu hết hạn (10 phút) hoặc đã dùng: phải xin mã mới
+      if (err instanceof ApiError && err.status === 400) { setDead(true); clearForgotProgress(); } // phiếu hết hạn (10 phút) hoặc đã dùng: phải xin mã mới
     } finally {
       setLoading(false);
     }
@@ -396,18 +397,29 @@ const NewPasswordForm: React.FC<{ ticket: string; onDone: () => void; onRequestN
 
 // ---------------------------------------------------------------------- trang
 export const AdminLogin: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: AuthUser) => void; notice?: string | null }> = ({ portal, onLogin, notice }) => {
-  const [view, setView] = useState<Step>('login');
-  const [identifier, setIdentifier] = useState('');
-  const [ticket, setTicket] = useState('');
+  // tab bị tải lại giữa chừng (trình duyệt giải phóng tab nền, F5) thì mở lại đúng bước đang làm (lib/forgot-progress.ts)
+  const scope = `admin:${portal}`;
+  const [restored] = useState(() => loadForgotProgress(scope));
+  const [view, setView] = useState<Step>(restored ? (restored.step === 'code' ? 'reset' : 'password') : 'login');
+  const [identifier, setIdentifier] = useState(restored?.identifier ?? '');
+  const [ticket, setTicket] = useState(restored?.ticket ?? '');
   const [flash, setFlash] = useState<string | null>(null);
+  const restart = () => {
+    clearForgotProgress();
+    setView('forgot');
+  };
 
   return (
     <Shell portal={portal}>
       {view === 'login' && <LoginForm portal={portal} onLogin={onLogin} onForgot={() => setView('forgot')} notice={notice} success={flash} />}
       {view === 'forgot' && (
         <ForgotForm
-          onBack={() => setView('login')}
+          onBack={() => {
+            clearForgotProgress();
+            setView('login');
+          }}
           onSent={(id) => {
+            saveForgotProgress({ scope, step: 'code', identifier: id });
             setIdentifier(id);
             setView('reset');
           }}
@@ -417,21 +429,23 @@ export const AdminLogin: React.FC<{ portal: AdminPortal; onLogin: (token: string
         <CodeForm
           identifier={identifier}
           onVerified={(t) => {
+            saveForgotProgress({ scope, step: 'password', identifier, ticket: t });
             setTicket(t);
             setView('password');
           }}
-          onRequestNew={() => setView('forgot')}
+          onRequestNew={restart}
         />
       )}
       {view === 'password' && (
         <NewPasswordForm
           ticket={ticket}
           onDone={() => {
+            clearForgotProgress();
             setFlash('Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.');
             setTicket('');
             setView('login');
           }}
-          onRequestNew={() => setView('forgot')}
+          onRequestNew={restart}
         />
       )}
     </Shell>

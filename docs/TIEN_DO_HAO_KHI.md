@@ -1016,3 +1016,13 @@ Job backend của CI đỏ vì 5 test (`ai.spec.ts` ×4, `analytics.spec.ts` ×1
 - **Test khóa API**: sau migration 039 bảng `hk_ai_settings` có một dòng cho mỗi vùng làm việc (khóa chính `(workspace_key, id)`), nên câu `WHERE id = 1` trong test có thể trúng dòng của trường; test đổi thành `WHERE id = 1 AND school_id IS NULL`. Mã không đổi.
 
 Cầu nối Python (`bridge_cli.py`) giữ nguyên, vẫn chỉ chạy ngoài môi trường kiểm thử và chưa có test; cần quyết định riêng nếu muốn đưa vào kiểm thử tự động.
+
+## Quên mật khẩu không mất tiến độ khi tab bị tải lại (11/11/2026)
+
+Lỗi người dùng báo: đã nhận mã xác thực, sang tab khác (hộp thư) rồi quay lại thì màn quên mật khẩu mất, phải làm lại từ đầu; áp dụng cả quản trị tổng, quản trị trường, giáo viên và học sinh.
+
+- **Tái hiện bằng Chrome thật** (backend và PostgreSQL tạm): chỉ riêng việc rời tab rồi quay lại (sự kiện `visibilitychange`) không làm mất gì, nhưng **tải lại trang** (F5, trình duyệt giải phóng tab nền khi thiếu bộ nhớ, tab cũ bị tải lại sau lần triển khai mới) đưa về màn đăng nhập trắng ở cả bước nhập mã lẫn bước mật khẩu mới. Đó là nguyên nhân người dùng gặp.
+- **Sửa** (`lib/forgot-progress.ts`): tiến độ giữ trong `sessionStorage` của tab (chỉ web, theo từng cổng: `admin:<cổng>` và `school:<mã trường>`). Sau khi gửi mã lưu bước "nhập mã" (sống 5 phút như mã OTP); sau khi mã đúng lưu bước "mật khẩu mới" kèm phiếu (sống 10 phút như phiếu). Tải lại thì hộp mở lại đúng bước (`ForgotPasswordSheet` trong `auth.tsx`; `AdminLogin.tsx` cho quản trị tổng). Hết hạn, bản ghi hỏng hoặc của cổng khác thì bỏ.
+- **Xóa tiến độ** khi đặt mật khẩu xong, bấm Đóng, "Gửi lại mã"/"Yêu cầu mã mới", quay về đăng nhập, hoặc phiếu bị từ chối (hết hạn, đã dùng).
+- **Không lưu** mã OTP hay mật khẩu người dùng gõ (hàm lưu chỉ lấy cổng, bước, tên tài khoản, phiếu, giờ); trên ứng dụng di động (không có `sessionStorage`) tính năng tự tắt. Phiếu đổi mật khẩu nằm trong `sessionStorage` của tab: cùng mức rủi ro với token phiên của ứng dụng (đang ở localStorage), nhưng sống tối đa 10 phút, dùng một lần và mất khi đóng tab.
+- **Kiểm thử**: `forgot-progress.test.cjs` (logic thật với sessionStorage giả: hạn 5/10 phút, bản hỏng, thiếu phiếu, không lưu OTP/mật khẩu, trình duyệt chặn lưu trữ; nối vào hai giao diện), `forgot-password-steps.test.cjs` cập nhật. Chrome thật: tải lại ở bước nhập mã và bước mật khẩu đều mở lại đúng bước, xong hoặc đóng rồi tải lại thì không mở lại, quản trị tổng và đường dẫn trường đều đạt.

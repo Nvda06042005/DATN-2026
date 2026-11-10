@@ -13,6 +13,7 @@ import { AdminLogin } from '@/components/admin/AdminLogin';
 import { SchoolLogin } from '@/components/school-login';
 import { SchoolBadge, type SchoolBrandInfo } from '@/components/school-brand';
 import type { SchoolRole } from '@/lib/school-portal';
+import { clearForgotProgress, loadForgotProgress, saveForgotProgress } from '@/lib/forgot-progress';
 import { BrandLogo, Mascot } from '@/components/art';
 import { ProfileSheet } from '@/components/profile';
 import { Avatar, Btn, Card, Field, Inset, PaperBg, Sheet, Spinner, Txt, useToast } from '@/components/ui';
@@ -271,22 +272,25 @@ export const LoginScreen: React.FC<LoginProps> = ({ portal, ...rest }) =>
   portal === 'root_admin' ? <AdminLogin portal={portal} {...rest} /> : <SchoolLoginWithRecovery initialRole={portal === 'app' ? 'student' : portal} {...rest} />;
 
 const SchoolLoginWithRecovery: React.FC<Omit<LoginProps, 'portal'> & { initialRole: SchoolRole }> = ({ initialRole, onLogin, notice, school, onRoleChange }) => {
-  const [forgot, setForgot] = useState(false);
+  // cổng nào thì tiến độ quên mật khẩu của cổng đó; tab bị tải lại giữa chừng thì hộp mở lại đúng bước (lib/forgot-progress.ts)
+  const scope = `school:${school?.school_code ?? 'portal'}`;
+  const [forgot, setForgot] = useState(() => loadForgotProgress(scope) !== null);
   const [flash, setFlash] = useState<string | null>(null);
   return <>
     <SchoolLogin initialRole={initialRole} onLogin={onLogin} notice={flash ?? notice} onForgotPassword={() => setForgot(true)} school={school} onRoleChange={onRoleChange} />
-    {forgot && <ForgotPasswordSheet onClose={() => setForgot(false)} onDone={() => { setForgot(false); setFlash('Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.'); }} />}
+    {forgot && <ForgotPasswordSheet scope={scope} onClose={() => setForgot(false)} onDone={() => { setForgot(false); setFlash('Đã đặt lại mật khẩu. Hãy đăng nhập bằng mật khẩu mới.'); }} />}
   </>;
 };
 
 // ---------------------------------------------------------------------- quên mật khẩu bằng OTP (giáo viên, học sinh; HK.HS.005, HK.GV.002)
 /** Ba bước trong một cửa sổ: nhập tên/email để nhận mã 6 chữ số (5 phút) → nhập mã (đúng mới sang bước sau) → đặt mật khẩu mới và nhập lại */
-const ForgotPasswordSheet: React.FC<{ onClose: () => void; onDone: () => void }> = ({ onClose, onDone }) => {
+const ForgotPasswordSheet: React.FC<{ scope: string; onClose: () => void; onDone: () => void }> = ({ scope, onClose, onDone }) => {
   const { c } = useTheme();
-  const [step, setStep] = useState<'ask' | 'code' | 'password'>('ask');
-  const [identifier, setIdentifier] = useState('');
+  const [saved] = useState(() => loadForgotProgress(scope));
+  const [step, setStep] = useState<'ask' | 'code' | 'password'>(saved?.step ?? 'ask');
+  const [identifier, setIdentifier] = useState(saved?.identifier ?? '');
   const [otp, setOtp] = useState('');
-  const [ticket, setTicket] = useState('');
+  const [ticket, setTicket] = useState(saved?.ticket ?? '');
   const [dead, setDead] = useState(false);
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -300,6 +304,7 @@ const ForgotPasswordSheet: React.FC<{ onClose: () => void; onDone: () => void }>
     setError(null);
     try {
       await authApi.requestPasswordReset(identifier.trim());
+      saveForgotProgress({ scope, step: 'code', identifier: identifier.trim() });
       setStep('code');
     } catch (err) {
       setError(errorMessage(err, 'Chưa gửi được mã. Hãy thử lại sau.'));
@@ -314,6 +319,7 @@ const ForgotPasswordSheet: React.FC<{ onClose: () => void; onDone: () => void }>
     setError(null);
     try {
       const res = await authApi.verifyResetCode(identifier.trim(), otp);
+      saveForgotProgress({ scope, step: 'password', identifier: identifier.trim(), ticket: res.reset_token });
       setTicket(res.reset_token);
       setDead(false);
       setStep('password');
@@ -331,25 +337,28 @@ const ForgotPasswordSheet: React.FC<{ onClose: () => void; onDone: () => void }>
     setError(null);
     try {
       await authApi.resetPasswordWithTicket(ticket, next);
+      clearForgotProgress();
       onDone();
     } catch (err) {
       setError(errorMessage(err, 'Chưa đặt lại được mật khẩu.'));
-      if (err instanceof ApiError && err.status === 400) setDead(true); // phiếu hết hạn hoặc đã dùng: phải xin mã mới
+      if (err instanceof ApiError && err.status === 400) { setDead(true); clearForgotProgress(); } // phiếu hết hạn hoặc đã dùng: phải xin mã mới
     } finally {
       setLoading(false);
     }
   };
-  const restart = () => { setStep('ask'); setOtp(''); setTicket(''); setNext(''); setConfirm(''); setDead(false); setError(null); };
+  const restart = () => { clearForgotProgress(); setStep('ask'); setOtp(''); setTicket(''); setNext(''); setConfirm(''); setDead(false); setError(null); };
+
+  const close = () => { clearForgotProgress(); onClose(); };
 
   return (
     <Sheet
       open
-      onClose={onClose}
+      onClose={close}
       title="Quên mật khẩu"
       subtitle={step === 'ask' ? 'Mã xác thực được gửi tới email đã khai báo trong hồ sơ' : step === 'code' ? 'Mã có hiệu lực 5 phút và chỉ dùng được một lần' : 'Mã đã đúng. Đặt mật khẩu mới cho tài khoản'}
       footer={
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
-          <Btn title="Đóng" tone="giay" onPress={onClose} />
+          <Btn title="Đóng" tone="giay" onPress={close} />
           {step === 'code' && <Btn title="Gửi lại mã" tone="giay" onPress={restart} />}
           {step === 'password' && dead && <Btn title="Yêu cầu mã mới" tone="giay" onPress={restart} testID="forgot-restart" />}
           {step === 'code'
