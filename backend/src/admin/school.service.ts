@@ -31,8 +31,8 @@ export function managerGivenName(fullName: string): string {
 export function schoolAdminCredentials(schoolName: string, fullName: string, phone: string | null | undefined, birthDate: string | null | undefined): { username: string; password: string } {
   const given = managerGivenName(fullName);
   if (!given) throw new UnprocessableEntityException('Họ tên của quản trị viên cần có tên gọi để tạo tên đăng nhập');
-  const digits = (phone ?? '').replace(/\D/g, '');
-  if (digits.length < 4) throw new UnprocessableEntityException('Quản trị viên trường cần có số điện thoại từ 4 chữ số trở lên (dùng 4 số cuối để ghép tên đăng nhập)');
+  const digits = (phone ?? '').trim();
+  if (!/^[0-9]{10}$/.test(digits)) throw new UnprocessableEntityException('Số điện thoại của quản trị viên gồm đúng 10 chữ số (dùng 4 số cuối để ghép tên đăng nhập)');
   const born = birthDate ? parseDate(birthDate) : null;
   const today = new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
   if (!born) throw new UnprocessableEntityException('Chọn ngày tháng năm sinh của quản trị viên (dùng để ghép mật khẩu)');

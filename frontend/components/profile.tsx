@@ -8,9 +8,10 @@ import { View } from 'react-native';
 import { ImagePlus, Trash2 } from 'lucide-react-native';
 import { errorMessage, type PickedFile } from '@/api/client';
 import { pickFile } from '@/components/admin/kit';
-import { Avatar, Btn, Field, Inset, Segmented, Sheet, Spinner, Txt, useToast } from '@/components/ui';
+import { Avatar, Btn, Field, Inset, PhoneField, Segmented, Sheet, Spinner, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { AVATAR_MAX, AVATAR_ONLY_IMAGES, AVATAR_TYPES, isAvatarImage } from '@/lib/avatar';
+import { phoneError } from '@/lib/phone';
 import type { AuthUser, ProfileData, ProfilePatch } from '@/types/api';
 
 type Editable = ProfileData['editable'][number];
@@ -93,6 +94,8 @@ export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (pa
     try {
       const patch: ProfilePatch = {};
       for (const k of textFields) if ((form[k] ?? '') !== ((user[k] as string | null) ?? '')) patch[k] = form[k].trim() === '' ? null : form[k].trim();
+      const badPhone = typeof patch.phone === 'string' ? phoneError(patch.phone) : null;
+      if (badPhone) { setError(badPhone); return; }
       const next = await save(patch);
       apply(next);
       onSaved?.(next.user);
@@ -137,8 +140,10 @@ export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (pa
           const meta = LABEL[k];
           return (
             <View key={k} style={{ flexGrow: 1, flexBasis: meta.multiline ? '100%' : 220, minWidth: 0 }}>
-              <Field label={meta.label} hint={meta.hint} value={form[k] ?? ''} onChangeText={(v) => setForm((f) => ({ ...f, [k]: v }))} autoCapitalize={k === 'email' ? 'none' : 'sentences'}
-                keyboardType={k === 'phone' ? 'phone-pad' : k === 'email' ? 'email-address' : 'default'} multiline={meta.multiline} numberOfLines={meta.multiline ? 3 : 1} inputStyle={meta.multiline ? { minHeight: 72, textAlignVertical: 'top' } : undefined} />
+              {k === 'phone'
+                ? <PhoneField label={meta.label} hint={'Đúng 10 chữ số, ví dụ 0901234567.'} value={form[k] ?? ''} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
+                : <Field label={meta.label} hint={meta.hint} value={form[k] ?? ''} onChangeText={(v) => setForm((f) => ({ ...f, [k]: v }))} autoCapitalize={k === 'email' ? 'none' : 'sentences'}
+                keyboardType={k === 'email' ? 'email-address' : 'default'} multiline={meta.multiline} numberOfLines={meta.multiline ? 3 : 1} inputStyle={meta.multiline ? { minHeight: 72, textAlignVertical: 'top' } : undefined} />}
             </View>
           );
         })}

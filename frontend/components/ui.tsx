@@ -14,6 +14,7 @@ import { API_BASE_URL } from '@/api/client';
 import { Mascot, PatternOverlay, type MascotMood } from '@/components/art';
 import { FONT, ON_BRIGHT, toneColors, type FontName, type Palette, type Tone } from '@/constants/theme';
 import { avatarColor, initialsOf } from '@/lib/format';
+import { cleanPhone, PHONE_LENGTH, phoneWarning } from '@/lib/phone';
 import { usePopIn, useReduceMotion } from '@/hooks/use-motion';
 import { useStyles, useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
@@ -477,6 +478,27 @@ export const Field: React.FC<
         </Txt>
       ) : null}
     </View>
+  );
+};
+
+/**
+ * Ô số điện thoại của quản trị tổng, quản trị trường, giáo viên và học sinh: chỉ nhận chữ số, tối đa 10 (dán "0901 234 567" hay "+84…" vẫn lấy dãy chữ số);
+ * dưới ô hiện cảnh báo đỏ khi chưa đủ 10 chữ số, có ký tự lạ (số cũ) hoặc vừa gõ thừa. Không dùng maxLength của ô nhập vì nó cắt chuỗi dán trước khi bỏ dấu cách.
+ */
+export const PhoneField: React.FC<Omit<React.ComponentProps<typeof Field>, 'onChange' | 'onChangeText' | 'keyboardType' | 'maxLength' | 'value'> & { value: string; onChange: (digits: string) => void }> = ({ value, onChange, error, placeholder, ...rest }) => {
+  const [overflow, setOverflow] = useState(false);
+  return (
+    <Field
+      {...rest}
+      value={value}
+      keyboardType="phone-pad"
+      placeholder={placeholder ?? '0901234567'}
+      error={error ?? phoneWarning(value, overflow)}
+      onChangeText={(text) => {
+        setOverflow(text.replace(/\D/g, '').length > PHONE_LENGTH);
+        onChange(cleanPhone(text));
+      }}
+    />
   );
 };
 

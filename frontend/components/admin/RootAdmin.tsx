@@ -68,7 +68,7 @@ const CREATE_FIELDS = (token: string): FieldDef[] => [
   { name: 'admin_section', label: 'Quản trị viên trường đầu tiên', render: () => <Txt f="bold" size={17} accessibilityRole="header">Quản trị viên trường đầu tiên</Txt> },
   { name: 'admin_name', label: 'Họ và tên', required: true },
   { name: 'admin_email', label: 'Email', type: 'email', required: true },
-  { name: 'admin_phone', label: 'Điện thoại', type: 'tel', required: true, hint: '4 số cuối dùng để ghép tên đăng nhập: QLY + viết tắt trường + tên + 4 số cuối (ví dụ QLYGOTAN6720).' },
+  { name: 'admin_phone', label: 'Điện thoại', type: 'phone', required: true, hint: 'Đúng 10 chữ số. 4 số cuối dùng để ghép tên đăng nhập: QLY + viết tắt trường + tên + 4 số cuối (ví dụ QLYGOTAN6720).' },
   { name: 'admin_birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1930-01-01', max: todayVn(), required: true, hint: 'Dùng để ghép mật khẩu: DongA + ngày sinh + @ + tên (ví dụ DongA06042005@AN). Cả hai được gửi vào email.' },
 ];
 

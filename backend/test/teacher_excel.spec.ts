@@ -261,7 +261,7 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
 
   test('file cũ (tiêu đề ở dòng 1, có cột Bộ môn) vẫn nhập được; thiếu cột bắt buộc báo rõ cột nào; chỉ nhận .xlsx', async () => {
     const { makeXlsx } = await import('./harness');
-    const legacy = await makeXlsx(['Họ và tên *', 'Email *', 'Bộ môn', 'Số điện thoại', 'Mã giáo viên'], [['Cô Cũ Địa Lí', 'co.cu@example.edu.vn', 'Địa lí', '0912 345 678', 'GV901']]);
+    const legacy = await makeXlsx(['Họ và tên *', 'Email *', 'Bộ môn', 'Số điện thoại', 'Mã giáo viên'], [['Cô Cũ Địa Lí', 'co.cu@example.edu.vn', 'Địa lí', '0912345678', 'GV901']]);
     const ok = await upload(s.base, '/api/admin/teachers/import?commit=true', await teacherFileName(), legacy, A.token);
     expect(ok.body).toMatchObject({ created: 1, errors: 0 });
     expect((await sql(s.url, "SELECT column_name FROM information_schema.columns WHERE table_name = 'app_users' AND column_name = 'subject'"))).toEqual([]); // cột Bộ môn của file cũ bị bỏ qua, CSDL không còn cột này
@@ -310,7 +310,7 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
   });
 
   test('hai cách thêm giáo viên: biểu mẫu từng người (giới tính, ngày sinh; không có bộ môn) và nhập file hàng loạt; ngày sinh sai bị chặn; sửa được giới tính, ngày sinh', async () => {
-    const one = await api('POST', '/api/admin/teachers', { full_name: 'Phạm Thị Từng Người', email: 'tung.nguoi@example.edu.vn', user_code: 'GV201', phone: '0933 444 555', gender: 'female', birth_date: '1990-07-01' });
+    const one = await api('POST', '/api/admin/teachers', { full_name: 'Phạm Thị Từng Người', email: 'tung.nguoi@example.edu.vn', user_code: 'GV201', phone: '0933444555', gender: 'female', birth_date: '1990-07-01' });
     expect(one.status).toBe(201);
     expect(one.body.user).toMatchObject({ role: 'teacher', gender: 'female', birth_date: '1990-07-01', user_code: expect.stringMatching(/^ME\d{2}01071990\d{3}$/) });
     expect(one.body.user).not.toHaveProperty('subject');

@@ -6,8 +6,9 @@ import { ApiError, errorMessage } from '@/api/client';
 import { CalendarInput, ErrorNote, useDebounced } from '@/components/admin/kit';
 import { SchoolSelect } from '@/components/admin/SchoolSelect';
 import type { Session } from '@/components/auth';
-import { Btn, Field, Inset, Sheet, Txt } from '@/components/ui';
+import { Btn, Field, Inset, PhoneField, Sheet, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import { normalizePhone } from '@/lib/phone';
 import { todayVn } from '@/lib/school-terms';
 import type { Account, CreatedAccount } from '@/types/api';
 
@@ -92,18 +93,18 @@ export function CreateSchoolAdminSheet({ session, onClose, onCreated, onExisting
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const choose = (account: Account) => {
-    setSelected(account); setName(account.full_name); setEmail(account.email ?? ''); setPhone(account.phone ?? ''); setSchoolId(String(account.school_id ?? '')); setError(null);
+    setSelected(account); setName(account.full_name); setEmail(account.email ?? ''); setPhone(normalizePhone(account.phone)); setSchoolId(String(account.school_id ?? '')); setError(null);
   };
   const clear = () => { setSelected(null); setName(''); setEmail(''); setPhone(''); setBirth(''); setSchoolId(''); setError(null); };
   const submit = async () => {
     if (selected) { onExisting(selected.id); return; }
     if (!name.trim() || !email.trim()) { setError('Hãy điền họ tên và email của quản trị viên trường.'); return; }
     if (!Number.isInteger(Number(schoolId)) || Number(schoolId) < 1) { setError('Hãy chọn trường cho tài khoản quản trị.'); return; }
-    if (phone.replace(/\D/g, '').length < 4) { setError('Hãy nhập số điện thoại của quản trị viên (ít nhất 4 chữ số): 4 số cuối dùng để ghép tên đăng nhập.'); return; }
+    if (!/^\d{10}$/.test(phone)) { setError('Số điện thoại của quản trị viên gồm đúng 10 chữ số (4 số cuối dùng để ghép tên đăng nhập).'); return; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(birth)) { setError('Hãy chọn ngày tháng năm sinh của quản trị viên: dùng để ghép mật khẩu.'); return; }
     setBusy(true); setError(null);
     try {
-      onCreated(await api.createAdminAccount(session.token, { full_name: name.trim(), role: 'school_admin', email: email.trim(), phone: phone.trim(), birth_date: birth, school_id: Number(schoolId) }));
+      onCreated(await api.createAdminAccount(session.token, { full_name: name.trim(), role: 'school_admin', email: email.trim(), phone, birth_date: birth, school_id: Number(schoolId) }));
     } catch (e) { setError(errorMessage(e)); if (e instanceof ApiError && e.status === 401) session.expired(); }
     finally { setBusy(false); }
   };
@@ -117,7 +118,7 @@ export function CreateSchoolAdminSheet({ session, onClose, onCreated, onExisting
     <SchoolSelect token={session.token} value={schoolId} onChange={id => { if (selected && id !== schoolId) { setSelected(null); setName(''); setEmail(''); setPhone(''); } setSchoolId(id); }} onExpired={session.expired} />
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
       <AccountSuggestField token={session.token} kind="email" value={email} schoolId={schoolId} onChange={text => { setSelected(null); setEmail(text); }} onSelect={choose} onExpired={session.expired} />
-      <Field label="Số điện thoại *" nativeID="field-phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" style={{ flexGrow: 1, flexBasis: 240, minWidth: 0 }} />
+      <PhoneField label="Số điện thoại *" nativeID="field-phone" value={phone} onChange={setPhone} style={{ flexGrow: 1, flexBasis: 240, minWidth: 0 }} />
     </View>
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
       <View style={{ flexGrow: 1, flexBasis: 240, minWidth: 0 }}>

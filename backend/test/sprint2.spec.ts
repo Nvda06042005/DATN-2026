@@ -103,7 +103,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
 
   // ------------------------------------------------------------------ HK.QT.014–016, 018–021, 023
   test('HK.QT.014–016/018–021 giáo viên: thêm (mật khẩu tạm + email), tìm/lọc, sửa, khóa/mở khóa, đặt lại mật khẩu, xóa khi chưa có dữ liệu', async () => {
-    const created = await qa('POST', '/api/admin/teachers', { full_name: '  Nguyễn  Văn  Sử ', email: 'Su.Nguyen@Example.edu.vn', phone: '0901 234 567', user_code: 'GV01' });
+    const created = await qa('POST', '/api/admin/teachers', { full_name: '  Nguyễn  Văn  Sử ', email: 'Su.Nguyen@Example.edu.vn', phone: '0901234567', user_code: 'GV01' });
     expect(created.status).toBe(201);
     expect(created.body).toMatchObject({ user: { role: 'teacher', full_name: 'Nguyễn Văn Sử', email: 'su.nguyen@example.edu.vn', school_id: A.id, must_change_password: true }, mail: 'queued' });
     expect(created.body.user).not.toHaveProperty('subject'); // bộ môn đã bỏ hẳn (migration 053)
@@ -126,8 +126,8 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect((await qa('GET', '/api/admin/teachers?subject=lịch')).body.items).toHaveLength(2); // không còn lọc theo bộ môn: tham số bị bỏ qua
 
     const id = created.body.user.id;
-    const edited = await qa('PATCH', `/api/admin/users/${id}`, { full_name: 'Nguyễn Văn Sử Mới', email: 'su.moi@example.edu.vn', subject: 'Lịch sử – Địa lí', phone: '0988 000 111' });
-    expect(edited.body).toMatchObject({ full_name: 'Nguyễn Văn Sử Mới', email: 'su.moi@example.edu.vn', phone: '0988 000 111' });
+    const edited = await qa('PATCH', `/api/admin/users/${id}`, { full_name: 'Nguyễn Văn Sử Mới', email: 'su.moi@example.edu.vn', subject: 'Lịch sử – Địa lí', phone: '0988000111' });
+    expect(edited.body).toMatchObject({ full_name: 'Nguyễn Văn Sử Mới', email: 'su.moi@example.edu.vn', phone: '0988000111' });
     expect(edited.body).not.toHaveProperty('subject'); // gửi subject cũng bị bỏ qua
     expect((await qa('PATCH', `/api/admin/users/${id}`, { email: 'dia@example.edu.vn' })).status).toBe(409);
     expect((await qa('PATCH', `/api/admin/users/${id}`, { email: null })).status).toBe(422);
@@ -152,7 +152,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
 
   test('HK.QT.017 nhập giáo viên từ Excel: xem trước báo lỗi từng dòng (trùng email, thiếu dữ liệu, sai định dạng) rồi lưu dòng hợp lệ', async () => {
     const file = await makeXlsx(TEACHER_HEADER, [
-      ['Lê Văn Nhập Một', 'nhap1@example.edu.vn', 'Lịch sử', '0901 111 222', 'GV11'],
+      ['Lê Văn Nhập Một', 'nhap1@example.edu.vn', 'Lịch sử', '0901111222', 'GV11'],
       ['Phạm Thị Nhập Hai', 'nhap2@example.edu.vn', 'Địa lí', '', 'GV12'],
       ['Trùng Trong File', 'NHAP1@example.edu.vn', '', '', ''],
       ['', 'thieu.ten@example.edu.vn', '', '', ''],

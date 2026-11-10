@@ -15,7 +15,7 @@ import { likeEscape, schoolAdminCredentials, SchoolService } from './school.serv
 export type MemberRole = 'teacher' | 'student';
 const BATCH_ROUNDS = 8;
 const EMAIL = /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/;
-const PHONE = /^[0-9+() .-]{8,20}$/;
+const PHONE = /^[0-9]{10}$/;
 const GENDERS: Record<string, 'male' | 'female' | 'other'> = { nam: 'male', male: 'male', nu: 'female', female: 'female', khac: 'other', other: 'other' };
 const GENDER_LABEL = { male: 'Nam', female: 'Nữ', other: 'Khác' } as const;
 
@@ -303,7 +303,7 @@ export class AccountService {
     if (role === 'student' && !input.birth_date) throw new UnprocessableEntityException('Học sinh cần có ngày sinh');
     if (input.email && !EMAIL.test(input.email)) throw new UnprocessableEntityException('Email không hợp lệ');
     if (input.parent_email && !EMAIL.test(input.parent_email)) throw new UnprocessableEntityException('Email phụ huynh không hợp lệ');
-    if (input.phone && !PHONE.test(input.phone)) throw new UnprocessableEntityException('Số điện thoại không hợp lệ');
+    if (input.phone && !PHONE.test(input.phone)) throw new UnprocessableEntityException('Số điện thoại gồm đúng 10 chữ số');
     if (input.birth_date && (!parseDate(input.birth_date) || input.birth_date > todayVn())) throw new UnprocessableEntityException('Ngày sinh không hợp lệ (dạng YYYY-MM-DD, không ở tương lai)');
     return input;
   }
@@ -354,7 +354,7 @@ export class AccountService {
       }
       if (body.phone !== undefined) {
         const phone = clean(body.phone);
-        if (phone && !PHONE.test(phone)) throw new UnprocessableEntityException('Số điện thoại không hợp lệ');
+        if (phone && !PHONE.test(phone)) throw new UnprocessableEntityException('Số điện thoại gồm đúng 10 chữ số');
         fields.phone = phone;
       }
       if (target.role === 'student') {
@@ -496,7 +496,7 @@ export class AccountService {
         'Dùng Excel trên web: tải file .xlsx này lên OneDrive, mở bằng Excel trên web, bấm đúp ô ngày sinh để mở lịch và chọn ngày. Sau khi điền, dùng File → Save As → Download a Copy để tải bản .xlsx về rồi nhập lên Đông A với đúng tên file.',
         'Ô đã định dạng dd/mm/yyyy. Định dạng ngày không tạo lịch bật lên trong Excel Windows; lịch không macro của quy trình này dùng Excel trên web.',
         'Email phải khác nhau và chưa dùng cho tài khoản nào khác. Hệ thống sinh mật khẩu tạm và gửi vào email này; giáo viên đổi mật khẩu ở lần đăng nhập đầu tiên.',
-        'Enter lưu ô theo cài đặt của Excel; file không macro không đổi được phím Enter để tự nhảy về cột Họ tên. Để tự tính mã, dùng Formulas → Calculation Options → Automatic nếu Excel đang tính thủ công. SĐT giữ số 0 đầu.',
+        'Enter lưu ô theo cài đặt của Excel; file không macro không đổi được phím Enter để tự nhảy về cột Họ tên. Để tự tính mã, dùng Formulas → Calculation Options → Automatic nếu Excel đang tính thủ công. SĐT gồm đúng 10 chữ số, giữ số 0 đầu.',
         `Giữ đúng tên file ${teacherTemplateFilename(school??'truong')}. File khác tên sẽ không được nhận khi import.`,
         'Nền tảng dạy Lịch sử nên không có cột Bộ môn (file cũ còn cột này vẫn nhập được, cột bị bỏ qua).',
         'Nhận đúng tên mẫu .xlsx hoặc bản .xlsm cũ cùng tên (tối đa 2 MB, tối đa 1000 giáo viên mỗi lần). Đừng xóa hay đổi tên dòng tiêu đề của bảng.',
@@ -536,7 +536,7 @@ export class AccountService {
         'Xem trước không giữ chỗ số. Khi lưu, máy chủ chốt số chống trùng và trả mã chính thức; sửa ngày sinh giữ năm nhập và STT đã cấp.',
         `Giữ đúng tên file ${spec.filename}. File khác tên không được nhận khi import.`,
         'Nếu có email, email phải hợp lệ và chưa dùng cho tài khoản khác. Không có email vẫn tạo tài khoản, quản trị trường tải thông tin tài khoản để cấp trực tiếp.',
-        'Giới tính chọn Nam, Nữ hoặc Khác. SĐT giữ nguyên số 0 đầu. Ngày sinh dạng dd/mm/yyyy hoặc ô ngày của Excel.',
+        'Giới tính chọn Nam, Nữ hoặc Khác. SĐT gồm đúng 10 chữ số, giữ nguyên số 0 đầu. Ngày sinh dạng dd/mm/yyyy hoặc ô ngày của Excel.',
         'Lớp và Email phụ huynh vẫn được nhận từ cột của file cũ; xếp lớp qua trang Lớp học và sửa hồ sơ khi cần.',
         'Tối đa 2 MB và 1000 học sinh mỗi lần. Kiểm tra từng dòng trước khi xác nhận lưu.',
       ],
@@ -578,7 +578,7 @@ export class AccountService {
         if (role==='teacher' && !input.email) errors.push('Thiếu email');
         if (input.email && !EMAIL.test(input.email)) errors.push('Email không hợp lệ');
         if (input.parent_email && !EMAIL.test(input.parent_email)) errors.push('Email phụ huynh không hợp lệ');
-        if (input.phone && !PHONE.test(input.phone)) errors.push('Số điện thoại không hợp lệ');
+        if (input.phone && !PHONE.test(input.phone)) errors.push('Số điện thoại gồm đúng 10 chữ số');
         // học sinh bắt buộc có ngày sinh; giáo viên có thì kiểm tra, để trống thì bỏ qua
         if (role === 'student' || values.birth_date) {
           if (!values.birth_date) errors.push('Thiếu ngày sinh');
