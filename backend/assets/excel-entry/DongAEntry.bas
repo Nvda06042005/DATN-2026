@@ -8,9 +8,6 @@ End Function
 Public Sub BindEntryKeys()
     Application.OnKey "~", "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!EntryEnter"
     Application.OnKey "{ENTER}", "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!EntryEnter"
-    If ActiveWorkbook Is ThisWorkbook Then
-        If ActiveSheet.Index = 1 Then MoveCalendarButton ActiveCell.Row
-    End If
 End Sub
 
 ' One small vector calendar button follows the entry row; no ActiveX/add-in required.
@@ -54,11 +51,11 @@ Public Sub MoveCalendarButton(ByVal row As Long)
         part.Placement = 1
         part.Left = part.Left + dx
         part.Top = part.Top + dy
-        part.OnAction = "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!OpenBirthdayCalendar"
+        part.OnAction = "OpenBirthdayCalendar"
     Next i
     button.AlternativeText = "Chon ngay sinh - dong " & CStr(row)
     button.Title = CStr(row)
-    button.OnAction = "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!OpenBirthdayCalendar"
+    button.OnAction = "OpenBirthdayCalendar"
 End Sub
 
 Public Sub OpenBirthdayCalendar()
