@@ -78,6 +78,18 @@ test('Quên mật khẩu và đặt lại bằng OTP dùng đúng API', async ()
   assert.equal(requests[1].headers.Authorization, undefined);
 });
 
+test('Gửi lại mã xác thực hai lớp: phiếu cũ đổi lấy phiếu mới qua /api/auth/2fa/resend, không kèm token đăng nhập', async () => {
+  const fresh = { two_factor: true, method: 'email', challenge: 'n'.repeat(40), expires_in: 300 };
+  const { auth, requests } = loadAuth({ respond: () => fresh });
+  assert.deepEqual(await auth.resendTwoFactor('o'.repeat(40), 'root_admin'), fresh);
+  assert.equal(requests[0].url, 'https://api.example.test/api/auth/2fa/resend');
+  assert.equal(requests[0].method, 'POST');
+  assert.deepEqual(JSON.parse(requests[0].body), { challenge: 'o'.repeat(40), portal: 'root_admin' });
+  assert.equal(requests[0].headers.Authorization, undefined);
+  const expired = loadAuth({ respond: () => ({ status: 401, body: { detail: 'Phiên xác thực đã hết hạn. Hãy đăng nhập lại.' } }) });
+  await assert.rejects(expired.auth.resendTwoFactor('o'.repeat(40), 'root_admin'), (error) => error.status === 401 && error.message === 'Phiên xác thực đã hết hạn. Hãy đăng nhập lại.');
+});
+
 test('Quên mật khẩu ba bước: nhập mã nhận phiếu, rồi đặt mật khẩu bằng phiếu (không gửi lại mã, không kèm token đăng nhập)', async () => {
   const ticket = 't'.repeat(40);
   const { auth, requests } = loadAuth({ respond: (url) => (url.endsWith('/verify-reset-code') ? { reset_token: ticket, expires_in: 600 } : { ok: true }) });

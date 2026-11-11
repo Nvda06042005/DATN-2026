@@ -23,6 +23,11 @@ class TwoFactorLoginDto {
   @IsIn(['root_admin', 'school_admin', 'teacher', 'student', 'app']) portal: Portal;
 }
 
+class TwoFactorResendDto {
+  @IsString() @Length(20, 2000) challenge: string;
+  @IsIn(['root_admin', 'school_admin', 'teacher', 'student', 'app']) portal: Portal;
+}
+
 class GoogleLoginDto {
   @IsString() @Length(20, 4096) id_token: string;
   @IsOptional() @IsIn(['root_admin', 'student', 'teacher', 'school_admin', 'app']) portal: Portal = 'student';
@@ -105,6 +110,14 @@ export class AuthController {
   twoFactor(@Body() body: TwoFactorLoginDto) {
     this.ensureReady();
     return this.auth.completeTwoFactor(body.challenge, body.code, body.portal);
+  }
+
+  /** Gửi lại mã email của bước hai khi mã đã hết hạn: phiếu cũ (còn trong thời gian ân hạn) đổi lấy phiếu mới và thư mới */
+  @Post('2fa/resend')
+  @HttpCode(200)
+  resendTwoFactor(@Body() body: TwoFactorResendDto) {
+    this.ensureReady();
+    return this.auth.resendTwoFactorCode(body.challenge, body.portal);
   }
 
   /** Google: email đã xác minh phải khớp tài khoản được cấp và đúng cổng đăng nhập. */

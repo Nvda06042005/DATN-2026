@@ -23,6 +23,8 @@ export const loginWithPassword = async (username: string, password: string, port
   return 'two_factor' in res ? res : checkSession(res, portal);
 };
 export const loginAdmin = loginWithPassword;
+/** Gửi lại mã email của bước hai khi mã đã hết hạn: đổi phiếu cũ (trong 30 phút) lấy phiếu mới và thư mới, không cần nhập lại mật khẩu */
+export const resendTwoFactor = (challenge: string, portal: Portal) => apiRequest<TwoFactorChallenge>('/api/auth/2fa/resend', { body: { challenge, portal } });
 export const verifyTwoFactor = async (challenge: string, code: string, portal: Portal) => checkSession(await apiRequest<AuthSession>('/api/auth/2fa/verify', { body: { challenge, code, portal } }), portal);
 
 /** Google dùng đúng vai trò đã chọn và vẫn yêu cầu hai lớp nếu tài khoản đã bật. */

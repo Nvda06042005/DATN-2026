@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, View, type TextInputInstance } from 'react-native';
 import { useRouter } from 'expo-router';
-import { AlertTriangle, ArrowLeft, GraduationCap, KeyRound, Presentation, School } from 'lucide-react-native';
+import { AlertTriangle, ArrowLeft, GraduationCap, KeyRound, MailCheck, Presentation, School } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { errorMessage } from '@/api/client';
 import { LoginLayout, LoginHeading, LoginInput, LoginActions, LoginPasswordToggle, useLoginDensity } from '@/components/login-layout';
 import { GoogleSignIn } from '@/components/google-sign-in';
 import { SchoolBadge, type SchoolBrandInfo } from '@/components/school-brand';
 import { Btn, Inset, Txt } from '@/components/ui';
+import { useExpired } from '@/hooks/use-expired';
 import { useShake } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
 import { SCHOOL_ROLES, type SchoolRole } from '@/lib/school-portal';
@@ -44,12 +45,17 @@ export function SchoolLogin({ initialRole, onLogin, notice, onForgotPassword, sc
   const [tries, setTries] = useState(0);
   const [challenge, setChallenge] = useState<TwoFactorChallenge | null>(null);
   const [code, setCode] = useState('');
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
+  // mã email hết hạn sau expires_in giây (5 phút): từ đó hiện nút "Gửi lại mã"
+  const codeExpired = useExpired(challenge?.method === 'email' ? challenge.challenge : null, challenge?.expires_in ?? 300);
   const passwordRef = useRef<TextInputInstance>(null);
   const shake = useShake(error ? tries : null);
   const copy = ROLE_COPY[role];
   const acceptResult = async (result: AuthSession | TwoFactorChallenge) => {
     if ('two_factor' in result) {
       setChallenge(result);
+      setResent(false);
       setPassword('');
       setCode('');
     } else await onLogin(result.token, result.user);
@@ -94,6 +100,21 @@ export function SchoolLogin({ initialRole, onLogin, notice, onForgotPassword, sc
       setLoading(false);
     }
   };
+  const resend = async () => {
+    if (!challenge || resending || loading) return;
+    setResending(true);
+    setError(null);
+    try {
+      setChallenge(await authApi.resendTwoFactor(challenge.challenge, role));
+      setCode('');
+      setResent(true);
+    } catch (err) {
+      setError(errorMessage(err, 'Chưa gửi lại được mã. Hãy bấm Quay lại đăng nhập và đăng nhập lại.'));
+      setTries(n => n + 1);
+    } finally {
+      setResending(false);
+    }
+  };
   const googleLogin = async (idToken: string) => {
     if (loading || challenge) return;
     setLoading(true);
@@ -123,7 +144,10 @@ export function SchoolLogin({ initialRole, onLogin, notice, onForgotPassword, sc
         <View style={{ flexDirection: 'row', gap: 8 }}><KeyRound size={20} color={c.logoRed} /><Txt f="bold" color={c.logoInk}>Xác thực hai lớp</Txt></View>
         <Txt size={14} color={c.muc2}>{challenge.method === 'email' ? 'Nhập mã đã gửi tới email của bạn.' : 'Nhập mã từ ứng dụng xác thực hoặc mã dự phòng.'}</Txt>
         <LoginInput nativeID="login-two-factor" label="Mã xác thực" value={code} onChangeText={setCode} autoComplete="one-time-code" autoCapitalize="none" autoCorrect={false} returnKeyType="go" onSubmitEditing={() => { void submit(); }} />
-        <Btn title="Quay lại đăng nhập" icon={ArrowLeft} tone="ghost" size="sm" disabled={loading} onPress={() => { setChallenge(null); setCode(''); setError(null); }} />
+        {challenge.method === 'email' && codeExpired ? <Inset style={{ backgroundColor: c.sonNhat }}><Txt size={14} color={c.sonChu} accessibilityLiveRegion="polite">Mã gửi qua email đã hết hạn (quá 5 phút). Bấm Gửi lại mã để nhận mã mới.</Txt></Inset> : null}
+        {challenge.method === 'email' && resent && !codeExpired ? <Inset style={{ backgroundColor: c.mocNhat }}><Txt size={14} color={c.mocChu} accessibilityLiveRegion="polite">Đã gửi mã mới tới email của bạn.</Txt></Inset> : null}
+        {challenge.method === 'email' && codeExpired ? <Btn title={resending ? 'Đang gửi…' : 'Gửi lại mã'} icon={MailCheck} tone="giay" loading={resending} disabled={loading} onPress={() => { void resend(); }} testID="school-2fa-resend" /> : null}
+        <Btn title="Quay lại đăng nhập" icon={ArrowLeft} tone="ghost" size="sm" disabled={loading} onPress={() => { setChallenge(null); setCode(''); setError(null); setResent(false); }} />
       </View> : <View style={{ gap: dense ? 10 : 14 }}>
         <LoginInput nativeID="login-username" label={role === 'student' ? 'Tên đăng nhập, email hoặc mã học sinh' : 'Tên đăng nhập hoặc email'} placeholder={copy.hint} value={username} onChangeText={setUsername} autoComplete="username" textContentType="username" autoCapitalize="none" autoCorrect={false} editable={!loading} returnKeyType="next" onSubmitEditing={() => passwordRef.current?.focus()} />
         <LoginInput nativeID="login-password" inputRef={passwordRef} label="Mật khẩu" placeholder="Nhập mật khẩu" value={password} onChangeText={setPassword} autoComplete="current-password" textContentType="password" secureTextEntry={!showPassword} autoCapitalize="none" autoCorrect={false} editable={!loading} returnKeyType="go" onSubmitEditing={() => { void submit(); }} right={<LoginPasswordToggle shown={showPassword} onToggle={() => setShowPassword(v => !v)} />} />

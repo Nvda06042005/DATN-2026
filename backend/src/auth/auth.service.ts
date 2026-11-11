@@ -47,6 +47,8 @@ const ALL_ROLES: Role[] = ['root_admin', 'school_admin', 'teacher', 'student'];
 const OTP_INVALID = 'Mã xác thực không đúng hoặc đã hết hạn. Hãy yêu cầu mới.';
 /** Sau khi nhập đúng mã, người dùng có 10 phút để đặt mật khẩu mới (phiếu dùng một lần, mất hiệu lực khi yêu cầu mã mới) */
 const RESET_TICKET_TTL_S = 600;
+/** Quá hạn 5 phút của phiếu bước hai, người dùng vẫn bấm "Gửi lại mã" được thêm chừng này giây (không cần gõ lại mật khẩu); quá nữa phải đăng nhập lại */
+const TWO_FACTOR_RESEND_GRACE_S = 30 * 60;
 const RESET_TICKET_INVALID = 'Phiên đổi mật khẩu đã hết hạn hoặc đã dùng. Hãy yêu cầu mã xác thực mới.';
 
 const hashToken = (token: string): string => createHash('sha256').update(token).digest('hex');
@@ -183,6 +185,25 @@ export class AuthService {
     if (second.method === 'email') await this.twofa.sendEmailCode(user);
     const challenge = this.jwt.sign({ sub: user.id, purpose: '2fa', portal, ...(schoolCode ? { sc: schoolCode } : {}), pfp: passwordFingerprint(user.password_hash) }, { expiresIn: '5m' });
     return { two_factor: true as const, method: second.method, challenge, expires_in: 300 };
+  }
+
+  /**
+   * Gửi lại mã email của bước hai khi mã cũ đã hết hạn: nhận phiếu thử thách của lần nhập mật khẩu (chữ ký vẫn phải đúng, hết hạn 5 phút được chấp nhận trong
+   * TWO_FACTOR_RESEND_GRACE_S) và trả phiếu mới 5 phút kèm mã mới trong thư. Chỉ cho tài khoản dùng mã qua email; thư vẫn bị giãn 30 giây giữa hai lần gửi,
+   * bộ đếm nhập sai theo tài khoản không bị đặt lại. Phiếu cũ không dùng được để xác thực (completeTwoFactor vẫn kiểm tra hạn).
+   */
+  async resendTwoFactorCode(challenge: string, portal: Portal) {
+    const expired = new UnauthorizedException('Phiên xác thực đã hết hạn. Hãy đăng nhập lại.');
+    let payload: { sub?: number; purpose?: string; portal?: string; sc?: string; pfp?: string; exp?: number };
+    try { payload = this.jwt.verify(challenge, { ignoreExpiration: true }); } catch { throw expired; }
+    if (payload.purpose !== '2fa' || payload.portal !== portal || typeof payload.sub !== 'number' || typeof payload.exp !== 'number') throw expired;
+    if (Date.now() / 1000 > payload.exp + TWO_FACTOR_RESEND_GRACE_S) throw expired;
+    const user = await this.db.getById(payload.sub);
+    if (!user || payload.pfp !== passwordFingerprint(user.password_hash)) throw expired;
+    await this.assertCanLogin(user, user.username, portal, payload.sc);
+    const next = await this.twoFactorChallenge(user, portal, payload.sc);
+    if (!next || next.method !== 'email') throw new BadRequestException('Tài khoản này nhận mã từ ứng dụng xác thực, không có mã để gửi lại.');
+    return next;
   }
 
   /** Bước 2 của đăng nhập có xác thực hai lớp: mã thử thách + mã 6 chữ số (hoặc mã dự phòng) → phiên đăng nhập */

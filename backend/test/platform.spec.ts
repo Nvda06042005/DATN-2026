@@ -2,6 +2,8 @@
  * Sprint 11 – thông báo, hỗ trợ, hướng dẫn, nhật ký, cấu hình hệ thống, phân quyền, hai lớp, sao lưu, giám sát, giao diện sáng / tối
  * (HK.HS.015–016, 106–112, GV.076–082, QT.043, 051–055, AD.002, 010, 017, 026–027, 065–076, SYS.017–020). HTTP thật trên PostgreSQL tạm.
  */
+import { JwtService } from '@nestjs/jwt';
+import { sign as signJwt } from 'jsonwebtoken';
 import { activate, call, hasPostgres, sql, Started, startApp } from './harness';
 import { bootstrap, Fixture, PW } from './fixture';
 
@@ -583,6 +585,8 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     expect((await verify('123456')).status).toBe(401);
     expect((await verify(totp(secret, now()), 'school_admin')).status).toBe(401); // sai cổng đăng nhập
     expect((await verify(totp(secret, now()), 'root_admin', 'x'.repeat(40))).status).toBe(401);
+    // tài khoản dùng ứng dụng xác thực không có mã email để gửi lại
+    expect((await call(s.base, 'POST', '/api/auth/2fa/resend', { challenge, portal: 'root_admin' })).status).toBe(400);
     const done = await verify(totp(secret, now()));
     expect(done.status).toBe(200);
     expect(done.body).toMatchObject({ token: expect.any(String), user: { username: 'admin' } });
@@ -620,6 +624,42 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     expect((await verify('000000', 'school_admin', stepA.body.challenge)).status).toBe(401);
     expect((await verify(code2, 'school_admin', stepA.body.challenge)).status).toBe(200);
     expect((await verify(code2, 'school_admin', stepA.body.challenge)).status).toBe(401); // mã email dùng một lần
+    // --- gửi lại mã khi mã hết hạn (nút "Gửi lại mã" của trang đăng nhập quản trị)
+    const resend = (challenge: string, portal = 'school_admin') => call(s.base, 'POST', '/api/auth/2fa/resend', { challenge, portal });
+    expect((await resend('x'.repeat(40))).status).toBe(401); // phiếu giả
+    expect((await resend(stepA.body.challenge, 'root_admin')).status).toBe(401); // sai cổng đăng nhập
+    expect((await call(s.base, 'POST', '/api/auth/2fa/resend', { portal: 'school_admin' })).status).toBe(422); // thiếu phiếu
+    const mails = sent.length;
+    const r1 = await resend(stepA.body.challenge);
+    expect(r1.status).toBe(200);
+    expect(r1.body).toMatchObject({ two_factor: true, method: 'email', challenge: expect.any(String), expires_in: 300 });
+    expect(r1.body.token).toBeUndefined();
+    expect(sent.length).toBe(mails + 1);
+    expect(sent[sent.length - 1].subject).toBe('[Đông A EDU] Mã xác thực đăng nhập quản trị');
+    const code3 = /Mã xác thực của bạn là: (\d{6})/.exec(sent[sent.length - 1].text)![1];
+    expect((await resend(stepA.body.challenge)).status).toBe(200); // bấm liên tiếp: thư giãn 30 giây, không gửi thêm
+    expect(sent.length).toBe(mails + 1);
+    // phiếu quá 5 phút không còn dùng để xác thực, nhưng còn trong 30 phút thì đổi được phiếu mới; quá nữa phải nhập lại mật khẩu
+    const jwt = s.moduleRef.get(JwtService);
+    const claims = (({ iat: _iat, exp: _exp, ...rest }) => rest)(jwt.decode(stepA.body.challenge) as Record<string, unknown>);
+    // ký trực tiếp để tự đặt thời điểm hết hạn (JwtService của ứng dụng luôn đặt sẵn hạn dùng); nạp config sau khi ứng dụng đã khởi động
+    const { config } = await import('../src/config');
+    const expiredBy = (minutes: number) => signJwt({ ...claims, exp: Math.floor(Date.now() / 1000) - minutes * 60 }, config.authSecret, { algorithm: 'HS256' });
+    expect((await verify(code3, 'school_admin', expiredBy(10))).status).toBe(401);
+    expect((await resend(expiredBy(10))).status).toBe(200);
+    expect((await resend(expiredBy(31))).status).toBe(401);
+    // mã đã hết hạn: lùi giờ của mã rồi gửi lại, thư mới có mã mới và mã cũ không còn dùng được
+    await sql(s.url, "UPDATE hk_two_factor_codes SET created_at = now() - interval '6 minutes', expires_at = now() - interval '1 minute' WHERE user_id = $1", [f.A.id]);
+    expect((await verify(code3, 'school_admin', r1.body.challenge)).status).toBe(401);
+    const r2 = await resend(r1.body.challenge);
+    expect(r2.status).toBe(200);
+    expect(sent.length).toBe(mails + 2);
+    const code4 = /Mã xác thực của bạn là: (\d{6})/.exec(sent[sent.length - 1].text)![1];
+    expect(code4).not.toBe(code3);
+    expect((await verify(code3, 'school_admin', r2.body.challenge)).status).toBe(401);
+    const entered = await verify(code4, 'school_admin', r2.body.challenge);
+    expect(entered.status).toBe(200);
+    expect(entered.body).toMatchObject({ token: expect.any(String), user: { role: 'school_admin' } });
     // đặt lại cho tài khoản khác: chỉ cấp 1
     expect((await l2('DELETE', `/api/platform/2fa/users/${f.A.id}`)).status).toBe(403);
     expect((await as(f.A)('DELETE', `/api/platform/2fa/users/${f.A.id}`)).status).toBe(403);
