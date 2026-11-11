@@ -82,7 +82,7 @@ test('nút chuyển trang luôn hiện đủ Trước, số trang, Sau và ô ch
 
 test('bảng luôn có thanh chuyển trang (mặc định bật) và tự chia trang khi nhiều dòng, kẹp số trang khi danh sách ngắn lại, có thể tắt', () => {
   const kit = read('components', 'admin', 'kit.tsx');
-  assert.match(kit, /actionsWidth = 150, paginate = true(, equal = false)? \}/);
+  assert.match(kit, /actionsWidth = 150, paginate = true(, gap = 12)? \}/);
   assert.match(kit, /const paged = paginate && rows\.length > size;/);
   assert.match(kit, /const pager = paginate \? <Pager page=\{current\} limit=\{size\} total=\{rows\.length\} onPage=\{setPage\} \/> : null;/);
   assert.match(kit, /useEffect\(\(\) => \{ if \(page > pages\) setPage\(pages\); \}, \[page, pages\]\);/);

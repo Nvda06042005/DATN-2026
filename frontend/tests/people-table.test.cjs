@@ -31,13 +31,19 @@ function tables() {
   return { src, teacher: parse(src.slice(start, split)), student: parse(src.slice(split, end)) };
 }
 
-test('cỡ chữ của mã co theo độ rộng ô: tối đa 13, tối thiểu 10, chưa đo được thì 13', () => {
-  const { codeFontSize } = loadCodeFont();
-  assert.equal(codeFontSize(0, 18), 13);
-  assert.equal(codeFontSize(300, 18), 13);
-  assert.equal(codeFontSize(130, 16), 12);
-  assert.equal(codeFontSize(112, 18), 10);
+test('mã giáo viên và mã học sinh cùng cỡ chữ 12 trong cột mã 140px; chỉ mã quá dài mới co (thấp nhất 10)', () => {
+  const { codeFontSize, CODE_FONT_MAX, CODE_FONT_MIN } = loadCodeFont();
+  assert.equal(CODE_FONT_MAX, 12);
+  assert.equal(CODE_FONT_MIN, 10);
+  assert.equal(codeFontSize(0, 18), 12, 'chưa đo');
+  // cùng trường: mã giáo viên 16 ký tự (GOT2609102000002), mã học sinh 18 ký tự (HSGOT2612122008001) => cùng cỡ
+  assert.equal(codeFontSize(140, 16), 12);
+  assert.equal(codeFontSize(140, 18), 12);
+  assert.equal(codeFontSize(300, 18), 12, 'ô rộng cũng không to hơn 12');
+  assert.equal(codeFontSize(140, 20), 10, 'tên trường viết tắt dài: co để vẫn một dòng');
   assert.equal(codeFontSize(60, 18), 10);
+  // mã 18 ký tự rộng 140px ở cỡ 13 (đo trên Chrome) tức khoảng 129px ở cỡ 12: vừa cột 140px
+  assert.ok((140 / 13) * 12 <= 140);
 });
 
 test('học sinh bỏ cột Đăng nhập cuối; hai bảng cùng bảy cột đầu như file Excel', () => {
@@ -60,14 +66,16 @@ test('mỗi cột có độ rộng ưu tiên; bảy cột đầu của hai bản
   assert.deepEqual(growing(student), ['name', 'email', 'classes']);
   // tổng độ rộng ưu tiên vừa phần nội dung của trang quản trị (khoảng 1086px trừ lề và khoảng cách cột): co ít, không cuộn ngang
   const sum = (cols) => cols.reduce((n, c) => n + c.width, 0);
-  assert.ok(sum(teacher) <= 1000 && sum(student) <= 1020, `${sum(teacher)} / ${sum(student)}`);
+  assert.ok(sum(teacher) <= 1000 && sum(student) <= 1040, `${sum(teacher)} / ${sum(student)}`);
   // tên lớp kèm năm học (6A5 (2025-2026)) hiện đủ
   assert.ok(student.find((c) => c.key === 'classes').minWidth >= 116);
   // "Số thứ tự" và nhãn "Chưa đổi mật khẩu" không bị co tới mức xuống dòng hay mất chữ
   assert.ok(student.find((c) => c.key === 'stt').minWidth >= 58);
   assert.ok(student.find((c) => c.key === 'status').minWidth >= 140, 'đủ cho chấm màu và chữ Chưa đổi mật khẩu');
   // mã, số điện thoại và ngày sinh không co tới mức mất chữ (mã 18 ký tự ở cỡ 10 rộng khoảng 108px)
-  for (const [key, min] of [['code', 116], ['phone', 84], ['birth', 76]]) for (const cols of [teacher, student]) assert.ok(cols.find((c) => c.key === key).minWidth >= min, key);
+  for (const [key, min] of [['code', 140], ['phone', 84], ['birth', 76]]) for (const cols of [teacher, student]) assert.ok(cols.find((c) => c.key === key).minWidth >= min, key);
+  // khoảng cách cột của hai bảng này nhỏ hơn mặc định để tên và email có thêm chỗ
+  assert.match(tables().src, /<DataTable paginate=\{false\} gap=\{10\} rows=/);
 });
 
 test('mỗi ô một dòng (dài thì hiện …): tên kèm tên đăng nhập, số thẳng cột, trạng thái dạng chấm màu; mã tự co chữ', () => {

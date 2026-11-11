@@ -323,10 +323,12 @@ const ColumnFilter: React.FC<{ filter: SearchFilter }> = ({ filter }) => {
 };
 
 /** Bảng khi đủ rộng; danh sách thẻ "nhãn: giá trị" trên màn hẹp. Hàng có thể bấm để mở chi tiết. */
-export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions, actionsWidth = 150, paginate = true }: {
+export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions, actionsWidth = 150, paginate = true, gap = 12 }: {
   columns: Column<T>[]; rows: T[]; rowKey: (row: T) => string | number; onRowPress?: (row: T) => void; empty: string; actions?: (row: T) => React.ReactNode; actionsWidth?: number;
   /** Tự chia trang theo màn hình khi nhiều dòng hơn một trang (mặc định bật). Tắt khi bảng đã được chia trang ở máy chủ và có nút Pager riêng. */
   paginate?: boolean;
+  /** Khoảng cách giữa các cột (px), mặc định 12 */
+  gap?: number;
 }) {
   const { c } = useTheme();
   const { width } = useWindowDimensions();
@@ -369,7 +371,7 @@ export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions
   return (
     <View style={{ gap: 10 }}>
     <View style={{ borderWidth: 1, borderColor: c.adminLine, borderRadius: 5, backgroundColor: c.the, overflow: 'hidden' }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: filterable ? 8 : 10, backgroundColor: c.adminCanvas, borderBottomWidth: 1, borderBottomColor: c.adminLine, gap: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: filterable ? 8 : 10, backgroundColor: c.adminCanvas, borderBottomWidth: 1, borderBottomColor: c.adminLine, gap }}>
         {columns.map((col) => (
           <View key={col.key} style={[cellStyle(col), { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
             <Txt f="bold" size={12} color={col.filter?.value ? c.logoRed : c.muc2} style={{ flexShrink: 1 }}>{col.label}</Txt>
@@ -384,7 +386,7 @@ export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions
           style={(state) => {
             // trên web hàng bấm được sáng nhẹ khi rê chuột
             const hovered = Boolean(onRowPress) && Boolean((state as { hovered?: boolean }).hovered);
-            return { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, minHeight: 52, paddingVertical: 8, gap: 12, borderTopWidth: i ? 1 : 0, borderTopColor: c.adminLine, backgroundColor: state.pressed || hovered ? c.adminCanvas : c.the };
+            return { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, minHeight: 52, paddingVertical: 8, gap, borderTopWidth: i ? 1 : 0, borderTopColor: c.adminLine, backgroundColor: state.pressed || hovered ? c.adminCanvas : c.the };
           }}>
           {columns.map((col) => <View key={col.key} style={cellStyle(col)}>{col.render(row)}</View>)}
           {actions ? <View style={{ width: actionsWidth, flexDirection: 'row', gap: 6, justifyContent: 'flex-end' }}>{actions(row)}</View> : null}

@@ -20,7 +20,7 @@ import type { CreatedAccount, YearItem } from '@/types/api';
 /** Chữ số rộng bằng nhau để số thứ tự, mã, số điện thoại và ngày sinh thẳng cột */
 const NUM = { fontVariant: ['tabular-nums' as const] };
 
-/** Mã giáo viên (GOT2609102000002) / mã học sinh (HSGOT2612122008001) luôn trên một dòng: cỡ chữ tự co theo độ rộng ô (lib/code-font.ts) */
+/** Mã giáo viên (GOT2609102000002) và mã học sinh (HSGOT2612122008001) cùng cỡ chữ 12, trên một dòng; chỉ mã quá dài mới co chữ (lib/code-font.ts) */
 const CodeText: React.FC<{ value: string }> = ({ value }) => {
   const [width, setWidth] = useState(0);
   return (
@@ -106,12 +106,12 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
       {loading && !data ? <Spinner label="Đang tải danh sách…" /> : null}
       {data ? (
         <>
-          <DataTable paginate={false} rows={data.items} rowKey={(u) => u.id} empty={teacher ? 'Chưa có giáo viên nào khớp bộ lọc.' : 'Chưa có học sinh nào khớp bộ lọc.'} onRowPress={(u) => setOpen(u.id)}
+          <DataTable paginate={false} gap={10} rows={data.items} rowKey={(u) => u.id} empty={teacher ? 'Chưa có giáo viên nào khớp bộ lọc.' : 'Chưa có học sinh nào khớp bộ lọc.'} onRowPress={(u) => setOpen(u.id)}
             columns={teacher ? [
               // cùng các cột với file Excel (mẫu nhập và danh sách xuất): Số thứ tự, Mã giáo viên, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh; thêm Lớp phụ trách và Trạng thái.
               // Mỗi cột có độ rộng ưu tiên (bảy cột đầu giống hệt bảng học sinh); bảng hẹp thì mọi cột cùng co, không có thanh cuộn ngang; mỗi ô một dòng nên mọi hàng thẳng và cao bằng nhau.
               { key: 'stt', label: 'Số thứ tự', width: 58, minWidth: 58, render: (u) => <Line text={String((page - 1) * size + data.items.indexOf(u) + 1)} muted num /> },
-              { key: 'code', label: 'Mã giáo viên', width: 120, minWidth: 116, render: (u) => <CodeText value={u.user_code || '—'} /> },
+              { key: 'code', label: 'Mã giáo viên', width: 140, minWidth: 140, render: (u) => <CodeText value={u.user_code || '—'} /> },
               { key: 'name', label: 'Họ và tên', width: 140, grow: 2, render: (u) => <NameCell name={u.full_name} username={u.username} /> },
               { key: 'gender', label: 'Giới tính', width: 56, minWidth: 56, render: (u) => <Line text={u.gender ? GENDER_TEXT[u.gender] : '—'} /> },
               { key: 'phone', label: 'SĐT', width: 92, minWidth: 84, render: (u) => <Line text={u.phone || '—'} num /> },
@@ -121,7 +121,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
               { key: 'status', filter: f_active, label: 'Trạng thái', width: 112, minWidth: 104, render: (u) => <StatusDot kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
             ] : [
               { key: 'stt', label: 'Số thứ tự', width: 58, minWidth: 58, render: (u) => <Line text={String((page - 1) * size + data.items.indexOf(u) + 1)} muted num /> },
-              { key: 'code', label: 'Mã học sinh', width: 120, minWidth: 116, render: (u) => <CodeText value={u.user_code || '—'} /> },
+              { key: 'code', label: 'Mã học sinh', width: 140, minWidth: 140, render: (u) => <CodeText value={u.user_code || '—'} /> },
               { key: 'name', label: 'Họ và tên', width: 140, grow: 2, render: (u) => <NameCell name={u.full_name} username={u.username} /> },
               { key: 'gender', label: 'Giới tính', width: 56, minWidth: 56, render: (u) => <Line text={u.gender ? GENDER_TEXT[u.gender] : '—'} /> },
               { key: 'phone', label: 'SĐT', width: 92, minWidth: 84, render: (u) => <Line text={u.phone || '—'} num /> },
