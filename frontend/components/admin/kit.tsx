@@ -247,6 +247,14 @@ export interface Column<T> {
   filter?: SearchFilter;
 }
 
+/**
+ * Bảng "chia đều" (DataTable `equal`): mọi cột rộng bằng nhau (1/số cột của bảng), mỗi cột không hẹp hơn EQUAL_COLUMN_MIN (đủ cho mã 18 ký tự ở cỡ chữ 10);
+ * màn hẹp hơn tổng mức tối thiểu thì bảng cuộn ngang thay vì bóp chữ. Khoảng cách cột và lề trong nhỏ hơn bảng thường để mỗi cột rộng được tối đa.
+ */
+export const EQUAL_COLUMN_MIN = 112;
+const EQUAL_GAP = 6;
+const EQUAL_PAD = 10;
+
 /** Nút lọc ở tiêu đề cột: ô vuông nhỏ có mũi tên (đỏ kèm phễu khi đang lọc), bấm mở danh sách giá trị ngay dưới nút. Danh sách dài có ô tìm trong danh sách. */
 const ColumnFilter: React.FC<{ filter: SearchFilter }> = ({ filter }) => {
   const { c } = useTheme();
@@ -319,15 +327,18 @@ const ColumnFilter: React.FC<{ filter: SearchFilter }> = ({ filter }) => {
 };
 
 /** Bảng khi đủ rộng; danh sách thẻ "nhãn: giá trị" trên màn hẹp. Hàng có thể bấm để mở chi tiết. */
-export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions, actionsWidth = 150, paginate = true }: {
+export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions, actionsWidth = 150, paginate = true, equal = false }: {
   columns: Column<T>[]; rows: T[]; rowKey: (row: T) => string | number; onRowPress?: (row: T) => void; empty: string; actions?: (row: T) => React.ReactNode; actionsWidth?: number;
   /** Tự chia trang theo màn hình khi nhiều dòng hơn một trang (mặc định bật). Tắt khi bảng đã được chia trang ở máy chủ và có nút Pager riêng. */
   paginate?: boolean;
+  /** Mọi cột rộng bằng nhau (xem EQUAL_COLUMN_MIN); bỏ qua `flex` và `minWidth` của từng cột */
+  equal?: boolean;
 }) {
   const { c } = useTheme();
   const { width } = useWindowDimensions();
   const size = usePageSize();
   const [page, setPage] = useState(1);
+  const [boxWidth, setBoxWidth] = useState(0);
   const table = width >= TABLE_MIN_WIDTH;
   const paged = paginate && rows.length > size;
   const pages = Math.max(1, Math.ceil(rows.length / size));
@@ -358,12 +369,15 @@ export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions
       </View>
     );
   }
-  return (
-    <View style={{ gap: 10 }}>
-    <View style={{ borderWidth: 1, borderColor: c.adminLine, borderRadius: 5, backgroundColor: c.the, overflow: 'hidden' }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: filterable ? 8 : 10, backgroundColor: c.adminCanvas, borderBottomWidth: 1, borderBottomColor: c.adminLine, gap: 12 }}>
+  const pad = equal ? EQUAL_PAD : 14;
+  const gap = equal ? EQUAL_GAP : 12;
+  // chia đều: độ rộng cơ sở 0px (không phải 0%) để chữ trong ô không làm bảng phình rộng hơn tổng mức tối thiểu khi khung chưa có chiều rộng cố định
+  const cellStyle = (col: Column<T>) => (equal ? { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: EQUAL_COLUMN_MIN } : { flex: col.flex ?? 1, minWidth: col.minWidth ?? 0 });
+  const grid = (
+    <>
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: pad, paddingVertical: filterable ? 8 : 10, backgroundColor: c.adminCanvas, borderBottomWidth: 1, borderBottomColor: c.adminLine, gap }}>
         {columns.map((col) => (
-          <View key={col.key} style={{ flex: col.flex ?? 1, minWidth: col.minWidth ?? 0, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View key={col.key} style={[cellStyle(col), { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
             <Txt f="bold" size={12} color={col.filter?.value ? c.logoRed : c.muc2} style={{ flexShrink: 1 }}>{col.label}</Txt>
             {col.filter ? <ColumnFilter filter={col.filter} /> : null}
           </View>
@@ -373,13 +387,26 @@ export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions
       {!rows.length ? <View style={{ padding: 8 }}><EmptyState mood="thinking" title={empty} /></View> : null}
       {shown.map((row, i) => (
         <Pressable key={rowKey(row)} accessibilityRole={onRowPress ? 'button' : undefined} disabled={!onRowPress} onPress={() => onRowPress?.(row)}
-          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, minHeight: 52, paddingVertical: 8, gap: 12, borderTopWidth: i ? 1 : 0, borderTopColor: c.adminLine, backgroundColor: pressed ? c.adminCanvas : c.the })}>
-          {columns.map((col) => <View key={col.key} style={{ flex: col.flex ?? 1, minWidth: col.minWidth ?? 0 }}>{col.render(row)}</View>)}
+          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: pad, minHeight: 52, paddingVertical: 8, gap, borderTopWidth: i ? 1 : 0, borderTopColor: c.adminLine, backgroundColor: pressed ? c.adminCanvas : c.the })}>
+          {columns.map((col) => <View key={col.key} style={cellStyle(col)}>{col.render(row)}</View>)}
           {actions ? <View style={{ width: actionsWidth, flexDirection: 'row', gap: 6, justifyContent: 'flex-end' }}>{actions(row)}</View> : null}
         </Pressable>
       ))}
-    </View>
-    {pager}
+    </>
+  );
+  // bảng chia đều: tiêu đề và các hàng cùng nằm trong một khung cuộn ngang. Chiều rộng bảng là số cố định = max(khung chứa, tổng mức tối thiểu của các cột);
+  // không để trình duyệt tự suy từ độ dài chữ trong ô, vì như vậy bảng phình rộng hơn khung và các cột không còn đều.
+  const equalMin = columns.length * EQUAL_COLUMN_MIN + (columns.length - 1) * gap + 2 * pad + (actions ? actionsWidth + gap : 0);
+  return (
+    <View style={{ gap: 10 }}>
+      <View onLayout={equal ? (e) => setBoxWidth(Math.round(e.nativeEvent.layout.width)) : undefined} style={{ borderWidth: 1, borderColor: c.adminLine, borderRadius: 5, backgroundColor: c.the, overflow: 'hidden' }}>
+        {equal ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator>
+            <View style={{ width: Math.max(boxWidth - 2, equalMin) }}>{grid}</View>
+          </ScrollView>
+        ) : grid}
+      </View>
+      {pager}
     </View>
   );
 }

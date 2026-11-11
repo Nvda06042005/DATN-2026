@@ -1,59 +1,85 @@
-// Bảng Giáo viên và Học sinh của quản trị trường: mã luôn nằm trên một dòng, hai bảng dùng cùng độ rộng cột để thẳng hàng khi chuyển qua lại.
-// Đọc định nghĩa cột trong mã nguồn (SchoolPeople.tsx) và cách DataTable (kit.tsx) áp dụng độ rộng tối thiểu.
+// Bảng Giáo viên và Học sinh của quản trị trường chia đều: mọi cột rộng bằng nhau, mã luôn một dòng (chữ tự co), màn hẹp thì cuộn ngang.
+// Hàm tính cỡ chữ của mã chạy thật bằng cách biên dịch TypeScript; DataTable và hai bảng kiểm tra các mắt xích trong mã nguồn.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
+const vm = require('node:vm');
+const ts = require('typescript');
 
 const root = path.join(__dirname, '..');
 const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8');
 
-/** Các cột của một bảng: tên khóa, tỉ lệ flex (mặc định 1), độ rộng tối thiểu (mặc định 0), và dòng mã nguồn của cột */
-function parseColumns(block) {
-  return block.split('\n').filter((line) => /^\s*\{ key: '/.test(line)).map((line) => ({
-    key: /key: '([^']+)'/.exec(line)[1],
-    flex: Number((/flex: ([0-9.]+)/.exec(line) || [, '1'])[1]),
-    minWidth: Number((/minWidth: ([0-9A-Z_]+)/.exec(line) || [, '0'])[1]) || (/minWidth: CODE_MIN_WIDTH/.test(line) ? 'CODE' : 0),
-    line,
-  }));
+function loadCodeFont() {
+  const out = ts.transpileModule(read('lib', 'code-font.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
+  const mod = { exports: {} };
+  vm.runInNewContext(out, { module: mod, exports: mod.exports });
+  return mod.exports;
 }
 
+/** Các cột của bảng giáo viên và bảng học sinh trong SchoolPeople.tsx: tên khóa từng cột và dòng mã nguồn */
 function tables() {
   const src = read('components', 'admin', 'SchoolPeople.tsx');
   const start = src.indexOf('columns={teacher ? [');
   const split = src.indexOf('] : [', start);
   const end = src.indexOf(']} />', split);
   assert.ok(start > 0 && split > start && end > split, 'không tìm thấy hai danh sách cột');
-  return { src, teacher: parseColumns(src.slice(start, split)), student: parseColumns(src.slice(split, end)) };
+  const parse = (block) => block.split('\n').filter((line) => /^\s*\{ key: '/.test(line)).map((line) => ({ key: /key: '([^']+)'/.exec(line)[1], line }));
+  return { src, teacher: parse(src.slice(start, split)), student: parse(src.slice(split, end)) };
 }
 
-test('mã giáo viên và mã học sinh: cột mã có độ rộng tối thiểu chung và chữ không xuống dòng', () => {
-  const { src, teacher, student } = tables();
-  assert.match(src, /export const CODE_MIN_WIDTH = \d+;/);
-  assert.ok(Number(/CODE_MIN_WIDTH = (\d+)/.exec(src)[1]) >= 160, 'đủ cho mã 20 ký tự cỡ chữ 13');
-  for (const [name, cols] of [['giáo viên', teacher], ['học sinh', student]]) {
-    const code = cols.find((c) => c.key === 'code');
-    assert.ok(code, `bảng ${name} có cột mã`);
-    assert.equal(code.minWidth, 'CODE', `bảng ${name}: cột mã dùng CODE_MIN_WIDTH`);
-    assert.match(code.line, /<Txt f="semibold" size=\{13\} numberOfLines=\{1\}>\{u\.user_code \|\| '—'\}<\/Txt>/, `bảng ${name}: mã chỉ một dòng`);
-  }
+test('cỡ chữ của mã co theo độ rộng ô: tối đa 13, tối thiểu 10, chưa đo được thì 13', () => {
+  const { codeFontSize, CODE_FONT_MAX, CODE_FONT_MIN } = loadCodeFont();
+  assert.equal(CODE_FONT_MAX, 13);
+  assert.equal(CODE_FONT_MIN, 10);
+  assert.equal(codeFontSize(0, 18), 13, 'chưa đo');
+  assert.equal(codeFontSize(300, 18), 13, 'ô rộng: giữ cỡ tối đa');
+  assert.equal(codeFontSize(130, 16), 12, 'mã giáo viên 16 ký tự trong ô 130px');
+  assert.equal(codeFontSize(150, 20), 11, 'mã 20 ký tự trong ô 150px');
+  assert.equal(codeFontSize(112, 18), 10, 'mã học sinh 18 ký tự trong cột hẹp nhất: cỡ nhỏ nhất');
+  assert.equal(codeFontSize(60, 18), 10, 'không nhỏ hơn mức tối thiểu');
+  assert.equal(codeFontSize(130, 0), 13);
+  // mã thật ở cỡ 10 vẫn vừa cột hẹp nhất: 18 ký tự rộng 140px ở cỡ 13 (đo trên Chrome) tức khoảng 108px ở cỡ 10
+  const kit = read('components', 'admin', 'kit.tsx');
+  const min = Number(/export const EQUAL_COLUMN_MIN = (\d+);/.exec(kit)[1]);
+  assert.ok((140 / 13) * 10 <= min, `cột hẹp nhất ${min}px chứa được mã 18 ký tự ở cỡ 10`);
 });
 
-test('hai bảng dùng cùng tỉ lệ và độ rộng tối thiểu cho các cột chung, và cùng tổng tỉ lệ để thẳng hàng', () => {
-  const { teacher, student } = tables();
-  const shared = ['stt', 'code', 'name', 'gender', 'phone', 'email', 'birth'];
-  assert.deepEqual(teacher.slice(0, 7).map((c) => c.key), shared);
-  assert.deepEqual(student.slice(0, 7).map((c) => c.key), shared);
-  for (const key of shared) {
-    const t = teacher.find((c) => c.key === key), s = student.find((c) => c.key === key);
-    assert.equal(t.flex, s.flex, `${key}: cùng flex`);
-    assert.equal(t.minWidth, s.minWidth, `${key}: cùng độ rộng tối thiểu`);
+test('DataTable chia đều: mọi cột cùng hệ số giãn, độ rộng cơ sở 0px và cùng độ rộng tối thiểu ở cả tiêu đề lẫn ô; hẹp thì cuộn ngang; bảng thường giữ nguyên', () => {
+  const kit = read('components', 'admin', 'kit.tsx');
+  assert.match(kit, /export const EQUAL_COLUMN_MIN = 112;/);
+  assert.match(kit, /equal\?: boolean;/);
+  assert.match(kit, /paginate = true, equal = false \}: \{/);
+  // một công thức độ rộng cột dùng cho tiêu đề và ô: không thể lệch nhau
+  assert.match(kit, /const cellStyle = \(col: Column<T>\) => \(equal \? \{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: EQUAL_COLUMN_MIN \} : \{ flex: col\.flex \?\? 1, minWidth: col\.minWidth \?\? 0 \}\);/);
+  assert.equal([...kit.matchAll(/style=\{\[cellStyle\(col\), \{ flexDirection: 'row', alignItems: 'center', gap: 6 \}\]\}/g)].length, 1, 'tiêu đề');
+  assert.equal([...kit.matchAll(/<View key=\{col\.key\} style=\{cellStyle\(col\)\}>\{col\.render\(row\)\}<\/View>/g)].length, 1, 'ô dữ liệu');
+  // chỉ bảng chia đều có khung cuộn ngang, rộng ít nhất bằng tổng mức tối thiểu của các cột
+  assert.match(kit, /const equalMin = columns\.length \* EQUAL_COLUMN_MIN \+ \(columns\.length - 1\) \* gap \+ 2 \* pad/);
+  assert.match(kit, /\{equal \? \(\s*<ScrollView horizontal showsHorizontalScrollIndicator>\s*<View style=\{\{ width: Math\.max\(boxWidth - 2, equalMin\) \}\}>\{grid\}<\/View>\s*<\/ScrollView>\s*\) : grid\}/);
+  // chiều rộng bảng là số cố định lấy từ khung chứa (onLayout), không để chữ trong ô làm bảng phình
+  assert.match(kit, /const \[boxWidth, setBoxWidth\] = useState\(0\);/);
+  assert.match(kit, /onLayout=\{equal \? \(e\) => setBoxWidth\(Math\.round\(e\.nativeEvent\.layout\.width\)\) : undefined\}/);
+  // bảng thường vẫn lề 14 và khoảng cách 12 như trước
+  assert.match(kit, /const pad = equal \? EQUAL_PAD : 14;/);
+  assert.match(kit, /const gap = equal \? EQUAL_GAP : 12;/);
+});
+
+test('bảng Giáo viên và Học sinh dùng chế độ chia đều, mã dùng chữ tự co, không còn đặt độ rộng riêng từng cột', () => {
+  const { src, teacher, student } = tables();
+  assert.match(src, /<DataTable paginate=\{false\} equal rows=/);
+  assert.deepEqual(teacher.map((c) => c.key), ['stt', 'code', 'name', 'gender', 'phone', 'email', 'birth', 'classes', 'status']);
+  assert.deepEqual(student.map((c) => c.key), ['stt', 'code', 'name', 'gender', 'phone', 'email', 'birth', 'grade', 'classes', 'last', 'status']);
+  for (const col of [...teacher, ...student]) {
+    assert.doesNotMatch(col.line, /\bflex:|minWidth:/, `${col.key}: độ rộng do chế độ chia đều quyết định`);
   }
-  const sum = (cols) => Math.round(cols.reduce((n, c) => n + c.flex, 0) * 100) / 100;
-  assert.equal(sum(teacher), sum(student), 'tổng tỉ lệ bằng nhau');
-  assert.equal(sum(teacher), 13.8);
-  // số điện thoại 10 chữ số, ngày sinh dd/mm/yyyy và tiêu đề "Số thứ tự" có chỗ đủ để không bị bẻ giữa chừng
-  for (const [key, min] of [['stt', 62], ['gender', 58], ['phone', 88], ['birth', 82]]) assert.ok(teacher.find((c) => c.key === key).minWidth >= min, key);
+  for (const [name, cols] of [['giáo viên', teacher], ['học sinh', student]]) {
+    assert.match(cols.find((c) => c.key === 'code').line, /<CodeText value=\{u\.user_code \|\| '—'\} \/>/, `bảng ${name}: mã dùng CodeText`);
+    assert.match(cols.find((c) => c.key === 'email').line, /numberOfLines=\{3\}/, `bảng ${name}: email dài còn tới ba dòng trong cột hẹp`);
+  }
+  assert.match(src, /import \{ codeFontSize \} from '@\/lib\/code-font';/);
+  assert.match(src, /size=\{codeFontSize\(width, value\.length\)\} numberOfLines=\{1\}/);
+  assert.match(src, /onLayout=\{\(e\) => setWidth\(e\.nativeEvent\.layout\.width\)\}/);
 });
 
 test('nhãn trạng thái dài ("Chưa đổi mật khẩu") xuống dòng trong khung của ô bảng, không tràn ra mép bảng', () => {
@@ -62,16 +88,4 @@ test('nhãn trạng thái dài ("Chưa đổi mật khẩu") xuống dòng trong
   const ui = read('components', 'ui.tsx');
   assert.match(ui, /wrap\?: boolean \}> = \(\{ text, bg, fg, icon: Icon, style, wrap = false \}\)/);
   assert.match(ui, /numberOfLines=\{wrap \? undefined : 1\} style=\{wrap \? \{ flexShrink: 1 \} : undefined\}/);
-  // các nơi khác dùng Chip không đổi hành vi: một dòng như trước
-  assert.match(ui, /wrap = false/);
-  const { student } = tables();
-  const status = student.find((c) => c.key === 'status');
-  assert.ok(status.minWidth >= 88, 'cột trạng thái của bảng học sinh có chỗ tối thiểu');
-});
-
-test('DataTable áp dụng minWidth của cột cho cả tiêu đề và ô, mặc định 0 như trước', () => {
-  const kit = read('components', 'admin', 'kit.tsx');
-  assert.match(kit, /\/\*\* Độ rộng tối thiểu \(px\)[^\n]*\*\/\s*minWidth\?: number;/);
-  assert.equal([...kit.matchAll(/flex: col\.flex \?\? 1, minWidth: col\.minWidth \?\? 0/g)].length, 2, 'tiêu đề và ô dữ liệu');
-  assert.doesNotMatch(kit, /flex: col\.flex \?\? 1, minWidth: 0[,\s}]/, 'không còn chỗ nào ép minWidth: 0');
 });
