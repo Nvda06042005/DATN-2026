@@ -163,6 +163,8 @@ export interface AccountDetail extends AuthUser {
 /** Tài khoản vừa tạo / đặt lại mật khẩu: mật khẩu tạm chỉ trả về một lần */
 export interface CreatedAccount {
   user: AuthUser;
+  /** Tên đăng nhập theo quy ước để hiển thị, đúng như trong thư (GVAnh672010042005); đăng nhập không phân biệt hoa thường */
+  display_username?: string;
   temporary_password: string;
   mail: 'queued' | 'no_email' | 'not_configured';
 }

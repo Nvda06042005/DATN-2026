@@ -242,7 +242,8 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect(s1.status).toBe(201);
     expect(s1.body.user).toMatchObject({ role: 'student', user_code: expect.stringMatching(/^HS[A-Z0-9]+2615032013\d{3}$/), birth_date: '2013-03-15', gender: 'male', grade: 7, school_year: '2025-2026', parent_email: 'phuhuynh1@example.com', must_change_password: true });
     expect(s1.body.mail).toBe('no_email');
-    expect(s1.body.temporary_password).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}$/);
+    // có ngày sinh: tên đăng nhập/mật khẩu theo quy ước HS + tên + 4 số cuối SĐT (không có thì 0000) + ngày sinh (11/11/2026)
+    expect(s1.body).toMatchObject({ display_username: 'HSMot000015032013', temporary_password: 'DongAHSMot15032013' });
     const s2 = await qa('POST', '/api/admin/students', { user_code: 'HS002', full_name: 'Trần Thị Hai', birth_date: '2013-07-20', gender: 'female', class_id: c7a.id, email: 'hs002@example.edu.vn' });
     const s3 = await qa('POST', '/api/admin/students', { user_code: 'HS003', full_name: 'Lê Văn Ba', birth_date: '2013-11-01', class_id: c7b.id });
     students = [s1.body.user.id, s2.body.user.id, s3.body.user.id];

@@ -7,7 +7,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { toPublic } from '../auth/auth.service';
 import { generatePassword, hashPassword } from '../auth/passwords';
 import { DatabaseService, DuplicateUsername, Q, Role, searchText, toUser, USER_COLUMNS, UserRow } from '../database/database.service';
-import { buildFormSheet, checkUpload, Column, FormColumn, memberCode, parseDate, readSheet, schoolInitials, studentTemplateFilename, teacherTemplateFilename, UploadedXlsx, vnDayLabel } from './excel';
+import { buildFormSheet, checkUpload, Column, FormColumn, memberCode, memberCredentials, parseDate, readSheet, schoolInitials, shownUsername, studentTemplateFilename, teacherTemplateFilename, UploadedXlsx, vnDayLabel } from './excel';
 import { SystemService } from '../platform/system.service';
 import { MailService } from './mail.service';
 import { likeEscape, schoolAdminCredentials, SchoolService } from './school.service';
@@ -281,15 +281,18 @@ export class AccountService {
   async createMember(actor: UserRow, role: MemberRole, body: MemberInput & { school_id?: number | null }) {
     const schoolId = this.schools.target(actor, body.school_id);
     const input = this.checkMember(role, body);
-    const password = generatePassword();
+    // tên đăng nhập/mật khẩu theo quy ước GV|HS + tên + 4 số cuối SĐT + ngày sinh (thiếu ngày sinh thì cách cũ)
+    const conventional = memberCredentials(role, input.full_name, input.phone, input.birth_date);
+    const password = conventional?.password ?? generatePassword();
     const passwordHash = await hashPassword(password, BATCH_ROUNDS);
     return this.schools.run(actor, async (q) => {
       await q('SELECT pg_advisory_xact_lock(7412026)');
       const school = await this.schoolOf(q, schoolId);
       const cls = input.class_id ? await this.classTarget(q, schoolId, input.class_id) : null;
-      const user = await this.insertMember(q, school, role, input, passwordHash, cls);
-      const mail = await this.queueAccountMail(q, user, password, school.name);
-      return { user: toPublic(user), temporary_password: password, mail };
+      const user = await this.insertMember(q, school, role, input, passwordHash, cls, conventional?.username);
+      const display = shownUsername(user.username, conventional?.username);
+      const mail = await this.queueAccountMail(q, user, password, school.name, false, display);
+      return { user: toPublic(user), display_username: display, temporary_password: password, mail };
     }).then((r) => { this.mail.kick(); return r; });
   }
 
@@ -316,14 +319,14 @@ export class AccountService {
     return cls;
   }
 
-  private async insertMember(q: Q, school: { id: number; school_code: string; region: string | null; city: string | null }, role: MemberRole, input: MemberInput, passwordHash: string, cls: { id: number; grade: number | null; school_year: string } | null): Promise<UserRow> {
+  private async insertMember(q: Q, school: { id: number; school_code: string; region: string | null; city: string | null }, role: MemberRole, input: MemberInput, passwordHash: string, cls: { id: number; grade: number | null; school_year: string } | null, conventional?: string | null): Promise<UserRow> {
     if(role==='teacher' && input.birth_date) input={...input,user_code:(await this.teacherCode(q,school.id,input.birth_date,input.user_code)).code};
     // học sinh chưa có mã (biểu mẫu thêm từng em, hoặc file không có công thức mã) thì cấp mã HS + viết tắt trường + năm + ngày sinh + STT, giống mẫu Excel
     else if(role==='student' && input.birth_date) input={...input,user_code:(await this.studentCode(q,school.id,input.birth_date,input.user_code)).code};
     input={...input,user_code:input.user_code || (await q<{code:string}>('SELECT public.app_registration_code($1,true) AS code',[role]))[0].code};
     await this.assertUnique(q, school.id, input.email ?? null, input.user_code ?? null);
     if (role === 'student') await SystemService.assertStudentRoom(q, school.id);
-    const username = await this.db.uniqueUsername(input.full_name, role, q);
+    const username = conventional ? await this.db.uniqueUsernameFrom(conventional, q) : await this.db.uniqueUsername(input.full_name, role, q);
     let user: UserRow;
     try {
       user = await this.db.createUser({
@@ -591,13 +594,16 @@ export class AccountService {
         if (codeKey) seenCode.add(codeKey);
         const result: ImportRow = { row, full_name: input.full_name, user_code: input.user_code ?? null, email: input.email ?? null, status: errors.length ? 'error' : 'ok', errors };
         if (!errors.length && opts.commit) {
-          const password = generatePassword();
-          const user = await this.insertMember(q, school, role, input, await hashPassword(password, BATCH_ROUNDS), cls);
-          await this.queueAccountMail(q, user, password, school.name);
+          // cùng quy ước với thêm từng người; thư gửi tên đăng nhập và mật khẩu vào email (học sinh không có email thì quản trị tải danh sách để cấp)
+          const conventional = memberCredentials(role, input.full_name, input.phone, input.birth_date);
+          const password = conventional?.password ?? generatePassword();
+          const user = await this.insertMember(q, school, role, input, await hashPassword(password, BATCH_ROUNDS), cls, conventional?.username);
+          const display = shownUsername(user.username, conventional?.username);
+          await this.queueAccountMail(q, user, password, school.name, false, display);
           result.status = 'created';
-          result.username = user.username;
+          result.username = display;
           result.user_code = user.user_code;
-          credentials.push({ row, username: user.username, password, full_name: user.full_name, email: user.email });
+          credentials.push({ row, username: display, password, full_name: user.full_name, email: user.email });
         }
         rows.push(result);
       }

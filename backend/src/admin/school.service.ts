@@ -11,15 +11,14 @@ import { DatabaseService, DuplicateUsername, Q, UserRow } from '../database/data
 import { MailService } from './mail.service';
 import { DirectoryEntry, directoryEntry, foldVi, nameWords, sameSchoolName, schoolSlug, searchDirectory } from './school-directory';
 import { currentSchoolLogo } from './school-brand';
-import { parseDate, schoolInitials } from './excel';
+import { givenNameUpper, parseDate, schoolInitials } from './excel';
 
 export const GRADES = [6, 7, 8, 9] as const;
 export const likeEscape = (s: string) => s.replace(/[\\%_]/g, (ch) => `\\${ch}`);
 
 /** Tên gọi của người quản lý dùng để ghép tên đăng nhập và mật khẩu: từ cuối của họ tên, viết hoa, bỏ dấu, chỉ giữ chữ và số. "Nguyễn Hoài An" → "AN". */
 export function managerGivenName(fullName: string): string {
-  const last = fullName.trim().split(/\s+/).pop() ?? '';
-  return last.normalize('NFD').replace(/\p{Mn}/gu, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return givenNameUpper(fullName);
 }
 
 /**

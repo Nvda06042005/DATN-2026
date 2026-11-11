@@ -36,6 +36,36 @@ export function cellText(value: ExcelJS.CellValue): string {
   return String(value).trim();
 }
 
+/** Tên gọi trong họ tên: từ cuối, bỏ dấu, chữ đ thành d, viết hoa, chỉ giữ chữ và số. "Nguyễn Hoài An" → "AN" */
+export function givenNameUpper(fullName: string): string {
+  const last = fullName.trim().split(/\s+/).pop() ?? '';
+  return last.normalize('NFD').replace(/\p{Mn}/gu, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/**
+ * Tên đăng nhập và mật khẩu ban đầu của giáo viên / học sinh theo quy ước (yêu cầu 11/11/2026), cùng cách cấp và gửi thư như quản trị viên trường:
+ * tên đăng nhập = GV (giáo viên) hoặc HS (học sinh) + tên gọi (từ cuối của họ tên, bỏ dấu, viết hoa chữ đầu) + 4 số cuối điện thoại + ngày sinh ddmmyyyy,
+ * ví dụ GVAnh672010042005; không có số điện thoại thì 4 số là 0000 (học sinh thường chưa có số riêng).
+ * mật khẩu = DongA + GV/HS + tên gọi + ngày sinh ddmmyyyy, ví dụ DongAGVAnh10042005. Chỉ dùng cho lần đăng nhập đầu: tài khoản bị buộc đổi mật khẩu.
+ * Trả null khi thiếu ngày sinh hoặc họ tên không có tên gọi; khi đó tài khoản dùng cách cũ (tên đăng nhập tự sinh, mật khẩu ngẫu nhiên).
+ * Tên đăng nhập lưu chữ thường (đăng nhập không phân biệt hoa thường); hiển thị và gửi thư đúng như ví dụ.
+ */
+export function memberCredentials(role: 'teacher' | 'student', fullName: string, phone: string | null | undefined, birthDate: string | null | undefined): { username: string; password: string } | null {
+  const upper = givenNameUpper(fullName);
+  const born = birthDate ? parseDate(birthDate) : null;
+  if (!upper || !born) return null;
+  const given = upper[0] + upper.slice(1).toLowerCase();
+  const prefix = role === 'teacher' ? 'GV' : 'HS';
+  const digits = (phone ?? '').trim();
+  const tail = /^[0-9]{10}$/.test(digits) ? digits.slice(-4) : '0000';
+  const dob = `${born.slice(8, 10)}${born.slice(5, 7)}${born.slice(0, 4)}`;
+  return { username: `${prefix}${given}${tail}${dob}`, password: `DongA${prefix}${given}${dob}` };
+}
+
+/** Tên đăng nhập để hiển thị/gửi thư: dạng quy ước (hoa thường như ví dụ) cộng phần số thêm vào khi trùng; không theo quy ước thì đúng tên đã lưu */
+export const shownUsername = (stored: string, conventional: string | null | undefined): string =>
+  conventional && stored.startsWith(conventional.toLowerCase()) ? conventional + stored.slice(conventional.length) : stored;
+
 /** Số ngày của Excel hệ 1900 (ví dụ 31121 = 15/03/1985) thành YYYY-MM-DD; số không hợp lệ giữ nguyên dạng chữ để báo lỗi */
 export const excelSerialDate = (serial: number): string =>
   Number.isFinite(serial) && serial >= 1 && serial < 2958466 ? new Date(Date.UTC(1899, 11, 30) + Math.floor(serial) * 86400000).toISOString().slice(0, 10) : String(serial);
