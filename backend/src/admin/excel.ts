@@ -36,6 +36,23 @@ export function cellText(value: ExcelJS.CellValue): string {
   return String(value).trim();
 }
 
+/** Số ngày của Excel hệ 1900 (ví dụ 31121 = 15/03/1985) thành YYYY-MM-DD; số không hợp lệ giữ nguyên dạng chữ để báo lỗi */
+export const excelSerialDate = (serial: number): string =>
+  Number.isFinite(serial) && serial >= 1 && serial < 2958466 ? new Date(Date.UTC(1899, 11, 30) + Math.floor(serial) * 86400000).toISOString().slice(0, 10) : String(serial);
+
+/** Ngày (UTC) thành số ngày của Excel hệ 1900 */
+export const excelSerial = (date: Date): number => Math.round((date.getTime() - Date.UTC(1899, 11, 30)) / 86400000);
+
+/**
+ * Kiểm tra ô ngày sinh (dạng chữ) trong mẫu: nhận ngày dạng số của Excel trong khoảng [min, max] (ví dụ do tiện ích lịch ghi), hoặc chữ dd/mm/yyyy là ngày có thật
+ * trong khoảng. Chữ được ghép thành yyyy-mm-dd rồi để Excel đổi thành ngày: dạng ISO được hiểu ở mọi cài đặt vùng, ngày không có thật (30/02, tháng 13) báo lỗi.
+ * Không dùng DATEVALUE hay TEXT để không phụ thuộc cài đặt vùng của Windows. Công thức kiểm tra dữ liệu của Excel tối đa 255 ký tự.
+ */
+export const birthDateRule = (a: string, min: number, max: number): string => {
+  const iso = `--(RIGHT(${a},4)&"-"&MID(${a},4,2)&"-"&LEFT(${a},2))`;
+  return `OR(MEDIAN(${min},${a},${max})=${a},IFERROR(AND(LEN(${a})=10,MID(${a},3,1)&MID(${a},6,1)="//",MEDIAN(${min},${iso},${max})=${iso}),FALSE))`;
+};
+
 /** Ngày dạng dd/mm/yyyy, yyyy-mm-dd hoặc ô ngày của Excel -> YYYY-MM-DD; null nếu sai định dạng */
 export function parseDate(text: string): string | null {
   const t = text.trim();
@@ -99,7 +116,9 @@ export async function readSheet(file: UploadedXlsx, columns: Column[], sheetName
     const values: Record<string, string> = {};
     let any = false;
     for (const c of cols) {
-      const text = c.col ? cellText(sheet.getRow(r).getCell(c.col).value) : '';
+      const raw = c.col ? sheet.getRow(r).getCell(c.col).value : null;
+      // ô ngày sinh định dạng chữ có thể chứa ngày dạng số của Excel (ví dụ do tiện ích lịch ghi vào): đổi số ngày thành YYYY-MM-DD
+      const text = c.key === 'birth_date' && typeof raw === 'number' ? excelSerialDate(raw) : cellText(raw);
       values[c.key] = text;
       if (text) any = true;
     }
@@ -214,7 +233,7 @@ const teacherCodeFormula = (prefix: string, name: string, birth: string, index: 
   const dmy = `DATE(VALUE(RIGHT(${text},4)),VALUE(MID(${text},4,2)),VALUE(LEFT(${text},2)))`;
   const parsedCode = (date: string, format: string) => `IFERROR(IF(TEXT(${date},"${format}")=${text},${code(date)},""),"")`;
   const ready=requireIndex?`,${index.match(/[A-Z]+\d+/)?.[0]??index}<>""`:'';
-  return `IF(AND(${name}<>"",${birth}<>""${ready}),IF(ISNUMBER(${birth}),${code(birth)},IF(MID(${text},5,1)="-",${parsedCode(iso,'yyyy-mm-dd')},${parsedCode(dmy,'dd/mm/yyyy')})),"")`;
+  return `IF(AND(${name}<>"",${birth}<>""${ready}),IF(ISNUMBER(${birth}),${code(birth)},IF(MID(${text},5,1)="-",${parsedCode(iso,'yyyy-mm-dd')},${parsedCode(dmy,'dd\\/mm\\/yyyy')})),"")`;
 };
 
 /**
@@ -378,14 +397,16 @@ export async function buildFormSheet(spec: FormSheetSpec): Promise<Buffer> {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
         cell.note = 'Tự ghép từ tên trường viết tắt, năm nhập, ngày sinh và số thứ tự. Nhập họ tên và ngày sinh để hiện mã.';
       } else if (c.kind === 'date') {
-        cell.numFmt = 'dd/mm/yyyy';
+        // Mẫu để trống: ô dạng chữ (@) để Excel giữ nguyên ngày gõ dd/mm/yyyy. Ô dạng ngày thì Excel đọc theo cài đặt vùng của Windows: máy kiểu Mỹ
+        // (tháng/ngày) báo lỗi với 15/03/2005 và lặng lẽ đổi 05/03/2005 thành ngày 3 tháng 5. Danh sách xuất (có sẵn dữ liệu) vẫn là ô ngày.
+        cell.numFmt = spec.rows ? 'dd/mm/yyyy' : '@';
         const iso = typeof raw === 'string' ? parseDate(raw) : null;
         if (iso) cell.value = new Date(`${iso}T00:00:00.000Z`);
         if (!spec.rows) {
           cell.dataValidation = {
-            type: 'date', operator: 'between', allowBlank: true, formulae: [dateMin, dateMax],
-            showInputMessage: true, promptTitle: c.header.replace(/\*/g, '').trim(), prompt: c.prompt ?? 'Nhập ngày dd/mm/yyyy; chọn trên lịch nếu phần mềm hỗ trợ.',
-            showErrorMessage: true, errorStyle: 'stop', errorTitle: 'Ngày không hợp lệ', error: 'Nhập ngày dd/mm/yyyy từ 01/01/1940 đến ngày tải mẫu.',
+            type: 'custom', allowBlank: true, formulae: [birthDateRule(`${nameLetter(c.key)}${rowNo}`, excelSerial(dateMin), excelSerial(dateMax))],
+            showInputMessage: true, promptTitle: c.header.replace(/\*/g, '').trim(), prompt: c.prompt ?? 'Gõ ngày/tháng/năm, ví dụ 05/03/1985.',
+            showErrorMessage: true, errorStyle: 'stop', errorTitle: 'Ngày không hợp lệ', error: 'Gõ ngày/tháng/năm đủ 2 số ngày, 2 số tháng, 4 số năm, ví dụ 05/03/1985; từ 01/01/1940 đến ngày tải mẫu.',
           };
         }
       } else if (c.kind === 'list') {
@@ -413,6 +434,14 @@ export async function buildFormSheet(spec: FormSheetSpec): Promise<Buffer> {
         if (raw !== undefined && raw !== null && raw !== '') cell.value = String(raw);
       }
     });
+  }
+  // Mẫu trống: ô ngày sinh dạng chữ mà chứa ngày dạng số (ví dụ tiện ích lịch ghi vào) vẫn hiện dd/mm/yyyy thay vì số như 38426.
+  // Định dạng có điều kiện chỉ áp cho ô chứa số, chữ gõ tay giữ nguyên như đã gõ.
+  if (!spec.rows) {
+    for (const c of cols.filter((x) => x.kind === 'date')) {
+      const letter = nameLetter(c.key), first = headerRow + 1, last = headerRow + total;
+      sheet.addConditionalFormatting({ ref: `${letter}${first}:${letter}${last}`, rules: [{ type: 'expression', priority: 1, formulae: [`ISNUMBER(${letter}${first})`], style: { numFmt: 'dd/mm/yyyy' } }] });
+    }
   }
   if (spec.guide?.length) {
     const guide = workbook.addWorksheet('Hướng dẫn');

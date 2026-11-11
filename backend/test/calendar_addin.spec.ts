@@ -21,7 +21,10 @@ describe('Lịch Office Store trong mẫu .xlsx không macro', () => {
     const wb = new ExcelJS.Workbook(); await wb.xlsx.load(output as any);
     expect(wb.worksheets[0].getImages()).toHaveLength(logo ? 1 : 0);
     expect(wb.worksheets[0].getCell('A5').formula).toContain('COUNTIFS(');
-    expect(wb.worksheets[0].getCell('C5').numFmt).toBe('dd/mm/yyyy');
+    // ô ngày sinh của mẫu trống là ô chữ (giữ nguyên ngày gõ dd/mm/yyyy, không đổi theo cài đặt vùng); ngày dạng số vẫn hiện dd/mm/yyyy nhờ định dạng có điều kiện
+    expect(wb.worksheets[0].getCell('C5').numFmt).toBe('@');
+    const rules = (wb.worksheets[0] as unknown as { conditionalFormattings: Array<{ ref: string; rules: Array<{ formulae?: string[] }> }> }).conditionalFormattings;
+    expect(rules.some((cf) => cf.ref.startsWith('C5:') && cf.rules[0].formulae?.[0] === 'ISNUMBER(C5)')).toBe(true);
     expect(await withCalendarAddin(output)).toBe(output);
   });
   test('mỗi file có ID phiên bản tiện ích riêng, không chia sẻ trạng thái người dùng',async()=>{

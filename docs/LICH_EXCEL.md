@@ -26,3 +26,7 @@ Lịch đặt H1 cạnh bảy cột, không đè ô dữ liệu hoặc logo. M�
 ## Giới hạn xác minh
 
 Kết nối Windows Computer Use hiện báo `Computer Use native pipe is unavailable`; không có phiên Excel qua connector. Có thể kiểm tra cấu trúc Open XML, công thức và nhập lại file nhưng chưa xác nhận bằng thao tác lịch trực tiếp trong phiên Excel người dùng. Không ghi nhận đã cài/đã chấp thuận tiện ích trên máy khi chưa quan sát được.
+
+## Ô ngày sinh (cập nhật 11/11/2026)
+
+Ô ngày sinh của mẫu trống là ô chữ để Excel giữ nguyên ngày gõ `dd/mm/yyyy` trên mọi cài đặt vùng của Windows (máy kiểu Mỹ không còn báo lỗi hay đảo ngày/tháng). Ngày dạng số trong ô (ví dụ do lịch ghi vào) vẫn hợp lệ và hiện `dd/mm/yyyy` nhờ định dạng có điều kiện; khi nhập file, máy chủ đọc được cả hai dạng. Chi tiết trong `docs/TIEN_DO_HAO_KHI.md`.

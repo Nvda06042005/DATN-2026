@@ -29,7 +29,7 @@ const SCHOOL='THCS Giồng Ông Tố',SHORT_SCHOOL='THCS A';
   const guideLines:string[]=[];wb.getWorksheet('Hướng dẫn')!.eachRow(row=>guideLines.push(String(row.getCell(1).value??'')));
   expect(guideLines.join('\n')).toContain('HSGOT2602042013001');expect(guideLines.join('\n')).toContain('Giữ nguyên tên file');
   expect(guideLines.join('\n')).not.toMatch(/Vertex42|Office Store|tiện ích|Add-ins|Calculation Options|macro/);expect(guideLines.filter(l=>l&&l!=='Hướng dẫn').length).toBeLessThanOrEqual(6);
-  expect(sheet.getCell('D12').dataValidation.formulae).toEqual(['"Nam,Nữ,Khác"']);expect(sheet.getCell('G12').numFmt).toBe('dd/mm/yyyy');
+  expect(sheet.getCell('D12').dataValidation.formulae).toEqual(['"Nam,Nữ,Khác"']);expect(sheet.getCell('G12').numFmt).toBe('@');expect(sheet.getCell('G12').dataValidation).toMatchObject({type:'custom',allowBlank:true});
   const raw=await fetch(s.base+'/api/admin/students/template',{headers:{Authorization:'Bearer '+A.token}});expect(raw.headers.get('content-disposition')).toContain(spec.body.filename);
  });
  test('mẫu không tạo tài khoản/gửi thư/giữ số; emailoptional và genderother; sai tên bị chặn previewcommit',async()=>{

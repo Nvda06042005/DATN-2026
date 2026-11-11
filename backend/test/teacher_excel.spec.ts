@@ -106,11 +106,19 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     expect((sheet.getRow(headerRow).values as unknown[]).slice(1)).toEqual(HEADER);
     expect(HEADER).not.toContain('Bộ môn');
     expect(sheet.views[0]).toMatchObject({ state: 'frozen', ySplit: headerRow });
+    // ô ngày sinh dạng chữ mà chứa ngày dạng số (ví dụ tiện ích lịch ghi vào) vẫn hiện dd/mm/yyyy nhờ định dạng có điều kiện
+    const dateRule = (sheet as unknown as { conditionalFormattings: Array<{ ref: string; rules: Array<{ formulae?: string[]; style?: { numFmt?: unknown } }> }> }).conditionalFormattings
+      .find((cf) => cf.ref === `G${headerRow + 1}:G${headerRow + 1000}`);
+    expect(dateRule?.rules[0].formulae).toEqual([`ISNUMBER(G${headerRow + 1})`]);
+    expect(JSON.stringify(dateRule?.rules[0].style)).toContain('dd/mm/yyyy');
     // 1000 dòng định dạng sẵn: giới tính, ngày sinh, STT và mã tự ghép.
     for (const n of [headerRow + 1, headerRow + 1000]) {
       expect(sheet.getCell(n, 4).dataValidation).toMatchObject({ type: 'list', formulae: ['"Nam,Nữ"'], allowBlank: true, showErrorMessage: true });
-      expect(sheet.getCell(n, 7).dataValidation).toMatchObject({ type: 'date', operator: 'between', allowBlank: true, showErrorMessage: true });
-      expect(sheet.getCell(n, 7).numFmt).toBe('dd/mm/yyyy');
+      // ô ngày sinh dạng chữ: Excel không tự đổi ngày gõ theo cài đặt vùng của Windows; kiểm tra bằng công thức (tối đa 255 ký tự)
+      expect(sheet.getCell(n, 7).dataValidation).toMatchObject({ type: 'custom', allowBlank: true, showErrorMessage: true });
+      expect(sheet.getCell(n, 7).dataValidation.formulae![0]).toContain(`MEDIAN(`);
+      expect(String(sheet.getCell(n, 7).dataValidation.formulae![0]).length).toBeLessThanOrEqual(255);
+      expect(sheet.getCell(n, 7).numFmt).toBe('@');
       expect(sheet.getCell(n, 5).numFmt).toBe('@');
       expect(sheet.getCell(n, 2).numFmt).toBe('@');
       expect(sheet.getCell(n, 1).value).toMatchObject({formula:expect.stringContaining('COUNTIFS(')});
@@ -170,6 +178,29 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     const repeated = await upload(s.base, '/api/admin/teachers/import', await teacherFileName(), buffer, A.token);
     expect(repeated.body.errors).toBe(2);
     expect(repeated.body.rows.every((r:{errors:string[]})=>r.errors.some(e=>/đã được dùng|trùng/.test(e)))).toBe(true);
+  });
+
+  test('ngày sinh gõ dạng chữ dd/mm/yyyy (máy đặt kiểu ngày Mỹ) và ngày dạng số trong ô chữ đều đọc đúng, không đảo ngày/tháng', async () => {
+    const template = (await download(s.base, '/api/admin/teachers/template', A.token)).buffer;
+    const wb = await open(template), sheet = wb.getWorksheet('Giáo viên')!;
+    let first = 0;
+    sheet.eachRow((row, n) => { if (!first && (row.values as unknown[]).includes('Họ và tên *')) first = n + 1; });
+    const rows: Array<[string, string, string | number]> = [
+      ['Ngày Gõ Nhỏ', 'go.nho@example.edu.vn', '05/03/1990'],   // ngày ≤ 12: máy kiểu Mỹ sẽ đổi thành 3 tháng 5 nếu ô là ô ngày
+      ['Ngày Gõ Lớn', 'go.lon@example.edu.vn', '15/03/1990'],   // ngày > 12: máy kiểu Mỹ báo lỗi nếu ô là ô ngày
+      ['Ngày Dạng Số', 'dang.so@example.edu.vn', 31121],        // 15/03/1985 dạng số ngày của Excel (ví dụ tiện ích lịch ghi vào ô chữ)
+    ];
+    rows.forEach(([name, email, birth], i) => { sheet.getCell(first + i, 3).value = name; sheet.getCell(first + i, 6).value = email; sheet.getCell(first + i, 7).value = birth; });
+    const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+    const preview = await upload(s.base, '/api/admin/teachers/import', await teacherFileName(), buffer, A.token);
+    expect(preview.status).toBe(200);
+    expect(preview.body.errors).toBe(0);
+    const prefix = 'ME' + vnDayLabel().slice(8,10);
+    expect(preview.body.rows.map((r: { user_code: string }) => r.user_code.slice(0, prefix.length + 8))).toEqual([prefix + '05031990', prefix + '15031990', prefix + '15031985']);
+    // ngày sai (30/02, tháng 13, thiếu số 0) vẫn bị báo lỗi theo từng dòng
+    for (const [i, bad] of ['30/02/1990', '15/13/1990'].entries()) sheet.getCell(first + i, 7).value = bad;
+    const wrong = await upload(s.base, '/api/admin/teachers/import', await teacherFileName(), Buffer.from(await wb.xlsx.writeBuffer()), A.token);
+    expect(wrong.body.errors).toBe(2);
   });
 
   test('file đã lưu bằng Excel thật (công thức điền xuống được lưu dạng dùng chung) vẫn đọc ra đúng mã, giống file chưa gộp công thức', async () => {
