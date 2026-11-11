@@ -9,7 +9,7 @@ test('mẫu có macro chỉ được nhận khi hộp nhập giáo viên/học s
  assert.equal(checkPickedFile({name:'mau.xlsm',size:200},[XLSX_MIME,XLSM_MIME]),null);
  assert.match(checkPickedFile({name:'mau.xlsm',size:200},[XLSX_MIME]),/không đúng loại/);
  assert.match(checkPickedFile({name:'mau.xlsm',size:MAX_XLSX_BYTES+1},[XLSX_MIME,XLSM_MIME]),/quá lớn/);
- assert.match(acceptNote([XLSX_MIME,XLSM_MIME]),/Mẫu mới \.xlsx không macro/);
+ assert.equal(acceptNote([XLSX_MIME,XLSM_MIME]),'Chỉ nhận file Excel.');
 });
 
 test('chỉ mẫu .xlsx hoặc mẫu .xlsm cũ đúng trường được nhận, không nhận file tải trùng hoặc sai trường',()=>{
@@ -23,7 +23,8 @@ test('chỉ mẫu .xlsx hoặc mẫu .xlsm cũ đúng trường được nhận,
 test('hộp nhập của hai vai trò dùng mẫu Excel có lịch, không còn bảng nhập trên website',()=>{
  const importer=read('components/admin/TeacherImportSheet.tsx'),kit=read('components/admin/kit.tsx');
  assert.match(importer,/kind\?:'teachers'\|'students'/);
- assert.match(importer,/hint="Mẫu \.xlsx không macro, có lịch Vertex42 cho Excel máy tính/);
+ assert.match(importer,/hint="Tải file mẫu, điền danh sách rồi chọn file để nhập\."/);
+ assert.doesNotMatch(importer,/Vertex42|macro|lịch/);
  assert.match(importer,/expectedFilename=\{spec\.filename\} legacyFilename=\{spec\.legacy_filename\}/);
  assert.doesNotMatch(importer,/Nhập trên bảng|TeacherEntrySheet|Grid2X2|entry-open/);
  assert.match(kit,/acceptMacro=false/);assert.match(kit,/const types=acceptMacro\?\[\.\.\.XLSX_TYPES,XLSM_MIME\]:baseTypes/);

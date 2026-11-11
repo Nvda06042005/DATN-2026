@@ -23,7 +23,7 @@ export function acceptNote(types: string[]): string {
   const ext = acceptedExtensions(types);
   const excelOnly = ext.length === 1 && ext[0] === '.xlsx';
   if (excelOnly) return 'Chỉ nhận file Excel (.xlsx), tối đa 2 MB. Các loại file khác (PDF, Word, ảnh, .xls, .csv…) sẽ bị từ chối.';
-  if (ext.length && ext.every(e=>e==='.xlsx'||e==='.xlsm') && ext.includes('.xlsm')) return 'Chỉ nhận đúng file mẫu Excel của trường, tối đa 2 MB. Mẫu mới .xlsx không macro; vẫn nhận bản .xlsm cũ.';
+  if (ext.length && ext.every(e=>e==='.xlsx'||e==='.xlsm') && ext.includes('.xlsm')) return 'Chỉ nhận file Excel.';
   if (ext.includes('.xlsx') && ext.includes('.json')) return 'Chỉ nhận file Excel (.xlsx) hoặc JSON (.json). Các loại file khác sẽ bị từ chối.';
   return `Chỉ nhận file ${ext.join(', ') || 'đúng định dạng của mẫu'}.`;
 }

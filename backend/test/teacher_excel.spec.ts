@@ -121,9 +121,12 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     const guide = wb.getWorksheet('Hướng dẫn')!;
     const lines: string[] = [];
     guide.eachRow((row) => lines.push(String(row.getCell(1).value ?? '')));
-    expect(lines.join('\n')).toContain('Nhận đúng tên mẫu .xlsx');
-    expect(lines.join('\n')).toContain('không có cột Bộ môn');
-    expect(lines.join('\n')).toContain('GOT2615031985001');
+    // hướng dẫn ngắn gọn: cách điền, mã, giữ tên file; không nói về công cụ lịch
+    expect(lines.join('\n')).toContain('Giữ nguyên tên file');
+    // ví dụ mã theo đúng trường đang tải (trường thử là "Mẫu Excel" nên viết tắt ME)
+    expect(lines.join('\n')).toMatch(/Ví dụ: ME\d{2}15031985001\./);
+    expect(lines.join('\n')).not.toMatch(/Vertex42|Office Store|tiện ích|Add-ins|Calculation Options|macro/);
+    expect(lines.filter((l) => l && l !== 'Hướng dẫn').length).toBeLessThanOrEqual(6);
     // tải lại lần nữa ở trường khác: tên trường đổi theo trường của người tải
     const other = await open((await download(s.base, '/api/admin/teachers/template', B.token)).buffer);
     expect(String(other.getWorksheet('Giáo viên')!.getCell('A2').value)).toContain('THCS Trường Khác');

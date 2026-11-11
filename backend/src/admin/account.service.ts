@@ -35,7 +35,7 @@ const TEACHER_FORM_COLUMNS: FormColumn[] = [
   { ...TEACHER_COLUMNS[2], kind: 'list', options: ['Nam', 'Nữ'] },
   { ...TEACHER_COLUMNS[3], kind: 'phone' },
   { ...TEACHER_COLUMNS[4], kind: 'text' },
-  { ...TEACHER_COLUMNS[5], kind: 'date', prompt: 'Ngày sinh dd/mm/yyyy, ví dụ 15/03/1985. Cách mở lịch xem ở sheet Hướng dẫn.' },
+  { ...TEACHER_COLUMNS[5], kind: 'date', prompt: 'Ngày sinh dd/mm/yyyy, ví dụ 15/03/1985.' },
 ];
 /**
  * Cột của file nhập học sinh: cùng bảy cột với giáo viên (số thứ tự chỉ để nhìn, không đọc). Học sinh bắt buộc có ngày sinh vì mã học sinh ghép từ ngày sinh.
@@ -58,7 +58,7 @@ const STUDENT_FORM_COLUMNS: FormColumn[] = [
   { ...STUDENT_COLUMNS[2], kind: 'list', options: ['Nam', 'Nữ', 'Khác'] },
   { ...STUDENT_COLUMNS[3], kind: 'phone' },
   { ...STUDENT_COLUMNS[4], kind: 'text' },
-  { ...STUDENT_COLUMNS[5], kind: 'date', prompt: 'Ngày sinh dd/mm/yyyy, ví dụ 02/04/2013. Cách mở lịch xem ở sheet Hướng dẫn.' },
+  { ...STUDENT_COLUMNS[5], kind: 'date', prompt: 'Ngày sinh dd/mm/yyyy, ví dụ 02/04/2013.' },
 ];
 
 export interface AccountFilter {
@@ -485,24 +485,11 @@ export class AccountService {
         explanation: `${initials} = ${school ?? 'viết tắt tên trường'}; ${year} = năm ${vnDayLabel(now).slice(6,10)}; 15 + 03 + 1985 = ngày sinh; 001 = số thứ tự. Mã ví dụ: ${prefix}15031985001.`,
       },
       guide: [
-        'Khối VÍ DỤ CÁCH ĐIỀN ở đầu sheet chỉ minh họa, không tạo tài khoản. Điền giáo viên thật trong bảng bên dưới. Cột có dấu * là bắt buộc.',
-        'File .xlsx không chứa macro. Sau khi điền đủ họ tên, email và ngày sinh rồi nhấn Enter để lưu ô, công thức tự hiện STT/mã. Dòng trống hoặc chưa đủ thông tin vẫn để trống hai cột này.',
-        `Mã giáo viên: ${initials} + ${year} + ngày sinh ddmmyyyy + STT ít nhất 3 chữ số.`,
-        `${initials}: viết tắt của ${school ?? 'tên trường'}. ${year}: hai số cuối năm tải mẫu. Phần ddmmyyyy: ngày, tháng, năm sinh của giáo viên. STT giúp phân biệt người có cùng ngày sinh.`,
-        `Ví dụ ngày sinh 15/03/1985, STT 1: ${prefix}15031985001. Với THCS Giồng Ông Tố trong năm 2026: GOT2615031985001.`,
-        'Mã dùng chung quy tắc với form Thêm/Sửa giáo viên trên web. Sửa ngày sinh sẽ cập nhật phần ngày sinh trong mã, giữ năm nhập và STT đã cấp; tên đăng nhập và lớp không đổi.',
-        `Dãy mã nối tiếp số đã cấp trong trường (mẫu này bắt đầu từ ${String(offset+1).padStart(3,'0')}). Khi nhiều người thêm cùng lúc, số chính thức được chốt lúc lưu; xem mã ở kết quả và danh sách giáo viên.`,
-        'Giới tính: bấm vào ô rồi chọn Nam hoặc Nữ trong danh sách.',
-        'Mở bằng Microsoft Excel trên máy tính có kết nối Internet. Mẫu đính kèm tham chiếu Mini Calendar and Date Picker của Vertex42 từ Office Store, không có VBA. Nếu Excel hỏi Trust this add-in hoặc cho phép tiện ích, kiểm tra tên Vertex42 rồi tự xác nhận nếu đồng ý.',
-        'Chọn ô ngày sinh trong cột G (dòng đầu G12), rồi bấm ngày trên lịch nổi bên phải bảng nhập. Lịch ghi vào ô đang chọn; ô hiển thị dd/mm/yyyy. Nếu chưa thấy lịch: Home → Add-ins → More Add-ins, tìm Mini Calendar and Date Picker của Vertex42. Không cần mở Excel trên web.',
-        'Tiện ích lịch có quyền đọc/sửa workbook và kết nối Internet; nguồn: https://marketplace.microsoft.com/en-us/product/WA102957665. Không thay cài đặt bảo mật Office. Lưu lại .xlsx sau khi nhập và tải đúng tên file lên Đông A.',
-        'Email phải khác nhau và chưa dùng cho tài khoản nào khác. Hệ thống sinh mật khẩu tạm và gửi vào email này; giáo viên đổi mật khẩu ở lần đăng nhập đầu tiên.',
-        'Enter lưu ô theo cài đặt của Excel; file không macro không đổi được phím Enter để tự nhảy về cột Họ tên. Để tự tính mã, dùng Formulas → Calculation Options → Automatic nếu Excel đang tính thủ công. SĐT gồm đúng 10 chữ số, giữ số 0 đầu.',
-        `Giữ đúng tên file ${teacherTemplateFilename(school??'truong')}. File khác tên sẽ không được nhận khi import.`,
-        'Nền tảng dạy Lịch sử nên không có cột Bộ môn (file cũ còn cột này vẫn nhập được, cột bị bỏ qua).',
-        'Nhận đúng tên mẫu .xlsx hoặc bản .xlsm cũ cùng tên (tối đa 2 MB, tối đa 1000 giáo viên mỗi lần). Đừng xóa hay đổi tên dòng tiêu đề của bảng.',
-        'Lưu file .xlsx sau khi nhập. Ngày bắt đầu nhập là ngày tải mẫu, không thay đổi khi mở lại.',
-        'Sau khi chọn file, hệ thống kiểm tra từng dòng và báo lỗi trước khi lưu; lưu xong danh sách giáo viên tự cập nhật.',
+        'Điền mỗi giáo viên một dòng trong bảng ở sheet Giáo viên. Cột có dấu * là bắt buộc; khối VÍ DỤ chỉ để tham khảo.',
+        'STT và mã giáo viên tự hiện khi đã điền đủ họ tên, email và ngày sinh.',
+        `Mã giáo viên = ${initials} + ${year} + ngày sinh ddmmyyyy + STT. Ví dụ: ${prefix}15031985001.`,
+        'Ngày sinh ghi dd/mm/yyyy; SĐT gồm đúng 10 chữ số; email không trùng với tài khoản khác.',
+        `Giữ nguyên tên file ${teacherTemplateFilename(school??'truong')} khi nhập lên hệ thống; tối đa 1000 giáo viên mỗi lần.`,
       ],
     });
   }
@@ -527,20 +514,11 @@ export class AccountService {
       rows:rows?.map((row,i)=>({...row,gender:row.gender?GENDER_LABEL[row.gender]:'',user_code:memberCode(prefix,row.birth_date!,offset+i+1)})),
       example:{values:{stt:1,user_code:`${prefix}02042013001`,full_name:'Trần Thị Mẫu',gender:'Nữ',phone:'0900000000',email:'hoc.sinh@example.invalid',birth_date:'2013-04-02'},explanation:`HS = học sinh; ${initials} = ${school}; ${yy} = năm nhập; 02 + 04 + 2013 = ngày sinh; 001 = số thứ tự. Mã ví dụ: ${prefix}02042013001.`},
       guide:[
-        'Khối VÍ DỤ chỉ minh họa, không tạo tài khoản. Họ tên và ngày sinh là bắt buộc; email học sinh không bắt buộc.',
-        'File .xlsx không chứa macro. Điền họ tên và ngày sinh rồi nhấn Enter để lưu ô, công thức tự hiện STT/mã. Email học sinh không bắt buộc.',
-        `Mã học sinh: HS + ${initials} + năm nhập yy + ngày sinh ddmmyyyy + STT ít nhất 3 chữ số. Dãy số riêng trong trường, không dùng lại số đã cấp.`,
-        'Dòng trống hoặc thiếu họ tên/ngày sinh không hiện STT/mã. Bản .xlsm cũ cùng tên vẫn được nhập; máy chủ không thực thi macro tải lên.',
-        'Mở bằng Microsoft Excel trên máy tính có kết nối Internet. Mẫu đính kèm tham chiếu Mini Calendar and Date Picker của Vertex42 từ Office Store, không có VBA. Nếu Excel hỏi Trust this add-in hoặc cho phép tiện ích, kiểm tra tên Vertex42 rồi tự xác nhận nếu đồng ý.',
-        'Chọn ô ngày sinh trong cột G (dòng đầu G12), rồi bấm ngày trên lịch nổi bên phải bảng nhập. Lịch ghi vào ô đang chọn; ô hiển thị dd/mm/yyyy. Nếu chưa thấy lịch: Home → Add-ins → More Add-ins, tìm Mini Calendar and Date Picker của Vertex42. Không cần mở Excel trên web.',
-        'Tiện ích lịch có quyền đọc/sửa workbook và kết nối Internet; nguồn: https://marketplace.microsoft.com/en-us/product/WA102957665. Không thay cài đặt bảo mật Office. Lưu lại .xlsx sau khi nhập và tải đúng tên file lên Đông A.',
-        'Enter lưu ô theo cài đặt Excel, không tự chuyển về cột Họ tên. Nếu mã chưa tính, kiểm tra Formulas → Calculation Options → Automatic. Lưu file dạng .xlsx sau khi nhập.',
-        'Xem trước không giữ chỗ số. Khi lưu, máy chủ chốt số chống trùng và trả mã chính thức; sửa ngày sinh giữ năm nhập và STT đã cấp.',
-        `Giữ đúng tên file ${spec.filename}. File khác tên không được nhận khi import.`,
-        'Nếu có email, email phải hợp lệ và chưa dùng cho tài khoản khác. Không có email vẫn tạo tài khoản, quản trị trường tải thông tin tài khoản để cấp trực tiếp.',
-        'Giới tính chọn Nam, Nữ hoặc Khác. SĐT gồm đúng 10 chữ số, giữ nguyên số 0 đầu. Ngày sinh dạng dd/mm/yyyy hoặc ô ngày của Excel.',
-        'Lớp và Email phụ huynh vẫn được nhận từ cột của file cũ; xếp lớp qua trang Lớp học và sửa hồ sơ khi cần.',
-        'Tối đa 2 MB và 1000 học sinh mỗi lần. Kiểm tra từng dòng trước khi xác nhận lưu.',
+        'Điền mỗi học sinh một dòng trong bảng ở sheet Học sinh. Họ tên và ngày sinh là bắt buộc; khối VÍ DỤ chỉ để tham khảo.',
+        'STT và mã học sinh tự hiện khi đã điền đủ họ tên và ngày sinh.',
+        `Mã học sinh = HS + ${initials} + ${yy} + ngày sinh ddmmyyyy + STT. Ví dụ: ${prefix}02042013001.`,
+        'Ngày sinh ghi dd/mm/yyyy; SĐT gồm đúng 10 chữ số; email không bắt buộc, nếu có thì không trùng với tài khoản khác.',
+        `Giữ nguyên tên file ${spec.filename} khi nhập lên hệ thống; tối đa 1000 học sinh mỗi lần.`,
       ],
     });
   }

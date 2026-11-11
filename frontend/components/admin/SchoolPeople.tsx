@@ -6,10 +6,10 @@ import React, { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { FileUp, Plus } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
-import { AccountSheet, dateText, GENDER_TEXT } from '@/components/admin/AccountSheet';
+import { AccountSheet, GENDER_TEXT } from '@/components/admin/AccountSheet';
 import { RegistrationCode } from './RegistrationCode';
 import { TeacherImportSheet } from './TeacherImportSheet';
-import { Cell, CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useDebounced, useLoad, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
+import { CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, Page, PageHeader, Pager, SearchFilterBar, StatusDot, useDebounced, useLoad, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -17,15 +17,32 @@ import { codeFontSize } from '@/lib/code-font';
 import { todayVn } from '@/lib/school-terms';
 import type { CreatedAccount, YearItem } from '@/types/api';
 
-/**
- * Mã giáo viên (GOT2609102000002) và mã học sinh (HSGOT2612122008001) luôn trên một dòng trong cột chia đều: cỡ chữ tự co theo độ rộng của ô
- * (lib/code-font.ts), thay vì bắt cột mã rộng hơn các cột khác.
- */
+/** Chữ số rộng bằng nhau để số thứ tự, mã, số điện thoại và ngày sinh thẳng cột */
+const NUM = { fontVariant: ['tabular-nums' as const] };
+
+/** Mã giáo viên (GOT2609102000002) / mã học sinh (HSGOT2612122008001) luôn trên một dòng: cỡ chữ tự co theo độ rộng ô (lib/code-font.ts) */
 const CodeText: React.FC<{ value: string }> = ({ value }) => {
   const [width, setWidth] = useState(0);
   return (
     <View style={{ minWidth: 0 }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
-      <Txt f="semibold" size={codeFontSize(width, value.length)} numberOfLines={1}>{value}</Txt>
+      <Txt f="semibold" size={codeFontSize(width, value.length)} numberOfLines={1} style={NUM}>{value}</Txt>
+    </View>
+  );
+};
+
+/** Một dòng chữ trong ô, dài thì hiện dấu …: mọi hàng cao bằng nhau */
+const Line: React.FC<{ text: string; muted?: boolean; num?: boolean }> = ({ text, muted, num }) => {
+  const { c } = useTheme();
+  return <Txt size={13} numberOfLines={1} color={muted ? c.muc3 : undefined} style={num ? NUM : undefined}>{text}</Txt>;
+};
+
+/** Họ tên (đậm) và tên đăng nhập (nhạt), mỗi thứ một dòng */
+const NameCell: React.FC<{ name: string; username: string }> = ({ name, username }) => {
+  const { c } = useTheme();
+  return (
+    <View style={{ minWidth: 0 }}>
+      <Txt f="semibold" size={14} numberOfLines={1}>{name}</Txt>
+      <Txt size={12} color={c.muc3} numberOfLines={1}>{username}</Txt>
     </View>
   );
 };
@@ -34,7 +51,6 @@ const CodeText: React.FC<{ value: string }> = ({ value }) => {
 const fmtBirth = (iso: string | null | undefined): string => (iso && /^\d{4}-\d{2}-\d{2}/.test(iso) ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '—');
 
 export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'students'; years: YearItem[] }> = ({ session, kind, years }) => {
-  const { c } = useTheme();
   const { token } = session;
   const teacher = kind === 'teachers';
   const [q, setQ] = useState('');
@@ -90,31 +106,30 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
       {loading && !data ? <Spinner label="Đang tải danh sách…" /> : null}
       {data ? (
         <>
-          <DataTable paginate={false} equal rows={data.items} rowKey={(u) => u.id} empty={teacher ? 'Chưa có giáo viên nào khớp bộ lọc.' : 'Chưa có học sinh nào khớp bộ lọc.'} onRowPress={(u) => setOpen(u.id)}
+          <DataTable paginate={false} rows={data.items} rowKey={(u) => u.id} empty={teacher ? 'Chưa có giáo viên nào khớp bộ lọc.' : 'Chưa có học sinh nào khớp bộ lọc.'} onRowPress={(u) => setOpen(u.id)}
             columns={teacher ? [
-              // bảng chia đều (DataTable equal): mọi cột rộng bằng nhau, không cần đặt flex hay độ rộng từng cột
-              // cùng các cột với file Excel (mẫu nhập và danh sách xuất): Số thứ tự, Mã giáo viên, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh; thêm Lớp phụ trách và Trạng thái
-              { key: 'stt', label: 'Số thứ tự', render: (u) => <Txt size={13} color={c.muc2}>{(page - 1) * size + data.items.indexOf(u) + 1}</Txt> },
-              { key: 'code', label: 'Mã giáo viên', render: (u) => <CodeText value={u.user_code || '—'} /> },
-              { key: 'name', label: 'Họ và tên', render: (u) => <Cell main={u.full_name} sub={u.username} /> },
-              { key: 'gender', label: 'Giới tính', render: (u) => <Txt size={13}>{u.gender ? GENDER_TEXT[u.gender] : '—'}</Txt> },
-              { key: 'phone', label: 'SĐT', render: (u) => <Txt size={13}>{u.phone || '—'}</Txt> },
-              { key: 'email', label: 'Email', render: (u) => <Txt size={13} numberOfLines={3}>{u.email || 'Chưa có email'}</Txt> },
-              { key: 'birth', label: 'Ngày tháng năm sinh', render: (u) => <Txt size={13}>{fmtBirth(u.birth_date)}</Txt> },
-              { key: 'classes', label: 'Lớp phụ trách', render: (u) => <Txt size={13}>{u.classes.map((k) => k.name).join(', ') || '—'}</Txt> },
-              { key: 'status', filter: f_active, label: 'Trạng thái', render: (u) => <StatusChip kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
+              // cùng các cột với file Excel (mẫu nhập và danh sách xuất): Số thứ tự, Mã giáo viên, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh; thêm Lớp phụ trách và Trạng thái.
+              // Mỗi cột có độ rộng ưu tiên (bảy cột đầu giống hệt bảng học sinh); bảng hẹp thì mọi cột cùng co, không có thanh cuộn ngang; mỗi ô một dòng nên mọi hàng thẳng và cao bằng nhau.
+              { key: 'stt', label: 'Số thứ tự', width: 58, minWidth: 58, render: (u) => <Line text={String((page - 1) * size + data.items.indexOf(u) + 1)} muted num /> },
+              { key: 'code', label: 'Mã giáo viên', width: 120, minWidth: 116, render: (u) => <CodeText value={u.user_code || '—'} /> },
+              { key: 'name', label: 'Họ và tên', width: 140, grow: 2, render: (u) => <NameCell name={u.full_name} username={u.username} /> },
+              { key: 'gender', label: 'Giới tính', width: 56, minWidth: 56, render: (u) => <Line text={u.gender ? GENDER_TEXT[u.gender] : '—'} /> },
+              { key: 'phone', label: 'SĐT', width: 92, minWidth: 84, render: (u) => <Line text={u.phone || '—'} num /> },
+              { key: 'email', label: 'Email', width: 140, grow: 2, render: (u) => <Line text={u.email || 'Chưa có email'} muted={!u.email} /> },
+              { key: 'birth', label: 'Ngày tháng năm sinh', width: 90, minWidth: 76, render: (u) => <Line text={fmtBirth(u.birth_date)} num /> },
+              { key: 'classes', label: 'Lớp phụ trách', width: 120, grow: 1, render: (u) => <Line text={u.classes.map((k) => k.name).join(', ') || '—'} muted={!u.classes.length} /> },
+              { key: 'status', filter: f_active, label: 'Trạng thái', width: 112, minWidth: 104, render: (u) => <StatusDot kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
             ] : [
-              { key: 'stt', label: 'Số thứ tự', render: (u) => <Txt size={13} color={c.muc2}>{(page - 1) * size + data.items.indexOf(u) + 1}</Txt> },
-              { key: 'code', label: 'Mã học sinh', render: (u) => <CodeText value={u.user_code || '—'} /> },
-              { key: 'name', label: 'Họ và tên', render: (u) => <Cell main={u.full_name} sub={u.username} /> },
-              { key: 'gender', label: 'Giới tính', render: (u) => <Txt size={13}>{u.gender ? GENDER_TEXT[u.gender] : '—'}</Txt> },
-              { key: 'phone', label: 'SĐT', render: (u) => <Txt size={13}>{u.phone || '—'}</Txt> },
-              { key: 'email', label: 'Email', render: (u) => <Txt size={13} numberOfLines={3}>{u.email || '—'}</Txt> },
-              { key: 'birth', label: 'Ngày tháng năm sinh', render: (u) => <Txt size={13}>{fmtBirth(u.birth_date)}</Txt> },
-              { key: 'grade', filter: f_grade, label: 'Khối', render: (u) => <Txt size={13}>{[...new Set(u.classes.map((k) => k.grade).filter(Boolean))].map((g) => `Khối ${g}`).join(', ') || '—'}</Txt> },
-              { key: 'classes', filter: f_class, label: 'Lớp', render: (u) => <Txt size={13}>{u.classes.map((k) => `${k.name} (${k.school_year})`).join(', ') || 'Chưa xếp lớp'}</Txt> },
-              { key: 'last', label: 'Đăng nhập cuối', render: (u) => <Txt size={13} color={c.muc2}>{dateText(u.last_login_at)}</Txt> },
-              { key: 'status', filter: f_active, label: 'Trạng thái', render: (u) => <StatusChip kind={u.is_active ? (u.must_change_password ? 'warn' : 'on') : 'off'} text={u.is_active ? (u.must_change_password ? 'Chưa đổi mật khẩu' : 'Hoạt động') : 'Đã khóa'} /> },
+              { key: 'stt', label: 'Số thứ tự', width: 58, minWidth: 58, render: (u) => <Line text={String((page - 1) * size + data.items.indexOf(u) + 1)} muted num /> },
+              { key: 'code', label: 'Mã học sinh', width: 120, minWidth: 116, render: (u) => <CodeText value={u.user_code || '—'} /> },
+              { key: 'name', label: 'Họ và tên', width: 140, grow: 2, render: (u) => <NameCell name={u.full_name} username={u.username} /> },
+              { key: 'gender', label: 'Giới tính', width: 56, minWidth: 56, render: (u) => <Line text={u.gender ? GENDER_TEXT[u.gender] : '—'} /> },
+              { key: 'phone', label: 'SĐT', width: 92, minWidth: 84, render: (u) => <Line text={u.phone || '—'} num /> },
+              { key: 'email', label: 'Email', width: 140, grow: 2, render: (u) => <Line text={u.email || '—'} muted={!u.email} /> },
+              { key: 'birth', label: 'Ngày tháng năm sinh', width: 90, minWidth: 76, render: (u) => <Line text={fmtBirth(u.birth_date)} num /> },
+              { key: 'grade', filter: f_grade, label: 'Khối', width: 60, minWidth: 60, render: (u) => <Line text={[...new Set(u.classes.map((k) => k.grade).filter(Boolean))].map((g) => `Khối ${g}`).join(', ') || '—'} /> },
+              { key: 'classes', filter: f_class, label: 'Lớp', width: 116, minWidth: 116, grow: 1, render: (u) => <Line text={u.classes.map((k) => `${k.name} (${k.school_year})`).join(', ') || 'Chưa xếp lớp'} muted={!u.classes.length} /> },
+              { key: 'status', filter: f_active, label: 'Trạng thái', width: 140, minWidth: 140, render: (u) => <StatusDot kind={u.is_active ? (u.must_change_password ? 'warn' : 'on') : 'off'} text={u.is_active ? (u.must_change_password ? 'Chưa đổi mật khẩu' : 'Hoạt động') : 'Đã khóa'} /> },
             ]} />
           <Pager page={page} limit={size} total={data.total} onPage={setPage} />
         </>
