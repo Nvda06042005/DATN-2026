@@ -1,11 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, cpSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { capture, deploymentReady, eligible, git, publish, projectRoot } from './auto-sync.mjs';
-import { calendarPackage } from './calendar-package.mjs';
 
 function fixture(t) {
   const temp = mkdtempSync(join(tmpdir(), 'dong-a-auto-sync-test-'));
@@ -117,7 +116,7 @@ test('a concurrent main update stops the release without overwriting it', async 
   assert.equal(git(f.root, ['rev-parse', 'HEAD']), s.head);
 });
 
-test('build writes the public identity and packages the calendar assets copied by Expo', (t) => {
+test('build writes the public identity', (t) => {
   const temp = mkdtempSync(join(tmpdir(), 'dong-a-auto-sync-test-'));
   t.after(() => {
     assert.equal(resolve(dirname(temp)), resolve(tmpdir()));
@@ -125,14 +124,11 @@ test('build writes the public identity and packages the calendar assets copied b
     rmSync(temp, { recursive: true, force: true });
   });
   mkdirSync(join(temp, 'dist'));
-  const calendarRoot = join(temp, 'dist/office-calendar');
-  cpSync(join(projectRoot, 'frontend/public/office-calendar'), calendarRoot, { recursive: true });
   const commit = 'a'.repeat(40);
   execFileSync(process.execPath, [join(projectRoot, 'scripts/write-build-info.mjs')], { cwd: temp, env: { ...process.env, VERCEL_GIT_COMMIT_SHA: commit }, windowsHide: true });
   const result = JSON.parse(readFileSync(join(temp, 'dist/build-info.json'), 'utf8'));
   assert.equal(result.commit, commit);
   assert.deepEqual(Object.keys(result).sort(), ['builtAt','commit']);
-  assert.deepEqual(readFileSync(join(calendarRoot, 'dong-a-calendar.zip')), calendarPackage(calendarRoot));
 });
 
 test('HTTP 200 from an older deployment is not counted as synchronized', async (t) => {

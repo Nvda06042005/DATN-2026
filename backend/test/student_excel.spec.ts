@@ -25,7 +25,7 @@ const SCHOOL='THCS Giồng Ông Tố',SHORT_SCHOOL='THCS A';
   expect((sheet.getRow(11).values as unknown[]).slice(1)).toEqual(['Số thứ tự','Mã học sinh','Họ và tên *','Giới tính','SĐT','Email','Ngày tháng năm sinh *']);
   expect(sheet.getCell('A12').text).toBe('');expect(sheet.getCell('B12').text).toBe('');expect(sheet.getCell('A1011').text).toBe('');
   expect(sheet.getCell('A12').formula).toContain('COUNTIFS(');expect(sheet.getCell('B12').formula).toContain('HSGOT26');const zip=await(await import('jszip')).default.loadAsync(res.buffer);expect(Object.keys(zip.files).some(name=>/vba|activeX/i.test(name))).toBe(false);expect(await zip.file('[Content_Types].xml')!.async('string')).not.toContain('macroEnabled');
-  expect(await zip.file('xl/webextensions/dongaCalendar.xml')!.async('string')).toContain('bc75b058-92b8-4dd1-84fb-8792db3f7e72');
+  expect(await zip.file('xl/webextensions/dongaCalendar.xml')!.async('string')).toContain('wa102957665');
   expect(sheet.getCell('D12').dataValidation.formulae).toEqual(['"Nam,Nữ,Khác"']);expect(sheet.getCell('G12').numFmt).toBe('dd/mm/yyyy');
   const raw=await fetch(s.base+'/api/admin/students/template',{headers:{Authorization:'Bearer '+A.token}});expect(raw.headers.get('content-disposition')).toContain(spec.body.filename);
  });

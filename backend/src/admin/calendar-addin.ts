@@ -2,12 +2,13 @@ import { randomUUID } from 'crypto';
 import { posix } from 'path';
 import JSZip from 'jszip';
 
-/** First-party content add-in approved on 10/11/2026. Installation is explicit,
- * once per Windows user. Workbook references follow Microsoft's Content Add-in
- * sideload template; no VBA, trust flags, tokens, or executable code in .xlsx.
- * See docs/LICH_EXCEL.md and the install package under frontend/public.
+/** Official Office Store content add-in, approved by the project owner on 10/11/2026.
+ * Only a store reference is embedded. No VBA, ActiveX, sideloaded script, trust flag,
+ * cached credentials, or publisher code is copied into the workbook.
+ * Excel retains its normal first-use add-in consent and network requirements.
+ * Format: MS-OWEXML, sections 2.1.3 / 2.2.7; see docs/LICH_EXCEL.md.
  */
-export const CALENDAR_ADDIN_ID = 'bc75b058-92b8-4dd1-84fb-8792db3f7e72';
+export const CALENDAR_STORE_ID = 'wa102957665';
 const WE = 'http://schemas.microsoft.com/office/webextensions/webextension/2010/11';
 const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 const PKG = 'http://schemas.openxmlformats.org/package/2006/relationships';
@@ -47,17 +48,17 @@ export async function withCalendarAddin(buffer: Buffer): Promise<Buffer> {
   const objectId = Math.max(0, ...[...drawing.matchAll(/<xdr:cNvPr\b[^>]*\bid="(\d+)"/g)].map(m => Number(m[1]))) + 1;
   // H1: next to the seven input columns, inside the frozen header area. It does
   // not cover birthday cells, alter the import headers, or move with selection.
-  const anchor = `<xdr:oneCellAnchor><xdr:from><xdr:col>7</xdr:col><xdr:colOff>76200</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>76200</xdr:rowOff></xdr:from><xdr:ext cx="3429000" cy="5524500"/><mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice xmlns:we="${WE}" Requires="we"><xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="${objectId}" name="Lịch Đông A"/><xdr:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></xdr:cNvGraphicFramePr></xdr:nvGraphicFramePr><xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm><a:graphic><a:graphicData uri="${WE}"><we:webextensionref xmlns:r="${REL}" r:id="${RID}"/></a:graphicData></a:graphic></xdr:graphicFrame></mc:Choice><mc:Fallback/></mc:AlternateContent><xdr:clientData/></xdr:oneCellAnchor>`;
+  const anchor = `<xdr:oneCellAnchor><xdr:from><xdr:col>7</xdr:col><xdr:colOff>76200</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>76200</xdr:rowOff></xdr:from><xdr:ext cx="3048000" cy="2381250"/><mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice xmlns:we="${WE}" Requires="we"><xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="${objectId}" name="Mini Calendar and Date Picker"/><xdr:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></xdr:cNvGraphicFramePr></xdr:nvGraphicFramePr><xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm><a:graphic><a:graphicData uri="${WE}"><we:webextensionref xmlns:r="${REL}" r:id="${RID}"/></a:graphicData></a:graphic></xdr:graphicFrame></mc:Choice><mc:Fallback/></mc:AlternateContent><xdr:clientData/></xdr:oneCellAnchor>`;
   // Readers without content-add-in support must still see a valid drawing.
   // A plain explanatory label is the fallback, never a fake calendar image.
-  const fallback = `<mc:Fallback><xdr:sp><xdr:nvSpPr><xdr:cNvPr id="${objectId}" name="Lịch Đông A"/><xdr:cNvSpPr/></xdr:nvSpPr><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="FAF5E8"/></a:solidFill></xdr:spPr><xdr:txBody><a:bodyPr wrap="square"/><a:lstStyle/><a:p><a:r><a:rPr lang="vi-VN" sz="1200"/><a:t>Mở bằng Microsoft Excel. Cài tiện ích Lịch Đông A một lần từ mục Nhập từ Excel trên website, rồi mở lại mẫu mới.</a:t></a:r></a:p></xdr:txBody></xdr:sp></mc:Fallback>`;
+  const fallback = `<mc:Fallback><xdr:sp><xdr:nvSpPr><xdr:cNvPr id="${objectId}" name="Lịch Vertex42"/><xdr:cNvSpPr/></xdr:nvSpPr><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="FAF5E8"/></a:solidFill></xdr:spPr><xdr:txBody><a:bodyPr wrap="square"/><a:lstStyle/><a:p><a:r><a:rPr lang="vi-VN" sz="1200"/><a:t>Lịch Vertex42: mở bằng Microsoft Excel và cho phép tiện ích nếu được hỏi. Chọn ô ngày sinh cột G trước khi chọn ngày.</a:t></a:r></a:p></xdr:txBody></xdr:sp></mc:Fallback>`;
   drawing = drawing.replace('</xdr:wsDr>', anchor.replace('<mc:Fallback/>', fallback) + '</xdr:wsDr>');
   zip.file(drawingPath, drawing);
   const drawingRelsPath = posix.join(posix.dirname(drawingPath), '_rels', posix.basename(drawingPath) + '.rels');
   let drawingRels = zip.file(drawingRelsPath) ? await read(drawingRelsPath) : emptyRelationships;
   drawingRels = drawingRels.replace('</Relationships>', `<Relationship Id="${RID}" Type="http://schemas.microsoft.com/office/2011/relationships/webextension" Target="../webextensions/dongaCalendar.xml"/></Relationships>`);
   zip.file(drawingRelsPath, drawingRels);
-  zip.file(PART, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><we:webextension xmlns:we="${WE}" id="{${randomUUID().toUpperCase()}}"><we:reference id="${CALENDAR_ADDIN_ID}" version="1.0.0.0" store="developer" storeType="Registry"/><we:alternateReferences/><we:properties/><we:bindings/></we:webextension>`);
+  zip.file(PART, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><we:webextension xmlns:we="${WE}" id="{${randomUUID().toUpperCase()}}"><we:reference id="${CALENDAR_STORE_ID}" version="1.0" store="en-US" storeType="OMEX"/><we:alternateReferences/><we:properties><we:property name="opt_cal_sys" value="1"/><we:property name="opt_size" value="1"/><we:property name="opt_theme" value="1"/><we:property name="opt_wn" value="false"/></we:properties><we:bindings/></we:webextension>`);
   let types = await read('[Content_Types].xml');
   if (!types.includes(`PartName="/${drawingPath}"`)) types = types.replace('</Types>', `<Override PartName="/${drawingPath}" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>`);
   types = types.replace('</Types>', `<Override PartName="/${PART}" ContentType="application/vnd.ms-office.webextension+xml"/></Types>`);

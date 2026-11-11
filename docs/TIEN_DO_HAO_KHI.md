@@ -1,6 +1,10 @@
 # Tiến độ xây dựng Hào Khí Đông A (theo mã HK.*)
 
-## Lịch Đông A cho Excel – 10/11/2026
+## Cập nhật lịch Excel – 11/11/2026
+
+Theo yêu cầu mới nhất, bỏ gói cài Lịch Đông A và quay về tham chiếu Office Store của **Mini Calendar and Date Picker (Vertex42)** trong mẫu .xlsx giáo viên và học sinh. Giữ các sửa đổi AI, xác thực và bộ đếm mã đã có. Không có migration mới. Phần ghi chép ngày 10/11 bên dưới là lịch sử, đã được thay thế; xem [hướng dẫn hiện hành](LICH_EXCEL.md).
+
+## Lịch Đông A cho Excel – 10/11/2026 (đã thay thế)
 
 - Bổ sung 11/11: sửa fixture hồi quy build identity để chép tài nguyên lịch như bước Expo build trước khi đóng ZIP; không bỏ qua lỗi thiếu manifest. CI frontend đã đạt ở a837687, backend 546/551 với đúng 5 lỗi AI/analytics có sẵn; lịch chưa được phát hành từ nhánh main tại thời điểm ghi chú này.
 - Theo lựa chọn mới nhất, thay Vertex42 bằng Content Add-in Đông A trong mẫu giáo viên/học sinh không macro. Bấm tháng/năm mở danh sách; chọn ngày ghi đúng G cùng dòng, tính lại STT/mã, chuyển C dòng tiếp khi đủ dữ liệu. Email học sinh vẫn tùy chọn. Khi lịch mở, sửa riêng G rồi Enter cũng xử lý qua onChanged, không bắt phím toàn Excel.
