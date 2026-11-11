@@ -238,6 +238,8 @@ export interface Column<T> {
   label: string;
   /** Độ rộng tương đối trên bảng */
   flex?: number;
+  /** Độ rộng tối thiểu (px): cột không hẹp hơn mức này dù bảng bị co (mã giáo viên, mã học sinh không được rớt dòng); phần còn lại chia theo `flex` */
+  minWidth?: number;
   render: (row: T) => React.ReactNode;
   /** Ẩn cột trên danh sách thẻ (điện thoại) */
   hideOnCard?: boolean;
@@ -361,7 +363,7 @@ export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions
     <View style={{ borderWidth: 1, borderColor: c.adminLine, borderRadius: 5, backgroundColor: c.the, overflow: 'hidden' }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: filterable ? 8 : 10, backgroundColor: c.adminCanvas, borderBottomWidth: 1, borderBottomColor: c.adminLine, gap: 12 }}>
         {columns.map((col) => (
-          <View key={col.key} style={{ flex: col.flex ?? 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View key={col.key} style={{ flex: col.flex ?? 1, minWidth: col.minWidth ?? 0, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Txt f="bold" size={12} color={col.filter?.value ? c.logoRed : c.muc2} style={{ flexShrink: 1 }}>{col.label}</Txt>
             {col.filter ? <ColumnFilter filter={col.filter} /> : null}
           </View>
@@ -372,7 +374,7 @@ export function DataTable<T>({ columns, rows, rowKey, onRowPress, empty, actions
       {shown.map((row, i) => (
         <Pressable key={rowKey(row)} accessibilityRole={onRowPress ? 'button' : undefined} disabled={!onRowPress} onPress={() => onRowPress?.(row)}
           style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, minHeight: 52, paddingVertical: 8, gap: 12, borderTopWidth: i ? 1 : 0, borderTopColor: c.adminLine, backgroundColor: pressed ? c.adminCanvas : c.the })}>
-          {columns.map((col) => <View key={col.key} style={{ flex: col.flex ?? 1, minWidth: 0 }}>{col.render(row)}</View>)}
+          {columns.map((col) => <View key={col.key} style={{ flex: col.flex ?? 1, minWidth: col.minWidth ?? 0 }}>{col.render(row)}</View>)}
           {actions ? <View style={{ width: actionsWidth, flexDirection: 'row', gap: 6, justifyContent: 'flex-end' }}>{actions(row)}</View> : null}
         </Pressable>
       ))}
@@ -395,7 +397,8 @@ export const Cell: React.FC<{ main: string; sub?: string | null }> = ({ main, su
 export const StatusChip: React.FC<{ kind: 'on' | 'off' | 'warn' | 'info' | 'muted'; text: string }> = ({ kind, text }) => {
   const { c } = useTheme();
   const map = { on: [c.mocNhat, c.mocChu], off: [c.sonNhat, c.sonChu], warn: [c.vangNhat, c.vangChu], info: [c.thuyNhat, c.thuyChu], muted: [c.dichNhat, c.dich] } as const;
-  return <Chip text={text} bg={map[kind][0]} fg={map[kind][1]} style={{ alignSelf: 'flex-start' }} />;
+  // nhãn dài ("Chưa đổi mật khẩu") trong ô bảng hẹp xuống dòng trong khung của ô thay vì bị cắt ở mép bảng
+  return <Chip text={text} bg={map[kind][0]} fg={map[kind][1]} wrap style={{ alignSelf: 'flex-start', maxWidth: '100%' }} />;
 };
 
 // ---------------------------------------------------------------------- biểu mẫu từ mô tả

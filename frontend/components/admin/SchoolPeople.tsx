@@ -15,6 +15,12 @@ import { useTheme } from '@/hooks/use-theme';
 import { todayVn } from '@/lib/school-terms';
 import type { CreatedAccount, YearItem } from '@/types/api';
 
+/**
+ * Mã giáo viên (GOT2609102000002) và mã học sinh (HSGOT2612122008001, đến 20 ký tự khi tên trường viết tắt dài) luôn nằm trên một dòng:
+ * cột mã không hẹp hơn mức này, các cột khác co lại thay vì làm mã rớt dòng.
+ */
+export const CODE_MIN_WIDTH = 168;
+
 /** Ngày YYYY-MM-DD hiển thị dd/mm/yyyy như trong file Excel */
 const fmtBirth = (iso: string | null | undefined): string => (iso && /^\d{4}-\d{2}-\d{2}/.test(iso) ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '—');
 
@@ -77,28 +83,29 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
         <>
           <DataTable paginate={false} rows={data.items} rowKey={(u) => u.id} empty={teacher ? 'Chưa có giáo viên nào khớp bộ lọc.' : 'Chưa có học sinh nào khớp bộ lọc.'} onRowPress={(u) => setOpen(u.id)}
             columns={teacher ? [
+              // hai bảng dùng cùng tỉ lệ và độ rộng tối thiểu cho bảy cột đầu, tổng tỉ lệ cả hai bằng 13,8 nên các cột thẳng hàng khi chuyển qua lại
               // cùng các cột với file Excel (mẫu nhập và danh sách xuất): Số thứ tự, Mã giáo viên, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh; thêm Lớp phụ trách và Trạng thái
-              { key: 'stt', label: 'Số thứ tự', flex: 0.7, render: (u) => <Txt size={13} color={c.muc2}>{(page - 1) * size + data.items.indexOf(u) + 1}</Txt> },
-              { key: 'code', label: 'Mã giáo viên', flex: 1, render: (u) => <Txt f="semibold" size={13}>{u.user_code || '—'}</Txt> },
+              { key: 'stt', label: 'Số thứ tự', flex: 0.8, minWidth: 62, render: (u) => <Txt size={13} color={c.muc2}>{(page - 1) * size + data.items.indexOf(u) + 1}</Txt> },
+              { key: 'code', label: 'Mã giáo viên', flex: 1.9, minWidth: CODE_MIN_WIDTH, render: (u) => <Txt f="semibold" size={13} numberOfLines={1}>{u.user_code || '—'}</Txt> },
               { key: 'name', label: 'Họ và tên', flex: 1.8, render: (u) => <Cell main={u.full_name} sub={u.username} /> },
-              { key: 'gender', label: 'Giới tính', flex: 0.8, render: (u) => <Txt size={13}>{u.gender ? GENDER_TEXT[u.gender] : '—'}</Txt> },
-              { key: 'phone', label: 'SĐT', flex: 1.1, render: (u) => <Txt size={13}>{u.phone || '—'}</Txt> },
+              { key: 'gender', label: 'Giới tính', flex: 0.8, minWidth: 58, render: (u) => <Txt size={13}>{u.gender ? GENDER_TEXT[u.gender] : '—'}</Txt> },
+              { key: 'phone', label: 'SĐT', flex: 1.1, minWidth: 88, render: (u) => <Txt size={13}>{u.phone || '—'}</Txt> },
               { key: 'email', label: 'Email', flex: 2, render: (u) => <Txt size={13} numberOfLines={2}>{u.email || 'Chưa có email'}</Txt> },
-              { key: 'birth', label: 'Ngày tháng năm sinh', flex: 1.2, render: (u) => <Txt size={13}>{fmtBirth(u.birth_date)}</Txt> },
-              { key: 'classes', label: 'Lớp phụ trách', flex: 1, render: (u) => <Txt size={13}>{u.classes.map((k) => k.name).join(', ') || '—'}</Txt> },
-              { key: 'status', filter: f_active, label: 'Trạng thái', flex: 1.1, render: (u) => <StatusChip kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
+              { key: 'birth', label: 'Ngày tháng năm sinh', flex: 1.2, minWidth: 82, render: (u) => <Txt size={13}>{fmtBirth(u.birth_date)}</Txt> },
+              { key: 'classes', label: 'Lớp phụ trách', flex: 2.2, render: (u) => <Txt size={13}>{u.classes.map((k) => k.name).join(', ') || '—'}</Txt> },
+              { key: 'status', filter: f_active, label: 'Trạng thái', flex: 2, render: (u) => <StatusChip kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
             ] : [
-              { key: 'stt', label: 'Số thứ tự', flex: 0.7, render: (u) => <Txt size={13} color={c.muc2}>{(page - 1) * size + data.items.indexOf(u) + 1}</Txt> },
-              { key: 'code', label: 'Mã học sinh', flex: 1.9, render: (u) => <Txt f="semibold" size={13}>{u.user_code || '—'}</Txt> },
+              { key: 'stt', label: 'Số thứ tự', flex: 0.8, minWidth: 62, render: (u) => <Txt size={13} color={c.muc2}>{(page - 1) * size + data.items.indexOf(u) + 1}</Txt> },
+              { key: 'code', label: 'Mã học sinh', flex: 1.9, minWidth: CODE_MIN_WIDTH, render: (u) => <Txt f="semibold" size={13} numberOfLines={1}>{u.user_code || '—'}</Txt> },
               { key: 'name', label: 'Họ và tên', flex: 1.8, render: (u) => <Cell main={u.full_name} sub={u.username} /> },
-              { key: 'gender', label: 'Giới tính', flex: 0.8, render: (u) => <Txt size={13}>{u.gender ? GENDER_TEXT[u.gender] : '—'}</Txt> },
-              { key: 'phone', label: 'SĐT', flex: 1.1, render: (u) => <Txt size={13}>{u.phone || '—'}</Txt> },
+              { key: 'gender', label: 'Giới tính', flex: 0.8, minWidth: 58, render: (u) => <Txt size={13}>{u.gender ? GENDER_TEXT[u.gender] : '—'}</Txt> },
+              { key: 'phone', label: 'SĐT', flex: 1.1, minWidth: 88, render: (u) => <Txt size={13}>{u.phone || '—'}</Txt> },
               { key: 'email', label: 'Email', flex: 2, render: (u) => <Txt size={13} numberOfLines={2}>{u.email || '—'}</Txt> },
-              { key: 'birth', label: 'Ngày tháng năm sinh', flex: 1.2, render: (u) => <Txt size={13}>{fmtBirth(u.birth_date)}</Txt> },
+              { key: 'birth', label: 'Ngày tháng năm sinh', flex: 1.2, minWidth: 82, render: (u) => <Txt size={13}>{fmtBirth(u.birth_date)}</Txt> },
               { key: 'grade', filter: f_grade, label: 'Khối', flex: 0.7, render: (u) => <Txt size={13}>{[...new Set(u.classes.map((k) => k.grade).filter(Boolean))].map((g) => `Khối ${g}`).join(', ') || '—'}</Txt> },
-              { key: 'classes', filter: f_class, label: 'Lớp', flex: 1.5, render: (u) => <Txt size={13}>{u.classes.map((k) => `${k.name} (${k.school_year})`).join(', ') || 'Chưa xếp lớp'}</Txt> },
-              { key: 'last', label: 'Đăng nhập cuối', render: (u) => <Txt size={13} color={c.muc2}>{dateText(u.last_login_at)}</Txt> },
-              { key: 'status', filter: f_active, label: 'Trạng thái', render: (u) => <StatusChip kind={u.is_active ? (u.must_change_password ? 'warn' : 'on') : 'off'} text={u.is_active ? (u.must_change_password ? 'Chưa đổi mật khẩu' : 'Hoạt động') : 'Đã khóa'} /> },
+              { key: 'classes', filter: f_class, label: 'Lớp', flex: 1.2, render: (u) => <Txt size={13}>{u.classes.map((k) => `${k.name} (${k.school_year})`).join(', ') || 'Chưa xếp lớp'}</Txt> },
+              { key: 'last', label: 'Đăng nhập cuối', flex: 1, render: (u) => <Txt size={13} color={c.muc2}>{dateText(u.last_login_at)}</Txt> },
+              { key: 'status', filter: f_active, label: 'Trạng thái', flex: 1.3, minWidth: 88, render: (u) => <StatusChip kind={u.is_active ? (u.must_change_password ? 'warn' : 'on') : 'off'} text={u.is_active ? (u.must_change_password ? 'Chưa đổi mật khẩu' : 'Hoạt động') : 'Đã khóa'} /> },
             ]} />
           <Pager page={page} limit={size} total={data.total} onPage={setPage} />
         </>

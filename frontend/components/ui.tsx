@@ -181,10 +181,11 @@ export const PressCard: React.FC<{
 };
 
 /** Nhãn nhỏ dạng viên thuốc */
-export const Chip: React.FC<{ text: string; bg: string; fg: string; icon?: IconType; style?: StyleProp<ViewStyle> }> = ({ text, bg, fg, icon: Icon, style }) => (
+/** `wrap`: chữ được xuống dòng trong khung chứa (ô bảng hẹp) thay vì một dòng và tràn ra ngoài */
+export const Chip: React.FC<{ text: string; bg: string; fg: string; icon?: IconType; style?: StyleProp<ViewStyle>; wrap?: boolean }> = ({ text, bg, fg, icon: Icon, style, wrap = false }) => (
   <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999, backgroundColor: bg, alignSelf: 'flex-start' }, style]}>
     {Icon && <Icon size={13} color={fg} strokeWidth={2.4} />}
-    <Txt f="bold" size={12} color={fg} numberOfLines={1}>
+    <Txt f="bold" size={12} color={fg} numberOfLines={wrap ? undefined : 1} style={wrap ? { flexShrink: 1 } : undefined}>
       {text}
     </Txt>
   </View>
