@@ -22,7 +22,7 @@ const SCHOOL='THCS Giồng Ông Tố',SHORT_SCHOOL='THCS A';
   const wb=await open(res.buffer),sheet=wb.getWorksheet('Học sinh')!;
   expect(wb.worksheets.map(w=>w.name)).toEqual(['Học sinh','Hướng dẫn']);expect(sheet.getImages()).toHaveLength(1);
   expect(sheet.getCell('B8').value).toBe('HSGOT2602042013001');expect(sheet.getCell('G8').value).toBeInstanceOf(Date);
-  expect((sheet.getRow(11).values as unknown[]).slice(1)).toEqual(['Số thứ tự','Mã học sinh','Họ và tên *','Giới tính','SĐT','Email','Ngày tháng năm sinh *']);
+  expect((sheet.getRow(11).values as unknown[]).slice(1)).toEqual(['Số thứ tự','Mã học sinh','Họ và tên *','Giới tính','SĐT *','Email *','Ngày tháng năm sinh *']);
   expect(sheet.getCell('A12').text).toBe('');expect(sheet.getCell('B12').text).toBe('');expect(sheet.getCell('A1011').text).toBe('');
   expect(sheet.getCell('A12').formula).toContain('COUNTIFS(');expect(sheet.getCell('B12').formula).toContain('HSGOT26');const zip=await(await import('jszip')).default.loadAsync(res.buffer);expect(Object.keys(zip.files).some(name=>/vba|activeX/i.test(name))).toBe(false);expect(await zip.file('[Content_Types].xml')!.async('string')).not.toContain('macroEnabled');
   expect(await zip.file('xl/webextensions/dongaCalendar.xml')!.async('string')).toContain('wa102957665');
@@ -32,10 +32,10 @@ const SCHOOL='THCS Giồng Ông Tố',SHORT_SCHOOL='THCS A';
   expect(sheet.getCell('D12').dataValidation.formulae).toEqual(['"Nam,Nữ,Khác"']);expect(sheet.getCell('G12').numFmt).toBe('@');expect(sheet.getCell('G12').dataValidation).toMatchObject({type:'custom',allowBlank:true});
   const raw=await fetch(s.base+'/api/admin/students/template',{headers:{Authorization:'Bearer '+A.token}});expect(raw.headers.get('content-disposition')).toContain(spec.body.filename);
  });
- test('mẫu không tạo tài khoản/gửi thư/giữ số; emailoptional và genderother; sai tên bị chặn previewcommit',async()=>{
+ test('mẫu không tạo tài khoản/gửi thư/giữ số; SĐT và email bắt buộc, genderother; sai tên bị chặn previewcommit',async()=>{
   const before=await sql(s.url,'SELECT (SELECT count(*)::int FROM app_users) AS users,(SELECT count(*)::int FROM app_email_outbox) AS mail');
   const template=await download(s.base,'/api/admin/students/template',A.token),wb=await open(template.buffer),sheet=wb.getWorksheet('Học sinh')!;
-  sheet.getCell('A12').value=1;sheet.getCell('B12').value='HSGOT2615032013001';sheet.getCell('C12').value='Học sinh Lịch';sheet.getCell('D12').value='Khác';sheet.getCell('G12').value=new Date('2013-03-15');
+  sheet.getCell('A12').value=1;sheet.getCell('B12').value='HSGOT2615032013001';sheet.getCell('C12').value='Học sinh Lịch';sheet.getCell('D12').value='Khác';sheet.getCell('E12').value='0901234567';sheet.getCell('F12').value='hs.lich@example.invalid';sheet.getCell('G12').value=new Date('2013-03-15');
   const file=Buffer.from(await wb.xlsx.writeBuffer());
   expect(await sql(s.url,'SELECT (SELECT count(*)::int FROM app_users) AS users,(SELECT count(*)::int FROM app_email_outbox) AS mail')).toEqual(before);
   expect((await api('GET','/api/admin/students/import-spec')).body.next_serial).toBe(1);
@@ -48,7 +48,7 @@ const SCHOOL='THCS Giồng Ông Tố',SHORT_SCHOOL='THCS A';
  test('file cũ giữ cột lớp/phụ huynh, lỗi ngày sinh đúng dòng, export giữ bố cục',async()=>{
   const y=(await api('POST','/api/admin/school-years',{label:'2026-2027'})).body.id;await api('POST',`/api/admin/school-years/${y}/activate`,{});
   const cls=(await api('POST','/api/admin/classes',{year_id:y,name:'7A1',grade:7})).body;
-  const wb=new(await import('exceljs')).Workbook(),ws=wb.addWorksheet('Học sinh');ws.addRow(['Mã học sinh','Họ và tên *','Ngày sinh *','Giới tính','Lớp','Email','Email phụ huynh']);ws.addRow(['OLD-CODE','Học sinh Cũ','15/03/2013','Nữ','7A1','','parent@example.invalid']);ws.addRow(['','Học sinh Sai','31/02/2013','','','','']);
+  const wb=new(await import('exceljs')).Workbook(),ws=wb.addWorksheet('Học sinh');ws.addRow(['Mã học sinh','Họ và tên *','Ngày sinh *','Giới tính','Lớp','SĐT','Email','Email phụ huynh']);ws.addRow(['OLD-CODE','Học sinh Cũ','15/03/2013','Nữ','7A1','0901234567','hs.cu@example.invalid','parent@example.invalid']);ws.addRow(['','Học sinh Sai','31/02/2013','','','0901234567','hs.sai@example.invalid','']);
   const filename=studentTemplateFilename(SCHOOL),r=await upload(s.base,`/api/admin/students/import?commit=true&year_id=${y}`,filename,Buffer.from(await wb.xlsx.writeBuffer()),A.token);
   expect(r.body.created).toBe(1);expect(r.body.rows[1]).toMatchObject({row:3,status:'error'});
   const list=await api('GET',`/api/admin/students?class_id=${cls.id}`);expect(list.body.items[0]).toMatchObject({full_name:'Học sinh Cũ',parent_email:'parent@example.invalid'});
@@ -58,9 +58,9 @@ const SCHOOL='THCS Giồng Ông Tố',SHORT_SCHOOL='THCS A';
     // trường có tiền tố ngắn (HSA26) trông như địa chỉ ô Excel nên ExcelJS dịch nhầm nó thành HSA28 khi đọc công thức dùng chung ở dòng sau
     const{AccountService}=await import('../src/admin/account.service');const actor=(await import('../src/database/database.service')).toUser((await sql(s.url,"SELECT * FROM app_users WHERE school_id=$1 AND role='school_admin'",[C.id]))[0]);const template=await s.moduleRef.get(AccountService).studentTemplate(actor);
     const { file, first } = await fill(template, [
-      ['Nguyễn Thị Lan', 'Nữ', null, 'lan.c@example.edu.vn', new Date('2013-04-02T00:00:00.000Z')],
+      ['Nguyễn Thị Lan', 'Nữ', '0901234567', 'lan.c@example.edu.vn', new Date('2013-04-02T00:00:00.000Z')],
       [null, null, null, null, null],
-      ['Trần Văn Bình', 'Nam', null, 'binh.c@example.edu.vn', new Date('2013-05-06T00:00:00.000Z')],
+      ['Trần Văn Bình', 'Nam', '0907654321', 'binh.c@example.edu.vn', new Date('2013-05-06T00:00:00.000Z')],
     ]);
     // Excel gộp các công thức giống nhau của một cột thành "công thức dùng chung": ô gốc giữ chữ công thức, các ô con chỉ trỏ về ô gốc
     const JSZip = (await import('jszip')).default;

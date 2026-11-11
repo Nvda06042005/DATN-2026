@@ -15,7 +15,7 @@ import {tmpdir} from 'os';
  test('xem trước không cấp số; tạo/sửa/ngày sinh/danh sách dùng mã chuẩn; giữ username và số đã cấp',async()=>{
   const empty=await api('GET','/api/admin/registration-code/student');expect(empty.body).toMatchObject({code:null,serial:1,prefix:'HSGOT'});
   const path='/api/admin/registration-code/student?birth_date=2013-03-15';const preview=await api('GET',path);expect(preview.body.code).toBe('HSGOT2615032013001');expect((await api('GET',path)).body).toEqual(preview.body);
-  const made=await api('POST','/api/admin/students',{full_name:'Học sinh Định Danh',birth_date:'2013-03-15',user_code:'HS00000001'});expect(made.status).toBe(201);expect(made.body.user.user_code).toBe(preview.body.code);
+  const made=await api('POST','/api/admin/students',{full_name:'Học sinh Định Danh',birth_date:'2013-03-15',user_code:'HS00000001', phone: '0900000073', email: 'tu.dong74.student_codes@example.edu.vn'});expect(made.status).toBe(201);expect(made.body.user.user_code).toBe(preview.body.code);
   const {id,username}=made.body.user;
   const edited=await api('PATCH',`/api/admin/users/${id}`,{birth_date:'2014-04-16',user_code:'SAI-MA'});expect(edited.status).toBe(200);expect(edited.body).toMatchObject({username,user_code:'HSGOT2616042014001'});
   expect((await api('GET',`/api/admin/registration-code/student?user_id=${id}&birth_date=2014-04-16`)).body.code).toBe(edited.body.user_code);
@@ -28,11 +28,11 @@ import {tmpdir} from 'os';
  });
  test('đồng thời cấp số khác nhau; trường trùng tên/viết tắt vẫn không trùng mã; bộ đếm RLS',async()=>{
   const before=(await api('GET','/api/admin/registration-code/student')).body.serial;
-  const made=await Promise.all([1,2].map(n=>api('POST','/api/admin/students',{full_name:`Học sinh Đồng Thời ${n}`,birth_date:'2013-03-15'})));
+  const made=await Promise.all([1,2].map(n=>api('POST','/api/admin/students',{full_name:`Học sinh Đồng Thời ${n}`,birth_date:'2013-03-15', phone: '0900000075', email: `tu.dong76.${n}@example.edu.vn`})));
   expect(made.map(r=>r.status)).toEqual([201,201]);expect(new Set(made.map(r=>r.body.user.user_code)).size).toBe(2);
   expect(made.map(r=>Number(r.body.user.user_code.slice(-3))).sort((a,b)=>a-b)).toEqual([before,before+1]);
-  const inB=await api('POST','/api/admin/students',{full_name:'Học sinh Trường B Một',birth_date:'2013-03-15'},B.token);expect(inB.status).toBe(201);
-  const inB2=await api('POST','/api/admin/students',{full_name:'Học sinh Trường B Hai',birth_date:'2013-03-15'},B.token);expect(inB2.status).toBe(201);
+  const inB=await api('POST','/api/admin/students',{full_name:'Học sinh Trường B Một',birth_date:'2013-03-15', phone: '0900000077', email: 'tu.dong78.student_codes@example.edu.vn'},B.token);expect(inB.status).toBe(201);
+  const inB2=await api('POST','/api/admin/students',{full_name:'Học sinh Trường B Hai',birth_date:'2013-03-15', phone: '0900000079', email: 'tu.dong80.student_codes@example.edu.vn'},B.token);expect(inB2.status).toBe(201);
   const all=await sql<{user_code:string}>(s.url,"SELECT user_code FROM app_users WHERE role='student'");expect(new Set(all.map(r=>r.user_code)).size).toBe(all.length);
   const {DatabaseService}=await import('../src/database/database.service');const db=s.moduleRef.get(DatabaseService);
   expect(await db.scoped(A.id,q=>q('SELECT school_id FROM app_student_code_counters'))).toEqual([{school_id:A.id}]);

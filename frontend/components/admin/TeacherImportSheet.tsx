@@ -10,6 +10,7 @@ export const TeacherImportSheet:React.FC<{session:Session;onClose:()=>void;onDon
   const {data:spec,error,reload}=useLoad(()=>student?api.studentImportSpec(token):api.teacherImportSpec(token),[token,kind],session.expired);
   if(!spec) return <Sheet open title={title} onClose={onClose}>{error?<><ErrorNote message={error}/><Btn title="Thử lại" onPress={reload}/></>:<Spinner label="Đang tải file mẫu của trường…"/>}</Sheet>;
   return <ImportSheet title={title} hint="Tải file mẫu, điền danh sách rồi chọn file để nhập." acceptMacro
+    note={`Phải đúng file mẫu ${student?'học sinh':'giáo viên'} của ${spec.school_name}. File của trường khác hoặc nhầm loại sẽ báo lỗi.`}
     expectedFilename={spec.filename} legacyFilename={spec.legacy_filename} template={{filename:spec.filename,fetchBlob:()=>api.downloadFile(token,`/api/admin/${kind}/template`)}}
     run={(file,commit)=>api.importMembers(token,kind,file,{commit,year_id:student?yearId:undefined})} onClose={onClose} onDone={onDone}/>;
 };

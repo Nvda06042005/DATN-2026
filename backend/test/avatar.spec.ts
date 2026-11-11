@@ -36,10 +36,10 @@ const FILES: Record<string, Buffer> = {
     const year = (await api('POST', '/api/admin/school-years', { label: '2026-2027', starts_on: '2026-09-05', ends_on: '2027-05-31' }, qt.token)).body;
     await api('POST', `/api/admin/school-years/${year.id}/activate`, undefined, qt.token);
     const cls = (await api('POST', '/api/admin/classes', { year_id: year.id, grade: 7, name: '7A1' }, qt.token)).body;
-    const t = (await api('POST', '/api/admin/teachers', { full_name: 'Lê Giáo Viên', email: 'gv@phumy.edu.vn' }, qt.token)).body;
+    const t = (await api('POST', '/api/admin/teachers', { full_name: 'Lê Giáo Viên', email: 'gv@phumy.edu.vn', phone: '0900000001', birth_date: '1985-03-15' }, qt.token)).body;
     const gv = await activate(s.base, t.user.username, t.temporary_password, PW, 'teacher');
     teacher = { token: gv.token, id: gv.user.id };
-    const st = (await api('POST', '/api/admin/students', { user_code: 'HS0001', full_name: 'Trần Học Sinh', birth_date: '2013-03-15', class_id: cls.id }, qt.token)).body;
+    const st = (await api('POST', '/api/admin/students', { user_code: 'HS0001', full_name: 'Trần Học Sinh', birth_date: '2013-03-15', class_id: cls.id, phone: '0900000002', email: 'tu.dong3.avatar@example.edu.vn' }, qt.token)).body;
     const hs = await activate(s.base, st.user.username, st.temporary_password, PW, 'student');
     student = { token: hs.token, id: hs.user.id };
   });

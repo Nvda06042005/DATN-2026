@@ -58,7 +58,7 @@ export async function bootstrap(s: Started, root: string, keepSeed = false): Pro
   await call(s.base, 'POST', `/api/admin/school-years/${yearB.body.id}/activate`, undefined, B.token);
 
   const teacher = async (admin: Person, name: string, email: string): Promise<Person> => {
-    const created = await call(s.base, 'POST', '/api/admin/teachers', { full_name: name, email }, admin.token);
+    const created = await call(s.base, 'POST', '/api/admin/teachers', { full_name: name, email, phone: '0900000007', birth_date: '1985-03-15' }, admin.token);
     const active = await activate(s.base, created.body.user.username, created.body.temporary_password, PW, 'teacher');
     return { id: active.user.id, token: active.token };
   };
@@ -70,12 +70,14 @@ export async function bootstrap(s: Started, root: string, keepSeed = false): Pro
   const c2 = await call(s.base, 'POST', '/api/admin/classes', { year_id: year.body.id, grade: 7, name: '7A2', teacher_ids: [T2.id] }, A.token);
 
   const student = async (code: string, name: string, classId: number | null): Promise<Person> => {
-    const created = await call(s.base, 'POST', '/api/admin/students', { user_code: code, full_name: name, birth_date: '2013-03-15', ...(classId ? { class_id: classId } : {}) }, A.token);
+    const created = await call(s.base, 'POST', '/api/admin/students', { user_code: code, full_name: name, birth_date: '2013-03-15', ...(classId ? { class_id: classId } : {}), phone: '0900000008', email: `${code.toLowerCase()}.fixture@example.edu.vn` }, A.token);
     const active = await activate(s.base, created.body.user.username, created.body.temporary_password, PW, 'student');
     return { id: active.user.id, token: active.token };
   };
   const S1 = await student('HS8001', 'Phạm Minh Một', c1.body.id);
   const S2 = await student('HS8002', 'Hoàng Thị Hai', c1.body.id);
+  // tài khoản cũ chưa có email (tạo trước khi email bắt buộc, 11/11/2026): vài test cần đúng trường hợp này
+  await call(s.base, 'PATCH', `/api/admin/users/${S2.id}`, { email: null }, A.token);
   const S3 = await student('HS8003', 'Đỗ Văn Ba', null);
   return { root, A, B, T1, T2, TB, S1, S2, S3, yearId: year.body.id, class7a: { id: c1.body.id, join_code: c1.body.join_code }, class7b: { id: c2.body.id, join_code: c2.body.join_code } };
 }

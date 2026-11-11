@@ -45,19 +45,19 @@ export function givenNameUpper(fullName: string): string {
 /**
  * Tên đăng nhập và mật khẩu ban đầu của giáo viên / học sinh theo quy ước (yêu cầu 11/11/2026), cùng cách cấp và gửi thư như quản trị viên trường:
  * tên đăng nhập = GV (giáo viên) hoặc HS (học sinh) + tên gọi (từ cuối của họ tên, bỏ dấu, viết hoa chữ đầu) + 4 số cuối điện thoại + ngày sinh ddmmyyyy,
- * ví dụ GVAnh672010042005; không có số điện thoại thì 4 số là 0000 (học sinh thường chưa có số riêng).
- * mật khẩu = DongA + GV/HS + tên gọi + ngày sinh ddmmyyyy, ví dụ DongAGVAnh10042005. Chỉ dùng cho lần đăng nhập đầu: tài khoản bị buộc đổi mật khẩu.
- * Trả null khi thiếu ngày sinh hoặc họ tên không có tên gọi; khi đó tài khoản dùng cách cũ (tên đăng nhập tự sinh, mật khẩu ngẫu nhiên).
+ * ví dụ GVAnh672010042005. mật khẩu = DongA + GV/HS + tên gọi + ngày sinh ddmmyyyy, ví dụ DongAGVAnh10042005.
+ * Chỉ dùng cho lần đăng nhập đầu: tài khoản bị buộc đổi mật khẩu.
+ * Trả null khi thiếu SĐT 10 số, ngày sinh hoặc họ tên không có tên gọi: đủ hết mới tạo tài khoản, không còn cách cũ (tên tự sinh, mật khẩu ngẫu nhiên).
  * Tên đăng nhập lưu chữ thường (đăng nhập không phân biệt hoa thường); hiển thị và gửi thư đúng như ví dụ.
  */
 export function memberCredentials(role: 'teacher' | 'student', fullName: string, phone: string | null | undefined, birthDate: string | null | undefined): { username: string; password: string } | null {
   const upper = givenNameUpper(fullName);
   const born = birthDate ? parseDate(birthDate) : null;
-  if (!upper || !born) return null;
+  const digits = (phone ?? '').trim();
+  if (!upper || !born || !/^[0-9]{10}$/.test(digits)) return null;
   const given = upper[0] + upper.slice(1).toLowerCase();
   const prefix = role === 'teacher' ? 'GV' : 'HS';
-  const digits = (phone ?? '').trim();
-  const tail = /^[0-9]{10}$/.test(digits) ? digits.slice(-4) : '0000';
+  const tail = digits.slice(-4);
   const dob = `${born.slice(8, 10)}${born.slice(5, 7)}${born.slice(0, 4)}`;
   return { username: `${prefix}${given}${tail}${dob}`, password: `DongA${prefix}${given}${dob}` };
 }
@@ -115,7 +115,7 @@ const headerNames = (c: Column): string[] => [c.header, ...(c.aliases ?? [])].ma
  * Đọc sheet đầu tiên. Dòng tiêu đề là dòng đầu tiên (trong 30 dòng đầu) có đủ các cột bắt buộc, nên đọc được cả file mẫu có khối tiêu đề phía trên lẫn file cũ có tiêu đề ở dòng 1.
  * Mỗi dòng dưới tiêu đề thành một đối tượng theo khóa cột; bỏ qua dòng trống; `row` là số dòng thật trong Excel để báo lỗi đúng chỗ.
  */
-export async function readSheet(file: UploadedXlsx, columns: Column[], sheetName?: string, teacherCodes = false): Promise<Array<{ row: number; values: Record<string, string> }>> {
+export async function readSheet(file: UploadedXlsx, columns: Column[], sheetName?: string, teacherCodes = false, inspect?: (sheet: ExcelJS.Worksheet) => void): Promise<Array<{ row: number; values: Record<string, string> }>> {
   const workbook = new ExcelJS.Workbook();
   try {
     await workbook.xlsx.load(file.buffer as unknown as ExcelJS.Buffer);
@@ -124,6 +124,7 @@ export async function readSheet(file: UploadedXlsx, columns: Column[], sheetName
   }
   const sheet = (sheetName && workbook.getWorksheet(sheetName)) || workbook.worksheets[0];
   if (!sheet) throw new BadRequestException('File Excel không có sheet nào');
+  inspect?.(sheet);
   let header: { row: number; byHeader: Map<string, number> } | null = null;
   let closest: { found: number; missing: Column[] } | null = null;
   for (let r = 1; r <= Math.min(sheet.rowCount, HEADER_SCAN_ROWS) && !header; r += 1) {

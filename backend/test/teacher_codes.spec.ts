@@ -23,7 +23,7 @@ import { tmpdir } from 'os';
     const before=await api('GET',path);expect(before.status).toBe(200);
     expect((await api('GET',path)).body).toEqual(before.body);
     expect(before.body.code).toMatch(/2615031985\d{3}$/);
-    const made=await api('POST','/api/admin/teachers',{full_name:'Giáo viên Định Danh',email:'identity@example.invalid',birth_date:'1985-03-15',user_code:'GV99999999'});
+    const made=await api('POST','/api/admin/teachers',{full_name:'Giáo viên Định Danh',email:'identity@example.invalid',birth_date:'1985-03-15',user_code:'GV99999999', phone: '0900000081'});
     expect(made.status).toBe(201);expect(made.body.user.user_code).toBe(before.body.code);
     const {id,username}=made.body.user;
     const edited=await api('PATCH',`/api/admin/users/${id}`,{birth_date:'1986-04-16',user_code:'MA-SAI'});
@@ -39,7 +39,7 @@ import { tmpdir } from 'os';
   });
   test('tạo đồng thời không trùng số; trường khác có dãy riêng; bổ sung ngày sinh cho giáo viên cũ tự cập nhật mã',async()=>{
     const before=(await api('GET','/api/admin/registration-code/teacher')).body.serial;
-    const result=await Promise.all([1,2].map(n=>api('POST','/api/admin/teachers',{full_name:`Giáo viên Đồng Thời ${n}`,email:`concurrent${n}@example.invalid`,birth_date:'1985-03-15'})));
+    const result=await Promise.all([1,2].map(n=>api('POST','/api/admin/teachers',{full_name:`Giáo viên Đồng Thời ${n}`,email:`concurrent${n}@example.invalid`,birth_date:'1985-03-15', phone: '0900000082'})));
     expect(result.map(r=>r.status)).toEqual([201,201]);
     const serials=result.map(r=>Number(r.body.user.user_code.slice(-3))).sort((a,b)=>a-b);expect(serials).toEqual([before,before+1]);
     expect((await api('DELETE',`/api/admin/users/${result[0].body.user.id}`,undefined,f.root)).status).toBe(204);

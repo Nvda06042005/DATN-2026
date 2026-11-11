@@ -147,7 +147,7 @@ describe('Danh mục trường và quy tắc đặt tên đường dẫn', () =>
   let schoolId: number, admin: { token: string; user: { username: string } }, teacher: { token: string; username: string }, otherTeacher: { token: string; username: string };
 
   const mkTeacher = async (adminToken: string, name: string, email: string) => {
-    const made = await api('POST', '/api/admin/teachers', { full_name: name, email }, adminToken);
+    const made = await api('POST', '/api/admin/teachers', { full_name: name, email, phone: '0900000026', birth_date: '1985-03-15' }, adminToken);
     expect(made.status).toBe(201);
     const active = await activate(s.base, made.body.user.username, made.body.temporary_password, PW, 'teacher');
     return { token: active.token as string, username: made.body.user.username as string };

@@ -39,3 +39,16 @@ test('danh sách và biểu mẫu học sinh cùng cột mẫu Excel; mã xem tr
  const edit=read('components/admin/AccountSheet.tsx');assert.match(edit,/kind="student" showSerial userId=\{u\.id\}/);
  assert.doesNotMatch(edit,/if \(u\.role === 'student'\) Object\.assign\(body, \{ user_code:/);
 });
+
+test('thêm giáo viên/học sinh: Họ tên, SĐT, Email, Ngày sinh đều có dấu * (đủ hết mới tạo tài khoản); bỏ ô Email phụ huynh ở form thêm học sinh; hộp nhập ghi phải đúng file mẫu của trường',()=>{
+ const people=read('components/admin/SchoolPeople.tsx'),fields=people.slice(people.indexOf('const fields: FieldDef[]'),people.indexOf('return (',people.indexOf('const fields: FieldDef[]')));
+ const [teacher,student]=fields.split(': [{ name: \'user_code\', label: \'Mã học sinh\'');
+ for(const part of [teacher,student]){
+  for(const name of ['full_name','phone','email','birth_date'])assert.match(part,new RegExp(`name: '${name}'[^}]*required: true`),name);
+  assert.match(part,/Tên đăng nhập và mật khẩu được gửi vào email này\./);
+ }
+ assert.doesNotMatch(student,/parent_email|Email phụ huynh/);
+ const sheet=read('components/admin/TeacherImportSheet.tsx');
+ assert.match(sheet,/note=\{`Phải đúng file mẫu \$\{student\?'học sinh':'giáo viên'\} của \$\{spec\.school_name\}\. File của trường khác hoặc nhầm loại sẽ báo lỗi\.`\}/);
+ assert.match(read('components/admin/kit.tsx'),/\{note \? <Txt size=\{13\} f="bold" testID="import-file-note">\{note\}<\/Txt> : null\}/);
+});

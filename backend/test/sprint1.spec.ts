@@ -142,7 +142,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
   });
 
   test('HK.HS.001 đăng nhập bằng tên đăng nhập, email hoặc mã học sinh; 5 lần sai khóa 15 phút theo tài khoản', async () => {
-    const created = await api('POST', '/api/admin/students', { user_code: 'HS7001', full_name: 'Lê Thị Đăng Nhập', birth_date: '2013-04-02', gender: 'female', email: 'dangnhap@example.edu.vn' }, a.token);
+    const created = await api('POST', '/api/admin/students', { user_code: 'HS7001', full_name: 'Lê Thị Đăng Nhập', birth_date: '2013-04-02', gender: 'female', email: 'dangnhap@example.edu.vn', phone: '0900000027' }, a.token);
     expect(created.status).toBe(201);
     const { username } = created.body.user, temp = created.body.temporary_password;
     for (const who of [username, 'DangNhap@Example.edu.vn', ` ${created.body.user.user_code.toLowerCase()} `]) expect([(await login(who, temp, 'student')).status, who]).toEqual([200, who]);
@@ -156,7 +156,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
 
   // ------------------------------------------------------------------ HK.HS.004
   test('HK.HS.004 mật khẩu tạm: chỉ được đổi mật khẩu/xem hồ sơ cho đến khi đổi; sau đó xác nhận hồ sơ', async () => {
-    const created = await api('POST', '/api/admin/students', { user_code: 'HS7002', full_name: 'Phạm Lần Đầu', birth_date: '2013-01-09' }, a.token);
+    const created = await api('POST', '/api/admin/students', { user_code: 'HS7002', full_name: 'Phạm Lần Đầu', birth_date: '2013-01-09', phone: '0900000028', email: 'tu.dong29.sprint1@example.edu.vn' }, a.token);
     const first = await login(created.body.user.username, created.body.temporary_password, 'student');
     expect(first.body.user.must_change_password).toBe(true);
     const token = first.body.token as string;
@@ -177,7 +177,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
 
   // ------------------------------------------------------------------ HK.HS.005/006/007 và tương ứng GV, QT, AD
   test('HK.*.005 quên mật khẩu bằng OTP 5 phút cho cả bốn vai trò; OTP dùng một lần, sai 5 lần thì vô hiệu, mật khẩu mới theo chính sách', async () => {
-    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Quên Mật Khẩu', email: 'gv.quen@example.edu.vn' }, a.token);
+    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Quên Mật Khẩu', email: 'gv.quen@example.edu.vn', phone: '0900000030', birth_date: '1985-03-15' }, a.token);
     expect(teacher.status).toBe(201);
     const who: Array<[string, string]> = [['qt.a@example.edu.vn', 'school_admin'], ['gv.quen@example.edu.vn', 'teacher'], ['quantri@example.invalid', 'root_admin']];
     for (const [email, role] of who) {
@@ -203,7 +203,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
 
   test('HK.*.005 OTP: tài khoản không tồn tại trả lời giống hệt; sai quá 5 lần bị vô hiệu; hết hạn thì từ chối', async () => {
     expect((await api('POST', '/api/auth/forgot-password', { identifier: 'khong.co@example.edu.vn' }, '')).body).toEqual({ ok: true });
-    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Giáo Viên OTP', email: 'gv.otp@example.edu.vn' }, a.token);
+    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Giáo Viên OTP', email: 'gv.otp@example.edu.vn', phone: '0900000031', birth_date: '1985-03-15' }, a.token);
     await api('POST', '/api/auth/forgot-password', { identifier: 'gv.otp@example.edu.vn' }, '');
     const code = await otpFor('gv.otp@example.edu.vn');
     const wrong = code === '000000' ? '111111' : '000000';
@@ -233,7 +233,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
 
   // ------------------------------------------------------------------ HK.HS.002
   test('HK.HS.002 đăng nhập Google chỉ khi email Google trùng email trong hồ sơ học sinh', async () => {
-    const created = await api('POST', '/api/admin/students', { user_code: 'HS7003', full_name: 'Đỗ Google', birth_date: '2013-02-02', email: 'dogoogle@example.edu.vn' }, a.token);
+    const created = await api('POST', '/api/admin/students', { user_code: 'HS7003', full_name: 'Đỗ Google', birth_date: '2013-02-02', email: 'dogoogle@example.edu.vn', phone: '0900000032' }, a.token);
     const auth: AuthService = s.moduleRef.get((await import('../src/auth/auth.service')).AuthService);
     const spy = jest.spyOn(auth, 'verifyGoogleToken');
     try {
@@ -258,7 +258,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
   });
 
   test('Google mở đúng tài khoản giáo viên/quản trị trường, giữ phạm vi trường và không tự tạo tài khoản', async () => {
-    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Google', email: 'gv.google@example.edu.vn' }, a.token);
+    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Google', email: 'gv.google@example.edu.vn', phone: '0900000033', birth_date: '1985-03-15' }, a.token);
     expect(teacher.status).toBe(201);
     const active = await activate(s.base, teacher.body.user.username, teacher.body.temporary_password, PW, 'teacher');
     const auth: AuthService = s.moduleRef.get((await import('../src/auth/auth.service')).AuthService);
@@ -418,7 +418,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
 
   // ------------------------------------------------------------------ HK.HS.008
   test('HK.HS.008 tham gia lớp bằng mã 6 ký tự (không mật khẩu): nhiều lớp, đã vào rồi, mã trường khác, tắt tham gia, lớp lưu trữ, đổi mã', async () => {
-    const student = await api('POST', '/api/admin/students', { user_code: 'HS7010', full_name: 'Ngô Vào Lớp', birth_date: '2013-06-06' }, a.token);
+    const student = await api('POST', '/api/admin/students', { user_code: 'HS7010', full_name: 'Ngô Vào Lớp', birth_date: '2013-06-06', phone: '0900000034', email: 'tu.dong35.sprint1@example.edu.vn' }, a.token);
     const token = (await activate(s.base, student.body.user.username, student.body.temporary_password, PW, 'student')).token;
     expect(classA.join_code).toMatch(/^[A-Z2-9]{6}$/);
     expect((await call(s.base, 'POST', '/api/student/join-class', { code: 'ab' }, token)).status).toBe(422);
@@ -438,7 +438,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     })();
     expect((await call(s.base, 'POST', '/api/student/join-class', { code: classB.join_code }, token)).status).toBe(404);
     // Tắt cho phép tự tham gia, lưu trữ lớp, đổi mã
-    const other = await api('POST', '/api/admin/students', { user_code: 'HS7011', full_name: 'Vũ Chưa Vào', birth_date: '2013-07-07' }, a.token);
+    const other = await api('POST', '/api/admin/students', { user_code: 'HS7011', full_name: 'Vũ Chưa Vào', birth_date: '2013-07-07', phone: '0900000036', email: 'tu.dong37.sprint1@example.edu.vn' }, a.token);
     const otherToken = (await activate(s.base, other.body.user.username, other.body.temporary_password, PW, 'student')).token;
     await call(s.base, 'PATCH', `/api/admin/classes/${class2.id}`, { join_open: false }, a.token);
     expect((await call(s.base, 'POST', '/api/student/join-class', { code: class2.join_code }, otherToken)).status).toBe(403);
@@ -455,7 +455,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
   // ------------------------------------------------------------------ HK.HS.009/010, GV.005/006, QT.005, AD.005
   test('quên mật khẩu ba bước: nhập đúng mã mới cấp phiếu 10 phút; phiếu dùng một lần, mã mới làm phiếu cũ hết hiệu lực, không dùng làm phiên đăng nhập; cách cũ một bước vẫn chạy', async () => {
     const email = 'gv.buoc@example.edu.vn';
-    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Ba Bước', email }, a.token);
+    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Ba Bước', email, phone: '0900000038', birth_date: '1985-03-15' }, a.token);
     expect(teacher.status).toBe(201);
     // yêu cầu mã rồi chờ thư mới (khác mã trước) vì thư gửi nền
     const ask = async (previous = '', identifier = email) => {
@@ -502,7 +502,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
   });
 
   test('HK.*.009/010 hồ sơ cá nhân: mỗi vai trò chỉ tự sửa trường được phép; học sinh thấy lớp, trường', async () => {
-    const student = await api('POST', '/api/admin/students', { user_code: 'HS7020', full_name: 'Bùi Hồ Sơ', birth_date: '2013-08-08', class_id: classA.id }, a.token);
+    const student = await api('POST', '/api/admin/students', { user_code: 'HS7020', full_name: 'Bùi Hồ Sơ', birth_date: '2013-08-08', class_id: classA.id, phone: '0900000039', email: 'tu.dong40.sprint1@example.edu.vn' }, a.token);
     const st = await activate(s.base, student.body.user.username, student.body.temporary_password, PW, 'student');
     const view = await call(s.base, 'GET', '/api/auth/profile', undefined, st.token);
     expect(view.body).toMatchObject({ school: { name: 'THCS Kiểm Thử A' }, editable: ['nickname', 'avatar_url', 'bio'] });
@@ -513,7 +513,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     // ảnh đại diện chỉ đổi bằng cách tải ảnh lên (POST /api/auth/avatar), không dán liên kết nữa
     for (const link of ['http://khong-https.example/a.png', 'https://example.edu.vn/a.png']) expect((await call(s.base, 'PATCH', '/api/auth/profile', { avatar_url: link }, st.token)).status).toBe(422);
 
-    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Cô Giáo Hồ Sơ', email: 'gv.hoso@example.edu.vn' }, a.token);
+    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Cô Giáo Hồ Sơ', email: 'gv.hoso@example.edu.vn', phone: '0900000041', birth_date: '1985-03-15' }, a.token);
     const gv = await activate(s.base, teacher.body.user.username, teacher.body.temporary_password, PW, 'teacher');
     await call(s.base, 'PATCH', `/api/admin/classes/${classA.id}`, { teacher_ids: [gv.user.id] }, a.token);
     const gvView = await call(s.base, 'GET', '/api/auth/profile', undefined, gv.token);
@@ -571,12 +571,12 @@ async function newSchool(code: string, name: string, adminName: string, email: s
   });
 
   test('HK.AD.021 sửa thông tin người dùng; chuyển trường chỉ khi chưa thuộc lớp', async () => {
-    const t = await api('POST', '/api/admin/teachers', { full_name: 'Cô Chuyển Trường', email: 'chuyen@example.edu.vn' }, a.token);
+    const t = await api('POST', '/api/admin/teachers', { full_name: 'Cô Chuyển Trường', email: 'chuyen@example.edu.vn', phone: '0900000042', birth_date: '1985-03-15' }, a.token);
     const edited = await api('PATCH', `/api/admin/users/${t.body.user.id}`, { full_name: 'Cô Chuyển Trường Mới', email: 'chuyen.moi@example.edu.vn', phone: '0911222333', school_id: b.id });
     expect(edited.body).toMatchObject({ full_name: 'Cô Chuyển Trường Mới', email: 'chuyen.moi@example.edu.vn', phone: '0911222333', school_id: b.id });
     expect((await api('PATCH', `/api/admin/users/${t.body.user.id}`, { email: 'qt.b@example.edu.vn' })).status).toBe(409);
     expect((await api('PATCH', `/api/admin/users/${t.body.user.id}`, { email: 'khong-phai-email' })).status).toBe(422);
-    const gv = await api('POST', '/api/admin/teachers', { full_name: 'Cô Đang Dạy', email: 'dangday@example.edu.vn' }, a.token);
+    const gv = await api('POST', '/api/admin/teachers', { full_name: 'Cô Đang Dạy', email: 'dangday@example.edu.vn', phone: '0900000043', birth_date: '1985-03-15' }, a.token);
     const assigned=await call(s.base,'POST','/api/admin/classes',{year_id:yearA,grade:7,name:'7ChuyenTruong',teacher_ids:[gv.body.user.id]},a.token);
     expect(assigned.status).toBe(201);
     expect((await api('PATCH', `/api/admin/users/${gv.body.user.id}`, { school_id: b.id })).status).toBe(409);
@@ -584,7 +584,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
   });
 
   test('HK.AD.023/024 khóa kèm lý do (bắt buộc), thu hồi phiên, hiện lý do khi đăng nhập; mở khóa; đặt lại mật khẩu gửi thư', async () => {
-    const t = await api('POST', '/api/admin/teachers', { full_name: 'Cô Bị Khóa', email: 'bikhoa@example.edu.vn' }, a.token);
+    const t = await api('POST', '/api/admin/teachers', { full_name: 'Cô Bị Khóa', email: 'bikhoa@example.edu.vn', phone: '0900000044', birth_date: '1985-03-15' }, a.token);
     const session = (await activate(s.base, t.body.user.username, t.body.temporary_password, PW, 'teacher')).token;
     expect((await api('POST', `/api/admin/users/${t.body.user.id}/lock`, { locked: true })).status).toBe(422);
     const locked = await api('POST', `/api/admin/users/${t.body.user.id}/lock`, { locked: true, reason: 'Vi phạm quy chế thử' });
@@ -600,8 +600,12 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     expect(reset.body.temporary_password).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}$/);
     expect(reset.body.user.must_change_password).toBe(true);
     expect((await login(t.body.user.username, PW, 'teacher')).status).toBe(401);
-    await mail.tick();
-    const sent = [...mail.sent].reverse().find((m) => m.to === 'bikhoa@example.edu.vn' && m.text.includes('đã được đặt lại'));
+    let sent: { text: string } | undefined;
+    for (let i = 0; i < 50 && !sent; i += 1) {
+      await mail.tick();
+      sent = [...mail.sent].reverse().find((m) => m.to === 'bikhoa@example.edu.vn' && m.text.includes('đã được đặt lại'));
+      if (!sent) await new Promise((r) => setTimeout(r, 100));
+    }
     expect(sent?.text).toContain(reset.body.temporary_password);
     const again = await login(t.body.user.username, reset.body.temporary_password, 'teacher');
     expect(again.body.user.must_change_password).toBe(true);
@@ -610,12 +614,12 @@ async function newSchool(code: string, name: string, adminName: string, email: s
   });
 
   test('HK.AD.025 quản trị tổng xóa tài khoản đã dùng; quản trị trường vẫn chỉ xóa khi chưa có dữ liệu', async () => {
-    const fresh = await api('POST', '/api/admin/teachers', { full_name: 'Cô Chưa Dùng', email: 'chuadung.gv@example.edu.vn' }, a.token);
+    const fresh = await api('POST', '/api/admin/teachers', { full_name: 'Cô Chưa Dùng', email: 'chuadung.gv@example.edu.vn', phone: '0900000045', birth_date: '1985-03-15' }, a.token);
     const detail = await api('GET', `/api/admin/users/${fresh.body.user.id}`);
     expect(detail.body).toMatchObject({ deletable: true, delete_blocker: null, school_name: 'THCS Kiểm Thử A' });
     expect((await api('DELETE', `/api/admin/users/${fresh.body.user.id}`)).status).toBe(204);
     expect(await db.getById(fresh.body.user.id)).toBeNull();
-    const used = await api('POST', '/api/admin/teachers', { full_name: 'Cô Đã Dùng', email: 'dadung.gv@example.edu.vn' }, a.token);
+    const used = await api('POST', '/api/admin/teachers', { full_name: 'Cô Đã Dùng', email: 'dadung.gv@example.edu.vn', phone: '0900000046', birth_date: '1985-03-15' }, a.token);
     await login(used.body.user.username, used.body.temporary_password, 'teacher');
     const blocked = await api('DELETE', `/api/admin/users/${used.body.user.id}`, undefined, a.token);
     expect(blocked.status).toBe(409);
@@ -624,7 +628,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     expect((await api('GET', `/api/admin/users/${used.body.user.id}`)).body.deletable).toBe(true);
     expect((await api('DELETE', `/api/admin/users/${used.body.user.id}`)).status).toBe(204);
     expect(await db.getById(used.body.user.id)).toBeNull();
-    const teaching = await api('POST', '/api/admin/teachers', { full_name: 'Cô Được Phân Công', email: 'phancong@example.edu.vn' }, a.token);
+    const teaching = await api('POST', '/api/admin/teachers', { full_name: 'Cô Được Phân Công', email: 'phancong@example.edu.vn', phone: '0900000047', birth_date: '1985-03-15' }, a.token);
     const assigned=await call(s.base,'POST','/api/admin/classes',{year_id:yearA,grade:7,name:'7XoaGiaoVien',teacher_ids:[teaching.body.user.id]},a.token);
     expect(assigned.status).toBe(201);
     expect((await api('DELETE', `/api/admin/users/${teaching.body.user.id}`, undefined, a.token)).body.detail).toContain('phụ trách lớp');
@@ -636,10 +640,10 @@ async function newSchool(code: string, name: string, adminName: string, email: s
   test('HK.SYS.015 xác thực và phân quyền API: thiếu/giả token, sai vai trò, khác trường', async () => {
     expect((await api('GET', '/api/admin/users', undefined, '')).status).toBe(401);
     expect((await api('GET', '/api/admin/users', undefined, 'token.gia.mao')).status).toBe(401);
-    const student = await api('POST', '/api/admin/students', { user_code: 'HS7030', full_name: 'Học Sinh Quyền', birth_date: '2013-09-09' }, a.token);
+    const student = await api('POST', '/api/admin/students', { user_code: 'HS7030', full_name: 'Học Sinh Quyền', birth_date: '2013-09-09', phone: '0900000048', email: 'tu.dong49.sprint1@example.edu.vn' }, a.token);
     const st = (await activate(s.base, student.body.user.username, student.body.temporary_password, PW, 'student')).token;
     for (const path of ['/api/admin/users', '/api/admin/schools', '/api/admin/classes', '/api/admin/history/campaigns', '/api/admin/teachers']) expect([path, (await api('GET', path, undefined, st)).status]).toEqual([path, 403]);
-    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Cô Quyền', email: 'quyen.gv@example.edu.vn' }, a.token);
+    const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Cô Quyền', email: 'quyen.gv@example.edu.vn', phone: '0900000050', birth_date: '1985-03-15' }, a.token);
     const gv = (await activate(s.base, teacher.body.user.username, teacher.body.temporary_password, PW, 'teacher')).token;
     expect((await api('GET', '/api/admin/users', undefined, gv)).status).toBe(403);
     expect((await api('POST', '/api/student/join-class', { code: classA.join_code }, gv)).status).toBe(403);

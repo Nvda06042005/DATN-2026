@@ -144,11 +144,11 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     expect(otpMail.text).toMatch(/^Xin chào Nguyễn Văn Sử, mã của bạn: \d{6} \(hiệu lực 5 phút\)\.$/);
     // mật khẩu tạm
     await root('PUT', '/api/platform/templates/temp_password', { body: 'Tài khoản {{tai_khoan}} / mật khẩu {{mat_khau}} cho {{ten}} tại {{duong_dan}}' });
-    const t = await as(f.A)('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Mẫu Thư', email: 'mauthu@example.edu.vn' });
+    const t = await as(f.A)('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Mẫu Thư', email: 'mauthu@example.edu.vn', phone: '0900000013', birth_date: '1985-03-15' });
     const mail = s.moduleRef.get((await import('../src/admin/mail.service')).MailService);
     await mail.tick();
     const acct = sent.find((m) => m.to === 'mauthu@example.edu.vn')!;
-    expect(acct.text).toContain(`Tài khoản ${t.body.user.username} / mật khẩu ${t.body.temporary_password} cho Giáo Viên Mẫu Thư`);
+    expect(acct.text).toContain(`Tài khoản ${t.body.display_username} / mật khẩu ${t.body.temporary_password} cho Giáo Viên Mẫu Thư`);
     expect(acct.subject).toBe('[Đông A EDU] Thông tin tài khoản'); // chủ đề tài khoản không đổi
     expect((await root('DELETE', '/api/platform/templates/temp_password')).body.customized).toBe(false);
     expect((await root('DELETE', '/api/platform/templates/otp')).body.customized).toBe(false);
@@ -164,11 +164,11 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     expect((await root('PUT', `/api/platform/schools/${f.A.schoolId}/limits`, { max_students: 2 })).status).toBe(409);
     expect((await root('PUT', `/api/platform/schools/${f.A.schoolId}/limits`, { max_students: 0 })).status).toBe(400);
     expect((await root('PUT', `/api/platform/schools/${f.A.schoolId}/limits`, { max_students: 3, ai_daily_per_school: 40, ai_daily_per_user: 7 })).body).toMatchObject({ max_students: 3, ai_daily_per_school: 40, ai_daily_per_user: 7 });
-    const full = await as(f.A)('POST', '/api/admin/students', { user_code: 'HS8099', full_name: 'Học Sinh Thứ Tư', birth_date: '2013-04-04' });
+    const full = await as(f.A)('POST', '/api/admin/students', { user_code: 'HS8099', full_name: 'Học Sinh Thứ Tư', birth_date: '2013-04-04', phone: '0900000014', email: 'tu.dong15.platform@example.edu.vn' });
     expect(full.status).toBe(409);
     expect(JSON.stringify(full.body)).toContain('số học sinh tối đa (3)');
     await root('PUT', `/api/platform/schools/${f.A.schoolId}/limits`, { max_students: 50 });
-    expect((await as(f.A)('POST', '/api/admin/students', { user_code: 'HS8099', full_name: 'Học Sinh Thứ Tư', birth_date: '2013-04-04' })).status).toBe(201);
+    expect((await as(f.A)('POST', '/api/admin/students', { user_code: 'HS8099', full_name: 'Học Sinh Thứ Tư', birth_date: '2013-04-04', phone: '0900000016', email: 'tu.dong17.platform@example.edu.vn' })).status).toBe(201);
     // AI tắt cho trường này: người học và giáo viên của trường không dùng được, trường khác vẫn dùng
     expect((await root('PUT', `/api/platform/schools/${f.A.schoolId}/limits`, { ai_enabled: false })).body.ai_enabled).toBe(false);
     await clearCaches();
@@ -492,7 +492,7 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     expect((await as(f.A)('GET', '/api/platform/logs/logins')).body.items.every((i: any) => i.school_id === f.A.schoolId)).toBe(true);
     expect((await as(f.T1)('GET', '/api/platform/logs/logins')).status).toBe(403);
     // nhật ký thao tác: nhãn dễ đọc và đúng phạm vi trường
-    await as(f.A)('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Nhật Ký', email: 'nhatky@example.edu.vn' });
+    await as(f.A)('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Nhật Ký', email: 'nhatky@example.edu.vn', phone: '0900000018', birth_date: '1985-03-15' });
     const auditA = (await as(f.A)('GET', '/api/platform/logs/audit')).body;
     expect(auditA.items.length).toBeGreaterThan(0);
     expect(auditA.items.every((i: any) => i.school_id === f.A.schoolId)).toBe(true);
@@ -612,15 +612,18 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     // --- email cho quản trị trường A
     const adminA = (await sql<{ username: string }>(s.url, 'SELECT username FROM app_users WHERE id = $1', [f.A.id]))[0].username;
     const sent = await mailSent();
-    const before = sent.length;
+    // chỉ xét thư gửi quản trị trường A: thư tài khoản của người khác có thể được gửi xen kẽ từ hàng đợi
+    const toA = () => sent.filter((m) => m.to === 'qt8201@example.edu.vn');
+    const countA = () => toA().length, lastA = () => toA()[countA() - 1];
+    const before = countA();
     expect((await as(f.A)('POST', '/api/platform/2fa/setup', { method: 'email' })).body.sent_to).toMatch(/^q\*\*\*@example\.edu\.vn$/);
-    const code1 = /Mã xác thực của bạn là: (\d{6})/.exec(sent[sent.length - 1].text)![1];
-    expect(sent.length).toBe(before + 1);
-    expect(sent[sent.length - 1].subject).toBe('[Đông A EDU] Mã xác thực đăng nhập quản trị');
+    const code1 = /Mã xác thực của bạn là: (\d{6})/.exec(lastA().text)![1];
+    expect(countA()).toBe(before + 1);
+    expect(lastA().subject).toBe('[Đông A EDU] Mã xác thực đăng nhập quản trị');
     expect((await as(f.A)('POST', '/api/platform/2fa/enable', { code: code1 })).body.backup_codes).toHaveLength(8);
     const stepA = await login(adminA, PW, 'school_admin');
     expect(stepA.body).toMatchObject({ two_factor: true, method: 'email' });
-    const code2 = /Mã xác thực của bạn là: (\d{6})/.exec(sent[sent.length - 1].text)![1];
+    const code2 = /Mã xác thực của bạn là: (\d{6})/.exec(lastA().text)![1];
     expect((await verify('000000', 'school_admin', stepA.body.challenge)).status).toBe(401);
     expect((await verify(code2, 'school_admin', stepA.body.challenge)).status).toBe(200);
     expect((await verify(code2, 'school_admin', stepA.body.challenge)).status).toBe(401); // mã email dùng một lần
@@ -629,16 +632,16 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     expect((await resend('x'.repeat(40))).status).toBe(401); // phiếu giả
     expect((await resend(stepA.body.challenge, 'root_admin')).status).toBe(401); // sai cổng đăng nhập
     expect((await call(s.base, 'POST', '/api/auth/2fa/resend', { portal: 'school_admin' })).status).toBe(422); // thiếu phiếu
-    const mails = sent.length;
+    const mails = countA();
     const r1 = await resend(stepA.body.challenge);
     expect(r1.status).toBe(200);
     expect(r1.body).toMatchObject({ two_factor: true, method: 'email', challenge: expect.any(String), expires_in: 300 });
     expect(r1.body.token).toBeUndefined();
-    expect(sent.length).toBe(mails + 1);
-    expect(sent[sent.length - 1].subject).toBe('[Đông A EDU] Mã xác thực đăng nhập quản trị');
-    const code3 = /Mã xác thực của bạn là: (\d{6})/.exec(sent[sent.length - 1].text)![1];
+    expect(countA()).toBe(mails + 1);
+    expect(lastA().subject).toBe('[Đông A EDU] Mã xác thực đăng nhập quản trị');
+    const code3 = /Mã xác thực của bạn là: (\d{6})/.exec(lastA().text)![1];
     expect((await resend(stepA.body.challenge)).status).toBe(200); // bấm liên tiếp: thư giãn 30 giây, không gửi thêm
-    expect(sent.length).toBe(mails + 1);
+    expect(countA()).toBe(mails + 1);
     // phiếu quá 5 phút không còn dùng để xác thực, nhưng còn trong 30 phút thì đổi được phiếu mới; quá nữa phải nhập lại mật khẩu
     const jwt = s.moduleRef.get(JwtService);
     const claims = (({ iat: _iat, exp: _exp, ...rest }) => rest)(jwt.decode(stepA.body.challenge) as Record<string, unknown>);
@@ -653,8 +656,8 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     expect((await verify(code3, 'school_admin', r1.body.challenge)).status).toBe(401);
     const r2 = await resend(r1.body.challenge);
     expect(r2.status).toBe(200);
-    expect(sent.length).toBe(mails + 2);
-    const code4 = /Mã xác thực của bạn là: (\d{6})/.exec(sent[sent.length - 1].text)![1];
+    expect(countA()).toBe(mails + 2);
+    const code4 = /Mã xác thực của bạn là: (\d{6})/.exec(lastA().text)![1];
     expect(code4).not.toBe(code3);
     expect((await verify(code3, 'school_admin', r2.body.challenge)).status).toBe(401);
     const entered = await verify(code4, 'school_admin', r2.body.challenge);

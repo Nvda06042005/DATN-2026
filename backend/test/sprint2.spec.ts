@@ -9,8 +9,8 @@ import type { DatabaseService } from '../src/database/database.service';
 let s: Started, db: DatabaseService, mail: MailService, root: string;
 const PW = 'Matkhau-12345';
 const api = (method: string, path: string, body?: unknown, token = root) => call(s.base, method, path, body, token);
-const TEACHER_HEADER = ['Họ và tên *', 'Email *', 'Bộ môn', 'Số điện thoại', 'Mã giáo viên'];
-const STUDENT_HEADER = ['Mã học sinh', 'Họ và tên *', 'Ngày sinh *', 'Giới tính', 'Lớp', 'Email', 'Email phụ huynh'];
+const TEACHER_HEADER = ['Họ và tên *', 'Email *', 'Bộ môn', 'Số điện thoại', 'Mã giáo viên', 'Ngày sinh'];
+const STUDENT_HEADER = ['Mã học sinh', 'Họ và tên *', 'Ngày sinh *', 'Giới tính', 'Lớp', 'Email', 'Email phụ huynh', 'SĐT'];
 
 async function readRows(buffer: Buffer): Promise<string[][]> {
   const ExcelJS = await import('exceljs');
@@ -103,20 +103,21 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
 
   // ------------------------------------------------------------------ HK.QT.014–016, 018–021, 023
   test('HK.QT.014–016/018–021 giáo viên: thêm (mật khẩu tạm + email), tìm/lọc, sửa, khóa/mở khóa, đặt lại mật khẩu, xóa khi chưa có dữ liệu', async () => {
-    const created = await qa('POST', '/api/admin/teachers', { full_name: '  Nguyễn  Văn  Sử ', email: 'Su.Nguyen@Example.edu.vn', phone: '0901234567', user_code: 'GV01' });
+    const created = await qa('POST', '/api/admin/teachers', { full_name: '  Nguyễn  Văn  Sử ', email: 'Su.Nguyen@Example.edu.vn', phone: '0901234567', user_code: 'GV01', birth_date: '1985-03-15' });
     expect(created.status).toBe(201);
     expect(created.body).toMatchObject({ user: { role: 'teacher', full_name: 'Nguyễn Văn Sử', email: 'su.nguyen@example.edu.vn', school_id: A.id, must_change_password: true }, mail: 'queued' });
     expect(created.body.user).not.toHaveProperty('subject'); // bộ môn đã bỏ hẳn (migration 053)
-    expect(created.body.temporary_password).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}$/);
+    // tên đăng nhập/mật khẩu theo quy ước GV + tên + 4 số cuối SĐT + ngày sinh (11/11/2026)
+    expect(created.body).toMatchObject({ display_username: 'GVSu456715031985', temporary_password: 'DongAGVSu15031985' });
     await mail.tick();
     expect(mail.sent.find((m) => m.to === 'su.nguyen@example.edu.vn')?.text).toContain(created.body.temporary_password);
-    await qa('POST', '/api/admin/teachers', { full_name: 'Trần Thị Địa', email: 'dia@example.edu.vn' });
+    await qa('POST', '/api/admin/teachers', { full_name: 'Trần Thị Địa', email: 'dia@example.edu.vn', phone: '0900000051', birth_date: '1985-03-15' });
     for (const bad of [{ full_name: 'Thiếu Email' }, { full_name: 'Email Hỏng', email: 'khong-phai-email' }, { full_name: 'X', email: 'x@example.edu.vn' }, { full_name: 'Điện Thoại', email: 'dt@example.edu.vn', phone: 'abc' }]) {
       expect([JSON.stringify(bad), (await qa('POST', '/api/admin/teachers', bad)).status]).toEqual([JSON.stringify(bad), 422]);
     }
-    expect((await qa('POST', '/api/admin/teachers', { full_name: 'Trùng Email', email: 'SU.NGUYEN@example.edu.vn' })).status).toBe(409);
-    expect((await qa('POST', '/api/admin/teachers', { full_name: 'Trùng Mã', email: 'moi@example.edu.vn', user_code: 'gv01' })).status).toBe(409);
-    expect((await call(s.base, 'POST', '/api/admin/teachers', { full_name: 'Trường B Cùng Mã', email: 'b.gv@example.edu.vn', user_code: 'GV01' }, B.token)).status).toBe(201); // mã trùng giữa các trường được phép
+    expect((await qa('POST', '/api/admin/teachers', { full_name: 'Trùng Email', email: 'SU.NGUYEN@example.edu.vn', phone: '0900000052', birth_date: '1985-03-15' })).status).toBe(409);
+    // mã giáo viên luôn do máy chủ cấp từ ngày sinh (nay bắt buộc), mã gõ tay như GV01 không được giữ nên không còn trường hợp trùng mã nhập tay
+    expect((await call(s.base, 'POST', '/api/admin/teachers', { full_name: 'Trường B Cùng Mã', email: 'b.gv@example.edu.vn', user_code: 'GV01', phone: '0900000054', birth_date: '1985-03-15' }, B.token)).status).toBe(201); // mã trùng giữa các trường được phép
 
     const all = await qa('GET', '/api/admin/teachers');
     expect(all.body.items.map((t: any) => t.full_name)).toEqual(['Nguyễn Văn Sử', 'Trần Thị Địa']);
@@ -143,7 +144,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect(reset.body.user.must_change_password).toBe(true);
     const gone = await qa('DELETE', `/api/admin/users/${id}`);
     expect(gone.status).toBe(409); // đã đăng nhập nên chỉ khóa được
-    const fresh = await qa('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Xóa Được', email: 'xoa@example.edu.vn' });
+    const fresh = await qa('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Xóa Được', email: 'xoa@example.edu.vn', phone: '0900000055', birth_date: '1985-03-15' });
     expect((await qa('DELETE', `/api/admin/users/${fresh.body.user.id}`)).status).toBe(204);
     // Quản trị trường không khóa/xóa được tài khoản quản trị hay chính mình
     const self = (await qa('GET', '/api/auth/me')).body;
@@ -152,27 +153,31 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
 
   test('HK.QT.017 nhập giáo viên từ Excel: xem trước báo lỗi từng dòng (trùng email, thiếu dữ liệu, sai định dạng) rồi lưu dòng hợp lệ', async () => {
     const file = await makeXlsx(TEACHER_HEADER, [
-      ['Lê Văn Nhập Một', 'nhap1@example.edu.vn', 'Lịch sử', '0901111222', 'GV11'],
-      ['Phạm Thị Nhập Hai', 'nhap2@example.edu.vn', 'Địa lí', '', 'GV12'],
-      ['Trùng Trong File', 'NHAP1@example.edu.vn', '', '', ''],
-      ['', 'thieu.ten@example.edu.vn', '', '', ''],
-      ['Thiếu Email', '', '', '', ''],
-      ['Email Hỏng', 'khong-phai-email', '', '', ''],
-      ['Trùng Trong Trường', 'dia@example.edu.vn', '', '', ''],
-      ['Điện Thoại Sai', 'dt.sai@example.edu.vn', '', 'abc', ''],
+      ['Lê Văn Nhập Một', 'nhap1@example.edu.vn', 'Lịch sử', '0901111222', 'GV11', '01/01/1980'],
+      ['Phạm Thị Nhập Hai', 'nhap2@example.edu.vn', 'Địa lí', '0902222333', 'GV12', '02/02/1981'],
+      ['Trùng Trong File', 'NHAP1@example.edu.vn', '', '0903333444', '', '03/03/1982'],
+      ['', 'thieu.ten@example.edu.vn', '', '0904444555', '', '04/04/1983'],
+      ['Thiếu Email', '', '', '0905555666', '', '05/05/1984'],
+      ['Email Hỏng', 'khong-phai-email', '', '0906666777', '', '06/06/1985'],
+      ['Trùng Trong Trường', 'dia@example.edu.vn', '', '0907777888', '', '07/07/1986'],
+      ['Điện Thoại Sai', 'dt.sai@example.edu.vn', '', 'abc', '', '08/08/1987'],
+      ['Thiếu Điện Thoại', 'thieu.sdt@example.edu.vn', '', '', '', '09/09/1988'],
+      ['Thiếu Ngày Sinh', 'thieu.ns@example.edu.vn', '', '0908888999', '', ''],
     ]);
     const preview = await upload(s.base, '/api/admin/teachers/import', (await qa('GET','/api/admin/teachers/import-spec')).body.filename, file, A.token);
     expect(preview.status).toBe(200);
-    expect(preview.body).toMatchObject({ committed: false, total: 8, valid: 2, errors: 6, created: 0, credentials: [] });
-    expect(preview.body.rows.map((r: any) => [r.row, r.status])).toEqual([[2, 'ok'], [3, 'ok'], [4, 'error'], [5, 'error'], [6, 'error'], [7, 'error'], [8, 'error'], [9, 'error']]);
+    expect(preview.body).toMatchObject({ committed: false, total: 10, valid: 2, errors: 8, created: 0, credentials: [] });
+    expect(preview.body.rows.map((r: any) => [r.row, r.status])).toEqual([[2, 'ok'], [3, 'ok'], [4, 'error'], [5, 'error'], [6, 'error'], [7, 'error'], [8, 'error'], [9, 'error'], [10, 'error'], [11, 'error']]);
     expect(preview.body.rows[2].errors).toEqual(['Email trùng với dòng trước trong file']);
     expect(preview.body.rows[3].errors).toEqual(['Thiếu họ tên']);
     expect(preview.body.rows[6].errors[0]).toContain('đã được dùng cho một tài khoản khác');
+    expect(preview.body.rows[8].errors).toEqual(['Thiếu SĐT']); // đủ họ tên, SĐT, email, ngày sinh mới tạo tài khoản
+    expect(preview.body.rows[9].errors).toEqual(['Thiếu ngày sinh']);
     expect(await db.query("SELECT 1 FROM app_users WHERE email IN ('nhap1@example.edu.vn', 'nhap2@example.edu.vn')")).toHaveLength(0); // xem trước không lưu
     const commit = await upload(s.base, '/api/admin/teachers/import?commit=true', (await qa('GET','/api/admin/teachers/import-spec')).body.filename, file, A.token);
-    expect(commit.body).toMatchObject({ committed: true, created: 2, errors: 6 });
+    expect(commit.body).toMatchObject({ committed: true, created: 2, errors: 8 });
     expect(commit.body.credentials.map((c: any) => c.email)).toEqual(['nhap1@example.edu.vn', 'nhap2@example.edu.vn']);
-    expect(commit.body.credentials[0].password).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}$/);
+    expect(commit.body.credentials[0]).toMatchObject({ username: 'GVMot122201011980', password: 'DongAGVMot01011980' }); // quy ước GV + tên + 4 số cuối SĐT + ngày sinh
     expect(await db.query("SELECT 1 FROM app_users WHERE role = 'teacher' AND email IN ('nhap1@example.edu.vn', 'nhap2@example.edu.vn')")).toHaveLength(2);
     // Chạy lại cùng file: hai dòng đầu giờ là trùng
     expect((await upload(s.base, '/api/admin/teachers/import?commit=true', (await qa('GET','/api/admin/teachers/import-spec')).body.filename, file, A.token)).body.created).toBe(0);
@@ -185,7 +190,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     // mẫu mới: khối tiêu đề "Đông A" phía trên, bảng Số thứ tự, Mã giáo viên, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh (không có Bộ môn); chi tiết ở teacher_excel.spec.ts
     const sheet = await readRows(template.buffer);
     expect(sheet[0][0]).toMatch(/^Mẫu nhập danh sách giáo viên · /); // logo Đông A là ảnh ở dòng 1 (không có ô chữ), dòng có chữ đầu tiên là tên trường
-    expect(sheet.find((r) => r.includes('Họ và tên *'))).toEqual(['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới tính', 'SĐT', 'Email *', 'Ngày tháng năm sinh']);
+    expect(sheet.find((r) => r.includes('Họ và tên *'))).toEqual(['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới tính', 'SĐT *', 'Email *', 'Ngày tháng năm sinh *']);
   });
 
   test('HK.QT.023 xuất danh sách giáo viên ra Excel theo bộ lọc', async () => {
@@ -238,23 +243,23 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
   let students: number[];
   const studentCodes:Record<string,string>={};
   test('HK.QT.024–028 học sinh: thêm (mã, ngày sinh, giới tính, lớp), mật khẩu tạm, tìm/lọc, sửa họ tên – ngày sinh – email phụ huynh', async () => {
-    const s1 = await qa('POST', '/api/admin/students', { user_code: 'HS001', full_name: 'Nguyễn Văn Một', birth_date: '2013-03-15', gender: 'male', class_id: c7a.id, parent_email: 'PhuHuynh1@example.com' });
+    const s1 = await qa('POST', '/api/admin/students', { user_code: 'HS001', full_name: 'Nguyễn Văn Một', birth_date: '2013-03-15', gender: 'male', class_id: c7a.id, parent_email: 'PhuHuynh1@example.com', phone: '0909990000', email: 'tu.dong56.sprint2@example.edu.vn' });
     expect(s1.status).toBe(201);
     expect(s1.body.user).toMatchObject({ role: 'student', user_code: expect.stringMatching(/^HS[A-Z0-9]+2615032013\d{3}$/), birth_date: '2013-03-15', gender: 'male', grade: 7, school_year: '2025-2026', parent_email: 'phuhuynh1@example.com', must_change_password: true });
-    expect(s1.body.mail).toBe('no_email');
-    // có ngày sinh: tên đăng nhập/mật khẩu theo quy ước HS + tên + 4 số cuối SĐT (không có thì 0000) + ngày sinh (11/11/2026)
+    expect(s1.body.mail).toBe('queued'); // email bắt buộc (11/11/2026)
+    // tên đăng nhập/mật khẩu theo quy ước HS + tên + 4 số cuối SĐT + ngày sinh (11/11/2026)
     expect(s1.body).toMatchObject({ display_username: 'HSMot000015032013', temporary_password: 'DongAHSMot15032013' });
-    const s2 = await qa('POST', '/api/admin/students', { user_code: 'HS002', full_name: 'Trần Thị Hai', birth_date: '2013-07-20', gender: 'female', class_id: c7a.id, email: 'hs002@example.edu.vn' });
-    const s3 = await qa('POST', '/api/admin/students', { user_code: 'HS003', full_name: 'Lê Văn Ba', birth_date: '2013-11-01', class_id: c7b.id });
+    const s2 = await qa('POST', '/api/admin/students', { user_code: 'HS002', full_name: 'Trần Thị Hai', birth_date: '2013-07-20', gender: 'female', class_id: c7a.id, email: 'hs002@example.edu.vn', phone: '0900000057' });
+    const s3 = await qa('POST', '/api/admin/students', { user_code: 'HS003', full_name: 'Lê Văn Ba', birth_date: '2013-11-01', class_id: c7b.id, phone: '0900000058', email: 'tu.dong59.sprint2@example.edu.vn' });
     students = [s1.body.user.id, s2.body.user.id, s3.body.user.id];
     studentCodes.HS001=s1.body.user.user_code;studentCodes.HS002=s2.body.user.user_code;studentCodes.HS003=s3.body.user.user_code;
     for (const bad of [{ full_name: '', birth_date: '2013-01-01' }, { user_code: 'HS9', full_name: 'Thiếu Sinh' }, { user_code: 'HS9', full_name: 'Sinh Sai', birth_date: '15/03/2013' }, { user_code: 'HS9', full_name: 'Phụ Huynh Sai', birth_date: '2013-01-01', parent_email: 'x' }]) {
       expect([JSON.stringify(bad), (await qa('POST', '/api/admin/students', bad)).status]).toEqual([JSON.stringify(bad), 422]);
     }
-    const canonical=await qa('POST','/api/admin/students',{user_code:studentCodes.HS001,full_name:'Mã Do Máy Chủ Cấp',birth_date:'2013-01-01'});expect(canonical.status).toBe(201);expect(canonical.body.user.user_code).not.toBe(studentCodes.HS001);await qa('DELETE',`/api/admin/users/${canonical.body.user.id}`);
-    expect((await qa('POST', '/api/admin/students', { user_code: 'HS777', full_name: 'Trùng Email', birth_date: '2013-01-01', email: 'HS002@example.edu.vn' })).status).toBe(409);
-    expect((await qa('POST', '/api/admin/students', { user_code: 'HS778', full_name: 'Lớp Lạ', birth_date: '2013-01-01', class_id: 999999 })).status).toBe(404);
-    expect((await call(s.base, 'POST', '/api/admin/students', { user_code: 'HS001', full_name: 'Học Sinh Trường B', birth_date: '2013-01-01' }, B.token)).status).toBe(201); // trùng mã khác trường
+    const canonical=await qa('POST','/api/admin/students',{user_code:studentCodes.HS001,full_name:'Mã Do Máy Chủ Cấp',birth_date:'2013-01-01', phone: '0900000060', email: 'tu.dong61.sprint2@example.edu.vn'});expect(canonical.status).toBe(201);expect(canonical.body.user.user_code).not.toBe(studentCodes.HS001);await qa('DELETE',`/api/admin/users/${canonical.body.user.id}`);
+    expect((await qa('POST', '/api/admin/students', { user_code: 'HS777', full_name: 'Trùng Email', birth_date: '2013-01-01', email: 'HS002@example.edu.vn', phone: '0900000062' })).status).toBe(409);
+    expect((await qa('POST', '/api/admin/students', { user_code: 'HS778', full_name: 'Lớp Lạ', birth_date: '2013-01-01', class_id: 999999, phone: '0900000063', email: 'tu.dong64.sprint2@example.edu.vn' })).status).toBe(404);
+    expect((await call(s.base, 'POST', '/api/admin/students', { user_code: 'HS001', full_name: 'Học Sinh Trường B', birth_date: '2013-01-01', phone: '0900000065', email: 'tu.dong66.sprint2@example.edu.vn' }, B.token)).status).toBe(201); // trùng mã khác trường
 
     expect((await qa('GET', '/api/admin/students')).body.items.map((x: any) => x.user_code)).toEqual([studentCodes.HS003,studentCodes.HS001,studentCodes.HS002]); // theo họ tên
     expect((await qa('GET', '/api/admin/students?q=tran%20thi')).body.items.map((x: any) => x.user_code)).toEqual([studentCodes.HS002]);
@@ -295,10 +300,12 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     // Học sinh bị khóa không được xếp vào lớp mới
     expect((await qa('POST', `/api/admin/classes/${c7a.id}/members`, { student_ids: [h2] })).status).toBe(422);
     await qa('POST', `/api/admin/users/${h2}/lock`, { locked: false });
+    // tài khoản cũ chưa có email (tạo trước khi email bắt buộc): đặt lại mật khẩu không gửi được thư
+    await qa('PATCH', `/api/admin/users/${h3}`, { email: null });
     const reset = await qa('POST', `/api/admin/users/${h3}/reset-password`);
     expect(reset.body).toMatchObject({ mail: 'no_email', user: { must_change_password: true } });
     expect((await qa('DELETE', `/api/admin/users/${h2}`)).status).toBe(409); // đã đăng nhập
-    const fresh = await qa('POST', '/api/admin/students', { user_code: 'HS900', full_name: 'Học Sinh Xóa Được', birth_date: '2013-01-01', class_id: c7a.id });
+    const fresh = await qa('POST', '/api/admin/students', { user_code: 'HS900', full_name: 'Học Sinh Xóa Được', birth_date: '2013-01-01', class_id: c7a.id, phone: '0900000067', email: 'tu.dong68.sprint2@example.edu.vn' });
     expect((await qa('DELETE', `/api/admin/users/${fresh.body.user.id}`)).status).toBe(204);
     expect(await db.query('SELECT 1 FROM app_class_members WHERE user_id = $1', [fresh.body.user.id])).toHaveLength(0);
     // Giáo viên không dùng được các route quản trị
@@ -310,16 +317,16 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
 
   test('HK.QT.027 nhập học sinh từ Excel: xem trước báo trùng mã, sai định dạng, lớp không có; lưu dòng hợp lệ kèm xếp lớp', async () => {
     const file = await makeXlsx(STUDENT_HEADER, [
-      ['HS101', 'Đỗ Văn Một Trăm', '01/02/2013', 'Nam', '7A1', 'hs101@example.edu.vn', 'ph101@example.com'],
-      ['HS102', 'Vũ Thị Một Không Hai', '2013-05-06', 'Nữ', '7a2', 'hs102@example.edu.vn', ''],
-      ['HS101', 'Trùng Mã Trong File', '2013-01-01', '', '', 'dup101@example.edu.vn', ''],
-      [studentCodes.HS001,'Trùng Mã Trong Trường', '2013-01-01', '', '', 'dup001@example.edu.vn', ''],
-      ['HS103', 'Ngày Sinh Sai', '31/02/2013', '', '', 'hs103@example.edu.vn', ''],
-      ['HS104', 'Giới Tính Sai', '2013-01-01', 'Robot', '', 'hs104@example.edu.vn', ''],
-      ['HS105', 'Lớp Không Có', '2013-01-01', '', '9Z9', 'hs105@example.edu.vn', ''],
-      ['', '', '2013-01-01', '', '', '', ''],
-      ['HS106', 'Email Học Sinh Trùng', '2013-01-01', '', '', 'hs002@example.edu.vn', ''],
-      ['HS107', 'Không Lớp', '2013-01-01', '', '', 'hs107@example.edu.vn', ''],
+      ['HS101', 'Đỗ Văn Một Trăm', '01/02/2013', 'Nam', '7A1', 'hs101@example.edu.vn', 'ph101@example.com', '0911000101'],
+      ['HS102', 'Vũ Thị Một Không Hai', '2013-05-06', 'Nữ', '7a2', 'hs102@example.edu.vn', '', '0911000102'],
+      ['HS101', 'Trùng Mã Trong File', '2013-01-01', '', '', 'dup101@example.edu.vn', '', '0911000103'],
+      [studentCodes.HS001,'Trùng Mã Trong Trường', '2013-01-01', '', '', 'dup001@example.edu.vn', '', '0911000104'],
+      ['HS103', 'Ngày Sinh Sai', '31/02/2013', '', '', 'hs103@example.edu.vn', '', '0911000105'],
+      ['HS104', 'Giới Tính Sai', '2013-01-01', 'Robot', '', 'hs104@example.edu.vn', '', '0911000106'],
+      ['HS105', 'Lớp Không Có', '2013-01-01', '', '9Z9', 'hs105@example.edu.vn', '', '0911000107'],
+      ['', '', '2013-01-01', '', '', '', '', ''],
+      ['HS106', 'Email Học Sinh Trùng', '2013-01-01', '', '', 'hs002@example.edu.vn', '', '0911000108'],
+      ['HS107', 'Không Lớp', '2013-01-01', '', '', 'hs107@example.edu.vn', '', '0911000109'],
     ]);
     const preview = await upload(s.base, `/api/admin/students/import?year_id=${y25}`, (await qa('GET','/api/admin/students/import-spec')).body.legacy_filename,file, A.token);
     expect(preview.body).toMatchObject({ committed: false, total: 10, valid: 3, errors: 7, year_id: y25 });
@@ -337,13 +344,14 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect((await byCode('hs102')).classes.map((c: any) => c.name)).toEqual(['7A2']);
     expect(await byCode('hs102')).toMatchObject({ gender: 'female', birth_date: '2013-05-06' });
     expect((await byCode('hs107')).classes).toEqual([]);
-    await mail.tick();
+    // thư đi qua hàng đợi (có thể đang gửi lô khác): chờ đến khi thư của HS101 tới
+    for (let i = 0; i < 50 && !mail.sent.some((m) => m.to === 'hs101@example.edu.vn'); i += 1) { await mail.tick(); await new Promise((r) => setTimeout(r, 100)); }
     expect(mail.sent.find((m) => m.to === 'hs101@example.edu.vn')?.text).toContain(commit.body.credentials[0].password);
     // Năm học đã kết thúc: không nhập vào lớp của năm đó
     const template = await download(s.base, '/api/admin/students/template', A.token);
     // mẫu mới cùng bố cục với giáo viên (chi tiết ở student_excel.spec.ts); file cũ theo STUDENT_HEADER ở trên vẫn nhập được
     const sheet = await readRows(template.buffer);
-    expect(sheet.find((r) => r.includes('Họ và tên *'))).toEqual(['Số thứ tự', 'Mã học sinh', 'Họ và tên *', 'Giới tính', 'SĐT','Email','Ngày tháng năm sinh *']);
+    expect(sheet.find((r) => r.includes('Họ và tên *'))).toEqual(['Số thứ tự', 'Mã học sinh', 'Họ và tên *', 'Giới tính', 'SĐT *', 'Email *', 'Ngày tháng năm sinh *']);
   });
 
   test('HK.QT.034 xuất danh sách học sinh ra Excel theo lớp', async () => {
@@ -433,7 +441,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
       ['DELETE', `/api/admin/classes/${c7a.id}`, undefined],
       ['POST', `/api/admin/classes/${c7a.id}/members`, { student_ids: [students[1]] }],
       ['DELETE', `/api/admin/classes/${c7a.id}/members/${students[1]}`, undefined],
-      ['POST', '/api/admin/students', { user_code: 'HS555', full_name: 'Vào Lớp Đã Đóng', birth_date: '2013-01-01', class_id: c7a.id }],
+      ['POST', '/api/admin/students', { user_code: 'HS555', full_name: 'Vào Lớp Đã Đóng', birth_date: '2013-01-01', class_id: c7a.id, phone: '0900000069', email: 'tu.dong70.sprint2@example.edu.vn' }],
       ['PUT', '/api/admin/school-grades', { year_id: y25, grade: 7, is_active: false }],
     ] as Array<[string, string, unknown]>) {
       expect([method, path, (await qa(method, path, body)).status]).toEqual([method, path, 409]);
@@ -442,7 +450,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect((await qa('POST', `/api/admin/school-years/${y26}/activate`)).body.status).toBe('active');
     expect((await qa('POST', '/api/admin/classes', { year_id: y26, grade: 7, name: '7M' })).status).toBe(201);
     // Học sinh không tham gia được lớp của năm đã kết thúc
-    const student = (await qa('POST', '/api/admin/students', { user_code: 'HS556', full_name: 'Vào Lớp Cũ', birth_date: '2013-01-01' })).body;
+    const student = (await qa('POST', '/api/admin/students', { user_code: 'HS556', full_name: 'Vào Lớp Cũ', birth_date: '2013-01-01', phone: '0900000071', email: 'tu.dong72.sprint2@example.edu.vn' })).body;
     const token = (await activate(s.base, student.user.username, student.temporary_password, PW, 'student')).token;
     expect((await call(s.base, 'POST', '/api/student/join-class', { code: c7a.join_code }, token)).status).toBe(409);
   });

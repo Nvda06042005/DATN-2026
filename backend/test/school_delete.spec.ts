@@ -19,11 +19,11 @@ import { activate, adminLogin, call, hasPostgres, sql, Started, startApp } from 
     const year = (await api('POST', '/api/admin/school-years', { label: '2026-2027', starts_on: '2026-09-05', ends_on: '2027-05-31' }, admin.token)).body;
     await api('POST', `/api/admin/school-years/${year.id}/activate`, undefined, admin.token);
     const klass = (await api('POST', '/api/admin/classes', { year_id: year.id, grade: 7, name: '7A1' }, admin.token)).body;
-    const t = await api('POST', '/api/admin/teachers', { full_name: `Cô Giáo ${tag}`, email: `gv.${tag}@example.edu.vn` }, admin.token);
+    const t = await api('POST', '/api/admin/teachers', { full_name: `Cô Giáo ${tag}`, email: `gv.${tag}@example.edu.vn`, phone: '0900000021', birth_date: '1985-03-15' }, admin.token);
     const teacher = await activate(s.base, t.body.user.username, t.body.temporary_password, PW, 'teacher');
-    const st1 = await api('POST', '/api/admin/students', { user_code: `HS-${tag}-1`, full_name: `Học Sinh ${tag} Một`, birth_date: '2013-04-02' }, admin.token);
+    const st1 = await api('POST', '/api/admin/students', { user_code: `HS-${tag}-1`, full_name: `Học Sinh ${tag} Một`, birth_date: '2013-04-02', phone: '0900000022', email: `tu.dong23.${tag}@example.edu.vn` }, admin.token);
     const student = await activate(s.base, st1.body.user.username, st1.body.temporary_password, PW, 'student');
-    const st2 = await api('POST', '/api/admin/students', { user_code: `HS-${tag}-2`, full_name: `Học Sinh ${tag} Hai`, birth_date: '2013-05-03' }, admin.token);
+    const st2 = await api('POST', '/api/admin/students', { user_code: `HS-${tag}-2`, full_name: `Học Sinh ${tag} Hai`, birth_date: '2013-05-03', phone: '0900000024', email: `tu.dong25.${tag}@example.edu.vn` }, admin.token);
     expect((await api('POST', '/api/student/join-class', { code: klass.join_code }, student.token)).status).toBeLessThan(300);
     await sql(s.url, `INSERT INTO app_progress(user_id, xp) VALUES (${student.user.id}, 120)`);
     await sql(s.url, `INSERT INTO hk_notes(user_id, ref_type, ref_id, body) VALUES (${student.user.id}, 'lesson', 1, 'Ghi chú của học sinh')`);

@@ -22,7 +22,7 @@ const inbox = async (who: { token: string }) => (await as(who)('GET', '/api/plat
     const rootToken = (await call(s.base, 'POST', '/api/auth/login', { username: 'admin', password: 'admin@123', portal: 'root_admin' })).body.token;
     f = await bootstrap(s, rootToken, true);
     const student = async (code: string, name: string, classId: number) => {
-      const created = await as(f.A)('POST', '/api/admin/students', { user_code: code, full_name: name, birth_date: '2013-05-05', class_id: classId });
+      const created = await as(f.A)('POST', '/api/admin/students', { user_code: code, full_name: name, birth_date: '2013-05-05', class_id: classId, phone: '0900000019', email: `${code.toLowerCase()}.research@example.edu.vn` });
       const active = await activate(s.base, created.body.user.username, created.body.temporary_password, PW, 'student');
       return { id: active.user.id, token: active.token };
     };

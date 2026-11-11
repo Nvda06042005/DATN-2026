@@ -28,15 +28,17 @@ import { activate, adminLogin, call, download, hasPostgres, Started, startApp, u
       const t = await api('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Số Sai', email: `gv.${phone.replace(/\W/g, '')}@example.edu.vn`, birth_date: '1985-03-15', phone });
       expect([phone, t.status]).toEqual([phone, 422]);
       expect(JSON.stringify(t.body)).toContain(MESSAGE);
-      const st = await api('POST', '/api/admin/students', { full_name: 'Học Sinh Số Sai', birth_date: '2013-04-02', phone });
+      const st = await api('POST', '/api/admin/students', { full_name: 'Học Sinh Số Sai', birth_date: '2013-04-02', phone, email: 'tu.dong10.phone_rule@example.edu.vn' });
       expect([phone, st.status]).toEqual([phone, 422]);
     }
     const gv = await api('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Số Đúng', email: 'gv.dung@example.edu.vn', birth_date: '1985-03-15', phone: '0901234567' });
     expect(gv.status).toBe(201);
     expect(gv.body.user.phone).toBe('0901234567');
-    expect((await api('POST', '/api/admin/students', { full_name: 'Học Sinh Số Đúng', birth_date: '2013-04-02', phone: '0912345678' })).status).toBe(201);
-    // không khai số điện thoại vẫn được (trừ quản trị viên trường: cần để ghép tên đăng nhập)
-    expect((await api('POST', '/api/admin/students', { full_name: 'Học Sinh Không Số', birth_date: '2013-05-02' })).status).toBe(201);
+    expect((await api('POST', '/api/admin/students', { full_name: 'Học Sinh Số Đúng', birth_date: '2013-04-02', phone: '0912345678', email: 'tu.dong11.phone_rule@example.edu.vn' })).status).toBe(201);
+    // không khai số điện thoại thì không tạo được: SĐT dùng để ghép tên đăng nhập (đủ hết mới tạo, 11/11/2026)
+    const none = await api('POST', '/api/admin/students', { full_name: 'Học Sinh Không Số', birth_date: '2013-05-02', email: 'khong.so@example.edu.vn' });
+    expect(none.status).toBe(422);
+    expect(none.body.detail).toContain('Cần số điện thoại');
   });
 
   test('quản trị viên trường và quản trị tổng do quản trị tổng tạo: số sai bị từ chối, quản trị viên trường cần đủ 10 chữ số', async () => {
@@ -56,7 +58,7 @@ import { activate, adminLogin, call, download, hasPostgres, Started, startApp, u
   });
 
   test('sửa tài khoản và hồ sơ cá nhân: số sai bị từ chối ở cả quản trị trường, giáo viên và quản trị tổng', async () => {
-    const gv = await api('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Sửa Số', email: 'gv.sua@example.edu.vn', birth_date: '1986-02-02' });
+    const gv = await api('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Sửa Số', email: 'gv.sua@example.edu.vn', birth_date: '1986-02-02', phone: '0900000012' });
     const id = gv.body.user.id as number;
     for (const phone of BAD) expect([phone, (await api('PATCH', `/api/admin/users/${id}`, { phone })).status]).toEqual([phone, 422]);
     expect((await api('PATCH', `/api/admin/users/${id}`, { phone: '0988000111' })).body).toMatchObject({ phone: '0988000111' });
@@ -91,7 +93,7 @@ import { activate, adminLogin, call, download, hasPostgres, Started, startApp, u
     await tpl.xlsx.load((await download(s.base, '/api/admin/students/template', A.token)).buffer as unknown as Parameters<typeof tpl.xlsx.load>[0]);
     const sheet = tpl.getWorksheet('Học sinh')!;
     let header = 0;
-    sheet.eachRow((row, n) => { if (!header && (row.values as unknown[]).includes('SĐT')) header = n; });
+    sheet.eachRow((row, n) => { if (!header && (row.values as unknown[]).includes('SĐT *')) header = n; });
     expect(header).toBeGreaterThan(0);
     for (const n of [header + 1, header + 1000]) {
       expect(sheet.getCell(n, 5).dataValidation).toMatchObject({ type: 'textLength', operator: 'equal', formulae: [10], allowBlank: true, showErrorMessage: true, error: `${MESSAGE}.` });
