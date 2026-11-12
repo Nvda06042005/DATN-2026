@@ -252,6 +252,8 @@ export interface ImportResult {
   year_id?: number | null;
   rows: ImportRow[];
   credentials?: Array<{ row: number; username: string; password: string; full_name: string; email: string | null }>;
+  /** Ghi chú khi xếp lớp: lớp sẽ được tạo, giáo viên phụ trách học kỳ */
+  notes?: string[];
 }
 
 // ---------------------------------------------------------------------- kho dữ liệu lịch sử

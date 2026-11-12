@@ -381,7 +381,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect((await qa('GET', `/api/admin/classes/${c7a.id}`)).body.members.map((m: any) => m.user_code).sort()).toEqual([studentCodes.HS002,studentCodes.HS003,studentCodes.HS101,studentCodes.HS107].sort());
     // mẫu mới cùng bố cục với mẫu giáo viên/học sinh (chi tiết ở class_excel.spec.ts)
     const templateRows = await readRows((await download(s.base, `/api/admin/classes/template?year_id=${y25}`, A.token)).buffer);
-    expect(templateRows.find((r) => r.includes('Lớp *'))).toEqual(['Số thứ tự', 'Mã học sinh', 'Họ và tên', 'Ngày sinh', 'Giới tính', 'Lớp *']);
+    expect(templateRows.find((r) => r.includes('MÃ HỌC SINH'))).toEqual(['STT', 'MÃ HỌC SINH', 'HỌ VÀ TÊN', 'NGÀY SINH', 'GIỚI TÍNH', 'LỚP']);
   });
 
   test('HK.QT.038 lớp đã có học sinh chỉ lưu trữ, lớp trống được xóa; lớp lưu trữ khôi phục được', async () => {

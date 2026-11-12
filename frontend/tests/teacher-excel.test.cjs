@@ -51,11 +51,13 @@ test('trang Giáo viên: hai cách thêm, biểu mẫu cùng cột với file m�
   const people = read('components', 'admin', 'SchoolPeople.tsx');
   assert.match(people, /Có hai cách thêm giáo viên: nút Thêm giáo viên để thêm từng người, hoặc Nhập từ Excel để thêm hàng loạt/);
   assert.match(people, /Thêm từng giáo viên \(muốn thêm nhiều người cùng lúc, hãy dùng Nhập từ Excel\)/);
-  const form = people.slice(people.indexOf('const fields: FieldDef[] = teacher'), people.indexOf(': [{ name: \'user_code\', label: \'Mã học sinh\''));
+  // các ô dùng chung của form thêm giáo viên / học sinh (personFields)
+  const form = people.slice(people.indexOf('export const personFields'), people.indexOf('export const SchoolPeople'));
   const labels = [...form.matchAll(/label: '([^']+)'/g)].map((m) => m[1]);
-  assert.deepEqual(labels.filter((l) => !['Chưa chọn', 'Nam', 'Nữ'].includes(l)), ['Mã giáo viên', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh']);
+  assert.match(form, /label: teacher \? 'Mã giáo viên' : 'Mã học sinh'/);
+  assert.deepEqual(labels.filter((l) => !['Chưa chọn', 'Nam', 'Nữ', 'Khác'].includes(l)), ['Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh']);
   assert.doesNotMatch(form, /Bộ môn/);
-  assert.match(form, /name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1940-01-01', max: today/);
+  assert.match(form, /name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: teacher \? '1940-01-01' : '2000-01-01', max: today/);
   assert.doesNotMatch(people, /bộ môn|Bộ môn|subject/);
   assert.match(people, /TeacherImportSheet session=\{session\}/);
   const importer=read('components','admin','TeacherImportSheet.tsx');

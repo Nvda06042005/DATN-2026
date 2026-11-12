@@ -708,6 +708,9 @@ export const ImportSheet: React.FC<{
             <StatusChip kind="on" text={committed ? `${('created' in result && result.created) || ('added' in result && result.added) || 0} đã lưu` : `${valid} hợp lệ`} />
             {result.errors ? <StatusChip kind="off" text={`${result.errors} lỗi`} /> : null}
           </View>
+          {'notes' in result && result.notes?.length ? (
+            <View testID="import-notes"><Inset style={{ gap: 4 }}>{result.notes.map((n) => <Txt key={n} size={13}>• {n}</Txt>)}</Inset></View>
+          ) : null}
           {rows.filter((r) => r.status === 'error').map((r) => (
             <Inset key={r.row} style={{ backgroundColor: c.sonNhat, gap: 2 }}>
               <Txt f="bold" size={13} color={c.sonChu}>Dòng {r.row}{r.full_name ? ` · ${r.full_name}` : r.user_code ? ` · ${r.user_code}` : ''}</Txt>

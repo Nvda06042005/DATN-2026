@@ -62,7 +62,7 @@ test('mọi ô số điện thoại của bốn vai trò dùng ô có giới h�
   assert.match(kit, /\(f\.type === 'phone' \? phoneError\(String\(values\[f\.name\] \?\? ''\)\) : null\)\)\.find\(Boolean\)/);
   // giáo viên và học sinh (thêm từng người), sửa tài khoản mọi vai trò, quản trị viên đầu tiên của trường
   const people = read('components', 'admin', 'SchoolPeople.tsx');
-  assert.equal([...people.matchAll(/name: 'phone', label: 'SĐT', type: 'phone'/g)].length, 2);
+  assert.equal([...people.matchAll(/name: 'phone', label: 'SĐT', type: 'phone'/g)].length, 1); // một ô dùng chung cho giáo viên, học sinh (personFields)
   assert.doesNotMatch(people, /name: 'phone'[^}]*type: 'tel'/);
   assert.match(read('components', 'admin', 'AccountSheet.tsx'), /name: 'phone', label: 'Số điện thoại', type: 'phone'/);
   assert.match(read('components', 'admin', 'RootAdmin.tsx'), /name: 'admin_phone', label: 'Điện thoại', type: 'phone', required: true/);

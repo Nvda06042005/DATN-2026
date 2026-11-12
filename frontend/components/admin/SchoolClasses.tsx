@@ -11,12 +11,13 @@ import { AdminSelect } from '@/components/admin/AdminSelect';
 import { RegistrationCode } from './RegistrationCode';
 import { TeacherChangeReview } from './ClassTeacherChange';
 import { fmtDay,todayVn } from '@/lib/school-terms';
-import { Cell, DataTable, ErrorNote, FormSheet, ImportSheet, Page, PageHeader, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, valuesToIds, yearOptions, YEAR_TEXT, type FieldDef, type SearchFilter } from '@/components/admin/kit';
-import { dateText } from '@/components/admin/AccountSheet';
+import { Cell, CredentialSheet, DataTable, ErrorNote, FormSheet, ImportSheet, Page, PageHeader, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, valuesToIds, yearOptions, YEAR_TEXT, type FieldDef, type SearchFilter } from '@/components/admin/kit';
+import { dateText, GENDER_TEXT } from '@/components/admin/AccountSheet';
+import { personFields } from './SchoolPeople';
 import type { Session } from '@/components/auth';
-import { Btn, Card, ConfirmSheet, Inset, Sheet, Spinner, Txt } from '@/components/ui';
+import { Btn, ConfirmSheet, Inset, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
-import type { ClassDetail, ClassItem, YearItem } from '@/types/api';
+import type { ClassDetail, ClassItem, CreatedAccount, YearItem } from '@/types/api';
 
 const KIND_TEXT: Record<string, string> = {
   change_teacher:'Đổi giáo viên phụ trách lớp',
@@ -39,7 +40,7 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
   const { data, error, loading, reload } = useLoad(() => (yearId ? api.listClasses(token, { year_id: yearId,semester, grade: grade || undefined, q: dq, active: active || undefined, limit: 200 }) : Promise.resolve(null)), [token, yearId,semester, grade, dq, active], session.expired);
   const { data: teachers } = useLoad(() => api.listMembers(token, 'teachers', { active: 'true', limit: 200 }), [token], session.expired);
   const { data: gradeData } = useLoad(() => (yearId ? api.listGrades(token, yearId) : Promise.resolve(null)), [token, yearId], session.expired);
-  const teacherOptions = useMemo(() => (teachers?.items ?? []).map((t) => ({ value: String(t.id), label: t.full_name })), [teachers]);
+  const teacherOptions = useMemo(() => (teachers?.items ?? []).map((t) => ({ value: String(t.id), label: `${t.user_code ?? 'Chưa có mã'} · ${t.full_name}` })), [teachers]);
   const openGrades = (gradeData?.grades ?? []).filter((g) => g.is_active).map((g) => ({ value: String(g.grade), label: `Khối ${g.grade}` }));
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
@@ -80,10 +81,12 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
 
       {open ? <ClassSheet session={session} id={open} semester={semester} classes={data?.items ?? []} teacherOptions={teacherOptions} gradeOptions={openGrades} onClose={() => setOpen(null)} onChanged={reload} /> : null}
       {creating && year ? (
-        <FormSheet title={`Tạo lớp – năm học ${year.label}`} subtitle="Mã tham gia 6 ký tự được tạo tự động" submitLabel="Tạo lớp"
-          fields={[{name:'registration_code',label:'Mã lớp',render:()=> <RegistrationCode token={token} kind="class"/>},{ name: 'name', label: 'Tên lớp', required: true, placeholder: '7A1' }, { name: 'grade', label: 'Khối', type: 'select', required: true, options: openGrades.length ? openGrades : [{ value: '', label: 'Chưa bật khối nào' }] },
-            {name:'semester',label:'Học kỳ',type:'select',required:true,options:SEMESTERS},
-            { name: 'teacher_id', label: 'Giáo viên phụ trách lớp', type: 'select', options: [{value:'',label:'Chưa phân công'},...teacherOptions] }, { name: 'expected_size', label: 'Sĩ số dự kiến', type: 'number' }, { name: 'description', label: 'Mô tả', type: 'textarea' }]}
+        <FormSheet title={`Tạo lớp – năm học ${year.label}`} subtitle="Giống phần đầu file Excel xếp lớp: lớp, học kỳ, giáo viên phụ trách. Mã tham gia 6 ký tự được tạo tự động." submitLabel="Tạo lớp" wide
+          fields={[
+            { name: 'name', label: 'Lớp', required: true, placeholder: '6A1', hint: 'Ví dụ 6A1; số đầu là khối.' }, {name:'semester',label:'Học kỳ',type:'select',required:true,options:SEMESTERS},
+            { name: 'grade', label: 'Khối', type: 'select', required: true, options: openGrades.length ? openGrades : [{ value: '', label: 'Chưa bật khối nào' }] }, { name: 'expected_size', label: 'Sĩ số dự kiến', type: 'number', hint: 'Sau khi nhập danh sách, sĩ số lấy theo số học sinh thực có.' },
+            { name: 'teacher_id', label: 'Giáo viên phụ trách (mã giáo viên · họ tên)', type: 'select', options: [{value:'',label:'Chưa phân công'},...teacherOptions] },
+            {name:'registration_code',label:'Mã lớp',render:()=> <RegistrationCode token={token} kind="class"/>}, { name: 'description', label: 'Mô tả', type: 'textarea' }]}
           initial={{ grade: openGrades[0]?.value ?? '',semester:String(semester) }} onClose={() => setCreating(false)}
           onSubmit={async (v) => {
             await api.createClass(token, { year_id: year.id,semester:Number(v.semester), grade: Number(v.grade), name: String(v.name), teacher_ids: v.teacher_id ? [Number(v.teacher_id)] : [], expected_size: String(v.expected_size) ? Number(v.expected_size) : null, description: String(v.description) || null });
@@ -97,15 +100,15 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
 };
 
 // ---------------------------------------------------------------------- xếp lớp từ Excel: cùng cách với nhập giáo viên/học sinh
-/** Tải đúng file mẫu của trường và năm học (tên file kèm năm học), chỉ nhận lại đúng file đó; học sinh nhận ra bằng mã hoặc họ tên + ngày sinh */
+/** Mỗi lớp một file (ô Lớp, Học kỳ, Giáo viên phụ trách ở đầu file); chỉ nhận đúng file mẫu của trường và năm học; học sinh nhận ra bằng mã hoặc họ tên + ngày sinh */
 const ClassImportSheet: React.FC<{ session: Session; yearId: number; onClose: () => void; onDone: () => void }> = ({ session, yearId, onClose, onDone }) => {
   const { token } = session;
   const title = 'Xếp học sinh vào lớp từ Excel';
   const { data: spec, error, reload } = useLoad(() => api.classImportSpec(token, yearId), [token, yearId], session.expired);
   if (!spec) return <Sheet open title={title} onClose={onClose}>{error ? <><ErrorNote message={error} /><Btn title="Thử lại" onPress={reload} /></> : <Spinner label="Đang tải file mẫu của trường…" />}</Sheet>;
-  return <ImportSheet title={title} hint={`Tải file mẫu năm học ${spec.year_label}, điền danh sách rồi chọn file để nhập. Học sinh đã ở trong lớp được bỏ qua.`}
-    acceptText="Chỉ nhận file Excel." note={`Phải đúng file mẫu xếp lớp năm học ${spec.year_label} của ${spec.school_name}. File của trường hoặc năm học khác sẽ báo lỗi.`}
-    expectedFilename={spec.filename} template={{ filename: spec.filename, fetchBlob: () => api.downloadFile(token, `/api/admin/classes/template?year_id=${yearId}`) }}
+  return <ImportSheet title={title} hint={`Mỗi lớp một file: tải file mẫu năm học ${spec.year_label}, gõ tên lớp, chọn học kỳ và giáo viên phụ trách, điền học sinh rồi chọn file để nhập. Lớp chưa có sẽ được tạo; sĩ số lấy theo số học sinh thực có.`}
+    acceptText="Chỉ nhận file Excel." note={`Phải đúng file mẫu xếp lớp năm học ${spec.year_label} của ${spec.school_name} (được thêm tên lớp ở cuối tên file, ví dụ ${spec.filename.replace(/\.xlsx$/, '')}_6A1.xlsx). File của trường hoặc năm học khác sẽ báo lỗi.`}
+    template={{ filename: spec.filename, fetchBlob: () => api.downloadFile(token, `/api/admin/classes/template?year_id=${yearId}`) }}
     run={(file, commit) => api.importAssignments(token, file, { commit, year_id: yearId })} onClose={onClose} onDone={onDone} />;
 };
 
@@ -119,7 +122,8 @@ const ClassSheet: React.FC<{
   const events = useLoad(() => api.classEvents(token, id), [token, id], session.expired);
   const { data: students } = useLoad(() => api.listMembers(token, 'students', { active: 'true', limit: 200 }), [token], session.expired);
   const { busy, run } = useAction(session.expired);
-  const [dialog, setDialog] = useState<null | 'edit' | 'add' | 'archive' | 'delete' | 'code'>(null);
+  const [dialog, setDialog] = useState<null | 'edit' | 'add' | 'create' | 'archive' | 'delete' | 'code'>(null);
+  const [credential, setCredential] = useState<CreatedAccount | null>(null);
   const [moving, setMoving] = useState<ClassDetail['members'][number] | null>(null);
   const [removing, setRemoving] = useState<ClassDetail['members'][number] | null>(null);
   const [reassign,setReassign]=useState<Parameters<typeof api.updateClass>[2]|null>(null);
@@ -167,20 +171,29 @@ const ClassSheet: React.FC<{
             {k.description ? <Txt size={14} color={c.muc2}>{k.description}</Txt> : null}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               <Btn title="Sửa lớp / phân công" tone="giay" size="sm" disabled={locked} onPress={() => setDialog('edit')} testID="class-edit" />
-              <Btn title="Thêm học sinh" icon={UserPlus} tone="giay" size="sm" disabled={locked || !k.is_active} onPress={() => setDialog('add')} testID="class-add-members" />
+              <Btn title="Tạo học sinh mới vào lớp" icon={Plus} tone="son" size="sm" disabled={locked || !k.is_active} onPress={() => setDialog('create')} testID="class-create-student" />
+              <Btn title="Thêm học sinh đã có" icon={UserPlus} tone="giay" size="sm" disabled={locked || !k.is_active} onPress={() => setDialog('add')} testID="class-add-members" />
               <Btn title={k.is_active ? 'Lưu trữ' : 'Khôi phục'} icon={Archive} tone="giay" size="sm" disabled={locked} onPress={() => setDialog('archive')} />
               <Btn title="Xóa lớp" icon={Trash2} tone="giay" size="sm" disabled={locked || k.students > 0} onPress={() => setDialog('delete')} />
             </View>
             {k.students > 0 && !locked ? <Txt size={13} color={c.muc3}>Lớp đã có học sinh nên chỉ lưu trữ được, không xóa.</Txt> : null}
 
-            <Txt f="bold" size={15}>Học sinh ({k.members.length})</Txt>
-            {k.members.length === 0 ? <Txt size={14} color={c.muc3}>Chưa có học sinh nào trong lớp.</Txt> : k.members.map((m) => (
-              <Card key={m.id} flat pad={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <View style={{ flex: 1, minWidth: 160 }}><Txt f="semibold" size={14}>{m.full_name}{m.is_active ? '' : ' (đã khóa)'}</Txt><Txt size={12} color={c.muc3}>{m.user_code ?? '—'}{m.birth_date ? ` · ${m.birth_date}` : ''}</Txt></View>
-                <Btn icon={ArrowRightLeft} label={`Chuyển ${m.full_name} sang lớp khác`} tone="giay" size="sm" disabled={locked || sameGrade.length === 0} onPress={() => setMoving(m)} />
-                <Btn icon={Trash2} label={`Gỡ ${m.full_name} khỏi lớp`} tone="giay" size="sm" disabled={locked} onPress={() => setRemoving(m)} />
-              </Card>
-            ))}
+            {/* danh sách học sinh như bảng của file Excel: STT, Mã học sinh, Họ và tên, Ngày sinh, Giới tính; sĩ số là số học sinh thực có */}
+            <Txt f="bold" size={15} testID="class-roster-title">Danh sách học sinh lớp {k.name} · Sĩ số {k.members.length} (Nam {k.members.filter((m) => m.gender === 'male').length} · Nữ {k.members.filter((m) => m.gender === 'female').length})</Txt>
+            <DataTable paginate={false} gap={10} rows={k.members} rowKey={(m) => m.id} empty="Chưa có học sinh nào trong lớp."
+              columns={[
+                { key: 'stt', label: 'STT', width: 40, minWidth: 40, render: (m) => <Txt size={14} color={c.muc2}>{k.members.indexOf(m) + 1}</Txt> },
+                { key: 'code', label: 'Mã học sinh', width: 150, minWidth: 140, render: (m) => <Txt size={12} selectable numberOfLines={1}>{m.user_code ?? '—'}</Txt> },
+                { key: 'name', label: 'Họ và tên', width: 150, grow: 2, render: (m) => <Txt f="semibold" size={14} numberOfLines={1}>{m.full_name}{m.is_active ? '' : ' (đã khóa)'}</Txt> },
+                { key: 'birth', label: 'Ngày sinh', width: 88, minWidth: 84, render: (m) => <Txt size={14}>{m.birth_date ? m.birth_date.split('-').reverse().join('/') : '—'}</Txt> },
+                { key: 'gender', label: 'Giới tính', width: 64, minWidth: 60, render: (m) => <Txt size={14}>{m.gender ? GENDER_TEXT[m.gender] : '—'}</Txt> },
+                { key: 'actions', label: '', width: 92, minWidth: 92, render: (m) => (
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    <Btn icon={ArrowRightLeft} label={`Chuyển ${m.full_name} sang lớp khác`} tone="giay" size="sm" disabled={locked || sameGrade.length === 0} onPress={() => setMoving(m)} />
+                    <Btn icon={Trash2} label={`Gỡ ${m.full_name} khỏi lớp`} tone="giay" size="sm" disabled={locked} onPress={() => setRemoving(m)} />
+                  </View>
+                ) },
+              ]} />
             <Txt f="bold" size={15}>Lịch sử của lớp</Txt>
             {(events.data ?? []).slice(0, 12).map((e) => <Txt key={e.id} size={13} color={c.muc2}>{dateText(e.created_at)} · {KIND_TEXT[e.kind] ?? e.kind}{e.user_name ? ` – ${e.user_name}` : ''}{e.teacher_name ? ` – ${e.teacher_name}` : ''}{e.actor_name ? ` (bởi ${e.actor_name})` : ' (học sinh tự thực hiện)'}{e.note ? ` · ${e.note}` : ''}</Txt>)}
           </>
@@ -202,8 +215,21 @@ const ClassSheet: React.FC<{
           }} />
       ) : null}
       {reassign ? <ConfirmSheet open title="Đổi giáo viên phụ trách lớp" message={`Thay đổi giáo viên phụ trách lớp trong Học kỳ ${reassign.semester}? Phân công học kỳ khác và dữ liệu của lớp được giữ lại.`} confirmLabel="Xác nhận thay đổi" busy={busy} onCancel={()=>setReassign(null)} onConfirm={async()=>{if(await run(()=>api.updateClass(token,id,{...reassign,confirm_reassignment:true}),'Đã cập nhật phân công')){setReassign(null);setDialog(null);refresh();}}}/> : null}
+      {dialog === 'create' && k ? (
+        <FormSheet title={`Tạo học sinh mới vào lớp ${k.name}`} subtitle="Học sinh vào học muộn: điền đủ các ô có dấu * như ở mục Học sinh. Tài khoản được tạo và xếp vào lớp này; tên đăng nhập và mật khẩu gửi vào email." submitLabel="Tạo và xếp vào lớp" wide
+          fields={personFields(false, token)} onClose={() => setDialog(null)}
+          onSubmit={async (v) => {
+            const body: Record<string, unknown> = { class_id: id };
+            for (const f of personFields(false, token)) { if (f.render) continue; const raw = String(v[f.name] ?? '').trim(); if (raw) body[f.name] = raw; }
+            const res = await api.createMember(token, 'students', body as never);
+            setDialog(null);
+            setCredential(res);
+            refresh();
+          }} />
+      ) : null}
+      {credential ? <CredentialSheet title={`Đã tạo và xếp vào lớp ${k?.name ?? ''}`} account={{ full_name: credential.user.full_name, username: credential.display_username ?? credential.user.username, temporary_password: credential.temporary_password, mail: credential.mail }} onClose={() => setCredential(null)} /> : null}
       {dialog === 'add' ? (
-        <FormSheet title="Thêm học sinh vào lớp" subtitle="Chọn nhiều học sinh của trường; học sinh có thể thuộc nhiều lớp" submitLabel="Thêm vào lớp"
+        <FormSheet title="Thêm học sinh đã có vào lớp" subtitle="Chọn nhiều học sinh của trường (mã học sinh · họ tên); học sinh có thể thuộc nhiều lớp" submitLabel="Thêm vào lớp"
           fields={[{ name: 'ids', label: 'Học sinh', type: 'multi', required: true, options: addOptions }]} onClose={() => setDialog(null)}
           onSubmit={async (v) => { await api.addClassMembers(token, id, valuesToIds(v.ids)); setDialog(null); refresh(); }} />
       ) : null}
