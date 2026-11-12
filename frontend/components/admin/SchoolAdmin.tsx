@@ -4,28 +4,21 @@
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { Bell, CalendarDays, ChartColumn, CircleHelp, ClipboardList, FileText, History, LifeBuoy, GraduationCap, Inbox, ListChecks, Route, School, Trash2, Trophy, UserRound, Users } from 'lucide-react-native';
+import { Bell, CalendarDays, ChartColumn, CircleHelp, History, LifeBuoy, GraduationCap, Inbox, ListChecks, School, Trash2, UserRound, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { SchoolReports } from '@/components/admin/AnalyticsAdmin';
-import { SchoolDashboard } from '@/components/admin/SchoolDashboard';
 import { SchoolYears } from '@/components/admin/SchoolYears';
 import { phaseText, todayVn } from '@/lib/school-terms';
-import { BroadcastManager, SurveyManager } from '@/components/admin/PlatformComms';
+import { BroadcastManager } from '@/components/admin/PlatformComms';
 import { LogsPanel } from '@/components/admin/PlatformOps';
 import { SchoolEmblem } from '@/components/school-brand';
 import { HelpPage } from '@/components/portal/HelpCenter';
 import { NoticeBell } from '@/components/portal/NoticeCenter';
 import { ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, yearOptions } from '@/components/admin/kit';
-import { SchoolGame } from '@/components/admin/GameAdmin';
-import { AiAdmin } from '@/components/admin/AiAdmin';
-import { BattleAdmin } from '@/components/admin/BattleAdmin';
 import { HistoryManager } from '@/components/admin/HistoryManager';
 import { LessonManager } from '@/components/admin/LessonManager';
-import { ResearchAdmin } from '@/components/admin/ResearchAdmin';
-import { WarAdmin } from '@/components/admin/WarAdmin';
-import { JourneyManager } from '@/components/admin/JourneyManager';
 import { QuestionBank } from '@/components/admin/QuestionBank';
 import { QuizManager } from '@/components/admin/QuizManager';
 import { SchoolClasses } from '@/components/admin/SchoolClasses';
@@ -37,26 +30,20 @@ import { useTheme } from '@/hooks/use-theme';
 import { usePortalTab } from '@/hooks/use-portal-tab';
 import type { YearItem } from '@/types/api';
 
+// Menu quản trị trường (13/11/2026): Báo cáo gộp vào Thống kê trường; bỏ hẳn Trò chơi hóa, Mô phỏng và mini-game, Game thẻ tướng, Nghiên cứu,
+// Khảo sát, Hành trình mẫu, AI Tutor khỏi cổng quản trị trường (học sinh, giáo viên vẫn dùng như cũ; dữ liệu giữ nguyên trong cơ sở dữ liệu).
 const NAV = [
   { id: 'stats' as const, label: 'Thống kê trường', icon: ChartColumn },
   { id: 'school' as const, label: 'Trường và năm học', icon: School },
   { id: 'teachers' as const, label: 'Giáo viên', icon: UserRound },
   { id: 'students' as const, label: 'Học sinh', icon: GraduationCap },
   { id: 'classes' as const, label: 'Lớp học', icon: Users },
-  { id: 'reports' as const, label: 'Báo cáo', icon: FileText },
   { id: 'review' as const, label: 'Duyệt nội dung', icon: Inbox },
   { id: 'history' as const, label: 'Kho lịch sử', icon: History },
-  { id: 'journeys' as const, label: 'Hành trình mẫu', icon: Route },
   { id: 'lessons' as const, label: 'Bài học', icon: ListChecks },
   { id: 'questions' as const, label: 'Ngân hàng câu hỏi', icon: CircleHelp },
   { id: 'quizzes' as const, label: 'Bộ đề', icon: ListChecks },
-  { id: 'game' as const, label: 'Trò chơi hóa', icon: Trophy },
-  { id: 'battle' as const, label: 'Mô phỏng và mini-game', icon: Trophy },
-  { id: 'war' as const, label: 'Game thẻ tướng', icon: Trophy },
-  { id: 'ai' as const, label: 'AI Tutor', icon: CircleHelp },
-  { id: 'research' as const, label: 'Nghiên cứu', icon: ChartColumn },
   { id: 'notices' as const, label: 'Thông báo', icon: Bell },
-  { id: 'surveys' as const, label: 'Khảo sát', icon: ClipboardList },
   { id: 'logs' as const, label: 'Nhật ký', icon: History },
   { id: 'help' as const, label: 'Trợ giúp', icon: LifeBuoy },
 ];
@@ -69,23 +56,18 @@ export const SchoolAdmin: React.FC<{ session: Session }> = ({ session }) => {
   const reloadAll = () => { reloadSchool(); reloadYears(); };
   return (
     <AdminUiContext.Provider value>
-      <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab} schoolName={school?.name} extra={<NoticeBell session={session} onGo={(n) => setTab(n.kind === 'survey' ? 'surveys' : n.kind === 'support' ? 'help' : n.kind==='teacher_change'?'classes':'school')} />}>
-        {tab === 'stats' ? <SchoolDashboard session={session} schoolName={school?.name} />
+      <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab} schoolName={school?.name} extra={<NoticeBell session={session} onGo={(n) => setTab(n.kind === 'survey' ? 'notices' : n.kind === 'support' ? 'help' : n.kind==='teacher_change'?'classes':'school')} />}>
+        {tab === 'stats' ? <SchoolReports session={session} schoolName={school?.name} />
           : tab === 'school' ? <SchoolPanel session={session} school={school} years={years ?? []} onChanged={reloadAll} />
           : tab === 'teachers' ? <SchoolPeople session={session} kind="teachers" years={years ?? []} />
           : tab === 'students' ? <SchoolPeople session={session} kind="students" years={years ?? []} />
           : tab === 'classes' ? <SchoolClasses session={session} years={years ?? []} onYearsChanged={reloadYears} />
-          : tab === 'reports' ? <SchoolReports session={session} />
           : tab === 'history' ? <HistoryManager session={session} />
           : tab === 'lessons' ? <LessonManager session={session} />
-          : tab === 'battle' ? <BattleAdmin session={session} />
-          : tab === 'war' ? <WarAdmin session={session} />
-          : tab === 'ai' ? <AiAdmin session={session} />
-          : tab === 'research' ? <ResearchAdmin session={session} />
-          : tab === 'review' ? <ShareInbox session={session} /> : tab === 'journeys' ? <JourneyManager session={session} />
+          : tab === 'review' ? <ShareInbox session={session} />
           : tab === 'questions' ? <QuestionBank session={session} /> : tab === 'quizzes' ? <QuizManager session={session} />
-          : tab === 'notices' ? <BroadcastManager session={session} /> : tab === 'surveys' ? <SurveyManager session={session} /> : tab === 'logs' ? <LogsPanel session={session} />
-          : tab === 'help' ? <HelpPage session={session} /> : <SchoolGame session={session} />}
+          : tab === 'notices' ? <BroadcastManager session={session} /> : tab === 'logs' ? <LogsPanel session={session} />
+          : <HelpPage session={session} />}
       </AdminWorkspace>
     </AdminUiContext.Provider>
   );

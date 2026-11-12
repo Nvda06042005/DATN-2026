@@ -150,13 +150,21 @@ test('thống kê hệ thống: một trang tổng quan vừa một màn hình, 
   assert.match(trend, /\{point && !compact && <View pointerEvents="none"/);
 });
 
-test('quản trị trường học theo quản trị tổng: Thống kê trường đứng đầu menu và là trang mở đầu; Báo cáo giữ nguyên thứ tự còn lại', () => {
+test('quản trị trường học: Thống kê trường đứng đầu menu, gộp Báo cáo; bỏ Trò chơi hóa, Mô phỏng và mini-game, Game thẻ tướng, Nghiên cứu, Khảo sát, Hành trình mẫu, AI Tutor', () => {
   const school = read('components', 'admin', 'SchoolAdmin.tsx');
   const ids = [...school.slice(school.indexOf('const NAV'), school.indexOf('type Tab')).matchAll(/id: '(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['stats', 'school', 'teachers', 'students', 'classes', 'reports', 'review', 'history', 'journeys', 'lessons', 'questions', 'quizzes', 'game', 'battle', 'war', 'ai', 'research', 'notices', 'surveys', 'logs', 'help']);
+  assert.deepEqual(ids, ['stats', 'school', 'teachers', 'students', 'classes', 'review', 'history', 'lessons', 'questions', 'quizzes', 'notices', 'logs', 'help']);
+  const labels = [...school.slice(school.indexOf('const NAV'), school.indexOf('type Tab')).matchAll(/label: '([^']+)'/g)].map((m) => m[1]);
+  for (const gone of ['Báo cáo', 'Trò chơi hóa', 'Mô phỏng và mini-game', 'Game thẻ tướng', 'Nghiên cứu', 'Khảo sát', 'Hành trình mẫu', 'AI Tutor']) assert.ok(!labels.includes(gone), gone);
+  for (const file of ['GameAdmin.tsx', 'AiAdmin.tsx', 'BattleAdmin.tsx', 'WarAdmin.tsx', 'ResearchAdmin.tsx']) assert.ok(!require('node:fs').existsSync(require('node:path').join(__dirname, '..', 'components', 'admin', file)), file);
+  assert.doesNotMatch(read('components', 'admin', 'PlatformComms.tsx'), /SurveyManager/);
   assert.match(school, /usePortalTab<Tab>\('stats', NAV\.map/);
   assert.match(school, /\{ id: 'stats' as const, label: 'Thống kê trường', icon: ChartColumn \}/);
-  assert.match(school, /\{tab === 'stats' \? <SchoolDashboard session=\{session\} schoolName=\{school\?\.name\} \/>/);
+  assert.match(school, /\{tab === 'stats' \? <SchoolReports session=\{session\} schoolName=\{school\?\.name\} \/>/);
+  // Thống kê trường gộp Báo cáo: Tổng quan là trang thống kê một màn hình, các phần báo cáo chi tiết chọn bằng thanh tab
+  const reports = read('components', 'admin', 'AnalyticsAdmin.tsx');
+  assert.match(reports, /if \(part === 'overview'\) return <View style=\{\{ flex: 1 \}\}>[\s\S]*?<SchoolDashboard session=\{session\} schoolName=\{schoolName\} \/>/);
+  assert.match(reports, /\{ value: 'overview', label: 'Tổng quan' \}, \{ value: 'classes', label: 'Lớp và học sinh' \}, \{ value: 'results', label: 'Kết quả' \}, \{ value: 'usage', label: 'Sử dụng' \}, \{ value: 'ai', label: 'AI' \}/);
 });
 
 test('trang Thống kê trường: cùng bố cục một màn hình với Thống kê hệ thống, số liệu từ bốn API có sẵn, tiêu đề hai nửa đều nhau', () => {

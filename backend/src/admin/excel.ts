@@ -536,8 +536,9 @@ const upperVn = (text: string) => text.toLocaleUpperCase('vi');
  * File danh sách học sinh của một lớp (yêu cầu 12/11/2026, theo mẫu danh sách lớp in của trường THCS Phú Mỹ):
  * logo Đông A và dòng nhận diện file; "UBND <phường> / TRƯỜNG <tên>" bên trái, quốc hiệu và "<địa danh>, ngày … tháng … năm …" bên phải;
  * tiêu đề "DANH SÁCH HỌC SINH LỚP <ô Lớp>" và "NĂM HỌC … · HỌC KỲ <ô Học kỳ>"; ô Lớp (gõ, có gợi ý lớp đã có), Khối (6–9), Học kỳ (1/2), Giáo viên phụ trách (chọn mã · họ tên),
- * Sĩ số và Nam/Nữ tự đếm; bảng STT, MÃ HỌC SINH, HỌ VÀ TÊN, NGÀY SINH, GIỚI TÍNH, LỚP. Mã học sinh và Họ và tên chọn trong danh sách học sinh của trường; chọn mã thì họ tên,
- * ngày sinh, giới tính tự điền (chọn họ tên thì ngày sinh, giới tính tự điền); STT, cột LỚP và sĩ số tự cập nhật khi nhấn Enter. Danh sách chọn nằm ở sheet ẩn "Danh mục".
+ * Sĩ số và Nam/Nữ tự đếm; bảng STT, MÃ HỌC SINH, HỌ VÀ TÊN, NGÀY SINH, GIỚI TÍNH, LỚP. Mã học sinh chọn trong danh sách học sinh của trường; chọn mã thì họ tên,
+ * ngày sinh, giới tính tự hiện (yêu cầu 13/11/2026: chỉ chọn mã, họ tên không còn danh sách chọn); STT, cột LỚP và sĩ số tự cập nhật khi nhấn Enter.
+ * Danh sách chọn nằm ở sheet ẩn "Danh mục".
  * Muốn nhiều lớp trong một file: chép sheet (Move or Copy → Create a copy), mỗi sheet một lớp.
  */
 export async function buildClassListSheet(spec: ClassListSpec): Promise<Buffer> {
@@ -624,7 +625,7 @@ export async function buildClassListSheet(spec: ClassListSpec): Promise<Buffer> 
   put('C14', { formula: `SUMPRODUCT(--(${filled}))&" học sinh"`, result: '0 học sinh' }, font(12, { bold: true }), { horizontal: 'left', vertical: 'middle' });
   label('D14', 'Nam / Nữ:');
   put('E14:F14', { formula: `COUNTIF($E$${first}:$E$${last},"Nam")&" / "&COUNTIF($E$${first}:$E$${last},"Nữ")`, result: '0 / 0' }, font(12, { bold: true }), { horizontal: 'left', vertical: 'middle' });
-  put('A15:F15', 'Điền đủ 4 ô có dấu * (thiếu một ô là file bị báo lỗi). Mỗi học sinh một dòng: chọn mã học sinh (họ tên, ngày sinh, giới tính tự điền) hoặc chọn họ tên; nhấn Enter, STT, cột LỚP và sĩ số tự cập nhật.',
+  put('A15:F15', 'Điền đủ 4 ô có dấu * (thiếu một ô là file bị báo lỗi). Mỗi học sinh một dòng: bấm mũi tên chọn mã học sinh, họ và tên, ngày sinh, giới tính tự hiện; nhấn Enter, STT, cột LỚP và sĩ số tự cập nhật.',
     { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF92400E' } }, { horizontal: 'left', vertical: 'middle', wrapText: true });
   sheet.getRow(15).height = 30;
 
@@ -658,9 +659,9 @@ export async function buildClassListSheet(spec: ClassListSpec): Promise<Buffer> 
       const col = (letter: string) => `'Danh mục'!$${letter}$1:$${letter}$${n}`;
       const byCode = (letter: string) => `IFERROR(INDEX(${col(letter)},MATCH($B${r},${col('C')},0)),"")`;
       const byName = (letter: string) => `IFERROR(INDEX(${col(letter)},MATCH($C${r},${col('D')},0)),"")`;
-      row.getCell(2).dataValidation = { type: 'list', allowBlank: true, formulae: [col('C')], showInputMessage: true, promptTitle: 'Mã học sinh', prompt: 'Bấm mũi tên chọn mã học sinh; họ tên, ngày sinh, giới tính tự điền.', showErrorMessage: false, errorStyle: 'information' };
+      row.getCell(2).dataValidation = { type: 'list', allowBlank: true, formulae: [col('C')], showInputMessage: true, promptTitle: 'Mã học sinh', prompt: 'Bấm mũi tên chọn mã học sinh; họ và tên, ngày sinh, giới tính tự hiện.', showErrorMessage: false, errorStyle: 'information' };
+      // họ và tên tự hiện theo mã đã chọn (không có danh sách chọn riêng)
       row.getCell(3).value = { formula: `IF($B${r}="","",${byCode('D')})`, result: '' };
-      row.getCell(3).dataValidation = { type: 'list', allowBlank: true, formulae: [col('D')], showInputMessage: true, promptTitle: 'Họ và tên', prompt: 'Chọn mã học sinh ở cột bên trái, hoặc bấm mũi tên chọn họ tên.', showErrorMessage: false, errorStyle: 'information' };
       row.getCell(4).value = { formula: `IF($B${r}<>"",${byCode('E')},IF($C${r}<>"",${byName('E')},""))`, result: '' };
       row.getCell(5).value = { formula: `IF($B${r}<>"",${byCode('F')},IF($C${r}<>"",${byName('F')},""))`, result: '' };
     }

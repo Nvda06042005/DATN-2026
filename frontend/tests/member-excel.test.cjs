@@ -84,6 +84,7 @@ test('Lớp học: bỏ nút Nhân bản; xếp lớp mỗi lớp một file; gi
  assert.match(classes,/label: `\$\{t\.user_code \?\? 'Chưa có mã'\} · \$\{t\.full_name\}`/);
  assert.match(classes,/name: 'teacher_id', label: 'Giáo viên phụ trách \(mã giáo viên · họ tên\)'/);
  assert.match(classes,/\{ name: 'name', label: 'Lớp', required: true, placeholder: '6A1'/);
+ assert.doesNotMatch(classes,/label: 'Mô tả'/); // form tạo lớp và sửa lớp bỏ ô Mô tả (13/11/2026)
  // chi tiết lớp: bảng STT, Mã học sinh, Họ và tên, Ngày sinh, Giới tính; sĩ số thực có; học sinh vào học muộn tạo ngay trong lớp
  const roster=[...classes.slice(classes.indexOf('testID="class-roster-title"')).matchAll(/key: '(\w+)', label: '([^']*)'/g)].slice(0,6).map(m=>m[2]);
  assert.deepEqual(roster,['STT','Mã học sinh','Họ và tên','Ngày sinh','Giới tính','']);

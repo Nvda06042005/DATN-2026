@@ -86,10 +86,10 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
             { name: 'name', label: 'Lớp', required: true, placeholder: '6A1', hint: 'Ví dụ 6A1; số đầu là khối.' }, {name:'semester',label:'Học kỳ',type:'select',required:true,options:SEMESTERS},
             { name: 'grade', label: 'Khối', type: 'select', required: true, options: openGrades.length ? openGrades : [{ value: '', label: 'Chưa bật khối nào' }] }, { name: 'expected_size', label: 'Sĩ số dự kiến', type: 'number', hint: 'Sau khi nhập danh sách, sĩ số lấy theo số học sinh thực có.' },
             { name: 'teacher_id', label: 'Giáo viên phụ trách (mã giáo viên · họ tên)', type: 'select', options: [{value:'',label:'Chưa phân công'},...teacherOptions] },
-            {name:'registration_code',label:'Mã lớp',render:()=> <RegistrationCode token={token} kind="class"/>}, { name: 'description', label: 'Mô tả', type: 'textarea' }]}
+            {name:'registration_code',label:'Mã lớp',render:()=> <RegistrationCode token={token} kind="class"/>}]}
           initial={{ grade: openGrades[0]?.value ?? '',semester:String(semester) }} onClose={() => setCreating(false)}
           onSubmit={async (v) => {
-            await api.createClass(token, { year_id: year.id,semester:Number(v.semester), grade: Number(v.grade), name: String(v.name), teacher_ids: v.teacher_id ? [Number(v.teacher_id)] : [], expected_size: String(v.expected_size) ? Number(v.expected_size) : null, description: String(v.description) || null });
+            await api.createClass(token, { year_id: year.id,semester:Number(v.semester), grade: Number(v.grade), name: String(v.name), teacher_ids: v.teacher_id ? [Number(v.teacher_id)] : [], expected_size: String(v.expected_size) ? Number(v.expected_size) : null, description: null });
             setCreating(false);
             reload();
           }} />
@@ -142,7 +142,7 @@ const ClassSheet: React.FC<{
       const term=k?.term_teachers?.filter(t=>t.semester===Number(v.semester))??[];
       const needsApproval=k?.year_status==='active' && Number(v.semester)===k.active_semester && (term.some(t=>t.teacher_id!==null)||k.legacy_teacher_review);
       return needsApproval?<View style={{gap:8}}><Txt f="bold" size={14}>Giáo viên phụ trách lớp</Txt><Txt size={14}>{term.map(t=>t.teacher_name).filter(Boolean).join(', ')||'Chưa phân công'}</Txt><Txt size={13}>Thay đổi trong học kỳ được thực hiện qua đề nghị của giáo viên và quản trị trường duyệt.</Txt></View>:<AdminSelect label="Giáo viên phụ trách lớp" value={String(v.teacher_id)} options={[{value:'',label:'Chưa phân công'},...teacherOptions]} onChange={value=>set('teacher_id',value)} testID="field-teacher_id"/>;
-    } }, { name: 'expected_size', label: 'Sĩ số dự kiến', type: 'number' }, { name: 'description', label: 'Mô tả', type: 'textarea' },
+    } }, { name: 'expected_size', label: 'Sĩ số dự kiến', type: 'number' },
   ];
 
   return (
@@ -202,11 +202,11 @@ const ClassSheet: React.FC<{
 
       {dialog === 'edit' && k ? (
         <FormSheet title="Sửa lớp" fields={editFields} wide onClose={() => setDialog(null)}
-          initial={{ registration_code:k.registration_code,name: k.name, grade: String(k.grade ?? ''), semester:String(k.semester),teacher_id:k.teachers.length===1?String(k.teachers[0].id):'', expected_size: k.expected_size ? String(k.expected_size) : '', description: k.description ?? '' }}
+          initial={{ registration_code:k.registration_code,name: k.name, grade: String(k.grade ?? ''), semester:String(k.semester),teacher_id:k.teachers.length===1?String(k.teachers[0].id):'', expected_size: k.expected_size ? String(k.expected_size) : '' }}
           onSubmit={async (v) => {
             const term=k.term_teachers?.filter(t=>t.semester===Number(v.semester))??[];
             const needsApproval=k.year_status==='active' && Number(v.semester)===k.active_semester && (term.some(t=>t.teacher_id!==null)||k.legacy_teacher_review);
-            const body={ name: String(v.name), grade: Number(v.grade) || undefined,semester:Number(v.semester), teacher_ids: needsApproval ? undefined : v.teacher_id?[Number(v.teacher_id)]:[], expected_size: String(v.expected_size) ? Number(v.expected_size) : null, description: String(v.description) || null };
+            const body={ name: String(v.name), grade: Number(v.grade) || undefined,semester:Number(v.semester), teacher_ids: needsApproval ? undefined : v.teacher_id?[Number(v.teacher_id)]:[], expected_size: String(v.expected_size) ? Number(v.expected_size) : null };
             const old=k.term_teachers?.find(t=>t.semester===body.semester)?.teacher_id;
             if(!needsApproval && (k.legacy_teacher_review || (old && old!==(body.teacher_ids?.[0]??null)))){setReassign(body);return;}
             await api.updateClass(token, id,body);

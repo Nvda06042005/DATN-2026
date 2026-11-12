@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { View } from 'react-native';
 import * as api from '@/api/analyticsApi';
 import { ClassAnalytics, ResultsPanel } from '@/components/admin/AnalyticsTeacher';
+import { SchoolDashboard } from '@/components/admin/SchoolDashboard';
 import { SystemDashboard } from '@/components/admin/SystemDashboard';
 import { ErrorNote, Page, PageHeader, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
@@ -84,33 +85,19 @@ export const AiUsagePanel: React.FC<{ session: Session; money?: boolean }> = ({ 
 
 // ---------------------------------------------------------------------- quản trị trường (HK.QT.006–009, 033, 047–048)
 type SchoolPart = 'overview' | 'classes' | 'results' | 'usage' | 'ai';
-export const SchoolReports: React.FC<{ session: Session }> = ({ session }) => {
+const SCHOOL_PARTS: Array<{ value: SchoolPart; label: string }> = [{ value: 'overview', label: 'Tổng quan' }, { value: 'classes', label: 'Lớp và học sinh' }, { value: 'results', label: 'Kết quả' }, { value: 'usage', label: 'Sử dụng' }, { value: 'ai', label: 'AI' }];
+/**
+ * "Thống kê trường" gộp với "Báo cáo" (yêu cầu 13/11/2026): một mục menu; phần Tổng quan là trang thống kê một màn hình (SchoolDashboard),
+ * các phần Lớp và học sinh, Kết quả (so sánh, xuất báo cáo), Sử dụng, AI là các báo cáo chi tiết trước đây ở mục Báo cáo.
+ */
+export const SchoolReports: React.FC<{ session: Session; schoolName?: string }> = ({ session, schoolName }) => {
   const [part, setPart] = useState<SchoolPart>('overview');
-  const overview = useLoad(() => api.schoolOverview(session.token), [session.token], session.expired);
-  const o = overview.data;
+  const tabs = <Segmented<SchoolPart> label="Thống kê và báo cáo" value={part} onChange={setPart} options={SCHOOL_PARTS} />;
+  if (part === 'overview') return <View style={{ flex: 1 }}><View style={{ paddingHorizontal: 10, paddingTop: 10 }} testID="school-report-tabs">{tabs}</View><SchoolDashboard session={session} schoolName={schoolName} /></View>;
   return (
     <Page>
-      <PageHeader title="Báo cáo của trường" subtitle="Tổng quan, kết quả học tập, mức độ sử dụng và thống kê AI của trường" />
-      <Segmented<SchoolPart> label="Báo cáo" value={part} onChange={setPart} options={[{ value: 'overview', label: 'Tổng quan' }, { value: 'classes', label: 'Lớp và học sinh' }, { value: 'results', label: 'Kết quả' }, { value: 'usage', label: 'Sử dụng' }, { value: 'ai', label: 'AI' }]} />
-      {part === 'overview' ? (
-        <>
-          <ErrorNote message={overview.error} />
-          {overview.loading && !o ? <Spinner /> : null}
-          {o ? (
-            <>
-              <StatGrid>
-                <StatTile label="Lớp đang hoạt động" value={o.classes} />
-                <StatTile label="Giáo viên" value={o.teachers} />
-                <StatTile label="Học sinh" value={o.students} />
-                <StatTile label="Hành trình đang chạy" value={o.journeys_running} tone="thuy" />
-                <StatTile label="Hoạt động hôm nay" value={o.activities_today} hint={`${o.active_today} người học hôm nay`} tone="ngoc" />
-                <StatTile label="Người học trong 7 ngày" value={o.active_week} hint="học sinh và giáo viên có hoạt động" />
-              </StatGrid>
-              <InfoNote><Txt size={13}>Mở mục “Sử dụng” để xem biểu đồ hoạt động theo ngày, tuần, tháng; mục “Kết quả” để so sánh khối, lớp và giáo viên và xuất báo cáo.</Txt></InfoNote>
-            </>
-          ) : null}
-        </>
-      ) : null}
+      <PageHeader title="Thống kê trường" subtitle="Báo cáo chi tiết: lớp và học sinh, kết quả học tập (so sánh, xuất báo cáo), mức độ sử dụng và thống kê AI của trường" />
+      <View testID="school-report-tabs">{tabs}</View>
       {part === 'classes' ? <ClassAnalytics session={session} /> : null}
       {part === 'results' ? <ResultsPanel session={session} by={['class', 'grade', 'teacher']} exportable /> : null}
       {part === 'usage' ? <UsagePanel session={session} /> : null}

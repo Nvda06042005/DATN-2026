@@ -660,7 +660,7 @@ export class ClassService {
       guide: [
         'Mỗi lớp một sheet: điền đủ 4 ô có dấu * là Lớp (ví dụ 6A1), Khối (6–9), Học kỳ (một năm học có học kỳ 1 và học kỳ 2) và Giáo viên phụ trách (mã giáo viên · họ tên). Thiếu một ô là cả file bị báo lỗi.',
         'Nhiều lớp: chép sheet Xếp lớp (chuột phải tên sheet → Move or Copy → Create a copy) rồi điền lớp khác; hoặc lưu mỗi lớp một file và chọn nhiều file cùng lúc khi nhập.',
-        'Mỗi học sinh một dòng: bấm mũi tên chọn mã học sinh (họ tên, ngày sinh, giới tính tự điền) hoặc chọn họ tên; nhấn Enter, STT, cột LỚP và sĩ số tự cập nhật. Trùng cả họ tên lẫn ngày sinh thì phải chọn mã.',
+        'Mỗi học sinh một dòng: bấm mũi tên chọn mã học sinh, họ và tên, ngày sinh, giới tính tự hiện; nhấn Enter, STT, cột LỚP và sĩ số tự cập nhật.',
         `Lớp chưa có trong năm học ${spec.year_label} được tạo khi nhập; sĩ số lớp bằng số học sinh thực có. Nhập xong, lớp có mã tham gia DongA + lớp + giáo viên + HK + năm học (ví dụ DongA6A5DucAnhHK1${spec.year_label}).`,
         'Học sinh vào học muộn trong học kỳ: thêm trên web ở trang Lớp học (Tạo học sinh mới vào lớp). Đổi giáo viên phụ trách trong học kỳ (nghỉ sinh, tai nạn, bệnh dài ngày): giáo viên gửi đề nghị, quản trị trường duyệt.',
         `Giữ nguyên tên file ${spec.filename}; có thể thêm tên lớp ở cuối, ví dụ ${spec.filename.replace(/\.xlsx$/, '')}_6A1.xlsx. Chỉ nhập cho ${spec.school_name}, năm học ${spec.year_label}.`,

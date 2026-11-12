@@ -91,7 +91,7 @@ describe('mã tham gia theo quy ước', () => {
   });
   afterAll(async () => { await s?.close(); });
 
-  test('file mẫu: quốc hiệu và "<địa danh>, Thứ …, ngày …"; ô Lớp, Khối (6–9), Học kỳ, Giáo viên (mã · họ tên); mã và họ tên chọn trong danh sách học sinh, ngày sinh và giới tính tự điền', async () => {
+  test('file mẫu: quốc hiệu và "<địa danh>, Thứ …, ngày …"; ô Lớp, Khối (6–9), Học kỳ, Giáo viên (mã · họ tên); chọn mã học sinh thì họ tên, ngày sinh, giới tính tự hiện', async () => {
     const spec = await api('GET', `/api/admin/classes/import-spec?year_id=${A.year}`);
     expect(spec.body).toMatchObject({ filename: FILE, school_name: SCHOOL, year_label: YEAR, classes: ['6A1', '6A2'] });
     const raw = await fetch(`${s.base}/api/admin/classes/template?year_id=${A.year}`, { headers: { Authorization: `Bearer ${A.token}` } });
@@ -110,7 +110,7 @@ describe('mã tham gia theo quy ước', () => {
     expect((sheet.getRow(CLASS_LIST_FIRST_ROW - 1).values as unknown[]).slice(1)).toEqual(HEADER);
     const r = CLASS_LIST_FIRST_ROW;
     expect(sheet.getCell(r, 2).dataValidation).toMatchObject({ type: 'list', formulae: ["'Danh mục'!$C$1:$C$6"] }); // chọn mã học sinh
-    expect(sheet.getCell(r, 3).dataValidation).toMatchObject({ type: 'list', formulae: ["'Danh mục'!$D$1:$D$6"] }); // hoặc chọn họ tên
+    expect(sheet.getCell(r, 3).dataValidation?.type).toBeUndefined(); // họ và tên không có danh sách chọn riêng: tự hiện theo mã (13/11/2026)
     expect(sheet.getCell(r, 3).value).toMatchObject({ formula: expect.stringContaining(`MATCH($B${r},'Danh mục'!$C$1:$C$6,0)`) }); // chọn mã thì họ tên tự điền
     expect(sheet.getCell(r, 4).value).toMatchObject({ formula: expect.stringContaining("'Danh mục'!$E$1:$E$6") }); // ngày sinh tự điền
     expect(sheet.getCell(r, 5).value).toMatchObject({ formula: expect.stringContaining("'Danh mục'!$F$1:$F$6") }); // giới tính tự điền
