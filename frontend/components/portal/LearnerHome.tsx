@@ -43,7 +43,7 @@ export const ClassesPanel: React.FC<{ session: Session }> = ({ session }) => {
           {!student && k.join_code ? (
             <View style={{ gap: 2 }}>
               <Txt size={12} color={c.muc3}>Mã tham gia lớp (đọc cho học sinh nhập)</Txt>
-              <Txt f="bold" size={26} selectable style={{ letterSpacing: 5 }}>{k.join_code}</Txt>
+              <Txt f="bold" size={k.join_code.length > 8 ? 17 : 26} selectable style={{ letterSpacing: k.join_code.length > 8 ? 0.5 : 5 }}>{k.join_code}</Txt>
             </View>
           ) : null}
         </Card>

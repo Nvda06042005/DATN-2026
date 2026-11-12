@@ -5,8 +5,8 @@ import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { UserRow } from '../database/database.service';
 
 class JoinClassDto {
-  /** Mã lớp 6 ký tự do giáo viên cung cấp (không phân biệt hoa thường) */
-  @IsString() @Length(6, 12) code: string;
+  /** Mã tham gia lớp: 6 ký tự ngẫu nhiên hoặc theo quy ước DongA + lớp + giáo viên + HK + năm học (không phân biệt hoa thường, bỏ qua dấu gạch) */
+  @IsString() @Length(6, 80) code: string;
 }
 
 /** /api/student – chức năng của học sinh trong Sprint 1: tham gia lớp bằng mã (HK.HS.008) và xem các lớp đã tham gia */

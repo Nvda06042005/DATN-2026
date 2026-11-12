@@ -584,6 +584,13 @@ export const CredentialSheet: React.FC<{ title: string; account: { full_name: st
 };
 
 // ---------------------------------------------------------------------- tệp
+/** Chọn nhiều tệp một lần (ví dụ xếp lớp: mỗi lớp một file) */
+export const pickFiles = async (types: string[]): Promise<PickedFile[]> => {
+  const res = await DocumentPicker.getDocumentAsync({ type: types, copyToCacheDirectory: true, multiple: true });
+  if (res.canceled || !res.assets?.length) return [];
+  return res.assets.map((a) => ({ name: a.name, mimeType: a.mimeType ?? 'application/octet-stream', uri: a.uri, size: a.size, file: (a as { file?: Blob }).file }));
+};
+
 export const pickFile = async (types: string[]): Promise<PickedFile | null> => {
   const res = await DocumentPicker.getDocumentAsync({ type: types, copyToCacheDirectory: true, multiple: false });
   if (res.canceled || !res.assets?.length) return null;
@@ -632,24 +639,41 @@ export const ImportSheet: React.FC<{
   note?: string;
   /** Thay câu mặc định về loại file (ví dụ chỉ ghi "Chỉ nhận file Excel.") */
   acceptText?: string;
+  /** Cho chọn nhiều file một lần: xem trước và lưu lần lượt từng file, gộp kết quả (mỗi dòng ghi file và lớp) */
+  multiple?: boolean;
   run: (file: PickedFile, commit: boolean) => Promise<ImportResult | { committed: boolean; total: number; errors: number; created: number; updated: number; report: Array<{ entity: string; slug: string; action: string; message?: string }> }>;
   onClose: () => void; onDone: () => void;
-}> = ({ title, hint, template, types: baseTypes = XLSX_TYPES, expectedFilename, legacyFilename, acceptMacro=false, note, acceptText, run, onClose, onDone }) => {
+}> = ({ title, hint, template, types: baseTypes = XLSX_TYPES, expectedFilename, legacyFilename, acceptMacro=false, note, acceptText, multiple=false, run, onClose, onDone }) => {
   const { c } = useTheme();
   const toast = useToast();
   const types=acceptMacro?[...XLSX_TYPES,XLSM_MIME]:baseTypes;
   const [file, setFile] = useState<PickedFile | null>(null);
+  const [files, setFiles] = useState<PickedFile[]>([]);
   const [result, setResult] = useState<Awaited<ReturnType<typeof run>> | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const committed = !!result?.committed;
 
-  const go = async (commit: boolean, chosen = file) => {
-    if (!chosen) return;
+  const go = async (commit: boolean, chosen = file, many = files) => {
+    if (!chosen && !many.length) return;
     setBusy(true);
     setError(null);
     try {
-      const res = await run(chosen, commit);
+      let res: Awaited<ReturnType<typeof run>>;
+      if (many.length > 1) {
+        // nhiều file: chạy lần lượt rồi gộp; dòng ghi thêm tên file để biết lỗi ở đâu
+        const merged: ImportResult = { committed: commit, total: 0, valid: 0, errors: 0, created: 0, added: 0, rows: [], notes: [] };
+        for (const f of many) {
+          let part: Awaited<ReturnType<typeof run>>;
+          try { part = await run(f, commit); } catch (e) { throw new Error(`${f.name}: ${errorMessage(e)}`); }
+          if (!('rows' in part)) continue;
+          merged.total += part.total; merged.valid += part.valid; merged.errors += part.errors;
+          merged.created = (merged.created ?? 0) + (part.created ?? 0); merged.added = (merged.added ?? 0) + (part.added ?? 0);
+          merged.rows.push(...part.rows.map((r) => ({ ...r, sheet: `${f.name}${r.sheet ? ` · ${r.sheet}` : ''}` })));
+          merged.notes!.push(...(part.notes ?? []));
+        }
+        res = merged;
+      } else res = await run((chosen ?? many[0])!, commit);
       setResult(res);
       if (commit) { toast('Đã lưu dữ liệu'); onDone(); }
     } catch (e) {
@@ -659,15 +683,16 @@ export const ImportSheet: React.FC<{
     }
   };
   const choose = async () => {
-    const picked = await pickFile(types);
-    if (!picked) return;
+    const list = multiple ? await pickFiles(types) : [await pickFile(types)].filter((x): x is PickedFile => !!x);
+    if (!list.length) return;
     setResult(null);
-    const wrong = checkPickedFile(picked, types);
-    if (wrong) { setFile(null); setError(wrong); return; }
-    const wrongName=checkTemplateFilename(picked.name,expectedFilename,legacyFilename);
-    if(wrongName){setFile(null);setError(wrongName);return;}
-    setFile(picked);
-    await go(false, picked);
+    for (const picked of list) {
+      const wrong = checkPickedFile(picked, types) ?? checkTemplateFilename(picked.name, expectedFilename, legacyFilename);
+      if (wrong) { setFile(null); setFiles([]); setError(list.length > 1 ? `${picked.name}: ${wrong}` : wrong); return; }
+    }
+    setFile(list[0]);
+    setFiles(list);
+    await go(false, list[0], list);
   };
 
   const rows = result && 'rows' in result ? result.rows : [];
@@ -697,7 +722,7 @@ export const ImportSheet: React.FC<{
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {template ? <DownloadButton title="Tải file mẫu" fetchBlob={template.fetchBlob} filename={template.filename} /> : null}
-        <Btn title={file ? `Chọn file khác (${file.name})` : 'Chọn file'} icon={FileUp} tone="giay" size="sm" onPress={choose} disabled={busy || committed} testID="import-choose" />
+        <Btn title={files.length > 1 ? `Chọn file khác (${files.length} file)` : file ? `Chọn file khác (${file.name})` : multiple ? 'Chọn file (được chọn nhiều)' : 'Chọn file'} icon={FileUp} tone="giay" size="sm" onPress={choose} disabled={busy || committed} testID="import-choose" />
       </View>
       <ErrorNote message={error} />
       {busy && !result ? <Spinner label="Đang kiểm tra file…" /> : null}
@@ -712,8 +737,8 @@ export const ImportSheet: React.FC<{
             <View testID="import-notes"><Inset style={{ gap: 4 }}>{result.notes.map((n) => <Txt key={n} size={13}>• {n}</Txt>)}</Inset></View>
           ) : null}
           {rows.filter((r) => r.status === 'error').map((r) => (
-            <Inset key={r.row} style={{ backgroundColor: c.sonNhat, gap: 2 }}>
-              <Txt f="bold" size={13} color={c.sonChu}>Dòng {r.row}{r.full_name ? ` · ${r.full_name}` : r.user_code ? ` · ${r.user_code}` : ''}</Txt>
+            <Inset key={`${r.sheet ?? ''}-${r.row}`} style={{ backgroundColor: c.sonNhat, gap: 2 }}>
+              <Txt f="bold" size={13} color={c.sonChu}>{r.sheet ? `${r.sheet} · ` : ''}Dòng {r.row}{r.full_name ? ` · ${r.full_name}` : r.user_code ? ` · ${r.user_code}` : ''}</Txt>
               {r.errors.map((e) => <Txt key={e} size={13} color={c.sonChu}>• {e}</Txt>)}
             </Inset>
           ))}

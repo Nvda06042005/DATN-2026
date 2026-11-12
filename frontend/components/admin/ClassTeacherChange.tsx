@@ -7,6 +7,9 @@ import type {TeacherChangeRequest} from '@/types/api';
 import {Btn,Card,ConfirmSheet,Sheet,Spinner,Txt} from '@/components/ui';
 import {ErrorNote,FormSheet,useAction,useLoad} from './kit';
 
+/** Lý do thường gặp khi giáo viên phụ trách không tiếp tục dạy lớp trong học kỳ; quản trị trường duyệt rồi giáo viên khác tiếp nhận (một lớp chỉ một giáo viên phụ trách mỗi học kỳ) */
+const CHANGE_REASONS=['Nghỉ sinh con','Tai nạn','Bệnh dài ngày','Công tác, học tập dài ngày','Lý do khác'];
+
 export const TeacherChangeForm:React.FC<{session:Session;classId:number;onClose:()=>void}>=({session,classId,onClose})=>{
   const info=useLoad(()=>rooms.teacherChangeOptions(session.token,classId),[session.token,classId],session.expired);
   const action=useAction(session.expired);
@@ -20,9 +23,10 @@ export const TeacherChangeForm:React.FC<{session:Session;classId:number;onClose:
   return <FormSheet title="Đề nghị đổi giáo viên phụ trách lớp" subtitle={`${data.class_name} · Quản trị trường duyệt trước khi thay đổi phân công`} submitLabel="Gửi đề nghị" onClose={onClose}
     fields={[{name:'semester',label:'Học kỳ',readOnly:true},{name:'current_teacher',label:'Giáo viên đang phụ trách lớp',readOnly:true},
       {name:'teacher_id',label:'Giáo viên tiếp nhận lớp',type:'select',required:true,options:[{value:'',label:'Chọn giáo viên'},...data.candidates.map(t=>({value:String(t.id),label:`${t.full_name}${t.user_code?` · ${t.user_code}`:''}`}))]},
-      {name:'note',label:'Nội dung đề nghị',type:'textarea'}]}
+      {name:'reason',label:'Lý do',type:'select',required:true,options:[{value:'',label:'Chọn lý do'},...CHANGE_REASONS.map(r=>({value:r,label:r}))]},
+      {name:'note',label:'Nội dung đề nghị',type:'textarea',hint:'Ví dụ thời gian nghỉ dự kiến.'}]}
     initial={{semester:`Học kỳ ${data.semester}`,current_teacher:data.teacher_name}}
-    onSubmit={async v=>{await rooms.requestTeacherChange(session.token,classId,Number(v.teacher_id),String(v.note??''));onClose();}}/>;
+    onSubmit={async v=>{const note=String(v.note??'').trim();await rooms.requestTeacherChange(session.token,classId,Number(v.teacher_id),`Lý do: ${String(v.reason)}${note?`. ${note}`:''}`);onClose();}}/>;
 };
 
 export const TeacherChangeReview:React.FC<{session:Session;requests:TeacherChangeRequest[];loading:boolean;error:string|null;onReload:()=>void;onClose:()=>void}>=({session,requests,loading,error,onReload,onClose})=>{

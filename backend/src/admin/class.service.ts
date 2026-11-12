@@ -6,7 +6,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { randomInt } from 'crypto';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
-import { buildClassListSheet, cellText, checkUpload, classTemplateFilename, Column, normHeader, parseDate, readSheet, UploadedXlsx } from './excel';
+import { buildClassListSheet, cellText, checkUpload, classTemplateFilename, Column, joinCodeFor, normHeader, parseDate, readSheet, UploadedXlsx, workbookSheets } from './excel';
 import { likeEscape, SchoolService } from './school.service';
 import { notify } from '../classroom/notify';
 
@@ -243,7 +243,21 @@ export class ClassService {
     await q('INSERT INTO app_class_term_teachers(class_id,school_id,semester,teacher_id,assigned_by) SELECT $1,$2,s.n,NULL,$3 FROM (VALUES(1),(2)) s(n) ON CONFLICT DO NOTHING',[cls.id,cls.school_id,actor.id]);
     if (previous===next && !legacy.length) return;
     await q('UPDATE app_class_term_teachers SET teacher_id=$3,assigned_by=$4,assigned_at=now() WHERE class_id=$1 AND semester=$2',[cls.id,semester,next,actor.id]);
+    if (next !== null && cls.join_code?.startsWith('DongA') && cls.join_code.includes(`HK${semester}`)) await this.applyJoinCode(q, actor, cls, semester);
     await this.log(q,cls,previous===null ? 'assign' : next===null ? 'unassign' : 'change_teacher',actor,{teacher_id:next,note:`Học kỳ ${semester}: ${previous ?? 'chưa phân công'} → ${next ?? 'chưa phân công'}`});
+  }
+
+  /** Đặt mã tham gia theo quy ước cho lớp và học kỳ (cần giáo viên phụ trách học kỳ đó); trả mã mới hoặc null nếu chưa có giáo viên */
+  private async applyJoinCode(q: Q, actor: UserRow, cls: ClassRow, semester: number): Promise<string | null> {
+    const teacher = (await q<{ full_name: string }>('SELECT u.full_name FROM app_class_term_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = $1 AND t.semester = $2', [cls.id, semester]))[0];
+    if (!teacher) return null;
+    const code = (await q<{ c: string }>('SELECT public.app_free_join_code($1, $2) AS c', [joinCodeFor(cls.name, teacher.full_name, semester, cls.school_year), cls.id]))[0].c;
+    if (code !== cls.join_code) {
+      await q('UPDATE app_classes SET join_code = $2 WHERE id = $1', [cls.id, code]);
+      await this.log(q, cls, 'code', actor, { note: code });
+      cls.join_code = code;
+    }
+    return code;
   }
 
   private async teacherRequestContext(q:Q,actor:UserRow,id:number){
@@ -431,11 +445,11 @@ export class ClassService {
   }
 
   /**
-   * Xếp lớp từ file Excel (HK.QT.039), mỗi lớp một file (yêu cầu 12/11/2026): ô Lớp, Học kỳ, Giáo viên phụ trách ở đầu file; mỗi dòng một học sinh.
-   * Chỉ nhận đúng file mẫu của trường và năm học (tên file bắt đầu bằng tên file mẫu, được thêm tên lớp ở cuối; dòng nhận diện A2).
+   * Xếp lớp từ file Excel (HK.QT.039), yêu cầu 12/11/2026: mỗi sheet một lớp (một file nhiều sheet hoặc nhiều file); mỗi sheet phải đủ
+   * Lớp, Khối, Học kỳ, Giáo viên phụ trách, thiếu một ô là cả file bị báo lỗi (sheet chưa điền gì thì bỏ qua). Chỉ nhận đúng file mẫu của trường và năm học.
    * Học sinh nhận ra bằng mã học sinh, để trống mã thì bằng họ tên + ngày sinh; trùng cả họ tên lẫn ngày sinh thì phải điền mã.
-   * Lớp chưa có trong năm học thì tạo khi lưu (khối lấy từ số đầu của tên lớp); giáo viên phụ trách được phân công cho học kỳ đã chọn nếu lớp chưa có ai;
-   * sau khi lưu, sĩ số dự kiến của lớp bằng số học sinh thực có. File cũ ghi lớp ở từng dòng vẫn nhận.
+   * Lớp chưa có thì tạo khi lưu; giáo viên phụ trách được phân công cho học kỳ đã chọn nếu lớp chưa có ai; sĩ số dự kiến = số học sinh thực có;
+   * lưu xong lớp có mã tham gia theo quy ước DongA + lớp + giáo viên + HK + năm học.
    */
   async importAssignments(actor: UserRow, file: UploadedXlsx | undefined, opts: { commit: boolean; school_id?: number | null; year_id: number }) {
     const upload = checkUpload(file);
@@ -446,110 +460,108 @@ export class ClassService {
     if (!(upload.originalname === spec.filename || (upload.originalname.startsWith(base) && /^[ _.()-]/.test(upload.originalname.slice(base.length)) && upload.originalname.endsWith('.xlsx')))) {
       throw new BadRequestException(`Sai tên file. Tên file phải bắt đầu bằng ${base} (có thể thêm tên lớp ở cuối, ví dụ ${base}_6A1.xlsx).`);
     }
-    // ô Lớp / Học kỳ / Giáo viên phụ trách ở đầu file (nhãn ở cột B kết thúc bằng dấu hai chấm, giá trị ở cột C)
-    const header: { lop?: string; 'hoc ky'?: string; 'giao vien phu trach'?: string } = {};
-    const parsed = await readSheet(upload, ASSIGN_COLUMNS, undefined, false, (sheet) => {
-      checkAssignFile(cellText(sheet.getCell('A2').value), spec);
-      for (let r = 1; r <= 20; r += 1) {
-        const text = cellText(sheet.getCell(r, 2).value);
-        const key = normHeader(text) as keyof typeof header;
-        if (text.endsWith(':') && (key === 'lop' || key === 'hoc ky' || key === 'giao vien phu trach')) header[key] = cellText(sheet.getCell(r, 3).value);
-      }
-    });
-    if (!parsed.length) throw new BadRequestException('File không có dòng dữ liệu nào');
-    const headerClass = tidyClassName(header.lop ?? '');
-    const semesterText = (header['hoc ky'] ?? '').trim();
-    if (semesterText && !['1', '2'].includes(semesterText)) throw new BadRequestException('Ô Học kỳ chỉ nhận 1 hoặc 2 (một năm học có hai học kỳ)');
-    const semester = semesterText ? Number(semesterText) : spec.semester;
-    const teacherText = (header['giao vien phu trach'] ?? '').trim();
+    const all = await workbookSheets(upload);
+    const marked = all.filter((w) => w.state === 'visible' && normHeader(w.a2).startsWith(normHeader('Mẫu xếp lớp năm học')));
+    if (!marked.length) {
+      checkAssignFile(all[0]?.a2 ?? '', spec); // file mẫu giáo viên/học sinh: báo đúng loại
+      throw new BadRequestException(`Không phải file mẫu xếp lớp của hệ thống. Hãy tải file mẫu xếp lớp năm học ${spec.year_label} rồi điền.`);
+    }
+    // đọc từng sheet: ô Lớp / Khối / Học kỳ / Giáo viên phụ trách (nhãn kết thúc bằng dấu hai chấm, giá trị ở ô bên phải) và các dòng học sinh
+    type Head = { lop?: string; khoi?: string; 'hoc ky'?: string; 'giao vien phu trach'?: string };
+    const sheets: Array<{ sheet: string; className: string; grade: number; semester: number; teacherText: string; rows: Array<{ row: number; values: Record<string, string> }> }> = [];
+    for (const w of marked) {
+      const head: Head = {};
+      const parsed = await readSheet(upload, ASSIGN_COLUMNS, w.name, false, (sheet) => {
+        checkAssignFile(cellText(sheet.getCell('A2').value), spec);
+        for (let r = 1; r <= 20; r += 1) for (let c = 1; c <= 5; c += 1) {
+          const text = cellText(sheet.getCell(r, c).value);
+          const key = normHeader(text) as keyof Head;
+          if (text.endsWith(':') && ['lop', 'khoi', 'hoc ky', 'giao vien phu trach'].includes(key)) head[key] = cellText(sheet.getCell(r, c + 1).value).trim();
+        }
+      });
+      const rows = parsed.filter(({ values }) => values.user_code.trim() || values.full_name.trim() || values.birth_date.trim());
+      if (!head.lop && !head.khoi && !head['giao vien phu trach'] && !rows.length) continue; // sheet mẫu chưa điền gì
+      const missing = [!head.lop && 'Lớp', !head.khoi && 'Khối', !head['hoc ky'] && 'Học kỳ', !head['giao vien phu trach'] && 'Giáo viên phụ trách'].filter(Boolean);
+      const where = `Sheet "${w.name}"${head.lop ? ` (lớp ${tidyClassName(head.lop)})` : ''}`;
+      if (missing.length) throw new BadRequestException(`${where}: thiếu ${missing.join(', ')}. Mỗi lớp phải điền đủ Lớp, Khối, Học kỳ và Giáo viên phụ trách; file chưa được nhập.`);
+      const className = tidyClassName(head.lop!);
+      if (!/^[6-9]$/.test(head.khoi!)) throw new BadRequestException(`${where}: ô Khối chỉ nhận 6, 7, 8 hoặc 9.`);
+      const grade = Number(head.khoi);
+      const lead = /^(\d+)/.exec(className)?.[1];
+      if (lead && Number(lead) !== grade) throw new BadRequestException(`${where}: lớp ${className} không thuộc khối ${grade}. Sửa ô Lớp hoặc ô Khối cho khớp.`);
+      if (!['1', '2'].includes(head['hoc ky']!)) throw new BadRequestException(`${where}: ô Học kỳ chỉ nhận 1 hoặc 2 (một năm học có hai học kỳ).`);
+      if (!rows.length) throw new BadRequestException(`${where}: chưa có học sinh nào trong danh sách.`);
+      if (sheets.some((x) => x.className.toLocaleLowerCase('vi') === className.toLocaleLowerCase('vi'))) throw new BadRequestException(`Lớp ${className} có ở hai sheet; mỗi lớp chỉ điền ở một sheet.`);
+      sheets.push({ sheet: w.name, className, grade, semester: Number(head['hoc ky']), teacherText: head['giao vien phu trach']!, rows });
+    }
+    if (!sheets.length) throw new BadRequestException('File chưa có lớp nào được điền. Điền Lớp, Khối, Học kỳ, Giáo viên phụ trách và danh sách học sinh rồi nhập lại.');
     return this.schools.run(actor, async (q) => {
       if (opts.commit) await q('SELECT pg_advisory_xact_lock(7412026)');
       const year = (await q<{ id: number; label: string; status: string }>('SELECT id, label, status FROM app_school_years WHERE id = $1 AND school_id = $2', [opts.year_id, schoolId]))[0];
       if (!year) throw new NotFoundException('Không tìm thấy năm học');
       if (year.status === 'ended') throw new ConflictException('Năm học đã kết thúc, không xếp lớp được');
-      let teacher: { id: number; full_name: string; user_code: string | null } | null = null;
-      if (teacherText) {
-        const code = teacherText.split('·')[0].trim();
+      type Row = { row: number; sheet: string; user_code: string; full_name: string; class_name: string; status: 'ok' | 'error' | 'added' | 'exists'; errors: string[] };
+      const rows: Row[] = [], notes: string[] = [];
+      const classes: Array<{ name: string; created: boolean; students: number; semester: number; teacher: string; join_code: string | null }> = [];
+      for (const sh of sheets) {
+        const label = `Lớp ${sh.className}`;
+        // giáo viên phụ trách: "mã giáo viên · họ tên" (hoặc chỉ họ tên nếu không trùng)
+        const code = sh.teacherText.split('·')[0].trim();
         const found = await q<{ id: number; full_name: string; user_code: string | null }>(
-          "SELECT id, full_name, user_code FROM app_users WHERE school_id = $1 AND role = 'teacher' AND deleted_at IS NULL AND is_active = 1 AND (lower(user_code) = lower($2) OR lower(full_name) = lower($3)) ORDER BY (lower(user_code) = lower($2)) DESC, id", [schoolId, code, teacherText]);
-        if (found.length !== 1 && !(found.length > 1 && found[0].user_code?.toLowerCase() === code.toLowerCase())) throw new BadRequestException(`Không có giáo viên "${teacherText}" trong trường (hoặc đang bị khóa). Hãy chọn giáo viên trong danh sách của file mẫu.`);
-        teacher = found[0];
-      }
-      // lớp theo tên: có sẵn (đang hoạt động), sẽ tạo mới, hoặc lỗi (khối không hợp lệ, lớp đã lưu trữ)
-      const plans = new Map<string, { name: string; cls: ClassRow | null; grade: number | null; error: string | null }>();
-      // chỉ lớp gõ ở ô Lớp đầu file mới được tạo; file cũ ghi lớp ở từng dòng thì lớp phải có sẵn (tránh tạo lớp do gõ nhầm)
-      const planFor = async (raw: string, allowCreate: boolean) => {
-        const name = tidyClassName(raw), key = name.toLocaleLowerCase('vi');
-        if (plans.has(key)) return plans.get(key)!;
-        const same = (await q<ClassRow>('SELECT * FROM app_classes WHERE school_id = $1 AND year_id = $2 AND class_code = $3', [schoolId, opts.year_id, name.toUpperCase().replace(/\s+/g, '')]))[0];
-        let plan: { name: string; cls: ClassRow | null; grade: number | null; error: string | null };
-        if (same?.is_active) plan = { name: same.name, cls: same, grade: same.grade, error: null };
-        else if (same) plan = { name: same.name, cls: null, grade: null, error: `Lớp ${same.name} đã được lưu trữ; hãy khôi phục lớp ở trang Lớp học trước khi xếp` };
-        else if (!allowCreate) plan = { name, cls: null, grade: null, error: `Không có lớp "${name}" đang hoạt động trong năm học đã chọn` };
-        else {
-          const grade = /^([6-9])(?!\d)/.exec(name)?.[1];
-          const open = grade ? (await q<{ is_active: boolean }>('SELECT is_active FROM app_school_grades WHERE school_id = $1 AND school_year = $2 AND grade = $3', [schoolId, year.label, Number(grade)]))[0]?.is_active : false;
-          plan = !grade ? { name, cls: null, grade: null, error: `Tên lớp "${name}" phải bắt đầu bằng khối 6–9, ví dụ 6A1` }
-            : !open ? { name, cls: null, grade: Number(grade), error: `Khối ${grade} chưa được bật trong năm học ${year.label}` }
-            : { name, cls: null, grade: Number(grade), error: null };
+          "SELECT id, full_name, user_code FROM app_users WHERE school_id = $1 AND role = 'teacher' AND deleted_at IS NULL AND is_active = 1 AND (lower(user_code) = lower($2) OR lower(full_name) = lower($3)) ORDER BY (lower(user_code) = lower($2)) DESC, id", [schoolId, code, sh.teacherText]);
+        if (found.length !== 1 && !(found.length > 1 && found[0].user_code?.toLowerCase() === code.toLowerCase())) throw new BadRequestException(`${label}: không có giáo viên "${sh.teacherText}" trong trường (hoặc đang bị khóa). Hãy chọn giáo viên trong danh sách của file mẫu.`);
+        const teacher = found[0];
+        // lớp: có sẵn (đang hoạt động), sẽ tạo, hoặc không dùng được
+        let cls = (await q<ClassRow>('SELECT * FROM app_classes WHERE school_id = $1 AND year_id = $2 AND class_code = $3', [schoolId, opts.year_id, sh.className.toUpperCase().replace(/\s+/g, '')]))[0] ?? null;
+        if (cls && !cls.is_active) throw new BadRequestException(`${label} đã được lưu trữ; hãy khôi phục lớp ở trang Lớp học trước khi xếp.`);
+        if (cls && cls.grade !== sh.grade) throw new BadRequestException(`${label} đang thuộc khối ${cls.grade}, file ghi khối ${sh.grade}.`);
+        if (!cls && !(await q<{ is_active: boolean }>('SELECT is_active FROM app_school_grades WHERE school_id = $1 AND school_year = $2 AND grade = $3', [schoolId, year.label, sh.grade]))[0]?.is_active) {
+          throw new BadRequestException(`${label}: khối ${sh.grade} chưa được bật trong năm học ${year.label}.`);
         }
-        plans.set(key, plan);
-        return plan;
-      };
-      const rows: Array<{ row: number; user_code: string; full_name: string; class_name: string; status: 'ok' | 'error' | 'added' | 'exists'; errors: string[] }> = [];
-      const valid: Array<{ result: (typeof rows)[number]; plan: Awaited<ReturnType<typeof planFor>>; studentId: number }> = [];
-      for (const { row, values } of parsed) {
-        const errors: string[] = [];
-        const code = values.user_code.trim(), name = values.full_name.trim(), born = values.birth_date.trim(), rowClass = values.class_name.trim();
-        const className = rowClass || headerClass, fromHeader = !!headerClass && (!rowClass || tidyClassName(rowClass).toLocaleLowerCase('vi') === headerClass.toLocaleLowerCase('vi'));
-        let student: { id: number; user_code: string | null; full_name: string } | null = null;
-        if (code) {
-          student = (await q<{ id: number; user_code: string | null; full_name: string }>("SELECT id, user_code, full_name FROM app_users WHERE school_id = $1 AND role = 'student' AND lower(user_code) = lower($2) AND deleted_at IS NULL AND is_active = 1", [schoolId, code]))[0] ?? null;
-          if (!student) errors.push(`Không có học sinh mã ${code} (hoặc đang bị khóa)`);
-        } else if (name && born) {
-          const iso = parseDate(born);
-          if (!iso) errors.push('Ngày sinh sai định dạng (dd/mm/yyyy)');
-          else {
-            const same = (await q<{ id: number; user_code: string | null; full_name: string }>("SELECT id, user_code, full_name FROM app_users WHERE school_id = $1 AND role = 'student' AND birth_date = $2 AND deleted_at IS NULL AND is_active = 1", [schoolId, iso]))
-              .filter((u) => plainName(u.full_name) === plainName(name));
-            if (same.length === 1) student = same[0];
-            else if (!same.length) errors.push(`Không có học sinh ${name} sinh ngày ${ddmmyyyy(iso)} (hoặc đang bị khóa)`);
-            else errors.push(`Có ${same.length} học sinh cùng họ tên và ngày sinh; hãy điền mã học sinh`);
-          }
-        } else errors.push(name ? 'Thiếu ngày sinh (hoặc mã học sinh) để nhận ra học sinh' : 'Thiếu mã học sinh (hoặc họ tên và ngày sinh)');
-        const plan = className ? await planFor(className, fromHeader) : null;
-        if (!plan) errors.push('Thiếu tên lớp: gõ tên lớp ở ô Lớp đầu file');
-        else if (plan.error) errors.push(plan.error);
-        const result = { row, user_code: student?.user_code ?? code, full_name: student?.full_name ?? name, class_name: plan?.name ?? className, status: (errors.length ? 'error' : 'ok') as 'ok' | 'error' | 'added' | 'exists', errors };
-        if (!errors.length && student && plan) valid.push({ result, plan, studentId: student.id });
-        rows.push(result);
-      }
-      // lớp sẽ tạo, giáo viên phụ trách học kỳ, sĩ số
-      const notes: string[] = [];
-      const used = [...new Set(valid.map((v) => v.plan))];
-      const classes: Array<{ name: string; created: boolean; students: number }> = [];
-      for (const plan of used) {
-        const count = valid.filter((v) => v.plan === plan).length;
-        if (!plan.cls) notes.push(`Lớp ${plan.name} (khối ${plan.grade}) chưa có trong năm học ${year.label}: ${opts.commit ? 'đã tạo' : 'sẽ được tạo khi lưu'}.`);
-        let current: number | null = null;
-        if (plan.cls) current = (await q<{ teacher_id: number | null }>('SELECT teacher_id FROM app_class_term_teachers WHERE class_id = $1 AND semester = $2', [plan.cls.id, semester]))[0]?.teacher_id
-          ?? (await q<{ teacher_id: number }>('SELECT teacher_id FROM app_class_teachers WHERE class_id = $1 LIMIT 1', [plan.cls.id]))[0]?.teacher_id ?? null;
-        if (teacher) {
-          if (current && current !== teacher.id) notes.push(`Lớp ${plan.name} đã có giáo viên phụ trách học kỳ ${semester} nên giữ nguyên; muốn đổi hãy dùng trang Lớp học.`);
-          else if (current !== teacher.id) notes.push(`Giáo viên phụ trách lớp ${plan.name} học kỳ ${semester}: ${teacher.user_code ?? ''} · ${teacher.full_name}.`);
+        // học sinh
+        const valid: Array<{ result: Row; studentId: number }> = [];
+        for (const { row, values } of sh.rows) {
+          const errors: string[] = [];
+          const sc = values.user_code.trim(), name = values.full_name.trim(), born = values.birth_date.trim();
+          let student: { id: number; user_code: string | null; full_name: string } | null = null;
+          if (sc) {
+            student = (await q<{ id: number; user_code: string | null; full_name: string }>("SELECT id, user_code, full_name FROM app_users WHERE school_id = $1 AND role = 'student' AND lower(user_code) = lower($2) AND deleted_at IS NULL AND is_active = 1", [schoolId, sc]))[0] ?? null;
+            if (!student) errors.push(`Không có học sinh mã ${sc} (hoặc đang bị khóa)`);
+          } else if (name && born) {
+            const iso = parseDate(born);
+            if (!iso) errors.push('Ngày sinh sai định dạng (dd/mm/yyyy)');
+            else {
+              const same = (await q<{ id: number; user_code: string | null; full_name: string }>("SELECT id, user_code, full_name FROM app_users WHERE school_id = $1 AND role = 'student' AND birth_date = $2 AND deleted_at IS NULL AND is_active = 1", [schoolId, iso]))
+                .filter((u) => plainName(u.full_name) === plainName(name));
+              if (same.length === 1) student = same[0];
+              else if (!same.length) errors.push(`Không có học sinh ${name} sinh ngày ${ddmmyyyy(iso)} (hoặc đang bị khóa)`);
+              else errors.push(`Có ${same.length} học sinh cùng họ tên và ngày sinh; hãy điền mã học sinh`);
+            }
+          } else errors.push(name ? 'Thiếu ngày sinh (hoặc mã học sinh) để nhận ra học sinh' : 'Thiếu mã học sinh (hoặc họ tên và ngày sinh)');
+          if (student && valid.some((v) => v.studentId === student!.id)) errors.push('Học sinh trùng với dòng trước trong lớp');
+          const result: Row = { row, sheet: label, user_code: student?.user_code ?? sc, full_name: student?.full_name ?? name, class_name: cls?.name ?? sh.className, status: errors.length ? 'error' : 'ok', errors };
+          if (!errors.length && student) valid.push({ result, studentId: student.id });
+          rows.push(result);
         }
-        if (!opts.commit) { classes.push({ name: plan.name, created: !plan.cls, students: count }); continue; }
-        const created = !plan.cls;
-        if (!plan.cls) plan.cls = await this.load(q, actor, await this.insertClass(q, actor, { schoolId, year, grade: plan.grade!, name: plan.name, expected_size: null, description: null }));
-        if (teacher && (created || !current)) await this.setTeachers(q, actor, plan.cls, [teacher.id], semester, true);
-        else if (created) await this.setTeachers(q, actor, plan.cls, [], semester, true);
-        for (const v of valid.filter((x) => x.plan === plan)) v.result.status = (await this.addStudent(q, actor, plan.cls, v.studentId)) ? 'added' : 'exists';
-        const size = (await q<{ n: number }>("SELECT count(*)::int AS n FROM app_class_members m JOIN app_users u ON u.id = m.user_id WHERE m.class_id = $1 AND u.role = 'student' AND u.deleted_at IS NULL", [plan.cls.id]))[0].n;
-        await q('UPDATE app_classes SET expected_size = $2 WHERE id = $1', [plan.cls.id, size]);
-        classes.push({ name: plan.name, created, students: size });
+        const current = cls ? ((await q<{ teacher_id: number | null }>('SELECT teacher_id FROM app_class_term_teachers WHERE class_id = $1 AND semester = $2', [cls.id, sh.semester]))[0]?.teacher_id
+          ?? (await q<{ teacher_id: number }>('SELECT teacher_id FROM app_class_teachers WHERE class_id = $1 LIMIT 1', [cls.id]))[0]?.teacher_id ?? null) : null;
+        const teacherLabel = `${teacher.user_code ?? ''} · ${teacher.full_name}`;
+        if (!cls) notes.push(`${label} (khối ${sh.grade}) chưa có trong năm học ${year.label}: ${opts.commit ? 'đã tạo' : 'sẽ được tạo khi lưu'}.`);
+        if (current && current !== teacher.id) notes.push(`${label} đã có giáo viên phụ trách học kỳ ${sh.semester} khác nên giữ nguyên; muốn đổi hãy dùng đề nghị đổi giáo viên ở trang Lớp học.`);
+        else if (current !== teacher.id) notes.push(`${label}: giáo viên phụ trách học kỳ ${sh.semester} là ${teacherLabel}.`);
+        if (!opts.commit || !valid.length) { classes.push({ name: cls?.name ?? sh.className, created: !cls, students: valid.length, semester: sh.semester, teacher: teacherLabel, join_code: cls?.join_code ?? null }); continue; }
+        const created = !cls;
+        if (!cls) cls = await this.load(q, actor, await this.insertClass(q, actor, { schoolId, year, grade: sh.grade, name: sh.className, expected_size: null, description: null }));
+        if (created || !current) await this.setTeachers(q, actor, cls, [teacher.id], sh.semester, true);
+        for (const v of valid) v.result.status = (await this.addStudent(q, actor, cls, v.studentId)) ? 'added' : 'exists';
+        const size = (await q<{ n: number }>("SELECT count(*)::int AS n FROM app_class_members m JOIN app_users u ON u.id = m.user_id WHERE m.class_id = $1 AND u.role = 'student' AND u.deleted_at IS NULL", [cls.id]))[0].n;
+        await q('UPDATE app_classes SET expected_size = $2 WHERE id = $1', [cls.id, size]);
+        const joinCode = await this.applyJoinCode(q, actor, cls, sh.semester);
+        if (joinCode) notes.push(`${label}: mã tham gia ${joinCode}.`);
+        classes.push({ name: cls.name, created, students: size, semester: sh.semester, teacher: teacherLabel, join_code: joinCode ?? cls.join_code });
       }
       const bad = rows.filter((r) => r.status === 'error').length;
-      return { committed: opts.commit, total: rows.length, valid: rows.length - bad, errors: bad, added: rows.filter((r) => r.status === 'added').length, semester, teacher: teacher ? `${teacher.user_code ?? ''} · ${teacher.full_name}` : null, classes, notes, rows };
+      return { committed: opts.commit, total: rows.length, valid: rows.length - bad, errors: bad, added: rows.filter((r) => r.status === 'added').length, classes, notes, rows };
     });
   }
 
@@ -603,12 +615,12 @@ export class ClassService {
   // ------------------------------------------------------------------ học sinh tham gia lớp bằng mã (HK.HS.008)
   async joinByCode(student: UserRow, rawCode: string) {
     const code = normJoinCode(rawCode);
-    if (code.length !== 6) throw new UnprocessableEntityException('Mã lớp gồm 6 ký tự');
+    if (code.length < 6 || code.length > 80) throw new UnprocessableEntityException('Mã tham gia lớp không hợp lệ');
     if (!student.school_id) throw new ForbiddenException('Tài khoản tự học không thuộc trường nên chưa tham gia lớp được. Hãy nhờ giáo viên hoặc nhà trường cấp tài khoản.');
     const result = await this.schools.run(student, async (q) => {
       // Học sinh chỉ thấy lớp của trường mình (Row-Level Security); mã của trường khác trả về "không đúng" như mã sai, không lộ lớp nào có thật
       const cls = (await q<ClassRow & { year_status: string | null }>(
-        `SELECT c.*, y.status AS year_status FROM app_classes c LEFT JOIN app_school_years y ON y.id = c.year_id WHERE c.join_code = $1 AND c.school_id = $2`, [code, student.school_id]))[0];
+        `SELECT c.*, y.status AS year_status FROM app_classes c LEFT JOIN app_school_years y ON y.id = c.year_id WHERE upper(regexp_replace(c.join_code, '[^A-Za-z0-9]', '', 'g')) = $1 AND c.school_id = $2`, [code, student.school_id]))[0];
       if (!cls) throw new NotFoundException('Mã lớp không đúng hoặc lớp không thuộc trường của bạn');
       if (!cls.is_active || cls.status !== 'APPROVED') throw new ConflictException('Lớp này đã được lưu trữ');
       if (cls.year_status === 'ended') throw new ConflictException('Năm học của lớp đã kết thúc');
@@ -638,15 +650,19 @@ export class ClassService {
       region: (await q<{ region: string | null }>('SELECT region FROM app_schools WHERE id = $1', [id]))[0]?.region ?? null,
       teachers: (await q<{ user_code: string | null; full_name: string }>("SELECT user_code, full_name FROM app_users WHERE school_id = $1 AND role = 'teacher' AND deleted_at IS NULL AND is_active = 1 ORDER BY full_name, id", [id]))
         .map((t) => `${t.user_code ?? 'Chưa có mã'} · ${t.full_name}`),
+      students: (await q<{ user_code: string; full_name: string; birth_date: string | null; gender: string | null }>(
+        "SELECT user_code, full_name, birth_date::text AS birth_date, gender FROM app_users WHERE school_id = $1 AND role = 'student' AND deleted_at IS NULL AND is_active = 1 AND user_code IS NOT NULL ORDER BY full_name, id", [id]))
+        .map((u) => ({ code: u.user_code, name: u.full_name, birth: u.birth_date ? ddmmyyyy(u.birth_date) : '', gender: u.gender === 'male' ? 'Nam' : u.gender === 'female' ? 'Nữ' : '' })),
     }));
     const buffer = await buildClassListSheet({
       identity: assignSubtitle(spec.year_label, spec.school_name, spec.school_code), school: spec.school_name, schoolCode: spec.school_code, region: extra.region,
-      yearLabel: spec.year_label, semester: spec.semester, teachers: extra.teachers, classes: spec.classes, now,
+      yearLabel: spec.year_label, semester: spec.semester, teachers: extra.teachers, classes: spec.classes, students: extra.students, now,
       guide: [
-        `Mỗi lớp một file: gõ tên lớp ở ô Lớp (ví dụ 6A1), chọn học kỳ (một năm học có học kỳ 1 và học kỳ 2) và giáo viên phụ trách (mã giáo viên · họ tên).`,
-        'Mỗi học sinh một dòng: điền mã học sinh, hoặc họ tên và ngày sinh (dd/mm/yyyy) đúng như hồ sơ; trùng cả họ tên lẫn ngày sinh thì phải điền mã. Giới tính để đối chiếu.',
-        `Cột LỚP và Sĩ số tự hiện. Lớp chưa có trong năm học ${spec.year_label} sẽ được tạo khi nhập (khối lấy từ số đầu của tên lớp); sau khi nhập, sĩ số lớp bằng số học sinh thực có.`,
-        'Học sinh vào học muộn trong học kỳ: thêm trên web ở trang Lớp học (Tạo học sinh mới vào lớp), không cần nhập lại file.',
+        'Mỗi lớp một sheet: điền đủ 4 ô có dấu * là Lớp (ví dụ 6A1), Khối (6–9), Học kỳ (một năm học có học kỳ 1 và học kỳ 2) và Giáo viên phụ trách (mã giáo viên · họ tên). Thiếu một ô là cả file bị báo lỗi.',
+        'Nhiều lớp: chép sheet Xếp lớp (chuột phải tên sheet → Move or Copy → Create a copy) rồi điền lớp khác; hoặc lưu mỗi lớp một file và chọn nhiều file cùng lúc khi nhập.',
+        'Mỗi học sinh một dòng: bấm mũi tên chọn mã học sinh (họ tên, ngày sinh, giới tính tự điền) hoặc chọn họ tên; nhấn Enter, STT, cột LỚP và sĩ số tự cập nhật. Trùng cả họ tên lẫn ngày sinh thì phải chọn mã.',
+        `Lớp chưa có trong năm học ${spec.year_label} được tạo khi nhập; sĩ số lớp bằng số học sinh thực có. Nhập xong, lớp có mã tham gia DongA + lớp + giáo viên + HK + năm học (ví dụ DongA6A5DucAnhHK1${spec.year_label}).`,
+        'Học sinh vào học muộn trong học kỳ: thêm trên web ở trang Lớp học (Tạo học sinh mới vào lớp). Đổi giáo viên phụ trách trong học kỳ (nghỉ sinh, tai nạn, bệnh dài ngày): giáo viên gửi đề nghị, quản trị trường duyệt.',
         `Giữ nguyên tên file ${spec.filename}; có thể thêm tên lớp ở cuối, ví dụ ${spec.filename.replace(/\.xlsx$/, '')}_6A1.xlsx. Chỉ nhập cho ${spec.school_name}, năm học ${spec.year_label}.`,
       ],
     });

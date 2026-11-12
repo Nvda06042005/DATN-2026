@@ -57,7 +57,21 @@ test('Lớp học: bỏ nút Nhân bản; xếp lớp mỗi lớp một file; gi
  assert.doesNotMatch(classes,/title="Nhân bản sang năm học mới"|setCloning|cloneClasses|class-clone/);
  assert.match(classes,/subtitle="Tạo lớp theo năm học và khối, phân công giáo viên và xếp học sinh vào lớp\."/);
  assert.match(classes,/api\.classImportSpec\(token, yearId\)/);
- assert.match(classes,/hint=\{`Mỗi lớp một file: tải file mẫu năm học \$\{spec\.year_label\}, gõ tên lớp, chọn học kỳ và giáo viên phụ trách/);
+ assert.match(classes,/<ImportSheet title=\{title\} multiple hint=\{`Mỗi lớp một sheet \(chép sheet trong Excel\) hoặc mỗi lớp một file \(chọn nhiều file cùng lúc\)\. Mỗi lớp điền đủ Lớp, Khối, Học kỳ, Giáo viên phụ trách; thiếu một ô là file bị báo lỗi\./);
+ // chọn nhiều file: xem trước / lưu lần lượt, gộp kết quả, mỗi dòng ghi file và lớp
+ assert.match(kit,/export const pickFiles = async/);
+ assert.match(kit,/multiple: true \}\);/);
+ assert.match(kit,/sheet: `\$\{f\.name\}\$\{r\.sheet \? ` · \$\{r\.sheet\}` : ''\}`/);
+ assert.match(kit,/\{r\.sheet \? `\$\{r\.sheet\} · ` : ''\}Dòng \{r\.row\}/);
+ // mã tham gia dài theo quy ước DongA… hiển thị gọn; học sinh gõ được mã dài
+ assert.match(classes,/size=\{\(k\.join_code\?\.length \?\? 0\) > 8 \? 20 : 30\}/);
+ const tab=read('components/portal/ClassTab.tsx');
+ assert.match(tab,/label="Mã tham gia lớp"[^>]*maxLength=\{80\}/);
+ assert.doesNotMatch(tab,/maxLength=\{6\}|Mã lớp gồm 6 ký tự/);
+ // đề nghị đổi giáo viên phụ trách có lý do (nghỉ sinh con, tai nạn, bệnh dài ngày…)
+ const change=read('components/admin/ClassTeacherChange.tsx');
+ assert.match(change,/const CHANGE_REASONS=\['Nghỉ sinh con','Tai nạn','Bệnh dài ngày'/);
+ assert.match(change,/`Lý do: \$\{String\(v\.reason\)\}/);
  assert.match(classes,/acceptText="Chỉ nhận file Excel\." note=\{`Phải đúng file mẫu xếp lớp năm học \$\{spec\.year_label\} của \$\{spec\.school_name\} \(được thêm tên lớp ở cuối tên file/);
  // mỗi lớp lưu một file nên tên file được thêm tên lớp: máy chủ kiểm tra phần đầu tên file, không so khớp nguyên tên ở trình duyệt
  const importer=classes.slice(classes.indexOf('const ClassImportSheet'),classes.indexOf('// ---------------------------------------------------------------------- chi tiết một lớp'));

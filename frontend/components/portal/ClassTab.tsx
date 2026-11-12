@@ -58,8 +58,8 @@ const JoinClass: React.FC<{ session: Session; onJoined: () => void }> = ({ sessi
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const join = async () => {
-    const clean = code.trim().toUpperCase();
-    if (clean.length !== 6) return setError('Mã lớp gồm 6 ký tự.');
+    const clean = code.trim();
+    if (clean.replace(/[^A-Za-z0-9]/g, '').length < 6) return setError('Hãy nhập mã tham gia lớp giáo viên đưa (6 ký tự hoặc dạng DongA…).');
     setBusy(true);
     setError(null);
     try { const cls = await authApi.joinClass(session.token, clean); toast(`Đã vào lớp ${cls.name}`); setCode(''); onJoined(); } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
@@ -68,7 +68,7 @@ const JoinClass: React.FC<{ session: Session; onJoined: () => void }> = ({ sessi
     <Card flat pad={14} style={{ gap: 8 }}>
       <Txt f="bold" size={16}>Tham gia lớp bằng mã</Txt>
       <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
-        <Field label="Mã lớp (6 ký tự)" value={code} onChangeText={(v) => setCode(v.toUpperCase())} autoCapitalize="characters" maxLength={6} error={error} style={{ flex: 1 }} editable={Boolean(session.user.school_id)} />
+        <Field label="Mã tham gia lớp" value={code} onChangeText={setCode} autoCapitalize="none" maxLength={80} placeholder="Ví dụ DongA6A5DucAnhHK12025-2026" error={error} style={{ flex: 1 }} editable={Boolean(session.user.school_id)} />
         <Btn icon={LogIn} title="Vào lớp" tone="ngoc" loading={busy} disabled={!session.user.school_id} onPress={join} testID="class-join" />
       </View>
     </Card>

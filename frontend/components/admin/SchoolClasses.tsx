@@ -74,7 +74,7 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
             { key: 'grade', filter: f_grade, label: 'Khối', flex: 0.7, render: (x) => <Txt size={14}>Khối {x.grade ?? '?'}</Txt> },
             { key: 'teachers', label: 'Giáo viên phụ trách lớp', flex: 2, render: (x) => <Cell main={x.teachers.map((t) => t.full_name).join(', ') || 'Chưa phân công'} sub={`Học kỳ ${semester}`} /> },
             { key: 'students', label: 'Sĩ số', render: (x) => <Txt size={14}>{x.students}{x.expected_size ? ` / ${x.expected_size}` : ''}</Txt> },
-            { key: 'code', label: 'Mã tham gia', render: (x) => <Txt f="bold" size={15} selectable style={{ letterSpacing: 2 }}>{x.join_code ?? '—'}</Txt> },
+            { key: 'code', label: 'Mã tham gia', flex: 1.6, render: (x) => <Txt f="bold" size={(x.join_code?.length ?? 0) > 8 ? 13 : 15} selectable numberOfLines={1} style={{ letterSpacing: (x.join_code?.length ?? 0) > 8 ? 0 : 2 }}>{x.join_code ?? '—'}</Txt> },
             { key: 'status', filter: f_active, label: 'Trạng thái', render: (x) => <StatusChip kind={x.is_active ? 'on' : 'muted'} text={x.is_active ? (x.join_open ? 'Hoạt động' : 'Đóng tự tham gia') : 'Đã lưu trữ'} /> },
           ]} />
       ) : null}
@@ -106,7 +106,7 @@ const ClassImportSheet: React.FC<{ session: Session; yearId: number; onClose: ()
   const title = 'Xếp học sinh vào lớp từ Excel';
   const { data: spec, error, reload } = useLoad(() => api.classImportSpec(token, yearId), [token, yearId], session.expired);
   if (!spec) return <Sheet open title={title} onClose={onClose}>{error ? <><ErrorNote message={error} /><Btn title="Thử lại" onPress={reload} /></> : <Spinner label="Đang tải file mẫu của trường…" />}</Sheet>;
-  return <ImportSheet title={title} hint={`Mỗi lớp một file: tải file mẫu năm học ${spec.year_label}, gõ tên lớp, chọn học kỳ và giáo viên phụ trách, điền học sinh rồi chọn file để nhập. Lớp chưa có sẽ được tạo; sĩ số lấy theo số học sinh thực có.`}
+  return <ImportSheet title={title} multiple hint={`Mỗi lớp một sheet (chép sheet trong Excel) hoặc mỗi lớp một file (chọn nhiều file cùng lúc). Mỗi lớp điền đủ Lớp, Khối, Học kỳ, Giáo viên phụ trách; thiếu một ô là file bị báo lỗi. Lớp chưa có sẽ được tạo, sĩ số lấy theo số học sinh thực có, lưu xong lớp có mã tham gia DongA + lớp + giáo viên + HK + năm học.`}
     acceptText="Chỉ nhận file Excel." note={`Phải đúng file mẫu xếp lớp năm học ${spec.year_label} của ${spec.school_name} (được thêm tên lớp ở cuối tên file, ví dụ ${spec.filename.replace(/\.xlsx$/, '')}_6A1.xlsx). File của trường hoặc năm học khác sẽ báo lỗi.`}
     template={{ filename: spec.filename, fetchBlob: () => api.downloadFile(token, `/api/admin/classes/template?year_id=${yearId}`) }}
     run={(file, commit) => api.importAssignments(token, file, { commit, year_id: yearId })} onClose={onClose} onDone={onDone} />;
@@ -159,7 +159,7 @@ const ClassSheet: React.FC<{
             </View>
             <Inset style={{ gap: 6 }}>
               <Txt size={13} color={c.muc2}>Mã tham gia lớp (giáo viên đọc cho học sinh nhập)</Txt>
-              <Txt f="bold" size={30} selectable style={{ letterSpacing: 6 }} testID="class-join-code">{k.join_code ?? '—'}</Txt>
+              <Txt f="bold" size={(k.join_code?.length ?? 0) > 8 ? 20 : 30} selectable style={{ letterSpacing: (k.join_code?.length ?? 0) > 8 ? 0.5 : 6 }} testID="class-join-code">{k.join_code ?? '—'}</Txt>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 <Btn title="Đổi mã mới" icon={RefreshCw} tone="giay" size="sm" disabled={locked || !k.is_active} onPress={() => setDialog('code')} />
                 <Btn title={k.join_open ? 'Tắt tự tham gia' : 'Bật tự tham gia'} tone="giay" size="sm" disabled={locked} onPress={async () => { if (await run(() => api.updateClass(token, id, { join_open: !k.join_open }), 'Đã cập nhật')) refresh(); }} />

@@ -60,7 +60,7 @@ const ClassView: React.FC<{ session: Session; id: number; onBack: () => void; on
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <View style={{ flex: 1, minWidth: 200 }}>
                 <Txt size={12} color={c.muc3}>Mã tham gia lớp (đọc cho học sinh nhập)</Txt>
-                <Txt f="bold" size={28} selectable style={{ letterSpacing: 6 }} testID="class-code">{cls.join_code}</Txt>
+                <Txt f="bold" size={(cls.join_code?.length ?? 0) > 8 ? 18 : 28} selectable style={{ letterSpacing: (cls.join_code?.length ?? 0) > 8 ? 0.5 : 6 }} testID="class-code">{cls.join_code}</Txt>
               </View>
               <Btn icon={KeyRound} title="Tạo mã mới" tone="giay" size="sm" onPress={() => setCode(true)} disabled={!cls.is_active} />
             </View>
@@ -107,7 +107,7 @@ const ClassCard: React.FC<{ row: ClassRow; onPress: () => void }> = ({ row, onPr
         <Txt size={13} color={c.muc2}>{row.school_year} · {row.students} học sinh · {row.teams} đội{row.own ? ' · lớp tôi tạo' : ''}</Txt>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
           <Txt size={12} color={c.muc3}>Mã lớp</Txt>
-          <Txt f="bold" size={20} style={{ letterSpacing: 4 }}>{row.join_code}</Txt>
+          <Txt f="bold" size={(row.join_code?.length ?? 0) > 8 ? 14 : 20} style={{ letterSpacing: (row.join_code?.length ?? 0) > 8 ? 0 : 4 }}>{row.join_code}</Txt>
           {!row.join_open ? <Chip text="Đóng tham gia" bg={c.sonNhat} fg={c.sonChu} /> : null}
         </View>
         {row.journeys.length ? (

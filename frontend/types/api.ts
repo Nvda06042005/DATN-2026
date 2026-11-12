@@ -233,6 +233,8 @@ export interface CloneResult {
 // ---------------------------------------------------------------------- nhập Excel có xem trước
 export interface ImportRow {
   row: number;
+  /** Xếp lớp nhiều sheet / nhiều file: lớp (và file) của dòng */
+  sheet?: string;
   full_name?: string;
   user_code: string | null;
   class_name?: string;

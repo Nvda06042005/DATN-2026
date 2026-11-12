@@ -41,7 +41,8 @@ test('hộp nhập Excel: câu báo trước ở chỗ nút Chọn file, kiểm 
   const kit = read('components', 'admin', 'kit.tsx');
   assert.match(kit, /import \{ acceptNote, checkPickedFile, checkTemplateFilename, XLSM_MIME \} from '@\/lib\/upload-rules';/);
   assert.match(kit, /testID="import-accept-note"[\s\S]*?\{acceptText \?\? acceptNote\(types\)\}/); // hộp xếp lớp thay bằng câu ngắn "Chỉ nhận file Excel."
-  assert.match(kit, /const wrong = checkPickedFile\(picked, types\);\s+if \(wrong\) \{ setFile\(null\); setError\(wrong\); return; \}/);
+  // kiểm tra từng file ngay khi chọn (được chọn nhiều file ở hộp xếp lớp)
+  assert.match(kit, /const wrong = checkPickedFile\(picked, types\) \?\? checkTemplateFilename\(picked\.name, expectedFilename, legacyFilename\);\s+if \(wrong\) \{ setFile\(null\); setFiles\(\[\]\); setError\(/);
   // câu báo nằm trước nút "Chọn file"
   assert.ok(kit.indexOf('import-accept-note') < kit.indexOf('testID="import-choose"'));
   assert.match(kit, /danh sách trong trang đã tự cập nhật/);
