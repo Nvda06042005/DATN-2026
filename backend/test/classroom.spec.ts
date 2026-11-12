@@ -83,16 +83,16 @@ const notes = async (who: { token: string }) => (await call(s.base, 'GET', '/api
     const all = (await api('GET', `/api/classroom/classes/${classId}/students`)).body;
     expect(all).toHaveLength(3);
     expect(all[0]).toEqual(expect.objectContaining({ id: expect.any(Number), level: 1, hearts: 5, hearts_max: 5, xp: 0 }));
-    expect((await api('GET', `/api/classroom/classes/${classId}/students?q=HS8002`)).body.map((x: any) => x.id)).toEqual([f.S2.id]);
+    expect((await api('GET', `/api/classroom/classes/${classId}/students?q=${(await userRow(f.S2.id)).user_code}`)).body.map((x: any) => x.id)).toEqual([f.S2.id]);
     expect((await api('GET', `/api/classroom/classes/${classId}/students?q=hoang thi`)).body.map((x: any) => x.id)).toEqual([f.S2.id]);
     await tx((q) => q("UPDATE app_users SET nickname = 'Cơn Lốc' WHERE id = $1", [f.S1.id]));
     expect((await api('GET', `/api/classroom/classes/${classId}/students?q=con loc`)).body.map((x: any) => x.id)).toEqual([f.S1.id]);
     // Excel: một mã đúng (đã trong lớp nên bị bỏ qua), một mã lạ, một mã lặp
-    const file = await makeXlsx(['Mã học sinh *'], [['HS8003'], ['HS9999'], ['HS8003']]);
+    const file = await makeXlsx(['Mã học sinh *'], [[(await userRow(f.S3.id)).user_code],['HS9999'],[(await userRow(f.S3.id)).user_code]]);
     const res = await upload(s.base, `/api/classroom/classes/${classId}/students/import`, 'mau.xlsx', file, f.T1.token);
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ added: 0, skipped: 1 });
-    expect(res.body.errors.map((e: any) => e.code)).toEqual(['HS9999', 'HS8003']);
+    expect(res.body.errors.map((e: any) => e.code)).toEqual(['HS9999',(await userRow(f.S3.id)).user_code]);
     const template = await download(s.base, '/api/classroom/students-template', f.T1.token);
     expect(template.status).toBe(200);
     expect(template.type).toMatch(/spreadsheetml/);

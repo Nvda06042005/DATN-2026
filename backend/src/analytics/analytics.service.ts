@@ -42,13 +42,13 @@ export class AnalyticsService {
   async classes(user: UserRow): Promise<ClassInfo[]> {
     const params: unknown[] = [];
     let where = 'TRUE';
-    if (user.role === 'teacher') { params.push(user.id); where = 'c.id IN (SELECT class_id FROM app_class_teachers WHERE teacher_id = $1)'; }
+    if (user.role === 'teacher') { params.push(user.id); where = 'c.id IN (SELECT class_id FROM app_current_class_teachers WHERE teacher_id = $1)'; }
     else if (user.role === 'school_admin') { params.push(user.school_id); where = 'c.school_id = $1'; }
     else if (user.role !== 'root_admin') throw new ForbiddenException('Không có quyền xem báo cáo lớp');
     return this.db.query<ClassInfo>(
       `SELECT c.id, c.name, c.grade, c.school_id, s.name AS school_name, y.label AS year_label, c.is_active,
-              (SELECT string_agg(u.full_name, ', ' ORDER BY u.full_name) FROM app_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id) AS teachers,
-              COALESCE((SELECT array_agg(t.teacher_id) FROM app_class_teachers t WHERE t.class_id = c.id), '{}') AS teacher_ids,
+              (SELECT string_agg(u.full_name, ', ' ORDER BY u.full_name) FROM app_current_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id) AS teachers,
+              COALESCE((SELECT array_agg(t.teacher_id) FROM app_current_class_teachers t WHERE t.class_id = c.id), '{}') AS teacher_ids,
               (SELECT count(*)::int FROM app_class_members m JOIN app_users u ON u.id = m.user_id AND u.role = 'student' AND u.deleted_at IS NULL WHERE m.class_id = c.id) AS students
        FROM app_classes c JOIN app_schools s ON s.id = c.school_id LEFT JOIN app_school_years y ON y.id = c.year_id WHERE ${where} ORDER BY s.name, c.grade NULLS LAST, c.name`, params);
   }
@@ -76,8 +76,8 @@ export class AnalyticsService {
               FROM me CROSS JOIN hk_journeys j JOIN hist_campaigns c ON c.id = j.campaign_id AND c.status = 'published'
               LEFT JOIN (SELECT m.user_id, cj.journey_id, max(cj.assigned_at) AS assigned_at FROM hk_class_journeys cj JOIN app_class_members m ON m.class_id = cj.class_id
                          WHERE m.user_id = ANY($1) AND ${WINDOW} GROUP BY m.user_id, cj.journey_id) a ON a.user_id = me.user_id AND a.journey_id = j.id
-              WHERE j.status = 'published' AND (a.journey_id IS NOT NULL OR j.is_default)
-              ORDER BY me.user_id, j.campaign_id, (a.journey_id IS NOT NULL) DESC, a.assigned_at DESC NULLS LAST, j.id)
+              WHERE j.status = 'published' AND (a.journey_id IS NOT NULL OR (j.is_default AND (j.scope='system' OR j.school_id=(SELECT school_id FROM app_users WHERE id=me.user_id))))
+              ORDER BY me.user_id, j.campaign_id, (a.journey_id IS NOT NULL) DESC, a.assigned_at DESC NULLS LAST, (j.scope='school') DESC, j.id)
        SELECT aj.user_id, count(n.id)::int AS total, count(np.completed_at)::int AS done
        FROM aj JOIN hk_nodes n ON n.journey_id = aj.journey_id LEFT JOIN hk_node_progress np ON np.node_id = n.id AND np.user_id = aj.user_id GROUP BY aj.user_id`, [ids]);
     return new Map(rows.map((r) => [r.user_id, { done: r.done, total: r.total }]));
@@ -149,7 +149,7 @@ export class AnalyticsService {
     if (user.role === 'root_admin' || (user.role === 'student' && user.id === studentId)) return s;
     if (user.role === 'school_admin' && s.school_id === user.school_id) return s;
     if (user.role === 'teacher' && (await this.db.query(
-      'SELECT 1 FROM app_class_members m JOIN app_class_teachers t ON t.class_id = m.class_id WHERE m.user_id = $1 AND t.teacher_id = $2 LIMIT 1', [studentId, user.id])).length) return s;
+      'SELECT 1 FROM app_class_members m JOIN app_current_class_teachers t ON t.class_id = m.class_id WHERE m.user_id = $1 AND t.teacher_id = $2 LIMIT 1', [studentId, user.id])).length) return s;
     throw notFound('học sinh');
   }
 
@@ -299,8 +299,17 @@ export class AnalyticsService {
     const one = async (sql: string): Promise<number> => num((await this.db.query<{ n: string }>(sql))[0].n);
     const roles = await this.db.query<{ role: string; n: number }>("SELECT role, count(*)::int AS n FROM app_users WHERE deleted_at IS NULL AND is_active = 1 GROUP BY role");
     const series = await this.db.query<{ day: string; users: number }>(
-      `SELECT to_char(created_at AT TIME ZONE ${VN}, 'YYYY-MM-DD') AS day, count(DISTINCT user_id)::int AS users FROM hk_events WHERE created_at >= now() - interval '30 days' GROUP BY 1 ORDER BY 1`);
+      `WITH calendar AS (
+         SELECT (now() AT TIME ZONE ${VN})::date - (29 - n) AS day FROM generate_series(0, 29) n
+       ), activity AS (
+         SELECT (created_at AT TIME ZONE ${VN})::date AS day, count(DISTINCT user_id)::int AS users
+         FROM hk_events WHERE created_at >= (((now() AT TIME ZONE ${VN})::date - 29)::timestamp AT TIME ZONE ${VN})
+           AND created_at < (((now() AT TIME ZONE ${VN})::date + 1)::timestamp AT TIME ZONE ${VN}) GROUP BY 1
+       )
+       SELECT to_char(c.day, 'YYYY-MM-DD') AS day, COALESCE(a.users, 0)::int AS users
+       FROM calendar c LEFT JOIN activity a ON a.day = c.day ORDER BY c.day`);
     return {
+      as_of: series[series.length - 1].day,
       schools: await one('SELECT count(*) AS n FROM app_schools WHERE is_active'), schools_total: await one('SELECT count(*) AS n FROM app_schools'),
       users_by_role: Object.fromEntries(roles.map((r) => [r.role, r.n])),
       dau: await one(`SELECT count(DISTINCT user_id) AS n FROM hk_events WHERE (created_at AT TIME ZONE ${VN})::date = (now() AT TIME ZONE ${VN})::date`),
@@ -356,7 +365,7 @@ export class AnalyticsService {
       `SELECT to_char(m.created_at AT TIME ZONE ${VN}, 'YYYY-MM-DD') AS day, count(*) FILTER (WHERE m.role = 'user')::int AS questions, COALESCE(sum(m.tokens_in + m.tokens_out), 0)::int AS tokens ${base} GROUP BY 1 ORDER BY 1`, params);
     const topics = await this.db.query<{ kind: string; id: number; title: string; asked: number }>(
       `SELECT cit->>'kind' AS kind, (cit->>'id')::int AS id, cit->>'title' AS title, count(DISTINCT m.id)::int AS asked ${base.replace('WHERE', ', jsonb_array_elements(m.citations) cit WHERE')} AND m.role = 'assistant' AND NOT m.refused GROUP BY 1, 2, 3 ORDER BY asked DESC, title LIMIT 10`, params);
-    const price = (await this.db.query<{ price_in: number; price_out: number; daily_per_school: number }>('SELECT price_in::float8 AS price_in, price_out::float8 AS price_out, daily_per_school FROM hk_ai_settings WHERE id = 1'))[0];
+    const price = (await this.db.query<{ price_in: number; price_out: number; daily_per_school: number }>('SELECT price_in::float8 AS price_in, price_out::float8 AS price_out, daily_per_school FROM hk_ai_settings WHERE id = 1 AND school_id IS NULL'))[0];
     const out: Record<string, unknown> = {
       days, questions: t.questions, answers, refused: t.refused, refusal_rate: pct(t.refused, answers), tokens_in: num(t.tokens_in), tokens_out: num(t.tokens_out), llm_answers: t.llm, users: t.users, reported: t.reports, series, topics,
       cost_usd: Math.round(((num(t.tokens_in) * price.price_in + num(t.tokens_out) * price.price_out) / 1_000_000) * 10000) / 10000, price,

@@ -6,15 +6,46 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { toPublic } from '../auth/auth.service';
 import { generatePassword, hashPassword } from '../auth/passwords';
+import { config } from '../config';
 import { DatabaseService, DuplicateUsername, Q, UserRow } from '../database/database.service';
 import { MailService } from './mail.service';
+import { DirectoryEntry, directoryEntry, foldVi, nameWords, sameSchoolName, schoolSlug, searchDirectory } from './school-directory';
+import { currentSchoolLogo } from './school-brand';
+import { givenNameUpper, parseDate, schoolInitials } from './excel';
 
 export const GRADES = [6, 7, 8, 9] as const;
 export const likeEscape = (s: string) => s.replace(/[\\%_]/g, (ch) => `\\${ch}`);
 
+/** Tên gọi của người quản lý dùng để ghép tên đăng nhập và mật khẩu: từ cuối của họ tên, viết hoa, bỏ dấu, chỉ giữ chữ và số. "Nguyễn Hoài An" → "AN". */
+export function managerGivenName(fullName: string): string {
+  return givenNameUpper(fullName);
+}
+
+/**
+ * Tên đăng nhập và mật khẩu của quản trị viên trường theo quy ước (yêu cầu 10/11/2026):
+ * tên đăng nhập = QLY + viết tắt tên trường + tên người quản lý + 4 số cuối điện thoại, ví dụ QLYGOTAN6720 (Giồng Ông Tố, An, ...6720);
+ * mật khẩu = DongA + ngày sinh ddmmyyyy + @ + tên người quản lý, ví dụ DongA06042005@AN. Mật khẩu này chỉ dùng cho lần đăng nhập đầu: tài khoản bị buộc đổi mật khẩu.
+ * Tên đăng nhập lưu chữ thường (đăng nhập không phân biệt hoa thường); hiển thị và gửi thư bằng chữ hoa như ví dụ.
+ */
+export function schoolAdminCredentials(schoolName: string, fullName: string, phone: string | null | undefined, birthDate: string | null | undefined): { username: string; password: string } {
+  const given = managerGivenName(fullName);
+  if (!given) throw new UnprocessableEntityException('Họ tên của quản trị viên cần có tên gọi để tạo tên đăng nhập');
+  const digits = (phone ?? '').trim();
+  if (!/^[0-9]{10}$/.test(digits)) throw new UnprocessableEntityException('Số điện thoại của quản trị viên gồm đúng 10 chữ số (dùng 4 số cuối để ghép tên đăng nhập)');
+  const born = birthDate ? parseDate(birthDate) : null;
+  const today = new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
+  if (!born) throw new UnprocessableEntityException('Chọn ngày tháng năm sinh của quản trị viên (dùng để ghép mật khẩu)');
+  if (born > today || born < '1930-01-01') throw new UnprocessableEntityException('Ngày sinh của quản trị viên không hợp lệ');
+  return {
+    username: `QLY${schoolInitials(schoolName)}${given}${digits.slice(-4)}`,
+    password: `DongA${born.slice(8, 10)}${born.slice(5, 7)}${born.slice(0, 4)}@${given}`,
+  };
+}
+
 export interface SchoolRow {
   id: number;
   school_code: string;
+  directory_code: string | null;
   name: string;
   region: string | null;
   city: string | null;
@@ -27,13 +58,43 @@ export interface SchoolRow {
   created_at: string;
 }
 
-export interface YearRow { id: number; school_id: number; label: string; starts_on: string; ends_on: string; status: 'planned' | 'active' | 'ended'; ended_at: string | null }
+/** Kết quả xóa trường: số tài khoản, lớp, năm học đã xóa kèm trường (dùng ghi nhật ký) */
+export interface RemovedSchool { id: number; school_code: string; name: string; admins: number; teachers: number; students: number; classes: number; years: number }
 
-/** Mã trường chuẩn hóa 4 chữ số: chỉ giữ chữ số, lấy 4 số cuối, thêm 0 phía trước */
+export interface YearRow {
+  id: number; school_id: number; label: string; starts_on: string; ends_on: string; status: 'planned' | 'active' | 'ended'; ended_at: string | null;
+  /** Học kỳ 1 và học kỳ 2: hoặc cả bốn ngày đều trống (chưa đặt học kỳ) hoặc cả bốn ngày đều có */
+  term1_starts_on: string | null; term1_ends_on: string | null; term2_starts_on: string | null; term2_ends_on: string | null;
+  calendar_mode: 'manual' | 'national';
+}
+interface YearFramework {
+  label: string; starts_on: string; ends_on: string;
+  term1_starts_on: string; term1_ends_on: string; term2_starts_on: string; term2_ends_on: string;
+  opening_on: string; term1_finish_before: string; term2_finish_before: string; year_finish_before: string;
+  term1_teaching_weeks: number; term2_teaching_weeks: number; decision: string; source_url: string;
+}
+export const TERM_KEYS = ['term1_starts_on', 'term1_ends_on', 'term2_starts_on', 'term2_ends_on'] as const;
+export type YearTerms = Partial<Record<(typeof TERM_KEYS)[number], string | null>>;
+
+/**
+ * Mã trường chuẩn hóa: chỉ giữ chữ số. Mã ngắn thêm số 0 phía trước cho đủ 4 chữ số; mã Bộ GD&ĐT (8 chữ số) giữ nguyên;
+ * mã dài hơn 8 lấy 8 chữ số cuối. Không cắt còn 4 số vì chỉ 4 số cuối thì 95% trường trong danh mục trùng mã nhau.
+ */
 export const normCode = (code: string | null | undefined): string => {
   const digits = String(code ?? '').replace(/\D/g, '');
-  return digits ? digits.slice(-4).padStart(4, '0') : '';
+  if (!digits) return '';
+  return digits.length <= 4 ? digits.padStart(4, '0') : digits.slice(-8);
 };
+
+/** Đường dẫn riêng của trường (donga_<mã>_<tên>_<khu vực>): trường dùng làm cổng đăng nhập của mình */
+export interface SchoolLink { slug: string; path: string; url: string }
+export const schoolLink = (s: { school_code: string; name: string; region?: string | null }): SchoolLink => {
+  const slug = schoolSlug(s);
+  return { slug, path: `/${slug}`, url: `${config.appUrl}/${slug}` };
+};
+const withLink = <T extends { school_code: string; name: string; region: string | null }>(row: T): T & { link: SchoolLink } => ({ ...row, link: schoolLink(row) });
+
+const describeSchool = (s: { name: string; school_code: string; region?: string | null }): string => `“${s.name}” (mã ${s.school_code}${s.region ? `, ${s.region}` : ''})`;
 
 const trimOrNull = (v: unknown): string | null => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') || null : null);
 
@@ -68,10 +129,39 @@ export class SchoolService {
   }
 
   // ------------------------------------------------------------------ trường (quản trị tổng)
+  /** Xem số kế tiếp mà không gọi nextval hoặc giữ chỗ; create() luôn cấp mã chính thức trong giao dịch. */
+  async codePreview(actor: UserRow): Promise<{ school_code: string }> {
+    this.assertTopAdmin(actor);
+    const rows = await this.db.query<{ school_code: string }>(`
+      WITH RECURSIVE candidates(n) AS (
+        SELECT last_value + CASE WHEN is_called THEN 1 ELSE 0 END
+        FROM public.app_school_registration_code_seq
+        UNION ALL
+        SELECT n + 1 FROM candidates
+        WHERE n < 99999999 AND EXISTS (
+          SELECT 1 FROM public.app_schools WHERE school_code = lpad(n::text, 8, '0')
+        )
+      )
+      SELECT lpad(n::text, 8, '0') AS school_code FROM candidates
+      WHERE n <= 99999999 AND NOT EXISTS (
+        SELECT 1 FROM public.app_schools WHERE school_code = lpad(n::text, 8, '0')
+      ) LIMIT 1
+    `);
+    if (!rows.length) throw new ConflictException('Đã hết mã trường có thể cấp');
+    return rows[0];
+  }
+
   async list(f: { q?: string; city?: string; region?: string; active?: 'true' | 'false'; page?: number; limit?: number }) {
     const where: string[] = [], params: unknown[] = [];
     const add = (sql: string, v: unknown) => { params.push(v); where.push(sql.replaceAll('?', `$${params.length}`)); };
-    if (f.q?.trim()) add("(s.name || ' ' || s.school_code) ILIKE ? ESCAPE '\\'", `%${likeEscape(f.q.trim())}%`);
+    if (f.q?.trim()) {
+      const found = searchDirectory(f.q, 20000).flatMap(entry => [entry.code, ...(entry.previous_codes ?? [])]);
+      const start = params.length;
+      params.push(`%${likeEscape(foldVi(f.q))}%`, `%${likeEscape(f.q.trim())}%`, found);
+      where.push(`(lower(replace(replace(regexp_replace(normalize(s.name, NFD), '[̀-ͯ]', '', 'g'), 'Đ', 'D'), 'đ', 'd')) LIKE $${start + 1} ESCAPE '\\'
+        OR s.school_code ILIKE $${start + 2} ESCAPE '\\' OR s.directory_code = ANY($${start + 3}::text[])
+        OR (s.directory_code IS NULL AND s.school_code = ANY($${start + 3}::text[])))`);
+    }
     if (f.city) add('s.city = ?', f.city);
     if (f.region) add('s.region = ?', f.region);
     if (f.active) add('s.is_active = ?', f.active === 'true');
@@ -90,7 +180,29 @@ export class SchoolService {
     );
     const places = await this.db.query<{ city: string | null; region: string | null }>('SELECT DISTINCT city, region FROM app_schools');
     const uniq = (v: Array<string | null>) => [...new Set(v.filter((x): x is string => !!x))].sort();
-    return { items, total, page, limit, facets: { cities: uniq(places.map((x) => x.city)), regions: uniq(places.map((x) => x.region)) } };
+    return { items: items.map((row) => withLink(currentSchoolLogo(row as unknown as SchoolRow))), total, page, limit, facets: { cities: uniq(places.map((x) => x.city)), regions: uniq(places.map((x) => x.region)) } };
+  }
+
+  /** Gợi ý trường từ danh mục khi thêm trường: kèm cờ đã có trong hệ thống và đường dẫn sẽ được tạo */
+  async directory(query: string, limit = 12, excludeSchoolId?: number): Promise<{ items: Array<DirectoryEntry & { exists: boolean; existing_code: string | null; matches_school: boolean; slug: string }>; duplicates: Array<{ id: number; school_code: string; name: string; region: string | null; city: string | null; directory_code: string | null }> }> {
+    const found = searchDirectory(query, limit);
+    // trường đã có cùng tên với chữ đang gõ (kể cả trường nhập tay chưa gắn danh mục): báo trước để không tạo thêm một trường nữa
+    const typed = query.trim().length >= 3 ? query.trim() : '';
+    const schools = await this.db.query<{ id: number; school_code: string; name: string; region: string | null; city: string | null; directory_code: string | null }>('SELECT id, school_code, name, region, city, directory_code FROM app_schools WHERE ($1::integer IS NULL OR id <> $1)', [excludeSchoolId ?? null]);
+    const duplicates = typed ? schools.filter(s => nameWords(s.name) === nameWords(typed)) : [];
+    const own = excludeSchoolId ? (await this.db.query<{ name: string; city: string | null }>('SELECT name, city FROM app_schools WHERE id = $1', [excludeSchoolId]))[0] : null;
+    if (!found.length) return { items: [], duplicates };
+    const stored = await this.db.query<{code: string; logo_sha256: string | null}>('SELECT code, logo_sha256 FROM public.app_school_directory WHERE code = ANY($1::text[])', [found.map(entry => entry.code)]);
+    const logos = new Map(stored.map(row => [row.code, row.logo_sha256 ? `${config.publicApiUrl}/api/school-logos/${row.logo_sha256}.webp` : null]));
+    const keys = found.flatMap(entry => [entry.code, ...(entry.previous_codes ?? [])]);
+    const used = await this.db.query<{ school_code: string; directory_code: string | null }>('SELECT school_code, directory_code FROM app_schools WHERE ($2::integer IS NULL OR id <> $2) AND (directory_code = ANY($1::text[]) OR (directory_code IS NULL AND school_code = ANY($1::text[])))', [keys, excludeSchoolId ?? null]);
+    const items = found.map(e => {
+      const linked = used.find(row => [e.code, ...(e.previous_codes ?? [])].includes(row.directory_code ?? row.school_code));
+      // trường nhập tay chưa gắn danh mục nhưng trùng tên và tỉnh/thành: vẫn là trường đã có
+      const twin = linked ? null : schools.find(s => !s.directory_code && sameSchoolName(s, e));
+      return { ...e, logo_url: logos.get(e.code) ?? null, exists: !!linked || !!twin, existing_code: linked?.school_code ?? twin?.school_code ?? null, matches_school: !!own && sameSchoolName(own, e), slug: schoolSlug({ school_code: e.code, name: e.name, region: e.region }) };
+    });
+    return { items, duplicates };
   }
 
   async detail(actor: UserRow, id: number) {
@@ -102,35 +214,53 @@ export class SchoolService {
          FROM app_users WHERE school_id = $1 AND deleted_at IS NULL`, [id]))[0];
       const classes = (await q<{ n: number }>('SELECT count(*)::int AS n FROM app_classes WHERE school_id = $1', [id]))[0].n;
       const admins = (await q('SELECT id, username, full_name, email, phone, is_active, last_login_at FROM app_users WHERE school_id = $1 AND role = \'school_admin\' AND deleted_at IS NULL ORDER BY full_name', [id]));
-      const year = (await q<YearRow>("SELECT * FROM app_school_years WHERE school_id = $1 AND status = 'active'", [id]))[0] ?? null;
-      return { ...school, counts: { ...counts, classes }, admins, current_year: year };
+      const year = (await q<YearRow>("SELECT y.*, CASE WHEN calendar_mode='national' THEN public.school_year_framework(label) END AS framework FROM app_school_years y WHERE school_id = $1 AND status = 'active'", [id]))[0] ?? null;
+      return { ...withLink(currentSchoolLogo(school)), counts: { ...counts, classes }, admins, current_year: year };
     });
   }
 
   /** Thêm trường kèm tài khoản quản trị viên trường đầu tiên và thư cấp mật khẩu tạm (HK.AD.013) */
   async create(actor: UserRow, body: {
-    school_code: string; name: string; region?: string | null; city?: string | null; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null;
-    admin: { full_name: string; email: string; phone?: string | null };
+    school_code?: string; directory_code?: string; name: string; region?: string | null; city?: string | null; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null;
+    admin: { full_name: string; email: string; phone?: string | null; birth_date?: string | null };
   }) {
     this.assertTopAdmin(actor);
-    const code = normCode(body.school_code);
-    if (!code) throw new UnprocessableEntityException('Mã số trường cần có chữ số');
+    const selected = body.directory_code ? directoryEntry(body.directory_code) : null;
+    if (body.directory_code && !selected) throw new UnprocessableEntityException('Không tìm thấy trường được chọn trong danh mục');
+    // Giữ tương thích client cũ; giao diện mới luôn bỏ school_code và dùng mã tự sinh.
+    const manualCode = selected ? '' : normCode(body.school_code);
+    if (body.school_code !== undefined && !selected && !manualCode) throw new UnprocessableEntityException('Mã số trường cần có chữ số');
     const email = body.admin.email.trim().toLowerCase();
-    const password = generatePassword();
+    // có số điện thoại và ngày sinh của quản trị viên thì tên đăng nhập và mật khẩu theo quy ước (QLY + viết tắt trường + tên + 4 số cuối; DongA + ngày sinh + @ + tên); không thì mật khẩu tạm ngẫu nhiên như trước
+    const conventional = body.admin.phone || body.admin.birth_date
+      ? schoolAdminCredentials(selected?.name ?? body.name, body.admin.full_name, body.admin.phone, body.admin.birth_date) : null;
+    const password = conventional?.password ?? generatePassword();
     const passwordHash = await hashPassword(password);
     return this.db.tx(async (q) => {
+      if (selected) {
+        await q('SELECT pg_advisory_xact_lock(9031, hashtext($1))', [selected.code]);
+        const keys = [selected.code, ...(selected.previous_codes ?? [])];
+        if ((await q('SELECT 1 FROM app_schools WHERE directory_code = ANY($1::text[]) OR (directory_code IS NULL AND school_code = ANY($1::text[]))', [keys])).length) throw new ConflictException('Trường được chọn đã có trong hệ thống');
+      }
+      // không tạo thêm một trường đã có: chọn từ danh mục thì chặn trường nhập tay chưa gắn danh mục cùng tên; nhập tay thì chặn mọi trường cùng tên và tỉnh/thành
+      const candidate = { name: selected?.name ?? body.name, city: selected?.city ?? body.city };
+      const twin = (await q<SchoolRow>('SELECT * FROM app_schools')).find(s => (!selected || !s.directory_code) && sameSchoolName(s, candidate));
+      if (twin) throw new ConflictException(`Trường ${describeSchool(twin)} đã có trong hệ thống nên không tạo thêm. ${twin.directory_code ? '' : 'Hãy mở trường đó trong danh sách, bấm “Sửa” và chọn đúng trường trong danh mục để dùng logo chính thức.'}`.trim());
+      const code = manualCode || (await q<{ code: string }>('SELECT public.next_school_registration_code() AS code'))[0].code;
+      const logoHash = selected ? (await q<{logo_sha256: string | null}>('SELECT logo_sha256 FROM public.app_school_directory WHERE code = $1', [selected.code]))[0]?.logo_sha256 : null;
       if ((await q('SELECT 1 FROM app_schools WHERE school_code = $1', [code])).length) throw new ConflictException(`Mã trường ${code} đã có trong hệ thống`);
       if ((await q('SELECT 1 FROM app_users WHERE lower(email) = $1 AND deleted_at IS NULL', [email])).length) throw new ConflictException('Email quản trị viên đã được dùng cho một tài khoản khác');
       const school = (await q<SchoolRow>(
-        `INSERT INTO app_schools (school_code, name, region, city, address, contact_name, contact_email, contact_phone) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-        [code, trimOrNull(body.name), trimOrNull(body.region), trimOrNull(body.city), trimOrNull(body.address), trimOrNull(body.contact_name), trimOrNull(body.contact_email)?.toLowerCase() ?? null, trimOrNull(body.contact_phone)],
+        `INSERT INTO app_schools (school_code, directory_code, name, region, city, address, contact_name, contact_email, contact_phone, logo_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+        [code, selected?.code ?? null, trimOrNull(selected?.name ?? body.name), trimOrNull(selected?.region ?? body.region), trimOrNull(selected?.city ?? body.city), trimOrNull(selected?.address ?? body.address), trimOrNull(body.contact_name), trimOrNull(body.contact_email)?.toLowerCase() ?? null, trimOrNull(body.contact_phone), logoHash ? `${config.publicApiUrl}/api/school-logos/${logoHash}.webp` : null],
       ))[0];
-      const username = await this.db.uniqueUsername(body.admin.full_name, 'school_admin', q);
+      const username = conventional ? await this.db.uniqueUsernameFrom(conventional.username, q) : await this.db.uniqueUsername(body.admin.full_name, 'school_admin', q);
       let admin: UserRow;
       try {
         admin = await this.db.createUser({
           username, full_name: body.admin.full_name, role: 'school_admin', class_name: null, password_hash: passwordHash, must_change_password: true,
           school_id: school.id, school_code: school.school_code, region: school.region, city: school.city, email, phone: trimOrNull(body.admin.phone),
+          birth_date: conventional ? parseDate(body.admin.birth_date as string) : null,
         }, q);
       } catch (exc) {
         if (exc instanceof DuplicateUsername) throw new ConflictException('Tên đăng nhập của quản trị viên bị trùng, thử lại');
@@ -138,17 +268,30 @@ export class SchoolService {
       }
       await this.mail.enqueue(q, {
         school_id: school.id, user_id: admin.id, batch_id: null, kind: 'bulk', to: email, subject: '[Đông A EDU] Kích hoạt tài khoản quản trị viên trường học',
-        payload: { type: 'account', full_name: admin.full_name, username, password, role: 'school_admin', school: school.name },
+        payload: { type: 'account', full_name: admin.full_name, username: conventional ? username.toUpperCase() : username, password, role: 'school_admin', school: school.name },
       });
-      return { school, admin: toPublic(admin), temporary_password: password, mail: this.mail.configured ? 'queued' : 'not_configured' };
+      return { school: withLink(school), admin: toPublic(admin), temporary_password: password, mail: this.mail.configured ? 'queued' : 'not_configured' };
     }).then((result) => { this.mail.kick(); return result; });
   }
 
-  async update(id: number, body: { name?: string; region?: string | null; city?: string | null; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null; logo_url?: string | null; is_active?: boolean }) {
+  async update(id: number, body: { directory_code?: string; link_only?: boolean; name?: string; region?: string | null; city?: string | null; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null; logo_url?: string | null; is_active?: boolean }) {
     return this.db.tx(async (q) => {
       const old = (await q<SchoolRow>('SELECT * FROM app_schools WHERE id = $1 FOR UPDATE', [id]))[0];
       if (!old) throw new NotFoundException('Không tìm thấy trường');
-      const entries = Object.entries(body).filter(([k, v]) => ['name', 'region', 'city', 'address', 'contact_name', 'contact_email', 'contact_phone', 'logo_url', 'is_active'].includes(k) && v !== undefined);
+      if (body.directory_code) {
+        const selected = directoryEntry(body.directory_code);
+        if (!selected) throw new UnprocessableEntityException('Không tìm thấy trường được chọn trong danh mục');
+        await q('SELECT pg_advisory_xact_lock(9031, hashtext($1))', [selected.code]);
+        const keys = [selected.code, ...(selected.previous_codes ?? [])];
+        if ((await q('SELECT 1 FROM app_schools WHERE id <> $1 AND (directory_code = ANY($2::text[]) OR (directory_code IS NULL AND school_code = ANY($2::text[])))', [id, keys])).length) throw new ConflictException('Trường được chọn đã liên kết với trường khác trong hệ thống');
+        const logo = (await q<{logo_sha256: string | null}>('SELECT logo_sha256 FROM app_school_directory WHERE code=$1', [selected.code]))[0]?.logo_sha256;
+        const logoUrl = logo ? `${config.publicApiUrl}/api/school-logos/${logo}.webp` : body.logo_url ?? old.logo_url;
+        // link_only: chỉ gắn trường với danh mục để lấy mã danh mục và logo chính thức, giữ nguyên tên, khu vực, địa chỉ đang dùng (đường dẫn riêng của trường không đổi)
+        body = body.link_only
+          ? { directory_code: selected.code, logo_url: logoUrl }
+          : { ...body, directory_code: selected.code, name: selected.name, city: selected.city, region: selected.region, address: selected.address ?? body.address ?? old.address, logo_url: logoUrl };
+      }
+      const entries = Object.entries(body).filter(([k, v]) => ['directory_code', 'name', 'region', 'city', 'address', 'contact_name', 'contact_email', 'contact_phone', 'logo_url', 'is_active'].includes(k) && v !== undefined);
       if (entries.length) {
         const values = entries.map(([k, v]) => (typeof v === 'string' ? (k === 'contact_email' ? v.trim().toLowerCase() : v.trim().replace(/\s+/g, ' ')) || null : v));
         await q(`UPDATE app_schools SET ${entries.map(([k], i) => `${k} = $${i + 2}`).join(', ')} WHERE id = $1`, [id, ...values]);
@@ -156,27 +299,33 @@ export class SchoolService {
         if (body.is_active !== undefined && body.is_active !== old.is_active) await q('UPDATE app_users SET token_version = token_version + 1 WHERE school_id = $1', [id]);
         if (body.region !== undefined || body.city !== undefined) await q('UPDATE app_users SET region = s.region, city = s.city FROM app_schools s WHERE app_users.school_id = s.id AND s.id = $1', [id]);
       }
-      return (await q<SchoolRow>('SELECT * FROM app_schools WHERE id = $1', [id]))[0];
+      return withLink((await q<SchoolRow>('SELECT * FROM app_schools WHERE id = $1', [id]))[0]);
     });
   }
 
-  /** Xóa trường chưa phát sinh dữ liệu (HK.AD.016): không lớp, không giáo viên/học sinh, quản trị viên chưa từng đăng nhập hay thao tác */
-  async remove(actor: UserRow, id: number): Promise<void> {
+  /**
+   * Xóa trường cùng toàn bộ dữ liệu của trường (HK.AD.016; theo yêu cầu quản trị tổng 08/11/2026 không còn chặn khi trường đã có dữ liệu):
+   * tài khoản quản trị viên, giáo viên, học sinh của trường (kéo theo tiến độ, điểm, huy hiệu, bài làm... của họ qua khóa ngoại CASCADE),
+   * năm học, khối, lớp, nội dung và cấu hình riêng của trường. Khóa ngoại app_users.school_id chỉ là SET NULL nên phải xóa tài khoản trước,
+   * nếu không họ thành tài khoản mồ côi không thuộc trường nào. Không bao giờ xóa quản trị tổng. Nhật ký kiểm toán và nhật ký đăng nhập được giữ lại
+   * (chỉ mất liên kết tới trường). Một giao dịch: lỗi ở đâu thì không xóa gì cả.
+   */
+  async remove(actor: UserRow, id: number): Promise<RemovedSchool> {
     this.assertTopAdmin(actor);
-    await this.db.tx(async (q) => {
+    return this.db.tx(async (q) => {
       const school = (await q<SchoolRow>('SELECT * FROM app_schools WHERE id = $1 FOR UPDATE', [id]))[0];
       if (!school) throw new NotFoundException('Không tìm thấy trường');
-      const r = (await q<{ classes: number; members: number; used_admins: number; years: number }>(
-        `SELECT (SELECT count(*)::int FROM app_classes WHERE school_id = $1) AS classes,
-                (SELECT count(*)::int FROM app_users WHERE school_id = $1 AND role IN ('teacher', 'student')) AS members,
-                (SELECT count(*)::int FROM app_users u WHERE u.school_id = $1 AND u.role = 'school_admin' AND (u.last_login_at IS NOT NULL OR EXISTS (SELECT 1 FROM app_audit_events a WHERE a.actor_id = u.id))) AS used_admins,
-                (SELECT count(*)::int FROM app_school_years WHERE school_id = $1 AND status <> 'planned') AS years`, [id]))[0];
-      const reasons = [
-        r.classes && `${r.classes} lớp`, r.members && `${r.members} giáo viên/học sinh`, r.used_admins && `${r.used_admins} quản trị viên đã sử dụng hệ thống`, r.years && `${r.years} năm học đã kích hoạt`,
-      ].filter(Boolean);
-      if (reasons.length) throw new ConflictException(`Trường đã phát sinh dữ liệu (${reasons.join(', ')}); chỉ có thể vô hiệu hóa trường.`);
-      await q("DELETE FROM app_users WHERE school_id = $1 AND role = 'school_admin'", [id]);
+      const r = (await q<{ admins: number; teachers: number; students: number; classes: number; years: number }>(
+        `SELECT (SELECT count(*)::int FROM app_users WHERE school_id = $1 AND role = 'school_admin') AS admins,
+                (SELECT count(*)::int FROM app_users WHERE school_id = $1 AND role = 'teacher') AS teachers,
+                (SELECT count(*)::int FROM app_users WHERE school_id = $1 AND role = 'student') AS students,
+                (SELECT count(*)::int FROM app_classes WHERE school_id = $1) AS classes,
+                (SELECT count(*)::int FROM app_school_years WHERE school_id = $1) AS years`, [id]))[0];
+      // app_progress (tiến độ học) là bảng duy nhất theo user_id không có khóa ngoại tới app_users nên không tự đi theo tài khoản: xóa tường minh
+      await q("DELETE FROM app_progress WHERE user_id IN (SELECT id FROM app_users WHERE school_id = $1 AND role <> 'root_admin')", [id]);
+      await q("DELETE FROM app_users WHERE school_id = $1 AND role <> 'root_admin'", [id]);
       await q('DELETE FROM app_schools WHERE id = $1', [id]);
+      return { id, school_code: school.school_code, name: school.name, ...r };
     });
   }
 
@@ -193,10 +342,31 @@ export class SchoolService {
   }
 
   // ------------------------------------------------------------------ năm học (HK.QT.012)
+  async yearOptions() {
+    const current = new Date(Date.now() + 7 * 3600000).getUTCFullYear();
+    const rows = await this.db.query<{ framework: YearFramework }>(
+      `SELECT public.school_year_framework(y::text || '-' || (y+1)::text) AS framework
+       FROM generate_series(2020, $1::int) y ORDER BY y DESC`, [current + 2]);
+    return { items: rows.filter(r => r.framework).map(r => ({ label: r.framework.label, framework: r.framework })) };
+  }
+
+  private async yearFramework(label: string): Promise<YearFramework> {
+    const framework = (await this.db.query<{ framework: YearFramework | null }>('SELECT public.school_year_framework($1) AS framework', [label]))[0]?.framework;
+    if (!framework) throw new UnprocessableEntityException('Năm học chưa có khung thời gian đã xác minh');
+    return framework;
+  }
+
+  private async withYearFramework(q: Q, year: YearRow) {
+    const framework = year.calendar_mode === 'national'
+      ? (await q<{ framework: YearFramework }>('SELECT public.school_year_framework($1) AS framework', [year.label]))[0].framework : null;
+    return { ...year, framework };
+  }
+
   async years(actor: UserRow, schoolId?: number | null) {
     const id = this.target(actor, schoolId);
     return this.run(actor, async (q) => q<YearRow & { classes: number }>(
-      `SELECT y.*, (SELECT count(*)::int FROM app_classes c WHERE c.year_id = y.id) AS classes FROM app_school_years y WHERE y.school_id = $1 ORDER BY y.label DESC`, [id]));
+      `SELECT y.*, CASE WHEN y.calendar_mode='national' THEN public.school_year_framework(y.label) END AS framework,
+        (SELECT count(*)::int FROM app_classes c WHERE c.year_id = y.id) AS classes FROM app_school_years y WHERE y.school_id = $1 ORDER BY y.label DESC`, [id]));
   }
 
   private validYear(label: string, starts_on: string, ends_on: string): void {
@@ -205,19 +375,43 @@ export class SchoolService {
     if (!(starts_on < ends_on)) throw new UnprocessableEntityException('Ngày bắt đầu phải trước ngày kết thúc');
   }
 
-  async createYear(actor: UserRow, body: { school_id?: number | null; label: string; starts_on: string; ends_on: string }) {
+  /**
+   * Học kỳ phải đặt đủ cả hai (hoặc để trống cả bốn ngày), nối tiếp nhau và nằm trong năm học: học kỳ 1 từ ngày bắt đầu năm học trở đi,
+   * học kỳ 2 bắt đầu sau khi học kỳ 1 kết thúc và kết thúc không muộn hơn năm học. Lịch riêng còn được API hỗ trợ;
+   * chế độ national lấy khoảng phân loại từ khung đã xác minh ở database, không nhận ngày do client suy đoán.
+   */
+  private validTerms(starts_on: string, ends_on: string, t: Record<(typeof TERM_KEYS)[number], string | null>): void {
+    const given = TERM_KEYS.filter((k) => t[k]);
+    if (!given.length) return;
+    if (given.length !== TERM_KEYS.length) throw new UnprocessableEntityException('Hãy nhập đủ ngày bắt đầu và kết thúc của cả hai học kỳ, hoặc để trống cả bốn ô');
+    const [a1, b1, a2, b2] = TERM_KEYS.map((k) => t[k] as string);
+    if (a1 < starts_on) throw new UnprocessableEntityException('Học kỳ 1 phải bắt đầu từ ngày bắt đầu năm học trở đi');
+    if (a1 > b1) throw new UnprocessableEntityException('Học kỳ 1 phải kết thúc sau ngày bắt đầu');
+    if (b1 >= a2) throw new UnprocessableEntityException('Học kỳ 2 phải bắt đầu sau khi học kỳ 1 kết thúc');
+    if (a2 > b2) throw new UnprocessableEntityException('Học kỳ 2 phải kết thúc sau ngày bắt đầu');
+    if (b2 > ends_on) throw new UnprocessableEntityException('Học kỳ 2 phải kết thúc trước hoặc đúng ngày kết thúc năm học');
+  }
+
+  async createYear(actor: UserRow, body: { school_id?: number | null; label: string; starts_on?: string; ends_on?: string; calendar_mode?: 'national' | 'manual' } & YearTerms) {
     const schoolId = this.target(actor, body.school_id);
     const label = body.label.trim();
-    this.validYear(label, body.starts_on, body.ends_on);
+    const national = body.calendar_mode === 'national' || (!body.starts_on && !body.ends_on && body.calendar_mode !== 'manual');
+    const dates = national ? await this.yearFramework(label) : body;
+    if (!dates.starts_on || !dates.ends_on) throw new UnprocessableEntityException('Hãy nhập đủ ngày bắt đầu và kết thúc năm học');
+    const starts_on = dates.starts_on, ends_on = dates.ends_on;
+    this.validYear(label, starts_on, ends_on);
+    const terms = Object.fromEntries(TERM_KEYS.map((k) => [k, dates[k] ?? null])) as Record<(typeof TERM_KEYS)[number], string | null>;
+    this.validTerms(starts_on, ends_on, terms);
     return this.run(actor, async (q) => {
       if ((await q('SELECT 1 FROM app_school_years WHERE school_id = $1 AND label = $2', [schoolId, label])).length) throw new ConflictException(`Năm học ${label} đã có`);
-      const year = (await q<YearRow>('INSERT INTO app_school_years (school_id, label, starts_on, ends_on, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING *', [schoolId, label, body.starts_on, body.ends_on, actor.id]))[0];
+      const year = (await q<YearRow>('INSERT INTO app_school_years (school_id, label, starts_on, ends_on, term1_starts_on, term1_ends_on, term2_starts_on, term2_ends_on, calendar_mode, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+        [schoolId, label, starts_on, ends_on, terms.term1_starts_on, terms.term1_ends_on, terms.term2_starts_on, terms.term2_ends_on, national ? 'national' : 'manual', actor.id]))[0];
       // Khối của năm mới chép từ năm gần nhất của trường (hoặc bật cả bốn khối 6–9 nếu là năm đầu tiên); quản trị viên chỉnh lại ở mục khối lớp
       const previous = await q<{ grade: number; is_active: boolean }>(
         `SELECT grade, is_active FROM app_school_grades WHERE school_id = $1 AND school_year = (SELECT max(school_year) FROM app_school_grades WHERE school_id = $1 AND school_year < $2)`, [schoolId, label]);
       const grades = previous.length ? previous : GRADES.map((grade) => ({ grade, is_active: true }));
       for (const g of grades) await q('INSERT INTO app_school_grades (school_id, school_year, grade, is_active, created_by) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING', [schoolId, label, g.grade, g.is_active, actor.id]);
-      return year;
+      return this.withYearFramework(q, year);
     });
   }
 
@@ -228,19 +422,28 @@ export class SchoolService {
     return year;
   }
 
-  async updateYear(actor: UserRow, id: number, body: { label?: string; starts_on?: string; ends_on?: string }) {
+  async updateYear(actor: UserRow, id: number, body: { label?: string; starts_on?: string; ends_on?: string; calendar_mode?: 'national' | 'manual' } & YearTerms) {
     return this.run(actor, async (q) => {
       const year = await this.yearOf(q, actor, id);
       if (year.status === 'ended') throw new ConflictException('Năm học đã kết thúc, không sửa được');
-      const label = body.label?.trim() ?? year.label, starts_on = body.starts_on ?? year.starts_on, ends_on = body.ends_on ?? year.ends_on;
+      const label = body.label?.trim() ?? year.label;
+      const national = body.calendar_mode === 'national' || (year.calendar_mode === 'national' && body.calendar_mode !== 'manual' && !body.starts_on && !body.ends_on && !TERM_KEYS.some(k => body[k] !== undefined));
+      const dates = national ? await this.yearFramework(label) : body;
+      const starts_on = dates.starts_on ?? year.starts_on, ends_on = dates.ends_on ?? year.ends_on;
       this.validYear(label, starts_on, ends_on);
+      // gửi bất kỳ ngày học kỳ nào (kể cả null) là thay cả bộ học kỳ; không gửi thì giữ học kỳ đang có và kiểm tra lại với ngày năm học mới
+      const sent = TERM_KEYS.some((k) => dates[k] !== undefined);
+      const terms = Object.fromEntries(TERM_KEYS.map((k) => [k, sent ? (dates[k] ?? null) : year[k]])) as Record<(typeof TERM_KEYS)[number], string | null>;
+      this.validTerms(starts_on, ends_on, terms);
       if (label !== year.label) {
         const used = (await q<{ n: number }>('SELECT (SELECT count(*) FROM app_classes WHERE year_id = $1)::int AS n', [id]))[0].n;
         if (used) throw new ConflictException('Năm học đã có lớp nên không đổi được tên; chỉ sửa được ngày bắt đầu và kết thúc');
         if ((await q('SELECT 1 FROM app_school_years WHERE school_id = $1 AND label = $2 AND id <> $3', [year.school_id, label, id])).length) throw new ConflictException(`Năm học ${label} đã có`);
         await q('UPDATE app_school_grades SET school_year = $3 WHERE school_id = $1 AND school_year = $2', [year.school_id, year.label, label]);
       }
-      return (await q<YearRow>('UPDATE app_school_years SET label = $2, starts_on = $3, ends_on = $4, updated_at = now() WHERE id = $1 RETURNING *', [id, label, starts_on, ends_on]))[0];
+      const updated = (await q<YearRow>('UPDATE app_school_years SET label = $2, starts_on = $3, ends_on = $4, term1_starts_on = $5, term1_ends_on = $6, term2_starts_on = $7, term2_ends_on = $8, calendar_mode = $9, updated_at = now() WHERE id = $1 RETURNING *',
+        [id, label, starts_on, ends_on, terms.term1_starts_on, terms.term1_ends_on, terms.term2_starts_on, terms.term2_ends_on, national ? 'national' : 'manual']))[0];
+      return this.withYearFramework(q, updated);
     });
   }
 

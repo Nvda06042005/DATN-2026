@@ -114,16 +114,16 @@ export class CatalogService {
   }
 
   /** Quản trị viên trường chỉ làm việc với huy hiệu của trường mình */
-  private guard(actor: UserRow, spec: Spec): void {
+  private guard(actor: UserRow, _spec: Spec): void {
     if (actor.role === 'root_admin') return;
-    if (actor.role === 'school_admin' && spec.entity === 'badges' && actor.school_id) return;
+    if (actor.role === 'school_admin' && actor.school_id) return;
     throw new ForbiddenException('Bạn không có quyền quản lý danh mục này');
   }
 
-  private scopeSql(actor: UserRow, spec: Spec, params: unknown[]): string {
-    if (spec.entity !== 'badges' || actor.role !== 'school_admin') return 'true';
+  private scopeSql(actor: UserRow, _spec: Spec, params: unknown[]): string {
+    if (actor.role === 'root_admin') return 'school_id IS NULL';
     params.push(actor.school_id);
-    return `(scope = 'school' AND school_id = $${params.length})`;
+    return `(school_id = $${params.length})`;
   }
 
   async list(actor: UserRow, entity: string, q?: string) {
@@ -204,9 +204,9 @@ export class CatalogService {
     this.guard(actor, spec);
     const clean = this.clean(spec, body, false);
     const isBadges = spec.entity === 'badges';
-    let extra = spec.toRow ? spec.toRow(body) : {};
+    const extra = spec.toRow ? spec.toRow(body) : {};
     if (isBadges) {
-      if (actor.role === 'school_admin') { extra = { ...extra, rule: null }; Object.assign(clean, { scope: 'school', school_id: actor.school_id }); } else Object.assign(clean, { scope: 'system' });
+      if (actor.role === 'school_admin') { Object.assign(clean, { scope: 'school', school_id: actor.school_id }); } else Object.assign(clean, { scope: 'system' });
       if (actor.role === 'school_admin') clean.code = `s${actor.school_id}-${clean.code}`.slice(0, 60);
       Object.assign(clean, { created_by: actor.id });
     }
@@ -225,12 +225,12 @@ export class CatalogService {
   async update(actor: UserRow, entity: string, id: number, body: Record<string, any>) {
     const spec = this.spec(entity);
     this.guard(actor, spec);
+    await this.db.assertWorkspaceWritable(spec.table, id, spec.pk);
     const current = await this.get(actor, entity, id);
     const clean = this.clean(spec, Object.fromEntries(Object.entries(body).filter(([k]) => !spec.fields.find((f) => f.name === k)?.createOnly)), true);
     // Trường ảo phải gửi đủ bộ mới dựng lại được (chỉ số, điều kiện); thiếu thì lấy giá trị hiện có
     const merged = { ...current, ...body };
-    let extra = spec.toRow && ['classes', 'badges'].includes(spec.entity) ? spec.toRow(merged) : {};
-    if (spec.entity === 'badges' && actor.role === 'school_admin') extra = { rule: null };
+    const extra = spec.toRow && ['classes', 'badges'].includes(spec.entity) ? spec.toRow(merged) : {};
     const cols = this.columns(spec, clean, extra);
     const keys = Object.keys(cols);
     if (!keys.length) return current;
@@ -246,6 +246,7 @@ export class CatalogService {
   async remove(actor: UserRow, entity: string, id: number): Promise<void> {
     const spec = this.spec(entity);
     this.guard(actor, spec);
+    await this.db.assertWorkspaceWritable(spec.table, id, spec.pk);
     await this.get(actor, entity, id);
     await this.db.tx(async (q) => {
       const blocked = spec.blockers ? await spec.blockers(q, id) : null;

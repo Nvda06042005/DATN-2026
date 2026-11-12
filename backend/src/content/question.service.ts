@@ -79,7 +79,8 @@ export class QuestionService {
   }
 
   async load(q: Q, user: UserRow, id: number, lock = false): Promise<QuestionRow> {
-    const row = (await q<QuestionRow>(`SELECT ${COLUMNS} FROM hk_questions WHERE id = $1${lock ? ' FOR UPDATE' : ''}`, [id]))[0];
+    let row = (await q<QuestionRow>(`SELECT ${COLUMNS} FROM hk_questions WHERE id=$1`,[id]))[0];
+    if (row && lock && canEdit(user,row)) row = (await q<QuestionRow>(`SELECT ${COLUMNS} FROM hk_questions WHERE id=$1 FOR UPDATE`,[id]))[0];
     if (!row || !canSee(user, row)) throw notFound('câu hỏi');
     return row;
   }

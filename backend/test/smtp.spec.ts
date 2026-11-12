@@ -6,6 +6,31 @@ import { config } from '../src/config';
 import type { DatabaseService } from '../src/database/database.service';
 
 describe('Kiểm tra SMTP trước khi gửi thư', () => {
+  test('thư mật khẩu tạm lấy tên và đường dẫn hiện tại của trường ở lúc gửi, chọn sẵn vai trò', async () => {
+    const saved = { ...config };
+    Object.assign(config, { mailTransport: 'json', mailWorker: false, mailFrom: 'sender@example.invalid' });
+    let jobs: unknown[] = [];
+    const query = jest.fn(async (text: string) => {
+      if (text.includes("SET status = 'sending'")) { const out = jobs; jobs = []; return out; }
+      if (text.includes('FROM app_users u LEFT JOIN app_schools')) return [{ must_change_password: 1, deleted_at: null, school_code: '00000001', name: 'THCS Tên Mới', region: 'Phường Mới' }];
+      return [];
+    });
+    const mail = new MailService({ ready: true, query } as unknown as DatabaseService);
+    try {
+      await mail.onModuleInit();
+      for (const role of ['school_admin', 'teacher', 'student'] as const) {
+        jobs = [{ id: 1, user_id: 2, kind: 'bulk', to_email: 'fixture@example.invalid', subject: 'Thông tin tài khoản', attempts: 1,
+          body_encrypted: mail.encrypt({ type: 'account', full_name: 'Người kiểm thử', username: 'fixture', password: 'Fixture-only-123', role, school: 'Tên Cũ', reset: true }) }];
+        expect(await mail.tick()).toBe(1);
+        const sent = mail.sent.at(-1)!.text;
+        expect(sent).toContain(`/donga_00000001_tenmoi_phuongmoi?role=${role}`);
+        expect(sent).not.toContain('/school-manager-admin');
+        expect(sent).toContain('THCS Tên Mới');
+      }
+      expect(mail.render({ type: 'account', full_name: 'Root', username: 'root', password: 'Fixture-only-123', role: 'root_admin', school: 'Đông A' }).text).toContain('/admin');
+    } finally { mail.onModuleDestroy(); Object.assign(config, saved); }
+  });
+
   test('chưa cấu hình SMTP thì không gửi thư kiểm tra hoặc truy cập hàng đợi', async () => {
     const query = jest.fn();
     const mail = new MailService({ ready: true, query } as unknown as DatabaseService);

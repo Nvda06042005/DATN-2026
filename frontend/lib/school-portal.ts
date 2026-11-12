@@ -7,7 +7,7 @@ export type SchoolRole = (typeof SCHOOL_ROLES)[number];
 export const PORTAL_PATH = {
   student: '/hoc-sinh',
   teacher: '/giao-vien',
-  school_admin: '/school-manager-admin',
+  school_admin: '/portal?role=school_admin',
   root_admin: '/admin',
 } as const satisfies Record<AuthRole, string>;
 

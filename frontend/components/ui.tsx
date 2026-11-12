@@ -4,15 +4,17 @@
  */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AccessibilityInfo, ActivityIndicator, Animated, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
+  AccessibilityInfo, ActivityIndicator, Animated, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
   useWindowDimensions, type StyleProp, type TextInputInstance, type TextInputProps, type TextStyle, type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Path, Pattern, Rect } from 'react-native-svg';
 import { Info, Star, X } from 'lucide-react-native';
+import { API_BASE_URL } from '@/api/client';
 import { Mascot, PatternOverlay, type MascotMood } from '@/components/art';
 import { FONT, ON_BRIGHT, toneColors, type FontName, type Palette, type Tone } from '@/constants/theme';
 import { avatarColor, initialsOf } from '@/lib/format';
+import { cleanPhone, PHONE_LENGTH, phoneWarning } from '@/lib/phone';
 import { usePopIn, useReduceMotion } from '@/hooks/use-motion';
 import { useStyles, useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
@@ -179,10 +181,11 @@ export const PressCard: React.FC<{
 };
 
 /** Nhãn nhỏ dạng viên thuốc */
-export const Chip: React.FC<{ text: string; bg: string; fg: string; icon?: IconType; style?: StyleProp<ViewStyle> }> = ({ text, bg, fg, icon: Icon, style }) => (
+/** `wrap`: chữ được xuống dòng trong khung chứa (ô bảng hẹp) thay vì một dòng và tràn ra ngoài */
+export const Chip: React.FC<{ text: string; bg: string; fg: string; icon?: IconType; style?: StyleProp<ViewStyle>; wrap?: boolean }> = ({ text, bg, fg, icon: Icon, style, wrap = false }) => (
   <View style={[{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999, backgroundColor: bg, alignSelf: 'flex-start' }, style]}>
     {Icon && <Icon size={13} color={fg} strokeWidth={2.4} />}
-    <Txt f="bold" size={12} color={fg} numberOfLines={1}>
+    <Txt f="bold" size={12} color={fg} numberOfLines={wrap ? undefined : 1} style={wrap ? { flexShrink: 1 } : undefined}>
       {text}
     </Txt>
   </View>
@@ -410,18 +413,25 @@ export const RichText: React.FC<{ text: string; size?: number; color?: string }>
   );
 };
 
-/** Ảnh đại diện chữ cái đầu */
-export const Avatar: React.FC<{ name: string; size?: number }> = ({ name, size = 40 }) => (
-  <View
-    accessibilityElementsHidden
-    importantForAccessibility="no-hide-descendants"
-    style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: avatarColor(name), alignItems: 'center', justifyContent: 'center' }}
-  >
-    <Txt f="display" size={size * 0.4} color="#ffffff">
-      {initialsOf(name)}
-    </Txt>
-  </View>
-);
+/** Ảnh đại diện: ảnh người dùng đã tải lên (`uri`, đường dẫn kho tệp hoặc liên kết https); chưa có hoặc ảnh lỗi thì hiện chữ cái đầu */
+export const Avatar: React.FC<{ name: string; size?: number; uri?: string | null }> = ({ name, size = 40, uri }) => {
+  const [failed, setFailed] = useState<string | null>(null);
+  const src = uri ? (uri.startsWith('/') ? `${API_BASE_URL}${uri}` : uri) : null;
+  if (src && failed !== src) {
+    return <Image source={{ uri: src }} onError={() => setFailed(src)} accessibilityLabel={`Ảnh đại diện của ${name}`} accessibilityIgnoresInvertColors style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: avatarColor(name) }} />;
+  }
+  return (
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: avatarColor(name), alignItems: 'center', justifyContent: 'center' }}
+    >
+      <Txt f="display" size={size * 0.4} color="#ffffff">
+        {initialsOf(name)}
+      </Txt>
+    </View>
+  );
+};
 
 // ---------------------------------------------------------------------- ô nhập
 const fieldStyles = (c: Palette) => ({
@@ -469,6 +479,27 @@ export const Field: React.FC<
         </Txt>
       ) : null}
     </View>
+  );
+};
+
+/**
+ * Ô số điện thoại của quản trị tổng, quản trị trường, giáo viên và học sinh: chỉ nhận chữ số, tối đa 10 (dán "0901 234 567" hay "+84…" vẫn lấy dãy chữ số);
+ * dưới ô hiện cảnh báo đỏ khi chưa đủ 10 chữ số, có ký tự lạ (số cũ) hoặc vừa gõ thừa. Không dùng maxLength của ô nhập vì nó cắt chuỗi dán trước khi bỏ dấu cách.
+ */
+export const PhoneField: React.FC<Omit<React.ComponentProps<typeof Field>, 'onChange' | 'onChangeText' | 'keyboardType' | 'maxLength' | 'value'> & { value: string; onChange: (digits: string) => void }> = ({ value, onChange, error, placeholder, ...rest }) => {
+  const [overflow, setOverflow] = useState(false);
+  return (
+    <Field
+      {...rest}
+      value={value}
+      keyboardType="phone-pad"
+      placeholder={placeholder ?? '0901234567'}
+      error={error ?? phoneWarning(value, overflow)}
+      onChangeText={(text) => {
+        setOverflow(text.replace(/\D/g, '').length > PHONE_LENGTH);
+        onChange(cleanPhone(text));
+      }}
+    />
   );
 };
 

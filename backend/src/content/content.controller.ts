@@ -285,22 +285,22 @@ export class ContentController {
   listLessons(@CurrentUser() user: UserRow, @Query() query: LessonListQuery) { return this.lessons.list(user, query); }
 
   @Post('lessons')
-  @Roles('root_admin')
+  @Roles('root_admin', 'school_admin')
   createLesson(@CurrentUser() user: UserRow, @Body() body: LessonDto) { return this.lessons.create(user, body as never); }
 
   @Get('lessons/:id')
   getLesson(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.lessons.get(user, id); }
 
   @Put('lessons/:id')
-  @Roles('root_admin')
+  @Roles('root_admin', 'school_admin')
   updateLesson(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: LessonDto) { return this.lessons.update(user, id, body as never); }
 
   @Patch('lessons/:id/status')
-  @Roles('root_admin')
+  @Roles('root_admin', 'school_admin')
   lessonStatus(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: StatusDto) { return this.lessons.setStatus(user, id, body.status); }
 
   @Delete('lessons/:id')
-  @Roles('root_admin')
+  @Roles('root_admin', 'school_admin')
   @HttpCode(204)
   async removeLesson(@Param('id', ParseIntPipe) id: number) { await this.lessons.remove(id); }
 
@@ -336,7 +336,7 @@ export class ContentController {
   journeyStatus(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: StatusDto) { return this.journeys.setStatus(user, id, body.status); }
 
   @Patch('journeys/:id/default')
-  @Roles('root_admin')
+  @Roles('root_admin', 'school_admin')
   journeyDefault(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: DefaultDto) { return this.journeys.setDefault(user, id, body.value); }
 
   @Post('journeys/:id/nodes')

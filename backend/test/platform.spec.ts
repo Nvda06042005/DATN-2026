@@ -2,6 +2,8 @@
  * Sprint 11 – thông báo, hỗ trợ, hướng dẫn, nhật ký, cấu hình hệ thống, phân quyền, hai lớp, sao lưu, giám sát, giao diện sáng / tối
  * (HK.HS.015–016, 106–112, GV.076–082, QT.043, 051–055, AD.002, 010, 017, 026–027, 065–076, SYS.017–020). HTTP thật trên PostgreSQL tạm.
  */
+import { JwtService } from '@nestjs/jwt';
+import { sign as signJwt } from 'jsonwebtoken';
 import { activate, call, hasPostgres, sql, Started, startApp } from './harness';
 import { bootstrap, Fixture, PW } from './fixture';
 
@@ -59,6 +61,28 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
   });
 
   // ------------------------------------------------------------------ HK.AD.071: cờ tính năng
+  test('cấu hình vận hành tự nhận môi trường, giữ ghi đè và không lưu giá trị tự nhận thành ghi đè',async()=>{
+    const names=['RATE_IP_PER_MIN','RATE_USER_PER_MIN','RATE_AI_PER_MIN'] as const;
+    const previous=names.map(name=>process.env[name]);
+    try{
+      process.env.RATE_IP_PER_MIN='777';process.env.RATE_USER_PER_MIN='333';process.env.RATE_AI_PER_MIN='17';
+      await root('PUT','/api/platform/settings',{rate_ip_per_min:null,rate_user_per_min:null,rate_ai_per_min:null});
+      expect((await root('GET','/api/platform/settings')).body).toMatchObject({rate_ip_per_min:777,rate_user_per_min:333,rate_ai_per_min:17});
+      await root('PUT','/api/platform/settings',{system_name:'Hào Khí Đông A'});
+      expect((await sql(s.url,'SELECT rate_ip_per_min,rate_user_per_min,rate_ai_per_min FROM hk_system_settings WHERE id=1'))[0])
+        .toEqual({rate_ip_per_min:null,rate_user_per_min:null,rate_ai_per_min:null});
+      await root('PUT','/api/platform/settings',{rate_user_per_min:222});
+      expect((await root('GET','/api/platform/settings')).body.rate_user_per_min).toBe(222);
+      process.env.RATE_USER_PER_MIN='444';
+      expect((await root('GET','/api/platform/settings')).body.rate_user_per_min).toBe(222);
+      await root('PUT','/api/platform/settings',{rate_user_per_min:null});
+      expect((await root('GET','/api/platform/settings')).body.rate_user_per_min).toBe(444);
+    }finally{
+      names.forEach((name,i)=>{if(previous[i]===undefined)delete process.env[name];else process.env[name]=previous[i];});
+      await root('PUT','/api/platform/settings',{rate_ip_per_min:null,rate_user_per_min:null,rate_ai_per_min:null});
+    }
+  });
+
   test('cờ bật / tắt tính năng: tắt cửa hàng, giải đấu, AI, thi đấu, game thẻ tướng, gợi ý và tim có hiệu lực ngay; bật lại thì dùng được', async () => {
     const flags = (await root('GET', '/api/platform/flags')).body;
     expect(flags.map((x: any) => x.key)).toEqual(['leagues', 'hearts', 'roleplay', 'ai_tutor', 'live_quiz', 'war_game', 'shop', 'recommendations']);
@@ -69,7 +93,7 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
       ['ai_tutor', 'AI Tutor', () => as(f.S1)('GET', '/api/ai/status')],
       ['live_quiz', 'Thi đấu', () => as(f.S1)('GET', '/api/live/open')],
       ['war_game', 'thẻ tướng', () => as(f.S1)('GET', '/api/war/status')],
-      ['recommendations', 'Gợi ý', () => as(f.S1)('GET', '/api/analytics/me/recommendations')],
+      ['recommendations', 'Gợi ý', () => as(f.S1)('GET', '/api/analytics/me/strengths')],
     ];
     for (const [key, word, run] of probe) {
       expect((await run(null)).status).toBe(200);
@@ -120,11 +144,11 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     expect(otpMail.text).toMatch(/^Xin chào Nguyễn Văn Sử, mã của bạn: \d{6} \(hiệu lực 5 phút\)\.$/);
     // mật khẩu tạm
     await root('PUT', '/api/platform/templates/temp_password', { body: 'Tài khoản {{tai_khoan}} / mật khẩu {{mat_khau}} cho {{ten}} tại {{duong_dan}}' });
-    const t = await as(f.A)('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Mẫu Thư', email: 'mauthu@example.edu.vn' });
+    const t = await as(f.A)('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Mẫu Thư', email: 'mauthu@example.edu.vn', phone: '0900000013', birth_date: '1985-03-15' });
     const mail = s.moduleRef.get((await import('../src/admin/mail.service')).MailService);
     await mail.tick();
     const acct = sent.find((m) => m.to === 'mauthu@example.edu.vn')!;
-    expect(acct.text).toContain(`Tài khoản ${t.body.user.username} / mật khẩu ${t.body.temporary_password} cho Giáo Viên Mẫu Thư`);
+    expect(acct.text).toContain(`Tài khoản ${t.body.display_username} / mật khẩu ${t.body.temporary_password} cho Giáo Viên Mẫu Thư`);
     expect(acct.subject).toBe('[Đông A EDU] Thông tin tài khoản'); // chủ đề tài khoản không đổi
     expect((await root('DELETE', '/api/platform/templates/temp_password')).body.customized).toBe(false);
     expect((await root('DELETE', '/api/platform/templates/otp')).body.customized).toBe(false);
@@ -140,11 +164,11 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     expect((await root('PUT', `/api/platform/schools/${f.A.schoolId}/limits`, { max_students: 2 })).status).toBe(409);
     expect((await root('PUT', `/api/platform/schools/${f.A.schoolId}/limits`, { max_students: 0 })).status).toBe(400);
     expect((await root('PUT', `/api/platform/schools/${f.A.schoolId}/limits`, { max_students: 3, ai_daily_per_school: 40, ai_daily_per_user: 7 })).body).toMatchObject({ max_students: 3, ai_daily_per_school: 40, ai_daily_per_user: 7 });
-    const full = await as(f.A)('POST', '/api/admin/students', { user_code: 'HS8099', full_name: 'Học Sinh Thứ Tư', birth_date: '2013-04-04' });
+    const full = await as(f.A)('POST', '/api/admin/students', { user_code: 'HS8099', full_name: 'Học Sinh Thứ Tư', birth_date: '2013-04-04', phone: '0900000014', email: 'tu.dong15.platform@example.edu.vn' });
     expect(full.status).toBe(409);
     expect(JSON.stringify(full.body)).toContain('số học sinh tối đa (3)');
     await root('PUT', `/api/platform/schools/${f.A.schoolId}/limits`, { max_students: 50 });
-    expect((await as(f.A)('POST', '/api/admin/students', { user_code: 'HS8099', full_name: 'Học Sinh Thứ Tư', birth_date: '2013-04-04' })).status).toBe(201);
+    expect((await as(f.A)('POST', '/api/admin/students', { user_code: 'HS8099', full_name: 'Học Sinh Thứ Tư', birth_date: '2013-04-04', phone: '0900000016', email: 'tu.dong17.platform@example.edu.vn' })).status).toBe(201);
     // AI tắt cho trường này: người học và giáo viên của trường không dùng được, trường khác vẫn dùng
     expect((await root('PUT', `/api/platform/schools/${f.A.schoolId}/limits`, { ai_enabled: false })).body.ai_enabled).toBe(false);
     await clearCaches();
@@ -405,6 +429,11 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     expect(all.counts).toMatchObject({ new: 3 });
     expect((await root('GET', '/api/platform/support?role=teacher')).body.items.map((x: any) => x.id)).toEqual([tt.body.id]);
     expect((await root('GET', '/api/platform/support?q=Excel')).body.total).toBe(1);
+    // số dòng mỗi trang do giao diện chọn theo màn hình: chia trang đúng, tổng không đổi, mặc định 30, tối đa 100
+    const paged = (await root('GET', '/api/platform/support?limit=2&page=2')).body;
+    expect([paged.limit, paged.page, paged.total, paged.items.length]).toEqual([2, 2, 3, 1]);
+    expect((await root('GET', '/api/platform/support')).body.limit).toBe(30);
+    expect((await root('GET', '/api/platform/support?limit=9999')).body.limit).toBe(100);
     expect((await as(f.A)('GET', '/api/platform/support')).status).toBe(403);
     // phản hồi và trạng thái
     const rep = await root('POST', `/api/platform/support/${t.body.id}/reply`, { body: 'Cảm ơn em, thầy cô đang kiểm tra.' });
@@ -463,7 +492,7 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     expect((await as(f.A)('GET', '/api/platform/logs/logins')).body.items.every((i: any) => i.school_id === f.A.schoolId)).toBe(true);
     expect((await as(f.T1)('GET', '/api/platform/logs/logins')).status).toBe(403);
     // nhật ký thao tác: nhãn dễ đọc và đúng phạm vi trường
-    await as(f.A)('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Nhật Ký', email: 'nhatky@example.edu.vn' });
+    await as(f.A)('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Nhật Ký', email: 'nhatky@example.edu.vn', phone: '0900000018', birth_date: '1985-03-15' });
     const auditA = (await as(f.A)('GET', '/api/platform/logs/audit')).body;
     expect(auditA.items.length).toBeGreaterThan(0);
     expect(auditA.items.every((i: any) => i.school_id === f.A.schoolId)).toBe(true);
@@ -556,6 +585,8 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     expect((await verify('123456')).status).toBe(401);
     expect((await verify(totp(secret, now()), 'school_admin')).status).toBe(401); // sai cổng đăng nhập
     expect((await verify(totp(secret, now()), 'root_admin', 'x'.repeat(40))).status).toBe(401);
+    // tài khoản dùng ứng dụng xác thực không có mã email để gửi lại
+    expect((await call(s.base, 'POST', '/api/auth/2fa/resend', { challenge, portal: 'root_admin' })).status).toBe(400);
     const done = await verify(totp(secret, now()));
     expect(done.status).toBe(200);
     expect(done.body).toMatchObject({ token: expect.any(String), user: { username: 'admin' } });
@@ -581,18 +612,57 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     // --- email cho quản trị trường A
     const adminA = (await sql<{ username: string }>(s.url, 'SELECT username FROM app_users WHERE id = $1', [f.A.id]))[0].username;
     const sent = await mailSent();
-    const before = sent.length;
+    // chỉ xét thư gửi quản trị trường A: thư tài khoản của người khác có thể được gửi xen kẽ từ hàng đợi
+    const toA = () => sent.filter((m) => m.to === 'qt8201@example.edu.vn');
+    const countA = () => toA().length, lastA = () => toA()[countA() - 1];
+    const before = countA();
     expect((await as(f.A)('POST', '/api/platform/2fa/setup', { method: 'email' })).body.sent_to).toMatch(/^q\*\*\*@example\.edu\.vn$/);
-    const code1 = /Mã xác thực của bạn là: (\d{6})/.exec(sent[sent.length - 1].text)![1];
-    expect(sent.length).toBe(before + 1);
-    expect(sent[sent.length - 1].subject).toBe('[Đông A EDU] Mã xác thực đăng nhập quản trị');
+    const code1 = /Mã xác thực của bạn là: (\d{6})/.exec(lastA().text)![1];
+    expect(countA()).toBe(before + 1);
+    expect(lastA().subject).toBe('[Đông A EDU] Mã xác thực đăng nhập quản trị');
     expect((await as(f.A)('POST', '/api/platform/2fa/enable', { code: code1 })).body.backup_codes).toHaveLength(8);
     const stepA = await login(adminA, PW, 'school_admin');
     expect(stepA.body).toMatchObject({ two_factor: true, method: 'email' });
-    const code2 = /Mã xác thực của bạn là: (\d{6})/.exec(sent[sent.length - 1].text)![1];
+    const code2 = /Mã xác thực của bạn là: (\d{6})/.exec(lastA().text)![1];
     expect((await verify('000000', 'school_admin', stepA.body.challenge)).status).toBe(401);
     expect((await verify(code2, 'school_admin', stepA.body.challenge)).status).toBe(200);
     expect((await verify(code2, 'school_admin', stepA.body.challenge)).status).toBe(401); // mã email dùng một lần
+    // --- gửi lại mã khi mã hết hạn (nút "Gửi lại mã" của trang đăng nhập quản trị)
+    const resend = (challenge: string, portal = 'school_admin') => call(s.base, 'POST', '/api/auth/2fa/resend', { challenge, portal });
+    expect((await resend('x'.repeat(40))).status).toBe(401); // phiếu giả
+    expect((await resend(stepA.body.challenge, 'root_admin')).status).toBe(401); // sai cổng đăng nhập
+    expect((await call(s.base, 'POST', '/api/auth/2fa/resend', { portal: 'school_admin' })).status).toBe(422); // thiếu phiếu
+    const mails = countA();
+    const r1 = await resend(stepA.body.challenge);
+    expect(r1.status).toBe(200);
+    expect(r1.body).toMatchObject({ two_factor: true, method: 'email', challenge: expect.any(String), expires_in: 300 });
+    expect(r1.body.token).toBeUndefined();
+    expect(countA()).toBe(mails + 1);
+    expect(lastA().subject).toBe('[Đông A EDU] Mã xác thực đăng nhập quản trị');
+    const code3 = /Mã xác thực của bạn là: (\d{6})/.exec(lastA().text)![1];
+    expect((await resend(stepA.body.challenge)).status).toBe(200); // bấm liên tiếp: thư giãn 30 giây, không gửi thêm
+    expect(countA()).toBe(mails + 1);
+    // phiếu quá 5 phút không còn dùng để xác thực, nhưng còn trong 30 phút thì đổi được phiếu mới; quá nữa phải nhập lại mật khẩu
+    const jwt = s.moduleRef.get(JwtService);
+    const claims = (({ iat: _iat, exp: _exp, ...rest }) => rest)(jwt.decode(stepA.body.challenge) as Record<string, unknown>);
+    // ký trực tiếp để tự đặt thời điểm hết hạn (JwtService của ứng dụng luôn đặt sẵn hạn dùng); nạp config sau khi ứng dụng đã khởi động
+    const { config } = await import('../src/config');
+    const expiredBy = (minutes: number) => signJwt({ ...claims, exp: Math.floor(Date.now() / 1000) - minutes * 60 }, config.authSecret, { algorithm: 'HS256' });
+    expect((await verify(code3, 'school_admin', expiredBy(10))).status).toBe(401);
+    expect((await resend(expiredBy(10))).status).toBe(200);
+    expect((await resend(expiredBy(31))).status).toBe(401);
+    // mã đã hết hạn: lùi giờ của mã rồi gửi lại, thư mới có mã mới và mã cũ không còn dùng được
+    await sql(s.url, "UPDATE hk_two_factor_codes SET created_at = now() - interval '6 minutes', expires_at = now() - interval '1 minute' WHERE user_id = $1", [f.A.id]);
+    expect((await verify(code3, 'school_admin', r1.body.challenge)).status).toBe(401);
+    const r2 = await resend(r1.body.challenge);
+    expect(r2.status).toBe(200);
+    expect(countA()).toBe(mails + 2);
+    const code4 = /Mã xác thực của bạn là: (\d{6})/.exec(lastA().text)![1];
+    expect(code4).not.toBe(code3);
+    expect((await verify(code3, 'school_admin', r2.body.challenge)).status).toBe(401);
+    const entered = await verify(code4, 'school_admin', r2.body.challenge);
+    expect(entered.status).toBe(200);
+    expect(entered.body).toMatchObject({ token: expect.any(String), user: { role: 'school_admin' } });
     // đặt lại cho tài khoản khác: chỉ cấp 1
     expect((await l2('DELETE', `/api/platform/2fa/users/${f.A.id}`)).status).toBe(403);
     expect((await as(f.A)('DELETE', `/api/platform/2fa/users/${f.A.id}`)).status).toBe(403);

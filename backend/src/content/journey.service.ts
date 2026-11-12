@@ -101,7 +101,8 @@ export class JourneyService {
   }
 
   async load(q: Q, user: UserRow, id: number, lock = false): Promise<JourneyRow> {
-    const row = (await q<JourneyRow>(`SELECT ${COLUMNS} FROM hk_journeys WHERE id = $1${lock ? ' FOR UPDATE' : ''}`, [id]))[0];
+    let row = (await q<JourneyRow>(`SELECT ${COLUMNS} FROM hk_journeys WHERE id=$1`,[id]))[0];
+    if (row && lock && edits(user,row)) row = (await q<JourneyRow>(`SELECT ${COLUMNS} FROM hk_journeys WHERE id=$1 FOR UPDATE`,[id]))[0];
     if (!row || !sees(user, row)) throw notFound('hành trình');
     return row;
   }
@@ -304,12 +305,12 @@ export class JourneyService {
   async setDefault(user: UserRow, id: number, makeDefault: boolean) {
     await this.db.tx(async (q) => {
       const row = await this.load(q, user, id, true);
-      if (user.role !== 'root_admin' || row.scope !== 'system') throw new ForbiddenException('Chỉ quản trị tổng đặt hành trình mặc định từ kho hệ thống');
+      if (!((user.role === 'root_admin' && row.scope === 'system') || (user.role === 'school_admin' && row.scope === 'school' && row.school_id === user.school_id))) throw new ForbiddenException('Chỉ chọn hành trình mặc định trong kho đang quản lý');
       if (makeDefault) {
         if (row.status !== 'published') throw new ConflictException('Hãy phát hành hành trình trước khi đặt làm mặc định');
         const problems = await this.problems(q, id, { ...row, is_default: true });
         if (problems.length) throw new UnprocessableEntityException(`Chưa đặt mặc định được: ${problems.join('; ')}`);
-        await q('UPDATE hk_journeys SET is_default = false WHERE campaign_id = $1 AND is_default AND id <> $2', [row.campaign_id, id]);
+        await q('UPDATE hk_journeys SET is_default = false WHERE campaign_id = $1 AND is_default AND id <> $2 AND school_id IS NOT DISTINCT FROM $3', [row.campaign_id, id, row.school_id]);
       }
       await q('UPDATE hk_journeys SET is_default = $2, updated_at = now() WHERE id = $1', [id, makeDefault]);
     });
@@ -438,10 +439,12 @@ export class JourneyService {
   }
 
   private async loadNode(q: Q, user: UserRow, nodeId: number): Promise<{ node: NodeRow; journey: JourneyRow }> {
-    const node = (await q<NodeRow>(`SELECT ${NODE_COLUMNS} FROM hk_nodes WHERE id = $1 FOR UPDATE`, [nodeId]))[0];
+    let node = (await q<NodeRow>(`SELECT ${NODE_COLUMNS} FROM hk_nodes WHERE id = $1`, [nodeId]))[0];
     if (!node) throw notFound('nút');
     const journey = await this.load(q, user, node.journey_id, true);
     this.mustEdit(user, journey);
+    node = (await q<NodeRow>(`SELECT ${NODE_COLUMNS} FROM hk_nodes WHERE id=$1 FOR UPDATE`,[nodeId]))[0];
+    if (!node) throw notFound('nút');
     return { node, journey };
   }
 
@@ -505,9 +508,10 @@ export class JourneyService {
   }
 
   private async loadGate(q: Q, user: UserRow, gateId: number) {
-    const gate = (await q<{ id: number; journey_id: number; title: string; summary: string | null; guide_note: string | null }>('SELECT id, journey_id, title, summary, guide_note FROM hk_gates WHERE id = $1 FOR UPDATE', [gateId]))[0];
+    const gate = (await q<{ id: number; journey_id: number; title: string; summary: string | null; guide_note: string | null }>('SELECT id, journey_id, title, summary, guide_note FROM hk_gates WHERE id = $1', [gateId]))[0];
     if (!gate) throw notFound('Cửa');
     this.mustEdit(user, await this.load(q, user, gate.journey_id, true));
+    if (!(await q('SELECT id FROM hk_gates WHERE id=$1 FOR UPDATE',[gateId])).length) throw notFound('Cửa');
     return gate;
   }
 
@@ -554,7 +558,7 @@ export class JourneyService {
     return this.db.query(
       `SELECT c.id, c.name, c.grade, c.school_year, (SELECT count(*)::int FROM app_class_members m WHERE m.class_id = c.id) AS students,
               COALESCE((SELECT json_agg(json_build_object('id', j.id, 'title', j.title) ORDER BY j.title) FROM hk_class_journeys cj JOIN hk_journeys j ON j.id = cj.journey_id WHERE cj.class_id = c.id), '[]'::json) AS journeys
-       FROM app_classes c JOIN app_class_teachers t ON t.class_id = c.id LEFT JOIN app_school_years y ON y.id = c.year_id
+       FROM app_classes c JOIN app_current_class_teachers t ON t.class_id = c.id LEFT JOIN app_school_years y ON y.id = c.year_id
        WHERE t.teacher_id = $1 AND c.is_active AND c.status = 'APPROVED' AND COALESCE(y.status, 'active') <> 'ended' ORDER BY c.school_year DESC, c.name`, [user.id]);
   }
 
@@ -567,7 +571,7 @@ export class JourneyService {
       const row = await this.load(q, user, journeyId, true);
       this.mustEdit(user, row);
       const mine = await q<{ id: number }>(
-        `SELECT c.id FROM app_classes c JOIN app_class_teachers t ON t.class_id = c.id LEFT JOIN app_school_years y ON y.id = c.year_id
+        `SELECT c.id FROM app_classes c JOIN app_current_class_teachers t ON t.class_id = c.id LEFT JOIN app_school_years y ON y.id = c.year_id
          WHERE t.teacher_id = $1 AND c.id = ANY($2) AND c.is_active AND c.status = 'APPROVED' AND COALESCE(y.status, 'active') <> 'ended'`, [user.id, classIds]);
       if (mine.length !== new Set(classIds).size) throw new ForbiddenException('Chỉ giao được cho lớp bạn phụ trách và còn đang hoạt động');
       const problems = await this.problems(q, journeyId, row);

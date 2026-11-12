@@ -85,13 +85,17 @@ export class LessonService {
   async list(user: UserRow, f: LessonFilter) {
     const params: unknown[] = [];
     const parts: string[] = [];
-    if (user.role !== 'root_admin') parts.push("t.status = 'published'");
+    if (user.role !== 'root_admin' && user.role !== 'school_admin') parts.push("t.status = 'published'");
     else if (f.status === 'draft' || f.status === 'published') { params.push(f.status); parts.push(`t.status = $${params.length}`); }
+    if (user.role === 'school_admin') {
+      params.push(user.school_id);
+      parts.push(`(t.school_id=$${params.length} OR (t.school_id IS NULL AND t.status='published'))`);
+    }
     const term = searchText(f.q ?? '');
     if (term) { params.push(`%${likeEscape(term)}%`); parts.push(`t.search_text LIKE $${params.length}`); }
     if (f.campaign_id) { params.push(f.campaign_id); parts.push(`t.campaign_id = $${params.length}`); }
     return this.db.query(
-      `SELECT t.id, t.title, t.summary, t.campaign_id, c.title AS campaign_title, t.read_minutes, t.status, t.updated_at,
+      `SELECT t.id, t.school_id, t.title, t.summary, t.campaign_id, c.title AS campaign_title, t.read_minutes, t.status, t.updated_at,
               (SELECT count(*)::int FROM hk_nodes n WHERE n.lesson_id = t.id) AS used_in,
               (SELECT count(*)::int FROM hk_lesson_checks k WHERE k.lesson_id = t.id) AS checks
        FROM hk_lessons t LEFT JOIN hist_campaigns c ON c.id = t.campaign_id
@@ -100,8 +104,8 @@ export class LessonService {
 
   async get(user: UserRow, id: number) {
     return this.db.tx(async (q) => {
-      const row = (await q<{ id: number; status: string }>('SELECT * FROM hk_lessons WHERE id = $1', [id]))[0];
-      if (!row || (user.role !== 'root_admin' && row.status !== 'published')) throw notFound('bài học');
+      const row = (await q<{ id: number; school_id: number | null; status: string }>('SELECT * FROM hk_lessons WHERE id = $1', [id]))[0];
+      if (!row || (user.role !== 'root_admin' && !(user.role === 'school_admin' && row.school_id === user.school_id) && row.status !== 'published')) throw notFound('bài học');
       const links = await q<LinkInput>('SELECT ref_type, ref_id FROM hk_lesson_links WHERE lesson_id = $1 ORDER BY ref_type, ref_id', [id]);
       const checks = await q(
         `SELECT k.question_id, k.position, t.qtype, t.prompt FROM hk_lesson_checks k JOIN hk_questions t ON t.id = k.question_id WHERE k.lesson_id = $1 ORDER BY k.position`, [id]);
@@ -133,8 +137,8 @@ export class LessonService {
     if (checks !== undefined) {
       if (checks.length > MAX_CHECKS || new Set(checks).size !== checks.length) return bad(`Mỗi bài học có tối đa ${MAX_CHECKS} câu kiểm tra nhanh, không trùng nhau`);
       for (const qid of checks) {
-        const found = (await q<{ scope: string; qtype: string }>('SELECT scope, qtype FROM hk_questions WHERE id = $1', [qid]))[0];
-        if (!found || found.scope !== 'system') return bad(`Câu kiểm tra nhanh #${qid} phải là câu hỏi của kho hệ thống`);
+        const found = (await q<{ scope: string; school_id:number|null; qtype: string }>('SELECT scope, school_id, qtype FROM hk_questions WHERE id = $1', [qid]))[0];
+        if (!found || !(found.scope === 'system' || (this.db.inWorkspace && found.scope==='school' && found.school_id===this.db.workspaceSchoolId))) return bad(`Câu kiểm tra nhanh #${qid} phải là câu hỏi của kho hệ thống`);
         if (found.qtype === 'poll') return bad(`Câu kiểm tra nhanh #${qid} là câu bình chọn, không có đáp án đúng nên không dùng được`);
       }
       await q('DELETE FROM hk_lesson_checks WHERE lesson_id = $1', [id]);
@@ -156,6 +160,7 @@ export class LessonService {
   }
 
   async update(user: UserRow, id: number, input: Partial<LessonInput>) {
+    await this.db.assertWorkspaceWritable('hk_lessons', id);
     await this.db.tx(async (q) => {
       const row = (await q<Record<string, any>>('SELECT * FROM hk_lessons WHERE id = $1 FOR UPDATE', [id]))[0];
       if (!row) throw notFound('bài học');
@@ -171,6 +176,7 @@ export class LessonService {
 
   /** Công bố cần có nội dung; gỡ công bố bị chặn khi bài học đang nằm trong hành trình đã phát hành */
   async setStatus(user: UserRow, id: number, status: 'draft' | 'published') {
+    await this.db.assertWorkspaceWritable('hk_lessons', id);
     await this.db.tx(async (q) => {
       const row = (await q<{ blocks: unknown[]; status: string }>('SELECT blocks, status FROM hk_lessons WHERE id = $1 FOR UPDATE', [id]))[0];
       if (!row) throw notFound('bài học');
@@ -186,6 +192,7 @@ export class LessonService {
   }
 
   async remove(id: number): Promise<void> {
+    await this.db.assertWorkspaceWritable('hk_lessons', id);
     await this.db.tx(async (q) => {
       if (!(await q('SELECT 1 FROM hk_lessons WHERE id = $1 FOR UPDATE', [id])).length) throw notFound('bài học');
       const nodes = await q<{ title: string }>('SELECT j.title FROM hk_nodes n JOIN hk_journeys j ON j.id = n.journey_id WHERE n.lesson_id = $1 LIMIT 3', [id]);

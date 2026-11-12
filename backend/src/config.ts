@@ -25,6 +25,7 @@ export const config = {
   accountDomain: env('ACCOUNT_DOMAIN', 'donga.local').toLowerCase(),
   /** Địa chỉ website ghi trong email gửi tài khoản */
   appUrl: env('APP_URL', 'https://datn-2026-indol.vercel.app').replace(/\/+$/, ''),
+  publicApiUrl: env('PUBLIC_API_URL', env('RENDER_EXTERNAL_URL', 'https://dong-a-api.onrender.com')).replace(/\/+$/, ''),
   /** Đăng nhập Google (HK.HS.002): OAuth client ID của ứng dụng web; để trống thì tắt tính năng */
   googleClientId: env('GOOGLE_CLIENT_ID'),
   /** Gửi email: SMTP_URL (smtps://user:pass@host:465) hoặc SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS; MAIL_TRANSPORT=json chỉ ghi nhận (kiểm thử) */

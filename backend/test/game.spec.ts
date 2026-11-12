@@ -436,8 +436,8 @@ const userRow = async (id: number) => (await db.query<any>('SELECT * FROM app_us
     expect((await api('GET', '/api/game/admin/badges', undefined, f.A.token)).body.map((b: any) => b.code)).toEqual([`s${f.A.schoolId}-chuyen-can`]); // chỉ thấy huy hiệu của trường mình
     expect((await api('GET', '/api/game/admin/badges', undefined, f.B.token)).body).toEqual([]);
     expect((await api('PUT', `/api/game/admin/badges/${schoolBadge}`, { name: 'Chuyên cần (sửa)' }, f.B.token)).status).toBe(404);
-    expect((await api('PUT', `/api/game/admin/badges/${schoolBadge}`, { name: 'Chuyên cần chăm chỉ', rule_type: 'level', rule_value: 3 }, f.A.token)).body).toMatchObject({ name: 'Chuyên cần chăm chỉ', rule: null }); // huy hiệu trường luôn trao tay
-    expect((await api('POST', '/api/game/admin/cards', { code: 'x-card', name: 'Thẻ lạ', rarity: 'rare', drop_weight: 5 }, f.A.token)).status).toBe(403);
+    expect((await api('PUT', `/api/game/admin/badges/${schoolBadge}`, { name: 'Chuyên cần chăm chỉ', rule_type: 'level', rule_value: 3 }, f.A.token)).body).toMatchObject({ name: 'Chuyên cần chăm chỉ', rule: {type:'level',value:3} }); // huy hiệu trường luôn trao tay
+    expect((await api('POST', '/api/game/admin/cards', { code: 'x-card', name: 'Thẻ lạ', rarity: 'rare', drop_weight: 5 }, f.A.token)).status).toBe(201);
 
     const award = await api('POST', `/api/game/badges/${schoolBadge}/award`, { user_ids: [f.S1.id, f.S2.id] }, f.T1.token);
     expect(award.body).toMatchObject({ awarded: 2, already: 0 });
@@ -613,7 +613,7 @@ const userRow = async (id: number) => (await db.query<any>('SELECT * FROM app_us
       expect([path, (await api('GET', path, undefined, f.T1.token)).status]).toEqual([path, 403]);
       expect([path, (await call(s.base, 'GET', path)).status]).toEqual([path, 401]);
     }
-    expect((await api('GET', '/api/game/admin/cards', undefined, f.A.token)).status).toBe(403);
+    expect((await api('GET', '/api/game/admin/cards', undefined, f.A.token)).status).toBe(200);
     expect((await api('GET', '/api/game/admin/contests', undefined, f.T1.token)).status).toBe(403);
   });
 });

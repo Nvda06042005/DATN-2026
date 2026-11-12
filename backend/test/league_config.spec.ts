@@ -38,7 +38,7 @@ const SIX = ['Sắt', 'Đồng', 'Bạc', 'Vàng', 'Bạch kim', 'Kim cương'];
   afterAll(async () => { clock?.reset(); await s?.close(); });
 
   test('cấu hình lưu từ trước khi có số hạng và ngày chốt vẫn đọc được: dùng mặc định 4 hạng, chốt thứ Hai, không ghi lịch khi chưa đổi gì', async () => {
-    await db.query(`INSERT INTO hk_settings (key, value) VALUES ('game', '{"league":{"group_size":30,"promote":10,"demote":5}}') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`);
+    await db.query(`INSERT INTO hk_settings (key, value) VALUES ('game', '{"league":{"group_size":30,"promote":10,"demote":5}}') ON CONFLICT (workspace_key,key) DO UPDATE SET value = EXCLUDED.value`);
     settings.invalidate();
     const view = (await root('GET', '/api/game/admin/settings')).body;
     expect(view.values.league).toEqual({ group_size: 30, promote: 10, demote: 5, tiers: ['Đồng', 'Bạc', 'Vàng', 'Kim cương'], close_weekday: 1 });
@@ -67,7 +67,7 @@ const SIX = ['Sắt', 'Đồng', 'Bạc', 'Vàng', 'Bạch kim', 'Kim cương'];
       expect([JSON.stringify(league), res.status]).toEqual([JSON.stringify(league), 400]);
       expect(JSON.stringify(res.body)).toMatch(message);
     }
-    expect((await call(s.base, 'PUT', '/api/game/admin/settings', { league: { tiers: SIX } }, f.A.token)).status).toBe(403); // quản trị trường
+    expect((await call(s.base, 'GET', '/api/game/admin/settings', undefined, f.A.token)).status).toBe(200); // quản trị trường
     expect((await call(s.base, 'PUT', '/api/game/admin/settings', { league: { tiers: SIX } }, f.T1.token)).status).toBe(403);
     const ok = await setLeague({ tiers: ['  Sắt ', 'Đồng', 'Bạc', 'Vàng', 'Bạch  kim', 'Kim cương'] });
     expect(ok.status).toBe(200);
@@ -133,7 +133,7 @@ const SIX = ['Sắt', 'Đồng', 'Bạc', 'Vàng', 'Bạch kim', 'Kim cương'];
     expect(await members(before.week)).toBeGreaterThan(0);
     clock.advance(daysBetween(dayKey(clock.now()), before.ends_on) * DAY);
     await job.run();
-    expect((await db.query('SELECT 1 FROM hk_league_weeks WHERE week_key = $1', [before.week])).length).toBe(1); // tuần cũ đã chốt đúng một lần
+    expect((await db.query('SELECT 1 FROM hk_league_weeks WHERE week_key = $1 AND school_id=$2', [before.week,f.A.schoolId])).length).toBe(1); // tuần cũ đã chốt đúng một lần
     const transition = (await api('GET', '/api/game/league')).body;
     expect(transition.week).toBe(before.ends_on);
     const thursday = addDays(before.ends_on, 3); // ngày hẹn là thứ Hai
@@ -144,9 +144,9 @@ const SIX = ['Sắt', 'Đồng', 'Bạc', 'Vàng', 'Bạch kim', 'Kim cương'];
     const regular = (await api('GET', '/api/game/league')).body;
     expect(regular.week).toBe(thursday);
     expect(new Date(regular.ends_at).getTime()).toBe(dayStart(addDays(thursday, 7)).getTime());
-    expect((await db.query('SELECT 1 FROM hk_league_weeks WHERE week_key = $1', [before.ends_on])).length).toBe(1); // tuần chuyển tiếp cũng chốt đúng một lần
+    expect((await db.query('SELECT 1 FROM hk_league_weeks WHERE week_key = $1 AND school_id=$2', [before.ends_on,f.A.schoolId])).length).toBe(1); // tuần chuyển tiếp cũng chốt đúng một lần
     // lịch đã lưu một dòng duy nhất
-    const stored = await db.query<{ value: any }>("SELECT value FROM hk_settings WHERE key = 'league_schedule'");
+    const stored = await db.query<{ value: any }>("SELECT value FROM hk_settings WHERE key = 'league_schedule' AND school_id=$1",[f.A.schoolId]);
     expect(stored).toHaveLength(1);
     expect(stored[0].value).toMatchObject({ weekday: target, from: before.ends_on, next: null });
   });

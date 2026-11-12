@@ -1,14 +1,20 @@
-import { Body, Controller, Get, HttpCode, Patch, Post, Req, ServiceUnavailableException, UseGuards } from '@nestjs/common';
-import { IsEmail, IsIn, IsOptional, IsString, IsUrl, Length, Matches, MaxLength } from 'class-validator';
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Req, ServiceUnavailableException, UseGuards } from '@nestjs/common';
+import { Equals, IsEmail, IsIn, IsOptional, IsString, Length, Matches, MaxLength, ValidateIf } from 'class-validator';
 import { DatabaseService, UserRow } from '../database/database.service';
+import { MediaService } from '../content/studio.service';
 import { AllowTempPassword, AuthGuard, CurrentUser } from './auth.guard';
 import { AuthService, Portal, toPublic } from './auth.service';
+import { PASSWORD_MESSAGE, PASSWORD_POLICY } from './password-policy';
+
+const SCHOOL_CODE = /^\d{4,8}$/;
 
 class LoginDto {
   @IsString() @Length(1, 96) username: string;
   @IsString() @Length(1, 128) password: string;
   /** Trang đăng nhập: root_admin (/admin), school_admin (/school-manager-admin), teacher (/giao-vien), student (/hoc-sinh); "app" = /portal */
   @IsOptional() @IsIn(['root_admin', 'school_admin', 'teacher', 'student', 'app']) portal: Portal = 'app';
+  /** Mã trường của đường dẫn riêng (donga_<mã>_…): chỉ tài khoản của trường này đăng nhập được */
+  @IsOptional() @Matches(SCHOOL_CODE, { message: 'Mã trường gồm 4–8 chữ số' }) school_code?: string;
 }
 
 class TwoFactorLoginDto {
@@ -17,33 +23,49 @@ class TwoFactorLoginDto {
   @IsIn(['root_admin', 'school_admin', 'teacher', 'student', 'app']) portal: Portal;
 }
 
+class TwoFactorResendDto {
+  @IsString() @Length(20, 2000) challenge: string;
+  @IsIn(['root_admin', 'school_admin', 'teacher', 'student', 'app']) portal: Portal;
+}
+
 class GoogleLoginDto {
   @IsString() @Length(20, 4096) id_token: string;
   @IsOptional() @IsIn(['root_admin', 'student', 'teacher', 'school_admin', 'app']) portal: Portal = 'student';
+  @IsOptional() @Matches(SCHOOL_CODE, { message: 'Mã trường gồm 4–8 chữ số' }) school_code?: string;
 }
-
-/** Mật khẩu người dùng tự đặt: tối thiểu 8 ký tự, gồm cả chữ và số (HK.*.006) */
-export const PASSWORD_POLICY = /^(?=.*\p{L})(?=.*\p{N}).{8,128}$/u;
-export const PASSWORD_MESSAGE = 'Mật khẩu tối thiểu 8 ký tự, gồm cả chữ và số';
 
 class ForgotPasswordDto {
   /** Tên đăng nhập, email hoặc mã người dùng của tài khoản (mọi vai trò) */
   @IsString() @Length(1, 254) identifier: string;
 }
 
-class ResetPasswordDto {
+/** Bước nhập mã của quên mật khẩu: kiểm tra mã OTP trước khi cho đặt mật khẩu mới */
+class VerifyResetCodeDto {
   @IsString() @Length(1, 254) identifier: string;
   @Matches(/^\d{6}$/, { message: 'Mã xác thực gồm 6 chữ số' }) otp: string;
+}
+
+/** Đặt mật khẩu mới: bằng phiếu của bước nhập mã (reset_token), hoặc theo cách cũ gửi cả định danh và mã OTP một lần */
+class ResetPasswordDto {
+  @ValidateIf((o: ResetPasswordDto) => !o.reset_token) @IsString() @Length(1, 254) identifier?: string;
+  @ValidateIf((o: ResetPasswordDto) => !o.reset_token) @Matches(/^\d{6}$/, { message: 'Mã xác thực gồm 6 chữ số' }) otp?: string;
+  @ValidateIf((o: ResetPasswordDto) => Boolean(o.reset_token)) @IsString() @Length(20, 1000) reset_token?: string;
   @Matches(PASSWORD_POLICY, { message: PASSWORD_MESSAGE }) new_password: string;
 }
 
 class ProfileDto {
   @IsOptional() @IsString() @Length(2, 80) full_name?: string;
   @IsOptional() @IsEmail() @MaxLength(254) email?: string | null;
-  @IsOptional() @Matches(/^[0-9+() .-]{8,20}$/, { message: 'Số điện thoại gồm 8–20 chữ số hoặc ký hiệu + ( ) - .' }) phone?: string | null;
-  @IsOptional() @IsUrl({ protocols: ['https'], require_protocol: true }, { message: 'Ảnh đại diện phải là liên kết https' }) @MaxLength(500) avatar_url?: string | null;
+  @IsOptional() @Matches(/^[0-9]{10}$/, { message: 'Số điện thoại gồm đúng 10 chữ số' }) phone?: string | null;
+  /** Ảnh đại diện chỉ đổi bằng cách tải ảnh lên (POST /auth/avatar); ở đây chỉ nhận null để xóa ảnh */
+  @IsOptional() @Equals(null, { message: 'Ảnh đại diện chỉ đổi bằng cách tải ảnh lên; gửi null để xóa ảnh' }) avatar_url?: null;
   @IsOptional() @IsString() @MaxLength(300) bio?: string | null;
   @IsOptional() @IsString() @Length(2, 24) nickname?: string | null;
+}
+
+class AvatarDto {
+  /** Ảnh dạng base64 hoặc data URL (tối đa 1,5 MB; mã hóa base64 nên lớn hơn) */
+  @IsString() @MaxLength(2_400_000) data: string;
 }
 
 class ConfirmProfileDto {
@@ -61,6 +83,7 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly db: DatabaseService,
+    private readonly media: MediaService,
   ) {}
 
   private ensureReady(): void {
@@ -71,7 +94,14 @@ export class AuthController {
   @HttpCode(200)
   login(@Body() body: LoginDto) {
     this.ensureReady();
-    return this.auth.login(body.username, body.password, body.portal);
+    return this.auth.login(body.username, body.password, body.portal, body.school_code);
+  }
+
+  /** Trang đăng nhập riêng của trường (đường dẫn donga_<mã>_<tên>_<khu vực>): thông tin công khai tối thiểu của trường */
+  @Get('school-link/:slug')
+  schoolLink(@Param('slug') slug: string) {
+    this.ensureReady();
+    return this.auth.schoolByLink(slug);
   }
 
   /** Bước 2 của đăng nhập có xác thực hai lớp (HK.AD.002) */
@@ -82,12 +112,20 @@ export class AuthController {
     return this.auth.completeTwoFactor(body.challenge, body.code, body.portal);
   }
 
+  /** Gửi lại mã email của bước hai khi mã đã hết hạn: phiếu cũ (còn trong thời gian ân hạn) đổi lấy phiếu mới và thư mới */
+  @Post('2fa/resend')
+  @HttpCode(200)
+  resendTwoFactor(@Body() body: TwoFactorResendDto) {
+    this.ensureReady();
+    return this.auth.resendTwoFactorCode(body.challenge, body.portal);
+  }
+
   /** Google: email đã xác minh phải khớp tài khoản được cấp và đúng cổng đăng nhập. */
   @Post('google')
   @HttpCode(200)
   google(@Body() body: GoogleLoginDto) {
     this.ensureReady();
-    return this.auth.googleLogin(body.id_token, body.portal);
+    return this.auth.googleLogin(body.id_token, body.portal, body.school_code);
   }
 
   /** Quên mật khẩu (mọi vai trò): gửi mã OTP 6 chữ số tới email tài khoản; luôn trả {ok:true} để không lộ tài khoản nào có thật */
@@ -99,12 +137,21 @@ export class AuthController {
     return { ok: true };
   }
 
-  /** Đặt mật khẩu mới bằng OTP trong thư (dùng một lần, hiệu lực 5 phút, sai quá 5 lần thì vô hiệu) */
+  /** Quên mật khẩu, bước nhập mã: mã OTP đúng thì cấp phiếu đổi mật khẩu 10 phút (sai quá 5 lần thì mã bị vô hiệu) */
+  @Post('verify-reset-code')
+  @HttpCode(200)
+  async verifyResetCode(@Body() body: VerifyResetCodeDto) {
+    this.ensureReady();
+    return this.auth.verifyResetCode(body.identifier, body.otp);
+  }
+
+  /** Đặt mật khẩu mới bằng phiếu của bước nhập mã (hoặc cách cũ: OTP trong thư gửi cùng mật khẩu mới; mã dùng một lần, hiệu lực 5 phút, sai quá 5 lần thì vô hiệu) */
   @Post('reset-password')
   @HttpCode(200)
   async resetPassword(@Body() body: ResetPasswordDto) {
     this.ensureReady();
-    await this.auth.resetPassword(body.identifier, body.otp, body.new_password);
+    if (body.reset_token) await this.auth.resetPasswordWithTicket(body.reset_token, body.new_password);
+    else await this.auth.resetPassword(body.identifier as string, body.otp as string, body.new_password);
     return { ok: true };
   }
 
@@ -135,8 +182,19 @@ export class AuthController {
   @Patch('profile')
   @UseGuards(AuthGuard)
   @AllowTempPassword()
-  updateProfile(@CurrentUser() user: UserRow, @Body() body: ProfileDto) {
+  async updateProfile(@CurrentUser() user: UserRow, @Body() body: ProfileDto) {
+    if (body.avatar_url === null) await this.media.removeAvatar(user);
     return this.auth.updateProfile(user, body as Record<string, string | null | undefined>);
+  }
+
+  /** Ảnh đại diện tải lên (mọi vai trò): chỉ nhận ảnh; trả lại hồ sơ đã cập nhật */
+  @Post('avatar')
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  @AllowTempPassword()
+  async uploadAvatar(@CurrentUser() user: UserRow, @Body() body: AvatarDto) {
+    await this.media.setAvatar(user, body);
+    return this.auth.profile((await this.db.getById(user.id))!);
   }
 
   /** Học sinh xác nhận hồ sơ ở lần đăng nhập đầu tiên (HK.HS.004) */

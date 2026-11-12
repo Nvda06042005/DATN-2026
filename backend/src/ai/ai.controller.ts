@@ -45,27 +45,27 @@ export class AiController {
   @Post('teacher/quiz-generate') @Roles(...STAFF) @HttpCode(200) generateQuiz(@CurrentUser() user: UserRow, @Body() body: Json) { return this.tools.generateQuiz(user, body); }
 
   // ---------------------------------------------------------------------- quản trị tổng
-  @Get('admin/settings') @Roles('root_admin') settingsView() { return this.settings.publicView(); }
-  @Put('admin/settings') @Roles('root_admin') updateSettings(@CurrentUser() user: UserRow, @Body() body: Json) { return this.settings.update(user, body); }
-  @Post('admin/test') @Roles('root_admin') @HttpCode(200) test() { return this.admin.testConnection(); }
-  @Get('admin/sources') @Roles('root_admin') sources() { return this.index.status(); }
-  @Post('admin/reindex') @Roles('root_admin') @HttpCode(200) reindex(@Body() body: Json) { return this.index.sync({ force: body.force === true }); }
-  @Post('admin/docs') @Roles('root_admin') @HttpCode(200) @UseInterceptors(DOC_UPLOAD)
+  @Get('admin/settings') @Roles('root_admin', 'school_admin') settingsView() { return this.settings.publicView(); }
+  @Put('admin/settings') @Roles('root_admin', 'school_admin') updateSettings(@CurrentUser() user: UserRow, @Body() body: Json) { return this.settings.update(user, body); }
+  @Post('admin/test') @Roles('root_admin', 'school_admin') @HttpCode(200) test() { return this.admin.testConnection(); }
+  @Get('admin/sources') @Roles('root_admin', 'school_admin') sources() { return this.index.status(); }
+  @Post('admin/reindex') @Roles('root_admin', 'school_admin') @HttpCode(200) reindex(@Body() body: Json) { return this.index.sync({ force: body.force === true }); }
+  @Post('admin/docs') @Roles('root_admin', 'school_admin') @HttpCode(200) @UseInterceptors(DOC_UPLOAD)
   addDoc(@CurrentUser() user: UserRow, @Body() body: Json, @UploadedFile() file?: { originalname: string; buffer: Buffer; size: number }) {
     if (!file && !body.text) throw new BadRequestException('Hãy chọn tệp PDF, DOCX, TXT hoặc dán văn bản');
     return this.index.addDoc(user, body, file);
   }
-  @Patch('admin/docs/:id') @Roles('root_admin') setDoc(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.tutor ? this.index.setDocStatus(id, String(body.status)) : null; }
-  @Delete('admin/docs/:id') @Roles('root_admin') @HttpCode(204) async removeDoc(@Param('id', ParseIntPipe) id: number) { await this.index.removeDoc(id); }
-  @Post('admin/playground') @Roles('root_admin') @HttpCode(200) playground(@Body() body: Json) { return this.admin.playground(body); }
-  @Get('admin/logs') @Roles('root_admin') logs(@Query() q: Json) { return this.admin.logs(q); }
-  @Get('admin/reports') @Roles('root_admin') reports(@Query('status') status?: string) { return this.admin.reports(status); }
-  @Patch('admin/reports/:id') @Roles('root_admin') updateReport(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.admin.updateReport(user, id, body); }
-  @Put('admin/messages/:id/label') @Roles('root_admin') label(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.admin.label(user, id, body); }
-  @Get('admin/eval') @Roles('root_admin') evalSummary() { return this.admin.evalSummary(); }
-  @Get('admin/eval/export') @Roles('root_admin') async evalExport() {
+  @Patch('admin/docs/:id') @Roles('root_admin', 'school_admin') setDoc(@Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.index.setDocStatus(id, String(body.status)); }
+  @Delete('admin/docs/:id') @Roles('root_admin', 'school_admin') @HttpCode(204) async removeDoc(@Param('id', ParseIntPipe) id: number) { await this.index.removeDoc(id); }
+  @Post('admin/playground') @Roles('root_admin', 'school_admin') @HttpCode(200) playground(@Body() body: Json) { return this.admin.playground(body); }
+  @Get('admin/logs') @Roles('root_admin', 'school_admin') logs(@Query() q: Json) { return this.admin.logs(q); }
+  @Get('admin/reports') @Roles('root_admin', 'school_admin') reports(@Query('status') status?: string) { return this.admin.reports(status); }
+  @Patch('admin/reports/:id') @Roles('root_admin', 'school_admin') updateReport(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.admin.updateReport(user, id, body); }
+  @Put('admin/messages/:id/label') @Roles('root_admin', 'school_admin') label(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.admin.label(user, id, body); }
+  @Get('admin/eval') @Roles('root_admin', 'school_admin') evalSummary() { return this.admin.evalSummary(); }
+  @Get('admin/eval/export') @Roles('root_admin', 'school_admin') async evalExport() {
     return new StreamableFile(Buffer.from(JSON.stringify(await this.admin.evalDataset(), null, 2), 'utf8'), { type: 'application/json', disposition: 'attachment; filename="bo-danh-gia-tieu-tuong.json"' });
   }
-  @Get('admin/limits') @Roles('root_admin') limits() { return this.admin.limits(); }
-  @Put('admin/limits/:schoolId') @Roles('root_admin') setLimit(@CurrentUser() user: UserRow, @Param('schoolId', ParseIntPipe) id: number, @Body() body: Json) { return this.admin.setLimit(user, id, body); }
+  @Get('admin/limits') @Roles('root_admin', 'school_admin') limits() { return this.admin.limits(); }
+  @Put('admin/limits/:schoolId') @Roles('root_admin', 'school_admin') setLimit(@CurrentUser() user: UserRow, @Param('schoolId', ParseIntPipe) id: number, @Body() body: Json) { return this.admin.setLimit(user, id, body); }
 }

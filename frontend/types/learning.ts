@@ -52,7 +52,7 @@ export interface QuizInput {
 }
 
 export interface LessonBlock { type: 'text' | 'image' | 'video' | 'map'; heading?: string; text?: string; url?: string; caption?: string; lat?: number; lng?: number; zoom?: number; label?: string }
-export interface LessonItem { id: number; title: string; summary: string | null; campaign_id: number | null; campaign_title: string | null; read_minutes: number; status: 'draft' | 'published'; used_in: number; checks: number }
+export interface LessonItem { id: number; school_id?: number | null; title: string; summary: string | null; campaign_id: number | null; campaign_title: string | null; read_minutes: number; status: 'draft' | 'published'; used_in: number; checks: number }
 export interface LessonDetail {
   id: number; title: string; summary: string | null; campaign_id: number | null; blocks: LessonBlock[]; read_minutes: number; status: 'draft' | 'published';
   links: HistoryLink[]; checks: Array<{ question_id: number; position: number; qtype: QType; prompt: string }>; used_in: Array<{ id: number; title: string }>;

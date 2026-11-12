@@ -34,7 +34,6 @@ export interface AuthUser {
   bio: string | null;
   nickname: string | null;
   gender: Gender | null;
-  subject: string | null;
   parent_email: string | null;
   lock_reason: string | null;
   locked_at: string | null;
@@ -63,9 +62,13 @@ export interface AuthSession {
 }
 
 // ---------------------------------------------------------------------- trường, năm học, khối
+/** Đường dẫn riêng của trường (donga_<mã>_<tên>_<khu vực>) dùng làm cổng đăng nhập của trường */
+export interface SchoolLink { slug: string; path: string; url: string }
+
 export interface SchoolItem {
   id: number;
   school_code: string;
+  directory_code?: string | null;
   name: string;
   region: string | null;
   city: string | null;
@@ -74,6 +77,7 @@ export interface SchoolItem {
   contact_email: string | null;
   contact_phone: string | null;
   logo_url: string | null;
+  link: SchoolLink;
   is_active: boolean;
   created_at: string;
   users: number;
@@ -81,6 +85,12 @@ export interface SchoolItem {
   teachers: number;
   students: number;
   classes: number;
+}
+
+export interface YearFramework {
+  label: string; decision: string; source_url: string;
+  opening_on: string; term1_finish_before: string; term2_finish_before: string; year_finish_before: string;
+  term1_teaching_weeks: number; term2_teaching_weeks: number;
 }
 
 export interface YearItem {
@@ -91,8 +101,29 @@ export interface YearItem {
   ends_on: string;
   status: 'planned' | 'active' | 'ended';
   ended_at: string | null;
+  /** Học kỳ 1 và học kỳ 2: hoặc cả bốn ngày đều null (chưa đặt) hoặc cả bốn ngày đều có */
+  term1_starts_on: string | null;
+  term1_ends_on: string | null;
+  term2_starts_on: string | null;
+  term2_ends_on: string | null;
+  calendar_mode?: 'manual' | 'national';
+  framework?: YearFramework | null;
   classes?: number;
 }
+
+/** Một trường trong danh mục: chọn thì mã, khu vực, tỉnh/thành và đường dẫn tự điền */
+export interface SchoolDirectoryItem {
+  code: string; name: string; region: string; city: string; address?: string | null; website?: string | null; logo_url?: string | null; note: string | null; exists: boolean; slug: string;
+  /** Mã trường đang giữ chỗ trường này trong hệ thống (kể cả trường nhập tay trùng tên) */
+  existing_code?: string | null;
+  /** Khi đang sửa một trường: bản ghi danh mục này khớp tên và tỉnh/thành của chính trường đó (gợi ý liên kết logo) */
+  matches_school?: boolean;
+}
+/** Trường đã có trong hệ thống trùng tên với chữ đang gõ khi thêm trường */
+export interface SchoolDuplicate { id: number; school_code: string; name: string; region: string | null; city: string | null; directory_code: string | null }
+
+/** Thông tin công khai tối thiểu để vẽ trang đăng nhập riêng của trường */
+export interface SchoolLinkInfo { school_code: string; name: string; region: string | null; city: string | null; logo_url: string | null; is_active: boolean; slug: string }
 
 export interface SchoolDetail extends Omit<SchoolItem, 'users' | 'admins' | 'teachers' | 'students' | 'classes'> {
   counts: { admins: number; teachers: number; students: number; classes: number };
@@ -132,6 +163,8 @@ export interface AccountDetail extends AuthUser {
 /** Tài khoản vừa tạo / đặt lại mật khẩu: mật khẩu tạm chỉ trả về một lần */
 export interface CreatedAccount {
   user: AuthUser;
+  /** Tên đăng nhập theo quy ước để hiển thị, đúng như trong thư (GVAnh672010042005); đăng nhập không phân biệt hoa thường */
+  display_username?: string;
   temporary_password: string;
   mail: 'queued' | 'no_email' | 'not_configured';
 }
@@ -147,7 +180,6 @@ export interface MemberInput {
   full_name: string;
   email?: string | null;
   phone?: string | null;
-  subject?: string | null;
   user_code?: string | null;
   birth_date?: string | null;
   gender?: Gender | null;
@@ -157,6 +189,8 @@ export interface MemberInput {
 
 // ---------------------------------------------------------------------- lớp học
 export interface ClassItem {
+  registration_code: string;
+  semester: number;
   id: number;
   school_id: number;
   year_id: number | null;
@@ -177,7 +211,14 @@ export interface ClassItem {
 }
 
 export interface ClassDetail extends ClassItem {
+  active_semester:number;
+  legacy_teacher_review?: boolean;
+  term_teachers: Array<{semester:number;teacher_id:number|null;teacher_name:string|null;starts_on:string|null;ends_on:string|null}>;
   members: Array<{ id: number; full_name: string; user_code: string | null; username: string; birth_date: string | null; gender: Gender | null; is_active: boolean; nickname: string | null }>;
+}
+export interface TeacherChangeRequest {
+  id:number|string;class_id:number;class_name:string;semester:number;from_teacher_id:number|null;to_teacher_id:number|null;requested_by:number|null;
+  from_teacher_name:string|null;to_teacher_name:string|null;note:string|null;status:'pending'|'approved'|'rejected'|'cancelled';requested_at:string;
 }
 
 export interface ClassEvent { id: number; kind: string; note: string | null; created_at: string; actor_name: string | null; user_name: string | null; teacher_name: string | null }
@@ -238,6 +279,7 @@ export interface HistorySpec {
 }
 
 export interface HistoryRecord {
+  can_edit?: boolean;
   id: number;
   slug: string;
   status: HistoryStatus;

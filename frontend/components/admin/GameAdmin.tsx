@@ -1,6 +1,6 @@
 /**
- * Quản trị trò chơi hóa (Sprint 5): danh mục dùng chung do quản trị tổng quản lý (cấp độ, lớp nhân vật và kỹ năng, huy hiệu, thẻ, cửa hàng, nhiệm vụ mẫu – HK.AD.048–054),
- * cấu hình mặc định (HK.AD.066), cấu hình bảng xếp hạng trường (HK.QT.044), sự kiện – giải đấu cấp trường (HK.QT.045), huy hiệu riêng của trường (HK.QT.046),
+ * Quản trị trò chơi hóa trong trường: cấp độ, lớp nhân vật và kỹ năng, huy hiệu, thẻ, cửa hàng, nhiệm vụ mẫu,
+ * cấu hình riêng, bảng xếp hạng trường (HK.QT.044), sự kiện – giải đấu cấp trường (HK.QT.045), huy hiệu riêng của trường (HK.QT.046),
  * cơ chế tim theo lớp và trao huy hiệu của trường cho học sinh (giáo viên, quản trị viên trường).
  * Giao diện chỉ mô tả và gửi giá trị; máy chủ kiểm tra mọi giới hạn.
  */
@@ -194,17 +194,6 @@ export const GameSettings: React.FC<{ session: Session }> = ({ session }) => {
   );
 };
 
-export const RootGame: React.FC<{ session: Session }> = ({ session }) => {
-  const [view, setView] = useState<'settings' | 'catalog'>('settings');
-  return (
-    <Page>
-      <PageHeader title="Trò chơi hóa" subtitle="Cấu hình mặc định và các danh mục dùng chung: cấp độ, lớp nhân vật, huy hiệu, thẻ, cửa hàng, nhiệm vụ mẫu." />
-      <Segmented<'settings' | 'catalog'> label="Mục quản trị" value={view} onChange={setView} options={[{ value: 'settings', label: 'Cấu hình mặc định' }, { value: 'catalog', label: 'Danh mục' }]} />
-      {view === 'settings' ? <GameSettings session={session} /> : <GameCatalog session={session} entities={['levels', 'classes', 'badges', 'cards', 'items', 'quests']} />}
-    </Page>
-  );
-};
-
 // ---------------------------------------------------------------------- lớp học: tim và huy hiệu của trường
 const AwardForm: React.FC<{ session: Session; classId: number; className: string; onClose: () => void }> = ({ session, classId, className, onClose }) => {
   const toast = useToast();
@@ -330,13 +319,15 @@ const LeaderboardSection: React.FC<{ session: Session }> = ({ session }) => {
 };
 
 export const SchoolGame: React.FC<{ session: Session }> = ({ session }) => {
-  const [view, setView] = useState<'board' | 'contests' | 'badges' | 'classes' | 'war'>('board');
+  const [view, setView] = useState<'board' | 'contests' | 'badges' | 'classes' | 'war' | 'settings' | 'catalog'>('board');
   return (
     <Page>
       <PageHeader title="Trò chơi hóa của trường" subtitle="Bảng xếp hạng, sự kiện – giải đấu, huy hiệu riêng, cơ chế tim theo lớp và giới hạn game thẻ tướng." />
-      <Segmented<'board' | 'contests' | 'badges' | 'classes' | 'war'> label="Mục quản trị" value={view} onChange={setView}
-        options={[{ value: 'board', label: 'Bảng xếp hạng' }, { value: 'contests', label: 'Sự kiện – giải đấu' }, { value: 'badges', label: 'Huy hiệu của trường' }, { value: 'classes', label: 'Lớp và huy hiệu' }, { value: 'war', label: 'Game thẻ tướng' }]} />
+      <Segmented<'board' | 'contests' | 'badges' | 'classes' | 'war' | 'settings' | 'catalog'> label="Mục quản trị" value={view} onChange={setView}
+        options={[{ value: 'board', label: 'Bảng xếp hạng' }, { value: 'contests', label: 'Sự kiện – giải đấu' }, { value: 'settings', label: 'Cấu hình của trường' }, { value: 'catalog', label: 'Danh mục trò chơi' }, { value: 'badges', label: 'Huy hiệu của trường' }, { value: 'classes', label: 'Lớp và huy hiệu' }, { value: 'war', label: 'Giới hạn game thẻ tướng' }]} />
       {view === 'board' ? <LeaderboardSection session={session} /> : view === 'contests' ? <ContestSection session={session} /> : view === 'war' ? <SchoolWarSettings session={session} />
+        : view === 'settings' ? <GameSettings session={session} />
+        : view === 'catalog' ? <GameCatalog session={session} entities={['levels', 'classes', 'badges', 'cards', 'items', 'quests']} intro="Danh mục riêng của trường. Các mẫu hệ thống hiện có vẫn được giữ để học sinh sử dụng." />
         : view === 'badges' ? <GameCatalog session={session} entities={['badges']} hideFields={['rule_type', 'rule_value', 'rule_campaign_id']} intro="Huy hiệu riêng của trường do giáo viên hoặc nhà trường trao tay cho học sinh; không có điều kiện tự trao." />
         : <ClassGamePanel session={session} />}
     </Page>

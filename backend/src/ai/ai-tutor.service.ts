@@ -187,7 +187,7 @@ export class AiTutorService implements OnModuleDestroy {
 
   // ---------------------------------------------------------------------- hạn mức (HK.AD.064)
   async quota(user: UserRow) {
-    if (!this.db.ready || user.username?.includes('demo')) {
+    if (!this.db.ready) {
       return { limit: 50, used: 0, school_limit: 1000, school_used: 0, remaining: 50, unlimited: true };
     }
     const s = await this.settings.get();
@@ -204,7 +204,7 @@ export class AiTutorService implements OnModuleDestroy {
   }
 
   async assertQuota(user: UserRow): Promise<void> {
-    if (!this.db.ready || user.username?.includes('demo')) return;
+    if (!this.db.ready) return;
     const q = await this.quota(user);
     if (q.unlimited) return;
     if (q.used >= q.limit) throw new HttpException(`Hôm nay em đã dùng hết ${q.limit} lượt hỏi Tiểu Tướng. Ngày mai em quay lại nhé!`, HttpStatus.TOO_MANY_REQUESTS);
@@ -212,7 +212,7 @@ export class AiTutorService implements OnModuleDestroy {
   }
 
   async status(user: UserRow) {
-    if (!this.db.ready || user.username?.includes('demo')) {
+    if (!this.db.ready) {
       const chunks = await this.retrieval.size().catch(() => 56);
       return { mode: 'grounded', ready: true, chunks: chunks || 56, quota: { limit: 50, used: 0, school_limit: 1000, school_used: 0, remaining: 50, unlimited: true }, roleplay: true, modes: MODES_BY_ROLE[user.role] ?? ['tutor', 'roleplay', 'explain', 'summary'] };
     }
@@ -305,38 +305,15 @@ export class AiTutorService implements OnModuleDestroy {
     const bad = unsafeReason(o.question, s.banned_terms);
     if (bad === 'unsafe') return this.refusal('unsafe', UNSAFE_MESSAGE);
     if (bad === 'injection') return this.refusal('out_of_scope', s.refusal_message, await this.exampleQuestions());
-
+    if (o.needLlm && !cfg) return this.refusal('not_configured', 'Tính năng này cần bật mô hình AI. Em nhờ thầy cô hoặc quản trị viên cấu hình giúp nhé; trong lúc chờ em vẫn hỏi đáp bình thường được.');
 
     let queryVector: number[] | null = null;
     if (cfg?.embedModel && !o.fixed) { try { queryVector = (await this.llm.embed(cfg, [o.question]))[0]; } catch (e) { this.logger.warn(`Không nhúng được câu hỏi: ${(e as Error).message}`); } }
     const passages = o.fixed ?? await this.retrieval.search(o.searchText ?? o.question, s.top_k, { only: o.only, focus: o.focus, queryVector });
     const best = passages[0];
     const topScore = best ? Math.max(best.coverage, best.cos) : 0;
-    const inScope = o.skipGate || Boolean(best && (best.coverage >= 0.1 || best.cos >= 0.5 || best.score >= 0.04));
+    const inScope = o.skipGate || Boolean(best && (best.coverage >= s.min_score || best.cos >= 0.5));
     if (!inScope) return { ...this.refusal('out_of_scope', s.refusal_message, await this.exampleQuestions()), topScore };
-
-    if (o.needLlm && !cfg) {
-      if (o.persona) {
-        const ex = this.extract(o.question, passages);
-        const personaText = `Ta là ${o.persona.honorific ? `${o.persona.honorific} ` : ''}${o.persona.name}.\n\n`
-          + `Về việc này, sử sách nước Nam ta ghi lại rõ ràng:\n\n${ex.text}\n\n`
-          + `Các em hãy ghi lòng tạc dạ để noi gương người xưa, giữ gìn giang sơn đất nước!`;
-        return {
-          text: personaText,
-          citations: this.citations(passages, [1]),
-          followups: this.followupsFrom(passages),
-          refused: false,
-          reason: null,
-          mode: 'extractive',
-          model: null,
-          tokensIn: 0,
-          tokensOut: 0,
-          topScore: best ? Math.max(best.coverage, best.cos) : 0.8,
-          passages,
-        };
-      }
-      return this.refusal('not_configured', 'Tính năng này cần bật mô hình AI. Em nhờ thầy cô hoặc quản trị viên cấu hình giúp nhé; trong lúc chờ em vẫn hỏi đáp bình thường được.');
-    }
 
     if (cfg) {
       try {
@@ -376,7 +353,7 @@ export class AiTutorService implements OnModuleDestroy {
 
   // ---------------------------------------------------------------------- hội thoại
   private async conversation(user: UserRow, id: number | null | undefined, mode: string, title: string, figureId: number | null = null): Promise<{ id: number; mode: string; figure_id: number | null }> {
-    if (!this.db.ready || user.username?.includes('demo')) {
+    if (!this.db.ready) {
       return { id: id || 1, mode, figure_id: figureId };
     }
     if (id) {
@@ -389,7 +366,7 @@ export class AiTutorService implements OnModuleDestroy {
   }
 
   private async historyOf(conversationId: number): Promise<LlmMessage[]> {
-    if (!this.db.ready || conversationId === 1) return [];
+    if (!this.db.ready) return [];
     const rows = await this.db.query<{ role: 'user' | 'assistant'; content: string; refused: boolean }>(
       'SELECT role, content, refused FROM hk_ai_messages WHERE conversation_id = $1 ORDER BY id DESC LIMIT 6', [conversationId]);
     return rows.reverse().filter((r) => !r.refused).map((r) => ({ role: r.role, content: short(r.content, 800) }));
@@ -397,7 +374,7 @@ export class AiTutorService implements OnModuleDestroy {
 
   /** Lưu cặp tin nhắn người hỏi – trợ lý và trả về dạng hiển thị */
   async save(conversationId: number, question: string, a: Answer, startedAt: number) {
-    if (!this.db.ready || conversationId === 1) {
+    if (!this.db.ready) {
       const now = new Date().toISOString();
       return {
         user_message: { id: Date.now(), role: 'user', content: question, created_at: now },
@@ -437,7 +414,7 @@ export class AiTutorService implements OnModuleDestroy {
   /** Hỏi đáp (HK.HS.086–088, 091; HK.GV.073) */
   async ask(user: UserRow, body: { question?: string; conversation_id?: number; mode?: string; figure_id?: number }) {
     const question = this.checkQuestion(body.question);
-    const allowed = !process.env.JEST_WORKER_ID ? ['tutor', 'roleplay', 'teacher'] : (MODES_BY_ROLE[user.role] ?? []);
+    const allowed = MODES_BY_ROLE[user.role] ?? [];
     const conv0 = body.conversation_id ? await this.conversation(user, body.conversation_id, 'tutor', question) : null;
     const mode = conv0?.mode ?? body.mode ?? (user.role === 'student' ? 'tutor' : 'teacher');
     if (!['tutor', 'roleplay', 'teacher'].includes(mode) || !allowed.includes(mode)) throw new ForbiddenException('Chế độ hỏi đáp này không dành cho tài khoản của bạn');

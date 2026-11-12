@@ -17,6 +17,9 @@ const STAFF = ['teacher', 'school_admin'] as const;
 @Controller('classroom')
 @UseGuards(AuthGuard)
 export class ClassroomController {
+  @Get('classes/:id/teacher-change') @Roles('teacher') teacherChangeOptions(@CurrentUser() user:UserRow,@Param('id',ParseIntPipe) id:number){return this.rooms.teacherChangeOptions(user,id);}
+  @Post('classes/:id/teacher-change') @Roles('teacher') teacherChangeRequest(@CurrentUser() user:UserRow,@Param('id',ParseIntPipe) id:number,@Body() body:Json){return this.rooms.requestTeacherChange(user,id,body.teacher_id,body.note);}
+  @Post('teacher-change-requests/:id/cancel') @Roles('teacher') @HttpCode(200) cancelTeacherChange(@CurrentUser() user:UserRow,@Param('id',ParseIntPipe) id:number){return this.rooms.cancelTeacherChange(user,id);}
   constructor(private readonly rooms: ClassroomService, private readonly assignments: AssignmentService, private readonly skills: SkillService) {}
 
   // ------------------------------------------------------------------ giáo viên: lớp (HK.GV.007–011)

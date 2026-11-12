@@ -29,6 +29,16 @@ function loadAuth({ baseUrl = 'https://api.example.test/', respond = () => ({}) 
 const rootUser = { id: 1, username: 'test-root', full_name: 'Test Root', role: 'root_admin', must_change_password: false };
 const rootSession = { token: 'test-token', user: rootUser };
 
+test('Recent /me is reused, forced verification and 401/logout invalidate it', async () => {
+  let unauthorized = false;
+  const { auth, requests } = loadAuth({ respond: url => url.endsWith('/logout') ? { ok: true } : unauthorized ? { status: 401, body: { detail: 'Hết phiên' } } : rootUser });
+  await auth.getMe('cached-token'); await auth.getMe('cached-token');
+  assert.equal(requests.length, 1);
+  unauthorized = true; await assert.rejects(auth.getMe('cached-token', true), e => e.status === 401);
+  unauthorized = false; await auth.getMe('cached-token'); assert.equal(requests.length, 3);
+  await auth.logout('cached-token'); await auth.getMe('cached-token'); assert.equal(requests.length, 5);
+});
+
 test('Không gửi thông tin đăng nhập khi chưa cấu hình địa chỉ API', async () => {
   const { auth, requests } = loadAuth({ baseUrl: '' });
   await assert.rejects(auth.loginToPortal('test-root', 'test-password', 'root_admin'), error => error.status === 0);
@@ -66,6 +76,32 @@ test('Quên mật khẩu và đặt lại bằng OTP dùng đúng API', async ()
   assert.deepEqual(JSON.parse(requests[0].body), { identifier: 'test-root' });
   assert.deepEqual(JSON.parse(requests[1].body), { identifier: 'test-root', otp: '123456', new_password: 'new-test-password1' });
   assert.equal(requests[1].headers.Authorization, undefined);
+});
+
+test('Gửi lại mã xác thực hai lớp: phiếu cũ đổi lấy phiếu mới qua /api/auth/2fa/resend, không kèm token đăng nhập', async () => {
+  const fresh = { two_factor: true, method: 'email', challenge: 'n'.repeat(40), expires_in: 300 };
+  const { auth, requests } = loadAuth({ respond: () => fresh });
+  assert.deepEqual(await auth.resendTwoFactor('o'.repeat(40), 'root_admin'), fresh);
+  assert.equal(requests[0].url, 'https://api.example.test/api/auth/2fa/resend');
+  assert.equal(requests[0].method, 'POST');
+  assert.deepEqual(JSON.parse(requests[0].body), { challenge: 'o'.repeat(40), portal: 'root_admin' });
+  assert.equal(requests[0].headers.Authorization, undefined);
+  const expired = loadAuth({ respond: () => ({ status: 401, body: { detail: 'Phiên xác thực đã hết hạn. Hãy đăng nhập lại.' } }) });
+  await assert.rejects(expired.auth.resendTwoFactor('o'.repeat(40), 'root_admin'), (error) => error.status === 401 && error.message === 'Phiên xác thực đã hết hạn. Hãy đăng nhập lại.');
+});
+
+test('Quên mật khẩu ba bước: nhập mã nhận phiếu, rồi đặt mật khẩu bằng phiếu (không gửi lại mã, không kèm token đăng nhập)', async () => {
+  const ticket = 't'.repeat(40);
+  const { auth, requests } = loadAuth({ respond: (url) => (url.endsWith('/verify-reset-code') ? { reset_token: ticket, expires_in: 600 } : { ok: true }) });
+  const res = await auth.verifyResetCode('test-root', '123456');
+  assert.deepEqual(res, { reset_token: ticket, expires_in: 600 });
+  await auth.resetPasswordWithTicket(res.reset_token, 'new-test-password1');
+  assert.equal(requests[0].url, 'https://api.example.test/api/auth/verify-reset-code');
+  assert.equal(requests[0].method, 'POST');
+  assert.deepEqual(JSON.parse(requests[0].body), { identifier: 'test-root', otp: '123456' });
+  assert.equal(requests[1].url, 'https://api.example.test/api/auth/reset-password');
+  assert.deepEqual(JSON.parse(requests[1].body), { reset_token: ticket, new_password: 'new-test-password1' });
+  for (const r of requests) assert.equal(r.headers.Authorization, undefined);
 });
 
 test('Đổi mật khẩu nhận phiên mới và đăng xuất thu hồi đúng phiên', async () => {
@@ -121,7 +157,7 @@ test('Lựa chọn vai trò từ URL chỉ nhận ba vai trò nhà trường và
   for (const value of ['root_admin', 'admin', '', undefined]) assert.equal(portals.schoolRoleFromParam(value), 'student');
   assert.equal(portals.PORTAL_PATH.student, '/hoc-sinh');
   assert.equal(portals.PORTAL_PATH.teacher, '/giao-vien');
-  assert.equal(portals.PORTAL_PATH.school_admin, '/school-manager-admin');
+  assert.equal(portals.PORTAL_PATH.school_admin, '/portal?role=school_admin');
   assert.equal(portals.isSchoolRole('root_admin'), false);
 });
 

@@ -116,7 +116,7 @@ test('a concurrent main update stops the release without overwriting it', async 
   assert.equal(git(f.root, ['rev-parse', 'HEAD']), s.head);
 });
 
-test('build marker contains only the public commit and build time', (t) => {
+test('build writes the public identity', (t) => {
   const temp = mkdtempSync(join(tmpdir(), 'dong-a-auto-sync-test-'));
   t.after(() => {
     assert.equal(resolve(dirname(temp)), resolve(tmpdir()));

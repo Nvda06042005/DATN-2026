@@ -59,22 +59,22 @@ export class BattleController {
   finish(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.battle.finish(user, id); }
 
   // ------------------------------------------------------------------ quản trị tổng: kịch bản (HK.AD.046)
-  @Get('admin/scenarios') @Roles('root_admin') adminScenarios() { return this.battle.adminScenarios(); }
-  @Get('admin/battles') @Roles('root_admin') battleOptions() { return this.battle.battleOptions(); }
-  @Get('admin/scenario-template') @Roles('root_admin') template() { return SCENARIO_TEMPLATE; }
-  @Post('admin/scenarios/validate') @Roles('root_admin') @HttpCode(200) validateScenario(@Body() body: Record<string, unknown>) { return this.battle.validateScenario(body.content); }
-  @Get('admin/scenarios/:id') @Roles('root_admin') adminScenario(@Param('id', ParseIntPipe) id: number) { return this.battle.adminScenario(id); }
-  @Post('admin/scenarios') @Roles('root_admin') createScenario(@CurrentUser() user: UserRow, @Body() body: ScenarioInput) { return this.battle.createScenario(user, body); }
-  @Put('admin/scenarios/:id') @Roles('root_admin') updateScenario(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: ScenarioInput) { return this.battle.updateScenario(user, id, body); }
-  @Post('admin/scenarios/:id/status') @Roles('root_admin') @HttpCode(200) scenarioStatus(@Param('id', ParseIntPipe) id: number, @Body() body: Record<string, unknown>) { return this.battle.setScenarioStatus(id, String(body.status)); }
-  @Delete('admin/scenarios/:id') @Roles('root_admin') @HttpCode(204) async deleteScenario(@Param('id', ParseIntPipe) id: number) { await this.battle.deleteScenario(id); }
+  @Get('admin/scenarios') @Roles('root_admin', 'school_admin') adminScenarios() { return this.battle.adminScenarios(); }
+  @Get('admin/battles') @Roles('root_admin', 'school_admin') battleOptions() { return this.battle.battleOptions(); }
+  @Get('admin/scenario-template') @Roles('root_admin', 'school_admin') template() { return SCENARIO_TEMPLATE; }
+  @Post('admin/scenarios/validate') @Roles('root_admin', 'school_admin') @HttpCode(200) validateScenario(@Body() body: Record<string, unknown>) { return this.battle.validateScenario(body.content); }
+  @Get('admin/scenarios/:id') @Roles('root_admin', 'school_admin') adminScenario(@Param('id', ParseIntPipe) id: number) { return this.battle.adminScenario(id); }
+  @Post('admin/scenarios') @Roles('root_admin', 'school_admin') createScenario(@CurrentUser() user: UserRow, @Body() body: ScenarioInput) { return this.battle.createScenario(user, body); }
+  @Put('admin/scenarios/:id') @Roles('root_admin', 'school_admin') updateScenario(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: ScenarioInput) { return this.battle.updateScenario(user, id, body); }
+  @Post('admin/scenarios/:id/status') @Roles('root_admin', 'school_admin') @HttpCode(200) scenarioStatus(@Param('id', ParseIntPipe) id: number, @Body() body: Record<string, unknown>) { return this.battle.setScenarioStatus(id, String(body.status)); }
+  @Delete('admin/scenarios/:id') @Roles('root_admin', 'school_admin') @HttpCode(204) async deleteScenario(@Param('id', ParseIntPipe) id: number) { await this.battle.deleteScenario(id); }
 
   // ------------------------------------------------------------------ quản trị tổng: mini-game (HK.AD.047)
-  @Get('admin/minigames') @Roles('root_admin') adminMinigames() { return this.battle.adminMinigames(); }
-  @Post('admin/minigames/validate') @Roles('root_admin') @HttpCode(200) validateMinigame(@Body() body: Record<string, unknown>) { return this.battle.validateMinigame(body.kind as MiniKind, body.params); }
-  @Get('admin/minigames/:id') @Roles('root_admin') adminMinigame(@Param('id', ParseIntPipe) id: number) { return this.battle.adminMinigame(id); }
-  @Post('admin/minigames') @Roles('root_admin') createMinigame(@CurrentUser() user: UserRow, @Body() body: MinigameInput) { return this.battle.createMinigame(user, body); }
-  @Put('admin/minigames/:id') @Roles('root_admin') updateMinigame(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: MinigameInput) { return this.battle.updateMinigame(user, id, body); }
-  @Post('admin/minigames/:id/status') @Roles('root_admin') @HttpCode(200) minigameStatus(@Param('id', ParseIntPipe) id: number, @Body() body: Record<string, unknown>) { return this.battle.setMinigameStatus(id, String(body.status)); }
-  @Delete('admin/minigames/:id') @Roles('root_admin') @HttpCode(204) async deleteMinigame(@Param('id', ParseIntPipe) id: number) { await this.battle.deleteMinigame(id); }
+  @Get('admin/minigames') @Roles('root_admin', 'school_admin') adminMinigames() { return this.battle.adminMinigames(); }
+  @Post('admin/minigames/validate') @Roles('root_admin', 'school_admin') @HttpCode(200) validateMinigame(@Body() body: Record<string, unknown>) { return this.battle.validateMinigame(body.kind as MiniKind, body.params); }
+  @Get('admin/minigames/:id') @Roles('root_admin', 'school_admin') adminMinigame(@Param('id', ParseIntPipe) id: number) { return this.battle.adminMinigame(id); }
+  @Post('admin/minigames') @Roles('root_admin', 'school_admin') createMinigame(@CurrentUser() user: UserRow, @Body() body: MinigameInput) { return this.battle.createMinigame(user, body); }
+  @Put('admin/minigames/:id') @Roles('root_admin', 'school_admin') updateMinigame(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: MinigameInput) { return this.battle.updateMinigame(user, id, body); }
+  @Post('admin/minigames/:id/status') @Roles('root_admin', 'school_admin') @HttpCode(200) minigameStatus(@Param('id', ParseIntPipe) id: number, @Body() body: Record<string, unknown>) { return this.battle.setMinigameStatus(id, String(body.status)); }
+  @Delete('admin/minigames/:id') @Roles('root_admin', 'school_admin') @HttpCode(204) async deleteMinigame(@Param('id', ParseIntPipe) id: number) { await this.battle.deleteMinigame(id); }
 }

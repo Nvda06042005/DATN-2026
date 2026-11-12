@@ -17,6 +17,8 @@ export type Tab =
   | 'library' | 'timeline' | 'map' | 'sources' | 'class' | 'live' | 'battles' | 'character' | 'ai' | 'study' | 'survey' | 'help';
 
 interface NavItem { id: Tab; label: string; icon: IconType }
+/** Tạm ẩn theo yêu cầu 07/11; giữ dữ liệu và các màn để có thể bật lại. */
+export const TEMP_HIDDEN_STUDENT_TABS: Tab[] = ['collection', 'study', 'timeline', 'map', 'battles'];
 /** Các mục của thanh menu chính theo đặc tả và phong cách Duolingo */
 export const NAV_MAIN: NavItem[] = [
   { id: 'learn', label: 'Học', icon: GraduationCap },
@@ -30,7 +32,7 @@ export const NAV_MAIN: NavItem[] = [
 ];
 export const NAV_MORE: NavItem[] = [
   { id: 'collection', label: 'Bộ thẻ', icon: Award },
-  { id: 'study', label: 'Gợi ý học tập', icon: Lightbulb },
+  { id: 'study', label: 'Kế hoạch học', icon: Lightbulb },
   { id: 'library', label: 'Thư viện', icon: LibraryIcon },
   { id: 'timeline', label: 'Dòng thời gian', icon: HistoryIcon },
   { id: 'map', label: 'Bản đồ', icon: MapIcon },
@@ -55,7 +57,8 @@ const Dot: React.FC<{ n?: number }> = ({ n }) => {
 export const StudentNav: React.FC<{ tab: Tab; wide: boolean; dots: Dots; onSelect: (t: Tab) => void; hidden?: Tab[] }> = ({ tab, wide, dots, onSelect, hidden = [] }) => {
   const { c } = useTheme();
   const [more, setMore] = useState(false);
-  const main = NAV_MAIN.filter((i) => !hidden.includes(i.id)), extra = NAV_MORE.filter((i) => !hidden.includes(i.id));
+  const hide = new Set<Tab>([...TEMP_HIDDEN_STUDENT_TABS, ...hidden]);
+  const main = NAV_MAIN.filter((i) => !hide.has(i.id)), extra = NAV_MORE.filter((i) => !hide.has(i.id));
   const moreTabs = wide ? [] : [...main.filter((i) => !PHONE_MAIN.includes(i.id)), ...extra];
   const moreActive = !wide && moreTabs.some((i) => i.id === tab);
   const moreDot = (dots.more ?? 0) + moreTabs.reduce((n, i) => n + (dots[i.id] ?? 0), 0);

@@ -6,8 +6,9 @@
 import { call, hasPostgres, Started, startApp } from './harness';
 import { bootstrap, Fixture, publishSeed } from './fixture';
 import type { DatabaseService } from '../src/database/database.service';
+import type { RecoService } from '../src/analytics/reco.service';
 
-let s: Started, f: Fixture, db: DatabaseService;
+let s: Started, f: Fixture, db: DatabaseService, reco: RecoService;
 const as = (who: { token: string }) => (method: string, path: string, body?: unknown) => call(s.base, method, path, body, who.token);
 const root = (method: string, path: string, body?: unknown) => call(s.base, method, path, body, f.root);
 const download = async (who: { token: string }, path: string) => {
@@ -30,6 +31,7 @@ const download = async (who: { token: string }, path: string) => {
   beforeAll(async () => {
     s = await startApp('analytics_test');
     db = s.moduleRef.get((await import('../src/database/database.service')).DatabaseService);
+    reco = s.moduleRef.get((await import('../src/analytics/reco.service')).RecoService);
     const rootToken = (await call(s.base, 'POST', '/api/auth/login', { username: 'admin', password: 'admin@123', portal: 'root_admin' })).body.token;
     f = await bootstrap(s, rootToken, true);
     await publishSeed(s.base, f.root);
@@ -46,16 +48,22 @@ const download = async (who: { token: string }, path: string) => {
   });
   afterAll(async () => { await s?.close(); });
 
-  // ------------------------------------------------------------------ HK.AD.063: cấu hình thuật toán gợi ý
-  test('cấu hình thuật toán gợi ý: giá trị mặc định, kiểm tra giới hạn, chỉ quản trị tổng được đổi', async () => {
-    const d = (await root('GET', '/api/analytics/admin/reco-settings')).body;
-    expect(d).toMatchObject({ weight_weak: 3, weight_time: 1, weight_difficulty: 1, weak_threshold: 60, min_answers: 3, refresh_hours: 6, max_items: 3, practice_size: 8, penalty_not_helpful: 0.5 });
-    for (const bad of [{ weak_threshold: 5 }, { weak_threshold: 99 }, { max_items: 0 }, { max_items: 2.5 }, { weight_weak: -1 }, { refresh_hours: 500 }, { practice_size: 1 }, { penalty_not_helpful: 2 }, { weight_weak: 0, weight_time: 0, weight_difficulty: 0 }]) {
-      expect((await root('PUT', '/api/analytics/admin/reco-settings', bad)).status).toBe(400);
+  test('chính sách chung chỉ đọc nội bộ; API cấu hình, hiển thị, phản hồi và tính lại thủ công đã bị bỏ', async () => {
+    const common = await reco.settings();
+    expect(common).toMatchObject({ weight_weak: 3, weight_time: 1, weight_difficulty: 1, weak_threshold: 60, min_answers: 3, refresh_hours: 6, max_items: 3, practice_size: 8, penalty_not_helpful: 0.5 });
+    expect((await db.query('SELECT id FROM hk_reco_settings')).map((r) => r.id)).toEqual([1]);
+    for (const who of [f.A, f.B, f.S1]) {
+      expect(await db.withWorkspace((await db.getById(who.id))!, () => reco.settings())).toEqual(common);
     }
-    expect((await as(f.T1)('GET', '/api/analytics/admin/reco-settings')).status).toBe(403);
-    expect((await as(f.A)('PUT', '/api/analytics/admin/reco-settings', { max_items: 2 })).status).toBe(403);
-    expect((await call(s.base, 'GET', '/api/analytics/admin/reco-settings')).status).toBe(401);
+    for (const token of [f.root, f.A.token, f.T1.token, f.S1.token, undefined]) {
+      for (const [method,path] of [['GET','/api/analytics/admin/reco-settings'],['PUT','/api/analytics/admin/reco-settings'],
+        ['POST','/api/analytics/admin/reco-refresh'],['GET','/api/analytics/me/recommendations'],
+        ['POST','/api/analytics/me/recommendations/refresh'],['POST','/api/analytics/me/recommendations/1/feedback']]) {
+        expect((await call(s.base,method,path,method==='GET'?undefined:{max_items:1},token)).status).toBe(404);
+      }
+    }
+    expect(await reco.settings()).toEqual(common);
+    expect(await db.query('SELECT id FROM hk_recommendations')).toHaveLength(0);
   });
 
   // ------------------------------------------------------------------ HK.HS.095: điểm mạnh và điểm yếu
@@ -74,59 +82,53 @@ const download = async (who: { token: string }, path: string) => {
     expect((await as(f.T1)('GET', '/api/analytics/me/strengths')).status).toBe(403);
   });
 
-  // ------------------------------------------------------------------ HK.HS.094, 098, HK.SYS.012: gợi ý
-  test('"Nên học gì hôm nay": tối đa 3 gợi ý có lý do, xếp theo điểm, có chủ đề yếu và bước học tiếp; chưa quá hạn thì giữ nguyên, làm mới thì sinh đợt mới', async () => {
-    const r = (await as(f.S1)('GET', '/api/analytics/me/recommendations')).body;
-    expect(r.items.length).toBeGreaterThanOrEqual(2);
-    expect(r.items.length).toBeLessThanOrEqual(3);
-    const scores = r.items.map((i: any) => i.score);
-    expect([...scores].sort((a: number, b: number) => b - a)).toEqual(scores);
-    const weak = r.items.find((i: any) => i.kind === 'weak_topic');
-    expect(weak).toMatchObject({ ref_type: 'campaign', ref_id: topicA.id, kind_label: 'Luyện chủ đề yếu' });
+  const internalResults = (userId: number) => db.query<any>(
+    `SELECT id::int AS id,kind,title,reason,ref_type,ref_id,campaign_id,score::float8 AS score,feedback,generation
+     FROM hk_recommendations WHERE user_id=$1 AND generation=(SELECT max(generation) FROM hk_recommendations WHERE user_id=$1)
+     ORDER BY score DESC,id`, [userId]);
+
+  test('tính nền vẫn xếp đúng điểm và chủ đề yếu, không cần mở màn học sinh', async () => {
+    expect(await reco.refreshStale(1)).toBeGreaterThanOrEqual(1);
+    const items=await internalResults(f.S1.id);
+    expect(items.length).toBeGreaterThanOrEqual(2);
+    expect(items.length).toBeLessThanOrEqual(3);
+    const scores=items.map((i:any)=>i.score);
+    expect([...scores].sort((a:number,b:number)=>b-a)).toEqual(scores);
+    const weak=items.find((i:any)=>i.kind==='weak_topic');
+    expect(weak).toMatchObject({ref_type:'campaign',ref_id:topicA.id});
     expect(weak.reason).toMatch(/0%/);
     expect(weak.title).toContain(topicA.name);
-    expect(r.items.some((i: any) => i.kind === 'continue' && i.ref_type === 'node' && i.campaign_id)).toBe(true);
-    expect(r.items.every((i: any) => i.title && i.reason && i.feedback === null)).toBe(true);
-    const again = (await as(f.S1)('GET', '/api/analytics/me/recommendations')).body;
-    expect(again.generated_at).toBe(r.generated_at); // chưa quá hạn: không tính lại
-    const fresh = (await as(f.S1)('POST', '/api/analytics/me/recommendations/refresh')).body;
-    expect(new Date(fresh.generated_at).getTime()).toBeGreaterThan(new Date(r.generated_at).getTime());
-    expect((await as(f.T1)('GET', '/api/analytics/me/recommendations')).status).toBe(403);
-    // học sinh chưa học gì vẫn được gợi ý bắt đầu hành trình
-    const none = (await as(f.S3)('GET', '/api/analytics/me/recommendations')).body;
-    expect(none.items.some((i: any) => i.kind === 'continue')).toBe(true);
+    expect(items.some((i:any)=>i.kind==='continue'&&i.ref_type==='node'&&i.campaign_id)).toBe(true);
+    expect(items.every((i:any)=>i.title&&i.reason&&i.feedback===null)).toBe(true);
+    expect(await reco.refreshStale(1)).toBe(0); // chưa quá hạn, không tự sinh thêm đợt
+    expect(await internalResults(f.S3.id)).toEqual([]); // chưa hoạt động: không tính lười qua HTTP
   });
 
-  test('đánh giá gợi ý: hữu ích / không hữu ích; loại bị đánh giá không hữu ích bị giảm điểm ở lần tính sau; đánh giá của người khác không sửa được', async () => {
-    const cur = (await as(f.S1)('GET', '/api/analytics/me/recommendations')).body;
-    const weak = cur.items.find((i: any) => i.kind === 'weak_topic');
-    expect((await as(f.S1)('POST', `/api/analytics/me/recommendations/${weak.id}/feedback`, { value: 'tuyet' })).status).toBe(400);
-    expect((await as(f.S2)('POST', `/api/analytics/me/recommendations/${weak.id}/feedback`, { value: 'helpful' })).status).toBe(404);
-    expect((await as(f.S1)('POST', `/api/analytics/me/recommendations/${weak.id}/feedback`, { value: 'not_helpful' })).body).toEqual({ id: weak.id, feedback: 'not_helpful' });
-    expect((await as(f.S1)('GET', '/api/analytics/me/recommendations')).body.items.find((i: any) => i.id === weak.id).feedback).toBe('not_helpful');
-    const next = (await as(f.S1)('POST', '/api/analytics/me/recommendations/refresh')).body;
-    const after = next.items.find((i: any) => i.kind === 'weak_topic');
-    expect(after.score).toBeCloseTo(weak.score * 0.5, 2); // hệ số giảm điểm mặc định 0,5
-    expect((await as(f.S1)('POST', `/api/analytics/me/recommendations/${after.id}/feedback`, { value: null })).status).toBe(200);
-  });
-
-  test('cấu hình đổi kết quả: ít gợi ý hơn, ngưỡng điểm yếu khác; việc nền chỉ tính lại cho học sinh còn hoạt động và gợi ý đã cũ', async () => {
-    expect((await root('PUT', '/api/analytics/admin/reco-settings', { max_items: 1 })).status).toBe(200);
-    const one = (await as(f.S1)('POST', '/api/analytics/me/recommendations/refresh')).body;
-    expect(one.items).toHaveLength(1);
-    expect((await root('PUT', '/api/analytics/admin/reco-settings', { max_items: 3, weak_threshold: 10 })).status).toBe(200);
-    const lax = (await as(f.S1)('POST', '/api/analytics/me/recommendations/refresh')).body;
-    expect(lax.items.some((i: any) => i.kind === 'weak_topic')).toBe(true); // A vẫn 0% < 10%
-    await root('PUT', '/api/analytics/admin/reco-settings', { weak_threshold: 60 });
-    // SYS.012: gợi ý của S1 cũ hơn 10 giờ và có hoạt động gần đây → được tính lại; S2 chưa hoạt động → bỏ qua
-    await db.query("UPDATE hk_recommendations SET generation = generation - interval '10 hours' WHERE user_id = $1", [f.S1.id]);
-    const before = (await db.query<{ g: string }>('SELECT max(generation) AS g FROM hk_recommendations WHERE user_id = $1', [f.S1.id]))[0].g;
-    const job = s.moduleRef.get((await import('../src/analytics/analytics.job')).AnalyticsJob);
+  test('dữ liệu phản hồi lịch sử dùng cùng hệ số chung, không mở lại API đánh giá', async () => {
+    const weak=(await internalResults(f.S1.id)).find((i:any)=>i.kind==='weak_topic');
+    await db.query("UPDATE hk_recommendations SET feedback='not_helpful',feedback_at=now() WHERE id=$1",[weak.id]);
+    await db.query("UPDATE hk_recommendations SET generation=generation-interval '10 hours' WHERE user_id=$1",[f.S1.id]);
+    const job=s.moduleRef.get((await import('../src/analytics/analytics.job')).AnalyticsJob);
     expect(await job.run()).toBeGreaterThanOrEqual(1);
-    const after = (await db.query<{ g: string }>('SELECT max(generation) AS g FROM hk_recommendations WHERE user_id = $1', [f.S1.id]))[0].g;
-    expect(new Date(after).getTime()).toBeGreaterThan(new Date(before).getTime());
-    expect((await db.query('SELECT 1 FROM hk_recommendations WHERE user_id = $1', [f.S2.id])).length).toBe(0);
-    expect((await root('POST', '/api/analytics/admin/reco-refresh')).body).toHaveProperty('refreshed');
+    const after=(await internalResults(f.S1.id)).find((i:any)=>i.kind==='weak_topic');
+    expect(after.score).toBeCloseTo(weak.score*0.5,2);
+    expect((await as(f.S1)('POST',`/api/analytics/me/recommendations/${after.id}/feedback`,{value:null})).status).toBe(404);
+  });
+
+  test('lượt nền đi hết nhiều lô, chỉ tính dữ liệu đã cũ và người còn hoạt động', async () => {
+    const event=(await db.query<{id:number}>("INSERT INTO hk_events(user_id,school_id,event) VALUES($1,$2,'view_campaign') RETURNING id",[f.S2.id,f.A.schoolId]))[0];
+    try {
+      await db.query("UPDATE hk_recommendations SET generation=generation-interval '10 hours' WHERE user_id=$1",[f.S1.id]);
+      const before=(await internalResults(f.S1.id))[0].generation;
+      expect(await reco.refreshStale(1)).toBeGreaterThanOrEqual(2); // cả lô sau, không chỉ người đầu tiên
+      const after=(await internalResults(f.S1.id))[0].generation;
+      expect(new Date(after).getTime()).toBeGreaterThan(new Date(before).getTime());
+      expect((await internalResults(f.S2.id)).length).toBeGreaterThan(0);
+      expect(await internalResults(f.S3.id)).toEqual([]);
+    } finally {
+      await db.query('DELETE FROM hk_events WHERE id=$1',[event.id]);
+      await db.query('DELETE FROM hk_recommendations WHERE user_id=$1',[f.S2.id]);
+    }
   });
 
   // ------------------------------------------------------------------ HK.HS.096, HK.SYS.013: luyện tập cá nhân hóa
@@ -334,6 +336,38 @@ const download = async (who: { token: string }, path: string) => {
     expect(content.learning.map((x: any) => x.label)).toContain('Bài học');
     expect(content.questions.total).toBeGreaterThanOrEqual(20);
     expect((await as(f.A)('GET', '/api/analytics/system/content')).status).toBe(403);
+  });
+
+  test('dashboard có đủ 30 ngày theo giờ Việt Nam, đếm người duy nhất và giữ ngày không hoạt động', async () => {
+    const dates = (await db.query<{ today: string; first: string; outside: string; future: string }>(
+      `SELECT to_char(now() AT TIME ZONE 'Asia/Ho_Chi_Minh','YYYY-MM-DD') AS today,
+        to_char((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date-29,'YYYY-MM-DD') AS first,
+        to_char((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date-30,'YYYY-MM-DD') AS outside,
+        to_char((now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date+1,'YYYY-MM-DD') AS future`))[0];
+    const inserted = await db.query<{ id: number }>(
+      `INSERT INTO hk_events(user_id,school_id,event,created_at) VALUES
+        ($1,$3,'view_campaign',($4::date::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')),
+        ($1,$3,'view_campaign',(($4::date::timestamp + interval '23 hours') AT TIME ZONE 'Asia/Ho_Chi_Minh')),
+        ($2,$3,'view_campaign',(($4::date::timestamp + interval '1 minute') AT TIME ZONE 'Asia/Ho_Chi_Minh')),
+        ($1,$3,'view_campaign',($5::date::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')),
+        ($1,$3,'view_campaign',($6::date::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh')) RETURNING id`,
+      [f.S1.id, f.S2.id, f.A.schoolId, dates.first, dates.outside, dates.future]);
+    try {
+      const result = await root('GET', '/api/analytics/system/overview');
+      expect(result.status).toBe(200);
+      expect(result.body.as_of).toBe(dates.today);
+      expect(result.body.series).toHaveLength(30);
+      expect(result.body.series[0]).toEqual({ day: dates.first, users: 2 });
+      expect(result.body.series.at(-1).day).toBe(dates.today);
+      expect(result.body.series.some((p: any) => p.users === 0)).toBe(true);
+      const keys = result.body.series.map((p: any) => p.day);
+      expect(new Set(keys).size).toBe(30);
+      expect(keys).not.toContain(dates.outside);
+      expect(keys).not.toContain(dates.future);
+      for (let i = 1; i < keys.length; i += 1) expect(Date.parse(keys[i]) - Date.parse(keys[i - 1])).toBe(86400000);
+    } finally {
+      await db.query('DELETE FROM hk_events WHERE id = ANY($1::bigint[])', [inserted.map(e => e.id)]);
+    }
   });
 
   // ------------------------------------------------------------------ HK.QT.009, HK.AD.008: sử dụng AI

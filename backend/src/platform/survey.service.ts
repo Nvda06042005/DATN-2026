@@ -56,8 +56,8 @@ export class SurveyService {
 
   // ---------------------------------------------------------------------- mẫu dùng chung (HK.AD.070)
   async templates(user: UserRow) {
-    const rows = await this.db.query('SELECT id::int AS id, title, description, audience, questions, is_active, updated_at FROM hk_survey_templates ORDER BY id');
-    return user.role === 'root_admin' ? rows : (rows as Array<{ is_active: boolean }>).filter((r) => r.is_active);
+    const rows = await this.db.query('SELECT id::int AS id,school_id, title, description, audience, questions, is_active, updated_at FROM hk_survey_templates ORDER BY id');
+    return rows.filter((r:any)=>user.role==='root_admin' || r.school_id===user.school_id || r.is_active).map((r:any)=>({...r,can_edit:user.role==='root_admin' || r.school_id===user.school_id}));
   }
 
   private cleanTemplate(body: Record<string, unknown>, cur?: Record<string, any>) {
@@ -73,14 +73,15 @@ export class SurveyService {
   }
 
   async createTemplate(user: UserRow, body: Record<string, unknown>) {
-    if (user.role !== 'root_admin') throw new ForbiddenException('Chỉ quản trị viên tổng quản lý mẫu khảo sát');
+    if (user.role !== 'root_admin' && !(user.role === 'school_admin' && user.school_id)) throw new ForbiddenException('Chỉ quản trị viên tổng quản lý mẫu khảo sát');
     const v = this.cleanTemplate(body);
     return (await this.db.query('INSERT INTO hk_survey_templates (title, description, audience, questions, is_active, created_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id::int AS id, title, description, audience, questions, is_active, updated_at',
       [v.title, v.description, v.audience, JSON.stringify(v.questions), v.is_active, user.id]))[0];
   }
 
   async updateTemplate(user: UserRow, id: number, body: Record<string, unknown>) {
-    if (user.role !== 'root_admin') throw new ForbiddenException('Chỉ quản trị viên tổng quản lý mẫu khảo sát');
+    await this.db.assertWorkspaceWritable('hk_survey_templates', id);
+    if (user.role !== 'root_admin' && !(user.role === 'school_admin' && user.school_id)) throw new ForbiddenException('Chỉ quản trị viên tổng quản lý mẫu khảo sát');
     const cur = (await this.db.query<Record<string, any>>('SELECT * FROM hk_survey_templates WHERE id = $1', [id]))[0];
     if (!cur) throw new NotFoundException('Không tìm thấy mẫu khảo sát');
     const v = this.cleanTemplate(body, cur);
@@ -89,7 +90,8 @@ export class SurveyService {
   }
 
   async removeTemplate(user: UserRow, id: number) {
-    if (user.role !== 'root_admin') throw new ForbiddenException('Chỉ quản trị viên tổng quản lý mẫu khảo sát');
+    await this.db.assertWorkspaceWritable('hk_survey_templates', id);
+    if (user.role !== 'root_admin' && !(user.role === 'school_admin' && user.school_id)) throw new ForbiddenException('Chỉ quản trị viên tổng quản lý mẫu khảo sát');
     const rows = await this.db.query('DELETE FROM hk_survey_templates WHERE id = $1 RETURNING id', [id]);
     if (!rows.length) throw new NotFoundException('Không tìm thấy mẫu khảo sát'); // khảo sát đã tạo từ mẫu giữ bản chụp câu hỏi nên không bị ảnh hưởng
     return { deleted: true };
@@ -104,7 +106,7 @@ export class SurveyService {
          AND (NOT $3 OR EXISTS (SELECT 1 FROM app_class_members m WHERE m.user_id = u.id AND m.class_id = ANY($2)))`, [s.school_id, s.class_ids, scoped])).map((r) => r.id);
     const teachers = s.audience === 'student' ? [] : (await q<{ id: number }>(
       `SELECT u.id FROM app_users u WHERE u.role = 'teacher' AND u.school_id = $1 AND u.deleted_at IS NULL AND u.is_active = 1
-         AND (NOT $3 OR EXISTS (SELECT 1 FROM app_class_teachers t WHERE t.teacher_id = u.id AND t.class_id = ANY($2)))`, [s.school_id, s.class_ids, scoped])).map((r) => r.id);
+         AND (NOT $3 OR EXISTS (SELECT 1 FROM app_current_class_teachers t WHERE t.teacher_id = u.id AND t.class_id = ANY($2)))`, [s.school_id, s.class_ids, scoped])).map((r) => r.id);
     return { students, teachers };
   }
 
@@ -112,7 +114,7 @@ export class SurveyService {
     if (s.school_id !== user.school_id || !['student', 'teacher'].includes(user.role)) return false;
     if (s.audience !== 'both' && s.audience !== user.role) return false;
     if (!s.class_ids.length) return true;
-    const table = user.role === 'student' ? 'app_class_members m WHERE m.user_id' : 'app_class_teachers m WHERE m.teacher_id';
+    const table = user.role === 'student' ? 'app_class_members m WHERE m.user_id' : 'app_current_class_teachers m WHERE m.teacher_id';
     return (await q(`SELECT 1 FROM ${table} = $1 AND m.class_id = ANY($2) LIMIT 1`, [user.id, s.class_ids])).length > 0;
   }
 

@@ -1,5 +1,8 @@
 /** API lớp học (/api/classroom, Sprint 7): giáo viên quản lý lớp – đội – thưởng/phạt – bài tập; học sinh xem lớp, làm bài tập, dùng kỹ năng, đọc thông báo. */
 import { apiBlob, apiRequest, apiUpload, type PickedFile } from '@/api/client';
+export const teacherChangeOptions=(token:string,id:number)=>apiRequest<{semester:number;class_name:string;teacher_name:string;candidates:Array<{id:number;full_name:string;user_code:string|null}>;requests:import('@/types/api').TeacherChangeRequest[]}>(`/api/classroom/classes/${id}/teacher-change`,{token});
+export const requestTeacherChange=(token:string,id:number,teacher_id:number,note:string)=>apiRequest<import('@/types/api').TeacherChangeRequest>(`/api/classroom/classes/${id}/teacher-change`,{token,body:{teacher_id,note}});
+export const cancelTeacherChange=(token:string,id:number|string)=>apiRequest<{ok:boolean}>(`/api/classroom/teacher-change-requests/${id}/cancel`,{token,body:{}});
 import type {
   AdjustInput, AdjustResult, AdjustRow, AnnouncementRow, AssignmentDetail, AssignmentInput, AssignmentRow, BadgeAwardResult, BoardView, ClassDetail, ClassRow, ClassRule, ClassSettings, ClassStudent,
   GoalRow, LeaveRow, LessonSubmit, MyAssignment, MyClassDetail, MyClassRow, Notices, PoolStudent, ProgressView, RandomEvent, RandomEventResult, SkillRequestRow, SkillUseResult, SkillView,

@@ -51,7 +51,7 @@ export class PlatformController {
   // ---------------------------------------------------------------------- hỗ trợ (HK.HS.111, HK.GV.081, HK.QT.052, HK.AD.073–074)
   @Post('support') @Roles(...REQUESTERS) @HttpCode(200) createTicket(@CurrentUser() user: UserRow, @Body() body: Json) { return this.support.create(user, body); }
   @Get('support/mine') @Roles(...REQUESTERS) myTickets(@CurrentUser() user: UserRow) { return this.support.mine(user); }
-  @Get('support') @Roles('root_admin') allTickets(@CurrentUser() user: UserRow, @Query() q: Json) { return this.support.list(user, { status: q.status, role: q.role, q: q.q, page: q.page ? Number(q.page) : undefined }); }
+  @Get('support') @Roles('root_admin') allTickets(@CurrentUser() user: UserRow, @Query() q: Json) { return this.support.list(user, { status: q.status, role: q.role, q: q.q, page: q.page ? Number(q.page) : undefined, limit: q.limit ? Number(q.limit) : undefined }); }
   @Get('support/:id') @Roles(...ALL) ticket(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.support.detail(user, id); }
   @Post('support/:id/reply') @Roles(...ALL) @HttpCode(200) replyTicket(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.support.reply(user, id, body); }
   @Patch('support/:id/status') @Roles('root_admin') ticketStatus(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.support.setStatus(user, id, body.status); }

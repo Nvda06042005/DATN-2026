@@ -277,7 +277,7 @@ export class AiToolsService {
     const days = Math.min(90, Math.max(1, Math.round(Number(daysRaw ?? 30)) || 30));
     const params: unknown[] = [days];
     let scope: string;
-    if (user.role === 'teacher') { params.push(user.id); scope = 'u.id IN (SELECT m.user_id FROM app_class_members m JOIN app_class_teachers t ON t.class_id = m.class_id WHERE t.teacher_id = $2)'; }
+    if (user.role === 'teacher') { params.push(user.id); scope = 'u.id IN (SELECT m.user_id FROM app_class_members m JOIN app_current_class_teachers t ON t.class_id = m.class_id WHERE t.teacher_id = $2)'; }
     else if (user.role === 'school_admin') { params.push(user.school_id); scope = "u.school_id = $2 AND u.role = 'student'"; }
     else scope = "u.role = 'student'";
     const base = `FROM hk_ai_messages m JOIN hk_ai_conversations c ON c.id = m.conversation_id JOIN app_users u ON u.id = c.user_id

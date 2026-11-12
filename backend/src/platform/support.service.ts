@@ -83,7 +83,7 @@ export class SupportService {
   }
 
   // ---------------------------------------------------------------------- quản trị tổng (HK.AD.073, HK.AD.074)
-  async list(user: UserRow, f: { status?: string; role?: string; q?: string; page?: number }) {
+  async list(user: UserRow, f: { status?: string; role?: string; q?: string; page?: number; limit?: number }) {
     if (user.role !== 'root_admin') throw new ForbiddenException('Chỉ quản trị viên tổng xem danh sách yêu cầu hỗ trợ');
     const where: string[] = [], params: unknown[] = [];
     const add = (sql: string, v: unknown) => { params.push(v); where.push(sql.replace('?', `$${params.length}`)); };
@@ -91,7 +91,7 @@ export class SupportService {
     if (f.role && ['student', 'teacher', 'school_admin'].includes(f.role)) add('t.role = ?', f.role);
     if (f.q?.trim()) add("(t.subject || ' ' || t.body || ' ' || u.full_name) ILIKE ? ESCAPE '\\'", `%${f.q.trim().replace(/[\\%_]/g, '\\$&')}%`);
     const cond = where.length ? where.join(' AND ') : 'TRUE';
-    const limit = 30, page = Math.max(1, Number(f.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(f.limit) || 30)), page = Math.max(1, Number(f.page) || 1);
     const total = Number((await this.db.query<{ n: string }>(`SELECT count(*) AS n FROM hk_support_tickets t JOIN app_users u ON u.id = t.user_id WHERE ${cond}`, params))[0].n);
     const items = await this.db.query(
       `SELECT ${TICKET_COLS}, u.full_name AS user_name, s.name AS school_name, (SELECT count(*)::int FROM hk_support_messages m WHERE m.ticket_id = t.id) AS replies

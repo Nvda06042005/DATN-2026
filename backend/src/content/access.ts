@@ -30,7 +30,7 @@ export function visibleSql(user: UserRow, alias: string, params: unknown[]): str
 export function storeSql(user: UserRow, alias: string, store: string | undefined, params: unknown[]): string {
   if (store === 'mine') {
     if (user.role === 'root_admin') return `${alias}.scope = 'system'`;
-    if (user.role === 'school_admin') return 'false';
+    if (user.role === 'school_admin') { params.push(user.school_id); return `(${alias}.scope = 'school' AND ${alias}.school_id = $${params.length})`; }
     params.push(user.id);
     return `(${alias}.scope = 'teacher' AND ${alias}.owner_id = $${params.length})`;
   }
@@ -49,6 +49,7 @@ export function canSee(user: UserRow, row: Owned): boolean {
 /** Giáo viên sửa nội dung riêng của mình; quản trị tổng sửa kho hệ thống; kho trường chỉ đổi qua duyệt và sao chép */
 export function canEdit(user: UserRow, row: Owned): boolean {
   if (user.role === 'root_admin') return row.scope === 'system';
+  if (user.role === 'school_admin') return row.scope === 'school' && row.school_id === user.school_id;
   if (user.role === 'teacher') return row.scope === 'teacher' && row.owner_id === user.id;
   return false;
 }
@@ -56,6 +57,7 @@ export function canEdit(user: UserRow, row: Owned): boolean {
 /** Kho và trường của nội dung mới do người dùng soạn */
 export function authoringScope(user: UserRow): { scope: Scope; school_id: number | null; owner_id: number } {
   if (user.role === 'root_admin') return { scope: 'system', school_id: null, owner_id: user.id };
+  if (user.role === 'school_admin' && user.school_id) return { scope: 'school', school_id: user.school_id, owner_id: user.id };
   if (user.role === 'teacher') {
     if (!user.school_id) throw new ForbiddenException('Tài khoản giáo viên chưa được gán trường');
     return { scope: 'teacher', school_id: user.school_id, owner_id: user.id };

@@ -39,7 +39,7 @@ export class WarMarchService {
   /** Điểm đến, đường nối và trạng thái từng điểm của một bản đồ (HK.HS.113) */
   async map(user: UserRow, campaignId: number) {
     return this.db.tx(async (q) => {
-      const map = (await q<{ id: number; campaign_id: number; title: string; background_url: string | null }>("SELECT id, campaign_id, title, background_url FROM hk_march_maps WHERE campaign_id = $1 AND status = 'published'", [campaignId]))[0];
+      const map = (await q<{ id: number; campaign_id: number; title: string; background_url: string | null }>("SELECT id, campaign_id, title, background_url FROM hk_march_maps WHERE campaign_id = $1 AND status = 'published' ORDER BY school_id NULLS LAST LIMIT 1", [campaignId]))[0];
       if (!map) throw notFound('bản đồ hành quân');
       const campaign = (await q<{ id: number; title: string; year_label: string }>('SELECT id, title, year_label FROM hist_campaigns WHERE id = $1', [campaignId]))[0];
       const points = await q<Point>('SELECT id, map_id, code, name, description, x::float8 AS x, y::float8 AS y, kind, payload, sort_order FROM hk_march_points WHERE map_id = $1 ORDER BY sort_order, id', [map.id]);
@@ -242,7 +242,7 @@ export class WarMarchService {
     return this.db.query(
       `SELECT m.id, m.campaign_id, m.title, m.background_url, m.status, c.title AS campaign_title, (SELECT count(*)::int FROM hk_march_points p WHERE p.map_id = m.id) AS points,
               (SELECT count(DISTINCT v.user_id)::int FROM hk_march_visits v JOIN hk_march_points p ON p.id = v.point_id WHERE p.map_id = m.id) AS players
-       FROM hk_march_maps m JOIN hist_campaigns c ON c.id = m.campaign_id ORDER BY c.sort_order, c.id`);
+       FROM hk_march_maps m JOIN hist_campaigns c ON c.id = m.campaign_id WHERE m.school_id IS NOT DISTINCT FROM $1 ORDER BY c.sort_order, c.id`, [this.db.workspaceSchoolId]);
   }
 
   async adminMap(id: number): Promise<Record<string, any>> {
@@ -274,6 +274,7 @@ export class WarMarchService {
   }
 
   async updateMap(id: number, body: Record<string, any>) {
+    await this.db.assertWorkspaceWritable('hk_march_maps', id);
     const cur = await this.adminMap(id);
     const title = body.title === undefined ? cur.title : String(body.title).trim();
     if (title.length < 2 || title.length > 160) throw new BadRequestException('Tên bản đồ từ 2 đến 160 ký tự');
@@ -283,6 +284,7 @@ export class WarMarchService {
 
   /** Lưu toàn bộ điểm và đường nối theo mã điểm; điểm cũ giữ nguyên mã thì giữ nguyên tiến độ học sinh */
   async saveLayout(id: number, body: { points?: Array<Record<string, any>>; edges?: Array<{ from: string; to: string }> }) {
+    await this.db.assertWorkspaceWritable('hk_march_maps', id);
     const points = body.points ?? [], edges = body.edges ?? [];
     if (!points.length || points.length > 40) throw new BadRequestException('Bản đồ có từ 1 đến 40 điểm');
     const codes = new Set<string>();
@@ -345,6 +347,7 @@ export class WarMarchService {
   }
 
   async setMapStatus(id: number, status: string) {
+    await this.db.assertWorkspaceWritable('hk_march_maps', id);
     if (!['draft', 'published'].includes(status)) throw new BadRequestException('Trạng thái là bản nháp hoặc đã phát hành');
     if (status === 'published') {
       const problems = await this.mapProblems(this.db.query.bind(this.db) as Q, id);
@@ -358,6 +361,7 @@ export class WarMarchService {
   }
 
   async deleteMap(id: number) {
+    await this.db.assertWorkspaceWritable('hk_march_maps', id);
     const players = Number((await this.db.query<{ n: string }>('SELECT count(DISTINCT v.user_id) AS n FROM hk_march_visits v JOIN hk_march_points p ON p.id = v.point_id WHERE p.map_id = $1', [id]))[0].n);
     if (players) throw new ConflictException(`Đã có ${players} học sinh hành quân trên bản đồ này; hãy gỡ phát hành thay vì xóa`);
     await this.db.query('DELETE FROM hk_march_maps WHERE id = $1', [id]);
@@ -365,7 +369,7 @@ export class WarMarchService {
 
   // ---- hội thoại
   async adminDialogs() {
-    return this.db.query('SELECT d.id, d.title, d.status, d.point_id, p.name AS point_name, jsonb_array_length(d.lines)::int AS lines, cardinality(d.source_ids)::int AS sources FROM hk_dialogs d LEFT JOIN hk_march_points p ON p.id = d.point_id ORDER BY d.id');
+    return this.db.query('SELECT d.id, d.title, d.status, d.point_id, p.name AS point_name, jsonb_array_length(d.lines)::int AS lines, cardinality(d.source_ids)::int AS sources FROM hk_dialogs d LEFT JOIN hk_march_points p ON p.id = d.point_id WHERE d.school_id IS NOT DISTINCT FROM $1 ORDER BY d.id', [this.db.workspaceSchoolId]);
   }
 
   async adminDialog(id: number) {
@@ -402,6 +406,7 @@ export class WarMarchService {
   }
 
   async updateDialog(id: number, body: Record<string, any>) {
+    await this.db.assertWorkspaceWritable('hk_dialogs', id);
     const cur = await this.adminDialog(id);
     await this.db.tx(async (q) => {
       const d = await this.dialogBody(q, body, cur);
@@ -412,6 +417,7 @@ export class WarMarchService {
 
   /** Phát hành cần gắn tư liệu nguồn đã công bố để kiểm chứng lời thoại */
   async setDialogStatus(id: number, status: string) {
+    await this.db.assertWorkspaceWritable('hk_dialogs', id);
     const d = await this.adminDialog(id);
     if (!['draft', 'published'].includes(status)) throw new BadRequestException('Trạng thái là bản nháp hoặc đã phát hành');
     if (status === 'published') {
@@ -424,6 +430,7 @@ export class WarMarchService {
   }
 
   async deleteDialog(id: number) {
+    await this.db.assertWorkspaceWritable('hk_dialogs', id);
     await this.adminDialog(id);
     await this.db.query('DELETE FROM hk_dialogs WHERE id = $1', [id]);
   }

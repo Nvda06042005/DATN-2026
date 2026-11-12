@@ -8,6 +8,8 @@ import type { AddressInfo } from 'net';
 import { call, hasPostgres, Started, startApp } from './harness';
 import { bootstrap, Fixture, publishSeed } from './fixture';
 import type { DatabaseService } from '../src/database/database.service';
+import { readdirSync, readFileSync } from 'fs';
+import { join } from 'path';
 
 let s: Started, f: Fixture, db: DatabaseService;
 const as = (who: { token: string }) => (method: string, path: string, body?: unknown) => call(s.base, method, path, body, who.token);
@@ -157,11 +159,28 @@ const upload = async (token: string, name: string, data: Buffer | string, title?
     await setSettings({ refusal_message: 'Tiểu Tướng chỉ trả lời các câu hỏi về lịch sử thời Trần và ba lần kháng chiến chống Nguyên – Mông có trong tư liệu của lớp học. Em thử hỏi về một nhân vật, trận đánh hoặc sự kiện cụ thể nhé!' });
   });
 
+  // Quyền theo vai trò và ngưỡng phạm vi phải giống nhau ở mọi môi trường: mã AI không được rẽ nhánh theo môi trường kiểm thử (JEST_WORKER_ID) ở chỗ nào khác ngoài cầu nối Python
+  test('mã AI không rẽ nhánh theo môi trường kiểm thử ở kiểm soát quyền, ngưỡng phạm vi hay yêu cầu mô hình', () => {
+    const dir = join(__dirname, '..', 'src', 'ai');
+    const hits: string[] = [];
+    for (const name of readdirSync(dir).filter((n) => n.endsWith('.ts'))) {
+      readFileSync(join(dir, name), 'utf8').split(String.fromCharCode(10)).forEach((line, i) => {
+        if (line.includes('JEST_WORKER_ID') || line.includes('NODE_ENV')) hits.push(`${name}:${i + 1}: ${line.trim()}`);
+      });
+    }
+    // chỉ còn hai chỗ của cầu nối Python (khởi động tiến trình và nhánh gọi mô hình Python ngoài môi trường kiểm thử)
+    expect(hits.every((h) => h.startsWith('ai-tutor.service.ts:'))).toBe(true);
+    expect(hits.length).toBeLessThanOrEqual(2);
+    const tutor = readFileSync(join(dir, 'ai-tutor.service.ts'), 'utf8');
+    expect(tutor).toContain('const allowed = MODES_BY_ROLE[user.role] ?? [];');
+    expect(tutor).toContain('best.coverage >= s.min_score || best.cos >= 0.5');
+  });
+
   // ------------------------------------------------------------------ HK.AD.057–058: cấu hình
   test('cấu hình mô hình: khóa API chỉ lưu mã hóa và không bao giờ trả về; kiểm tra giá trị; chỉ quản trị tổng được đổi', async () => {
     expect((await as(f.S1)('GET', '/api/ai/admin/settings')).status).toBe(403);
     expect((await as(f.T1)('PUT', '/api/ai/admin/settings', { provider: 'openai' })).status).toBe(403);
-    expect((await as(f.A)('GET', '/api/ai/admin/settings')).status).toBe(403);
+    expect((await as(f.A)('GET', '/api/ai/admin/settings')).status).toBe(200);
     expect((await call(s.base, 'GET', '/api/ai/admin/settings')).status).toBe(401);
     for (const bad of [{ provider: 'gemini' }, { temperature: 2 }, { max_tokens: 5 }, { top_k: 0 }, { min_score: 2 }, { base_url: 'ftp://x' }, { api_key: 'ngan' }, { system_prompt: 'ngắn' }, { refusal_message: '' }, { daily_per_user: 0 }, { index_kinds: ['cua-la'] }, { banned_terms: ['x'.repeat(41)] }]) {
       expect((await setSettings(bad)).status).toBe(400);
@@ -171,7 +190,7 @@ const upload = async (token: string, name: string, data: Buffer | string, title?
     expect(saved.body).toMatchObject({ provider: 'openai', has_key: true, key_hint: '••••3456', key_source: 'db', mode: 'llm', embeddings: true });
     expect(JSON.stringify(saved.body)).not.toContain(KEY);
     expect(saved.body.api_key_enc).toBeUndefined();
-    const stored = (await db.query<{ api_key_enc: string }>('SELECT api_key_enc FROM hk_ai_settings WHERE id = 1'))[0].api_key_enc;
+    const stored = (await db.query<{ api_key_enc: string }>('SELECT api_key_enc FROM hk_ai_settings WHERE id = 1 AND school_id IS NULL'))[0].api_key_enc;
     expect(stored).not.toContain(KEY);
     expect((await root('GET', '/api/ai/admin/settings')).body.has_key).toBe(true);
     // không gửi api_key thì giữ khóa cũ

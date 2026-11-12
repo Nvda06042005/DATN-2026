@@ -237,7 +237,7 @@ export class HistoryService {
       const id = row[f.name];
       labels[f.name] = id ? ((await q<{ label: string }>(`SELECT ${SPECS[f.ref as Entity].main} AS label FROM ${SPECS[f.ref as Entity].table} WHERE id = $1`, [id]))[0]?.label ?? null) : null;
     }
-    const base: Record<string, unknown> = { ...row, ref_labels: labels, status_label: STATUS_LABEL[row.status] };
+    const base: Record<string, unknown> = { ...row, can_edit: !this.db.inWorkspace || row.school_id === this.db.workspaceSchoolId, ref_labels: labels, status_label: STATUS_LABEL[row.status] };
     delete base.search_text;
     if (!withLinks) return base;
     const links = await this.linksOf(q, entity, row.id);
@@ -332,6 +332,7 @@ export class HistoryService {
   }
 
   async update(actor: UserRow, entity: string, id: number, body: Record<string, unknown> & { links?: Links; note?: string }) {
+    await this.db.assertWorkspaceWritable(this.spec(entity).table, id);
     const spec = this.spec(entity);
     const e = entity as Entity;
     try {
@@ -375,6 +376,7 @@ export class HistoryService {
   }
 
   async remove(entity: string, id: number): Promise<void> {
+    await this.db.assertWorkspaceWritable(this.spec(entity).table, id);
     const spec = this.spec(entity);
     const e = entity as Entity;
     await this.db.tx(async (q) => {
@@ -411,6 +413,7 @@ export class HistoryService {
   }
 
   async setStatus(actor: UserRow, entity: string, id: number, status: Status, note?: string | null) {
+    await this.db.assertWorkspaceWritable(this.spec(entity).table, id);
     const spec = this.spec(entity);
     const e = entity as Entity;
     if (!STATUSES.includes(status)) throw new UnprocessableEntityException('Trạng thái phải là draft, verified hoặc published');
@@ -435,6 +438,7 @@ export class HistoryService {
 
   /** Khôi phục một phiên bản cũ thành bản hiện tại; nội dung quay về Nháp để kiểm chứng lại */
   async restore(actor: UserRow, entity: string, id: number, versionNo: number) {
+    await this.db.assertWorkspaceWritable(this.spec(entity).table, id);
     const spec = this.spec(entity);
     const e = entity as Entity;
     const v = (await this.version(entity, id, versionNo)) as { snapshot: Record<string, unknown>; links: Links };
@@ -484,6 +488,7 @@ export class HistoryService {
 
   /** Kéo thả sắp xếp mốc thời gian: danh sách id sự kiện của một cuộc kháng chiến theo thứ tự mới */
   async reorderTimeline(actor: UserRow, campaignId: number, eventIds: number[]) {
+    await this.db.assertWorkspaceWritable('hist_campaigns', campaignId);
     const unique = [...new Set(eventIds)];
     if (unique.length !== eventIds.length) throw new UnprocessableEntityException('Danh sách có sự kiện trùng');
     await this.db.tx(async (q) => {
@@ -505,7 +510,7 @@ export class HistoryService {
       const slugOf = async (entity: Entity, id: unknown) => (id ? ((await q<{ slug: string }>(`SELECT slug FROM ${SPECS[entity].table} WHERE id = $1`, [id]))[0]?.slug ?? null) : null);
       const doc: Record<string, Array<Record<string, unknown>>> = {};
       for (const e of ENTITIES) {
-        const rows = await q<Row>(`SELECT t.* FROM ${SPECS[e].table} t ORDER BY ${SPECS[e].order}`);
+        const rows = await q<Row>(`SELECT t.* FROM ${SPECS[e].table} t WHERE t.school_id IS NOT DISTINCT FROM $1 ORDER BY ${SPECS[e].order}`, [this.db.workspaceSchoolId]);
         doc[e] = [];
         for (const r of rows) {
           const item: Record<string, unknown> = { slug: r.slug, status: r.status };
@@ -611,12 +616,12 @@ export class HistoryService {
             for (const f of spec.fields) {
               if (f.type === 'ref') {
                 const parent = item[f.ref as string];
-                body[f.name] = parent ? ((await q<{ id: number }>(`SELECT id FROM ${SPECS[f.ref as Entity].table} WHERE slug = $1`, [slugify(String(parent))]))[0]?.id ?? (() => { throw new UnprocessableEntityException(`Không có ${SPECS[f.ref as Entity].label.toLowerCase()} với slug ${parent}`); })()) : null;
+                body[f.name] = parent ? ((await q<{ id: number }>(`SELECT id FROM ${SPECS[f.ref as Entity].table} WHERE slug = $1 ORDER BY school_id NULLS LAST LIMIT 1`, [slugify(String(parent))]))[0]?.id ?? (() => { throw new UnprocessableEntityException(`Không có ${SPECS[f.ref as Entity].label.toLowerCase()} với slug ${parent}`); })()) : null;
               } else if (f.name in item) body[f.name] = item[f.name];
             }
             const values = await this.clean(q, e, body, false);
             this.crossCheck(e, values);
-            const existing = (await q<Row>(`SELECT * FROM ${spec.table} WHERE slug = $1 FOR UPDATE`, [slug]))[0];
+            const existing = (await q<Row>(`SELECT * FROM ${spec.table} WHERE slug = $1 AND school_id IS NOT DISTINCT FROM $2 FOR UPDATE`, [slug,this.db.workspaceSchoolId]))[0];
             if (existing && existing.status === 'published') await this.assertNoPublishedChildren(q, e, existing.id);
             if (commit) {
               const names = Object.keys(values);
@@ -641,12 +646,12 @@ export class HistoryService {
       }
       // Liên kết sau cùng, khi mọi bản ghi đã có id
       for (const { entity, slug, item } of pendingLinks) {
-        const id = (await q<{ id: number }>(`SELECT id FROM ${SPECS[entity].table} WHERE slug = $1`, [slug]))[0].id;
+        const id = (await q<{ id: number }>(`SELECT id FROM ${SPECS[entity].table} WHERE slug = $1 AND school_id IS NOT DISTINCT FROM $2`, [slug,this.db.workspaceSchoolId]))[0].id;
         const links: Links = {};
         for (const type of SPECS[entity].links) {
           if (!(`links_${type}` in item)) continue;
           const slugs = (item[`links_${type}`] as string[]).map((s) => slugify(String(s)));
-          const found = slugs.length ? await q<{ id: number; slug: string }>(`SELECT id, slug FROM ${SPECS[type].table} WHERE slug = ANY($1)`, [slugs]) : [];
+          const found = slugs.length ? await q<{ id: number; slug: string }>(`SELECT DISTINCT ON(slug) id, slug FROM ${SPECS[type].table} WHERE slug = ANY($1) ORDER BY slug,school_id NULLS LAST`, [slugs]) : [];
           const lost = slugs.filter((s) => !found.some((f) => f.slug === s));
           if (lost.length) report.push({ entity, slug, action: 'error', message: `Liên kết ${SPECS[type].label.toLowerCase()} không tồn tại: ${lost.join(', ')}` });
           links[type] = found.map((f) => Number(f.id));

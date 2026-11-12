@@ -15,6 +15,7 @@ import type { Session } from '@/components/auth';
 import { Bar, Btn, Card, Chip, ConfirmSheet, EmptyState, Segmented, Spinner, ToggleRow, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { ClassDetail, ClassRow } from '@/types/classroom';
+import { TeacherChangeForm } from './ClassTeacherChange';
 
 type Section = 'students' | 'teams' | 'rules' | 'battle' | 'rewards' | 'assignments' | 'progress' | 'notices';
 const SECTIONS: Array<{ value: Section; label: string }> = [
@@ -33,6 +34,7 @@ const ClassView: React.FC<{ session: Session; id: number; onBack: () => void; on
   const [code, setCode] = useState(false);
   const [archive, setArchive] = useState(false);
   const [remove, setRemove] = useState(false);
+  const [teacherChange,setTeacherChange]=useState(false);
   const cls = detail.data;
   const apply = (next: ClassDetail) => { detail.setData(next); onChanged(); };
   const refresh = () => { detail.reload(); onChanged(); };
@@ -40,11 +42,13 @@ const ClassView: React.FC<{ session: Session; id: number; onBack: () => void; on
     <Page>
       <Btn icon={ArrowLeft} title="Danh sách lớp" tone="giay" size="sm" onPress={onBack} />
       <ErrorNote message={detail.error} />
+      {teacherChange?<TeacherChangeForm session={session} classId={id} onClose={()=>setTeacherChange(false)}/>:null}
       {detail.loading && !cls ? <Spinner /> : null}
       {cls ? (
         <>
           <PageHeader title={`Lớp ${cls.name}`} subtitle={`Khối ${cls.grade ?? '?'} · ${cls.school_year} · ${cls.students} học sinh${cls.teachers.length ? ` · GV: ${cls.teachers.map((t) => t.full_name).join(', ')}` : ''}`}
             actions={<>
+              <Btn title="Đề nghị đổi giáo viên" tone="giay" size="sm" testID="teacher-change-open" disabled={!cls.is_active||cls.year_status==='ended'} onPress={()=>setTeacherChange(true)}/>
               <Btn icon={Pencil} title="Sửa thông tin" tone="giay" size="sm" onPress={() => setMeta(true)} disabled={!cls.is_active} />
               {cls.own ? <Btn icon={cls.is_active ? Archive : RotateCcw} title={cls.is_active ? 'Lưu trữ' : 'Khôi phục'} tone="giay" size="sm" onPress={() => setArchive(true)} /> : null}
               {cls.own ? <Btn icon={Trash2} title="Xóa lớp" tone="giay" size="sm" onPress={() => setRemove(true)} /> : null}

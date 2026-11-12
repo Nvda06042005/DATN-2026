@@ -9,11 +9,6 @@ export const TOPIC_TYPE_LABEL: Record<TopicType, string> = { campaign: 'Cuộc k
 export const LEVEL_TEXT: Record<TopicLevel, string> = { strong: 'Mạnh', ok: 'Khá', weak: 'Cần ôn', new: 'Chưa đủ dữ liệu' };
 
 // ---------------------------------------------------------------------- học sinh
-export type RecoKind = 'continue' | 'weak_topic' | 'review' | 'assignment' | 'streak';
-export interface RecoItem {
-  id: number; kind: RecoKind; kind_label: string; title: string; reason: string; ref_type: string | null; ref_id: number | null; campaign_id: number | null; score: number; feedback: 'helpful' | 'not_helpful' | null;
-}
-export interface RecoList { generated_at: string | null; refresh_hours: number; items: RecoItem[] }
 export interface Strengths {
   overall: { answered: number; correct: number; accuracy: number | null }; weak_threshold: number; min_answers: number; by_type: TypeRow[]; strong: TopicRow[]; weak: TopicRow[]; topics: TopicRow[];
 }
@@ -74,10 +69,7 @@ export interface AiUsage {
   quota?: { limit: number; used_today: number; remaining: number };
 }
 export interface SystemOverview {
-  schools: number; schools_total: number; users_by_role: Record<string, number>; dau: number; wau: number; mau: number; new_users_30d: number; series: Array<{ day: string; users: number }>;
+  as_of: string; schools: number; schools_total: number; users_by_role: Record<string, number>; dau: number; wau: number; mau: number; new_users_30d: number; series: Array<{ day: string; users: number }>;
 }
 export interface ContentRow { key: string; label: string; total: number; draft: number; verified: number; published: number }
 export interface ContentStats { history: ContentRow[]; learning: ContentRow[]; questions: { total: number; by_scope: Record<string, number> }; quizzes: number; ai_chunks: number }
-export interface RecoSettings {
-  weight_weak: number; weight_time: number; weight_difficulty: number; weak_threshold: number; min_answers: number; refresh_hours: number; max_items: number; practice_size: number; penalty_not_helpful: number;
-}
