@@ -40,7 +40,7 @@ test('chặn ngay file sai loại hoặc quá lớn, không phân biệt hoa th�
 test('hộp nhập Excel: câu báo trước ở chỗ nút Chọn file, kiểm tra file ngay sau khi chọn, báo danh sách đã tự cập nhật', () => {
   const kit = read('components', 'admin', 'kit.tsx');
   assert.match(kit, /import \{ acceptNote, checkPickedFile, checkTemplateFilename, XLSM_MIME \} from '@\/lib\/upload-rules';/);
-  assert.match(kit, /testID="import-accept-note"[\s\S]*?\{acceptNote\(types\)\}/);
+  assert.match(kit, /testID="import-accept-note"[\s\S]*?\{acceptText \?\? acceptNote\(types\)\}/); // hộp xếp lớp thay bằng câu ngắn "Chỉ nhận file Excel."
   assert.match(kit, /const wrong = checkPickedFile\(picked, types\);\s+if \(wrong\) \{ setFile\(null\); setError\(wrong\); return; \}/);
   // câu báo nằm trước nút "Chọn file"
   assert.ok(kit.indexOf('import-accept-note') < kit.indexOf('testID="import-choose"'));

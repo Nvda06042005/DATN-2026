@@ -52,3 +52,14 @@ test('thêm giáo viên/học sinh: Họ tên, SĐT, Email, Ngày sinh đều c�
  assert.match(sheet,/note=\{`Phải đúng file mẫu \$\{student\?'học sinh':'giáo viên'\} của \$\{spec\.school_name\}\. File của trường khác hoặc nhầm loại sẽ báo lỗi\.`\}/);
  assert.match(read('components/admin/kit.tsx'),/\{note \? <Txt size=\{13\} f="bold" testID="import-file-note">\{note\}<\/Txt> : null\}/);
 });
+
+test('Lớp học: bỏ nút Nhân bản sang năm học mới; Xếp lớp từ Excel dùng file mẫu của trường và năm học như nhập giáo viên/học sinh',()=>{
+ const classes=read('components/admin/SchoolClasses.tsx');
+ assert.doesNotMatch(classes,/title="Nhân bản sang năm học mới"|setCloning|cloneClasses|class-clone/);
+ assert.match(classes,/subtitle="Tạo lớp theo năm học và khối, phân công giáo viên và xếp học sinh vào lớp\."/);
+ assert.match(classes,/api\.classImportSpec\(token, yearId\)/);
+ assert.match(classes,/acceptText="Chỉ nhận file Excel\." note=\{`Phải đúng file mẫu xếp lớp năm học \$\{spec\.year_label\} của \$\{spec\.school_name\}\. File của trường hoặc năm học khác sẽ báo lỗi\.`\}/);
+ assert.match(classes,/expectedFilename=\{spec\.filename\} template=\{\{ filename: spec\.filename, fetchBlob: \(\) => api\.downloadFile\(token, `\/api\/admin\/classes\/template\?year_id=\$\{yearId\}`\) \}\}/);
+ assert.doesNotMatch(classes,/mau-phan-lop\.xlsx/);
+ assert.match(read('components/admin/kit.tsx'),/\{acceptText \?\? acceptNote\(types\)\}/);
+});

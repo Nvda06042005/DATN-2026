@@ -6,9 +6,48 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { randomInt } from 'crypto';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
-import { buildWorkbook, checkUpload, readSheet, UploadedXlsx } from './excel';
+import { buildFormSheet, cellText, checkUpload, classTemplateFilename, Column, FormColumn, normHeader, parseDate, readSheet, studentCodePrefix, UploadedXlsx, vnDayLabel } from './excel';
 import { likeEscape, SchoolService } from './school.service';
 import { notify } from '../classroom/notify';
+
+/**
+ * Cột của file xếp lớp (giống danh sách lớp của nhà trường: STT, họ tên, ngày sinh, giới tính) cộng mã học sinh và lớp.
+ * Học sinh được nhận ra bằng mã; để trống mã thì bằng họ tên + ngày sinh. Giới tính chỉ để đối chiếu, không đọc.
+ */
+const ASSIGN_COLUMNS: Column[] = [
+  { key: 'user_code', header: 'Mã học sinh', aliases: ['Mã HS'], width: 24 },
+  { key: 'full_name', header: 'Họ và tên', aliases: ['Họ tên'], width: 30 },
+  { key: 'birth_date', header: 'Ngày sinh', aliases: ['Ngày tháng năm sinh'], width: 16 },
+  { key: 'gender', header: 'Giới tính', width: 12 },
+  { key: 'class_name', header: 'Lớp *', required: true, width: 14 },
+];
+/** Danh sách lớp chọn trong ô Excel: công thức danh sách tối đa 255 ký tự, quá thì để ô chữ */
+const listFits = (names: string[]) => names.length > 0 && names.join(',').length <= 250 && names.every((n) => !/[,"]/.test(n));
+const plainName = (text: string) => text.normalize('NFC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('vi');
+const ddmmyyyy = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+
+/** Dòng tiêu đề A2 của file mẫu xếp lớp: năm học, tên trường, mã trường (để chỉ nhận đúng file của trường và năm học) */
+export const assignSubtitle = (yearLabel: string, school: string, code?: string | null) => `Mẫu xếp lớp năm học ${yearLabel} · ${school}${code ? ` · Mã trường ${code}` : ''}`;
+
+/**
+ * Chỉ nhận đúng file mẫu xếp lớp của trường và năm học đang chọn (yêu cầu 12/11/2026). File mẫu/danh sách giáo viên, học sinh bị từ chối;
+ * file cũ tự lập (tiêu đề cột ở dòng 1, không ghi trường) vẫn nhận như trước.
+ */
+export function checkAssignFile(subtitle: string, spec: { school_name: string; school_code: string; year_label: string }): void {
+  const text = normHeader(subtitle);
+  for (const [head, label] of [['Mẫu nhập danh sách giáo viên', 'file mẫu giáo viên'], ['Mẫu nhập danh sách học sinh', 'file mẫu học sinh'], ['Danh sách giáo viên', 'file danh sách giáo viên'], ['Danh sách học sinh', 'file danh sách học sinh']] as const) {
+    const h = normHeader(head);
+    if (text === h || text.startsWith(`${h} `)) throw new BadRequestException(`Đây là ${label}, không phải file xếp lớp. Hãy tải file mẫu xếp lớp năm học ${spec.year_label} rồi điền.`);
+  }
+  if (!text.startsWith(normHeader('Mẫu xếp lớp năm học'))) return;
+  const year = /năm học\s+(\d{4}\s*-\s*\d{4})/i.exec(subtitle)?.[1]?.replace(/\s/g, '');
+  if (year && year !== spec.year_label) throw new BadRequestException(`File mẫu này của năm học ${year}, đang xếp lớp năm học ${spec.year_label}. Hãy tải mẫu của năm học ${spec.year_label} rồi điền.`);
+  const code = /Mã trường\s+(\S+)/.exec(subtitle)?.[1];
+  const owner = subtitle.split('·')[1]?.trim() ?? '';
+  if (code ? code !== spec.school_code : normHeader(owner) !== normHeader(spec.school_name)) {
+    throw new BadRequestException(`File này của trường khác${owner ? ` (${owner}${code ? `, mã ${code}` : ''})` : ''}. Chỉ nhận file mẫu xếp lớp của ${spec.school_name}; hãy tải mẫu của trường rồi điền.`);
+  }
+}
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 /** Mã tham gia lớp: 6 ký tự, bỏ I, O, 0, 1 dễ nhầm */
@@ -375,25 +414,59 @@ export class ClassService {
     });
   }
 
-  /** Xếp lớp từ file Excel (HK.QT.039): cột Mã học sinh và Lớp; xem trước rồi lưu như nhập tài khoản */
+  /** Thông tin file mẫu xếp lớp của trường và năm học (mặc định năm học đang hoạt động): tên file, tên/mã trường, các lớp đang hoạt động */
+  async assignSpec(actor: UserRow, schoolId?: number | null, yearId?: number | null) {
+    const id = this.schools.target(actor, schoolId);
+    return this.schools.run(actor, async (q) => {
+      const school = (await q<{ name: string; school_code: string }>('SELECT name, school_code FROM app_schools WHERE id = $1', [id]))[0];
+      if (!school) throw new NotFoundException('Không tìm thấy trường');
+      const year = (await q<{ id: number; label: string; status: string }>(
+        "SELECT id, label, status FROM app_school_years WHERE school_id = $1 AND ($2::int IS NULL OR id = $2) ORDER BY (status = 'active') DESC, label DESC LIMIT 1", [id, yearId ?? null]))[0];
+      if (!year) throw new NotFoundException('Không tìm thấy năm học');
+      const classes = (await q<{ name: string }>('SELECT name FROM app_classes WHERE school_id = $1 AND year_id = $2 AND is_active ORDER BY grade, name', [id, year.id])).map((c) => c.name);
+      return { filename: classTemplateFilename(school.name, year.label), school_name: school.name, school_code: school.school_code, year_id: year.id, year_label: year.label, year_status: year.status, classes };
+    });
+  }
+
+  /**
+   * Xếp lớp từ file Excel (HK.QT.039): mỗi dòng một học sinh và lớp của năm học đã chọn; xem trước rồi lưu như nhập tài khoản.
+   * Chỉ nhận đúng file mẫu của trường và năm học (tên file và dòng tiêu đề). Học sinh nhận ra bằng mã học sinh, để trống mã thì bằng họ tên + ngày sinh;
+   * trùng cả họ tên lẫn ngày sinh thì phải điền mã.
+   */
   async importAssignments(actor: UserRow, file: UploadedXlsx | undefined, opts: { commit: boolean; school_id?: number | null; year_id: number }) {
     const upload = checkUpload(file);
     const schoolId = this.schools.target(actor, opts.school_id);
-    const parsed = await readSheet(upload, [{ key: 'user_code', header: 'Mã học sinh *', required: true }, { key: 'class_name', header: 'Lớp *', required: true }]);
+    const spec = await this.assignSpec(actor, schoolId, opts.year_id);
+    if (spec.year_id !== opts.year_id) throw new NotFoundException('Không tìm thấy năm học');
+    if (upload.originalname !== spec.filename) throw new BadRequestException(`Sai tên file. Chỉ nhận ${spec.filename}. Hãy giữ đúng tên file mẫu xếp lớp của trường và năm học.`);
+    const parsed = await readSheet(upload, ASSIGN_COLUMNS, undefined, false, (sheet) => checkAssignFile(cellText(sheet.getCell('A2').value), spec));
     if (!parsed.length) throw new BadRequestException('File không có dòng dữ liệu nào');
     return this.schools.run(actor, async (q) => {
       const year = (await q<{ id: number; status: string }>('SELECT id, status FROM app_school_years WHERE id = $1 AND school_id = $2', [opts.year_id, schoolId]))[0];
       if (!year) throw new NotFoundException('Không tìm thấy năm học');
       if (year.status === 'ended') throw new ConflictException('Năm học đã kết thúc, không xếp lớp được');
-      const rows: Array<{ row: number; user_code: string; class_name: string; status: 'ok' | 'error' | 'added' | 'exists'; errors: string[] }> = [];
+      const rows: Array<{ row: number; user_code: string; full_name: string; class_name: string; status: 'ok' | 'error' | 'added' | 'exists'; errors: string[] }> = [];
       for (const { row, values } of parsed) {
         const errors: string[] = [];
-        const code = values.user_code.trim(), name = values.class_name.trim();
-        const student = code ? (await q<{ id: number }>("SELECT id FROM app_users WHERE school_id = $1 AND role = 'student' AND lower(user_code) = lower($2) AND deleted_at IS NULL AND is_active = 1", [schoolId, code]))[0] : null;
-        if (!code || !student) errors.push(code ? `Không có học sinh mã ${code} (hoặc đang bị khóa)` : 'Thiếu mã học sinh');
-        const cls = name ? (await q<ClassRow>('SELECT * FROM app_classes WHERE school_id = $1 AND year_id = $2 AND lower(name) = lower($3) AND is_active', [schoolId, opts.year_id, name]))[0] : null;
-        if (!name || !cls) errors.push(name ? `Không có lớp "${name}" đang hoạt động trong năm học đã chọn` : 'Thiếu tên lớp');
-        const result = { row, user_code: code, class_name: name, status: (errors.length ? 'error' : 'ok') as 'ok' | 'error' | 'added' | 'exists', errors };
+        const code = values.user_code.trim(), name = values.full_name.trim(), born = values.birth_date.trim(), className = values.class_name.trim();
+        let student: { id: number; user_code: string | null; full_name: string } | null = null;
+        if (code) {
+          student = (await q<{ id: number; user_code: string | null; full_name: string }>("SELECT id, user_code, full_name FROM app_users WHERE school_id = $1 AND role = 'student' AND lower(user_code) = lower($2) AND deleted_at IS NULL AND is_active = 1", [schoolId, code]))[0] ?? null;
+          if (!student) errors.push(`Không có học sinh mã ${code} (hoặc đang bị khóa)`);
+        } else if (name && born) {
+          const iso = parseDate(born);
+          if (!iso) errors.push('Ngày sinh sai định dạng (dd/mm/yyyy)');
+          else {
+            const same = (await q<{ id: number; user_code: string | null; full_name: string }>("SELECT id, user_code, full_name FROM app_users WHERE school_id = $1 AND role = 'student' AND birth_date = $2 AND deleted_at IS NULL AND is_active = 1", [schoolId, iso]))
+              .filter((u) => plainName(u.full_name) === plainName(name));
+            if (same.length === 1) student = same[0];
+            else if (!same.length) errors.push(`Không có học sinh ${name} sinh ngày ${ddmmyyyy(iso)} (hoặc đang bị khóa)`);
+            else errors.push(`Có ${same.length} học sinh cùng họ tên và ngày sinh; hãy điền mã học sinh`);
+          }
+        } else errors.push(name ? 'Thiếu ngày sinh (hoặc mã học sinh) để nhận ra học sinh' : 'Thiếu mã học sinh (hoặc họ tên và ngày sinh)');
+        const cls = className ? (await q<ClassRow>('SELECT * FROM app_classes WHERE school_id = $1 AND year_id = $2 AND lower(name) = lower($3) AND is_active', [schoolId, opts.year_id, className]))[0] : null;
+        if (!className || !cls) errors.push(className ? `Không có lớp "${className}" đang hoạt động trong năm học đã chọn` : 'Thiếu tên lớp');
+        const result = { row, user_code: student?.user_code ?? code, full_name: student?.full_name ?? name, class_name: cls?.name ?? className, status: (errors.length ? 'error' : 'ok') as 'ok' | 'error' | 'added' | 'exists', errors };
         if (!errors.length && opts.commit && student && cls) result.status = (await this.addStudent(q, actor, cls, student.id)) ? 'added' : 'exists';
         rows.push(result);
       }
@@ -476,9 +549,41 @@ export class ClassService {
        FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = $1 ORDER BY c.school_year DESC, c.name`, [student.id]);
   }
 
-  async template(): Promise<Buffer> {
-    return buildWorkbook('Phân lớp', [{ key: 'user_code', header: 'Mã học sinh *', width: 16 }, { key: 'class_name', header: 'Lớp *', width: 14 }], [{ user_code: 'HS0001', class_name: '7A1' }],
-      ['Mỗi dòng xếp một học sinh vào một lớp của năm học được chọn khi nhập.', 'Học sinh đã ở trong lớp sẽ được bỏ qua. Xóa dòng ví dụ trước khi nhập.']);
+  /**
+   * File mẫu xếp lớp theo bố cục chuẩn như mẫu giáo viên/học sinh (yêu cầu 12/11/2026): logo Đông A, năm học, tên và mã trường, ngày bắt đầu nhập,
+   * khối ví dụ, rồi bảng giống danh sách lớp của nhà trường: Số thứ tự, Mã học sinh, Họ và tên, Ngày sinh, Giới tính, Lớp (chọn trong các lớp của năm học).
+   */
+  async template(actor: UserRow, schoolId?: number | null, yearId?: number | null, now: Date = new Date()): Promise<{ buffer: Buffer; filename: string }> {
+    const spec = await this.assignSpec(actor, schoolId, yearId);
+    const classes = spec.classes, sample = classes[0] ?? '6A1', prefix = studentCodePrefix(spec.school_name, now);
+    const columns: FormColumn[] = [
+      { key: 'stt', header: 'Số thứ tự', kind: 'index', watch: 'class_name', autoIndex: true, width: 11 },
+      { ...ASSIGN_COLUMNS[0], kind: 'text' },
+      { ...ASSIGN_COLUMNS[1], kind: 'text' },
+      { ...ASSIGN_COLUMNS[2], kind: 'date', prompt: 'Ngày sinh dd/mm/yyyy, ví dụ 01/07/2015.' },
+      { ...ASSIGN_COLUMNS[3], kind: 'list', options: ['Nam', 'Nữ', 'Khác'] },
+      listFits(classes) ? { ...ASSIGN_COLUMNS[4], kind: 'list', options: classes, prompt: `Chọn lớp của năm học ${spec.year_label}` } : { ...ASSIGN_COLUMNS[4], kind: 'text' },
+    ];
+    const buffer = await buildFormSheet({
+      sheetName: 'Xếp lớp', title: 'Đông A', subtitle: assignSubtitle(spec.year_label, spec.school_name, spec.school_code),
+      meta: [{ label: 'Năm học', value: spec.year_label }, { label: 'Ngày bắt đầu nhập', value: vnDayLabel(now) }],
+      note: 'Xem ví dụ rồi nhập danh sách bên dưới. Cột có dấu * là bắt buộc.',
+      entryNote: 'Mỗi dòng một học sinh: điền mã học sinh (hoặc họ tên và ngày sinh), chọn lớp; nhấn Enter, STT tự hiện.',
+      columns, blankRows: 1000, now,
+      example: {
+        title: 'VÍ DỤ CÁCH ĐIỀN · Chỉ minh họa, không xếp lớp',
+        values: { stt: 1, user_code: `${prefix}01072015001`, full_name: 'Trần Hoài An', birth_date: '2015-07-01', gender: 'Nữ', class_name: sample },
+        explanation: 'Có mã học sinh thì chỉ cần mã và lớp; chưa có mã thì điền họ tên và ngày sinh đúng như hồ sơ học sinh. Giới tính chỉ để đối chiếu.',
+      },
+      guide: [
+        `Mỗi dòng xếp một học sinh vào một lớp của năm học ${spec.year_label} (${spec.school_name}). Cột có dấu * là bắt buộc; khối VÍ DỤ chỉ để tham khảo.`,
+        'Học sinh được nhận ra bằng mã học sinh; để trống mã thì dùng họ tên và ngày sinh (dd/mm/yyyy) đúng như hồ sơ. Trùng cả họ tên lẫn ngày sinh thì phải điền mã.',
+        `Lớp chọn trong các lớp đang hoạt động của năm học ${spec.year_label}: ${classes.join(', ') || 'chưa có lớp nào, hãy tạo lớp trước'}.`,
+        'Học sinh đã ở trong lớp được bỏ qua; dòng lỗi được báo đúng số dòng trong Excel và không lưu.',
+        `Giữ nguyên tên file ${spec.filename} và chỉ nhập cho ${spec.school_name}, năm học ${spec.year_label}; file của trường hoặc năm học khác sẽ bị báo lỗi. Tối đa 1000 dòng mỗi lần.`,
+      ],
+    });
+    return { buffer, filename: spec.filename };
   }
 }
 

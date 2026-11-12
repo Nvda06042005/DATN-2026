@@ -368,15 +368,20 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect(added.body).toMatchObject({ added: 2, skipped: 1 }); // h2 đã ở 7A1; h1, h3 mới vào (học sinh thuộc nhiều lớp)
     expect((await qa('GET', `/api/admin/students?q=${studentCodes.HS001}`)).body.items[0].classes.map((c: any) => c.name).sort()).toEqual(['7A1', '7A2']);
     const file = await makeXlsx(['Mã học sinh *', 'Lớp *'], [[studentCodes.HS107,'7A1'],[studentCodes.HS107,'7A1'], ['HS999', '7A1'], [studentCodes.HS107,'8Z'], ['', '7A1']]);
-    const preview = await upload(s.base, `/api/admin/classes/import?year_id=${y25}`, 'phan-lop.xlsx', file, A.token);
+    // tên file phải đúng file mẫu xếp lớp của trường và năm học (file cũ tiêu đề ở dòng 1 vẫn nhận)
+    const classFile = (await qa('GET', `/api/admin/classes/import-spec?year_id=${y25}`)).body.filename as string;
+    expect((await upload(s.base, `/api/admin/classes/import?year_id=${y25}`, 'phan-lop.xlsx', file, A.token)).status).toBe(400);
+    const preview = await upload(s.base, `/api/admin/classes/import?year_id=${y25}`, classFile, file, A.token);
     expect(preview.body).toMatchObject({ committed: false, total: 5, valid: 2, errors: 3 });
-    const commit = await upload(s.base, `/api/admin/classes/import?commit=true&year_id=${y25}`, 'phan-lop.xlsx', file, A.token);
+    const commit = await upload(s.base, `/api/admin/classes/import?commit=true&year_id=${y25}`, classFile, file, A.token);
     expect(commit.body).toMatchObject({ added: 1, errors: 3 }); // dòng thứ hai trùng dòng đầu nên "đã có"
     expect(commit.body.rows[1].status).toBe('exists');
     expect((await qa('DELETE', `/api/admin/classes/${c7a.id}/members/${h1}`)).status).toBe(204);
     expect((await qa('DELETE', `/api/admin/classes/${c7a.id}/members/${h1}`)).status).toBe(404);
     expect((await qa('GET', `/api/admin/classes/${c7a.id}`)).body.members.map((m: any) => m.user_code).sort()).toEqual([studentCodes.HS002,studentCodes.HS003,studentCodes.HS101,studentCodes.HS107].sort());
-    expect((await readRows((await download(s.base, '/api/admin/classes/template', A.token)).buffer))[0]).toEqual(['Mã học sinh *', 'Lớp *']);
+    // mẫu mới cùng bố cục với mẫu giáo viên/học sinh (chi tiết ở class_excel.spec.ts)
+    const templateRows = await readRows((await download(s.base, `/api/admin/classes/template?year_id=${y25}`, A.token)).buffer);
+    expect(templateRows.find((r) => r.includes('Lớp *'))).toEqual(['Số thứ tự', 'Mã học sinh', 'Họ và tên', 'Ngày sinh', 'Giới tính', 'Lớp *']);
   });
 
   test('HK.QT.038 lớp đã có học sinh chỉ lưu trữ, lớp trống được xóa; lớp lưu trữ khôi phục được', async () => {

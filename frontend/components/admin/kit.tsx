@@ -630,9 +630,11 @@ export const ImportSheet: React.FC<{
   title: string; hint: string; template?: { fetchBlob: () => Promise<Blob>; filename: string }; types?: string[]; expectedFilename?:string; legacyFilename?:string; acceptMacro?:boolean;
   /** Ghi chú thêm dưới dòng loại file, ví dụ phải đúng file mẫu của trường */
   note?: string;
+  /** Thay câu mặc định về loại file (ví dụ chỉ ghi "Chỉ nhận file Excel.") */
+  acceptText?: string;
   run: (file: PickedFile, commit: boolean) => Promise<ImportResult | { committed: boolean; total: number; errors: number; created: number; updated: number; report: Array<{ entity: string; slug: string; action: string; message?: string }> }>;
   onClose: () => void; onDone: () => void;
-}> = ({ title, hint, template, types: baseTypes = XLSX_TYPES, expectedFilename, legacyFilename, acceptMacro=false, note, run, onClose, onDone }) => {
+}> = ({ title, hint, template, types: baseTypes = XLSX_TYPES, expectedFilename, legacyFilename, acceptMacro=false, note, acceptText, run, onClose, onDone }) => {
   const { c } = useTheme();
   const toast = useToast();
   const types=acceptMacro?[...XLSX_TYPES,XLSM_MIME]:baseTypes;
@@ -688,7 +690,7 @@ export const ImportSheet: React.FC<{
         <Inset style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
           <Info size={16} color={c.muc2} style={{ marginTop: 2 }} />
           <View style={{ flex: 1, gap: 2 }}>
-            <Txt size={13}>{acceptNote(types)}</Txt>
+            <Txt size={13}>{acceptText ?? acceptNote(types)}</Txt>
             {note ? <Txt size={13} f="bold" testID="import-file-note">{note}</Txt> : null}
           </View>
         </Inset>

@@ -69,6 +69,9 @@ export const deleteUser = (token: string, id: number) => apiRequest<void>(`/api/
 // ---------------------------------------------------------------------- nhập / xuất Excel
 export const importMembers = (token: string, kind: 'teachers' | 'students', file: PickedFile, opts: { commit: boolean; year_id?: number | null; school_id?: number | null }) =>
   apiUpload<ImportResult>(`/api/admin/${kind}/import${qs({ commit: opts.commit ? 'true' : undefined, year_id: opts.year_id, school_id: opts.school_id })}`, file, token);
+/** File mẫu xếp lớp của trường và năm học: tên file phải giữ khi nhập, tên trường, năm học, các lớp đang hoạt động */
+export interface ClassImportSpec { filename: string; school_name: string; year_id: number; year_label: string; classes: string[] }
+export const classImportSpec = (token: string, yearId: number) => apiRequest<ClassImportSpec>(`/api/admin/classes/import-spec${qs({ year_id: yearId })}`, { token });
 export const importAssignments = (token: string, file: PickedFile, opts: { commit: boolean; year_id: number; school_id?: number | null }) =>
   apiUpload<ImportResult>(`/api/admin/classes/import${qs({ commit: opts.commit ? 'true' : undefined, year_id: opts.year_id, school_id: opts.school_id })}`, file, token);
 export const downloadFile = (token: string, path: string) => apiBlob(path, token);

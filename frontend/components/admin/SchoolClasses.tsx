@@ -1,6 +1,7 @@
 /**
- * Lớp học của trường (HK.QT.022, HK.QT.035–040): tạo lớp theo năm học và khối, phân công nhiều giáo viên, mã tham gia 6 ký tự,
- * xếp học sinh (chọn hoặc Excel), chuyển lớp cùng khối, lưu trữ/xóa, nhân bản sang năm học mới (lên lớp).
+ * Lớp học của trường (HK.QT.022, HK.QT.035–039): tạo lớp theo năm học và khối, phân công nhiều giáo viên, mã tham gia 6 ký tự,
+ * xếp học sinh (chọn hoặc Excel theo file mẫu của trường và năm học), chuyển lớp cùng khối, lưu trữ/xóa.
+ * Nút "Nhân bản sang năm học mới" đã bỏ khỏi giao diện theo yêu cầu 12/11/2026 (API nhân bản vẫn giữ).
  */
 import React, { useMemo, useState } from 'react';
 import { View } from 'react-native';
@@ -15,7 +16,7 @@ import { dateText } from '@/components/admin/AccountSheet';
 import type { Session } from '@/components/auth';
 import { Btn, Card, ConfirmSheet, Inset, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
-import type { ClassDetail, ClassItem, CloneResult, YearItem } from '@/types/api';
+import type { ClassDetail, ClassItem, YearItem } from '@/types/api';
 
 const KIND_TEXT: Record<string, string> = {
   change_teacher:'Đổi giáo viên phụ trách lớp',
@@ -42,9 +43,7 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
   const openGrades = (gradeData?.grades ?? []).filter((g) => g.is_active).map((g) => ({ value: String(g.grade), label: `Khối ${g.grade}` }));
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
-  const [cloning, setCloning] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [cloned, setCloned] = useState<CloneResult | null>(null);
   const requests=useLoad(()=>api.teacherChangeRequests(token),[token],session.expired);
   const [reviewing,setReviewing]=useState(false);
   const ended = year?.status === 'ended';
@@ -53,11 +52,10 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
 
   return (
     <Page>
-      <PageHeader title="Lớp học" subtitle="Tạo lớp theo năm học và khối, phân công giáo viên, xếp học sinh và nhân bản sang năm học mới."
+      <PageHeader title="Lớp học" subtitle="Tạo lớp theo năm học và khối, phân công giáo viên và xếp học sinh vào lớp."
         actions={<>
           <Btn title={`Đề nghị đổi giáo viên${requests.data?.length ? ` (${requests.data.length})`:''}`} tone="giay" size="sm" testID="teacher-change-review" onPress={()=>{requests.reload();setReviewing(true);}}/>
-          <Btn title="Nhân bản sang năm học mới" icon={RefreshCw} tone="giay" size="sm" disabled={!yearId} onPress={() => setCloning(true)} testID="class-clone" />
-          <Btn title="Xếp lớp từ Excel" icon={FileUp} tone="giay" size="sm" disabled={!yearId || ended} onPress={() => setImporting(true)} />
+          <Btn title="Xếp lớp từ Excel" icon={FileUp} tone="giay" size="sm" disabled={!yearId || ended} onPress={() => setImporting(true)} testID="class-import" />
           <Btn title="Tạo lớp" icon={Plus} tone="son" size="sm" disabled={!yearId || ended} onPress={() => setCreating(true)} testID="class-add" />
         </>} />
       {!years.length ? <Inset><Txt size={14}>Chưa có năm học nào. Hãy thêm và kích hoạt năm học ở mục “Trường và năm học” trước khi tạo lớp.</Txt></Inset> : null}
@@ -93,34 +91,22 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
             reload();
           }} />
       ) : null}
-      {cloning ? (
-        <FormSheet title="Nhân bản lớp sang năm học mới" subtitle="Tạo lớp mới cho năm học đích với học sinh của lớp cũ (lên lớp)" submitLabel="Nhân bản"
-          fields={[{ name: 'from', label: 'Từ năm học', type: 'select', required: true, options: yearOptions(years) }, { name: 'to', label: 'Sang năm học', type: 'select', required: true, options: [{ value: '', label: 'Chọn năm học đích' }, ...yearOptions(years.filter((y) => y.status !== 'ended'))] },
-            { name: 'promote', label: 'Lên lớp', type: 'select', options: [{ value: 'yes', label: 'Có: khối + 1 (7A1 → 8A1); lớp khối 9 không lên lớp' }, { value: 'no', label: 'Không: giữ nguyên khối' }] },
-            { name: 'copy_teachers', label: 'Giáo viên phụ trách', type: 'select', options: [{ value: 'yes', label: 'Chép sang lớp mới' }, { value: 'no', label: 'Để trống' }] }]}
-          initial={{ from: String(yearId), to: String(years.find((y) => y.status !== 'ended' && y.id !== yearId)?.id ?? ''), promote: 'yes', copy_teachers: 'yes' }} onClose={() => setCloning(false)}
-          onSubmit={async (v) => {
-            const res = await api.cloneClasses(token, { from_year_id: Number(v.from), to_year_id: Number(v.to), promote: v.promote === 'yes', copy_teachers: v.copy_teachers === 'yes' });
-            setCloning(false);
-            setCloned(res);
-            reload();
-          }} />
-      ) : null}
-      {cloned ? (
-        <Sheet open onClose={() => setCloned(null)} title="Kết quả nhân bản lớp" subtitle={`${cloned.from_year} → ${cloned.to_year}`} footer={<Btn title="Đóng" tone="son" onPress={() => setCloned(null)} />}>
-          <Txt f="bold" size={14}>Đã tạo {cloned.created.length} lớp</Txt>
-          {cloned.created.map((x) => <Txt key={x.id} size={14}>• {x.from_class} → {x.name} (khối {x.grade}, {x.students} học sinh)</Txt>)}
-          {cloned.skipped.length ? <Txt f="bold" size={14}>Bỏ qua {cloned.skipped.length} lớp</Txt> : null}
-          {cloned.skipped.map((x) => <Txt key={x.class} size={14}>• {x.class}: {x.reason}</Txt>)}
-        </Sheet>
-      ) : null}
-      {importing && yearId ? (
-        <ImportSheet title="Xếp học sinh vào lớp từ Excel" hint={`Mỗi dòng xếp một học sinh (theo mã học sinh) vào một lớp của năm học ${year?.label}. Học sinh đã ở trong lớp được bỏ qua.`}
-          template={{ fetchBlob: () => api.downloadFile(token, '/api/admin/classes/template'), filename: 'mau-phan-lop.xlsx' }}
-          run={(file, commit) => api.importAssignments(token, file, { commit, year_id: yearId })} onClose={() => setImporting(false)} onDone={reload} />
-      ) : null}
+      {importing && yearId ? <ClassImportSheet session={session} yearId={yearId} onClose={() => setImporting(false)} onDone={reload} /> : null}
     </Page>
   );
+};
+
+// ---------------------------------------------------------------------- xếp lớp từ Excel: cùng cách với nhập giáo viên/học sinh
+/** Tải đúng file mẫu của trường và năm học (tên file kèm năm học), chỉ nhận lại đúng file đó; học sinh nhận ra bằng mã hoặc họ tên + ngày sinh */
+const ClassImportSheet: React.FC<{ session: Session; yearId: number; onClose: () => void; onDone: () => void }> = ({ session, yearId, onClose, onDone }) => {
+  const { token } = session;
+  const title = 'Xếp học sinh vào lớp từ Excel';
+  const { data: spec, error, reload } = useLoad(() => api.classImportSpec(token, yearId), [token, yearId], session.expired);
+  if (!spec) return <Sheet open title={title} onClose={onClose}>{error ? <><ErrorNote message={error} /><Btn title="Thử lại" onPress={reload} /></> : <Spinner label="Đang tải file mẫu của trường…" />}</Sheet>;
+  return <ImportSheet title={title} hint={`Tải file mẫu năm học ${spec.year_label}, điền danh sách rồi chọn file để nhập. Học sinh đã ở trong lớp được bỏ qua.`}
+    acceptText="Chỉ nhận file Excel." note={`Phải đúng file mẫu xếp lớp năm học ${spec.year_label} của ${spec.school_name}. File của trường hoặc năm học khác sẽ báo lỗi.`}
+    expectedFilename={spec.filename} template={{ filename: spec.filename, fetchBlob: () => api.downloadFile(token, `/api/admin/classes/template?year_id=${yearId}`) }}
+    run={(file, commit) => api.importAssignments(token, file, { commit, year_id: yearId })} onClose={onClose} onDone={onDone} />;
 };
 
 // ---------------------------------------------------------------------- chi tiết một lớp

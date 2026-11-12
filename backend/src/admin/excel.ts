@@ -246,6 +246,8 @@ export function teacherTemplateFilename(name:string):string {
 }
 
 export const studentTemplateFilename=(name:string):string=>teacherTemplateFilename(name).replace("file_mau_giao-vien_","file_mau_hoc-sinh_");
+/** File mẫu xếp lớp theo trường và năm học, ví dụ file_mau_xep-lop_truong_giong-ong-to_2026-2027.xlsx */
+export const classTemplateFilename=(name:string,yearLabel:string):string=>teacherTemplateFilename(name).replace("file_mau_giao-vien_","file_mau_xep-lop_").replace(/\.xlsx$/,`_${yearLabel.replace(/[^0-9-]/g,'')}.xlsx`);
 
 const completedIndexFormula=(name:string,email:string,birth:string,first:number,optionalEmail=false):string=>{
   const col=(ref:string)=>ref.replace(/\d+$/,'');
@@ -298,8 +300,8 @@ export interface FormSheetSpec {
   /** Dữ liệu có sẵn (danh sách xuất); không có thì là file mẫu trống với `blankRows` dòng định dạng sẵn */
   rows?: Array<Record<string, unknown>>;
   blankRows?: number;
-  /** Khối ví dụ riêng phía trên bảng nhập, không nằm trong dữ liệu được đọc khi import. */
-  example?: { values: Record<string, string | number>; explanation: string };
+  /** Khối ví dụ riêng phía trên bảng nhập, không nằm trong dữ liệu được đọc khi import. `title` thay dòng đầu của khối (mặc định nói rõ không tạo tài khoản). */
+  example?: { values: Record<string, string | number>; explanation: string; title?: string };
   guide?: string[];
   now?: Date;
 }
@@ -366,7 +368,7 @@ export async function buildFormSheet(spec: FormSheetSpec): Promise<Buffer> {
       cell.alignment = { vertical: 'middle', wrapText: true };
       sheet.getRow(n).height = height;
     };
-    banner(start, 'VÍ DỤ CÁCH ĐIỀN · Chỉ minh họa, không tạo tài khoản', 20);
+    banner(start, spec.example.title ?? 'VÍ DỤ CÁCH ĐIỀN · Chỉ minh họa, không tạo tài khoản', 20);
     cols.forEach((c, i) => {
       const title = sheet.getCell(start + 1, i + 1), cell = sheet.getCell(start + 2, i + 1);
       // Không dùng lại đúng nhãn cột bắt buộc: bộ đọc phải tìm dòng tiêu đề bảng nhập bên dưới.

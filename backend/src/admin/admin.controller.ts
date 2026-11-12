@@ -171,6 +171,10 @@ class LockDto {
   @IsOptional() @IsString() @MaxLength(300) reason?: string | null;
 }
 
+class AssignQuery extends SchoolScope {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) year_id?: number;
+}
+
 class ImportQuery extends SchoolScope {
   @IsOptional() @IsIn(['true', 'false']) commit?: 'true' | 'false';
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) year_id?: number;
@@ -450,8 +454,17 @@ export class AdminController {
   @HttpCode(200)
   clone(@CurrentUser() user: UserRow, @Body() body: CloneDto) { return this.classes.clone(user, body); }
 
+  /** File mẫu xếp lớp của trường và năm học (mặc định năm học đang hoạt động), cùng bố cục với mẫu giáo viên/học sinh */
   @Get('classes/template')
-  async classTemplate() { return download(await this.classes.template(), 'mau-phan-lop.xlsx'); }
+  @Header('Cache-Control','no-store')
+  async classTemplate(@CurrentUser() user: UserRow, @Query() query: AssignQuery) {
+    const file = await this.classes.template(user, query.school_id, query.year_id);
+    return download(await withCalendarAddin(file.buffer), file.filename);
+  }
+
+  @Get('classes/import-spec')
+  @Header('Cache-Control','no-store')
+  classImportSpec(@CurrentUser() user: UserRow, @Query() query: AssignQuery) { return this.classes.assignSpec(user, query.school_id, query.year_id); }
 
   @Post('classes/import')
   @HttpCode(200)
