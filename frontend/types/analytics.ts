@@ -18,6 +18,25 @@ export interface ExamPlan {
   weak_topics: Array<{ type: TopicType; id: number; name: string; percent: number }>; days: Array<{ date: string; tasks: PlanTask[] }>;
 }
 export interface ExamPlans { exams: ExamPlan[]; note: string }
+export interface StudentAiProfile {
+  has_activity: boolean;
+  student: { id: number; full_name: string; grade: number | null; school_id: number | null };
+  stats: {
+    xp: number; level: number; streak_current: number; daily_goal: number;
+    progress: number | null; nodes_done: number; nodes_total: number;
+    avg_percent: number | null; attempts: number; answered: number; correct: number; accuracy: number | null;
+    study_minutes: number; active_days: number; last_active_at: string | null; days_idle: number | null;
+  };
+  current_journey: {
+    title: string | null;
+    next_node: { journey_id: number; journey_title: string; node_id: number; title: string; kind: string } | null;
+    review_nodes: Array<{ id: number; title: string; kind: string; best_percent: number; stars: number }>;
+  };
+  topics: { strong: TopicRow[]; weak: TopicRow[]; all: TopicRow[] };
+  recent_wrong_questions: Array<{ question_id: number; prompt: string; difficulty: number; wrong_count: number; last_wrong_at: string; campaign_title: string | null }>;
+  upcoming_assignments: Array<{ assignment_id: number; title: string; class_name: string; due_at: string; days_left: number; weak_topics: Array<{ type: string; id: number; name: string; percent: number }> }>;
+  ai_history: { questions_30d: number; recent_questions: string[] };
+}
 
 // ---------------------------------------------------------------------- lớp và học sinh
 export interface ClassInfo { id: number; name: string; grade: number | null; school_id: number; school_name: string; year_label: string | null; is_active: boolean; teachers: string | null; teacher_ids: number[]; students: number }

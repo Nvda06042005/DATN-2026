@@ -28,6 +28,25 @@ const startOf = (d?: string): string | undefined => (d && /^\d{4}-\d{2}-\d{2}$/.
 const endOf = (d?: string): string | undefined => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? `${d}T23:59:59.999+07:00` : undefined);
 
 export interface Period { from?: string; to?: string }
+export interface StudentAiProfile {
+  has_activity: boolean;
+  student: { id: number; full_name: string; grade: number | null; school_id: number | null };
+  stats: {
+    xp: number; level: number; streak_current: number; daily_goal: number;
+    progress: number | null; nodes_done: number; nodes_total: number;
+    avg_percent: number | null; attempts: number; answered: number; correct: number; accuracy: number | null;
+    study_minutes: number; active_days: number; last_active_at: string | null; days_idle: number | null;
+  };
+  current_journey: {
+    title: string | null;
+    next_node: { journey_id: number; journey_title: string; node_id: number; title: string; kind: string } | null;
+    review_nodes: Array<{ id: number; title: string; kind: string; best_percent: number; stars: number }>;
+  };
+  topics: { strong: TopicRow[]; weak: TopicRow[]; all: TopicRow[] };
+  recent_wrong_questions: Array<{ question_id: number; prompt: string; difficulty: number; wrong_count: number; last_wrong_at: string; campaign_title: string | null }>;
+  upcoming_assignments: Array<{ assignment_id: number; title: string; class_name: string; due_at: string; days_left: number; weak_topics: Array<{ type: string; id: number; name: string; percent: number }> }>;
+  ai_history: { questions_30d: number; recent_questions: string[] };
+}
 export interface ClassInfo { id: number; name: string; grade: number | null; school_id: number; school_name: string; year_label: string | null; is_active: boolean; teachers: string | null; teacher_ids: number[]; students: number }
 export interface StudentStat {
   id: number; full_name: string; user_code: string | null; email: string | null; progress: number | null; nodes_done: number; nodes_total: number; xp: number; level: number; streak: number;
@@ -197,6 +216,93 @@ export class AnalyticsService {
       return {
         overall: { answered: stat.answered, correct: stat.correct, accuracy: stat.accuracy }, weak_threshold: s.weak_threshold, min_answers: s.min_answers, by_type: byType(topics),
         strong: topics.filter((t) => t.level === 'strong').slice(-6).reverse(), weak: topics.filter((t) => t.level === 'weak').slice(0, 8), topics,
+      };
+    });
+  }
+
+  /** Hồ sơ học tập tổng hợp của chính học sinh phục vụ AI Tutor & Lộ trình cá nhân hóa BKT */
+  async studentAiProfile(user: UserRow): Promise<StudentAiProfile> {
+    if (!this.db.ready) {
+      return {
+        has_activity: false,
+        student: { id: user.id, full_name: user.full_name, grade: user.grade ?? null, school_id: user.school_id ?? null },
+        stats: {
+          xp: 0, level: 1, streak_current: 0, daily_goal: 30, progress: null, nodes_done: 0, nodes_total: 0,
+          avg_percent: null, attempts: 0, answered: 0, correct: 0, accuracy: null, study_minutes: 0, active_days: 0, last_active_at: null, days_idle: null,
+        },
+        current_journey: { title: null, next_node: null, review_nodes: [] },
+        topics: { strong: [], weak: [], all: [] },
+        recent_wrong_questions: [],
+        upcoming_assignments: [],
+        ai_history: { questions_30d: 0, recent_questions: [] },
+      };
+    }
+
+    const s = await this.reco.settings();
+    const exam = await this.reco.examPlan(user).catch(() => ({ exams: [] as Array<Record<string, any>> }));
+    const upcomingAssignments = ((exam as { exams?: Array<Record<string, any>> }).exams ?? []).slice(0, 4).map((e) => ({
+      assignment_id: Number(e.assignment_id ?? 0),
+      title: String(e.title ?? ''),
+      class_name: String(e.class_name ?? ''),
+      due_at: String(e.due_at ?? ''),
+      days_left: Number(e.days_left ?? 0),
+      weak_topics: Array.isArray(e.weak_topics) ? e.weak_topics.slice(0, 4) : [],
+    }));
+
+    return this.db.tx(async (q) => {
+      const [stat] = await this.statsOf(q, [{ id: user.id, full_name: user.full_name, user_code: user.user_code, email: user.email }]);
+      const player = (await q<{ daily_goal: number; streak_current: number }>('SELECT daily_goal, streak_current FROM hk_players WHERE user_id = $1', [user.id]))[0];
+      const topics = await topicStats(q, [user.id], { weakThreshold: s.weak_threshold, minAnswers: s.min_answers });
+
+      let journeyTitle: string | null = null;
+      let nextNode: StudentAiProfile['current_journey']['next_node'] = null;
+      const reviewNodes: StudentAiProfile['current_journey']['review_nodes'] = [];
+      for (const j of await activeJourneys(q, user.id)) {
+        if (!journeyTitle) journeyTitle = j.title;
+        const nodes = await nodesWithState(q, user.id, j.journey_id);
+        if (!nextNode) {
+          const open = nodes.find((n) => n.state === 'available');
+          if (open) nextNode = { journey_id: j.journey_id, journey_title: j.title, node_id: open.id, title: open.title, kind: open.kind };
+        }
+        for (const n of nodes) {
+          if (n.state === 'done' && (n.best_percent < 85 || n.stars < 3)) {
+            reviewNodes.push({ id: n.id, title: n.title, kind: n.kind, best_percent: n.best_percent, stars: n.stars });
+          }
+        }
+      }
+      reviewNodes.sort((a, b) => a.best_percent - b.best_percent);
+
+      const recentWrong = await q<{ question_id: number; prompt: string; difficulty: number; wrong_count: number; last_wrong_at: string; campaign_title: string | null }>(
+        `SELECT w.question_id::int AS question_id, qu.prompt, COALESCE(qu.difficulty, 1)::int AS difficulty, w.wrong_count::int AS wrong_count,
+                w.last_wrong_at::text AS last_wrong_at, cp.title AS campaign_title
+         FROM hk_wrong_questions w
+         JOIN hk_questions qu ON qu.id = w.question_id
+         LEFT JOIN hist_campaigns cp ON cp.id = qu.campaign_id
+         WHERE w.user_id = $1 AND w.cleared_at IS NULL
+         ORDER BY w.wrong_count DESC, w.last_wrong_at DESC LIMIT 10`, [user.id]);
+
+      const ai30d = num((await q<{ n: string }>(
+        "SELECT count(*) AS n FROM hk_ai_messages m JOIN hk_ai_conversations c ON c.id = m.conversation_id WHERE c.user_id = $1 AND m.role = 'user' AND m.created_at >= now() - interval '30 days'",
+        [user.id]))[0]?.n);
+      const recentChat = (await q<{ content: string }>(
+        "SELECT m.content FROM hk_ai_messages m JOIN hk_ai_conversations c ON c.id = m.conversation_id WHERE c.user_id = $1 AND c.deleted_at IS NULL AND m.role = 'user' ORDER BY m.created_at DESC LIMIT 6",
+        [user.id])).map((r) => r.content.slice(0, 140));
+
+      const hasActivity = stat.answered > 0 || stat.attempts > 0 || stat.nodes_done > 0 || recentWrong.length > 0 || recentChat.length > 0;
+      return {
+        has_activity: hasActivity,
+        student: { id: user.id, full_name: user.full_name, grade: user.grade ?? null, school_id: user.school_id ?? null },
+        stats: {
+          xp: stat.xp, level: stat.level, streak_current: player?.streak_current ?? stat.streak, daily_goal: player?.daily_goal ?? 30,
+          progress: stat.progress, nodes_done: stat.nodes_done, nodes_total: stat.nodes_total,
+          avg_percent: stat.avg_percent, attempts: stat.attempts, answered: stat.answered, correct: stat.correct, accuracy: stat.accuracy,
+          study_minutes: stat.study_minutes, active_days: stat.active_days, last_active_at: stat.last_active_at, days_idle: this.daysAgo(stat.last_active_at),
+        },
+        current_journey: { title: journeyTitle, next_node: nextNode, review_nodes: reviewNodes.slice(0, 5) },
+        topics: { strong: topics.filter((t) => t.level === 'strong').slice(-6).reverse(), weak: topics.filter((t) => t.level === 'weak').slice(0, 8), all: topics },
+        recent_wrong_questions: recentWrong,
+        upcoming_assignments: upcomingAssignments,
+        ai_history: { questions_30d: ai30d, recent_questions: recentChat },
       };
     });
   }

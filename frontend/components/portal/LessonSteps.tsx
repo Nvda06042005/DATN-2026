@@ -11,10 +11,13 @@ import * as api from '@/api/learningApi';
 import * as game from '@/api/gameApi';
 import { ErrorNote, useAction, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
+import { LessonCelebrationView } from '@/components/portal/LessonCelebrationView';
 import { Block, Overlay } from '@/components/portal/LessonReader';
 import { buildAnswer, initialDraft, QuestionInput, ready, type Draft } from '@/components/portal/QuizPlayer';
-import { Bar, Btn, Card, Chip, Spinner, Stars, Txt } from '@/components/ui';
+import { Bar, Btn, Card, Chip, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import { accuracyTagFor, type QuestDeltaItem } from '@/lib/learning-celebration';
+import { useQuestSnapshot } from '@/lib/use-lesson-celebration';
 import type { Hud } from '@/types/gamification';
 import type { LessonBlock, LessonCheckResult, LessonCompletion, NodeResult, PlayQuestion } from '@/types/learning';
 
@@ -33,8 +36,6 @@ export function buildSteps(blocks: LessonBlock[], checks: PlayQuestion[]): Step[
   return out;
 }
 
-const clock = (ms: number): string => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
-
 export const LessonSteps: React.FC<{ session: Session; nodeId: number; title: string; onClose: (changed: boolean) => void; onOpenLink: (type: string, id: number) => void; onScrollMode: () => void; onGameChanged: () => void }> = ({
   session, nodeId, title, onClose, onOpenLink, onScrollMode, onGameChanged,
 }) => {
@@ -52,6 +53,8 @@ export const LessonSteps: React.FC<{ session: Session; nodeId: number; title: st
   const [finished, setFinished] = useState<LessonCompletion | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const startedAt = useRef(Date.now());
+  const { captureAfter, acknowledge } = useQuestSnapshot(token);
+  const [celeb, setCeleb] = useState<{ deltas: QuestDeltaItem[]; ackIds: number[] } | null>(null);
   const loadHearts = useCallback(() => { game.gameMe(token).then((h) => setHearts(h.hearts)).catch(() => undefined); }, [token]);
   useEffect(() => { loadHearts(); }, [loadHearts]);
 
@@ -67,8 +70,19 @@ export const LessonSteps: React.FC<{ session: Session; nodeId: number; title: st
   const finish = async () => {
     if (!data) return;
     const answers = data.checks.map((q) => ({ question_id: q.id, answer: good[q.id] }));
-    const res = await run(async () => { await api.lessonProgress(token, nodeId, 100); return api.completeLesson(token, nodeId, answers); });
-    if (res) { setElapsed(Date.now() - startedAt.current); setFinished(res); onGameChanged(); loadHearts(); }
+    const out = await run(async () => {
+      await api.lessonProgress(token, nodeId, 100);
+      const res = await api.completeLesson(token, nodeId, answers);
+      const snap = res.completed ? await captureAfter() : { questDeltas: [], ackIds: [] };
+      return { res, snap };
+    });
+    if (out) {
+      setElapsed(Date.now() - startedAt.current);
+      setCeleb({ deltas: out.snap.questDeltas, ackIds: out.snap.ackIds });
+      setFinished(out.res);
+      onGameChanged();
+      loadHearts();
+    }
   };
   const next = () => {
     if (step?.kind === 'card') reportRead(step.cardNo);
@@ -152,26 +166,35 @@ export const LessonSteps: React.FC<{ session: Session; nodeId: number; title: st
         </>
       ) : null}
 
-      {data && finished ? (
+      {data && finished && finished.completed ? (
+        <LessonCelebrationView
+          summary={{
+            headline: 'Hoàn thành bài học!',
+            subtitle: data.title,
+            xpEarned: finished.node?.points_awarded ?? 0,
+            accuracyPercent: accuracy,
+            accuracyTag: accuracyTagFor(accuracy, true),
+            stars: finished.node?.stars,
+            elapsedMs: elapsed,
+            passed: true,
+            nextNodeTitle: finished.node?.next_node?.title ?? null,
+            journeyCompleted: finished.node?.journey_completed,
+          }}
+          questDeltas={celeb?.deltas ?? []}
+          nodeResult={finished.node}
+          extraLinks={data.links}
+          onOpenLink={onOpenLink}
+          onDone={() => {
+            acknowledge(celeb?.ackIds ?? []);
+            onClose(true);
+          }}
+        />
+      ) : null}
+      {data && finished && !finished.completed ? (
         <Card style={{ gap: 14, alignItems: 'center' }}>
-          <Txt f="displayHeavy" size={26} color={c.ngocChu} accessibilityRole="header">{finished.completed ? 'Hoàn thành bài học!' : 'Chưa hoàn thành'}</Txt>
-          {finished.node ? <Stars n={finished.node.stars} size={34} /> : null}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 18, justifyContent: 'center' }}>
-            <View style={{ alignItems: 'center' }}><Txt size={12} color={c.muc3}>Điểm</Txt><Txt f="displayHeavy" size={24} color={c.dongChu}>+{finished.node?.points_awarded ?? 0}</Txt></View>
-            <View style={{ alignItems: 'center' }}><Txt size={12} color={c.muc3}>Độ chính xác</Txt><Txt f="displayHeavy" size={24}>{accuracy}%</Txt></View>
-            <View style={{ alignItems: 'center' }}><Txt size={12} color={c.muc3}>Thời gian</Txt><Txt f="displayHeavy" size={24}>{clock(elapsed)}</Txt></View>
-          </View>
-          <Rewards node={finished.node} />
-          {finished.node?.next_node ? <Txt size={14} color={c.muc2} center>Nút tiếp theo đã mở: {finished.node.next_node.title}</Txt> : null}
-          {data.links.length ? (
-            <View style={{ gap: 8, alignItems: 'center' }}>
-              <Txt f="bold" size={14}>Tìm hiểu thêm</Txt>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-                {data.links.map((l) => <Btn key={`${l.ref_type}${l.ref_id}`} title={l.label ?? l.ref_type} tone="thuy" size="sm" disabled={l.ref_type === 'campaign'} onPress={() => onOpenLink(l.ref_type, l.ref_id)} />)}
-              </View>
-            </View>
-          ) : null}
-          <Btn title="Về lộ trình" tone="ngoc" size="lg" full onPress={() => onClose(true)} testID="step-done" />
+          <Txt f="displayHeavy" size={26} color={c.ngocChu} accessibilityRole="header">Chưa hoàn thành</Txt>
+          <Txt size={14} color={c.muc2} center>Em hãy hoàn thành toàn bộ câu hỏi kiểm tra để vượt qua bài học nhé.</Txt>
+          <Btn title="Về lộ trình" tone="ngoc" size="lg" full onPress={() => onClose(false)} testID="step-done" />
         </Card>
       ) : null}
     </Overlay>

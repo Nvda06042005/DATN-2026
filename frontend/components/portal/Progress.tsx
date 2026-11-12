@@ -2,17 +2,22 @@
  * Nhiệm vụ và hồ sơ học tập của học sinh (HK.HS.023, 037, 042, 048, 049): danh sách nhiệm vụ (mỗi nút của hành trình là một nhiệm vụ),
  * luyện lại câu đã sai, lịch sử làm bài và xem lại từng câu, ghi chú và tư liệu yêu thích, lớp học.
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { Heart, NotebookPen, RotateCcw } from 'lucide-react-native';
+import { Clock, Flame, Heart, NotebookPen, RotateCcw, Swords, Target, Zap } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import * as gameApi from '@/api/gameApi';
 import { ErrorNote, Pager, useLoad, usePageSize } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
+import { Mascot } from '@/components/art';
 import type { OpenDetail } from '@/components/portal/Library';
 import { ClassesPanel } from '@/components/portal/LearnerHome';
-import { Bar, Btn, Card, Chip, EmptyState, Segmented, Spinner, Stars, Txt } from '@/components/ui';
+import { QuestChestBadge } from '@/components/portal/PathArt';
+import { Btn, Card, Chip, EmptyState, Segmented, Spinner, Stars, Txt } from '@/components/ui';
+import { ON_BRIGHT } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { monthlyChallengeInfo, timeLeftLabel } from '@/lib/learning-celebration';
+import { activateDemoMode, useDemoLearningState } from '@/lib/learning-path-demo';
 import type { GameQuest } from '@/types/gamification';
 import type { Quest } from '@/types/learning';
 
@@ -38,34 +43,282 @@ const QuestCard: React.FC<{ quest: Quest; onGo?: () => void }> = ({ quest, onGo 
   );
 };
 
-/** Nhiệm vụ ngày và tuần (HK.HS.024): máy chủ giao theo ngày/tuần, tự cộng thưởng khi đủ tiến độ */
-const GameQuestRow: React.FC<{ quest: GameQuest }> = ({ quest }) => {
-  const { c } = useTheme();
-  const done = Boolean(quest.completed_at);
+const QuestMetricIcon: React.FC<{ metric: string }> = ({ metric }) => {
+  if (metric === 'xp_earned') return <Zap size={24} color="#ffc800" fill="#ffc800" />;
+  if (metric === 'perfect_quizzes') return <Target size={24} color="#58cc02" />;
+  if (metric === 'battles_completed') return <Swords size={24} color="#ff9600" />;
+  if (metric === 'lessons_completed' || metric === 'correct_answers') {
+    return <Mascot size={30} mood="happy" accessory="none" />;
+  }
+  return <Flame size={24} color="#ff9600" fill="#ff9600" />;
+};
+
+const MonthlyQuestBanner: React.FC<{ completedCount: number }> = ({ completedCount }) => {
+  const { c, dark } = useTheme();
+  const info = monthlyChallengeInfo(completedCount);
+  const pct = Math.round((info.done / Math.max(1, info.target)) * 100);
   return (
-    <Card flat pad={12} style={{ gap: 6, borderColor: done ? c.ngoc : c.vien }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <Txt f="bold" size={15} style={{ flex: 1, minWidth: 160 }}>{quest.title}</Txt>
-        {done ? <Chip text="Đã xong" bg={c.ngocNhat} fg={c.ngocChu} /> : null}
+    <View
+      testID="monthly-quest-banner"
+      style={{
+        borderRadius: 20,
+        padding: 18,
+        gap: 14,
+        backgroundColor: '#e94594',
+        borderWidth: 2,
+        borderColor: '#c93079',
+        borderBottomWidth: 5,
+      }}
+    >
+      <View style={{ gap: 6 }}>
+        <View style={{ alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: '#ffffff' }}>
+          <Txt f="displayHeavy" size={11} color="#c93079" upper>{info.monthLabel}</Txt>
+        </View>
+        <Txt f="displayHeavy" size={23} color="#ffffff" accessibilityRole="header">{info.title}</Txt>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Clock size={14} color="rgba(255,255,255,0.92)" />
+          <Txt f="bold" size={13} color="rgba(255,255,255,0.94)">Còn {info.daysLeft} ngày</Txt>
+        </View>
       </View>
-      <Bar value={Math.min(quest.progress, quest.target)} max={quest.target} height={10} fill={done ? c.ngoc : c.dong} label={`${quest.title}: ${Math.min(quest.progress, quest.target)} trên ${quest.target}`} />
-      <Txt size={13} color={c.muc2}>{Math.min(quest.progress, quest.target)}/{quest.target} · Thưởng {[quest.reward_xp ? `${quest.reward_xp} điểm` : '', quest.reward_gold ? `${quest.reward_gold} vàng` : ''].filter(Boolean).join(' và ')}</Txt>
-    </Card>
+
+      <View
+        style={{
+          borderRadius: 16,
+          padding: 14,
+          gap: 10,
+          backgroundColor: dark ? '#131f24' : '#ffffff',
+          borderWidth: 2,
+          borderColor: dark ? '#2a3748' : 'rgba(255,255,255,0.9)',
+        }}
+      >
+        <Txt f="bold" size={15} color={c.muc}>Hoàn thành {info.target} nhiệm vụ</Txt>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View
+            accessibilityRole="progressbar"
+            accessibilityValue={{ min: 0, max: info.target, now: info.done }}
+            style={{
+              flex: 1,
+              height: 22,
+              borderRadius: 999,
+              backgroundColor: dark ? '#263449' : '#fce7f3',
+              overflow: 'hidden',
+              justifyContent: 'center',
+            }}
+          >
+            <View
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: `${pct}%`,
+                borderRadius: 999,
+                backgroundColor: '#ec4899',
+              }}
+            >
+              <View
+                style={{
+                  position: 'absolute',
+                  left: 8,
+                  right: 8,
+                  top: 4,
+                  height: 4,
+                  borderRadius: 999,
+                  backgroundColor: 'rgba(255,255,255,0.35)',
+                }}
+              />
+            </View>
+            <Txt f="bold" size={12} center color={pct > 45 ? '#ffffff' : c.muc2} style={{ zIndex: 1 }}>
+              {info.done} / {info.target}
+            </Txt>
+          </View>
+          <View
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: 21,
+              borderWidth: 2,
+              borderColor: '#ec4899',
+              backgroundColor: dark ? '#1e293b' : '#fdf2f8',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Mascot size={32} mood="excited" accessory="crown" />
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+/** Một dòng nhiệm vụ theo đúng phong cách Duolingo: biểu tượng trái, thanh tiến độ vàng dày và rương thưởng bên phải */
+const GameQuestRow: React.FC<{ quest: GameQuest; tier: 0 | 1 | 2; first?: boolean }> = ({ quest, tier, first }) => {
+  const { c, dark } = useTheme();
+  const current = Math.min(quest.target, Math.max(0, quest.progress));
+  const done = Boolean(quest.completed_at) || current >= quest.target;
+  const pct = Math.round((current / Math.max(1, quest.target)) * 100);
+  const rewardText = [quest.reward_gold ? `+${quest.reward_gold} vàng` : '', quest.reward_xp ? `+${quest.reward_xp} XP` : ''].filter(Boolean).join(' · ');
+
+  return (
+    <View
+      testID={`quest-row-${quest.id}`}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderTopWidth: first ? 0 : 2,
+        borderTopColor: c.vien,
+      }}
+    >
+      <View
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 14,
+          backgroundColor: dark ? 'rgba(255,255,255,0.06)' : c.the2,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <QuestMetricIcon metric={quest.metric} />
+      </View>
+
+      <View style={{ flex: 1, gap: 7 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+          <Txt f="bold" size={15} style={{ flex: 1, minWidth: 140 }}>{quest.title}</Txt>
+          {done ? (
+            <Chip text="Hoàn thành!" bg={c.ngocNhat} fg={c.ngocChu} />
+          ) : rewardText ? (
+            <Txt f="bold" size={12} color={c.dongChu}>{rewardText}</Txt>
+          ) : null}
+        </View>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View
+            accessibilityRole="progressbar"
+            accessibilityLabel={`${quest.title}: ${current} trên ${quest.target}`}
+            accessibilityValue={{ min: 0, max: quest.target, now: current }}
+            style={{
+              flex: 1,
+              height: 20,
+              borderRadius: 999,
+              backgroundColor: dark ? '#263449' : c.vien,
+              overflow: 'hidden',
+              justifyContent: 'center',
+            }}
+          >
+            <View
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: `${pct}%`,
+                borderRadius: 999,
+                backgroundColor: '#ffc800',
+              }}
+            >
+              <View
+                style={{
+                  position: 'absolute',
+                  left: 8,
+                  right: 8,
+                  top: 4,
+                  height: 4,
+                  borderRadius: 999,
+                  backgroundColor: 'rgba(255,255,255,0.38)',
+                }}
+              />
+            </View>
+            <Txt f="bold" size={12} center color={pct > 45 ? ON_BRIGHT : c.muc2} style={{ zIndex: 1 }}>
+              {current} / {quest.target}
+            </Txt>
+          </View>
+          <QuestChestBadge tier={tier} done={done} highlight={done} size={32} />
+        </View>
+      </View>
+    </View>
+  );
+};
+
+const QuestGroupSection: React.FC<{ title: string; resetLabel: string; items: GameQuest[] }> = ({ title, resetLabel, items }) => {
+  const { c } = useTheme();
+  if (items.length === 0) return null;
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+        <Txt f="displayHeavy" size={20} accessibilityRole="header">{title}</Txt>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+          <Clock size={15} color="#ff9600" />
+          <Txt f="bold" size={13} color="#ff9600">Còn {resetLabel}</Txt>
+        </View>
+      </View>
+      <View
+        style={{
+          borderRadius: 18,
+          borderWidth: 2,
+          borderColor: c.vien,
+          backgroundColor: c.the,
+          overflow: 'hidden',
+        }}
+      >
+        {items.map((q, idx) => (
+          <GameQuestRow key={q.id} quest={q} tier={(idx % 3) as 0 | 1 | 2} first={idx === 0} />
+        ))}
+      </View>
+    </View>
   );
 };
 
 const GameQuestsPanel: React.FC<{ session: Session; refreshKey: number }> = ({ session, refreshKey }) => {
   const { c } = useTheme();
+  const demo = useDemoLearningState();
   const quests = useLoad(() => gameApi.gameQuests(session.token), [session.token, refreshKey], session.expired);
-  if (!quests.data) return quests.error ? <ErrorNote message={quests.error} /> : null;
-  // Máy chủ trả mốc làm mới là ngày theo giờ Việt Nam (0 giờ của ngày đó)
-  const left = (day: string) => { const h = Math.max(0, Math.round((new Date(`${day}T00:00:00+07:00`).getTime() - Date.now()) / 3_600_000)); return h >= 48 ? `${Math.round(h / 24)} ngày` : `${h} giờ`; };
+
+  const fallbackTomorrow = useMemo(() => new Date(Date.now() + 7 * 3600_000 + 86_400_000).toISOString().slice(0, 10), []);
+  const fallbackNextWeek = useMemo(() => new Date(Date.now() + 7 * 3600_000 + 7 * 86_400_000).toISOString().slice(0, 10), []);
+
+  const useDemo = __DEV__ && demo.active;
+
+  if (quests.loading && !quests.data && !useDemo) {
+    return <Spinner label="Đang tải nhiệm vụ…" />;
+  }
+
+  const daily = useDemo ? demo.dailyQuests : (quests.data?.daily ?? []);
+  const weekly = useDemo ? [] : (quests.data?.weekly ?? []);
+  const dailyDone = daily.filter((q) => Boolean(q.completed_at) || q.progress >= q.target).length;
+  const monthlyDone = useDemo ? demo.monthlyDone : (quests.data?.monthly?.completed ?? dailyDone);
+  const dailyReset = quests.data?.resets.daily ?? fallbackTomorrow;
+  const weeklyReset = quests.data?.resets.weekly ?? fallbackNextWeek;
+
   return (
-    <View style={{ gap: 10 }}>
-      <Txt f="bold" size={16}>Nhiệm vụ hôm nay <Txt size={13} color={c.muc3}>(làm mới sau {left(quests.data.resets.daily)})</Txt></Txt>
-      {quests.data.daily.map((q) => <GameQuestRow key={q.id} quest={q} />)}
-      <Txt f="bold" size={16}>Nhiệm vụ tuần này <Txt size={13} color={c.muc3}>(làm mới sau {left(quests.data.resets.weekly)})</Txt></Txt>
-      {quests.data.weekly.map((q) => <GameQuestRow key={q.id} quest={q} />)}
+    <View style={{ gap: 18 }}>
+      {quests.error && !useDemo ? <ErrorNote message={quests.error} /> : null}
+      {__DEV__ && demo.active ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, backgroundColor: c.the2, borderWidth: 1, borderColor: c.vien }}>
+          <Txt size={13} color={c.muc2}>Đang hiển thị nhiệm vụ mẫu local (__DEV__).</Txt>
+          <Btn title="Dùng dữ liệu máy chủ" tone="ghost" size="sm" onPress={() => activateDemoMode(false)} />
+        </View>
+      ) : null}
+
+      <MonthlyQuestBanner completedCount={monthlyDone} />
+
+      <QuestGroupSection title="Nhiệm vụ hôm nay" resetLabel={timeLeftLabel(dailyReset)} items={daily} />
+
+      {__DEV__ && !demo.active && !quests.loading && daily.length === 0 ? (
+        <View style={{ gap: 10, padding: 14, borderRadius: 16, borderWidth: 2, borderColor: c.vien, backgroundColor: c.the }}>
+          <Txt f="bold" size={15}>Chưa có nhiệm vụ ngày từ máy chủ</Txt>
+          <Txt size={13} color={c.muc2}>Em có thể bật chế độ mẫu local để thử hoàn thành nhiệm vụ và mở rương nhận thưởng.</Txt>
+          <View style={{ alignSelf: 'flex-start' }}>
+            <Btn title="Xem thử Nhiệm vụ mẫu (local)" tone="vang" size="sm" onPress={() => activateDemoMode(true)} />
+          </View>
+        </View>
+      ) : null}
+
+      <QuestGroupSection title="Nhiệm vụ tuần này" resetLabel={timeLeftLabel(weeklyReset)} items={weekly} />
     </View>
   );
 };

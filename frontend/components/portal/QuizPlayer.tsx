@@ -13,8 +13,11 @@ import { ApiError, errorMessage } from '@/api/client';
 import { ErrorNote } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { LeafletMap, type MapCircle, type MapLine, type MapMarker } from '@/components/portal/LeafletMap';
+import { LessonCelebrationView } from '@/components/portal/LessonCelebrationView';
 import { Bar, Btn, Card, Inset, Spinner, Stars, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import { accuracyTagFor, type QuestDeltaItem } from '@/lib/learning-celebration';
+import { useQuestSnapshot } from '@/lib/use-lesson-celebration';
 import type { SkillView } from '@/types/classroom';
 import type { AnswerResult, AttemptReview, AttemptState, AttemptSummary, PlayQuestion, QData, QType, ReviewItem } from '@/types/learning';
 import { QTYPE_TEXT } from '@/types/learning';
@@ -315,6 +318,9 @@ export const QuizPlayer: React.FC<{
   const [feedback, setFeedback] = useState<{ res: AnswerResult; sent: Draft } | null>(null);
   const [summary, setSummary] = useState<AttemptSummary | null>(initial.summary ?? null);
   const [review, setReview] = useState<AttemptReview | null>(null);
+  const [hideCelebration, setHideCelebration] = useState(false);
+  const { captureAfter, acknowledge } = useQuestSnapshot(token, state.mode === 'preview');
+  const [celeb, setCeleb] = useState<{ deltas: QuestDeltaItem[]; ackIds: number[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [remaining, setRemaining] = useState(initial.current?.remaining_ms ?? 0);
@@ -333,7 +339,18 @@ export const QuizPlayer: React.FC<{
     setState(next);
     setFeedback(null);
     setError(null);
-    if (next.status === 'done' && next.summary) { setSummary(next.summary); return; }
+    if (next.status === 'done' && next.summary) {
+      const doneSummary = next.summary;
+      if (state.mode !== 'preview') {
+        void captureAfter().then((snap) => {
+          setCeleb({ deltas: snap.questDeltas, ackIds: snap.ackIds });
+          setSummary(doneSummary);
+        });
+      } else {
+        setSummary(doneSummary);
+      }
+      return;
+    }
     if (next.current) {
       deadline.current = Date.now() + next.current.remaining_ms;
       setRemaining(next.current.remaining_ms);
@@ -341,7 +358,7 @@ export const QuizPlayer: React.FC<{
       setSeen([]);
       setAnnounce('');
     }
-  }, []);
+  }, [state.mode, captureAfter]);
 
   // Bắt đầu: nếu lượt đang chờ sang câu kế thì xin câu kế
   useEffect(() => {
@@ -361,7 +378,13 @@ export const QuizPlayer: React.FC<{
       const res = await api.answerAttempt(token, state.id, q.id, buildAnswer(q.qtype, sent));
       setFeedback({ res, sent });
       setState((s) => ({ ...s, position: res.attempt.position, base_points: res.attempt.base_points, bonus_points: res.attempt.bonus_points }));
-      if (res.summary) setSummary(res.summary);
+      if (res.summary) {
+        if (state.mode !== 'preview') {
+          const snap = await captureAfter();
+          setCeleb({ deltas: snap.questDeltas, ackIds: snap.ackIds });
+        }
+        setSummary(res.summary);
+      }
       onGameChanged?.();
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
@@ -441,8 +464,54 @@ export const QuizPlayer: React.FC<{
   const hurry = remaining <= 5000;
 
   const body = useMemo(() => {
-    if (review) return <Review review={review} onBack={() => setReview(null)} onOpen={onOpenLink} onExplain={onExplain} />;
-    if (summary && !feedback) return <Summary summary={summary} mode={state.mode} onReview={openReview} onClose={() => onClose(summary)} onRetry={onRetry} onOpen={onOpenLink} />;
+    if (review) return <Review review={review} onBack={() => { setReview(null); setHideCelebration(false); }} onOpen={onOpenLink} onExplain={onExplain} />;
+    if (summary && !feedback) {
+      if (state.mode !== 'preview' && !hideCelebration) {
+        const r = summary.node_result;
+        const passed = Boolean(summary.passed);
+        const rawPoints = summary.base_points + summary.bonus_points;
+        const xpEarned = r ? (r.points_awarded > 0 ? r.points_awarded : rawPoints) : rawPoints;
+        const headline = state.mode === 'practice'
+          ? 'Hoàn thành luyện tập!'
+          : passed
+            ? (r?.campaign_final ? 'Chiến thắng!' : 'Hoàn thành!')
+            : 'Chưa đạt, thử lại nhé';
+        const assignNote = summary.assignment
+          ? ` · ${summary.assignment.on_time ? 'Nộp đúng hạn' : 'Nộp sau hạn'}${summary.assignment.bonus ? ` (+${summary.assignment.bonus} thưởng)` : ''}`
+          : '';
+        const subtitle = `Đúng ${summary.correct}/${summary.total} câu (cần đạt ${summary.pass_percent}%)${assignNote}`;
+        const retryFn = onRetry && (state.mode === 'node' || state.mode === 'assignment') && !passed
+          ? () => { acknowledge(celeb?.ackIds ?? []); onRetry(); }
+          : undefined;
+        return (
+          <LessonCelebrationView
+            summary={{
+              headline,
+              subtitle,
+              xpEarned,
+              accuracyPercent: summary.percent,
+              accuracyTag: accuracyTagFor(summary.percent, passed || state.mode === 'practice'),
+              stars: state.mode === 'node' ? summary.stars : undefined,
+              elapsedMs: summary.duration_ms,
+              passed: state.mode === 'practice' ? true : passed,
+              nextNodeTitle: r && passed ? r.next_node?.title ?? null : null,
+              journeyCompleted: r?.journey_completed,
+            }}
+            questDeltas={celeb?.deltas ?? []}
+            nodeResult={r}
+            onReview={() => { setHideCelebration(true); void openReview(); }}
+            onRetry={retryFn}
+            onOpenLink={onOpenLink}
+            continueLabel={state.mode === 'node' ? 'Về bản đồ' : 'TIẾP TỤC'}
+            onDone={() => {
+              acknowledge(celeb?.ackIds ?? []);
+              onClose(summary);
+            }}
+          />
+        );
+      }
+      return <Summary summary={summary} mode={state.mode} onReview={openReview} onClose={() => onClose(summary)} onRetry={onRetry} onOpen={onOpenLink} />;
+    }
     if (!q || !current) return <Spinner label="Đang chuẩn bị câu hỏi…" />;
     return (
       <View style={{ gap: 14 }}>
@@ -477,7 +546,7 @@ export const QuizPlayer: React.FC<{
           : <Btn iconRight={ArrowRight} title={feedback.res.finished ? 'Xem kết quả' : 'Câu tiếp theo'} tone="ngoc" size="lg" full loading={busy} onPress={proceed} testID="quiz-next" />}
       </View>
     );
-  }, [review, summary, feedback, q, current, state, draft, busy, error, seconds, remaining, hurry, hintsLeft, skills, seen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [review, summary, feedback, q, current, state, draft, busy, error, seconds, remaining, hurry, hintsLeft, skills, seen, celeb, hideCelebration, acknowledge, onClose, onRetry, onOpenLink]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <View style={{ gap: 12 }}>

@@ -6,7 +6,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
 import { notFound } from '../content/access';
-import { addDays, dayKey, daysBetween, GameClock, weekKey } from './clock';
+import { addDays, dayKey, daysBetween, dayStart, GameClock, monthKey, weekKey } from './clock';
 import { DAILY_GOALS, GameSettings, SettingsService, tierIndex } from './settings';
 
 export interface PlayerRow {
@@ -357,15 +357,45 @@ export class GameService {
   }
 
   async quests(user: UserRow) {
+    if (!this.db.ready) {
+      const today = dayKey(this.clock.now());
+      const week = weekKey(this.clock.now());
+      return {
+        daily: [
+          { id: 9101, title: 'Đạt 100 điểm XP hôm nay', metric: 'xp_earned', target: 100, progress: 60, reward_xp: 20, reward_gold: 15, completed_at: null, period: 'daily', period_key: today },
+          { id: 9102, title: 'Hoàn thành 1 bài học lịch sử', metric: 'nodes_completed', target: 1, progress: 0, reward_xp: 25, reward_gold: 20, completed_at: null, period: 'daily', period_key: today },
+          { id: 9103, title: 'Trả lời đúng 3 câu kiểm tra', metric: 'correct_answers', target: 3, progress: 1, reward_xp: 15, reward_gold: 10, completed_at: null, period: 'daily', period_key: today },
+        ],
+        weekly: [
+          { id: 9201, title: 'Hoàn thành 10 nút hành trình', metric: 'nodes_completed', target: 10, progress: 4, reward_xp: 60, reward_gold: 40, completed_at: null, period: 'weekly', period_key: week },
+          { id: 9202, title: 'Đạt 500 điểm XP trong tuần', metric: 'xp_earned', target: 500, progress: 210, reward_xp: 80, reward_gold: 50, completed_at: null, period: 'weekly', period_key: week },
+        ],
+        monthly: { completed: 11, target: 20 },
+        resets: { daily: addDays(today, 1), weekly: addDays(week, 7) },
+      };
+    }
     return this.db.tx(async (q) => {
       await this.fresh(q, user);
       await this.ensureQuests(q, user);
       const now = this.clock.now();
+      const today = dayKey(now);
+      const week = weekKey(now);
+      const monthStartAt = dayStart(`${monthKey(now)}-01`);
       const rows = await q<Record<string, any>>(
         `SELECT uq.id, uq.title, uq.metric, uq.target, uq.progress, uq.reward_xp, uq.reward_gold, uq.completed_at, t.period, uq.period_key
          FROM hk_user_quests uq JOIN hk_quest_templates t ON t.id = uq.template_id
-         WHERE uq.user_id = $1 AND ((t.period = 'daily' AND uq.period_key = $2) OR (t.period = 'weekly' AND uq.period_key = $3)) ORDER BY t.period, uq.id`, [user.id, dayKey(now), weekKey(now)]);
-      return { daily: rows.filter((r) => r.period === 'daily'), weekly: rows.filter((r) => r.period === 'weekly'), resets: { daily: addDays(dayKey(now), 1), weekly: addDays(weekKey(now), 7) } };
+         WHERE uq.user_id = $1 AND ((t.period = 'daily' AND uq.period_key = $2) OR (t.period = 'weekly' AND uq.period_key = $3)) ORDER BY t.period, uq.id`, [user.id, today, week]);
+      const monthRows = await q<{ n: string }>(
+        'SELECT count(*)::text AS n FROM hk_user_quests WHERE user_id = $1 AND completed_at IS NOT NULL AND completed_at >= $2',
+        [user.id, monthStartAt],
+      );
+      const monthlyCompleted = Number(monthRows[0]?.n ?? 0);
+      return {
+        daily: rows.filter((r) => r.period === 'daily'),
+        weekly: rows.filter((r) => r.period === 'weekly'),
+        monthly: { completed: monthlyCompleted, target: 20 },
+        resets: { daily: addDays(today, 1), weekly: addDays(week, 7) },
+      };
     });
   }
 

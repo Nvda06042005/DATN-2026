@@ -310,11 +310,15 @@ export const ChatPanel: React.FC<ChatProps> = ({
       {!messages.length ? (
         <Card flat pad={16} style={{ gap: 12 }}>
           <Txt f="bold" size={16}>
-            {figure ? `Em đang đàm đạo cùng ${figure.name}` : 'Xin chào! Thầy là Trợ lý AI Sử học Đông A'}
+            {figure
+              ? `Đang đàm đạo cùng ${figure.name}`
+              : mode === 'teacher'
+                ? 'Xin chào Thầy Cô! Tôi là Trợ lý AI Sử học Đông A'
+                : 'Xin chào! Thầy là Trợ lý AI Sử học Đông A'}
           </Txt>
           <Txt size={14} color={c.muc2}>
             {figure
-              ? 'Nhân vật hóa thân dựa trên chính sử Đại Việt Sử Ký Toàn Thư và SGK Lịch sử 7. Em hãy đặt câu hỏi để đàm đạo cùng danh tướng!'
+              ? 'Nhân vật hóa thân dựa trên chính sử Đại Việt Sử Ký Toàn Thư và SGK Lịch sử 7. Hãy đặt câu hỏi để đàm đạo cùng danh tướng!'
               : 'Hệ thống AI hiểu câu hỏi tự nhiên đa lượt (nhớ ngữ cảnh ông ấy, trận đó), tự động sửa lỗi chính tả và đối chiếu trực tiếp với SGK Lịch sử 7.'}
           </Txt>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
@@ -333,7 +337,7 @@ export const ChatPanel: React.FC<ChatProps> = ({
       <ErrorNote message={error} />
       <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>
         <View style={{ flex: 1 }}>
-          <Field label="Câu hỏi của em" value={text} onChangeText={setText} placeholder={placeholder} maxLength={500} multiline numberOfLines={2} inputStyle={{ minHeight: 56, textAlignVertical: 'top' }} editable={!busy}
+          <Field label={mode === 'teacher' ? 'Nội dung tra cứu của thầy cô' : 'Câu hỏi của em'} value={text} onChangeText={setText} placeholder={placeholder} maxLength={500} multiline numberOfLines={2} inputStyle={{ minHeight: 56, textAlignVertical: 'top' }} editable={!busy}
             onSubmitEditing={() => send(text)} nativeID="ai-input" />
         </View>
         <Btn icon={SendHorizontal} label="Gửi câu hỏi" tone="ngoc" size="lg" disabled={busy || text.trim().length < 2} onPress={() => send(text)} testID="ai-send" />

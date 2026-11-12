@@ -154,7 +154,7 @@ export interface PathNode {
 }
 export interface PathGate { id: number | null; no: number; title: string; summary: string | null; nodes: PathNode[]; done: number; state: 'done' | 'current' | 'locked' }
 export interface PathPart {
-  no: number; campaign: { id: number; title: string; year_label: string }; journey: { id: number; title: string; from_class: boolean } | null;
+  no: number; campaign: { id: number; title: string; year_label: string; summary?: string | null }; journey: { id: number; title: string; from_class: boolean } | null;
   gates: PathGate[]; totals: { nodes: number; done: number };
 }
 export interface LearningPath { parts: PathPart[]; current: { part_no: number; gate_no: number; gate_title: string; node_id: number } | null }

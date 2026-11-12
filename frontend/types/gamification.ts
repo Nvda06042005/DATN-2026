@@ -41,7 +41,7 @@ export interface CardDetail {
 export interface FlipResult { duplicate: boolean; gold: number; card: CardDetail }
 
 export interface GameQuest { id: number; title: string; metric: string; target: number; progress: number; reward_xp: number; reward_gold: number; completed_at: string | null; period: 'daily' | 'weekly' }
-export interface GameQuests { daily: GameQuest[]; weekly: GameQuest[]; resets: { daily: string; weekly: string } }
+export interface GameQuests { daily: GameQuest[]; weekly: GameQuest[]; monthly?: { completed: number; target: number }; resets: { daily: string; weekly: string } }
 export interface GiftState { claimed_today: boolean; streak: number; today_day: number; days: Array<{ day: number; gold: number; freeze: boolean }> }
 export interface GiftClaim { day: number; streak: number; gold: number; freeze: boolean; state: GiftState }
 export interface StreakCalendar { current: number; longest: number; freezes: number; days: Array<{ day: string; xp: number; goal: number; reached: boolean; today: boolean }> }

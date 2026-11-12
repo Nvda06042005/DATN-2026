@@ -13,7 +13,6 @@ import {
   Award,
   Coins,
   Flame,
-  Gift,
   Heart,
   Shield,
   Sparkles,
@@ -23,9 +22,11 @@ import {
 } from 'lucide-react-native';
 import * as gameApi from '@/api/gameApi';
 import type { Session } from '@/components/auth';
+import { QuestChestBadge } from '@/components/portal/PathArt';
 import type { Tab } from '@/components/portal/StudentNav';
 import { Bar, Btn, Card, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import { useDemoLearningState } from '@/lib/learning-path-demo';
 import type { GameQuest, Hud, LeagueView } from '@/types/gamification';
 
 interface RightPanelProps {
@@ -37,6 +38,7 @@ interface RightPanelProps {
 
 export const DuolingoRightPanel: React.FC<RightPanelProps> = ({ session, hud, refreshKey, onGoTab }) => {
   const { c } = useTheme();
+  const demo = useDemoLearningState();
   const [league, setLeague] = useState<LeagueView | null>(null);
   const [quests, setQuests] = useState<GameQuest[]>([]);
 
@@ -58,6 +60,7 @@ export const DuolingoRightPanel: React.FC<RightPanelProps> = ({ session, hud, re
 
   const h = hud?.hearts;
   const myLeagueEntry = league?.entries.find((e) => e.me);
+  const dailyQuests = __DEV__ && demo.active ? demo.dailyQuests : quests;
 
   return (
     <View
@@ -261,23 +264,21 @@ export const DuolingoRightPanel: React.FC<RightPanelProps> = ({ session, hud, re
             </Pressable>
           </View>
 
-          {quests.length > 0 ? (
+          {dailyQuests.length > 0 ? (
             <View style={{ gap: 10 }}>
-              {quests.slice(0, 3).map((q) => {
-                const done = Boolean(q.completed_at);
+              {dailyQuests.slice(0, 3).map((q, idx) => {
                 const current = Math.min(q.progress, q.target);
+                const done = Boolean(q.completed_at) || current >= q.target;
                 return (
                   <View key={q.id} style={{ gap: 4 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Txt size={13} f={done ? 'body' : 'semibold'} color={done ? c.muc3 : c.muc} numberOfLines={1} style={{ flex: 1, paddingRight: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                      <Txt size={13} f={done ? 'body' : 'semibold'} color={done ? c.muc3 : c.muc} numberOfLines={1} style={{ flex: 1 }}>
                         {q.title}
                       </Txt>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        <Gift size={14} color={done ? c.ngocChu : c.dongChu} />
-                        <Txt size={12} f="bold" color={done ? c.ngocChu : c.dongChu}>
-                          {current}/{q.target}
-                        </Txt>
-                      </View>
+                      <Txt size={12} f="bold" color={done ? c.ngocChu : c.dongChu}>
+                        {current}/{q.target}
+                      </Txt>
+                      <QuestChestBadge tier={(idx % 3) as 0 | 1 | 2} done={done} highlight={done} size={20} />
                     </View>
                     <Bar
                       value={current}
