@@ -36,7 +36,7 @@ export function cellText(value: ExcelJS.CellValue): string {
   return String(value).trim();
 }
 
-const plainAscii = (text: string) => text.normalize('NFD').replace(/\p{Mn}/gu, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+export const plainAscii = (text: string) => text.normalize('NFD').replace(/\p{Mn}/gu, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
 /**
  * Mã tham gia theo quy ước (yêu cầu 12/11/2026): DongA + lớp + giáo viên phụ trách (tên đệm và tên, bỏ dấu, viết liền) + HK + học kỳ + năm học,
  * ví dụ "6A5", "Nguyễn Đức Anh", học kỳ 1, "2025-2026" → DongA6A5DucAnhHK12025-2026. Trùng với lớp khác thì thêm -2, -3… (app_free_join_code).
@@ -541,15 +541,11 @@ const upperVn = (text: string) => text.toLocaleUpperCase('vi');
  * Danh sách chọn nằm ở sheet ẩn "Danh mục".
  * Muốn nhiều lớp trong một file: chép sheet (Move or Copy → Create a copy), mỗi sheet một lớp.
  */
-export async function buildClassListSheet(spec: ClassListSpec): Promise<Buffer> {
+function drawClassSheet(workbook: ExcelJS.Workbook, sheetName: string, spec: ClassListSpec, fill?: ClassRosterFill): void {
   const now = spec.now ?? new Date();
   const today = vnDayLabel(now);
-  const total = spec.rows ?? 60, first = CLASS_LIST_FIRST_ROW, last = first + total - 1, head = first - 1;
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = 'Hào Khí Đông A';
-  workbook.created = now;
-  workbook.calcProperties.fullCalcOnLoad = true;
-  const sheet = workbook.addWorksheet('Xếp lớp', { views: [{ state: 'frozen', ySplit: head }] });
+  const total = fill ? Math.max(fill.students.length, 1) : spec.rows ?? 60, first = CLASS_LIST_FIRST_ROW, last = first + total - 1, head = first - 1;
+  const sheet = workbook.addWorksheet(sheetName, { views: [{ state: 'frozen', ySplit: head }] });
   [6, 25, 27, 15, 12, 17].forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
   const font = (size: number, extra: Partial<ExcelJS.Font> = {}): Partial<ExcelJS.Font> => ({ name: 'Times New Roman', size, ...extra });
   const put = (range: string, value: ExcelJS.CellValue, f: Partial<ExcelJS.Font>, align: Partial<ExcelJS.Alignment> = { horizontal: 'center', vertical: 'middle' }) => {
@@ -585,9 +581,9 @@ export async function buildClassListSheet(spec: ClassListSpec): Promise<Buffer> 
   put('A6:C6', `Mã trường: ${spec.schoolCode}`, font(10, { color: { argb: 'FF4B5563' } }));
   put('D6:F6', `${place}, ${weekday}, ngày ${d} tháng ${m} năm ${y}`, font(11, { italic: true }), { horizontal: 'center', vertical: 'middle', shrinkToFit: true });
   sheet.getRow(7).height = 8;
-  put('A8:F8', { formula: `"DANH SÁCH HỌC SINH LỚP "&IF(TRIM($C$11)="","……",UPPER(TRIM($C$11)))`, result: 'DANH SÁCH HỌC SINH LỚP ……' }, font(15, { bold: true }));
+  put('A8:F8', fill ? `DANH SÁCH HỌC SINH LỚP ${upperVn(fill.name)}` : { formula: `"DANH SÁCH HỌC SINH LỚP "&IF(TRIM($C$11)="","……",UPPER(TRIM($C$11)))`, result: 'DANH SÁCH HỌC SINH LỚP ……' }, font(15, { bold: true }));
   sheet.getRow(8).height = 24;
-  put('A9:F9', { formula: `"NĂM HỌC ${spec.yearLabel} · HỌC KỲ "&IF($C$12="","…",$C$12)`, result: `NĂM HỌC ${spec.yearLabel} · HỌC KỲ ${spec.semester}` }, font(13, { bold: true }));
+  put('A9:F9', fill ? `NĂM HỌC ${spec.yearLabel} · HỌC KỲ ${fill.semester}` : { formula: `"NĂM HỌC ${spec.yearLabel} · HỌC KỲ "&IF($C$12="","…",$C$12)`, result: `NĂM HỌC ${spec.yearLabel} · HỌC KỲ ${spec.semester}` }, font(13, { bold: true }));
   sheet.getRow(10).height = 8;
 
   // các ô điền ở đầu danh sách
@@ -605,27 +601,32 @@ export async function buildClassListSheet(spec: ClassListSpec): Promise<Buffer> 
 
   label('B11', 'Lớp *:');
   const classCell = input('C11');
-  classCell.dataValidation = spec.classes.length
+  if (fill) classCell.value = fill.name;
+  else classCell.dataValidation = spec.classes.length
     ? { type: 'list', allowBlank: true, formulae: [`'Danh mục'!$B$1:$B$${spec.classes.length}`], showInputMessage: true, promptTitle: 'Lớp', prompt: 'Gõ tên lớp (ví dụ 6A1) hoặc bấm mũi tên chọn lớp đã có. Lớp chưa có sẽ được tạo khi nhập.', showErrorMessage: false, errorStyle: 'information' }
     : { type: 'textLength', operator: 'lessThanOrEqual', allowBlank: true, formulae: [30], showInputMessage: true, promptTitle: 'Lớp', prompt: 'Gõ tên lớp, ví dụ 6A1. Lớp chưa có sẽ được tạo khi nhập.' };
   label('D11', 'Khối *:');
   const gradeCell = input('E11');
-  gradeCell.dataValidation = { type: 'list', allowBlank: false, formulae: ['"6,7,8,9"'], showInputMessage: true, promptTitle: 'Khối', prompt: 'Bấm mũi tên chọn khối 6, 7, 8 hoặc 9.', showErrorMessage: true, errorStyle: 'stop', errorTitle: 'Khối', error: 'Chọn khối 6, 7, 8 hoặc 9.' };
+  if (fill) gradeCell.value = fill.grade ? String(fill.grade) : '';
+  else gradeCell.dataValidation = { type: 'list', allowBlank: false, formulae: ['"6,7,8,9"'], showInputMessage: true, promptTitle: 'Khối', prompt: 'Bấm mũi tên chọn khối 6, 7, 8 hoặc 9.', showErrorMessage: true, errorStyle: 'stop', errorTitle: 'Khối', error: 'Chọn khối 6, 7, 8 hoặc 9.' };
   label('B12', 'Học kỳ *:');
   const semesterCell = input('C12');
-  semesterCell.value = String(spec.semester);
-  semesterCell.dataValidation = { type: 'list', allowBlank: false, formulae: ['"1,2"'], showInputMessage: true, promptTitle: 'Học kỳ', prompt: 'Một năm học có hai học kỳ: chọn 1 hoặc 2.', showErrorMessage: true, errorStyle: 'stop', errorTitle: 'Học kỳ', error: 'Chọn học kỳ 1 hoặc 2.' };
+  semesterCell.value = String(fill ? fill.semester : spec.semester);
+  if (!fill) semesterCell.dataValidation = { type: 'list', allowBlank: false, formulae: ['"1,2"'], showInputMessage: true, promptTitle: 'Học kỳ', prompt: 'Một năm học có hai học kỳ: chọn 1 hoặc 2.', showErrorMessage: true, errorStyle: 'stop', errorTitle: 'Học kỳ', error: 'Chọn học kỳ 1 hoặc 2.' };
   label('B13', 'Giáo viên phụ trách:');
   const teacherCell = input('C13:F13');
-  if (spec.teachers.length) {
+  if (fill) teacherCell.value = fill.teacher ?? 'Chưa phân công';
+  else if (spec.teachers.length) {
     teacherCell.dataValidation = { type: 'list', allowBlank: true, formulae: [`'Danh mục'!$A$1:$A$${spec.teachers.length}`], showInputMessage: true, promptTitle: 'Giáo viên phụ trách', prompt: 'Bấm mũi tên chọn giáo viên (mã giáo viên · họ tên); để trống nếu chưa phân công.', showErrorMessage: true, errorStyle: 'stop', errorTitle: 'Giáo viên phụ trách', error: 'Hãy chọn giáo viên trong danh sách.' };
   }
   const filled = `(($B$${first}:$B$${last}<>"")+($C$${first}:$C$${last}<>""))>0`;
   label('B14', 'Sĩ số:');
-  put('C14', { formula: `SUMPRODUCT(--(${filled}))&" học sinh"`, result: '0 học sinh' }, font(12, { bold: true }), { horizontal: 'left', vertical: 'middle' });
+  const male = fill ? fill.students.filter((x) => x.gender === 'Nam').length : 0, female = fill ? fill.students.filter((x) => x.gender === 'Nữ').length : 0;
+  put('C14', fill ? `${fill.students.length} học sinh` : { formula: `SUMPRODUCT(--(${filled}))&" học sinh"`, result: '0 học sinh' }, font(12, { bold: true }), { horizontal: 'left', vertical: 'middle' });
   label('D14', 'Nam / Nữ:');
-  put('E14:F14', { formula: `COUNTIF($E$${first}:$E$${last},"Nam")&" / "&COUNTIF($E$${first}:$E$${last},"Nữ")`, result: '0 / 0' }, font(12, { bold: true }), { horizontal: 'left', vertical: 'middle' });
-  put('A15:F15', 'Điền đủ 4 ô có dấu * (thiếu một ô là file bị báo lỗi). Mỗi học sinh một dòng: bấm mũi tên chọn mã học sinh, họ và tên, ngày sinh, giới tính tự hiện; nhấn Enter, STT, cột LỚP và sĩ số tự cập nhật.',
+  put('E14:F14', fill ? `${male} / ${female}` : { formula: `COUNTIF($E$${first}:$E$${last},"Nam")&" / "&COUNTIF($E$${first}:$E$${last},"Nữ")`, result: '0 / 0' }, font(12, { bold: true }), { horizontal: 'left', vertical: 'middle' });
+  put('A15:F15', fill ? `Danh sách xuất từ hệ thống Đông A lúc ${vnDayLabel(now)}${fill.joinCode ? ` · Mã tham gia lớp: ${fill.joinCode}` : ''}.`
+    : 'Điền đủ 4 ô có dấu * (thiếu một ô là file bị báo lỗi). Mỗi học sinh một dòng: bấm mũi tên chọn mã học sinh, họ và tên, ngày sinh, giới tính tự hiện; nhấn Enter, STT, cột LỚP và sĩ số tự cập nhật.',
     { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF92400E' } }, { horizontal: 'left', vertical: 'middle', wrapText: true });
   sheet.getRow(15).height = 30;
 
@@ -651,6 +652,13 @@ export async function buildClassListSheet(spec: ClassListSpec): Promise<Buffer> 
       cell.alignment = { vertical: 'middle', horizontal: c === 2 || c === 3 ? 'left' : 'center', shrinkToFit: c === 2 };
       cell.numFmt = '@';
     }
+    if (fill) {
+      const st = fill.students[r - first];
+      if (st) [r - first + 1, st.code, st.name, st.birth, st.gender, fill.name].forEach((v, k) => { row.getCell(k + 1).value = v; });
+      row.getCell(1).numFmt = '0';
+      row.getCell(6).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+      continue;
+    }
     const empty = `AND(B${r}="",C${r}="")`;
     row.getCell(1).value = { formula: `IF(${empty},"",SUMPRODUCT(--((($B$${first}:B${r}<>"")+($C$${first}:C${r}<>""))>0)))`, result: '' };
     row.getCell(1).numFmt = '0';
@@ -674,9 +682,23 @@ export async function buildClassListSheet(spec: ClassListSpec): Promise<Buffer> 
     row.getCell(6).value = { formula: `IF(${empty},"",UPPER(TRIM($C$11)))`, result: '' };
     row.getCell(6).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
   }
-  sheet.addConditionalFormatting({ ref: `D${first}:D${last}`, rules: [{ type: 'expression', priority: 1, formulae: [`ISNUMBER(D${first})`], style: { numFmt: 'dd/mm/yyyy' } }] });
+  if (!fill) sheet.addConditionalFormatting({ ref: `D${first}:D${last}`, rules: [{ type: 'expression', priority: 1, formulae: [`ISNUMBER(D${first})`], style: { numFmt: 'dd/mm/yyyy' } }] });
   sheet.pageSetup = { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printArea: `A1:F${last}`, horizontalCentered: true, margins: { left: 0.5, right: 0.5, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } };
 
+}
+
+/** Một lớp trong file xuất: giá trị có sẵn thay cho ô điền và công thức */
+export interface ClassRosterFill {
+  name: string; grade: number | null; semester: number; teacher: string | null; joinCode?: string | null;
+  students: Array<{ code: string; name: string; birth: string; gender: string }>;
+}
+
+export async function buildClassListSheet(spec: ClassListSpec): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Hào Khí Đông A';
+  workbook.created = spec.now ?? new Date();
+  workbook.calcProperties.fullCalcOnLoad = true;
+  drawClassSheet(workbook, 'Xếp lớp', spec);
   if (spec.guide.length) {
     const guide = workbook.addWorksheet('Hướng dẫn');
     guide.getColumn(1).width = 110;
@@ -689,5 +711,63 @@ export async function buildClassListSheet(spec: ClassListSpec): Promise<Buffer> 
   spec.teachers.forEach((t, i) => { catalog.getCell(i + 1, 1).value = t; });
   spec.classes.forEach((c, i) => { catalog.getCell(i + 1, 2).value = c; });
   spec.students.forEach((st, i) => { [st.code, st.name, st.birth, st.gender].forEach((v, k) => { const cell = catalog.getCell(i + 1, 3 + k); cell.value = v; cell.numFmt = '@'; }); });
+  return Buffer.from(await workbook.xlsx.writeBuffer());
+}
+
+/**
+ * Xuất danh sách lớp (yêu cầu 13/11/2026): cùng bố cục với file mẫu xếp lớp, mỗi lớp một sheet ghi sẵn lớp, khối, học kỳ, giáo viên phụ trách,
+ * sĩ số, Nam/Nữ, mã tham gia và danh sách học sinh. Xuất cả năm học thì có thêm sheet "Danh sách lớp" tổng hợp ở đầu.
+ * Dòng A2 ghi "Danh sách lớp năm học …" (không phải dòng nhận diện file mẫu) nên file xuất không bị nhầm là file mẫu khi nhập.
+ */
+export async function buildClassRosterBook(spec: Omit<ClassListSpec, 'teachers' | 'classes' | 'students' | 'guide' | 'rows'>, classes: ClassRosterFill[], summary: boolean): Promise<Buffer> {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Hào Khí Đông A';
+  workbook.created = spec.now ?? new Date();
+  const base: ClassListSpec = { ...spec, teachers: [], classes: [], students: [], guide: [] };
+  if (summary) {
+    const sheet = workbook.addWorksheet('Danh sách lớp', { views: [{ state: 'frozen', ySplit: 5 }] });
+    [6, 12, 8, 34, 9, 7, 7, 30].forEach((w, i) => { sheet.getColumn(i + 1).width = w; });
+    const logo = brandLogo();
+    if (logo) { sheet.addImage(workbook.addImage({ buffer: logo, extension: 'png' }), { tl: { col: 0.05, row: 0.08 }, ext: BRAND_LOGO_SIZE, editAs: 'oneCell' }); sheet.getRow(1).height = 46; }
+    else { sheet.getCell('A1').value = 'Đông A'; sheet.getCell('A1').font = { name: 'Calibri', size: 22, bold: true, color: { argb: BRAND } }; }
+    sheet.getCell('A2').value = spec.identity;
+    sheet.getCell('A2').font = { name: 'Calibri', size: 10, color: { argb: 'FF6B7280' } };
+    sheet.mergeCells('A3:H3');
+    sheet.getCell('A3').value = `DANH SÁCH LỚP NĂM HỌC ${spec.yearLabel} · ${upperVn(spec.school)}`;
+    sheet.getCell('A3').font = { name: 'Times New Roman', size: 15, bold: true };
+    sheet.getCell('A3').alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet.getRow(3).height = 26;
+    sheet.mergeCells('A4:H4');
+    sheet.getCell('A4').value = `Xuất lúc ${vnDayLabel(spec.now ?? new Date())} · ${classes.length} lớp · ${classes.reduce((n, c) => n + c.students.length, 0)} học sinh. Mỗi lớp xem chi tiết ở sheet cùng tên.`;
+    sheet.getCell('A4').font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF92400E' } };
+    const headers = ['STT', 'LỚP', 'KHỐI', 'GIÁO VIÊN PHỤ TRÁCH', 'HỌC KỲ', 'SĨ SỐ', 'NAM', 'MÃ THAM GIA'];
+    headers.forEach((text, i) => {
+      const cell = sheet.getCell(5, i + 1);
+      cell.value = text;
+      cell.font = { name: 'Times New Roman', size: 11, bold: true };
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFBEAD7' } };
+      cell.border = BORDER;
+    });
+    sheet.getRow(5).height = 26;
+    classes.forEach((c, i) => {
+      const row = sheet.getRow(6 + i);
+      [i + 1, c.name, c.grade ?? '', c.teacher ?? 'Chưa phân công', c.semester, c.students.length, c.students.filter((x) => x.gender === 'Nam').length, c.joinCode ?? ''].forEach((v, k) => {
+        const cell = row.getCell(k + 1);
+        cell.value = v;
+        cell.border = BORDER;
+        cell.font = { name: 'Times New Roman', size: 11 };
+        cell.alignment = { vertical: 'middle', horizontal: k === 3 || k === 7 ? 'left' : 'center' };
+      });
+    });
+  }
+  const used = new Set<string>();
+  for (const c of classes) {
+    // tên sheet: tên lớp, bỏ ký tự Excel không cho phép, tối đa 31 ký tự, không trùng
+    let name = c.name.replace(/[\\/?*[\]:]/g, '-').slice(0, 31) || 'Lớp';
+    for (let n = 2; used.has(name.toLowerCase()); n += 1) name = `${c.name.slice(0, 27)} (${n})`;
+    used.add(name.toLowerCase());
+    drawClassSheet(workbook, name, base, c);
+  }
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }

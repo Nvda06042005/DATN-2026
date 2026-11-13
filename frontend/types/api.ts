@@ -231,6 +231,12 @@ export interface CloneResult {
 }
 
 // ---------------------------------------------------------------------- nhập Excel có xem trước
+/** Một dòng của trang Mật khẩu tài khoản: mật khẩu chỉ có khi người dùng chưa tự đổi và hệ thống có bản lưu mã hóa */
+export interface PasswordRow {
+  id: number; user_code: string | null; full_name: string; username: string; role: 'school_admin' | 'teacher' | 'student'; email: string | null;
+  school_id: number | null; school_name: string | null; is_active: boolean; password: string | null; status: 'initial' | 'changed' | 'unknown';
+}
+
 export interface ImportRow {
   row: number;
   /** Xếp lớp nhiều sheet / nhiều file: lớp (và file) của dòng */

@@ -224,4 +224,35 @@ describe('mã tham gia theo quy ước', () => {
     const memberFile = await upload(s.base, `/api/admin/classes/import?year_id=${A.year}`, FILE, students, A.token);
     expect([memberFile.status, memberFile.body.detail]).toEqual([400, expect.stringContaining('Đây là file mẫu học sinh, không phải file xếp lớp')]);
   });
+
+  test('xuất danh sách lớp: cả năm học (sheet tổng hợp + mỗi lớp một sheet, cùng bố cục với mẫu) và từng lớp', async () => {
+    const res = await fetch(`${s.base}/api/admin/classes/export?year_id=${A.year}`, { headers: { Authorization: `Bearer ${A.token}` } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-disposition')).toContain('danh_sach_lop_truong_giong-ong-to_2026-2027.xlsx');
+    const wb = await open(Buffer.from(await res.arrayBuffer()));
+    expect(wb.worksheets.map((w) => w.name)).toEqual(['Danh sách lớp', '6A1', '6A2', '6A5', '7A3']);
+    const summary = wb.getWorksheet('Danh sách lớp')!;
+    expect(String(summary.getCell('A3').value)).toBe(`DANH SÁCH LỚP NĂM HỌC ${YEAR} · THCS GIỒNG ÔNG TỐ`);
+    expect((summary.getRow(6).values as unknown[]).slice(1, 8)).toEqual([1, '6A1', 6, teacher, 1, 3, 1]);
+    const cls = wb.getWorksheet('6A1')!;
+    expect([cls.getCell('A8').value, cls.getCell('C11').value, cls.getCell('E11').value, cls.getCell('C12').value, cls.getCell('C13').value, cls.getCell('C14').value, cls.getCell('E14').value])
+      .toEqual(['DANH SÁCH HỌC SINH LỚP 6A1', '6A1', '6', '1', teacher, '3 học sinh', '1 / 2']);
+    expect(String(cls.getCell('A2').value)).toMatch(/^Danh sách lớp năm học 2026-2027 · /); // không phải dòng nhận diện file mẫu
+    const r = CLASS_LIST_FIRST_ROW;
+    // xếp theo tên như danh sách của trường: An, Hân, Hiển
+    expect([1, 2, 3].map((i) => (cls.getRow(r + i - 1).values as unknown[]).slice(1))).toEqual([
+      [1, codes.an, 'Trần Hoài An', '01/07/2015', 'Nữ', '6A1'],
+      [2, codes.han, 'Phan Khả Hân', '09/09/2015', 'Nữ', '6A1'],
+      [3, codes.hien, 'Lê Minh Hiển', '27/06/2015', 'Nam', '6A1'],
+    ]);
+    // một lớp
+    const one = await classByName('6A5');
+    const single = await fetch(`${s.base}/api/admin/classes/export?class_id=${one.id}`, { headers: { Authorization: `Bearer ${A.token}` } });
+    expect(single.headers.get('content-disposition')).toContain('danh_sach_lop_6A5_truong_giong-ong-to_2026-2027.xlsx');
+    const book = await open(Buffer.from(await single.arrayBuffer()));
+    expect(book.worksheets.map((w) => w.name)).toEqual(['6A5']);
+    expect(book.getWorksheet('6A5')!.getCell('C13').value).toBe('Chưa phân công'); // học kỳ 1 chưa có giáo viên (đã phân công học kỳ 2)
+    expect((await call(s.base, 'GET', `/api/admin/classes/export?class_id=${one.id}`, undefined, B.token)).status).toBe(404); // lớp trường khác
+  });
 });
+

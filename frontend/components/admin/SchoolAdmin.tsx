@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { Bell, CalendarDays, ChartColumn, CircleHelp, History, LifeBuoy, GraduationCap, Inbox, ListChecks, School, Trash2, UserRound, Users } from 'lucide-react-native';
+import { Bell, CalendarDays, ChartColumn, CircleHelp, History, KeyRound, LifeBuoy, GraduationCap, Inbox, ListChecks, School, Trash2, UserRound, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { AdminSelect } from '@/components/admin/AdminSelect';
@@ -22,6 +22,7 @@ import { LessonManager } from '@/components/admin/LessonManager';
 import { QuestionBank } from '@/components/admin/QuestionBank';
 import { QuizManager } from '@/components/admin/QuizManager';
 import { SchoolClasses } from '@/components/admin/SchoolClasses';
+import { PasswordList } from '@/components/admin/PasswordList';
 import { ShareInbox } from '@/components/admin/ShareInbox';
 import { SchoolPeople } from '@/components/admin/SchoolPeople';
 import type { Session } from '@/components/auth';
@@ -38,6 +39,7 @@ const NAV = [
   { id: 'teachers' as const, label: 'Giáo viên', icon: UserRound },
   { id: 'students' as const, label: 'Học sinh', icon: GraduationCap },
   { id: 'classes' as const, label: 'Lớp học', icon: Users },
+  { id: 'passwords' as const, label: 'Mật khẩu tài khoản', icon: KeyRound },
   { id: 'review' as const, label: 'Duyệt nội dung', icon: Inbox },
   { id: 'history' as const, label: 'Kho lịch sử', icon: History },
   { id: 'lessons' as const, label: 'Bài học', icon: ListChecks },
@@ -64,6 +66,7 @@ export const SchoolAdmin: React.FC<{ session: Session }> = ({ session }) => {
           : tab === 'classes' ? <SchoolClasses session={session} years={years ?? []} onYearsChanged={reloadYears} />
           : tab === 'history' ? <HistoryManager session={session} />
           : tab === 'lessons' ? <LessonManager session={session} />
+          : tab === 'passwords' ? <PasswordList session={session} />
           : tab === 'review' ? <ShareInbox session={session} />
           : tab === 'questions' ? <QuestionBank session={session} /> : tab === 'quizzes' ? <QuizManager session={session} />
           : tab === 'notices' ? <BroadcastManager session={session} /> : tab === 'logs' ? <LogsPanel session={session} />

@@ -175,6 +175,16 @@ class AssignQuery extends SchoolScope {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) year_id?: number;
 }
 
+class RosterQuery extends AssignQuery {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) class_id?: number;
+}
+
+class PasswordQuery extends Page {
+  @IsOptional() @IsString() @MaxLength(80) q?: string;
+  @IsOptional() @IsIn(['teacher', 'student', 'school_admin']) role?: 'teacher' | 'student' | 'school_admin';
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number;
+}
+
 class ImportQuery extends SchoolScope {
   @IsOptional() @IsIn(['true', 'false']) commit?: 'true' | 'false';
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) year_id?: number;
@@ -364,6 +374,16 @@ export class AdminController {
   @HttpCode(200)
   resetPassword(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.accounts.resetPassword(user, id); }
 
+  /** Danh sách mật khẩu: mật khẩu ban đầu / cấp lại của tài khoản chưa tự đổi (quản trị trường: trường mình; quản trị tổng: mọi trường) */
+  @Get('passwords')
+  @Header('Cache-Control', 'no-store')
+  passwordList(@CurrentUser() user: UserRow, @Query() query: PasswordQuery) { return this.accounts.passwordList(user, query); }
+
+  /** Cấp lại mật khẩu theo quy ước và gửi email */
+  @Post('users/:id/reissue-password')
+  @HttpCode(200)
+  reissuePassword(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.accounts.reissuePassword(user, id); }
+
   @Delete('users/:id')
   @HttpCode(204)
   async removeUser(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { await this.accounts.remove(user, id); }
@@ -460,6 +480,14 @@ export class AdminController {
   async classTemplate(@CurrentUser() user: UserRow, @Query() query: AssignQuery) {
     const file = await this.classes.template(user, query.school_id, query.year_id);
     return download(await withCalendarAddin(file.buffer), file.filename);
+  }
+
+  /** Xuất danh sách lớp: cả năm học (mỗi lớp một sheet + sheet tổng hợp) hoặc một lớp (class_id) */
+  @Get('classes/export')
+  @Header('Cache-Control','no-store')
+  async classExport(@CurrentUser() user: UserRow, @Query() query: RosterQuery) {
+    const file = await this.classes.exportRoster(user, query.school_id, query.year_id, query.class_id);
+    return download(file.buffer, file.filename);
   }
 
   @Get('classes/import-spec')

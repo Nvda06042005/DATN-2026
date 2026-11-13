@@ -6,7 +6,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { randomInt } from 'crypto';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
-import { buildClassListSheet, cellText, checkUpload, classTemplateFilename, Column, joinCodeFor, normHeader, parseDate, readSheet, UploadedXlsx, workbookSheets } from './excel';
+import { buildClassListSheet, buildClassRosterBook, cellText, checkUpload, classTemplateFilename, Column, joinCodeFor, normHeader, parseDate, plainAscii, readSheet, UploadedXlsx, workbookSheets } from './excel';
 import { likeEscape, SchoolService } from './school.service';
 import { notify } from '../classroom/notify';
 
@@ -637,6 +637,47 @@ export class ClassService {
               COALESCE((SELECT json_agg(u.full_name ORDER BY u.full_name) FROM app_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id), '[]'::json) AS teachers,
               (SELECT count(*)::int FROM app_class_members m2 WHERE m2.class_id = c.id) AS members
        FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = $1 ORDER BY c.school_year DESC, c.name`, [student.id]);
+  }
+
+  /**
+   * Xuất danh sách lớp (yêu cầu 13/11/2026): cả năm học (mỗi lớp một sheet, thêm sheet tổng hợp "Danh sách lớp") hoặc một lớp; cùng bố cục với file mẫu xếp lớp,
+   * ghi sẵn lớp, khối, học kỳ hiện tại, giáo viên phụ trách học kỳ đó (mã · họ tên), sĩ số, Nam/Nữ, mã tham gia và học sinh (xếp theo tên như danh sách của trường).
+   */
+  async exportRoster(actor: UserRow, schoolId?: number | null, yearId?: number | null, classId?: number | null): Promise<{ buffer: Buffer; filename: string }> {
+    const id = this.schools.target(actor, schoolId);
+    const data = await this.schools.run(actor, async (q) => {
+      const school = (await q<{ name: string; school_code: string; region: string | null }>('SELECT name, school_code, region FROM app_schools WHERE id = $1', [id]))[0];
+      if (!school) throw new NotFoundException('Không tìm thấy trường');
+      const one = classId ? (await q<{ id: number; year_id: number | null }>('SELECT id, year_id FROM app_classes WHERE id = $1 AND school_id = $2', [classId, id]))[0] : null;
+      if (classId && !one) throw new NotFoundException('Không tìm thấy lớp');
+      const year = (await q<{ id: number; label: string }>(
+        "SELECT id, label FROM app_school_years WHERE school_id = $1 AND ($2::int IS NULL OR id = $2) ORDER BY (status = 'active') DESC, label DESC LIMIT 1", [id, one?.year_id ?? yearId ?? null]))[0];
+      if (!year) throw new NotFoundException('Không tìm thấy năm học');
+      const semester = Number((await q<{ n: number }>('SELECT COALESCE(public.app_class_semester($1),1) AS n', [year.id]))[0]?.n ?? 1);
+      const rows = await q<{ id: number; name: string; grade: number | null; join_code: string | null; teacher: string | null }>(
+        `SELECT c.id, c.name, c.grade, c.join_code,
+                (SELECT coalesce(u.user_code, 'Chưa có mã') || ' · ' || u.full_name FROM app_class_term_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id AND t.semester = $3) AS teacher
+           FROM app_classes c WHERE c.school_id = $1 AND c.year_id = $2 AND ($4::int IS NULL OR c.id = $4) AND (c.is_active OR $4::int IS NOT NULL)
+          ORDER BY c.grade, c.name`, [id, year.id, semester, classId ?? null]);
+      const given = (name: string) => name.trim().split(/\s+/).pop() ?? '';
+      const classes = [];
+      for (const c of rows) {
+        const students = (await q<{ user_code: string | null; full_name: string; birth_date: string | null; gender: string | null }>(
+          "SELECT u.user_code, u.full_name, u.birth_date::text AS birth_date, u.gender FROM app_class_members m JOIN app_users u ON u.id = m.user_id WHERE m.class_id = $1 AND u.role = 'student' AND u.deleted_at IS NULL", [c.id]))
+          .sort((a, b) => given(a.full_name).localeCompare(given(b.full_name), 'vi') || a.full_name.localeCompare(b.full_name, 'vi'))
+          .map((u) => ({ code: u.user_code ?? '', name: u.full_name, birth: u.birth_date ? ddmmyyyy(u.birth_date) : '', gender: u.gender === 'male' ? 'Nam' : u.gender === 'female' ? 'Nữ' : '' }));
+        classes.push({ name: c.name, grade: c.grade, semester, teacher: c.teacher, joinCode: c.join_code, students });
+      }
+      return { school, year, classes };
+    });
+    const { school, year, classes } = data;
+    const buffer = await buildClassRosterBook({
+      identity: `Danh sách lớp năm học ${year.label} · ${school.name} · Mã trường ${school.school_code}`, school: school.name, schoolCode: school.school_code, region: school.region,
+      yearLabel: year.label, semester: classes[0]?.semester ?? 1,
+    }, classes, !classId);
+    const base = classTemplateFilename(school.name, year.label).replace('file_mau_xep-lop_', 'danh_sach_lop_');
+    const filename = classId && classes[0] ? base.replace('danh_sach_lop_', `danh_sach_lop_${plainAscii(classes[0].name).replace(/[^A-Za-z0-9]+/g, '-')}_`) : base;
+    return { buffer, filename };
   }
 
   /**

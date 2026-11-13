@@ -1,7 +1,7 @@
 /** Bcrypt for new passwords; PBKDF2 verification preserves existing accounts. */
 import { BadRequestException } from '@nestjs/common';
 import { compare, hash } from 'bcryptjs';
-import { createHash, pbkdf2, randomInt, timingSafeEqual } from 'crypto';
+import { createCipheriv, createDecipheriv, createHash, pbkdf2, randomBytes, randomInt, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
 const pbkdf2Async = promisify(pbkdf2);
 export const TEMP_ITERATIONS = 10;
@@ -48,4 +48,27 @@ export function baseUsername(fullName: string, role: string): string {
   let base = !parts.length ? 'user' : parts.length === 1 ? parts[0] : `${parts[parts.length - 1]}.${parts.slice(0, -1).map((p) => p[0]).join('')}`;
   base = base.slice(0, 24);
   return role === 'teacher' ? `gv.${base}` : base;
+}
+
+/**
+ * Mật khẩu ban đầu / do quản trị cấp lại, lưu MÃ HÓA (AES-256-GCM, khóa suy từ bí mật của máy chủ) để quản trị trường và quản trị tổng xem lại
+ * cho đến khi người dùng tự đổi (yêu cầu 13/11/2026; trigger của migration 060 xóa bản lưu khi người dùng đổi). Mật khẩu người dùng tự đặt
+ * không bao giờ đi qua hai hàm này. Truyền bí mật vào thay vì đọc cấu hình để hàm thuần, dễ kiểm thử.
+ */
+const sealKey = (secret: string): Buffer => createHash('sha256').update(`dong-a-initial-password:${secret}`).digest();
+export function sealPassword(plain: string, secret: string): string {
+  const iv = randomBytes(12), cipher = createCipheriv('aes-256-gcm', sealKey(secret), iv);
+  const data = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
+  return [iv, cipher.getAuthTag(), data].map((b) => b.toString('base64')).join('.');
+}
+export function openPassword(text: string | null | undefined, secret: string): string | null {
+  if (!text) return null;
+  try {
+    const [iv, tag, data] = text.split('.').map((part) => Buffer.from(part, 'base64'));
+    const decipher = createDecipheriv('aes-256-gcm', sealKey(secret), iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(data), decipher.final()]).toString('utf8');
+  } catch {
+    return null;
+  }
 }

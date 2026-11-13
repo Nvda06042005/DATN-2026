@@ -5,7 +5,8 @@
  */
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { toPublic } from '../auth/auth.service';
-import { generatePassword, hashPassword } from '../auth/passwords';
+import { generatePassword, hashPassword, openPassword, sealPassword } from '../auth/passwords';
+import { config } from '../config';
 import { DatabaseService, DuplicateUsername, Q, Role, searchText, toUser, USER_COLUMNS, UserRow } from '../database/database.service';
 import { buildFormSheet, cellText, checkUpload, Column, FormColumn, givenNameUpper, memberCode, memberCredentials, normHeader, parseDate, readSheet, schoolInitials, shownUsername, studentTemplateFilename, teacherTemplateFilename, UploadedXlsx, vnDayLabel } from './excel';
 import { SystemService } from '../platform/system.service';
@@ -271,6 +272,9 @@ export class AccountService {
 
   // ------------------------------------------------------------------ tạo tài khoản
   private async queueAccountMail(q: Q, user: UserRow, password: string, schoolName: string | null, reset = false, shownUsername?: string): Promise<'queued' | 'no_email' | 'not_configured'> {
+    // mọi lần cấp mật khẩu (tạo tài khoản, nhập file, đặt lại, cấp lại) đều qua đây: lưu bản mã hóa để quản trị xem trong "Mật khẩu tài khoản"
+    // cho đến khi người dùng tự đổi (migration 060). Không lưu cho quản trị tổng.
+    if (user.role !== 'root_admin') await q('UPDATE app_users SET initial_password_enc = $2 WHERE id = $1', [user.id, sealPassword(password, config.authSecret)]);
     if (!user.email) return 'no_email';
     await this.mail.enqueue(q, {
       school_id: user.school_id, user_id: user.id, batch_id: null, kind: 'bulk', to: user.email,
@@ -448,6 +452,64 @@ export class AccountService {
       const fresh = (await this.db.getById(id, q)) as UserRow;
       const mail = await this.queueAccountMail(q, fresh, password, school?.name ?? null, true);
       return { user: toPublic(fresh), temporary_password: password, mail };
+    }).then((r) => { this.mail.kick(); return r; });
+  }
+
+  /**
+   * Danh sách mật khẩu (yêu cầu 13/11/2026): quản trị trường thấy giáo viên, học sinh, quản trị viên khác của trường mình; quản trị tổng thấy mọi trường
+   * (không gồm tài khoản quản trị tổng). Mật khẩu chỉ hiện khi người dùng CHƯA tự đổi và hệ thống có bản lưu mã hóa của mật khẩu ban đầu / cấp lại;
+   * đã đổi thì không ai xem được (chỉ có băm một chiều). Tên đăng nhập hiển thị đúng dạng quy ước (GVAnh…, QLY…).
+   */
+  async passwordList(actor: UserRow, f: { q?: string; role?: 'teacher' | 'student' | 'school_admin'; school_id?: number; page?: number; limit?: number }) {
+    const page = Math.max(1, f.page ?? 1), limit = Math.min(200, Math.max(1, f.limit ?? 25));
+    return this.schools.run(actor, async (q, scope) => {
+      const where = ['u.deleted_at IS NULL', "u.role <> 'root_admin'"];
+      const params: unknown[] = [];
+      const add = (cond: string, v: unknown) => { params.push(v); where.push(cond.replaceAll('?', `$${params.length}`)); };
+      if (scope !== null) { add('u.school_id = ?', scope); add('u.id <> ?', actor.id); } else if (f.school_id) add('u.school_id = ?', f.school_id);
+      if (f.role) add('u.role = ?', f.role);
+      const text = searchText(f.q);
+      if (text) add("u.search_text LIKE ? ESCAPE '\\'", `%${likeEscape(text)}%`);
+      const clause = where.join(' AND ');
+      const total = (await q<{ n: number }>(`SELECT count(*)::int AS n FROM app_users u WHERE ${clause}`, params))[0].n;
+      const rows = await q<{ id: number; user_code: string | null; full_name: string; username: string; role: string; email: string | null; phone: string | null; birth_date: string | null;
+        school_id: number | null; school_name: string | null; must_change_password: number; initial_password_enc: string | null; is_active: number }>(
+        `SELECT u.id, u.user_code, u.full_name, u.username, u.role, u.email, u.phone, u.birth_date::text AS birth_date, u.school_id, s.name AS school_name,
+                u.must_change_password, u.initial_password_enc, u.is_active
+           FROM app_users u LEFT JOIN app_schools s ON s.id = u.school_id
+          WHERE ${clause}
+          ORDER BY s.name NULLS LAST, CASE u.role WHEN 'school_admin' THEN 0 WHEN 'teacher' THEN 1 ELSE 2 END, u.full_name, u.id
+          LIMIT ${limit} OFFSET ${(page - 1) * limit}`, params);
+      const items = rows.map((u) => {
+        const password = u.must_change_password ? openPassword(u.initial_password_enc, config.authSecret) : null;
+        const conventional = u.role === 'teacher' || u.role === 'student' ? memberCredentials(u.role, u.full_name, u.phone, u.birth_date)?.username : null;
+        const username = u.role === 'school_admin' && u.username.startsWith('qly') ? u.username.toUpperCase() : shownUsername(u.username, conventional);
+        return {
+          id: u.id, user_code: u.user_code, full_name: u.full_name, username, role: u.role, email: u.email, school_id: u.school_id, school_name: u.school_name, is_active: !!u.is_active,
+          password, status: !u.must_change_password ? 'changed' as const : password ? 'initial' as const : 'unknown' as const,
+        };
+      });
+      return { items, total, page, limit };
+    });
+  }
+
+  /**
+   * Cấp lại mật khẩu theo quy ước và gửi email (yêu cầu 13/11/2026): giáo viên/học sinh DongA + GV/HS + tên + ngày sinh, quản trị viên trường
+   * DongA + ngày sinh + @ + tên; tên đăng nhập giữ nguyên; người dùng phải đổi ở lần đăng nhập sau, mọi phiên cũ bị thu hồi. Thiếu SĐT hoặc ngày sinh thì báo lỗi.
+   */
+  async reissuePassword(actor: UserRow, id: number) {
+    return this.managed(actor, id, async (q, target) => {
+      if (target.role === 'root_admin') throw new ForbiddenException('Không cấp lại mật khẩu theo quy ước cho tài khoản quản trị tổng');
+      const school = target.school_id ? await this.schoolOf(q, target.school_id) : null;
+      const conventional = target.role === 'school_admin'
+        ? (school ? schoolAdminCredentials(school.name, target.full_name, target.phone, target.birth_date) : null)
+        : memberCredentials(target.role as MemberRole, target.full_name, target.phone, target.birth_date);
+      if (!conventional) throw new UnprocessableEntityException('Tài khoản thiếu số điện thoại (10 chữ số) hoặc ngày sinh nên chưa cấp lại theo quy ước được; hãy bổ sung hồ sơ trước.');
+      await this.db.setPassword(id, await hashPassword(conventional.password, BATCH_ROUNDS), true, q);
+      const fresh = (await this.db.getById(id, q)) as UserRow;
+      const display = target.role === 'school_admin' ? fresh.username.toUpperCase() : shownUsername(fresh.username, conventional.username);
+      const mail = await this.queueAccountMail(q, fresh, conventional.password, school?.name ?? null, true, display);
+      return { user: toPublic(fresh), display_username: display, temporary_password: conventional.password, mail };
     }).then((r) => { this.mail.kick(); return r; });
   }
 

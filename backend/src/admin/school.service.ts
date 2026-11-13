@@ -7,6 +7,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { toPublic } from '../auth/auth.service';
 import { generatePassword, hashPassword } from '../auth/passwords';
 import { config } from '../config';
+import { sealPassword } from '../auth/passwords';
 import { DatabaseService, DuplicateUsername, Q, UserRow } from '../database/database.service';
 import { MailService } from './mail.service';
 import { DirectoryEntry, directoryEntry, foldVi, nameWords, sameSchoolName, schoolSlug, searchDirectory } from './school-directory';
@@ -266,6 +267,8 @@ export class SchoolService {
         if (exc instanceof DuplicateUsername) throw new ConflictException('Tên đăng nhập của quản trị viên bị trùng, thử lại');
         throw exc;
       }
+      // lưu mã hóa mật khẩu ban đầu để quản trị tổng xem trong "Mật khẩu tài khoản" đến khi quản trị viên tự đổi (migration 060)
+      await q('UPDATE app_users SET initial_password_enc = $2 WHERE id = $1', [admin.id, sealPassword(password, config.authSecret)]);
       await this.mail.enqueue(q, {
         school_id: school.id, user_id: admin.id, batch_id: null, kind: 'bulk', to: email, subject: '[Đông A EDU] Kích hoạt tài khoản quản trị viên trường học',
         payload: { type: 'account', full_name: admin.full_name, username: conventional ? username.toUpperCase() : username, password, role: 'school_admin', school: school.name },

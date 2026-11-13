@@ -95,3 +95,17 @@ test('Lớp học: bỏ nút Nhân bản; xếp lớp mỗi lớp một file; gi
  assert.match(classes,/api\.createMember\(token, 'students', body as never\)/);
  assert.match(classes,/<CredentialSheet title=\{`Đã tạo và xếp vào lớp/);
 });
+test('mật khẩu tài khoản: menu ở quản trị trường và quản trị tổng; chỉ hiện mật khẩu ban đầu khi chưa đổi, ẩn mặc định; cấp lại theo quy ước; lớp học có nút xuất danh sách lớp',()=>{
+ const school=read('components/admin/SchoolAdmin.tsx'),rootAdmin=read('components/admin/RootAdmin.tsx'),page=read('components/admin/PasswordList.tsx');
+ for(const portal of [school,rootAdmin])assert.match(portal,/\{ id: 'passwords' as const, label: 'Mật khẩu tài khoản', icon: KeyRound \}/);
+ assert.match(school,/tab === 'passwords' \? <PasswordList session=\{session\} \/>/);
+ assert.match(rootAdmin,/tab === 'passwords' \? <PasswordList session=\{session\} schools=\{options\} \/>/);
+ assert.match(page,/const \[shown, setShown\] = useState\(false\);/); // mặc định ẩn, bấm Hiện mật khẩu mới thấy
+ assert.match(page,/u\.status === 'initial'[\s\S]*?\{shown \? u\.password : '••••••••••'\}/);
+ assert.match(page,/'Đã tự đổi, không xem được'/);
+ assert.match(page,/api\.reissuePassword\(token, confirm\.id\)/);
+ assert.match(read('api/adminApi.ts'),/`\/api\/admin\/users\/\$\{id\}\/reissue-password`/);
+ const classes=read('components/admin/SchoolClasses.tsx');
+ assert.match(classes,/<DownloadButton title="Xuất danh sách lớp" fetchBlob=\{\(\) => api\.downloadFile\(token, `\/api\/admin\/classes\/export\?year_id=\$\{yearId\}`\)\}/);
+ assert.match(classes,/<DownloadButton title="Xuất danh sách lớp" fetchBlob=\{\(\) => api\.downloadFile\(token, `\/api\/admin\/classes\/export\?class_id=\$\{id\}`\)\}/);
+});

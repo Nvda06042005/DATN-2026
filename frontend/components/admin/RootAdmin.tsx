@@ -3,13 +3,14 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { Bell, Building2, ChartColumn, History, LifeBuoy, LibraryBig, Plus, Trash2, Users } from 'lucide-react-native';
+import { Bell, Building2, ChartColumn, History, KeyRound, LifeBuoy, LibraryBig, Plus, Trash2, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AccountSheet, dateText, ROLE_TEXT } from '@/components/admin/AccountSheet';
 import { CreateSchoolAdminSheet } from '@/components/admin/CreateSchoolAdminSheet';
 import { todayVn } from '@/lib/school-terms';
 import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
 import { SystemStats } from '@/components/admin/AnalyticsAdmin';
+import { PasswordList } from '@/components/admin/PasswordList';
 import { BroadcastManager } from '@/components/admin/PlatformComms';
 import { FaqManager, LogsPanel, SupportInbox } from '@/components/admin/PlatformOps';
 import { Cell, CredentialSheet, ErrorNote, FormSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, usePageSize, DataTable, type FieldDef, type SearchFilter } from '@/components/admin/kit';
@@ -26,6 +27,7 @@ const NAV = [
   { id: 'stats' as const, label: 'Thống kê hệ thống', icon: ChartColumn },
   { id: 'schools' as const, label: 'Trường học', icon: Building2 },
   { id: 'users' as const, label: 'Người dùng', icon: Users },
+  { id: 'passwords' as const, label: 'Mật khẩu tài khoản', icon: KeyRound },
   { id: 'notices' as const, label: 'Thông báo', icon: Bell },
   { id: 'logs' as const, label: 'Nhật ký', icon: History },
   { id: 'faq' as const, label: 'Hướng dẫn và FAQ', icon: LibraryBig },
@@ -41,6 +43,7 @@ export const RootAdmin: React.FC<{ session: Session }> = ({ session }) => {
     <AdminUiContext.Provider value>
       <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab}>
         {tab === 'schools' ? <SchoolsPanel session={session} /> : tab === 'users' ? <UsersPanel session={session} schools={options} />
+          : tab === 'passwords' ? <PasswordList session={session} schools={options} />
           : tab === 'stats' ? <SystemStats session={session} /> : tab === 'notices' ? <BroadcastManager session={session} />
           : tab === 'logs' ? <LogsPanel session={session} /> : tab === 'faq' ? <FaqManager session={session} />
           : <SupportInbox session={session} />}

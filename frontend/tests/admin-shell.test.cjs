@@ -116,7 +116,7 @@ test('bộ lọc kiểu Excel: nút mũi tên ở tiêu đề từng cột mở 
 test('menu quản trị tổng: Thống kê hệ thống đứng đầu rồi Trường học, Người dùng; các mục còn lại giữ nguyên thứ tự; mở trang là Thống kê', () => {
   const root = read('components', 'admin', 'RootAdmin.tsx');
   const ids = [...root.slice(root.indexOf('const NAV'), root.indexOf('type Tab')).matchAll(/id: '(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['stats', 'schools', 'users', 'notices', 'logs', 'faq', 'support']);
+  assert.deepEqual(ids, ['stats', 'schools', 'users', 'passwords', 'notices', 'logs', 'faq', 'support']); // Mật khẩu tài khoản (13/11/2026) ngay sau Người dùng
   assert.match(root, /usePortalTab<Tab>\('stats', NAV\.map/);
 });
 
@@ -153,7 +153,7 @@ test('thống kê hệ thống: một trang tổng quan vừa một màn hình, 
 test('quản trị trường học: Thống kê trường đứng đầu menu, gộp Báo cáo; bỏ Trò chơi hóa, Mô phỏng và mini-game, Game thẻ tướng, Nghiên cứu, Khảo sát, Hành trình mẫu, AI Tutor', () => {
   const school = read('components', 'admin', 'SchoolAdmin.tsx');
   const ids = [...school.slice(school.indexOf('const NAV'), school.indexOf('type Tab')).matchAll(/id: '(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['stats', 'school', 'teachers', 'students', 'classes', 'review', 'history', 'lessons', 'questions', 'quizzes', 'notices', 'logs', 'help']);
+  assert.deepEqual(ids, ['stats', 'school', 'teachers', 'students', 'classes', 'passwords', 'review', 'history', 'lessons', 'questions', 'quizzes', 'notices', 'logs', 'help']);
   const labels = [...school.slice(school.indexOf('const NAV'), school.indexOf('type Tab')).matchAll(/label: '([^']+)'/g)].map((m) => m[1]);
   for (const gone of ['Báo cáo', 'Trò chơi hóa', 'Mô phỏng và mini-game', 'Game thẻ tướng', 'Nghiên cứu', 'Khảo sát', 'Hành trình mẫu', 'AI Tutor']) assert.ok(!labels.includes(gone), gone);
   for (const file of ['GameAdmin.tsx', 'AiAdmin.tsx', 'BattleAdmin.tsx', 'WarAdmin.tsx', 'ResearchAdmin.tsx']) assert.ok(!require('node:fs').existsSync(require('node:path').join(__dirname, '..', 'components', 'admin', file)), file);

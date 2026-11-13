@@ -11,7 +11,7 @@ import { AdminSelect } from '@/components/admin/AdminSelect';
 import { RegistrationCode } from './RegistrationCode';
 import { TeacherChangeReview } from './ClassTeacherChange';
 import { fmtDay,todayVn } from '@/lib/school-terms';
-import { Cell, CredentialSheet, DataTable, ErrorNote, FormSheet, ImportSheet, Page, PageHeader, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, valuesToIds, yearOptions, YEAR_TEXT, type FieldDef, type SearchFilter } from '@/components/admin/kit';
+import { Cell, CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, ImportSheet, Page, PageHeader, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, valuesToIds, yearOptions, YEAR_TEXT, type FieldDef, type SearchFilter } from '@/components/admin/kit';
 import { dateText, GENDER_TEXT } from '@/components/admin/AccountSheet';
 import { personFields } from './SchoolPeople';
 import type { Session } from '@/components/auth';
@@ -56,6 +56,7 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
       <PageHeader title="Lớp học" subtitle="Tạo lớp theo năm học và khối, phân công giáo viên và xếp học sinh vào lớp."
         actions={<>
           <Btn title={`Đề nghị đổi giáo viên${requests.data?.length ? ` (${requests.data.length})`:''}`} tone="giay" size="sm" testID="teacher-change-review" onPress={()=>{requests.reload();setReviewing(true);}}/>
+          {yearId ? <DownloadButton title="Xuất danh sách lớp" fetchBlob={() => api.downloadFile(token, `/api/admin/classes/export?year_id=${yearId}`)} filename={`danh_sach_lop_${year?.label ?? 'nam-hoc'}.xlsx`} /> : null}
           <Btn title="Xếp lớp từ Excel" icon={FileUp} tone="giay" size="sm" disabled={!yearId || ended} onPress={() => setImporting(true)} testID="class-import" />
           <Btn title="Tạo lớp" icon={Plus} tone="son" size="sm" disabled={!yearId || ended} onPress={() => setCreating(true)} testID="class-add" />
         </>} />
@@ -171,6 +172,7 @@ const ClassSheet: React.FC<{
             {k.description ? <Txt size={14} color={c.muc2}>{k.description}</Txt> : null}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               <Btn title="Sửa lớp / phân công" tone="giay" size="sm" disabled={locked} onPress={() => setDialog('edit')} testID="class-edit" />
+              <DownloadButton title="Xuất danh sách lớp" fetchBlob={() => api.downloadFile(token, `/api/admin/classes/export?class_id=${id}`)} filename={`danh_sach_lop_${k.name.replace(/[^A-Za-z0-9]+/g, '-')}_${k.school_year}.xlsx`} />
               <Btn title="Tạo học sinh mới vào lớp" icon={Plus} tone="son" size="sm" disabled={locked || !k.is_active} onPress={() => setDialog('create')} testID="class-create-student" />
               <Btn title="Thêm học sinh đã có" icon={UserPlus} tone="giay" size="sm" disabled={locked || !k.is_active} onPress={() => setDialog('add')} testID="class-add-members" />
               <Btn title={k.is_active ? 'Lưu trữ' : 'Khôi phục'} icon={Archive} tone="giay" size="sm" disabled={locked} onPress={() => setDialog('archive')} />

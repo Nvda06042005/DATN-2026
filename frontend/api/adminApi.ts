@@ -3,7 +3,7 @@ import { apiBlob, apiRequest, apiUpload, type PickedFile } from '@/api/client';
 import { clearSchoolIdentities } from '@/lib/school-identity-cache';
 import type {
   Account, AccountDetail, AuthRole, ClassDetail, ClassEvent, ClassItem, CloneResult, CreatedAccount, CreatedSchool, Gender, GradeRow, HistoryDiff, HistoryEntity, HistoryImportResult,
-  HistoryList, HistoryRecord, HistorySpec, HistoryStatus, HistoryVersion, ImportResult, MemberInput, Paged, SchoolDetail, SchoolDirectoryItem, SchoolDuplicate, SchoolItem, TimelineView, YearFramework, YearItem,
+  HistoryList, HistoryRecord, HistorySpec, HistoryStatus, HistoryVersion, ImportResult, MemberInput, Paged, PasswordRow, SchoolDetail, SchoolDirectoryItem, SchoolDuplicate, SchoolItem, TimelineView, YearFramework, YearItem,
 } from '@/types/api';
 
 type Query = Record<string, string | number | boolean | null | undefined>;
@@ -69,6 +69,11 @@ export const deleteUser = (token: string, id: number) => apiRequest<void>(`/api/
 // ---------------------------------------------------------------------- nhập / xuất Excel
 export const importMembers = (token: string, kind: 'teachers' | 'students', file: PickedFile, opts: { commit: boolean; year_id?: number | null; school_id?: number | null }) =>
   apiUpload<ImportResult>(`/api/admin/${kind}/import${qs({ commit: opts.commit ? 'true' : undefined, year_id: opts.year_id, school_id: opts.school_id })}`, file, token);
+/** Mật khẩu tài khoản: mật khẩu ban đầu / cấp lại của tài khoản chưa tự đổi; cấp lại theo quy ước và gửi email */
+export const passwordList = (token: string, query: { q?: string; role?: PasswordRow['role']; school_id?: number; page?: number; limit?: number }) =>
+  apiRequest<{ items: PasswordRow[]; total: number; page: number; limit: number }>(`/api/admin/passwords${qs(query)}`, { token });
+export const reissuePassword = (token: string, id: number) => apiRequest<CreatedAccount>(`/api/admin/users/${id}/reissue-password`, { token, method: 'POST' });
+
 /** File mẫu xếp lớp của trường và năm học: tên file phải giữ khi nhập, tên trường, năm học, các lớp đang hoạt động */
 export interface ClassImportSpec { filename: string; school_name: string; year_id: number; year_label: string; classes: string[] }
 export const classImportSpec = (token: string, yearId: number) => apiRequest<ClassImportSpec>(`/api/admin/classes/import-spec${qs({ year_id: yearId })}`, { token });
