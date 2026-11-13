@@ -19,17 +19,16 @@ import {
   RefreshCw,
   Sparkles,
   Target,
-  Upload,
 } from 'lucide-react-native';
 import * as aiApi from '@/api/aiApi';
-import { SmartExamStudio } from '@/components/admin/SmartExamStudio';
+import { PersonalizedRoadmapView } from '@/components/ai/PersonalizedRoadmapView';
 import type { Session } from '@/components/auth';
 import { ChatPanel } from '@/components/portal/TieuTuong';
 import { Btn, Card, Chip, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { BktRecommendationItem, BktRecommendationsResponse } from '@/types/ai';
 
-export type AiHubView = 'hub' | 'tutor' | 'quizzes' | 'flashcards';
+export type AiHubView = 'hub' | 'tutor' | 'roadmap' | 'flashcards';
 
 interface FlashcardItem {
   id: string;
@@ -112,10 +111,12 @@ const HISTORICAL_FIGURES = [
 export interface AiHubDashboardProps {
   session: Session;
   onOpenSource?: (kind: string, id: number) => void;
+  onStartPractice?: (rec: BktRecommendationItem) => void;
+  onGoLearn?: (nodeId?: number) => void;
   onClose?: () => void;
 }
 
-export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenSource, onClose }) => {
+export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenSource, onStartPractice, onGoLearn, onClose }) => {
   const { c } = useTheme();
 
   const [activeView, setActiveView] = useState<AiHubView>('hub');
@@ -195,6 +196,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
   if (activeView === 'hub') {
     const recs = bktData?.recommendations ?? [];
     const params = bktData?.bkt_parameters ?? { p_l0: 0.3, p_t: 0.15, p_g: 0.25, p_s: 0.1, mastery_threshold: 0.6 };
+    const summary = bktData?.profile_summary;
 
     return (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingBottom: 60, gap: 22, maxWidth: 960, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
@@ -207,10 +209,10 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
             </Txt>
           </View>
           <Txt f="bold" size={22} center color={c.muc}>
-            Hỏi đáp Sử liệu • Số hóa Đề thi • Hồ sơ Học tập Thông minh
+            Hỏi đáp Sử liệu • Lộ trình Cá nhân hóa • Thẻ nhớ Thông minh
           </Txt>
           <Txt size={14} center color={c.muc2} style={{ maxWidth: 680 }}>
-            Trợ lý đồng hành học Lịch sử 7: Hỏi đáp đa lượt cùng Thầy Đông A, số hóa đề thi Word (.docx) và theo dõi lộ trình ôn tập cá nhân hóa.
+            Trợ lý đồng hành học Lịch sử 7: Hỏi đáp đa lượt cùng Thầy Đông A, lập lộ trình ôn tập cá nhân hóa theo ngày và ôn luyện thẻ nhớ sử liệu.
           </Txt>
           {onClose ? (
             <Btn title="Đóng bảng điều khiển" tone="giay" size="sm" onPress={onClose} />
@@ -253,9 +255,10 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
             </View>
           </Pressable>
 
-          {/* Card 2: Quizzes (Số hóa Đề Word/PDF & Trộn đề) */}
+          {/* Card 2: Lộ trình Cá nhân hóa (4 bước) */}
           <Pressable
-            onPress={() => setActiveView('quizzes')}
+            onPress={() => setActiveView('roadmap')}
+            testID="aihub-roadmap-btn"
             style={({ pressed }) => ({
               flexGrow: 1,
               flexBasis: 270,
@@ -274,12 +277,12 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
               <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#D1FAE5', alignItems: 'center', justifyContent: 'center' }}>
                 <ListChecks size={22} color="#059669" />
               </View>
-              <Chip text="Word .docx • Trộn đề" bg={c.ngocNhat} fg={c.ngocChu} />
+              <Chip text="4 bước • Lịch từng ngày" bg={c.ngocNhat} fg={c.ngocChu} />
             </View>
             <View style={{ gap: 4 }}>
-              <Txt f="bold" size={17} color={c.muc}>Quizzes — Số hóa Đề Word</Txt>
+              <Txt f="bold" size={17} color={c.muc}>Lộ trình Cá nhân hóa</Txt>
               <Txt size={13} color={c.muc2} numberOfLines={3}>
-                Tải lên đề thi .docx bất kỳ để tự động bóc tách câu hỏi, biên tập trực quan, trộn mã đề 101–104 và làm bài thử.
+                Thiết lập mục tiêu, lịch rảnh, tự đánh giá 4 mảng kiến thức để nhận lịch học từng ngày và điều chỉnh tự động bằng AI & BKT.
               </Txt>
             </View>
           </Pressable>
@@ -316,47 +319,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
           </Pressable>
         </View>
 
-        {/* BANNER SỐ HÓA ĐỀ THI TỪ WORD (.DOCX) (Giao diện tinh gọn theo Note 4) */}
-        <Card
-          style={{
-            padding: 18,
-            borderRadius: 18,
-            borderWidth: 1.5,
-            borderColor: c.thuy,
-            backgroundColor: c.the,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: 14,
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 260 }}>
-            <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.thuyNhat, alignItems: 'center', justifyContent: 'center' }}>
-              <Upload size={22} color={c.thuyChu} />
-            </View>
-            <View style={{ flex: 1, gap: 3 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <Txt f="bold" size={16} color={c.muc}>
-                  Số hóa Đề thi từ File Word (.docx) & Trộn đề tự động
-                </Txt>
-                <Chip text="Hỗ trợ 9 dạng câu hỏi" bg={c.ngocNhat} fg={c.ngocChu} />
-              </View>
-              <Txt size={13} color={c.muc2}>
-                Kéo thả bất kỳ file đề thi .docx nào để tự động nhận diện câu hỏi, chỉnh sửa trực quan, trộn mã đề 101–104 và làm bài chấm điểm ngay.
-              </Txt>
-            </View>
-          </View>
-          <Btn
-            icon={Upload}
-            title="Tải Đề Word (.docx) & Biên tập"
-            tone="thuy"
-            onPress={() => setActiveView('quizzes')}
-            testID="aihub-smart-exam-btn"
-          />
-        </Card>
-
-        {/* LỘ TRÌNH ÔN TẬP CÁ NHÂN HÓA — THIẾT KẾ COMPACT LƯỚI 2 CỘT GỌN GÀNG (NOTE 5) */}
+        {/* CHẨN ĐOÁN NĂNG LỰC BKT & CHỦ ĐIỂM GỢI Ý */}
         <Card style={{ padding: 18, gap: 14, borderRadius: 18 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 240 }}>
@@ -366,18 +329,25 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                   <Txt f="bold" size={16} color={c.muc}>
-                    Lộ trình Ôn tập Cá nhân hóa
+                    Chẩn đoán Năng lực BKT & Chủ điểm cần ôn
                   </Txt>
                   {bktData?.profile?.mastery_rank ? (
                     <Chip text={bktData.profile.mastery_rank} bg={c.thuyNhat} fg={c.thuyChu} />
                   ) : null}
                 </View>
                 <Txt size={12} color={c.muc2}>
-                  Các chủ điểm lịch sử gợi ý ôn tập theo tiến độ học của em
+                  Đọc trực tiếp từ tiến độ làm bài và gợi ý các chủ điểm lịch sử cần củng cố
                 </Txt>
               </View>
             </View>
-            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Btn
+                icon={Sparkles}
+                title="Mở Lộ trình theo ngày"
+                tone="ngoc"
+                size="sm"
+                onPress={() => setActiveView('roadmap')}
+              />
               <Btn
                 icon={Info}
                 title="Cơ chế BKT"
@@ -396,6 +366,62 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
             </View>
           </View>
 
+          {summary ? (
+            <View
+              style={{
+                padding: 10,
+                borderRadius: 12,
+                backgroundColor: summary.has_activity ? c.giay2 : c.vangNhat,
+                borderWidth: 1,
+                borderColor: c.vien,
+                gap: 6,
+              }}
+            >
+              <Txt size={12} f="semibold" color={c.muc2}>
+                {summary.has_activity
+                  ? `Hồ sơ AI đang đọc từ tiến độ của em${summary.grade ? ` (Lớp ${summary.grade})` : ''}:`
+                  : 'Chưa có lượt làm quiz/bài học — đang hiển thị lộ trình khởi động để AI đo năng lực thật:'}
+              </Txt>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                {summary.has_activity ? (
+                  <>
+                    <Chip
+                      text={`Chính xác: ${summary.accuracy ?? 0}% (${summary.answered ?? 0} câu)`}
+                      bg={c.thuyNhat}
+                      fg={c.thuyChu}
+                    />
+                    <Chip
+                      text={`Chuỗi ${summary.streak_current ?? 0} ngày`}
+                      bg={c.ngocNhat}
+                      fg={c.ngocChu}
+                    />
+                    {(summary.weak_topics_count ?? 0) > 0 ? (
+                      <Chip text={`${summary.weak_topics_count} chủ đề cần ôn`} bg={c.dongNhat} fg={c.dongChu} />
+                    ) : null}
+                    {(summary.wrong_questions_count ?? 0) > 0 ? (
+                      <Chip text={`${summary.wrong_questions_count} câu sai chưa gỡ`} bg={c.sonNhat} fg={c.sonChu} />
+                    ) : null}
+                  </>
+                ) : null}
+                {summary.upcoming_assignment ? (
+                  <Chip
+                    text={`Sắp thi: ${summary.upcoming_assignment.title} (còn ${summary.upcoming_assignment.days_left} ngày)`}
+                    bg={c.sonNhat}
+                    fg={c.sonChu}
+                  />
+                ) : null}
+                {summary.next_node && onGoLearn ? (
+                  <Btn
+                    title={`Học tiếp: ${summary.next_node.title}`}
+                    tone="giay"
+                    size="sm"
+                    onPress={() => onGoLearn(summary.next_node?.node_id)}
+                  />
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+
           {bktLoading && !recs.length ? (
             <Spinner label="Đang tải lộ trình ôn tập…" />
           ) : recs.length > 0 ? (
@@ -404,6 +430,11 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
                 const masteryVal = rec.current_mastery ?? rec.current_p_l ?? 0.3;
                 const pct = Math.round(masteryVal * 100);
                 const progressFill = pct >= 80 ? c.ngoc : pct >= 60 ? c.thuy : c.dong;
+                const canPractice = Boolean(onStartPractice) && (
+                  (rec.action_kind === 'practice_topic' && rec.topic_type && rec.topic_id)
+                  || rec.action_kind === 'practice_wrong'
+                );
+                const canJumpLearn = Boolean(onGoLearn) && rec.action_kind === 'journey_node';
 
                 return (
                   <View
@@ -415,7 +446,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
                       padding: 12,
                       borderRadius: 12,
                       borderWidth: 1,
-                      borderColor: c.vien,
+                      borderColor: rec.due_urgent ? c.son : c.vien,
                       backgroundColor: c.the,
                       gap: 8,
                       justifyContent: 'space-between',
@@ -425,11 +456,14 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
                       <Txt f="bold" size={14} color={c.muc} style={{ flex: 1 }} numberOfLines={2}>
                         {rec.topic}
                       </Txt>
-                      <Chip
-                        text={`${pct}%`}
-                        bg={pct >= 60 ? c.thuyNhat : c.dongNhat}
-                        fg={pct >= 60 ? c.thuyChu : c.dongChu}
-                      />
+                      <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
+                        {rec.due_urgent ? <Chip text="Ưu tiên" bg={c.sonNhat} fg={c.sonChu} /> : null}
+                        <Chip
+                          text={`${pct}%`}
+                          bg={pct >= 60 ? c.thuyNhat : c.dongNhat}
+                          fg={pct >= 60 ? c.thuyChu : c.dongChu}
+                        />
+                      </View>
                     </View>
 
                     {/* Thanh tiến độ mảnh gọn */}
@@ -443,29 +477,56 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
                       />
                     </View>
 
-                    {/* Dòng dưới gọn gàng: SGK tham chiếu + nút Hỏi Thầy */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 }}>
+                    {rec.reason || rec.recommendation_reason ? (
+                      <Txt size={11.5} color={c.muc2} numberOfLines={2}>
+                        {rec.reason || rec.recommendation_reason}
+                      </Txt>
+                    ) : null}
+
+                    {/* Dòng dưới gọn gàng: SGK tham chiếu + nút hành động */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1, minWidth: 120 }}>
                         <BookOpen size={12} color={c.muc3} />
                         <Txt size={11} color={c.muc3} numberOfLines={1} style={{ flex: 1 }}>
                           {rec.sgk_reference || 'SGK Lịch sử 7 - Bài 15'}
                         </Txt>
                       </View>
-                      <Btn
-                        icon={Sparkles}
-                        title="Hỏi Thầy"
-                        tone="thuy"
-                        size="sm"
-                        onPress={() => handleAskFromBkt(rec)}
-                      />
+                      <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                        {canPractice ? (
+                          <Btn
+                            title="Luyện ngay"
+                            tone="ngoc"
+                            size="sm"
+                            onPress={() => onStartPractice?.(rec)}
+                          />
+                        ) : canJumpLearn ? (
+                          <Btn
+                            title="Học ngay"
+                            tone="ngoc"
+                            size="sm"
+                            onPress={() => onGoLearn?.(rec.node_id)}
+                          />
+                        ) : null}
+                        <Btn
+                          icon={Sparkles}
+                          title="Hỏi Thầy"
+                          tone="thuy"
+                          size="sm"
+                          onPress={() => handleAskFromBkt(rec)}
+                        />
+                      </View>
                     </View>
                   </View>
                 );
               })}
             </View>
-          ) : (
+          ) : bktData?.profile_summary?.has_activity ? (
             <Txt size={13} color={c.muc2}>
               🎉 Tuyệt vời! Em đã nắm vững các chủ điểm trọng tâm.
+            </Txt>
+          ) : (
+            <Txt size={13} color={c.muc2}>
+              Em chưa có dữ liệu phân tích BKT mới nhất. Hãy bấm thẻ “Lộ trình Cá nhân hóa” ở trên để lập lịch học theo ngày hoặc làm một bài quiz trên Bản đồ Học nhé!
             </Txt>
           )}
         </Card>
@@ -509,16 +570,24 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
   }
 
   // ======================================================================
-  // GIAO DIỆN CON 0: SỐ HÓA ĐỀ THI WORD (.DOCX) & BIÊN TẬP ĐỀ
+  // GIAO DIỆN CON 0: LỘ TRÌNH HỌC TẬP CÁ NHÂN HÓA THEO NGÀY (4 BƯỚC)
   // ======================================================================
-  if (activeView === 'quizzes') {
+  if (activeView === 'roadmap') {
     return (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 60, gap: 16, maxWidth: 1180, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
-        <SmartExamStudio
-          session={session}
-          initialMode="upload"
-          studentMode={session.user.role === 'student'}
-          onClose={() => setActiveView('hub')}
+        <PersonalizedRoadmapView
+          userId={session.user.id}
+          bktData={bktData}
+          onBackToHub={() => setActiveView('hub')}
+          onStartPractice={onStartPractice}
+          onOpenFlashcards={() => setActiveView('flashcards')}
+          onAskTutor={(q) => {
+            setSelectedFigure(null);
+            setTutorTab('chat');
+            setPendingTutorQuestion(q);
+            setActiveView('tutor');
+          }}
+          onGoLearn={onGoLearn}
         />
       </ScrollView>
     );

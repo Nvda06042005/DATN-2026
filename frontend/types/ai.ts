@@ -36,9 +36,29 @@ export interface BktRecommendationItem {
   recommendation_reason?: string;
   reason?: string;
   suggested_action?: string;
+  action_kind?: 'practice_topic' | 'practice_wrong' | 'journey_node' | 'tutor';
+  topic_type?: string;
+  topic_id?: number;
+  node_id?: number;
+  due_urgent?: boolean;
   sgk_reference?: string;
   study_method?: string;
   key_takeaways?: string[];
+}
+
+export interface BktProfileSummary {
+  has_activity: boolean;
+  data_source?: 'python_bkt+db' | 'node_bkt+db';
+  grade?: number | null;
+  accuracy?: number | null;
+  answered?: number;
+  streak_current?: number;
+  daily_goal?: number;
+  days_idle?: number | null;
+  weak_topics_count?: number;
+  wrong_questions_count?: number;
+  next_node?: { node_id: number; title: string; kind: string } | null;
+  upcoming_assignment?: { title: string; days_left: number; due_at: string } | null;
 }
 
 export interface BktRecommendationsResponse {
@@ -53,6 +73,7 @@ export interface BktRecommendationsResponse {
   total_recommendations: number;
   recommendations: BktRecommendationItem[];
   profile?: Record<string, any> | null;
+  profile_summary?: BktProfileSummary | null;
 }
 
 // ---------------------------------------------------------------------- giáo viên

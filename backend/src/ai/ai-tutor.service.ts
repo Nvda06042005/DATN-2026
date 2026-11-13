@@ -5,7 +5,7 @@
  * (hoặc trích nguyên văn tư liệu khi chưa nối mô hình) → lọc lại đầu ra → lưu hội thoại. Máy chủ không bao giờ tin số liệu do mô hình tự nêu: trích dẫn chỉ gồm các đoạn đã truy xuất.
  */
 import { ErrorLog } from '../platform/error-log';
-import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import { createInterface } from 'readline';
 import { join } from 'path';
@@ -17,6 +17,8 @@ import { kindLabel, lessonText } from './ai-index.service';
 import { AiRetrievalService, Passage } from './ai-retrieval.service';
 import { AiSettings, AiSettingsService } from './ai-settings.service';
 import { LlmClient, LlmConfig, LlmMessage } from './llm.client';
+import { AnalyticsService } from '../analytics/analytics.service';
+import { buildNodeBktRecommendations, buildProfilePromptContext, enrichBktResponse } from './bkt-profile';
 
 export interface Citation { n: number; kind: string; kind_label: string; id: number; title: string; snippet: string; openable: boolean }
 export type RefusalReason = 'out_of_scope' | 'unsafe' | 'quota' | 'not_configured';
@@ -60,6 +62,7 @@ export class AiTutorService implements OnModuleDestroy {
 
   constructor(
     private readonly db: DatabaseService, private readonly settings: AiSettingsService, private readonly retrieval: AiRetrievalService, private readonly llm: LlmClient,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   onModuleDestroy() {
@@ -451,6 +454,9 @@ export class AiTutorService implements OnModuleDestroy {
         const refAns = this.refusal('unsafe', UNSAFE_MESSAGE);
         return { conversation: { id: conv.id, mode: conv.mode, figure_id: conv.figure_id }, ...(await this.save(conv.id, question, refAns, startedAt)) };
       }
+      const dbProfile = user.role === 'student' && this.analytics
+        ? await this.analytics.studentAiProfile(user).catch(() => null)
+        : null;
       const pyRes = await this.callPythonBridge('ask', {
         question,
         session_id: `user_${user.id || 1}_conv_${conv.id}`,
@@ -458,6 +464,7 @@ export class AiTutorService implements OnModuleDestroy {
         figure_id: figure?.id ?? figureId,
         figure_name: figure?.name ?? null,
         mode,
+        student_profile: dbProfile ? buildProfilePromptContext(dbProfile) : undefined,
       });
       if (pyRes && typeof pyRes.answer === 'string') {
         const pyAnswer: Answer = {
@@ -690,13 +697,24 @@ export class AiTutorService implements OnModuleDestroy {
 
   /** Lộ trình ôn tập cá nhân hóa BKT (Bayesian Knowledge Tracing) cho Học sinh */
   async bktRecommendations(user: UserRow, topK = 6) {
+    const studentId = `user_${user.id || 1}`;
+    const dbProfile = this.analytics
+      ? await this.analytics.studentAiProfile(user).catch(() => null)
+      : null;
+
     const pyRes = await this.callPythonBridge('bkt_recommendations', {
-      student_id: `user_${user.id || 1}`,
+      student_id: studentId,
       top_k: topK,
+      student_profile: dbProfile ? buildProfilePromptContext(dbProfile) : undefined,
     });
-    if (pyRes) return pyRes;
+    if (pyRes) {
+      return dbProfile ? enrichBktResponse(pyRes, dbProfile, 'python_bkt+db') : pyRes;
+    }
+    if (dbProfile) {
+      return buildNodeBktRecommendations(studentId, dbProfile, topK);
+    }
     return {
-      student_id: `user_${user.id || 1}`,
+      student_id: studentId,
       bkt_parameters: { p_l0: 0.3, p_t: 0.15, p_g: 0.25, p_s: 0.1, mastery_threshold: 0.6 },
       total_recommendations: 0,
       recommendations: [],

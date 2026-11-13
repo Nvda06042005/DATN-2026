@@ -181,6 +181,9 @@ def handle_ask(rag_engine_inst: RAGEngine, payload: Dict[str, Any]) -> Dict[str,
     question = str(payload.get("question") or "").strip()
     session_id = str(payload.get("session_id") or "default_session")
     student_id = str(payload.get("student_id") or "student_demo_01")
+    student_profile = payload.get("student_profile")
+    if isinstance(student_profile, dict):
+        bkt_engine.sync_from_db_profile(student_id, student_profile)
     figure_id = payload.get("figure_id")
     figure_name = payload.get("figure_name")
     character_id = resolve_persona_slug(figure_id, figure_name, payload.get("character_id"))
@@ -288,7 +291,10 @@ def handle_ask(rag_engine_inst: RAGEngine, payload: Dict[str, Any]) -> Dict[str,
 def handle_bkt_recommendations(payload: Dict[str, Any]) -> Dict[str, Any]:
     student_id = str(payload.get("student_id") or "student_nguyen_van_long")
     top_k = int(payload.get("top_k") or 6)
-    if student_id not in bkt_engine.student_states or not bkt_engine.student_states.get(student_id):
+    student_profile = payload.get("student_profile")
+    if isinstance(student_profile, dict):
+        bkt_engine.sync_from_db_profile(student_id, student_profile)
+    elif student_id not in bkt_engine.student_states or not bkt_engine.student_states.get(student_id):
         bkt_engine._seed_demo_student_profile(student_id)
     recs = bkt_engine.recommend_personalized_review(student_id=student_id, top_k=top_k)
     profile = bkt_engine.analyze_student_profile(student_id=student_id, top_k=top_k)

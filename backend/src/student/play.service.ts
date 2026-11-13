@@ -381,9 +381,9 @@ export class PlayService {
         parts: [
           {
             no: 1,
-            campaign: { id: 1, title: 'Kháng chiến lần I (1258)', year_label: 'Năm 1258' },
+            campaign: { id: 1, title: 'Kháng chiến lần I (1258)', year_label: 'Năm 1258', summary: 'Chiến lược Vườn không nhà trống và trận phản công Đông Bộ Đầu.' },
             journey: { id: 1, title: 'Hào khí Đông A - Kháng chiến lần thứ nhất', from_class: false },
-            totals: { nodes: 6, done: 4 },
+            totals: { nodes: 6, done: 3 },
             gates: [
               {
                 id: 1,
@@ -395,11 +395,51 @@ export class PlayService {
                 state: 'current',
                 nodes: [
                   { id: 101, gate_id: 1, position: 1, title: 'Bình Lệ Nguyên quyết chiến', kind: 'lesson', kind_label: 'Bài học', state: 'done', stars: 3, best_percent: 100, reward_points: 100, lock_reason: null, steps: { done: 3, total: 3 } },
-                  { id: 102, gate_id: 1, position: 2, title: 'Vườn không nhà trống', kind: 'quiz', kind_label: 'Trắc nghiệm', state: 'done', stars: 3, best_percent: 100, reward_points: 120, lock_reason: null, steps: { done: 1, total: 1 } },
-                  { id: 103, gate_id: 1, position: 3, title: 'Rương thần Đông A', kind: 'chest', kind_label: 'Rương báu', state: 'done', stars: 0, best_percent: 100, reward_points: 50, lock_reason: null, steps: { done: 1, total: 1 } },
+                  { id: 102, gate_id: 1, position: 2, title: 'Vườn không nhà trống', kind: 'quiz', kind_label: 'Câu hỏi', state: 'done', stars: 3, best_percent: 100, reward_points: 120, lock_reason: null, steps: { done: 1, total: 1 } },
+                  { id: 103, gate_id: 1, position: 3, title: 'Rương thần Đông A', kind: 'chest', kind_label: 'Rương', state: 'done', stars: 0, best_percent: 100, reward_points: 50, lock_reason: null, steps: { done: 1, total: 1 } },
                   { id: 104, gate_id: 1, position: 4, title: 'Phản công Đông Bộ Đầu', kind: 'battle', kind_label: 'Trận đánh', state: 'available', stars: 0, best_percent: 0, reward_points: 150, lock_reason: null, steps: { done: 0, total: 1 } },
-                  { id: 105, gate_id: 1, position: 5, title: 'Đuổi giặc về phương Bắc', kind: 'quiz', kind_label: 'Trắc nghiệm', state: 'locked', stars: 0, best_percent: 0, reward_points: 100, lock_reason: 'Hoàn thành trận Đông Bộ Đầu trước', steps: { done: 0, total: 1 } },
-                  { id: 106, gate_id: 1, position: 6, title: 'Cúp Vinh Quang Chặng 1', kind: 'trophy', kind_label: 'Cúp chặng', state: 'locked', stars: 0, best_percent: 0, reward_points: 200, lock_reason: 'Hoàn thành các bài học trước', steps: { done: 0, total: 1 } },
+                  { id: 105, gate_id: 1, position: 5, title: 'Đuổi giặc về phương Bắc', kind: 'practice', kind_label: 'Luyện tập', state: 'locked', stars: 0, best_percent: 0, reward_points: 100, lock_reason: 'Hoàn thành trận Đông Bộ Đầu trước', steps: { done: 0, total: 1 } },
+                  { id: 106, gate_id: 1, position: 6, title: 'Kiểm tra cuối cửa 1', kind: 'gate_test', kind_label: 'Kiểm tra cửa', state: 'locked', stars: 0, best_percent: 0, reward_points: 200, lock_reason: 'Hoàn thành các bài học trước', steps: { done: 0, total: 1 } },
+                ],
+              },
+            ],
+          },
+          {
+            no: 2,
+            campaign: { id: 2, title: 'Kháng chiến lần II (1285)', year_label: 'Năm 1285', summary: 'Hội nghị Diên Hồng, Hịch tướng sĩ và đại thắng Chương Dương – Hàm Tử.' },
+            journey: { id: 2, title: 'Hào khí Chương Dương', from_class: false },
+            totals: { nodes: 2, done: 0 },
+            gates: [
+              {
+                id: 2,
+                no: 1,
+                title: 'Từ Bình Than đến Diên Hồng',
+                summary: 'Quyết tâm đồng lòng của vua tôi và bô lão Đại Việt.',
+                done: 0,
+                state: 'current',
+                nodes: [
+                  { id: 201, gate_id: 2, position: 1, title: 'Hội nghị Bình Than', kind: 'lesson', kind_label: 'Bài học', state: 'available', stars: 0, best_percent: 0, reward_points: 60, lock_reason: null, steps: { done: 0, total: 4 } },
+                  { id: 202, gate_id: 2, position: 2, title: 'Hào khí Diên Hồng', kind: 'gate_test', kind_label: 'Kiểm tra cửa', state: 'locked', stars: 0, best_percent: 0, reward_points: 100, lock_reason: 'Hoàn thành bài học trước', steps: { done: 0, total: 1 } },
+                ],
+              },
+            ],
+          },
+          {
+            no: 3,
+            campaign: { id: 3, title: 'Kháng chiến lần III (1288)', year_label: 'Năm 1288', summary: 'Trận Vân Đồn cắt đường lương và thủy chiến Bạch Đằng giang lịch sử.' },
+            journey: { id: 3, title: 'Bạch Đằng giang', from_class: false },
+            totals: { nodes: 2, done: 0 },
+            gates: [
+              {
+                id: 3,
+                no: 1,
+                title: 'Vân Đồn – Bạch Đằng',
+                summary: 'Đánh tan đoàn thuyền lương và nhấn chìm thủy quân Nguyên.',
+                done: 0,
+                state: 'current',
+                nodes: [
+                  { id: 301, gate_id: 3, position: 1, title: 'Trận Vân Đồn', kind: 'lesson', kind_label: 'Bài học', state: 'available', stars: 0, best_percent: 0, reward_points: 60, lock_reason: null, steps: { done: 0, total: 4 } },
+                  { id: 302, gate_id: 3, position: 2, title: 'Thủy chiến Bạch Đằng', kind: 'final', kind_label: 'Quyết chiến', state: 'locked', stars: 0, best_percent: 0, reward_points: 150, lock_reason: 'Hoàn thành bài học trước', steps: { done: 0, total: 1 } },
                 ],
               },
             ],
@@ -415,7 +455,7 @@ export class PlayService {
     let current: { part_no: number; gate_no: number; gate_title: string; node_id: number } | null = null;
     for (const [i, c] of campaigns.entries()) {
       const journey = active.find((a) => a.campaign_id === c.id);
-      const head = { no: i + 1, campaign: { id: c.id, title: c.title, year_label: c.year_label } };
+      const head = { no: i + 1, campaign: { id: c.id, title: c.title, year_label: c.year_label, summary: (c.summary as string | null) ?? null } };
       if (!journey) { parts.push({ ...head, journey: null, gates: [], totals: { nodes: 0, done: 0 } }); continue; }
       const nodes = await nodesWithState(q, user.id, journey.journey_id);
       const lessonIds = nodes.filter((n) => n.lesson_id).map((n) => n.lesson_id as number);

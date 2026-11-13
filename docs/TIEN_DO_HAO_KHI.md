@@ -1137,3 +1137,9 @@ Theo 10 ý người dùng gửi kèm ảnh file Excel (đã hỏi lại hai đi�
   - `POST /api/admin/users/:id/reissue-password`: cấp lại theo quy ước (giáo viên/học sinh DongA + GV/HS + tên + ngày sinh; quản trị viên trường DongA + ngày sinh + @ + tên), giữ tên đăng nhập, gửi email, buộc đổi ở lần đăng nhập sau, thu hồi mọi phiên; thiếu SĐT/ngày sinh thì báo lỗi; không áp dụng cho quản trị tổng.
   - Giao diện: mục "Mật khẩu tài khoản" ở cả hai cổng quản trị (`PasswordList.tsx`), mật khẩu ẩn mặc định, nút "Hiện mật khẩu", nút "Cấp lại" từng dòng.
 - **Kiểm thử**: `password_list.spec.ts` (mã hóa, quyền xem theo trường, xóa khi người dùng đổi, cấp lại, đặt lại ngẫu nhiên xem được, thiếu SĐT, trường khác, quản trị viên trường), `class_excel.spec.ts` (xuất cả năm học và một lớp), `migrations.spec.ts`; giao diện `member-excel`, `admin-shell`.
+
+## Gộp nhánh `feat/ai-engine-and-api-integration` (Yujin) vào `fuctionlist` và `main` (13/11/2026)
+
+- Nhánh của Yujin (BKT hồ sơ học tập `GET /api/analytics/me/profile`, lộ trình cá nhân hóa, AI Hub học sinh, Thư viện học liệu giáo viên, bản đồ học tập và màn ăn mừng hoàn thành bài) gộp nguyên văn: không có file nào hai bên cùng sửa, không có migration mới, không có DDL trong code.
+- Ngoại lệ theo yêu cầu (giữ nguyên quản trị tổng và quản trị trường): `SmartExamStudio` dùng chung cho trang "Bộ đề" của quản trị trường. Bản của Yujin chuyển nút lưu sang "Thư viện học liệu" (lưu cục bộ theo giáo viên, nuốt lỗi máy chủ) và bỏ "Thẻ ghi nhớ", "Làm thử & Chấm điểm". Nay chỉ giáo viên (`libraryMode = role === 'teacher'`) dùng Thư viện; quản trị giữ quy trình cũ: xuất bản thẳng lên máy chủ, báo lỗi rõ, còn Thẻ ghi nhớ và Làm thử. Phần tạo câu hỏi + bộ đề tách thành `publishToServer()` dùng chung cho cả hai, không lặp code.
+- Kiểm thử: `smart-exam-studio.test.cjs` thêm kiểm tra ngoại lệ quản trị; `ai_bkt_profile.spec.ts`, `ai-profile`, `learning-path`, `learning-celebration` của nhánh Yujin.

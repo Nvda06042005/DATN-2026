@@ -1,7 +1,7 @@
 /** API gợi ý học tập, thống kê và báo cáo (/api/analytics, Sprint 10). */
 import { apiBlob, apiRequest } from '@/api/client';
 import type {
-  AiUsage, ClassDashboard, ClassInfo, ClassTopics, ContentStats, ExamPlans, FeedbackDraft, FeedbackLog, Results, SchoolOverview, Strengths, StudentProfile, SupportList, SystemOverview, Usage,
+  AiUsage, ClassDashboard, ClassInfo, ClassTopics, ContentStats, ExamPlans, FeedbackDraft, FeedbackLog, Results, SchoolOverview, Strengths, StudentAiProfile, StudentProfile, SupportList, SystemOverview, Usage,
 } from '@/types/analytics';
 import type { AttemptState } from '@/types/learning';
 
@@ -14,6 +14,7 @@ const qs = (q: Record<string, string | number | undefined>): string => {
 
 // ---------------------------------------------------------------------- học sinh
 export const strengths = (token: string) => apiRequest<Strengths>(`${base}/me/strengths`, { token });
+export const meProfile = (token: string) => apiRequest<StudentAiProfile>(`${base}/me/profile`, { token });
 export const personalPractice = (token: string, topic?: { type: string; id: number }) => apiRequest<AttemptState>(`${base}/me/practice`, { token, body: topic ? { topic_type: topic.type, topic_id: topic.id } : {} });
 export const examPlan = (token: string) => apiRequest<ExamPlans>(`${base}/me/exam-plan`, { token });
 

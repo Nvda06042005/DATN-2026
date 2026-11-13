@@ -57,6 +57,7 @@ import { errorMessage } from '@/api/client';
 import type { Session } from '@/components/auth';
 import { Btn, Card, Chip, Field, Sheet, Spinner, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import { SYSTEM_EXAM_BANK_FOLDER_ID, upsertTeacherLibraryExam } from '@/lib/teacher-library';
 import {
   buildPrintableWordHtml,
   createBlankQuestion,
@@ -74,11 +75,24 @@ import {
 
 export type SmartStudioMode = 'upload' | 'editor' | 'mix' | 'flashcards' | 'preview';
 
+export interface SmartExamStudioInitialExam {
+  id?: string;
+  title?: string;
+  durationMinutes?: number;
+  questions?: ParsedExamQuestion[];
+  folderId?: string;
+  published?: boolean;
+  sourceFileName?: string;
+}
+
 export interface SmartExamStudioProps {
   session: Session;
   initialMode?: SmartStudioMode;
+  initialExam?: SmartExamStudioInitialExam;
+  authorName?: string;
   onClose?: () => void;
   onSavedQuiz?: (quizId: number) => void;
+  onPublishedToLibrary?: (examId: string, published: boolean) => void;
   onOpenKahootStudio?: (quizId?: number) => void;
   studentMode?: boolean;
 }
@@ -135,19 +149,27 @@ const OPTION_CARD_COLORS = [
 export const SmartExamStudio: React.FC<SmartExamStudioProps> = ({
   session,
   initialMode = 'upload',
+  initialExam,
+  authorName,
   onClose,
   onSavedQuiz,
+  onPublishedToLibrary,
   studentMode = false,
 }) => {
   const { c } = useTheme();
   const toast = useToast();
+  // Thư viện học liệu (lưu cục bộ theo giáo viên) chỉ dành cho giáo viên. Quản trị trường / quản trị tổng (trang "Bộ đề")
+  // giữ quy trình cũ: xuất bản thẳng lên máy chủ, báo lỗi rõ, có Thẻ ghi nhớ và Làm thử & Chấm điểm.
+  const libraryMode = !studentMode && session.user.role === 'teacher';
 
-  // Không nạp sẵn đề mẫu mặc định — chỉ nạp khi người dùng tải file lên hoặc tự tạo mới
+  // Không nạp sẵn đề mẫu mặc định — chỉ nạp khi người dùng tải file lên, truyền từ Thư viện hoặc tự tạo mới
+  const [libraryExamId, setLibraryExamId] = useState<string | undefined>(initialExam?.id);
+  const [libraryFolderId] = useState<string>(initialExam?.folderId || SYSTEM_EXAM_BANK_FOLDER_ID);
   const [mode, setMode] = useState<SmartStudioMode>(initialMode);
-  const [examTitle, setExamTitle] = useState<string>('Đề kiểm tra mới');
-  const [durationMinutes, setDurationMinutes] = useState<number>(45);
-  const [questions, setQuestions] = useState<ParsedExamQuestion[]>([]);
-  const [sourceFileName, setSourceFileName] = useState<string>('');
+  const [examTitle, setExamTitle] = useState<string>(initialExam?.title || 'Đề kiểm tra mới');
+  const [durationMinutes, setDurationMinutes] = useState<number>(initialExam?.durationMinutes || 45);
+  const [questions, setQuestions] = useState<ParsedExamQuestion[]>(initialExam?.questions || []);
+  const [sourceFileName, setSourceFileName] = useState<string>(initialExam?.sourceFileName || '');
   const [uploading, setUploading] = useState<boolean>(false);
   const [savingToBank, setSavingToBank] = useState<boolean>(false);
 
@@ -485,66 +507,113 @@ export const SmartExamStudio: React.FC<SmartExamStudioProps> = ({
   };
 
   // ============================================================================
-  // LƯU ĐỀ THI VÀO NGÂN HÀNG & TẢI FILE WORD ĐÃ TRỘN
+  // LƯU NHÁP HOẶC XUẤT BẢN ĐỀ THI VÀO THƯ VIỆN GIÁO VIÊN & MÁY CHỦ
   // ============================================================================
-  const handleSaveQuizToSystem = async () => {
+  /** Tạo câu hỏi + bộ đề trên máy chủ; trả về bộ đề (null khi không có câu nào chấm tự động được). */
+  const publishToServer = async (): Promise<{ id: number; title: string; count: number } | null> => {
+    const createdIds: number[] = [];
+    for (const q of questions) {
+      if (q.qtype === 'mcq' || q.qtype === 'dropdown') {
+        const letters = ['a', 'b', 'c', 'd', 'e'];
+        const options = q.options.map((optText, i) => ({
+          id: letters[i] || `opt${i}`,
+          text: optText,
+        }));
+        const correctLetter = letters[q.correctIndex >= 0 ? q.correctIndex : 0] || 'a';
+        const saved = await learningApi.createQuestion(session.token, {
+          qtype: 'single',
+          prompt: q.prompt,
+          explanation: q.explanation || 'Chấm tự động theo đáp án đề thi.',
+          difficulty: 2,
+          data: { options, correct: correctLetter } as never,
+        });
+        if (saved?.id) createdIds.push(saved.id);
+      } else if (q.qtype === 'short_answer' || q.qtype === 'blank' || q.qtype === 'drag_drop') {
+        const saved = await learningApi.createQuestion(session.token, {
+          qtype: 'fill',
+          prompt: `${q.prompt} ____`,
+          explanation: q.explanation || `Đáp án chuẩn: ${q.shortAnswer}`,
+          difficulty: 2,
+          data: { blanks: [{ accept: [q.shortAnswer || 'Đáp án'] }] } as never,
+        });
+        if (saved?.id) createdIds.push(saved.id);
+      }
+    }
+    if (createdIds.length === 0) return null;
+    const quiz = await learningApi.createQuiz(session.token, {
+      title: examTitle.trim() || 'Đề kiểm tra đã xuất bản',
+      description: `Số hóa từ ${sourceFileName || 'Trình biên tập đề thi'} (${questions.length} câu)`,
+      campaign_id: null,
+      seconds_per_question: 30,
+      pass_percent: 60,
+      shuffle_questions: true,
+      shuffle_options: true,
+      items: createdIds.map((qid) => ({ question_id: qid, points: 100, seconds: 30 })),
+    });
+    return { id: quiz.id, title: quiz.title, count: createdIds.length };
+  };
+
+  const handleSaveQuizToSystem = async (publishNow = true) => {
     if (studentMode) {
       setMode('preview');
       return;
     }
     if (questions.length === 0) {
-      toast('Vui lòng tải file đề hoặc thêm ít nhất 1 câu hỏi trước khi xuất bản.');
+      toast(libraryMode ? 'Vui lòng tải file đề hoặc thêm ít nhất 1 câu hỏi trước khi lưu.' : 'Vui lòng tải file đề hoặc thêm ít nhất 1 câu hỏi trước khi xuất bản.');
       return;
     }
     setSavingToBank(true);
+    if (!libraryMode) {
+      // Quản trị: chỉ lưu lên máy chủ, lỗi thì báo ngay (không lưu cục bộ vào Thư viện giáo viên)
+      try {
+        const quiz = await publishToServer();
+        if (quiz) {
+          toast(`Đã xuất bản bộ đề "${quiz.title}" (${quiz.count} câu)!`);
+          onSavedQuiz?.(quiz.id);
+        } else {
+          toast('Đã lưu thông tin đề thi!');
+        }
+      } catch (e) {
+        toast(`Lỗi xuất bản: ${errorMessage(e)}`);
+      } finally {
+        setSavingToBank(false);
+      }
+      return;
+    }
     try {
-      const createdIds: number[] = [];
-      for (const q of questions) {
-        if (q.qtype === 'mcq' || q.qtype === 'dropdown') {
-          const letters = ['a', 'b', 'c', 'd', 'e'];
-          const options = q.options.map((optText, i) => ({
-            id: letters[i] || `opt${i}`,
-            text: optText,
-          }));
-          const correctLetter = letters[q.correctIndex >= 0 ? q.correctIndex : 0] || 'a';
-          const saved = await learningApi.createQuestion(session.token, {
-            qtype: 'single',
-            prompt: q.prompt,
-            explanation: q.explanation || 'Chấm tự động theo đáp án đề thi.',
-            difficulty: 2,
-            data: { options, correct: correctLetter } as never,
-          });
-          if (saved?.id) createdIds.push(saved.id);
-        } else if (q.qtype === 'short_answer' || q.qtype === 'blank' || q.qtype === 'drag_drop') {
-          const saved = await learningApi.createQuestion(session.token, {
-            qtype: 'fill',
-            prompt: `${q.prompt} ____`,
-            explanation: q.explanation || `Đáp án chuẩn: ${q.shortAnswer}`,
-            difficulty: 2,
-            data: { blanks: [{ accept: [q.shortAnswer || 'Đáp án'] }] } as never,
-          });
-          if (saved?.id) createdIds.push(saved.id);
+      let backendQuizId: number | undefined;
+      if (publishNow) {
+        try {
+          const quiz = await publishToServer();
+          if (quiz) {
+            backendQuizId = quiz.id;
+            onSavedQuiz?.(quiz.id);
+          }
+        } catch {
+          // Vẫn lưu đầy đủ đề thi (gồm cả câu đúng sai 4 ý, tự luận...) vào Thư viện giáo viên
         }
       }
 
-      if (createdIds.length > 0) {
-        const quiz = await learningApi.createQuiz(session.token, {
-          title: examTitle.trim() || 'Đề kiểm tra đã xuất bản',
-          description: `Số hóa từ ${sourceFileName || 'Trình biên tập đề thi'} (${questions.length} câu)`,
-          campaign_id: null,
-          seconds_per_question: 30,
-          pass_percent: 60,
-          shuffle_questions: true,
-          shuffle_options: true,
-          items: createdIds.map((qid) => ({ question_id: qid, points: 100, seconds: 30 })),
-        });
-        toast(`Đã xuất bản bộ đề "${quiz.title}" (${createdIds.length} câu)!`);
-        onSavedQuiz?.(quiz.id);
-      } else {
-        toast('Đã lưu thông tin đề thi!');
-      }
+      const savedLibExam = upsertTeacherLibraryExam(session.user.id, {
+        id: libraryExamId,
+        backendQuizId,
+        title: examTitle.trim() || 'Đề kiểm tra mới',
+        folderId: libraryFolderId,
+        published: publishNow,
+        durationMinutes,
+        questions,
+        authorName: authorName || session.user.full_name || 'Giáo viên',
+        sourceFileName,
+      });
+      setLibraryExamId(savedLibExam.id);
+      toast(
+        publishNow
+          ? `Đã xuất bản “${savedLibExam.title}” vào Thư viện!`
+          : `Đã lưu bản nháp “${savedLibExam.title}” vào Thư viện!`,
+      );
+      onPublishedToLibrary?.(savedLibExam.id, publishNow);
     } catch (e) {
-      toast(`Lỗi xuất bản: ${errorMessage(e)}`);
+      toast(`Lỗi lưu đề thi: ${errorMessage(e)}`);
     } finally {
       setSavingToBank(false);
     }
@@ -1571,7 +1640,7 @@ export const SmartExamStudio: React.FC<SmartExamStudioProps> = ({
         </>
       ) : null}
 
-      {/* Thanh điều hướng 5 chế độ LUÔN HIỂN THỊ ở mọi màn hình để chuyển đổi tức thì giữa Tải lên / Biên tập / Trộn đề / Thẻ ghi nhớ / Làm thử */}
+      {/* Thanh điều hướng chế độ Giáo viên: Tải lên / Biên tập Đề / Trộn đề thi -> Xem trước / Lưu nháp / Xuất bản vào Thư viện */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {onClose ? (
@@ -1601,22 +1670,61 @@ export const SmartExamStudio: React.FC<SmartExamStudioProps> = ({
             onPress={() => setMode('mix')}
             testID="smart-tab-mix"
           />
+          {!libraryMode ? (
+            <>
+              <Btn
+                icon={Layers}
+                title="Thẻ ghi nhớ"
+                tone={mode === 'flashcards' ? 'son' : 'giay'}
+                size="sm"
+                onPress={() => setMode('flashcards')}
+                testID="admin-tab-flashcards"
+              />
+              <Btn
+                icon={Play}
+                title="Làm thử & Chấm điểm"
+                tone={mode === 'preview' ? 'son' : 'giay'}
+                size="sm"
+                onPress={() => setMode('preview')}
+                testID="admin-tab-preview"
+              />
+            </>
+          ) : null}
+        </View>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Btn
-            icon={Layers}
-            title="Thẻ ghi nhớ"
-            tone={mode === 'flashcards' ? 'son' : 'giay'}
+            icon={Eye}
+            title="Xem trước"
+            tone="giay"
             size="sm"
-            onPress={() => setMode('flashcards')}
-            testID="smart-tab-flashcards"
+            onPress={() => {
+              if (questions.length > 0) setSlidePreviewIndex(0);
+              else toast('Chưa có câu hỏi nào để xem trước');
+            }}
           />
-          <Btn
-            icon={Play}
-            title="Làm thử & Chấm điểm"
-            tone={mode === 'preview' ? 'son' : 'giay'}
-            size="sm"
-            onPress={() => setMode('preview')}
-            testID="smart-tab-preview"
-          />
+          {libraryMode ? (
+            <>
+              <Btn
+                icon={Save}
+                title="Lưu bản nháp"
+                tone="giay"
+                size="sm"
+                loading={savingToBank}
+                onPress={() => handleSaveQuizToSystem(false)}
+                testID="editor-save-draft-btn"
+              />
+              <Btn
+                icon={Save}
+                title="Xuất bản vào Thư viện"
+                tone="son"
+                size="sm"
+                loading={savingToBank}
+                onPress={() => handleSaveQuizToSystem(true)}
+                testID="smart-publish-library-btn"
+              />
+            </>
+          ) : null}
         </View>
       </View>
 
@@ -1672,14 +1780,14 @@ export const SmartExamStudio: React.FC<SmartExamStudioProps> = ({
                   bg: '#D1FAE5',
                   onPress: () => setMode('mix'),
                 },
-                {
+                ...(!libraryMode ? [{
                   icon: Layers,
                   title: 'Thẻ ghi nhớ',
                   sub: 'Ôn tập thẻ lật 2 mặt',
                   color: '#D97706',
                   bg: '#FEF3C7',
                   onPress: () => setMode('flashcards'),
-                },
+                }] : []),
               ].map((card, i) => {
                 const IconComp = card.icon;
                 return (
@@ -1826,7 +1934,7 @@ export const SmartExamStudio: React.FC<SmartExamStudioProps> = ({
                   <Sparkles size={18} color="#2563EB" />
                   <View>
                     <Txt f="bold" size={15} color="#0F172A">Tạo mới một tài nguyên</Txt>
-                    <Txt size={12} color="#64748B">Tạo nhanh đề thi, thẻ ghi nhớ và nhiều thứ khác</Txt>
+                    <Txt size={12} color="#64748B">{libraryMode ? 'Soạn đề thi, trộn mã đề và xuất bản vào Thư viện' : 'Tạo nhanh đề thi, thẻ ghi nhớ và nhiều thứ khác'}</Txt>
                   </View>
                 </View>
 
@@ -1845,18 +1953,33 @@ export const SmartExamStudio: React.FC<SmartExamStudioProps> = ({
                   </View>
                 </Pressable>
 
-                <Pressable
-                  onPress={() => setMode('flashcards')}
-                  style={{ padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', flexDirection: 'row', alignItems: 'center', gap: 12 }}
-                >
-                  <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center' }}>
-                    <Layers size={18} color="#7C3AED" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Txt f="bold" size={14} color="#0F172A">Tạo thẻ ghi nhớ</Txt>
-                    <Txt size={12} color="#64748B">Tạo bộ thẻ ghi nhớ giúp học sinh ôn tập hiệu quả với phương pháp học qua thẻ hai mặt.</Txt>
-                  </View>
-                </Pressable>
+                {libraryMode ? (
+                  <Pressable
+                    onPress={() => setMode('mix')}
+                    style={{ padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                  >
+                    <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center' }}>
+                      <Shuffle size={18} color="#7C3AED" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Txt f="bold" size={14} color="#0F172A">Trộn mã đề 101–104 & Xuất bản Thư viện</Txt>
+                      <Txt size={12} color="#64748B">Tự động hoán vị câu hỏi, xáo trộn đáp án, tải file Word (.doc) hoặc xuất bản lên Thư viện.</Txt>
+                    </View>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    onPress={() => setMode('flashcards')}
+                    style={{ padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                  >
+                    <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center' }}>
+                      <Layers size={18} color="#7C3AED" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Txt f="bold" size={14} color="#0F172A">Tạo thẻ ghi nhớ</Txt>
+                      <Txt size={12} color="#64748B">Tạo bộ thẻ ghi nhớ giúp học sinh ôn tập hiệu quả với phương pháp học qua thẻ hai mặt.</Txt>
+                    </View>
+                  </Pressable>
+                )}
               </Card>
             </View>
           </View>
@@ -1907,7 +2030,7 @@ export const SmartExamStudio: React.FC<SmartExamStudioProps> = ({
               />
             </View>
 
-            {/* Right: Các nút chuyển nhanh chức năng + Xem trước | Cài đặt | Xuất bản */}
+            {/* Right: Các nút chuẩn quy trình Giáo viên: Trộn đề | Xem trước | Cài đặt | Lưu nháp | Xuất bản */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <Pressable
                 onPress={() => setMode('mix')}
@@ -1927,41 +2050,45 @@ export const SmartExamStudio: React.FC<SmartExamStudioProps> = ({
                 <Txt f="semibold" size={13} color="#059669">Trộn đề (101–104)</Txt>
               </Pressable>
 
-              <Pressable
-                onPress={() => setMode('flashcards')}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  borderRadius: 8,
-                  backgroundColor: '#FFFBEB',
-                  borderWidth: 1,
-                  borderColor: '#FDE68A',
-                }}
-              >
-                <Layers size={14} color="#D97706" />
-                <Txt f="semibold" size={13} color="#D97706">Thẻ ghi nhớ</Txt>
-              </Pressable>
+              {!libraryMode ? (
+                <>
+                  <Pressable
+                    onPress={() => setMode('flashcards')}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      borderRadius: 8,
+                      backgroundColor: '#FFFBEB',
+                      borderWidth: 1,
+                      borderColor: '#FDE68A',
+                    }}
+                  >
+                    <Layers size={14} color="#D97706" />
+                    <Txt f="semibold" size={13} color="#D97706">Thẻ ghi nhớ</Txt>
+                  </Pressable>
 
-              <Pressable
-                onPress={() => setMode('preview')}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 6,
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  borderRadius: 8,
-                  backgroundColor: '#EFF6FF',
-                  borderWidth: 1,
-                  borderColor: '#BFDBFE',
-                }}
-              >
-                <Play size={14} color="#2563EB" />
-                <Txt f="semibold" size={13} color="#2563EB">Làm thử</Txt>
-              </Pressable>
+                  <Pressable
+                    onPress={() => setMode('preview')}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      borderRadius: 8,
+                      backgroundColor: '#EFF6FF',
+                      borderWidth: 1,
+                      borderColor: '#BFDBFE',
+                    }}
+                  >
+                    <Play size={14} color="#2563EB" />
+                    <Txt f="semibold" size={13} color="#2563EB">Làm thử</Txt>
+                  </Pressable>
+                </>
+              ) : null}
 
               <Pressable
                 onPress={() => {
@@ -2002,8 +2129,28 @@ export const SmartExamStudio: React.FC<SmartExamStudioProps> = ({
                 <Txt f="semibold" size={13} color="#334155">Cài đặt</Txt>
               </Pressable>
 
+              {libraryMode ? (
+                <Pressable
+                  onPress={() => handleSaveQuizToSystem(false)}
+                  disabled={savingToBank}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 8,
+                    backgroundColor: '#F1F5F9',
+                    opacity: savingToBank ? 0.6 : 1,
+                  }}
+                >
+                  <FileText size={14} color="#334155" />
+                  <Txt f="semibold" size={13} color="#334155">Lưu nháp</Txt>
+                </Pressable>
+              ) : null}
+
               <Pressable
-                onPress={handleSaveQuizToSystem}
+                onPress={() => handleSaveQuizToSystem(true)}
                 disabled={savingToBank}
                 testID="editor-publish-btn"
                 style={{
@@ -2019,7 +2166,7 @@ export const SmartExamStudio: React.FC<SmartExamStudioProps> = ({
               >
                 <Save size={15} color="#FFFFFF" />
                 <Txt f="bold" size={13} color="#FFFFFF">
-                  {savingToBank ? 'Đang lưu...' : 'Xuất bản'}
+                  {savingToBank ? 'Đang xuất bản...' : 'Xuất bản'}
                 </Txt>
               </Pressable>
             </View>

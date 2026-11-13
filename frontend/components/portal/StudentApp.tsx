@@ -4,12 +4,13 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, View, useColorScheme, useWindowDimensions } from 'react-native';
-import { BookMarked } from 'lucide-react-native';
 import { useLocalSearchParams } from 'expo-router';
 import * as api from '@/api/learningApi';
+import * as analyticsApi from '@/api/analyticsApi';
 import * as game from '@/api/gameApi';
 import * as classroom from '@/api/classroomApi';
 import * as platform from '@/api/platformApi';
+import type { BktRecommendationItem } from '@/types/ai';
 import { errorMessage } from '@/api/client';
 import { TopBar, type Session } from '@/components/auth';
 import { AnimationScreen, BattleScreen, BattlesTab } from '@/components/portal/BattleKit';
@@ -25,7 +26,8 @@ import { HudBar } from '@/components/portal/GameKit';
 import { LearningPathTab, PracticeTab } from '@/components/portal/LearningPath';
 import { DetailSheet, LibraryTab, MapTab, SourcesTab, TimelineTab } from '@/components/portal/Library';
 import { LessonReader, Overlay } from '@/components/portal/LessonReader';
-import { LessonSteps, ListenPlayer, Rewards } from '@/components/portal/LessonSteps';
+import { LessonCelebrationView } from '@/components/portal/LessonCelebrationView';
+import { LessonSteps, ListenPlayer } from '@/components/portal/LessonSteps';
 import { MiniScreen } from '@/components/portal/MiniGames';
 import { MyTab, QuestsTab } from '@/components/portal/Progress';
 import { QuizPlayer, ReviewScreen } from '@/components/portal/QuizPlayer';
@@ -37,10 +39,12 @@ import { StudyPlanTab } from '@/components/portal/StudyPlan';
 import { ExplainSheet } from '@/components/portal/TieuTuong';
 import { WarCardsTab } from '@/components/portal/WarCards';
 import { BattlesHub, MarchTab, StageIntroSheet, TruthSheet, WarBattleScreen, WarReplaySheet } from '@/components/portal/WarPlay';
-import { afterSheet, Btn, PaperBg, Segmented, Sheet, Spinner, Stars, Txt, useToast } from '@/components/ui';
+import { afterSheet, PaperBg, Segmented, Spinner, useToast } from '@/components/ui';
 import { PALETTES } from '@/constants/theme';
 import { ThemeContext, useTheme } from '@/hooks/use-theme';
 import { usePortalTab } from '@/hooks/use-portal-tab';
+import { accuracyTagFor, type QuestDeltaItem } from '@/lib/learning-celebration';
+import { useQuestSnapshot } from '@/lib/use-lesson-celebration';
 import type { MyAssignment } from '@/types/classroom';
 import type { NoticeItem, PlatformConfig, Prefs } from '@/types/platform';
 import type { Hud } from '@/types/gamification';
@@ -81,7 +85,13 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
   const [refreshKey, setRefreshKey] = useState(0);
   const [overlay, setOverlay] = useState<Overlayed | null>(null);
   const [detail, setDetail] = useState<{ type: string; id: number } | null>(null);
-  const [done, setDone] = useState<NodeResult | null>(null);
+  const [done, setDone] = useState<{
+    result: NodeResult;
+    title: string;
+    isChest: boolean;
+    questDeltas: QuestDeltaItem[];
+    ackIds: number[];
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [hud, setHud] = useState<Hud | null>(null);
   const [share, setShare] = useState<{ badges: number; cards: number } | null>(null);
@@ -108,6 +118,7 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
   const [explain, setExplain] = useState<{ attemptId: number; questionId: number } | null>(null);
   const bump =useCallback(() => setRefreshKey((k) => k + 1), []);
   const loadHud = useCallback(() => { game.gameMe(token).then(setHud).catch(() => undefined); }, [token]);
+  const { captureAfter, acknowledge } = useQuestSnapshot(token, !gam, refreshKey);
 
   useEffect(() => { const e = VIEW_EVENT[tab]; if (e) api.viewEvent(token, e); }, [tab, token]);
   useEffect(() => { if (tab !== 'home') setMarchFocus(null); }, [tab]);
@@ -146,8 +157,15 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
     onRead: async (n) => {
       open(n.kind, n.refId);
       if (!n.done) {
-        const res = await guarded(() => api.completeNode(token, n.id));
-        if (res) { setDone(res); bump(); }
+        const out = await guarded(async () => {
+          const res = await api.completeNode(token, n.id);
+          const snap = await captureAfter();
+          return { res, snap };
+        });
+        if (out) {
+          setDone({ result: out.res, title: n.title, isChest: false, questDeltas: out.snap.questDeltas, ackIds: out.snap.ackIds });
+          bump();
+        }
       }
     },
     onOpenDetail: open,
@@ -155,8 +173,15 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
     onListen: (n) => setOverlay({ kind: 'listen', nodeId: n.id, title: n.title }),
     // Mở rương: máy chủ trao vàng và Binh thư một lần rồi mở nút kế tiếp
     onChest: async (n) => {
-      const res = await guarded(() => api.completeNode(token, n.id));
-      if (res) { setDone(res); bump(); }
+      const out = await guarded(async () => {
+        const res = await api.completeNode(token, n.id);
+        const snap = await captureAfter();
+        return { res, snap };
+      });
+      if (out) {
+        setDone({ result: out.res, title: n.title, isChest: true, questDeltas: out.snap.questDeltas, ackIds: out.snap.ackIds });
+        bump();
+      }
     },
     onStage: (id, march) => {
       if (march && warOn) { setMarchFocus(march); setHomeMode('march'); setCampaignId(null); setFocusNode(null); setTab('home', { march_campaign: String(march.campaign_id), march_point: String(march.point_id), campaign: undefined, focus_node: undefined }); return; }
@@ -191,6 +216,16 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
     if (attempt) setOverlay({ kind: 'quiz', attempt, title: 'Luyện lại các câu đã sai', nodeId: null });
   };
 
+  const handleAiStartPractice = async (rec: BktRecommendationItem) => {
+    const topic = rec.topic_type && rec.topic_id ? { type: rec.topic_type, id: rec.topic_id } : undefined;
+    const attempt = await guarded(() => (
+      rec.action_kind === 'practice_wrong' && !topic
+        ? api.startPractice(token)
+        : analyticsApi.personalPractice(token, topic)
+    ));
+    if (attempt) setOverlay({ kind: 'quiz', attempt, title: `Ôn tập: ${rec.topic}`, nodeId: null });
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <PaperBg />
@@ -207,7 +242,14 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
               <NoticeBell session={session} refreshKey={refreshKey} onGo={goNotice} />
             </View>
             {tab === 'learn' ? <LearningPathTab session={session} refreshKey={refreshKey} actions={actions} /> :
-             tab === 'ai' ? <AiHubDashboard session={session} onOpenSource={(id) => open('source', typeof id === 'number' ? id : parseInt(String(id), 10) || 1)} /> : (
+             tab === 'ai' ? (
+               <AiHubDashboard
+                 session={session}
+                 onOpenSource={(id) => open('source', typeof id === 'number' ? id : parseInt(String(id), 10) || 1)}
+                 onStartPractice={handleAiStartPractice}
+                 onGoLearn={(nodeId) => { if (nodeId) setFocusNode(nodeId); setTab('learn'); }}
+               />
+             ) : (
             <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 56, maxWidth: 880, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
               {tab === 'practice' ? <PracticeTab session={session} refreshKey={refreshKey} onPractice={startPractice} onGoLearn={() => setTab('learn')} /> : null}
               {tab === 'shop' ? <ShopTab session={session} hud={hud} refreshKey={refreshKey} onChanged={bump} /> : null}
@@ -266,7 +308,13 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
       {overlay?.kind === 'listen' ? (
         <ListenPlayer session={session} nodeId={overlay.nodeId} title={overlay.title} onClose={(changed) => { setOverlay(null); if (changed) bump(); }}
           onQuiz={() => { const { nodeId, title } = overlay; setOverlay(null); void startQuiz(nodeId, title); }}
-          onDone={(res) => { setOverlay(null); setDone(res); bump(); }} />
+          onDone={async (res) => {
+            const listenTitle = overlay.title;
+            const snap = await captureAfter();
+            setOverlay(null);
+            setDone({ result: res, title: listenTitle, isChest: false, questDeltas: snap.questDeltas, ackIds: snap.ackIds });
+            bump();
+          }} />
       ) : null}
       {overlay?.kind === 'quiz' ? (
         <Overlay title={overlay.title} onBack={() => { setOverlay(null); bump(); }}>
@@ -304,7 +352,33 @@ const StudentShell: React.FC<{ session: Session; prefs: Prefs | null; onPrefs: (
       {explain ? <ExplainSheet session={session} attemptId={explain.attemptId} questionId={explain.questionId} onClose={() => setExplain(null)} onOpen={open} /> : null}
       {truthId !== null ? <TruthSheet session={session} id={truthId} onClose={() => setTruthId(null)} onSource={(id) => { setTruthId(null); open('source', id); }} /> : null}
       {detail ? <DetailSheet key={`${detail.type}${detail.id}`} session={session} type={detail.type} id={detail.id} onClose={() => setDetail(null)} onOpen={open} onChanged={bump} /> : null}
-      {done ? <NodeDoneSheet result={done} onOpen={(id) => { setDone(null); open('source', id); }} onClose={() => setDone(null)} /> : null}
+      {done ? (
+        <LessonCelebrationView
+          skipSummary={done.isChest}
+          summary={{
+            headline: done.isChest ? 'Mở rương nhận thưởng!' : 'Hoàn thành hoạt động!',
+            subtitle: done.title,
+            xpEarned: done.result.points_awarded,
+            accuracyPercent: 100,
+            accuracyTag: accuracyTagFor(100, true),
+            stars: done.result.stars,
+            passed: true,
+            nextNodeTitle: done.result.next_node?.title ?? null,
+            journeyCompleted: done.result.journey_completed,
+          }}
+          questDeltas={done.questDeltas}
+          nodeResult={done.result}
+          onOpenLink={(type, id) => {
+            acknowledge(done.ackIds);
+            setDone(null);
+            open(type, id);
+          }}
+          onDone={() => {
+            acknowledge(done.ackIds);
+            setDone(null);
+          }}
+        />
+      ) : null}
       {share && hud ? <ShareSheet hud={hud} badges={share.badges} cards={share.cards} onClose={() => setShare(null)} /> : null}
       {hud?.has_character && !overlay && !done && !detail ? <CelebrationHost session={session} refreshKey={refreshKey} onChanged={loadHud} /> : null}
       {busy ? <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, alignItems: 'center', justifyContent: 'center', backgroundColor: c.scrim }}><Spinner label="Đang xử lý…" /></View> : null}
@@ -327,27 +401,6 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
     <ThemeContext.Provider value={value}>
       <StudentShell session={session} prefs={prefs} onPrefs={setPrefs} cfg={cfg} />
     </ThemeContext.Provider>
-  );
-};
-
-const NodeDoneSheet: React.FC<{ result: NodeResult; onClose: () => void; onOpen: (sourceId: number) => void }> = ({ result, onClose, onOpen }) => {
-  const { c } = useTheme();
-  return (
-    <Sheet open onClose={onClose} title="Hoàn thành nút!" footer={<View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}><Btn title="Tiếp tục" tone="ngoc" onPress={onClose} /></View>}>
-      <View style={{ gap: 10, alignItems: 'center' }}>
-        <Stars n={result.stars} size={32} />
-        {result.points_awarded > 0 ? <Txt f="displayHeavy" size={24} color={c.dongChu}>+{result.points_awarded} điểm</Txt> : null}
-        {result.unlocked_sources.length ? (
-          <View style={{ gap: 6, alignItems: 'center' }}>
-            <Txt f="bold" size={15}>Tư liệu mới được mở khóa</Txt>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>{result.unlocked_sources.map((s) => <Btn key={s.id} icon={BookMarked} title={s.title} tone="dong" size="sm" onPress={() => onOpen(s.id)} />)}</View>
-          </View>
-        ) : null}
-        <Rewards node={result} />
-        {result.next_node ? <Txt size={14} color={c.muc2} center>Nút tiếp theo đã mở: {result.next_node.title}</Txt> : null}
-        {result.journey_completed ? <Txt f="bold" size={15} color={c.ngocChu} center>Em đã hoàn thành cả hành trình!</Txt> : null}
-      </View>
-    </Sheet>
   );
 };
 

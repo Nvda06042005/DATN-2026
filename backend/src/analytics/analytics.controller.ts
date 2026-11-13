@@ -24,6 +24,7 @@ export class AnalyticsController {
 
   // ---------------------------------------------------------------------- học sinh
   @Get('me/strengths') @Roles('student') strengths(@CurrentUser() user: UserRow) { return this.analytics.strengths(user); }
+  @Get('me/profile') @Roles('student') profile(@CurrentUser() user: UserRow) { return this.analytics.studentAiProfile(user); }
   @Post('me/practice') @Roles('student') @HttpCode(200) practice(@CurrentUser() user: UserRow, @Body() body: Json) { return this.reco.practice(user, body); }
   @Get('me/exam-plan') @Roles('student') examPlan(@CurrentUser() user: UserRow) { return this.reco.examPlan(user); }
 

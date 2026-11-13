@@ -479,22 +479,144 @@ class BKTEngine:
         material["mastery_status"] = mastery_status
         return material
 
+    @staticmethod
+    def _norm_vi(text: str) -> str:
+        import unicodedata
+        if not text:
+            return ""
+        s = unicodedata.normalize("NFD", str(text))
+        s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
+        s = s.replace("đ", "d").replace("Đ", "d").lower()
+        return re.sub(r"[^a-z0-9]+", " ", s).strip()
+
+    def _match_qmatrix_units(self, text: str, max_hits: int = 3) -> List[str]:
+        norm_text = self._norm_vi(text)
+        if not norm_text:
+            return []
+        stop = {"va", "cua", "nha", "nam", "tran", "quan", "chong", "lan", "ve", "voi", "trong", "khi", "cac", "nhung"}
+        tokens = [t for t in norm_text.split() if len(t) >= 3 and t not in stop]
+        if not tokens:
+            tokens = [t for t in norm_text.split() if len(t) >= 2]
+        scored: List[tuple] = []
+        for uid, meta in self.q_matrix.items():
+            if meta.get("category") in ("OUT_OF_DOMAIN", "CONVERSATIONAL_INTENT", "CROSS_ERA_SAFEGUARD"):
+                continue
+            hay = self._norm_vi(f"{meta.get('topic', '')} {meta.get('entity', '')} {meta.get('event', '')}")
+            score = sum(1 for tok in tokens if tok in hay)
+            if norm_text in hay or (len(hay) >= 6 and hay in norm_text):
+                score += 2
+            if score >= 2:
+                scored.append((score, uid))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [uid for _, uid in scored[:max_hits]]
+
+    def sync_from_db_profile(self, student_id: str, db_profile: Optional[Dict[str, Any]]) -> None:
+        """
+        Đồng bộ xác suất làm chủ P(L) của học sinh từ dữ liệu thực tế trong PostgreSQL
+        (lượt làm bài theo chủ đề, câu làm sai gần đây, bài tập sắp đến hạn, thời điểm học gần nhất).
+        """
+        if not db_profile or not isinstance(db_profile, dict):
+            return
+        self._load_curriculum_metadata()
+        from datetime import datetime
+
+        state: Dict[str, Dict[str, Any]] = {}
+        urgent_units = set()
+        for ex in (db_profile.get("upcoming_assignments") or []):
+            for wt in (ex.get("weak_topics") or []):
+                for uid in self._match_qmatrix_units(str(wt.get("name") or ""), max_hits=2):
+                    urgent_units.add(uid)
+
+        def _apply_obs(uid: str, correct_cnt: int, wrong_cnt: int, last_iso: Optional[str]) -> None:
+            meta = self.q_matrix.get(uid, {})
+            diff = float(meta.get("difficulty", 0.5))
+            p_g = max(0.10, self.default_p_g * (1.0 - diff * 0.5))
+            p_s = min(0.30, self.default_p_s * (1.0 + diff * 0.5))
+            p_t = self.default_p_t
+
+            rec = state.setdefault(uid, {
+                "p_l": self.default_p_l0,
+                "last_updated_time": time.time(),
+                "attempts": 0,
+                "correct_count": 0,
+                "chat_count": 0,
+                "urgent": uid in urgent_units,
+            })
+            p_l = float(rec["p_l"])
+            c_lim = min(correct_cnt, 10)
+            w_lim = min(wrong_cnt, 10)
+            total_steps = c_lim + w_lim
+            c_used = 0
+            obs_seq: List[bool] = []
+            for idx in range(1, total_steps + 1):
+                target_c = round((idx * c_lim) / total_steps) if total_steps > 0 else 0
+                if c_used < target_c and c_used < c_lim:
+                    obs_seq.append(True)
+                    c_used += 1
+                else:
+                    obs_seq.append(False)
+            for is_ok in obs_seq:
+                num = p_l * (1.0 - p_s) if is_ok else p_l * p_s
+                den = num + ((1.0 - p_l) * p_g if is_ok else (1.0 - p_l) * (1.0 - p_g))
+                post = num / den if den > 0 else p_l
+                p_l = min(0.99, max(0.05, post + (1.0 - post) * p_t))
+
+            ts = time.time()
+            if last_iso:
+                try:
+                    ts = datetime.fromisoformat(str(last_iso).replace("Z", "+00:00")).timestamp()
+                except Exception:
+                    pass
+            rec["p_l"] = round(p_l, 4)
+            rec["last_updated_time"] = min(time.time(), ts)
+            rec["attempts"] += int(correct_cnt) + int(wrong_cnt)
+            rec["correct_count"] += int(correct_cnt)
+            rec["urgent"] = rec["urgent"] or (uid in urgent_units)
+
+        for topic_row in (db_profile.get("all_topics") or []):
+            ans = int(topic_row.get("answered") or 0)
+            cor = int(topic_row.get("correct") or 0)
+            if ans <= 0:
+                continue
+            matched = self._match_qmatrix_units(str(topic_row.get("name") or ""), max_hits=2)
+            for uid in matched:
+                _apply_obs(uid, cor, max(0, ans - cor), topic_row.get("last_at"))
+
+        for wq in (db_profile.get("recent_wrong_questions") or []):
+            text = f"{wq.get('campaign_title') or ''} {wq.get('prompt') or ''}"
+            w_cnt = max(1, int(wq.get("wrong_count") or 1))
+            for uid in self._match_qmatrix_units(text, max_hits=1):
+                _apply_obs(uid, 0, w_cnt, wq.get("last_wrong_at"))
+
+        # Giữ lại lượt chat BKT trước đó của học sinh nếu có, nhưng lấy dữ liệu DB làm gốc
+        prev = self.student_states.get(student_id, {})
+        for uid, old_rec in prev.items():
+            if uid in state:
+                state[uid]["chat_count"] = max(state[uid]["chat_count"], int(old_rec.get("chat_count", 0)))
+
+        self.student_states[student_id] = state
+
     def recommend_personalized_review(self, student_id: str, top_k: int = 3) -> List[Dict[str, Any]]:
         """
         Đề xuất lộ trình học cá nhân hóa:
         Tìm các cụm tri thức có P(L) thấp nhất (< 0.60) kèm tài liệu SGK và phương pháp học tương ứng.
         """
         self._load_curriculum_metadata()
+        student_data = self.student_states.get(student_id, {})
         recommendations = []
         for uid, meta in self.q_matrix.items():
             if meta.get("category") in ["OUT_OF_DOMAIN", "CONVERSATIONAL_INTENT", "CROSS_ERA_SAFEGUARD"]:
                 continue
 
             p_l = self.get_student_knowledge_level(student_id, uid)
+            rec = student_data.get(uid, {})
+            is_urgent = bool(rec.get("urgent", False))
             if p_l < 0.60:
                 material = self.get_study_material(uid)
                 material["current_mastery"] = round(p_l, 4)
                 material["mastery_status"] = "Cần củng cố"
+                attempts = int(rec.get("attempts", 0))
+                priority_score = p_l - (0.12 if attempts > 0 else 0.0) - (0.10 if is_urgent else 0.0)
                 recommendations.append({
                     "unit_id": uid,
                     "topic": meta.get("topic"),
@@ -502,6 +624,9 @@ class BKTEngine:
                     "current_mastery": p_l,
                     "difficulty": meta.get("difficulty"),
                     "cognitive_level": meta.get("cognitive_level"),
+                    "attempts": attempts,
+                    "due_urgent": is_urgent,
+                    "priority_score": priority_score,
                     "reason": (
                         f"Mức độ nắm vững hiện tại đạt {int(p_l * 100)}% (Cần đọc: {material['sgk_reference']})"
                     ),
@@ -511,7 +636,9 @@ class BKTEngine:
                     "study_material": material,
                 })
 
-        recommendations.sort(key=lambda x: x["current_mastery"])
+        recommendations.sort(key=lambda x: (x.get("priority_score", x["current_mastery"]), x["current_mastery"]))
+        for r in recommendations:
+            r.pop("priority_score", None)
         return recommendations[:top_k]
 
     def analyze_student_profile(self, student_id: str, top_k: int = 5) -> Dict[str, Any]:

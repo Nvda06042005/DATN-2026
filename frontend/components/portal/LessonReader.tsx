@@ -10,9 +10,12 @@ import * as classroom from '@/api/classroomApi';
 import { ErrorNote, useAction, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { LeafletMap } from '@/components/portal/LeafletMap';
+import { LessonCelebrationView } from '@/components/portal/LessonCelebrationView';
 import { QuestionInput } from '@/components/portal/QuizPlayer';
-import { Bar, Btn, Card, Chip, Spinner, Stars, Txt } from '@/components/ui';
+import { Bar, Btn, Card, Chip, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import { accuracyTagFor, type QuestDeltaItem } from '@/lib/learning-celebration';
+import { useQuestSnapshot } from '@/lib/use-lesson-celebration';
 import type { LessonBlock, LessonCompletion, PlayQuestion } from '@/types/learning';
 
 /** Khung toàn màn hình phủ lên ứng dụng, có nút quay lại và vùng cuộn riêng */
@@ -88,7 +91,10 @@ export const LessonReader: React.FC<{ session: Session; nodeId: number; assignme
   const [note, setNote] = useState('');
   const sent = useRef(0);
   const changed = useRef(false);
+  const startedAt = useRef(Date.now());
   const layout = useRef({ height: 1, content: 1 });
+  const { captureAfter, acknowledge } = useQuestSnapshot(token, Boolean(assignmentId));
+  const [celeb, setCeleb] = useState<{ deltas: QuestDeltaItem[]; ackIds: number[] } | null>(null);
 
   useEffect(() => { if (data) { setRead(data.progress.read_percent); setNote(data.note ?? ''); sent.current = data.progress.read_percent; } }, [data?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -117,17 +123,42 @@ export const LessonReader: React.FC<{ session: Session; nodeId: number; assignme
     if (!data) return;
     report(100);
     const answers = data.checks.map((q) => ({ question_id: q.id, answer: toAnswer(q, drafts[q.id]) }));
-    const res = await run(() => complete(answers));
-    if (res) { setOutcome(res); if (res.completed) changed.current = true; }
+    const out = await run(async () => {
+      const res = await complete(answers);
+      const snap = res.completed && !assignmentId ? await captureAfter() : { questDeltas: [], ackIds: [] };
+      return { res, snap };
+    });
+    if (out) {
+      if (out.res.completed && !assignmentId) {
+        setCeleb({ deltas: out.snap.questDeltas, ackIds: out.snap.ackIds });
+      }
+      setOutcome(out.res);
+      if (out.res.completed) changed.current = true;
+    }
   };
   const finishWithoutChecks = async () => {
-    const res = await run(async () => { if (assignmentId) await classroom.assignmentLessonProgress(token, assignmentId, 100); else await api.lessonProgress(token, nodeId, 100); return complete([]); });
-    if (res) { setOutcome(res); if (res.completed) changed.current = true; }
+    const out = await run(async () => {
+      if (assignmentId) await classroom.assignmentLessonProgress(token, assignmentId, 100);
+      else await api.lessonProgress(token, nodeId, 100);
+      const res = await complete([]);
+      const snap = res.completed && !assignmentId ? await captureAfter() : { questDeltas: [], ackIds: [] };
+      return { res, snap };
+    });
+    if (out) {
+      if (out.res.completed && !assignmentId) {
+        setCeleb({ deltas: out.snap.questDeltas, ackIds: out.snap.ackIds });
+      }
+      setOutcome(out.res);
+      if (out.res.completed) changed.current = true;
+    }
   };
   const saveNote = async () => { if (data) await run(() => api.saveNote(token, 'lesson', data.id, note), 'Đã lưu ghi chú'); };
   const deleteNote = async () => { if (data) { await run(() => api.removeNote(token, 'lesson', data.id), 'Đã xóa ghi chú'); setNote(''); } };
 
   const done = Boolean(data?.progress.completed_at) || outcome?.completed;
+  const checkTotal = outcome?.results?.length ?? 0;
+  const checkRight = outcome?.results?.filter((r) => r.correct).length ?? 0;
+  const readerAccuracy = checkTotal ? Math.round((checkRight / checkTotal) * 100) : 100;
   return (
     <Overlay title={title} onBack={() => onClose(changed.current)} onScroll={onScroll}>
       <ErrorNote message={lesson.error} />
@@ -196,13 +227,28 @@ export const LessonReader: React.FC<{ session: Session; nodeId: number; assignme
               </Card>
             ) : null}
             {outcome?.completed && outcome.node ? (
-              <Card flat pad={14} style={{ gap: 6, backgroundColor: c.ngocNhat }}>
-                <Txt f="displayHeavy" size={20} color={c.ngocChu}>Hoàn thành bài học!</Txt>
-                <Stars n={outcome.node.stars} size={26} />
-                {outcome.node.points_awarded > 0 ? <Txt f="bold" size={15} color={c.ngocChu}>+{outcome.node.points_awarded} điểm</Txt> : null}
-                {outcome.node.next_node ? <Txt size={14}>Nút tiếp theo đã mở: {outcome.node.next_node.title}</Txt> : null}
-                <Btn title="Về bản đồ" tone="ngoc" onPress={() => onClose(true)} />
-              </Card>
+              <LessonCelebrationView
+                summary={{
+                  headline: 'Hoàn thành bài học!',
+                  subtitle: data.title,
+                  xpEarned: outcome.node.points_awarded,
+                  accuracyPercent: readerAccuracy,
+                  accuracyTag: accuracyTagFor(readerAccuracy, true),
+                  stars: outcome.node.stars,
+                  elapsedMs: Date.now() - startedAt.current,
+                  passed: true,
+                  nextNodeTitle: outcome.node.next_node?.title ?? null,
+                  journeyCompleted: outcome.node.journey_completed,
+                }}
+                questDeltas={celeb?.deltas ?? []}
+                nodeResult={outcome.node}
+                extraLinks={data.links}
+                onOpenLink={onOpenLink}
+                onDone={() => {
+                  acknowledge(celeb?.ackIds ?? []);
+                  onClose(true);
+                }}
+              />
             ) : null}
           </Card>
         </>
