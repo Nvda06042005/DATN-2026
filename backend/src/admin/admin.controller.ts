@@ -145,7 +145,6 @@ class CreateMemberDto {
   @IsOptional() @IsString() @MaxLength(40) user_code?: string | null;
   @IsOptional() @Matches(DATE, { message: 'Ngày sinh có dạng YYYY-MM-DD' }) birth_date?: string | null;
   @IsOptional() @IsIn(['male', 'female', 'other']) gender?: 'male' | 'female' | 'other' | null;
-  @IsOptional() @IsEmail() @MaxLength(254) parent_email?: string | null;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) class_id?: number | null;
 }
 
@@ -156,7 +155,6 @@ class UpdateUserDto {
   @IsOptional() @IsString() @MaxLength(40) user_code?: string | null;
   @IsOptional() @Matches(DATE, { message: 'Ngày sinh có dạng YYYY-MM-DD' }) birth_date?: string | null;
   @IsOptional() @IsIn(['male', 'female', 'other']) gender?: 'male' | 'female' | 'other' | null;
-  @IsOptional() @IsEmail() @MaxLength(254) parent_email?: string | null;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number | null;
 }
 
@@ -207,6 +205,8 @@ class ClassDto {
   @Type(() => Number) @IsInt() @Min(6) @Max(9) grade: number;
   @Transform(squash) @IsString() @Length(2, 40) name: string;
   @IsOptional() @IsArray() @ArrayMaxSize(1) @IsInt({ each: true }) teacher_ids?: number[];
+  /** Học sinh xếp vào lớp ngay khi tạo (chọn theo mã học sinh, như bảng của file Excel xếp lớp) */
+  @IsOptional() @IsArray() @ArrayMaxSize(100) @IsInt({ each: true }) student_ids?: number[];
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) expected_size?: number | null;
   @IsOptional() @IsString() @MaxLength(300) description?: string | null;
 }

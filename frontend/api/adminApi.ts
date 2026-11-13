@@ -85,7 +85,7 @@ export const downloadFile = (token: string, path: string) => apiBlob(path, token
 export const listClasses = (token: string, query: Query) => apiRequest<Paged<ClassItem>>(`/api/admin/classes${qs(query)}`, { token });
 export const getClass = (token: string, id: number,semester?:number) => apiRequest<ClassDetail>(`/api/admin/classes/${id}${qs({semester})}`, { token });
 export const classEvents = (token: string, id: number) => apiRequest<ClassEvent[]>(`/api/admin/classes/${id}/events`, { token });
-export const createClass = (token: string, body: { school_id?: number | null; year_id: number; grade: number; name: string; semester?:number; teacher_ids?: number[]; expected_size?: number | null; description?: string | null }) =>
+export const createClass = (token: string, body: { school_id?: number | null; year_id: number; grade: number; name: string; semester?:number; teacher_ids?: number[]; student_ids?: number[]; expected_size?: number | null; description?: string | null }) =>
   apiRequest<ClassItem>('/api/admin/classes', { token, body });
 export const updateClass = (token: string, id: number, body: Partial<{ name: string; grade: number; semester:number; confirm_reassignment:boolean; expected_size: number | null; description: string | null; join_open: boolean; teacher_ids: number[] }>) =>
   apiRequest<ClassItem>(`/api/admin/classes/${id}`, { token, method: 'PATCH', body });

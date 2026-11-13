@@ -78,8 +78,9 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const dq = useDebounced(q);
   const query = { q: dq, active: active || undefined, grade: grade ? Number(grade) : undefined, class_id: classId ? Number(classId) : undefined };
   const { data, error, loading, reload } = useLoad(() => api.listMembers(token, kind, { ...query, page, limit: size } as never), [token, kind, dq, active, grade, classId, page, size], session.expired);
-  const { data: classes } = useLoad(() => api.listClasses(token, { year_id: yearId || undefined, limit: 200 }), [token, yearId], session.expired);
-  const classOptions = useMemo(() => (classes?.items ?? []).filter((x) => x.is_active).map((x) => ({ value: String(x.id), label: x.name })), [classes]);
+  // lớp đang hoạt động của mọi năm học chưa kết thúc (yêu cầu 13/11/2026): trước đây chỉ lấy năm học đang hoạt động nên năm đó chưa có lớp thì ô chọn lớp trống
+  const { data: classes } = useLoad(() => api.listClasses(token, { active: 'true', limit: 200 }), [token], session.expired);
+  const classOptions = useMemo(() => (classes?.items ?? []).filter((x) => x.is_active && x.year_status !== 'ended').map((x) => ({ value: String(x.id), label: `${x.name} · Khối ${x.grade ?? '?'} (${x.school_year})` })), [classes]);
   // mỗi bộ lọc khai báo một lần: nút mũi tên ở tiêu đề cột (màn rộng) và nút "Bộ lọc" của thanh tìm kiếm (màn hẹp) dùng chung
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }], onChange: (v) => { setActive(v); setPage(1); } };
   const f_grade: SearchFilter = { key: 'grade', label: 'Khối', value: grade, options: [{ value: '', label: 'Mọi khối' }, ...[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }))], onChange: (v) => { setGrade(v); setPage(1); } };
@@ -94,7 +95,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
 
   // thêm từng người: cùng các cột với file mẫu Excel (mã, họ tên, giới tính, SĐT, email, ngày sinh); nền tảng chỉ dạy Lịch sử nên không có ô chọn môn
   const fields: FieldDef[] = teacher ? personFields(true, token)
-    : [...personFields(false, token), { name: 'class_id', label: 'Xếp vào lớp (năm học đang hoạt động)', type: 'select', options: [{ value: '', label: 'Chưa xếp lớp' }, ...classOptions] }];
+    : [...personFields(false, token), { name: 'class_id', label: 'Xếp vào lớp', type: 'select', hint: classOptions.length ? 'Lớp · khối (năm học), giống ô Lớp của file Excel; để trống nếu chưa xếp lớp.' : 'Trường chưa có lớp nào đang hoạt động: tạo lớp ở mục Lớp học trước.', options: [{ value: '', label: 'Chưa xếp lớp' }, ...classOptions] }];
 
   return (
     <Page>

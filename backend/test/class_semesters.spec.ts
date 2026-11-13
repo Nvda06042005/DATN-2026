@@ -21,7 +21,7 @@ import { bootstrap, Fixture } from './fixture';
   test('mã lớp tăng dần, tách mã tham gia, không đổi khi đổi tên lớp; tạo đồng thời không trùng',async()=>{
     const preview=(await api('GET','/api/admin/registration-code/class')).body.code;
     const made=await api('POST','/api/admin/classes',{year_id:f.yearId,grade:7,name:'7M1',semester:1,teacher_ids:[f.T1.id]});
-    expect(made.status).toBe(201);expect(made.body.registration_code).toBe(preview);expect(made.body.join_code).toMatch(/^[A-Z2-9]{6}$/);
+    expect(made.status).toBe(201);expect(made.body.registration_code).toBe(preview);expect(made.body.join_code).toMatch(/^DongA7M1[A-Za-z]+HK1\d{4}-\d{4}$/); // có giáo viên: mã tham gia theo quy ước (13/11/2026)
     const edit=await api('PATCH',`/api/admin/classes/${made.body.id}`,{name:'7M1 mới'});expect(edit.body.registration_code).toBe(preview);
     const many=await Promise.all([2,3,4,5].map(n=>api('POST','/api/admin/classes',{year_id:f.yearId,grade:7,name:`7M${n}`})));
     expect(many.map(r=>r.status)).toEqual([201,201,201,201]);expect(new Set(many.map(r=>r.body.registration_code)).size).toBe(4);

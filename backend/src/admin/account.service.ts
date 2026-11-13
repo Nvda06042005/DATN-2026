@@ -41,7 +41,8 @@ const TEACHER_FORM_COLUMNS: FormColumn[] = [
 /**
  * Cột của file nhập học sinh: cùng bảy cột với giáo viên (số thứ tự chỉ để nhìn, không đọc). Họ tên, SĐT, email và ngày sinh bắt buộc (11/11/2026):
  * tên đăng nhập ghép từ tên, 4 số cuối SĐT và ngày sinh, rồi gửi vào email.
- * Hai cột cuối (Lớp, Email phụ huynh) không có trong file mẫu mới nhưng vẫn được nhận nếu file cũ hoặc file xuất còn giữ, để không mất cách xếp lớp và nhập email phụ huynh hàng loạt.
+ * Cột cuối (Lớp) không có trong file mẫu mới nhưng vẫn được nhận nếu file cũ hoặc file xuất còn giữ, để không mất cách xếp lớp.
+ * "Email phụ huynh" đã bỏ hẳn (13/11/2026, migration 062): file cũ còn cột này thì cột bị bỏ qua.
  */
 export const STUDENT_COLUMNS: Column[] = [
   { key: 'user_code', header: 'Mã học sinh', width: 29 },
@@ -51,7 +52,6 @@ export const STUDENT_COLUMNS: Column[] = [
   { key: 'email', header: 'Email *', required: true, width: 32 },
   { key: 'birth_date', header: 'Ngày tháng năm sinh *', aliases: ['Ngày sinh'], required: true, width: 22 },
   { key: 'class_name', header: 'Lớp', width: 14 },
-  { key: 'parent_email', header: 'Email phụ huynh', width: 32 },
 ];
 const STUDENT_FORM_COLUMNS: FormColumn[] = [
   { key: 'stt', header: 'Số thứ tự', kind: 'index', watch: 'full_name', width: 11 },
@@ -105,7 +105,7 @@ interface ClassTarget { id: number; name: string; grade: number | null; school_y
 
 interface MemberInput {
   full_name: string; email?: string | null; phone?: string | null; user_code?: string | null;
-  birth_date?: string | null; gender?: 'male' | 'female' | 'other' | null; parent_email?: string | null; class_id?: number | null;
+  birth_date?: string | null; gender?: 'male' | 'female' | 'other' | null; class_id?: number | null;
 }
 
 /** Ngày hôm nay theo giờ Việt Nam, dạng YYYY-MM-DD */
@@ -337,7 +337,7 @@ export class AccountService {
   private checkMember(body: MemberInput): MemberInput {
     const input: MemberInput = {
       full_name: clean(body.full_name) as string, email: clean(body.email)?.toLowerCase() ?? null, phone: clean(body.phone), user_code: clean(body.user_code),
-      birth_date: body.birth_date ?? null, gender: body.gender ?? null, parent_email: clean(body.parent_email)?.toLowerCase() ?? null, class_id: body.class_id ?? null,
+      birth_date: body.birth_date ?? null, gender: body.gender ?? null, class_id: body.class_id ?? null,
     };
     if (!input.full_name || input.full_name.length < 2) throw new UnprocessableEntityException('Họ tên tối thiểu 2 ký tự');
     if (!givenNameUpper(input.full_name)) throw new UnprocessableEntityException('Họ tên cần có tên gọi bằng chữ (ví dụ Nguyễn Văn An)');
@@ -346,7 +346,6 @@ export class AccountService {
     if (!input.email) throw new UnprocessableEntityException('Cần email để gửi tên đăng nhập và mật khẩu');
     if (!input.birth_date) throw new UnprocessableEntityException('Cần ngày sinh để tạo mã và tên đăng nhập');
     if (input.email && !EMAIL.test(input.email)) throw new UnprocessableEntityException('Email không hợp lệ');
-    if (input.parent_email && !EMAIL.test(input.parent_email)) throw new UnprocessableEntityException('Email phụ huynh không hợp lệ');
     if (input.phone && !PHONE.test(input.phone)) throw new UnprocessableEntityException('Số điện thoại gồm đúng 10 chữ số');
     if (input.birth_date && (!parseDate(input.birth_date) || input.birth_date > todayVn())) throw new UnprocessableEntityException('Ngày sinh không hợp lệ (dạng YYYY-MM-DD, không ở tương lai)');
     return input;
@@ -372,7 +371,7 @@ export class AccountService {
     try {
       user = await this.db.createUser({
         username, full_name: input.full_name, role, class_name: null, password_hash: passwordHash, must_change_password: true, email: input.email, phone: input.phone,
-        user_code: input.user_code, birth_date: input.birth_date, gender: input.gender, parent_email: role === 'student' ? input.parent_email : null,
+        user_code: input.user_code, birth_date: input.birth_date, gender: input.gender,
         school_id: school.id, school_code: school.school_code, region: school.region, city: school.city, grade: cls?.grade ?? null, school_year: cls?.school_year ?? null,
       }, q);
     } catch (exc) {
@@ -400,10 +399,6 @@ export class AccountService {
         const phone = clean(body.phone);
         if (phone && !PHONE.test(phone)) throw new UnprocessableEntityException('Số điện thoại gồm đúng 10 chữ số');
         fields.phone = phone;
-      }
-      if (target.role === 'student') {
-        set('parent_email', body.parent_email, (v) => clean(v)?.toLowerCase() ?? null);
-        if (fields.parent_email && !EMAIL.test(fields.parent_email as string)) throw new UnprocessableEntityException('Email phụ huynh không hợp lệ');
       }
       if (target.role === 'student' || target.role === 'teacher') {
         if (body.birth_date !== undefined) {
@@ -663,7 +658,7 @@ export class AccountService {
         if(originalCode)seenSourceCode.add(originalCode);
         const input: MemberInput = {
           full_name: clean(values.full_name) ?? '', email: clean(values.email)?.toLowerCase() ?? null, phone: clean(values.phone), user_code: clean(values.user_code),
-          parent_email: clean(values.parent_email)?.toLowerCase() ?? null, gender: null, birth_date: null, class_id: null,
+          gender: null, birth_date: null, class_id: null,
         };
         if (input.full_name.length < 2) errors.push('Thiếu họ tên');
         else if (!givenNameUpper(input.full_name)) errors.push('Họ tên cần có tên gọi bằng chữ');
@@ -671,7 +666,6 @@ export class AccountService {
         if (!input.phone) errors.push('Thiếu SĐT');
         if (!input.email) errors.push('Thiếu email');
         if (input.email && !EMAIL.test(input.email)) errors.push('Email không hợp lệ');
-        if (input.parent_email && !EMAIL.test(input.parent_email)) errors.push('Email phụ huynh không hợp lệ');
         if (input.phone && !PHONE.test(input.phone)) errors.push('Số điện thoại gồm đúng 10 chữ số');
         if (!values.birth_date) errors.push('Thiếu ngày sinh');
         else if (!(input.birth_date = parseDate(values.birth_date))) errors.push('Ngày sinh sai định dạng (dd/mm/yyyy)');

@@ -254,5 +254,22 @@ describe('mã tham gia theo quy ước', () => {
     expect(book.getWorksheet('6A5')!.getCell('C13').value).toBe('Chưa phân công'); // học kỳ 1 chưa có giáo viên (đã phân công học kỳ 2)
     expect((await call(s.base, 'GET', `/api/admin/classes/export?class_id=${one.id}`, undefined, B.token)).status).toBe(404); // lớp trường khác
   });
+
+  test('tạo lớp thủ công giống file Excel (13/11/2026): chọn giáo viên và học sinh theo mã; sĩ số = số học sinh đã chọn; mã tham gia DongA…; học sinh lạ thì không tạo lớp', async () => {
+    const all = (await api('GET', '/api/admin/students?limit=200')).body.items as Array<{ id: number; user_code: string }>;
+    const idOf = (key: string) => all.find((x) => x.user_code === codes[key])!.id;
+    const made = await api('POST', '/api/admin/classes', { year_id: A.year, grade: 6, name: '6A9', semester: 1, teacher_ids: [teacherId], student_ids: [idOf('an'), idOf('hien')], expected_size: 40 });
+    expect(made.status).toBe(201);
+    expect(made.body).toMatchObject({ name: '6A9', students: 2, expected_size: 2, join_code: joinCodeFor('6A9', 'Nguyễn Đức Anh', 1, YEAR) });
+    const detail = (await api('GET', `/api/admin/classes/${made.body.id}`)).body;
+    expect(detail.members.map((m: { user_code: string }) => m.user_code).sort()).toEqual([codes.an, codes.hien].sort());
+    // không chọn học sinh: giữ sĩ số dự kiến đã nhập; chưa có giáo viên thì mã tham gia 6 ký tự như trước
+    const empty = await api('POST', '/api/admin/classes', { year_id: A.year, grade: 6, name: '6A8', expected_size: 35 });
+    expect(empty.body).toMatchObject({ students: 0, expected_size: 35 });
+    expect(empty.body.join_code).toMatch(/^[A-Z0-9]{6}$/);
+    // học sinh không thuộc trường: báo lỗi, lớp không được tạo
+    expect((await api('POST', '/api/admin/classes', { year_id: A.year, grade: 6, name: '6A7', student_ids: [999999] })).status).toBe(422);
+    expect(await classByName('6A7')).toBeUndefined();
+  });
 });
 

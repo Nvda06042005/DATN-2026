@@ -35,7 +35,7 @@ const notes = async (who: { token: string }) => (await call(s.base, 'GET', '/api
     const list = (await api('GET', '/api/classroom/classes')).body;
     expect(list).toHaveLength(1);
     expect(list[0]).toMatchObject({ id: classId, name: '7A1', students: 2, teams: 0, pending_leaves: 0, own: false, join_open: true, journeys: [], avg_progress: null });
-    expect(list[0].join_code).toMatch(/^[A-Z2-9]{6}$/);
+    expect(list[0].join_code).toMatch(/^DongA7A1[A-Za-z]+HK[12]\d{4}-\d{4}$/); // lớp tạo kèm giáo viên phụ trách: mã tham gia theo quy ước (13/11/2026)
     expect((await api('GET', '/api/classroom/classes', undefined, f.S1.token)).status).toBe(403);
     const created = await api('POST', '/api/classroom/classes', { name: ' 7A9 ', grade: 7, description: 'Lớp thử nghiệm' });
     expect(created.status).toBe(201);

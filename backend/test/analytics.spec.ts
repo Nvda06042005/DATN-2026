@@ -44,7 +44,7 @@ const download = async (who: { token: string }, path: string) => {
     // S1: ba lượt, mỗi lượt sai 2 câu chủ đề A và đúng 2 câu chủ đề B (A: 0%, B: 100%, tổng 50%)
     for (let i = 0; i < 3; i += 1) await attempt(f.S1.id, 50, [...qa.map((question) => ({ question, correct: false })), ...qb.map((question) => ({ question, correct: true }))]);
     quizId = (await db.query<{ id: number }>('SELECT id FROM hk_quizzes ORDER BY id LIMIT 1'))[0].id;
-    await db.query("UPDATE app_users SET email = 'mot@example.edu.vn', parent_email = 'phuhuynh@example.edu.vn' WHERE id = $1", [f.S1.id]);
+    await db.query("UPDATE app_users SET email = 'mot@example.edu.vn' WHERE id = $1", [f.S1.id]);
   });
   afterAll(async () => { await s?.close(); });
 
@@ -197,7 +197,8 @@ const download = async (who: { token: string }, path: string) => {
 
     // GV.067 và QT.033: hồ sơ học sinh
     const p = (await as(f.T1)('GET', `/api/analytics/students/${f.S1.id}`)).body;
-    expect(p.student).toMatchObject({ id: f.S1.id, has_parent_email: true });
+    expect(p.student).toMatchObject({ id: f.S1.id });
+    expect(p.student).not.toHaveProperty('has_parent_email'); // "Email phụ huynh" đã bỏ hẳn (migration 062)
     expect(p.student.classes.map((c: any) => c.name)).toEqual(['7A1']);
     expect(p.attempts).toHaveLength(3);
     expect(p.journeys.length).toBeGreaterThan(0);
@@ -268,13 +269,13 @@ const download = async (who: { token: string }, path: string) => {
   });
 
   // ------------------------------------------------------------------ HK.GV.072: nhận xét qua email
-  test('nhận xét học tập: bản nháp dựng từ số liệu thật, gửi cho học sinh và phụ huynh qua hàng đợi email, kiểm tra địa chỉ và giới hạn', async () => {
+  test('nhận xét học tập: bản nháp dựng từ số liệu thật, chỉ gửi cho học sinh qua hàng đợi email (đã bỏ email phụ huynh), kiểm tra địa chỉ và giới hạn', async () => {
     const d = (await as(f.T1)('GET', `/api/analytics/students/${f.S1.id}/feedback-draft`)).body;
     expect(d.subject).toContain('Phạm Minh Một');
     expect(d.body).toContain('Tiến độ hành trình');
     expect(d.body).toContain(topicA.name);
     expect(d.body).toMatch(/Trân trọng,\nNguyễn Văn Sử$/);
-    expect(d.student).toMatchObject({ has_email: true, has_parent_email: true });
+    expect(d.student).toEqual({ id: f.S1.id, full_name: expect.any(String), has_email: true });
     const send = (body: unknown, who: { token: string } = f.T1) => as(who)('POST', `/api/analytics/students/${f.S1.id}/feedback`, body);
     expect((await send({ subject: 'abc', body: d.body, to: ['student'] })).status).toBe(400);
     expect((await send({ subject: d.subject, body: 'quá ngắn', to: ['student'] })).status).toBe(400);
@@ -282,22 +283,21 @@ const download = async (who: { token: string }, path: string) => {
     expect((await send({ subject: d.subject, body: d.body, to: ['hang-xom'] })).status).toBe(400);
     expect((await send({ subject: d.subject, body: d.body, to: ['student'] }, f.T2)).status).toBe(404); // giáo viên lớp khác
     expect((await as(f.T1)('POST', `/api/analytics/students/${f.S2.id}/feedback`, { subject: d.subject, body: d.body, to: ['student'] })).status).toBe(400); // S2 chưa có email
-    const ok = await send({ subject: d.subject, body: d.body, to: ['student', 'parent'] });
-    expect(ok.body).toEqual({ queued: 2, recipients: ['student', 'parent'] });
+    expect((await send({ subject: d.subject, body: d.body, to: ['student', 'parent'] })).status).toBe(400); // không còn gửi cho phụ huynh
+    expect((await send({ subject: d.subject, body: d.body, to: ['parent'] })).status).toBe(400);
+    const ok = await send({ subject: d.subject, body: d.body, to: ['student'] });
+    expect(ok.body).toEqual({ queued: 1, recipients: ['student'] });
     const mail = s.moduleRef.get((await import('../src/admin/mail.service')).MailService);
-    expect(await mail.tick()).toBe(2);
+    expect(await mail.tick()).toBe(1);
     const sent = (mail as any).sent as Array<{ to: string; subject: string; text: string }>;
-    expect(sent.map((m) => m.to).sort()).toEqual(['mot@example.edu.vn', 'phuhuynh@example.edu.vn']);
+    expect(sent.map((m) => m.to)).toEqual(['mot@example.edu.vn']);
     expect(sent[0].text).toContain('Tiến độ hành trình');
     expect(sent[0].text).not.toMatch(/Mật khẩu/);
-    expect((await db.query("SELECT 1 FROM app_email_outbox WHERE kind = 'feedback' AND status = 'sent' AND body_encrypted IS NULL")).length).toBe(2);
-    expect((await as(f.T1)('GET', `/api/analytics/students/${f.S1.id}/feedback`)).body.map((x: any) => x.recipient).sort()).toEqual(['parent', 'student']);
-    await send({ subject: d.subject, body: d.body, to: ['student', 'parent'] });
-    expect((await send({ subject: d.subject, body: d.body, to: ['student', 'parent'] })).status).toBe(409); // quá 5 thư trong 24 giờ
-    await db.query("UPDATE app_users SET parent_email = NULL WHERE id = $1", [f.S1.id]);
+    expect((await db.query("SELECT 1 FROM app_email_outbox WHERE kind = 'feedback' AND status = 'sent' AND body_encrypted IS NULL")).length).toBe(1);
+    expect((await as(f.T1)('GET', `/api/analytics/students/${f.S1.id}/feedback`)).body.map((x: any) => x.recipient)).toEqual(['student']);
+    for (let i = 0; i < 4; i += 1) expect((await send({ subject: d.subject, body: d.body, to: ['student'] })).status).toBe(200);
+    expect((await send({ subject: d.subject, body: d.body, to: ['student'] })).status).toBe(409); // quá 5 thư trong 24 giờ
     await db.query("DELETE FROM hk_feedback_mails");
-    expect((await send({ subject: d.subject, body: d.body, to: ['parent'] })).status).toBe(400);
-    await db.query("UPDATE app_users SET parent_email = 'phuhuynh@example.edu.vn' WHERE id = $1", [f.S1.id]);
   });
 
   // ------------------------------------------------------------------ HK.QT.006–007, HK.AD.006–007, 009

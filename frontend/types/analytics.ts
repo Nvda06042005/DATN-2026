@@ -64,7 +64,7 @@ export interface ResultClass {
 export interface Results { by: 'class' | 'grade' | 'teacher'; period: { from: string | null; to: string | null }; groups: ResultGroup[]; classes: ResultClass[] }
 
 export interface StudentProfile {
-  student: { id: number; full_name: string; user_code: string | null; email: string | null; has_parent_email: boolean; grade: number | null; classes: Array<{ id: number; name: string }> };
+  student: { id: number; full_name: string; user_code: string | null; email: string | null; grade: number | null; classes: Array<{ id: number; name: string }> };
   stats: StudentStat;
   journeys: Array<{ journey_id: number; title: string; from_class: boolean; done: number; total: number; nodes: Array<{ id: number; title: string; kind: string; state: string; best_percent: number; stars: number; attempts: number; completed_at: string | null }> }>;
   attempts: Array<{ id: number; mode: string; percent: number; stars: number; passed: boolean; correct_count: number; wrong_count: number; duration_ms: number; finished_at: string; title: string }>;
@@ -75,7 +75,7 @@ export interface StudentProfile {
   cards: number; ai_questions_30d: number;
   topics: { by_type: TypeRow[]; strong: TopicRow[]; weak: TopicRow[]; all: TopicRow[] };
 }
-export interface FeedbackDraft { subject: string; body: string; student: { id: number; full_name: string; has_email: boolean; has_parent_email: boolean } }
+export interface FeedbackDraft { subject: string; body: string; student: { id: number; full_name: string; has_email: boolean } }
 export interface FeedbackLog { id: number; recipient: 'student' | 'parent'; subject: string; created_at: string; teacher: string | null }
 
 // ---------------------------------------------------------------------- trường và hệ thống

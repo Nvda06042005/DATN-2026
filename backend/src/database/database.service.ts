@@ -40,7 +40,8 @@ export interface UserRow {
   bio: string | null;
   nickname: string | null;
   gender: 'male' | 'female' | 'other' | null;
-  parent_email: string | null;
+  /** Email khôi phục (email phụ) của quản trị viên: nhận mã quên mật khẩu cùng email chính (migration 061) */
+  recovery_email: string | null;
   lock_reason: string | null;
   locked_at: string | null;
   admin_level: 1 | 2;
@@ -61,7 +62,6 @@ export interface UserProfile {
   grade?: number | null;
   phone?: string | null;
   gender?: 'male' | 'female' | 'other' | null;
-  parent_email?: string | null;
   nickname?: string | null;
   admin_level?: 1 | 2;
   self_registered?: boolean;
@@ -75,14 +75,14 @@ export type Q = <T = Record<string, unknown>>(sql: string, params?: unknown[]) =
 
 export const USER_COLUMNS =
   'id, username, full_name, role, class_name, password_hash, must_change_password, is_active, created_at, last_login_at, ' +
-  'school_id, user_code, school_code, region, city, birth_date, school_year, email, grade, deleted_at, purge_at, token_version, phone, avatar_url, bio, nickname, gender, parent_email, ' +
+  'school_id, user_code, school_code, region, city, birth_date, school_year, email, grade, deleted_at, purge_at, token_version, phone, avatar_url, bio, nickname, gender, recovery_email, ' +
   'lock_reason, locked_at, admin_level, profile_confirmed_at, self_registered';
 const PROFILE_FIELDS = [
   'school_id', 'user_code', 'school_code', 'region', 'city', 'birth_date', 'school_year', 'email', 'grade',
-  'phone', 'gender', 'parent_email', 'nickname', 'admin_level', 'self_registered', 'profile_confirmed_at',
+  'phone', 'gender', 'nickname', 'admin_level', 'self_registered', 'profile_confirmed_at',
 ] as const;
 /** Cột cho phép sửa qua updateUser */
-const UPDATABLE = ['full_name', 'class_name', 'is_active', 'email', 'grade', 'phone', 'gender', 'birth_date', 'parent_email', 'user_code', 'nickname'] as const;
+const UPDATABLE = ['full_name', 'class_name', 'is_active', 'email', 'grade', 'phone', 'gender', 'birth_date', 'user_code', 'nickname'] as const;
 
 export const nowIso = (): string => new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
 
@@ -438,11 +438,13 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     const key = identifier.trim().toLowerCase();
     const rows = await this.query(
       `SELECT ${USER_COLUMNS} FROM app_users
-       WHERE (username = $1 OR lower(email) = $1 OR lower(user_code) = $1) AND role = ANY($2) AND is_active = 1 AND deleted_at IS NULL AND email IS NOT NULL`,
+       WHERE (username = $1 OR lower(email) = $1 OR lower(user_code) = $1 OR lower(recovery_email) = $1) AND role = ANY($2) AND is_active = 1 AND deleted_at IS NULL AND email IS NOT NULL`,
       [key, roles],
     );
     const users = rows.map(toUser);
-    return users.find((u) => u.username === key) ?? (users.length === 1 ? users[0] : null);
+    // trùng giữa email chính của tài khoản này và email khôi phục của tài khoản khác: ưu tiên email chính / mã người dùng
+    const direct = users.filter((u) => u.email?.toLowerCase() === key || u.user_code?.toLowerCase() === key);
+    return users.find((u) => u.username === key) ?? (users.length === 1 ? users[0] : direct.length === 1 ? direct[0] : null);
   }
 
   /** Lưu băm của mã đặt lại; mã chưa dùng trước đó của tài khoản hết hiệu lực, mã quá hạn từ hơn một ngày bị dọn */

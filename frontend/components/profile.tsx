@@ -19,6 +19,8 @@ const LABEL: Record<Editable, { label: string; hint?: string; multiline?: boolea
   full_name: { label: 'Họ và tên' },
   nickname: { label: 'Biệt danh', hint: '2–24 ký tự; bảng xếp hạng chỉ hiện biệt danh của học sinh.' },
   email: { label: 'Email', hint: 'Dùng để nhận mã xác thực khi quên mật khẩu.' },
+  // email phụ của quản trị viên (yêu cầu 13/11/2026): cùng email chính quản lý tài khoản
+  recovery_email: { label: 'Email khôi phục', hint: 'Email phụ cùng quản lý tài khoản: khi quên mật khẩu, mã xác thực được gửi tới cả email chính và email này. Phải khác email chính.' },
   phone: { label: 'Số điện thoại' },
   avatar_url: { label: 'Ảnh đại diện' },
   bio: { label: 'Giới thiệu ngắn', hint: 'Tối đa 300 ký tự.', multiline: true },
@@ -142,8 +144,8 @@ export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (pa
             <View key={k} style={{ flexGrow: 1, flexBasis: meta.multiline ? '100%' : 220, minWidth: 0 }}>
               {k === 'phone'
                 ? <PhoneField label={meta.label} hint={'Đúng 10 chữ số, ví dụ 0901234567.'} value={form[k] ?? ''} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
-                : <Field label={meta.label} hint={meta.hint} value={form[k] ?? ''} onChangeText={(v) => setForm((f) => ({ ...f, [k]: v }))} autoCapitalize={k === 'email' ? 'none' : 'sentences'}
-                keyboardType={k === 'email' ? 'email-address' : 'default'} multiline={meta.multiline} numberOfLines={meta.multiline ? 3 : 1} inputStyle={meta.multiline ? { minHeight: 72, textAlignVertical: 'top' } : undefined} />}
+                : <Field label={meta.label} hint={meta.hint} value={form[k] ?? ''} onChangeText={(v) => setForm((f) => ({ ...f, [k]: v }))} autoCapitalize={k === 'email' || k === 'recovery_email' ? 'none' : 'sentences'}
+                keyboardType={k === 'email' || k === 'recovery_email' ? 'email-address' : 'default'} multiline={meta.multiline} numberOfLines={meta.multiline ? 3 : 1} inputStyle={meta.multiline ? { minHeight: 72, textAlignVertical: 'top' } : undefined} />}
             </View>
           );
         })}

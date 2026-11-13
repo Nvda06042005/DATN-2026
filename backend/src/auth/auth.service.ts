@@ -59,10 +59,11 @@ const hashOtp = (id: number | string, otp: string): string => hashToken(`${id}:$
 const PROFILE_FIELDS: Record<Role, string[]> = {
   student: ['nickname', 'avatar_url', 'bio'],
   teacher: ['phone', 'avatar_url', 'bio'],
-  school_admin: ['full_name', 'email', 'phone', 'avatar_url'],
-  root_admin: ['full_name', 'email', 'phone', 'avatar_url'],
+  // quản trị viên có thêm email khôi phục (email phụ cùng quản lý tài khoản, nhận mã quên mật khẩu; yêu cầu 13/11/2026)
+  school_admin: ['full_name', 'email', 'recovery_email', 'phone', 'avatar_url'],
+  root_admin: ['full_name', 'email', 'recovery_email', 'phone', 'avatar_url'],
 };
-const FIELD_LABEL: Record<string, string> = { full_name: 'họ tên', email: 'email', phone: 'số điện thoại', avatar_url: 'ảnh đại diện', bio: 'giới thiệu', nickname: 'biệt danh' };
+const FIELD_LABEL: Record<string, string> = { full_name: 'họ tên', email: 'email', recovery_email: 'email khôi phục', phone: 'số điện thoại', avatar_url: 'ảnh đại diện', bio: 'giới thiệu', nickname: 'biệt danh' };
 
 export interface GoogleIdentity { email: string; authoritative?: boolean }
 
@@ -288,7 +289,7 @@ export class AuthService {
 
   /** Mỗi email chỉ thuộc một tài khoản còn dùng được: đăng nhập bằng email, quên mật khẩu và đăng nhập Google đều dựa vào điều này */
   private async assertEmailFree(email: string, exceptId: number | null): Promise<void> {
-    const rows = await this.db.query('SELECT 1 FROM app_users WHERE lower(email) = $1 AND deleted_at IS NULL AND ($2::integer IS NULL OR id <> $2)', [email, exceptId]);
+    const rows = await this.db.query('SELECT 1 FROM app_users WHERE (lower(email) = $1 OR lower(recovery_email) = $1) AND deleted_at IS NULL AND ($2::integer IS NULL OR id <> $2)', [email, exceptId]);
     if (rows.length) throw new ConflictException('Email này đã được dùng cho một tài khoản khác');
   }
 
@@ -306,7 +307,7 @@ export class AuthService {
   }
 
   /**
-   * Quên mật khẩu (HK.*.005), mọi vai trò: gửi mã OTP 6 chữ số tới email đã khai báo của tài khoản. Luôn trả lời giống nhau dù tài khoản có
+   * Quên mật khẩu (HK.*.005), mọi vai trò: gửi mã OTP 6 chữ số tới email đã khai báo của tài khoản (quản trị viên: cả email chính và email khôi phục). Luôn trả lời giống nhau dù tài khoản có
    * tồn tại hay không (không lộ tài khoản nào có thật); phần tạo mã và gửi thư chạy nền để thời gian trả lời không tiết lộ điều đó.
    */
   async forgotPassword(identifier: string): Promise<void> {
@@ -314,13 +315,15 @@ export class AuthService {
     const key = identifier.trim().toLowerCase();
     if (!key || this.tooManyResets(key)) return;
     const user = await this.db.findForPasswordReset(key, ALL_ROLES);
-    if (user?.email) void this.issueOtp(user, user.email).catch(() => this.logger.warn('Không gửi được thư mã xác thực'));
+    if (user?.email) void this.issueOtp(user).catch(() => this.logger.warn('Không gửi được thư mã xác thực'));
   }
 
-  private async issueOtp(user: UserRow, email: string): Promise<void> {
+  /** Một mã cho mỗi lần xin; gửi tới email chính và email khôi phục (nếu có), mã nào cũng là cùng một mã */
+  private async issueOtp(user: UserRow): Promise<void> {
     const otp = String(randomInt(0, 1_000_000)).padStart(6, '0');
     await this.db.createPasswordReset(user.id, hashOtp(user.id, otp), OTP_TTL_MIN);
-    await this.mail.sendPasswordOtp(email, user.full_name, otp, OTP_TTL_MIN);
+    const to = [...new Set([user.email, user.recovery_email].filter((e): e is string => Boolean(e)).map((e) => e.toLowerCase()))];
+    for (const email of to) await this.mail.sendPasswordOtp(email, user.full_name, otp, OTP_TTL_MIN);
   }
 
   /**
@@ -389,9 +392,20 @@ export class AuthService {
     if (clean.some(([k, v]) => k === 'full_name' && v === null)) throw new UnprocessableEntityException('Họ tên không được để trống');
     const email = clean.find(([k]) => k === 'email')?.[1];
     if (email) await this.assertEmailFree(email.toLowerCase(), user.id);
+    const recovery = clean.find(([k]) => k === 'recovery_email');
+    if (recovery?.[1]) {
+      // email khôi phục: đúng định dạng, khác email chính (sau khi sửa) và không trùng email của tài khoản khác
+      const value = recovery[1].toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || value.length > 254) throw new UnprocessableEntityException('Email khôi phục không hợp lệ');
+      const main = (email !== undefined ? email : user.email)?.toLowerCase() ?? null;
+      if (value === main) throw new UnprocessableEntityException('Email khôi phục phải khác email chính');
+      await this.assertEmailFree(value, user.id);
+    }
+    const keptRecovery = (recovery ? recovery[1] : user.recovery_email)?.toLowerCase() ?? null;
+    if (email && keptRecovery && email.toLowerCase() === keptRecovery) throw new UnprocessableEntityException('Email chính phải khác email khôi phục');
     if (clean.length) {
       const sets = clean.map(([k], i) => `${k} = $${i + 2}`);
-      await this.db.query(`UPDATE app_users SET ${sets.join(', ')} WHERE id = $1`, [user.id, ...clean.map(([k, v]) => (k === 'email' && v ? v.toLowerCase() : v))]);
+      await this.db.query(`UPDATE app_users SET ${sets.join(', ')} WHERE id = $1`, [user.id, ...clean.map(([k, v]) => ((k === 'email' || k === 'recovery_email') && v ? v.toLowerCase() : v))]);
       const fresh = (await this.db.getById(user.id))!;
       await this.db.query('UPDATE app_users SET search_text = $1 WHERE id = $2', [searchText(fresh.full_name, fresh.username, fresh.user_code, fresh.email, fresh.class_name), user.id]);
     }

@@ -34,7 +34,8 @@ export interface AuthUser {
   bio: string | null;
   nickname: string | null;
   gender: Gender | null;
-  parent_email: string | null;
+  /** Email khôi phục của quản trị viên (migration 061) */
+  recovery_email?: string | null;
   lock_reason: string | null;
   locked_at: string | null;
   admin_level: 1 | 2;
@@ -42,7 +43,7 @@ export interface AuthUser {
   self_registered: boolean;
 }
 
-export type EditableField = 'full_name' | 'email' | 'phone' | 'avatar_url' | 'bio' | 'nickname';
+export type EditableField = 'full_name' | 'email' | 'recovery_email' | 'phone' | 'avatar_url' | 'bio' | 'nickname';
 
 /** Hồ sơ cá nhân (HK.*.009/010): thông tin, trường, năm học, lớp, các trường vai trò được tự sửa */
 export interface ProfileData {
@@ -183,7 +184,6 @@ export interface MemberInput {
   user_code?: string | null;
   birth_date?: string | null;
   gender?: Gender | null;
-  parent_email?: string | null;
   class_id?: number | null;
 }
 

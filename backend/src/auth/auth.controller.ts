@@ -56,6 +56,8 @@ class ResetPasswordDto {
 class ProfileDto {
   @IsOptional() @IsString() @Length(2, 80) full_name?: string;
   @IsOptional() @IsEmail() @MaxLength(254) email?: string | null;
+  /** Email khôi phục (chỉ quản trị viên): email phụ nhận mã quên mật khẩu cùng email chính */
+  @IsOptional() @IsEmail({}, { message: 'Email khôi phục không hợp lệ' }) @MaxLength(254) recovery_email?: string | null;
   @IsOptional() @Matches(/^[0-9]{10}$/, { message: 'Số điện thoại gồm đúng 10 chữ số' }) phone?: string | null;
   /** Ảnh đại diện chỉ đổi bằng cách tải ảnh lên (POST /auth/avatar); ở đây chỉ nhận null để xóa ảnh */
   @IsOptional() @Equals(null, { message: 'Ảnh đại diện chỉ đổi bằng cách tải ảnh lên; gửi null để xóa ảnh' }) avatar_url?: null;

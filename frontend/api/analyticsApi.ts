@@ -27,7 +27,7 @@ export const results = (token: string, by: 'class' | 'grade' | 'teacher', p: Per
 export const studentProfile = (token: string, id: number) => apiRequest<StudentProfile>(`${base}/students/${id}`, { token });
 export const feedbackDraft = (token: string, id: number) => apiRequest<FeedbackDraft>(`${base}/students/${id}/feedback-draft`, { token });
 export const feedbackHistory = (token: string, id: number) => apiRequest<FeedbackLog[]>(`${base}/students/${id}/feedback`, { token });
-export const sendFeedback = (token: string, id: number, body: { subject: string; body: string; to: Array<'student' | 'parent'> }) => apiRequest<{ queued: number; recipients: string[] }>(`${base}/students/${id}/feedback`, { token, body });
+export const sendFeedback = (token: string, id: number, body: { subject: string; body: string; to: Array<'student'> }) => apiRequest<{ queued: number; recipients: string[] }>(`${base}/students/${id}/feedback`, { token, body });
 export const exportClass = (token: string, id: number, format: 'xlsx' | 'pdf', p: Period = {}) => apiBlob(`${base}/classes/${id}/export${qs({ format, ...p })}`, token);
 export const exportResults = (token: string, by: 'class' | 'grade' | 'teacher', format: 'xlsx' | 'pdf', p: Period = {}) => apiBlob(`${base}/export${qs({ by, format, ...p })}`, token);
 

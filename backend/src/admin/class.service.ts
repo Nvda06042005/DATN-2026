@@ -162,7 +162,11 @@ export class ClassService {
   }
 
   /** Tạo lớp (HK.QT.036): thuộc một năm học còn mở và một khối đang bật; có thể phân công giáo viên ngay */
-  async create(actor: UserRow, body: { school_id?: number | null; year_id: number; grade: number; name: string; semester?: number; teacher_ids?: number[]; expected_size?: number | null; description?: string | null }) {
+  /**
+   * Tạo lớp thủ công (HK.QT.035) giống phần đầu file Excel xếp lớp: lớp, khối, học kỳ, giáo viên phụ trách và danh sách học sinh chọn theo mã
+   * (yêu cầu 13/11/2026). Chọn học sinh thì sĩ số = số học sinh thực có; có giáo viên phụ trách thì mã tham gia theo quy ước DongA + lớp + giáo viên + HK + năm học.
+   */
+  async create(actor: UserRow, body: { school_id?: number | null; year_id: number; grade: number; name: string; semester?: number; teacher_ids?: number[]; student_ids?: number[]; expected_size?: number | null; description?: string | null }) {
     const schoolId = this.schools.target(actor, body.school_id);
     const name = body.name.trim().replace(/\s+/g, ' ');
     return this.schools.run(actor, async (q) => {
@@ -175,6 +179,12 @@ export class ClassService {
       const cls=await this.load(q,actor,id);
       const semester=body.semester ?? (await q<{n:number}>('SELECT COALESCE(public.app_class_semester($1),1) AS n',[year.id]))[0].n;
       await this.setTeachers(q,actor,cls,teachers,semester,true);
+      if (body.student_ids?.length) {
+        const students = await this.studentsOf(q, schoolId, body.student_ids);
+        for (const s of students) await this.addStudent(q, actor, cls, s.id);
+        await q('UPDATE app_classes SET expected_size = $2 WHERE id = $1', [id, students.length]);
+      }
+      if (teachers.length) await this.applyJoinCode(q, actor, cls, semester);
       return this.view(q, id,semester);
     });
   }

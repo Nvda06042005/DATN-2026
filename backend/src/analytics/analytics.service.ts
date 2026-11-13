@@ -79,8 +79,8 @@ export class AnalyticsService {
   }
 
   private async studentsOf(q: Q, classId: number) {
-    return q<{ id: number; full_name: string; user_code: string | null; email: string | null; parent_email: string | null }>(
-      `SELECT u.id, u.full_name, u.user_code, u.email, u.parent_email FROM app_class_members m JOIN app_users u ON u.id = m.user_id AND u.role = 'student' AND u.deleted_at IS NULL AND u.is_active = 1
+    return q<{ id: number; full_name: string; user_code: string | null; email: string | null }>(
+      `SELECT u.id, u.full_name, u.user_code, u.email FROM app_class_members m JOIN app_users u ON u.id = m.user_id AND u.role = 'student' AND u.deleted_at IS NULL AND u.is_active = 1
        WHERE m.class_id = $1 ORDER BY u.full_name, u.id`, [classId]);
   }
 
@@ -161,9 +161,9 @@ export class AnalyticsService {
   }
 
   // ---------------------------------------------------------------------- GV.067 và QT.033: hồ sơ học tập một học sinh
-  private async assertStudentAccess(user: UserRow, studentId: number): Promise<{ id: number; full_name: string; user_code: string | null; email: string | null; parent_email: string | null; school_id: number | null; grade: number | null }> {
-    const s = (await this.db.query<{ id: number; full_name: string; user_code: string | null; email: string | null; parent_email: string | null; school_id: number | null; grade: number | null }>(
-      "SELECT id, full_name, user_code, email, parent_email, school_id, grade FROM app_users WHERE id = $1 AND role = 'student' AND deleted_at IS NULL", [studentId]))[0];
+  private async assertStudentAccess(user: UserRow, studentId: number): Promise<{ id: number; full_name: string; user_code: string | null; email: string | null; school_id: number | null; grade: number | null }> {
+    const s = (await this.db.query<{ id: number; full_name: string; user_code: string | null; email: string | null; school_id: number | null; grade: number | null }>(
+      "SELECT id, full_name, user_code, email, school_id, grade FROM app_users WHERE id = $1 AND role = 'student' AND deleted_at IS NULL", [studentId]))[0];
     if (!s) throw notFound('học sinh');
     if (user.role === 'root_admin' || (user.role === 'student' && user.id === studentId)) return s;
     if (user.role === 'school_admin' && s.school_id === user.school_id) return s;
@@ -200,7 +200,7 @@ export class AnalyticsService {
       const ai = num((await q<{ n: string }>("SELECT count(*) AS n FROM hk_ai_messages m JOIN hk_ai_conversations c ON c.id = m.conversation_id WHERE c.user_id = $1 AND m.role = 'user' AND m.created_at >= now() - interval '30 days'", [st.id]))[0].n);
       const classes = await q<{ id: number; name: string }>('SELECT c.id, c.name FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = $1 ORDER BY c.name', [st.id]);
       return {
-        student: { id: st.id, full_name: st.full_name, user_code: st.user_code, email: st.email, has_parent_email: Boolean(st.parent_email), grade: st.grade, classes },
+        student: { id: st.id, full_name: st.full_name, user_code: st.user_code, email: st.email, grade: st.grade, classes },
         stats: stat, journeys, attempts, battles, war, timeline, badges, cards, ai_questions_30d: ai,
         topics: { by_type: byType(topics), strong: topics.filter((t) => t.level === 'strong').slice(-5).reverse(), weak: topics.filter((t) => t.level === 'weak').slice(0, 8), all: topics },
       };

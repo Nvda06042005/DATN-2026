@@ -109,3 +109,25 @@ test('mật khẩu tài khoản: menu ở quản trị trường và quản tr�
  assert.match(classes,/<DownloadButton title="Xuất danh sách lớp" fetchBlob=\{\(\) => api\.downloadFile\(token, `\/api\/admin\/classes\/export\?year_id=\$\{yearId\}`\)\}/);
  assert.match(classes,/<DownloadButton title="Xuất danh sách lớp" fetchBlob=\{\(\) => api\.downloadFile\(token, `\/api\/admin\/classes\/export\?class_id=\$\{id\}`\)\}/);
 });
+test('13/11/2026: bỏ hẳn Email phụ huynh; email khôi phục cho quản trị viên; thêm học sinh chọn lớp của mọi năm học chưa kết thúc; tạo lớp chọn học sinh theo mã',()=>{
+ // Email phụ huynh không còn ở đâu (migration 062 xóa cột): hồ sơ tài khoản, form sửa, kiểu dữ liệu, thư nhận xét của giáo viên
+ for(const file of ['components/admin/AccountSheet.tsx','components/admin/SchoolPeople.tsx','types/api.ts','types/analytics.ts','api/analyticsApi.ts'])assert.doesNotMatch(read(file),/parent_email|has_parent_email|Email phụ huynh/,file);
+ const teacher=read('components/admin/AnalyticsTeacher.tsx');
+ assert.doesNotMatch(teacher,/Gửi cho phụ huynh|toParent|has_parent_email/);
+ // email khôi phục: ô riêng trong hồ sơ, gõ như email
+ const profile=read('components/profile.tsx');
+ assert.match(profile,/recovery_email: \{ label: 'Email khôi phục'/);
+ assert.match(profile,/k === 'email' \|\| k === 'recovery_email' \? 'email-address'/);
+ assert.match(read('types/api.ts'),/export type EditableField = 'full_name' \| 'email' \| 'recovery_email'/);
+ // thêm học sinh: lớp đang hoạt động của mọi năm học chưa kết thúc (không chỉ năm học đang chọn)
+ const people=read('components/admin/SchoolPeople.tsx');
+ assert.match(people,/api\.listClasses\(token, \{ active: 'true', limit: 200 \}\)/);
+ assert.match(people,/x\.is_active && x\.year_status !== 'ended'/);
+ // tạo lớp: chọn học sinh theo mã (họ tên, ngày sinh, giới tính tự hiện) và gửi student_ids; "Thêm học sinh đã có" dùng cùng khung chọn
+ const classes=read('components/admin/SchoolClasses.tsx');
+ assert.match(classes,/const StudentPicker: React\.FC/);
+ assert.match(classes,/name: 'student_ids', label: 'Học sinh', render: \(v, set\) => <StudentPicker/);
+ assert.match(classes,/student_ids: studentIds/);
+ assert.match(classes,/<StudentPicker session=\{session\} value=\{Array\.isArray\(v\.ids\) \? v\.ids : \[\]\} onChange=\{\(ids\) => set\('ids', ids\)\} exclude=\{memberIds\} \/>/);
+ assert.doesNotMatch(classes,/Mã tham gia 6 ký tự được tạo tự động/);
+});

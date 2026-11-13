@@ -5,7 +5,7 @@
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { Mail, UserRound, Users } from 'lucide-react-native';
+import { Mail, UserRound } from 'lucide-react-native';
 import * as api from '@/api/analyticsApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { Cell, DataTable, DownloadButton, ErrorNote, FilterBar, FilterBox, Page, PageHeader, StatusChip, useAction, useLoad } from '@/components/admin/kit';
@@ -108,10 +108,10 @@ const FeedbackSheet: React.FC<{ session: Session; studentId: number; onClose: ()
   const [subject, setSubject] = useState<string | null>(null);
   const [body, setBody] = useState<string | null>(null);
   const [toStudent, setToStudent] = useState(true);
-  const [toParent, setToParent] = useState(false);
   const d = draft.data;
   const s = subject ?? d?.subject ?? '', b = body ?? d?.body ?? '';
-  const to = [...(toStudent ? ['student' as const] : []), ...(toParent ? ['parent' as const] : [])];
+  // thư nhận xét chỉ gửi cho học sinh: "Email phụ huynh" đã bỏ hẳn (13/11/2026)
+  const to = toStudent && d?.student.has_email ? ['student' as const] : [];
   const send = async () => {
     const res = await run(() => api.sendFeedback(token, studentId, { subject: s, body: b, to }), 'Đã đưa thư vào hàng đợi gửi');
     if (res) { history.reload(); onClose(); }
@@ -128,7 +128,6 @@ const FeedbackSheet: React.FC<{ session: Session; studentId: number; onClose: ()
             <Field label="Tiêu đề" value={s} onChangeText={setSubject} maxLength={150} nativeID="fb-subject" />
             <Field label="Nội dung nhận xét" value={b} onChangeText={setBody} multiline numberOfLines={10} maxLength={3000} inputStyle={{ minHeight: 200, textAlignVertical: 'top' }} nativeID="fb-body" />
             <ToggleRow icon={UserRound} checked={toStudent && d.student.has_email} onChange={(v) => d.student.has_email && setToStudent(v)} label="Gửi cho học sinh" desc={d.student.has_email ? 'Email trong hồ sơ học sinh' : 'Hồ sơ chưa có email'} />
-            <ToggleRow icon={Users} checked={toParent && d.student.has_parent_email} onChange={(v) => d.student.has_parent_email && setToParent(v)} label="Gửi cho phụ huynh" desc={d.student.has_parent_email ? 'Email phụ huynh trong hồ sơ' : 'Hồ sơ chưa có email phụ huynh'} />
           </>
         ) : null}
         {history.data?.length ? (

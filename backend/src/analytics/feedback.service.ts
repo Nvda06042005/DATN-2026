@@ -34,7 +34,7 @@ export class FeedbackService {
       'Trân trọng,',
       user.full_name,
     ].filter((l, i, all) => !(l === '' && all[i - 1] === ''));
-    return { subject: `Nhận xét học tập môn Lịch sử – ${p.student.full_name}`, body: lines.join('\n'), student: { id: p.student.id, full_name: p.student.full_name, has_email: Boolean(p.student.email), has_parent_email: p.student.has_parent_email } };
+    return { subject: `Nhận xét học tập môn Lịch sử – ${p.student.full_name}`, body: lines.join('\n'), student: { id: p.student.id, full_name: p.student.full_name, has_email: Boolean(p.student.email) } };
   }
 
   async send(user: UserRow, studentId: number, body: { subject?: string; body?: string; to?: string[] }) {
@@ -42,11 +42,12 @@ export class FeedbackService {
     if (subject.length < 5 || subject.length > 150) throw new BadRequestException('Tiêu đề từ 5 đến 150 ký tự');
     if (text.length < 20 || text.length > 3000) throw new BadRequestException('Nội dung nhận xét từ 20 đến 3000 ký tự');
     const to = [...new Set((body.to ?? []).map(String))];
-    if (!to.length || to.some((t) => t !== 'student' && t !== 'parent')) throw new BadRequestException('Chọn gửi cho học sinh (student) và / hoặc phụ huynh (parent)');
+    // "Email phụ huynh" đã bỏ hẳn (13/11/2026, migration 062): thư nhận xét chỉ gửi cho học sinh
+    if (!to.length || to.some((t) => t !== 'student')) throw new BadRequestException('Thư nhận xét chỉ gửi cho học sinh (student)');
     await this.analytics.studentProfile(user, studentId); // kiểm tra quyền xem học sinh này
-    const st = (await this.db.query<{ id: number; full_name: string; email: string | null; parent_email: string | null; school_id: number | null }>('SELECT id, full_name, email, parent_email, school_id FROM app_users WHERE id = $1', [studentId]))[0];
-    const targets = to.map((kind) => ({ kind: kind as 'student' | 'parent', email: (kind === 'student' ? st.email : st.parent_email)?.trim() ?? '' }));
-    for (const t of targets) if (!EMAIL.test(t.email)) throw new BadRequestException(t.kind === 'student' ? 'Học sinh chưa có email trong hồ sơ' : 'Hồ sơ chưa có email phụ huynh');
+    const st = (await this.db.query<{ id: number; full_name: string; email: string | null; school_id: number | null }>('SELECT id, full_name, email, school_id FROM app_users WHERE id = $1', [studentId]))[0];
+    const targets = [{ kind: 'student' as const, email: st.email?.trim() ?? '' }];
+    for (const t of targets) if (!EMAIL.test(t.email)) throw new BadRequestException('Học sinh chưa có email trong hồ sơ');
     const recent = Number((await this.db.query<{ n: string }>("SELECT count(*) AS n FROM hk_feedback_mails WHERE student_id = $1 AND created_at >= now() - interval '24 hours'", [studentId]))[0].n);
     if (recent + targets.length > 5) throw new ConflictException('Học sinh này đã nhận nhiều thư nhận xét trong 24 giờ qua; hãy thử lại vào ngày mai');
     await this.db.tx(async (q) => {

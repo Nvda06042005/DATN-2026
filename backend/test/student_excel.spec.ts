@@ -51,7 +51,7 @@ const SCHOOL='THCS Giồng Ông Tố',SHORT_SCHOOL='THCS A';
   const wb=new(await import('exceljs')).Workbook(),ws=wb.addWorksheet('Học sinh');ws.addRow(['Mã học sinh','Họ và tên *','Ngày sinh *','Giới tính','Lớp','SĐT','Email','Email phụ huynh']);ws.addRow(['OLD-CODE','Học sinh Cũ','15/03/2013','Nữ','7A1','0901234567','hs.cu@example.invalid','parent@example.invalid']);ws.addRow(['','Học sinh Sai','31/02/2013','','','0901234567','hs.sai@example.invalid','']);
   const filename=studentTemplateFilename(SCHOOL),r=await upload(s.base,`/api/admin/students/import?commit=true&year_id=${y}`,filename,Buffer.from(await wb.xlsx.writeBuffer()),A.token);
   expect(r.body.created).toBe(1);expect(r.body.rows[1]).toMatchObject({row:3,status:'error'});
-  const list=await api('GET',`/api/admin/students?class_id=${cls.id}`);expect(list.body.items[0]).toMatchObject({full_name:'Học sinh Cũ',parent_email:'parent@example.invalid'});
+  const list=await api('GET',`/api/admin/students?class_id=${cls.id}`);expect(list.body.items[0]).toMatchObject({full_name:'Học sinh Cũ'});expect(list.body.items[0]).not.toHaveProperty('parent_email'); // cột Email phụ huynh của file cũ bị bỏ qua (migration 062)
   const out=await download(s.base,'/api/admin/students/export',A.token),exported=await open(out.buffer);expect(exported.getWorksheet('Học sinh')!.getImages()).toHaveLength(1);const headers:string[]=[];exported.getWorksheet('Học sinh')!.eachRow(row=>{if((row.values as unknown[]).includes('Mã học sinh'))headers.push(...(row.values as string[]).slice(1));});expect(headers).toContain('Mã học sinh');
  });
   test('file đã lưu bằng Excel thật (công thức điền xuống được lưu dạng dùng chung): mã vẫn đúng tiền tố ở mọi dòng', async () => {

@@ -301,7 +301,7 @@ const ForgotForm: React.FC<{ onBack: () => void; onSent: (identifier: string) =>
 
   return (
     <>
-      <Heading title="Quên mật khẩu" text="Nhập tên đăng nhập hoặc email của tài khoản quản trị. Chúng tôi sẽ gửi mã xác thực 6 chữ số tới email của tài khoản." />
+      <Heading title="Quên mật khẩu" text="Nhập tên đăng nhập, email hoặc email khôi phục của tài khoản quản trị. Chúng tôi sẽ gửi mã xác thực 6 chữ số tới email chính và email khôi phục (nếu có) của tài khoản." />
       <AuthInput
         label="Tên đăng nhập hoặc email"
         nativeID="admin-forgot"
