@@ -211,11 +211,11 @@ const LoginForm: React.FC<{ portal: AdminPortal; onLogin: (token: string, user: 
     return (
       <>
         <Heading title="Xác thực hai lớp" />
-        <Banner tone="info" text={challenge.method === 'email' ? 'Mã 6 chữ số đã được gửi tới email của tài khoản (hiệu lực 5 phút).' : 'Mở ứng dụng xác thực và nhập mã 6 chữ số của tài khoản này.'} />
+        <Banner tone="info" text={challenge.method === 'email' ? 'Mã 6 chữ số đã được gửi tới email chính và email khôi phục (nếu có) của tài khoản (hiệu lực 5 phút).' : 'Mở ứng dụng xác thực và nhập mã 6 chữ số của tài khoản này.'} />
         <AuthInput label="Mã xác thực hoặc mã dự phòng" nativeID="admin-2fa-code" value={code} onChangeText={setCode} invalid={Boolean(error)} autoCapitalize="none" autoCorrect={false} autoComplete="one-time-code" textContentType="oneTimeCode"
           returnKeyType="go" onSubmitEditing={verify} autoFocus={Platform.OS === 'web'} />
         {challenge.method === 'email' && codeExpired ? <Banner tone="error" text="Mã gửi qua email đã hết hạn (quá 5 phút). Bấm Gửi lại mã để nhận mã mới." /> : null}
-        {challenge.method === 'email' && resent && !codeExpired ? <Banner tone="success" text="Đã gửi mã mới tới email của tài khoản." /> : null}
+        {challenge.method === 'email' && resent && !codeExpired ? <Banner tone="success" text="Đã gửi mã mới tới email chính và email khôi phục (nếu có) của tài khoản." /> : null}
         {error ? <Animated.View style={shake}><Banner tone="error" text={error} /></Animated.View> : null}
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 24, rowGap: 8 }}>
           <SubmitButton title={loading ? 'Đang xác thực…' : 'Xác nhận'} loading={loading} onPress={verify} testID="login-2fa-submit" />

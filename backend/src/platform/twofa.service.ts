@@ -50,6 +50,10 @@ export function verifyTotp(secret: Buffer, code: string, now = Date.now(), windo
 
 interface Row { user_id: number; method: 'email' | 'totp'; totp_secret_enc: string | null; enabled: boolean; backup_hashes: string[] }
 
+/** Hộp thư nhận mã đăng nhập hai lớp: email chính và email khôi phục (nếu có, migration 061), không trùng nhau */
+export const loginMailboxes = (user: Pick<UserRow, 'email' | 'recovery_email'>): string[] =>
+  [...new Set([user.email, user.recovery_email].filter((e): e is string => Boolean(e)).map((e) => e.toLowerCase()))];
+
 @Injectable()
 export class TwoFactorService {
   private readonly key = createHash('sha256').update(`dong-a-2fa:${config.authSecret}`).digest();
@@ -99,7 +103,7 @@ export class TwoFactorService {
       if (!this.mail.configured) throw new ServiceUnavailableException('Máy chủ chưa cấu hình gửi thư nên chưa dùng được mã qua email');
       await this.db.query(`INSERT INTO hk_two_factor (user_id, method, enabled) VALUES ($1, 'email', false) ON CONFLICT (user_id) DO UPDATE SET method = 'email', totp_secret_enc = NULL, enabled = false`, [user.id]);
       await this.sendEmailCode(user, true);
-      return { method, sent_to: user.email.replace(/^(.).*(@.*)$/, '$1***$2') };
+      return { method, sent_to: loginMailboxes(user).map((e) => e.replace(/^(.).*(@.*)$/, '$1***$2')).join(' và ') };
     }
     if (method === 'totp') {
       if (!config.authSecretFromEnv) throw new ServiceUnavailableException('Máy chủ chưa đặt AUTH_SECRET_KEY cố định nên chưa bật được ứng dụng xác thực');
@@ -165,7 +169,8 @@ export class TwoFactorService {
     await this.db.query(
       `INSERT INTO hk_two_factor_codes (user_id, code_hash, expires_at, attempts, created_at) VALUES ($1, $2, now() + ($3 || ' minutes')::interval, 0, now())
        ON CONFLICT (user_id) DO UPDATE SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at, attempts = 0, created_at = now()`, [user.id, sha(`${user.id}:${code}`), String(EMAIL_TTL_MIN)]);
-    await this.mail.sendPasswordOtp(user.email, user.full_name, code, EMAIL_TTL_MIN, 'login');
+    // một mã, gửi cùng lúc tới email chính và email khôi phục (yêu cầu 14/11/2026): ai giữ một trong hai hộp thư đều đăng nhập được
+    for (const to of loginMailboxes(user)) await this.mail.sendPasswordOtp(to, user.full_name, code, EMAIL_TTL_MIN, 'login');
   }
 
   // ---------------------------------------------------------------------- kiểm tra mã khi đăng nhập

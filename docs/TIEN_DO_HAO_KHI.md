@@ -1160,3 +1160,10 @@ Theo 10 ý người dùng gửi kèm ảnh file Excel (đã hỏi lại hai đi�
   - **Bộ đề**: nút **Tạo đề theo ma trận** (`GET/POST /api/content/quizzes/matrix`): bảng chủ đề (cuộc kháng chiến) × mức độ, mỗi ô ghi số câu và thấy số câu sẵn có; hệ thống lấy ngẫu nhiên, xếp Biết → Hiểu → Vận dụng; ô thiếu câu thì báo đúng ô đó và không tạo; hiện tỉ lệ từng mức so với gợi ý của Công văn 7991. Chi tiết bộ đề có **bảng ma trận** (chủ đề × mức độ, tỉ lệ) và nút **Thống kê kết quả** (`GET /api/content/quizzes/:id/stats`): lượt làm, số học sinh, điểm trung bình thang 10, tỉ lệ đạt, phân bố Giỏi / Khá / Trung bình / dưới 5, tỉ lệ đúng từng câu xếp từ câu nhiều học sinh sai nhất. Ở cổng trường, RLS chỉ tính bài làm của học sinh trong trường.
   - **Bài học**: cột `hk_lessons.objectives` (mục tiêu / yêu cầu cần đạt, mỗi dòng một mục); học sinh thấy khung "Sau bài học này, em sẽ" ở đầu bài; nút **Xem trước** đúng như học sinh thấy, **Nhân bản** thành bản nháp; cột **Học sinh đã học** (đã học xong / đã mở).
 - **Kiểm thử**: `assessment_matrix.spec.ts` (mới), `assessment-ui.test.cjs` (mới), `admin-shell.test.cjs` (nhóm Quản lý).
+
+## Mã đăng nhập hai lớp gửi cùng lúc tới email chính và email khôi phục (14/11/2026)
+
+- Theo yêu cầu: ở trang quản trị tổng, bấm đăng nhập (tên đăng nhập + mật khẩu) thì mã 6 chữ số của bước hai được gửi **cùng lúc tới email chính và email khôi phục**, để hai người giữ hai hộp thư đều đăng nhập được. Một mã duy nhất, nhập mã ở hộp thư nào cũng được; mã vẫn dùng một lần, hiệu lực 5 phút.
+- `twofa.service.ts`: hàm `loginMailboxes` (email chính + email khôi phục, không trùng) dùng cho lúc đăng nhập, khi bấm "Gửi lại mã" và khi bật mã qua email (`sent_to` ghi cả hai hộp thư, đã che bớt). Áp dụng cho mọi tài khoản quản trị có email khôi phục (quản trị trường cũng có ô này). Không có migration.
+- Giao diện: dòng báo ở trang đăng nhập quản trị tổng và trang đăng nhập của trường ghi rõ mã đã gửi tới email chính và email khôi phục (nếu có).
+- Kiểm thử: `recovery_email.spec.ts` (bật mã qua email, đăng nhập, hai hộp thư nhận cùng một mã, xác thực được).

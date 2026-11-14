@@ -142,7 +142,7 @@ export function SchoolLogin({ initialRole, onLogin, notice, onForgotPassword, sc
       {notice && <Inset style={{ backgroundColor: c.thuyNhat }}><Txt size={14} color={c.thuyChu} accessibilityLiveRegion="polite">{notice}</Txt></Inset>}
       {challenge ? <View style={{ gap: 14 }}>
         <View style={{ flexDirection: 'row', gap: 8 }}><KeyRound size={20} color={c.logoRed} /><Txt f="bold" color={c.logoInk}>Xác thực hai lớp</Txt></View>
-        <Txt size={14} color={c.muc2}>{challenge.method === 'email' ? 'Nhập mã đã gửi tới email của bạn.' : 'Nhập mã từ ứng dụng xác thực hoặc mã dự phòng.'}</Txt>
+        <Txt size={14} color={c.muc2}>{challenge.method === 'email' ? 'Nhập mã đã gửi tới email chính và email khôi phục (nếu có) của bạn.' : 'Nhập mã từ ứng dụng xác thực hoặc mã dự phòng.'}</Txt>
         <LoginInput nativeID="login-two-factor" label="Mã xác thực" value={code} onChangeText={setCode} autoComplete="one-time-code" autoCapitalize="none" autoCorrect={false} returnKeyType="go" onSubmitEditing={() => { void submit(); }} />
         {challenge.method === 'email' && codeExpired ? <Inset style={{ backgroundColor: c.sonNhat }}><Txt size={14} color={c.sonChu} accessibilityLiveRegion="polite">Mã gửi qua email đã hết hạn (quá 5 phút). Bấm Gửi lại mã để nhận mã mới.</Txt></Inset> : null}
         {challenge.method === 'email' && resent && !codeExpired ? <Inset style={{ backgroundColor: c.mocNhat }}><Txt size={14} color={c.mocChu} accessibilityLiveRegion="polite">Đã gửi mã mới tới email của bạn.</Txt></Inset> : null}

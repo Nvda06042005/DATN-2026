@@ -70,4 +70,25 @@ import type { MailService } from '../src/admin/mail.service';
     await api('POST', '/api/auth/forgot-password', { identifier: sa.username }, '');
     expect(await otpFor('khoi.phuc.truong@example.invalid')).toBe(await otpFor(sa.email));
   });
+
+  test('đăng nhập hai lớp bằng email (14/11/2026): bấm đăng nhập là một mã gửi cùng lúc tới email chính và email khôi phục; mã ở hộp thư nào cũng dùng được', async () => {
+    const login = () => api('POST', '/api/auth/login', { username: 'admin', password: 'Khoi-phuc-2026', portal: 'root_admin' }, '');
+    const token = (await login()).body.token as string; // test trước đã đặt lại mật khẩu nên phiên cũ hết hiệu lực
+    const main = (await api('GET', '/api/auth/profile', undefined, token)).body.user.email as string;
+    const recovery = 'khoi.phuc.tong@example.invalid';
+    const last = async (to: string) => otpFor(to).catch(() => '');
+    const [m0, r0] = [await last(main), await last(recovery)];
+    const setup = await api('POST', '/api/platform/2fa/setup', { method: 'email' }, token);
+    expect(setup.body.sent_to).toMatch(/^.\*\*\*@.+ và k\*\*\*@example\.invalid$/);
+    const code1 = await otpFor(recovery, r0);
+    expect(await otpFor(main, m0)).toBe(code1);
+    expect((await api('POST', '/api/platform/2fa/enable', { code: code1 }, token)).status).toBe(200);
+    const step = await login();
+    expect(step.body).toMatchObject({ two_factor: true, method: 'email' });
+    const toRecovery = await otpFor(recovery, code1), toMain = await otpFor(main, code1);
+    expect(toMain).toBe(toRecovery); // cùng một mã, ai giữ hộp thư nào cũng đăng nhập được
+    const verified = await api('POST', '/api/auth/2fa/verify', { challenge: step.body.challenge, code: toRecovery, portal: 'root_admin' }, '');
+    expect(verified.status).toBe(200);
+    expect(verified.body.token).toBeTruthy();
+  });
 });
