@@ -55,7 +55,8 @@ const account = id => ({ ...root, id, username: `qa-person-${id}`, full_name: `Q
     await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) }).catch(() => {});
   });
   const page = await ctx.newPage(); page.on('pageerror', e => errors.push(e.message));
-  const nav = async id => { if (width < 1000) await page.getByTestId('admin-menu-toggle').click(); await page.getByTestId('admin-nav-' + id).click(); };
+  // mục trong nhóm thu gọn (vd. Quản lý) chỉ hiện khi nhóm mở: mở mọi nhóm đang đóng trước khi bấm
+  const nav = async id => { if (width < 1000) await page.getByTestId('admin-menu-toggle').click(); for (const g of await page.locator('[data-testid^="admin-nav-group-"][aria-expanded="false"]').all()) await g.click(); await page.getByTestId('admin-nav-' + id).click(); };
   const close = async () => page.getByRole('button', { name: 'Đóng', exact: true }).first().click();
   const field = name => page.locator('#field-' + name);
   const clickOption = async id => { await page.getByTestId(id).waitFor(); await page.getByTestId(id).click(); };

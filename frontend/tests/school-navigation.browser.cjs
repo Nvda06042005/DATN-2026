@@ -43,7 +43,7 @@ try { for (const width of [1440,390]) for(const role of ['root_admin','school_ad
  });
  const page=await ctx.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text());});
  const visible=id=>page.locator(`[data-testid="${id}"]:visible`);
- const nav=async id=>{if(role!=='student'&&width<1000)await visible('admin-menu-toggle').click();if(role==='student'&&width<900&&!['learn','practice','ranking','quests','ai'].includes(id))await visible('student-tab-more').click();await visible((role==='student'?'student-tab-':'admin-nav-')+id).click();};
+ const nav=async id=>{if(role!=='student'&&width<1000)await visible('admin-menu-toggle').click();if(role!=='student')for(const g of await page.locator('[data-testid^="admin-nav-group-"][aria-expanded="false"]').all())await g.click();if(role==='student'&&width<900&&!['learn','practice','ranking','quests','ai'].includes(id))await visible('student-tab-more').click();await visible((role==='student'?'student-tab-':'admin-nav-')+id).click();};
  const activeTab=async id=>{await page.waitForURL(u=>u.searchParams.get('tab')===id); if((role!=='student'&&width<1000)||(role==='student'&&width<900&&!['learn','practice','ranking','quests','ai'].includes(id)))return;await visible((role==='student'?'student-tab-':'admin-nav-')+id).waitFor();};
  try {
  if(role!=='root_admin') {

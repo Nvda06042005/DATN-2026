@@ -31,6 +31,18 @@ export interface QuestionCore { id: number; qtype: QType; prompt: string; image_
 export const MAP_BOUNDS = { south: 8, north: 24, west: 102, east: 110 };
 export const GRACE_MS = 3000;
 export const DEFAULT_SECONDS = 20;
+
+/** Mức độ nhận thức theo hướng dẫn kiểm tra, đánh giá (Công văn 7991/BGDĐT-GDTrH), dùng cho ma trận đề (migration 063) */
+export const LEVEL_LABEL: Record<number, string> = { 1: 'Biết', 2: 'Hiểu', 3: 'Vận dụng' };
+/** Ô "Mức độ" trong file Excel: chữ (Biết, Nhận biết, Hiểu, Thông hiểu, Vận dụng, Vận dụng cao) hoặc số 1–3 */
+export function parseLevel(raw: string | undefined | null): number | undefined {
+  const s = String(raw ?? '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+  if (!s) return undefined;
+  if (['1', 'biet', 'nhan biet'].includes(s)) return 1;
+  if (['2', 'hieu', 'thong hieu'].includes(s)) return 2;
+  if (['3', 'van dung', 'van dung cao'].includes(s)) return 3;
+  return NaN;
+}
 export const MAX_BONUS_RATIO = 0.5;
 
 const bad = (message: string): never => {

@@ -1,6 +1,8 @@
 /**
  * Ngân hàng câu hỏi (HK.GV.030–039, HK.QT.041, HK.AD.045): xem theo kho (của tôi / của trường / hệ thống) và theo chủ đề, tìm kiếm và lọc,
  * tạo – sửa sáu dạng câu hỏi, lịch sử chỉnh sửa, xóa khi chưa dùng, nhập/xuất Excel, gắn dữ liệu lịch sử, sao chép về kho riêng, gửi duyệt.
+ * 14/11/2026 (học từ Moodle, Wayground, ma trận đề theo Công văn 7991): mức độ nhận thức Biết / Hiểu / Vận dụng, tỉ lệ trả lời đúng thực tế
+ * của học sinh ở danh sách, và thống kê từng phương án trong chi tiết câu hỏi (phương án nhiễu nào hay bị chọn).
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';
@@ -13,26 +15,29 @@ import { Cell, DataTable, DownloadButton, ErrorNote, FilterBar, FilterBox, Impor
 import { dateText } from '@/components/admin/AccountSheet';
 import type { Session } from '@/components/auth';
 import { keyLines } from '@/components/portal/QuizPlayer';
-import { Btn, Card, ConfirmSheet, Field, Inset, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
+import { Bar, Btn, Card, ConfirmSheet, Field, Inset, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
-import type { HistoryLink, QData, QMapTarget, QOption, QType, QuestionDetail, QuestionInput, QuestionItem, QuestionVersion } from '@/types/learning';
-import { QTYPE_TEXT } from '@/types/learning';
+import type { HistoryLink, QData, QMapTarget, QOption, QType, QuestionDetail, QuestionInput, QuestionItem, QuestionStats, QuestionVersion } from '@/types/learning';
+import { LEVEL_TEXT, QTYPE_TEXT } from '@/types/learning';
+
+/** Mức độ nhận thức theo Công văn 7991; để trống thì máy chủ lấy theo độ khó */
+const LEVEL_OPTIONS = [{ value: '1', label: 'Biết' }, { value: '2', label: 'Hiểu' }, { value: '3', label: 'Vận dụng' }];
 
 const letter = (i: number) => String.fromCharCode(97 + i);
 
 interface FormState {
-  qtype: QType; prompt: string; image_url: string; explanation: string; difficulty: string; campaign_id: string;
+  qtype: QType; prompt: string; image_url: string; explanation: string; difficulty: string; level: string; campaign_id: string;
   options: string[]; correct: string[]; tf: boolean; blanks: string[]; items: string[]; targets: Array<{ label: string; lat: string; lng: string; radius: string }>; links: HistoryLink[];
 }
 
 const blank = (): FormState => ({
-  qtype: 'single', prompt: '', image_url: '', explanation: '', difficulty: '2', campaign_id: '', options: ['', '', ''], correct: ['a'], tf: true,
+  qtype: 'single', prompt: '', image_url: '', explanation: '', difficulty: '2', level: '', campaign_id: '', options: ['', '', ''], correct: ['a'], tf: true,
   blanks: [''], items: ['', '', ''], targets: [{ label: '', lat: '', lng: '', radius: '40' }], links: [],
 });
 
 const fromDetail = (d: QuestionDetail): FormState => {
   const s = blank();
-  s.qtype = d.qtype; s.prompt = d.prompt; s.image_url = d.image_url ?? ''; s.explanation = d.explanation ?? ''; s.difficulty = String(d.difficulty);
+  s.qtype = d.qtype; s.prompt = d.prompt; s.image_url = d.image_url ?? ''; s.explanation = d.explanation ?? ''; s.difficulty = String(d.difficulty); s.level = String(d.cognitive_level ?? '');
   s.campaign_id = d.campaign_id ? String(d.campaign_id) : ''; s.links = d.links;
   const data = d.data;
   if (d.qtype === 'single' || d.qtype === 'multiple') {
@@ -57,6 +62,7 @@ const toInput = (s: FormState): QuestionInput => {
   else data = { targets: s.targets.map((t, i): QMapTarget => ({ id: letter(i), label: t.label.trim(), lat: Number(t.lat), lng: Number(t.lng), radius_km: Number(t.radius) || 40 })) };
   return {
     qtype: s.qtype, prompt: s.prompt, image_url: s.image_url.trim() || null, explanation: s.explanation.trim() || null, difficulty: Number(s.difficulty),
+    ...(s.level ? { cognitive_level: Number(s.level) } : {}),
     campaign_id: s.campaign_id ? Number(s.campaign_id) : null, data, links: s.links.map((l) => ({ ref_type: l.ref_type, ref_id: l.ref_id })),
   };
 };
@@ -170,10 +176,39 @@ const QuestionForm: React.FC<{ session: Session; initial?: QuestionDetail; onClo
       <Field label="Hình minh họa (liên kết https)" value={s.image_url} onChangeText={(v) => set('image_url', v)} autoCapitalize="none" />
       <FilterBar>
         <FilterBox><AdminSelect label="Độ khó" value={s.difficulty} options={[{ value: '1', label: 'Dễ' }, { value: '2', label: 'Vừa' }, { value: '3', label: 'Khó' }]} onChange={(v) => set('difficulty', v)} /></FilterBox>
+        <FilterBox><AdminSelect label="Mức độ nhận thức" value={s.level} options={[{ value: '', label: 'Theo độ khó' }, ...LEVEL_OPTIONS]} onChange={(v) => set('level', v)} testID="question-level" /></FilterBox>
         <FilterBox flex={2}><AdminSelect label="Chủ đề (cuộc kháng chiến)" value={s.campaign_id} options={campaigns} onChange={(v) => set('campaign_id', v)} /></FilterBox>
       </FilterBar>
       <LinksEditor session={session} value={s.links} onChange={(v) => set('links', v)} />
     </Sheet>
+  );
+};
+
+// ---------------------------------------------------------------------- thống kê một câu hỏi
+/** Tỉ lệ đúng dễ đọc: dưới 40% là câu khó thực tế (cần xem lại đề hoặc dạy lại), từ 85% là câu dễ */
+const rateTone = (rate: number | null, c: ReturnType<typeof useTheme>['c']) => (rate === null ? c.muc3 : rate < 40 ? c.sonChu : rate >= 85 ? c.ngocChu : c.muc);
+const QuestionStatsCard: React.FC<{ stats: QuestionStats }> = ({ stats }) => {
+  const { c } = useTheme();
+  const top = Math.max(1, ...stats.choices.map((x) => x.count));
+  return (
+    <Card flat pad={12} style={{ gap: 8 }} testID="question-stats">
+      <Txt f="bold" size={13} color={c.muc2}>Thống kê từ bài làm của học sinh</Txt>
+      {stats.answered ? (
+        <>
+          <Txt size={14}><Txt f="bold" size={14} color={rateTone(stats.correct_rate, c)}>{stats.correct_rate}% trả lời đúng</Txt> · {stats.correct}/{stats.answered} lượt{stats.avg_seconds !== null ? ` · trung bình ${stats.avg_seconds} giây` : ''}</Txt>
+          {stats.correct_rate !== null && stats.correct_rate < 40 ? <Txt size={13} color={c.sonChu}>Câu này nhiều học sinh sai: nên xem lại đề, đáp án hoặc ôn lại nội dung.</Txt> : null}
+          {stats.choices.map((x) => (
+            <View key={String(x.key)} style={{ gap: 3 }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Txt size={13} style={{ flex: 1 }} f={x.correct ? 'bold' : undefined} color={x.correct ? c.ngocChu : undefined}>{x.correct ? '✓ ' : ''}{x.label}</Txt>
+                <Txt size={13} color={c.muc2}>{x.count} lượt</Txt>
+              </View>
+              <Bar value={x.count} max={top} height={6} fill={x.correct ? c.ngoc : c.muc3} label={`${x.label}: ${x.count} lượt chọn`} />
+            </View>
+          ))}
+        </>
+      ) : <Txt size={13} color={c.muc3}>Chưa có học sinh trả lời câu này (lượt làm thử của giáo viên không tính).</Txt>}
+    </Card>
   );
 };
 
@@ -198,12 +233,14 @@ const QuestionDetailSheet: React.FC<{ session: Session; id: number; onClose: () 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             <ScopeChip scope={d.scope} />
             <StatusChip kind="muted" text={DIFFICULTY_TEXT[d.difficulty]} />
+            <StatusChip kind="info" text={`Mức độ: ${d.level_label ?? LEVEL_TEXT[d.cognitive_level] ?? '—'}`} />
             {d.owner_name ? <StatusChip kind="muted" text={`Soạn bởi ${d.owner_name}`} /> : null}
             {d.shares.map((x) => <StatusChip key={x.target} kind={x.status === 'approved' ? 'on' : x.status === 'pending' ? 'warn' : 'off'} text={`${x.target === 'school' ? 'Gửi trường' : 'Gửi hệ thống'}: ${x.status === 'approved' ? 'đã duyệt' : x.status === 'pending' ? 'chờ duyệt' : 'bị từ chối'}`} />)}
           </View>
           <Txt f="semibold" size={17}>{d.prompt}</Txt>
           <Card flat pad={12} style={{ gap: 4 }}><Txt f="bold" size={13} color={c.muc2}>Đáp án</Txt>{keyLines(d.qtype, d.data).map((l, i) => <Txt key={i} size={14}>{l}</Txt>)}</Card>
           {d.explanation ? <Txt size={14}><Txt f="bold" size={14}>Giải thích: </Txt>{d.explanation}</Txt> : null}
+          {d.stats ? <QuestionStatsCard stats={d.stats} /> : null}
           {d.links.length ? <Txt size={13} color={c.muc2}>Gắn với: {d.links.map((l) => l.label ?? l.ref_id).join(', ')}</Txt> : null}
           <Txt size={13} color={c.muc3}>Đang dùng trong {d.used_in.length} bộ đề{d.used_in.length ? `: ${d.used_in.map((z) => z.title).join(', ')}` : ''}{d.answered ? ` · ${d.answered} lượt trả lời của học sinh` : ''}</Txt>
           {shared?.review_note ? <Inset style={{ backgroundColor: c.sonNhat }}><Txt size={13} color={c.sonChu}>Lý do từ chối: {shared.review_note}</Txt></Inset> : null}
@@ -237,6 +274,7 @@ export const QuestionBank: React.FC<{ session: Session }> = ({ session }) => {
   const [q, setQ] = useState('');
   const [qtype, setQtype] = useState('');
   const [difficulty, setDifficulty] = useState('');
+  const [level, setLevel] = useState('');
   const [campaign, setCampaign] = useState('');
   const [page, setPage] = useState(1);
   const size = usePageSize();
@@ -245,7 +283,7 @@ export const QuestionBank: React.FC<{ session: Session }> = ({ session }) => {
   const [importing, setImporting] = useState(false);
   const term = useDebounced(q.trim(), 300);
   const campaigns = useCampaignOptions(session);
-  const filters = useMemo(() => ({ store, q: term, qtype, difficulty, campaign_id: campaign }), [store, term, qtype, difficulty, campaign]);
+  const filters = useMemo(() => ({ store, q: term, qtype, difficulty, level, campaign_id: campaign }), [store, term, qtype, difficulty, level, campaign]);
   const list = useLoad(() => api.listQuestions(session.token, { ...filters, page, limit: size }), [session.token, filters, page, size], session.expired);
   const canWrite = role === 'teacher' || role === 'school_admin' || role === 'root_admin';
   const storeOptions = role === 'root_admin'
@@ -255,6 +293,8 @@ export const QuestionBank: React.FC<{ session: Session }> = ({ session }) => {
   const f_store: SearchFilter = { key: 'store', label: 'Kho', value: store === 'all' ? '' : store, options: [{ value: '', label: storeOptions[0].label }, ...storeOptions.slice(1)], onChange: (v) => { setStore(v || 'all'); setPage(1); } };
   const f_qtype: SearchFilter = { key: 'qtype', label: 'Dạng câu hỏi', value: qtype, options: [{ value: '', label: 'Mọi dạng' }, ...Object.entries(QTYPE_TEXT).map(([value, label]) => ({ value, label }))], onChange: (v) => { setQtype(v); setPage(1); } };
   const f_difficulty: SearchFilter = { key: 'difficulty', label: 'Độ khó', value: difficulty, options: [{ value: '', label: 'Mọi độ khó' }, { value: '1', label: 'Dễ' }, { value: '2', label: 'Vừa' }, { value: '3', label: 'Khó' }], onChange: (v) => { setDifficulty(v); setPage(1); } };
+  const f_level: SearchFilter = { key: 'level', label: 'Mức độ', value: level, options: [{ value: '', label: 'Mọi mức độ' }, ...LEVEL_OPTIONS], onChange: (v) => { setLevel(v); setPage(1); } };
+  const { c } = useTheme();
   const f_campaign: SearchFilter = { key: 'campaign', label: 'Chủ đề', value: campaign, options: [{ value: '', label: 'Mọi chủ đề' }, ...campaigns.slice(1)], onChange: (v) => { setCampaign(v); setPage(1); } };
   return (
     <Page>
@@ -265,7 +305,7 @@ export const QuestionBank: React.FC<{ session: Session }> = ({ session }) => {
           <DownloadButton title="Xuất Excel" fetchBlob={() => api.exportQuestions(session.token, filters)} filename="cau-hoi.xlsx" />
         </>} />
       <SearchFilterBar placeholder="Tìm theo nội dung câu hỏi, lựa chọn (không cần dấu)" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="question-search"
-        filters={[f_store, f_qtype, f_difficulty, f_campaign]} />
+        filters={[f_store, f_qtype, f_level, f_difficulty, f_campaign]} />
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data ? (
@@ -276,8 +316,10 @@ export const QuestionBank: React.FC<{ session: Session }> = ({ session }) => {
               { key: 'qtype', filter: f_qtype, label: 'Dạng', flex: 1.1, render: (r) => <Txt size={13}>{r.qtype_label}</Txt> },
               { key: 'campaign', filter: f_campaign, label: 'Chủ đề', flex: 1.4, render: (r) => <Txt size={13}>{r.campaign_title ?? 'Chưa gắn chủ đề'}</Txt> },
               { key: 'scope', filter: f_store, label: 'Kho', flex: 1.2, render: (r) => <ScopeChip scope={r.scope} /> },
-              { key: 'diff', filter: f_difficulty, label: 'Độ khó', flex: 0.9, render: (r) => <Txt size={13}>{DIFFICULTY_TEXT[r.difficulty]}</Txt> },
-              { key: 'used', label: 'Bộ đề', flex: 0.7, render: (r) => <Txt size={13}>{r.used_in}</Txt> },
+              { key: 'level', filter: f_level, label: 'Mức độ', flex: 0.9, render: (r) => <Txt size={13}>{r.level_label ?? LEVEL_TEXT[r.cognitive_level]}</Txt> },
+              { key: 'diff', filter: f_difficulty, label: 'Độ khó', flex: 0.8, render: (r) => <Txt size={13}>{DIFFICULTY_TEXT[r.difficulty]}</Txt> },
+              { key: 'rate', label: 'Tỉ lệ đúng', flex: 1, render: (r) => r.answered ? <Cell main={`${r.correct_rate}%`} sub={`${r.answered} lượt`} /> : <Txt size={13} color={c.muc3}>Chưa có lượt</Txt> },
+              { key: 'used', label: 'Bộ đề', flex: 0.6, render: (r) => <Txt size={13}>{r.used_in}</Txt> },
               { key: 'owner', label: 'Người soạn', flex: 1.4, hideOnCard: true, render: (r) => <Cell main={r.owner_name ?? '—'} sub={dateText(r.updated_at)} /> },
             ]} />
           <Pager page={page} limit={size} total={list.data.total} onPage={setPage} />

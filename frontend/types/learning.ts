@@ -17,19 +17,29 @@ export interface QData {
 }
 export interface HistoryLink { ref_type: string; ref_id: number; label?: string }
 
+/** Mức độ nhận thức (Công văn 7991, migration 063): 1 Biết, 2 Hiểu, 3 Vận dụng */
+export const LEVEL_TEXT: Record<number, string> = { 1: 'Biết', 2: 'Hiểu', 3: 'Vận dụng' };
+
 export interface QuestionItem {
   id: number; scope: Scope; owner_id: number | null; owner_name: string | null; qtype: QType; qtype_label: string; prompt: string; difficulty: number; campaign_id: number | null;
   campaign_title: string | null; version_no: number; updated_at: string; used_in: number; can_edit: boolean;
+  cognitive_level: number; level_label: string; answered: number; correct_rate: number | null;
+}
+/** Thống kê một câu hỏi từ bài làm thật của học sinh: tỉ lệ đúng và số lượt chọn từng phương án */
+export interface QuestionStats {
+  answered: number; correct: number; correct_rate: number | null; avg_seconds: number | null;
+  choices: Array<{ key: string | null; label: string; count: number; correct: boolean }>;
 }
 export interface QuestionDetail {
   id: number; scope: Scope; owner_id: number | null; owner_name: string | null; qtype: QType; prompt: string; image_url: string | null; explanation: string | null; difficulty: number;
   campaign_id: number | null; data: QData; version_no: number; can_edit: boolean; links: HistoryLink[];
   used_in: Array<{ id: number; title: string }>; used_in_lessons: number; answered: number; shares: ShareState[];
+  cognitive_level: number; level_label: string; stats: QuestionStats;
 }
 export interface ShareState { target: 'school' | 'system'; status: 'pending' | 'approved' | 'rejected'; review_note: string | null }
 export interface QuestionVersion { version_no: number; snapshot: Record<string, unknown>; created_at: string; changed_by_name: string | null }
 export interface QuestionInput {
-  qtype: QType; prompt: string; image_url?: string | null; explanation?: string | null; difficulty?: number; campaign_id?: number | null; data: QData; links?: HistoryLink[];
+  qtype: QType; prompt: string; image_url?: string | null; explanation?: string | null; difficulty?: number; cognitive_level?: number; campaign_id?: number | null; data: QData; links?: HistoryLink[];
 }
 export interface Listing<T> { total: number; page: number; limit: number; items: T[] }
 export interface ImportRow { row: number; prompt: string; status: 'ok' | 'error' | 'created'; errors: string[]; id?: number }
@@ -43,7 +53,20 @@ export interface QuizItem {
 export interface QuizDetail {
   id: number; scope: Scope; owner_name: string | null; title: string; description: string | null; campaign_id: number | null; seconds_per_question: number; shuffle_questions: boolean;
   shuffle_options: boolean; pass_percent: number; can_edit: boolean; locked: boolean; lock_reason: string | null; shares: ShareState[]; cover_url: string | null; theme: { bg?: string; music?: string };
-  items: Array<{ question_id: number; position: number; points: number; seconds: number | null; score_mode: 'standard' | 'double' | 'none' | null; qtype: QType; qtype_label: string; prompt: string; difficulty: number; scope: Scope }>;
+  items: Array<{ question_id: number; position: number; points: number; seconds: number | null; score_mode: 'standard' | 'double' | 'none' | null; qtype: QType; qtype_label: string; prompt: string; difficulty: number; scope: Scope;
+    cognitive_level: number; level_label: string; campaign_id: number | null; campaign_title: string | null }>;
+}
+/** Ma trận đề: số câu có sẵn theo chủ đề × mức độ */
+export interface MatrixStock { levels: Array<{ level: number; label: string }>; topics: Array<{ campaign_id: number | null; title: string; levels: Record<number, number>; total: number }> }
+export interface MatrixInput {
+  title: string; description?: string | null; store?: string; cells: Array<{ campaign_id: number | null; level: number; count: number }>;
+  seconds_per_question?: number; pass_percent?: number; shuffle_questions?: boolean; shuffle_options?: boolean;
+}
+/** Thống kê bộ đề từ bài làm thật của học sinh */
+export interface QuizStats {
+  quiz: { id: number; title: string; pass_percent: number }; attempts: number; students: number; avg_percent: number | null; pass_rate: number | null; avg_seconds: number | null; last_at: string | null;
+  distribution: Array<{ key: string; label: string; count: number }>;
+  questions: Array<{ question_id: number; position: number; prompt: string; qtype: QType; qtype_label: string; cognitive_level: number; level_label: string; answered: number; correct_rate: number | null; avg_seconds: number | null }>;
 }
 export interface QuizInput {
   title: string; description?: string | null; campaign_id?: number | null; seconds_per_question?: number; shuffle_questions?: boolean; shuffle_options?: boolean; pass_percent?: number;
@@ -52,12 +75,12 @@ export interface QuizInput {
 }
 
 export interface LessonBlock { type: 'text' | 'image' | 'video' | 'map'; heading?: string; text?: string; url?: string; caption?: string; lat?: number; lng?: number; zoom?: number; label?: string }
-export interface LessonItem { id: number; school_id?: number | null; title: string; summary: string | null; campaign_id: number | null; campaign_title: string | null; read_minutes: number; status: 'draft' | 'published'; used_in: number; checks: number }
+export interface LessonItem { id: number; school_id?: number | null; title: string; summary: string | null; campaign_id: number | null; campaign_title: string | null; read_minutes: number; status: 'draft' | 'published'; used_in: number; checks: number; readers?: number; completed?: number }
 export interface LessonDetail {
-  id: number; title: string; summary: string | null; campaign_id: number | null; blocks: LessonBlock[]; read_minutes: number; status: 'draft' | 'published';
+  id: number; title: string; summary: string | null; objectives?: string | null; campaign_id: number | null; blocks: LessonBlock[]; read_minutes: number; status: 'draft' | 'published';
   links: HistoryLink[]; checks: Array<{ question_id: number; position: number; qtype: QType; prompt: string }>; used_in: Array<{ id: number; title: string }>;
 }
-export interface LessonInput { title: string; summary?: string | null; campaign_id?: number | null; blocks: LessonBlock[]; read_minutes?: number; links?: HistoryLink[]; check_question_ids?: number[] }
+export interface LessonInput { title: string; summary?: string | null; objectives?: string | null; campaign_id?: number | null; blocks: LessonBlock[]; read_minutes?: number; links?: HistoryLink[]; check_question_ids?: number[] }
 
 export type NodeKind = 'lesson' | 'quiz' | 'battle' | 'source' | 'final' | 'practice' | 'listen' | 'chest' | 'gate_test';
 export const NODE_KIND_TEXT: Record<NodeKind, string> = {
@@ -202,7 +225,7 @@ export interface AttemptHistoryItem {
 export interface Quest { node_id: number; campaign_id: number; campaign_title: string; journey_title: string; title: string; kind: NodeKind; kind_label: string; condition: string; reward_points: number; stars: number; state: NodeState; best_percent: number }
 export interface Quests { doing: Quest[]; done: Quest[]; locked: Quest[] }
 export interface LessonView {
-  id: number; title: string; summary: string | null; blocks: LessonBlock[]; read_minutes: number; node: { id: number; title: string; reward_points: number } | null;
+  id: number; title: string; summary: string | null; objectives?: string | null; blocks: LessonBlock[]; read_minutes: number; node: { id: number; title: string; reward_points: number } | null;
   progress: { read_percent: number; check_attempts: number; completed_at: string | null }; note: string | null; links: HistoryLink[]; checks: PlayQuestion[];
 }
 export interface LessonCompletion {

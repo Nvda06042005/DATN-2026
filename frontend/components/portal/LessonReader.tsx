@@ -4,7 +4,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Image, Linking, NativeScrollEvent, NativeSyntheticEvent, ScrollView, TextInput, View, type ScrollViewInstance } from 'react-native';
-import { ArrowLeft, CheckCircle2, ExternalLink, Save, Trash2, Video, XCircle } from 'lucide-react-native';
+import { ArrowLeft, CheckCircle2, ExternalLink, Save, Target, Trash2, Video, XCircle } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import * as classroom from '@/api/classroomApi';
 import { ErrorNote, useAction, useLoad } from '@/components/admin/kit';
@@ -74,6 +74,19 @@ export const Block: React.FC<{ block: LessonBlock }> = ({ block }) => {
 };
 
 /** Đọc bài học của một nút trên bản đồ hoặc (có `assignmentId`) bài học được giao thành bài tập của lớp */
+/** Mục tiêu bài học (yêu cầu cần đạt, 14/11/2026): mỗi dòng một mục tiêu, hiện ở đầu bài cho học sinh và khi quản trị xem trước */
+export const LessonObjectives: React.FC<{ text: string | null | undefined }> = ({ text }) => {
+  const { c } = useTheme();
+  const lines = (text ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return null;
+  return (
+    <View testID="lesson-objectives" style={{ gap: 6, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: c.thuyNhat, backgroundColor: c.the }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Target size={16} color={c.thuyChu} /><Txt f="bold" size={14} color={c.thuyChu}>Sau bài học này, em sẽ</Txt></View>
+      {lines.map((l, i) => <Txt key={i} size={14}>• {l}</Txt>)}
+    </View>
+  );
+};
+
 export const LessonReader: React.FC<{ session: Session; nodeId: number; assignmentId?: number; title: string; onClose: (changed: boolean) => void; onOpenLink: (type: string, id: number) => void }> = ({ session, nodeId, assignmentId, title, onClose, onOpenLink }) => {
   const { c } = useTheme();
   const { token } = session;
@@ -168,6 +181,7 @@ export const LessonReader: React.FC<{ session: Session; nodeId: number; assignme
           <View style={{ gap: 8 }}>
             <Txt f="displayHeavy" size={28} accessibilityRole="header">{data.title}</Txt>
             {data.summary ? <Txt size={16} color={c.muc2}>{data.summary}</Txt> : null}
+            <LessonObjectives text={data.objectives} />
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
               <Chip text={`Khoảng ${data.read_minutes} phút`} bg={c.thuyNhat} fg={c.thuyChu} />
               {done ? <Chip text="Đã hoàn thành" bg={c.ngocNhat} fg={c.ngocChu} icon={CheckCircle2} /> : null}

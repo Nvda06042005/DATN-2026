@@ -3,12 +3,12 @@
  * xóa, nhân bản, và dữ liệu để làm thử như học sinh. Bộ đề đang được giao (nằm trong hành trình đã phát hành) hoặc đã có học sinh làm thì khóa chỉnh sửa;
  * muốn đổi phải nhân bản.
  */
-import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { likeEscape } from '../admin/school.service';
 import { DatabaseService, Q, searchText, UserRow } from '../database/database.service';
 import { authoringScope, canEdit, canSee, notFound, Owned, Scope, storeSql, visibleSql } from './access';
 import { QuestionService } from './question.service';
-import { DEFAULT_SECONDS, QTYPE_LABEL, QType } from './questions';
+import { DEFAULT_SECONDS, LEVEL_LABEL, QTYPE_LABEL, QType } from './questions';
 
 export type ScoreMode = 'standard' | 'double' | 'none';
 export interface QuizItemInput { question_id: number; points?: number; seconds?: number | null; score_mode?: ScoreMode | null }
@@ -23,6 +23,12 @@ export interface QuizInput {
   pass_percent?: number; cover_url?: string | null; theme?: Record<string, unknown>; items: QuizItemInput[];
 }
 export interface QuizFilter { q?: string; store?: string; campaign_id?: number; page?: number; limit?: number }
+/** Một ô của ma trận đề: chủ đề (cuộc kháng chiến, null = chưa gắn) × mức độ nhận thức, số câu cần lấy */
+export interface MatrixCell { campaign_id: number | null; level: number; count: number }
+export interface MatrixInput {
+  title: string; description?: string | null; store?: string; cells: MatrixCell[];
+  seconds_per_question?: number; pass_percent?: number; shuffle_questions?: boolean; shuffle_options?: boolean;
+}
 
 export interface QuizRow extends Owned {
   id: number; title: string; description: string | null; campaign_id: number | null; seconds_per_question: number; shuffle_questions: boolean; shuffle_options: boolean;
@@ -80,14 +86,14 @@ export class QuizService {
     return this.db.tx(async (q) => {
       const row = await this.load(q, user, id);
       const items = await q(
-        `SELECT qq.question_id, qq.position, qq.points, qq.seconds, qq.score_mode, t.qtype, t.prompt, t.difficulty, t.scope
-         FROM hk_quiz_questions qq JOIN hk_questions t ON t.id = qq.question_id WHERE qq.quiz_id = $1 ORDER BY qq.position`, [id]);
+        `SELECT qq.question_id, qq.position, qq.points, qq.seconds, qq.score_mode, t.qtype, t.prompt, t.difficulty, t.cognitive_level, t.scope, t.campaign_id, c.title AS campaign_title
+         FROM hk_quiz_questions qq JOIN hk_questions t ON t.id = qq.question_id LEFT JOIN hist_campaigns c ON c.id = t.campaign_id WHERE qq.quiz_id = $1 ORDER BY qq.position`, [id]);
       const owner = row.owner_id ? (await q<{ full_name: string }>('SELECT full_name FROM app_users WHERE id = $1', [row.owner_id]))[0]?.full_name ?? null : null;
       const shares = await q<{ target: string; status: string; review_note: string | null }>("SELECT target, status, review_note FROM hk_shares WHERE entity = 'quiz' AND entity_id = $1", [id]);
       const lock = await this.lockReason(q, id);
       return {
         ...row, owner_name: owner, can_edit: canEdit(user, row), locked: Boolean(lock), lock_reason: lock, shares,
-        items: (items as Array<Record<string, unknown> & { qtype: QType }>).map((i) => ({ ...i, qtype_label: QTYPE_LABEL[i.qtype] })),
+        items: (items as Array<Record<string, unknown> & { qtype: QType; cognitive_level: number }>).map((i) => ({ ...i, qtype_label: QTYPE_LABEL[i.qtype], level_label: LEVEL_LABEL[i.cognitive_level] })),
       };
     });
   }
@@ -193,6 +199,111 @@ export class QuizService {
       if (attempts) throw new ConflictException('Bộ đề đã có học sinh làm bài nên được giữ lại');
       await q('DELETE FROM hk_shares WHERE entity = $1 AND entity_id = $2', ['quiz', id]);
       await q('DELETE FROM hk_quizzes WHERE id = $1', [id]);
+    });
+  }
+
+  // ------------------------------------------------------------------ ma trận đề và thống kê (yêu cầu 14/11/2026)
+  /** Câu hỏi được dùng cho bộ đề mới của người này: thấy được, đúng kho đã chọn, cùng kho hoặc kho rộng hơn bộ đề (như checkItems), không phải câu bình chọn */
+  private poolSql(user: UserRow, store: string | undefined, params: unknown[]): string {
+    const own = authoringScope(user);
+    const parts = [visibleSql(user, 't', params), storeSql(user, 't', store, params), "t.qtype <> 'poll'"];
+    if (own.scope === 'system') parts.push("t.scope = 'system'");
+    return parts.join(' AND ');
+  }
+
+  /** Số câu hỏi có sẵn theo chủ đề × mức độ để điền ma trận (giống bảng ma trận đề của MobiEdu, McMix) */
+  async matrixStock(user: UserRow, store?: string) {
+    const params: unknown[] = [];
+    const rows = await this.db.query<{ campaign_id: number | null; campaign_title: string | null; level: number; n: number }>(
+      `SELECT t.campaign_id, c.title AS campaign_title, t.cognitive_level AS level, count(*)::int AS n
+       FROM hk_questions t LEFT JOIN hist_campaigns c ON c.id = t.campaign_id
+       WHERE ${this.poolSql(user, store, params)} GROUP BY t.campaign_id, c.title, t.cognitive_level ORDER BY t.campaign_id NULLS LAST, t.cognitive_level`, params);
+    const topics = new Map<string, { campaign_id: number | null; title: string; levels: Record<number, number>; total: number }>();
+    for (const r of rows) {
+      const key = String(r.campaign_id ?? 'none');
+      const t = topics.get(key) ?? { campaign_id: r.campaign_id, title: r.campaign_title ?? 'Chưa gắn chủ đề', levels: { 1: 0, 2: 0, 3: 0 }, total: 0 };
+      t.levels[r.level] = r.n;
+      t.total += r.n;
+      topics.set(key, t);
+    }
+    return { levels: [1, 2, 3].map((l) => ({ level: l, label: LEVEL_LABEL[l] })), topics: [...topics.values()] };
+  }
+
+  /**
+   * Tạo bộ đề theo ma trận: mỗi ô (chủ đề × mức độ) lấy ngẫu nhiên đủ số câu từ ngân hàng; câu xếp theo mức độ Biết → Hiểu → Vận dụng như đề kiểm tra.
+   * Ô nào không đủ câu thì báo rõ ô đó và không tạo bộ đề.
+   */
+  async createFromMatrix(user: UserRow, input: MatrixInput) {
+    const cells = (input.cells ?? []).filter((c) => Number(c.count) > 0);
+    const seen = new Set<string>();
+    for (const c of cells) {
+      if (![1, 2, 3].includes(Number(c.level))) throw new BadRequestException('Mức độ là 1 (Biết), 2 (Hiểu) hoặc 3 (Vận dụng)');
+      if (!Number.isInteger(Number(c.count)) || Number(c.count) > MAX_QUESTIONS) throw new BadRequestException(`Mỗi ô ma trận từ 0 đến ${MAX_QUESTIONS} câu`);
+      const key = `${c.campaign_id ?? 'none'}:${c.level}`;
+      if (seen.has(key)) throw new BadRequestException('Mỗi ô ma trận (chủ đề × mức độ) chỉ ghi một lần');
+      seen.add(key);
+    }
+    const total = cells.reduce((n, c) => n + Number(c.count), 0);
+    if (!total) throw new BadRequestException('Ma trận đề cần ít nhất 1 câu');
+    if (total > MAX_QUESTIONS) throw new BadRequestException(`Bộ đề tối đa ${MAX_QUESTIONS} câu hỏi (ma trận đang có ${total} câu)`);
+    const picked: Array<{ id: number; level: number; campaign: number | null }> = [];
+    const short: string[] = [];
+    for (const c of [...cells].sort((a, b) => a.level - b.level)) {
+      const params: unknown[] = [];
+      const where = this.poolSql(user, input.store, params);
+      params.push(c.campaign_id ?? null, Number(c.level), picked.map((p) => p.id), Number(c.count));
+      const n = params.length;
+      const rows = await this.db.query<{ id: number; title: string | null }>(
+        `SELECT t.id, (SELECT title FROM hist_campaigns WHERE id = t.campaign_id) AS title FROM hk_questions t
+         WHERE ${where} AND t.campaign_id IS NOT DISTINCT FROM $${n - 3}::int AND t.cognitive_level = $${n - 2} AND NOT (t.id = ANY($${n - 1}::int[]))
+         ORDER BY random() LIMIT $${n}`, params);
+      if (rows.length < Number(c.count)) {
+        const title = c.campaign_id ? ((await this.db.query<{ title: string }>('SELECT title FROM hist_campaigns WHERE id = $1', [c.campaign_id]))[0]?.title ?? `#${c.campaign_id}`) : 'Chưa gắn chủ đề';
+        short.push(`${title} – ${LEVEL_LABEL[Number(c.level)]}: cần ${c.count} câu, kho chỉ có ${rows.length}`);
+      }
+      picked.push(...rows.map((r) => ({ id: r.id, level: Number(c.level), campaign: c.campaign_id ?? null })));
+    }
+    if (short.length) throw new UnprocessableEntityException(`Ngân hàng chưa đủ câu cho ma trận: ${short.join('; ')}`);
+    const campaigns = [...new Set(picked.map((p) => p.campaign))];
+    const summary = [1, 2, 3].map((l) => [LEVEL_LABEL[l], picked.filter((p) => p.level === l).length] as const).filter(([, n]) => n).map(([l, n]) => `${l} ${n}`).join(', ');
+    return this.create(user, {
+      title: input.title, description: input.description?.trim() || `Tạo theo ma trận: ${summary} (${total} câu).`,
+      campaign_id: campaigns.length === 1 ? campaigns[0] : null,
+      seconds_per_question: input.seconds_per_question, pass_percent: input.pass_percent, shuffle_questions: input.shuffle_questions, shuffle_options: input.shuffle_options,
+      items: picked.map((p) => ({ question_id: p.id, points: 100 })),
+    });
+  }
+
+  /**
+   * Thống kê bộ đề từ bài làm thật (không tính làm thử): số lượt, số học sinh, điểm trung bình, tỉ lệ đạt, phân bố điểm theo thang 10
+   * và tỉ lệ đúng từng câu (câu nào nhiều học sinh sai nhất). Ở cổng trường, RLS chỉ để lại bài làm của học sinh trong trường.
+   */
+  async stats(user: UserRow, id: number) {
+    return this.db.tx(async (q) => {
+      const row = await this.load(q, user, id);
+      const sum = (await q<{ attempts: number; students: number; avg_percent: number | null; pass_rate: number | null; avg_seconds: number | null; last_at: string | null }>(
+        `SELECT count(*)::int AS attempts, count(DISTINCT user_id)::int AS students, round(avg(percent))::int AS avg_percent,
+                round(100.0 * avg(CASE WHEN passed THEN 1 ELSE 0 END))::int AS pass_rate, round(avg(duration_ms) / 1000.0)::int AS avg_seconds, max(finished_at) AS last_at
+         FROM hk_attempts WHERE quiz_id = $1 AND mode <> 'preview' AND status = 'done'`, [id]))[0];
+      const bands = (await q<{ band: string; n: number }>(
+        `SELECT CASE WHEN percent >= 80 THEN 'gioi' WHEN percent >= 65 THEN 'kha' WHEN percent >= 50 THEN 'tb' ELSE 'yeu' END AS band, count(*)::int AS n
+         FROM hk_attempts WHERE quiz_id = $1 AND mode <> 'preview' AND status = 'done' GROUP BY 1`, [id]));
+      const band = (k: string) => bands.find((b) => b.band === k)?.n ?? 0;
+      const questions = await q<{ question_id: number; position: number; prompt: string; qtype: QType; cognitive_level: number; answered: number; correct_rate: number | null; avg_seconds: number | null }>(
+        `SELECT qq.question_id, qq.position, t.prompt, t.qtype, t.cognitive_level, count(x.question_id)::int AS answered,
+                round(100.0 * avg(x.correct::int))::int AS correct_rate, round(avg(x.time_ms) / 1000.0, 1)::float AS avg_seconds
+         FROM hk_quiz_questions qq JOIN hk_questions t ON t.id = qq.question_id
+         LEFT JOIN (SELECT aa.question_id, aa.correct, aa.time_ms FROM hk_attempt_answers aa JOIN hk_attempts a ON a.id = aa.attempt_id
+                    WHERE a.quiz_id = $1 AND a.mode <> 'preview') x ON x.question_id = qq.question_id
+         WHERE qq.quiz_id = $1 GROUP BY qq.question_id, qq.position, t.prompt, t.qtype, t.cognitive_level ORDER BY qq.position`, [id]);
+      return {
+        quiz: { id: row.id, title: row.title, pass_percent: row.pass_percent }, ...sum,
+        distribution: [
+          { key: 'gioi', label: 'Giỏi (từ 8 điểm)', count: band('gioi') }, { key: 'kha', label: 'Khá (6,5–7,9)', count: band('kha') },
+          { key: 'tb', label: 'Trung bình (5–6,4)', count: band('tb') }, { key: 'yeu', label: 'Dưới 5 điểm', count: band('yeu') },
+        ],
+        questions: questions.map((x) => ({ ...x, qtype_label: QTYPE_LABEL[x.qtype], level_label: LEVEL_LABEL[x.cognitive_level] })),
+      };
     });
   }
 

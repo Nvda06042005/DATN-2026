@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Platform, Pressable, ScrollView, View, useWindowDimensions, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { KeyRound, LogOut, Menu, User, X } from 'lucide-react-native';
+import { ChevronDown, ChevronRight, KeyRound, LogOut, Menu, User, X } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import { ProfileSheet } from '@/components/profile';
 import { AccountSecurity } from '@/components/admin/PlatformOps';
@@ -20,12 +20,20 @@ const GLASS = (Platform.OS === 'web' ? { backdropFilter: 'blur(10px)' } : null) 
 /** `text-wrap: pretty` được kế thừa: mọi đoạn chữ trong khung quản trị không còn dòng cuối chỉ có một từ lẻ ("… cho học / sinh."). */
 const WRAP_PRETTY = (Platform.OS === 'web' ? { textWrap: 'pretty' } : null) as unknown as ViewStyle;
 
+/** Một mục menu bên trái */
+export type NavLeaf<T extends string> = { id: T; label: string; icon: IconType; count?: number };
+/** Nhóm menu thu gọn (yêu cầu 14/11/2026: "Quản lý" gom Giáo viên, Học sinh, Lớp học, Mật khẩu tài khoản): bấm tên nhóm để mở / đóng */
+export type NavGroup<T extends string> = { group: string; label: string; icon: IconType; items: ReadonlyArray<NavLeaf<T>> };
+export type NavEntry<T extends string> = NavLeaf<T> | NavGroup<T>;
+/** Mọi mục lá (kể cả mục nằm trong nhóm) theo thứ tự hiển thị */
+export const navLeaves = <T extends string>(nav: ReadonlyArray<NavEntry<T>>): Array<NavLeaf<T>> => nav.flatMap((e) => ('items' in e ? [...e.items] : [e]));
+
 /**
  * Khung chung của cổng quản trị tổng, quản trị trường và giáo viên. Dùng cùng ngôn ngữ thiết kế với trang chủ: nền giấy dó có hoa văn trống đồng,
  * thanh đầu trang dạng viên thuốc nổi, nút tối bo tròn, thanh bên bo góc; chân trang có dòng bản quyền như ở trang đăng nhập.
  */
 export function AdminWorkspace<T extends string>({ session, nav, active, onSelect, extra, schoolName, children }: {
-  session: Session; nav: Array<{ id: T; label: string; icon: IconType; count?: number }>;
+  session: Session; nav: ReadonlyArray<NavEntry<T>>;
   active: T; onSelect: (tab: T) => void; extra?: ReactNode; schoolName?: string; children: ReactNode;
 }) {
   const { c } = useTheme();
@@ -37,7 +45,11 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
   const loadProfile = useCallback(() => authApi.getProfile(session.token), [session.token]);
   const saveProfile = useCallback((patch: ProfilePatch) => authApi.updateProfile(session.token, patch), [session.token]);
   const uploadAvatar = useCallback((img: { data: string }) => authApi.uploadAvatar(session.token, img), [session.token]);
-  const label = nav.find(item => item.id === active)?.label ?? 'Quản trị';
+  const label = navLeaves(nav).find(item => item.id === active)?.label ?? 'Quản trị';
+  const activeGroup = nav.find((e): e is NavGroup<T> => 'items' in e && e.items.some(i => i.id === active));
+  // nhóm đang chứa mục được chọn thì mở sẵn; người dùng bấm tên nhóm để mở / đóng
+  const [groups, setGroups] = useState<Record<string, boolean>>({});
+  const expanded = (g: NavGroup<T>) => groups[g.group] ?? g.items.some(i => i.id === active);
   useEffect(() => {
     if (!open || Platform.OS !== 'web') return undefined;
     const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
@@ -52,13 +64,29 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, padding: 14, paddingTop: 26, gap: 18 }}>
         <Txt f="bold" upper size={10} color={c.trang} style={{ paddingHorizontal: 10, letterSpacing: 1.3, opacity: 0.8 }}>{session.user.role === 'root_admin' ? 'Quản trị hệ thống' : session.user.role === 'teacher' ? 'Không gian giáo viên' : 'Quản trị trường học'}</Txt>
         <View accessibilityRole="tablist" accessibilityLabel="Chức năng quản trị" style={{ gap: 6 }}>
-          {nav.map(item => {
-            const selected = item.id === active, Icon = item.icon;
-            return <Pressable key={item.id} testID={`admin-nav-${item.id}`} accessibilityRole="tab" accessibilityState={{ selected }} onPress={() => { onSelect(item.id); setOpen(false); }} style={({ pressed }) => ({ minHeight: 46, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 5, backgroundColor: selected ? c.the : pressed ? c.kinh : 'transparent' })}>
-              <Icon size={18} color={selected ? c.son : c.trang} />
-              <Txt f={selected ? 'bold' : 'medium'} size={13} color={selected ? c.son : c.trang} style={{ flex: 1 }}>{item.label}</Txt>
-              {item.count !== undefined && <Txt f="bold" size={11} color={selected ? c.son : c.trang}>{fmt(item.count)}</Txt>}
-            </Pressable>;
+          {nav.map(entry => {
+            const leaf = (item: NavLeaf<T>, inner = false) => {
+              const selected = item.id === active, Icon = item.icon;
+              return <Pressable key={item.id} testID={`admin-nav-${item.id}`} accessibilityRole="tab" accessibilityState={{ selected }} onPress={() => { onSelect(item.id); setOpen(false); }} style={({ pressed }) => ({ minHeight: inner ? 42 : 46, paddingLeft: inner ? 30 : 12, paddingRight: 12, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 5, backgroundColor: selected ? c.the : pressed ? c.kinh : 'transparent' })}>
+                <Icon size={inner ? 16 : 18} color={selected ? c.son : c.trang} />
+                <Txt f={selected ? 'bold' : 'medium'} size={13} color={selected ? c.son : c.trang} style={{ flex: 1 }}>{item.label}</Txt>
+                {item.count !== undefined && <Txt f="bold" size={11} color={selected ? c.son : c.trang}>{fmt(item.count)}</Txt>}
+              </Pressable>;
+            };
+            if (!('items' in entry)) return leaf(entry);
+            const isOpen = expanded(entry), Icon = entry.icon, Chevron = isOpen ? ChevronDown : ChevronRight, holdsActive = entry === activeGroup;
+            return (
+              <View key={`group-${entry.group}`} style={{ gap: 4 }}>
+                <Pressable testID={`admin-nav-group-${entry.group}`} accessibilityRole="button" accessibilityLabel={`${entry.label}: ${isOpen ? 'thu gọn' : 'mở'} ${entry.items.length} mục`} accessibilityState={{ expanded: isOpen }}
+                  onPress={() => setGroups(g => ({ ...g, [entry.group]: !isOpen }))}
+                  style={({ pressed }) => ({ minHeight: 46, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 5, backgroundColor: pressed || (holdsActive && !isOpen) ? c.kinh : 'transparent' })}>
+                  <Icon size={18} color={c.trang} />
+                  <Txt f={holdsActive ? 'bold' : 'medium'} size={13} color={c.trang} style={{ flex: 1 }}>{entry.label}</Txt>
+                  <Chevron size={16} color={c.trang} />
+                </Pressable>
+                {isOpen ? <View style={{ gap: 4 }}>{entry.items.map(item => leaf(item, true))}</View> : null}
+              </View>
+            );
           })}
         </View>
         <View style={{ marginTop: 'auto', padding: 10, paddingTop: 30, gap: 10 }}>
@@ -71,7 +99,7 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
       </ScrollView>
     </LinearGradient>
   );
-  const trail = [schoolName, `${session.user.role === 'teacher' ? 'Giáo viên' : 'Quản trị'} / ${label}`].filter(Boolean).join(' · ');
+  const trail = [schoolName, `${session.user.role === 'teacher' ? 'Giáo viên' : 'Quản trị'} / ${activeGroup ? `${activeGroup.label} / ` : ''}${label}`].filter(Boolean).join(' · ');
   const roomy = width >= 680;
   return (
     <View testID="admin-workspace" style={[{ flex: 1, backgroundColor: c.logoPaper }, WRAP_PRETTY]}>

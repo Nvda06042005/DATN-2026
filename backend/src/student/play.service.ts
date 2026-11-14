@@ -305,7 +305,7 @@ export class PlayService {
     const lesson = await this.db.tx(async (q) => {
       const { node } = await this.accessNode(q, user, nodeId);
       if (node.state === 'locked' || node.kind !== 'lesson' || !node.lesson_id) throw new ConflictException('Nút này chưa mở hoặc không phải bài học');
-      const row = (await q<Record<string, any>>("SELECT id, title, summary, blocks, read_minutes FROM hk_lessons WHERE id = $1 AND status = 'published'", [node.lesson_id]))[0];
+      const row = (await q<Record<string, any>>("SELECT id, title, summary, objectives, blocks, read_minutes FROM hk_lessons WHERE id = $1 AND status = 'published'", [node.lesson_id]))[0];
       if (!row) throw notFound('bài học');
       await q('INSERT INTO hk_lesson_progress (user_id, lesson_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [user.id, row.id]);
       const progress = (await q('SELECT read_percent, check_attempts, completed_at FROM hk_lesson_progress WHERE user_id = $1 AND lesson_id = $2', [user.id, row.id]))[0];
@@ -602,7 +602,7 @@ export class PlayService {
   /** Bài học của bài tập (HK.HS.101): nội dung và câu kiểm tra nhanh, không gắn với nút trên bản đồ */
   async assignmentLesson(user: UserRow, lessonId: number) {
     return this.db.tx(async (q) => {
-      const row = (await q<Record<string, any>>("SELECT id, title, summary, blocks, read_minutes FROM hk_lessons WHERE id = $1 AND status = 'published'", [lessonId]))[0];
+      const row = (await q<Record<string, any>>("SELECT id, title, summary, objectives, blocks, read_minutes FROM hk_lessons WHERE id = $1 AND status = 'published'", [lessonId]))[0];
       if (!row) throw notFound('bài học');
       await q('INSERT INTO hk_lesson_progress (user_id, lesson_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [user.id, row.id]);
       const progress = (await q('SELECT read_percent, check_attempts, completed_at FROM hk_lesson_progress WHERE user_id = $1 AND lesson_id = $2', [user.id, row.id]))[0];

@@ -1,17 +1,19 @@
 /**
  * Quản lý bài học (HK.AD.044): quản trị tổng soạn bài bằng các khối nội dung (văn bản, hình, video, bản đồ), gắn với dữ liệu lịch sử,
  * chọn câu kiểm tra nhanh cuối bài, công bố hoặc gỡ về nháp. Bài học đã công bố mới chọn được vào nút hành trình của giáo viên.
+ * 14/11/2026: mục tiêu bài học (yêu cầu cần đạt), xem trước đúng như học sinh thấy (như Nearpod), nhân bản bài, số học sinh đã mở / đã học xong.
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { ArrowDown, ArrowUp, Eye, EyeOff, Image as ImageIcon, MapPin, Pencil, Plus, Trash2, Type, Video } from 'lucide-react-native';
+import { ArrowDown, ArrowUp, BookOpen, Copy, Eye, EyeOff, Image as ImageIcon, MapPin, Pencil, Plus, Trash2, Type, Video } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { MapPicker } from '@/components/admin/MapPicker';
 import { LinksEditor, QuestionPicker, useCampaignOptions } from '@/components/admin/ContentKit';
 import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, Page, PageHeader, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, type SearchFilter } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
-import { Btn, Card, ConfirmSheet, Field, Sheet, Spinner, Txt } from '@/components/ui';
+import { Block, LessonObjectives, Overlay } from '@/components/portal/LessonReader';
+import { Btn, Card, Chip, ConfirmSheet, Field, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { HistoryLink, LessonBlock, LessonDetail, LessonItem } from '@/types/learning';
 
@@ -23,6 +25,7 @@ const LessonForm: React.FC<{ session: Session; initial?: LessonDetail; onClose: 
   const campaigns = useCampaignOptions(session);
   const [title, setTitle] = useState(initial?.title ?? '');
   const [summary, setSummary] = useState(initial?.summary ?? '');
+  const [objectives, setObjectives] = useState(initial?.objectives ?? '');
   const [campaign, setCampaign] = useState(initial?.campaign_id ? String(initial.campaign_id) : '');
   const [minutes, setMinutes] = useState(initial ? String(initial.read_minutes) : '');
   const [blocks, setBlocks] = useState<LessonBlock[]>(initial?.blocks ?? [{ type: 'text', heading: '', text: '' }]);
@@ -40,7 +43,7 @@ const LessonForm: React.FC<{ session: Session; initial?: LessonDetail; onClose: 
     try {
       const clean = blocks.map((b) => (b.type === 'map' ? { type: b.type, label: b.label, lat: Number(b.lat), lng: Number(b.lng), zoom: Number(b.zoom) || 7, caption: b.caption || undefined } : b.type === 'text' ? { type: b.type, heading: b.heading || undefined, text: b.text } : { type: b.type, url: b.url, caption: b.caption || undefined }));
       const body = {
-        title, summary: summary.trim() || null, campaign_id: campaign ? Number(campaign) : null, blocks: clean as LessonBlock[], ...(minutes.trim() ? { read_minutes: Number(minutes) } : {}),
+        title, summary: summary.trim() || null, objectives: objectives.trim() || null, campaign_id: campaign ? Number(campaign) : null, blocks: clean as LessonBlock[], ...(minutes.trim() ? { read_minutes: Number(minutes) } : {}),
         links: links.map((l) => ({ ref_type: l.ref_type, ref_id: l.ref_id })), check_question_ids: checks.map((k) => k.id),
       };
       onSaved(initial?.id ? await api.updateLesson(session.token, initial.id, body) : await api.createLesson(session.token, body));
@@ -56,6 +59,8 @@ const LessonForm: React.FC<{ session: Session; initial?: LessonDetail; onClose: 
       <ErrorNote message={error} />
       <Field label="Tên bài học *" value={title} onChangeText={setTitle} nativeID="lesson-title" />
       <Field label="Tóm tắt" value={summary} onChangeText={setSummary} multiline numberOfLines={2} inputStyle={{ minHeight: 60, textAlignVertical: 'top' }} />
+      <Field label="Mục tiêu bài học (yêu cầu cần đạt)" value={objectives} onChangeText={setObjectives} multiline numberOfLines={3} inputStyle={{ minHeight: 72, textAlignVertical: 'top' }}
+        hint="Mỗi dòng một mục tiêu, ví dụ: Nêu được diễn biến chính của trận Bạch Đằng năm 1288. Học sinh thấy ở đầu bài." nativeID="lesson-objectives-input" />
       <FilterBar>
         <FilterBox flex={2}><AdminSelect label="Cuộc kháng chiến" value={campaign} options={campaigns} onChange={setCampaign} /></FilterBox>
         <FilterBox><Field label="Thời lượng đọc (phút)" value={minutes} onChangeText={setMinutes} keyboardType="numeric" hint="Để trống: hệ thống tự ước tính" /></FilterBox>
@@ -121,12 +126,38 @@ const LessonForm: React.FC<{ session: Session; initial?: LessonDetail; onClose: 
   );
 };
 
+/** Xem trước bài học đúng như học sinh thấy (tiêu đề, tóm tắt, mục tiêu, các khối nội dung, câu kiểm tra cuối bài) trước khi công bố */
+const LessonPreview: React.FC<{ lesson: LessonDetail; onClose: () => void }> = ({ lesson, onClose }) => {
+  const { c } = useTheme();
+  return (
+    <Overlay title={`Xem trước: ${lesson.title}`} onBack={onClose}>
+      <View style={{ gap: 8 }} testID="lesson-preview">
+        <Txt f="displayHeavy" size={28} accessibilityRole="header">{lesson.title}</Txt>
+        {lesson.summary ? <Txt size={16} color={c.muc2}>{lesson.summary}</Txt> : null}
+        <LessonObjectives text={lesson.objectives} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <Chip text={`Khoảng ${lesson.read_minutes} phút`} bg={c.thuyNhat} fg={c.thuyChu} />
+          <Chip text={lesson.status === 'published' ? 'Đã công bố' : 'Bản nháp – học sinh chưa thấy'} bg={c.vangNhat} fg={c.vangChu} />
+        </View>
+      </View>
+      {lesson.blocks.map((b, i) => <Block key={i} block={b} />)}
+      {lesson.checks.length ? (
+        <Card flat pad={12} style={{ gap: 6 }}>
+          <Txt f="bold" size={15}>Câu kiểm tra nhanh cuối bài</Txt>
+          {lesson.checks.map((k, i) => <Txt key={k.question_id} size={14}>{i + 1}. {k.prompt}</Txt>)}
+        </Card>
+      ) : null}
+    </Overlay>
+  );
+};
+
 export const LessonManager: React.FC<{ session: Session }> = ({ session }) => {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
   const [campaign, setCampaign] = useState('');
   const [form, setForm] = useState<{ lesson?: LessonDetail } | null>(null);
   const [removing, setRemoving] = useState<LessonItem | null>(null);
+  const [preview, setPreview] = useState<LessonDetail | null>(null);
   const term = useDebounced(q.trim(), 300);
   const campaigns = useCampaignOptions(session);
   const list = useLoad(() => api.listLessons(session.token, { q: term, status, campaign_id: campaign }), [session.token, term, status, campaign], session.expired);
@@ -135,7 +166,11 @@ export const LessonManager: React.FC<{ session: Session }> = ({ session }) => {
   const f_campaign: SearchFilter = { key: 'campaign', label: 'Cuộc kháng chiến', value: campaign, options: [{ value: '', label: 'Tất cả' }, ...campaigns.slice(1)], onChange: setCampaign };
   const writable = (l:LessonItem) => session.user.role==='root_admin' || l.school_id===session.user.school_id;
   const edit = async (l: LessonItem) => { const d = await run(() => api.getLesson(session.token, l.id)); if (d) setForm({ lesson: writable(l) ? d : {...d,id:0} }); };
+  // nhân bản: mở biểu mẫu với nội dung bài cũ, lưu thành bài mới (bản nháp)
+  const duplicate = async (l: LessonItem) => { const d = await run(() => api.getLesson(session.token, l.id)); if (d) setForm({ lesson: { ...d, id: 0, title: `${d.title} (bản sao)`, status: 'draft' } }); };
+  const showPreview = async (l: LessonItem) => { const d = await run(() => api.getLesson(session.token, l.id)); if (d) setPreview(d); };
   return (
+    <>
     <Page>
       <PageHeader title="Bài học" subtitle="Bài học gắn với nút trên bản đồ hành trình. Chỉ bài đã công bố mới chọn được vào hành trình của giáo viên và được học sinh đọc."
         actions={<Btn icon={Plus} title="Tạo bài học" tone="son" size="sm" onPress={() => setForm({})} testID="lesson-create" />} />
@@ -151,19 +186,25 @@ export const LessonManager: React.FC<{ session: Session }> = ({ session }) => {
             { key: 'time', label: 'Thời lượng', flex: 0.8, render: (r) => <Txt size={13}>{r.read_minutes} phút</Txt> },
             { key: 'checks', label: 'Câu kiểm tra', flex: 0.9, render: (r) => <Txt size={13}>{r.checks}</Txt> },
             { key: 'used', label: 'Dùng ở nút', flex: 0.9, render: (r) => <Txt size={13}>{r.used_in}</Txt> },
+            { key: 'learners', label: 'Học sinh đã học', flex: 1.1, render: (r) => <Cell main={`${r.completed ?? 0} học xong`} sub={`${r.readers ?? 0} đã mở`} /> },
           ]}
           actions={(r) => writable(r) ? (
             <>
+              <Btn icon={BookOpen} label={`Xem trước ${r.title} như học sinh`} tone="giay" size="sm" disabled={busy} onPress={() => showPreview(r)} testID={`lesson-preview-${r.id}`} />
+              <Btn icon={Copy} label={`Nhân bản ${r.title}`} tone="giay" size="sm" disabled={busy} onPress={() => duplicate(r)} />
               <Btn icon={r.status === 'published' ? EyeOff : Eye} label={r.status === 'published' ? `Gỡ công bố ${r.title}` : `Công bố ${r.title}`} tone="giay" size="sm" disabled={busy}
                 onPress={async () => { if (await run(() => api.setLessonStatus(session.token, r.id, r.status === 'published' ? 'draft' : 'published'), r.status === 'published' ? 'Đã gỡ về bản nháp' : 'Đã công bố bài học')) list.reload(); }} />
               <Btn icon={Pencil} label={`Sửa ${r.title}`} tone="giay" size="sm" onPress={() => edit(r)} />
               <Btn icon={Trash2} label={`Xóa ${r.title}`} tone="giay" size="sm" onPress={() => setRemoving(r)} />
             </>
-          ) : <Btn icon={Plus} title="Tạo bản riêng" tone="giay" size="sm" onPress={() => edit(r)} />} />
+          ) : <><Btn icon={BookOpen} label={`Xem trước ${r.title} như học sinh`} tone="giay" size="sm" disabled={busy} onPress={() => showPreview(r)} /><Btn icon={Plus} title="Tạo bản riêng" tone="giay" size="sm" onPress={() => edit(r)} /></>} />
       ) : null}
       {form ? <LessonForm session={session} initial={form.lesson} onClose={() => setForm(null)} onSaved={() => { setForm(null); list.reload(); }} /> : null}
       <ConfirmSheet open={!!removing} title="Xóa bài học?" message={`Xóa bài “${removing?.title ?? ''}”. Chỉ xóa được bài chưa nằm trong hành trình nào.`} confirmLabel="Xóa" busy={busy}
         onCancel={() => setRemoving(null)} onConfirm={async () => { if (removing) { const ok = await run(async () => { await api.deleteLesson(session.token, removing.id); return true; }, 'Đã xóa bài học'); setRemoving(null); if (ok) list.reload(); } }} />
     </Page>
+    {/* khung xem trước phủ toàn vùng nội dung (ngoài Page, như "Làm thử" của Bộ đề) */}
+    {preview ? <LessonPreview lesson={preview} onClose={() => setPreview(null)} /> : null}
+    </>
   );
 };

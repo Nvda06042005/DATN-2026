@@ -4,9 +4,9 @@
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { Bell, CalendarDays, ChartColumn, CircleHelp, History, KeyRound, LifeBuoy, GraduationCap, Inbox, ListChecks, School, Trash2, UserRound, Users } from 'lucide-react-native';
+import { Bell, CalendarDays, ChartColumn, CircleHelp, FolderCog, History, KeyRound, LifeBuoy, GraduationCap, Inbox, ListChecks, School, Trash2, UserRound, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
-import { AdminWorkspace } from '@/components/admin/AdminWorkspace';
+import { AdminWorkspace, navLeaves } from '@/components/admin/AdminWorkspace';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { SchoolReports } from '@/components/admin/AnalyticsAdmin';
 import { SchoolYears } from '@/components/admin/SchoolYears';
@@ -36,10 +36,13 @@ import type { YearItem } from '@/types/api';
 const NAV = [
   { id: 'stats' as const, label: 'Thống kê trường', icon: ChartColumn },
   { id: 'school' as const, label: 'Trường và năm học', icon: School },
-  { id: 'teachers' as const, label: 'Giáo viên', icon: UserRound },
-  { id: 'students' as const, label: 'Học sinh', icon: GraduationCap },
-  { id: 'classes' as const, label: 'Lớp học', icon: Users },
-  { id: 'passwords' as const, label: 'Mật khẩu tài khoản', icon: KeyRound },
+  // nhóm "Quản lý" (yêu cầu 14/11/2026): bấm Quản lý thì hiện Giáo viên, Học sinh, Lớp học, Mật khẩu tài khoản
+  { group: 'manage', label: 'Quản lý', icon: FolderCog, items: [
+    { id: 'teachers' as const, label: 'Giáo viên', icon: UserRound },
+    { id: 'students' as const, label: 'Học sinh', icon: GraduationCap },
+    { id: 'classes' as const, label: 'Lớp học', icon: Users },
+    { id: 'passwords' as const, label: 'Mật khẩu tài khoản', icon: KeyRound },
+  ] },
   { id: 'review' as const, label: 'Duyệt nội dung', icon: Inbox },
   { id: 'history' as const, label: 'Kho lịch sử', icon: History },
   { id: 'lessons' as const, label: 'Bài học', icon: ListChecks },
@@ -49,10 +52,10 @@ const NAV = [
   { id: 'logs' as const, label: 'Nhật ký', icon: History },
   { id: 'help' as const, label: 'Trợ giúp', icon: LifeBuoy },
 ];
-type Tab = (typeof NAV)[number]['id'];
+type Tab = Extract<(typeof NAV)[number], { id: string }>['id'] | Extract<(typeof NAV)[number], { items: unknown }>['items'][number]['id'];
 
 export const SchoolAdmin: React.FC<{ session: Session }> = ({ session }) => {
-  const [tab, setTab] = usePortalTab<Tab>('stats', NAV.map(item => item.id));
+  const [tab, setTab] = usePortalTab<Tab>('stats', navLeaves<Tab>(NAV).map(item => item.id));
   const { data: school, reload: reloadSchool } = useLoad(() => api.getMySchool(session.token), [session.token], session.expired);
   const { data: years, reload: reloadYears } = useLoad(() => api.listYears(session.token), [session.token], session.expired);
   const reloadAll = () => { reloadSchool(); reloadYears(); };

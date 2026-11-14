@@ -8,7 +8,7 @@ import { ENTITIES, SPECS } from '../history/history.service';
 import { LessonService } from './lesson.service';
 import { JourneyService, NodeInput } from './journey.service';
 import { QuestionService, QuestionInput } from './question.service';
-import { QuizService, QuizInput } from './quiz.service';
+import { MatrixInput, QuizService, QuizInput } from './quiz.service';
 import { ShareEntity, ShareService, ShareTarget } from './share.service';
 import { QTYPE_LABEL, QTYPES } from './questions';
 import { LINK_TYPES } from './access';
@@ -33,6 +33,7 @@ class QuestionDto {
   @IsOptional() @IsString() @MaxLength(500) video_url?: string | null;
   @IsOptional() @IsString() @MaxLength(2200) explanation?: string | null;
   @IsOptional() @num() @IsInt() difficulty?: number;
+  @IsOptional() @num() @IsInt() cognitive_level?: number;
   @IsOptional() @num() @IsInt() @Min(1) campaign_id?: number | null;
   @IsOptional() @IsObject() data?: Record<string, unknown>;
   @IsOptional() @IsArray() @ArrayMaxSize(12) @ValidateNested({ each: true }) @Type(() => LinkDto) links?: LinkDto[];
@@ -44,6 +45,7 @@ class QuestionListQuery {
   @IsOptional() @num() @IsInt() @Min(1) campaign_id?: number;
   @IsOptional() @IsIn([...QTYPES]) qtype?: string;
   @IsOptional() @num() @IsInt() @Min(1) difficulty?: number;
+  @IsOptional() @num() @IsInt() @Min(1) level?: number;
   @IsOptional() @IsIn([...LINK_TYPES]) ref_type?: string;
   @IsOptional() @num() @IsInt() @Min(1) ref_id?: number;
   @IsOptional() @num() @IsInt() @Min(1) page?: number;
@@ -74,6 +76,28 @@ class QuizDto {
   @IsOptional() @IsArray() @ArrayMaxSize(60) @ValidateNested({ each: true }) @Type(() => QuizItemDto) items?: QuizItemDto[];
 }
 
+/** Một ô ma trận đề: chủ đề × mức độ → số câu */
+class MatrixCellDto {
+  @IsOptional() @num() @IsInt() @Min(1) campaign_id?: number | null;
+  @num() @IsInt() @Min(1) level: number;
+  @num() @IsInt() @Min(0) count: number;
+}
+
+class MatrixDto {
+  @IsString() @MaxLength(200) title: string;
+  @IsOptional() @IsString() @MaxLength(1200) description?: string | null;
+  @IsOptional() @IsIn(['mine', 'school', 'system', 'all']) store?: string;
+  @IsArray() @ArrayMaxSize(90) @ValidateNested({ each: true }) @Type(() => MatrixCellDto) cells: MatrixCellDto[];
+  @IsOptional() @num() @IsInt() seconds_per_question?: number;
+  @IsOptional() @num() @IsInt() pass_percent?: number;
+  @IsOptional() @IsBoolean() shuffle_questions?: boolean;
+  @IsOptional() @IsBoolean() shuffle_options?: boolean;
+}
+
+class MatrixQuery {
+  @IsOptional() @IsIn(['mine', 'school', 'system', 'all']) store?: string;
+}
+
 class QuizListQuery {
   @IsOptional() @IsString() @MaxLength(80) q?: string;
   @IsOptional() @IsIn(['mine', 'school', 'system', 'all']) store?: string;
@@ -85,6 +109,7 @@ class QuizListQuery {
 class LessonDto {
   @IsOptional() @IsString() @MaxLength(200) title?: string;
   @IsOptional() @IsString() @MaxLength(700) summary?: string | null;
+  @IsOptional() @IsString() @MaxLength(1200) objectives?: string | null;
   @IsOptional() @num() @IsInt() @Min(1) campaign_id?: number | null;
   @IsOptional() @IsArray() @ArrayMaxSize(30) blocks?: unknown[];
   @IsOptional() @num() @IsInt() read_minutes?: number;
@@ -265,6 +290,16 @@ export class ContentController {
 
   @Post('quizzes')
   createQuiz(@CurrentUser() user: UserRow, @Body() body: QuizDto) { return this.quizzes.create(user, body as unknown as QuizInput); }
+
+  /** Ma trận đề: số câu có sẵn theo chủ đề × mức độ, và tạo bộ đề lấy ngẫu nhiên theo ma trận (đặt trước quizzes/:id) */
+  @Get('quizzes/matrix')
+  matrixStock(@CurrentUser() user: UserRow, @Query() query: MatrixQuery) { return this.quizzes.matrixStock(user, query.store); }
+
+  @Post('quizzes/matrix')
+  createFromMatrix(@CurrentUser() user: UserRow, @Body() body: MatrixDto) { return this.quizzes.createFromMatrix(user, body as unknown as MatrixInput); }
+
+  @Get('quizzes/:id/stats')
+  quizStats(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.quizzes.stats(user, id); }
 
   @Get('quizzes/:id')
   getQuiz(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.quizzes.get(user, id); }

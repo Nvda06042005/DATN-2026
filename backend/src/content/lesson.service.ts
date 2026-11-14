@@ -15,7 +15,7 @@ export type Block =
   | { type: 'map'; lat: number; lng: number; zoom: number; label: string; caption?: string };
 
 export interface LessonInput {
-  title: string; summary?: string | null; campaign_id?: number | null; blocks: unknown[]; read_minutes?: number; links?: LinkInput[]; check_question_ids?: number[];
+  title: string; summary?: string | null; objectives?: string | null; campaign_id?: number | null; blocks: unknown[]; read_minutes?: number; links?: LinkInput[]; check_question_ids?: number[];
 }
 export interface LessonFilter { q?: string; campaign_id?: number; status?: string }
 
@@ -97,7 +97,10 @@ export class LessonService {
     return this.db.query(
       `SELECT t.id, t.school_id, t.title, t.summary, t.campaign_id, c.title AS campaign_title, t.read_minutes, t.status, t.updated_at,
               (SELECT count(*)::int FROM hk_nodes n WHERE n.lesson_id = t.id) AS used_in,
-              (SELECT count(*)::int FROM hk_lesson_checks k WHERE k.lesson_id = t.id) AS checks
+              (SELECT count(*)::int FROM hk_lesson_checks k WHERE k.lesson_id = t.id) AS checks,
+              -- học sinh đã mở / đã học xong bài (ở cổng trường, RLS chỉ đếm học sinh trong trường)
+              (SELECT count(*)::int FROM hk_lesson_progress p WHERE p.lesson_id = t.id) AS readers,
+              (SELECT count(*)::int FROM hk_lesson_progress p WHERE p.lesson_id = t.id AND p.completed_at IS NOT NULL) AS completed
        FROM hk_lessons t LEFT JOIN hist_campaigns c ON c.id = t.campaign_id
        ${parts.length ? `WHERE ${parts.join(' AND ')}` : ''} ORDER BY t.campaign_id NULLS LAST, t.title, t.id LIMIT 500`, params);
   }
@@ -119,13 +122,17 @@ export class LessonService {
     const title = text(input.title ?? existing?.title, 160, 'Tên bài học');
     if (title.length < 2) return bad('Tên bài học tối thiểu 2 ký tự');
     const summary = input.summary === undefined ? (existing?.summary ?? null) : text(input.summary, 600, 'Tóm tắt', false) || null;
+    // mục tiêu bài học (yêu cầu cần đạt): mỗi dòng một mục tiêu, bỏ dòng trống
+    const objectives = input.objectives === undefined ? (existing?.objectives ?? null)
+      : (typeof input.objectives === 'string' ? input.objectives : '').split('\n').map((l) => l.trim().replace(/^[-•*]\s*/, '')).filter(Boolean).join('\n') || null;
+    if (objectives && objectives.length > 1000) return bad('Mục tiêu bài học tối đa 1000 ký tự');
     const campaign = input.campaign_id === undefined ? (existing?.campaign_id ?? null) : input.campaign_id;
     if (campaign && !(await q('SELECT 1 FROM hist_campaigns WHERE id = $1', [campaign])).length) return bad('Cuộc kháng chiến không tồn tại');
     const blocks = normalizeBlocks((input.blocks ?? existing?.blocks ?? []) as unknown[]);
     const minutes = input.read_minutes === undefined ? (blocks.length ? estimateMinutes(blocks) : (existing?.read_minutes ?? 3)) : Number(input.read_minutes);
     if (!Number.isInteger(minutes) || minutes < 1 || minutes > 120) return bad('Thời gian đọc từ 1 đến 120 phút');
     const body = blocks.map((b) => (b.type === 'text' ? `${b.heading ?? ''} ${b.text}` : 'caption' in b ? (b.caption ?? '') : '')).join(' ');
-    return { title, summary, campaign_id: campaign, blocks, read_minutes: minutes, search_text: searchText(title, summary, body) };
+    return { title, summary, objectives, campaign_id: campaign, blocks, read_minutes: minutes, search_text: searchText(title, summary, objectives, body) };
   }
 
   private async writeRelations(q: Q, id: number, links: LinkInput[] | undefined, checks: number[] | undefined): Promise<void> {
@@ -151,8 +158,8 @@ export class LessonService {
     const id = await this.db.tx(async (q) => {
       const f = await this.fields(q, input);
       const row = (await q<{ id: number }>(
-        `INSERT INTO hk_lessons (title, summary, campaign_id, blocks, read_minutes, search_text, created_by, updated_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $7) RETURNING id`,
-        [f.title, f.summary, f.campaign_id, JSON.stringify(f.blocks), f.read_minutes, f.search_text, user.id]))[0];
+        `INSERT INTO hk_lessons (title, summary, campaign_id, blocks, read_minutes, search_text, created_by, updated_by, objectives) VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8) RETURNING id`,
+        [f.title, f.summary, f.campaign_id, JSON.stringify(f.blocks), f.read_minutes, f.search_text, user.id, f.objectives]))[0];
       await this.writeRelations(q, row.id, input.links ?? [], input.check_question_ids ?? []);
       return row.id;
     });
@@ -167,8 +174,8 @@ export class LessonService {
       const f = await this.fields(q, input, row);
       if (row.status === 'published' && !f.blocks.length) throw new UnprocessableEntityException('Bài học đã công bố không được để trống nội dung');
       await q(
-        `UPDATE hk_lessons SET title = $2, summary = $3, campaign_id = $4, blocks = $5, read_minutes = $6, search_text = $7, updated_by = $8, updated_at = now() WHERE id = $1`,
-        [id, f.title, f.summary, f.campaign_id, JSON.stringify(f.blocks), f.read_minutes, f.search_text, user.id]);
+        `UPDATE hk_lessons SET title = $2, summary = $3, campaign_id = $4, blocks = $5, read_minutes = $6, search_text = $7, updated_by = $8, objectives = $9, updated_at = now() WHERE id = $1`,
+        [id, f.title, f.summary, f.campaign_id, JSON.stringify(f.blocks), f.read_minutes, f.search_text, user.id, f.objectives]);
       await this.writeRelations(q, id, input.links, input.check_question_ids);
     });
     return this.get(user, id);

@@ -17,7 +17,8 @@ test('đã xóa thanh vai trò và phạm vi ("Quản trị tổng · Toàn hệ
 });
 
 test('tên trường (quản trị trường, giáo viên) chuyển lên đường dẫn trang ở thanh đầu để không mất thông tin', () => {
-  assert.match(shell, /const trail = \[schoolName, `\$\{session\.user\.role === 'teacher' \? 'Giáo viên' : 'Quản trị'\} \/ \$\{label\}`\]\.filter\(Boolean\)\.join\(' · '\);/);
+  // mục nằm trong nhóm (vd. Quản lý / Học sinh) thì đường dẫn ghi cả tên nhóm
+  assert.match(shell, /const trail = \[schoolName, `\$\{session\.user\.role === 'teacher' \? 'Giáo viên' : 'Quản trị'\} \/ \$\{activeGroup \? `\$\{activeGroup\.label\} \/ ` : ''\}\$\{label\}`\]\.filter\(Boolean\)\.join\(' · '\);/);
   assert.match(shell, /numberOfLines=\{1\} style=\{\{ flex: 1 \}\}>\{trail\}<\/Txt>/);
 });
 
@@ -117,7 +118,9 @@ test('menu quản trị tổng: Thống kê hệ thống đứng đầu rồi Tr
   const root = read('components', 'admin', 'RootAdmin.tsx');
   const ids = [...root.slice(root.indexOf('const NAV'), root.indexOf('type Tab')).matchAll(/id: '(\w+)'/g)].map((m) => m[1]);
   assert.deepEqual(ids, ['stats', 'schools', 'users', 'passwords', 'notices', 'logs', 'faq', 'support']); // Mật khẩu tài khoản (13/11/2026) ngay sau Người dùng
-  assert.match(root, /usePortalTab<Tab>\('stats', NAV\.map/);
+  assert.match(root, /usePortalTab<Tab>\('stats', navLeaves<Tab>\(NAV\)\.map/);
+  // nhóm "Quản lý" giống quản trị trường (14/11/2026): Trường học, Người dùng, Mật khẩu tài khoản
+  assert.match(root, /\{ group: 'manage', label: 'Quản lý', icon: FolderCog, items: \[\s*\{ id: 'schools'[^\n]*\n\s*\{ id: 'users'[^\n]*\n\s*\{ id: 'passwords'[^\n]*\n\s*\] \}/);
 });
 
 test('thống kê hệ thống: một trang tổng quan vừa một màn hình, có đồng hồ nửa vòng; số liệu thực từ bốn API; cửa sổ nhỏ thì xếp chồng và cuộn', () => {
@@ -158,7 +161,13 @@ test('quản trị trường học: Thống kê trường đứng đầu menu, g
   for (const gone of ['Báo cáo', 'Trò chơi hóa', 'Mô phỏng và mini-game', 'Game thẻ tướng', 'Nghiên cứu', 'Khảo sát', 'Hành trình mẫu', 'AI Tutor']) assert.ok(!labels.includes(gone), gone);
   for (const file of ['GameAdmin.tsx', 'AiAdmin.tsx', 'BattleAdmin.tsx', 'WarAdmin.tsx', 'ResearchAdmin.tsx']) assert.ok(!require('node:fs').existsSync(require('node:path').join(__dirname, '..', 'components', 'admin', file)), file);
   assert.doesNotMatch(read('components', 'admin', 'PlatformComms.tsx'), /SurveyManager/);
-  assert.match(school, /usePortalTab<Tab>\('stats', NAV\.map/);
+  assert.match(school, /usePortalTab<Tab>\('stats', navLeaves<Tab>\(NAV\)\.map/);
+  // nhóm "Quản lý" (14/11/2026): bấm Quản lý thì hiện Giáo viên, Học sinh, Lớp học, Mật khẩu tài khoản; giữ vị trí cũ sau Trường và năm học
+  assert.match(school, /\{ id: 'school'[^\n]*\n[^\n]*\n\s*\{ group: 'manage', label: 'Quản lý', icon: FolderCog, items: \[\s*\{ id: 'teachers'[^\n]*\n\s*\{ id: 'students'[^\n]*\n\s*\{ id: 'classes'[^\n]*\n\s*\{ id: 'passwords'[^\n]*\n\s*\] \},\s*\{ id: 'review'/);
+  const shell = read('components', 'admin', 'AdminWorkspace.tsx');
+  assert.match(shell, /testID=\{`admin-nav-group-\$\{entry\.group\}`\} accessibilityRole="button"/);
+  assert.match(shell, /accessibilityState=\{\{ expanded: isOpen \}\}/);
+  assert.match(shell, /const expanded = \(g: NavGroup<T>\) => groups\[g\.group\] \?\? g\.items\.some\(i => i\.id === active\);/); // nhóm chứa trang đang mở thì mở sẵn
   assert.match(school, /\{ id: 'stats' as const, label: 'Thống kê trường', icon: ChartColumn \}/);
   assert.match(school, /\{tab === 'stats' \? <SchoolReports session=\{session\} schoolName=\{school\?\.name\} \/>/);
   // Thống kê trường gộp Báo cáo: Tổng quan là trang thống kê một màn hình, các phần báo cáo chi tiết chọn bằng thanh tab

@@ -7,19 +7,21 @@ import { buildWorkbook, checkUpload, Column, readSheet, UploadedXlsx } from '../
 import { likeEscape } from '../admin/school.service';
 import { DatabaseService, Q, searchText, UserRow } from '../database/database.service';
 import { authoringScope, canEdit, canSee, checkLinks, LinkInput, linkLabels, notFound, Owned, Scope, storeSql, visibleSql } from './access';
-import { dataText, normalizeData, QTYPE_LABEL, QTYPES, QType } from './questions';
+import { dataText, LEVEL_LABEL, normalizeData, parseLevel, QTYPE_LABEL, QTYPES, QType } from './questions';
 
 export interface QuestionInput {
-  qtype: QType; prompt: string; image_url?: string | null; video_url?: string | null; explanation?: string | null; difficulty?: number; campaign_id?: number | null; data: unknown; links?: LinkInput[];
+  qtype: QType; prompt: string; image_url?: string | null; video_url?: string | null; explanation?: string | null; difficulty?: number; cognitive_level?: number; campaign_id?: number | null; data: unknown; links?: LinkInput[];
 }
-export interface QuestionFilter { q?: string; store?: string; campaign_id?: number; qtype?: string; difficulty?: number; ref_type?: string; ref_id?: number; page?: number; limit?: number }
+export interface QuestionFilter { q?: string; store?: string; campaign_id?: number; qtype?: string; difficulty?: number; level?: number; ref_type?: string; ref_id?: number; page?: number; limit?: number }
 
 export interface QuestionRow extends Owned {
-  id: number; qtype: QType; prompt: string; image_url: string | null; video_url: string | null; explanation: string | null; difficulty: number; campaign_id: number | null;
+  id: number; qtype: QType; prompt: string; image_url: string | null; video_url: string | null; explanation: string | null; difficulty: number; cognitive_level: number; campaign_id: number | null;
   data: Record<string, unknown>; version_no: number; created_at: string; updated_at: string;
 }
 
-const COLUMNS = 'id, scope, school_id, owner_id, qtype, prompt, image_url, video_url, explanation, difficulty, campaign_id, data, version_no, created_at, updated_at';
+const COLUMNS = 'id, scope, school_id, owner_id, qtype, prompt, image_url, video_url, explanation, difficulty, cognitive_level, campaign_id, data, version_no, created_at, updated_at';
+/** Lượt trả lời thật của học sinh (không tính giáo viên làm thử). Ở cổng trường, RLS chỉ để lại lượt của học sinh trong trường */
+const REAL_ANSWERS = "hk_attempt_answers aa JOIN hk_attempts a ON a.id = aa.attempt_id AND a.mode <> 'preview'";
 const MAX_PAGE = 100;
 /** Ảnh đã tải lên qua /api/content/media */
 export const MEDIA_PATH = /^\/api\/content\/media\/[0-9a-f]{32}$/;
@@ -41,7 +43,10 @@ function plainFields(input: Partial<QuestionInput>, existing?: QuestionRow) {
   if (explanation && explanation.length > 2000) throw new BadRequestException('Giải thích tối đa 2000 ký tự');
   const difficulty = Number(input.difficulty ?? existing?.difficulty ?? 2);
   if (![1, 2, 3].includes(difficulty)) throw new BadRequestException('Độ khó từ 1 (dễ) đến 3 (khó)');
-  return { prompt, image_url: image, video_url: video, explanation, difficulty };
+  // mức độ nhận thức (CV 7991): chưa chọn thì lấy theo độ khó như câu hỏi cũ
+  const level = Number(input.cognitive_level ?? existing?.cognitive_level ?? difficulty);
+  if (![1, 2, 3].includes(level)) throw new BadRequestException('Mức độ nhận thức là 1 (Biết), 2 (Hiểu) hoặc 3 (Vận dụng)');
+  return { prompt, image_url: image, video_url: video, explanation, difficulty, cognitive_level: level };
 }
 
 @Injectable()
@@ -55,14 +60,15 @@ export class QuestionService {
     const page = Math.max(1, f.page ?? 1);
     const total = Number((await this.db.query<{ n: string }>(`SELECT count(*) AS n FROM hk_questions t WHERE ${where.sql}`, where.params))[0].n);
     const params = [...where.params, limit, (page - 1) * limit];
-    const rows = await this.db.query<QuestionRow & { campaign_title: string | null; owner_name: string | null; used_in: number }>(
-      `SELECT t.id, t.scope, t.school_id, t.owner_id, t.qtype, t.prompt, t.difficulty, t.campaign_id, c.title AS campaign_title, t.version_no, t.updated_at, u.full_name AS owner_name,
-              (SELECT count(*)::int FROM hk_quiz_questions qq WHERE qq.question_id = t.id) AS used_in
+    const rows = await this.db.query<QuestionRow & { campaign_title: string | null; owner_name: string | null; used_in: number; answered: number; correct_rate: number | null }>(
+      `SELECT t.id, t.scope, t.school_id, t.owner_id, t.qtype, t.prompt, t.difficulty, t.cognitive_level, t.campaign_id, c.title AS campaign_title, t.version_no, t.updated_at, u.full_name AS owner_name,
+              (SELECT count(*)::int FROM hk_quiz_questions qq WHERE qq.question_id = t.id) AS used_in, s.answered, s.correct_rate
        FROM hk_questions t LEFT JOIN hist_campaigns c ON c.id = t.campaign_id LEFT JOIN app_users u ON u.id = t.owner_id
+       LEFT JOIN LATERAL (SELECT count(*)::int AS answered, round(100.0 * avg(aa.correct::int))::int AS correct_rate FROM ${REAL_ANSWERS} WHERE aa.question_id = t.id) s ON true
        WHERE ${where.sql} ORDER BY t.updated_at DESC, t.id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
     return {
       total, page, limit,
-      items: rows.map((r) => ({ ...r, qtype_label: QTYPE_LABEL[r.qtype], can_edit: canEdit(user, r) })),
+      items: rows.map((r) => ({ ...r, qtype_label: QTYPE_LABEL[r.qtype], level_label: LEVEL_LABEL[r.cognitive_level], can_edit: canEdit(user, r) })),
     };
   }
 
@@ -74,6 +80,7 @@ export class QuestionService {
     if (f.campaign_id) { params.push(f.campaign_id); parts.push(`t.campaign_id = $${params.length}`); }
     if (f.qtype) { if (!(QTYPES as readonly string[]).includes(f.qtype)) throw new BadRequestException('Dạng câu hỏi không hợp lệ'); params.push(f.qtype); parts.push(`t.qtype = $${params.length}`); }
     if (f.difficulty) { params.push(f.difficulty); parts.push(`t.difficulty = $${params.length}`); }
+    if (f.level) { params.push(f.level); parts.push(`t.cognitive_level = $${params.length}`); }
     if (f.ref_type && f.ref_id) { params.push(f.ref_type, f.ref_id); parts.push(`EXISTS (SELECT 1 FROM hk_question_links l WHERE l.question_id = t.id AND l.ref_type = $${params.length - 1} AND l.ref_id = $${params.length})`); }
     return { sql: parts.join(' AND '), params };
   }
@@ -96,8 +103,38 @@ export class QuestionService {
       "SELECT target, status, review_note FROM hk_shares WHERE entity = 'question' AND entity_id = $1", [row.id]);
     const owner = row.owner_id ? (await q<{ full_name: string }>('SELECT full_name FROM app_users WHERE id = $1', [row.owner_id]))[0]?.full_name ?? null : null;
     return {
-      ...row, qtype_label: QTYPE_LABEL[row.qtype], owner_name: owner, can_edit: canEdit(user, row),
-      links: await linkLabels(q, links), used_in: usage.quizzes, used_in_lessons: usage.lessons, answered: usage.answers, shares,
+      ...row, qtype_label: QTYPE_LABEL[row.qtype], level_label: LEVEL_LABEL[row.cognitive_level], owner_name: owner, can_edit: canEdit(user, row),
+      links: await linkLabels(q, links), used_in: usage.quizzes, used_in_lessons: usage.lessons, answered: usage.answers, shares, stats: await this.stats(q, row),
+    };
+  }
+
+  /**
+   * Thống kê câu hỏi từ bài làm thật của học sinh (không tính làm thử): số lượt, tỉ lệ đúng, thời gian trung bình và, với câu chọn đáp án,
+   * số lượt chọn từng phương án để thấy phương án nhiễu nào hay bị chọn (phân tích câu hỏi như Moodle, Wayground).
+   */
+  private async stats(q: Q, row: QuestionRow) {
+    const base = (await q<{ answered: number; correct: number; avg_ms: number | null }>(
+      `SELECT count(*)::int AS answered, count(*) FILTER (WHERE aa.correct)::int AS correct, round(avg(aa.time_ms))::int AS avg_ms FROM ${REAL_ANSWERS} WHERE aa.question_id = $1`, [row.id]))[0];
+    const d = row.data as Record<string, any>;
+    let choices: Array<{ key: string | null; label: string; count: number; correct: boolean }> = [];
+    if (base.answered && (row.qtype === 'single' || row.qtype === 'multiple' || row.qtype === 'truefalse')) {
+      const sql = row.qtype === 'single'
+        ? `SELECT aa.answer->>'choice' AS k, count(*)::int AS n FROM ${REAL_ANSWERS} WHERE aa.question_id = $1 GROUP BY 1`
+        : row.qtype === 'truefalse'
+          ? `SELECT aa.answer->>'value' AS k, count(*)::int AS n FROM ${REAL_ANSWERS} WHERE aa.question_id = $1 GROUP BY 1`
+          : `SELECT c AS k, count(*)::int AS n FROM ${REAL_ANSWERS} CROSS JOIN LATERAL jsonb_array_elements_text(CASE WHEN jsonb_typeof(aa.answer->'choices') = 'array' THEN aa.answer->'choices' ELSE '[]'::jsonb END) c WHERE aa.question_id = $1 GROUP BY 1`;
+      const counts = new Map((await q<{ k: string | null; n: number }>(sql, [row.id])).map((r) => [r.k, r.n]));
+      if (row.qtype === 'truefalse') {
+        choices = [['true', 'Đúng'], ['false', 'Sai']].map(([k, label]) => ({ key: k, label, count: counts.get(k) ?? 0, correct: String(d.correct) === k }));
+      } else {
+        const want = row.qtype === 'single' ? [String(d.correct)] : ((d.correct ?? []) as string[]);
+        choices = ((d.options ?? []) as Array<{ id: string; text: string }>).map((o) => ({ key: o.id, label: o.text, count: counts.get(o.id) ?? 0, correct: want.includes(o.id) }));
+      }
+      if (row.qtype !== 'multiple' && counts.get(null)) choices.push({ key: null, label: 'Không trả lời / hết giờ', count: counts.get(null)!, correct: false });
+    }
+    return {
+      answered: base.answered, correct: base.correct, correct_rate: base.answered ? Math.round((100 * base.correct) / base.answered) : null,
+      avg_seconds: base.avg_ms === null ? null : Math.round(base.avg_ms / 100) / 10, choices,
     };
   }
 
@@ -133,7 +170,7 @@ export class QuestionService {
   }
 
   private async snapshot(q: Q, row: { id: number }, version: number, by: number | null): Promise<void> {
-    const cur = (await q<Record<string, unknown>>(`SELECT qtype, prompt, image_url, video_url, explanation, difficulty, campaign_id, data FROM hk_questions WHERE id = $1`, [row.id]))[0];
+    const cur = (await q<Record<string, unknown>>(`SELECT qtype, prompt, image_url, video_url, explanation, difficulty, cognitive_level, campaign_id, data FROM hk_questions WHERE id = $1`, [row.id]))[0];
     const links = await q<LinkInput>('SELECT ref_type, ref_id FROM hk_question_links WHERE question_id = $1 ORDER BY ref_type, ref_id', [row.id]);
     await q('INSERT INTO hk_question_versions (question_id, version_no, snapshot, changed_by) VALUES ($1, $2, $3, $4)', [row.id, version, JSON.stringify({ ...cur, links }), by]);
   }
@@ -144,9 +181,9 @@ export class QuestionService {
       const f = await this.fields(q, input);
       const links = await checkLinks(q, input.links);
       const id = (await q<{ id: number }>(
-        `INSERT INTO hk_questions (scope, school_id, owner_id, qtype, prompt, image_url, video_url, explanation, difficulty, campaign_id, data, search_text)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
-        [own.scope, own.school_id, own.owner_id, f.qtype, f.prompt, f.image_url, f.video_url, f.explanation, f.difficulty, f.campaign_id, JSON.stringify(f.data), f.search_text]))[0].id;
+        `INSERT INTO hk_questions (scope, school_id, owner_id, qtype, prompt, image_url, video_url, explanation, difficulty, campaign_id, data, search_text, cognitive_level)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+        [own.scope, own.school_id, own.owner_id, f.qtype, f.prompt, f.image_url, f.video_url, f.explanation, f.difficulty, f.campaign_id, JSON.stringify(f.data), f.search_text, f.cognitive_level]))[0].id;
       await this.writeLinks(q, id, links);
       await this.snapshot(q, { id }, 1, user.id);
       return this.view(q, user, await this.load(q, user, id));
@@ -161,14 +198,14 @@ export class QuestionService {
       const links = input.links === undefined ? undefined : await checkLinks(q, input.links);
       const oldLinks = JSON.stringify(await q('SELECT ref_type, ref_id FROM hk_question_links WHERE question_id = $1 ORDER BY ref_type, ref_id', [id]));
       const changed =
-        f.qtype !== row.qtype || f.prompt !== row.prompt || f.image_url !== row.image_url || f.video_url !== row.video_url || f.explanation !== row.explanation || f.difficulty !== row.difficulty ||
+        f.qtype !== row.qtype || f.prompt !== row.prompt || f.image_url !== row.image_url || f.video_url !== row.video_url || f.explanation !== row.explanation || f.difficulty !== row.difficulty || f.cognitive_level !== row.cognitive_level ||
         f.campaign_id !== row.campaign_id || stable(f.data) !== stable(row.data) ||
         (links !== undefined && JSON.stringify([...links].sort((a, b) => a.ref_type.localeCompare(b.ref_type) || a.ref_id - b.ref_id)) !== oldLinks);
       if (changed) {
         const version = row.version_no + 1;
         await q(
-          `UPDATE hk_questions SET qtype = $2, prompt = $3, image_url = $4, video_url = $11, explanation = $5, difficulty = $6, campaign_id = $7, data = $8, search_text = $9, version_no = $10, updated_at = now() WHERE id = $1`,
-          [id, f.qtype, f.prompt, f.image_url, f.explanation, f.difficulty, f.campaign_id, JSON.stringify(f.data), f.search_text, version, f.video_url]);
+          `UPDATE hk_questions SET qtype = $2, prompt = $3, image_url = $4, video_url = $11, explanation = $5, difficulty = $6, campaign_id = $7, data = $8, search_text = $9, version_no = $10, cognitive_level = $12, updated_at = now() WHERE id = $1`,
+          [id, f.qtype, f.prompt, f.image_url, f.explanation, f.difficulty, f.campaign_id, JSON.stringify(f.data), f.search_text, version, f.video_url, f.cognitive_level]);
         if (links !== undefined) await this.writeLinks(q, id, links);
         await this.snapshot(q, { id }, version, user.id);
       }
@@ -194,8 +231,8 @@ export class QuestionService {
     const src = (await q<QuestionRow>(`SELECT ${COLUMNS} FROM hk_questions WHERE id = $1`, [id]))[0];
     if (!src) throw notFound('câu hỏi');
     const row = (await q<{ id: number }>(
-      `INSERT INTO hk_questions (scope, school_id, owner_id, qtype, prompt, image_url, video_url, explanation, difficulty, campaign_id, data, search_text)
-       SELECT $2, $3, $4, qtype, prompt, image_url, video_url, explanation, difficulty, campaign_id, data, search_text FROM hk_questions WHERE id = $1 RETURNING id`,
+      `INSERT INTO hk_questions (scope, school_id, owner_id, qtype, prompt, image_url, video_url, explanation, difficulty, campaign_id, data, search_text, cognitive_level)
+       SELECT $2, $3, $4, qtype, prompt, image_url, video_url, explanation, difficulty, campaign_id, data, search_text, cognitive_level FROM hk_questions WHERE id = $1 RETURNING id`,
       [id, target.scope, target.school_id, target.owner_id]))[0];
     await q('INSERT INTO hk_question_links (question_id, ref_type, ref_id) SELECT $2, ref_type, ref_id FROM hk_question_links WHERE question_id = $1', [id, row.id]);
     await this.snapshot(q, row, 1, by);
@@ -219,6 +256,7 @@ export class QuestionService {
     { key: 'answer', header: 'Đáp án *', width: 30, required: true },
     { key: 'explanation', header: 'Giải thích', width: 50 },
     { key: 'difficulty', header: 'Độ khó (1-3)', width: 12 },
+    { key: 'level', header: 'Mức độ (Biết/Hiểu/Vận dụng)', aliases: ['Mức độ', 'Mức độ nhận thức'], width: 18 },
     { key: 'campaign', header: 'Cuộc kháng chiến', width: 30 },
     { key: 'image_url', header: 'Liên kết hình ảnh (https)', width: 40 },
   ];
@@ -230,18 +268,19 @@ export class QuestionService {
 
   async template(): Promise<Buffer> {
     return buildWorkbook('Câu hỏi', this.COLS, [
-      { qtype: 'Một đáp án', prompt: 'Ai được vua Trần giao chức Quốc công Tiết chế thống lĩnh quân đội trong kháng chiến lần II và III?', o1: 'Trần Quang Khải', o2: 'Trần Hưng Đạo', o3: 'Trần Nhật Duật', answer: '2', explanation: 'Trần Hưng Đạo được giao chỉ huy toàn quân.', difficulty: '1', campaign: '' },
-      { qtype: 'Nhiều đáp án', prompt: 'Những địa danh nào gắn với kháng chiến chống Nguyên – Mông?', o1: 'Bạch Đằng', o2: 'Chương Dương', o3: 'Điện Biên Phủ', o4: 'Hàm Tử', answer: '1,2,4', difficulty: '2' },
-      { qtype: 'Đúng/sai', prompt: 'Hội nghị Diên Hồng họp để bàn việc đánh hay hòa.', answer: 'Đúng', difficulty: '1' },
-      { qtype: 'Điền khuyết', prompt: 'Năm ____, quân dân nhà Trần giành chiến thắng trên sông ____.', answer: '1288; Bạch Đằng|Bạch Đằng Giang', difficulty: '2' },
-      { qtype: 'Sắp xếp', prompt: 'Sắp xếp các sự kiện theo thứ tự thời gian.', o1: 'Hội nghị Diên Hồng', o2: 'Chiến thắng Hàm Tử', o3: 'Chiến thắng Bạch Đằng', answer: '', difficulty: '2' },
+      { qtype: 'Một đáp án', prompt: 'Ai được vua Trần giao chức Quốc công Tiết chế thống lĩnh quân đội trong kháng chiến lần II và III?', o1: 'Trần Quang Khải', o2: 'Trần Hưng Đạo', o3: 'Trần Nhật Duật', answer: '2', explanation: 'Trần Hưng Đạo được giao chỉ huy toàn quân.', difficulty: '1', level: 'Biết', campaign: '' },
+      { qtype: 'Nhiều đáp án', prompt: 'Những địa danh nào gắn với kháng chiến chống Nguyên – Mông?', o1: 'Bạch Đằng', o2: 'Chương Dương', o3: 'Điện Biên Phủ', o4: 'Hàm Tử', answer: '1,2,4', difficulty: '2', level: 'Hiểu' },
+      { qtype: 'Đúng/sai', prompt: 'Hội nghị Diên Hồng họp để bàn việc đánh hay hòa.', answer: 'Đúng', difficulty: '1', level: 'Biết' },
+      { qtype: 'Điền khuyết', prompt: 'Năm ____, quân dân nhà Trần giành chiến thắng trên sông ____.', answer: '1288; Bạch Đằng|Bạch Đằng Giang', difficulty: '2', level: 'Hiểu' },
+      { qtype: 'Sắp xếp', prompt: 'Sắp xếp các sự kiện theo thứ tự thời gian.', o1: 'Hội nghị Diên Hồng', o2: 'Chiến thắng Hàm Tử', o3: 'Chiến thắng Bạch Đằng', answer: '', difficulty: '2', level: 'Vận dụng' },
     ], [
       'Mỗi dòng là một câu hỏi. Dạng câu hỏi: Một đáp án, Nhiều đáp án, Đúng/sai, Điền khuyết, Sắp xếp. Dạng kéo thả lên bản đồ chỉ tạo trên giao diện.',
       'Một đáp án / Nhiều đáp án: điền các lựa chọn vào cột Lựa chọn 1…8; cột Đáp án ghi số thứ tự lựa chọn đúng (ví dụ 2 hoặc 1,3).',
       'Đúng/sai: cột Đáp án ghi Đúng hoặc Sai.',
       'Điền khuyết: đề bài đánh dấu chỗ trống bằng ____; cột Đáp án ghi đáp án từng chỗ trống, cách nhau dấu chấm phẩy; nhiều cách viết cùng được chấp nhận thì cách nhau dấu |.',
       'Sắp xếp: nhập các mục theo ĐÚNG thứ tự vào Lựa chọn 1…8 (hệ thống tự xáo trộn khi hiển thị); cột Đáp án để trống.',
-      'Độ khó: 1 (dễ), 2 (vừa), 3 (khó). Cuộc kháng chiến: ghi đúng tên trong kho lịch sử (để trống nếu không gắn). Xóa các dòng ví dụ trước khi nhập.',
+      'Độ khó: 1 (dễ), 2 (vừa), 3 (khó). Mức độ nhận thức (Công văn 7991): Biết, Hiểu hoặc Vận dụng (để trống thì lấy theo độ khó); dùng khi tạo đề theo ma trận.',
+      'Cuộc kháng chiến: ghi đúng tên trong kho lịch sử (để trống nếu không gắn). Xóa các dòng ví dụ trước khi nhập.',
     ]);
   }
 
@@ -255,7 +294,9 @@ export class QuestionService {
     const base = {
       qtype, prompt: v.prompt, explanation: v.explanation || null, image_url: v.image_url || null, campaign_id: campaignKey ? campaigns.get(campaignKey)! : null,
       difficulty: v.difficulty ? Number(v.difficulty) : 2,
+      cognitive_level: parseLevel(v.level),
     };
+    if (Number.isNaN(base.cognitive_level)) throw new BadRequestException('Mức độ ghi Biết, Hiểu hoặc Vận dụng (hoặc 1, 2, 3)');
     const optionList = opts.map((text, i) => ({ id: String.fromCharCode(97 + i), text }));
     const index = (token: string): string => {
       const n = Number(token.trim());
@@ -307,11 +348,11 @@ export class QuestionService {
   async exportXlsx(user: UserRow, f: QuestionFilter): Promise<Buffer> {
     const where = await this.filterSql(user, f);
     const rows = await this.db.query<QuestionRow & { campaign_title: string | null }>(
-      `SELECT t.id, t.qtype, t.prompt, t.explanation, t.difficulty, t.image_url, t.data, c.title AS campaign_title FROM hk_questions t LEFT JOIN hist_campaigns c ON c.id = t.campaign_id
+      `SELECT t.id, t.qtype, t.prompt, t.explanation, t.difficulty, t.cognitive_level, t.image_url, t.data, c.title AS campaign_title FROM hk_questions t LEFT JOIN hist_campaigns c ON c.id = t.campaign_id
        WHERE ${where.sql} ORDER BY t.updated_at DESC, t.id DESC LIMIT 1000`, where.params);
     const out = rows.map((r) => {
       const d = r.data as Record<string, any>;
-      const cells: Record<string, unknown> = { qtype: QTYPE_LABEL[r.qtype], prompt: r.prompt, explanation: r.explanation ?? '', difficulty: String(r.difficulty), campaign: r.campaign_title ?? '', image_url: r.image_url ?? '' };
+      const cells: Record<string, unknown> = { qtype: QTYPE_LABEL[r.qtype], prompt: r.prompt, explanation: r.explanation ?? '', difficulty: String(r.difficulty), level: LEVEL_LABEL[r.cognitive_level] ?? '', campaign: r.campaign_title ?? '', image_url: r.image_url ?? '' };
       const list = (d.options ?? d.items ?? []) as Array<{ id: string; text: string }>;
       list.slice(0, 8).forEach((o, i) => { cells[`o${i + 1}`] = o.text; });
       if (r.qtype === 'single') cells.answer = String(list.findIndex((o) => o.id === d.correct) + 1);

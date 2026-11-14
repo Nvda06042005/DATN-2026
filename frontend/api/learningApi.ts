@@ -3,7 +3,7 @@ import { apiBlob, apiRequest, apiUpload, type PickedFile } from '@/api/client';
 import type {
   AnswerResult, AttemptHistoryItem, AttemptReview, AttemptState, CampaignMap, Detail, FigureItem, GateGuide, GateInput, HistoryOption, JourneyDetail, JourneyItem, JourneyPreview, LearningPath, LessonCheckResult, LessonCompletion, LessonDetail, LessonInput,
   LessonItem, LessonView, Listing, ListenView, MapPlace, MenuDots, NodeDetail, NodeInput, NodeResult, NoteItem, QuestionDetail, QuestionImportResult, QuestionInput, QuestionItem, QuestionVersion, Quests,
-  QuizDetail, QuizInput, QuizItem, SearchHit, ShareDetail, ShareItem, SourceItem, StudentHome, TeacherClass, TermItem, TimelineEntry,
+  MatrixInput, MatrixStock, QuizDetail, QuizInput, QuizItem, QuizStats, SearchHit, ShareDetail, ShareItem, SourceItem, StudentHome, TeacherClass, TermItem, TimelineEntry,
 } from '@/types/learning';
 import type { CommitResult, MediaLibrary, StudioDraft, StudioListItem, StudioPayload } from '@/types/studio';
 
@@ -45,6 +45,10 @@ export const updateQuiz = (token: string, id: number, body: Partial<QuizInput>) 
 export const deleteQuiz = (token: string, id: number) => apiRequest<void>(`/api/content/quizzes/${id}`, { token, method: 'DELETE' });
 export const duplicateQuiz = (token: string, id: number) => apiRequest<QuizDetail>(`/api/content/quizzes/${id}/duplicate`, { token, body: {} });
 export const previewQuiz = (token: string, id: number) => apiRequest<AttemptState>(`/api/play/quizzes/${id}/preview`, { token, body: {} });
+/** Ma trận đề (14/11/2026): số câu có sẵn theo chủ đề × mức độ; tạo bộ đề lấy ngẫu nhiên theo ma trận; thống kê bộ đề */
+export const quizMatrixStock = (token: string, store?: string) => apiRequest<MatrixStock>(`/api/content/quizzes/matrix${qs({ store })}`, { token });
+export const createQuizFromMatrix = (token: string, body: MatrixInput) => apiRequest<QuizDetail>('/api/content/quizzes/matrix', { token, body });
+export const quizStats = (token: string, id: number) => apiRequest<QuizStats>(`/api/content/quizzes/${id}/stats`, { token });
 
 // ---------------------------------------------------------------------- bài học (HK.AD.044)
 export const listLessons = (token: string, query: Query = {}) => apiRequest<LessonItem[]>(`/api/content/lessons${qs(query)}`, { token });
