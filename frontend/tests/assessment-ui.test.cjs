@@ -41,15 +41,8 @@ test('bộ đề: nút Tạo đề theo ma trận, ô số câu theo chủ đề
   assert.match(api, /`\/api\/content\/quizzes\/\$\{id\}\/stats`/);
 });
 
-test('bài học: ô mục tiêu (mỗi dòng một mục), xem trước như học sinh, nhân bản thành bản nháp, cột học sinh đã học; học sinh thấy mục tiêu ở đầu bài', () => {
-  const lesson = read('components', 'admin', 'LessonManager.tsx');
-  assert.match(lesson, /label="Mục tiêu bài học \(yêu cầu cần đạt\)"/);
-  assert.match(lesson, /objectives: objectives\.trim\(\) \|\| null/);
-  assert.match(lesson, /const LessonPreview: React\.FC/);
-  assert.match(lesson, /<LessonObjectives text=\{lesson\.objectives\} \/>/);
-  assert.match(lesson, /\{lesson\.blocks\.map\(\(b, i\) => <Block key=\{i\} block=\{b\} \/>\)\}/);
-  assert.match(lesson, /title: `\$\{d\.title\} \(bản sao\)`, status: 'draft'/);
-  assert.match(lesson, /\{ key: 'learners', label: 'Học sinh đã học'/);
+// Trang Bài học của quản trị trường đã xóa (14/11/2026); mục tiêu bài học vẫn hiện cho học sinh ở đầu bài
+test('bài học: học sinh thấy mục tiêu ở đầu bài', () => {
   const reader = read('components', 'portal', 'LessonReader.tsx');
   assert.match(reader, /export const LessonObjectives: React\.FC<\{ text: string \| null \| undefined \}>/);
   assert.match(reader, /<LessonObjectives text=\{data\.objectives\} \/>/);

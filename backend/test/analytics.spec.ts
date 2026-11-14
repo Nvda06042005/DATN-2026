@@ -14,7 +14,7 @@ const root = (method: string, path: string, body?: unknown) => call(s.base, meth
 const download = async (who: { token: string }, path: string) => {
   const res = await fetch(`${s.base}${path}`, { headers: { Authorization: `Bearer ${who.token}` } });
   const buf = Buffer.from(await res.arrayBuffer());
-  return { status: res.status, type: res.headers.get('content-type') ?? '', head: buf.subarray(0, 4).toString('latin1'), size: buf.length, disposition: res.headers.get('content-disposition') ?? '' };
+  return { status: res.status, type: res.headers.get('content-type') ?? '', head: buf.subarray(0, 4).toString('latin1'), size: buf.length, disposition: res.headers.get('content-disposition') ?? '', buf };
 };
 
 (hasPostgres() ? describe : describe.skip)('Sprint 10 – gợi ý học tập, thống kê và báo cáo', () => {
@@ -185,6 +185,13 @@ const download = async (who: { token: string }, path: string) => {
     expect(d).toMatchObject({ students: 2, accuracy: 50, avg_percent: 50, active_week: 1, participation: 50 });
     expect(d.series).toHaveLength(14);
     expect(d.series[13].events).toBeGreaterThanOrEqual(3);
+    // chọn học kỳ / năm học: biểu đồ trải đúng từ "từ ngày" tới "đến ngày" (hoặc hôm nay), không còn cố định 14 ngày gần nhất
+    const vnDay = (offset: number) => new Date(Date.now() + 7 * 3_600_000 + offset * 86_400_000).toISOString().slice(0, 10);
+    const ranged = (await as(f.T1)('GET', `/api/analytics/classes/${f.class7a.id}/dashboard?from=${vnDay(-39)}&to=${vnDay(30)}`)).body;
+    expect(ranged.series).toHaveLength(40);
+    expect([ranged.series[0].day, ranged.series[39].day]).toEqual([vnDay(-39), vnDay(0)]);
+    expect(ranged.series[39].events).toBeGreaterThanOrEqual(3);
+    expect((await as(f.T1)('GET', `/api/analytics/classes/${f.class7a.id}/dashboard?from=${vnDay(-20)}&to=${vnDay(-10)}`)).body.series.map((p: any) => p.day)).toEqual(Array.from({ length: 11 }, (_, i) => vnDay(-20 + i)));
     expect(d.distribution.reduce((n: number, x: any) => n + x.count, 0)).toBe(2);
     const row = d.roster.find((r: any) => r.id === f.S1.id);
     expect(row).toMatchObject({ attempts: 3, answered: 12, correct: 6, accuracy: 50 });
@@ -262,6 +269,41 @@ const download = async (who: { token: string }, path: string) => {
     expect(a).toMatchObject({ status: 200, head: 'PK\u0003\u0004' });
     expect((await download(f.A, '/api/analytics/export?by=teacher&format=pdf')).head).toBe('%PDF');
     expect((await download(f.T1, '/api/analytics/export')).status).toBe(403);
+    // bố cục chính thức như file xuất Giáo viên / Học sinh / Lớp học (14/11/2026): logo, dòng nhận diện, quốc hiệu, tiêu đề, Ngày xuất, bảng có STT, chỗ ký
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(x.buf as any);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(['Tổng quan', 'Học sinh', 'Học sinh cần hỗ trợ', 'Chủ đề cần ôn', 'Bài tập']);
+    const sheet = wb.getWorksheet('Học sinh')!;
+    const texts = (ws: typeof sheet) => { const out: string[] = []; ws.eachRow((row) => row.eachCell((c) => { if (c.value !== null && c.value !== undefined) out.push(String(c.value)); })); return out; };
+    const all = texts(sheet);
+    expect(String(sheet.getCell('A2').value)).toMatch(/^Báo cáo thống kê lớp · /);
+    expect(all).toEqual(expect.arrayContaining(['CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM', 'Độc lập - Tự do - Hạnh phúc', 'BÁO CÁO THỐNG KÊ LỚP 7A1', 'Ngày xuất:', 'Khoảng thời gian:', 'Toàn bộ thời gian', 'Giáo viên phụ trách:', 'Sĩ số:', 'II. HỌC SINH', 'STT', 'Họ và tên', 'Tiến độ']));
+    expect(all.some((t) => /, ngày \d{2} tháng \d{2} năm \d{4}$/.test(t))).toBe(true);
+    expect(sheet.getImages().length).toBe(1); // logo Đông A
+    const headRow = sheet.views[0] as { ySplit?: number };
+    expect(sheet.getCell(headRow.ySplit!, 1).value).toBe('STT');
+    expect(sheet.getCell(headRow.ySplit! + 1, 1).value).toBe(1);
+    expect(sheet.pageSetup).toMatchObject({ orientation: 'landscape', fitToWidth: 1 });
+    expect(texts(wb.getWorksheet('Tổng quan')!)).toEqual(expect.arrayContaining(['NGƯỜI LẬP BÁO CÁO', 'Nguyễn Văn Sử']));
+    const res = await download(f.A, '/api/analytics/export?by=grade&from=2026-01-01');
+    const wb2 = new ExcelJS.Workbook();
+    await wb2.xlsx.load(res.buf as any);
+    expect(wb2.worksheets.map((w) => w.name)).toEqual(['Tổng hợp', 'Kết quả theo khối', 'Chi tiết từng lớp']);
+    expect(texts(wb2.worksheets[1])).toEqual(expect.arrayContaining(['BÁO CÁO KẾT QUẢ HỌC TẬP THEO KHỐI', '01/01/2026 – nay', 'Hạng', 'Khối 7']));
+    expect(res.disposition).toMatch(/bao-cao-ket-qua-theo-khoi\.xlsx/);
+    // báo cáo sử dụng và trợ lý AI: tổng hợp, đủ mọi ngày trong kỳ, tư liệu được hỏi nhiều; chỉ quản trị
+    const u = await download(f.A, '/api/analytics/usage/export?days=7');
+    const wb3 = new ExcelJS.Workbook();
+    await wb3.xlsx.load(u.buf as any);
+    expect(wb3.worksheets.map((w) => w.name)).toEqual(['Tổng hợp', 'Theo ngày', 'Tư liệu được hỏi nhiều']);
+    const daySheet = wb3.getWorksheet('Theo ngày')!;
+    const top = (daySheet.views[0] as { ySplit: number }).ySplit;
+    expect(String(daySheet.getCell(top + 7, 2).value)).toMatch(/^\d{2}\/\d{2}\/\d{4} \(/);
+    expect(daySheet.getCell(top + 8, 2).value).toBeNull();
+    expect((await download(f.A, '/api/analytics/usage/export?days=30&format=pdf')).head).toBe('%PDF');
+    expect((await download(f.T1, '/api/analytics/usage/export')).status).toBe(403);
+    expect((await download(f.A, '/api/analytics/usage/export?format=csv')).status).toBe(400);
     // các ô do người dùng nhập được làm sạch để Excel không hiểu nhầm là công thức
     await db.query("UPDATE app_users SET full_name = '=HYPERLINK(\"http://x\")' WHERE id = $1", [f.S2.id]);
     expect((await download(f.T1, `/api/analytics/classes/${f.class7a.id}/export`)).status).toBe(200);

@@ -156,7 +156,11 @@ test('thống kê hệ thống: một trang tổng quan vừa một màn hình, 
 test('quản trị trường học: Thống kê trường đứng đầu menu, gộp Báo cáo; bỏ Trò chơi hóa, Mô phỏng và mini-game, Game thẻ tướng, Nghiên cứu, Khảo sát, Hành trình mẫu, AI Tutor', () => {
   const school = read('components', 'admin', 'SchoolAdmin.tsx');
   const ids = [...school.slice(school.indexOf('const NAV'), school.indexOf('type Tab')).matchAll(/id: '(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['stats', 'school', 'teachers', 'students', 'classes', 'passwords', 'review', 'history', 'lessons', 'questions', 'quizzes', 'notices', 'logs', 'help']);
+  assert.deepEqual(ids, ['stats', 'school', 'teachers', 'students', 'classes', 'passwords', 'review', 'notices', 'logs', 'help']);
+  // 14/11/2026: xóa hẳn Kho lịch sử, Bài học, Ngân hàng câu hỏi, Bộ đề khỏi quản trị trường (dữ liệu giữ; giáo viên vẫn dùng Ngân hàng câu hỏi)
+  for (const gone of ['HistoryManager', 'LessonManager', 'QuestionBank', 'QuizManager']) assert.doesNotMatch(school, new RegExp(gone), gone);
+  for (const file of ['HistoryManager.tsx', 'LessonManager.tsx']) assert.ok(!require('node:fs').existsSync(require('node:path').join(__dirname, '..', 'components', 'admin', file)), file);
+  assert.match(read('components', 'portal', 'TeacherApp.tsx'), /import \{ QuestionBank \} from '@\/components\/admin\/QuestionBank';/);
   const labels = [...school.slice(school.indexOf('const NAV'), school.indexOf('type Tab')).matchAll(/label: '([^']+)'/g)].map((m) => m[1]);
   for (const gone of ['Báo cáo', 'Trò chơi hóa', 'Mô phỏng và mini-game', 'Game thẻ tướng', 'Nghiên cứu', 'Khảo sát', 'Hành trình mẫu', 'AI Tutor']) assert.ok(!labels.includes(gone), gone);
   for (const file of ['GameAdmin.tsx', 'AiAdmin.tsx', 'BattleAdmin.tsx', 'WarAdmin.tsx', 'ResearchAdmin.tsx']) assert.ok(!require('node:fs').existsSync(require('node:path').join(__dirname, '..', 'components', 'admin', file)), file);
@@ -172,8 +176,39 @@ test('quản trị trường học: Thống kê trường đứng đầu menu, g
   assert.match(school, /\{tab === 'stats' \? <SchoolReports session=\{session\} schoolName=\{school\?\.name\} \/>/);
   // Thống kê trường gộp Báo cáo: Tổng quan là trang thống kê một màn hình, các phần báo cáo chi tiết chọn bằng thanh tab
   const reports = read('components', 'admin', 'AnalyticsAdmin.tsx');
-  assert.match(reports, /if \(part === 'overview'\) return <View style=\{\{ flex: 1 \}\}>[\s\S]*?<SchoolDashboard session=\{session\} schoolName=\{schoolName\} \/>/);
-  assert.match(reports, /\{ value: 'overview', label: 'Tổng quan' \}, \{ value: 'classes', label: 'Lớp và học sinh' \}, \{ value: 'results', label: 'Kết quả' \}, \{ value: 'usage', label: 'Sử dụng' \}, \{ value: 'ai', label: 'AI' \}/);
+  assert.match(reports, /\{part === 'overview' \? <SchoolDashboard session=\{session\} schoolName=\{schoolName\} \/>/);
+  // 14/11/2026: hai tab Sử dụng và AI gộp thành một dashboard
+  assert.match(reports, /\{ value: 'overview', label: 'Tổng quan' \}, \{ value: 'classes', label: 'Lớp và học sinh' \}, \{ value: 'results', label: 'Kết quả' \}, \{ value: 'usage', label: 'Sử dụng và AI' \}\];/);
+});
+
+test('Thống kê trường (14/11/2026): Lớp và học sinh, Kết quả, Sử dụng và AI là dashboard cùng kiểu Tổng quan; chọn học kỳ / năm học; xuất Excel, PDF; tải lâu thì báo và cho thử lại', () => {
+  const reports = read('components', 'admin', 'AnalyticsAdmin.tsx');
+  const teacher = read('components', 'admin', 'AnalyticsTeacher.tsx');
+  const kit = read('components', 'admin', 'ReportKit.tsx');
+  // các tab dùng chung năm học của trường để chọn nhanh Học kỳ 1, Học kỳ 2, Cả năm học
+  assert.match(reports, /adminApi\.listYears\(session\.token\)/);
+  assert.match(reports, /part === 'classes' \? <ClassAnalytics session=\{session\} years=\{yearList\} \/>/);
+  assert.match(reports, /part === 'results' \? <ResultsDashboard session=\{session\} years=\{yearList\} schoolName=\{schoolName\} \/>/);
+  assert.match(reports, /: <UsageAiDashboard session=\{session\} schoolName=\{schoolName\} \/>/);
+  for (const label of ["'Học kỳ 1'", "'Học kỳ 2'", "'Cả năm học'", "'30 ngày'", "'90 ngày'", "'Tất cả'", '"Tùy chọn"']) assert.ok(kit.includes(label), label);
+  assert.match(kit, /const ready = years !== undefined;/); // chờ năm học rồi mới tải, không tải hai lần
+  assert.match(kit, /<CalendarInput def=\{\{ name: `\$\{idPrefix\}-from`/);
+  // bố cục dashboard: tiêu đề hai nửa, hàng chỉ số, biểu đồ + đồng hồ, các thẻ, bảng
+  assert.match(kit, /const \[head, tail\] = splitTitle\(title\);/);
+  for (const id of ['class-metrics', 'class-trend', 'class-gauges', 'class-distribution', 'class-topics', 'class-support', 'class-compare', 'class-roster']) assert.ok(teacher.includes(id), id);
+  for (const id of ['results-metrics', 'results-compare', 'results-gauges', 'results-highlights', 'results-table', 'results-classes', 'results-by-${v}']) assert.ok(teacher.includes(id), id);
+  for (const id of ['usage-metrics', 'usage-trend-card', 'usage-gauges', 'usage-weekdays', 'usage-ai-quality', 'usage-range-${n}', 'usage-tab-${t.value}']) assert.ok(reports.includes(id), id);
+  assert.match(reports, /<AiCard d=\{a\} days=\{days\} topN=\{5\} money=\{false\} \/>/); // quản trị trường không xem chi phí
+  // xuất báo cáo: lớp, kết quả, sử dụng và AI
+  assert.match(teacher, /excel=\{id \? \(\) => api\.exportClass\(token, id, 'xlsx', p\) : undefined\} pdf=\{id \? \(\) => api\.exportClass\(token, id, 'pdf', p\) : undefined\}/);
+  assert.match(teacher, /excel=\{\(\) => api\.exportResults\(token, by, 'xlsx', p\)\} pdf=\{\(\) => api\.exportResults\(token, by, 'pdf', p\)\}/);
+  assert.match(reports, /excel=\{\(\) => api\.exportUsage\(token, days, 'xlsx'\)\} pdf=\{\(\) => api\.exportUsage\(token, days, 'pdf'\)\}/);
+  assert.match(read('api', 'analyticsApi.ts'), /`\$\{base\}\/usage\/export\$\{qs\(\{ days, format \}\)\}`/);
+  // tải lâu (máy chủ khởi động) thì báo rõ và có nút Thử lại, không chỉ "Đang tải…"
+  assert.match(kit, /Máy chủ đang khởi động hoặc đang bận/);
+  for (const src of [teacher, reports]) assert.match(src, /<SlowNote loading=/);
+  // giáo viên dùng cùng dashboard lớp (chỉ lớp mình phụ trách), không cần năm học
+  assert.match(teacher, /export const TeacherAnalytics: React\.FC<\{ session: Session \}> = \(\{ session \}\) => <ClassAnalytics session=\{session\} title="Thống kê lớp" \/>;/);
 });
 
 test('trang Thống kê trường: cùng bố cục một màn hình với Thống kê hệ thống, số liệu từ bốn API có sẵn, tiêu đề hai nửa đều nhau', () => {
@@ -195,17 +230,15 @@ test('trang Thống kê trường: cùng bố cục một màn hình với Thố
   assert.match(panels, /newUsers != null \?/);
 });
 
-test('quản trị trường học theo quản trị tổng: bộ lọc kiểu Excel ở tiêu đề cột cho giáo viên, học sinh, lớp học, câu hỏi, bộ đề, bài học, hành trình, duyệt nội dung và kho lịch sử', () => {
+test('quản trị trường học theo quản trị tổng: bộ lọc kiểu Excel ở tiêu đề cột cho giáo viên, học sinh, lớp học, câu hỏi, bộ đề, hành trình và duyệt nội dung', () => {
   const read2 = (f) => read('components', 'admin', f);
   const want = {
     'SchoolPeople.tsx': ["key: 'status', filter: f_active", "key: 'grade', filter: f_grade", "key: 'classes', filter: f_class"],
     'SchoolClasses.tsx': ["key: 'grade', filter: f_grade", "key: 'status', filter: f_active"],
     'QuestionBank.tsx': ["key: 'qtype', filter: f_qtype", "key: 'campaign', filter: f_campaign", "key: 'scope', filter: f_store", "key: 'diff', filter: f_difficulty"],
     'QuizManager.tsx': ["key: 'scope', filter: f_store"],
-    'LessonManager.tsx': ["key: 'campaign', filter: f_campaign", "key: 'status', filter: f_status"],
     'JourneyManager.tsx': ["key: 'campaign', filter: f_campaign", "key: 'scope', filter: f_store"],
     'ShareInbox.tsx': ["key: 'entity', filter: f_entity", "key: 'status', filter: f_status"],
-    'HistoryManager.tsx': ["filter: f_campaign", "filter: f_group", "key: 'status', filter: f_status"],
   };
   for (const [file, parts] of Object.entries(want)) {
     const src = read2(file);

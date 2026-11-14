@@ -2,98 +2,166 @@
  * Thống kê lớp học cho giáo viên và quản trị trường (Sprint 10): bảng điều khiển lớp (HK.GV.066), hồ sơ học tập một học sinh (HK.GV.067, HK.QT.033), báo cáo theo chủ đề (HK.GV.068),
  * học sinh cần hỗ trợ (HK.GV.069), so sánh và xếp hạng lớp / khối / giáo viên (HK.GV.070, HK.QT.008, HK.QT.047), xuất Excel / PDF (HK.GV.071, HK.QT.048) và nhận xét qua email (HK.GV.072).
  * Số liệu do máy chủ tính theo phạm vi của người dùng; học sinh ngoài lớp của giáo viên không bao giờ hiện ra. Danh sách "cần hỗ trợ" chỉ là gợi ý theo quy tắc, giáo viên quyết định.
+ * 14/11/2026: "Lớp và học sinh" và "Kết quả" thành dashboard một trang (chỉ số, biểu đồ, đồng hồ, thẻ, bảng) cùng kiểu trang Tổng quan; xuất báo cáo theo bố cục chính thức.
  */
-import React, { useState } from 'react';
-import { View } from 'react-native';
-import { Mail, UserRound } from 'lucide-react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, View, useWindowDimensions } from 'react-native';
+import { Activity, CircleCheck, Clock, GraduationCap, Mail, Route, School, Trophy, UserRound, Users } from 'lucide-react-native';
 import * as api from '@/api/analyticsApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
-import { Cell, DataTable, DownloadButton, ErrorNote, FilterBar, FilterBox, Page, PageHeader, StatusChip, useAction, useLoad } from '@/components/admin/kit';
+import { DashboardGauge } from '@/components/admin/DashboardGauge';
+import { DashboardMetric as Metric } from '@/components/admin/DashboardMetric';
+import { BLUE, GOLD, PURPLE } from '@/components/admin/DashboardPanels';
+import { Cell, DataTable, ErrorNote, StatusChip, useAction, useLoad } from '@/components/admin/kit';
+import { BarRow, CardRow, Panel, ReportActions, ReportShell, SlowNote, usePeriodPicker } from '@/components/admin/ReportKit';
+import { dateText, grade, Pill } from '@/components/admin/SystemDashboard';
+import { TrendChart, type TrendPoint } from '@/components/admin/TrendChart';
 import type { Session } from '@/components/auth';
-import { ago, ColumnChart, Distribution, fmtPct, shortDay, StatGrid, StatTile, TopicBars, TypeBars } from '@/components/charts';
-import { Bar, Btn, Card, Chip, EmptyState, Field, InfoNote, Segmented, Sheet, Spinner, ToggleRow, Txt } from '@/components/ui';
+import { ago, fmtPct, shortDay, StatGrid, StatTile, TopicBars, TypeBars } from '@/components/charts';
+import { Bar, Btn, Card, Chip, EmptyState, Field, InfoNote, Sheet, Spinner, ToggleRow, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
-import type { ClassDashboard, ResultGroup, StudentStat, SupportItem } from '@/types/analytics';
+import { fmt } from '@/lib/format';
+import type { ResultClass, ResultGroup, StudentStat } from '@/types/analytics';
+import { TOPIC_TYPE_LABEL } from '@/types/analytics';
+import type { YearItem } from '@/types/api';
 
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-type Part = 'overview' | 'students' | 'topics' | 'support' | 'compare';
-const PARTS: Array<{ value: Part; label: string }> = [
-  { value: 'overview', label: 'Tổng quan' }, { value: 'students', label: 'Học sinh' }, { value: 'topics', label: 'Chủ đề' }, { value: 'support', label: 'Cần hỗ trợ' }, { value: 'compare', label: 'So sánh' },
-];
+const fileName = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
+/** Đồng hồ nửa vòng: mốc tốt / khá và chữ của ba mức */
+const gaugeOf = (id: string, label: string, value: number | null, good: number, ok: number, texts: [string, string, string], hint: string) => (
+  <DashboardGauge key={id} id={id} label={label} value={value} level={grade(value, good, ok)} levelText={value == null ? 'Chưa có' : value >= good ? texts[0] : value >= ok ? texts[1] : texts[2]} hint={hint} />
+);
+const GOODNESS: [string, string, string] = ['Tốt', 'Khá', 'Cần ôn tập'];
+const ACTIVITY: [string, string, string] = ['Sôi nổi', 'Khá', 'Cần thúc đẩy'];
+/** Trung bình theo sĩ số các lớp có số liệu (tổng hợp toàn trường) */
+const weighted = (rows: ResultClass[], pick: (r: ResultClass) => number | null): number | null => {
+  const has = rows.filter((r) => pick(r) != null && r.students > 0);
+  const total = has.reduce((n, r) => n + r.students, 0);
+  return total ? Math.round(has.reduce((n, r) => n + (pick(r) as number) * r.students, 0) / total) : null;
+};
 
-/** Khoảng thời gian lọc (YYYY-MM-DD); giá trị chưa đủ định dạng bị bỏ qua và báo lỗi nhẹ bên dưới ô */
-export function usePeriod() {
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const period: api.Period = { from: DATE.test(from) ? from : undefined, to: DATE.test(to) ? to : undefined };
-  const bar = (
-    <FilterBar>
-      <FilterBox><Field label="Từ ngày" value={from} onChangeText={setFrom} placeholder="VD: 2026-09-05" autoCapitalize="none" keyboardType="numbers-and-punctuation" error={from && !DATE.test(from) ? 'Nhập dạng năm-tháng-ngày, ví dụ 2026-09-05' : null} nativeID="period-from" /></FilterBox>
-      <FilterBox><Field label="Đến ngày" value={to} onChangeText={setTo} placeholder="VD: 2026-12-31" autoCapitalize="none" keyboardType="numbers-and-punctuation" error={to && !DATE.test(to) ? 'Nhập dạng năm-tháng-ngày, ví dụ 2026-12-31' : null} nativeID="period-to" /></FilterBox>
-      {from || to ? <Btn title="Bỏ lọc" tone="giay" size="sm" onPress={() => { setFrom(''); setTo(''); }} /> : null}
-    </FilterBar>
-  );
-  return { period, bar };
-}
+// ---------------------------------------------------------------------- kết quả: so sánh và xếp hạng lớp / khối / giáo viên (HK.GV.070, HK.QT.008, HK.QT.047)
+const BY_LABEL = { class: 'Theo lớp', grade: 'Theo khối', teacher: 'Theo giáo viên' } as const;
+const BY_NOUN = { class: 'Lớp', grade: 'Khối', teacher: 'Giáo viên' } as const;
+type By = keyof typeof BY_LABEL;
 
-// ---------------------------------------------------------------------- bảng so sánh và xếp hạng (HK.GV.070, HK.QT.008, HK.QT.047)
-const CompareRow: React.FC<{ label: string; value: number | null; fill: string; group: string }> = ({ label, value, fill, group }) => {
+/** Dashboard "Kết quả" của Thống kê trường: chỉ số toàn trường, biểu đồ so sánh, đồng hồ, nhóm cao nhất / cần quan tâm, bảng xếp hạng và chi tiết từng lớp */
+export const ResultsDashboard: React.FC<{ session: Session; years?: YearItem[] | null; schoolName?: string }> = ({ session, years, schoolName }) => {
   const { c } = useTheme();
+  const { width } = useWindowDimensions();
+  const wide = width >= 1240;
+  const { token, expired } = session;
+  const [by, setBy] = useState<By>('class');
+  const [refresh, setRefresh] = useState(0);
+  const pick = usePeriodPicker(years, 'results');
+  const p = pick.period;
+  const data = useLoad(() => (pick.ready ? api.results(token, by, p) : Promise.resolve(null)), [token, by, p.from, p.to, refresh, pick.ready], expired);
+  const r = data.data;
+  const groups = r?.groups ?? [];
+  const classes = r?.classes ?? [];
+  const students = classes.reduce((n, x) => n + x.students, 0), active = classes.reduce((n, x) => n + x.active_students, 0);
+  const participation = students ? Math.round((active / students) * 100) : null;
+  const avgScore = weighted(classes, (x) => x.avg_percent), avgProgress = weighted(classes, (x) => x.avg_progress), accuracy = weighted(classes, (x) => x.accuracy);
+  const scored = groups.filter((g) => g.avg_percent != null);
+  const top = scored[0], low = scored.length > 1 ? scored[scored.length - 1] : null;
+  const noun = BY_NOUN[by];
+  const chartRows = groups.slice(0, wide ? 10 : 8);
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <Txt size={12} color={c.muc3} style={{ width: 74 }}>{label}</Txt>
-      <Bar value={value ?? 0} max={100} fill={fill} height={10} label={`${group}, ${label}: ${fmtPct(value)}`} style={{ flex: 1 }} />
-      <Txt f="bold" size={13} style={{ width: 44, textAlign: 'right' }}>{fmtPct(value)}</Txt>
-    </View>
+    <ReportShell testID="results-dashboard" title="Kết quả học tập" subtitle={`${schoolName ? `${schoolName} · ` : ''}${pick.label} · Xếp hạng theo điểm trung bình, sau đó theo tiến độ`}
+      actions={<ReportActions idPrefix="results" filename={`bao-cao-ket-qua-theo-${fileName(noun)}`} excel={() => api.exportResults(token, by, 'xlsx', p)} pdf={() => api.exportResults(token, by, 'pdf', p)} onRefresh={() => setRefresh((n) => n + 1)} busy={data.loading} />}
+      filters={<View style={{ gap: 8 }}>
+        <View accessibilityRole="tablist" accessibilityLabel="Nhóm kết quả" style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+          <Txt size={12} f="semibold" color={c.muc2}>So sánh:</Txt>
+          {(Object.keys(BY_LABEL) as By[]).map((v) => <Pill key={v} testID={`results-by-${v}`} label={BY_LABEL[v]} on={by === v} onPress={() => setBy(v)} />)}
+        </View>
+        {pick.bar}
+      </View>}>
+      <ErrorNote message={data.error} />
+      <SlowNote loading={data.loading && !r} onRetry={() => setRefresh((n) => n + 1)} />
+      {data.loading && !r ? <Spinner label="Đang tải kết quả học tập…" /> : null}
+      {r ? <>
+        <View testID="results-metrics" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <Metric compact label="Số lớp" value={classes.length} hint="" icon={School} color={c.son} background={c.sonNhat} />
+          <Metric compact label="Học sinh" value={students} hint={`${fmt(active)} có học`} icon={GraduationCap} color={c.thuyChu} background={c.thuyNhat} />
+          <Metric compact label="Tham gia" value={fmtPct(participation)} hint="học sinh" icon={Activity} color={c.ngocChu} background={c.ngocNhat} />
+          <Metric compact label="Điểm trung bình" value={fmtPct(avgScore)} hint="toàn trường" icon={Trophy} color={c.vangChu} background={c.vangNhat} />
+          <Metric compact label="Tiến độ hành trình" value={fmtPct(avgProgress)} hint="trung bình" icon={Route} color={c.thongChu} background={c.thongNhat} />
+          <Metric compact label="Tỉ lệ đúng" value={fmtPct(accuracy)} hint="câu trả lời" icon={CircleCheck} color={c.son} background={c.sonNhat} />
+        </View>
+        <View style={{ flexDirection: wide ? 'row' : 'column', gap: 8 }}>
+          <Panel title={`So sánh ${BY_LABEL[by].toLowerCase()}`} note={groups.length > chartRows.length ? `${chartRows.length}/${groups.length} nhóm đầu bảng xếp hạng` : `${groups.length} nhóm`} style={{ flex: wide ? 2.2 : undefined }} testID="results-compare">
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+              {[['Điểm TB', BLUE], ['Tiến độ', PURPLE], ['Tham gia', GOLD]].map(([l, col]) => <View key={l} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}><View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: col }} /><Txt size={11} color={c.muc2}>{l}</Txt></View>)}
+            </View>
+            {!chartRows.length ? <Txt size={13} color={c.muc3}>Chưa có lớp đang hoạt động để so sánh.</Txt> : chartRows.map((g) => (
+              <View key={g.key} style={{ flexDirection: wide ? 'row' : 'column', gap: wide ? 12 : 4, alignItems: wide ? 'center' : 'stretch', paddingVertical: 3, borderTopWidth: 1, borderTopColor: c.adminLine }}>
+                <View style={{ width: wide ? 170 : undefined, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{ width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: g.rank <= 3 ? c.vangNhat : c.adminCanvas }}><Txt f="bold" size={11} color={g.rank <= 3 ? c.vangChu : c.muc2}>{g.rank}</Txt></View>
+                  <View style={{ flex: 1, minWidth: 0 }}><Txt f="semibold" size={13} numberOfLines={1}>{g.label}</Txt><Txt size={10} color={c.muc3} numberOfLines={1}>{g.classes} lớp · {g.students} học sinh</Txt></View>
+                </View>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <BarRow label="Điểm TB" value={g.avg_percent} color={BLUE} />
+                  <BarRow label="Tiến độ" value={g.avg_progress} color={PURPLE} />
+                  <BarRow label="Tham gia" value={g.participation} color={GOLD} />
+                </View>
+              </View>
+            ))}
+          </Panel>
+          <View style={{ flex: wide ? 1.3 : undefined, gap: 8 }}>
+            <Panel title="Chỉ số toàn trường" note="trung bình theo sĩ số" testID="results-gauges">
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {gaugeOf('results-gauge-participation', 'Tham gia', participation, 70, 40, ACTIVITY, `${fmt(active)} / ${fmt(students)} học sinh`)}
+                {gaugeOf('results-gauge-score', 'Điểm TB', avgScore, 70, 50, GOODNESS, 'các bài làm')}
+                {gaugeOf('results-gauge-accuracy', 'Tỉ lệ đúng', accuracy, 75, 55, GOODNESS, 'câu trả lời')}
+              </View>
+            </Panel>
+            <Panel title="Nổi bật" note={pick.label.split(' (')[0]} testID="results-highlights">
+              <Highlight tone="good" title={`${noun} có điểm cao nhất`} g={top} />
+              <Highlight tone="low" title={`${noun} cần quan tâm`} g={low} />
+              <Txt size={11} color={c.muc3}>Hạng chỉ để tham khảo, so sánh cùng khoảng thời gian; nhóm chưa có bài làm xếp cuối.</Txt>
+            </Panel>
+          </View>
+        </View>
+        <Panel title={`Bảng xếp hạng ${BY_LABEL[by].toLowerCase()}`} note={`${groups.length} ${noun.toLowerCase()}`} testID="results-table">
+          <DataTable<ResultGroup> rows={groups} rowKey={(g) => g.key} empty="Chưa có dữ liệu để so sánh."
+            columns={[
+              { key: 'rank', label: 'Hạng', width: 64, render: (g) => <Txt f="bold" size={15} color={g.rank <= 3 ? c.vangChu : c.muc}>{g.rank}</Txt> },
+              { key: 'label', label: noun, width: 220, grow: 2, render: (g) => <Cell main={g.label} sub={`${g.classes} lớp · ${g.students} học sinh`} /> },
+              { key: 'part', label: 'Tham gia', width: 110, render: (g) => <Txt size={14}>{fmtPct(g.participation)}</Txt> },
+              { key: 'prog', label: 'Tiến độ TB', width: 110, render: (g) => <Txt size={14}>{fmtPct(g.avg_progress)}</Txt> },
+              { key: 'avg', label: 'Điểm TB', width: 160, grow: 1, render: (g) => <View style={{ gap: 4 }}><Txt f="bold" size={14}>{fmtPct(g.avg_percent)}</Txt><Bar value={g.avg_percent ?? 0} max={100} fill={BLUE} height={6} label={`${g.label}: điểm trung bình ${fmtPct(g.avg_percent)}`} /></View> },
+              { key: 'acc', label: 'Tỉ lệ đúng', width: 110, render: (g) => <Txt size={14}>{fmtPct(g.accuracy)}</Txt> },
+            ]} />
+        </Panel>
+        {by !== 'class' ? (
+          <Panel title="Chi tiết từng lớp" note={`${classes.length} lớp`} testID="results-classes">
+            <DataTable<ResultClass> rows={classes} rowKey={(x) => x.class_id} empty="Chưa có lớp."
+              columns={[
+                { key: 'name', label: 'Lớp', width: 120, render: (x) => <Cell main={x.class_name} sub={x.grade ? `Khối ${x.grade}` : null} /> },
+                { key: 'teachers', label: 'Giáo viên phụ trách', width: 220, grow: 2, render: (x) => <Txt size={14} numberOfLines={2}>{x.teachers || 'Chưa phân công'}</Txt> },
+                { key: 'students', label: 'Học sinh', width: 90, render: (x) => <Txt size={14}>{x.students}</Txt> },
+                { key: 'part', label: 'Tham gia', width: 100, render: (x) => <Txt size={14}>{fmtPct(x.participation)}</Txt> },
+                { key: 'prog', label: 'Tiến độ TB', width: 100, render: (x) => <Txt size={14}>{fmtPct(x.avg_progress)}</Txt> },
+                { key: 'avg', label: 'Điểm TB', width: 100, render: (x) => <Txt f="bold" size={14}>{fmtPct(x.avg_percent)}</Txt> },
+                { key: 'acc', label: 'Tỉ lệ đúng', width: 100, render: (x) => <Txt size={14}>{fmtPct(x.accuracy)}</Txt> },
+              ]} />
+          </Panel>
+        ) : null}
+      </> : null}
+    </ReportShell>
   );
 };
 
-const BY_LABEL = { class: 'Theo lớp', grade: 'Theo khối', teacher: 'Theo giáo viên' } as const;
-/** `shared`: dùng khoảng thời gian của màn hình cha (không hiện thêm thanh lọc) */
-export const ResultsPanel: React.FC<{ session: Session; by: Array<'class' | 'grade' | 'teacher'>; exportable?: boolean; shared?: api.Period }> = ({ session, by, exportable, shared }) => {
+const Highlight: React.FC<{ tone: 'good' | 'low'; title: string; g: ResultGroup | null | undefined }> = ({ tone, title, g }) => {
   const { c } = useTheme();
-  const { token } = session;
-  const [kind, setKind] = useState<'class' | 'grade' | 'teacher'>(by[0]);
-  const own = usePeriod();
-  const period = shared ?? own.period, bar = shared ? null : own.bar;
-  const data = useLoad(() => api.results(token, kind, period), [token, kind, period.from, period.to], session.expired);
+  const [bg, fg] = tone === 'good' ? [c.mocNhat, c.mocChu] : [c.vangNhat, c.vangChu];
   return (
-    <View style={{ gap: 12 }}>
-      {by.length > 1 ? <Segmented<'class' | 'grade' | 'teacher'> label="Nhóm kết quả" value={kind} onChange={setKind} options={by.map((v) => ({ value: v, label: BY_LABEL[v] }))} /> : null}
-      {bar}
-      {exportable ? (
-        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-          <DownloadButton title="Xuất Excel" fetchBlob={() => api.exportResults(token, kind, 'xlsx', period)} filename="bao-cao-ket-qua.xlsx" />
-          <DownloadButton title="Xuất PDF" fetchBlob={() => api.exportResults(token, kind, 'pdf', period)} filename="bao-cao-ket-qua.pdf" />
-        </View>
-      ) : null}
-      <ErrorNote message={data.error} />
-      {data.loading && !data.data ? <Spinner /> : null}
-      {data.data ? (
-        <DataTable<ResultGroup> rows={data.data.groups} rowKey={(g) => g.key} empty="Chưa có dữ liệu để so sánh."
-          columns={[
-            { key: 'rank', label: 'Hạng', flex: 0.5, render: (g) => <Txt f="bold" size={15}>{g.rank}</Txt> },
-            { key: 'label', label: BY_LABEL[kind].replace('Theo ', '').replace(/^./, (x) => x.toUpperCase()), flex: 2, render: (g) => <Cell main={g.label} sub={`${g.classes} lớp · ${g.students} học sinh`} /> },
-            { key: 'part', label: 'Tham gia', render: (g) => <Txt size={14}>{fmtPct(g.participation)}</Txt> },
-            { key: 'prog', label: 'Tiến độ TB', render: (g) => <Txt size={14}>{fmtPct(g.avg_progress)}</Txt> },
-            { key: 'avg', label: 'Điểm TB', render: (g) => <Txt f="bold" size={14}>{fmtPct(g.avg_percent)}</Txt> },
-            { key: 'acc', label: 'Tỉ lệ đúng', render: (g) => <Txt size={14}>{fmtPct(g.accuracy)}</Txt> },
-          ]} />
-      ) : null}
-      {data.data && data.data.groups.length > 1 ? (
-        <Card pad={14} style={{ gap: 14 }}>
-          <Txt f="bold" size={16} accessibilityRole="header">Biểu đồ so sánh</Txt>
-          {data.data.groups.map((g) => (
-            <View key={g.key} style={{ gap: 6 }}>
-              <Txt f="semibold" size={14}>{g.rank}. {g.label}</Txt>
-              <CompareRow label="Điểm TB" value={g.avg_percent} fill={c.ngoc} group={g.label} />
-              <CompareRow label="Tiến độ" value={g.avg_progress} fill={c.thuy} group={g.label} />
-              <CompareRow label="Tham gia" value={g.participation} fill={c.dong} group={g.label} />
-            </View>
-          ))}
-        </Card>
-      ) : null}
-      <Txt size={12} color={c.muc3}>Xếp hạng theo điểm trung bình các bài làm, sau đó theo tiến độ. Hạng chỉ để tham khảo và so sánh cùng khoảng thời gian.</Txt>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, backgroundColor: c.adminCanvas }}>
+      <View style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}><Trophy size={17} color={fg} /></View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Txt size={11} f="semibold" color={c.muc2}>{title}</Txt>
+        <Txt f="bold" size={14} numberOfLines={1}>{g ? g.label : 'Chưa đủ số liệu'}</Txt>
+      </View>
+      {g ? <View style={{ alignItems: 'flex-end' }}><Txt f="displayHeavy" size={20}>{fmtPct(g.avg_percent)}</Txt><Txt size={10} color={c.muc3}>điểm TB</Txt></View> : null}
     </View>
   );
 };
@@ -216,146 +284,164 @@ export const StudentProfileSheet: React.FC<{ session: Session; studentId: number
   );
 };
 
-// ---------------------------------------------------------------------- các phần của một lớp
-const Overview: React.FC<{ d: ClassDashboard }> = ({ d }) => (
-  <View style={{ gap: 14 }}>
-    <StatGrid>
-      <StatTile label="Học sinh" value={d.students} />
-      <StatTile label="Tiến độ trung bình" value={fmtPct(d.avg_progress)} hint={`${fmtPct(d.completion_rate)} đã hoàn thành`} tone="thuy" />
-      <StatTile label="Điểm trung bình" value={fmtPct(d.avg_percent)} hint={`Trả lời đúng ${fmtPct(d.accuracy)}`} tone="ngoc" />
-      <StatTile label="Hoạt động 7 ngày" value={`${d.active_week}/${d.students}`} hint={`Tham gia ${fmtPct(d.participation)}`} />
-      <StatTile label="Đang giữ chuỗi từ 3 ngày" value={d.streak_holders} tone="vang" />
-      <StatTile label="Tổng thời gian học" value={`${d.study_minutes} phút`} />
-    </StatGrid>
-    <Card pad={14} style={{ gap: 10 }}>
-      <Txt f="bold" size={16} accessibilityRole="header">Hoạt động học tập theo ngày</Txt>
-      <ColumnChart data={d.series.map((s) => ({ label: shortDay(s.day), values: { events: s.events } }))} series={[{ key: 'events', label: 'Lượt hoạt động' }]} unit="lượt hoạt động" summary="Biểu đồ số lượt hoạt động học tập của lớp theo ngày" />
-    </Card>
-    <Card pad={14} style={{ gap: 10 }}>
-      <Txt f="bold" size={16} accessibilityRole="header">Học sinh theo mức tiến độ</Txt>
-      <Distribution rows={d.distribution} />
-    </Card>
-  </View>
-);
+// ---------------------------------------------------------------------- dashboard một lớp (HK.GV.066–071, HK.QT.033)
+const SEVERITY = (n: number) => (n >= 3 ? { kind: 'off' as const, text: 'Cần hỗ trợ gấp' } : n === 2 ? { kind: 'warn' as const, text: 'Nên hỏi thăm' } : { kind: 'info' as const, text: 'Theo dõi' });
+/** Mức tiến độ là thang tăng dần: một màu, nhạt → đậm */
+const DIST_OPACITY = [0.3, 0.5, 0.75, 1];
 
-const Roster: React.FC<{ rows: StudentStat[]; onOpen: (id: number) => void }> = ({ rows, onOpen }) => {
+/**
+ * "Lớp và học sinh" (Thống kê trường) và "Thống kê lớp" (giáo viên): chọn lớp và khoảng thời gian một lần cho cả trang.
+ * Hàng chỉ số; biểu đồ hoạt động theo ngày và sáu đồng hồ; bốn thẻ (mức tiến độ, chủ đề cần ôn, học sinh cần hỗ trợ, so sánh các lớp); bảng học sinh bấm để mở hồ sơ.
+ * `years`: năm học của trường để chọn nhanh học kỳ (quản trị trường); giáo viên không có thì chọn theo số ngày.
+ */
+export const ClassAnalytics: React.FC<{ session: Session; years?: YearItem[] | null; title?: string }> = ({ session, years = null, title = 'Lớp và học sinh' }) => {
   const { c } = useTheme();
-  return (
-    <DataTable<StudentStat> rows={rows} rowKey={(r) => r.id} empty="Lớp chưa có học sinh." onRowPress={(r) => onOpen(r.id)}
-      columns={[
-        { key: 'name', label: 'Học sinh', flex: 2, render: (r) => <Cell main={r.full_name} sub={r.user_code} /> },
-        { key: 'progress', label: 'Tiến độ', flex: 1.4, render: (r) => <View style={{ gap: 4 }}><Txt size={13}>{fmtPct(r.progress)} · {r.nodes_done}/{r.nodes_total} nút</Txt><Bar value={r.progress ?? 0} max={100} fill={c.thuy} height={8} label={`Tiến độ ${r.full_name}: ${fmtPct(r.progress)}`} /></View> },
-        { key: 'avg', label: 'Điểm TB', render: (r) => <Txt f="bold" size={14}>{fmtPct(r.avg_percent)}</Txt> },
-        { key: 'acc', label: 'Tỉ lệ đúng', render: (r) => <Txt size={14}>{fmtPct(r.accuracy)}</Txt> },
-        { key: 'att', label: 'Số bài', hideOnCard: true, render: (r) => <Txt size={14}>{r.attempts}</Txt> },
-        { key: 'min', label: 'Phút học', hideOnCard: true, render: (r) => <Txt size={14}>{r.study_minutes}</Txt> },
-        { key: 'last', label: 'Gần nhất', render: (r) => <Txt size={13} color={r.last_active_at ? undefined : c.sonChu}>{ago(r.last_active_at)}</Txt> },
-      ]} />
-  );
-};
-
-const Support: React.FC<{ session: Session; classId: number; onOpen: (id: number) => void; onMail: (id: number) => void }> = ({ session, classId, onOpen, onMail }) => {
-  const { c } = useTheme();
-  const data = useLoad(() => api.support(session.token, classId), [session.token, classId], session.expired);
-  return (
-    <View style={{ gap: 12 }}>
-      <ErrorNote message={data.error} />
-      {data.loading && !data.data ? <Spinner /> : null}
-      {data.data ? <InfoNote><Txt size={13}>{data.data.note}</Txt></InfoNote> : null}
-      {data.data && !data.data.items.length ? <EmptyState mood="happy" title="Chưa có học sinh nào cần lưu ý" text="Cả lớp đang học đều và đạt kết quả ổn." /> : null}
-      {data.data?.items.map((s: SupportItem) => (
-        <Card key={s.id} flat pad={14} style={{ gap: 8 }}>
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Txt f="bold" size={16} style={{ flexShrink: 1 }}>{s.full_name}</Txt>
-            <StatusChip kind={s.severity >= 3 ? 'off' : s.severity === 2 ? 'warn' : 'info'} text={s.severity >= 3 ? 'Cần hỗ trợ gấp' : s.severity === 2 ? 'Nên hỏi thăm' : 'Theo dõi'} />
-            <Txt size={12} color={c.muc3}>Học gần nhất: {ago(s.last_active_at)}</Txt>
-          </View>
-          {s.reasons.map((r, i) => <Txt key={i} size={14}>• {r}</Txt>)}
-          {s.weak_topics.length ? <Txt size={13} color={c.sonChu}>Chủ đề yếu: {s.weak_topics.map((t) => `${t.name} (${t.percent}%)`).join(', ')}</Txt> : null}
-          <Txt size={13} color={c.muc2}>Gợi ý: {s.suggestion}</Txt>
-          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-            <Btn icon={UserRound} title="Xem hồ sơ" tone="giay" size="sm" onPress={() => onOpen(s.id)} testID={`support-open-${s.id}`} />
-            <Btn icon={Mail} title="Gửi nhận xét" tone="thuy" size="sm" onPress={() => onMail(s.id)} />
-          </View>
-        </Card>
-      ))}
-    </View>
-  );
-};
-
-const Topics: React.FC<{ session: Session; classId: number; period: api.Period }> = ({ session, classId, period }) => {
-  const { c } = useTheme();
-  const data = useLoad(() => api.classTopics(session.token, classId, period), [session.token, classId, period.from, period.to], session.expired);
-  const d = data.data;
-  return (
-    <View style={{ gap: 12 }}>
-      <ErrorNote message={data.error} />
-      {data.loading && !d ? <Spinner /> : null}
-      {d ? (
-        <>
-          <Card pad={14} style={{ gap: 10 }}><Txt f="bold" size={16} accessibilityRole="header">Tỉ lệ đúng theo loại chủ đề</Txt><TypeBars rows={d.by_type} /></Card>
-          <Card pad={14} style={{ gap: 10 }}>
-            <Txt f="bold" size={16} accessibilityRole="header">Chủ đề cả lớp cần ôn thêm</Txt>
-            <TopicBars rows={d.weak} empty="Chưa có chủ đề nào dưới ngưỡng (hoặc chưa đủ câu trả lời)." />
-            <Txt size={12} color={c.muc3}>Ngưỡng cần ôn: dưới {d.weak_threshold}%. Chủ đề chỉ được xếp loại khi cả lớp đã trả lời đủ số câu tối thiểu.</Txt>
-          </Card>
-        </>
-      ) : null}
-    </View>
-  );
-};
-
-// ---------------------------------------------------------------------- màn hình thống kê lớp
-export const ClassAnalytics: React.FC<{ session: Session }> = ({ session }) => {
-  const { token } = session;
-  const classes = useLoad(() => api.classes(token), [token], session.expired);
+  const { width } = useWindowDimensions();
+  const wide = width >= 1240;
+  const { token, expired } = session;
+  const [refresh, setRefresh] = useState(0);
   const [classId, setClassId] = useState<number | null>(null);
-  const [part, setPart] = useState<Part>('overview');
   const [profile, setProfile] = useState<number | null>(null);
   const [mail, setMail] = useState<number | null>(null);
-  const { period, bar } = usePeriod();
-  const list = (classes.data ?? []).filter((c) => c.is_active);
+  const pick = usePeriodPicker(years, 'class-report');
+  const p = pick.period;
+  const classes = useLoad(() => api.classes(token), [token, refresh], expired);
+  const list = (classes.data ?? []).filter((x) => x.is_active);
   const id = classId ?? list[0]?.id ?? null;
-  const dash = useLoad(() => (id ? api.dashboard(token, id, period) : Promise.resolve(null)), [token, id, period.from, period.to], session.expired);
-  const current = list.find((c) => c.id === id);
+  const deps = [token, id, p.from, p.to, refresh, pick.ready];
+  const dash = useLoad(() => (id && pick.ready ? api.dashboard(token, id, { ...p, days: 30 }) : Promise.resolve(null)), deps, expired);
+  const topics = useLoad(() => (id && pick.ready ? api.classTopics(token, id, p) : Promise.resolve(null)), deps, expired);
+  const support = useLoad(() => (id ? api.support(token, id) : Promise.resolve(null)), [token, id, refresh], expired);
+  const compare = useLoad(() => (pick.ready ? api.results(token, 'class', p) : Promise.resolve(null)), [token, p.from, p.to, refresh, pick.ready], expired);
+  const current = list.find((x) => x.id === id);
+  const d = dash.data;
+  const trend = useMemo(() => (d?.series ?? []).map((s): TrendPoint => ({ key: s.day, label: shortDay(s.day), detail: dateText(s.day), values: { events: s.events, students: s.students } })), [d]);
+  const range = trend.length ? `${dateText(trend[0].key)} – ${dateText(trend[trend.length - 1].key)}` : '';
+  const busy = classes.loading || dash.loading || topics.loading || support.loading || compare.loading;
+  const reload = () => setRefresh((n) => n + 1);
+  const share = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : null);
+  const distTotal = d ? d.distribution.reduce((n, x) => n + x.count, 0) : 0;
+  const compareRows = (compare.data?.groups ?? []).slice(0, 6);
+  const currentRank = compare.data?.groups.find((g) => g.key === String(id));
+  // năm học của lớp chỉ ghi thêm khi khoảng thời gian đang chọn chưa nói tới năm học đó
+  const yearText = current?.year_label && !pick.label.includes(current.year_label) ? ` · Năm học ${current.year_label}` : '';
+  const subtitle = `${current ? `${current.name}${current.teachers ? ` · ${current.teachers}` : ''}${yearText} · ` : ''}${pick.label}`;
+  const errors = [...new Set([classes.error, dash.error, topics.error, support.error, compare.error].filter((m): m is string => !!m))];
 
   return (
-    <View style={{ gap: 14 }}>
-      <ErrorNote message={classes.error} />
-      {classes.loading && !classes.data ? <Spinner /> : null}
-      {classes.data && !list.length ? <EmptyState mood="thinking" title="Chưa có lớp nào" text="Khi có lớp đang hoạt động, thống kê học tập sẽ hiện ở đây." /> : null}
-      {list.length ? (
-        <>
-          <FilterBar>
-            <FilterBox flex={2}>
-              <AdminSelect<number> label="Lớp" value={id ?? 0} options={list.map((c) => ({ value: c.id, label: `${c.name}${c.school_name && list.some((o) => o.school_id !== c.school_id) ? ` – ${c.school_name}` : ''} (${c.students} học sinh)` }))} onChange={setClassId} testID="analytics-class" />
-            </FilterBox>
-          </FilterBar>
-          {bar}
-          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-            {id ? <DownloadButton title="Xuất Excel" fetchBlob={() => api.exportClass(token, id, 'xlsx', period)} filename={`bao-cao-lop-${current?.name ?? id}.xlsx`} /> : null}
-            {id ? <DownloadButton title="Xuất PDF" fetchBlob={() => api.exportClass(token, id, 'pdf', period)} filename={`bao-cao-lop-${current?.name ?? id}.pdf`} /> : null}
+    <ReportShell testID="class-dashboard" title={title} subtitle={subtitle}
+      actions={<ReportActions idPrefix="class-report" filename={`bao-cao-lop-${fileName(current?.name ?? String(id ?? ''))}`} onRefresh={reload} busy={busy}
+        excel={id ? () => api.exportClass(token, id, 'xlsx', p) : undefined} pdf={id ? () => api.exportClass(token, id, 'pdf', p) : undefined} />}
+      filters={list.length ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexBasis: 300, flexGrow: 0, minWidth: 240 }}>
+            <Txt size={12} f="semibold" color={c.muc2}>Lớp:</Txt>
+            <View style={{ flex: 1 }}>
+              <AdminSelect<number> bare compact label="Lớp" value={id ?? 0} testID="analytics-class" onChange={setClassId}
+                options={list.map((x) => ({ value: x.id, label: `${x.name}${x.school_name && list.some((o) => o.school_id !== x.school_id) ? ` – ${x.school_name}` : ''} (${x.students} học sinh)` }))} />
+            </View>
           </View>
-          <Segmented<Part> label="Nội dung thống kê" value={part} onChange={setPart} options={PARTS} />
-          <ErrorNote message={dash.error} />
-          {dash.loading && !dash.data && part !== 'compare' ? <Spinner /> : null}
-          {part === 'overview' && dash.data ? <Overview d={dash.data} /> : null}
-          {part === 'students' && dash.data ? <Roster rows={dash.data.roster} onOpen={setProfile} /> : null}
-          {part === 'topics' && id ? <Topics session={session} classId={id} period={period} /> : null}
-          {part === 'support' && id ? <Support session={session} classId={id} onOpen={setProfile} onMail={setMail} /> : null}
-          {part === 'compare' ? <ResultsPanel session={session} by={['class']} shared={period} /> : null}
-        </>
-      ) : null}
+          <View style={{ flex: 1, minWidth: 280 }}>{pick.bar}</View>
+        </View>
+      ) : null}>
+      {errors.map((m) => <ErrorNote key={m} message={m} />)}
+      <SlowNote loading={(classes.loading && !classes.data) || (dash.loading && !d)} onRetry={reload} />
+      {classes.loading && !classes.data ? <Spinner label="Đang tải danh sách lớp…" /> : null}
+      {classes.data && !list.length ? <EmptyState mood="thinking" title="Chưa có lớp nào" text="Khi có lớp đang hoạt động, thống kê học tập sẽ hiện ở đây." /> : null}
+      {id && dash.loading && !d ? <Spinner label="Đang tải thống kê lớp…" /> : null}
+      {d ? <>
+        <View testID="class-metrics" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <Metric compact label="Sĩ số" value={d.students} hint="học sinh" icon={Users} color={c.son} background={c.sonNhat} />
+          <Metric compact label="Hoạt động 7 ngày" value={`${d.active_week}/${d.students}`} hint={`tham gia ${fmtPct(d.participation)}`} icon={Activity} color={c.ngocChu} background={c.ngocNhat} />
+          <Metric compact label="Tiến độ TB" value={fmtPct(d.avg_progress)} hint={`${fmtPct(d.completion_rate)} hoàn thành`} icon={Route} color={c.thuyChu} background={c.thuyNhat} />
+          <Metric compact label="Điểm TB" value={fmtPct(d.avg_percent)} hint="các bài làm" icon={Trophy} color={c.vangChu} background={c.vangNhat} />
+          <Metric compact label="Tỉ lệ đúng" value={fmtPct(d.accuracy)} hint="câu trả lời" icon={CircleCheck} color={c.thongChu} background={c.thongNhat} />
+          <Metric compact label="Thời gian học" value={d.study_minutes} hint="phút" icon={Clock} color={c.son} background={c.sonNhat} />
+        </View>
+
+        <View style={{ flexDirection: wide ? 'row' : 'column', gap: 8 }}>
+          <Panel title="Hoạt động học tập theo ngày" note={range} style={{ flex: wide ? 2.2 : undefined }} testID="class-trend-card">
+            <TrendChart compact chartHeight={236} id="class-trend" data={trend} unit="lượt" summary="Số lượt hoạt động học tập và số học sinh hoạt động của lớp theo ngày"
+              series={[{ key: 'events', label: 'Lượt hoạt động', color: BLUE }, { key: 'students', label: 'Học sinh hoạt động', color: PURPLE, dashed: true }]} />
+          </Panel>
+          <Panel title="Chỉ số của lớp" note={pick.label.split(' (')[0]} style={{ flex: wide ? 1.3 : undefined }} testID="class-gauges">
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {gaugeOf('class-gauge-participation', 'Tham gia 7 ngày', d.participation, 70, 40, ACTIVITY, `${d.active_week} / ${d.students} học sinh`)}
+              {gaugeOf('class-gauge-progress', 'Tiến độ TB', d.avg_progress, 60, 30, ['Tốt', 'Khá', 'Còn chậm'], 'hành trình')}
+              {gaugeOf('class-gauge-completion', 'Hoàn thành', d.completion_rate, 50, 20, ['Tốt', 'Khá', 'Còn ít'], 'học xong hành trình')}
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {gaugeOf('class-gauge-score', 'Điểm TB', d.avg_percent, 70, 50, GOODNESS, 'các bài làm')}
+              {gaugeOf('class-gauge-accuracy', 'Tỉ lệ đúng', d.accuracy, 75, 55, GOODNESS, 'câu trả lời')}
+              {gaugeOf('class-gauge-streak', 'Giữ chuỗi', share(d.streak_holders, d.students), 40, 15, ['Đều đặn', 'Khá', 'Chưa đều'], `${d.streak_holders} em từ 3 ngày`)}
+            </View>
+          </Panel>
+        </View>
+
+        <CardRow wide={wide}>
+          <Panel title="Mức tiến độ" note={`${distTotal} học sinh có hành trình`} testID="class-distribution">
+            <View accessibilityLabel={d.distribution.map((x) => `${x.label}: ${x.count} học sinh`).join(', ')} style={{ height: 10, borderRadius: 5, overflow: 'hidden', flexDirection: 'row', gap: 2, backgroundColor: distTotal ? undefined : c.adminLine }}>
+              {d.distribution.map((x, i) => x.count > 0 ? <View key={x.label} style={{ flex: x.count, backgroundColor: BLUE, opacity: DIST_OPACITY[i] ?? 1 }} /> : null)}
+            </View>
+            {d.distribution.map((x, i) => (
+              <View key={x.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ width: 9, height: 9, borderRadius: 3, backgroundColor: BLUE, opacity: DIST_OPACITY[i] ?? 1 }} />
+                <Txt size={12} color={c.muc2} style={{ flex: 1 }}>Tiến độ {x.label}</Txt>
+                <Txt f="bold" size={13}>{x.count}</Txt>
+                <Txt size={11} color={c.muc3} style={{ width: 36, textAlign: 'right' }}>{fmtPct(share(x.count, distTotal))}</Txt>
+              </View>
+            ))}
+          </Panel>
+          <Panel title="Chủ đề cần ôn" note={topics.data ? `dưới ${topics.data.weak_threshold}% đúng` : undefined} testID="class-topics">
+            {!topics.data ? <Txt size={12} color={c.muc3}>{topics.loading ? 'Đang tải…' : 'Chưa có số liệu.'}</Txt>
+              : !topics.data.weak.length ? <Txt size={12} color={c.muc3}>Chưa có chủ đề nào dưới ngưỡng (hoặc chưa đủ câu trả lời).</Txt>
+              : topics.data.weak.slice(0, 4).map((t) => <BarRow key={`${t.type}-${t.id}`} label={t.name} sub={TOPIC_TYPE_LABEL[t.type]} value={t.percent} color={GOLD} />)}
+            {topics.data && topics.data.weak.length > 4 ? <Txt size={11} color={c.muc3}>Và {topics.data.weak.length - 4} chủ đề khác (có trong file xuất).</Txt> : null}
+          </Panel>
+          <Panel title="Học sinh cần hỗ trợ" note={support.data ? `${support.data.items.length} em` : undefined} testID="class-support">
+            {!support.data ? <Txt size={12} color={c.muc3}>{support.loading ? 'Đang tải…' : 'Chưa có số liệu.'}</Txt>
+              : !support.data.items.length ? <Txt size={12} color={c.muc3}>Cả lớp đang học đều và đạt kết quả ổn.</Txt>
+              : support.data.items.slice(0, 4).map((s) => (
+                <Pressable key={s.id} onPress={() => setProfile(s.id)} testID={`support-open-${s.id}`} accessibilityRole="button" accessibilityLabel={`Xem hồ sơ ${s.full_name}: ${s.reasons.join('; ')}`}
+                  style={({ pressed }) => ({ minHeight: 44, gap: 2, paddingVertical: 4, paddingHorizontal: 6, marginHorizontal: -6, borderRadius: 8, backgroundColor: pressed ? c.adminCanvas : 'transparent' })}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <UserRound size={14} color={c.muc3} />
+                    <Txt f="semibold" size={13} numberOfLines={1} style={{ flex: 1 }}>{s.full_name}</Txt>
+                    <StatusChip {...SEVERITY(s.severity)} />
+                  </View>
+                  <Txt size={11} color={c.muc3} numberOfLines={2}>{s.reasons.join('; ')}</Txt>
+                </Pressable>
+              ))}
+            {support.data?.items.length ? <Txt size={11} color={c.muc3}>Bấm vào tên để xem hồ sơ và gửi nhận xét.</Txt> : null}
+            {support.data && support.data.items.length > 4 ? <Txt size={11} color={c.muc3}>Và {support.data.items.length - 4} em khác (có trong file xuất).</Txt> : null}
+          </Panel>
+          <Panel title="So sánh các lớp" note={currentRank ? `lớp đang xem hạng ${currentRank.rank}/${compare.data!.groups.length}` : 'điểm trung bình'} testID="class-compare">
+            {!compare.data ? <Txt size={12} color={c.muc3}>{compare.loading ? 'Đang tải…' : 'Chưa có số liệu.'}</Txt>
+              : compareRows.map((g) => <BarRow key={g.key} label={`${g.rank}. ${g.label}`} sub={`${g.students} HS`} value={g.avg_percent} color={BLUE} highlight={g.key === String(id)} testID={`class-compare-${g.key}`} />)}
+            {currentRank && !compareRows.some((g) => g.key === currentRank.key) ? <BarRow label={`${currentRank.rank}. ${currentRank.label}`} sub={`${currentRank.students} HS`} value={currentRank.avg_percent} color={BLUE} highlight /> : null}
+          </Panel>
+        </CardRow>
+
+        <Panel title="Danh sách học sinh" note="Bấm vào một học sinh để xem hồ sơ và gửi nhận xét" testID="class-roster">
+          <DataTable<StudentStat> rows={d.roster} rowKey={(r) => r.id} empty="Lớp chưa có học sinh." onRowPress={(r) => setProfile(r.id)}
+            columns={[
+              { key: 'name', label: 'Học sinh', width: 220, grow: 2, render: (r) => <Cell main={r.full_name} sub={r.user_code} /> },
+              { key: 'progress', label: 'Tiến độ', width: 170, grow: 1, render: (r) => <View style={{ gap: 4 }}><Txt size={13}>{fmtPct(r.progress)} · {r.nodes_done}/{r.nodes_total} nút</Txt><Bar value={r.progress ?? 0} max={100} fill={c.thuy} height={6} label={`Tiến độ ${r.full_name}: ${fmtPct(r.progress)}`} /></View> },
+              { key: 'avg', label: 'Điểm TB', width: 90, render: (r) => <Txt f="bold" size={14}>{fmtPct(r.avg_percent)}</Txt> },
+              { key: 'acc', label: 'Tỉ lệ đúng', width: 100, render: (r) => <Txt size={14}>{fmtPct(r.accuracy)}</Txt> },
+              { key: 'att', label: 'Số bài', width: 80, hideOnCard: true, render: (r) => <Txt size={14}>{r.attempts}</Txt> },
+              { key: 'min', label: 'Phút học', width: 90, hideOnCard: true, render: (r) => <Txt size={14}>{r.study_minutes}</Txt> },
+              { key: 'last', label: 'Gần nhất', width: 120, render: (r) => <Txt size={13} color={r.last_active_at ? undefined : c.sonChu}>{ago(r.last_active_at)}</Txt> },
+              { key: 'mail', label: 'Nhận xét', width: 110, hideOnCard: true, render: (r) => <Btn icon={Mail} title="Gửi" tone="giay" size="sm" onPress={() => setMail(r.id)} label={`Gửi nhận xét cho ${r.full_name}`} /> },
+            ]} />
+          {support.data ? <Txt size={11} color={c.muc3}>{support.data.note}</Txt> : null}
+        </Panel>
+      </> : null}
       {profile !== null ? <StudentProfileSheet session={session} studentId={profile} onClose={() => setProfile(null)} /> : null}
       {mail !== null ? <FeedbackSheet session={session} studentId={mail} onClose={() => setMail(null)} /> : null}
-    </View>
+    </ReportShell>
   );
 };
 
-/** Trang "Thống kê lớp" của giáo viên */
-export const TeacherAnalytics: React.FC<{ session: Session }> = ({ session }) => (
-  <Page>
-    <PageHeader title="Thống kê lớp" subtitle="Tiến độ, kết quả và những học sinh cần hỗ trợ trong các lớp thầy cô phụ trách" />
-    <ClassAnalytics session={session} />
-  </Page>
-);
+/** Trang "Thống kê lớp" của giáo viên: cùng dashboard với tab "Lớp và học sinh" của quản trị trường, chỉ các lớp thầy cô phụ trách */
+export const TeacherAnalytics: React.FC<{ session: Session }> = ({ session }) => <ClassAnalytics session={session} title="Thống kê lớp" />;

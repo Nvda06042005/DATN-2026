@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { Bell, CalendarDays, ChartColumn, CircleHelp, FolderCog, History, KeyRound, LifeBuoy, GraduationCap, Inbox, ListChecks, School, Trash2, UserRound, Users } from 'lucide-react-native';
+import { Bell, CalendarDays, ChartColumn, FolderCog, History, KeyRound, LifeBuoy, GraduationCap, Inbox, School, Trash2, UserRound, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AdminWorkspace, navLeaves } from '@/components/admin/AdminWorkspace';
 import { AdminSelect } from '@/components/admin/AdminSelect';
@@ -17,10 +17,6 @@ import { SchoolEmblem } from '@/components/school-brand';
 import { HelpPage } from '@/components/portal/HelpCenter';
 import { NoticeBell } from '@/components/portal/NoticeCenter';
 import { ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, yearOptions } from '@/components/admin/kit';
-import { HistoryManager } from '@/components/admin/HistoryManager';
-import { LessonManager } from '@/components/admin/LessonManager';
-import { QuestionBank } from '@/components/admin/QuestionBank';
-import { QuizManager } from '@/components/admin/QuizManager';
 import { SchoolClasses } from '@/components/admin/SchoolClasses';
 import { PasswordList } from '@/components/admin/PasswordList';
 import { ShareInbox } from '@/components/admin/ShareInbox';
@@ -33,6 +29,8 @@ import type { YearItem } from '@/types/api';
 
 // Menu quản trị trường (13/11/2026): Báo cáo gộp vào Thống kê trường; bỏ hẳn Trò chơi hóa, Mô phỏng và mini-game, Game thẻ tướng, Nghiên cứu,
 // Khảo sát, Hành trình mẫu, AI Tutor khỏi cổng quản trị trường (học sinh, giáo viên vẫn dùng như cũ; dữ liệu giữ nguyên trong cơ sở dữ liệu).
+// 14/11/2026: xóa hẳn Kho lịch sử, Bài học, Ngân hàng câu hỏi, Bộ đề khỏi cổng quản trị trường (không chuyển sang mục khác).
+// Dữ liệu giữ nguyên: học sinh vẫn học bài, giáo viên vẫn dùng ngân hàng câu hỏi và bộ đề của mình.
 const NAV = [
   { id: 'stats' as const, label: 'Thống kê trường', icon: ChartColumn },
   { id: 'school' as const, label: 'Trường và năm học', icon: School },
@@ -44,10 +42,6 @@ const NAV = [
     { id: 'passwords' as const, label: 'Mật khẩu tài khoản', icon: KeyRound },
   ] },
   { id: 'review' as const, label: 'Duyệt nội dung', icon: Inbox },
-  { id: 'history' as const, label: 'Kho lịch sử', icon: History },
-  { id: 'lessons' as const, label: 'Bài học', icon: ListChecks },
-  { id: 'questions' as const, label: 'Ngân hàng câu hỏi', icon: CircleHelp },
-  { id: 'quizzes' as const, label: 'Bộ đề', icon: ListChecks },
   { id: 'notices' as const, label: 'Thông báo', icon: Bell },
   { id: 'logs' as const, label: 'Nhật ký', icon: History },
   { id: 'help' as const, label: 'Trợ giúp', icon: LifeBuoy },
@@ -67,11 +61,8 @@ export const SchoolAdmin: React.FC<{ session: Session }> = ({ session }) => {
           : tab === 'teachers' ? <SchoolPeople session={session} kind="teachers" years={years ?? []} />
           : tab === 'students' ? <SchoolPeople session={session} kind="students" years={years ?? []} />
           : tab === 'classes' ? <SchoolClasses session={session} years={years ?? []} onYearsChanged={reloadYears} />
-          : tab === 'history' ? <HistoryManager session={session} />
-          : tab === 'lessons' ? <LessonManager session={session} />
           : tab === 'passwords' ? <PasswordList session={session} />
           : tab === 'review' ? <ShareInbox session={session} />
-          : tab === 'questions' ? <QuestionBank session={session} /> : tab === 'quizzes' ? <QuizManager session={session} />
           : tab === 'notices' ? <BroadcastManager session={session} /> : tab === 'logs' ? <LogsPanel session={session} />
           : <HelpPage session={session} />}
       </AdminWorkspace>

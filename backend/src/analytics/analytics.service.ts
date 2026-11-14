@@ -139,13 +139,18 @@ export class AnalyticsService {
       const people = await this.studentsOf(q, classId);
       const stats = await this.statsOf(q, people, period);
       const ids = people.map((p) => p.id);
-      const days = Math.min(90, Math.max(7, Math.round(Number(period.days ?? 14)) || 14));
+      // biểu đồ theo ngày: có "từ ngày" thì trải đúng khoảng đã chọn (học kỳ, năm học…, tối đa 180 ngày, kết thúc ở "đến ngày" hoặc hôm nay); không có thì `days` ngày gần nhất
+      const today = new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10);
+      const end = period.to && /^\d{4}-\d{2}-\d{2}$/.test(period.to) && period.to < today ? period.to : today;
+      const span = startOf(period.from) ? Math.round((Date.parse(end) - Date.parse(period.from!)) / 86_400_000) + 1 : null;
+      const days = span !== null ? Math.min(180, Math.max(1, span)) : Math.min(90, Math.max(7, Math.round(Number(period.days ?? 14)) || 14));
+      const first = new Date(Date.parse(end) - (days - 1) * 86_400_000).toISOString().slice(0, 10);
       const series = ids.length ? await q<{ day: string; events: number; students: number }>(
         `SELECT to_char(e.created_at AT TIME ZONE ${VN}, 'YYYY-MM-DD') AS day, count(*)::int AS events, count(DISTINCT e.user_id)::int AS students
-         FROM hk_events e WHERE e.user_id = ANY($1) AND e.event = ANY($2) AND e.created_at >= now() - ($3::int * interval '1 day') GROUP BY 1 ORDER BY 1`, [ids, ACTIVITY, days]) : [];
+         FROM hk_events e WHERE e.user_id = ANY($1) AND e.event = ANY($2) AND (e.created_at AT TIME ZONE ${VN})::date BETWEEN $3::date AND $4::date GROUP BY 1 ORDER BY 1`, [ids, ACTIVITY, first, end]) : [];
       const byDay = new Map(series.map((r) => [r.day, r]));
       const filled = Array.from({ length: days }, (_, i) => {
-        const day = new Date(Date.now() + 7 * 3_600_000 - (days - 1 - i) * 86_400_000).toISOString().slice(0, 10);
+        const day = new Date(Date.parse(first) + i * 86_400_000).toISOString().slice(0, 10);
         return { day, events: byDay.get(day)?.events ?? 0, students: byDay.get(day)?.students ?? 0 };
       });
       const withProgress = stats.filter((s) => s.progress !== null);
@@ -505,6 +510,12 @@ export class AnalyticsService {
   }
 
   // ---------------------------------------------------------------------- bảng cho báo cáo xuất file
+  /** Tên, mã trường và phường/xã cho phần đầu báo cáo (như file danh sách lớp); `null` là báo cáo toàn hệ thống */
+  async reportSchool(schoolId: number | null | undefined): Promise<{ name: string; code: string | null; region: string | null } | null> {
+    if (!schoolId) return null;
+    return (await this.db.query<{ name: string; code: string | null; region: string | null }>('SELECT name, school_code AS code, region FROM app_schools WHERE id = $1', [schoolId]))[0] ?? null;
+  }
+
   async exportRows(user: UserRow, classId: number, period: Period) {
     const info = await this.assertClass(user, classId);
     const s: RecoSettings = await this.reco.settings();

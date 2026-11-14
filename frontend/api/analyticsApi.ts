@@ -35,5 +35,7 @@ export const exportResults = (token: string, by: 'class' | 'grade' | 'teacher', 
 export const schoolOverview = (token: string) => apiRequest<SchoolOverview>(`${base}/school/overview`, { token });
 export const usage = (token: string, granularity: 'day' | 'week' | 'month', days?: number) => apiRequest<Usage>(`${base}/usage${qs({ granularity, days })}`, { token });
 export const aiUsage = (token: string, days = 30) => apiRequest<AiUsage>(`${base}/ai${qs({ days })}`, { token });
+/** Báo cáo sử dụng và trợ lý AI (Excel / PDF theo bố cục chính thức), 7 / 30 / 90 ngày gần nhất */
+export const exportUsage = (token: string, days: number, format: 'xlsx' | 'pdf') => apiBlob(`${base}/usage/export${qs({ days, format })}`, token);
 export const systemOverview = (token: string) => apiRequest<SystemOverview>(`${base}/system/overview`, { token });
 export const systemContent = (token: string) => apiRequest<ContentStats>(`${base}/system/content`, { token });
