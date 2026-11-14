@@ -39,32 +39,27 @@ export const renderFormattedInline = (rawText: string, defaultColor?: string) =>
   if (!rawText) return null;
   const cleaned = rawText
     .replace(/\$P\(L_0\)\$/g, 'P(L₀)')
-    .replace(/\$P\(L\)\$/g, 'P(L)')
-    .replace(/`([^`]+)`/g, '**$1**');
+    .replace(/\$P\(L\)\$/g, 'P(L)');
 
-  if (!cleaned.includes('**') && !cleaned.includes('*')) {
+  if (!cleaned.includes('*') && !cleaned.includes('`')) {
     return cleaned;
   }
 
-  const parts = cleaned.split('**');
-  const hasUnpaired = parts.length % 2 === 0;
-
+  // **đậm**, *nghiêng* (cả khi nằm giữa câu, vd. *'Nên đánh hay nên hòa?'*) và `mã` (hiện đậm); trước đây dấu * của chữ nghiêng giữa câu bị lộ ra
+  const parts = cleaned.split(/(\*\*[\s\S]+?\*\*|`[^`]+`|\*[^*\s](?:[^*]*?[^*\s])?\*)/g);
   return parts.map((part, idx) => {
     if (!part) return null;
-    const isBold = idx % 2 === 1 && (!hasUnpaired || idx < parts.length - 1);
-    const cleanPart = part.replace(/^\*([^*]+)\*$/, '$1');
-    if (isBold) {
-      return (
-        <Txt key={idx} f="bold" color={defaultColor}>
-          {cleanPart}
-        </Txt>
-      );
+    if (part.length > 4 && part.startsWith('**') && part.endsWith('**')) {
+      return <Txt key={idx} f="bold" color={defaultColor}>{part.slice(2, -2).replace(/`/g, '').replace(/^\*([\s\S]+)\*$/, '$1')}</Txt>;
     }
-    return (
-      <Txt key={idx} color={defaultColor}>
-        {cleanPart}
-      </Txt>
-    );
+    if (part.length > 2 && part.startsWith('`') && part.endsWith('`')) {
+      return <Txt key={idx} f="bold" color={defaultColor}>{part.slice(1, -1)}</Txt>;
+    }
+    if (part.length > 2 && part.startsWith('*') && part.endsWith('*')) {
+      return <Txt key={idx} color={defaultColor} style={{ fontStyle: 'italic' }}>{part.slice(1, -1)}</Txt>;
+    }
+    // dấu ** lẻ (không có cặp) thì bỏ, để không hiện ký tự thừa
+    return <Txt key={idx} color={defaultColor}>{part.replace(/\*\*/g, '')}</Txt>;
   });
 };
 

@@ -19,7 +19,7 @@ import { AiSettings, AiSettingsService } from './ai-settings.service';
 import { LlmClient, LlmConfig, LlmMessage } from './llm.client';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { buildNodeBktRecommendations, buildProfilePromptContext, enrichBktResponse } from './bkt-profile';
-import { bridgeReadyMs, bridgeRequestMs, markEngine, memoryRoom, pythonCommand, warmOnBoot } from './python-runtime';
+import { bridgeReadyMs, bridgeRequestMs, markEngine, memoryRoom, pythonCommand, shapePythonAnswer, warmOnBoot } from './python-runtime';
 
 export interface Citation { n: number; kind: string; kind_label: string; id: number; title: string; snippet: string; openable: boolean }
 export type RefusalReason = 'out_of_scope' | 'unsafe' | 'quota' | 'not_configured';
@@ -484,16 +484,18 @@ export class AiTutorService implements OnModuleDestroy {
         student_profile: dbProfile ? buildProfilePromptContext(dbProfile) : undefined,
       });
       if (pyRes && typeof pyRes.answer === 'string') {
+        const shaped = shapePythonAnswer(pyRes, user.role);
         const pyAnswer: Answer = {
-          text: pyRes.answer,
+          text: shaped.text,
           citations: Array.isArray(pyRes.citations) ? pyRes.citations : [],
           followups: Array.isArray(pyRes.followups) ? pyRes.followups : [],
           refused: Boolean(pyRes.is_not_found),
           reason: pyRes.is_not_found ? 'out_of_scope' : null,
           mode: 'llm',
           model: 'dong_a_nlp_v2',
-          tokensIn: question.length,
-          tokensOut: pyRes.answer.length,
+          // mô hình chạy trên máy chủ, không tốn token: không tính vào chi phí AI của báo cáo (trước đây ghi số ký tự)
+          tokensIn: 0,
+          tokensOut: 0,
           topScore: typeof pyRes.confidence === 'number' ? pyRes.confidence : 0.95,
           passages: [],
         };
@@ -506,8 +508,9 @@ export class AiTutorService implements OnModuleDestroy {
             character_name: pyRes.character_name || (figure ? `${figure.honorific ? `${figure.honorific} ` : ''}${figure.name}` : 'Trợ Lý AI Lịch Sử Đông A'),
             unit_id: pyRes.unit_id,
             topic: pyRes.topic,
-            study_hint: pyRes.study_hint ?? null,
-            student_mastery_summary: pyRes.student_mastery_summary ?? null,
+            study_hint: shaped.study_hint,
+            student_mastery_summary: shaped.student_mastery_summary,
+            low_confidence: shaped.low_confidence,
             recommended_materials: pyRes.recommended_materials ?? [],
             badge_unlocked: pyRes.badge_unlocked ?? null,
             exp_reward: pyRes.exp_reward ?? 0,

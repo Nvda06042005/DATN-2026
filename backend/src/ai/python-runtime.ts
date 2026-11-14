@@ -53,6 +53,34 @@ export function memoryRoom(): { ok: boolean; free_mb: number | null; limit_mb: n
   return { ok: free >= need, free_mb: free, limit_mb: Math.round(limit / 2 ** 20), need_mb: need };
 }
 
+/** Dưới ngưỡng này mô hình Python không chắc câu hỏi thuộc chủ điểm nào (bkt_engine cũng coi là "chưa trả lời được") */
+export const LOW_CONFIDENCE = 0.35;
+
+/**
+ * Chuẩn hóa câu trả lời của mô hình Python trước khi lưu và hiển thị (đánh giá 14/11/2026):
+ * - "Hồ sơ học tập … em vừa ôn tập … Độ hiểu bài" chỉ dành cho học sinh: giáo viên, quản trị dùng câu trả lời gốc, không có hồ sơ;
+ * - bỏ phần hồ sơ khi chủ đề chỉ là mã nội bộ của mô hình (vd. CORRECTION_FALSE_PREMISE_ORANGE);
+ * - độ tin cậy thấp thì nói rõ câu trả lời có thể chưa đúng trọng tâm, để học sinh đối chiếu lại.
+ */
+export function shapePythonAnswer(py: { answer: string; raw_answer?: unknown; study_hint?: unknown; student_mastery_summary?: { topic?: unknown } | null; confidence?: unknown; is_not_found?: unknown }, role: string) {
+  const student = role === 'student';
+  const topic = py.student_mastery_summary && typeof py.student_mastery_summary.topic === 'string' ? py.student_mastery_summary.topic : null;
+  const internalTopic = Boolean(topic && /^[A-Z0-9_]{6,}$/.test(topic));
+  const withHint = student && !internalTopic;
+  let text = !withHint && typeof py.raw_answer === 'string' && py.raw_answer.trim() ? py.raw_answer : py.answer;
+  const low = !py.is_not_found && typeof py.confidence === 'number' && py.confidence < LOW_CONFIDENCE;
+  if (low) {
+    text += student
+      ? '\n\n---\n⚠️ Thầy chưa chắc câu trả lời trên đúng trọng tâm câu hỏi của em. Em đối chiếu với SGK Lịch sử 7 hoặc hỏi thầy cô nhé.'
+      : '\n\n---\n⚠️ Độ tin cậy thấp: câu trả lời có thể chưa đúng trọng tâm câu hỏi, thầy cô đối chiếu lại tư liệu trước khi dùng.';
+  }
+  return {
+    text, low_confidence: low,
+    study_hint: withHint && typeof py.study_hint === 'string' ? py.study_hint : null,
+    student_mastery_summary: withHint ? py.student_mastery_summary ?? null : null,
+  };
+}
+
 export type EngineStatus = 'idle' | 'starting' | 'ready' | 'unavailable';
 const engine: { status: EngineStatus; python: string | null; reason: string | null; since: string | null; ready_seconds: number | null; pid: number | null } = {
   status: 'idle', python: null, reason: null, since: null, ready_seconds: null, pid: null,

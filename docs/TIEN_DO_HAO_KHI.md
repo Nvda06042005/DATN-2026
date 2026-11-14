@@ -1183,3 +1183,10 @@ Theo 10 ý người dùng gửi kèm ảnh file Excel (đã hỏi lại hai đi�
   - GitHub Actions có thêm việc **"AI Python model (same install as Render)"**: cài Python đúng như Render rồi hỏi thử ba câu; mô hình hỏng (thiếu thư viện, tệp mô hình lỗi) thì việc này báo đỏ.
 - Kiểm tra trên máy: `npm run ai:setup` cài được (Python 3.13, scikit-learn 1.7.2); backend thật trả lời câu của học sinh và giáo viên bằng mô hình Python (`ai_engine.mode = python`, nạp 2,6 giây); gói thư viện cho Linux / Python 3.12 đều có sẵn; mã SHA-256 của CPython khớp.
 - Còn lại: AI dự phòng vẫn cần quản trị tổng kiểm chứng và công bố kho lịch sử (mục Kho lịch sử) để trả lời được khi mô hình Python không chạy.
+
+## Đánh giá Trợ lý AI học sinh / giáo viên và sửa phần web (14/11/2026)
+
+- Báo cáo đầy đủ: `docs/DANH_GIA_AI_TUTOR.md` (17 câu thử, điểm làm tốt, lỗi đã sửa, lỗi dữ liệu cần nhóm AI sửa và huấn luyện lại).
+- Đã sửa ở phần web: hồ sơ học tập ("em vừa ôn tập…", "Độ hiểu bài") chỉ dành cho học sinh; bỏ hồ sơ khi chủ đề là mã nội bộ của mô hình; câu trả lời độ tin cậy thấp (dưới 0,35) có dòng nhắc đối chiếu; báo cáo AI không còn tính số ký tự thành token; chữ nghiêng `*…*` giữa câu không còn lộ dấu `*` (`shapePythonAnswer`, `renderFormattedInline`).
+- Cần nhóm AI sửa: số bài SGK (KNTT là Bài 14, dữ liệu ghi Bài 13/15), Đông Bộ Đầu 28/1 hay 29/1, Hà Bổng (không phải Hà Khuất) phục kích ở Quy Hóa, "50 vạn" và năm sinh 1228 của Trần Hưng Đạo nên ghi là còn tranh luận, nhận nhầm "Điện Biên Phủ" và câu soạn dạy học của giáo viên với độ tin cậy 0,98, BKT tăng độ hiểu bài khi chỉ hỏi chat và không lưu được (mất khi khởi động lại).
+- Kiểm thử: `health.spec.ts` (shapePythonAnswer), `ai-tutor-display.test.cjs` (bộ tách định dạng).

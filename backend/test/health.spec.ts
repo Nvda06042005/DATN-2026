@@ -47,6 +47,24 @@ describe('môi trường chạy mô hình AI Python', () => {
     expect([rt.warmOnBoot(), rt.bridgeRequestMs()]).toEqual([false, 12_000]);
   });
 
+  test('câu trả lời của mô hình: hồ sơ học tập chỉ cho học sinh; bỏ hồ sơ khi chủ đề là mã nội bộ; độ tin cậy thấp thì nói rõ', async () => {
+    const { shapePythonAnswer } = await import('../src/ai/python-runtime');
+    const hint = '📊 Hồ sơ học tập ghi nhận em vừa ôn tập chủ đề **Hội nghị Diên Hồng** (Độ hiểu bài: `30%` ➔ **`32%`**).';
+    const py = { answer: `Trả lời.\n\n---\n${hint}`, raw_answer: 'Trả lời.', study_hint: hint, student_mastery_summary: { topic: 'Hội nghị Diên Hồng (Đầu năm 1285)' }, confidence: 0.7, is_not_found: false };
+    expect(shapePythonAnswer(py, 'student')).toMatchObject({ text: py.answer, study_hint: hint, student_mastery_summary: { topic: 'Hội nghị Diên Hồng (Đầu năm 1285)' }, low_confidence: false });
+    // giáo viên: không có "em vừa ôn tập", không có độ hiểu bài
+    expect(shapePythonAnswer(py, 'teacher')).toEqual({ text: 'Trả lời.', study_hint: null, student_mastery_summary: null, low_confidence: false });
+    // chủ đề chỉ là mã của mô hình
+    const code = { ...py, student_mastery_summary: { topic: 'CORRECTION_FALSE_PREMISE_ORANGE' } };
+    expect(shapePythonAnswer(code, 'student')).toMatchObject({ text: 'Trả lời.', study_hint: null, student_mastery_summary: null });
+    // độ tin cậy thấp: vẫn trả lời nhưng nói rõ cần đối chiếu; câu ngoài phạm vi thì không gắn
+    const low = shapePythonAnswer({ ...py, confidence: 0.23 }, 'student');
+    expect(low.low_confidence).toBe(true);
+    expect(low.text).toContain('Thầy chưa chắc câu trả lời trên đúng trọng tâm');
+    expect(shapePythonAnswer({ ...py, confidence: 0.2, is_not_found: true }, 'student').low_confidence).toBe(false);
+    expect(shapePythonAnswer({ ...py, confidence: 0.2 }, 'teacher').text).toContain('thầy cô đối chiếu lại tư liệu');
+  });
+
   test('trạng thái mô hình: đang nạp → sẵn sàng (mode python); dừng thì về dự phòng và ghi lý do', async () => {
     const rt = await import('../src/ai/python-runtime');
     rt.markEngine('starting', { python: '/x/python3', pid: null });
