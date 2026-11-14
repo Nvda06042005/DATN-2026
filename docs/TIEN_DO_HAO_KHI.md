@@ -1167,3 +1167,19 @@ Theo 10 ý người dùng gửi kèm ảnh file Excel (đã hỏi lại hai đi�
 - `twofa.service.ts`: hàm `loginMailboxes` (email chính + email khôi phục, không trùng) dùng cho lúc đăng nhập, khi bấm "Gửi lại mã" và khi bật mã qua email (`sent_to` ghi cả hai hộp thư, đã che bớt). Áp dụng cho mọi tài khoản quản trị có email khôi phục (quản trị trường cũng có ô này). Không có migration.
 - Giao diện: dòng báo ở trang đăng nhập quản trị tổng và trang đăng nhập của trường ghi rõ mã đã gửi tới email chính và email khôi phục (nếu có).
 - Kiểm thử: `recovery_email.spec.ts` (bật mã qua email, đăng nhập, hai hộp thư nhận cùng một mã, xác thực được).
+
+## Trợ lý AI trên máy chủ: chạy mô hình Python của nhóm AI (14/11/2026)
+
+- **Lỗi**: trên web thật, mọi câu hỏi (kể cả "Trần Hưng Đạo là ai?") đều bị báo "Ngoài phạm vi"; trên máy của Yujin thì chạy được.
+- **Nguyên nhân** (đã dựng lại được trên máy):
+  1. Mô hình AI của nhánh `feat/ai-engine-and-api-integration` là chương trình Python (`ai/bridge_cli.py`, cần scikit-learn, mô hình `ai/models/dong_a_nlp_model.joblib`), backend mở nó bằng lệnh `python`. Máy Yujin có Python và thư viện nên chạy được. Dịch vụ `dong-a-api` trên Render là loại Node: không có Python và thư viện, bước build chỉ `npm ci`. Mô hình không khởi động được và backend lặng lẽ chuyển sang AI dự phòng cũ (Sprint 9).
+  2. AI dự phòng chỉ tìm trong kho lịch sử **đã công bố**. Dữ liệu khởi tạo (migration 016) còn "Nháp" chờ quản trị tổng kiểm chứng, nên chỉ mục rỗng (0 đoạn) và mọi câu bị coi là ngoài phạm vi. Thử trên máy: Nháp thì 0 đoạn và cả hai câu bị từ chối; công bố xong thì có 65 đoạn và trả lời được (dạng trích đoạn).
+- **Cách sửa** (để sau này nhóm AI đẩy code mới là máy chủ tự chạy, không phải sửa thêm):
+  - `ai/requirements.txt`: danh sách thư viện Python của mô hình (scikit-learn 1.7.2 khớp với tệp mô hình). Mô hình cần thêm thư viện thì nhóm AI ghi thêm vào đây.
+  - `backend/scripts/setup-ai-python.mjs` (script `postbuild`, tự chạy sau `npm run build` trên Render; không đổi cấu hình Render): tải CPython 3.12.16 độc lập (python-build-standalone 20261026, kiểm tra SHA-256), cài thư viện vào `backend/.ai-python`. requirements.txt không đổi thì không cài lại. Cài lỗi không làm hỏng bản build: AI dùng chế độ dự phòng và báo lý do. Máy cá nhân: `cd backend && npm run ai:setup` (tạo môi trường ảo từ Python có sẵn), `npm run ai:smoke` để hỏi thử.
+  - `backend/src/ai/python-runtime.ts` (tách riêng để ít xung đột với code của nhóm AI): chọn lệnh Python (`AI_PYTHON`, rồi `backend/.ai-python`, rồi `python3`/`python`); trên Render chờ nạp mô hình tới 240 giây và chờ trả lời 30 giây (CPU gói miễn phí chậm), nạp sẵn mô hình sau khi backend khởi động; **chặn khởi động Python khi container còn dưới 280 MB bộ nhớ trống** để không làm sập cả backend (gói 512 MB, mô hình dùng khoảng 210–250 MB).
+  - `ai-tutor.service.ts`: chỉ đổi vài dòng (lệnh Python, thời gian chờ, ghi trạng thái, đọc luồng lỗi của Python để không bị nghẽn).
+  - `/api/health` có thêm `ai_engine`: `mode` là `python` (đang dùng mô hình của nhóm AI) hay `fallback` (dự phòng), kèm lý do, thời gian nạp và bộ nhớ.
+  - GitHub Actions có thêm việc **"AI Python model (same install as Render)"**: cài Python đúng như Render rồi hỏi thử ba câu; mô hình hỏng (thiếu thư viện, tệp mô hình lỗi) thì việc này báo đỏ.
+- Kiểm tra trên máy: `npm run ai:setup` cài được (Python 3.13, scikit-learn 1.7.2); backend thật trả lời câu của học sinh và giáo viên bằng mô hình Python (`ai_engine.mode = python`, nạp 2,6 giây); gói thư viện cho Linux / Python 3.12 đều có sẵn; mã SHA-256 của CPython khớp.
+- Còn lại: AI dự phòng vẫn cần quản trị tổng kiểm chứng và công bố kho lịch sử (mục Kho lịch sử) để trả lời được khi mô hình Python không chạy.

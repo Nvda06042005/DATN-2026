@@ -14,6 +14,8 @@ frontend/.env.*
 # Node (backend NestJS, frontend Expo)
 node_modules/
 backend/dist/
+# Python + thư viện cho mô hình AI, do backend/scripts/setup-ai-python.mjs cài khi build (không đưa lên Git)
+backend/.ai-python/
 frontend/dist/
 frontend/.expo/
 frontend/web-build/

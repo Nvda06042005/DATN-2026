@@ -1,4 +1,5 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { engineHealth } from './ai/python-runtime';
 import { config } from './config';
 import { DatabaseService } from './database/database.service';
 
@@ -14,7 +15,8 @@ export class AppController {
   @Get('health')
   health() {
     const commit = process.env.RENDER_GIT_COMMIT;
-    return { status: 'healthy', commit: /^[a-f0-9]{40}$/.test(commit ?? '') ? commit : null };
+    // ai_engine: trợ lý AI đang dùng mô hình Python (mode "python") hay chế độ dự phòng, kèm lý do và bộ nhớ (python-runtime.ts)
+    return { status: 'healthy', commit: /^[a-f0-9]{40}$/.test(commit ?? '') ? commit : null, ai_engine: engineHealth() };
   }
 
   /** Kiểm tra kết nối PostgreSQL (Supabase); migration chạy khi khởi động */

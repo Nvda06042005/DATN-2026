@@ -1,0 +1,15 @@
+# Thư viện Python của mô hình AI Đông A (ai/bridge_cli.py), backend NestJS gọi qua cầu nối stdin/stdout.
+# Máy chủ Render tự cài đúng danh sách này mỗi lần build (backend/scripts/setup-ai-python.mjs, chạy sau "npm run build");
+# máy cá nhân cài một lần bằng: cd backend && npm run ai:setup
+#
+# Khi mô hình cần thêm thư viện: ghi thêm một dòng "tên==phiên bản" vào đây rồi đẩy code lên, máy chủ tự cài, không cần sửa gì khác.
+# ai/models/dong_a_nlp_model.joblib được lưu bằng scikit-learn 1.7.2: đổi phiên bản scikit-learn thì phải huấn luyện lại mô hình.
+scikit-learn==1.7.2
+numpy==2.2.6
+scipy==1.15.3
+joblib==1.6.0
+threadpoolctl==3.7.0
+pydantic==2.14.1
+python-dotenv==1.2.4
+httpx==0.28.1
+huggingface_hub==2.2.0

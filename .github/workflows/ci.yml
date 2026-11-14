@@ -90,6 +90,31 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  ai-model:
+    # Cài Python cho mô hình AI giống hệt máy chủ Render (backend/scripts/setup-ai-python.mjs), rồi hỏi thử mô hình (ai/bridge_cli.py).
+    # Mỗi lần nhóm AI đẩy code mới (ai/*.py, ai/requirements.txt, mô hình), bước này cho biết mô hình còn chạy được trên máy chủ không.
+    name: AI Python model (same install as Render)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22.21.0
+      - name: Install Python and AI libraries like Render
+        run: node scripts/setup-ai-python.mjs
+        env:
+          AI_PYTHON_SETUP: '1'
+      - name: Ask the AI model sample questions
+        run: node scripts/ai-smoke.mjs
+
   frontend:
     name: Frontend typecheck, tests and build
     runs-on: ubuntu-24.04

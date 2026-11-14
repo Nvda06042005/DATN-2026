@@ -5,6 +5,9 @@
   "description": "Backend NestJS của Hào Khí Đông A: xác thực, trường, năm học, tài khoản, lớp học, kho dữ liệu lịch sử, PostgreSQL",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "postbuild": "node scripts/setup-ai-python.mjs",
+    "ai:setup": "node scripts/setup-ai-python.mjs --local",
+    "ai:smoke": "node scripts/ai-smoke.mjs",
     "start": "node dist/main.js",
     "dev": "nest start --watch",
     "test": "jest --runInBand",

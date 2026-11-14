@@ -19,6 +19,7 @@ import { AiSettings, AiSettingsService } from './ai-settings.service';
 import { LlmClient, LlmConfig, LlmMessage } from './llm.client';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { buildNodeBktRecommendations, buildProfilePromptContext, enrichBktResponse } from './bkt-profile';
+import { bridgeReadyMs, bridgeRequestMs, markEngine, memoryRoom, pythonCommand, warmOnBoot } from './python-runtime';
 
 export interface Citation { n: number; kind: string; kind_label: string; id: number; title: string; snippet: string; openable: boolean }
 export type RefusalReason = 'out_of_scope' | 'unsafe' | 'quota' | 'not_configured';
@@ -65,6 +66,11 @@ export class AiTutorService implements OnModuleDestroy {
     @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
+  /** Render: nạp sẵn mô hình Python sau khi backend khởi động (python-runtime.ts) để câu hỏi đầu tiên không phải chờ */
+  onModuleInit() {
+    if (warmOnBoot()) setTimeout(() => { void this.ensurePythonBridge(); }, 15_000).unref();
+  }
+
   onModuleDestroy() {
     this.pyIsReady = false;
     if (this.pyProc) {
@@ -91,7 +97,13 @@ export class AiTutorService implements OnModuleDestroy {
     if (this.pyIsReady && this.pyProc && !this.pyProc.killed) return Promise.resolve(true);
     if (this.pyProc && !this.pyProc.killed && this.pyReadyPromise) return this.pyReadyPromise;
     const scriptPath = this.resolveBridgeScript();
-    if (!scriptPath) return Promise.resolve(false);
+    if (!scriptPath) { markEngine('unavailable', { reason: 'không thấy ai/bridge_cli.py' }); return Promise.resolve(false); }
+    // không đủ bộ nhớ thì không chạy Python (tránh sập cả backend); AI dùng chế độ dự phòng
+    const room = memoryRoom();
+    if (!room.ok) { markEngine('unavailable', { reason: `thiếu bộ nhớ: còn ${room.free_mb}/${room.limit_mb} MB, mô hình cần ${room.need_mb} MB` }); return Promise.resolve(false); }
+    const python = pythonCommand();
+    const startedAt = Date.now();
+    let stderrTail = '';
 
     this.pyReadyPromise = new Promise<boolean>((resolveReady) => {
       let settled = false;
@@ -102,11 +114,13 @@ export class AiTutorService implements OnModuleDestroy {
         }
       };
       try {
-        const proc = spawn('python', ['-u', scriptPath], {
+        const proc = spawn(python, ['-u', scriptPath], {
           stdio: ['pipe', 'pipe', 'pipe'],
           env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
         });
         this.pyProc = proc;
+        markEngine('starting', { python, reason: null, pid: proc.pid ?? null });
+        proc.stderr.on('data', (d: Buffer) => { stderrTail = (stderrTail + d.toString('utf8')).slice(-600); });
         const rl = createInterface({ input: proc.stdout });
         rl.on('line', (line) => {
           const trimmed = line.trim();
@@ -115,6 +129,7 @@ export class AiTutorService implements OnModuleDestroy {
             const msg = JSON.parse(trimmed);
             if (msg.ready) {
               this.pyIsReady = true;
+              markEngine('ready', { readyMs: Date.now() - startedAt });
               this.logger.log(`Đã kết nối Model NLP Đông A Python (${msg.units} chủ điểm, ${msg.train_samples} mẫu huấn luyện)`);
               done(true);
               return;
@@ -128,13 +143,15 @@ export class AiTutorService implements OnModuleDestroy {
             }
           } catch {}
         });
-        proc.on('error', () => {
+        proc.on('error', (e) => {
+          markEngine('unavailable', { reason: `không chạy được ${python}: ${e.message}`, pid: null });
           this.pyProc = null;
           this.pyReadyPromise = null;
           this.pyIsReady = false;
           done(false);
         });
-        proc.on('exit', () => {
+        proc.on('exit', (code) => {
+          markEngine('unavailable', { reason: `mô hình Python dừng (mã ${code}): ${stderrTail.trim() || 'không có thông báo lỗi'}`, pid: null });
           this.pyProc = null;
           this.pyReadyPromise = null;
           this.pyIsReady = false;
@@ -150,7 +167,7 @@ export class AiTutorService implements OnModuleDestroy {
             this.pyReadyPromise = null;
             done(false);
           }
-        }, 45000);
+        }, bridgeReadyMs());
       } catch {
         this.pyReadyPromise = null;
         this.pyIsReady = false;
@@ -160,7 +177,7 @@ export class AiTutorService implements OnModuleDestroy {
     return this.pyReadyPromise;
   }
 
-  private async callPythonBridge(action: string, payload: Record<string, any>, timeoutMs = 8000): Promise<any | null> {
+  private async callPythonBridge(action: string, payload: Record<string, any>, timeoutMs = bridgeRequestMs()): Promise<any | null> {
     const ready = await this.ensurePythonBridge();
     if (!ready || !this.pyProc) return null;
     const id = this.nextReqId++;
