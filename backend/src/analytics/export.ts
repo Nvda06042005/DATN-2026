@@ -6,6 +6,7 @@ import * as ExcelJS from 'exceljs';
 import { join } from 'path';
 import PDFDocument from 'pdfkit';
 import { BRAND_LOGO_SIZE, brandLogo, vnDayLabel } from '../admin/excel';
+import { officialPdf } from '../admin/pdf';
 
 const FONT_DIR = join(__dirname, '..', '..', 'assets', 'fonts');
 
@@ -88,6 +89,8 @@ export interface ReportHead {
   meta: Array<{ label: string; value: string }>;
   /** Người lập báo cáo (ký ở cuối) */
   signer?: string | null;
+  /** Người duyệt ký bên phải (Hiệu trưởng khi quản trị trường xuất) */
+  approver?: string | null;
   now?: Date;
 }
 /** Cột báo cáo: `pct` là số phần trăm (0–100) hiện kèm dấu %, ô trống hiện "–"; `center` căn giữa */
@@ -114,8 +117,6 @@ function placeLine(school: ReportSchool | null, now: Date): string {
   const place = (/^\d+$/.test(stripped) ? region : stripped) || '……………';
   return `${place}, ${day.slice(12, -1)}, ngày ${day.slice(0, 2)} tháng ${day.slice(3, 5)} năm ${day.slice(6, 10)}`;
 }
-/** Giá trị một ô của bảng báo cáo dạng chữ (PDF) */
-const cellText = (col: ReportCol, v: unknown): string => (v === null || v === undefined || v === '' ? (col.pct ? '–' : '') : col.pct && typeof v === 'number' ? `${v}%` : String(v));
 
 export async function reportXlsx(head: ReportHead, sections: ReportSection[]): Promise<Buffer> {
   const now = head.now ?? new Date();
@@ -227,107 +228,22 @@ export async function reportXlsx(head: ReportHead, sections: ReportSection[]): P
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
+/**
+ * PDF của báo cáo thống kê (14/11/2026): cùng thể thức văn bản với danh sách giáo viên, học sinh, lớp (`officialPdf` trong admin/pdf.ts) — phần đầu nhà trường và Quốc hiệu,
+ * tên báo cáo, các dòng thông tin (khoảng thời gian, giáo viên phụ trách…), từng phần đánh số La Mã với bảng kẻ khung, chỗ ký Người lập báo cáo (và Hiệu trưởng khi quản trị trường xuất).
+ */
 export function reportPdf(head: ReportHead, sections: ReportSection[]): Promise<Buffer> {
-  const now = head.now ?? new Date();
-  return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 36, bufferPages: true, info: { Title: head.title, Author: 'Hào Khí Đông A' } });
-    const chunks: Buffer[] = [];
-    doc.on('data', (c: Buffer) => chunks.push(c));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
-    doc.on('error', reject);
-    doc.registerFont('regular', join(FONT_DIR, 'Manrope-Regular.ttf'));
-    doc.registerFont('bold', join(FONT_DIR, 'Manrope-Bold.ttf'));
-    const left = doc.page.margins.left, width = doc.page.width - left - doc.page.margins.right, half = width / 2;
-    const bottom = () => doc.page.height - doc.page.margins.bottom - 14; // chừa chân trang
-    // logo và dòng nhận diện
-    const logo = brandLogo();
-    let y = doc.page.margins.top;
-    if (logo) { doc.image(logo, left, y, { height: 34 }); y += 38; }
-    else { doc.font('bold').fontSize(18).fillColor('#b91c1c').text('Đông A', left, y); y = doc.y + 2; }
-    doc.font('regular').fontSize(8.5).fillColor('#6b7280').text(head.identity, left, y, { width });
-    y = doc.y + 8;
-    // phần đầu như văn bản của nhà trường
-    const lb = leftBlock(head.school);
-    const pair = (l: string, r: string, opts: { lb?: boolean; rb?: boolean; lu?: boolean; ru?: boolean; li?: boolean; ri?: boolean; size?: number }) => {
-      const size = opts.size ?? 10;
-      doc.font(opts.lb ? 'bold' : 'regular').fontSize(size).fillColor(opts.li ? '#4b5563' : '#111111').text(l, left, y, { width: half, align: 'center', underline: !!opts.lu && !!l });
-      const h1 = doc.y - y;
-      doc.font(opts.rb ? 'bold' : 'regular').fontSize(size).fillColor('#111111').text(r, left + half, y, { width: half, align: 'center', underline: !!opts.ru, oblique: opts.ri ? 12 : false });
-      y += Math.max(h1, doc.y - y) + 1;
-    };
-    pair(lb[0], 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM', { lb: true, rb: true });
-    pair(lb[1], 'Độc lập - Tự do - Hạnh phúc', { lb: !!head.school?.region || !head.school, rb: true, lu: !!head.school?.region || !head.school, ru: true });
-    pair(lb[2], placeLine(head.school, now), { li: true, ri: true, size: 9.5 });
-    y += 10;
-    doc.font('bold').fontSize(16).fillColor('#111111').text(upper(head.title), left, y, { width, align: 'center' });
-    y = doc.y + 2;
-    if (head.subtitle) { doc.font('bold').fontSize(10.5).fillColor('#374151').text(head.subtitle, left, y, { width, align: 'center' }); y = doc.y; }
-    y += 8;
-    // các dòng "nhãn: giá trị"
-    for (const m of head.meta) {
-      doc.font('bold').fontSize(9.5).fillColor('#111111').text(`${m.label}:`, left, y, { width: 150, align: 'right' });
-      doc.font('bold').fontSize(9.5).fillColor('#b91c1c').text(m.value, left + 158, y, { width: width - 158 });
-      y = doc.y + 2;
-    }
-    doc.y = y + 4;
-    sections.forEach((sec, si) => {
-      const cols: ReportCol[] = [{ header: 'STT', key: '__i', width: 5, center: true }, ...sec.cols];
-      const total = cols.reduce((n, c) => n + (c.width ?? 16), 0);
-      const widths = cols.map((c) => ((c.width ?? 16) / total) * width);
-      if (doc.y + 100 > bottom()) doc.addPage(); // tiêu đề phần đi cùng dòng tiêu đề bảng và ít nhất hai dòng
-      doc.font('bold').fontSize(11.5).fillColor('#b91c1c').text(`${ROMAN[si] ?? si + 1}. ${upper(sec.title)}`, left, doc.y + 8, { width });
-      if (sec.note) doc.font('regular').fontSize(8.5).fillColor('#92400e').text(sec.note, left, doc.y + 1, { width });
-      doc.y += 4;
-      const line = (cells: string[], header: boolean): void => {
-        doc.font(header ? 'bold' : 'regular').fontSize(8.5);
-        const h = Math.max(...cells.map((t, i) => doc.heightOfString(t || ' ', { width: widths[i] - 8 }))) + 8;
-        if (doc.y + h > bottom()) {
-          doc.addPage();
-          if (!header) line(cols.map((c) => c.header), true); // lặp dòng tiêu đề bảng ở trang mới
-        }
-        const top = doc.y;
-        if (header) doc.rect(left, top, width, h).fill('#fbead7');
-        let x = left;
-        cells.forEach((t, i) => {
-          const c = cols[i];
-          doc.rect(x, top, widths[i], h).lineWidth(0.6).strokeColor('#d1d5db').stroke();
-          doc.font(header ? 'bold' : 'regular').fontSize(8.5).fillColor('#111111')
-            .text(t, x + 4, top + 4, { width: widths[i] - 8, align: header || c.center || c.pct || c.key === '__i' ? 'center' : c.right ? 'right' : 'left' });
-          x += widths[i];
-        });
-        doc.x = left;
-        doc.y = top + h;
-      };
-      line(cols.map((c) => c.header), true);
-      if (!sec.rows.length) {
-        doc.font('regular').fontSize(8.5);
-        const top = doc.y, h = 20;
-        doc.rect(left, top, width, h).lineWidth(0.6).strokeColor('#d1d5db').stroke();
-        doc.fillColor('#6b7280').text(sec.empty ?? 'Không có dữ liệu trong khoảng thời gian này.', left, top + 5, { width, align: 'center' });
-        doc.x = left; doc.y = top + h;
-      }
-      sec.rows.forEach((row, ri) => line(cols.map((c) => (c.key === '__i' ? String(ri + 1) : cellText(c, row[c.key]))), false));
-    });
-    // chỗ ký của người lập báo cáo
-    if (head.signer) {
-      if (doc.y + 90 > bottom()) doc.addPage();
-      const sy = doc.y + 16;
-      doc.font('bold').fontSize(10.5).fillColor('#111111').text('NGƯỜI LẬP BÁO CÁO', left + half, sy, { width: half, align: 'center' });
-      doc.font('regular').fontSize(9).fillColor('#374151').text('(Ký và ghi rõ họ tên)', left + half, doc.y + 1, { width: half, align: 'center', oblique: 12 });
-      doc.font('bold').fontSize(10.5).fillColor('#111111').text(head.signer, left + half, doc.y + 40, { width: half, align: 'center' });
-    }
-    // chân trang mỗi trang: nguồn, ngày xuất và số trang
-    const range = doc.bufferedPageRange();
-    for (let i = range.start; i < range.start + range.count; i += 1) {
-      doc.switchToPage(i);
-      const keep = doc.page.margins.bottom;
-      doc.page.margins.bottom = 0;
-      const fy = doc.page.height - keep + 10;
-      doc.font('regular').fontSize(8).fillColor('#6b7280').text(`Báo cáo xuất từ hệ thống Hào Khí Đông A · ${vnDayLabel(now)}`, left, fy, { width: half, lineBreak: false });
-      doc.text(`Trang ${i - range.start + 1}/${range.count}`, left + half, fy, { width: half, align: 'right', lineBreak: false });
-      doc.page.margins.bottom = keep;
-    }
-    doc.end();
+  return officialPdf({
+    title: head.title, now: head.now, footer: head.school?.code ? `Mã trường ${head.school.code}` : undefined,
+    parts: [{
+      school: head.school, title: head.title, subtitle: head.subtitle ?? null,
+      facts: head.meta.filter((m) => m.label !== 'Ngày xuất'),
+      tables: sections.map((sec, i) => ({
+        heading: `${ROMAN[i] ?? i + 1}. ${upper(sec.title)}`, note: sec.note, rows: sec.rows, empty: sec.empty ?? 'Không có dữ liệu trong khoảng thời gian này.',
+        cols: sec.cols.map((c) => ({ header: c.header, key: c.key, width: c.width ?? 16, pct: c.pct, align: c.pct || c.center ? 'center' as const : c.right ? 'right' as const : 'left' as const })),
+      })),
+      signers: [{ title: 'Người lập báo cáo', name: head.signer ?? null }, ...(head.approver ? [{ title: head.approver, hint: '(Ký tên, đóng dấu)' }] : [])],
+    }],
   });
 }
 

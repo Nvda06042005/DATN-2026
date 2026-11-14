@@ -92,10 +92,9 @@ export function ReportShell({ testID, title, subtitle, actions, filters, childre
   );
 }
 
-/** Hai nút xuất báo cáo (bố cục chính thức như file xuất Giáo viên / Học sinh / Lớp học) và nút làm mới */
-export function ReportActions({ excel, pdf, filename, onRefresh, busy, idPrefix }: { excel?: () => Promise<Blob>; pdf?: () => Promise<Blob>; filename: string; onRefresh: () => void; busy: boolean; idPrefix: string }) {
+/** Nút xuất báo cáo PDF (thể thức văn bản như danh sách Giáo viên / Học sinh / Lớp học; 14/11/2026 bỏ xuất Excel) và nút làm mới */
+export function ReportActions({ pdf, filename, onRefresh, busy, idPrefix }: { pdf?: () => Promise<Blob>; filename: string; onRefresh: () => void; busy: boolean; idPrefix: string }) {
   return <>
-    {excel ? <DownloadButton title="Xuất Excel" fetchBlob={excel} filename={`${filename}.xlsx`} /> : null}
     {pdf ? <DownloadButton title="Xuất PDF" fetchBlob={pdf} filename={`${filename}.pdf`} /> : null}
     <Btn title="Làm mới" icon={RefreshCw} tone="giay" size="sm" onPress={onRefresh} loading={busy} testID={`${idPrefix}-refresh`} />
   </>;

@@ -71,7 +71,7 @@ export class AnalyticsController {
       identity: `Báo cáo thống kê lớp · ${info.school_name}${school?.code ? ` · Mã trường ${school.code}` : ''}`, school, now,
       title: `Báo cáo thống kê lớp ${info.name}`, subtitle: [info.year_label ? `Năm học ${info.year_label}` : null, info.grade ? `Khối ${info.grade}` : null].filter(Boolean).join(' · ') || null,
       meta: [{ label: 'Ngày xuất', value: vnDayLabel(now) }, { label: 'Khoảng thời gian', value: rangeText(p) }, { label: 'Giáo viên phụ trách', value: info.teachers || 'Chưa phân công' }, { label: 'Sĩ số', value: `${dash.students} học sinh` }],
-      signer: user.full_name,
+      signer: user.full_name, approver: user.role === 'school_admin' ? 'Hiệu trưởng' : null,
     };
     const sections: ReportSection[] = [
       { title: 'Tổng quan', cols: SUMMARY_COLS, rows: [
@@ -123,7 +123,7 @@ export class AnalyticsController {
       identity: `Báo cáo kết quả học tập${school ? ` · ${school.name}${school.code ? ` · Mã trường ${school.code}` : ''}` : ' · Toàn hệ thống'}`, school, now,
       title: `Báo cáo kết quả học tập theo ${label}`,
       meta: [{ label: 'Ngày xuất', value: vnDayLabel(now) }, { label: 'Khoảng thời gian', value: rangeText(p) }, { label: 'Số lớp', value: String(r.classes.length) }, { label: 'Số học sinh', value: String(students) }],
-      signer: user.full_name,
+      signer: user.full_name, approver: user.role === 'school_admin' ? 'Hiệu trưởng' : null,
     };
     const sections: ReportSection[] = [
       { title: 'Tổng hợp', cols: SUMMARY_COLS, rows: [
@@ -165,7 +165,7 @@ export class AnalyticsController {
       identity: `Báo cáo sử dụng và trợ lý AI${school ? ` · ${school.name}${school.code ? ` · Mã trường ${school.code}` : ''}` : ' · Toàn hệ thống'}`, school, now,
       title: 'Báo cáo sử dụng học tập và trợ lý AI',
       meta: [{ label: 'Ngày xuất', value: vnDayLabel(now) }, { label: 'Khoảng thời gian', value: range }],
-      signer: user.full_name,
+      signer: user.full_name, approver: user.role === 'school_admin' ? 'Hiệu trưởng' : null,
     };
     const sections: ReportSection[] = [
       { title: 'Tổng hợp', note: 'Trợ lý AI chỉ được thống kê số lượng và chủ đề; nội dung câu hỏi của từng học sinh không có trong báo cáo.', cols: SUMMARY_COLS, rows: [

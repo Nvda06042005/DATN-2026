@@ -1205,3 +1205,17 @@ Theo 10 ý người dùng gửi kèm ảnh file Excel (đã hỏi lại hai đi�
   - Báo cáo kết quả: Tổng hợp (mới), Kết quả theo lớp / khối / giáo viên, Chi tiết từng lớp.
   - Báo cáo sử dụng và AI (mới, `GET /api/analytics/usage/export?days=7|30|90&format=xlsx|pdf`, quản trị trường / quản trị tổng): Tổng hợp, Theo ngày (đủ mọi ngày), Tư liệu được hỏi nhiều.
 - Không có migration (chỉ đọc dữ liệu đã có). Kiểm thử: `analytics.spec.ts` (bố cục file xuất, biểu đồ theo khoảng thời gian, báo cáo sử dụng và AI, quyền), `admin-shell.test.cjs`, `assessment-ui.test.cjs`; mở thử bằng Excel và kết xuất PDF thành ảnh để xem bố cục.
+
+## Quản trị trường chỉ xuất PDF; PDF theo thể thức văn bản của nhà trường (15/11/2026)
+
+- **Bỏ mọi nút xuất Excel ở cổng quản trị trường**, thay bằng "Xuất PDF": Giáo viên, Học sinh (theo bộ lọc đang chọn), Lớp học (cả năm học và từng lớp), Thống kê trường (Lớp và học sinh, Kết quả, Sử dụng và AI). Trang Thống kê lớp của giáo viên dùng chung dashboard nên cũng chỉ còn PDF. **Giữ** "Nhập từ Excel", "Xếp lớp từ Excel" và file mẫu (để nhập dữ liệu). API Excel vẫn còn cho quản trị tổng và các file đã có.
+- **Bộ dựng PDF chung** `backend/src/admin/pdf.ts` (`officialPdf`) theo Nghị định 30/2020/NĐ-CP, Phụ lục I:
+  - khổ A4; lề trên, dưới 20 mm, trái 30 mm, phải 15 mm; bảng nhiều cột tự chuyển khổ ngang;
+  - phông **Tinos** (giấy phép SIL OFL 1.1, cùng kích thước chữ với Times New Roman, đủ chữ tiếng Việt; `backend/assets/fonts/Tinos-*.ttf`, `Tinos-LICENSE-OFL.txt`);
+  - góc trái: UBND phường/xã (in hoa) và tên trường (in hoa, đậm, gạch dưới 1/3 dòng chữ); góc phải: Quốc hiệu (in hoa, đậm), Tiêu ngữ (đậm, gạch dưới bằng dòng chữ), "địa danh, ngày … tháng … năm …" (nghiêng);
+  - tên văn bản in hoa đậm ở giữa, năm học / học kỳ, tổng số (nam, nữ) và bộ lọc đang dùng; số trang ở giữa lề trên từ trang thứ hai; chân trang ghi mã trường và giờ xuất;
+  - bảng kẻ khung đen mảnh, dòng tiêu đề đậm nền xám nhạt lặp lại mỗi trang, cột STT; độ rộng cột tính theo nội dung (mã, ngày, số điện thoại không bị cắt đôi; họ tên trên một dòng; bảng quá rộng thì giảm cỡ chữ của riêng bảng đó, tối thiểu 9); không để dòng tiêu đề bảng nằm một mình cuối trang; chỗ ký không đứng một mình ở trang cuối (mang theo hai dòng cuối của bảng);
+  - chỗ ký: Người lập biểu và Hiệu trưởng (danh sách giáo viên, học sinh, lớp); Giáo viên phụ trách và Hiệu trưởng (danh sách học sinh từng lớp); Người lập báo cáo và Hiệu trưởng (báo cáo thống kê do quản trị trường xuất; giáo viên xuất thì chỉ có Người lập báo cáo).
+- Danh sách xếp theo tên (rồi họ đệm) như danh sách của trường. Danh sách lớp cả năm học: trang "DANH SÁCH LỚP" tổng hợp rồi mỗi lớp một danh sách bắt đầu trang mới (số trang đánh lại cho từng lớp).
+- API: `GET /api/admin/teachers/export?format=pdf`, `GET /api/admin/students/export?format=pdf` (cùng bộ lọc với danh sách), `GET /api/admin/classes/export?year_id=…|class_id=…&format=pdf`; báo cáo thống kê dùng `reportPdf` (nay chuyển sang `officialPdf`).
+- Không có migration. Kiểm thử: `sprint2.spec.ts`, `class_excel.spec.ts` (PDF: khổ giấy, số trang, phông), `analytics.spec.ts`; `admin-shell.test.cjs` (không còn nút xuất Excel nào ở các trang của quản trị trường), `member-excel.test.cjs`. Đã kết xuất PDF thành ảnh để xem từng trang.

@@ -127,6 +127,10 @@ class UserQuery extends Page {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) class_id?: number;
 }
 
+class MemberExportQuery extends UserQuery {
+  @IsOptional() @IsIn(['xlsx', 'pdf']) format?: 'xlsx' | 'pdf';
+}
+
 class CreateAdminDto {
   @Transform(squash) @IsString() @Length(2, 80) full_name: string;
   @IsIn(['root_admin', 'school_admin']) role: 'root_admin' | 'school_admin';
@@ -175,6 +179,8 @@ class AssignQuery extends SchoolScope {
 
 class RosterQuery extends AssignQuery {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) class_id?: number;
+  /** pdf: danh sách in theo thể thức văn bản của nhà trường (quản trị trường chỉ xuất PDF từ 14/11/2026) */
+  @IsOptional() @IsIn(['xlsx', 'pdf']) format?: 'xlsx' | 'pdf';
 }
 
 class PasswordQuery extends Page {
@@ -258,6 +264,7 @@ class SecurityQuery extends Page {
 }
 
 const download = (buffer: Buffer, name: string) => new StreamableFile(buffer, { type: XLSX_MIME, disposition: `attachment; filename="${name}"` });
+const pdfFile = (buffer: Buffer, name: string) => new StreamableFile(buffer, { type: 'application/pdf', disposition: `attachment; filename="${name}"` });
 
 /**
  * /api/admin – hai cấp quản trị độc lập: quản trị tổng (toàn hệ thống) và quản trị trường (chỉ trường ghi trong token; truy vấn chạy dưới
@@ -407,7 +414,9 @@ export class AdminController {
   teacherImportSpec(@CurrentUser() user:UserRow,@Query() query:SchoolScope){return this.accounts.teacherImportSpec(user,query.school_id);}
 
   @Get('teachers/export')
-  async exportTeachers(@CurrentUser() user: UserRow, @Query() query: UserQuery) { return download(await this.accounts.exportMembers(user, 'teacher', query), 'danh-sach-giao-vien.xlsx'); }
+  async exportTeachers(@CurrentUser() user: UserRow, @Query() query: MemberExportQuery) {
+    return query.format === 'pdf' ? pdfFile(await this.accounts.exportMembersPdf(user, 'teacher', query), 'danh-sach-giao-vien.pdf') : download(await this.accounts.exportMembers(user, 'teacher', query), 'danh-sach-giao-vien.xlsx');
+  }
 
   @Post('teachers/import')
   @HttpCode(200)
@@ -433,7 +442,9 @@ export class AdminController {
   studentImportSpec(@CurrentUser() user:UserRow,@Query() query:SchoolScope){return this.accounts.studentImportSpec(user,query.school_id);}
 
   @Get('students/export')
-  async exportStudents(@CurrentUser() user: UserRow, @Query() query: UserQuery) { return download(await this.accounts.exportMembers(user, 'student', query), 'danh-sach-hoc-sinh.xlsx'); }
+  async exportStudents(@CurrentUser() user: UserRow, @Query() query: MemberExportQuery) {
+    return query.format === 'pdf' ? pdfFile(await this.accounts.exportMembersPdf(user, 'student', query), 'danh-sach-hoc-sinh.pdf') : download(await this.accounts.exportMembers(user, 'student', query), 'danh-sach-hoc-sinh.xlsx');
+  }
 
   @Post('students/import')
   @HttpCode(200)
@@ -486,6 +497,7 @@ export class AdminController {
   @Get('classes/export')
   @Header('Cache-Control','no-store')
   async classExport(@CurrentUser() user: UserRow, @Query() query: RosterQuery) {
+    if (query.format === 'pdf') { const pdf = await this.classes.exportRosterPdf(user, query.school_id, query.year_id, query.class_id); return pdfFile(pdf.buffer, pdf.filename); }
     const file = await this.classes.exportRoster(user, query.school_id, query.year_id, query.class_id);
     return download(file.buffer, file.filename);
   }

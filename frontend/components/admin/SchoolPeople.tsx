@@ -101,7 +101,8 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
     <Page>
       <PageHeader title={teacher ? 'Giáo viên' : 'Học sinh'} subtitle={teacher ? 'Có hai cách thêm giáo viên: nút Thêm giáo viên để thêm từng người, hoặc Nhập từ Excel để thêm hàng loạt. Khóa hoặc đặt lại mật khẩu khi cần.' : 'Tạo tài khoản học sinh (mã, ngày sinh, lớp), nhập danh sách từ Excel, chuyển lớp, khóa hoặc đặt lại mật khẩu.'}
         actions={<>
-          <DownloadButton title="Xuất Excel" fetchBlob={() => api.downloadFile(token, `/api/admin/${kind}/export${exportQuery ? `?${exportQuery}` : ''}`)} filename={teacher ? 'danh-sach-giao-vien.xlsx' : 'danh-sach-hoc-sinh.xlsx'} />
+          {/* 14/11/2026: quản trị trường chỉ xuất PDF (danh sách in theo thể thức văn bản của nhà trường), không còn xuất Excel */}
+          <DownloadButton title="Xuất PDF" fetchBlob={() => api.downloadFile(token, `/api/admin/${kind}/export?${exportQuery ? `${exportQuery}&` : ''}format=pdf`)} filename={teacher ? 'danh-sach-giao-vien.pdf' : 'danh-sach-hoc-sinh.pdf'} />
           <Btn title="Nhập từ Excel" icon={FileUp} tone="giay" size="sm" onPress={() => setImporting(true)} testID="import-open" />
           <Btn title={teacher ? 'Thêm giáo viên' : 'Thêm học sinh'} icon={Plus} tone="son" size="sm" onPress={() => setCreating(true)} testID="member-add" />
         </>} />

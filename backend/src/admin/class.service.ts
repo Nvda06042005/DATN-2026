@@ -6,6 +6,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { randomInt } from 'crypto';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
+import { officialPdf, PdfPart } from './pdf';
 import { buildClassListSheet, buildClassRosterBook, cellText, checkUpload, classTemplateFilename, Column, joinCodeFor, normHeader, parseDate, plainAscii, readSheet, UploadedXlsx, workbookSheets } from './excel';
 import { likeEscape, SchoolService } from './school.service';
 import { notify } from '../classroom/notify';
@@ -654,8 +655,70 @@ export class ClassService {
    * ghi sẵn lớp, khối, học kỳ hiện tại, giáo viên phụ trách học kỳ đó (mã · họ tên), sĩ số, Nam/Nữ, mã tham gia và học sinh (xếp theo tên như danh sách của trường).
    */
   async exportRoster(actor: UserRow, schoolId?: number | null, yearId?: number | null, classId?: number | null): Promise<{ buffer: Buffer; filename: string }> {
+    const { school, year, classes } = await this.rosterData(actor, schoolId, yearId, classId);
+    const buffer = await buildClassRosterBook({
+      identity: `Danh sách lớp năm học ${year.label} · ${school.name} · Mã trường ${school.school_code}`, school: school.name, schoolCode: school.school_code, region: school.region,
+      yearLabel: year.label, semester: classes[0]?.semester ?? 1,
+    }, classes, !classId);
+    return { buffer, filename: this.rosterFilename(school.name, year.label, classId ? classes[0]?.name : null, 'xlsx') };
+  }
+
+  private rosterFilename(school: string, year: string, className: string | null | undefined, ext: 'xlsx' | 'pdf'): string {
+    const base = classTemplateFilename(school, year).replace('file_mau_xep-lop_', 'danh_sach_lop_');
+    const named = className ? base.replace('danh_sach_lop_', `danh_sach_lop_${plainAscii(className).replace(/[^A-Za-z0-9]+/g, '-')}_`) : base;
+    return named.replace(/\.xlsx$/, `.${ext}`);
+  }
+
+  /**
+   * Danh sách lớp dạng PDF (yêu cầu 14/11/2026: quản trị trường chỉ xuất PDF) theo thể thức văn bản của nhà trường (`officialPdf`).
+   * Cả năm học: trang "DANH SÁCH LỚP" tổng hợp (lớp, khối, giáo viên phụ trách, sĩ số, nam, nữ, mã tham gia), rồi mỗi lớp một danh sách riêng bắt đầu ở trang mới.
+   * Mỗi lớp: "DANH SÁCH HỌC SINH LỚP …", năm học và học kỳ, giáo viên phụ trách, sĩ số (nam, nữ), mã tham gia; bảng STT, mã học sinh, họ và tên, ngày sinh, giới tính, ghi chú;
+   * chỗ ký Giáo viên phụ trách và Hiệu trưởng.
+   */
+  async exportRosterPdf(actor: UserRow, schoolId?: number | null, yearId?: number | null, classId?: number | null): Promise<{ buffer: Buffer; filename: string }> {
+    const { school, year, classes } = await this.rosterData(actor, schoolId, yearId, classId);
+    const head = { name: school.name, code: school.school_code, region: school.region };
+    const principal = { title: 'Hiệu trưởng', hint: '(Ký tên, đóng dấu)' };
+    const count = (c: (typeof classes)[number], g: string) => c.students.filter((x) => x.gender === g).length;
+    const parts: PdfPart[] = [];
+    if (!classId) {
+      const total = classes.reduce((n, c) => n + c.students.length, 0);
+      parts.push({
+        school: head, title: 'Danh sách lớp', subtitle: `Năm học ${year.label} – Học kỳ ${classes[0]?.semester ?? 1}`,
+        info: [`Tổng số: ${classes.length} lớp, ${total} học sinh (nam: ${classes.reduce((n, c) => n + count(c, 'Nam'), 0)}, nữ: ${classes.reduce((n, c) => n + count(c, 'Nữ'), 0)})`],
+        tables: [{
+          cols: [{ header: 'Lớp', key: 'name', width: 9, align: 'center' }, { header: 'Khối', key: 'grade', width: 7, align: 'center' }, { header: 'Giáo viên phụ trách', key: 'teacher', width: 28 },
+            { header: 'Sĩ số', key: 'size', width: 8, align: 'center' }, { header: 'Nam', key: 'male', width: 7, align: 'center' }, { header: 'Nữ', key: 'female', width: 7, align: 'center' }, { header: 'Mã tham gia lớp', key: 'join', width: 27, align: 'center' }],
+          rows: classes.map((c) => ({ name: c.name, grade: c.grade ?? '', teacher: c.teacherName ?? 'Chưa phân công', size: c.students.length, male: count(c, 'Nam'), female: count(c, 'Nữ'), join: c.joinCode ?? '' })),
+          empty: 'Năm học chưa có lớp đang hoạt động.', total: classes.length ? 'Danh sách học sinh của từng lớp ở các trang sau.' : undefined,
+        }],
+        signers: [{ title: 'Người lập biểu', name: actor.full_name }, principal],
+      });
+    }
+    for (const c of classes) {
+      parts.push({
+        school: head, title: `Danh sách học sinh lớp ${c.name}`, subtitle: `Năm học ${year.label} – Học kỳ ${c.semester}`,
+        facts: [
+          { label: 'Giáo viên phụ trách', value: c.teacherName ? `${c.teacherName}${c.teacherCode ? ` (mã ${c.teacherCode})` : ''}` : 'Chưa phân công' },
+          { label: 'Sĩ số', value: `${c.students.length} học sinh (nam: ${count(c, 'Nam')}, nữ: ${count(c, 'Nữ')})${c.grade ? ` · Khối ${c.grade}` : ''}` },
+          ...(c.joinCode ? [{ label: 'Mã tham gia lớp', value: c.joinCode }] : []),
+        ],
+        tables: [{
+          cols: [{ header: 'Mã học sinh', key: 'code', width: 22, align: 'center' }, { header: 'Họ và tên', key: 'name', width: 32, keep: true }, { header: 'Ngày sinh', key: 'birth', width: 13, align: 'center' },
+            { header: 'Giới tính', key: 'gender', width: 10, align: 'center' }, { header: 'Ghi chú', key: 'note', width: 16 }],
+          rows: c.students, empty: 'Lớp chưa có học sinh.', total: c.students.length ? `Danh sách lớp ${c.name} có ${c.students.length} học sinh.` : undefined,
+        }],
+        signers: [{ title: 'Giáo viên phụ trách', name: c.teacherName }, principal],
+      });
+    }
+    const buffer = await officialPdf({ title: classId && classes[0] ? `Danh sách học sinh lớp ${classes[0].name}` : `Danh sách lớp năm học ${year.label}`, footer: `Mã trường ${school.school_code}`, parts });
+    return { buffer, filename: this.rosterFilename(school.name, year.label, classId ? classes[0]?.name : null, 'pdf') };
+  }
+
+  /** Số liệu chung của file xuất danh sách lớp (Excel và PDF) */
+  private async rosterData(actor: UserRow, schoolId?: number | null, yearId?: number | null, classId?: number | null) {
     const id = this.schools.target(actor, schoolId);
-    const data = await this.schools.run(actor, async (q) => {
+    return this.schools.run(actor, async (q) => {
       const school = (await q<{ name: string; school_code: string; region: string | null }>('SELECT name, school_code, region FROM app_schools WHERE id = $1', [id]))[0];
       if (!school) throw new NotFoundException('Không tìm thấy trường');
       const one = classId ? (await q<{ id: number; year_id: number | null }>('SELECT id, year_id FROM app_classes WHERE id = $1 AND school_id = $2', [classId, id]))[0] : null;
@@ -664,9 +727,11 @@ export class ClassService {
         "SELECT id, label FROM app_school_years WHERE school_id = $1 AND ($2::int IS NULL OR id = $2) ORDER BY (status = 'active') DESC, label DESC LIMIT 1", [id, one?.year_id ?? yearId ?? null]))[0];
       if (!year) throw new NotFoundException('Không tìm thấy năm học');
       const semester = Number((await q<{ n: number }>('SELECT COALESCE(public.app_class_semester($1),1) AS n', [year.id]))[0]?.n ?? 1);
-      const rows = await q<{ id: number; name: string; grade: number | null; join_code: string | null; teacher: string | null }>(
+      const rows = await q<{ id: number; name: string; grade: number | null; join_code: string | null; teacher: string | null; teacher_name: string | null; teacher_code: string | null }>(
         `SELECT c.id, c.name, c.grade, c.join_code,
-                (SELECT coalesce(u.user_code, 'Chưa có mã') || ' · ' || u.full_name FROM app_class_term_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id AND t.semester = $3) AS teacher
+                (SELECT coalesce(u.user_code, 'Chưa có mã') || ' · ' || u.full_name FROM app_class_term_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id AND t.semester = $3) AS teacher,
+                (SELECT u.full_name FROM app_class_term_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id AND t.semester = $3) AS teacher_name,
+                (SELECT u.user_code FROM app_class_term_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id AND t.semester = $3) AS teacher_code
            FROM app_classes c WHERE c.school_id = $1 AND c.year_id = $2 AND ($4::int IS NULL OR c.id = $4) AND (c.is_active OR $4::int IS NOT NULL)
           ORDER BY c.grade, c.name`, [id, year.id, semester, classId ?? null]);
       const given = (name: string) => name.trim().split(/\s+/).pop() ?? '';
@@ -676,18 +741,10 @@ export class ClassService {
           "SELECT u.user_code, u.full_name, u.birth_date::text AS birth_date, u.gender FROM app_class_members m JOIN app_users u ON u.id = m.user_id WHERE m.class_id = $1 AND u.role = 'student' AND u.deleted_at IS NULL", [c.id]))
           .sort((a, b) => given(a.full_name).localeCompare(given(b.full_name), 'vi') || a.full_name.localeCompare(b.full_name, 'vi'))
           .map((u) => ({ code: u.user_code ?? '', name: u.full_name, birth: u.birth_date ? ddmmyyyy(u.birth_date) : '', gender: u.gender === 'male' ? 'Nam' : u.gender === 'female' ? 'Nữ' : '' }));
-        classes.push({ name: c.name, grade: c.grade, semester, teacher: c.teacher, joinCode: c.join_code, students });
+        classes.push({ name: c.name, grade: c.grade, semester, teacher: c.teacher, teacherName: c.teacher_name, teacherCode: c.teacher_code, joinCode: c.join_code, students });
       }
       return { school, year, classes };
     });
-    const { school, year, classes } = data;
-    const buffer = await buildClassRosterBook({
-      identity: `Danh sách lớp năm học ${year.label} · ${school.name} · Mã trường ${school.school_code}`, school: school.name, schoolCode: school.school_code, region: school.region,
-      yearLabel: year.label, semester: classes[0]?.semester ?? 1,
-    }, classes, !classId);
-    const base = classTemplateFilename(school.name, year.label).replace('file_mau_xep-lop_', 'danh_sach_lop_');
-    const filename = classId && classes[0] ? base.replace('danh_sach_lop_', `danh_sach_lop_${plainAscii(classes[0].name).replace(/[^A-Za-z0-9]+/g, '-')}_`) : base;
-    return { buffer, filename };
   }
 
   /**

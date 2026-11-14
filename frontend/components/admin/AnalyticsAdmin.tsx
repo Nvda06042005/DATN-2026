@@ -30,7 +30,7 @@ const WEEKDAYS = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sá
 // ---------------------------------------------------------------------- sử dụng và trợ lý AI (HK.QT.007, HK.QT.009): một dashboard (yêu cầu 14/11/2026 gộp hai tab Sử dụng và AI)
 /**
  * Hàng chỉ số (học tập và Tiểu Tướng), biểu đồ chuyển tab người học / học tập / Tiểu Tướng, ba đồng hồ, rồi các thẻ hoạt động học tập, nhịp học theo thứ trong tuần,
- * trợ lý AI (tư liệu được hỏi nhiều) và chất lượng trả lời. Xuất Excel / PDF theo bố cục chính thức. Tải lâu (máy chủ khởi động) thì báo rõ và cho thử lại.
+ * trợ lý AI (tư liệu được hỏi nhiều) và chất lượng trả lời. Xuất PDF theo thể thức văn bản của nhà trường. Tải lâu (máy chủ khởi động) thì báo rõ và cho thử lại.
  */
 export const UsageAiDashboard: React.FC<{ session: Session; schoolName?: string }> = ({ session, schoolName }) => {
   const { c } = useTheme();
@@ -83,7 +83,7 @@ export const UsageAiDashboard: React.FC<{ session: Session; schoolName?: string 
 
   return (
     <ReportShell testID="usage-dashboard" title="Sử dụng và AI" subtitle={`${schoolName ? `${schoolName} · ` : ''}${days} ngày gần nhất (${range}) · Giờ Việt Nam · AI chỉ thống kê số lượng và chủ đề`}
-      actions={<ReportActions idPrefix="usage" filename={`bao-cao-su-dung-va-ai-${days}-ngay`} excel={() => api.exportUsage(token, days, 'xlsx')} pdf={() => api.exportUsage(token, days, 'pdf')} onRefresh={reload} busy={usage.loading || ai.loading} />}
+      actions={<ReportActions idPrefix="usage" filename={`bao-cao-su-dung-va-ai-${days}-ngay`} pdf={() => api.exportUsage(token, days, 'pdf')} onRefresh={reload} busy={usage.loading || ai.loading} />}
       filters={<View accessibilityRole="tablist" accessibilityLabel="Khoảng thời gian" style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
         <Txt size={12} f="semibold" color={c.muc2}>Thời gian:</Txt>
         {([7, 30, 90] as const).map((n) => <Pill key={n} testID={`usage-range-${n}`} label={`${n} ngày`} on={days === n} onPress={() => setDays(n)} />)}

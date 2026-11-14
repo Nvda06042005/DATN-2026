@@ -11,6 +11,7 @@ import { DatabaseService, DuplicateUsername, Q, Role, searchText, toUser, USER_C
 import { buildFormSheet, cellText, checkUpload, Column, FormColumn, givenNameUpper, memberCode, memberCredentials, normHeader, parseDate, readSheet, schoolInitials, shownUsername, studentTemplateFilename, teacherTemplateFilename, UploadedXlsx, vnDayLabel } from './excel';
 import { SystemService } from '../platform/system.service';
 import { MailService } from './mail.service';
+import { dmyDate, officialPdf, PdfCol } from './pdf';
 import { likeEscape, schoolAdminCredentials, SchoolService } from './school.service';
 
 export type MemberRole = 'teacher' | 'student';
@@ -717,13 +718,56 @@ export class AccountService {
     }).then((r) => { if (opts.commit) this.mail.kick(); return r; });
   }
 
-  async exportMembers(actor: UserRow, role: MemberRole, f: AccountFilter): Promise<Buffer> {
+  /** Mọi giáo viên / học sinh khớp bộ lọc (đọc theo trang 200 dòng) */
+  private async allMembers(actor: UserRow, role: MemberRole, f: AccountFilter) {
     const all: Awaited<ReturnType<AccountService['list']>>['items'] = [];
     for (let page = 1; page <= 100; page += 1) {
       const chunk = (await this.list(actor, { ...f, page, limit: 200 }, role)).items;
       all.push(...chunk);
       if (chunk.length < 200) break;
     }
+    return all;
+  }
+
+  /**
+   * Danh sách giáo viên / học sinh dạng PDF (yêu cầu 14/11/2026: quản trị trường chỉ xuất PDF) theo thể thức văn bản của nhà trường (`officialPdf`):
+   * phần đầu UBND phường/xã, tên trường, Quốc hiệu, Tiêu ngữ, địa danh và ngày; "DANH SÁCH GIÁO VIÊN / HỌC SINH", năm học, tổng số (nam, nữ) và bộ lọc đang dùng;
+   * bảng STT xếp theo tên như danh sách của trường; chỗ ký Người lập biểu, Hiệu trưởng.
+   */
+  async exportMembersPdf(actor: UserRow, role: MemberRole, f: AccountFilter): Promise<Buffer> {
+    const id = actor.role === 'school_admin' ? actor.school_id : f.school_id ?? null;
+    const extra = id ? await this.schools.run(actor, async (q) => ({
+      school: (await q<{ name: string; code: string | null; region: string | null }>('SELECT name, school_code AS code, region FROM app_schools WHERE id = $1', [id]))[0] ?? null,
+      year: (await q<{ label: string }>("SELECT label FROM app_school_years WHERE school_id = $1 ORDER BY (status = 'active') DESC, label DESC LIMIT 1", [id]))[0]?.label ?? null,
+      className: f.class_id ? (await q<{ name: string }>('SELECT name FROM app_classes WHERE id = $1 AND school_id = $2', [f.class_id, id]))[0]?.name ?? null : null,
+    })) : { school: null, year: null, className: null };
+    const given = (name: string) => name.trim().split(/\s+/).pop() ?? '';
+    const all = (await this.allMembers(actor, role, f)).sort((a, b) => given(a.full_name).localeCompare(given(b.full_name), 'vi') || a.full_name.localeCompare(b.full_name, 'vi'));
+    const names = (u: { classes: unknown }) => (u.classes as Array<{ name: string }>).map((c) => c.name).join(', ');
+    const rows = all.map((u) => ({ ...u, gender: u.gender ? GENDER_LABEL[u.gender] : '', birth: dmyDate(u.birth_date), classes_text: names(u), status: u.is_active ? 'Hoạt động' : 'Đã khóa' }));
+    const teacher = role === 'teacher', noun = teacher ? 'giáo viên' : 'học sinh';
+    const male = rows.filter((r) => r.gender === 'Nam').length, female = rows.filter((r) => r.gender === 'Nữ').length;
+    const filters = [f.q ? `tìm "${f.q}"` : null, f.grade ? `khối ${f.grade}` : null, extra.className ? `lớp ${extra.className}` : null, f.active === 'true' ? 'đang hoạt động' : f.active === 'false' ? 'đã khóa' : null].filter(Boolean);
+    const cols: PdfCol[] = teacher
+      ? [{ header: 'Mã giáo viên', key: 'user_code', width: 18, align: 'center' }, { header: 'Họ và tên', key: 'full_name', width: 24, keep: true }, { header: 'Giới tính', key: 'gender', width: 8, align: 'center' },
+        { header: 'Ngày sinh', key: 'birth', width: 11, align: 'center' }, { header: 'Số điện thoại', key: 'phone', width: 12, align: 'center' }, { header: 'Email', key: 'email', width: 27 },
+        { header: 'Lớp phụ trách', key: 'classes_text', width: 14, align: 'center' }, { header: 'Trạng thái', key: 'status', width: 12, align: 'center' }]
+      : [{ header: 'Mã học sinh', key: 'user_code', width: 20, align: 'center' }, { header: 'Họ và tên', key: 'full_name', width: 24, keep: true }, { header: 'Giới tính', key: 'gender', width: 8, align: 'center' },
+        { header: 'Ngày sinh', key: 'birth', width: 11, align: 'center' }, { header: 'Lớp', key: 'classes_text', width: 10, align: 'center' }, { header: 'Số điện thoại', key: 'phone', width: 12, align: 'center' },
+        { header: 'Email', key: 'email', width: 26 }, { header: 'Trạng thái', key: 'status', width: 12, align: 'center' }];
+    return officialPdf({
+      title: `Danh sách ${noun}`, footer: extra.school?.code ? `Mã trường ${extra.school.code}` : undefined,
+      parts: [{
+        school: extra.school, title: `Danh sách ${noun}`, subtitle: extra.year ? `Năm học ${extra.year}` : null,
+        info: [`Tổng số: ${rows.length} ${noun} (nam: ${male}, nữ: ${female})`, ...(filters.length ? [`Lọc theo: ${filters.join(', ')}`] : [])],
+        tables: [{ cols, rows, empty: `Không có ${noun} nào khớp bộ lọc.`, total: rows.length ? `Danh sách này có ${rows.length} ${noun}.` : undefined }],
+        signers: [{ title: 'Người lập biểu', name: actor.full_name }, { title: 'Hiệu trưởng', hint: '(Ký tên, đóng dấu)' }],
+      }],
+    });
+  }
+
+  async exportMembers(actor: UserRow, role: MemberRole, f: AccountFilter): Promise<Buffer> {
+    const all = await this.allMembers(actor, role, f);
     const names = (u: { classes: unknown }) => (u.classes as Array<{ name: string }>).map((c) => c.name).join(', ');
     const rows = all.map((u) => ({
       ...u, gender: u.gender ? GENDER_LABEL[u.gender] : '', birth_date: u.birth_date ?? '', class_name: names(u), classes_text: names(u), status: u.is_active ? 'Đang hoạt động' : 'Đã khóa',

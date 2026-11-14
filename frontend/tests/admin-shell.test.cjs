@@ -181,7 +181,7 @@ test('quản trị trường học: Thống kê trường đứng đầu menu, g
   assert.match(reports, /\{ value: 'overview', label: 'Tổng quan' \}, \{ value: 'classes', label: 'Lớp và học sinh' \}, \{ value: 'results', label: 'Kết quả' \}, \{ value: 'usage', label: 'Sử dụng và AI' \}\];/);
 });
 
-test('Thống kê trường (14/11/2026): Lớp và học sinh, Kết quả, Sử dụng và AI là dashboard cùng kiểu Tổng quan; chọn học kỳ / năm học; xuất Excel, PDF; tải lâu thì báo và cho thử lại', () => {
+test('Thống kê trường (14/11/2026): Lớp và học sinh, Kết quả, Sử dụng và AI là dashboard cùng kiểu Tổng quan; chọn học kỳ / năm học; chỉ xuất PDF; tải lâu thì báo và cho thử lại', () => {
   const reports = read('components', 'admin', 'AnalyticsAdmin.tsx');
   const teacher = read('components', 'admin', 'AnalyticsTeacher.tsx');
   const kit = read('components', 'admin', 'ReportKit.tsx');
@@ -199,16 +199,32 @@ test('Thống kê trường (14/11/2026): Lớp và học sinh, Kết quả, S�
   for (const id of ['results-metrics', 'results-compare', 'results-gauges', 'results-highlights', 'results-table', 'results-classes', 'results-by-${v}']) assert.ok(teacher.includes(id), id);
   for (const id of ['usage-metrics', 'usage-trend-card', 'usage-gauges', 'usage-weekdays', 'usage-ai-quality', 'usage-range-${n}', 'usage-tab-${t.value}']) assert.ok(reports.includes(id), id);
   assert.match(reports, /<AiCard d=\{a\} days=\{days\} topN=\{5\} money=\{false\} \/>/); // quản trị trường không xem chi phí
-  // xuất báo cáo: lớp, kết quả, sử dụng và AI
-  assert.match(teacher, /excel=\{id \? \(\) => api\.exportClass\(token, id, 'xlsx', p\) : undefined\} pdf=\{id \? \(\) => api\.exportClass\(token, id, 'pdf', p\) : undefined\}/);
-  assert.match(teacher, /excel=\{\(\) => api\.exportResults\(token, by, 'xlsx', p\)\} pdf=\{\(\) => api\.exportResults\(token, by, 'pdf', p\)\}/);
-  assert.match(reports, /excel=\{\(\) => api\.exportUsage\(token, days, 'xlsx'\)\} pdf=\{\(\) => api\.exportUsage\(token, days, 'pdf'\)\}/);
+  // xuất báo cáo: lớp, kết quả, sử dụng và AI — chỉ PDF (14/11/2026 bỏ xuất Excel ở cổng quản trị trường)
+  assert.match(teacher, /pdf=\{id \? \(\) => api\.exportClass\(token, id, 'pdf', p\) : undefined\}/);
+  assert.match(teacher, /pdf=\{\(\) => api\.exportResults\(token, by, 'pdf', p\)\}/);
+  assert.match(reports, /pdf=\{\(\) => api\.exportUsage\(token, days, 'pdf'\)\}/);
+  for (const src of [teacher, reports, kit]) assert.doesNotMatch(src, /'xlsx'|Xuất Excel/);
   assert.match(read('api', 'analyticsApi.ts'), /`\$\{base\}\/usage\/export\$\{qs\(\{ days, format \}\)\}`/);
   // tải lâu (máy chủ khởi động) thì báo rõ và có nút Thử lại, không chỉ "Đang tải…"
   assert.match(kit, /Máy chủ đang khởi động hoặc đang bận/);
   for (const src of [teacher, reports]) assert.match(src, /<SlowNote loading=/);
   // giáo viên dùng cùng dashboard lớp (chỉ lớp mình phụ trách), không cần năm học
   assert.match(teacher, /export const TeacherAnalytics: React\.FC<\{ session: Session \}> = \(\{ session \}\) => <ClassAnalytics session=\{session\} title="Thống kê lớp" \/>;/);
+});
+
+test('quản trị trường (14/11/2026): không còn nút xuất Excel nào, chỉ xuất PDF; Nhập từ Excel và file mẫu để nhập vẫn giữ', () => {
+  const people = read('components', 'admin', 'SchoolPeople.tsx');
+  const classes = read('components', 'admin', 'SchoolClasses.tsx');
+  assert.match(people, /<DownloadButton title="Xuất PDF" fetchBlob=\{\(\) => api\.downloadFile\(token, `\/api\/admin\/\$\{kind\}\/export\?\$\{exportQuery \? `\$\{exportQuery\}&` : ''\}format=pdf`\)\} filename=\{teacher \? 'danh-sach-giao-vien\.pdf' : 'danh-sach-hoc-sinh\.pdf'\} \/>/);
+  // mọi trang của cổng quản trị trường: không có nút tải file .xlsx nào ngoài file mẫu để nhập
+  const pages = ['SchoolAdmin.tsx', 'SchoolPeople.tsx', 'SchoolClasses.tsx', 'PasswordList.tsx', 'ShareInbox.tsx', 'SchoolYears.tsx', 'PlatformComms.tsx', 'PlatformOps.tsx', 'SchoolDashboard.tsx', 'AnalyticsAdmin.tsx', 'AnalyticsTeacher.tsx', 'ReportKit.tsx'];
+  for (const file of pages) {
+    const src = read('components', 'admin', file);
+    assert.doesNotMatch(src, /Xuất Excel/, file);
+    for (const m of src.matchAll(/<DownloadButton [^\n]*/g)) assert.doesNotMatch(m[0], /\.xlsx/, `${file}: ${m[0].slice(0, 80)}`);
+  }
+  assert.match(people, /title="Nhập từ Excel"/);
+  assert.match(classes, /title="Xếp lớp từ Excel"/);
 });
 
 test('trang Thống kê trường: cùng bố cục một màn hình với Thống kê hệ thống, số liệu từ bốn API có sẵn, tiêu đề hai nửa đều nhau', () => {

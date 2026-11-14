@@ -202,6 +202,18 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect(filtered.data.map((r) => r[2]).sort()).toEqual(['Lê Văn Nhập Một', 'Phạm Thị Nhập Hai'].sort()); // lọc theo từ khóa như ở danh sách
   });
 
+  test('14/11/2026: xuất PDF danh sách giáo viên / học sinh theo thể thức văn bản của nhà trường (A4 ngang vì nhiều cột, phông Tinos như Times New Roman)', async () => {
+    const pdf = await download(s.base, '/api/admin/teachers/export?format=pdf&q=nhap', A.token);
+    expect([pdf.status, pdf.type, pdf.buffer.subarray(0, 4).toString('latin1')]).toEqual([200, 'application/pdf', '%PDF']);
+    const raw = pdf.buffer.toString('latin1');
+    expect(raw).toMatch(/\/BaseFont \/[A-Z]{6}\+Tinos-Bold/);
+    expect(raw).toMatch(/\/MediaBox \[0 0 841\.89 595\.28\]/);
+    const students = await download(s.base, '/api/admin/students/export?format=pdf', A.token);
+    expect([students.status, students.buffer.subarray(0, 4).toString('latin1')]).toEqual([200, '%PDF']);
+    expect((await download(s.base, '/api/admin/teachers/export?format=docx', A.token)).status).toBeGreaterThanOrEqual(400);
+    expect((await download(s.base, '/api/admin/teachers/export', A.token)).type).toContain('spreadsheetml'); // API Excel vẫn còn (quản trị tổng)
+  });
+
   // ------------------------------------------------------------------ HK.QT.035–040 (lớp) và HK.QT.022
   let c7a: { id: number; join_code: string }, c7b: { id: number }, t1: number;
   test('HK.QT.036/022 tạo lớp theo năm học và khối, phân công một giáo viên mỗi học kỳ; tên lớp không trùng trong năm; mã tham gia duy nhất', async () => {

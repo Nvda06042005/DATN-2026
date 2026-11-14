@@ -67,7 +67,7 @@ export const ResultsDashboard: React.FC<{ session: Session; years?: YearItem[] |
   const chartRows = groups.slice(0, wide ? 10 : 8);
   return (
     <ReportShell testID="results-dashboard" title="Kết quả học tập" subtitle={`${schoolName ? `${schoolName} · ` : ''}${pick.label} · Xếp hạng theo điểm trung bình, sau đó theo tiến độ`}
-      actions={<ReportActions idPrefix="results" filename={`bao-cao-ket-qua-theo-${fileName(noun)}`} excel={() => api.exportResults(token, by, 'xlsx', p)} pdf={() => api.exportResults(token, by, 'pdf', p)} onRefresh={() => setRefresh((n) => n + 1)} busy={data.loading} />}
+      actions={<ReportActions idPrefix="results" filename={`bao-cao-ket-qua-theo-${fileName(noun)}`} pdf={() => api.exportResults(token, by, 'pdf', p)} onRefresh={() => setRefresh((n) => n + 1)} busy={data.loading} />}
       filters={<View style={{ gap: 8 }}>
         <View accessibilityRole="tablist" accessibilityLabel="Nhóm kết quả" style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
           <Txt size={12} f="semibold" color={c.muc2}>So sánh:</Txt>
@@ -331,7 +331,7 @@ export const ClassAnalytics: React.FC<{ session: Session; years?: YearItem[] | n
   return (
     <ReportShell testID="class-dashboard" title={title} subtitle={subtitle}
       actions={<ReportActions idPrefix="class-report" filename={`bao-cao-lop-${fileName(current?.name ?? String(id ?? ''))}`} onRefresh={reload} busy={busy}
-        excel={id ? () => api.exportClass(token, id, 'xlsx', p) : undefined} pdf={id ? () => api.exportClass(token, id, 'pdf', p) : undefined} />}
+        pdf={id ? () => api.exportClass(token, id, 'pdf', p) : undefined} />}
       filters={list.length ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexBasis: 300, flexGrow: 0, minWidth: 240 }}>

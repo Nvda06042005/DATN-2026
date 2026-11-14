@@ -253,6 +253,19 @@ describe('mã tham gia theo quy ước', () => {
     expect(book.worksheets.map((w) => w.name)).toEqual(['6A5']);
     expect(book.getWorksheet('6A5')!.getCell('C13').value).toBe('Chưa phân công'); // học kỳ 1 chưa có giáo viên (đã phân công học kỳ 2)
     expect((await call(s.base, 'GET', `/api/admin/classes/export?class_id=${one.id}`, undefined, B.token)).status).toBe(404); // lớp trường khác
+    // PDF (14/11/2026, quản trị trường chỉ xuất PDF): trang tổng hợp + mỗi lớp một danh sách, A4 dọc, phông Tinos
+    const pdfYear = await fetch(`${s.base}/api/admin/classes/export?year_id=${A.year}&format=pdf`, { headers: { Authorization: `Bearer ${A.token}` } });
+    expect([pdfYear.status, pdfYear.headers.get('content-type')]).toEqual([200, 'application/pdf']);
+    expect(pdfYear.headers.get('content-disposition')).toContain('danh_sach_lop_truong_giong-ong-to_2026-2027.pdf');
+    const rawYear = Buffer.from(await pdfYear.arrayBuffer()).toString('latin1');
+    expect(rawYear.startsWith('%PDF')).toBe(true);
+    expect((rawYear.match(/\/Type \/Page\b/g) ?? []).length).toBeGreaterThanOrEqual(5); // tổng hợp + 4 lớp, mỗi lớp bắt đầu trang mới
+    expect(rawYear).toMatch(/\/MediaBox \[0 0 595\.28 841\.89\]/);
+    expect(rawYear).toMatch(/\+Tinos-Regular/);
+    const pdfOne = await fetch(`${s.base}/api/admin/classes/export?class_id=${one.id}&format=pdf`, { headers: { Authorization: `Bearer ${A.token}` } });
+    expect(pdfOne.headers.get('content-disposition')).toContain('danh_sach_lop_6A5_truong_giong-ong-to_2026-2027.pdf');
+    expect((Buffer.from(await pdfOne.arrayBuffer()).toString('latin1').match(/\/Type \/Page\b/g) ?? []).length).toBe(1);
+    expect((await call(s.base, 'GET', `/api/admin/classes/export?class_id=${one.id}&format=pdf`, undefined, B.token)).status).toBe(404);
   });
 
   test('tạo lớp thủ công giống file Excel (13/11/2026): chọn giáo viên và học sinh theo mã; sĩ số = số học sinh đã chọn; mã tham gia DongA…; học sinh lạ thì không tạo lớp', async () => {
