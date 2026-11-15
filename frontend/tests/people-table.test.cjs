@@ -83,7 +83,8 @@ test('mỗi ô một dòng (dài thì hiện …): tên kèm tên đăng nhập,
   assert.match(src, /const NUM = \{ fontVariant: \['tabular-nums' as const\] \};/);
   assert.match(src, /const Line: React\.FC<\{ text: string; muted\?: boolean; num\?: boolean \}>/);
   assert.match(src, /<Txt size=\{13\} numberOfLines=\{1\} color=\{muted \? c\.muc3 : undefined\} style=\{num \? NUM : undefined\}>\{text\}<\/Txt>/);
-  assert.match(src, /<Txt f="semibold" size=\{14\} numberOfLines=\{1\}>\{name\}<\/Txt>\s*<Txt size=\{12\} color=\{c\.muc3\} numberOfLines=\{1\}>\{username\}<\/Txt>/);
+  assert.match(src, /<Txt f="serifBold" size=\{16\} color=\{c\.logoInk\} numberOfLines=\{1\} style=\{\{ lineHeight: 20, textDecorationLine: 'none' \}\}>\{name\}<\/Txt>/);
+  assert.match(src, /<Txt f="medium" size=\{12\} color=\{c\.muc3\} numberOfLines=\{1\} style=\{\{ textDecorationLine: 'none' \}\}>\{username\}<\/Txt>/);
   assert.match(src, /size=\{codeFontSize\(width, value\.length\)\} numberOfLines=\{1\} style=\{NUM\}>/);
   for (const cols of [teacher, student]) {
     assert.match(cols.find((c) => c.key === 'code').line, /<CodeText value=\{u\.user_code \|\| '—'\} \/>/);

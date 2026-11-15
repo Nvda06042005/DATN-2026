@@ -56,6 +56,14 @@ describe('mã hóa mật khẩu ban đầu', () => {
     expect(list.status).toBe(200);
     expect(await rowOf(teacher.id)).toMatchObject({ username: 'GVAnh672010042005', password: 'DongAGVAnh10042005', status: 'initial', role: 'teacher' });
     expect(await rowOf(student.id)).toMatchObject({ username: 'HSAn567801072015', password: 'DongAHSAn01072015', status: 'initial' });
+    const teacherList = await api('GET', '/api/admin/teachers?limit=200');
+    const studentList = await api('GET', '/api/admin/students?limit=200');
+    const accountDetail = await api('GET', `/api/admin/users/${teacher.id}`);
+    expect(teacherList.body.items.find((u: { id: number }) => u.id === teacher.id).username).toBe((await rowOf(teacher.id))?.username);
+    expect(studentList.body.items.find((u: { id: number }) => u.id === student.id).username).toBe((await rowOf(student.id))?.username);
+    expect(accountDetail.body.username).toBe((await rowOf(teacher.id))?.username);
+    const rootUsers = await api('GET', '/api/admin/users?limit=200', undefined, root);
+    expect(rootUsers.body.items.find((u: { id: number }) => u.id === teacher.id).username).toBe((await rowOf(teacher.id, root))?.username);
     expect(await rowOf(other.id)).toBeUndefined();
     expect(list.body.items.map((x: { username: string }) => x.username.toLowerCase())).not.toContain(A.adminUser);
     // lọc theo vai trò và tìm kiếm
@@ -90,6 +98,7 @@ describe('mã hóa mật khẩu ban đầu', () => {
     expect((await login('gvanh672010042005', 'DongAGVAnh10042005', 'teacher')).body.user).toMatchObject({ must_change_password: true });
     // đặt lại ngẫu nhiên (nút cũ) cũng xem lại được
     const random = await api('POST', `/api/admin/users/${student.id}/reset-password`);
+    expect(random.body.display_username).toBe((await rowOf(student.id))?.username);
     expect(await rowOf(student.id)).toMatchObject({ password: random.body.temporary_password, status: 'initial' });
     // thiếu số điện thoại: không ghép được mật khẩu theo quy ước
     await sql(s.url, 'UPDATE app_users SET phone = NULL WHERE id = $1', [student.id]);

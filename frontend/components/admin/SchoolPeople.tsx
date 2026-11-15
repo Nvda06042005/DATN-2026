@@ -41,8 +41,8 @@ const NameCell: React.FC<{ name: string; username: string }> = ({ name, username
   const { c } = useTheme();
   return (
     <View style={{ minWidth: 0 }}>
-      <Txt f="semibold" size={14} numberOfLines={1}>{name}</Txt>
-      <Txt size={12} color={c.muc3} numberOfLines={1}>{username}</Txt>
+      <Txt f="serifBold" size={16} color={c.logoInk} numberOfLines={1} style={{ lineHeight: 20, textDecorationLine: 'none' }}>{name}</Txt>
+      <Txt f="medium" size={12} color={c.muc3} numberOfLines={1} style={{ textDecorationLine: 'none' }}>{username}</Txt>
     </View>
   );
 };

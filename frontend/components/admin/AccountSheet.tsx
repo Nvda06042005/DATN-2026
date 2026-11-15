@@ -35,7 +35,7 @@ export const AccountSheet: React.FC<{
   const [dialog, setDialog] = useState<Dialog>(null);
   const [credential, setCredential] = useState<CreatedAccount | null>(null);
   const changed = () => { reload(); onChanged(); };
-  if (credential) return <CredentialSheet title="Mật khẩu tạm mới" account={{ full_name: credential.user.full_name, username: credential.user.username, temporary_password: credential.temporary_password, mail: credential.mail }} onClose={() => setCredential(null)} />;
+  if (credential) return <CredentialSheet title="Mật khẩu tạm mới" account={{ full_name: credential.user.full_name, username: credential.display_username ?? credential.user.username, temporary_password: credential.temporary_password, mail: credential.mail }} onClose={() => setCredential(null)} />;
 
   const u = data as AccountDetail | null;
   const self = u?.id === session.user.id;

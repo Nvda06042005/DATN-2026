@@ -21,6 +21,15 @@ const PHONE = /^[0-9]{10}$/;
 const GENDERS: Record<string, 'male' | 'female' | 'other'> = { nam: 'male', male: 'male', nu: 'female', female: 'female', khac: 'other', other: 'other' };
 const GENDER_LABEL = { male: 'Nam', female: 'Nữ', other: 'Khác' } as const;
 
+/** Một cách viết tên đăng nhập cho mọi màn quản trị; giá trị lưu trong database vẫn là chữ thường để đăng nhập không phân biệt hoa thường. */
+const displayAccountUsername = (u: { username: string; role: string; full_name: string; phone: string | null; birth_date: string | null }): string => {
+  if (u.role === 'school_admin' && u.username.startsWith('qly')) return u.username.toUpperCase();
+  const conventional = u.role === 'teacher' || u.role === 'student'
+    ? memberCredentials(u.role, u.full_name, u.phone, u.birth_date)?.username
+    : null;
+  return shownUsername(u.username, conventional);
+};
+
 /** Cột của file nhập giáo viên (số thứ tự chỉ để nhìn, không đọc). Tên cột khác như "Số điện thoại", "Ngày sinh" cũng được nhận */
 export const TEACHER_COLUMNS: Column[] = [
   { key: 'user_code', header: 'Mã giáo viên', width: 22 },
@@ -251,7 +260,7 @@ export class AccountService {
       );
       const items = rows.map((r) => {
         const u = toUser(r);
-        return { ...toPublic(u), school_name: (r.school_name as string | null) ?? null, classes: u.role === 'teacher' ? r.teaching_classes : u.role === 'student' ? r.member_classes : [] };
+        return { ...toPublic(u), username: displayAccountUsername(u), school_name: (r.school_name as string | null) ?? null, classes: u.role === 'teacher' ? r.teaching_classes : u.role === 'student' ? r.member_classes : [] };
       });
       return { total, page, limit, items };
     });
@@ -267,7 +276,7 @@ export class AccountService {
          UNION ALL SELECT c.id, c.name, c.grade, c.school_year, c.is_active, 'student' FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = $1
          ORDER BY school_year DESC, name`, [id]);
       const blocker = await this.deletionBlocker(actor, user, q);
-      return { ...toPublic(user), school_name: school?.name ?? null, classes, deletable: blocker === null, delete_blocker: blocker };
+      return { ...toPublic(user), username: displayAccountUsername(user), school_name: school?.name ?? null, classes, deletable: blocker === null, delete_blocker: blocker };
     });
   }
 
@@ -280,7 +289,7 @@ export class AccountService {
     await this.mail.enqueue(q, {
       school_id: user.school_id, user_id: user.id, batch_id: null, kind: 'bulk', to: user.email,
       subject: reset ? '[Đông A EDU] Mật khẩu tạm mới' : '[Đông A EDU] Thông tin tài khoản',
-      payload: { type: 'account', full_name: user.full_name, username: shownUsername ?? user.username, password, role: user.role, school: schoolName ?? 'Hệ thống Đông A', reset },
+      payload: { type: 'account', full_name: user.full_name, username: shownUsername ?? displayAccountUsername(user), password, role: user.role, school: schoolName ?? 'Hệ thống Đông A', reset },
     });
     return this.mail.configured ? 'queued' : 'not_configured';
   }
@@ -446,8 +455,9 @@ export class AccountService {
       await q('UPDATE app_users SET profile_confirmed_at = COALESCE(profile_confirmed_at, now()) WHERE id = $1 AND role <> \'student\'', [id]);
       const school = target.school_id ? await this.schoolOf(q, target.school_id) : null;
       const fresh = (await this.db.getById(id, q)) as UserRow;
-      const mail = await this.queueAccountMail(q, fresh, password, school?.name ?? null, true);
-      return { user: toPublic(fresh), temporary_password: password, mail };
+      const display = displayAccountUsername(fresh);
+      const mail = await this.queueAccountMail(q, fresh, password, school?.name ?? null, true, display);
+      return { user: toPublic(fresh), display_username: display, temporary_password: password, mail };
     }).then((r) => { this.mail.kick(); return r; });
   }
 
@@ -478,8 +488,7 @@ export class AccountService {
           LIMIT ${limit} OFFSET ${(page - 1) * limit}`, params);
       const items = rows.map((u) => {
         const password = u.must_change_password ? openPassword(u.initial_password_enc, config.authSecret) : null;
-        const conventional = u.role === 'teacher' || u.role === 'student' ? memberCredentials(u.role, u.full_name, u.phone, u.birth_date)?.username : null;
-        const username = u.role === 'school_admin' && u.username.startsWith('qly') ? u.username.toUpperCase() : shownUsername(u.username, conventional);
+        const username = displayAccountUsername(u);
         return {
           id: u.id, user_code: u.user_code, full_name: u.full_name, username, role: u.role, email: u.email, school_id: u.school_id, school_name: u.school_name, is_active: !!u.is_active,
           password, status: !u.must_change_password ? 'changed' as const : password ? 'initial' as const : 'unknown' as const,
