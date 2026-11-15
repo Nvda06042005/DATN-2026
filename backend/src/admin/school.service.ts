@@ -152,7 +152,7 @@ export class SchoolService {
     return rows[0];
   }
 
-  async list(f: { q?: string; city?: string; region?: string; active?: 'true' | 'false'; page?: number; limit?: number }) {
+  async list(f: { q?: string; name?: string; code?: string; city?: string; region?: string; users?: number; created?: string; active?: 'true' | 'false'; page?: number; limit?: number }) {
     const where: string[] = [], params: unknown[] = [];
     const add = (sql: string, v: unknown) => { params.push(v); where.push(sql.replaceAll('?', `$${params.length}`)); };
     if (f.q?.trim()) {
@@ -165,6 +165,10 @@ export class SchoolService {
     }
     if (f.city) add('s.city = ?', f.city);
     if (f.region) add('s.region = ?', f.region);
+    if (f.name?.trim()) add("s.name ILIKE ? ESCAPE '\\'", `%${likeEscape(f.name.trim())}%`);
+    if (f.code?.trim()) add("s.school_code ILIKE ? ESCAPE '\\'", `%${likeEscape(f.code.trim())}%`);
+    if (f.users !== undefined) add('(SELECT count(*) FROM app_users u WHERE u.school_id=s.id AND u.deleted_at IS NULL) = ?', f.users);
+    if (f.created?.trim()) add("to_char(s.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh','DD/MM/YYYY') ILIKE ? ESCAPE '\\'", `%${likeEscape(f.created.trim())}%`);
     if (f.active) add('s.is_active = ?', f.active === 'true');
     const condition = where.length ? where.join(' AND ') : 'TRUE';
     const page = f.page ?? 1, limit = f.limit ?? 30;

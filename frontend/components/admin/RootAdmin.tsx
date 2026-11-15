@@ -92,10 +92,11 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
   const [q, setQ] = useState('');
   const [city, setCity] = useState('');
   const [active, setActive] = useState('');
+  const [columnValues, setColumnValues] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const size = usePageSize();
   const dq = useDebounced(q);
-  const { data, error, loading, reload } = useLoad(() => api.listSchools(token, { q: dq, city, active, page, limit: size }), [token, dq, city, active, page, size], session.expired);
+  const { data, error, loading, reload } = useLoad(() => api.listSchools(token, { q: dq, city, active, ...columnValues, users: columnValues.users && /^\d+$/.test(columnValues.users) ? Number(columnValues.users) : undefined, page, limit: size }), [token, dq, city, active, columnValues, page, size], session.expired);
   const { busy, run } = useAction(session.expired);
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<CreatedSchool | null>(null);
@@ -110,22 +111,28 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
 
   const f_city: SearchFilter = { key: 'city', label: 'Tỉnh / thành', value: city, options: cities, onChange: (v) => { setCity(v); setPage(1); } };
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã vô hiệu hóa' }], onChange: (v) => { setActive(v); setPage(1); } };
+  const textFilter = (key: string, label: string): SearchFilter => ({ key, label, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => { setColumnValues((old) => ({ ...old, [key]: key === 'users' ? v.replace(/\D/g, '') : v })); setPage(1); } });
+  const f_name = textFilter('name', 'Trường');
+  const f_code = textFilter('code', 'Mã trường');
+  const f_users = textFilter('users', 'Số người dùng');
+  const f_created = textFilter('created', 'Ngày tạo');
   return (
     <Page>
       <PageHeader title="Trường học" subtitle="Thêm trường kèm quản trị viên đầu tiên, sửa thông tin, vô hiệu hóa hoặc xóa trường. Xóa trường là xóa luôn toàn bộ tài khoản và dữ liệu của trường." actions={<Btn title="Thêm trường" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="school-add" />} />
       <SearchFilterBar placeholder="Tìm theo tên hoặc mã trường" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="school-search"
-        filters={[f_city, f_active]} />
+        filters={[f_name, f_code, f_city, f_users, f_active, f_created]} />
       <ErrorNote message={error} />
       {loading && !data ? <Spinner label="Đang tải danh sách trường…" /> : null}
       {data ? (
         <>
           <DataTable paginate={false} rows={data.items} rowKey={(s) => s.id} empty="Không có trường nào khớp bộ lọc." onRowPress={(s) => setDetail(s.id)}
             columns={[
-              { key: 'name', label: 'Trường', flex: 2, render: (s) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><SchoolEmblem name={s.name} code={s.school_code} logoUrl={s.logo_url} size={36} /><View style={{ flex: 1 }}><NameCell main={s.name} sub={`Mã ${s.school_code}${s.region ? ` · ${s.region}` : ''}`} /></View></View> },
+              { key: 'name', filter: f_name, label: 'Trường', flex: 2, render: (s) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><SchoolEmblem name={s.name} code={s.school_code} logoUrl={s.logo_url} size={36} /><View style={{ flex: 1 }}><NameCell main={s.name} sub={`Mã ${s.school_code}${s.region ? ` · ${s.region}` : ''}`} /></View></View> },
+              { key: 'code', filter: f_code, label: 'Mã trường', render: (s) => <Txt size={13} selectable>{s.school_code}</Txt> },
               { key: 'city', filter: f_city, label: 'Tỉnh / thành', flex: 1.4, render: (s) => <Txt size={14}>{s.city || 'Chưa có'}</Txt> },
-              { key: 'users', label: 'Người dùng', render: (s) => <Cell main={fmt(s.users)} sub={`${s.teachers} GV · ${s.students} HS · ${s.classes} lớp`} /> },
+              { key: 'users', filter: f_users, label: 'Người dùng', render: (s) => <Cell main={fmt(s.users)} sub={`${s.teachers} GV · ${s.students} HS · ${s.classes} lớp`} /> },
               { key: 'status', filter: f_active, label: 'Trạng thái', render: (s) => <StatusChip kind={s.is_active ? 'on' : 'off'} text={s.is_active ? 'Hoạt động' : 'Vô hiệu hóa'} /> },
-              { key: 'created', label: 'Ngày tạo', render: (s) => <Txt size={13} color={c.muc2}>{dateText(s.created_at)}</Txt> },
+              { key: 'created', filter: f_created, label: 'Ngày tạo', render: (s) => <Txt size={13} color={c.muc2}>{dateText(s.created_at)}</Txt> },
             ]}
             actions={(s) => (<>
               <Btn title="Sửa" tone="giay" size="sm" onPress={() => setEditing(s)} />
@@ -303,11 +310,12 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
   const [role, setRole] = useState('');
   const [schoolId, setSchoolId] = useState('');
   const [active, setActive] = useState('');
+  const [columnValues, setColumnValues] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const size = usePageSize();
   const dq = useDebounced(q);
-  const { data, error, loading, reload } = useLoad(() => api.listUsers(token, { q: dq, role: (role || undefined) as AuthRole | undefined, school_id: schoolId ? Number(schoolId) : undefined, active: (active || undefined) as 'true' | 'false' | undefined, page, limit: size }),
-    [token, dq, role, schoolId, active, page, size], session.expired);
+  const { data, error, loading, reload } = useLoad(() => api.listUsers(token, { q: dq, role: (role || undefined) as AuthRole | undefined, school_id: schoolId ? Number(schoolId) : undefined, active: (active || undefined) as 'true' | 'false' | undefined, ...columnValues, page, limit: size }),
+    [token, dq, role, schoolId, active, columnValues, page, size], session.expired);
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [credential, setCredential] = useState<CreatedAccount | null>(null);
@@ -317,22 +325,26 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
   const f_role: SearchFilter = { key: 'role', label: 'Vai trò', value: role, options: [{ value: '', label: 'Mọi vai trò' }, ...(Object.keys(ROLE_TEXT) as AuthRole[]).map((r) => ({ value: r, label: ROLE_TEXT[r] }))], onChange: (v) => { setRole(v); setPage(1); } };
   const f_school: SearchFilter = { key: 'school', label: 'Trường', value: schoolId, options: [{ value: '', label: 'Mọi trường' }, ...schools], onChange: (v) => { setSchoolId(v); setPage(1); } };
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }], onChange: (v) => { setActive(v); setPage(1); } };
+  const textFilter = (key: string, label: string): SearchFilter => ({ key, label, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => { setColumnValues((old) => ({ ...old, [key]: v })); setPage(1); } });
+  const f_name = textFilter('name', 'Họ tên');
+  const f_email = textFilter('email', 'Email');
+  const f_last = textFilter('last', 'Đăng nhập cuối');
   return (
     <Page>
       <PageHeader title="Người dùng toàn hệ thống" subtitle="Xem, tìm, lọc; sửa, đổi vai trò, khóa/mở khóa, đặt lại mật khẩu hoặc xóa từng tài khoản." actions={<Btn title="Tạo tài khoản quản trị" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="user-add" />} />
       <SearchFilterBar placeholder="Tìm theo tên, tên đăng nhập, email, mã" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="user-search"
-        filters={[f_role, f_school, f_active]} />
+        filters={[f_name, f_role, f_school, f_email, f_last, f_active]} />
       <ErrorNote message={error} />
       {loading && !data ? <Spinner label="Đang tải danh sách…" /> : null}
       {data ? (
         <>
           <DataTable paginate={false} rows={data.items} rowKey={(u) => u.id} empty="Không có người dùng nào khớp bộ lọc." onRowPress={(u) => setOpen(u.id)}
             columns={[
-              { key: 'name', label: 'Họ tên', flex: 1.8, minWidth: 165, render: (u) => <NameCell main={u.full_name} sub={u.username} /> },
+              { key: 'name', filter: f_name, label: 'Họ tên', flex: 1.8, minWidth: 165, render: (u) => <NameCell main={u.full_name} sub={u.username} /> },
               { key: 'role', filter: f_role, label: 'Vai trò', flex: 1.5, render: (u) => <Cell main={ROLE_TEXT[u.role]} sub={u.role === 'root_admin' ? `Cấp ${u.admin_level}` : null} /> },
               { key: 'school', filter: f_school, label: 'Trường', flex: 1.4, render: (u) => <Txt size={14}>{u.school_name || '—'}</Txt> },
-              { key: 'email', label: 'Email', flex: 1.5, render: (u) => <Txt size={13} color={c.muc2} numberOfLines={2}>{u.email || 'Chưa có'}</Txt> },
-              { key: 'last', label: 'Đăng nhập cuối', render: (u) => <Txt size={13} color={c.muc2}>{dateText(u.last_login_at)}</Txt> },
+              { key: 'email', filter: f_email, label: 'Email', flex: 1.5, render: (u) => <Txt size={13} color={c.muc2} numberOfLines={2}>{u.email || 'Chưa có'}</Txt> },
+              { key: 'last', filter: f_last, label: 'Đăng nhập cuối', render: (u) => <Txt size={13} color={c.muc2}>{dateText(u.last_login_at)}</Txt> },
               { key: 'status', filter: f_active, label: 'Trạng thái', render: (u) => <StatusChip kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
             ]} />
           <Pager page={page} limit={size} total={data.total} onPage={setPage} />

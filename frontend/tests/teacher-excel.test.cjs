@@ -50,7 +50,8 @@ test('hộp nhập Excel: câu báo trước ở chỗ nút Chọn file, kiểm 
 
 test('trang Giáo viên: hai cách thêm, biểu mẫu cùng cột với file mẫu (không có Bộ môn), ngày sinh chọn bằng lịch', () => {
   const people = read('components', 'admin', 'SchoolPeople.tsx');
-  assert.match(people, /Có hai cách thêm giáo viên: nút Thêm giáo viên để thêm từng người, hoặc Nhập từ Excel để thêm hàng loạt/);
+  assert.match(people, /const periodLabel = `\$\{year \? `Năm học \$\{year\.label\}` : 'Mọi năm học'\} · Học kỳ \$\{semester\}`/);
+  assert.match(people, /Thêm từng giáo viên hoặc nhập từ Excel/);
   assert.match(people, /Thêm từng giáo viên \(muốn thêm nhiều người cùng lúc, hãy dùng Nhập từ Excel\)/);
   // các ô dùng chung của form thêm giáo viên / học sinh (personFields)
   const form = people.slice(people.indexOf('export const personFields'), people.indexOf('export const SchoolPeople'));
@@ -78,10 +79,10 @@ test('bảng danh sách giáo viên cùng cột với file Excel: Số thứ t�
   const table = people.slice(tableStart, people.indexOf('] : [',tableStart));
   const labels = [...table.matchAll(/label: '([^']+)'/g)].map((m) => m[1]);
   assert.deepEqual(labels, ['Số thứ tự', 'Mã giáo viên', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh', 'Lớp phụ trách', 'Trạng thái']);
-  // số thứ tự nối tiếp qua các trang; ngày sinh hiện dd/mm/yyyy như trong Excel; chỉ còn bộ lọc Trạng thái
+  // số thứ tự nối tiếp qua các trang; ngày sinh hiện dd/mm/yyyy như trong Excel; lọc được theo các cột
   assert.match(table, /\(page - 1\) \* size \+ data\.items\.indexOf\(u\) \+ 1/);
   assert.match(people, /`\$\{iso\.slice\(8, 10\)\}\/\$\{iso\.slice\(5, 7\)\}\/\$\{iso\.slice\(0, 4\)\}`/);
-  assert.match(people, /filters=\{teacher \? \[f_active\] : \[f_grade, f_class, f_active\]\}/);
+  assert.match(people, /filters=\{teacher \? \[f_code, f_name, f_gender, f_phone, f_email, f_birth, f_class, f_active\] : \[f_code, f_name, f_gender, f_phone, f_email, f_birth, f_grade, f_class, f_active\]\}/);
   // không còn Bộ môn ở chi tiết, biểu mẫu sửa, nhãn chọn giáo viên của lớp và hồ sơ cá nhân
   assert.doesNotMatch(read('components', 'admin', 'AccountSheet.tsx'), /Bộ môn|subject/);
   assert.doesNotMatch(read('components', 'admin', 'SchoolClasses.tsx'), /\.subject/);

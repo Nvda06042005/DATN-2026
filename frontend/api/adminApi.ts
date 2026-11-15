@@ -52,7 +52,7 @@ export const setGrade = (token: string, body: { year_id: number; grade: number; 
 export const removeGrade = (token: string, yearId: number, grade: number) => apiRequest<void>(`/api/admin/school-grades${qs({ year_id: yearId, grade })}`, { token, method: 'DELETE' });
 
 // ---------------------------------------------------------------------- người dùng (HK.AD.018–025) và giáo viên, học sinh của trường
-export interface AccountQuery extends Query { q?: string; role?: AuthRole; school_id?: number; active?: 'true' | 'false'; grade?: number; class_id?: number; page?: number; limit?: number }
+export interface AccountQuery extends Query { q?: string; role?: AuthRole; school_id?: number; active?: 'true' | 'false'; grade?: number; class_id?: number; year_id?: number; semester?: number; code?: string; name?: string; gender?: Gender; phone?: string; email?: string; birth?: string; username?: string; last?: string; page?: number; limit?: number }
 export const listUsers = (token: string, query: AccountQuery) => apiRequest<Paged<Account>>(`/api/admin/users${qs(query)}`, { token });
 export const listMembers = (token: string, kind: 'teachers' | 'students', query: AccountQuery) => apiRequest<Paged<Account>>(`/api/admin/${kind}${qs(query)}`, { token });
 export const getUser = (token: string, id: number) => apiRequest<AccountDetail>(`/api/admin/users/${id}`, { token });
@@ -70,7 +70,7 @@ export const deleteUser = (token: string, id: number) => apiRequest<void>(`/api/
 export const importMembers = (token: string, kind: 'teachers' | 'students', file: PickedFile, opts: { commit: boolean; year_id?: number | null; school_id?: number | null }) =>
   apiUpload<ImportResult>(`/api/admin/${kind}/import${qs({ commit: opts.commit ? 'true' : undefined, year_id: opts.year_id, school_id: opts.school_id })}`, file, token);
 /** Mật khẩu tài khoản: mật khẩu ban đầu / cấp lại của tài khoản chưa tự đổi; cấp lại theo quy ước và gửi email */
-export const passwordList = (token: string, query: { q?: string; role?: PasswordRow['role']; school_id?: number; page?: number; limit?: number }) =>
+export const passwordList = (token: string, query: { q?: string; name?: string; username?: string; role?: PasswordRow['role']; school_id?: number; active?: 'true' | 'false'; password_state?: 'initial' | 'changed' | 'unknown'; page?: number; limit?: number }) =>
   apiRequest<{ items: PasswordRow[]; total: number; page: number; limit: number }>(`/api/admin/passwords${qs(query)}`, { token });
 export const reissuePassword = (token: string, id: number) => apiRequest<CreatedAccount>(`/api/admin/users/${id}/reissue-password`, { token, method: 'POST' });
 

@@ -265,9 +265,10 @@ test('quản trị trường học theo quản trị tổng: bộ lọc kiểu E
   assert.doesNotMatch(read2('SchoolPeople.tsx'), /Bộ môn|subject/);
   assert.match(kit, /custom\?: boolean;/);
   assert.match(kit, /col-filter-\$\{filter\.key\}-option-custom/);
-  // năm học đặt cạnh ô tìm kiếm bằng ô chọn không nhãn, các trang chọn theo năm vẫn chọn được
+  // năm học và học kỳ hiện cạnh ô tìm kiếm ở cả ba danh sách
   assert.match(read2('AdminSelect.tsx'), /bare\?: boolean;/);
-  assert.doesNotMatch(read2('SchoolPeople.tsx'), /Năm học \(để lọc lớp\)|member-year|AdminSelect/, 'trang Học sinh không còn ô chọn năm học');
+  assert.match(read2('SchoolPeople.tsx'), /<AdminSelect bare label="Năm học"/);
+  assert.match(read2('SchoolPeople.tsx'), /<AdminSelect bare label="Học kỳ"/);
   assert.match(read2('SchoolClasses.tsx'), /<AdminSelect bare label="Năm học"/);
 });
 

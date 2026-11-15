@@ -105,8 +105,8 @@ test('mật khẩu tài khoản: menu ở quản trị trường và quản tr�
  assert.match(read('api/adminApi.ts'),/`\/api\/admin\/users\/\$\{id\}\/reissue-password`/);
  const classes=read('components/admin/SchoolClasses.tsx');
  // 14/11/2026: quản trị trường chỉ xuất PDF danh sách lớp (thể thức văn bản của nhà trường)
- assert.match(classes,/<DownloadButton title="Xuất PDF danh sách lớp" fetchBlob=\{\(\) => api\.downloadFile\(token, `\/api\/admin\/classes\/export\?year_id=\$\{yearId\}&format=pdf`\)\}/);
- assert.match(classes,/<DownloadButton title="Xuất PDF danh sách lớp" fetchBlob=\{\(\) => api\.downloadFile\(token, `\/api\/admin\/classes\/export\?class_id=\$\{id\}&format=pdf`\)\}/);
+ assert.match(classes,/<DownloadButton title="Xuất PDF danh sách lớp" fetchBlob=\{\(\) => api\.downloadFile\(token, `\/api\/admin\/classes\/export\?year_id=\$\{yearId\}&semester=\$\{semester\}&format=pdf`\)\}/);
+ assert.match(classes,/<DownloadButton title="Xuất PDF danh sách lớp" fetchBlob=\{\(\) => api\.downloadFile\(token, `\/api\/admin\/classes\/export\?class_id=\$\{id\}&semester=\$\{semester\}&format=pdf`\)\}/);
 });
 test('13/11/2026: bỏ hẳn Email phụ huynh; email khôi phục cho quản trị viên; thêm học sinh chọn lớp của mọi năm học chưa kết thúc; tạo lớp chọn học sinh theo mã',()=>{
  // Email phụ huynh không còn ở đâu (migration 062 xóa cột): hồ sơ tài khoản, form sửa, kiểu dữ liệu, thư nhận xét của giáo viên

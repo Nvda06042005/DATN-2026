@@ -67,4 +67,17 @@ import { bootstrap, Fixture } from './fixture';
     expect((await sql(s.url,"SELECT * FROM app_deleted_records WHERE source_table='app_class_term_teachers' AND record_key->>'class_id'=$1",[String(made.body.id)]))).toHaveLength(2);
     for(const role of ['dong_a_school_scope','dong_a_workspace_scope'])expect((await sql(s.url,"SELECT has_table_privilege($1,'app_deleted_records','SELECT') AS allowed",[role]))[0].allowed).toBe(false);
   });
+  test('bộ lọc năm học, học kỳ và các cột dùng đúng dữ liệu phân công', async()=>{
+    const classId=f.class7a.id;
+    const hk1=await api('GET',`/api/admin/teachers?year_id=${f.yearId}&semester=1&class_id=${classId}&name=${encodeURIComponent('Nguyễn Văn Sử')}&limit=20`);
+    expect(hk1.status).toBe(200);
+    expect(hk1.body.items.map((u:{id:number})=>u.id)).toContain(f.T1.id);
+    const hk2=await api('GET',`/api/admin/teachers?year_id=${f.yearId}&semester=2&class_id=${classId}&limit=20`);
+    expect(hk2.status).toBe(200);
+    expect(hk2.body.items.map((u:{id:number})=>u.id)).toContain(f.T2.id);
+    expect(hk2.body.items.map((u:{id:number})=>u.id)).not.toContain(f.T1.id);
+    const classes=await api('GET',`/api/admin/classes?year_id=${f.yearId}&semester=1&name=7A1&teacher=${encodeURIComponent('Nguyễn Văn Sử')}&students=2`);
+    expect(classes.status).toBe(200);
+    expect(classes.body.items.map((c:{id:number})=>c.id)).toContain(classId);
+  });
 });

@@ -262,6 +262,7 @@ describe('mã tham gia theo quy ước', () => {
     expect((rawYear.match(/\/Type \/Page\b/g) ?? []).length).toBeGreaterThanOrEqual(5); // tổng hợp + 4 lớp, mỗi lớp bắt đầu trang mới
     expect(rawYear).toMatch(/\/MediaBox \[0 0 595\.28 841\.89\]/);
     expect(rawYear).toMatch(/\+Tinos-Regular/);
+    expect(rawYear).toMatch(/\/Subtype \/Image/); // logo Đông A ở góc phải của PDF
     const pdfOne = await fetch(`${s.base}/api/admin/classes/export?class_id=${one.id}&format=pdf`, { headers: { Authorization: `Bearer ${A.token}` } });
     expect(pdfOne.headers.get('content-disposition')).toContain('danh_sach_lop_6A5_truong_giong-ong-to_2026-2027.pdf');
     expect((Buffer.from(await pdfOne.arrayBuffer()).toString('latin1').match(/\/Type \/Page\b/g) ?? []).length).toBe(1);

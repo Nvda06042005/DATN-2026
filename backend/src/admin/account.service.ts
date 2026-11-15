@@ -11,7 +11,7 @@ import { DatabaseService, DuplicateUsername, Q, Role, searchText, toUser, USER_C
 import { buildFormSheet, cellText, checkUpload, Column, FormColumn, givenNameUpper, memberCode, memberCredentials, normHeader, parseDate, readSheet, schoolInitials, shownUsername, studentTemplateFilename, teacherTemplateFilename, UploadedXlsx, vnDayLabel } from './excel';
 import { SystemService } from '../platform/system.service';
 import { MailService } from './mail.service';
-import { dmyDate, officialPdf, PdfCol } from './pdf';
+import { dmyDate, officialPdf, PdfCol, schoolPdfLogo } from './pdf';
 import { likeEscape, schoolAdminCredentials, SchoolService } from './school.service';
 
 export type MemberRole = 'teacher' | 'student';
@@ -106,7 +106,9 @@ export function checkTemplateOwner(role: MemberRole, subtitle: string, spec: { s
 }
 
 export interface AccountFilter {
-  q?: string; role?: Role; school_id?: number; active?: 'true' | 'false'; grade?: number; class_id?: number; page?: number; limit?: number;
+  q?: string; role?: Role; school_id?: number; active?: 'true' | 'false'; grade?: number; class_id?: number; year_id?: number; semester?: number;
+  code?: string; name?: string; gender?: 'male' | 'female' | 'other'; phone?: string; email?: string; birth?: string; username?: string; last?: string;
+  page?: number; limit?: number;
 }
 
 export interface ImportRow { row: number; full_name: string; user_code: string | null; email: string | null; status: 'ok' | 'error' | 'created'; errors: string[]; username?: string }
@@ -239,24 +241,45 @@ export class AccountService {
       } else if (f.school_id) add('u.school_id = ?', f.school_id);
       if (role) add('u.role = ?', role);
       if (f.active) add('u.is_active = ?', f.active === 'true' ? 1 : 0);
+      if (f.name?.trim()) add("(u.full_name ILIKE ? ESCAPE '\\' OR u.username ILIKE ? ESCAPE '\\')", `%${likeEscape(f.name.trim())}%`);
+      for (const [column, value] of [['user_code', f.code], ['phone', f.phone], ['email', f.email], ['username', f.username]] as const) {
+        if (value?.trim()) add(`coalesce(u.${column}, '') ILIKE ? ESCAPE '\\'`, `%${likeEscape(value.trim())}%`);
+      }
+      if (f.gender) add('u.gender = ?', f.gender);
+      if (f.birth?.trim()) add("to_char(u.birth_date,'DD/MM/YYYY') ILIKE ? ESCAPE '\\'", `%${likeEscape(f.birth.trim())}%`);
+      if (f.last?.trim()) add("to_char(u.last_login_at AT TIME ZONE 'Asia/Ho_Chi_Minh','DD/MM/YYYY') ILIKE ? ESCAPE '\\'", `%${likeEscape(f.last.trim())}%`);
       if (f.grade) add('(u.grade = ? OR EXISTS (SELECT 1 FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = u.id AND c.grade = ?::smallint))', f.grade);
-      if (f.class_id) add('(EXISTS (SELECT 1 FROM app_class_members m WHERE m.user_id = u.id AND m.class_id = ?) OR EXISTS (SELECT 1 FROM app_current_class_teachers t WHERE t.teacher_id = u.id AND t.class_id = ?))', f.class_id);
+      if (f.class_id) { params.push(f.class_id); const p = `$${params.length}`; params.push(f.semester ?? null); const sp = `$${params.length}`; where.push(`(EXISTS (SELECT 1 FROM app_class_members m WHERE m.user_id = u.id AND m.class_id = ${p}) OR EXISTS (SELECT 1 FROM app_class_teacher_assignments t JOIN app_classes c ON c.id=t.class_id WHERE t.teacher_id = u.id AND t.class_id = ${p} AND t.semester = COALESCE(${sp}::int, public.app_class_semester(c.year_id), 1)))`); }
+      if (f.year_id && fixedRole) {
+        params.push(f.year_id);
+        const yp = `$${params.length}`;
+        if (fixedRole === 'student') where.push(`EXISTS (SELECT 1 FROM app_class_members m JOIN app_classes c ON c.id=m.class_id WHERE m.user_id=u.id AND c.year_id=${yp})`);
+        else {
+          params.push(f.semester ?? null);
+          const sp = `$${params.length}`;
+          where.push(`EXISTS (SELECT 1 FROM app_class_teacher_assignments t JOIN app_classes c ON c.id=t.class_id WHERE t.teacher_id=u.id AND c.year_id=${yp} AND t.semester=COALESCE(${sp}::int, public.app_class_semester(c.year_id), 1))`);
+        }
+      }
       const text = searchText(f.q);
       if (text) add("u.search_text LIKE ? ESCAPE '\\'", `%${likeEscape(text)}%`);
       const limit = Math.min(200, Math.max(1, f.limit ?? 50));
       const page = Math.max(1, f.page ?? 1);
       const total = Number((await q<{ n: string }>(`SELECT COUNT(*) AS n FROM app_users u WHERE ${where.join(' AND ')}`, params))[0].n);
+      const yearParam = `$${params.length + 3}`, semesterParam = `$${params.length + 4}`;
       const rows = await q<Record<string, unknown>>(
         `SELECT ${USER_COLUMNS.split(', ').map((c) => `u.${c}`).join(', ')}, s.name AS school_name,
                 COALESCE((SELECT json_agg(json_build_object('id', c.id, 'name', c.name, 'school_year', c.school_year, 'grade', c.grade) ORDER BY c.school_year DESC, c.name)
-                          FROM app_current_class_teachers t JOIN app_classes c ON c.id = t.class_id WHERE t.teacher_id = u.id), '[]'::json) AS teaching_classes,
+                          FROM app_class_teacher_assignments t JOIN app_classes c ON c.id = t.class_id WHERE t.teacher_id = u.id
+                            AND t.semester = COALESCE(${semesterParam}::int, public.app_class_semester(c.year_id), 1)
+                            AND (${yearParam}::int IS NULL OR c.year_id = ${yearParam})), '[]'::json) AS teaching_classes,
                 COALESCE((SELECT json_agg(json_build_object('id', c.id, 'name', c.name, 'school_year', c.school_year, 'grade', c.grade) ORDER BY c.school_year DESC, c.name)
-                          FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = u.id), '[]'::json) AS member_classes
+                          FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = u.id
+                            AND (${yearParam}::int IS NULL OR c.year_id = ${yearParam})), '[]'::json) AS member_classes
          FROM app_users u LEFT JOIN app_schools s ON s.id = u.school_id
          WHERE ${where.join(' AND ')}
          ORDER BY CASE u.role WHEN 'root_admin' THEN 0 WHEN 'school_admin' THEN 1 WHEN 'teacher' THEN 2 ELSE 3 END, u.full_name, u.id
-         LIMIT ${limit} OFFSET ${(page - 1) * limit}`,
-        params,
+         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, limit, (page - 1) * limit, f.year_id ?? null, f.semester ?? null],
       );
       const items = rows.map((r) => {
         const u = toUser(r);
@@ -466,7 +489,7 @@ export class AccountService {
    * (không gồm tài khoản quản trị tổng). Mật khẩu chỉ hiện khi người dùng CHƯA tự đổi và hệ thống có bản lưu mã hóa của mật khẩu ban đầu / cấp lại;
    * đã đổi thì không ai xem được (chỉ có băm một chiều). Tên đăng nhập hiển thị đúng dạng quy ước (GVAnh…, QLY…).
    */
-  async passwordList(actor: UserRow, f: { q?: string; role?: 'teacher' | 'student' | 'school_admin'; school_id?: number; page?: number; limit?: number }) {
+  async passwordList(actor: UserRow, f: { q?: string; name?: string; username?: string; role?: 'teacher' | 'student' | 'school_admin'; school_id?: number; active?: 'true' | 'false'; password_state?: 'initial' | 'changed' | 'unknown'; page?: number; limit?: number }) {
     const page = Math.max(1, f.page ?? 1), limit = Math.min(200, Math.max(1, f.limit ?? 25));
     return this.schools.run(actor, async (q, scope) => {
       const where = ['u.deleted_at IS NULL', "u.role <> 'root_admin'"];
@@ -474,6 +497,12 @@ export class AccountService {
       const add = (cond: string, v: unknown) => { params.push(v); where.push(cond.replaceAll('?', `$${params.length}`)); };
       if (scope !== null) { add('u.school_id = ?', scope); add('u.id <> ?', actor.id); } else if (f.school_id) add('u.school_id = ?', f.school_id);
       if (f.role) add('u.role = ?', f.role);
+      if (f.name?.trim()) add("(u.full_name ILIKE ? ESCAPE '\\' OR u.user_code ILIKE ? ESCAPE '\\')", `%${likeEscape(f.name.trim())}%`);
+      if (f.username?.trim()) add("u.username ILIKE ? ESCAPE '\\'", `%${likeEscape(f.username.trim())}%`);
+      if (f.active) add('u.is_active = ?', f.active === 'true' ? 1 : 0);
+      if (f.password_state === 'initial') where.push('u.must_change_password = 1 AND u.initial_password_enc IS NOT NULL');
+      if (f.password_state === 'changed') where.push('u.must_change_password = 0');
+      if (f.password_state === 'unknown') where.push('u.must_change_password = 1 AND u.initial_password_enc IS NULL');
       const text = searchText(f.q);
       if (text) add("u.search_text LIKE ? ESCAPE '\\'", `%${likeEscape(text)}%`);
       const clause = where.join(' AND ');
@@ -746,10 +775,11 @@ export class AccountService {
   async exportMembersPdf(actor: UserRow, role: MemberRole, f: AccountFilter): Promise<Buffer> {
     const id = actor.role === 'school_admin' ? actor.school_id : f.school_id ?? null;
     const extra = id ? await this.schools.run(actor, async (q) => ({
-      school: (await q<{ name: string; code: string | null; region: string | null }>('SELECT name, school_code AS code, region FROM app_schools WHERE id = $1', [id]))[0] ?? null,
-      year: (await q<{ label: string }>("SELECT label FROM app_school_years WHERE school_id = $1 ORDER BY (status = 'active') DESC, label DESC LIMIT 1", [id]))[0]?.label ?? null,
+      school: (await q<{ name: string; code: string | null; region: string | null; city: string | null; address: string | null; directory_code: string | null; logo_url: string | null }>('SELECT name, school_code AS code, region, city, address, directory_code, logo_url FROM app_schools WHERE id = $1', [id]))[0] ?? null,
+      year: f.year_id ? (await q<{ label: string }>('SELECT label FROM app_school_years WHERE school_id = $1 AND id = $2', [id, f.year_id]))[0]?.label ?? null : null,
       className: f.class_id ? (await q<{ name: string }>('SELECT name FROM app_classes WHERE id = $1 AND school_id = $2', [f.class_id, id]))[0]?.name ?? null : null,
     })) : { school: null, year: null, className: null };
+    const school = extra.school ? { ...extra.school, logo: await schoolPdfLogo(this.db, extra.school) } : null;
     const given = (name: string) => name.trim().split(/\s+/).pop() ?? '';
     const all = (await this.allMembers(actor, role, f)).sort((a, b) => given(a.full_name).localeCompare(given(b.full_name), 'vi') || a.full_name.localeCompare(b.full_name, 'vi'));
     const names = (u: { classes: unknown }) => (u.classes as Array<{ name: string }>).map((c) => c.name).join(', ');
@@ -765,9 +795,9 @@ export class AccountService {
         { header: 'Ngày sinh', key: 'birth', width: 11, align: 'center' }, { header: 'Lớp', key: 'classes_text', width: 10, align: 'center' }, { header: 'Số điện thoại', key: 'phone', width: 12, align: 'center' },
         { header: 'Email', key: 'email', width: 26 }, { header: 'Trạng thái', key: 'status', width: 12, align: 'center' }];
     return officialPdf({
-      title: `Danh sách ${noun}`, footer: extra.school?.code ? `Mã trường ${extra.school.code}` : undefined,
+      title: `Danh sách ${noun}`, footer: school?.code ? `Mã trường ${school.code}` : undefined,
       parts: [{
-        school: extra.school, title: `Danh sách ${noun}`, subtitle: extra.year ? `Năm học ${extra.year}` : null,
+        school, title: `Danh sách ${noun}`, subtitle: `${extra.year ? `Năm học ${extra.year}` : 'Mọi năm học'}${f.semester ? ` – Học kỳ ${f.semester}` : ''}`,
         info: [`Tổng số: ${rows.length} ${noun} (nam: ${male}, nữ: ${female})`, ...(filters.length ? [`Lọc theo: ${filters.join(', ')}`] : [])],
         tables: [{ cols, rows, empty: `Không có ${noun} nào khớp bộ lọc.`, total: rows.length ? `Danh sách này có ${rows.length} ${noun}.` : undefined }],
         signers: [{ title: 'Người lập biểu', name: actor.full_name }, { title: 'Hiệu trưởng', hint: '(Ký tên, đóng dấu)' }],

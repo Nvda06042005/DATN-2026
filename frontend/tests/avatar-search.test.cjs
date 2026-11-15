@@ -82,9 +82,9 @@ test('trường, người dùng và ba mục nhật ký, yêu cầu hỗ trợ d
   assert.equal((admin.match(/<SearchFilterBar/g) ?? []).length, 2);
   // bộ lọc khai báo một lần rồi dùng cho cả thanh tìm kiếm (màn hẹp) và tiêu đề cột (màn rộng)
   assert.match(admin, /const f_city: SearchFilter = \{ key: 'city'[\s\S]*?const f_active: SearchFilter = \{ key: 'active'/);
-  assert.match(admin, /searchId="school-search"\s+filters=\{\[f_city, f_active\]\}/);
+  assert.match(admin, /searchId="school-search"\s+filters=\{\[f_name, f_code, f_city, f_users, f_active, f_created\]\}/);
   assert.match(admin, /const f_role: SearchFilter = \{ key: 'role'[\s\S]*?const f_school: SearchFilter = \{ key: 'school'[\s\S]*?const f_active: SearchFilter = \{ key: 'active'/);
-  assert.match(admin, /searchId="user-search"\s+filters=\{\[f_role, f_school, f_active\]\}/);
+  assert.match(admin, /searchId="user-search"\s+filters=\{\[f_name, f_role, f_school, f_email, f_last, f_active\]\}/);
   assert.ok(!admin.includes('<FilterBar>'), 'RootAdmin còn FilterBar cũ');
   const ops = read('components', 'admin', 'PlatformOps.tsx');
   assert.equal((ops.match(/<SearchFilterBar/g) ?? []).length, 4);

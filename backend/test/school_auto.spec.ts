@@ -134,6 +134,10 @@ import { directoryInfo } from '../src/admin/school-directory';
     const made = await api('POST', '/api/admin/schools', { directory_code: choice.code, name: choice.name, admin: admin('logo') });
     expect(made.status).toBe(201);
     expect(made.body.school.logo_url).toBe(choice.logo_url);
+    const { schoolPdfLogo } = await import('../src/admin/pdf');
+    const { DatabaseService } = await import('../src/database/database.service');
+    const pdfLogo = await schoolPdfLogo(s.moduleRef.get(DatabaseService), made.body.school);
+    expect(pdfLogo?.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
     const oldUrl = `https://previous-api.example.invalid/api/school-logos/${'0'.repeat(64)}.webp`;
     await sql(s.url, 'UPDATE app_schools SET logo_url=$1 WHERE id=$2', [oldUrl, made.body.school.id]);
     expect((await api('GET', `/api/admin/schools/${made.body.school.id}`)).body.logo_url).toBe(choice.logo_url);
@@ -141,6 +145,7 @@ import { directoryInfo } from '../src/admin/school-directory';
     // Chỉ làm mới ảnh dẫn xuất trong response; không ghi đè ảnh trường tự cung cấp.
     const custom = 'https://school.example.invalid/custom-logo.webp';
     await sql(s.url, 'UPDATE app_schools SET logo_url=$1 WHERE id=$2', [custom, made.body.school.id]);
+    expect(await schoolPdfLogo(s.moduleRef.get(DatabaseService), { directory_code: choice.code, logo_url: custom })).toBeNull();
     expect((await api('GET', `/api/admin/schools/${made.body.school.id}`)).body.logo_url).toBe(custom);
     expect((await call(s.base, 'GET', '/api/auth/school-link/' + made.body.school.link.slug)).body.logo_url).toBe(custom);
   });

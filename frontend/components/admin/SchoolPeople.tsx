@@ -7,9 +7,10 @@ import { View } from 'react-native';
 import { FileUp, Plus } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AccountSheet, GENDER_TEXT } from '@/components/admin/AccountSheet';
+import { AdminSelect } from '@/components/admin/AdminSelect';
 import { RegistrationCode } from './RegistrationCode';
 import { TeacherImportSheet } from './TeacherImportSheet';
-import { CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, NameCell, Page, PageHeader, Pager, SearchFilterBar, StatusDot, useDebounced, useLoad, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
+import { CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, NameCell, Page, PageHeader, Pager, SearchFilterBar, StatusDot, useDebounced, useLoad, yearOptions, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -61,19 +62,32 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const [active, setActive] = useState('');
   const [grade, setGrade] = useState('');
   const [classId, setClassId] = useState('');
+  const [yearSel, setYearSel] = useState('all');
+  const [semesterSel, setSemesterSel] = useState('');
+  const [columnValues, setColumnValues] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const size = usePageSize();
-  const yearId = years.find((y) => y.status === 'active')?.id ?? years[0]?.id ?? 0;
+  const yearId = yearSel === 'all' ? 0 : Number(yearSel || years.find((y) => y.status === 'active')?.id || years[0]?.id || 0);
+  const year = years.find((y) => y.id === yearId);
+  const semester = Number(semesterSel || (year?.term2_starts_on && todayVn() >= year.term2_starts_on ? '2' : '1'));
+  const periodLabel = `${year ? `Năm học ${year.label}` : 'Mọi năm học'} · Học kỳ ${semester}`;
   const dq = useDebounced(q);
-  const query = { q: dq, active: active || undefined, grade: grade ? Number(grade) : undefined, class_id: classId ? Number(classId) : undefined };
-  const { data, error, loading, reload } = useLoad(() => api.listMembers(token, kind, { ...query, page, limit: size } as never), [token, kind, dq, active, grade, classId, page, size], session.expired);
+  const query = { q: dq, active: (active || undefined) as 'true' | 'false' | undefined, grade: grade ? Number(grade) : undefined, class_id: classId ? Number(classId) : undefined, year_id: yearId || undefined, semester, ...columnValues };
+  const { data, error, loading, reload } = useLoad(() => api.listMembers(token, kind, { ...query, page, limit: size }), [token, kind, dq, active, grade, classId, yearId, semester, columnValues, page, size], session.expired);
   // lớp đang hoạt động của mọi năm học chưa kết thúc (yêu cầu 13/11/2026): trước đây chỉ lấy năm học đang hoạt động nên năm đó chưa có lớp thì ô chọn lớp trống
   const { data: classes } = useLoad(() => api.listClasses(token, { active: 'true', limit: 200 }), [token], session.expired);
-  const classOptions = useMemo(() => (classes?.items ?? []).filter((x) => x.is_active && x.year_status !== 'ended').map((x) => ({ value: String(x.id), label: `${x.name} · Khối ${x.grade ?? '?'} (${x.school_year})` })), [classes]);
+  const classOptions = useMemo(() => (classes?.items ?? []).filter((x) => x.is_active && x.year_status !== 'ended' && (!yearId || x.year_id === yearId)).map((x) => ({ value: String(x.id), label: `${x.name} · Khối ${x.grade ?? '?'} (${x.school_year})` })), [classes, yearId]);
   // mỗi bộ lọc khai báo một lần: nút mũi tên ở tiêu đề cột (màn rộng) và nút "Bộ lọc" của thanh tìm kiếm (màn hẹp) dùng chung
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }], onChange: (v) => { setActive(v); setPage(1); } };
   const f_grade: SearchFilter = { key: 'grade', label: 'Khối', value: grade, options: [{ value: '', label: 'Mọi khối' }, ...[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }))], onChange: (v) => { setGrade(v); setPage(1); } };
   const f_class: SearchFilter = { key: 'class', label: 'Lớp', value: classId, options: [{ value: '', label: 'Mọi lớp' }, ...classOptions], onChange: (v) => { setClassId(v); setPage(1); } };
+  const textFilter = (key: string, label: string): SearchFilter => ({ key, label, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => { setColumnValues((old) => ({ ...old, [key]: v })); setPage(1); } });
+  const f_code = textFilter('code', teacher ? 'Mã giáo viên' : 'Mã học sinh');
+  const f_name = textFilter('name', 'Họ và tên');
+  const f_phone = textFilter('phone', 'SĐT');
+  const f_email = textFilter('email', 'Email');
+  const f_birth = textFilter('birth', 'Ngày sinh');
+  const f_gender: SearchFilter = { key: 'gender', label: 'Giới tính', value: columnValues.gender ?? '', options: [{ value: '', label: 'Tất cả' }, { value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }, { value: 'other', label: 'Khác' }], onChange: (v) => { setColumnValues((old) => ({ ...old, gender: v })); setPage(1); } };
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -88,7 +102,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
 
   return (
     <Page>
-      <PageHeader title={teacher ? 'Giáo viên' : 'Học sinh'} subtitle={teacher ? 'Có hai cách thêm giáo viên: nút Thêm giáo viên để thêm từng người, hoặc Nhập từ Excel để thêm hàng loạt. Khóa hoặc đặt lại mật khẩu khi cần.' : 'Tạo tài khoản học sinh (mã, ngày sinh, lớp), nhập danh sách từ Excel, chuyển lớp, khóa hoặc đặt lại mật khẩu.'}
+      <PageHeader title={teacher ? 'Giáo viên' : 'Học sinh'} subtitle={teacher ? `${periodLabel}. Thêm từng giáo viên hoặc nhập từ Excel; khóa hoặc đặt lại mật khẩu khi cần.` : `${periodLabel}. Tạo tài khoản học sinh, nhập từ Excel, chuyển lớp, khóa hoặc đặt lại mật khẩu.`}
         actions={<>
           {/* 14/11/2026: quản trị trường chỉ xuất PDF (danh sách in theo thể thức văn bản của nhà trường), không còn xuất Excel */}
           <DownloadButton title="Xuất PDF" fetchBlob={() => api.downloadFile(token, `/api/admin/${kind}/export?${exportQuery ? `${exportQuery}&` : ''}format=pdf`)} filename={teacher ? 'danh-sach-giao-vien.pdf' : 'danh-sach-hoc-sinh.pdf'} />
@@ -96,7 +110,8 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
           <Btn title={teacher ? 'Thêm giáo viên' : 'Thêm học sinh'} icon={Plus} tone="son" size="sm" onPress={() => setCreating(true)} testID="member-add" />
         </>} />
       <SearchFilterBar placeholder={teacher ? 'Tìm theo tên, email' : 'Tìm theo tên, mã học sinh'} value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="member-search"
-        filters={teacher ? [f_active] : [f_grade, f_class, f_active]}
+        filters={teacher ? [f_code, f_name, f_gender, f_phone, f_email, f_birth, f_class, f_active] : [f_code, f_name, f_gender, f_phone, f_email, f_birth, f_grade, f_class, f_active]}
+        extra={<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}><View style={{ width: 220 }}><AdminSelect bare label="Năm học" value={yearId ? String(yearId) : 'all'} options={[{ value: 'all', label: 'Mọi năm học' }, ...yearOptions(years)]} onChange={(v) => { setYearSel(String(v)); setSemesterSel(''); setClassId(''); setPage(1); }} testID="member-year" /></View><View style={{ width: 160 }}><AdminSelect bare label="Học kỳ" value={String(semester)} options={[{ value: '1', label: 'Học kỳ 1' }, { value: '2', label: 'Học kỳ 2' }]} onChange={(v) => { setSemesterSel(String(v)); setPage(1); }} testID="member-semester" /></View></View>}
         />
       <ErrorNote message={error} />
       {loading && !data ? <Spinner label="Đang tải danh sách…" /> : null}
@@ -107,22 +122,22 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
               // cùng các cột với file Excel (mẫu nhập và danh sách xuất): Số thứ tự, Mã giáo viên, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh; thêm Lớp phụ trách và Trạng thái.
               // Bảy cột đầu giống hệt bảng học sinh; tên dài xuống dòng để hiện đầy đủ, các cột số và mã giữ một dòng.
               { key: 'stt', label: 'Số thứ tự', width: 58, minWidth: 58, render: (u) => <Line text={String((page - 1) * size + data.items.indexOf(u) + 1)} muted num /> },
-              { key: 'code', label: 'Mã giáo viên', width: 140, minWidth: 140, render: (u) => <CodeText value={u.user_code || '—'} /> },
-              { key: 'name', label: 'Họ và tên', width: 180, minWidth: 150, grow: 2, render: (u) => <NameCell main={u.full_name} sub={u.username} fullSub /> },
-              { key: 'gender', label: 'Giới tính', width: 56, minWidth: 56, render: (u) => <Line text={u.gender ? GENDER_TEXT[u.gender] : '—'} /> },
-              { key: 'phone', label: 'SĐT', width: 92, minWidth: 84, render: (u) => <Line text={u.phone || '—'} num /> },
-              { key: 'email', label: 'Email', width: 140, grow: 2, render: (u) => <Line text={u.email || 'Chưa có email'} muted={!u.email} /> },
-              { key: 'birth', label: 'Ngày tháng năm sinh', width: 90, minWidth: 76, render: (u) => <Line text={fmtBirth(u.birth_date)} num /> },
-              { key: 'classes', label: 'Lớp phụ trách', width: 120, grow: 1, render: (u) => <Line text={u.classes.map((k) => k.name).join(', ') || '—'} muted={!u.classes.length} /> },
+              { key: 'code', filter: f_code, label: 'Mã giáo viên', width: 140, minWidth: 140, render: (u) => <CodeText value={u.user_code || '—'} /> },
+              { key: 'name', filter: f_name, label: 'Họ và tên', width: 180, minWidth: 150, grow: 2, render: (u) => <NameCell main={u.full_name} sub={u.username} fullSub /> },
+              { key: 'gender', filter: f_gender, label: 'Giới tính', width: 56, minWidth: 56, render: (u) => <Line text={u.gender ? GENDER_TEXT[u.gender] : '—'} /> },
+              { key: 'phone', filter: f_phone, label: 'SĐT', width: 92, minWidth: 84, render: (u) => <Line text={u.phone || '—'} num /> },
+              { key: 'email', filter: f_email, label: 'Email', width: 140, grow: 2, render: (u) => <Line text={u.email || 'Chưa có email'} muted={!u.email} /> },
+              { key: 'birth', filter: f_birth, label: 'Ngày tháng năm sinh', width: 90, minWidth: 76, render: (u) => <Line text={fmtBirth(u.birth_date)} num /> },
+              { key: 'classes', filter: f_class, label: 'Lớp phụ trách', width: 120, grow: 1, render: (u) => <Line text={u.classes.map((k) => k.name).join(', ') || '—'} muted={!u.classes.length} /> },
               { key: 'status', filter: f_active, label: 'Trạng thái', width: 112, minWidth: 104, render: (u) => <StatusDot kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
             ] : [
               { key: 'stt', label: 'Số thứ tự', width: 58, minWidth: 58, render: (u) => <Line text={String((page - 1) * size + data.items.indexOf(u) + 1)} muted num /> },
-              { key: 'code', label: 'Mã học sinh', width: 140, minWidth: 140, render: (u) => <CodeText value={u.user_code || '—'} /> },
-              { key: 'name', label: 'Họ và tên', width: 180, minWidth: 150, grow: 2, render: (u) => <NameCell main={u.full_name} sub={u.username} fullSub /> },
-              { key: 'gender', label: 'Giới tính', width: 56, minWidth: 56, render: (u) => <Line text={u.gender ? GENDER_TEXT[u.gender] : '—'} /> },
-              { key: 'phone', label: 'SĐT', width: 92, minWidth: 84, render: (u) => <Line text={u.phone || '—'} num /> },
-              { key: 'email', label: 'Email', width: 140, grow: 2, render: (u) => <Line text={u.email || '—'} muted={!u.email} /> },
-              { key: 'birth', label: 'Ngày tháng năm sinh', width: 90, minWidth: 76, render: (u) => <Line text={fmtBirth(u.birth_date)} num /> },
+              { key: 'code', filter: f_code, label: 'Mã học sinh', width: 140, minWidth: 140, render: (u) => <CodeText value={u.user_code || '—'} /> },
+              { key: 'name', filter: f_name, label: 'Họ và tên', width: 180, minWidth: 150, grow: 2, render: (u) => <NameCell main={u.full_name} sub={u.username} fullSub /> },
+              { key: 'gender', filter: f_gender, label: 'Giới tính', width: 56, minWidth: 56, render: (u) => <Line text={u.gender ? GENDER_TEXT[u.gender] : '—'} /> },
+              { key: 'phone', filter: f_phone, label: 'SĐT', width: 92, minWidth: 84, render: (u) => <Line text={u.phone || '—'} num /> },
+              { key: 'email', filter: f_email, label: 'Email', width: 140, grow: 2, render: (u) => <Line text={u.email || '—'} muted={!u.email} /> },
+              { key: 'birth', filter: f_birth, label: 'Ngày tháng năm sinh', width: 90, minWidth: 76, render: (u) => <Line text={fmtBirth(u.birth_date)} num /> },
               { key: 'grade', filter: f_grade, label: 'Khối', width: 60, minWidth: 60, render: (u) => <Line text={[...new Set(u.classes.map((k) => k.grade).filter(Boolean))].map((g) => `Khối ${g}`).join(', ') || '—'} /> },
               { key: 'classes', filter: f_class, label: 'Lớp', width: 116, minWidth: 116, grow: 1, render: (u) => <Line text={u.classes.map((k) => `${k.name} (${k.school_year})`).join(', ') || 'Chưa xếp lớp'} muted={!u.classes.length} /> },
               { key: 'status', filter: f_active, label: 'Trạng thái', width: 140, minWidth: 140, render: (u) => <StatusDot kind={u.is_active ? (u.must_change_password ? 'warn' : 'on') : 'off'} text={u.is_active ? (u.must_change_password ? 'Chưa đổi mật khẩu' : 'Hoạt động') : 'Đã khóa'} /> },

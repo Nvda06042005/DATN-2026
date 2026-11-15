@@ -69,6 +69,8 @@ describe('mã hóa mật khẩu ban đầu', () => {
     // lọc theo vai trò và tìm kiếm
     expect((await api('GET', '/api/admin/passwords?role=student')).body.items.map((x: { id: number }) => x.id)).toEqual([student.id]);
     expect((await api('GET', '/api/admin/passwords?q=duc anh')).body.items.map((x: { id: number }) => x.id)).toEqual([teacher.id]);
+    expect((await api('GET', `/api/admin/passwords?name=${encodeURIComponent('Nguyễn Đức')}&password_state=initial&active=true`)).body.items.map((x: { id: number }) => x.id)).toEqual([teacher.id]);
+    expect((await api('GET', '/api/admin/passwords?username=GVAnh6720')).body.items.map((x: { id: number }) => x.id)).toEqual([teacher.id]);
     // trong cơ sở dữ liệu chỉ có bản mã hóa
     const raw = (await sql<{ e: string }>(s.url, 'SELECT initial_password_enc AS e FROM app_users WHERE id = $1', [teacher.id]))[0].e;
     expect(raw).toBeTruthy();

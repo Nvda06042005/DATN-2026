@@ -8,7 +8,11 @@
  * Cuối văn bản: chỗ ký (Người lập biểu, Hiệu trưởng…) giữ cùng một trang.
  */
 import { join } from 'path';
+import { readFileSync } from 'fs';
 import PDFDocument from 'pdfkit';
+import sharp from 'sharp';
+import { DatabaseService } from '../database/database.service';
+import { directoryLogoHash } from './school-directory';
 
 const FONT_DIR = join(__dirname, '..', '..', 'assets', 'fonts');
 const MM = 72 / 25.4;
@@ -23,7 +27,20 @@ const MUTED = '#555555';
 const HEAD_FILL = '#ededed';
 const BODY = 11.5;
 
-export interface PdfSchool { name: string; code: string | null; region: string | null }
+export interface PdfSchool { name: string; code: string | null; region: string | null; city?: string | null; address?: string | null; logo?: Buffer | null }
+const BRAND_LOGO = readFileSync(join(__dirname, '..', '..', 'assets', 'brand', 'dong-a-edu-lockup.png'));
+
+/** Chỉ dùng ảnh đã lưu trong kho logo xác minh; không tải URL tùy ý khi xuất PDF. */
+export async function schoolPdfLogo(db: DatabaseService, school: { directory_code?: string | null; logo_url?: string | null }): Promise<Buffer | null> {
+  const storedHash = /\/api\/school-logos\/([a-f0-9]{64})\.webp(?:\?|$)/.exec(school.logo_url ?? '')?.[1];
+  // Match the school's current directory logo even when a saved API URL is stale.
+  // A custom URL must never silently fall back to a different directory logo.
+  if (school.logo_url && !storedHash) return null;
+  const hash = (school.directory_code ? directoryLogoHash(school.directory_code) : null) ?? storedHash;
+  if (!hash) return null;
+  const row = (await db.query<{ image_data: Buffer }>('SELECT image_data FROM public.app_school_logo_assets WHERE sha256=$1', [hash]))[0];
+  return row?.image_data ? sharp(row.image_data).resize(160, 160, { fit: 'inside' }).png().toBuffer() : null;
+}
 /** `width` là độ rộng tương đối (xấp xỉ số chữ); `pct`: số phần trăm, ô trống hiện "–" */
 export interface PdfCol { header: string; key: string; width: number; align?: 'left' | 'center' | 'right'; pct?: boolean; /** giữ cả ô trên một dòng (họ và tên) */ keep?: boolean }
 export interface PdfTable {
@@ -104,6 +121,9 @@ export function officialPdf(spec: PdfDoc): Promise<Buffer> {
       const leftW = W * (layout === 'portrait' ? 0.42 : 0.4), rightW = W - leftW, rightX = left + leftW;
       let y = margins.top;
       const school = part.school;
+      if (school?.logo) doc.image(school.logo, left, y, { fit: [48, 48], align: 'center', valign: 'center' });
+      doc.image(BRAND_LOGO, left + W - 112, y, { fit: [112, 48], align: 'right', valign: 'center' });
+      y += 55;
       const schoolLine = school ? (/^trường\s/i.test(school.name) ? upper(school.name) : `TRƯỜNG ${upper(school.name)}`) : 'HÀO KHÍ ĐÔNG A';
       const parent = school ? (school.region ? `UBND ${upper(school.region)}` : null) : 'HỆ THỐNG HỌC TẬP';
       let ly = y;
@@ -112,6 +132,10 @@ export function officialPdf(spec: PdfDoc): Promise<Buffer> {
       ly = centered(schoolLine, 'b', ns, left, leftW - 10, ly);
       rule(left, leftW - 10, doc.font('b').fontSize(ns).widthOfString(schoolLine), 1 / 3, ly + 2);
       ly += 4;
+      if (school?.address) {
+        doc.font('r').fontSize(9).fillColor(MUTED).text(school.address, left, ly + 2, { width: leftW - 10, align: 'center' });
+        ly = doc.y;
+      }
       const qh = 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM', tn = 'Độc lập - Tự do - Hạnh phúc';
       let ry = centered(qh, 'b', fit(qh, 'b', 12.5, rightW - 4, 10), rightX, rightW, y);
       const ts = fit(tn, 'b', 13, rightW - 4, 10.5);

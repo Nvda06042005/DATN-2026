@@ -93,8 +93,9 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
   const [grade, setGrade] = useState('');
   const [q, setQ] = useState('');
   const [active, setActive] = useState('true');
+  const [columnValues, setColumnValues] = useState<Record<string, string>>({});
   const dq = useDebounced(q);
-  const { data, error, loading, reload } = useLoad(() => (yearId ? api.listClasses(token, { year_id: yearId,semester, grade: grade || undefined, q: dq, active: active || undefined, limit: 200 }) : Promise.resolve(null)), [token, yearId,semester, grade, dq, active], session.expired);
+  const { data, error, loading, reload } = useLoad(() => (yearId ? api.listClasses(token, { year_id: yearId,semester, grade: grade || undefined, q: dq, active: active || undefined, ...columnValues, students: columnValues.students && /^\d+$/.test(columnValues.students) ? Number(columnValues.students) : undefined, limit: 200 }) : Promise.resolve(null)), [token, yearId,semester, grade, dq, active, columnValues], session.expired);
   const { data: teachers } = useLoad(() => api.listMembers(token, 'teachers', { active: 'true', limit: 200 }), [token], session.expired);
   const { data: gradeData } = useLoad(() => (yearId ? api.listGrades(token, yearId) : Promise.resolve(null)), [token, yearId], session.expired);
   const teacherOptions = useMemo(() => (teachers?.items ?? []).map((t) => ({ value: String(t.id), label: `${t.user_code ?? 'Chưa có mã'} · ${t.full_name}` })), [teachers]);
@@ -107,19 +108,25 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
   const ended = year?.status === 'ended';
   const f_grade: SearchFilter = { key: 'grade', label: 'Khối', value: grade, options: [{ value: '', label: 'Mọi khối' }, ...[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }))], onChange: setGrade };
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã lưu trữ' }], onChange: setActive };
+  const textFilter = (key: string, label: string): SearchFilter => ({ key, label, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => setColumnValues((old) => ({ ...old, [key]: key === 'students' ? v.replace(/\D/g, '') : v })) });
+  const f_name = textFilter('name', 'Tên lớp');
+  const f_registration = textFilter('registration', 'Mã lớp');
+  const f_teacher = textFilter('teacher', 'Giáo viên phụ trách');
+  const f_students = textFilter('students', 'Sĩ số chính xác');
+  const f_join = textFilter('join_code', 'Mã tham gia');
 
   return (
     <Page>
       <PageHeader title="Lớp học" subtitle="Tạo lớp theo năm học và khối, phân công giáo viên và xếp học sinh vào lớp."
         actions={<>
           <Btn title={`Đề nghị đổi giáo viên${requests.data?.length ? ` (${requests.data.length})`:''}`} tone="giay" size="sm" testID="teacher-change-review" onPress={()=>{requests.reload();setReviewing(true);}}/>
-          {yearId ? <DownloadButton title="Xuất PDF danh sách lớp" fetchBlob={() => api.downloadFile(token, `/api/admin/classes/export?year_id=${yearId}&format=pdf`)} filename={`danh_sach_lop_${year?.label ?? 'nam-hoc'}.pdf`} /> : null}
+          {yearId ? <DownloadButton title="Xuất PDF danh sách lớp" fetchBlob={() => api.downloadFile(token, `/api/admin/classes/export?year_id=${yearId}&semester=${semester}&format=pdf`)} filename={`danh_sach_lop_${year?.label ?? 'nam-hoc'}_hoc-ky-${semester}.pdf`} /> : null}
           <Btn title="Xếp lớp từ Excel" icon={FileUp} tone="giay" size="sm" disabled={!yearId || ended} onPress={() => setImporting(true)} testID="class-import" />
           <Btn title="Tạo lớp" icon={Plus} tone="son" size="sm" disabled={!yearId || ended} onPress={() => setCreating(true)} testID="class-add" />
         </>} />
       {!years.length ? <Inset><Txt size={14}>Chưa có năm học nào. Hãy thêm và kích hoạt năm học ở mục “Trường và năm học” trước khi tạo lớp.</Txt></Inset> : null}
       {reviewing?<TeacherChangeReview session={session} requests={requests.data??[]} loading={requests.loading} error={requests.error} onReload={()=>{requests.reload();reload();}} onClose={()=>{setReviewing(false);reload();}}/>:null}
-      <SearchFilterBar placeholder="Tìm theo tên lớp" value={q} onChange={setQ} searchId="class-search" filters={[f_grade, f_active]}
+      <SearchFilterBar placeholder="Tìm theo tên lớp" value={q} onChange={setQ} searchId="class-search" filters={[f_name, f_registration, f_grade, f_teacher, f_students, f_join, f_active]}
         extra={<View style={{flexDirection:'row',flexWrap:'wrap',gap:12}}><View style={{ width: 220 }}><AdminSelect bare label="Năm học" value={String(yearId)} options={yearOptions(years)} onChange={(v) => {setYearSel(String(v));setSemesterSel('');}} testID="class-year" /></View><View style={{width:160}}><AdminSelect bare label="Học kỳ" value={String(semester)} options={SEMESTERS} onChange={setSemesterSel} testID="class-semester"/></View></View>} />
       {ended ? <Inset><Txt size={13}>Năm học đã kết thúc: chỉ xem được, không sửa lớp hay học sinh của năm này.</Txt></Inset> : null}
       <ErrorNote message={error} />
@@ -127,12 +134,12 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
       {data ? (
         <DataTable rows={data.items} rowKey={(x) => x.id} empty="Chưa có lớp nào khớp bộ lọc." onRowPress={(x) => setOpen(x.id)}
           columns={[
-            { key: 'name', label: 'Lớp', render: (x) => <NameCell main={x.name} sub={x.school_year} /> },
-            {key:'registration',label:'Mã lớp',render:x=><Txt size={14} selectable>{x.registration_code}</Txt>},
+            { key: 'name', filter: f_name, label: 'Lớp', render: (x) => <NameCell main={x.name} sub={x.school_year} /> },
+            {key:'registration',filter:f_registration,label:'Mã lớp',render:x=><Txt size={14} selectable>{x.registration_code}</Txt>},
             { key: 'grade', filter: f_grade, label: 'Khối', flex: 0.7, render: (x) => <Txt size={14}>Khối {x.grade ?? '?'}</Txt> },
-            { key: 'teachers', label: 'Giáo viên phụ trách lớp', flex: 2, render: (x) => <NameCell main={x.teachers.map((t) => t.full_name).join(', ') || 'Chưa phân công'} sub={`Học kỳ ${semester}`} /> },
-            { key: 'students', label: 'Sĩ số', render: (x) => <Txt size={14}>{x.students}{x.expected_size ? ` / ${x.expected_size}` : ''}</Txt> },
-            { key: 'code', label: 'Mã tham gia', flex: 1.6, render: (x) => <Txt f="bold" size={(x.join_code?.length ?? 0) > 8 ? 13 : 15} selectable numberOfLines={1} style={{ letterSpacing: (x.join_code?.length ?? 0) > 8 ? 0 : 2 }}>{x.join_code ?? '—'}</Txt> },
+            { key: 'teachers', filter: f_teacher, label: 'Giáo viên phụ trách lớp', flex: 2, render: (x) => <NameCell main={x.teachers.map((t) => t.full_name).join(', ') || 'Chưa phân công'} sub={`Học kỳ ${semester}`} /> },
+            { key: 'students', filter: f_students, label: 'Sĩ số', render: (x) => <Txt size={14}>{x.students}{x.expected_size ? ` / ${x.expected_size}` : ''}</Txt> },
+            { key: 'code', filter: f_join, label: 'Mã tham gia', flex: 1.6, render: (x) => <Txt f="bold" size={(x.join_code?.length ?? 0) > 8 ? 13 : 15} selectable numberOfLines={1} style={{ letterSpacing: (x.join_code?.length ?? 0) > 8 ? 0 : 2 }}>{x.join_code ?? '—'}</Txt> },
             { key: 'status', filter: f_active, label: 'Trạng thái', render: (x) => <StatusChip kind={x.is_active ? 'on' : 'muted'} text={x.is_active ? (x.join_open ? 'Hoạt động' : 'Đóng tự tham gia') : 'Đã lưu trữ'} /> },
           ]} />
       ) : null}
@@ -229,7 +236,7 @@ const ClassSheet: React.FC<{
             {k.description ? <Txt size={14} color={c.muc2}>{k.description}</Txt> : null}
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               <Btn title="Sửa lớp / phân công" tone="giay" size="sm" disabled={locked} onPress={() => setDialog('edit')} testID="class-edit" />
-              <DownloadButton title="Xuất PDF danh sách lớp" fetchBlob={() => api.downloadFile(token, `/api/admin/classes/export?class_id=${id}&format=pdf`)} filename={`danh_sach_lop_${k.name.replace(/[^A-Za-z0-9]+/g, '-')}_${k.school_year}.pdf`} />
+              <DownloadButton title="Xuất PDF danh sách lớp" fetchBlob={() => api.downloadFile(token, `/api/admin/classes/export?class_id=${id}&semester=${semester}&format=pdf`)} filename={`danh_sach_lop_${k.name.replace(/[^A-Za-z0-9]+/g, '-')}_${k.school_year}_hoc-ky-${semester}.pdf`} />
               <Btn title="Tạo học sinh mới vào lớp" icon={Plus} tone="son" size="sm" disabled={locked || !k.is_active} onPress={() => setDialog('create')} testID="class-create-student" />
               <Btn title="Thêm học sinh đã có" icon={UserPlus} tone="giay" size="sm" disabled={locked || !k.is_active} onPress={() => setDialog('add')} testID="class-add-members" />
               <Btn title={k.is_active ? 'Lưu trữ' : 'Khôi phục'} icon={Archive} tone="giay" size="sm" disabled={locked} onPress={() => setDialog('archive')} />

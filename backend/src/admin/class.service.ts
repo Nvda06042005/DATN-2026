@@ -6,7 +6,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { randomInt } from 'crypto';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
-import { officialPdf, PdfPart } from './pdf';
+import { officialPdf, PdfPart, schoolPdfLogo } from './pdf';
 import { buildClassListSheet, buildClassRosterBook, cellText, checkUpload, classTemplateFilename, Column, joinCodeFor, normHeader, parseDate, plainAscii, readSheet, UploadedXlsx, workbookSheets } from './excel';
 import { likeEscape, SchoolService } from './school.service';
 import { notify } from '../classroom/notify';
@@ -61,7 +61,7 @@ interface ClassRow {
   join_code: string | null; join_open: boolean; expected_size: number | null; description: string | null; status: string; closed_at: string | null;
 }
 
-export interface ClassFilter { school_id?: number; year_id?: number; semester?: number; grade?: number; q?: string; active?: 'true' | 'false'; teacher_id?: number; page?: number; limit?: number }
+export interface ClassFilter { school_id?: number; year_id?: number; semester?: number; grade?: number; q?: string; name?: string; registration?: string; join_code?: string; teacher?: string; students?: number; active?: 'true' | 'false'; teacher_id?: number; page?: number; limit?: number }
 
 @Injectable()
 export class ClassService {
@@ -126,6 +126,11 @@ export class ClassService {
       if (f.year_id) add('c.year_id = ?', f.year_id);
       if (f.grade) add('c.grade = ?', f.grade);
       if (f.active) add('c.is_active = ?', f.active === 'true');
+      if (f.name?.trim()) add("c.name ILIKE ? ESCAPE '\\'", `%${likeEscape(f.name.trim())}%`);
+      if (f.registration?.trim()) add("c.registration_code ILIKE ? ESCAPE '\\'", `%${likeEscape(f.registration.trim())}%`);
+      if (f.join_code?.trim()) add("c.join_code ILIKE ? ESCAPE '\\'", `%${likeEscape(f.join_code.trim())}%`);
+      if (f.teacher?.trim()) add("EXISTS (SELECT 1 FROM app_class_teacher_assignments t JOIN app_users u ON u.id=t.teacher_id WHERE t.class_id=c.id AND t.semester=COALESCE(" + (f.semester === 1 || f.semester === 2 ? String(f.semester) : 'public.app_class_semester(c.year_id)') + ",1) AND (u.full_name ILIKE ? ESCAPE '\\' OR u.user_code ILIKE ? ESCAPE '\\'))", `%${likeEscape(f.teacher.trim())}%`);
+      if (f.students !== undefined) add("(SELECT count(*) FROM app_class_members m JOIN app_users u ON u.id=m.user_id WHERE m.class_id=c.id AND u.role='student' AND u.deleted_at IS NULL) = ?", f.students);
       if (f.teacher_id) add('EXISTS (SELECT 1 FROM app_class_teacher_assignments t WHERE t.class_id=c.id AND t.semester=COALESCE('+ (f.semester === 1 || f.semester === 2 ? String(f.semester) : 'public.app_class_semester(c.year_id)') +',1) AND t.teacher_id=?)', f.teacher_id);
       if (f.q?.trim()) add("(c.name || ' ' || c.class_code || ' ' || c.registration_code) ILIKE ? ESCAPE '\\'", `%${likeEscape(f.q.trim())}%`);
       const condition = where.length ? where.join(' AND ') : 'TRUE';
@@ -675,9 +680,9 @@ export class ClassService {
    * Mỗi lớp: "DANH SÁCH HỌC SINH LỚP …", năm học và học kỳ, giáo viên phụ trách, sĩ số (nam, nữ), mã tham gia; bảng STT, mã học sinh, họ và tên, ngày sinh, giới tính, ghi chú;
    * chỗ ký Giáo viên phụ trách và Hiệu trưởng.
    */
-  async exportRosterPdf(actor: UserRow, schoolId?: number | null, yearId?: number | null, classId?: number | null): Promise<{ buffer: Buffer; filename: string }> {
-    const { school, year, classes } = await this.rosterData(actor, schoolId, yearId, classId);
-    const head = { name: school.name, code: school.school_code, region: school.region };
+  async exportRosterPdf(actor: UserRow, schoolId?: number | null, yearId?: number | null, classId?: number | null, semester?: number | null): Promise<{ buffer: Buffer; filename: string }> {
+    const { school, year, classes } = await this.rosterData(actor, schoolId, yearId, classId, semester);
+    const head = { name: school.name, code: school.school_code, region: school.region, city: school.city, address: school.address, logo: await schoolPdfLogo(this.db, school) };
     const principal = { title: 'Hiệu trưởng', hint: '(Ký tên, đóng dấu)' };
     const count = (c: (typeof classes)[number], g: string) => c.students.filter((x) => x.gender === g).length;
     const parts: PdfPart[] = [];
@@ -716,17 +721,17 @@ export class ClassService {
   }
 
   /** Số liệu chung của file xuất danh sách lớp (Excel và PDF) */
-  private async rosterData(actor: UserRow, schoolId?: number | null, yearId?: number | null, classId?: number | null) {
+  private async rosterData(actor: UserRow, schoolId?: number | null, yearId?: number | null, classId?: number | null, selectedSemester?: number | null) {
     const id = this.schools.target(actor, schoolId);
     return this.schools.run(actor, async (q) => {
-      const school = (await q<{ name: string; school_code: string; region: string | null }>('SELECT name, school_code, region FROM app_schools WHERE id = $1', [id]))[0];
+      const school = (await q<{ name: string; school_code: string; region: string | null; city: string | null; address: string | null; directory_code: string | null; logo_url: string | null }>('SELECT name, school_code, region, city, address, directory_code, logo_url FROM app_schools WHERE id = $1', [id]))[0];
       if (!school) throw new NotFoundException('Không tìm thấy trường');
       const one = classId ? (await q<{ id: number; year_id: number | null }>('SELECT id, year_id FROM app_classes WHERE id = $1 AND school_id = $2', [classId, id]))[0] : null;
       if (classId && !one) throw new NotFoundException('Không tìm thấy lớp');
       const year = (await q<{ id: number; label: string }>(
         "SELECT id, label FROM app_school_years WHERE school_id = $1 AND ($2::int IS NULL OR id = $2) ORDER BY (status = 'active') DESC, label DESC LIMIT 1", [id, one?.year_id ?? yearId ?? null]))[0];
       if (!year) throw new NotFoundException('Không tìm thấy năm học');
-      const semester = Number((await q<{ n: number }>('SELECT COALESCE(public.app_class_semester($1),1) AS n', [year.id]))[0]?.n ?? 1);
+      const semester = selectedSemester ?? Number((await q<{ n: number }>('SELECT COALESCE(public.app_class_semester($1),1) AS n', [year.id]))[0]?.n ?? 1);
       const rows = await q<{ id: number; name: string; grade: number | null; join_code: string | null; teacher: string | null; teacher_name: string | null; teacher_code: string | null }>(
         `SELECT c.id, c.name, c.grade, c.join_code,
                 (SELECT coalesce(u.user_code, 'Chưa có mã') || ' · ' || u.full_name FROM app_class_term_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id AND t.semester = $3) AS teacher,

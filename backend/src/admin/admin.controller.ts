@@ -26,8 +26,12 @@ class Page {
 
 class SchoolQuery extends Page {
   @IsOptional() @IsString() @MaxLength(80) q?: string;
+  @IsOptional() @IsString() @MaxLength(80) name?: string;
+  @IsOptional() @IsString() @MaxLength(40) code?: string;
   @IsOptional() @IsString() @MaxLength(80) city?: string;
   @IsOptional() @IsString() @MaxLength(80) region?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) users?: number;
+  @IsOptional() @IsString() @MaxLength(20) created?: string;
   @IsOptional() @IsIn(['true', 'false']) active?: 'true' | 'false';
 }
 
@@ -125,6 +129,16 @@ class UserQuery extends Page {
   @IsOptional() @IsIn(['true', 'false']) active?: 'true' | 'false';
   @IsOptional() @Type(() => Number) @IsInt() @Min(6) @Max(9) grade?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) class_id?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) year_id?: number;
+  @IsOptional() @Type(() => Number) @IsIn([1, 2]) semester?: number;
+  @IsOptional() @IsString() @MaxLength(80) code?: string;
+  @IsOptional() @IsString() @MaxLength(80) name?: string;
+  @IsOptional() @IsIn(['male', 'female', 'other']) gender?: 'male' | 'female' | 'other';
+  @IsOptional() @IsString() @MaxLength(80) phone?: string;
+  @IsOptional() @IsString() @MaxLength(80) email?: string;
+  @IsOptional() @IsString() @MaxLength(20) birth?: string;
+  @IsOptional() @IsString() @MaxLength(80) username?: string;
+  @IsOptional() @IsString() @MaxLength(20) last?: string;
 }
 
 class MemberExportQuery extends UserQuery {
@@ -179,14 +193,19 @@ class AssignQuery extends SchoolScope {
 
 class RosterQuery extends AssignQuery {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) class_id?: number;
+  @IsOptional() @Type(() => Number) @IsIn([1, 2]) semester?: number;
   /** pdf: danh sách in theo thể thức văn bản của nhà trường (quản trị trường chỉ xuất PDF từ 14/11/2026) */
   @IsOptional() @IsIn(['xlsx', 'pdf']) format?: 'xlsx' | 'pdf';
 }
 
 class PasswordQuery extends Page {
   @IsOptional() @IsString() @MaxLength(80) q?: string;
+  @IsOptional() @IsString() @MaxLength(80) name?: string;
+  @IsOptional() @IsString() @MaxLength(80) username?: string;
   @IsOptional() @IsIn(['teacher', 'student', 'school_admin']) role?: 'teacher' | 'student' | 'school_admin';
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number;
+  @IsOptional() @IsIn(['true', 'false']) active?: 'true' | 'false';
+  @IsOptional() @IsIn(['initial', 'changed', 'unknown']) password_state?: 'initial' | 'changed' | 'unknown';
 }
 
 class ImportQuery extends SchoolScope {
@@ -200,6 +219,11 @@ class ClassQuery extends Page {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) year_id?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(6) @Max(9) grade?: number;
   @IsOptional() @IsString() @MaxLength(40) q?: string;
+  @IsOptional() @IsString() @MaxLength(40) name?: string;
+  @IsOptional() @IsString() @MaxLength(40) registration?: string;
+  @IsOptional() @IsString() @MaxLength(40) join_code?: string;
+  @IsOptional() @IsString() @MaxLength(80) teacher?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(0) students?: number;
   @IsOptional() @IsIn(['true', 'false']) active?: 'true' | 'false';
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) teacher_id?: number;
 }
@@ -497,7 +521,7 @@ export class AdminController {
   @Get('classes/export')
   @Header('Cache-Control','no-store')
   async classExport(@CurrentUser() user: UserRow, @Query() query: RosterQuery) {
-    if (query.format === 'pdf') { const pdf = await this.classes.exportRosterPdf(user, query.school_id, query.year_id, query.class_id); return pdfFile(pdf.buffer, pdf.filename); }
+    if (query.format === 'pdf') { const pdf = await this.classes.exportRosterPdf(user, query.school_id, query.year_id, query.class_id, query.semester); return pdfFile(pdf.buffer, pdf.filename); }
     const file = await this.classes.exportRoster(user, query.school_id, query.year_id, query.class_id);
     return download(file.buffer, file.filename);
   }

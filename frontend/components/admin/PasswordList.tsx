@@ -22,26 +22,32 @@ export const PasswordList: React.FC<{ session: Session; schools?: Array<{ value:
   const [q, setQ] = useState('');
   const [role, setRole] = useState('');
   const [schoolId, setSchoolId] = useState('');
+  const [columnValues, setColumnValues] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const [shown, setShown] = useState(false);
   const [confirm, setConfirm] = useState<PasswordRow | null>(null);
   const [issued, setIssued] = useState<CreatedAccount | null>(null);
   const size = usePageSize();
   const dq = useDebounced(q);
-  const { data, error, loading, reload } = useLoad(() => api.passwordList(token, { q: dq, role: (role || undefined) as PasswordRow['role'] | undefined, school_id: schoolId ? Number(schoolId) : undefined, page, limit: size }),
-    [token, dq, role, schoolId, page, size], session.expired);
+  const { data, error, loading, reload } = useLoad(() => api.passwordList(token, { q: dq, role: (role || undefined) as PasswordRow['role'] | undefined, school_id: schoolId ? Number(schoolId) : undefined, ...columnValues, active: columnValues.active as 'true' | 'false' | undefined, password_state: columnValues.password_state as 'initial' | 'changed' | 'unknown' | undefined, page, limit: size }),
+    [token, dq, role, schoolId, columnValues, page, size], session.expired);
   const { busy, run } = useAction(session.expired);
 
   if (issued) return <CredentialSheet title="Đã cấp lại mật khẩu" account={{ full_name: issued.user.full_name, username: issued.display_username ?? issued.user.username, temporary_password: issued.temporary_password, mail: issued.mail }} onClose={() => { setIssued(null); reload(); }} />;
 
   const f_role: SearchFilter = { key: 'role', label: 'Vai trò', value: role, options: [{ value: '', label: 'Mọi vai trò' }, ...(['school_admin', 'teacher', 'student'] as const).map((r) => ({ value: r, label: ROLE_LABEL[r] }))], onChange: (v) => { setRole(v); setPage(1); } };
   const f_school: SearchFilter = { key: 'school', label: 'Trường', value: schoolId, options: [{ value: '', label: 'Mọi trường' }, ...(schools ?? [])], onChange: (v) => { setSchoolId(v); setPage(1); } };
+  const textFilter = (key: string, label: string): SearchFilter => ({ key, label, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => { setColumnValues((old) => ({ ...old, [key]: v })); setPage(1); } });
+  const f_name = textFilter('name', 'Họ và tên hoặc mã');
+  const f_username = textFilter('username', 'Tên đăng nhập');
+  const f_password: SearchFilter = { key: 'password_state', label: 'Mật khẩu', value: columnValues.password_state ?? '', options: [{ value: '', label: 'Tất cả' }, { value: 'initial', label: 'Chưa đổi' }, { value: 'changed', label: 'Đã đổi' }, { value: 'unknown', label: 'Chưa có bản xem được' }], onChange: (v) => { setColumnValues((old) => ({ ...old, password_state: v })); setPage(1); } };
+  const f_active: SearchFilter = { key: 'active', label: 'Trạng thái tài khoản', value: columnValues.active ?? '', options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Hoạt động' }, { value: 'false', label: 'Đã khóa' }], onChange: (v) => { setColumnValues((old) => ({ ...old, active: v })); setPage(1); } };
   return (
     <Page>
       <PageHeader title="Mật khẩu tài khoản" subtitle={root ? 'Mật khẩu ban đầu của tài khoản các trường khi người dùng chưa tự đổi; cấp lại mật khẩu theo quy ước và gửi email.' : 'Mật khẩu ban đầu của giáo viên, học sinh trong trường khi người dùng chưa tự đổi; cấp lại mật khẩu theo quy ước và gửi email.'}
         actions={<Btn title={shown ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} icon={shown ? EyeOff : Eye} tone="giay" size="sm" onPress={() => setShown((x) => !x)} testID="password-toggle" />} />
       <Inset><Txt size={13} color={c.muc2}>Mật khẩu người dùng tự đặt không ai xem được, kể cả quản trị: hệ thống chỉ lưu dạng băm một chiều. Người dùng quên mật khẩu thì bấm “Cấp lại” để đặt lại theo quy ước (gửi vào email), người dùng phải đổi ở lần đăng nhập sau.</Txt></Inset>
-      <SearchFilterBar placeholder="Tìm theo tên, tên đăng nhập, mã" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="password-search" filters={root ? [f_role, f_school] : [f_role]} />
+      <SearchFilterBar placeholder="Tìm theo tên, tên đăng nhập, mã" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="password-search" filters={root ? [f_name, f_username, f_role, f_school, f_password, f_active] : [f_name, f_username, f_role, f_password, f_active]} />
       <ErrorNote message={error} />
       {loading && !data ? <Spinner label="Đang tải danh sách…" /> : null}
       {data ? (
@@ -49,12 +55,12 @@ export const PasswordList: React.FC<{ session: Session; schools?: Array<{ value:
           <DataTable paginate={false} gap={10} rows={data.items} rowKey={(u) => u.id} empty="Không có tài khoản nào khớp bộ lọc."
             columns={[
               { key: 'stt', label: 'STT', width: 44, minWidth: 44, render: (u) => <Txt size={14} color={c.muc2}>{(page - 1) * size + data.items.indexOf(u) + 1}</Txt> },
-              { key: 'name', label: 'Họ và tên', width: 190, minWidth: 160, grow: 2, render: (u: PasswordRow) => <NameCell main={u.full_name} sub={[ROLE_LABEL[u.role], root ? u.school_name : null, u.user_code].filter(Boolean).join(' · ')} /> },
-              { key: 'username', label: 'Tên đăng nhập', width: 150, grow: 1, render: (u) => <Txt size={13} selectable numberOfLines={1}>{u.username}</Txt> },
-              { key: 'password', label: 'Mật khẩu', width: 170, grow: 1, render: (u) => u.status === 'initial'
+              { key: 'name', filter: f_name, label: 'Họ và tên', width: 190, minWidth: 160, grow: 2, render: (u: PasswordRow) => <NameCell main={u.full_name} sub={[ROLE_LABEL[u.role], root ? u.school_name : null, u.user_code].filter(Boolean).join(' · ')} /> },
+              { key: 'username', filter: f_username, label: 'Tên đăng nhập', width: 150, grow: 1, render: (u) => <Txt size={13} selectable numberOfLines={1}>{u.username}</Txt> },
+              { key: 'password', filter: f_password, label: 'Mật khẩu', width: 170, grow: 1, render: (u) => u.status === 'initial'
                 ? <Txt f="bold" size={13} selectable numberOfLines={1} testID={`password-${u.id}`}>{shown ? u.password : '••••••••••'}</Txt>
                 : <Txt size={13} color={c.muc3} numberOfLines={2}>{u.status === 'changed' ? 'Đã tự đổi, không xem được' : 'Chưa có bản xem được – bấm Cấp lại'}</Txt> },
-              { key: 'status', label: 'Trạng thái', width: 130, minWidth: 120, render: (u) => <StatusDot kind={!u.is_active ? 'off' : u.status === 'changed' ? 'on' : 'warn'} text={!u.is_active ? 'Đã khóa' : u.status === 'changed' ? 'Đã đổi mật khẩu' : 'Chưa đổi mật khẩu'} /> },
+              { key: 'status', filter: f_active, label: 'Trạng thái', width: 130, minWidth: 120, render: (u) => <StatusDot kind={!u.is_active ? 'off' : u.status === 'changed' ? 'on' : 'warn'} text={!u.is_active ? 'Đã khóa' : u.status === 'changed' ? 'Đã đổi mật khẩu' : 'Chưa đổi mật khẩu'} /> },
               { key: 'action', label: '', width: 96, minWidth: 96, render: (u) => <Btn title="Cấp lại" icon={KeyRound} tone="giay" size="sm" onPress={() => setConfirm(u)} testID={`password-reissue-${u.id}`} /> },
             ]} />
           <Pager page={page} limit={size} total={data.total} onPage={setPage} />
