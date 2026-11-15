@@ -22,6 +22,8 @@ Sửa lỗi tiếp 07/11: không tải lại `/me` và nhận diện trường t
 
 Theo yêu cầu tạm ẩn cùng ngày: học sinh ẩn Bộ thẻ, Kế hoạch học, Dòng thời gian, Bản đồ, Trận đánh; giáo viên ẩn Hành trình học, Bộ đề và gỡ Trò chơi hóa khỏi cổng giáo viên. Không xóa bảng/dữ liệu hoặc gỡ chức năng tương ứng của quản trị trường. Quiz tương tác và thi đấu trực tiếp vẫn dùng được.
 
+Cập nhật 15/11/2026: người dùng yêu cầu xóa toàn bộ giao diện trang học sinh để xây dựng lại từ đầu. `StudentApp.tsx` chỉ còn khung (thanh trên cùng + thông báo đang xây dựng lại); 22 tệp giao diện chỉ học sinh dùng đã xóa (danh sách ở `docs/TIEN_DO_HAO_KHI.md`). Không khôi phục các tệp cũ khi xây lại; API máy chủ và dữ liệu học sinh giữ nguyên để giao diện mới dùng lại; giữ các thành phần dùng chung với giáo viên / quản trị và `components/ai/*`.
+
 Theo yêu cầu ngày 06/11/2026, thuật toán gợi ý chỉ tính nội bộ theo lịch nền: không khôi phục tab cấu hình admin, thẻ gợi ý học sinh hay API hiển thị/chỉnh/tính lại/phản hồi. Chính sách chung duy nhất là `hk_reco_settings(id=1)`; không tạo cấu hình theo trường/học sinh. Quy ước và lịch chạy: `docs/THUAT_TOAN_GOI_Y.md`. Migration 041 chỉ cập nhật ghi chú và FAQ mẫu, giữ chính sách đã lưu.
 
 Mọi thay đổi cấu trúc PostgreSQL và dữ liệu seed/reference phải có một file SQL mới trong `database/migrations/` (đánh số tăng dần; hiện tới `048`). Không sửa, đổi tên hoặc xóa migration đã áp dụng (runner từ chối). Ngày 31/10/2026 thư mục này từng bị xóa theo yêu cầu rồi được khôi phục nguyên văn từ Git (001–013) vì Supabase vẫn giữ lịch sử đó; xem `database/migrations/README.md`. Kiểm tra lịch sử migration của database đích trước khi chọn số tiếp theo; không tự coi đó là database mới.

@@ -9,7 +9,6 @@ const read = (...p) => fs.readFileSync(path.join(__dirname, '..', ...p), 'utf8')
 const studio = read('components', 'admin', 'QuizStudio.tsx');
 const host = read('components', 'admin', 'LiveHost.tsx');
 const manager = read('components', 'admin', 'LiveManager.tsx');
-const play = read('components', 'portal', 'LivePlay.tsx');
 const kit = read('components', 'portal', 'LiveKit.tsx');
 const media = read('components', 'portal', 'Media.tsx');
 const theme = read('components', 'portal', 'LiveTheme.tsx');
@@ -56,11 +55,8 @@ test('nhạc chờ là tệp tải lên: chọn / tải lên ở giao diện Qui
   assert.ok(studio.indexOf('const files = useLoad<MediaLibrary>') < studio.indexOf('if (!payload) return <Page>'));
 });
 
-test('thi đấu: học sinh bấm chọn một lần, kết quả hiện số lượt chọn không tô đúng/sai; giáo viên thấy lượt bình chọn; báo cáo không tính tỉ lệ đúng', () => {
-  assert.match(play, /const instant = q\.qtype === 'single' \|\| q\.qtype === 'truefalse' \|\| q\.qtype === 'poll';/);
-  assert.match(play, /tone === 'voted' \? 'Cảm ơn em đã bình chọn!'/);
-  assert.match(play, /\{r\.poll \? null : <Txt f="semibold" size=\{15\} color=\{c\.ngocChu\}>Đáp án đúng:/);
-  assert.match(play, /Kết quả bình chọn: \{it\.votes\.map/);
+// màn hình thi đấu phía học sinh (LivePlay.tsx) đã xóa cùng giao diện trang học sinh ngày 15/11/2026; giữ phần giáo viên
+test('thi đấu: kết quả bình chọn không tô đúng/sai; giáo viên thấy lượt bình chọn; báo cáo không tính tỉ lệ đúng', () => {
   assert.match(kit, /revealed=\{!poll\}/);
   assert.match(host, /lượt bình chọn · không có đáp án đúng/);
   assert.match(host, /poll=\{r\.poll\} big/);

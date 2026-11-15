@@ -128,14 +128,12 @@ test('máy chủ nhận số dòng mỗi trang của yêu cầu hỗ trợ (tố
   assert.match(fs.readFileSync(path.join(server, 'platform.controller.ts'), 'utf8'), /limit: q\.limit \? Number\(q\.limit\) : undefined/);
 });
 
-test('cổng học sinh dùng cùng ô chọn số dòng và thanh chuyển trang: lịch sử làm bài (máy chủ chia trang), thư viện, tư liệu gốc, thông báo (chia trang trên máy)', () => {
+test('thư viện, tư liệu gốc, thông báo dùng cùng ô chọn số dòng và thanh chuyển trang (chia trang trên máy)', () => {
   const kit = read('components', 'admin', 'kit.tsx');
   assert.match(kit, /export function usePaged<T>\(items: T\[\], resetKey: string \| number = ''\)/);
   assert.match(kit, /pager: <Pager page=\{current\} limit=\{size\} total=\{items\.length\} onPage=\{setPage\} \/>/);
   assert.match(kit, /useEffect\(\(\) => \{ setPage\(1\); \}, \[resetKey\]\);/);
-  const progress = read('components', 'portal', 'Progress.tsx');
-  assert.match(progress, /api\.attemptHistory\(session\.token, \{ page, limit: size \}\), \[session\.token, page, size, refreshKey\]/);
-  assert.match(progress, /<Pager page=\{page\} limit=\{size\} total=\{history\.data\.total\} onPage=\{setPage\} \/>/);
+  // lịch sử làm bài (Progress.tsx) đã xóa cùng giao diện trang học sinh ngày 15/11/2026
   const library = read('components', 'portal', 'Library.tsx');
   for (const name of ['pagedSearch', 'pagedFigures', 'pagedPlaces', 'pagedTerms', 'pagedSources']) {
     assert.match(library, new RegExp(`const ${name} = usePaged\\(`), name);

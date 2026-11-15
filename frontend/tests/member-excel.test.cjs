@@ -65,9 +65,7 @@ test('Lớp học: bỏ nút Nhân bản; xếp lớp mỗi lớp một file; gi
  assert.match(kit,/\{r\.sheet \? `\$\{r\.sheet\} · ` : ''\}Dòng \{r\.row\}/);
  // mã tham gia dài theo quy ước DongA… hiển thị gọn; học sinh gõ được mã dài
  assert.match(classes,/size=\{\(k\.join_code\?\.length \?\? 0\) > 8 \? 20 : 30\}/);
- const tab=read('components/portal/ClassTab.tsx');
- assert.match(tab,/label="Mã tham gia lớp"[^>]*maxLength=\{80\}/);
- assert.doesNotMatch(tab,/maxLength=\{6\}|Mã lớp gồm 6 ký tự/);
+ // ô nhập mã tham gia lớp của học sinh (ClassTab) đã xóa cùng giao diện trang học sinh ngày 15/11/2026; máy chủ vẫn nhận mã dài DongA…
  // đề nghị đổi giáo viên phụ trách có lý do (nghỉ sinh con, tai nạn, bệnh dài ngày…)
  const change=read('components/admin/ClassTeacherChange.tsx');
  assert.match(change,/const CHANGE_REASONS=\['Nghỉ sinh con','Tai nạn','Bệnh dài ngày'/);

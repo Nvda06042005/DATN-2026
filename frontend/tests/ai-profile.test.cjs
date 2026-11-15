@@ -29,13 +29,9 @@ test('AiHubDashboard renders AI profile diagnostic strip and actionable Luyện 
   assert.match(hub, /title="Học ngay"/);
 });
 
-test('StudentApp wires AiHubDashboard practice and map jump callbacks', () => {
-  const app = read('components/portal/StudentApp.tsx');
-  assert.match(app, /import \* as analyticsApi from '@\/api\/analyticsApi'/);
-  assert.match(app, /handleAiStartPractice/);
-  assert.match(app, /analyticsApi\.personalPractice/);
-  assert.match(app, /onStartPractice=\{handleAiStartPractice\}/);
-  assert.match(app, /onGoLearn=/);
+// 15/11/2026: trang học sinh xóa giao diện cũ để xây lại nên StudentApp không còn mở AI Hub; AiHubDashboard và lộ trình cá nhân hóa của nhóm AI vẫn giữ
+test('AiHubDashboard (nhóm AI) vẫn còn, chờ trang học sinh mới nối lại', () => {
+  assert.match(read('components/ai/AiHubDashboard.tsx'), /export /);
 });
 
 test('PersonalizedRoadmapView and personalized-roadmap engine implement 4-step wizard, landing recreate flow, and AI/BKT rebalance', () => {
