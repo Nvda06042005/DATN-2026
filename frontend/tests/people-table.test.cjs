@@ -1,4 +1,4 @@
-// Bảng Giáo viên và Học sinh của quản trị trường: mỗi cột có độ rộng ưu tiên, bảng hẹp thì cùng co (không cuộn ngang), mỗi ô một dòng nên hàng thẳng;
+// Bảng Giáo viên và Học sinh của quản trị trường: mỗi cột có độ rộng ưu tiên, bảng hẹp thì cùng co (không cuộn ngang); họ tên dài xuống dòng để hiện đủ.
 // học sinh không còn cột Đăng nhập cuối. Hàm cỡ chữ của mã chạy thật bằng cách biên dịch TypeScript; phần còn lại kiểm tra mã nguồn.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -64,9 +64,9 @@ test('mỗi cột có độ rộng ưu tiên; bảy cột đầu của hai bản
   const growing = (cols) => cols.filter((c) => c.grow > 0).map((c) => c.key);
   assert.deepEqual(growing(teacher), ['name', 'email', 'classes']);
   assert.deepEqual(growing(student), ['name', 'email', 'classes']);
-  // tổng độ rộng ưu tiên vừa phần nội dung của trang quản trị (khoảng 1086px trừ lề và khoảng cách cột): co ít, không cuộn ngang
+  // cột tên rộng hơn để đọc đủ họ tên; tổng độ rộng ưu tiên vẫn vừa vùng nội dung của trang quản trị
   const sum = (cols) => cols.reduce((n, c) => n + c.width, 0);
-  assert.ok(sum(teacher) <= 1000 && sum(student) <= 1040, `${sum(teacher)} / ${sum(student)}`);
+  assert.ok(sum(teacher) <= 1020 && sum(student) <= 1100, `${sum(teacher)} / ${sum(student)}`);
   // tên lớp kèm năm học (6A5 (2025-2026)) hiện đủ
   assert.ok(student.find((c) => c.key === 'classes').minWidth >= 116);
   // "Số thứ tự" và nhãn "Chưa đổi mật khẩu" không bị co tới mức xuống dòng hay mất chữ
@@ -78,17 +78,20 @@ test('mỗi cột có độ rộng ưu tiên; bảy cột đầu của hai bản
   assert.match(tables().src, /<DataTable paginate=\{false\} gap=\{10\} rows=/);
 });
 
-test('mỗi ô một dòng (dài thì hiện …): tên kèm tên đăng nhập, số thẳng cột, trạng thái dạng chấm màu; mã tự co chữ', () => {
+test('tên hiện đủ trên nhiều dòng; tên đăng nhập, số, mã và trạng thái giữ bố cục gọn', () => {
   const { src, teacher, student } = tables();
+  const kit = read('components', 'admin', 'kit.tsx');
   assert.match(src, /const NUM = \{ fontVariant: \['tabular-nums' as const\] \};/);
   assert.match(src, /const Line: React\.FC<\{ text: string; muted\?: boolean; num\?: boolean \}>/);
   assert.match(src, /<Txt size=\{13\} numberOfLines=\{1\} color=\{muted \? c\.muc3 : undefined\} style=\{num \? NUM : undefined\}>\{text\}<\/Txt>/);
-  assert.match(src, /<Txt f="serifBold" size=\{16\} color=\{c\.logoInk\} numberOfLines=\{1\} style=\{\{ lineHeight: 20, textDecorationLine: 'none' \}\}>\{name\}<\/Txt>/);
-  assert.match(src, /<Txt f="medium" size=\{12\} color=\{c\.muc3\} numberOfLines=\{1\} style=\{\{ textDecorationLine: 'none' \}\}>\{username\}<\/Txt>/);
+  assert.match(kit, /export const NameCell: React\.FC</);
+  assert.match(kit, /<Txt f="serifBold" size=\{17\} color=\{c\.logoInk\} style=\{\{ lineHeight: 22, textDecorationLine: 'none' \}\}>\{main\}<\/Txt>/);
+  assert.match(kit, /numberOfLines=\{fullSub \? undefined : 1\}/);
+  assert.match(kit, /overflowWrap: 'anywhere'/);
   assert.match(src, /size=\{codeFontSize\(width, value\.length\)\} numberOfLines=\{1\} style=\{NUM\}>/);
   for (const cols of [teacher, student]) {
     assert.match(cols.find((c) => c.key === 'code').line, /<CodeText value=\{u\.user_code \|\| '—'\} \/>/);
-    assert.match(cols.find((c) => c.key === 'name').line, /<NameCell name=\{u\.full_name\} username=\{u\.username\} \/>/);
+    assert.match(cols.find((c) => c.key === 'name').line, /<NameCell main=\{u\.full_name\} sub=\{u\.username\} fullSub \/>/);
     for (const key of ['stt', 'phone', 'birth']) assert.match(cols.find((c) => c.key === key).line, /<Line [^>]*\bnum \/>/, `${key}: số thẳng cột`);
     assert.match(cols.find((c) => c.key === 'status').line, /<StatusDot kind=/);
     assert.doesNotMatch(cols.map((c) => c.line).join('\n'), /numberOfLines=\{[2-9]\}|<Cell |StatusChip/);

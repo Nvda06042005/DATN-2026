@@ -13,7 +13,7 @@ import { SystemStats } from '@/components/admin/AnalyticsAdmin';
 import { PasswordList } from '@/components/admin/PasswordList';
 import { BroadcastManager } from '@/components/admin/PlatformComms';
 import { FaqManager, LogsPanel, SupportInbox } from '@/components/admin/PlatformOps';
-import { Cell, CredentialSheet, ErrorNote, FormSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, usePageSize, DataTable, type FieldDef, type SearchFilter } from '@/components/admin/kit';
+import { Cell, CredentialSheet, ErrorNote, FormSheet, NameCell, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, usePageSize, DataTable, type FieldDef, type SearchFilter } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { SchoolEmblem, SchoolLinkBox } from '@/components/school-brand';
 import { schoolLogoUrl } from '@/lib/school-logos';
@@ -121,7 +121,7 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
         <>
           <DataTable paginate={false} rows={data.items} rowKey={(s) => s.id} empty="Không có trường nào khớp bộ lọc." onRowPress={(s) => setDetail(s.id)}
             columns={[
-              { key: 'name', label: 'Trường', flex: 2, render: (s) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><SchoolEmblem name={s.name} code={s.school_code} logoUrl={s.logo_url} size={36} /><View style={{ flex: 1 }}><Cell main={s.name} sub={`Mã ${s.school_code}${s.region ? ` · ${s.region}` : ''}`} /></View></View> },
+              { key: 'name', label: 'Trường', flex: 2, render: (s) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><SchoolEmblem name={s.name} code={s.school_code} logoUrl={s.logo_url} size={36} /><View style={{ flex: 1 }}><NameCell main={s.name} sub={`Mã ${s.school_code}${s.region ? ` · ${s.region}` : ''}`} /></View></View> },
               { key: 'city', filter: f_city, label: 'Tỉnh / thành', flex: 1.4, render: (s) => <Txt size={14}>{s.city || 'Chưa có'}</Txt> },
               { key: 'users', label: 'Người dùng', render: (s) => <Cell main={fmt(s.users)} sub={`${s.teachers} GV · ${s.students} HS · ${s.classes} lớp`} /> },
               { key: 'status', filter: f_active, label: 'Trạng thái', render: (s) => <StatusChip kind={s.is_active ? 'on' : 'off'} text={s.is_active ? 'Hoạt động' : 'Vô hiệu hóa'} /> },
@@ -287,7 +287,7 @@ const SchoolDetailSheet: React.FC<{ session: Session; id: number; onClose: () =>
           ))}
           <Txt f="bold" size={14}>Quản trị viên trường học</Txt>
           {data.admins.length ? data.admins.map((a) => (
-            <Inset key={a.id} style={{ gap: 2 }}><Txt f="semibold" size={14}>{a.full_name}{a.is_active ? '' : ' (đã khóa)'}</Txt><Txt size={13} color={c.muc2}>{a.username} · {a.email || 'chưa có email'} · đăng nhập lần cuối: {dateText(a.last_login_at)}</Txt></Inset>
+            <Inset key={a.id} style={{ gap: 2 }}><NameCell main={`${a.full_name}${a.is_active ? '' : ' (đã khóa)'}`} sub={a.username} /><Txt size={13} color={c.muc2}>{a.email || 'chưa có email'} · đăng nhập lần cuối: {dateText(a.last_login_at)}</Txt></Inset>
           )) : <Txt size={14} color={c.muc3}>Chưa có quản trị viên.</Txt>}
         </>
       ) : null}
@@ -328,7 +328,7 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
         <>
           <DataTable paginate={false} rows={data.items} rowKey={(u) => u.id} empty="Không có người dùng nào khớp bộ lọc." onRowPress={(u) => setOpen(u.id)}
             columns={[
-              { key: 'name', label: 'Họ tên', flex: 1.8, render: (u) => <Cell main={u.full_name} sub={u.username} /> },
+              { key: 'name', label: 'Họ tên', flex: 1.8, minWidth: 165, render: (u) => <NameCell main={u.full_name} sub={u.username} /> },
               { key: 'role', filter: f_role, label: 'Vai trò', flex: 1.5, render: (u) => <Cell main={ROLE_TEXT[u.role]} sub={u.role === 'root_admin' ? `Cấp ${u.admin_level}` : null} /> },
               { key: 'school', filter: f_school, label: 'Trường', flex: 1.4, render: (u) => <Txt size={14}>{u.school_name || '—'}</Txt> },
               { key: 'email', label: 'Email', flex: 1.5, render: (u) => <Txt size={13} color={c.muc2} numberOfLines={2}>{u.email || 'Chưa có'}</Txt> },

@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { View } from 'react-native';
 import { Eye, EyeOff, KeyRound } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
-import { Cell, CredentialSheet, DataTable, ErrorNote, Page, PageHeader, Pager, SearchFilterBar, StatusDot, useAction, useDebounced, useLoad, usePageSize, type SearchFilter } from '@/components/admin/kit';
+import { CredentialSheet, DataTable, ErrorNote, NameCell, Page, PageHeader, Pager, SearchFilterBar, StatusDot, useAction, useDebounced, useLoad, usePageSize, type SearchFilter } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, ConfirmSheet, Inset, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -49,7 +49,7 @@ export const PasswordList: React.FC<{ session: Session; schools?: Array<{ value:
           <DataTable paginate={false} gap={10} rows={data.items} rowKey={(u) => u.id} empty="Không có tài khoản nào khớp bộ lọc."
             columns={[
               { key: 'stt', label: 'STT', width: 44, minWidth: 44, render: (u) => <Txt size={14} color={c.muc2}>{(page - 1) * size + data.items.indexOf(u) + 1}</Txt> },
-              { key: 'name', label: 'Họ và tên', width: 150, grow: 2, render: (u: PasswordRow) => <Cell main={u.full_name} sub={[ROLE_LABEL[u.role], root ? u.school_name : null, u.user_code].filter(Boolean).join(' · ')} /> },
+              { key: 'name', label: 'Họ và tên', width: 190, minWidth: 160, grow: 2, render: (u: PasswordRow) => <NameCell main={u.full_name} sub={[ROLE_LABEL[u.role], root ? u.school_name : null, u.user_code].filter(Boolean).join(' · ')} /> },
               { key: 'username', label: 'Tên đăng nhập', width: 150, grow: 1, render: (u) => <Txt size={13} selectable numberOfLines={1}>{u.username}</Txt> },
               { key: 'password', label: 'Mật khẩu', width: 170, grow: 1, render: (u) => u.status === 'initial'
                 ? <Txt f="bold" size={13} selectable numberOfLines={1} testID={`password-${u.id}`}>{shown ? u.password : '••••••••••'}</Txt>

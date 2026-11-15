@@ -11,7 +11,7 @@ import { AdminSelect } from '@/components/admin/AdminSelect';
 import { RegistrationCode } from './RegistrationCode';
 import { TeacherChangeReview } from './ClassTeacherChange';
 import { fmtDay,todayVn } from '@/lib/school-terms';
-import { Cell, CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, ImportSheet, Page, PageHeader, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, valuesToIds, yearOptions, YEAR_TEXT, type FieldDef, type SearchFilter } from '@/components/admin/kit';
+import { CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, ImportSheet, NameCell, Page, PageHeader, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, valuesToIds, yearOptions, YEAR_TEXT, type FieldDef, type SearchFilter } from '@/components/admin/kit';
 import { dateText, GENDER_TEXT } from '@/components/admin/AccountSheet';
 import { personFields } from './SchoolPeople';
 import type { Session } from '@/components/auth';
@@ -73,7 +73,7 @@ const StudentPicker: React.FC<{ session: Session; value: string[]; onChange: (id
           columns={[
             { key: 'stt', label: 'STT', width: 40, minWidth: 40, render: (s) => <Txt size={14} color={c.muc2}>{picked.indexOf(s) + 1}</Txt> },
             { key: 'code', label: 'Mã học sinh', width: 150, minWidth: 140, render: (s) => <Txt size={12} numberOfLines={1}>{s.user_code ?? '—'}</Txt> },
-            { key: 'name', label: 'Họ và tên', width: 150, grow: 2, render: (s) => <Txt f="semibold" size={14} numberOfLines={1}>{s.full_name}</Txt> },
+            { key: 'name', label: 'Họ và tên', width: 180, minWidth: 150, grow: 2, render: (s) => <NameCell main={s.full_name} /> },
             { key: 'birth', label: 'Ngày sinh', width: 88, minWidth: 84, render: (s) => <Txt size={14}>{birth(s.birth_date)}</Txt> },
             { key: 'gender', label: 'Giới tính', width: 64, minWidth: 60, render: (s) => <Txt size={14}>{s.gender ? GENDER_TEXT[s.gender] : '—'}</Txt> },
             { key: 'remove', label: '', width: 48, minWidth: 48, render: (s) => <Btn icon={X} label={`Bỏ chọn ${s.full_name}`} tone="giay" size="sm" onPress={() => toggle(s)} /> },
@@ -127,10 +127,10 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
       {data ? (
         <DataTable rows={data.items} rowKey={(x) => x.id} empty="Chưa có lớp nào khớp bộ lọc." onRowPress={(x) => setOpen(x.id)}
           columns={[
-            { key: 'name', label: 'Lớp', render: (x) => <Cell main={x.name} sub={x.school_year} /> },
+            { key: 'name', label: 'Lớp', render: (x) => <NameCell main={x.name} sub={x.school_year} /> },
             {key:'registration',label:'Mã lớp',render:x=><Txt size={14} selectable>{x.registration_code}</Txt>},
             { key: 'grade', filter: f_grade, label: 'Khối', flex: 0.7, render: (x) => <Txt size={14}>Khối {x.grade ?? '?'}</Txt> },
-            { key: 'teachers', label: 'Giáo viên phụ trách lớp', flex: 2, render: (x) => <Cell main={x.teachers.map((t) => t.full_name).join(', ') || 'Chưa phân công'} sub={`Học kỳ ${semester}`} /> },
+            { key: 'teachers', label: 'Giáo viên phụ trách lớp', flex: 2, render: (x) => <NameCell main={x.teachers.map((t) => t.full_name).join(', ') || 'Chưa phân công'} sub={`Học kỳ ${semester}`} /> },
             { key: 'students', label: 'Sĩ số', render: (x) => <Txt size={14}>{x.students}{x.expected_size ? ` / ${x.expected_size}` : ''}</Txt> },
             { key: 'code', label: 'Mã tham gia', flex: 1.6, render: (x) => <Txt f="bold" size={(x.join_code?.length ?? 0) > 8 ? 13 : 15} selectable numberOfLines={1} style={{ letterSpacing: (x.join_code?.length ?? 0) > 8 ? 0 : 2 }}>{x.join_code ?? '—'}</Txt> },
             { key: 'status', filter: f_active, label: 'Trạng thái', render: (x) => <StatusChip kind={x.is_active ? 'on' : 'muted'} text={x.is_active ? (x.join_open ? 'Hoạt động' : 'Đóng tự tham gia') : 'Đã lưu trữ'} /> },
@@ -243,7 +243,7 @@ const ClassSheet: React.FC<{
               columns={[
                 { key: 'stt', label: 'STT', width: 40, minWidth: 40, render: (m) => <Txt size={14} color={c.muc2}>{k.members.indexOf(m) + 1}</Txt> },
                 { key: 'code', label: 'Mã học sinh', width: 150, minWidth: 140, render: (m) => <Txt size={12} selectable numberOfLines={1}>{m.user_code ?? '—'}</Txt> },
-                { key: 'name', label: 'Họ và tên', width: 150, grow: 2, render: (m) => <Txt f="semibold" size={14} numberOfLines={1}>{m.full_name}{m.is_active ? '' : ' (đã khóa)'}</Txt> },
+                { key: 'name', label: 'Họ và tên', width: 180, minWidth: 150, grow: 2, render: (m) => <NameCell main={`${m.full_name}${m.is_active ? '' : ' (đã khóa)'}`} /> },
                 { key: 'birth', label: 'Ngày sinh', width: 88, minWidth: 84, render: (m) => <Txt size={14}>{m.birth_date ? m.birth_date.split('-').reverse().join('/') : '—'}</Txt> },
                 { key: 'gender', label: 'Giới tính', width: 64, minWidth: 60, render: (m) => <Txt size={14}>{m.gender ? GENDER_TEXT[m.gender] : '—'}</Txt> },
                 { key: 'actions', label: '', width: 92, minWidth: 92, render: (m) => (

@@ -9,7 +9,7 @@ import * as api from '@/api/adminApi';
 import { AccountSheet, GENDER_TEXT } from '@/components/admin/AccountSheet';
 import { RegistrationCode } from './RegistrationCode';
 import { TeacherImportSheet } from './TeacherImportSheet';
-import { CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, Page, PageHeader, Pager, SearchFilterBar, StatusDot, useDebounced, useLoad, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
+import { CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, NameCell, Page, PageHeader, Pager, SearchFilterBar, StatusDot, useDebounced, useLoad, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -34,17 +34,6 @@ const CodeText: React.FC<{ value: string }> = ({ value }) => {
 const Line: React.FC<{ text: string; muted?: boolean; num?: boolean }> = ({ text, muted, num }) => {
   const { c } = useTheme();
   return <Txt size={13} numberOfLines={1} color={muted ? c.muc3 : undefined} style={num ? NUM : undefined}>{text}</Txt>;
-};
-
-/** Họ tên (đậm) và tên đăng nhập (nhạt), mỗi thứ một dòng */
-const NameCell: React.FC<{ name: string; username: string }> = ({ name, username }) => {
-  const { c } = useTheme();
-  return (
-    <View style={{ minWidth: 0 }}>
-      <Txt f="serifBold" size={16} color={c.logoInk} numberOfLines={1} style={{ lineHeight: 20, textDecorationLine: 'none' }}>{name}</Txt>
-      <Txt f="medium" size={12} color={c.muc3} numberOfLines={1} style={{ textDecorationLine: 'none' }}>{username}</Txt>
-    </View>
-  );
 };
 
 /** Ngày YYYY-MM-DD hiển thị dd/mm/yyyy như trong file Excel */
@@ -116,10 +105,10 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
           <DataTable paginate={false} gap={10} rows={data.items} rowKey={(u) => u.id} empty={teacher ? 'Chưa có giáo viên nào khớp bộ lọc.' : 'Chưa có học sinh nào khớp bộ lọc.'} onRowPress={(u) => setOpen(u.id)}
             columns={teacher ? [
               // cùng các cột với file Excel (mẫu nhập và danh sách xuất): Số thứ tự, Mã giáo viên, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh; thêm Lớp phụ trách và Trạng thái.
-              // Mỗi cột có độ rộng ưu tiên (bảy cột đầu giống hệt bảng học sinh); bảng hẹp thì mọi cột cùng co, không có thanh cuộn ngang; mỗi ô một dòng nên mọi hàng thẳng và cao bằng nhau.
+              // Bảy cột đầu giống hệt bảng học sinh; tên dài xuống dòng để hiện đầy đủ, các cột số và mã giữ một dòng.
               { key: 'stt', label: 'Số thứ tự', width: 58, minWidth: 58, render: (u) => <Line text={String((page - 1) * size + data.items.indexOf(u) + 1)} muted num /> },
               { key: 'code', label: 'Mã giáo viên', width: 140, minWidth: 140, render: (u) => <CodeText value={u.user_code || '—'} /> },
-              { key: 'name', label: 'Họ và tên', width: 140, grow: 2, render: (u) => <NameCell name={u.full_name} username={u.username} /> },
+              { key: 'name', label: 'Họ và tên', width: 180, minWidth: 150, grow: 2, render: (u) => <NameCell main={u.full_name} sub={u.username} fullSub /> },
               { key: 'gender', label: 'Giới tính', width: 56, minWidth: 56, render: (u) => <Line text={u.gender ? GENDER_TEXT[u.gender] : '—'} /> },
               { key: 'phone', label: 'SĐT', width: 92, minWidth: 84, render: (u) => <Line text={u.phone || '—'} num /> },
               { key: 'email', label: 'Email', width: 140, grow: 2, render: (u) => <Line text={u.email || 'Chưa có email'} muted={!u.email} /> },
@@ -129,7 +118,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
             ] : [
               { key: 'stt', label: 'Số thứ tự', width: 58, minWidth: 58, render: (u) => <Line text={String((page - 1) * size + data.items.indexOf(u) + 1)} muted num /> },
               { key: 'code', label: 'Mã học sinh', width: 140, minWidth: 140, render: (u) => <CodeText value={u.user_code || '—'} /> },
-              { key: 'name', label: 'Họ và tên', width: 140, grow: 2, render: (u) => <NameCell name={u.full_name} username={u.username} /> },
+              { key: 'name', label: 'Họ và tên', width: 180, minWidth: 150, grow: 2, render: (u) => <NameCell main={u.full_name} sub={u.username} fullSub /> },
               { key: 'gender', label: 'Giới tính', width: 56, minWidth: 56, render: (u) => <Line text={u.gender ? GENDER_TEXT[u.gender] : '—'} /> },
               { key: 'phone', label: 'SĐT', width: 92, minWidth: 84, render: (u) => <Line text={u.phone || '—'} num /> },
               { key: 'email', label: 'Email', width: 140, grow: 2, render: (u) => <Line text={u.email || '—'} muted={!u.email} /> },

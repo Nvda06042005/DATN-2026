@@ -408,6 +408,17 @@ export const Cell: React.FC<{ main: string; sub?: string | null }> = ({ main, su
   );
 };
 
+/** Tên người, trường hoặc lớp trong các bảng Quản lý: chữ có chân, dòng phụ gọn; tên dài được hiện đầy đủ. */
+export const NameCell: React.FC<{ main: string; sub?: string | null; fullSub?: boolean }> = ({ main, sub, fullSub = false }) => {
+  const { c } = useTheme();
+  return (
+    <View style={{ minWidth: 0, gap: 2 }}>
+      <Txt f="serifBold" size={17} color={c.logoInk} style={{ lineHeight: 22, textDecorationLine: 'none' }}>{main}</Txt>
+      {sub ? <Txt f="medium" size={12} color={c.muc3} numberOfLines={fullSub ? undefined : 1} style={[{ textDecorationLine: 'none' }, fullSub && Platform.OS === 'web' ? ({ overflowWrap: 'anywhere' } as object) : null]}>{sub}</Txt> : null}
+    </View>
+  );
+};
+
 /** Trạng thái dạng chấm màu + chữ một dòng, không viền nhãn: dùng trong bảng cần hàng thẳng và gọn (Giáo viên, Học sinh) */
 export const StatusDot: React.FC<{ kind: 'on' | 'off' | 'warn' | 'info' | 'muted'; text: string }> = ({ kind, text }) => {
   const { c } = useTheme();
