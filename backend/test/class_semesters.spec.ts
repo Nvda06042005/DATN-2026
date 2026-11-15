@@ -26,15 +26,25 @@ import { bootstrap, Fixture } from './fixture';
   test('nhập Excel giáo viên và học sinh gắn đúng học kỳ đã chọn',async()=>{
     for(const kind of ['teachers','students'] as const){
       const spec=(await api('GET',`/api/admin/${kind}/import-spec`)).body;
-      const template=await download(s.base,`/api/admin/${kind}/template`,f.A.token);
+      const template=await download(s.base,`/api/admin/${kind}/template?year_id=${f.yearId}&semester=2`,f.A.token);
       const wb=new(await import('exceljs')).Workbook();await wb.xlsx.load(template.buffer as any);
       const ws=wb.worksheets[0];
+      const year=(await sql(s.url,'SELECT label FROM app_school_years WHERE id=$1',[f.yearId]))[0].label;
+      expect(ws.getCell('D3').value).toBe('Năm học:');
+      expect(ws.getCell('E3').value).toBe(year);
+      expect(ws.getCell('D4').value).toBe('Học kỳ:');
+      expect(ws.getCell('E4').value).toBe('Học kỳ 2');
+      expect(ws.getCell('C11').value).toBe('Họ và tên *');
       ws.getCell('C12').value=kind==='teachers'?'Giáo viên nhập kỳ hai':'Học sinh nhập kỳ hai';
       ws.getCell('E12').value=kind==='teachers'?'0900000141':'0900000142';
       ws.getCell('F12').value=`term.${kind}@example.invalid`;
       ws.getCell('G12').value=kind==='teachers'?'15/03/1985':'15/03/2013';
+      const file=Buffer.from(await wb.xlsx.writeBuffer());
+      const mismatch=await upload(s.base,`/api/admin/${kind}/import?year_id=${f.yearId}&semester=1`,spec.filename,file,f.A.token);
+      expect(mismatch.status).toBe(400);
+      expect(mismatch.body.detail).toContain('Năm học hoặc học kỳ trong file khác');
       const path=`/api/admin/${kind}/import?commit=true&year_id=${f.yearId}&semester=2`;
-      const result=await upload(s.base,path,spec.filename,Buffer.from(await wb.xlsx.writeBuffer()),f.A.token);
+      const result=await upload(s.base,path,spec.filename,file,f.A.token);
       expect(result.status).toBe(200);expect(result.body.created).toBe(1);
       const id=(await api('GET',`/api/admin/${kind}?email=term.${kind}@example.invalid`)).body.items[0].id;
       expect((await sql(s.url,'SELECT semester FROM app_member_school_terms WHERE user_id=$1 AND year_id=$2',[id,f.yearId]))[0].semester).toBe(2);

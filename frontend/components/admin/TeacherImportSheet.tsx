@@ -25,6 +25,6 @@ export const TeacherImportSheet: React.FC<{
       <View style={{ width: 220 }}><AdminSelect label="Năm học nhập danh sách" value={String(yearId)} options={availableYears.map((y) => ({ value: String(y.id), label: y.label }))} onChange={(v) => setYearId(Number(v))} testID="import-year" /></View>
       <View style={{ width: 160 }}><AdminSelect label="Học kỳ nhập danh sách" value={String(semester)} options={[{ value: '1', label: 'Học kỳ 1' }, { value: '2', label: 'Học kỳ 2' }]} onChange={(v) => setSemester(Number(v))} testID="import-semester" /></View>
     </View>}
-    expectedFilename={spec.filename} legacyFilename={spec.legacy_filename} template={{ filename: spec.filename, fetchBlob: () => api.downloadFile(token, `/api/admin/${kind}/template`) }}
+    expectedFilename={spec.filename} legacyFilename={spec.legacy_filename} template={{ filename: spec.filename, fetchBlob: () => api.downloadFile(token, yearId ? `/api/admin/${kind}/template?year_id=${yearId}&semester=${semester}` : `/api/admin/${kind}/template`) }}
     run={(file, commit) => api.importMembers(token, kind, file, { commit, year_id: yearId || undefined, semester: yearId ? semester : undefined })} onClose={onClose} onDone={onDone}/>;
 };

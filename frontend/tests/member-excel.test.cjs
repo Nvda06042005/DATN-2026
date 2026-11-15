@@ -26,6 +26,8 @@ test('hộp nhập của hai vai trò dùng mẫu Excel có lịch, không còn 
  assert.match(importer,/hint="Tải file mẫu, điền danh sách rồi chọn file để nhập\."/);
  assert.doesNotMatch(importer,/Nhập trên bảng|TeacherEntrySheet/);
  assert.match(importer,/year_id: yearId \|\| undefined, semester: yearId \? semester : undefined/);
+ assert.match(importer,/\/template\?year_id=\$\{yearId\}&semester=\$\{semester\}/);
+ assert.match(importer,/yearId \? `\/api\/admin\/\$\{kind\}\/template\?year_id=/);
  assert.match(importer,/expectedFilename=\{spec\.filename\} legacyFilename=\{spec\.legacy_filename\}/);
  assert.doesNotMatch(importer,/Nhập trên bảng|TeacherEntrySheet|Grid2X2|entry-open/);
  assert.match(kit,/acceptMacro=false/);assert.match(kit,/const types=acceptMacro\?\[\.\.\.XLSX_TYPES,XLSM_MIME\]:baseTypes/);

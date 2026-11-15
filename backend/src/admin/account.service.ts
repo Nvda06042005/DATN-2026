@@ -406,6 +406,16 @@ export class AccountService {
     await q('INSERT INTO app_member_school_terms (user_id, school_id, year_id, semester) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING', [userId, schoolId, yearId, semester]);
   }
 
+  private async templatePeriod(actor: UserRow, schoolId: number | null | undefined, period?: { year_id?: number | null; semester?: number | null }): Promise<{ yearLabel: string; semester: 1 | 2 } | null> {
+    if (!period?.year_id && !period?.semester) return null;
+    const id = this.schools.target(actor, schoolId);
+    return this.schools.run(actor, async (q) => {
+      await this.assertMemberTerm(q, id, period.year_id, period.semester);
+      const year = (await q<{ label: string }>('SELECT label FROM app_school_years WHERE id=$1 AND school_id=$2', [period.year_id, id]))[0];
+      return { yearLabel: year.label, semester: period.semester as 1 | 2 };
+    });
+  }
+
   private async classTarget(q: Q, schoolId: number, classId: number): Promise<ClassTarget> {
     const cls = (await q<ClassTarget>('SELECT id, name, grade, school_year, year_id, is_active FROM app_classes WHERE id = $1 AND school_id = $2', [classId, schoolId]))[0];
     if (!cls) throw new NotFoundException('Không tìm thấy lớp');
@@ -633,15 +643,16 @@ export class AccountService {
     });
   }
 
-  async teacherTemplate(actor: UserRow, schoolId?: number | null, now: Date = new Date(), rows?:MemberInput[]): Promise<Buffer> {
+  async teacherTemplate(actor: UserRow, schoolId?: number | null, now: Date = new Date(), rows?:MemberInput[], selected?: { year_id?: number | null; semester?: number | null }): Promise<Buffer> {
     const school = await this.schoolNameOf(actor, schoolId);
+    const period = await this.templatePeriod(actor, schoolId, selected);
     const initials = schoolInitials(school ?? ''), year = vnDayLabel(now).slice(8, 10), prefix = `${initials}${year}`;
     const id=actor.role==='school_admin'?actor.school_id:schoolId;
     const code=await this.schoolCodeOf(actor,schoolId);
     const offset=id?await this.schools.run(actor,async q=>Number((await q<{n:number}>('SELECT coalesce((SELECT last_serial FROM app_teacher_code_counters WHERE school_id=$1),0) AS n',[id]))[0]?.n??0)):0;
     return buildFormSheet({
       sheetName: 'Giáo viên', title: 'Đông A', subtitle: school ? templateSubtitle('teacher', school, code) : 'Mẫu nhập danh sách giáo viên',
-      meta: [{ label: 'Ngày bắt đầu nhập', value: vnDayLabel(now) }], note: 'Xem ví dụ rồi nhập danh sách bên dưới. Cột có dấu * là bắt buộc.',
+      meta: [{ label: 'Ngày bắt đầu nhập', value: vnDayLabel(now) }], period: period ?? undefined, note: 'Xem ví dụ rồi nhập danh sách bên dưới. Cột có dấu * là bắt buộc.',
       entryNote:'Điền họ tên, SĐT, email và ngày sinh; nhấn Enter, STT và mã tự tính.',
       completedIndex:true,
       columns: TEACHER_FORM_COLUMNS.map(c => c.key === 'user_code' && !rows ? { ...c, kind: 'teacher-code', width: 29, watch: 'full_name', birthKey: 'birth_date', codePrefix: prefix, codeOffset:offset } : c), blankRows: 1000, now,
@@ -668,13 +679,14 @@ export class AccountService {
       return {filename:studentTemplateFilename(school.name),legacy_filename:studentTemplateFilename(school.name).replace(/\.xlsx$/,'.xlsm'),school_name:school.name,school_code:school.school_code,prefix:`${next.prefix}${String(next.year).padStart(2,'0')}`,next_serial:next.serial};
     });
   }
-  async studentTemplate(actor:UserRow,schoolId?:number|null,now:Date=new Date(),rows?:MemberInput[]):Promise<Buffer>{
+  async studentTemplate(actor:UserRow,schoolId?:number|null,now:Date=new Date(),rows?:MemberInput[],selected?:{year_id?:number|null;semester?:number|null}):Promise<Buffer>{
     const id=this.schools.target(actor,schoolId);
+    const period=await this.templatePeriod(actor,id,selected);
     const spec=await this.studentImportSpec(actor,id),school=spec.school_name;
     const initials=schoolInitials(school),prefix=spec.prefix,offset=spec.next_serial-1,yy=prefix.slice(-2);
     return buildFormSheet({
       sheetName:'Học sinh',title:'Đông A',subtitle:templateSubtitle('student',school,spec.school_code),
-      meta:[{label:'Ngày bắt đầu nhập',value:vnDayLabel(now)}],note:'Xem ví dụ rồi nhập danh sách bên dưới. Cột có dấu * là bắt buộc.',
+      meta:[{label:'Ngày bắt đầu nhập',value:vnDayLabel(now)}],period:period??undefined,note:'Xem ví dụ rồi nhập danh sách bên dưới. Cột có dấu * là bắt buộc.',
       entryNote:'Điền họ tên, SĐT, email và ngày sinh; nhấn Enter, STT và mã tự tính.',
       completedIndex:true,
       columns:STUDENT_FORM_COLUMNS.map(c=>c.key==='user_code'&&!rows?{...c,kind:'teacher-code' as const,watch:'full_name',birthKey:'birth_date',codePrefix:prefix,codeOffset:offset}:c),blankRows:1000,now,
@@ -701,7 +713,16 @@ export class AccountService {
     const spec=role==='teacher'?await this.teacherImportSpec(actor,schoolId):await this.studentImportSpec(actor,schoolId);
     if(upload.originalname!==spec.filename&&upload.originalname!==spec.legacy_filename) throw new BadRequestException(`Sai tên file. Chỉ nhận ${spec.filename}. Hãy giữ đúng tên file mẫu của trường.`);
     // tên file có thể trùng giữa hai trường cùng tên: đọc thêm dòng tiêu đề trong file (loại mẫu, tên và mã trường) để chắc là đúng file của trường này
-    const parsed = await readSheet(upload, role === 'teacher' ? TEACHER_COLUMNS : STUDENT_COLUMNS, undefined, true, (sheet) => checkTemplateOwner(role, cellText(sheet.getCell('A2').value), spec));
+    const selectedPeriod = opts.year_id && opts.semester ? await this.templatePeriod(actor, schoolId, opts) : null;
+    const parsed = await readSheet(upload, role === 'teacher' ? TEACHER_COLUMNS : STUDENT_COLUMNS, undefined, true, (sheet) => {
+      checkTemplateOwner(role, cellText(sheet.getCell('A2').value), spec);
+      // Mẫu mới ghi kỳ đã chọn ở đầu file; file cũ không có hai nhãn này vẫn nhập được.
+      if (cellText(sheet.getCell('D3').value) === 'Năm học:' && cellText(sheet.getCell('D4').value) === 'Học kỳ:') {
+        if (!selectedPeriod || cellText(sheet.getCell('E3').value) !== selectedPeriod.yearLabel || cellText(sheet.getCell('E4').value) !== `Học kỳ ${selectedPeriod.semester}`) {
+          throw new BadRequestException('Năm học hoặc học kỳ trong file khác lựa chọn trên website. Hãy chọn đúng kỳ hoặc tải lại file mẫu.');
+        }
+      }
+    });
     if (!parsed.length) throw new BadRequestException('File không có dòng dữ liệu nào');
     return this.schools.run(actor, async (q) => {
       if (opts.commit) await q('SELECT pg_advisory_xact_lock(7412026)');

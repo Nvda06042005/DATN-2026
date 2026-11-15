@@ -315,6 +315,8 @@ export interface FormSheetSpec {
   subtitle: string;
   /** Các dòng "nhãn: giá trị" dưới tiêu đề, ví dụ Ngày bắt đầu nhập */
   meta: Array<{ label: string; value: string }>;
+  /** Năm học/học kỳ được chọn khi tải mẫu giáo viên hoặc học sinh trên website. */
+  period?: { yearLabel: string; semester: 1 | 2 };
   note?: string;
   entryNote?:string;
   /** STT chỉ hiện khi đủ các ô bắt buộc của dòng nhập. */
@@ -374,6 +376,19 @@ export async function buildFormSheet(spec: FormSheetSpec): Promise<Buffer> {
     value.font = { name: 'Calibri', size: 11, bold: true, color: { argb: BRAND } };
     value.alignment = { horizontal: 'left' };
     r += 1;
+  }
+  if (spec.period) {
+    for (const [row, label, value] of [[3, 'Năm học:', spec.period.yearLabel], [4, 'Học kỳ:', `Học kỳ ${spec.period.semester}`]] as const) {
+      const heading = sheet.getCell(row, 4), selected = sheet.getCell(row, 5);
+      heading.value = label;
+      heading.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF374151' } };
+      heading.alignment = { horizontal: 'right', vertical: 'middle' };
+      selected.value = value;
+      selected.font = { name: 'Calibri', size: 11, bold: true, color: { argb: BRAND } };
+      selected.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7ED' } };
+      selected.alignment = { horizontal: 'center', vertical: 'middle' };
+      selected.border = BORDER;
+    }
   }
   if (spec.note) {
     sheet.getCell(r, 1).value = spec.note;

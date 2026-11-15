@@ -216,6 +216,11 @@ class ImportQuery extends SchoolScope {
   @IsOptional() @Type(() => Number) @IsIn([1, 2]) semester?: number;
 }
 
+class MemberTemplateQuery extends SchoolScope {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) year_id?: number;
+  @IsOptional() @Type(() => Number) @IsIn([1, 2]) semester?: 1 | 2;
+}
+
 class ClassQuery extends Page {
   @IsOptional() @Type(() => Number) @IsIn([1,2]) semester?: number;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number;
@@ -431,9 +436,9 @@ export class AdminController {
 
   @Get('teachers/template')
   @Header('Cache-Control','no-store')
-  async teacherTemplate(@CurrentUser() user: UserRow, @Query() query: SchoolScope) {
+  async teacherTemplate(@CurrentUser() user: UserRow, @Query() query: MemberTemplateQuery) {
     const spec=await this.accounts.teacherImportSpec(user,query.school_id);
-    return download(await withCalendarAddin(await this.accounts.teacherTemplate(user,query.school_id)),spec.filename);
+    return download(await withCalendarAddin(await this.accounts.teacherTemplate(user,query.school_id,new Date(),undefined,{year_id:query.year_id,semester:query.semester})),spec.filename);
   }
 
   @Get('teachers/import-spec')
@@ -461,9 +466,9 @@ export class AdminController {
 
   @Get('students/template')
   @Header('Cache-Control','no-store')
-  async studentTemplate(@CurrentUser() user:UserRow,@Query() query:SchoolScope){
+  async studentTemplate(@CurrentUser() user:UserRow,@Query() query:MemberTemplateQuery){
     const spec=await this.accounts.studentImportSpec(user,query.school_id);
-    return download(await withCalendarAddin(await this.accounts.studentTemplate(user,query.school_id)),spec.filename);
+    return download(await withCalendarAddin(await this.accounts.studentTemplate(user,query.school_id,new Date(),undefined,{year_id:query.year_id,semester:query.semester})),spec.filename);
   }
   @Get('students/import-spec')
   @Header('Cache-Control','no-store')
