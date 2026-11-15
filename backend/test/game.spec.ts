@@ -340,9 +340,15 @@ const userRow = async (id: number) => (await db.query<any>('SELECT * FROM app_us
       expect((await api('GET', '/api/game/celebrations', undefined, t)).body.some((c: any) => c.kind === 'quest' && c.payload.title === fresh.title)).toBe(true);
     }
     const xpNow = after.xp;
+    const listQuests = async () => { const b = (await api('GET', '/api/game/quests', undefined, t)).body; return [...b.daily, ...b.weekly] as any[]; };
+    const beforeBump = await listQuests();
     await tx(async (q) => { await game.bumpQuests(q, await userRow(f.S1.id), fresh.metric, 5); });
-    expect((await api('GET', '/api/game/quests', undefined, t)).body.daily.find((x: any) => x.id === fresh.id).progress).toBe(fresh.target); // không vượt mục tiêu
-    expect((await me(t)).xp).toBe(xpNow); // không thưởng lần hai
+    const afterBump = await listQuests();
+    expect(afterBump.find((x) => x.id === fresh.id).progress).toBe(fresh.target); // không vượt mục tiêu
+    // không thưởng lần hai cho nhiệm vụ đã xong; chỉ cộng thưởng của nhiệm vụ khác cùng loại vừa hoàn thành trong lần cộng này
+    // (nhiệm vụ tuần được chọn theo tuần, có tuần trùng loại với nhiệm vụ ngày nên lần cộng thêm 5 làm nó hoàn thành)
+    const newlyDone = afterBump.filter((x) => x.id !== fresh.id && x.completed_at && !beforeBump.find((b) => b.id === x.id)?.completed_at);
+    expect((await me(t)).xp).toBe(xpNow + newlyDone.reduce((n, x) => n + x.reward_xp, 0));
 
     clock.advance(DAY);
     const next = (await api('GET', '/api/game/quests', undefined, t)).body;
