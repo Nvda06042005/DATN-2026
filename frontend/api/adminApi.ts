@@ -67,8 +67,8 @@ export const resetUserPassword = (token: string, id: number) => apiRequest<Creat
 export const deleteUser = (token: string, id: number) => apiRequest<void>(`/api/admin/users/${id}`, { token, method: 'DELETE' });
 
 // ---------------------------------------------------------------------- nhập / xuất Excel
-export const importMembers = (token: string, kind: 'teachers' | 'students', file: PickedFile, opts: { commit: boolean; year_id?: number | null; school_id?: number | null }) =>
-  apiUpload<ImportResult>(`/api/admin/${kind}/import${qs({ commit: opts.commit ? 'true' : undefined, year_id: opts.year_id, school_id: opts.school_id })}`, file, token);
+export const importMembers = (token: string, kind: 'teachers' | 'students', file: PickedFile, opts: { commit: boolean; year_id?: number | null; semester?: number | null; school_id?: number | null }) =>
+  apiUpload<ImportResult>(`/api/admin/${kind}/import${qs({ commit: opts.commit ? 'true' : undefined, year_id: opts.year_id, semester: opts.semester, school_id: opts.school_id })}`, file, token);
 /** Mật khẩu tài khoản: mật khẩu ban đầu / cấp lại của tài khoản chưa tự đổi; cấp lại theo quy ước và gửi email */
 export const passwordList = (token: string, query: { q?: string; name?: string; username?: string; role?: PasswordRow['role']; school_id?: number; active?: 'true' | 'false'; password_state?: 'initial' | 'changed' | 'unknown'; page?: number; limit?: number }) =>
   apiRequest<{ items: PasswordRow[]; total: number; page: number; limit: number }>(`/api/admin/passwords${qs(query)}`, { token });

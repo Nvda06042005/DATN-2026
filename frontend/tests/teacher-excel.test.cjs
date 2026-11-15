@@ -50,7 +50,7 @@ test('hộp nhập Excel: câu báo trước ở chỗ nút Chọn file, kiểm 
 
 test('trang Giáo viên: hai cách thêm, biểu mẫu cùng cột với file mẫu (không có Bộ môn), ngày sinh chọn bằng lịch', () => {
   const people = read('components', 'admin', 'SchoolPeople.tsx');
-  assert.match(people, /const periodLabel = `\$\{year \? `Năm học \$\{year\.label\}` : 'Mọi năm học'\} · Học kỳ \$\{semester\}`/);
+  assert.match(people, /const periodLabel = year \? `Năm học \$\{year\.label\} · Học kỳ \$\{semester\}` : 'Mọi năm học'/);
   assert.match(people, /Thêm từng giáo viên hoặc nhập từ Excel/);
   assert.match(people, /Thêm từng giáo viên \(muốn thêm nhiều người cùng lúc, hãy dùng Nhập từ Excel\)/);
   // các ô dùng chung của form thêm giáo viên / học sinh (personFields)

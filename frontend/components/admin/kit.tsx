@@ -646,6 +646,7 @@ const XLSX_TYPES = ['application/vnd.openxmlformats-officedocument.spreadsheetml
 
 export const ImportSheet: React.FC<{
   title: string; hint: string; template?: { fetchBlob: () => Promise<Blob>; filename: string }; types?: string[]; expectedFilename?:string; legacyFilename?:string; acceptMacro?:boolean;
+    extra?: React.ReactNode;
   /** Ghi chú thêm dưới dòng loại file, ví dụ phải đúng file mẫu của trường */
   note?: string;
   /** Thay câu mặc định về loại file (ví dụ chỉ ghi "Chỉ nhận file Excel.") */
@@ -654,7 +655,7 @@ export const ImportSheet: React.FC<{
   multiple?: boolean;
   run: (file: PickedFile, commit: boolean) => Promise<ImportResult | { committed: boolean; total: number; errors: number; created: number; updated: number; report: Array<{ entity: string; slug: string; action: string; message?: string }> }>;
   onClose: () => void; onDone: () => void;
-}> = ({ title, hint, template, types: baseTypes = XLSX_TYPES, expectedFilename, legacyFilename, acceptMacro=false, note, acceptText, multiple=false, run, onClose, onDone }) => {
+}> = ({ title, hint, template, types: baseTypes = XLSX_TYPES, expectedFilename, legacyFilename, acceptMacro=false, extra, note, acceptText, multiple=false, run, onClose, onDone }) => {
   const { c } = useTheme();
   const toast = useToast();
   const types=acceptMacro?[...XLSX_TYPES,XLSM_MIME]:baseTypes;
@@ -722,6 +723,7 @@ export const ImportSheet: React.FC<{
         {!committed && file ? <Btn title={valid ? `Lưu ${valid} dòng hợp lệ${result && result.errors ? `, bỏ qua ${result.errors} dòng lỗi` : ''}` : 'Không có dòng hợp lệ'} tone="son" disabled={!result || !valid} loading={busy} onPress={() => go(true)} testID="import-commit" /> : null}
       </View>}>
       <Txt size={14} color={c.muc2}>{hint}</Txt>
+      {extra}
       <View testID="import-accept-note">
         <Inset style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
           <Info size={16} color={c.muc2} style={{ marginTop: 2 }} />

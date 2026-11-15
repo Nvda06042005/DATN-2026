@@ -1234,3 +1234,9 @@ Theo 10 ý người dùng gửi kèm ảnh file Excel (đã hỏi lại hai đi�
 - Các bảng Giáo viên, Học sinh, Lớp học, Mật khẩu tài khoản và các bảng Trường học, Người dùng của quản trị tổng có lọc theo cột; bộ lọc gọi API để số dòng và phân trang cùng phạm vi.
 - PDF danh sách giáo viên, học sinh và lớp học đặt logo trường từ kho ảnh trường đã xác minh bên trái, logo Đông A bên phải; ghi tên và địa chỉ trường khi có dữ liệu. Không tải ảnh từ URL tùy ý khi xuất PDF; URL ảnh riêng không có bản lưu trong kho sẽ không được nhúng. PDF ghi năm học và học kỳ đang chọn.
 - Không thay đổi schema. Kiểm thử liên quan: `class_semesters.spec.ts`, `class_excel.spec.ts`, `school_auto.spec.ts`, `password_list.spec.ts`, `sprint2.spec.ts`, `admin-shell.test.cjs`, `people-table.test.cjs`.
+
+## Nhập giáo viên, học sinh theo năm học và học kỳ (16/11/2026)
+
+- Form Thêm giáo viên/Thêm học sinh và hộp Nhập từ Excel ở quản trị trường chọn năm học chưa kết thúc và học kỳ 1 hoặc 2. Tài khoản được ghi nhận ở kỳ đã chọn ngay cả khi chưa xếp lớp; chọn lớp học sinh phải thuộc cùng năm học. Việc ghi nhận này không tự phân công giáo viên đứng lớp.
+- Migration `064_member_school_terms.sql` tạo bảng ghi nhận theo tài khoản, năm học, học kỳ; khóa ngoại giữ đúng trường, RLS chỉ cho phạm vi trường và trigger lưu vào kho xóa một năm. Tài khoản cũ không bị thay đổi và vẫn thấy khi chọn Mọi năm học.
+- PDF Giáo viên/Học sinh tải về có tên `danh_sach_giao-vien_<năm-học>_hoc-ky-<số>.pdf` hoặc `danh_sach_hoc-sinh_<năm-học>_hoc-ky-<số>.pdf`, cùng quy ước tên file của Lớp học. Khi chọn Mọi năm học, tên file ghi `moi-nam-hoc_hoc-ky-ca-nam`.

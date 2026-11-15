@@ -22,9 +22,10 @@ test('chỉ mẫu .xlsx hoặc mẫu .xlsm cũ đúng trường được nhận,
 
 test('hộp nhập của hai vai trò dùng mẫu Excel có lịch, không còn bảng nhập trên website',()=>{
  const importer=read('components/admin/TeacherImportSheet.tsx'),kit=read('components/admin/kit.tsx');
- assert.match(importer,/kind\?:'teachers'\|'students'/);
+ assert.match(importer,/kind\?: 'teachers' \| 'students'/);
  assert.match(importer,/hint="Tải file mẫu, điền danh sách rồi chọn file để nhập\."/);
- assert.doesNotMatch(importer,/Vertex42|macro|lịch/);
+ assert.doesNotMatch(importer,/Nhập trên bảng|TeacherEntrySheet/);
+ assert.match(importer,/year_id: yearId \|\| undefined, semester: yearId \? semester : undefined/);
  assert.match(importer,/expectedFilename=\{spec\.filename\} legacyFilename=\{spec\.legacy_filename\}/);
  assert.doesNotMatch(importer,/Nhập trên bảng|TeacherEntrySheet|Grid2X2|entry-open/);
  assert.match(kit,/acceptMacro=false/);assert.match(kit,/const types=acceptMacro\?\[\.\.\.XLSX_TYPES,XLSM_MIME\]:baseTypes/);
@@ -45,10 +46,13 @@ test('thêm giáo viên/học sinh: Họ tên, SĐT, Email, Ngày sinh đều c�
  const people=read('components/admin/SchoolPeople.tsx'),fields=people.slice(people.indexOf('export const personFields'),people.indexOf('export const SchoolPeople'));
  for(const name of ['full_name','phone','email','birth_date'])assert.match(fields,new RegExp(`name: '${name}'[^}]*required: true`),name);
  assert.match(fields,/Tên đăng nhập và mật khẩu được gửi vào email này\./);
- assert.match(people,/const fields: FieldDef\[\] = teacher \? personFields\(true, token\)\s+: \[\.\.\.personFields\(false, token\), \{ name: 'class_id'/);
+ assert.match(people,/name: 'year_id', label: 'Năm học'/);
+ assert.match(people,/name: 'semester', label: 'Học kỳ'/);
+ assert.match(people,/\.\.\.personFields\(teacher, token\)/);
+ assert.match(people,/name: 'class_id', label: 'Xếp vào lớp'/);
  assert.doesNotMatch(people,/parent_email|Email phụ huynh/);
  const sheet=read('components/admin/TeacherImportSheet.tsx');
- assert.match(sheet,/note=\{`Phải đúng file mẫu \$\{student\?'học sinh':'giáo viên'\} của \$\{spec\.school_name\}\. File của trường khác hoặc nhầm loại sẽ báo lỗi\.`\}/);
+ assert.match(sheet,/note=\{`Phải đúng file mẫu \$\{student \? 'học sinh' : 'giáo viên'\} của \$\{spec\.school_name\}\. File của trường khác hoặc nhầm loại sẽ báo lỗi\.`\}/);
  assert.match(read('components/admin/kit.tsx'),/\{note \? <Txt size=\{13\} f="bold" testID="import-file-note">\{note\}<\/Txt> : null\}/);
 });
 

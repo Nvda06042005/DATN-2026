@@ -215,7 +215,8 @@ test('Thống kê trường (14/11/2026): Lớp và học sinh, Kết quả, S�
 test('quản trị trường (14/11/2026): không còn nút xuất Excel nào, chỉ xuất PDF; Nhập từ Excel và file mẫu để nhập vẫn giữ', () => {
   const people = read('components', 'admin', 'SchoolPeople.tsx');
   const classes = read('components', 'admin', 'SchoolClasses.tsx');
-  assert.match(people, /<DownloadButton title="Xuất PDF" fetchBlob=\{\(\) => api\.downloadFile\(token, `\/api\/admin\/\$\{kind\}\/export\?\$\{exportQuery \? `\$\{exportQuery\}&` : ''\}format=pdf`\)\} filename=\{teacher \? 'danh-sach-giao-vien\.pdf' : 'danh-sach-hoc-sinh\.pdf'\} \/>/);
+  assert.match(people, /<DownloadButton title="Xuất PDF" fetchBlob=\{\(\) => api\.downloadFile\(token, `\/api\/admin\/\$\{kind\}\/export\?/);
+  assert.match(people, /filename=\{`danh_sach_\$\{teacher \? 'giao-vien' : 'hoc-sinh'\}_\$\{year\?\.label \?\? 'moi-nam-hoc'\}_hoc-ky-\$\{year \? semester : 'ca-nam'\}\.pdf`\}/);
   // mọi trang của cổng quản trị trường: không có nút tải file .xlsx nào ngoài file mẫu để nhập
   const pages = ['SchoolAdmin.tsx', 'SchoolPeople.tsx', 'SchoolClasses.tsx', 'PasswordList.tsx', 'ShareInbox.tsx', 'SchoolYears.tsx', 'PlatformComms.tsx', 'PlatformOps.tsx', 'SchoolDashboard.tsx', 'AnalyticsAdmin.tsx', 'AnalyticsTeacher.tsx', 'ReportKit.tsx'];
   for (const file of pages) {

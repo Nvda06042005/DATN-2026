@@ -179,6 +179,8 @@ export interface CreatedSchool {
 
 export interface MemberInput {
   full_name: string;
+  year_id?: number | null;
+  semester?: number | null;
   email?: string | null;
   phone?: string | null;
   user_code?: string | null;

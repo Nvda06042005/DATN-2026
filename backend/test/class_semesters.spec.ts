@@ -1,4 +1,4 @@
-import { adminLogin, call, hasPostgres, sql, Started, startApp } from './harness';
+import { adminLogin, call, download, hasPostgres, sql, Started, startApp, upload } from './harness';
 import { bootstrap, Fixture } from './fixture';
 
 (hasPostgres() ? describe : describe.skip)('Mã tự động và giáo viên phụ trách lớp theo học kỳ',()=>{
@@ -6,6 +6,41 @@ import { bootstrap, Fixture } from './fixture';
   const api=(method:string,path:string,body?:unknown,token?:string)=>call(s.base,method,path,body,token??f.A.token);
   beforeAll(async()=>{s=await startApp('class_semesters_test');f=await bootstrap(s,await adminLogin(s.base),true);});
   afterAll(async()=>{await s?.close();});
+  test('tạo giáo viên và học sinh theo học kỳ, vẫn thấy khi chưa xếp lớp; PDF có tên đúng kỳ', async()=>{
+    const teacher=await api('POST','/api/admin/teachers',{full_name:'Giáo viên học kỳ hai',email:'term.teacher@example.invalid',phone:'0900000123',birth_date:'1987-04-12',year_id:f.yearId,semester:2});
+    expect(teacher.status).toBe(201);
+    const student=await api('POST','/api/admin/students',{full_name:'Học sinh học kỳ hai',email:'term.student@example.invalid',phone:'0900000124',birth_date:'2012-05-16',year_id:f.yearId,semester:2});
+    expect(student.status).toBe(201);
+    expect((await sql(s.url,'SELECT user_id,semester FROM app_member_school_terms WHERE user_id IN ($1,$2) ORDER BY user_id',[teacher.body.user.id,student.body.user.id])).map((r:any)=>r.semester)).toEqual([2,2]);
+    for(const [kind,id] of [['teachers',teacher.body.user.id],['students',student.body.user.id]] as const){
+      const hk2=await api('GET',`/api/admin/${kind}?year_id=${f.yearId}&semester=2`);
+      expect(hk2.body.items.map((u:any)=>u.id)).toContain(id);
+      const hk1=await api('GET',`/api/admin/${kind}?year_id=${f.yearId}&semester=1`);
+      expect(hk1.body.items.map((u:any)=>u.id)).not.toContain(id);
+      const pdf=await fetch(`${s.base}/api/admin/${kind}/export?year_id=${f.yearId}&semester=2&format=pdf`,{headers:{Authorization:`Bearer ${f.A.token}`}});
+      expect(pdf.status).toBe(200);
+      expect(pdf.headers.get('content-disposition')).toMatch(new RegExp(`danh_sach_${kind==='teachers'?'giao-vien':'hoc-sinh'}_\\d{4}-\\d{4}_hoc-ky-2\\.pdf`));
+    }
+    expect((await api('POST','/api/admin/teachers',{full_name:'Giáo viên thiếu kỳ',email:'term.bad@example.invalid',phone:'0900000125',birth_date:'1987-04-12',year_id:f.yearId})).status).toBe(422);
+  });
+  test('nhập Excel giáo viên và học sinh gắn đúng học kỳ đã chọn',async()=>{
+    for(const kind of ['teachers','students'] as const){
+      const spec=(await api('GET',`/api/admin/${kind}/import-spec`)).body;
+      const template=await download(s.base,`/api/admin/${kind}/template`,f.A.token);
+      const wb=new(await import('exceljs')).Workbook();await wb.xlsx.load(template.buffer as any);
+      const ws=wb.worksheets[0];
+      ws.getCell('C12').value=kind==='teachers'?'Giáo viên nhập kỳ hai':'Học sinh nhập kỳ hai';
+      ws.getCell('E12').value=kind==='teachers'?'0900000141':'0900000142';
+      ws.getCell('F12').value=`term.${kind}@example.invalid`;
+      ws.getCell('G12').value=kind==='teachers'?'15/03/1985':'15/03/2013';
+      const path=`/api/admin/${kind}/import?commit=true&year_id=${f.yearId}&semester=2`;
+      const result=await upload(s.base,path,spec.filename,Buffer.from(await wb.xlsx.writeBuffer()),f.A.token);
+      expect(result.status).toBe(200);expect(result.body.created).toBe(1);
+      const id=(await api('GET',`/api/admin/${kind}?email=term.${kind}@example.invalid`)).body.items[0].id;
+      expect((await sql(s.url,'SELECT semester FROM app_member_school_terms WHERE user_id=$1 AND year_id=$2',[id,f.yearId]))[0].semester).toBe(2);
+      expect((await api('GET',`/api/admin/${kind}?year_id=${f.yearId}&semester=2`)).body.items.map((u:any)=>u.id)).toContain(id);
+    }
+  });
   test('xem mã không giữ chỗ; tạo giáo viên/học sinh không cần nhập mã; giữ mã cũ khi sửa',async()=>{
     const first=await api('GET','/api/admin/registration-code/teacher?birth_date=1985-03-15'); expect(first.status).toBe(200);expect(first.body.code).toMatch(/15031985\d{3}$/);
     expect((await api('GET','/api/admin/registration-code/teacher?birth_date=1985-03-15')).body).toEqual(first.body);

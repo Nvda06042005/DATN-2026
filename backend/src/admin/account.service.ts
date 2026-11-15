@@ -118,6 +118,7 @@ interface ClassTarget { id: number; name: string; grade: number | null; school_y
 interface MemberInput {
   full_name: string; email?: string | null; phone?: string | null; user_code?: string | null;
   birth_date?: string | null; gender?: 'male' | 'female' | 'other' | null; class_id?: number | null;
+  year_id?: number | null; semester?: number | null;
 }
 
 /** Ngày hôm nay theo giờ Việt Nam, dạng YYYY-MM-DD */
@@ -253,11 +254,15 @@ export class AccountService {
       if (f.year_id && fixedRole) {
         params.push(f.year_id);
         const yp = `$${params.length}`;
-        if (fixedRole === 'student') where.push(`EXISTS (SELECT 1 FROM app_class_members m JOIN app_classes c ON c.id=m.class_id WHERE m.user_id=u.id AND c.year_id=${yp})`);
+        if (fixedRole === 'student') {
+          params.push(f.semester ?? null);
+          const sp = `$${params.length}`;
+          where.push(`(EXISTS (SELECT 1 FROM app_class_members m JOIN app_classes c ON c.id=m.class_id WHERE m.user_id=u.id AND c.year_id=${yp}) OR EXISTS (SELECT 1 FROM app_member_school_terms mt WHERE mt.user_id=u.id AND mt.year_id=${yp} AND (${sp}::int IS NULL OR mt.semester=${sp})))`);
+        }
         else {
           params.push(f.semester ?? null);
           const sp = `$${params.length}`;
-          where.push(`EXISTS (SELECT 1 FROM app_class_teacher_assignments t JOIN app_classes c ON c.id=t.class_id WHERE t.teacher_id=u.id AND c.year_id=${yp} AND t.semester=COALESCE(${sp}::int, public.app_class_semester(c.year_id), 1))`);
+          where.push(`(EXISTS (SELECT 1 FROM app_class_teacher_assignments t JOIN app_classes c ON c.id=t.class_id WHERE t.teacher_id=u.id AND c.year_id=${yp} AND t.semester=COALESCE(${sp}::int, public.app_class_semester(c.year_id), 1)) OR EXISTS (SELECT 1 FROM app_member_school_terms mt WHERE mt.user_id=u.id AND mt.year_id=${yp} AND (${sp}::int IS NULL OR mt.semester=${sp})))`);
         }
       }
       const text = searchText(f.q);
@@ -360,7 +365,9 @@ export class AccountService {
       await q('SELECT pg_advisory_xact_lock(7412026)');
       const school = await this.schoolOf(q, schoolId);
       const cls = input.class_id ? await this.classTarget(q, schoolId, input.class_id) : null;
+      await this.assertMemberTerm(q, schoolId, input.year_id, input.semester, cls);
       const user = await this.insertMember(q, school, role, input, passwordHash, cls, conventional.username);
+      if (input.year_id && input.semester) await this.saveMemberTerm(q, user.id, schoolId, input.year_id, input.semester);
       const display = shownUsername(user.username, conventional.username);
       const mail = await this.queueAccountMail(q, user, password, school.name, false, display);
       return { user: toPublic(user), display_username: display, temporary_password: password, mail };
@@ -371,6 +378,7 @@ export class AccountService {
     const input: MemberInput = {
       full_name: clean(body.full_name) as string, email: clean(body.email)?.toLowerCase() ?? null, phone: clean(body.phone), user_code: clean(body.user_code),
       birth_date: body.birth_date ?? null, gender: body.gender ?? null, class_id: body.class_id ?? null,
+      year_id: body.year_id ?? null, semester: body.semester ?? null,
     };
     if (!input.full_name || input.full_name.length < 2) throw new UnprocessableEntityException('Họ tên tối thiểu 2 ký tự');
     if (!givenNameUpper(input.full_name)) throw new UnprocessableEntityException('Họ tên cần có tên gọi bằng chữ (ví dụ Nguyễn Văn An)');
@@ -381,7 +389,21 @@ export class AccountService {
     if (input.email && !EMAIL.test(input.email)) throw new UnprocessableEntityException('Email không hợp lệ');
     if (input.phone && !PHONE.test(input.phone)) throw new UnprocessableEntityException('Số điện thoại gồm đúng 10 chữ số');
     if (input.birth_date && (!parseDate(input.birth_date) || input.birth_date > todayVn())) throw new UnprocessableEntityException('Ngày sinh không hợp lệ (dạng YYYY-MM-DD, không ở tương lai)');
+    if ((input.year_id == null) !== (input.semester == null)) throw new UnprocessableEntityException('Cần chọn cả năm học và học kỳ');
     return input;
+  }
+
+  private async assertMemberTerm(q: Q, schoolId: number, yearId?: number | null, semester?: number | null, cls?: ClassTarget | null) {
+    if (yearId == null && semester == null) return;
+    if (!Number.isSafeInteger(yearId) || !Number.isSafeInteger(semester) || ![1, 2].includes(semester as number)) throw new UnprocessableEntityException('Năm học hoặc học kỳ không hợp lệ');
+    const year = (await q<{ status: string }>('SELECT status FROM app_school_years WHERE id=$1 AND school_id=$2', [yearId, schoolId]))[0];
+    if (!year) throw new NotFoundException('Không tìm thấy năm học của trường');
+    if (year.status === 'ended') throw new ConflictException('Năm học đã kết thúc');
+    if (cls && cls.year_id !== yearId) throw new UnprocessableEntityException('Lớp không thuộc năm học đã chọn');
+  }
+
+  private async saveMemberTerm(q: Q, userId: number, schoolId: number, yearId: number, semester: number) {
+    await q('INSERT INTO app_member_school_terms (user_id, school_id, year_id, semester) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING', [userId, schoolId, yearId, semester]);
   }
 
   private async classTarget(q: Q, schoolId: number, classId: number): Promise<ClassTarget> {
@@ -673,7 +695,7 @@ export class AccountService {
    * Nhập danh sách giáo viên/học sinh (HK.QT.017/027). `commit=false`: chỉ kiểm tra và báo lỗi từng dòng (trùng email/mã trong file hoặc trong trường,
    * thiếu dữ liệu, sai định dạng, lớp không có). `commit=true`: kiểm tra lại và lưu các dòng hợp lệ, bỏ qua dòng lỗi; trả mật khẩu tạm một lần.
    */
-  async importMembers(actor: UserRow, role: MemberRole, file: UploadedXlsx | undefined, opts: { commit: boolean; school_id?: number | null; year_id?: number | null }) {
+  async importMembers(actor: UserRow, role: MemberRole, file: UploadedXlsx | undefined, opts: { commit: boolean; school_id?: number | null; year_id?: number | null; semester?: number | null }) {
     const upload = checkUpload(file,true);
     const schoolId = this.schools.target(actor, opts.school_id);
     const spec=role==='teacher'?await this.teacherImportSpec(actor,schoolId):await this.studentImportSpec(actor,schoolId);
@@ -685,7 +707,9 @@ export class AccountService {
       if (opts.commit) await q('SELECT pg_advisory_xact_lock(7412026)');
       const school = await this.schoolOf(q, schoolId);
       const yearId = opts.year_id ?? (await q<{ id: number }>("SELECT id FROM app_school_years WHERE school_id = $1 AND status = 'active'", [schoolId]))[0]?.id ?? null;
-      if (opts.year_id && !(await q('SELECT 1 FROM app_school_years WHERE id = $1 AND school_id = $2', [opts.year_id, schoolId])).length) throw new NotFoundException('Không tìm thấy năm học');
+      // File/API cũ chỉ gửi year_id: dùng học kỳ hiện hành; giao diện mới luôn gửi cả hai.
+      const entrySemester = opts.year_id ? (opts.semester ?? (await q<{ semester: number }>('SELECT public.app_class_semester($1) AS semester', [opts.year_id]))[0]?.semester ?? 1) : opts.semester;
+      if (opts.year_id != null || opts.semester != null) await this.assertMemberTerm(q, schoolId, opts.year_id, entrySemester);
       const seenEmail = new Set<string>(), seenCode = new Set<string>(), seenSourceCode = new Set<string>();
       let nextTeacherSerial=role==='teacher'?(await this.teacherCode(q,schoolId,null)).serial:(await this.studentCode(q,schoolId,null)).serial;
       const rows: ImportRow[] = [];
@@ -739,6 +763,7 @@ export class AccountService {
           const conventional = memberCredentials(role, input.full_name, input.phone, input.birth_date)!;
           const password = conventional.password;
           const user = await this.insertMember(q, school, role, input, await hashPassword(password, BATCH_ROUNDS), cls, conventional.username);
+          if (opts.year_id && entrySemester) await this.saveMemberTerm(q, user.id, schoolId, opts.year_id, entrySemester);
           const display = shownUsername(user.username, conventional.username);
           await this.queueAccountMail(q, user, password, school.name, false, display);
           result.status = 'created';
@@ -772,7 +797,7 @@ export class AccountService {
    * phần đầu UBND phường/xã, tên trường, Quốc hiệu, Tiêu ngữ, địa danh và ngày; "DANH SÁCH GIÁO VIÊN / HỌC SINH", năm học, tổng số (nam, nữ) và bộ lọc đang dùng;
    * bảng STT xếp theo tên như danh sách của trường; chỗ ký Người lập biểu, Hiệu trưởng.
    */
-  async exportMembersPdf(actor: UserRow, role: MemberRole, f: AccountFilter): Promise<Buffer> {
+  async exportMembersPdf(actor: UserRow, role: MemberRole, f: AccountFilter): Promise<{ buffer: Buffer; filename: string }> {
     const id = actor.role === 'school_admin' ? actor.school_id : f.school_id ?? null;
     const extra = id ? await this.schools.run(actor, async (q) => ({
       school: (await q<{ name: string; code: string | null; region: string | null; city: string | null; address: string | null; directory_code: string | null; logo_url: string | null }>('SELECT name, school_code AS code, region, city, address, directory_code, logo_url FROM app_schools WHERE id = $1', [id]))[0] ?? null,
@@ -794,15 +819,18 @@ export class AccountService {
       : [{ header: 'Mã học sinh', key: 'user_code', width: 20, align: 'center' }, { header: 'Họ và tên', key: 'full_name', width: 24, keep: true }, { header: 'Giới tính', key: 'gender', width: 8, align: 'center' },
         { header: 'Ngày sinh', key: 'birth', width: 11, align: 'center' }, { header: 'Lớp', key: 'classes_text', width: 10, align: 'center' }, { header: 'Số điện thoại', key: 'phone', width: 12, align: 'center' },
         { header: 'Email', key: 'email', width: 26 }, { header: 'Trạng thái', key: 'status', width: 12, align: 'center' }];
-    return officialPdf({
+    const buffer = await officialPdf({
       title: `Danh sách ${noun}`, footer: school?.code ? `Mã trường ${school.code}` : undefined,
       parts: [{
-        school, title: `Danh sách ${noun}`, subtitle: `${extra.year ? `Năm học ${extra.year}` : 'Mọi năm học'}${f.semester ? ` – Học kỳ ${f.semester}` : ''}`,
+        school, title: `Danh sách ${noun}`, subtitle: `${extra.year ? `Năm học ${extra.year}` : 'Mọi năm học'}${extra.year && f.semester ? ` – Học kỳ ${f.semester}` : ''}`,
         info: [`Tổng số: ${rows.length} ${noun} (nam: ${male}, nữ: ${female})`, ...(filters.length ? [`Lọc theo: ${filters.join(', ')}`] : [])],
         tables: [{ cols, rows, empty: `Không có ${noun} nào khớp bộ lọc.`, total: rows.length ? `Danh sách này có ${rows.length} ${noun}.` : undefined }],
         signers: [{ title: 'Người lập biểu', name: actor.full_name }, { title: 'Hiệu trưởng', hint: '(Ký tên, đóng dấu)' }],
       }],
     });
+    const yearSlug = extra.year && /^\d{4}-\d{4}$/.test(extra.year) ? extra.year : 'moi-nam-hoc';
+    const termSlug = extra.year && (f.semester === 1 || f.semester === 2) ? f.semester : 'ca-nam';
+    return { buffer, filename: `danh_sach_${teacher ? 'giao-vien' : 'hoc-sinh'}_${yearSlug}_hoc-ky-${termSlug}.pdf` };
   }
 
   async exportMembers(actor: UserRow, role: MemberRole, f: AccountFilter): Promise<Buffer> {

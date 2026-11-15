@@ -157,6 +157,8 @@ class CreateAdminDto {
 
 class CreateMemberDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number | null;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) year_id?: number | null;
+  @IsOptional() @Type(() => Number) @IsIn([1, 2]) semester?: number | null;
   @Transform(squash) @IsString() @Length(2, 80) full_name: string;
   @IsOptional() @IsEmail() @MaxLength(254) email?: string | null;
   @IsOptional() @Matches(PHONE, { message: PHONE_MESSAGE }) phone?: string | null;
@@ -211,6 +213,7 @@ class PasswordQuery extends Page {
 class ImportQuery extends SchoolScope {
   @IsOptional() @IsIn(['true', 'false']) commit?: 'true' | 'false';
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) year_id?: number;
+  @IsOptional() @Type(() => Number) @IsIn([1, 2]) semester?: number;
 }
 
 class ClassQuery extends Page {
@@ -439,14 +442,15 @@ export class AdminController {
 
   @Get('teachers/export')
   async exportTeachers(@CurrentUser() user: UserRow, @Query() query: MemberExportQuery) {
-    return query.format === 'pdf' ? pdfFile(await this.accounts.exportMembersPdf(user, 'teacher', query), 'danh-sach-giao-vien.pdf') : download(await this.accounts.exportMembers(user, 'teacher', query), 'danh-sach-giao-vien.xlsx');
+    if (query.format === 'pdf') { const file = await this.accounts.exportMembersPdf(user, 'teacher', query); return pdfFile(file.buffer, file.filename); }
+    return download(await this.accounts.exportMembers(user, 'teacher', query), 'danh-sach-giao-vien.xlsx');
   }
 
   @Post('teachers/import')
   @HttpCode(200)
   @UseInterceptors(XLSX_UPLOAD)
   importTeachers(@CurrentUser() user: UserRow, @Query() query: ImportQuery, @UploadedFile() file: UploadedXlsx | undefined) {
-    return this.accounts.importMembers(user, 'teacher', file, { commit: query.commit === 'true', school_id: query.school_id });
+    return this.accounts.importMembers(user, 'teacher', file, { commit: query.commit === 'true', school_id: query.school_id, year_id: query.year_id, semester: query.semester });
   }
 
   @Get('students')
@@ -467,14 +471,15 @@ export class AdminController {
 
   @Get('students/export')
   async exportStudents(@CurrentUser() user: UserRow, @Query() query: MemberExportQuery) {
-    return query.format === 'pdf' ? pdfFile(await this.accounts.exportMembersPdf(user, 'student', query), 'danh-sach-hoc-sinh.pdf') : download(await this.accounts.exportMembers(user, 'student', query), 'danh-sach-hoc-sinh.xlsx');
+    if (query.format === 'pdf') { const file = await this.accounts.exportMembersPdf(user, 'student', query); return pdfFile(file.buffer, file.filename); }
+    return download(await this.accounts.exportMembers(user, 'student', query), 'danh-sach-hoc-sinh.xlsx');
   }
 
   @Post('students/import')
   @HttpCode(200)
   @UseInterceptors(XLSX_UPLOAD)
   importStudents(@CurrentUser() user: UserRow, @Query() query: ImportQuery, @UploadedFile() file: UploadedXlsx | undefined) {
-    return this.accounts.importMembers(user, 'student', file, { commit: query.commit === 'true', school_id: query.school_id, year_id: query.year_id });
+    return this.accounts.importMembers(user, 'student', file, { commit: query.commit === 'true', school_id: query.school_id, year_id: query.year_id, semester: query.semester });
   }
 
   // ------------------------------------------------------------------ lớp học (HK.QT.022, HK.QT.035–040)

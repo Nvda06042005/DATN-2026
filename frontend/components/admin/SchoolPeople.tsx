@@ -1,6 +1,6 @@
 /**
  * Giáo viên (HK.QT.014–023) và học sinh (HK.QT.024–034) của trường: danh sách có tìm kiếm/lọc, thêm tài khoản, nhập Excel có xem trước,
- * xuất Excel; mở một người để sửa, khóa, đặt lại mật khẩu, xóa (AccountSheet).
+ * xuất PDF; mở một người để sửa, khóa, đặt lại mật khẩu, xóa (AccountSheet).
  */
 import React, { useMemo, useState } from 'react';
 import { View } from 'react-native';
@@ -70,7 +70,10 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const yearId = yearSel === 'all' ? 0 : Number(yearSel || years.find((y) => y.status === 'active')?.id || years[0]?.id || 0);
   const year = years.find((y) => y.id === yearId);
   const semester = Number(semesterSel || (year?.term2_starts_on && todayVn() >= year.term2_starts_on ? '2' : '1'));
-  const periodLabel = `${year ? `Năm học ${year.label}` : 'Mọi năm học'} · Học kỳ ${semester}`;
+  const entryYears = years.filter((y) => y.status !== 'ended');
+  const entryYear = entryYears.find((y) => y.id === yearId) ?? entryYears.find((y) => y.status === 'active') ?? entryYears[0];
+  const entrySemester = entryYear?.term2_starts_on && todayVn() >= entryYear.term2_starts_on ? 2 : 1;
+  const periodLabel = year ? `Năm học ${year.label} · Học kỳ ${semester}` : 'Mọi năm học';
   const dq = useDebounced(q);
   const query = { q: dq, active: (active || undefined) as 'true' | 'false' | undefined, grade: grade ? Number(grade) : undefined, class_id: classId ? Number(classId) : undefined, year_id: yearId || undefined, semester, ...columnValues };
   const { data, error, loading, reload } = useLoad(() => api.listMembers(token, kind, { ...query, page, limit: size }), [token, kind, dq, active, grade, classId, yearId, semester, columnValues, page, size], session.expired);
@@ -97,17 +100,21 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   if (credential) return <CredentialSheet title="Tài khoản đã được tạo" account={{ full_name: credential.user.full_name, username: credential.display_username ?? credential.user.username, temporary_password: credential.temporary_password, mail: credential.mail }} onClose={() => setCredential(null)} />;
 
   // thêm từng người: cùng các cột với file mẫu Excel (mã, họ tên, giới tính, SĐT, email, ngày sinh); nền tảng chỉ dạy Lịch sử nên không có ô chọn môn
-  const fields: FieldDef[] = teacher ? personFields(true, token)
-    : [...personFields(false, token), { name: 'class_id', label: 'Xếp vào lớp', type: 'select', hint: classOptions.length ? 'Lớp · khối (năm học), giống ô Lớp của file Excel; để trống nếu chưa xếp lớp.' : 'Trường chưa có lớp nào đang hoạt động: tạo lớp ở mục Lớp học trước.', options: [{ value: '', label: 'Chưa xếp lớp' }, ...classOptions] }];
+  const fields: FieldDef[] = [
+    { name: 'year_id', label: 'Năm học', type: 'select', required: true, options: entryYears.map((y) => ({ value: String(y.id), label: y.label })) },
+    { name: 'semester', label: 'Học kỳ', type: 'select', required: true, options: [{ value: '1', label: 'Học kỳ 1' }, { value: '2', label: 'Học kỳ 2' }] },
+    ...personFields(teacher, token),
+    ...(!teacher ? [{ name: 'class_id', label: 'Xếp vào lớp', render: (v: Record<string, string | string[]>, set: (name: string, value: string | string[]) => void) => <AdminSelect label="Xếp vào lớp" value={String(v.class_id || '')} options={[{ value: '', label: 'Chưa xếp lớp' }, ...(classes?.items ?? []).filter((x) => x.is_active && x.year_id === Number(v.year_id)).map((x) => ({ value: String(x.id), label: `${x.name} · Khối ${x.grade ?? '?'} (${x.school_year})` }))]} onChange={(value) => set('class_id', String(value))} testID="member-class" /> } as FieldDef] : []),
+  ];
 
   return (
     <Page>
       <PageHeader title={teacher ? 'Giáo viên' : 'Học sinh'} subtitle={teacher ? `${periodLabel}. Thêm từng giáo viên hoặc nhập từ Excel; khóa hoặc đặt lại mật khẩu khi cần.` : `${periodLabel}. Tạo tài khoản học sinh, nhập từ Excel, chuyển lớp, khóa hoặc đặt lại mật khẩu.`}
         actions={<>
           {/* 14/11/2026: quản trị trường chỉ xuất PDF (danh sách in theo thể thức văn bản của nhà trường), không còn xuất Excel */}
-          <DownloadButton title="Xuất PDF" fetchBlob={() => api.downloadFile(token, `/api/admin/${kind}/export?${exportQuery ? `${exportQuery}&` : ''}format=pdf`)} filename={teacher ? 'danh-sach-giao-vien.pdf' : 'danh-sach-hoc-sinh.pdf'} />
-          <Btn title="Nhập từ Excel" icon={FileUp} tone="giay" size="sm" onPress={() => setImporting(true)} testID="import-open" />
-          <Btn title={teacher ? 'Thêm giáo viên' : 'Thêm học sinh'} icon={Plus} tone="son" size="sm" onPress={() => setCreating(true)} testID="member-add" />
+          <DownloadButton title="Xuất PDF" fetchBlob={() => api.downloadFile(token, `/api/admin/${kind}/export?${exportQuery ? `${exportQuery}&` : ''}format=pdf`)} filename={`danh_sach_${teacher ? 'giao-vien' : 'hoc-sinh'}_${year?.label ?? 'moi-nam-hoc'}_hoc-ky-${year ? semester : 'ca-nam'}.pdf`} />
+          <Btn title="Nhập từ Excel" icon={FileUp} tone="giay" size="sm" onPress={() => setImporting(true)} disabled={!entryYear} testID="import-open" />
+          <Btn title={teacher ? 'Thêm giáo viên' : 'Thêm học sinh'} icon={Plus} tone="son" size="sm" onPress={() => setCreating(true)} disabled={!entryYear} testID="member-add" />
         </>} />
       <SearchFilterBar placeholder={teacher ? 'Tìm theo tên, email' : 'Tìm theo tên, mã học sinh'} value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="member-search"
         filters={teacher ? [f_code, f_name, f_gender, f_phone, f_email, f_birth, f_class, f_active] : [f_code, f_name, f_gender, f_phone, f_email, f_birth, f_grade, f_class, f_active]}
@@ -147,17 +154,18 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
       ) : null}
       {open ? <AccountSheet session={session} id={open} onClose={() => setOpen(null)} onChanged={reload} /> : null}
       {creating ? (
-        <FormSheet title={teacher ? 'Thêm giáo viên' : 'Thêm học sinh'} subtitle={teacher ? 'Thêm từng giáo viên (muốn thêm nhiều người cùng lúc, hãy dùng Nhập từ Excel). Điền đủ các ô có dấu *: tên đăng nhập và mật khẩu tạo từ họ tên, SĐT, ngày sinh và gửi vào email; giáo viên đổi mật khẩu ở lần đăng nhập đầu tiên.' : 'Điền đủ các ô có dấu *: tên đăng nhập và mật khẩu tạo từ họ tên, SĐT, ngày sinh và gửi vào email; học sinh đổi mật khẩu ở lần đăng nhập đầu tiên.'} submitLabel="Tạo tài khoản" fields={fields} wide onClose={() => setCreating(false)}
+        <FormSheet title={teacher ? 'Thêm giáo viên' : 'Thêm học sinh'} subtitle={teacher ? 'Thêm từng giáo viên (muốn thêm nhiều người cùng lúc, hãy dùng Nhập từ Excel). Điền đủ các ô có dấu *: tên đăng nhập và mật khẩu tạo từ họ tên, SĐT, ngày sinh và gửi vào email; giáo viên đổi mật khẩu ở lần đăng nhập đầu tiên.' : 'Điền đủ các ô có dấu *: tên đăng nhập và mật khẩu tạo từ họ tên, SĐT, ngày sinh và gửi vào email; học sinh đổi mật khẩu ở lần đăng nhập đầu tiên.'} submitLabel="Tạo tài khoản" fields={fields} initial={{ year_id: String(entryYear?.id ?? ''), semester: String(entrySemester) }} wide onClose={() => setCreating(false)}
           onSubmit={async (v) => {
             const body: Record<string, unknown> = {};
-            for (const f of fields) { if(f.render)continue; const raw = String(v[f.name] ?? '').trim(); if (raw) body[f.name] = f.name === 'class_id' ? Number(raw) : raw; }
+            for (const f of fields) { if(f.render)continue; const raw = String(v[f.name] ?? '').trim(); if (raw) body[f.name] = ['year_id', 'semester', 'class_id'].includes(f.name) ? Number(raw) : raw; }
+            if (!teacher && v.class_id && classes?.items.some((x) => x.id === Number(v.class_id) && x.year_id === Number(v.year_id))) body.class_id = Number(v.class_id);
             const res = await api.createMember(token, kind, body as never);
             setCreating(false);
             setCredential(res);
             reload();
           }} />
       ) : null}
-      {importing ? <TeacherImportSheet session={session} kind={kind} yearId={yearId} onClose={()=>setImporting(false)} onDone={reload}/> : null}
+      {importing ? <TeacherImportSheet session={session} kind={kind} years={years} initialYearId={entryYear?.id ?? 0} initialSemester={entrySemester} onClose={()=>setImporting(false)} onDone={reload}/> : null}
     </Page>
   );
 };
