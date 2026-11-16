@@ -14,9 +14,9 @@ test('ngân hàng câu hỏi: mức độ Biết/Hiểu/Vận dụng ở biểu 
   assert.match(bank, /const LEVEL_OPTIONS = \[\{ value: '1', label: 'Biết' \}, \{ value: '2', label: 'Hiểu' \}, \{ value: '3', label: 'Vận dụng' \}\];/);
   assert.match(bank, /<AdminSelect label="Mức độ nhận thức" value=\{s\.level\} options=\{\[\{ value: '', label: 'Theo độ khó' \}, \.\.\.LEVEL_OPTIONS\]\}/);
   assert.match(bank, /\.\.\.\(s\.level \? \{ cognitive_level: Number\(s\.level\) \} : \{\}\)/);
-  assert.match(bank, /filters=\{\[f_store, f_qtype, f_level, f_difficulty, f_campaign\]\}/);
+  assert.match(bank, /filters=\{\[f_qtype, f_campaign, f_store, f_level, f_difficulty, f_rate, f_used, f_owner\]\}/);
   assert.match(bank, /\{ key: 'level', filter: f_level, label: 'Mức độ'/);
-  assert.match(bank, /\{ key: 'rate', label: 'Tỉ lệ đúng'/);
+  assert.match(bank, /\{ key: 'rate', filter: f_rate, label: 'Tỉ lệ đúng'/);
   assert.match(bank, /\{d\.stats \? <QuestionStatsCard stats=\{d\.stats\} \/> : null\}/);
   assert.match(bank, /testID="question-stats"/);
   assert.match(bank, /lượt làm thử của giáo viên không tính/);
@@ -46,4 +46,16 @@ test('bài học: học sinh thấy mục tiêu ở đầu bài', () => {
   const reader = read('components', 'portal', 'LessonReader.tsx');
   assert.match(reader, /export const LessonObjectives: React\.FC<\{ text: string \| null \| undefined \}>/);
   assert.match(reader, /<LessonObjectives text=\{data\.objectives\} \/>/);
+});
+
+test('ngân hàng câu hỏi (16/11/2026): cột nào cũng có bộ lọc, xuất PDF, mẫu nhập theo bố cục file danh sách lớp của trường', () => {
+  const bank = read('components', 'admin', 'QuestionBank.tsx');
+  const table = bank.slice(bank.indexOf('<DataTable<QuestionItem> paginate={false}'), bank.indexOf('<Pager page={page}'));
+  const columns = table.match(/\{ key: '[a-z]+'[^\n]*/g) ?? [];
+  assert.ok(columns.length >= 9, 'đủ các cột của bảng');
+  for (const col of columns) assert.match(col, /filter: f_[a-z]+/, col.slice(0, 40));
+  assert.match(bank, /<DownloadButton title="Xuất PDF" fetchBlob=\{\(\) => api\.exportQuestions\(session\.token, filters\)\} filename="ngan-hang-cau-hoi\.pdf" \/>/);
+  assert.doesNotMatch(bank, /Xuất Excel|["']cau-hoi\.xlsx|pptx/);
+  assert.match(bank, /filename: 'mau-ngan-hang-cau-hoi\.xlsx'/);
+  assert.match(bank, /Chỉ nhận file mẫu của trường mình/);
 });

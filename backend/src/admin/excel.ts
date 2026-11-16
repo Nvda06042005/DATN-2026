@@ -786,3 +786,167 @@ export async function buildClassRosterBook(spec: Omit<ClassListSpec, 'teachers' 
   }
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
+
+// ---------------------------------------------------------------------- mẫu ngân hàng câu hỏi: cùng bố cục với file danh sách lớp (16/11/2026)
+/** Dòng đầu của bảng câu hỏi trong file mẫu (tiêu đề bảng ở dòng ngay trên) */
+export const QUESTION_FIRST_ROW = 16;
+/** Dòng A2 của file mẫu câu hỏi; phần sau dấu · là kho nhận file (tên trường và mã trường, hoặc kho hệ thống) */
+export const QUESTION_IDENTITY = 'Mẫu ngân hàng câu hỏi';
+export const QUESTION_SYSTEM_OWNER = 'Kho hệ thống Đông A';
+export const questionIdentity = (school: { name: string; code: string | null } | null): string =>
+  school ? `${QUESTION_IDENTITY} · ${school.name}${school.code ? ` · Mã trường ${school.code}` : ''}` : `${QUESTION_IDENTITY} · ${QUESTION_SYSTEM_OWNER}`;
+
+/**
+ * Chỉ nhận đúng file mẫu câu hỏi của trường người nhập (yêu cầu 16/11/2026: "khi nhập file chỉ giáo viên trong trường đó"). Quản trị viên tổng chỉ nhận
+ * file mẫu của kho hệ thống. File tự lập không có dòng nhận diện cũng bị từ chối để mọi file nhập đều theo một bố cục.
+ */
+export function checkQuestionFile(a2: string, owner: { name: string; code: string | null } | null): void {
+  const text = normHeader(a2);
+  if (!text.startsWith(normHeader(QUESTION_IDENTITY))) {
+    throw new BadRequestException(`Đây không phải file mẫu ngân hàng câu hỏi${owner ? ` của ${owner.name}` : ''}. Hãy bấm "Tải file mẫu", điền câu hỏi vào file đó rồi nhập.`);
+  }
+  const code = /Mã trường\s+(\S+)/.exec(a2)?.[1] ?? null;
+  const fileOwner = a2.split('·')[1]?.trim() ?? '';
+  if (!owner) {
+    if (normHeader(fileOwner) !== normHeader(QUESTION_SYSTEM_OWNER)) throw new BadRequestException(`File này là mẫu câu hỏi của ${fileOwner || 'một trường'}. Kho hệ thống chỉ nhận file mẫu tải từ trang quản trị tổng.`);
+    return;
+  }
+  const same = code && owner.code ? code === owner.code : normHeader(fileOwner) === normHeader(owner.name);
+  if (!same) throw new BadRequestException(`File này là mẫu câu hỏi của ${fileOwner || 'nơi khác'}${code ? ` (mã ${code})` : ''}. Chỉ giáo viên của ${owner.name} nhập được file mẫu của trường; hãy tải file mẫu của trường rồi điền.`);
+}
+
+export interface QuestionSheetSpec {
+  /** Trường của người tải mẫu; `null` là kho hệ thống (quản trị viên tổng) */
+  school: { name: string; code: string | null; region: string | null } | null;
+  /** Người soạn, ví dụ "GVAnh672010042005 · Nguyễn Văn Anh" */
+  author: string;
+  /** Tên các cuộc kháng chiến (chủ đề) để chọn ở cột CHỦ ĐỀ */
+  campaigns: string[];
+  guide: string[];
+  rows?: number;
+  now?: Date;
+}
+
+const QUESTION_HEADERS: Array<{ text: string; width: number; align: 'left' | 'center' }> = [
+  { text: 'STT', width: 6, align: 'center' },
+  { text: 'DẠNG CÂU HỎI *', width: 16, align: 'center' },
+  { text: 'ĐỀ BÀI *', width: 46, align: 'left' },
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ text: `LỰA CHỌN ${n}`, width: 18, align: 'left' as const })),
+  { text: 'ĐÁP ÁN *', width: 16, align: 'center' },
+  { text: 'GIẢI THÍCH', width: 32, align: 'left' },
+  { text: 'MỨC ĐỘ', width: 12, align: 'center' },
+  { text: 'ĐỘ KHÓ', width: 10, align: 'center' },
+  { text: 'CHỦ ĐỀ', width: 28, align: 'left' },
+  { text: 'HÌNH ẢNH (https)', width: 28, align: 'left' },
+];
+
+/**
+ * File mẫu nhập câu hỏi, trình bày như file danh sách lớp của trường (yêu cầu 16/11/2026): logo Đông A và dòng nhận diện (A2: kho nhận file),
+ * "UBND <phường> / TRƯỜNG <tên>" bên trái, quốc hiệu và "<địa danh>, ngày … tháng … năm …" bên phải, tiêu đề "NGÂN HÀNG CÂU HỎI", ô Giáo viên soạn
+ * và số câu tự đếm, rồi bảng STT, DẠNG CÂU HỎI, ĐỀ BÀI, LỰA CHỌN 1–8, ĐÁP ÁN, GIẢI THÍCH, MỨC ĐỘ, ĐỘ KHÓ, CHỦ ĐỀ, HÌNH ẢNH.
+ * Dạng câu hỏi, mức độ, độ khó và chủ đề chọn bằng mũi tên; STT và số câu tự cập nhật khi nhấn Enter. Danh sách chủ đề nằm ở sheet ẩn "Danh mục".
+ */
+export async function buildQuestionSheet(spec: QuestionSheetSpec): Promise<Buffer> {
+  const now = spec.now ?? new Date();
+  const today = vnDayLabel(now);
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'Hào Khí Đông A';
+  workbook.created = now;
+  workbook.calcProperties.fullCalcOnLoad = true;
+  const first = QUESTION_FIRST_ROW, head = first - 1, last = first + (spec.rows ?? 200) - 1;
+  const lastCol = colLetter(QUESTION_HEADERS.length);
+  const sheet = workbook.addWorksheet('Câu hỏi', { views: [{ state: 'frozen', ySplit: head, xSplit: 3 }] });
+  QUESTION_HEADERS.forEach((h, i) => { sheet.getColumn(i + 1).width = h.width; });
+  const font = (size: number, extra: Partial<ExcelJS.Font> = {}): Partial<ExcelJS.Font> => ({ name: 'Times New Roman', size, ...extra });
+  const put = (range: string, value: ExcelJS.CellValue, f: Partial<ExcelJS.Font>, align: Partial<ExcelJS.Alignment> = { horizontal: 'center', vertical: 'middle' }) => {
+    if (range.includes(':')) sheet.mergeCells(range);
+    const cell = sheet.getCell(range.split(':')[0]);
+    cell.value = value;
+    cell.font = f;
+    cell.alignment = align;
+    return cell;
+  };
+
+  // logo và dòng nhận diện file (giống file danh sách lớp)
+  const logo = brandLogo();
+  if (logo) {
+    sheet.addImage(workbook.addImage({ buffer: logo, extension: 'png' }), { tl: { col: 0.05, row: 0.08 }, ext: BRAND_LOGO_SIZE, editAs: 'oneCell' });
+    sheet.getRow(1).height = 46;
+  } else put('A1', 'Đông A', { name: 'Calibri', size: 22, bold: true, color: { argb: BRAND } }, { horizontal: 'left' });
+  put('A2', questionIdentity(spec.school ? { name: spec.school.name, code: spec.school.code } : null), { name: 'Calibri', size: 10, color: { argb: 'FF6B7280' } }, { horizontal: 'left' });
+  sheet.getRow(3).height = 6;
+
+  // phần đầu như văn bản của nhà trường
+  const school = spec.school;
+  const schoolLine = school ? (/^trường\s/i.test(school.name) ? upperVn(school.name) : `TRƯỜNG ${upperVn(school.name)}`) : 'HỆ THỐNG HỌC TẬP ĐÔNG A';
+  const left = school?.region ? [`UBND ${upperVn(school.region)}`, schoolLine] : [schoolLine, ''];
+  const stripped = (school?.region ?? '').replace(/^(phường|xã|quận|huyện|thị trấn|thị xã|thành phố)\s+/i, '').trim();
+  const place = (/^\d+$/.test(stripped) ? (school?.region ?? '').trim() : stripped) || '……………';
+  const [d, m, y] = [today.slice(0, 2), today.slice(3, 5), today.slice(6, 10)];
+  const weekday = today.slice(12, -1);
+  put('A4:C4', left[0], font(11, { bold: true }));
+  put('L4:Q4', 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM', font(11, { bold: true }));
+  put('A5:C5', left[1], font(11, { bold: true, underline: true }));
+  put('L5:Q5', 'Độc lập - Tự do - Hạnh phúc', font(11, { bold: true, underline: true }));
+  put('A6:C6', school?.code ? `Mã trường: ${school.code}` : '', font(10, { color: { argb: 'FF4B5563' } }));
+  put('L6:Q6', `${place}, ${weekday}, ngày ${d} tháng ${m} năm ${y}`, font(11, { italic: true }), { horizontal: 'center', vertical: 'middle', shrinkToFit: true });
+  sheet.getRow(7).height = 8;
+  put(`A8:${lastCol}8`, 'NGÂN HÀNG CÂU HỎI', font(15, { bold: true }));
+  sheet.getRow(8).height = 24;
+  put(`A9:${lastCol}9`, 'MÔN LỊCH SỬ · BA LẦN KHÁNG CHIẾN CHỐNG QUÂN XÂM LƯỢC MÔNG – NGUYÊN (THẾ KỈ XIII)', font(12, { bold: true }));
+  sheet.getRow(10).height = 8;
+
+  const label = (ref: string, text: string) => put(ref, text, font(12, { bold: true }), { horizontal: 'right', vertical: 'middle' });
+  label('B11', 'Giáo viên soạn:');
+  put('C11:F11', spec.author, font(12, { bold: true, color: { argb: BRAND } }), { horizontal: 'left', vertical: 'middle' });
+  label('B12', 'Số câu hỏi:');
+  put('C12', { formula: `COUNTIF($C$${first}:$C$${last},"?*")&" câu"`, result: '0 câu' }, font(12, { bold: true }), { horizontal: 'left', vertical: 'middle' });
+  put(`A13:${lastCol}13`,
+    'Mỗi câu hỏi một dòng: bấm mũi tên chọn DẠNG CÂU HỎI, gõ ĐỀ BÀI, các LỰA CHỌN và ĐÁP ÁN theo sheet "Hướng dẫn"; MỨC ĐỘ, ĐỘ KHÓ, CHỦ ĐỀ chọn bằng mũi tên. Nhấn Enter, STT và số câu tự cập nhật. '
+    + (school ? `Chỉ giáo viên của ${school.name} nhập được file này.` : 'File này chỉ nhập được vào kho hệ thống.'),
+    { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF92400E' } }, { horizontal: 'left', vertical: 'middle', wrapText: true });
+  sheet.getRow(13).height = 30;
+  sheet.getRow(14).height = 6;
+
+  // bảng câu hỏi
+  sheet.getRow(head).height = 30;
+  QUESTION_HEADERS.forEach((h, i) => {
+    const cell = sheet.getCell(head, i + 1);
+    cell.value = h.text;
+    cell.font = font(12, { bold: true });
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFBEAD7' } };
+    cell.border = BORDER;
+  });
+  const n = spec.campaigns.length;
+  for (let r = first; r <= last; r += 1) {
+    const row = sheet.getRow(r);
+    QUESTION_HEADERS.forEach((h, i) => {
+      const cell = row.getCell(i + 1);
+      cell.border = BORDER;
+      cell.font = font(12);
+      cell.alignment = { vertical: 'top', horizontal: h.align, wrapText: i === 2 || i === 12 };
+      cell.numFmt = '@';
+    });
+    row.getCell(1).value = { formula: `IF(TRIM(C${r})="","",COUNTIF($C$${first}:C${r},"?*"))`, result: '' };
+    row.getCell(1).numFmt = '0';
+    row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+    row.getCell(2).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Một đáp án,Nhiều đáp án,Đúng/sai,Điền khuyết,Sắp xếp"'], showInputMessage: true, promptTitle: 'Dạng câu hỏi', prompt: 'Bấm mũi tên chọn dạng câu hỏi.', showErrorMessage: true, errorStyle: 'stop', errorTitle: 'Dạng câu hỏi', error: 'Chọn Một đáp án, Nhiều đáp án, Đúng/sai, Điền khuyết hoặc Sắp xếp.' };
+    row.getCell(12).dataValidation = { type: 'textLength', operator: 'lessThanOrEqual', allowBlank: true, formulae: [500], showInputMessage: true, promptTitle: 'Đáp án', prompt: 'Một đáp án: số thứ tự lựa chọn đúng (2). Nhiều đáp án: 1,3. Đúng/sai: Đúng hoặc Sai. Điền khuyết: đáp án từng chỗ trống cách nhau dấu ;. Sắp xếp: để trống.' };
+    row.getCell(14).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Biết,Hiểu,Vận dụng"'], showErrorMessage: true, errorStyle: 'stop', errorTitle: 'Mức độ', error: 'Chọn Biết, Hiểu hoặc Vận dụng.' };
+    row.getCell(15).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Dễ,Vừa,Khó"'], showErrorMessage: true, errorStyle: 'stop', errorTitle: 'Độ khó', error: 'Chọn Dễ, Vừa hoặc Khó.' };
+    if (n) row.getCell(16).dataValidation = { type: 'list', allowBlank: true, formulae: [`'Danh mục'!$A$1:$A$${n}`], showInputMessage: true, promptTitle: 'Chủ đề', prompt: 'Bấm mũi tên chọn cuộc kháng chiến; để trống nếu không gắn.', showErrorMessage: true, errorStyle: 'stop', errorTitle: 'Chủ đề', error: 'Hãy chọn chủ đề trong danh sách.' };
+  }
+  sheet.pageSetup = { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printArea: `A1:${lastCol}${last}`, horizontalCentered: true, printTitlesRow: `${head}:${head}`, margins: { left: 0.4, right: 0.4, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 } };
+
+  if (spec.guide.length) {
+    const guide = workbook.addWorksheet('Hướng dẫn');
+    guide.getColumn(1).width = 110;
+    guide.getCell('A1').value = 'Hướng dẫn';
+    guide.getCell('A1').font = { size: 16, bold: true, color: { argb: BRAND } };
+    spec.guide.forEach((line, i) => { guide.getCell(i + 3, 1).value = line; guide.getCell(i + 3, 1).alignment = { wrapText: true, vertical: 'top' }; guide.getRow(i + 3).height = Math.ceil(line.length / 100) * 16 + 4; });
+  }
+  const catalog = workbook.addWorksheet('Danh mục', { state: 'hidden' });
+  spec.campaigns.forEach((c, i) => { catalog.getCell(i + 1, 1).value = c; });
+  return Buffer.from(await workbook.xlsx.writeBuffer());
+}

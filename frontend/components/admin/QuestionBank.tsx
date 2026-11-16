@@ -1,6 +1,7 @@
 /**
  * Ngân hàng câu hỏi (HK.GV.030–039, HK.QT.041, HK.AD.045): xem theo kho (của tôi / của trường / hệ thống) và theo chủ đề, tìm kiếm và lọc,
- * tạo – sửa sáu dạng câu hỏi, lịch sử chỉnh sửa, xóa khi chưa dùng, nhập/xuất Excel, gắn dữ liệu lịch sử, sao chép về kho riêng, gửi duyệt.
+ * tạo – sửa sáu dạng câu hỏi, lịch sử chỉnh sửa, xóa khi chưa dùng, nhập Excel / xuất PDF, gắn dữ liệu lịch sử, sao chép về kho riêng, gửi duyệt.
+ * 16/11/2026: mẫu nhập theo bố cục file danh sách lớp (chỉ nhận file của trường mình), xuất PDF thay cho Excel, cột nào cũng có bộ lọc.
  * 14/11/2026 (học từ Moodle, Wayground, ma trận đề theo Công văn 7991): mức độ nhận thức Biết / Hiểu / Vận dụng, tỉ lệ trả lời đúng thực tế
  * của học sinh ở danh sách, và thống kê từng phương án trong chi tiết câu hỏi (phương án nhiễu nào hay bị chọn).
  */
@@ -276,6 +277,9 @@ export const QuestionBank: React.FC<{ session: Session }> = ({ session }) => {
   const [difficulty, setDifficulty] = useState('');
   const [level, setLevel] = useState('');
   const [campaign, setCampaign] = useState('');
+  const [rate, setRate] = useState('');
+  const [used, setUsed] = useState('');
+  const [owner, setOwner] = useState('');
   const [page, setPage] = useState(1);
   const size = usePageSize();
   const [open, setOpen] = useState<number | null>(null);
@@ -283,7 +287,7 @@ export const QuestionBank: React.FC<{ session: Session }> = ({ session }) => {
   const [importing, setImporting] = useState(false);
   const term = useDebounced(q.trim(), 300);
   const campaigns = useCampaignOptions(session);
-  const filters = useMemo(() => ({ store, q: term, qtype, difficulty, level, campaign_id: campaign }), [store, term, qtype, difficulty, level, campaign]);
+  const filters = useMemo(() => ({ store, q: term, qtype, difficulty, level, campaign_id: campaign, rate, used, owner }), [store, term, qtype, difficulty, level, campaign, rate, used, owner]);
   const list = useLoad(() => api.listQuestions(session.token, { ...filters, page, limit: size }), [session.token, filters, page, size], session.expired);
   const canWrite = role === 'teacher' || role === 'school_admin' || role === 'root_admin';
   const storeOptions = role === 'root_admin'
@@ -296,31 +300,37 @@ export const QuestionBank: React.FC<{ session: Session }> = ({ session }) => {
   const f_level: SearchFilter = { key: 'level', label: 'Mức độ', value: level, options: [{ value: '', label: 'Mọi mức độ' }, ...LEVEL_OPTIONS], onChange: (v) => { setLevel(v); setPage(1); } };
   const { c } = useTheme();
   const f_campaign: SearchFilter = { key: 'campaign', label: 'Chủ đề', value: campaign, options: [{ value: '', label: 'Mọi chủ đề' }, ...campaigns.slice(1)], onChange: (v) => { setCampaign(v); setPage(1); } };
+  // 16/11/2026: cột nào cũng lọc được (trước đây cột Câu hỏi, Tỉ lệ đúng, Bộ đề, Người soạn không có bộ lọc)
+  const f_prompt: SearchFilter = { key: 'prompt', label: 'Câu hỏi', value: q, options: [{ value: '', label: 'Mọi câu hỏi' }], custom: true, onChange: (v) => { setQ(v); setPage(1); } };
+  const f_rate: SearchFilter = { key: 'rate', label: 'Tỉ lệ đúng', value: rate, options: [{ value: '', label: 'Mọi tỉ lệ' }, { value: 'none', label: 'Chưa có lượt trả lời' }, { value: 'low', label: 'Dưới 50%' }, { value: 'mid', label: 'Từ 50% đến 79%' }, { value: 'high', label: 'Từ 80% trở lên' }], onChange: (v) => { setRate(v); setPage(1); } };
+  const f_used: SearchFilter = { key: 'used', label: 'Bộ đề', value: used, options: [{ value: '', label: 'Tất cả' }, { value: 'yes', label: 'Đã dùng trong bộ đề' }, { value: 'no', label: 'Chưa dùng trong bộ đề' }], onChange: (v) => { setUsed(v); setPage(1); } };
+  const ownerOptions = list.data?.owners ?? [];
+  const f_owner: SearchFilter = { key: 'owner', label: 'Người soạn', value: owner, options: [{ value: '', label: 'Mọi người soạn' }, ...ownerOptions, ...(owner && !ownerOptions.some((o) => o.value === owner) ? [{ value: owner, label: 'Người soạn đã chọn' }] : [])], onChange: (v) => { setOwner(v); setPage(1); } };
   return (
     <Page>
       <PageHeader title="Ngân hàng câu hỏi" subtitle={role === 'root_admin' ? 'Kho câu hỏi của hệ thống dùng chung cho mọi trường.' : role === 'school_admin' ? 'Kho câu hỏi chung của trường và kho hệ thống. Duyệt câu giáo viên gửi ở mục Duyệt nội dung.' : 'Câu hỏi của bạn, kho của trường và kho hệ thống.'}
         actions={<>
           {canWrite ? <Btn icon={Plus} title="Tạo câu hỏi" tone="son" size="sm" onPress={() => setCreating(true)} testID="question-create" /> : null}
           {canWrite ? <Btn icon={FileUp} title="Nhập từ Excel" tone="giay" size="sm" onPress={() => setImporting(true)} /> : null}
-          <DownloadButton title="Xuất Excel" fetchBlob={() => api.exportQuestions(session.token, filters)} filename="cau-hoi.xlsx" />
+          <DownloadButton title="Xuất PDF" fetchBlob={() => api.exportQuestions(session.token, filters)} filename="ngan-hang-cau-hoi.pdf" />
         </>} />
       <SearchFilterBar placeholder="Tìm theo nội dung câu hỏi, lựa chọn (không cần dấu)" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="question-search"
-        filters={[f_store, f_qtype, f_level, f_difficulty, f_campaign]} />
+        filters={[f_qtype, f_campaign, f_store, f_level, f_difficulty, f_rate, f_used, f_owner]} />
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data ? (
         <>
           <DataTable<QuestionItem> paginate={false} rows={list.data.items} rowKey={(r) => r.id} onRowPress={(r) => setOpen(r.id)} empty="Chưa có câu hỏi nào phù hợp"
             columns={[
-              { key: 'prompt', label: 'Câu hỏi', flex: 3.5, render: (r) => <Cell main={r.prompt} /> },
+              { key: 'prompt', filter: f_prompt, label: 'Câu hỏi', flex: 3.5, render: (r) => <Cell main={r.prompt} /> },
               { key: 'qtype', filter: f_qtype, label: 'Dạng', flex: 1.1, render: (r) => <Txt size={13}>{r.qtype_label}</Txt> },
               { key: 'campaign', filter: f_campaign, label: 'Chủ đề', flex: 1.4, render: (r) => <Txt size={13}>{r.campaign_title ?? 'Chưa gắn chủ đề'}</Txt> },
               { key: 'scope', filter: f_store, label: 'Kho', flex: 1.2, render: (r) => <ScopeChip scope={r.scope} /> },
               { key: 'level', filter: f_level, label: 'Mức độ', flex: 0.9, render: (r) => <Txt size={13}>{r.level_label ?? LEVEL_TEXT[r.cognitive_level]}</Txt> },
               { key: 'diff', filter: f_difficulty, label: 'Độ khó', flex: 0.8, render: (r) => <Txt size={13}>{DIFFICULTY_TEXT[r.difficulty]}</Txt> },
-              { key: 'rate', label: 'Tỉ lệ đúng', flex: 1, render: (r) => r.answered ? <Cell main={`${r.correct_rate}%`} sub={`${r.answered} lượt`} /> : <Txt size={13} color={c.muc3}>Chưa có lượt</Txt> },
-              { key: 'used', label: 'Bộ đề', flex: 0.6, render: (r) => <Txt size={13}>{r.used_in}</Txt> },
-              { key: 'owner', label: 'Người soạn', flex: 1.4, hideOnCard: true, render: (r) => <Cell main={r.owner_name ?? '—'} sub={dateText(r.updated_at)} /> },
+              { key: 'rate', filter: f_rate, label: 'Tỉ lệ đúng', flex: 1, render: (r) => r.answered ? <Cell main={`${r.correct_rate}%`} sub={`${r.answered} lượt`} /> : <Txt size={13} color={c.muc3}>Chưa có lượt</Txt> },
+              { key: 'used', filter: f_used, label: 'Bộ đề', flex: 0.6, render: (r) => <Txt size={13}>{r.used_in}</Txt> },
+              { key: 'owner', filter: f_owner, label: 'Người soạn', flex: 1.4, hideOnCard: true, render: (r) => <Cell main={r.owner_name ?? '—'} sub={dateText(r.updated_at)} /> },
             ]} />
           <Pager page={page} limit={size} total={list.data.total} onPage={setPage} />
         </>
@@ -328,8 +338,9 @@ export const QuestionBank: React.FC<{ session: Session }> = ({ session }) => {
       {open !== null ? <QuestionDetailSheet session={session} id={open} onClose={() => setOpen(null)} onChanged={list.reload} /> : null}
       {creating ? <QuestionForm session={session} onClose={() => setCreating(false)} onSaved={(d) => { setCreating(false); list.reload(); setOpen(d.id); }} /> : null}
       {importing ? (
-        <ImportSheet title="Nhập câu hỏi từ Excel" hint="Mỗi dòng là một câu hỏi: dạng Một đáp án, Nhiều đáp án, Đúng/sai, Điền khuyết hoặc Sắp xếp. Dạng kéo thả bản đồ tạo trên giao diện. Hệ thống báo lỗi từng dòng trước khi lưu."
-          template={{ fetchBlob: () => api.questionTemplate(session.token), filename: 'mau-cau-hoi.xlsx' }}
+        <ImportSheet title="Nhập câu hỏi từ Excel" acceptText="Chỉ nhận file mẫu ngân hàng câu hỏi (.xlsx) của trường."
+          hint={role === 'root_admin' ? 'Tải file mẫu của kho hệ thống, điền mỗi dòng một câu hỏi (Một đáp án, Nhiều đáp án, Đúng/sai, Điền khuyết, Sắp xếp) rồi chọn file. Hệ thống báo lỗi từng dòng trước khi lưu.' : 'Tải file mẫu (trình bày như file danh sách lớp, ghi tên và mã trường), điền mỗi dòng một câu hỏi rồi chọn file. Chỉ nhận file mẫu của trường mình; hệ thống báo lỗi từng dòng trước khi lưu.'}
+          template={{ fetchBlob: () => api.questionTemplate(session.token), filename: 'mau-ngan-hang-cau-hoi.xlsx' }}
           run={async (file, commit) => { const r = await api.importQuestions(session.token, file, commit); return { ...r, rows: r.rows.map((x) => ({ row: x.row, status: x.status === 'created' ? 'ok' as const : x.status, errors: x.errors, full_name: x.prompt.slice(0, 50) })) } as never; }}
           onClose={() => setImporting(false)} onDone={list.reload} />
       ) : null}

@@ -5,7 +5,7 @@
  * - thống kê câu hỏi (tỉ lệ đúng, phương án hay bị chọn) và thống kê bộ đề (điểm trung bình, tỉ lệ đạt, phân bố điểm, câu sai nhiều) như Moodle, Wayground;
  * - mục tiêu bài học và số học sinh đã học bài.
  */
-import { call, download, hasPostgres, makeXlsx, sql, Started, startApp, upload, adminLogin } from './harness';
+import { call, download, fillTemplate, hasPostgres, sql, Started, startApp, upload, adminLogin } from './harness';
 import { bootstrap, Fixture } from './fixture';
 
 (hasPostgres() ? describe : describe.skip)('ma trận đề, mức độ nhận thức, thống kê câu hỏi và bộ đề, mục tiêu bài học', () => {
@@ -47,9 +47,9 @@ import { bootstrap, Fixture } from './fixture';
     const book = new (await import('exceljs')).Workbook();
     await book.xlsx.load(template.buffer as never);
     const headers: string[] = [];
-    book.worksheets[0].eachRow((row) => { const v = (row.values as unknown[]).map(String); if (v.includes('Đề bài *')) headers.push(...v); });
-    expect(headers).toContain('Mức độ (Biết/Hiểu/Vận dụng)');
-    const file = await makeXlsx(['Dạng câu hỏi *', 'Đề bài *', 'Lựa chọn 1', 'Lựa chọn 2', 'Đáp án *', 'Mức độ'], [
+    book.worksheets[0].eachRow((row) => { const v = (row.values as unknown[]).map(String); if (v.includes('ĐỀ BÀI *')) headers.push(...v); });
+    expect(headers).toContain('MỨC ĐỘ');
+    const file = await fillTemplate(template.buffer, ['DẠNG CÂU HỎI *', 'ĐỀ BÀI *', 'LỰA CHỌN 1', 'LỰA CHỌN 2', 'ĐÁP ÁN *', 'MỨC ĐỘ'], [
       ['Một đáp án', 'Câu Excel vận dụng', 'A', 'B', '2', 'Vận dụng'],
       ['Một đáp án', 'Câu Excel thông hiểu', 'A', 'B', '1', 'Thông hiểu'],
       ['Đúng/sai', 'Câu Excel số một', '', '', 'Đúng', '1'],
@@ -61,11 +61,7 @@ import { bootstrap, Fixture } from './fixture';
     const rows = await sql<{ prompt: string; cognitive_level: number }>(s.url, "SELECT prompt, cognitive_level FROM hk_questions WHERE prompt LIKE 'Câu Excel%' ORDER BY prompt");
     expect(rows.map((r) => [r.prompt, r.cognitive_level])).toEqual([['Câu Excel số một', 1], ['Câu Excel thông hiểu', 2], ['Câu Excel vận dụng', 3]]);
     const out = await download(s.base, '/api/content/questions/export?store=school', f.A.token);
-    const exported = new (await import('exceljs')).Workbook();
-    await exported.xlsx.load(out.buffer as never);
-    const cells: string[] = [];
-    exported.worksheets[0].eachRow((row) => cells.push(...(row.values as unknown[]).map(String)));
-    expect(cells).toEqual(expect.arrayContaining(['Mức độ (Biết/Hiểu/Vận dụng)', 'Vận dụng', 'Hiểu', 'Biết']));
+    expect(out.type).toContain('application/pdf'); // 16/11/2026: xuất PDF thay cho Excel
     await sql(s.url, "DELETE FROM hk_questions WHERE prompt LIKE 'Câu Excel%'");
   });
 

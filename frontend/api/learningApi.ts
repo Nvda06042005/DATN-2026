@@ -14,7 +14,7 @@ const qs = (query: Query = {}) => {
 };
 
 // ---------------------------------------------------------------------- ngân hàng câu hỏi (HK.GV.030–039, HK.AD.045)
-export const listQuestions = (token: string, query: Query) => apiRequest<Listing<QuestionItem>>(`/api/content/questions${qs(query)}`, { token });
+export const listQuestions = (token: string, query: Query) => apiRequest<Listing<QuestionItem> & { owners?: Array<{ value: string; label: string }> }>(`/api/content/questions${qs(query)}`, { token });
 export const getQuestion = (token: string, id: number) => apiRequest<QuestionDetail>(`/api/content/questions/${id}`, { token });
 export const createQuestion = (token: string, body: QuestionInput) => apiRequest<QuestionDetail>('/api/content/questions', { token, body });
 export const updateQuestion = (token: string, id: number, body: Partial<QuestionInput>) => apiRequest<QuestionDetail>(`/api/content/questions/${id}`, { token, method: 'PUT', body });

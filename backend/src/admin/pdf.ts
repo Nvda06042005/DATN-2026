@@ -42,7 +42,7 @@ export async function schoolPdfLogo(db: DatabaseService, school: { directory_cod
   return row?.image_data ? sharp(row.image_data).resize(160, 160, { fit: 'inside' }).png().toBuffer() : null;
 }
 /** `width` là độ rộng tương đối (xấp xỉ số chữ); `pct`: số phần trăm, ô trống hiện "–" */
-export interface PdfCol { header: string; key: string; width: number; align?: 'left' | 'center' | 'right'; pct?: boolean; /** giữ cả ô trên một dòng (họ và tên) */ keep?: boolean }
+export interface PdfCol { header: string; key: string; width: number; align?: 'left' | 'center' | 'right'; pct?: boolean; /** giữ cả ô trên một dòng (họ và tên) */ keep?: boolean; /** bề ngang tối thiểu theo tỉ lệ bảng (0–1), ví dụ cột đề bài nhiều dòng */ share?: number }
 export interface PdfTable {
   /** Tiêu đề phần (báo cáo nhiều phần), ví dụ "I. TỔNG QUAN" */
   heading?: string;
@@ -168,10 +168,12 @@ export function officialPdf(spec: PdfDoc): Promise<Buffer> {
         // - phần còn thừa trước hết để các cột chữ hiện trọn trên một dòng (họ tên không bị bẻ thành ba dòng), dư nữa mới chia cho cột chữ theo tỉ lệ `width`.
         const measure = (size: number) => {
           const token = (text: string, font: string) => { doc.font(font).fontSize(size); return Math.max(0, ...text.split(/\s+/).map((w) => doc.widthOfString(w))); };
-          const whole = (text: string, font: string) => { doc.font(font).fontSize(size); return doc.widthOfString(text); };
+          // ô nhiều dòng (đề bài kèm các lựa chọn): đo dòng dài nhất, không cộng cả ô thành một dòng
+          const whole = (text: string, font: string) => { doc.font(font).fontSize(size); return Math.max(0, ...text.split('\n').map((line) => doc.widthOfString(line))); };
           const headMin = (c: PdfCol) => { const t = token(c.header, 'b'); if ((c.align ?? 'left') !== 'center') return t; const all = whole(c.header, 'b'); return all <= 60 ? all : t; };
           const texts = (c: PdfCol) => table.rows.map((r) => (c.key === '__i' ? String(table.rows.length) : cellText(c, r[c.key])));
           const min = cols.map((c) => Math.max(headMin(c), ...texts(c).map((t) => ((c.align ?? 'left') === 'center' || c.keep ? whole(t, 'r') : token(t, 'r')))) + 13); // 8 điểm lề trong ô + chừa sai số đo chữ
+          cols.forEach((c, i) => { if (c.share) min[i] = Math.max(min[i], W * Math.min(0.6, c.share)); });
           const pref = cols.map((c, i) => Math.max(min[i], Math.min(W * 0.45, Math.max(0, ...texts(c).map((t) => whole(t, 'r'))) + 13)));
           return { min, pref };
         };

@@ -166,6 +166,26 @@ export async function makeXlsx(header: string[], rows: string[][]): Promise<Buff
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
 
+/**
+ * Điền dữ liệu vào file mẫu tải từ hệ thống (giữ nguyên phần đầu, dòng nhận diện A2): tìm dòng tiêu đề bảng theo tên cột (không dấu, không phân biệt hoa thường,
+ * bỏ dấu * và phần trong ngoặc) rồi ghi từng dòng `rows` theo thứ tự cột `header` vào ngay dưới.
+ */
+export async function fillTemplate(template: Buffer, header: string[], rows: string[][]): Promise<Buffer> {
+  const ExcelJS = await import('exceljs');
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(template as never);
+  const sheet = workbook.worksheets[0];
+  const norm = (t: string) => t.replace(/\(.*?\)/g, '').replace(/\*/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').normalize('NFD').replace(/\p{Mn}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  for (let r = 1; r <= 30; r += 1) {
+    const cols = new Map<string, number>();
+    sheet.getRow(r).eachCell((cell, col) => { if (typeof cell.value === 'string') cols.set(norm(cell.value), col); });
+    if (!header.every((h) => cols.has(norm(h)))) continue;
+    rows.forEach((row, i) => header.forEach((h, k) => { sheet.getCell(r + 1 + i, cols.get(norm(h))!).value = row[k]; }));
+    return Buffer.from(await workbook.xlsx.writeBuffer());
+  }
+  throw new Error(`File mẫu không có đủ cột: ${header.join(', ')}`);
+}
+
 /** Quản trị viên cấp tài khoản, người dùng đăng nhập lần đầu và đổi mật khẩu; trả về token mới và tài khoản */
 export async function activate(base: string, username: string, tempPassword: string, newPassword: string, portal: string) {
   const login = await call(base, 'POST', '/api/auth/login', { username, password: tempPassword, portal });

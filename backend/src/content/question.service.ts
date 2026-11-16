@@ -1,9 +1,10 @@
 /**
  * Ngân hàng câu hỏi (HK.GV.030–037, 039, HK.AD.045): xem theo kho (của tôi / trường / hệ thống) và theo chủ đề, tìm kiếm, tạo nhiều dạng,
- * sửa có lưu lịch sử, xóa khi chưa dùng, nhập/xuất Excel, gắn dữ liệu lịch sử, sao chép về kho riêng. Việc gửi duyệt nằm ở ShareService.
+ * sửa có lưu lịch sử, xóa khi chưa dùng, nhập Excel (file mẫu của trường) / xuất PDF, gắn dữ liệu lịch sử, sao chép về kho riêng. Việc gửi duyệt nằm ở ShareService.
  */
 import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
-import { buildWorkbook, checkUpload, Column, readSheet, UploadedXlsx } from '../admin/excel';
+import { buildQuestionSheet, cellText, checkQuestionFile, checkUpload, Column, readSheet, UploadedXlsx } from '../admin/excel';
+import { officialPdf, schoolPdfLogo } from '../admin/pdf';
 import { likeEscape } from '../admin/school.service';
 import { DatabaseService, Q, searchText, UserRow } from '../database/database.service';
 import { authoringScope, canEdit, canSee, checkLinks, LinkInput, linkLabels, notFound, Owned, Scope, storeSql, visibleSql } from './access';
@@ -12,7 +13,8 @@ import { dataText, LEVEL_LABEL, normalizeData, parseLevel, QTYPE_LABEL, QTYPES, 
 export interface QuestionInput {
   qtype: QType; prompt: string; image_url?: string | null; video_url?: string | null; explanation?: string | null; difficulty?: number; cognitive_level?: number; campaign_id?: number | null; data: unknown; links?: LinkInput[];
 }
-export interface QuestionFilter { q?: string; store?: string; campaign_id?: number; qtype?: string; difficulty?: number; level?: number; ref_type?: string; ref_id?: number; page?: number; limit?: number }
+/** `rate`: tỉ lệ trả lời đúng (none chưa có lượt, low dưới 50%, mid 50–79%, high từ 80%); `used`: đã/chưa nằm trong bộ đề; `owner`: id người soạn hoặc none (dữ liệu mẫu) */
+export interface QuestionFilter { q?: string; store?: string; campaign_id?: number; qtype?: string; difficulty?: number; level?: number; ref_type?: string; ref_id?: number; rate?: string; used?: string; owner?: string; page?: number; limit?: number }
 
 export interface QuestionRow extends Owned {
   id: number; qtype: QType; prompt: string; image_url: string | null; video_url: string | null; explanation: string | null; difficulty: number; cognitive_level: number; campaign_id: number | null;
@@ -66,9 +68,14 @@ export class QuestionService {
        FROM hk_questions t LEFT JOIN hist_campaigns c ON c.id = t.campaign_id LEFT JOIN app_users u ON u.id = t.owner_id
        LEFT JOIN LATERAL (SELECT count(*)::int AS answered, round(100.0 * avg(aa.correct::int))::int AS correct_rate FROM ${REAL_ANSWERS} WHERE aa.question_id = t.id) s ON true
        WHERE ${where.sql} ORDER BY t.updated_at DESC, t.id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params);
+    // người soạn có câu hỏi khớp các bộ lọc khác: danh sách chọn của bộ lọc cột Người soạn
+    const ownerWhere = await this.filterSql(user, { ...f, owner: undefined });
+    const owners = await this.db.query<{ id: number | null; full_name: string | null }>(
+      `SELECT DISTINCT t.owner_id AS id, u.full_name FROM hk_questions t LEFT JOIN app_users u ON u.id = t.owner_id WHERE ${ownerWhere.sql} ORDER BY u.full_name NULLS LAST LIMIT 200`, ownerWhere.params);
     return {
       total, page, limit,
       items: rows.map((r) => ({ ...r, qtype_label: QTYPE_LABEL[r.qtype], level_label: LEVEL_LABEL[r.cognitive_level], can_edit: canEdit(user, r) })),
+      owners: owners.map((o) => ({ value: o.id === null ? 'none' : String(o.id), label: o.id === null ? 'Dữ liệu mẫu của hệ thống' : o.full_name ?? 'Tài khoản đã xóa' })),
     };
   }
 
@@ -81,6 +88,15 @@ export class QuestionService {
     if (f.qtype) { if (!(QTYPES as readonly string[]).includes(f.qtype)) throw new BadRequestException('Dạng câu hỏi không hợp lệ'); params.push(f.qtype); parts.push(`t.qtype = $${params.length}`); }
     if (f.difficulty) { params.push(f.difficulty); parts.push(`t.difficulty = $${params.length}`); }
     if (f.level) { params.push(f.level); parts.push(`t.cognitive_level = $${params.length}`); }
+    const rate = `(SELECT round(100.0 * avg(aa.correct::int)) FROM ${REAL_ANSWERS} WHERE aa.question_id = t.id)`;
+    if (f.rate === 'none') parts.push(`NOT EXISTS (SELECT 1 FROM ${REAL_ANSWERS} WHERE aa.question_id = t.id)`);
+    else if (f.rate === 'low') parts.push(`${rate} < 50`);
+    else if (f.rate === 'mid') parts.push(`${rate} BETWEEN 50 AND 79`);
+    else if (f.rate === 'high') parts.push(`${rate} >= 80`);
+    if (f.used === 'yes') parts.push('EXISTS (SELECT 1 FROM hk_quiz_questions qq WHERE qq.question_id = t.id)');
+    else if (f.used === 'no') parts.push('NOT EXISTS (SELECT 1 FROM hk_quiz_questions qq WHERE qq.question_id = t.id)');
+    if (f.owner === 'none') parts.push('t.owner_id IS NULL');
+    else if (f.owner && /^\d+$/.test(f.owner)) { params.push(Number(f.owner)); parts.push(`t.owner_id = $${params.length}`); }
     if (f.ref_type && f.ref_id) { params.push(f.ref_type, f.ref_id); parts.push(`EXISTS (SELECT 1 FROM hk_question_links l WHERE l.question_id = t.id AND l.ref_type = $${params.length - 1} AND l.ref_id = $${params.length})`); }
     return { sql: parts.join(' AND '), params };
   }
@@ -248,40 +264,58 @@ export class QuestionService {
     });
   }
 
-  // ------------------------------------------------------------------ Excel (HK.GV.035, 036)
+  // ------------------------------------------------------------------ Excel và PDF (HK.GV.035, 036; 16/11/2026: mẫu theo bố cục file danh sách lớp, xuất PDF)
+  /** Tiêu đề cột của file mẫu mới; tên cột cũ vẫn được nhận qua `aliases` */
   private readonly COLS: Column[] = [
-    { key: 'qtype', header: 'Dạng câu hỏi *', width: 20, required: true },
-    { key: 'prompt', header: 'Đề bài *', width: 60, required: true },
-    ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ key: `o${n}`, header: `Lựa chọn ${n}`, width: 26 })),
-    { key: 'answer', header: 'Đáp án *', width: 30, required: true },
-    { key: 'explanation', header: 'Giải thích', width: 50 },
-    { key: 'difficulty', header: 'Độ khó (1-3)', width: 12 },
-    { key: 'level', header: 'Mức độ (Biết/Hiểu/Vận dụng)', aliases: ['Mức độ', 'Mức độ nhận thức'], width: 18 },
-    { key: 'campaign', header: 'Cuộc kháng chiến', width: 30 },
-    { key: 'image_url', header: 'Liên kết hình ảnh (https)', width: 40 },
+    { key: 'qtype', header: 'DẠNG CÂU HỎI *', width: 16, required: true },
+    { key: 'prompt', header: 'ĐỀ BÀI *', width: 46, required: true },
+    ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({ key: `o${n}`, header: `LỰA CHỌN ${n}`, width: 18 })),
+    { key: 'answer', header: 'ĐÁP ÁN *', width: 16, required: true },
+    { key: 'explanation', header: 'GIẢI THÍCH', width: 32 },
+    { key: 'level', header: 'MỨC ĐỘ', aliases: ['Mức độ (Biết/Hiểu/Vận dụng)', 'Mức độ nhận thức'], width: 12 },
+    { key: 'difficulty', header: 'ĐỘ KHÓ', aliases: ['Độ khó (1-3)'], width: 10 },
+    { key: 'campaign', header: 'CHỦ ĐỀ', aliases: ['Cuộc kháng chiến'], width: 28 },
+    { key: 'image_url', header: 'HÌNH ẢNH (https)', aliases: ['Liên kết hình ảnh (https)', 'Liên kết hình ảnh'], width: 28 },
   ];
 
   private static readonly TYPE_ALIASES: Record<string, QType> = {
     'mot dap an': 'single', single: 'single', 'nhieu dap an': 'multiple', multiple: 'multiple', 'dung sai': 'truefalse', 'dung/sai': 'truefalse', 'dung / sai': 'truefalse', truefalse: 'truefalse',
     'dien khuyet': 'fill', fill: 'fill', 'sap xep': 'order', 'sap xep thu tu': 'order', order: 'order', 'keo tha ban do': 'map', map: 'map',
   };
+  private static readonly DIFFICULTY_ALIASES: Record<string, number> = { '1': 1, de: 1, '2': 2, vua: 2, 'trung binh': 2, '3': 3, kho: 3 };
 
-  async template(): Promise<Buffer> {
-    return buildWorkbook('Câu hỏi', this.COLS, [
-      { qtype: 'Một đáp án', prompt: 'Ai được vua Trần giao chức Quốc công Tiết chế thống lĩnh quân đội trong kháng chiến lần II và III?', o1: 'Trần Quang Khải', o2: 'Trần Hưng Đạo', o3: 'Trần Nhật Duật', answer: '2', explanation: 'Trần Hưng Đạo được giao chỉ huy toàn quân.', difficulty: '1', level: 'Biết', campaign: '' },
-      { qtype: 'Nhiều đáp án', prompt: 'Những địa danh nào gắn với kháng chiến chống Nguyên – Mông?', o1: 'Bạch Đằng', o2: 'Chương Dương', o3: 'Điện Biên Phủ', o4: 'Hàm Tử', answer: '1,2,4', difficulty: '2', level: 'Hiểu' },
-      { qtype: 'Đúng/sai', prompt: 'Hội nghị Diên Hồng họp để bàn việc đánh hay hòa.', answer: 'Đúng', difficulty: '1', level: 'Biết' },
-      { qtype: 'Điền khuyết', prompt: 'Năm ____, quân dân nhà Trần giành chiến thắng trên sông ____.', answer: '1288; Bạch Đằng|Bạch Đằng Giang', difficulty: '2', level: 'Hiểu' },
-      { qtype: 'Sắp xếp', prompt: 'Sắp xếp các sự kiện theo thứ tự thời gian.', o1: 'Hội nghị Diên Hồng', o2: 'Chiến thắng Hàm Tử', o3: 'Chiến thắng Bạch Đằng', answer: '', difficulty: '2', level: 'Vận dụng' },
-    ], [
-      'Mỗi dòng là một câu hỏi. Dạng câu hỏi: Một đáp án, Nhiều đáp án, Đúng/sai, Điền khuyết, Sắp xếp. Dạng kéo thả lên bản đồ chỉ tạo trên giao diện.',
-      'Một đáp án / Nhiều đáp án: điền các lựa chọn vào cột Lựa chọn 1…8; cột Đáp án ghi số thứ tự lựa chọn đúng (ví dụ 2 hoặc 1,3).',
-      'Đúng/sai: cột Đáp án ghi Đúng hoặc Sai.',
-      'Điền khuyết: đề bài đánh dấu chỗ trống bằng ____; cột Đáp án ghi đáp án từng chỗ trống, cách nhau dấu chấm phẩy; nhiều cách viết cùng được chấp nhận thì cách nhau dấu |.',
-      'Sắp xếp: nhập các mục theo ĐÚNG thứ tự vào Lựa chọn 1…8 (hệ thống tự xáo trộn khi hiển thị); cột Đáp án để trống.',
-      'Độ khó: 1 (dễ), 2 (vừa), 3 (khó). Mức độ nhận thức (Công văn 7991): Biết, Hiểu hoặc Vận dụng (để trống thì lấy theo độ khó); dùng khi tạo đề theo ma trận.',
-      'Cuộc kháng chiến: ghi đúng tên trong kho lịch sử (để trống nếu không gắn). Xóa các dòng ví dụ trước khi nhập.',
-    ]);
+  /** Trường nhận file của người dùng (tên, mã, địa phương để in phần đầu); quản trị viên tổng dùng kho hệ thống (`null`) */
+  private async ownerSchool(user: UserRow) {
+    if (user.role === 'root_admin') return null;
+    authoringScope(user);
+    const row = (await this.db.query<{ name: string; code: string | null; region: string | null; city: string | null; address: string | null; directory_code: string | null; logo_url: string | null }>(
+      'SELECT name, school_code AS code, region, city, address, directory_code, logo_url FROM app_schools WHERE id = $1', [user.school_id]))[0];
+    if (!row) throw new ForbiddenException('Tài khoản chưa được gán trường');
+    return row;
+  }
+
+  async template(user: UserRow): Promise<Buffer> {
+    const school = await this.ownerSchool(user);
+    const campaigns = (await this.db.query<{ title: string }>('SELECT title FROM hist_campaigns ORDER BY sort_order, start_year NULLS LAST, id')).map((c) => c.title);
+    return buildQuestionSheet({
+      school: school ? { name: school.name, code: school.code, region: school.region } : null,
+      author: user.user_code ? `${user.user_code} · ${user.full_name}` : user.full_name,
+      campaigns,
+      guide: [
+        `File mẫu của ${school ? school.name : 'kho hệ thống'}: dòng 2 ghi trường nhận file, đừng sửa dòng này. ${school ? 'Chỉ giáo viên của trường nhập được file; file của trường khác bị từ chối.' : 'Chỉ nhập được vào kho hệ thống.'}`,
+        'Mỗi dòng trong bảng là một câu hỏi. DẠNG CÂU HỎI: Một đáp án, Nhiều đáp án, Đúng/sai, Điền khuyết, Sắp xếp (dạng kéo thả lên bản đồ chỉ tạo trên website).',
+        'Một đáp án / Nhiều đáp án: điền các lựa chọn vào LỰA CHỌN 1…8; ĐÁP ÁN ghi số thứ tự lựa chọn đúng, ví dụ 2 (một đáp án) hoặc 1,3 (nhiều đáp án).',
+        'Đúng/sai: ĐÁP ÁN ghi Đúng hoặc Sai; các ô lựa chọn để trống.',
+        'Điền khuyết: ĐỀ BÀI đánh dấu chỗ trống bằng ____ (4 dấu gạch dưới); ĐÁP ÁN ghi đáp án từng chỗ trống theo thứ tự, cách nhau dấu chấm phẩy; nhiều cách viết cùng đúng thì cách nhau dấu |.',
+        'Sắp xếp: nhập các mục theo ĐÚNG thứ tự vào LỰA CHỌN 1…8 (hệ thống tự xáo trộn khi hiển thị cho học sinh); ĐÁP ÁN để trống.',
+        'MỨC ĐỘ (Công văn 7991/BGDĐT-GDTrH): Biết, Hiểu hoặc Vận dụng; để trống thì lấy theo độ khó. ĐỘ KHÓ: Dễ, Vừa hoặc Khó (để trống là Vừa). CHỦ ĐỀ: chọn cuộc kháng chiến, để trống nếu không gắn.',
+        'HÌNH ẢNH: liên kết https của ảnh minh họa (không bắt buộc).',
+        'Ví dụ – Một đáp án: ĐỀ BÀI "Ai được giao chức Quốc công Tiết chế thống lĩnh quân đội trong kháng chiến lần thứ hai và thứ ba?"; LỰA CHỌN 1 Trần Quang Khải, LỰA CHỌN 2 Trần Hưng Đạo, LỰA CHỌN 3 Trần Nhật Duật; ĐÁP ÁN 2.',
+        'Ví dụ – Nhiều đáp án: ĐỀ BÀI "Những trận thắng nào diễn ra trong kháng chiến lần thứ hai (1285)?"; LỰA CHỌN 1 Hàm Tử, LỰA CHỌN 2 Chương Dương, LỰA CHỌN 3 Vân Đồn; ĐÁP ÁN 1,2.',
+        'Ví dụ – Điền khuyết: ĐỀ BÀI "Năm ____, quân dân nhà Trần đánh tan thủy quân Nguyên trên sông ____."; ĐÁP ÁN 1288; Bạch Đằng|Bạch Đằng Giang.',
+        'Nhấn "Nhập từ Excel" trên website, chọn file: hệ thống báo lỗi từng dòng để sửa trước khi lưu; câu hỏi được lưu vào kho của người nhập.',
+      ],
+    });
   }
 
   private rowToInput(v: Record<string, string>, campaigns: Map<string, number>): QuestionInput {
@@ -290,10 +324,12 @@ export class QuestionService {
     if (qtype === 'map') throw new BadRequestException('Dạng kéo thả bản đồ chỉ tạo trên giao diện, không nhập từ Excel');
     const opts = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => v[`o${n}`]).filter(Boolean);
     const campaignKey = searchText(v.campaign);
-    if (campaignKey && !campaigns.has(campaignKey)) throw new BadRequestException(`Không có cuộc kháng chiến "${v.campaign}" trong kho lịch sử`);
+    if (campaignKey && !campaigns.has(campaignKey)) throw new BadRequestException(`Không có chủ đề "${v.campaign}" trong kho lịch sử`);
+    const difficulty = v.difficulty ? QuestionService.DIFFICULTY_ALIASES[searchText(v.difficulty)] : 2;
+    if (!difficulty) throw new BadRequestException('Độ khó ghi Dễ, Vừa hoặc Khó (hoặc 1, 2, 3)');
     const base = {
       qtype, prompt: v.prompt, explanation: v.explanation || null, image_url: v.image_url || null, campaign_id: campaignKey ? campaigns.get(campaignKey)! : null,
-      difficulty: v.difficulty ? Number(v.difficulty) : 2,
+      difficulty,
       cognitive_level: parseLevel(v.level),
     };
     if (Number.isNaN(base.cognitive_level)) throw new BadRequestException('Mức độ ghi Biết, Hiểu hoặc Vận dụng (hoặc 1, 2, 3)');
@@ -320,9 +356,11 @@ export class QuestionService {
     return map;
   }
 
+  /** Nhập câu hỏi từ file mẫu: chỉ nhận file mẫu của chính trường người nhập (dòng A2), báo lỗi từng dòng; `commit` mới lưu vào kho của người nhập */
   async importXlsx(user: UserRow, file: UploadedXlsx | undefined, commit: boolean) {
     authoringScope(user);
-    const rows = await readSheet(checkUpload(file), this.COLS);
+    const school = await this.ownerSchool(user);
+    const rows = await readSheet(checkUpload(file), this.COLS, 'Câu hỏi', false, (sheet) => checkQuestionFile(cellText(sheet.getCell('A2').value), school ? { name: school.name, code: school.code } : null));
     const campaigns = await this.campaignIndex();
     const out: Array<{ row: number; prompt: string; status: 'ok' | 'error' | 'created'; errors: string[]; id?: number }> = [];
     for (const r of rows) {
@@ -345,24 +383,57 @@ export class QuestionService {
     return { committed: commit, total: out.length, valid: out.length - bad, errors: bad, created: out.filter((r) => r.status === 'created').length, rows: out };
   }
 
-  async exportXlsx(user: UserRow, f: QuestionFilter): Promise<Buffer> {
+  /**
+   * Xuất danh sách câu hỏi đã lọc ra PDF theo thể thức văn bản hành chính (16/11/2026: xuất PDF thay cho Excel), khổ ngang:
+   * dạng, đề bài kèm các lựa chọn A, B, C…, đáp án, mức độ, độ khó, chủ đề; cuối văn bản có chỗ ký của người lập.
+   */
+  async exportPdf(user: UserRow, f: QuestionFilter): Promise<{ buffer: Buffer; filename: string }> {
     const where = await this.filterSql(user, f);
     const rows = await this.db.query<QuestionRow & { campaign_title: string | null }>(
-      `SELECT t.id, t.qtype, t.prompt, t.explanation, t.difficulty, t.cognitive_level, t.image_url, t.data, c.title AS campaign_title FROM hk_questions t LEFT JOIN hist_campaigns c ON c.id = t.campaign_id
+      `SELECT t.id, t.qtype, t.prompt, t.explanation, t.difficulty, t.cognitive_level, t.data, c.title AS campaign_title FROM hk_questions t LEFT JOIN hist_campaigns c ON c.id = t.campaign_id
        WHERE ${where.sql} ORDER BY t.updated_at DESC, t.id DESC LIMIT 1000`, where.params);
+    const letter = (i: number) => String.fromCharCode(65 + i);
     const out = rows.map((r) => {
       const d = r.data as Record<string, any>;
-      const cells: Record<string, unknown> = { qtype: QTYPE_LABEL[r.qtype], prompt: r.prompt, explanation: r.explanation ?? '', difficulty: String(r.difficulty), level: LEVEL_LABEL[r.cognitive_level] ?? '', campaign: r.campaign_title ?? '', image_url: r.image_url ?? '' };
       const list = (d.options ?? d.items ?? []) as Array<{ id: string; text: string }>;
-      list.slice(0, 8).forEach((o, i) => { cells[`o${i + 1}`] = o.text; });
-      if (r.qtype === 'single') cells.answer = String(list.findIndex((o) => o.id === d.correct) + 1);
-      else if (r.qtype === 'multiple') cells.answer = list.map((o, i) => ((d.correct as string[]).includes(o.id) ? i + 1 : 0)).filter(Boolean).join(',');
-      else if (r.qtype === 'truefalse') cells.answer = d.correct ? 'Đúng' : 'Sai';
-      else if (r.qtype === 'fill') cells.answer = (d.blanks as Array<{ accept: string[] }>).map((b) => b.accept.join('|')).join('; ');
-      else if (r.qtype === 'order') cells.answer = '';
-      else cells.answer = (d.targets as Array<{ label: string; lat: number; lng: number }>).map((t) => `${t.label} (${t.lat}; ${t.lng})`).join(' · ');
-      return cells;
+      let body = r.prompt, answer = '';
+      if (r.qtype === 'single' || r.qtype === 'multiple') {
+        body += list.map((o, i) => `\n${letter(i)}. ${o.text}`).join('');
+        const want = r.qtype === 'single' ? [String(d.correct)] : ((d.correct ?? []) as string[]);
+        answer = list.map((o, i) => (want.includes(o.id) ? letter(i) : '')).filter(Boolean).join(', ');
+      } else if (r.qtype === 'truefalse') answer = d.correct ? 'Đúng' : 'Sai';
+      else if (r.qtype === 'fill') answer = ((d.blanks ?? []) as Array<{ accept: string[] }>).map((b, i) => `Chỗ ${i + 1}: ${b.accept.join(' / ')}`).join('\n');
+      else if (r.qtype === 'order') { body += list.map((o, i) => `\n${i + 1}. ${o.text}`).join(''); answer = 'Theo thứ tự 1 → ' + list.length; }
+      else answer = ((d.targets ?? []) as Array<{ label: string }>).map((t) => t.label).join(', ');
+      if (r.explanation) body += `\nGiải thích: ${r.explanation}`;
+      return { qtype: QTYPE_LABEL[r.qtype], body, answer, level: LEVEL_LABEL[r.cognitive_level] ?? '', difficulty: ['', 'Dễ', 'Vừa', 'Khó'][r.difficulty] ?? '', campaign: r.campaign_title ?? '' };
     });
-    return buildWorkbook('Câu hỏi', this.COLS, out, ['Danh sách câu hỏi đã lọc. Dạng kéo thả bản đồ chỉ để xem; không nhập lại được từ Excel.']);
+    const school = await this.ownerSchool(user).catch(() => null);
+    const head = school ? { name: school.name, code: school.code, region: school.region, city: school.city, address: school.address, logo: await schoolPdfLogo(this.db, school) } : null;
+    const filters = [
+      f.store && f.store !== 'all' ? ({ mine: 'kho của tôi', school: 'kho của trường', system: 'kho hệ thống' } as Record<string, string>)[f.store] : null,
+      f.q ? `tìm "${f.q}"` : null, f.qtype ? `dạng ${QTYPE_LABEL[f.qtype as QType]?.toLowerCase()}` : null,
+      f.level ? `mức độ ${LEVEL_LABEL[f.level]?.toLowerCase()}` : null, f.difficulty ? `độ khó ${['', 'dễ', 'vừa', 'khó'][f.difficulty]}` : null,
+      f.campaign_id ? `chủ đề ${(await this.db.query<{ title: string }>('SELECT title FROM hist_campaigns WHERE id = $1', [f.campaign_id]))[0]?.title ?? ''}` : null,
+      f.rate ? ({ none: 'chưa có lượt trả lời', low: 'tỉ lệ đúng dưới 50%', mid: 'tỉ lệ đúng 50–79%', high: 'tỉ lệ đúng từ 80%' } as Record<string, string>)[f.rate] : null,
+      f.used ? (f.used === 'yes' ? 'đã dùng trong bộ đề' : 'chưa dùng trong bộ đề') : null,
+      f.owner ? `người soạn ${f.owner === 'none' ? 'hệ thống' : (await this.db.query<{ full_name: string }>('SELECT full_name FROM app_users WHERE id = $1', [Number(f.owner)]))[0]?.full_name ?? ''}` : null,
+    ].filter(Boolean);
+    const buffer = await officialPdf({
+      title: 'Ngân hàng câu hỏi', footer: school?.code ? `Mã trường ${school.code}` : undefined,
+      parts: [{
+        school: head, title: 'Ngân hàng câu hỏi', subtitle: 'Môn Lịch sử – Ba lần kháng chiến chống quân xâm lược Mông – Nguyên (thế kỉ XIII)', orientation: 'landscape',
+        info: [`Tổng số: ${out.length} câu hỏi${rows.length === 1000 ? ' (tối đa 1000 câu mỗi lần xuất)' : ''}`, ...(filters.length ? [`Lọc theo: ${filters.join(', ')}`] : [])],
+        facts: [{ label: 'Người lập', value: user.user_code ? `${user.full_name} (mã ${user.user_code})` : user.full_name }],
+        tables: [{
+          cols: [{ header: 'Dạng', key: 'qtype', width: 11, align: 'center' }, { header: 'Đề bài và các lựa chọn', key: 'body', width: 60, share: 0.4 }, { header: 'Đáp án', key: 'answer', width: 18 },
+            { header: 'Mức độ', key: 'level', width: 9, align: 'center' }, { header: 'Độ khó', key: 'difficulty', width: 8, align: 'center' }, { header: 'Chủ đề', key: 'campaign', width: 18 }],
+          rows: out, empty: 'Không có câu hỏi nào khớp bộ lọc.', total: out.length ? `Danh sách có ${out.length} câu hỏi.` : undefined,
+        }],
+        signers: [{ title: 'Người lập biểu', name: user.full_name }],
+      }],
+    });
+    const day = new Date(Date.now() + 7 * 3_600_000).toISOString().slice(0, 10).split('-').reverse().join('-');
+    return { buffer, filename: `ngan_hang_cau_hoi_${day}.pdf` };
   }
 }

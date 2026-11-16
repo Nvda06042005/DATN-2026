@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Put, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsObject, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsObject, IsOptional, IsString, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
 import { UploadedXlsx, XLSX_MIME, XLSX_UPLOAD } from '../admin/excel';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { DatabaseService, UserRow } from '../database/database.service';
@@ -48,6 +48,9 @@ class QuestionListQuery {
   @IsOptional() @num() @IsInt() @Min(1) level?: number;
   @IsOptional() @IsIn([...LINK_TYPES]) ref_type?: string;
   @IsOptional() @num() @IsInt() @Min(1) ref_id?: number;
+  @IsOptional() @IsIn(['none', 'low', 'mid', 'high']) rate?: string;
+  @IsOptional() @IsIn(['yes', 'no']) used?: string;
+  @IsOptional() @IsString() @Matches(/^(none|\d{1,9})$/) owner?: string;
   @IsOptional() @num() @IsInt() @Min(1) page?: number;
   @IsOptional() @num() @IsInt() @Min(1) limit?: number;
 }
@@ -251,12 +254,15 @@ export class ContentController {
   @Get('questions')
   listQuestions(@CurrentUser() user: UserRow, @Query() query: QuestionListQuery) { return this.questions.list(user, query); }
 
+  /** File mẫu nhập câu hỏi theo bố cục file danh sách lớp, ghi trường của người tải (chỉ trường đó nhập được) */
   @Get('questions/template')
-  async questionTemplate() { return new StreamableFile(await this.questions.template(), { type: XLSX_MIME, disposition: 'attachment; filename="mau-cau-hoi.xlsx"' }); }
+  async questionTemplate(@CurrentUser() user: UserRow) { return new StreamableFile(await this.questions.template(user), { type: XLSX_MIME, disposition: 'attachment; filename="mau-ngan-hang-cau-hoi.xlsx"' }); }
 
+  /** Xuất danh sách câu hỏi đã lọc ra PDF (16/11/2026: thay cho Excel) */
   @Get('questions/export')
   async exportQuestions(@CurrentUser() user: UserRow, @Query() query: QuestionListQuery) {
-    return new StreamableFile(await this.questions.exportXlsx(user, query), { type: XLSX_MIME, disposition: 'attachment; filename="cau-hoi.xlsx"' });
+    const { buffer, filename } = await this.questions.exportPdf(user, query);
+    return new StreamableFile(buffer, { type: 'application/pdf', disposition: `attachment; filename="${filename}"` });
   }
 
   @Post('questions/import')

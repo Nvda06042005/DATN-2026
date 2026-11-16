@@ -2,7 +2,7 @@
  * Sprint 4, phần soạn nội dung (HK.GV.030–044, HK.QT.041, HK.AD.045): ngân hàng câu hỏi nhiều dạng, bộ đề, nhập/xuất Excel,
  * gắn dữ liệu lịch sử, chia sẻ và duyệt giữa giáo viên – trường – hệ thống. HTTP thật trên PostgreSQL tạm.
  */
-import { call, download, hasPostgres, makeXlsx, Started, startApp, upload } from './harness';
+import { call, download, fillTemplate, hasPostgres, makeXlsx, Started, startApp, upload } from './harness';
 import { bootstrap, Fixture } from './fixture';
 import type { DatabaseService } from '../src/database/database.service';
 
@@ -207,9 +207,18 @@ const MAP = { qtype: 'map', prompt: 'Kéo các địa danh lên bản đồ.', d
     const tpl = await download(s.base, '/api/content/questions/template', f.T1.token);
     expect(tpl.status).toBe(200);
     expect(tpl.type).toContain('spreadsheetml');
-    const header = ['Dạng câu hỏi *', 'Đề bài *', 'Lựa chọn 1', 'Lựa chọn 2', 'Lựa chọn 3', 'Lựa chọn 4', 'Đáp án *', 'Giải thích', 'Độ khó (1-3)', 'Cuộc kháng chiến'];
-    const file = await makeXlsx(header, [
-      ['Một đáp án', 'Vua nào ba lần lãnh đạo kháng chiến?', 'Trần Thái Tông', 'Trần Nhân Tông', 'Lý Thái Tổ', '', '2', 'Nhân Tông là vua thời Lần II và III.', '2', ''],
+    // file mẫu trình bày như file danh sách lớp: dòng A2 ghi trường nhận file, phần đầu có quốc hiệu, tiêu đề NGÂN HÀNG CÂU HỎI, bảng có cột STT
+    const ExcelJS = await import('exceljs');
+    const book = new ExcelJS.Workbook();
+    await book.xlsx.load(tpl.buffer as never);
+    const first = book.worksheets[0];
+    expect(String(first.getCell('A2').value)).toMatch(/^Mẫu ngân hàng câu hỏi · /);
+    expect(String(first.getCell('L4').value)).toBe('CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM');
+    expect(String(first.getCell('A8').value)).toBe('NGÂN HÀNG CÂU HỎI');
+    expect((first.getRow(15).values as unknown[]).slice(1, 4)).toEqual(['STT', 'DẠNG CÂU HỎI *', 'ĐỀ BÀI *']);
+    const header = ['DẠNG CÂU HỎI *', 'ĐỀ BÀI *', 'LỰA CHỌN 1', 'LỰA CHỌN 2', 'LỰA CHỌN 3', 'LỰA CHỌN 4', 'ĐÁP ÁN *', 'GIẢI THÍCH', 'ĐỘ KHÓ', 'CHỦ ĐỀ'];
+    const file = await fillTemplate(tpl.buffer, header, [
+      ['Một đáp án', 'Vua nào ba lần lãnh đạo kháng chiến?', 'Trần Thái Tông', 'Trần Nhân Tông', 'Lý Thái Tổ', '', '2', 'Nhân Tông là vua thời Lần II và III.', 'Vừa', ''],
       ['Nhiều đáp án', 'Chọn các trận thắng lợi năm 1285', 'Hàm Tử', 'Chương Dương', 'Bạch Đằng', '', '1,2', '', '3', ''],
       ['Đúng/sai', 'Hịch tướng sĩ do Trần Hưng Đạo viết.', '', '', '', '', 'Đúng', '', '1', ''],
       ['Điền khuyết', 'Trận ____ diễn ra năm ____.', '', '', '', '', 'Bạch Đằng|Bạch Đằng Giang; 1288', '', '2', ''],
@@ -222,7 +231,7 @@ const MAP = { qtype: 'map', prompt: 'Kéo các địa danh lên bản đồ.', d
     ]);
     const preview = await upload(s.base, '/api/content/questions/import', 'cau-hoi.xlsx', file, f.T1.token);
     expect(preview.body).toMatchObject({ committed: false, total: 10, valid: 5, errors: 5, created: 0 });
-    expect(preview.body.rows.filter((r: any) => r.status === 'error').map((r: any) => r.row)).toEqual([7, 8, 9, 10, 11]);
+    expect(preview.body.rows.filter((r: any) => r.status === 'error').map((r: any) => r.row)).toEqual([21, 22, 23, 24, 25]);
     expect(preview.body.rows[5].errors[0]).toContain('không khớp');
     const before = (await api('GET', '/api/content/questions?store=mine')).body.total;
     const committed = await upload(s.base, '/api/content/questions/import?commit=true', 'cau-hoi.xlsx', file, f.T1.token);
@@ -235,18 +244,36 @@ const MAP = { qtype: 'map', prompt: 'Kéo các địa danh lên bản đồ.', d
 
     expect((await upload(s.base, '/api/content/questions/import', 'khong-phai.xlsx', Buffer.from('không phải excel'), f.T1.token)).status).toBe(400);
     expect((await upload(s.base, '/api/content/questions/import', 'cau-hoi.xlsx', file, f.S1.token)).status).toBe(403);
-    expect((await upload(s.base, '/api/content/questions/import', 'cau-hoi.xlsx', file, f.A.token)).status).toBe(200);
+    expect((await upload(s.base, '/api/content/questions/import', 'cau-hoi.xlsx', file, f.A.token)).status).toBe(200); // quản trị viên cùng trường
+    // chỉ nhận file mẫu của trường mình: trường B, file tự lập (không có dòng nhận diện) và mẫu của kho hệ thống đều bị từ chối
+    const other = await upload(s.base, '/api/content/questions/import', 'cau-hoi.xlsx', file, f.B.token);
+    expect(other.status).toBe(400);
+    expect(other.body.detail).toContain('Chỉ giáo viên của');
+    const loose = await makeXlsx(header, [['Một đáp án', 'File tự lập', 'A', 'B', '', '', '1', '', '', '']]);
+    expect((await upload(s.base, '/api/content/questions/import', 'cau-hoi.xlsx', loose, f.T1.token)).body.detail).toContain('không phải file mẫu ngân hàng câu hỏi');
+    const root = (await call(s.base, 'POST', '/api/auth/login', { username: 'admin', password: 'admin@123', portal: 'root_admin' })).body.token;
+    expect((await upload(s.base, '/api/content/questions/import', 'cau-hoi.xlsx', file, root)).status).toBe(400);
+    const systemTpl = await download(s.base, '/api/content/questions/template', root);
+    const systemFile = await fillTemplate(systemTpl.buffer, header, [['Đúng/sai', 'Câu của kho hệ thống nhập bằng mẫu hệ thống', '', '', '', '', 'Sai', '', 'Dễ', '']]);
+    expect((await upload(s.base, '/api/content/questions/import', 'cau-hoi.xlsx', systemFile, f.T1.token)).status).toBe(400);
+    expect((await upload(s.base, '/api/content/questions/import', 'cau-hoi.xlsx', systemFile, root)).body).toMatchObject({ valid: 1, errors: 0 });
 
+    // xuất danh sách đã lọc ra PDF
     const out = await download(s.base, '/api/content/questions/export?store=mine&qtype=single', f.T1.token);
     expect(out.status).toBe(200);
-    const ExcelJS = await import('exceljs');
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(out.buffer as unknown as Parameters<typeof wb.xlsx.load>[0]);
-    const rows: string[][] = [];
-    wb.worksheets[0].eachRow((row) => rows.push((row.values as unknown[]).slice(1).map((v) => String(v ?? ''))));
-    expect(rows[0][0]).toBe('Dạng câu hỏi *');
-    expect(rows.slice(1).every((r) => r[0] === 'Một đáp án')).toBe(true);
-    expect(rows.length - 1).toBe((await api('GET', '/api/content/questions?store=mine&qtype=single')).body.total);
+    expect(out.type).toContain('application/pdf');
+    expect(out.buffer.subarray(0, 5).toString()).toBe('%PDF-');
+
+    // bộ lọc mới: tỉ lệ đúng, đã dùng trong bộ đề, người soạn (kèm danh sách người soạn để chọn)
+    const mine = (await api('GET', '/api/content/questions?store=mine')).body;
+    expect(mine.owners).toEqual(expect.arrayContaining([expect.objectContaining({ value: String(f.T1.id) })]));
+    expect((await api('GET', `/api/content/questions?store=mine&owner=${f.T1.id}`)).body.total).toBe(mine.total);
+    const fresh = (await api('GET', '/api/content/questions?store=mine&rate=none&used=no&limit=100')).body;
+    expect(fresh.items.map((x: any) => x.id)).toEqual(expect.arrayContaining([committed.body.rows[0].id]));
+    expect((await api('GET', '/api/content/questions?store=mine&used=yes')).body.items.every((x: any) => x.used_in > 0)).toBe(true);
+    expect((await api('GET', '/api/content/questions?store=mine&rate=high')).body.items.every((x: any) => x.correct_rate >= 80)).toBe(true);
+    expect((await api('GET', '/api/content/questions?rate=wrong')).status).toBe(422);
+    expect((await api('GET', '/api/content/questions?owner=abc')).status).toBe(422);
   });
 
   // ------------------------------------------------------------------ HK.GV.039, HK.QT.041, HK.AD.045
