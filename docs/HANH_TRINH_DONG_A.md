@@ -63,7 +63,7 @@ Thứ tự trong một chặng do máy chủ giữ: luyện tập cần học xo
 | `components/portal/GameViewport.web.tsx` | Khung chứa game: **một khung một game Phaser**, nạp động, hủy sạch khi rời màn |
 | `game/*.ts` | Ba cảnh Phaser (nhập vai, chiến trường, khúc sông Bạch Đằng), tranh điểm ảnh vẽ bằng mã, cầu nối sự kiện với React |
 | `components/admin/SagaAdmin.tsx` | Trang quản trị bản đồ và nội dung; báo cáo lớp của giáo viên |
-| `api/sagaApi.ts`, `types/saga.ts`, `lib/saga-sound.ts` | Gọi API, kiểu dữ liệu, âm thanh tổng hợp (mặc định tắt) |
+| `lib/saga-api.ts`, `types/saga.ts`, `lib/saga-sound.ts` | Gọi API, kiểu dữ liệu, âm thanh tổng hợp (mặc định tắt) |
 
 Phaser 3.90 chỉ nằm trong một gói tải riêng (khoảng 1,5 MB), nạp khi học sinh mở cảnh nhập vai hoặc trận đánh; các trang khác không tải. Chữ tiếng Việt luôn do React hiển thị (canvas chỉ có hình và con số). React và Phaser trao đổi theo sự kiện qua `GameBridge`, không cập nhật React theo từng khung hình. Mỗi lần chuyển mục, màn cũ không còn được xem sẽ gỡ hết nội dung nên lúc nào cũng chỉ có một game đang chạy.
 
@@ -153,6 +153,7 @@ set EXPO_PUBLIC_API_URL=http://localhost:8000 && npm run web
 
 - `backend/test/saga_engine.spec.ts`: luật minigame, cảnh nhập vai, trận theo lượt, màn Bạch Đằng (thắng 3 sao theo lời giải mẫu; các lỗi điển hình thua đúng lý do), toàn bộ 13 chặng khởi tạo hợp lệ và mọi trận đánh thắng được.
 - `backend/test/saga.spec.ts`: chạy qua API thật trên PostgreSQL tạm: khóa chặng, thứ tự các bước, đề không lộ đáp án, gửi lặp, lệch thứ tự, phiên của người khác (404), trọn một vòng có trận đánh, đăng nhập lại còn tiến độ, chặng không có trận, ôn tập và đồng hồ, màn Bạch Đằng (thua rồi thắng), quyền theo vai trò, báo cáo lớp, quản trị sửa / phiên bản / duyệt, RLS.
+- `frontend/tests/stale-bundle.test.cjs`: `frontend/api/` không quá 12 tệp (giới hạn Serverless Function của Vercel gói Hobby; vì vậy tệp gọi API của Hành trình Đông A nằm ở `lib/saga-api.ts`).
 - `frontend/tests/student-nav.test.cjs`: khung trang, năm mục, ba kiểu điều hướng, màn không còn được xem phải gỡ nội dung, Phaser chỉ nạp động và đo lại vị trí canvas trước mỗi thao tác, giao diện không giữ đáp án; `frontend/tests/admin-shell.test.cjs`: mục Hành trình Đông A của quản trị tổng và của giáo viên.
 - Chạy thật trên trình duyệt (PostgreSQL tạm + backend + bản web + Chrome điều khiển qua CDP) ở 1280 px và 390 px, giao diện sáng và tối: đi trọn chặng đầu bằng thao tác thật (học, sáu câu luyện tập đủ năm dạng, nhập vai bằng chạm và phím, trận theo lượt bằng nút lệnh và bằng bấm lên chiến trường, nhận thưởng), màn Bạch Đằng thắng và thua (kể cả tải lại giữa trận rồi chơi tiếp, đóng cọc bằng bàn phím), ôn tập, bộ thẻ và bảng xếp hạng lớp, tư liệu, Back / Forward / tải lại, bấm lên canvas sau khi cuộn trang, chế độ giảm chuyển động, trang quản trị (bấm lên ảnh đổi vị trí, học sinh thấy ngay), báo cáo lớp của giáo viên.
 - **Chưa kiểm**: ứng dụng Android / iOS dựng thật (chỉ kiểm bản web ở bề ngang điện thoại); trình duyệt Safari và Firefox; nhiều học sinh chơi cùng lúc với tải lớn; trình đọc màn hình thật (mới kiểm nhãn trợ năng trong mã).

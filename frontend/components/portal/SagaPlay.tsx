@@ -6,7 +6,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
 import { Anchor, ArrowDown, ArrowUp, BookOpen, Check, ChevronRight, Flag, Flame, Footprints, Hand, Lightbulb, Minus, Play, RotateCcw, Shield, SkipForward, Sparkles, Swords, Target, Wheat, X } from 'lucide-react-native';
-import * as saga from '@/api/sagaApi';
+import * as saga from '@/lib/saga-api';
 import { errorMessage } from '@/api/client';
 import type { Session } from '@/components/auth';
 import { GameViewport } from '@/components/portal/GameViewport';

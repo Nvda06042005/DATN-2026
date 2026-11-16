@@ -68,3 +68,13 @@ test('trang lỗi: ErrorBoundary của ứng dụng bật tải lại thật cho
   assert.doesNotMatch(read('app', '[school].tsx'), /reloadOnRecover/);
   assert.doesNotMatch(read('app', '+not-found.tsx'), /reloadOnRecover/);
 });
+
+test('Vercel coi mỗi tệp trong frontend/api là một Serverless Function, gói Hobby chỉ cho 12: không thêm tệp thứ 13 (tệp gọi API mới đặt ở lib/)', () => {
+  // 16/11/2026: thêm api/sagaApi.ts làm bản dựng vẫn xong nhưng bước "Deploying outputs" của Vercel thất bại, website đứng ở bản cũ; CI không thấy lỗi này.
+  // Vercel bỏ qua tệp bắt đầu bằng "_" hoặc "." và tệp .d.ts trong thư mục api.
+  const walkApi = (dir) => fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walkApi(path.join(dir, e.name)) : [path.join(dir, e.name)]));
+  const functions = walkApi('api').filter((f) => /\.(js|mjs|cjs|ts|tsx|jsx)$/.test(f) && !f.endsWith('.d.ts') && !f.split(path.sep).slice(1).some((part) => part.startsWith('_') || part.startsWith('.')));
+  assert.ok(functions.length <= 12, `frontend/api có ${functions.length} tệp (tối đa 12): ${functions.join(', ')}`);
+  assert.ok(!fs.existsSync(path.join(root, 'api', 'sagaApi.ts')));
+  assert.match(read('lib', 'saga-api.ts'), /import \{ apiRequest \} from '@\/api\/client';/);
+});

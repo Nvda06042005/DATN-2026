@@ -1,4 +1,6 @@
-/** API Hành trình Đông A (/api/saga): bản đồ ba cuộc kháng chiến, chặng học – luyện tập – nhập vai – trận đánh, ôn tập, bộ sưu tập, kho tư liệu; báo cáo lớp và chỉnh bản đồ cho quản trị. */
+/** API Hành trình Đông A (/api/saga): bản đồ ba cuộc kháng chiến, chặng học – luyện tập – nhập vai – trận đánh, ôn tập, bộ sưu tập, kho tư liệu; báo cáo lớp và chỉnh bản đồ cho quản trị.
+ * Tệp nằm ở lib/ chứ không ở api/: Vercel coi mỗi tệp trong frontend/api/ là một Serverless Function và gói Hobby chỉ cho 12 hàm mỗi lần triển khai;
+ * thư mục đó đã đủ 12 tệp nên thêm tệp thứ 13 làm bước triển khai thất bại (16/11/2026) dù bản dựng vẫn xong. */
 import { apiRequest } from '@/api/client';
 import type {
   ActResult, AdminOverview, AdminStage, Archive, BattleSession, CampaignView, CardAlbum, ClassReport, ExploreSession, LessonView, PracticeSession, ReviewInfo, SagaHome, SagaMapInfo, StageDetail, StageSummary,

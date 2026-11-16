@@ -69,7 +69,7 @@ test('Phaser chỉ nạp động từ GameViewport bản web: một khung một 
 });
 
 test('giao diện không giữ đáp án và không tự quyết định điểm: mọi lệnh gửi máy chủ kèm mã lệnh và số thứ tự', () => {
-  const api = read('api', 'sagaApi.ts');
+  const api = read('lib', 'saga-api.ts');
   assert.match(api, /body: \{ action_id: actionId, seq, action \}/);
   assert.match(api, /if \(\(e as \{ status\?: number \}\)\.status !== 0\) throw e;/); // chỉ gửi lại khi mạng lỗi, luôn cùng một mã lệnh
   const types = read('types', 'saga.ts');

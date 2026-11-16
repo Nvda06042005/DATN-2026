@@ -295,7 +295,7 @@ test('tài khoản quản trị trường theo quy ước: điện thoại và n
 
 test('Hành trình Đông A: quản trị tổng chỉnh bản đồ và nội dung qua API (vị trí theo tỉ lệ, không sửa mã); giáo viên xem báo cáo lớp; quản trị trường không có mục này', () => {
   const sagaAdmin = read('components', 'admin', 'SagaAdmin.tsx');
-  const api = read('api', 'sagaApi.ts');
+  const api = read('lib', 'saga-api.ts');
   // mọi thay đổi đi qua API quản trị (máy chủ kiểm tra vai trò, cấu trúc nội dung và lưu phiên bản)
   for (const call of ['saga.adminOverview(', 'saga.adminStage(', 'saga.adminMoveStage(', 'saga.adminUpdateStage(', 'saga.adminSetStatus(', 'saga.adminUpdateItem(', 'saga.adminUpdateMap(', 'saga.classReport(']) assert.ok(sagaAdmin.includes(call), call);
   for (const route of ['/api/saga/admin/overview', '/api/saga/admin/stages/${id}', '/api/saga/admin/items/${id}', '/api/saga/teacher/classes/${classId}']) assert.ok(api.includes(route), route);

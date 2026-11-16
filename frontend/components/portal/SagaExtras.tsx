@@ -9,7 +9,7 @@ import { Image, Linking, Pressable, ScrollView, StyleSheet, View, useWindowDimen
 import { LinearGradient } from 'expo-linear-gradient';
 import { BookOpen, Check, Clock, Flame, Lock, Map as MapIcon, Play, RotateCcw, ScrollText, Sparkles, Star, Target, Trophy, Users } from 'lucide-react-native';
 import * as game from '@/api/gameApi';
-import * as saga from '@/api/sagaApi';
+import * as saga from '@/lib/saga-api';
 import { errorMessage } from '@/api/client';
 import type { Session } from '@/components/auth';
 import {

@@ -8,7 +8,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Image, Pressable, ScrollView, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
 import { ArrowDown, ArrowUp, BookOpen, Check, ChevronLeft, ChevronRight, Coins, Footprints, Lightbulb, Map as MapIcon, Play, Puzzle, RotateCcw, ScrollText, Sparkles, Swords, Target, X } from 'lucide-react-native';
-import * as saga from '@/api/sagaApi';
+import * as saga from '@/lib/saga-api';
 import { errorMessage } from '@/api/client';
 import type { Session } from '@/components/auth';
 import {

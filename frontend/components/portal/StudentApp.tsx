@@ -15,7 +15,7 @@ import { CircleQuestionMark, ClipboardList, Coins, Flame, GalleryHorizontalEnd, 
 import * as authApi from '@/api/authApi';
 import * as game from '@/api/gameApi';
 import * as platform from '@/api/platformApi';
-import * as saga from '@/api/sagaApi';
+import * as saga from '@/lib/saga-api';
 import { errorMessage } from '@/api/client';
 import type { Session } from '@/components/auth';
 import { HelpCenter } from '@/components/portal/HelpCenter';
