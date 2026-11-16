@@ -196,7 +196,7 @@ test('Thống kê trường (14/11/2026): Lớp và học sinh, Kết quả, S�
   assert.match(kit, /<CalendarInput def=\{\{ name: `\$\{idPrefix\}-from`/);
   // bố cục dashboard: tiêu đề hai nửa, hàng chỉ số, biểu đồ + đồng hồ, các thẻ, bảng
   assert.match(kit, /const \[head, tail\] = splitTitle\(title\);/);
-  for (const id of ['class-metrics', 'class-trend', 'class-gauges', 'class-distribution', 'class-topics', 'class-support', 'class-compare', 'class-roster']) assert.ok(teacher.includes(id), id);
+  for (const id of ['class-metrics', 'class-trend', 'class-gauges', 'class-distribution', 'class-topics', 'class-support', 'class-compare', 'class-stages', 'class-top', 'class-roster']) assert.ok(teacher.includes(id), id);
   for (const id of ['results-metrics', 'results-compare', 'results-gauges', 'results-highlights', 'results-table', 'results-classes', 'results-by-${v}']) assert.ok(teacher.includes(id), id);
   for (const id of ['usage-metrics', 'usage-trend-card', 'usage-gauges', 'usage-weekdays', 'usage-ai-quality', 'usage-range-${n}', 'usage-tab-${t.value}']) assert.ok(reports.includes(id), id);
   assert.match(reports, /<AiCard d=\{a\} days=\{days\} topN=\{5\} money=\{false\} \/>/); // quản trị trường không xem chi phí

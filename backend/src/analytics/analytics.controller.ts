@@ -77,8 +77,9 @@ export class AnalyticsController {
       { title: 'Tổng quan', cols: SUMMARY_COLS, rows: [
         { k: 'Sĩ số', v: `${dash.students} học sinh`, n: '' },
         { k: 'Học sinh hoạt động trong 7 ngày', v: `${dash.active_week} / ${dash.students}`, n: `Tham gia ${pctText(dash.participation)}` },
-        { k: 'Tiến độ hành trình trung bình', v: pctText(dash.avg_progress), n: `${pctText(dash.completion_rate)} học sinh đã hoàn thành hành trình` },
-        { k: 'Điểm trung bình các bài làm', v: pctText(dash.avg_percent), n: 'Trung bình điểm phần trăm của các bài đã làm' },
+        { k: 'Tiến độ Hành trình Đông A trung bình', v: pctText(dash.avg_progress), n: `${pctText(dash.completion_rate)} học sinh đã hoàn thành cả ${dash.saga.total_stages} chặng` },
+        { k: 'Sao đạt được của cả lớp', v: `${dash.saga.stars} / ${dash.saga.stars_max}`, n: `Thẻ nhân vật đã mở: ${dash.saga.cards}` },
+        { k: 'Điểm trung bình', v: pctText(dash.avg_percent), n: 'Bài tập, thi đấu và điểm luyện tập cao nhất từng chặng' },
         { k: 'Tỉ lệ trả lời đúng', v: pctText(dash.accuracy), n: 'Trên tổng số câu đã trả lời' },
         { k: 'Học sinh giữ chuỗi học từ 3 ngày', v: String(dash.streak_holders), n: '' },
         { k: 'Tổng thời gian học', v: `${dash.study_minutes} phút`, n: '' },
@@ -86,9 +87,12 @@ export class AnalyticsController {
         { k: 'Học sinh cần hỗ trợ', v: String(support.items.length), n: 'Theo quy tắc: không hoạt động, tỉ lệ đúng thấp, tiến độ chậm' },
       ] },
       { title: 'Học sinh', cols: [
-        { header: 'Họ và tên', key: 'full_name', width: 26 }, { header: 'Mã học sinh', key: 'user_code', width: 22 }, { header: 'Tiến độ', key: 'progress', width: 10, pct: true }, { header: 'Điểm TB', key: 'avg_percent', width: 10, pct: true },
+        { header: 'Họ và tên', key: 'full_name', width: 26 }, { header: 'Mã học sinh', key: 'user_code', width: 22 }, { header: 'Tiến độ', key: 'progress', width: 10, pct: true }, { header: 'Sao', key: 'stars', width: 8, center: true }, { header: 'Điểm TB', key: 'avg_percent', width: 10, pct: true },
         { header: 'Tỉ lệ đúng', key: 'accuracy', width: 10, pct: true }, { header: 'Số bài làm', key: 'attempts', width: 10, center: true }, { header: 'Phút học', key: 'study_minutes', width: 10, center: true },
         { header: 'Ngày học', key: 'active_days', width: 10, center: true }, { header: 'Hoạt động gần nhất', key: 'last', width: 16, center: true }], rows: dash.roster.map((r) => ({ ...r, last: when(r.last_active_at) })), empty: 'Lớp chưa có học sinh.' },
+      { title: 'Tiến độ từng chặng', note: 'Hành trình Đông A: số học sinh đã hoàn thành, đang học từng chặng và số sao trung bình.', cols: [
+        { header: 'Chặng', key: 'name', width: 40 }, { header: 'Đã hoàn thành', key: 'done', width: 14, center: true }, { header: 'Đang học', key: 'started', width: 12, center: true }, { header: 'Tỉ lệ hoàn thành', key: 'rate', width: 14, pct: true }, { header: 'Sao TB', key: 'avg_stars', width: 10, center: true }],
+        rows: dash.saga.stages.map((x) => ({ ...x, name: `${x.position}. ${x.title}`, rate: dash.students ? Math.round((x.done / dash.students) * 100) : null, avg_stars: x.avg_stars ?? '' })), empty: 'Chưa có chặng nào được công bố.' },
       { title: 'Học sinh cần hỗ trợ', note: support.note, cols: [
         { header: 'Họ và tên', key: 'full_name', width: 24 }, { header: 'Mức', key: 'level', width: 14, center: true }, { header: 'Lý do', key: 'reasons', width: 44 }, { header: 'Gợi ý', key: 'suggestion', width: 40 }],
         rows: support.items.map((x) => ({ ...x, level: x.severity >= 3 ? 'Cần hỗ trợ gấp' : x.severity === 2 ? 'Nên hỏi thăm' : 'Theo dõi', reasons: x.reasons.join('; ') })), empty: 'Chưa có học sinh nào cần lưu ý.' },

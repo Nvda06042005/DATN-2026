@@ -51,6 +51,8 @@ export interface ClassInfo { id: number; name: string; grade: number | null; sch
 export interface StudentStat {
   id: number; full_name: string; user_code: string | null; email: string | null; progress: number | null; nodes_done: number; nodes_total: number; xp: number; level: number; streak: number;
   avg_percent: number | null; attempts: number; answered: number; correct: number; accuracy: number | null; study_minutes: number; last_active_at: string | null; active_days: number;
+  /** Hành trình Đông A: tổng sao các chặng (tối đa 3 mỗi chặng) và số thẻ nhân vật đã mở */
+  stars: number; cards: number;
 }
 
 @Injectable()
@@ -85,20 +87,17 @@ export class AnalyticsService {
   }
 
   // ---------------------------------------------------------------------- số liệu từng học sinh (một lượt truy vấn cho nhiều học sinh)
-  /** Tiến độ hành trình: mỗi cuộc kháng chiến học một hành trình (giao cho lớp đang chạy, nếu không thì mặc định của hệ thống) */
+  /**
+   * Tiến độ học tập theo Hành trình Đông A (16/11/2026: trang học sinh chỉ còn Hành trình Đông A, hành trình cũ không còn được học):
+   * số chặng đã hoàn thành trên tổng số chặng đã công bố.
+   */
   private async progressOf(q: Q, ids: number[]): Promise<Map<number, { done: number; total: number }>> {
     if (!ids.length) return new Map();
     const rows = await q<{ user_id: number; total: number; done: number }>(
-      `WITH me AS (SELECT unnest($1::int[]) AS user_id),
-            aj AS (
-              SELECT DISTINCT ON (me.user_id, j.campaign_id) me.user_id, j.id AS journey_id
-              FROM me CROSS JOIN hk_journeys j JOIN hist_campaigns c ON c.id = j.campaign_id AND c.status = 'published'
-              LEFT JOIN (SELECT m.user_id, cj.journey_id, max(cj.assigned_at) AS assigned_at FROM hk_class_journeys cj JOIN app_class_members m ON m.class_id = cj.class_id
-                         WHERE m.user_id = ANY($1) AND ${WINDOW} GROUP BY m.user_id, cj.journey_id) a ON a.user_id = me.user_id AND a.journey_id = j.id
-              WHERE j.status = 'published' AND (a.journey_id IS NOT NULL OR (j.is_default AND (j.scope='system' OR j.school_id=(SELECT school_id FROM app_users WHERE id=me.user_id))))
-              ORDER BY me.user_id, j.campaign_id, (a.journey_id IS NOT NULL) DESC, a.assigned_at DESC NULLS LAST, (j.scope='school') DESC, j.id)
-       SELECT aj.user_id, count(n.id)::int AS total, count(np.completed_at)::int AS done
-       FROM aj JOIN hk_nodes n ON n.journey_id = aj.journey_id LEFT JOIN hk_node_progress np ON np.node_id = n.id AND np.user_id = aj.user_id GROUP BY aj.user_id`, [ids]);
+      `SELECT me.user_id, (SELECT count(*)::int FROM hk_saga_stages WHERE status = 'published') AS total,
+              count(p.completed_at) FILTER (WHERE st.status = 'published')::int AS done
+       FROM unnest($1::int[]) AS me(user_id) LEFT JOIN hk_saga_progress p ON p.user_id = me.user_id LEFT JOIN hk_saga_stages st ON st.id = p.stage_id
+       GROUP BY me.user_id`, [ids]);
     return new Map(rows.map((r) => [r.user_id, { done: r.done, total: r.total }]));
   }
 
@@ -111,21 +110,39 @@ export class AnalyticsService {
     const range = (col: string, params: unknown[]): string => `${from ? (params.push(from), ` AND ${col} >= $${params.length}`) : ''}${to ? (params.push(to), ` AND ${col} <= $${params.length}`) : ''}`;
     const p1: unknown[] = [ids];
     const att = new Map((await q<{ user_id: number; avg: number | null; attempts: number }>(
-      `SELECT t.user_id, round(avg(t.percent))::int AS avg, count(*)::int AS attempts FROM hk_attempts t WHERE t.user_id = ANY($1) AND t.status = 'done' AND t.mode <> 'preview'${range('t.finished_at', p1)} GROUP BY t.user_id`, p1)).map((r) => [r.user_id, r]));
+      `SELECT x.user_id, round(avg(x.v))::int AS avg, sum(x.n)::int AS attempts FROM (
+         SELECT t.user_id, t.percent AS v, 1 AS n FROM hk_attempts t WHERE t.user_id = ANY($1) AND t.status = 'done' AND t.mode <> 'preview'${range('t.finished_at', p1)}
+         UNION ALL
+         SELECT p.user_id, p.practice_best, p.practice_tries FROM hk_saga_progress p WHERE p.user_id = ANY($1) AND p.practice_tries > 0${range('p.updated_at', p1)}
+       ) x GROUP BY x.user_id`, p1)).map((r) => [r.user_id, r]));
     const p2: unknown[] = [ids];
     const ans = new Map((await q<{ user_id: number; answered: number; correct: number }>(
-      `SELECT t.user_id, count(*)::int AS answered, count(*) FILTER (WHERE a.correct)::int AS correct FROM hk_attempt_answers a JOIN hk_attempts t ON t.id = a.attempt_id
-       WHERE t.user_id = ANY($1) AND t.mode <> 'preview'${range('a.answered_at', p2)} GROUP BY t.user_id`, p2)).map((r) => [r.user_id, r]));
+      `SELECT x.user_id, count(*)::int AS answered, count(*) FILTER (WHERE x.correct)::int AS correct FROM (
+         SELECT t.user_id, a.correct FROM hk_attempt_answers a JOIN hk_attempts t ON t.id = a.attempt_id WHERE t.user_id = ANY($1) AND t.mode <> 'preview'${range('a.answered_at', p2)}
+         UNION ALL
+         SELECT sa.user_id, sa.correct FROM hk_saga_answers sa WHERE sa.user_id = ANY($1)${range('sa.created_at', p2)}
+       ) x GROUP BY x.user_id`, p2)).map((r) => [r.user_id, r]));
     const p3: unknown[] = [ids];
     const act = new Map((await q<{ user_id: number; last_at: string | null; ms: string; days: number }>(
-      `SELECT e.user_id, max(e.created_at) AS last_at, COALESCE(sum(e.duration_ms), 0)::bigint AS ms, count(DISTINCT (e.created_at AT TIME ZONE ${VN})::date)::int AS days
-       FROM hk_events e WHERE e.user_id = ANY($1)${range('e.created_at', p3)} GROUP BY e.user_id`, p3)).map((r) => [r.user_id, r]));
+      `SELECT x.user_id, max(x.at) AS last_at, COALESCE(sum(x.ms), 0)::bigint AS ms, count(DISTINCT (x.at AT TIME ZONE ${VN})::date)::int AS days FROM (
+         SELECT e.user_id, e.created_at AS at, COALESCE(e.duration_ms, 0)::bigint AS ms FROM hk_events e WHERE e.user_id = ANY($1)${range('e.created_at', p3)}
+         UNION ALL
+         -- phiên luyện tập / khám phá / trận đánh / ôn tập của Hành trình Đông A: thời lượng tính tới lúc kết thúc (tối đa 60 phút mỗi phiên)
+         SELECT s.user_id, COALESCE(s.finished_at, s.updated_at), (LEAST(EXTRACT(EPOCH FROM (COALESCE(s.finished_at, s.updated_at) - s.started_at)), 3600) * 1000)::bigint
+         FROM hk_saga_sessions s WHERE s.user_id = ANY($1)${range('s.started_at', p3)}
+         UNION ALL
+         SELECT p.user_id, p.lesson_done_at, 0 FROM hk_saga_progress p WHERE p.user_id = ANY($1) AND p.lesson_done_at IS NOT NULL${range('p.lesson_done_at', p3)}
+       ) x GROUP BY x.user_id`, p3)).map((r) => [r.user_id, r]));
+    const saga = new Map((await q<{ user_id: number; stars: number; cards: number }>(
+      `SELECT me.user_id, COALESCE((SELECT sum(p.stars) FROM hk_saga_progress p WHERE p.user_id = me.user_id), 0)::int AS stars,
+              (SELECT count(*) FROM hk_saga_user_cards c WHERE c.user_id = me.user_id)::int AS cards
+       FROM unnest($1::int[]) AS me(user_id)`, [ids])).map((r) => [r.user_id, r]));
     return people.map((p) => {
-      const g = prog.get(p.id) ?? { done: 0, total: 0 }, pl = players.get(p.id), a = att.get(p.id), an = ans.get(p.id), ac = act.get(p.id);
+      const g = prog.get(p.id) ?? { done: 0, total: 0 }, pl = players.get(p.id), a = att.get(p.id), an = ans.get(p.id), ac = act.get(p.id), sg = saga.get(p.id);
       return {
         id: p.id, full_name: p.full_name, user_code: p.user_code, email: p.email, progress: pct(g.done, g.total), nodes_done: g.done, nodes_total: g.total, xp: pl?.xp ?? 0, level: pl?.level ?? 1, streak: pl?.streak_current ?? 0,
         avg_percent: a?.avg ?? null, attempts: a?.attempts ?? 0, answered: an?.answered ?? 0, correct: an?.correct ?? 0, accuracy: an ? pct(an.correct, an.answered) : null,
-        study_minutes: Math.round(num(ac?.ms) / 60000), last_active_at: ac?.last_at ?? null, active_days: ac?.days ?? 0,
+        study_minutes: Math.round(num(ac?.ms) / 60000), last_active_at: ac?.last_at ?? null, active_days: ac?.days ?? 0, stars: sg?.stars ?? 0, cards: sg?.cards ?? 0,
       };
     });
   }
@@ -145,9 +162,20 @@ export class AnalyticsService {
       const span = startOf(period.from) ? Math.round((Date.parse(end) - Date.parse(period.from!)) / 86_400_000) + 1 : null;
       const days = span !== null ? Math.min(180, Math.max(1, span)) : Math.min(90, Math.max(7, Math.round(Number(period.days ?? 14)) || 14));
       const first = new Date(Date.parse(end) - (days - 1) * 86_400_000).toISOString().slice(0, 10);
+      // lượt hoạt động: sự kiện học tập cũ + phiên chơi, câu trả lời và bài học đã đọc của Hành trình Đông A
       const series = ids.length ? await q<{ day: string; events: number; students: number }>(
-        `SELECT to_char(e.created_at AT TIME ZONE ${VN}, 'YYYY-MM-DD') AS day, count(*)::int AS events, count(DISTINCT e.user_id)::int AS students
-         FROM hk_events e WHERE e.user_id = ANY($1) AND e.event = ANY($2) AND (e.created_at AT TIME ZONE ${VN})::date BETWEEN $3::date AND $4::date GROUP BY 1 ORDER BY 1`, [ids, ACTIVITY, first, end]) : [];
+        `SELECT to_char(x.at AT TIME ZONE ${VN}, 'YYYY-MM-DD') AS day, count(*)::int AS events, count(DISTINCT x.user_id)::int AS students FROM (
+           SELECT e.user_id, e.created_at AS at FROM hk_events e WHERE e.user_id = ANY($1) AND e.event = ANY($2)
+           UNION ALL SELECT s.user_id, s.started_at FROM hk_saga_sessions s WHERE s.user_id = ANY($1)
+           UNION ALL SELECT a.user_id, a.created_at FROM hk_saga_answers a WHERE a.user_id = ANY($1)
+           UNION ALL SELECT p.user_id, p.lesson_done_at FROM hk_saga_progress p WHERE p.user_id = ANY($1) AND p.lesson_done_at IS NOT NULL
+         ) x WHERE (x.at AT TIME ZONE ${VN})::date BETWEEN $3::date AND $4::date GROUP BY 1 ORDER BY 1`, [ids, ACTIVITY, first, end]) : [];
+      // từng chặng: số em đã hoàn thành / đang học, sao trung bình của các em hoàn thành
+      const stages = await q<{ id: number; position: number; campaign_no: number; title: string; done: number; started: number; avg_stars: number | null }>(
+        `SELECT s.id, s.position, s.campaign_no, s.title, count(p.completed_at)::int AS done, count(p.user_id) FILTER (WHERE p.completed_at IS NULL)::int AS started,
+                round(avg(p.stars) FILTER (WHERE p.completed_at IS NOT NULL), 1)::float8 AS avg_stars
+         FROM hk_saga_stages s LEFT JOIN hk_saga_progress p ON p.stage_id = s.id AND p.user_id = ANY($1::int[])
+         WHERE s.status = 'published' GROUP BY s.id ORDER BY s.position`, [ids]);
       const byDay = new Map(series.map((r) => [r.day, r]));
       const filled = Array.from({ length: days }, (_, i) => {
         const day = new Date(Date.parse(first) + i * 86_400_000).toISOString().slice(0, 10);
@@ -161,6 +189,12 @@ export class AnalyticsService {
         active_week: active7, participation: pct(active7, stats.length), streak_holders: stats.filter((s) => s.streak >= 3).length, study_minutes: stats.reduce((n, s) => n + s.study_minutes, 0),
         distribution: [[0, 25], [25, 50], [50, 75], [75, 101]].map(([lo, hi]) => ({ label: hi === 101 ? '75–100%' : `${lo}–${hi}%`, count: withProgress.filter((s) => s.progress! >= lo && s.progress! < hi).length })),
         series: filled, roster: stats, period: { from: period.from ?? null, to: period.to ?? null },
+        // Hành trình Đông A: tiến độ từng chặng, tổng sao, thẻ, bảng vàng (nhiều sao, rồi nhiều điểm kinh nghiệm)
+        saga: {
+          stages, total_stages: stages.length, stars: stats.reduce((n, s) => n + s.stars, 0), stars_max: stages.length * 3 * stats.length, cards: stats.reduce((n, s) => n + s.cards, 0),
+          top: [...stats].filter((s) => s.stars > 0 || s.nodes_done > 0).sort((a, b) => b.stars - a.stars || b.nodes_done - a.nodes_done || b.xp - a.xp || a.full_name.localeCompare(b.full_name, 'vi')).slice(0, 5)
+            .map((s) => ({ id: s.id, full_name: s.full_name, stars: s.stars, stages: s.nodes_done, cards: s.cards, xp: s.xp, level: s.level })),
+        },
       };
     });
   }
@@ -207,6 +241,11 @@ export class AnalyticsService {
       return {
         student: { id: st.id, full_name: st.full_name, user_code: st.user_code, email: st.email, grade: st.grade, classes },
         stats: stat, journeys, attempts, battles, war, timeline, badges, cards, ai_questions_30d: ai,
+        // Hành trình Đông A (16/11/2026): từng chặng đã công bố với trạng thái, sao, điểm luyện tập cao nhất của học sinh
+        saga: await q<{ id: number; position: number; title: string; started: boolean; completed: boolean; stars: number; practice_best: number; practice_tries: number }>(
+          `SELECT s.id, s.position, s.title, (p.user_id IS NOT NULL) AS started, (p.completed_at IS NOT NULL) AS completed, COALESCE(p.stars, 0)::int AS stars,
+                  COALESCE(p.practice_best, 0)::int AS practice_best, COALESCE(p.practice_tries, 0)::int AS practice_tries
+           FROM hk_saga_stages s LEFT JOIN hk_saga_progress p ON p.stage_id = s.id AND p.user_id = $1 WHERE s.status = 'published' ORDER BY s.position`, [st.id]),
         topics: { by_type: byType(topics), strong: topics.filter((t) => t.level === 'strong').slice(-5).reverse(), weak: topics.filter((t) => t.level === 'weak').slice(0, 8), all: topics },
       };
     });

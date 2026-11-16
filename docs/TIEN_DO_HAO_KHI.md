@@ -1301,3 +1301,10 @@ Theo 10 ý người dùng gửi kèm ảnh file Excel (đã hỏi lại hai đi�
 - Nút **Soạn thư** mở "Thư mới" theo cấu trúc Gmail: Đến (cố định: Ban Giám hiệu – quản trị viên trường), Tiêu đề (để trống thì tự đặt "Đề nghị duyệt …: …"), nội dung thư, đính kèm một câu hỏi (chọn trong kho riêng) / bộ đề / hành trình của tôi; chân hộp có Gửi, Đính kèm, Hủy. Thư bị từ chối có nút "Sửa rồi gửi lại" mở lại thư cũ để sửa. Thư chờ duyệt rút lại được.
 - Migration **067** thêm `hk_shares.subject`, `hk_shares.message`; `POST /api/content/shares` nhận thêm `subject`, `message`; danh sách và chi tiết trả thêm tên người duyệt (`reviewer`). Người duyệt (quản trị trường / quản trị tổng) vẫn dùng bảng duyệt, nay thấy tiêu đề và lời nhắn của thư.
 - Kiểm thử: `sprint4.spec.ts` (gửi lại kèm tiêu đề, lời nhắn; tiêu đề quá 150 ký tự bị từ chối; tên người duyệt), `assessment-ui.test.cjs`.
+
+## Trang giáo viên – Thống kê lớp theo Hành trình Đông A (16/11/2026)
+
+- Học sinh nay chỉ học ở Hành trình Đông A nên số liệu của "Thống kê lớp" (và tab "Lớp và học sinh" của quản trị trường, cùng mã `ClassAnalytics`) lấy theo đó: **tiến độ** = số chặng đã hoàn thành / số chặng đã công bố; **điểm TB** gồm bài làm (bài tập, thi đấu) và điểm luyện tập cao nhất từng chặng; **tỉ lệ đúng** gồm cả câu luyện tập / ôn tập; **thời gian học, ngày học, hoạt động gần nhất** và biểu đồ theo ngày tính cả phiên chơi, câu trả lời, bài học đã đọc của Hành trình Đông A.
+- Thêm thẻ **Tiến độ từng chặng** (13 chặng: số em đã xong, đang học, sao trung bình) và **Bảng vàng thành tích** (5 em nhiều sao rồi nhiều chặng; bấm để mở hồ sơ). Danh sách học sinh có cột Hành trình (x/13 chặng), Sao, Thẻ. Hồ sơ học sinh có ô Hành trình Đông A (chặng, sao, thẻ) và thẻ Hành trình Đông A thay cho "Hành trình đang học" cũ.
+- File PDF báo cáo lớp có thêm dòng sao / thẻ ở Tổng quan, cột Sao ở danh sách học sinh và phần "Tiến độ từng chặng".
+- Không có migration (`GET /api/analytics/classes/:id/dashboard` trả thêm `saga`, hồ sơ trả thêm `saga`). Kiểm thử: `analytics.spec.ts`, `admin-shell.test.cjs`, `assessment-ui.test.cjs`.

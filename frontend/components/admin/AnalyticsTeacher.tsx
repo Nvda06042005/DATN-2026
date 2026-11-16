@@ -3,10 +3,12 @@
  * học sinh cần hỗ trợ (HK.GV.069), so sánh và xếp hạng lớp / khối / giáo viên (HK.GV.070, HK.QT.008, HK.QT.047), xuất Excel / PDF (HK.GV.071, HK.QT.048) và nhận xét qua email (HK.GV.072).
  * Số liệu do máy chủ tính theo phạm vi của người dùng; học sinh ngoài lớp của giáo viên không bao giờ hiện ra. Danh sách "cần hỗ trợ" chỉ là gợi ý theo quy tắc, giáo viên quyết định.
  * 14/11/2026: "Lớp và học sinh" và "Kết quả" thành dashboard một trang (chỉ số, biểu đồ, đồng hồ, thẻ, bảng) cùng kiểu trang Tổng quan; xuất báo cáo theo bố cục chính thức.
+ * 16/11/2026: tiến độ, điểm, tỉ lệ đúng và thời gian học lấy theo Hành trình Đông A (học sinh chỉ còn học ở đó); thêm thẻ Tiến độ từng chặng, Bảng vàng thành tích
+ * và cột Hành trình (chặng), Sao, Thẻ trong danh sách học sinh.
  */
 import React, { useMemo, useState } from 'react';
 import { Pressable, View, useWindowDimensions } from 'react-native';
-import { Activity, CircleCheck, Clock, GraduationCap, Mail, Route, School, Trophy, UserRound, Users } from 'lucide-react-native';
+import { Activity, CircleCheck, Clock, GraduationCap, Mail, Medal, Route, School, Star, Trophy, UserRound, Users } from 'lucide-react-native';
 import * as api from '@/api/analyticsApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { DashboardGauge } from '@/components/admin/DashboardGauge';
@@ -226,25 +228,29 @@ export const StudentProfileSheet: React.FC<{ session: Session; studentId: number
         {p && st ? (
           <>
             <StatGrid>
-              <StatTile label="Tiến độ hành trình" value={fmtPct(st.progress)} hint={`${st.nodes_done}/${st.nodes_total} nút`} tone="thuy" />
+              <StatTile label="Hành trình Đông A" value={`${st.nodes_done}/${st.nodes_total}`} hint={`chặng · ${st.stars} sao · ${st.cards} thẻ`} tone="thuy" />
               <StatTile label="Điểm trung bình" value={fmtPct(st.avg_percent)} hint={`${st.attempts} bài làm`} />
               <StatTile label="Trả lời đúng" value={fmtPct(st.accuracy)} hint={`${st.correct}/${st.answered} câu`} tone={st.accuracy !== null && st.accuracy < 60 ? 'son' : 'ngoc'} />
               <StatTile label="Chuỗi ngày học" value={st.streak} hint={`Cấp ${st.level} · ${st.xp} điểm`} tone="vang" />
               <StatTile label="Thời gian học" value={`${st.study_minutes} phút`} hint={`${st.active_days} ngày · gần nhất ${ago(st.last_active_at)}`} />
             </StatGrid>
             <Card flat pad={12} style={{ gap: 10 }}>
-              <Txt f="bold" size={15} accessibilityRole="header">Hành trình đang học</Txt>
-              {p.journeys.length ? p.journeys.map((j) => (
-                <View key={j.journey_id} style={{ gap: 6 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}><Txt f="semibold" size={14} style={{ flex: 1 }}>{j.title}</Txt><Txt size={13} color={c.muc2}>{j.done}/{j.total} nút</Txt></View>
-                  <Bar value={j.done} max={j.total} fill={c.thuy} label={`${j.title}: ${j.done}/${j.total} nút`} />
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                    {j.nodes.filter((n) => n.state === 'available' || (n.state === 'done' && n.best_percent < 60)).map((n) => (
-                      <StatusChip key={n.id} kind={n.state === 'available' ? 'info' : 'warn'} text={n.state === 'available' ? `Đang mở: ${n.title}` : `Làm chưa tốt: ${n.title} (${n.best_percent}%)`} />
-                    ))}
+              <Txt f="bold" size={15} accessibilityRole="header">Hành trình Đông A</Txt>
+              {p.saga.length ? (() => {
+                const done = p.saga.filter((x) => x.completed).length;
+                const stars = p.saga.reduce((n, x) => n + x.stars, 0);
+                return (
+                  <View style={{ gap: 6 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}><Txt f="semibold" size={14} style={{ flex: 1 }}>{done}/{p.saga.length} chặng hoàn thành</Txt><Txt size={13} color={c.muc2}>{stars}/{p.saga.length * 3} sao · {st.cards} thẻ</Txt></View>
+                    <Bar value={done} max={p.saga.length} fill={c.thuy} label={`Hành trình Đông A: ${done}/${p.saga.length} chặng`} />
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                      {p.saga.filter((x) => (x.started && !x.completed) || (x.practice_tries > 0 && x.practice_best < 60)).map((x) => (
+                        <StatusChip key={x.id} kind={x.started && !x.completed ? 'info' : 'warn'} text={x.started && !x.completed ? `Đang học: ${x.position}. ${x.title}` : `Luyện tập chưa tốt: ${x.title} (${x.practice_best}%)`} />
+                      ))}
+                    </View>
                   </View>
-                </View>
-              )) : <Txt size={14} color={c.muc2}>Học sinh chưa được giao hành trình nào.</Txt>}
+                );
+              })() : <Txt size={14} color={c.muc2}>Chưa có chặng nào được công bố.</Txt>}
             </Card>
             <Card flat pad={12} style={{ gap: 10 }}>
               <Txt f="bold" size={15} accessibilityRole="header">Theo chủ đề</Txt>
@@ -353,8 +359,8 @@ export const ClassAnalytics: React.FC<{ session: Session; years?: YearItem[] | n
         <View testID="class-metrics" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           <Metric compact label="Sĩ số" value={d.students} hint="học sinh" icon={Users} color={c.son} background={c.sonNhat} />
           <Metric compact label="Hoạt động 7 ngày" value={`${d.active_week}/${d.students}`} hint={`tham gia ${fmtPct(d.participation)}`} icon={Activity} color={c.ngocChu} background={c.ngocNhat} />
-          <Metric compact label="Tiến độ TB" value={fmtPct(d.avg_progress)} hint={`${fmtPct(d.completion_rate)} hoàn thành`} icon={Route} color={c.thuyChu} background={c.thuyNhat} />
-          <Metric compact label="Điểm TB" value={fmtPct(d.avg_percent)} hint="các bài làm" icon={Trophy} color={c.vangChu} background={c.vangNhat} />
+          <Metric compact label="Tiến độ TB" value={fmtPct(d.avg_progress)} hint={`Hành trình Đông A · ${fmtPct(d.completion_rate)} xong`} icon={Route} color={c.thuyChu} background={c.thuyNhat} />
+          <Metric compact label="Điểm TB" value={fmtPct(d.avg_percent)} hint="bài làm và luyện tập" icon={Trophy} color={c.vangChu} background={c.vangNhat} />
           <Metric compact label="Tỉ lệ đúng" value={fmtPct(d.accuracy)} hint="câu trả lời" icon={CircleCheck} color={c.thongChu} background={c.thongNhat} />
           <Metric compact label="Thời gian học" value={d.study_minutes} hint="phút" icon={Clock} color={c.son} background={c.sonNhat} />
         </View>
@@ -367,11 +373,11 @@ export const ClassAnalytics: React.FC<{ session: Session; years?: YearItem[] | n
           <Panel title="Chỉ số của lớp" note={pick.label.split(' (')[0]} style={{ flex: wide ? 1.3 : undefined }} testID="class-gauges">
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {gaugeOf('class-gauge-participation', 'Tham gia 7 ngày', d.participation, 70, 40, ACTIVITY, `${d.active_week} / ${d.students} học sinh`)}
-              {gaugeOf('class-gauge-progress', 'Tiến độ TB', d.avg_progress, 60, 30, ['Tốt', 'Khá', 'Còn chậm'], 'hành trình')}
-              {gaugeOf('class-gauge-completion', 'Hoàn thành', d.completion_rate, 50, 20, ['Tốt', 'Khá', 'Còn ít'], 'học xong hành trình')}
+              {gaugeOf('class-gauge-progress', 'Tiến độ TB', d.avg_progress, 60, 30, ['Tốt', 'Khá', 'Còn chậm'], `${d.saga.total_stages} chặng`)}
+              {gaugeOf('class-gauge-completion', 'Hoàn thành', d.completion_rate, 50, 20, ['Tốt', 'Khá', 'Còn ít'], 'xong cả hành trình')}
             </View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {gaugeOf('class-gauge-score', 'Điểm TB', d.avg_percent, 70, 50, GOODNESS, 'các bài làm')}
+              {gaugeOf('class-gauge-score', 'Điểm TB', d.avg_percent, 70, 50, GOODNESS, 'bài làm, luyện tập')}
               {gaugeOf('class-gauge-accuracy', 'Tỉ lệ đúng', d.accuracy, 75, 55, GOODNESS, 'câu trả lời')}
               {gaugeOf('class-gauge-streak', 'Giữ chuỗi', share(d.streak_holders, d.students), 40, 15, ['Đều đặn', 'Khá', 'Chưa đều'], `${d.streak_holders} em từ 3 ngày`)}
             </View>
@@ -379,7 +385,7 @@ export const ClassAnalytics: React.FC<{ session: Session; years?: YearItem[] | n
         </View>
 
         <CardRow wide={wide}>
-          <Panel title="Mức tiến độ" note={`${distTotal} học sinh có hành trình`} testID="class-distribution">
+          <Panel title="Mức tiến độ" note={`Hành trình Đông A · ${distTotal} học sinh`} testID="class-distribution">
             <View accessibilityLabel={d.distribution.map((x) => `${x.label}: ${x.count} học sinh`).join(', ')} style={{ height: 10, borderRadius: 5, overflow: 'hidden', flexDirection: 'row', gap: 2, backgroundColor: distTotal ? undefined : c.adminLine }}>
               {d.distribution.map((x, i) => x.count > 0 ? <View key={x.label} style={{ flex: x.count, backgroundColor: BLUE, opacity: DIST_OPACITY[i] ?? 1 }} /> : null)}
             </View>
@@ -422,11 +428,47 @@ export const ClassAnalytics: React.FC<{ session: Session; years?: YearItem[] | n
           </Panel>
         </CardRow>
 
+        <View style={{ flexDirection: wide ? 'row' : 'column', gap: 8 }}>
+          <Panel title="Tiến độ từng chặng" note={`Hành trình Đông A · ${d.saga.total_stages} chặng`} style={{ flex: wide ? 2 : undefined }} testID="class-stages">
+            {!d.saga.stages.length ? <Txt size={12} color={c.muc3}>Chưa có chặng nào được công bố.</Txt> : (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 16 }}>
+                {d.saga.stages.map((x) => (
+                  <View key={x.id} style={{ flexBasis: wide ? '47%' : '100%', flexGrow: 1 }}>
+                    <BarRow label={`${x.position}. ${x.title}`} sub={`${x.done}/${d.students} em xong${x.started ? ` · ${x.started} đang học` : ''}${x.avg_stars !== null ? ` · ${x.avg_stars} sao` : ''}`}
+                      value={d.students ? Math.round((x.done / d.students) * 100) : null} color={x.campaign_no === 1 ? BLUE : x.campaign_no === 2 ? PURPLE : GOLD} testID={`class-stage-${x.position}`} />
+                  </View>
+                ))}
+              </View>
+            )}
+          </Panel>
+          <Panel title="Bảng vàng thành tích" note={`cả lớp ${d.saga.stars}/${d.saga.stars_max} sao · ${d.saga.cards} thẻ`} style={{ flex: wide ? 1 : undefined }} testID="class-top">
+            {!d.saga.top.length ? <Txt size={12} color={c.muc3}>Chưa có học sinh nào hoàn thành chặng hoặc đạt sao ở Hành trình Đông A.</Txt>
+              : d.saga.top.map((t, i) => (
+                <Pressable key={t.id} onPress={() => setProfile(t.id)} accessibilityRole="button" accessibilityLabel={`Hạng ${i + 1}: ${t.full_name}, ${t.stars} sao, ${t.stages} chặng, ${t.cards} thẻ`} testID={`class-top-${i + 1}`}
+                  style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingVertical: 4, paddingHorizontal: 6, marginHorizontal: -6, borderRadius: 8, backgroundColor: pressed ? c.adminCanvas : 'transparent' })}>
+                  <View style={{ width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: i === 0 ? c.vangNhat : i === 1 ? c.dichNhat : i === 2 ? c.dongNhat : c.adminCanvas }}>
+                    {i < 3 ? <Medal size={15} color={i === 0 ? c.vangChu : i === 1 ? c.muc2 : c.dongChu} /> : <Txt f="bold" size={12} color={c.muc2}>{i + 1}</Txt>}
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Txt f="semibold" size={13} numberOfLines={1}>{t.full_name}</Txt>
+                    <Txt size={11} color={c.muc3}>{t.stages} chặng · {t.cards} thẻ · cấp {t.level}</Txt>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                    <Star size={14} color={c.vangChu} fill={c.vang} />
+                    <Txt f="bold" size={14}>{t.stars}</Txt>
+                  </View>
+                </Pressable>
+              ))}
+          </Panel>
+        </View>
+
         <Panel title="Danh sách học sinh" note="Bấm vào một học sinh để xem hồ sơ và gửi nhận xét" testID="class-roster">
           <DataTable<StudentStat> rows={d.roster} rowKey={(r) => r.id} empty="Lớp chưa có học sinh." onRowPress={(r) => setProfile(r.id)}
             columns={[
               { key: 'name', label: 'Học sinh', width: 220, grow: 2, render: (r) => <Cell main={r.full_name} sub={r.user_code} /> },
-              { key: 'progress', label: 'Tiến độ', width: 170, grow: 1, render: (r) => <View style={{ gap: 4 }}><Txt size={13}>{fmtPct(r.progress)} · {r.nodes_done}/{r.nodes_total} nút</Txt><Bar value={r.progress ?? 0} max={100} fill={c.thuy} height={6} label={`Tiến độ ${r.full_name}: ${fmtPct(r.progress)}`} /></View> },
+              { key: 'progress', label: 'Hành trình', width: 170, grow: 1, render: (r) => <View style={{ gap: 4 }}><Txt size={13}>{r.nodes_done}/{r.nodes_total} chặng · {fmtPct(r.progress)}</Txt><Bar value={r.progress ?? 0} max={100} fill={c.thuy} height={6} label={`Hành trình Đông A của ${r.full_name}: ${r.nodes_done}/${r.nodes_total} chặng`} /></View> },
+              { key: 'stars', label: 'Sao', width: 80, render: (r) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}><Star size={13} color={c.vangChu} fill={r.stars ? c.vang : 'transparent'} /><Txt f="bold" size={14}>{r.stars}</Txt></View> },
+              { key: 'cards', label: 'Thẻ', width: 70, hideOnCard: true, render: (r) => <Txt size={14}>{r.cards}</Txt> },
               { key: 'avg', label: 'Điểm TB', width: 90, render: (r) => <Txt f="bold" size={14}>{fmtPct(r.avg_percent)}</Txt> },
               { key: 'acc', label: 'Tỉ lệ đúng', width: 100, render: (r) => <Txt size={14}>{fmtPct(r.accuracy)}</Txt> },
               { key: 'att', label: 'Số bài', width: 80, hideOnCard: true, render: (r) => <Txt size={14}>{r.attempts}</Txt> },

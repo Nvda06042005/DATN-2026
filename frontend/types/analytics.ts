@@ -43,11 +43,19 @@ export interface ClassInfo { id: number; name: string; grade: number | null; sch
 export interface StudentStat {
   id: number; full_name: string; user_code: string | null; email: string | null; progress: number | null; nodes_done: number; nodes_total: number; xp: number; level: number; streak: number;
   avg_percent: number | null; attempts: number; answered: number; correct: number; accuracy: number | null; study_minutes: number; last_active_at: string | null; active_days: number;
+  /** Hành trình Đông A (16/11/2026): tổng sao các chặng và số thẻ nhân vật đã mở; nodes_done / nodes_total là số chặng */
+  stars: number; cards: number;
+}
+export interface SagaClassStage { id: number; position: number; campaign_no: number; title: string; done: number; started: number; avg_stars: number | null }
+export interface SagaClassStats {
+  stages: SagaClassStage[]; total_stages: number; stars: number; stars_max: number; cards: number;
+  top: Array<{ id: number; full_name: string; stars: number; stages: number; cards: number; xp: number; level: number }>;
 }
 export interface ClassDashboard {
   class: ClassInfo; students: number; avg_progress: number | null; completion_rate: number | null; avg_points: number | null; avg_percent: number | null; accuracy: number | null;
   active_week: number; participation: number | null; streak_holders: number; study_minutes: number;
   distribution: Array<{ label: string; count: number }>; series: Array<{ day: string; events: number; students: number }>; roster: StudentStat[]; period: { from: string | null; to: string | null };
+  saga: SagaClassStats;
 }
 export interface ClassTopics { class: ClassInfo; weak_threshold: number; by_type: TypeRow[]; weak: TopicRow[]; topics: TopicRow[]; students: number }
 export interface SupportItem {
@@ -66,6 +74,8 @@ export interface Results { by: 'class' | 'grade' | 'teacher'; period: { from: st
 export interface StudentProfile {
   student: { id: number; full_name: string; user_code: string | null; email: string | null; grade: number | null; classes: Array<{ id: number; name: string }> };
   stats: StudentStat;
+  /** Hành trình Đông A (16/11/2026): từng chặng đã công bố */
+  saga: Array<{ id: number; position: number; title: string; started: boolean; completed: boolean; stars: number; practice_best: number; practice_tries: number }>;
   journeys: Array<{ journey_id: number; title: string; from_class: boolean; done: number; total: number; nodes: Array<{ id: number; title: string; kind: string; state: string; best_percent: number; stars: number; attempts: number; completed_at: string | null }> }>;
   attempts: Array<{ id: number; mode: string; percent: number; stars: number; passed: boolean; correct_count: number; wrong_count: number; duration_ms: number; finished_at: string; title: string }>;
   battles: Array<{ kind: string; title: string; percent: number; stars: number; passed: boolean; finished_at: string }>;

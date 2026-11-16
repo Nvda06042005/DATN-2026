@@ -70,3 +70,15 @@ test('nội dung đã gửi (16/11/2026): giáo viên dùng hộp thư như Gmai
   assert.match(box, /\{d\.subject \? <Txt f="bold" size=\{16\}>\{d\.subject\}<\/Txt> : null\}/);
   assert.match(read('api', 'learningApi.ts'), /mail\?: \{ subject\?: string; message\?: string \}\) =>\r?\n {2}apiRequest<ShareItem>\('\/api\/content\/shares', \{ token, body: \{ entity, entity_id: entityId, target, \.\.\.mail \} \}\);/);
 });
+
+test('thống kê lớp (16/11/2026): số liệu theo Hành trình Đông A, thẻ Tiến độ từng chặng, Bảng vàng thành tích, cột Hành trình / Sao / Thẻ', () => {
+  const ui = read('components', 'admin', 'AnalyticsTeacher.tsx');
+  assert.match(ui, /<Panel title="Tiến độ từng chặng" note=\{`Hành trình Đông A · \$\{d\.saga\.total_stages\} chặng`\}/);
+  assert.match(ui, /<Panel title="Bảng vàng thành tích" note=\{`cả lớp \$\{d\.saga\.stars\}\/\$\{d\.saga\.stars_max\} sao · \$\{d\.saga\.cards\} thẻ`\}/);
+  assert.match(ui, /\{ key: 'progress', label: 'Hành trình',/);
+  assert.match(ui, /\{ key: 'stars', label: 'Sao',/);
+  assert.match(ui, /\{ key: 'cards', label: 'Thẻ',/);
+  assert.doesNotMatch(ui, /nodes_total\} nút|Hành trình đang học/);
+  assert.match(ui, /<Txt f="bold" size=\{15\} accessibilityRole="header">Hành trình Đông A<\/Txt>/);
+  assert.match(read('types', 'analytics.ts'), /saga: SagaClassStats;/);
+});

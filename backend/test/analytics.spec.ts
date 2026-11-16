@@ -197,6 +197,27 @@ const download = async (who: { token: string }, path: string) => {
     expect(row).toMatchObject({ attempts: 3, answered: 12, correct: 6, accuracy: 50 });
     expect(row.study_minutes).toBeGreaterThanOrEqual(3);
     expect(d.roster.find((r: any) => r.id === f.S2.id)).toMatchObject({ attempts: 0, last_active_at: null });
+    // Hành trình Đông A (16/11/2026): chặng hoàn thành, sao, thẻ, câu luyện tập và phiên chơi của học sinh đều vào thống kê lớp
+    const stage = (await db.query<{ id: number }>("SELECT id FROM hk_saga_stages WHERE status = 'published' ORDER BY position LIMIT 1"))[0];
+    await db.query('INSERT INTO hk_saga_progress (user_id, stage_id, lesson_done_at, practice_best, practice_tries, practice_passed_at, stars, completed_at) VALUES ($1, $2, now(), 80, 1, now(), 3, now())', [f.S2.id, stage.id]);
+    const answered = (await db.query("INSERT INTO hk_saga_answers (user_id, item_id, stage_id, mode, correct) SELECT $1, i.id, i.stage_id, 'practice', true FROM hk_saga_items i WHERE i.stage_id = $2 LIMIT 4 RETURNING id", [f.S2.id, stage.id])).length;
+    const card = (await db.query<{ code: string }>('SELECT code FROM hk_saga_cards ORDER BY code LIMIT 1'))[0];
+    await db.query('INSERT INTO hk_saga_user_cards (user_id, card_code, stage_id) VALUES ($1, $2, $3)', [f.S2.id, card.code, stage.id]);
+    const g = (await as(f.T1)('GET', `/api/analytics/classes/${f.class7a.id}/dashboard?days=14`)).body;
+    expect(g.saga.total_stages).toBeGreaterThan(0);
+    expect(answered).toBeGreaterThan(0);
+    expect(g.roster.find((r: any) => r.id === f.S2.id)).toMatchObject({ nodes_done: 1, nodes_total: g.saga.total_stages, stars: 3, cards: 1, answered, correct: answered, avg_percent: 80, attempts: 1 });
+    expect(g.roster.find((r: any) => r.id === f.S2.id).last_active_at).not.toBeNull();
+    expect(g.saga.stages[0]).toMatchObject({ id: stage.id, done: 1, started: 0, avg_stars: 3 });
+    expect(g.saga).toMatchObject({ stars: 3, cards: 1, stars_max: g.saga.total_stages * 3 * 2 });
+    expect(g.saga.top[0]).toMatchObject({ id: f.S2.id, stars: 3, stages: 1, cards: 1 });
+    expect(g.series[13].students).toBe(2);
+    const prof = (await as(f.T1)('GET', `/api/analytics/students/${f.S2.id}`)).body;
+    expect(prof.saga[0]).toMatchObject({ id: stage.id, completed: true, started: true, stars: 3, practice_best: 80 });
+    expect(prof.stats).toMatchObject({ stars: 3, cards: 1, nodes_done: 1 });
+    await db.query('DELETE FROM hk_saga_user_cards WHERE user_id = $1', [f.S2.id]);
+    await db.query('DELETE FROM hk_saga_answers WHERE user_id = $1', [f.S2.id]);
+    await db.query('DELETE FROM hk_saga_progress WHERE user_id = $1', [f.S2.id]);
     for (const who of [f.T2, f.B, f.TB]) expect((await as(who)('GET', `/api/analytics/classes/${f.class7a.id}/dashboard`)).status).toBe(404);
     expect((await as(f.A)('GET', `/api/analytics/classes/${f.class7a.id}/dashboard`)).status).toBe(200);
     expect((await as(f.T1)('GET', '/api/analytics/classes/999999/dashboard')).status).toBe(404);
@@ -273,7 +294,7 @@ const download = async (who: { token: string }, path: string) => {
     const ExcelJS = await import('exceljs');
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(x.buf as any);
-    expect(wb.worksheets.map((w) => w.name)).toEqual(['Tổng quan', 'Học sinh', 'Học sinh cần hỗ trợ', 'Chủ đề cần ôn', 'Bài tập']);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(['Tổng quan', 'Học sinh', 'Tiến độ từng chặng', 'Học sinh cần hỗ trợ', 'Chủ đề cần ôn', 'Bài tập']);
     const sheet = wb.getWorksheet('Học sinh')!;
     const texts = (ws: typeof sheet) => { const out: string[] = []; ws.eachRow((row) => row.eachCell((c) => { if (c.value !== null && c.value !== undefined) out.push(String(c.value)); })); return out; };
     const all = texts(sheet);
