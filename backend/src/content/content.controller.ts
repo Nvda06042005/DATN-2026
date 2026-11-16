@@ -10,6 +10,7 @@ import { JourneyService, NodeInput } from './journey.service';
 import { QuestionService, QuestionInput } from './question.service';
 import { MatrixInput, QuizService, QuizInput } from './quiz.service';
 import { ShareEntity, ShareService, ShareTarget } from './share.service';
+import { MessageService } from './message.service';
 import { QTYPE_LABEL, QTYPES } from './questions';
 import { LINK_TYPES } from './access';
 
@@ -236,6 +237,7 @@ export class ContentController {
     private readonly lessons: LessonService,
     private readonly journeys: JourneyService,
     private readonly shares: ShareService,
+    private readonly messages: MessageService,
   ) {}
 
   /** Danh mục dạng câu hỏi và mục lịch sử để chọn khi gắn liên kết (giáo viên chỉ thấy mục đã công bố) */
@@ -429,6 +431,12 @@ export class ContentController {
   removeNode(@CurrentUser() user: UserRow, @Param('nodeId', ParseIntPipe) nodeId: number) { return this.journeys.removeNode(user, nodeId); }
 
   // ------------------------------------------------------------------ chia sẻ và duyệt
+  // ------------------------------------------------------------------ thư của giáo viên (16/11/2026, migration 070)
+  @Get('messages') @Roles('teacher') sentMessages(@CurrentUser() user: UserRow) { return this.messages.sent(user); }
+  @Get('messages/recipients') @Roles('teacher') messageRecipients(@CurrentUser() user: UserRow, @Query('role') role?: string, @Query('q') q?: string) { return this.messages.recipients(user, { role, q: typeof q === 'string' ? q.slice(0, 80) : undefined }); }
+  @Post('messages') @Roles('teacher') sendMessage(@CurrentUser() user: UserRow, @Body() body: Record<string, unknown>) { return this.messages.send(user, body ?? {}); }
+  @Get('messages/:id') @Roles('teacher') getMessage(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.messages.detail(user, id); }
+
   @Get('shares')
   listShares(@CurrentUser() user: UserRow, @Query() query: ShareListQuery) { return this.shares.list(user, query); }
 

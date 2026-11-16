@@ -3,6 +3,7 @@ import { vnDayLabel, XLSX_MIME } from '../admin/excel';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { UserRow } from '../database/database.service';
 import { AnalyticsService, Period } from './analytics.service';
+import { officialPdf } from '../admin/pdf';
 import { ReportCol, ReportHead, ReportSection, reportPdf, reportXlsx } from './export';
 import { FeedbackService } from './feedback.service';
 import { RecoService } from './reco.service';
@@ -103,7 +104,26 @@ export class AnalyticsController {
         { header: 'Bài tập', key: 'title', width: 40 }, { header: 'Loại', key: 'kind', width: 12, center: true }, { header: 'Hạn nộp', key: 'due', width: 16, center: true }, { header: 'Đã nộp', key: 'submitted', width: 10, center: true }, { header: 'Điểm TB', key: 'avg_percent', width: 12, pct: true }],
         rows: (assignments as Json[]).map((a) => ({ ...a, due: when(a.due_at) })), empty: 'Chưa có bài tập trong khoảng thời gian này.' },
     ];
-    return this.send(format, `bao-cao-lop-${info.name.replace(/[^\p{L}\p{N}]+/gu, '-')}`, head, sections);
+    const file = `bao-cao-lop-${info.name.replace(/[^\p{L}\p{N}]+/gu, '-')}`;
+    if (format === 'pdf') {
+      // 16/11/2026: PDF trình bày như PDF danh sách lớp của quản trị trường (officialPdf: phần đầu nhà trường, quốc hiệu, tiêu đề, các bảng có STT,
+      // chỗ ký Giáo viên phụ trách và Hiệu trưởng); file Excel giữ bố cục cũ
+      const roman = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+      const buffer = await officialPdf({
+        title: head.title, footer: school?.code ? `Mã trường ${school.code}` : undefined,
+        parts: [{
+          school: await this.analytics.pdfSchool(info.school_id), title: head.title, subtitle: head.subtitle || null,
+          facts: head.meta.filter((m) => m.label !== 'Ngày xuất'),
+          tables: sections.map((sec, i) => ({
+            heading: `${roman[i] ?? i + 1}. ${sec.title.toLocaleUpperCase('vi')}`, note: sec.note, rows: sec.rows, empty: sec.empty, index: sec.title !== 'Tổng quan',
+            cols: sec.cols.map((col) => ({ header: col.header, key: col.key, width: col.width ?? 14, align: col.center || col.pct ? 'center' as const : 'left' as const, pct: col.pct, keep: col.key === 'full_name' })),
+          })),
+          signers: [{ title: 'Giáo viên phụ trách', name: info.teachers || null }, { title: 'Hiệu trưởng', hint: '(Ký tên, đóng dấu)' }],
+        }],
+      });
+      return new StreamableFile(buffer, { type: 'application/pdf', disposition: `attachment; filename="${file}.pdf"` });
+    }
+    return this.send(format, file, head, sections);
   }
 
   @Get('export') @Roles('school_admin', 'root_admin')

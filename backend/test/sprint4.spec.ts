@@ -276,6 +276,32 @@ const MAP = { qtype: 'map', prompt: 'Kéo các địa danh lên bản đồ.', d
     expect((await api('GET', '/api/content/questions?owner=abc')).status).toBe(422);
   });
 
+  // ------------------------------------------------------------------ thư của giáo viên (16/11/2026, migration 070)
+  test('thư của giáo viên: chọn người nhận cùng trường, đính kèm cần quản trị trường, người nhận được thông báo, người gửi thấy đã đọc', async () => {
+    const people = (await api('GET', '/api/content/messages/recipients')).body;
+    const who = people.map((p: any) => p.id);
+    expect(who).toEqual(expect.arrayContaining([f.A.id, f.T2.id, f.S1.id]));
+    for (const other of [f.T1.id, f.TB.id, f.B.id]) expect(who).not.toContain(other); // không có bản thân, không có người trường khác
+    expect((await api('GET', '/api/content/messages/recipients?role=student')).body.every((p: any) => p.role === 'student')).toBe(true);
+    expect((await api('POST', '/api/content/messages', { recipient_ids: [f.TB.id], subject: 'Trường khác' })).status).toBe(400);
+    expect((await api('POST', '/api/content/messages', { recipient_ids: [f.S1.id], subject: '' })).status).toBe(400);
+    const q = (await api('POST', '/api/content/questions', { qtype: 'truefalse', prompt: 'Thư kèm câu hỏi: trận Bạch Đằng diễn ra năm 1288.', data: { correct: true } })).body;
+    expect((await api('POST', '/api/content/messages', { recipient_ids: [f.S1.id], subject: 'Kèm câu hỏi', entity: 'question', entity_id: q.id })).status).toBe(400); // đính kèm cần quản trị trường
+    const sent = await api('POST', '/api/content/messages', { recipient_ids: [f.A.id, f.T2.id, f.S1.id], subject: 'Tài liệu ôn tập', body: 'Các em ôn lại trận Bạch Đằng.', entity: 'question', entity_id: q.id });
+    expect(sent.status).toBe(201);
+    expect(sent.body).toMatchObject({ subject: 'Tài liệu ôn tập', share: { status: 'pending' } });
+    expect(sent.body.recipients.map((r: any) => r.role_label)).toEqual(['Quản trị trường', 'Giáo viên', 'Học sinh']);
+    for (const p of [f.A, f.T2, f.S1]) expect((await api('GET', '/api/classroom/notifications', undefined, p.token)).body.items.some((n: any) => n.title === 'Thư mới: Tài liệu ôn tập')).toBe(true);
+    expect((await api('GET', '/api/classroom/notifications', undefined, f.TB.token)).body.items.some((n: any) => n.title === 'Thư mới: Tài liệu ôn tập')).toBe(false);
+    await api('POST', '/api/classroom/notifications/read', {}, f.S1.token);
+    expect((await api('GET', '/api/content/messages')).body[0]).toMatchObject({ id: sent.body.id, recipients: 3, read: 1, share_status: 'pending' });
+    expect((await api('GET', `/api/content/messages/${sent.body.id}`, undefined, f.T2.token)).status).toBe(404); // chỉ người gửi xem thư đã gửi
+    expect((await api('GET', '/api/content/messages', undefined, f.S1.token)).status).toBe(403);
+    // thư thường (không đính kèm) gửi riêng một học sinh
+    expect((await api('POST', '/api/content/messages', { recipient_ids: [f.S1.id], subject: 'Nhắc nhở', body: 'Em nộp bài trước thứ Sáu.' })).body).toMatchObject({ share: null, entity: null });
+    await db.query('DELETE FROM hk_shares WHERE entity = $1 AND entity_id = $2', ['question', q.id]);
+  });
+
   // ------------------------------------------------------------------ HK.GV.039, HK.QT.041, HK.AD.045
   test('HK.GV.039/HK.QT.041 giáo viên gửi câu hỏi vào kho trường; quản trị trường duyệt hoặc từ chối; bản duyệt tách khỏi bản gốc', async () => {
     const sent = await api('POST', '/api/content/shares', { entity: 'question', entity_id: ids.single, target: 'school' });

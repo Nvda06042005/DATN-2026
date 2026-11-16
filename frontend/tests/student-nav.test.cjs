@@ -109,8 +109,8 @@ test('trang giáo viên ẩn Hành trình học, Bộ đề và bỏ Trò chơi 
 test('16/11/2026: giáo viên không còn Khảo sát, trình soạn Quiz (Kahoot-style), Soạn đề bằng AI và nút Tạo lớp; hộp "+ Tạo" chỉ còn Câu hỏi và Phòng thi đấu', () => {
   const teacher = read('components', 'portal', 'TeacherApp.tsx');
   for (const gone of ["'surveys'", 'SurveyPage', '<QuizStudio', 'AiQuizModal', "'studio'", "title: 'Quiz (Kahoot-style)'", "title: 'Soạn đề bằng AI'"]) assert.ok(!teacher.includes(gone), gone);
-  assert.match(teacher, /\{ id: 'question', title: 'Câu hỏi'/);
-  assert.match(teacher, /\{ id: 'live', title: 'Phòng thi đấu trực tiếp'/);
+  // đợt 2 (16/11/2026): bỏ hẳn nút "+ Tạo" ở thanh đầu
+  assert.ok(!teacher.includes('CreateMenu') && !teacher.includes('testID="create-menu"'), 'không còn nút + Tạo');
   for (const f of [['components', 'admin', 'QuizStudio.tsx'], ['components', 'admin', 'AiQuizModal.tsx'], ['components', 'portal', 'SurveyCenter.tsx'], ['types', 'studio.ts']]) assert.ok(!exists(...f), f.join('/'));
   assert.doesNotMatch(read('components', 'admin', 'AiTeacher.tsx'), /AiQuizModal|Soạn đề AI theo ma trận Bloom/);
   assert.doesNotMatch(read('api', 'platformApi.ts'), /surveys|survey-templates/);
@@ -118,6 +118,10 @@ test('16/11/2026: giáo viên không còn Khảo sát, trình soạn Quiz (Kahoo
   const classes = read('components', 'admin', 'ClassManager.tsx');
   assert.ok(!classes.includes('testID="class-create"') && !classes.includes('<FormSheet title="Tạo lớp"'), 'giáo viên không tự tạo lớp');
   assert.doesNotMatch(read('api', 'classroomApi.ts'), /export const createClass/);
+  // đợt 2: trong lớp chỉ còn danh sách học sinh; không còn Đội, Luật lớp, Trận đánh, Thưởng/phạt, Bài tập, Tiến độ, Thông báo; không tự thêm / nhập học sinh
+  for (const gone of ['ClassTeams', 'ClassRules', 'ClassBattleLinks', 'ClassRewards', 'ClassAssignments', 'ClassProgress', 'ClassNotices', 'Segmented label="Mục quản lý lớp"', '<EmptyState']) assert.ok(!classes.includes(gone), gone);
+  const people = read('components', 'admin', 'ClassPeople.tsx');
+  for (const gone of ['title="Thêm học sinh"', 'title="Nhập từ Excel"', 'const AddStudents', 'const ImportStudents']) assert.ok(!people.includes(gone), gone);
 });
 
 test('các màn của Hành trình Đông A dựng bằng thành phần của cổng quản trị (tiêu đề hai nửa, thẻ, nút, bảng), không còn bộ nút khối / nền trời / pháo giấy của bản trò chơi cũ', () => {

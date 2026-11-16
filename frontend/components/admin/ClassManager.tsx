@@ -1,34 +1,25 @@
 /**
- * Quản lý lớp của giáo viên (HK.GV.007–017): danh sách lớp phụ trách (sĩ số, hành trình đang chạy, tiến độ trung bình), tạo lớp, sửa tên – mô tả – ảnh bìa,
- * mã tham gia và đóng/mở tham gia, lưu trữ hoặc xóa lớp tự tạo; trong từng lớp: học sinh, đội, luật lớp, thưởng/phạt, bài tập, tiến độ, thông báo.
+ * Lớp học của giáo viên: các lớp quản trị trường phân công (sĩ số, mã tham gia), sửa mô tả – ảnh bìa, mã tham gia và đóng/mở tham gia, đơn đổi giáo viên;
+ * trong lớp chỉ còn danh sách học sinh (tìm, duyệt xin rời lớp). 16/11/2026: theo yêu cầu đã bỏ các mục Đội, Luật lớp, Trận đánh, Thưởng/phạt, Bài tập, Tiến độ,
+ * Thông báo và việc giáo viên tự thêm / nhập học sinh (quản trị trường xếp lớp, học sinh vào bằng mã); chưa được phân công thì trang trống.
  */
 import React, { useState } from 'react';
 import { Image, View } from 'react-native';
 import { Archive, ArrowLeft, KeyRound, Pencil, RotateCcw, Trash2, UserPlus } from 'lucide-react-native';
 import * as api from '@/api/classroomApi';
-import { ClassBattleLinks } from '@/components/admin/ClassBattleLinks';
-import { ClassStudents, ClassTeams } from '@/components/admin/ClassPeople';
-import { ClassNotices, ClassRewards, ClassRules } from '@/components/admin/ClassRewards';
-import { ClassAssignments, ClassProgress } from '@/components/admin/ClassWork';
+import { ClassStudents } from '@/components/admin/ClassPeople';
 import { ErrorNote, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
-import { Bar, Btn, Card, Chip, ConfirmSheet, EmptyState, Segmented, Spinner, ToggleRow, Txt } from '@/components/ui';
+import { Btn, Card, Chip, ConfirmSheet, Spinner, ToggleRow, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { ClassDetail, ClassRow } from '@/types/classroom';
 import { TeacherChangeForm } from './ClassTeacherChange';
-
-type Section = 'students' | 'teams' | 'rules' | 'battle' | 'rewards' | 'assignments' | 'progress' | 'notices';
-const SECTIONS: Array<{ value: Section; label: string }> = [
-  { value: 'students', label: 'Học sinh' }, { value: 'teams', label: 'Đội' }, { value: 'rules', label: 'Luật lớp' }, { value: 'battle', label: 'Trận đánh' }, { value: 'rewards', label: 'Thưởng/phạt' },
-  { value: 'assignments', label: 'Bài tập' }, { value: 'progress', label: 'Tiến độ' }, { value: 'notices', label: 'Thông báo' },
-];
 
 const ClassView: React.FC<{ session: Session; id: number; onBack: () => void; onChanged: () => void }> = ({ session, id, onBack, onChanged }) => {
   const { c } = useTheme();
   const { token } = session;
   const detail = useLoad(() => api.classDetail(token, id), [token, id], session.expired);
   const { busy, run } = useAction(session.expired);
-  const [section, setSection] = useState<Section>('students');
   const [meta, setMeta] = useState(false);
   const [code, setCode] = useState(false);
   const [archive, setArchive] = useState(false);
@@ -66,15 +57,8 @@ const ClassView: React.FC<{ session: Session; id: number; onBack: () => void; on
             <ToggleRow icon={UserPlus} label="Cho học sinh tự tham gia bằng mã" desc={cls.join_open ? 'Đang mở: học sinh nhập mã là vào lớp' : 'Đang đóng: học sinh không thể vào lớp bằng mã'} checked={cls.join_open}
               onChange={async (open) => { const next = await run(() => api.setJoinOpen(token, id, open), open ? 'Đã mở tham gia' : 'Đã đóng tham gia'); if (next) apply(next); }} />
           </Card>
-          <Segmented label="Mục quản lý lớp" options={SECTIONS.map((s) => ({ ...s, label: s.value === 'students' && cls.pending_leaves ? `${s.label} (${cls.pending_leaves} xin rời)` : s.value === 'rewards' && cls.pending_skills ? `${s.label} (${cls.pending_skills} chờ duyệt)` : s.label }))} value={section} onChange={setSection} />
-          {section === 'students' ? <ClassStudents session={session} cls={cls} onChanged={refresh} /> : null}
-          {section === 'teams' ? <ClassTeams session={session} cls={cls} onChanged={refresh} /> : null}
-          {section === 'rules' ? <ClassRules session={session} cls={cls} onChanged={refresh} /> : null}
-          {section === 'battle' ? <ClassBattleLinks session={session} cls={cls} /> : null}
-          {section === 'rewards' ? <ClassRewards session={session} cls={cls} onChanged={refresh} /> : null}
-          {section === 'assignments' ? <ClassAssignments session={session} cls={cls} /> : null}
-          {section === 'progress' ? <ClassProgress session={session} cls={cls} /> : null}
-          {section === 'notices' ? <ClassNotices session={session} cls={cls} /> : null}
+          <Txt f="bold" size={16} accessibilityRole="header">Học sinh{cls.pending_leaves ? ` (${cls.pending_leaves} xin rời lớp)` : ''}</Txt>
+          <ClassStudents session={session} cls={cls} onChanged={refresh} />
         </>
       ) : null}
       {meta && cls ? (
@@ -103,23 +87,14 @@ const ClassCard: React.FC<{ row: ClassRow; onPress: () => void }> = ({ row, onPr
           <Chip text={`Khối ${row.grade ?? '?'}`} bg={c.thuyNhat} fg={c.thuyChu} />
           {!row.is_active ? <Chip text="Đã lưu trữ" bg={c.vangNhat} fg={c.vangChu} /> : null}
         </View>
-        <Txt size={13} color={c.muc2}>{row.school_year} · {row.students} học sinh · {row.teams} đội{row.own ? ' · lớp tôi tạo' : ''}</Txt>
+        <Txt size={13} color={c.muc2}>{row.school_year} · {row.students} học sinh</Txt>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
           <Txt size={12} color={c.muc3}>Mã lớp</Txt>
           <Txt f="bold" size={(row.join_code?.length ?? 0) > 8 ? 14 : 20} style={{ letterSpacing: (row.join_code?.length ?? 0) > 8 ? 0 : 4 }}>{row.join_code}</Txt>
           {!row.join_open ? <Chip text="Đóng tham gia" bg={c.sonNhat} fg={c.sonChu} /> : null}
         </View>
-        {row.journeys.length ? (
-          <View style={{ gap: 4 }}>
-            {row.journeys.slice(0, 2).map((j) => <View key={j.id} style={{ gap: 2 }}><Txt size={13} numberOfLines={1}>{j.title}</Txt><Bar value={j.percent} max={100} label={`${j.title}: ${j.percent}%`} height={8} /></View>)}
-            <Txt size={12} color={c.muc3}>Tiến độ trung bình {row.avg_progress ?? 0}%</Txt>
-          </View>
-        ) : <Txt size={13} color={c.muc3}>Chưa giao hành trình nào đang chạy</Txt>}
-        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-          {row.pending_leaves ? <StatusChip kind="warn" text={`${row.pending_leaves} xin rời lớp`} /> : null}
-          {row.pending_skills ? <StatusChip kind="warn" text={`${row.pending_skills} chờ duyệt kỹ năng`} /> : null}
-        </View>
-        <Btn title="Quản lý lớp" tone="son" size="sm" onPress={onPress} testID={`class-open-${row.id}`} />
+        {row.pending_leaves ? <StatusChip kind="warn" text={`${row.pending_leaves} xin rời lớp`} /> : null}
+        <Btn title="Xem lớp" tone="son" size="sm" onPress={onPress} testID={`class-open-${row.id}`} />
       </View>
     </Card>
   );
@@ -132,10 +107,9 @@ export const ClassManager: React.FC<{ session: Session }> = ({ session }) => {
   return (
     <Page>
       {/* 16/11/2026: lớp do quản trị trường tạo và phân công (một lớp một giáo viên); giáo viên không tự tạo lớp */}
-      <PageHeader title={`Xin chào, ${session.user.nickname || session.user.full_name}`} subtitle="Các lớp quản trị trường phân công cho bạn: mã tham gia để gửi học sinh, thêm học sinh, chia đội, thưởng/phạt, giao bài tập và theo dõi tiến độ." />
+      <PageHeader title={`Xin chào, ${session.user.nickname || session.user.full_name}`} subtitle={list.data && !list.data.length ? 'Chưa có lớp nào được phân công.' : 'Các lớp quản trị trường phân công cho bạn và mã tham gia để học sinh vào lớp.'} />
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
-      {list.data && !list.data.length ? <EmptyState mood="thinking" title="Bạn chưa phụ trách lớp nào" text="Khi quản trị viên trường phân công bạn phụ trách một lớp, lớp đó sẽ hiện ở đây kèm mã tham gia để gửi cho học sinh." /> : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
         {(list.data ?? []).map((row) => <ClassCard key={row.id} row={row} onPress={() => setOpen(row.id)} />)}
       </View>

@@ -8,6 +8,7 @@ import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/com
 import { notFound } from '../content/access';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
 import { activeJourneys, nodesWithState } from '../student/progress';
+import { PdfSchool, schoolPdfLogo } from '../admin/pdf';
 import { RecoService, RecoSettings } from './reco.service';
 import { byType, topicStats, TopicRow } from './topics';
 
@@ -553,6 +554,14 @@ export class AnalyticsService {
   async reportSchool(schoolId: number | null | undefined): Promise<{ name: string; code: string | null; region: string | null } | null> {
     if (!schoolId) return null;
     return (await this.db.query<{ name: string; code: string | null; region: string | null }>('SELECT name, school_code AS code, region FROM app_schools WHERE id = $1', [schoolId]))[0] ?? null;
+  }
+
+  /** Phần đầu PDF theo thể thức văn bản của nhà trường (như PDF danh sách lớp của quản trị trường): tên, mã, địa phương, logo đã xác minh */
+  async pdfSchool(schoolId: number | null | undefined): Promise<PdfSchool | null> {
+    if (!schoolId) return null;
+    const s = (await this.db.query<{ name: string; code: string | null; region: string | null; city: string | null; address: string | null; directory_code: string | null; logo_url: string | null }>(
+      'SELECT name, school_code AS code, region, city, address, directory_code, logo_url FROM app_schools WHERE id = $1', [schoolId]))[0];
+    return s ? { name: s.name, code: s.code, region: s.region, city: s.city, address: s.address, logo: await schoolPdfLogo(this.db, s) } : null;
   }
 
   async exportRows(user: UserRow, classId: number, period: Period) {

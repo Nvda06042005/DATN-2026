@@ -4,10 +4,10 @@
  */
 import React, { useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
-import { CheckSquare, FileUp, Shuffle, Square, Trash2, UserPlus, Users } from 'lucide-react-native';
+import { CheckSquare, Shuffle, Square, Trash2, Users } from 'lucide-react-native';
 import * as api from '@/api/classroomApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
-import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, ImportSheet, useAction, useDebounced, useLoad } from '@/components/admin/kit';
+import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, useAction, useDebounced, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { iconOf } from '@/components/portal/GameKit';
 import { Btn, Card, Chip, ConfirmSheet, EmptyState, Field, Inset, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
@@ -47,34 +47,6 @@ export const Checklist: React.FC<{ items: Array<{ id: number; label: string; sub
 };
 
 // ---------------------------------------------------------------------- học sinh
-const AddStudents: React.FC<{ session: Session; cls: ClassDetail; onClose: () => void; onDone: () => void }> = ({ session, cls, onClose, onDone }) => {
-  const [q, setQ] = useState('');
-  const term = useDebounced(q.trim(), 300);
-  const pool = useLoad(() => api.studentPool(session.token, cls.id, term), [session.token, cls.id, term], session.expired);
-  const [picked, setPicked] = useState<number[]>([]);
-  const { busy, run } = useAction(session.expired);
-  return (
-    <Sheet open onClose={onClose} title="Thêm học sinh vào lớp" subtitle="Chọn trong danh sách học sinh của trường chưa thuộc lớp này" wide
-      footer={<View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}><Btn title="Hủy" tone="giay" onPress={onClose} disabled={busy} />
-        <Btn title={`Thêm ${picked.length} học sinh`} tone="son" disabled={!picked.length} loading={busy} testID="class-add-submit"
-          onPress={async () => { const res = await run(() => api.addStudents(session.token, cls.id, picked), 'Đã thêm học sinh vào lớp'); if (res) { onDone(); onClose(); } }} /></View>}>
-      <Field label="Tìm theo tên, mã học sinh hoặc biệt danh" value={q} onChangeText={setQ} />
-      <ErrorNote message={pool.error} />
-      {pool.loading && !pool.data ? <Spinner /> : null}
-      <Checklist items={(pool.data ?? []).map((s) => ({ id: s.id, label: s.full_name, sub: [s.user_code, s.nickname, s.grade ? `khối ${s.grade}` : null].filter(Boolean).join(' · ') }))}
-        value={picked} onChange={setPicked} empty="Không còn học sinh nào phù hợp (học sinh đã trong lớp không hiện ở đây)." />
-    </Sheet>
-  );
-};
-
-/** Nhập học sinh vào lớp bằng Excel: cùng hộp "Nhập từ Excel" với trang quản trị (tải file mẫu, chọn file, xem trước từng dòng rồi mới lưu) */
-const ImportStudents: React.FC<{ session: Session; cls: ClassDetail; onClose: () => void; onDone: () => void }> = ({ session, cls, onClose, onDone }) => (
-  <ImportSheet title={`Nhập học sinh vào lớp ${cls.name} từ Excel`} acceptText="Chỉ nhận file Excel (.xlsx)."
-    hint="Tải file mẫu, điền mã học sinh của trường (mỗi dòng một mã) rồi chọn file. Xem trước từng dòng: hợp lệ, đã trong lớp hoặc lỗi (mã không thuộc trường, mã lặp); bấm Lưu để thêm vào lớp."
-    template={{ fetchBlob: () => api.studentsTemplate(session.token), filename: 'mau-them-hoc-sinh.xlsx' }}
-    run={(file, commit) => api.importStudents(session.token, cls.id, file, commit)} onClose={onClose} onDone={onDone} />
-);
-
 export const ClassStudents: React.FC<{ session: Session; cls: ClassDetail; onChanged: () => void }> = ({ session, cls, onChanged }) => {
   const { c } = useTheme();
   const [q, setQ] = useState('');
@@ -83,17 +55,11 @@ export const ClassStudents: React.FC<{ session: Session; cls: ClassDetail; onCha
   const list = useLoad(() => api.classStudents(session.token, cls.id, term), [session.token, cls.id, term, tick], session.expired);
   const leaves = useLoad(() => api.leaveRequests(session.token, cls.id), [session.token, cls.id, tick], session.expired);
   const { busy, run } = useAction(session.expired);
-  const [adding, setAdding] = useState(false);
-  const [importing, setImporting] = useState(false);
   const [removing, setRemoving] = useState<ClassStudent | null>(null);
   const refresh = () => { setTick((t) => t + 1); onChanged(); };
   const pending = (leaves.data ?? []).filter((r) => r.status === 'pending');
   return (
     <View style={{ gap: 14 }}>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        <Btn icon={UserPlus} title="Thêm học sinh" tone="son" size="sm" onPress={() => setAdding(true)} testID="class-add-students" disabled={!cls.is_active} />
-        <Btn icon={FileUp} title="Nhập từ Excel" tone="giay" size="sm" onPress={() => setImporting(true)} disabled={!cls.is_active} testID="class-import-open" />
-      </View>
       {pending.length ? (
         <Card flat pad={12} style={{ gap: 8, borderColor: c.vang }}>
           <Txt f="bold" size={15}>Yêu cầu rời lớp ({pending.length})</Txt>
@@ -110,18 +76,15 @@ export const ClassStudents: React.FC<{ session: Session; cls: ClassDetail; onCha
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data ? (
-        <DataTable<ClassStudent> rows={list.data} rowKey={(s) => s.id} empty={term ? 'Không tìm thấy học sinh nào' : 'Lớp chưa có học sinh. Bấm “Thêm học sinh” hoặc đọc mã lớp cho học sinh tự nhập.'}
+        <DataTable<ClassStudent> rows={list.data} rowKey={(s) => s.id} empty={term ? 'Không tìm thấy học sinh nào' : 'Lớp chưa có học sinh. Đọc mã tham gia lớp cho học sinh tự nhập.'}
           columns={[
             { key: 'name', label: 'Học sinh', flex: 2.2, render: (s) => <Cell main={s.full_name} sub={[s.user_code, s.nickname ? `biệt danh ${s.nickname}` : null].filter(Boolean).join(' · ')} /> },
             { key: 'char', label: 'Nhân vật', flex: 1.6, render: (s) => (s.character_name ? <Cell main={s.character_name} sub={`Cấp ${s.level}`} /> : <Txt size={13} color={c.muc3}>Chưa chọn nhân vật</Txt>) },
             { key: 'stat', label: 'Điểm · vàng · tim', flex: 1.6, render: (s) => <Txt size={13}>{s.xp} điểm · {s.gold} vàng · {s.hearts}/{s.hearts_max} tim</Txt> },
-            { key: 'team', label: 'Đội', flex: 1, render: (s) => <Txt size={13}>{s.team_name ?? '—'}</Txt> },
             { key: 'last', label: 'Học gần nhất', flex: 1.2, hideOnCard: true, render: (s) => <Txt size={13} color={c.muc2}>{dateText(s.last_active)}</Txt> },
           ]}
           actions={(s) => <Btn icon={Trash2} label={`Xóa ${s.full_name} khỏi lớp`} tone="giay" size="sm" onPress={() => setRemoving(s)} />} />
       ) : null}
-      {adding ? <AddStudents session={session} cls={cls} onClose={() => setAdding(false)} onDone={refresh} /> : null}
-      {importing ? <ImportStudents session={session} cls={cls} onClose={() => setImporting(false)} onDone={refresh} /> : null}
       <ConfirmSheet open={!!removing} title="Xóa học sinh khỏi lớp?" message={`“${removing?.full_name ?? ''}” sẽ rời lớp này và rời đội. Dữ liệu học của học sinh vẫn được giữ nguyên.`} confirmLabel="Xóa khỏi lớp" busy={busy}
         onCancel={() => setRemoving(null)} onConfirm={async () => { if (removing) { const ok = await run(async () => { await api.removeStudent(session.token, cls.id, removing.id); return true; }, 'Đã xóa khỏi lớp'); setRemoving(null); if (ok) refresh(); } }} />
     </View>

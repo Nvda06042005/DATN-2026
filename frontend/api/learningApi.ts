@@ -3,7 +3,7 @@ import { apiBlob, apiRequest, apiUpload, type PickedFile } from '@/api/client';
 import type {
   AnswerResult, AttemptHistoryItem, AttemptReview, AttemptState, CampaignMap, Detail, FigureItem, GateGuide, GateInput, HistoryOption, JourneyDetail, JourneyItem, JourneyPreview, LearningPath, LessonCheckResult, LessonCompletion, LessonDetail, LessonInput,
   LessonItem, LessonView, Listing, ListenView, MapPlace, MenuDots, NodeDetail, NodeInput, NodeResult, NoteItem, QuestionDetail, QuestionImportResult, QuestionInput, QuestionItem, QuestionVersion, Quests,
-  MatrixInput, MatrixStock, QuizDetail, QuizInput, QuizItem, QuizStats, SearchHit, ShareDetail, ShareItem, SourceItem, StudentHome, TeacherClass, TermItem, TimelineEntry,
+  MatrixInput, MatrixStock, QuizDetail, QuizInput, QuizItem, QuizStats, SearchHit, ShareDetail, ShareItem, SentMessage, MessageDetail, Recipient, SourceItem, StudentHome, TeacherClass, TermItem, TimelineEntry,
 } from '@/types/learning';
 import type { MediaLibrary } from '@/types/media';
 
@@ -80,6 +80,12 @@ export const getShare = (token: string, id: number) => apiRequest<ShareDetail>(`
 export const requestShare = (token: string, entity: 'question' | 'quiz' | 'journey', entityId: number, target: 'school' | 'system', mail?: { subject?: string; message?: string }) =>
   apiRequest<ShareItem>('/api/content/shares', { token, body: { entity, entity_id: entityId, target, ...mail } });
 export const reviewShare = (token: string, id: number, approve: boolean, note?: string) => apiRequest<ShareDetail>(`/api/content/shares/${id}/review`, { token, body: { approve, note } });
+// thư của giáo viên (16/11/2026, migration 070): người nhận cùng trường, gửi, thư đã gửi
+export const sentMessages = (token: string) => apiRequest<SentMessage[]>('/api/content/messages', { token });
+export const messageRecipients = (token: string, query: { role?: string; q?: string }) => apiRequest<Recipient[]>(`/api/content/messages/recipients${qs(query)}`, { token });
+export const sendMessage = (token: string, body: { recipient_ids: number[]; subject: string; body?: string; entity?: 'question' | 'quiz' | 'journey'; entity_id?: number }) =>
+  apiRequest<MessageDetail>('/api/content/messages', { token, body });
+export const getMessage = (token: string, id: number) => apiRequest<MessageDetail>(`/api/content/messages/${id}`, { token });
 export const withdrawShare = (token: string, id: number) => apiRequest<void>(`/api/content/shares/${id}`, { token, method: 'DELETE' });
 
 // ---------------------------------------------------------------------- kho lịch sử cho học sinh và giáo viên (HK.HS.025–042)

@@ -455,7 +455,10 @@ export class ClassroomService {
   }
 
   async markRead(user: UserRow, ids?: number[]) {
-    await this.db.query('UPDATE app_notifications SET read_at = now() WHERE user_id = $1 AND read_at IS NULL AND ($2::int[] IS NULL OR id = ANY($2))', [user.id, ids?.length ? ids : null]);
+    const read = await this.db.query<{ ref: { message_id?: number } | null }>("UPDATE app_notifications SET read_at = now() WHERE user_id = $1 AND read_at IS NULL AND ($2::int[] IS NULL OR id = ANY($2)) RETURNING ref", [user.id, ids?.length ? ids : null]);
+    // thư của giáo viên (migration 070): đọc thông báo thì người gửi thấy "đã đọc"
+    const messages = read.map((r) => Number(r.ref?.message_id)).filter((n) => Number.isInteger(n) && n > 0);
+    if (messages.length) await this.db.query('UPDATE hk_message_recipients SET read_at = now() WHERE user_id = $1 AND read_at IS NULL AND message_id = ANY($2)', [user.id, messages]);
     return { ok: true };
   }
 

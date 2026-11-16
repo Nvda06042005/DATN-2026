@@ -131,6 +131,16 @@ export interface ShareItem {
   subject: string | null; message: string | null; reviewer?: string | null;
 }
 export interface ShareDetail extends ShareItem { content: Record<string, unknown> | null }
+/** Thư của giáo viên (16/11/2026, migration 070) */
+export interface Recipient { id: number; full_name: string; role: 'school_admin' | 'teacher' | 'student'; role_label: string; user_code: string | null; classes?: string | null }
+export interface SentMessage {
+  id: number; subject: string; body: string | null; entity: 'question' | 'quiz' | 'journey' | null; entity_id: number | null; share_id: number | null; created_at: string;
+  share_status: ShareItem['status'] | null; review_note: string | null; reviewed_at: string | null; reviewer: string | null; recipients: number; read: number; names: string | null;
+}
+export interface MessageDetail {
+  id: number; subject: string; body: string | null; entity: 'question' | 'quiz' | 'journey' | null; entity_id: number | null; share_id: number | null; created_at: string;
+  recipients: Array<Recipient & { read_at: string | null }>; share: ShareDetail | null;
+}
 export interface HistoryOption { id: number; label: string; status: string }
 
 // ---------------------------------------------------------------------- học sinh
