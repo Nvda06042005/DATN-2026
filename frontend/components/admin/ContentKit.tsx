@@ -65,7 +65,7 @@ export const LinksEditor: React.FC<{ session: Session; value: HistoryLink[]; onC
 };
 
 /** Hộp chọn câu hỏi từ ngân hàng để đưa vào bộ đề hoặc làm câu kiểm tra nhanh */
-export const QuestionPicker: React.FC<{ session: Session; title: string; exclude: number[]; scopeFilter?: 'system'; multi?: boolean; onPick: (items: QuestionItem[]) => void; onClose: () => void }> = ({ session, title, exclude, scopeFilter, multi = true, onPick, onClose }) => {
+export const QuestionPicker: React.FC<{ session: Session; title: string; exclude: number[]; scopeFilter?: 'system' | 'mine'; multi?: boolean; onPick: (items: QuestionItem[]) => void; onClose: () => void }> = ({ session, title, exclude, scopeFilter, multi = true, onPick, onClose }) => {
   const [store, setStore] = useState<string>(scopeFilter ?? 'all');
   const [q, setQ] = useState('');
   const [qtype, setQtype] = useState('');

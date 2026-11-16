@@ -127,6 +127,8 @@ export interface TeacherClass { id: number; name: string; grade: number | null; 
 export interface ShareItem {
   id: number; entity: 'question' | 'quiz' | 'journey'; entity_label: string; entity_id: number; target: 'school' | 'system'; status: 'pending' | 'approved' | 'rejected'; title: string;
   requester: string | null; requested_by: number | null; school_name: string | null; review_note: string | null; result_id: number | null; created_at: string; reviewed_at: string | null; can_review: boolean;
+  /** Thư gửi duyệt (16/11/2026): tiêu đề, lời nhắn của người gửi và tên người duyệt */
+  subject: string | null; message: string | null; reviewer?: string | null;
 }
 export interface ShareDetail extends ShareItem { content: Record<string, unknown> | null }
 export interface HistoryOption { id: number; label: string; status: string }

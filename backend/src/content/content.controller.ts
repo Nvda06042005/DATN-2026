@@ -199,6 +199,9 @@ class ShareDto {
   @IsIn(['question', 'quiz', 'journey']) entity: ShareEntity;
   @num() @IsInt() @Min(1) entity_id: number;
   @IsIn(['school', 'system']) target: ShareTarget;
+  /** Tiêu đề và lời nhắn của thư gửi duyệt (16/11/2026) */
+  @IsOptional() @IsString() @MaxLength(150) subject?: string;
+  @IsOptional() @IsString() @MaxLength(2000) message?: string;
 }
 
 class ShareListQuery {
@@ -430,7 +433,7 @@ export class ContentController {
   listShares(@CurrentUser() user: UserRow, @Query() query: ShareListQuery) { return this.shares.list(user, query); }
 
   @Post('shares')
-  requestShare(@CurrentUser() user: UserRow, @Body() body: ShareDto) { return this.shares.request(user, body.entity, body.entity_id, body.target); }
+  requestShare(@CurrentUser() user: UserRow, @Body() body: ShareDto) { return this.shares.request(user, body.entity, body.entity_id, body.target, { subject: body.subject, message: body.message }); }
 
   @Get('shares/:id')
   getShare(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.shares.detail(user, id); }

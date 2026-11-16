@@ -76,8 +76,9 @@ export const unassignJourney = (token: string, journeyId: number, classId: numbe
 // ---------------------------------------------------------------------- chia sẻ và duyệt (HK.GV.029, 039, HK.QT.041)
 export const listShares = (token: string, query: Query = {}) => apiRequest<ShareItem[]>(`/api/content/shares${qs(query)}`, { token });
 export const getShare = (token: string, id: number) => apiRequest<ShareDetail>(`/api/content/shares/${id}`, { token });
-export const requestShare = (token: string, entity: 'question' | 'quiz' | 'journey', entityId: number, target: 'school' | 'system') =>
-  apiRequest<ShareItem>('/api/content/shares', { token, body: { entity, entity_id: entityId, target } });
+/** `mail`: tiêu đề và lời nhắn của thư gửi duyệt (16/11/2026, tùy chọn) */
+export const requestShare = (token: string, entity: 'question' | 'quiz' | 'journey', entityId: number, target: 'school' | 'system', mail?: { subject?: string; message?: string }) =>
+  apiRequest<ShareItem>('/api/content/shares', { token, body: { entity, entity_id: entityId, target, ...mail } });
 export const reviewShare = (token: string, id: number, approve: boolean, note?: string) => apiRequest<ShareDetail>(`/api/content/shares/${id}/review`, { token, body: { approve, note } });
 export const withdrawShare = (token: string, id: number) => apiRequest<void>(`/api/content/shares/${id}`, { token, method: 'DELETE' });
 

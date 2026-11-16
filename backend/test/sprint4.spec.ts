@@ -303,11 +303,15 @@ const MAP = { qtype: 'map', prompt: 'Kéo các địa danh lên bản đồ.', d
     expect((await api('POST', `/api/content/shares/${shareId}/review`, { approve: true }, f.A.token)).status).toBe(409); // đã xử lý
     expect((await api('GET', '/api/content/questions?store=school', undefined, f.T2.token)).body.total).toBe(0);
 
-    // Gửi lại sau khi bị từ chối, rồi được duyệt
-    const again = await api('POST', '/api/content/shares', { entity: 'question', entity_id: ids.single, target: 'school' });
-    expect(again.body).toMatchObject({ id: shareId, status: 'pending', review_note: null });
+    // Gửi lại sau khi bị từ chối như một thư mới (tiêu đề, lời nhắn – migration 067), rồi được duyệt; người gửi thấy tên người duyệt
+    expect((await api('POST', '/api/content/shares', { entity: 'question', entity_id: ids.single, target: 'school', subject: 'x'.repeat(151) })).status).toBe(422);
+    const again = await api('POST', '/api/content/shares', { entity: 'question', entity_id: ids.single, target: 'school', subject: '  Đề nghị   duyệt lại câu hỏi  ', message: 'Kính gửi Ban Giám hiệu,\nTôi đã bổ sung giải thích.' });
+    expect(again.body).toMatchObject({ id: shareId, status: 'pending', review_note: null, subject: 'Đề nghị duyệt lại câu hỏi', message: 'Kính gửi Ban Giám hiệu,\nTôi đã bổ sung giải thích.', reviewer: null });
+    expect(again.body.title).toBeTruthy();
+    expect((await api('GET', '/api/content/shares?status=pending', undefined, f.A.token)).body[0]).toMatchObject({ subject: 'Đề nghị duyệt lại câu hỏi' });
     const approved = await api('POST', `/api/content/shares/${shareId}/review`, { approve: true }, f.A.token);
     expect(approved.body).toMatchObject({ status: 'approved' });
+    expect((await api('GET', '/api/content/shares')).body.find((x: any) => x.id === shareId)).toMatchObject({ status: 'approved', reviewer: expect.any(String), subject: 'Đề nghị duyệt lại câu hỏi' });
     expect(approved.body.result_id).toBeGreaterThan(0);
     const school = await api('GET', '/api/content/questions?store=school', undefined, f.T2.token);
     expect(school.body.total).toBe(1);

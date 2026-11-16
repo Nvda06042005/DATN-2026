@@ -20,6 +20,17 @@ const LABEL: Record<ShareEntity, string> = { question: 'câu hỏi', quiz: 'bộ
 interface ShareRow {
   id: number; entity: ShareEntity; entity_id: number; target: ShareTarget; status: 'pending' | 'approved' | 'rejected'; result_id: number | null; school_id: number | null;
   requested_by: number | null; reviewed_by: number | null; review_note: string | null; created_at: string; reviewed_at: string | null;
+  /** Tiêu đề và lời nhắn như một thư gửi người duyệt (migration 067, tùy chọn) */
+  subject: string | null; message: string | null;
+}
+
+/** Tiêu đề / lời nhắn của thư gửi duyệt: gọn khoảng trắng, rỗng thành null, kiểm tra độ dài */
+function mailFields(mail?: { subject?: string | null; message?: string | null }): { subject: string | null; message: string | null } {
+  const subject = (mail?.subject ?? '').replace(/\s+/g, ' ').trim() || null;
+  const message = (mail?.message ?? '').replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').trim() || null;
+  if (subject && subject.length > 150) throw new BadRequestException('Tiêu đề tối đa 150 ký tự');
+  if (message && message.length > 2000) throw new BadRequestException('Lời nhắn tối đa 2000 ký tự');
+  return { subject, message };
 }
 
 @Injectable()
@@ -31,9 +42,10 @@ export class ShareService {
     private readonly journeys: JourneyService,
   ) {}
 
-  /** Gửi nội dung đi duyệt: giáo viên → kho trường; quản trị viên trường → kho hệ thống */
-  async request(user: UserRow, entity: ShareEntity, entityId: number, to: ShareTarget) {
+  /** Gửi nội dung đi duyệt: giáo viên → kho trường; quản trị viên trường → kho hệ thống. `mail`: tiêu đề và lời nhắn như một thư (16/11/2026) */
+  async request(user: UserRow, entity: ShareEntity, entityId: number, to: ShareTarget, mail?: { subject?: string | null; message?: string | null }) {
     if (!ENTITIES.includes(entity)) throw new BadRequestException('Loại nội dung không hợp lệ');
+    const letter = mailFields(mail);
     const wantRole = to === 'school' ? 'teacher' : 'school_admin';
     if (user.role !== wantRole) {
       throw new ForbiddenException(to === 'school' ? 'Giáo viên gửi nội dung vào kho chung của trường' : 'Quản trị viên trường đề xuất nội dung của kho trường lên kho hệ thống');
@@ -53,11 +65,11 @@ export class ShareService {
       if (existing?.status === 'pending') throw new ConflictException('Nội dung này đã được gửi và đang chờ duyệt');
       if (existing) {
         await q(
-          `UPDATE hk_shares SET status = 'pending', result_id = NULL, requested_by = $2, reviewed_by = NULL, review_note = NULL, created_at = now(), reviewed_at = NULL, school_id = $3 WHERE id = $1`,
-          [existing.id, user.id, user.school_id]);
+          `UPDATE hk_shares SET status = 'pending', result_id = NULL, requested_by = $2, reviewed_by = NULL, review_note = NULL, created_at = now(), reviewed_at = NULL, school_id = $3, subject = $4, message = $5 WHERE id = $1`,
+          [existing.id, user.id, user.school_id, letter.subject, letter.message]);
         return existing.id;
       }
-      return (await q<{ id: number }>('INSERT INTO hk_shares (entity, entity_id, target, school_id, requested_by) VALUES ($1, $2, $3, $4, $5) RETURNING id', [entity, entityId, to, user.school_id, user.id]))[0].id;
+      return (await q<{ id: number }>('INSERT INTO hk_shares (entity, entity_id, target, school_id, requested_by, subject, message) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id', [entity, entityId, to, user.school_id, user.id, letter.subject, letter.message]))[0].id;
     });
     return this.detail(user, share);
   }
@@ -82,8 +94,8 @@ export class ShareService {
     else throw new ForbiddenException('Không có quyền xem danh sách chia sẻ');
     if (f.status && ['pending', 'approved', 'rejected'].includes(f.status)) { params.push(f.status); parts.push(`s.status = $${params.length}`); }
     if (f.entity && ENTITIES.includes(f.entity as ShareEntity)) { params.push(f.entity); parts.push(`s.entity = $${params.length}`); }
-    const rows = await this.db.query<ShareRow & { requester: string | null; school_name: string | null }>(
-      `SELECT s.*, u.full_name AS requester, sc.name AS school_name FROM hk_shares s LEFT JOIN app_users u ON u.id = s.requested_by LEFT JOIN app_schools sc ON sc.id = s.school_id
+    const rows = await this.db.query<ShareRow & { requester: string | null; school_name: string | null; reviewer: string | null }>(
+      `SELECT s.*, u.full_name AS requester, sc.name AS school_name, rv.full_name AS reviewer FROM hk_shares s LEFT JOIN app_users u ON u.id = s.requested_by LEFT JOIN app_schools sc ON sc.id = s.school_id LEFT JOIN app_users rv ON rv.id = s.reviewed_by
        WHERE ${parts.join(' AND ')} ORDER BY (s.status = 'pending') DESC, s.created_at DESC LIMIT 300`, params);
     const out = [];
     for (const r of rows) {
@@ -128,7 +140,9 @@ export class ShareService {
         content = journey ? { ...journey, nodes } : null;
       }
       const requester = s.requested_by ? (await q<{ full_name: string }>('SELECT full_name FROM app_users WHERE id = $1', [s.requested_by]))[0]?.full_name ?? null : null;
-      return { ...s, requester, entity_label: LABEL[s.entity], content, can_review: this.canReview(user, s) };
+      const reviewer = s.reviewed_by ? (await q<{ full_name: string }>('SELECT full_name FROM app_users WHERE id = $1', [s.reviewed_by]))[0]?.full_name ?? null : null;
+      const title = (await q<{ title: string }>(`SELECT ${TITLE[s.entity]} AS title FROM ${TABLE[s.entity]} t WHERE t.id = $1`, [s.entity_id]))[0]?.title ?? '(đã xóa)';
+      return { ...s, requester, reviewer, title, entity_label: LABEL[s.entity], content, can_review: this.canReview(user, s) };
     });
   }
 

@@ -59,3 +59,14 @@ test('ngân hàng câu hỏi (16/11/2026): cột nào cũng có bộ lọc, xu�
   assert.match(bank, /filename: 'mau-ngan-hang-cau-hoi\.xlsx'/);
   assert.match(bank, /Chỉ nhận file mẫu của trường mình/);
 });
+
+test('nội dung đã gửi (16/11/2026): giáo viên dùng hộp thư như Gmail; người duyệt thấy tiêu đề và lời nhắn', () => {
+  const box = read('components', 'admin', 'ShareInbox.tsx');
+  assert.match(box, /export const ShareInbox: React\.FC<\{ session: Session \}> = \(\{ session \}\) => \(session\.user\.role === 'teacher' \? <SentMailbox session=\{session\} \/> : <ReviewInbox session=\{session\} \/>\);/);
+  for (const id of ['mail-list', 'mail-view', 'mail-reply', 'mail-withdraw', 'mail-resend', 'share-compose', 'compose-sheet', 'compose-subject', 'compose-message', 'compose-send', 'compose-discard']) assert.ok(box.includes(`testID="${id}"`), id);
+  for (const label of ['Tất cả thư đã gửi', 'Chờ duyệt', 'Đã duyệt', 'Bị từ chối']) assert.ok(box.includes(`label: '${label}'`), label);
+  assert.match(box, /<Txt f="bold" size=\{14\} color=\{c\.muc2\} style=\{\{ width: 72 \}\}>Đến<\/Txt>/);
+  assert.match(box, /api\.requestShare\(session\.token, entity, attached\.id, 'school', \{ subject: subject\.trim\(\) \|\| fallback, message: message\.trim\(\) \|\| undefined \}\)/);
+  assert.match(box, /\{d\.subject \? <Txt f="bold" size=\{16\}>\{d\.subject\}<\/Txt> : null\}/);
+  assert.match(read('api', 'learningApi.ts'), /mail\?: \{ subject\?: string; message\?: string \}\) =>\r?\n {2}apiRequest<ShareItem>\('\/api\/content\/shares', \{ token, body: \{ entity, entity_id: entityId, target, \.\.\.mail \} \}\);/);
+});
