@@ -5,10 +5,10 @@
  */
 import React, { useState } from 'react';
 import { Image, View } from 'react-native';
-import { Archive, ArrowLeft, KeyRound, Pencil, RotateCcw, Trash2, UserPlus } from 'lucide-react-native';
+import { Archive, ArrowLeft, KeyRound, RotateCcw, Trash2, UserPlus } from 'lucide-react-native';
 import * as api from '@/api/classroomApi';
 import { ClassStudents } from '@/components/admin/ClassPeople';
-import { ErrorNote, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad } from '@/components/admin/kit';
+import { ErrorNote, Page, PageHeader, StatusChip, useAction, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Card, Chip, ConfirmSheet, Spinner, ToggleRow, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -20,7 +20,6 @@ const ClassView: React.FC<{ session: Session; id: number; onBack: () => void; on
   const { token } = session;
   const detail = useLoad(() => api.classDetail(token, id), [token, id], session.expired);
   const { busy, run } = useAction(session.expired);
-  const [meta, setMeta] = useState(false);
   const [code, setCode] = useState(false);
   const [archive, setArchive] = useState(false);
   const [remove, setRemove] = useState(false);
@@ -39,7 +38,6 @@ const ClassView: React.FC<{ session: Session; id: number; onBack: () => void; on
           <PageHeader title={`Lớp ${cls.name}`} subtitle={`Khối ${cls.grade ?? '?'} · ${cls.school_year} · ${cls.students} học sinh${cls.teachers.length ? ` · GV: ${cls.teachers.map((t) => t.full_name).join(', ')}` : ''}`}
             actions={<>
               <Btn title="Đề nghị đổi giáo viên" tone="giay" size="sm" testID="teacher-change-open" disabled={!cls.is_active||cls.year_status==='ended'} onPress={()=>setTeacherChange(true)}/>
-              <Btn icon={Pencil} title="Sửa thông tin" tone="giay" size="sm" onPress={() => setMeta(true)} disabled={!cls.is_active} />
               {cls.own ? <Btn icon={cls.is_active ? Archive : RotateCcw} title={cls.is_active ? 'Lưu trữ' : 'Khôi phục'} tone="giay" size="sm" onPress={() => setArchive(true)} /> : null}
               {cls.own ? <Btn icon={Trash2} title="Xóa lớp" tone="giay" size="sm" onPress={() => setRemove(true)} /> : null}
             </>} />
@@ -60,12 +58,6 @@ const ClassView: React.FC<{ session: Session; id: number; onBack: () => void; on
           <Txt f="bold" size={16} accessibilityRole="header">Học sinh{cls.pending_leaves ? ` (${cls.pending_leaves} xin rời lớp)` : ''}</Txt>
           <ClassStudents session={session} cls={cls} onChanged={refresh} />
         </>
-      ) : null}
-      {meta && cls ? (
-        <FormSheet title="Thông tin lớp" fields={[{ name: 'name', label: 'Tên lớp', required: true, readOnly: !cls.own, hint: cls.own ? undefined : 'Tên lớp do nhà trường đặt; giáo viên sửa mô tả và ảnh bìa' },
-          { name: 'description', label: 'Mô tả', type: 'textarea' }, { name: 'cover_url', label: 'Ảnh bìa (liên kết https)', placeholder: 'https://…' }]}
-          initial={{ name: cls.name, description: cls.description ?? '', cover_url: cls.cover_url ?? '' }} onClose={() => setMeta(false)}
-          onSubmit={async (v) => { apply(await api.updateClass(token, id, { ...(cls.own ? { name: String(v.name).trim() } : {}), description: String(v.description).trim() || null, cover_url: String(v.cover_url).trim() || null })); setMeta(false); }} />
       ) : null}
       <ConfirmSheet open={code} title="Tạo mã tham gia mới?" message="Mã cũ sẽ không còn dùng được. Học sinh đã trong lớp không bị ảnh hưởng." confirmLabel="Tạo mã mới" busy={busy} onCancel={() => setCode(false)}
         onConfirm={async () => { const next = await run(() => api.regenerateCode(token, id), 'Đã tạo mã mới'); setCode(false); if (next) apply(next); }} />

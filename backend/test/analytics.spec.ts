@@ -283,6 +283,17 @@ const download = async (who: { token: string }, path: string) => {
     const p = await download(f.T1, `/api/analytics/classes/${f.class7a.id}/export?format=pdf&from=2026-01-01&to=2027-12-31`);
     expect(p).toMatchObject({ status: 200, head: '%PDF' });
     expect(p.size).toBeGreaterThan(2000);
+    // 16/11/2026: trường có logo đã xác minh (bảng app_school_logo_assets chỉ backend đọc) – giáo viên xuất PDF trong phạm vi trường vẫn được, có logo
+    const logo = await (await import('sharp')).default({ create: { width: 32, height: 32, channels: 3, background: { r: 185, g: 28, b: 28 } } }).webp().toBuffer();
+    const hash = (await import('crypto')).createHash('sha256').update(logo).digest('hex');
+    await db.query('INSERT INTO app_school_logo_assets (sha256, image_data, width, height) VALUES ($1, $2, 32, 32) ON CONFLICT DO NOTHING', [hash, logo]);
+    const oldLogo = (await db.query<{ logo_url: string | null }>('SELECT logo_url FROM app_schools WHERE id = $1', [f.A.schoolId]))[0].logo_url;
+    await db.query('UPDATE app_schools SET logo_url = $2 WHERE id = $1', [f.A.schoolId, `https://dong-a.example.invalid/api/school-logos/${hash}.webp`]);
+    try {
+      const withLogo = await download(f.T1, `/api/analytics/classes/${f.class7a.id}/export?format=pdf`);
+      expect(withLogo).toMatchObject({ status: 200, head: '%PDF' });
+      expect((await download(f.T1, '/api/content/questions/export?store=all')).status).toBe(200); // ngân hàng câu hỏi xuất PDF cũng có logo trường
+    } finally { await db.query('UPDATE app_schools SET logo_url = $2 WHERE id = $1', [f.A.schoolId, oldLogo]); }
     expect((await download(f.T1, `/api/analytics/classes/${f.class7a.id}/export?format=docx`)).status).toBe(400);
     expect((await download(f.T2, `/api/analytics/classes/${f.class7a.id}/export`)).status).toBe(404);
     expect((await download(f.S1, `/api/analytics/classes/${f.class7a.id}/export`)).status).toBe(403);

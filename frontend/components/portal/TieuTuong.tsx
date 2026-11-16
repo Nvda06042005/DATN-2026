@@ -4,8 +4,8 @@
  * Kiểm chứng Đồ thị Tri thức, Nhập vai danh tướng & Hồ sơ BKT).
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, View } from 'react-native';
-import { BookOpen, Flag, History as HistoryIcon, Plus, RotateCcw, Search, SendHorizontal, ShieldQuestion, Sparkles, Trash2 } from 'lucide-react-native';
+import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import { BookOpen, Flag, History as HistoryIcon, Plus, RotateCcw, Search, SendHorizontal, ShieldQuestion, Sparkles, SquarePen, Trash2 } from 'lucide-react-native';
 import * as api from '@/api/aiApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { ErrorNote, useAction, useLoad } from '@/components/admin/kit';
@@ -229,6 +229,8 @@ interface ChatProps {
   samples?: string[];
   placeholder?: string;
   onScrollToEnd?: () => void;
+  /** Báo id cuộc trò chuyện khi máy chủ tạo / tiếp tục cuộc (cột lịch sử tô đúng cuộc) */
+  onConversation?: (id: number) => void;
 }
 
 export const ChatPanel: React.FC<ChatProps> = ({
@@ -243,6 +245,7 @@ export const ChatPanel: React.FC<ChatProps> = ({
   samples = SAMPLES,
   placeholder = 'Nhập câu hỏi lịch sử thời Trần (VD: Vì sao Trần Quốc Toản bóp nát quả cam?)...',
   onScrollToEnd,
+  onConversation,
 }) => {
   const { c } = useTheme();
   const toast = useToast();
@@ -271,6 +274,7 @@ export const ChatPanel: React.FC<ChatProps> = ({
     try {
       const res: AiReply = await api.aiAsk(session.token, { question, conversation_id: conversation ?? undefined, mode, figure_id: figure?.id });
       setConversation(res.conversation.id);
+      onConversation?.(res.conversation.id);
       setMessages((m) => [...m.filter((x) => x.id !== pending.id), res.user_message, res.message]);
       onChanged?.();
     } catch (e) {
@@ -279,7 +283,7 @@ export const ChatPanel: React.FC<ChatProps> = ({
       setText(question);
       setError(errorMessage(e));
     } finally { setBusy(false); }
-  }, [busy, conversation, figure?.id, mode, onChanged, onScrollToEnd, session]);
+  }, [busy, conversation, figure?.id, mode, onChanged, onConversation, onScrollToEnd, session]);
 
   useEffect(() => {
     if (initialQuestion && initialQuestion.trim() && consumedInitRef.current !== initialQuestion) {
@@ -385,6 +389,61 @@ export const HistorySheet: React.FC<{ session: Session; onClose: () => void; onP
   );
 };
 
+/**
+ * Cột lịch sử trò chuyện bên trái như ChatGPT (16/11/2026): nút "Cuộc trò chuyện mới", các cuộc đã lưu nhóm theo ngày (Hôm nay, Hôm qua, ngày…),
+ * cuộc đang mở được tô nổi, xóa từng cuộc. Dùng cho Tiểu Tướng (học sinh) và Tra cứu sử liệu (giáo viên).
+ */
+export const ConversationSidebar: React.FC<{ session: Session; activeId: number | null; reloadKey: number; onPick: (id: number) => void; onNew: () => void; filter?: (cv: AiConversation) => boolean }> = ({ session, activeId, reloadKey, onPick, onNew, filter }) => {
+  const { c } = useTheme();
+  const list = useLoad(() => api.aiConversations(session.token), [session.token, reloadKey], session.expired);
+  const { run } = useAction(session.expired);
+  const [remove, setRemove] = useState<AiConversation | null>(null);
+  const groups: Array<[string, AiConversation[]]> = [];
+  for (const cv of (list.data ?? []).filter((x) => !filter || filter(x))) { const k = dayOf(cv.updated_at); const g = groups.find((x) => x[0] === k); if (g) g[1].push(cv); else groups.push([k, [cv]]); }
+  return (
+    <Card flat pad={10} style={{ gap: 8, borderRadius: 12, maxHeight: 680 }} testID="ai-sidebar">
+      <Btn icon={SquarePen} title="Cuộc trò chuyện mới" tone="giay" size="sm" onPress={onNew} testID="ai-sidebar-new" />
+      <Txt f="bold" size={12} color={c.muc3} style={{ paddingHorizontal: 6, marginTop: 4 }}>Gần đây</Txt>
+      <ScrollView style={{ maxHeight: 600 }} contentContainerStyle={{ gap: 2, paddingBottom: 6 }}>
+        <ErrorNote message={list.error} />
+        {list.loading && !list.data ? <Spinner /> : null}
+        {list.data && !groups.length ? <Txt size={13} color={c.muc3} style={{ paddingHorizontal: 6 }}>Chưa có cuộc trò chuyện nào.</Txt> : null}
+        {groups.map(([day, items]) => (
+          <View key={day} style={{ gap: 2, marginBottom: 6 }}>
+            <Txt size={11} color={c.muc3} style={{ paddingHorizontal: 6, paddingTop: 4 }}>{day}</Txt>
+            {items.map((cv) => {
+              const on = cv.id === activeId;
+              return (
+                <View key={cv.id} style={{ flexDirection: 'row', alignItems: 'center', borderRadius: 8, backgroundColor: on ? c.adminTint : 'transparent' }}>
+                  <Pressable accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={`Mở cuộc trò chuyện: ${cv.title}`} onPress={() => onPick(cv.id)} testID={`ai-conv-${cv.id}`}
+                    style={({ pressed }) => ({ flex: 1, minHeight: 40, justifyContent: 'center', paddingHorizontal: 8, borderRadius: 8, backgroundColor: pressed && !on ? c.adminCanvas : 'transparent' })}>
+                    <Txt f={on ? 'bold' : 'semibold'} size={13} numberOfLines={1} color={on ? c.logoRed : c.muc}>{cv.title}</Txt>
+                  </Pressable>
+                  <Btn icon={Trash2} label={`Xóa cuộc trò chuyện ${cv.title}`} tone="ghost" size="sm" onPress={() => setRemove(cv)} />
+                </View>
+              );
+            })}
+          </View>
+        ))}
+      </ScrollView>
+      <ConfirmSheet open={Boolean(remove)} title="Xóa cuộc trò chuyện này?" message="Cuộc trò chuyện sẽ biến mất khỏi lịch sử." confirmLabel="Xóa" onCancel={() => setRemove(null)}
+        onConfirm={async () => { if (!remove) return; const gone = remove.id; if (await run(() => api.aiDeleteConversation(session.token, gone).then(() => true), 'Đã xóa')) { setRemove(null); list.reload(); if (gone === activeId) onNew(); } }} />
+    </Card>
+  );
+};
+
+/** Danh tướng nhập vai (chuyển từ trang giáo viên sang học sinh 16/11/2026): danh hiệu và câu nói tiêu biểu để chọn nhân vật */
+const FIGURE_INFO: Record<string, { role: string; quote: string }> = {
+  'Trần Hưng Đạo': { role: 'Quốc Công Tiết Chế', quote: 'Nếu bệ hạ muốn hàng, xin hãy chém đầu thần trước đã!' },
+  'Trần Quốc Toản': { role: 'Hoài Văn Hầu', quote: 'Phá cường địch, báo hoàng ân!' },
+  'Trần Thủ Độ': { role: 'Thái Sư', quote: 'Đầu thần chưa rơi xuống đất, xin bệ hạ đừng lo!' },
+  'Trần Bình Trọng': { role: 'Bảo Nghĩa Vương', quote: 'Ta thà làm quỷ nước Nam, chứ không thèm làm vương đất Bắc!' },
+  'Trần Nhân Tông': { role: 'Phật Hoàng Trúc Lâm', quote: 'Xã tắc hai phen chồn ngựa đá / Non sông nghìn thuở vững âu vàng.' },
+  'Trần Khánh Dư': { role: 'Nhân Huệ Vương', quote: 'Đánh đắm đoàn thuyền lương Vân Đồn, bẻ gãy dạ dày giặc Nguyên!' },
+  'Phạm Ngũ Lão': { role: 'Điện Súy', quote: 'Múa giáo non sông trải mấy thu / Ba quân khí mạnh nuốt trôi trâu.' },
+  'Yết Kiêu': { role: 'Danh tướng thủy chiến', quote: 'Dưới làn nước sâu sông Bạch Đằng, một lòng đục thuyền giặc giữ non sông!' },
+};
+
 // ---------------------------------------------------------------------- tab Tiểu Tướng (Đã bỏ tab Tóm tắt theo Note 3)
 export const TieuTuongTab: React.FC<{ session: Session; onOpen: OpenSource; onChanged?: () => void }> = ({ session, onOpen, onChanged }) => {
   const { c } = useTheme();
@@ -394,24 +453,31 @@ export const TieuTuongTab: React.FC<{ session: Session; onOpen: OpenSource; onCh
   const [history, setHistory] = useState(false);
   const [initial, setInitial] = useState<{ id: number; messages: AiMessage[] } | null>(null);
   const [figure, setFigure] = useState<{ id: number; name: string } | null>(null);
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const [listKey, setListKey] = useState(0);
+  const { width } = useWindowDimensions();
+  const wide = width >= 1100;
   const st = status.data;
+  const startNew = () => { setInitial(null); setFigure(null); setActiveId(null); setFresh((k) => k + 1); };
+  const seen = (id: number) => { setActiveId(id); setListKey((k) => k + 1); };
 
   const openConversation = async (id: number) => {
     try {
       const cv = await api.aiConversation(session.token, id);
       setInitial({ id: cv.id, messages: cv.messages });
+      setActiveId(cv.id);
       if (cv.mode === 'roleplay' && cv.figure_id) { setPart('roleplay'); setFigure({ id: cv.figure_id, name: cv.title.replace(/^Trò chuyện với /, '') }); } else setPart('chat');
       setFresh((k) => k + 1);
     } catch (e) { if (e instanceof ApiError && e.status === 401) session.expired(); }
   };
   const quota = st?.quota;
-  return (
-    <View style={{ gap: 14 }}>
+  const body = (
+    <View style={{ gap: 14, flex: 1, minWidth: 0 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <ShieldQuestion size={28} color={c.dongChu} />
         <Txt f="displayHeavy" size={24} accessibilityRole="header" style={{ flex: 1 }}>Tiểu Tướng</Txt>
-        <Btn icon={HistoryIcon} title="Lịch sử" tone="giay" size="sm" onPress={() => setHistory(true)} testID="ai-history" />
-        <Btn icon={Plus} title="Cuộc mới" tone="giay" size="sm" onPress={() => { setInitial(null); setFigure(null); setFresh((k) => k + 1); }} testID="ai-new" />
+        {wide ? null : <Btn icon={HistoryIcon} title="Lịch sử" tone="giay" size="sm" onPress={() => setHistory(true)} testID="ai-history" />}
+        {wide ? null : <Btn icon={Plus} title="Cuộc mới" tone="giay" size="sm" onPress={startNew} testID="ai-new" />}
       </View>
       <ErrorNote message={status.error} />
       {st ? (
@@ -422,15 +488,22 @@ export const TieuTuongTab: React.FC<{ session: Session; onOpen: OpenSource; onCh
       ) : null}
       {st && !st.ready ? <InfoNote><Txt size={14}>Kho tư liệu của Tiểu Tướng còn trống: quản trị viên cần công bố nội dung lịch sử và lập chỉ mục thì Tiểu Tướng mới trả lời được.</Txt></InfoNote> : null}
       <Segmented<'chat' | 'roleplay'> label="Tiểu Tướng làm gì?" value={part} onChange={(v) => { setPart(v); setInitial(null); setFresh((k) => k + 1); }}
-        options={[{ value: 'chat', label: 'Hỏi đáp' }, { value: 'roleplay', label: 'Nhập vai' }]} />
-      {part === 'chat' ? <ChatPanel key={`chat${fresh}`} session={session} mode="tutor" initial={initial} onOpen={onOpen} onChanged={() => { status.reload(); onChanged?.(); }} /> : null}
-      {part === 'roleplay' ? <RoleplayPart key={`rp${fresh}`} session={session} enabled={Boolean(st?.roleplay)} figure={figure} setFigure={setFigure} initial={initial} onOpen={onOpen} onChanged={() => status.reload()} /> : null}
+        options={[{ value: 'chat', label: 'Hỏi đáp' }, { value: 'roleplay', label: 'Nhập vai danh tướng' }]} />
+      {part === 'chat' ? <ChatPanel key={`chat${fresh}`} session={session} mode="tutor" initial={initial} onOpen={onOpen} onConversation={seen} onChanged={() => { status.reload(); onChanged?.(); }} /> : null}
+      {part === 'roleplay' ? <RoleplayPart key={`rp${fresh}`} session={session} enabled={Boolean(st?.roleplay)} figure={figure} setFigure={setFigure} initial={initial} onOpen={onOpen} onConversation={seen} onChanged={() => status.reload()} /> : null}
       {history ? <HistorySheet session={session} onClose={() => setHistory(false)} onPick={openConversation} reloadKey={fresh} /> : null}
+    </View>
+  );
+  if (!wide) return body;
+  return (
+    <View style={{ flexDirection: 'row', gap: 16, alignItems: 'flex-start' }}>
+      <View style={{ width: 270 }}><ConversationSidebar session={session} activeId={activeId} reloadKey={listKey} onPick={(id) => { void openConversation(id); }} onNew={startNew} /></View>
+      {body}
     </View>
   );
 };
 
-const RoleplayPart: React.FC<{ session: Session; enabled: boolean; figure: { id: number; name: string } | null; setFigure: (f: { id: number; name: string } | null) => void; initial: { id: number; messages: AiMessage[] } | null; onOpen: OpenSource; onChanged: () => void }> = ({ session, enabled, figure, setFigure, initial, onOpen, onChanged }) => {
+const RoleplayPart: React.FC<{ session: Session; enabled: boolean; figure: { id: number; name: string } | null; setFigure: (f: { id: number; name: string } | null) => void; initial: { id: number; messages: AiMessage[] } | null; onOpen: OpenSource; onChanged: () => void; onConversation?: (id: number) => void }> = ({ session, enabled, figure, setFigure, initial, onOpen, onChanged, onConversation }) => {
   const { c } = useTheme();
   const list = useLoad(() => api.aiFigures(session.token), [session.token], session.expired);
   if (!enabled) return <InfoNote><Txt size={14}>Trò chuyện nhập vai cần bật mô hình AI. Em nhờ thầy cô hoặc quản trị viên cấu hình giúp nhé; trong lúc chờ, em vẫn dùng mục “Hỏi đáp” bình thường.</Txt></InfoNote>;
@@ -441,18 +514,31 @@ const RoleplayPart: React.FC<{ session: Session; enabled: boolean; figure: { id:
           <Chip text={`Đang nhập vai: ${figure.name}`} bg={c.dongNhat} fg={c.dongChu} />
           <Btn title="Chọn nhân vật khác" tone="giay" size="sm" onPress={() => setFigure(null)} />
         </View>
-        <ChatPanel session={session} mode="roleplay" figure={figure} initial={initial} onOpen={onOpen} onChanged={onChanged} samples={['Ông là ai?', 'Ông nghĩ gì về giặc Nguyên?', 'Ông đã làm gì để chuẩn bị đánh giặc?']} placeholder="Em muốn hỏi nhân vật điều gì?" />
+        <ChatPanel session={session} mode="roleplay" figure={figure} initial={initial} onOpen={onOpen} onChanged={onChanged} onConversation={onConversation} samples={['Ông là ai?', 'Ông nghĩ gì về giặc Nguyên?', 'Kế sách đánh giặc quan trọng nhất của nhà Trần là gì?']} placeholder={`Em muốn hỏi ${figure.name} điều gì?`} />
       </View>
     );
   }
   return (
     <View style={{ gap: 10 }}>
-      <Txt size={14} color={c.muc2}>Chọn một nhân vật để trò chuyện. Nhân vật chỉ nói điều có trong tư liệu đã kiểm chứng.</Txt>
+      <Txt size={14} color={c.muc2}>Chọn một danh tướng thời Trần để trò chuyện. Nhân vật hóa thân dựa trên chính sử, chỉ nói điều có trong tư liệu đã kiểm chứng.</Txt>
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
       {list.data && !list.data.length ? <EmptyState mood="thinking" title="Chưa có nhân vật nào" text="Nhân vật xuất hiện khi hồ sơ được công bố và lập chỉ mục." /> : null}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {(list.data ?? []).map((f) => <Btn key={f.id} icon={Search} title={f.name} tone="dong" size="sm" onPress={() => setFigure({ id: f.id, name: f.name })} testID={`ai-figure-${f.id}`} />)}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+        {(list.data ?? []).map((f) => {
+          const info = FIGURE_INFO[f.name];
+          return (
+            <Pressable key={f.id} onPress={() => setFigure({ id: f.id, name: f.name })} accessibilityRole="button" accessibilityLabel={`Nhập vai ${f.name}${info ? `, ${info.role}` : ''}`} testID={`ai-figure-${f.id}`}
+              style={({ pressed }) => ({ flexGrow: 1, flexBasis: 240, minHeight: 92, padding: 14, borderRadius: 14, borderWidth: 1, borderColor: c.adminLine, backgroundColor: pressed ? c.adminCanvas : c.the, gap: 6 })}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <Search size={15} color={c.logoRed} />
+                <Txt f="bold" size={15}>{f.name}</Txt>
+                {info ? <Chip text={info.role} bg={c.dongNhat} fg={c.dongChu} /> : null}
+              </View>
+              {info ? <Txt size={12} color={c.muc3} style={{ fontStyle: 'italic' }}>“{info.quote}”</Txt> : null}
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );

@@ -131,9 +131,16 @@ test('TeacherApp removes Mở Sa bàn 3D and AiTeacher synchronizes with AI Hub 
   assert.match(aiTeacher, /Trợ lý AI Giảng dạy Đông A/);
   assert.match(aiTeacher, /teacher-ai-ask-card/);
   assert.match(aiTeacher, /teacher-ai-smart-exam-card/);
-  assert.match(aiTeacher, /teacher-ai-authoring-card/);
+  // 16/11/2026: bỏ "Soạn Câu hỏi & Kịch bản" và Nhập vai danh tướng ở giáo viên (nhập vai chuyển sang học sinh); tra cứu có cột lịch sử như ChatGPT
+  assert.doesNotMatch(aiTeacher, /teacher-ai-authoring-card|Soạn Câu hỏi & Kịch bản|TEACHER_ROLEPLAY_FIGURES|Nhập vai Danh tướng/);
+  assert.match(aiTeacher, /<ConversationSidebar session=\{session\} activeId=\{activeId\}/);
   assert.match(aiTeacher, /SmartExamStudio/);
 
   const tt = read('components/portal/TieuTuong.tsx');
   assert.match(tt, /Nội dung tra cứu của thầy cô/);
+  assert.match(tt, /export const ConversationSidebar: React\.FC</);
+  assert.match(tt, /testID="ai-sidebar-new"/);
+  assert.match(tt, /\{ value: 'roleplay', label: 'Nhập vai danh tướng' \}/);
+  assert.match(tt, /const FIGURE_INFO: Record<string, \{ role: string; quote: string \}>/);
+  assert.doesNotMatch(read('components/admin/ClassManager.tsx'), /title="Sửa thông tin"/);
 });

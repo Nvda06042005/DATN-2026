@@ -200,6 +200,16 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /**
+   * Đọc bảng hệ thống chỉ backend dùng (ví dụ kho logo trường đã xác minh `app_school_logo_assets`, không cấp quyền cho vai trò theo trường)
+   * bằng kết nối của máy chủ, ra ngoài phạm vi trường của yêu cầu. Chỉ dùng cho truy vấn ĐỌC cố định, không đưa dữ liệu riêng của trường vào đây.
+   * (16/11/2026: giáo viên xuất PDF bị "permission denied for table app_school_logo_assets" vì truy vấn chạy với vai trò dong_a_workspace_scope.)
+   */
+  async systemRead<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
+    if (!/^\s*SELECT\s/i.test(sql)) throw new Error('systemRead chỉ dùng cho câu SELECT');
+    return this.workspace.exit(() => deletionContext.exit(() => this.query<T>(sql, params)));
+  }
+
   /** Giao dịch với quyền đầy đủ (quản trị tổng, tiến trình nền) */
   async tx<T>(run: (q: Q) => Promise<T>, options: { repeatableRead?: boolean } = {}): Promise<T> {
     const ctx = this.workspace.getStore();

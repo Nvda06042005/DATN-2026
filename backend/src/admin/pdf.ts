@@ -38,7 +38,8 @@ export async function schoolPdfLogo(db: DatabaseService, school: { directory_cod
   if (school.logo_url && !storedHash) return null;
   const hash = (school.directory_code ? directoryLogoHash(school.directory_code) : null) ?? storedHash;
   if (!hash) return null;
-  const row = (await db.query<{ image_data: Buffer }>('SELECT image_data FROM public.app_school_logo_assets WHERE sha256=$1', [hash]))[0];
+  // đọc bằng kết nối máy chủ: bảng logo không cấp quyền cho vai trò theo trường (giáo viên xuất PDF trong phạm vi trường)
+  const row = (await db.systemRead<{ image_data: Buffer }>('SELECT image_data FROM public.app_school_logo_assets WHERE sha256=$1', [hash]))[0];
   return row?.image_data ? sharp(row.image_data).resize(160, 160, { fit: 'inside' }).png().toBuffer() : null;
 }
 /** `width` là độ rộng tương đối (xấp xỉ số chữ); `pct`: số phần trăm, ô trống hiện "–" */
