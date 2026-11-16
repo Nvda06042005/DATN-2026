@@ -1,26 +1,24 @@
 /**
  * Hành trình Đông A – ba màn mở đầu của vòng chơi, dựng bằng bộ thành phần của các cổng quản trị (tiêu đề hai nửa, thẻ số liệu, thẻ viền mảnh, bảng dữ liệu):
- *   1. "Chiến dịch" (16/11/2026: dạng trò chơi): thẻ Lớp của em / nhập mã tham gia lớp, lộ trình uốn lượn qua các chặng của ba cuộc kháng chiến 1258, 1285,
- *      1287–1288 (mỗi phần mở bản đồ gốc Wikipedia), cột cấp độ – chuỗi ngày – vàng, nhiệm vụ hôm nay, câu cần ôn, kỳ thi.
- *   2. Bản đồ chiến dịch: ảnh bản đồ gốc của Wikipedia tiếng Việt làm nền, các chặng đặt theo tỉ lệ 0–1 trên ảnh. Phóng to, kéo để xem; trạng thái chặng thể hiện bằng
- *      màu, biểu tượng và chữ; bên dưới luôn có bảng các chặng cho màn hình nhỏ và trình đọc màn hình.
+ *   1. "Chiến dịch" (16/11/2026): danh sách lớp trước (StudentClasses), vào lớp rồi mới tới ba phần theo ba cuộc kháng chiến 1258, 1285, 1287–1288,
+ *      cột cấp độ – chuỗi ngày – vàng, nhiệm vụ hôm nay, câu cần ôn, kỳ thi.
+ *   2. Trang một phần: ảnh bản đồ gốc của Wikipedia tiếng Việt làm nền, các chặng đặt theo tỉ lệ 0–1 trên ảnh, có số thứ tự và trạng thái (màu, biểu tượng, chữ,
+ *      nhãn trợ năng) – bản đồ chính là lộ trình của phần. Phóng to, kéo để xem.
  *   3. Bảng thông tin chặng: mục tiêu học, các bước, lý do còn khóa, kết quả cũ và nút Học / Chơi tiếp / Ôn lại.
  * Mục "Nhập vai" gom các cảnh khám phá và trận đánh đã mở để chơi lại nhanh.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Linking, Platform, Pressable, ScrollView, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
-import { Award, BookOpen, Check, ClipboardCheck, Coins, Flag, Flame, Footprints, Gamepad2, Gift, Lock, LogIn, Map as MapIcon, Maximize2, Play, Puzzle, RotateCcw, Sparkles, Swords, Target, Users, ZoomIn, ZoomOut } from 'lucide-react-native';
+import { Award, BookOpen, Check, ClipboardCheck, Coins, Flag, Flame, Footprints, Gamepad2, Gift, Lock, Maximize2, Play, Puzzle, RotateCcw, Sparkles, Swords, Target, Users, ZoomIn, ZoomOut } from 'lucide-react-native';
 import * as saga from '@/lib/saga-api';
 import * as authApi from '@/api/authApi';
-import { errorMessage } from '@/api/client';
-import { Mascot } from '@/components/art';
 import { Cell, DataTable, type Column } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import {
   BlockTitle, KIND_TEXT, LoadState, Meter, Portrait, RARITY, STATE, SagaHeader, SagaPage, StarRow, TONE, mapSource, num, stageIcon, useLoad, type SagaNav, type SagaStep,
 } from '@/components/portal/SagaKit';
-import { Btn, Card, Chip, Field, InfoNote, Inset, Segmented, Sheet, Txt } from '@/components/ui';
+import { Btn, Card, Chip, InfoNote, Inset, Segmented, Sheet, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
 import type { CampaignView, SagaCampaign, SagaMapInfo, StageBrief, StageDetail, StepState } from '@/types/saga';
@@ -31,110 +29,22 @@ const StateChip: React.FC<{ state: StageBrief['state'] }> = ({ state }) => {
   return <Chip text={st.label} icon={st.icon} bg={st.soft} fg={st.text} />;
 };
 
+type MyClass = Awaited<ReturnType<typeof authApi.myClasses>>[number];
+
 /**
- * Lớp của em (16/11/2026): học sinh chưa vào lớp nào thì nhập mã tham gia lớp thầy cô / nhà trường cung cấp (mã dạng DongA… hoặc 6 ký tự cũ);
- * đã có lớp thì hiện tên lớp, giáo viên và nút nhập mã lớp khác.
+ * Lớp đang học (16/11/2026 đợt 5): Chiến dịch mở danh sách lớp trước, vào lớp rồi mới tới ba phần. Thanh này cho biết em đang ở lớp nào
+ * (nút quay lại "Lớp học" ở đầu trang về danh sách lớp, đăng ký lớp khác bằng mã cũng ở đó).
  */
-const ClassStrip: React.FC<{ session: Session }> = ({ session }) => {
+const ClassBar: React.FC<{ cls: MyClass }> = ({ cls }) => {
   const { c } = useTheme();
-  const [tick, setTick] = useState(0);
-  const classes = useLoad(session, (t) => authApi.myClasses(t), [tick]);
-  const [open, setOpen] = useState(false);
-  const [code, setCode] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
-  const join = async (): Promise<void> => {
-    setProblem(null); setBusy(true);
-    try { const cls = await authApi.joinClass(session.token, code.trim()); setDone(`Em đã vào lớp ${cls.name}.`); setCode(''); setOpen(false); setTick((n) => n + 1); } catch (e) { setProblem(errorMessage(e)); } finally { setBusy(false); }
-  };
-  const form = (
-    <View style={{ gap: 8 }}>
-      <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        <Field label="Mã tham gia lớp" value={code} onChangeText={(v) => setCode(v.replace(/\s/g, ''))} placeholder="Ví dụ DongA7A1..." autoCapitalize="characters" autoCorrect={false} maxLength={80}
-          onSubmitEditing={() => { void join(); }} style={{ flexGrow: 1, flexBasis: 220 }} testID="join-code" />
-        <Btn icon={LogIn} title="Tham gia lớp" tone="son" loading={busy} disabled={code.trim().length < 4} onPress={() => { void join(); }} testID="join-submit" />
-      </View>
-      {problem ? <Txt size={13} color={c.sonChu}>{problem}</Txt> : null}
-    </View>
-  );
-  const list = (classes.data ?? []).filter((k) => k.is_active);
-  if (classes.loading && !classes.data) return null;
-  if (!list.length) {
-    return (
-      <Card flat pad={16} style={{ borderRadius: 14, gap: 12, borderWidth: 2, borderColor: c.logoRed }} testID="join-class">
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-          <Mascot size={76} mood="excited" />
-          <View style={{ flex: 1, minWidth: 220, gap: 4 }}>
-            <Txt f="bold" size={18} accessibilityRole="header">Tham gia lớp học</Txt>
-            <Txt size={14} color={c.muc2}>Nhập mã tham gia lớp thầy cô hoặc nhà trường cung cấp để vào lớp, nhận bài tập, kỳ thi và cùng cả lớp chinh phục Hành trình Đông A.</Txt>
-          </View>
-        </View>
-        {form}
-        {done ? <Txt size={13} color={c.mocChu}>{done}</Txt> : null}
-      </Card>
-    );
-  }
   return (
     <Card flat pad={12} style={{ borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }} testID="my-class">
       <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.adminTint, alignItems: 'center', justifyContent: 'center' }}><Users size={18} color={c.logoRed} /></View>
       <View style={{ flex: 1, minWidth: 200 }}>
-        <Txt f="bold" size={14}>Lớp {list.map((k) => k.name).join(', ')}</Txt>
-        <Txt size={12} color={c.muc3}>{list.map((k) => (k.teachers.length ? `GV ${k.teachers.join(', ')}` : 'Chưa có giáo viên')).join(' · ')} · {list.reduce((n, k) => n + k.members, 0)} bạn</Txt>
+        <Txt f="bold" size={14}>Lớp {cls.name}</Txt>
+        <Txt size={12} color={c.muc3}>{cls.teachers.length ? `GV ${cls.teachers.join(', ')}` : 'Chưa có giáo viên'} · {cls.members} bạn</Txt>
       </View>
-      {done ? <Txt size={12} color={c.mocChu}>{done}</Txt> : null}
-      <Btn icon={LogIn} title="Nhập mã lớp khác" tone="ghost" size="sm" onPress={() => { setOpen(true); setProblem(null); }} testID="join-open" />
-      {open ? <Sheet open onClose={() => setOpen(false)} title="Nhập mã tham gia lớp" subtitle="Mã do thầy cô hoặc nhà trường cung cấp">{form}</Sheet> : null}
     </Card>
-  );
-};
-
-/** Độ lệch ngang của các chặng trên đường đi (uốn lượn trái – phải) */
-const SWAY = [0, 54, 88, 54, 0, -54, -88, -54];
-
-/** Một chặng trên lộ trình: nút tròn theo trạng thái, sao đạt được, tên chặng; chặng đang chờ có nhãn "Bắt đầu" / "Học tiếp" và Rồng Con bên cạnh */
-const PathNode: React.FC<{ st: StageBrief; index: number; current: boolean; color: string; onPress: () => void }> = ({ st, index, current, color, onPress }) => {
-  const { c } = useTheme();
-  const Icon = st.state === 'locked' ? Lock : st.state === 'done' || st.state === 'review' ? Check : stageIcon(st.icon);
-  const locked = st.state === 'locked';
-  const done = st.state === 'done' || st.state === 'review';
-  const x = SWAY[index % SWAY.length];
-  const size = current ? 76 : 66;
-  return (
-    <View style={{ alignItems: 'center', transform: [{ translateX: x }], width: 170 }}>
-      {current ? (
-        <View style={{ backgroundColor: c.the, borderColor: color, borderWidth: 2, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 4, marginBottom: 8 }}>
-          <Txt f="heavy" size={12} color={color} style={{ letterSpacing: 0.6 }}>{st.state === 'learning' ? 'HỌC TIẾP' : 'BẮT ĐẦU'}</Txt>
-        </View>
-      ) : null}
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        {current && x <= 0 ? <View style={{ position: 'absolute', left: size + 18 }}><Mascot size={64} mood="happy" bob /></View> : null}
-        {current && x > 0 ? <View style={{ position: 'absolute', right: size + 18 }}><Mascot size={64} mood="happy" bob /></View> : null}
-        <Pressable onPress={onPress} accessibilityRole="button" testID={`path-node-${st.order}`}
-          accessibilityLabel={`Chặng ${st.order}: ${st.title}, ${st.date_label}. ${STATE[st.state].label}${st.stars ? `, ${st.stars} sao` : ''}${st.lock_reason ? `. ${st.lock_reason}` : ''}`}
-          style={({ pressed }) => ({
-            width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center',
-            backgroundColor: locked ? c.adminLine : done ? c.vang : color, borderWidth: current ? 5 : 0, borderColor: current ? c.the : 'transparent',
-            opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.96 : 1 }],
-            ...(current ? { boxShadow: `0 0 0 4px ${color}` } as object : {}),
-          })}>
-          <Icon size={current ? 32 : 28} color={locked ? c.muc3 : done ? c.vangChu : '#ffffff'} strokeWidth={2.4} />
-        </Pressable>
-      </View>
-      <View style={{ height: 18, justifyContent: 'center', marginTop: 4 }}>{st.stars > 0 ? <StarRow n={st.stars} size={14} /> : null}</View>
-      <Txt f={current ? 'bold' : 'semibold'} size={13} center numberOfLines={2} color={locked ? c.muc3 : c.muc} style={{ width: 160 }}>{st.title}</Txt>
-      <Txt size={11} center color={c.muc3} numberOfLines={1} style={{ width: 160 }}>{st.date_label}</Txt>
-    </View>
-  );
-};
-
-/** Chấm nối hai chặng liên tiếp, đặt ở giữa hai độ lệch */
-const PathDots: React.FC<{ from: number; to: number; done: boolean }> = ({ from, to, done }) => {
-  const { c } = useTheme();
-  return (
-    <View style={{ height: 34, justifyContent: 'space-evenly', alignItems: 'center' }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      {[0.33, 0.66].map((t) => <View key={t} style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: done ? c.vang : c.adminLine, transform: [{ translateX: SWAY[from % SWAY.length] * (1 - t) + SWAY[to % SWAY.length] * t }] }} />)}
-    </View>
   );
 };
 
@@ -164,25 +74,13 @@ const UnitBanner: React.FC<{ camp: SagaCampaign; onOpen: () => void; label?: str
   );
 };
 
-/** Lộ trình uốn lượn của một phần: các chặng nối bằng chấm, chặng đang chờ có Rồng Con */
-const UnitPath: React.FC<{ stages: StageBrief[]; currentId: number | null; color: string; onPick: (st: StageBrief) => void }> = ({ stages, currentId, color, onPick }) => (
-  <View style={{ alignItems: 'center', paddingVertical: 10 }} testID="unit-path">
-    {stages.map((st, i) => (
-      <React.Fragment key={st.id}>
-        {i > 0 ? <PathDots from={i - 1} to={i} done={stages[i - 1].state === 'done' || stages[i - 1].state === 'review'} /> : null}
-        <PathNode st={st} index={i} current={st.id === currentId} color={color} onPress={() => onPick(st)} />
-      </React.Fragment>
-    ))}
-  </View>
-);
-
 // ---------------------------------------------------------------------- 1. trang chủ: lộ trình Hành trình Đông A
 /**
- * Trang chủ học sinh dạng trò chơi (16/11/2026, giữ menu như các cổng quản trị): thẻ Lớp của em (chưa có lớp thì nhập mã tham gia),
- * ba phần theo ba cuộc kháng chiến (đợt 4: trang đầu chỉ có ba phần; bấm một phần mới ra lộ trình uốn lượn của phần đó, bản đồ kéo ra ở trang lộ trình);
+ * Trang chủ học sinh dạng trò chơi (16/11/2026, giữ menu như các cổng quản trị), mở sau khi em chọn lớp ở danh sách lớp: thanh lớp đang học,
+ * ba phần theo ba cuộc kháng chiến (bấm một phần mở bản đồ các chặng của phần đó);
  * cột bên phải: cấp độ – kinh nghiệm, chuỗi ngày học, vàng, nhiệm vụ hôm nay, câu cần ôn, kỳ thi.
  */
-export const HomeScreen: React.FC<{ session: Session; nav: SagaNav; loading: boolean; error: string | null }> = ({ session, nav, loading, error }) => {
+export const HomeScreen: React.FC<{ nav: SagaNav; loading: boolean; error: string | null; cls: MyClass | null; onLeave: () => void }> = ({ nav, loading, error, cls, onLeave }) => {
   const { c } = useTheme();
   const { width } = useWindowDimensions();
   const wide = width >= 1180;
@@ -236,15 +134,15 @@ export const HomeScreen: React.FC<{ session: Session; nav: SagaNav; loading: boo
   const units = home ? (
     <View style={{ gap: 14, flex: wide ? 1 : undefined, minWidth: 0, alignSelf: 'stretch' }} testID="home-units">
       {home.campaigns.map((camp) => <UnitBanner key={camp.campaign_no} camp={camp} onOpen={() => nav.go('chien-dich', { c: camp.campaign_no, s: null, v: null })} />)}
-      <Txt size={12} color={c.muc3} center>Bấm một phần để vào lộ trình học; ở trang lộ trình, nút "Kéo bản đồ ra" mở bản đồ gốc của Wikipedia với vị trí các chặng.</Txt>
+      <Txt size={12} color={c.muc3} center>Bấm một phần để mở bản đồ gốc của Wikipedia với các chặng của cuộc kháng chiến đó.</Txt>
     </View>
   ) : null;
   return (
     <SagaPage testID="saga-home" max={1180}>
-      <SagaHeader title="Hành trình Đông A"
+      <SagaHeader title="Hành trình Đông A" back={{ label: 'Lớp học', hint: 'Về danh sách lớp học', onPress: onLeave }}
         subtitle={home ? `Chào ${home.learner.name}! Đi hết con đường qua ba lần kháng chiến chống quân Mông – Nguyên (1258, 1285, 1287–1288): mỗi chặng học, luyện, khám phá rồi ra trận.` : 'Ba lần kháng chiến chống quân Mông – Nguyên (1258, 1285, 1287–1288).'}
         actions={next ? <Btn title={`${next.state === 'learning' ? 'Học tiếp' : 'Bắt đầu'}: ${next.title}`} icon={Play} tone="son" size="sm" onPress={() => nav.go('chien-dich', { c: next.campaign_no, s: next.stage_id, v: null })} testID="home-continue" /> : undefined} />
-      <ClassStrip session={session} />
+      {cls ? <ClassBar cls={cls} /> : null}
       {!home || !hud || !level ? <LoadState loading={loading} error={error} onRetry={nav.refresh} /> : (
         <View style={{ flexDirection: wide ? 'row' : 'column', gap: 18, alignItems: 'flex-start' }}>
           {units}{rail}
@@ -384,48 +282,36 @@ const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: num
 };
 
 /**
- * Trang một phần của Hành trình (16/11/2026 đợt 4, thay trang bản đồ cũ): lộ trình uốn lượn các chặng của cuộc kháng chiến; nút "Kéo bản đồ ra"
- * mở bản đồ gốc của Wikipedia bên cạnh (điện thoại: bảng trượt) với vị trí và số thứ tự từng chặng, chặng đang xem được tô nổi.
- * Bấm chặng ở lộ trình hoặc trên bản đồ đều mở bảng thông tin chặng.
+ * Trang một phần của Hành trình (16/11/2026 đợt 5): bản đồ gốc của Wikipedia với số thứ tự và trạng thái từng chặng chính là lộ trình của phần
+ * (bỏ lộ trình uốn lượn riêng và nút "Kéo bản đồ ra" của đợt 4 vì lặp lại). Bấm số trên bản đồ hoặc nút Học tiếp để mở bảng thông tin chặng.
  */
 export const CampaignScreen: React.FC<{ session: Session; nav: SagaNav; no: number }> = ({ session, nav, no }) => {
   const { c } = useTheme();
-  const { height, width } = useWindowDimensions();
-  const wide = width >= 1100;
+  const { height } = useWindowDimensions();
   const data = useLoad<CampaignView>(session, (t) => saga.campaign(t, no), [no]);
   const view = data.data;
   const camp = nav.home?.campaigns.find((x) => x.campaign_no === no) ?? null;
-  const [mapOpen, setMapOpen] = useState(false);
   const open = nav.route.s !== null && nav.route.v === null ? nav.route.s : null;
   const pick = (st: StageBrief): void => nav.go('chien-dich', { c: no, s: st.id, v: null }, 'params');
-  const map = view ? (
-    <View style={{ gap: 8 }} testID="unit-map">
-      <SagaMap map={view.map} stages={view.stages} currentId={view.current_stage_id} selectedId={open} onPick={pick} maxHeight={Math.max(320, Math.min(720, height - 240))} />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-        {(Object.keys(STATE) as Array<keyof typeof STATE>).map((k) => <StateChip key={k} state={k} />)}
-      </View>
-      <Pressable accessibilityRole="link" accessibilityLabel="Mở trang gốc của bản đồ trên Wikipedia" disabled={!view.map.credit_url} onPress={() => { if (view.map.credit_url) void Linking.openURL(view.map.credit_url); }} style={{ minHeight: 32, justifyContent: 'center' }}>
-        <Txt size={12} color={c.muc3}>{view.map.credit}{view.map.credit_url ? ' Bấm để mở trang gốc.' : ''} Vị trí các chặng do nhóm phát triển đánh dấu trên bản đồ.</Txt>
-      </Pressable>
-    </View>
-  ) : null;
+  const current = view?.stages.find((st) => st.id === view.current_stage_id) ?? null;
   return (
-    <SagaPage testID="saga-campaign" max={1400}>
-      <SagaHeader title={view?.map.title ?? camp?.title ?? 'Lộ trình'} subtitle={view ? `${view.map.years} · đã xong ${view.totals.done}/${view.totals.stages} chặng · ${view.totals.stars}/${view.totals.max_stars} sao` : undefined}
+    <SagaPage testID="saga-campaign" max={1180}>
+      <SagaHeader title={view?.map.title ?? camp?.title ?? 'Bản đồ'} subtitle={view ? `${view.map.years} · đã xong ${view.totals.done}/${view.totals.stages} chặng · ${view.totals.stars}/${view.totals.max_stars} sao` : undefined}
         back={{ label: 'Chiến dịch', hint: 'Về ba phần của Hành trình', onPress: () => nav.back('chien-dich', { c: null, s: null, v: null }) }}
-        actions={<Btn icon={MapIcon} title={mapOpen ? 'Thu bản đồ' : 'Kéo bản đồ ra'} tone={mapOpen ? 'giay' : 'son'} size="sm" onPress={() => setMapOpen((v) => !v)} testID="unit-map-toggle" />} />
+        actions={current ? <Btn icon={Play} title={`${current.state === 'ready' ? 'Bắt đầu' : 'Học tiếp'}: ${current.title}`} tone="son" size="sm" onPress={() => pick(current)} testID="unit-continue" /> : undefined} />
       <Segmented<number> label="Chọn phần" value={no} onChange={(n) => nav.go('chien-dich', { c: n, s: null, v: null }, 'params')}
         options={[1, 2, 3].map((n) => ({ value: n, label: `Phần ${n} · ${TONE[n].years}` }))} />
       {!view ? <LoadState loading={data.loading} error={data.error} onRetry={data.reload} /> : (
-        <View style={{ flexDirection: wide && mapOpen ? 'row' : 'column', gap: 16, alignItems: 'flex-start' }}>
-          <View style={{ width: wide && mapOpen ? 420 : '100%', alignItems: 'center', gap: 6 }}>
-            {camp ? <UnitBanner camp={camp} label={mapOpen ? 'Bản đồ' : 'Kéo bản đồ ra'} onOpen={() => setMapOpen((v) => !v)} /> : null}
-            <UnitPath stages={view.stages} currentId={view.current_stage_id} color={TONE[no].main} onPick={pick} />
+        <Card flat pad={12} style={{ borderRadius: 12, gap: 8 }} testID="unit-map">
+          <SagaMap map={view.map} stages={view.stages} currentId={view.current_stage_id} selectedId={open} onPick={pick} maxHeight={Math.max(320, Math.min(760, height - 330))} />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            {(Object.keys(STATE) as Array<keyof typeof STATE>).map((k) => <StateChip key={k} state={k} />)}
           </View>
-          {wide && mapOpen ? <Card flat pad={12} style={{ flex: 1, minWidth: 0, borderRadius: 12 }}>{map}</Card> : null}
-        </View>
+          <Pressable accessibilityRole="link" accessibilityLabel="Mở trang gốc của bản đồ trên Wikipedia" disabled={!view.map.credit_url} onPress={() => { if (view.map.credit_url) void Linking.openURL(view.map.credit_url); }} style={{ minHeight: 32, justifyContent: 'center' }}>
+            <Txt size={12} color={c.muc3}>Bấm số thứ tự trên bản đồ để mở chặng. {view.map.credit}{view.map.credit_url ? ' Bấm để mở trang gốc.' : ''} Vị trí các chặng do nhóm phát triển đánh dấu trên bản đồ.</Txt>
+          </Pressable>
+        </Card>
       )}
-      {!wide && mapOpen && map ? <Sheet open onClose={() => setMapOpen(false)} title={view?.map.title ?? 'Bản đồ'} subtitle="Bấm số thứ tự trên bản đồ để mở chặng" wide>{map}</Sheet> : null}
       {open !== null ? <StageSheet session={session} nav={nav} stageId={open} campaignNo={no} /> : null}
     </SagaPage>
   );

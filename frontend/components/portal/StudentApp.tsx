@@ -13,7 +13,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useIsFocused, useLocalSearchParams, useNavigation, usePathname, useRouter, type Href } from 'expo-router';
-import { CircleQuestionMark, ClipboardCheck, GalleryHorizontalEnd, Gamepad2, LifeBuoy, Mail, Map as MapIcon, School, ScrollText, Sparkles, Volume2, VolumeX } from 'lucide-react-native';
+import { CircleQuestionMark, ClipboardCheck, GalleryHorizontalEnd, Gamepad2, LifeBuoy, Mail, Map as MapIcon, ScrollText, Sparkles, Volume2, VolumeX } from 'lucide-react-native';
 import * as learningApi from '@/api/learningApi';
 import { StudentCatalog, StudentInbox } from '@/components/portal/StudentClasses';
 import { StudentExams } from '@/components/admin/LibraryExams';
@@ -41,9 +41,10 @@ import { play, setSound, soundEnabled } from '@/lib/saga-sound';
 import type { Prefs } from '@/types/platform';
 import type { Completion, SagaHome } from '@/types/saga';
 
+/** `lop-hoc` chỉ còn cho đường dẫn cũ: danh sách lớp nay là bước đầu của Chiến dịch (16/11/2026 đợt 5) */
 const TABS: readonly SagaTab[] = ['chien-dich', 'nhap-vai', 'cau-hoi', 'ky-thi', 'tu-lieu', 'bo-the', 'hoi', 'lop-hoc', 'tin-nhan', 'tro-giup'];
-/** Chưa vào lớp nào: chỉ có Lớp học (danh mục lớp, đăng ký bằng mã), Tin nhắn (mã lớp thầy cô gửi), Trợ giúp (16/11/2026) */
-const BEFORE_CLASS: readonly SagaTab[] = ['lop-hoc', 'tin-nhan', 'tro-giup'];
+/** Chưa vào lớp nào: chỉ có Chiến dịch (danh sách lớp, đăng ký bằng mã), Tin nhắn (mã lớp thầy cô gửi), Trợ giúp (16/11/2026) */
+const BEFORE_CLASS: readonly SagaTab[] = ['chien-dich', 'tin-nhan', 'tro-giup'];
 const STEPS: readonly SagaStep[] = ['hoc', 'luyen', 'kham-pha', 'tran', 'tong-ket'];
 /** Menu bên trái, cùng kiểu với menu của quản trị tổng, quản trị trường và giáo viên */
 const NAV: ReadonlyArray<NavLeaf<SagaTab>> = [
@@ -54,7 +55,6 @@ const NAV: ReadonlyArray<NavLeaf<SagaTab>> = [
   { id: 'tu-lieu', label: 'Tư liệu', icon: ScrollText },
   { id: 'bo-the', label: 'Bộ thẻ', icon: GalleryHorizontalEnd },
   { id: 'hoi', label: 'Hỏi Tiểu Tướng', icon: Sparkles },
-  { id: 'lop-hoc', label: 'Lớp học', icon: School },
   { id: 'tin-nhan', label: 'Tin nhắn', icon: Mail },
   { id: 'tro-giup', label: 'Trợ giúp', icon: LifeBuoy },
 ];
@@ -70,6 +70,24 @@ const HOME_CACHE = new Map<string, SagaHome>();
 let pendingReward: { token: string; stageId: number; completion: Completion } | null = null;
 /** Mã lớp mở từ tin nhắn: chuyển mục tạo màn mới nên giữ ngoài thành phần, như `pendingReward` (16/11/2026) */
 let pendingJoin: { token: string; classId: number; code: string } | null = null;
+/**
+ * Lớp em đã chọn ở danh sách lớp (bước đầu của Chiến dịch, đợt 5): nhớ trong bộ nhớ và sessionStorage của thẻ trình duyệt (chỉ mã người dùng và mã lớp,
+ * không có token) để chuyển mục hay tải lại trang vẫn ở ba phần; đăng nhập lại thì bắt đầu từ danh sách lớp.
+ */
+let enteredClass: { user: number; classId: number } | null = null;
+const ENTER_KEY = 'donga.student.entered-class';
+function readEntered(user: number): number | null {
+  if (enteredClass) return enteredClass.user === user ? enteredClass.classId : null;
+  try {
+    const v = JSON.parse(globalThis.sessionStorage?.getItem(ENTER_KEY) ?? 'null') as { user?: unknown; classId?: unknown } | null;
+    if (v && v.user === user && Number.isInteger(v.classId)) { enteredClass = { user, classId: Number(v.classId) }; return enteredClass.classId; }
+  } catch { /* trình duyệt chặn lưu trữ: chỉ nhớ trong bộ nhớ */ }
+  return null;
+}
+function writeEntered(user: number, classId: number | null): void {
+  enteredClass = classId ? { user, classId } : null;
+  try { if (classId) globalThis.sessionStorage?.setItem(ENTER_KEY, JSON.stringify({ user, classId })); else globalThis.sessionStorage?.removeItem(ENTER_KEY); } catch { /* như trên */ }
+}
 
 function useHome(session: Session, active: boolean): { data: SagaHome | null; error: string | null; loading: boolean; reload: () => void } {
   const [data, setData] = useState<SagaHome | null>(() => HOME_CACHE.get(session.token) ?? null);
@@ -111,6 +129,10 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const myClasses = useLoad(() => authApi.myClasses(session.token), [session.token, classTick], session.expired);
   const inbox = useLoad(() => learningApi.messageInbox(session.token), [session.token, inboxTick, focused], session.expired);
   const gated = Boolean(myClasses.data) && !(myClasses.data ?? []).some((k) => k.is_active);
+  const [entered, setEnteredState] = useState<number | null>(() => readEntered(session.user.id));
+  const enter = useCallback((id: number | null) => { writeEntered(session.user.id, id); setEnteredState(id); }, [session.user.id]);
+  const cls = (myClasses.data ?? []).find((k) => k.is_active && k.id === entered) ?? null;
+  const inClass = entered !== null && (!myClasses.data || cls !== null); // đang tải danh sách lớp thì vẫn ở ba phần, tránh nháy
   // chỉ nhận phần thưởng đang chờ của chính phiên này (đăng xuất rồi tài khoản khác đăng nhập trên cùng máy thì không thấy)
   const [reward, setRewardState] = useState<{ stageId: number; completion: Completion } | null>(() => (pendingReward && pendingReward.token === session.token ? { stageId: pendingReward.stageId, completion: pendingReward.completion } : null));
   const setReward = useCallback((r: { stageId: number; completion: Completion } | null) => { pendingReward = r ? { token: session.token, ...r } : null; setRewardState(r); }, [session.token]);
@@ -166,22 +188,25 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
 
   const pick = (id: SagaTab): void => go(id, { c: null, s: null, v: null });
   const stage = route.s !== null && route.c !== null && route.v !== null ? { session, nav, stageId: route.s, campaignNo: route.c } : null;
-  // chưa vào lớp nào thì chỉ có Lớp học, Tin nhắn, Trợ giúp (16/11/2026)
-  const catalog = <StudentCatalog session={session} prefill={prefill} onPrefillUsed={() => setPrefill(null)} onJoined={() => { setClassTick((n) => n + 1); nav.refresh(); pick('chien-dich'); }} />;
+  // Chiến dịch bắt đầu từ danh sách lớp: lớp của em thì vào học, lớp khác đăng ký bằng mã; vào lớp rồi mới tới ba phần (16/11/2026 đợt 5)
+  const catalog = (
+    <StudentCatalog session={session} prefill={prefill} onPrefillUsed={() => setPrefill(null)}
+      onJoined={(k) => { setClassTick((n) => n + 1); nav.refresh(); enter(k.id); pick('chien-dich'); }} onEnter={(k) => { enter(k.id); pick('chien-dich'); }} />
+  );
   // màn đang nằm ẩn dưới một màn khác: không dựng gì để game, đồng hồ, phím tắt và hộp thoại của nó được gỡ sạch
   if (!focused) return <View style={{ flex: 1 }} testID="student-app-hidden" />;
 
-  const body = gated && !BEFORE_CLASS.includes(route.tab) ? catalog
-    : route.tab === 'lop-hoc' ? catalog
-    : route.tab === 'tin-nhan' ? <StudentInbox session={session} onRead={() => setInboxTick((n) => n + 1)} onJoinCode={(classId, code) => { setPrefill({ classId, code }); pick('lop-hoc'); }} />
+  const body = (gated && !BEFORE_CLASS.includes(route.tab)) || route.tab === 'lop-hoc' ? catalog
+    : route.tab === 'tin-nhan' ? <StudentInbox session={session} onRead={() => setInboxTick((n) => n + 1)} onJoinCode={(classId, code) => { setPrefill({ classId, code }); enter(null); pick('chien-dich'); }} />
     : route.tab === 'chien-dich'
-    ? stage && route.v === 'hoc' ? <LessonScreen key={`hoc${stage.stageId}`} {...stage} />
+    ? gated ? catalog
+      : stage && route.v === 'hoc' ? <LessonScreen key={`hoc${stage.stageId}`} {...stage} />
       : stage && route.v === 'luyen' ? <PracticeScreen key={`luyen${stage.stageId}`} {...stage} />
       : stage && route.v === 'kham-pha' ? <ExploreScreen key={`kp${stage.stageId}`} {...stage} />
       : stage && route.v === 'tran' ? <BattleScreen key={`tran${stage.stageId}`} {...stage} />
       : stage && route.v === 'tong-ket' ? <SummaryScreen key={`tk${stage.stageId}`} {...stage} />
       : route.c !== null ? <CampaignScreen key={`c${route.c}`} session={session} nav={nav} no={route.c} />
-      : <HomeScreen session={session} nav={nav} loading={home.loading} error={home.error} />
+      : inClass ? <HomeScreen nav={nav} loading={home.loading} error={home.error} cls={cls} onLeave={() => enter(null)} /> : catalog
     : route.tab === 'nhap-vai' ? <RolePlayScreen session={session} nav={nav} />
     : route.tab === 'cau-hoi' ? <ReviewScreen session={session} nav={nav} />
     : route.tab === 'ky-thi' ? <StudentExams session={session} />
@@ -201,14 +226,14 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       <Btn icon={sound ? Volume2 : VolumeX} tone="ghost" size="sm" selected={sound} label={sound ? 'Âm thanh trò chơi đang bật, bấm để tắt' : 'Âm thanh trò chơi đang tắt, bấm để bật'} testID="sound-toggle"
         onPress={() => { const on = !sound; setSound(on); setSoundOn(on); }} />
       <SettingsButton session={session} prefs={prefs} onSaved={setPrefs} />
-      <NoticeBell session={session} onGo={(n) => pick(n.kind === 'support' ? 'tro-giup' : n.kind === 'exam' ? 'ky-thi' : n.kind === 'message' ? 'tin-nhan' : gated ? 'lop-hoc' : 'chien-dich')} />
+      <NoticeBell session={session} onGo={(n) => pick(n.kind === 'support' ? 'tro-giup' : n.kind === 'exam' ? 'ky-thi' : n.kind === 'message' ? 'tin-nhan' : 'chien-dich')} />
     </View>
   );
 
   return (
     <AdminUiContext.Provider value>
       <View style={{ flex: 1 }} testID="student-app">
-        <AdminWorkspace session={session} nav={navItems} active={route.tab} onSelect={pick} schoolName={profile.data?.school?.name} extra={extra}>
+        <AdminWorkspace session={session} nav={navItems} active={route.tab === 'lop-hoc' ? 'chien-dich' : route.tab} onSelect={pick} schoolName={profile.data?.school?.name} extra={extra}>
           {body}
         </AdminWorkspace>
         {levelUp && !reward ? (

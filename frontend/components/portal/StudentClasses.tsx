@@ -1,12 +1,13 @@
 /**
- * Trang "Lớp học" và "Tin nhắn" của học sinh (16/11/2026):
- * - Lớp học: danh mục các lớp của trường như danh mục khóa học (nhóm theo năm học – học kỳ, thẻ lớp có khối, giáo viên, sĩ số); bấm một lớp mở trang
- *   đăng ký: thông tin lớp, giáo viên và ô "Mã tham gia lớp" (mã thầy cô gửi trong Tin nhắn). Vào lớp xong học sinh mới có đủ menu học tập.
+ * Danh sách lớp và "Tin nhắn" của học sinh (16/11/2026):
+ * - Danh sách lớp là bước đầu của mục Chiến dịch (đợt 5: không còn menu Lớp học riêng): các lớp của trường như danh mục khóa học (nhóm theo năm học – học kỳ,
+ *   thẻ lớp có khối, giáo viên, sĩ số). Lớp của em: bấm để vào học (tới ba phần của Hành trình). Lớp khác: mở trang đăng ký với ô "Mã tham gia lớp"
+ *   (mã thầy cô gửi trong Tin nhắn); đăng ký xong vào học ngay. Chưa vào lớp nào thì học sinh chưa có các menu học tập khác.
  * - Tin nhắn: hộp thư đến (thầy cô, quản trị trường gửi); tin nhắn kèm mã lớp có nút mở trang đăng ký lớp với mã điền sẵn.
  */
 import React, { useMemo, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { ArrowLeft, Check, ChevronDown, ChevronRight, Inbox, KeyRound, LogIn, Mail, Search, Users } from 'lucide-react-native';
+import { ArrowLeft, Check, ChevronDown, ChevronRight, Inbox, KeyRound, LogIn, Mail, Play, Search, Users } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import * as learning from '@/api/learningApi';
 import { errorMessage } from '@/api/client';
@@ -23,7 +24,7 @@ const when = (iso: string) => new Date(iso).toLocaleString('vi-VN', { timeZone: 
 const ClassCard: React.FC<{ k: CatalogClass; onPress: () => void }> = ({ k, onPress }) => {
   const { c } = useTheme();
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Lớp ${k.name}${k.mine ? ', em đã ở trong lớp' : ''}`} testID={`catalog-class-${k.id}`}
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Lớp ${k.name}${k.mine ? ', em đã ở trong lớp. Bấm để vào học' : '. Bấm để đăng ký tham gia'}`} testID={`catalog-class-${k.id}`}
       style={({ pressed }) => ({ flexGrow: 1, flexBasis: 280, maxWidth: 420, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: c.adminLine, backgroundColor: c.the, opacity: pressed ? 0.92 : 1 })}>
       <View style={{ height: 120, backgroundColor: bannerOf(k), padding: 12, justifyContent: 'space-between' }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -45,6 +46,8 @@ const ClassCard: React.FC<{ k: CatalogClass; onPress: () => void }> = ({ k, onPr
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Users size={13} color={c.muc3} /><Txt size={12} color={c.muc3}>{k.members} học sinh</Txt>
           {k.mine ? <Chip text="Em đã ở trong lớp" bg={c.mocNhat} fg={c.mocChu} /> : null}
+          <View style={{ flex: 1 }} />
+          <Txt f="bold" size={13} color={c.logoRed}>{k.mine ? 'Vào học' : 'Đăng ký'}</Txt><ChevronRight size={15} color={c.logoRed} />
         </View>
       </View>
     </Pressable>
@@ -52,7 +55,7 @@ const ClassCard: React.FC<{ k: CatalogClass; onPress: () => void }> = ({ k, onPr
 };
 
 /** Trang đăng ký một lớp: thông tin lớp, giáo viên, ô mã tham gia */
-const EnrolPage: React.FC<{ session: Session; k: CatalogClass; code?: string; onBack: () => void; onJoined: () => void }> = ({ session, k, code: initialCode, onBack, onJoined }) => {
+const EnrolPage: React.FC<{ session: Session; k: CatalogClass; code?: string; onBack: () => void; onJoined: () => void; onEnter: () => void }> = ({ session, k, code: initialCode, onBack, onJoined, onEnter }) => {
   const { c } = useTheme();
   const [code, setCode] = useState(initialCode ?? '');
   const [busy, setBusy] = useState(false);
@@ -70,7 +73,7 @@ const EnrolPage: React.FC<{ session: Session; k: CatalogClass; code?: string; on
         <View style={{ flexGrow: 1, flexBasis: 300, maxWidth: 460 }}><ClassCard k={k} onPress={() => undefined} /></View>
         <Card flat pad={18} style={{ flexGrow: 2, flexBasis: 320, gap: 12, borderRadius: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><ChevronDown size={18} color={c.muc} /><Txt f="bold" size={18}>Tự đăng ký bằng mã lớp</Txt></View>
-          {k.mine ? <InfoNote>Em đã ở trong lớp này.</InfoNote> : !k.join_open ? <InfoNote>Thầy cô đang tạm đóng việc tham gia bằng mã. Em hỏi thầy cô nhé.</InfoNote> : null}
+          {k.mine ? <View style={{ gap: 10 }}><InfoNote>Em đã ở trong lớp này.</InfoNote><Btn icon={Play} title="Vào học" tone="son" size="sm" style={{ alignSelf: 'flex-start' }} onPress={onEnter} testID="enrol-enter" /></View> : !k.join_open ? <InfoNote>Thầy cô đang tạm đóng việc tham gia bằng mã. Em hỏi thầy cô nhé.</InfoNote> : null}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end' }}>
             <Field label="Mã tham gia lớp" value={code} onChangeText={(v) => setCode(v.replace(/\s/g, ''))} autoCapitalize="characters" autoCorrect={false} maxLength={80}
               placeholder="Mã thầy cô gửi trong Tin nhắn" style={{ flexGrow: 1, flexBasis: 240 }} onSubmitEditing={() => { void join(); }} testID="enrol-code" />
@@ -84,8 +87,8 @@ const EnrolPage: React.FC<{ session: Session; k: CatalogClass; code?: string; on
   );
 };
 
-/** Danh mục lớp của trường, nhóm theo năm học – học kỳ */
-export const StudentCatalog: React.FC<{ session: Session; prefill?: { classId: number; code: string } | null; onPrefillUsed?: () => void; onJoined: () => void }> = ({ session, prefill, onPrefillUsed, onJoined }) => {
+/** Danh sách lớp của trường, nhóm theo năm học – học kỳ (bước đầu của Chiến dịch): lớp của em thì vào học, lớp khác thì đăng ký bằng mã */
+export const StudentCatalog: React.FC<{ session: Session; prefill?: { classId: number; code: string } | null; onPrefillUsed?: () => void; onJoined: (k: CatalogClass) => void; onEnter: (k: CatalogClass) => void }> = ({ session, prefill, onPrefillUsed, onJoined, onEnter }) => {
   const { c } = useTheme();
   const list = useLoad(() => authApi.classCatalog(session.token), [session.token], session.expired);
   const [q, setQ] = useState('');
@@ -104,11 +107,11 @@ export const StudentCatalog: React.FC<{ session: Session; prefill?: { classId: n
     return out;
   }, [list.data, term]);
   if (current) {
-    return <EnrolPage session={session} k={current} code={target ? prefill?.code : undefined} onBack={() => { setOpenId(null); onPrefillUsed?.(); }} onJoined={() => { onPrefillUsed?.(); setOpenId(null); list.reload(); onJoined(); }} />;
+    return <EnrolPage session={session} k={current} code={target ? prefill?.code : undefined} onBack={() => { setOpenId(null); onPrefillUsed?.(); }} onJoined={() => { onPrefillUsed?.(); setOpenId(null); list.reload(); onJoined(current); }} onEnter={() => { onPrefillUsed?.(); setOpenId(null); onEnter(current); }} />;
   }
   return (
     <Page>
-      <PageHeader title="Lớp học" subtitle="Các lớp của trường. Chọn lớp của em rồi nhập mã tham gia thầy cô gửi trong Tin nhắn." />
+      <PageHeader title="Lớp học" subtitle="Chọn lớp của em để vào Hành trình Đông A. Lớp em chưa tham gia: bấm vào lớp rồi nhập mã thầy cô gửi trong Tin nhắn." />
       <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end', maxWidth: 520 }}>
         <Field label="Tìm lớp" value={q} onChangeText={setQ} placeholder="Tên lớp hoặc giáo viên" style={{ flex: 1 }} testID="catalog-search" />
         <View style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: c.logoRed, alignItems: 'center', justifyContent: 'center' }}><Search size={18} color="#ffffff" /></View>
@@ -129,7 +132,7 @@ export const StudentCatalog: React.FC<{ session: Session; prefill?: { classId: n
               </Pressable>
               {shut ? null : (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
-                  {items.map((k) => <ClassCard key={k.id} k={k} onPress={() => setOpenId(k.id)} />)}
+                  {items.map((k) => <ClassCard key={k.id} k={k} onPress={() => (k.mine ? onEnter(k) : setOpenId(k.id))} />)}
                 </View>
               )}
             </View>

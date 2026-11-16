@@ -22,7 +22,7 @@ test('trang học sinh: khung Hành trình Đông A dùng chung khung của các
   assert.match(read('components', 'admin', 'AdminWorkspace.tsx'), /\{role !== 'student' \? <View style=\{\{ flexShrink: 1 \}\}><BrandLogo /);
   // cùng khung với quản trị tổng / quản trị trường / giáo viên: AdminWorkspace + giao diện phẳng; không còn thanh HUD, nút tròn, nút nổi hay trình đơn riêng của bản trò chơi cũ
   assert.match(app, /<AdminUiContext\.Provider value>/);
-  assert.match(app, /<AdminWorkspace session=\{session\} nav=\{navItems\} active=\{route\.tab\} onSelect=\{pick\}/);
+  assert.match(app, /<AdminWorkspace session=\{session\} nav=\{navItems\} active=\{route\.tab === 'lop-hoc' \? 'chien-dich' : route\.tab\} onSelect=\{pick\}/);
   for (const gone of ['RoundIcon', 'student-hud', 'ask-tieu-tuong', 'account-menu', 'ThemeContext', 'PALETTES.dark']) assert.ok(!app.includes(gone), gone);
   // bước của chặng: học, luyện tập, nhập vai, trận đánh, tổng kết
   assert.match(app, /const STEPS: readonly SagaStep\[\] = \['hoc', 'luyen', 'kham-pha', 'tran', 'tong-ket'\];/);
@@ -135,21 +135,27 @@ test('các màn của Hành trình Đông A dựng bằng thành phần của c�
     assert.match(text, /<SagaHeader /, f);
     assert.doesNotMatch(text, /GameBtn|Chunky|SkyBg|Sunburst|Confetti|LinearGradient|tone="(green|yellow|purple|navy|white|blue|orange|red)"/, f);
   }
-  // 16/11/2026 đợt 4: trang Chiến dịch chỉ có ba phần; bấm một phần ra lộ trình của phần đó; bản đồ gốc "kéo ra" bên cạnh; trang bản đồ + bảng chặng cũ đã xóa
+  // 16/11/2026 đợt 5: Chiến dịch mở danh sách lớp trước (không còn menu Lớp học riêng), vào lớp rồi mới tới ba phần; bấm một phần ra bản đồ có các chặng
+  // (bản đồ là lộ trình của phần: bỏ lộ trình uốn lượn riêng và nút "Kéo bản đồ ra"); trang bản đồ + bảng chặng cũ đã xóa
   const home = read('components', 'portal', 'SagaHome.tsx');
-  for (const id of ['home-units', 'unit-path', 'unit-map', 'unit-map-toggle', 'join-class', 'join-code', 'join-submit', 'my-class', 'home-level', 'home-daily', 'home-exams']) assert.ok(home.includes(`testID="${id}"`), id);
-  assert.doesNotMatch(home, /testID="stage-table"|<DataTable columns=\{columns\} rows=\{view\.stages\}|testID="home-path"/);
-  assert.match(home, /title=\{mapOpen \? 'Thu bản đồ' : 'Kéo bản đồ ra'\}/);
-  // học sinh chưa vào lớp: chỉ có Lớp học (danh mục lớp, đăng ký bằng mã), Tin nhắn, Trợ giúp
-  const app = read('components', 'portal', 'StudentApp.tsx');
-  assert.match(app, /const BEFORE_CLASS: readonly SagaTab\[\] = \['lop-hoc', 'tin-nhan', 'tro-giup'\];/);
-  assert.match(app, /NAV\.filter\(\(it\) => !gated \|\| BEFORE_CLASS\.includes\(it\.id\)\)/);
-  const classes = read('components', 'portal', 'StudentClasses.tsx');
-  for (const id of ['catalog', 'enrol-page', 'enrol-code', 'enrol-submit', 'inbox-list', 'inbox-view', 'inbox-class-code', 'inbox-join']) assert.ok(classes.includes(`testID="${id}"`), id);
-  assert.match(classes, /authApi\.joinClass\(session\.token, code\.trim\(\), k\.id\)/);
-  assert.match(home, /testID=\{`path-node-\$\{st\.order\}`\}/);
+  for (const id of ['home-units', 'unit-map', 'unit-continue', 'my-class', 'home-level', 'home-daily', 'home-exams']) assert.ok(home.includes(`testID="${id}"`), id);
+  for (const gone of ['unit-path', 'unit-map-toggle', 'join-class', 'join-code', 'join-submit']) assert.ok(!home.includes(`testID="${gone}"`), gone);
+  assert.doesNotMatch(home, /testID="stage-table"|<DataTable columns=\{columns\} rows=\{view\.stages\}|testID="home-path"|'Kéo bản đồ ra'|const UnitPath|const ClassStrip/);
+  assert.match(home, /back=\{\{ label: 'Lớp học', hint: 'Về danh sách lớp học', onPress: onLeave \}\}/);
+  assert.match(home, /<SagaMap map=\{view\.map\} stages=\{view\.stages\}/);
+  assert.match(home, /testID=\{`map-node-\$\{st\.code\}`\}/);
   assert.match(home, /testID=\{`path-map-\$\{camp\.campaign_no\}`\}/);
-  assert.match(home, /authApi\.joinClass\(session\.token, code\.trim\(\)\)/);
+  // học sinh chưa vào lớp: chỉ có Chiến dịch (danh sách lớp, đăng ký bằng mã), Tin nhắn, Trợ giúp
+  const app = read('components', 'portal', 'StudentApp.tsx');
+  assert.match(app, /const BEFORE_CLASS: readonly SagaTab\[\] = \['chien-dich', 'tin-nhan', 'tro-giup'\];/);
+  assert.match(app, /NAV\.filter\(\(it\) => !gated \|\| BEFORE_CLASS\.includes\(it\.id\)\)/);
+  assert.doesNotMatch(app, /\{ id: 'lop-hoc', label: 'Lớp học'/);
+  assert.match(app, /: inClass \? <HomeScreen nav=\{nav\} loading=\{home\.loading\} error=\{home\.error\} cls=\{cls\} onLeave=\{\(\) => enter\(null\)\} \/> : catalog/);
+  assert.doesNotMatch(app, /sessionStorage\?\.setItem\(ENTER_KEY, JSON\.stringify\(\{[^}]*token/);
+  const classes = read('components', 'portal', 'StudentClasses.tsx');
+  for (const id of ['catalog', 'enrol-page', 'enrol-code', 'enrol-submit', 'enrol-enter', 'inbox-list', 'inbox-view', 'inbox-class-code', 'inbox-join']) assert.ok(classes.includes(`testID="${id}"`), id);
+  assert.match(classes, /authApi\.joinClass\(session\.token, code\.trim\(\), k\.id\)/);
+  assert.match(classes, /onPress=\{\(\) => \(k\.mine \? onEnter\(k\) : setOpenId\(k\.id\)\)\}/);
   assert.match(read('components', 'portal', 'SagaExtras.tsx'), /<DataTable columns=\{boardColumns\}/);
 });
 
