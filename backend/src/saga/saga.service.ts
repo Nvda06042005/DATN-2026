@@ -7,17 +7,18 @@
  *  - Mỗi lệnh có mã riêng (`action_id`) và số thứ tự (`seq`): gửi lặp hoặc kết nối lại nhận đúng kết quả cũ; lệnh cũ hơn trạng thái hiện tại bị từ chối (409).
  *  - Phần thưởng đi qua sổ cái sẵn có của trò chơi hóa (GameService) với khóa duy nhất nên làm lại không được thưởng lần hai.
  *  - Mức hiểu kiến thức (phần trăm luyện tập, sao kiến thức) tách khỏi điểm trận đánh.
- *  - Học sinh chỉ đọc nội dung đã công bố và chỉ chạm được phiên, tiến độ của chính mình; giáo viên xem lớp mình dạy; quản trị tổng chỉnh nội dung và bản đồ.
+ *  - Học sinh chỉ đọc nội dung đã công bố và chỉ chạm được phiên, tiến độ của chính mình. Từ 16/11/2026 không còn trang chỉnh nội dung của quản trị tổng
+ *    hay báo cáo của giáo viên (người dùng yêu cầu xóa): nội dung chỉ đổi qua migration số mới.
  */
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
 import { GameService } from '../game/game.service';
 import { dayKey } from '../game/clock';
 import { logEvent } from '../student/events';
 import { applyBachDang, bachDangResult, BdScenario, BdState, createBachDang, publicBachDang } from './bachdang';
-import { debriefView, knowledgeStars, lessonView, normalizeStage, StageContent } from './content';
+import { debriefView, knowledgeStars, lessonView, StageContent } from './content';
 import { applyExplore, ExploreState, newExplore, publicExplore } from './explore';
-import { gradeItem, ITEM_KINDS, ItemKind, ItemRow, KIND_LABEL, newSlot, normalizeItem, publicItem, SlotState, tally } from './practice';
+import { gradeItem, ItemKind, ItemRow, KIND_LABEL, newSlot, publicItem, SlotState, tally } from './practice';
 import { applyTactics, createTactics, publicTactics, TacticsScenario, tacticsResult, TState } from './tactics';
 
 export type SessionKind = 'practice' | 'explore' | 'battle' | 'review';
@@ -601,161 +602,5 @@ export class SagaService {
     ].sort((a, b) => a.sort - b.sort);
     const maps = await q('SELECT campaign_no, title, short_title, years, image_key, image_url, image_w, image_h, credit, credit_url FROM hk_saga_maps ORDER BY campaign_no');
     return { texts, timeline, maps, figures: (await this.cards(user)).cards };
-  }
-
-  // ------------------------------------------------------------------ giáo viên: tiến độ lớp và phần học sinh thường sai
-  async classReport(user: UserRow, classId: number) {
-    const q = this.read;
-    const cls = (await q<{ id: number; name: string }>(
-      `SELECT c.id, c.name FROM app_classes c
-       WHERE c.id = $1 AND (($2 = 'teacher' AND EXISTS (SELECT 1 FROM app_current_class_teachers t WHERE t.class_id = c.id AND t.teacher_id = $3)) OR ($2 = 'school_admin' AND c.school_id = $4))`,
-      [classId, user.role, user.id, user.school_id]))[0];
-    if (!cls) throw new ForbiddenException('Bạn không phụ trách lớp này');
-    const all = await this.stages(q);
-    const students = await q<Record<string, any>>(
-      `SELECT u.id, u.full_name, u.user_code, count(p.stage_id) FILTER (WHERE p.completed_at IS NOT NULL)::int AS done, COALESCE(sum(p.stars), 0)::int AS stars,
-              COALESCE(round(avg(NULLIF(p.practice_best, 0))), 0)::int AS knowledge_percent, COALESCE(sum(p.explore_hints), 0)::int AS hints, max(p.updated_at) AS last_at
-       FROM app_class_members m JOIN app_users u ON u.id = m.user_id AND u.role = 'student' LEFT JOIN hk_saga_progress p ON p.user_id = u.id
-       WHERE m.class_id = $1 GROUP BY u.id ORDER BY u.full_name`, [classId]);
-    const ids = students.map((s) => s.id as number);
-    const perStage = await q<{ stage_id: number; done: number; avg: number }>(
-      `SELECT stage_id, count(*) FILTER (WHERE completed_at IS NOT NULL)::int AS done, COALESCE(round(avg(NULLIF(practice_best, 0))), 0)::int AS avg FROM hk_saga_progress WHERE user_id = ANY($1) GROUP BY stage_id`, [ids]);
-    const wrong = await q<Record<string, any>>(
-      `SELECT i.id, i.prompt, i.kind, s.title AS stage_title, count(*)::int AS answers, count(*) FILTER (WHERE NOT a.correct)::int AS wrong, count(DISTINCT a.user_id) FILTER (WHERE NOT a.correct)::int AS students
-       FROM hk_saga_answers a JOIN hk_saga_items i ON i.id = a.item_id JOIN hk_saga_stages s ON s.id = i.stage_id
-       WHERE a.user_id = ANY($1) GROUP BY i.id, s.title HAVING count(*) FILTER (WHERE NOT a.correct) > 0
-       ORDER BY (count(*) FILTER (WHERE NOT a.correct))::float / count(*) DESC, count(*) FILTER (WHERE NOT a.correct) DESC LIMIT 12`, [ids]);
-    return {
-      class: cls, total_stages: all.length, students,
-      stages: all.map((s) => { const r = perStage.find((x) => x.stage_id === s.id); return { id: s.id, title: s.title, campaign_no: s.campaign_no, position: s.position, done: r?.done ?? 0, knowledge_percent: r?.avg ?? 0 }; }),
-      often_wrong: wrong.map((w) => ({ ...w, kind_label: KIND_LABEL[w.kind as ItemKind], wrong_percent: Math.round((w.wrong / w.answers) * 100) })),
-    };
-  }
-
-  // ------------------------------------------------------------------ quản trị tổng: bản đồ, vị trí điểm, nội dung và trạng thái duyệt
-  async adminOverview() {
-    const q = this.read;
-    const maps = await q('SELECT campaign_no, title, short_title, years, enemy, places, summary, image_key, image_url, image_w, image_h, credit, credit_url, updated_at FROM hk_saga_maps ORDER BY campaign_no');
-    const stages = await this.stages(q, true);
-    const items = await q<{ stage_id: number; n: number }>('SELECT stage_id, count(*)::int AS n FROM hk_saga_items WHERE is_active GROUP BY stage_id');
-    const players = await q<{ stage_id: number; started: number; done: number }>('SELECT stage_id, count(*)::int AS started, count(*) FILTER (WHERE completed_at IS NOT NULL)::int AS done FROM hk_saga_progress GROUP BY stage_id');
-    return { maps, stages: stages.map((s) => ({ ...s, items: items.find((i) => i.stage_id === s.id)?.n ?? 0, started: players.find((p) => p.stage_id === s.id)?.started ?? 0, done: players.find((p) => p.stage_id === s.id)?.done ?? 0 })) };
-  }
-
-  /** `q` là giao dịch đang mở khi gọi ngay sau lúc sửa, để đọc được dữ liệu vừa ghi */
-  async adminStage(id: number, q: Q = this.read) {
-    const stage = await this.stage(q, id, true);
-    const items = await q('SELECT id, code, position, kind, usage, objective, prompt, data, explanation, source, is_active FROM hk_saga_items WHERE stage_id = $1 ORDER BY position', [id]);
-    const versions = await q('SELECT version, status, saved_at FROM hk_saga_stage_versions WHERE stage_id = $1 ORDER BY version DESC LIMIT 20', [id]);
-    return { ...stage, items, versions };
-  }
-
-  /** Đổi ảnh nền bản đồ: khóa ảnh có sẵn hoặc liên kết https kèm kích thước ảnh mới; vị trí các điểm lưu theo tỉ lệ nên không phải nhập lại */
-  async adminUpdateMap(user: UserRow, campaignNo: number, body: Record<string, any>) {
-    const cur = (await this.db.query<Record<string, any>>('SELECT * FROM hk_saga_maps WHERE campaign_no = $1', [campaignNo]))[0];
-    if (!cur) throw notFound('bản đồ');
-    const url = body.image_url === undefined ? cur.image_url : body.image_url || null;
-    if (url && !/^https:\/\/.{4,490}$/.test(url)) throw new BadRequestException('Liên kết ảnh phải bắt đầu bằng https://');
-    const size = (v: unknown, old: number, label: string): number => {
-      if (v === undefined) return old;
-      const n = Number(v);
-      if (!Number.isInteger(n) || n < 100 || n > 12000) throw new BadRequestException(`${label} của ảnh phải từ 100 đến 12000 điểm ảnh`);
-      return n;
-    };
-    const key = body.image_key === undefined ? cur.image_key : String(body.image_key);
-    if (!/^[a-z0-9-]{2,40}$/.test(key)) throw new BadRequestException('Khóa ảnh không hợp lệ');
-    const credit = body.credit === undefined ? cur.credit : String(body.credit).trim().slice(0, 300);
-    if (!credit) throw new BadRequestException('Hãy ghi nguồn của ảnh bản đồ');
-    const creditUrl = body.credit_url === undefined ? cur.credit_url : body.credit_url || null;
-    if (creditUrl && !/^https:\/\/.{4,490}$/.test(creditUrl)) throw new BadRequestException('Liên kết nguồn ảnh phải bắt đầu bằng https://');
-    await this.db.query('UPDATE hk_saga_maps SET image_key = $2, image_url = $3, image_w = $4, image_h = $5, credit = $6, credit_url = $7, updated_by = $8, updated_at = now() WHERE campaign_no = $1',
-      [campaignNo, key, url, size(body.image_w, cur.image_w, 'Chiều rộng'), size(body.image_h, cur.image_h, 'Chiều cao'), credit, creditUrl, user.id]);
-    return (await this.adminOverview()).maps;
-  }
-
-  /** Chỉnh vị trí điểm nhiệm vụ trên bản đồ (tỉ lệ 0–1); anchor rỗng = điểm nằm đúng địa danh */
-  async adminMoveStage(user: UserRow, id: number, body: Record<string, any>) {
-    const ratio = (v: unknown, label: string, nullable = false): number | null => {
-      if (nullable && (v === null || v === undefined || v === '')) return null;
-      const n = Number(v);
-      if (!Number.isFinite(n) || n < 0 || n > 1) throw new BadRequestException(`${label} phải là tỉ lệ từ 0 đến 1`);
-      return Math.round(n * 100000) / 100000;
-    };
-    const rows = await this.db.query('UPDATE hk_saga_stages SET map_x = $2, map_y = $3, anchor_x = $4, anchor_y = $5, updated_by = $6, updated_at = now() WHERE id = $1 RETURNING id',
-      [id, ratio(body.map_x, 'Hoành độ'), ratio(body.map_y, 'Tung độ'), ratio(body.anchor_x, 'Hoành độ địa danh', true), ratio(body.anchor_y, 'Tung độ địa danh', true), user.id]);
-    if (!rows.length) throw notFound('chặng');
-    return this.adminStage(id);
-  }
-
-  /** Sửa thông tin và nội dung chặng: nội dung được kiểm tra cấu trúc, bản cũ lưu vào lịch sử phiên bản và chặng trở về Nháp cho tới khi duyệt lại */
-  async adminUpdateStage(user: UserRow, id: number, body: Record<string, any>) {
-    return this.db.tx(async (q) => {
-      const cur = await this.stage(q, id, true);
-      const sets: string[] = [];
-      const params: unknown[] = [id];
-      const set = (col: string, value: unknown): void => { params.push(value); sets.push(`${col} = $${params.length}`); };
-      const str = (v: unknown, label: string, min: number, max: number): string => {
-        const s = String(v ?? '').trim();
-        if (s.length < min || s.length > max) throw new BadRequestException(`${label} cần từ ${min} đến ${max} ký tự`);
-        return s;
-      };
-      const int = (v: unknown, label: string, min: number, max: number): number => {
-        const n = Number(v);
-        if (!Number.isInteger(n) || n < min || n > max) throw new BadRequestException(`${label} phải là số nguyên từ ${min} đến ${max}`);
-        return n;
-      };
-      if (body.title !== undefined) set('title', str(body.title, 'Tên chặng', 3, 80));
-      if (body.place !== undefined) set('place', str(body.place, 'Địa điểm', 2, 60));
-      if (body.date_label !== undefined) set('date_label', str(body.date_label, 'Thời gian', 2, 60));
-      if (body.summary !== undefined) set('summary', str(body.summary, 'Tóm tắt', 5, 500));
-      if (body.pass_percent !== undefined) set('pass_percent', int(body.pass_percent, 'Ngưỡng đạt', 40, 100));
-      if (body.reward_xp !== undefined) set('reward_xp', int(body.reward_xp, 'Điểm thưởng', 0, 2000));
-      if (body.reward_gold !== undefined) set('reward_gold', int(body.reward_gold, 'Vàng thưởng', 0, 1000));
-      if (body.unlock_after !== undefined) {
-        const code = body.unlock_after ? String(body.unlock_after) : null;
-        if (code === cur.code) throw new BadRequestException('Chặng không thể tự làm điều kiện mở khóa của chính nó');
-        if (code && !(await q('SELECT 1 FROM hk_saga_stages WHERE code = $1', [code])).length) throw new BadRequestException('Chặng điều kiện không tồn tại');
-        set('unlock_after', code);
-      }
-      if (body.content !== undefined) {
-        const content = normalizeStage(body.content);
-        await q('INSERT INTO hk_saga_stage_versions (stage_id, version, content, status, saved_by) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING', [id, cur.version, JSON.stringify(cur.content), cur.status, user.id]);
-        set('content', JSON.stringify(content));
-        set('version', cur.version + 1);
-        set('status', 'draft');
-      }
-      if (!sets.length) throw new BadRequestException('Không có thay đổi nào');
-      set('updated_by', user.id);
-      await q(`UPDATE hk_saga_stages SET ${sets.join(', ')}, updated_at = now() WHERE id = $1`, params);
-      return this.adminStage(id, q);
-    });
-  }
-
-  async adminSetStatus(user: UserRow, id: number, status: string, note?: string) {
-    if (!['draft', 'reviewed', 'published'].includes(status)) throw new BadRequestException('Trạng thái không hợp lệ');
-    const cur = await this.stage(this.read, id, true);
-    if (status === 'published') {
-      normalizeStage(cur.content); // nội dung phải còn đúng cấu trúc khi công bố
-      const n = Number((await this.db.query<{ n: string }>("SELECT count(*) AS n FROM hk_saga_items WHERE stage_id = $1 AND is_active AND usage IN ('practice', 'both')", [id]))[0].n);
-      if (n < 3) throw new ConflictException('Chặng cần ít nhất 3 câu luyện tập trước khi công bố');
-    }
-    await this.db.query('UPDATE hk_saga_stages SET status = $2, review_note = COALESCE($3, review_note), updated_by = $4, updated_at = now() WHERE id = $1', [id, status, note?.trim().slice(0, 600) || null, user.id]);
-    return this.adminStage(id);
-  }
-
-  /** Sửa một câu luyện tập: dữ liệu được kiểm tra theo đúng dạng câu; đáp án vẫn chỉ nằm ở máy chủ */
-  async adminUpdateItem(id: number, body: Record<string, any>) {
-    const cur = (await this.db.query<Record<string, any>>('SELECT * FROM hk_saga_items WHERE id = $1', [id]))[0];
-    if (!cur) throw notFound('câu luyện tập');
-    const kind = cur.kind as ItemKind;
-    if (!ITEM_KINDS.includes(kind)) throw new BadRequestException('Dạng câu không hợp lệ');
-    const prompt = body.prompt === undefined ? cur.prompt : String(body.prompt).trim();
-    const explanation = body.explanation === undefined ? cur.explanation : String(body.explanation).trim();
-    if (prompt.length < 5 || prompt.length > 400) throw new BadRequestException('Đề bài cần từ 5 đến 400 ký tự');
-    if (explanation.length < 5 || explanation.length > 600) throw new BadRequestException('Giải thích cần từ 5 đến 600 ký tự');
-    const data = body.data === undefined ? cur.data : normalizeItem(kind, body.data);
-    const active = body.is_active === undefined ? cur.is_active : Boolean(body.is_active);
-    await this.db.query('UPDATE hk_saga_items SET prompt = $2, explanation = $3, data = $4, is_active = $5 WHERE id = $1', [id, prompt, explanation, JSON.stringify(data), active]);
-    return this.adminStage(cur.stage_id);
   }
 }

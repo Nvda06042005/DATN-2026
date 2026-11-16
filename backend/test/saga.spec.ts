@@ -1,6 +1,7 @@
 /**
  * Hành trình Đông A qua API thật trên PostgreSQL tạm (migration 065–066): bản đồ, mở khóa chặng, học – luyện tập – nhập vai – trận đánh, hoàn thành chặng và phần thưởng,
- * chống gửi lặp, thứ tự lệnh, quyền sở hữu phiên, ôn tập, bộ sưu tập, kho tư liệu, báo cáo lớp của giáo viên và chỉnh nội dung của quản trị tổng.
+ * chống gửi lặp, thứ tự lệnh, quyền sở hữu phiên, ôn tập, bộ sưu tập, kho tư liệu. Chỉ học sinh dùng được /api/saga: mục Hành trình Đông A của quản trị tổng
+ * và báo cáo của giáo viên đã xóa theo yêu cầu ngày 16/11/2026.
  * Đáp án lấy thẳng từ cơ sở dữ liệu (học sinh không bao giờ nhận được dữ liệu này qua API).
  */
 import { randomUUID } from 'crypto';
@@ -417,12 +418,11 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
     expect((await api('GET', '/api/saga/campaigns/1')).body.stages[0].state).toBe('done');
   });
 
-  it('quản trị tổng mở khóa một chặng không cần sửa mã; màn Bạch Đằng chơi trọn vẹn qua API: thua khi bày trận sai, thắng khi chơi đúng, nhận thẻ và huy hiệu', async () => {
+  it('màn Bạch Đằng chơi trọn vẹn qua API: thua khi bày trận sai, thắng khi chơi đúng, nhận thẻ và huy hiệu', async () => {
     const id = stageId['bach-dang'];
     expect((await api('GET', `/api/saga/stages/${id}/lesson`, undefined, f.S2.token)).status).toBe(409);
-    const opened = await call(s.base, 'PUT', `/api/saga/admin/stages/${id}`, { unlock_after: null }, f.root);
-    expect(opened.status).toBe(200);
-    expect(opened.body).toMatchObject({ unlock_after: null, status: 'published', version: 1 });
+    // mở sẵn chặng cuối cho học sinh 2 (như một migration nội dung đổi điều kiện mở khóa; không còn trang quản trị để chỉnh)
+    await sql(s.url, 'UPDATE hk_saga_stages SET unlock_after = NULL WHERE id = $1', [id]);
     expect((await api('GET', '/api/saga/campaigns/3', undefined, f.S2.token)).body.stages.map((x: any) => x.state)).toEqual(['ready', 'locked', 'locked', 'ready']);
     await learn('bach-dang', f.S2.token);
     const p = await practice('bach-dang', f.S2.token);
@@ -462,66 +462,18 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
     expect(board.entries).toHaveLength(2);
   }, 180_000);
 
-  it('phân quyền: học sinh không vào được phần giáo viên / quản trị; giáo viên chỉ xem lớp mình phụ trách; báo cáo lớp có tiến độ và câu thường sai', async () => {
-    for (const [method, path] of [['GET', '/api/saga/admin/overview'], ['GET', `/api/saga/admin/stages/${stageId['bach-dang']}`], ['PUT', '/api/saga/admin/maps/1'], ['PUT', `/api/saga/admin/stages/${stageId['bach-dang']}/position`], ['GET', `/api/saga/teacher/classes/${f.class7a.id}`]] as const) {
-      expect([path, (await api(method, path, method === 'GET' ? undefined : {})).status]).toEqual([path, 403]);
-    }
+  it('chỉ học sinh dùng được /api/saga; mục Hành trình Đông A của quản trị tổng và báo cáo lớp của giáo viên đã xóa hẳn (404)', async () => {
     expect((await call(s.base, 'GET', '/api/saga/home')).status).toBe(401);
     expect((await call(s.base, 'GET', '/api/saga/home', undefined, f.T1.token)).status).toBe(403);
+    expect((await call(s.base, 'GET', '/api/saga/home', undefined, f.A.token)).status).toBe(403);
     expect((await call(s.base, 'GET', '/api/saga/home', undefined, f.root)).status).toBe(403);
-    expect((await call(s.base, 'GET', '/api/saga/admin/overview', undefined, f.A.token)).status).toBe(403);
-    const report = await call(s.base, 'GET', `/api/saga/teacher/classes/${f.class7a.id}`, undefined, f.T1.token);
-    expect(report.status).toBe(200);
-    expect(report.body.total_stages).toBe(13);
-    expect(report.body.students.map((x: any) => [x.id, x.done])).toEqual(expect.arrayContaining([[f.S1.id, 2], [f.S2.id, 1]]));
-    expect(report.body.stages.find((x: any) => x.id === stageId['binh-le-nguyen'])).toMatchObject({ done: 1 });
-    expect(report.body.often_wrong.length).toBeGreaterThanOrEqual(1);
-    expect(report.body.often_wrong[0].wrong_percent).toBeGreaterThan(0);
-    expect(keysOf(report.body).has('password_hash')).toBe(false);
-    expect((await call(s.base, 'GET', `/api/saga/teacher/classes/${f.class7a.id}`, undefined, f.T2.token)).status).toBe(403);
-    expect((await call(s.base, 'GET', `/api/saga/teacher/classes/${f.class7a.id}`, undefined, f.TB.token)).status).toBe(403);
-    expect((await call(s.base, 'GET', `/api/saga/teacher/classes/${f.class7a.id}`, undefined, f.A.token)).status).toBe(200);
-    expect((await call(s.base, 'GET', `/api/saga/teacher/classes/${f.class7a.id}`, undefined, f.B.token)).status).toBe(403);
-  });
-
-  it('quản trị tổng chỉnh vị trí điểm, đổi ảnh nền, sửa nội dung có kiểm tra cấu trúc và lưu phiên bản; chặng về Nháp thì học sinh không còn thấy', async () => {
-    const id = stageId['dong-bo-dau'];
-    const overview = await call(s.base, 'GET', '/api/saga/admin/overview', undefined, f.root);
-    expect(overview.body.stages).toHaveLength(13);
-    expect(overview.body.stages.find((x: any) => x.code === 'binh-le-nguyen')).toMatchObject({ items: 6, started: 1, done: 1, status: 'published' });
-    // vị trí điểm: tỉ lệ 0–1, đổi xong bản đồ của học sinh thấy ngay
-    expect((await call(s.base, 'PUT', `/api/saga/admin/stages/${id}/position`, { map_x: 1.2, map_y: 0.5 }, f.root)).status).toBe(400);
-    const moved = await call(s.base, 'PUT', `/api/saga/admin/stages/${id}/position`, { map_x: 0.81234, map_y: 0.61, anchor_x: 0.715, anchor_y: 0.695 }, f.root);
-    expect(moved.body).toMatchObject({ map_x: 0.81234, map_y: 0.61, anchor_x: 0.715, anchor_y: 0.695 });
-    expect((await api('GET', '/api/saga/campaigns/1')).body.stages[2]).toMatchObject({ map_x: 0.81234, map_y: 0.61, anchor_x: 0.715 });
-    // ảnh nền: liên kết https và kích thước ảnh mới; liên kết http bị từ chối
-    expect((await call(s.base, 'PUT', '/api/saga/admin/maps/1', { image_url: 'http://example.com/a.png' }, f.root)).status).toBe(400);
-    const map = await call(s.base, 'PUT', '/api/saga/admin/maps/1', { image_url: 'https://example.com/ban-do.png', image_w: 2000, image_h: 1400, credit: 'Ảnh thử nghiệm' }, f.root);
-    expect(map.body[0]).toMatchObject({ image_url: 'https://example.com/ban-do.png', image_w: 2000, image_h: 1400 });
-    expect((await api('GET', '/api/saga/campaigns/1')).body.map).toMatchObject({ image_url: 'https://example.com/ban-do.png', image_w: 2000 });
-    await call(s.base, 'PUT', '/api/saga/admin/maps/1', { image_url: null, image_w: 1500, image_h: 1052 }, f.root);
-    // nội dung: sai cấu trúc bị từ chối; đúng thì tăng phiên bản, lưu bản cũ và về Nháp
-    const stage = (await call(s.base, 'GET', `/api/saga/admin/stages/${id}`, undefined, f.root)).body;
-    expect(stage.items).toHaveLength(6);
-    expect(stage.items[0].data.correct).toBeDefined(); // quản trị thấy đáp án, học sinh thì không
-    expect((await call(s.base, 'PUT', `/api/saga/admin/stages/${id}`, { content: { ...stage.content, cards: stage.content.cards.slice(0, 2) } }, f.root)).status).toBe(400);
-    expect((await call(s.base, 'PUT', `/api/saga/admin/stages/${id}`, { pass_percent: 20 }, f.root)).status).toBe(400);
-    const edited = await call(s.base, 'PUT', `/api/saga/admin/stages/${id}`, { pass_percent: 80, content: { ...stage.content, debrief: { ...stage.content.debrief, title: 'Đông Bộ Đầu (bản sửa)' } } }, f.root);
-    expect(edited.body).toMatchObject({ version: 2, status: 'draft', pass_percent: 80 });
-    expect(edited.body.versions).toEqual([expect.objectContaining({ version: 1, status: 'published' })]);
-    // Nháp: học sinh không thấy chặng, gọi thẳng cũng không được
-    expect((await api('GET', '/api/saga/campaigns/1')).body.stages).toHaveLength(2);
-    expect((await api('GET', `/api/saga/stages/${id}`)).status).toBe(404);
-    expect((await api('GET', '/api/saga/home')).body.campaigns[0]).toMatchObject({ stages: 2, done: 2, completed: true });
-    const published = await call(s.base, 'PATCH', `/api/saga/admin/stages/${id}/status`, { status: 'published', note: 'Đã rà lại' }, f.root);
-    expect(published.body).toMatchObject({ status: 'published', review_note: 'Đã rà lại' });
-    expect((await api('GET', `/api/saga/stages/${id}`)).body).toMatchObject({ state: 'ready', pass_percent: 80 });
-    expect((await call(s.base, 'PATCH', `/api/saga/admin/stages/${id}/status`, { status: 'xoa' }, f.root)).status).toBe(422);
-    // câu luyện tập: dữ liệu sai dạng bị từ chối
-    const item = stage.items.find((i: any) => i.kind === 'quiz');
-    expect((await call(s.base, 'PUT', `/api/saga/admin/items/${item.id}`, { data: { options: item.data.options, correct: 'zz' } }, f.root)).status).toBe(400);
-    const fixed = await call(s.base, 'PUT', `/api/saga/admin/items/${item.id}`, { explanation: 'Giải thích đã sửa cho rõ hơn.' }, f.root);
-    expect(fixed.body.items.find((i: any) => i.id === item.id).explanation).toBe('Giải thích đã sửa cho rõ hơn.');
+    const gone: Array<[string, string, string]> = [
+      ['GET', '/api/saga/admin/overview', f.root], ['GET', `/api/saga/admin/stages/${stageId['bach-dang']}`, f.root], ['PUT', '/api/saga/admin/maps/1', f.root],
+      ['PUT', `/api/saga/admin/stages/${stageId['bach-dang']}/position`, f.root], ['PUT', `/api/saga/admin/stages/${stageId['bach-dang']}`, f.root],
+      ['PATCH', `/api/saga/admin/stages/${stageId['bach-dang']}/status`, f.root], ['PUT', '/api/saga/admin/items/1', f.root],
+      ['GET', `/api/saga/teacher/classes/${f.class7a.id}`, f.T1.token], ['GET', `/api/saga/teacher/classes/${f.class7a.id}`, f.A.token],
+    ];
+    for (const [method, path, token] of gone) expect([method, path, (await call(s.base, method, path, method === 'GET' ? undefined : {}, token)).status]).toEqual([method, path, 404]);
   });
 
   it('các bảng mới bật RLS: vai trò theo trường chỉ đọc nội dung mẫu và chỉ thấy tiến độ của trường mình', async () => {

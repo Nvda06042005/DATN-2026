@@ -1,6 +1,6 @@
-import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsIn, IsInt, IsObject, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsObject, IsOptional, IsString, Matches, Min } from 'class-validator';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { UserRow } from '../database/database.service';
 import { SagaService } from './saga.service';
@@ -13,14 +13,11 @@ class ActionDto {
   @Type(() => Number) @IsInt() @Min(0) seq: number;
   @IsObject() action: Record<string, any>;
 }
-class StatusDto {
-  @IsIn(['draft', 'reviewed', 'published']) status: string;
-  @IsOptional() @IsString() @MaxLength(600) note?: string;
-}
 
 /**
  * /api/saga – Hành trình Đông A của trang học sinh: bản đồ ba cuộc kháng chiến, 13 chặng (học ngắn, luyện tập, nhập vai khám phá, trận đánh), ôn tập,
- * thẻ nhân vật và kho tư liệu; báo cáo lớp cho giáo viên; chỉnh bản đồ và nội dung cho quản trị tổng. Đường dẫn tĩnh khai báo trước đường dẫn có :id.
+ * thẻ nhân vật và kho tư liệu. Chỉ dành cho học sinh: mục Hành trình Đông A của quản trị tổng và giáo viên đã xóa theo yêu cầu ngày 16/11/2026.
+ * Đường dẫn tĩnh khai báo trước đường dẫn có :id.
  */
 @Controller('saga')
 @UseGuards(AuthGuard)
@@ -51,22 +48,4 @@ export class SagaController {
 
   @Get('cards') @Roles('student') cards(@CurrentUser() user: UserRow) { return this.saga.cards(user); }
   @Get('archive') @Roles('student') archive(@CurrentUser() user: UserRow) { return this.saga.archive(user); }
-
-  // ------------------------------------------------------------------ giáo viên, quản trị trường
-  @Get('teacher/classes/:classId') @Roles('teacher', 'school_admin')
-  classReport(@CurrentUser() user: UserRow, @Param('classId', ParseIntPipe) classId: number) { return this.saga.classReport(user, classId); }
-
-  // ------------------------------------------------------------------ quản trị tổng
-  @Get('admin/overview') @Roles('root_admin') adminOverview() { return this.saga.adminOverview(); }
-  @Get('admin/stages/:id') @Roles('root_admin') adminStage(@Param('id', ParseIntPipe) id: number) { return this.saga.adminStage(id); }
-  @Put('admin/maps/:no') @Roles('root_admin')
-  adminMap(@CurrentUser() user: UserRow, @Param('no', ParseIntPipe) no: number, @Body() body: Record<string, any>) { return this.saga.adminUpdateMap(user, no, body); }
-  @Put('admin/stages/:id/position') @Roles('root_admin')
-  adminMove(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Record<string, any>) { return this.saga.adminMoveStage(user, id, body); }
-  @Put('admin/stages/:id') @Roles('root_admin')
-  adminUpdate(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Record<string, any>) { return this.saga.adminUpdateStage(user, id, body); }
-  @Patch('admin/stages/:id/status') @Roles('root_admin')
-  adminStatus(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: StatusDto) { return this.saga.adminSetStatus(user, id, body.status, body.note); }
-  @Put('admin/items/:id') @Roles('root_admin')
-  adminItem(@Param('id', ParseIntPipe) id: number, @Body() body: Record<string, any>) { return this.saga.adminUpdateItem(id, body); }
 }

@@ -155,16 +155,3 @@ export interface ArchiveText {
 }
 export interface TimelineMark { key: string; campaign_no: number | null; sort: number; date_label: string; title: string; text: string; stage_id: number | null; done: boolean; source: string | null; source_url: string | null }
 export interface Archive { texts: ArchiveText[]; timeline: TimelineMark[]; maps: SagaMapInfo[]; figures: SagaCard[] }
-
-// ---------------------------------------------------------------------- giáo viên và quản trị
-export interface ClassReport {
-  class: { id: number; name: string }; total_stages: number;
-  students: Array<{ id: number; full_name: string; user_code: string | null; done: number; stars: number; knowledge_percent: number; hints: number; last_at: string | null }>;
-  stages: Array<{ id: number; title: string; campaign_no: number; position: number; done: number; knowledge_percent: number }>;
-  often_wrong: Array<{ id: number; prompt: string; kind: ItemKind; kind_label: string; stage_title: string; answers: number; wrong: number; students: number; wrong_percent: number }>;
-}
-export interface AdminStage {
-  id: number; code: string; campaign_no: number; position: number; title: string; place: string; date_label: string; kind: string; summary: string; map_x: number; map_y: number; anchor_x: number | null; anchor_y: number | null;
-  unlock_after: string | null; pass_percent: number; reward_xp: number; reward_gold: number; version: number; status: 'draft' | 'reviewed' | 'published'; review_note: string | null; has_battle: boolean; items: number; started: number; done: number;
-}
-export interface AdminOverview { maps: SagaMapInfo[]; stages: AdminStage[] }

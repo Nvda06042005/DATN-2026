@@ -1,4 +1,5 @@
 // 15/11/2026: trang học sinh được xây dựng lại thành Hành trình Đông A (chọn cuộc kháng chiến → bản đồ → học → luyện tập → nhập vai → trận đánh → tổng kết).
+// 16/11/2026: trang học sinh dùng chung khung AdminWorkspace và bộ thành phần phẳng của quản trị tổng, quản trị trường và giáo viên (giao diện sáng, menu bên trái).
 // Giao diện cũ (StudentNav, lộ trình học, bản đồ nhiệm vụ, lớp học, thẻ tướng…) đã xóa và không được nối lại; API và dữ liệu học sinh giữ nguyên.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -10,12 +11,15 @@ const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8');
 const exists = (...p) => fs.existsSync(path.join(root, ...p));
 const walk = (dir) => fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : /\.tsx?$/.test(e.name) ? [path.join(dir, e.name)] : []));
 
-test('trang học sinh: khung Hành trình Đông A với năm mục, mục đang mở nằm trên URL, giữ chế độ sáng / tối', () => {
+test('trang học sinh: khung Hành trình Đông A dùng chung khung của các cổng quản trị, các mục nằm ở menu bên trái, mục đang mở nằm trên URL', () => {
   const app = read('components', 'portal', 'StudentApp.tsx');
   assert.match(read('app', 'hoc-sinh.tsx'), /<StudentApp session=\{session\} \/>/);
   assert.match(app, /usePortalTab<SagaTab>\('chien-dich', TABS\)/);
-  for (const [id, label] of [['chien-dich', 'Chiến dịch'], ['nhap-vai', 'Nhập vai'], ['cau-hoi', 'Câu hỏi'], ['tu-lieu', 'Tư liệu'], ['bo-the', 'Bộ thẻ']]) assert.ok(app.includes(`{ id: '${id}', label: '${label}'`), id);
-  assert.ok((app.match(/\{ id: '[a-z-]+', label: '/g) ?? []).length <= 5, 'thanh điều hướng không quá năm mục');
+  for (const [id, label] of [['chien-dich', 'Chiến dịch'], ['nhap-vai', 'Nhập vai'], ['cau-hoi', 'Câu hỏi ôn tập'], ['tu-lieu', 'Tư liệu'], ['bo-the', 'Bộ thẻ'], ['hoi', 'Hỏi Tiểu Tướng'], ['khao-sat', 'Khảo sát'], ['tro-giup', 'Trợ giúp']]) assert.ok(app.includes(`{ id: '${id}', label: '${label}'`), id);
+  // cùng khung với quản trị tổng / quản trị trường / giáo viên: AdminWorkspace + giao diện phẳng; không còn thanh HUD, nút tròn, nút nổi hay trình đơn riêng của bản trò chơi cũ
+  assert.match(app, /<AdminUiContext\.Provider value>/);
+  assert.match(app, /<AdminWorkspace session=\{session\} nav=\{navItems\} active=\{route\.tab\} onSelect=\{pick\}/);
+  for (const gone of ['RoundIcon', 'student-hud', 'ask-tieu-tuong', 'account-menu', 'ThemeContext', 'PALETTES.dark']) assert.ok(!app.includes(gone), gone);
   // bước của chặng: học, luyện tập, nhập vai, trận đánh, tổng kết
   assert.match(app, /const STEPS: readonly SagaStep\[\] = \['hoc', 'luyen', 'kham-pha', 'tran', 'tong-ket'\];/);
   for (const screen of ['HomeScreen', 'CampaignScreen', 'LessonScreen', 'PracticeScreen', 'ExploreScreen', 'BattleScreen', 'SummaryScreen', 'ReviewScreen', 'CollectionScreen', 'ArchiveScreen', 'RolePlayScreen']) assert.ok(app.includes(`<${screen} `), screen);
@@ -30,9 +34,11 @@ test('trang học sinh: khung Hành trình Đông A với năm mục, mục đan
   assert.match(app, /const midStep = route\.v !== null && route\.v !== 'tong-ket';/);
   assert.match(app, /\{levelUp && !reward \? \(/);
   assert.match(app, /platform\.prefs\(session\.token\)/);
-  assert.match(app, /ThemeContext\.Provider/);
-  // tài khoản: hồ sơ, đổi mật khẩu, đăng xuất, trợ giúp, khảo sát; âm thanh chỉ bật khi người dùng tự bật
-  for (const text of ['Hồ sơ cá nhân', 'Đổi mật khẩu', 'Đăng xuất', 'Trợ giúp', 'Khảo sát', 'session.changePassword()', 'session.logout()']) assert.ok(app.includes(text), text);
+  // tài khoản (hồ sơ, đổi mật khẩu, đăng xuất) nằm ở khung chung; khung tự ghi "Không gian học sinh" và đường dẫn "Học sinh / …"
+  const shell = read('components', 'admin', 'AdminWorkspace.tsx');
+  for (const text of ['Hồ sơ cá nhân', 'Đổi mật khẩu', 'Đăng xuất', 'session.changePassword', 'session.logout()', "role === 'student' ? 'Không gian học sinh'", "role === 'student' ? 'Học sinh'"]) assert.ok(shell.includes(text), text);
+  // giao diện sáng như các cổng quản trị: bảng Cài đặt không còn chọn sáng / tối; âm thanh trò chơi chỉ bật khi người dùng tự bật
+  assert.doesNotMatch(read('components', 'portal', 'NoticeCenter.tsx'), /label: 'Tối'/);
   assert.match(read('lib', 'saga-sound.ts'), /let enabled = false;/);
   // không còn nối tới giao diện cũ
   for (const old of ['StudentNav', 'LearningPath', 'QuestMap', 'ClassTab', 'LiveTab', 'WarPlay', 'GameTabs', 'AiHubDashboard', 'đang được xây dựng lại']) assert.doesNotMatch(app, new RegExp(old), old);
@@ -94,4 +100,21 @@ test('trang giáo viên ẩn Hành trình học, Bộ đề và bỏ Trò chơi 
   assert.match(teacher, /const VISIBLE_NAV = NAV\.filter\(\(it\) => !TEMP_HIDDEN_TEACHER_TABS\.includes\(it\.id\)\);/);
   assert.match(teacher, /nav=\{VISIBLE_NAV\}/);
   assert.ok(!teacher.includes('TeacherGame') && !teacher.includes('Trò chơi hóa'), 'TeacherApp không còn mục Trò chơi hóa');
+});
+
+test('các màn của Hành trình Đông A dựng bằng thành phần của cổng quản trị (tiêu đề hai nửa, thẻ, nút, bảng), không còn bộ nút khối / nền trời / pháo giấy của bản trò chơi cũ', () => {
+  const kit = read('components', 'portal', 'SagaKit.tsx');
+  assert.match(kit, /import \{ ErrorNote, PageHeader \} from '@\/components\/admin\/kit';/);
+  for (const gone of ['GameBtn', 'Chunky', 'SkyBg', 'Sunburst', 'Confetti', 'RoundIcon', 'TieuTuongArt', 'CampaignArt']) assert.doesNotMatch(kit, new RegExp(`export (const|function) ${gone}(?![A-Za-z])`), gone);
+  assert.doesNotMatch(kit, /LinearGradient/);
+  for (const f of ['SagaHome', 'SagaLearn', 'SagaPlay', 'SagaExtras']) {
+    const text = read('components', 'portal', `${f}.tsx`);
+    assert.match(text, /from '@\/components\/ui';/, f);
+    assert.match(text, /<SagaHeader /, f);
+    assert.doesNotMatch(text, /GameBtn|Chunky|SkyBg|Sunburst|Confetti|LinearGradient|tone="(green|yellow|purple|navy|white|blue|orange|red)"/, f);
+  }
+  // bảng dữ liệu và thẻ số liệu dùng đúng thành phần của trang quản trị
+  assert.match(read('components', 'portal', 'SagaHome.tsx'), /<DataTable columns=\{columns\} rows=\{view\.stages\}/);
+  assert.match(read('components', 'portal', 'SagaHome.tsx'), /DashboardMetric as Metric/);
+  assert.match(read('components', 'portal', 'SagaExtras.tsx'), /<DataTable columns=\{boardColumns\}/);
 });

@@ -29,7 +29,7 @@ export type NavEntry<T extends string> = NavLeaf<T> | NavGroup<T>;
 export const navLeaves = <T extends string>(nav: ReadonlyArray<NavEntry<T>>): Array<NavLeaf<T>> => nav.flatMap((e) => ('items' in e ? [...e.items] : [e]));
 
 /**
- * Khung chung của cổng quản trị tổng, quản trị trường và giáo viên. Dùng cùng ngôn ngữ thiết kế với trang chủ: nền giấy dó có hoa văn trống đồng,
+ * Khung chung của cổng quản trị tổng, quản trị trường, giáo viên và (từ 16/11/2026) trang học sinh. Dùng cùng ngôn ngữ thiết kế với trang chủ: nền giấy dó có hoa văn trống đồng,
  * thanh đầu trang dạng viên thuốc nổi, nút tối bo tròn, thanh bên bo góc; chân trang có dòng bản quyền như ở trang đăng nhập.
  */
 export function AdminWorkspace<T extends string>({ session, nav, active, onSelect, extra, schoolName, children }: {
@@ -45,7 +45,8 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
   const loadProfile = useCallback(() => authApi.getProfile(session.token), [session.token]);
   const saveProfile = useCallback((patch: ProfilePatch) => authApi.updateProfile(session.token, patch), [session.token]);
   const uploadAvatar = useCallback((img: { data: string }) => authApi.uploadAvatar(session.token, img), [session.token]);
-  const label = navLeaves(nav).find(item => item.id === active)?.label ?? 'Quản trị';
+  const role = session.user.role;
+  const label = navLeaves(nav).find(item => item.id === active)?.label ?? (role === 'student' ? 'Học tập' : 'Quản trị');
   const activeGroup = nav.find((e): e is NavGroup<T> => 'items' in e && e.items.some(i => i.id === active));
   // nhóm đang chứa mục được chọn thì mở sẵn; người dùng bấm tên nhóm để mở / đóng
   const [groups, setGroups] = useState<Record<string, boolean>>({});
@@ -62,8 +63,8 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
     <LinearGradient testID="admin-sidebar" colors={[c.son, c.sonDam]} style={wide ? { width: 232, marginLeft: 16, marginBottom: 12, borderRadius: 20, overflow: 'hidden' } : { width: 260, height: '100%' }}>
       <PatternOverlay opacity={0.045} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, padding: 14, paddingTop: 26, gap: 18 }}>
-        <Txt f="bold" upper size={10} color={c.trang} style={{ paddingHorizontal: 10, letterSpacing: 1.3, opacity: 0.8 }}>{session.user.role === 'root_admin' ? 'Quản trị hệ thống' : session.user.role === 'teacher' ? 'Không gian giáo viên' : 'Quản trị trường học'}</Txt>
-        <View accessibilityRole="tablist" accessibilityLabel="Chức năng quản trị" style={{ gap: 6 }}>
+        <Txt f="bold" upper size={10} color={c.trang} style={{ paddingHorizontal: 10, letterSpacing: 1.3, opacity: 0.8 }}>{role === 'root_admin' ? 'Quản trị hệ thống' : role === 'teacher' ? 'Không gian giáo viên' : role === 'student' ? 'Không gian học sinh' : 'Quản trị trường học'}</Txt>
+        <View accessibilityRole="tablist" accessibilityLabel={role === 'student' ? 'Các mục học tập' : 'Chức năng quản trị'} style={{ gap: 6 }}>
           {nav.map(entry => {
             const leaf = (item: NavLeaf<T>, inner = false) => {
               const selected = item.id === active, Icon = item.icon;
@@ -99,14 +100,15 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
       </ScrollView>
     </LinearGradient>
   );
-  const trail = [schoolName, `${session.user.role === 'teacher' ? 'Giáo viên' : 'Quản trị'} / ${activeGroup ? `${activeGroup.label} / ` : ''}${label}`].filter(Boolean).join(' · ');
+  const trail = [schoolName, `${role === 'teacher' ? 'Giáo viên' : role === 'student' ? 'Học sinh' : 'Quản trị'} / ${activeGroup ? `${activeGroup.label} / ` : ''}${label}`].filter(Boolean).join(' · ');
   const roomy = width >= 680;
   return (
     <View testID="admin-workspace" style={[{ flex: 1, backgroundColor: c.logoPaper }, WRAP_PRETTY]}>
       <PatternOverlay opacity={0.075} />
       <View testID="admin-topbar" style={[{ minHeight: wide ? 64 : 58, marginHorizontal: wide ? 16 : 10, marginTop: wide ? 14 : 8, marginBottom: wide ? 12 : 8, borderRadius: 999, borderWidth: 1, borderColor: c.bienXanh, backgroundColor: c.kinhDac, paddingHorizontal: wide ? 14 : 6, flexDirection: 'row', alignItems: 'center', gap: wide ? 20 : 6, zIndex: 20 }, GLASS]}>
-        {!wide && <Pressable testID="admin-menu-toggle" accessibilityRole="button" accessibilityLabel={open ? 'Đóng menu quản trị' : 'Mở menu quản trị'} accessibilityState={{ expanded: open }} onPress={() => setOpen(value => !value)} style={{ width: 44, height: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center' }}>{open ? <X size={23} color={c.logoInk} /> : <Menu size={23} color={c.logoInk} />}</Pressable>}
-        <View style={{ flexShrink: 1 }}><BrandLogo compact={width < 350} brand={brand} /></View>
+        {!wide && <Pressable testID="admin-menu-toggle" accessibilityRole="button" accessibilityLabel={open ? (role === 'student' ? 'Đóng menu' : 'Đóng menu quản trị') : (role === 'student' ? 'Mở menu' : 'Mở menu quản trị')} accessibilityState={{ expanded: open }} onPress={() => setOpen(value => !value)} style={{ width: 44, height: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center' }}>{open ? <X size={23} color={c.logoInk} /> : <Menu size={23} color={c.logoInk} />}</Pressable>}
+        {/* màn hẹp có thêm nút ở thanh đầu (Tạo, thông báo, cài đặt…): chỉ hiện dấu logo để các nút không đè lên chữ */}
+        <View style={{ flexShrink: 1 }}><BrandLogo compact={width < 350 || (Boolean(extra) && width < 480)} brand={brand} /></View>
         {wide && <Txt f="semibold" size={12} color={c.muc3} numberOfLines={1} style={{ flex: 1 }}>{trail}</Txt>}
         <View style={{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           {extra}
@@ -126,9 +128,9 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
           <Txt testID="admin-copyright" f="body" size={11} color={c.muc3} center style={{ paddingVertical: 8 }}>© 2026 · Bản quyền thuộc quản lý Đông A</Txt>
         </View>
         {profile && <ProfileSheet onClose={() => setProfile(false)} load={loadProfile} save={saveProfile} upload={uploadAvatar} onSaved={session.updateUser}>
-          {(session.user.role === 'root_admin' || session.user.role === 'school_admin') ? <AccountSecurity session={session} /> : null}
+          {(role === 'root_admin' || role === 'school_admin') ? <AccountSecurity session={session} /> : null}
         </ProfileSheet>}
-        {!wide && open && <View style={{ position: 'absolute', inset: 0, zIndex: 40 }}><Pressable accessibilityRole="button" accessibilityLabel="Đóng menu quản trị" onPress={() => setOpen(false)} style={{ position: 'absolute', inset: 0, backgroundColor: c.scrim }} />{sidebar}</View>}
+        {!wide && open && <View style={{ position: 'absolute', inset: 0, zIndex: 40 }}><Pressable accessibilityRole="button" accessibilityLabel={role === 'student' ? 'Đóng menu' : 'Đóng menu quản trị'} onPress={() => setOpen(false)} style={{ position: 'absolute', inset: 0, backgroundColor: c.scrim }} />{sidebar}</View>}
       </View>
     </View>
   );

@@ -92,7 +92,7 @@ export const SettingsButton: React.FC<{ session: Session; prefs: Prefs | null; o
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Pressable accessibilityRole="button" accessibilityLabel="Cài đặt giao diện và nhắc học" onPress={() => setOpen(true)} testID="settings-open" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Cài đặt nhắc học" onPress={() => setOpen(true)} testID="settings-open" style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
         <Settings size={22} color={c.muc2} />
       </Pressable>
       {open ? <SettingsSheet session={session} initial={prefs} onClose={() => setOpen(false)} onSaved={onSaved} /> : null}
@@ -101,7 +101,6 @@ export const SettingsButton: React.FC<{ session: Session; prefs: Prefs | null; o
 };
 
 const SettingsSheet: React.FC<{ session: Session; initial: Prefs | null; onClose: () => void; onSaved: (p: Prefs) => void }> = ({ session, initial, onClose, onSaved }) => {
-  const { c } = useTheme();
   const loaded = useLoad(() => (initial ? Promise.resolve(initial) : api.prefs(session.token)), [session.token], session.expired);
   const { busy, run } = useAction(session.expired);
   const [draft, setDraft] = useState<Prefs | null>(null);
@@ -118,11 +117,7 @@ const SettingsSheet: React.FC<{ session: Session; initial: Prefs | null; onClose
       <ErrorNote message={loaded.error} />
       {!p ? <Spinner /> : (
         <View style={{ gap: 16 }}>
-          <View style={{ gap: 6 }}>
-            <Txt f="bold" size={15} accessibilityRole="header">Giao diện</Txt>
-            <Segmented<Prefs['theme']> label="Giao diện" value={p.theme} onChange={(theme) => set({ theme })} options={[{ value: 'light', label: 'Sáng' }, { value: 'dark', label: 'Tối' }, { value: 'system', label: 'Theo thiết bị' }]} />
-            <Txt size={12} color={c.muc3}>Giao diện tối áp dụng cho trang học sinh; trang giáo viên và quản trị luôn dùng giao diện sáng.</Txt>
-          </View>
+          {/* 16/11/2026: trang học sinh dùng chung giao diện sáng với các cổng quản trị nên không còn chọn sáng / tối; giữ nguyên giá trị đã lưu */}
           {p.can_remind ? (
             <View style={{ gap: 10 }}>
               <Txt f="bold" size={15} accessibilityRole="header">Nhắc học</Txt>
@@ -141,7 +136,7 @@ const SettingsSheet: React.FC<{ session: Session; initial: Prefs | null; onClose
                 </Card>
               ) : null}
             </View>
-          ) : null}
+          ) : <InfoNote><Txt size={13}>Tài khoản này chưa dùng được nhắc học hằng ngày.</Txt></InfoNote>}
         </View>
       )}
     </Sheet>

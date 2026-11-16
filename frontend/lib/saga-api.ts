@@ -1,9 +1,9 @@
-/** API Hành trình Đông A (/api/saga): bản đồ ba cuộc kháng chiến, chặng học – luyện tập – nhập vai – trận đánh, ôn tập, bộ sưu tập, kho tư liệu; báo cáo lớp và chỉnh bản đồ cho quản trị.
+/** API Hành trình Đông A (/api/saga) của trang học sinh: bản đồ ba cuộc kháng chiến, chặng học – luyện tập – nhập vai – trận đánh, ôn tập, bộ sưu tập, kho tư liệu.
  * Tệp nằm ở lib/ chứ không ở api/: Vercel coi mỗi tệp trong frontend/api/ là một Serverless Function và gói Hobby chỉ cho 12 hàm mỗi lần triển khai;
  * thư mục đó đã đủ 12 tệp nên thêm tệp thứ 13 làm bước triển khai thất bại (16/11/2026) dù bản dựng vẫn xong. */
 import { apiRequest } from '@/api/client';
 import type {
-  ActResult, AdminOverview, AdminStage, Archive, BattleSession, CampaignView, CardAlbum, ClassReport, ExploreSession, LessonView, PracticeSession, ReviewInfo, SagaHome, SagaMapInfo, StageDetail, StageSummary,
+  ActResult, Archive, BattleSession, CampaignView, CardAlbum, ExploreSession, LessonView, PracticeSession, ReviewInfo, SagaHome, StageDetail, StageSummary,
 } from '@/types/saga';
 
 // ---------------------------------------------------------------------- học sinh
@@ -44,15 +44,3 @@ export const review = (token: string) => apiRequest<ReviewInfo>('/api/saga/revie
 export const startReview = (token: string, restart = false) => apiRequest<PracticeSession>('/api/saga/review/start', { token, body: { restart } });
 export const cards = (token: string) => apiRequest<CardAlbum>('/api/saga/cards', { token });
 export const archive = (token: string) => apiRequest<Archive>('/api/saga/archive', { token });
-
-// ---------------------------------------------------------------------- giáo viên, quản trị trường
-export const classReport = (token: string, classId: number) => apiRequest<ClassReport>(`/api/saga/teacher/classes/${classId}`, { token });
-
-// ---------------------------------------------------------------------- quản trị tổng
-export const adminOverview = (token: string) => apiRequest<AdminOverview>('/api/saga/admin/overview', { token });
-export const adminStage = (token: string, id: number) => apiRequest<AdminStage & { content: Record<string, any>; items: Array<Record<string, any>>; versions: Array<{ version: number; status: string; saved_at: string }> }>(`/api/saga/admin/stages/${id}`, { token });
-export const adminMoveStage = (token: string, id: number, body: { map_x: number; map_y: number; anchor_x?: number | null; anchor_y?: number | null }) => apiRequest<AdminStage>(`/api/saga/admin/stages/${id}/position`, { token, method: 'PUT', body });
-export const adminUpdateStage = (token: string, id: number, body: Record<string, unknown>) => apiRequest<AdminStage>(`/api/saga/admin/stages/${id}`, { token, method: 'PUT', body });
-export const adminSetStatus = (token: string, id: number, status: 'draft' | 'reviewed' | 'published', note?: string) => apiRequest<AdminStage>(`/api/saga/admin/stages/${id}/status`, { token, method: 'PATCH', body: { status, note } });
-export const adminUpdateItem = (token: string, id: number, body: Record<string, unknown>) => apiRequest<AdminStage>(`/api/saga/admin/items/${id}`, { token, method: 'PUT', body });
-export const adminUpdateMap = (token: string, no: number, body: Partial<Pick<SagaMapInfo, 'image_key' | 'image_url' | 'image_w' | 'image_h' | 'credit' | 'credit_url'>>) => apiRequest<SagaMapInfo[]>(`/api/saga/admin/maps/${no}`, { token, method: 'PUT', body });

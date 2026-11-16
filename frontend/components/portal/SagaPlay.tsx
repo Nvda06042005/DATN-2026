@@ -1,17 +1,19 @@
 /**
  * Hành trình Đông A – phần chơi trong game Phaser: nhập vai khám phá, trận đánh theo lượt và màn Bạch Đằng 1288.
- * Mỗi màn chỉ có một GameViewport (một game Phaser). Giao diện React giữ phần chữ, nút lệnh và hộp thoại; cảnh game lo di chuyển, hoạt ảnh và chọn ô / chọn đơn vị.
- * Hai bên trao đổi qua GameBridge theo sự kiện. Mọi lệnh đi tới máy chủ kèm mã lệnh và số thứ tự; máy chủ quyết định kết quả, giao diện chỉ dựng lại từ sự kiện trả về.
+ * Mỗi màn chỉ có một GameViewport (một game Phaser). Giao diện React giữ phần chữ, nút lệnh và hộp thoại (thẻ, nút và nhãn của các cổng quản trị);
+ * cảnh game lo di chuyển, hoạt ảnh và chọn ô / chọn đơn vị. Hai bên trao đổi qua GameBridge theo sự kiện. Mọi lệnh đi tới máy chủ kèm mã lệnh và số thứ tự;
+ * máy chủ quyết định kết quả, giao diện chỉ dựng lại từ sự kiện trả về.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
+import { View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
 import { Anchor, ArrowDown, ArrowUp, BookOpen, Check, ChevronRight, Flag, Flame, Footprints, Hand, Lightbulb, Minus, Play, RotateCcw, Shield, SkipForward, Sparkles, Swords, Target, Wheat, X } from 'lucide-react-native';
 import * as saga from '@/lib/saga-api';
 import { errorMessage } from '@/api/client';
 import type { Session } from '@/components/auth';
 import { GameViewport } from '@/components/portal/GameViewport';
-import { Chunky, Confetti, Flash, GameBtn, LoadState, Meter, Overlay, Panel, Pill, SG, ScreenHead, StarRow, Sunburst, TieuTuongArt, num, useFlash, useKeys, useSaga, type SagaNav } from '@/components/portal/SagaKit';
-import { Txt } from '@/components/ui';
+import { BlockTitle, Flash, LoadState, Meter, OptionButton, SagaHeader, SagaPage, StarRow, num, useFlash, useKeys, type SagaNav } from '@/components/portal/SagaKit';
+import { Btn, Card, Chip, InfoNote, Inset, Sheet, Txt } from '@/components/ui';
+import { useTheme } from '@/hooks/use-theme';
 import { GameBridge } from '@/game/bridge';
 import { play } from '@/lib/saga-sound';
 import type { BattleFinished, BattleSession, BdEvent, BdUnit, BdView, Choice, ExploreEvent, ExploreFinished, ExploreSession, TacticsEvent, TacticsUnit, TacticsView, XY } from '@/types/saga';
@@ -23,12 +25,14 @@ type StageProps = { session: Session; nav: SagaNav; stageId: number; campaignNo:
 const statusOf = (e: unknown): number | undefined => (e as { status?: number }).status;
 /** Giá trị mới nhất của props cho các hàm xử lý sự kiện: hàm giữ nguyên danh tính nên không phải đăng ký lại với cảnh game mỗi lần giao diện vẽ lại */
 function useLatest<T>(value: T): React.MutableRefObject<T> { const ref = useRef(value); ref.current = value; return ref; }
+/** Thẻ viền mảnh của các trang quản trị */
+const Box: React.FC<{ children: React.ReactNode; pad?: number; style?: object; testID?: string }> = ({ children, pad = 12, style, testID }) => <Card flat pad={pad} style={{ borderRadius: 12, ...style }} testID={testID}>{children}</Card>;
 
 // ---------------------------------------------------------------------- nhập vai khám phá
 interface Page { who: string | null; text: string; tone: 'say' | 'good' | 'bad' | 'clue' }
 
 export const ExploreScreen: React.FC<StageProps> = ({ session, nav, stageId, campaignNo }) => {
-  const s = useSaga();
+  const { c } = useTheme();
   const { height, width } = useWindowDimensions();
   const scroller = useRef<ScrollViewInstance | null>(null);
   const bridge = useMemo(() => new GameBridge(), []);
@@ -124,39 +128,34 @@ export const ExploreScreen: React.FC<StageProps> = ({ session, nav, stageId, cam
   const back = (): void => nav.back('chien-dich', { c: campaignNo, s: stageId, v: null });
   const page = pages[0] ?? null;
   const cur = view?.current ?? null;
-  const pageTone = page?.tone === 'good' ? SG.green : page?.tone === 'bad' ? SG.red : page?.tone === 'clue' ? SG.yellow : SG.blue;
+  const pageTone = page?.tone === 'good' ? [c.mocNhat, c.mocChu] : page?.tone === 'bad' ? [c.sonNhat, c.sonChu] : page?.tone === 'clue' ? [c.vangNhat, c.vangChu] : [c.thuyNhat, c.thuyChu];
   // Khung game cao tối đa phần còn lại của màn hình; đủ cao thì lời thoại / câu hỏi nổi ngay trên cảnh (như game nhập vai), màn nhỏ thì nằm ngay dưới cảnh
   const maxH = Math.max(220, height - 300);
   const canvasH = Math.min(maxH, Math.min(width - 24, 1000) / EXPLORE_ASPECT);
   const over = canvasH >= 400;
   const atBattle = Boolean(reached && cur?.type === 'battle' && view?.battle && !view.battle.won);
   const talk = !view ? null : page ? (
-    <Panel tone={pageTone} pad={12} style={{ gap: 6 }} testID="explore-dialog">
-      {page.who ? <Pill text={page.who} bg={pageTone} fg={page.tone === 'clue' ? SG.onYellow : '#ffffff'} /> : null}
-      <Txt size={17} color={s.ink} style={{ lineHeight: 26 }} accessibilityLiveRegion="polite">{page.text}</Txt>
-      <GameBtn title={pages.length > 1 ? 'Tiếp' : 'Đã rõ'} iconRight={ChevronRight} tone="green" size="sm" onPress={nextPage} testID="explore-next" label={`${pages.length > 1 ? 'Tiếp' : 'Đã rõ'} (phím Enter)`} style={{ alignSelf: 'flex-end' }} />
-    </Panel>
+    <Box style={{ gap: 6 }} testID="explore-dialog">
+      {page.who ? <Chip text={page.who} bg={pageTone[0]} fg={pageTone[1]} /> : null}
+      <Txt size={16} style={{ lineHeight: 25 }} accessibilityLiveRegion="polite">{page.text}</Txt>
+      <Btn title={pages.length > 1 ? 'Tiếp' : 'Đã rõ'} iconRight={ChevronRight} tone="son" size="sm" onPress={nextPage} testID="explore-next" label={`${pages.length > 1 ? 'Tiếp' : 'Đã rõ'} (phím Enter)`} style={{ alignSelf: 'flex-end' }} />
+    </Box>
   ) : asking ? (
-    <Panel tone={SG.purple} pad={12} style={{ gap: 8 }} testID="explore-ask">
-      <Txt f="heavy" size={16} color={s.ink}>{asking.prompt}</Txt>
+    <Box style={{ gap: 8 }} testID="explore-ask">
+      <Txt f="bold" size={16}>{asking.prompt}</Txt>
       {asking.options.map((o: Choice, i: number) => (
-        <Chunky key={o.id} bg="#ffffff" edge="#c9d5ea" onPress={() => { void send({ type: 'answer', choice: o.id }); }} disabled={busy} label={`Phương án ${i + 1}: ${o.text}`} testID={`explore-answer-${i + 1}`} radius={14} depth={4} style={{ alignSelf: 'stretch' }}>
-          <View style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 5 }}>
-            <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: SG.purple, alignItems: 'center', justifyContent: 'center' }}><Txt f="heavy" size={14} color="#ffffff">{i + 1}</Txt></View>
-            <Txt f="bold" size={15} color="#1e2a4a" style={{ flex: 1 }}>{o.text}</Txt>
-          </View>
-        </Chunky>
+        <OptionButton key={o.id} badge={String(i + 1)} text={o.text} disabled={busy} onPress={() => { void send({ type: 'answer', choice: o.id }); }} label={`Phương án ${i + 1}: ${o.text}`} testID={`explore-answer-${i + 1}`} />
       ))}
-    </Panel>
+    </Box>
   ) : atBattle && view.battle ? (
-    <Panel tone={SG.red} pad={12} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }} testID="explore-battle">
-      <Swords size={28} color={SG.red} strokeWidth={2.4} />
+    <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap', borderLeftWidth: 4, borderLeftColor: c.son }} testID="explore-battle">
+      <Swords size={24} color={c.son} />
       <View style={{ flex: 1, minWidth: 180 }}>
-        <Txt f="heavy" size={17} color={s.ink}>Chạm trán quân địch!</Txt>
-        <Txt size={14} color={s.sub}>{view.battle.title}. Thắng trận rồi em sẽ quay lại đúng chỗ này để làm tiếp nhiệm vụ.</Txt>
+        <Txt f="bold" size={16}>Chạm trán quân địch!</Txt>
+        <Txt size={14} color={c.muc2}>{view.battle.title}. Thắng trận rồi em sẽ quay lại đúng chỗ này để làm tiếp nhiệm vụ.</Txt>
       </View>
-      <GameBtn title="Vào trận" icon={Swords} tone="red" size="lg" onPress={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'tran' }, 'replace')} testID="explore-fight" />
-    </Panel>
+      <Btn title="Vào trận" icon={Swords} tone="son" onPress={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'tran' }, 'replace')} testID="explore-fight" />
+    </Box>
   ) : null;
   const hasTalk = talk !== null;
   // màn nhỏ: lời thoại nằm dưới cảnh, tự cuộn tới để không bị khuất
@@ -166,74 +165,67 @@ export const ExploreScreen: React.FC<StageProps> = ({ session, nav, stageId, cam
     return () => clearTimeout(t);
   }, [over, hasTalk, page]);
   return (
-    <View style={{ flex: 1, backgroundColor: s.dark ? '#0d1730' : '#e9f7e4' }} testID="saga-explore">
-      <ScrollView ref={scroller} contentContainerStyle={{ padding: 12, paddingBottom: 40, alignItems: 'center' }} keyboardShouldPersistTaps="handled">
-        <View style={{ width: '100%', maxWidth: 1000, gap: 10 }}>
-          <ScreenHead title={view ? view.title : 'Nhập vai khám phá'} subtitle={view?.stage ? `${view.stage.title} · ${view.stage.date_label}` : undefined} onBack={back} backLabel="Về bảng thông tin chặng" />
-          {!view ? <LoadState loading={loading} error={error} onRetry={() => setRound((n) => n + 1)} /> : (
-            <>
-              <Panel pad={10} style={{ gap: 8 }} testID="explore-goal">
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Target size={20} color={SG.red} strokeWidth={2.6} />
-                  <Txt f="heavy" size={16} color={s.ink} style={{ flex: 1 }} accessibilityLiveRegion="polite">{cur ? cur.goal : 'Đã hoàn thành nhiệm vụ ở cảnh này.'}</Txt>
-                  <Pill text={`Bước ${Math.min(view.progress.step + 1, view.progress.total)}/${view.progress.total}`} bg={SG.navy} size={12} />
-                </View>
-                <Meter value={view.progress.step / Math.max(1, view.progress.total)} fill={SG.green} label="Tiến độ nhiệm vụ nhập vai" height={8} />
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-                  {view.progress.inventory.map((it) => <Pill key={it.id} text={`Đang mang: ${it.name}`} icon={Hand} bg="#fff3c9" fg="#7a5a00" size={12} />)}
-                  <Pill text={`Gợi ý đã xem: ${view.progress.hints}`} bg={s.card2} fg={s.ink} size={12} />
-                  <Pill text={`Sai: ${view.progress.mistakes}`} bg={s.card2} fg={s.ink} size={12} />
-                  <View style={{ flex: 1 }} />
-                  <GameBtn title="Xem lại manh mối" icon={Lightbulb} tone="white" size="sm" disabled={!cur?.has_clue || locked} onPress={() => { void send({ type: 'hint' }); }} testID="explore-hint" label="Xem lại manh mối (mỗi lần xem được ghi nhận)" />
-                </View>
-              </Panel>
-
-              <View style={{ width: '100%', maxWidth: Math.round(maxH * EXPLORE_ASPECT), alignSelf: 'center' }}>
-                <GameViewport kind="explore" bridge={bridge} aspect={EXPLORE_ASPECT} label={`Cảnh nhập vai: ${view.title}`} />
-                {near && !locked && !hasTalk ? (
-                  <View style={{ position: 'absolute', left: 0, right: 0, bottom: 10, alignItems: 'center' }} pointerEvents="box-none">
-                    <GameBtn title={near.target.startsWith('item:') ? `Nhặt ${near.name}` : `Nói chuyện với ${near.name}`} icon={Hand} tone="yellow" onPress={() => bridge.emit('explore:press')} testID="explore-interact" label={`${near.target.startsWith('item:') ? 'Nhặt' : 'Nói chuyện với'} ${near.name} (phím E)`} style={{ alignSelf: 'center' }} />
-                  </View>
-                ) : null}
-                {over && hasTalk ? <View style={{ position: 'absolute', left: 10, right: 10, bottom: 10 }}>{talk}</View> : null}
-              </View>
-
-              <Flash text={flash} tone="info" />
-              {!over && hasTalk ? talk : (
-                <Panel pad={12} style={{ gap: 4 }}>
-                  <Txt f="bold" size={14} color={s.ink}>{view.intro}</Txt>
-                  <Txt size={13} color={s.sub}>Đi lại: phím W A S D hoặc phím mũi tên, hoặc chạm vào nơi muốn tới. Tương tác: tới gần rồi nhấn E / Enter, hoặc bấm nút hiện trên cảnh.</Txt>
-                  <Txt size={13} color={s.sub}>Nhân vật em điều khiển và các nhân vật phụ trong cảnh là hư cấu; lời kể lịch sử lấy từ nội dung đã kiểm chứng của chặng.</Txt>
-                </Panel>
-              )}
-            </>
-          )}
-        </View>
-      </ScrollView>
-      {finished && !talking ? (
-        <Overlay label="Hoàn thành nhiệm vụ nhập vai" testID="explore-done">
-          <Panel style={{ alignItems: 'center', gap: 10, overflow: 'hidden' }}>
-            <Confetti />
-            <TieuTuongArt size={92} cheer />
-            <Txt f="heavy" size={24} color={SG.greenEdge} center accessibilityRole="header">Hoàn thành nhiệm vụ!</Txt>
-            <Txt f="semibold" size={15} color={s.sub} center>Em đã xem lại manh mối {finished.hints} lần và nhầm {finished.mistakes} lần.</Txt>
-            {finished.xp ? <Pill text={`+${finished.xp} điểm kinh nghiệm`} icon={Sparkles} bg={SG.purple} style={{ alignSelf: 'center' }} /> : null}
-            {finished.suggest_review ? <Txt size={14} color={s.sub} center>Chặng này được đánh dấu “Cần ôn” vì em phải xem gợi ý hoặc sai nhiều lần. Ôn lại để nhớ chắc hơn nhé.</Txt> : null}
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
-              <GameBtn title="Xem tổng kết" icon={Sparkles} tone="yellow" size="lg" onPress={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'tong-ket' }, 'replace')} testID="explore-summary" />
-              <GameBtn title="Chơi lại cảnh" icon={RotateCcw} tone="white" size="lg" onPress={() => { restart.current = true; setRound((n) => n + 1); }} testID="explore-replay" />
+    <SagaPage testID="saga-explore" max={1060} scrollRef={scroller}>
+      <SagaHeader title={view ? view.title : 'Nhập vai khám phá'} subtitle={view?.stage ? `Nhập vai khám phá · ${view.stage.title} · ${view.stage.date_label}` : 'Nhập vai khám phá'}
+        back={{ label: 'Thông tin chặng', hint: 'Về bảng thông tin chặng', onPress: back }} />
+      {!view ? <LoadState loading={loading} error={error} onRetry={() => setRound((n) => n + 1)} /> : (
+        <>
+          <Box style={{ gap: 8 }} testID="explore-goal">
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Target size={18} color={c.son} />
+              <Txt f="bold" size={15} style={{ flex: 1 }} accessibilityLiveRegion="polite">{cur ? cur.goal : 'Đã hoàn thành nhiệm vụ ở cảnh này.'}</Txt>
+              <Chip text={`Bước ${Math.min(view.progress.step + 1, view.progress.total)}/${view.progress.total}`} bg={c.adminCanvas} fg={c.muc} />
             </View>
-          </Panel>
-        </Overlay>
+            <Meter value={view.progress.step / Math.max(1, view.progress.total)} color={c.moc} label="Tiến độ nhiệm vụ nhập vai" height={6} />
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+              {view.progress.inventory.map((it) => <Chip key={it.id} text={`Đang mang: ${it.name}`} icon={Hand} bg={c.vangNhat} fg={c.vangChu} />)}
+              <Chip text={`Gợi ý đã xem: ${view.progress.hints}`} bg={c.adminCanvas} fg={c.muc2} />
+              <Chip text={`Sai: ${view.progress.mistakes}`} bg={c.adminCanvas} fg={c.muc2} />
+              <View style={{ flex: 1 }} />
+              <Btn title="Xem lại manh mối" icon={Lightbulb} tone="giay" size="sm" disabled={!cur?.has_clue || locked} onPress={() => { void send({ type: 'hint' }); }} testID="explore-hint" label="Xem lại manh mối (mỗi lần xem được ghi nhận)" />
+            </View>
+          </Box>
+
+          <View style={{ width: '100%', maxWidth: Math.round(maxH * EXPLORE_ASPECT), alignSelf: 'center' }}>
+            <GameViewport kind="explore" bridge={bridge} aspect={EXPLORE_ASPECT} label={`Cảnh nhập vai: ${view.title}`} />
+            {near && !locked && !hasTalk ? (
+              <View style={{ position: 'absolute', left: 0, right: 0, bottom: 10, alignItems: 'center' }} pointerEvents="box-none">
+                <Btn title={near.target.startsWith('item:') ? `Nhặt ${near.name}` : `Nói chuyện với ${near.name}`} icon={Hand} tone="son" onPress={() => bridge.emit('explore:press')} testID="explore-interact" label={`${near.target.startsWith('item:') ? 'Nhặt' : 'Nói chuyện với'} ${near.name} (phím E)`} style={{ alignSelf: 'center' }} />
+              </View>
+            ) : null}
+            {over && hasTalk ? <View style={{ position: 'absolute', left: 10, right: 10, bottom: 10 }}>{talk}</View> : null}
+          </View>
+
+          <Flash text={flash} tone="info" />
+          {!over && hasTalk ? talk : (
+            <Box style={{ gap: 4 }}>
+              <Txt f="semibold" size={14}>{view.intro}</Txt>
+              <Txt size={13} color={c.muc2}>Đi lại: phím W A S D hoặc phím mũi tên, hoặc chạm vào nơi muốn tới. Tương tác: tới gần rồi nhấn E / Enter, hoặc bấm nút hiện trên cảnh.</Txt>
+              <Txt size={13} color={c.muc2}>Nhân vật em điều khiển và các nhân vật phụ trong cảnh là hư cấu; lời kể lịch sử lấy từ nội dung đã kiểm chứng của chặng.</Txt>
+            </Box>
+          )}
+        </>
+      )}
+      {finished && !talking ? (
+        <Sheet open persistent onClose={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'tong-ket' }, 'replace')} title="Hoàn thành nhiệm vụ nhập vai" subtitle={view?.title}
+          footer={<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'flex-end' }}>
+            <Btn title="Chơi lại cảnh" icon={RotateCcw} tone="giay" onPress={() => { restart.current = true; setRound((n) => n + 1); }} testID="explore-replay" />
+            <Btn title="Xem tổng kết" icon={Sparkles} tone="son" onPress={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'tong-ket' }, 'replace')} testID="explore-summary" />
+          </View>}>
+          <View style={{ gap: 10 }} testID="explore-done">
+            <Txt size={15}>Em đã xem lại manh mối {finished.hints} lần và nhầm {finished.mistakes} lần.</Txt>
+            {finished.xp ? <Chip text={`+${finished.xp} điểm kinh nghiệm`} icon={Sparkles} bg={c.thongNhat} fg={c.thongChu} /> : null}
+            {finished.suggest_review ? <InfoNote>Chặng này được đánh dấu “Cần ôn” vì em phải xem gợi ý hoặc sai nhiều lần. Ôn lại để nhớ chắc hơn nhé.</InfoNote> : null}
+          </View>
+        </Sheet>
       ) : null}
-    </View>
+    </SagaPage>
   );
 };
 
 // ---------------------------------------------------------------------- trận đánh: nạp phiên rồi mở đúng kiểu trận
 export const BattleScreen: React.FC<StageProps> = (p) => {
   const { session, nav, stageId, campaignNo } = p;
-  const s = useSaga();
   const [sess, setSess] = useState<BattleSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -250,13 +242,11 @@ export const BattleScreen: React.FC<StageProps> = (p) => {
   const again = useCallback((fresh: boolean): void => { restart.current = fresh; setRound((n) => n + 1); }, []);
   if (!sess) {
     return (
-      <View style={{ flex: 1, backgroundColor: s.dark ? '#0d1730' : '#e3f2ff', padding: 16, alignItems: 'center' }} testID="saga-battle">
-        <View style={{ width: '100%', maxWidth: 820, gap: 12 }}>
-          <ScreenHead title="Trận đánh" onBack={() => nav.back('chien-dich', { c: campaignNo, s: stageId, v: null })} backLabel="Về bảng thông tin chặng" />
-          <LoadState loading={loading} error={error} onRetry={() => again(false)} />
-          {error ? <GameBtn title="Vào phần nhập vai" icon={Footprints} tone="red" onPress={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'kham-pha' }, 'replace')} testID="battle-to-explore" style={{ alignSelf: 'center' }} /> : null}
-        </View>
-      </View>
+      <SagaPage testID="saga-battle" max={900}>
+        <SagaHeader title="Trận đánh" back={{ label: 'Thông tin chặng', hint: 'Về bảng thông tin chặng', onPress: () => nav.back('chien-dich', { c: campaignNo, s: stageId, v: null }) }} />
+        <LoadState loading={loading} error={error} onRetry={() => again(false)} />
+        {error ? <Btn title="Vào phần nhập vai" icon={Footprints} tone="son" onPress={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'kham-pha' }, 'replace')} testID="battle-to-explore" /> : null}
+      </SagaPage>
     );
   }
   return sess.mode === 'bachdang'
@@ -266,55 +256,46 @@ export const BattleScreen: React.FC<StageProps> = (p) => {
 
 type HostProps<V> = StageProps & { initial: BattleSession & V; onAgain: (fresh: boolean) => void };
 
-const ResultPanel: React.FC<{ finished: BattleFinished; reasonText: string | null; tips: string[]; onContinue: () => void; onRetry: () => void; onLesson: () => void; onStage: () => void }> = ({ finished, reasonText, tips, onContinue, onRetry, onLesson, onStage }) => (
-  <Overlay label={finished.won ? 'Chiến thắng' : 'Trận đánh chưa thắng'} testID="battle-result" maxWidth={560}>
-    <View style={{ borderRadius: 26, overflow: 'hidden', borderWidth: 4, borderColor: finished.won ? SG.yellow : '#9aa5bd' }}>
-      <Sunburst color={finished.won ? '#1f6fbf' : '#39435f'} ray={finished.won ? '#2a82d6' : '#434e6e'} size={1000} />
-      {finished.won ? <Confetti /> : null}
-      <ScrollView contentContainerStyle={{ alignItems: 'center', padding: 20, gap: 10 }}>
-        <Txt f="heavy" size={34} color={finished.won ? SG.yellow : '#ffffff'} center accessibilityRole="header">{finished.won ? 'CHIẾN THẮNG!' : 'CHƯA THẮNG'}</Txt>
-        {finished.won ? <StarRow n={finished.stars} size={38} dim="rgba(255,255,255,0.3)" /> : null}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-          <Pill text={`${num(finished.score)} điểm trận`} icon={Swords} bg="#ffffff" fg="#1e2a4a" size={15} />
-          {finished.xp ? <Pill text={`+${finished.xp} điểm kinh nghiệm`} icon={Sparkles} bg={SG.purple} size={15} /> : null}
+const ResultSheet: React.FC<{ finished: BattleFinished; reasonText: string | null; tips: string[]; onContinue: () => void; onRetry: () => void; onLesson: () => void; onStage: () => void }> = ({ finished, reasonText, tips, onContinue, onRetry, onLesson, onStage }) => {
+  const { c } = useTheme();
+  const list = (title: string, items: string[], color: string, testID?: string): React.ReactElement => (
+    <Inset style={{ gap: 4 }}>
+      <View testID={testID} style={{ gap: 4 }}>
+        <Txt f="bold" size={12} color={color} upper>{title}</Txt>
+        {items.map((t) => <Txt key={t} size={14}>• {t}</Txt>)}
+      </View>
+    </Inset>
+  );
+  return (
+    <Sheet open persistent onClose={onStage} title={finished.won ? 'Chiến thắng!' : 'Trận đánh chưa thắng'}
+      footer={<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
+        <Btn title="Về chặng" tone="giay" onPress={onStage} testID="battle-stage" />
+        {finished.won ? <Btn title="Đánh lại" icon={RotateCcw} tone="giay" onPress={onRetry} testID="battle-retry" /> : <Btn title="Xem lại thẻ kiến thức" icon={BookOpen} tone="giay" onPress={onLesson} testID="battle-lesson" />}
+        {finished.won ? <Btn title="Tiếp tục nhiệm vụ" icon={Play} tone="son" onPress={onContinue} testID="battle-continue" /> : <Btn title="Đánh lại" icon={RotateCcw} tone="son" onPress={onRetry} testID="battle-retry" />}
+      </View>}>
+      <View style={{ gap: 12 }} testID="battle-result">
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          {finished.won ? <StarRow n={finished.stars} size={26} /> : null}
+          <Chip text={`${num(finished.score)} điểm trận`} icon={Swords} bg={c.adminCanvas} fg={c.muc} />
+          {finished.xp ? <Chip text={`+${finished.xp} điểm kinh nghiệm`} icon={Sparkles} bg={c.thongNhat} fg={c.thongChu} /> : null}
         </View>
-        {reasonText ? <Txt f="heavy" size={15} color="#ffe9a8" center>{reasonText}</Txt> : null}
-        <Txt size={15} color="#ffffff" center>{finished.text}</Txt>
-        {finished.good?.length ? (
-          <View style={{ alignSelf: 'stretch', backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: 14, padding: 12, gap: 4 }}>
-            <Txt f="heavy" size={14} color="#bff5c8">LÀM TỐT</Txt>
-            {finished.good.map((g) => <Txt key={g} size={14} color="#ffffff">• {g}</Txt>)}
-          </View>
-        ) : null}
-        {finished.mistakes?.length ? (
-          <View style={{ alignSelf: 'stretch', backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: 14, padding: 12, gap: 4 }} testID="battle-mistakes">
-            <Txt f="heavy" size={14} color="#ffd0c2">{finished.won ? 'CÒN CÓ THỂ TỐT HƠN' : 'VÌ SAO CHƯA THẮNG'}</Txt>
-            {finished.mistakes.map((m) => <Txt key={m.code} size={14} color="#ffffff">• {m.text}</Txt>)}
-          </View>
-        ) : null}
-        {!finished.won && tips.length ? (
-          <View style={{ alignSelf: 'stretch', backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: 14, padding: 12, gap: 4 }}>
-            <Txt f="heavy" size={14} color="#ffe9a8">GỢI Ý</Txt>
-            {tips.map((t) => <Txt key={t} size={14} color="#ffffff">• {t}</Txt>)}
-          </View>
-        ) : null}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center', marginTop: 4 }}>
-          {finished.won ? <GameBtn title="Tiếp tục nhiệm vụ" icon={Play} tone="yellow" size="lg" onPress={onContinue} testID="battle-continue" /> : <GameBtn title="Đánh lại" icon={RotateCcw} tone="yellow" size="lg" onPress={onRetry} testID="battle-retry" />}
-          {finished.won ? <GameBtn title="Đánh lại" icon={RotateCcw} tone="white" onPress={onRetry} testID="battle-retry" /> : <GameBtn title="Xem lại thẻ kiến thức" icon={BookOpen} tone="white" onPress={onLesson} testID="battle-lesson" />}
-          <GameBtn title="Về chặng" tone="white" onPress={onStage} testID="battle-stage" />
-        </View>
-      </ScrollView>
-    </View>
-  </Overlay>
-);
+        {reasonText ? <Txt f="bold" size={15} color={finished.won ? c.mocChu : c.sonChu}>{reasonText}</Txt> : null}
+        <Txt size={15}>{finished.text}</Txt>
+        {finished.good?.length ? list('Làm tốt', finished.good, c.mocChu) : null}
+        {finished.mistakes?.length ? list(finished.won ? 'Còn có thể tốt hơn' : 'Vì sao chưa thắng', finished.mistakes.map((m) => m.text), c.sonChu, 'battle-mistakes') : null}
+        {!finished.won && tips.length ? list('Gợi ý', tips, c.vangChu) : null}
+      </View>
+    </Sheet>
+  );
+};
 
 const LogBox: React.FC<{ lines: string[] }> = ({ lines }) => {
-  const s = useSaga();
+  const { c } = useTheme();
   return (
-    <Panel pad={12} style={{ gap: 3, minHeight: 96 }}>
-      <Txt f="heavy" size={13} color={s.sub}>DIỄN BIẾN</Txt>
-      {lines.length ? lines.slice(-7).map((l, i) => <Txt key={`${i}${l}`} size={13} color={s.ink}>{l}</Txt>) : <Txt size={13} color={s.sub}>Chưa có diễn biến nào.</Txt>}
-    </Panel>
+    <Box style={{ gap: 3, minHeight: 96 }}>
+      <Txt f="bold" size={12} color={c.muc3} upper>Diễn biến</Txt>
+      {lines.length ? lines.slice(-7).map((l, i) => <Txt key={`${i}${l}`} size={13}>{l}</Txt>) : <Txt size={13} color={c.muc3}>Chưa có diễn biến nào.</Txt>}
+    </Box>
   );
 };
 
@@ -337,24 +318,25 @@ function tacticsLine(e: TacticsEvent, name: (id?: string) => string): string | n
 }
 
 const UnitCard: React.FC<{ u: TacticsUnit; title: string }> = ({ u, title }) => {
-  const s = useSaga();
+  const { c } = useTheme();
+  const ally = u.side === 'ally';
   return (
-    <Panel pad={12} style={{ gap: 4 }} tone={u.side === 'ally' ? SG.green : SG.red}>
-      <Txt f="heavy" size={12} color={s.sub}>{title}</Txt>
+    <Box style={{ gap: 4, borderLeftWidth: 4, borderLeftColor: ally ? c.moc : c.son }}>
+      <Txt f="bold" size={12} color={c.muc3} upper>{title}</Txt>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <Txt f="heavy" size={17} color={s.ink}>{u.name}</Txt>
-        <Pill text={`${u.cls_label} · ${u.row === 'front' ? 'hàng trước' : 'hàng sau'}`} bg={u.side === 'ally' ? SG.green : SG.red} size={11} />
+        <Txt f="bold" size={16}>{u.name}</Txt>
+        <Chip text={`${u.cls_label} · ${u.row === 'front' ? 'hàng trước' : 'hàng sau'}`} bg={ally ? c.mocNhat : c.sonNhat} fg={ally ? c.mocChu : c.sonChu} />
       </View>
-      <Meter value={u.hp / Math.max(1, u.max_hp)} fill={u.side === 'ally' ? SG.green : SG.red} label={`Sinh lực của ${u.name}`} height={10} />
-      <Txt f="semibold" size={13} color={s.ink}>Sinh lực {u.hp}/{u.max_hp} · Công {u.atk} · Thủ {u.def} · Nhanh {u.spd}{u.ranged ? ' · bắn xa' : ''}</Txt>
-      {u.skill ? <Txt size={13} color={s.sub}>Kỹ năng “{u.skill.name}” (tốn {u.skill.cost} lương{u.cd > 0 ? `, còn hồi ${u.cd} vòng` : ''}): {u.skill.text}</Txt> : null}
-      {u.guard || u.burn > 0 || u.fx.length ? <Txt size={13} color={s.sub}>Trạng thái: {[u.guard ? 'đang phòng thủ' : null, u.burn > 0 ? 'đang cháy' : null, ...u.fx.map((f) => FX_TEXT[f] ?? f)].filter(Boolean).join(', ')}</Txt> : null}
-    </Panel>
+      <Meter value={u.hp / Math.max(1, u.max_hp)} color={ally ? c.moc : c.son} label={`Sinh lực của ${u.name}`} />
+      <Txt f="semibold" size={13}>Sinh lực {u.hp}/{u.max_hp} · Công {u.atk} · Thủ {u.def} · Nhanh {u.spd}{u.ranged ? ' · bắn xa' : ''}</Txt>
+      {u.skill ? <Txt size={13} color={c.muc2}>Kỹ năng “{u.skill.name}” (tốn {u.skill.cost} lương{u.cd > 0 ? `, còn hồi ${u.cd} vòng` : ''}): {u.skill.text}</Txt> : null}
+      {u.guard || u.burn > 0 || u.fx.length ? <Txt size={13} color={c.muc2}>Trạng thái: {[u.guard ? 'đang phòng thủ' : null, u.burn > 0 ? 'đang cháy' : null, ...u.fx.map((f) => FX_TEXT[f] ?? f)].filter(Boolean).join(', ')}</Txt> : null}
+    </Box>
   );
 };
 
 const TacticsHost: React.FC<HostProps<TacticsView>> = ({ session, nav, stageId, campaignNo, initial, onAgain }) => {
-  const s = useSaga();
+  const { c } = useTheme();
   const { height, width } = useWindowDimensions();
   const bridge = useMemo(() => { const b = new GameBridge(); b.set('tactics:view', initial); return b; }, [initial]);
   const ctx = useLatest({ session, nav, onAgain });
@@ -443,98 +425,96 @@ const TacticsHost: React.FC<HostProps<TacticsView>> = ({ session, nav, stageId, 
 
   const shown = inspect ? view.units.find((u) => u.id === inspect) ?? null : null;
   const stage = { c: campaignNo, s: stageId };
-  // Màn rộng: chiến trường bên trái, bảng lệnh và thẻ đơn vị bên phải nên lệnh luôn trong tầm nhìn; màn hẹp: xếp dọc, chiến trường thấp để lệnh nằm ngay dưới
-  const wide = width >= 1000;
-  const maxH = wide ? Math.max(260, height - 215) : Math.max(180, height - 430);
-  const fieldW = wide ? Math.round(Math.min(Math.min(width - 24, 1320) - 330, maxH * TACTICS_ASPECT)) : undefined;
+  // Màn rộng: chiến trường bên trái, bảng lệnh và thẻ đơn vị bên phải nên lệnh luôn trong tầm nhìn; màn hẹp: xếp dọc, chiến trường thấp để lệnh nằm ngay dưới.
+  // Khung học sinh có thanh menu bên trái (từ 1000 px) nên bề ngang dành cho trang hẹp hơn cửa sổ khoảng 250 px.
+  const pageW = Math.min(width >= 1000 ? width - 280 : width - 32, 1320);
+  const wide = pageW >= 900;
+  const maxH = wide ? Math.max(260, height - 260) : Math.max(180, height - 430);
+  const fieldW = wide ? Math.round(Math.min(pageW - 330, maxH * TACTICS_ASPECT)) : undefined;
   const field = <GameViewport kind="tactics" bridge={bridge} aspect={TACTICS_ASPECT} label={`Chiến trường: ${view.title}`} maxHeight={wide ? undefined : maxH} />;
   const commands = (
-    <Panel style={{ gap: 10 }} testID="tactics-commands">
+    <Box style={{ gap: 10 }} testID="tactics-commands">
       {ask && view.stratagem ? (
         <View style={{ gap: 8 }}>
-          <Txt f="heavy" size={16} color={s.ink}>Mưu kế: {view.stratagem.name}</Txt>
-          <Txt size={14} color={s.sub}>{view.stratagem.text}</Txt>
-          <Txt f="bold" size={15} color={s.ink}>{view.stratagem.prompt}</Txt>
-          {view.stratagem.options.map((o, i) => <GameBtn key={o.id} title={o.text} tone="white" full disabled={busy} onPress={() => { void send({ type: 'stratagem', answer: o.id }); }} testID={`stratagem-${i + 1}`} />)}
-          <GameBtn title="Để sau" icon={X} tone="white" size="sm" onPress={() => setAsk(false)} testID="stratagem-cancel" />
+          <Txt f="bold" size={16}>Mưu kế: {view.stratagem.name}</Txt>
+          <Txt size={14} color={c.muc2}>{view.stratagem.text}</Txt>
+          <Txt f="semibold" size={15}>{view.stratagem.prompt}</Txt>
+          {view.stratagem.options.map((o, i) => <OptionButton key={o.id} badge={String(i + 1)} text={o.text} disabled={busy} onPress={() => { void send({ type: 'stratagem', answer: o.id }); }} label={`Phương án ${i + 1}: ${o.text}`} testID={`stratagem-${i + 1}`} />)}
+          <Btn title="Để sau" icon={X} tone="giay" size="sm" onPress={() => setAsk(false)} testID="stratagem-cancel" />
         </View>
       ) : mode !== 'idle' ? (
         <View style={{ gap: 8 }}>
-          <Txt f="heavy" size={16} color={s.ink}>{mode === 'attack' ? 'Chọn mục tiêu để tấn công' : `Chọn mục tiêu cho “${actor?.skill?.name ?? 'kỹ năng'}”`}</Txt>
-          <Txt size={13} color={s.sub}>Bấm vào đơn vị có vòng đỏ trên chiến trường, hoặc chọn trong danh sách.</Txt>
+          <Txt f="bold" size={16}>{mode === 'attack' ? 'Chọn mục tiêu để tấn công' : `Chọn mục tiêu cho “${actor?.skill?.name ?? 'kỹ năng'}”`}</Txt>
+          <Txt size={13} color={c.muc2}>Bấm vào đơn vị có vòng đỏ trên chiến trường, hoặc chọn trong danh sách (phím 1, 2, 3…).</Txt>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {targets.map((id, i) => { const u = view.units.find((x) => x.id === id); return u ? <GameBtn key={id} title={`${i + 1}. ${u.name} (${u.hp}/${u.max_hp})`} tone={u.side === 'enemy' ? 'red' : 'green'} size="sm" onPress={() => { void send(mode === 'attack' ? { type: 'attack', target: id } : { type: 'skill', target: id }); }} testID={`target-${id}`} /> : null; })}
-            <GameBtn title="Hủy" icon={X} tone="white" size="sm" onPress={() => choose('idle')} testID="target-cancel" />
+            {targets.map((id, i) => { const u = view.units.find((x) => x.id === id); return u ? <Btn key={id} title={`${i + 1}. ${u.name} (${u.hp}/${u.max_hp})`} tone={u.side === 'enemy' ? 'son' : 'giay'} size="sm" onPress={() => { void send(mode === 'attack' ? { type: 'attack', target: id } : { type: 'skill', target: id }); }} testID={`target-${id}`} /> : null; })}
+            <Btn title="Hủy" icon={X} tone="giay" size="sm" onPress={() => choose('idle')} testID="target-cancel" />
           </View>
         </View>
       ) : actor && view.actor ? (
         <View style={{ gap: 8 }}>
-          <Txt f="heavy" size={16} color={s.ink} accessibilityLiveRegion="polite">Lượt của {actor.name} ({actor.cls_label})</Txt>
+          <Txt f="bold" size={16} accessibilityLiveRegion="polite">Lượt của {actor.name} ({actor.cls_label})</Txt>
           <View style={wide ? { gap: 8 } : { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            <GameBtn title="Tấn công" icon={Swords} tone="red" full={wide} disabled={!canAct || !view.actor.attack_targets.length} onPress={() => choose('attack')} testID="cmd-attack" label="Tấn công (phím A)" />
-            <GameBtn title="Phòng thủ (+1 lương)" icon={Shield} tone="blue" full={wide} disabled={!canAct} onPress={() => { void send({ type: 'defend' }); }} testID="cmd-defend" label="Phòng thủ, giảm nửa sát thương và thêm 1 quân lương (phím D)" />
-            {actor.skill && skill ? <GameBtn title={`${actor.skill.name} (−${actor.skill.cost} lương)`} icon={Sparkles} tone="purple" full={wide} disabled={!canAct || !skill.usable} onPress={castSkill} testID="cmd-skill" label={`Kỹ năng ${actor.skill.name} (phím S)${skill.why ? `: ${skill.why}` : ''}`} /> : null}
-            {view.stratagem?.state === 'ready' ? <GameBtn title={`Mưu kế: ${view.stratagem.name}`} icon={Lightbulb} tone="yellow" full={wide} disabled={!canAct} onPress={() => setAsk(true)} testID="cmd-stratagem" /> : null}
+            <Btn title="Tấn công" icon={Swords} tone="son" full={wide} disabled={!canAct || !view.actor.attack_targets.length} onPress={() => choose('attack')} testID="cmd-attack" label="Tấn công (phím A)" />
+            <Btn title="Phòng thủ (+1 lương)" icon={Shield} tone="giay" full={wide} disabled={!canAct} onPress={() => { void send({ type: 'defend' }); }} testID="cmd-defend" label="Phòng thủ, giảm nửa sát thương và thêm 1 quân lương (phím D)" />
+            {actor.skill && skill ? <Btn title={`${actor.skill.name} (−${actor.skill.cost} lương)`} icon={Sparkles} tone="giay" full={wide} disabled={!canAct || !skill.usable} onPress={castSkill} testID="cmd-skill" label={`Kỹ năng ${actor.skill.name} (phím S)${skill.why ? `: ${skill.why}` : ''}`} /> : null}
+            {view.stratagem?.state === 'ready' ? <Btn title={`Mưu kế: ${view.stratagem.name}`} icon={Lightbulb} tone="giay" full={wide} disabled={!canAct} onPress={() => setAsk(true)} testID="cmd-stratagem" /> : null}
           </View>
-          {skill && !skill.usable && skill.why ? <Txt size={13} color={s.sub}>Kỹ năng: {skill.why}</Txt> : null}
+          {skill && !skill.usable && skill.why ? <Txt size={13} color={c.muc2}>Kỹ năng: {skill.why}</Txt> : null}
         </View>
       ) : (
-        <Txt f="bold" size={15} color={s.sub}>{view.status === 'active' ? 'Đang diễn ra lượt đánh…' : 'Trận đánh đã kết thúc.'}</Txt>
+        <Txt f="semibold" size={15} color={c.muc2}>{view.status === 'active' ? 'Đang diễn ra lượt đánh…' : 'Trận đánh đã kết thúc.'}</Txt>
       )}
-    </Panel>
+    </Box>
   );
   const cards = (
     <>
-      {actor ? <UnitCard u={actor} title="ĐANG RA LỆNH" /> : null}
-      {shown && shown.id !== actor?.id ? <UnitCard u={shown} title="ĐANG XEM" /> : null}
+      {actor ? <UnitCard u={actor} title="Đang ra lệnh" /> : null}
+      {shown && shown.id !== actor?.id ? <UnitCard u={shown} title="Đang xem" /> : null}
     </>
   );
   return (
-    <View style={{ flex: 1, backgroundColor: s.dark ? '#0d1730' : '#e3f2ff' }} testID="saga-battle">
-      <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 40, alignItems: 'center' }}>
-        <View style={{ width: '100%', maxWidth: 1320, gap: 10 }}>
-          <ScreenHead title={view.title} subtitle={view.objective_text} onBack={() => nav.go('chien-dich', { ...stage, v: 'kham-pha' }, 'replace')} backLabel="Rời trận, về phần nhập vai" />
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-            <Pill text={`Vòng ${view.round}/${view.max_rounds}`} bg={SG.navy} />
-            <Pill text={`Quân lương: ${view.supply.ally}`} icon={Wheat} bg="#fff3c9" fg="#7a5a00" />
-            <Pill text={`Hiểu bài ${view.knowledge}%${view.knowledge >= 90 ? ': +2 lương, +10% sức đánh' : view.knowledge >= 70 ? ': +1 lương' : ''}`} icon={BookOpen} bg={s.card} fg={s.ink} />
-            <Txt f="bold" size={12} color={s.sub}>Lượt kế tiếp:</Txt>
-            {view.queue.slice(0, wide ? 6 : 4).map((id, i) => { const u = view.units.find((x) => x.id === id); return u ? <Pill key={`${id}${i}`} text={`${i + 1}. ${u.name}`} bg={u.side === 'ally' ? '#e2f7e6' : '#ffe3e3'} fg={u.side === 'ally' ? '#156b2c' : '#a31f1f'} size={12} /> : null; })}
-          </View>
-          {wide ? (
-            <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-              <View style={{ width: fieldW }}>{field}</View>
-              <View style={{ flex: 1, minWidth: 0, gap: 10 }}>
-                <Flash text={flash} />
-                {commands}
-                {cards}
-              </View>
-            </View>
-          ) : (
-            <>
-              {field}
-              <Flash text={flash} />
-              {commands}
-              {cards}
-            </>
-          )}
-          <View style={{ flexDirection: wide ? 'row' : 'column', gap: 10, alignItems: 'flex-start' }}>
-            <View style={wide ? { flex: 1 } : { alignSelf: 'stretch' }}><LogBox lines={log} /></View>
-            <Panel pad={12} style={[{ gap: 3 }, wide ? { flex: 1 } : { alignSelf: 'stretch' }]}>
-              <Txt f="heavy" size={13} color={s.sub}>BỐI CẢNH VÀ MẸO</Txt>
-              <Txt size={13} color={s.ink}>{view.intro}</Txt>
-              {view.tips.map((t) => <Txt key={t} size={13} color={s.sub}>• {t}</Txt>)}
-              <Txt size={12} color={s.sub}>Chỉ số, sinh lực và kỹ năng là phần sáng tạo của trò chơi để minh họa thế trận; diễn biến lịch sử nằm ở phần tổng kết.</Txt>
-            </Panel>
+    <SagaPage testID="saga-battle" max={1320}>
+      <SagaHeader title={view.title} subtitle={view.objective_text} back={{ label: 'Rời trận', hint: 'Rời trận, về phần nhập vai', onPress: () => nav.go('chien-dich', { ...stage, v: 'kham-pha' }, 'replace') }} />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+        <Chip text={`Vòng ${view.round}/${view.max_rounds}`} bg={c.adminCanvas} fg={c.muc} />
+        <Chip text={`Quân lương: ${view.supply.ally}`} icon={Wheat} bg={c.vangNhat} fg={c.vangChu} />
+        <Chip text={`Hiểu bài ${view.knowledge}%${view.knowledge >= 90 ? ': +2 lương, +10% sức đánh' : view.knowledge >= 70 ? ': +1 lương' : ''}`} icon={BookOpen} bg={c.adminCanvas} fg={c.muc2} />
+        <Txt f="semibold" size={12} color={c.muc3}>Lượt kế tiếp:</Txt>
+        {view.queue.slice(0, wide ? 6 : 4).map((id, i) => { const u = view.units.find((x) => x.id === id); return u ? <Chip key={`${id}${i}`} text={`${i + 1}. ${u.name}`} bg={u.side === 'ally' ? c.mocNhat : c.sonNhat} fg={u.side === 'ally' ? c.mocChu : c.sonChu} /> : null; })}
+      </View>
+      {wide ? (
+        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+          <View style={{ width: fieldW }}>{field}</View>
+          <View style={{ flex: 1, minWidth: 0, gap: 10 }}>
+            <Flash text={flash} />
+            {commands}
+            {cards}
           </View>
         </View>
-      </ScrollView>
+      ) : (
+        <>
+          {field}
+          <Flash text={flash} />
+          {commands}
+          {cards}
+        </>
+      )}
+      <View style={{ flexDirection: wide ? 'row' : 'column', gap: 12, alignItems: 'flex-start' }}>
+        <View style={wide ? { flex: 1 } : { alignSelf: 'stretch' }}><LogBox lines={log} /></View>
+        <Box style={wide ? { gap: 3, flex: 1 } : { gap: 3, alignSelf: 'stretch' }}>
+          <Txt f="bold" size={12} color={c.muc3} upper>Bối cảnh và mẹo</Txt>
+          <Txt size={13}>{view.intro}</Txt>
+          {view.tips.map((t) => <Txt key={t} size={13} color={c.muc2}>• {t}</Txt>)}
+          <Txt size={12} color={c.muc3}>Chỉ số, sinh lực và kỹ năng là phần sáng tạo của trò chơi để minh họa thế trận; diễn biến lịch sử nằm ở phần tổng kết.</Txt>
+        </Box>
+      </View>
       {finished ? (
-        <ResultPanel finished={finished} reasonText={!finished.won ? LOSE_REASON[view.reason ?? ''] ?? null : null} tips={view.tips}
+        <ResultSheet finished={finished} reasonText={!finished.won ? LOSE_REASON[view.reason ?? ''] ?? null : null} tips={view.tips}
           onContinue={() => nav.go('chien-dich', { ...stage, v: 'kham-pha' }, 'replace')} onRetry={() => onAgain(true)}
           onLesson={() => nav.go('chien-dich', { ...stage, v: 'hoc' }, 'replace')} onStage={() => nav.go('chien-dich', { ...stage, v: null }, 'replace')} />
       ) : null}
-    </View>
+    </SagaPage>
   );
 };
 
@@ -542,7 +522,6 @@ const TacticsHost: React.FC<HostProps<TacticsView>> = ({ session, nav, stageId, 
 const BD_STATE: Record<BdUnit['state'], string> = { wait: 'chưa tới', free: 'cơ động', slow: 'mắc cạn', stuck: 'vướng cọc', sunk: 'đã chìm', escaped: 'đã thoát', blocked: 'bị cọc chắn' };
 const PHASES: Array<{ id: 'prepare' | 'lure' | 'counter'; label: string }> = [{ id: 'prepare', label: 'Đóng cọc lòng sông' }, { id: 'lure', label: 'Nhử địch vào trận' }, { id: 'counter', label: 'Phản công khi nước rút' }];
 const TIDE_ICON = [ArrowDown, Minus, ArrowUp];
-const TIDE_COLOR = ['#f4b942', '#7fbdf0', '#2f7fd8'];
 const sameCell = (a: XY, x: number, y: number): boolean => a[0] === x && a[1] === y;
 
 function bdLine(e: BdEvent, name: (id?: string) => string): string | null {
@@ -567,7 +546,7 @@ function bdLine(e: BdEvent, name: (id?: string) => string): string | null {
 }
 
 const BachDangHost: React.FC<HostProps<BdView>> = ({ session, nav, stageId, campaignNo, initial, onAgain }) => {
-  const s = useSaga();
+  const { c } = useTheme();
   const { height, width } = useWindowDimensions();
   const bridge = useMemo(() => { const b = new GameBridge(); b.set('bd:view', initial); b.set('bd:mode', { kind: initial.phase === 'prepare' ? 'stake' : initial.phase === 'lure' ? 'lure' : 'none' }); return b; }, [initial]);
   const ctx = useLatest({ session, nav, onAgain });
@@ -627,7 +606,7 @@ const BachDangHost: React.FC<HostProps<BdView>> = ({ session, nav, stageId, camp
     const v = viewRef.current;
     if (busyRef.current || v.status !== 'active' || !v.options) return;
     if ('stakeable' in v.options) {
-      void send({ type: v.options.removable.some((c) => sameCell(c, p.x, p.y)) ? 'unstake' : 'stake', at: [p.x, p.y] });
+      void send({ type: v.options.removable.some((cc) => sameCell(cc, p.x, p.y)) ? 'unstake' : 'stake', at: [p.x, p.y] });
     } else if ('moves' in v.options) {
       if (v.options.moves.some((m) => sameCell(m.to, p.x, p.y))) void send({ type: 'move', to: [p.x, p.y] });
       else setFlash('Thuyền nhẹ không tới được ô này trong một lượt. Hãy chọn một ô được tô sáng.');
@@ -677,29 +656,31 @@ const BachDangHost: React.FC<HostProps<BdView>> = ({ session, nav, stageId, camp
   const self = sel ? unitOf(sel) : undefined;
   const destMove = picked && dest ? picked.moves.find((m) => sameCell(m.to, dest[0], dest[1])) ?? null : null;
   const TideIcon = TIDE_ICON[view.tide.level] ?? Minus;
+  const tideColor = (level: number): string => [c.tho, c.thuyNhat, c.thuy][level] ?? c.thuy;
   const stage = { c: campaignNo, s: stageId };
   const off = busy || view.status !== 'active';
   // Màn rộng: khúc sông bên trái; con nước, giai đoạn và bảng lệnh bên phải. Màn hẹp: xếp dọc, khúc sông ngay trên bảng lệnh
-  const wide = width >= 1000;
-  const maxH = wide ? Math.max(260, height - 185) : Math.max(180, height - 330);
-  const fieldW = wide ? Math.round(Math.min(Math.min(width - 24, 1320) - 330, maxH * BD_ASPECT)) : undefined;
+  const pageW = Math.min(width >= 1000 ? width - 280 : width - 32, 1320);
+  const wide = pageW >= 900;
+  const maxH = wide ? Math.max(260, height - 230) : Math.max(180, height - 330);
+  const fieldW = wide ? Math.round(Math.min(pageW - 330, maxH * BD_ASPECT)) : undefined;
   const field = <GameViewport kind="bachdang" bridge={bridge} aspect={BD_ASPECT} label="Khúc sông Bạch Đằng chia ô: bấm vào ô để ra lệnh; trên bàn phím dùng phím mũi tên để chọn ô, phím E để ra lệnh" maxHeight={wide ? undefined : maxH} />;
   const tide = (
-    <Panel pad={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} testID="bd-tide">
-      <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: TIDE_COLOR[view.tide.level] ?? SG.blue, alignItems: 'center', justifyContent: 'center' }}><TideIcon size={24} color="#ffffff" strokeWidth={3} /></View>
+    <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} testID="bd-tide">
+      <View style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: view.tide.level === 1 ? c.thuyNhat : tideColor(view.tide.level), alignItems: 'center', justifyContent: 'center' }}><TideIcon size={22} color={view.tide.level === 1 ? c.thuyChu : '#ffffff'} strokeWidth={2.6} /></View>
       <View>
-        <Txt f="heavy" size={12} color={s.sub}>THỦY TRIỀU</Txt>
-        <Txt f="heavy" size={17} color={s.ink} accessibilityLiveRegion="polite">{view.tide.label}</Txt>
+        <Txt f="bold" size={12} color={c.muc3} upper>Thủy triều</Txt>
+        <Txt f="bold" size={16} accessibilityLiveRegion="polite">{view.tide.label}</Txt>
       </View>
-      <View accessible accessibilityLabel={`Dự báo con nước các lượt tới: ${view.tide.forecast.map((f) => f.label).join(', ')}`} style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 44, marginLeft: 6 }}>
+      <View accessible accessibilityLabel={`Dự báo con nước các lượt tới: ${view.tide.forecast.map((f) => f.label).join(', ')}`} style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 42, marginLeft: 6 }}>
         {view.tide.forecast.map((f, i) => (
           <View key={i} style={{ alignItems: 'center', gap: 2 }}>
-            <View style={{ width: 16, height: 10 + f.level * 13, borderRadius: 4, backgroundColor: TIDE_COLOR[f.level] ?? SG.blue, borderWidth: i === 0 ? 2 : 0, borderColor: s.ink }} />
-            <View style={{ width: 8, height: 4, borderRadius: 2, backgroundColor: f.phase === 'counter' ? SG.red : f.phase === 'lure' ? SG.yellow : '#9aa5bd' }} />
+            <View style={{ width: 14, height: 10 + f.level * 12, borderRadius: 3, backgroundColor: f.level === 1 ? c.thuy : tideColor(f.level), opacity: f.level === 1 ? 0.55 : 1, borderWidth: i === 0 ? 2 : 0, borderColor: c.logoInk }} />
+            <View style={{ width: 8, height: 4, borderRadius: 2, backgroundColor: f.phase === 'counter' ? c.son : f.phase === 'lure' ? c.dong : c.muc3 }} />
           </View>
         ))}
       </View>
-    </Panel>
+    </Box>
   );
   const phases = (
     <View accessibilityRole="list" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }} testID="bd-phases">
@@ -707,45 +688,45 @@ const BachDangHost: React.FC<HostProps<BdView>> = ({ session, nav, stageId, camp
         const done = i < phaseIndex, on = i === phaseIndex;
         return (
           <View key={p.id} accessibilityRole="listitem" accessibilityLabel={`Giai đoạn ${i + 1}: ${p.label}${done ? ', đã xong' : on ? ', đang làm' : ''}`}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: on ? SG.yellow : s.card, borderRadius: 999, borderWidth: 2, borderColor: done ? SG.green : on ? SG.yellowEdge : s.line, paddingHorizontal: 10, paddingVertical: 5 }}>
-            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: done ? SG.green : SG.navy, alignItems: 'center', justifyContent: 'center' }}>
-              {done ? <Check size={13} color="#ffffff" strokeWidth={3.6} /> : <Txt f="heavy" size={12} color="#ffffff">{i + 1}</Txt>}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: on ? c.adminTint : c.the, borderRadius: 6, borderWidth: 1, borderColor: done ? c.moc : on ? c.son : c.adminLine, paddingHorizontal: 10, paddingVertical: 5 }}>
+            <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: done ? c.moc : on ? c.son : c.adminCanvas, alignItems: 'center', justifyContent: 'center' }}>
+              {done ? <Check size={13} color="#ffffff" strokeWidth={3} /> : <Txt f="bold" size={12} color={on ? '#ffffff' : c.muc2}>{i + 1}</Txt>}
             </View>
-            <Txt f="heavy" size={13} color={on ? SG.onYellow : s.ink}>{p.label}</Txt>
+            <Txt f={on ? 'bold' : 'semibold'} size={13}>{p.label}</Txt>
           </View>
         );
       })}
     </View>
   );
-  const briefing = view.briefing ? <Panel pad={10} style={{ flexDirection: 'row', gap: 8 }}><Flag size={18} color={SG.red} strokeWidth={2.6} style={{ marginTop: 2 }} /><Txt f="bold" size={14} color={s.ink} style={{ flex: 1 }}>{view.briefing}</Txt></Panel> : null;
+  const briefing = view.briefing ? <Box style={{ flexDirection: 'row', gap: 8 }}><Flag size={17} color={c.son} style={{ marginTop: 2 }} /><Txt f="semibold" size={14} style={{ flex: 1 }}>{view.briefing}</Txt></Box> : null;
   const commands = (
-    <Panel style={{ gap: 10 }} testID="bd-commands">
+    <Box style={{ gap: 10 }} testID="bd-commands">
       {prepare ? (
         <>
-          <Txt f="heavy" size={16} color={s.ink}>{prepare.can_stake ? 'Nước thấp: bấm vào bãi cạn (ô viền xanh) để đóng cọc, bấm lại để nhổ' : 'Nước chưa đủ thấp để đóng cọc: hãy chờ con nước'}</Txt>
-          <Txt size={14} color={s.sub}>Còn {view.stakes_left} cụm cọc · con nước này còn đóng được {view.stakes_turn_left} cụm · còn {prepare.turns_left} lượt chuẩn bị.</Txt>
+          <Txt f="bold" size={16}>{prepare.can_stake ? 'Nước thấp: bấm vào bãi cạn (ô viền xanh) để đóng cọc, bấm lại để nhổ' : 'Nước chưa đủ thấp để đóng cọc: hãy chờ con nước'}</Txt>
+          <Txt size={14} color={c.muc2}>Còn {view.stakes_left} cụm cọc · con nước này còn đóng được {view.stakes_turn_left} cụm · còn {prepare.turns_left} lượt chuẩn bị.</Txt>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            <GameBtn title="Chờ con nước" icon={SkipForward} tone="blue" disabled={off || prepare.turns_left <= 0} onPress={() => { void send({ type: 'wait' }); }} testID="bd-wait" />
-            <GameBtn title="Sẵn sàng nhử địch" icon={Check} tone="green" disabled={off} onPress={() => { void send({ type: 'ready' }); }} testID="bd-ready" />
+            <Btn title="Chờ con nước" icon={SkipForward} tone="giay" disabled={off || prepare.turns_left <= 0} onPress={() => { void send({ type: 'wait' }); }} testID="bd-wait" />
+            <Btn title="Sẵn sàng nhử địch" icon={Check} tone="son" disabled={off} onPress={() => { void send({ type: 'ready' }); }} testID="bd-ready" />
           </View>
         </>
       ) : lure ? (
         <>
-          <Txt f="heavy" size={16} color={s.ink}>Khiêu chiến rồi lui thuyền dẫn địch qua bãi cọc</Txt>
-          <Txt size={14} color={s.sub}>Bấm ô vàng để lui thuyền nhẹ; ô đỏ là nơi sẽ bị đánh trúng. Bóng mờ cho biết thuyền địch sẽ tới đâu sau lượt đó. Thuyền địch bám theo vệt nước của thuyền nhẹ. Còn {lure.turns_left} lượt nước cao.</Txt>
+          <Txt f="bold" size={16}>Khiêu chiến rồi lui thuyền dẫn địch qua bãi cọc</Txt>
+          <Txt size={14} color={c.muc2}>Bấm ô vàng để lui thuyền nhẹ; ô đỏ là nơi sẽ bị đánh trúng. Bóng mờ cho biết thuyền địch sẽ tới đâu sau lượt đó. Thuyền địch bám theo vệt nước của thuyền nhẹ. Còn {lure.turns_left} lượt nước cao.</Txt>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            <GameBtn title="Khiêu chiến" icon={Flame} tone="red" disabled={off || !lure.provoke} onPress={() => { void send({ type: 'provoke' }); }} testID="bd-provoke" label={lure.provoke ? 'Khiêu chiến các thuyền địch trong tầm' : 'Khiêu chiến: chưa có thuyền địch trong tầm hoặc cả đoàn đã đuổi theo'} />
-            <GameBtn title="Chờ một lượt" icon={SkipForward} tone="blue" disabled={off} onPress={() => { void send({ type: 'wait' }); }} testID="bd-wait" />
+            <Btn title="Khiêu chiến" icon={Flame} tone="son" disabled={off || !lure.provoke} onPress={() => { void send({ type: 'provoke' }); }} testID="bd-provoke" label={lure.provoke ? 'Khiêu chiến các thuyền địch trong tầm' : 'Khiêu chiến: chưa có thuyền địch trong tầm hoặc cả đoàn đã đuổi theo'} />
+            <Btn title="Chờ một lượt" icon={SkipForward} tone="giay" disabled={off} onPress={() => { void send({ type: 'wait' }); }} testID="bd-wait" />
           </View>
         </>
       ) : counter ? (
         <>
-          <Txt f="heavy" size={16} color={s.ink}>{picked && self ? (destMove ? `Lệnh cho ${self.name} tại ô đã chọn` : `${self.name}: bấm ô vàng / cam để tiến (ô cam áp sát được thuyền địch)`) : 'Chọn một cánh quân rồi ra lệnh'}</Txt>
-          <Txt size={14} color={s.sub}>Đánh áp mạn thuyền đang vướng cọc gây thêm một nửa sát thương; bè lửa chỉ trúng thuyền đã vướng cọc hoặc mắc cạn. Còn {counter.turns_left} lượt nước ròng.</Txt>
+          <Txt f="bold" size={16}>{picked && self ? (destMove ? `Lệnh cho ${self.name} tại ô đã chọn` : `${self.name}: bấm ô vàng / cam để tiến (ô cam áp sát được thuyền địch)`) : 'Chọn một cánh quân rồi ra lệnh'}</Txt>
+          <Txt size={14} color={c.muc2}>Đánh áp mạn thuyền đang vướng cọc gây thêm một nửa sát thương; bè lửa chỉ trúng thuyền đã vướng cọc hoặc mắc cạn. Còn {counter.turns_left} lượt nước ròng.</Txt>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {view.units.filter((u) => u.side === 'ally').map((u) => {
               const can = counter.allies.some((a) => a.unit === u.id);
-              return <GameBtn key={u.id} title={`${u.name}${u.fire ? ` · ${u.fire} bè lửa` : ''}`} icon={Anchor} tone={sel === u.id ? 'yellow' : 'white'} size="sm" disabled={off || !can} onPress={() => { setSel(u.id); setDest(null); }} testID={`bd-ally-${u.id}`}
+              return <Btn key={u.id} title={`${u.name}${u.fire ? ` · ${u.fire} bè lửa` : ''}`} icon={Anchor} tone={sel === u.id ? 'son' : 'giay'} size="sm" selected={sel === u.id} disabled={off || !can} onPress={() => { setSel(u.id); setDest(null); }} testID={`bd-ally-${u.id}`}
                 label={`${u.name}: ${can ? 'chọn để ra lệnh' : u.acted ? 'đã ra lệnh lượt này' : BD_STATE[u.state]}`} />;
             })}
           </View>
@@ -753,78 +734,76 @@ const BachDangHost: React.FC<HostProps<BdView>> = ({ session, nav, stageId, camp
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {destMove ? (
                 <>
-                  {destMove.attack.map((id) => <GameBtn key={`a${id}`} title={`Đánh ${unitOf(id)?.name ?? ''}`} icon={Swords} tone="red" size="sm" disabled={off} onPress={() => { void send({ type: 'order', unit: picked.unit, to: destMove.to, attack: id }); }} testID={`bd-attack-${id}`} />)}
-                  {destMove.fire.map((id) => <GameBtn key={`f${id}`} title={`Thả bè lửa vào ${unitOf(id)?.name ?? ''}`} icon={Flame} tone="orange" size="sm" disabled={off} onPress={() => { void send({ type: 'order', unit: picked.unit, to: destMove.to, fire: id }); }} testID={`bd-fire-${id}`} />)}
-                  <GameBtn title={self.x === destMove.to[0] && self.y === destMove.to[1] ? 'Giữ vị trí (xong lượt)' : 'Chỉ di chuyển'} tone="white" size="sm" disabled={off} onPress={() => { void send({ type: 'order', unit: picked.unit, to: destMove.to }); }} testID="bd-move-only" />
-                  <GameBtn title="Chọn ô khác" icon={X} tone="white" size="sm" onPress={() => setDest(null)} testID="bd-redo" />
+                  {destMove.attack.map((id) => <Btn key={`a${id}`} title={`Đánh ${unitOf(id)?.name ?? ''}`} icon={Swords} tone="son" size="sm" disabled={off} onPress={() => { void send({ type: 'order', unit: picked.unit, to: destMove.to, attack: id }); }} testID={`bd-attack-${id}`} />)}
+                  {destMove.fire.map((id) => <Btn key={`f${id}`} title={`Thả bè lửa vào ${unitOf(id)?.name ?? ''}`} icon={Flame} tone="son" size="sm" disabled={off} onPress={() => { void send({ type: 'order', unit: picked.unit, to: destMove.to, fire: id }); }} testID={`bd-fire-${id}`} />)}
+                  <Btn title={self.x === destMove.to[0] && self.y === destMove.to[1] ? 'Giữ vị trí (xong lượt)' : 'Chỉ di chuyển'} tone="giay" size="sm" disabled={off} onPress={() => { void send({ type: 'order', unit: picked.unit, to: destMove.to }); }} testID="bd-move-only" />
+                  <Btn title="Chọn ô khác" icon={X} tone="giay" size="sm" onPress={() => setDest(null)} testID="bd-redo" />
                 </>
               ) : (
-                <GameBtn title="Đứng yên tại chỗ" tone="white" size="sm" disabled={off} onPress={() => setDest([self.x, self.y])} testID="bd-stay" />
+                <Btn title="Đứng yên tại chỗ" tone="giay" size="sm" disabled={off} onPress={() => setDest([self.x, self.y])} testID="bd-stay" />
               )}
             </View>
           ) : null}
-          <GameBtn title="Kết thúc lượt" icon={SkipForward} tone="blue" disabled={off} onPress={() => { void send({ type: 'end_turn' }); }} testID="bd-end-turn" />
+          <Btn title="Kết thúc lượt" icon={SkipForward} tone="giay" disabled={off} onPress={() => { void send({ type: 'end_turn' }); }} testID="bd-end-turn" />
         </>
       ) : (
-        <Txt f="bold" size={15} color={s.sub}>{view.status === 'active' ? 'Đang diễn ra…' : 'Trận đánh đã kết thúc.'}</Txt>
+        <Txt f="semibold" size={15} color={c.muc2}>{view.status === 'active' ? 'Đang diễn ra…' : 'Trận đánh đã kết thúc.'}</Txt>
       )}
-    </Panel>
+    </Box>
   );
   return (
-    <View style={{ flex: 1, backgroundColor: s.dark ? '#0d1730' : '#dff1ff' }} testID="saga-bachdang">
-      <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: 40, alignItems: 'center' }}>
-        <View style={{ width: '100%', maxWidth: 1320, gap: 10 }}>
-          <ScreenHead title={view.title} subtitle={view.stage ? `${view.stage.place} · ${view.stage.date_label}` : undefined} onBack={() => nav.go('chien-dich', { ...stage, v: 'kham-pha' }, 'replace')} backLabel="Rời trận, về phần nhập vai" />
-          {wide ? (
-            <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-              <View style={{ width: fieldW }}>{field}</View>
-              <View style={{ flex: 1, minWidth: 0, gap: 10 }}>
-                {tide}
-                {phases}
-                <Flash text={flash} />
-                {commands}
-                {briefing}
-              </View>
-            </View>
-          ) : (
-            <>
-              {tide}
-              {phases}
-              {briefing}
-              {field}
-              <Flash text={flash} />
-              {commands}
-            </>
-          )}
-          <View style={{ flexDirection: wide ? 'row' : 'column', gap: 10, alignItems: 'flex-start' }}>
-        <Panel pad={12} style={[{ gap: 4 }, wide ? { flex: 1 } : { alignSelf: 'stretch' }]} testID="bd-units">
-          <Txt f="heavy" size={13} color={s.sub}>LỰC LƯỢNG</Txt>
-          {view.units.map((u) => (
-            <View key={u.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: u.side === 'ally' ? SG.green : SG.red }} />
-              <Txt f="bold" size={13} color={s.ink} style={{ flex: 1 }} numberOfLines={1}>{u.name}{u.flagship ? ' (thuyền chỉ huy)' : u.key ? ' (chủ lực)' : ''}</Txt>
-              <Txt size={13} color={s.sub}>{u.hp}/{u.max_hp} · {BD_STATE[u.state]}{u.burn > 0 ? ' · đang cháy' : ''}</Txt>
-            </View>
-          ))}
-        </Panel>
-            <View style={[{ gap: 10 }, wide ? { flex: 1 } : { alignSelf: 'stretch' }]}>
-              <LogBox lines={log} />
-              <Panel pad={12} style={{ gap: 4 }}>
-                <Txt f="bold" size={13} color={s.ink}>{view.intro}</Txt>
-                <Txt size={13} color={s.sub}>Chọn ô: bấm hoặc chạm vào khúc sông; trên bàn phím dùng phím mũi tên hoặc W A S D để di chuyển ô chọn, phím E để chọn ô.</Txt>
-                <GameBtn title={rules ? 'Ẩn luật chơi' : 'Xem luật chơi'} icon={BookOpen} tone="white" size="sm" onPress={() => setRules((v) => !v)} testID="bd-rules" />
-                {rules ? view.rules.map((r) => <Txt key={r} size={13} color={s.ink}>• {r}</Txt>) : null}
-                <Txt size={12} color={s.sub}>Lưới ô, số lượt, sinh lực và sát thương là mô hình dạy học của trò chơi, không phải số liệu lịch sử.</Txt>
-              </Panel>
-            </View>
+    <SagaPage testID="saga-bachdang" max={1320}>
+      <SagaHeader title={view.title} subtitle={view.stage ? `${view.stage.place} · ${view.stage.date_label}` : undefined} back={{ label: 'Rời trận', hint: 'Rời trận, về phần nhập vai', onPress: () => nav.go('chien-dich', { ...stage, v: 'kham-pha' }, 'replace') }} />
+      {wide ? (
+        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+          <View style={{ width: fieldW }}>{field}</View>
+          <View style={{ flex: 1, minWidth: 0, gap: 10 }}>
+            {tide}
+            {phases}
+            <Flash text={flash} />
+            {commands}
+            {briefing}
           </View>
         </View>
-      </ScrollView>
+      ) : (
+        <>
+          {tide}
+          {phases}
+          {briefing}
+          {field}
+          <Flash text={flash} />
+          {commands}
+        </>
+      )}
+      <View style={{ flexDirection: wide ? 'row' : 'column', gap: 12, alignItems: 'flex-start' }}>
+        <View style={wide ? { flex: 1 } : { alignSelf: 'stretch' }}>
+          <Box style={{ gap: 4 }} testID="bd-units">
+            <BlockTitle title="Lực lượng" />
+            {view.units.map((u) => (
+              <View key={u.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: u.side === 'ally' ? c.moc : c.son }} />
+                <Txt f="semibold" size={13} style={{ flex: 1 }} numberOfLines={1}>{u.name}{u.flagship ? ' (thuyền chỉ huy)' : u.key ? ' (chủ lực)' : ''}</Txt>
+                <Txt size={13} color={c.muc2}>{u.hp}/{u.max_hp} · {BD_STATE[u.state]}{u.burn > 0 ? ' · đang cháy' : ''}</Txt>
+              </View>
+            ))}
+          </Box>
+        </View>
+        <View style={[{ gap: 10 }, wide ? { flex: 1 } : { alignSelf: 'stretch' }]}>
+          <LogBox lines={log} />
+          <Box style={{ gap: 4 }}>
+            <Txt f="semibold" size={13}>{view.intro}</Txt>
+            <Txt size={13} color={c.muc2}>Chọn ô: bấm hoặc chạm vào khúc sông; trên bàn phím dùng phím mũi tên hoặc W A S D để di chuyển ô chọn, phím E để chọn ô.</Txt>
+            <Btn title={rules ? 'Ẩn luật chơi' : 'Xem luật chơi'} icon={BookOpen} tone="giay" size="sm" onPress={() => setRules((v) => !v)} testID="bd-rules" />
+            {rules ? view.rules.map((r) => <Txt key={r} size={13}>• {r}</Txt>) : null}
+            <Txt size={12} color={c.muc3}>Lưới ô, số lượt, sinh lực và sát thương là mô hình dạy học của trò chơi, không phải số liệu lịch sử.</Txt>
+          </Box>
+        </View>
+      </View>
       {finished ? (
-        <ResultPanel finished={finished} reasonText={finished.won ? `Vướng cọc: ${finished.stranded ?? 0} đoàn thuyền · thoát: ${finished.escaped ?? 0}` : null} tips={[]}
+        <ResultSheet finished={finished} reasonText={finished.won ? `Vướng cọc: ${finished.stranded ?? 0} đoàn thuyền · thoát: ${finished.escaped ?? 0}` : null} tips={[]}
           onContinue={() => nav.go('chien-dich', { ...stage, v: 'kham-pha' }, 'replace')} onRetry={() => onAgain(true)}
           onLesson={() => nav.go('chien-dich', { ...stage, v: 'hoc' }, 'replace')} onStage={() => nav.go('chien-dich', { ...stage, v: null }, 'replace')} />
       ) : null}
-    </View>
+    </SagaPage>
   );
 };

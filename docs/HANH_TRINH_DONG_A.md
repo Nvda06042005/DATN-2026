@@ -12,10 +12,13 @@ Giao diện bám theo các khung hình của video giới thiệu (`HaoKhiDongA_
 | --- | --- |
 | Chiến dịch (`chien-dich`) | Chọn cuộc kháng chiến; bản đồ chiến dịch; bảng thông tin chặng; các bước học, luyện tập, nhập vai, trận đánh, tổng kết |
 | Nhập vai (`nhap-vai`) | Danh sách cảnh nhập vai và trận đánh đã mở để chơi lại |
-| Câu hỏi (`cau-hoi`) | Ôn tập tính giờ: ưu tiên câu từng sai và mục tiêu còn yếu; chuỗi đúng; thanh cấp độ |
+| Câu hỏi ôn tập (`cau-hoi`) | Ôn tập tính giờ: ưu tiên câu từng sai và mục tiêu còn yếu; chuỗi đúng; thanh cấp độ |
 | Tư liệu (`tu-lieu`) | Kho tư liệu: văn bản gốc (mở dần theo chặng), nhân vật, niên biểu, bản đồ; đều ghi nguồn |
 | Bộ thẻ (`bo-the`) | Thẻ nhân vật đã mở, huy chương, bảng xếp hạng tuần của lớp |
-| Trình đơn tài khoản | Hồ sơ, đổi mật khẩu, giao diện sáng / tối, âm thanh (mặc định tắt), Hỏi Tiểu Tướng, Trợ giúp, Khảo sát, Đăng xuất |
+| Hỏi Tiểu Tướng (`hoi`), Khảo sát (`khao-sat`), Trợ giúp (`tro-giup`) | Trợ lý lịch sử có trích nguồn; khảo sát của trường; hướng dẫn và gửi hỗ trợ |
+| Thanh trên cùng | Đường dẫn trang ("tên trường · Học sinh / mục đang mở"), bật / tắt âm thanh trò chơi (mặc định tắt), cài đặt nhắc học, thông báo, hồ sơ, đăng xuất; menu bên trái có Đổi mật khẩu |
+
+**Giao diện (16/11/2026):** trang học sinh dùng chung khung `AdminWorkspace` và bộ thành phần phẳng của quản trị tổng, quản trị trường và giáo viên: menu bên trái (trên điện thoại là nút menu), tiêu đề hai nửa, thẻ viền mảnh, thẻ số liệu, bảng dữ liệu, nút đỏ son / nút giấy, hộp thoại `Sheet`, giao diện sáng. Phần riêng của trò chơi chỉ còn ba cảnh Phaser, chân dung nhân vật, huy chương và màu trạng thái chặng.
 
 Mục đang mở nằm trên URL: `tab`, `c` (cuộc kháng chiến 1–3), `s` (mã số chặng), `v` (bước: `hoc`, `luyen`, `kham-pha`, `tran`, `tong-ket`). Back / Forward / tải lại giữ đúng chỗ. Mở và đóng bảng thông tin chặng, đổi bản đồ không thêm bước vào lịch sử trình duyệt; một bước chơi vừa kết thúc thì bước sau thay thế nó (không quay lại "màn kết quả cũ").
 
@@ -25,7 +28,7 @@ Mục đang mở nằm trên URL: `tab`, `c` (cuộc kháng chiến 1–3), `s` 
 - **Mỗi lệnh có mã riêng và số thứ tự.** `POST /api/saga/sessions/:id/actions` nhận `{ action_id, seq, action }`. Gửi lặp (bấm hai lần, mạng chập chờn) nhận lại đúng kết quả cũ; lệnh lệch trạng thái bị từ chối (409) và giao diện tải lại trạng thái chuẩn.
 - **Phần thưởng chỉ trao một lần.** Điểm và vàng đi qua sổ cái sẵn có của trò chơi hóa (`hk_points` có khóa duy nhất theo `hq:lesson:<id>`, `hq:practice:<id>`, `hq:explore:<id>`, `hq:battle:<id>`, `hq:stage:<id>`, `hq:rv:<câu>:<ngày>`). Làm lại không được thưởng lần hai.
 - **Mức hiểu kiến thức tách khỏi điểm trận đánh.** Sao của chặng tính theo phần luyện tập (đạt ngưỡng: 1 sao, từ 85%: 2 sao, từ 95%: 3 sao); trận đánh có sao và điểm riêng.
-- **Quyền.** Học sinh chỉ đọc nội dung đã công bố và chỉ chạm được phiên, tiến độ của mình; giáo viên xem báo cáo lớp mình phụ trách; quản trị tổng chỉnh bản đồ và nội dung. Bảng dữ liệu người dùng đều bật RLS theo trường (`dong_a_workspace_scope`).
+- **Quyền.** `/api/saga` chỉ dành cho học sinh: học sinh chỉ đọc nội dung đã công bố và chỉ chạm được phiên, tiến độ của mình. Mục Hành trình Đông A của quản trị tổng và giáo viên đã xóa ngày 16/11/2026 (không còn API `/api/saga/admin/*`, `/api/saga/teacher/*`). Bảng dữ liệu người dùng đều bật RLS theo trường (`dong_a_workspace_scope`).
 - **Dữ kiện lịch sử có nguồn; phần sáng tạo ghi rõ.** Thẻ kiến thức, câu hỏi và phần tổng kết dẫn nguồn. Nhân vật em điều khiển, nhân vật phụ, lời thoại, chỉ số và lưới ô của trận đánh là phần sáng tạo, được ghi chú ở cảnh nhập vai, màn trận và màn tổng kết.
 
 ## 3. Kiến trúc
@@ -44,7 +47,7 @@ Mục đang mở nằm trên URL: `tab`, `c` (cuộc kháng chiến 1–3), `s` 
 | `tactics.ts` | Trận đánh theo lượt: binh chủng, khắc chế, hàng trước / sau, quân lương, kỹ năng, mưu kế, máy điều khiển quân địch |
 | `bachdang.ts` | Màn Bạch Đằng 1288: con nước, đóng cọc, nhử địch theo vệt nước, mắc cạn, phản công, kết quả và lời giải thích |
 | `content.ts` | Cấu trúc nội dung một chặng (mục tiêu, thẻ kiến thức, nguồn, cảnh, trận, tổng kết) |
-| `saga.service.ts`, `saga.controller.ts` | Tiến độ, khóa chặng, phiên chơi, lệnh, phần thưởng, ôn tập, bộ thẻ, kho tư liệu, báo cáo lớp, quản trị |
+| `saga.service.ts`, `saga.controller.ts` | Tiến độ, khóa chặng, phiên chơi, lệnh, phần thưởng, ôn tập, bộ thẻ, kho tư liệu |
 
 API chính (đều cần đăng nhập): `GET /api/saga/home`, `GET /campaigns/:no`, `GET /stages/:id`, `GET /stages/:id/lesson`, `POST /stages/:id/lesson/complete`, `POST /stages/:id/practice|explore|battle`, `GET /stages/:id/summary`, `GET /sessions/:id`, `POST /sessions/:id/actions`, `GET /review`, `POST /review/start`, `GET /cards`, `GET /archive` (học sinh); `GET /teacher/classes/:classId` (giáo viên, quản trị trường); `GET /admin/overview`, `GET /admin/stages/:id`, `PUT /admin/maps/:no`, `PUT /admin/stages/:id/position`, `PUT /admin/stages/:id`, `PATCH /admin/stages/:id/status`, `PUT /admin/items/:id` (quản trị tổng).
 
@@ -54,15 +57,14 @@ Thứ tự trong một chặng do máy chủ giữ: luyện tập cần học xo
 
 | Tệp | Vai trò |
 | --- | --- |
-| `components/portal/StudentApp.tsx` | Khung trang: thanh cấp độ, năm mục, trình đơn tài khoản, điều hướng theo URL, màn "Lên cấp" |
-| `components/portal/SagaKit.tsx` | Bộ thành phần chung: màu, nút khối, nền, linh vật Tiểu Tướng, chân dung và huy chương (tranh tự vẽ bằng SVG) |
+| `components/portal/StudentApp.tsx` | Khung trang: `AdminWorkspace` (menu bên trái, thanh trên cùng), điều hướng theo URL, thông báo "Lên cấp" |
+| `components/portal/SagaKit.tsx` | Phần riêng của trò chơi: màu trạng thái chặng và ba cuộc kháng chiến, chân dung và huy chương (tranh tự vẽ bằng SVG), ô phương án, thanh tiến độ, nguồn tham khảo, phím tắt; đầu trang dùng `PageHeader` của trang quản trị |
 | `components/portal/SagaHome.tsx` | Chọn cuộc kháng chiến, bản đồ chiến dịch, bảng thông tin chặng, mục Nhập vai |
 | `components/portal/SagaLearn.tsx` | Thẻ kiến thức, năm mẫu minigame, tổng kết và nhận thưởng |
 | `components/portal/SagaPlay.tsx` | Nhập vai, trận đánh theo lượt, màn Bạch Đằng (nối với game Phaser) |
 | `components/portal/SagaExtras.tsx` | Câu hỏi ôn tập, Bộ thẻ và bảng xếp hạng, Kho tư liệu |
 | `components/portal/GameViewport.web.tsx` | Khung chứa game: **một khung một game Phaser**, nạp động, hủy sạch khi rời màn |
 | `game/*.ts` | Ba cảnh Phaser (nhập vai, chiến trường, khúc sông Bạch Đằng), tranh điểm ảnh vẽ bằng mã, cầu nối sự kiện với React |
-| `components/admin/SagaAdmin.tsx` | Trang quản trị bản đồ và nội dung; báo cáo lớp của giáo viên |
 | `lib/saga-api.ts`, `types/saga.ts`, `lib/saga-sound.ts` | Gọi API, kiểu dữ liệu, âm thanh tổng hợp (mặc định tắt) |
 
 Phaser 3.90 chỉ nằm trong một gói tải riêng (khoảng 1,5 MB), nạp khi học sinh mở cảnh nhập vai hoặc trận đánh; các trang khác không tải. Chữ tiếng Việt luôn do React hiển thị (canvas chỉ có hình và con số). React và Phaser trao đổi theo sự kiện qua `GameBridge`, không cập nhật React theo từng khung hình. Mỗi lần chuyển mục, màn cũ không còn được xem sẽ gỡ hết nội dung nên lúc nào cũng chỉ có một game đang chạy.
@@ -133,8 +135,10 @@ Thua khi thuyền chỉ huy địch hoặc hai đoàn thuyền thoát ra biển,
 
 ## 10. Quản trị và giáo viên
 
-- **Quản trị tổng → Hành trình Đông A** (`/admin?tab=saga`): đổi ảnh nền bản đồ (ảnh có sẵn hoặc liên kết https kèm kích thước và ghi nguồn); đặt vị trí chặng bằng cách **bấm lên ảnh** hoặc nhập phần trăm; đặt thêm "điểm địa danh" để nút nằm lệch ra và nối bằng một đường dẫn khi nhiều địa danh sát nhau; sửa tên, thời gian, tóm tắt, ngưỡng đạt, phần thưởng; đổi trạng thái Nháp / Đã duyệt / Công bố kèm ghi chú; sửa nội dung chặng và câu hỏi dạng JSON (máy chủ kiểm tra cấu trúc, lưu phiên bản cũ, đưa chặng về Nháp cho tới khi duyệt lại). Vị trí lưu theo tỉ lệ nên học sinh thấy thay đổi ngay, không sửa mã.
-- **Giáo viên → Hành trình Đông A** (`role=teacher&tab=saga`): tiến độ từng học sinh của lớp mình phụ trách, mức hiểu bài theo chặng, những câu thường sai.
+Ngày 16/11/2026 người dùng yêu cầu **xóa vĩnh viễn** mục "Hành trình Đông A" ở quản trị tổng và giáo viên ("không có liên quan"). Đã xóa trang `SagaAdmin.tsx` (chỉnh ảnh nền bản đồ, vị trí chặng, nội dung, trạng thái duyệt; báo cáo lớp của giáo viên) cùng các API `/api/saga/admin/*` và `/api/saga/teacher/*`. Bảng `hk_saga_*` giữ nguyên.
+
+- Muốn đổi ảnh bản đồ, vị trí chặng, ngưỡng đạt, phần thưởng hay nội dung: viết **migration số mới** (`UPDATE hk_saga_stages …`, `hk_saga_items`, `hk_saga_maps`), không sửa migration 066. Vị trí chặng vẫn lưu theo tỉ lệ 0–1 trên ảnh nên đổi ảnh không phải đặt lại điểm.
+- Tiến độ của học sinh vẫn tính vào điểm, cấp độ, huy hiệu và bảng xếp hạng chung của trò chơi hóa (`/api/game`).
 
 ## 11. Chạy thử trên máy
 
@@ -152,9 +156,9 @@ set EXPO_PUBLIC_API_URL=http://localhost:8000 && npm run web
 ## 12. Kiểm thử
 
 - `backend/test/saga_engine.spec.ts`: luật minigame, cảnh nhập vai, trận theo lượt, màn Bạch Đằng (thắng 3 sao theo lời giải mẫu; các lỗi điển hình thua đúng lý do), toàn bộ 13 chặng khởi tạo hợp lệ và mọi trận đánh thắng được.
-- `backend/test/saga.spec.ts`: chạy qua API thật trên PostgreSQL tạm: khóa chặng, thứ tự các bước, đề không lộ đáp án, gửi lặp, lệch thứ tự, phiên của người khác (404), trọn một vòng có trận đánh, đăng nhập lại còn tiến độ, chặng không có trận, ôn tập và đồng hồ, màn Bạch Đằng (thua rồi thắng), quyền theo vai trò, báo cáo lớp, quản trị sửa / phiên bản / duyệt, RLS.
+- `backend/test/saga.spec.ts`: chạy qua API thật trên PostgreSQL tạm: khóa chặng, thứ tự các bước, đề không lộ đáp án, gửi lặp, lệch thứ tự, phiên của người khác (404), trọn một vòng có trận đánh, đăng nhập lại còn tiến độ, chặng không có trận, ôn tập và đồng hồ, màn Bạch Đằng (thua rồi thắng), chỉ học sinh dùng được `/api/saga` và các đường dẫn quản trị / giáo viên đã xóa trả 404, RLS.
 - `frontend/tests/stale-bundle.test.cjs`: `frontend/api/` không quá 12 tệp (giới hạn Serverless Function của Vercel gói Hobby; vì vậy tệp gọi API của Hành trình Đông A nằm ở `lib/saga-api.ts`).
-- `frontend/tests/student-nav.test.cjs`: khung trang, năm mục, ba kiểu điều hướng, màn không còn được xem phải gỡ nội dung, Phaser chỉ nạp động và đo lại vị trí canvas trước mỗi thao tác, giao diện không giữ đáp án; `frontend/tests/admin-shell.test.cjs`: mục Hành trình Đông A của quản trị tổng và của giáo viên.
+- `frontend/tests/student-nav.test.cjs`: khung trang, năm mục, ba kiểu điều hướng, màn không còn được xem phải gỡ nội dung, Phaser chỉ nạp động và đo lại vị trí canvas trước mỗi thao tác, giao diện không giữ đáp án, trang học sinh dùng khung và thành phần của cổng quản trị (không còn bộ nút khối, nền trời, pháo giấy); `frontend/tests/admin-shell.test.cjs`: quản trị tổng và giáo viên không còn mục Hành trình Đông A, không còn `SagaAdmin.tsx`.
 - Chạy thật trên trình duyệt (PostgreSQL tạm + backend + bản web + Chrome điều khiển qua CDP) ở 1280 px và 390 px, giao diện sáng và tối: đi trọn chặng đầu bằng thao tác thật (học, sáu câu luyện tập đủ năm dạng, nhập vai bằng chạm và phím, trận theo lượt bằng nút lệnh và bằng bấm lên chiến trường, nhận thưởng), màn Bạch Đằng thắng và thua (kể cả tải lại giữa trận rồi chơi tiếp, đóng cọc bằng bàn phím), ôn tập, bộ thẻ và bảng xếp hạng lớp, tư liệu, Back / Forward / tải lại, bấm lên canvas sau khi cuộn trang, chế độ giảm chuyển động, trang quản trị (bấm lên ảnh đổi vị trí, học sinh thấy ngay), báo cáo lớp của giáo viên.
 - **Chưa kiểm**: ứng dụng Android / iOS dựng thật (chỉ kiểm bản web ở bề ngang điện thoại); trình duyệt Safari và Firefox; nhiều học sinh chơi cùng lúc với tải lớn; trình đọc màn hình thật (mới kiểm nhãn trợ năng trong mã).
 
@@ -167,10 +171,11 @@ set EXPO_PUBLIC_API_URL=http://localhost:8000 && npm run web
 
 ## 14. Khác với đặc tả và việc chưa làm
 
-- **Trợ lý hỏi đáp (RAG)**: dùng lại trợ lý Tiểu Tướng sẵn có của dự án (tra cứu trong kho tư liệu nhà trường công bố, có trích nguồn), mở từ nút nổi và trình đơn. Nội dung của Hành trình Đông A **chưa được đưa vào chỉ mục** của trợ lý; kho tư liệu của trợ lý trống thì trợ lý báo chưa trả lời được.
+- **Trợ lý hỏi đáp (RAG)**: dùng lại trợ lý Tiểu Tướng sẵn có của dự án (tra cứu trong kho tư liệu nhà trường công bố, có trích nguồn), mở từ mục "Hỏi Tiểu Tướng" ở menu bên trái. Nội dung của Hành trình Đông A **chưa được đưa vào chỉ mục** của trợ lý; kho tư liệu của trợ lý trống thì trợ lý báo chưa trả lời được.
 - **Ứng dụng điện thoại (Android / iOS)**: phần học, luyện tập, ôn tập, bộ thẻ, tư liệu dùng được; cảnh nhập vai và trận đánh cần trình duyệt (Phaser chạy trên canvas của web), bản điện thoại hiện thông báo thay cho màn chơi. Trên **trình duyệt của điện thoại** thì chơi được đầy đủ bằng chạm.
 - **Bàn phím**: mọi nút lệnh, trắc nghiệm, xếp trình tự, lời thoại và di chuyển trong cảnh dùng được bằng bàn phím. Trận theo lượt có danh sách mục tiêu bấm bằng nút (không bắt buộc bấm lên canvas). Khúc sông Bạch Đằng có **ô chọn bằng bàn phím**: phím mũi tên hoặc W A S D di chuyển ô chọn, phím E chọn ô. Minigame "định vị trên bản đồ" có hàng nút chữ bên dưới bản đồ. Riêng việc **kéo** bản đồ chiến dịch cần chuột / chạm; thay vào đó có nút phóng to, thu nhỏ và danh sách chặng bấm được ở bên dưới bản đồ.
-- **Giảm chuyển động**: khi hệ điều hành / trình duyệt bật "giảm chuyển động", cảnh game bỏ rung và chớp màn hình, giao diện bỏ pháo giấy; các chuyển động còn lại là di chuyển của đơn vị để học sinh theo dõi được diễn biến.
+- **Giảm chuyển động**: khi hệ điều hành / trình duyệt bật "giảm chuyển động", cảnh game bỏ rung và chớp màn hình, thẻ ghép cặp lật ngay không có hoạt ảnh; các chuyển động còn lại là di chuyển của đơn vị để học sinh theo dõi được diễn biến.
 - **Thi đấu trực tiếp** của học sinh (phòng thi kiểu Kahoot) chưa có giao diện trong trang học sinh mới; API và phần của giáo viên vẫn còn.
-- Trang quản trị sửa nội dung chặng ở dạng JSON có kiểm tra, chưa có trình soạn thảo trực quan cho cảnh nhập vai và kịch bản trận.
+- Không còn trang chỉnh nội dung / bản đồ cho quản trị tổng và báo cáo Hành trình Đông A cho giáo viên (xóa theo yêu cầu 16/11/2026): nội dung chỉ đổi bằng migration số mới.
+- Giao diện học sinh dùng giao diện sáng như các cổng quản trị; lựa chọn sáng / tối trong Cài đặt đã bỏ (giá trị cũ vẫn lưu nhưng không dùng).
 - Các bảng và API của hành trình học, bản đồ nhiệm vụ, thẻ tướng cũ vẫn giữ nguyên trong cơ sở dữ liệu (không xóa), trang học sinh mới không dùng tới.

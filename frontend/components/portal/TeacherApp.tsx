@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Bell, BookOpen, ChartColumn, CircleHelp, ClipboardList, LifeBuoy, ListChecks, Map as MapIcon, Plus, Radio, Route, Send, Sparkles, Users } from 'lucide-react-native';
+import { Bell, BookOpen, ChartColumn, CircleHelp, ClipboardList, LifeBuoy, ListChecks, Plus, Radio, Route, Send, Sparkles, Users } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 import * as learning from '@/api/learningApi';
 import { errorMessage } from '@/api/client';
@@ -21,7 +21,6 @@ import { BroadcastManager } from '@/components/admin/PlatformComms';
 import { LiveManager } from '@/components/admin/LiveManager';
 import { useLoad } from '@/components/admin/kit';
 import { QuestionBank } from '@/components/admin/QuestionBank';
-import { SagaClassReport } from '@/components/admin/SagaAdmin';
 import { ShareInbox } from '@/components/admin/ShareInbox';
 import type { Session } from '@/components/auth';
 import { NoticeBell } from '@/components/portal/NoticeCenter';
@@ -31,12 +30,11 @@ import { AdminUiContext, Btn, Sheet, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { usePortalTab } from '@/hooks/use-portal-tab';
 
-type Tab = 'classes' | 'analytics' | 'saga' | 'library' | 'journeys' | 'questions' | 'quizzes' | 'studio' | 'live' | 'ai' | 'shares' | 'notices' | 'surveys' | 'help';
+type Tab = 'classes' | 'analytics' | 'library' | 'journeys' | 'questions' | 'quizzes' | 'studio' | 'live' | 'ai' | 'shares' | 'notices' | 'surveys' | 'help';
 const TEMP_HIDDEN_TEACHER_TABS: Tab[] = ['journeys', 'quizzes'];
 const NAV = [
   { id: 'classes' as const, label: 'Lớp học', icon: Users },
   { id: 'analytics' as const, label: 'Thống kê lớp', icon: ChartColumn },
-  { id: 'saga' as const, label: 'Hành trình Đông A', icon: MapIcon },
   { id: 'library' as const, label: 'Thư viện học liệu', icon: BookOpen },
   { id: 'journeys' as const, label: 'Hành trình học', icon: Route },
   { id: 'questions' as const, label: 'Ngân hàng câu hỏi', icon: CircleHelp },
@@ -101,7 +99,6 @@ export const TeacherApp: React.FC<{ session: Session }> = ({ session }) => {
       <AdminWorkspace session={session} nav={VISIBLE_NAV} active={tab} onSelect={setTab} schoolName={profile.data?.school?.name} extra={<View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Btn icon={Plus} title="Tạo" tone="son" size="sm" onPress={() => setMenu(true)} testID="create-menu" /><NoticeBell session={session} onGo={(n) => { setStudio(null); setTab(n.kind === 'survey' ? 'surveys' : n.kind === 'support' ? 'help' : 'classes'); }} /></View>}>
         {tab === 'classes' ? <ClassManager session={session} />
           : tab === 'analytics' ? <TeacherAnalytics session={session} />
-          : tab === 'saga' ? <SagaClassReport session={session} />
           : tab === 'library' ? <TeacherLibraryView session={session} onStartLiveQuiz={(quizId) => { setLiveQuiz(quizId); setTab('live', { quiz: String(quizId) }); }} />
           : tab === 'journeys' ? <JourneyManager session={session} />
           : tab === 'questions' ? <QuestionBank session={session} />

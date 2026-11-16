@@ -1,32 +1,33 @@
 /**
- * Hành trình Đông A – ba mục ngoài bản đồ:
+ * Hành trình Đông A – ba mục ngoài bản đồ, dựng bằng bộ thành phần của các cổng quản trị (tiêu đề hai nửa, thẻ số liệu, thẻ viền mảnh, bảng, nhóm nút chọn):
  *   - "Câu hỏi": ôn tập tính giờ (đồng hồ do máy chủ giữ và chỉ chạy khi câu được mở), ưu tiên câu từng sai và mục tiêu còn yếu, có chuỗi đúng và thanh cấp độ.
  *   - "Bộ thẻ": thẻ nhân vật đã mở, huy chương và bảng xếp hạng tuần của lớp.
  *   - "Tư liệu": kho tư liệu gồm văn bản gốc (mở dần theo chặng), nhân vật, niên biểu và bản đồ, đều ghi nguồn.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Linking, Pressable, ScrollView, StyleSheet, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BookOpen, Check, Clock, Flame, Lock, Map as MapIcon, Play, RotateCcw, ScrollText, Sparkles, Star, Target, Trophy, Users } from 'lucide-react-native';
+import { Image, Linking, Pressable, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
+import { BookOpen, Check, Clock, Flame, Lock, Map as MapIcon, Play, RotateCcw, ScrollText, Sparkles, Target, Trophy, Users } from 'lucide-react-native';
 import * as game from '@/api/gameApi';
 import * as saga from '@/lib/saga-api';
 import { errorMessage } from '@/api/client';
+import { DashboardMetric as Metric } from '@/components/admin/DashboardMetric';
+import { Cell, DataTable, type Column } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import {
-  Confetti, Flash, GameBtn, LoadState, Medal, Meter, Overlay, Panel, Pill, Portrait, RARITY, SG, ScreenHead, SourceLine, Sunburst, TONE, TieuTuongArt, mapSource, num, useFlash, useLoad, useSaga, type SagaNav,
+  BlockTitle, Flash, LoadState, Medal, Meter, Portrait, RARITY, SagaHeader, SagaPage, SourceLine, StarRow, TONE, mapSource, num, useFlash, useLoad, type SagaNav,
 } from '@/components/portal/SagaKit';
 import { Feedback, ItemBody } from '@/components/portal/SagaLearn';
-import { Txt } from '@/components/ui';
+import { Btn, Card, Chip, EmptyState, InfoNote, Inset, Segmented, Sheet, Txt } from '@/components/ui';
+import { useTheme } from '@/hooks/use-theme';
 import { play } from '@/lib/saga-sound';
-import type { IconType } from '@/types/game';
-import type { BadgeItem, Board } from '@/types/gamification';
-import type { AnswerOutcome, Archive, ArchiveText, CardAlbum, PracticeSession, ReviewFinished, ReviewInfo, SagaCard } from '@/types/saga';
+import type { BadgeItem, Board, BoardEntry } from '@/types/gamification';
+import type { AnswerOutcome, Archive, ArchiveText, CardAlbum, PracticeSession, ReviewFinished, ReviewInfo, SagaCard, TimelineMark } from '@/types/saga';
 
 const statusOf = (e: unknown): number | undefined => (e as { status?: number }).status;
-const QUIZ_BG = ['#7c52e6', '#5632c0'] as const;
 
 // ---------------------------------------------------------------------- "Câu hỏi": ôn tập tính giờ
 const ReviewQuiz: React.FC<{ session: Session; nav: SagaNav; initial: PracticeSession; onExit: () => void }> = ({ session, nav, initial, onExit }) => {
+  const { c } = useTheme();
   const [sess, setSess] = useState(initial);
   const [cursor, setCursor] = useState(Math.min(initial.index, initial.total - 1));
   const [outcome, setOutcome] = useState<AnswerOutcome | null>(null);
@@ -62,7 +63,7 @@ const ReviewQuiz: React.FC<{ session: Session; nav: SagaNav; initial: PracticeSe
       if (res.outcome.xp) {
         setGained((g) => g + (res.outcome.xp ?? 0));
         const lv = cur.nav.home?.hud.level;
-        // vừa đủ điểm lên cấp: tải lại ngay để hiện màn "Lên cấp"
+        // vừa đủ điểm lên cấp: tải lại ngay để hiện thông báo "Lên cấp"
         if (lv && lv.next_xp !== null && lv.xp + gained + res.outcome.xp >= lv.next_xp) cur.nav.refresh();
       }
       if (res.finished) setFinished(res.finished);
@@ -99,56 +100,50 @@ const ReviewQuiz: React.FC<{ session: Session; nav: SagaNav; initial: PracticeSe
   };
   const streak = outcome?.streak ?? sess.streak ?? 0;
   const xpNow = level ? level.xp + gained : gained;
+  const urgent = left !== null && left <= 5;
   return (
-    <View style={{ flex: 1 }} testID="saga-review-quiz">
-      <LinearGradient colors={[QUIZ_BG[0], QUIZ_BG[1]]} style={StyleSheet.absoluteFill} />
-      <ScrollView ref={scroller} contentContainerStyle={{ padding: 16, paddingBottom: 40, alignItems: 'center' }} keyboardShouldPersistTaps="handled">
-        <View style={{ width: '100%', maxWidth: 820, gap: 14 }}>
-          {showResult && finished ? (
-            <Panel style={{ alignItems: 'center', gap: 10, overflow: 'hidden' }} testID="review-result">
-              <Confetti />
-              <TieuTuongArt size={96} cheer />
-              <Txt f="heavy" size={26} color="#5632c0" center accessibilityRole="header">Xong lượt ôn!</Txt>
-              <Txt f="heavy" size={40} color="#1e2a4a">{finished.right}/{finished.total}</Txt>
-              <Txt f="semibold" size={15} color="#4a5672" center>Đúng {finished.percent}% · chuỗi đúng dài nhất {finished.best_streak} câu</Txt>
-              {gained ? <Pill text={`+${gained} điểm kinh nghiệm`} icon={Sparkles} bg={SG.purple} style={{ alignSelf: 'center' }} /> : null}
-              <Txt size={14} color="#4a5672" center>Câu trả lời đúng đã ra khỏi danh sách cần ôn; câu còn sai sẽ được hỏi lại ở lượt sau.</Txt>
-              <GameBtn title="Xong" icon={Check} tone="green" size="lg" onPress={onExit} testID="review-done" style={{ alignSelf: 'center' }} />
-            </Panel>
-          ) : item ? (
-            <>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                <Pill text={`Câu ${cursor + 1}/${sess.total}`} bg="rgba(255,255,255,0.22)" size={14} />
-                <View accessible accessibilityRole="timer" accessibilityLabel={left === null ? 'Đồng hồ đang dừng' : `Còn ${left} giây`} testID="review-timer"
-                  style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: '#ffffff', borderWidth: 5, borderColor: left !== null && left <= 5 ? SG.red : SG.yellow, alignItems: 'center', justifyContent: 'center' }}>
-                  {left === null ? <Clock size={22} color="#5632c0" strokeWidth={2.6} /> : <Txt f="heavy" size={22} color={left <= 5 ? SG.red : '#5632c0'}>{left}</Txt>}
-                </View>
-                <Pill text={`Chuỗi đúng: ${streak}`} icon={Flame} bg="rgba(255,255,255,0.22)" size={14} style={{ alignSelf: 'center' }} />
-              </View>
-              <View style={{ backgroundColor: '#ffffff', borderRadius: 20, padding: 18, gap: 6 }} testID={`review-item-${item.kind}`}>
-                <Txt f="bold" size={12} color="#6b56b8">{item.kind_label.toUpperCase()}{item.stage_title ? ` · ${item.stage_title}` : ''}</Txt>
-                <Txt f="heavy" size={20} color="#1e2a4a" center accessibilityRole="header">{item.prompt}</Txt>
-              </View>
-              <ItemBody session={session} item={item} outcome={outcome} step={null} busy={busy} onAnswer={(a) => { void act({ type: 'answer', item_id: item.id, answer: a }); }} skin="quiz" />
-              <Flash text={flash} />
-              {outcome ? <Feedback outcome={outcome} kind={item.kind} onNext={next} nextLabel={finished ? 'Xem kết quả' : 'Câu tiếp'} skin="quiz" /> : null}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: SG.yellow, borderWidth: 3, borderColor: '#ffffff', alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '45deg' }] }}>
-                  <View style={{ transform: [{ rotate: '-45deg' }] }}><Txt f="heavy" size={17} color={SG.onYellow}>{level?.level ?? 1}</Txt></View>
-                </View>
-                <Meter value={level && level.next_xp !== null ? (xpNow - level.floor) / Math.max(1, level.next_xp - level.floor) : 1} fill={SG.yellow} track="rgba(255,255,255,0.25)" label="Tiến độ lên cấp" style={{ flex: 1 }} />
-                <Txt f="heavy" size={13} color="#ffffff">{num(xpNow)}{level?.next_xp ? `/${num(level.next_xp)}` : ''} điểm</Txt>
-              </View>
-              <GameBtn title="Dừng lượt ôn" tone="white" size="sm" onPress={onExit} testID="review-exit" label="Dừng lượt ôn, có thể tiếp tục sau" style={{ alignSelf: 'center' }} />
-            </>
-          ) : null}
-        </View>
-      </ScrollView>
-    </View>
+    <SagaPage testID="saga-review-quiz" max={900} scrollRef={scroller}>
+      <SagaHeader title="Câu hỏi ôn tập" subtitle="Mỗi câu có đồng hồ do máy chủ giữ; đồng hồ chỉ chạy khi câu được mở." back={{ label: 'Dừng lượt ôn', hint: 'Dừng lượt ôn, có thể tiếp tục sau', onPress: onExit }} />
+      {showResult && finished ? (
+        <Card flat pad={20} style={{ borderRadius: 12, alignItems: 'center', gap: 10 }} testID="review-result">
+          <Txt f="displayHeavy" size={26} color={c.mocChu} accessibilityRole="header">Xong lượt ôn!</Txt>
+          <Txt f="displayHeavy" size={40} color={c.logoInk}>{finished.right}/{finished.total}</Txt>
+          <Txt size={14} color={c.muc2} center>Đúng {finished.percent}% · chuỗi đúng dài nhất {finished.best_streak} câu</Txt>
+          {gained ? <Chip text={`+${gained} điểm kinh nghiệm`} icon={Sparkles} bg={c.thongNhat} fg={c.thongChu} style={{ alignSelf: 'center' }} /> : null}
+          <Txt size={14} color={c.muc2} center>Câu trả lời đúng đã ra khỏi danh sách cần ôn; câu còn sai sẽ được hỏi lại ở lượt sau.</Txt>
+          <Btn title="Xong" icon={Check} tone="son" onPress={onExit} testID="review-done" />
+        </Card>
+      ) : item ? (
+        <>
+          <Card flat pad={12} style={{ borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <Chip text={`Câu ${cursor + 1}/${sess.total}`} bg={c.adminCanvas} fg={c.muc} />
+            <View accessible accessibilityRole="timer" accessibilityLabel={left === null ? 'Đồng hồ đang dừng' : `Còn ${left} giây`} testID="review-timer"
+              style={{ minWidth: 72, height: 44, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: urgent ? c.son : c.adminLine, backgroundColor: urgent ? c.sonNhat : c.the, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <Clock size={16} color={urgent ? c.son : c.muc2} />
+              <Txt f="bold" size={18} color={urgent ? c.sonChu : c.muc}>{left === null ? '–' : `${left}s`}</Txt>
+            </View>
+            <Chip text={`Chuỗi đúng: ${streak}`} icon={Flame} bg={c.hoaNhat} fg={c.hoaChu} />
+            <View style={{ flex: 1, minWidth: 180, gap: 4 }}>
+              <Txt size={12} color={c.muc3}>Cấp {level?.level ?? 1} · {num(xpNow)}{level?.next_xp ? `/${num(level.next_xp)}` : ''} điểm</Txt>
+              <Meter value={level && level.next_xp !== null ? (xpNow - level.floor) / Math.max(1, level.next_xp - level.floor) : 1} label="Tiến độ lên cấp" height={6} />
+            </View>
+          </Card>
+          <Card flat pad={16} style={{ borderRadius: 12, gap: 6 }} testID={`review-item-${item.kind}`}>
+            <Txt f="bold" size={12} color={c.muc3} upper>{item.kind_label}{item.stage_title ? ` · ${item.stage_title}` : ''}</Txt>
+            <Txt f="bold" size={18} color={c.logoInk} accessibilityRole="header">{item.prompt}</Txt>
+          </Card>
+          <ItemBody session={session} item={item} outcome={outcome} step={null} busy={busy} onAnswer={(a) => { void act({ type: 'answer', item_id: item.id, answer: a }); }} />
+          <Flash text={flash} />
+          {outcome ? <Feedback outcome={outcome} kind={item.kind} onNext={next} nextLabel={finished ? 'Xem kết quả' : 'Câu tiếp'} /> : null}
+          <Btn title="Dừng lượt ôn" tone="giay" size="sm" onPress={onExit} testID="review-exit" label="Dừng lượt ôn, có thể tiếp tục sau" />
+        </>
+      ) : null}
+    </SagaPage>
   );
 };
 
 export const ReviewScreen: React.FC<{ session: Session; nav: SagaNav }> = ({ session, nav }) => {
+  const { c } = useTheme();
   const [round, setRound] = useState(0);
   const info = useLoad<ReviewInfo>(session, saga.review, [round]);
   const [quiz, setQuiz] = useState<PracticeSession | null>(null);
@@ -161,130 +156,111 @@ export const ReviewScreen: React.FC<{ session: Session; nav: SagaNav }> = ({ ses
   };
   if (quiz) return <ReviewQuiz session={session} nav={nav} initial={quiz} onExit={() => { setQuiz(null); setRound((n) => n + 1); nav.refresh(); }} />;
   const d = info.data;
+  const dueColumns: Column<ReviewInfo['due'][number]>[] = [
+    { key: 'prompt', label: 'Câu hỏi', width: 360, grow: 2, render: (q) => <Cell main={q.prompt} sub={`${q.kind_label} · chặng ${q.stage_title}`} /> },
+    { key: 'wrong', label: 'Số lần sai', width: 110, render: (q) => <Txt f="bold" size={14}>{q.wrong_count}</Txt> },
+  ];
   return (
-    <View style={{ flex: 1 }} testID="saga-review">
-      <LinearGradient colors={[QUIZ_BG[0], QUIZ_BG[1]]} style={StyleSheet.absoluteFill} />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48, alignItems: 'center' }}>
-        <View style={{ width: '100%', maxWidth: 820, gap: 14 }}>
-          <ScreenHead title="Câu hỏi ôn tập" subtitle="Mỗi câu có đồng hồ. Câu em từng trả lời sai được hỏi lại trước." light />
-          {!d ? <LoadState loading={info.loading} error={info.error} onRetry={info.reload} light /> : (
-            <>
-              <Panel style={{ gap: 10, alignItems: 'center' }}>
-                <TieuTuongArt size={84} cheer={d.can_start} />
-                {d.can_start ? (
-                  <>
-                    <Txt f="heavy" size={20} color="#1e2a4a" center>{d.due.length ? `${d.due.length} câu đang chờ em ôn lại` : 'Giữ phong độ bằng một lượt ôn nhanh'}</Txt>
-                    <Txt size={14} color="#4a5672" center>Một lượt gồm {d.size} câu lấy từ các chặng em đã luyện. Trả lời đúng được +5 điểm (mỗi câu một lần trong ngày).</Txt>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
-                      <GameBtn title={d.active_session_id ? 'Tiếp tục lượt đang dở' : `Bắt đầu ôn ${d.size} câu`} icon={Play} tone="yellow" size="lg" loading={busy} onPress={() => { void start(false); }} testID="review-start" />
-                      {d.active_session_id ? <GameBtn title="Lượt mới" icon={RotateCcw} tone="white" size="lg" disabled={busy} onPress={() => { void start(true); }} testID="review-restart" /> : null}
-                    </View>
-                  </>
-                ) : (
-                  <>
-                    <Txt f="heavy" size={20} color="#1e2a4a" center>Chưa có câu nào để ôn</Txt>
-                    <Txt size={14} color="#4a5672" center>Hãy học và luyện tập ít nhất một chặng trên bản đồ; các câu hỏi của chặng đó sẽ xuất hiện ở đây.</Txt>
-                    <GameBtn title="Mở bản đồ chiến dịch" icon={MapIcon} tone="green" size="lg" onPress={() => nav.go('chien-dich', { c: null, s: null, v: null })} testID="review-to-map" style={{ alignSelf: 'center' }} />
-                  </>
-                )}
-                <Flash text={flash} />
-              </Panel>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-                {[{ label: 'Câu đã trả lời', value: num(d.stats.answers) }, { label: 'Tỉ lệ đúng', value: `${d.stats.percent}%` }, { label: 'Cần ôn', value: String(d.due.length) }].map((st) => (
-                  <View key={st.label} style={{ flexGrow: 1, flexBasis: 150, backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: 16, padding: 12, alignItems: 'center' }}>
-                    <Txt f="bold" size={13} color="rgba(255,255,255,0.86)">{st.label}</Txt>
-                    <Txt f="heavy" size={26} color="#ffffff">{st.value}</Txt>
+    <SagaPage testID="saga-review">
+      <SagaHeader title="Câu hỏi ôn tập" subtitle="Mỗi câu có đồng hồ. Câu em từng trả lời sai được hỏi lại trước; trả lời đúng được +5 điểm (mỗi câu một lần trong ngày)."
+        actions={d?.can_start ? (
+          <>
+            {d.active_session_id ? <Btn title="Lượt mới" icon={RotateCcw} tone="giay" size="sm" disabled={busy} onPress={() => { void start(true); }} testID="review-restart" /> : null}
+            <Btn title={d.active_session_id ? 'Tiếp tục lượt đang dở' : `Bắt đầu ôn ${d.size} câu`} icon={Play} tone="son" size="sm" loading={busy} onPress={() => { void start(false); }} testID="review-start" />
+          </>
+        ) : undefined} />
+      {!d ? <LoadState loading={info.loading} error={info.error} onRetry={info.reload} /> : (
+        <>
+          <Flash text={flash} />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            <Metric compact label="Câu cần ôn" value={d.due.length} hint="câu" icon={RotateCcw} color={c.son} background={c.sonNhat} />
+            <Metric compact label="Câu đã trả lời" value={d.stats.answers} hint="" icon={Check} color={c.thuyChu} background={c.thuyNhat} />
+            <Metric compact label="Tỉ lệ đúng" value={`${d.stats.percent}%`} hint="" icon={Target} color={c.mocChu} background={c.mocNhat} />
+            <Metric compact label="Câu trong kho ôn" value={d.pool} hint="câu" icon={BookOpen} color={c.thongChu} background={c.thongNhat} />
+          </View>
+          {!d.can_start ? (
+            <EmptyState title="Chưa có câu nào để ôn" text="Hãy học và luyện tập ít nhất một chặng trên bản đồ; các câu hỏi của chặng đó sẽ xuất hiện ở đây."
+              action={<Btn title="Mở bản đồ chiến dịch" icon={MapIcon} tone="son" onPress={() => nav.go('chien-dich', { c: null, s: null, v: null })} testID="review-to-map" />} />
+          ) : null}
+          {d.weak_objectives.length ? (
+            <Card flat pad={14} style={{ borderRadius: 12, gap: 8 }} testID="review-weak">
+              <BlockTitle title="Mục tiêu còn yếu" icon={Target} />
+              {d.weak_objectives.map((w) => (
+                <View key={`${w.stage_id}${w.objective}`} style={{ gap: 4 }}>
+                  <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                    <Txt size={14} style={{ flex: 1 }}>{w.text}</Txt>
+                    <Txt f="bold" size={13} color={c.hoaChu}>{w.percent}%</Txt>
                   </View>
-                ))}
-              </View>
-              {d.weak_objectives.length ? (
-                <Panel style={{ gap: 8 }} testID="review-weak">
-                  <Txt f="heavy" size={16} color="#1e2a4a" accessibilityRole="header">Mục tiêu còn yếu</Txt>
-                  {d.weak_objectives.map((w) => (
-                    <View key={`${w.stage_id}${w.objective}`} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                      <Target size={16} color={SG.red} strokeWidth={2.6} />
-                      <View style={{ flex: 1 }}><Txt size={14} color="#1e2a4a">{w.text}</Txt><Txt size={12} color="#4a5672">Chặng {w.stage_title} · {w.answers} lượt trả lời</Txt></View>
-                      <Txt f="heavy" size={14} color={SG.orangeEdge}>{w.percent}%</Txt>
-                    </View>
-                  ))}
-                </Panel>
-              ) : null}
-              {d.due.length ? (
-                <Panel style={{ gap: 8 }} testID="review-due">
-                  <Txt f="heavy" size={16} color="#1e2a4a" accessibilityRole="header">Câu từng trả lời sai</Txt>
-                  {d.due.slice(0, 8).map((q) => (
-                    <View key={q.item_id} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                      <RotateCcw size={15} color={SG.purpleEdge} strokeWidth={2.6} />
-                      <View style={{ flex: 1 }}><Txt size={14} color="#1e2a4a" numberOfLines={2}>{q.prompt}</Txt><Txt size={12} color="#4a5672">{q.kind_label} · chặng {q.stage_title}</Txt></View>
-                      <Txt f="bold" size={12} color="#4a5672">sai {q.wrong_count} lần</Txt>
-                    </View>
-                  ))}
-                  {d.due.length > 8 ? <Txt size={12} color="#4a5672">… và {d.due.length - 8} câu khác.</Txt> : null}
-                </Panel>
-              ) : null}
-            </>
-          )}
-        </View>
-      </ScrollView>
-    </View>
+                  <Meter value={w.percent / 100} color={c.hoa} height={6} label={`${w.text}: đúng ${w.percent}%`} />
+                  <Txt size={12} color={c.muc3}>Chặng {w.stage_title} · {w.answers} lượt trả lời</Txt>
+                </View>
+              ))}
+            </Card>
+          ) : null}
+          {d.due.length ? (
+            <Card flat pad={14} style={{ borderRadius: 12, gap: 8 }} testID="review-due">
+              <BlockTitle title="Câu từng trả lời sai" note={`${d.due.length} câu`} icon={RotateCcw} />
+              <DataTable columns={dueColumns} rows={d.due} rowKey={(q) => q.item_id} empty="Không có câu nào." />
+            </Card>
+          ) : null}
+        </>
+      )}
+    </SagaPage>
   );
 };
 
 // ---------------------------------------------------------------------- "Bộ thẻ": thẻ nhân vật, huy chương, bảng xếp hạng tuần
-const HeroCard: React.FC<{ card: SagaCard; w: number; onPress?: () => void; tilt?: number; glow?: boolean; testID?: string }> = ({ card, w, onPress, tilt = 0, glow, testID }) => {
+const HeroCard: React.FC<{ card: SagaCard; onPress: () => void; latest?: boolean; testID?: string }> = ({ card, onPress, latest, testID }) => {
+  const { c } = useTheme();
   const r = RARITY[card.rarity] ?? RARITY.common;
   return (
-    <Pressable accessibilityRole="button" disabled={!onPress} onPress={onPress} testID={testID}
+    <Pressable accessibilityRole="button" onPress={onPress} testID={testID}
       accessibilityLabel={card.owned ? `Thẻ ${card.name}, ${card.title}, độ hiếm ${r.label.toLowerCase()}` : `Thẻ ${card.name} chưa mở${card.stage_title ? `: hoàn thành chặng ${card.stage_title}` : ''}`}
-      style={({ pressed }) => ({ width: w, minHeight: 44, borderRadius: w * 0.1, backgroundColor: card.owned ? r.main : '#4b2a33', borderWidth: 3, borderColor: glow ? SG.yellow : card.owned ? '#ffffff' : '#7a5560', borderBottomWidth: 6,
-        alignItems: 'center', padding: w * 0.06, gap: 2, transform: [{ rotate: `${tilt}deg` }, { scale: pressed ? 0.96 : 1 }] })}>
-      <Portrait code={card.portrait} size={w * 0.84} locked={!card.owned} />
-      <Txt f="heavy" size={Math.max(11, Math.round(w * 0.1))} color="#ffffff" center numberOfLines={2}>{card.name.toUpperCase()}</Txt>
-      <Txt f="bold" size={Math.max(9, Math.round(w * 0.075))} color={card.owned ? '#ffffff' : '#d9b9c0'} center numberOfLines={1}>{card.owned ? r.label : 'CHƯA MỞ'}</Txt>
-      {card.owned ? <View style={{ flexDirection: 'row' }}>{Array.from({ length: r.stars }, (_, i) => <Star key={i} size={Math.max(8, w * 0.08)} color="#ffe27a" fill="#ffe27a" />)}</View> : <Lock size={Math.max(10, w * 0.1)} color="#d9b9c0" strokeWidth={2.6} />}
+      style={({ pressed }) => ({ flexGrow: 1, flexBasis: 150, maxWidth: 220, minWidth: 140, borderRadius: 12, borderWidth: latest ? 2 : 1, borderColor: latest ? c.son : c.adminLine, backgroundColor: pressed ? c.adminCanvas : c.the, padding: 10, gap: 6, alignItems: 'center' })}>
+      <Portrait code={card.portrait} size={104} locked={!card.owned} />
+      <Txt f="bold" size={14} center numberOfLines={2}>{card.name}</Txt>
+      <Txt size={12} color={c.muc3} center numberOfLines={1}>{card.owned ? card.title : card.stage_title ? `Mở ở chặng ${card.stage_title}` : 'Chưa mở'}</Txt>
+      {card.owned ? <Chip text={r.label} bg={r.soft} fg={r.main} style={{ alignSelf: 'center' }} /> : <Chip text="Chưa mở" icon={Lock} bg={c.dichNhat} fg={c.dich} style={{ alignSelf: 'center' }} />}
+      {latest ? <Txt f="bold" size={11} color={c.son} upper>Thẻ mới nhất</Txt> : null}
     </Pressable>
   );
 };
 
 const CardDetail: React.FC<{ card: SagaCard; onClose: () => void; onStage: () => void }> = ({ card, onClose, onStage }) => {
-  const s = useSaga();
+  const { c } = useTheme();
+  const r = RARITY[card.rarity] ?? RARITY.common;
   return (
-    <Overlay label={`Thẻ nhân vật ${card.name}`} onClose={onClose} testID="card-detail" maxWidth={560}>
-      <Panel style={{ gap: 10 }}>
-        <ScrollView contentContainerStyle={{ gap: 10 }}>
-          <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
-            <HeroCard card={card} w={132} />
-            <View style={{ flex: 1, gap: 4 }}>
-              <Txt f="heavy" size={22} color={s.ink} accessibilityRole="header">{card.name}</Txt>
-              <Txt f="bold" size={15} color={s.sub}>{card.title}{card.years ? ` · ${card.years}` : ''}</Txt>
-              {card.stage_title ? <Txt size={13} color={s.sub}>{card.owned ? 'Mở ở chặng' : 'Hoàn thành chặng'} “{card.stage_title}”{card.owned ? '' : ' để mở thẻ'}</Txt> : null}
-            </View>
+    <Sheet open onClose={onClose} title={card.name} subtitle={`${card.title}${card.years ? ` · ${card.years}` : ''}`}
+      footer={<View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+        {card.stage_id ? <Btn title="Tới chặng" icon={MapIcon} tone="giay" onPress={onStage} testID="card-stage" /> : null}
+        <Btn title="Đóng" tone="son" onPress={onClose} testID="card-close" />
+      </View>}>
+      <View style={{ gap: 12 }} testID="card-detail">
+        <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
+          <Portrait code={card.portrait} size={110} locked={!card.owned} />
+          <View style={{ flex: 1, gap: 6 }}>
+            {card.owned ? <Chip text={r.label} bg={r.soft} fg={r.main} /> : <Chip text="Chưa mở" icon={Lock} bg={c.dichNhat} fg={c.dich} />}
+            {card.stage_title ? <Txt size={13} color={c.muc2}>{card.owned ? 'Mở ở chặng' : 'Hoàn thành chặng'} “{card.stage_title}”{card.owned ? '' : ' để mở thẻ'}</Txt> : null}
+            {card.owned ? <StarRow n={r.stars} max={5} size={14} /> : null}
           </View>
-          {card.owned ? (
-            <>
-              {card.intro ? <Txt size={15} color={s.ink}>{card.intro}</Txt> : null}
-              {card.role_text ? <View style={{ backgroundColor: s.card2, borderRadius: 14, padding: 12 }}><Txt f="heavy" size={13} color={s.sub}>TRONG CUỘC KHÁNG CHIẾN</Txt><Txt size={15} color={s.ink}>{card.role_text}</Txt></View> : null}
-              {card.quote ? <View style={{ borderLeftWidth: 4, borderLeftColor: SG.red, paddingLeft: 12 }}><Txt f="serifItalic" size={19} color={s.ink}>“{card.quote.replace(/ \/ /g, '\n')}”</Txt>{card.quote_source ? <Txt size={13} color={s.sub}>{card.quote_source}</Txt> : null}</View> : null}
-              {card.source ? <SourceLine source={{ title: card.source, publisher: 'Tranh chân dung trên thẻ là hình minh họa cách điệu, không phải chân dung lịch sử', url: card.source_url ?? null, note: null }} /> : null}
-            </>
-          ) : (
-            <Txt size={15} color={s.ink}>Thẻ này còn khóa. Phần giới thiệu nhân vật sẽ mở cùng thẻ khi em hoàn thành chặng.</Txt>
-          )}
-          <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-            {card.stage_id ? <GameBtn title="Tới chặng" icon={MapIcon} tone="white" onPress={onStage} testID="card-stage" /> : null}
-            <GameBtn title="Đóng" tone="green" onPress={onClose} testID="card-close" />
-          </View>
-        </ScrollView>
-      </Panel>
-    </Overlay>
+        </View>
+        {card.owned ? (
+          <>
+            {card.intro ? <Txt size={15}>{card.intro}</Txt> : null}
+            {card.role_text ? <Inset style={{ gap: 4 }}><Txt f="bold" size={12} color={c.muc3} upper>Trong cuộc kháng chiến</Txt><Txt size={15}>{card.role_text}</Txt></Inset> : null}
+            {card.quote ? <View style={{ borderLeftWidth: 3, borderLeftColor: c.son, paddingLeft: 12, gap: 2 }}><Txt f="serifItalic" size={18}>“{card.quote.replace(/ \/ /g, '\n')}”</Txt>{card.quote_source ? <Txt size={12} color={c.muc3}>{card.quote_source}</Txt> : null}</View> : null}
+            {card.source ? <SourceLine source={{ title: card.source, publisher: 'Tranh chân dung trên thẻ là hình minh họa cách điệu, không phải chân dung lịch sử', url: card.source_url ?? null, note: null }} /> : null}
+          </>
+        ) : (
+          <Txt size={15}>Thẻ này còn khóa. Phần giới thiệu nhân vật sẽ mở cùng thẻ khi em hoàn thành chặng.</Txt>
+        )}
+      </View>
+    </Sheet>
   );
 };
 
-const RANK_TONE = ['#ffcf3f', '#cfd6e2', '#f0a56a'];
-const AVATAR_TONE = [SG.blue, SG.green, SG.orange, SG.purple, SG.red];
-const initials = (name: string): string => name.split(/\s+/).filter(Boolean).slice(-2).map((p) => p[0]?.toUpperCase() ?? '').join('');
-
 export const CollectionScreen: React.FC<{ session: Session; nav: SagaNav }> = ({ session, nav }) => {
+  const { c } = useTheme();
   const { width } = useWindowDimensions();
   const album = useLoad<CardAlbum>(session, saga.cards, []);
   const badges = useLoad<BadgeItem[]>(session, (t) => game.gameBadges(t).catch((e) => { if (statusOf(e) === 401) throw e; return []; }), []);
@@ -295,268 +271,216 @@ export const CollectionScreen: React.FC<{ session: Session; nav: SagaNav }> = ({
     }
   }, []);
   const [open, setOpen] = useState<SagaCard | null>(null);
-  const wide = width >= 900;
+  const wide = width >= 1180;
   const cards = album.data?.cards ?? [];
-  const latest = cards.find((c) => c.code === album.data?.latest_code) ?? null;
-  const fan = useMemo(() => {
-    const owned = cards.filter((c) => c.owned && c.code !== latest?.code);
-    const side = [...owned, ...cards.filter((c) => !c.owned)].slice(0, 2);
-    return { center: latest ?? cards[0] ?? null, left: side[0] ?? null, right: side[1] ?? null };
-  }, [cards, latest]);
+  const latest = album.data?.latest_code ?? null;
   const medals = useMemo(() => {
     const list = badges.data ?? [];
     return [...list.filter((b) => b.code.startsWith('saga-')), ...list.filter((b) => !b.code.startsWith('saga-') && b.earned)].slice(0, 8);
   }, [badges.data]);
   const b = board.data;
-  const small = Math.min(104, Math.max(84, (Math.min(width, 620) - 32 - 30) / 4));
+  const entries = b && 'entries' in b ? b.entries : [];
+  const boardColumns: Column<BoardEntry>[] = [
+    { key: 'rank', label: 'Hạng', width: 64, render: (e) => <Txt f="bold" size={14} color={e.rank <= 3 && e.xp > 0 ? c.son : c.muc}>{e.rank}</Txt> },
+    { key: 'name', label: 'Học sinh', width: 200, grow: 2, render: (e) => (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 }}>
+        <Txt f={e.me ? 'bold' : 'semibold'} size={14} numberOfLines={1} style={{ flexShrink: 1 }}>{e.me ? session.user.full_name : e.name}</Txt>
+        {e.me ? <Chip text="Em" bg={c.sonNhat} fg={c.sonChu} /> : null}
+      </View>
+    ) },
+    { key: 'xp', label: 'Điểm tuần', width: 110, render: (e) => <Txt f="bold" size={14}>{num(e.xp)}</Txt> },
+  ];
+  const leaderboard = (
+    <Card flat pad={14} style={{ borderRadius: 12, gap: 10, flex: wide ? 1 : undefined }} testID="saga-board">
+      <BlockTitle title="Bảng xếp hạng tuần" note={b && 'label' in b ? b.label : 'Lớp của em'} icon={Trophy} />
+      {!b ? <LoadState loading={board.loading} error={board.error} onRetry={board.reload} /> : 'message' in b && !('entries' in b) ? (
+        <Txt size={14} color={c.muc2}>{b.message}</Txt>
+      ) : 'entries' in b && b.disabled ? <Txt size={14} color={c.muc2}>{b.message ?? 'Bảng xếp hạng đang tắt.'}</Txt>
+        : <DataTable columns={boardColumns} rows={entries} rowKey={(e) => `${e.rank}${e.name}`} paginate={false} empty="Tuần này chưa ai ghi điểm. Em hãy là người mở đầu!" />}
+      <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}><Users size={14} color={c.muc3} /><Txt size={12} color={c.muc3} style={{ flex: 1 }}>Điểm tính theo kinh nghiệm kiếm được từ thứ Hai. Mỗi phần thưởng chỉ tính một lần.</Txt></View>
+    </Card>
+  );
   return (
-    <View style={{ flex: 1 }} testID="saga-collection">
-      <Sunburst color="#7d1826" ray="#8f1f2e" size={2200} />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 104, alignItems: 'center' }}>
-        <View style={{ width: '100%', maxWidth: 1100, gap: 16, flexDirection: wide ? 'row' : 'column', alignItems: wide ? 'flex-start' : 'stretch' }}>
-          <View style={{ flex: wide ? 1.5 : undefined, gap: 14 }}>
-            <View>
-              <Txt f="heavy" size={24} color={SG.yellow} accessibilityRole="header">{latest ? 'THẺ NHÂN VẬT MỚI!' : 'BỘ THẺ NHÂN VẬT'}</Txt>
-              <Txt f="semibold" size={14} color="#ffd9d9">{album.data ? `Đã mở ${album.data.owned}/${album.data.total} thẻ. Hoàn thành một chặng để mở thẻ của chặng đó.` : 'Đang tải bộ thẻ…'}</Txt>
+    <SagaPage testID="saga-collection" max={1320}>
+      <SagaHeader title="Bộ thẻ nhân vật" subtitle={album.data ? `Đã mở ${album.data.owned}/${album.data.total} thẻ. Hoàn thành một chặng để mở thẻ nhân vật của chặng đó.` : 'Thẻ nhân vật, huy chương và bảng xếp hạng tuần của lớp.'} />
+      <View style={{ flexDirection: wide ? 'row' : 'column', gap: 16, alignItems: wide ? 'flex-start' : 'stretch' }}>
+        <View style={{ flex: wide ? 1.6 : undefined, gap: 16 }}>
+          {!album.data ? <LoadState loading={album.loading} error={album.error} onRetry={album.reload} /> : (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+              {cards.map((card) => <HeroCard key={card.code} card={card} latest={card.code === latest} onPress={() => setOpen(card)} testID={card.code === latest ? 'card-latest' : `card-${card.code}`} />)}
             </View>
-            {!album.data ? <LoadState loading={album.loading} error={album.error} onRetry={album.reload} light /> : (
-              <>
-                {fan.center ? (
-                  <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', height: 250 }}>
-                    {fan.left ? <View style={{ marginRight: -26, marginBottom: 6 }}><HeroCard card={fan.left} w={118} tilt={-9} onPress={() => setOpen(fan.left)} /></View> : null}
-                    <View style={{ zIndex: 2 }}><HeroCard card={fan.center} w={150} glow onPress={() => setOpen(fan.center)} testID="card-latest" /></View>
-                    {fan.right ? <View style={{ marginLeft: -26, marginBottom: 6 }}><HeroCard card={fan.right} w={118} tilt={9} onPress={() => setOpen(fan.right)} /></View> : null}
+          )}
+          <Card flat pad={14} style={{ borderRadius: 12, gap: 10 }}>
+            <BlockTitle title="Huy chương" />
+            {medals.length ? (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
+                {medals.map((m) => (
+                  <View key={m.id} accessible accessibilityLabel={`Huy chương ${m.name}: ${m.earned ? 'đã đạt' : 'chưa đạt'}. ${m.description ?? ''}`} style={{ alignItems: 'center', width: 90, gap: 2 }}>
+                    <Medal code={m.code} size={52} earned={m.earned} />
+                    <Txt f="semibold" size={12} color={m.earned ? c.muc : c.muc3} center numberOfLines={2}>{m.name}</Txt>
                   </View>
-                ) : null}
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
-                  {cards.map((c) => <HeroCard key={c.code} card={c} w={small} onPress={() => setOpen(c)} testID={`card-${c.code}`} />)}
-                </View>
-              </>
-            )}
-            <View style={{ gap: 8 }}>
-              <Txt f="heavy" size={16} color="#ffffff" accessibilityRole="header">Huy chương</Txt>
-              {medals.length ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
-                  {medals.map((m) => (
-                    <View key={m.id} accessible accessibilityLabel={`Huy chương ${m.name}: ${m.earned ? 'đã đạt' : 'chưa đạt'}. ${m.description ?? ''}`} style={{ alignItems: 'center', width: 84 }}>
-                      <Medal code={m.code} size={56} earned={m.earned} />
-                      <Txt f="bold" size={12} color={m.earned ? '#ffffff' : '#d9b9c0'} center numberOfLines={2}>{m.name}</Txt>
-                    </View>
-                  ))}
-                </View>
-              ) : <Txt size={14} color="#ffd9d9">{badges.loading ? 'Đang tải huy chương…' : 'Chưa có huy chương nào.'}</Txt>}
-            </View>
-          </View>
-
-          <Panel style={{ flex: wide ? 1 : undefined, gap: 10 }} testID="saga-board">
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Trophy size={22} color={SG.yellowEdge} strokeWidth={2.6} />
-              <View style={{ flex: 1 }}>
-                <Txt f="heavy" size={17} color="#1e2a4a" accessibilityRole="header">BẢNG XẾP HẠNG TUẦN</Txt>
-                <Txt f="semibold" size={13} color="#4a5672">{b && 'label' in b ? b.label : 'Lớp của em'}</Txt>
+                ))}
               </View>
-            </View>
-            {!b ? <LoadState loading={board.loading} error={board.error} onRetry={board.reload} /> : 'message' in b && !('entries' in b) ? (
-              <Txt size={14} color="#4a5672">{b.message}</Txt>
-            ) : 'entries' in b ? (
-              b.disabled ? <Txt size={14} color="#4a5672">{b.message ?? 'Bảng xếp hạng đang tắt.'}</Txt> : b.entries.length ? b.entries.map((e, i) => (
-                <View key={`${e.rank}${e.name}${i}`} accessible accessibilityLabel={`Hạng ${e.rank}: ${e.name}, ${e.xp} điểm${e.me ? ' (em)' : ''}`}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 8, borderRadius: 14, borderWidth: 2, borderColor: e.me ? SG.red : '#e6ecf7', backgroundColor: e.me ? '#fff3c9' : '#ffffff' }}>
-                  <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: RANK_TONE[e.rank - 1] ?? '#eef2fa', alignItems: 'center', justifyContent: 'center' }}><Txt f="heavy" size={13} color="#1e2a4a">{e.rank}</Txt></View>
-                  <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: AVATAR_TONE[i % AVATAR_TONE.length], alignItems: 'center', justifyContent: 'center' }}><Txt f="heavy" size={13} color="#ffffff">{initials(e.me ? session.user.full_name : e.name)}</Txt></View>
-                  <Txt f={e.me ? 'heavy' : 'bold'} size={15} color="#1e2a4a" style={{ flex: 1 }} numberOfLines={1}>{e.me ? 'Em' : e.name}</Txt>
-                  <Txt f="heavy" size={15} color={e.me ? SG.redEdge : '#4a5672'}>{num(e.xp)}</Txt>
-                </View>
-              )) : <Txt size={14} color="#4a5672">Tuần này chưa ai ghi điểm. Em hãy là người mở đầu!</Txt>
-            ) : null}
-            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}><Users size={14} color="#4a5672" /><Txt size={12} color="#4a5672" style={{ flex: 1 }}>Điểm tính theo kinh nghiệm kiếm được từ thứ Hai. Mỗi phần thưởng chỉ tính một lần.</Txt></View>
-          </Panel>
+            ) : <Txt size={14} color={c.muc2}>{badges.loading ? 'Đang tải huy chương…' : 'Chưa có huy chương nào.'}</Txt>}
+          </Card>
         </View>
-      </ScrollView>
-      {open ? <CardDetail card={open} onClose={() => setOpen(null)} onStage={() => { const c = open; setOpen(null); if (c.stage_id && c.campaign_no) nav.go('chien-dich', { c: c.campaign_no, s: c.stage_id, v: null }); }} /> : null}
-    </View>
+        {leaderboard}
+      </View>
+      <InfoNote>Hình trên thẻ là tranh minh họa cách điệu của trò chơi, không phải chân dung lịch sử.</InfoNote>
+      {open ? <CardDetail card={open} onClose={() => setOpen(null)} onStage={() => { const cd = open; setOpen(null); if (cd.stage_id && cd.campaign_no) nav.go('chien-dich', { c: cd.campaign_no, s: cd.stage_id, v: null }); }} /> : null}
+    </SagaPage>
   );
 };
 
 // ---------------------------------------------------------------------- "Tư liệu": kho tư liệu
 type Section = 'van-ban' | 'nhan-vat' | 'nien-bieu' | 'ban-do';
-const SECTIONS: Array<{ id: Section; label: string; icon: IconType }> = [{ id: 'van-ban', label: 'Văn bản gốc', icon: ScrollText }, { id: 'nhan-vat', label: 'Nhân vật', icon: Users }, { id: 'nien-bieu', label: 'Niên biểu', icon: Clock }, { id: 'ban-do', label: 'Bản đồ', icon: MapIcon }];
-const WOOD = { bg: '#2b1b12', side: '#1d120b', line: '#4a3122', text: '#f3e3c3', sub: '#c9b08a', gold: '#e0a93b', paper: '#f6ecd2', ink: '#3a2414', red: '#b3261e' };
 
-const Rod: React.FC = () => (
-  <View style={{ width: 16, alignItems: 'center' }}>
-    <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: WOOD.gold }} />
-    <View style={{ flex: 1, width: 10, backgroundColor: '#6b3f22' }} />
-    <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: WOOD.gold }} />
-  </View>
-);
-
-const ScrollPaper: React.FC<{ doc: ArchiveText; onStage: () => void }> = ({ doc, onStage }) => (
-  <View style={{ flexDirection: 'row', alignItems: 'stretch' }} testID={`doc-${doc.code}`}>
-    <Rod />
-    <View style={{ flex: 1, backgroundColor: WOOD.paper, paddingVertical: 24, paddingHorizontal: 18, alignItems: 'center', gap: 10, minHeight: 330 }}>
-      <Txt f="heavy" size={22} color={WOOD.red} center accessibilityRole="header">{doc.title.toUpperCase()}</Txt>
-      {doc.subtitle ? <Txt size={13} color="#7a5a3a" center>{doc.subtitle}</Txt> : null}
-      <View style={{ width: 120, height: 2, backgroundColor: '#d9c08f' }} />
+const DocView: React.FC<{ doc: ArchiveText; onStage: () => void }> = ({ doc, onStage }) => {
+  const { c } = useTheme();
+  return (
+    <Card flat pad={20} style={{ borderRadius: 12, gap: 10 }} testID={`doc-${doc.code}`}>
+      <View style={{ gap: 2 }}>
+        <Txt f="displayHeavy" size={22} color={c.logoInk} accessibilityRole="header">{doc.title}</Txt>
+        {doc.subtitle ? <Txt size={13} color={c.muc3}>{doc.subtitle}</Txt> : null}
+      </View>
       {doc.locked || !doc.body ? (
-        <View style={{ alignItems: 'center', gap: 10, paddingVertical: 18 }}>
-          <Lock size={34} color="#7a5a3a" strokeWidth={2.2} />
-          <Txt f="bold" size={16} color={WOOD.ink} center>Tư liệu này còn khóa</Txt>
-          <Txt size={14} color="#7a5a3a" center>{doc.lock ? `Hoàn thành chặng “${doc.lock.stage_title}” để mở.` : 'Hoàn thành chặng liên quan để mở.'}</Txt>
-          {doc.lock ? <GameBtn title="Tới chặng" icon={MapIcon} tone="yellow" size="sm" onPress={onStage} testID="doc-to-stage" style={{ alignSelf: 'center' }} /> : null}
-        </View>
+        <Inset style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <Lock size={22} color={c.muc2} />
+          <View style={{ flex: 1, minWidth: 200 }}>
+            <Txt f="bold" size={15}>Tư liệu này còn khóa</Txt>
+            <Txt size={14} color={c.muc2}>{doc.lock ? `Hoàn thành chặng “${doc.lock.stage_title}” để mở.` : 'Hoàn thành chặng liên quan để mở.'}</Txt>
+          </View>
+          {doc.lock ? <Btn title="Tới chặng" icon={MapIcon} tone="giay" size="sm" onPress={onStage} testID="doc-to-stage" /> : null}
+        </Inset>
       ) : (
         <>
-          {doc.body.lines.map((l, i) => <Txt key={i} f="serifItalic" size={21} color={WOOD.ink} center style={{ lineHeight: 32 }}>{l}</Txt>)}
-          {doc.body.translation?.length ? (
-            <View style={{ alignItems: 'center', marginTop: 6, gap: 2 }}>
-              <Txt f="heavy" size={12} color="#7a5a3a">BẢN DỊCH{doc.body.translator ? ` · ${doc.body.translator}` : ''}</Txt>
-              {doc.body.translation.map((l, i) => <Txt key={i} f="serif" size={18} color={WOOD.ink} center>{l}</Txt>)}
-            </View>
-          ) : doc.body.translator ? <Txt size={12} color="#7a5a3a">{doc.body.translator}</Txt> : null}
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 16, marginTop: 10 }}>
-            <View accessible accessibilityLabel="Đã mở khóa" style={{ width: 86, height: 86, borderRadius: 43, borderWidth: 3, borderColor: WOOD.red, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-14deg' }] }}>
-              <Txt f="heavy" size={12} color={WOOD.red} center>ĐÃ MỞ{'\n'}KHÓA</Txt>
-            </View>
-            {doc.body.note ? (
-              <View style={{ maxWidth: 300, backgroundColor: '#ffe98a', padding: 10, borderRadius: 4, transform: [{ rotate: '1.5deg' }] }}>
-                <Txt f="heavy" size={13} color="#5a4300">Chú giải</Txt>
-                <Txt size={13} color="#5a4300">{doc.body.note}</Txt>
-              </View>
-            ) : null}
+          <View style={{ gap: 4, paddingVertical: 4 }}>
+            {doc.body.lines.map((l, i) => <Txt key={i} f="serifItalic" size={19} style={{ lineHeight: 30 }}>{l}</Txt>)}
           </View>
+          {doc.body.translation?.length ? (
+            <Inset style={{ gap: 2 }}>
+              <Txt f="bold" size={12} color={c.muc3} upper>Bản dịch{doc.body.translator ? ` · ${doc.body.translator}` : ''}</Txt>
+              {doc.body.translation.map((l, i) => <Txt key={i} f="serif" size={17}>{l}</Txt>)}
+            </Inset>
+          ) : doc.body.translator ? <Txt size={12} color={c.muc3}>{doc.body.translator}</Txt> : null}
+          {doc.body.note ? <InfoNote>Chú giải: {doc.body.note}</InfoNote> : null}
           {doc.source ? (
             <Pressable accessibilityRole="link" accessibilityLabel={`Nguồn: ${doc.source}. Bấm để mở`} disabled={!doc.source_url} onPress={() => { if (doc.source_url) void Linking.openURL(doc.source_url); }} style={{ minHeight: 44, justifyContent: 'center' }}>
-              <Txt size={12} color="#7a5a3a" center>Nguồn: {doc.source}{doc.source_url ? ' (bấm để mở)' : ''}</Txt>
+              <Txt size={12} color={c.muc3}>Nguồn: {doc.source}{doc.source_url ? ' (bấm để mở)' : ''}</Txt>
             </Pressable>
           ) : null}
         </>
       )}
-    </View>
-    <Rod />
-  </View>
-);
+    </Card>
+  );
+};
+
+const Timeline: React.FC<{ marks: TimelineMark[]; onStage: (c: number | null, id: number | null) => void }> = ({ marks, onStage }) => {
+  const { c } = useTheme();
+  return (
+    <Card flat pad={16} style={{ borderRadius: 12 }}>
+      {marks.map((m, i) => {
+        const tone = TONE[m.campaign_no ?? 0]?.main ?? c.muc3;
+        return (
+          <View key={m.key} testID={`mark-${m.key}`} style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={{ alignItems: 'center', width: 20 }}>
+              <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: tone, marginTop: 4, alignItems: 'center', justifyContent: 'center' }}>{m.stage_id && m.done ? <Check size={9} color="#ffffff" strokeWidth={4} /> : null}</View>
+              {i < marks.length - 1 ? <View style={{ flex: 1, width: 2, backgroundColor: c.adminLine }} /> : null}
+            </View>
+            <View style={{ flex: 1, paddingBottom: 16, gap: 2 }}>
+              <Txt f="bold" size={12} color={c.son}>{m.date_label}</Txt>
+              <Txt f="bold" size={15}>{m.title}</Txt>
+              <Txt size={14} color={c.muc2}>{m.text}</Txt>
+              {m.stage_id ? <Btn title={m.done ? 'Xem lại chặng' : 'Mở chặng'} icon={MapIcon} tone="giay" size="sm" onPress={() => onStage(m.campaign_no, m.stage_id)} testID={`mark-open-${m.stage_id}`} style={{ marginTop: 4 }} />
+                : m.source ? <Pressable accessibilityRole="link" accessibilityLabel={`Nguồn: ${m.source}`} disabled={!m.source_url} onPress={() => { if (m.source_url) void Linking.openURL(m.source_url); }} style={{ minHeight: 32, justifyContent: 'center' }}><Txt size={12} color={c.muc3}>Nguồn: {m.source}{m.source_url ? ' (bấm để mở)' : ''}</Txt></Pressable> : null}
+            </View>
+          </View>
+        );
+      })}
+      {!marks.length ? <Txt size={14} color={c.muc2}>Chưa có mốc nào trong phần này.</Txt> : null}
+    </Card>
+  );
+};
 
 export const ArchiveScreen: React.FC<{ session: Session; nav: SagaNav }> = ({ session, nav }) => {
-  const { width } = useWindowDimensions();
+  const { c } = useTheme();
   const data = useLoad<Archive>(session, saga.archive, []);
   const [section, setSection] = useState<Section>('van-ban');
   const [camp, setCamp] = useState(0);
   const [docId, setDocId] = useState<number | null>(null);
   const [mapW, setMapW] = useState(0);
-  const wide = width >= 860;
   const d = data.data;
   const texts = useMemo(() => (d?.texts ?? []).filter((t) => !camp || t.campaign_no === camp), [d, camp]);
   const doc = texts.find((t) => t.id === docId) ?? texts.find((t) => !t.locked) ?? texts[0] ?? null;
   const figures = (d?.figures ?? []).filter((f) => !camp || f.campaign_no === camp);
   const marks = (d?.timeline ?? []).filter((m) => !camp || m.campaign_no === camp);
   const maps = (d?.maps ?? []).filter((m) => !camp || m.campaign_no === camp);
-  const toStage = (c: number | null, id: number | null): void => { if (c && id) nav.go('chien-dich', { c, s: id, v: null }); };
+  const toStage = (cn: number | null, id: number | null): void => { if (cn && id) nav.go('chien-dich', { c: cn, s: id, v: null }); };
   return (
-    <View style={{ flex: 1, backgroundColor: WOOD.bg, flexDirection: wide ? 'row' : 'column' }} testID="saga-archive">
-      <View accessibilityRole="tablist" style={wide ? { width: 210, backgroundColor: WOOD.side, padding: 14, gap: 6 } : { backgroundColor: WOOD.side, padding: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-        <Txt f="heavy" size={14} color={WOOD.gold} accessibilityRole="header" style={wide ? { marginBottom: 6 } : { width: '100%' }}>KHO TƯ LIỆU</Txt>
-        {SECTIONS.map((sec) => {
-          const on = sec.id === section;
-          return (
-            <Pressable key={sec.id} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={sec.label} onPress={() => { setSection(sec.id); play('tap'); }} testID={`archive-${sec.id}`}
-              style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, borderRadius: 10, backgroundColor: on ? '#3a2418' : 'transparent', borderLeftWidth: wide ? 4 : 0, borderLeftColor: on ? WOOD.gold : 'transparent', borderBottomWidth: wide ? 0 : 3, borderBottomColor: on ? WOOD.gold : 'transparent' }}>
-              <sec.icon size={18} color={on ? WOOD.gold : WOOD.sub} strokeWidth={2.4} />
-              <Txt f={on ? 'heavy' : 'semibold'} size={14} color={on ? WOOD.text : WOOD.sub}>{sec.label}</Txt>
-            </Pressable>
-          );
-        })}
+    <SagaPage testID="saga-archive">
+      <SagaHeader title="Kho tư liệu" subtitle="Văn bản gốc (mở dần theo chặng em hoàn thành), nhân vật, niên biểu và bản đồ của ba lần kháng chiến; mọi mục đều ghi nguồn." />
+      <View style={{ gap: 10 }}>
+        <Segmented<Section> label="Phần của kho tư liệu" value={section} onChange={(v) => { setSection(v); play('tap'); }}
+          options={[{ value: 'van-ban', label: 'Văn bản gốc' }, { value: 'nhan-vat', label: 'Nhân vật' }, { value: 'nien-bieu', label: 'Niên biểu' }, { value: 'ban-do', label: 'Bản đồ' }]} />
+        <Segmented<number> label="Lọc theo cuộc kháng chiến" value={camp} onChange={(n) => { setCamp(n); setDocId(null); }}
+          options={[{ value: 0, label: 'Cả ba lần' }, ...[1, 2, 3].map((n) => ({ value: n, label: `${TONE[n].label} · ${TONE[n].years}` }))]} />
       </View>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 104, alignItems: 'center' }}>
-        <View style={{ width: '100%', maxWidth: 860, gap: 14 }}>
-          <View accessibilityRole="tablist" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-            {[0, 1, 2, 3].map((n) => {
-              const on = n === camp, t = TONE[n];
+      {!d ? <LoadState loading={data.loading} error={data.error} onRetry={data.reload} /> : section === 'van-ban' ? (
+        <View style={{ gap: 12 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {texts.map((t) => {
+              const on = t.id === doc?.id;
               return (
-                <Pressable key={n} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={n ? `Chỉ xem tư liệu ${t.label.toLowerCase()}` : 'Xem tư liệu của cả ba lần kháng chiến'} onPress={() => { setCamp(n); setDocId(null); }} testID={`archive-camp-${n}`}
-                  style={{ minHeight: 44, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 999, backgroundColor: on ? (t?.main ?? WOOD.gold) : 'transparent', borderWidth: 2, borderColor: t?.main ?? WOOD.gold }}>
-                  <Txt f="heavy" size={13} color={on ? (n ? '#ffffff' : WOOD.ink) : WOOD.text}>{n ? `${t.label} · ${n === 1 ? '1258' : n === 2 ? '1285' : '1287–1288'}` : 'TẤT CẢ'}</Txt>
+                <Pressable key={t.id} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={`${t.title}${t.locked ? ' (còn khóa)' : ''}`} onPress={() => { setDocId(t.id); play('tap'); }} testID={`doc-pick-${t.code}`}
+                  style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 5, borderWidth: 1, borderColor: on ? c.son : c.adminLine, backgroundColor: on ? c.adminTint : pressed ? c.adminCanvas : c.the })}>
+                  {t.locked ? <Lock size={14} color={c.muc3} /> : <ScrollText size={14} color={on ? c.son : c.muc2} />}
+                  <Txt f={on ? 'bold' : 'semibold'} size={13} color={t.locked ? c.muc3 : on ? c.son : c.muc}>{t.title}</Txt>
                 </Pressable>
               );
             })}
           </View>
-          {!d ? <LoadState loading={data.loading} error={data.error} onRetry={data.reload} light /> : section === 'van-ban' ? (
-            <>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {texts.map((t) => {
-                  const on = t.id === doc?.id;
-                  return (
-                    <Pressable key={t.id} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={`${t.title}${t.locked ? ' (còn khóa)' : ''}`} onPress={() => { setDocId(t.id); play('tap'); }} testID={`doc-pick-${t.code}`}
-                      style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 12, borderWidth: 2, borderColor: on ? WOOD.gold : WOOD.line, backgroundColor: on ? '#3a2418' : 'transparent' }}>
-                      {t.locked ? <Lock size={14} color={WOOD.sub} strokeWidth={2.6} /> : <ScrollText size={14} color={WOOD.gold} strokeWidth={2.6} />}
-                      <Txt f="bold" size={13} color={t.locked ? WOOD.sub : WOOD.text}>{t.title}</Txt>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              {doc ? <ScrollPaper doc={doc} onStage={() => toStage(doc.lock?.campaign_no ?? null, doc.lock?.stage_id ?? null)} /> : <Txt size={14} color={WOOD.sub} center>Chưa có văn bản nào trong phần này.</Txt>}
-            </>
-          ) : section === 'nhan-vat' ? (
-            <View style={{ gap: 10 }}>
-              {figures.map((f) => (
-                <View key={f.code} testID={`figure-${f.code}`} style={{ flexDirection: 'row', gap: 12, backgroundColor: '#3a2418', borderRadius: 16, padding: 12, borderWidth: 1, borderColor: WOOD.line }}>
-                  <Portrait code={f.portrait} size={72} locked={!f.owned} />
-                  <View style={{ flex: 1, gap: 3 }}>
-                    <Txt f="heavy" size={17} color={WOOD.text}>{f.name}</Txt>
-                    <Txt f="bold" size={13} color={WOOD.gold}>{f.title}{f.owned && f.years ? ` · ${f.years}` : ''}</Txt>
-                    {f.owned ? (
-                      <>
-                        {f.intro ? <Txt size={14} color={WOOD.text}>{f.intro}</Txt> : null}
-                        {f.role_text ? <Txt size={14} color={WOOD.sub}>{f.role_text}</Txt> : null}
-                        {f.source ? <Pressable accessibilityRole="link" accessibilityLabel={`Nguồn: ${f.source}`} disabled={!f.source_url} onPress={() => { if (f.source_url) void Linking.openURL(f.source_url); }} style={{ minHeight: 32, justifyContent: 'center' }}><Txt size={12} color={WOOD.sub}>Nguồn: {f.source}{f.source_url ? ' (bấm để mở)' : ''}</Txt></Pressable> : null}
-                      </>
-                    ) : <Txt size={14} color={WOOD.sub}>{f.stage_title ? `Hoàn thành chặng “${f.stage_title}” để mở hồ sơ nhân vật.` : 'Hồ sơ còn khóa.'}</Txt>}
-                  </View>
-                </View>
-              ))}
-              <Txt size={12} color={WOOD.sub}>Hình trên thẻ là tranh minh họa cách điệu của trò chơi, không phải chân dung lịch sử.</Txt>
-            </View>
-          ) : section === 'nien-bieu' ? (
-            <View>
-              {marks.map((m, i) => {
-                const tone = TONE[m.campaign_no ?? 0]?.main ?? WOOD.gold;
-                return (
-                  <View key={m.key} testID={`mark-${m.key}`} style={{ flexDirection: 'row', gap: 12 }}>
-                    <View style={{ alignItems: 'center', width: 22 }}>
-                      <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: tone, borderWidth: 3, borderColor: WOOD.bg, marginTop: 4, alignItems: 'center', justifyContent: 'center' }}>{m.stage_id && m.done ? <Check size={9} color="#ffffff" strokeWidth={4} /> : null}</View>
-                      {i < marks.length - 1 ? <View style={{ flex: 1, width: 3, backgroundColor: WOOD.line }} /> : null}
-                    </View>
-                    <View style={{ flex: 1, paddingBottom: 16, gap: 2 }}>
-                      <Txt f="heavy" size={13} color={WOOD.gold}>{m.date_label}</Txt>
-                      <Txt f="heavy" size={16} color={WOOD.text}>{m.title}</Txt>
-                      <Txt size={14} color={WOOD.sub}>{m.text}</Txt>
-                      {m.stage_id ? <GameBtn title={m.done ? 'Xem lại chặng' : 'Mở chặng'} icon={MapIcon} tone="white" size="sm" onPress={() => toStage(m.campaign_no, m.stage_id)} testID={`mark-open-${m.stage_id}`} style={{ marginTop: 4 }} />
-                        : m.source ? <Pressable accessibilityRole="link" accessibilityLabel={`Nguồn: ${m.source}`} disabled={!m.source_url} onPress={() => { if (m.source_url) void Linking.openURL(m.source_url); }} style={{ minHeight: 32, justifyContent: 'center' }}><Txt size={12} color={WOOD.sub}>Nguồn: {m.source}{m.source_url ? ' (bấm để mở)' : ''}</Txt></Pressable> : null}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          ) : (
-            <View style={{ gap: 16 }} onLayout={(e) => setMapW(e.nativeEvent.layout.width)}>
-              {maps.map((m) => {
-                const w = Math.min(mapW, 620 * (m.image_w / Math.max(1, m.image_h))), h = w / (m.image_w / Math.max(1, m.image_h));
-                return (
-                  <View key={m.campaign_no} testID={`archive-map-${m.campaign_no}`} style={{ gap: 6, alignItems: 'center' }}>
-                    <Txt f="heavy" size={16} color={WOOD.text} center>{m.title} ({m.years})</Txt>
-                    {mapW > 0 ? <Image source={mapSource(m)} style={{ width: w, height: h, borderRadius: 12, borderWidth: 3, borderColor: TONE[m.campaign_no]?.main ?? WOOD.gold }} resizeMode="stretch" accessibilityLabel={`Bản đồ ${m.title}`} /> : null}
-                    <Txt size={12} color={WOOD.sub} center>{m.credit}</Txt>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-                      <GameBtn title="Mở bản đồ chiến dịch" icon={Play} tone="yellow" size="sm" onPress={() => nav.go('chien-dich', { c: m.campaign_no, s: null, v: null })} testID={`archive-map-open-${m.campaign_no}`} />
-                      {m.credit_url ? <GameBtn title="Trang gốc của bản đồ" icon={BookOpen} tone="white" size="sm" onPress={() => { void Linking.openURL(m.credit_url!); }} testID={`archive-map-src-${m.campaign_no}`} /> : null}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          )}
+          {doc ? <DocView doc={doc} onStage={() => toStage(doc.lock?.campaign_no ?? null, doc.lock?.stage_id ?? null)} /> : <Txt size={14} color={c.muc2}>Chưa có văn bản nào trong phần này.</Txt>}
         </View>
-      </ScrollView>
-    </View>
+      ) : section === 'nhan-vat' ? (
+        <View style={{ gap: 10 }}>
+          {figures.map((f) => (
+            <Card key={f.code} flat pad={14} style={{ borderRadius: 12, flexDirection: 'row', gap: 14 }} testID={`figure-${f.code}`}>
+              <Portrait code={f.portrait} size={76} locked={!f.owned} />
+              <View style={{ flex: 1, gap: 3 }}>
+                <Txt f="bold" size={16}>{f.name}</Txt>
+                <Txt f="semibold" size={13} color={c.son}>{f.title}{f.owned && f.years ? ` · ${f.years}` : ''}</Txt>
+                {f.owned ? (
+                  <>
+                    {f.intro ? <Txt size={14}>{f.intro}</Txt> : null}
+                    {f.role_text ? <Txt size={14} color={c.muc2}>{f.role_text}</Txt> : null}
+                    {f.source ? <Pressable accessibilityRole="link" accessibilityLabel={`Nguồn: ${f.source}`} disabled={!f.source_url} onPress={() => { if (f.source_url) void Linking.openURL(f.source_url); }} style={{ minHeight: 32, justifyContent: 'center' }}><Txt size={12} color={c.muc3}>Nguồn: {f.source}{f.source_url ? ' (bấm để mở)' : ''}</Txt></Pressable> : null}
+                  </>
+                ) : <Txt size={14} color={c.muc2}>{f.stage_title ? `Hoàn thành chặng “${f.stage_title}” để mở hồ sơ nhân vật.` : 'Hồ sơ còn khóa.'}</Txt>}
+              </View>
+            </Card>
+          ))}
+          <InfoNote>Hình trên thẻ là tranh minh họa cách điệu của trò chơi, không phải chân dung lịch sử.</InfoNote>
+        </View>
+      ) : section === 'nien-bieu' ? (
+        <Timeline marks={marks} onStage={toStage} />
+      ) : (
+        <View style={{ gap: 16 }} onLayout={(e) => setMapW(e.nativeEvent.layout.width)}>
+          {maps.map((m) => {
+            const w = Math.min(mapW - 30, 620 * (m.image_w / Math.max(1, m.image_h))), h = w / (m.image_w / Math.max(1, m.image_h));
+            return (
+              <Card key={m.campaign_no} flat pad={14} style={{ borderRadius: 12, gap: 8, alignItems: 'center' }} testID={`archive-map-${m.campaign_no}`}>
+                <Txt f="bold" size={16} center>{m.title} ({m.years})</Txt>
+                {mapW > 0 ? <Image source={mapSource(m)} style={{ width: w, height: h, borderRadius: 8, borderWidth: 1, borderColor: c.adminLine }} resizeMode="stretch" accessibilityLabel={`Bản đồ ${m.title}`} /> : null}
+                <Txt size={12} color={c.muc3} center>{m.credit}</Txt>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                  <Btn title="Mở bản đồ chiến dịch" icon={Play} tone="son" size="sm" onPress={() => nav.go('chien-dich', { c: m.campaign_no, s: null, v: null })} testID={`archive-map-open-${m.campaign_no}`} />
+                  {m.credit_url ? <Btn title="Trang gốc của bản đồ" icon={BookOpen} tone="giay" size="sm" onPress={() => { void Linking.openURL(m.credit_url!); }} testID={`archive-map-src-${m.campaign_no}`} /> : null}
+                </View>
+              </Card>
+            );
+          })}
+        </View>
+      )}
+    </SagaPage>
   );
 };
