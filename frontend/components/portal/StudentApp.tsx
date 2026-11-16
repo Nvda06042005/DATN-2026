@@ -13,7 +13,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useIsFocused, useLocalSearchParams, useNavigation, usePathname, useRouter, type Href } from 'expo-router';
-import { CircleQuestionMark, ClipboardCheck, GalleryHorizontalEnd, Gamepad2, LifeBuoy, Map as MapIcon, ScrollText, Sparkles, Volume2, VolumeX } from 'lucide-react-native';
+import { CircleQuestionMark, ClipboardCheck, GalleryHorizontalEnd, Gamepad2, LifeBuoy, Mail, Map as MapIcon, School, ScrollText, Sparkles, Volume2, VolumeX } from 'lucide-react-native';
+import * as learningApi from '@/api/learningApi';
+import { StudentCatalog, StudentInbox } from '@/components/portal/StudentClasses';
 import { StudentExams } from '@/components/admin/LibraryExams';
 import * as authApi from '@/api/authApi';
 import * as game from '@/api/gameApi';
@@ -39,7 +41,9 @@ import { play, setSound, soundEnabled } from '@/lib/saga-sound';
 import type { Prefs } from '@/types/platform';
 import type { Completion, SagaHome } from '@/types/saga';
 
-const TABS: readonly SagaTab[] = ['chien-dich', 'nhap-vai', 'cau-hoi', 'ky-thi', 'tu-lieu', 'bo-the', 'hoi', 'tro-giup'];
+const TABS: readonly SagaTab[] = ['chien-dich', 'nhap-vai', 'cau-hoi', 'ky-thi', 'tu-lieu', 'bo-the', 'hoi', 'lop-hoc', 'tin-nhan', 'tro-giup'];
+/** Chưa vào lớp nào: chỉ có Lớp học (danh mục lớp, đăng ký bằng mã), Tin nhắn (mã lớp thầy cô gửi), Trợ giúp (16/11/2026) */
+const BEFORE_CLASS: readonly SagaTab[] = ['lop-hoc', 'tin-nhan', 'tro-giup'];
 const STEPS: readonly SagaStep[] = ['hoc', 'luyen', 'kham-pha', 'tran', 'tong-ket'];
 /** Menu bên trái, cùng kiểu với menu của quản trị tổng, quản trị trường và giáo viên */
 const NAV: ReadonlyArray<NavLeaf<SagaTab>> = [
@@ -50,6 +54,8 @@ const NAV: ReadonlyArray<NavLeaf<SagaTab>> = [
   { id: 'tu-lieu', label: 'Tư liệu', icon: ScrollText },
   { id: 'bo-the', label: 'Bộ thẻ', icon: GalleryHorizontalEnd },
   { id: 'hoi', label: 'Hỏi Tiểu Tướng', icon: Sparkles },
+  { id: 'lop-hoc', label: 'Lớp học', icon: School },
+  { id: 'tin-nhan', label: 'Tin nhắn', icon: Mail },
   { id: 'tro-giup', label: 'Trợ giúp', icon: LifeBuoy },
 ];
 const one = (v: string | string[] | undefined): string | undefined => (Array.isArray(v) ? v[0] : v);
@@ -62,6 +68,8 @@ const idOf = (v: string | undefined): number | null => (v && /^\d{1,9}$/.test(v)
  */
 const HOME_CACHE = new Map<string, SagaHome>();
 let pendingReward: { token: string; stageId: number; completion: Completion } | null = null;
+/** Mã lớp mở từ tin nhắn: chuyển mục tạo màn mới nên giữ ngoài thành phần, như `pendingReward` (16/11/2026) */
+let pendingJoin: { token: string; classId: number; code: string } | null = null;
 
 function useHome(session: Session, active: boolean): { data: SagaHome | null; error: string | null; loading: boolean; reload: () => void } {
   const [data, setData] = useState<SagaHome | null>(() => HOME_CACHE.get(session.token) ?? null);
@@ -95,6 +103,14 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const focused = useIsFocused();
   const navigation = useNavigation();
   const home = useHome(session, focused);
+  // lớp của em, tin nhắn và mã lớp điền sẵn (mở từ tin nhắn) – 16/11/2026
+  const [classTick, setClassTick] = useState(0);
+  const [inboxTick, setInboxTick] = useState(0);
+  const [prefill, setPrefillState] = useState<{ classId: number; code: string } | null>(() => (pendingJoin && pendingJoin.token === session.token ? { classId: pendingJoin.classId, code: pendingJoin.code } : null));
+  const setPrefill = useCallback((p: { classId: number; code: string } | null) => { pendingJoin = p ? { token: session.token, ...p } : null; setPrefillState(p); }, [session.token]);
+  const myClasses = useLoad(() => authApi.myClasses(session.token), [session.token, classTick], session.expired);
+  const inbox = useLoad(() => learningApi.messageInbox(session.token), [session.token, inboxTick, focused], session.expired);
+  const gated = Boolean(myClasses.data) && !(myClasses.data ?? []).some((k) => k.is_active);
   // chỉ nhận phần thưởng đang chờ của chính phiên này (đăng xuất rồi tài khoản khác đăng nhập trên cùng máy thì không thấy)
   const [reward, setRewardState] = useState<{ stageId: number; completion: Completion } | null>(() => (pendingReward && pendingReward.token === session.token ? { stageId: pendingReward.stageId, completion: pendingReward.completion } : null));
   const setReward = useCallback((r: { stageId: number; completion: Completion } | null) => { pendingReward = r ? { token: session.token, ...r } : null; setRewardState(r); }, [session.token]);
@@ -150,10 +166,15 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
 
   const pick = (id: SagaTab): void => go(id, { c: null, s: null, v: null });
   const stage = route.s !== null && route.c !== null && route.v !== null ? { session, nav, stageId: route.s, campaignNo: route.c } : null;
+  // chưa vào lớp nào thì chỉ có Lớp học, Tin nhắn, Trợ giúp (16/11/2026)
+  const catalog = <StudentCatalog session={session} prefill={prefill} onPrefillUsed={() => setPrefill(null)} onJoined={() => { setClassTick((n) => n + 1); nav.refresh(); pick('chien-dich'); }} />;
   // màn đang nằm ẩn dưới một màn khác: không dựng gì để game, đồng hồ, phím tắt và hộp thoại của nó được gỡ sạch
   if (!focused) return <View style={{ flex: 1 }} testID="student-app-hidden" />;
 
-  const body = route.tab === 'chien-dich'
+  const body = gated && !BEFORE_CLASS.includes(route.tab) ? catalog
+    : route.tab === 'lop-hoc' ? catalog
+    : route.tab === 'tin-nhan' ? <StudentInbox session={session} onRead={() => setInboxTick((n) => n + 1)} onJoinCode={(classId, code) => { setPrefill({ classId, code }); pick('lop-hoc'); }} />
+    : route.tab === 'chien-dich'
     ? stage && route.v === 'hoc' ? <LessonScreen key={`hoc${stage.stageId}`} {...stage} />
       : stage && route.v === 'luyen' ? <PracticeScreen key={`luyen${stage.stageId}`} {...stage} />
       : stage && route.v === 'kham-pha' ? <ExploreScreen key={`kp${stage.stageId}`} {...stage} />
@@ -173,13 +194,14 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       </SagaPage>
     ) : <HelpPage session={session} />;
 
-  const navItems = NAV.map((it) => (it.id === 'cau-hoi' && home.data?.review_due ? { ...it, count: home.data.review_due } : it));
+  const unread = (inbox.data ?? []).filter((m) => !m.read_at).length;
+  const navItems = NAV.filter((it) => !gated || BEFORE_CLASS.includes(it.id)).map((it) => (it.id === 'cau-hoi' && home.data?.review_due ? { ...it, count: home.data.review_due } : it.id === 'tin-nhan' && unread ? { ...it, count: unread } : it));
   const extra = (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
       <Btn icon={sound ? Volume2 : VolumeX} tone="ghost" size="sm" selected={sound} label={sound ? 'Âm thanh trò chơi đang bật, bấm để tắt' : 'Âm thanh trò chơi đang tắt, bấm để bật'} testID="sound-toggle"
         onPress={() => { const on = !sound; setSound(on); setSoundOn(on); }} />
       <SettingsButton session={session} prefs={prefs} onSaved={setPrefs} />
-      <NoticeBell session={session} onGo={(n) => pick(n.kind === 'support' ? 'tro-giup' : n.kind === 'exam' ? 'ky-thi' : 'chien-dich')} />
+      <NoticeBell session={session} onGo={(n) => pick(n.kind === 'support' ? 'tro-giup' : n.kind === 'exam' ? 'ky-thi' : n.kind === 'message' ? 'tin-nhan' : gated ? 'lop-hoc' : 'chien-dich')} />
     </View>
   );
 

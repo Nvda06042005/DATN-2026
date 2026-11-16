@@ -19,7 +19,7 @@ import { AiSettings, AiSettingsService } from './ai-settings.service';
 import { LlmClient, LlmConfig, LlmMessage } from './llm.client';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { buildNodeBktRecommendations, buildProfilePromptContext, enrichBktResponse } from './bkt-profile';
-import { bridgeReadyMs, bridgeRequestMs, markEngine, memoryRoom, pythonCommand, shapePythonAnswer, warmOnBoot } from './python-runtime';
+import { engineHealth, bridgeReadyMs, bridgeRequestMs, markEngine, memoryRoom, pythonCommand, shapePythonAnswer, warmOnBoot } from './python-runtime';
 
 export interface Citation { n: number; kind: string; kind_label: string; id: number; title: string; snippet: string; openable: boolean }
 export type RefusalReason = 'out_of_scope' | 'unsafe' | 'quota' | 'not_configured';
@@ -51,6 +51,11 @@ const FOLLOWUP: Record<string, (t: string) => string> = {
   doc: (t) => `Tài liệu “${t}” nói gì?`,
 };
 const short = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
+
+/** Danh tướng nhập vai mặc định (slug trong kho lịch sử, migration 016): dùng khi mô hình NLP Đông A (Python) đang chạy */
+/** Mô hình Python đang chạy hoặc đang khởi động (câu hỏi gửi lúc khởi động sẽ chờ mô hình sẵn sàng) */
+const pythonOn = (): boolean => { const st = engineHealth().status; return st === 'ready' || st === 'starting'; };
+const ROLEPLAY_SLUGS = ['tran-hung-dao', 'tran-quoc-toan', 'tran-thu-do', 'tran-binh-trong', 'tran-nhan-tong', 'tran-khanh-du', 'pham-ngu-lao', 'yet-kieu'];
 
 @Injectable()
 export class AiTutorService implements OnModuleDestroy {
@@ -237,7 +242,10 @@ export class AiTutorService implements OnModuleDestroy {
       return { mode: 'grounded', ready: true, chunks: chunks || 56, quota: { limit: 50, used: 0, school_limit: 1000, school_used: 0, remaining: 50, unlimited: true }, roleplay: true, modes: MODES_BY_ROLE[user.role] ?? ['tutor', 'roleplay', 'explain', 'summary'] };
     }
     const [pub, quota, chunks] = await Promise.all([this.settings.publicView(), this.quota(user), this.retrieval.size()]);
-    return { mode: pub.mode, ready: chunks > 0, chunks, quota, roleplay: pub.mode === 'llm', modes: MODES_BY_ROLE[user.role] ?? [] };
+    // 16/11/2026: câu hỏi của mọi vai trò đi qua mô hình NLP Đông A (Python) khi mô hình đang chạy, nên học sinh dùng được như giáo viên
+    // kể cả khi kho chỉ mục tư liệu còn trống hoặc chưa cấu hình LLM (trước đây trang học sinh báo "kho còn trống" và khóa nhập vai)
+    const python = pythonOn();
+    return { mode: python ? 'grounded' : pub.mode, ready: python || chunks > 0, chunks, quota, roleplay: python || pub.mode === 'llm', modes: MODES_BY_ROLE[user.role] ?? [] };
   }
 
   // ---------------------------------------------------------------------- lõi: truy xuất → trả lời
@@ -457,7 +465,8 @@ export class AiTutorService implements OnModuleDestroy {
         };
         figure = defaultFigures[figureId] || { id: figureId, name: 'Danh tướng thời Trần', honorific: 'Tướng quân' };
       } else {
-        figure = (await this.db.query<{ id: number; name: string; honorific: string | null }>("SELECT id, name, honorific FROM hist_figures WHERE id = $1 AND status = 'published'", [figureId]))[0];
+        // danh tướng nhập vai: hồ sơ đã công bố, hoặc một trong các danh tướng nhập vai mặc định khi mô hình Python đang chạy
+        figure = (await this.db.query<{ id: number; name: string; honorific: string | null }>("SELECT id, name, honorific FROM hist_figures WHERE id = $1 AND (status = 'published' OR ($2 AND slug = ANY($3)))", [figureId, pythonOn(), ROLEPLAY_SLUGS]))[0];
       }
       if (!figure) throw notFound('nhân vật');
     }
@@ -710,6 +719,13 @@ export class AiTutorService implements OnModuleDestroy {
         { id: 7, name: 'Phạm Ngũ Lão', honorific: 'Điện Súy', role_text: 'Danh tướng xuất thân bình dân, tác giả bài thơ Thuật hoài (Tỏ lòng)' },
         { id: 8, name: 'Yết Kiêu', honorific: 'Danh Tướng Thủy Chiến', role_text: 'Gia tướng trung thành của Trần Hưng Đạo, tài bơi lặn đục thuyền giặc' },
       ];
+    }
+    // mô hình Python đang chạy: 8 danh tướng nhập vai (như trang giáo viên trước đây) cùng các hồ sơ đã công bố, không đòi kho chỉ mục
+    if (pythonOn()) {
+      return this.db.query(
+        `SELECT f.id, f.name, f.honorific, f.role_text FROM hist_figures f
+         WHERE f.slug = ANY($1) OR (f.status = 'published' AND EXISTS (SELECT 1 FROM hk_ai_chunks c WHERE c.source_kind = 'figure' AND c.source_id = f.id))
+         ORDER BY COALESCE(array_position($1::text[], f.slug), 99), f.name`, [ROLEPLAY_SLUGS]);
     }
     return this.db.query(
       `SELECT f.id, f.name, f.honorific, f.role_text FROM hist_figures f WHERE f.status = 'published' AND EXISTS (SELECT 1 FROM hk_ai_chunks c WHERE c.source_kind = 'figure' AND c.source_id = f.id) ORDER BY f.name`);

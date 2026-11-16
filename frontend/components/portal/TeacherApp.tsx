@@ -36,7 +36,7 @@ const NAV = [
   { id: 'quizzes' as const, label: 'Bộ đề', icon: ListChecks },
   { id: 'live' as const, label: 'Thi đấu trực tiếp', icon: Radio },
   { id: 'ai' as const, label: 'Trợ lý AI', icon: Sparkles },
-  { id: 'shares' as const, label: 'Nội dung đã gửi', icon: Send },
+  { id: 'shares' as const, label: 'Tin nhắn', icon: Send },
   { id: 'notices' as const, label: 'Thông báo', icon: Bell },
   { id: 'help' as const, label: 'Trợ giúp', icon: LifeBuoy },
 ];

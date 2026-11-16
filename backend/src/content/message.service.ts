@@ -2,7 +2,7 @@
  * Thư của giáo viên (16/11/2026, migration 070) – mục "Nội dung đã gửi": giáo viên chọn người nhận trong danh sách cùng trường (quản trị viên trường,
  * giáo viên, học sinh; trường nào chỉ thấy người của trường đó), soạn tiêu đề và nội dung, có thể đính kèm câu hỏi / bộ đề / hành trình trong kho riêng.
  * Đính kèm thì cần có quản trị viên trường trong người nhận: hệ thống tạo yêu cầu duyệt vào kho chung của trường (ShareService). Mọi người nhận được
- * thông báo ở chuông / mục Thông báo.
+ * thông báo ở chuông / mục Thông báo. 16/11/2026: mục đổi tên "Tin nhắn"; hộp thư đến cho mọi vai trò; gửi kèm mã tham gia lớp (migration 071).
  */
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { notify } from '../classroom/notify';
@@ -11,7 +11,7 @@ import { notFound } from './access';
 import { ShareEntity, ShareService } from './share.service';
 
 const ROLE_LABEL: Record<string, string> = { school_admin: 'Quản trị trường', teacher: 'Giáo viên', student: 'Học sinh' };
-export interface MessageInput { recipient_ids?: unknown; subject?: unknown; body?: unknown; entity?: unknown; entity_id?: unknown }
+export interface MessageInput { recipient_ids?: unknown; subject?: unknown; body?: unknown; entity?: unknown; entity_id?: unknown; class_id?: unknown }
 
 @Injectable()
 export class MessageService {
@@ -57,15 +57,38 @@ export class MessageService {
       "SELECT id, role FROM app_users WHERE id = ANY($1) AND school_id = $2 AND role IN ('school_admin', 'teacher', 'student') AND is_active = 1 AND deleted_at IS NULL AND id <> $3", [ids, school, user.id]);
     if (people.length !== ids.length) throw new BadRequestException('Có người nhận không thuộc trường của bạn hoặc tài khoản đã khóa');
     if (entity && !people.some((p) => p.role === 'school_admin')) throw new BadRequestException('Nội dung đính kèm được gửi quản trị trường duyệt; hãy chọn ít nhất một quản trị viên trường trong người nhận');
+    // gửi kèm mã tham gia lớp (migration 071): chỉ lớp giáo viên đang phụ trách
+    const classId = input.class_id ? Number(input.class_id) : null;
+    if (classId !== null && (!Number.isInteger(classId) || classId < 1)) throw new BadRequestException('Lớp gửi kèm mã không hợp lệ');
+    if (classId !== null && !(await this.db.query('SELECT 1 FROM app_current_class_teachers t JOIN app_classes c ON c.id = t.class_id AND c.is_active WHERE t.class_id = $1 AND t.teacher_id = $2', [classId, user.id])).length) {
+      throw new BadRequestException('Chỉ gửi được mã của lớp bạn đang phụ trách');
+    }
     const share = entity ? await this.shares.request(user, entity, entityId!, 'school', { subject, message: body }) : null;
     const id = await this.db.tx(async (q) => {
-      const mid = (await q<{ id: number }>('INSERT INTO hk_messages (school_id, sender_id, subject, body, entity, entity_id, share_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
-        [school, user.id, subject, body, entity, entityId, share?.id ?? null]))[0].id;
+      const mid = (await q<{ id: number }>('INSERT INTO hk_messages (school_id, sender_id, subject, body, entity, entity_id, share_id, class_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
+        [school, user.id, subject, body, entity, entityId, share?.id ?? null, classId]))[0].id;
       await q('INSERT INTO hk_message_recipients (message_id, user_id, school_id) SELECT $1, unnest($2::int[]), $3', [mid, ids, school]);
       await notify(q, ids, { kind: 'message', title: `Thư mới: ${subject}`, body: `${user.full_name}: ${body ?? (entity ? 'gửi kèm nội dung đề nghị duyệt.' : '(không có nội dung)')}`, by: user.id, school_id: school, ref: { message_id: mid } });
       return mid;
     });
     return this.detail(user, id);
+  }
+
+  /** Hộp thư đến (mọi vai trò trong trường): tin nhắn gửi cho mình, người gửi, đã đọc chưa, lớp và mã tham gia nếu tin nhắn kèm mã lớp */
+  async inbox(user: UserRow) {
+    if (!user.school_id) return [];
+    return this.db.query(
+      `SELECT m.id, m.subject, m.body, m.created_at, m.class_id, c.name AS class_name, c.join_code, c.join_open, u.full_name AS sender, u.role AS sender_role, r.read_at
+       FROM hk_message_recipients r JOIN hk_messages m ON m.id = r.message_id LEFT JOIN app_users u ON u.id = m.sender_id LEFT JOIN app_classes c ON c.id = m.class_id AND c.is_active
+       WHERE r.user_id = $1 ORDER BY m.created_at DESC, m.id DESC LIMIT 300`, [user.id]);
+  }
+
+  /** Đọc một tin nhắn trong hộp thư đến: đánh dấu đã đọc (cả thông báo của tin nhắn đó) */
+  async read(user: UserRow, id: number) {
+    const hit = (await this.db.query<{ message_id: number }>('UPDATE hk_message_recipients SET read_at = COALESCE(read_at, now()) WHERE message_id = $1 AND user_id = $2 RETURNING message_id', [id, user.id]))[0];
+    if (!hit) throw notFound('tin nhắn');
+    await this.db.query("UPDATE app_notifications SET read_at = now() WHERE user_id = $1 AND read_at IS NULL AND kind = 'message' AND (ref->>'message_id')::int = $2", [user.id, id]);
+    return { ok: true };
   }
 
   /** Thư đã gửi của giáo viên, mới nhất trước, kèm số người nhận / đã đọc và trạng thái duyệt của nội dung đính kèm */

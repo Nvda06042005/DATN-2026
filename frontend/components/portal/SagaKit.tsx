@@ -249,7 +249,7 @@ export const Medal: React.FC<{ code: string; size?: number; earned?: boolean }> 
 export const num = (n: number): string => Math.round(n).toLocaleString('vi-VN');
 
 // ---------------------------------------------------------------------- điều hướng trong trang học sinh
-export type SagaTab = 'chien-dich' | 'nhap-vai' | 'cau-hoi' | 'ky-thi' | 'tu-lieu' | 'bo-the' | 'hoi' | 'tro-giup';
+export type SagaTab = 'chien-dich' | 'nhap-vai' | 'cau-hoi' | 'ky-thi' | 'tu-lieu' | 'bo-the' | 'hoi' | 'lop-hoc' | 'tin-nhan' | 'tro-giup';
 /** Bước đang mở của một chặng: học thẻ kiến thức, luyện tập, nhập vai khám phá, trận đánh, tổng kết */
 export type SagaStep = 'hoc' | 'luyen' | 'kham-pha' | 'tran' | 'tong-ket';
 export interface SagaRoute { tab: SagaTab; c: number | null; s: number | null; v: SagaStep | null }

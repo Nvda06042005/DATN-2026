@@ -137,6 +137,16 @@ export interface SentMessage {
   id: number; subject: string; body: string | null; entity: 'question' | 'quiz' | 'journey' | null; entity_id: number | null; share_id: number | null; created_at: string;
   share_status: ShareItem['status'] | null; review_note: string | null; reviewed_at: string | null; reviewer: string | null; recipients: number; read: number; names: string | null;
 }
+/** Lớp trong danh mục của trường (trang Lớp học của học sinh) */
+export interface CatalogClass {
+  id: number; name: string; grade: number | null; join_open: boolean; year_label: string | null; semester: number; members: number; mine: boolean;
+  teachers: Array<{ full_name: string; user_code: string | null }>;
+}
+/** Tin nhắn trong hộp thư đến; kèm lớp và mã tham gia nếu thầy cô gửi mã lớp */
+export interface InboxMessage {
+  id: number; subject: string; body: string | null; created_at: string; class_id: number | null; class_name: string | null; join_code: string | null; join_open: boolean | null;
+  sender: string | null; sender_role: string | null; read_at: string | null;
+}
 export interface MessageDetail {
   id: number; subject: string; body: string | null; entity: 'question' | 'quiz' | 'journey' | null; entity_id: number | null; share_id: number | null; created_at: string;
   recipients: Array<Recipient & { read_at: string | null }>; share: ShareDetail | null;

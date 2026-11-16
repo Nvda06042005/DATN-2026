@@ -435,6 +435,8 @@ export class ContentController {
   @Get('messages') @Roles('teacher') sentMessages(@CurrentUser() user: UserRow) { return this.messages.sent(user); }
   @Get('messages/recipients') @Roles('teacher') messageRecipients(@CurrentUser() user: UserRow, @Query('role') role?: string, @Query('q') q?: string) { return this.messages.recipients(user, { role, q: typeof q === 'string' ? q.slice(0, 80) : undefined }); }
   @Post('messages') @Roles('teacher') sendMessage(@CurrentUser() user: UserRow, @Body() body: Record<string, unknown>) { return this.messages.send(user, body ?? {}); }
+  @Get('messages/inbox') @Roles('student', 'teacher', 'school_admin') messageInbox(@CurrentUser() user: UserRow) { return this.messages.inbox(user); }
+  @Post('messages/:id/read') @Roles('student', 'teacher', 'school_admin') @HttpCode(200) readMessage(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.messages.read(user, id); }
   @Get('messages/:id') @Roles('teacher') getMessage(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.messages.detail(user, id); }
 
   @Get('shares')

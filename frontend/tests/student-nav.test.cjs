@@ -135,11 +135,18 @@ test('các màn của Hành trình Đông A dựng bằng thành phần của c�
     assert.match(text, /<SagaHeader /, f);
     assert.doesNotMatch(text, /GameBtn|Chunky|SkyBg|Sunburst|Confetti|LinearGradient|tone="(green|yellow|purple|navy|white|blue|orange|red)"/, f);
   }
-  // bảng dữ liệu và thẻ số liệu dùng đúng thành phần của trang quản trị
-  assert.match(read('components', 'portal', 'SagaHome.tsx'), /<DataTable columns=\{columns\} rows=\{view\.stages\}/);
-  // 16/11/2026: trang chủ học sinh dạng trò chơi – lộ trình uốn lượn qua các chặng, thẻ Lớp của em / nhập mã tham gia lớp, cột cấp độ – nhiệm vụ (vẫn dùng thẻ, nút của cổng quản trị)
+  // 16/11/2026 đợt 4: trang Chiến dịch chỉ có ba phần; bấm một phần ra lộ trình của phần đó; bản đồ gốc "kéo ra" bên cạnh; trang bản đồ + bảng chặng cũ đã xóa
   const home = read('components', 'portal', 'SagaHome.tsx');
-  for (const id of ['home-path', 'join-class', 'join-code', 'join-submit', 'my-class', 'home-level', 'home-daily', 'home-exams']) assert.ok(home.includes(`testID="${id}"`), id);
+  for (const id of ['home-units', 'unit-path', 'unit-map', 'unit-map-toggle', 'join-class', 'join-code', 'join-submit', 'my-class', 'home-level', 'home-daily', 'home-exams']) assert.ok(home.includes(`testID="${id}"`), id);
+  assert.doesNotMatch(home, /testID="stage-table"|<DataTable columns=\{columns\} rows=\{view\.stages\}|testID="home-path"/);
+  assert.match(home, /title=\{mapOpen \? 'Thu bản đồ' : 'Kéo bản đồ ra'\}/);
+  // học sinh chưa vào lớp: chỉ có Lớp học (danh mục lớp, đăng ký bằng mã), Tin nhắn, Trợ giúp
+  const app = read('components', 'portal', 'StudentApp.tsx');
+  assert.match(app, /const BEFORE_CLASS: readonly SagaTab\[\] = \['lop-hoc', 'tin-nhan', 'tro-giup'\];/);
+  assert.match(app, /NAV\.filter\(\(it\) => !gated \|\| BEFORE_CLASS\.includes\(it\.id\)\)/);
+  const classes = read('components', 'portal', 'StudentClasses.tsx');
+  for (const id of ['catalog', 'enrol-page', 'enrol-code', 'enrol-submit', 'inbox-list', 'inbox-view', 'inbox-class-code', 'inbox-join']) assert.ok(classes.includes(`testID="${id}"`), id);
+  assert.match(classes, /authApi\.joinClass\(session\.token, code\.trim\(\), k\.id\)/);
   assert.match(home, /testID=\{`path-node-\$\{st\.order\}`\}/);
   assert.match(home, /testID=\{`path-map-\$\{camp\.campaign_no\}`\}/);
   assert.match(home, /authApi\.joinClass\(session\.token, code\.trim\(\)\)/);

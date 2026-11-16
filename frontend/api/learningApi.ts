@@ -83,9 +83,12 @@ export const reviewShare = (token: string, id: number, approve: boolean, note?: 
 // thư của giáo viên (16/11/2026, migration 070): người nhận cùng trường, gửi, thư đã gửi
 export const sentMessages = (token: string) => apiRequest<SentMessage[]>('/api/content/messages', { token });
 export const messageRecipients = (token: string, query: { role?: string; q?: string }) => apiRequest<Recipient[]>(`/api/content/messages/recipients${qs(query)}`, { token });
-export const sendMessage = (token: string, body: { recipient_ids: number[]; subject: string; body?: string; entity?: 'question' | 'quiz' | 'journey'; entity_id?: number }) =>
+export const sendMessage = (token: string, body: { recipient_ids: number[]; subject: string; body?: string; entity?: 'question' | 'quiz' | 'journey'; entity_id?: number; class_id?: number }) =>
   apiRequest<MessageDetail>('/api/content/messages', { token, body });
 export const getMessage = (token: string, id: number) => apiRequest<MessageDetail>(`/api/content/messages/${id}`, { token });
+/** Hộp thư đến (học sinh, giáo viên, quản trị trường) và đánh dấu đã đọc */
+export const messageInbox = (token: string) => apiRequest<import('@/types/learning').InboxMessage[]>('/api/content/messages/inbox', { token });
+export const readMessage = (token: string, id: number) => apiRequest<{ ok: boolean }>(`/api/content/messages/${id}/read`, { token, body: {} });
 export const withdrawShare = (token: string, id: number) => apiRequest<void>(`/api/content/shares/${id}`, { token, method: 'DELETE' });
 
 // ---------------------------------------------------------------------- kho lịch sử cho học sinh và giáo viên (HK.HS.025–042)

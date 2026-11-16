@@ -299,6 +299,23 @@ const MAP = { qtype: 'map', prompt: 'Kéo các địa danh lên bản đồ.', d
     expect((await api('GET', '/api/content/messages', undefined, f.S1.token)).status).toBe(403);
     // thư thường (không đính kèm) gửi riêng một học sinh
     expect((await api('POST', '/api/content/messages', { recipient_ids: [f.S1.id], subject: 'Nhắc nhở', body: 'Em nộp bài trước thứ Sáu.' })).body).toMatchObject({ share: null, entity: null });
+    // 16/11/2026 (migration 071): "Tin nhắn" – gửi kèm mã lớp; học sinh chưa có lớp xem danh mục lớp, đọc tin nhắn, vào đúng lớp bằng mã
+    expect((await api('POST', '/api/content/messages', { recipient_ids: [f.S3.id], subject: 'Mã lớp', class_id: f.class7b.id })).status).toBe(400); // không phụ trách 7B
+    const withCode = await api('POST', '/api/content/messages', { recipient_ids: [f.S3.id], subject: 'Mã tham gia lớp 7A1', body: `Mã: ${f.class7a.join_code}`, class_id: f.class7a.id });
+    expect(withCode.status).toBe(201);
+    const inbox = (await api('GET', '/api/content/messages/inbox', undefined, f.S3.token)).body;
+    expect(inbox[0]).toMatchObject({ id: withCode.body.id, subject: 'Mã tham gia lớp 7A1', class_id: f.class7a.id, join_code: f.class7a.join_code, read_at: null, sender: expect.any(String) });
+    expect((await api('POST', `/api/content/messages/${withCode.body.id}/read`, {}, f.S3.token)).body).toEqual({ ok: true });
+    expect((await api('GET', '/api/content/messages/inbox', undefined, f.S3.token)).body[0].read_at).not.toBeNull();
+    expect((await api('POST', `/api/content/messages/${withCode.body.id}/read`, {}, f.S2.token)).status).toBe(404); // không phải người nhận
+    const catalog = (await api('GET', '/api/student/class-catalog', undefined, f.S3.token)).body;
+    expect(catalog.map((c: any) => c.id)).toEqual(expect.arrayContaining([f.class7a.id, f.class7b.id]));
+    expect(catalog.find((c: any) => c.id === f.class7a.id)).toMatchObject({ mine: false, teachers: [expect.objectContaining({ full_name: expect.any(String) })] });
+    expect(catalog[0]).not.toHaveProperty('join_code'); // danh mục không lộ mã tham gia
+    expect((await api('POST', '/api/student/join-class', { code: f.class7a.join_code, class_id: f.class7b.id }, f.S3.token)).status).toBe(400); // mã không đúng lớp đã chọn
+    expect((await api('POST', '/api/student/join-class', { code: f.class7a.join_code, class_id: f.class7a.id }, f.S3.token)).status).toBe(200);
+    expect((await api('GET', '/api/student/class-catalog', undefined, f.S3.token)).body.find((c: any) => c.id === f.class7a.id).mine).toBe(true);
+    await db.query('DELETE FROM app_class_members WHERE class_id = $1 AND user_id = $2', [f.class7a.id, f.S3.id]);
     await db.query('DELETE FROM hk_shares WHERE entity = $1 AND entity_id = $2', ['question', q.id]);
   });
 

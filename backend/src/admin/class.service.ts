@@ -629,7 +629,24 @@ export class ClassService {
   }
 
   // ------------------------------------------------------------------ học sinh tham gia lớp bằng mã (HK.HS.008)
-  async joinByCode(student: UserRow, rawCode: string) {
+  /**
+   * Danh mục lớp của trường cho học sinh (16/11/2026, trang "Lớp học" kiểu danh mục khóa học): các lớp đang hoạt động của năm học chưa kết thúc,
+   * nhóm theo năm học – học kỳ, kèm khối, sĩ số, giáo viên đang phụ trách và lớp em đã ở trong chưa. Không trả mã tham gia (giáo viên gửi qua Tin nhắn).
+   */
+  async catalog(student: UserRow) {
+    if (!student.school_id) return [];
+    return this.schools.run(student, async (q) => q(
+      `SELECT c.id, c.name, c.grade, c.join_open, y.label AS year_label, COALESCE(public.app_class_semester(c.year_id), 1)::int AS semester,
+              (SELECT count(*)::int FROM app_class_members m WHERE m.class_id = c.id) AS members,
+              EXISTS (SELECT 1 FROM app_class_members m WHERE m.class_id = c.id AND m.user_id = $2) AS mine,
+              COALESCE((SELECT json_agg(json_build_object('full_name', u.full_name, 'user_code', u.user_code) ORDER BY u.full_name) FROM app_current_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id), '[]'::json) AS teachers
+       FROM app_classes c LEFT JOIN app_school_years y ON y.id = c.year_id
+       WHERE c.school_id = $1 AND c.is_active AND COALESCE(y.status, 'active') <> 'ended'
+       ORDER BY y.label DESC NULLS LAST, c.grade NULLS LAST, c.name`, [student.school_id, student.id]));
+  }
+
+  /** `classId`: học sinh đăng ký ở trang của một lớp thì mã phải đúng lớp đó (16/11/2026) */
+  async joinByCode(student: UserRow, rawCode: string, classId?: number | null) {
     const code = normJoinCode(rawCode);
     if (code.length < 6 || code.length > 80) throw new UnprocessableEntityException('Mã tham gia lớp không hợp lệ');
     if (!student.school_id) throw new ForbiddenException('Tài khoản tự học không thuộc trường nên chưa tham gia lớp được. Hãy nhờ giáo viên hoặc nhà trường cấp tài khoản.');
@@ -638,6 +655,7 @@ export class ClassService {
       const cls = (await q<ClassRow & { year_status: string | null }>(
         `SELECT c.*, y.status AS year_status FROM app_classes c LEFT JOIN app_school_years y ON y.id = c.year_id WHERE upper(regexp_replace(c.join_code, '[^A-Za-z0-9]', '', 'g')) = $1 AND c.school_id = $2`, [code, student.school_id]))[0];
       if (!cls) throw new NotFoundException('Mã lớp không đúng hoặc lớp không thuộc trường của bạn');
+      if (classId && cls.id !== classId) throw new BadRequestException('Mã tham gia không đúng với lớp này. Em xem lại mã thầy cô gửi trong Tin nhắn.');
       if (!cls.is_active || cls.status !== 'APPROVED') throw new ConflictException('Lớp này đã được lưu trữ');
       if (cls.year_status === 'ended') throw new ConflictException('Năm học của lớp đã kết thúc');
       if (!cls.join_open) throw new ForbiddenException('Giáo viên đã tắt cho phép học sinh tự tham gia lớp này');

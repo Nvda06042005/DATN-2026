@@ -4,10 +4,11 @@
  * 16/11/2026: trang "Nội dung đã gửi" của giáo viên là hộp thư như Gmail (`SentMailbox`): chọn người nhận cùng trường (quản trị trường, giáo viên, học sinh),
  * người nhận được thông báo (migration 070); người duyệt thấy tiêu đề và lời nhắn của thư.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, TextInput, useWindowDimensions, View } from 'react-native';
 import { ArrowLeft, Check, Mail, UserPlus, CheckCircle2, CircleHelp, Clock3, Forward, Inbox, ListChecks, Paperclip, PenSquare, Route, Send, Trash2, Undo2, X, XCircle } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
+import * as classroom from '@/api/classroomApi';
 import { Cell, DataTable, ErrorNote, Page, PageHeader, SearchFilterBar, StatusChip, useAction, useLoad, usePaged, type SearchFilter, useDebounced } from '@/components/admin/kit';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { QuestionPicker } from '@/components/admin/ContentKit';
@@ -18,7 +19,7 @@ import { dateText } from '@/components/admin/AccountSheet';
 import type { Session } from '@/components/auth';
 import { Avatar, Btn, Card, Field, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
-import type { QData, QType, Recipient, ShareDetail, ShareItem } from '@/types/learning';
+import type { InboxMessage, QData, QType, Recipient, ShareDetail, ShareItem } from '@/types/learning';
 import { keyLines } from '@/components/portal/QuizPlayer';
 import { NODE_KIND_TEXT, QTYPE_TEXT } from '@/types/learning';
 
@@ -117,9 +118,10 @@ const ReviewSheet: React.FC<{ session: Session; id: number; onClose: () => void;
  * tiêu đề, nội dung, đính kèm câu hỏi / bộ đề / hành trình (cần có quản trị viên trường trong người nhận để duyệt vào kho chung).
  * Mọi người nhận được thông báo ở chuông / mục Thông báo; người gửi thấy ai đã đọc. Yêu cầu duyệt gửi trước đó (không có thư) vẫn hiện trong danh sách.
  */
-type Folder = 'all' | 'pending' | 'approved' | 'rejected';
+type Folder = 'inbox' | 'all' | 'pending' | 'approved' | 'rejected';
 const FOLDERS: Array<{ id: Folder; label: string; icon: typeof Inbox }> = [
-  { id: 'all', label: 'Tất cả thư đã gửi', icon: Inbox },
+  { id: 'inbox', label: 'Hộp thư đến', icon: Inbox },
+  { id: 'all', label: 'Đã gửi', icon: Send },
   { id: 'pending', label: 'Chờ duyệt', icon: Clock3 },
   { id: 'approved', label: 'Đã duyệt', icon: CheckCircle2 },
   { id: 'rejected', label: 'Bị từ chối', icon: XCircle },
@@ -142,7 +144,7 @@ const fullDate = (iso: string) => new Date(iso).toLocaleString('vi-VN', { timeZo
 
 /** Một dòng trong hộp thư: thư (migration 070) hoặc yêu cầu duyệt gửi trước đó */
 interface MailItem {
-  key: string; kind: 'message' | 'share'; id: number; subject: string; to: string; snippet: string; date: string;
+  key: string; kind: 'message' | 'share' | 'inbox'; id: number; subject: string; to: string; snippet: string; date: string;
   status: ShareItem['status'] | null; attach: { entity: ShareEntityKind; title: string } | null; read: string | null;
 }
 
@@ -161,7 +163,7 @@ const MailRow: React.FC<{ r: MailItem; active: boolean; onPress: () => void }> =
       </View>
       <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Txt f="bold" size={14} numberOfLines={1} style={{ flex: 1 }}>Đến: {r.to}</Txt>
+          <Txt f="bold" size={14} numberOfLines={1} style={{ flex: 1 }}>{r.kind === 'inbox' ? 'Từ' : 'Đến'}: {r.to}</Txt>
           <Txt size={12} color={c.muc3}>{mailDate(r.date)}</Txt>
         </View>
         <Txt f="semibold" size={14} numberOfLines={1}>{r.subject}</Txt>
@@ -226,6 +228,24 @@ const Sender: React.FC<{ session: Session; to: React.ReactNode; date: string }> 
   );
 };
 
+/** Khung đọc tin nhắn đến (hộp thư đến của giáo viên) */
+const InboxView: React.FC<{ m: InboxMessage; onBack?: () => void }> = ({ m, onBack }) => {
+  const { c } = useTheme();
+  return (
+    <View style={{ gap: 16 }} testID="mail-view">
+      {onBack ? <Btn icon={ArrowLeft} title="Hộp thư" tone="ghost" size="sm" onPress={onBack} style={{ marginLeft: -10, alignSelf: 'flex-start' }} /> : null}
+      <Txt f="bold" size={20} accessibilityRole="header" style={{ lineHeight: 28 }}>{m.subject}</Txt>
+      <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+        <Avatar name={m.sender ?? 'Người gửi'} size={40} />
+        <View style={{ flex: 1 }}><Txt f="bold" size={14}>{m.sender ?? 'Người gửi'}</Txt><Txt size={12} color={c.muc3}>{m.sender_role === 'school_admin' ? 'Quản trị trường' : m.sender_role === 'teacher' ? 'Giáo viên' : ''} · {fullDate(m.created_at)}</Txt></View>
+      </View>
+      <View style={{ borderTopWidth: 1, borderTopColor: c.adminLine, paddingTop: 16 }}>
+        {m.body ? <Txt size={15} style={{ lineHeight: 24 }} selectable>{m.body}</Txt> : <Txt size={14} color={c.muc3} style={{ fontStyle: 'italic' }}>(Tin nhắn không có nội dung)</Txt>}
+      </View>
+      {m.class_id && m.join_code ? <Card flat pad={12} style={{ gap: 4, borderRadius: 10 }}><Txt size={13} color={c.muc2}>Mã tham gia lớp {m.class_name}</Txt><Txt f="bold" size={18} selectable>{m.join_code}</Txt></Card> : null}
+    </View>
+  );
+};
 /** Khung đọc một thư (migration 070): người nhận (đã đọc / chưa đọc), nội dung, đính kèm */
 const MessageView: React.FC<{ session: Session; id: number; onBack?: () => void }> = ({ session, id, onBack }) => {
   const { c } = useTheme();
@@ -333,6 +353,9 @@ const ComposeSheet: React.FC<{ session: Session; initial?: Draft | null; onClose
   const [picking, setPicking] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const { busy, run } = useAction(session.expired);
+  // gửi kèm mã tham gia lớp (migration 071): học sinh mở tin nhắn thấy mã và nút vào lớp
+  const myClasses = useLoad(() => classroom.teacherClasses(session.token), [session.token], session.expired);
+  const [classId, setClassId] = useState('');
   const quizzes = useLoad(() => (withAttachment && entity === 'quiz' ? api.listQuizzes(session.token, { store: 'mine', limit: 100 }) : Promise.resolve(null)), [session.token, entity, withAttachment], session.expired);
   const journeys = useLoad(() => (withAttachment && entity === 'journey' ? api.listJourneys(session.token, { store: 'mine' }) : Promise.resolve(null)), [session.token, entity, withAttachment], session.expired);
   const label = { question: 'câu hỏi', quiz: 'bộ đề', journey: 'hành trình' }[entity];
@@ -341,7 +364,7 @@ const ComposeSheet: React.FC<{ session: Session; initial?: Draft | null; onClose
     if (!to.length) { setProblem('Hãy chọn người nhận.'); return; }
     if (!subject.trim()) { setProblem('Hãy nhập tiêu đề.'); return; }
     if (withAttachment && !attached) { setProblem(`Hãy chọn ${label} đính kèm hoặc bỏ đính kèm.`); return; }
-    const res = await run(() => api.sendMessage(session.token, { recipient_ids: to.map((r) => r.id), subject: subject.trim(), body: message.trim() || undefined, ...(withAttachment && attached ? { entity, entity_id: attached.id } : {}) }), 'Đã gửi thư');
+    const res = await run(() => api.sendMessage(session.token, { recipient_ids: to.map((r) => r.id), subject: subject.trim(), body: message.trim() || undefined, ...(withAttachment && attached ? { entity, entity_id: attached.id } : {}), ...(classId ? { class_id: Number(classId) } : {}) }), 'Đã gửi tin nhắn');
     if (res) onSent(res.id);
   };
   const line = { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10, borderBottomWidth: 1, borderBottomColor: c.adminLine, paddingVertical: 10, minHeight: 48 };
@@ -378,6 +401,9 @@ const ComposeSheet: React.FC<{ session: Session; initial?: Draft | null; onClose
         <TextInput value={message} onChangeText={setMessage} multiline maxLength={2000} accessibilityLabel="Nội dung thư" testID="compose-message"
           style={[{ minHeight: 200, fontSize: 15, lineHeight: 24, color: c.muc, paddingVertical: 12, textAlignVertical: 'top', fontFamily: FONT.body }, { outlineStyle: 'none' } as object]} />
         <Txt size={12} color={c.muc3} style={{ textAlign: 'right' }}>{message.length}/2000</Txt>
+        <AdminSelect label="Gửi kèm mã tham gia lớp" value={classId} testID="compose-class"
+          onChange={(v) => { setClassId(v); const k = (myClasses.data ?? []).find((x) => String(x.id) === v); if (k?.join_code) { if (!subject.trim()) setSubject(`Mã tham gia lớp ${k.name}`); setMessage((m) => (m.includes(k.join_code!) ? m : `${m.trim() ? `${m.trim()}\n\n` : ''}Mã tham gia lớp ${k.name}: ${k.join_code}`)); } }}
+          options={[{ value: '', label: 'Không gửi mã lớp' }, ...(myClasses.data ?? []).filter((k) => k.is_active).map((k) => ({ value: String(k.id), label: `Lớp ${k.name} · ${k.join_code ?? ''}` }))]} />
         {withAttachment ? (
           <View style={{ gap: 10, borderTopWidth: 1, borderTopColor: c.adminLine, paddingTop: 12 }}>
             <Segmented<ShareEntityKind> label="Loại nội dung đính kèm" value={entity} onChange={(v) => { setEntity(v); setAttached(null); }}
@@ -418,6 +444,7 @@ const SentMailbox: React.FC<{ session: Session }> = ({ session }) => {
   const wide = width >= 1180;
   const messages = useLoad(() => api.sentMessages(session.token), [session.token], session.expired);
   const shares = useLoad(() => api.listShares(session.token, {}), [session.token], session.expired);
+  const incoming = useLoad(() => api.messageInbox(session.token), [session.token], session.expired);
   const [folder, setFolder] = useState<Folder>('all');
   const [q, setQ] = useState('');
   const [open, setOpen] = useState<string | null>(null);
@@ -434,21 +461,24 @@ const SentMailbox: React.FC<{ session: Session }> = ({ session }) => {
       date: s.created_at, status: s.status, attach: { entity: s.entity, title: s.title }, read: null,
     })),
   ].sort((a, b) => b.date.localeCompare(a.date)), [messages.data, shares.data]); // eslint-disable-line react-hooks/exhaustive-deps
+  const received: MailItem[] = (incoming.data ?? []).map((m) => ({ key: `i${m.id}`, kind: 'inbox', id: m.id, subject: m.subject, to: m.sender ?? 'Người gửi', snippet: (m.body ?? '').replace(/\s+/g, ' '), date: m.created_at, status: null, attach: null, read: m.read_at ? null : 'Chưa đọc' }));
   const term = q.trim().toLowerCase();
-  const rows = all.filter((r) => (folder === 'all' || r.status === folder) && (!term || `${r.subject} ${r.to} ${r.snippet} ${r.attach?.title ?? ''}`.toLowerCase().includes(term)));
+  const rows = (folder === 'inbox' ? received : all).filter((r) => (folder === 'all' || folder === 'inbox' || r.status === folder) && (!term || `${r.subject} ${r.to} ${r.snippet} ${r.attach?.title ?? ''}`.toLowerCase().includes(term)));
   const { shown, pager } = usePaged(rows, `${folder}|${term}`);
-  const count = (f: Folder) => (f === 'all' ? all.length : all.filter((r) => r.status === f).length);
+  const count = (f: Folder) => (f === 'inbox' ? received.filter((r) => r.read).length : f === 'all' ? all.length : all.filter((r) => r.status === f).length);
   const selected = open ?? (wide ? shown[0]?.key ?? null : null);
-  const current = all.find((r) => r.key === selected) ?? null;
+  const current = [...all, ...received].find((r) => r.key === selected) ?? null;
   const reload = () => { setOpen(null); messages.reload(); shares.reload(); };
-  const view = current ? (current.kind === 'message'
+  const inboxMsg = current?.kind === 'inbox' ? (incoming.data ?? []).find((m) => m.id === current.id) ?? null : null;
+  useEffect(() => { if (inboxMsg && !inboxMsg.read_at) api.readMessage(session.token, inboxMsg.id).then(() => incoming.reload()).catch(() => undefined); }, [inboxMsg?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const view = inboxMsg ? <InboxView key={current!.key} m={inboxMsg} onBack={wide ? undefined : () => setOpen(null)} /> : current ? (current.kind === 'message'
     ? <MessageView key={current.key} session={session} id={current.id} onBack={wide ? undefined : () => setOpen(null)} />
     : <ShareView key={current.key} session={session} id={current.id} onChanged={reload} onBack={wide ? undefined : () => setOpen(null)}
       onResend={(r) => setCompose({ entity: r.entity, id: r.entity_id, title: r.title, subject: r.subject, message: r.message })} />) : null;
-  const loading = (messages.loading && !messages.data) || (shares.loading && !shares.data);
+  const loading = (messages.loading && !messages.data) || (shares.loading && !shares.data) || (folder === 'inbox' && incoming.loading && !incoming.data);
   return (
     <Page>
-      <PageHeader title="Nội dung đã gửi" actions={<Btn icon={PenSquare} title="Soạn thư" tone="son" size="sm" onPress={() => setCompose(null)} testID="share-compose" />} />
+      <PageHeader title="Tin nhắn" actions={<Btn icon={PenSquare} title="Soạn thư" tone="son" size="sm" onPress={() => setCompose(null)} testID="share-compose" />} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }} accessibilityRole="tablist">
         {FOLDERS.map((f) => {
           const on = folder === f.id;
@@ -472,7 +502,7 @@ const SentMailbox: React.FC<{ session: Session }> = ({ session }) => {
               {shown.length ? shown.map((r) => <MailRow key={r.key} r={r} active={wide && r.key === selected} onPress={() => setOpen(r.key)} />) : (
                 <View style={{ padding: 24, alignItems: 'center', gap: 8 }}>
                   <Inbox size={28} color={c.muc3} />
-                  <Txt size={14} color={c.muc2} center>{all.length ? 'Không có thư nào khớp bộ lọc' : 'Chưa gửi thư nào.'}</Txt>
+                  <Txt size={14} color={c.muc2} center>{folder === 'inbox' ? 'Chưa có tin nhắn đến.' : all.length ? 'Không có thư nào khớp bộ lọc' : 'Chưa gửi tin nhắn nào.'}</Txt>
                 </View>
               )}
             </Card>

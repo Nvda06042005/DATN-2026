@@ -64,7 +64,7 @@ test('nội dung đã gửi (16/11/2026): giáo viên dùng hộp thư như Gmai
   const box = read('components', 'admin', 'ShareInbox.tsx');
   assert.match(box, /export const ShareInbox: React\.FC<\{ session: Session \}> = \(\{ session \}\) => \(session\.user\.role === 'teacher' \? <SentMailbox session=\{session\} \/> : session\.user\.role === 'school_admin' \? <SchoolReview session=\{session\} \/> : <ReviewInbox session=\{session\} \/>\);/);
   for (const id of ['mail-list', 'mail-view', 'mail-reply', 'mail-withdraw', 'mail-resend', 'share-compose', 'compose-sheet', 'compose-to', 'compose-pick-recipients', 'recipient-picker', 'recipients-done', 'compose-subject', 'compose-message', 'compose-send', 'compose-discard', 'mail-recipients']) assert.ok(box.includes(`testID="${id}"`), id);
-  for (const label of ['Tất cả thư đã gửi', 'Chờ duyệt', 'Đã duyệt', 'Bị từ chối']) assert.ok(box.includes(`label: '${label}'`), label);
+  for (const label of ['Hộp thư đến', 'Đã gửi', 'Chờ duyệt', 'Đã duyệt', 'Bị từ chối']) assert.ok(box.includes(`label: '${label}'`), label);
   // đợt 2: chọn người nhận cùng trường (quản trị trường, giáo viên, học sinh), không còn mô tả / chữ gợi ý trong hộp soạn thư
   assert.match(box, /const ROLE_TABS: Array<\{ value: RoleKey; label: string \}> = \[\{ value: 'school_admin', label: 'Quản trị trường' \}, \{ value: 'teacher', label: 'Giáo viên' \}, \{ value: 'student', label: 'Học sinh' \}\];/);
   assert.match(box, /api\.sendMessage\(session\.token, \{ recipient_ids: to\.map\(\(r\) => r\.id\), subject: subject\.trim\(\)/);

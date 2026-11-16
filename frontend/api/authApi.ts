@@ -81,6 +81,9 @@ export const logout = async (token: string) => {
 };
 
 /** Học sinh tham gia lớp bằng mã 6 ký tự (HK.HS.008) và xem các lớp đã tham gia */
-export const joinClass = (token: string, code: string) => apiRequest<ClassItem>('/api/student/join-class', { token, body: { code } });
+/** `classId`: đăng ký ở trang của một lớp thì mã phải đúng lớp đó (16/11/2026) */
+export const joinClass = (token: string, code: string, classId?: number) => apiRequest<ClassItem>('/api/student/join-class', { token, body: classId ? { code, class_id: classId } : { code } });
+/** Danh mục lớp của trường (trang Lớp học của học sinh) */
+export const classCatalog = (token: string) => apiRequest<import('@/types/learning').CatalogClass[]>('/api/student/class-catalog', { token });
 export const myClasses = (token: string) =>
   apiRequest<Array<{ id: number; name: string; grade: number | null; school_year: string; is_active: boolean; teachers: string[]; members: number }>>('/api/student/classes', { token });
