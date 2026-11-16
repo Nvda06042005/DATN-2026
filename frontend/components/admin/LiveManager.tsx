@@ -1,6 +1,6 @@
 /**
  * Thi đấu trực tiếp của giáo viên (Sprint 8, HK.GV.051, 056–058): danh sách phòng thi đã tổ chức (lịch sử theo lớp), tạo phòng từ bộ đề với chế độ cá nhân hoặc theo đội
- * (hệ thống sinh mã PIN và mã QR), mở màn hình điều khiển để chiếu lên lớp, và báo cáo trận: điểm từng học sinh, tỉ lệ đúng từng câu, câu khó nhất, bảng xếp hạng đội, xuất Excel/PDF.
+ * (hệ thống sinh mã PIN; từ 16/11/2026 không còn mã QR, tạo phòng ở trang riêng), mở màn hình điều khiển để chiếu lên lớp, và báo cáo trận: điểm từng học sinh, tỉ lệ đúng từng câu, câu khó nhất, bảng xếp hạng đội, xuất Excel/PDF.
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
@@ -8,13 +8,16 @@ import { ArrowLeft, Play, Plus } from 'lucide-react-native';
 import * as classroom from '@/api/classroomApi';
 import * as api from '@/api/liveApi';
 import * as learning from '@/api/learningApi';
-import { Cell, DataTable, DownloadButton, ErrorNote, FormSheet, Page, PageHeader, StatusChip, useLoad } from '@/components/admin/kit';
+import { Cell, DataTable, DownloadButton, ErrorNote, Page, PageHeader, StatusChip, useLoad } from '@/components/admin/kit';
+import { AdminSelect } from '@/components/admin/AdminSelect';
+import { QuestionPicker } from '@/components/admin/ContentKit';
+import { errorMessage } from '@/api/client';
 import { LiveHost } from '@/components/admin/LiveHost';
 import type { Session } from '@/components/auth';
-import { Bar, Btn, Card, EmptyState, InfoNote, Spinner, Txt } from '@/components/ui';
+import { Bar, Btn, Card, EmptyState, Field, InfoNote, Segmented, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { LIVE_MODE_TEXT, LIVE_STATE_TEXT, type LiveReport, type LiveRoomRow } from '@/types/live';
-import { QTYPE_TEXT } from '@/types/learning';
+import { QTYPE_TEXT, type QuestionItem } from '@/types/learning';
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }) : '—');
 
@@ -98,57 +101,139 @@ const Report: React.FC<{ session: Session; roomId: number; onBack: () => void }>
   );
 };
 
-/** Tạo phòng thi đấu; có thể mở sẵn với một bộ đề (từ trình soạn Quiz: "Tổ chức thi đấu") */
-export const CreateRoom: React.FC<{ session: Session; quizId?: number; onClose: () => void; onCreated: (id: number) => void }> = ({ session, quizId, onClose, onCreated }) => {
+/**
+ * Trang tạo phòng thi đấu (16/11/2026: thay hộp thoại cũ bằng trang riêng). Giữ các trường Lớp, Tên phòng (để trống thì tự đặt; hệ thống tự sinh mã PIN)
+ * và các tùy chọn khóa phòng, tên hiển thị, câu hỏi trên thiết bị, xáo đáp án, cảnh báo chuyển tab. Câu hỏi lấy từ **ngân hàng câu hỏi** (chọn từng câu,
+ * hệ thống gộp thành bộ đề của phòng) hoặc một **bộ đề trong thư viện học liệu** (của tôi, của trường, hệ thống). Tạo xong mở phòng chờ chỉ hiện mã PIN.
+ */
+const yesNo = (yes: string, no: string) => [{ value: 'yes', label: yes }, { value: 'no', label: no }];
+const LIVE_QTYPES = ['single', 'multiple', 'truefalse', 'poll'];
+
+const CreateRoomPage: React.FC<{ session: Session; quizId?: number; onBack: () => void; onCreated: (id: number) => void }> = ({ session, quizId, onBack, onCreated }) => {
+  const { c } = useTheme();
   const classes = useLoad(() => classroom.teacherClasses(session.token), [session.token], session.expired);
   const quizzes = useLoad(() => learning.listQuizzes(session.token, { limit: 100 }), [session.token], session.expired);
-  const bosses = useLoad(() => api.bosses(session.token), [session.token], session.expired);
-  const yesNo = (yes: string, no: string) => [{ value: 'yes', label: yes }, { value: 'no', label: no }];
+  const [classId, setClassId] = useState('');
+  const [title, setTitle] = useState('');
+  const [source, setSource] = useState<'bank' | 'library'>(quizId ? 'library' : 'bank');
+  const [quiz, setQuiz] = useState(quizId ? String(quizId) : '');
+  const [picked, setPicked] = useState<QuestionItem[]>([]);
+  const [picking, setPicking] = useState(false);
+  const [opt, setOpt] = useState({ auto_lock: 'start', profile_names: 'yes', hide_on_device: 'yes', shuffle_device: 'yes', tab_alert: 'yes' });
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const active = (classes.data ?? []).filter((k) => k.is_active);
+  const cls = active.find((k) => String(k.id) === classId);
+  const today = new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
+  const autoTitle = cls ? `Phòng thi lớp ${cls.name} · ${today}` : 'Phòng thi';
+  const usable = picked.filter((q) => LIVE_QTYPES.includes(q.qtype));
+  const create = async (): Promise<void> => {
+    setProblem(null);
+    if (!cls) { setProblem('Hãy chọn lớp.'); return; }
+    if (source === 'bank' && !usable.length) { setProblem('Hãy chọn ít nhất một câu hỏi một đáp án, nhiều đáp án, đúng / sai hoặc bình chọn từ ngân hàng câu hỏi.'); return; }
+    if (source === 'library' && !quiz) { setProblem('Hãy chọn một bộ đề trong thư viện học liệu.'); return; }
+    setBusy(true);
+    try {
+      const name = title.trim() || autoTitle;
+      const quizIdToUse = source === 'library' ? Number(quiz) : (await learning.createQuiz(session.token, { title: name, items: usable.map((q) => ({ question_id: q.id })) })).id;
+      const room = await api.createRoom(session.token, {
+        class_id: cls.id, quiz_id: quizIdToUse, mode: 'solo', title: name,
+        auto_lock_seconds: opt.auto_lock === 'off' ? null : opt.auto_lock === 'start' ? 0 : Number(opt.auto_lock),
+        profile_names: opt.profile_names !== 'no', hide_on_device: opt.hide_on_device !== 'no', shuffle_device: opt.shuffle_device !== 'no', tab_alert: opt.tab_alert !== 'no',
+      });
+      onCreated(room.room.id);
+    } catch (e) { setProblem(errorMessage(e)); } finally { setBusy(false); }
+  };
+  const set = (k: keyof typeof opt) => (v: string) => setOpt((o) => ({ ...o, [k]: v }));
   return (
-    <FormSheet title="Tạo phòng thi đấu" subtitle="Hệ thống sinh mã PIN 6 số và mã QR; học sinh của lớp vào bằng mã." wide submitLabel="Tạo phòng"
-      fields={[
-        { name: 'class_id', label: 'Lớp', type: 'select', required: true, options: [{ value: '', label: '— Chọn lớp —' }, ...(classes.data ?? []).filter((k) => k.is_active).map((k) => ({ value: String(k.id), label: `${k.name} · ${k.students} học sinh` }))] },
-        { name: 'quiz_id', label: 'Bộ đề', type: 'select', required: true, options: [{ value: '', label: '— Chọn bộ đề —' }, ...(quizzes.data?.items ?? []).filter((z) => z.question_count > 0).map((z) => ({ value: String(z.id), label: `${z.title} (${z.question_count} câu, ${Math.ceil(z.total_seconds / 60)} phút)` }))] },
-        { name: 'mode', label: 'Chế độ', type: 'select', options: [{ value: 'solo', label: 'Cá nhân – mỗi học sinh một bảng điểm' }, { value: 'team', label: 'Theo đội – điểm đội là trung bình thành viên (lớp cần đã chia đội)' }, { value: 'boss', label: 'Đánh trùm cả lớp – cả lớp cùng hạ một chỉ huy giặc' }] },
-        { name: 'boss', label: 'Trùm', type: 'select', required: true, when: (v) => v.mode === 'boss', hint: 'Máu trùm tự tính theo sĩ số lúc bắt đầu; câu đúng gây sát thương theo tốc độ, câu sai làm cả lớp mất máu.',
-          options: [{ value: '', label: '— Chọn trùm —' }, ...(bosses.data ?? []).map((b) => ({ value: b.key, label: b.name }))] },
-        { name: 'title', label: 'Tên phòng (không bắt buộc)', hint: 'Để trống sẽ lấy tên bộ đề và tên lớp' },
-        { name: 'auto_lock', label: 'Khóa phòng', type: 'select', hint: 'Phòng khóa thì mã PIN không nhận thêm người mới; học sinh đến muộn phải xin giáo viên duyệt.',
-          options: [{ value: 'start', label: 'Tự khóa ngay khi bấm Bắt đầu (khuyên dùng)' }, { value: '30', label: 'Tự khóa sau 30 giây kể từ lúc bắt đầu' }, { value: '60', label: 'Tự khóa sau 60 giây kể từ lúc bắt đầu' }, { value: 'off', label: 'Không tự khóa (khóa tay khi cần)' }] },
-        { name: 'profile_names', label: 'Tên hiển thị', type: 'select', options: yesNo('Lấy theo hồ sơ học sinh (khuyên dùng)', 'Học sinh tự đặt biệt danh') },
-        { name: 'hide_on_device', label: 'Câu hỏi trên thiết bị học sinh', type: 'select', hint: 'Chống tra cứu: thiết bị chỉ có nút hình – màu, nội dung hiện trên màn chiếu. Chọn hiện đầy đủ khi học từ xa.', options: yesNo('Ẩn nội dung, chỉ hiện nút hình – màu (khuyên dùng)', 'Hiện đầy đủ nội dung') },
-        { name: 'shuffle_device', label: 'Xáo thứ tự đáp án theo thiết bị', type: 'select', options: yesNo('Có (khi hiện đầy đủ nội dung)', 'Không') },
-        { name: 'tab_alert', label: 'Cảnh báo chuyển tab', type: 'select', options: yesNo('Có – báo tên học sinh rời tab khi đang trả lời', 'Không') },
-      ]}
-      initial={{ class_id: '', quiz_id: quizId ? String(quizId) : '', mode: 'solo', boss: '', title: '', auto_lock: 'start', profile_names: 'yes', hide_on_device: 'yes', shuffle_device: 'yes', tab_alert: 'yes' }} onClose={onClose}
-      onSubmit={async (v) => {
-        const mode = v.mode === 'team' ? 'team' : v.mode === 'boss' ? 'boss' : 'solo';
-        const room = await api.createRoom(session.token, {
-          class_id: Number(v.class_id), quiz_id: Number(v.quiz_id), mode, title: String(v.title).trim() || undefined, ...(mode === 'boss' ? { boss: String(v.boss) } : {}),
-          auto_lock_seconds: v.auto_lock === 'off' ? null : v.auto_lock === 'start' ? 0 : Number(v.auto_lock),
-          profile_names: v.profile_names !== 'no', hide_on_device: v.hide_on_device !== 'no', shuffle_device: v.shuffle_device !== 'no', tab_alert: v.tab_alert !== 'no',
-        });
-        onCreated(room.room.id);
-      }} />
+    <Page>
+      <Btn icon={ArrowLeft} title="Danh sách phòng thi" tone="ghost" size="sm" onPress={onBack} testID="live-create-back" style={{ marginLeft: -10 }} />
+      <PageHeader title="Tạo phòng thi đấu" subtitle="Chọn lớp và câu hỏi; hệ thống tự sinh mã PIN 6 số để học sinh của lớp vào phòng."
+        actions={<Btn icon={Play} title="Tạo phòng" tone="son" size="sm" loading={busy} onPress={() => { void create(); }} testID="live-create-submit" />} />
+      <Card flat pad={16} style={{ gap: 14, borderRadius: 12 }} testID="live-create-page">
+        <Txt f="bold" size={15} accessibilityRole="header">Thông tin phòng</Txt>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+          <View style={{ flexGrow: 1, flexBasis: 260 }}>
+            <AdminSelect label="Lớp *" value={classId} onChange={setClassId} testID="live-create-class"
+              options={[{ value: '', label: '— Chọn lớp —' }, ...active.map((k) => ({ value: String(k.id), label: `${k.name} · ${k.students} học sinh` }))]} />
+          </View>
+          <View style={{ flexGrow: 1, flexBasis: 260 }}>
+            <Field label="Tên phòng" value={title} onChangeText={setTitle} placeholder={autoTitle} hint="Để trống sẽ tự đặt theo lớp và ngày; mã PIN của phòng do hệ thống tự sinh." testID="live-create-title" />
+          </View>
+        </View>
+      </Card>
+      <Card flat pad={16} style={{ gap: 14, borderRadius: 12 }}>
+        <Txt f="bold" size={15} accessibilityRole="header">Câu hỏi</Txt>
+        <Segmented<'bank' | 'library'> label="Nguồn câu hỏi" value={source} onChange={setSource}
+          options={[{ value: 'bank', label: 'Chọn từ ngân hàng câu hỏi' }, { value: 'library', label: 'Bộ đề trong thư viện học liệu' }]} />
+        {source === 'bank' ? (
+          <View style={{ gap: 10 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+              <Btn icon={Plus} title="Chọn câu hỏi" tone="giay" size="sm" onPress={() => setPicking(true)} testID="live-create-pick" />
+              <Txt size={13} color={c.muc2}>{usable.length ? `${usable.length} câu đã chọn` : 'Chưa chọn câu nào'}{picked.length > usable.length ? ` · ${picked.length - usable.length} câu không dùng được trong thi đấu (chỉ nhận một đáp án, nhiều đáp án, đúng / sai, bình chọn)` : ''}</Txt>
+            </View>
+            {picked.length ? (
+              <DataTable<QuestionItem> rows={picked} rowKey={(q) => q.id} paginate={false} empty=""
+                columns={[
+                  { key: 'n', label: 'STT', width: 56, render: (q) => <Txt f="bold" size={13}>{picked.indexOf(q) + 1}</Txt> },
+                  { key: 'prompt', label: 'Câu hỏi', width: 380, grow: 2, render: (q) => <Cell main={q.prompt} sub={QTYPE_TEXT[q.qtype]} /> },
+                  { key: 'ok', label: 'Dùng được', width: 120, render: (q) => <StatusChip kind={LIVE_QTYPES.includes(q.qtype) ? 'on' : 'off'} text={LIVE_QTYPES.includes(q.qtype) ? 'Có' : 'Không'} /> },
+                ]}
+                actions={(q) => <Btn title="Bỏ" tone="giay" size="sm" onPress={() => setPicked((list) => list.filter((x) => x.id !== q.id))} />} actionsWidth={90} />
+            ) : null}
+          </View>
+        ) : (
+          <AdminSelect label="Bộ đề *" value={quiz} onChange={setQuiz} testID="live-create-quiz"
+            options={[{ value: '', label: '— Chọn bộ đề —' }, ...(quizzes.data?.items ?? []).filter((z) => z.question_count > 0).map((z) => ({ value: String(z.id), label: `${z.title} (${z.question_count} câu, ${Math.ceil(z.total_seconds / 60)} phút)` }))]} />
+        )}
+      </Card>
+      <Card flat pad={16} style={{ gap: 14, borderRadius: 12 }}>
+        <Txt f="bold" size={15} accessibilityRole="header">Tùy chọn phòng</Txt>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+          <View style={{ flexGrow: 1, flexBasis: 300 }}>
+            <AdminSelect label="Khóa phòng" value={opt.auto_lock} onChange={set('auto_lock')}
+              options={[{ value: 'start', label: 'Tự khóa ngay khi bấm Bắt đầu (khuyên dùng)' }, { value: '30', label: 'Tự khóa sau 30 giây kể từ lúc bắt đầu' }, { value: '60', label: 'Tự khóa sau 60 giây kể từ lúc bắt đầu' }, { value: 'off', label: 'Không tự khóa (khóa tay khi cần)' }]} />
+          </View>
+          <View style={{ flexGrow: 1, flexBasis: 300 }}>
+            <AdminSelect label="Tên hiển thị" value={opt.profile_names} onChange={set('profile_names')} options={yesNo('Lấy theo hồ sơ học sinh (khuyên dùng)', 'Học sinh tự đặt biệt danh')} />
+          </View>
+          <View style={{ flexGrow: 1, flexBasis: 300 }}>
+            <AdminSelect label="Câu hỏi trên thiết bị học sinh" value={opt.hide_on_device} onChange={set('hide_on_device')} options={yesNo('Ẩn nội dung, chỉ hiện nút hình – màu (khuyên dùng)', 'Hiện đầy đủ nội dung (học từ xa)')} />
+          </View>
+          <View style={{ flexGrow: 1, flexBasis: 300 }}>
+            <AdminSelect label="Xáo thứ tự đáp án theo thiết bị" value={opt.shuffle_device} onChange={set('shuffle_device')} options={yesNo('Có (khi hiện đầy đủ nội dung)', 'Không')} />
+          </View>
+          <View style={{ flexGrow: 1, flexBasis: 300 }}>
+            <AdminSelect label="Cảnh báo chuyển tab" value={opt.tab_alert} onChange={set('tab_alert')} options={yesNo('Có – báo tên học sinh rời tab khi đang trả lời', 'Không')} />
+          </View>
+        </View>
+      </Card>
+      <ErrorNote message={problem} />
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
+        <Btn title="Hủy" tone="giay" onPress={onBack} />
+        <Btn icon={Play} title="Tạo phòng" tone="son" loading={busy} onPress={() => { void create(); }} />
+      </View>
+      {picking ? <QuestionPicker session={session} title="Chọn câu hỏi cho phòng thi" exclude={picked.map((q) => q.id)} onClose={() => setPicking(false)} onPick={(items) => { setPicked((list) => [...list, ...items]); setPicking(false); }} /> : null}
+    </Page>
   );
 };
 
-type Screen = { kind: 'list' } | { kind: 'host'; id: number } | { kind: 'report'; id: number };
+type Screen = { kind: 'list' } | { kind: 'create' } | { kind: 'host'; id: number } | { kind: 'report'; id: number };
 
 export const LiveManager: React.FC<{ session: Session; startQuizId?: number | null; onStarted?: () => void }> = ({ session, startQuizId, onStarted }) => {
   const rooms = useLoad(() => api.listRooms(session.token), [session.token], session.expired);
-  const [screen, setScreen] = useState<Screen>({ kind: 'list' });
-  const [creating, setCreating] = useState(Boolean(startQuizId));
+  const [screen, setScreen] = useState<Screen>(startQuizId ? { kind: 'create' } : { kind: 'list' });
   const back = () => { setScreen({ kind: 'list' }); rooms.reload(); };
   if (screen.kind === 'host') return <LiveHost session={session} roomId={screen.id} onBack={back} onReport={(id) => setScreen({ kind: 'report', id })} />;
   if (screen.kind === 'report') return <Report session={session} roomId={screen.id} onBack={back} />;
+  if (screen.kind === 'create') return <CreateRoomPage session={session} quizId={startQuizId ?? undefined} onBack={() => { onStarted?.(); back(); }} onCreated={(id) => { onStarted?.(); rooms.reload(); setScreen({ kind: 'host', id }); }} />;
   return (
     <Page>
-      <PageHeader title="Thi đấu trực tiếp" subtitle="Tổ chức thi kiểu Kahoot cho cả lớp: chọn bộ đề, chiếu mã PIN, học sinh vào bằng điện thoại hoặc máy tính; xem báo cáo sau trận."
-        actions={<Btn icon={Plus} title="Tạo phòng thi" tone="son" size="sm" onPress={() => setCreating(true)} testID="live-create" />} />
+      <PageHeader title="Thi đấu trực tiếp" subtitle="Tổ chức thi kiểu Kahoot cho cả lớp: chọn câu hỏi từ ngân hàng câu hỏi hoặc thư viện học liệu, chiếu mã PIN, học sinh vào bằng điện thoại hoặc máy tính; xem báo cáo sau trận."
+        actions={<Btn icon={Plus} title="Tạo phòng thi" tone="son" size="sm" onPress={() => setScreen({ kind: 'create' })} testID="live-create" />} />
       <ErrorNote message={rooms.error} />
       {rooms.loading && !rooms.data ? <Spinner /> : null}
-      {rooms.data && !rooms.data.length ? <EmptyState mood="thinking" title="Chưa có phòng thi nào" text="Bấm “Tạo phòng thi”, chọn lớp và bộ đề. Khi phòng sẵn sàng, mở màn hình điều khiển và chiếu mã PIN lên lớp." /> : null}
+      {rooms.data && !rooms.data.length ? <EmptyState mood="thinking" title="Chưa có phòng thi nào" text="Bấm “Tạo phòng thi”, chọn lớp và câu hỏi. Khi phòng sẵn sàng, mở màn hình điều khiển và chiếu mã PIN lên lớp." /> : null}
       {rooms.data?.length ? (
         <DataTable<LiveRoomRow> rows={rooms.data} rowKey={(r) => r.id} empty="" onRowPress={(r) => setScreen(r.state === 'ended' ? { kind: 'report', id: r.id } : { kind: 'host', id: r.id })}
           columns={[
@@ -162,7 +247,6 @@ export const LiveManager: React.FC<{ session: Session; startQuizId?: number | nu
             ? <Btn title="Báo cáo" tone="giay" size="sm" onPress={() => setScreen({ kind: 'report', id: r.id })} />
             : <Btn icon={Play} title="Mở phòng" tone="ngoc" size="sm" onPress={() => setScreen({ kind: 'host', id: r.id })} testID={`live-open-${r.id}`} />)} />
       ) : null}
-      {creating ? <CreateRoom session={session} quizId={startQuizId ?? undefined} onClose={() => { setCreating(false); onStarted?.(); }} onCreated={(id) => { setCreating(false); onStarted?.(); rooms.reload(); setScreen({ kind: 'host', id }); }} /> : null}
     </Page>
   );
 };

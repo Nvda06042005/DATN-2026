@@ -1,16 +1,16 @@
 /**
  * Màn hình điều khiển trận thi đấu trực tiếp của giáo viên, thiết kế để chiếu lên lớp (Sprint 8, HK.GV.052–055, HK.SYS.016; ver0.2: HK.GV.095–101):
- * phòng chờ với mã PIN và mã QR, danh sách người tham gia cập nhật theo thời gian thực (có nút loại người chơi), khóa / mở khóa phòng, duyệt học sinh xin vào muộn,
+ * phòng chờ với mã PIN (16/11/2026: bỏ mã QR), danh sách người tham gia cập nhật theo thời gian thực (có nút loại người chơi), khóa / mở khóa phòng, duyệt học sinh xin vào muộn,
  * điều khiển (bắt đầu, câu tiếp theo, tạm dừng, bỏ qua câu, kết thúc sớm), thiết lập chống tra cứu và cảnh báo chuyển tab, kết quả từng câu (biểu đồ phân bố đáp án,
  * đáp án đúng, bảng xếp hạng tức thời), thanh máu trùm ở chế độ Đánh trùm cả lớp và bục vinh quang cuối trận. Giao diện theo chủ đề của Quiz.
  * Máy chủ giữ trạng thái; màn hình này chỉ hiển thị và gửi lệnh.
  */
 import React, { useState } from 'react';
-import { Image, Platform, Pressable, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
 import { ArrowRight, Eye, FileText, Lock, LockOpen, Maximize, Music, Pause, Play, Shuffle, SkipForward, Square, TriangleAlert, Trophy, UserX, Users, VolumeX, Wifi, WifiOff } from 'lucide-react-native';
 import * as api from '@/api/liveApi';
 import { errorMessage } from '@/api/client';
-import { DownloadButton, ErrorNote, Page, PageHeader, useLoad } from '@/components/admin/kit';
+import { DownloadButton, ErrorNote, Page, PageHeader } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { BossPanel, LiveAvatar, LiveBoard, LiveChoice, LiveCountdown, LiveDistribution, LivePodium } from '@/components/portal/LiveKit';
 import { LIVE_MUSIC, ThemeFrame, themeOf, useLobbyMusic } from '@/components/portal/LiveTheme';
@@ -50,7 +50,7 @@ const PlayerChip: React.FC<{ p: LiveView['players'][number]; onKick?: () => void
   );
 };
 
-const Lobby: React.FC<{ view: LiveView; join: { join_url?: string; qr?: string }; onKick: (id: number, name: string) => void; music: boolean; onMusic: () => void }> = ({ view, join, onKick, music, onMusic }) => {
+const Lobby: React.FC<{ view: LiveView; onKick: (id: number, name: string) => void; music: boolean; onMusic: () => void }> = ({ view, onKick, music, onMusic }) => {
   const { c } = useTheme();
   const hasMusic = (view.room.theme.music ?? 'none') !== 'none';
   return (
@@ -59,14 +59,8 @@ const Lobby: React.FC<{ view: LiveView; join: { join_url?: string; qr?: string }
         <Card style={{ flexGrow: 2, flexBasis: 360, alignItems: 'center', gap: 8, paddingVertical: 24 }}>
           <Txt size={16} color={c.muc2}>Vào trang học sinh → mục “Thi đấu”, nhập mã PIN</Txt>
           <Txt f="displayHeavy" size={88} selectable testID="live-pin-display" accessibilityLabel={`Mã PIN ${view.room.pin.split('').join(' ')}`} style={{ letterSpacing: 14 }}>{view.room.pin}</Txt>
-          {join.join_url ? <Txt size={13} color={c.muc3} selectable center>hoặc quét mã QR / mở {join.join_url}</Txt> : null}
           {view.room.locked ? <Chip text="Phòng đã khóa – chỉ người đã vào hoặc được duyệt mới vào được" bg={c.vangNhat} fg={c.vangChu} icon={Lock} /> : null}
         </Card>
-        {join.qr ? (
-          <Card style={{ flexGrow: 1, flexBasis: 240, alignItems: 'center', justifyContent: 'center' }}>
-            <Image source={{ uri: join.qr }} accessibilityLabel={`Mã QR vào phòng thi, mã PIN ${view.room.pin}`} style={{ width: 240, height: 240 }} />
-          </Card>
-        ) : null}
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <Users size={26} color={c.thuyChu} />
@@ -204,7 +198,6 @@ export const LiveHost: React.FC<{ session: Session; roomId: number; onBack: () =
   const toast = useToast();
   const { c } = useTheme();
   const live = useLiveRoom(session.token, roomId, session.expired);
-  const join = useLoad(() => api.hostRoom(session.token, roomId), [session.token, roomId], session.expired);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<'skip' | 'end' | null>(null);
   const [kicking, setKicking] = useState<{ id: number; name: string } | null>(null);
@@ -233,7 +226,7 @@ export const LiveHost: React.FC<{ session: Session; roomId: number; onBack: () =
 
       {view && room ? (
         <ThemeFrame theme={room.theme}>
-          {room.state === 'lobby' ? <Lobby view={view} join={{ join_url: join.data?.join_url, qr: join.data?.qr }} onKick={(id, name) => setKicking({ id, name })} music={music} onMusic={() => setMusic((m) => !m)} /> : null}
+          {room.state === 'lobby' ? <Lobby view={view} onKick={(id, name) => setKicking({ id, name })} music={music} onMusic={() => setMusic((m) => !m)} /> : null}
           {room.state === 'question' && q ? <Question view={view} skew={live.skew} answered={live.answered} /> : null}
           {room.state === 'results' && view.results ? <Results view={view} /> : null}
           {room.state === 'ended' && view.final ? <Ended session={session} view={view} onReport={() => onReport(roomId)} /> : null}

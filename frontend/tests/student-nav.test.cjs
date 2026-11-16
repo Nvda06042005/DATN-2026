@@ -136,3 +136,15 @@ test('các màn của Hành trình Đông A dựng bằng thành phần của c�
   assert.match(read('components', 'portal', 'SagaHome.tsx'), /DashboardMetric as Metric/);
   assert.match(read('components', 'portal', 'SagaExtras.tsx'), /<DataTable columns=\{boardColumns\}/);
 });
+
+test('16/11/2026: tạo phòng thi đấu ở trang riêng (không còn hộp thoại), câu hỏi lấy từ ngân hàng câu hỏi hoặc bộ đề trong thư viện học liệu; phòng chờ chỉ hiện mã PIN, không còn mã QR', () => {
+  const live = read('components', 'admin', 'LiveManager.tsx');
+  assert.match(live, /const CreateRoomPage: React\.FC</);
+  assert.match(live, /if \(screen\.kind === 'create'\) return <CreateRoomPage /);
+  assert.doesNotMatch(live, /<FormSheet title="Tạo phòng thi đấu"/);
+  for (const t of ["label=\"Lớp *\"", "label=\"Tên phòng\"", 'Chọn từ ngân hàng câu hỏi', 'Bộ đề trong thư viện học liệu', '<QuestionPicker ', 'label="Khóa phòng"', 'label="Tên hiển thị"', 'label="Câu hỏi trên thiết bị học sinh"', 'label="Xáo thứ tự đáp án theo thiết bị"', 'label="Cảnh báo chuyển tab"']) assert.ok(live.includes(t), t);
+  assert.match(live, /learning\.createQuiz\(session\.token, \{ title: name, items: usable\.map/);
+  const host = read('components', 'admin', 'LiveHost.tsx');
+  assert.match(host, /testID="live-pin-display"/);
+  assert.doesNotMatch(host, /join\.qr|quét mã QR|<Image /);
+});
