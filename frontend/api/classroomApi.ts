@@ -4,7 +4,7 @@ export const teacherChangeOptions=(token:string,id:number)=>apiRequest<{semester
 export const requestTeacherChange=(token:string,id:number,teacher_id:number,note:string)=>apiRequest<import('@/types/api').TeacherChangeRequest>(`/api/classroom/classes/${id}/teacher-change`,{token,body:{teacher_id,note}});
 export const cancelTeacherChange=(token:string,id:number|string)=>apiRequest<{ok:boolean}>(`/api/classroom/teacher-change-requests/${id}/cancel`,{token,body:{}});
 import type {
-  AdjustInput, AdjustResult, AdjustRow, AnnouncementRow, AssignmentDetail, AssignmentInput, AssignmentRow, BadgeAwardResult, BoardView, ClassDetail, ClassRow, ClassRule, ClassSettings, ClassStudent,
+  AdjustInput, AdjustResult, AdjustRow, AnnouncementRow, AssignmentDetail, AssignmentInput, AssignmentRow, BadgeAwardResult, BoardView, ClassDetail, ClassRow, ClassRule, ClassSettings, ClassStudent, ExamItem,
   GoalRow, LeaveRow, LessonSubmit, MyAssignment, MyClassDetail, MyClassRow, Notices, PoolStudent, ProgressView, RandomEvent, RandomEventResult, SkillRequestRow, SkillUseResult, SkillView,
   StartedAssignment, TeamBoard, TeamRow,
 } from '@/types/classroom';
@@ -77,7 +77,15 @@ export const myClassDetail = (token: string, id: number) => apiRequest<MyClassDe
 export const teamBoard = (token: string, id: number, period = 'week') => apiRequest<TeamBoard>(`${base}/my-classes/${id}/team-board${qs({ period })}`, { token });
 export const requestLeave = (token: string, classId: number, reason?: string) => apiRequest<{ id: number; status: string }>(`${base}/leave-requests`, { token, body: { class_id: classId, reason } });
 export const myAssignments = (token: string) => apiRequest<MyAssignment[]>(`${base}/my-assignments`, { token });
-export const startAssignment = (token: string, id: number) => apiRequest<StartedAssignment>(`${base}/my-assignments/${id}/start`, { token, body: {} });
+/** `password`: mật khẩu bài thi giữa kỳ / cuối kỳ do giáo viên cung cấp (16/11/2026) */
+export const startAssignment = (token: string, id: number, password?: string) => apiRequest<StartedAssignment>(`${base}/my-assignments/${id}/start`, { token, body: password ? { password } : {} });
+
+// ---------------------------------------------------------------------- đề kiểm tra giữa kỳ / cuối kỳ (16/11/2026, migration 068)
+export const listExams = (token: string) => apiRequest<ExamItem[]>(`${base}/exams`, { token });
+export const requestExam = (token: string, body: { class_id: number; quiz_id: number; kind: 'midterm' | 'final'; title: string; note?: string }) => apiRequest<ExamItem>(`${base}/exams`, { token, body });
+export const cancelExam = (token: string, id: number) => apiRequest<{ ok: boolean }>(`${base}/exams/${id}/cancel`, { token, body: {} });
+export const reviewExam = (token: string, id: number, approve: boolean, note?: string) => apiRequest<ExamItem>(`${base}/exams/${id}/review`, { token, body: { approve, note } });
+export const organizeExam = (token: string, id: number, body: { password: string; starts_at: string; ends_at: string }) => apiRequest<ExamItem>(`${base}/exams/${id}/organize`, { token, body });
 export const assignmentLessonProgress = (token: string, id: number, readPercent: number) => apiRequest<{ read_percent: number }>(`${base}/my-assignments/${id}/lesson/progress`, { token, body: { read_percent: readPercent } });
 export const completeAssignmentLesson = (token: string, id: number, answers: Array<{ question_id: number; answer: unknown }>) => apiRequest<LessonSubmit>(`${base}/my-assignments/${id}/lesson/complete`, { token, body: { answers } });
 export const mySkills = (token: string) => apiRequest<SkillView>(`${base}/skills`, { token });

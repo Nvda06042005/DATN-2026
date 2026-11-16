@@ -75,6 +75,15 @@ export interface MyAssignment {
   id: number; class_id: number; class_name: string; title: string; description: string | null; kind: AssignKind; kind_label: string; content_title: string; due_at: string; max_attempts: number;
   bonus_points: number; attempts: number; attempts_left: number; best_percent: number | null; submitted_at: string | null; on_time: boolean | null; teacher_score: number | null;
   feedback: string | null; grade: string | null; state: MyAssignState; minigame_id: number | null; lesson_id: number | null; quiz_id: number | null;
+  /** Bài thi giữa kỳ / cuối kỳ (16/11/2026): có thì phải nhập mật khẩu giáo viên cung cấp, chỉ làm trong khung giờ */
+  exam_kind?: 'midterm' | 'final' | null; exam_semester?: number | null; exam_starts_at?: string | null; exam_ends_at?: string | null;
+}
+/** Đề kiểm tra giữa kỳ / cuối kỳ (migration 068); mật khẩu không bao giờ được trả về */
+export interface ExamItem {
+  id: number; school_id: number; class_id: number; class_name: string; teacher_id: number | null; teacher_name: string | null; quiz_id: number; quiz_title: string | null; question_count: number;
+  kind: 'midterm' | 'final'; kind_label: string; semester: number; title: string; note: string | null; status: 'pending' | 'approved' | 'rejected' | 'scheduled';
+  reviewed_by: number | null; reviewer_name: string | null; review_note: string | null; reviewed_at: string | null; has_password: boolean; starts_at: string | null; ends_at: string | null;
+  assignment_id: number | null; created_at: string; updated_at: string;
 }
 export type AssignmentLesson = import('@/types/learning').LessonView;
 export type StartedAssignment = { kind: 'quiz'; attempt: AttemptState } | { kind: 'minigame'; run: MiniRun } | { kind: 'lesson'; lesson: AssignmentLesson };

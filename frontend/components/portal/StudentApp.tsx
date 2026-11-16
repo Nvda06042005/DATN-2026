@@ -13,7 +13,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useIsFocused, useLocalSearchParams, useNavigation, usePathname, useRouter, type Href } from 'expo-router';
-import { CircleQuestionMark, GalleryHorizontalEnd, Gamepad2, LifeBuoy, Map as MapIcon, ScrollText, Sparkles, Volume2, VolumeX } from 'lucide-react-native';
+import { CircleQuestionMark, ClipboardCheck, GalleryHorizontalEnd, Gamepad2, LifeBuoy, Map as MapIcon, ScrollText, Sparkles, Volume2, VolumeX } from 'lucide-react-native';
+import { StudentExams } from '@/components/admin/LibraryExams';
 import * as authApi from '@/api/authApi';
 import * as game from '@/api/gameApi';
 import * as platform from '@/api/platformApi';
@@ -38,13 +39,14 @@ import { play, setSound, soundEnabled } from '@/lib/saga-sound';
 import type { Prefs } from '@/types/platform';
 import type { Completion, SagaHome } from '@/types/saga';
 
-const TABS: readonly SagaTab[] = ['chien-dich', 'nhap-vai', 'cau-hoi', 'tu-lieu', 'bo-the', 'hoi', 'tro-giup'];
+const TABS: readonly SagaTab[] = ['chien-dich', 'nhap-vai', 'cau-hoi', 'ky-thi', 'tu-lieu', 'bo-the', 'hoi', 'tro-giup'];
 const STEPS: readonly SagaStep[] = ['hoc', 'luyen', 'kham-pha', 'tran', 'tong-ket'];
 /** Menu bên trái, cùng kiểu với menu của quản trị tổng, quản trị trường và giáo viên */
 const NAV: ReadonlyArray<NavLeaf<SagaTab>> = [
   { id: 'chien-dich', label: 'Chiến dịch', icon: MapIcon },
   { id: 'nhap-vai', label: 'Nhập vai', icon: Gamepad2 },
   { id: 'cau-hoi', label: 'Câu hỏi ôn tập', icon: CircleQuestionMark },
+  { id: 'ky-thi', label: 'Kỳ thi', icon: ClipboardCheck },
   { id: 'tu-lieu', label: 'Tư liệu', icon: ScrollText },
   { id: 'bo-the', label: 'Bộ thẻ', icon: GalleryHorizontalEnd },
   { id: 'hoi', label: 'Hỏi Tiểu Tướng', icon: Sparkles },
@@ -161,6 +163,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       : <HomeScreen nav={nav} loading={home.loading} error={home.error} />
     : route.tab === 'nhap-vai' ? <RolePlayScreen session={session} nav={nav} />
     : route.tab === 'cau-hoi' ? <ReviewScreen session={session} nav={nav} />
+    : route.tab === 'ky-thi' ? <StudentExams session={session} />
     : route.tab === 'tu-lieu' ? <ArchiveScreen session={session} nav={nav} />
     : route.tab === 'bo-the' ? <CollectionScreen session={session} nav={nav} />
     : route.tab === 'hoi' ? (
@@ -176,7 +179,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       <Btn icon={sound ? Volume2 : VolumeX} tone="ghost" size="sm" selected={sound} label={sound ? 'Âm thanh trò chơi đang bật, bấm để tắt' : 'Âm thanh trò chơi đang tắt, bấm để bật'} testID="sound-toggle"
         onPress={() => { const on = !sound; setSound(on); setSoundOn(on); }} />
       <SettingsButton session={session} prefs={prefs} onSaved={setPrefs} />
-      <NoticeBell session={session} onGo={(n) => pick(n.kind === 'support' ? 'tro-giup' : 'chien-dich')} />
+      <NoticeBell session={session} onGo={(n) => pick(n.kind === 'support' ? 'tro-giup' : n.kind === 'exam' ? 'ky-thi' : 'chien-dich')} />
     </View>
   );
 

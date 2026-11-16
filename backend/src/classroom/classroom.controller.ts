@@ -4,6 +4,7 @@ import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { UploadedXlsx, XLSX_MIME, XLSX_UPLOAD } from '../admin/excel';
 import { UserRow } from '../database/database.service';
 import { AssignmentService } from './assignment.service';
+import { ExamService } from './exam.service';
 import { ClassroomService, RANDOM_EVENTS } from './classroom.service';
 import { SkillService } from './skill.service';
 
@@ -20,7 +21,14 @@ export class ClassroomController {
   @Get('classes/:id/teacher-change') @Roles('teacher') teacherChangeOptions(@CurrentUser() user:UserRow,@Param('id',ParseIntPipe) id:number){return this.rooms.teacherChangeOptions(user,id);}
   @Post('classes/:id/teacher-change') @Roles('teacher') teacherChangeRequest(@CurrentUser() user:UserRow,@Param('id',ParseIntPipe) id:number,@Body() body:Json){return this.rooms.requestTeacherChange(user,id,body.teacher_id,body.note);}
   @Post('teacher-change-requests/:id/cancel') @Roles('teacher') @HttpCode(200) cancelTeacherChange(@CurrentUser() user:UserRow,@Param('id',ParseIntPipe) id:number){return this.rooms.cancelTeacherChange(user,id);}
-  constructor(private readonly rooms: ClassroomService, private readonly assignments: AssignmentService, private readonly skills: SkillService) {}
+  constructor(private readonly rooms: ClassroomService, private readonly assignments: AssignmentService, private readonly skills: SkillService, private readonly exams: ExamService) {}
+
+  // ------------------------------------------------------------------ đề kiểm tra giữa kỳ / cuối kỳ (16/11/2026, migration 068)
+  @Get('exams') @Roles(...STAFF) listExams(@CurrentUser() user: UserRow) { return this.exams.list(user); }
+  @Post('exams') @Roles('teacher') requestExam(@CurrentUser() user: UserRow, @Body() body: Json) { return this.exams.request(user, body ?? {}); }
+  @Post('exams/:eid/cancel') @Roles('teacher') @HttpCode(200) async cancelExam(@CurrentUser() user: UserRow, @Param('eid', ParseIntPipe) eid: number) { await this.exams.cancel(user, eid); return { ok: true }; }
+  @Post('exams/:eid/review') @Roles('school_admin') @HttpCode(200) reviewExam(@CurrentUser() user: UserRow, @Param('eid', ParseIntPipe) eid: number, @Body() body: Json) { return this.exams.review(user, eid, body?.approve === true, body?.note); }
+  @Post('exams/:eid/organize') @Roles('teacher') @HttpCode(200) organizeExam(@CurrentUser() user: UserRow, @Param('eid', ParseIntPipe) eid: number, @Body() body: Json) { return this.exams.organize(user, eid, body ?? {}); }
 
   // ------------------------------------------------------------------ giáo viên: lớp (HK.GV.007–011)
   @Get('classes') @Roles(...STAFF) classes(@CurrentUser() user: UserRow) { return this.rooms.myClasses(user); }
@@ -113,7 +121,7 @@ export class ClassroomController {
   @Post('leave-requests') @Roles('student') @HttpCode(200) leave(@CurrentUser() user: UserRow, @Body() body: Json) { return this.rooms.requestLeave(user, Number(body.class_id), body.reason); }
   @Get('my-assignments') @Roles('student') myAssignments(@CurrentUser() user: UserRow) { return this.assignments.mine(user); }
   @Get('my-assignments/:aid') @Roles('student') myAssignment(@CurrentUser() user: UserRow, @Param('aid', ParseIntPipe) aid: number) { return this.assignments.mineDetail(user, aid); }
-  @Post('my-assignments/:aid/start') @Roles('student') @HttpCode(200) startAssignment(@CurrentUser() user: UserRow, @Param('aid', ParseIntPipe) aid: number) { return this.assignments.start(user, aid); }
+  @Post('my-assignments/:aid/start') @Roles('student') @HttpCode(200) startAssignment(@CurrentUser() user: UserRow, @Param('aid', ParseIntPipe) aid: number, @Body() body: Json) { return this.assignments.start(user, aid, body?.password); }
   @Post('my-assignments/:aid/lesson/progress') @Roles('student') @HttpCode(200) lessonProgress(@CurrentUser() user: UserRow, @Param('aid', ParseIntPipe) aid: number, @Body() body: Json) { return this.assignments.lessonProgress(user, aid, Number(body.read_percent)); }
   @Post('my-assignments/:aid/lesson/complete') @Roles('student') @HttpCode(200) lessonComplete(@CurrentUser() user: UserRow, @Param('aid', ParseIntPipe) aid: number, @Body() body: Json) { return this.assignments.lessonComplete(user, aid, body.answers ?? []); }
 

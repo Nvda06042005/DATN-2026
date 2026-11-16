@@ -5,6 +5,7 @@
  */
 import { BadRequestException, ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
 import { BattleService } from '../battle/battle.service';
+import { verifyPassword } from '../auth/passwords';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
 import { notFound } from '../content/access';
 import { QuizService } from '../content/quiz.service';
@@ -114,7 +115,8 @@ export class AssignmentService {
     return rows.map((r) => ({ ...r, kind_label: KIND_LABEL[r.kind as Kind], overdue: r.status === 'active' && new Date(r.due_at).getTime() < now, rate: r.audience_size ? Math.round((r.submitted / r.audience_size) * 100) : 0 }));
   }
 
-  async create(user: UserRow, classId: number, body: AssignmentInput) {
+  /** `notice`: tiêu đề và nội dung thông báo riêng (bài thi giữa kỳ / cuối kỳ), mặc định "Bài tập mới: …" */
+  async create(user: UserRow, classId: number, body: AssignmentInput, notice?: { title: string; body: string }) {
     const cls = await this.rooms.mine(this.read, user, classId, true);
     const title = String(body.title ?? '').trim();
     if (title.length < 2 || title.length > 160) throw new BadRequestException('Tên bài tập từ 2 đến 160 ký tự');
@@ -144,7 +146,8 @@ export class AssignmentService {
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
         [classId, user.id, title, String(body.description ?? '').trim().slice(0, 1000) || null, kind, ...ref, scope.audience, scope.team_ids, scope.student_ids, due, attempts, bonus]))[0].id;
       const a = (await q<AssignmentRow>(`SELECT ${COLUMNS} FROM hk_assignments WHERE id = $1`, [id]))[0];
-      await notify(q, await this.audienceIds(q, a), { kind: 'assignment', title: `Bài tập mới: ${title}`, body: `${KIND_LABEL[kind]} · hạn nộp ${dateText(due)} · làm tối đa ${attempts} lần${bonus ? ` · thưởng ${bonus} điểm nếu nộp đúng hạn` : ''}`, class_id: classId, ref: { assignment_id: id }, by: user.id, school_id: cls.school_id });
+      if (notice) await notify(q, await this.audienceIds(q, a), { kind: 'exam', title: notice.title, body: notice.body, class_id: classId, by: user.id, ref: { assignment_id: id } });
+      else await notify(q, await this.audienceIds(q, a), { kind: 'assignment', title: `Bài tập mới: ${title}`, body: `${KIND_LABEL[kind]} · hạn nộp ${dateText(due)} · làm tối đa ${attempts} lần${bonus ? ` · thưởng ${bonus} điểm nếu nộp đúng hạn` : ''}`, class_id: classId, ref: { assignment_id: id }, by: user.id, school_id: cls.school_id });
       return this.detailIn(q, a);
     });
   }
@@ -262,8 +265,10 @@ export class AssignmentService {
   async mine(user: UserRow) {
     const rows = await this.db.query<Record<string, any>>(
       `SELECT ${COLUMNS.split(', ').map((c) => `a.${c}`).join(', ')}, c.name AS class_name, COALESCE(q.title, g.title, l.title) AS content_title,
-              COALESCE(s.attempts, 0) AS attempts, s.best_percent, s.submitted_at, s.on_time, s.teacher_score, s.feedback
+              COALESCE(s.attempts, 0) AS attempts, s.best_percent, s.submitted_at, s.on_time, s.teacher_score, s.feedback,
+              e.kind AS exam_kind, e.semester AS exam_semester, e.starts_at AS exam_starts_at, e.ends_at AS exam_ends_at
        FROM hk_assignments a JOIN app_class_members m ON m.class_id = a.class_id AND m.user_id = $1 JOIN app_classes c ON c.id = a.class_id
+       LEFT JOIN hk_exams e ON e.assignment_id = a.id AND e.status = 'scheduled'
        LEFT JOIN hk_submissions s ON s.assignment_id = a.id AND s.user_id = $1 LEFT JOIN hk_quizzes q ON q.id = a.quiz_id LEFT JOIN hk_minigames g ON g.id = a.minigame_id LEFT JOIN hk_lessons l ON l.id = a.lesson_id
        WHERE a.status = 'active' AND (a.audience = 'class' OR (a.audience = 'students' AND $1 = ANY(a.student_ids)) OR (a.audience = 'team' AND EXISTS (SELECT 1 FROM hk_team_members tm WHERE tm.user_id = $1 AND tm.team_id = ANY(a.team_ids))))
        ORDER BY a.due_at DESC LIMIT 100`, [user.id]);
@@ -280,9 +285,17 @@ export class AssignmentService {
   }
 
   /** Bắt đầu hoặc tiếp tục làm bài tập: chỉ khi còn hạn và còn lượt; trả về dữ liệu theo loại bài tập */
-  async start(user: UserRow, id: number) {
+  async start(user: UserRow, id: number, password?: unknown) {
     const a = (await this.mine(user)).find((x) => x.id === id);
     if (!a) throw notFound('bài tập');
+    // bài thi giữa kỳ / cuối kỳ (migration 068): chỉ trong khung giờ và khi nhập đúng mật khẩu giáo viên cung cấp; một lượt làm
+    if (a.exam_kind) {
+      if (a.exam_starts_at && new Date(a.exam_starts_at).getTime() > this.now().getTime()) throw new ConflictException(`Bài thi chưa mở; mở lúc ${dateText(a.exam_starts_at)}`);
+      const text = typeof password === 'string' ? password : '';
+      if (!text) throw new BadRequestException('Hãy nhập mật khẩu bài thi do thầy cô cung cấp');
+      const hash = (await this.db.query<{ password_hash: string | null }>("SELECT password_hash FROM hk_exams WHERE assignment_id = $1 AND status = 'scheduled'", [id]))[0]?.password_hash;
+      if (!hash || !(await verifyPassword(text, hash))) throw new ForbiddenException('Mật khẩu bài thi chưa đúng');
+    }
     if (new Date(a.due_at).getTime() < this.now().getTime()) throw new ConflictException('Bài tập đã quá hạn nộp; hãy báo giáo viên nếu em cần gia hạn');
     if (a.kind === 'quiz') return { kind: 'quiz', attempt: await this.play.startAssignmentQuiz(user, a as unknown as AssignmentRow) };
     if (a.attempts >= a.max_attempts && a.kind === 'minigame' && !(await this.hasActiveRun(user.id, id))) throw new ConflictException(`Em đã dùng hết ${a.max_attempts} lượt làm bài này`);

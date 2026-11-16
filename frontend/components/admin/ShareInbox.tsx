@@ -11,6 +11,7 @@ import { Cell, DataTable, ErrorNote, Page, PageHeader, SearchFilterBar, StatusCh
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { QuestionPicker } from '@/components/admin/ContentKit';
 import { FONT } from '@/constants/theme';
+import { ExamReview } from '@/components/admin/LibraryExams';
 import { dateText } from '@/components/admin/AccountSheet';
 import type { Session } from '@/components/auth';
 import { Avatar, Btn, Card, Field, InfoNote, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
@@ -386,9 +387,16 @@ const SentMailbox: React.FC<{ session: Session }> = ({ session }) => {
 };
 
 /** Giáo viên: hộp thư đã gửi; quản trị trường / quản trị tổng: bảng duyệt nội dung */
-export const ShareInbox: React.FC<{ session: Session }> = ({ session }) => (session.user.role === 'teacher' ? <SentMailbox session={session} /> : <ReviewInbox session={session} />);
+export const ShareInbox: React.FC<{ session: Session }> = ({ session }) => (session.user.role === 'teacher' ? <SentMailbox session={session} /> : session.user.role === 'school_admin' ? <SchoolReview session={session} /> : <ReviewInbox session={session} />);
 
-const ReviewInbox: React.FC<{ session: Session }> = ({ session }) => {
+/** Quản trị trường: Duyệt nội dung gồm nội dung giáo viên chia sẻ và đề kiểm tra giữa kỳ / cuối kỳ (16/11/2026) */
+const SchoolReview: React.FC<{ session: Session }> = ({ session }) => {
+  const [view, setView] = useState<'shares' | 'exams'>('shares');
+  const switcher = <Segmented<'shares' | 'exams'> label="Loại cần duyệt" value={view} onChange={setView} options={[{ value: 'shares', label: 'Nội dung chia sẻ' }, { value: 'exams', label: 'Đề kiểm tra' }]} />;
+  return view === 'exams' ? <ExamReview session={session} switcher={switcher} /> : <ReviewInbox session={session} switcher={switcher} />;
+};
+
+const ReviewInbox: React.FC<{ session: Session; switcher?: React.ReactNode }> = ({ session, switcher }) => {
   const role = session.user.role;
   const reviewer = role !== 'teacher';
   const [status, setStatus] = useState(reviewer ? 'pending' : '');
@@ -405,6 +413,7 @@ const ReviewInbox: React.FC<{ session: Session }> = ({ session }) => {
     <Page>
       <PageHeader title={reviewer ? 'Duyệt nội dung' : 'Nội dung đã gửi'}
         subtitle={role === 'root_admin' ? 'Câu hỏi, bộ đề, hành trình do các trường đề xuất lên kho hệ thống.' : role === 'school_admin' ? 'Câu hỏi, bộ đề, hành trình giáo viên chia sẻ vào kho chung của trường, và nội dung trường đã đề xuất lên hệ thống.' : 'Theo dõi câu hỏi, bộ đề, hành trình đã gửi vào kho chung của trường. Có thể rút lại khi còn chờ duyệt.'} />
+      {switcher}
       <SearchFilterBar placeholder="Tìm theo tên nội dung hoặc người gửi" value={q} onChange={setQ} searchId="share-search" filters={[f_status, f_entity]} />
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}

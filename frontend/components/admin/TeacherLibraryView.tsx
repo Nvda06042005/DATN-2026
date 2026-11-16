@@ -3,10 +3,13 @@
  * - Khi giáo viên bấm "Xuất bản" hoặc "Lưu bản nháp" trong SmartExamStudio, đề thi tự động hiển thị tại đây.
  * - Hỗ trợ bật/tắt công tắc "Xuất bản" trực tiếp trên bảng Thư mục, lọc Tất cả / Bản nháp / Đã xuất bản ở "Tạo bởi tôi",
  *   mở lại để Chỉnh sửa, Xem trước Slide, Trộn mã đề 101–104, Nhân bản, Tổ chức thi hoặc Xóa.
+ * - 16/11/2026: thêm mục "Giáo viên khác" (bộ đề của thầy cô cùng trường trong kho chung) và "Đề kiểm tra" (đề giữa kỳ / cuối kỳ gửi quản trị trường duyệt,
+ *   tổ chức thi có mật khẩu) – xem `LibraryExams.tsx`.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
+  ClipboardCheck,
   Clock,
   Copy,
   Edit3,
@@ -22,9 +25,13 @@ import {
   Send,
   Shuffle,
   Trash2,
+  Users,
 } from 'lucide-react-native';
 import { Pressable, ScrollView, Switch, TextInput, View } from 'react-native';
 import * as learningApi from '@/api/learningApi';
+import * as classroomApi from '@/api/classroomApi';
+import { useLoad } from '@/components/admin/kit';
+import { ExamRequests, OtherTeachersLibrary } from '@/components/admin/LibraryExams';
 import { SmartExamStudio, type SmartStudioMode } from '@/components/admin/SmartExamStudio';
 import type { Session } from '@/components/auth';
 import { Btn, Card, Chip, ConfirmSheet, EmptyState, Field, Sheet, Txt, useToast } from '@/components/ui';
@@ -45,7 +52,7 @@ import {
 } from '@/lib/teacher-library';
 import type { QuizItem } from '@/types/learning';
 
-type LibrarySection = 'folders' | 'created_by_me' | 'recently_used' | 'assigned' | 'collection';
+type LibrarySection = 'folders' | 'created_by_me' | 'recently_used' | 'assigned' | 'collection' | 'others' | 'exams';
 type CreatedFilter = 'all' | 'draft' | 'published';
 
 export interface TeacherLibraryViewProps {
@@ -178,6 +185,10 @@ export const TeacherLibraryView: React.FC<TeacherLibraryViewProps> = ({
   const publishedExamsCount = useMemo(() => libState.exams.filter((e) => e.published).length, [libState.exams]);
   const recentlyUsedCount = useMemo(() => libState.exams.filter((e) => Boolean(e.lastUsedAt)).length, [libState.exams]);
   const assignedCount = useMemo(() => libState.exams.filter((e) => e.assignedCount > 0).length, [libState.exams]);
+  const others = useLoad(() => learningApi.listQuizzes(session.token, { store: 'school', limit: 100 }), [session.token, section], session.expired);
+  const otherCount = (others.data?.items ?? []).filter((z) => (z as QuizItem & { owner_id?: number | null }).owner_id !== session.user.id && z.owner_name).length;
+  const examList = useLoad(() => classroomApi.listExams(session.token), [session.token, section], session.expired);
+  const examCount = (examList.data ?? []).filter((e) => e.status === 'approved' || e.status === 'pending').length;
 
   const filteredExams = useMemo(() => {
     let list = [...libState.exams];
@@ -267,6 +278,9 @@ export const TeacherLibraryView: React.FC<TeacherLibraryViewProps> = ({
               { id: 'created_by_me' as const, label: 'Tạo bởi tôi', icon: PenTool, badge: libState.exams.length },
               { id: 'recently_used' as const, label: 'Trước đây đã sử dụng', icon: Clock, badge: recentlyUsedCount },
               { id: 'assigned' as const, label: 'Hoạt động đã giao', icon: Send, badge: assignedCount },
+              // 16/11/2026: bộ đề của giáo viên khác cùng trường; đề kiểm tra giữa kỳ / cuối kỳ gửi duyệt và tổ chức thi
+              { id: 'others' as const, label: 'Giáo viên khác', icon: Users, badge: otherCount },
+              { id: 'exams' as const, label: 'Đề kiểm tra', icon: ClipboardCheck, badge: examCount },
             ] as const
           ).map((item) => {
             const active = section === item.id;
@@ -375,6 +389,9 @@ export const TeacherLibraryView: React.FC<TeacherLibraryViewProps> = ({
 
       {/* KHU VỰC CHÍNH BÊN PHẢI */}
       <View style={{ flex: 1, minWidth: 320, gap: 14 }}>
+        {section === 'others' ? <OtherTeachersLibrary session={session} onStartLiveQuiz={onStartLiveQuiz} />
+          : section === 'exams' ? <ExamRequests session={session} />
+          : <>
         {/* HEADER CHẾ ĐỘ THƯ MỤC */}
         {section === 'folders' ? (
           <Card style={{ padding: 16, borderRadius: 18, gap: 14 }}>
@@ -741,6 +758,7 @@ export const TeacherLibraryView: React.FC<TeacherLibraryViewProps> = ({
             )}
           </Card>
         )}
+        </>}
       </View>
 
       {/* SHEET THAO TÁC TRÊN TỪNG ĐỀ THI (⋮) */}

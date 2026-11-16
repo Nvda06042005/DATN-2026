@@ -1308,3 +1308,12 @@ Theo 10 ý người dùng gửi kèm ảnh file Excel (đã hỏi lại hai đi�
 - Thêm thẻ **Tiến độ từng chặng** (13 chặng: số em đã xong, đang học, sao trung bình) và **Bảng vàng thành tích** (5 em nhiều sao rồi nhiều chặng; bấm để mở hồ sơ). Danh sách học sinh có cột Hành trình (x/13 chặng), Sao, Thẻ. Hồ sơ học sinh có ô Hành trình Đông A (chặng, sao, thẻ) và thẻ Hành trình Đông A thay cho "Hành trình đang học" cũ.
 - File PDF báo cáo lớp có thêm dòng sao / thẻ ở Tổng quan, cột Sao ở danh sách học sinh và phần "Tiến độ từng chặng".
 - Không có migration (`GET /api/analytics/classes/:id/dashboard` trả thêm `saga`, hồ sơ trả thêm `saga`). Kiểm thử: `analytics.spec.ts`, `admin-shell.test.cjs`, `assessment-ui.test.cjs`.
+
+## Thư viện học liệu: Giáo viên khác, Đề kiểm tra giữa kỳ / cuối kỳ có duyệt và mật khẩu; học sinh có mục Kỳ thi (16/11/2026)
+
+- Thư viện học liệu của giáo viên có thêm hai mục (`frontend/components/admin/LibraryExams.tsx`):
+  - **Giáo viên khác**: bộ đề trong kho chung của trường do thầy cô khác cùng trường soạn (đã được duyệt vào kho trường), lọc theo giáo viên, xem trước bằng khung làm bài, tổ chức thi đấu.
+  - **Đề kiểm tra**: "Gửi đề kiểm tra" (loại giữa kỳ / cuối kỳ, lớp phụ trách, bộ đề trong thư viện, tên đề, ghi chú) → quản trị trường được báo; đề chờ duyệt rút lại được; đề được duyệt có nút **Tổ chức thi**: mật khẩu (tạo ngẫu nhiên hoặc tự đặt, 4–32 ký tự), ngày thi, giờ mở, giờ đóng. Tổ chức xong hiện mật khẩu một lần để thầy cô đọc cho học sinh; hệ thống tạo bài thi cho cả lớp (một lượt làm, hạn là giờ đóng) và báo học sinh "Kỳ thi: …" (thông báo không chứa mật khẩu).
+- Quản trị trường: mục **Duyệt nội dung** có chọn "Nội dung chia sẻ" / "Đề kiểm tra"; xem ghi chú, xem bộ đề, duyệt hoặc từ chối (phải ghi lý do), giáo viên được báo.
+- Học sinh: mục **Kỳ thi** trong menu (bấm thông báo kỳ thi cũng mở mục này): danh sách bài thi (chưa mở / đang mở / đã đóng / đã làm), "Vào làm bài" chỉ trong khung giờ, nhập mật khẩu thầy cô cung cấp; sai mật khẩu, chưa tới giờ hoặc hết lượt bị máy chủ chặn.
+- Migration **068** (`hk_exams`); API `GET/POST /api/classroom/exams`, `POST /api/classroom/exams/:id/cancel|review|organize`; `POST /api/classroom/my-assignments/:id/start` nhận `password` (bài thi bắt buộc). Kiểm thử: `assignments.spec.ts` (cả quy trình), `assessment-ui.test.cjs`.

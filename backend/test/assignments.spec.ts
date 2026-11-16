@@ -327,4 +327,56 @@ async function playQuiz(who: { token: string }, start: any, right: (index: numbe
     // không phải bài học thì không đọc như bài học
     expect((await as(f.S1)('POST', `/api/classroom/my-assignments/${a1.id}/lesson/progress`, { read_percent: 50 })).status).toBe(403);
   });
+
+  test('đề kiểm tra giữa kỳ / cuối kỳ (migration 068): giáo viên gửi, quản trị trường duyệt, tổ chức thi có mật khẩu; học sinh vào làm đúng giờ, đúng mật khẩu, một lượt', async () => {
+    const body = { class_id: classId, quiz_id: quizId, kind: 'midterm', title: 'Kiểm tra giữa kỳ Lịch sử 7', note: 'Đề 15 câu, làm trong 45 phút.' };
+    expect((await api('POST', '/api/classroom/exams', { ...body, kind: 'weekly' })).status).toBe(400);
+    expect((await api('POST', '/api/classroom/exams', body, f.T2.token)).status).toBe(404); // lớp không do thầy cô này phụ trách
+    expect((await api('POST', '/api/classroom/exams', body, f.S1.token)).status).toBe(403);
+    const sent = await api('POST', '/api/classroom/exams', body);
+    expect(sent.status).toBe(201);
+    expect(sent.body).toMatchObject({ status: 'pending', kind: 'midterm', kind_label: 'Kiểm tra giữa kỳ', class_id: classId, has_password: false });
+    expect(sent.body).not.toHaveProperty('password_hash');
+    expect((await api('POST', '/api/classroom/exams', body)).status).toBe(409); // một đề giữa kỳ mỗi lớp mỗi học kỳ
+    const id = sent.body.id;
+    // quản trị trường được báo và thấy đề; trường khác không thấy
+    expect((await notes(f.A)).items.some((n: any) => n.title.includes('Đề kiểm tra chờ duyệt'))).toBe(true);
+    expect((await as(f.A)('GET', '/api/classroom/exams')).body.map((e: any) => e.id)).toContain(id);
+    expect((await as(f.B)('GET', '/api/classroom/exams')).body).toEqual([]);
+    // chưa duyệt thì chưa tổ chức thi được; giáo viên không tự duyệt; từ chối phải có lý do
+    const window = { password: 'LS7-GK1', starts_at: new Date(clock.now().getTime() - 60_000).toISOString(), ends_at: new Date(clock.now().getTime() + 3 * 3_600_000).toISOString() };
+    expect((await api('POST', `/api/classroom/exams/${id}/organize`, window)).status).toBe(409);
+    expect((await api('POST', `/api/classroom/exams/${id}/review`, { approve: true })).status).toBe(403);
+    expect((await as(f.A)('POST', `/api/classroom/exams/${id}/review`, { approve: false })).status).toBe(400);
+    expect((await as(f.B)('POST', `/api/classroom/exams/${id}/review`, { approve: true })).status).toBe(404);
+    const ok = await as(f.A)('POST', `/api/classroom/exams/${id}/review`, { approve: true, note: 'Đồng ý' });
+    expect(ok.body).toMatchObject({ status: 'approved', review_note: 'Đồng ý', reviewer_name: expect.any(String) });
+    expect((await notes(f.T1)).items.some((n: any) => n.title.includes('Đề kiểm tra đã được duyệt'))).toBe(true);
+    // tổ chức thi: mật khẩu hợp lệ, giờ đóng sau giờ mở
+    expect((await api('POST', `/api/classroom/exams/${id}/organize`, { ...window, password: 'a b' })).status).toBe(400);
+    expect((await api('POST', `/api/classroom/exams/${id}/organize`, { ...window, ends_at: window.starts_at })).status).toBe(400);
+    const run = await api('POST', `/api/classroom/exams/${id}/organize`, window);
+    expect(run.body).toMatchObject({ status: 'scheduled', has_password: true, assignment_id: expect.any(Number) });
+    expect((await db.query<{ password_hash: string }>('SELECT password_hash FROM hk_exams WHERE id = $1', [id]))[0].password_hash).not.toContain('LS7-GK1'); // chỉ lưu băm
+    expect((await api('POST', `/api/classroom/exams/${id}/organize`, window)).status).toBe(409);
+    // học sinh được báo, thấy bài thi; thiếu / sai mật khẩu không vào được; đúng mật khẩu thì làm, chỉ một lượt
+    expect((await notes(f.S1)).items.some((n: any) => n.title.startsWith('Kỳ thi: Kiểm tra giữa kỳ'))).toBe(true);
+    const exam = (await mine(f.S1)).find((x) => x.id === run.body.assignment_id);
+    expect(exam).toMatchObject({ exam_kind: 'midterm', max_attempts: 1 });
+    expect((await as(f.S1)('POST', `/api/classroom/my-assignments/${exam.id}/start`, {})).status).toBe(400);
+    expect((await as(f.S1)('POST', `/api/classroom/my-assignments/${exam.id}/start`, { password: 'sai' })).status).toBe(403);
+    const started = await as(f.S1)('POST', `/api/classroom/my-assignments/${exam.id}/start`, { password: 'LS7-GK1' });
+    expect(started.body.kind).toBe('quiz');
+    await playQuiz(f.S1, started.body.attempt);
+    expect((await as(f.S1)('POST', `/api/classroom/my-assignments/${exam.id}/start`, { password: 'LS7-GK1' })).status).toBe(409); // hết lượt
+    // bài thi chưa mở: chặn theo giờ
+    await db.query('UPDATE hk_exams SET starts_at = $2 WHERE id = $1', [id, new Date(clock.now().getTime() + 3_600_000)]);
+    const early = await as(f.S2)('POST', `/api/classroom/my-assignments/${exam.id}/start`, { password: 'LS7-GK1' });
+    expect(early.status).toBe(409);
+    expect(early.body.detail).toContain('Bài thi chưa mở');
+    // giáo viên rút lại đề còn chờ duyệt
+    const fin = (await api('POST', '/api/classroom/exams', { ...body, kind: 'final', title: 'Kiểm tra cuối kỳ Lịch sử 7' })).body;
+    expect((await api('POST', `/api/classroom/exams/${fin.id}/cancel`)).body).toEqual({ ok: true });
+    expect((await api('GET', '/api/classroom/exams')).body.map((e: any) => e.id)).not.toContain(fin.id);
+  });
 });

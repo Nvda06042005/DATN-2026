@@ -62,7 +62,7 @@ test('ngân hàng câu hỏi (16/11/2026): cột nào cũng có bộ lọc, xu�
 
 test('nội dung đã gửi (16/11/2026): giáo viên dùng hộp thư như Gmail; người duyệt thấy tiêu đề và lời nhắn', () => {
   const box = read('components', 'admin', 'ShareInbox.tsx');
-  assert.match(box, /export const ShareInbox: React\.FC<\{ session: Session \}> = \(\{ session \}\) => \(session\.user\.role === 'teacher' \? <SentMailbox session=\{session\} \/> : <ReviewInbox session=\{session\} \/>\);/);
+  assert.match(box, /export const ShareInbox: React\.FC<\{ session: Session \}> = \(\{ session \}\) => \(session\.user\.role === 'teacher' \? <SentMailbox session=\{session\} \/> : session\.user\.role === 'school_admin' \? <SchoolReview session=\{session\} \/> : <ReviewInbox session=\{session\} \/>\);/);
   for (const id of ['mail-list', 'mail-view', 'mail-reply', 'mail-withdraw', 'mail-resend', 'share-compose', 'compose-sheet', 'compose-subject', 'compose-message', 'compose-send', 'compose-discard']) assert.ok(box.includes(`testID="${id}"`), id);
   for (const label of ['Tất cả thư đã gửi', 'Chờ duyệt', 'Đã duyệt', 'Bị từ chối']) assert.ok(box.includes(`label: '${label}'`), label);
   assert.match(box, /<Txt f="bold" size=\{14\} color=\{c\.muc2\} style=\{\{ width: 72 \}\}>Đến<\/Txt>/);
@@ -81,4 +81,20 @@ test('thống kê lớp (16/11/2026): số liệu theo Hành trình Đông A, th
   assert.doesNotMatch(ui, /nodes_total\} nút|Hành trình đang học/);
   assert.match(ui, /<Txt f="bold" size=\{15\} accessibilityRole="header">Hành trình Đông A<\/Txt>/);
   assert.match(read('types', 'analytics.ts'), /saga: SagaClassStats;/);
+});
+
+test('thư viện học liệu (16/11/2026): Giáo viên khác cùng trường, Đề kiểm tra gửi duyệt và tổ chức thi có mật khẩu; quản trị trường duyệt; học sinh có mục Kỳ thi', () => {
+  const lib = read('components', 'admin', 'TeacherLibraryView.tsx');
+  assert.match(lib, /\{ id: 'others' as const, label: 'Giáo viên khác', icon: Users, badge: otherCount \}/);
+  assert.match(lib, /\{ id: 'exams' as const, label: 'Đề kiểm tra', icon: ClipboardCheck, badge: examCount \}/);
+  assert.match(lib, /section === 'others' \? <OtherTeachersLibrary session=\{session\} onStartLiveQuiz=\{onStartLiveQuiz\} \/>/);
+  const ex = read('components', 'admin', 'LibraryExams.tsx');
+  for (const id of ['library-others', 'library-exams', 'exam-request-sheet', 'exam-organize-sheet', 'exam-password-shown', 'exam-review-sheet', 'exam-approve', 'student-exams', 'student-exam-start', 'student-exam-password']) assert.ok(ex.includes(`testID="${id}"`), id);
+  assert.match(ex, /classroom\.organizeExam\(session\.token, exam\.id, \{ password, starts_at: starts, ends_at: ends \}\)/);
+  assert.match(ex, /classroom\.startAssignment\(session\.token, entering\.id, password\.trim\(\)\)/);
+  assert.match(read('components', 'admin', 'ShareInbox.tsx'), /options=\{\[\{ value: 'shares', label: 'Nội dung chia sẻ' \}, \{ value: 'exams', label: 'Đề kiểm tra' \}\]\}/);
+  const student = read('components', 'portal', 'StudentApp.tsx');
+  assert.match(student, /\{ id: 'ky-thi', label: 'Kỳ thi', icon: ClipboardCheck \}/);
+  assert.match(student, /n\.kind === 'exam' \? 'ky-thi'/);
+  assert.match(read('api', 'classroomApi.ts'), /export const organizeExam = /);
 });
