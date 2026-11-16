@@ -15,7 +15,11 @@ test('trang học sinh: khung Hành trình Đông A dùng chung khung của các
   const app = read('components', 'portal', 'StudentApp.tsx');
   assert.match(read('app', 'hoc-sinh.tsx'), /<StudentApp session=\{session\} \/>/);
   assert.match(app, /usePortalTab<SagaTab>\('chien-dich', TABS\)/);
-  for (const [id, label] of [['chien-dich', 'Chiến dịch'], ['nhap-vai', 'Nhập vai'], ['cau-hoi', 'Câu hỏi ôn tập'], ['tu-lieu', 'Tư liệu'], ['bo-the', 'Bộ thẻ'], ['hoi', 'Hỏi Tiểu Tướng'], ['khao-sat', 'Khảo sát'], ['tro-giup', 'Trợ giúp']]) assert.ok(app.includes(`{ id: '${id}', label: '${label}'`), id);
+  for (const [id, label] of [['chien-dich', 'Chiến dịch'], ['nhap-vai', 'Nhập vai'], ['cau-hoi', 'Câu hỏi ôn tập'], ['tu-lieu', 'Tư liệu'], ['bo-the', 'Bộ thẻ'], ['hoi', 'Hỏi Tiểu Tướng'], ['tro-giup', 'Trợ giúp']]) assert.ok(app.includes(`{ id: '${id}', label: '${label}'`), id);
+  // 16/11/2026: xóa hẳn mục Khảo sát của trang học sinh và logo ở thanh đầu của trang học sinh (các cổng quản trị vẫn giữ logo)
+  for (const gone of ["'khao-sat'", "label: 'Khảo sát'", '<SurveyCenter', 'ClipboardList']) assert.ok(!app.includes(gone), gone);
+  assert.doesNotMatch(read('components', 'portal', 'SagaKit.tsx'), /'khao-sat'/);
+  assert.match(read('components', 'admin', 'AdminWorkspace.tsx'), /\{role !== 'student' \? <View style=\{\{ flexShrink: 1 \}\}><BrandLogo /);
   // cùng khung với quản trị tổng / quản trị trường / giáo viên: AdminWorkspace + giao diện phẳng; không còn thanh HUD, nút tròn, nút nổi hay trình đơn riêng của bản trò chơi cũ
   assert.match(app, /<AdminUiContext\.Provider value>/);
   assert.match(app, /<AdminWorkspace session=\{session\} nav=\{navItems\} active=\{route\.tab\} onSelect=\{pick\}/);

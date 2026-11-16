@@ -4,7 +4,8 @@
  * lưu tiến độ, mở chặng tiếp theo. Mọi điểm, sao, phần thưởng và việc mở khóa do máy chủ quyết định (/api/saga); giao diện chỉ gửi lệnh và vẽ lại.
  * Khung trang (yêu cầu 16/11/2026: "trang học sinh lấy giao diện của quản trị tổng, quản trị trường và giáo viên"): dùng chung AdminWorkspace và giao diện phẳng
  * (AdminUiContext) với các cổng quản trị: thanh trên cùng (logo, đường dẫn, thông báo, hồ sơ, đăng xuất), menu bên trái (Chiến dịch, Nhập vai, Câu hỏi ôn tập,
- * Tư liệu, Bộ thẻ, Hỏi Tiểu Tướng, Khảo sát, Trợ giúp), giao diện sáng như các cổng quản trị.
+ * Tư liệu, Bộ thẻ, Hỏi Tiểu Tướng, Trợ giúp), giao diện sáng như các cổng quản trị. Theo yêu cầu cùng ngày, trang học sinh không có logo ở thanh đầu
+ * và không có mục Khảo sát (xóa hẳn; đường dẫn cũ `tab=khao-sat` mở trang Chiến dịch).
  * Mục đang mở nằm trên URL (tab, c = cuộc kháng chiến, s = chặng, v = bước) nên Back / Forward / tải lại giữ đúng chỗ.
  * Mỗi lần chuyển mục, bộ điều hướng dựng một màn mới và giữ màn cũ ẩn bên dưới: màn không còn được xem thì gỡ hết nội dung (game Phaser, đồng hồ, phím tắt, hộp thoại)
  * để lúc nào cũng chỉ có một màn chơi đang chạy; khi quay lại, màn đó tải lại trạng thái chuẩn từ máy chủ.
@@ -12,7 +13,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useIsFocused, useLocalSearchParams, useNavigation, usePathname, useRouter, type Href } from 'expo-router';
-import { CircleQuestionMark, ClipboardList, GalleryHorizontalEnd, Gamepad2, LifeBuoy, Map as MapIcon, ScrollText, Sparkles, Volume2, VolumeX } from 'lucide-react-native';
+import { CircleQuestionMark, GalleryHorizontalEnd, Gamepad2, LifeBuoy, Map as MapIcon, ScrollText, Sparkles, Volume2, VolumeX } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
 import * as game from '@/api/gameApi';
 import * as platform from '@/api/platformApi';
@@ -29,7 +30,6 @@ import { CampaignScreen, HomeScreen, RolePlayScreen } from '@/components/portal/
 import { SagaHeader, SagaPage, num, type SagaNav, type SagaRoute, type SagaStep, type SagaTab } from '@/components/portal/SagaKit';
 import { LessonScreen, PracticeScreen, SummaryScreen } from '@/components/portal/SagaLearn';
 import { BattleScreen, ExploreScreen } from '@/components/portal/SagaPlay';
-import { SurveyCenter } from '@/components/portal/SurveyCenter';
 import { TieuTuongTab } from '@/components/portal/TieuTuong';
 import { AdminUiContext, Btn, Sheet, Txt, useToast } from '@/components/ui';
 import { usePortalTab } from '@/hooks/use-portal-tab';
@@ -38,7 +38,7 @@ import { play, setSound, soundEnabled } from '@/lib/saga-sound';
 import type { Prefs } from '@/types/platform';
 import type { Completion, SagaHome } from '@/types/saga';
 
-const TABS: readonly SagaTab[] = ['chien-dich', 'nhap-vai', 'cau-hoi', 'tu-lieu', 'bo-the', 'hoi', 'tro-giup', 'khao-sat'];
+const TABS: readonly SagaTab[] = ['chien-dich', 'nhap-vai', 'cau-hoi', 'tu-lieu', 'bo-the', 'hoi', 'tro-giup'];
 const STEPS: readonly SagaStep[] = ['hoc', 'luyen', 'kham-pha', 'tran', 'tong-ket'];
 /** Menu bên trái, cùng kiểu với menu của quản trị tổng, quản trị trường và giáo viên */
 const NAV: ReadonlyArray<NavLeaf<SagaTab>> = [
@@ -48,7 +48,6 @@ const NAV: ReadonlyArray<NavLeaf<SagaTab>> = [
   { id: 'tu-lieu', label: 'Tư liệu', icon: ScrollText },
   { id: 'bo-the', label: 'Bộ thẻ', icon: GalleryHorizontalEnd },
   { id: 'hoi', label: 'Hỏi Tiểu Tướng', icon: Sparkles },
-  { id: 'khao-sat', label: 'Khảo sát', icon: ClipboardList },
   { id: 'tro-giup', label: 'Trợ giúp', icon: LifeBuoy },
 ];
 const one = (v: string | string[] | undefined): string | undefined => (Array.isArray(v) ? v[0] : v);
@@ -169,13 +168,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
         <SagaHeader title="Hỏi Tiểu Tướng" subtitle="Trợ lý chỉ trả lời theo tư liệu lịch sử đã được nhà trường công bố, có ghi nguồn." />
         <TieuTuongTab session={session} onOpen={(type, id) => setCite({ type, id })} />
       </SagaPage>
-    ) : route.tab === 'tro-giup' ? <HelpPage session={session} />
-    : (
-      <SagaPage testID="saga-survey">
-        <SagaHeader title="Khảo sát trải nghiệm" subtitle="Khảo sát do nhà trường gửi tới em; trả lời ẩn danh và chỉ một lần." />
-        <SurveyCenter session={session} />
-      </SagaPage>
-    );
+    ) : <HelpPage session={session} />;
 
   const navItems = NAV.map((it) => (it.id === 'cau-hoi' && home.data?.review_due ? { ...it, count: home.data.review_due } : it));
   const extra = (
@@ -183,7 +176,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       <Btn icon={sound ? Volume2 : VolumeX} tone="ghost" size="sm" selected={sound} label={sound ? 'Âm thanh trò chơi đang bật, bấm để tắt' : 'Âm thanh trò chơi đang tắt, bấm để bật'} testID="sound-toggle"
         onPress={() => { const on = !sound; setSound(on); setSoundOn(on); }} />
       <SettingsButton session={session} prefs={prefs} onSaved={setPrefs} />
-      <NoticeBell session={session} onGo={(n) => pick(n.kind === 'survey' ? 'khao-sat' : n.kind === 'support' ? 'tro-giup' : 'chien-dich')} />
+      <NoticeBell session={session} onGo={(n) => pick(n.kind === 'support' ? 'tro-giup' : 'chien-dich')} />
     </View>
   );
 

@@ -15,10 +15,10 @@ Giao diện bám theo các khung hình của video giới thiệu (`HaoKhiDongA_
 | Câu hỏi ôn tập (`cau-hoi`) | Ôn tập tính giờ: ưu tiên câu từng sai và mục tiêu còn yếu; chuỗi đúng; thanh cấp độ |
 | Tư liệu (`tu-lieu`) | Kho tư liệu: văn bản gốc (mở dần theo chặng), nhân vật, niên biểu, bản đồ; đều ghi nguồn |
 | Bộ thẻ (`bo-the`) | Thẻ nhân vật đã mở, huy chương, bảng xếp hạng tuần của lớp |
-| Hỏi Tiểu Tướng (`hoi`), Khảo sát (`khao-sat`), Trợ giúp (`tro-giup`) | Trợ lý lịch sử có trích nguồn; khảo sát của trường; hướng dẫn và gửi hỗ trợ |
-| Thanh trên cùng | Đường dẫn trang ("tên trường · Học sinh / mục đang mở"), bật / tắt âm thanh trò chơi (mặc định tắt), cài đặt nhắc học, thông báo, hồ sơ, đăng xuất; menu bên trái có Đổi mật khẩu |
+| Hỏi Tiểu Tướng (`hoi`), Trợ giúp (`tro-giup`) | Trợ lý lịch sử có trích nguồn; hướng dẫn và gửi hỗ trợ |
+| Thanh trên cùng | Không có logo (xóa theo yêu cầu 16/11/2026). Đường dẫn trang ("tên trường · Học sinh / mục đang mở"), bật / tắt âm thanh trò chơi (mặc định tắt), cài đặt nhắc học, thông báo, hồ sơ, đăng xuất; menu bên trái có Đổi mật khẩu |
 
-**Giao diện (16/11/2026):** trang học sinh dùng chung khung `AdminWorkspace` và bộ thành phần phẳng của quản trị tổng, quản trị trường và giáo viên: menu bên trái (trên điện thoại là nút menu), tiêu đề hai nửa, thẻ viền mảnh, thẻ số liệu, bảng dữ liệu, nút đỏ son / nút giấy, hộp thoại `Sheet`, giao diện sáng. Phần riêng của trò chơi chỉ còn ba cảnh Phaser, chân dung nhân vật, huy chương và màu trạng thái chặng.
+**Giao diện (16/11/2026):** trang học sinh dùng chung khung `AdminWorkspace` và bộ thành phần phẳng của quản trị tổng, quản trị trường và giáo viên: menu bên trái (trên điện thoại là nút menu), tiêu đề hai nửa, thẻ viền mảnh, thẻ số liệu, bảng dữ liệu, nút đỏ son / nút giấy, hộp thoại `Sheet`, giao diện sáng. Phần riêng của trò chơi chỉ còn ba cảnh Phaser, chân dung nhân vật, huy chương và màu trạng thái chặng. Cùng ngày, theo yêu cầu, trang học sinh bỏ hẳn logo ở thanh đầu và mục Khảo sát (đường dẫn cũ `tab=khao-sat` mở trang Chiến dịch; các cổng quản trị và giáo viên vẫn giữ logo, giáo viên vẫn có Khảo sát).
 
 Mục đang mở nằm trên URL: `tab`, `c` (cuộc kháng chiến 1–3), `s` (mã số chặng), `v` (bước: `hoc`, `luyen`, `kham-pha`, `tran`, `tong-ket`). Back / Forward / tải lại giữ đúng chỗ. Mở và đóng bảng thông tin chặng, đổi bản đồ không thêm bước vào lịch sử trình duyệt; một bước chơi vừa kết thúc thì bước sau thay thế nó (không quay lại "màn kết quả cũ").
 
