@@ -1,0 +1,761 @@
+/**
+ * Hành trình Đông A – vòng chơi học lịch sử của trang học sinh (15/11/2026):
+ *   chọn cuộc kháng chiến → chọn chặng trên bản đồ → học ngắn → minigame luyện tập → nhập vai khám phá → trận đánh (nếu có) → tổng kết, thưởng, mở chặng sau.
+ *
+ * Nguyên tắc:
+ *  - Máy chủ giữ trạng thái chuẩn của mọi phiên chơi; trình duyệt chỉ gửi lệnh và vẽ lại. Đáp án, điểm, sao, điểm thưởng và việc mở khóa đều do máy chủ tính.
+ *  - Mỗi lệnh có mã riêng (`action_id`) và số thứ tự (`seq`): gửi lặp hoặc kết nối lại nhận đúng kết quả cũ; lệnh cũ hơn trạng thái hiện tại bị từ chối (409).
+ *  - Phần thưởng đi qua sổ cái sẵn có của trò chơi hóa (GameService) với khóa duy nhất nên làm lại không được thưởng lần hai.
+ *  - Mức hiểu kiến thức (phần trăm luyện tập, sao kiến thức) tách khỏi điểm trận đánh.
+ *  - Học sinh chỉ đọc nội dung đã công bố và chỉ chạm được phiên, tiến độ của chính mình; giáo viên xem lớp mình dạy; quản trị tổng chỉnh nội dung và bản đồ.
+ */
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { DatabaseService, Q, UserRow } from '../database/database.service';
+import { GameService } from '../game/game.service';
+import { dayKey } from '../game/clock';
+import { logEvent } from '../student/events';
+import { applyBachDang, bachDangResult, BdScenario, BdState, createBachDang, publicBachDang } from './bachdang';
+import { debriefView, knowledgeStars, lessonView, normalizeStage, StageContent } from './content';
+import { applyExplore, ExploreState, newExplore, publicExplore } from './explore';
+import { gradeItem, ITEM_KINDS, ItemKind, ItemRow, KIND_LABEL, newSlot, normalizeItem, publicItem, SlotState, tally } from './practice';
+import { applyTactics, createTactics, publicTactics, TacticsScenario, tacticsResult, TState } from './tactics';
+
+export type SessionKind = 'practice' | 'explore' | 'battle' | 'review';
+export type StageState = 'locked' | 'ready' | 'learning' | 'done' | 'review';
+
+interface StageBrief {
+  id: number; code: string; campaign_no: number; position: number; title: string; place: string; date_label: string; kind: string; icon: string; summary: string;
+  map_x: number; map_y: number; anchor_x: number | null; anchor_y: number | null; unlock_after: string | null; pass_percent: number; reward_xp: number; reward_gold: number;
+  card_code: string | null; badge_code: string | null; version: number; status: string; review_note: string | null; has_battle: boolean; battle_mode: string | null;
+}
+interface StageRow extends StageBrief { content: StageContent }
+interface ProgressRow {
+  user_id: number; stage_id: number; lesson_done_at: string | null; practice_best: number; practice_tries: number; practice_passed_at: string | null;
+  explore_done_at: string | null; explore_hints: number; explore_mistakes: number; battle_best: number; battle_stars: number; battle_tries: number; battle_won_at: string | null;
+  stars: number; completed_at: string | null;
+}
+interface SessionRow { id: number; user_id: number; stage_id: number | null; kind: SessionKind; status: 'active' | 'done' | 'abandoned'; seq: number; state: Record<string, any>; result: Record<string, any> | null; started_at: string }
+interface PracticeState { v: 1; slots: SlotState[] }
+/** `served_at`: lúc câu được mở cho học sinh (đồng hồ chạy từ đây); `opened_at`: lúc trả lời xong câu trước, dùng khi trình duyệt không báo đã mở câu */
+interface ReviewState { v: 1; slots: Array<SlotState & { served_at: number | null; opened_at?: number | null; limit_s: number }>; streak: number; best_streak: number }
+interface BattleSessionState { v: 1; mode: 'tactics' | 'bachdang'; engine: TState | BdState; knowledge: number }
+
+const STAGE_COLS = `s.id, s.code, s.campaign_no, s.position, s.title, s.place, s.date_label, s.kind, s.icon, s.summary, s.map_x::float8 AS map_x, s.map_y::float8 AS map_y,
+  s.anchor_x::float8 AS anchor_x, s.anchor_y::float8 AS anchor_y, s.unlock_after, s.pass_percent, s.reward_xp, s.reward_gold, s.card_code, s.badge_code, s.version, s.status, s.review_note,
+  (jsonb_typeof(s.content->'battle') = 'object') AS has_battle, s.content->'battle'->>'mode' AS battle_mode`;
+const SESSION_COLS = 'id::int AS id, user_id, stage_id, kind, status, seq, state, result, started_at';
+const XP = { lesson: 10, practice: 30, explore: 20, battle: 50, review: 5 };
+const REVIEW_SIZE = 10;
+const REVIEW_GRACE_MS = 3000;
+/** Thời gian tối đa đọc lời giải thích của câu trước khi trình duyệt không báo "đã mở câu": quá mức này đồng hồ của câu vẫn tính */
+const REVIEW_READ_MS = 90_000;
+const REVIEW_KINDS: ItemKind[] = ['quiz', 'tactic', 'sequence', 'locate'];
+const notFound = (what: string): NotFoundException => new NotFoundException(`Không tìm thấy ${what}`);
+const isObj = (v: unknown): v is Record<string, any> => typeof v === 'object' && v !== null && !Array.isArray(v);
+
+@Injectable()
+export class SagaService {
+  constructor(private readonly db: DatabaseService, private readonly game: GameService) {}
+
+  private readonly read: Q = (sql, params) => this.db.query(sql, params);
+
+  // ------------------------------------------------------------------ đọc nội dung và tiến độ
+  private stages(q: Q, all = false): Promise<StageBrief[]> {
+    return q<StageBrief>(`SELECT ${STAGE_COLS} FROM hk_saga_stages s ${all ? '' : "WHERE s.status = 'published'"} ORDER BY s.position`);
+  }
+
+  private async stage(q: Q, id: number, all = false): Promise<StageRow> {
+    const row = (await q<StageRow>(`SELECT ${STAGE_COLS}, s.content FROM hk_saga_stages s WHERE s.id = $1${all ? '' : " AND s.status = 'published'"}`, [id]))[0];
+    if (!row) throw notFound('chặng');
+    return row;
+  }
+
+  private async progressMap(q: Q, userId: number): Promise<Map<number, ProgressRow>> {
+    const rows = await q<ProgressRow>('SELECT * FROM hk_saga_progress WHERE user_id = $1', [userId]);
+    return new Map(rows.map((r) => [r.stage_id, r]));
+  }
+
+  /** Số câu đã sai còn chờ ôn của từng chặng */
+  private async dueByStage(q: Q, userId: number): Promise<Map<number, number>> {
+    const rows = await q<{ stage_id: number; n: number }>(
+      'SELECT i.stage_id, count(*)::int AS n FROM hk_saga_review r JOIN hk_saga_items i ON i.id = r.item_id WHERE r.user_id = $1 AND r.cleared_at IS NULL AND i.is_active GROUP BY i.stage_id', [userId]);
+    return new Map(rows.map((r) => [r.stage_id, r.n]));
+  }
+
+  /** Chặng bị khóa khi chặng điều kiện (đã công bố) chưa hoàn thành; điều kiện trỏ tới chặng chưa công bố thì không khóa để học sinh không bị kẹt */
+  private lockOf(stage: StageBrief, all: StageBrief[], progress: Map<number, ProgressRow>): string | null {
+    if (!stage.unlock_after) return null;
+    const need = all.find((s) => s.code === stage.unlock_after);
+    if (!need || progress.get(need.id)?.completed_at) return null;
+    return `Hoàn thành chặng “${need.title}” để mở`;
+  }
+
+  private stateOf(_stage: StageBrief, p: ProgressRow | undefined, lock: string | null, due: number): StageState {
+    // "cần ôn": còn câu đã sai chưa ôn lại, hoặc phần nhập vai phải xem gợi ý / làm sai từ ba lần trở lên
+    if (p?.completed_at) return due > 0 || p.explore_hints + p.explore_mistakes >= 3 ? 'review' : 'done';
+    if (lock) return 'locked';
+    return p && (p.lesson_done_at || p.practice_tries > 0) ? 'learning' : 'ready';
+  }
+
+  private steps(stage: StageBrief, p: ProgressRow | undefined, locked: boolean) {
+    const lesson = p?.lesson_done_at ? 'done' : locked ? 'locked' : 'ready';
+    const practice = p?.practice_passed_at ? 'done' : lesson === 'done' ? 'ready' : 'locked';
+    const explore = p?.explore_done_at ? 'done' : practice === 'done' ? 'ready' : 'locked';
+    const battle = !stage.has_battle ? 'none' : p?.battle_won_at ? 'done' : practice === 'done' ? 'ready' : 'locked';
+    const next = locked ? null : lesson !== 'done' ? 'lesson' : practice !== 'done' ? 'practice' : explore !== 'done' ? 'explore' : 'replay';
+    return { lesson, practice, explore, battle, next };
+  }
+
+  private brief(stage: StageBrief, all: StageBrief[], progress: Map<number, ProgressRow>, due: Map<number, number>) {
+    const p = progress.get(stage.id);
+    const lock = this.lockOf(stage, all, progress);
+    const inCampaign = all.filter((s) => s.campaign_no === stage.campaign_no);
+    return {
+      id: stage.id, code: stage.code, campaign_no: stage.campaign_no, position: stage.position, order: inCampaign.findIndex((s) => s.id === stage.id) + 1, title: stage.title, place: stage.place,
+      date_label: stage.date_label, kind: stage.kind, icon: stage.icon, summary: stage.summary, map_x: stage.map_x, map_y: stage.map_y, anchor_x: stage.anchor_x, anchor_y: stage.anchor_y,
+      has_battle: stage.has_battle, battle_mode: stage.battle_mode, state: this.stateOf(stage, p, lock, due.get(stage.id) ?? 0), lock_reason: p?.completed_at ? null : lock,
+      stars: p?.stars ?? 0, knowledge_percent: p?.practice_best ?? 0, battle_stars: p?.battle_stars ?? 0, review_due: due.get(stage.id) ?? 0, steps: this.steps(stage, p, Boolean(lock) && !p?.completed_at),
+    };
+  }
+
+  // ------------------------------------------------------------------ trang chủ và bản đồ
+  async home(user: UserRow) {
+    const hud = await this.game.me(user);
+    const quests = await this.game.quests(user);
+    const q = this.read;
+    const all = await this.stages(q);
+    const progress = await this.progressMap(q, user.id);
+    const due = await this.dueByStage(q, user.id);
+    const maps = await q<Record<string, any>>('SELECT campaign_no, title, short_title, years, enemy, places, summary FROM hk_saga_maps ORDER BY campaign_no');
+    const briefs = all.map((s) => this.brief(s, all, progress, due));
+    const campaigns = maps.map((m) => {
+      const list = briefs.filter((b) => b.campaign_no === m.campaign_no);
+      const done = list.filter((b) => b.state === 'done' || b.state === 'review').length;
+      const started = list.some((b) => b.state !== 'ready' && b.state !== 'locked');
+      return { ...m, stages: list.length, done, stars: list.reduce((n, b) => n + b.stars, 0), max_stars: list.length * 3, percent: list.length ? Math.round((done / list.length) * 100) : 0,
+        completed: list.length > 0 && done === list.length, is_new: list.length > 0 && !started, available: list.length > 0 };
+    });
+    const next = briefs.find((b) => b.state === 'learning') ?? briefs.find((b) => b.state === 'ready') ?? null;
+    const daily = (quests.daily as Array<Record<string, any>>).find((d) => !d.completed_at) ?? (quests.daily as Array<Record<string, any>>)[0] ?? null;
+    const dailyDone = (quests.daily as Array<Record<string, any>>).filter((d) => d.completed_at).length;
+    return {
+      learner: { name: user.nickname || user.full_name, full_name: user.full_name, avatar_url: user.avatar_url, class_name: user.class_name },
+      hud: { level: hud.level, gold: hud.gold, xp: hud.xp, streak: hud.streak, daily: hud.daily, unseen_celebrations: hud.unseen_celebrations },
+      campaigns, next: next ? { stage_id: next.id, title: next.title, campaign_no: next.campaign_no, state: next.state } : null,
+      daily: daily ? { title: daily.title, progress: daily.progress, target: daily.target, done: Boolean(daily.completed_at), reward_xp: daily.reward_xp, reward_gold: daily.reward_gold, done_count: dailyDone, total: (quests.daily as unknown[]).length } : null,
+      review_due: [...due.values()].reduce((n, x) => n + x, 0), totals: { stages: briefs.length, done: briefs.filter((b) => b.state === 'done' || b.state === 'review').length },
+    };
+  }
+
+  async campaign(user: UserRow, campaignNo: number) {
+    const q = this.read;
+    const map = (await q<Record<string, any>>('SELECT campaign_no, title, short_title, years, enemy, places, summary, image_key, image_url, image_w, image_h, credit, credit_url FROM hk_saga_maps WHERE campaign_no = $1', [campaignNo]))[0];
+    if (!map) throw notFound('cuộc kháng chiến');
+    const all = await this.stages(q);
+    const progress = await this.progressMap(q, user.id);
+    const due = await this.dueByStage(q, user.id);
+    const stages = all.filter((s) => s.campaign_no === campaignNo).map((s) => this.brief(s, all, progress, due));
+    const done = stages.filter((s) => s.state === 'done' || s.state === 'review').length;
+    return { map, stages, current_stage_id: (stages.find((s) => s.state === 'learning') ?? stages.find((s) => s.state === 'ready'))?.id ?? null,
+      totals: { stages: stages.length, done, stars: stages.reduce((n, s) => n + s.stars, 0), max_stars: stages.length * 3 } };
+  }
+
+  /** Chặng mà học sinh đang được phép học; ném 404 khi không có, 409 khi còn khóa (sửa request không mở được chặng khóa) */
+  private async openStage(q: Q, user: UserRow, stageId: number): Promise<{ stage: StageRow; progress: ProgressRow | undefined; all: StageBrief[] }> {
+    const stage = await this.stage(q, stageId);
+    const all = await this.stages(q);
+    const map = await this.progressMap(q, user.id);
+    const p = map.get(stage.id);
+    const lock = p?.completed_at ? null : this.lockOf(stage, all, map);
+    if (lock) throw new ConflictException(lock);
+    return { stage, progress: p, all };
+  }
+
+  async stageDetail(user: UserRow, stageId: number) {
+    const q = this.read;
+    const stage = await this.stage(q, stageId);
+    const all = await this.stages(q);
+    const progress = await this.progressMap(q, user.id);
+    const due = await this.dueByStage(q, user.id);
+    const brief = this.brief(stage, all, progress, due);
+    const p = progress.get(stage.id);
+    const items = await q<{ kind: ItemKind; n: number }>("SELECT kind, count(*)::int AS n FROM hk_saga_items WHERE stage_id = $1 AND is_active AND usage IN ('practice', 'both') GROUP BY kind ORDER BY kind", [stage.id]);
+    const card = stage.card_code ? (await q<Record<string, any>>('SELECT code, name, title, rarity, portrait FROM hk_saga_cards WHERE code = $1', [stage.card_code]))[0] ?? null : null;
+    const next = all.find((s) => s.unlock_after === stage.code) ?? null;
+    return {
+      ...brief, objectives: stage.content.objectives, cards_count: stage.content.cards.length, pass_percent: stage.pass_percent,
+      practice: { items: items.reduce((n, i) => n + i.n, 0), kinds: items.map((i) => ({ kind: i.kind, label: KIND_LABEL[i.kind], count: i.n })), best: p?.practice_best ?? 0, tries: p?.practice_tries ?? 0, passed: Boolean(p?.practice_passed_at) },
+      explore: { title: stage.content.explore.title, done: Boolean(p?.explore_done_at), hints: p?.explore_hints ?? 0, mistakes: p?.explore_mistakes ?? 0 },
+      battle: stage.content.battle ? { title: stage.content.battle.title, mode: stage.content.battle.mode, best: p?.battle_best ?? 0, stars: p?.battle_stars ?? 0, tries: p?.battle_tries ?? 0, won: Boolean(p?.battle_won_at) } : null,
+      rewards: { xp: stage.reward_xp, gold: stage.reward_gold, card: card ? { ...card, hidden: !p?.completed_at } : null, has_badge: Boolean(stage.badge_code) },
+      completed_at: p?.completed_at ?? null, unlocks_next: next ? { id: next.id, title: next.title } : null,
+    };
+  }
+
+  // ------------------------------------------------------------------ học ngắn
+  async lesson(user: UserRow, stageId: number) {
+    const { stage, progress } = await this.openStage(this.read, user, stageId);
+    await logEvent(this.db, user, 'view_lesson', 'saga_stage', stage.id);
+    return { stage: { id: stage.id, title: stage.title, place: stage.place, date_label: stage.date_label, campaign_no: stage.campaign_no }, ...lessonView(stage.content), done: Boolean(progress?.lesson_done_at) };
+  }
+
+  async completeLesson(user: UserRow, stageId: number) {
+    return this.db.tx(async (q) => {
+      const { stage } = await this.openStage(q, user, stageId);
+      const p = await this.lockProgress(q, user, stage.id);
+      let xp = 0;
+      if (!p.lesson_done_at) {
+        await q('UPDATE hk_saga_progress SET lesson_done_at = now(), updated_at = now() WHERE user_id = $1 AND stage_id = $2', [user.id, stage.id]);
+        if (await this.game.awardXp(q, user, XP.lesson, 'lesson', `hq:lesson:${stage.id}`)) xp = XP.lesson;
+        await this.game.onLessonCompleted(q, user);
+        await logEvent(null, user, 'lesson_complete', 'saga_stage', stage.id, null, null, null, q);
+      }
+      return { done: true, first: !p.lesson_done_at, xp };
+    });
+  }
+
+  /** Dòng tiến độ của học sinh ở một chặng, đã khóa để các thao tác trong cùng giao dịch không giẫm lên nhau */
+  private async lockProgress(q: Q, user: UserRow, stageId: number): Promise<ProgressRow> {
+    await q('INSERT INTO hk_saga_progress (user_id, stage_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [user.id, stageId]);
+    return (await q<ProgressRow>('SELECT * FROM hk_saga_progress WHERE user_id = $1 AND stage_id = $2 FOR UPDATE', [user.id, stageId]))[0];
+  }
+
+  // ------------------------------------------------------------------ phiên chơi
+  private async items(q: Q, ids: number[]): Promise<Map<number, ItemRow & { stage_id: number }>> {
+    const rows = await q<ItemRow & { stage_id: number }>('SELECT id, stage_id, kind, prompt, data, explanation, objective, source FROM hk_saga_items WHERE id = ANY($1)', [ids]);
+    return new Map(rows.map((r) => [r.id, r]));
+  }
+
+  /**
+   * Bắt đầu hoặc tiếp tục một phiên của chặng. Mỗi học sinh chỉ có một phiên đang mở cho mỗi chặng và mỗi loại: gọi lại (tải lại trang, thiết bị khác) nhận đúng phiên đó;
+   * `restart` đóng phiên cũ (ghi là bỏ dở) rồi mở phiên mới.
+   */
+  async start(user: UserRow, stageId: number, kind: Exclude<SessionKind, 'review'>, restart = false) {
+    return this.db.tx(async (q) => {
+      const { stage } = await this.openStage(q, user, stageId);
+      const p = await this.lockProgress(q, user, stage.id);
+      const active = (await q<SessionRow>(`SELECT ${SESSION_COLS} FROM hk_saga_sessions WHERE user_id = $1 AND stage_id = $2 AND kind = $3 AND status = 'active' FOR UPDATE`, [user.id, stage.id, kind]))[0];
+      if (active && !restart) return { ...(await this.view(q, user, active, stage)), resumed: true, events: [] };
+      if (active) await q("UPDATE hk_saga_sessions SET status = 'abandoned', finished_at = now(), updated_at = now() WHERE id = $1", [active.id]);
+
+      let state: Record<string, any>;
+      let events: unknown[] = [];
+      if (kind === 'practice') {
+        if (!p.lesson_done_at) throw new ConflictException('Hãy học xong các thẻ kiến thức trước khi luyện tập');
+        const rows = await q<ItemRow>("SELECT id, kind, prompt, data, explanation, objective, source FROM hk_saga_items WHERE stage_id = $1 AND is_active AND usage IN ('practice', 'both') ORDER BY position", [stage.id]);
+        if (!rows.length) throw new ConflictException('Chặng này chưa có câu luyện tập');
+        const seed = Math.floor(Math.random() * 2 ** 30);
+        state = { v: 1, slots: rows.map((r, i) => newSlot(r, seed + i * 977)) } satisfies PracticeState;
+      } else if (kind === 'explore') {
+        if (!p.practice_passed_at) throw new ConflictException(`Hãy đạt ít nhất ${stage.pass_percent}% phần luyện tập trước khi nhập vai`);
+        state = newExplore();
+      } else {
+        if (!stage.content.battle) throw new ConflictException('Chặng này không có trận đánh');
+        if (!p.practice_passed_at) throw new ConflictException(`Hãy đạt ít nhất ${stage.pass_percent}% phần luyện tập trước khi ra trận`);
+        // lần đầu phải đi tới điểm chạm trán trong cảnh khám phá; sau khi đã thắng thì được chơi lại trực tiếp
+        if (!p.battle_won_at && !(await this.atBattleStep(q, user, stage))) throw new ConflictException('Hãy nhập vai và tìm tới nơi quân địch trước khi ra trận');
+        const made = stage.content.battle.mode === 'bachdang' ? createBachDang(stage.content.battle) : createTactics(stage.content.battle, p.practice_best);
+        state = { v: 1, mode: stage.content.battle.mode, engine: made.state, knowledge: p.practice_best } satisfies BattleSessionState;
+        events = made.events;
+        await q('UPDATE hk_saga_progress SET battle_tries = battle_tries + 1, updated_at = now() WHERE user_id = $1 AND stage_id = $2', [user.id, stage.id]);
+      }
+      const row = (await q<SessionRow>(`INSERT INTO hk_saga_sessions (user_id, stage_id, kind, state) VALUES ($1, $2, $3, $4) RETURNING ${SESSION_COLS}`, [user.id, stage.id, kind, JSON.stringify(state)]))[0];
+      return { ...(await this.view(q, user, row, stage)), resumed: false, events };
+    });
+  }
+
+  /** Học sinh đang đứng ở bước chạm trán của cảnh khám phá đang mở? */
+  private async atBattleStep(q: Q, user: UserRow, stage: StageRow): Promise<boolean> {
+    const s = (await q<{ state: ExploreState }>("SELECT state FROM hk_saga_sessions WHERE user_id = $1 AND stage_id = $2 AND kind = 'explore' AND status = 'active'", [user.id, stage.id]))[0];
+    return Boolean(s) && stage.content.explore.steps[s.state.step]?.type === 'battle';
+  }
+
+  private async owned(q: Q, user: UserRow, sessionId: number, lock: boolean): Promise<SessionRow> {
+    const row = (await q<SessionRow>(`SELECT ${SESSION_COLS} FROM hk_saga_sessions WHERE id = $1 AND user_id = $2${lock ? ' FOR UPDATE' : ''}`, [sessionId, user.id]))[0];
+    if (!row) throw notFound('phiên chơi');
+    return row;
+  }
+
+  async session(user: UserRow, sessionId: number) {
+    const q = this.read;
+    const row = await this.owned(q, user, sessionId, false);
+    return this.view(q, user, row, row.stage_id ? await this.stage(q, row.stage_id) : null);
+  }
+
+  /** Trạng thái phiên gửi cho trình duyệt (không chứa đáp án) */
+  private async view(q: Q, user: UserRow, row: SessionRow, stage: StageRow | null): Promise<Record<string, any>> {
+    const head = { session_id: row.id, kind: row.kind, seq: row.seq, status: row.status, result: row.result, stage: stage ? { id: stage.id, title: stage.title, place: stage.place, date_label: stage.date_label, campaign_no: stage.campaign_no } : null };
+    if (row.kind === 'practice' || row.kind === 'review') {
+      const st = row.state as PracticeState | ReviewState;
+      const items = await this.items(q, st.slots.map((s) => s.item_id));
+      const index = st.slots.findIndex((s) => !s.done);
+      const stageTitles = row.kind === 'review' ? new Map((await this.stages(q)).map((s) => [s.id, s.title])) : null;
+      return {
+        ...head, pass_percent: stage?.pass_percent ?? null, index: index < 0 ? st.slots.length : index, total: st.slots.length,
+        items: st.slots.map((slot) => {
+          const item = items.get(slot.item_id)!;
+          return { ...publicItem(item, slot), score: slot.done ? slot.score : null, stage_title: stageTitles?.get(item.stage_id) ?? null };
+        }),
+        ...(row.kind === 'review' ? { timer: this.reviewTimer(st as ReviewState), streak: (st as ReviewState).streak } : {}),
+      };
+    }
+    if (row.kind === 'explore') {
+      const p = (await q<ProgressRow>('SELECT * FROM hk_saga_progress WHERE user_id = $1 AND stage_id = $2', [user.id, stage!.id]))[0];
+      return { ...head, ...publicExplore(stage!.content.explore, row.state as ExploreState), battle: stage!.content.battle ? { title: stage!.content.battle.title, mode: stage!.content.battle.mode, won: this.battleWon(p, row) } : null };
+    }
+    const b = row.state as BattleSessionState;
+    return { ...head, knowledge: b.knowledge, ...(b.mode === 'bachdang' ? publicBachDang(stage!.content.battle as BdScenario, b.engine as BdState) : publicTactics(stage!.content.battle as TacticsScenario, b.engine as TState)) };
+  }
+
+  /** Trận của chặng đã thắng kể từ khi mở cảnh khám phá này (hoặc chặng đã hoàn thành từ trước và đang chơi lại) */
+  private battleWon(p: ProgressRow | undefined, explore: SessionRow): boolean {
+    if (!p?.battle_won_at) return false;
+    return Boolean(p.completed_at) || new Date(p.battle_won_at).getTime() >= new Date(explore.started_at).getTime();
+  }
+
+  private reviewTimer(st: ReviewState): { limit_s: number; left_ms: number } | null {
+    const slot = st.slots.find((s) => !s.done);
+    if (!slot || !slot.served_at) return null;
+    return { limit_s: slot.limit_s, left_ms: Math.max(0, slot.limit_s * 1000 - (this.game.clock.now().getTime() - slot.served_at)) };
+  }
+
+  /**
+   * Một lệnh của người chơi trong phiên. Kiểm tra chủ sở hữu, mã lệnh (gửi lặp trả lại kết quả cũ), số thứ tự (lệnh lệch trạng thái bị từ chối),
+   * rồi mới xử lý; trạng thái mới, nhật ký lệnh, tiến độ và phần thưởng được ghi trong cùng một giao dịch.
+   */
+  async act(user: UserRow, sessionId: number, body: { action_id: string; seq: number; action: Record<string, any> }) {
+    if (!isObj(body.action) || typeof body.action.type !== 'string') throw new BadRequestException('Lệnh không hợp lệ');
+    return this.db.tx(async (q) => {
+      const row = await this.owned(q, user, sessionId, true);
+      const stage = row.stage_id ? await this.stage(q, row.stage_id) : null;
+      // gửi lặp (bấm hai lần, mạng chập chờn, kết nối lại): trả kết quả đã lưu kèm trạng thái hiện tại, không xử lý và không thưởng lần hai
+      const dup = (await q<{ outcome: Record<string, any> }>('SELECT outcome FROM hk_saga_actions WHERE session_id = $1 AND action_id = $2', [row.id, body.action_id]))[0];
+      if (dup) return { ...dup.outcome, view: await this.view(q, user, row, stage), replayed: true };
+      if (row.status !== 'active') throw new ConflictException('Phiên chơi này đã kết thúc');
+      if (body.seq !== row.seq) throw new ConflictException('Trạng thái phiên đã thay đổi (có thể em đang chơi ở một thẻ khác). Tải lại để tiếp tục.');
+      const p = stage ? await this.lockProgress(q, user, stage.id) : undefined;
+
+      let outcome: Record<string, any>;
+      let finished: Record<string, any> | null = null;
+      if (row.kind === 'practice') ({ outcome, finished } = await this.actPractice(q, user, row, stage!, p!, body.action));
+      else if (row.kind === 'review') ({ outcome, finished } = await this.actReview(q, user, row, body.action));
+      else if (row.kind === 'explore') ({ outcome, finished } = await this.actExplore(q, user, row, stage!, p!, body.action));
+      else ({ outcome, finished } = await this.actBattle(q, user, row, stage!, p!, body.action));
+
+      row.seq += 1;
+      if (finished) { row.status = 'done'; row.result = finished; }
+      await q(`UPDATE hk_saga_sessions SET state = $2, seq = $3, status = $4, result = $5, updated_at = now(), finished_at = CASE WHEN $4 = 'done' THEN now() ELSE finished_at END WHERE id = $1`,
+        [row.id, JSON.stringify(row.state), row.seq, row.status, row.result ? JSON.stringify(row.result) : null]);
+      const completion = stage && finished ? await this.maybeComplete(q, user, stage) : null;
+      const saved = { seq: row.seq, outcome, finished, completion };
+      await q('INSERT INTO hk_saga_actions (session_id, seq, user_id, action_id, action, outcome) VALUES ($1, $2, $3, $4, $5, $6)', [row.id, row.seq, user.id, body.action_id, JSON.stringify(body.action), JSON.stringify(saved)]);
+      return { ...saved, view: await this.view(q, user, row, stage), replayed: false };
+    });
+  }
+
+  // ------------------------------------------------------------------ luyện tập
+  private async recordAnswer(q: Q, user: UserRow, item: ItemRow & { stage_id: number }, sessionId: number, mode: 'practice' | 'review', correct: boolean): Promise<void> {
+    await q('INSERT INTO hk_saga_answers (user_id, item_id, stage_id, session_id, mode, correct) VALUES ($1, $2, $3, $4, $5, $6)', [user.id, item.id, item.stage_id, sessionId, mode, correct]);
+    if (correct) {
+      await this.game.onCorrectAnswer(q, user);
+      if (mode === 'review') await q('UPDATE hk_saga_review SET cleared_at = now() WHERE user_id = $1 AND item_id = $2 AND cleared_at IS NULL', [user.id, item.id]);
+    } else {
+      await q(`INSERT INTO hk_saga_review (user_id, item_id) VALUES ($1, $2)
+               ON CONFLICT (user_id, item_id) DO UPDATE SET wrong_count = hk_saga_review.wrong_count + 1, last_wrong_at = now(), cleared_at = NULL`, [user.id, item.id]);
+    }
+  }
+
+  /** Giải thích và nguồn của một câu, chỉ gửi sau khi học sinh đã trả lời */
+  private async explain(q: Q, item: ItemRow & { stage_id: number }): Promise<Record<string, unknown>> {
+    const row = (await q<{ title: string; src: Record<string, any> | null; obj: Record<string, any> | null }>(
+      `SELECT s.title, (SELECT x FROM jsonb_array_elements(s.content->'sources') x WHERE x->>'key' = $2 LIMIT 1) AS src,
+              (SELECT x FROM jsonb_array_elements(s.content->'objectives') x WHERE x->>'id' = $3 LIMIT 1) AS obj
+       FROM hk_saga_stages s WHERE s.id = $1`, [item.stage_id, item.source, item.objective]))[0];
+    return { explanation: item.explanation, source: row?.src ?? null, objective_text: row?.obj?.text ?? null, stage_title: row?.title ?? null };
+  }
+
+  private async actPractice(q: Q, user: UserRow, row: SessionRow, stage: StageRow, p: ProgressRow, action: Record<string, any>) {
+    if (action.type !== 'answer') throw new BadRequestException('Phần luyện tập chỉ nhận câu trả lời');
+    const st = row.state as PracticeState;
+    const slot = st.slots.find((s) => s.item_id === Number(action.item_id)) ?? (() => { throw new BadRequestException('Câu này không thuộc lượt luyện tập'); })();
+    const item = (await this.items(q, [slot.item_id])).get(slot.item_id)!;
+    const graded = gradeItem(item, slot, action.answer);
+    let outcome: Record<string, any> = { item_id: item.id, ...graded };
+    if (graded.done) {
+      await this.recordAnswer(q, user, item, row.id, 'practice', graded.score >= 1);
+      outcome = { ...outcome, ...(await this.explain(q, item)) };
+    }
+    if (!st.slots.every((s) => s.done)) return { outcome, finished: null };
+    const t = tally(st.slots, stage.pass_percent);
+    const firstPass = t.passed && !p.practice_passed_at;
+    await q(`UPDATE hk_saga_progress SET practice_best = GREATEST(practice_best, $3), practice_tries = practice_tries + 1,
+               practice_passed_at = COALESCE(practice_passed_at, CASE WHEN $4 THEN now() END), updated_at = now() WHERE user_id = $1 AND stage_id = $2`, [user.id, stage.id, t.percent, t.passed]);
+    let xp = 0;
+    if (firstPass && (await this.game.awardXp(q, user, XP.practice, 'practice', `hq:practice:${stage.id}`))) xp = XP.practice;
+    await logEvent(null, user, 'attempt_finish', 'saga_stage', stage.id, null, { percent: t.percent, passed: t.passed }, null, q);
+    return { outcome, finished: { ...t, pass_percent: stage.pass_percent, best: Math.max(p.practice_best, t.percent), first_pass: firstPass, xp } };
+  }
+
+  // ------------------------------------------------------------------ nhập vai khám phá
+  private async actExplore(q: Q, user: UserRow, row: SessionRow, stage: StageRow, p: ProgressRow, action: Record<string, any>) {
+    const st = row.state as ExploreState;
+    if (!['interact', 'answer', 'hint'].includes(action.type)) throw new BadRequestException('Lệnh không hợp lệ trong cảnh khám phá');
+    const events = applyExplore(stage.content.explore, st, action as any, this.battleWon(p, row));
+    if (!st.done) return { outcome: { events }, finished: null };
+    const first = !p.explore_done_at;
+    await q(`UPDATE hk_saga_progress SET explore_done_at = COALESCE(explore_done_at, now()), explore_hints = CASE WHEN explore_done_at IS NULL THEN $3 ELSE LEAST(explore_hints, $3) END,
+               explore_mistakes = CASE WHEN explore_done_at IS NULL THEN $4 ELSE LEAST(explore_mistakes, $4) END, updated_at = now() WHERE user_id = $1 AND stage_id = $2`, [user.id, stage.id, st.hints, st.mistakes]);
+    let xp = 0;
+    if (first && (await this.game.awardXp(q, user, XP.explore, 'node', `hq:explore:${stage.id}`))) xp = XP.explore;
+    return { outcome: { events }, finished: { hints: st.hints, mistakes: st.mistakes, first, xp, suggest_review: st.hints + st.mistakes >= 3 } };
+  }
+
+  // ------------------------------------------------------------------ trận đánh
+  private async actBattle(q: Q, user: UserRow, row: SessionRow, stage: StageRow, p: ProgressRow, action: Record<string, any>) {
+    const b = row.state as BattleSessionState;
+    const scn = stage.content.battle!;
+    const events = b.mode === 'bachdang' ? applyBachDang(scn as BdScenario, b.engine as BdState, action as any) : applyTactics(scn as TacticsScenario, b.engine as TState, action as any);
+    if ((b.engine as { status: string }).status === 'active') return { outcome: { events }, finished: null };
+    const r = b.mode === 'bachdang' ? bachDangResult(scn as BdScenario, b.engine as BdState) : tacticsResult(scn as TacticsScenario, b.engine as TState);
+    const firstWin = r.won && !p.battle_won_at;
+    if (r.won) {
+      await q(`UPDATE hk_saga_progress SET battle_won_at = COALESCE(battle_won_at, now()), battle_best = GREATEST(battle_best, $3), battle_stars = GREATEST(battle_stars, $4), updated_at = now()
+               WHERE user_id = $1 AND stage_id = $2`, [user.id, stage.id, r.score, r.stars]);
+      await this.game.bumpQuests(q, user, 'battles_completed', 1);
+    }
+    let xp = 0;
+    if (firstWin && (await this.game.awardXp(q, user, XP.battle, 'battle', `hq:battle:${stage.id}`))) xp = XP.battle;
+    await logEvent(null, user, 'battle_finish', 'saga_stage', stage.id, null, { won: r.won, stars: r.stars, score: r.score }, null, q);
+    return { outcome: { events }, finished: { ...r, first_win: firstWin, xp, best: Math.max(p.battle_best, r.won ? r.score : 0), text: r.won ? scn.win_text : scn.lose_text } };
+  }
+
+  // ------------------------------------------------------------------ hoàn thành chặng và phần thưởng
+  /**
+   * Chặng hoàn thành khi đã học, đạt ngưỡng luyện tập, xong nhiệm vụ khám phá và (nếu có) thắng trận. Phần thưởng chỉ trao ở lần hoàn thành đầu tiên;
+   * điểm và vàng còn được sổ cái chặn trùng theo khóa `hq:stage:<id>`.
+   */
+  private async maybeComplete(q: Q, user: UserRow, stage: StageRow): Promise<Record<string, any> | null> {
+    const p = (await q<ProgressRow>('SELECT * FROM hk_saga_progress WHERE user_id = $1 AND stage_id = $2 FOR UPDATE', [user.id, stage.id]))[0];
+    if (!p?.lesson_done_at || !p.practice_passed_at || !p.explore_done_at || (stage.content.battle && !p.battle_won_at)) return null;
+    const stars = knowledgeStars(p.practice_best, stage.pass_percent);
+    const first = !p.completed_at;
+    await q('UPDATE hk_saga_progress SET completed_at = COALESCE(completed_at, now()), stars = GREATEST(stars, $3), updated_at = now() WHERE user_id = $1 AND stage_id = $2', [user.id, stage.id, stars]);
+    const rewards: Record<string, any> = { xp: 0, gold: 0, card: null, badge: null, docs: [] };
+    if (first) {
+      if (await this.game.awardXp(q, user, stage.reward_xp, 'node', `hq:stage:${stage.id}`)) rewards.xp = stage.reward_xp;
+      if (await this.game.addGold(q, user, stage.reward_gold, 'node', `hq:stage:${stage.id}`)) rewards.gold = stage.reward_gold;
+      if (stage.card_code) {
+        const got = await q('INSERT INTO hk_saga_user_cards (user_id, card_code, stage_id) SELECT $1, c.code, $3 FROM hk_saga_cards c WHERE c.code = $2 ON CONFLICT DO NOTHING RETURNING card_code', [user.id, stage.card_code, stage.id]);
+        if (got.length) rewards.card = (await q('SELECT code, name, title, rarity, portrait, role_text FROM hk_saga_cards WHERE code = $1', [stage.card_code]))[0] ?? null;
+      }
+      if (stage.badge_code) {
+        const badge = (await q<{ id: number; name: string; icon: string; color: string }>("SELECT id, name, icon, color FROM hk_badges WHERE code = $1 AND is_active AND scope = 'system'", [stage.badge_code]))[0];
+        if (badge && (await this.game.awardBadge(q, user, badge, null))) rewards.badge = { code: stage.badge_code, name: badge.name, icon: badge.icon, color: badge.color };
+      }
+      rewards.docs = await q("SELECT id, title, kind FROM hk_saga_docs WHERE unlock_stage = $1 AND status = 'published' ORDER BY sort_order, id", [stage.code]);
+      await this.game.bumpQuests(q, user, 'nodes_completed', 1);
+      await logEvent(null, user, 'node_complete', 'saga_stage', stage.id, null, { stars }, null, q);
+    }
+    const all = await this.stages(q);
+    const next = all.find((s) => s.unlock_after === stage.code) ?? null;
+    const progress = await this.progressMap(q, user.id);
+    const inCampaign = all.filter((s) => s.campaign_no === stage.campaign_no);
+    return {
+      first, stars: Math.max(stars, p.stars), knowledge_percent: p.practice_best, battle: stage.content.battle ? { stars: p.battle_stars, score: p.battle_best } : null, rewards,
+      next: next && !progress.get(next.id)?.completed_at ? { id: next.id, title: next.title, campaign_no: next.campaign_no } : null,
+      campaign_done: inCampaign.every((s) => progress.get(s.id)?.completed_at),
+    };
+  }
+
+  /** Màn tổng kết của chặng đã hoàn thành: kết quả, diễn biến lịch sử đã kiểm chứng và ghi chú phần sáng tạo */
+  async summary(user: UserRow, stageId: number) {
+    const q = this.read;
+    const stage = await this.stage(q, stageId);
+    const p = (await this.progressMap(q, user.id)).get(stage.id);
+    if (!p?.completed_at) throw new ConflictException('Em chưa hoàn thành chặng này');
+    const all = await this.stages(q);
+    const next = all.find((s) => s.unlock_after === stage.code) ?? null;
+    const weak = await this.weakObjectives(q, user.id, stage.id);
+    return {
+      stage: { id: stage.id, title: stage.title, place: stage.place, date_label: stage.date_label, campaign_no: stage.campaign_no },
+      result: { stars: p.stars, knowledge_percent: p.practice_best, practice_tries: p.practice_tries, explore_hints: p.explore_hints, explore_mistakes: p.explore_mistakes,
+        battle: stage.content.battle ? { stars: p.battle_stars, score: p.battle_best, tries: p.battle_tries } : null },
+      debrief: debriefView(stage.content), weak_objectives: weak.filter((w) => w.percent < 80),
+      next: next ? { id: next.id, title: next.title, campaign_no: next.campaign_no } : null,
+    };
+  }
+
+  // ------------------------------------------------------------------ ôn tập
+  /** Tỉ lệ đúng theo từng mục tiêu kiến thức (mọi câu trả lời đã chấm của học sinh) */
+  private async weakObjectives(q: Q, userId: number, stageId?: number): Promise<Array<{ stage_id: number; stage_title: string; objective: string; text: string; answers: number; percent: number }>> {
+    const rows = await q<{ stage_id: number; stage_title: string; objective: string; text: string | null; answers: number; right: number }>(
+      `SELECT s.id AS stage_id, s.title AS stage_title, i.objective, (SELECT x->>'text' FROM jsonb_array_elements(s.content->'objectives') x WHERE x->>'id' = i.objective LIMIT 1) AS text,
+              count(*)::int AS answers, count(*) FILTER (WHERE a.correct)::int AS right
+       FROM hk_saga_answers a JOIN hk_saga_items i ON i.id = a.item_id JOIN hk_saga_stages s ON s.id = i.stage_id
+       WHERE a.user_id = $1 AND ($2::int IS NULL OR s.id = $2) GROUP BY s.id, s.title, s.position, i.objective ORDER BY s.position, i.objective`, [userId, stageId ?? null]);
+    return rows.map((r) => ({ stage_id: r.stage_id, stage_title: r.stage_title, objective: r.objective, text: r.text ?? r.objective, answers: r.answers, percent: Math.round((r.right / Math.max(1, r.answers)) * 100) }));
+  }
+
+  async review(user: UserRow) {
+    const q = this.read;
+    const due = await q<Record<string, any>>(
+      `SELECT r.item_id, r.wrong_count, r.last_wrong_at, i.prompt, i.kind, s.id AS stage_id, s.title AS stage_title
+       FROM hk_saga_review r JOIN hk_saga_items i ON i.id = r.item_id AND i.is_active JOIN hk_saga_stages s ON s.id = i.stage_id AND s.status = 'published'
+       WHERE r.user_id = $1 AND r.cleared_at IS NULL ORDER BY r.last_wrong_at DESC LIMIT 30`, [user.id]);
+    const weak = (await this.weakObjectives(q, user.id)).filter((w) => w.percent < 80).sort((a, b) => a.percent - b.percent).slice(0, 8);
+    const pool = Number((await q<{ n: string }>(
+      `SELECT count(*) AS n FROM hk_saga_items i JOIN hk_saga_stages s ON s.id = i.stage_id AND s.status = 'published' JOIN hk_saga_progress p ON p.stage_id = s.id AND p.user_id = $1 AND p.practice_tries > 0
+       WHERE i.is_active AND i.usage IN ('review', 'both') AND i.kind = ANY($2)`, [user.id, REVIEW_KINDS]))[0].n);
+    const active = (await q<{ id: number }>("SELECT id::int AS id FROM hk_saga_sessions WHERE user_id = $1 AND kind = 'review' AND status = 'active'", [user.id]))[0];
+    const stats = (await q<{ answers: number; right: number }>('SELECT count(*)::int AS answers, count(*) FILTER (WHERE correct)::int AS right FROM hk_saga_answers WHERE user_id = $1', [user.id]))[0];
+    return { due: due.map((d) => ({ ...d, kind_label: KIND_LABEL[d.kind as ItemKind] })), weak_objectives: weak, pool, can_start: pool > 0, active_session_id: active?.id ?? null,
+      size: Math.min(REVIEW_SIZE, pool), stats: { answers: stats.answers, right: stats.right, percent: stats.answers ? Math.round((stats.right / stats.answers) * 100) : 0 } };
+  }
+
+  /** Lượt ôn: ưu tiên câu đã sai, rồi câu thuộc mục tiêu còn yếu, sau đó câu bất kỳ của các chặng đã luyện; mỗi câu có đồng hồ do máy chủ giữ */
+  async startReview(user: UserRow, restart = false) {
+    return this.db.tx(async (q) => {
+      const active = (await q<SessionRow>(`SELECT ${SESSION_COLS} FROM hk_saga_sessions WHERE user_id = $1 AND kind = 'review' AND status = 'active' FOR UPDATE`, [user.id]))[0];
+      if (active && !restart) return { ...(await this.view(q, user, active, null)), resumed: true, events: [] };
+      if (active) await q("UPDATE hk_saga_sessions SET status = 'abandoned', finished_at = now(), updated_at = now() WHERE id = $1", [active.id]);
+      const rows = await q<ItemRow & { stage_id: number; due: boolean }>(
+        `SELECT i.id, i.stage_id, i.kind, i.prompt, i.data, i.explanation, i.objective, i.source, (r.item_id IS NOT NULL) AS due
+         FROM hk_saga_items i JOIN hk_saga_stages s ON s.id = i.stage_id AND s.status = 'published'
+         JOIN hk_saga_progress p ON p.stage_id = s.id AND p.user_id = $1 AND p.practice_tries > 0
+         LEFT JOIN hk_saga_review r ON r.item_id = i.id AND r.user_id = $1 AND r.cleared_at IS NULL
+         WHERE i.is_active AND i.usage IN ('review', 'both') AND i.kind = ANY($2) ORDER BY (r.item_id IS NOT NULL) DESC, r.last_wrong_at DESC NULLS LAST, random() LIMIT $3`, [user.id, REVIEW_KINDS, REVIEW_SIZE]);
+      if (!rows.length) throw new ConflictException('Hãy luyện tập ít nhất một chặng trước khi ôn');
+      const seed = Math.floor(Math.random() * 2 ** 30);
+      const now = this.game.clock.now().getTime();
+      const state: ReviewState = { v: 1, streak: 0, best_streak: 0, slots: rows.map((r, i) => ({ ...newSlot(r, seed + i * 977), served_at: i === 0 ? now : null, limit_s: r.kind === 'sequence' ? 45 : r.kind === 'tactic' ? 30 : 20 })) };
+      const row = (await q<SessionRow>(`INSERT INTO hk_saga_sessions (user_id, stage_id, kind, state) VALUES ($1, NULL, 'review', $2) RETURNING ${SESSION_COLS}`, [user.id, JSON.stringify(state)]))[0];
+      return { ...(await this.view(q, user, row, null)), resumed: false, events: [] };
+    });
+  }
+
+  private async actReview(q: Q, user: UserRow, row: SessionRow, action: Record<string, any>) {
+    const st = row.state as ReviewState;
+    const index = st.slots.findIndex((s) => !s.done);
+    const slot = st.slots[index];
+    const now = this.game.clock.now().getTime();
+    // "ready": học sinh đã đọc xong lời giải thích của câu trước và mở câu này, đồng hồ của câu bắt đầu chạy từ đây (đọc giải thích không bị trừ giờ)
+    if (action.type === 'ready') {
+      if (!slot) throw new BadRequestException('Lượt ôn đã hết câu');
+      if (slot.served_at === null) slot.served_at = now;
+      return { outcome: { ready: true, item_id: slot.item_id }, finished: null };
+    }
+    if (action.type !== 'answer') throw new BadRequestException('Lượt ôn chỉ nhận câu trả lời');
+    if (!slot || slot.item_id !== Number(action.item_id)) throw new BadRequestException('Hãy trả lời câu đang hiển thị');
+    const item = (await this.items(q, [slot.item_id])).get(slot.item_id)!;
+    // trả lời mà chưa báo đã mở câu: tính giờ từ lúc trả lời xong câu trước, cộng tối đa 90 giây đọc giải thích (bỏ bước báo mở câu không né được đồng hồ)
+    const servedAt = slot.served_at ?? slot.opened_at ?? now;
+    const late = now - servedAt > slot.limit_s * 1000 + REVIEW_GRACE_MS + (slot.served_at === null ? REVIEW_READ_MS : 0);
+    // hết giờ: tính là sai nhưng vẫn cho xem đáp án và giải thích
+    const graded = gradeItem(item, slot, late ? {} : action.answer);
+    const correct = graded.score >= 1;
+    await this.recordAnswer(q, user, item, row.id, 'review', correct);
+    st.streak = correct ? st.streak + 1 : 0;
+    st.best_streak = Math.max(st.best_streak, st.streak);
+    let xp = 0;
+    if (correct && (await this.game.awardXp(q, user, XP.review, 'practice', `hq:rv:${item.id}:${dayKey(this.game.clock.now())}`))) xp = XP.review;
+    const nextSlot = st.slots[index + 1];
+    if (nextSlot) { nextSlot.served_at = null; nextSlot.opened_at = now; }
+    const outcome = { item_id: item.id, ...graded, timeout: late, streak: st.streak, xp, ...(await this.explain(q, item)) };
+    if (nextSlot) return { outcome, finished: null };
+    const right = st.slots.filter((s) => s.score >= 1).length;
+    await logEvent(null, user, 'attempt_finish', 'saga_review', null, null, { right, total: st.slots.length }, null, q);
+    return { outcome, finished: { right, total: st.slots.length, percent: Math.round((right / st.slots.length) * 100), best_streak: st.best_streak } };
+  }
+
+  // ------------------------------------------------------------------ bộ sưu tập và kho tư liệu
+  async cards(user: UserRow) {
+    const rows = await this.db.query<Record<string, any>>(
+      `SELECT c.code, c.name, c.title, c.rarity, c.years, c.intro, c.role_text, c.quote, c.quote_source, c.source, c.source_url, c.portrait, uc.unlocked_at, (uc.user_id IS NOT NULL) AS owned,
+              s.id AS stage_id, s.title AS stage_title, s.campaign_no
+       FROM hk_saga_cards c LEFT JOIN hk_saga_user_cards uc ON uc.card_code = c.code AND uc.user_id = $1
+       LEFT JOIN hk_saga_stages s ON s.card_code = c.code AND s.status = 'published' ORDER BY c.sort_order, c.code`, [user.id]);
+    // thẻ chưa mở chỉ lộ tên, danh hiệu và điều kiện mở; phần giới thiệu mở cùng thẻ
+    const cards = rows.map((r) => (r.owned ? r : { code: r.code, name: r.name, title: r.title, rarity: r.rarity, portrait: r.portrait, owned: false, stage_id: r.stage_id, stage_title: r.stage_title, campaign_no: r.campaign_no }));
+    const latest = rows.filter((r) => r.owned).sort((a, b) => new Date(b.unlocked_at).getTime() - new Date(a.unlocked_at).getTime())[0] ?? null;
+    return { total: cards.length, owned: rows.filter((r) => r.owned).length, cards, latest_code: latest?.code ?? null };
+  }
+
+  async archive(user: UserRow) {
+    const q = this.read;
+    const all = await this.stages(q);
+    const progress = await this.progressMap(q, user.id);
+    const doneCodes = new Set(all.filter((s) => progress.get(s.id)?.completed_at).map((s) => s.code));
+    const docs = await q<Record<string, any>>("SELECT id, code, kind, campaign_no, title, subtitle, body, source, source_url, unlock_stage, sort_order FROM hk_saga_docs WHERE status = 'published' ORDER BY sort_order, id");
+    const lockInfo = (code: string | null) => {
+      if (!code || doneCodes.has(code)) return null;
+      const need = all.find((s) => s.code === code);
+      return need ? { stage_id: need.id, stage_title: need.title, campaign_no: need.campaign_no } : null;
+    };
+    const texts = docs.filter((d) => d.kind === 'text').map((d) => {
+      const lock = lockInfo(d.unlock_stage);
+      return lock ? { id: d.id, code: d.code, campaign_no: d.campaign_no, title: d.title, subtitle: d.subtitle, locked: true, lock } : { id: d.id, code: d.code, campaign_no: d.campaign_no, title: d.title, subtitle: d.subtitle, body: d.body, source: d.source, source_url: d.source_url, locked: false, lock: null };
+    });
+    const timeline = [
+      ...all.map((s) => ({ key: `stage:${s.id}`, campaign_no: s.campaign_no, sort: s.position * 10, date_label: s.date_label, title: s.title, text: s.summary, stage_id: s.id, done: doneCodes.has(s.code), source: null as string | null, source_url: null as string | null })),
+      ...docs.filter((d) => d.kind === 'timeline').map((d) => ({ key: `doc:${d.id}`, campaign_no: d.campaign_no, sort: d.sort_order, date_label: String(d.body?.date_label ?? ''), title: d.title, text: String(d.body?.text ?? ''), stage_id: null, done: true, source: d.source, source_url: d.source_url })),
+    ].sort((a, b) => a.sort - b.sort);
+    const maps = await q('SELECT campaign_no, title, short_title, years, image_key, image_url, image_w, image_h, credit, credit_url FROM hk_saga_maps ORDER BY campaign_no');
+    return { texts, timeline, maps, figures: (await this.cards(user)).cards };
+  }
+
+  // ------------------------------------------------------------------ giáo viên: tiến độ lớp và phần học sinh thường sai
+  async classReport(user: UserRow, classId: number) {
+    const q = this.read;
+    const cls = (await q<{ id: number; name: string }>(
+      `SELECT c.id, c.name FROM app_classes c
+       WHERE c.id = $1 AND (($2 = 'teacher' AND EXISTS (SELECT 1 FROM app_current_class_teachers t WHERE t.class_id = c.id AND t.teacher_id = $3)) OR ($2 = 'school_admin' AND c.school_id = $4))`,
+      [classId, user.role, user.id, user.school_id]))[0];
+    if (!cls) throw new ForbiddenException('Bạn không phụ trách lớp này');
+    const all = await this.stages(q);
+    const students = await q<Record<string, any>>(
+      `SELECT u.id, u.full_name, u.user_code, count(p.stage_id) FILTER (WHERE p.completed_at IS NOT NULL)::int AS done, COALESCE(sum(p.stars), 0)::int AS stars,
+              COALESCE(round(avg(NULLIF(p.practice_best, 0))), 0)::int AS knowledge_percent, COALESCE(sum(p.explore_hints), 0)::int AS hints, max(p.updated_at) AS last_at
+       FROM app_class_members m JOIN app_users u ON u.id = m.user_id AND u.role = 'student' LEFT JOIN hk_saga_progress p ON p.user_id = u.id
+       WHERE m.class_id = $1 GROUP BY u.id ORDER BY u.full_name`, [classId]);
+    const ids = students.map((s) => s.id as number);
+    const perStage = await q<{ stage_id: number; done: number; avg: number }>(
+      `SELECT stage_id, count(*) FILTER (WHERE completed_at IS NOT NULL)::int AS done, COALESCE(round(avg(NULLIF(practice_best, 0))), 0)::int AS avg FROM hk_saga_progress WHERE user_id = ANY($1) GROUP BY stage_id`, [ids]);
+    const wrong = await q<Record<string, any>>(
+      `SELECT i.id, i.prompt, i.kind, s.title AS stage_title, count(*)::int AS answers, count(*) FILTER (WHERE NOT a.correct)::int AS wrong, count(DISTINCT a.user_id) FILTER (WHERE NOT a.correct)::int AS students
+       FROM hk_saga_answers a JOIN hk_saga_items i ON i.id = a.item_id JOIN hk_saga_stages s ON s.id = i.stage_id
+       WHERE a.user_id = ANY($1) GROUP BY i.id, s.title HAVING count(*) FILTER (WHERE NOT a.correct) > 0
+       ORDER BY (count(*) FILTER (WHERE NOT a.correct))::float / count(*) DESC, count(*) FILTER (WHERE NOT a.correct) DESC LIMIT 12`, [ids]);
+    return {
+      class: cls, total_stages: all.length, students,
+      stages: all.map((s) => { const r = perStage.find((x) => x.stage_id === s.id); return { id: s.id, title: s.title, campaign_no: s.campaign_no, position: s.position, done: r?.done ?? 0, knowledge_percent: r?.avg ?? 0 }; }),
+      often_wrong: wrong.map((w) => ({ ...w, kind_label: KIND_LABEL[w.kind as ItemKind], wrong_percent: Math.round((w.wrong / w.answers) * 100) })),
+    };
+  }
+
+  // ------------------------------------------------------------------ quản trị tổng: bản đồ, vị trí điểm, nội dung và trạng thái duyệt
+  async adminOverview() {
+    const q = this.read;
+    const maps = await q('SELECT campaign_no, title, short_title, years, enemy, places, summary, image_key, image_url, image_w, image_h, credit, credit_url, updated_at FROM hk_saga_maps ORDER BY campaign_no');
+    const stages = await this.stages(q, true);
+    const items = await q<{ stage_id: number; n: number }>('SELECT stage_id, count(*)::int AS n FROM hk_saga_items WHERE is_active GROUP BY stage_id');
+    const players = await q<{ stage_id: number; started: number; done: number }>('SELECT stage_id, count(*)::int AS started, count(*) FILTER (WHERE completed_at IS NOT NULL)::int AS done FROM hk_saga_progress GROUP BY stage_id');
+    return { maps, stages: stages.map((s) => ({ ...s, items: items.find((i) => i.stage_id === s.id)?.n ?? 0, started: players.find((p) => p.stage_id === s.id)?.started ?? 0, done: players.find((p) => p.stage_id === s.id)?.done ?? 0 })) };
+  }
+
+  /** `q` là giao dịch đang mở khi gọi ngay sau lúc sửa, để đọc được dữ liệu vừa ghi */
+  async adminStage(id: number, q: Q = this.read) {
+    const stage = await this.stage(q, id, true);
+    const items = await q('SELECT id, code, position, kind, usage, objective, prompt, data, explanation, source, is_active FROM hk_saga_items WHERE stage_id = $1 ORDER BY position', [id]);
+    const versions = await q('SELECT version, status, saved_at FROM hk_saga_stage_versions WHERE stage_id = $1 ORDER BY version DESC LIMIT 20', [id]);
+    return { ...stage, items, versions };
+  }
+
+  /** Đổi ảnh nền bản đồ: khóa ảnh có sẵn hoặc liên kết https kèm kích thước ảnh mới; vị trí các điểm lưu theo tỉ lệ nên không phải nhập lại */
+  async adminUpdateMap(user: UserRow, campaignNo: number, body: Record<string, any>) {
+    const cur = (await this.db.query<Record<string, any>>('SELECT * FROM hk_saga_maps WHERE campaign_no = $1', [campaignNo]))[0];
+    if (!cur) throw notFound('bản đồ');
+    const url = body.image_url === undefined ? cur.image_url : body.image_url || null;
+    if (url && !/^https:\/\/.{4,490}$/.test(url)) throw new BadRequestException('Liên kết ảnh phải bắt đầu bằng https://');
+    const size = (v: unknown, old: number, label: string): number => {
+      if (v === undefined) return old;
+      const n = Number(v);
+      if (!Number.isInteger(n) || n < 100 || n > 12000) throw new BadRequestException(`${label} của ảnh phải từ 100 đến 12000 điểm ảnh`);
+      return n;
+    };
+    const key = body.image_key === undefined ? cur.image_key : String(body.image_key);
+    if (!/^[a-z0-9-]{2,40}$/.test(key)) throw new BadRequestException('Khóa ảnh không hợp lệ');
+    const credit = body.credit === undefined ? cur.credit : String(body.credit).trim().slice(0, 300);
+    if (!credit) throw new BadRequestException('Hãy ghi nguồn của ảnh bản đồ');
+    const creditUrl = body.credit_url === undefined ? cur.credit_url : body.credit_url || null;
+    if (creditUrl && !/^https:\/\/.{4,490}$/.test(creditUrl)) throw new BadRequestException('Liên kết nguồn ảnh phải bắt đầu bằng https://');
+    await this.db.query('UPDATE hk_saga_maps SET image_key = $2, image_url = $3, image_w = $4, image_h = $5, credit = $6, credit_url = $7, updated_by = $8, updated_at = now() WHERE campaign_no = $1',
+      [campaignNo, key, url, size(body.image_w, cur.image_w, 'Chiều rộng'), size(body.image_h, cur.image_h, 'Chiều cao'), credit, creditUrl, user.id]);
+    return (await this.adminOverview()).maps;
+  }
+
+  /** Chỉnh vị trí điểm nhiệm vụ trên bản đồ (tỉ lệ 0–1); anchor rỗng = điểm nằm đúng địa danh */
+  async adminMoveStage(user: UserRow, id: number, body: Record<string, any>) {
+    const ratio = (v: unknown, label: string, nullable = false): number | null => {
+      if (nullable && (v === null || v === undefined || v === '')) return null;
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 0 || n > 1) throw new BadRequestException(`${label} phải là tỉ lệ từ 0 đến 1`);
+      return Math.round(n * 100000) / 100000;
+    };
+    const rows = await this.db.query('UPDATE hk_saga_stages SET map_x = $2, map_y = $3, anchor_x = $4, anchor_y = $5, updated_by = $6, updated_at = now() WHERE id = $1 RETURNING id',
+      [id, ratio(body.map_x, 'Hoành độ'), ratio(body.map_y, 'Tung độ'), ratio(body.anchor_x, 'Hoành độ địa danh', true), ratio(body.anchor_y, 'Tung độ địa danh', true), user.id]);
+    if (!rows.length) throw notFound('chặng');
+    return this.adminStage(id);
+  }
+
+  /** Sửa thông tin và nội dung chặng: nội dung được kiểm tra cấu trúc, bản cũ lưu vào lịch sử phiên bản và chặng trở về Nháp cho tới khi duyệt lại */
+  async adminUpdateStage(user: UserRow, id: number, body: Record<string, any>) {
+    return this.db.tx(async (q) => {
+      const cur = await this.stage(q, id, true);
+      const sets: string[] = [];
+      const params: unknown[] = [id];
+      const set = (col: string, value: unknown): void => { params.push(value); sets.push(`${col} = $${params.length}`); };
+      const str = (v: unknown, label: string, min: number, max: number): string => {
+        const s = String(v ?? '').trim();
+        if (s.length < min || s.length > max) throw new BadRequestException(`${label} cần từ ${min} đến ${max} ký tự`);
+        return s;
+      };
+      const int = (v: unknown, label: string, min: number, max: number): number => {
+        const n = Number(v);
+        if (!Number.isInteger(n) || n < min || n > max) throw new BadRequestException(`${label} phải là số nguyên từ ${min} đến ${max}`);
+        return n;
+      };
+      if (body.title !== undefined) set('title', str(body.title, 'Tên chặng', 3, 80));
+      if (body.place !== undefined) set('place', str(body.place, 'Địa điểm', 2, 60));
+      if (body.date_label !== undefined) set('date_label', str(body.date_label, 'Thời gian', 2, 60));
+      if (body.summary !== undefined) set('summary', str(body.summary, 'Tóm tắt', 5, 500));
+      if (body.pass_percent !== undefined) set('pass_percent', int(body.pass_percent, 'Ngưỡng đạt', 40, 100));
+      if (body.reward_xp !== undefined) set('reward_xp', int(body.reward_xp, 'Điểm thưởng', 0, 2000));
+      if (body.reward_gold !== undefined) set('reward_gold', int(body.reward_gold, 'Vàng thưởng', 0, 1000));
+      if (body.unlock_after !== undefined) {
+        const code = body.unlock_after ? String(body.unlock_after) : null;
+        if (code === cur.code) throw new BadRequestException('Chặng không thể tự làm điều kiện mở khóa của chính nó');
+        if (code && !(await q('SELECT 1 FROM hk_saga_stages WHERE code = $1', [code])).length) throw new BadRequestException('Chặng điều kiện không tồn tại');
+        set('unlock_after', code);
+      }
+      if (body.content !== undefined) {
+        const content = normalizeStage(body.content);
+        await q('INSERT INTO hk_saga_stage_versions (stage_id, version, content, status, saved_by) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING', [id, cur.version, JSON.stringify(cur.content), cur.status, user.id]);
+        set('content', JSON.stringify(content));
+        set('version', cur.version + 1);
+        set('status', 'draft');
+      }
+      if (!sets.length) throw new BadRequestException('Không có thay đổi nào');
+      set('updated_by', user.id);
+      await q(`UPDATE hk_saga_stages SET ${sets.join(', ')}, updated_at = now() WHERE id = $1`, params);
+      return this.adminStage(id, q);
+    });
+  }
+
+  async adminSetStatus(user: UserRow, id: number, status: string, note?: string) {
+    if (!['draft', 'reviewed', 'published'].includes(status)) throw new BadRequestException('Trạng thái không hợp lệ');
+    const cur = await this.stage(this.read, id, true);
+    if (status === 'published') {
+      normalizeStage(cur.content); // nội dung phải còn đúng cấu trúc khi công bố
+      const n = Number((await this.db.query<{ n: string }>("SELECT count(*) AS n FROM hk_saga_items WHERE stage_id = $1 AND is_active AND usage IN ('practice', 'both')", [id]))[0].n);
+      if (n < 3) throw new ConflictException('Chặng cần ít nhất 3 câu luyện tập trước khi công bố');
+    }
+    await this.db.query('UPDATE hk_saga_stages SET status = $2, review_note = COALESCE($3, review_note), updated_by = $4, updated_at = now() WHERE id = $1', [id, status, note?.trim().slice(0, 600) || null, user.id]);
+    return this.adminStage(id);
+  }
+
+  /** Sửa một câu luyện tập: dữ liệu được kiểm tra theo đúng dạng câu; đáp án vẫn chỉ nằm ở máy chủ */
+  async adminUpdateItem(id: number, body: Record<string, any>) {
+    const cur = (await this.db.query<Record<string, any>>('SELECT * FROM hk_saga_items WHERE id = $1', [id]))[0];
+    if (!cur) throw notFound('câu luyện tập');
+    const kind = cur.kind as ItemKind;
+    if (!ITEM_KINDS.includes(kind)) throw new BadRequestException('Dạng câu không hợp lệ');
+    const prompt = body.prompt === undefined ? cur.prompt : String(body.prompt).trim();
+    const explanation = body.explanation === undefined ? cur.explanation : String(body.explanation).trim();
+    if (prompt.length < 5 || prompt.length > 400) throw new BadRequestException('Đề bài cần từ 5 đến 400 ký tự');
+    if (explanation.length < 5 || explanation.length > 600) throw new BadRequestException('Giải thích cần từ 5 đến 600 ký tự');
+    const data = body.data === undefined ? cur.data : normalizeItem(kind, body.data);
+    const active = body.is_active === undefined ? cur.is_active : Boolean(body.is_active);
+    await this.db.query('UPDATE hk_saga_items SET prompt = $2, explanation = $3, data = $4, is_active = $5 WHERE id = $1', [id, prompt, explanation, JSON.stringify(data), active]);
+    return this.adminStage(cur.stage_id);
+  }
+}

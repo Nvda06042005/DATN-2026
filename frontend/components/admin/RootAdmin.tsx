@@ -3,7 +3,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { Bell, Building2, ChartColumn, FolderCog, History, KeyRound, LifeBuoy, LibraryBig, Plus, Trash2, Users } from 'lucide-react-native';
+import { Bell, Building2, ChartColumn, FolderCog, History, KeyRound, LifeBuoy, LibraryBig, Map as MapIcon, Plus, Trash2, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AccountSheet, dateText, ROLE_TEXT } from '@/components/admin/AccountSheet';
 import { CreateSchoolAdminSheet } from '@/components/admin/CreateSchoolAdminSheet';
@@ -11,6 +11,7 @@ import { todayVn } from '@/lib/school-terms';
 import { AdminWorkspace, navLeaves } from '@/components/admin/AdminWorkspace';
 import { SystemStats } from '@/components/admin/AnalyticsAdmin';
 import { PasswordList } from '@/components/admin/PasswordList';
+import { SagaAdmin } from '@/components/admin/SagaAdmin';
 import { BroadcastManager } from '@/components/admin/PlatformComms';
 import { FaqManager, LogsPanel, SupportInbox } from '@/components/admin/PlatformOps';
 import { Cell, CredentialSheet, ErrorNote, FormSheet, NameCell, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, usePageSize, DataTable, type FieldDef, type SearchFilter } from '@/components/admin/kit';
@@ -31,6 +32,8 @@ const NAV = [
     { id: 'users' as const, label: 'Người dùng', icon: Users },
     { id: 'passwords' as const, label: 'Mật khẩu tài khoản', icon: KeyRound },
   ] },
+  // bản đồ, chặng và nội dung của trang học sinh (yêu cầu 15/11/2026: quản trị đổi ảnh và vị trí điểm mà không sửa mã)
+  { id: 'saga' as const, label: 'Hành trình Đông A', icon: MapIcon },
   { id: 'notices' as const, label: 'Thông báo', icon: Bell },
   { id: 'logs' as const, label: 'Nhật ký', icon: History },
   { id: 'faq' as const, label: 'Hướng dẫn và FAQ', icon: LibraryBig },
@@ -47,6 +50,7 @@ export const RootAdmin: React.FC<{ session: Session }> = ({ session }) => {
       <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab}>
         {tab === 'schools' ? <SchoolsPanel session={session} /> : tab === 'users' ? <UsersPanel session={session} schools={options} />
           : tab === 'passwords' ? <PasswordList session={session} schools={options} />
+          : tab === 'saga' ? <SagaAdmin session={session} />
           : tab === 'stats' ? <SystemStats session={session} /> : tab === 'notices' ? <BroadcastManager session={session} />
           : tab === 'logs' ? <LogsPanel session={session} /> : tab === 'faq' ? <FaqManager session={session} />
           : <SupportInbox session={session} />}

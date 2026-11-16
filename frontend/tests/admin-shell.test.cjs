@@ -117,7 +117,9 @@ test('bộ lọc kiểu Excel: nút mũi tên ở tiêu đề từng cột mở 
 test('menu quản trị tổng: Thống kê hệ thống đứng đầu rồi Trường học, Người dùng; các mục còn lại giữ nguyên thứ tự; mở trang là Thống kê', () => {
   const root = read('components', 'admin', 'RootAdmin.tsx');
   const ids = [...root.slice(root.indexOf('const NAV'), root.indexOf('type Tab')).matchAll(/id: '(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['stats', 'schools', 'users', 'passwords', 'notices', 'logs', 'faq', 'support']); // Mật khẩu tài khoản (13/11/2026) ngay sau Người dùng
+  // Mật khẩu tài khoản (13/11/2026) ngay sau Người dùng; Hành trình Đông A (15/11/2026: quản trị đổi ảnh bản đồ, vị trí chặng và duyệt nội dung của trang học sinh)
+  assert.deepEqual(ids, ['stats', 'schools', 'users', 'passwords', 'saga', 'notices', 'logs', 'faq', 'support']);
+  assert.match(root, /tab === 'saga' \? <SagaAdmin session=\{session\} \/>/);
   assert.match(root, /usePortalTab<Tab>\('stats', navLeaves<Tab>\(NAV\)\.map/);
   // nhóm "Quản lý" giống quản trị trường (14/11/2026): Trường học, Người dùng, Mật khẩu tài khoản
   assert.match(root, /\{ group: 'manage', label: 'Quản lý', icon: FolderCog, items: \[\s*\{ id: 'schools'[^\n]*\n\s*\{ id: 'users'[^\n]*\n\s*\{ id: 'passwords'[^\n]*\n\s*\] \}/);
@@ -289,4 +291,25 @@ test('tài khoản quản trị trường theo quy ước: điện thoại và n
   assert.match(root, /birth_date: v\.admin_birth_date \|\| undefined/);
   assert.match(root, /username: created\.admin\.username\.toUpperCase\(\)/);
   assert.match(root, /credential\.user\.role === 'school_admin' \? credential\.user\.username\.toUpperCase\(\)/);
+});
+
+test('Hành trình Đông A: quản trị tổng chỉnh bản đồ và nội dung qua API (vị trí theo tỉ lệ, không sửa mã); giáo viên xem báo cáo lớp; quản trị trường không có mục này', () => {
+  const sagaAdmin = read('components', 'admin', 'SagaAdmin.tsx');
+  const api = read('api', 'sagaApi.ts');
+  // mọi thay đổi đi qua API quản trị (máy chủ kiểm tra vai trò, cấu trúc nội dung và lưu phiên bản)
+  for (const call of ['saga.adminOverview(', 'saga.adminStage(', 'saga.adminMoveStage(', 'saga.adminUpdateStage(', 'saga.adminSetStatus(', 'saga.adminUpdateItem(', 'saga.adminUpdateMap(', 'saga.classReport(']) assert.ok(sagaAdmin.includes(call), call);
+  for (const route of ['/api/saga/admin/overview', '/api/saga/admin/stages/${id}', '/api/saga/admin/items/${id}', '/api/saga/teacher/classes/${classId}']) assert.ok(api.includes(route), route);
+  // bấm lên ảnh để đặt vị trí: điện thoại có locationX, trình duyệt chỉ có offsetX; lưu theo tỉ lệ 0–1 làm tròn ba chữ số
+  assert.match(sagaAdmin, /const px = ne\.locationX \?\? ne\.offsetX, py = ne\.locationY \?\? ne\.offsetY;/);
+  assert.match(sagaAdmin, /onPlace\(Math\.round\(x \* 1000\) \/ 1000, Math\.round\(y \* 1000\) \/ 1000\)/);
+  assert.match(sagaAdmin, /saga\.adminMoveStage\(token, draft\.id, \{ map_x: draft\.map_x, map_y: draft\.map_y, anchor_x: draft\.anchor_x, anchor_y: draft\.anchor_y \}\)/);
+  // nội dung dạng JSON: kiểm tra cú pháp ngay trên trang trước khi gửi
+  assert.match(sagaAdmin, /JSON chưa hợp lệ/);
+  for (const id of ['saga-admin-map', 'saga-admin-place', 'saga-admin-save-position', 'saga-admin-content-json', 'saga-admin-item-json', 'saga-class-select', 'saga-class-summary', 'saga-class-wrong']) assert.ok(sagaAdmin.includes(`testID="${id}"`), id);
+  // giáo viên: mục Hành trình Đông A ngay sau Thống kê lớp
+  const teacher = read('components', 'portal', 'TeacherApp.tsx');
+  assert.match(teacher, /\{ id: 'saga' as const, label: 'Hành trình Đông A', icon: MapIcon \}/);
+  assert.match(teacher, /tab === 'saga' \? <SagaClassReport session=\{session\} \/>/);
+  // nội dung của Hành trình Đông A là nội dung hệ thống: cổng quản trị trường không có mục chỉnh sửa
+  assert.doesNotMatch(read('components', 'admin', 'SchoolAdmin.tsx'), /SagaAdmin|saga/);
 });
