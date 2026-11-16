@@ -353,7 +353,8 @@ export const ClassAnalytics: React.FC<{ session: Session; years?: YearItem[] | n
       {errors.map((m) => <ErrorNote key={m} message={m} />)}
       <SlowNote loading={(classes.loading && !classes.data) || (dash.loading && !d)} onRetry={reload} />
       {classes.loading && !classes.data ? <Spinner label="Đang tải danh sách lớp…" /> : null}
-      {classes.data && !list.length ? <EmptyState mood="thinking" title="Chưa có lớp nào" text="Khi có lớp đang hoạt động, thống kê học tập sẽ hiện ở đây." /> : null}
+      {classes.data && !list.length ? <EmptyState mood="thinking" title="Chưa có lớp để thống kê"
+        text={session.user.role === 'teacher' ? 'Khi quản trị trường phân công lớp cho bạn, trang này hiện dashboard của lớp: tiến độ Hành trình Đông A từng chặng, sao, thẻ, điểm, tỉ lệ đúng, bảng vàng thành tích và học sinh cần hỗ trợ.' : 'Khi trường có lớp đang hoạt động, dashboard của từng lớp sẽ hiện ở đây.'} /> : null}
       {id && dash.loading && !d ? <Spinner label="Đang tải thống kê lớp…" /> : null}
       {d ? <>
         <View testID="class-metrics" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>

@@ -104,6 +104,27 @@ import { bootstrap, Fixture } from './fixture';
       expect((await api('GET',`/api/admin/classes/${id}`,undefined,f.B.token)).status).toBe(404);
     }finally{await sql(s.url,'UPDATE app_school_years SET starts_on=$2,ends_on=$3,term1_starts_on=$4,term1_ends_on=$5,term2_starts_on=$6,term2_ends_on=$7 WHERE id=$1',[f.yearId,saved.a,saved.b,saved.c,saved.d,saved.e,saved.f]);}
   });
+  test('16/11/2026 (migration 069): đã sang HK2 mà lớp chỉ được phân công HK1 thì giáo viên HK1 vẫn thấy lớp ở Lớp học và Thống kê lớp cho tới khi có phân công HK2',async()=>{
+    const made=await api('POST','/api/admin/classes',{year_id:f.yearId,grade:7,name:'7HK1',semester:1,teacher_ids:[f.T2.id]});
+    expect(made.status).toBe(201);
+    const id=made.body.id;
+    const saved=(await sql(s.url,'SELECT starts_on::text AS a,ends_on::text AS b,term1_starts_on::text AS c,term1_ends_on::text AS d,term2_starts_on::text AS e,term2_ends_on::text AS f FROM app_school_years WHERE id=$1',[f.yearId]))[0];
+    try{
+      // ngày hiện tại đã thuộc HK2 (như năm học 2020-2021 vẫn đang hoạt động)
+      await sql(s.url,"UPDATE app_school_years SET starts_on=current_date-100,ends_on=current_date+100,term1_starts_on=current_date-100,term1_ends_on=(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date-2,term2_starts_on=(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date-1,term2_ends_on=current_date+100 WHERE id=$1",[f.yearId]);
+      expect((await api('GET','/api/classroom/classes',undefined,f.T2.token)).body.map((c:any)=>c.id)).toContain(id);
+      expect((await api('GET','/api/analytics/classes',undefined,f.T2.token)).body.map((c:any)=>c.id)).toContain(id);
+      expect((await api('GET',`/api/analytics/classes/${id}/dashboard`,undefined,f.T2.token)).status).toBe(200);
+      expect((await api('GET',`/api/classroom/classes/${id}`,undefined,f.T1.token)).status).toBe(404); // giáo viên khác vẫn không thấy
+      // quản trị trường phân công HK2 cho giáo viên khác thì giáo viên HK1 hết quyền, giáo viên HK2 có quyền
+      expect((await api('PATCH',`/api/admin/classes/${id}`,{semester:2,teacher_ids:[f.T1.id],confirm_reassignment:true})).status).toBe(200);
+      expect((await api('GET','/api/classroom/classes',undefined,f.T2.token)).body.map((c:any)=>c.id)).not.toContain(id);
+      expect((await api('GET','/api/classroom/classes',undefined,f.T1.token)).body.map((c:any)=>c.id)).toContain(id);
+    }finally{
+      await sql(s.url,'UPDATE app_school_years SET starts_on=$2,ends_on=$3,term1_starts_on=$4,term1_ends_on=$5,term2_starts_on=$6,term2_ends_on=$7 WHERE id=$1',[f.yearId,saved.a,saved.b,saved.c,saved.d,saved.e,saved.f]);
+      await api('DELETE',`/api/admin/classes/${id}`);
+    }
+  });
   test('RLS bảo vệ phân công học kỳ và kho xóa vẫn lưu phân công khi xóa lớp',async()=>{
     const made=await api('POST','/api/admin/classes',{year_id:f.yearId,grade:7,name:'7Xoa',semester:1,teacher_ids:[f.T1.id]});
     expect(made.status).toBe(201);

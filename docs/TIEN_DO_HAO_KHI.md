@@ -1325,3 +1325,9 @@ Theo 10 ý người dùng gửi kèm ảnh file Excel (đã hỏi lại hai đi�
 - Cột bên phải (điện thoại: dưới lộ trình): cấp độ – kinh nghiệm, chuỗi ngày, vàng, số chặng; nhiệm vụ hôm nay; câu cần ôn; lối vào Kỳ thi.
 - Không có migration. Kiểm thử: `student-nav.test.cjs`, `assignments.spec.ts` (học sinh thấy giáo viên của lớp).
 - Ảnh 2, 6, 7 người dùng nhắc trong yêu cầu không có trong cuộc trò chuyện nên bố cục nhập mã và lộ trình làm theo mô tả chữ.
+
+## Sửa luồng phân công: giáo viên HK1 vẫn thấy lớp khi đã sang HK2 mà chưa phân công HK2 (16/11/2026)
+
+- Lỗi người dùng báo: quản trị trường thấy giáo viên đã phụ trách lớp (năm học 2020-2021, học kỳ 1) nhưng trang giáo viên báo "Bạn chưa phụ trách lớp nào", Thống kê lớp "Chưa có lớp nào". Nguyên nhân: "giáo viên đang phụ trách" chỉ lấy phân công của học kỳ hiện tại tính theo ngày; năm học 2020-2021 đã qua ngày bắt đầu HK2 nên hệ thống coi là HK2, lớp chưa có giáo viên HK2.
+- Migration **069**: học kỳ hiện tại chưa có phân công thì giáo viên của học kỳ gần nhất trước đó tiếp tục phụ trách; phân công HK2 cho người khác thì giáo viên HK1 hết quyền như trước. Áp dụng cho mọi chỗ dùng `app_current_class_teachers` (Lớp học, Thống kê lớp, bài tập, đề kiểm tra, đơn đổi giáo viên, danh sách lớp của học sinh).
+- Thống kê lớp khi chưa có lớp ghi rõ dashboard sẽ hiện gì khi được phân công. Kiểm thử: `class_semesters.spec.ts` (tái hiện đúng lỗi khi chưa có 069).
