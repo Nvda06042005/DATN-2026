@@ -13,6 +13,7 @@ import type { Session } from '@/components/auth';
 import { Btn, Card, Chip, ConfirmSheet, EmptyState, Field, InfoNote, Segmented, Sheet, Spinner, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { REFUSAL_TEXT, type AiConversation, type AiMessage, type AiReply, type Citation } from '@/types/ai';
+import { BktAssessment } from '@/components/ai/BktAssessment';
 
 export type OpenSource = (kind: string, id: number) => void;
 const SAMPLES = [
@@ -448,7 +449,9 @@ const FIGURE_INFO: Record<string, { role: string; quote: string }> = {
 export const TieuTuongTab: React.FC<{ session: Session; onOpen: OpenSource; onChanged?: () => void }> = ({ session, onOpen, onChanged }) => {
   const { c } = useTheme();
   const status = useLoad(() => api.aiStatus(session.token), [session.token], session.expired);
-  const [part, setPart] = useState<'chat' | 'roleplay'>('chat');
+  const [part, setPart] = useState<'chat' | 'roleplay' | 'nang-luc'>('chat');
+  // câu hỏi gửi từ mục Đánh giá năng lực ("Hỏi Tiểu Tướng" về một chủ điểm cần ôn) – 16/11/2026
+  const [ask, setAsk] = useState<string | null>(null);
   const [fresh, setFresh] = useState(0);
   const [history, setHistory] = useState(false);
   const [initial, setInitial] = useState<{ id: number; messages: AiMessage[] } | null>(null);
@@ -487,9 +490,10 @@ export const TieuTuongTab: React.FC<{ session: Session; onOpen: OpenSource; onCh
         </View>
       ) : null}
       {st && !st.ready ? <InfoNote><Txt size={14}>Kho tư liệu của Tiểu Tướng còn trống: quản trị viên cần công bố nội dung lịch sử và lập chỉ mục thì Tiểu Tướng mới trả lời được.</Txt></InfoNote> : null}
-      <Segmented<'chat' | 'roleplay'> label="Tiểu Tướng làm gì?" value={part} onChange={(v) => { setPart(v); setInitial(null); setFresh((k) => k + 1); }}
-        options={[{ value: 'chat', label: 'Hỏi đáp' }, { value: 'roleplay', label: 'Nhập vai danh tướng' }]} />
-      {part === 'chat' ? <ChatPanel key={`chat${fresh}`} session={session} mode="tutor" initial={initial} onOpen={onOpen} onConversation={seen} onChanged={() => { status.reload(); onChanged?.(); }} /> : null}
+      <Segmented<'chat' | 'roleplay' | 'nang-luc'> label="Tiểu Tướng làm gì?" value={part} onChange={(v) => { setPart(v); setInitial(null); setFresh((k) => k + 1); }}
+        options={[{ value: 'chat', label: 'Hỏi đáp' }, { value: 'roleplay', label: 'Nhập vai danh tướng' }, { value: 'nang-luc', label: 'Đánh giá năng lực' }]} />
+      {part === 'chat' ? <ChatPanel key={`chat${fresh}`} session={session} mode="tutor" initial={initial} initialQuestion={ask} onInitialQuestionConsumed={() => setAsk(null)} onOpen={onOpen} onConversation={seen} onChanged={() => { status.reload(); onChanged?.(); }} /> : null}
+      {part === 'nang-luc' ? <BktAssessment session={session} onAsk={(q) => { setInitial(null); setActiveId(null); setAsk(q); setPart('chat'); setFresh((k) => k + 1); }} /> : null}
       {part === 'roleplay' ? <RoleplayPart key={`rp${fresh}`} session={session} enabled={Boolean(st?.roleplay)} figure={figure} setFigure={setFigure} initial={initial} onOpen={onOpen} onConversation={seen} onChanged={() => status.reload()} /> : null}
       {history ? <HistorySheet session={session} onClose={() => setHistory(false)} onPick={openConversation} reloadKey={fresh} /> : null}
     </View>

@@ -135,12 +135,15 @@ test('các màn của Hành trình Đông A dựng bằng thành phần của c�
     assert.match(text, /<SagaHeader /, f);
     assert.doesNotMatch(text, /GameBtn|Chunky|SkyBg|Sunburst|Confetti|LinearGradient|tone="(green|yellow|purple|navy|white|blue|orange|red)"/, f);
   }
-  // 16/11/2026 đợt 5: Chiến dịch mở danh sách lớp trước (không còn menu Lớp học riêng), vào lớp rồi mới tới ba phần; bấm một phần ra bản đồ có các chặng
-  // (bản đồ là lộ trình của phần: bỏ lộ trình uốn lượn riêng và nút "Kéo bản đồ ra"); trang bản đồ + bảng chặng cũ đã xóa
+  // 16/11/2026 đợt 5: Chiến dịch mở danh sách lớp trước (không còn menu Lớp học riêng), vào lớp rồi mới tới ba phần; trang bản đồ + bảng chặng cũ đã xóa
+  // đợt 6: bấm một phần ra lộ trình uốn lượn các chặng như trước, bản đồ gốc ghép ngay bên dưới kiểu sa bàn (nhãn "số. tên chặng", khung chú thích); không có nút "Kéo bản đồ ra"
   const home = read('components', 'portal', 'SagaHome.tsx');
-  for (const id of ['home-units', 'unit-map', 'unit-continue', 'my-class', 'home-level', 'home-daily', 'home-exams']) assert.ok(home.includes(`testID="${id}"`), id);
-  for (const gone of ['unit-path', 'unit-map-toggle', 'join-class', 'join-code', 'join-submit']) assert.ok(!home.includes(`testID="${gone}"`), gone);
-  assert.doesNotMatch(home, /testID="stage-table"|<DataTable columns=\{columns\} rows=\{view\.stages\}|testID="home-path"|'Kéo bản đồ ra'|const UnitPath|const ClassStrip/);
+  for (const id of ['home-units', 'unit-path', 'unit-map', 'map-caption', 'unit-continue', 'my-class', 'home-level', 'home-daily', 'home-exams']) assert.ok(home.includes(`testID="${id}"`), id);
+  for (const gone of ['unit-map-toggle', 'join-class', 'join-code', 'join-submit']) assert.ok(!home.includes(`testID="${gone}"`), gone);
+  assert.doesNotMatch(home, /testID="stage-table"|<DataTable columns=\{columns\} rows=\{view\.stages\}|testID="home-path"|'Kéo bản đồ ra'|const ClassStrip|mapOpen/);
+  assert.match(home, /<UnitPath stages=\{view\.stages\}[^\n]*\/>\n\s*<\/View>\n\s*<Card flat pad=\{12\} style=\{\{ borderRadius: 12, gap: 8 \}\} testID="unit-map">/);
+  assert.match(home, /\{st\.order\}\. \{st\.title\}/);
+  assert.match(home, /testID=\{`path-node-\$\{st\.order\}`\}/);
   assert.match(home, /back=\{\{ label: 'Lớp học', hint: 'Về danh sách lớp học', onPress: onLeave \}\}/);
   assert.match(home, /<SagaMap map=\{view\.map\} stages=\{view\.stages\}/);
   assert.match(home, /testID=\{`map-node-\$\{st\.code\}`\}/);

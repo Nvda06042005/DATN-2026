@@ -2,17 +2,18 @@
  * Hành trình Đông A – ba màn mở đầu của vòng chơi, dựng bằng bộ thành phần của các cổng quản trị (tiêu đề hai nửa, thẻ số liệu, thẻ viền mảnh, bảng dữ liệu):
  *   1. "Chiến dịch" (16/11/2026): danh sách lớp trước (StudentClasses), vào lớp rồi mới tới ba phần theo ba cuộc kháng chiến 1258, 1285, 1287–1288,
  *      cột cấp độ – chuỗi ngày – vàng, nhiệm vụ hôm nay, câu cần ôn, kỳ thi.
- *   2. Trang một phần: ảnh bản đồ gốc của Wikipedia tiếng Việt làm nền, các chặng đặt theo tỉ lệ 0–1 trên ảnh, có số thứ tự và trạng thái (màu, biểu tượng, chữ,
- *      nhãn trợ năng) – bản đồ chính là lộ trình của phần. Phóng to, kéo để xem.
+ *   2. Trang một phần: lộ trình uốn lượn các chặng, bên dưới là ảnh bản đồ gốc của Wikipedia tiếng Việt kiểu sa bàn: các chặng đặt theo tỉ lệ 0–1 trên ảnh, có số thứ tự,
+ *      tên, ngày, trạng thái (màu, biểu tượng, chữ, nhãn trợ năng), đường nối và khung chú thích bên dưới. Phóng to, kéo để xem.
  *   3. Bảng thông tin chặng: mục tiêu học, các bước, lý do còn khóa, kết quả cũ và nút Học / Chơi tiếp / Ôn lại.
  * Mục "Nhập vai" gom các cảnh khám phá và trận đánh đã mở để chơi lại nhanh.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Linking, Platform, Pressable, ScrollView, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
-import { Award, BookOpen, Check, ClipboardCheck, Coins, Flag, Flame, Footprints, Gamepad2, Gift, Lock, Maximize2, Play, Puzzle, RotateCcw, Sparkles, Swords, Target, Users, ZoomIn, ZoomOut } from 'lucide-react-native';
+import { Award, BookOpen, Check, ClipboardCheck, Coins, Flag, Flame, Footprints, Gamepad2, Gift, Lock, Map as MapIcon, Maximize2, Play, Puzzle, RotateCcw, Sparkles, Swords, Target, Users, ZoomIn, ZoomOut } from 'lucide-react-native';
 import * as saga from '@/lib/saga-api';
 import * as authApi from '@/api/authApi';
+import { Mascot } from '@/components/art';
 import { Cell, DataTable, type Column } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import {
@@ -48,11 +49,60 @@ const ClassBar: React.FC<{ cls: MyClass }> = ({ cls }) => {
   );
 };
 
-/** Một phần của Hành trình (một cuộc kháng chiến): tiến độ chặng, sao, ảnh thu nhỏ bản đồ gốc (Wikipedia). Bấm để vào lộ trình của phần. */
-const UnitBanner: React.FC<{ camp: SagaCampaign; onOpen: () => void; label?: string }> = ({ camp, onOpen, label = 'Vào học' }) => {
+/** Độ lệch ngang của các chặng trên đường đi (uốn lượn trái – phải) */
+const SWAY = [0, 54, 88, 54, 0, -54, -88, -54];
+
+/** Một chặng trên lộ trình: nút tròn theo trạng thái, sao đạt được, tên chặng; chặng đang chờ có nhãn "Bắt đầu" / "Học tiếp" và Rồng Con bên cạnh */
+const PathNode: React.FC<{ st: StageBrief; index: number; current: boolean; color: string; onPress: () => void }> = ({ st, index, current, color, onPress }) => {
+  const { c } = useTheme();
+  const Icon = st.state === 'locked' ? Lock : st.state === 'done' || st.state === 'review' ? Check : stageIcon(st.icon);
+  const locked = st.state === 'locked';
+  const done = st.state === 'done' || st.state === 'review';
+  const x = SWAY[index % SWAY.length];
+  const size = current ? 76 : 66;
+  return (
+    <View style={{ alignItems: 'center', transform: [{ translateX: x }], width: 170 }}>
+      {current ? (
+        <View style={{ backgroundColor: c.the, borderColor: color, borderWidth: 2, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 4, marginBottom: 8 }}>
+          <Txt f="heavy" size={12} color={color} style={{ letterSpacing: 0.6 }}>{st.state === 'learning' ? 'HỌC TIẾP' : 'BẮT ĐẦU'}</Txt>
+        </View>
+      ) : null}
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {current && x <= 0 ? <View style={{ position: 'absolute', left: size + 18 }}><Mascot size={64} mood="happy" bob /></View> : null}
+        {current && x > 0 ? <View style={{ position: 'absolute', right: size + 18 }}><Mascot size={64} mood="happy" bob /></View> : null}
+        <Pressable onPress={onPress} accessibilityRole="button" testID={`path-node-${st.order}`}
+          accessibilityLabel={`Chặng ${st.order}: ${st.title}, ${st.date_label}. ${STATE[st.state].label}${st.stars ? `, ${st.stars} sao` : ''}${st.lock_reason ? `. ${st.lock_reason}` : ''}`}
+          style={({ pressed }) => ({
+            width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center',
+            backgroundColor: locked ? c.adminLine : done ? c.vang : color, borderWidth: current ? 5 : 0, borderColor: current ? c.the : 'transparent',
+            opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.96 : 1 }],
+            ...(current ? { boxShadow: `0 0 0 4px ${color}` } as object : {}),
+          })}>
+          <Icon size={current ? 32 : 28} color={locked ? c.muc3 : done ? c.vangChu : '#ffffff'} strokeWidth={2.4} />
+        </Pressable>
+      </View>
+      <View style={{ height: 18, justifyContent: 'center', marginTop: 4 }}>{st.stars > 0 ? <StarRow n={st.stars} size={14} /> : null}</View>
+      <Txt f={current ? 'bold' : 'semibold'} size={13} center numberOfLines={2} color={locked ? c.muc3 : c.muc} style={{ width: 160 }}>{st.title}</Txt>
+      <Txt size={11} center color={c.muc3} numberOfLines={1} style={{ width: 160 }}>{st.date_label}</Txt>
+    </View>
+  );
+};
+
+/** Chấm nối hai chặng liên tiếp, đặt ở giữa hai độ lệch */
+const PathDots: React.FC<{ from: number; to: number; done: boolean }> = ({ from, to, done }) => {
+  const { c } = useTheme();
+  return (
+    <View style={{ height: 34, justifyContent: 'space-evenly', alignItems: 'center' }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      {[0.33, 0.66].map((t) => <View key={t} style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: done ? c.vang : c.adminLine, transform: [{ translateX: SWAY[from % SWAY.length] * (1 - t) + SWAY[to % SWAY.length] * t }] }} />)}
+    </View>
+  );
+};
+
+/** Một phần của Hành trình (một cuộc kháng chiến): tiến độ chặng, sao, ảnh thu nhỏ bản đồ gốc (Wikipedia). Bấm để vào lộ trình của phần (không có `onOpen` thì chỉ là thẻ thông tin). */
+const UnitBanner: React.FC<{ camp: SagaCampaign; onOpen?: () => void; label?: string }> = ({ camp, onOpen, label = 'Vào học' }) => {
   const tone = TONE[camp.campaign_no];
   return (
-    <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={`Phần ${camp.campaign_no}: ${camp.title}, ${camp.done} trên ${camp.stages} chặng, ${camp.stars} trên ${camp.max_stars} sao. ${label}`} testID={`path-unit-${camp.campaign_no}`}
+    <Pressable onPress={onOpen} disabled={!onOpen} accessibilityRole={onOpen ? 'button' : 'summary'} accessibilityLabel={`Phần ${camp.campaign_no}: ${camp.title}, ${camp.done} trên ${camp.stages} chặng, ${camp.stars} trên ${camp.max_stars} sao. ${label}`} testID={`path-unit-${camp.campaign_no}`}
       style={({ pressed }) => ({ borderRadius: 14, backgroundColor: tone.main, padding: 16, gap: 8, alignSelf: 'stretch', opacity: pressed ? 0.92 : 1, transform: [{ scale: pressed ? 0.995 : 1 }] })}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <View style={{ flex: 1, minWidth: 200, gap: 2 }}>
@@ -63,7 +113,7 @@ const UnitBanner: React.FC<{ camp: SagaCampaign; onOpen: () => void; label?: str
         <View style={{ borderRadius: 10, overflow: 'hidden', borderWidth: 2, borderColor: 'rgba(255,255,255,0.8)' }} testID={`path-map-${camp.campaign_no}`}>
           <Image source={thumb(camp.campaign_no)} style={{ width: 112, height: 70 }} resizeMode="cover" accessibilityIgnoresInvertColors />
           <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)', paddingVertical: 2, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4 }}>
-            {camp.available ? <Play size={12} color="#ffffff" /> : <Lock size={12} color="#ffffff" />}<Txt f="bold" size={11} color="#ffffff">{label}</Txt>
+            {!onOpen ? <MapIcon size={12} color="#ffffff" /> : camp.available ? <Play size={12} color="#ffffff" /> : <Lock size={12} color="#ffffff" />}<Txt f="bold" size={11} color="#ffffff">{label}</Txt>
           </View>
         </View>
       </View>
@@ -74,10 +124,22 @@ const UnitBanner: React.FC<{ camp: SagaCampaign; onOpen: () => void; label?: str
   );
 };
 
+/** Lộ trình uốn lượn của một phần: các chặng nối bằng chấm, chặng đang chờ có Rồng Con */
+const UnitPath: React.FC<{ stages: StageBrief[]; currentId: number | null; color: string; onPick: (st: StageBrief) => void }> = ({ stages, currentId, color, onPick }) => (
+  <View style={{ alignItems: 'center', paddingVertical: 10 }} testID="unit-path">
+    {stages.map((st, i) => (
+      <React.Fragment key={st.id}>
+        {i > 0 ? <PathDots from={i - 1} to={i} done={stages[i - 1].state === 'done' || stages[i - 1].state === 'review'} /> : null}
+        <PathNode st={st} index={i} current={st.id === currentId} color={color} onPress={() => onPick(st)} />
+      </React.Fragment>
+    ))}
+  </View>
+);
+
 // ---------------------------------------------------------------------- 1. trang chủ: lộ trình Hành trình Đông A
 /**
  * Trang chủ học sinh dạng trò chơi (16/11/2026, giữ menu như các cổng quản trị), mở sau khi em chọn lớp ở danh sách lớp: thanh lớp đang học,
- * ba phần theo ba cuộc kháng chiến (bấm một phần mở bản đồ các chặng của phần đó);
+ * ba phần theo ba cuộc kháng chiến (bấm một phần mở lộ trình và bản đồ các chặng của phần đó);
  * cột bên phải: cấp độ – kinh nghiệm, chuỗi ngày học, vàng, nhiệm vụ hôm nay, câu cần ôn, kỳ thi.
  */
 export const HomeScreen: React.FC<{ nav: SagaNav; loading: boolean; error: string | null; cls: MyClass | null; onLeave: () => void }> = ({ nav, loading, error, cls, onLeave }) => {
@@ -134,7 +196,7 @@ export const HomeScreen: React.FC<{ nav: SagaNav; loading: boolean; error: strin
   const units = home ? (
     <View style={{ gap: 14, flex: wide ? 1 : undefined, minWidth: 0, alignSelf: 'stretch' }} testID="home-units">
       {home.campaigns.map((camp) => <UnitBanner key={camp.campaign_no} camp={camp} onOpen={() => nav.go('chien-dich', { c: camp.campaign_no, s: null, v: null })} />)}
-      <Txt size={12} color={c.muc3} center>Bấm một phần để mở bản đồ gốc của Wikipedia với các chặng của cuộc kháng chiến đó.</Txt>
+      <Txt size={12} color={c.muc3} center>Bấm một phần để vào lộ trình các chặng và bản đồ gốc của Wikipedia của cuộc kháng chiến đó.</Txt>
     </View>
   ) : null;
   return (
@@ -227,7 +289,8 @@ const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: num
             <View style={{ width: cw, height: ch }}>
               <Image source={mapSource(map)} style={{ width: cw, height: ch }} resizeMode="stretch" accessibilityLabel={`Bản đồ ${map.title} (${map.years})`} />
               <Svg width={cw} height={ch} style={{ position: 'absolute', left: 0, top: 0 }} pointerEvents="none">
-                {stages.length > 1 ? <Polyline points={stages.map((st) => pt(st).join(',')).join(' ')} fill="none" stroke={c.logoInk} strokeWidth={2.5} strokeDasharray="2 8" strokeLinecap="round" opacity={0.75} /> : null}
+                {stages.length > 1 ? <Polyline points={stages.map((st) => pt(st).join(',')).join(' ')} fill="none" stroke="#ffffff" strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" opacity={0.7} /> : null}
+                {stages.length > 1 ? <Polyline points={stages.map((st) => pt(st).join(',')).join(' ')} fill="none" stroke={c.ngoc} strokeWidth={3} strokeDasharray="9 6" strokeLinecap="round" strokeLinejoin="round" /> : null}
                 {stages.filter((st) => st.anchor_x !== null && st.anchor_y !== null).map((st) => {
                   const [x, y] = pt(st), ax = (st.anchor_x ?? 0) * cw, ay = (st.anchor_y ?? 0) * ch;
                   return <React.Fragment key={st.id}><Line x1={x} y1={y} x2={ax} y2={ay} stroke={c.logoInk} strokeWidth={1.5} /><Circle cx={ax} cy={ay} r={4} fill={c.logoInk} stroke="#ffffff" strokeWidth={1.5} /></React.Fragment>;
@@ -258,9 +321,10 @@ const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: num
                       </View>
                     </Pressable>
                     {showLabel ? (
-                      <View pointerEvents="none" style={{ position: 'absolute', top: NODE + 4, left: -58, width: 160, alignItems: 'center', gap: 2 }}>
-                        <View style={{ backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 4, borderWidth: 1, borderColor: c.adminLine, paddingHorizontal: 6, paddingVertical: 1 }}>
-                          <Txt f="bold" size={12} color={c.logoInk} numberOfLines={1}>{st.title}</Txt>
+                      <View pointerEvents="none" style={{ position: 'absolute', top: NODE + 4, left: -98, width: 240, alignItems: 'center', gap: 2 }}>
+                        <View style={{ backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: 8, borderWidth: 1, borderColor: c.adminLine, paddingHorizontal: 8, paddingVertical: 2, alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.25)' } as object}>
+                          <Txt f="bold" size={12} color={c.logoInk} numberOfLines={1}>{st.order}. {st.title}</Txt>
+                          {st.date_label ? <Txt size={10} color={c.muc3} numberOfLines={1}>{st.date_label}</Txt> : null}
                         </View>
                         {st.battle_mode === 'bachdang' ? <View style={{ backgroundColor: c.son, borderRadius: 4, paddingHorizontal: 6 }}><Txt f="bold" size={10} color="#ffffff">Quyết chiến</Txt></View> : null}
                       </View>
@@ -282,8 +346,9 @@ const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: num
 };
 
 /**
- * Trang một phần của Hành trình (16/11/2026 đợt 5): bản đồ gốc của Wikipedia với số thứ tự và trạng thái từng chặng chính là lộ trình của phần
- * (bỏ lộ trình uốn lượn riêng và nút "Kéo bản đồ ra" của đợt 4 vì lặp lại). Bấm số trên bản đồ hoặc nút Học tiếp để mở bảng thông tin chặng.
+ * Trang một phần của Hành trình (16/11/2026 đợt 6): thẻ phần và lộ trình uốn lượn các chặng ở trên, bản đồ gốc của Wikipedia ghép ngay bên dưới
+ * theo kiểu sa bàn: số thứ tự và tên từng chặng trên bản đồ, đường nối các chặng, khung chú thích ngay dưới bản đồ (không che chú giải gốc). Bấm chặng ở lộ trình hoặc trên bản đồ đều mở
+ * bảng thông tin chặng.
  */
 export const CampaignScreen: React.FC<{ session: Session; nav: SagaNav; no: number }> = ({ session, nav, no }) => {
   const { c } = useTheme();
@@ -294,23 +359,40 @@ export const CampaignScreen: React.FC<{ session: Session; nav: SagaNav; no: numb
   const open = nav.route.s !== null && nav.route.v === null ? nav.route.s : null;
   const pick = (st: StageBrief): void => nav.go('chien-dich', { c: no, s: st.id, v: null }, 'params');
   const current = view?.stages.find((st) => st.id === view.current_stage_id) ?? null;
+  const caption = view ? {
+    title: `Sa bàn: ${view.map.title} (${view.map.years})`,
+    lines: [`${view.stages.length} chặng: ${view.stages.map((st) => st.title).join(', ')}.`, 'Bấm trực tiếp vào từng chặng trên bản đồ để học.'],
+  } : undefined;
   return (
     <SagaPage testID="saga-campaign" max={1180}>
-      <SagaHeader title={view?.map.title ?? camp?.title ?? 'Bản đồ'} subtitle={view ? `${view.map.years} · đã xong ${view.totals.done}/${view.totals.stages} chặng · ${view.totals.stars}/${view.totals.max_stars} sao` : undefined}
+      <SagaHeader title={view?.map.title ?? camp?.title ?? 'Lộ trình'} subtitle={view ? `${view.map.years} · đã xong ${view.totals.done}/${view.totals.stages} chặng · ${view.totals.stars}/${view.totals.max_stars} sao` : undefined}
         back={{ label: 'Chiến dịch', hint: 'Về ba phần của Hành trình', onPress: () => nav.back('chien-dich', { c: null, s: null, v: null }) }}
         actions={current ? <Btn icon={Play} title={`${current.state === 'ready' ? 'Bắt đầu' : 'Học tiếp'}: ${current.title}`} tone="son" size="sm" onPress={() => pick(current)} testID="unit-continue" /> : undefined} />
       <Segmented<number> label="Chọn phần" value={no} onChange={(n) => nav.go('chien-dich', { c: n, s: null, v: null }, 'params')}
         options={[1, 2, 3].map((n) => ({ value: n, label: `Phần ${n} · ${TONE[n].years}` }))} />
       {!view ? <LoadState loading={data.loading} error={data.error} onRetry={data.reload} /> : (
-        <Card flat pad={12} style={{ borderRadius: 12, gap: 8 }} testID="unit-map">
-          <SagaMap map={view.map} stages={view.stages} currentId={view.current_stage_id} selectedId={open} onPick={pick} maxHeight={Math.max(320, Math.min(760, height - 330))} />
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-            {(Object.keys(STATE) as Array<keyof typeof STATE>).map((k) => <StateChip key={k} state={k} />)}
+        <View style={{ gap: 16 }}>
+          <View style={{ alignItems: 'center', gap: 6 }}>
+            {camp ? <UnitBanner camp={camp} label="Bản đồ bên dưới" /> : null}
+            <UnitPath stages={view.stages} currentId={view.current_stage_id} color={TONE[no].main} onPick={pick} />
           </View>
-          <Pressable accessibilityRole="link" accessibilityLabel="Mở trang gốc của bản đồ trên Wikipedia" disabled={!view.map.credit_url} onPress={() => { if (view.map.credit_url) void Linking.openURL(view.map.credit_url); }} style={{ minHeight: 32, justifyContent: 'center' }}>
-            <Txt size={12} color={c.muc3}>Bấm số thứ tự trên bản đồ để mở chặng. {view.map.credit}{view.map.credit_url ? ' Bấm để mở trang gốc.' : ''} Vị trí các chặng do nhóm phát triển đánh dấu trên bản đồ.</Txt>
-          </Pressable>
-        </Card>
+          <Card flat pad={12} style={{ borderRadius: 12, gap: 8 }} testID="unit-map">
+            <BlockTitle title="Bản đồ các chặng" icon={MapIcon} />
+            <SagaMap map={view.map} stages={view.stages} currentId={view.current_stage_id} selectedId={open} onPick={pick} maxHeight={Math.max(320, Math.min(760, height - 190))} />
+            {caption ? (
+              <View testID="map-caption" style={{ borderRadius: 10, padding: 12, gap: 4, backgroundColor: c.logoInk }}>
+                <Txt f="bold" size={13} color={c.logoGold} style={{ letterSpacing: 0.4 }}>{caption.title.toLocaleUpperCase('vi')}</Txt>
+                {caption.lines.map((t) => <Txt key={t} size={12} color="#ffffff" style={{ lineHeight: 18 }}>• {t}</Txt>)}
+              </View>
+            ) : null}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+              {(Object.keys(STATE) as Array<keyof typeof STATE>).map((k) => <StateChip key={k} state={k} />)}
+            </View>
+            <Pressable accessibilityRole="link" accessibilityLabel="Mở trang gốc của bản đồ trên Wikipedia" disabled={!view.map.credit_url} onPress={() => { if (view.map.credit_url) void Linking.openURL(view.map.credit_url); }} style={{ minHeight: 32, justifyContent: 'center' }}>
+              <Txt size={12} color={c.muc3}>{view.map.credit}{view.map.credit_url ? ' Bấm để mở trang gốc.' : ''} Vị trí các chặng do nhóm phát triển đánh dấu trên bản đồ.</Txt>
+            </Pressable>
+          </Card>
+        </View>
       )}
       {open !== null ? <StageSheet session={session} nav={nav} stageId={open} campaignNo={no} /> : null}
     </SagaPage>
