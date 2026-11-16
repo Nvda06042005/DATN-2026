@@ -114,9 +114,29 @@ export interface AiHubDashboardProps {
   onStartPractice?: (rec: BktRecommendationItem) => void;
   onGoLearn?: (nodeId?: number) => void;
   onClose?: () => void;
+  embedded?: boolean;
 }
 
-export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenSource, onStartPractice, onGoLearn, onClose }) => {
+const HubFrame: React.FC<{
+  embedded: boolean;
+  maxWidth: number;
+  gap: number;
+  padding?: number;
+  paddingBottom?: number;
+  scrollRef?: React.RefObject<ScrollViewInstance | null>;
+  children: React.ReactNode;
+}> = ({ embedded, maxWidth, gap, padding = 20, paddingBottom = 60, scrollRef, children }) => {
+  if (embedded) {
+    return <View style={{ gap, maxWidth, alignSelf: 'center', width: '100%', paddingBottom: 24 }}>{children}</View>;
+  }
+  return (
+    <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding, paddingBottom, gap, maxWidth, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
+      {children}
+    </ScrollView>
+  );
+};
+
+export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenSource, onStartPractice, onGoLearn, onClose, embedded = false }) => {
   const { c } = useTheme();
 
   const [activeView, setActiveView] = useState<AiHubView>('hub');
@@ -199,7 +219,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
     const summary = bktData?.profile_summary;
 
     return (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingBottom: 60, gap: 22, maxWidth: 960, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
+      <HubFrame embedded={embedded} maxWidth={960} gap={22} padding={24} paddingBottom={60}>
         {/* Header chào mừng */}
         <View style={{ alignItems: 'center', gap: 8, paddingTop: 6 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -565,7 +585,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
             </View>
           </Sheet>
         ) : null}
-      </ScrollView>
+      </HubFrame>
     );
   }
 
@@ -574,7 +594,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
   // ======================================================================
   if (activeView === 'roadmap') {
     return (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 60, gap: 16, maxWidth: 1180, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
+      <HubFrame embedded={embedded} maxWidth={1180} gap={16} padding={20} paddingBottom={60}>
         <PersonalizedRoadmapView
           userId={session.user.id}
           bktData={bktData}
@@ -589,7 +609,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
           }}
           onGoLearn={onGoLearn}
         />
-      </ScrollView>
+      </HubFrame>
     );
   }
 
@@ -598,7 +618,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
   // ======================================================================
   if (activeView === 'flashcards') {
     return (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 60, gap: 18, maxWidth: 760, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
+      <HubFrame embedded={embedded} maxWidth={760} gap={18} padding={20} paddingBottom={60}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Btn icon={ArrowLeft} title="Quay lại AI Hub" tone="giay" size="sm" onPress={() => setActiveView('hub')} />
           <Txt f="bold" size={18} color={c.muc} style={{ flex: 1 }}>Thẻ ghi nhớ Flashcards</Txt>
@@ -655,7 +675,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
           />
           <Btn title="Câu sau →" tone="giay" size="sm" onPress={handleNextCard} />
         </View>
-      </ScrollView>
+      </HubFrame>
     );
   }
 
@@ -664,7 +684,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
   // ======================================================================
   if (activeView === 'tutor') {
     return (
-      <ScrollView ref={tutorScrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 80, gap: 16, maxWidth: 920, alignSelf: 'center', width: '100%' }} keyboardShouldPersistTaps="handled">
+      <HubFrame embedded={embedded} scrollRef={tutorScrollRef} maxWidth={920} gap={16} padding={20} paddingBottom={80}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <Btn icon={ArrowLeft} title="Quay lại AI Hub" tone="giay" size="sm" onPress={() => { setSelectedFigure(null); setActiveView('hub'); loadBktRecommendations(); }} />
           <Txt f="bold" size={18} color={c.muc} style={{ flex: 1 }}>AI Tutor — Trợ lý Sử học Đông A</Txt>
@@ -746,7 +766,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
             onScrollToEnd={scrollToBottom}
           />
         )}
-      </ScrollView>
+      </HubFrame>
     );
   }
 

@@ -33,7 +33,7 @@ import { CampaignScreen, HomeScreen, RolePlayScreen } from '@/components/portal/
 import { SagaHeader, SagaPage, num, type SagaNav, type SagaRoute, type SagaStep, type SagaTab } from '@/components/portal/SagaKit';
 import { LessonScreen, PracticeScreen, SummaryScreen } from '@/components/portal/SagaLearn';
 import { BattleScreen, ExploreScreen } from '@/components/portal/SagaPlay';
-import { TieuTuongTab } from '@/components/portal/TieuTuong';
+import { StudentAiHub } from '@/components/ai/StudentAiHub';
 import { AdminUiContext, Btn, Sheet, Txt, useToast } from '@/components/ui';
 import { usePortalTab } from '@/hooks/use-portal-tab';
 import { useTheme } from '@/hooks/use-theme';
@@ -116,8 +116,14 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
-  const params = useLocalSearchParams<{ c?: string | string[]; s?: string | string[]; v?: string | string[] }>();
+  const params = useLocalSearchParams<{ tab?: string | string[]; c?: string | string[]; s?: string | string[]; v?: string | string[] }>();
   const [tab, setTab] = usePortalTab<SagaTab>('chien-dich', TABS);
+  useEffect(() => {
+    if (one(params.tab) === 'ai') {
+      const keep = Object.fromEntries(Object.entries(params as Record<string, unknown>).filter(([k, val]) => k !== 'school' && k !== 'tab' && val !== undefined));
+      router.replace({ pathname, params: { ...keep, tab: 'hoi' } } as Href);
+    }
+  }, [params, pathname, router]);
   const focused = useIsFocused();
   const navigation = useNavigation();
   const home = useHome(session, focused);
@@ -214,8 +220,8 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
     : route.tab === 'bo-the' ? <CollectionScreen session={session} nav={nav} />
     : route.tab === 'hoi' ? (
       <SagaPage testID="saga-ask">
-        <SagaHeader title="Hỏi Tiểu Tướng" subtitle="Trợ lý chỉ trả lời theo tư liệu lịch sử đã được nhà trường công bố, có ghi nguồn." />
-        <TieuTuongTab session={session} onOpen={(type, id) => setCite({ type, id })} />
+        <SagaHeader title="Hỏi Tiểu Tướng" subtitle="Trợ lý AI Sử học Đông A: Hỏi đáp Sử liệu, Lộ trình Cá nhân hóa, Flash Cards và Chẩn đoán BKT." />
+        <StudentAiHub session={session} onOpen={(type, id) => setCite({ type, id })} onPractice={() => pick('cau-hoi')} onLearn={() => pick('chien-dich')} />
       </SagaPage>
     ) : <HelpPage session={session} />;
 
