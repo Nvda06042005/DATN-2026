@@ -286,23 +286,31 @@ export class ClassroomService {
   }
 
   /** Thêm học sinh vào lớp bằng file Excel mẫu: so khớp theo mã học sinh trong trường; báo từng dòng không thêm được */
-  async importStudents(user: UserRow, classId: number, file: UploadedXlsx | undefined) {
+  /**
+   * Nhập học sinh vào lớp bằng file Excel (mỗi dòng một mã học sinh của trường). Như hộp "Nhập từ Excel" của trang quản trị (16/11/2026):
+   * `commit = false` chỉ xem trước từng dòng (hợp lệ / đã trong lớp / lỗi), `commit = true` mới thêm vào lớp. Chỉ nhận mã học sinh của chính trường.
+   */
+  async importStudents(user: UserRow, classId: number, file: UploadedXlsx | undefined, commit = true) {
     const cls = await this.mine(this.db.query.bind(this.db) as Q, user, classId, true);
     const rows = await readSheet(checkUpload(file), [{ key: 'code', header: 'Mã học sinh *', required: true }]);
     if (!rows.length) throw new BadRequestException('File không có dòng nào');
-    const found = await this.db.query<{ id: number; user_code: string }>("SELECT id, user_code FROM app_users WHERE school_id = $1 AND role = 'student' AND is_active = 1 AND deleted_at IS NULL AND user_code IS NOT NULL", [cls.school_id]);
-    const byCode = new Map(found.map((f) => [f.user_code.trim().toUpperCase(), f.id]));
+    const found = await this.db.query<{ id: number; user_code: string; full_name: string }>("SELECT id, user_code, full_name FROM app_users WHERE school_id = $1 AND role = 'student' AND is_active = 1 AND deleted_at IS NULL AND user_code IS NOT NULL", [cls.school_id]);
+    const byCode = new Map(found.map((f) => [f.user_code.trim().toUpperCase(), f]));
+    const members = new Set((await this.db.query<{ user_id: number }>('SELECT user_id FROM app_class_members WHERE class_id = $1', [classId])).map((m) => m.user_id));
     const ids: number[] = [];
-    const errors: Array<{ row: number; code: string; message: string }> = [];
+    const out: Array<{ row: number; user_code: string; full_name?: string; status: 'ok' | 'added' | 'exists' | 'error'; errors: string[] }> = [];
     for (const r of rows) {
       const code = r.values.code.trim().toUpperCase();
-      const id = byCode.get(code);
-      if (!id) errors.push({ row: r.row, code: r.values.code, message: 'Không có học sinh mang mã này trong trường' });
-      else if (ids.includes(id)) errors.push({ row: r.row, code: r.values.code, message: 'Mã bị lặp trong file' });
-      else ids.push(id);
+      const hit = byCode.get(code);
+      if (!hit) out.push({ row: r.row, user_code: r.values.code, status: 'error', errors: ['Không có học sinh mang mã này trong trường'] });
+      else if (ids.includes(hit.id)) out.push({ row: r.row, user_code: r.values.code, full_name: hit.full_name, status: 'error', errors: ['Mã bị lặp trong file'] });
+      else if (members.has(hit.id)) { ids.push(hit.id); out.push({ row: r.row, user_code: hit.user_code, full_name: hit.full_name, status: 'exists', errors: [] }); }
+      else { ids.push(hit.id); out.push({ row: r.row, user_code: hit.user_code, full_name: hit.full_name, status: commit ? 'added' : 'ok', errors: [] }); }
     }
-    const res = ids.length ? await this.classes.addMembers(this.asSchool(user), classId, ids) as { added: number; skipped: number } : { added: 0, skipped: 0 };
-    return { added: res.added, skipped: res.skipped, errors };
+    const fresh = ids.filter((id) => !members.has(id));
+    const res = commit && fresh.length ? await this.classes.addMembers(this.asSchool(user), classId, fresh) as { added: number; skipped: number } : { added: 0, skipped: 0 };
+    const errors = out.filter((r) => r.status === 'error').length;
+    return { committed: commit, total: rows.length, valid: rows.length - errors, errors, added: res.added, skipped: out.filter((r) => r.status === 'exists').length, rows: out };
   }
 
   async removeStudent(user: UserRow, classId: number, studentId: number): Promise<void> {

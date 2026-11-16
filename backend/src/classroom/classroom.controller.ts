@@ -39,7 +39,7 @@ export class ClassroomController {
   @Get('classes/:id/students') @Roles(...STAFF) students(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Query('q') q?: string) { return this.rooms.students(user, id, q); }
   @Post('classes/:id/students') @Roles(...STAFF) @HttpCode(200) addStudents(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.rooms.addStudents(user, id, body.student_ids); }
   @Post('classes/:id/students/import') @Roles(...STAFF) @HttpCode(200) @UseInterceptors(XLSX_UPLOAD)
-  importStudents(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @UploadedFile() file: UploadedXlsx | undefined) { return this.rooms.importStudents(user, id, file); }
+  importStudents(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @UploadedFile() file: UploadedXlsx | undefined, @Query('commit') commit?: string) { return this.rooms.importStudents(user, id, file, commit !== 'false'); }
   @Delete('classes/:id/students/:userId') @Roles(...STAFF) @HttpCode(204)
   async removeStudent(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Param('userId', ParseIntPipe) userId: number) { await this.rooms.removeStudent(user, id, userId); }
 

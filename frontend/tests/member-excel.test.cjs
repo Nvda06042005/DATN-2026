@@ -74,8 +74,10 @@ test('Lớp học: bỏ nút Nhân bản; xếp lớp mỗi lớp một file; gi
  // ô nhập mã tham gia lớp của học sinh (ClassTab) đã xóa cùng giao diện trang học sinh ngày 15/11/2026; máy chủ vẫn nhận mã dài DongA…
  // đề nghị đổi giáo viên phụ trách có lý do (nghỉ sinh con, tai nạn, bệnh dài ngày…)
  const change=read('components/admin/ClassTeacherChange.tsx');
- assert.match(change,/const CHANGE_REASONS=\['Nghỉ sinh con','Tai nạn','Bệnh dài ngày'/);
- assert.match(change,/`Lý do: \$\{String\(v\.reason\)\}/);
+ // 16/11/2026: đơn đề nghị theo bố cục đơn hành chính (Quốc hiệu, Kính gửi Ban Giám hiệu, lý do sinh con / tai nạn / ốm đau…, thời gian, giấy tờ kèm theo, cam kết, chữ ký)
+ for(const t of ['CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM','Độc lập – Tự do – Hạnh phúc','ĐƠN ĐỀ NGHỊ THAY ĐỔI GIÁO VIÊN PHỤ TRÁCH LỚP','Kính gửi: ','Nghỉ sinh con (thai sản)','Tai nạn','Ốm đau dài ngày','Giấy tờ kèm theo','Tôi cam kết bàn giao lớp','Người làm đơn','(Ký và ghi rõ họ tên)'])assert.ok(change.includes(t),t);
+ assert.match(change,/`Lý do: \$\{reason\}\.`/);
+ assert.ok(change.includes("lines.join('\\n').slice(0, 1000)"), 'nội dung đơn gửi kèm, tối đa 1000 ký tự');
  assert.match(classes,/acceptText="Chỉ nhận file Excel\." note=\{`Phải đúng file mẫu xếp lớp năm học \$\{spec\.year_label\} của \$\{spec\.school_name\} \(được thêm tên lớp ở cuối tên file/);
  // mỗi lớp lưu một file nên tên file được thêm tên lớp: máy chủ kiểm tra phần đầu tên file, không so khớp nguyên tên ở trình duyệt
  const importer=classes.slice(classes.indexOf('const ClassImportSheet'),classes.indexOf('// ---------------------------------------------------------------------- chi tiết một lớp'));

@@ -28,8 +28,8 @@ export const setJoinOpen = (token: string, id: number, open: boolean) => apiRequ
 export const classStudents = (token: string, id: number, q?: string) => apiRequest<ClassStudent[]>(`${base}/classes/${id}/students${qs({ q })}`, { token });
 export const studentPool = (token: string, id: number, q?: string) => apiRequest<PoolStudent[]>(`${base}/classes/${id}/student-pool${qs({ q })}`, { token });
 export const addStudents = (token: string, id: number, studentIds: number[]) => apiRequest<{ added: number; skipped: number }>(`${base}/classes/${id}/students`, { token, body: { student_ids: studentIds } });
-export const importStudents = (token: string, id: number, file: PickedFile) =>
-  apiUpload<{ added: number; skipped: number; errors: Array<{ row: number; code: string; message: string }> }>(`${base}/classes/${id}/students/import`, file, token);
+export const importStudents = (token: string, id: number, file: PickedFile, commit: boolean) =>
+  apiUpload<import('@/types/api').ImportResult & { skipped: number }>(`${base}/classes/${id}/students/import?commit=${commit}`, file, token);
 export const studentsTemplate = (token: string) => apiBlob(`${base}/students-template`, token);
 export const removeStudent = (token: string, id: number, userId: number) => apiRequest<void>(`${base}/classes/${id}/students/${userId}`, { token, method: 'DELETE' });
 

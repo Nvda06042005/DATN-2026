@@ -6,9 +6,8 @@ import React, { useState } from 'react';
 import { Platform, Pressable, View } from 'react-native';
 import { CheckSquare, FileUp, Shuffle, Square, Trash2, UserPlus, Users } from 'lucide-react-native';
 import * as api from '@/api/classroomApi';
-import { errorMessage } from '@/api/client';
 import { AdminSelect } from '@/components/admin/AdminSelect';
-import { Cell, DataTable, DownloadButton, ErrorNote, FilterBar, FilterBox, StatusChip, pickFile, useAction, useDebounced, useLoad } from '@/components/admin/kit';
+import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, ImportSheet, useAction, useDebounced, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { iconOf } from '@/components/portal/GameKit';
 import { Btn, Card, Chip, ConfirmSheet, EmptyState, Field, Inset, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
@@ -68,38 +67,13 @@ const AddStudents: React.FC<{ session: Session; cls: ClassDetail; onClose: () =>
   );
 };
 
-const ImportStudents: React.FC<{ session: Session; cls: ClassDetail; onClose: () => void; onDone: () => void }> = ({ session, cls, onClose, onDone }) => {
-  const { c } = useTheme();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ added: number; skipped: number; errors: Array<{ row: number; code: string; message: string }> } | null>(null);
-  const choose = async () => {
-    setError(null);
-    try {
-      const file = await pickFile(['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
-      if (!file) return;
-      setBusy(true);
-      setResult(await api.importStudents(session.token, cls.id, file));
-      onDone();
-    } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
-  };
-  return (
-    <Sheet open onClose={onClose} title="Thêm học sinh bằng file Excel" subtitle="Mỗi dòng là mã học sinh của trường" wide footer={<View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}><Btn title="Đóng" tone="giay" onPress={onClose} /></View>}>
-      <Txt size={14} color={c.muc2}>Tải file mẫu, điền mã học sinh (một mã mỗi dòng) rồi chọn file. Học sinh đã trong lớp hoặc mã không có trong trường sẽ được bỏ qua và báo lại từng dòng.</Txt>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        <DownloadButton title="Tải file mẫu" fetchBlob={() => api.studentsTemplate(session.token)} filename="mau-them-hoc-sinh.xlsx" />
-        <Btn icon={FileUp} title="Chọn file Excel" tone="son" size="sm" loading={busy} onPress={choose} testID="class-import-choose" />
-      </View>
-      <ErrorNote message={error} />
-      {result ? (
-        <View style={{ gap: 8 }}>
-          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}><StatusChip kind="on" text={`${result.added} đã thêm`} /><StatusChip kind="muted" text={`${result.skipped} đã có trong lớp`} />{result.errors.length ? <StatusChip kind="off" text={`${result.errors.length} dòng lỗi`} /> : null}</View>
-          {result.errors.map((e) => <Inset key={`${e.row}-${e.code}`} style={{ backgroundColor: c.sonNhat }}><Txt size={13} color={c.sonChu}>Dòng {e.row} · {e.code}: {e.message}</Txt></Inset>)}
-        </View>
-      ) : null}
-    </Sheet>
-  );
-};
+/** Nhập học sinh vào lớp bằng Excel: cùng hộp "Nhập từ Excel" với trang quản trị (tải file mẫu, chọn file, xem trước từng dòng rồi mới lưu) */
+const ImportStudents: React.FC<{ session: Session; cls: ClassDetail; onClose: () => void; onDone: () => void }> = ({ session, cls, onClose, onDone }) => (
+  <ImportSheet title={`Nhập học sinh vào lớp ${cls.name} từ Excel`} acceptText="Chỉ nhận file Excel (.xlsx)."
+    hint="Tải file mẫu, điền mã học sinh của trường (mỗi dòng một mã) rồi chọn file. Xem trước từng dòng: hợp lệ, đã trong lớp hoặc lỗi (mã không thuộc trường, mã lặp); bấm Lưu để thêm vào lớp."
+    template={{ fetchBlob: () => api.studentsTemplate(session.token), filename: 'mau-them-hoc-sinh.xlsx' }}
+    run={(file, commit) => api.importStudents(session.token, cls.id, file, commit)} onClose={onClose} onDone={onDone} />
+);
 
 export const ClassStudents: React.FC<{ session: Session; cls: ClassDetail; onChanged: () => void }> = ({ session, cls, onChanged }) => {
   const { c } = useTheme();
@@ -118,7 +92,7 @@ export const ClassStudents: React.FC<{ session: Session; cls: ClassDetail; onCha
     <View style={{ gap: 14 }}>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         <Btn icon={UserPlus} title="Thêm học sinh" tone="son" size="sm" onPress={() => setAdding(true)} testID="class-add-students" disabled={!cls.is_active} />
-        <Btn icon={FileUp} title="Thêm bằng Excel" tone="giay" size="sm" onPress={() => setImporting(true)} disabled={!cls.is_active} />
+        <Btn icon={FileUp} title="Nhập từ Excel" tone="giay" size="sm" onPress={() => setImporting(true)} disabled={!cls.is_active} testID="class-import-open" />
       </View>
       {pending.length ? (
         <Card flat pad={12} style={{ gap: 8, borderColor: c.vang }}>
