@@ -1317,3 +1317,11 @@ Theo 10 ý người dùng gửi kèm ảnh file Excel (đã hỏi lại hai đi�
 - Quản trị trường: mục **Duyệt nội dung** có chọn "Nội dung chia sẻ" / "Đề kiểm tra"; xem ghi chú, xem bộ đề, duyệt hoặc từ chối (phải ghi lý do), giáo viên được báo.
 - Học sinh: mục **Kỳ thi** trong menu (bấm thông báo kỳ thi cũng mở mục này): danh sách bài thi (chưa mở / đang mở / đã đóng / đã làm), "Vào làm bài" chỉ trong khung giờ, nhập mật khẩu thầy cô cung cấp; sai mật khẩu, chưa tới giờ hoặc hết lượt bị máy chủ chặn.
 - Migration **068** (`hk_exams`); API `GET/POST /api/classroom/exams`, `POST /api/classroom/exams/:id/cancel|review|organize`; `POST /api/classroom/my-assignments/:id/start` nhận `password` (bài thi bắt buộc). Kiểm thử: `assignments.spec.ts` (cả quy trình), `assessment-ui.test.cjs`.
+
+## Trang học sinh dạng trò chơi: lộ trình qua các chặng, nhập mã tham gia lớp (16/11/2026)
+
+- Theo yêu cầu "giao diện ở trang học sinh giống gamification, game-based learning" (người dùng chọn giữ menu như các cổng quản trị, sửa phần nội dung): trang **Chiến dịch** (`HomeScreen` trong `SagaHome.tsx`) là lộ trình uốn lượn trái – phải qua 13 chặng, chia ba phần theo ba cuộc kháng chiến 1258, 1285, 1287–1288. Mỗi phần có dải màu riêng, tiến độ chặng / sao và ảnh thu nhỏ **bản đồ gốc của Wikipedia** (bấm mở bản đồ chiến dịch có vị trí các chặng). Nút chặng tròn theo trạng thái (đã xong màu vàng có dấu tích, đang mở màu của phần, khóa màu xám), sao dưới nút, chặng đang chờ có nhãn "Bắt đầu" / "Học tiếp" và Rồng Con; bấm chặng mở bảng thông tin chặng trên bản đồ.
+- Thẻ **Lớp của em**: chưa vào lớp nào thì hiện ô nhập **mã tham gia lớp** (mã DongA… do quản trị trường cấp, giáo viên đọc cho học sinh) để vào lớp; đã có lớp thì hiện tên lớp, giáo viên đang phụ trách, sĩ số và nút nhập mã lớp khác. Sửa danh sách lớp của học sinh đọc giáo viên theo phân công học kỳ (`app_current_class_teachers`, trước đây hiện "Chưa có giáo viên").
+- Cột bên phải (điện thoại: dưới lộ trình): cấp độ – kinh nghiệm, chuỗi ngày, vàng, số chặng; nhiệm vụ hôm nay; câu cần ôn; lối vào Kỳ thi.
+- Không có migration. Kiểm thử: `student-nav.test.cjs`, `assignments.spec.ts` (học sinh thấy giáo viên của lớp).
+- Ảnh 2, 6, 7 người dùng nhắc trong yêu cầu không có trong cuộc trò chuyện nên bố cục nhập mã và lộ trình làm theo mô tả chữ.

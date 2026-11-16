@@ -650,7 +650,8 @@ export class ClassService {
   async mine(student: UserRow) {
     return this.db.query(
       `SELECT c.id, c.name, c.grade, c.school_year, c.is_active,
-              COALESCE((SELECT json_agg(u.full_name ORDER BY u.full_name) FROM app_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id), '[]'::json) AS teachers,
+              -- giáo viên đang phụ trách theo học kỳ (16/11/2026: trước đây đọc bảng cũ nên học sinh thấy "Chưa có giáo viên")
+              COALESCE((SELECT json_agg(u.full_name ORDER BY u.full_name) FROM app_current_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id), '[]'::json) AS teachers,
               (SELECT count(*)::int FROM app_class_members m2 WHERE m2.class_id = c.id) AS members
        FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = $1 ORDER BY c.school_year DESC, c.name`, [student.id]);
   }

@@ -1,6 +1,7 @@
 /**
  * Hành trình Đông A – ba màn mở đầu của vòng chơi, dựng bằng bộ thành phần của các cổng quản trị (tiêu đề hai nửa, thẻ số liệu, thẻ viền mảnh, bảng dữ liệu):
- *   1. "Chiến dịch": số liệu học tập (cấp độ, kinh nghiệm, chuỗi ngày, vàng, chặng đã xong, câu cần ôn) và ba cuộc kháng chiến 1258, 1285, 1287–1288.
+ *   1. "Chiến dịch" (16/11/2026: dạng trò chơi): thẻ Lớp của em / nhập mã tham gia lớp, lộ trình uốn lượn qua các chặng của ba cuộc kháng chiến 1258, 1285,
+ *      1287–1288 (mỗi phần mở bản đồ gốc Wikipedia), cột cấp độ – chuỗi ngày – vàng, nhiệm vụ hôm nay, câu cần ôn, kỳ thi.
  *   2. Bản đồ chiến dịch: ảnh bản đồ gốc của Wikipedia tiếng Việt làm nền, các chặng đặt theo tỉ lệ 0–1 trên ảnh. Phóng to, kéo để xem; trạng thái chặng thể hiện bằng
  *      màu, biểu tượng và chữ; bên dưới luôn có bảng các chặng cho màn hình nhỏ và trình đọc màn hình.
  *   3. Bảng thông tin chặng: mục tiêu học, các bước, lý do còn khóa, kết quả cũ và nút Học / Chơi tiếp / Ôn lại.
@@ -9,15 +10,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Linking, Platform, Pressable, ScrollView, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
-import { Award, BookOpen, Check, Coins, Flag, Flame, Footprints, Gamepad2, Gift, Lock, Maximize2, Play, Puzzle, RotateCcw, Sparkles, Star, Swords, Target, ZoomIn, ZoomOut } from 'lucide-react-native';
+import { Award, BookOpen, Check, ClipboardCheck, Coins, Flag, Flame, Footprints, Gamepad2, Gift, Lock, LogIn, Map as MapIcon, Maximize2, Play, Puzzle, RotateCcw, Sparkles, Swords, Target, Users, ZoomIn, ZoomOut } from 'lucide-react-native';
 import * as saga from '@/lib/saga-api';
-import { DashboardMetric as Metric } from '@/components/admin/DashboardMetric';
+import * as authApi from '@/api/authApi';
+import { errorMessage } from '@/api/client';
+import { Mascot } from '@/components/art';
 import { Cell, DataTable, type Column } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import {
   BlockTitle, KIND_TEXT, LoadState, Meter, Portrait, RARITY, STATE, SagaHeader, SagaPage, StarRow, TONE, mapSource, num, stageIcon, useLoad, type SagaNav, type SagaStep,
 } from '@/components/portal/SagaKit';
-import { Btn, Card, Chip, InfoNote, Inset, Segmented, Sheet, Txt } from '@/components/ui';
+import { Btn, Card, Chip, Field, InfoNote, Inset, Segmented, Sheet, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
 import type { CampaignView, SagaCampaign, SagaMapInfo, StageBrief, StageDetail, StepState } from '@/types/saga';
@@ -28,87 +31,229 @@ const StateChip: React.FC<{ state: StageBrief['state'] }> = ({ state }) => {
   return <Chip text={st.label} icon={st.icon} bg={st.soft} fg={st.text} />;
 };
 
-// ---------------------------------------------------------------------- 1. trang Chiến dịch
-const CampaignCard: React.FC<{ c: SagaCampaign; current: boolean; onPress: () => void }> = ({ c: camp, current, onPress }) => {
+/**
+ * Lớp của em (16/11/2026): học sinh chưa vào lớp nào thì nhập mã tham gia lớp thầy cô / nhà trường cung cấp (mã dạng DongA… hoặc 6 ký tự cũ);
+ * đã có lớp thì hiện tên lớp, giáo viên và nút nhập mã lớp khác.
+ */
+const ClassStrip: React.FC<{ session: Session }> = ({ session }) => {
   const { c } = useTheme();
-  const tone = TONE[camp.campaign_no] ?? TONE[1];
-  return (
-    <Card flat pad={0} style={{ flexGrow: 1, flexBasis: 280, minWidth: 0, borderRadius: 12, overflow: 'hidden' }} testID={`campaign-card-${camp.campaign_no}`}>
-      <Image source={thumb(camp.campaign_no)} style={{ width: '100%', height: 130, backgroundColor: c.adminCanvas }} resizeMode="cover" accessibilityLabel={`Bản đồ ${camp.title}`} />
-      <View style={{ padding: 14, gap: 8, flex: 1 }}>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-          <Chip text={`${tone.label} · ${camp.years}`} bg={tone.soft} fg={tone.text} />
-          {camp.completed ? <Chip text="Đã xong" icon={Check} bg={c.mocNhat} fg={c.mocChu} /> : camp.is_new ? <Chip text="Chưa bắt đầu" bg={c.dichNhat} fg={c.dich} /> : null}
-        </View>
-        <Txt f="displayHeavy" size={20} color={c.logoInk} numberOfLines={2}>{camp.title}</Txt>
-        <Txt size={13} color={c.muc2} numberOfLines={2}>{camp.places}</Txt>
-        <Meter value={camp.stages ? camp.done / camp.stages : 0} color={tone.main} label={`Tiến độ ${camp.title}: ${camp.done} trên ${camp.stages} chặng`} />
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Txt f="semibold" size={13} color={c.muc2} style={{ flex: 1 }}>{camp.done}/{camp.stages} chặng</Txt>
-          <View accessible accessibilityLabel={`${camp.stars} trên ${camp.max_stars} sao`} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Star size={14} color={c.dongDam} fill={camp.stars ? c.dong : 'transparent'} />
-            <Txt f="semibold" size={13} color={c.muc2}>{camp.stars}/{camp.max_stars} sao</Txt>
+  const [tick, setTick] = useState(0);
+  const classes = useLoad(session, (t) => authApi.myClasses(t), [tick]);
+  const [open, setOpen] = useState(false);
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const join = async (): Promise<void> => {
+    setProblem(null); setBusy(true);
+    try { const cls = await authApi.joinClass(session.token, code.trim()); setDone(`Em đã vào lớp ${cls.name}.`); setCode(''); setOpen(false); setTick((n) => n + 1); } catch (e) { setProblem(errorMessage(e)); } finally { setBusy(false); }
+  };
+  const form = (
+    <View style={{ gap: 8 }}>
+      <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <Field label="Mã tham gia lớp" value={code} onChangeText={(v) => setCode(v.replace(/\s/g, ''))} placeholder="Ví dụ DongA7A1..." autoCapitalize="characters" autoCorrect={false} maxLength={80}
+          onSubmitEditing={() => { void join(); }} style={{ flexGrow: 1, flexBasis: 220 }} testID="join-code" />
+        <Btn icon={LogIn} title="Tham gia lớp" tone="son" loading={busy} disabled={code.trim().length < 4} onPress={() => { void join(); }} testID="join-submit" />
+      </View>
+      {problem ? <Txt size={13} color={c.sonChu}>{problem}</Txt> : null}
+    </View>
+  );
+  const list = (classes.data ?? []).filter((k) => k.is_active);
+  if (classes.loading && !classes.data) return null;
+  if (!list.length) {
+    return (
+      <Card flat pad={16} style={{ borderRadius: 14, gap: 12, borderWidth: 2, borderColor: c.logoRed }} testID="join-class">
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <Mascot size={76} mood="excited" />
+          <View style={{ flex: 1, minWidth: 220, gap: 4 }}>
+            <Txt f="bold" size={18} accessibilityRole="header">Tham gia lớp học</Txt>
+            <Txt size={14} color={c.muc2}>Nhập mã tham gia lớp thầy cô hoặc nhà trường cung cấp để vào lớp, nhận bài tập, kỳ thi và cùng cả lớp chinh phục Hành trình Đông A.</Txt>
           </View>
         </View>
-        <Btn title="Mở bản đồ" icon={Play} tone={current ? 'son' : 'giay'} size="sm" full disabled={!camp.available} onPress={onPress} testID={`campaign-${camp.campaign_no}`}
-          label={`${camp.title}, ${camp.years}. Đã xong ${camp.done} trên ${camp.stages} chặng, ${camp.stars} trên ${camp.max_stars} sao. Mở bản đồ`} style={{ marginTop: 'auto' }} />
+        {form}
+        {done ? <Txt size={13} color={c.mocChu}>{done}</Txt> : null}
+      </Card>
+    );
+  }
+  return (
+    <Card flat pad={12} style={{ borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }} testID="my-class">
+      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c.adminTint, alignItems: 'center', justifyContent: 'center' }}><Users size={18} color={c.logoRed} /></View>
+      <View style={{ flex: 1, minWidth: 200 }}>
+        <Txt f="bold" size={14}>Lớp {list.map((k) => k.name).join(', ')}</Txt>
+        <Txt size={12} color={c.muc3}>{list.map((k) => (k.teachers.length ? `GV ${k.teachers.join(', ')}` : 'Chưa có giáo viên')).join(' · ')} · {list.reduce((n, k) => n + k.members, 0)} bạn</Txt>
       </View>
+      {done ? <Txt size={12} color={c.mocChu}>{done}</Txt> : null}
+      <Btn icon={LogIn} title="Nhập mã lớp khác" tone="ghost" size="sm" onPress={() => { setOpen(true); setProblem(null); }} testID="join-open" />
+      {open ? <Sheet open onClose={() => setOpen(false)} title="Nhập mã tham gia lớp" subtitle="Mã do thầy cô hoặc nhà trường cung cấp">{form}</Sheet> : null}
     </Card>
   );
 };
 
-export const HomeScreen: React.FC<{ nav: SagaNav; loading: boolean; error: string | null }> = ({ nav, loading, error }) => {
+/** Độ lệch ngang của các chặng trên đường đi (uốn lượn trái – phải) */
+const SWAY = [0, 54, 88, 54, 0, -54, -88, -54];
+
+/** Một chặng trên lộ trình: nút tròn theo trạng thái, sao đạt được, tên chặng; chặng đang chờ có nhãn "Bắt đầu" / "Học tiếp" và Rồng Con bên cạnh */
+const PathNode: React.FC<{ st: StageBrief; index: number; current: boolean; color: string; onPress: () => void }> = ({ st, index, current, color, onPress }) => {
   const { c } = useTheme();
+  const Icon = st.state === 'locked' ? Lock : st.state === 'done' || st.state === 'review' ? Check : stageIcon(st.icon);
+  const locked = st.state === 'locked';
+  const done = st.state === 'done' || st.state === 'review';
+  const x = SWAY[index % SWAY.length];
+  const size = current ? 76 : 66;
+  return (
+    <View style={{ alignItems: 'center', transform: [{ translateX: x }], width: 170 }}>
+      {current ? (
+        <View style={{ backgroundColor: c.the, borderColor: color, borderWidth: 2, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 4, marginBottom: 8 }}>
+          <Txt f="heavy" size={12} color={color} style={{ letterSpacing: 0.6 }}>{st.state === 'learning' ? 'HỌC TIẾP' : 'BẮT ĐẦU'}</Txt>
+        </View>
+      ) : null}
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {current && x <= 0 ? <View style={{ position: 'absolute', left: size + 18 }}><Mascot size={64} mood="happy" bob /></View> : null}
+        {current && x > 0 ? <View style={{ position: 'absolute', right: size + 18 }}><Mascot size={64} mood="happy" bob /></View> : null}
+        <Pressable onPress={onPress} accessibilityRole="button" testID={`path-node-${st.order}`}
+          accessibilityLabel={`Chặng ${st.order}: ${st.title}, ${st.date_label}. ${STATE[st.state].label}${st.stars ? `, ${st.stars} sao` : ''}${st.lock_reason ? `. ${st.lock_reason}` : ''}`}
+          style={({ pressed }) => ({
+            width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center',
+            backgroundColor: locked ? c.adminLine : done ? c.vang : color, borderWidth: current ? 5 : 0, borderColor: current ? c.the : 'transparent',
+            opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.96 : 1 }],
+            ...(current ? { boxShadow: `0 0 0 4px ${color}` } as object : {}),
+          })}>
+          <Icon size={current ? 32 : 28} color={locked ? c.muc3 : done ? c.vangChu : '#ffffff'} strokeWidth={2.4} />
+        </Pressable>
+      </View>
+      <View style={{ height: 18, justifyContent: 'center', marginTop: 4 }}>{st.stars > 0 ? <StarRow n={st.stars} size={14} /> : null}</View>
+      <Txt f={current ? 'bold' : 'semibold'} size={13} center numberOfLines={2} color={locked ? c.muc3 : c.muc} style={{ width: 160 }}>{st.title}</Txt>
+      <Txt size={11} center color={c.muc3} numberOfLines={1} style={{ width: 160 }}>{st.date_label}</Txt>
+    </View>
+  );
+};
+
+/** Chấm nối hai chặng liên tiếp, đặt ở giữa hai độ lệch */
+const PathDots: React.FC<{ from: number; to: number; done: boolean }> = ({ from, to, done }) => {
+  const { c } = useTheme();
+  return (
+    <View style={{ height: 34, justifyContent: 'space-evenly', alignItems: 'center' }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      {[0.33, 0.66].map((t) => <View key={t} style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: done ? c.vang : c.adminLine, transform: [{ translateX: SWAY[from % SWAY.length] * (1 - t) + SWAY[to % SWAY.length] * t }] }} />)}
+    </View>
+  );
+};
+
+/** Đầu mỗi phần của lộ trình: một cuộc kháng chiến, tiến độ, nút mở bản đồ gốc (Wikipedia) */
+const UnitBanner: React.FC<{ camp: SagaCampaign; onMap: () => void }> = ({ camp, onMap }) => {
+  const tone = TONE[camp.campaign_no];
+  return (
+    <View style={{ borderRadius: 14, backgroundColor: tone.main, padding: 16, gap: 8, alignSelf: 'stretch' }} testID={`path-unit-${camp.campaign_no}`}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <View style={{ flex: 1, minWidth: 200, gap: 2 }}>
+          <Txt f="bold" size={12} color="#ffffff" style={{ opacity: 0.85, letterSpacing: 0.6 }}>PHẦN {camp.campaign_no} · {tone.years}</Txt>
+          <Txt f="bold" size={18} color="#ffffff" accessibilityRole="header">{camp.title}</Txt>
+          <Txt size={12} color="#ffffff" style={{ opacity: 0.9 }}>{camp.done}/{camp.stages} chặng · {camp.stars}/{camp.max_stars} sao{camp.available ? '' : ' · mở khi xong phần trước'}</Txt>
+        </View>
+        <Pressable onPress={onMap} accessibilityRole="button" accessibilityLabel={`Mở bản đồ ${camp.title} (bản đồ gốc của Wikipedia)`} testID={`path-map-${camp.campaign_no}`}
+          style={({ pressed }) => ({ borderRadius: 10, overflow: 'hidden', borderWidth: 2, borderColor: 'rgba(255,255,255,0.8)', opacity: pressed ? 0.85 : 1 })}>
+          <Image source={thumb(camp.campaign_no)} style={{ width: 112, height: 70 }} resizeMode="cover" />
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)', paddingVertical: 2, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4 }}>
+            <MapIcon size={12} color="#ffffff" /><Txt f="bold" size={11} color="#ffffff">Bản đồ</Txt>
+          </View>
+        </Pressable>
+      </View>
+      <View style={{ height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.35)', overflow: 'hidden' }}>
+        <View style={{ width: `${Math.round(camp.percent)}%`, height: 8, borderRadius: 4, backgroundColor: '#ffffff' }} />
+      </View>
+    </View>
+  );
+};
+
+// ---------------------------------------------------------------------- 1. trang chủ: lộ trình Hành trình Đông A
+/**
+ * Trang chủ học sinh dạng trò chơi (16/11/2026, giữ menu như các cổng quản trị): thẻ Lớp của em (chưa có lớp thì nhập mã tham gia),
+ * lộ trình uốn lượn qua 13 chặng chia ba phần theo ba cuộc kháng chiến (mỗi phần mở bản đồ gốc của Wikipedia), chặng đang chờ có Rồng Con
+ * và nhãn Bắt đầu; cột bên phải: cấp độ – kinh nghiệm, chuỗi ngày học, vàng, nhiệm vụ hôm nay, câu cần ôn, kỳ thi.
+ */
+export const HomeScreen: React.FC<{ session: Session; nav: SagaNav; loading: boolean; error: string | null }> = ({ session, nav, loading, error }) => {
+  const { c } = useTheme();
+  const { width } = useWindowDimensions();
+  const wide = width >= 1180;
   const home = nav.home;
   const hud = home?.hud ?? null;
   const next = home?.next ?? null;
   const level = hud?.level ?? null;
-  return (
-    <SagaPage testID="saga-home">
-      <SagaHeader title="Hành trình Đông A"
-        subtitle={home ? `Chào ${home.learner.name}. Ba lần kháng chiến chống quân Mông – Nguyên (1258, 1285, 1287–1288): chọn một cuộc kháng chiến rồi học từng chặng trên bản đồ.` : 'Ba lần kháng chiến chống quân Mông – Nguyên (1258, 1285, 1287–1288).'}
-        actions={next ? <Btn title={`${next.state === 'learning' ? 'Học tiếp' : 'Bắt đầu'}: ${next.title}`} icon={Play} tone="son" size="sm" onPress={() => nav.go('chien-dich', { c: next.campaign_no, s: next.stage_id, v: null })} testID="home-continue" /> : undefined} />
-      {!home || !hud || !level ? <LoadState loading={loading} error={error} onRetry={nav.refresh} /> : (
-        <>
-          <View testID="home-metrics" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            <Metric compact label="Cấp độ" value={level.level} hint={level.title} icon={Award} color={c.son} background={c.sonNhat} />
-            <Metric compact label="Kinh nghiệm" value={hud.xp} hint="điểm" icon={Sparkles} color={c.thongChu} background={c.thongNhat} />
-            <Metric compact label="Chuỗi ngày học" value={hud.streak.current} hint="ngày" icon={Flame} color={c.hoaChu} background={c.hoaNhat} />
-            <Metric compact label="Vàng" value={hud.gold} hint="" icon={Coins} color={c.vangChu} background={c.vangNhat} />
-            <Metric compact label="Chặng đã xong" value={`${home.totals.done}/${home.totals.stages}`} hint="" icon={Flag} color={c.mocChu} background={c.mocNhat} />
-            <Metric compact label="Câu cần ôn" value={home.review_due} hint="câu" icon={RotateCcw} color={c.thuyChu} background={c.thuyNhat} />
+  const camps = useLoad(session, (t) => Promise.all([1, 2, 3].map((n) => saga.campaign(t, n))), [home?.totals.done ?? 0]);
+  const open = (st: StageBrief): void => nav.go('chien-dich', { c: st.campaign_no, s: st.id, v: null });
+  const rail = home && hud && level ? (
+    <View style={{ gap: 12, width: wide ? 320 : '100%' }}>
+      <Card flat pad={14} style={{ borderRadius: 14, gap: 10 }} testID="home-level">
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: c.sonNhat, alignItems: 'center', justifyContent: 'center' }}><Award size={24} color={c.son} /></View>
+          <View style={{ flex: 1 }}>
+            <Txt f="bold" size={15}>Cấp {level.level} · {level.title}</Txt>
+            <Txt size={12} color={c.muc3}>{level.next_xp ? `${num(hud.xp)}/${num(level.next_xp)} điểm kinh nghiệm` : `${num(hud.xp)} điểm · cấp cao nhất`}</Txt>
           </View>
-          <Card flat pad={12} style={{ borderRadius: 12, gap: 6 }} testID="home-level">
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-              <Txt f="bold" size={14}>Cấp {level.level} · {level.title}</Txt>
-              <Txt size={12} color={c.muc3}>{level.next_xp ? `${num(hud.xp)}/${num(level.next_xp)} điểm kinh nghiệm để lên cấp ${level.level + 1}` : `${num(hud.xp)} điểm kinh nghiệm · cấp cao nhất`}</Txt>
+        </View>
+        <Meter value={level.progress / 100} label={`Cấp ${level.level}, ${level.title}. ${num(hud.xp)} điểm kinh nghiệm`} />
+        <View style={{ flexDirection: 'row', gap: 8 }} testID="home-metrics">
+          {[{ icon: Flame, v: hud.streak.current, t: 'ngày liên tiếp', fg: c.hoaChu, bg: c.hoaNhat }, { icon: Coins, v: hud.gold, t: 'vàng', fg: c.vangChu, bg: c.vangNhat }, { icon: Flag, v: `${home.totals.done}/${home.totals.stages}`, t: 'chặng', fg: c.mocChu, bg: c.mocNhat }].map((m) => (
+            <View key={m.t} style={{ flex: 1, borderRadius: 10, backgroundColor: m.bg, paddingVertical: 8, alignItems: 'center', gap: 2 }}>
+              <m.icon size={18} color={m.fg} />
+              <Txt f="bold" size={15} color={m.fg}>{typeof m.v === 'number' ? num(m.v) : m.v}</Txt>
+              <Txt size={11} color={c.muc2}>{m.t}</Txt>
             </View>
-            <Meter value={level.progress / 100} label={`Cấp ${level.level}, ${level.title}. ${num(hud.xp)} điểm kinh nghiệm${level.next_xp ? `, cần ${num(level.next_xp)} để lên cấp` : ''}`} />
-          </Card>
-
-          <BlockTitle title="Ba cuộc kháng chiến" note="Chặng đầu của mỗi cuộc kháng chiến mở sẵn; các chặng sau mở lần lượt khi em hoàn thành chặng trước." />
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-            {home.campaigns.map((camp) => <CampaignCard key={camp.campaign_no} c={camp} current={next?.campaign_no === camp.campaign_no} onPress={() => nav.go('chien-dich', { c: camp.campaign_no, s: null, v: null })} />)}
+          ))}
+        </View>
+      </Card>
+      {home.daily ? (
+        <Card flat pad={14} style={{ borderRadius: 14, gap: 8 }} testID="home-daily">
+          <BlockTitle title={`Nhiệm vụ hôm nay${home.daily.done ? ' · đã xong' : ''}`} icon={Gift} />
+          <Txt size={14} color={c.muc2}>{home.daily.title} (+{home.daily.reward_xp} điểm{home.daily.reward_gold ? `, +${home.daily.reward_gold} vàng` : ''})</Txt>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Meter value={home.daily.target ? home.daily.progress / home.daily.target : 0} color={c.moc} label="Tiến độ nhiệm vụ hôm nay" style={{ flex: 1 }} />
+            <Txt f="bold" size={13}>{Math.min(home.daily.progress, home.daily.target)}/{home.daily.target}</Txt>
           </View>
-
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-            {home.daily ? (
-              <Card flat pad={14} style={{ flexGrow: 1, flexBasis: 320, borderRadius: 12, gap: 8 }} testID="home-daily">
-                <BlockTitle title={`Nhiệm vụ hôm nay${home.daily.done ? ' · đã xong' : ''}`} icon={Gift} />
-                <Txt size={14} color={c.muc2}>{home.daily.title} (+{home.daily.reward_xp} điểm{home.daily.reward_gold ? `, +${home.daily.reward_gold} vàng` : ''})</Txt>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Meter value={home.daily.target ? home.daily.progress / home.daily.target : 0} color={c.moc} label="Tiến độ nhiệm vụ hôm nay" style={{ flex: 1 }} />
-                  <Txt f="bold" size={13}>{Math.min(home.daily.progress, home.daily.target)}/{home.daily.target}</Txt>
-                </View>
-              </Card>
-            ) : null}
-            <Card flat pad={14} style={{ flexGrow: 1, flexBasis: 320, borderRadius: 12, gap: 8 }}>
-              <BlockTitle title={home.review_due ? `${home.review_due} câu cần ôn lại` : 'Ôn tập nhanh'} icon={RotateCcw} />
-              <Txt size={14} color={c.muc2}>{home.review_due ? 'Những câu em từng trả lời sai đang chờ.' : 'Trả lời câu hỏi tính giờ để giữ chuỗi đúng.'}</Txt>
-              <Btn title="Mở mục Câu hỏi ôn tập" icon={RotateCcw} tone="giay" size="sm" onPress={() => nav.go('cau-hoi', { c: null, s: null, v: null })} testID="home-review" />
-            </Card>
+        </Card>
+      ) : null}
+      <Card flat pad={14} style={{ borderRadius: 14, gap: 8 }}>
+        <BlockTitle title={home.review_due ? `${home.review_due} câu cần ôn lại` : 'Ôn tập nhanh'} icon={RotateCcw} />
+        <Txt size={13} color={c.muc2}>{home.review_due ? 'Những câu em từng trả lời sai đang chờ.' : 'Trả lời câu hỏi tính giờ để giữ chuỗi đúng.'}</Txt>
+        <Btn title="Ôn tập" icon={RotateCcw} tone="giay" size="sm" onPress={() => nav.go('cau-hoi', { c: null, s: null, v: null })} testID="home-review" />
+      </Card>
+      <Card flat pad={14} style={{ borderRadius: 14, gap: 8 }}>
+        <BlockTitle title="Kỳ thi" icon={ClipboardCheck} />
+        <Txt size={13} color={c.muc2}>Bài kiểm tra giữa kỳ, cuối kỳ thầy cô tổ chức; vào giờ thi nhập mật khẩu để làm.</Txt>
+        <Btn title="Mở Kỳ thi" icon={ClipboardCheck} tone="giay" size="sm" onPress={() => nav.go('ky-thi', { c: null, s: null, v: null })} testID="home-exams" />
+      </Card>
+    </View>
+  ) : null;
+  const path = camps.data ? (
+    <View style={{ gap: 18, alignItems: 'center', flex: wide ? 1 : undefined, minWidth: 0 }} testID="home-path">
+      {camps.data.map((view, ci) => {
+        const camp = home?.campaigns.find((x) => x.campaign_no === ci + 1);
+        return (
+          <View key={ci} style={{ alignItems: 'center', gap: 6, alignSelf: 'stretch' }}>
+            {camp ? <UnitBanner camp={camp} onMap={() => nav.go('chien-dich', { c: ci + 1, s: null, v: null })} /> : null}
+            <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+              {view.stages.map((st, i) => (
+                <React.Fragment key={st.id}>
+                  {i > 0 ? <PathDots from={i - 1} to={i} done={view.stages[i - 1].state === 'done' || view.stages[i - 1].state === 'review'} /> : null}
+                  <PathNode st={st} index={i} current={st.id === next?.stage_id} color={TONE[ci + 1].main} onPress={() => open(st)} />
+                </React.Fragment>
+              ))}
+            </View>
           </View>
-        </>
+        );
+      })}
+      <Txt size={12} color={c.muc3} center>Bấm một chặng để xem mục tiêu, các bước và phần thưởng; nút Bản đồ mở bản đồ gốc của Wikipedia với vị trí các chặng.</Txt>
+    </View>
+  ) : <LoadState loading={camps.loading} error={camps.error} onRetry={camps.reload} />;
+  return (
+    <SagaPage testID="saga-home" max={1180}>
+      <SagaHeader title="Hành trình Đông A"
+        subtitle={home ? `Chào ${home.learner.name}! Đi hết con đường qua ba lần kháng chiến chống quân Mông – Nguyên (1258, 1285, 1287–1288): mỗi chặng học, luyện, khám phá rồi ra trận.` : 'Ba lần kháng chiến chống quân Mông – Nguyên (1258, 1285, 1287–1288).'}
+        actions={next ? <Btn title={`${next.state === 'learning' ? 'Học tiếp' : 'Bắt đầu'}: ${next.title}`} icon={Play} tone="son" size="sm" onPress={() => nav.go('chien-dich', { c: next.campaign_no, s: next.stage_id, v: null })} testID="home-continue" /> : undefined} />
+      <ClassStrip session={session} />
+      {!home || !hud || !level ? <LoadState loading={loading} error={error} onRetry={nav.refresh} /> : (
+        <View style={{ flexDirection: wide ? 'row' : 'column', gap: 18, alignItems: 'flex-start' }}>
+          {path}{rail}
+        </View>
       )}
     </SagaPage>
   );

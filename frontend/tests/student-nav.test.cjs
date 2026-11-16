@@ -133,7 +133,12 @@ test('các màn của Hành trình Đông A dựng bằng thành phần của c�
   }
   // bảng dữ liệu và thẻ số liệu dùng đúng thành phần của trang quản trị
   assert.match(read('components', 'portal', 'SagaHome.tsx'), /<DataTable columns=\{columns\} rows=\{view\.stages\}/);
-  assert.match(read('components', 'portal', 'SagaHome.tsx'), /DashboardMetric as Metric/);
+  // 16/11/2026: trang chủ học sinh dạng trò chơi – lộ trình uốn lượn qua các chặng, thẻ Lớp của em / nhập mã tham gia lớp, cột cấp độ – nhiệm vụ (vẫn dùng thẻ, nút của cổng quản trị)
+  const home = read('components', 'portal', 'SagaHome.tsx');
+  for (const id of ['home-path', 'join-class', 'join-code', 'join-submit', 'my-class', 'home-level', 'home-daily', 'home-exams']) assert.ok(home.includes(`testID="${id}"`), id);
+  assert.match(home, /testID=\{`path-node-\$\{st\.order\}`\}/);
+  assert.match(home, /testID=\{`path-map-\$\{camp\.campaign_no\}`\}/);
+  assert.match(home, /authApi\.joinClass\(session\.token, code\.trim\(\)\)/);
   assert.match(read('components', 'portal', 'SagaExtras.tsx'), /<DataTable columns=\{boardColumns\}/);
 });
 

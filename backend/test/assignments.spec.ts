@@ -329,6 +329,8 @@ async function playQuiz(who: { token: string }, start: any, right: (index: numbe
   });
 
   test('đề kiểm tra giữa kỳ / cuối kỳ (migration 068): giáo viên gửi, quản trị trường duyệt, tổ chức thi có mật khẩu; học sinh vào làm đúng giờ, đúng mật khẩu, một lượt', async () => {
+    // học sinh thấy giáo viên đang phụ trách lớp mình (theo phân công học kỳ)
+    expect((await as(f.S1)('GET', '/api/student/classes')).body.find((k: any) => k.id === classId).teachers.length).toBeGreaterThan(0);
     const body = { class_id: classId, quiz_id: quizId, kind: 'midterm', title: 'Kiểm tra giữa kỳ Lịch sử 7', note: 'Đề 15 câu, làm trong 45 phút.' };
     expect((await api('POST', '/api/classroom/exams', { ...body, kind: 'weekly' })).status).toBe(400);
     expect((await api('POST', '/api/classroom/exams', body, f.T2.token)).status).toBe(404); // lớp không do thầy cô này phụ trách

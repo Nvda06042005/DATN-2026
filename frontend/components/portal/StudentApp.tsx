@@ -160,7 +160,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       : stage && route.v === 'tran' ? <BattleScreen key={`tran${stage.stageId}`} {...stage} />
       : stage && route.v === 'tong-ket' ? <SummaryScreen key={`tk${stage.stageId}`} {...stage} />
       : route.c !== null ? <CampaignScreen key={`c${route.c}`} session={session} nav={nav} no={route.c} />
-      : <HomeScreen nav={nav} loading={home.loading} error={home.error} />
+      : <HomeScreen session={session} nav={nav} loading={home.loading} error={home.error} />
     : route.tab === 'nhap-vai' ? <RolePlayScreen session={session} nav={nav} />
     : route.tab === 'cau-hoi' ? <ReviewScreen session={session} nav={nav} />
     : route.tab === 'ky-thi' ? <StudentExams session={session} />
