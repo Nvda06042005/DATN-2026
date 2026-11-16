@@ -1,31 +1,25 @@
-import { Body, Controller, Delete, Get, Header, Headers, HttpCode, Param, ParseIntPipe, Post, Put, Query, Res, StreamableFile, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Headers, HttpCode, Param, Post, Query, Res, StreamableFile, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { UserRow } from '../database/database.service';
-import { MediaService, QuizStudioService } from './studio.service';
+import { MediaService } from './studio.service';
 
 type Json = Record<string, any>;
 
 /**
- * /api/content/studio và /api/content/media – trình soạn Quiz kiểu Kahoot và kho ảnh tải lên (ver0.2 Sprint 8, HK.GV.085–094).
- * Giáo viên và quản trị tổng soạn; bản nháp chỉ chủ bản nháp thấy.
+ * /api/content/media – kho ảnh, video, nhạc tải lên (HK.GV.085, 092–093) của giáo viên và quản trị tổng.
+ * Trình soạn "Quiz (Kahoot-style)" (/api/content/studio) đã xóa hẳn theo yêu cầu 16/11/2026.
  */
 @Controller('content')
 @UseGuards(AuthGuard)
 @Roles('teacher', 'root_admin')
-export class StudioController {
-  constructor(private readonly studio: QuizStudioService, private readonly media: MediaService) {}
+export class MediaController {
+  constructor(private readonly media: MediaService) {}
 
   @Post('media') @HttpCode(200) upload(@CurrentUser() user: UserRow, @Body() body: Json) { return this.media.upload(user, body); }
   @Get('media-library') library(@CurrentUser() user: UserRow, @Query('q') q?: string) { return this.media.library(user, q); }
   @Delete('media/:token') removeMedia(@CurrentUser() user: UserRow, @Param('token') token: string) { return this.media.remove(user, token); }
 
-  @Get('studio') drafts(@CurrentUser() user: UserRow) { return this.studio.list(user); }
-  @Post('studio') @HttpCode(200) create(@CurrentUser() user: UserRow, @Body() body: Json) { return this.studio.create(user, body ?? {}); }
-  @Get('studio/:id') draft(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.studio.get(user, id); }
-  @Put('studio/:id') save(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: Json) { return this.studio.save(user, id, body); }
-  @Post('studio/:id/commit') @HttpCode(200) commit(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.studio.commit(user, id); }
-  @Delete('studio/:id') remove(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.studio.remove(user, id); }
 }
 
 /**

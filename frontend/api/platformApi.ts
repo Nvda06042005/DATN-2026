@@ -1,8 +1,8 @@
-/** API nền tảng (/api/platform, Sprint 11–12): thông báo, hỗ trợ, hướng dẫn, cấu hình hệ thống, nhật ký, sao lưu, hai lớp, khảo sát và nghiên cứu. */
+/** API nền tảng (/api/platform, Sprint 11–12): thông báo, hỗ trợ, hướng dẫn, cấu hình hệ thống, nhật ký, sao lưu, hai lớp và nghiên cứu (khảo sát đã xóa ngày 16/11/2026). */
 import { apiBlob, apiRequest } from '@/api/client';
 import type {
-  BackupItem, Broadcast, BroadcastInput, Comparison, ErrorItem, ExperimentClass, ExperimentGroup, FaqItem, FeatureFlag, Health, AuditItem, LoginItem, MessageTemplate, MySurvey, NoticeList, Paged, PlatformConfig, Prefs,
-  RbacMatrix, SchoolLimits, Survey, SurveyForm, SurveyResult, SurveyTemplate, SystemSettings, TicketDetail, TicketPage, Ticket, TwoFactorStatus,
+  BackupItem, Broadcast, BroadcastInput, Comparison, ErrorItem, ExperimentClass, ExperimentGroup, FaqItem, FeatureFlag, Health, AuditItem, LoginItem, MessageTemplate, NoticeList, Paged, PlatformConfig, Prefs,
+  RbacMatrix, SchoolLimits, SystemSettings, TicketDetail, TicketPage, Ticket, TwoFactorStatus,
 } from '@/types/platform';
 
 const base = '/api/platform';
@@ -68,20 +68,6 @@ export const twoFactorSetup = (token: string, method: 'email' | 'totp') => apiRe
 export const twoFactorEnable = (token: string, code: string) => apiRequest<{ enabled: boolean; backup_codes: string[] }>(`${base}/2fa/enable`, { token, body: { code } });
 export const twoFactorDisable = (token: string, password: string, code: string) => apiRequest<{ enabled: boolean }>(`${base}/2fa/disable`, { token, body: { password, code } });
 export const twoFactorBackup = (token: string, code: string) => apiRequest<{ backup_codes: string[] }>(`${base}/2fa/backup-codes`, { token, body: { code } });
-
-// ---------------------------------------------------------------------- khảo sát
-export const mySurveys = (token: string) => apiRequest<MySurvey[]>(`${base}/surveys/mine`, { token });
-export const surveyForm = (token: string, id: number) => apiRequest<SurveyForm>(`${base}/surveys/mine/${id}`, { token });
-export const respondSurvey = (token: string, id: number, answers: Record<string, unknown>) => apiRequest<{ submitted: boolean }>(`${base}/surveys/${id}/respond`, { token, body: { answers } });
-export const surveys = (token: string) => apiRequest<Survey[]>(`${base}/surveys`, { token });
-export const createSurvey = (token: string, body: Record<string, unknown>) => apiRequest<Survey>(`${base}/surveys`, { token, body });
-export const updateSurvey = (token: string, id: number, body: Record<string, unknown>) => apiRequest<Survey>(`${base}/surveys/${id}`, { token, method: 'PUT', body });
-export const deleteSurvey = (token: string, id: number) => apiRequest<{ deleted: boolean }>(`${base}/surveys/${id}`, { token, method: 'DELETE' });
-export const surveyResults = (token: string, id: number) => apiRequest<SurveyResult>(`${base}/surveys/${id}/results`, { token });
-export const exportSurvey = (token: string, id: number, format: 'xlsx' | 'csv') => apiBlob(`${base}/surveys/${id}/export${qs({ format })}`, token);
-export const surveyTemplates = (token: string) => apiRequest<SurveyTemplate[]>(`${base}/survey-templates`, { token });
-export const saveSurveyTemplate = (token: string, id: number | null, body: Record<string, unknown>) => (id ? apiRequest<SurveyTemplate>(`${base}/survey-templates/${id}`, { token, method: 'PUT', body }) : apiRequest<SurveyTemplate>(`${base}/survey-templates`, { token, body }));
-export const deleteSurveyTemplate = (token: string, id: number) => apiRequest<{ deleted: boolean }>(`${base}/survey-templates/${id}`, { token, method: 'DELETE' });
 
 // ---------------------------------------------------------------------- nghiên cứu
 export const experimentGroups = (token: string) => apiRequest<ExperimentGroup[]>(`${base}/experiments/groups`, { token });

@@ -2,7 +2,7 @@
  * Trợ lý AI cho Giáo viên — Đồng bộ giao diện AI Hub Đông A (4 công cụ giảng dạy & khảo thí):
  * 1. Hỏi đáp tư liệu có trích dẫn SGK 7 & ĐVSKTT + Nhập vai Danh tướng (HK.GV.073)
  * 2. Số hóa Đề thi Word (.docx), Biên tập trực quan & Trộn mã đề 101–104 (SmartExamStudio)
- * 3. Soạn bản nháp câu hỏi AI (duyệt trước khi lưu vào Ngân hàng - HK.GV.038), Soạn đề Bloom (AiQuizModal) & Gợi ý kịch bản tiết học (HK.GV.075)
+ * 3. Soạn bản nháp câu hỏi AI (duyệt trước khi lưu vào Ngân hàng - HK.GV.038) & Gợi ý kịch bản tiết học (HK.GV.075). Hộp "Soạn đề bằng AI" (ma trận Bloom) đã xóa hẳn theo yêu cầu 16/11/2026.
  * 4. Thống kê ẩn danh "Học sinh hỏi gì" để giáo viên điều chỉnh trọng tâm giảng dạy (HK.GV.074)
  */
 import React, { useState } from 'react';
@@ -21,7 +21,6 @@ import {
 } from 'lucide-react-native';
 import * as api from '@/api/aiApi';
 import * as learning from '@/api/learningApi';
-import { AiQuizModal } from '@/components/admin/AiQuizModal';
 import {
   Cell,
   DataTable,
@@ -212,7 +211,6 @@ const QuestionMaker: React.FC<{ session: Session; onOpenSmartExam?: () => void }
   const [count, setCount] = useState(5);
   const [res, setRes] = useState<DraftResult | null>(null);
   const [drafts, setDrafts] = useState<QuestionDraft[]>([]);
-  const [quizModalOpen, setQuizModalOpen] = useState(false);
 
   const apiKind = { lessons: 'lesson', battles: 'battle', events: 'event', text: 'text' }[kind];
   const list = kind === 'text' ? [] : options.data?.[kind] ?? [];
@@ -255,14 +253,12 @@ const QuestionMaker: React.FC<{ session: Session; onOpenSmartExam?: () => void }
           </Txt>
         </View>
         <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-          <Btn icon={Sparkles} title="Soạn đề AI theo ma trận Bloom" tone="son" size="sm" onPress={() => setQuizModalOpen(true)} />
           {onOpenSmartExam ? (
             <Btn icon={ListChecks} title="Số hóa Đề Word (.docx)" tone="thuy" size="sm" onPress={onOpenSmartExam} />
           ) : null}
         </View>
       </Card>
 
-      {quizModalOpen ? <AiQuizModal open={quizModalOpen} onClose={() => setQuizModalOpen(false)} session={session} /> : null}
 
       <Txt size={13} color={c.muc2}>
         Hoặc chọn một bài học, trận đánh, sự kiện hoặc dán văn bản tự do: Hệ thống soạn bản nháp câu hỏi; thầy cô đọc, sửa rồi bấm lưu thì câu hỏi mới vào ngân hàng của thầy cô.

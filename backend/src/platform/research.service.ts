@@ -38,7 +38,6 @@ export const DICTIONARY: Array<{ column: string; meaning: string }> = [
   { column: 'level', meaning: 'Cấp độ hiện tại.' },
   { column: 'streak', meaning: 'Chuỗi ngày học hiện tại.' },
   { column: 'ai_questions', meaning: 'Số câu hỏi đã gửi Tiểu Tướng trong khoảng thời gian (chỉ đếm, không có nội dung).' },
-  { column: 'surveys_answered', meaning: 'Số khảo sát đã trả lời.' },
 ];
 
 @Injectable()
@@ -155,13 +154,12 @@ export class ResearchService {
     const events = new Map((await this.db.query<{ user_id: number; n: number }>('SELECT user_id, count(*)::int AS n FROM hk_events WHERE user_id = ANY($1) AND ($2::timestamptz IS NULL OR created_at >= $2) AND ($3::timestamptz IS NULL OR created_at <= $3) GROUP BY user_id', [ids, from, to])).map((r) => [r.user_id, r.n]));
     const ai = new Map((await this.db.query<{ user_id: number; n: number }>(
       `SELECT c.user_id, count(*)::int AS n FROM hk_ai_messages m JOIN hk_ai_conversations c ON c.id = m.conversation_id WHERE c.user_id = ANY($1) AND m.role = 'user' AND ($2::timestamptz IS NULL OR m.created_at >= $2) AND ($3::timestamptz IS NULL OR m.created_at <= $3) GROUP BY c.user_id`, [ids, from, to])).map((r) => [r.user_id, r.n]));
-    const surveys = new Map((await this.db.query<{ user_id: number; n: number }>('SELECT user_id, count(*)::int AS n FROM hk_survey_responses WHERE user_id = ANY($1) GROUP BY user_id', [ids])).map((r) => [r.user_id, r.n]));
     const rows = people.map((p) => {
       const s = stats.get(p.id)!;
       return {
         participant_id: this.pseudo('student', p.id, 16), school_code: this.pseudo('school', p.school_id, 6), grade: p.grade, group: p.group_name, group_id: p.group_id, gamification: p.gamification ? 1 : 0, ai: p.ai ? 1 : 0,
         events: events.get(p.id) ?? 0, active_days: s.active_days, study_minutes: s.study_minutes, attempts: s.attempts, avg_percent: s.avg_percent, answered: s.answered, correct: s.correct, accuracy_percent: s.accuracy,
-        nodes_done: s.nodes_done, nodes_total: s.nodes_total, progress_percent: s.progress, xp: s.xp, level: s.level, streak: s.streak, ai_questions: ai.get(p.id) ?? 0, surveys_answered: surveys.get(p.id) ?? 0,
+        nodes_done: s.nodes_done, nodes_total: s.nodes_total, progress_percent: s.progress, xp: s.xp, level: s.level, streak: s.streak, ai_questions: ai.get(p.id) ?? 0,
       };
     });
     return { period, rows };

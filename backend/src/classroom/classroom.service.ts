@@ -211,6 +211,7 @@ export class ClassroomService {
   }
 
   // ------------------------------------------------------------------ tạo, sửa, lưu trữ, xóa (HK.GV.008–011)
+  /** Lớp do giáo viên tự tạo. Từ 16/11/2026 không còn đường dẫn API (quản trị trường tạo lớp và phân công); hàm giữ cho dữ liệu cũ và kiểm thử. */
   async createClass(user: UserRow, body: { name: string; grade: number; description?: string | null }) {
     if (user.role !== 'teacher') throw new ForbiddenException('Giáo viên tự tạo lớp; quản trị viên trường tạo lớp ở trang quản trị');
     const year = (await this.db.query<{ id: number }>("SELECT id FROM app_school_years WHERE school_id = $1 AND status = 'active' LIMIT 1", [user.school_id]))[0];

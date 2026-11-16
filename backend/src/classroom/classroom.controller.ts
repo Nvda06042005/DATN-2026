@@ -24,7 +24,7 @@ export class ClassroomController {
 
   // ------------------------------------------------------------------ giáo viên: lớp (HK.GV.007–011)
   @Get('classes') @Roles(...STAFF) classes(@CurrentUser() user: UserRow) { return this.rooms.myClasses(user); }
-  @Post('classes') @Roles('teacher') create(@CurrentUser() user: UserRow, @Body() body: Json) { return this.rooms.createClass(user, body as never); }
+  // 16/11/2026: giáo viên không tự tạo lớp nữa; quản trị trường tạo lớp và phân công (một lớp một giáo viên) ở /api/admin/classes
   @Get('students-template') @Roles(...STAFF) async template() { return new StreamableFile(await this.rooms.studentTemplate(), { type: XLSX_MIME, disposition: 'attachment; filename="mau-them-hoc-sinh.xlsx"' }); }
   @Get('random-events') @Roles(...STAFF) randomEvents() { return RANDOM_EVENTS.map((e) => ({ id: e.id, label: e.label })); }
   @Get('classes/:id') @Roles(...STAFF) detail(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.rooms.classDetail(user, id); }

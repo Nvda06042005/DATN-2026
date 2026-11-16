@@ -1,6 +1,6 @@
 /**
- * Sprint 12 – khảo sát đánh giá trải nghiệm, nhóm thử nghiệm, dữ liệu nghiên cứu ẩn danh và báo cáo so sánh nhóm
- * (HK.HS.109, HK.GV.079, HK.QT.049–050, HK.AD.070, HK.AD.077–079). HTTP thật trên PostgreSQL tạm.
+ * Sprint 12 – nhóm thử nghiệm, dữ liệu nghiên cứu ẩn danh và báo cáo so sánh nhóm (HK.AD.077–079). HTTP thật trên PostgreSQL tạm.
+ * Khảo sát (HK.HS.109, HK.GV.079, HK.QT.049–050, HK.AD.070) đã xóa hẳn theo yêu cầu 16/11/2026: các đường dẫn khảo sát trả 404.
  */
 import { activate, call, hasPostgres, sql, Started, startApp } from './harness';
 import { bootstrap, Fixture, PW } from './fixture';
@@ -14,9 +14,8 @@ const download = async (token: string, path: string) => {
   const buf = Buffer.from(await res.arrayBuffer());
   return { status: res.status, type: res.headers.get('content-type') ?? '', buf, text: buf.toString('utf8'), disposition: res.headers.get('content-disposition') ?? '' };
 };
-const inbox = async (who: { token: string }) => (await as(who)('GET', '/api/platform/notices')).body.items as any[];
 
-(hasPostgres() ? describe : describe.skip)('Sprint 12 – khảo sát, nhóm thử nghiệm và nghiên cứu', () => {
+(hasPostgres() ? describe : describe.skip)('Sprint 12 – nhóm thử nghiệm và nghiên cứu', () => {
   beforeAll(async () => {
     s = await startApp('research_test');
     const rootToken = (await call(s.base, 'POST', '/api/auth/login', { username: 'admin', password: 'admin@123', portal: 'root_admin' })).body.token;
@@ -58,157 +57,13 @@ const inbox = async (who: { token: string }) => (await as(who)('GET', '/api/plat
   });
 
   // ------------------------------------------------------------------ HK.AD.070
-  test('mẫu khảo sát: có sẵn 3 mẫu; quản trị tổng thêm, sửa, tắt, xóa và kiểm tra câu hỏi; quản trị trường chỉ dùng mẫu đang bật', async () => {
-    const list = (await root('GET', '/api/platform/survey-templates')).body;
-    expect(list).toHaveLength(3);
-    expect(list.map((t: any) => t.audience).sort()).toEqual(['student', 'student', 'teacher']);
-    expect(list[0].questions.map((q: any) => q.type)).toEqual(expect.arrayContaining(['likert5', 'nps', 'single', 'text']));
-    const good = { title: 'Mẫu thử của quản trị', audience: 'both', questions: [{ type: 'likert5', text: 'Em hài lòng với ứng dụng?' }, { type: 'single', text: 'Em dùng bao lâu?', options: ['Ít', 'Nhiều'] }, { type: 'text', text: 'Góp ý thêm?' }] };
-    for (const bad of [
-      { ...good, title: 'ab' }, { ...good, audience: 'khach' }, { ...good, questions: [] },
-      { ...good, questions: [{ type: 'khac', text: 'Không hợp lệ?' }] }, { ...good, questions: [{ type: 'single', text: 'Thiếu lựa chọn?', options: ['Một'] }] },
-      { ...good, questions: [{ type: 'single', text: 'Trùng lựa chọn?', options: ['A', 'A'] }] }, { ...good, questions: [{ type: 'likert5', text: 'Hi' }] },
-      { ...good, questions: [{ id: 'q1', type: 'likert5', text: 'Câu một đủ dài' }, { id: 'q1', type: 'text', text: 'Câu hai trùng mã' }] },
-    ]) expect((await root('POST', '/api/platform/survey-templates', bad)).status).toBe(400);
-    const made = await root('POST', '/api/platform/survey-templates', good);
-    expect(made.status).toBe(200);
-    expect(made.body.questions.map((q: any) => [q.id, q.required])).toEqual([['q1', true], ['q2', true], ['q3', false]]); // mã tự sinh; câu ý kiến mặc định không bắt buộc
-    expect((await root('PUT', `/api/platform/survey-templates/${made.body.id}`, { is_active: false })).body.is_active).toBe(false);
-    expect((await as(f.A)('GET', '/api/platform/survey-templates')).body.map((t: any) => t.id)).not.toContain(made.body.id);
-    expect((await root('GET', '/api/platform/survey-templates')).body.map((t: any) => t.id)).toContain(made.body.id);
-    expect((await as(f.A)('POST', '/api/platform/survey-templates', good)).status).toBe(200);
-    expect((await as(f.T1)('GET', '/api/platform/survey-templates')).status).toBe(403);
-    expect((await root('DELETE', `/api/platform/survey-templates/${made.body.id}`)).body.deleted).toBe(true);
-    expect((await root('DELETE', `/api/platform/survey-templates/${made.body.id}`)).status).toBe(404);
+  test('khảo sát đã xóa hẳn (16/11/2026): mọi đường dẫn khảo sát và mẫu khảo sát trả 404 với mọi vai trò', async () => {
+    for (const [who, method, path] of [[f.S1, 'GET', '/api/platform/surveys/mine'], [f.T1, 'GET', '/api/platform/surveys/mine'], [f.A, 'GET', '/api/platform/surveys'], [f.A, 'POST', '/api/platform/surveys'],
+      [f.A, 'GET', '/api/platform/survey-templates'], [{ token: f.root }, 'POST', '/api/platform/survey-templates'], [f.T1, 'POST', '/api/platform/surveys/1/respond']] as Array<[{ token: string }, string, string]>) {
+      expect([method, path, (await as(who)(method, path, method === 'GET' ? undefined : {})).status]).toEqual([method, path, 404]);
+    }
   });
 
-  // ------------------------------------------------------------------ HK.QT.049, HK.QT.050, HK.HS.109, HK.GV.079
-  test('khảo sát: quản trị trường tạo từ mẫu cho một lớp; học sinh trong lớp nhận thông báo và trả lời một lần; kết quả ẩn danh; xuất dữ liệu thô không có tên', async () => {
-    const templates = (await as(f.A)('GET', '/api/platform/survey-templates')).body;
-    const studentTpl = templates.find((t: any) => t.title.startsWith('Trải nghiệm học lịch sử'));
-    const make = (body: Record<string, unknown>) => as(f.A)('POST', '/api/platform/surveys', body);
-    expect((await make({ template_id: studentTpl.id, class_ids: [999999] })).status).toBe(404);
-    expect((await make({ template_id: studentTpl.id, class_ids: [f.class7a.id], opens_at: 'không phải ngày' })).status).toBe(400);
-    expect((await make({ template_id: studentTpl.id, closes_at: new Date(Date.now() - 1000).toISOString(), opens_at: new Date().toISOString() })).status).toBe(400);
-    expect((await as(f.T1)('POST', '/api/platform/surveys', { template_id: studentTpl.id })).status).toBe(403);
-    expect((await make({ title: 'Tự soạn thiếu câu hỏi', audience: 'student' })).status).toBe(400);
-    const draft = await make({ template_id: studentTpl.id, class_ids: [f.class7a.id], status: 'draft' });
-    expect(draft.body).toMatchObject({ status: 'draft', phase: 'draft', targets: 3, responses: 0 }); // S1, S2, S4 trong lớp 7A1
-    expect((await inbox(f.S1)).some((i) => i.kind === 'survey')).toBe(false); // bản nháp chưa gửi
-    expect((await as(f.S1)('GET', '/api/platform/surveys/mine')).body).toEqual([]);
-    const svy = await make({ template_id: studentTpl.id, title: 'Khảo sát học kỳ 1 lớp 7A1', class_ids: [f.class7a.id], closes_at: new Date(Date.now() + 7 * 86_400_000).toISOString() });
-    expect(svy.body).toMatchObject({ title: 'Khảo sát học kỳ 1 lớp 7A1', status: 'open', phase: 'open', audience: 'student', targets: 3, responses: 0, response_rate: 0, template_id: studentTpl.id });
-    const id = svy.body.id;
-    // người nhận
-    for (const who of [f.S1, f.S2, S4]) expect((await inbox(who)).find((i) => i.kind === 'survey')).toMatchObject({ title: 'Khảo sát mới: Khảo sát học kỳ 1 lớp 7A1', category: 'system' });
-    for (const who of [f.S3, S5, f.T1]) expect((await inbox(who)).some((i) => i.kind === 'survey')).toBe(false);
-    expect((await as(f.S1)('GET', '/api/platform/surveys/mine')).body).toMatchObject([{ id, title: 'Khảo sát học kỳ 1 lớp 7A1', answered: false, questions: 7, phase: 'open' }]);
-    expect((await as(f.S3)('GET', `/api/platform/surveys/mine/${id}`)).status).toBe(404); // học sinh ngoài lớp
-    expect((await as(f.T1)('GET', `/api/platform/surveys/mine/${id}`)).status).toBe(404); // đối tượng là học sinh
-    expect((await as(S5)('POST', `/api/platform/surveys/${id}/respond`, { answers: {} })).status).toBe(404);
-    const form = (await as(f.S1)('GET', `/api/platform/surveys/mine/${id}`)).body;
-    expect(form.questions).toHaveLength(7);
-    expect(form).toMatchObject({ answered: false, phase: 'open' });
-    // trả lời: kiểm tra từng loại câu hỏi
-    const answers = { q1: 5, q2: 4, q3: 4, q4: 5, q5: 'Dưới 30 phút', q6: 9, q7: 'Em thích các thẻ tướng.' };
-    const respond = (who: { token: string }, a: Record<string, unknown>) => as(who)('POST', `/api/platform/surveys/${id}/respond`, { answers: a });
-    expect((await respond(f.S1, { ...answers, q1: undefined })).status).toBe(400); // thiếu câu bắt buộc
-    expect((await respond(f.S1, { ...answers, q1: 6 })).status).toBe(400);
-    expect((await respond(f.S1, { ...answers, q1: 2.5 })).status).toBe(400);
-    expect((await respond(f.S1, { ...answers, q5: 'Cả ngày' })).status).toBe(400);
-    expect((await respond(f.S1, { ...answers, q6: 11 })).status).toBe(400);
-    expect((await respond(f.S1, { ...answers, q7: 'x'.repeat(1001) })).status).toBe(400);
-    expect((await respond(f.S1, answers)).body).toEqual({ submitted: true });
-    expect((await respond(f.S1, answers)).status).toBe(409); // mỗi người một lần
-    expect((await as(f.S1)('GET', '/api/platform/surveys/mine')).body[0]).toMatchObject({ answered: true });
-    // kết quả khi chưa đủ 3 người: ý kiến tự do bị ẩn
-    const one = (await as(f.A)('GET', `/api/platform/surveys/${id}/results`)).body;
-    expect(one.responses).toMatchObject({ total: 1, students: 1, teachers: 0 });
-    expect(one.targets.total).toBe(3);
-    expect(one.response_rate).toBe(33);
-    expect(one.questions.find((q: any) => q.id === 'q7')).toMatchObject({ hidden: true, answers: [], n: 1 });
-    expect(JSON.stringify(one)).not.toContain('Em thích các thẻ tướng');
-    expect((await respond(f.S2, { ...answers, q1: 3, q2: 2, q6: 4, q5: '1 đến 2 giờ', q7: '' })).status).toBe(200);
-    expect((await respond(S4, { ...answers, q1: 4, q6: 10, q7: 'Nên có thêm trận đánh.' })).status).toBe(200);
-    const res = (await as(f.A)('GET', `/api/platform/surveys/${id}/results`)).body;
-    expect(res.response_rate).toBe(100);
-    const q1 = res.questions.find((q: any) => q.id === 'q1');
-    expect(q1).toMatchObject({ n: 3, min: 1, max: 5, counts: [0, 0, 1, 1, 1], mean: 4, agree_percent: 67 });
-    const q5 = res.questions.find((q: any) => q.id === 'q5');
-    expect(q5.options.find((o: any) => o.option === 'Dưới 30 phút')).toMatchObject({ count: 2, percent: 67 });
-    const nps = res.questions.find((q: any) => q.id === 'q6');
-    expect(nps).toMatchObject({ n: 3, promoters: 2, passives: 0, detractors: 1, nps: 33 });
-    expect(nps.counts).toHaveLength(11);
-    const q7 = res.questions.find((q: any) => q.id === 'q7');
-    expect(q7).toMatchObject({ hidden: false, n: 2 });
-    expect(q7.answers.sort()).toEqual(['Em thích các thẻ tướng.', 'Nên có thêm trận đánh.']);
-    // phạm vi quản trị
-    expect((await as(f.B)('GET', `/api/platform/surveys/${id}/results`)).status).toBe(404);
-    expect((await as(f.B)('PUT', `/api/platform/surveys/${id}`, { title: 'Trường khác sửa' })).status).toBe(404);
-    expect((await as(f.T1)('GET', `/api/platform/surveys/${id}/results`)).status).toBe(403);
-    expect((await root('GET', `/api/platform/surveys/${id}/results`)).status).toBe(200);
-    expect((await as(f.A)('GET', '/api/platform/surveys')).body.map((x: any) => x.id)).toEqual([id, draft.body.id]);
-    // xuất dữ liệu thô ẩn danh
-    const csv = await download(f.A.token, `/api/platform/surveys/${id}/export?format=csv`);
-    expect(csv.status).toBe(200);
-    expect(csv.type).toContain('text/csv');
-    const lines = csv.text.replace(/^﻿/, '').trim().split(/\r?\n/);
-    expect(lines).toHaveLength(4);
-    expect(lines[0].split(',').slice(0, 3)).toEqual(['Mã ẩn danh', 'Vai trò', 'Ngày trả lời']);
-    for (const secret of ['Phạm Minh Một', 'Hoàng Thị Hai', 'Lê Quốc Bốn', 'HS8001', 'HS8002', f.S1.id + '@', 'example.edu.vn']) expect(csv.text).not.toContain(secret);
-    expect(new Set(lines.slice(1).map((l) => l.split(',')[0])).size).toBe(3); // mã khác nhau cho mỗi người
-    const xlsx = await download(f.A.token, `/api/platform/surveys/${id}/export`);
-    expect(xlsx.status).toBe(200);
-    expect(xlsx.buf.subarray(0, 2).toString()).toBe('PK');
-    expect((await download(f.A.token, `/api/platform/surveys/${id}/export?format=pdf`)).status).toBe(400);
-    expect((await download(f.B.token, `/api/platform/surveys/${id}/export`)).status).toBe(404);
-    // đã có trả lời thì không đổi câu hỏi, không xóa; vẫn đóng được
-    expect((await as(f.A)('PUT', `/api/platform/surveys/${id}`, { questions: [{ type: 'text', text: 'Câu hỏi mới hoàn toàn' }] })).status).toBe(409);
-    expect((await as(f.A)('DELETE', `/api/platform/surveys/${id}`)).status).toBe(409);
-    expect((await as(f.A)('PUT', `/api/platform/surveys/${id}`, { title: 'Khảo sát học kỳ 1 (đã sửa tên)' })).body.title).toBe('Khảo sát học kỳ 1 (đã sửa tên)');
-    expect((await as(f.A)('PUT', `/api/platform/surveys/${id}`, { status: 'closed' })).body).toMatchObject({ status: 'closed', phase: 'closed' });
-    expect((await respond(S4, answers)).status).toBe(409);
-    expect((await as(f.A)('PUT', `/api/platform/surveys/${id}`, { status: 'draft' })).status).toBe(409);
-    // bản nháp xóa được; mở bản nháp thì thông báo cho người nhận
-    expect((await as(f.A)('PUT', `/api/platform/surveys/${draft.body.id}`, { status: 'open' })).body.phase).toBe('open');
-    expect((await inbox(f.S2)).filter((i) => i.kind === 'survey')).toHaveLength(2);
-    const throwaway = await make({ template_id: studentTpl.id, status: 'draft' });
-    expect((await as(f.A)('DELETE', `/api/platform/surveys/${throwaway.body.id}`)).body.deleted).toBe(true);
-  });
-
-  test('khảo sát của giáo viên và hẹn giờ mở: chỉ giáo viên của lớp được chọn; thông báo gửi đúng một lần khi tới giờ mở', async () => {
-    const teacherTpl = (await as(f.A)('GET', '/api/platform/survey-templates')).body.find((t: any) => t.audience === 'teacher');
-    const opens = new Date(Date.now() + 3_600_000).toISOString();
-    const svy = await as(f.A)('POST', '/api/platform/surveys', { template_id: teacherTpl.id, class_ids: [f.class7a.id], opens_at: opens });
-    expect(svy.body).toMatchObject({ audience: 'teacher', status: 'open', phase: 'scheduled', targets: 1 }); // chỉ giáo viên 7A1 (T1)
-    expect((await inbox(f.T1)).some((i) => i.kind === 'survey')).toBe(false);
-    expect((await as(f.T1)('GET', '/api/platform/surveys/mine')).body).toEqual([]); // chưa tới giờ mở
-    await sql(s.url, "UPDATE hk_surveys SET opens_at = now() - interval '1 minute' WHERE id = $1", [svy.body.id]);
-    const surveys = s.moduleRef.get((await import('../src/platform/survey.service')).SurveyService);
-    expect(await surveys.dispatchDue()).toBe(1);
-    expect(await surveys.dispatchDue()).toBe(0);
-    expect((await inbox(f.T1)).filter((i) => i.kind === 'survey')).toHaveLength(1);
-    expect((await inbox(f.T2)).some((i) => i.kind === 'survey')).toBe(false);
-    expect((await as(f.T1)('GET', '/api/platform/surveys/mine')).body).toMatchObject([{ id: svy.body.id, answered: false }]);
-    expect((await as(f.T2)('GET', `/api/platform/surveys/mine/${svy.body.id}`)).status).toBe(404);
-    expect((await as(f.S1)('GET', `/api/platform/surveys/mine/${svy.body.id}`)).status).toBe(404);
-    const a = { q1: 4, q2: 4, q3: 5, q4: 3, q5: 4, q6: 'Mỗi tuần một lần', q7: 8 };
-    expect((await as(f.T1)('POST', `/api/platform/surveys/${svy.body.id}/respond`, { answers: a })).body.submitted).toBe(true);
-    const res = (await as(f.A)('GET', `/api/platform/surveys/${svy.body.id}/results`)).body;
-    expect(res.responses).toMatchObject({ total: 1, teachers: 1, students: 0 });
-    expect(res.response_rate).toBe(100);
-    // đóng theo hạn: hết hạn thì không trả lời được nữa
-    await sql(s.url, "UPDATE hk_surveys SET opens_at = now() - interval '2 days', closes_at = now() - interval '1 minute' WHERE id = $1", [svy.body.id]);
-    expect((await as(f.T1)('GET', '/api/platform/surveys/mine')).body[0]).toMatchObject({ answered: true, phase: 'closed' });
-    // cả trường, cả hai đối tượng
-    const all = await as(f.A)('POST', '/api/platform/surveys', { title: 'Khảo sát chung cả trường', audience: 'both', questions: [{ type: 'likert5', text: 'Em / thầy cô hài lòng với ứng dụng?' }] });
-    expect(all.body.targets).toBeGreaterThanOrEqual(8);
-    expect((await as(f.T2)('GET', '/api/platform/surveys/mine')).body).toHaveLength(1);
-    expect((await as(f.TB)('GET', '/api/platform/surveys/mine')).body).toEqual([]); // trường khác
-    expect((await as(f.A)('GET', '/api/platform/surveys/mine')).status).toBe(403);
-  });
-
-  // ------------------------------------------------------------------ HK.AD.078
   test('nhóm thử nghiệm: tạo nhóm, gán lớp; lớp không có trò chơi hóa hoặc AI thì học sinh bị chặn đúng tính năng, giáo viên và lớp khác không ảnh hưởng', async () => {
     const control = await root('POST', '/api/platform/experiments/groups', { name: 'Đối chứng', description: 'Không trò chơi hóa, không AI', gamification: false, ai: false });
     const treat = await root('POST', '/api/platform/experiments/groups', { name: 'Thử nghiệm đầy đủ', gamification: true, ai: true });

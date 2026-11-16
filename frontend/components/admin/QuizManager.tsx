@@ -6,11 +6,10 @@
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { ArrowDown, ArrowUp, ChartNoAxesColumn, Copy, FileUp, Pencil, Play, Plus, Send, Shuffle, Sparkles, Table2, Trash2 } from 'lucide-react-native';
+import { ArrowDown, ArrowUp, ChartNoAxesColumn, Copy, FileUp, Pencil, Play, Plus, Send, Shuffle, Table2, Trash2 } from 'lucide-react-native';
 import * as api from '@/api/learningApi';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { QuestionPicker, ScopeChip, useCampaignOptions } from '@/components/admin/ContentKit';
-import { AiQuizModal } from '@/components/admin/AiQuizModal';
 import { SmartExamStudio, type SmartStudioMode } from '@/components/admin/SmartExamStudio';
 import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, usePageSize, type SearchFilter } from '@/components/admin/kit';
 import { dateText } from '@/components/admin/AccountSheet';
@@ -259,7 +258,7 @@ const QuizStatsPanel: React.FC<{ session: Session; id: number }> = ({ session, i
   );
 };
 
-const QuizDetailSheet: React.FC<{ session: Session; id: number; onClose: () => void; onChanged: () => void; onPreview: (a: AttemptState, title: string) => void; onStudio?: (quizId: number) => void }> = ({ session, id, onClose, onChanged, onPreview, onStudio }) => {
+const QuizDetailSheet: React.FC<{ session: Session; id: number; onClose: () => void; onChanged: () => void; onPreview: (a: AttemptState, title: string) => void }> = ({ session, id, onClose, onChanged, onPreview }) => {
   const { c } = useTheme();
   const role = session.user.role;
   const detail = useLoad(() => api.getQuiz(session.token, id), [session.token, id], session.expired);
@@ -295,7 +294,6 @@ const QuizDetailSheet: React.FC<{ session: Session; id: number; onClose: () => v
             <Btn icon={Play} title="Làm thử như học sinh" tone="ngoc" size="sm" loading={busy} onPress={async () => { const a = await run(() => api.previewQuiz(session.token, d.id)); if (a) { onPreview(a, d.title); onClose(); } }} testID="quiz-preview" />
             <Btn icon={ChartNoAxesColumn} title={showStats ? 'Ẩn thống kê' : 'Thống kê kết quả'} tone="giay" size="sm" onPress={() => setShowStats((x) => !x)} testID="quiz-stats-toggle" />
             {d.can_edit ? <Btn icon={Pencil} title="Sửa" tone="son" size="sm" disabled={d.locked} onPress={() => setEditing(true)} testID="quiz-edit" /> : null}
-            {d.can_edit && onStudio ? <Btn icon={Sparkles} title="Sửa trong trình soạn Quiz" tone="ngoc" size="sm" disabled={d.locked} onPress={() => { onClose(); onStudio(d.id); }} testID="quiz-edit-studio" /> : null}
             {role === 'teacher' || role === 'school_admin' || role === 'root_admin' ? <Btn icon={Copy} title="Nhân bản" tone="giay" size="sm" loading={busy} onPress={async () => { if (await run(() => api.duplicateQuiz(session.token, d.id), 'Đã nhân bản bộ đề')) { onChanged(); onClose(); } }} /> : null}
             {shareTarget ? <Btn icon={Send} title={shareTarget === 'school' ? 'Gửi vào kho của trường' : 'Đề xuất lên kho hệ thống'} tone="giay" size="sm" loading={busy} disabled={shared?.status === 'pending'}
               onPress={async () => { if (await run(() => api.requestShare(session.token, 'quiz', d.id, shareTarget), 'Đã gửi đi duyệt')) detail.reload(); }} /> : null}
@@ -311,7 +309,7 @@ const QuizDetailSheet: React.FC<{ session: Session; id: number; onClose: () => v
   );
 };
 
-export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: number) => void }> = ({ session, onStudio }) => {
+export const QuizManager: React.FC<{ session: Session }> = ({ session }) => {
   const role = session.user.role;
   const [store, setStore] = useState(role === 'school_admin' ? 'school' : 'all');
   const [q, setQ] = useState('');
@@ -319,7 +317,6 @@ export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: numb
   const size = usePageSize();
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
-  const [aiModal, setAiModal] = useState(false);
   const [matrix, setMatrix] = useState(false);
   const [smartMode, setSmartMode] = useState<SmartStudioMode | null>(null);
   const [preview, setPreview] = useState<{ attempt: AttemptState; title: string } | null>(null);
@@ -341,7 +338,6 @@ export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: numb
             list.reload();
             setOpen(quizId);
           }}
-          onOpenKahootStudio={onStudio}
         />
       </Page>
     );
@@ -350,7 +346,7 @@ export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: numb
     <>
     <Page>
       <PageHeader title="Bộ đề" subtitle="Bộ câu hỏi dùng ở các nút trên bản đồ hành trình. Bộ đề đang được giao hoặc đã có học sinh làm thì khóa chỉnh sửa; hãy nhân bản để thay đổi."
-        actions={canWrite ? <><Btn icon={FileUp} title="Tải đề từ Word/PDF" tone="thuy" size="sm" onPress={() => setSmartMode('upload')} testID="quiz-word-import" /><Btn icon={Shuffle} title="Trộn đề thi" tone="thuy" size="sm" onPress={() => setSmartMode('mix')} testID="quiz-mix" /><Btn icon={Table2} title="Tạo đề theo ma trận" tone="thuy" size="sm" onPress={() => setMatrix(true)} testID="quiz-matrix-open" />{onStudio ? <Btn icon={Sparkles} title="Soạn Quiz kiểu Kahoot" tone="ngoc" size="sm" onPress={() => onStudio()} testID="quiz-studio" /> : null}<Btn icon={Plus} title="Tạo bộ đề" tone="son" size="sm" onPress={() => setCreating(true)} testID="quiz-create" /></> : undefined} />
+        actions={canWrite ? <><Btn icon={FileUp} title="Tải đề từ Word/PDF" tone="thuy" size="sm" onPress={() => setSmartMode('upload')} testID="quiz-word-import" /><Btn icon={Shuffle} title="Trộn đề thi" tone="thuy" size="sm" onPress={() => setSmartMode('mix')} testID="quiz-mix" /><Btn icon={Table2} title="Tạo đề theo ma trận" tone="thuy" size="sm" onPress={() => setMatrix(true)} testID="quiz-matrix-open" /><Btn icon={Plus} title="Tạo bộ đề" tone="son" size="sm" onPress={() => setCreating(true)} testID="quiz-create" /></> : undefined} />
       <SearchFilterBar placeholder="Tìm bộ đề" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="quiz-search" filters={[f_store]} />
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
@@ -368,8 +364,7 @@ export const QuizManager: React.FC<{ session: Session; onStudio?: (quizId?: numb
           <Pager page={page} limit={size} total={list.data.total} onPage={setPage} />
         </>
       ) : null}
-            {aiModal ? <AiQuizModal open={aiModal} onClose={() => { setAiModal(false); list.reload(); }} session={session} /> : null}
-      {open !== null ? <QuizDetailSheet session={session} id={open} onClose={() => setOpen(null)} onChanged={list.reload} onPreview={(attempt, title) => setPreview({ attempt, title })} onStudio={onStudio} /> : null}
+      {open !== null ? <QuizDetailSheet session={session} id={open} onClose={() => setOpen(null)} onChanged={list.reload} onPreview={(attempt, title) => setPreview({ attempt, title })} /> : null}
       {creating ? <QuizForm session={session} onClose={() => setCreating(false)} onSaved={(d) => { setCreating(false); list.reload(); setOpen(d.id); }} /> : null}
       {matrix ? <MatrixSheet session={session} onClose={() => setMatrix(false)} onCreated={(id) => { setMatrix(false); list.reload(); setOpen(id); }} /> : null}
     </Page>

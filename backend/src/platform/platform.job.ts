@@ -8,7 +8,6 @@ import { DatabaseService } from '../database/database.service';
 import { BackupService } from './backup.service';
 import { ErrorLog } from './error-log';
 import { NoticeService } from './notice.service';
-import { SurveyService } from './survey.service';
 import { SystemService } from './system.service';
 
 @Injectable()
@@ -18,7 +17,7 @@ export class PlatformJob implements OnApplicationBootstrap, OnModuleDestroy {
   private ticks = 0;
   private running = false;
 
-  constructor(private readonly db: DatabaseService, private readonly notices: NoticeService, private readonly backups: BackupService, private readonly system: SystemService, private readonly surveys: SurveyService) {}
+  constructor(private readonly db: DatabaseService, private readonly notices: NoticeService, private readonly backups: BackupService, private readonly system: SystemService) {}
 
   async onApplicationBootstrap(): Promise<void> {
     // Chỉ lên lịch sau khi migration và database đã sẵn sàng.
@@ -46,7 +45,6 @@ export class PlatformJob implements OnApplicationBootstrap, OnModuleDestroy {
     try {
       this.ticks += 1;
       await this.step('broadcasts', () => this.notices.dispatchDue());
-      await this.step('surveys', () => this.surveys.dispatchDue());
       if (force.automatic || this.ticks % 5 === 0) await this.step('notices_auto', () => this.notices.automatic());
       if (force.hourly || this.ticks % 60 === 1) {
         await this.step('deleted_records_retention', () => this.db.query('SELECT public.app_purge_deleted_records()'));

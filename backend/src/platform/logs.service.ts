@@ -23,6 +23,7 @@ const VERB: Array<[RegExp, string]> = [
 /** Nhãn riêng cho các thao tác của nhóm nền tảng và tài khoản (kiểm tra trước các quy tắc chung bên dưới); [phương thức, mẫu đường dẫn, nhãn] */
 const SPECIAL: Array<[string | null, RegExp, string]> = [
   ['POST', /\/platform\/broadcasts$/, 'Gửi thông báo'], ['PUT', /\/platform\/broadcasts\/:id$/, 'Sửa thông báo'], ['DELETE', /\/platform\/broadcasts\/:id$/, 'Thu hồi / hủy thông báo'],
+  // khảo sát đã xóa ngày 16/11/2026; giữ nhãn để nhật ký thao tác cũ vẫn đọc được
   ['POST', /\/platform\/surveys\/:id\/respond$/, 'Trả lời khảo sát'], ['POST', /\/platform\/surveys$/, 'Tạo khảo sát'], ['PUT', /\/platform\/surveys\/:id$/, 'Cập nhật khảo sát'], ['DELETE', /\/platform\/surveys\/:id$/, 'Xóa khảo sát'],
   [null, /\/platform\/survey-templates/, 'Sửa mẫu khảo sát'], [null, /\/platform\/experiments\/classes/, 'Gán lớp vào nhóm thử nghiệm'], [null, /\/platform\/experiments\/groups/, 'Sửa nhóm thử nghiệm'],
   [null, /\/platform\/support\/:id\/reply$/, 'Trả lời yêu cầu hỗ trợ'], [null, /\/platform\/support\/:id\/status$/, 'Đổi trạng thái yêu cầu hỗ trợ'], ['POST', /\/platform\/support$/, 'Gửi yêu cầu hỗ trợ'],

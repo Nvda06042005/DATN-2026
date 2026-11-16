@@ -37,8 +37,7 @@ import { FeedbackService } from './analytics/feedback.service';
 import { RecoService } from './analytics/reco.service';
 import { PlatformAdminController } from './platform/platform-admin.controller';
 import { ResearchService } from './platform/research.service';
-import { SurveyController } from './platform/survey.controller';
-import { SurveyService } from './platform/survey.service';
+import { ResearchController } from './platform/research.controller';
 import { PlatformController } from './platform/platform.controller';
 import { PlatformJob } from './platform/platform.job';
 import { BackupService } from './platform/backup.service';
@@ -71,8 +70,8 @@ import { LessonService } from './content/lesson.service';
 import { QuestionService } from './content/question.service';
 import { QuizService } from './content/quiz.service';
 import { ShareService } from './content/share.service';
-import { MediaFileController, StudioController } from './content/studio.controller';
-import { MediaService, QuizStudioService } from './content/studio.service';
+import { MediaController, MediaFileController } from './content/studio.controller';
+import { MediaService } from './content/studio.service';
 import { DatabaseService } from './database/database.service';
 import { DeletionArchiveInterceptor } from './database/deletion-archive.interceptor';
 import { HistoryController } from './history/history.controller';
@@ -91,8 +90,8 @@ import { SagaService } from './saga/saga.service';
   imports: [
     JwtModule.register({ secret: config.authSecret, signOptions: { algorithm: 'HS256', expiresIn: config.tokenTtlHours * 3600 }, verifyOptions: { algorithms: ['HS256'] } }),
   ],
-  controllers: [AppController, AuthController, AdminController, HistoryController, ContentController, StudentController, LearnController, PlayController, GameController, BattleController, ClassroomController, LiveController, WarController, AiController, AnalyticsController, PlatformController, PlatformAdminController, SurveyController, StudioController, MediaFileController, SchoolLogoController, SagaController],
-  providers: [SagaService, WarClassService, MediaService, QuizStudioService, SurveyService, ResearchService, SystemService, RbacService, LogsService, PrefsService, NoticeService, SupportService, FaqService, TwoFactorService, BackupService, PlatformJob, { provide: APP_INTERCEPTOR, useClass: PolicyInterceptor }, { provide: APP_INTERCEPTOR, useClass: WorkspaceInterceptor }, AnalyticsService, RecoService, FeedbackService, AnalyticsJob, LlmClient, AiSettingsService, AiRetrievalService, AiIndexService, AiTutorService, AiToolsService, AiAdminService, SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, MailService, SchoolService, AccountService, ClassService, HistoryService, QuestionService, QuizService, LessonService, JourneyService, ShareService, LearnService, PlayService, GameClock, SettingsService, GameService, BoardService, CatalogService, GameJob, BattleService, WarGate, WarCardsService, WarMarchService, WarService, ClassroomService, AssignmentService, SkillService, LiveService, LiveGateway, { provide: APP_INTERCEPTOR, useClass: DeletionArchiveInterceptor }],
+  controllers: [AppController, AuthController, AdminController, HistoryController, ContentController, StudentController, LearnController, PlayController, GameController, BattleController, ClassroomController, LiveController, WarController, AiController, AnalyticsController, PlatformController, PlatformAdminController, ResearchController, MediaController, MediaFileController, SchoolLogoController, SagaController],
+  providers: [SagaService, WarClassService, MediaService, ResearchService, SystemService, RbacService, LogsService, PrefsService, NoticeService, SupportService, FaqService, TwoFactorService, BackupService, PlatformJob, { provide: APP_INTERCEPTOR, useClass: PolicyInterceptor }, { provide: APP_INTERCEPTOR, useClass: WorkspaceInterceptor }, AnalyticsService, RecoService, FeedbackService, AnalyticsJob, LlmClient, AiSettingsService, AiRetrievalService, AiIndexService, AiTutorService, AiToolsService, AiAdminService, SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, MailService, SchoolService, AccountService, ClassService, HistoryService, QuestionService, QuizService, LessonService, JourneyService, ShareService, LearnService, PlayService, GameClock, SettingsService, GameService, BoardService, CatalogService, GameJob, BattleService, WarGate, WarCardsService, WarMarchService, WarService, ClassroomService, AssignmentService, SkillService, LiveService, LiveGateway, { provide: APP_INTERCEPTOR, useClass: DeletionArchiveInterceptor }],
 })
 export class AppModule {}
 

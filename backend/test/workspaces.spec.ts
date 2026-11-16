@@ -105,10 +105,6 @@ const ok = (res: {status:number;body:any}, status=200) => { expect({status:res.s
    const response=await fetch(s.base+'/api/platform/research/export',{headers:{Authorization:`Bearer ${f.B.token}`}});
    expect(response.status).toBe(200);
    expect(await response.text()).not.toContain('HS8001');
-   const template=ok(await a('POST','/api/platform/survey-templates',{title:'Mẫu khảo sát trường A',audience:'student',questions:[{id:'q1',type:'text',text:'Em học được điều gì?',required:true}]}));
-   expect(ok(await b('GET','/api/platform/survey-templates')).some((r:any)=>r.id===template.id)).toBe(false);
-   ok(await a('PUT',`/api/platform/survey-templates/${template.id}`,{is_active:false}));
-   expect(ok(await a('GET','/api/platform/survey-templates')).some((r:any)=>r.id===template.id&&!r.is_active)).toBe(true);
  });
 
  test('màn chơi, bản đồ, chỉ huy và hội thoại quản lý được trong trường; chặn sửa ở trường khác',async()=>{

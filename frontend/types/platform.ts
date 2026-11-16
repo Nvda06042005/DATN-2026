@@ -50,23 +50,6 @@ export interface Paged<T> { total: number; page: number; limit: number; items: T
 export interface TwoFactorStatus { eligible: boolean; enabled: boolean; method: 'email' | 'totp' | null; pending?: boolean; backup_codes_left: number; has_email: boolean; totp_available: boolean }
 export interface TwoFactorChallenge { two_factor: true; method: 'email' | 'totp'; challenge: string; expires_in: number }
 
-// ---------------------------------------------------------------------- khảo sát
-export type QType = 'likert5' | 'nps' | 'single' | 'multi' | 'text';
-export interface Question { id: string; type: QType; text: string; options?: string[]; required: boolean }
-export const QTYPE_TEXT: Record<QType, string> = { likert5: 'Thang 1–5', nps: 'Giới thiệu 0–10', single: 'Chọn một', multi: 'Chọn nhiều', text: 'Ý kiến' };
-export interface SurveyTemplate { can_edit?:boolean; id: number; title: string; description: string | null; audience: 'student' | 'teacher' | 'both'; questions: Question[]; is_active: boolean }
-export interface Survey {
-  id: number; title: string; description: string | null; audience: 'student' | 'teacher' | 'both'; questions: Question[]; class_ids: number[]; status: 'draft' | 'open' | 'closed'; phase: 'draft' | 'scheduled' | 'open' | 'closed';
-  opens_at: string | null; closes_at: string | null; targets: number; responses: number; response_rate: number | null; created_at: string;
-}
-export interface MySurvey { id: number; title: string; description: string | null; questions: number; closes_at: string | null; answered: boolean; phase: string }
-export interface SurveyForm { id: number; title: string; description: string | null; questions: Question[]; closes_at: string | null; phase: string; answered: boolean }
-export interface SurveyResult {
-  survey: { id: number; title: string; audience: string; phase: string }; targets: { total: number; students: number; teachers: number }; responses: { total: number; students: number; teachers: number }; response_rate: number | null; min_text_responses: number;
-  questions: Array<{ id: string; type: QType; text: string; n: number; min?: number; max?: number; counts?: number[]; mean?: number | null; agree_percent?: number | null; promoters?: number; passives?: number; detractors?: number; nps?: number | null;
-    options?: Array<{ option: string; count: number; percent: number }>; hidden?: boolean; answers?: string[] }>;
-}
-
 // ---------------------------------------------------------------------- nghiên cứu
 export interface ExperimentGroup { can_edit?:boolean; id: number; name: string; description: string | null; gamification: boolean; ai: boolean; classes: number; students: number }
 export interface ExperimentClass { id: number; name: string; grade: number | null; school_name: string; group_id: number | null; group_name: string | null; students: number }

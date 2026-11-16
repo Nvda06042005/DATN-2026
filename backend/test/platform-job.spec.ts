@@ -14,7 +14,6 @@ describe('Vận hành hệ thống tự động sau khi database sẵn sàng',()
     const {NoticeService}=await import('../src/platform/notice.service');
     const {BackupService}=await import('../src/platform/backup.service');
     const {SystemService}=await import('../src/platform/system.service');
-    const {SurveyService}=await import('../src/platform/survey.service');
     let begin!:()=>void,finish!:()=>void;
     const started=new Promise<void>(resolve=>{begin=resolve;});
     const pending=new Promise<void>(resolve=>{finish=resolve;});
@@ -23,7 +22,7 @@ describe('Vận hành hệ thống tự động sau khi database sẵn sàng',()
     const backups={autoIfDue:jest.fn().mockResolvedValue(null)};
     const system={beat:jest.fn().mockResolvedValue(undefined)};
     const module=await Test.createTestingModule({providers:[PlatformJob,{provide:DatabaseService,useValue:db},{provide:NoticeService,useValue:notices},
-      {provide:BackupService,useValue:backups},{provide:SystemService,useValue:system},{provide:SurveyService,useValue:{dispatchDue:jest.fn().mockResolvedValue(0)}}]}).compile();
+      {provide:BackupService,useValue:backups},{provide:SystemService,useValue:system}]}).compile();
     job=module.get(PlatformJob);
     const initializing=module.init();await started;
     await jest.advanceTimersByTimeAsync(60_000);

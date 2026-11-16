@@ -18,7 +18,6 @@ const base = '/api/classroom';
 // ---------------------------------------------------------------------- giáo viên: lớp (HK.GV.007–011)
 export const teacherClasses = (token: string) => apiRequest<ClassRow[]>(`${base}/classes`, { token });
 export const classDetail = (token: string, id: number) => apiRequest<ClassDetail>(`${base}/classes/${id}`, { token });
-export const createClass = (token: string, body: { name: string; grade: number; description?: string | null }) => apiRequest<ClassDetail>(`${base}/classes`, { token, body });
 export const updateClass = (token: string, id: number, body: { name?: string; description?: string | null; cover_url?: string | null }) => apiRequest<ClassDetail>(`${base}/classes/${id}`, { token, method: 'PATCH', body });
 export const archiveClass = (token: string, id: number, archived: boolean) => apiRequest<ClassDetail>(`${base}/classes/${id}/archive`, { token, body: { archived } });
 export const deleteClass = (token: string, id: number) => apiRequest<void>(`${base}/classes/${id}`, { token, method: 'DELETE' });

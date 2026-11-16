@@ -27,6 +27,25 @@ const emit = (c: Socket, event: string, body: unknown) => new Promise<any>((reso
 const RIGHT = [{ choice: 'a' }, { choices: ['a', 'c'] }, { value: true }];
 const WRONG = [{ choice: 'b' }, { choices: ['b'] }, { value: false }];
 
+/**
+ * Bộ đề cho phòng thi đấu: thêm từng câu vào ngân hàng câu hỏi rồi gộp thành bộ đề (thời gian, loại điểm, giao diện). Trình soạn "Quiz (Kahoot-style)"
+ * (/api/content/studio) đã xóa hẳn ngày 16/11/2026; phòng thi đấu lấy câu hỏi từ ngân hàng câu hỏi và thư viện học liệu.
+ */
+type Q = { qtype: string; prompt: string; options: string[]; correct: number[]; tf: boolean; seconds: number; score_mode: string; image_url?: string | null; video_url?: string | null; explanation?: string };
+async function buildQuiz(call: (method: string, path: string, body?: unknown) => Promise<{ status: number; body: any }>, title: string, theme: Record<string, unknown>, questions: Q[]) {
+  const slot = (i: number) => String.fromCharCode(97 + i);
+  const ids: number[] = [];
+  for (const x of questions) {
+    const opts = x.options.map((t, i) => ({ id: slot(i), text: String(t).trim() })).filter((o) => o.text);
+    const data = x.qtype === 'truefalse' ? { correct: x.tf } : x.qtype === 'poll' ? { options: opts } : { options: opts, correct: x.qtype === 'single' ? slot(x.correct[0]) : x.correct.map(slot) };
+    const q = await call('POST', '/api/content/questions', { qtype: x.qtype, prompt: x.prompt, image_url: x.image_url ?? null, video_url: x.video_url ?? null, explanation: x.explanation || null, difficulty: 2, data });
+    if (q.status !== 201) return q;
+    ids.push(q.body.id);
+  }
+  const quiz = await call('POST', '/api/content/quizzes', { title, theme, items: questions.map((x, i) => ({ question_id: ids[i], points: x.score_mode === 'double' ? 200 : 100, seconds: x.seconds, score_mode: x.score_mode })) });
+  return { status: quiz.status === 201 ? 200 : quiz.status, body: { quiz: quiz.body } };
+}
+
 (hasPostgres() ? describe : describe.skip)('Ver0.2 Sprint 8 – thi đấu trực tiếp nâng cao', () => {
   let classId: number, quizId: number;
   const make = async (extra: Record<string, unknown> = {}) => {
@@ -48,16 +67,12 @@ const WRONG = [{ choice: 'b' }, { choices: ['b'] }, { value: false }];
     const rootToken = (await call(s.base, 'POST', '/api/auth/login', { username: 'admin', password: 'admin@123', portal: 'root_admin' })).body.token;
     f = await bootstrap(s, rootToken);
     classId = f.class7a.id;
-    // Quiz ba câu soạn bằng trình soạn: một đáp án (tiêu chuẩn), nhiều đáp án (gấp đôi), đúng / sai (không tính điểm)
-    const d = (await api('POST', '/api/content/studio', {})).body;
-    const q = (over: Record<string, unknown>) => ({ qtype: 'single', prompt: 'Câu hỏi thử nghiệm', options: ['Đáp án A', 'Đáp án B', 'Đáp án C', ''], correct: [0], tf: true, seconds: 20, score_mode: 'standard', ...over });
-    await api('PUT', `/api/content/studio/${d.id}`, {
-      title: 'Quiz thi đấu nâng cao', theme: { bg: 'thang-long', music: 'hao-khi' }, questions: [
-        q({ prompt: 'Câu 1 – một đáp án' }), q({ prompt: 'Câu 2 – nhiều đáp án', qtype: 'multiple', options: ['Một', 'Hai', 'Ba', 'Bốn'], correct: [0, 2], score_mode: 'double' }),
-        q({ prompt: 'Câu 3 – đúng hay sai', qtype: 'truefalse', score_mode: 'none' }),
-      ],
-    });
-    const committed = await api('POST', `/api/content/studio/${d.id}/commit`);
+    // Bộ đề ba câu lấy từ ngân hàng câu hỏi: một đáp án (tiêu chuẩn), nhiều đáp án (gấp đôi), đúng / sai (không tính điểm)
+    const q = (over: Record<string, unknown>) => ({ qtype: 'single', prompt: 'Câu hỏi thử nghiệm', options: ['Đáp án A', 'Đáp án B', 'Đáp án C', ''], correct: [0], tf: true, seconds: 20, score_mode: 'standard', ...over }) as Q;
+    const committed = await buildQuiz(api, 'Quiz thi đấu nâng cao', { bg: 'thang-long', music: 'hao-khi' }, [
+      q({ prompt: 'Câu 1 – một đáp án' }), q({ prompt: 'Câu 2 – nhiều đáp án', qtype: 'multiple', options: ['Một', 'Hai', 'Ba', 'Bốn'], correct: [0, 2], score_mode: 'double' }),
+      q({ prompt: 'Câu 3 – đúng hay sai', qtype: 'truefalse', score_mode: 'none' }),
+    ]);
     expect(committed.status).toBe(200);
     quizId = committed.body.quiz.id;
   });
@@ -386,11 +401,7 @@ const WRONG = [{ choice: 'b' }, { choices: ['b'] }, { value: false }];
   describe('Bình chọn (HK.GV.088)', () => {
     let pollQuiz: number, pollOnly: number;
     const pq = (over: Record<string, unknown>) => ({ qtype: 'single', prompt: 'Câu hỏi bình chọn thử nghiệm', options: ['Đáp án A', 'Đáp án B', 'Đáp án C', ''], correct: [0], tf: true, seconds: 20, score_mode: 'standard', image_url: null, video_url: null, explanation: '', ...over });
-    const build = async (title: string, questions: unknown[]) => {
-      const d = (await api('POST', '/api/content/studio', {})).body;
-      await api('PUT', `/api/content/studio/${d.id}`, { title, theme: { bg: 'default', music: 'none' }, questions });
-      return api('POST', `/api/content/studio/${d.id}/commit`);
-    };
+    const build = (title: string, questions: Q[]) => buildQuiz(api, title, { bg: 'default', music: 'none' }, questions);
     const POLL = pq({ prompt: 'Nếu là Trần Hưng Đạo, em chọn cách đánh nào?', qtype: 'poll', options: ['Đánh thẳng', 'Phòng thủ', 'Rút lui', ''], correct: [1], score_mode: 'double' });
 
     beforeAll(async () => {
@@ -410,8 +421,7 @@ const WRONG = [{ choice: 'b' }, { choices: ['b'] }, { value: false }];
       expect(bank.qtype).toBe('poll');
       expect(bank.data).toEqual({ options: [{ id: 'a', text: 'Đánh thẳng' }, { id: 'b', text: 'Phòng thủ' }, { id: 'c', text: 'Rút lui' }] });
       const bad = await build('Bình chọn thiếu', [pq({ qtype: 'poll', options: ['Chỉ một', '', '', ''] })]);
-      expect(bad.status).toBe(400);
-      expect(bad.body.detail).toMatch(/Câu 1: hai đáp án đầu/);
+      expect(bad.status).toBeGreaterThanOrEqual(400); // câu bình chọn cần ít nhất hai lựa chọn
       const r = await make({ quiz_id: pollQuiz });
       expect((await db.query<any>('SELECT plan FROM hk_live_rooms WHERE id = $1', [r.room.id]))[0].plan.map((p: any) => [p.points, p.seconds])).toEqual([[1000, 20], [0, 20], [1000, 20]]);
     });

@@ -10,7 +10,7 @@ export class WorkspaceInterceptor implements NestInterceptor {
     const req = context.switchToHttp().getRequest<{ user?: UserRow; originalUrl?: string; url: string }>();
     const path = (req.originalUrl ?? req.url).split('?')[0];
     const isWorkspace = /^\/api\/(admin\/history|content|learn|play|game|battle|war|ai|analytics|saga)(\/|$)/.test(path)
-      || /^\/api\/platform\/(experiments|research|survey-templates|surveys)(\/|$)/.test(path);
+      || /^\/api\/platform\/(experiments|research)(\/|$)/.test(path);
     if (!req.user || req.user.role === 'root_admin' || !isWorkspace) return next.handle();
     return defer(() => this.db.withWorkspace(req.user!, () => lastValueFrom(next.handle())));
   }

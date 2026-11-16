@@ -52,7 +52,7 @@ test('đã xóa các tệp giao diện cũ của học sinh; giữ phần dùng 
   const gone = ['BattleKit', 'Celebrations', 'ClassTab', 'DemoActivityPlayer', 'DuolingoRightPanel', 'GameTabs', 'LearnerHome', 'LearningPath', 'LearningSections', 'LessonSteps', 'LivePlay', 'LiveTab', 'MiniGames', 'PathNodePopover', 'Progress', 'QuestMap', 'StudentNav', 'StudyPlan', 'WarCards', 'WarPlay'];
   for (const f of gone) assert.ok(!exists('components', 'portal', `${f}.tsx`), f);
   for (const f of ['learning-path.ts', 'learning-path-demo.ts']) assert.ok(!exists('lib', f), f);
-  const kept = ['TieuTuong', 'QuizPlayer', 'LiveKit', 'LessonReader', 'Library', 'NoticeCenter', 'HelpCenter', 'SurveyCenter', 'Media', 'LiveTheme', 'MapGraph', 'GameKit', 'LessonCelebrationView', 'PathArt', 'SandTableView', 'TeacherApp'];
+  const kept = ['TieuTuong', 'QuizPlayer', 'LiveKit', 'LessonReader', 'Library', 'NoticeCenter', 'HelpCenter', 'Media', 'LiveTheme', 'MapGraph', 'GameKit', 'LessonCelebrationView', 'PathArt', 'SandTableView', 'TeacherApp'];
   for (const f of kept) assert.ok(exists('components', 'portal', `${f}.tsx`), f);
   for (const f of ['SagaKit', 'SagaHome', 'SagaLearn', 'SagaPlay', 'SagaExtras', 'GameViewport', 'GameViewport.web']) assert.ok(exists('components', 'portal', `${f}.tsx`), f);
   for (const f of ['index.ts', 'bridge.ts', 'pixel.ts', 'explore-scene.ts', 'tactics-scene.ts', 'bachdang-scene.ts']) assert.ok(exists('game', f), f);
@@ -104,6 +104,20 @@ test('trang giáo viên ẩn Hành trình học, Bộ đề và bỏ Trò chơi 
   assert.match(teacher, /const VISIBLE_NAV = NAV\.filter\(\(it\) => !TEMP_HIDDEN_TEACHER_TABS\.includes\(it\.id\)\);/);
   assert.match(teacher, /nav=\{VISIBLE_NAV\}/);
   assert.ok(!teacher.includes('TeacherGame') && !teacher.includes('Trò chơi hóa'), 'TeacherApp không còn mục Trò chơi hóa');
+});
+
+test('16/11/2026: giáo viên không còn Khảo sát, trình soạn Quiz (Kahoot-style), Soạn đề bằng AI và nút Tạo lớp; hộp "+ Tạo" chỉ còn Câu hỏi và Phòng thi đấu', () => {
+  const teacher = read('components', 'portal', 'TeacherApp.tsx');
+  for (const gone of ["'surveys'", 'SurveyPage', '<QuizStudio', 'AiQuizModal', "'studio'", "title: 'Quiz (Kahoot-style)'", "title: 'Soạn đề bằng AI'"]) assert.ok(!teacher.includes(gone), gone);
+  assert.match(teacher, /\{ id: 'question', title: 'Câu hỏi'/);
+  assert.match(teacher, /\{ id: 'live', title: 'Phòng thi đấu trực tiếp'/);
+  for (const f of [['components', 'admin', 'QuizStudio.tsx'], ['components', 'admin', 'AiQuizModal.tsx'], ['components', 'portal', 'SurveyCenter.tsx'], ['types', 'studio.ts']]) assert.ok(!exists(...f), f.join('/'));
+  assert.doesNotMatch(read('components', 'admin', 'AiTeacher.tsx'), /AiQuizModal|Soạn đề AI theo ma trận Bloom/);
+  assert.doesNotMatch(read('api', 'platformApi.ts'), /surveys|survey-templates/);
+  assert.doesNotMatch(read('api', 'learningApi.ts'), /\/api\/content\/studio/);
+  const classes = read('components', 'admin', 'ClassManager.tsx');
+  assert.ok(!classes.includes('testID="class-create"') && !classes.includes('<FormSheet title="Tạo lớp"'), 'giáo viên không tự tạo lớp');
+  assert.doesNotMatch(read('api', 'classroomApi.ts'), /export const createClass/);
 });
 
 test('các màn của Hành trình Đông A dựng bằng thành phần của cổng quản trị (tiêu đề hai nửa, thẻ, nút, bảng), không còn bộ nút khối / nền trời / pháo giấy của bản trò chơi cũ', () => {

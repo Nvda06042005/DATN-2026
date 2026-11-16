@@ -31,18 +31,21 @@ const notes = async (who: { token: string }) => (await call(s.base, 'GET', '/api
   afterAll(async () => { clock?.reset(); await s?.close(); });
 
   // ------------------------------------------------------------------ HK.GV.007–011
-  test('HK.GV.007/008 danh sách lớp phụ trách kèm sĩ số, đội, yêu cầu chờ; giáo viên tự tạo lớp trong năm học đang hoạt động', async () => {
+  test('HK.GV.007/008 danh sách lớp phụ trách kèm sĩ số, đội, yêu cầu chờ, mã tham gia; giáo viên không tự tạo lớp qua API (16/11/2026)', async () => {
     const list = (await api('GET', '/api/classroom/classes')).body;
     expect(list).toHaveLength(1);
     expect(list[0]).toMatchObject({ id: classId, name: '7A1', students: 2, teams: 0, pending_leaves: 0, own: false, join_open: true, journeys: [], avg_progress: null });
     expect(list[0].join_code).toMatch(/^DongA7A1[A-Za-z]+HK[12]\d{4}-\d{4}$/); // lớp tạo kèm giáo viên phụ trách: mã tham gia theo quy ước (13/11/2026)
     expect((await api('GET', '/api/classroom/classes', undefined, f.S1.token)).status).toBe(403);
-    const created = await api('POST', '/api/classroom/classes', { name: ' 7A9 ', grade: 7, description: 'Lớp thử nghiệm' });
-    expect(created.status).toBe(201);
+    // 16/11/2026: quản trị trường tạo lớp và phân công; giáo viên không còn đường dẫn tạo lớp. Lớp giáo viên đã tự tạo trước đó (dữ liệu cũ)
+    // vẫn quản lý được: tạo một lớp như thế qua dịch vụ để kiểm thử các thao tác với lớp tự tạo.
+    expect((await api('POST', '/api/classroom/classes', { name: '7A9', grade: 7 })).status).toBe(404);
+    expect((await api('POST', '/api/classroom/classes', { name: 'X', grade: 7 }, f.A.token)).status).toBe(404);
+    const rooms = s.moduleRef.get((await import('../src/classroom/classroom.service')).ClassroomService);
+    const created = { body: await rooms.createClass(await userRow(f.T1.id), { name: ' 7A9 ', grade: 7, description: 'Lớp thử nghiệm' }) as any };
     expect(created.body).toMatchObject({ name: '7A9', grade: 7, own: true, students: 0, teachers: [{ id: f.T1.id }], is_active: true });
-    expect((await api('POST', '/api/classroom/classes', { name: '7a9', grade: 7 })).status).toBe(409); // trùng tên trong năm học
-    expect((await api('POST', '/api/classroom/classes', { name: '5A1', grade: 5 })).status).toBeGreaterThanOrEqual(400); // khối 5 không được bật
-    expect((await api('POST', '/api/classroom/classes', { name: 'X', grade: 7 }, f.A.token)).status).toBe(403); // quản trị viên tạo lớp ở trang quản trị
+    await expect(rooms.createClass(await userRow(f.T1.id), { name: '7a9', grade: 7 })).rejects.toThrow(); // trùng tên trong năm học
+    await expect(rooms.createClass(await userRow(f.T1.id), { name: '5A1', grade: 5 })).rejects.toThrow(); // khối 5 không được bật
     expect((await api('GET', `/api/classroom/classes/${created.body.id}`, undefined, f.TB.token)).status).toBe(404); // giáo viên trường khác
     expect((await api('GET', `/api/classroom/classes/${created.body.id}`, undefined, f.T2.token)).status).toBe(404); // giáo viên khác trong trường nhưng không phụ trách
   });

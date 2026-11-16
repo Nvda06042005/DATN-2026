@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 import { Image, View } from 'react-native';
-import { Archive, ArrowLeft, KeyRound, Pencil, Plus, RotateCcw, Trash2, UserPlus } from 'lucide-react-native';
+import { Archive, ArrowLeft, KeyRound, Pencil, RotateCcw, Trash2, UserPlus } from 'lucide-react-native';
 import * as api from '@/api/classroomApi';
 import { ClassBattleLinks } from '@/components/admin/ClassBattleLinks';
 import { ClassStudents, ClassTeams } from '@/components/admin/ClassPeople';
@@ -22,7 +22,6 @@ const SECTIONS: Array<{ value: Section; label: string }> = [
   { value: 'students', label: 'Học sinh' }, { value: 'teams', label: 'Đội' }, { value: 'rules', label: 'Luật lớp' }, { value: 'battle', label: 'Trận đánh' }, { value: 'rewards', label: 'Thưởng/phạt' },
   { value: 'assignments', label: 'Bài tập' }, { value: 'progress', label: 'Tiến độ' }, { value: 'notices', label: 'Thông báo' },
 ];
-const GRADES = [6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }));
 
 const ClassView: React.FC<{ session: Session; id: number; onBack: () => void; onChanged: () => void }> = ({ session, id, onBack, onChanged }) => {
   const { c } = useTheme();
@@ -129,24 +128,17 @@ const ClassCard: React.FC<{ row: ClassRow; onPress: () => void }> = ({ row, onPr
 export const ClassManager: React.FC<{ session: Session }> = ({ session }) => {
   const list = useLoad(() => api.teacherClasses(session.token), [session.token], session.expired);
   const [open, setOpen] = useState<number | null>(null);
-  const [creating, setCreating] = useState(false);
   if (open !== null) return <ClassView session={session} id={open} onBack={() => setOpen(null)} onChanged={list.reload} />;
   return (
     <Page>
-      <PageHeader title={`Xin chào, ${session.user.nickname || session.user.full_name}`} subtitle="Các lớp bạn phụ trách: thêm học sinh, chia đội, thưởng/phạt, giao bài tập và theo dõi tiến độ."
-        actions={<Btn icon={Plus} title="Tạo lớp" tone="son" size="sm" onPress={() => setCreating(true)} testID="class-create" />} />
+      {/* 16/11/2026: lớp do quản trị trường tạo và phân công (một lớp một giáo viên); giáo viên không tự tạo lớp */}
+      <PageHeader title={`Xin chào, ${session.user.nickname || session.user.full_name}`} subtitle="Các lớp quản trị trường phân công cho bạn: mã tham gia để gửi học sinh, thêm học sinh, chia đội, thưởng/phạt, giao bài tập và theo dõi tiến độ." />
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
-      {list.data && !list.data.length ? <EmptyState mood="thinking" title="Bạn chưa phụ trách lớp nào" text="Bấm “Tạo lớp” để tạo lớp trong năm học đang hoạt động, hoặc nhờ quản trị viên trường phân công lớp." /> : null}
+      {list.data && !list.data.length ? <EmptyState mood="thinking" title="Bạn chưa phụ trách lớp nào" text="Khi quản trị viên trường phân công bạn phụ trách một lớp, lớp đó sẽ hiện ở đây kèm mã tham gia để gửi cho học sinh." /> : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
         {(list.data ?? []).map((row) => <ClassCard key={row.id} row={row} onPress={() => setOpen(row.id)} />)}
       </View>
-      {creating ? (
-        <FormSheet title="Tạo lớp" subtitle="Lớp được tạo trong năm học đang hoạt động của trường, bạn là giáo viên phụ trách."
-          fields={[{ name: 'name', label: 'Tên lớp', required: true, placeholder: '7A1' }, { name: 'grade', label: 'Khối', type: 'select', options: GRADES }, { name: 'description', label: 'Mô tả (tùy chọn)', type: 'textarea' }]}
-          initial={{ grade: '7' }} onClose={() => setCreating(false)}
-          onSubmit={async (v) => { const made = await api.createClass(session.token, { name: String(v.name).trim(), grade: Number(v.grade), description: String(v.description).trim() || null }); setCreating(false); list.reload(); setOpen(made.id); }} />
-      ) : null}
     </Page>
   );
 };

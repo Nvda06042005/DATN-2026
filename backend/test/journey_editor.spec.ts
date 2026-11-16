@@ -63,7 +63,10 @@ async function playNode(who: { token: string }, nodeId: number, right: (index: n
     quizzes = (await db.query<{ id: number }>("SELECT z.id FROM hk_quizzes z WHERE z.scope = 'system' AND (SELECT count(*) FROM hk_quiz_questions k WHERE k.quiz_id = z.id) >= 3 ORDER BY z.id LIMIT 4")).map((r) => r.id);
     cardId = (await db.query<{ id: number }>('SELECT id FROM hk_cards WHERE is_active ORDER BY id LIMIT 1'))[0].id;
     badgeId = (await db.query<{ id: number }>("SELECT id FROM hk_badges WHERE scope = 'system' AND is_active ORDER BY id LIMIT 1"))[0].id;
-    ownClass = (await api('POST', '/api/classroom/classes', { name: '7A9', grade: 7 })).body.id;
+    // lớp giáo viên tự tạo trước 16/11/2026 (dữ liệu cũ); giáo viên không còn tạo lớp qua API nên tạo qua dịch vụ
+    const rooms = s.moduleRef.get((await import('../src/classroom/classroom.service')).ClassroomService);
+    const t1 = (await db.query<any>('SELECT * FROM app_users WHERE id = $1', [f.T1.id]))[0];
+    ownClass = ((await rooms.createClass(t1, { name: '7A9', grade: 7 })) as { id: number }).id;
   });
   afterAll(async () => { await s?.close(); });
 
