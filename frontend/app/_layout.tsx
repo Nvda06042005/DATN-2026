@@ -1,4 +1,6 @@
 /** Bố cục chung của các trang công khai và trang đăng nhập quản trị tổng. */
+// phải nạp trước mọi mã khác: bổ sung hàm JavaScript mới cho trình duyệt cũ (Windows 7/8.1 – Chrome 109, iPhone chưa lên iOS 16)
+import '@/lib/polyfills';
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -17,6 +19,7 @@ import { PALETTES } from '@/constants/theme';
 import { ReduceMotionContext, useSystemReduceMotion } from '@/hooks/use-motion';
 import { ErrorPage } from '@/components/error-page';
 import { ToastProvider } from '@/components/ui';
+import { wakeServer } from '@/api/client';
 import { ThemeContext } from '@/hooks/use-theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -24,6 +27,8 @@ SplashScreen.preventAutoHideAsync().catch(() => undefined);
 const LIGHT = { c: PALETTES.light, dark: false };
 
 export default function RootLayout() {
+  // máy chủ miễn phí ngủ khi không có người dùng: đánh thức ngay khi mở trang để lúc đăng nhập / dùng AI máy chủ đã sẵn sàng
+  useEffect(() => { wakeServer(); }, []);
   const [loaded, error] = useFonts({
     Manrope_400Regular, Manrope_500Medium, Manrope_600SemiBold, Manrope_700Bold, Manrope_800ExtraBold,
     Newsreader_400Regular, Newsreader_700Bold, Newsreader_700Bold_Italic,

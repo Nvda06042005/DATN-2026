@@ -12,7 +12,7 @@ const qs = (q: Record<string, string | number | undefined>): string => {
 
 // ---------------------------------------------------------------------- học sinh và giáo viên
 export const aiStatus = (token: string) => apiRequest<AiStatus>(`${base}/status`, { token });
-export const aiAsk = (token: string, body: { question: string; conversation_id?: number; mode?: string; figure_id?: number }) => apiRequest<AiReply>(`${base}/ask`, { token, body });
+export const aiAsk = (token: string, body: { question: string; conversation_id?: number; mode?: string; figure_id?: number }) => apiRequest<AiReply>(`${base}/ask`, { token, body, timeoutMs: 120_000 });
 export const aiExplain = (token: string, attemptId: number, questionId: number) => apiRequest<AiReply>(`${base}/explain`, { token, body: { attempt_id: attemptId, question_id: questionId } });
 export const aiSummarize = (token: string, kind: string, id: number) => apiRequest<AiReply>(`${base}/summarize`, { token, body: { kind, id } });
 export const aiSummaryOptions = (token: string) => apiRequest<SummaryOptions>(`${base}/summary/options`, { token });

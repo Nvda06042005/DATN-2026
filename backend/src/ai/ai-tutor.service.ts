@@ -5,7 +5,7 @@
  * (hoặc trích nguyên văn tư liệu khi chưa nối mô hình) → lọc lại đầu ra → lưu hội thoại. Máy chủ không bao giờ tin số liệu do mô hình tự nêu: trích dẫn chỉ gồm các đoạn đã truy xuất.
  */
 import { ErrorLog } from '../platform/error-log';
-import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, OnModuleDestroy, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { ChildProcessWithoutNullStreams, spawn } from 'child_process';
 import { createInterface } from 'readline';
 import { join } from 'path';
@@ -53,6 +53,8 @@ const FOLLOWUP: Record<string, (t: string) => string> = {
 const short = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
 
 /** Danh tướng nhập vai mặc định (slug trong kho lịch sử, migration 016): dùng khi mô hình NLP Đông A (Python) đang chạy */
+/** Thời gian tối đa một yêu cầu chờ mô hình Python đang khởi động */
+const ENGINE_WAIT_MS = 25_000;
 /** Mô hình Python đang chạy hoặc đang khởi động (câu hỏi gửi lúc khởi động sẽ chờ mô hình sẵn sàng) */
 const pythonOn = (): boolean => { const st = engineHealth().status; return st === 'ready' || st === 'starting'; };
 const ROLEPLAY_SLUGS = ['tran-hung-dao', 'tran-quoc-toan', 'tran-thu-do', 'tran-binh-trong', 'tran-nhan-tong', 'tran-khanh-du', 'pham-ngu-lao', 'yet-kieu'];
@@ -182,8 +184,19 @@ export class AiTutorService implements OnModuleDestroy {
     return this.pyReadyPromise;
   }
 
+  /**
+   * Đợi mô hình Python sẵn sàng tối đa `ms` (17/11/2026): máy chủ vừa thức dậy / vừa cập nhật thì mô hình cần khoảng 20–60 giây để nạp;
+   * trước đây mỗi câu hỏi chờ tới 240 giây nên trình duyệt hết giờ chờ (75 giây) và báo "Không kết nối được máy chủ".
+   */
+  private async engineReady(ms: number): Promise<boolean> {
+    let timer: NodeJS.Timeout | undefined;
+    const ok = await Promise.race([this.ensurePythonBridge(), new Promise<boolean>((resolve) => { timer = setTimeout(() => resolve(false), ms); })]);
+    if (timer) clearTimeout(timer);
+    return ok;
+  }
+
   private async callPythonBridge(action: string, payload: Record<string, any>, timeoutMs = bridgeRequestMs()): Promise<any | null> {
-    const ready = await this.ensurePythonBridge();
+    const ready = await this.engineReady(ENGINE_WAIT_MS);
     if (!ready || !this.pyProc) return null;
     const id = this.nextReqId++;
     const asciiSafeJson = JSON.stringify({ id, action, payload }).replace(
@@ -448,6 +461,10 @@ export class AiTutorService implements OnModuleDestroy {
     if (!['tutor', 'roleplay', 'teacher'].includes(mode) || !allowed.includes(mode)) throw new ForbiddenException('Chế độ hỏi đáp này không dành cho tài khoản của bạn');
     const startedAt = Date.now();
     await this.assertQuota(user);
+    // mô hình còn đang nạp sau khi máy chủ thức dậy: báo rõ để hỏi lại sau ít giây (không tạo cuộc trò chuyện, không tính lượt hỏi)
+    if (!(await this.engineReady(ENGINE_WAIT_MS)) && engineHealth().status === 'starting') {
+      throw new ServiceUnavailableException('Tiểu Tướng đang khởi động mô hình (máy chủ vừa thức dậy sau thời gian nghỉ). Em chờ khoảng 30 giây rồi hỏi lại nhé.');
+    }
     let figure: { id: number; name: string; honorific: string | null } | undefined;
     let figureId = conv0 ? conv0.figure_id : body.figure_id ?? null;
     if (mode === 'roleplay') {
