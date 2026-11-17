@@ -31,14 +31,20 @@ export interface SagaMapInfo {
   image_key: string; image_url: string | null; image_w: number; image_h: number; credit: string; credit_url: string | null;
 }
 /** Hòm báu trên bản đồ (17/11/2026): `after` = số thứ tự chặng đứng trước hòm; hòm cuối phần có `after` bằng số chặng của phần */
-export interface SagaChest { key: string; kind: 'stage' | 'part'; after: number; state: 'locked' | 'ready' | 'opened'; gold: number; xp: number }
+/** Hòm báu bí ẩn: độ hiếm chỉ lộ ra khi mở; `odds` là tỉ lệ công bố, `max_gold` là mức vàng cao nhất */
+export type ChestRarity = 'common' | 'rare' | 'epic' | 'legendary';
+export interface SagaChest { key: string; kind: 'stage' | 'part'; after: number; state: 'locked' | 'ready' | 'opened'; max_gold?: number; odds?: Array<{ rarity: ChestRarity; percent: number }> }
 /** Khung ảnh đại diện / danh hiệu nhận từ hòm báu (17/11/2026) */
 export type LookRarity = 'common' | 'rare' | 'epic' | 'legendary';
 export interface LookItem { code: string; name: string; rarity: LookRarity }
 export interface LookSlot extends LookItem { need: string; unlocked: boolean }
 export interface SagaLook { frame: LookItem | null; title: LookItem | null; /** ảnh đại diện có sẵn (Rồng Con, danh tướng); null = ảnh / chữ cái của em */ avatar?: string | null }
 export interface Wardrobe { frames: LookSlot[]; titles: LookSlot[]; avatars: string[]; opened: number; total: number; equipped: SagaLook }
-export interface ChestOpen { key: string; kind: 'stage' | 'part'; first: boolean; gold: number; xp: number; unlocked?: Array<LookItem & { kind: 'frame' | 'title'; equipped: boolean }> }
+export interface ChestOpen {
+  key: string; kind: 'stage' | 'part'; first: boolean; rarity?: ChestRarity; gold: number; xp: number; freeze?: number; freeze_as_gold?: number;
+  unlocked?: Array<LookItem & { kind: 'frame' | 'title'; equipped: boolean }>; opened?: number; total?: number;
+  odds?: Array<{ rarity: ChestRarity; percent: number }>; next?: { name: string; rarity: LookRarity; left: number } | null;
+}
 export interface CampaignView { map: SagaMapInfo; stages: StageBrief[]; current_stage_id: number | null; totals: { stages: number; done: number; stars: number; max_stars: number }; chests?: SagaChest[] }
 
 export interface CardBrief { code: string; name: string; title: string; rarity: 'common' | 'rare' | 'epic' | 'legendary'; portrait: string; hidden?: boolean }

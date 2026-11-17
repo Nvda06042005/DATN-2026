@@ -142,10 +142,17 @@ test('các màn của Hành trình Đông A dựng bằng thành phần của c�
   // đợt 7: trang bản đồ = ba phần nối nhau khi cuộn, mỗi phần một bản đồ gốc kiểu sa bàn; Rồng Con đi trên bản đồ tới chặng đang học;
   // bỏ lộ trình uốn lượn, thẻ phần có ảnh thu nhỏ "Bản đồ bên dưới" và dòng ghi nguồn dưới bản đồ (ghi công ở trang Thông tin hình ảnh)
   const home = read('components', 'portal', 'SagaHome.tsx');
-  for (const id of ['home-units', 'map-caption', 'map-mascot', 'unit-continue', 'my-class', 'chest-reward', 'chest-claim']) assert.ok(home.includes(`testID="${id}"`), id);
+  for (const id of ['home-units', 'map-caption', 'map-mascot', 'unit-continue', 'my-class']) assert.ok(home.includes(`testID="${id}"`), id);
   // 17/11/2026: hòm báu trên bản đồ (máy chủ mở, thưởng một lần) và cột bên phải kiểu Duolingo (chỉ số, cấp độ, giải đấu tuần, nhiệm vụ hằng ngày có hòm báu)
   assert.match(home, /testID=\{`map-chest-\$\{box\.key\}`\}/);
-  assert.match(home, /saga\.openChest\(session\.token, box\.key\)/);
+  assert.match(home, /open=\{\(\) => saga\.openChest\(session\.token, opening\.box\.key\)\}/);
+  // 17/11/2026: hòm báu bí ẩn – màn mở rương kiểu game (chạm để mở, lóe sáng, tia sáng theo độ hiếm, phần thưởng bật ra, số vàng đếm lên, công bố tỉ lệ)
+  const opening = read('components', 'portal', 'SagaChest.tsx');
+  for (const id of ['chest-opening', 'chest-tap', 'chest-rarity', 'chest-claim', 'chest-odds', 'chest-loot-gold', 'chest-loot-xp', 'chest-loot-freeze', 'chest-next']) assert.ok(opening.includes(`testID="${id}"`), id);
+  for (const t of ['THƯỜNG', 'HIẾM', 'SỬ THI', 'HUYỀN THOẠI', 'Chạm vào hòm để mở!', 'Khiên giữ chuỗi']) assert.ok(opening.includes(t), t);
+  assert.match(opening, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
+  assert.doesNotMatch(opening, /[Cc]onfetti/);
+  assert.match(home, /<Bounce><ChestArt /);
   assert.match(home, /<SagaRail session=\{session\} nav=\{nav\} wide=\{wide\} \/>/);
   assert.match(read('lib', 'saga-api.ts'), /export const openChest = /);
   const rail = read('components', 'portal', 'SagaRail.tsx');
@@ -165,7 +172,7 @@ test('các màn của Hành trình Đông A dựng bằng thành phần của c�
   assert.match(read('components', 'admin', 'AdminWorkspace.tsx'), /\{avatar \?\? <Avatar name=\{session\.user\.full_name\}/);
   assert.match(rail, /testID="rail-profile"/);
   assert.match(rail, /<WardrobeSheet session=\{session\}/);
-  assert.match(home, /testID=\{`chest-unlock-\$\{u\.code\}`\}/);
+  assert.match(opening, /testID=\{`chest-unlock-\$\{u\.code\}`\}/);
   // ảnh đại diện có sẵn theo nhân vật (Rồng Con, danh tướng) chọn ở Hồ sơ cá nhân như ô "Set your status"; ảnh ở hồ sơ mang khung / danh hiệu từ hòm báu
   for (const name of ['CharacterAvatar', 'AvatarPicker', 'ProfileLook']) assert.match(look, new RegExp(`export const ${name}: React\.FC`), name);
   for (const code of ['rong-con-vui', 'rong-con-ra-tran', 'tran-hung-dao', 'tran-quoc-toan']) assert.ok(look.includes(`'${code}'`), code);

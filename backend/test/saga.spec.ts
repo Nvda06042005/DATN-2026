@@ -327,7 +327,11 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
   it('hòm báu trên bản đồ: hòm giữa hai chặng mở khi xong chặng trước, hòm cuối phần mở khi xong cả phần; máy chủ kiểm tra điều kiện, mỗi hòm chỉ thưởng một lần', async () => {
     const id = stageId['binh-le-nguyen'], id2 = stageId['vuon-khong-nha-trong'];
     const map = (await api('GET', '/api/saga/campaigns/1')).body;
-    expect(map.chests.map((c: any) => [c.key, c.kind, c.after, c.state, c.gold, c.xp])).toEqual([[`s${id}`, 'stage', 1, 'ready', 15, 0], [`s${id2}`, 'stage', 2, 'locked', 15, 0], ['p1', 'part', 3, 'locked', 40, 20]]);
+    expect(map.chests.map((c: any) => [c.key, c.kind, c.after, c.state, c.max_gold])).toEqual([[`s${id}`, 'stage', 1, 'ready', 100], [`s${id2}`, 'stage', 2, 'locked', 100], ['p1', 'part', 3, 'locked', 100]]);
+    // hòm bí ẩn: không lộ độ hiếm trước khi mở, công bố tỉ lệ; hòm cuối phần không có loại Thường
+    expect(map.chests[0].odds).toEqual([{ rarity: 'common', percent: 55 }, { rarity: 'rare', percent: 30 }, { rarity: 'epic', percent: 12 }, { rarity: 'legendary', percent: 3 }]);
+    expect(map.chests[2].odds.map((o: any) => o.rarity)).toEqual(['rare', 'epic', 'legendary']);
+    for (const c of map.chests) expect(Object.keys(c)).not.toContain('rarity');
     expect((await api('POST', `/api/saga/chests/s${id2}/open`, {})).status).toBe(409);
     expect((await api('POST', '/api/saga/chests/p1/open', {})).status).toBe(409);
     expect((await api('POST', `/api/saga/chests/s${stageId['dong-bo-dau']}/open`, {})).status).toBe(404); // chặng cuối phần không có hòm "sau chặng"
@@ -338,14 +342,36 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
     const before = await gold();
     const opened = await api('POST', `/api/saga/chests/s${id}/open`, {});
     expect(opened.status).toBe(200);
-    expect(opened.body).toMatchObject({ key: `s${id}`, kind: 'stage', first: true, gold: 15, xp: 0 });
+    expect(opened.body).toMatchObject({ key: `s${id}`, kind: 'stage', first: true, opened: 1, total: 13, next: { name: 'Hiệu úy Đông A', left: 2 } });
+    expect(['common', 'rare', 'epic', 'legendary']).toContain(opened.body.rarity);
+    expect(opened.body.gold).toBeGreaterThanOrEqual(10);
+    expect(opened.body.gold).toBeLessThanOrEqual(115);
     // hòm đầu tiên mở khóa danh hiệu "Tân binh Sát Thát" và tự trang bị vì ô danh hiệu đang trống
     expect(opened.body.unlocked).toEqual([{ kind: 'title', code: 'tan-binh-sat-that', name: 'Tân binh Sát Thát', rarity: 'common', equipped: true }]);
-    expect((await api('POST', `/api/saga/chests/s${id}/open`, {})).body).toMatchObject({ first: false, gold: 0, xp: 0, unlocked: [] });
-    expect(await gold()).toBe(before + 15);
+    // mở lại: cùng độ hiếm (không đổi được kết quả), không thưởng thêm
+    expect((await api('POST', `/api/saga/chests/s${id}/open`, {})).body).toMatchObject({ first: false, rarity: opened.body.rarity, gold: 0, xp: 0, freeze: 0, unlocked: [] });
+    expect(await gold()).toBe(before + opened.body.gold);
     expect(await count("SELECT count(*) AS n FROM hk_gold_ledger WHERE user_id = $1 AND reason = 'chest' AND ref_key = $2", [f.S1.id, `hq:chest:s${id}`])).toBe(1);
     expect((await api('GET', '/api/saga/campaigns/1')).body.chests[0].state).toBe('opened');
     expect((await api('GET', '/api/saga/campaigns/1', undefined, f.S2.token)).body.chests[0].state).toBe('locked');
+  });
+
+  it('hòm báu bí ẩn: độ hiếm theo tỉ lệ công bố, cố định theo học sinh và hòm, phần thưởng đúng khoảng của độ hiếm', async () => {
+    const { rollChest } = await import('../src/saga/saga.service');
+    const count = (kind: 'stage' | 'part') => { const n: Record<string, number> = {}; for (let u = 1; u <= 4000; u += 1) { const r = rollChest(u, kind === 'stage' ? 's7' : 'p2', kind); n[r.rarity] = (n[r.rarity] ?? 0) + 1; } return n; };
+    const st = count('stage'), pt = count('part');
+    expect(st.common / 4000).toBeGreaterThan(0.5); expect(st.common / 4000).toBeLessThan(0.6);
+    expect(st.legendary / 4000).toBeGreaterThan(0.015); expect(st.legendary / 4000).toBeLessThan(0.045);
+    expect(pt.common ?? 0).toBe(0);
+    expect(pt.legendary / 4000).toBeGreaterThan(0.12); expect(pt.legendary / 4000).toBeLessThan(0.18);
+    expect(rollChest(42, 's3', 'stage')).toEqual(rollChest(42, 's3', 'stage'));
+    for (let u = 1; u <= 300; u += 1) {
+      const r = rollChest(u, 'p1', 'part');
+      const range = { common: [10, 20], rare: [20, 35], epic: [35, 60], legendary: [60, 100] }[r.rarity];
+      expect(r.gold).toBeGreaterThanOrEqual(range[0]); expect(r.gold).toBeLessThanOrEqual(range[1]);
+      expect(r.xp).toBe({ common: 0, rare: 10, epic: 25, legendary: 50 }[r.rarity] + 20);
+      expect(r.freeze).toBe(r.rarity === 'epic' || r.rarity === 'legendary' ? 1 : 0);
+    }
   });
 
   it('khung ảnh đại diện và danh hiệu từ hòm báu: kho theo số hòm đã mở, chỉ trang bị món đã mở khóa, trang chủ trả món đang trang bị', async () => {

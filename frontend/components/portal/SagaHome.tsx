@@ -13,7 +13,6 @@ import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 import { Award, BookOpen, Check, Coins, Footprints, Gamepad2, Lock, Maximize2, Play, Puzzle, RotateCcw, Sparkles, Swords, Target, Users, ZoomIn, ZoomOut } from 'lucide-react-native';
 import * as saga from '@/lib/saga-api';
 import * as authApi from '@/api/authApi';
-import { errorMessage } from '@/api/client';
 import { Mascot } from '@/components/art';
 import { Cell, DataTable, type Column } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
@@ -21,11 +20,11 @@ import {
   BlockTitle, KIND_TEXT, LoadState, Portrait, RARITY, STATE, SagaHeader, SagaPage, StarRow, TONE, mapSource, num, stageIcon, useLoad, type SagaNav, type SagaStep,
 } from '@/components/portal/SagaKit';
 import { ChestArt, SagaRail } from '@/components/portal/SagaRail';
-import { FramedAvatar, TitleBadge } from '@/components/portal/SagaLook';
+import { ChestOpening } from '@/components/portal/SagaChest';
 import { Btn, Card, Chip, InfoNote, Inset, Segmented, Sheet, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
-import type { CampaignView, ChestOpen, SagaCampaign, SagaChest, SagaMapInfo, StageBrief, StageDetail, StepState } from '@/types/saga';
+import type { CampaignView, SagaCampaign, SagaChest, SagaMapInfo, StageBrief, StageDetail, StepState } from '@/types/saga';
 
 const StateChip: React.FC<{ state: StageBrief['state'] }> = ({ state }) => {
   const st = STATE[state];
@@ -138,6 +137,23 @@ function useDragPan(outer: React.RefObject<ScrollViewInstance | null>, inner: Re
     return () => { v.style.cursor = ''; v.removeEventListener('pointerdown', down); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
   }, [outer, inner, enabled]);
 }
+
+/** Nảy nhẹ lên xuống (hòm báu đang chờ mở); đứng yên khi bật giảm chuyển động */
+const Bounce: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    let live = true;
+    let a: Animated.CompositeAnimation | null = null;
+    AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
+      if (!live || reduce) return;
+      a = Animated.loop(Animated.sequence([Animated.timing(v, { toValue: 1, duration: 420, easing: Easing.out(Easing.quad), useNativeDriver: false }),
+        Animated.timing(v, { toValue: 0, duration: 420, easing: Easing.in(Easing.quad), useNativeDriver: false }), Animated.delay(900)]));
+      a.start();
+    }).catch(() => undefined);
+    return () => { live = false; a?.stop(); };
+  }, [v]);
+  return <Animated.View style={{ transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, -7] }) }, { scale: v.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }] }}>{children}</Animated.View>;
+};
 
 const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: number | null; selectedId: number | null; onPick: (st: StageBrief) => void; maxHeight: number; mascotId?: number | null; chests?: SagaChest[]; onChest?: (chest: SagaChest) => void }> = ({ map, stages, currentId, selectedId, onPick, maxHeight, mascotId = null, chests = [], onChest }) => {
   const { c } = useTheme();
@@ -272,11 +288,11 @@ const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: num
                 const w = big ? 44 : 36;
                 return (
                   <Pressable key={box.key} onPress={() => onChest?.(box)} accessibilityRole="button" testID={`map-chest-${box.key}`}
-                    accessibilityLabel={`${big ? 'Hòm báu cuối phần' : `Hòm báu sau chặng ${box.after}`}: ${box.state === 'opened' ? 'đã mở' : box.state === 'ready' ? `bấm để mở, thưởng ${box.gold} vàng${box.xp ? ` và ${box.xp} điểm` : ''}` : 'còn khóa'}`}
+                    accessibilityLabel={`${big ? 'Hòm báu cuối phần' : `Hòm báu sau chặng ${box.after}`}: ${box.state === 'opened' ? 'đã mở' : box.state === 'ready' ? `hòm bí ẩn, bấm để mở – phần thưởng lên tới ${box.max_gold ?? 100} vàng` : 'còn khóa'}`}
                     style={({ pressed }) => ({ position: 'absolute', zIndex: 3, left: at[0] - w / 2 - 2, top: at[1] - w / 2, width: w + 4, height: w,
                       alignItems: 'center', justifyContent: 'center', borderRadius: 12, opacity: pressed ? 0.8 : 1,
                       backgroundColor: box.state === 'ready' ? 'rgba(250,204,21,0.35)' : 'transparent', ...(box.state === 'ready' ? { boxShadow: '0 0 0 3px rgba(250,204,21,0.55)' } as object : {}) })}>
-                    <ChestArt size={w - 6} state={box.state} />
+                    {box.state === 'ready' ? <Bounce><ChestArt size={w - 6} state="ready" /></Bounce> : <ChestArt size={w - 6} state={box.state} />}
                   </Pressable>
                 );
               })}
@@ -364,24 +380,17 @@ const PartSection: React.FC<{
  * Thông tin hình ảnh).
  */
 export const CampaignScreen: React.FC<{ session: Session; nav: SagaNav; no: number }> = ({ session, nav, no }) => {
-  const { c } = useTheme();
   const toast = useToast();
   const { height } = useWindowDimensions();
   const p1 = useLoad<CampaignView>(session, (t) => saga.campaign(t, 1), []);
   const p2 = useLoad<CampaignView>(session, (t) => saga.campaign(t, 2), []);
   const p3 = useLoad<CampaignView>(session, (t) => saga.campaign(t, 3), []);
-  // hòm báu: còn khóa / đã mở thì báo; sẵn sàng thì máy chủ mở và trao thưởng một lần, rồi hiện màn nhận thưởng
-  const [prize, setPrize] = useState<ChestOpen | null>(null);
-  const [opening, setOpening] = useState<string | null>(null);
+  // hòm báu: còn khóa / đã mở thì báo; sẵn sàng thì mở màn mở rương – chạm vào hòm mới gọi máy chủ (máy chủ tung độ hiếm, trao thưởng một lần)
+  const [opening, setOpening] = useState<{ box: SagaChest; part: number } | null>(null);
   const onChest = (box: SagaChest, part: number): void => {
     if (box.state === 'opened') { toast('Em đã mở hòm báu này rồi.'); return; }
     if (box.state === 'locked') { toast(box.kind === 'part' ? 'Hoàn thành mọi chặng của phần này để mở hòm báu cuối phần.' : `Hoàn thành chặng ${box.after} để mở hòm báu này.`); return; }
-    if (opening) return;
-    setOpening(box.key);
-    saga.openChest(session.token, box.key)
-      .then((r) => { setPrize(r); [p1, p2, p3][part - 1].reload(); nav.refresh(); })
-      .catch((e) => toast(errorMessage(e)))
-      .finally(() => setOpening(null));
+    setOpening({ box, part });
   };
   const parts = [p1, p2, p3];
   const next = nav.home?.next ?? null;
@@ -433,26 +442,9 @@ export const CampaignScreen: React.FC<{ session: Session; nav: SagaNav; no: numb
           onLayoutPart={(y, h) => onLayoutPart(i + 1, y, h)} onChest={(box) => onChest(box, i + 1)} />
       ))}
       {open !== null ? <StageSheet session={session} nav={nav} stageId={open} campaignNo={openNo} /> : null}
-      {prize ? (
-        <Sheet open onClose={() => setPrize(null)} title="Mở hòm báu!" subtitle={prize.kind === 'part' ? 'Hòm báu cuối phần' : 'Hòm báu trên đường hành quân'}
-          footer={<Btn title="Nhận thưởng" tone="son" full onPress={() => setPrize(null)} testID="chest-claim" />}>
-          <View style={{ alignItems: 'center', gap: 12, paddingVertical: 8 }} testID="chest-reward">
-            <ChestArt size={120} state="opened" />
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {prize.gold ? <Chip text={`+${prize.gold} vàng`} icon={Coins} bg={c.vangNhat} fg={c.vangChu} /> : null}
-              {prize.xp ? <Chip text={`+${prize.xp} điểm kinh nghiệm`} icon={Sparkles} bg={c.mocNhat} fg={c.mocChu} /> : null}
-            </View>
-            {!prize.first ? <Txt size={13} color={c.muc3} center>Hòm này em đã mở trước đó.</Txt> : null}
-            {(prize.unlocked ?? []).map((u) => (
-              <View key={u.code} style={{ alignItems: 'center', gap: 8, borderRadius: 14, borderWidth: 1, borderColor: c.adminLine, padding: 14, alignSelf: 'stretch' }} testID={`chest-unlock-${u.code}`}>
-                <Txt f="heavy" size={13} color={c.logoRed} style={{ letterSpacing: 0.6 }}>{u.kind === 'frame' ? 'MỞ KHÓA KHUNG ẢNH ĐẠI DIỆN' : 'MỞ KHÓA DANH HIỆU'}</Txt>
-                {u.kind === 'frame' ? <FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={72} frame={u} preset={nav.home?.look?.avatar} /> : <TitleBadge title={u} size="md" center />}
-                <Txt f="bold" size={15}>{u.name}</Txt>
-                <Txt size={12} color={c.muc3} center>{u.equipped ? 'Đã tự trang bị – xem ở thanh đầu trang.' : 'Vào Kho trang phục ở cột bên phải trang Chiến dịch để trang bị.'}</Txt>
-              </View>
-            ))}
-          </View>
-        </Sheet>
+      {opening ? (
+        <ChestOpening session={session} chest={opening.box} look={nav.home?.look} open={() => saga.openChest(session.token, opening.box.key)}
+          onClose={(opened) => { const part = opening.part; setOpening(null); if (opened) { [p1, p2, p3][part - 1].reload(); nav.refresh(); } }} />
       ) : null}
     </SagaPage>
   );

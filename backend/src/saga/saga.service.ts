@@ -10,6 +10,7 @@
  *  - Học sinh chỉ đọc nội dung đã công bố và chỉ chạm được phiên, tiến độ của chính mình. Từ 16/11/2026 không còn trang chỉnh nội dung của quản trị tổng
  *    hay báo cáo của giáo viên (người dùng yêu cầu xóa): nội dung chỉ đổi qua migration số mới.
  */
+import { createHash } from 'node:crypto';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
 import { GameService } from '../game/game.service';
@@ -47,7 +48,42 @@ const STAGE_COLS = `s.id, s.code, s.campaign_no, s.position, s.title, s.place, s
 const SESSION_COLS = 'id::int AS id, user_id, stage_id, kind, status, seq, state, result, started_at';
 const XP = { lesson: 10, practice: 30, explore: 20, battle: 50, review: 5 };
 /** Hòm báu trên bản đồ (17/11/2026, migration 072): giữa hai chặng liền nhau (mở khi xong chặng trước) và cuối mỗi phần (mở khi xong cả phần) */
-const CHEST = { stage: { gold: 15, xp: 0 }, part: { gold: 40, xp: 20 } };
+/**
+ * Hòm báu bí ẩn (17/11/2026): mỗi hòm có độ hiếm chỉ lộ ra khi mở (Thường / Hiếm / Sử thi / Huyền thoại) và phần thưởng theo độ hiếm. Kết quả tung
+ * ngẫu nhiên nhưng cố định theo (học sinh, mã hòm) bằng SHA-256 – mở lại hay gọi lại API không đổi được; tỉ lệ được công bố cho học sinh xem.
+ * Không bán hòm, không dùng tiền thật: hòm chỉ nhận được bằng cách học xong chặng / phần. Sử thi trở lên có thêm Khiên giữ chuỗi (đã đủ khiên thì
+ * đổi ra vàng); hòm cuối phần luôn từ Hiếm trở lên và có thêm điểm kinh nghiệm.
+ */
+export type ChestRarity = 'common' | 'rare' | 'epic' | 'legendary';
+const CHEST_ODDS: Record<'stage' | 'part', Array<[ChestRarity, number]>> = {
+  stage: [['common', 55], ['rare', 30], ['epic', 12], ['legendary', 3]],
+  part: [['rare', 45], ['epic', 40], ['legendary', 15]],
+};
+const CHEST_LOOT: Record<ChestRarity, { gold: [number, number]; xp: number; freeze: number }> = {
+  common: { gold: [10, 20], xp: 0, freeze: 0 },
+  rare: { gold: [20, 35], xp: 10, freeze: 0 },
+  epic: { gold: [35, 60], xp: 25, freeze: 1 },
+  legendary: { gold: [60, 100], xp: 50, freeze: 1 },
+};
+const PART_BONUS_XP = 20;
+const FREEZE_AS_GOLD = 15;
+/** Kết quả của một hòm cho một học sinh (thuần, kiểm thử được) */
+export function rollChest(userId: number, key: string, kind: 'stage' | 'part'): { rarity: ChestRarity; gold: number; xp: number; freeze: number } {
+  const h = createHash('sha256').update(`donga-chest:v1:${userId}:${key}`).digest();
+  const r1 = h.readUInt32BE(0) / 0x100000000, r2 = h.readUInt32BE(4) / 0x100000000;
+  const odds = CHEST_ODDS[kind];
+  const total = odds.reduce((n, [, w]) => n + w, 0);
+  let rarity = odds[odds.length - 1][0];
+  let acc = 0;
+  for (const [r, w] of odds) { acc += w / total; if (r1 < acc) { rarity = r; break; } }
+  const loot = CHEST_LOOT[rarity];
+  return { rarity, gold: loot.gold[0] + Math.floor(r2 * (loot.gold[1] - loot.gold[0] + 1)), xp: loot.xp + (kind === 'part' ? PART_BONUS_XP : 0), freeze: loot.freeze };
+}
+const chestOdds = (kind: 'stage' | 'part') => {
+  const total = CHEST_ODDS[kind].reduce((n, [, w]) => n + w, 0);
+  return CHEST_ODDS[kind].map(([rarity, w]) => ({ rarity, percent: Math.round((w / total) * 100) }));
+};
+const chestMaxGold = (kind: 'stage' | 'part') => Math.max(...CHEST_ODDS[kind].map(([r]) => CHEST_LOOT[r].gold[1]));
 /**
  * Khung ảnh đại diện và danh hiệu nhận từ hòm báu (17/11/2026, kiểu quà sự kiện của game): danh mục cố định trong mã, mở khóa theo các hòm đã mở
  * (sổ vàng lý do 'chest'), trang bị lưu ở hk_players.appearance (khóa saga_frame, saga_title) – không thêm bảng. Khung: hòm cuối mỗi phần;
@@ -191,10 +227,10 @@ export class SagaService {
   private async chestsOf(q: Q, user: UserRow, campaignNo: number, stages: Array<{ id: number; order: number; state: string }>) {
     const opened = new Set((await q<{ ref_key: string }>("SELECT ref_key FROM hk_gold_ledger WHERE user_id = $1 AND reason = 'chest'", [user.id])).map((r) => r.ref_key));
     const isDone = (st: { state: string }) => st.state === 'done' || st.state === 'review';
-    const out: Array<{ key: string; kind: 'stage' | 'part'; after: number; ready: boolean; gold: number; xp: number }> =
-      stages.slice(0, -1).map((st) => ({ key: `s${st.id}`, kind: 'stage', after: st.order, ready: isDone(st), ...CHEST.stage }));
-    if (stages.length) out.push({ key: `p${campaignNo}`, kind: 'part', after: stages.length, ready: stages.every(isDone), ...CHEST.part });
-    return out.map(({ ready, ...c }) => ({ ...c, state: opened.has(`hq:chest:${c.key}`) ? 'opened' : ready ? 'ready' : 'locked' }));
+    const out: Array<{ key: string; kind: 'stage' | 'part'; after: number; ready: boolean }> =
+      stages.slice(0, -1).map((st) => ({ key: `s${st.id}`, kind: 'stage', after: st.order, ready: isDone(st) }));
+    if (stages.length) out.push({ key: `p${campaignNo}`, kind: 'part', after: stages.length, ready: stages.every(isDone) });
+    return out.map(({ ready, ...c }) => ({ ...c, state: opened.has(`hq:chest:${c.key}`) ? 'opened' : ready ? 'ready' : 'locked', max_gold: chestMaxGold(c.kind), odds: chestOdds(c.kind) }));
   }
 
   /** Mở hòm báu: máy chủ kiểm tra điều kiện (xong chặng trước / xong cả phần) rồi trao vàng, điểm qua sổ cái – mỗi hòm chỉ một lần */
@@ -219,13 +255,19 @@ export class SagaService {
         if (!part.every((x) => doneOf(x.id))) throw new ConflictException('Hoàn thành mọi chặng của phần này để mở hòm báu cuối phần');
         kind = 'part';
       }
-      const reward = CHEST[kind];
+      const roll = rollChest(user.id, key, kind);
       const ref = `hq:chest:${key}`;
       const before = await this.wardrobe(q, user);
-      const first = await this.game.addGold(q, user, reward.gold, 'chest', ref);
+      // Khiên giữ chuỗi: đã đủ số khiên tối đa thì đổi ra vàng
+      const freezeMax = (await this.game.cfg()).streak.freeze_max;
+      const freezesNow = Number((await q<{ freezes: number }>('SELECT freezes FROM hk_players WHERE user_id = $1', [user.id]))[0]?.freezes ?? 0);
+      const freezeOk = roll.freeze > 0 && freezesNow < freezeMax;
+      const goldTotal = roll.gold + (roll.freeze > 0 && !freezeOk ? FREEZE_AS_GOLD : 0);
+      const first = await this.game.addGold(q, user, goldTotal, 'chest', ref);
+      if (first && freezeOk) await q('UPDATE hk_players SET freezes = freezes + 1, updated_at = now() WHERE user_id = $1', [user.id]);
       let xp = 0;
-      if (first && reward.xp && (await this.game.awardXp(q, user, reward.xp, 'chest', ref))) xp = reward.xp;
-      if (first) await logEvent(null, user, 'chest_open', 'saga_chest', null, null, { key }, null, q);
+      if (first && roll.xp && (await this.game.awardXp(q, user, roll.xp, 'chest', ref))) xp = roll.xp;
+      if (first) await logEvent(null, user, 'chest_open', 'saga_chest', null, null, { key, rarity: roll.rarity }, null, q);
       // khung / danh hiệu vừa mở khóa nhờ hòm này; ô nào đang trống thì trang bị luôn
       const after = await this.wardrobe(q, user);
       const fresh = (list: Array<{ code: string; unlocked: boolean }>, old: Array<{ code: string; unlocked: boolean }>) => list.filter((x) => x.unlocked && !old.find((o) => o.code === x.code)?.unlocked);
@@ -239,7 +281,13 @@ export class SagaService {
       if (newTitle && !after.equipped.title) auto.saga_title = newTitle.code;
       if (Object.keys(auto).length) await q('UPDATE hk_players SET appearance = appearance || $2::jsonb, updated_at = now() WHERE user_id = $1', [user.id, JSON.stringify(auto)]);
       const unlocked = gained.map((x) => ({ kind: x.kind, code: x.code, name: x.name, rarity: x.rarity, equipped: auto[x.kind === 'frame' ? 'saga_frame' : 'saga_title'] === x.code }));
-      return { key, kind, first, gold: first ? reward.gold : 0, xp, unlocked };
+      // gợi ý món sắp mở khóa để học sinh muốn mở tiếp
+      const nextTitle = TITLES.find((t) => after.opened < t.min) ?? null;
+      return {
+        key, kind, first, rarity: roll.rarity, gold: first ? goldTotal : 0, xp, freeze: first && freezeOk ? 1 : 0, freeze_as_gold: first && roll.freeze > 0 && !freezeOk ? FREEZE_AS_GOLD : 0,
+        unlocked, opened: after.opened, total: after.total, odds: chestOdds(kind),
+        next: nextTitle ? { name: nextTitle.name, rarity: nextTitle.rarity, left: nextTitle.min - after.opened } : null,
+      };
     });
   }
 
