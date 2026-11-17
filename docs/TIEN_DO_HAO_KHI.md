@@ -1380,3 +1380,9 @@ Theo 10 ý người dùng gửi kèm ảnh file Excel (đã hỏi lại hai đi�
 - "Hình ảnh 2 đừng để bản đồ chung vậy": ba thẻ Phần ở trang Chiến dịch bỏ ảnh thu nhỏ bản đồ, thay bằng nút viền "Vào học".
 - "Dùng kiểu chữ của ảnh 2 cho ảnh 3": `NameCell` (ô Họ tên – tên đăng nhập ở bảng Người dùng, Giáo viên, Học sinh… của mọi cổng) đổi từ Newsreader đậm 17 sang Manrope đậm 15.
 - Không có migration. Kiểm thử: `student-nav.test.cjs`, `people-table.test.cjs`; đo vùng cuộn trong bản đồ (0 ở 1366 và 390), vị trí đỉnh Phần 2 / Phần 3 sau khi bấm.
+
+## Gộp nhánh feat/ai-hub-roadmap-flashcards (17/11/2026)
+
+- Theo yêu cầu "lấy nhánh feat/ai-hub-roadmap-flashcards bỏ vô fuctionlist rồi lên main, bỏ vô phần Hỏi Tiểu Tướng": nhánh của Yujin có một commit (c9c3536) dựa trên acf11a2, sửa 4 tệp giao diện: `components/ai/StudentAiHub.tsx` (mới), `AiHubDashboard.tsx` (thêm `embedded` để nhúng trong trang không lồng ScrollView), `StudentApp.tsx` (mục Hỏi Tiểu Tướng dùng `StudentAiHub`; `tab=ai` cũ chuyển sang `tab=hoi`), `ai-profile.test.cjs`. Gộp tự động không xung đột với các đợt 7–8; không có tệp của cổng quản trị tổng / quản trị trường.
+- Hỏi Tiểu Tướng nay có hai chế độ: Trung tâm AI (AI Tutor, Lộ trình cá nhân hóa, Flash Cards, Chẩn đoán năng lực BKT; "Luyện ngay" mở Câu hỏi ôn tập, "Học ngay" mở Chiến dịch) và Tiểu Tướng & Lịch sử chat (Hỏi đáp, Nhập vai danh tướng, Đánh giá năng lực).
+- Kiểm thử: frontend 178/178 (thêm kiểm thử của nhánh); chụp thử Trung tâm AI, Lộ trình, Flash Cards, Tiểu Tướng (máy tính, điện thoại), không có lỗi trên trang. Không đổi máy chủ, không có migration.
