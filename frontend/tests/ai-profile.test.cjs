@@ -155,3 +155,20 @@ test('16/11/2026: Hỏi Tiểu Tướng có mục Đánh giá năng lực (BKT) 
   for (const t of ['Chẩn đoán Năng lực BKT & Chủ điểm cần ôn', 'Cơ chế AI Theo dõi Năng lực (BKT)', 'Bayesian Knowledge Tracing']) assert.ok(bkt.includes(t), t);
   assert.doesNotMatch(bkt, /<PersonalizedRoadmapView|HISTORICAL_FLASHCARDS|title="Mở Lộ trình theo ngày"|title="Luyện ngay"|title="Học ngay"/);
 });
+
+test('StudentAiHub wires AiHubDashboard (Lộ trình Cá nhân hóa, Flash Cards, AI Tutor, Chẩn đoán BKT) into cổng Học sinh', () => {
+  const entry = read('components/ai/StudentAiHub.tsx');
+  assert.match(entry, /<AiHubDashboard/);
+  assert.match(entry, /<TieuTuongTab/);
+  assert.match(entry, /Trung tâm AI \(Lộ trình & Flash Cards\)/);
+  assert.match(entry, /Tiểu Tướng & Lịch sử chat/);
+
+  const app = read('components/portal/StudentApp.tsx');
+  assert.match(app, /import \{ StudentAiHub \} from '@\/components\/ai\/StudentAiHub'/);
+  assert.match(app, /<StudentAiHub session=\{session\}/);
+
+  const hub = read('components/ai/AiHubDashboard.tsx');
+  assert.match(hub, /embedded\?: boolean/);
+  assert.match(hub, /Lộ trình Cá nhân hóa/);
+  assert.match(hub, /Flash Cards — Thẻ nhớ Sử liệu/);
+});
