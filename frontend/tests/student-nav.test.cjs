@@ -149,6 +149,11 @@ test('các màn của Hành trình Đông A dựng bằng thành phần của c�
   assert.match(home, /testID=\{`unit-map-\$\{no\}`\}/);
   assert.match(home, /const p1 = useLoad<CampaignView>\(session, \(t\) => saga\.campaign\(t, 1\), \[\]\);/);
   assert.match(home, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
+  // đợt 8: bản đồ không có thanh cuộn riêng ở cỡ mặc định (chỉ cuộn khi bấm phóng to); thẻ phần ở trang Chiến dịch không còn ảnh thu nhỏ bản đồ
+  assert.match(home, /const zi = chosen \?\? 0;/);
+  assert.match(home, /const viewH = baseH;/);
+  assert.doesNotMatch(home, /Math\.min\(ch, maxH\)|path-map-|const thumb = /);
+  assert.match(home, /testID=\{`path-go-\$\{camp\.campaign_no\}`\}/);
   assert.match(home, /\{st\.order\}\. \{st\.title\}/);
   assert.match(read('components', 'portal', 'StudentApp.tsx'), /<CampaignScreen key="campaign" /);
   assert.match(read('constants', 'map-credits.ts'), /Chongquannguyenlan1\.svg/);

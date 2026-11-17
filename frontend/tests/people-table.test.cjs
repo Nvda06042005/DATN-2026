@@ -85,7 +85,8 @@ test('tên hiện đủ trên nhiều dòng; tên đăng nhập, số, mã và t
   assert.match(src, /const Line: React\.FC<\{ text: string; muted\?: boolean; num\?: boolean \}>/);
   assert.match(src, /<Txt size=\{13\} numberOfLines=\{1\} color=\{muted \? c\.muc3 : undefined\} style=\{num \? NUM : undefined\}>\{text\}<\/Txt>/);
   assert.match(kit, /export const NameCell: React\.FC</);
-  assert.match(kit, /<Txt f="serifBold" size=\{17\} color=\{c\.logoInk\} style=\{\{ lineHeight: 22, textDecorationLine: 'none' \}\}>\{main\}<\/Txt>/);
+  // 16/11/2026: tên trong ô Họ tên dùng chữ Manrope đậm như tiêu đề thẻ (không còn chữ có chân Newsreader)
+  assert.match(kit, /<Txt f="bold" size=\{15\} color=\{c\.logoInk\} style=\{\{ lineHeight: 21, textDecorationLine: 'none' \}\}>\{main\}<\/Txt>/);
   assert.match(kit, /numberOfLines=\{fullSub \? undefined : 1\}/);
   assert.match(kit, /overflowWrap: 'anywhere'/);
   assert.match(src, /size=\{codeFontSize\(width, value\.length\)\} numberOfLines=\{1\} style=\{NUM\}>/);

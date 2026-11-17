@@ -7,10 +7,10 @@
  *   3. Bảng thông tin chặng: mục tiêu học, các bước, lý do còn khóa, kết quả cũ và nút Học / Chơi tiếp / Ôn lại.
  * Mục "Nhập vai" gom các cảnh khám phá và trận đánh đã mở để chơi lại nhanh.
  */
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Image, Platform, Pressable, ScrollView, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
-import { Award, BookOpen, Check, ClipboardCheck, Coins, Flag, Flame, Footprints, Gamepad2, Gift, Lock, Map as MapIcon, Maximize2, Play, Puzzle, RotateCcw, Sparkles, Swords, Target, Users, ZoomIn, ZoomOut } from 'lucide-react-native';
+import { Award, BookOpen, Check, ClipboardCheck, Coins, Flag, Flame, Footprints, Gamepad2, Gift, Lock, Maximize2, Play, Puzzle, RotateCcw, Sparkles, Swords, Target, Users, ZoomIn, ZoomOut } from 'lucide-react-native';
 import * as saga from '@/lib/saga-api';
 import * as authApi from '@/api/authApi';
 import { Mascot } from '@/components/art';
@@ -24,7 +24,6 @@ import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
 import type { CampaignView, SagaCampaign, SagaMapInfo, StageBrief, StageDetail, StepState } from '@/types/saga';
 
-const thumb = (no: number) => mapSource({ image_key: `ban-do-khang-chien-${no}`, image_url: null });
 const StateChip: React.FC<{ state: StageBrief['state'] }> = ({ state }) => {
   const st = STATE[state];
   return <Chip text={st.label} icon={st.icon} bg={st.soft} fg={st.text} />;
@@ -49,11 +48,11 @@ const ClassBar: React.FC<{ cls: MyClass }> = ({ cls }) => {
   );
 };
 
-/** Một phần của Hành trình (một cuộc kháng chiến): tiến độ chặng, sao, ảnh thu nhỏ bản đồ gốc (Wikipedia). Bấm để vào lộ trình của phần (không có `onOpen` thì chỉ là thẻ thông tin). */
-const UnitBanner: React.FC<{ camp: SagaCampaign; onOpen?: () => void; label?: string }> = ({ camp, onOpen, label = 'Vào học' }) => {
+/** Một phần của Hành trình (một cuộc kháng chiến): tiến độ chặng, sao, nút Vào học (đợt 8: bỏ ảnh thu nhỏ bản đồ trên thẻ). Bấm để mở bản đồ của phần. */
+const UnitBanner: React.FC<{ camp: SagaCampaign; onOpen: () => void; label?: string }> = ({ camp, onOpen, label = 'Vào học' }) => {
   const tone = TONE[camp.campaign_no];
   return (
-    <Pressable onPress={onOpen} disabled={!onOpen} accessibilityRole={onOpen ? 'button' : 'summary'} accessibilityLabel={`Phần ${camp.campaign_no}: ${camp.title}, ${camp.done} trên ${camp.stages} chặng, ${camp.stars} trên ${camp.max_stars} sao. ${label}`} testID={`path-unit-${camp.campaign_no}`}
+    <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={`Phần ${camp.campaign_no}: ${camp.title}, ${camp.done} trên ${camp.stages} chặng, ${camp.stars} trên ${camp.max_stars} sao. ${label}`} testID={`path-unit-${camp.campaign_no}`}
       style={({ pressed }) => ({ borderRadius: 14, backgroundColor: tone.main, padding: 16, gap: 8, alignSelf: 'stretch', opacity: pressed ? 0.92 : 1, transform: [{ scale: pressed ? 0.995 : 1 }] })}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <View style={{ flex: 1, minWidth: 200, gap: 2 }}>
@@ -61,11 +60,8 @@ const UnitBanner: React.FC<{ camp: SagaCampaign; onOpen?: () => void; label?: st
           <Txt f="bold" size={18} color="#ffffff" accessibilityRole="header">{camp.title}</Txt>
           <Txt size={12} color="#ffffff" style={{ opacity: 0.9 }}>{camp.done}/{camp.stages} chặng · {camp.stars}/{camp.max_stars} sao{camp.available ? '' : ' · mở khi xong phần trước'}</Txt>
         </View>
-        <View style={{ borderRadius: 10, overflow: 'hidden', borderWidth: 2, borderColor: 'rgba(255,255,255,0.8)' }} testID={`path-map-${camp.campaign_no}`}>
-          <Image source={thumb(camp.campaign_no)} style={{ width: 112, height: 70 }} resizeMode="cover" accessibilityIgnoresInvertColors />
-          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)', paddingVertical: 2, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4 }}>
-            {!onOpen ? <MapIcon size={12} color="#ffffff" /> : camp.available ? <Play size={12} color="#ffffff" /> : <Lock size={12} color="#ffffff" />}<Txt f="bold" size={11} color="#ffffff">{label}</Txt>
-          </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.85)', paddingHorizontal: 14, minHeight: 36 }} testID={`path-go-${camp.campaign_no}`}>
+          {camp.available ? <Play size={14} color="#ffffff" /> : <Lock size={14} color="#ffffff" />}<Txt f="bold" size={13} color="#ffffff">{label}</Txt>
         </View>
       </View>
       <View style={{ height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.35)', overflow: 'hidden' }}>
@@ -189,20 +185,22 @@ const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: num
   const ratio = map.image_w / Math.max(1, map.image_h);
   const viewW = Math.max(0, boxW - BORDER * 2), maxH = maxHeight - BORDER * 2;
   const fitW = Math.min(viewW, maxH * ratio);
-  // Mức phóng mặc định: vừa khung; phóng thêm khi bản đồ dọc quá nhỏ để đọc chữ hoặc khi hai chặng nằm sát tới mức các nút đè lên nhau
-  const auto = useMemo(() => {
-    if (!fitW) return 0;
+  // Cỡ mặc định (16/11/2026 đợt 8: không có thanh cuộn riêng trong bản đồ): vừa chiều cao khung nhìn; nới rộng thêm (tối đa bằng bề ngang khung) khi bản đồ
+  // quá nhỏ để đọc chữ hoặc khi hai chặng nằm sát tới mức các nút đè lên nhau – khi đó khung bản đồ cao theo ảnh và trang cuộn chung, không cuộn trong bản đồ
+  const grow = useMemo(() => {
+    if (!fitW) return 1;
     let near = Infinity;
     for (let i = 0; i < stages.length; i += 1) for (let j = i + 1; j < stages.length; j += 1) near = Math.min(near, Math.hypot((stages[i].map_x - stages[j].map_x) * fitW, (stages[i].map_y - stages[j].map_y) * (fitW / ratio)));
     const need = Math.max((NODE + 12) / Math.max(1, near), Math.min(viewW, 520) / fitW);
-    const i = ZOOMS.findIndex((z) => z >= need - 0.001);
-    return i < 0 ? 2 : Math.min(i, 2);
+    return Math.max(1, Math.min(need, viewW / fitW));
   }, [fitW, ratio, stages, viewW]);
-  const zi = chosen ?? auto;
+  const baseW = fitW * grow, baseH = baseW / ratio;
+  // phóng to (nút +) thì mới cuộn / kéo trong khung bản đồ; khung giữ chiều cao của cỡ mặc định
+  const zi = chosen ?? 0;
   const setZi = (next: (i: number) => number): void => setChosen(next(zi));
   const zoom = ZOOMS[zi];
-  const cw = fitW * zoom, ch = (fitW / ratio) * zoom;
-  const viewH = Math.min(ch, maxH);
+  const cw = baseW * zoom, ch = baseH * zoom;
+  const viewH = baseH;
   const scrolls = cw > viewW + 1 || ch > viewH + 1;
   useDragPan(outer, inner, scrolls);
   // Khi bản đồ lớn hơn khung: đưa chặng đang học (hoặc đang chọn) vào giữa khung nhìn mỗi lần đổi mức phóng
@@ -220,6 +218,8 @@ const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: num
   // màn hẹp: chỉ hiện tên của chặng đang chọn / đang học để các nhãn không đè lên nhau; bảng bên dưới có đủ tên
   const compact = cw < 620;
   const pt = (st: StageBrief): [number, number] => [st.map_x * cw, st.map_y * ch];
+  /** vị trí trái (tính từ nút chặng) của nhãn rộng `w` căn giữa dưới / trên nút, đẩy vào trong để không tràn mép bản đồ */
+  const inside = (x: number, w: number): number => Math.max(0, Math.min(cw - w, x - w / 2)) - (x - NODE / 2);
   // Rồng Con đi trên đường nối các chặng: từ chặng trước tới chặng đang học (máy bật giảm chuyển động thì đứng sẵn ở chặng đang học)
   const walk = useRef(new Animated.Value(1)).current;
   const mi = mascotId ? stages.findIndex((x) => x.id === mascotId) : -1;
@@ -241,7 +241,7 @@ const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: num
       {boxW > 0 ? (
         <ScrollView ref={outer} showsVerticalScrollIndicator={scrolls}>
           <ScrollView ref={inner} horizontal showsHorizontalScrollIndicator={scrolls} contentContainerStyle={{ minWidth: '100%', justifyContent: 'center' }}>
-            <View style={{ width: cw, height: ch }}>
+            <View style={{ width: cw, height: ch, overflow: 'hidden' }}>
               <Image source={mapSource(map)} style={{ width: cw, height: ch }} resizeMode="stretch" accessibilityLabel={`Bản đồ ${map.title} (${map.years})`} />
               <Svg width={cw} height={ch} style={{ position: 'absolute', left: 0, top: 0 }} pointerEvents="none">
                 {stages.length > 1 ? <Polyline points={stages.map((st) => pt(st).join(',')).join(' ')} fill="none" stroke="#ffffff" strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" opacity={0.7} /> : null}
@@ -253,7 +253,7 @@ const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: num
               </Svg>
               {mascotAt ? (
                 <Animated.View pointerEvents="none" testID="map-mascot" accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
-                  style={{ position: 'absolute', zIndex: 4, left: walk.interpolate({ inputRange: [0, 1], outputRange: [mascotAt.from[0] - NODE / 2 - 58, mascotAt.to[0] - NODE / 2 - 58] }),
+                  style={{ position: 'absolute', zIndex: 4, left: walk.interpolate({ inputRange: [0, 1], outputRange: [Math.max(0, mascotAt.from[0] - NODE / 2 - 58), Math.max(0, mascotAt.to[0] - NODE / 2 - 58)] }),
                     top: walk.interpolate({ inputRange: [0, 1], outputRange: [mascotAt.from[1] - 24, mascotAt.to[1] - 24] }) }}>
                   <Mascot size={54} mood="happy" bob />
                 </Animated.View>
@@ -266,11 +266,11 @@ const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: num
                 return (
                   <View key={st.id} pointerEvents="box-none" style={{ position: 'absolute', left: x - NODE / 2, top: y - NODE / 2, width: NODE, height: NODE, zIndex: picked ? 6 : current ? 5 : 1 }}>
                     {current ? (
-                      <View pointerEvents="none" style={{ position: 'absolute', bottom: NODE + 4, left: -38, width: 120, alignItems: 'center' }}>
+                      <View pointerEvents="none" style={{ position: 'absolute', bottom: NODE + 4, left: inside(x, 120), width: 120, alignItems: 'center' }}>
                         <View style={{ backgroundColor: c.son, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 2 }}><Txt f="bold" size={11} color="#ffffff">{st.state === 'ready' ? 'Bắt đầu' : 'Đang học'}</Txt></View>
                       </View>
                     ) : st.stars > 0 ? (
-                      <View pointerEvents="none" style={{ position: 'absolute', bottom: NODE + 2, left: -18, width: 80, alignItems: 'center' }}>
+                      <View pointerEvents="none" style={{ position: 'absolute', bottom: NODE + 2, left: inside(x, 80), width: 80, alignItems: 'center' }}>
                         <View style={{ backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 4, paddingHorizontal: 4 }}><StarRow n={st.stars} size={12} /></View>
                       </View>
                     ) : null}
@@ -283,7 +283,7 @@ const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: num
                       </View>
                     </Pressable>
                     {showLabel ? (
-                      <View pointerEvents="none" style={{ position: 'absolute', top: NODE + 4, left: -98, width: 240, alignItems: 'center', gap: 2 }}>
+                      <View pointerEvents="none" style={{ position: 'absolute', top: NODE + 4, left: inside(x, 240), width: 240, alignItems: 'center', gap: 2 }}>
                         <View style={{ backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: 8, borderWidth: 1, borderColor: c.adminLine, paddingHorizontal: 8, paddingVertical: 2, alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.25)' } as object}>
                           <Txt f="bold" size={12} color={c.logoInk} numberOfLines={1}>{st.order}. {st.title}</Txt>
                           {st.date_label ? <Txt size={10} color={c.muc3} numberOfLines={1}>{st.date_label}</Txt> : null}
@@ -310,12 +310,12 @@ const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: num
 /** Một phần trên trang bản đồ: tên cuộc kháng chiến, tiến độ, bản đồ gốc có các chặng và khung chú thích sa bàn */
 const PartSection: React.FC<{
   no: number; camp: SagaCampaign | null; view: CampaignView | null; loading: boolean; error: string | null; onRetry: () => void;
-  selectedId: number | null; mascotId: number | null; onPick: (st: StageBrief) => void; maxHeight: number; onY: (y: number) => void;
-}> = ({ no, camp, view, loading, error, onRetry, selectedId, mascotId, onPick, maxHeight, onY }) => {
+  selectedId: number | null; mascotId: number | null; onPick: (st: StageBrief) => void; maxHeight: number; onLayoutPart: (y: number, h: number) => void;
+}> = ({ no, camp, view, loading, error, onRetry, selectedId, mascotId, onPick, maxHeight, onLayoutPart }) => {
   const { c } = useTheme();
   const tone = TONE[no];
   return (
-    <View onLayout={(e) => onY(e.nativeEvent.layout.y)} style={{ gap: 10 }} testID={`saga-part-${no}`}>
+    <View onLayout={(e) => onLayoutPart(e.nativeEvent.layout.y, e.nativeEvent.layout.height)} style={{ gap: 10 }} testID={`saga-part-${no}`}>
       <View style={{ gap: 2 }}>
         <Txt f="bold" size={12} color={tone.main} style={{ letterSpacing: 0.6 }}>PHẦN {no} · {tone.years}</Txt>
         <Txt f="bold" size={20} accessibilityRole="header">{view?.map.title ?? camp?.title ?? `Phần ${no}`}</Txt>
@@ -352,21 +352,34 @@ export const CampaignScreen: React.FC<{ session: Session; nav: SagaNav; no: numb
   const openNo = open === null ? no : (parts.findIndex((p) => p.data?.stages.some((st) => st.id === open)) + 1 || no);
   const pick = (st: StageBrief): void => nav.go('chien-dich', { c: no, s: st.id, v: null }, 'params');
   const sum = (k: 'done' | 'stages' | 'stars' | 'max_stars') => parts.reduce((n, p) => n + (p.data?.totals[k] ?? 0), 0);
-  // cuộn tới phần đang chọn khi cả ba bản đồ đã tải xong (chiều cao các phần phía trên đã cố định)
+  // cuộn tới phần đang chọn: vị trí tính từ phần 1 cộng chiều cao các phần phía trên (bản đồ dãn ra sau khi đo khung nên trong ~2 giây đầu
+  // mỗi lần một phần đổi chiều cao thì cuộn lại cho đúng)
   const scroll = useRef<ScrollViewInstance | null>(null);
-  const ys = useRef<Record<number, number>>({});
+  const lay = useRef<Record<number, { y: number; h: number }>>({});
   const shown = useRef<number | null>(null);
+  const settle = useRef(0);
+  const target = useRef(no);
+  target.current = no;
   const loaded = parts.every((p) => p.data || p.error);
+  const jump = useCallback((animated: boolean) => {
+    const n = target.current, first = lay.current[1];
+    if (!first) return;
+    let y = first.y;
+    for (let k = 1; k < n; k += 1) { const sec = lay.current[k]; if (!sec) return; y += sec.h + 16; }
+    scroll.current?.scrollTo({ y: n === 1 ? 0 : Math.max(0, y - 8), animated });
+  }, []);
   useEffect(() => {
     if (!loaded || shown.current === no) return undefined;
-    const t = setTimeout(() => {
-      const y = ys.current[no];
-      if (y === undefined) return;
-      scroll.current?.scrollTo({ y: no === 1 ? 0 : Math.max(0, y - 8), animated: shown.current !== null });
-      shown.current = no;
-    }, 120);
+    const animated = shown.current !== null;
+    shown.current = no;
+    settle.current = Date.now() + 2000;
+    const t = setTimeout(() => jump(animated), 120);
     return () => clearTimeout(t);
-  }, [loaded, no]);
+  }, [loaded, no, jump]);
+  const onLayoutPart = (n: number, y: number, h: number): void => {
+    lay.current[n] = { y, h };
+    if (shown.current !== null && Date.now() < settle.current) jump(false);
+  };
   return (
     <SagaPage testID="saga-campaign" max={1180} scrollRef={scroll}>
       <SagaHeader title="Bản đồ Hành trình" subtitle={loaded ? `Ba lần kháng chiến chống quân Mông – Nguyên · đã xong ${sum('done')}/${sum('stages')} chặng · ${sum('stars')}/${sum('max_stars')} sao` : 'Ba lần kháng chiến chống quân Mông – Nguyên (1258, 1285, 1287–1288)'}
@@ -380,7 +393,7 @@ export const CampaignScreen: React.FC<{ session: Session; nav: SagaNav; no: numb
       {parts.map((p, i) => (
         <PartSection key={i + 1} no={i + 1} camp={nav.home?.campaigns.find((x) => x.campaign_no === i + 1) ?? null} view={p.data} loading={p.loading} error={p.error} onRetry={p.reload}
           selectedId={open} mascotId={next && next.campaign_no === i + 1 ? next.stage_id : null} onPick={pick} maxHeight={Math.max(320, Math.min(760, height - 190))}
-          onY={(y) => { ys.current[i + 1] = y; }} />
+          onLayoutPart={(y, h) => onLayoutPart(i + 1, y, h)} />
       ))}
       {open !== null ? <StageSheet session={session} nav={nav} stageId={open} campaignNo={openNo} /> : null}
     </SagaPage>

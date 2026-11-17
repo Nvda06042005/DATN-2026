@@ -413,7 +413,7 @@ export const NameCell: React.FC<{ main: string; sub?: string | null; fullSub?: b
   const { c } = useTheme();
   return (
     <View style={{ minWidth: 0, gap: 2 }}>
-      <Txt f="serifBold" size={17} color={c.logoInk} style={{ lineHeight: 22, textDecorationLine: 'none' }}>{main}</Txt>
+      <Txt f="bold" size={15} color={c.logoInk} style={{ lineHeight: 21, textDecorationLine: 'none' }}>{main}</Txt>
       {sub ? <Txt f="medium" size={12} color={c.muc3} numberOfLines={fullSub ? undefined : 1} style={[{ textDecorationLine: 'none' }, fullSub && Platform.OS === 'web' ? ({ overflowWrap: 'anywhere' } as object) : null]}>{sub}</Txt> : null}
     </View>
   );
