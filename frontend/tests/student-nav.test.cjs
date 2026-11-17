@@ -16,10 +16,13 @@ test('trang học sinh: khung Hành trình Đông A dùng chung khung của các
   assert.match(read('app', 'hoc-sinh.tsx'), /<StudentApp session=\{session\} \/>/);
   assert.match(app, /usePortalTab<SagaTab>\('chien-dich', TABS\)/);
   for (const [id, label] of [['chien-dich', 'Chiến dịch'], ['nhap-vai', 'Nhập vai'], ['cau-hoi', 'Câu hỏi ôn tập'], ['tu-lieu', 'Tư liệu'], ['bo-the', 'Bộ thẻ'], ['hoi', 'Hỏi Tiểu Tướng'], ['tro-giup', 'Trợ giúp']]) assert.ok(app.includes(`{ id: '${id}', label: '${label}'`), id);
-  // 16/11/2026: xóa hẳn mục Khảo sát của trang học sinh và logo ở thanh đầu của trang học sinh (các cổng quản trị vẫn giữ logo)
+  // 16/11/2026: xóa hẳn mục Khảo sát của trang học sinh; logo ở thanh đầu từng bỏ rồi khôi phục cùng ngày ("khôi phục header cho trang học sinh"), nút loa bỏ hẳn
   for (const gone of ["'khao-sat'", "label: 'Khảo sát'", '<SurveyCenter', 'ClipboardList']) assert.ok(!app.includes(gone), gone);
   assert.doesNotMatch(read('components', 'portal', 'SagaKit.tsx'), /'khao-sat'/);
-  assert.match(read('components', 'admin', 'AdminWorkspace.tsx'), /\{role !== 'student' \? <View style=\{\{ flexShrink: 1 \}\}><BrandLogo /);
+  assert.match(read('components', 'admin', 'AdminWorkspace.tsx'), /\n {8}<View style=\{\{ flexShrink: 1 \}\}><BrandLogo /);
+  assert.doesNotMatch(read('components', 'admin', 'AdminWorkspace.tsx'), /role !== 'student' \? <View style=\{\{ flexShrink: 1 \}\}><BrandLogo/);
+  for (const gone of ['sound-toggle', 'Volume2', 'VolumeX']) assert.ok(!app.includes(gone), gone);
+  assert.match(app, /useEffect\(\(\) => \{ if \(soundEnabled\(\)\) setSound\(false\); \}, \[\]\);/);
   // cùng khung với quản trị tổng / quản trị trường / giáo viên: AdminWorkspace + giao diện phẳng; không còn thanh HUD, nút tròn, nút nổi hay trình đơn riêng của bản trò chơi cũ
   assert.match(app, /<AdminUiContext\.Provider value>/);
   assert.match(app, /<AdminWorkspace session=\{session\} nav=\{navItems\} active=\{route\.tab === 'lop-hoc' \? 'chien-dich' : route\.tab\} onSelect=\{pick\}/);
@@ -136,18 +139,19 @@ test('các màn của Hành trình Đông A dựng bằng thành phần của c�
     assert.doesNotMatch(text, /GameBtn|Chunky|SkyBg|Sunburst|Confetti|LinearGradient|tone="(green|yellow|purple|navy|white|blue|orange|red)"/, f);
   }
   // 16/11/2026 đợt 5: Chiến dịch mở danh sách lớp trước (không còn menu Lớp học riêng), vào lớp rồi mới tới ba phần; trang bản đồ + bảng chặng cũ đã xóa
-  // đợt 6: bấm một phần ra lộ trình uốn lượn các chặng như trước, bản đồ gốc ghép ngay bên dưới kiểu sa bàn (nhãn "số. tên chặng", khung chú thích); không có nút "Kéo bản đồ ra"
+  // đợt 7: trang bản đồ = ba phần nối nhau khi cuộn, mỗi phần một bản đồ gốc kiểu sa bàn; Rồng Con đi trên bản đồ tới chặng đang học;
+  // bỏ lộ trình uốn lượn, thẻ phần có ảnh thu nhỏ "Bản đồ bên dưới" và dòng ghi nguồn dưới bản đồ (ghi công ở trang Thông tin hình ảnh)
   const home = read('components', 'portal', 'SagaHome.tsx');
-  for (const id of ['home-units', 'unit-path', 'unit-map', 'map-caption', 'unit-continue', 'my-class', 'home-level', 'home-daily', 'home-exams']) assert.ok(home.includes(`testID="${id}"`), id);
-  for (const gone of ['unit-map-toggle', 'join-class', 'join-code', 'join-submit']) assert.ok(!home.includes(`testID="${gone}"`), gone);
-  assert.doesNotMatch(home, /testID="stage-table"|<DataTable columns=\{columns\} rows=\{view\.stages\}|testID="home-path"|'Kéo bản đồ ra'|const ClassStrip|mapOpen/);
-  assert.match(home, /<UnitPath stages=\{view\.stages\}[^\n]*\/>\n\s*<\/View>\n\s*<Card flat pad=\{12\} style=\{\{ borderRadius: 12, gap: 8 \}\} testID="unit-map">/);
+  for (const id of ['home-units', 'map-caption', 'map-mascot', 'unit-continue', 'my-class', 'home-level', 'home-daily', 'home-exams']) assert.ok(home.includes(`testID="${id}"`), id);
+  for (const gone of ['unit-path', 'unit-map-toggle', 'join-class', 'join-code', 'join-submit']) assert.ok(!home.includes(`testID="${gone}"`), gone);
+  assert.doesNotMatch(home, /testID="stage-table"|<DataTable columns=\{columns\} rows=\{view\.stages\}|testID="home-path"|'Kéo bản đồ ra'|const ClassStrip|mapOpen|const UnitPath|Bản đồ bên dưới|Vị trí các chặng do nhóm phát triển đánh dấu/);
+  assert.match(home, /testID=\{`saga-part-\$\{no\}`\}/);
+  assert.match(home, /testID=\{`unit-map-\$\{no\}`\}/);
+  assert.match(home, /const p1 = useLoad<CampaignView>\(session, \(t\) => saga\.campaign\(t, 1\), \[\]\);/);
+  assert.match(home, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
   assert.match(home, /\{st\.order\}\. \{st\.title\}/);
-  assert.match(home, /testID=\{`path-node-\$\{st\.order\}`\}/);
-  assert.match(home, /back=\{\{ label: 'Lớp học', hint: 'Về danh sách lớp học', onPress: onLeave \}\}/);
-  assert.match(home, /<SagaMap map=\{view\.map\} stages=\{view\.stages\}/);
-  assert.match(home, /testID=\{`map-node-\$\{st\.code\}`\}/);
-  assert.match(home, /testID=\{`path-map-\$\{camp\.campaign_no\}`\}/);
+  assert.match(read('components', 'portal', 'StudentApp.tsx'), /<CampaignScreen key="campaign" /);
+  assert.match(read('constants', 'map-credits.ts'), /Chongquannguyenlan1\.svg/);
   // học sinh chưa vào lớp: chỉ có Chiến dịch (danh sách lớp, đăng ký bằng mã), Tin nhắn, Trợ giúp
   const app = read('components', 'portal', 'StudentApp.tsx');
   assert.match(app, /const BEFORE_CLASS: readonly SagaTab\[\] = \['chien-dich', 'tin-nhan', 'tro-giup'\];/);

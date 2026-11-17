@@ -13,7 +13,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useIsFocused, useLocalSearchParams, useNavigation, usePathname, useRouter, type Href } from 'expo-router';
-import { CircleQuestionMark, ClipboardCheck, GalleryHorizontalEnd, Gamepad2, LifeBuoy, Mail, Map as MapIcon, ScrollText, Sparkles, Volume2, VolumeX } from 'lucide-react-native';
+import { CircleQuestionMark, ClipboardCheck, GalleryHorizontalEnd, Gamepad2, LifeBuoy, Mail, Map as MapIcon, ScrollText, Sparkles } from 'lucide-react-native';
 import * as learningApi from '@/api/learningApi';
 import { StudentCatalog, StudentInbox } from '@/components/portal/StudentClasses';
 import { StudentExams } from '@/components/admin/LibraryExams';
@@ -139,7 +139,8 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   useEffect(() => { if (focused) platform.prefs(session.token).then(setPrefs).catch(() => undefined); }, [focused, session.token]);
   const profile = useLoad(() => authApi.getProfile(session.token), [session.token, session.user.profile_confirmed_at], session.expired);
-  const [sound, setSoundOn] = useState(() => soundEnabled());
+  // 16/11/2026: bỏ nút loa ở thanh đầu theo yêu cầu – âm thanh trò chơi luôn tắt (tắt luôn cả lựa chọn đã bật trước đây)
+  useEffect(() => { if (soundEnabled()) setSound(false); }, []);
   const [levelUp, setLevelUp] = useState<{ level: number; title: string } | null>(null);
   const [cite, setCite] = useState<{ type: string; id: number } | null>(null);
 
@@ -205,7 +206,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       : stage && route.v === 'kham-pha' ? <ExploreScreen key={`kp${stage.stageId}`} {...stage} />
       : stage && route.v === 'tran' ? <BattleScreen key={`tran${stage.stageId}`} {...stage} />
       : stage && route.v === 'tong-ket' ? <SummaryScreen key={`tk${stage.stageId}`} {...stage} />
-      : route.c !== null ? <CampaignScreen key={`c${route.c}`} session={session} nav={nav} no={route.c} />
+      : route.c !== null ? <CampaignScreen key="campaign" session={session} nav={nav} no={route.c} />
       : inClass ? <HomeScreen nav={nav} loading={home.loading} error={home.error} cls={cls} onLeave={() => enter(null)} /> : catalog
     : route.tab === 'nhap-vai' ? <RolePlayScreen session={session} nav={nav} />
     : route.tab === 'cau-hoi' ? <ReviewScreen session={session} nav={nav} />
@@ -223,8 +224,6 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const navItems = NAV.filter((it) => !gated || BEFORE_CLASS.includes(it.id)).map((it) => (it.id === 'cau-hoi' && home.data?.review_due ? { ...it, count: home.data.review_due } : it.id === 'tin-nhan' && unread ? { ...it, count: unread } : it));
   const extra = (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-      <Btn icon={sound ? Volume2 : VolumeX} tone="ghost" size="sm" selected={sound} label={sound ? 'Âm thanh trò chơi đang bật, bấm để tắt' : 'Âm thanh trò chơi đang tắt, bấm để bật'} testID="sound-toggle"
-        onPress={() => { const on = !sound; setSound(on); setSoundOn(on); }} />
       <SettingsButton session={session} prefs={prefs} onSaved={setPrefs} />
       <NoticeBell session={session} onGo={(n) => pick(n.kind === 'support' ? 'tro-giup' : n.kind === 'exam' ? 'ky-thi' : n.kind === 'message' ? 'tin-nhan' : 'chien-dich')} />
     </View>

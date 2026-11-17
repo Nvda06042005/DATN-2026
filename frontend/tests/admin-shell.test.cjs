@@ -19,7 +19,7 @@ test('đã xóa thanh vai trò và phạm vi ("Quản trị tổng · Toàn hệ
 test('tên trường (quản trị trường, giáo viên, học sinh) chuyển lên đường dẫn trang ở thanh đầu để không mất thông tin', () => {
   // mục nằm trong nhóm (vd. Quản lý / Học sinh) thì đường dẫn ghi cả tên nhóm; từ 16/11/2026 trang học sinh dùng chung khung này ("Học sinh / Chiến dịch")
   assert.match(shell, /const trail = \[schoolName, `\$\{role === 'teacher' \? 'Giáo viên' : role === 'student' \? 'Học sinh' : 'Quản trị'\} \/ \$\{activeGroup \? `\$\{activeGroup\.label\} \/ ` : ''\}\$\{label\}`\]\.filter\(Boolean\)\.join\(' · '\);/);
-  assert.match(shell, /numberOfLines=\{1\} style=\{\{ flex: 1, paddingLeft: role === 'student' \? 8 : 0 \}\}>\{trail\}<\/Txt>/);
+  assert.match(shell, /numberOfLines=\{1\} style=\{\{ flex: 1 \}\}>\{trail\}<\/Txt>/);
 });
 
 test('cùng ngôn ngữ thiết kế với trang chủ: nền giấy dó có hoa văn, thanh đầu viên thuốc nổi, nút Đăng xuất tối bo tròn', () => {

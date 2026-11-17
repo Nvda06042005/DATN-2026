@@ -109,8 +109,8 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
         {!wide && <Pressable testID="admin-menu-toggle" accessibilityRole="button" accessibilityLabel={open ? (role === 'student' ? 'Đóng menu' : 'Đóng menu quản trị') : (role === 'student' ? 'Mở menu' : 'Mở menu quản trị')} accessibilityState={{ expanded: open }} onPress={() => setOpen(value => !value)} style={{ width: 44, height: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center' }}>{open ? <X size={23} color={c.logoInk} /> : <Menu size={23} color={c.logoInk} />}</Pressable>}
         {/* màn hẹp có thêm nút ở thanh đầu (Tạo, thông báo, cài đặt…): chỉ hiện dấu logo để các nút không đè lên chữ.
             Trang học sinh không có logo ở thanh đầu (người dùng yêu cầu xóa hẳn ngày 16/11/2026). */}
-        {role !== 'student' ? <View style={{ flexShrink: 1 }}><BrandLogo compact={width < 350 || (Boolean(extra) && width < 480)} brand={brand} /></View> : null}
-        {wide && <Txt f="semibold" size={12} color={c.muc3} numberOfLines={1} style={{ flex: 1, paddingLeft: role === 'student' ? 8 : 0 }}>{trail}</Txt>}
+        <View style={{ flexShrink: 1 }}><BrandLogo compact={width < 350 || (Boolean(extra) && width < 480)} brand={brand} /></View>
+        {wide && <Txt f="semibold" size={12} color={c.muc3} numberOfLines={1} style={{ flex: 1 }}>{trail}</Txt>}
         <View style={{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           {extra}
           <Pressable testID="admin-profile-open" accessibilityRole="button" accessibilityLabel="Mở hồ sơ cá nhân" onPress={() => setProfile(true)} style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 4, paddingRight: roomy ? 12 : 4, borderRadius: 999, backgroundColor: pressed ? c.adminCanvas : 'transparent' })}>
