@@ -1,6 +1,6 @@
 /**
  * Cột bên phải của trang Chiến dịch (17/11/2026, bố cục theo kiểu Duolingo, giữ giao diện sáng của dự án):
- *  - dải chỉ số (chuỗi ngày, vàng, điểm kinh nghiệm, chặng) và thẻ cấp độ;
+ *  - dải chỉ số (chuỗi ngày, vàng, điểm kinh nghiệm, chặng), thẻ chiến binh (khung ảnh đại diện + danh hiệu từ hòm báu, Kho trang phục) và thẻ cấp độ;
  *  - Giải đấu tuần: hạng của em, khoảng cách tới vùng lên hạng / xuống hạng; "Xem bảng" mở bảng xếp hạng nhóm (huy hiệu các hạng, vùng lên / xuống hạng);
  *  - Nhiệm vụ hằng ngày: mỗi nhiệm vụ một thanh tiến độ "x / y" và hòm báu (mở khi xong); "Xem tất cả" mở nhiệm vụ tháng, ngày, tuần;
  *  - Ôn tập nhanh và Kỳ thi.
@@ -10,7 +10,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { BookOpen, ChevronDown, ChevronUp, ClipboardCheck, Clock, Coins, Flag, Flame, Lock, RotateCcw, Star, Swords, Target, Zap } from 'lucide-react-native';
+import { BookOpen, ChevronDown, ChevronUp, ClipboardCheck, Clock, Coins, Flag, Flame, Lock, RotateCcw, Shirt, Star, Swords, Target, Zap } from 'lucide-react-native';
 import * as game from '@/api/gameApi';
 import { Mascot } from '@/components/art';
 import type { Session } from '@/components/auth';
@@ -19,6 +19,8 @@ import { Avatar, Btn, Card, Sheet, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
 import type { GameQuest, GameQuests, LeagueView } from '@/types/gamification';
+import type { SagaLook } from '@/types/saga';
+import { FramedAvatar, TitleBadge, WardrobeSheet } from '@/components/portal/SagaLook';
 
 // ---------------------------------------------------------------------- hình vẽ: hòm báu, huy hiệu giải đấu
 /** Hòm báu vẽ bằng SVG: khóa (xám), sẵn sàng (gỗ – vàng), đã mở (nắp mở, có vàng bên trong) */
@@ -155,7 +157,7 @@ const QuestsSheet: React.FC<{ data: GameQuests; onClose: () => void }> = ({ data
 const me = (l: LeagueView) => l.entries.find((e) => e.me) ?? null;
 
 /** Bảng xếp hạng nhóm trong giải tuần: huy hiệu các hạng, số người lên hạng, ngày còn lại, vùng lên / xuống hạng */
-const LeagueSheet: React.FC<{ data: LeagueView; onClose: () => void }> = ({ data, onClose }) => {
+const LeagueSheet: React.FC<{ data: LeagueView; look: SagaLook | null; name: string; uri: string | null; onClose: () => void }> = ({ data, look, name, uri, onClose }) => {
   const { c } = useTheme();
   const size = data.entries.length;
   return (
@@ -180,8 +182,11 @@ const LeagueSheet: React.FC<{ data: LeagueView; onClose: () => void }> = ({ data
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 10, backgroundColor: e.me ? c.adminTint : 'transparent' }}
                 accessible accessibilityLabel={`Hạng ${e.rank}: ${e.name}, ${e.xp} điểm${e.zone === 'promote' ? ', vùng lên hạng' : e.zone === 'demote' ? ', vùng xuống hạng' : ''}`}>
                 <Txt f="bold" size={14} color={e.zone === 'promote' ? c.mocChu : e.zone === 'demote' ? c.sonChu : c.muc2} style={{ width: 24, textAlign: 'center' }}>{e.rank}</Txt>
-                <Avatar name={e.name} size={34} />
-                <Txt f={e.me ? 'heavy' : 'bold'} size={14} color={e.me ? c.mocChu : c.muc} numberOfLines={1} style={{ flex: 1 }}>{e.name}</Txt>
+                {e.me ? <FramedAvatar name={name} uri={uri} size={34} frame={look?.frame} /> : <Avatar name={e.name} size={34} />}
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Txt f={e.me ? 'heavy' : 'bold'} size={14} color={e.me ? c.mocChu : c.muc} numberOfLines={1}>{e.name}</Txt>
+                  {e.me && look?.title ? <TitleBadge title={look.title} /> : null}
+                </View>
                 <Txt f="semibold" size={13} color={c.muc2}>{num(e.xp)} điểm</Txt>
               </View>
               {data.promote && i === data.promote - 1 && size > data.promote ? (
@@ -202,7 +207,7 @@ export const SagaRail: React.FC<{ session: Session; nav: SagaNav; wide: boolean 
   const { c } = useTheme();
   const quests = useLoad<GameQuests>(session, (t) => game.gameQuests(t), [nav.home?.hud.xp]);
   const league = useLoad<LeagueView>(session, (t) => game.leagueView(t), [nav.home?.hud.xp]);
-  const [sheet, setSheet] = React.useState<'league' | 'quests' | null>(null);
+  const [sheet, setSheet] = React.useState<'league' | 'quests' | 'wardrobe' | null>(null);
   const home = nav.home;
   const hud = home?.hud;
   if (!home || !hud) return null;
@@ -227,6 +232,14 @@ export const SagaRail: React.FC<{ session: Session; nav: SagaNav; wide: boolean 
           </View>
         ))}
       </View>
+      <Card flat pad={14} style={{ borderRadius: 14, gap: 10, flexDirection: 'row', alignItems: 'center' }} testID="rail-profile">
+        <FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={52} frame={home.look?.frame} />
+        <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
+          <Txt f="bold" size={15} numberOfLines={1}>{home.learner.name}</Txt>
+          {home.look?.title ? <TitleBadge title={home.look.title} /> : <Txt size={12} color={c.muc3}>Mở hòm báu để nhận khung và danh hiệu</Txt>}
+        </View>
+        <Btn icon={Shirt} label="Kho trang phục" tone="giay" size="sm" onPress={() => setSheet('wardrobe')} testID="open-wardrobe" />
+      </Card>
       <Card flat pad={14} style={{ borderRadius: 14, gap: 8 }} testID="home-level">
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Txt f="bold" size={15}>Cấp {level.level} · {level.title}</Txt>
@@ -265,7 +278,8 @@ export const SagaRail: React.FC<{ session: Session; nav: SagaNav; wide: boolean 
         <Txt size={13} color={c.muc2}>Bài kiểm tra giữa kỳ, cuối kỳ thầy cô tổ chức; vào giờ thi nhập mật khẩu để làm.</Txt>
         <Btn title="Mở Kỳ thi" icon={ClipboardCheck} tone="giay" size="sm" onPress={() => nav.go('ky-thi', { c: null, s: null, v: null })} testID="home-exams" />
       </Card>
-      {sheet === 'league' && league.data ? <LeagueSheet data={league.data} onClose={() => setSheet(null)} /> : null}
+      {sheet === 'league' && league.data ? <LeagueSheet data={league.data} look={home.look ?? null} name={session.user.full_name} uri={session.user.avatar_url} onClose={() => setSheet(null)} /> : null}
+      {sheet === 'wardrobe' ? <WardrobeSheet session={session} name={session.user.full_name} uri={session.user.avatar_url} onClose={() => setSheet(null)} onChanged={() => nav.refresh()} /> : null}
       {sheet === 'quests' && quests.data ? <QuestsSheet data={quests.data} onClose={() => setSheet(null)} /> : null}
     </View>
   );

@@ -48,6 +48,24 @@ const SESSION_COLS = 'id::int AS id, user_id, stage_id, kind, status, seq, state
 const XP = { lesson: 10, practice: 30, explore: 20, battle: 50, review: 5 };
 /** Hòm báu trên bản đồ (17/11/2026, migration 072): giữa hai chặng liền nhau (mở khi xong chặng trước) và cuối mỗi phần (mở khi xong cả phần) */
 const CHEST = { stage: { gold: 15, xp: 0 }, part: { gold: 40, xp: 20 } };
+/**
+ * Khung ảnh đại diện và danh hiệu nhận từ hòm báu (17/11/2026, kiểu quà sự kiện của game): danh mục cố định trong mã, mở khóa theo các hòm đã mở
+ * (sổ vàng lý do 'chest'), trang bị lưu ở hk_players.appearance (khóa saga_frame, saga_title) – không thêm bảng. Khung: hòm cuối mỗi phần;
+ * danh hiệu: theo số hòm đã mở (13 hòm = mọi hòm). "Sát Thát" là chữ quân sĩ nhà Trần thích lên cánh tay năm 1285 (Đại Việt sử ký toàn thư).
+ */
+type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
+const FRAMES: Array<{ code: string; name: string; rarity: Rarity; chest: string; need: string }> = [
+  { code: 'dong-bo-dau', name: 'Khung Đông Bộ Đầu', rarity: 'rare', chest: 'p1', need: 'Mở hòm báu cuối Phần 1 (1258)' },
+  { code: 'chuong-duong', name: 'Khung Chương Dương', rarity: 'epic', chest: 'p2', need: 'Mở hòm báu cuối Phần 2 (1285)' },
+  { code: 'bach-dang', name: 'Khung Bạch Đằng', rarity: 'legendary', chest: 'p3', need: 'Mở hòm báu cuối Phần 3 (1287–1288)' },
+];
+const TITLES: Array<{ code: string; name: string; rarity: Rarity; min: number }> = [
+  { code: 'tan-binh-sat-that', name: 'Tân binh Sát Thát', rarity: 'common', min: 1 },
+  { code: 'hieu-uy-dong-a', name: 'Hiệu úy Đông A', rarity: 'rare', min: 3 },
+  { code: 'tuong-quan-dong-a', name: 'Tướng quân Đông A', rarity: 'epic', min: 6 },
+  { code: 'hao-kiet-dong-a', name: 'Hào kiệt Đông A', rarity: 'epic', min: 10 },
+  { code: 'dai-tuong-hao-khi', name: 'Đại tướng Hào Khí Đông A', rarity: 'legendary', min: 13 },
+];
 const REVIEW_SIZE = 10;
 const REVIEW_GRACE_MS = 3000;
 /** Thời gian tối đa đọc lời giải thích của câu trước khi trình duyệt không báo "đã mở câu": quá mức này đồng hồ của câu vẫn tính */
@@ -147,6 +165,7 @@ export class SagaService {
       campaigns, next: next ? { stage_id: next.id, title: next.title, campaign_no: next.campaign_no, state: next.state } : null,
       daily: daily ? { title: daily.title, progress: daily.progress, target: daily.target, done: Boolean(daily.completed_at), reward_xp: daily.reward_xp, reward_gold: daily.reward_gold, done_count: dailyDone, total: (quests.daily as unknown[]).length } : null,
       review_due: [...due.values()].reduce((n, x) => n + x, 0), totals: { stages: briefs.length, done: briefs.filter((b) => b.state === 'done' || b.state === 'review').length },
+      look: (await this.db.tx((t) => this.wardrobe(t, user))).equipped,
     };
   }
 
@@ -199,11 +218,65 @@ export class SagaService {
       }
       const reward = CHEST[kind];
       const ref = `hq:chest:${key}`;
+      const before = await this.wardrobe(q, user);
       const first = await this.game.addGold(q, user, reward.gold, 'chest', ref);
       let xp = 0;
       if (first && reward.xp && (await this.game.awardXp(q, user, reward.xp, 'chest', ref))) xp = reward.xp;
       if (first) await logEvent(null, user, 'chest_open', 'saga_chest', null, null, { key }, null, q);
-      return { key, kind, first, gold: first ? reward.gold : 0, xp };
+      // khung / danh hiệu vừa mở khóa nhờ hòm này; ô nào đang trống thì trang bị luôn
+      const after = await this.wardrobe(q, user);
+      const fresh = (list: Array<{ code: string; unlocked: boolean }>, old: Array<{ code: string; unlocked: boolean }>) => list.filter((x) => x.unlocked && !old.find((o) => o.code === x.code)?.unlocked);
+      const gained = [
+        ...fresh(after.frames, before.frames).map((x) => ({ ...(x as (typeof after.frames)[number]), kind: 'frame' as const })),
+        ...fresh(after.titles, before.titles).map((x) => ({ ...(x as (typeof after.titles)[number]), kind: 'title' as const })),
+      ];
+      const auto: Record<string, string> = {};
+      const newFrame = gained.filter((x) => x.kind === 'frame').pop(), newTitle = gained.filter((x) => x.kind === 'title').pop();
+      if (newFrame && !after.equipped.frame) auto.saga_frame = newFrame.code;
+      if (newTitle && !after.equipped.title) auto.saga_title = newTitle.code;
+      if (Object.keys(auto).length) await q('UPDATE hk_players SET appearance = appearance || $2::jsonb, updated_at = now() WHERE user_id = $1', [user.id, JSON.stringify(auto)]);
+      const unlocked = gained.map((x) => ({ kind: x.kind, code: x.code, name: x.name, rarity: x.rarity, equipped: auto[x.kind === 'frame' ? 'saga_frame' : 'saga_title'] === x.code }));
+      return { key, kind, first, gold: first ? reward.gold : 0, xp, unlocked };
+    });
+  }
+
+  // ------------------------------------------------------------------ khung ảnh đại diện và danh hiệu (17/11/2026)
+  /** Kho trang phục: danh mục khung / danh hiệu kèm trạng thái mở khóa theo các hòm đã mở và món đang trang bị */
+  private async wardrobe(q: Q, user: UserRow) {
+    await this.game.fresh(q, user);
+    const opened = new Set((await q<{ ref_key: string }>("SELECT ref_key FROM hk_gold_ledger WHERE user_id = $1 AND reason = 'chest'", [user.id])).map((r) => r.ref_key.replace(/^hq:chest:/, '')));
+    const look = ((await q<{ appearance: Record<string, unknown> }>('SELECT appearance FROM hk_players WHERE user_id = $1', [user.id]))[0]?.appearance ?? {}) as Record<string, unknown>;
+    const frames = FRAMES.map((f) => ({ code: f.code, name: f.name, rarity: f.rarity, need: f.need, unlocked: opened.has(f.chest) }));
+    const titles = TITLES.map((t) => ({ code: t.code, name: t.name, rarity: t.rarity, need: `Mở ${t.min} hòm báu trên bản đồ`, unlocked: opened.size >= t.min }));
+    const pick = (list: Array<{ code: string; name: string; rarity: Rarity; unlocked: boolean }>, code: unknown) => {
+      const x = list.find((i) => i.code === code && i.unlocked);
+      return x ? { code: x.code, name: x.name, rarity: x.rarity } : null;
+    };
+    return { frames, titles, opened: opened.size, total: (await this.stages(q)).length, equipped: { frame: pick(frames, look.saga_frame), title: pick(titles, look.saga_title) } };
+  }
+
+  async cosmetics(user: UserRow) {
+    return this.db.tx((q) => this.wardrobe(q, user));
+  }
+
+  /** Trang bị khung / danh hiệu (null = bỏ); chỉ nhận món đã mở khóa */
+  async equip(user: UserRow, body: { frame?: string | null; title?: string | null }) {
+    return this.db.tx(async (q) => {
+      const w = await this.wardrobe(q, user);
+      const patch: Record<string, string | null> = {};
+      const slots: Array<['frame' | 'title', Array<{ code: string; name: string; unlocked: boolean }>, string]> = [['frame', w.frames, 'saga_frame'], ['title', w.titles, 'saga_title']];
+      for (const [field, list, key] of slots) {
+        const code = body[field];
+        if (code === undefined) continue;
+        if (code !== null) {
+          const item = list.find((x) => x.code === code);
+          if (!item) throw notFound(field === 'frame' ? 'khung' : 'danh hiệu');
+          if (!item.unlocked) throw new ConflictException(`Em chưa mở khóa “${item.name}”`);
+        }
+        patch[key] = code;
+      }
+      if (Object.keys(patch).length) await q('UPDATE hk_players SET appearance = appearance || $2::jsonb, updated_at = now() WHERE user_id = $1', [user.id, JSON.stringify(patch)]);
+      return this.wardrobe(q, user);
     });
   }
 

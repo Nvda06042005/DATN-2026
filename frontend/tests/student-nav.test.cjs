@@ -154,6 +154,18 @@ test('các màn của Hành trình Đông A dựng bằng thành phần của c�
   assert.match(rail, /game\.gameQuests\(t\)/);
   for (const t of ['VÙNG LÊN HẠNG', 'VÙNG XUỐNG HẠNG', 'Nhiệm vụ hằng ngày', 'Nhiệm vụ tuần', 'XEM TẤT CẢ', 'XEM BẢNG']) assert.ok(rail.includes(t), t);
   assert.doesNotMatch(rail, /duolingo\.com|\.png'\)|require\(/i);
+  // 17/11/2026: khung ảnh đại diện (vòng màu xoay, quầng sáng, tia lấp lánh) và danh hiệu (viền nhấp nháy) nhận từ hòm báu, kiểu quà sự kiện của game
+  const look = read('components', 'portal', 'SagaLook.tsx');
+  for (const name of ['FramedAvatar', 'TitleBadge', 'WardrobeSheet']) assert.match(look, new RegExp(`export const ${name}: React\.FC`), name);
+  assert.match(look, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
+  assert.match(look, /saga\.equipLook\(session\.token, body\)/);
+  for (const code of ['dong-bo-dau', 'chuong-duong', 'bach-dang']) assert.ok(look.includes(`'${code}'`), code);
+  assert.match(read('components', 'portal', 'StudentApp.tsx'), /avatar=\{home\.data\?\.look\?\.frame \? <FramedAvatar /);
+  assert.match(read('components', 'portal', 'StudentApp.tsx'), /roleLine=\{home\.data\?\.look\?\.title \? <TitleBadge /);
+  assert.match(read('components', 'admin', 'AdminWorkspace.tsx'), /\{avatar \?\? <Avatar name=\{session\.user\.full_name\}/);
+  assert.match(rail, /testID="rail-profile"/);
+  assert.match(rail, /<WardrobeSheet session=\{session\}/);
+  assert.match(home, /testID=\{`chest-unlock-\$\{u\.code\}`\}/);
   for (const gone of ['unit-path', 'unit-map-toggle', 'join-class', 'join-code', 'join-submit']) assert.ok(!home.includes(`testID="${gone}"`), gone);
   assert.doesNotMatch(home, /testID="stage-table"|<DataTable columns=\{columns\} rows=\{view\.stages\}|testID="home-path"|'Kéo bản đồ ra'|const ClassStrip|mapOpen|const UnitPath|Bản đồ bên dưới|Vị trí các chặng do nhóm phát triển đánh dấu/);
   assert.match(home, /testID=\{`saga-part-\$\{no\}`\}/);

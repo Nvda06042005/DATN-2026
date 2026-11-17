@@ -1,11 +1,16 @@
 import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsObject, IsOptional, IsString, Matches, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsObject, IsOptional, IsString, Matches, Min, ValidateIf } from 'class-validator';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { UserRow } from '../database/database.service';
 import { SagaService } from './saga.service';
 
 class StartDto { @IsOptional() @IsBoolean() restart?: boolean; }
+/** Trang bị khung ảnh đại diện / danh hiệu (null = bỏ trang bị) */
+class EquipDto {
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @IsString() @Matches(/^[a-z0-9-]{2,40}$/) frame?: string | null;
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @IsString() @Matches(/^[a-z0-9-]{2,40}$/) title?: string | null;
+}
 class ActionDto {
   /** Mã do trình duyệt sinh cho mỗi lệnh: gửi lặp cùng mã nhận lại kết quả cũ */
   @IsString() @Matches(/^[A-Za-z0-9_-]{8,64}$/) action_id: string;
@@ -28,6 +33,9 @@ export class SagaController {
   @Get('home') @Roles('student') home(@CurrentUser() user: UserRow) { return this.saga.home(user); }
   @Get('campaigns/:no') @Roles('student') campaign(@CurrentUser() user: UserRow, @Param('no', ParseIntPipe) no: number) { return this.saga.campaign(user, no); }
 
+  /** Khung ảnh đại diện và danh hiệu nhận từ hòm báu (17/11/2026) */
+  @Get('cosmetics') @Roles('student') cosmetics(@CurrentUser() user: UserRow) { return this.saga.cosmetics(user); }
+  @Post('cosmetics/equip') @Roles('student') @HttpCode(200) equip(@CurrentUser() user: UserRow, @Body() body: EquipDto) { return this.saga.equip(user, body); }
   /** Mở hòm báu trên bản đồ (17/11/2026) */
   @Post('chests/:key/open') @Roles('student') @HttpCode(200) openChest(@CurrentUser() user: UserRow, @Param('key') key: string) { return this.saga.openChest(user, key); }
   @Get('stages/:id') @Roles('student') stage(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.saga.stageDetail(user, id); }

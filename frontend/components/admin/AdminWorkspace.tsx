@@ -32,9 +32,11 @@ export const navLeaves = <T extends string>(nav: ReadonlyArray<NavEntry<T>>): Ar
  * Khung chung của cổng quản trị tổng, quản trị trường, giáo viên và (từ 16/11/2026) trang học sinh. Dùng cùng ngôn ngữ thiết kế với trang chủ: nền giấy dó có hoa văn trống đồng,
  * thanh đầu trang dạng viên thuốc nổi, nút tối bo tròn, thanh bên bo góc; chân trang có dòng bản quyền như ở trang đăng nhập.
  */
-export function AdminWorkspace<T extends string>({ session, nav, active, onSelect, extra, schoolName, children }: {
+export function AdminWorkspace<T extends string>({ session, nav, active, onSelect, extra, schoolName, children, avatar, roleLine }: {
   session: Session; nav: ReadonlyArray<NavEntry<T>>;
   active: T; onSelect: (tab: T) => void; extra?: ReactNode; schoolName?: string; children: ReactNode;
+  /** Thay ảnh đại diện / dòng dưới tên ở thanh đầu (trang học sinh: khung và danh hiệu nhận từ hòm báu, 17/11/2026) */
+  avatar?: ReactNode; roleLine?: ReactNode;
 }) {
   const { c } = useTheme();
   const brand = useSystemBrand(session.token);
@@ -114,8 +116,8 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
         <View style={{ marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           {extra}
           <Pressable testID="admin-profile-open" accessibilityRole="button" accessibilityLabel="Mở hồ sơ cá nhân" onPress={() => setProfile(true)} style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 4, paddingRight: roomy ? 12 : 4, borderRadius: 999, backgroundColor: pressed ? c.adminCanvas : 'transparent' })}>
-            <Avatar name={session.user.full_name} uri={session.user.avatar_url} size={34} />
-            {roomy && <View style={{ maxWidth: 190 }}><Txt f="bold" size={12} numberOfLines={1}>{session.user.full_name}</Txt><Txt size={10} color={c.muc3}>{ROLE_LABEL[session.user.role]}</Txt></View>}
+            {avatar ?? <Avatar name={session.user.full_name} uri={session.user.avatar_url} size={34} />}
+            {roomy && <View style={{ maxWidth: 190, gap: 2 }}><Txt f="bold" size={12} numberOfLines={1}>{session.user.full_name}</Txt>{roleLine ?? <Txt size={10} color={c.muc3}>{ROLE_LABEL[session.user.role]}</Txt>}</View>}
           </Pressable>
           <Pressable testID="admin-logout" accessibilityRole="button" accessibilityLabel="Đăng xuất" onPress={() => session.logout()} style={({ pressed }) => ({ minHeight: 44, minWidth: 44, paddingHorizontal: roomy ? 18 : 12, borderRadius: 999, backgroundColor: pressed ? c.logoInk : c.den, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 })}>
             <LogOut size={16} color={c.trang} />{roomy && <Txt f="bold" size={14} color={c.trang}>Đăng xuất</Txt>}

@@ -16,6 +16,8 @@ export interface SagaHome {
   next: { stage_id: number; title: string; campaign_no: number; state: StageState } | null;
   daily: { title: string; progress: number; target: number; done: boolean; reward_xp: number; reward_gold: number; done_count: number; total: number } | null;
   review_due: number; totals: { stages: number; done: number };
+  /** khung ảnh đại diện và danh hiệu đang trang bị */
+  look?: SagaLook;
 }
 
 export interface StageBrief {
@@ -30,7 +32,13 @@ export interface SagaMapInfo {
 }
 /** Hòm báu trên bản đồ (17/11/2026): `after` = số thứ tự chặng đứng trước hòm; hòm cuối phần có `after` bằng số chặng của phần */
 export interface SagaChest { key: string; kind: 'stage' | 'part'; after: number; state: 'locked' | 'ready' | 'opened'; gold: number; xp: number }
-export interface ChestOpen { key: string; kind: 'stage' | 'part'; first: boolean; gold: number; xp: number }
+/** Khung ảnh đại diện / danh hiệu nhận từ hòm báu (17/11/2026) */
+export type LookRarity = 'common' | 'rare' | 'epic' | 'legendary';
+export interface LookItem { code: string; name: string; rarity: LookRarity }
+export interface LookSlot extends LookItem { need: string; unlocked: boolean }
+export interface SagaLook { frame: LookItem | null; title: LookItem | null }
+export interface Wardrobe { frames: LookSlot[]; titles: LookSlot[]; opened: number; total: number; equipped: SagaLook }
+export interface ChestOpen { key: string; kind: 'stage' | 'part'; first: boolean; gold: number; xp: number; unlocked?: Array<LookItem & { kind: 'frame' | 'title'; equipped: boolean }> }
 export interface CampaignView { map: SagaMapInfo; stages: StageBrief[]; current_stage_id: number | null; totals: { stages: number; done: number; stars: number; max_stars: number }; chests?: SagaChest[] }
 
 export interface CardBrief { code: string; name: string; title: string; rarity: 'common' | 'rare' | 'epic' | 'legendary'; portrait: string; hidden?: boolean }

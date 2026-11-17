@@ -3,7 +3,7 @@
  * thư mục đó đã đủ 12 tệp nên thêm tệp thứ 13 làm bước triển khai thất bại (16/11/2026) dù bản dựng vẫn xong. */
 import { apiRequest } from '@/api/client';
 import type {
-  ActResult, Archive, BattleSession, CampaignView, CardAlbum, ChestOpen, ExploreSession, LessonView, PracticeSession, ReviewInfo, SagaHome, StageDetail, StageSummary,
+  ActResult, Archive, BattleSession, CampaignView, CardAlbum, ChestOpen, ExploreSession, LessonView, PracticeSession, ReviewInfo, SagaHome, StageDetail, StageSummary, Wardrobe,
 } from '@/types/saga';
 
 // ---------------------------------------------------------------------- học sinh
@@ -11,6 +11,9 @@ export const home = (token: string) => apiRequest<SagaHome>('/api/saga/home', { 
 export const campaign = (token: string, no: number) => apiRequest<CampaignView>(`/api/saga/campaigns/${no}`, { token });
 /** Mở hòm báu trên bản đồ; máy chủ kiểm tra điều kiện và chỉ thưởng một lần */
 export const openChest = (token: string, key: string) => apiRequest<ChestOpen>(`/api/saga/chests/${encodeURIComponent(key)}/open`, { token, body: {} });
+/** Kho khung ảnh đại diện / danh hiệu và trang bị (null = bỏ) */
+export const wardrobe = (token: string) => apiRequest<Wardrobe>('/api/saga/cosmetics', { token });
+export const equipLook = (token: string, body: { frame?: string | null; title?: string | null }) => apiRequest<Wardrobe>('/api/saga/cosmetics/equip', { token, body });
 export const stage = (token: string, id: number) => apiRequest<StageDetail>(`/api/saga/stages/${id}`, { token });
 export const lesson = (token: string, id: number) => apiRequest<LessonView>(`/api/saga/stages/${id}/lesson`, { token });
 export const completeLesson = (token: string, id: number) => apiRequest<{ done: boolean; first: boolean; xp: number }>(`/api/saga/stages/${id}/lesson/complete`, { token, body: {} });

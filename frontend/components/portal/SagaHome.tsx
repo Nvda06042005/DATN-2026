@@ -21,6 +21,7 @@ import {
   BlockTitle, KIND_TEXT, LoadState, Portrait, RARITY, STATE, SagaHeader, SagaPage, StarRow, TONE, mapSource, num, stageIcon, useLoad, type SagaNav, type SagaStep,
 } from '@/components/portal/SagaKit';
 import { ChestArt, SagaRail } from '@/components/portal/SagaRail';
+import { FramedAvatar, TitleBadge } from '@/components/portal/SagaLook';
 import { Btn, Card, Chip, InfoNote, Inset, Segmented, Sheet, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
@@ -442,6 +443,14 @@ export const CampaignScreen: React.FC<{ session: Session; nav: SagaNav; no: numb
               {prize.xp ? <Chip text={`+${prize.xp} điểm kinh nghiệm`} icon={Sparkles} bg={c.mocNhat} fg={c.mocChu} /> : null}
             </View>
             {!prize.first ? <Txt size={13} color={c.muc3} center>Hòm này em đã mở trước đó.</Txt> : null}
+            {(prize.unlocked ?? []).map((u) => (
+              <View key={u.code} style={{ alignItems: 'center', gap: 8, borderRadius: 14, borderWidth: 1, borderColor: c.adminLine, padding: 14, alignSelf: 'stretch' }} testID={`chest-unlock-${u.code}`}>
+                <Txt f="heavy" size={13} color={c.logoRed} style={{ letterSpacing: 0.6 }}>{u.kind === 'frame' ? 'MỞ KHÓA KHUNG ẢNH ĐẠI DIỆN' : 'MỞ KHÓA DANH HIỆU'}</Txt>
+                {u.kind === 'frame' ? <FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={72} frame={u} /> : <TitleBadge title={u} size="md" center />}
+                <Txt f="bold" size={15}>{u.name}</Txt>
+                <Txt size={12} color={c.muc3} center>{u.equipped ? 'Đã tự trang bị – xem ở thanh đầu trang.' : 'Vào Kho trang phục ở cột bên phải trang Chiến dịch để trang bị.'}</Txt>
+              </View>
+            ))}
           </View>
         </Sheet>
       ) : null}

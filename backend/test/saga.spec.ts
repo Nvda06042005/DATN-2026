@@ -339,11 +339,36 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
     const opened = await api('POST', `/api/saga/chests/s${id}/open`, {});
     expect(opened.status).toBe(200);
     expect(opened.body).toMatchObject({ key: `s${id}`, kind: 'stage', first: true, gold: 15, xp: 0 });
-    expect((await api('POST', `/api/saga/chests/s${id}/open`, {})).body).toMatchObject({ first: false, gold: 0, xp: 0 });
+    // hòm đầu tiên mở khóa danh hiệu "Tân binh Sát Thát" và tự trang bị vì ô danh hiệu đang trống
+    expect(opened.body.unlocked).toEqual([{ kind: 'title', code: 'tan-binh-sat-that', name: 'Tân binh Sát Thát', rarity: 'common', equipped: true }]);
+    expect((await api('POST', `/api/saga/chests/s${id}/open`, {})).body).toMatchObject({ first: false, gold: 0, xp: 0, unlocked: [] });
     expect(await gold()).toBe(before + 15);
     expect(await count("SELECT count(*) AS n FROM hk_gold_ledger WHERE user_id = $1 AND reason = 'chest' AND ref_key = $2", [f.S1.id, `hq:chest:s${id}`])).toBe(1);
     expect((await api('GET', '/api/saga/campaigns/1')).body.chests[0].state).toBe('opened');
     expect((await api('GET', '/api/saga/campaigns/1', undefined, f.S2.token)).body.chests[0].state).toBe('locked');
+  });
+
+  it('khung ảnh đại diện và danh hiệu từ hòm báu: kho theo số hòm đã mở, chỉ trang bị món đã mở khóa, trang chủ trả món đang trang bị', async () => {
+    const w = (await api('GET', '/api/saga/cosmetics')).body;
+    expect(w).toMatchObject({ opened: 1, total: 13, equipped: { frame: null, title: { code: 'tan-binh-sat-that', rarity: 'common' } } });
+    expect(w.frames.map((x: any) => [x.code, x.rarity, x.unlocked])).toEqual([['dong-bo-dau', 'rare', false], ['chuong-duong', 'epic', false], ['bach-dang', 'legendary', false]]);
+    expect(w.titles.map((x: any) => x.unlocked)).toEqual([true, false, false, false, false]);
+    expect(w.titles[4]).toMatchObject({ code: 'dai-tuong-hao-khi', need: 'Mở 13 hòm báu trên bản đồ' });
+    expect((await api('GET', '/api/saga/home')).body.look).toEqual(w.equipped);
+    expect((await api('POST', '/api/saga/cosmetics/equip', { frame: 'bach-dang' })).status).toBe(409);
+    expect((await api('POST', '/api/saga/cosmetics/equip', { title: 'hieu-uy-dong-a' })).status).toBe(409);
+    expect((await api('POST', '/api/saga/cosmetics/equip', { title: 'khong-co' })).status).toBe(404);
+    expect((await api('POST', '/api/saga/cosmetics/equip', { title: 'Sai Định Dạng!' })).status).toBe(422);
+    const off = await api('POST', '/api/saga/cosmetics/equip', { title: null });
+    expect(off.status).toBe(200);
+    expect(off.body.equipped).toEqual({ frame: null, title: null });
+    expect((await api('POST', '/api/saga/cosmetics/equip', { title: 'tan-binh-sat-that' })).body.equipped.title).toMatchObject({ code: 'tan-binh-sat-that' });
+    // học sinh khác chưa mở hòm nào: không trang bị được
+    expect((await api('POST', '/api/saga/cosmetics/equip', { title: 'tan-binh-sat-that' }, f.S2.token)).status).toBe(409);
+    expect((await api('GET', '/api/saga/cosmetics', undefined, f.S2.token)).body).toMatchObject({ opened: 0, equipped: { frame: null, title: null } });
+    // trang bị nằm trong hk_players.appearance, không làm mất ngoại hình nhân vật cũ
+    const look = (await sql<{ appearance: Record<string, unknown> }>(s.url, 'SELECT appearance FROM hk_players WHERE user_id = $1', [f.S1.id]))[0].appearance;
+    expect(look).toMatchObject({ saga_title: 'tan-binh-sat-that' });
   });
 
   it('đăng nhập lại vẫn đúng tiến độ; thẻ nhân vật và tư liệu mở theo kết quả học', async () => {
