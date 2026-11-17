@@ -223,7 +223,6 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
         {/* Header chào mừng */}
         <View style={{ alignItems: 'center', gap: 8, paddingTop: 6 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Txt size={22}>👋</Txt>
             <Txt f="displayHeavy" size={24} color={c.muc}>
               Trợ lý AI Sử học Đông A — Hào Khí Đông A
             </Txt>

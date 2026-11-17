@@ -1,7 +1,7 @@
 /**
  * Khung Trợ lý AI đầy đủ cho cổng Học sinh:
  * - Mặc định mở "Trung tâm AI" (AiHubDashboard: AI Tutor, Lộ trình Cá nhân hóa 4 bước, Flash Cards & Chẩn đoán Năng lực BKT).
- * - Chuyển nhanh sang "Tiểu Tướng & Lịch sử chat" (TieuTuongTab với cột lịch sử trò chuyện, Nhập vai danh tướng & Đánh giá năng lực BKT).
+ * - Chuyển nhanh sang "Tiểu Tướng & Lịch sử chat" (TieuTuongTab với cột lịch sử trò chuyện, Hỏi đáp & Nhập vai danh tướng; chẩn đoán năng lực BKT chỉ còn ở Trung tâm AI).
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';

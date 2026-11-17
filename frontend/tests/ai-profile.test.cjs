@@ -145,15 +145,14 @@ test('TeacherApp removes Mở Sa bàn 3D and AiTeacher synchronizes with AI Hub 
   assert.doesNotMatch(read('components/admin/ClassManager.tsx'), /title="Sửa thông tin"/);
 });
 
-test('16/11/2026: Hỏi Tiểu Tướng có mục Đánh giá năng lực (BKT) lấy đúng khối chẩn đoán của AiHubDashboard, không kèm lộ trình cá nhân hóa / flash cards', () => {
+test('17/11/2026: chế độ Tiểu Tướng bỏ mục Đánh giá năng lực (chẩn đoán BKT chỉ còn ở Trung tâm AI); tiêu đề Trung tâm AI không có biểu tượng 👋', () => {
   const tt = read('components/portal/TieuTuong.tsx');
-  assert.match(tt, /\{ value: 'nang-luc', label: 'Đánh giá năng lực' \}/);
-  assert.match(tt, /<BktAssessment session=\{session\} onAsk=/);
-  assert.match(tt, /initialQuestion=\{ask\} onInitialQuestionConsumed=\{\(\) => setAsk\(null\)\}/);
-  const bkt = read('components/ai/BktAssessment.tsx');
-  assert.match(bkt, /aiApi\.aiBktRecommendations\(session\.token, 6\)/);
-  for (const t of ['Chẩn đoán Năng lực BKT & Chủ điểm cần ôn', 'Cơ chế AI Theo dõi Năng lực (BKT)', 'Bayesian Knowledge Tracing']) assert.ok(bkt.includes(t), t);
-  assert.doesNotMatch(bkt, /<PersonalizedRoadmapView|HISTORICAL_FLASHCARDS|title="Mở Lộ trình theo ngày"|title="Luyện ngay"|title="Học ngay"/);
+  assert.match(tt, /options=\{\[\{ value: 'chat', label: 'Hỏi đáp' \}, \{ value: 'roleplay', label: 'Nhập vai danh tướng' \}\]\} \/>/);
+  assert.doesNotMatch(tt, /nang-luc|BktAssessment|Đánh giá năng lực/);
+  assert.ok(!fs.existsSync(path.join(__dirname, '..', 'components', 'ai', 'BktAssessment.tsx')));
+  const hub = read('components/ai/AiHubDashboard.tsx');
+  assert.ok(!hub.includes('👋'));
+  assert.ok(hub.includes('Chẩn đoán Năng lực BKT & Chủ điểm cần ôn'));
 });
 
 test('StudentAiHub wires AiHubDashboard (Lộ trình Cá nhân hóa, Flash Cards, AI Tutor, Chẩn đoán BKT) into cổng Học sinh', () => {
