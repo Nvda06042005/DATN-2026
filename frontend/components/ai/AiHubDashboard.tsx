@@ -11,7 +11,6 @@ import { Pressable, ScrollView, View, type ScrollViewInstance } from 'react-nati
 import {
   ArrowLeft,
   BookOpen,
-  Bot,
   Check,
   Info,
   Layers,
@@ -240,40 +239,7 @@ export const AiHubDashboard: React.FC<AiHubDashboardProps> = ({ session, onOpenS
 
         {/* Lưới 3 thẻ tính năng chính (Đã bỏ chức năng Summarizer theo Note 3) */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, justifyContent: 'center' }}>
-          {/* Card 1: AI Tutor (Hỏi đáp & Nhập vai) */}
-          <Pressable
-            onPress={() => {
-              setTutorTab('chat');
-              setActiveView('tutor');
-            }}
-            style={({ pressed }) => ({
-              flexGrow: 1,
-              flexBasis: 270,
-              maxWidth: 310,
-              minHeight: 168,
-              padding: 20,
-              borderRadius: 18,
-              backgroundColor: pressed ? c.the2 : c.the,
-              borderWidth: 1.5,
-              borderColor: c.vien,
-              gap: 10,
-              justifyContent: 'space-between',
-            })}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: '#EEF2FF', alignItems: 'center', justifyContent: 'center' }}>
-                <Bot size={22} color="#4F46E5" />
-              </View>
-              <Chip text="81 Chủ điểm • 8 Danh tướng" bg={c.thuyNhat} fg={c.thuyChu} />
-            </View>
-            <View style={{ gap: 4 }}>
-              <Txt f="bold" size={17} color={c.muc}>AI Tutor — Thầy Đông A</Txt>
-              <Txt size={13} color={c.muc2} numberOfLines={3}>
-                Hỏi đáp đa lượt nhớ ngữ cảnh, tự động đính chính lỗi sai lịch sử và đàm đạo cùng 8 danh tướng thời Trần.
-              </Txt>
-            </View>
-          </Pressable>
-
+          {/* 17/11/2026: bỏ thẻ AI Tutor ở trang đầu theo yêu cầu (hỏi đáp dùng chế độ Tiểu Tướng; nút "Hỏi Thầy" của chẩn đoán BKT vẫn mở AI Tutor) */}
           {/* Card 2: Lộ trình Cá nhân hóa (4 bước) */}
           <Pressable
             onPress={() => setActiveView('roadmap')}

@@ -4,8 +4,8 @@
  * lưu tiến độ, mở chặng tiếp theo. Mọi điểm, sao, phần thưởng và việc mở khóa do máy chủ quyết định (/api/saga); giao diện chỉ gửi lệnh và vẽ lại.
  * Khung trang (yêu cầu 16/11/2026: "trang học sinh lấy giao diện của quản trị tổng, quản trị trường và giáo viên"): dùng chung AdminWorkspace và giao diện phẳng
  * (AdminUiContext) với các cổng quản trị: thanh trên cùng (logo, đường dẫn, thông báo, hồ sơ, đăng xuất), menu bên trái (Chiến dịch, Nhập vai, Câu hỏi ôn tập,
- * Tư liệu, Bộ thẻ, Hỏi Tiểu Tướng, Trợ giúp), giao diện sáng như các cổng quản trị. Theo yêu cầu cùng ngày, trang học sinh không có logo ở thanh đầu
- * và không có mục Khảo sát (xóa hẳn; đường dẫn cũ `tab=khao-sat` mở trang Chiến dịch).
+ * Tư liệu, Bộ thẻ, Hỏi Tiểu Tướng, Trợ giúp), giao diện sáng như các cổng quản trị. Trang học sinh không có mục Khảo sát (xóa hẳn; đường dẫn cũ
+ * `tab=khao-sat` mở trang Chiến dịch); logo ở thanh đầu đã khôi phục, không có nút loa (16/11/2026).
  * Mục đang mở nằm trên URL (tab, c = cuộc kháng chiến, s = chặng, v = bước) nên Back / Forward / tải lại giữ đúng chỗ.
  * Mỗi lần chuyển mục, bộ điều hướng dựng một màn mới và giữ màn cũ ẩn bên dưới: màn không còn được xem thì gỡ hết nội dung (game Phaser, đồng hồ, phím tắt, hộp thoại)
  * để lúc nào cũng chỉ có một màn chơi đang chạy; khi quay lại, màn đó tải lại trạng thái chuẩn từ máy chủ.
@@ -213,7 +213,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       : stage && route.v === 'tran' ? <BattleScreen key={`tran${stage.stageId}`} {...stage} />
       : stage && route.v === 'tong-ket' ? <SummaryScreen key={`tk${stage.stageId}`} {...stage} />
       : route.c !== null ? <CampaignScreen key="campaign" session={session} nav={nav} no={route.c} />
-      : inClass ? <HomeScreen nav={nav} loading={home.loading} error={home.error} cls={cls} onLeave={() => enter(null)} /> : catalog
+      : inClass ? <HomeScreen session={session} nav={nav} loading={home.loading} error={home.error} cls={cls} onLeave={() => enter(null)} /> : catalog
     : route.tab === 'nhap-vai' ? <RolePlayScreen session={session} nav={nav} />
     : route.tab === 'cau-hoi' ? <ReviewScreen session={session} nav={nav} />
     : route.tab === 'ky-thi' ? <StudentExams session={session} />

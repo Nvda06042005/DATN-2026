@@ -46,6 +46,8 @@ const STAGE_COLS = `s.id, s.code, s.campaign_no, s.position, s.title, s.place, s
   (jsonb_typeof(s.content->'battle') = 'object') AS has_battle, s.content->'battle'->>'mode' AS battle_mode`;
 const SESSION_COLS = 'id::int AS id, user_id, stage_id, kind, status, seq, state, result, started_at';
 const XP = { lesson: 10, practice: 30, explore: 20, battle: 50, review: 5 };
+/** Hòm báu trên bản đồ (17/11/2026, migration 072): giữa hai chặng liền nhau (mở khi xong chặng trước) và cuối mỗi phần (mở khi xong cả phần) */
+const CHEST = { stage: { gold: 15, xp: 0 }, part: { gold: 40, xp: 20 } };
 const REVIEW_SIZE = 10;
 const REVIEW_GRACE_MS = 3000;
 /** Thời gian tối đa đọc lời giải thích của câu trước khi trình duyệt không báo "đã mở câu": quá mức này đồng hồ của câu vẫn tính */
@@ -158,7 +160,51 @@ export class SagaService {
     const stages = all.filter((s) => s.campaign_no === campaignNo).map((s) => this.brief(s, all, progress, due));
     const done = stages.filter((s) => s.state === 'done' || s.state === 'review').length;
     return { map, stages, current_stage_id: (stages.find((s) => s.state === 'learning') ?? stages.find((s) => s.state === 'ready'))?.id ?? null,
-      totals: { stages: stages.length, done, stars: stages.reduce((n, s) => n + s.stars, 0), max_stars: stages.length * 3 } };
+      totals: { stages: stages.length, done, stars: stages.reduce((n, s) => n + s.stars, 0), max_stars: stages.length * 3 },
+      chests: await this.chestsOf(q, user, campaignNo, stages) };
+  }
+
+  // ------------------------------------------------------------------ hòm báu trên bản đồ (17/11/2026)
+  /** Các hòm của một phần: `s<id chặng>` sau mỗi chặng (trừ chặng cuối), `p<số phần>` ở cuối phần; trạng thái khóa / sẵn sàng / đã mở theo sổ cái */
+  private async chestsOf(q: Q, user: UserRow, campaignNo: number, stages: Array<{ id: number; order: number; state: string }>) {
+    const opened = new Set((await q<{ ref_key: string }>("SELECT ref_key FROM hk_gold_ledger WHERE user_id = $1 AND reason = 'chest'", [user.id])).map((r) => r.ref_key));
+    const isDone = (st: { state: string }) => st.state === 'done' || st.state === 'review';
+    const out: Array<{ key: string; kind: 'stage' | 'part'; after: number; ready: boolean; gold: number; xp: number }> =
+      stages.slice(0, -1).map((st) => ({ key: `s${st.id}`, kind: 'stage', after: st.order, ready: isDone(st), ...CHEST.stage }));
+    if (stages.length) out.push({ key: `p${campaignNo}`, kind: 'part', after: stages.length, ready: stages.every(isDone), ...CHEST.part });
+    return out.map(({ ready, ...c }) => ({ ...c, state: opened.has(`hq:chest:${c.key}`) ? 'opened' : ready ? 'ready' : 'locked' }));
+  }
+
+  /** Mở hòm báu: máy chủ kiểm tra điều kiện (xong chặng trước / xong cả phần) rồi trao vàng, điểm qua sổ cái – mỗi hòm chỉ một lần */
+  async openChest(user: UserRow, key: string) {
+    const m = /^(s)(\d{1,9})$|^(p)([1-3])$/.exec(key);
+    if (!m) throw notFound('hòm báu');
+    return this.db.tx(async (q) => {
+      const all = await this.stages(q);
+      const progress = await this.progressMap(q, user.id);
+      const doneOf = (id: number) => Boolean(progress.get(id)?.completed_at);
+      let kind: 'stage' | 'part';
+      if (m[1]) {
+        const id = Number(m[2]);
+        const st = all.find((x) => x.id === id);
+        const part = st ? all.filter((x) => x.campaign_no === st.campaign_no) : [];
+        if (!st || part[part.length - 1]?.id === id) throw notFound('hòm báu');
+        if (!doneOf(id)) throw new ConflictException(`Hoàn thành chặng “${st.title}” để mở hòm báu này`);
+        kind = 'stage';
+      } else {
+        const part = all.filter((x) => x.campaign_no === Number(m[4]));
+        if (!part.length) throw notFound('hòm báu');
+        if (!part.every((x) => doneOf(x.id))) throw new ConflictException('Hoàn thành mọi chặng của phần này để mở hòm báu cuối phần');
+        kind = 'part';
+      }
+      const reward = CHEST[kind];
+      const ref = `hq:chest:${key}`;
+      const first = await this.game.addGold(q, user, reward.gold, 'chest', ref);
+      let xp = 0;
+      if (first && reward.xp && (await this.game.awardXp(q, user, reward.xp, 'chest', ref))) xp = reward.xp;
+      if (first) await logEvent(null, user, 'chest_open', 'saga_chest', null, null, { key }, null, q);
+      return { key, kind, first, gold: first ? reward.gold : 0, xp };
+    });
   }
 
   /** Chặng mà học sinh đang được phép học; ném 404 khi không có, 409 khi còn khóa (sửa request không mở được chặng khóa) */

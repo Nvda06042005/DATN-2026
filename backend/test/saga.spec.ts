@@ -324,6 +324,28 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
     expect(await count('SELECT count(*) AS n FROM hk_saga_user_cards WHERE user_id = $1', [f.S1.id])).toBe(1);
   });
 
+  it('hòm báu trên bản đồ: hòm giữa hai chặng mở khi xong chặng trước, hòm cuối phần mở khi xong cả phần; máy chủ kiểm tra điều kiện, mỗi hòm chỉ thưởng một lần', async () => {
+    const id = stageId['binh-le-nguyen'], id2 = stageId['vuon-khong-nha-trong'];
+    const map = (await api('GET', '/api/saga/campaigns/1')).body;
+    expect(map.chests.map((c: any) => [c.key, c.kind, c.after, c.state, c.gold, c.xp])).toEqual([[`s${id}`, 'stage', 1, 'ready', 15, 0], [`s${id2}`, 'stage', 2, 'locked', 15, 0], ['p1', 'part', 3, 'locked', 40, 20]]);
+    expect((await api('POST', `/api/saga/chests/s${id2}/open`, {})).status).toBe(409);
+    expect((await api('POST', '/api/saga/chests/p1/open', {})).status).toBe(409);
+    expect((await api('POST', `/api/saga/chests/s${stageId['dong-bo-dau']}/open`, {})).status).toBe(404); // chặng cuối phần không có hòm "sau chặng"
+    for (const bad of ['xyz', 'p9', 's99999']) expect((await api('POST', `/api/saga/chests/${bad}/open`, {})).status).toBe(404);
+    // học sinh khác chưa xong chặng thì không mở được hòm của chặng đó
+    expect((await api('POST', `/api/saga/chests/s${id}/open`, {}, f.S2.token)).status).toBe(409);
+    const gold = async () => Number((await sql<{ gold: number }>(s.url, 'SELECT gold FROM hk_players WHERE user_id = $1', [f.S1.id]))[0].gold);
+    const before = await gold();
+    const opened = await api('POST', `/api/saga/chests/s${id}/open`, {});
+    expect(opened.status).toBe(200);
+    expect(opened.body).toMatchObject({ key: `s${id}`, kind: 'stage', first: true, gold: 15, xp: 0 });
+    expect((await api('POST', `/api/saga/chests/s${id}/open`, {})).body).toMatchObject({ first: false, gold: 0, xp: 0 });
+    expect(await gold()).toBe(before + 15);
+    expect(await count("SELECT count(*) AS n FROM hk_gold_ledger WHERE user_id = $1 AND reason = 'chest' AND ref_key = $2", [f.S1.id, `hq:chest:s${id}`])).toBe(1);
+    expect((await api('GET', '/api/saga/campaigns/1')).body.chests[0].state).toBe('opened');
+    expect((await api('GET', '/api/saga/campaigns/1', undefined, f.S2.token)).body.chests[0].state).toBe('locked');
+  });
+
   it('đăng nhập lại vẫn đúng tiến độ; thẻ nhân vật và tư liệu mở theo kết quả học', async () => {
     const username = (await sql<{ username: string }>(s.url, 'SELECT username FROM app_users WHERE id = $1', [f.S1.id]))[0].username;
     const login = await call(s.base, 'POST', '/api/auth/login', { username, password: PW, portal: 'student' });

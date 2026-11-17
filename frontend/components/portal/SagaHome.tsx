@@ -10,19 +10,21 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Image, Platform, Pressable, ScrollView, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
-import { Award, BookOpen, Check, ClipboardCheck, Coins, Flag, Flame, Footprints, Gamepad2, Gift, Lock, Maximize2, Play, Puzzle, RotateCcw, Sparkles, Swords, Target, Users, ZoomIn, ZoomOut } from 'lucide-react-native';
+import { Award, BookOpen, Check, Coins, Footprints, Gamepad2, Lock, Maximize2, Play, Puzzle, RotateCcw, Sparkles, Swords, Target, Users, ZoomIn, ZoomOut } from 'lucide-react-native';
 import * as saga from '@/lib/saga-api';
 import * as authApi from '@/api/authApi';
+import { errorMessage } from '@/api/client';
 import { Mascot } from '@/components/art';
 import { Cell, DataTable, type Column } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import {
-  BlockTitle, KIND_TEXT, LoadState, Meter, Portrait, RARITY, STATE, SagaHeader, SagaPage, StarRow, TONE, mapSource, num, stageIcon, useLoad, type SagaNav, type SagaStep,
+  BlockTitle, KIND_TEXT, LoadState, Portrait, RARITY, STATE, SagaHeader, SagaPage, StarRow, TONE, mapSource, num, stageIcon, useLoad, type SagaNav, type SagaStep,
 } from '@/components/portal/SagaKit';
-import { Btn, Card, Chip, InfoNote, Inset, Segmented, Sheet, Txt } from '@/components/ui';
+import { ChestArt, SagaRail } from '@/components/portal/SagaRail';
+import { Btn, Card, Chip, InfoNote, Inset, Segmented, Sheet, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
-import type { CampaignView, SagaCampaign, SagaMapInfo, StageBrief, StageDetail, StepState } from '@/types/saga';
+import type { CampaignView, ChestOpen, SagaCampaign, SagaChest, SagaMapInfo, StageBrief, StageDetail, StepState } from '@/types/saga';
 
 const StateChip: React.FC<{ state: StageBrief['state'] }> = ({ state }) => {
   const st = STATE[state];
@@ -77,7 +79,7 @@ const UnitBanner: React.FC<{ camp: SagaCampaign; onOpen: () => void; label?: str
  * ba phần theo ba cuộc kháng chiến (bấm một phần mở trang bản đồ, cuộn tới phần đó);
  * cột bên phải: cấp độ – kinh nghiệm, chuỗi ngày học, vàng, nhiệm vụ hôm nay, câu cần ôn, kỳ thi.
  */
-export const HomeScreen: React.FC<{ nav: SagaNav; loading: boolean; error: string | null; cls: MyClass | null; onLeave: () => void }> = ({ nav, loading, error, cls, onLeave }) => {
+export const HomeScreen: React.FC<{ session: Session; nav: SagaNav; loading: boolean; error: string | null; cls: MyClass | null; onLeave: () => void }> = ({ session, nav, loading, error, cls, onLeave }) => {
   const { c } = useTheme();
   const { width } = useWindowDimensions();
   const wide = width >= 1180;
@@ -85,49 +87,8 @@ export const HomeScreen: React.FC<{ nav: SagaNav; loading: boolean; error: strin
   const hud = home?.hud ?? null;
   const next = home?.next ?? null;
   const level = hud?.level ?? null;
-  const rail = home && hud && level ? (
-    <View style={{ gap: 12, width: wide ? 320 : '100%' }}>
-      <Card flat pad={14} style={{ borderRadius: 14, gap: 10 }} testID="home-level">
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: c.sonNhat, alignItems: 'center', justifyContent: 'center' }}><Award size={24} color={c.son} /></View>
-          <View style={{ flex: 1 }}>
-            <Txt f="bold" size={15}>Cấp {level.level} · {level.title}</Txt>
-            <Txt size={12} color={c.muc3}>{level.next_xp ? `${num(hud.xp)}/${num(level.next_xp)} điểm kinh nghiệm` : `${num(hud.xp)} điểm · cấp cao nhất`}</Txt>
-          </View>
-        </View>
-        <Meter value={level.progress / 100} label={`Cấp ${level.level}, ${level.title}. ${num(hud.xp)} điểm kinh nghiệm`} />
-        <View style={{ flexDirection: 'row', gap: 8 }} testID="home-metrics">
-          {[{ icon: Flame, v: hud.streak.current, t: 'ngày liên tiếp', fg: c.hoaChu, bg: c.hoaNhat }, { icon: Coins, v: hud.gold, t: 'vàng', fg: c.vangChu, bg: c.vangNhat }, { icon: Flag, v: `${home.totals.done}/${home.totals.stages}`, t: 'chặng', fg: c.mocChu, bg: c.mocNhat }].map((m) => (
-            <View key={m.t} style={{ flex: 1, borderRadius: 10, backgroundColor: m.bg, paddingVertical: 8, alignItems: 'center', gap: 2 }}>
-              <m.icon size={18} color={m.fg} />
-              <Txt f="bold" size={15} color={m.fg}>{typeof m.v === 'number' ? num(m.v) : m.v}</Txt>
-              <Txt size={11} color={c.muc2}>{m.t}</Txt>
-            </View>
-          ))}
-        </View>
-      </Card>
-      {home.daily ? (
-        <Card flat pad={14} style={{ borderRadius: 14, gap: 8 }} testID="home-daily">
-          <BlockTitle title={`Nhiệm vụ hôm nay${home.daily.done ? ' · đã xong' : ''}`} icon={Gift} />
-          <Txt size={14} color={c.muc2}>{home.daily.title} (+{home.daily.reward_xp} điểm{home.daily.reward_gold ? `, +${home.daily.reward_gold} vàng` : ''})</Txt>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Meter value={home.daily.target ? home.daily.progress / home.daily.target : 0} color={c.moc} label="Tiến độ nhiệm vụ hôm nay" style={{ flex: 1 }} />
-            <Txt f="bold" size={13}>{Math.min(home.daily.progress, home.daily.target)}/{home.daily.target}</Txt>
-          </View>
-        </Card>
-      ) : null}
-      <Card flat pad={14} style={{ borderRadius: 14, gap: 8 }}>
-        <BlockTitle title={home.review_due ? `${home.review_due} câu cần ôn lại` : 'Ôn tập nhanh'} icon={RotateCcw} />
-        <Txt size={13} color={c.muc2}>{home.review_due ? 'Những câu em từng trả lời sai đang chờ.' : 'Trả lời câu hỏi tính giờ để giữ chuỗi đúng.'}</Txt>
-        <Btn title="Ôn tập" icon={RotateCcw} tone="giay" size="sm" onPress={() => nav.go('cau-hoi', { c: null, s: null, v: null })} testID="home-review" />
-      </Card>
-      <Card flat pad={14} style={{ borderRadius: 14, gap: 8 }}>
-        <BlockTitle title="Kỳ thi" icon={ClipboardCheck} />
-        <Txt size={13} color={c.muc2}>Bài kiểm tra giữa kỳ, cuối kỳ thầy cô tổ chức; vào giờ thi nhập mật khẩu để làm.</Txt>
-        <Btn title="Mở Kỳ thi" icon={ClipboardCheck} tone="giay" size="sm" onPress={() => nav.go('ky-thi', { c: null, s: null, v: null })} testID="home-exams" />
-      </Card>
-    </View>
-  ) : null;
+  // cột bên phải kiểu Duolingo (17/11/2026): dải chỉ số, cấp độ, giải đấu tuần, nhiệm vụ hằng ngày có hòm báu, ôn tập, kỳ thi
+  const rail = home && hud && level ? <SagaRail session={session} nav={nav} wide={wide} /> : null;
   const units = home ? (
     <View style={{ gap: 14, flex: wide ? 1 : undefined, minWidth: 0, alignSelf: 'stretch' }} testID="home-units">
       {home.campaigns.map((camp) => <UnitBanner key={camp.campaign_no} camp={camp} onOpen={() => nav.go('chien-dich', { c: camp.campaign_no, s: null, v: null })} />)}
@@ -177,7 +138,7 @@ function useDragPan(outer: React.RefObject<ScrollViewInstance | null>, inner: Re
   }, [outer, inner, enabled]);
 }
 
-const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: number | null; selectedId: number | null; onPick: (st: StageBrief) => void; maxHeight: number; mascotId?: number | null }> = ({ map, stages, currentId, selectedId, onPick, maxHeight, mascotId = null }) => {
+const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: number | null; selectedId: number | null; onPick: (st: StageBrief) => void; maxHeight: number; mascotId?: number | null; chests?: SagaChest[]; onChest?: (chest: SagaChest) => void }> = ({ map, stages, currentId, selectedId, onPick, maxHeight, mascotId = null, chests = [], onChest }) => {
   const { c } = useTheme();
   const [boxW, setBoxW] = useState(0);
   const [chosen, setChosen] = useState<number | null>(null);
@@ -236,6 +197,51 @@ const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: num
     return () => { live = false; walk.stopAnimation(); };
   }, [mi, ready, walk]);
   const mascotAt = mi >= 0 ? { from: pt(stages[Math.max(0, mi - 1)]), to: pt(stages[mi]) } : null;
+  // Hòm báu: hòm sau chặng k nằm trên đoạn nối chặng k – k + 1, hòm cuối phần nằm tiếp sau chặng cuối theo hướng đường đi. Các chặng có thể nằm sát nhau
+  // nên thử vài điểm dọc đoạn nối và lệch sang hai bên, chọn chỗ ít chồng lên nút chặng, nhãn tên chặng và các hòm đã đặt nhất
+  const chestSpots = useMemo(() => {
+    if (!cw) return new Map<string, [number, number]>();
+    type Box = [number, number, number, number];
+    const boxes: Box[] = [];
+    for (const st of stages) {
+      const x = st.map_x * cw, y = st.map_y * ch;
+      boxes.push([x - NODE / 2 - 6, y - NODE / 2 - 22, x + NODE / 2 + 6, y + NODE / 2 + 4]);
+      const lx = Math.max(0, Math.min(cw - 240, x - 120));
+      boxes.push([lx + 50, y + NODE / 2 + 4, lx + 190, y + NODE / 2 + 44]);
+    }
+    const overlap = (r: Box) => boxes.reduce((n, o) => n + Math.max(0, Math.min(r[2], o[2]) - Math.max(r[0], o[0])) * Math.max(0, Math.min(r[3], o[3]) - Math.max(r[1], o[1])), 0);
+    const out = new Map<string, [number, number]>();
+    for (const box of chests) {
+      const a = stages[box.after - 1];
+      if (!a) continue;
+      const b = stages[box.after];
+      const ax = a.map_x * cw, ay = a.map_y * ch;
+      let dx: number, dy: number, base: Array<[number, number]>;
+      if (b) {
+        dx = b.map_x * cw - ax; dy = b.map_y * ch - ay;
+        base = [0.5, 0.4, 0.6, 0.3, 0.7].map((t) => [ax + dx * t, ay + dy * t]);
+      } else {
+        const p = stages[box.after - 2];
+        dx = p ? ax - p.map_x * cw : 1; dy = p ? ay - p.map_y * ch : 0;
+        const len = Math.max(1, Math.hypot(dx, dy));
+        base = [60, 80, 100].map((d) => [ax + (dx / len) * d, ay + (dy / len) * d]);
+      }
+      const len = Math.max(1, Math.hypot(dx, dy)), px = -dy / len, py = dx / len;
+      const w = box.kind === 'part' ? 44 : 36;
+      let best: [number, number] = base[0], score = Infinity;
+      base.forEach(([bx, by], i) => {
+        for (const off of [0, 30, -30, 55, -55]) {
+          const x = Math.max(w / 2 + 2, Math.min(cw - w / 2 - 2, bx + px * off)), y = Math.max(w / 2, Math.min(ch - w / 2, by + py * off));
+          const sc = overlap([x - w / 2, y - w / 2, x + w / 2, y + w / 2]) + Math.abs(off) * 2 + i * 15;
+          if (sc < score) { score = sc; best = [x, y]; }
+        }
+      });
+      out.set(box.key, best);
+      boxes.push([best[0] - w / 2, best[1] - w / 2, best[0] + w / 2, best[1] + w / 2]);
+    }
+    return out;
+  }, [chests, stages, cw, ch]);
+  const chestAt = (box: SagaChest): [number, number] | null => chestSpots.get(box.key) ?? null;
   return (
     <View onLayout={(e) => setBoxW(e.nativeEvent.layout.width)} testID="saga-map" style={{ width: '100%', height: boxW ? viewH + BORDER * 2 : 240, borderRadius: 12, overflow: 'hidden', borderWidth: BORDER, borderColor: c.adminLine, backgroundColor: c.adminCanvas }}>
       {boxW > 0 ? (
@@ -258,6 +264,21 @@ const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: num
                   <Mascot size={54} mood="happy" bob />
                 </Animated.View>
               ) : null}
+              {chests.map((box) => {
+                const at = chestAt(box);
+                if (!at) return null;
+                const big = box.kind === 'part';
+                const w = big ? 44 : 36;
+                return (
+                  <Pressable key={box.key} onPress={() => onChest?.(box)} accessibilityRole="button" testID={`map-chest-${box.key}`}
+                    accessibilityLabel={`${big ? 'Hòm báu cuối phần' : `Hòm báu sau chặng ${box.after}`}: ${box.state === 'opened' ? 'đã mở' : box.state === 'ready' ? `bấm để mở, thưởng ${box.gold} vàng${box.xp ? ` và ${box.xp} điểm` : ''}` : 'còn khóa'}`}
+                    style={({ pressed }) => ({ position: 'absolute', zIndex: 3, left: at[0] - w / 2 - 2, top: at[1] - w / 2, width: w + 4, height: w,
+                      alignItems: 'center', justifyContent: 'center', borderRadius: 12, opacity: pressed ? 0.8 : 1,
+                      backgroundColor: box.state === 'ready' ? 'rgba(250,204,21,0.35)' : 'transparent', ...(box.state === 'ready' ? { boxShadow: '0 0 0 3px rgba(250,204,21,0.55)' } as object : {}) })}>
+                    <ChestArt size={w - 6} state={box.state} />
+                  </Pressable>
+                );
+              })}
               {stages.map((st) => {
                 const [x, y] = pt(st);
                 const state = STATE[st.state];
@@ -310,8 +331,8 @@ const SagaMap: React.FC<{ map: SagaMapInfo; stages: StageBrief[]; currentId: num
 /** Một phần trên trang bản đồ: tên cuộc kháng chiến, tiến độ, bản đồ gốc có các chặng và khung chú thích sa bàn */
 const PartSection: React.FC<{
   no: number; camp: SagaCampaign | null; view: CampaignView | null; loading: boolean; error: string | null; onRetry: () => void;
-  selectedId: number | null; mascotId: number | null; onPick: (st: StageBrief) => void; maxHeight: number; onLayoutPart: (y: number, h: number) => void;
-}> = ({ no, camp, view, loading, error, onRetry, selectedId, mascotId, onPick, maxHeight, onLayoutPart }) => {
+  selectedId: number | null; mascotId: number | null; onPick: (st: StageBrief) => void; maxHeight: number; onLayoutPart: (y: number, h: number) => void; onChest: (chest: SagaChest) => void;
+}> = ({ no, camp, view, loading, error, onRetry, selectedId, mascotId, onPick, maxHeight, onLayoutPart, onChest }) => {
   const { c } = useTheme();
   const tone = TONE[no];
   return (
@@ -323,11 +344,11 @@ const PartSection: React.FC<{
       </View>
       {!view ? <LoadState loading={loading} error={error} onRetry={onRetry} /> : (
         <Card flat pad={12} style={{ borderRadius: 12, gap: 8, borderTopWidth: 4, borderTopColor: tone.main }} testID={`unit-map-${no}`}>
-          <SagaMap map={view.map} stages={view.stages} currentId={view.current_stage_id} selectedId={selectedId} mascotId={mascotId} onPick={onPick} maxHeight={maxHeight} />
+          <SagaMap map={view.map} stages={view.stages} currentId={view.current_stage_id} selectedId={selectedId} mascotId={mascotId} onPick={onPick} maxHeight={maxHeight} chests={view.chests ?? []} onChest={onChest} />
           <View testID="map-caption" style={{ borderRadius: 10, padding: 12, gap: 4, backgroundColor: c.logoInk }}>
             <Txt f="bold" size={13} color={c.logoGold} style={{ letterSpacing: 0.4 }}>{`Sa bàn: ${view.map.title} (${view.map.years})`.toLocaleUpperCase('vi')}</Txt>
             <Txt size={12} color="#ffffff" style={{ lineHeight: 18 }}>• {view.stages.length} chặng: {view.stages.map((st) => st.title).join(', ')}.</Txt>
-            <Txt size={12} color="#ffffff" style={{ lineHeight: 18 }}>• Bấm trực tiếp vào từng chặng trên bản đồ để học.</Txt>
+            <Txt size={12} color="#ffffff" style={{ lineHeight: 18 }}>• Bấm trực tiếp vào từng chặng trên bản đồ để học; xong chặng thì mở hòm báu trên đường đi để nhận vàng.</Txt>
           </View>
         </Card>
       )}
@@ -342,10 +363,25 @@ const PartSection: React.FC<{
  * Thông tin hình ảnh).
  */
 export const CampaignScreen: React.FC<{ session: Session; nav: SagaNav; no: number }> = ({ session, nav, no }) => {
+  const { c } = useTheme();
+  const toast = useToast();
   const { height } = useWindowDimensions();
   const p1 = useLoad<CampaignView>(session, (t) => saga.campaign(t, 1), []);
   const p2 = useLoad<CampaignView>(session, (t) => saga.campaign(t, 2), []);
   const p3 = useLoad<CampaignView>(session, (t) => saga.campaign(t, 3), []);
+  // hòm báu: còn khóa / đã mở thì báo; sẵn sàng thì máy chủ mở và trao thưởng một lần, rồi hiện màn nhận thưởng
+  const [prize, setPrize] = useState<ChestOpen | null>(null);
+  const [opening, setOpening] = useState<string | null>(null);
+  const onChest = (box: SagaChest, part: number): void => {
+    if (box.state === 'opened') { toast('Em đã mở hòm báu này rồi.'); return; }
+    if (box.state === 'locked') { toast(box.kind === 'part' ? 'Hoàn thành mọi chặng của phần này để mở hòm báu cuối phần.' : `Hoàn thành chặng ${box.after} để mở hòm báu này.`); return; }
+    if (opening) return;
+    setOpening(box.key);
+    saga.openChest(session.token, box.key)
+      .then((r) => { setPrize(r); [p1, p2, p3][part - 1].reload(); nav.refresh(); })
+      .catch((e) => toast(errorMessage(e)))
+      .finally(() => setOpening(null));
+  };
   const parts = [p1, p2, p3];
   const next = nav.home?.next ?? null;
   const open = nav.route.s !== null && nav.route.v === null ? nav.route.s : null;
@@ -393,9 +429,22 @@ export const CampaignScreen: React.FC<{ session: Session; nav: SagaNav; no: numb
       {parts.map((p, i) => (
         <PartSection key={i + 1} no={i + 1} camp={nav.home?.campaigns.find((x) => x.campaign_no === i + 1) ?? null} view={p.data} loading={p.loading} error={p.error} onRetry={p.reload}
           selectedId={open} mascotId={next && next.campaign_no === i + 1 ? next.stage_id : null} onPick={pick} maxHeight={Math.max(320, Math.min(760, height - 190))}
-          onLayoutPart={(y, h) => onLayoutPart(i + 1, y, h)} />
+          onLayoutPart={(y, h) => onLayoutPart(i + 1, y, h)} onChest={(box) => onChest(box, i + 1)} />
       ))}
       {open !== null ? <StageSheet session={session} nav={nav} stageId={open} campaignNo={openNo} /> : null}
+      {prize ? (
+        <Sheet open onClose={() => setPrize(null)} title="Mở hòm báu!" subtitle={prize.kind === 'part' ? 'Hòm báu cuối phần' : 'Hòm báu trên đường hành quân'}
+          footer={<Btn title="Nhận thưởng" tone="son" full onPress={() => setPrize(null)} testID="chest-claim" />}>
+          <View style={{ alignItems: 'center', gap: 12, paddingVertical: 8 }} testID="chest-reward">
+            <ChestArt size={120} state="opened" />
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {prize.gold ? <Chip text={`+${prize.gold} vàng`} icon={Coins} bg={c.vangNhat} fg={c.vangChu} /> : null}
+              {prize.xp ? <Chip text={`+${prize.xp} điểm kinh nghiệm`} icon={Sparkles} bg={c.mocNhat} fg={c.mocChu} /> : null}
+            </View>
+            {!prize.first ? <Txt size={13} color={c.muc3} center>Hòm này em đã mở trước đó.</Txt> : null}
+          </View>
+        </Sheet>
+      ) : null}
     </SagaPage>
   );
 };

@@ -28,7 +28,10 @@ export interface SagaMapInfo {
   campaign_no: number; title: string; short_title: string; years: string; enemy?: string; places?: string; summary?: string;
   image_key: string; image_url: string | null; image_w: number; image_h: number; credit: string; credit_url: string | null;
 }
-export interface CampaignView { map: SagaMapInfo; stages: StageBrief[]; current_stage_id: number | null; totals: { stages: number; done: number; stars: number; max_stars: number } }
+/** Hòm báu trên bản đồ (17/11/2026): `after` = số thứ tự chặng đứng trước hòm; hòm cuối phần có `after` bằng số chặng của phần */
+export interface SagaChest { key: string; kind: 'stage' | 'part'; after: number; state: 'locked' | 'ready' | 'opened'; gold: number; xp: number }
+export interface ChestOpen { key: string; kind: 'stage' | 'part'; first: boolean; gold: number; xp: number }
+export interface CampaignView { map: SagaMapInfo; stages: StageBrief[]; current_stage_id: number | null; totals: { stages: number; done: number; stars: number; max_stars: number }; chests?: SagaChest[] }
 
 export interface CardBrief { code: string; name: string; title: string; rarity: 'common' | 'rare' | 'epic' | 'legendary'; portrait: string; hidden?: boolean }
 export interface StageDetail extends StageBrief {

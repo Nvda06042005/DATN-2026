@@ -142,7 +142,18 @@ test('các màn của Hành trình Đông A dựng bằng thành phần của c�
   // đợt 7: trang bản đồ = ba phần nối nhau khi cuộn, mỗi phần một bản đồ gốc kiểu sa bàn; Rồng Con đi trên bản đồ tới chặng đang học;
   // bỏ lộ trình uốn lượn, thẻ phần có ảnh thu nhỏ "Bản đồ bên dưới" và dòng ghi nguồn dưới bản đồ (ghi công ở trang Thông tin hình ảnh)
   const home = read('components', 'portal', 'SagaHome.tsx');
-  for (const id of ['home-units', 'map-caption', 'map-mascot', 'unit-continue', 'my-class', 'home-level', 'home-daily', 'home-exams']) assert.ok(home.includes(`testID="${id}"`), id);
+  for (const id of ['home-units', 'map-caption', 'map-mascot', 'unit-continue', 'my-class', 'chest-reward', 'chest-claim']) assert.ok(home.includes(`testID="${id}"`), id);
+  // 17/11/2026: hòm báu trên bản đồ (máy chủ mở, thưởng một lần) và cột bên phải kiểu Duolingo (chỉ số, cấp độ, giải đấu tuần, nhiệm vụ hằng ngày có hòm báu)
+  assert.match(home, /testID=\{`map-chest-\$\{box\.key\}`\}/);
+  assert.match(home, /saga\.openChest\(session\.token, box\.key\)/);
+  assert.match(home, /<SagaRail session=\{session\} nav=\{nav\} wide=\{wide\} \/>/);
+  assert.match(read('lib', 'saga-api.ts'), /export const openChest = /);
+  const rail = read('components', 'portal', 'SagaRail.tsx');
+  for (const id of ['saga-rail', 'home-metrics', 'home-level', 'rail-league', 'rail-league-open', 'rail-quests', 'rail-quests-open', 'home-review', 'home-exams', 'league-sheet', 'quests-sheet']) assert.ok(rail.includes(`testID="${id}"`), id);
+  assert.match(rail, /game\.leagueView\(t\)/);
+  assert.match(rail, /game\.gameQuests\(t\)/);
+  for (const t of ['VÙNG LÊN HẠNG', 'VÙNG XUỐNG HẠNG', 'Nhiệm vụ hằng ngày', 'Nhiệm vụ tuần', 'XEM TẤT CẢ', 'XEM BẢNG']) assert.ok(rail.includes(t), t);
+  assert.doesNotMatch(rail, /duolingo\.com|\.png'\)|require\(/i);
   for (const gone of ['unit-path', 'unit-map-toggle', 'join-class', 'join-code', 'join-submit']) assert.ok(!home.includes(`testID="${gone}"`), gone);
   assert.doesNotMatch(home, /testID="stage-table"|<DataTable columns=\{columns\} rows=\{view\.stages\}|testID="home-path"|'Kéo bản đồ ra'|const ClassStrip|mapOpen|const UnitPath|Bản đồ bên dưới|Vị trí các chặng do nhóm phát triển đánh dấu/);
   assert.match(home, /testID=\{`saga-part-\$\{no\}`\}/);
@@ -162,7 +173,7 @@ test('các màn của Hành trình Đông A dựng bằng thành phần của c�
   assert.match(app, /const BEFORE_CLASS: readonly SagaTab\[\] = \['chien-dich', 'tin-nhan', 'tro-giup'\];/);
   assert.match(app, /NAV\.filter\(\(it\) => !gated \|\| BEFORE_CLASS\.includes\(it\.id\)\)/);
   assert.doesNotMatch(app, /\{ id: 'lop-hoc', label: 'Lớp học'/);
-  assert.match(app, /: inClass \? <HomeScreen nav=\{nav\} loading=\{home\.loading\} error=\{home\.error\} cls=\{cls\} onLeave=\{\(\) => enter\(null\)\} \/> : catalog/);
+  assert.match(app, /: inClass \? <HomeScreen session=\{session\} nav=\{nav\} loading=\{home\.loading\} error=\{home\.error\} cls=\{cls\} onLeave=\{\(\) => enter\(null\)\} \/> : catalog/);
   assert.doesNotMatch(app, /sessionStorage\?\.setItem\(ENTER_KEY, JSON\.stringify\(\{[^}]*token/);
   const classes = read('components', 'portal', 'StudentClasses.tsx');
   for (const id of ['catalog', 'enrol-page', 'enrol-code', 'enrol-submit', 'enrol-enter', 'inbox-list', 'inbox-view', 'inbox-class-code', 'inbox-join']) assert.ok(classes.includes(`testID="${id}"`), id);

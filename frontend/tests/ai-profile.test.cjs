@@ -153,6 +153,9 @@ test('17/11/2026: chế độ Tiểu Tướng bỏ mục Đánh giá năng lực
   const hub = read('components/ai/AiHubDashboard.tsx');
   assert.ok(!hub.includes('👋'));
   assert.ok(hub.includes('Chẩn đoán Năng lực BKT & Chủ điểm cần ôn'));
+  // 17/11/2026: trang đầu Trung tâm AI bỏ thẻ AI Tutor (còn Lộ trình cá nhân hóa, Flash Cards)
+  assert.ok(!hub.includes('AI Tutor — Thầy Đông A'));
+  assert.ok(!hub.includes('{/* Card 1: AI Tutor'));
 });
 
 test('StudentAiHub wires AiHubDashboard (Lộ trình Cá nhân hóa, Flash Cards, AI Tutor, Chẩn đoán BKT) into cổng Học sinh', () => {

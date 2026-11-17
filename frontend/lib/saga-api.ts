@@ -3,12 +3,14 @@
  * thư mục đó đã đủ 12 tệp nên thêm tệp thứ 13 làm bước triển khai thất bại (16/11/2026) dù bản dựng vẫn xong. */
 import { apiRequest } from '@/api/client';
 import type {
-  ActResult, Archive, BattleSession, CampaignView, CardAlbum, ExploreSession, LessonView, PracticeSession, ReviewInfo, SagaHome, StageDetail, StageSummary,
+  ActResult, Archive, BattleSession, CampaignView, CardAlbum, ChestOpen, ExploreSession, LessonView, PracticeSession, ReviewInfo, SagaHome, StageDetail, StageSummary,
 } from '@/types/saga';
 
 // ---------------------------------------------------------------------- học sinh
 export const home = (token: string) => apiRequest<SagaHome>('/api/saga/home', { token });
 export const campaign = (token: string, no: number) => apiRequest<CampaignView>(`/api/saga/campaigns/${no}`, { token });
+/** Mở hòm báu trên bản đồ; máy chủ kiểm tra điều kiện và chỉ thưởng một lần */
+export const openChest = (token: string, key: string) => apiRequest<ChestOpen>(`/api/saga/chests/${encodeURIComponent(key)}/open`, { token, body: {} });
 export const stage = (token: string, id: number) => apiRequest<StageDetail>(`/api/saga/stages/${id}`, { token });
 export const lesson = (token: string, id: number) => apiRequest<LessonView>(`/api/saga/stages/${id}/lesson`, { token });
 export const completeLesson = (token: string, id: number) => apiRequest<{ done: boolean; first: boolean; xp: number }>(`/api/saga/stages/${id}/lesson/complete`, { token, body: {} });

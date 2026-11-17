@@ -28,6 +28,8 @@ export class SagaController {
   @Get('home') @Roles('student') home(@CurrentUser() user: UserRow) { return this.saga.home(user); }
   @Get('campaigns/:no') @Roles('student') campaign(@CurrentUser() user: UserRow, @Param('no', ParseIntPipe) no: number) { return this.saga.campaign(user, no); }
 
+  /** Mở hòm báu trên bản đồ (17/11/2026) */
+  @Post('chests/:key/open') @Roles('student') @HttpCode(200) openChest(@CurrentUser() user: UserRow, @Param('key') key: string) { return this.saga.openChest(user, key); }
   @Get('stages/:id') @Roles('student') stage(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.saga.stageDetail(user, id); }
   @Get('stages/:id/lesson') @Roles('student') lesson(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.saga.lesson(user, id); }
   @Post('stages/:id/lesson/complete') @Roles('student') @HttpCode(200) lessonDone(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.saga.completeLesson(user, id); }
