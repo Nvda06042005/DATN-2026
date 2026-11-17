@@ -36,8 +36,8 @@ export interface SagaChest { key: string; kind: 'stage' | 'part'; after: number;
 export type LookRarity = 'common' | 'rare' | 'epic' | 'legendary';
 export interface LookItem { code: string; name: string; rarity: LookRarity }
 export interface LookSlot extends LookItem { need: string; unlocked: boolean }
-export interface SagaLook { frame: LookItem | null; title: LookItem | null }
-export interface Wardrobe { frames: LookSlot[]; titles: LookSlot[]; opened: number; total: number; equipped: SagaLook }
+export interface SagaLook { frame: LookItem | null; title: LookItem | null; /** ảnh đại diện có sẵn (Rồng Con, danh tướng); null = ảnh / chữ cái của em */ avatar?: string | null }
+export interface Wardrobe { frames: LookSlot[]; titles: LookSlot[]; avatars: string[]; opened: number; total: number; equipped: SagaLook }
 export interface ChestOpen { key: string; kind: 'stage' | 'part'; first: boolean; gold: number; xp: number; unlocked?: Array<LookItem & { kind: 'frame' | 'title'; equipped: boolean }> }
 export interface CampaignView { map: SagaMapInfo; stages: StageBrief[]; current_stage_id: number | null; totals: { stages: number; done: number; stars: number; max_stars: number }; chests?: SagaChest[] }
 

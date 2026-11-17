@@ -160,12 +160,21 @@ test('các màn của Hành trình Đông A dựng bằng thành phần của c�
   assert.match(look, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
   assert.match(look, /saga\.equipLook\(session\.token, body\)/);
   for (const code of ['dong-bo-dau', 'chuong-duong', 'bach-dang']) assert.ok(look.includes(`'${code}'`), code);
-  assert.match(read('components', 'portal', 'StudentApp.tsx'), /avatar=\{home\.data\?\.look\?\.frame \? <FramedAvatar /);
+  assert.match(read('components', 'portal', 'StudentApp.tsx'), /avatar=\{home\.data\?\.look\?\.frame \|\| home\.data\?\.look\?\.avatar \? <FramedAvatar /);
   assert.match(read('components', 'portal', 'StudentApp.tsx'), /roleLine=\{home\.data\?\.look\?\.title \? <TitleBadge /);
   assert.match(read('components', 'admin', 'AdminWorkspace.tsx'), /\{avatar \?\? <Avatar name=\{session\.user\.full_name\}/);
   assert.match(rail, /testID="rail-profile"/);
   assert.match(rail, /<WardrobeSheet session=\{session\}/);
   assert.match(home, /testID=\{`chest-unlock-\$\{u\.code\}`\}/);
+  // ảnh đại diện có sẵn theo nhân vật (Rồng Con, danh tướng) chọn ở Hồ sơ cá nhân như ô "Set your status"; ảnh ở hồ sơ mang khung / danh hiệu từ hòm báu
+  for (const name of ['CharacterAvatar', 'AvatarPicker', 'ProfileLook']) assert.match(look, new RegExp(`export const ${name}: React\.FC`), name);
+  for (const code of ['rong-con-vui', 'rong-con-ra-tran', 'tran-hung-dao', 'tran-quoc-toan']) assert.ok(look.includes(`'${code}'`), code);
+  assert.match(look, /saga\.equipLook\(session\.token, \{ avatar \}\)/);
+  const student = read('components', 'portal', 'StudentApp.tsx');
+  assert.match(student, /profileAvatar=\{<FramedAvatar /);
+  assert.match(student, /profileExtra=\{<ProfileLook session=\{session\} onChanged=\{home\.reload\} \/>\}/);
+  assert.match(read('components', 'profile.tsx'), /\{avatar \?\? <Avatar name=\{user\.full_name\} uri=\{user\.avatar_url\} size=\{56\} \/>\}/);
+  assert.match(read('components', 'admin', 'AdminWorkspace.tsx'), /avatar=\{profileAvatar\} extra=\{profileExtra\}/);
   for (const gone of ['unit-path', 'unit-map-toggle', 'join-class', 'join-code', 'join-submit']) assert.ok(!home.includes(`testID="${gone}"`), gone);
   assert.doesNotMatch(home, /testID="stage-table"|<DataTable columns=\{columns\} rows=\{view\.stages\}|testID="home-path"|'Kéo bản đồ ra'|const ClassStrip|mapOpen|const UnitPath|Bản đồ bên dưới|Vị trí các chặng do nhóm phát triển đánh dấu/);
   assert.match(home, /testID=\{`saga-part-\$\{no\}`\}/);

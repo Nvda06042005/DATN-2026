@@ -16,7 +16,7 @@ import { useIsFocused, useLocalSearchParams, useNavigation, usePathname, useRout
 import { CircleQuestionMark, ClipboardCheck, GalleryHorizontalEnd, Gamepad2, LifeBuoy, Mail, Map as MapIcon, ScrollText, Sparkles } from 'lucide-react-native';
 import * as learningApi from '@/api/learningApi';
 import { StudentCatalog, StudentInbox } from '@/components/portal/StudentClasses';
-import { FramedAvatar, TitleBadge } from '@/components/portal/SagaLook';
+import { FramedAvatar, ProfileLook, TitleBadge } from '@/components/portal/SagaLook';
 import { StudentExams } from '@/components/admin/LibraryExams';
 import * as authApi from '@/api/authApi';
 import * as game from '@/api/gameApi';
@@ -240,7 +240,9 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
     <AdminUiContext.Provider value>
       <View style={{ flex: 1 }} testID="student-app">
         <AdminWorkspace session={session} nav={navItems} active={route.tab === 'lop-hoc' ? 'chien-dich' : route.tab} onSelect={pick}
-          avatar={home.data?.look?.frame ? <FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={34} frame={home.data.look.frame} testID="top-framed-avatar" /> : undefined}
+          avatar={home.data?.look?.frame || home.data?.look?.avatar ? <FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={34} frame={home.data.look.frame} preset={home.data.look.avatar} testID="top-framed-avatar" /> : undefined}
+          profileAvatar={<FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={56} frame={home.data?.look?.frame} preset={home.data?.look?.avatar} testID="profile-framed-avatar" />}
+          profileExtra={<ProfileLook session={session} onChanged={home.reload} />}
           roleLine={home.data?.look?.title ? <TitleBadge title={home.data.look.title} testID="top-title" /> : undefined} schoolName={profile.data?.school?.name} extra={extra}>
           {body}
         </AdminWorkspace>

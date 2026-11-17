@@ -10,6 +10,7 @@ class StartDto { @IsOptional() @IsBoolean() restart?: boolean; }
 class EquipDto {
   @IsOptional() @ValidateIf((_o, v) => v !== null) @IsString() @Matches(/^[a-z0-9-]{2,40}$/) frame?: string | null;
   @IsOptional() @ValidateIf((_o, v) => v !== null) @IsString() @Matches(/^[a-z0-9-]{2,40}$/) title?: string | null;
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @IsString() @Matches(/^[a-z0-9-]{2,40}$/) avatar?: string | null;
 }
 class ActionDto {
   /** Mã do trình duyệt sinh cho mỗi lệnh: gửi lặp cùng mã nhận lại kết quả cũ */

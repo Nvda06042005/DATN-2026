@@ -13,7 +13,7 @@ export const campaign = (token: string, no: number) => apiRequest<CampaignView>(
 export const openChest = (token: string, key: string) => apiRequest<ChestOpen>(`/api/saga/chests/${encodeURIComponent(key)}/open`, { token, body: {} });
 /** Kho khung ảnh đại diện / danh hiệu và trang bị (null = bỏ) */
 export const wardrobe = (token: string) => apiRequest<Wardrobe>('/api/saga/cosmetics', { token });
-export const equipLook = (token: string, body: { frame?: string | null; title?: string | null }) => apiRequest<Wardrobe>('/api/saga/cosmetics/equip', { token, body });
+export const equipLook = (token: string, body: { frame?: string | null; title?: string | null; avatar?: string | null }) => apiRequest<Wardrobe>('/api/saga/cosmetics/equip', { token, body });
 export const stage = (token: string, id: number) => apiRequest<StageDetail>(`/api/saga/stages/${id}`, { token });
 export const lesson = (token: string, id: number) => apiRequest<LessonView>(`/api/saga/stages/${id}/lesson`, { token });
 export const completeLesson = (token: string, id: number) => apiRequest<{ done: boolean; first: boolean; xp: number }>(`/api/saga/stages/${id}/lesson/complete`, { token, body: {} });

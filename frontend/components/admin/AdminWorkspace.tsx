@@ -32,11 +32,13 @@ export const navLeaves = <T extends string>(nav: ReadonlyArray<NavEntry<T>>): Ar
  * Khung chung của cổng quản trị tổng, quản trị trường, giáo viên và (từ 16/11/2026) trang học sinh. Dùng cùng ngôn ngữ thiết kế với trang chủ: nền giấy dó có hoa văn trống đồng,
  * thanh đầu trang dạng viên thuốc nổi, nút tối bo tròn, thanh bên bo góc; chân trang có dòng bản quyền như ở trang đăng nhập.
  */
-export function AdminWorkspace<T extends string>({ session, nav, active, onSelect, extra, schoolName, children, avatar, roleLine }: {
+export function AdminWorkspace<T extends string>({ session, nav, active, onSelect, extra, schoolName, children, avatar, roleLine, profileAvatar, profileExtra }: {
   session: Session; nav: ReadonlyArray<NavEntry<T>>;
   active: T; onSelect: (tab: T) => void; extra?: ReactNode; schoolName?: string; children: ReactNode;
   /** Thay ảnh đại diện / dòng dưới tên ở thanh đầu (trang học sinh: khung và danh hiệu nhận từ hòm báu, 17/11/2026) */
   avatar?: ReactNode; roleLine?: ReactNode;
+  /** Ảnh và phần riêng trong Hồ sơ cá nhân (trang học sinh: ảnh có khung, chọn ảnh nhân vật có sẵn) */
+  profileAvatar?: ReactNode; profileExtra?: ReactNode;
 }) {
   const { c } = useTheme();
   const brand = useSystemBrand(session.token);
@@ -130,7 +132,7 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
           <View style={{ flex: 1, minHeight: 0 }}>{children}</View>
           <Txt testID="admin-copyright" f="body" size={11} color={c.muc3} center style={{ paddingVertical: 8 }}>© 2026 · Bản quyền thuộc quản lý Đông A</Txt>
         </View>
-        {profile && <ProfileSheet onClose={() => setProfile(false)} load={loadProfile} save={saveProfile} upload={uploadAvatar} onSaved={session.updateUser}>
+        {profile && <ProfileSheet onClose={() => setProfile(false)} load={loadProfile} save={saveProfile} upload={uploadAvatar} onSaved={session.updateUser} avatar={profileAvatar} extra={profileExtra}>
           {(role === 'root_admin' || role === 'school_admin') ? <AccountSecurity session={session} /> : null}
         </ProfileSheet>}
         {!wide && open && <View style={{ position: 'absolute', inset: 0, zIndex: 40 }}><Pressable accessibilityRole="button" accessibilityLabel={role === 'student' ? 'Đóng menu' : 'Đóng menu quản trị'} onPress={() => setOpen(false)} style={{ position: 'absolute', inset: 0, backgroundColor: c.scrim }} />{sidebar}</View>}

@@ -59,6 +59,9 @@ const FRAMES: Array<{ code: string; name: string; rarity: Rarity; chest: string;
   { code: 'chuong-duong', name: 'Khung Chương Dương', rarity: 'epic', chest: 'p2', need: 'Mở hòm báu cuối Phần 2 (1285)' },
   { code: 'bach-dang', name: 'Khung Bạch Đằng', rarity: 'legendary', chest: 'p3', need: 'Mở hòm báu cuối Phần 3 (1287–1288)' },
 ];
+/** Ảnh đại diện có sẵn (17/11/2026): Rồng Con và chân dung danh tướng của dự án, chọn tự do; giao diện vẽ theo mã, máy chủ chỉ kiểm mã hợp lệ */
+const AVATARS = ['rong-con-vui', 'rong-con-ra-tran', 'rong-con-hoc-gia', 'rong-con-non-la', 'rong-con-vua', 'rong-con-dang-yeu',
+  'tran-hung-dao', 'tran-quoc-toan', 'tran-thu-do', 'tran-binh-trong', 'tran-nhan-tong', 'tran-khanh-du'];
 const TITLES: Array<{ code: string; name: string; rarity: Rarity; min: number }> = [
   { code: 'tan-binh-sat-that', name: 'Tân binh Sát Thát', rarity: 'common', min: 1 },
   { code: 'hieu-uy-dong-a', name: 'Hiệu úy Đông A', rarity: 'rare', min: 3 },
@@ -252,15 +255,16 @@ export class SagaService {
       const x = list.find((i) => i.code === code && i.unlocked);
       return x ? { code: x.code, name: x.name, rarity: x.rarity } : null;
     };
-    return { frames, titles, opened: opened.size, total: (await this.stages(q)).length, equipped: { frame: pick(frames, look.saga_frame), title: pick(titles, look.saga_title) } };
+    const avatar = typeof look.saga_avatar === 'string' && AVATARS.includes(look.saga_avatar) ? look.saga_avatar : null;
+    return { frames, titles, avatars: AVATARS, opened: opened.size, total: (await this.stages(q)).length, equipped: { frame: pick(frames, look.saga_frame), title: pick(titles, look.saga_title), avatar } };
   }
 
   async cosmetics(user: UserRow) {
     return this.db.tx((q) => this.wardrobe(q, user));
   }
 
-  /** Trang bị khung / danh hiệu (null = bỏ); chỉ nhận món đã mở khóa */
-  async equip(user: UserRow, body: { frame?: string | null; title?: string | null }) {
+  /** Trang bị khung / danh hiệu (null = bỏ; chỉ nhận món đã mở khóa) và ảnh đại diện có sẵn (null = dùng ảnh / chữ cái của em) */
+  async equip(user: UserRow, body: { frame?: string | null; title?: string | null; avatar?: string | null }) {
     return this.db.tx(async (q) => {
       const w = await this.wardrobe(q, user);
       const patch: Record<string, string | null> = {};
@@ -274,6 +278,10 @@ export class SagaService {
           if (!item.unlocked) throw new ConflictException(`Em chưa mở khóa “${item.name}”`);
         }
         patch[key] = code;
+      }
+      if (body.avatar !== undefined) {
+        if (body.avatar !== null && !AVATARS.includes(body.avatar)) throw notFound('ảnh đại diện');
+        patch.saga_avatar = body.avatar;
       }
       if (Object.keys(patch).length) await q('UPDATE hk_players SET appearance = appearance || $2::jsonb, updated_at = now() WHERE user_id = $1', [user.id, JSON.stringify(patch)]);
       return this.wardrobe(q, user);

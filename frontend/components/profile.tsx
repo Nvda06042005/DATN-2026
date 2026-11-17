@@ -40,7 +40,9 @@ async function readAvatar(picked: PickedFile): Promise<{ data: string }> {
   return { data };
 }
 
-export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (patch: ProfilePatch) => Promise<ProfileData>; upload?: (img: { data: string }) => Promise<ProfileData>; onSaved?: (user: AuthUser) => void }> = ({ load, save, upload, onSaved }) => {
+export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (patch: ProfilePatch) => Promise<ProfileData>; upload?: (img: { data: string }) => Promise<ProfileData>; onSaved?: (user: AuthUser) => void;
+  /** trang học sinh (17/11/2026): ảnh có khung từ hòm báu thay ảnh mặc định, phần chọn ảnh nhân vật có sẵn đặt dưới khối ảnh */
+  avatar?: React.ReactNode; extra?: React.ReactNode }> = ({ load, save, upload, onSaved, avatar, extra }) => {
   const { c } = useTheme();
   const toast = useToast();
   const [data, setData] = useState<ProfileData | null>(null);
@@ -112,7 +114,7 @@ export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (pa
   return (
     <View testID="profile-form" style={{ gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Avatar name={user.full_name} uri={user.avatar_url} size={56} />
+        {avatar ?? <Avatar name={user.full_name} uri={user.avatar_url} size={56} />}
         <View style={{ flex: 1, gap: 2 }}>
           <Txt f="bold" size={17} numberOfLines={1}>{user.nickname || user.full_name}</Txt>
           <Txt size={12} color={c.muc2}>{ROLE_TEXT[user.role]}</Txt>
@@ -126,6 +128,7 @@ export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (pa
       </View>
       {avatarEditable ? <Txt size={11} color={c.muc3}>Chỉ nhận ảnh PNG, JPG, WEBP hoặc GIF, tối đa 1,5 MB. Không nhận tệp Word, Excel, PowerPoint, PDF hay tệp khác.</Txt> : null}
       {avatarError ? <Txt size={13} f="semibold" color={c.sonChu} accessibilityRole="alert" testID="avatar-error">{avatarError}</Txt> : null}
+      {extra}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 16, rowGap: 8 }}>
         {info('Tên đăng nhập', user.username)}
         {user.user_code ? info('Mã người dùng', user.user_code) : null}
@@ -162,13 +165,13 @@ export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (pa
 };
 
 /** Hồ sơ trong một Sheet riêng (giáo viên, quản trị). Có phần bảo mật (quản trị) thì chia hai tab để hộp thấp và gọn; cả hai tab luôn được giữ nguyên nội dung đang gõ */
-export const ProfileSheet: React.FC<{ onClose: () => void; load: () => Promise<ProfileData>; save: (patch: ProfilePatch) => Promise<ProfileData>; upload?: (img: { data: string }) => Promise<ProfileData>; onSaved?: (user: AuthUser) => void; children?: React.ReactNode }> = ({ onClose, load, save, upload, onSaved, children }) => {
+export const ProfileSheet: React.FC<{ onClose: () => void; load: () => Promise<ProfileData>; save: (patch: ProfilePatch) => Promise<ProfileData>; upload?: (img: { data: string }) => Promise<ProfileData>; onSaved?: (user: AuthUser) => void; children?: React.ReactNode; avatar?: React.ReactNode; extra?: React.ReactNode }> = ({ onClose, load, save, upload, onSaved, children, avatar, extra }) => {
   const [tab, setTab] = useState<'info' | 'security'>('info');
   return (
     <Sheet open onClose={onClose} title="Hồ sơ cá nhân" subtitle="Xem và cập nhật thông tin của bạn" panelStyle={{ maxWidth: 520 }}>
       <View style={{ gap: 14 }}>
         {children ? <Segmented<'info' | 'security'> label="Mục hồ sơ" value={tab} onChange={setTab} options={[{ value: 'info', label: 'Thông tin' }, { value: 'security', label: 'Đăng nhập và bảo mật' }]} /> : null}
-        <View style={{ display: tab === 'info' ? 'flex' : 'none' }}><ProfileForm load={load} save={save} upload={upload} onSaved={onSaved} /></View>
+        <View style={{ display: tab === 'info' ? 'flex' : 'none' }}><ProfileForm load={load} save={save} upload={upload} onSaved={onSaved} avatar={avatar} extra={extra} /></View>
         {children ? <View style={{ display: tab === 'security' ? 'flex' : 'none' }}>{children}</View> : null}
       </View>
     </Sheet>

@@ -182,7 +182,7 @@ const LeagueSheet: React.FC<{ data: LeagueView; look: SagaLook | null; name: str
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 10, backgroundColor: e.me ? c.adminTint : 'transparent' }}
                 accessible accessibilityLabel={`Hạng ${e.rank}: ${e.name}, ${e.xp} điểm${e.zone === 'promote' ? ', vùng lên hạng' : e.zone === 'demote' ? ', vùng xuống hạng' : ''}`}>
                 <Txt f="bold" size={14} color={e.zone === 'promote' ? c.mocChu : e.zone === 'demote' ? c.sonChu : c.muc2} style={{ width: 24, textAlign: 'center' }}>{e.rank}</Txt>
-                {e.me ? <FramedAvatar name={name} uri={uri} size={34} frame={look?.frame} /> : <Avatar name={e.name} size={34} />}
+                {e.me ? <FramedAvatar name={name} uri={uri} size={34} frame={look?.frame} preset={look?.avatar} /> : <Avatar name={e.name} size={34} />}
                 <View style={{ flex: 1, gap: 2 }}>
                   <Txt f={e.me ? 'heavy' : 'bold'} size={14} color={e.me ? c.mocChu : c.muc} numberOfLines={1}>{e.name}</Txt>
                   {e.me && look?.title ? <TitleBadge title={look.title} /> : null}
@@ -233,7 +233,7 @@ export const SagaRail: React.FC<{ session: Session; nav: SagaNav; wide: boolean 
         ))}
       </View>
       <Card flat pad={14} style={{ borderRadius: 14, gap: 10, flexDirection: 'row', alignItems: 'center' }} testID="rail-profile">
-        <FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={52} frame={home.look?.frame} />
+        <FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={52} frame={home.look?.frame} preset={home.look?.avatar} />
         <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
           <Txt f="bold" size={15} numberOfLines={1}>{home.learner.name}</Txt>
           {home.look?.title ? <TitleBadge title={home.look.title} /> : <Txt size={12} color={c.muc3}>Mở hòm báu để nhận khung và danh hiệu</Txt>}

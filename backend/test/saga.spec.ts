@@ -361,14 +361,22 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
     expect((await api('POST', '/api/saga/cosmetics/equip', { title: 'Sai Định Dạng!' })).status).toBe(422);
     const off = await api('POST', '/api/saga/cosmetics/equip', { title: null });
     expect(off.status).toBe(200);
-    expect(off.body.equipped).toEqual({ frame: null, title: null });
+    expect(off.body.equipped).toEqual({ frame: null, title: null, avatar: null });
     expect((await api('POST', '/api/saga/cosmetics/equip', { title: 'tan-binh-sat-that' })).body.equipped.title).toMatchObject({ code: 'tan-binh-sat-that' });
-    // học sinh khác chưa mở hòm nào: không trang bị được
+    // ảnh đại diện có sẵn (Rồng Con, danh tướng): chọn tự do, mã lạ bị từ chối, null = dùng ảnh của em
+    expect(w.avatars).toHaveLength(12);
+    expect(w.avatars).toEqual(expect.arrayContaining(['rong-con-vui', 'tran-hung-dao']));
+    expect((await api('POST', '/api/saga/cosmetics/equip', { avatar: 'rong-con-vua' })).body.equipped.avatar).toBe('rong-con-vua');
+    expect((await api('POST', '/api/saga/cosmetics/equip', { avatar: 'khong-co' })).status).toBe(404);
+    expect((await api('GET', '/api/saga/home')).body.look.avatar).toBe('rong-con-vua');
+    expect((await api('POST', '/api/saga/cosmetics/equip', { avatar: 'tran-hung-dao' }, f.S2.token)).body.equipped).toMatchObject({ avatar: 'tran-hung-dao', frame: null });
+    expect((await api('POST', '/api/saga/cosmetics/equip', { avatar: null }, f.S2.token)).body.equipped.avatar).toBeNull();
+    // học sinh khác chưa mở hòm nào: không trang bị được khung / danh hiệu
     expect((await api('POST', '/api/saga/cosmetics/equip', { title: 'tan-binh-sat-that' }, f.S2.token)).status).toBe(409);
-    expect((await api('GET', '/api/saga/cosmetics', undefined, f.S2.token)).body).toMatchObject({ opened: 0, equipped: { frame: null, title: null } });
+    expect((await api('GET', '/api/saga/cosmetics', undefined, f.S2.token)).body).toMatchObject({ opened: 0, equipped: { frame: null, title: null, avatar: null } });
     // trang bị nằm trong hk_players.appearance, không làm mất ngoại hình nhân vật cũ
     const look = (await sql<{ appearance: Record<string, unknown> }>(s.url, 'SELECT appearance FROM hk_players WHERE user_id = $1', [f.S1.id]))[0].appearance;
-    expect(look).toMatchObject({ saga_title: 'tan-binh-sat-that' });
+    expect(look).toMatchObject({ saga_title: 'tan-binh-sat-that', saga_avatar: 'rong-con-vua' });
   });
 
   it('đăng nhập lại vẫn đúng tiến độ; thẻ nhân vật và tư liệu mở theo kết quả học', async () => {
