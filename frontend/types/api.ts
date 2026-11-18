@@ -247,7 +247,9 @@ export interface CloneResult {
 /** Một dòng của trang Mật khẩu tài khoản: mật khẩu chỉ có khi người dùng chưa tự đổi và hệ thống có bản lưu mã hóa */
 export interface PasswordRow {
   id: number; user_code: string | null; full_name: string; username: string; role: 'school_admin' | 'teacher' | 'student'; email: string | null;
-  school_id: number | null; school_name: string | null; is_active: boolean; password: string | null; status: 'initial' | 'changed' | 'unknown';
+  school_id: number | null; school_name: string | null; is_active: boolean;
+  /** Mật khẩu xem được: ban đầu / cấp lại khi chưa đổi; mật khẩu người dùng tự đổi từ 18/11/2026 (chỉ quản trị tổng nhận, migration 074) */
+  password: string | null; status: 'initial' | 'changed' | 'unknown';
 }
 
 export interface ImportRow {

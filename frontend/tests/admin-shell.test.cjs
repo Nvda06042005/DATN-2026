@@ -281,8 +281,13 @@ test('tài khoản quản trị trường theo quy ước: điện thoại và n
   assert.ok(sheet.includes('!/^\\d{10}$/.test(phone)'));
   assert.ok(sheet.includes("/^\\d{4}-\\d{2}-\\d{2}$/.test(birth)"));
   assert.match(sheet, /phone, birth_date: birth, school_id: Number\(schoolId\)/);
-  assert.match(sheet, /QLYGOTAN6720/);
-  assert.match(sheet, /DongA06042005@AN/);
+  // 18/11/2026: bỏ ghi chú quy ước tên đăng nhập / mật khẩu trong hộp tạo; họ tên không có danh sách thả xuống, viết hoa chữ cái đầu mỗi từ
+  assert.doesNotMatch(sheet, /QLYGOTAN6720|DongA06042005@AN|admin-credential-rule/);
+  assert.doesNotMatch(sheet, /kind="full_name"/);
+  assert.match(sheet, /<Field label="Họ và tên \*" nativeID="field-full_name"/);
+  assert.match(sheet, /if \(nameCaseError\(name\)\)/);
+  const nameLib = read('lib', 'person-name.ts');
+  assert.match(nameLib, /\/\^\\p\{Lu\}\[\\p\{Ll\}\\p\{M\}\]\*\$\/u/);
   assert.match(read('api', 'adminApi.ts'), /createAdminAccount = \(token: string, body: \{[^}]*birth_date\?: string \| null/);
   const root = read('components', 'admin', 'RootAdmin.tsx');
   // 18/11/2026: thêm trường không còn khai báo quản trị viên đầu tiên; tạo xong thì "Thêm quản trị viên trường" mở hộp này với trường chọn sẵn

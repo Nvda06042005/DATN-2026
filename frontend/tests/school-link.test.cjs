@@ -240,7 +240,8 @@ test('trang Trường học: nút gạt thay chữ Vô hiệu / Kích hoạt, c�
   assert.match(admin, /\{ key: 'ended', label: 'Ngày kết thúc', render: \(s\) =>[^\n]*s\.deactivated_at \? dateText\(s\.deactivated_at\) : 'Không rõ ngày'/);
   assert.match(admin, /\.\.\.placeFields\(token\)/);
   assert.doesNotMatch(admin, /name: 'logo_url'|Logo riêng \(liên kết https/);
-  assert.match(admin, /upload=\{\(data\) => api\.uploadSchoolLogo\(token, editing\.id, data\)\} remove=\{\(\) => api\.removeSchoolLogo\(token, editing\.id\)\}/);
+  // 18/11/2026: chọn logo chỉ xem trước; lưu khi bấm Lưu (Hủy thì giữ logo cũ)
+  assert.match(admin, /await saveStagedLogo\(v, \(data\) => api\.uploadSchoolLogo\(token, editing\.id, data\), \(\) => api\.removeSchoolLogo\(token, editing\.id\)\);/);
   // sửa trường không gửi logo_url (logo đổi ngay khi tải lên, không bị giá trị cũ ghi đè khi bấm Lưu)
   const editSubmit = admin.slice(admin.indexOf('Sửa thông tin trường'), admin.indexOf('<ConfirmSheet open={!!toggling}'));
   assert.doesNotMatch(editSubmit.slice(editSubmit.indexOf('onSubmit')), /logo_url/);
@@ -254,10 +255,23 @@ test('trang Trường học: nút gạt thay chữ Vô hiệu / Kích hoạt, c�
   assert.match(api, /\/api\/admin\/school\/logo\$\{qs\(\{ school_id: schoolId \}\)\}`, \{ token, method: 'DELETE' \}/);
   const school = read('components', 'admin', 'SchoolAdmin.tsx');
   assert.doesNotMatch(school, /name: 'logo_url'/);
-  assert.match(school, /upload=\{\(data\) => api\.uploadMySchoolLogo\(token, data\)\}/);
+  assert.match(school, /await saveStagedLogo\(v, \(data\) => api\.uploadMySchoolLogo\(token, data\), \(\) => api\.removeMySchoolLogo\(token\)\);/);
+  assert.match(place, /if \(values\.logo_data\) await upload\(String\(values\.logo_data\)\);/);
   assert.match(school, /\.\.\.placeFields\(token\)/);
   assert.match(school, /<Switch value=\{row\.is_active\}/);
   assert.doesNotMatch(school, /title=\{row\.is_active \? 'Tắt' : 'Bật'\}/);
   // trang đăng nhập của trường, ô chọn trường: không hiện quận / huyện cũ là khu vực
   assert.match(read('components', 'school-brand.tsx'), /const place = placeText\(school\.region, school\.city\);/);
+});
+
+test('họ tên viết hoa chữ cái đầu mỗi từ (18/11/2026): Nguyễn Vũ Đức Anh được; Nguyễn vũ Đức Anh, Nguyễn vũ đức Anh, NGUYỄN VŨ không; gợi ý cách viết đúng', () => {
+  const compiled = ts.transpileModule(read('lib', 'person-name.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const module = { exports: {} };
+  new vm.Script(`(function(module,exports){${compiled}\n})`).runInThisContext()(module, module.exports);
+  const { nameCaseError, properName } = module.exports;
+  for (const ok of ['Nguyễn Vũ Đức Anh', 'Đặng Thu Hà', 'Lê A', 'Quản Trị 2', '', '  ']) assert.equal(nameCaseError(ok), null, ok);
+  for (const bad of ['Nguyễn vũ Đức Anh', 'Nguyễn vũ đức Anh', 'NGUYỄN VŨ', 'nguyễn vũ đức anh']) assert.match(nameCaseError(bad), /“Nguyễn Vũ|“Nguyễn Vũ Đức Anh”/, bad);
+  assert.equal(properName('  nguyễn   vũ ĐỨC anh '), 'Nguyễn Vũ Đức Anh');
+  // tổ hợp dấu tách rời (NFD, gõ trên một số máy Mac) vẫn được chuẩn hóa
+  assert.equal(nameCaseError('Nguyễn Vũ'.normalize('NFD')), null);
 });

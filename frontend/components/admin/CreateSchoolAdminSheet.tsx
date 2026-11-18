@@ -8,6 +8,7 @@ import { SchoolSelect } from '@/components/admin/SchoolSelect';
 import type { Session } from '@/components/auth';
 import { Btn, Field, Inset, PhoneField, Sheet, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import { nameCaseError, properName } from '@/lib/person-name';
 import { normalizePhone } from '@/lib/phone';
 import { todayVn } from '@/lib/school-terms';
 import type { Account, CreatedAccount } from '@/types/api';
@@ -51,7 +52,7 @@ function AccountSuggestField({ token, kind, value, schoolId, onChange, onSelect,
     <View style={{ flexDirection: 'row', gap: 6, alignItems: 'flex-end' }}>
       <Field label={label} nativeID={`field-${kind}`} value={value} style={{ flex: 1, minWidth: 0 }} autoCapitalize={kind === 'email' ? 'none' : 'words'} keyboardType={kind === 'email' ? 'email-address' : 'default'}
         accessibilityRole="combobox" accessibilityState={{ expanded: open }}
-        onFocus={show} onBlur={() => { blurTimer.current = setTimeout(() => setOpen(false), 180); }}
+        onBlur={() => { blurTimer.current = setTimeout(() => setOpen(false), 180); }}
         onChangeText={text => { setBrowse(false); show(); onChange(text); }}
         onKeyPress={event => {
           const pressed = event.nativeEvent.key;
@@ -94,6 +95,8 @@ export function CreateSchoolAdminSheet({ session, onClose, onCreated, onExisting
   const [selected, setSelected] = useState<Account | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [nameTouched, setNameTouched] = useState(false);
+  const nameError = nameTouched ? nameCaseError(name) : null;
   const choose = (account: Account) => {
     setSelected(account); setName(account.full_name); setEmail(account.email ?? ''); setPhone(normalizePhone(account.phone)); setSchoolId(String(account.school_id ?? '')); setError(null);
   };
@@ -101,6 +104,7 @@ export function CreateSchoolAdminSheet({ session, onClose, onCreated, onExisting
   const submit = async () => {
     if (selected) { onExisting(selected.id); return; }
     if (!name.trim() || !email.trim()) { setError('Hãy điền họ tên và email của quản trị viên trường.'); return; }
+    if (nameCaseError(name)) { setNameTouched(true); setError(nameCaseError(name)); return; }
     if (!Number.isInteger(Number(schoolId)) || Number(schoolId) < 1) { setError('Hãy chọn trường cho tài khoản quản trị.'); return; }
     if (!/^\d{10}$/.test(phone)) { setError('Số điện thoại của quản trị viên gồm đúng 10 chữ số (4 số cuối dùng để ghép tên đăng nhập).'); return; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(birth)) { setError('Hãy chọn ngày tháng năm sinh của quản trị viên: dùng để ghép mật khẩu.'); return; }
@@ -110,11 +114,15 @@ export function CreateSchoolAdminSheet({ session, onClose, onCreated, onExisting
     } catch (e) { setError(errorMessage(e)); if (e instanceof ApiError && e.status === 401) session.expired(); }
     finally { setBusy(false); }
   };
-  return <Sheet open onClose={onClose} title="Tạo tài khoản quản trị" subtitle="Tên đăng nhập và mật khẩu theo quy ước được gửi vào email; người dùng phải đổi mật khẩu ở lần đăng nhập đầu tiên" panelStyle={{ maxWidth: 720 }}
+  return <Sheet open onClose={onClose} title="Tạo tài khoản quản trị" subtitle="Tên đăng nhập và mật khẩu được gửi vào email; người dùng phải đổi mật khẩu ở lần đăng nhập đầu tiên" panelStyle={{ maxWidth: 720 }}
     footer={<View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 10 }}><Btn title="Hủy" tone="giay" disabled={busy} onPress={onClose} /><Btn title={selected ? 'Mở hồ sơ tài khoản' : 'Tạo tài khoản'} tone="son" loading={busy} onPress={submit} testID="form-submit" /></View>}>
     <ErrorNote message={error} />
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-      <AccountSuggestField token={session.token} kind="full_name" value={name} schoolId={schoolId} onChange={text => { setSelected(null); setName(text); }} onSelect={choose} onExpired={session.expired} />
+      <View style={{ flexGrow: 1, flexBasis: 240, minWidth: 0, gap: 6 }}>
+        <Field label="Họ và tên *" nativeID="field-full_name" value={name} autoCapitalize="words" placeholder="Ví dụ Nguyễn Vũ Đức Anh" error={nameError}
+          onChangeText={text => { setSelected(null); setName(text); }} onBlur={() => setNameTouched(true)} />
+        {nameError ? <Btn title={`Dùng “${properName(name)}”`} tone="ghost" size="sm" onPress={() => { setName(properName(name)); setError(null); }} testID="admin-name-fix" /> : null}
+      </View>
       <Field label="Loại tài khoản" value="Quản trị viên trường" editable={false} style={{ flexGrow: 1, flexBasis: 240, minWidth: 0 }} />
     </View>
     <SchoolSelect token={session.token} value={schoolId} onChange={id => { if (selected && id !== schoolId) { setSelected(null); setName(''); setEmail(''); setPhone(''); } setSchoolId(id); }} onExpired={session.expired} />
@@ -129,10 +137,6 @@ export function CreateSchoolAdminSheet({ session, onClose, onCreated, onExisting
           : <Field label="Ngày tháng năm sinh * (YYYY-MM-DD)" nativeID="field-birth_date" value={birth} onChangeText={setBirth} placeholder="2005-04-06" />}
       </View>
     </View>
-    <View testID="admin-credential-rule"><Inset style={{ gap: 4 }}>
-      <Txt size={13} color={c.muc2}>Tên đăng nhập: QLY + chữ viết tắt của trường + tên + 4 số cuối điện thoại. Ví dụ QLYGOTAN6720.</Txt>
-      <Txt size={13} color={c.muc2}>Mật khẩu: DongA + ngày sinh (ngày, tháng, năm) + @ + tên. Ví dụ DongA06042005@AN. Hệ thống gửi cả hai vào email này.</Txt>
-    </Inset></View>
     {selected && <View testID="admin-existing-account"><Inset style={{ gap: 8 }}>
       <Txt size={13} color={c.muc2}>Người này đã có tài khoản tại {selected.school_name}. Mở hồ sơ để xem hoặc chỉnh sửa thông tin.</Txt>
       <Btn title="Nhập người mới" tone="ghost" size="sm" onPress={clear} testID="admin-new-person" />

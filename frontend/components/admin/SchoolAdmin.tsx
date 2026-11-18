@@ -17,7 +17,7 @@ import { SchoolEmblem } from '@/components/school-brand';
 import { HelpPage } from '@/components/portal/HelpCenter';
 import { NoticeBell } from '@/components/portal/NoticeCenter';
 import { ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, yearOptions, type FieldDef } from '@/components/admin/kit';
-import { placeFields, SchoolLogoField } from '@/components/admin/SchoolPlace';
+import { placeFields, saveStagedLogo, SchoolLogoField } from '@/components/admin/SchoolPlace';
 import { addressText, isNewUnit, isOldDistrict, streetPart } from '@/lib/admin-units';
 import { SchoolClasses } from '@/components/admin/SchoolClasses';
 import { PasswordList } from '@/components/admin/PasswordList';
@@ -152,11 +152,14 @@ const SchoolPanel: React.FC<{ session: Session; school: Awaited<ReturnType<typeo
             { name: 'name', label: 'Tên hiển thị của trường', required: true },
             ...placeFields(token),
             ...CONTACT_FIELDS,
-            { name: 'logo', label: 'Logo trường', render: () => <SchoolLogoField name={school.name} code={school.school_code} logoUrl={school.logo_url}
-              upload={(data) => api.uploadMySchoolLogo(token, data)} remove={() => api.removeMySchoolLogo(token)} onChanged={onChanged} /> },
+            { name: 'logo', label: 'Logo trường', render: (values, set) => <SchoolLogoField name={school.name} code={school.school_code} logoUrl={school.logo_url} values={values} set={set} /> },
           ]}
           initial={{ ...Object.fromEntries(SAVED_KEYS.map((k) => [k, String((school as unknown as Record<string, unknown>)[k] ?? '')])), school_code: school.school_code, address: addressText(school), street: streetPart(school.address, school.city) }} onClose={() => setEditing(false)}
-          onSubmit={async (v) => { await api.updateMySchool(token, Object.fromEntries(SAVED_KEYS.map((k) => [k, String(v[k] ?? '').trim() || null]))); setEditing(false); onChanged(); }} />
+          onSubmit={async (v) => {
+            await api.updateMySchool(token, Object.fromEntries(SAVED_KEYS.map((k) => [k, String(v[k] ?? '').trim() || null])));
+            await saveStagedLogo(v, (data) => api.uploadMySchoolLogo(token, data), () => api.removeMySchoolLogo(token));
+            setEditing(false); onChanged();
+          }} />
       ) : null}
     </Page>
   );

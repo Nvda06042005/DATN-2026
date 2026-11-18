@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { Bell, Building2, ChartColumn, FolderCog, History, KeyRound, LifeBuoy, LibraryBig, Plus, Trash2, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
-import { AccountSheet, dateText, ROLE_TEXT } from '@/components/admin/AccountSheet';
+import { AccountActiveSwitch, AccountSheet, dateText, ROLE_TEXT, useAccountLock } from '@/components/admin/AccountSheet';
 import { CreateSchoolAdminSheet } from '@/components/admin/CreateSchoolAdminSheet';
 import { AdminWorkspace, navLeaves } from '@/components/admin/AdminWorkspace';
 import { SystemStats } from '@/components/admin/AnalyticsAdmin';
@@ -17,7 +17,7 @@ import type { Session } from '@/components/auth';
 import { SchoolEmblem, SchoolLinkBox } from '@/components/school-brand';
 import { schoolLogoUrl } from '@/lib/school-logos';
 import { AdminUiContext, Btn, ConfirmSheet, Field, Inset, Sheet, Spinner, Switch, Txt } from '@/components/ui';
-import { placeFields, SchoolLogoField } from '@/components/admin/SchoolPlace';
+import { placeFields, saveStagedLogo, SchoolLogoField } from '@/components/admin/SchoolPlace';
 import { addressText, composeAddress, isNewUnit, isOldDistrict, placeText, streetPart } from '@/lib/admin-units';
 import { useTheme } from '@/hooks/use-theme';
 import { usePortalTab } from '@/hooks/use-portal-tab';
@@ -170,13 +170,13 @@ const SchoolsPanel: React.FC<{ session: Session; schools: Array<{ value: string;
             { name: 'school_code', label: 'Mã trường', readOnly: true, hint: 'Hệ thống tự cấp, không sửa được.' },
             { name: 'name', label: 'Tên trường', required: true, render: (values, set) => <SchoolPicker token={token} values={values} set={set} currentDirectoryCode={editing.directory_code ?? undefined} excludeSchoolId={editing.id} /> },
             ...placeFields(token),
-            { name: 'logo', label: 'Logo trường', render: () => <SchoolLogoField name={editing.name} code={editing.school_code} logoUrl={editing.logo_url}
-              upload={(data) => api.uploadSchoolLogo(token, editing.id, data)} remove={() => api.removeSchoolLogo(token, editing.id)} onChanged={reload} /> },
+            { name: 'logo', label: 'Logo trường', render: (values, set) => <SchoolLogoField name={editing.name} code={editing.school_code} logoUrl={editing.logo_url} values={values} set={set} /> },
           ]} wide
           initial={{ school_code: editing.school_code, name: editing.name, city: editing.city ?? '', region: editing.region ?? '', address: addressText(editing), street: streetPart(editing.address, editing.city) }} onClose={() => setEditing(null)}
           onSubmit={async (v) => {
             if (String(v.name).trim().length < 2) throw new Error('Tên trường cần ít nhất 2 ký tự.');
             await api.updateSchool(token, editing.id, { ...Object.fromEntries(PLACE_KEYS.map((k) => [k, String(v[k] ?? '').trim() || null])), ...(v.directory_code ? { directory_code: v.directory_code } : {}) });
+            await saveStagedLogo(v, (data) => api.uploadSchoolLogo(token, editing.id, data), () => api.removeSchoolLogo(token, editing.id));
             setEditing(null); reload();
           }} />
       ) : null}
@@ -348,6 +348,7 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
   const [creating, setCreating] = useState(false);
   const [credential, setCredential] = useState<CreatedAccount | null>(null);
   const refresh = useCallback(() => reload(), [reload]);
+  const lock = useAccountLock(session, refresh);
 
   if (credential) return <CredentialSheet title="Tài khoản quản trị đã được tạo" account={{ full_name: credential.user.full_name, username: credential.user.role === 'school_admin' ? credential.user.username.toUpperCase() : credential.user.username, temporary_password: credential.temporary_password, mail: credential.mail }} onClose={() => setCredential(null)} />;
   const f_role: SearchFilter = { key: 'role', label: 'Vai trò', value: role, options: [{ value: '', label: 'Mọi vai trò' }, ...(Object.keys(ROLE_TEXT) as AuthRole[]).map((r) => ({ value: r, label: ROLE_TEXT[r] }))], onChange: (v) => { setRole(v); setPage(1); } };
@@ -359,7 +360,7 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
   const f_last = textFilter('last', 'Đăng nhập cuối');
   return (
     <Page>
-      <PageHeader title="Người dùng toàn hệ thống" subtitle="Xem, tìm, lọc; sửa, đổi vai trò, khóa/mở khóa, đặt lại mật khẩu hoặc xóa từng tài khoản." actions={<Btn title="Tạo tài khoản quản trị" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="user-add" />} />
+      <PageHeader title="Người dùng toàn hệ thống" subtitle="Xem, tìm, lọc; sửa, đổi vai trò, gạt nút để khóa / mở khóa, xóa từng tài khoản. Cấp lại mật khẩu ở mục Mật khẩu tài khoản." actions={<Btn title="Tạo tài khoản quản trị" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="user-add" />} />
       <SearchFilterBar placeholder="Tìm theo tên, tên đăng nhập, email, mã" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="user-search"
         filters={[f_name, f_role, f_school, f_email, f_last, f_active]} />
       <ErrorNote message={error} />
@@ -368,17 +369,18 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
         <>
           <DataTable paginate={false} rows={data.items} rowKey={(u) => u.id} empty="Không có người dùng nào khớp bộ lọc." onRowPress={(u) => setOpen(u.id)}
             columns={[
-              { key: 'name', filter: f_name, label: 'Họ tên', flex: 1.8, minWidth: 165, render: (u) => <NameCell main={u.full_name} sub={u.username} /> },
+              { key: 'name', filter: f_name, label: 'Họ tên', flex: 1.8, minWidth: 165, render: (u) => <NameCell main={u.full_name} /> },
               { key: 'role', filter: f_role, label: 'Vai trò', flex: 1.5, render: (u) => <Cell main={ROLE_TEXT[u.role]} sub={u.role === 'root_admin' ? `Cấp ${u.admin_level}` : null} /> },
               { key: 'school', filter: f_school, label: 'Trường', flex: 1.4, render: (u) => <Txt size={14}>{u.school_name || '—'}</Txt> },
               { key: 'email', filter: f_email, label: 'Email', flex: 1.5, render: (u) => <Txt size={13} color={c.muc2} numberOfLines={2}>{u.email || 'Chưa có'}</Txt> },
               { key: 'last', filter: f_last, label: 'Đăng nhập cuối', render: (u) => <Txt size={13} color={c.muc2}>{dateText(u.last_login_at)}</Txt> },
-              { key: 'status', filter: f_active, label: 'Trạng thái', render: (u) => <StatusChip kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
+              { key: 'status', filter: f_active, label: 'Trạng thái', minWidth: 130, render: (u) => <AccountActiveSwitch session={session} account={u} onRequest={lock.request} /> },
             ]} />
           <Pager page={page} limit={size} total={data.total} onPage={setPage} />
         </>
       ) : null}
       {open ? <AccountSheet session={session} id={open} schools={schools} onClose={() => setOpen(null)} onChanged={refresh} /> : null}
+      {lock.dialogs}
       {creating ? <CreateSchoolAdminSheet session={session} onClose={() => setCreating(false)}
         onCreated={res => { setCreating(false); setCredential(res); reload(); }}
         onExisting={id => { setCreating(false); setOpen(id); }} /> : null}

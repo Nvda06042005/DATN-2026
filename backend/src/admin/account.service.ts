@@ -18,6 +18,19 @@ export type MemberRole = 'teacher' | 'student';
 const BATCH_ROUNDS = 8;
 const EMAIL = /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/;
 const PHONE = /^[0-9]{10}$/;
+
+/**
+ * Họ tên viết hoa chữ cái đầu mỗi từ, các chữ sau viết thường (yêu cầu 18/11/2026): "Nguyễn Vũ Đức Anh" được; "Nguyễn vũ Đức Anh", "NGUYỄN VŨ" thì không.
+ * Trả câu báo lỗi kèm cách viết đúng, hoặc null khi hợp lệ.
+ */
+export const properName = (name: string): string => name.normalize('NFC').trim().split(/\s+/).filter(Boolean)
+  .map((w) => w.charAt(0).toLocaleUpperCase('vi') + w.slice(1).toLocaleLowerCase('vi')).join(' ');
+export function nameCaseError(name: string | null | undefined): string | null {
+  const text = String(name ?? '').normalize('NFC').trim();
+  if (!text) return null;
+  const ok = text.split(/\s+/).every((w) => /^\p{Lu}[\p{Ll}\p{M}]*$/u.test(w) || /^\d+$/.test(w));
+  return ok ? null : `Họ và tên phải viết hoa chữ cái đầu mỗi từ, ví dụ “${properName(text)}”`;
+}
 const GENDERS: Record<string, 'male' | 'female' | 'other'> = { nam: 'male', male: 'male', nu: 'female', female: 'female', khac: 'other', other: 'other' };
 const GENDER_LABEL = { male: 'Nam', female: 'Nữ', other: 'Khác' } as const;
 
@@ -331,6 +344,8 @@ export class AccountService {
   async createAdmin(actor: UserRow, body: { full_name: string; role: 'root_admin' | 'school_admin'; email: string; phone?: string | null; birth_date?: string | null; school_id?: number | null; admin_level?: 1 | 2 }) {
     if (body.role === 'root_admin') this.schools.assertTopAdmin(actor);
     if (body.role === 'school_admin' && !body.school_id) throw new UnprocessableEntityException('Quản trị viên trường học cần thuộc một trường');
+    const nameError = nameCaseError(body.full_name);
+    if (nameError) throw new UnprocessableEntityException(nameError);
     const email = body.email.trim().toLowerCase();
     return this.db.tx(async (q) => {
       await q('SELECT pg_advisory_xact_lock(7412026)');
@@ -454,6 +469,8 @@ export class AccountService {
       const set = (k: string, v: unknown, normalize = clean) => { if (v !== undefined) fields[k] = normalize(v) as string | null; };
       set('full_name', body.full_name);
       if (fields.full_name === null) throw new UnprocessableEntityException('Họ tên không được để trống');
+      // đổi họ tên thì phải viết hoa chữ cái đầu mỗi từ (giữ nguyên họ tên cũ khi chỉ sửa thông tin khác)
+      if (fields.full_name !== undefined && fields.full_name !== target.full_name) { const err = nameCaseError(fields.full_name as string); if (err) throw new UnprocessableEntityException(err); }
       if (body.email !== undefined) {
         const email = clean(body.email)?.toLowerCase() ?? null;
         if (!email && ['teacher', 'school_admin', 'root_admin'].includes(target.role)) throw new UnprocessableEntityException('Tài khoản này cần có email');
@@ -501,8 +518,13 @@ export class AccountService {
     });
   }
 
-  /** Đặt lại mật khẩu (HK.AD.024, HK.QT.020/031): sinh mật khẩu tạm, bắt buộc đổi ở lần đăng nhập sau, gửi email nếu có */
+  /**
+   * Đặt lại mật khẩu (HK.AD.024, HK.QT.020/031). Từ 18/11/2026 tài khoản của trường luôn đặt lại theo quy ước như "Cấp lại" (không còn mật khẩu ngẫu nhiên
+   * kiểu "tdxj-uzhm"); chỉ tài khoản quản trị tổng (không có quy ước) còn nhận mật khẩu tạm ngẫu nhiên.
+   */
   async resetPassword(actor: UserRow, id: number) {
+    const role = (await this.db.getById(id))?.role;
+    if (role && role !== 'root_admin') return this.reissuePassword(actor, id);
     const password = generatePassword();
     const passwordHash = await hashPassword(password, BATCH_ROUNDS);
     return this.managed(actor, id, async (q, target) => {
@@ -518,11 +540,14 @@ export class AccountService {
 
   /**
    * Danh sách mật khẩu (yêu cầu 13/11/2026): quản trị trường thấy giáo viên, học sinh, quản trị viên khác của trường mình; quản trị tổng thấy mọi trường
-   * (không gồm tài khoản quản trị tổng). Mật khẩu chỉ hiện khi người dùng CHƯA tự đổi và hệ thống có bản lưu mã hóa của mật khẩu ban đầu / cấp lại;
-   * đã đổi thì không ai xem được (chỉ có băm một chiều). Tên đăng nhập hiển thị đúng dạng quy ước (GVAnh…, QLY…).
+   * (không gồm tài khoản quản trị tổng). Chưa tự đổi: hiện mật khẩu ban đầu / cấp lại (bản mã hóa của migration 060). Đã tự đổi: từ 18/11/2026 (người dùng
+   * chọn "Lưu để quản trị xem được", migration 074) chỉ quản trị tổng xem được bản mã hóa của mật khẩu tự đặt; mật khẩu đổi trước ngày đó chỉ có băm một
+   * chiều nên không xem được. Tên đăng nhập hiển thị đúng dạng quy ước (GVAnh…, QLY…).
    */
-  async passwordList(actor: UserRow, f: { q?: string; name?: string; username?: string; role?: 'teacher' | 'student' | 'school_admin'; school_id?: number; active?: 'true' | 'false'; password_state?: 'initial' | 'changed' | 'unknown'; page?: number; limit?: number }) {
-    const page = Math.max(1, f.page ?? 1), limit = Math.min(200, Math.max(1, f.limit ?? 25));
+  async passwordList(actor: UserRow, f: { q?: string; name?: string; username?: string; role?: 'teacher' | 'student' | 'school_admin'; school_id?: number; active?: 'true' | 'false'; password_state?: 'initial' | 'changed' | 'unknown'; stt?: number; page?: number; limit?: number }) {
+    // lọc STT (18/11/2026): chỉ hiện đúng dòng có số thứ tự đó theo các bộ lọc khác
+    const page = Math.max(1, f.page ?? 1), limit = f.stt ? 1 : Math.min(200, Math.max(1, f.limit ?? 25));
+    const offset = f.stt ? f.stt - 1 : (page - 1) * limit;
     return this.schools.run(actor, async (q, scope) => {
       const where = ['u.deleted_at IS NULL', "u.role <> 'root_admin'"];
       const params: unknown[] = [];
@@ -540,22 +565,23 @@ export class AccountService {
       const clause = where.join(' AND ');
       const total = (await q<{ n: number }>(`SELECT count(*)::int AS n FROM app_users u WHERE ${clause}`, params))[0].n;
       const rows = await q<{ id: number; user_code: string | null; full_name: string; username: string; role: string; email: string | null; phone: string | null; birth_date: string | null;
-        school_id: number | null; school_name: string | null; must_change_password: number; initial_password_enc: string | null; is_active: number }>(
+        school_id: number | null; school_name: string | null; must_change_password: number; initial_password_enc: string | null; password_view_enc: string | null; is_active: number }>(
         `SELECT u.id, u.user_code, u.full_name, u.username, u.role, u.email, u.phone, u.birth_date::text AS birth_date, u.school_id, s.name AS school_name,
-                u.must_change_password, u.initial_password_enc, u.is_active
+                u.must_change_password, u.initial_password_enc, u.password_view_enc, u.is_active
            FROM app_users u LEFT JOIN app_schools s ON s.id = u.school_id
           WHERE ${clause}
           ORDER BY s.name NULLS LAST, CASE u.role WHEN 'school_admin' THEN 0 WHEN 'teacher' THEN 1 ELSE 2 END, u.full_name, u.id
-          LIMIT ${limit} OFFSET ${(page - 1) * limit}`, params);
+          LIMIT ${limit} OFFSET ${offset}`, params);
       const items = rows.map((u) => {
-        const password = u.must_change_password ? openPassword(u.initial_password_enc, config.authSecret) : null;
+        // chưa đổi: mật khẩu ban đầu / cấp lại; đã tự đổi: chỉ quản trị tổng xem bản mã hóa lưu từ 18/11/2026 (migration 074)
+        const password = u.must_change_password ? openPassword(u.initial_password_enc, config.authSecret) : scope === null ? openPassword(u.password_view_enc, config.authSecret) : null;
         const username = displayAccountUsername(u);
         return {
           id: u.id, user_code: u.user_code, full_name: u.full_name, username, role: u.role, email: u.email, school_id: u.school_id, school_name: u.school_name, is_active: !!u.is_active,
           password, status: !u.must_change_password ? 'changed' as const : password ? 'initial' as const : 'unknown' as const,
         };
       });
-      return { items, total, page, limit };
+      return { items, total, page, limit, offset };
     });
   }
 

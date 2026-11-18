@@ -1,13 +1,15 @@
 /**
  * Mật khẩu tài khoản (yêu cầu 13/11/2026) cho quản trị trường (trường mình) và quản trị tổng (mọi trường, không gồm quản trị tổng).
- * Mật khẩu hiện tại không ai xem được (chỉ lưu dạng băm một chiều). Trang chỉ hiện mật khẩu ban đầu hoặc mật khẩu do quản trị cấp lại khi người dùng
- * CHƯA tự đổi (máy chủ lưu bản mã hóa, tự xóa khi người dùng đổi). "Cấp lại" đặt lại mật khẩu theo quy ước (DongA…), gửi email, buộc đổi ở lần đăng nhập sau.
+ * Hiện mật khẩu ban đầu / mật khẩu do quản trị cấp lại khi người dùng chưa đổi. Từ 18/11/2026 (người dùng chọn "Lưu để quản trị xem được", migration 074)
+ * quản trị tổng xem được cả mật khẩu người dùng tự đổi (bản mã hóa); mật khẩu đổi trước ngày đó chỉ có dạng băm nên không xem được. Quản trị trường không xem
+ * được mật khẩu tự đổi. "Cấp lại" luôn đặt lại theo quy ước (DongA…), gửi email, buộc đổi ở lần đăng nhập sau. Cột Trạng thái là nút gạt khóa / mở tài khoản.
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import { Eye, EyeOff, KeyRound } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
-import { CredentialSheet, DataTable, ErrorNote, NameCell, Page, PageHeader, Pager, SearchFilterBar, StatusDot, useAction, useDebounced, useLoad, usePageSize, type SearchFilter } from '@/components/admin/kit';
+import { AccountActiveSwitch, useAccountLock } from '@/components/admin/AccountSheet';
+import { CredentialSheet, DataTable, ErrorNote, NameCell, Page, PageHeader, Pager, SearchFilterBar, useAction, useDebounced, useLoad, usePageSize, type SearchFilter } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, ConfirmSheet, Inset, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -29,15 +31,18 @@ export const PasswordList: React.FC<{ session: Session; schools?: Array<{ value:
   const [issued, setIssued] = useState<CreatedAccount | null>(null);
   const size = usePageSize();
   const dq = useDebounced(q);
-  const { data, error, loading, reload } = useLoad(() => api.passwordList(token, { q: dq, role: (role || undefined) as PasswordRow['role'] | undefined, school_id: schoolId ? Number(schoolId) : undefined, ...columnValues, active: columnValues.active as 'true' | 'false' | undefined, password_state: columnValues.password_state as 'initial' | 'changed' | 'unknown' | undefined, page, limit: size }),
+  const { data, error, loading, reload } = useLoad(() => api.passwordList(token, { q: dq, role: (role || undefined) as PasswordRow['role'] | undefined, school_id: schoolId ? Number(schoolId) : undefined, ...columnValues, active: columnValues.active as 'true' | 'false' | undefined, password_state: columnValues.password_state as 'initial' | 'changed' | 'unknown' | undefined, stt: Number(columnValues.stt) > 0 ? Number(columnValues.stt) : undefined, page, limit: size }),
     [token, dq, role, schoolId, columnValues, page, size], session.expired);
   const { busy, run } = useAction(session.expired);
+  const lock = useAccountLock(session, reload);
 
   if (issued) return <CredentialSheet title="Đã cấp lại mật khẩu" account={{ full_name: issued.user.full_name, username: issued.display_username ?? issued.user.username, temporary_password: issued.temporary_password, mail: issued.mail }} onClose={() => { setIssued(null); reload(); }} />;
 
   const f_role: SearchFilter = { key: 'role', label: 'Vai trò', value: role, options: [{ value: '', label: 'Mọi vai trò' }, ...(['school_admin', 'teacher', 'student'] as const).map((r) => ({ value: r, label: ROLE_LABEL[r] }))], onChange: (v) => { setRole(v); setPage(1); } };
   const f_school: SearchFilter = { key: 'school', label: 'Trường', value: schoolId, options: [{ value: '', label: 'Mọi trường' }, ...(schools ?? [])], onChange: (v) => { setSchoolId(v); setPage(1); } };
-  const textFilter = (key: string, label: string): SearchFilter => ({ key, label, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => { setColumnValues((old) => ({ ...old, [key]: v })); setPage(1); } });
+  const textFilter = (key: string, label: string): SearchFilter => ({ key, label, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => { setColumnValues((old) => ({ ...old, [key]: key === 'stt' ? v.replace(/\D/g, '') : v })); setPage(1); } });
+  // lọc STT (18/11/2026): gõ số thứ tự để hiện đúng dòng đó (theo các bộ lọc khác)
+  const f_stt = textFilter('stt', 'STT');
   const f_name = textFilter('name', 'Họ và tên hoặc mã');
   const f_username = textFilter('username', 'Tên đăng nhập');
   const f_password: SearchFilter = { key: 'password_state', label: 'Mật khẩu', value: columnValues.password_state ?? '', options: [{ value: '', label: 'Tất cả' }, { value: 'initial', label: 'Chưa đổi' }, { value: 'changed', label: 'Đã đổi' }, { value: 'unknown', label: 'Chưa có bản xem được' }], onChange: (v) => { setColumnValues((old) => ({ ...old, password_state: v })); setPage(1); } };
@@ -46,26 +51,34 @@ export const PasswordList: React.FC<{ session: Session; schools?: Array<{ value:
     <Page>
       <PageHeader title="Mật khẩu tài khoản" subtitle={root ? 'Mật khẩu ban đầu của tài khoản các trường khi người dùng chưa tự đổi; cấp lại mật khẩu theo quy ước và gửi email.' : 'Mật khẩu ban đầu của giáo viên, học sinh trong trường khi người dùng chưa tự đổi; cấp lại mật khẩu theo quy ước và gửi email.'}
         actions={<Btn title={shown ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} icon={shown ? EyeOff : Eye} tone="giay" size="sm" onPress={() => setShown((x) => !x)} testID="password-toggle" />} />
-      <Inset><Txt size={13} color={c.muc2}>Mật khẩu người dùng tự đặt không ai xem được, kể cả quản trị: hệ thống chỉ lưu dạng băm một chiều. Người dùng quên mật khẩu thì bấm “Cấp lại” để đặt lại theo quy ước (gửi vào email), người dùng phải đổi ở lần đăng nhập sau.</Txt></Inset>
-      <SearchFilterBar placeholder="Tìm theo tên, tên đăng nhập, mã" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="password-search" filters={root ? [f_name, f_username, f_role, f_school, f_password, f_active] : [f_name, f_username, f_role, f_password, f_active]} />
+      <Inset><Txt size={13} color={c.muc2}>{root
+        ? 'Bấm “Hiện mật khẩu” để xem mật khẩu hiện tại, kể cả mật khẩu người dùng tự đổi từ 18/11/2026. Mật khẩu đổi trước ngày đó chỉ lưu dạng băm nên không xem được: bấm “Cấp lại” để đặt lại theo quy ước (gửi vào email).'
+        : 'Mật khẩu người dùng tự đổi chỉ quản trị tổng xem được. Người dùng quên mật khẩu thì bấm “Cấp lại” để đặt lại theo quy ước (gửi vào email), người dùng phải đổi ở lần đăng nhập sau.'}</Txt></Inset>
+      <SearchFilterBar placeholder="Tìm theo tên, tên đăng nhập, mã" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="password-search" filters={root ? [f_stt, f_name, f_username, f_role, f_school, f_password, f_active] : [f_stt, f_name, f_username, f_role, f_password, f_active]} />
       <ErrorNote message={error} />
       {loading && !data ? <Spinner label="Đang tải danh sách…" /> : null}
       {data ? (
         <>
           <DataTable paginate={false} gap={10} rows={data.items} rowKey={(u) => u.id} empty="Không có tài khoản nào khớp bộ lọc."
             columns={[
-              { key: 'stt', label: 'STT', width: 44, minWidth: 44, render: (u) => <Txt size={14} color={c.muc2}>{(page - 1) * size + data.items.indexOf(u) + 1}</Txt> },
+              { key: 'stt', filter: f_stt, label: 'STT', width: 64, minWidth: 64, render: (u) => <Txt size={14} color={c.muc2}>{(data.offset ?? (page - 1) * size) + data.items.indexOf(u) + 1}</Txt> },
               { key: 'name', filter: f_name, label: 'Họ và tên', width: 190, minWidth: 160, grow: 2, render: (u: PasswordRow) => <NameCell main={u.full_name} sub={[ROLE_LABEL[u.role], root ? u.school_name : null, u.user_code].filter(Boolean).join(' · ')} /> },
               { key: 'username', filter: f_username, label: 'Tên đăng nhập', width: 150, grow: 1, render: (u) => <Txt size={13} selectable numberOfLines={1}>{u.username}</Txt> },
-              { key: 'password', filter: f_password, label: 'Mật khẩu', width: 170, grow: 1, render: (u) => u.status === 'initial'
-                ? <Txt f="bold" size={13} selectable numberOfLines={1} testID={`password-${u.id}`}>{shown ? u.password : '••••••••••'}</Txt>
-                : <Txt size={13} color={c.muc3} numberOfLines={2}>{u.status === 'changed' ? 'Đã tự đổi, không xem được' : 'Chưa có bản xem được – bấm Cấp lại'}</Txt> },
-              { key: 'status', filter: f_active, label: 'Trạng thái', width: 130, minWidth: 120, render: (u) => <StatusDot kind={!u.is_active ? 'off' : u.status === 'changed' ? 'on' : 'warn'} text={!u.is_active ? 'Đã khóa' : u.status === 'changed' ? 'Đã đổi mật khẩu' : 'Chưa đổi mật khẩu'} /> },
+              { key: 'password', filter: f_password, label: 'Mật khẩu', width: 180, grow: 1, render: (u) => (
+                <View style={{ gap: 2 }}>
+                  {u.password
+                    ? <Txt f="bold" size={13} selectable numberOfLines={1} testID={`password-${u.id}`}>{shown ? u.password : '••••••••••'}</Txt>
+                    : <Txt size={13} color={c.muc3} numberOfLines={2}>{u.status === 'changed' ? (root ? 'Đổi trước 18/11/2026, không xem được – bấm Cấp lại' : 'Đã tự đổi, chỉ quản trị tổng xem được') : 'Chưa có bản xem được – bấm Cấp lại'}</Txt>}
+                  <Txt size={12} color={u.status === 'changed' ? c.mocChu : c.vangChu}>{u.status === 'changed' ? 'Đã đổi mật khẩu' : 'Chưa đổi mật khẩu'}</Txt>
+                </View>
+              ) },
+              { key: 'status', filter: f_active, label: 'Trạng thái', width: 140, minWidth: 130, render: (u) => <AccountActiveSwitch session={session} account={u} onRequest={lock.request} /> },
               { key: 'action', label: '', width: 96, minWidth: 96, render: (u) => <Btn title="Cấp lại" icon={KeyRound} tone="giay" size="sm" onPress={() => setConfirm(u)} testID={`password-reissue-${u.id}`} /> },
             ]} />
           <Pager page={page} limit={size} total={data.total} onPage={setPage} />
         </>
       ) : null}
+      {lock.dialogs}
       <View>
         <ConfirmSheet open={!!confirm} title="Cấp lại mật khẩu theo quy ước" busy={busy} confirmLabel="Cấp lại và gửi email" onCancel={() => setConfirm(null)}
           message={`Đặt lại mật khẩu của ${confirm?.full_name} theo quy ước (DongA…), gửi vào email và buộc đổi ở lần đăng nhập sau? Mọi phiên đăng nhập hiện tại của tài khoản bị thoát.`}

@@ -1446,3 +1446,20 @@ Theo 9 ý người dùng gửi kèm ảnh chụp:
 9. **Nút gạt** thay hai nút chữ "Vô hiệu / Kích hoạt" (`Switch` trong `components/ui.tsx`, vẫn hỏi xác nhận vì vô hiệu hóa thu hồi mọi phiên của trường).
 
 Cổng quản trị trường làm tương ứng: Sửa thông tin trường có mã trường xám, tỉnh / thành – phường / xã – địa chỉ tự ghép, tải logo; khối lớp bật / tắt bằng nút gạt. Kiểm thử: `backend/test/school_place.spec.ts`, migration 073 trong `migrations.spec.ts`, `frontend/tests/school-link.test.cjs`.
+
+## Người dùng và Mật khẩu tài khoản của quản trị tổng (18/11/2026)
+
+Theo 10 ý người dùng gửi kèm ảnh (người dùng chọn qua câu hỏi: lưu để quản trị tổng xem được mật khẩu, nút gạt = khóa / mở tài khoản, thêm lọc cột STT):
+
+1. **Logo trường chỉ lưu khi bấm Lưu**: chọn ảnh chỉ xem trước (`SchoolLogoField` + `saveStagedLogo`), bấm Hủy thì giữ logo cũ (quản trị tổng và quản trị trường).
+2. **Tạo tài khoản quản trị**: ô Họ và tên không còn danh sách thả xuống; họ tên phải **viết hoa chữ cái đầu mỗi từ** ("Nguyễn Vũ Đức Anh"; "Nguyễn vũ Đức Anh" bị từ chối, có nút "Dùng “…”" sửa nhanh). Máy chủ kiểm tra cùng quy tắc khi tạo tài khoản quản trị và khi đổi họ tên ở hồ sơ (`nameCaseError`; `frontend/lib/person-name.ts`).
+3. Bỏ ghi chú quy ước tên đăng nhập / mật khẩu trong hộp tạo; hộp không phải cuộn (ô email chỉ mở gợi ý khi gõ).
+4. Danh sách Người dùng (và giáo viên, học sinh của quản trị trường) không hiện tên đăng nhập dưới họ tên.
+5. Cột Trạng thái là **nút gạt Hoạt động ↔ Khóa** (khóa hỏi lý do; `useAccountLock` + `AccountActiveSwitch`, hộp thoại ở cấp danh sách).
+6. Hồ sơ tài khoản có **Ngày kết thúc** (ngày khóa, `locked_at`) khi tài khoản bị khóa.
+7. Hồ sơ bỏ nút "Khóa tài khoản / Mở khóa".
+8. Hồ sơ bỏ nút "Đặt lại mật khẩu"; cấp lại chỉ ở mục Mật khẩu tài khoản, dùng được dù người dùng đã đổi hay chưa, luôn **theo quy ước** (DongA…); đường dẫn đặt lại cũ của API cũng cấp theo quy ước (không còn mật khẩu ngẫu nhiên kiểu "tdxj-uzhm", trừ tài khoản quản trị tổng).
+9. **Hiện mật khẩu**: quản trị tổng thấy cả mật khẩu người dùng tự đổi từ 18/11/2026 (migration 074 `password_view_enc`, bản mã hóa; mật khẩu đổi trước ngày đó chỉ có băm nên không xem được – bấm Cấp lại). Quản trị trường vẫn không xem được mật khẩu tự đổi. Rủi ro đã nêu với người dùng trước khi làm: lộ bí mật máy chủ là lộ mật khẩu, người dùng hay dùng chung mật khẩu, nguyên tắc bảo vệ dữ liệu cá nhân (NĐ 13/2023).
+10. Mật khẩu tài khoản: cột Trạng thái là nút gạt khóa / mở (chữ "Chưa đổi / Đã đổi mật khẩu" chuyển xuống dưới ô Mật khẩu); **lọc cột STT** (gõ số thứ tự, máy chủ trả đúng dòng đó theo các bộ lọc khác, kèm `offset`).
+
+Kiểm thử: `backend/test/password_list.spec.ts` (xem mật khẩu đã đổi, cấp lại xóa bản cũ, lọc STT, viết hoa họ tên, không lưu cho quản trị tổng), `frontend/tests/*.test.cjs`.

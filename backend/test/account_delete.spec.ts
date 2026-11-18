@@ -22,7 +22,7 @@ import { activate, adminLogin, call, hasPostgres, sql, Started, startApp } from 
   }
 
   async function member(role: 'teacher' | 'student' | 'school_admin', school = a) {
-    const n = ++serial, full_name = `Tài khoản kiểm thử ${n}`, email = `account.${n}@example.invalid`;
+    const n = ++serial, full_name = `Tài Khoản Kiểm Thử ${n}`, email = `account.${n}@example.invalid`;
     const made = role === 'school_admin'
       ? await api('POST', '/api/admin/users', { full_name, email, role, school_id: school.id, phone: '0912345678', birth_date: '1990-02-03' })
       : await api('POST', `/api/admin/${role === 'teacher' ? 'teachers' : 'students'}`, { full_name, email, user_code: `USER-${n}`, birth_date: '2013-04-02', phone: '0912345678' }, school.admin.token);
@@ -87,7 +87,7 @@ import { activate, adminLogin, call, hasPostgres, sql, Started, startApp } from 
   });
 
   test('chặn tự xóa và quản trị tổng cấp 2 xóa quản trị tổng; cấp 1 được xóa quản trị tổng khác', async () => {
-    const made = await api('POST', '/api/admin/users', { full_name: 'Quản trị tổng kiểm thử', email: 'root.delete@example.invalid', role: 'root_admin', admin_level: 2 });
+    const made = await api('POST', '/api/admin/users', { full_name: 'Quản Trị Tổng Kiểm Thử', email: 'root.delete@example.invalid', role: 'root_admin', admin_level: 2 });
     expect(made.status).toBe(201);
     const other = await activate(s.base, made.body.user.username, made.body.temporary_password, PW, 'root_admin');
     expect((await api('GET', `/api/admin/users/${rootId}`)).body.deletable).toBe(false);

@@ -2,7 +2,8 @@
  * Ô nhập thông tin trường dùng chung cho quản trị tổng (Thêm / Sửa trường) và quản trị trường (Sửa thông tin trường), 18/11/2026:
  * - PlaceFields: tỉnh / thành phố (34 đơn vị hiện hành), phường / xã / đặc khu tìm theo chữ gõ (không còn quận / huyện từ 01/07/2025),
  *   số nhà – tên đường, và Địa chỉ tự ghép "đường, phường / xã, tỉnh / thành" (chỉ đọc). Ghi vào các giá trị city, region, street, address của biểu mẫu.
- * - SchoolLogoField: logo trường bằng ảnh tải lên (thay ô "Logo riêng (liên kết https…)"), đổi ngay khi tải, có nút bỏ logo.
+ * - SchoolLogoField: logo trường bằng ảnh tải lên (thay ô "Logo riêng (liên kết https…)"). Chọn ảnh chỉ xem trước; logo được lưu khi bấm Lưu của biểu mẫu
+ *   (saveStagedLogo), bấm Hủy thì giữ logo cũ (yêu cầu 18/11/2026).
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
@@ -131,23 +132,26 @@ async function readLogo(picked: PickedFile): Promise<string> {
 /** Logo tải lên của trường (đường dẫn /api/school-logos/u/…) – khác logo chính thức của danh mục */
 export const isUploadedLogo = (url: string | null | undefined): boolean => /\/api\/school-logos\/u\/[a-f0-9]{64}\.webp$/.test(String(url ?? ''));
 
-/** Logo trường: xem trước, tải ảnh lên (đổi ngay), bỏ logo tải lên */
-export const SchoolLogoField: React.FC<{
-  name: string; code: string; logoUrl: string | null;
-  upload: (data: string) => Promise<{ logo_url: string | null }>; remove: () => Promise<{ logo_url: string | null }>; onChanged?: () => void;
-}> = ({ name, code, logoUrl, upload, remove, onChanged }) => {
+/** Lưu logo đã chọn trong biểu mẫu sau khi lưu thông tin trường: ảnh mới thì tải lên, "Bỏ logo" thì xóa logo tải lên */
+export async function saveStagedLogo(values: Values, upload: (data: string) => Promise<unknown>, remove: () => Promise<unknown>): Promise<void> {
+  if (values.logo_data) await upload(String(values.logo_data));
+  else if (values.logo_remove === '1') await remove();
+}
+
+/** Logo trường: xem trước ảnh chọn từ máy; chỉ lưu khi bấm Lưu (Hủy thì giữ logo cũ) */
+export const SchoolLogoField: React.FC<{ name: string; code: string; logoUrl: string | null; values: Values; set: Setter }> = ({ name, code, logoUrl, values, set }) => {
   const { c } = useTheme();
-  const [url, setUrl] = useState(logoUrl);
+  const data = String(values.logo_data ?? ''), removed = values.logo_remove === '1';
+  const url = data || (removed ? null : logoUrl);
+  const own = !!data || (isUploadedLogo(logoUrl) && !removed);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const act = async (fn: () => Promise<{ logo_url: string | null } | null>) => {
+  const pick = async () => {
     setBusy(true); setError(null);
-    try { const next = await fn(); if (next) { setUrl(next.logo_url); onChanged?.(); } } catch (e) { setError(errorMessage(e, 'Không đổi được logo.')); } finally { setBusy(false); }
+    try { const picked = await pickFile(AVATAR_TYPES); if (picked) { set('logo_data', await readLogo(picked)); set('logo_remove', ''); } }
+    catch (e) { setError(errorMessage(e, 'Không đọc được ảnh.')); } finally { setBusy(false); }
   };
-  const pick = () => act(async () => {
-    const picked = await pickFile(AVATAR_TYPES);
-    return picked ? upload(await readLogo(picked)) : null;
-  });
+  const drop = () => { if (data) set('logo_data', ''); else set('logo_remove', '1'); };
   return (
     <View style={{ gap: 8 }}>
       <Txt f="bold" size={14} color={c.muc2}>Logo trường</Txt>
@@ -155,10 +159,10 @@ export const SchoolLogoField: React.FC<{
         <SchoolEmblem name={name} code={code} logoUrl={url} size={64} />
         <View style={{ flex: 1, minWidth: 200, gap: 8 }}>
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-            <Btn title={isUploadedLogo(url) ? 'Đổi logo' : 'Tải logo lên'} icon={ImagePlus} tone="giay" size="sm" loading={busy} onPress={pick} testID="school-logo-pick" label="Logo trường: chọn ảnh từ máy" />
-            {isUploadedLogo(url) ? <Btn title="Bỏ logo tải lên" icon={Trash2} tone="giay" size="sm" disabled={busy} onPress={() => act(remove)} testID="school-logo-remove" /> : null}
+            <Btn title={own ? 'Đổi logo' : 'Tải logo lên'} icon={ImagePlus} tone="giay" size="sm" loading={busy} onPress={pick} testID="school-logo-pick" label="Logo trường: chọn ảnh từ máy" />
+            {own ? <Btn title="Bỏ logo tải lên" icon={Trash2} tone="giay" size="sm" disabled={busy} onPress={drop} testID="school-logo-remove" /> : null}
           </View>
-          <Txt size={12} color={c.muc3}>PNG, JPG, WEBP hoặc GIF, tối đa 2 MB; hệ thống tự thu nhỏ. Logo đổi ngay khi tải lên{isUploadedLogo(url) ? '; bỏ logo tải lên thì trường trong danh mục dùng lại logo chính thức.' : '.'}</Txt>
+          <Txt size={12} color={c.muc3}>PNG, JPG, WEBP hoặc GIF, tối đa 2 MB; hệ thống tự thu nhỏ. {data ? 'Ảnh mới chỉ được lưu khi bấm Lưu; bấm Hủy thì giữ logo cũ.' : removed ? 'Logo tải lên sẽ bị bỏ khi bấm Lưu (trường trong danh mục dùng lại logo chính thức).' : 'Logo được lưu khi bấm Lưu.'}</Txt>
         </View>
       </View>
       {error ? <Txt size={13} f="semibold" color={c.sonChu} accessibilityRole="alert">{error}</Txt> : null}

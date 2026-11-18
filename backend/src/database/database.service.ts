@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException, OnModuleDest
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { Pool, PoolClient, types } from 'pg';
 import { config } from '../config';
-import { baseUsername, hashPassword } from '../auth/passwords';
+import { baseUsername, hashPassword, sealPassword } from '../auth/passwords';
 import { applyMigrations, MigrationError, pgConfig } from './migrator';
 import { deletionContext } from './deletion-context';
 
@@ -412,8 +412,13 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  async setPassword(id: number, passwordHash: string, mustChange: boolean, q: Q = (sql, params) => this.query(sql, params)): Promise<void> {
-    await q('UPDATE app_users SET password_hash = $1, must_change_password = $2, token_version = token_version + 1 WHERE id = $3', [passwordHash, mustChange ? 1 : 0, id]);
+  /**
+   * Đặt mật khẩu. `plain` (mật khẩu người dùng tự đặt) thì lưu kèm bản mã hóa để quản trị tổng xem ở mục Mật khẩu tài khoản (migration 074, theo lựa chọn
+   * của người dùng 18/11/2026); không có `plain` thì trigger xóa bản mã hóa cũ (không bao giờ hiện mật khẩu đã hết hiệu lực). Quản trị tổng không lưu.
+   */
+  async setPassword(id: number, passwordHash: string, mustChange: boolean, q: Q = (sql, params) => this.query(sql, params), plain?: string): Promise<void> {
+    await q('UPDATE app_users SET password_hash = $1, must_change_password = $2, token_version = token_version + 1, password_view_enc = COALESCE($4, password_view_enc) WHERE id = $3',
+      [passwordHash, mustChange ? 1 : 0, id, plain ? sealPassword(plain, config.authSecret) : null]);
   }
 
   async touchLogin(id: number): Promise<void> {

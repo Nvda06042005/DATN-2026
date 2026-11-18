@@ -6,11 +6,11 @@ import React, { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { FileUp, Plus } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
-import { AccountSheet, GENDER_TEXT } from '@/components/admin/AccountSheet';
+import { AccountActiveSwitch, AccountSheet, GENDER_TEXT, useAccountLock } from '@/components/admin/AccountSheet';
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { RegistrationCode } from './RegistrationCode';
 import { TeacherImportSheet } from './TeacherImportSheet';
-import { CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, NameCell, Page, PageHeader, Pager, SearchFilterBar, StatusDot, useDebounced, useLoad, yearOptions, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
+import { CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, NameCell, Page, PageHeader, Pager, SearchFilterBar, useDebounced, useLoad, yearOptions, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -77,6 +77,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const dq = useDebounced(q);
   const query = { q: dq, active: (active || undefined) as 'true' | 'false' | undefined, grade: grade ? Number(grade) : undefined, class_id: classId ? Number(classId) : undefined, year_id: yearId || undefined, semester, ...columnValues };
   const { data, error, loading, reload } = useLoad(() => api.listMembers(token, kind, { ...query, page, limit: size }), [token, kind, dq, active, grade, classId, yearId, semester, columnValues, page, size], session.expired);
+  const lock = useAccountLock(session, reload);
   // lớp đang hoạt động của mọi năm học chưa kết thúc (yêu cầu 13/11/2026): trước đây chỉ lấy năm học đang hoạt động nên năm đó chưa có lớp thì ô chọn lớp trống
   const { data: classes } = useLoad(() => api.listClasses(token, { active: 'true', limit: 200 }), [token], session.expired);
   const classOptions = useMemo(() => (classes?.items ?? []).filter((x) => x.is_active && x.year_status !== 'ended' && (!yearId || x.year_id === yearId)).map((x) => ({ value: String(x.id), label: `${x.name} · Khối ${x.grade ?? '?'} (${x.school_year})` })), [classes, yearId]);
@@ -130,29 +131,30 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
               // Bảy cột đầu giống hệt bảng học sinh; tên dài xuống dòng để hiện đầy đủ, các cột số và mã giữ một dòng.
               { key: 'stt', label: 'Số thứ tự', width: 58, minWidth: 58, render: (u) => <Line text={String((page - 1) * size + data.items.indexOf(u) + 1)} muted num /> },
               { key: 'code', filter: f_code, label: 'Mã giáo viên', width: 140, minWidth: 140, render: (u) => <CodeText value={u.user_code || '—'} /> },
-              { key: 'name', filter: f_name, label: 'Họ và tên', width: 180, minWidth: 150, grow: 2, render: (u) => <NameCell main={u.full_name} sub={u.username} fullSub /> },
+              { key: 'name', filter: f_name, label: 'Họ và tên', width: 180, minWidth: 150, grow: 2, render: (u) => <NameCell main={u.full_name} /> },
               { key: 'gender', filter: f_gender, label: 'Giới tính', width: 56, minWidth: 56, render: (u) => <Line text={u.gender ? GENDER_TEXT[u.gender] : '—'} /> },
               { key: 'phone', filter: f_phone, label: 'SĐT', width: 92, minWidth: 84, render: (u) => <Line text={u.phone || '—'} num /> },
               { key: 'email', filter: f_email, label: 'Email', width: 140, grow: 2, render: (u) => <Line text={u.email || 'Chưa có email'} muted={!u.email} /> },
               { key: 'birth', filter: f_birth, label: 'Ngày tháng năm sinh', width: 90, minWidth: 76, render: (u) => <Line text={fmtBirth(u.birth_date)} num /> },
               { key: 'classes', filter: f_class, label: 'Lớp phụ trách', width: 120, grow: 1, render: (u) => <Line text={u.classes.map((k) => k.name).join(', ') || '—'} muted={!u.classes.length} /> },
-              { key: 'status', filter: f_active, label: 'Trạng thái', width: 112, minWidth: 104, render: (u) => <StatusDot kind={u.is_active ? 'on' : 'off'} text={u.is_active ? 'Hoạt động' : 'Đã khóa'} /> },
+              { key: 'status', filter: f_active, label: 'Trạng thái', width: 130, minWidth: 124, render: (u) => <AccountActiveSwitch session={session} account={u} onRequest={lock.request} /> },
             ] : [
               { key: 'stt', label: 'Số thứ tự', width: 58, minWidth: 58, render: (u) => <Line text={String((page - 1) * size + data.items.indexOf(u) + 1)} muted num /> },
               { key: 'code', filter: f_code, label: 'Mã học sinh', width: 140, minWidth: 140, render: (u) => <CodeText value={u.user_code || '—'} /> },
-              { key: 'name', filter: f_name, label: 'Họ và tên', width: 180, minWidth: 150, grow: 2, render: (u) => <NameCell main={u.full_name} sub={u.username} fullSub /> },
+              { key: 'name', filter: f_name, label: 'Họ và tên', width: 180, minWidth: 150, grow: 2, render: (u) => <NameCell main={u.full_name} /> },
               { key: 'gender', filter: f_gender, label: 'Giới tính', width: 56, minWidth: 56, render: (u) => <Line text={u.gender ? GENDER_TEXT[u.gender] : '—'} /> },
               { key: 'phone', filter: f_phone, label: 'SĐT', width: 92, minWidth: 84, render: (u) => <Line text={u.phone || '—'} num /> },
               { key: 'email', filter: f_email, label: 'Email', width: 140, grow: 2, render: (u) => <Line text={u.email || '—'} muted={!u.email} /> },
               { key: 'birth', filter: f_birth, label: 'Ngày tháng năm sinh', width: 90, minWidth: 76, render: (u) => <Line text={fmtBirth(u.birth_date)} num /> },
               { key: 'grade', filter: f_grade, label: 'Khối', width: 60, minWidth: 60, render: (u) => <Line text={[...new Set(u.classes.map((k) => k.grade).filter(Boolean))].map((g) => `Khối ${g}`).join(', ') || '—'} /> },
               { key: 'classes', filter: f_class, label: 'Lớp', width: 116, minWidth: 116, grow: 1, render: (u) => <Line text={u.classes.map((k) => `${k.name} (${k.school_year})`).join(', ') || 'Chưa xếp lớp'} muted={!u.classes.length} /> },
-              { key: 'status', filter: f_active, label: 'Trạng thái', width: 140, minWidth: 140, render: (u) => <StatusDot kind={u.is_active ? (u.must_change_password ? 'warn' : 'on') : 'off'} text={u.is_active ? (u.must_change_password ? 'Chưa đổi mật khẩu' : 'Hoạt động') : 'Đã khóa'} /> },
+              { key: 'status', filter: f_active, label: 'Trạng thái', width: 150, minWidth: 140, render: (u) => <AccountActiveSwitch session={session} account={u} onRequest={lock.request} label={u.is_active ? (u.must_change_password ? 'Chưa đổi mật khẩu' : 'Hoạt động') : 'Đã khóa'} /> },
             ]} />
           <Pager page={page} limit={size} total={data.total} onPage={setPage} />
         </>
       ) : null}
       {open ? <AccountSheet session={session} id={open} onClose={() => setOpen(null)} onChanged={reload} /> : null}
+      {lock.dialogs}
       {creating ? (
         <FormSheet title={teacher ? 'Thêm giáo viên' : 'Thêm học sinh'} subtitle={teacher ? 'Thêm từng giáo viên (muốn thêm nhiều người cùng lúc, hãy dùng Nhập từ Excel). Điền đủ các ô có dấu *: tên đăng nhập và mật khẩu tạo từ họ tên, SĐT, ngày sinh và gửi vào email; giáo viên đổi mật khẩu ở lần đăng nhập đầu tiên.' : 'Điền đủ các ô có dấu *: tên đăng nhập và mật khẩu tạo từ họ tên, SĐT, ngày sinh và gửi vào email; học sinh đổi mật khẩu ở lần đăng nhập đầu tiên.'} submitLabel="Tạo tài khoản" fields={fields} initial={{ year_id: String(entryYear?.id ?? ''), semester: String(entrySemester) }} wide onClose={() => setCreating(false)}
           onSubmit={async (v) => {

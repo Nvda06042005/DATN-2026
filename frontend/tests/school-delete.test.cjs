@@ -38,7 +38,13 @@ test('trang Người dùng cho xóa từng tài khoản theo quyền API; xác n
   assert.match(sheet, /Trường, lớp, tài khoản khác và nhật ký được giữ lại/);
   assert.match(sheet, /if \(!u\?\.deletable\) return/);
   // các thao tác còn lại của quản trị tổng vẫn có
-  for (const id of ['acc-edit', 'acc-role', 'acc-lock', 'acc-reset']) assert.ok(sheet.includes(`testID="${id}"`), id);
+  for (const id of ['acc-edit', 'acc-role']) assert.ok(sheet.includes(`testID="${id}"`), id);
+  // 18/11/2026: khóa / mở bằng nút gạt ở danh sách, cấp lại mật khẩu ở mục Mật khẩu tài khoản: hồ sơ không còn hai nút này
+  for (const id of ['acc-lock', 'acc-reset']) assert.ok(!sheet.includes(`testID="${id}"`), id);
+  assert.match(sheet, /export function useAccountLock\(session: Session, onChanged: \(\) => void\)/);
+  assert.match(sheet, /locked \? \['Ngày kết thúc', u\.locked_at \? dateText\(u\.locked_at\) : 'Không rõ ngày'\] : null/);
+  assert.match(root_, /render: \(u\) => <NameCell main=\{u\.full_name\} \/> \}/);
+  assert.match(root_, /<AccountActiveSwitch session=\{session\} account=\{u\} onRequest=\{lock\.request\} \/>/);
   // trang giáo viên/học sinh của quản trị trường dùng mặc định canDelete = true
   assert.doesNotMatch(read('components', 'admin', 'SchoolPeople.tsx'), /canDelete/);
 });

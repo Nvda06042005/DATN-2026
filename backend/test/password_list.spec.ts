@@ -2,6 +2,8 @@
  * Mật khẩu tài khoản (yêu cầu 13/11/2026): quản trị trường xem mật khẩu ban đầu của giáo viên, học sinh trường mình; quản trị tổng xem mọi trường
  * (không gồm quản trị tổng) khi người dùng CHƯA tự đổi; người dùng đổi mật khẩu thì bản lưu mã hóa bị xóa (trigger migration 060).
  * Cấp lại mật khẩu theo quy ước, gửi email, buộc đổi ở lần đăng nhập sau.
+ * 18/11/2026 (người dùng chọn "Lưu để quản trị xem được", migration 074): mật khẩu người dùng tự đặt được lưu thêm bản mã hóa, chỉ quản trị tổng xem;
+ * quản trị trường vẫn không xem được; cấp lại thì bản cũ bị xóa; không lưu cho quản trị tổng. Lọc STT; họ tên viết hoa chữ cái đầu mỗi từ.
  */
 import { activate, adminLogin, call, hasPostgres, sql, Started, startApp } from './harness';
 import { PW } from './fixture';
@@ -51,6 +53,27 @@ describe('mã hóa mật khẩu ban đầu', () => {
   });
   afterAll(async () => { await s?.close(); });
 
+  test('lọc STT: chỉ trả đúng dòng có số thứ tự đó (theo các bộ lọc khác), kèm offset để hiện đúng số', async () => {
+    const all = (await api('GET', '/api/admin/passwords?limit=200', undefined, root)).body;
+    const third = await api('GET', '/api/admin/passwords?stt=3&limit=5', undefined, root);
+    expect(third.status).toBe(200);
+    expect(third.body).toMatchObject({ offset: 2, total: all.total });
+    expect(third.body.items.map((x: { id: number }) => x.id)).toEqual([all.items[2].id]);
+    expect((await api('GET', '/api/admin/passwords?stt=0', undefined, root)).status).toBe(422);
+  });
+
+  test('họ tên viết hoa chữ cái đầu mỗi từ: tạo tài khoản quản trị và đổi họ tên đều kiểm tra; quản trị tổng tự đổi mật khẩu thì không lưu bản xem được', async () => {
+    const bad = await call(s.base, 'POST', '/api/admin/users', { full_name: 'Phạm minh châu', role: 'school_admin', email: 'qt.hoa@example.invalid', phone: '0901112223', birth_date: '1991-02-03', school_id: A.id }, root);
+    expect([bad.status, bad.body.detail]).toEqual([422, expect.stringContaining('“Phạm Minh Châu”')]);
+    const good = await call(s.base, 'POST', '/api/admin/users', { full_name: 'Phạm Minh Châu', role: 'school_admin', email: 'qt.hoa@example.invalid', phone: '0901112223', birth_date: '1991-02-03', school_id: A.id }, root);
+    expect(good.status).toBe(201);
+    expect((await call(s.base, 'PATCH', `/api/admin/users/${good.body.user.id}`, { full_name: 'PHẠM MINH CHÂU' }, root)).status).toBe(422);
+    expect((await call(s.base, 'PATCH', `/api/admin/users/${good.body.user.id}`, { phone: '0901112224' }, root)).status).toBe(200);
+    const me = (await call(s.base, 'GET', '/api/auth/me', undefined, root)).body.user ?? (await call(s.base, 'GET', '/api/auth/me', undefined, root)).body;
+    await sql(s.url, "UPDATE app_users SET password_view_enc = 'x' WHERE id = $1", [me.id]);
+    expect((await sql<{ v: string | null }>(s.url, 'SELECT password_view_enc AS v FROM app_users WHERE id = $1', [me.id]))[0].v).toBeNull(); // trigger: không lưu cho quản trị tổng
+  });
+
   test('quản trị trường thấy mật khẩu ban đầu của giáo viên, học sinh trường mình (tên đăng nhập đúng dạng quy ước); không thấy trường khác, không thấy chính mình', async () => {
     const list = await api('GET', '/api/admin/passwords?limit=200');
     expect(list.status).toBe(200);
@@ -77,10 +100,13 @@ describe('mã hóa mật khẩu ban đầu', () => {
     expect(raw).not.toContain('DongA');
   });
 
-  test('người dùng tự đổi mật khẩu: không ai xem được nữa (bản lưu bị xóa); quản trị tổng thấy mọi trường nhưng không thấy quản trị tổng', async () => {
+  test('người dùng tự đổi mật khẩu: quản trị trường không xem được, quản trị tổng xem được (bản mã hóa, migration 074); quản trị tổng thấy mọi trường nhưng không thấy quản trị tổng', async () => {
     await activate(s.base, teacher.username, 'DongAGVAnh10042005', PW, 'teacher');
     expect(await rowOf(teacher.id)).toMatchObject({ password: null, status: 'changed' });
-    expect((await sql<{ e: string | null }>(s.url, 'SELECT initial_password_enc AS e FROM app_users WHERE id = $1', [teacher.id]))[0].e).toBeNull();
+    expect(await rowOf(teacher.id, root)).toMatchObject({ password: PW, status: 'changed' });
+    const stored = (await sql<{ e: string | null; v: string | null }>(s.url, 'SELECT initial_password_enc AS e, password_view_enc AS v FROM app_users WHERE id = $1', [teacher.id]))[0];
+    expect(stored.e).toBeNull();
+    expect(stored.v).not.toContain(PW); // chỉ lưu bản mã hóa
     const all = (await api('GET', '/api/admin/passwords?limit=200', undefined, root)).body.items as Array<{ id: number; role: string }>;
     expect(all.map((x) => x.id)).toEqual(expect.arrayContaining([teacher.id, student.id, other.id]));
     expect(all.every((x) => x.role !== 'root_admin')).toBe(true);
@@ -98,9 +124,12 @@ describe('mã hóa mật khẩu ban đầu', () => {
     expect(await rowOf(teacher.id)).toMatchObject({ password: 'DongAGVAnh10042005', status: 'initial' });
     expect((await login('gvanh672010042005', PW, 'teacher')).status).toBe(401); // mật khẩu cũ hết dùng
     expect((await login('gvanh672010042005', 'DongAGVAnh10042005', 'teacher')).body.user).toMatchObject({ must_change_password: true });
-    // đặt lại ngẫu nhiên (nút cũ) cũng xem lại được
+    // cấp lại thì bản mã hóa mật khẩu tự đặt bị xóa (quản trị tổng thấy mật khẩu cấp lại, không thấy mật khẩu cũ)
+    expect(await rowOf(teacher.id, root)).toMatchObject({ password: 'DongAGVAnh10042005', status: 'initial' });
+    expect((await sql<{ v: string | null }>(s.url, 'SELECT password_view_enc AS v FROM app_users WHERE id = $1', [teacher.id]))[0].v).toBeNull();
+    // đường dẫn đặt lại cũ (18/11/2026) cũng cấp theo quy ước, không còn mật khẩu ngẫu nhiên
     const random = await api('POST', `/api/admin/users/${student.id}/reset-password`);
-    expect(random.body.display_username).toBe((await rowOf(student.id))?.username);
+    expect(random.body).toMatchObject({ display_username: (await rowOf(student.id))?.username, temporary_password: 'DongAHSAn01072015' });
     expect(await rowOf(student.id)).toMatchObject({ password: random.body.temporary_password, status: 'initial' });
     // thiếu số điện thoại: không ghép được mật khẩu theo quy ước
     await sql(s.url, 'UPDATE app_users SET phone = NULL WHERE id = $1', [student.id]);

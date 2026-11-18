@@ -9,7 +9,7 @@ import { currentSchoolLogo } from '../admin/school-brand';
 import { SecurityService } from './security.service';
 import { TwoFactorService } from '../platform/twofa.service';
 import { DatabaseService, Role, searchText, UserRow } from '../database/database.service';
-import { hashPassword, needsPasswordUpgrade, passwordFingerprint, verifyPassword } from './passwords';
+import { hashPassword, needsPasswordUpgrade, passwordFingerprint, sealPassword, verifyPassword } from './passwords';
 
 export type PublicUser = Omit<UserRow, 'password_hash' | 'token_version'>;
 export const toPublic = ({ password_hash: _hash, token_version: _version, ...user }: UserRow): PublicUser => user;
@@ -146,13 +146,13 @@ export class AuthService {
   }
 
   /** Ghi nhận đăng nhập thành công trong một giao dịch, rồi cấp token; phát hiện tài khoản vừa bị đổi trong lúc đăng nhập */
-  private async issueSession(user: UserRow, username: string, portal: Portal, upgradedHash: string | null) {
+  private async issueSession(user: UserRow, username: string, portal: Portal, upgraded: { hash: string; plain: string } | null) {
     const fresh = await this.db.tx(async q => {
       const rows = await q('SELECT id FROM app_users WHERE id = $1 FOR UPDATE', [user.id]);
       const current = rows.length ? await this.db.getById(user.id, q) : null;
       if (!current || !current.is_active || current.deleted_at || current.password_hash !== user.password_hash || current.role !== user.role || current.school_id !== user.school_id || current.token_version !== user.token_version) throw new UnauthorizedException('Tài khoản vừa thay đổi. Hãy đăng nhập lại.');
       if (!(await this.db.schoolActive(current.school_id, q))) throw new ForbiddenException('Trường đang tạm ngưng hoạt động.');
-      if (upgradedHash) await this.db.setPassword(user.id, upgradedHash, user.must_change_password, q);
+      if (upgraded) await this.db.setPassword(user.id, upgraded.hash, user.must_change_password, q, upgraded.plain);
       await q('UPDATE app_users SET last_login_at = now() WHERE id = $1', [user.id]);
       await this.security.login(current, username, portal, 'success', q);
       return (await this.db.getById(user.id, q))!;
@@ -176,7 +176,7 @@ export class AuthService {
     const second = await this.twoFactorChallenge(user, portal, schoolCode);
     if (second) return second;
     const upgraded = needsPasswordUpgrade(user.password_hash) && Buffer.byteLength(password, 'utf8') <= 72 ? await hashPassword(password) : null;
-    return this.issueSession(user, username, portal, upgraded);
+    return this.issueSession(user, username, portal, upgraded ? { hash: upgraded, plain: password } : null);
   }
 
   /** Mật khẩu và Google đều phải qua bước hai của tài khoản đã bật 2FA, chưa được cấp phiên. */
@@ -269,7 +269,8 @@ export class AuthService {
     if (newPassword === currentPassword) throw new BadRequestException('Mật khẩu mới phải khác mật khẩu cũ');
     const passwordHash = await hashPassword(newPassword);
     const updated = await this.db.tx(async q => {
-      const rows = await q('UPDATE app_users SET password_hash = $1, must_change_password = 0, token_version = token_version + 1 WHERE id = $2 AND password_hash = $3 AND token_version = $4 AND is_active = 1 AND deleted_at IS NULL RETURNING id', [passwordHash, user.id, user.password_hash, user.token_version]);
+      // bản mã hóa để quản trị tổng xem (migration 074; trigger bỏ qua tài khoản quản trị tổng)
+      const rows = await q('UPDATE app_users SET password_hash = $1, must_change_password = 0, token_version = token_version + 1, password_view_enc = $5 WHERE id = $2 AND password_hash = $3 AND token_version = $4 AND is_active = 1 AND deleted_at IS NULL RETURNING id', [passwordHash, user.id, user.password_hash, user.token_version, sealPassword(newPassword, config.authSecret)]);
       if (!rows.length) throw new UnauthorizedException('Phiên đã thay đổi. Hãy đăng nhập lại.');
       return (await this.db.getById(user.id, q))!;
     });
@@ -344,7 +345,7 @@ export class AuthService {
     if (payload.purpose !== 'pwreset' || typeof payload.sub !== 'number' || typeof payload.rid !== 'number') throw new BadRequestException(RESET_TICKET_INVALID);
     const passwordHash = await hashPassword(newPassword);
     if (!(await this.db.consumePasswordReset(payload.rid, payload.sub))) throw new BadRequestException(RESET_TICKET_INVALID);
-    await this.db.setPassword(payload.sub, passwordHash, false);
+    await this.db.setPassword(payload.sub, passwordHash, false, undefined, newPassword);
     this.failed.delete(`u${payload.sub}`);
   }
 
@@ -353,7 +354,7 @@ export class AuthService {
     const passwordHash = await hashPassword(newPassword);
     const user = await this.db.findForPasswordReset(identifier.trim().toLowerCase(), ALL_ROLES);
     if (!user || !(await this.db.consumePasswordOtp(user.id, hashOtp(user.id, otp)))) throw new BadRequestException(OTP_INVALID);
-    await this.db.setPassword(user.id, passwordHash, false);
+    await this.db.setPassword(user.id, passwordHash, false, undefined, newPassword);
     this.failed.delete(`u${user.id}`);
   }
 

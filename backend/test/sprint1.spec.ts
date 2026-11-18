@@ -600,7 +600,8 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     expect(reopened.body).toMatchObject({ is_active: true, lock_reason: null });
     expect((await login(t.body.user.username, PW, 'teacher')).status).toBe(200);
     const reset = await api('POST', `/api/admin/users/${t.body.user.id}/reset-password`);
-    expect(reset.body.temporary_password).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}$/);
+    // 18/11/2026: đặt lại mật khẩu tài khoản của trường luôn theo quy ước (không còn mật khẩu ngẫu nhiên)
+    expect(reset.body.temporary_password).toMatch(/^DongAGV\p{L}+\d{8}$/u);
     expect(reset.body.user.must_change_password).toBe(true);
     expect((await login(t.body.user.username, PW, 'teacher')).status).toBe(401);
     let sent: { text: string } | undefined;

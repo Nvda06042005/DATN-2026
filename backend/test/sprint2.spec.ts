@@ -284,8 +284,11 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect((await qa('GET', '/api/admin/students?grade=8')).body.total).toBe(0);
     expect((await qa('GET', '/api/admin/students')).body.items.find((x: any) => x.user_code === studentCodes.HS001).classes.map((c: any) => c.name)).toEqual(['7A1']);
 
-    const edited = await qa('PATCH', `/api/admin/users/${students[0]}`, { full_name: 'Nguyễn Văn Một (sửa)', birth_date: '2013-03-16', parent_email: 'moi@example.com' });
-    expect(edited.body).toMatchObject({ full_name: 'Nguyễn Văn Một (sửa)', birth_date: '2013-03-16' });
+    const edited = await qa('PATCH', `/api/admin/users/${students[0]}`, { full_name: 'Nguyễn Văn Một Sửa', birth_date: '2013-03-16', parent_email: 'moi@example.com' });
+    expect(edited.body).toMatchObject({ full_name: 'Nguyễn Văn Một Sửa', birth_date: '2013-03-16' });
+    // 18/11/2026: đổi họ tên phải viết hoa chữ cái đầu mỗi từ
+    const lower = await qa('PATCH', `/api/admin/users/${students[0]}`, { full_name: 'Nguyễn vũ Đức Anh' });
+    expect([lower.status, lower.body.detail]).toEqual([422, expect.stringContaining('“Nguyễn Vũ Đức Anh”')]);
     expect(edited.body).not.toHaveProperty('parent_email');
     expect((await qa('PATCH', `/api/admin/users/${students[0]}`, { birth_date: '16/03/2013' })).status).toBe(422);
     studentCodes.HS001=edited.body.user_code;expect((await qa('PATCH', `/api/admin/users/${students[0]}`, { user_code:studentCodes.HS002 })).body.user_code).toBe(studentCodes.HS001);

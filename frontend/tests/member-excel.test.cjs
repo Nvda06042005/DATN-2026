@@ -107,8 +107,12 @@ test('mật khẩu tài khoản: menu ở quản trị trường và quản tr�
  assert.match(school,/tab === 'passwords' \? <PasswordList session=\{session\} \/>/);
  assert.match(rootAdmin,/tab === 'passwords' \? <PasswordList session=\{session\} schools=\{options\} \/>/);
  assert.match(page,/const \[shown, setShown\] = useState\(false\);/); // mặc định ẩn, bấm Hiện mật khẩu mới thấy
- assert.match(page,/u\.status === 'initial'[\s\S]*?\{shown \? u\.password : '••••••••••'\}/);
- assert.match(page,/'Đã tự đổi, không xem được'/);
+ // 18/11/2026: hiện mọi mật khẩu xem được (ban đầu / cấp lại; mật khẩu tự đổi từ 18/11/2026 với quản trị tổng – migration 074)
+ assert.match(page,/\{u\.password\s*\? <Txt f="bold"[^\n]*\{shown \? u\.password : '••••••••••'\}/);
+ assert.match(page,/'Đổi trước 18\/11\/2026, không xem được – bấm Cấp lại'/);
+ assert.match(page,/'Đã tự đổi, chỉ quản trị tổng xem được'/);
+ assert.match(page,/<AccountActiveSwitch session=\{session\} account=\{u\} onRequest=\{lock\.request\} \/>/);
+ assert.match(page,/key: 'stt', filter: f_stt/);
  assert.match(page,/api\.reissuePassword\(token, confirm\.id\)/);
  assert.match(read('api/adminApi.ts'),/`\/api\/admin\/users\/\$\{id\}\/reissue-password`/);
  const classes=read('components/admin/SchoolClasses.tsx');

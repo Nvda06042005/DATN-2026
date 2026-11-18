@@ -92,9 +92,9 @@ test('tên hiện đủ trên nhiều dòng; tên đăng nhập, số, mã và t
   assert.match(src, /size=\{codeFontSize\(width, value\.length\)\} numberOfLines=\{1\} style=\{NUM\}>/);
   for (const cols of [teacher, student]) {
     assert.match(cols.find((c) => c.key === 'code').line, /<CodeText value=\{u\.user_code \|\| '—'\} \/>/);
-    assert.match(cols.find((c) => c.key === 'name').line, /<NameCell main=\{u\.full_name\} sub=\{u\.username\} fullSub \/>/);
+    assert.match(cols.find((c) => c.key === 'name').line, /<NameCell main=\{u\.full_name\} \/>/); // 18/11/2026: không hiện tên đăng nhập dưới họ tên
     for (const key of ['stt', 'phone', 'birth']) assert.match(cols.find((c) => c.key === key).line, /<Line [^>]*\bnum \/>/, `${key}: số thẳng cột`);
-    assert.match(cols.find((c) => c.key === 'status').line, /<StatusDot kind=/);
+    assert.match(cols.find((c) => c.key === 'status').line, /<AccountActiveSwitch session=\{session\} account=\{u\} onRequest=\{lock\.request\}/); // nút gạt khóa / mở
     assert.doesNotMatch(cols.map((c) => c.line).join('\n'), /numberOfLines=\{[2-9]\}|<Cell |StatusChip/);
   }
 });

@@ -56,7 +56,7 @@ import { bootstrap, Fixture } from './fixture';
     expect((await api('GET','/api/admin/registration-code/teacher?birth_date=1985-03-15')).body).toEqual(first.body);
     const t=await api('POST','/api/admin/teachers',{full_name:'Giáo viên mã tự động',email:'auto-code@example.invalid',birth_date:'1985-03-15', phone: '0900000004'});
     expect(t.status).toBe(201);expect(t.body.user.user_code).toBe(first.body.code);
-    expect((await api('PATCH',`/api/admin/users/${t.body.user.id}`,{full_name:'Giáo viên sửa tên'})).body.user_code).toBe(first.body.code);
+    expect((await api('PATCH',`/api/admin/users/${t.body.user.id}`,{full_name:'Giáo Viên Sửa Tên'})).body.user_code).toBe(first.body.code);
     const studentPreview=(await api('GET','/api/admin/registration-code/student?birth_date=2013-03-15')).body.code;
     const st=await api('POST','/api/admin/students',{full_name:'Học sinh mã tự động',birth_date:'2013-03-15', phone: '0900000005', email: 'tu.dong6.class_semesters@example.edu.vn'});
     expect(st.status).toBe(201);expect(st.body.user.user_code).toBe(studentPreview); // HS + viết tắt trường + năm + ngày sinh + STT, giống mẫu Excel học sinh

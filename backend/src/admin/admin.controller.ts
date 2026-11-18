@@ -219,6 +219,7 @@ class PasswordQuery extends Page {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) school_id?: number;
   @IsOptional() @IsIn(['true', 'false']) active?: 'true' | 'false';
   @IsOptional() @IsIn(['initial', 'changed', 'unknown']) password_state?: 'initial' | 'changed' | 'unknown';
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) stt?: number;
 }
 
 class ImportQuery extends SchoolScope {
