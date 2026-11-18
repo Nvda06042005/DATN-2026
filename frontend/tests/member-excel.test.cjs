@@ -34,24 +34,27 @@ test('hộp nhập của hai vai trò dùng mẫu Excel có lịch, không còn 
  assert.doesNotMatch(read('api/adminApi.ts'),/DraftWorkbook|\/workbook/);
 });
 
-test('danh sách và biểu mẫu học sinh cùng cột mẫu Excel; mã xem trước và số thứ tự không nhập tay',()=>{
+test('19/11/2026: bảng học sinh giống bảng giáo viên; form thêm / sửa không hiện STT (tự sinh); sửa thông tin không đổi mã',()=>{
  const people=read('components/admin/SchoolPeople.tsx'),start=people.indexOf('columns={teacher ? ['),studentStart=people.indexOf('] : [',start),table=people.slice(studentStart,people.indexOf(']} />',studentStart));
- const labels=[...table.matchAll(/label: '([^']+)'/g)].map(m=>m[1]);assert.deepEqual(labels.slice(0,7),['STT','Mã học sinh','Họ và tên','Giới tính','SĐT','Email','Ngày tháng năm sinh']);
- assert.match(people,/kind=\{teacher \? 'teacher' : 'student'\} showSerial birthDate=\{String\(v\.birth_date \|\| ''\)\}/);
+ const labels=[...table.matchAll(/label: '([^']+)'/g)].map(m=>m[1]);assert.deepEqual(labels,['STT','Mã học sinh','Họ và tên','Giới tính','Khối','Lớp','Trạng thái']);
+ assert.match(people,/kind=\{teacher \? 'teacher' : 'student'\} birthDate=\{String\(v\.birth_date \|\| ''\)\}/);
+ assert.doesNotMatch(people,/showSerial/);
  assert.match(people,/TeacherImportSheet session=\{session\} kind=\{kind\}/);
- const edit=read('components/admin/AccountSheet.tsx');assert.match(edit,/kind="student" showSerial userId=\{u\.id\}/);
+ const edit=read('components/admin/AccountSheet.tsx');assert.doesNotMatch(edit,/showSerial/);
+ assert.match(edit,/\{ name: 'user_code', label, readOnly: true, hint: 'Mã đã cấp, không đổi khi sửa thông tin\.' \}/);
  assert.doesNotMatch(edit,/if \(u\.role === 'student'\) Object\.assign\(body, \{ user_code:/);
 });
 
-test('thêm giáo viên/học sinh: Họ tên, SĐT, Email, Ngày sinh đều có dấu * (đủ hết mới tạo tài khoản); bỏ ô Email phụ huynh ở form thêm học sinh; hộp nhập ghi phải đúng file mẫu của trường',()=>{
+test('thêm giáo viên: Họ tên, SĐT, Email, Ngày sinh có dấu *; thêm học sinh (19/11/2026): SĐT, email không bắt buộc, không còn Xếp vào lớp; hộp nhập ghi phải đúng file mẫu của trường',()=>{
  // các ô dùng chung cho giáo viên, học sinh và "Tạo học sinh mới vào lớp" ở trang Lớp học
  const people=read('components/admin/SchoolPeople.tsx'),fields=people.slice(people.indexOf('export const personFields'),people.indexOf('export const SchoolPeople'));
- for(const name of ['full_name','phone','email','birth_date'])assert.match(fields,new RegExp(`name: '${name}'[^}]*required: true`),name);
+ for(const name of ['full_name','birth_date'])assert.match(fields,new RegExp(`name: '${name}'[^}]*required: true`),name);
+ for(const name of ['phone','email'])assert.match(fields,new RegExp(`name: '${name}'[^}]*required: teacher`),name);
  assert.match(fields,/Tên đăng nhập và mật khẩu được gửi vào email này\./);
  assert.match(people,/name: 'year_id', label: 'Năm học'/);
  assert.match(people,/name: 'semester', label: 'Học kỳ'/);
  assert.match(people,/\.\.\.personFields\(teacher, token\)/);
- assert.match(people,/name: 'class_id', label: 'Xếp vào lớp'/);
+ assert.doesNotMatch(people,/label: 'Xếp vào lớp'|name: 'class_id'/);
  assert.doesNotMatch(people,/parent_email|Email phụ huynh/);
  const sheet=read('components/admin/TeacherImportSheet.tsx');
  assert.match(sheet,/note=\{`Phải đúng file mẫu \$\{student \? 'học sinh' : 'giáo viên'\} của \$\{spec\.school_name\}\. File của trường khác hoặc nhầm loại sẽ báo lỗi\.`\}/);

@@ -1507,3 +1507,17 @@ Theo 8 ý người dùng gửi kèm ảnh:
 8. Hồ sơ luôn hiện **Ngày kết thúc** (ngày khóa; "Chưa kết thúc" khi đang hoạt động) và **Lớp đang dạy** dạng bảng Năm học – Khối – Lớp.
 
 Kiểm thử: `backend/test/password_list.spec.ts` (khối tự có khi tạo / kích hoạt, lọc khối theo lớp đang dạy, lọc STT), `backend/test/sprint2.spec.ts`, `frontend/tests/teacher-excel|people-table|member-excel|school-delete|school-link|paging.test.cjs`.
+
+## Học sinh giống Giáo viên, mã không đổi khi sửa, STT tới 1 tỷ, phần đầu văn bản theo phường / xã (19/11/2026)
+
+Theo 7 ý người dùng gửi kèm ảnh:
+
+1. Cột **Khối** và **Lớp đang dạy** (giáo viên) / **Lớp** (học sinh) bỏ nút lọc ở tiêu đề – đã có ô chọn Khối, Lớp cạnh Năm học, Học kỳ.
+2. Form **Thêm** và **Sửa thông tin** không còn ô **Số thứ tự** (STT tự sinh).
+3. **PDF / Excel xuất** (danh sách giáo viên, học sinh, lớp, mẫu xếp lớp, ngân hàng câu hỏi, báo cáo thống kê – mọi văn bản của trang quản trị trường và giáo viên): không còn "UBND QUẬN 2". Tìm hiểu quy định 2025–2026: từ 01/07/2025 trường THCS do **UBND cấp xã** quản lý (Nghị định 142/2025/NĐ-CP; văn bản của trường năm học 2025–2026 ghi "UBND PHƯỜNG … / TRƯỜNG THCS …", ví dụ Kế hoạch giáo dục số 473/KH-THCSNBK "UBND PHƯỜNG HỘI AN TÂY"). Phần đầu ghi **UBND <phường / xã của trường>** (lấy từ khu vực đã chọn, hoặc từ địa chỉ dạng mới), dòng ngày tháng "**<tên phường / xã>, ngày … tháng … năm …**" (bỏ chữ Phường / Xã như Nghị định 30/2020; tên là số hoặc tên người giữ đầy đủ). Trường còn lưu quận / huyện cũ thì không ghi cơ quan chủ quản và địa danh là tỉnh / thành – quản trị trường bấm "Sửa thông tin" chọn phường / xã mới để phần đầu đầy đủ.
+4. **Sửa thông tin** giáo viên / học sinh chỉ đổi họ tên, ngày sinh, email, SĐT, giới tính; **mã đã cấp giữ nguyên** (ô mã chỉ đọc; gửi mã khác cũng không đổi) – migration 078.
+5. **STT trong mã** (GOT26131019890**03**…) không dừng ở 3 chữ số: tới 1 tỷ (STT 3–10 chữ số; dải mã tạm GV / HS / LH tới 9.999.999.999) – migration 078.
+6. Trang **Học sinh làm giống Giáo viên**: bảng STT, Mã học sinh, Họ và tên, Giới tính, Khối, Lớp, Trạng thái (SĐT, email, ngày sinh trong hồ sơ), ô chọn Khối / Lớp, cùng các ý 1–5.
+7. **Thêm học sinh**: SĐT, email **không bắt buộc**; bỏ ô **Xếp vào lớp**. Chưa có SĐT: tên đăng nhập HS + tên + ngày sinh (ví dụ HSHoa13102013); chưa có email: không gửi thư, thông tin đăng nhập hiện trên màn hình. Cấp lại mật khẩu học sinh không cần SĐT. Giáo viên vẫn bắt buộc SĐT, email; file Excel nhập học sinh vẫn yêu cầu như cũ.
+
+Kiểm thử: `backend/test/password_list.spec.ts` (học sinh không SĐT / email, mã giữ nguyên khi sửa, STT 10 chữ số, phần đầu PDF), `teacher_codes`, `student_codes`, `class_excel`, `sprint2`; `frontend/tests/member-excel|people-table|teacher-excel|admin-shell.test.cjs`.

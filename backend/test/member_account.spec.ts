@@ -19,10 +19,11 @@ describe('quy ước tên đăng nhập và mật khẩu của giáo viên, họ
     expect(memberCredentials('student', 'Trần Thị Anh', '0901236720', '2005-04-10')).toEqual({ username: 'HSAnh672010042005', password: 'DongAHSAnh10042005' });
   });
 
-  test('bỏ dấu và chữ đ; thiếu SĐT, ngày sinh hoặc tên gọi thì không tạo (đủ hết mới tạo)', () => {
+  test('bỏ dấu và chữ đ; giáo viên thiếu SĐT, thiếu ngày sinh hoặc tên gọi thì không tạo; học sinh chưa có SĐT (19/11/2026) bỏ 4 số cuối', () => {
     expect(memberCredentials('teacher', 'Trần Thị Ánh', '0912340000', '1990-01-02')?.username).toBe('GVAnh000002011990');
     expect(memberCredentials('teacher', 'Đỗ Văn Đức', '0901234567', '1990-01-02')).toEqual({ username: 'GVDuc456702011990', password: 'DongAGVDuc02011990' });
-    expect(memberCredentials('student', 'Nguyễn Klm Ling', null, '2008-12-12')).toBeNull();
+    expect(memberCredentials('student', 'Nguyễn Klm Ling', null, '2008-12-12')).toEqual({ username: 'HSLing12122008', password: 'DongAHSLing12122008' });
+    expect(memberCredentials('teacher', 'Nguyễn Klm Ling', null, '2008-12-12')).toBeNull();
     expect(memberCredentials('student', 'Nguyễn Klm Ling', '12345', '2008-12-12')).toBeNull();
     expect(memberCredentials('teacher', 'Lê Văn A', '0901234567', null)).toBeNull();
     expect(memberCredentials('teacher', '!!!', '0901234567', '1990-01-02')).toBeNull();
@@ -82,14 +83,12 @@ describe('quy ước tên đăng nhập và mật khẩu của giáo viên, họ
     expect((await mailTo('anh2.gv@example.edu.vn'))?.text).toContain('GVAnh6720100420052');
   });
 
-  test('thiếu SĐT, email hoặc ngày sinh: không tạo tài khoản (không còn tên tự sinh, mật khẩu ngẫu nhiên)', async () => {
+  test('giáo viên thiếu SĐT, email hoặc ngày sinh, học sinh thiếu ngày sinh: không tạo tài khoản; học sinh không cần SĐT, email (19/11/2026)', async () => {
     const full = { full_name: 'Lê Văn Đủ', email: 'du.gv@example.edu.vn', phone: '0901112222', birth_date: '1990-01-02' };
     for (const [path, gap, message] of [
       ['/api/admin/teachers', { birth_date: undefined }, 'Cần ngày sinh'],
       ['/api/admin/teachers', { phone: undefined }, 'Cần số điện thoại'],
       ['/api/admin/teachers', { email: undefined }, 'Cần email'],
-      ['/api/admin/students', { phone: undefined }, 'Cần số điện thoại'],
-      ['/api/admin/students', { email: undefined }, 'Cần email'],
       ['/api/admin/students', { birth_date: undefined }, 'Cần ngày sinh'],
     ] as const) {
       const res = await api('POST', path, { ...full, ...gap });
@@ -98,6 +97,9 @@ describe('quy ước tên đăng nhập và mật khẩu của giáo viên, họ
     }
     expect((await api('POST', '/api/admin/teachers', { ...full, full_name: '!! ??' })).status).toBe(422);
     expect((await api('POST', '/api/admin/teachers', full)).status).toBe(201);
+    const pupil = await api('POST', '/api/admin/students', { full_name: 'Lê Văn Đủ', birth_date: '2013-01-02' });
+    expect(pupil.status).toBe(201);
+    expect(pupil.body).toMatchObject({ display_username: 'HSDu02012013', temporary_password: 'DongAHSDu02012013', mail: 'no_email' });
   });
 
   test('nhập file học sinh: HS + tên + 4 số cuối + ngày sinh, thư gửi vào email; dòng thiếu SĐT/email/ngày sinh báo lỗi, không tạo', async () => {

@@ -257,7 +257,8 @@ test('trang Thống kê trường: cùng bố cục một màn hình với Thố
 test('quản trị trường học theo quản trị tổng: bộ lọc kiểu Excel ở tiêu đề cột cho giáo viên, học sinh, lớp học, câu hỏi, bộ đề, hành trình và duyệt nội dung', () => {
   const read2 = (f) => read('components', 'admin', f);
   const want = {
-    'SchoolPeople.tsx': ["key: 'status', filter: f_active", "key: 'grade', filter: f_grade", "key: 'classes', filter: f_class"],
+    // 19/11/2026: Khối / Lớp chọn ở ô chọn cạnh Năm học, Học kỳ (member-grade, member-class-filter), cột không còn nút lọc riêng
+    'SchoolPeople.tsx': ["key: 'status', filter: f_active", "key: 'stt', filter: f_stt", 'testID="member-grade"', 'testID="member-class-filter"'],
     'SchoolClasses.tsx': ["key: 'grade', filter: f_grade", "key: 'status', filter: f_active"],
     'QuestionBank.tsx': ["key: 'qtype', filter: f_qtype", "key: 'campaign', filter: f_campaign", "key: 'scope', filter: f_store", "key: 'diff', filter: f_difficulty"],
     'QuizManager.tsx': ["key: 'scope', filter: f_store"],

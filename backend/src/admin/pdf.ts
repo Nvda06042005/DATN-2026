@@ -13,6 +13,7 @@ import PDFDocument from 'pdfkit';
 import sharp from 'sharp';
 import { DatabaseService } from '../database/database.service';
 import { directoryLogoHash } from './school-directory';
+import { letterhead } from './admin-units';
 
 const FONT_DIR = join(__dirname, '..', '..', 'assets', 'fonts');
 const MM = 72 / 25.4;
@@ -77,12 +78,8 @@ const upper = (s: string) => s.toLocaleUpperCase('vi');
 const pad2 = (n: number) => String(n).padStart(2, '0');
 /** Ngày theo giờ Việt Nam */
 const vnDate = (now: Date) => { const d = new Date(now.getTime() + 7 * 3_600_000); return { d: pad2(d.getUTCDate()), m: pad2(d.getUTCMonth() + 1), y: String(d.getUTCFullYear()), hh: pad2(d.getUTCHours()), mi: pad2(d.getUTCMinutes()) }; };
-/** Địa danh: bỏ chữ Phường/Xã… ở đầu (trừ khi chỉ còn số như Quận 2) */
-export const placeName = (region: string | null | undefined): string => {
-  const r = (region ?? '').trim();
-  const stripped = r.replace(/^(phường|xã|quận|huyện|thị trấn|thị xã|thành phố|đặc khu)\s+/i, '').trim();
-  return (/^\d+$/.test(stripped) ? r : stripped) || '…………';
-};
+/** Địa danh của dòng ngày tháng (19/11/2026: theo phường / xã mới, không còn quận / huyện – xem letterhead trong admin-units.ts) */
+export const placeName = (region: string | null | undefined, city?: string | null, address?: string | null): string => letterhead({ region, city, address }).place;
 /** 2005-03-15 → 15/03/2005 */
 export const dmyDate = (iso: string | null | undefined): string => (iso && /^\d{4}-\d{2}-\d{2}/.test(iso) ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '');
 const cellText = (col: PdfCol, v: unknown): string => (v === null || v === undefined || v === '' ? (col.pct ? '–' : '') : col.pct && typeof v === 'number' ? `${v}%` : String(v));
@@ -128,7 +125,9 @@ export function officialPdf(spec: PdfDoc): Promise<Buffer> {
       doc.image(BRAND_LOGO, left + W - 112, y, { fit: [112, 48], align: 'right', valign: 'center' });
       y += 55;
       const schoolLine = school ? (/^trường\s/i.test(school.name) ? upper(school.name) : `TRƯỜNG ${upper(school.name)}`) : 'HÀO KHÍ ĐÔNG A';
-      const parent = school ? (school.region ? `UBND ${upper(school.region)}` : null) : 'HỆ THỐNG HỌC TẬP';
+      // cơ quan chủ quản: UBND phường / xã của trường (chính quyền hai cấp); khu vực cũ quận / huyện thì bỏ dòng này
+      const head = letterhead(school);
+      const parent = school ? head.parent : 'HỆ THỐNG HỌC TẬP';
       let ly = y;
       if (parent) { const s = fit(parent, 'r', 12.5, leftW - 14, 10); ly = centered(parent, 'r', s, left, leftW - 10, ly); }
       const ns = fit(schoolLine, 'b', 12.5, leftW - 14, 10.5);
@@ -144,7 +143,7 @@ export function officialPdf(spec: PdfDoc): Promise<Buffer> {
       const ts = fit(tn, 'b', 13, rightW - 4, 10.5);
       ry = centered(tn, 'b', ts, rightX, rightW, ry);
       rule(rightX, rightW, doc.font('b').fontSize(ts).widthOfString(tn), 1, ry + 1.5);
-      const dateLine = `${placeName(school?.region)}, ngày ${day.d} tháng ${day.m} năm ${day.y}`;
+      const dateLine = `${head.place}, ngày ${day.d} tháng ${day.m} năm ${day.y}`;
       ry = centered(dateLine, 'i', fit(dateLine, 'i', 13, rightW - 4, 10), rightX, rightW, ry + 9);
       y = Math.max(ly, ry) + 20;
 

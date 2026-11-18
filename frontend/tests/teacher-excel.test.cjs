@@ -79,10 +79,9 @@ test('18/11/2026: bảng giáo viên gọn – STT (lọc), Mã giáo viên, H�
   const table = people.slice(tableStart, people.indexOf('] : [',tableStart));
   const labels = [...table.matchAll(/label: '([^']+)'/g)].map((m) => m[1]);
   assert.deepEqual(labels, ['STT', 'Mã giáo viên', 'Họ và tên', 'Giới tính', 'Khối', 'Lớp đang dạy', 'Trạng thái']);
-  // số thứ tự nối tiếp qua các trang (lọc STT trả đúng dòng đó: offset từ máy chủ); ngày sinh của học sinh hiện dd/mm/yyyy như trong Excel; lọc được theo các cột
+  // số thứ tự nối tiếp qua các trang (lọc STT trả đúng dòng đó: offset từ máy chủ); lọc được theo các cột
   assert.match(people, /const rowNo = \(u: Account\) => String\(\(data\?\.offset \?\? \(page - 1\) \* size\) \+ \(data\?\.items\.indexOf\(u\) \?\? 0\) \+ 1\)/);
-  assert.match(people, /`\$\{iso\.slice\(8, 10\)\}\/\$\{iso\.slice\(5, 7\)\}\/\$\{iso\.slice\(0, 4\)\}`/);
-  assert.match(people, /filters=\{teacher \? \[f_stt, f_code, f_name, f_gender, f_grade, f_class, f_active\] : \[f_stt, f_code, f_name, f_gender, f_phone, f_email, f_birth, f_grade, f_class, f_active\]\}/);
+  assert.match(people, /filters=\{\[f_stt, f_code, f_name, f_gender, f_active\]\}/); // 19/11/2026: Khối / Lớp chọn ở ô chọn, không còn ở cột
   // ô chọn Khối, Lớp cạnh Năm học, Học kỳ; lớp đang dạy theo khối / lớp đang chọn, nhiều lớp thì "+N lớp"
   for (const id of ['member-year', 'member-semester', 'member-grade', 'member-class-filter']) assert.ok(people.includes(`testID="${id}"`), id);
   assert.match(people, /list\.length > 3 \? ` \+\$\{list\.length - 3\} lớp` : ''/);

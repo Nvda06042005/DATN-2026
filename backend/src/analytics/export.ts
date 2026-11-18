@@ -6,6 +6,7 @@ import * as ExcelJS from 'exceljs';
 import { join } from 'path';
 import PDFDocument from 'pdfkit';
 import { BRAND_LOGO_SIZE, brandLogo, vnDayLabel } from '../admin/excel';
+import { letterhead } from '../admin/admin-units';
 import { officialPdf } from '../admin/pdf';
 
 const FONT_DIR = join(__dirname, '..', '..', 'assets', 'fonts');
@@ -78,7 +79,7 @@ export function toPdf(title: string, subtitle: string, sections: Section[]): Pro
  * bảng có cột STT, dòng tiêu đề tô màu, kẻ khung, và chỗ ký của người lập báo cáo. Excel: mỗi phần một sheet đủ phần đầu, in vừa khổ A4 ngang, lặp dòng tiêu đề khi sang trang.
  * PDF: phần đầu ở trang 1, các phần đánh số La Mã, dòng tiêu đề bảng lặp lại khi sang trang, chân trang ghi số trang.
  */
-export interface ReportSchool { name: string; code: string | null; region: string | null }
+export interface ReportSchool { name: string; code: string | null; region: string | null; city?: string | null; address?: string | null }
 export interface ReportHead {
   /** Dòng nhận diện dưới logo, ví dụ "Báo cáo thống kê lớp · Trường THCS A · Mã trường 79000001" */
   identity: string;
@@ -107,14 +108,13 @@ const RBORDER = { top: RLINE, left: RLINE, bottom: RLINE, right: RLINE };
 function leftBlock(school: ReportSchool | null): [string, string, string] {
   if (!school) return ['HỆ THỐNG HỌC TẬP', 'HÀO KHÍ ĐÔNG A', ''];
   const line = /^trường\s/i.test(school.name) ? upper(school.name) : `TRƯỜNG ${upper(school.name)}`;
-  return school.region ? [`UBND ${upper(school.region)}`, line, school.code ? `Mã trường: ${school.code}` : ''] : [line, school.code ? `Mã trường: ${school.code}` : '', ''];
+  const parent = letterhead(school).parent; // UBND phường / xã (chính quyền hai cấp); khu vực cũ quận / huyện thì không ghi
+  return parent ? [parent, line, school.code ? `Mã trường: ${school.code}` : ''] : [line, school.code ? `Mã trường: ${school.code}` : '', ''];
 }
-/** "Phú Mỹ, Thứ Sáu, ngày 14 tháng 11 năm 2026": địa danh bỏ chữ Phường/Xã… ở đầu (trừ khi chỉ còn số như Quận 2) */
+/** "Phú Mỹ, Thứ Sáu, ngày 14 tháng 11 năm 2026": địa danh là phường / xã của trường bỏ chữ chỉ cấp (khu vực cũ quận / huyện thì là tỉnh / thành) */
 function placeLine(school: ReportSchool | null, now: Date): string {
   const day = vnDayLabel(now);
-  const region = (school?.region ?? '').trim();
-  const stripped = region.replace(/^(phường|xã|quận|huyện|thị trấn|thị xã|thành phố)\s+/i, '').trim();
-  const place = (/^\d+$/.test(stripped) ? region : stripped) || '……………';
+  const place = school ? letterhead(school).place : '……………';
   return `${place}, ${day.slice(12, -1)}, ngày ${day.slice(0, 2)} tháng ${day.slice(3, 5)} năm ${day.slice(6, 10)}`;
 }
 

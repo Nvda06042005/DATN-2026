@@ -50,7 +50,8 @@ test('học sinh bỏ cột Đăng nhập cuối; bảng học sinh bảy cột 
   const { src, teacher, student } = tables();
   const shared = ['stt', 'code', 'name', 'gender', 'phone', 'email', 'birth'];
   assert.deepEqual(teacher.map((c) => c.key), ['stt', 'code', 'name', 'gender', 'grade', 'classes', 'status']);
-  assert.deepEqual(student.map((c) => c.key), [...shared, 'grade', 'classes', 'status']);
+  assert.deepEqual(student.map((c) => c.key), ['stt', 'code', 'name', 'gender', 'grade', 'classes', 'status']); // 19/11/2026: như bảng giáo viên
+  assert.ok(shared.length === 7);
   assert.doesNotMatch(src, /Đăng nhập cuối|last_login_at|dateText/);
 });
 
@@ -63,17 +64,18 @@ test('mỗi cột có độ rộng ưu tiên; bảy cột đầu của hai bản
   }
   const growing = (cols) => cols.filter((c) => c.grow > 0).map((c) => c.key);
   assert.deepEqual(growing(teacher), ['name', 'classes']);
-  assert.deepEqual(growing(student), ['name', 'email', 'classes']);
+  assert.deepEqual(growing(student), ['name', 'classes']);
   // cột tên rộng hơn để đọc đủ họ tên; tổng độ rộng ưu tiên vẫn vừa vùng nội dung của trang quản trị
   const sum = (cols) => cols.reduce((n, c) => n + c.width, 0);
   assert.ok(sum(teacher) <= 1020 && sum(student) <= 1100, `${sum(teacher)} / ${sum(student)}`);
   // tên lớp kèm năm học (6A5 (2025-2026)) hiện đủ
   assert.ok(student.find((c) => c.key === 'classes').minWidth >= 116);
+  for (const key of ['grade', 'classes']) for (const cols of [teacher, student]) assert.doesNotMatch(cols.find((c) => c.key === key).line, /filter:/, `${key}: lọc bằng ô chọn Khối / Lớp`);
   // "Số thứ tự" và nhãn "Chưa đổi mật khẩu" không bị co tới mức xuống dòng hay mất chữ
   assert.ok(student.find((c) => c.key === 'stt').minWidth >= 58);
   assert.ok(student.find((c) => c.key === 'status').minWidth >= 140, 'đủ cho chấm màu và chữ Chưa đổi mật khẩu');
   // mã, số điện thoại và ngày sinh không co tới mức mất chữ (mã 18 ký tự ở cỡ 10 rộng khoảng 108px)
-  for (const [key, min] of [['code', 140], ['phone', 84], ['birth', 76]]) for (const cols of key === 'code' ? [teacher, student] : [student]) assert.ok(cols.find((c) => c.key === key).minWidth >= min, key);
+  for (const cols of [teacher, student]) assert.ok(cols.find((c) => c.key === 'code').minWidth >= 140, 'code');
   // khoảng cách cột của hai bảng này nhỏ hơn mặc định để tên và email có thêm chỗ
   assert.match(tables().src, /<DataTable paginate=\{false\} gap=\{10\} rows=/);
 });
@@ -93,7 +95,7 @@ test('tên hiện đủ trên nhiều dòng; tên đăng nhập, số, mã và t
   for (const cols of [teacher, student]) {
     assert.match(cols.find((c) => c.key === 'code').line, /<CodeText value=\{u\.user_code \|\| '—'\} \/>/);
     assert.match(cols.find((c) => c.key === 'name').line, /<NameCell main=\{u\.full_name\} \/>/); // 18/11/2026: không hiện tên đăng nhập dưới họ tên
-    for (const key of cols === teacher ? ['stt'] : ['stt', 'phone', 'birth']) assert.match(cols.find((c) => c.key === key).line, /<Line [^>]*\bnum \/>/, `${key}: số thẳng cột`);
+    assert.match(cols.find((c) => c.key === 'stt').line, /<Line [^>]*\bnum \/>/, 'stt: số thẳng cột');
     assert.match(cols.find((c) => c.key === 'status').line, /<AccountActiveSwitch session=\{session\} account=\{u\} onRequest=\{lock\.request\}/); // nút gạt khóa / mở
     assert.doesNotMatch(cols.map((c) => c.line).join('\n'), /numberOfLines=\{[2-9]\}|<Cell |StatusChip/);
   }

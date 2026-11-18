@@ -135,10 +135,14 @@ describe('mã hóa mật khẩu ban đầu', () => {
     const random = await api('POST', `/api/admin/users/${student.id}/reset-password`);
     expect(random.body).toMatchObject({ display_username: (await rowOf(student.id))?.username, temporary_password: 'DongAHSAn01072015' });
     expect(await rowOf(student.id)).toMatchObject({ password: random.body.temporary_password, status: 'initial' });
-    // thiếu số điện thoại: không ghép được mật khẩu theo quy ước
+    // học sinh không có số điện thoại (19/11/2026: SĐT không bắt buộc): mật khẩu không dùng SĐT nên vẫn cấp lại được; thiếu ngày sinh thì báo lỗi
     await sql(s.url, 'UPDATE app_users SET phone = NULL WHERE id = $1', [student.id]);
-    const missing = await api('POST', `/api/admin/users/${student.id}/reissue-password`);
+    expect((await api('POST', `/api/admin/users/${student.id}/reissue-password`)).body).toMatchObject({ temporary_password: 'DongAHSAn01072015' });
+    // giáo viên thiếu số điện thoại thì không ghép được tên đăng nhập / mật khẩu theo quy ước
+    await sql(s.url, 'UPDATE app_users SET phone = NULL WHERE id = $1', [teacher.id]);
+    const missing = await api('POST', `/api/admin/users/${teacher.id}/reissue-password`);
     expect([missing.status, missing.body.detail]).toEqual([422, expect.stringContaining('thiếu số điện thoại')]);
+    await sql(s.url, "UPDATE app_users SET phone = '0901236720' WHERE id = $1", [teacher.id]);
     // tài khoản của trường khác
     expect([403, 404]).toContain((await api('POST', `/api/admin/users/${other.id}/reissue-password`)).status);
     // quản trị tổng cấp lại cho quản trị viên trường: DongA + ngày sinh + @ + tên
@@ -200,6 +204,59 @@ describe('mã hóa mật khẩu ban đầu', () => {
     expect((await api('POST', `/api/admin/school-years/${current.id}/end`)).status).toBe(200);
     expect((await api('POST', `/api/admin/school-years/${next.body.id}/activate`)).body.status).toBe('active');
     expect(await grades(next.body.id)).toEqual([[6, true], [7, true], [8, true], [9, true]]);
+  });
+
+  test('19/11/2026: học sinh không bắt buộc SĐT, email; sửa thông tin không đổi mã; STT trong mã lên tới 10 chữ số (migration 078)', async () => {
+    // thêm học sinh không có SĐT, email: tên đăng nhập HS + tên + ngày sinh, không gửi thư
+    const lone = await api('POST', '/api/admin/students', { full_name: 'Lê Thị Hoa', birth_date: '2013-10-13' });
+    expect(lone.status).toBe(201);
+    expect(lone.body).toMatchObject({ display_username: 'HSHoa13102013', temporary_password: 'DongAHSHoa13102013', mail: 'no_email' });
+    // giáo viên vẫn bắt buộc SĐT và email
+    expect((await api('POST', '/api/admin/teachers', { full_name: 'Đỗ Văn Bình', birth_date: '1990-01-02' })).status).toBe(422);
+    // sửa họ tên, ngày sinh, giới tính, email, SĐT: mã giữ nguyên, gửi mã khác cũng không đổi được
+    const code = lone.body.user.user_code as string;
+    expect(code).toMatch(/^HSGOT\d{2}13102013\d{3}$/);
+    const edited = await api('PATCH', `/api/admin/users/${lone.body.user.id}`, { full_name: 'Lê Thị Hoa Mai', birth_date: '2013-11-14', gender: 'female', phone: '0912000111', email: 'hoa.mai@example.edu.vn', user_code: 'MA-KHAC' });
+    expect(edited.status).toBe(200);
+    expect(edited.body).toMatchObject({ user_code: code, birth_date: '2013-11-14', full_name: 'Lê Thị Hoa Mai' });
+    expect((await api('GET', `/api/admin/registration-code/student?user_id=${lone.body.user.id}&birth_date=2013-11-14`)).body.code).toBe(code);
+    const tEdit = await api('PATCH', `/api/admin/users/${teacher.id}`, { birth_date: '2005-05-11' });
+    expect(tEdit.status).toBe(200);
+    expect(tEdit.body.user_code).toBe((await sql<{ c: string }>(s.url, 'SELECT user_code AS c FROM app_users WHERE id = $1', [teacher.id]))[0].c);
+    expect(tEdit.body.user_code).toMatch(/10042005\d{3}$/); // vẫn là ngày sinh lúc cấp mã
+    // STT trong mã: gõ sẵn tới 10 chữ số (1 tỷ) được nhận, số tiếp theo nối tiếp
+    const base = ((await api('GET', '/api/admin/registration-code/teacher?birth_date=1990-01-02')).body.code as string).replace(/\d{3}$/, '');
+    const big = await api('POST', '/api/admin/teachers', { full_name: 'Đỗ Văn Bình', birth_date: '1990-01-02', phone: '0933000222', email: 'binh.gv@example.edu.vn', user_code: `${base}1000000000` });
+    expect(big.status).toBe(201);
+    expect(big.body.user.user_code).toBe(`${base}1000000000`);
+    expect((await api('GET', '/api/admin/registration-code/teacher?birth_date=1990-01-02')).body).toMatchObject({ serial: 1000000001, code: `${base}1000000001` });
+    expect((await sql<{ code: string }>(s.url, "SELECT public.app_student_identity('THCS Giồng Ông Tố',26,'2013-10-13',1000000000) AS code"))[0].code).toBe('HSGOT26131020131000000000');
+  });
+
+  test('phần đầu văn bản theo chính quyền hai cấp: UBND phường / xã của trường, không còn UBND quận; địa danh bỏ chữ chỉ cấp', async () => {
+    const { letterhead, unitPlace } = await import('../src/admin/admin-units');
+    expect(letterhead({ region: 'Phường Bình Trưng', city: 'Thành phố Hồ Chí Minh' })).toEqual({ parent: 'UBND PHƯỜNG BÌNH TRƯNG', place: 'Bình Trưng', ward: 'Phường Bình Trưng' });
+    // trường còn lưu quận cũ: không ghi UBND QUẬN, địa danh là tỉnh / thành (tên người giữ đầy đủ)
+    expect(letterhead({ region: 'Quận 2', city: 'Thành phố Hồ Chí Minh' })).toEqual({ parent: null, place: 'Thành phố Hồ Chí Minh', ward: null });
+    expect(letterhead({ region: 'Huyện Long Thành', city: 'Tỉnh Đồng Nai' }).place).toBe('Đồng Nai');
+    // phường / xã đọc từ địa chỉ dạng mới khi khu vực trống
+    expect(letterhead({ region: null, city: 'Thành phố Hồ Chí Minh', address: '120B Ngô Tất Tố, Phường Thạnh Mỹ Tây, Thành phố Hồ Chí Minh' }).parent).toBe('UBND PHƯỜNG THẠNH MỸ TÂY');
+    expect(unitPlace('Phường 2')).toBe('Phường 2');
+    expect(unitPlace('Xã An Thạnh')).toBe('An Thạnh');
+    // PDF danh sách giáo viên của trường đang lưu quận cũ không còn "UBND QUẬN"
+    await sql(s.url, "UPDATE app_schools SET region = 'Quận 2', city = 'Thành phố Hồ Chí Minh' WHERE id = $1", [A.id]);
+    const res = await fetch(`${s.base}/api/admin/teachers/export?format=pdf`, { headers: { Authorization: `Bearer ${A.token}` } });
+    expect(res.status).toBe(200);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pdfText = async (r: Response) => ((await (require('pdf-parse') as (b: Buffer) => Promise<{ text: string }>)(Buffer.from(await r.arrayBuffer()))).text);
+    const text = await pdfText(res);
+    expect(text).not.toMatch(/UBND QUẬN/);
+    expect(text).toMatch(/Thành phố Hồ Chí Minh, ngày \d{2} tháng \d{2} năm \d{4}/);
+    await sql(s.url, "UPDATE app_schools SET region = 'Phường Bình Trưng' WHERE id = $1", [A.id]);
+    const pdf2 = await fetch(`${s.base}/api/admin/students/export?format=pdf`, { headers: { Authorization: `Bearer ${A.token}` } });
+    const text2 = await pdfText(pdf2);
+    expect(text2).toMatch(/UBND PHƯỜNG BÌNH TRƯNG/);
+    expect(text2).toMatch(/Bình Trưng, ngày \d{2} tháng \d{2} năm \d{4}/);
   });
 
   test('đổi người liên hệ của trường: tài khoản quản trị viên trường đổi theo, cấp lại tên đăng nhập + mật khẩu theo quy ước, gửi thư; thông tin cũ lưu ở kho dữ liệu đã xóa', async () => {

@@ -606,7 +606,7 @@ export class AnalyticsService {
   /** Tên, mã trường và phường/xã cho phần đầu báo cáo (như file danh sách lớp); `null` là báo cáo toàn hệ thống */
   async reportSchool(schoolId: number | null | undefined): Promise<{ name: string; code: string | null; region: string | null } | null> {
     if (!schoolId) return null;
-    return (await this.db.query<{ name: string; code: string | null; region: string | null }>('SELECT name, school_code AS code, region FROM app_schools WHERE id = $1', [schoolId]))[0] ?? null;
+    return (await this.db.query<{ name: string; code: string | null; region: string | null; city: string | null; address: string | null }>('SELECT name, school_code AS code, region, city, address FROM app_schools WHERE id = $1', [schoolId]))[0] ?? null;
   }
 
   /** Phần đầu PDF theo thể thức văn bản của nhà trường (như PDF danh sách lớp của quản trị trường): tên, mã, địa phương, logo đã xác minh */

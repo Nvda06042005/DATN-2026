@@ -35,10 +35,13 @@ import { activate, adminLogin, call, download, hasPostgres, Started, startApp, u
     expect(gv.status).toBe(201);
     expect(gv.body.user.phone).toBe('0901234567');
     expect((await api('POST', '/api/admin/students', { full_name: 'Học Sinh Số Đúng', birth_date: '2013-04-02', phone: '0912345678', email: 'tu.dong11.phone_rule@example.edu.vn' })).status).toBe(201);
-    // không khai số điện thoại thì không tạo được: SĐT dùng để ghép tên đăng nhập (đủ hết mới tạo, 11/11/2026)
+    // 19/11/2026: học sinh không bắt buộc SĐT – không khai thì tên đăng nhập bỏ 4 số cuối điện thoại; giáo viên vẫn bắt buộc
     const none = await api('POST', '/api/admin/students', { full_name: 'Học Sinh Không Số', birth_date: '2013-05-02', email: 'khong.so@example.edu.vn' });
-    expect(none.status).toBe(422);
-    expect(none.body.detail).toContain('Cần số điện thoại');
+    expect(none.status).toBe(201);
+    expect(none.body.display_username).toBe('HSSo02052013');
+    const noneTeacher = await api('POST', '/api/admin/teachers', { full_name: 'Giáo Viên Không Số', birth_date: '1985-05-02', email: 'gv.khong.so@example.edu.vn' });
+    expect(noneTeacher.status).toBe(422);
+    expect(noneTeacher.body.detail).toContain('Cần số điện thoại');
   });
 
   test('quản trị viên trường và quản trị tổng do quản trị tổng tạo: số sai bị từ chối, quản trị viên trường cần đủ 10 chữ số', async () => {

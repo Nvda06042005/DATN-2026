@@ -17,7 +17,7 @@ import {tmpdir} from 'os';
   const path='/api/admin/registration-code/student?birth_date=2013-03-15';const preview=await api('GET',path);expect(preview.body.code).toBe('HSGOT2615032013001');expect((await api('GET',path)).body).toEqual(preview.body);
   const made=await api('POST','/api/admin/students',{full_name:'Học sinh Định Danh',birth_date:'2013-03-15',user_code:'HS00000001', phone: '0900000073', email: 'tu.dong74.student_codes@example.edu.vn'});expect(made.status).toBe(201);expect(made.body.user.user_code).toBe(preview.body.code);
   const {id,username}=made.body.user;
-  const edited=await api('PATCH',`/api/admin/users/${id}`,{birth_date:'2014-04-16',user_code:'SAI-MA'});expect(edited.status).toBe(200);expect(edited.body).toMatchObject({username,user_code:'HSGOT2616042014001'});
+  const edited=await api('PATCH',`/api/admin/users/${id}`,{birth_date:'2014-04-16',user_code:'SAI-MA'});expect(edited.status).toBe(200);expect(edited.body).toMatchObject({username,user_code:'HSGOT2615032013001'}); // 19/11/2026 (migration 078): sửa ngày sinh không đổi mã đã cấp
   expect((await api('GET',`/api/admin/registration-code/student?user_id=${id}&birth_date=2014-04-16`)).body.code).toBe(edited.body.user_code);
   expect((await api('GET','/api/admin/students')).body.items[0].user_code).toBe(edited.body.user_code);
   expect((await api('PATCH',`/api/admin/users/${id}`,{birth_date:null})).status).toBe(422);

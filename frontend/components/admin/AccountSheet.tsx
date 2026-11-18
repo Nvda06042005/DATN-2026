@@ -203,8 +203,13 @@ function editFields(u: AccountDetail, schools: Array<{ value: string; label: str
     { name: 'phone', label: 'Số điện thoại', type: 'phone', hint: 'Đúng 10 chữ số, ví dụ 0901234567.' },
   ];
   const today = todayVn();
-  if (u.role === 'teacher') fields.push({ name: 'user_code', label: 'Mã giáo viên', render:(v)=><RegistrationCode token={token} kind="teacher" showSerial userId={u.id} schoolId={Number(v.school_id)||u.school_id||undefined} birthDate={String(v.birth_date||'')}/> }, { name: 'gender', label: 'Giới tính', type: 'select', options: GENDER_OPTIONS.filter((o) => o.value !== 'other') }, { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1940-01-01', max: today, required:true });
-  if (u.role === 'student') fields.push({ name: 'user_code', label: 'Mã học sinh', render:(v)=><RegistrationCode token={token} kind="student" showSerial userId={u.id} schoolId={Number(v.school_id)||u.school_id||undefined} birthDate={String(v.birth_date||'')}/> }, { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '2000-01-01', max: today, required: true }, { name: 'gender', label: 'Giới tính', type: 'select', options: GENDER_OPTIONS });
+  // 19/11/2026: sửa thông tin chỉ đổi họ tên, email, SĐT, giới tính, ngày sinh; mã đã cấp giữ nguyên (chỉ đọc, migration 078), không hiện STT.
+  // Tài khoản cũ chưa có mã theo quy ước (chưa có ngày sinh) thì xem trước mã sẽ cấp khi bổ sung ngày sinh.
+  const codeField = (kind: 'teacher' | 'student', label: string): FieldDef => (u.birth_date && u.user_code
+    ? { name: 'user_code', label, readOnly: true, hint: 'Mã đã cấp, không đổi khi sửa thông tin.' }
+    : { name: 'user_code', label, render: (v) => <RegistrationCode token={token} kind={kind} userId={u.id} schoolId={Number(v.school_id) || u.school_id || undefined} birthDate={String(v.birth_date || '')} /> });
+  if (u.role === 'teacher') fields.push(codeField('teacher', 'Mã giáo viên'), { name: 'gender', label: 'Giới tính', type: 'select', options: GENDER_OPTIONS.filter((o) => o.value !== 'other') }, { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1940-01-01', max: today, required:true });
+  if (u.role === 'student') fields.push(codeField('student', 'Mã học sinh'), { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '2000-01-01', max: today, required: true }, { name: 'gender', label: 'Giới tính', type: 'select', options: GENDER_OPTIONS });
   // quản trị viên trường: ngày sinh dùng ghép mật khẩu theo quy ước (DongA + ngày sinh + @ + tên), có ở hộp tạo tài khoản quản trị
   if (u.role === 'school_admin') fields.push({ name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1930-01-01', max: today, hint: 'Dùng ghép mật khẩu khi cấp lại theo quy ước.' });
   if (schools.length && u.role !== 'root_admin') fields.push({ name: 'school_id', label: 'Trường', type: 'select', options: schools, hint: 'Chỉ chuyển trường được khi tài khoản chưa thuộc lớp nào.' });

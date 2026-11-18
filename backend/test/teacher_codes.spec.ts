@@ -28,7 +28,8 @@ import { tmpdir } from 'os';
     const {id,username}=made.body.user;
     const edited=await api('PATCH',`/api/admin/users/${id}`,{birth_date:'1986-04-16',user_code:'MA-SAI'});
     expect(edited.status).toBe(200);expect(edited.body.username).toBe(username);
-    expect(edited.body.user_code).toBe(before.body.code.replace('15031985','16041986'));
+    // 19/11/2026 (migration 078): sửa ngày sinh không đổi mã đã cấp
+    expect(edited.body.user_code).toBe(before.body.code);
     const preview=await api('GET',`/api/admin/registration-code/teacher?user_id=${id}&birth_date=1986-04-16`);
     expect(preview.body.code).toBe(edited.body.user_code);
     const list=await api('GET','/api/admin/teachers');expect(list.body.items.find((u:any)=>u.id===id).user_code).toBe(edited.body.user_code);
@@ -45,6 +46,10 @@ import { tmpdir } from 'os';
     expect((await api('DELETE',`/api/admin/users/${result[0].body.user.id}`,undefined,f.root)).status).toBe(204);
     expect((await api('GET','/api/admin/registration-code/teacher')).body.serial).toBe(before+2);
     expect((await api('GET','/api/admin/registration-code/teacher',undefined,f.B.token)).body.serial).toBe(2);
+    // tài khoản cũ chưa có ngày sinh (mã tạm GV…): bổ sung ngày sinh thì được cấp mã theo quy ước; đã có mã theo quy ước thì sửa ngày sinh không đổi mã (migration 078)
+    const kept=(await api('PATCH',`/api/admin/users/${f.T1.id}`,{birth_date:'1980-06-01'})).body;
+    expect(kept.user_code).toMatch(/2615031985001$/);
+    await sql(s.url,"UPDATE app_users SET birth_date=NULL, user_code='GV00000777' WHERE id=$1",[f.T1.id]);
     const old=(await api('PATCH',`/api/admin/users/${f.T1.id}`,{birth_date:'1980-06-01'})).body;
     expect(old.user_code).toMatch(/2601061980001$/);
     expect((await api('GET',`/api/admin/classes/${f.class7a.id}`)).body.teachers[0].id).toBe(f.T1.id);

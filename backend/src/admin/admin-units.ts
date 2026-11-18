@@ -96,6 +96,32 @@ export function wardFromAddress(city: string | null | undefined, address: string
 }
 
 /**
+ * Phần đầu văn bản của trường (19/11/2026, người dùng: "không còn quận nữa, học theo năm 2026"): từ 01/07/2025 trường mầm non, tiểu học, THCS do
+ * UBND cấp xã (phường / xã / đặc khu) quản lý (Nghị định 142/2025/NĐ-CP), văn bản của trường năm học 2025–2026 ghi "UBND PHƯỜNG … / TRƯỜNG THCS …".
+ * Địa danh ở dòng "…, ngày … tháng … năm …" là tên đơn vị hành chính nơi trường đóng trụ sở, bỏ chữ chỉ cấp (Nghị định 30/2020/NĐ-CP), giữ đầy đủ
+ * khi tên là số ("Phường 2") hoặc tên người ("Thành phố Hồ Chí Minh").
+ * Phường / xã lấy từ khu vực của trường (đơn vị mới), không có thì từ địa chỉ dạng mới. Trường còn lưu quận / huyện cũ (đã bỏ) thì KHÔNG ghi "UBND QUẬN …":
+ * bỏ dòng cơ quan chủ quản, địa danh là tỉnh / thành (quản trị trường bấm "Sửa thông tin" chọn phường / xã mới để có đủ phần đầu).
+ */
+export interface Letterhead { parent: string | null; place: string; ward: string | null }
+const PERSON_NAMED = new Set(['ho chi minh']);
+/** Địa danh từ tên đơn vị: "Phường Bình Trưng" → "Bình Trưng", "Phường 2" giữ nguyên, "Thành phố Hồ Chí Minh" giữ nguyên, "Tỉnh Đồng Nai" → "Đồng Nai" */
+export function unitPlace(unit: string | null | undefined): string {
+  const raw = String(unit ?? '').trim();
+  const stripped = raw.replace(/^(phường|xã|đặc khu|thị trấn|tỉnh|thành phố)\s+/i, '').trim();
+  if (!stripped) return '…………';
+  return /^\d+$/.test(stripped) || PERSON_NAMED.has(foldText(stripped)) ? raw : stripped;
+}
+export function letterhead(school: { region?: string | null; city?: string | null; address?: string | null } | null | undefined): Letterhead {
+  if (!school) return { parent: null, place: '…………', ward: null };
+  const region = String(school.region ?? '').trim();
+  const ward = findWard(school.city, region)?.name ?? (isNewUnit(region) ? region : null) ?? wardFromAddress(school.city, school.address)?.name ?? null;
+  if (ward) return { parent: `UBND ${ward.toLocaleUpperCase('vi')}`, place: unitPlace(ward), ward };
+  const city = currentCityName(school.city);
+  return { parent: null, place: city ? unitPlace(city) : '…………', ward: null };
+}
+
+/**
  * Gợi ý phường / xã khi chưa biết chắc (không tự điền – quản trị viên bấm chọn): tên xã / phường trong địa chỉ cũ trùng đúng một đơn vị mới của
  * tỉnh / thành, hoặc tên trường chứa đúng tên một đơn vị mới ("THCS An Thạnh 2" → "Xã An Thạnh").
  */

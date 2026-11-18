@@ -276,9 +276,11 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     const s3 = await qa('POST', '/api/admin/students', { user_code: 'HS003', full_name: 'Lê Văn Ba', birth_date: '2013-11-01', class_id: c7b.id, phone: '0900000058', email: 'tu.dong59.sprint2@example.edu.vn' });
     students = [s1.body.user.id, s2.body.user.id, s3.body.user.id];
     studentCodes.HS001=s1.body.user.user_code;studentCodes.HS002=s2.body.user.user_code;studentCodes.HS003=s3.body.user.user_code;
-    for (const bad of [{ full_name: '', birth_date: '2013-01-01' }, { user_code: 'HS9', full_name: 'Thiếu Sinh' }, { user_code: 'HS9', full_name: 'Sinh Sai', birth_date: '15/03/2013' }, { user_code: 'HS9', full_name: 'Thiếu Số Điện Thoại', birth_date: '2013-01-01', email: 'thieu.sdt@example.edu.vn' }]) {
+    for (const bad of [{ full_name: '', birth_date: '2013-01-01' }, { user_code: 'HS9', full_name: 'Thiếu Sinh' }, { user_code: 'HS9', full_name: 'Sinh Sai', birth_date: '15/03/2013' }, { user_code: 'HS9', full_name: 'Sai Số Điện Thoại', birth_date: '2013-01-01', phone: '090000' }]) {
       expect([JSON.stringify(bad), (await qa('POST', '/api/admin/students', bad)).status]).toEqual([JSON.stringify(bad), 422]);
     }
+    // 19/11/2026: học sinh không bắt buộc SĐT, email (giáo viên vẫn bắt buộc)
+    expect((await qa('POST', '/api/admin/teachers', { full_name: 'Thiếu Số Điện Thoại', birth_date: '1985-01-01', email: 'thieu.sdt@example.edu.vn' })).status).toBe(422);
     const canonical=await qa('POST','/api/admin/students',{user_code:studentCodes.HS001,full_name:'Mã Do Máy Chủ Cấp',birth_date:'2013-01-01', phone: '0900000060', email: 'tu.dong61.sprint2@example.edu.vn'});expect(canonical.status).toBe(201);expect(canonical.body.user.user_code).not.toBe(studentCodes.HS001);await qa('DELETE',`/api/admin/users/${canonical.body.user.id}`);
     expect((await qa('POST', '/api/admin/students', { user_code: 'HS777', full_name: 'Trùng Email', birth_date: '2013-01-01', email: 'HS002@example.edu.vn', phone: '0900000062' })).status).toBe(409);
     expect((await qa('POST', '/api/admin/students', { user_code: 'HS778', full_name: 'Lớp Lạ', birth_date: '2013-01-01', class_id: 999999, phone: '0900000063', email: 'tu.dong64.sprint2@example.edu.vn' })).status).toBe(404);

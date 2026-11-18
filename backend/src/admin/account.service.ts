@@ -77,6 +77,8 @@ const STUDENT_FORM_COLUMNS: FormColumn[] = [
 ];
 
 const MISSING_FOR_ACCOUNT = 'Cần đủ họ tên, SĐT, email và ngày sinh để tạo tài khoản';
+/** STT trong mã tới 1 tỷ (yêu cầu 19/11/2026): tối đa của cột INTEGER */
+const MAX_SERIAL = 2147483647;
 
 /** Dòng tiêu đề A2 của file mẫu: loại mẫu, tên trường và mã trường (mã trường chống nhầm file giữa hai trường trùng tên) */
 export const templateSubtitle = (role: MemberRole, school: string, code?: string | null): string =>
@@ -140,7 +142,9 @@ export class AccountService {
       const schoolId=this.schools.target(actor,opts.school_id??target?.school_id??undefined);
       if(target) this.canManage(actor,target);
       if(opts.birth_date && (!parseDate(opts.birth_date)||opts.birth_date>todayVn())) throw new UnprocessableEntityException('Ngày sinh không hợp lệ');
-      return this.teacherCode(q,schoolId,opts.birth_date||null,undefined,target?.id);
+      // tài khoản đã có mã theo quy ước: sửa thông tin không đổi mã (19/11/2026, migration 078)
+      const preview=await this.teacherCode(q,schoolId,opts.birth_date||null,undefined,target?.id);
+      return target?.birth_date && target.user_code && target.school_id===schoolId ? {...preview,code:target.user_code} : preview;
     });
     if(kind==='student') return this.schools.run(actor,async(q,scope)=>{
       const target=opts.user_id ? await this.load(q,scope,opts.user_id) : null;
@@ -148,7 +152,8 @@ export class AccountService {
       const schoolId=this.schools.target(actor,opts.school_id??target?.school_id??undefined);
       if(target) this.canManage(actor,target);
       if(opts.birth_date && (!parseDate(opts.birth_date)||opts.birth_date>todayVn())) throw new UnprocessableEntityException('Ngày sinh không hợp lệ');
-      return this.studentCode(q,schoolId,opts.birth_date||null,undefined,target?.id);
+      const preview=await this.studentCode(q,schoolId,opts.birth_date||null,undefined,target?.id);
+      return target?.birth_date && target.user_code && target.school_id===schoolId ? {...preview,code:target.user_code} : preview;
     });
     return this.schools.run(actor,async q=>(await q<{code:string}>('SELECT public.app_registration_code($1,false) AS code',[kind]))[0]);
   }
@@ -163,7 +168,7 @@ export class AccountService {
     const year=meta.year??Number(todayVn().slice(2,4)),prefix=`HS${meta.prefix}`;
     let requestedSerial=next??null;
     const base=`${prefix}${String(year).padStart(2,'0')}${born?born.slice(8,10)+born.slice(5,7)+born.slice(0,4):''}`;
-    if(!meta.serial && born && requested?.startsWith(base) && /^\d{3,9}$/.test(requested.slice(base.length))) requestedSerial=Math.max(requestedSerial??1,Number(requested.slice(base.length)));
+    if(!meta.serial && born && requested?.startsWith(base) && /^\d{3,10}$/.test(requested.slice(base.length)) && Number(requested.slice(base.length))<=MAX_SERIAL) requestedSerial=Math.max(requestedSerial??1,Number(requested.slice(base.length)));
     const serial=meta.serial??(await q<{serial:number}>('SELECT public.app_next_student_serial($1,$2,$3::date,$4) AS serial',[schoolId,year,born,requestedSerial]))[0].serial;
     const code=born?(await q<{code:string}>('SELECT public.app_student_identity($1,$2,$3::date,$4) AS code',[meta.name,year,born,serial]))[0].code:null;
     return {code,serial,year,prefix};
@@ -181,7 +186,7 @@ export class AccountService {
     const year=meta.year??Number(todayVn().slice(2,4));
     let serial=meta.serial??next??meta.next;
     const base=`${meta.prefix}${String(year).padStart(2,'0')}${born?born.slice(8,10)+born.slice(5,7)+born.slice(0,4):''}`;
-    if(!meta.serial && born && requested?.startsWith(base) && /^\d{3,9}$/.test(requested.slice(base.length))) serial=Math.max(serial,Number(requested.slice(base.length)));
+    if(!meta.serial && born && requested?.startsWith(base) && /^\d{3,10}$/.test(requested.slice(base.length)) && Number(requested.slice(base.length))<=MAX_SERIAL) serial=Math.max(serial,Number(requested.slice(base.length)));
     const code=born?(await q<{code:string}>('SELECT public.app_teacher_identity($1,$2,$3::date,$4) AS code',[meta.name,year,born,serial]))[0].code:null;
     return {code,serial,year,prefix:meta.prefix};
   }
@@ -370,10 +375,10 @@ export class AccountService {
   /** Thêm giáo viên (HK.QT.016) hoặc học sinh (HK.QT.026): sinh tên đăng nhập và mật khẩu tạm, bắt buộc đổi ở lần đăng nhập đầu */
   async createMember(actor: UserRow, role: MemberRole, body: MemberInput & { school_id?: number | null }) {
     const schoolId = this.schools.target(actor, body.school_id);
-    const input = this.checkMember(body);
-    // tên đăng nhập/mật khẩu theo quy ước GV|HS + tên + 4 số cuối SĐT + ngày sinh; checkMember đã bắt đủ thông tin nên luôn ghép được
+    const input = this.checkMember(body, role);
+    // tên đăng nhập/mật khẩu theo quy ước GV|HS + tên + 4 số cuối SĐT + ngày sinh (học sinh chưa có SĐT: HS + tên + ngày sinh); checkMember đã bắt đủ thông tin
     const conventional = memberCredentials(role, input.full_name, input.phone, input.birth_date);
-    if (!conventional) throw new UnprocessableEntityException(MISSING_FOR_ACCOUNT);
+    if (!conventional) throw new UnprocessableEntityException(role === 'student' ? 'Cần đủ họ tên và ngày sinh để tạo tài khoản học sinh' : MISSING_FOR_ACCOUNT);
     const password = conventional.password;
     const passwordHash = await hashPassword(password, BATCH_ROUNDS);
     return this.schools.run(actor, async (q) => {
@@ -389,7 +394,7 @@ export class AccountService {
     }).then((r) => { this.mail.kick(); return r; });
   }
 
-  private checkMember(body: MemberInput): MemberInput {
+  private checkMember(body: MemberInput, role: MemberRole): MemberInput {
     const input: MemberInput = {
       full_name: clean(body.full_name) as string, email: clean(body.email)?.toLowerCase() ?? null, phone: clean(body.phone), user_code: clean(body.user_code),
       birth_date: body.birth_date ?? null, gender: body.gender ?? null, class_id: body.class_id ?? null,
@@ -397,9 +402,9 @@ export class AccountService {
     };
     if (!input.full_name || input.full_name.length < 2) throw new UnprocessableEntityException('Họ tên tối thiểu 2 ký tự');
     if (!givenNameUpper(input.full_name)) throw new UnprocessableEntityException('Họ tên cần có tên gọi bằng chữ (ví dụ Nguyễn Văn An)');
-    // đủ họ tên, SĐT, email và ngày sinh mới tạo tài khoản (yêu cầu 11/11/2026)
-    if (!input.phone) throw new UnprocessableEntityException('Cần số điện thoại (10 chữ số) để tạo tên đăng nhập');
-    if (!input.email) throw new UnprocessableEntityException('Cần email để gửi tên đăng nhập và mật khẩu');
+    // giáo viên: đủ họ tên, SĐT, email và ngày sinh mới tạo tài khoản (yêu cầu 11/11/2026); học sinh (19/11/2026): SĐT, email không bắt buộc
+    if (role === 'teacher' && !input.phone) throw new UnprocessableEntityException('Cần số điện thoại (10 chữ số) để tạo tên đăng nhập');
+    if (role === 'teacher' && !input.email) throw new UnprocessableEntityException('Cần email để gửi tên đăng nhập và mật khẩu');
     if (!input.birth_date) throw new UnprocessableEntityException('Cần ngày sinh để tạo mã và tên đăng nhập');
     if (input.email && !EMAIL.test(input.email)) throw new UnprocessableEntityException('Email không hợp lệ');
     if (input.phone && !PHONE.test(input.phone)) throw new UnprocessableEntityException('Số điện thoại gồm đúng 10 chữ số');
@@ -601,7 +606,7 @@ export class AccountService {
       const conventional = target.role === 'school_admin'
         ? (school ? schoolAdminCredentials(school.name, target.full_name, target.phone, target.birth_date) : null)
         : memberCredentials(target.role as MemberRole, target.full_name, target.phone, target.birth_date);
-      if (!conventional) throw new UnprocessableEntityException('Tài khoản thiếu số điện thoại (10 chữ số) hoặc ngày sinh nên chưa cấp lại theo quy ước được; hãy bổ sung hồ sơ trước.');
+      if (!conventional) throw new UnprocessableEntityException(target.role === 'student' ? 'Tài khoản thiếu ngày sinh nên chưa cấp lại theo quy ước được; hãy bổ sung hồ sơ trước.' : 'Tài khoản thiếu số điện thoại (10 chữ số) hoặc ngày sinh nên chưa cấp lại theo quy ước được; hãy bổ sung hồ sơ trước.');
       await this.db.setPassword(id, await hashPassword(conventional.password, BATCH_ROUNDS), true, q);
       const fresh = (await this.db.getById(id, q)) as UserRow;
       const display = target.role === 'school_admin' ? fresh.username.toUpperCase() : shownUsername(fresh.username, conventional.username);

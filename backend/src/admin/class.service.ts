@@ -681,7 +681,7 @@ export class ClassService {
   async exportRoster(actor: UserRow, schoolId?: number | null, yearId?: number | null, classId?: number | null): Promise<{ buffer: Buffer; filename: string }> {
     const { school, year, classes } = await this.rosterData(actor, schoolId, yearId, classId);
     const buffer = await buildClassRosterBook({
-      identity: `Danh sách lớp năm học ${year.label} · ${school.name} · Mã trường ${school.school_code}`, school: school.name, schoolCode: school.school_code, region: school.region,
+      identity: `Danh sách lớp năm học ${year.label} · ${school.name} · Mã trường ${school.school_code}`, school: school.name, schoolCode: school.school_code, region: school.region, city: school.city, address: school.address,
       yearLabel: year.label, semester: classes[0]?.semester ?? 1,
     }, classes, !classId);
     return { buffer, filename: this.rosterFilename(school.name, year.label, classId ? classes[0]?.name : null, 'xlsx') };
@@ -779,7 +779,8 @@ export class ClassService {
     const spec = await this.assignSpec(actor, schoolId, yearId);
     const id = this.schools.target(actor, schoolId);
     const extra = await this.schools.run(actor, async (q) => ({
-      region: (await q<{ region: string | null }>('SELECT region FROM app_schools WHERE id = $1', [id]))[0]?.region ?? null,
+      // khu vực, tỉnh / thành, địa chỉ cho phần đầu "UBND phường / xã" (chính quyền hai cấp, letterhead)
+      place: (await q<{ region: string | null; city: string | null; address: string | null }>('SELECT region, city, address FROM app_schools WHERE id = $1', [id]))[0] ?? { region: null, city: null, address: null },
       teachers: (await q<{ user_code: string | null; full_name: string }>("SELECT user_code, full_name FROM app_users WHERE school_id = $1 AND role = 'teacher' AND deleted_at IS NULL AND is_active = 1 ORDER BY full_name, id", [id]))
         .map((t) => `${t.user_code ?? 'Chưa có mã'} · ${t.full_name}`),
       students: (await q<{ user_code: string; full_name: string; birth_date: string | null; gender: string | null }>(
@@ -787,7 +788,7 @@ export class ClassService {
         .map((u) => ({ code: u.user_code, name: u.full_name, birth: u.birth_date ? ddmmyyyy(u.birth_date) : '', gender: u.gender === 'male' ? 'Nam' : u.gender === 'female' ? 'Nữ' : '' })),
     }));
     const buffer = await buildClassListSheet({
-      identity: assignSubtitle(spec.year_label, spec.school_name, spec.school_code), school: spec.school_name, schoolCode: spec.school_code, region: extra.region,
+      identity: assignSubtitle(spec.year_label, spec.school_name, spec.school_code), school: spec.school_name, schoolCode: spec.school_code, region: extra.place.region, city: extra.place.city, address: extra.place.address,
       yearLabel: spec.year_label, semester: spec.semester, teachers: extra.teachers, classes: spec.classes, students: extra.students, now,
       guide: [
         'Mỗi lớp một sheet: điền đủ 4 ô có dấu * là Lớp (ví dụ 6A1), Khối (6–9), Học kỳ (một năm học có học kỳ 1 và học kỳ 2) và Giáo viên phụ trách (mã giáo viên · họ tên). Thiếu một ô là cả file bị báo lỗi.',

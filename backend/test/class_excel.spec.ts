@@ -70,7 +70,7 @@ describe('mã tham gia theo quy ước', () => {
     A = { ...a, next };
     B = await school(OTHER, 'qt.lop.b@example.invalid', 'Phường Bình Trưng');
     // trường cũ còn lưu quận (dữ liệu trước 01/07/2025; từ 18/11/2026 API không nhận quận / huyện mới): ghi thẳng để kiểm tra địa danh là số
-    await sql(s.url, "UPDATE app_schools SET region = 'Quận 2' WHERE name = $1", [OTHER]);
+    await sql(s.url, "UPDATE app_schools SET region = 'Quận 2', city = 'Thành phố Hồ Chí Minh', address = NULL WHERE name = $1", [OTHER]);
     for (const name of ['6A1', '6A2']) expect((await api('POST', '/api/admin/classes', { year_id: A.year, grade: 6, name })).status).toBe(201);
     const t = await api('POST', '/api/admin/teachers', { full_name: 'Nguyễn Đức Anh', email: 'anh.gv@example.edu.vn', phone: '0901234567', birth_date: '1985-03-15' });
     teacherId = t.body.user.id;
@@ -120,9 +120,10 @@ describe('mã tham gia theo quy ước', () => {
     expect(sheet.getCell(r, 6).value).toMatchObject({ formula: expect.stringContaining('UPPER(TRIM($C$11))') }); // cột LỚP tự lấy theo ô Lớp ở dòng có học sinh
     const an = [1, 2, 3, 4, 5, 6, 7].map((n) => catalog.getCell(n, 3).value).indexOf(codes.an) + 1;
     expect([catalog.getCell(an, 4).value, catalog.getCell(an, 5).value, catalog.getCell(an, 6).value]).toEqual(['Trần Hoài An', '01/07/2015', 'Nữ']);
-    // trường ở Quận 2: giữ "Quận 2", không thành "2, ngày …"
+    // trường còn lưu Quận 2 (đã bỏ từ 01/07/2025, 19/11/2026): không ghi "UBND QUẬN 2", địa danh là tỉnh / thành (tên người giữ đầy đủ)
     const other = (await open(await template(B.year, B.token))).getWorksheet('Xếp lớp')!;
-    expect(String(other.getCell('D6').value)).toMatch(/^Quận 2, (Thứ \S+|Chủ Nhật), ngày /);
+    expect(String(other.getCell('A4').value)).not.toMatch(/UBND QUẬN/);
+    expect(String(other.getCell('D6').value)).toMatch(/^Thành phố Hồ Chí Minh, (Thứ \S+|Chủ Nhật), ngày /);
   });
 
   test('nhập một lớp: mã hoặc họ tên + ngày sinh; giáo viên phụ trách học kỳ; sĩ số thực có; mã tham gia DongA… và học sinh gõ mã kiểu nào cũng vào được', async () => {

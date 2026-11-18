@@ -298,7 +298,7 @@ export class QuestionService {
     const school = await this.ownerSchool(user);
     const campaigns = (await this.db.query<{ title: string }>('SELECT title FROM hist_campaigns ORDER BY sort_order, start_year NULLS LAST, id')).map((c) => c.title);
     return buildQuestionSheet({
-      school: school ? { name: school.name, code: school.code, region: school.region } : null,
+      school: school ? { name: school.name, code: school.code, region: school.region, city: school.city, address: school.address } : null,
       author: user.user_code ? `${user.user_code} · ${user.full_name}` : user.full_name,
       campaigns,
       guide: [

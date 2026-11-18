@@ -4,6 +4,7 @@ import { join } from 'path';
 import { BadRequestException, PayloadTooLargeException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as ExcelJS from 'exceljs';
+import { letterhead } from './admin-units';
 
 export const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 export const MAX_FILE_BYTES = 2 * 1024 * 1024;
@@ -60,17 +61,18 @@ export function givenNameUpper(fullName: string): string {
  * tên đăng nhập = GV (giáo viên) hoặc HS (học sinh) + tên gọi (từ cuối của họ tên, bỏ dấu, viết hoa chữ đầu) + 4 số cuối điện thoại + ngày sinh ddmmyyyy,
  * ví dụ GVAnh672010042005. mật khẩu = DongA + GV/HS + tên gọi + ngày sinh ddmmyyyy, ví dụ DongAGVAnh10042005.
  * Chỉ dùng cho lần đăng nhập đầu: tài khoản bị buộc đổi mật khẩu.
- * Trả null khi thiếu SĐT 10 số, ngày sinh hoặc họ tên không có tên gọi: đủ hết mới tạo tài khoản, không còn cách cũ (tên tự sinh, mật khẩu ngẫu nhiên).
+ * Trả null khi thiếu ngày sinh, họ tên không có tên gọi hoặc SĐT sai; giáo viên bắt buộc SĐT 10 số. Học sinh chưa có SĐT (19/11/2026, SĐT không bắt buộc
+ * khi thêm học sinh): tên đăng nhập bỏ 4 số cuối điện thoại, ví dụ HSHoa13102008; mật khẩu không dùng SĐT nên giữ nguyên quy ước.
  * Tên đăng nhập lưu chữ thường (đăng nhập không phân biệt hoa thường); hiển thị và gửi thư đúng như ví dụ.
  */
 export function memberCredentials(role: 'teacher' | 'student', fullName: string, phone: string | null | undefined, birthDate: string | null | undefined): { username: string; password: string } | null {
   const upper = givenNameUpper(fullName);
   const born = birthDate ? parseDate(birthDate) : null;
   const digits = (phone ?? '').trim();
-  if (!upper || !born || !/^[0-9]{10}$/.test(digits)) return null;
+  if (!upper || !born || (digits ? !/^[0-9]{10}$/.test(digits) : role === 'teacher')) return null;
   const given = upper[0] + upper.slice(1).toLowerCase();
   const prefix = role === 'teacher' ? 'GV' : 'HS';
-  const tail = digits.slice(-4);
+  const tail = digits ? digits.slice(-4) : '';
   const dob = `${born.slice(8, 10)}${born.slice(5, 7)}${born.slice(0, 4)}`;
   return { username: `${prefix}${given}${tail}${dob}`, password: `DongA${prefix}${given}${dob}` };
 }
@@ -532,7 +534,7 @@ export const CLASS_LIST_FIRST_ROW = 17;
 export interface ClassListSpec {
   /** Dòng A2 dùng để nhận đúng file khi nhập (loại mẫu, năm học, tên và mã trường) */
   identity: string;
-  school: string; schoolCode: string; region: string | null;
+  school: string; schoolCode: string; region: string | null; city?: string | null; address?: string | null;
   yearLabel: string; semester: number;
   /** Giáo viên để chọn ở ô Giáo viên phụ trách, dạng "Mã giáo viên · Họ tên" */
   teachers: string[];
@@ -583,10 +585,10 @@ function drawClassSheet(workbook: ExcelJS.Workbook, sheetName: string, spec: Cla
 
   // phần đầu như văn bản của nhà trường
   const schoolLine = /^trường\s/i.test(spec.school) ? upperVn(spec.school) : `TRƯỜNG ${upperVn(spec.school)}`;
-  const left = spec.region ? [`UBND ${upperVn(spec.region)}`, schoolLine] : [schoolLine, ''];
-  // địa danh: bỏ chữ Phường/Xã… ở đầu, trừ khi phần còn lại chỉ là số (Quận 2 giữ nguyên, không thành "2, ngày …")
-  const stripped = (spec.region ?? '').replace(/^(phường|xã|quận|huyện|thị trấn|thị xã|thành phố)\s+/i, '').trim();
-  const place = (/^\d+$/.test(stripped) ? (spec.region ?? '').trim() : stripped) || '……………';
+  // UBND phường / xã và địa danh theo chính quyền hai cấp (letterhead); khu vực cũ quận / huyện thì không ghi cơ quan chủ quản, địa danh là tỉnh / thành
+  const letter = letterhead({ region: spec.region, city: spec.city, address: spec.address });
+  const left = letter.parent ? [letter.parent, schoolLine] : [schoolLine, ''];
+  const place = letter.place;
   const [d, m, y] = [today.slice(0, 2), today.slice(3, 5), today.slice(6, 10)];
   const weekday = today.slice(12, -1); // "12/11/2026 (Thứ Năm)" → "Thứ Năm"
   put('A4:C4', left[0], font(11, { bold: true }));
@@ -817,7 +819,7 @@ export function checkQuestionFile(a2: string, owner: { name: string; code: strin
 
 export interface QuestionSheetSpec {
   /** Trường của người tải mẫu; `null` là kho hệ thống (quản trị viên tổng) */
-  school: { name: string; code: string | null; region: string | null } | null;
+  school: { name: string; code: string | null; region: string | null; city?: string | null; address?: string | null } | null;
   /** Người soạn, ví dụ "GVAnh672010042005 · Nguyễn Văn Anh" */
   author: string;
   /** Tên các cuộc kháng chiến (chủ đề) để chọn ở cột CHỦ ĐỀ */
@@ -879,9 +881,9 @@ export async function buildQuestionSheet(spec: QuestionSheetSpec): Promise<Buffe
   // phần đầu như văn bản của nhà trường
   const school = spec.school;
   const schoolLine = school ? (/^trường\s/i.test(school.name) ? upperVn(school.name) : `TRƯỜNG ${upperVn(school.name)}`) : 'HỆ THỐNG HỌC TẬP ĐÔNG A';
-  const left = school?.region ? [`UBND ${upperVn(school.region)}`, schoolLine] : [schoolLine, ''];
-  const stripped = (school?.region ?? '').replace(/^(phường|xã|quận|huyện|thị trấn|thị xã|thành phố)\s+/i, '').trim();
-  const place = (/^\d+$/.test(stripped) ? (school?.region ?? '').trim() : stripped) || '……………';
+  const letter = letterhead(school);
+  const left = letter.parent ? [letter.parent, schoolLine] : [schoolLine, ''];
+  const place = school ? letter.place : '……………';
   const [d, m, y] = [today.slice(0, 2), today.slice(3, 5), today.slice(6, 10)];
   const weekday = today.slice(12, -1);
   put('A4:C4', left[0], font(11, { bold: true }));
