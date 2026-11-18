@@ -24,6 +24,9 @@ Tài liệu chính thức: [GitHub status checks](https://docs.github.com/en/pul
 
 ## Giữ máy chủ Render luôn thức (`keep-alive.yml`, 17/11/2026)
 
+- **Lớp chính (18/11/2026): máy chủ tự gọi chính mình.** `backend/src/platform/keep-alive.ts` – khi chạy trên Render (có `RENDER_EXTERNAL_URL`), cứ 10 phút (lần đầu sau 1 phút) gọi `RENDER_EXTERNAL_URL/api/health?warm=ai` qua cổng công khai nên dịch vụ không bao giờ đủ 15 phút yên lặng để ngủ. Kiểm chứng ở `/api/health` → `keep_alive` (`enabled`, `last_at`, `last_status`). Tắt bằng biến môi trường `KEEP_ALIVE=off` trên Render. Lý do: lịch của GitHub Actions chỉ chạy "theo khả năng" – workflow mới thêm ngày 17–18/11 ở trạng thái `active` nhưng hơn 1 giờ không chạy lần nào.
+- **Lớp dự phòng:** workflow bên dưới đánh thức máy chủ nếu nó lỡ ngủ (ví dụ sập rồi Render dừng).
+
 - Gói miễn phí của Render cho `dong-a-api` ngủ sau 15 phút không có yêu cầu; người vào lúc đó chờ khoảng 1 phút và AI phải nạp lại mô hình, nên trang báo "không kết nối được máy chủ". Theo yêu cầu của người dùng, workflow `Keep server awake` gọi `https://dong-a-api.onrender.com/api/health?warm=ai` mỗi 10 phút (`*/10 * * * *`; thử lại tối đa 4 lần, mỗi lần chờ 90 giây). `?warm=ai` nạp lại mô hình AI Python nếu nó đang tắt (lần thử trước thất bại chưa quá 3 phút thì chờ).
 - Không dùng mật khẩu, token hay khóa bí mật; `permissions: {}`. Repo công khai nên GitHub Actions không tính phí phút chạy. Có thể chạy tay ở tab Actions (Run workflow).
 - Hệ quả cần biết: máy chủ luôn chạy dùng khoảng 720–744 giờ / tháng, gần hết **750 giờ miễn phí của cả tài khoản Render**; nếu tài khoản có thêm dịch vụ miễn phí khác đang chạy thì có thể hết giờ giữa tháng (Render tạm dừng dịch vụ tới đầu tháng sau). Muốn bỏ hẳn giới hạn thì nâng gói của dịch vụ trên Render.
