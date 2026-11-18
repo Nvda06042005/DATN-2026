@@ -1,5 +1,7 @@
 # Khung năm học và học kỳ
 
+> **Cập nhật 18/11/2026 (thay đoạn dưới):** theo yêu cầu người dùng, form Thêm / Sửa năm học của quản trị trường **tự nhập** năm học (chữ, dạng `2027-2028`) và chọn trên lịch ngày bắt đầu / kết thúc năm học, học kỳ 1, học kỳ 2 (gửi `calendar_mode: 'manual'`); **bỏ việc tự lấy khung Bộ / Sở** cho năm mới. Năm cũ đã lưu theo `national` vẫn hiển thị như trước (máy chủ vẫn giữ hàm `school_year_framework` và API `school-year-options` cho dữ liệu cũ). Cột Trạng thái là nút gạt (bật = kích hoạt, tắt = kết thúc), cột **Bắt đầu lúc** là thời điểm bấm kích hoạt (`activated_at`, migration 076). Các mốc Bộ dưới đây chỉ còn là tham khảo.
+
 Từ 08/11/2026, form chỉ chọn năm học rồi xem hai thẻ học kỳ chỉ đọc; không còn bảng gợi ý, nút điền/xóa học kỳ hay các ô cấu hình ngày. Máy chủ lấy quy tắc đã xác minh từ hàm PostgreSQL `school_year_framework(label)` (migration 051). Danh sách chọn tăng theo năm hiện tại ở Việt Nam, có lịch từ 2020 và hai năm tiếp theo. Quyết định 2308 áp dụng từ 2026-2027 và các năm sau; đây là áp dụng văn bản đang hiệu lực, không phải tự thu thập hay tự phê duyệt văn bản mới từ Internet. Khi Bộ thay đổi khung, phải thêm migration chứa nguồn đã đối chiếu.
 
 Mỗi dòng hiển thị **tuần thực học** và **hạn hoàn thành trước ngày**. Không lấy số ngày chia 7 để gọi là tuần thực học; không hiển thị “tuần 10/20”. Học kỳ 1 cần 18 tuần và học kỳ 2 cần 17 tuần; ngày nghỉ, tuần dự phòng và lịch dạy của từng địa phương không suy ra được chỉ từ các hạn quốc gia. Không tự lấy thứ Bảy làm ngày kết thúc rồi gọi là ngày của Bộ.

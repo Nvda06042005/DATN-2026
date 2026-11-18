@@ -19,18 +19,8 @@ const BATCH_ROUNDS = 8;
 const EMAIL = /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/;
 const PHONE = /^[0-9]{10}$/;
 
-/**
- * Họ tên viết hoa chữ cái đầu mỗi từ, các chữ sau viết thường (yêu cầu 18/11/2026): "Nguyễn Vũ Đức Anh" được; "Nguyễn vũ Đức Anh", "NGUYỄN VŨ" thì không.
- * Trả câu báo lỗi kèm cách viết đúng, hoặc null khi hợp lệ.
- */
-export const properName = (name: string): string => name.normalize('NFC').trim().split(/\s+/).filter(Boolean)
-  .map((w) => w.charAt(0).toLocaleUpperCase('vi') + w.slice(1).toLocaleLowerCase('vi')).join(' ');
-export function nameCaseError(name: string | null | undefined): string | null {
-  const text = String(name ?? '').normalize('NFC').trim();
-  if (!text) return null;
-  const ok = text.split(/\s+/).every((w) => /^\p{Lu}[\p{Ll}\p{M}]*$/u.test(w) || /^\d+$/.test(w));
-  return ok ? null : `Họ và tên phải viết hoa chữ cái đầu mỗi từ, ví dụ “${properName(text)}”`;
-}
+import { nameCaseError, properName } from './person-name';
+export { nameCaseError, properName };
 const GENDERS: Record<string, 'male' | 'female' | 'other'> = { nam: 'male', male: 'male', nu: 'female', female: 'female', khac: 'other', other: 'other' };
 const GENDER_LABEL = { male: 'Nam', female: 'Nữ', other: 'Khác' } as const;
 

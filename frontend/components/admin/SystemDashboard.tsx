@@ -5,13 +5,14 @@ import * as api from '@/api/analyticsApi';
 import { ErrorNote, useLoad } from '@/components/admin/kit';
 import { DashboardGauge, type GaugeLevel } from '@/components/admin/DashboardGauge';
 import { DashboardMetric as Metric } from '@/components/admin/DashboardMetric';
-import { AiCard, BLUE, ContentCard, GOLD, GREEN, PURPLE, RolesCard, UsageCard, contentTotals } from '@/components/admin/DashboardPanels';
+import { BLUE, GOLD, GREEN, PURPLE, contentTotals } from '@/components/admin/DashboardPanels';
+import { DashboardDetailSheet, SchoolsCard, type DetailKind } from '@/components/admin/DashboardDetail';
 import { TrendChart, type TrendPoint } from '@/components/admin/TrendChart';
 import type { Session } from '@/components/auth';
 import { shortDay } from '@/components/charts';
 import { Btn, Card, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
-import { calendarBuckets, rollingAverage } from '@/lib/dashboard-trend';
+import { calendarBuckets } from '@/lib/dashboard-trend';
 import { fmt } from '@/lib/format';
 
 export const dateText = (day: string) => `${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}`;
@@ -35,13 +36,14 @@ export function Pill({ testID, label, on, onPress, accessibilityLabel }: { testI
  */
 export function SystemDashboard({ session }: { session: Session }) {
   const { c } = useTheme();
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const wide = width >= 1240;
   const [days, setDays] = useState<7 | 14 | 30>(30);
   const [tab, setTab] = useState<Tab>('users');
   const [refreshKey, setRefreshKey] = useState(0);
   const [chartArea, setChartArea] = useState(0);
   const [gaugeArea, setGaugeArea] = useState(0);
+  const [detail, setDetail] = useState<DetailKind | null>(null);
   const { token, expired } = session;
   const overview = useLoad(() => api.systemOverview(token), [token, refreshKey], expired);
   const content = useLoad(() => api.systemContent(token), [token, refreshKey], expired);
@@ -52,9 +54,9 @@ export function SystemDashboard({ session }: { session: Session }) {
   const totalUsers = Object.values(roles).reduce((sum, n) => sum + n, 0);
 
   const usersTrend = useMemo(() => {
+    // số người mỗi ngày là số nguyên: cột từng ngày, bỏ đường trung bình trượt 7 ngày (ra số lẻ như "0,14 người", 18/11/2026)
     const source = d?.series ?? [];
-    const average = rollingAverage(source.map((p) => p.users));
-    return source.map((p, i): TrendPoint => ({ key: p.day, label: shortDay(p.day), detail: dateText(p.day), values: { users: p.users, average: average[i] } })).slice(-days);
+    return source.map((p): TrendPoint => ({ key: p.day, label: shortDay(p.day), detail: dateText(p.day), values: { users: p.users } })).slice(-days);
   }, [d, days]);
   const learningTrend = useMemo(() => {
     const u = usage.data;
@@ -118,12 +120,13 @@ export function SystemDashboard({ session }: { session: Session }) {
     {overview.loading && !d ? <Spinner label="Đang tải dashboard…" /> : null}
     {d ? <>
       <View testID="dashboard-metrics" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: rowGap }}>
-        <Metric compact label="Trường hoạt động" value={d.schools} hint={`/ ${fmt(d.schools_total)}`} icon={Building2} color={c.son} background={c.sonNhat} />
-        <Metric compact label="Học sinh" value={roles.student ?? 0} hint="" icon={GraduationCap} color={c.thuyChu} background={c.thuyNhat} />
-        <Metric compact label="Giáo viên" value={roles.teacher ?? 0} hint="" icon={UserRound} color={c.thongChu} background={c.thongNhat} />
-        <Metric compact label="Hoạt động hôm nay" value={d.dau} hint="người" icon={Activity} color={c.ngocChu} background={c.ngocNhat} />
-        <Metric compact label="Hoạt động 7 ngày" value={d.wau} hint="người" icon={CalendarDays} color={c.vangChu} background={c.vangNhat} />
-        <Metric compact label="Hoạt động 30 ngày" value={d.mau} hint="người" icon={TrendingUp} color={c.son} background={c.sonNhat} />
+        {/* bấm từng ô để xem danh sách cụ thể (18/11/2026) */}
+        <Metric compact label="Trường hoạt động" value={d.schools} hint={`/ ${fmt(d.schools_total)}`} icon={Building2} color={c.son} background={c.sonNhat} onPress={() => setDetail('schools')} testID="metric-schools" />
+        <Metric compact label="Học sinh" value={roles.student ?? 0} hint="" icon={GraduationCap} color={c.thuyChu} background={c.thuyNhat} onPress={() => setDetail('students')} testID="metric-students" />
+        <Metric compact label="Giáo viên" value={roles.teacher ?? 0} hint="" icon={UserRound} color={c.thongChu} background={c.thongNhat} onPress={() => setDetail('teachers')} testID="metric-teachers" />
+        <Metric compact label="Hoạt động hôm nay" value={d.dau} hint="người" icon={Activity} color={c.ngocChu} background={c.ngocNhat} onPress={() => setDetail('active_today')} testID="metric-active-today" />
+        <Metric compact label="Hoạt động 7 ngày" value={d.wau} hint="người" icon={CalendarDays} color={c.vangChu} background={c.vangNhat} onPress={() => setDetail('active_7')} testID="metric-active-7" />
+        <Metric compact label="Hoạt động 30 ngày" value={d.mau} hint="người" icon={TrendingUp} color={c.son} background={c.sonNhat} onPress={() => setDetail('active_30')} testID="metric-active-30" />
       </View>
 
       <View style={{ flexDirection: wide ? 'row' : 'column', gap: rowGap, ...(wide ? { flexGrow: 1, flexShrink: 0, flexBasis: 236, maxHeight: 560 } : null) }}>
@@ -135,11 +138,11 @@ export function SystemDashboard({ session }: { session: Session }) {
             </View>
           </View>
           <View style={wide ? { flex: 1, minHeight: 0 } : undefined} onLayout={(event) => setChartArea(event.nativeEvent.layout.height)}>
-            {tab === 'users' ? <TrendChart compact chartHeight={chartHeight} id="dashboard-users-trend" data={usersTrend} unit="người" summary="Người dùng hoạt động theo ngày và trung bình trượt 7 ngày"
-              series={[{ key: 'users', label: 'Hoạt động mỗi ngày', color: BLUE }, { key: 'average', label: 'Trung bình 7 ngày', color: PURPLE, dashed: true }]} /> : null}
-            {tab === 'learning' ? (usage.data ? <TrendChart compact chartHeight={chartHeight} id="dashboard-learning-trend" data={learningTrend} unit="lượt" summary="Hoạt động học tập theo thời gian"
-              series={[{ key: 'lessons', label: 'Bài học', color: BLUE }, { key: 'quizzes', label: 'Quiz', color: PURPLE, dashed: true }, { key: 'battles', label: 'Trận đánh, mini-game', color: GOLD }, { key: 'rooms', label: 'Phòng thi đấu', color: GREEN, dashed: true }]} /> : <Spinner label="Đang tải hoạt động học tập…" />) : null}
-            {tab === 'ai' ? (ai.data ? <TrendChart compact chartHeight={chartHeight} id="dashboard-ai-trend" data={aiTrend} unit="câu hỏi" summary="Số câu hỏi gửi Tiểu Tướng theo ngày"
+            {tab === 'users' ? <TrendChart bars compact chartHeight={chartHeight} id="dashboard-users-trend" data={usersTrend} unit="người" summary="Số người hoạt động mỗi ngày"
+              series={[{ key: 'users', label: 'Số người hoạt động trong ngày', color: BLUE }]} /> : null}
+            {tab === 'learning' ? (usage.data ? <TrendChart bars compact chartHeight={chartHeight} id="dashboard-learning-trend" data={learningTrend} unit="lượt" summary="Hoạt động học tập theo ngày"
+              series={[{ key: 'lessons', label: 'Bài học', color: BLUE }, { key: 'quizzes', label: 'Quiz', color: PURPLE }, { key: 'battles', label: 'Trận đánh, mini-game', color: GOLD }, { key: 'rooms', label: 'Phòng thi đấu', color: GREEN }]} /> : <Spinner label="Đang tải hoạt động học tập…" />) : null}
+            {tab === 'ai' ? (ai.data ? <TrendChart bars compact chartHeight={chartHeight} id="dashboard-ai-trend" data={aiTrend} unit="câu hỏi" summary="Số câu hỏi gửi Tiểu Tướng theo ngày"
               series={[{ key: 'questions', label: 'Câu hỏi Tiểu Tướng', color: PURPLE }]} /> : <Spinner label="Đang tải thống kê AI…" />) : null}
           </View>
         </Card>
@@ -152,14 +155,9 @@ export function SystemDashboard({ session }: { session: Session }) {
         </Card>
       </View>
 
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: rowGap, minHeight: 204 }}>
-        {[
-          <RolesCard key="roles" roles={roles} newUsers={d.new_users_30d} />,
-          <ContentCard key="content" d={content.data} />,
-          <UsageCard key="usage" d={usage.data} days={days} />,
-          <AiCard key="ai" d={ai.data} days={days} topN={height >= 860 ? 3 : 2} />,
-        ].map((card) => <View key={card.key} style={{ flexGrow: 1, flexBasis: wide ? 0 : 300, minWidth: wide ? 220 : 260 }}>{card}</View>)}
-      </View>
+      {/* thay bốn thẻ tóm tắt cũ (quá rối) bằng một bảng theo từng trường (18/11/2026) */}
+      <SchoolsCard session={session} refreshKey={refreshKey} />
     </> : null}
+    {detail ? <DashboardDetailSheet session={session} kind={detail} onClose={() => setDetail(null)} /> : null}
   </ScrollView>;
 }

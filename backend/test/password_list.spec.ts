@@ -146,4 +146,57 @@ describe('mã hóa mật khẩu ban đầu', () => {
     const again = await api('POST', `/api/admin/users/${adminA.id}/reissue-password`, undefined, root);
     expect(again.body).toMatchObject({ display_username: 'QLYGOTAN6720', temporary_password: 'DongA06041990@AN' });
   });
+
+  test('năm học: "Bắt đầu lúc" ghi khi kích hoạt (migration 076); thống kê: danh sách cụ thể sau số liệu theo phạm vi', async () => {
+    // bài trước cấp lại mật khẩu cho quản trị viên trường A (phiên cũ bị thu hồi): đăng nhập lại bằng mật khẩu cấp lại rồi đổi
+    A.token = (await activate(s.base, 'qlygotan6720', 'DongA06041990@AN', PW, 'school_admin')).token;
+    const year = await api('POST', '/api/admin/school-years', { label: '2026-2027', starts_on: '2026-09-05', ends_on: '2027-05-31', calendar_mode: 'manual', term1_starts_on: '2026-09-05', term1_ends_on: '2027-01-16', term2_starts_on: '2027-01-18', term2_ends_on: '2027-05-25' });
+    expect(year.status).toBe(201);
+    expect(year.body).toMatchObject({ calendar_mode: 'manual', activated_at: null });
+    const on = await api('POST', `/api/admin/school-years/${year.body.id}/activate`);
+    expect(Math.abs(new Date(on.body.activated_at).getTime() - Date.now())).toBeLessThan(60_000);
+    expect((await api('GET', '/api/admin/school-years')).body.find((y: { id: number }) => y.id === year.body.id).activated_at).toBe(on.body.activated_at);
+    const schools = await api('GET', '/api/analytics/details?kind=schools', undefined, root);
+    expect(schools.status).toBe(200);
+    expect(schools.body.find((x: { id: number }) => x.id === A.id)).toMatchObject({ name: 'THCS Giồng Ông Tố', teachers: 1, students: 1 });
+    expect((await api('GET', '/api/analytics/details?kind=schools')).status).toBe(403); // quản trị trường không xem danh sách mọi trường
+    const mine = (await api('GET', '/api/analytics/details?kind=students')).body as Array<{ id: number }>;
+    expect(mine.map((x) => x.id)).toEqual([student.id]); // chỉ học sinh trường mình
+    expect(((await api('GET', '/api/analytics/details?kind=students', undefined, root)).body as Array<{ id: number }>).map((x) => x.id)).toEqual(expect.arrayContaining([student.id, other.id]));
+    const classes = await api('GET', '/api/analytics/details?kind=classes');
+    expect(classes.status).toBe(200);
+    // bảng "Theo từng lớp": sĩ số và số liệu hoạt động theo học sinh của lớp
+    for (const row of classes.body as Array<Record<string, unknown>>) for (const k of ['students', 'active_7', 'active_30', 'lessons_30', 'ai_30']) expect(typeof row[k]).toBe('number');
+    expect((await api('GET', '/api/analytics/details?kind=active_7')).status).toBe(200);
+    expect((await api('GET', '/api/analytics/details?kind=khong_co')).status).toBe(400);
+  });
+
+  test('đổi người liên hệ của trường: tài khoản quản trị viên trường đổi theo, cấp lại tên đăng nhập + mật khẩu theo quy ước, gửi thư; thông tin cũ lưu ở kho dữ liệu đã xóa', async () => {
+    const before = (await sql<{ id: number; username: string }>(s.url, "SELECT id, username FROM app_users WHERE school_id = $1 AND role = 'school_admin' ORDER BY created_at, id LIMIT 1", [A.id]))[0];
+    // sai quy tắc viết hoa thì không đổi gì
+    expect((await api('PATCH', '/api/admin/school', { contact_name: 'Trần thị Bích', contact_email: 'bich.qt@example.invalid', contact_phone: '0909998877', contact_birth_date: '1992-05-06' })).status).toBe(422);
+    const res = await api('PATCH', '/api/admin/school', { contact_name: 'Trần Thị Bích', contact_email: 'bich.qt@example.invalid', contact_phone: '0909998877', contact_birth_date: '1992-05-06' });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ contact_name: 'Trần Thị Bích', contact_email: 'bich.qt@example.invalid', contact_phone: '0909998877' });
+    expect(res.body.reissued).toMatchObject({ user_id: before.id, username: 'QLYGOTBICH8877', temporary_password: 'DongA06051992@BICH', email: 'bich.qt@example.invalid', self: true });
+    // phiên cũ bị thu hồi; đăng nhập bằng thông tin mới (phải đổi mật khẩu)
+    expect((await api('GET', '/api/admin/school')).status).toBe(401);
+    const fresh = await login('qlygotbich8877', 'DongA06051992@BICH', 'school_admin');
+    expect(fresh.status).toBe(200);
+    expect(fresh.body.user).toMatchObject({ full_name: 'Trần Thị Bích', must_change_password: true });
+    // quản trị tổng thấy tên đăng nhập và mật khẩu mới ở "Mật khẩu tài khoản"
+    expect(await rowOf(before.id, root)).toMatchObject({ username: 'QLYGOTBICH8877', password: 'DongA06051992@BICH', status: 'initial' });
+    await mail.tick();
+    expect([...mail.sent].reverse().find((m) => m.to === 'bich.qt@example.invalid')?.text).toContain('DongA06051992@BICH');
+    // thông tin cũ trong kho dữ liệu đã xóa (loại replaced), không có mật khẩu
+    const archived = await sql<{ row_data: any; related_data: any; delete_kind: string }>(s.url, "SELECT row_data, related_data, delete_kind FROM app_deleted_records WHERE source_table = 'app_schools' AND delete_kind = 'replaced' AND school_id = $1 ORDER BY id DESC LIMIT 1", [A.id]);
+    expect(archived[0].related_data.app_users).toMatchObject({ id: before.id, username: before.username, full_name: 'Nguyễn Văn An', email: 'qt.a@example.invalid' });
+    expect(JSON.stringify(archived)).not.toMatch(/password|DongA/i);
+    // gửi lại đúng người liên hệ hiện tại thì không cấp lại
+    const token = (await activate(s.base, 'qlygotbich8877', 'DongA06051992@BICH', PW, 'school_admin')).token;
+    A.token = token;
+    const same = await api('PATCH', '/api/admin/school', { contact_name: 'Trần Thị Bích', contact_email: 'bich.qt@example.invalid', contact_phone: '0909998877', contact_birth_date: '1992-05-06' });
+    expect(same.status).toBe(200);
+    expect(same.body.reissued).toBeNull();
+  });
 });

@@ -218,5 +218,7 @@ export class AnalyticsController {
   @Get('usage') @Roles('school_admin', 'root_admin') usage(@CurrentUser() user: UserRow, @Query() q: Json) { return this.analytics.usage(user, String(q.granularity ?? 'day'), q.days ? Number(q.days) : undefined); }
   @Get('ai') @Roles('school_admin', 'root_admin') ai(@CurrentUser() user: UserRow, @Query() q: Json) { return this.analytics.aiUsage(user, q.days ? Number(q.days) : undefined); }
   @Get('system/overview') @Roles('root_admin') systemOverview() { return this.analytics.systemOverview(); }
+  /** Danh sách cụ thể sau số liệu của trang thống kê: kind = schools | students | teachers | school_admins | classes | active_today | active_7 | active_30 */
+  @Get('details') @Roles('school_admin', 'root_admin') details(@CurrentUser() user: UserRow, @Query() q: Json) { return this.analytics.details(user, String(q.kind ?? '')); }
   @Get('system/content') @Roles('root_admin') content() { return this.analytics.contentStats(); }
 }

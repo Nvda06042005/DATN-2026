@@ -313,3 +313,13 @@ test('18/11/2026: Soạn thông báo có chip "Tất cả" (không còn chú th�
   assert.doesNotMatch(ops, /name: 'position'|Thứ tự hiển thị/);
   assert.match(read('components', 'portal', 'HelpCenter.tsx'), /export const mediaUrl = \(u: string\): string => \(u\.startsWith\('\/api\/'\) \? `\$\{API_BASE_URL\}\$\{u\}` : u\);/);
 });
+
+test('18/11/2026: đổi người liên hệ của trường cấp lại đăng nhập cho tài khoản quản trị viên trường (có ngày sinh, cảnh báo, hiện thông tin đăng nhập mới)', () => {
+  const school = read('components', 'admin', 'SchoolAdmin.tsx');
+  assert.match(school, /name: 'contact_birth_date', label: 'Ngày sinh người liên hệ', type: 'date', calendar: true/);
+  assert.match(school, /Người liên hệ là tài khoản quản trị viên trường/);
+  assert.match(school, /if \(res\.reissued\) setReissued\(res\.reissued\);/);
+  assert.match(school, /<CredentialSheet title="Đã cấp lại đăng nhập cho người liên hệ"/);
+  assert.match(school, /if \(self\) session\.expired\(\);/);
+  assert.match(read('api', 'adminApi.ts'), /export interface ContactReissue \{/);
+});

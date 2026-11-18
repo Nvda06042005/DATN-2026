@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { Btn, Txt } from '@/components/ui';
 import { FONT } from '@/constants/theme';
@@ -14,8 +14,10 @@ const number = (v: number) => v.toLocaleString('vi-VN', { maximumFractionDigits:
  * Đường liền/nét đứt, trục từ 0, chọn mốc bằng chuột/chạm hoặc nút trước/sau.
  * `compact` (trang tổng quan một màn hình): biểu đồ cao đúng `chartHeight`, số liệu của mốc đang chọn hiện thành một dòng phía trên thay vì khung nổi phủ lên biểu đồ.
  */
-export function TrendChart({ id, data, series, unit, summary, compact = false, chartHeight = 200 }: {
+export function TrendChart({ id, data, series, unit, summary, compact = false, chartHeight = 200, bars = false }: {
   id: string; data: TrendPoint[]; series: TrendSeries[]; unit: string; summary: string; compact?: boolean; chartHeight?: number;
+  /** Cột cho từng ngày (18/11/2026): số người / lượt là số nguyên nên vẽ cột dễ đọc hơn đường gấp khúc; nhiều chuỗi thì cột đứng cạnh nhau */
+  bars?: boolean;
 }) {
   const { c } = useTheme();
   const [width, setWidth] = useState(600);
@@ -29,7 +31,8 @@ export function TrendChart({ id, data, series, unit, summary, compact = false, c
   const top = Math.ceil(max / step) * step;
   const height = compact ? Math.max(110, chartHeight) : shown.length > 2 ? 330 : 300, left = 36, right = width < 400 ? 16 : 24, upper = compact ? 12 : Math.max(84, 32 + shown.length * 16), bottom = compact ? 26 : 38;
   const plotWidth = Math.max(1, width - left - right), plotHeight = height - upper - bottom;
-  const x = (i: number) => left + (data.length > 1 ? (i / (data.length - 1)) * plotWidth : plotWidth / 2);
+  const band = plotWidth / Math.max(1, data.length);
+  const x = (i: number) => (bars ? left + band * (i + 0.5) : left + (data.length > 1 ? (i / (data.length - 1)) * plotWidth : plotWidth / 2));
   const y = (v: number) => upper + (1 - v / top) * plotHeight;
   const current = Math.max(0, Math.min(selected, data.length - 1));
   const point = data[current];
@@ -52,7 +55,12 @@ export function TrendChart({ id, data, series, unit, summary, compact = false, c
         </React.Fragment>)}
         {data.map((p, i) => (i % every === 0 || i === data.length - 1) && (i === data.length - 1 || i <= data.length - 1 - every / 2) ? <SvgText key={p.key} x={x(i)} y={height - (compact ? 8 : 13)} textAnchor="middle" fontSize={10} fontFamily={FONT.body} fill={c.muc3}>{p.label}</SvgText> : null)}
         {point && <Line x1={x(current)} x2={x(current)} y1={upper - 6} y2={height - bottom} stroke={c.muc3} strokeDasharray="3 4" opacity={0.5} />}
-        {shown.map(s => {
+        {bars ? data.map((p, i) => shown.map((s, k) => {
+          const v = p.values[s.key] ?? 0;
+          const w = Math.max(2, Math.min(22, (band * 0.72) / shown.length));
+          const bx = x(i) - (w * shown.length) / 2 + k * w;
+          return v > 0 ? <Rect key={`${p.key}-${s.key}`} x={bx} y={y(v)} width={Math.max(1, w - 1)} height={Math.max(1, y(0) - y(v))} rx={2} fill={s.color} opacity={i === current ? 1 : 0.82} /> : null;
+        })) : shown.map(s => {
           let previous = false;
           const path = data.map((p, i) => {
             const v = p.values[s.key];
@@ -68,7 +76,7 @@ export function TrendChart({ id, data, series, unit, summary, compact = false, c
         })}
       </Svg>
       {data.map((p, i) => {
-        const half = plotWidth / Math.max(1, data.length - 1) / 2;
+        const half = bars ? band / 2 : plotWidth / Math.max(1, data.length - 1) / 2;
         const start = data.length === 1 ? left : Math.max(left, x(i) - half);
         const end = data.length === 1 ? width - right : Math.min(width - right, x(i) + half);
         return <Pressable key={p.key} testID={`${id}-point-${i}`} accessible={false} onHoverIn={() => setSelected(i)} onPress={() => setSelected(i)}
@@ -83,7 +91,7 @@ export function TrendChart({ id, data, series, unit, summary, compact = false, c
       {series.map(s => <Pressable key={s.key} testID={`${id}-legend-${s.key}`} accessibilityRole="button" accessibilityLabel={`${s.label}, ${hidden.includes(s.key) ? 'đang ẩn' : 'đang hiện'}`} accessibilityState={{ selected: !hidden.includes(s.key) }}
         onPress={() => setHidden(v => v.includes(s.key) ? v.filter(k => k !== s.key) : shown.length > 1 ? [...v, s.key] : v)}
         style={{ minHeight: compact ? 32 : 44, paddingHorizontal: 5, flexDirection: 'row', alignItems: 'center', gap: 6, opacity: hidden.includes(s.key) ? 0.45 : 1 }}>
-        <View style={{ width: 19, borderTopColor: s.color, borderTopWidth: 2, borderStyle: s.dashed ? 'dashed' : 'solid' }} />
+        {bars ? <View style={{ width: 12, height: 12, borderRadius: 3, backgroundColor: s.color }} /> : <View style={{ width: 19, borderTopColor: s.color, borderTopWidth: 2, borderStyle: s.dashed ? 'dashed' : 'solid' }} />}
         <Txt size={11} color={c.muc2}>{s.label}</Txt>
       </Pressable>)}
       <View style={{ marginLeft: 'auto', flexDirection: 'row', gap: 4 }}>

@@ -140,7 +140,12 @@ test('thống kê hệ thống: một trang tổng quan vừa một màn hình, 
   assert.match(dash, /flexGrow: 1, flexShrink: 0, flexBasis: 236, maxHeight: 560/);
   assert.match(dash, /contentContainerStyle=\{\{ flexGrow: 1, padding: 10/);
   assert.match(dash, /flexDirection: wide \? 'row' : 'column'/);
-  for (const card of ['RolesCard', 'ContentCard', 'UsageCard', 'AiCard']) assert.ok(dash.includes(`<${card} `), card);
+  // 18/11/2026: bốn thẻ tóm tắt cũ thay bằng bảng theo từng trường; bấm từng ô số liệu mở danh sách cụ thể; biểu đồ cột số nguyên, không còn trung bình trượt
+  for (const card of ['RolesCard', 'ContentCard', 'UsageCard', 'AiCard']) assert.ok(!dash.includes(`<${card} `), card);
+  assert.match(dash, /<SchoolsCard session=\{session\} refreshKey=\{refreshKey\} \/>/);
+  assert.match(dash, /onPress=\{\(\) => setDetail\('students'\)\}/);
+  assert.match(dash, /<TrendChart bars compact[^\n]*id="dashboard-users-trend"/);
+  assert.doesNotMatch(dash, /rollingAverage|Trung bình 7 ngày/);
   for (const id of ['dashboard-roles', 'dashboard-content', 'dashboard-usage', 'dashboard-ai']) assert.ok(panels.includes(`testID="${id}"`), id);
   // đồng hồ: cung xám nền, cung màu theo tỉ lệ, số lớn, nhãn mức có 5 ô
   assert.match(gauge, /export const gaugeArc = /);
@@ -240,9 +245,10 @@ test('trang Thống kê trường: cùng bố cục một màn hình với Thố
   assert.match(dash, /flexGrow: 1, flexShrink: 0, flexBasis: 236, maxHeight: 560/);
   assert.match(dash, /const \[titleHead, titleTail\] = splitTitle\('Thống kê trường'\);/);
   // bốn thẻ: cơ cấu người dùng (chỉ giáo viên và học sinh), kết quả theo khối, sử dụng, trợ lý AI không có chi phí
-  assert.match(dash, /<RolesCard key="roles" roles=\{\{ student: o\.students, teacher: o\.teachers \}\} only=\{\['student', 'teacher'\]\} \/>/);
-  for (const card of ['ResultsCard', 'UsageCard', 'AiCard']) assert.ok(dash.includes(`<${card} `), card);
-  assert.match(dash, /<AiCard key="ai" d=\{ai\.data\} days=\{days\} topN=\{height >= 860 \? 3 : 2\} money=\{false\} \/>/);
+  // 18/11/2026: như Thống kê hệ thống – bốn thẻ tóm tắt thay bằng bảng theo từng lớp, bấm ô số liệu mở danh sách
+  for (const card of ['RolesCard', 'ResultsCard', 'UsageCard', 'AiCard']) assert.ok(!dash.includes(`<${card} `), card);
+  assert.match(dash, /<ClassesCard session=\{session\} refreshKey=\{refreshKey\} \/>/);
+  assert.match(dash, /onPress=\{\(\) => setDetail\('classes'\)\}/);
   assert.match(panels, /testID="school-results"/);
   assert.match(panels, /money \? \['Chi phí ước tính'/);
   assert.match(panels, /newUsers != null \?/);

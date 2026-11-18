@@ -83,6 +83,8 @@ class UpdateMySchoolDto {
   @IsOptional() @IsEmail() contact_email?: string | null;
   @IsOptional() @IsString() @MaxLength(40) contact_phone?: string | null;
   @IsOptional() @IsUrl({ protocols: ['https'], require_protocol: true }, { message: 'Logo phải là liên kết https' }) @MaxLength(500) logo_url?: string | null;
+  /** Ngày sinh người liên hệ (ghép mật khẩu theo quy ước khi người liên hệ là quản trị viên trường, 18/11/2026) */
+  @IsOptional() @Matches(DATE, { message: 'Ngày sinh có dạng YYYY-MM-DD' }) contact_birth_date?: string | null;
   /** Phường / xã / đặc khu và tỉnh / thành theo mô hình hai cấp (kiểm tra ở máy chủ, không nhận quận / huyện cũ) */
   @IsOptional() @IsString() @MaxLength(80) region?: string | null;
   @IsOptional() @IsString() @MaxLength(80) city?: string | null;

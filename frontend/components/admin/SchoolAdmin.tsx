@@ -16,7 +16,8 @@ import { LogsPanel } from '@/components/admin/PlatformOps';
 import { SchoolEmblem } from '@/components/school-brand';
 import { HelpPage } from '@/components/portal/HelpCenter';
 import { NoticeBell } from '@/components/portal/NoticeCenter';
-import { ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, yearOptions, type FieldDef } from '@/components/admin/kit';
+import { CredentialSheet, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, yearOptions, type FieldDef } from '@/components/admin/kit';
+import { nameCaseError } from '@/lib/person-name';
 import { placeFields, saveStagedLogo, SchoolLogoField } from '@/components/admin/SchoolPlace';
 import { addressText, isNewUnit, isOldDistrict, streetPart } from '@/lib/admin-units';
 import { SchoolClasses } from '@/components/admin/SchoolClasses';
@@ -73,17 +74,29 @@ export const SchoolAdmin: React.FC<{ session: Session }> = ({ session }) => {
 };
 
 // Giống trang Trường học của quản trị tổng (18/11/2026): logo bằng ảnh tải lên, khu vực theo phường / xã – tỉnh / thành, địa chỉ tự ghép
+// người liên hệ = tài khoản quản trị viên trường đầu tiên (18/11/2026): đổi thì máy chủ cấp lại tên đăng nhập + mật khẩu theo quy ước và gửi email
 const CONTACT_FIELDS: FieldDef[] = [
-  { name: 'contact_name', label: 'Người liên hệ' },
+  { name: 'contact_note', label: 'Người liên hệ', render: () => <ContactNote /> },
+  { name: 'contact_name', label: 'Người liên hệ (họ và tên)', placeholder: 'Ví dụ Nguyễn Vũ Đức Anh' },
   { name: 'contact_email', label: 'Email liên hệ', type: 'email' },
-  { name: 'contact_phone', label: 'Điện thoại liên hệ', type: 'tel' },
+  { name: 'contact_phone', label: 'Điện thoại liên hệ', type: 'phone', hint: 'Đúng 10 chữ số; 4 số cuối ghép tên đăng nhập.' },
+  { name: 'contact_birth_date', label: 'Ngày sinh người liên hệ', type: 'date', calendar: true, min: '1930-01-01', max: todayVn(), hint: 'Dùng ghép mật khẩu theo quy ước.' },
 ];
-const SAVED_KEYS = ['name', 'city', 'region', 'address', 'contact_name', 'contact_email', 'contact_phone'] as const;
+const SAVED_KEYS = ['name', 'city', 'region', 'address', 'contact_name', 'contact_email', 'contact_phone', 'contact_birth_date'] as const;
+
+const ContactNote: React.FC = () => {
+  const { c } = useTheme();
+  return <Inset style={{ backgroundColor: c.vangNhat, gap: 2 }}>
+    <Txt f="bold" size={13} color={c.vangChu}>Người liên hệ là tài khoản quản trị viên trường</Txt>
+    <Txt size={13} color={c.muc}>Đổi họ tên, email, điện thoại hoặc ngày sinh người liên hệ thì tên đăng nhập và mật khẩu của tài khoản đó được cấp lại theo quy ước và gửi tới email mới; nếu đó là tài khoản của bạn, bạn sẽ phải đăng nhập lại. Thông tin liên hệ cũ được lưu trong kho dữ liệu đã xóa.</Txt>
+  </Inset>;
+};
 
 const SchoolPanel: React.FC<{ session: Session; school: Awaited<ReturnType<typeof api.getMySchool>> | null; years: YearItem[]; onChanged: () => void }> = ({ session, school, years, onChanged }) => {
   const { c } = useTheme();
   const { token } = session;
   const [editing, setEditing] = useState(false);
+  const [reissued, setReissued] = useState<NonNullable<Awaited<ReturnType<typeof api.updateMySchool>>['reissued']> | null>(null);
   const [selected, setSelected] = useState('');
   const yearId = Number(selected || years.find((y) => y.status === 'active')?.id || years[0]?.id || 0);
   const grades = useLoad(async () => (yearId ? api.listGrades(token, yearId) : null), [token, yearId, years.length], session.expired);
@@ -154,12 +167,23 @@ const SchoolPanel: React.FC<{ session: Session; school: Awaited<ReturnType<typeo
             ...CONTACT_FIELDS,
             { name: 'logo', label: 'Logo trường', render: (values, set) => <SchoolLogoField name={school.name} code={school.school_code} logoUrl={school.logo_url} values={values} set={set} /> },
           ]}
-          initial={{ ...Object.fromEntries(SAVED_KEYS.map((k) => [k, String((school as unknown as Record<string, unknown>)[k] ?? '')])), school_code: school.school_code, address: addressText(school), street: streetPart(school.address, school.city) }} onClose={() => setEditing(false)}
+          initial={{ ...Object.fromEntries(SAVED_KEYS.map((k) => [k, String((school as unknown as Record<string, unknown>)[k] ?? '')])), school_code: school.school_code, address: addressText(school), street: streetPart(school.address, school.city),
+            // chưa ghi người liên hệ thì điền sẵn từ tài khoản quản trị viên trường đầu tiên
+            contact_name: school.contact_name ?? school.admins[0]?.full_name ?? '', contact_email: school.contact_email ?? school.admins[0]?.email ?? '', contact_phone: school.contact_phone ?? school.admins[0]?.phone ?? '',
+            contact_birth_date: school.admins[0]?.birth_date ?? '' }} onClose={() => setEditing(false)}
           onSubmit={async (v) => {
-            await api.updateMySchool(token, Object.fromEntries(SAVED_KEYS.map((k) => [k, String(v[k] ?? '').trim() || null])));
+            const nameError = String(v.contact_name ?? '').trim() ? nameCaseError(String(v.contact_name)) : null;
+            if (nameError) throw new Error(`Người liên hệ: ${nameError}`);
             await saveStagedLogo(v, (data) => api.uploadMySchoolLogo(token, data), () => api.removeMySchoolLogo(token));
-            setEditing(false); onChanged();
+            const res = await api.updateMySchool(token, Object.fromEntries(SAVED_KEYS.map((k) => [k, String(v[k] ?? '').trim() || null])));
+            setEditing(false);
+            if (res.reissued) setReissued(res.reissued); else onChanged();
           }} />
+      ) : null}
+      {reissued ? (
+        <CredentialSheet title="Đã cấp lại đăng nhập cho người liên hệ" account={{ full_name: reissued.full_name, username: reissued.username, temporary_password: reissued.temporary_password, mail: reissued.mail }}
+          extra={reissued.self ? <Txt size={13} color={c.muc2}>Đây là tài khoản bạn đang dùng: phiên hiện tại đã hết hiệu lực, hãy đăng nhập lại bằng thông tin trên.</Txt> : undefined}
+          onClose={() => { const self = reissued.self; setReissued(null); if (self) session.expired(); else onChanged(); }} />
       ) : null}
     </Page>
   );

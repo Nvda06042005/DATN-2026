@@ -76,5 +76,6 @@ test('mọi ô số điện thoại của bốn vai trò dùng ô có giới h�
   assert.match(profile, /k === 'phone'\s+\? <PhoneField /);
   assert.match(profile, /phoneError\(patch\.phone\)/);
   // điện thoại liên hệ của trường (không thuộc bốn vai trò) vẫn là ô nhập tự do
-  assert.match(read('components', 'admin', 'SchoolAdmin.tsx'), /name: 'contact_phone', label: 'Điện thoại liên hệ', type: 'tel'/);
+  // 18/11/2026: người liên hệ là tài khoản quản trị viên trường (4 số cuối ghép tên đăng nhập) nên điện thoại liên hệ cũng đúng 10 chữ số
+  assert.match(read('components', 'admin', 'SchoolAdmin.tsx'), /name: 'contact_phone', label: 'Điện thoại liên hệ', type: 'phone'/);
 });

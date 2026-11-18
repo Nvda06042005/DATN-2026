@@ -46,8 +46,10 @@ export const removeSchoolLogo = async (token: string, id: number) => {
 
 // ---------------------------------------------------------------------- thông tin trường, năm học, khối (HK.QT.010–013)
 export const getMySchool = (token: string, schoolId?: number | null) => apiRequest<SchoolDetail>(`/api/admin/school${qs({ school_id: schoolId })}`, { token });
+/** Tài khoản quản trị viên trường được cấp lại đăng nhập khi đổi người liên hệ (18/11/2026) */
+export interface ContactReissue { user_id: number; full_name: string; username: string; temporary_password: string; email: string; mail: 'queued' | 'not_configured'; self: boolean }
 export const updateMySchool = async (token: string, body: Record<string, unknown>, schoolId?: number | null) => {
-  const school = await apiRequest<SchoolDetail>(`/api/admin/school${qs({ school_id: schoolId })}`, { token, method: 'PATCH', body });
+  const school = await apiRequest<SchoolDetail & { reissued?: ContactReissue | null }>(`/api/admin/school${qs({ school_id: schoolId })}`, { token, method: 'PATCH', body });
   clearSchoolIdentities();
   return school;
 };

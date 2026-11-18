@@ -104,6 +104,8 @@ export interface YearItem {
   ends_on: string;
   status: 'planned' | 'active' | 'ended';
   ended_at: string | null;
+  /** Bắt đầu lúc: thời điểm bấm kích hoạt (migration 076, 18/11/2026) */
+  activated_at?: string | null;
   /** Học kỳ 1 và học kỳ 2: hoặc cả bốn ngày đều null (chưa đặt) hoặc cả bốn ngày đều có */
   term1_starts_on: string | null;
   term1_ends_on: string | null;
@@ -138,7 +140,8 @@ export interface SchoolLinkInfo { school_code: string; name: string; region: str
 
 export interface SchoolDetail extends Omit<SchoolItem, 'users' | 'admins' | 'teachers' | 'students' | 'classes'> {
   counts: { admins: number; teachers: number; students: number; classes: number };
-  admins: Array<{ id: number; username: string; full_name: string; email: string | null; phone: string | null; is_active: boolean; last_login_at: string | null }>;
+  /** Quản trị viên trường, người tạo sớm nhất đứng đầu (người liên hệ của trường) */
+  admins: Array<{ id: number; username: string; full_name: string; email: string | null; phone: string | null; birth_date?: string | null; is_active: boolean; last_login_at: string | null }>;
   current_year: YearItem | null;
 }
 

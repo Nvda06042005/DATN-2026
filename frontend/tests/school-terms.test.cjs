@@ -30,16 +30,16 @@ test('trạng thái không biến tuần lịch thành tuần thực học; phâ
   for (const date of ['2026-11-08', '2027-03-01']) assert.doesNotMatch(phaseText(y, date), /tuần|20/);
 });
 
-test('form chỉ chọn năm; không có gợi ý/ô ngày hoặc tính ngày từ client, số tuần và hạn lấy từ API', () => {
+test('18/11/2026: năm học tự nhập (chữ) và chọn ngày năm học, hai học kỳ trên lịch; bỏ tự lấy khung Bộ / Sở; nút gạt trạng thái, cột Bắt đầu lúc, lọc mọi cột', () => {
   const years = read('components', 'admin', 'SchoolYears.tsx');
-  assert.match(years, /name: 'label', label: 'Năm học', type: 'select'/);
-  assert.match(years, /calendar_mode: 'national'/);
+  assert.match(years, /\{ name: 'label', label: 'Năm học', required: true, placeholder: 'Ví dụ 2027-2028'/);
+  assert.doesNotMatch(years, /type: 'select'|schoolYearOptions|calendar_mode: 'national'/);
+  assert.match(years, /calendar_mode: 'manual' as const/);
+  for (const k of ['starts_on', 'ends_on', 'term1_starts_on', 'term1_ends_on', 'term2_starts_on', 'term2_ends_on']) assert.match(years, new RegExp(`name: '${k}', label: '[^']+', type: 'date', calendar: true, required: true`), k);
   assert.doesNotMatch(years, /TermsAssist|TermsCheck|yearAdvice|suggestTerms|calendarWeeks|Điền theo gợi ý|Xóa học kỳ|Đặt học kỳ theo gợi ý/);
-  assert.doesNotMatch(years, /name: '(starts_on|ends_on|term[12]_(starts|ends)_on)'/);
-  assert.match(years, /term1_teaching_weeks/);
-  assert.match(years, /term2_teaching_weeks/);
-  assert.match(years, /Kết thúc trước/);
-  assert.match(years, /y.status === 'active' \? <Txt[^>]*>\{phaseText/);
-  assert.match(read('api', 'adminApi.ts'), /\/api\/admin\/school-year-options/);
+  assert.match(years, /<Switch value=\{y\.status === 'active'\} disabled=\{y\.status === 'ended'\}/);
+  assert.match(years, /label: 'Bắt đầu lúc'[^\n]*y\.activated_at/);
+  for (const f of ['f_label', 'f_term1', 'f_term2', 'f_status', 'f_classes', 'f_activated', 'f_ended']) assert.match(years, new RegExp(`filter: ${f},`), f);
+  assert.match(years, /phaseText\(y, today\)/);
   assert.doesNotMatch(read('lib', 'school-terms.ts'), /suggestTerms|calendarWeeks|TERM_FRAMEWORK|yearAdvice/);
 });

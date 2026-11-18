@@ -46,11 +46,19 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
   test('HK.QT.010/011 xem và cập nhật thông tin trường; không tự đổi mã trường hay vô hiệu hóa trường', async () => {
     const view = await qa('GET', '/api/admin/school');
     expect(view.body).toMatchObject({ id: A.id, school_code: '8001', name: 'THCS Quản Lý A', is_active: true, counts: { admins: 1, teachers: 0, students: 0, classes: 0 }, current_year: null });
-    const edited = await qa('PATCH', '/api/admin/school', {
+    const change = {
       name: '  THCS   Quản Lý   A  (đã đổi) ', logo_url: 'https://example.edu.vn/logo.png', address: '12 Phố Thử, Hà Nội', contact_name: 'Thầy Hiệu Trưởng', contact_email: 'HieuTruong@Example.edu.vn', contact_phone: '024 1234 5678',
       school_code: '9999', is_active: false,
-    });
-    expect(edited.body).toMatchObject({ school_code: '8001', is_active: true, name: 'THCS Quản Lý A (đã đổi)', logo_url: 'https://example.edu.vn/logo.png', address: '12 Phố Thử, Hà Nội', contact_email: 'hieutruong@example.edu.vn' });
+    };
+    // 18/11/2026: người liên hệ là tài khoản quản trị viên trường – điện thoại phải đúng 10 số (ghép tên đăng nhập); sai thì từ chối cả yêu cầu, tên trường cũng không đổi
+    expect((await qa('PATCH', '/api/admin/school', change)).status).toBe(422);
+    expect((await qa('GET', '/api/admin/school')).body).toMatchObject({ name: 'THCS Quản Lý A', logo_url: null });
+    const edited = await qa('PATCH', '/api/admin/school', { ...change, contact_phone: '0241234567', contact_birth_date: '1980-02-03' });
+    expect(edited.body).toMatchObject({ school_code: '8001', is_active: true, name: 'THCS Quản Lý A (đã đổi)', logo_url: 'https://example.edu.vn/logo.png', address: '12 Phố Thử, Hà Nội', contact_email: 'hieutruong@example.edu.vn',
+      reissued: { full_name: 'Thầy Hiệu Trưởng', email: 'hieutruong@example.edu.vn', self: true } });
+    // đổi người liên hệ là chính mình thì phiên cũ hết hạn: đăng nhập lại bằng thông tin mới
+    expect((await qa('GET', '/api/admin/school')).status).toBe(401);
+    A = { ...A, token: (await activate(s.base, edited.body.reissued.username.toLowerCase(), edited.body.reissued.temporary_password, PW, 'school_admin')).token };
     expect((await qa('PATCH', '/api/admin/school', { logo_url: 'http://khong-https/logo.png' })).status).toBe(422);
     expect((await qa('PATCH', '/api/admin/school', { name: 'A' })).status).toBe(422);
     expect((await qa('PATCH', '/api/admin/school', { contact_email: 'khong-phai-email' })).status).toBe(422);

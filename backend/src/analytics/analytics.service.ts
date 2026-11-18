@@ -470,6 +470,59 @@ export class AnalyticsService {
     };
   }
 
+  /**
+   * Danh sách cụ thể sau mỗi số liệu của trang thống kê (18/11/2026, "bấm số liệu để xem danh sách"): trường (kèm số giáo viên, học sinh, người hoạt động,
+   * bài học, câu hỏi AI 30 ngày), học sinh, giáo viên, lớp, người hoạt động hôm nay / 7 / 30 ngày (lần cuối, số lượt). Quản trị trường chỉ thấy trường mình.
+   * Tối đa 1.000 dòng mỗi danh sách.
+   */
+  async details(user: UserRow, kind: string) {
+    const school = user.role === 'school_admin' ? user.school_id : null;
+    if (user.role === 'school_admin' && !school) throw new ForbiddenException('Không xác định được trường');
+    if (!['school_admin', 'root_admin'].includes(user.role)) throw new ForbiddenException('Chỉ quản trị xem được thống kê');
+    const scope = (col: string) => (school ? ` AND ${col} = ${Number(school)}` : '');
+    const last = (alias: string) => `(SELECT max(e.created_at) FROM hk_events e WHERE e.user_id = ${alias}.id)`;
+    if (kind === 'schools') {
+      if (school) throw new ForbiddenException('Chỉ quản trị tổng xem danh sách trường');
+      return this.db.query(`SELECT s.id, s.name, s.school_code, s.city, s.is_active,
+          (SELECT count(*)::int FROM app_users u WHERE u.school_id = s.id AND u.role = 'teacher' AND u.deleted_at IS NULL AND u.is_active = 1) AS teachers,
+          (SELECT count(*)::int FROM app_users u WHERE u.school_id = s.id AND u.role = 'student' AND u.deleted_at IS NULL AND u.is_active = 1) AS students,
+          (SELECT count(DISTINCT e.user_id)::int FROM hk_events e WHERE e.school_id = s.id AND e.created_at >= now() - interval '7 days') AS active_7,
+          (SELECT count(DISTINCT e.user_id)::int FROM hk_events e WHERE e.school_id = s.id AND e.created_at >= now() - interval '30 days') AS active_30,
+          (SELECT count(*)::int FROM hk_events e WHERE e.school_id = s.id AND e.event = 'lesson_complete' AND e.created_at >= now() - interval '30 days') AS lessons_30,
+          (SELECT count(*)::int FROM hk_ai_messages m JOIN hk_ai_conversations c ON c.id = m.conversation_id JOIN app_users u ON u.id = c.user_id
+            WHERE u.school_id = s.id AND m.role = 'user' AND m.created_at >= now() - interval '30 days') AS ai_30,
+          (SELECT max(e.created_at) FROM hk_events e WHERE e.school_id = s.id) AS last_activity
+        FROM app_schools s ORDER BY s.is_active DESC, s.name LIMIT 1000`);
+    }
+    if (kind === 'students' || kind === 'teachers' || kind === 'school_admins') {
+      const role = kind === 'students' ? 'student' : kind === 'teachers' ? 'teacher' : 'school_admin';
+      return this.db.query(`SELECT u.id, u.full_name, u.user_code, u.role, s.name AS school_name, u.last_login_at, ${last('u')} AS last_activity,
+          COALESCE((SELECT string_agg(DISTINCT c.name, ', ') FROM app_class_members m JOIN app_classes c ON c.id = m.class_id AND c.is_active WHERE m.user_id = u.id), '') AS classes
+        FROM app_users u LEFT JOIN app_schools s ON s.id = u.school_id
+        WHERE u.role = $1 AND u.deleted_at IS NULL AND u.is_active = 1${scope('u.school_id')} ORDER BY s.name NULLS LAST, u.full_name LIMIT 1000`, [role]);
+    }
+    if (kind === 'classes') {
+      // học sinh của lớp (thành viên vai trò học sinh); hoạt động / bài học / câu hỏi AI tính theo các học sinh đó
+      const pupils = `SELECT m.user_id FROM app_class_members m JOIN app_users u ON u.id = m.user_id AND u.role = 'student' AND u.deleted_at IS NULL WHERE m.class_id = c.id`;
+      return this.db.query(`SELECT c.id, c.name, c.grade, c.school_year, s.name AS school_name,
+          (SELECT count(*)::int FROM (${pupils}) p) AS students,
+          COALESCE((SELECT string_agg(u.full_name, ', ') FROM app_current_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id), '') AS teachers,
+          (SELECT count(DISTINCT e.user_id)::int FROM hk_events e WHERE e.user_id IN (${pupils}) AND e.created_at >= now() - interval '7 days') AS active_7,
+          (SELECT count(DISTINCT e.user_id)::int FROM hk_events e WHERE e.user_id IN (${pupils}) AND e.created_at >= now() - interval '30 days') AS active_30,
+          (SELECT count(*)::int FROM hk_events e WHERE e.user_id IN (${pupils}) AND e.event = 'lesson_complete' AND e.created_at >= now() - interval '30 days') AS lessons_30,
+          (SELECT count(*)::int FROM hk_ai_messages am JOIN hk_ai_conversations ac ON ac.id = am.conversation_id
+            WHERE ac.user_id IN (${pupils}) AND am.role = 'user' AND am.created_at >= now() - interval '30 days') AS ai_30,
+          (SELECT max(e.created_at) FROM hk_events e WHERE e.user_id IN (${pupils})) AS last_activity
+        FROM app_classes c JOIN app_schools s ON s.id = c.school_id WHERE c.is_active${scope('c.school_id')} ORDER BY s.name, c.grade, c.name LIMIT 1000`);
+    }
+    const window = kind === 'active_today' ? `(e.created_at AT TIME ZONE ${VN})::date = (now() AT TIME ZONE ${VN})::date`
+      : kind === 'active_7' ? "e.created_at >= now() - interval '7 days'" : kind === 'active_30' ? "e.created_at >= now() - interval '30 days'" : null;
+    if (!window) throw new BadRequestException('Danh sách không hợp lệ');
+    return this.db.query(`SELECT u.id, u.full_name, u.user_code, u.role, s.name AS school_name, count(*)::int AS events, max(e.created_at) AS last_activity
+      FROM hk_events e JOIN app_users u ON u.id = e.user_id LEFT JOIN app_schools s ON s.id = u.school_id
+      WHERE ${window}${scope('e.school_id')} GROUP BY u.id, s.name ORDER BY max(e.created_at) DESC LIMIT 1000`);
+  }
+
   // ---------------------------------------------------------------------- QT.007 / AD.007: mức độ sử dụng theo thời gian
   async usage(user: UserRow, granularity: string, daysRaw?: number) {
     if (!['day', 'week', 'month'].includes(granularity)) throw new BadRequestException('Đơn vị thời gian là day, week hoặc month');

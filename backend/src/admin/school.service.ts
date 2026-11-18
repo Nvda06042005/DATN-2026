@@ -18,6 +18,7 @@ import { composeAddress, currentCityName, findWard, isOldDistrict, PROVINCES, pr
 import { createHash } from 'crypto';
 import sharp from 'sharp';
 import { isBase64 } from '../content/studio.service';
+import { nameCaseError } from './person-name';
 import { currentSchoolLogo } from './school-brand';
 import { givenNameUpper, parseDate, schoolInitials } from './excel';
 
@@ -76,6 +77,8 @@ export interface YearRow {
   /** Học kỳ 1 và học kỳ 2: hoặc cả bốn ngày đều trống (chưa đặt học kỳ) hoặc cả bốn ngày đều có */
   term1_starts_on: string | null; term1_ends_on: string | null; term2_starts_on: string | null; term2_ends_on: string | null;
   calendar_mode: 'manual' | 'national';
+  /** Bắt đầu lúc: thời điểm bấm kích hoạt (migration 076) */
+  activated_at?: string | null;
 }
 interface YearFramework {
   label: string; starts_on: string; ends_on: string;
@@ -261,7 +264,8 @@ export class SchoolService {
         `SELECT count(*) FILTER (WHERE role = 'school_admin')::int AS admins, count(*) FILTER (WHERE role = 'teacher')::int AS teachers, count(*) FILTER (WHERE role = 'student')::int AS students
          FROM app_users WHERE school_id = $1 AND deleted_at IS NULL`, [id]))[0];
       const classes = (await q<{ n: number }>('SELECT count(*)::int AS n FROM app_classes WHERE school_id = $1', [id]))[0].n;
-      const admins = (await q('SELECT id, username, full_name, email, phone, is_active, last_login_at FROM app_users WHERE school_id = $1 AND role = \'school_admin\' AND deleted_at IS NULL ORDER BY full_name', [id]));
+      // người tạo sớm nhất đứng đầu: là người liên hệ của trường (đồng bộ khi đổi người liên hệ, 18/11/2026)
+      const admins = (await q('SELECT id, username, full_name, email, phone, birth_date, is_active, last_login_at FROM app_users WHERE school_id = $1 AND role = \'school_admin\' AND deleted_at IS NULL ORDER BY created_at, id', [id]));
       const year = (await q<YearRow>("SELECT y.*, CASE WHEN calendar_mode='national' THEN public.school_year_framework(label) END AS framework FROM app_school_years y WHERE school_id = $1 AND status = 'active'", [id]))[0] ?? null;
       return { ...withLink(currentSchoolLogo(school)), counts: { ...counts, classes }, admins, current_year: year };
     });
@@ -334,8 +338,9 @@ export class SchoolService {
     }).then((result) => { this.mail.kick(); return result; });
   }
 
-  async update(id: number, body: { directory_code?: string; link_only?: boolean; name?: string; region?: string | null; city?: string | null; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null; logo_url?: string | null; is_active?: boolean }) {
-    return this.db.tx(async (q) => {
+  async update(id: number, body: { directory_code?: string; link_only?: boolean; name?: string; region?: string | null; city?: string | null; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null; logo_url?: string | null; is_active?: boolean }, outer?: Q) {
+    // outer: chạy trong giao dịch có sẵn (Sửa thông tin trường của quản trị trường gộp với đổi người liên hệ – lỗi ở bước nào cũng không lưu gì)
+    const run = async (q: Q) => {
       const old = (await q<SchoolRow>('SELECT * FROM app_schools WHERE id = $1 FOR UPDATE', [id]))[0];
       if (!old) throw new NotFoundException('Không tìm thấy trường');
       if (body.directory_code) {
@@ -374,7 +379,8 @@ export class SchoolService {
         if (body.region !== undefined || body.city !== undefined) await q('UPDATE app_users SET region = s.region, city = s.city FROM app_schools s WHERE app_users.school_id = s.id AND s.id = $1', [id]);
       }
       return withLink((await q<SchoolRow>('SELECT * FROM app_schools WHERE id = $1', [id]))[0]);
-    });
+    };
+    return outer ? run(outer) : this.db.tx(run);
   }
 
   /**
@@ -445,11 +451,66 @@ export class SchoolService {
     return this.detail(actor, this.target(actor));
   }
 
-  async updateMine(actor: UserRow, schoolId: number | null | undefined, body: { name?: string; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null; logo_url?: string | null; region?: string | null; city?: string | null }) {
+  async updateMine(actor: UserRow, schoolId: number | null | undefined, body: { name?: string; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null; contact_birth_date?: string | null; logo_url?: string | null; region?: string | null; city?: string | null }) {
     const id = this.target(actor, schoolId);
-    const { name, address, contact_name, contact_email, contact_phone, logo_url, region, city } = body;
-    await this.update(id, { name, address, contact_name, contact_email, contact_phone, logo_url, region, city });
-    return this.detail(actor, id);
+    const { name, address, logo_url, region, city } = body;
+    // một giao dịch: thông tin trường + người liên hệ (cấp lại đăng nhập); người liên hệ sai thì tên / địa chỉ cũng không đổi
+    const reissued = await this.db.tx(async (q) => {
+      await this.update(id, { name, address, logo_url, region, city }, q);
+      return this.syncContact(actor, id, body, q);
+    });
+    if (reissued) this.mail.kick();
+    return { ...(await this.detail(actor, id)), reissued };
+  }
+
+  /**
+   * Người liên hệ của trường = tài khoản quản trị viên trường đầu tiên (18/11/2026, người dùng chọn "cập nhật và cấp lại đăng nhập"): đổi họ tên / email /
+   * điện thoại / ngày sinh người liên hệ thì hồ sơ tài khoản đổi theo, tên đăng nhập và mật khẩu được cấp lại theo quy ước (QLY… / DongA…@…), gửi email
+   * mới và hiện ở "Mật khẩu tài khoản" của quản trị tổng; mọi phiên cũ của tài khoản đó bị thu hồi. Thông tin liên hệ cũ và danh tính tài khoản cũ được
+   * lưu một năm trong kho dữ liệu đã xóa (app_deleted_records, loại "replaced", migration 076) – không lưu mật khẩu.
+   */
+  private async syncContact(actor: UserRow, id: number, body: { name?: string; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null; contact_birth_date?: string | null }, q: Q) {
+    const sent = (k: keyof typeof body) => Object.prototype.hasOwnProperty.call(body, k) && body[k] !== undefined;
+    if (!(['contact_name', 'contact_email', 'contact_phone', 'contact_birth_date'] as const).some(sent)) return null;
+    {
+      const school = (await q<SchoolRow>('SELECT * FROM app_schools WHERE id = $1 FOR UPDATE', [id]))[0];
+      if (!school) throw new NotFoundException('Không tìm thấy trường');
+      const admin = (await q<UserRow>("SELECT * FROM app_users WHERE school_id = $1 AND role = 'school_admin' AND deleted_at IS NULL ORDER BY created_at, id LIMIT 1 FOR UPDATE", [id]))[0] ?? null;
+      const pick = (k: 'contact_name' | 'contact_email' | 'contact_phone', current: string | null) => (sent(k) ? trimOrNull(body[k]) : current);
+      const contactName = pick('contact_name', school.contact_name), contactEmail = pick('contact_email', school.contact_email)?.toLowerCase() ?? null, contactPhone = pick('contact_phone', school.contact_phone);
+      // để trống ngày sinh thì giữ ngày sinh đang có của tài khoản
+      const birth = body.contact_birth_date ? parseDate(body.contact_birth_date) : admin?.birth_date ?? null;
+      if (body.contact_birth_date && !birth) throw new UnprocessableEntityException('Ngày sinh người liên hệ không hợp lệ');
+      const schoolChanged = contactName !== school.contact_name || contactEmail !== school.contact_email || contactPhone !== school.contact_phone;
+      const adminChanged = !!admin && !!contactName && (contactName !== admin.full_name || (contactEmail ?? null) !== (admin.email ?? null) || (contactPhone ?? null) !== (admin.phone ?? null) || (birth ?? null) !== (admin.birth_date ?? null));
+      if (!schoolChanged && !adminChanged) return null;
+      if (adminChanged) {
+        const nameErr = nameCaseError(contactName);
+        if (nameErr) throw new UnprocessableEntityException(`Người liên hệ: ${nameErr}`);
+        if (!contactEmail) throw new UnprocessableEntityException('Người liên hệ là quản trị viên trường nên cần email (nhận tên đăng nhập và mật khẩu mới)');
+        if ((await q('SELECT 1 FROM app_users WHERE lower(email) = $1 AND deleted_at IS NULL AND id <> $2', [contactEmail, admin!.id])).length) throw new ConflictException(`Email ${contactEmail} đã được dùng cho một tài khoản khác`);
+      }
+      // lưu người liên hệ cũ và danh tính tài khoản cũ (không có mật khẩu) vào kho dữ liệu đã xóa, giữ một năm (chưa từng ghi người liên hệ và tài khoản không đổi thì không có gì để lưu)
+      if (adminChanged || school.contact_name || school.contact_email || school.contact_phone) await q(`INSERT INTO public.app_deleted_records (operation_id, source_schema, source_table, record_key, row_data, related_data, actor_id, actor_name, actor_role, actor_school_id, school_id, route, delete_kind, deleted_at, expires_at)
+               VALUES (gen_random_uuid(), 'public', 'app_schools', jsonb_build_object('id', $1::int), public.app_archive_redact($2::jsonb), public.app_archive_redact($3::jsonb), $4, $5, $6, $7, $1, 'PATCH /api/admin/school (người liên hệ)', 'replaced', now(), now() + interval '1 year')`,
+        [id, JSON.stringify({ contact_name: school.contact_name, contact_email: school.contact_email, contact_phone: school.contact_phone }),
+          admin && adminChanged ? JSON.stringify({ app_users: { id: admin.id, username: admin.username, full_name: admin.full_name, email: admin.email, phone: admin.phone, birth_date: admin.birth_date } }) : null,
+          actor.id, actor.full_name, actor.role, actor.school_id ?? null]);
+      await q('UPDATE app_schools SET contact_name = $2, contact_email = $3, contact_phone = $4 WHERE id = $1', [id, contactName, contactEmail, contactPhone]);
+      if (!adminChanged || !admin) return null;
+      // cấp lại tên đăng nhập + mật khẩu theo quy ước (cần điện thoại 10 số và ngày sinh)
+      const creds = schoolAdminCredentials(school.name, contactName as string, contactPhone, birth);
+      const username = creds.username.toLowerCase() === admin.username.toLowerCase() ? admin.username : await this.db.uniqueUsernameFrom(creds.username, q);
+      await q('UPDATE app_users SET full_name = $2, email = $3, phone = $4, birth_date = $5, username = $6 WHERE id = $1', [admin.id, contactName, contactEmail, contactPhone, parseDate(birth as string), username.toLowerCase()]);
+      await this.db.setPassword(admin.id, await hashPassword(creds.password), true, q);
+      await q('UPDATE app_users SET initial_password_enc = $2 WHERE id = $1', [admin.id, sealPassword(creds.password, config.authSecret)]);
+      const display = username.toUpperCase();
+      await this.mail.enqueue(q, {
+        school_id: id, user_id: admin.id, batch_id: null, kind: 'bulk', to: contactEmail as string, subject: '[Đông A EDU] Thông tin đăng nhập mới của quản trị viên trường học',
+        payload: { type: 'account', full_name: contactName, username: display, password: creds.password, role: 'school_admin', school: school.name, reset: true },
+      });
+      return { user_id: admin.id, full_name: contactName as string, username: display, temporary_password: creds.password, email: contactEmail as string, mail: this.mail.configured ? 'queued' as const : 'not_configured' as const, self: admin.id === actor.id };
+    }
   }
 
   // ------------------------------------------------------------------ năm học (HK.QT.012)
@@ -566,7 +627,7 @@ export class SchoolService {
       if (year.status === 'active') return year;
       const other = (await q<{ label: string }>("SELECT label FROM app_school_years WHERE school_id = $1 AND status = 'active'", [year.school_id]))[0];
       if (other) throw new ConflictException(`Năm học ${other.label} đang hoạt động. Hãy kết thúc năm học đó trước khi kích hoạt năm mới.`);
-      return (await q<YearRow>("UPDATE app_school_years SET status = 'active', updated_at = now() WHERE id = $1 RETURNING *", [id]))[0];
+      return (await q<YearRow>("UPDATE app_school_years SET status = 'active', activated_at = now(), updated_at = now() WHERE id = $1 RETURNING *", [id]))[0];
     });
   }
 
