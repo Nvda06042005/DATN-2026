@@ -103,6 +103,11 @@ export const classImportSpec = (token: string, yearId: number) => apiRequest<Cla
 export const importAssignments = (token: string, file: PickedFile, opts: { commit: boolean; year_id: number; school_id?: number | null }) =>
   apiUpload<ImportResult>(`/api/admin/classes/import${qs({ commit: opts.commit ? 'true' : undefined, year_id: opts.year_id, school_id: opts.school_id })}`, file, token);
 export const downloadFile = (token: string, path: string) => apiBlob(path, token);
+/** Tạo lớp từ Excel (19/11/2026): tên file mẫu của trường và năm học; xem trước / lưu file */
+export interface ClassCreateSpec { filename: string; school_name: string; school_code: string; year_id: number; year_label: string; year_status: string; semester: number }
+export const classCreateSpec = (token: string, yearId: number) => apiRequest<ClassCreateSpec>(`/api/admin/classes/create-spec${qs({ year_id: yearId })}`, { token });
+export const importCreateClasses = (token: string, file: PickedFile, opts: { commit: boolean; year_id: number; school_id?: number | null }) =>
+  apiUpload<ImportResult>(`/api/admin/classes/create-import${qs({ commit: opts.commit ? 'true' : undefined, year_id: opts.year_id, school_id: opts.school_id })}`, file, token);
 
 // ---------------------------------------------------------------------- lớp học (HK.QT.022, HK.QT.035–040)
 export const listClasses = (token: string, query: Query) => apiRequest<Paged<ClassItem>>(`/api/admin/classes${qs(query)}`, { token });

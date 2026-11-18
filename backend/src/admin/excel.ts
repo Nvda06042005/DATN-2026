@@ -272,6 +272,8 @@ export function teacherTemplateFilename(name:string):string {
 }
 
 export const studentTemplateFilename=(name:string):string=>teacherTemplateFilename(name).replace("file_mau_giao-vien_","file_mau_hoc-sinh_");
+/** File mẫu tạo lớp (19/11/2026) theo trường và năm học, ví dụ file_mau_tao-lop_truong_giong-ong-to_2026-2027.xlsx */
+export const classCreateFilename=(name:string,yearLabel:string):string=>teacherTemplateFilename(name).replace("file_mau_giao-vien_","file_mau_tao-lop_").replace(/\.xlsx$/,`_${yearLabel.replace(/[^0-9-]/g,'')}.xlsx`);
 /** File mẫu xếp lớp theo trường và năm học, ví dụ file_mau_xep-lop_truong_giong-ong-to_2026-2027.xlsx */
 export const classTemplateFilename=(name:string,yearLabel:string):string=>teacherTemplateFilename(name).replace("file_mau_giao-vien_","file_mau_xep-lop_").replace(/\.xlsx$/,`_${yearLabel.replace(/[^0-9-]/g,'')}.xlsx`);
 

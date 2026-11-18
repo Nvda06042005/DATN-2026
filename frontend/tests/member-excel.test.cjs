@@ -61,10 +61,23 @@ test('thêm giáo viên: Họ tên, SĐT, Email, Ngày sinh có dấu *; thêm h
  assert.match(read('components/admin/kit.tsx'),/\{note \? <Txt size=\{13\} f="bold" testID="import-file-note">\{note\}<\/Txt> : null\}/);
 });
 
-test('Lớp học: bỏ nút Nhân bản; xếp lớp mỗi lớp một file; giáo viên chọn kèm mã; form tạo lớp giống Excel; danh sách học sinh như bảng Excel; tạo học sinh mới vào lớp',()=>{
+test('Lớp học / Phân công giáo viên (19/11/2026): tạo lớp chỉ Lớp, Học kỳ, Khối, Sĩ số dự kiến; tạo lớp từ Excel; xếp lớp mỗi lớp một file ở Phân công; giáo viên chọn kèm mã; danh sách học sinh như bảng Excel',()=>{
  const classes=read('components/admin/SchoolClasses.tsx'),kit=read('components/admin/kit.tsx');
  assert.doesNotMatch(classes,/title="Nhân bản sang năm học mới"|setCloning|cloneClasses|class-clone/);
- assert.match(classes,/subtitle="Tạo lớp theo năm học và khối, phân công giáo viên và xếp học sinh vào lớp\."/);
+ assert.match(classes,/title=\{assign \? 'Phân công giáo viên' : 'Lớp học'\}/);
+ // form Tạo lớp: đúng bốn ô, không còn giáo viên, mã lớp, chọn học sinh
+ const create=classes.slice(classes.indexOf('<FormSheet title={`Tạo lớp – năm học'),classes.indexOf('onClose={() => setCreating(false)}'));
+ assert.deepEqual([...create.matchAll(/name: ?'(\w+)'/g)].map(m=>m[1]),['name','semester','grade','expected_size']);
+ assert.match(classes,/name, teacher_ids: \[\], student_ids: \[\]/);
+ // tạo lớp từ Excel: mẫu riêng của trường và năm học, xem trước rồi lưu
+ assert.match(classes,/api\.classCreateSpec\(token, yearId\)/);
+ assert.match(classes,/`\/api\/admin\/classes\/create-template\?year_id=\$\{yearId\}`/);
+ assert.match(classes,/api\.importCreateClasses\(token, file, \{ commit, year_id: yearId \}\)/);
+ // PDF danh sách lớp dạng bảng ở Lớp học; PDF danh sách học sinh theo lớp ở Phân công
+ assert.match(classes,/`\/api\/admin\/classes\/list-pdf\?year_id=\$\{yearId\}/);
+ // xếp lớp từ Excel và đề nghị đổi giáo viên chỉ ở Phân công giáo viên
+ assert.match(classes,/actions=\{assign \? <>\s*<Btn title=\{`Đề nghị đổi giáo viên/);
+ assert.match(classes,/importing && yearId \? \(assign \? <ClassImportSheet/);
  assert.match(classes,/api\.classImportSpec\(token, yearId\)/);
  assert.match(classes,/<ImportSheet title=\{title\} multiple hint=\{`Mỗi lớp một sheet \(chép sheet trong Excel\) hoặc mỗi lớp một file \(chọn nhiều file cùng lúc\)\. Mỗi lớp điền đủ Lớp, Khối, Học kỳ, Giáo viên phụ trách; thiếu một ô là file bị báo lỗi\./);
  // chọn nhiều file: xem trước / lưu lần lượt, gộp kết quả, mỗi dòng ghi file và lớp
@@ -83,7 +96,7 @@ test('Lớp học: bỏ nút Nhân bản; xếp lớp mỗi lớp một file; gi
  assert.ok(change.includes("lines.join('\\n').slice(0, 1000)"), 'nội dung đơn gửi kèm, tối đa 1000 ký tự');
  assert.match(classes,/acceptText="Chỉ nhận file Excel\." note=\{`Phải đúng file mẫu xếp lớp năm học \$\{spec\.year_label\} của \$\{spec\.school_name\} \(được thêm tên lớp ở cuối tên file/);
  // mỗi lớp lưu một file nên tên file được thêm tên lớp: máy chủ kiểm tra phần đầu tên file, không so khớp nguyên tên ở trình duyệt
- const importer=classes.slice(classes.indexOf('const ClassImportSheet'),classes.indexOf('// ---------------------------------------------------------------------- chi tiết một lớp'));
+ const importer=classes.slice(classes.indexOf('const ClassImportSheet:'),classes.indexOf('// ---------------------------------------------------------------------- chi tiết một lớp'));
  assert.doesNotMatch(importer,/expectedFilename/);
  assert.match(importer,/template=\{\{ filename: spec\.filename, fetchBlob: \(\) => api\.downloadFile\(token, `\/api\/admin\/classes\/template\?year_id=\$\{yearId\}`\) \}\}/);
  assert.doesNotMatch(classes,/mau-phan-lop\.xlsx/);
@@ -91,7 +104,8 @@ test('Lớp học: bỏ nút Nhân bản; xếp lớp mỗi lớp một file; gi
  assert.match(kit,/testID="import-notes"/); // ghi chú: lớp sẽ được tạo, giáo viên phụ trách học kỳ
  // giáo viên phụ trách chọn trong danh sách kèm mã giáo viên (như ô Giáo viên phụ trách của file Excel)
  assert.match(classes,/label: `\$\{t\.user_code \?\? 'Chưa có mã'\} · \$\{t\.full_name\}`/);
- assert.match(classes,/name: 'teacher_id', label: 'Giáo viên phụ trách \(mã giáo viên · họ tên\)'/);
+ assert.match(classes,/label="Giáo viên phụ trách lớp \(mã giáo viên · họ tên\)"/);
+ assert.match(classes,/testID="class-assign-teacher"/);
  assert.match(classes,/\{ name: 'name', label: 'Lớp', required: true, placeholder: '6A1'/);
  assert.doesNotMatch(classes,/label: 'Mô tả'/); // form tạo lớp và sửa lớp bỏ ô Mô tả (13/11/2026)
  // chi tiết lớp: bảng STT, Mã học sinh, Họ và tên, Ngày sinh, Giới tính; sĩ số thực có; học sinh vào học muộn tạo ngay trong lớp
@@ -120,7 +134,7 @@ test('mật khẩu tài khoản: menu ở quản trị trường và quản tr�
  assert.match(read('api/adminApi.ts'),/`\/api\/admin\/users\/\$\{id\}\/reissue-password`/);
  const classes=read('components/admin/SchoolClasses.tsx');
  // 14/11/2026: quản trị trường chỉ xuất PDF danh sách lớp (thể thức văn bản của nhà trường)
- assert.match(classes,/<DownloadButton title="Xuất PDF danh sách lớp" fetchBlob=\{\(\) => api\.downloadFile\(token, `\/api\/admin\/classes\/export\?year_id=\$\{yearId\}&semester=\$\{semester\}&format=pdf`\)\}/);
+ assert.match(classes,/<DownloadButton title="Xuất PDF danh sách học sinh theo lớp" fetchBlob=\{\(\) => api\.downloadFile\(token, `\/api\/admin\/classes\/export\?year_id=\$\{yearId\}&semester=\$\{semester\}&format=pdf`\)\}/);
  assert.match(classes,/<DownloadButton title="Xuất PDF danh sách lớp" fetchBlob=\{\(\) => api\.downloadFile\(token, `\/api\/admin\/classes\/export\?class_id=\$\{id\}&semester=\$\{semester\}&format=pdf`\)\}/);
 });
 test('13/11/2026: bỏ hẳn Email phụ huynh; email khôi phục cho quản trị viên; thêm học sinh chọn lớp của mọi năm học chưa kết thúc; tạo lớp chọn học sinh theo mã',()=>{
@@ -133,15 +147,13 @@ test('13/11/2026: bỏ hẳn Email phụ huynh; email khôi phục cho quản tr
  assert.match(profile,/recovery_email: \{ label: 'Email khôi phục'/);
  assert.match(profile,/k === 'email' \|\| k === 'recovery_email' \? 'email-address'/);
  assert.match(read('types/api.ts'),/export type EditableField = 'full_name' \| 'email' \| 'recovery_email'/);
- // thêm học sinh: lớp đang hoạt động của mọi năm học chưa kết thúc (không chỉ năm học đang chọn)
+ // ô chọn Lớp của Giáo viên / Học sinh (19/11/2026): mọi lớp của năm học đang chọn, kể cả năm đã kết thúc và lớp đã lưu trữ
  const people=read('components/admin/SchoolPeople.tsx');
- assert.match(people,/api\.listClasses\(token, \{ active: 'true', limit: 200 \}\)/);
- assert.match(people,/x\.is_active && x\.year_status !== 'ended'/);
- // tạo lớp: chọn học sinh theo mã (họ tên, ngày sinh, giới tính tự hiện) và gửi student_ids; "Thêm học sinh đã có" dùng cùng khung chọn
+ assert.match(people,/api\.listClasses\(token, \{ limit: 200 \}\)/);
+ assert.doesNotMatch(people,/x\.year_status !== 'ended'/);
+ // "Thêm học sinh đã có" (Phân công giáo viên) chọn học sinh theo mã (họ tên, ngày sinh, giới tính tự hiện)
  const classes=read('components/admin/SchoolClasses.tsx');
  assert.match(classes,/const StudentPicker: React\.FC/);
- assert.match(classes,/name: 'student_ids', label: 'Học sinh', render: \(v, set\) => <StudentPicker/);
- assert.match(classes,/student_ids: studentIds/);
  assert.match(classes,/<StudentPicker session=\{session\} value=\{Array\.isArray\(v\.ids\) \? v\.ids : \[\]\} onChange=\{\(ids\) => set\('ids', ids\)\} exclude=\{memberIds\} \/>/);
  assert.doesNotMatch(classes,/Mã tham gia 6 ký tự được tạo tự động/);
 });

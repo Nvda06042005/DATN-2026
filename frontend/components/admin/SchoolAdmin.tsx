@@ -5,7 +5,7 @@
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { Bell, ChartColumn, FolderCog, History, KeyRound, LifeBuoy, GraduationCap, Inbox, School, UserRound, Users } from 'lucide-react-native';
+import { Bell, ChartColumn, FolderCog, History, KeyRound, LifeBuoy, GraduationCap, Inbox, School, UserCheck, UserRound, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AdminWorkspace, navLeaves } from '@/components/admin/AdminWorkspace';
 import { SchoolReports } from '@/components/admin/AnalyticsAdmin';
@@ -42,6 +42,8 @@ const NAV = [
     { id: 'teachers' as const, label: 'Giáo viên', icon: UserRound },
     { id: 'students' as const, label: 'Học sinh', icon: GraduationCap },
     { id: 'classes' as const, label: 'Lớp học', icon: Users },
+    // 19/11/2026: phân công giáo viên, xếp học sinh vào lớp (chọn hoặc Excel), đề nghị đổi giáo viên tách khỏi Lớp học
+    { id: 'assign' as const, label: 'Phân công giáo viên', icon: UserCheck },
     { id: 'passwords' as const, label: 'Mật khẩu tài khoản', icon: KeyRound },
   ] },
   { id: 'review' as const, label: 'Duyệt nội dung', icon: Inbox },
@@ -58,12 +60,13 @@ export const SchoolAdmin: React.FC<{ session: Session }> = ({ session }) => {
   const reloadAll = () => { reloadSchool(); reloadYears(); };
   return (
     <AdminUiContext.Provider value>
-      <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab} schoolName={school?.name} extra={<NoticeBell session={session} onGo={(n) => setTab(n.kind === 'survey' ? 'notices' : n.kind === 'support' ? 'help' : n.kind==='teacher_change'?'classes':'school')} />}>
+      <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab} schoolName={school?.name} extra={<NoticeBell session={session} onGo={(n) => setTab(n.kind === 'survey' ? 'notices' : n.kind === 'support' ? 'help' : n.kind==='teacher_change'?'assign':'school')} />}>
         {tab === 'stats' ? <SchoolReports session={session} schoolName={school?.name} />
           : tab === 'school' ? <SchoolPanel session={session} school={school} years={years ?? []} onChanged={reloadAll} />
           : tab === 'teachers' ? <SchoolPeople session={session} kind="teachers" years={years ?? []} />
           : tab === 'students' ? <SchoolPeople session={session} kind="students" years={years ?? []} />
           : tab === 'classes' ? <SchoolClasses session={session} years={years ?? []} onYearsChanged={reloadYears} />
+          : tab === 'assign' ? <SchoolClasses key="assign" mode="assign" session={session} years={years ?? []} onYearsChanged={reloadYears} />
           : tab === 'passwords' ? <PasswordList session={session} />
           : tab === 'review' ? <ShareInbox session={session} />
           : tab === 'notices' ? <BroadcastManager session={session} /> : tab === 'logs' ? <LogsPanel session={session} />

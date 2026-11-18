@@ -162,7 +162,8 @@ test('thống kê hệ thống: một trang tổng quan vừa một màn hình, 
 test('quản trị trường học: Thống kê trường đứng đầu menu, gộp Báo cáo; bỏ Trò chơi hóa, Mô phỏng và mini-game, Game thẻ tướng, Nghiên cứu, Khảo sát, Hành trình mẫu, AI Tutor', () => {
   const school = read('components', 'admin', 'SchoolAdmin.tsx');
   const ids = [...school.slice(school.indexOf('const NAV'), school.indexOf('type Tab')).matchAll(/id: '(\w+)'/g)].map((m) => m[1]);
-  assert.deepEqual(ids, ['stats', 'school', 'teachers', 'students', 'classes', 'passwords', 'review', 'notices', 'logs', 'help']);
+  // 19/11/2026: thêm "Phân công giáo viên" (assign) ngay dưới Lớp học
+  assert.deepEqual(ids, ['stats', 'school', 'teachers', 'students', 'classes', 'assign', 'passwords', 'review', 'notices', 'logs', 'help']);
   // 14/11/2026: xóa hẳn Kho lịch sử, Bài học, Ngân hàng câu hỏi, Bộ đề khỏi quản trị trường (dữ liệu giữ; giáo viên vẫn dùng Ngân hàng câu hỏi)
   for (const gone of ['HistoryManager', 'LessonManager', 'QuestionBank', 'QuizManager']) assert.doesNotMatch(school, new RegExp(gone), gone);
   for (const file of ['HistoryManager.tsx', 'LessonManager.tsx']) assert.ok(!require('node:fs').existsSync(require('node:path').join(__dirname, '..', 'components', 'admin', file)), file);
@@ -173,7 +174,7 @@ test('quản trị trường học: Thống kê trường đứng đầu menu, g
   assert.doesNotMatch(read('components', 'admin', 'PlatformComms.tsx'), /SurveyManager/);
   assert.match(school, /usePortalTab<Tab>\('stats', navLeaves<Tab>\(NAV\)\.map/);
   // nhóm "Quản lý" (14/11/2026): bấm Quản lý thì hiện Giáo viên, Học sinh, Lớp học, Mật khẩu tài khoản; giữ vị trí cũ sau Trường và năm học
-  assert.match(school, /\{ id: 'school'[^\n]*\n[^\n]*\n\s*\{ group: 'manage', label: 'Quản lý', icon: FolderCog, items: \[\s*\{ id: 'teachers'[^\n]*\n\s*\{ id: 'students'[^\n]*\n\s*\{ id: 'classes'[^\n]*\n\s*\{ id: 'passwords'[^\n]*\n\s*\] \},\s*\{ id: 'review'/);
+  assert.match(school, /\{ id: 'school'[^\n]*\n[^\n]*\n\s*\{ group: 'manage', label: 'Quản lý', icon: FolderCog, items: \[\s*\{ id: 'teachers'[^\n]*\n\s*\{ id: 'students'[^\n]*\n\s*\{ id: 'classes'[^\n]*\n[^\n]*\n\s*\{ id: 'assign'[^\n]*\n\s*\{ id: 'passwords'[^\n]*\n\s*\] \},\s*\{ id: 'review'/);
   const shell = read('components', 'admin', 'AdminWorkspace.tsx');
   assert.match(shell, /testID=\{`admin-nav-group-\$\{entry\.group\}`\} accessibilityRole="button"/);
   assert.match(shell, /accessibilityState=\{\{ expanded: isOpen \}\}/);
@@ -259,7 +260,8 @@ test('quản trị trường học theo quản trị tổng: bộ lọc kiểu E
   const want = {
     // 19/11/2026: Khối / Lớp chọn ở ô chọn cạnh Năm học, Học kỳ (member-grade, member-class-filter), cột không còn nút lọc riêng
     'SchoolPeople.tsx': ["key: 'status', filter: f_active", "key: 'stt', filter: f_stt", 'testID="member-grade"', 'testID="member-class-filter"'],
-    'SchoolClasses.tsx': ["key: 'grade', filter: f_grade", "key: 'status', filter: f_active"],
+    // 19/11/2026: khối chọn ở ô chọn (class-grade) như trang Giáo viên / Học sinh
+    'SchoolClasses.tsx': ['testID="class-grade"', "key: 'status', filter: f_active"],
     'QuestionBank.tsx': ["key: 'qtype', filter: f_qtype", "key: 'campaign', filter: f_campaign", "key: 'scope', filter: f_store", "key: 'diff', filter: f_difficulty"],
     'QuizManager.tsx': ["key: 'scope', filter: f_store"],
     'JourneyManager.tsx': ["key: 'campaign', filter: f_campaign", "key: 'scope', filter: f_store"],

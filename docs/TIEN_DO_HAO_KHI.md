@@ -1521,3 +1521,15 @@ Theo 7 ý người dùng gửi kèm ảnh:
 7. **Thêm học sinh**: SĐT, email **không bắt buộc**; bỏ ô **Xếp vào lớp**. Chưa có SĐT: tên đăng nhập HS + tên + ngày sinh (ví dụ HSHoa13102013); chưa có email: không gửi thư, thông tin đăng nhập hiện trên màn hình. Cấp lại mật khẩu học sinh không cần SĐT. Giáo viên vẫn bắt buộc SĐT, email; file Excel nhập học sinh vẫn yêu cầu như cũ.
 
 Kiểm thử: `backend/test/password_list.spec.ts` (học sinh không SĐT / email, mã giữ nguyên khi sửa, STT 10 chữ số, phần đầu PDF), `teacher_codes`, `student_codes`, `class_excel`, `sprint2`; `frontend/tests/member-excel|people-table|teacher-excel|admin-shell.test.cjs`.
+
+## Tách Lớp học và Phân công giáo viên, tạo lớp từ Excel (19/11/2026)
+
+Theo 5 ý người dùng gửi kèm ảnh:
+
+1. Cột **Lớp** của bảng Học sinh chỉ ghi tên lớp (như Giáo viên), không kèm năm học.
+2. Form **Tạo lớp** chỉ còn **Lớp, Học kỳ, Khối, Sĩ số dự kiến**. Thêm menu **Phân công giáo viên** ngay dưới Lớp học (trong nhóm Quản lý): giáo viên phụ trách theo học kỳ (nút "Phân công giáo viên" trong chi tiết lớp), mã tham gia lớp, thêm học sinh đã có / tạo học sinh mới vào lớp, chuyển lớp, gỡ học sinh, đề nghị đổi giáo viên. Chi tiết lớp ở mục Lớp học chỉ còn thông tin lớp, Sửa lớp, Lưu trữ, Xóa.
+3. Ô chọn **Lớp** ở trang Giáo viên / Học sinh có đủ lớp: trước đây bỏ các lớp của năm học đã kết thúc nên chỉ còn "Mọi lớp" dù bảng có lớp 7A1, 7A2 (2020-2021).
+4. **Xếp lớp từ Excel** (mẫu xếp lớp: Lớp, Khối, Học kỳ, Giáo viên phụ trách, học sinh) chuyển sang menu Phân công giáo viên, cùng PDF danh sách học sinh theo lớp.
+5. **Tạo lớp từ Excel** theo cách nhập giáo viên / học sinh: tải file mẫu của trường và năm học (Đông A, dòng nhận diện, ngày, khối VÍ DỤ, bảng STT – Lớp – Khối – Học kỳ – Sĩ số dự kiến có ô chọn, sheet Hướng dẫn), xem trước báo lỗi từng dòng (thiếu ô, trùng lớp trong file hoặc trong năm học, số đầu tên lớp khác khối, học kỳ sai, sĩ số ngoài 1–100), lưu tạo các lớp hợp lệ. **Xuất PDF** của Lớp học theo thể thức như PDF danh sách giáo viên / học sinh: phần đầu UBND phường / xã – trường, Quốc hiệu, "DANH SÁCH LỚP HỌC", năm học, tổng số theo khối, bộ lọc đang dùng, bảng Lớp – Mã lớp – Khối – Sĩ số dự kiến – Sĩ số – Trạng thái, chỗ ký Người lập biểu / Hiệu trưởng.
+
+Kiểm thử: `backend/test/class_excel.spec.ts` (mẫu tạo lớp, xem trước / lưu, nhập lại không trùng, PDF danh sách lớp lọc theo khối), `frontend/tests/member-excel|admin-shell.test.cjs`.

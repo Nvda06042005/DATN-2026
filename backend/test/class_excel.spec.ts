@@ -288,5 +288,43 @@ describe('mã tham gia theo quy ước', () => {
     expect((await api('POST', '/api/admin/classes', { year_id: A.year, grade: 6, name: '6A7', student_ids: [999999] })).status).toBe(422);
     expect(await classByName('6A7')).toBeUndefined();
   });
+
+  test('19/11/2026: tạo lớp từ Excel (mẫu riêng của trường và năm học, xem trước báo lỗi từng dòng, lưu tạo lớp) và PDF danh sách lớp dạng bảng', async () => {
+    const spec = await api('GET', `/api/admin/classes/create-spec?year_id=${A.year}`);
+    expect(spec.body).toMatchObject({ filename: 'file_mau_tao-lop_truong_giong-ong-to_2026-2027.xlsx', school_name: SCHOOL, year_label: YEAR });
+    const file = await download(s.base, `/api/admin/classes/create-template?year_id=${A.year}`, A.token);
+    const wb = await open(file.buffer), sheet = wb.getWorksheet('Lớp học')!;
+    expect(String(sheet.getCell('A2').value)).toMatch(new RegExp(`^Mẫu tạo lớp năm học ${YEAR} · ${SCHOOL} · Mã trường \\S+$`));
+    let head = 0;
+    sheet.eachRow((row, n) => { if (!head && String(row.getCell(2).value) === 'Lớp *') head = n; });
+    expect([sheet.getCell(head, 1).value, sheet.getCell(head, 2).value, sheet.getCell(head, 3).value, sheet.getCell(head, 4).value, sheet.getCell(head, 5).value]).toEqual(['STT', 'Lớp *', 'Khối *', 'Học kỳ *', 'Sĩ số dự kiến']);
+    expect(sheet.getCell(head + 1, 3).dataValidation).toMatchObject({ type: 'list' });
+    const rows = [['7B1', '7', '1', '38'], ['7B2', '7', '2', ''], ['8B1', '7', '1', ''], ['6A1', '6', '1', ''], ['', '6', '1', ''], ['9B1', '9', '3', '']];
+    rows.forEach((r, i) => r.forEach((v, j) => { sheet.getCell(head + 1 + i, j + 2).value = v; }));
+    const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+    const path = `/api/admin/classes/create-import?year_id=${A.year}`;
+    expect((await upload(s.base, path, 'lop.xlsx', buffer, A.token)).status).toBe(400); // sai tên file
+    const preview = await upload(s.base, path, spec.body.filename, buffer, A.token);
+    expect(preview.status).toBe(200);
+    expect(preview.body).toMatchObject({ committed: false, total: 6, valid: 2, errors: 4 });
+    const errs = (preview.body.rows as Array<{ class_name: string; errors: string[] }>).map((r) => [r.class_name, r.errors.join('; ')]);
+    expect(errs).toEqual([['7B1', ''], ['7B2', ''], ['8B1', 'Lớp 8B1 có số đầu khác khối 7'], ['6A1', `Lớp 6A1 đã có trong năm học ${YEAR}`], ['', 'Thiếu tên lớp'], ['9B1', 'Học kỳ phải là 1 hoặc 2']]);
+    expect(await classByName('7B1')).toBeUndefined(); // xem trước không tạo lớp
+    const saved = await upload(s.base, `${path}&commit=true`, spec.body.filename, buffer, A.token);
+    expect(saved.body).toMatchObject({ committed: true, created: 2 });
+    expect(await classByName('7B1')).toMatchObject({ grade: 7, expected_size: 38, teachers: [] });
+    expect(await classByName('7B2')).toMatchObject({ grade: 7 });
+    // nhập lại cùng file: lớp đã có thì báo lỗi, không tạo trùng
+    expect((await upload(s.base, path, spec.body.filename, buffer, A.token)).body).toMatchObject({ valid: 0 });
+    // PDF danh sách lớp dạng bảng (như PDF danh sách giáo viên / học sinh)
+    const pdf = await fetch(`${s.base}/api/admin/classes/list-pdf?year_id=${A.year}&grade=7`, { headers: { Authorization: `Bearer ${A.token}` } });
+    expect([pdf.status, pdf.headers.get('content-type')]).toEqual([200, 'application/pdf']);
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const text = (await (require('pdf-parse') as (b: Buffer) => Promise<{ text: string }>)(Buffer.from(await pdf.arrayBuffer()))).text;
+    expect(text).toMatch(/DANH SÁCH LỚP HỌC/);
+    expect(text).toMatch(/7B1/);
+    expect(text).toMatch(/Lọc theo: khối 7/);
+    expect(text).not.toMatch(/6A1/);
+  });
 });
 

@@ -82,9 +82,10 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const stt = Number(columnValues.stt) > 0 ? Number(columnValues.stt) : undefined;
   const { data, error, loading, reload } = useLoad(() => api.listMembers(token, kind, { ...query, stt, page, limit: size }), [token, kind, dq, active, grade, classId, yearId, semester, columnValues, page, size], session.expired);
   const lock = useAccountLock(session, reload);
-  // lớp đang hoạt động của mọi năm học chưa kết thúc (yêu cầu 13/11/2026): trước đây chỉ lấy năm học đang hoạt động nên năm đó chưa có lớp thì ô chọn lớp trống
-  const { data: classes } = useLoad(() => api.listClasses(token, { active: 'true', limit: 200 }), [token], session.expired);
-  const classOptions = useMemo(() => (classes?.items ?? []).filter((x) => x.is_active && x.year_status !== 'ended' && (!yearId || x.year_id === yearId) && (!grade || x.grade === Number(grade))).map((x) => ({ value: String(x.id), label: `${x.name} · Khối ${x.grade ?? '?'} (${x.school_year})` })), [classes, yearId, grade]);
+  // ô chọn Lớp (19/11/2026): mọi lớp của năm học đang chọn (Mọi năm học: mọi năm, ghi kèm năm học), kể cả năm đã kết thúc và lớp đã lưu trữ –
+  // trước đây bỏ lớp của năm đã kết thúc nên giáo viên dạy 7A1 (2020-2021) có trong bảng mà ô chọn chỉ còn "Mọi lớp"
+  const { data: classes } = useLoad(() => api.listClasses(token, { limit: 200 }), [token], session.expired);
+  const classOptions = useMemo(() => (classes?.items ?? []).filter((x) => (!yearId || x.year_id === yearId) && (!grade || x.grade === Number(grade))).map((x) => ({ value: String(x.id), label: `${x.name} · Khối ${x.grade ?? '?'}${yearId ? '' : ` (${x.school_year})`}${x.is_active ? '' : ' – đã lưu trữ'}` })), [classes, yearId, grade]);
   // mỗi bộ lọc khai báo một lần: nút mũi tên ở tiêu đề cột (màn rộng) và nút "Bộ lọc" của thanh tìm kiếm (màn hẹp) dùng chung
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }], onChange: (v) => { setActive(v); setPage(1); } };
   const f_grade: SearchFilter = { key: 'grade', label: 'Khối', value: grade, options: [{ value: '', label: 'Mọi khối' }, ...[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }))], onChange: (v) => { setGrade(v); setClassId(''); setPage(1); } };
@@ -96,7 +97,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   /** Lớp đang dạy (giáo viên) / lớp đã vào (học sinh) theo khối / lớp đang chọn; nhiều lớp thì hiện 3 lớp đầu và "+N" (đủ danh sách trong hồ sơ) */
   const teaching = (u: Account) => {
     const list = u.classes.filter((k) => (!grade || k.grade === Number(grade)) && (!classId || k.id === Number(classId)));
-    const label = (k: Account['classes'][number]) => (teacher || yearId ? k.name : `${k.name} (${k.school_year})`);
+    const label = (k: Account['classes'][number]) => k.name; // 19/11/2026: học sinh như giáo viên – chỉ tên lớp, không kèm năm học
     return { text: list.length ? `${list.slice(0, 3).map(label).join(', ')}${list.length > 3 ? ` +${list.length - 3} lớp` : ''}` : teacher ? '—' : 'Chưa xếp lớp', grades: [...new Set(list.map((k) => k.grade).filter(Boolean))].map((g) => `Khối ${g}`).join(', ') || '—', empty: !list.length };
   };
   const memberValues = (key: string, pick: (u: Account) => string | null) => (term: string) => api.listMembers(token, kind, { ...query, stt: undefined, [key]: term || undefined, page: 1, limit: 200 }).then((r) => distinctValues(r.items, pick));

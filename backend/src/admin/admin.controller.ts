@@ -555,6 +555,33 @@ export class AdminController {
   @HttpCode(200)
   clone(@CurrentUser() user: UserRow, @Body() body: CloneDto) { return this.classes.clone(user, body); }
 
+  /** Tạo lớp từ Excel (19/11/2026): tên file / năm học của mẫu, tải mẫu, xem trước và lưu */
+  @Get('classes/create-spec')
+  @Header('Cache-Control','no-store')
+  classCreateSpec(@CurrentUser() user: UserRow, @Query() query: AssignQuery) { return this.classes.createSpec(user, query.school_id, query.year_id); }
+
+  @Get('classes/create-template')
+  @Header('Cache-Control','no-store')
+  async classCreateTemplate(@CurrentUser() user: UserRow, @Query() query: AssignQuery) {
+    const file = await this.classes.createTemplate(user, query.school_id, query.year_id);
+    return download(file.buffer, file.filename);
+  }
+
+  @Post('classes/create-import')
+  @HttpCode(200)
+  @UseInterceptors(XLSX_UPLOAD)
+  importCreateClasses(@CurrentUser() user: UserRow, @Query() query: ImportQuery, @UploadedFile() file: UploadedXlsx | undefined) {
+    return this.classes.importCreate(user, file, { commit: query.commit === 'true', school_id: query.school_id, year_id: query.year_id });
+  }
+
+  /** PDF danh sách lớp dạng bảng theo bộ lọc của trang Lớp học (19/11/2026) */
+  @Get('classes/list-pdf')
+  @Header('Cache-Control','no-store')
+  async classListPdf(@CurrentUser() user: UserRow, @Query() query: ClassQuery) {
+    const pdf = await this.classes.exportClassesPdf(user, query);
+    return pdfFile(pdf.buffer, pdf.filename);
+  }
+
   /** File mẫu xếp lớp của trường và năm học (mặc định năm học đang hoạt động), cùng bố cục với mẫu giáo viên/học sinh */
   @Get('classes/template')
   @Header('Cache-Control','no-store')
