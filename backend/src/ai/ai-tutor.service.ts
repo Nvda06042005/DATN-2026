@@ -87,7 +87,15 @@ export class AiTutorService implements OnModuleDestroy {
   }
 
   onModuleInit() {
-    if (warmOnBoot()) setTimeout(() => { void this.ensurePythonBridge(); }, 15_000).unref();
+    if (!warmOnBoot()) return;
+    // nạp sẵn mô hình sau khi khởi động; lúc vừa khởi động máy chủ còn bận nên bộ nhớ trống có thể thiếu chút ít (18/11/2026: 277/280 MB) –
+    // khi đó thử lại sau 1, 2 rồi 4 phút thay vì để AI ở chế độ dự phòng tới lần gọi sau
+    const attempt = (delay: number, left: number) => setTimeout(() => {
+      void this.ensurePythonBridge().then((ok) => {
+        if (!ok && left > 0 && engineHealth().status === 'unavailable') attempt(delay === 15_000 ? 60_000 : delay * 2, left - 1);
+      });
+    }, delay).unref();
+    attempt(15_000, 3);
   }
 
   onModuleDestroy() {
