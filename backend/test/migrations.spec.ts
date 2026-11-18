@@ -348,6 +348,33 @@ describe('file migration', () => {
     for (const file of held.filter(file => !applied.includes(file))) renameSync(join(dir, `${file}.held`), join(dir, file));
   });
 
+  test('073 thêm ngày kết thúc của trường: trường đã vô hiệu hóa lấy gần đúng từ nhật ký sửa trường, không có nhật ký thì để trống; trường đang hoạt động không có ngày kết thúc', async () => {
+    const held = readdirSync(dir).filter(name => /^\d+_.*\.sql$/.test(name) && Number(name.split('_')[0]) >= 73);
+    expect(held.some(name => name.startsWith('073_'))).toBe(true);
+    for (const file of held) renameSync(join(dir, file), join(dir, `${file}.held`));
+    await m.applyMigrations(url, dir);
+    await sql(url, `INSERT INTO app_schools(id,school_code,name,region,city,is_active) VALUES
+        (9731,'00009731','Trường đã tắt có nhật ký','Phường Bến Thành','Thành phố Hồ Chí Minh',false),
+        (9732,'00009732','Trường đã tắt không nhật ký',NULL,NULL,false),
+        (9733,'00009733','Trường đang hoạt động','Quận 2','Thành phố Hồ Chí Minh',true);
+      INSERT INTO app_audit_events(actor_name,actor_role,school_id,action,target_type,target_id,success,created_at) VALUES
+        ('Quản trị thử','root_admin',9731,'PATCH /api/admin/schools/:id','school','9731',true,'2026-11-01T03:00:00Z'),
+        ('Quản trị thử','root_admin',9731,'PATCH /api/admin/schools/:id','school','9731',true,'2026-11-05T03:00:00Z'),
+        ('Quản trị thử','root_admin',9731,'PATCH /api/admin/schools/:id','school','9731',false,'2026-11-09T03:00:00Z'),
+        ('Quản trị thử','root_admin',9733,'PATCH /api/admin/schools/:id','school','9733',true,'2026-11-06T03:00:00Z')`);
+    const before = await sql(url, 'SELECT id,school_code,name,region,city,is_active FROM app_schools WHERE id IN (9731,9732,9733) ORDER BY id');
+    const applied = held.filter(name => name.startsWith('073_'));
+    for (const file of applied) renameSync(join(dir, `${file}.held`), join(dir, file));
+    expect(await m.applyMigrations(url, dir)).toEqual(applied);
+    expect(await sql(url, 'SELECT id,school_code,name,region,city,is_active FROM app_schools WHERE id IN (9731,9732,9733) ORDER BY id')).toEqual(before);
+    const ended = await sql<{ id: number; deactivated_at: Date | null }>(url, 'SELECT id, deactivated_at FROM app_schools WHERE id IN (9731,9732,9733) ORDER BY id');
+    expect(ended.map(r => [r.id, r.deactivated_at && new Date(r.deactivated_at).toISOString()])).toEqual([[9731, '2026-11-05T03:00:00.000Z'], [9732, null], [9733, null]]);
+    // đang hoạt động thì không có ngày kết thúc
+    await expect(sql(url, "UPDATE app_schools SET deactivated_at = now() WHERE id = 9733")).rejects.toThrow(/app_schools_deactivated_only_inactive/);
+    expect(await m.applyMigrations(url, dir)).toEqual([]);
+    for (const file of held.filter(file => !applied.includes(file))) renameSync(join(dir, `${file}.held`), join(dir, file));
+  });
+
   test('giữ nguyên dữ liệu đã nhập và lịch sử _prisma_migrations', async () => {
     await sql(url, readFileSync(join(dir, '001_initial_postgres_schema.sql'), 'utf8'));
     await sql(url, `INSERT INTO public."User" (id, email, "passwordHash", "fullName", "updatedAt") VALUES ('legacy-id', 'fixture@example.invalid', 'fake-hash', 'Fixture', now())`);

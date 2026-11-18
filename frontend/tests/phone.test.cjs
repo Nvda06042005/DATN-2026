@@ -65,7 +65,8 @@ test('mọi ô số điện thoại của bốn vai trò dùng ô có giới h�
   assert.equal([...people.matchAll(/name: 'phone', label: 'SĐT', type: 'phone'/g)].length, 1); // một ô dùng chung cho giáo viên, học sinh (personFields)
   assert.doesNotMatch(people, /name: 'phone'[^}]*type: 'tel'/);
   assert.match(read('components', 'admin', 'AccountSheet.tsx'), /name: 'phone', label: 'Số điện thoại', type: 'phone'/);
-  assert.match(read('components', 'admin', 'RootAdmin.tsx'), /name: 'admin_phone', label: 'Điện thoại', type: 'phone', required: true/);
+  // quản trị viên trường thêm bằng hộp Tạo tài khoản quản trị (thêm trường không còn ô quản trị viên đầu tiên từ 18/11/2026)
+  assert.doesNotMatch(read('components', 'admin', 'RootAdmin.tsx'), /name: 'admin_phone'/);
   // hộp Tạo tài khoản quản trị: đúng 10 chữ số mới gửi
   const sheet = read('components', 'admin', 'CreateSchoolAdminSheet.tsx');
   assert.match(sheet, /<PhoneField label="Số điện thoại \*" nativeID="field-phone" value=\{phone\} onChange=\{setPhone\}/);

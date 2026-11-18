@@ -115,7 +115,7 @@ import { directoryInfo } from '../src/admin/school-directory';
     expect(counts.entries).toBeGreaterThanOrEqual(directoryInfo().schools);
     expect(counts.assets).toBeGreaterThanOrEqual(422); // lịch sử asset không bị xóa khi danh mục đổi tên
     const choice = (await api('GET', '/api/admin/school-directory?q=79765507')).body.items[0];
-    expect(choice).toMatchObject({ region: 'Phường Thạnh Mỹ Tây', address: '120B Ngô Tất Tố, phường Thạnh Mỹ Tây, Thành phố Hồ Chí Minh' });
+    expect(choice).toMatchObject({ region: 'Phường Thạnh Mỹ Tây', address: '120B Ngô Tất Tố, Phường Thạnh Mỹ Tây, Thành phố Hồ Chí Minh' });
     expect(choice.logo_url).toMatch(/^https:\/\/[^/]+\/api\/school-logos\/[a-f0-9]{64}\.webp$/);
     const logoPath = new URL(choice.logo_url).pathname;
     expect(choice.image_data).toBeUndefined();

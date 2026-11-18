@@ -241,6 +241,22 @@ export const Stars: React.FC<{ n: number; max?: number; size?: number; label?: s
 };
 
 /** Dòng cài đặt bật/tắt */
+/**
+ * Nút gạt bật / tắt (18/11/2026, thay cặp nút chữ như "Vô hiệu / Kích hoạt", "Bật / Tắt"): vùng chạm 44pt, trình đọc màn hình đọc là công tắc kèm trạng thái;
+ * `label` nói rõ việc gạt làm gì (ví dụ "Trường Phú Mỹ đang hoạt động").
+ */
+export const Switch: React.FC<{ value: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean; testID?: string }> = ({ value, onChange, label, disabled, testID }) => {
+  const { c } = useTheme();
+  return (
+    <Pressable onPress={() => onChange(!value)} disabled={disabled} accessibilityRole="switch" accessibilityLabel={label} accessibilityState={{ checked: value, disabled: !!disabled }} aria-checked={value} testID={testID}
+      style={({ pressed }) => ({ minWidth: 48, minHeight: 44, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.45 : pressed ? 0.75 : 1, ...(Platform.OS === 'web' ? { cursor: disabled ? 'not-allowed' : 'pointer' } : {}) } as ViewStyle)}>
+      <View style={[{ width: 44, height: 26, borderRadius: 13, backgroundColor: value ? c.mocChu : c.muc3, justifyContent: 'center' }, Platform.OS === 'web' ? ({ transitionProperty: 'background-color', transitionDuration: '150ms' } as ViewStyle) : null]}>
+        <View style={[{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#ffffff', transform: [{ translateX: value ? 21 : 3 }] }, Platform.OS === 'web' ? ({ transitionProperty: 'transform', transitionDuration: '150ms' } as ViewStyle) : null]} />
+      </View>
+    </Pressable>
+  );
+};
+
 export const ToggleRow: React.FC<{ checked: boolean; onChange: (v: boolean) => void; label: string; desc?: string; icon: IconType }> = ({ checked, onChange, label, desc, icon: Icon }) => {
   const { c } = useTheme();
   return (
@@ -466,7 +482,10 @@ export const Field: React.FC<
           setFocus(false);
           onBlur?.(e);
         }}
-        style={[s.input, admin && { minHeight: 44, borderRadius: 5, borderWidth: 1, backgroundColor: c.the, fontFamily: FONT.body, fontSize: 14 }, { borderColor: error ? c.son : focus ? (admin ? c.son : c.thuy) : admin ? c.adminLine : c.vien }, inputStyle]}
+        style={[s.input, admin && { minHeight: 44, borderRadius: 5, borderWidth: 1, backgroundColor: c.the, fontFamily: FONT.body, fontSize: 14 }, { borderColor: error ? c.son : focus ? (admin ? c.son : c.thuy) : admin ? c.adminLine : c.vien },
+          // ô chỉ đọc (ví dụ mã trường): nền xám, chữ nhạt, không nhận con trỏ – nhìn là biết không sửa được
+          rest.editable === false ? [{ backgroundColor: admin ? c.adminLine : c.giay2, color: c.muc2 }, Platform.OS === 'web' ? ({ cursor: 'not-allowed' } as unknown as TextStyle) : null] : null, inputStyle]}
+        accessibilityState={rest.editable === false ? { disabled: true } : undefined}
         {...rest}
       />
       {error ? (

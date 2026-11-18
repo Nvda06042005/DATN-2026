@@ -67,7 +67,10 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     expect(sent?.text).not.toContain('/school-manager-admin');
     expect((await api('POST', '/api/admin/schools', { school_code: '7001', name: 'Trùng mã', admin: { full_name: 'Ai Đó', email: 'khac@example.edu.vn' } })).status).toBe(409);
     expect((await api('POST', '/api/admin/schools', { school_code: '7003', name: 'Trùng email', admin: { full_name: 'Ai Đó', email: 'QT.A@example.edu.vn' } })).status).toBe(409);
-    expect((await api('POST', '/api/admin/schools', { school_code: '7003', name: 'Thiếu quản trị' })).status).toBe(422);
+    // 18/11/2026: thêm trường không bắt buộc quản trị viên đầu tiên (thêm sau); không tạo tài khoản, không gửi thư
+    const bare = await api('POST', '/api/admin/schools', { school_code: '7009', name: 'Chưa có quản trị' });
+    expect(bare.status).toBe(201);
+    expect(bare.body).toMatchObject({ admin: null, temporary_password: null, mail: 'none' });
     expect((await api('POST', '/api/admin/schools', { school_code: '7003', name: 'QTV trường không tạo được', admin: { full_name: 'Ai Đó', email: 'x@example.edu.vn' } }, a.token)).status).toBe(403);
   });
 

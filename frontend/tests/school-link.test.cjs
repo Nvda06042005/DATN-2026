@@ -73,8 +73,12 @@ test('thêm trường: ô tên trường gợi ý từ danh mục và chọn xon
   assert.match(admin, /\{ name: 'name', label: 'Tên trường', required: true, render: \(values, set\) => <SchoolPicker token=\{token\} values=\{values\} set=\{set\} \/> \}/);
   assert.match(admin, /fields=\{CREATE_FIELDS\(token\)\}/);
   const choose = /const choose = \(item: SchoolDirectoryItem\) => \{([\s\S]*?)\n  \};/.exec(admin)[1];
-  for (const field of ['name', 'directory_code', 'region', 'city']) assert.match(choose, new RegExp(`set\\('${field}', item\\.${field === 'directory_code' ? 'code' : field}\\)`));
-  assert.match(choose, /set\('address', item\.address \?\? ''\)/);
+  for (const field of ['name', 'directory_code', 'city']) assert.match(choose, new RegExp(`set\\('${field}', item\\.${field === 'directory_code' ? 'code' : field}\\)`));
+  // 18/11/2026: phường / xã mới (có thể chưa biết), đường, quận cũ để báo, gợi ý; địa chỉ tự cập nhật theo trường đã chọn
+  assert.match(choose, /set\('region', item\.region \?\? ''\)/);
+  assert.match(choose, /set\('street', item\.street \?\? ''\)/);
+  assert.match(choose, /set\('suggested_region', item\.suggested_region \?\? ''\)/);
+  assert.match(choose, /set\('address', item\.address \?\? composeAddress\(item\.street, item\.region, item\.city\)\)/);
   // thêm trường: mã trường hiện ngay trong ô Mã trường khi chọn từ danh mục (không gửi lên máy chủ, mã lấy từ directory_code); sửa trường thì giữ mã đang có
   assert.doesNotMatch(choose, /set\('school_code'/); // mã trường do hệ thống cấp khi lưu (khác mã trong danh mục) nên chọn danh mục không điền mã vào ô Mã trường
   // gợi ý tìm sau khi gõ, bỏ kết quả cũ khi gõ tiếp, và không tìm lại ngay sau khi vừa chọn
@@ -98,7 +102,7 @@ test('không có hook sau lệnh return sớm trong ô chọn trường (lỗi R
 
 test('tạo xong: hộp thông tin hiện đường dẫn riêng (sao chép, mở); danh sách và chi tiết trường của quản trị tổng cũng có đường dẫn và huy hiệu; quản trị trường không hiện', () => {
   const admin = read('components', 'admin', 'RootAdmin.tsx');
-  assert.match(admin, /extra=\{<View style=\{\{ gap: 10 \}\}>[\s\S]*<SchoolLinkBox link=\{created\.school\.link\} \/>/);
+  assert.match(admin, /title="Đã thêm trường"[\s\S]*<SchoolLinkBox link=\{created\.school\.link\} \/>/);
   assert.match(admin, /<SchoolLinkBox link=\{data\.link\} \/>/);
   assert.match(admin, /<SchoolEmblem name=\{s\.name\} code=\{s\.school_code\} logoUrl=\{s\.logo_url\} size=\{36\} \/>/);
   assert.match(read('components', 'admin', 'kit.tsx'), /onClose: \(\) => void; extra\?: React\.ReactNode \}> = \(\{ title, account, onClose, extra \}\)/);
@@ -147,9 +151,12 @@ test('thêm trường: xem số kế tiếp từ máy chủ, không gửi mã xe
   assert.doesNotMatch(admin, /Tự sinh khi lưu|Bấm Tạo trường: hệ thống cấp mã trường/);
   const createFields = admin.slice(admin.indexOf('const CREATE_FIELDS'), admin.indexOf('const SchoolsPanel'));
   assert.doesNotMatch(createFields, /name: 'school_code'/);
-  assert.match(createFields, /name: 'code_preview', label: 'Mã trường'/);
-  assert.match(admin, /api\.previewSchoolCode\(token\)/);
-  assert.match(admin, /value=\{data\?\.school_code \?\? ''\} editable=\{false\}[\s\S]*?testID="school-code-preview"/);
+  // 18/11/2026: mã trường do hệ thống tự sinh nên không hiện ở biểu mẫu Thêm trường; hộp kết quả hiện mã chính thức
+  assert.doesNotMatch(createFields, /code_preview|SchoolCodePreview/);
+  assert.doesNotMatch(admin, /api\.previewSchoolCode\(token\)/);
+  // sửa trường: mã trường là ô chỉ đọc (nền xám, không sửa được)
+  assert.match(admin, /\{ name: 'school_code', label: 'Mã trường', readOnly: true/);
+  assert.match(read('components', 'ui.tsx'), /rest\.editable === false \? \[\{ backgroundColor: admin \? c\.adminLine : c\.giay2, color: c\.muc2 \}/);
   const submit = admin.slice(admin.indexOf("if (String(v.name)"), admin.indexOf('setCreated(res)'));
   assert.doesNotMatch(submit, /body\.(school_code|code_preview)|v\.(school_code|code_preview)/);
   assert.match(admin, /testID="created-school-code">\{created\.school\.school_code\}<\/Txt>/);
@@ -185,4 +192,72 @@ test('trang đăng nhập không còn nút "Vào nhanh giao diện ... (Bản xe
   // đăng nhập duy nhất qua máy chủ: tên đăng nhập và mật khẩu, hoặc Google
   assert.match(login, /authApi\./);
   assert.match(login, /GoogleSignIn/);
+});
+
+// 18/11/2026: khu vực theo mô hình hai cấp (không còn quận / huyện), địa chỉ tự ghép, ngày kết thúc, nút gạt, logo tải lên
+function loadUnits(apiRequest) {
+  const compiled = ts.transpileModule(read('lib', 'admin-units.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const module = { exports: {} };
+  const fake = (name) => { if (name === '@/api/client') return { apiRequest }; throw new Error(`không nạp ${name}`); };
+  new vm.Script(`(function(module,exports,require){${compiled}\n})`).runInThisContext()(module, module.exports, fake);
+  return module.exports;
+}
+
+test('địa chỉ hai cấp: nhận diện quận / huyện cũ, tách phần đường, ghép địa chỉ mới, lọc phường / xã không dấu, khớp tên tỉnh / thành', async () => {
+  const calls = [];
+  const units = loadUnits(async (url) => { calls.push(url); return url.includes('city=') ? { wards: ['Phường Thạnh Mỹ Tây', 'Phường Bình Thạnh', 'Xã An Thạnh', 'Phường Tân Định'] } : { provinces: [{ code: '79', name: 'Thành phố Hồ Chí Minh', wards: 168 }, { code: '01', name: 'Thành phố Hà Nội', wards: 126 }] }; });
+  assert.equal(units.isOldDistrict('Quận Bình Thạnh'), true);
+  assert.equal(units.isOldDistrict('Phường Thạnh Mỹ Tây'), false);
+  assert.equal(units.isNewUnit('Đặc khu Phú Quốc'), true);
+  assert.equal(units.streetPart('120B Ngô Tất Tố, phường Thạnh Mỹ Tây, Thành phố Hồ Chí Minh'), '120B Ngô Tất Tố');
+  assert.equal(units.streetPart('12 Lê Lợi, P. Bến Thành, Q.1, TP.HCM'), '12 Lê Lợi');
+  assert.equal(units.streetPart('5 Đường Thử, Hồ Chí Minh', 'Thành phố Hồ Chí Minh'), '5 Đường Thử');
+  assert.equal(units.composeAddress('120B Ngô Tất Tố', 'Phường Thạnh Mỹ Tây', 'Thành phố Hồ Chí Minh'), '120B Ngô Tất Tố, Phường Thạnh Mỹ Tây, Thành phố Hồ Chí Minh');
+  assert.equal(units.placeText('Quận 2', 'Thành phố Hồ Chí Minh'), 'Thành phố Hồ Chí Minh');
+  assert.equal(units.placeText('Phường An Khánh', 'Thành phố Hồ Chí Minh'), 'Phường An Khánh · Thành phố Hồ Chí Minh');
+  assert.equal(units.addressText({ address: null, region: 'Phường An Khánh', city: 'Thành phố Hồ Chí Minh' }), 'Phường An Khánh, Thành phố Hồ Chí Minh');
+  assert.equal(units.addressText({ address: null, region: 'Quận 2', city: 'Thành phố Hồ Chí Minh' }), 'Thành phố Hồ Chí Minh');
+  const provinces = await units.loadProvinces('t');
+  await units.loadProvinces('t');
+  assert.equal(calls.length, 1); // tải một lần
+  assert.equal(units.matchProvince(provinces, 'TP. Hồ Chí Minh').code, '79');
+  assert.equal(units.matchProvince(provinces, 'Thành Phố Hồ Chí Minh').code, '79');
+  assert.equal(units.matchProvince(provinces, 'Tỉnh Bình Dương'), null);
+  const wards = await units.loadWards('t', 'Thành phố Hồ Chí Minh');
+  assert.ok(calls[1].endsWith('?city=Th%C3%A0nh%20ph%E1%BB%91%20H%E1%BB%93%20Ch%C3%AD%20Minh'));
+  assert.deepEqual(units.filterWards(wards, 'thanh'), ['Phường Thạnh Mỹ Tây', 'Phường Bình Thạnh', 'Xã An Thạnh']);
+  assert.deepEqual(units.filterWards(wards, 'phuong tan'), ['Phường Tân Định']);
+});
+
+test('trang Trường học: nút gạt thay chữ Vô hiệu / Kích hoạt, cột Ngày kết thúc, chọn phường / xã, logo tải lên thay liên kết https; quản trị trường giống vậy', () => {
+  const admin = read('components', 'admin', 'RootAdmin.tsx');
+  const ui = read('components', 'ui.tsx');
+  assert.match(ui, /export const Switch: React\.FC<\{ value: boolean; onChange: \(v: boolean\) => void; label: string; disabled\?: boolean; testID\?: string \}>/);
+  assert.match(ui, /accessibilityRole="switch" accessibilityLabel=\{label\} accessibilityState=\{\{ checked: value, disabled: !!disabled \}\}/);
+  assert.match(ui, /minWidth: 48, minHeight: 44/);
+  assert.doesNotMatch(admin, /title=\{s\.is_active \? 'Vô hiệu' : 'Kích hoạt'\}/);
+  assert.match(admin, /<Switch value=\{s\.is_active\} onChange=\{\(\) => setToggling\(s\)\}/);
+  assert.match(admin, /\{ key: 'ended', label: 'Ngày kết thúc', render: \(s\) =>[^\n]*s\.deactivated_at \? dateText\(s\.deactivated_at\) : 'Không rõ ngày'/);
+  assert.match(admin, /\.\.\.placeFields\(token\)/);
+  assert.doesNotMatch(admin, /name: 'logo_url'|Logo riêng \(liên kết https/);
+  assert.match(admin, /upload=\{\(data\) => api\.uploadSchoolLogo\(token, editing\.id, data\)\} remove=\{\(\) => api\.removeSchoolLogo\(token, editing\.id\)\}/);
+  // sửa trường không gửi logo_url (logo đổi ngay khi tải lên, không bị giá trị cũ ghi đè khi bấm Lưu)
+  const editSubmit = admin.slice(admin.indexOf('Sửa thông tin trường'), admin.indexOf('<ConfirmSheet open={!!toggling}'));
+  assert.doesNotMatch(editSubmit.slice(editSubmit.indexOf('onSubmit')), /logo_url/);
+  const place = read('components', 'admin', 'SchoolPlace.tsx');
+  assert.match(place, /label="Phường \/ xã \/ đặc khu"/);
+  assert.match(place, /label="Địa chỉ \(tự cập nhật\)"[^\n]*editable=\{false\}/);
+  assert.match(place, /set\('address', composeAddress\(next\.street, isNewUnit\(next\.region\) \? next\.region : null, next\.city\)\)/);
+  assert.match(place, /Từ 01\/07\/2025 không còn cấp quận \/ huyện \/ thị xã/);
+  const api = read('api', 'adminApi.ts');
+  assert.match(api, /\/api\/admin\/schools\/\$\{id\}\/logo`, \{ token, body: \{ data \} \}/);
+  assert.match(api, /\/api\/admin\/school\/logo\$\{qs\(\{ school_id: schoolId \}\)\}`, \{ token, method: 'DELETE' \}/);
+  const school = read('components', 'admin', 'SchoolAdmin.tsx');
+  assert.doesNotMatch(school, /name: 'logo_url'/);
+  assert.match(school, /upload=\{\(data\) => api\.uploadMySchoolLogo\(token, data\)\}/);
+  assert.match(school, /\.\.\.placeFields\(token\)/);
+  assert.match(school, /<Switch value=\{row\.is_active\}/);
+  assert.doesNotMatch(school, /title=\{row\.is_active \? 'Tắt' : 'Bật'\}/);
+  // trang đăng nhập của trường, ô chọn trường: không hiện quận / huyện cũ là khu vực
+  assert.match(read('components', 'school-brand.tsx'), /const place = placeText\(school\.region, school\.city\);/);
 });

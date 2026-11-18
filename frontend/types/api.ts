@@ -81,6 +81,8 @@ export interface SchoolItem {
   link: SchoolLink;
   is_active: boolean;
   created_at: string;
+  /** Ngày kết thúc: lúc trường bị vô hiệu hóa; null khi đang hoạt động (trường tắt từ trước 18/11/2026 có thể không rõ ngày) */
+  deactivated_at?: string | null;
   users: number;
   admins: number;
   teachers: number;
@@ -114,7 +116,15 @@ export interface YearItem {
 
 /** Một trường trong danh mục: chọn thì mã, khu vực, tỉnh/thành và đường dẫn tự điền */
 export interface SchoolDirectoryItem {
-  code: string; name: string; region: string; city: string; address?: string | null; website?: string | null; logo_url?: string | null; note: string | null; exists: boolean; slug: string;
+  code: string; name: string; city: string; address?: string | null; website?: string | null; logo_url?: string | null; note: string | null; exists: boolean; slug: string;
+  /** Phường / xã / đặc khu (mô hình hai cấp từ 01/07/2025) khi biết chắc; null thì quản trị viên chọn */
+  region: string | null;
+  /** Quận / huyện cũ của mã Bộ GD&ĐT (đã bỏ) – chỉ để tra cứu */
+  district?: string | null;
+  /** Số nhà / đường đọc được từ địa chỉ đã kiểm chứng */
+  street?: string | null;
+  /** Gợi ý phường / xã khi chưa biết chắc (quản trị viên bấm để chọn) */
+  suggested_region?: string | null;
   /** Mã trường đang giữ chỗ trường này trong hệ thống (kể cả trường nhập tay trùng tên) */
   existing_code?: string | null;
   /** Khi đang sửa một trường: bản ghi danh mục này khớp tên và tỉnh/thành của chính trường đó (gợi ý liên kết logo) */
@@ -172,9 +182,10 @@ export interface CreatedAccount {
 
 export interface CreatedSchool {
   school: SchoolItem;
-  admin: AuthUser;
-  temporary_password: string;
-  mail: 'queued' | 'no_email' | 'not_configured';
+  /** Từ 18/11/2026 thêm trường không kèm quản trị viên (null); client cũ gửi kèm thì có tài khoản và mật khẩu tạm */
+  admin: AuthUser | null;
+  temporary_password: string | null;
+  mail: 'queued' | 'no_email' | 'not_configured' | 'none';
 }
 
 export interface MemberInput {

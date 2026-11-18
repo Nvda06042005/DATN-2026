@@ -80,15 +80,17 @@ function AccountSuggestField({ token, kind, value, schoolId, onChange, onSelect,
   </View>;
 }
 
-export function CreateSchoolAdminSheet({ session, onClose, onCreated, onExisting }: {
+export function CreateSchoolAdminSheet({ session, onClose, onCreated, onExisting, initialSchoolId }: {
   session: Session; onClose: () => void; onCreated: (account: CreatedAccount) => void; onExisting: (id: number) => void;
+  /** Chọn sẵn trường (ví dụ trường vừa thêm ở trang Trường học, 18/11/2026) */
+  initialSchoolId?: number;
 }) {
   const { c } = useTheme();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [birth, setBirth] = useState('');
-  const [schoolId, setSchoolId] = useState('');
+  const [schoolId, setSchoolId] = useState(initialSchoolId ? String(initialSchoolId) : '');
   const [selected, setSelected] = useState<Account | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

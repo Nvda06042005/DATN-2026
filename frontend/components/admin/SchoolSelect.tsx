@@ -6,6 +6,7 @@ import { useDebounced } from '@/components/admin/kit';
 import { SchoolEmblem } from '@/components/school-brand';
 import { Btn, Field, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
+import { placeText } from '@/lib/admin-units';
 import { ApiError, errorMessage } from '@/api/client';
 import type { SchoolItem } from '@/types/api';
 
@@ -60,7 +61,7 @@ export function SchoolSelect({ token, value, onChange, onExpired }: { token: str
     {open && <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 230, borderWidth: 1, borderColor: c.adminLine, borderRadius: 7 }} testID="existing-school-list">
       {visibleItems.map(item => <Pressable key={item.id} testID={`existing-school-${item.id}`} accessibilityRole="button" accessibilityLabel={`Chọn ${item.name}, mã ${item.school_code}`} onPress={() => { setSelected(item); setOpen(false); onChange(String(item.id)); }} style={{ minHeight: 52, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomWidth: 1, borderBottomColor: c.adminLine }}>
         <SchoolEmblem name={item.name} code={item.school_code} logoUrl={item.logo_url} size={30} />
-        <View style={{ flex: 1, gap: 3 }}><Txt f="semibold" size={13}>{item.name}</Txt><Txt size={11} color={c.muc3}>{item.school_code} · {[item.region, item.city].filter(Boolean).join(' · ')}</Txt></View>
+        <View style={{ flex: 1, gap: 3 }}><Txt f="semibold" size={13}>{item.name}</Txt><Txt size={11} color={c.muc3}>{[item.school_code, placeText(item.region, item.city)].filter(Boolean).join(' · ')}</Txt></View>
       </Pressable>)}
       {loading || query.trim() !== search.trim() ? <Txt size={12} color={c.muc3} style={{ padding: 12 }}>Đang tìm trường…</Txt> : null}
       {!loading && !error && query.trim() === search.trim() && !visibleItems.length && <Txt size={12} color={c.muc3} style={{ padding: 12 }}>Không tìm thấy trường đã tạo phù hợp.</Txt>}

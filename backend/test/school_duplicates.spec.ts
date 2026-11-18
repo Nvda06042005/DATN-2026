@@ -33,15 +33,15 @@ describe('So khớp tên trường', () => {
   afterAll(async () => { await s?.close(); });
 
   test('trường nhập tay có mã tự sinh: mã hiện ngay khi tạo và khớp ở danh sách, chi tiết, đường dẫn riêng', async () => {
-    const made = await api('POST', '/api/admin/schools', { name: 'THCS Phú Mỹ', region: 'Miền Nam', city: 'Thành Phố Hồ Chí Minh', admin: admin('Quản Trị Phú Mỹ', 'qt.phumy@example.edu.vn') });
+    const made = await api('POST', '/api/admin/schools', { name: 'THCS Phú Mỹ', region: 'Phường Tân Định', city: 'Thành Phố Hồ Chí Minh', admin: admin('Quản Trị Phú Mỹ', 'qt.phumy@example.edu.vn') });
     expect(made.status).toBe(201);
     const { id, school_code: code } = made.body.school;
     expect(code).toMatch(/^\d{4,8}$/);
-    expect(made.body.school.link.slug).toBe(`donga_${code}_phumy_miennam`);
+    expect(made.body.school.link.slug).toBe(`donga_${code}_phumy_tandinh`);
     const list = await api('GET', '/api/admin/schools?q=phu%20my');
     expect(list.body.items.map((x: { school_code: string }) => x.school_code)).toContain(code);
     const detail = await api('GET', `/api/admin/schools/${id}`);
-    expect(detail.body).toMatchObject({ school_code: code, name: 'THCS Phú Mỹ', link: { slug: `donga_${code}_phumy_miennam` } });
+    expect(detail.body).toMatchObject({ school_code: code, name: 'THCS Phú Mỹ', link: { slug: `donga_${code}_phumy_tandinh` } });
   });
 
   test('gợi ý danh mục báo trường đã có kèm mã, và báo cả trường nhập tay trùng tên đang gõ', async () => {
@@ -77,7 +77,7 @@ describe('So khớp tên trường', () => {
     expect(suggest.body.items.filter((i: { matches_school: boolean }) => i.matches_school).every((i: { name: string }) => /Phú Mỹ$/.test(i.name))).toBe(true);
     const linked = await api('PATCH', `/api/admin/schools/${mine.id}`, { directory_code: '79765507', link_only: true });
     expect(linked.status).toBe(200);
-    expect(linked.body).toMatchObject({ directory_code: '79765507', name: mine.name, region: 'Miền Nam', city: mine.city, school_code: mine.school_code });
+    expect(linked.body).toMatchObject({ directory_code: '79765507', name: mine.name, region: 'Phường Tân Định', city: mine.city, school_code: mine.school_code });
     expect(linked.body.link.slug).toBe(mine.link.slug);
     const after = await api('GET', `/api/admin/school-directory?q=${encodeURIComponent('THCS Phú Mỹ')}&limit=30`);
     expect(after.body.items.find((i: { code: string }) => i.code === '79765507')).toMatchObject({ exists: true, existing_code: mine.school_code });
@@ -86,7 +86,7 @@ describe('So khớp tên trường', () => {
   });
 
   test('sửa thường (không link_only) vẫn đổi theo danh mục như trước', async () => {
-    const made = await api('POST', '/api/admin/schools', { name: 'THCS Lê Quý Đôn Thử', region: 'Vùng thử', city: 'Thành phố Hà Nội', admin: admin('Quản Trị Lê', 'qt.le@example.edu.vn') });
+    const made = await api('POST', '/api/admin/schools', { name: 'THCS Lê Quý Đôn Thử', region: 'Phường Ba Đình', city: 'Thành phố Hà Nội', admin: admin('Quản Trị Lê', 'qt.le@example.edu.vn') });
     expect(made.status).toBe(201);
     const full = await api('PATCH', `/api/admin/schools/${made.body.school.id}`, { directory_code: '79778504' });
     expect(full.status).toBe(200);

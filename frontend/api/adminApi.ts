@@ -32,11 +32,32 @@ export const updateSchool = async (token: string, id: number, body: Record<strin
   return school;
 };
 export const deleteSchool = (token: string, id: number) => apiRequest<void>(`/api/admin/schools/${id}`, { token, method: 'DELETE' });
+/** Logo trường bằng ảnh tải lên (data URL PNG, JPEG, WEBP, GIF); bỏ logo thì trường trong danh mục về logo chính thức, trường khác không có logo */
+export const uploadSchoolLogo = async (token: string, id: number, data: string) => {
+  const school = await apiRequest<SchoolItem>(`/api/admin/schools/${id}/logo`, { token, body: { data } });
+  clearSchoolIdentities();
+  return school;
+};
+export const removeSchoolLogo = async (token: string, id: number) => {
+  const school = await apiRequest<SchoolItem>(`/api/admin/schools/${id}/logo`, { token, method: 'DELETE' });
+  clearSchoolIdentities();
+  return school;
+};
 
 // ---------------------------------------------------------------------- thông tin trường, năm học, khối (HK.QT.010–013)
 export const getMySchool = (token: string, schoolId?: number | null) => apiRequest<SchoolDetail>(`/api/admin/school${qs({ school_id: schoolId })}`, { token });
 export const updateMySchool = async (token: string, body: Record<string, unknown>, schoolId?: number | null) => {
   const school = await apiRequest<SchoolDetail>(`/api/admin/school${qs({ school_id: schoolId })}`, { token, method: 'PATCH', body });
+  clearSchoolIdentities();
+  return school;
+};
+export const uploadMySchoolLogo = async (token: string, data: string, schoolId?: number | null) => {
+  const school = await apiRequest<SchoolDetail>(`/api/admin/school/logo${qs({ school_id: schoolId })}`, { token, body: { data } });
+  clearSchoolIdentities();
+  return school;
+};
+export const removeMySchoolLogo = async (token: string, schoolId?: number | null) => {
+  const school = await apiRequest<SchoolDetail>(`/api/admin/school/logo${qs({ school_id: schoolId })}`, { token, method: 'DELETE' });
   clearSchoolIdentities();
   return school;
 };

@@ -1,6 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, Header, HttpCode, Param, ParseIntPipe, Patch, Post, Put, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { Transform, Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsBoolean, IsDefined, IsEmail, IsIn, IsInt, IsOptional, IsString, IsUrl, Length, Matches, Max, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, IsUrl, Length, Matches, Max, MaxLength, Min, ValidateIf, ValidateNested } from 'class-validator';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { SecurityService } from '../auth/security.service';
 import { Role, UserRow } from '../database/database.service';
@@ -63,7 +63,17 @@ class CreateSchoolDto {
   @IsOptional() @IsString() @MaxLength(120) contact_name?: string | null;
   @IsOptional() @IsEmail() contact_email?: string | null;
   @IsOptional() @IsString() @MaxLength(40) contact_phone?: string | null;
-  @IsDefined({ message: 'Cần khai báo quản trị viên trường học đầu tiên (admin)' }) @ValidateNested() @Type(() => FirstAdminDto) admin: FirstAdminDto;
+  /** Không bắt buộc từ 18/11/2026: giao diện thêm quản trị viên trường sau; client cũ vẫn gửi kèm được */
+  @IsOptional() @ValidateNested() @Type(() => FirstAdminDto) admin?: FirstAdminDto | null;
+}
+
+class LogoDto {
+  /** Ảnh logo dạng base64 hoặc data URL (PNG, JPEG, WEBP, GIF tối đa 2 MB) */
+  @IsString() @MaxLength(2_900_000) data: string;
+}
+
+class AdminUnitsQuery {
+  @IsOptional() @IsString() @MaxLength(80) city?: string;
 }
 
 class UpdateMySchoolDto {
@@ -73,14 +83,15 @@ class UpdateMySchoolDto {
   @IsOptional() @IsEmail() contact_email?: string | null;
   @IsOptional() @IsString() @MaxLength(40) contact_phone?: string | null;
   @IsOptional() @IsUrl({ protocols: ['https'], require_protocol: true }, { message: 'Logo phải là liên kết https' }) @MaxLength(500) logo_url?: string | null;
+  /** Phường / xã / đặc khu và tỉnh / thành theo mô hình hai cấp (kiểm tra ở máy chủ, không nhận quận / huyện cũ) */
+  @IsOptional() @IsString() @MaxLength(80) region?: string | null;
+  @IsOptional() @IsString() @MaxLength(80) city?: string | null;
 }
 
 class UpdateSchoolDto extends UpdateMySchoolDto {
   @IsOptional() @IsString() @Length(1, 80) directory_code?: string;
   /** Chỉ liên kết danh mục để lấy logo chính thức, không đổi tên, khu vực, địa chỉ */
   @ValidateIf((_, v) => v !== undefined) @IsBoolean() link_only?: boolean;
-  @IsOptional() @IsString() @MaxLength(80) region?: string | null;
-  @IsOptional() @IsString() @MaxLength(80) city?: string | null;
   @ValidateIf((_, v) => v !== undefined) @IsBoolean() is_active?: boolean;
 }
 
@@ -329,6 +340,10 @@ export class AdminController {
   @Roles('root_admin')
   async schoolDirectory(@Query() query: DirectoryQuery) { return this.schools.directory(query.q ?? '', query.limit ?? 30, query.exclude_school_id); }
 
+  /** Đơn vị hành chính hai cấp (từ 01/07/2025): 34 tỉnh / thành, hoặc phường / xã / đặc khu của một tỉnh / thành để chọn khu vực của trường */
+  @Get('admin-units')
+  adminUnits(@Query() query: AdminUnitsQuery) { return this.schools.adminUnits(query.city); }
+
   @Post('schools')
   @Roles('root_admin')
   createSchool(@CurrentUser() user: UserRow, @Body() body: CreateSchoolDto) { return this.schools.create(user, body); }
@@ -339,6 +354,16 @@ export class AdminController {
   @Patch('schools/:id')
   @Roles('root_admin')
   updateSchool(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateSchoolDto) { return this.schools.update(id, body); }
+
+  /** Logo trường bằng ảnh tải lên (thay liên kết https); xóa thì về logo của danh mục hoặc không có logo */
+  @Post('schools/:id/logo')
+  @Roles('root_admin')
+  @HttpCode(200)
+  uploadSchoolLogo(@Param('id', ParseIntPipe) id: number, @Body() body: LogoDto) { return this.schools.setLogo(id, body.data); }
+
+  @Delete('schools/:id/logo')
+  @Roles('root_admin')
+  removeSchoolLogo(@Param('id', ParseIntPipe) id: number) { return this.schools.setLogo(id, null); }
 
   @Delete('schools/:id')
   @Roles('root_admin')
@@ -355,6 +380,13 @@ export class AdminController {
 
   @Patch('school')
   updateMySchool(@CurrentUser() user: UserRow, @Query() query: SchoolScope, @Body() body: UpdateMySchoolDto) { return this.schools.updateMine(user, query.school_id, body); }
+
+  @Post('school/logo')
+  @HttpCode(200)
+  uploadMyLogo(@CurrentUser() user: UserRow, @Query() query: SchoolScope, @Body() body: LogoDto) { return this.schools.setMyLogo(user, query.school_id, body.data); }
+
+  @Delete('school/logo')
+  removeMyLogo(@CurrentUser() user: UserRow, @Query() query: SchoolScope) { return this.schools.setMyLogo(user, query.school_id, null); }
 
   // ------------------------------------------------------------------ năm học và khối lớp (HK.QT.012–013)
   @Get('school-year-options')

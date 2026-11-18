@@ -8,6 +8,7 @@ import { Check, Copy, ExternalLink, School } from 'lucide-react-native';
 import { Btn, Inset, Txt, useToast } from '@/components/ui';
 import { FONT } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { placeText } from '@/lib/admin-units';
 import { copyText } from '@/lib/clipboard';
 import { schoolLogoUrl } from '@/lib/school-logos';
 import { API_BASE_URL } from '@/api/client';
@@ -38,7 +39,8 @@ export interface SchoolBrandInfo { school_code: string; name: string; region: st
 /** Tên trường ở góc trang đăng nhập riêng: huy hiệu + tên + khu vực */
 export const SchoolBadge: React.FC<{ school: SchoolBrandInfo; light?: boolean }> = ({ school, light }) => {
   const { c } = useTheme();
-  const place = [school.region, school.city].filter(Boolean).join(' · ');
+  // chỉ phường / xã mới và tỉnh / thành; quận / huyện cũ (bỏ từ 01/07/2025) không hiện là khu vực
+  const place = placeText(school.region, school.city);
   return (
     <View accessible accessibilityRole="header" accessibilityLabel={`${school.name}${place ? `, ${place}` : ''}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, maxWidth: 360 }}>
       <SchoolEmblem name={school.name} code={school.school_code} logoUrl={school.logo_url} size={52} />

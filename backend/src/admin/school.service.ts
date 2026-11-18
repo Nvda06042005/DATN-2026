@@ -1,7 +1,10 @@
 /**
  * Trường, năm học và khối lớp (HK.AD.011–017, HK.QT.010–013).
- * Quản trị tổng: toàn hệ thống (thêm trường kèm quản trị viên đầu tiên, bật/tắt, xóa khi trống). Quản trị trường: chỉ trường trong token;
+ * Quản trị tổng: toàn hệ thống (thêm trường, bật/tắt, xóa). Quản trị trường: chỉ trường trong token;
  * truy vấn chạy trong db.scoped(school_id) nên Row-Level Security chặn dữ liệu trường khác kể cả khi quên điều kiện WHERE.
+ * 18/11/2026: thêm trường không còn kèm quản trị viên đầu tiên (thêm sau ở mục Quản trị viên trường; API vẫn nhận `admin` cho client cũ);
+ * khu vực theo mô hình hai cấp từ 01/07/2025 (tỉnh / thành + phường / xã / đặc khu, admin-units.ts) – không nhận quận / huyện cũ;
+ * `deactivated_at` là ngày kết thúc (migration 073); logo trường tải ảnh lên (WebP ≤160px trong app_school_logo_assets).
  */
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { toPublic } from '../auth/auth.service';
@@ -11,6 +14,10 @@ import { sealPassword } from '../auth/passwords';
 import { DatabaseService, DuplicateUsername, Q, UserRow } from '../database/database.service';
 import { MailService } from './mail.service';
 import { DirectoryEntry, directoryEntry, foldVi, nameWords, sameSchoolName, schoolSlug, searchDirectory } from './school-directory';
+import { composeAddress, currentCityName, findWard, isOldDistrict, PROVINCES, provinceOf, unitsInfo } from './admin-units';
+import { createHash } from 'crypto';
+import sharp from 'sharp';
+import { isBase64 } from '../content/studio.service';
 import { currentSchoolLogo } from './school-brand';
 import { givenNameUpper, parseDate, schoolInitials } from './excel';
 
@@ -57,6 +64,8 @@ export interface SchoolRow {
   logo_url: string | null;
   is_active: boolean;
   created_at: string;
+  /** Ngày kết thúc: lúc trường bị vô hiệu hóa (migration 073); null khi đang hoạt động */
+  deactivated_at: string | null;
 }
 
 /** Kết quả xóa trường: số tài khoản, lớp, năm học đã xóa kèm trường (dùng ghi nhật ký) */
@@ -99,6 +108,30 @@ const describeSchool = (s: { name: string; school_code: string; region?: string 
 
 const trimOrNull = (v: unknown): string | null => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') || null : null);
 
+/**
+ * Tỉnh / thành và phường / xã của trường theo mô hình hai cấp (từ 01/07/2025): tỉnh / thành phải là một trong 34 đơn vị hiện hành, phường / xã /
+ * đặc khu phải thuộc tỉnh / thành đó; quận / huyện / thị xã cũ bị từ chối. Trả tên chuẩn theo danh sách (đúng chữ hoa, dấu).
+ */
+export function checkPlace(city: unknown, region: unknown): { city: string | null; region: string | null } {
+  const c = trimOrNull(city), r = trimOrNull(region);
+  if (!c) {
+    if (r) throw new UnprocessableEntityException('Hãy chọn tỉnh / thành phố trước khi chọn phường / xã');
+    return { city: null, region: null };
+  }
+  const province = provinceOf(c);
+  if (!province) throw new UnprocessableEntityException(`“${c}” không thuộc 34 tỉnh / thành phố hiện hành`);
+  if (!r) return { city: currentCityName(c), region: null };
+  if (isOldDistrict(r)) throw new UnprocessableEntityException(`Từ 01/07/2025 không còn cấp quận / huyện / thị xã (“${r}”). Hãy chọn phường / xã / đặc khu của ${province.name}.`);
+  const ward = findWard(province.name, r);
+  if (!ward) throw new UnprocessableEntityException(`Không có “${r}” trong danh sách phường / xã / đặc khu của ${province.name}`);
+  return { city: currentCityName(c), region: ward.name };
+}
+
+/** Logo tải lên: đường dẫn riêng /api/school-logos/u/<sha256>.webp để không bị logo danh mục thay thế (currentSchoolLogo, schoolPdfLogo) */
+export const uploadedLogoUrl = (sha: string) => `${config.publicApiUrl}/api/school-logos/u/${sha}.webp`;
+const LOGO_MAX_INPUT = 2 * 1024 * 1024;
+const LOGO_MAX_STORED = 81920;
+
 @Injectable()
 export class SchoolService {
   constructor(
@@ -130,6 +163,15 @@ export class SchoolService {
   }
 
   // ------------------------------------------------------------------ trường (quản trị tổng)
+  /** Đơn vị hành chính hai cấp: không có `city` thì trả 34 tỉnh / thành; có thì trả phường / xã / đặc khu của tỉnh / thành đó */
+  adminUnits(city?: string) {
+    const info = unitsInfo();
+    if (!city?.trim()) return { ...info, provinces: PROVINCES.map((p) => ({ code: p.code, name: p.name, wards: p.wards.length })) };
+    const province = provinceOf(city);
+    if (!province) throw new NotFoundException(`“${city.trim()}” không thuộc 34 tỉnh / thành phố hiện hành`);
+    return { ...info, province: { code: province.code, name: province.name }, wards: province.wards.map((w) => w.name) };
+  }
+
   /** Xem số kế tiếp mà không gọi nextval hoặc giữ chỗ; create() luôn cấp mã chính thức trong giao dịch. */
   async codePreview(actor: UserRow): Promise<{ school_code: string }> {
     this.assertTopAdmin(actor);
@@ -163,7 +205,8 @@ export class SchoolService {
         OR s.school_code ILIKE $${start + 2} ESCAPE '\\' OR s.directory_code = ANY($${start + 3}::text[])
         OR (s.directory_code IS NULL AND s.school_code = ANY($${start + 3}::text[])))`);
     }
-    if (f.city) add('s.city = ?', f.city);
+    // tỉnh / thành lưu theo tên hiện hành ("Hà Nội" → "Thành phố Hà Nội"); lọc nhận cả cách viết cũ còn trong dữ liệu
+    if (f.city) add('s.city = ANY(?::text[])', [...new Set([f.city, currentCityName(f.city) ?? f.city])]);
     if (f.region) add('s.region = ?', f.region);
     if (f.name?.trim()) add("s.name ILIKE ? ESCAPE '\\'", `%${likeEscape(f.name.trim())}%`);
     if (f.code?.trim()) add("s.school_code ILIKE ? ESCAPE '\\'", `%${likeEscape(f.code.trim())}%`);
@@ -224,10 +267,13 @@ export class SchoolService {
     });
   }
 
-  /** Thêm trường kèm tài khoản quản trị viên trường đầu tiên và thư cấp mật khẩu tạm (HK.AD.013) */
+  /**
+   * Thêm trường (HK.AD.013). Từ 18/11/2026 giao diện không còn khai báo quản trị viên đầu tiên khi thêm trường (thêm sau ở mục Quản trị viên trường);
+   * `admin` vẫn được nhận để client cũ tạo kèm tài khoản và thư cấp mật khẩu như trước.
+   */
   async create(actor: UserRow, body: {
     school_code?: string; directory_code?: string; name: string; region?: string | null; city?: string | null; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null;
-    admin: { full_name: string; email: string; phone?: string | null; birth_date?: string | null };
+    admin?: { full_name: string; email: string; phone?: string | null; birth_date?: string | null } | null;
   }) {
     this.assertTopAdmin(actor);
     const selected = body.directory_code ? directoryEntry(body.directory_code) : null;
@@ -235,12 +281,18 @@ export class SchoolService {
     // Giữ tương thích client cũ; giao diện mới luôn bỏ school_code và dùng mã tự sinh.
     const manualCode = selected ? '' : normCode(body.school_code);
     if (body.school_code !== undefined && !selected && !manualCode) throw new UnprocessableEntityException('Mã số trường cần có chữ số');
-    const email = body.admin.email.trim().toLowerCase();
+    // khu vực: trường trong danh mục dùng tỉnh / thành của danh mục; phường / xã lấy của danh mục khi biết chắc, không thì quản trị viên chọn
+    const place = selected
+      ? (selected.region ? { city: selected.city, region: selected.region } : checkPlace(selected.city, body.region))
+      : checkPlace(body.city, body.region);
+    const address = trimOrNull(body.address) ?? selected?.address ?? (place.region ? composeAddress(selected?.street, place.region, place.city) : null);
+    const first = body.admin ?? null;
+    const email = first ? first.email.trim().toLowerCase() : null;
     // có số điện thoại và ngày sinh của quản trị viên thì tên đăng nhập và mật khẩu theo quy ước (QLY + viết tắt trường + tên + 4 số cuối; DongA + ngày sinh + @ + tên); không thì mật khẩu tạm ngẫu nhiên như trước
-    const conventional = body.admin.phone || body.admin.birth_date
-      ? schoolAdminCredentials(selected?.name ?? body.name, body.admin.full_name, body.admin.phone, body.admin.birth_date) : null;
-    const password = conventional?.password ?? generatePassword();
-    const passwordHash = await hashPassword(password);
+    const conventional = first && (first.phone || first.birth_date)
+      ? schoolAdminCredentials(selected?.name ?? body.name, first.full_name, first.phone, first.birth_date) : null;
+    const password = first ? conventional?.password ?? generatePassword() : null;
+    const passwordHash = password ? await hashPassword(password) : null;
     return this.db.tx(async (q) => {
       if (selected) {
         await q('SELECT pg_advisory_xact_lock(9031, hashtext($1))', [selected.code]);
@@ -254,18 +306,19 @@ export class SchoolService {
       const code = manualCode || (await q<{ code: string }>('SELECT public.next_school_registration_code() AS code'))[0].code;
       const logoHash = selected ? (await q<{logo_sha256: string | null}>('SELECT logo_sha256 FROM public.app_school_directory WHERE code = $1', [selected.code]))[0]?.logo_sha256 : null;
       if ((await q('SELECT 1 FROM app_schools WHERE school_code = $1', [code])).length) throw new ConflictException(`Mã trường ${code} đã có trong hệ thống`);
-      if ((await q('SELECT 1 FROM app_users WHERE lower(email) = $1 AND deleted_at IS NULL', [email])).length) throw new ConflictException('Email quản trị viên đã được dùng cho một tài khoản khác');
+      if (email && (await q('SELECT 1 FROM app_users WHERE lower(email) = $1 AND deleted_at IS NULL', [email])).length) throw new ConflictException('Email quản trị viên đã được dùng cho một tài khoản khác');
       const school = (await q<SchoolRow>(
         `INSERT INTO app_schools (school_code, directory_code, name, region, city, address, contact_name, contact_email, contact_phone, logo_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-        [code, selected?.code ?? null, trimOrNull(selected?.name ?? body.name), trimOrNull(selected?.region ?? body.region), trimOrNull(selected?.city ?? body.city), trimOrNull(selected?.address ?? body.address), trimOrNull(body.contact_name), trimOrNull(body.contact_email)?.toLowerCase() ?? null, trimOrNull(body.contact_phone), logoHash ? `${config.publicApiUrl}/api/school-logos/${logoHash}.webp` : null],
+        [code, selected?.code ?? null, trimOrNull(selected?.name ?? body.name), place.region, place.city, address, trimOrNull(body.contact_name), trimOrNull(body.contact_email)?.toLowerCase() ?? null, trimOrNull(body.contact_phone), logoHash ? `${config.publicApiUrl}/api/school-logos/${logoHash}.webp` : null],
       ))[0];
-      const username = conventional ? await this.db.uniqueUsernameFrom(conventional.username, q) : await this.db.uniqueUsername(body.admin.full_name, 'school_admin', q);
+      if (!first || !email || !password || !passwordHash) return { school: withLink(school), admin: null, temporary_password: null, mail: 'none' as const };
+      const username = conventional ? await this.db.uniqueUsernameFrom(conventional.username, q) : await this.db.uniqueUsername(first.full_name, 'school_admin', q);
       let admin: UserRow;
       try {
         admin = await this.db.createUser({
-          username, full_name: body.admin.full_name, role: 'school_admin', class_name: null, password_hash: passwordHash, must_change_password: true,
-          school_id: school.id, school_code: school.school_code, region: school.region, city: school.city, email, phone: trimOrNull(body.admin.phone),
-          birth_date: conventional ? parseDate(body.admin.birth_date as string) : null,
+          username, full_name: first.full_name, role: 'school_admin', class_name: null, password_hash: passwordHash, must_change_password: true,
+          school_id: school.id, school_code: school.school_code, region: school.region, city: school.city, email, phone: trimOrNull(first.phone),
+          birth_date: conventional ? parseDate(first.birth_date as string) : null,
         }, q);
       } catch (exc) {
         if (exc instanceof DuplicateUsername) throw new ConflictException('Tên đăng nhập của quản trị viên bị trùng, thử lại');
@@ -277,7 +330,7 @@ export class SchoolService {
         school_id: school.id, user_id: admin.id, batch_id: null, kind: 'bulk', to: email, subject: '[Đông A EDU] Kích hoạt tài khoản quản trị viên trường học',
         payload: { type: 'account', full_name: admin.full_name, username: conventional ? username.toUpperCase() : username, password, role: 'school_admin', school: school.name },
       });
-      return { school: withLink(school), admin: toPublic(admin), temporary_password: password, mail: this.mail.configured ? 'queued' : 'not_configured' };
+      return { school: withLink(school), admin: toPublic(admin), temporary_password: password, mail: this.mail.configured ? 'queued' as const : 'not_configured' as const };
     }).then((result) => { this.mail.kick(); return result; });
   }
 
@@ -294,20 +347,71 @@ export class SchoolService {
         const logo = (await q<{logo_sha256: string | null}>('SELECT logo_sha256 FROM app_school_directory WHERE code=$1', [selected.code]))[0]?.logo_sha256;
         const logoUrl = logo ? `${config.publicApiUrl}/api/school-logos/${logo}.webp` : body.logo_url ?? old.logo_url;
         // link_only: chỉ gắn trường với danh mục để lấy mã danh mục và logo chính thức, giữ nguyên tên, khu vực, địa chỉ đang dùng (đường dẫn riêng của trường không đổi)
+        // phường / xã: của danh mục khi biết chắc; không thì phường / xã quản trị viên chọn, rồi phường / xã đang lưu nếu thuộc đúng tỉnh / thành
+        const place = selected.region ? { city: selected.city, region: selected.region }
+          : body.region ? checkPlace(selected.city, body.region)
+            : { city: selected.city, region: findWard(selected.city, old.region)?.name ?? null };
         body = body.link_only
           ? { directory_code: selected.code, logo_url: logoUrl }
-          : { ...body, directory_code: selected.code, name: selected.name, city: selected.city, region: selected.region, address: selected.address ?? body.address ?? old.address, logo_url: logoUrl };
+          : { ...body, directory_code: selected.code, name: selected.name, city: place.city, region: place.region,
+            address: trimOrNull(body.address) ?? selected.address ?? (place.region ? composeAddress(selected.street, place.region, place.city) : old.address), logo_url: logoUrl };
+      } else if (body.city !== undefined || body.region !== undefined) {
+        // đổi tỉnh / thành hoặc phường / xã thì kiểm tra theo mô hình hai cấp; gửi lại đúng giá trị cũ (trường cũ còn ghi quận / huyện) thì không chặn
+        const city = body.city !== undefined ? body.city : old.city, region = body.region !== undefined ? body.region : old.region;
+        if (trimOrNull(city) !== old.city || trimOrNull(region) !== old.region) {
+          const place = checkPlace(city, region);
+          body = { ...body, city: place.city, region: place.region };
+        }
       }
       const entries = Object.entries(body).filter(([k, v]) => ['directory_code', 'name', 'region', 'city', 'address', 'contact_name', 'contact_email', 'contact_phone', 'logo_url', 'is_active'].includes(k) && v !== undefined);
       if (entries.length) {
         const values = entries.map(([k, v]) => (typeof v === 'string' ? (k === 'contact_email' ? v.trim().toLowerCase() : v.trim().replace(/\s+/g, ' ')) || null : v));
-        await q(`UPDATE app_schools SET ${entries.map(([k], i) => `${k} = $${i + 2}`).join(', ')} WHERE id = $1`, [id, ...values]);
+        // ngày kết thúc: lúc vô hiệu hóa; bật lại thì xóa (migration 073, cùng câu lệnh để thỏa ràng buộc is_active / deactivated_at)
+        const ending = body.is_active !== undefined && body.is_active !== old.is_active ? `, deactivated_at = ${body.is_active ? 'NULL' : 'now()'}` : '';
+        await q(`UPDATE app_schools SET ${entries.map(([k], i) => `${k} = $${i + 2}`).join(', ')}${ending} WHERE id = $1`, [id, ...values]);
         // Vô hiệu hóa/kích hoạt lại trường: thu hồi mọi phiên đăng nhập của tài khoản thuộc trường
         if (body.is_active !== undefined && body.is_active !== old.is_active) await q('UPDATE app_users SET token_version = token_version + 1 WHERE school_id = $1', [id]);
         if (body.region !== undefined || body.city !== undefined) await q('UPDATE app_users SET region = s.region, city = s.city FROM app_schools s WHERE app_users.school_id = s.id AND s.id = $1', [id]);
       }
       return withLink((await q<SchoolRow>('SELECT * FROM app_schools WHERE id = $1', [id]))[0]);
     });
+  }
+
+  /**
+   * Logo trường tải lên (thay ô "Logo riêng (liên kết https…)"): nhận ảnh PNG, JPEG, WEBP, GIF (base64 / data URL, tối đa 2 MB), loại tệp xác định bằng nội dung
+   * thật (sharp đọc được mới nhận), thu về WebP tối đa 160px, lưu một bản theo SHA-256 trong app_school_logo_assets như logo danh mục và gắn vào trường.
+   * `null` bỏ logo tải lên: trường trong danh mục quay về logo chính thức của danh mục, trường khác không có logo.
+   */
+  async setLogo(id: number, data: unknown): Promise<SchoolRow & { link: SchoolLink }> {
+    if (data === null) return this.update(id, { logo_url: null });
+    const raw = typeof data === 'string' ? data.replace(/^data:[^;,]*;base64,/, '').replace(/\s+/g, '') : '';
+    if (!isBase64(raw) || raw.length > Math.ceil((LOGO_MAX_INPUT * 4) / 3) + 8) throw new BadRequestException('Hãy chọn một tệp ảnh PNG, JPEG, WEBP hoặc GIF tối đa 2 MB');
+    const input = Buffer.from(raw, 'base64');
+    if (!input.length || input.length > LOGO_MAX_INPUT) throw new BadRequestException('Hãy chọn một tệp ảnh PNG, JPEG, WEBP hoặc GIF tối đa 2 MB');
+    let image: { data: Buffer; info: { width: number; height: number } };
+    try {
+      const meta = await sharp(input, { limitInputPixels: 40_000_000 }).metadata();
+      if (!meta.format || !['png', 'jpeg', 'webp', 'gif'].includes(meta.format)) throw new Error(meta.format ?? 'unknown');
+      let quality = 90;
+      image = await sharp(input, { limitInputPixels: 40_000_000, animated: false }).rotate().resize(160, 160, { fit: 'inside', withoutEnlargement: true }).webp({ quality }).toBuffer({ resolveWithObject: true });
+      while (image.data.length > LOGO_MAX_STORED && quality > 40) {
+        quality -= 15;
+        image = await sharp(input, { limitInputPixels: 40_000_000, animated: false }).rotate().resize(160, 160, { fit: 'inside', withoutEnlargement: true }).webp({ quality }).toBuffer({ resolveWithObject: true });
+      }
+    } catch {
+      throw new BadRequestException('Logo chỉ nhận ảnh PNG, JPEG, WEBP hoặc GIF; không nhận tệp Word, Excel, PDF hay tệp khác');
+    }
+    if (image.data.length > LOGO_MAX_STORED || image.data.length < 16) throw new BadRequestException('Không thu nhỏ được ảnh này; hãy chọn ảnh khác');
+    const sha = createHash('sha256').update(image.data).digest('hex');
+    await this.db.query('INSERT INTO public.app_school_logo_assets (sha256, image_data, mime_type, width, height) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (sha256) DO NOTHING',
+      [sha, image.data, 'image/webp', image.info.width, image.info.height]);
+    return this.update(id, { logo_url: uploadedLogoUrl(sha) });
+  }
+
+  async setMyLogo(actor: UserRow, schoolId: number | null | undefined, data: unknown) {
+    const id = this.target(actor, schoolId);
+    await this.setLogo(id, data);
+    return this.detail(actor, id);
   }
 
   /**
@@ -341,10 +445,10 @@ export class SchoolService {
     return this.detail(actor, this.target(actor));
   }
 
-  async updateMine(actor: UserRow, schoolId: number | null | undefined, body: { name?: string; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null; logo_url?: string | null }) {
+  async updateMine(actor: UserRow, schoolId: number | null | undefined, body: { name?: string; address?: string | null; contact_name?: string | null; contact_email?: string | null; contact_phone?: string | null; logo_url?: string | null; region?: string | null; city?: string | null }) {
     const id = this.target(actor, schoolId);
-    const { name, address, contact_name, contact_email, contact_phone, logo_url } = body;
-    await this.update(id, { name, address, contact_name, contact_email, contact_phone, logo_url });
+    const { name, address, contact_name, contact_email, contact_phone, logo_url, region, city } = body;
+    await this.update(id, { name, address, contact_name, contact_email, contact_phone, logo_url, region, city });
     return this.detail(actor, id);
   }
 

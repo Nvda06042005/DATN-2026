@@ -32,11 +32,13 @@ const BRAND_LOGO = readFileSync(join(__dirname, '..', '..', 'assets', 'brand', '
 
 /** Chỉ dùng ảnh đã lưu trong kho logo xác minh; không tải URL tùy ý khi xuất PDF. */
 export async function schoolPdfLogo(db: DatabaseService, school: { directory_code?: string | null; logo_url?: string | null }): Promise<Buffer | null> {
-  const storedHash = /\/api\/school-logos\/([a-f0-9]{64})\.webp(?:\?|$)/.exec(school.logo_url ?? '')?.[1];
+  const stored = /\/api\/school-logos\/(u\/)?([a-f0-9]{64})\.webp(?:\?|$)/.exec(school.logo_url ?? '');
+  const storedHash = stored?.[2];
   // Match the school's current directory logo even when a saved API URL is stale.
   // A custom URL must never silently fall back to a different directory logo.
   if (school.logo_url && !storedHash) return null;
-  const hash = (school.directory_code ? directoryLogoHash(school.directory_code) : null) ?? storedHash;
+  // logo tải lên (/api/school-logos/u/…) luôn thắng logo danh mục
+  const hash = stored?.[1] ? storedHash : (school.directory_code ? directoryLogoHash(school.directory_code) : null) ?? storedHash;
   if (!hash) return null;
   // đọc bằng kết nối máy chủ: bảng logo không cấp quyền cho vai trò theo trường (giáo viên xuất PDF trong phạm vi trường)
   const row = (await db.systemRead<{ image_data: Buffer }>('SELECT image_data FROM public.app_school_logo_assets WHERE sha256=$1', [hash]))[0];

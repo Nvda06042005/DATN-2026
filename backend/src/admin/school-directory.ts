@@ -1,19 +1,28 @@
 /**
  * Danh mục trường THCS để quản trị tổng chọn khi thêm trường (mã, khu vực, tỉnh/thành tự điền) và quy tắc đặt tên đường dẫn riêng của trường.
  * Dữ liệu school-directory.json do scripts/build-school-directory.py dựng từ danh sách mã Bộ GD&ĐT (2020) và các sáp nhập 2026 của TP.HCM.
- * Đường dẫn trường: donga_<mã trường>_<tên trường>_<khu vực> không dấu, viết liền, ví dụ donga_79765507_phumy_binhthanh.
+ * Đường dẫn trường: donga_<mã trường>_<tên trường>_<khu vực> không dấu, viết liền, ví dụ donga_79765507_phumy_thanhmytay.
+ * 18/11/2026: từ 01/07/2025 không còn quận / huyện. `region` là phường / xã / đặc khu mới (admin-units.ts) khi biết chắc – từ dữ liệu đã kiểm
+ * chứng hoặc địa chỉ đã ghi theo dạng mới – còn không thì null để quản trị viên chọn; `district` giữ quận / huyện cũ của mã Bộ GD&ĐT chỉ để tra cứu.
  */
 import directory from './school-directory.json';
 import extra from './school-directory-extra.json';
 import metadata from './school-metadata.json';
 import confirmed from './school-confirmed-2026.json';
+import { composeAddress, currentCityName, findWard, streetPart, suggestWard, wardFromAddress } from './admin-units';
 
 export interface DirectoryEntry {
   code: string;
   name: string;
-  /** Quận/huyện/thị xã theo dữ liệu gốc: mã trường vẫn gắn với đơn vị này */
-  region: string;
-  /** Tỉnh/thành phố theo đơn vị hành chính cấp tỉnh từ 01/07/2025 */
+  /** Phường / xã / đặc khu (mô hình hai cấp từ 01/07/2025) khi biết chắc; null thì quản trị viên chọn trong danh sách của tỉnh / thành */
+  region: string | null;
+  /** Quận / huyện / thị xã cũ của mã Bộ GD&ĐT (đã bỏ từ 01/07/2025) – chỉ để tìm kiếm, không hiển thị là địa chỉ */
+  district?: string | null;
+  /** Số nhà / đường / thôn đọc được từ địa chỉ đã kiểm chứng (dùng để ghép địa chỉ khi chọn phường / xã) */
+  street?: string | null;
+  /** Gợi ý phường / xã khi chưa biết chắc (quản trị viên bấm để chọn) */
+  suggested_region?: string | null;
+  /** Tỉnh / thành phố hiện hành */
   city: string;
   note: string | null;
   address?: string | null;
@@ -43,14 +52,28 @@ const metadataByCode = new Map(verified.map(row => [row.code, row]));
 export const foldVi = (text: string): string =>
   text.replace(/đ/g, 'd').replace(/Đ/g, 'D').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
+/** Phường / xã mới, quận / huyện cũ, phần đường và địa chỉ dạng mới của một trường trong danh mục */
+function place(city: string, name: string, region: string | null | undefined, district: string | null | undefined, address: string | null | undefined) {
+  const ward = findWard(city, region) ?? wardFromAddress(city, address);
+  const street = streetPart(address);
+  return {
+    region: ward?.name ?? null, district: ward && region === ward.name ? district ?? null : (region || district) ?? null, street,
+    address: ward ? composeAddress(street, ward.name, city) : null, suggested_region: ward ? null : suggestWard(city, address, name)?.name ?? null,
+  };
+}
+
 const entries: DirectoryEntry[] = rows.filter(row => !mergedAway.has(row[0])).map(([code, name, p, district, note]) => {
   const current = metadataByCode.get(code);
-  return { code, name: current?.name || name, region: current?.region || district, city: current?.city || provinces[p], note,
-    address: current?.address ?? null, website: current?.website ?? null, logo_url: current?.logo_url ?? null, source: current?.source ?? null,
+  const city = currentCityName(current?.city || provinces[p]) as string;
+  return { code, name: current?.name || name, city, ...place(city, current?.name || name, current?.region, district, current?.address), note,
+    website: current?.website ?? null, logo_url: current?.logo_url ?? null, source: current?.source ?? null,
     previous_codes: (directory.merged as string[][]).filter(m => m[2] === code).map(m => m[0]).concat(current?.previous_codes ?? []) };
 });
 const baseCodes = new Set(entries.map(e => e.code));
-for (const item of verified) if (item.additional && !baseCodes.has(item.code)) entries.push({ ...item, note: null });
+for (const item of verified) if (item.additional && !baseCodes.has(item.code)) {
+  const city = currentCityName(item.city) as string;
+  entries.push({ ...item, city, ...place(city, item.name, item.region, null, item.address), note: null });
+}
 const byCode = new Map(entries.map((e) => [e.code, e]));
 for (const entry of entries) for (const oldCode of entry.previous_codes ?? []) byCode.set(oldCode, entry);
 
@@ -80,7 +103,8 @@ export function searchDirectory(query: string, limit = 12): DirectoryEntry[] {
 }
 
 // ---------------------------------------------------------------------- đường dẫn riêng của trường
-const AREA_PREFIX = new Set(['quan', 'huyen', 'thi', 'xa', 'thanh', 'pho', 'tp', 'tran']);
+/** Chữ chỉ cấp đơn vị ở đầu tên khu vực, so cả cụm (một lần) để không cắt mất phần tên riêng như "Thạnh" trong "Phường Thạnh Mỹ Tây" */
+const AREA_PREFIX = ['thanh pho', 'thi xa', 'thi tran', 'dac khu', 'quan', 'huyen', 'phuong', 'xa', 'tp'];
 /**
  * Cụm từ chỉ cấp học ở đầu tên; mỗi từ cho phép viết có dấu hoặc không dấu. So khớp trên chữ thường còn dấu, vì bỏ dấu sẽ làm
  * họ "Trương" trùng với "Trường" ("THCS Trương Công Định" phải giữ nguyên là truongcongdinh). Chỉ bỏ cụm đầy đủ để không mất tên riêng như "Trung Sơn".
@@ -108,15 +132,14 @@ export const nameSlug = (name: string): string => nameWords(name).replace(/ /g, 
 const indexed = entries.map(entry => {
   const aliases = (directory.merged as string[][]).filter(m => m[2] === entry.code).map(m => m[1]).concat(metadataByCode.get(entry.code)?.aliases ?? []);
   const names = [entry.name, ...aliases].map(nameWords);
-  return { names, initials: names.map(name => name.split(' ').map(word => word[0]).join('')), full: foldVi(`${entry.name} ${aliases.join(' ')} ${entry.region} ${entry.city} ${entry.code} ${(entry.previous_codes ?? []).join(' ')}`) };
+  return { names, initials: names.map(name => name.split(' ').map(word => word[0]).join('')), full: foldVi(`${entry.name} ${aliases.join(' ')} ${entry.region ?? ''} ${entry.district ?? ''} ${entry.city} ${entry.code} ${(entry.previous_codes ?? []).join(' ')}`) };
 });
 
-/** "Quận Bình Thạnh" → "binhthanh", "Huyện Củ Chi" → "cuchi", "Quận 7" → "7" */
+/** "Phường Thạnh Mỹ Tây" → "thanhmytay", "Xã An Thạnh" → "anthanh", "Quận Bình Thạnh" → "binhthanh", "Quận 7" → "7" */
 export function areaSlug(region: string | null | undefined): string {
-  const tokens = foldVi(region ?? '').split(' ').filter(Boolean);
-  let i = 0;
-  while (i < tokens.length - 1 && AREA_PREFIX.has(tokens[i])) i++;
-  return tokens.slice(i).join('').slice(0, 30);
+  const text = foldVi(region ?? '');
+  const prefix = AREA_PREFIX.find((p) => text.startsWith(`${p} `));
+  return (prefix ? text.slice(prefix.length + 1) : text).replace(/ /g, '').slice(0, 30);
 }
 
 export const schoolSlug = (s: { school_code: string; name: string; region?: string | null }): string =>

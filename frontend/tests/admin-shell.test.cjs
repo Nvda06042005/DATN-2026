@@ -285,10 +285,11 @@ test('tài khoản quản trị trường theo quy ước: điện thoại và n
   assert.match(sheet, /DongA06042005@AN/);
   assert.match(read('api', 'adminApi.ts'), /createAdminAccount = \(token: string, body: \{[^}]*birth_date\?: string \| null/);
   const root = read('components', 'admin', 'RootAdmin.tsx');
-  assert.match(root, /name: 'admin_phone', label: 'Điện thoại', type: 'phone', required: true/);
-  assert.match(root, /name: 'admin_birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true[^}]*required: true/);
-  assert.match(root, /birth_date: v\.admin_birth_date \|\| undefined/);
-  assert.match(root, /username: created\.admin\.username\.toUpperCase\(\)/);
+  // 18/11/2026: thêm trường không còn khai báo quản trị viên đầu tiên; tạo xong thì "Thêm quản trị viên trường" mở hộp này với trường chọn sẵn
+  assert.doesNotMatch(root, /admin_phone|admin_birth_date|Quản trị viên trường đầu tiên/);
+  assert.match(root, /<CreateSchoolAdminSheet session=\{session\} initialSchoolId=\{addingAdmin\}/);
+  assert.match(sheet, /useState\(initialSchoolId \? String\(initialSchoolId\) : ''\)/);
+  assert.match(root, /username: credential\.user\.username\.toUpperCase\(\)/);
   assert.match(root, /credential\.user\.role === 'school_admin' \? credential\.user\.username\.toUpperCase\(\)/);
 });
 

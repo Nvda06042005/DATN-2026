@@ -6,7 +6,7 @@
  * Một file nhiều sheet (mỗi sheet một lớp) hoặc nhiều file. Lớp chưa có thì tạo; giáo viên phân công theo học kỳ; sĩ số = số học sinh thực có;
  * lưu xong lớp có mã tham gia DongA + lớp + giáo viên + HK + năm học, học sinh gõ hoa/thường, có/không dấu gạch đều vào được.
  */
-import { activate, adminLogin, call, download, hasPostgres, makeXlsx, Started, startApp, upload } from './harness';
+import { activate, adminLogin, call, download, hasPostgres, makeXlsx, sql, Started, startApp, upload } from './harness';
 import { PW } from './fixture';
 import { classTemplateFilename, CLASS_LIST_FIRST_ROW, joinCodeFor } from '../src/admin/excel';
 
@@ -68,7 +68,9 @@ describe('mã tham gia theo quy ước', () => {
     const a = await school(SCHOOL, 'qt.lop.a@example.invalid', 'Phường Thạnh Mỹ Tây');
     const next = (await call(s.base, 'POST', '/api/admin/school-years', { label: '2027-2028', starts_on: '2027-09-05', ends_on: '2028-05-31' }, a.token)).body.id as number;
     A = { ...a, next };
-    B = await school(OTHER, 'qt.lop.b@example.invalid', 'Quận 2');
+    B = await school(OTHER, 'qt.lop.b@example.invalid', 'Phường Bình Trưng');
+    // trường cũ còn lưu quận (dữ liệu trước 01/07/2025; từ 18/11/2026 API không nhận quận / huyện mới): ghi thẳng để kiểm tra địa danh là số
+    await sql(s.url, "UPDATE app_schools SET region = 'Quận 2' WHERE name = $1", [OTHER]);
     for (const name of ['6A1', '6A2']) expect((await api('POST', '/api/admin/classes', { year_id: A.year, grade: 6, name })).status).toBe(201);
     const t = await api('POST', '/api/admin/teachers', { full_name: 'Nguyễn Đức Anh', email: 'anh.gv@example.edu.vn', phone: '0901234567', birth_date: '1985-03-15' });
     teacherId = t.body.user.id;

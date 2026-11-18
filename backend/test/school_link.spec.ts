@@ -31,6 +31,11 @@ describe('Danh mục trường và quy tắc đặt tên đường dẫn', () =>
     expect(areaSlug('Thành phố Thủ Dầu Một')).toBe('thudaumot');
     expect(areaSlug('Thị xã Tân Uyên')).toBe('tanuyen');
     expect(areaSlug(null)).toBe('');
+    // đơn vị hai cấp từ 01/07/2025: chỉ bỏ cụm chỉ cấp ở đầu, không cắt "Thạnh" trong tên phường
+    expect(areaSlug('Phường Thạnh Mỹ Tây')).toBe('thanhmytay');
+    expect(areaSlug('Xã An Thạnh')).toBe('anthanh');
+    expect(areaSlug('Đặc khu Phú Quốc')).toBe('phuquoc');
+    expect(areaSlug('Phường Thành Phố Mới')).toBe('thanhphomoi');
   });
 
   test('đọc mã trường từ đường dẫn; phần tên và khu vực chỉ để người đọc, đường dẫn sai dạng bị từ chối', () => {
@@ -80,7 +85,8 @@ describe('Danh mục trường và quy tắc đặt tên đường dẫn', () =>
     // THCS Lam Sơn gộp vào THCS Trương Công Định (phường Gia Định, trước là quận Bình Thạnh)
     expect(directoryEntry('79765501')?.code).toBe('79765511');
     expect(searchDirectory('lam son binh thanh').some((e) => e.code === '79765501')).toBe(false);
-    expect(directoryEntry('79765511')).toMatchObject({ name: 'THCS Trương Công Định', region: 'Quận Bình Thạnh' });
+    // không còn quận / huyện: quận cũ của mã Bộ GD&ĐT chỉ còn ở `district` để tra cứu, phường / xã mới chưa biết chắc thì để trống
+    expect(directoryEntry('79765511')).toMatchObject({ name: 'THCS Trương Công Định', region: null, district: 'Quận Bình Thạnh' });
     expect(directoryEntry('79765511')?.note).toContain('THCS Lam Sơn');
     expect(directoryInfo().merged).toBeGreaterThanOrEqual(15);
   });
@@ -143,7 +149,7 @@ describe('Danh mục trường và quy tắc đặt tên đường dẫn', () =>
   let s: Started, root: string, mail: MailService;
   const PW = 'Matkhau-12345';
   const api = (method: string, path: string, body?: unknown, token = root) => call(s.base, method, path, body, token);
-  const SLUG = 'donga_79765507_phumy_binhthanh';
+  const SLUG = 'donga_79765507_phumy_thanhmytay';
   let schoolId: number, admin: { token: string; user: { username: string } }, teacher: { token: string; username: string }, otherTeacher: { token: string; username: string };
 
   const mkTeacher = async (adminToken: string, name: string, email: string) => {
@@ -174,7 +180,7 @@ describe('Danh mục trường và quy tắc đặt tên đường dẫn', () =>
   test('gợi ý từ danh mục chỉ dành cho quản trị tổng, kèm cờ "đã có trong hệ thống" và đường dẫn sẽ tạo', async () => {
     const found = await api('GET', `/api/admin/school-directory?q=${encodeURIComponent('phú mỹ bình thạnh')}`);
     expect(found.status).toBe(200);
-    expect(found.body.items[0]).toMatchObject({ code: '79765507', name: 'THCS Phú Mỹ', region: 'Phường Thạnh Mỹ Tây', city: 'Thành phố Hồ Chí Minh', exists: false, slug: 'donga_79765507_phumy_phuongthanhmytay' });
+    expect(found.body.items[0]).toMatchObject({ code: '79765507', name: 'THCS Phú Mỹ', region: 'Phường Thạnh Mỹ Tây', city: 'Thành phố Hồ Chí Minh', exists: false, slug: SLUG });
     expect((await api('GET', '/api/admin/school-directory')).body.items).toHaveLength(30);
     expect((await api('GET', '/api/admin/school-directory?q=x&limit=999')).status).toBe(422);
     expect((await api('GET', '/api/admin/school-directory?q=phu', undefined, '')).status).toBe(401);
@@ -182,7 +188,7 @@ describe('Danh mục trường và quy tắc đặt tên đường dẫn', () =>
 
   test('thêm trường đã chọn từ danh mục: mã 8 chữ số được giữ, trả đường dẫn riêng; chi tiết và danh sách cùng đường dẫn đó', async () => {
     const created = await api('POST', '/api/admin/schools', {
-      school_code: '79765507', name: 'THCS Phú Mỹ', region: 'Quận Bình Thạnh', city: 'Thành phố Hồ Chí Minh',
+      school_code: '79765507', name: 'THCS Phú Mỹ', region: 'Phường Thạnh Mỹ Tây', city: 'Thành phố Hồ Chí Minh',
       admin: { full_name: 'Nguyễn Quản Trị Phú Mỹ', email: 'qt.phumy@example.edu.vn' },
     });
     expect(created.status).toBe(201);
@@ -205,7 +211,7 @@ describe('Danh mục trường và quy tắc đặt tên đường dẫn', () =>
   test('trang đăng nhập của trường lấy thông tin công khai tối thiểu, không cần đăng nhập, không lộ người dùng hay liên hệ', async () => {
     const page = await api('GET', `/api/auth/school-link/${SLUG}`, undefined, '');
     expect(page.status).toBe(200);
-    expect(page.body).toEqual({ school_code: '79765507', name: 'THCS Phú Mỹ', region: 'Quận Bình Thạnh', city: 'Thành phố Hồ Chí Minh', logo_url: null, is_active: true, slug: SLUG });
+    expect(page.body).toEqual({ school_code: '79765507', name: 'THCS Phú Mỹ', region: 'Phường Thạnh Mỹ Tây', city: 'Thành phố Hồ Chí Minh', logo_url: null, is_active: true, slug: SLUG });
     // phần tên và khu vực cũ hay gõ sai vẫn mở đúng trường và trả đường dẫn chuẩn
     expect((await api('GET', '/api/auth/school-link/donga_79765507_tencu_khuvuccu', undefined, '')).body.slug).toBe(SLUG);
     expect((await api('GET', '/api/auth/school-link/donga_79765507', undefined, '')).body.slug).toBe(SLUG);

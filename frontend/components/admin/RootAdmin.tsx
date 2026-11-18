@@ -7,7 +7,6 @@ import { Bell, Building2, ChartColumn, FolderCog, History, KeyRound, LifeBuoy, L
 import * as api from '@/api/adminApi';
 import { AccountSheet, dateText, ROLE_TEXT } from '@/components/admin/AccountSheet';
 import { CreateSchoolAdminSheet } from '@/components/admin/CreateSchoolAdminSheet';
-import { todayVn } from '@/lib/school-terms';
 import { AdminWorkspace, navLeaves } from '@/components/admin/AdminWorkspace';
 import { SystemStats } from '@/components/admin/AnalyticsAdmin';
 import { PasswordList } from '@/components/admin/PasswordList';
@@ -17,7 +16,9 @@ import { Cell, CredentialSheet, ErrorNote, FormSheet, NameCell, Page, PageHeader
 import type { Session } from '@/components/auth';
 import { SchoolEmblem, SchoolLinkBox } from '@/components/school-brand';
 import { schoolLogoUrl } from '@/lib/school-logos';
-import { AdminUiContext, Btn, ConfirmSheet, Field, Inset, Sheet, Spinner, Txt } from '@/components/ui';
+import { AdminUiContext, Btn, ConfirmSheet, Field, Inset, Sheet, Spinner, Switch, Txt } from '@/components/ui';
+import { placeFields, SchoolLogoField } from '@/components/admin/SchoolPlace';
+import { addressText, composeAddress, isNewUnit, isOldDistrict, placeText, streetPart } from '@/lib/admin-units';
 import { useTheme } from '@/hooks/use-theme';
 import { usePortalTab } from '@/hooks/use-portal-tab';
 import { fmt } from '@/lib/format';
@@ -45,7 +46,7 @@ export const RootAdmin: React.FC<{ session: Session }> = ({ session }) => {
   return (
     <AdminUiContext.Provider value>
       <AdminWorkspace session={session} nav={NAV} active={tab} onSelect={setTab}>
-        {tab === 'schools' ? <SchoolsPanel session={session} /> : tab === 'users' ? <UsersPanel session={session} schools={options} />
+        {tab === 'schools' ? <SchoolsPanel session={session} schools={options} /> : tab === 'users' ? <UsersPanel session={session} schools={options} />
           : tab === 'passwords' ? <PasswordList session={session} schools={options} />
           : tab === 'stats' ? <SystemStats session={session} /> : tab === 'notices' ? <BroadcastManager session={session} />
           : tab === 'logs' ? <LogsPanel session={session} /> : tab === 'faq' ? <FaqManager session={session} />
@@ -56,37 +57,16 @@ export const RootAdmin: React.FC<{ session: Session }> = ({ session }) => {
 };
 
 // ---------------------------------------------------------------------- trường học
-const SCHOOL_FIELDS: FieldDef[] = [
-  { name: 'name', label: 'Tên trường', required: true },
-  { name: 'city', label: 'Tỉnh / thành phố' },
-  { name: 'region', label: 'Vùng / khu vực' },
-  { name: 'address', label: 'Địa chỉ' },
-  { name: 'logo_url', label: 'Logo riêng (liên kết https, không bắt buộc)', hint: 'Để trống nếu chưa có logo chính thức.' },
-];
+// Khu vực theo mô hình hai cấp từ 01/07/2025 (18/11/2026): placeFields ghi tỉnh / thành, phường / xã, số nhà – đường và địa chỉ tự ghép
+const PLACE_KEYS = ['name', 'city', 'region', 'address'] as const;
 
-// Xem trước số kế tiếp không giữ chỗ; mã thực tế luôn lấy từ phản hồi tạo trường của máy chủ.
+// Thêm trường: mã trường do máy chủ tự cấp khi tạo (không hiện ở biểu mẫu); quản trị viên trường thêm sau khi tạo trường (yêu cầu 18/11/2026).
 const CREATE_FIELDS = (token: string): FieldDef[] => [
   { name: 'name', label: 'Tên trường', required: true, render: (values, set) => <SchoolPicker token={token} values={values} set={set} /> },
-  { name: 'code_preview', label: 'Mã trường', render: () => <SchoolCodePreview token={token} /> },
-  { name: 'city', label: 'Tỉnh / thành phố' },
-  { name: 'region', label: 'Vùng / khu vực', hint: 'Quận, huyện hoặc thị xã; nằm trong đường dẫn riêng của trường.' },
-  ...SCHOOL_FIELDS.filter((f) => !['name', 'city', 'region', 'logo_url'].includes(f.name)),
-  { name: 'admin_section', label: 'Quản trị viên trường đầu tiên', render: () => <Txt f="bold" size={17} accessibilityRole="header">Quản trị viên trường đầu tiên</Txt> },
-  { name: 'admin_name', label: 'Họ và tên', required: true },
-  { name: 'admin_email', label: 'Email', type: 'email', required: true },
-  { name: 'admin_phone', label: 'Điện thoại', type: 'phone', required: true, hint: 'Đúng 10 chữ số. 4 số cuối dùng để ghép tên đăng nhập: QLY + viết tắt trường + tên + 4 số cuối (ví dụ QLYGOTAN6720).' },
-  { name: 'admin_birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1930-01-01', max: todayVn(), required: true, hint: 'Dùng để ghép mật khẩu: DongA + ngày sinh + @ + tên (ví dụ DongA06042005@AN). Cả hai được gửi vào email.' },
+  ...placeFields(token),
 ];
 
-const SchoolCodePreview: React.FC<{ token: string }> = ({ token }) => {
-  const { data, error, loading, reload } = useLoad(() => api.previewSchoolCode(token), [token]);
-  return <View style={{ gap: 8 }}>
-    <Field label="Mã trường" value={data?.school_code ?? ''} editable={false} placeholder={loading ? '…' : ''} testID="school-code-preview" />
-    {error ? <><ErrorNote message={error} /><Btn title="Thử lại" tone="giay" size="sm" onPress={reload} /></> : null}
-  </View>;
-};
-
-const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
+const SchoolsPanel: React.FC<{ session: Session; schools: Array<{ value: string; label: string }> }> = ({ session, schools }) => {
   const { c } = useTheme();
   const { token } = session;
   const [q, setQ] = useState('');
@@ -104,9 +84,32 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
   const [editing, setEditing] = useState<SchoolItem | null>(null);
   const [toggling, setToggling] = useState<SchoolItem | null>(null);
   const [removing, setRemoving] = useState<SchoolItem | null>(null);
+  // sau khi thêm trường: thêm quản trị viên trường ngay (chọn sẵn trường vừa tạo), xem tài khoản đã cấp hoặc mở tài khoản đã có
+  const [addingAdmin, setAddingAdmin] = useState<number | null>(null);
+  const [credential, setCredential] = useState<CreatedAccount | null>(null);
+  const [account, setAccount] = useState<number | null>(null);
 
-  if (created) return <CredentialSheet title="Trường đã được tạo" account={{ full_name: `${created.admin.full_name} – quản trị viên ${created.school.name}`, username: created.admin.username.toUpperCase(), temporary_password: created.temporary_password, mail: created.mail }} onClose={() => setCreated(null)}
-    extra={<View style={{ gap: 10 }}><View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><SchoolEmblem name={created.school.name} code={created.school.school_code} logoUrl={created.school.logo_url} size={48} /><View style={{ flex: 1 }}><Txt f="bold" size={15}>{created.school.name}</Txt><Txt size={12} color={c.muc2}>Đã lưu vào danh sách Trường học</Txt></View></View><Inset style={{ gap: 4 }}><Txt f="bold" size={12} color={c.muc3}>Mã trường</Txt><Txt f="displayHeavy" size={26} selectable testID="created-school-code">{created.school.school_code}</Txt></Inset><SchoolLinkBox link={created.school.link} /></View>} />;
+  if (credential) return <CredentialSheet title="Tài khoản quản trị đã được tạo" account={{ full_name: credential.user.full_name, username: credential.user.username.toUpperCase(), temporary_password: credential.temporary_password, mail: credential.mail }} onClose={() => setCredential(null)} />;
+  if (addingAdmin) return <CreateSchoolAdminSheet session={session} initialSchoolId={addingAdmin} onClose={() => setAddingAdmin(null)}
+    onCreated={(res) => { setAddingAdmin(null); setCredential(res); reload(); }} onExisting={(id) => { setAddingAdmin(null); setAccount(id); }} />;
+  if (account) return <AccountSheet session={session} id={account} schools={schools} onClose={() => setAccount(null)} onChanged={reload} />;
+  if (created) return (
+    <Sheet open onClose={() => setCreated(null)} title="Đã thêm trường" subtitle="Đã lưu vào danh sách Trường học" wide
+      footer={<View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        <Btn title="Đóng" tone="giay" onPress={() => setCreated(null)} />
+        <Btn title="Thêm quản trị viên trường" icon={Plus} tone="son" onPress={() => { const id = created.school.id; setCreated(null); setAddingAdmin(id); }} testID="created-school-add-admin" />
+      </View>}>
+      <View style={{ gap: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <SchoolEmblem name={created.school.name} code={created.school.school_code} logoUrl={created.school.logo_url} size={48} />
+          <View style={{ flex: 1 }}><Txt f="bold" size={15}>{created.school.name}</Txt><Txt size={12} color={c.muc2}>{addressText(created.school) || 'Chưa ghi địa chỉ'}</Txt></View>
+        </View>
+        <Inset style={{ gap: 4 }}><Txt f="bold" size={12} color={c.muc3}>Mã trường (hệ thống tự cấp)</Txt><Txt f="displayHeavy" size={26} selectable testID="created-school-code">{created.school.school_code}</Txt></Inset>
+        <SchoolLinkBox link={created.school.link} />
+        <Txt size={13} color={c.muc2}>Trường chưa có quản trị viên. Bấm “Thêm quản trị viên trường” để cấp tài khoản và gửi thư kích hoạt; có thể thêm sau ở mục Người dùng.</Txt>
+      </View>
+    </Sheet>
+  );
   const cities = [{ value: '', label: 'Mọi tỉnh / thành' }, ...(data?.facets.cities ?? []).map((x) => ({ value: x, label: x }))];
 
   const f_city: SearchFilter = { key: 'city', label: 'Tỉnh / thành', value: city, options: cities, onChange: (v) => { setCity(v); setPage(1); } };
@@ -118,7 +121,7 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
   const f_created = textFilter('created', 'Ngày tạo');
   return (
     <Page>
-      <PageHeader title="Trường học" subtitle="Thêm trường kèm quản trị viên đầu tiên, sửa thông tin, vô hiệu hóa hoặc xóa trường. Xóa trường là xóa luôn toàn bộ tài khoản và dữ liệu của trường." actions={<Btn title="Thêm trường" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="school-add" />} />
+      <PageHeader title="Trường học" subtitle="Thêm trường, sửa thông tin, gạt nút để vô hiệu hóa hoặc kích hoạt lại trường, xóa trường. Xóa trường là xóa luôn toàn bộ tài khoản và dữ liệu của trường." actions={<Btn title="Thêm trường" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="school-add" />} />
       <SearchFilterBar placeholder="Tìm theo tên hoặc mã trường" value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="school-search"
         filters={[f_name, f_code, f_city, f_users, f_active, f_created]} />
       <ErrorNote message={error} />
@@ -127,16 +130,19 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
         <>
           <DataTable paginate={false} rows={data.items} rowKey={(s) => s.id} empty="Không có trường nào khớp bộ lọc." onRowPress={(s) => setDetail(s.id)}
             columns={[
-              { key: 'name', filter: f_name, label: 'Trường', flex: 2, render: (s) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><SchoolEmblem name={s.name} code={s.school_code} logoUrl={s.logo_url} size={36} /><View style={{ flex: 1 }}><NameCell main={s.name} sub={`Mã ${s.school_code}${s.region ? ` · ${s.region}` : ''}`} /></View></View> },
+              { key: 'name', filter: f_name, label: 'Trường', flex: 2, render: (s) => <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><SchoolEmblem name={s.name} code={s.school_code} logoUrl={s.logo_url} size={36} /><View style={{ flex: 1 }}><NameCell main={s.name} sub={`Mã ${s.school_code}${isNewUnit(s.region) ? ` · ${s.region}` : ''}`} /></View></View> },
               { key: 'code', filter: f_code, label: 'Mã trường', render: (s) => <Txt size={13} selectable>{s.school_code}</Txt> },
               { key: 'city', filter: f_city, label: 'Tỉnh / thành', flex: 1.4, render: (s) => <Txt size={14}>{s.city || 'Chưa có'}</Txt> },
               { key: 'users', filter: f_users, label: 'Người dùng', render: (s) => <Cell main={fmt(s.users)} sub={`${s.teachers} GV · ${s.students} HS · ${s.classes} lớp`} /> },
               { key: 'status', filter: f_active, label: 'Trạng thái', render: (s) => <StatusChip kind={s.is_active ? 'on' : 'off'} text={s.is_active ? 'Hoạt động' : 'Vô hiệu hóa'} /> },
               { key: 'created', filter: f_created, label: 'Ngày tạo', render: (s) => <Txt size={13} color={c.muc2}>{dateText(s.created_at)}</Txt> },
+              // ngày kết thúc = ngày vô hiệu hóa (migration 073); trường tắt từ trước khi có cột này mà không có nhật ký thì không rõ ngày
+              { key: 'ended', label: 'Ngày kết thúc', render: (s) => <Txt size={13} color={c.muc2}>{s.is_active ? '—' : s.deactivated_at ? dateText(s.deactivated_at) : 'Không rõ ngày'}</Txt> },
             ]}
             actions={(s) => (<>
               <Btn title="Sửa" tone="giay" size="sm" onPress={() => setEditing(s)} />
-              <Btn title={s.is_active ? 'Vô hiệu' : 'Kích hoạt'} tone="giay" size="sm" onPress={() => setToggling(s)} />
+              <Switch value={s.is_active} onChange={() => setToggling(s)} testID={`school-active-${s.id}`}
+                label={s.is_active ? `${s.name} đang hoạt động. Gạt để vô hiệu hóa` : `${s.name} đã vô hiệu hóa. Gạt để kích hoạt lại`} />
               <Btn icon={Trash2} label={`Xóa ${s.name}`} tone="giay" size="sm" onPress={() => setRemoving(s)} />
             </>)} />
           <Pager page={page} limit={size} total={data.total} onPage={setPage} />
@@ -144,13 +150,14 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
       ) : null}
 
       {creating ? (
-        <FormSheet title="Thêm trường" subtitle="Chọn trường trong danh mục và cấp tài khoản quản trị viên trường đầu tiên" submitLabel="Tạo trường" wide
+        <FormSheet title="Thêm trường" subtitle="Chọn trường trong danh mục; mã trường do hệ thống tự cấp. Quản trị viên trường thêm sau khi tạo trường." submitLabel="Tạo trường" wide
           fields={CREATE_FIELDS(token)}
           onClose={() => setCreating(false)}
           onSubmit={async (v) => {
             if (String(v.name).trim().length < 2) throw new Error('Hãy gõ tên trường rồi chọn trong danh sách gợi ý, hoặc tự nhập tên trường.');
-            const body: Record<string, unknown> = { directory_code: v.directory_code || undefined, admin: { full_name: v.admin_name, email: v.admin_email, phone: v.admin_phone || undefined, birth_date: v.admin_birth_date || undefined } };
-            for (const name of ['name', 'city', 'region', 'address']) if (String(v[name] ?? '').trim()) body[name] = v[name];
+            if (!String(v.city ?? '').trim()) throw new Error('Hãy chọn tỉnh / thành phố của trường.');
+            const body: Record<string, unknown> = { directory_code: v.directory_code || undefined };
+            for (const name of PLACE_KEYS) if (String(v[name] ?? '').trim() && !(name === 'region' && !isNewUnit(String(v.region)))) body[name] = String(v[name]).trim();
             const res = await api.createSchool(token, body);
             setCreating(false);
             setCreated(res);
@@ -158,13 +165,23 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
           }} />
       ) : null}
       {editing ? (
-        <FormSheet title="Sửa thông tin trường" subtitle={`Chọn đúng trường trong danh mục để liên kết logo; mã ${editing.school_code} được giữ nguyên.`}
-          fields={[{ name: 'school_code', label: 'Mã trường', readOnly: true }, ...SCHOOL_FIELDS.map(field => field.name === 'name' ? { ...field, render: (values: Record<string, string | string[]>, set: (name: string, value: string | string[]) => void) => <SchoolPicker token={token} values={values} set={set} currentDirectoryCode={editing.directory_code ?? undefined} excludeSchoolId={editing.id} /> } : field)]} wide
-          initial={{ ...Object.fromEntries(SCHOOL_FIELDS.map((f) => [f.name, String((editing as unknown as Record<string, unknown>)[f.name] ?? '')])), school_code: editing.school_code, directory_code: editing.directory_code ?? '' }} onClose={() => setEditing(null)}
-          onSubmit={async (v) => { await api.updateSchool(token, editing.id, { ...Object.fromEntries(SCHOOL_FIELDS.map((f) => [f.name, String(v[f.name]).trim() || null])), ...(v.directory_code ? { directory_code: v.directory_code } : {}) }); setEditing(null); reload(); }} />
+        <FormSheet title="Sửa thông tin trường" subtitle="Chọn đúng trường trong danh mục để liên kết logo chính thức. Mã trường do hệ thống cấp, không sửa được."
+          fields={[
+            { name: 'school_code', label: 'Mã trường', readOnly: true, hint: 'Hệ thống tự cấp, không sửa được.' },
+            { name: 'name', label: 'Tên trường', required: true, render: (values, set) => <SchoolPicker token={token} values={values} set={set} currentDirectoryCode={editing.directory_code ?? undefined} excludeSchoolId={editing.id} /> },
+            ...placeFields(token),
+            { name: 'logo', label: 'Logo trường', render: () => <SchoolLogoField name={editing.name} code={editing.school_code} logoUrl={editing.logo_url}
+              upload={(data) => api.uploadSchoolLogo(token, editing.id, data)} remove={() => api.removeSchoolLogo(token, editing.id)} onChanged={reload} /> },
+          ]} wide
+          initial={{ school_code: editing.school_code, name: editing.name, city: editing.city ?? '', region: editing.region ?? '', address: addressText(editing), street: streetPart(editing.address, editing.city) }} onClose={() => setEditing(null)}
+          onSubmit={async (v) => {
+            if (String(v.name).trim().length < 2) throw new Error('Tên trường cần ít nhất 2 ký tự.');
+            await api.updateSchool(token, editing.id, { ...Object.fromEntries(PLACE_KEYS.map((k) => [k, String(v[k] ?? '').trim() || null])), ...(v.directory_code ? { directory_code: v.directory_code } : {}) });
+            setEditing(null); reload();
+          }} />
       ) : null}
       <ConfirmSheet open={!!toggling} title={toggling?.is_active ? 'Vô hiệu hóa trường' : 'Kích hoạt lại trường'} busy={busy} confirmLabel={toggling?.is_active ? 'Vô hiệu hóa' : 'Kích hoạt'} onCancel={() => setToggling(null)}
-        message={toggling?.is_active ? `Toàn bộ tài khoản của ${toggling?.name} sẽ không đăng nhập được và mọi phiên hiện tại bị thu hồi. Dữ liệu được giữ nguyên.` : `Cho phép tài khoản của ${toggling?.name} đăng nhập trở lại?`}
+        message={toggling?.is_active ? `Toàn bộ tài khoản của ${toggling?.name} sẽ không đăng nhập được và mọi phiên hiện tại bị thu hồi. Hôm nay được ghi là ngày kết thúc của trường. Dữ liệu được giữ nguyên.` : `Cho phép tài khoản của ${toggling?.name} đăng nhập trở lại? Ngày kết thúc sẽ được xóa.`}
         onConfirm={async () => { if (toggling && (await run(() => api.updateSchool(token, toggling.id, { is_active: !toggling.is_active }), 'Đã cập nhật trạng thái trường'))) { setToggling(null); reload(); } }} />
       <ConfirmSheet open={!!removing} title="Xóa trường" busy={busy} confirmLabel="Xóa trường" onCancel={() => setRemoving(null)}
         message={removing ? `Xóa ${removing.name} cùng toàn bộ dữ liệu đang sử dụng của trường: ${removing.users} tài khoản (${removing.admins} quản trị viên, ${removing.teachers} giáo viên, ${removing.students} học sinh), ${removing.classes} lớp, năm học, nội dung và tiến độ học. Bản dữ liệu đã xóa được lưu riêng một năm để kiểm tra rồi tự xóa; chưa có chức năng khôi phục trên giao diện. Nếu chỉ muốn tạm dừng, hãy chọn Vô hiệu hóa.` : ''}
@@ -173,6 +190,9 @@ const SchoolsPanel: React.FC<{ session: Session }> = ({ session }) => {
     </Page>
   );
 };
+
+/** Khu vực của một trường trong danh mục: phường / xã mới khi biết, không thì quận / huyện cũ (ghi rõ là cũ) để phân biệt các trường trùng tên */
+const directoryPlace = (r: SchoolDirectoryItem): string => [r.region ?? (r.district ? `${r.district} (cũ)` : null), r.city].filter(Boolean).join(' · ');
 
 /** Ô tên trường kèm gợi ý từ danh mục: bấm một trường thì tên, mã, tỉnh/thành, khu vực tự điền, huy hiệu hiện ngay và đường dẫn riêng được báo trước */
 const SchoolPicker: React.FC<{ token: string; values: Record<string, string | string[]>; set: (name: string, value: string | string[]) => void; currentDirectoryCode?: string; excludeSchoolId?: number }> = ({ token, values, set, currentDirectoryCode, excludeSchoolId }) => {
@@ -198,16 +218,20 @@ const SchoolPicker: React.FC<{ token: string; values: Record<string, string | st
     setResults([]);
     set('name', item.name);
     set('directory_code', item.code);
-    set('region', item.region);
+    set('region', item.region ?? '');
     set('city', item.city);
-    set('address', item.address ?? '');
+    set('street', item.street ?? '');
+    set('district', item.district ?? '');
+    set('suggested_region', item.suggested_region ?? '');
+    // địa chỉ tự cập nhật theo trường đã chọn: địa chỉ dạng mới của danh mục, không có thì ghép đường + phường / xã + tỉnh / thành
+    set('address', item.address ?? composeAddress(item.street, item.region, item.city));
   };
   const code = String(values.directory_code ?? '');
 
   return (
     <View style={{ gap: 8 }}>
       <Field label="Tên trường *" value={name} nativeID="field-name"
-        onChangeText={v => { set('name', v); set('directory_code', ''); if (picked) { setPicked(null); set('city', ''); set('region', ''); set('address', ''); } }} autoCapitalize="words" />
+        onChangeText={v => { set('name', v); set('directory_code', ''); if (picked) { setPicked(null); for (const k of ['city', 'region', 'address', 'street', 'district', 'suggested_region']) set(k, ''); } }} autoCapitalize="words" />
       {duplicates.length ? (
         <View testID="school-duplicate"><Inset style={{ gap: 4, backgroundColor: c.vangNhat }}>
           <Txt f="bold" size={13} color={c.vangChu}>Trường này đã có trong hệ thống, đừng tạo thêm</Txt>
@@ -220,12 +244,12 @@ const SchoolPicker: React.FC<{ token: string; values: Record<string, string | st
       {results.length ? (
         <ScrollView nestedScrollEnabled style={{ maxHeight: 240, borderWidth: 1, borderColor: c.adminLine, borderRadius: 8, backgroundColor: c.the }} accessibilityRole="list">
           {results.map((r) => (
-            <Pressable key={r.code} accessibilityRole="button" accessibilityLabel={`Chọn ${r.name}, ${r.region}`} disabled={r.exists && r.code !== currentDirectoryCode} onPress={() => choose(r)} testID={`school-pick-${r.code}`}
+            <Pressable key={r.code} accessibilityRole="button" accessibilityLabel={`Chọn ${r.name}, ${directoryPlace(r)}`} disabled={r.exists && r.code !== currentDirectoryCode} onPress={() => choose(r)} testID={`school-pick-${r.code}`}
               style={({ pressed }) => ({ minHeight: 52, paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 10, opacity: r.exists ? 0.55 : 1, backgroundColor: pressed ? c.adminCanvas : c.the })}>
               <SchoolEmblem name={r.name} code={r.code} logoUrl={r.logo_url} size={32} />
               <View style={{ flex: 1 }}>
                 <Txt f="semibold" size={14}>{r.name}</Txt>
-                <Txt size={12} color={c.muc2}>{r.region} · {r.city}</Txt>
+                <Txt size={12} color={c.muc2}>{directoryPlace(r)}</Txt>
                 {r.note ? <Txt size={12} color={c.vangChu}>{r.note}</Txt> : null}
               </View>
               {r.exists ? <StatusChip kind="muted" text={r.existing_code ? `Đã có · mã ${r.existing_code}` : 'Đã có trong hệ thống'} /> : null}
@@ -239,7 +263,7 @@ const SchoolPicker: React.FC<{ token: string; values: Record<string, string | st
           <SchoolEmblem name={name} code={code} logoUrl={picked.logo_url} size={56} />
           <View style={{ flex: 1, gap: 2 }}>
             <Txt f="semibold" size={14}>{name}</Txt>
-            <Txt size={12} color={c.muc2}>{picked.region} · {picked.city}</Txt>
+            <Txt size={12} color={c.muc2}>{directoryPlace(picked)}</Txt>
             {!picked.logo_url && !schoolLogoUrl(code) ? <Txt size={12} color={c.muc3}>Chưa có logo chính thức</Txt> : null}
           </View>
         </Inset>
@@ -263,7 +287,7 @@ const SchoolDetailSheet: React.FC<{ session: Session; id: number; onClose: () =>
         <>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <SchoolEmblem name={data.name} code={data.school_code} logoUrl={data.logo_url} size={56} />
-            <Txt size={13} color={c.muc2} style={{ flex: 1 }}>{[data.region, data.city].filter(Boolean).join(' · ') || 'Chưa ghi khu vực'}</Txt>
+            <Txt size={13} color={c.muc2} style={{ flex: 1 }}>{placeText(data.region, data.city) || 'Chưa ghi khu vực'}</Txt>
           </View>
           <SchoolLinkBox link={data.link} />
           {suggestions.map((item) => (
@@ -273,7 +297,7 @@ const SchoolDetailSheet: React.FC<{ session: Session; id: number; onClose: () =>
                 <SchoolEmblem name={item.name} code={item.code} logoUrl={item.logo_url} size={48} />
                 <View style={{ flex: 1 }}>
                   <Txt f="semibold" size={14}>{item.name}</Txt>
-                  <Txt size={12} color={c.muc2}>{item.region} · {item.city} · mã danh mục {item.code}</Txt>
+                  <Txt size={12} color={c.muc2}>{directoryPlace(item)} · mã danh mục {item.code}</Txt>
                   {!item.logo_url && !schoolLogoUrl(item.code) ? <Txt size={12} color={c.muc3}>Danh mục chưa có logo cho trường này</Txt> : null}
                 </View>
               </View>
@@ -289,9 +313,13 @@ const SchoolDetailSheet: React.FC<{ session: Session; id: number; onClose: () =>
             <StatusChip kind="info" text={`${data.counts.classes} lớp`} />
             <StatusChip kind={data.current_year ? 'on' : 'warn'} text={data.current_year ? `Năm học ${data.current_year.label}` : 'Chưa kích hoạt năm học'} />
           </View>
-          {[['Địa chỉ', data.address]].map(([k, v]) => (
-            <View key={k as string}><Txt f="bold" size={12} color={c.muc3}>{k}</Txt><Txt size={14}>{(v as string | null) || 'Chưa có'}</Txt></View>
-          ))}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
+            {[['Địa chỉ', addressText(data)], ['Phường / xã / đặc khu', isNewUnit(data.region) ? data.region : null], ['Tỉnh / thành phố', data.city], ['Ngày tạo', dateText(data.created_at)],
+              ...(data.is_active ? [] : [['Ngày kết thúc', data.deactivated_at ? dateText(data.deactivated_at) : 'Không rõ ngày']])].map(([k, v]) => (
+              <View key={k as string} style={{ flexBasis: k === 'Địa chỉ' ? '100%' : 200, flexGrow: 1 }}><Txt f="bold" size={12} color={c.muc3}>{k}</Txt><Txt size={14} selectable>{(v as string | null) || 'Chưa có'}</Txt></View>
+            ))}
+          </View>
+          {isOldDistrict(data.region) ? <Inset style={{ backgroundColor: c.vangNhat }}><Txt size={13} color={c.vangChu}>Trường đang lưu khu vực cũ “{data.region}”. Từ 01/07/2025 không còn quận / huyện: bấm “Sửa” ở danh sách để chọn phường / xã mới.</Txt></Inset> : null}
           <Txt f="bold" size={14}>Quản trị viên trường học</Txt>
           {data.admins.length ? data.admins.map((a) => (
             <Inset key={a.id} style={{ gap: 2 }}><NameCell main={`${a.full_name}${a.is_active ? '' : ' (đã khóa)'}`} sub={a.username} /><Txt size={13} color={c.muc2}>{a.email || 'chưa có email'} · đăng nhập lần cuối: {dateText(a.last_login_at)}</Txt></Inset>

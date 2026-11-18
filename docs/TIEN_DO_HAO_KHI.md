@@ -1430,3 +1430,19 @@ Theo 10 ý người dùng gửi kèm ảnh file Excel (đã hỏi lại hai đi�
 - Sau khi triển khai 3851100: lúc Render vừa khởi động bộ nhớ trống còn 277/280 MB nên mô hình AI không nạp (chế độ dự phòng); gọi `?warm=ai` sau 3 phút đã nạp lại được (sẵn sàng sau 16,1 giây). Thêm: khi khởi động mà thiếu bộ nhớ thì tự thử nạp lại sau 1, 2, 4 phút.
 
 - 18/11/2026 (tiếp): lịch GitHub `keep-alive.yml` ở trạng thái `active` (API) nhưng sau hơn 1 giờ, kể cả khi đổi cron sang `*/10 * * * *`, không chạy lần nào – lịch của GitHub chỉ chạy "theo khả năng". Thêm lớp chính trong máy chủ: `KeepAlive` (`src/platform/keep-alive.ts`) tự gọi `RENDER_EXTERNAL_URL/api/health?warm=ai` sau 1 phút rồi mỗi 10 phút; `/api/health` có `keep_alive` để kiểm chứng. Lịch GitHub giữ làm dự phòng. Kiểm thử `keep_alive.spec.ts`, `health.spec.ts`, `sprint1.spec.ts`.
+
+## Trang Trường học của quản trị tổng (18/11/2026)
+
+Theo 9 ý người dùng gửi kèm ảnh chụp:
+
+1. **Thêm trường không hiện mã trường** (mã do hệ thống tự cấp khi lưu, hiện ở hộp "Đã thêm trường").
+2. **Chọn trường trong danh mục thì địa chỉ tự cập nhật**: địa chỉ dạng mới của danh mục, không có thì ghép số nhà – đường + phường / xã + tỉnh / thành; ô "Địa chỉ (tự cập nhật)" chỉ đọc.
+3. **Bỏ phần "Quản trị viên trường đầu tiên"** khỏi Thêm trường; tạo xong có nút "Thêm quản trị viên trường" mở hộp Tạo tài khoản quản trị với trường chọn sẵn (`CreateSchoolAdminSheet` có `initialSchoolId`). API vẫn nhận `admin` cho client cũ.
+4. **Chi tiết trường** hiện địa chỉ (tự ghép khi chưa lưu), phường / xã, tỉnh / thành, ngày tạo, ngày kết thúc.
+5. **Cột "Ngày kết thúc"** (ngày vô hiệu hóa, migration 073 `app_schools.deactivated_at`; bật lại thì xóa; trường tắt từ trước không có nhật ký thì "Không rõ ngày").
+6. **Sửa trường**: bỏ ô "Logo riêng (liên kết https…)", thay bằng **tải ảnh logo** (PNG/JPG/WEBP/GIF ≤ 2 MB, máy chủ thu về WebP ≤ 160px, lưu `app_school_logo_assets`, đường dẫn `/api/school-logos/u/<sha256>.webp` – luôn thắng logo danh mục ở danh sách, trang đăng nhập riêng, PDF; "Bỏ logo tải lên" thì về logo danh mục); **Mã trường là ô xám, không sửa được** (mọi ô chỉ đọc của cổng quản trị: nền xám, chữ nhạt, con trỏ "không được").
+7. (Không có ý 7 trong tin nhắn.)
+8. **Bỏ quận / huyện**: khu vực theo mô hình hai cấp từ 01/07/2025 – chọn tỉnh / thành (34) và phường / xã / đặc khu (gõ để tìm), máy chủ kiểm tra; quận / huyện cũ chỉ còn để tra cứu danh mục và nhắc chọn lại (`components/admin/SchoolPlace.tsx`, `lib/admin-units.ts`, `backend/src/admin/admin-units.ts`; xem `docs/DANH_MUC_TRUONG.md`).
+9. **Nút gạt** thay hai nút chữ "Vô hiệu / Kích hoạt" (`Switch` trong `components/ui.tsx`, vẫn hỏi xác nhận vì vô hiệu hóa thu hồi mọi phiên của trường).
+
+Cổng quản trị trường làm tương ứng: Sửa thông tin trường có mã trường xám, tỉnh / thành – phường / xã – địa chỉ tự ghép, tải logo; khối lớp bật / tắt bằng nút gạt. Kiểm thử: `backend/test/school_place.spec.ts`, migration 073 trong `migrations.spec.ts`, `frontend/tests/school-link.test.cjs`.

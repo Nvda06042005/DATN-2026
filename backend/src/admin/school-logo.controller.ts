@@ -7,6 +7,14 @@ import { DatabaseService } from '../database/database.service';
 export class SchoolLogoController {
   constructor(private readonly db: DatabaseService) {}
 
+  /** Logo trường tải lên (18/11/2026): cùng kho ảnh, đường dẫn riêng để logo danh mục không thay thế */
+  @Get('u/:file')
+  @Header('X-Content-Type-Options', 'nosniff')
+  @Header('Content-Security-Policy', "default-src 'none'")
+  uploaded(@Param('file') file: string, @Headers('if-none-match') match: string | undefined, @Res({ passthrough: true }) res: Response) {
+    return this.image(file, match, res);
+  }
+
   @Get(':file')
   @Header('X-Content-Type-Options', 'nosniff')
   @Header('Content-Security-Policy', "default-src 'none'")

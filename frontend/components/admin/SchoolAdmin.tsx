@@ -16,13 +16,15 @@ import { LogsPanel } from '@/components/admin/PlatformOps';
 import { SchoolEmblem } from '@/components/school-brand';
 import { HelpPage } from '@/components/portal/HelpCenter';
 import { NoticeBell } from '@/components/portal/NoticeCenter';
-import { ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, yearOptions } from '@/components/admin/kit';
+import { ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, yearOptions, type FieldDef } from '@/components/admin/kit';
+import { placeFields, SchoolLogoField } from '@/components/admin/SchoolPlace';
+import { addressText, isNewUnit, isOldDistrict, streetPart } from '@/lib/admin-units';
 import { SchoolClasses } from '@/components/admin/SchoolClasses';
 import { PasswordList } from '@/components/admin/PasswordList';
 import { ShareInbox } from '@/components/admin/ShareInbox';
 import { SchoolPeople } from '@/components/admin/SchoolPeople';
 import type { Session } from '@/components/auth';
-import { AdminUiContext, Btn, Card, Inset, Spinner, Txt } from '@/components/ui';
+import { AdminUiContext, Btn, Card, Inset, Spinner, Switch, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { usePortalTab } from '@/hooks/use-portal-tab';
 import type { YearItem } from '@/types/api';
@@ -70,14 +72,13 @@ export const SchoolAdmin: React.FC<{ session: Session }> = ({ session }) => {
   );
 };
 
-const SCHOOL_FIELDS = [
-  { name: 'name', label: 'Tên hiển thị của trường', required: true },
-  { name: 'logo_url', label: 'Logo riêng (liên kết https, không bắt buộc)', hint: 'Để trống thì hệ thống dùng huy hiệu tự tạo từ tên trường.' },
-  { name: 'address', label: 'Địa chỉ' },
+// Giống trang Trường học của quản trị tổng (18/11/2026): logo bằng ảnh tải lên, khu vực theo phường / xã – tỉnh / thành, địa chỉ tự ghép
+const CONTACT_FIELDS: FieldDef[] = [
   { name: 'contact_name', label: 'Người liên hệ' },
-  { name: 'contact_email', label: 'Email liên hệ', type: 'email' as const },
-  { name: 'contact_phone', label: 'Điện thoại liên hệ', type: 'tel' as const },
+  { name: 'contact_email', label: 'Email liên hệ', type: 'email' },
+  { name: 'contact_phone', label: 'Điện thoại liên hệ', type: 'tel' },
 ];
+const SAVED_KEYS = ['name', 'city', 'region', 'address', 'contact_name', 'contact_email', 'contact_phone'] as const;
 
 const SchoolPanel: React.FC<{ session: Session; school: Awaited<ReturnType<typeof api.getMySchool>> | null; years: YearItem[]; onChanged: () => void }> = ({ session, school, years, onChanged }) => {
   const { c } = useTheme();
@@ -97,16 +98,17 @@ const SchoolPanel: React.FC<{ session: Session; school: Awaited<ReturnType<typeo
             <SchoolEmblem name={school.name} code={school.school_code} logoUrl={school.logo_url} size={64} />
             <View style={{ flex: 1, minWidth: 200 }}>
               <Txt f="displayHeavy" size={20}>{school.name}</Txt>
-              <Txt size={14} color={c.muc2}>Mã trường {school.school_code}{school.city ? ` · ${school.city}` : ''}</Txt>
+              <Txt size={14} color={c.muc2}>Mã trường {school.school_code}{isNewUnit(school.region) ? ` · ${school.region}` : ''}{school.city ? ` · ${school.city}` : ''}</Txt>
             </View>
             <Btn title="Sửa thông tin" tone="son" size="sm" onPress={() => setEditing(true)} testID="school-edit" />
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
-            {[['Địa chỉ', school.address], ['Người liên hệ', school.contact_name], ['Email liên hệ', school.contact_email], ['Điện thoại', school.contact_phone],
+            {[['Địa chỉ', addressText(school)], ['Người liên hệ', school.contact_name], ['Email liên hệ', school.contact_email], ['Điện thoại', school.contact_phone],
               ['Năm học hiện tại', school.current_year ? [school.current_year.label, phaseText(school.current_year, todayVn())].filter(Boolean).join(' · ') : 'Chưa kích hoạt năm học'], ['Quy mô', `${school.counts.teachers} giáo viên · ${school.counts.students} học sinh · ${school.counts.classes} lớp`]].map(([k, v]) => (
               <View key={k as string} style={{ flexBasis: 220, flexGrow: 1 }}><Txt f="bold" size={12} color={c.muc3}>{k}</Txt><Txt size={14}>{(v as string | null) || 'Chưa có'}</Txt></View>
             ))}
           </View>
+          {isOldDistrict(school.region) ? <Inset style={{ backgroundColor: c.vangNhat }}><Txt size={13} color={c.vangChu}>Trường đang lưu khu vực cũ “{school.region}”. Từ 01/07/2025 không còn quận / huyện: bấm “Sửa thông tin” để chọn phường / xã mới.</Txt></Inset> : null}
         </Card>
       )}
 
@@ -127,9 +129,10 @@ const SchoolPanel: React.FC<{ session: Session; school: Awaited<ReturnType<typeo
                     <Txt f="displayHeavy" size={20}>Khối {g}</Txt>
                     {row ? <Txt size={13} color={c.muc2}>{row.classes} lớp · {row.students} học sinh</Txt> : <Txt size={13} color={c.muc3}>Chưa thêm vào năm học này</Txt>}
                     {row ? <StatusChip kind={row.is_active ? 'on' : 'muted'} text={row.is_active ? 'Đang bật' : 'Đã tắt'} /> : null}
-                    <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                    <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                       {!row ? <Btn title="Thêm khối" tone="giay" size="sm" disabled={ended} onPress={async () => { if (await gradeAction.run(() => api.setGrade(token, { year_id: yearId, grade: g, is_active: true }), `Đã thêm khối ${g}`)) grades.reload(); }} /> : (<>
-                        <Btn title={row.is_active ? 'Tắt' : 'Bật'} tone="giay" size="sm" disabled={ended} onPress={async () => { if (await gradeAction.run(() => api.setGrade(token, { year_id: yearId, grade: g, is_active: !row.is_active }), 'Đã cập nhật khối')) grades.reload(); }} />
+                        <Switch value={row.is_active} disabled={ended || gradeAction.busy} testID={`grade-active-${g}`} label={row.is_active ? `Khối ${g} đang bật. Gạt để tắt` : `Khối ${g} đang tắt. Gạt để bật`}
+                          onChange={async (on) => { if (await gradeAction.run(() => api.setGrade(token, { year_id: yearId, grade: g, is_active: on }), on ? `Đã bật khối ${g}` : `Đã tắt khối ${g}`)) grades.reload(); }} />
                         <Btn icon={Trash2} label={`Xóa khối ${g}`} tone="giay" size="sm" disabled={ended} onPress={async () => { if (await gradeAction.run(() => api.removeGrade(token, yearId, g).then(() => true), `Đã xóa khối ${g}`)) grades.reload(); }} />
                       </>)}
                     </View>
@@ -143,9 +146,17 @@ const SchoolPanel: React.FC<{ session: Session; school: Awaited<ReturnType<typeo
       ) : null}
 
       {editing && school ? (
-        <FormSheet title="Sửa thông tin trường" subtitle={`Mã trường ${school.school_code} không đổi được`} fields={SCHOOL_FIELDS} wide
-          initial={Object.fromEntries(SCHOOL_FIELDS.map((f) => [f.name, String((school as unknown as Record<string, unknown>)[f.name] ?? '')]))} onClose={() => setEditing(false)}
-          onSubmit={async (v) => { await api.updateMySchool(token, Object.fromEntries(SCHOOL_FIELDS.map((f) => [f.name, String(v[f.name]).trim() || null]))); setEditing(false); onChanged(); }} />
+        <FormSheet title="Sửa thông tin trường" subtitle="Mã trường do hệ thống cấp, không sửa được." wide
+          fields={[
+            { name: 'school_code', label: 'Mã trường', readOnly: true, hint: 'Hệ thống tự cấp, không sửa được.' },
+            { name: 'name', label: 'Tên hiển thị của trường', required: true },
+            ...placeFields(token),
+            ...CONTACT_FIELDS,
+            { name: 'logo', label: 'Logo trường', render: () => <SchoolLogoField name={school.name} code={school.school_code} logoUrl={school.logo_url}
+              upload={(data) => api.uploadMySchoolLogo(token, data)} remove={() => api.removeMySchoolLogo(token)} onChanged={onChanged} /> },
+          ]}
+          initial={{ ...Object.fromEntries(SAVED_KEYS.map((k) => [k, String((school as unknown as Record<string, unknown>)[k] ?? '')])), school_code: school.school_code, address: addressText(school), street: streetPart(school.address, school.city) }} onClose={() => setEditing(false)}
+          onSubmit={async (v) => { await api.updateMySchool(token, Object.fromEntries(SAVED_KEYS.map((k) => [k, String(v[k] ?? '').trim() || null]))); setEditing(false); onChanged(); }} />
       ) : null}
     </Page>
   );

@@ -23,7 +23,7 @@ describe('Kiểm tra SMTP trước khi gửi thư', () => {
           body_encrypted: mail.encrypt({ type: 'account', full_name: 'Người kiểm thử', username: 'fixture', password: 'Fixture-only-123', role, school: 'Tên Cũ', reset: true }) }];
         expect(await mail.tick()).toBe(1);
         const sent = mail.sent.at(-1)!.text;
-        expect(sent).toContain(`/donga_00000001_tenmoi_phuongmoi?role=${role}`);
+        expect(sent).toContain(`/donga_00000001_tenmoi_moi?role=${role}`); // khu vực bỏ chữ chỉ cấp ở đầu ("Phường Mới" → moi)
         expect(sent).not.toContain('/school-manager-admin');
         expect(sent).toContain('THCS Tên Mới');
       }
