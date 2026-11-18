@@ -603,6 +603,32 @@ export const CalendarInput: React.FC<{ def: FieldDef; label: string; value: stri
   );
 };
 
+/**
+ * Ô chọn ngày và giờ bằng lịch (18/11/2026, thay ô gõ "2026-11-05 07:30"): web dùng ô datetime-local của trình duyệt; điện thoại vẫn gõ.
+ * Giá trị vào / ra dạng "YYYY-MM-DD HH:mm" (giờ Việt Nam, dùng với toVn / fromVn); `min` cùng dạng; nút "Xóa" để trống lại.
+ */
+export const DateTimeInput: React.FC<{ label: string; value: string; onChange: (v: string) => void; min?: string; hint?: string; error?: string | null; nativeID?: string }> = ({ label, value, onChange, min, hint, error, nativeID }) => {
+  const { c } = useTheme();
+  const [focus, setFocus] = useState(false);
+  if (Platform.OS !== 'web') return <Field label={label} value={value} onChangeText={onChange} placeholder="2026-11-05 07:30" autoCapitalize="none" error={error} hint={hint} nativeID={nativeID} />;
+  const input = React.createElement('input', {
+    type: 'datetime-local', id: nativeID, 'data-testid': nativeID, 'aria-label': label, value: value.replace(' ', 'T'), min: min?.replace(' ', 'T'), step: 60,
+    onChange: (e: { target: { value: string } }) => onChange(e.target.value.replace('T', ' ').slice(0, 16)),
+    onFocus: () => setFocus(true), onBlur: () => setFocus(false),
+    style: { minHeight: 44, boxSizing: 'border-box', flex: 1, minWidth: 0, padding: '0 12px', borderRadius: 5, border: `1px solid ${error ? c.son : focus ? c.son : c.adminLine}`, backgroundColor: c.the, color: c.logoInk, fontFamily: FONT.body, fontSize: 14, outline: 'none' },
+  });
+  return (
+    <View style={{ gap: 6 }}>
+      <Txt f="bold" size={14} color={c.muc2}>{label}</Txt>
+      <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+        {input}
+        {value ? <Btn title="Xóa" tone="giay" size="sm" onPress={() => onChange('')} label={`Xóa ${label.toLowerCase()}`} /> : null}
+      </View>
+      {error ? <Txt size={13} f="semibold" color={c.sonChu}>{error}</Txt> : hint ? <Txt size={13} color={c.muc2}>{hint}</Txt> : null}
+    </View>
+  );
+};
+
 // ---------------------------------------------------------------------- mật khẩu tạm (chỉ hiện một lần)
 const MAIL_NOTE = { queued: 'Thư thông tin đăng nhập đã được xếp vào hàng đợi gửi.', no_email: 'Tài khoản chưa có email nên chưa gửi thư: hãy chuyển thông tin này cho người dùng.', not_configured: 'Máy chủ chưa cấu hình gửi thư: hãy chuyển thông tin này cho người dùng.' } as const;
 

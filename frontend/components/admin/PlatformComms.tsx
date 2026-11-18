@@ -9,7 +9,7 @@ import { Pencil, Plus, Send, Trash2 } from 'lucide-react-native';
 import * as analytics from '@/api/analyticsApi';
 import * as admin from '@/api/adminApi';
 import * as api from '@/api/platformApi';
-import { Cell, DataTable, ErrorNote, fromVn, Page, PageHeader, StatusChip, toVn, useAction, useLoad } from '@/components/admin/kit';
+import { Cell, DataTable, DateTimeInput, ErrorNote, fromVn, Page, PageHeader, StatusChip, toVn, useAction, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, ConfirmSheet, Field, InfoNote, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -17,17 +17,27 @@ import type { Broadcast } from '@/types/platform';
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }) : '—');
 
-/** Hàng chip chọn một hoặc nhiều giá trị */
-function Chips<T extends string | number>({ label, options, value, onChange }: { label: string; options: Array<{ value: T; label: string }>; value: T[]; onChange: (v: T[]) => void }) {
+/**
+ * Hàng chip chọn một hoặc nhiều giá trị. `all` (18/11/2026): thêm chip "Tất cả" đứng đầu – đang chọn khi danh sách trống (trống nghĩa là tất cả),
+ * bấm "Tất cả" thì bỏ chọn riêng; chọn riêng từng mục thì "Tất cả" tự tắt.
+ */
+function Chips<T extends string | number>({ label, options, value, onChange, all }: { label: string; options: Array<{ value: T; label: string }>; value: T[]; onChange: (v: T[]) => void; all?: string }) {
   const { c } = useTheme();
+  const chip = (key: string, text: string, on: boolean, press: () => void, testID?: string) => (
+    <Pressable key={key} accessibilityRole="checkbox" accessibilityState={{ checked: on }} aria-checked={on} onPress={press} testID={testID}
+      style={{ minHeight: 44, paddingHorizontal: 14, borderRadius: 5, borderWidth: 1, justifyContent: 'center', borderColor: on ? c.son : c.adminLine, backgroundColor: on ? c.adminTint : c.the }}>
+      <Txt f="bold" size={14} color={on ? c.son : c.muc2}>{text}</Txt>
+    </Pressable>
+  );
   return (
     <View style={{ gap: 6 }}>
       <Txt f="bold" size={14} color={c.muc2}>{label}</Txt>
       <View accessibilityLabel={label} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {all ? chip('__all', all, value.length === 0, () => onChange([]), `chips-all-${label}`) : null}
         {options.map((o) => {
           const on = value.includes(o.value);
           return (
-            <Pressable key={String(o.value)} accessibilityRole="checkbox" accessibilityState={{ checked: on }} onPress={() => onChange(on ? value.filter((x) => x !== o.value) : [...value, o.value])}
+            <Pressable key={String(o.value)} accessibilityRole="checkbox" accessibilityState={{ checked: on }} aria-checked={on} onPress={() => onChange(on ? value.filter((x) => x !== o.value) : [...value, o.value])}
               style={{ minHeight: 44, paddingHorizontal: 14, borderRadius: 5, borderWidth: 1, justifyContent: 'center', borderColor: on ? c.son : c.adminLine, backgroundColor: on ? c.adminTint : c.the }}>
               <Txt f="bold" size={14} color={on ? c.son : c.muc2}>{o.label}</Txt>
             </Pressable>
@@ -88,9 +98,9 @@ const Compose: React.FC<{ session: Session; editing: Broadcast | null; onClose: 
                 ? <Chips<number> label={role === 'teacher' ? 'Lớp nhận (lớp thầy cô phụ trách)' : 'Lớp nhận'} options={activeClasses.map((c) => ({ value: c.id, label: c.name }))} value={classIds} onChange={setClassIds} />
                 : <InfoNote><Txt size={14}>Chưa có lớp nào đang hoạt động để gửi.</Txt></InfoNote>
             ) : null}
-            {role === 'root_admin' ? <Chips<number> label="Chỉ gửi tới các trường (bỏ trống = tất cả trường)" options={(schools.data?.items ?? []).map((s) => ({ value: s.id, label: s.name }))} value={schoolIds} onChange={setSchoolIds} /> : null}
-            {role !== 'teacher' ? <Chips<string> label={role === 'root_admin' ? 'Vai trò nhận (bỏ trống = học sinh, giáo viên và quản trị trường)' : 'Vai trò nhận (bỏ trống = học sinh và giáo viên)'} options={roleOptions} value={roles} onChange={setRoles} /> : null}
-            <Field label="Hẹn giờ gửi (giờ Việt Nam, dạng 2026-11-05 07:30; để trống = gửi ngay)" value={at} onChangeText={setAt} placeholder="VD: 2026-11-05 07:30" autoCapitalize="none" error={atInvalid ? 'Nhập đúng dạng năm-tháng-ngày giờ:phút' : null} nativeID="bc-at" />
+            {role === 'root_admin' ? <Chips<number> label="Gửi tới các trường" all="Tất cả các trường" options={(schools.data?.items ?? []).map((s) => ({ value: s.id, label: s.name }))} value={schoolIds} onChange={setSchoolIds} /> : null}
+            {role !== 'teacher' ? <Chips<string> label="Vai trò nhận" all="Tất cả" options={roleOptions} value={roles} onChange={setRoles} /> : null}
+            <DateTimeInput label="Hẹn giờ gửi (giờ Việt Nam)" value={at} onChange={setAt} min={toVn(new Date().toISOString())} hint="Để trống thì gửi ngay khi bấm Gửi." error={atInvalid ? 'Chọn ngày và giờ trên lịch' : null} nativeID="bc-at" />
             {preview !== null ? <InfoNote><Txt f="bold" size={14}>Sẽ gửi tới {preview} người.</Txt></InfoNote> : null}
           </>
         ) : <InfoNote><Txt size={14}>Đã gửi tới {editing?.recipients} người.</Txt></InfoNote>}

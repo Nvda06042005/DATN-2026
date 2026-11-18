@@ -1475,3 +1475,9 @@ Theo 7 ý người dùng gửi kèm ảnh (người dùng chọn: cột IP **ch�
 5. Nhật ký › Thao tác chỉ hiện nhãn dễ đọc, **không còn dòng đường dẫn kỹ thuật** ("POST /api/admin/users/:id/lock"); nhãn mới "Cấp lại mật khẩu tài khoản", "Khóa / mở khóa tài khoản", "Đổi logo trường".
 6. Nhật ký **lọc cụ thể từng cột** (Thời điểm theo ngày, Người thực hiện, Thao tác, Kết quả, Trường; Đăng nhập: Thời điểm, Tài khoản, Cổng, Kết quả chi tiết, Thiết bị) qua `GET /api/platform/logs/facets` (giá trị trong phạm vi trường của người xem). **Bỏ cột Địa chỉ IP** khỏi giao diện và API trả cho giao diện; máy chủ vẫn lưu IP trong `app_login_events` để điều tra sự cố.
 7. **Bỏ tab "Lỗi hệ thống"** khỏi giao diện; lỗi vẫn được ghi ngầm vào `hk_error_log`.
+
+## Soạn thông báo và Hướng dẫn – FAQ (18/11/2026)
+
+1. Soạn thông báo: chọn trường / vai trò có chip **"Tất cả các trường" / "Tất cả"** đứng đầu (đang chọn khi chưa chọn riêng; chọn riêng thì tự tắt); bỏ chú thích "(bỏ trống = …)".
+2. **Hẹn giờ gửi chọn bằng lịch** (ô ngày giờ `datetime-local` của trình duyệt, `DateTimeInput` trong `kit.tsx`), nút Xóa để gửi ngay; không còn gõ "2026-11-05 07:30".
+3. Thêm / sửa hướng dẫn: **Nhóm chọn trong danh sách** nhóm đã có (+ "Nhóm mới…"); ảnh minh họa và video **tải tệp lên** (kho tệp `/api/content/media`, ảnh ≤ 1,5 MB, video MP4/WebM ≤ 8 MB) hoặc dán liên kết https (migration 075 nới ràng buộc); **thứ tự hiển thị tự động** (thêm mới xếp cuối nhóm, sửa giữ nguyên; không còn ô Thứ tự). Trang Trợ giúp hiện ảnh / mở video tải lên qua `mediaUrl`.

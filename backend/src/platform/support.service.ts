@@ -153,7 +153,8 @@ export class FaqService {
     const link = (k: string): string | null => {
       const v = get(k);
       if (v === null || v === undefined || String(v).trim() === '') return null;
-      if (!/^https:\/\/\S+$/.test(String(v).trim()) || String(v).length > 500) throw new BadRequestException('Liên kết ảnh / video phải bắt đầu bằng https://');
+      // liên kết https, hoặc tệp tải lên kho tệp của hệ thống (/api/content/media/<mã>, 18/11/2026)
+      if (!(/^https:\/\/\S+$/.test(String(v).trim()) || /^\/api\/content\/media\/[0-9a-f]{32}$/.test(String(v).trim())) || String(v).length > 500) throw new BadRequestException('Ảnh / video là tệp tải lên hoặc liên kết bắt đầu bằng https://');
       return String(v).trim();
     };
     const position = Number(get('position') ?? 0);
@@ -163,7 +164,10 @@ export class FaqService {
 
   async create(user: UserRow, body: Record<string, unknown>) {
     if (user.role !== 'root_admin') throw new ForbiddenException('Chỉ quản trị viên tổng quản lý hướng dẫn');
-    const v = this.clean(body);
+    // thứ tự tự động (18/11/2026): không gửi `position` thì xếp cuối nhóm của vai trò đó
+    const auto = !Object.prototype.hasOwnProperty.call(body, 'position') || body.position === null || body.position === '';
+    const v = this.clean(auto ? { ...body, position: 0 } : body);
+    if (auto) v.position = Math.min(10000, Number((await this.db.query<{ n: number }>('SELECT COALESCE(max(position), -1)::int + 1 AS n FROM hk_faq WHERE audience = $1 AND category = $2', [v.audience, v.category]))[0].n));
     return (await this.db.query(
       `INSERT INTO hk_faq (audience, category, question, answer, image_url, video_url, position, is_published, updated_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id::int AS id, audience, category, question, answer, image_url, video_url, position, is_published, updated_at`, [v.audience, v.category, v.question, v.answer, v.image_url, v.video_url, v.position, v.is_published, user.id]))[0];

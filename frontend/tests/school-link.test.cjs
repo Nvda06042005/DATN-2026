@@ -296,3 +296,20 @@ test('18/11/2026: bộ lọc cột hiện danh sách giá trị; nhật ký lọ
   assert.doesNotMatch(sheet, /AccountSuggestField|admin-suggest/);
   assert.match(read('components', 'admin', 'AdminWorkspace.tsx'), /<Txt f="bold" size=\{15\} color=\{c\.logoInk\} numberOfLines=\{1\} style=\{\{ lineHeight: 21 \}\}>\{session\.user\.full_name\}<\/Txt>/);
 });
+
+test('18/11/2026: Soạn thông báo có chip "Tất cả" (không còn chú thích "bỏ trống ="), hẹn giờ chọn bằng lịch; Hướng dẫn: nhóm chọn trong danh sách, tải ảnh / video, thứ tự tự động', () => {
+  const comms = read('components', 'admin', 'PlatformComms.tsx');
+  assert.doesNotMatch(comms, /bỏ trống =|dạng 2026-11-05 07:30/);
+  assert.match(comms, /<Chips<number> label="Gửi tới các trường" all="Tất cả các trường"/);
+  assert.match(comms, /<Chips<string> label="Vai trò nhận" all="Tất cả"/);
+  assert.match(comms, /\{all \? chip\('__all', all, value\.length === 0, \(\) => onChange\(\[\]\)/);
+  assert.match(comms, /<DateTimeInput label="Hẹn giờ gửi \(giờ Việt Nam\)"/);
+  const kit = read('components', 'admin', 'kit.tsx');
+  assert.match(kit, /type: 'datetime-local'/);
+  assert.match(kit, /onChange\(e\.target\.value\.replace\('T', ' '\)\.slice\(0, 16\)\)/);
+  const ops = read('components', 'admin', 'PlatformOps.tsx');
+  assert.match(ops, /\{ value: NEW_GROUP, label: '\+ Nhóm mới…' \}/);
+  assert.match(ops, /const res = await uploadMedia\(token, \{ name: picked\.name, data \}\);/);
+  assert.doesNotMatch(ops, /name: 'position'|Thứ tự hiển thị/);
+  assert.match(read('components', 'portal', 'HelpCenter.tsx'), /export const mediaUrl = \(u: string\): string => \(u\.startsWith\('\/api\/'\) \? `\$\{API_BASE_URL\}\$\{u\}` : u\);/);
+});

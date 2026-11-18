@@ -3,14 +3,16 @@
  * (HK.QT.051, HK.AD.027, HK.AD.075, HK.AD.076) và xác thực hai lớp cho tài khoản quản trị (HK.AD.002).
  */
 import React, { useState } from 'react';
-import { Image, View } from 'react-native';
-import { KeyRound, Pencil, Plus, Send, ShieldCheck, Trash2 } from 'lucide-react-native';
+import { Image, Linking, View } from 'react-native';
+import { ImagePlus, KeyRound, Pencil, PlayCircle, Plus, Send, ShieldCheck, Trash2, Video } from 'lucide-react-native';
 import * as api from '@/api/platformApi';
+import { uploadMedia } from '@/api/learningApi';
+import { errorMessage, type PickedFile } from '@/api/client';
 import { AdminSelect } from '@/components/admin/AdminSelect';
-import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, usePageSize, type SearchFilter } from '@/components/admin/kit';
+import { Cell, DataTable, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, Pager, pickFile, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, usePageSize, type FieldDef, type SearchFilter } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { StatGrid, StatTile } from '@/components/charts';
-import { TicketImage } from '@/components/portal/HelpCenter';
+import { mediaUrl, TicketImage } from '@/components/portal/HelpCenter';
 import { Btn, Card, Chip, ConfirmSheet, Field, InfoNote, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { AuditItem, FaqItem, LoginItem, Ticket, TicketStatus } from '@/types/platform';
@@ -99,15 +101,68 @@ export const SupportInbox: React.FC<{ session: Session }> = ({ session }) => {
 
 // ---------------------------------------------------------------------- quản lý hướng dẫn và câu hỏi thường gặp
 const AUDIENCE_TEXT: Record<string, string> = { student: 'Học sinh', teacher: 'Giáo viên', school_admin: 'Quản trị trường', all: 'Mọi vai trò' };
-const FAQ_FIELDS = [
-  { name: 'audience', label: 'Dành cho', type: 'select' as const, required: true, options: Object.entries(AUDIENCE_TEXT).map(([value, label]) => ({ value, label })) },
-  { name: 'category', label: 'Nhóm', required: true, hint: 'Ví dụ: Bắt đầu, Lớp học, Bài tập' },
+const NEW_GROUP = '__new__';
+
+/** Nhóm: chọn trong danh sách nhóm đã có (theo vai trò đang chọn trước), hoặc "Nhóm mới…" để gõ tên (18/11/2026) */
+const FaqCategoryField: React.FC<{ values: Record<string, string | string[]>; set: (name: string, value: string) => void; items: FaqItem[] }> = ({ values, set, items }) => {
+  const audience = String(values.audience ?? ''), category = String(values.category ?? '');
+  const groups = [...new Set([...items.filter((i) => i.audience === audience), ...items].map((i) => i.category))];
+  const typing = values.category_new === '1' || (!!category && !groups.includes(category));
+  return (
+    <View style={{ gap: 8 }}>
+      <AdminSelect<string> label="Nhóm *" value={typing ? NEW_GROUP : category} testID="faq-category"
+        options={[{ value: '', label: 'Chọn nhóm' }, ...groups.map((g) => ({ value: g, label: g })), { value: NEW_GROUP, label: '+ Nhóm mới…' }]}
+        onChange={(v) => { if (v === NEW_GROUP) { set('category_new', '1'); set('category', ''); } else { set('category_new', ''); set('category', v); } }} />
+      {typing ? <Field label="Tên nhóm mới" value={category} onChangeText={(t) => set('category', t)} placeholder="Ví dụ: Bắt đầu, Lớp học, Bài tập" maxLength={60} nativeID="faq-category-new" /> : null}
+    </View>
+  );
+};
+
+/** Ảnh / video hướng dẫn: tải tệp từ máy (lưu ở kho tệp của hệ thống) hoặc dán liên kết https (18/11/2026) */
+const FaqMediaField: React.FC<{ kind: 'image' | 'video'; token: string; values: Record<string, string | string[]>; set: (name: string, value: string) => void }> = ({ kind, token, values, set }) => {
+  const { c } = useTheme();
+  const name = kind === 'image' ? 'image_url' : 'video_url';
+  const url = String(values[name] ?? '');
+  const uploaded = url.startsWith('/api/content/media/');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const types = kind === 'image' ? ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] : ['video/mp4', 'video/webm'];
+  const pick = async () => {
+    setBusy(true); setError(null);
+    try {
+      const picked: PickedFile | null = await pickFile(types);
+      if (!picked) return;
+      const blob: Blob = (picked.file as Blob | undefined) ?? (await (await fetch(picked.uri)).blob());
+      const data = await new Promise<string>((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = () => reject(new Error('Không đọc được tệp.')); r.readAsDataURL(blob); });
+      const res = await uploadMedia(token, { name: picked.name, data });
+      set(name, res.url);
+    } catch (e) { setError(errorMessage(e, 'Không tải được tệp lên.')); } finally { setBusy(false); }
+  };
+  return (
+    <View style={{ gap: 8 }}>
+      <Txt f="bold" size={14} color={c.muc2}>{kind === 'image' ? 'Ảnh minh họa (không bắt buộc)' : 'Video hướng dẫn (không bắt buộc)'}</Txt>
+      {url && kind === 'image' ? <Image source={{ uri: mediaUrl(url) }} accessibilityLabel="Ảnh minh họa đã chọn" resizeMode="contain" style={{ width: '100%', height: 140, borderRadius: 8, backgroundColor: c.adminCanvas }} /> : null}
+      {url && kind === 'video' ? <Btn icon={PlayCircle} title={uploaded ? 'Xem video đã tải lên' : 'Mở liên kết video'} tone="giay" size="sm" onPress={() => void Linking.openURL(mediaUrl(url))} /> : null}
+      <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+        <Btn icon={kind === 'image' ? ImagePlus : Video} title={kind === 'image' ? (url ? 'Đổi ảnh' : 'Tải ảnh lên') : (url ? 'Đổi video' : 'Tải video lên')} tone="giay" size="sm" loading={busy} onPress={pick} testID={`faq-${kind}-pick`} />
+        {url ? <Btn icon={Trash2} title="Bỏ" tone="giay" size="sm" disabled={busy} onPress={() => set(name, '')} /> : null}
+      </View>
+      {!uploaded ? <Field label={kind === 'image' ? 'Hoặc dán liên kết ảnh (https)' : 'Hoặc dán liên kết video (https, ví dụ YouTube)'} value={url} onChangeText={(t) => set(name, t)} autoCapitalize="none" placeholder="https://…" nativeID={`faq-${kind}-link`} /> : null}
+      <Txt size={12} color={c.muc3}>{kind === 'image' ? 'PNG, JPG, WEBP hoặc GIF, tối đa 1,5 MB.' : 'MP4 hoặc WebM, tối đa 8 MB.'}</Txt>
+      {error ? <Txt size={13} f="semibold" color={c.sonChu} accessibilityRole="alert">{error}</Txt> : null}
+    </View>
+  );
+};
+
+/** Biểu mẫu hướng dẫn: nhóm chọn trong danh sách, ảnh / video tải lên hoặc dán liên kết, thứ tự hiển thị tự động (không hiện ô Thứ tự) */
+const faqFields = (token: string, items: FaqItem[]): FieldDef[] => [
+  { name: 'audience', label: 'Dành cho', type: 'select', required: true, options: Object.entries(AUDIENCE_TEXT).map(([value, label]) => ({ value, label })) },
+  { name: 'category', label: 'Nhóm', render: (values, set) => <FaqCategoryField values={values} set={set} items={items} /> },
   { name: 'question', label: 'Câu hỏi hoặc tiêu đề hướng dẫn', required: true },
-  { name: 'answer', label: 'Nội dung (hỗ trợ **chữ đậm** và dòng bắt đầu bằng - hoặc •)', type: 'textarea' as const, required: true },
-  { name: 'image_url', label: 'Ảnh minh họa (liên kết https, không bắt buộc)' },
-  { name: 'video_url', label: 'Video hướng dẫn (liên kết https, không bắt buộc)' },
-  { name: 'position', label: 'Thứ tự hiển thị (số nhỏ hiện trước)', type: 'number' as const },
-  { name: 'is_published', label: 'Hiển thị cho người dùng', type: 'select' as const, options: [{ value: 'true', label: 'Có' }, { value: 'false', label: 'Ẩn' }] },
+  { name: 'answer', label: 'Nội dung (hỗ trợ **chữ đậm** và dòng bắt đầu bằng - hoặc •)', type: 'textarea', required: true },
+  { name: 'image_url', label: 'Ảnh minh họa', render: (values, set) => <FaqMediaField kind="image" token={token} values={values} set={set} /> },
+  { name: 'video_url', label: 'Video hướng dẫn', render: (values, set) => <FaqMediaField kind="video" token={token} values={values} set={set} /> },
+  { name: 'is_published', label: 'Hiển thị cho người dùng', type: 'select', options: [{ value: 'true', label: 'Có' }, { value: 'false', label: 'Ẩn' }] },
 ];
 
 export const FaqManager: React.FC<{ session: Session }> = ({ session }) => {
@@ -134,12 +189,14 @@ export const FaqManager: React.FC<{ session: Session }> = ({ session }) => {
           actions={(i) => <><Btn icon={Pencil} label={`Sửa mục ${i.question}`} tone="giay" size="sm" onPress={() => setEdit(i)} /><Btn icon={Trash2} label={`Xóa mục ${i.question}`} tone="giay" size="sm" onPress={() => setRemove(i)} /></>} actionsWidth={110} />
       ) : null}
       {edit ? (
-        <FormSheet wide title={edit === 'new' ? 'Thêm hướng dẫn' : 'Sửa hướng dẫn'} fields={FAQ_FIELDS}
-          initial={edit === 'new' ? { audience: 'student', position: '0', is_published: 'true' } : { audience: edit.audience, category: edit.category, question: edit.question, answer: edit.answer, image_url: edit.image_url ?? '', video_url: edit.video_url ?? '', position: String(edit.position ?? 0), is_published: String(edit.is_published ?? true) }}
+        <FormSheet wide title={edit === 'new' ? 'Thêm hướng dẫn' : 'Sửa hướng dẫn'} fields={faqFields(session.token, list.data ?? [])}
+          initial={edit === 'new' ? { audience: 'student', is_published: 'true' } : { audience: edit.audience, category: edit.category, question: edit.question, answer: edit.answer, image_url: edit.image_url ?? '', video_url: edit.video_url ?? '', is_published: String(edit.is_published ?? true) }}
           onClose={() => setEdit(null)}
           onSubmit={async (v) => {
+            if (!String(v.category ?? '').trim()) throw new Error('Hãy chọn nhóm hoặc gõ tên nhóm mới.');
+            // thứ tự hiển thị tự động: thêm mới thì máy chủ xếp cuối nhóm; sửa thì giữ thứ tự cũ (không gửi position)
             await api.saveFaq(session.token, edit === 'new' ? null : edit.id, { audience: v.audience as FaqItem['audience'], category: String(v.category).trim(), question: String(v.question).trim(), answer: String(v.answer).trim(),
-              image_url: String(v.image_url).trim() || null, video_url: String(v.video_url).trim() || null, position: Number(v.position) || 0, is_published: v.is_published !== 'false' });
+              image_url: String(v.image_url ?? '').trim() || null, video_url: String(v.video_url ?? '').trim() || null, is_published: v.is_published !== 'false' });
             setEdit(null); list.reload();
           }} />
       ) : null}

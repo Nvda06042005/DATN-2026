@@ -6,12 +6,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Platform, Pressable, View } from 'react-native';
 import { ChevronDown, ChevronUp, ImagePlus, PlayCircle, Send, X } from 'lucide-react-native';
 import * as api from '@/api/platformApi';
-import type { PickedFile } from '@/api/client';
+import { API_BASE_URL, type PickedFile } from '@/api/client';
 import { ErrorNote, Page, PageHeader, pickFile, useAction, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Card, Chip, EmptyState, Field, InfoNote, RichText, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { TICKET_CATEGORY_TEXT, TICKET_STATUS_TEXT, type FaqItem, type Ticket } from '@/types/platform';
+
+/** Ảnh / video hướng dẫn: liên kết https, hoặc tệp tải lên kho tệp của máy chủ (/api/content/media/…, 18/11/2026) */
+export const mediaUrl = (u: string): string => (u.startsWith('/api/') ? `${API_BASE_URL}${u}` : u);
 
 const MAX_IMAGE = 1_500_000;
 const when = (iso: string) => new Date(iso).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
@@ -63,8 +66,8 @@ const Faq: React.FC<{ session: Session }> = ({ session }) => {
                 {on ? (
                   <View style={{ paddingHorizontal: 14, paddingBottom: 14, gap: 10 }}>
                     <RichText text={i.answer} size={14} />
-                    {i.image_url ? <Image source={{ uri: i.image_url }} accessibilityLabel={`Hình minh họa: ${i.question}`} resizeMode="contain" style={{ width: '100%', height: 220, borderRadius: 10, backgroundColor: c.the2 }} /> : null}
-                    {i.video_url ? <Btn icon={PlayCircle} title="Xem video hướng dẫn" tone="thuy" size="sm" onPress={() => void Linking.openURL(i.video_url!)} /> : null}
+                    {i.image_url ? <Image source={{ uri: mediaUrl(i.image_url) }} accessibilityLabel={`Hình minh họa: ${i.question}`} resizeMode="contain" style={{ width: '100%', height: 220, borderRadius: 10, backgroundColor: c.the2 }} /> : null}
+                    {i.video_url ? <Btn icon={PlayCircle} title="Xem video hướng dẫn" tone="thuy" size="sm" onPress={() => void Linking.openURL(mediaUrl(i.video_url!))} /> : null}
                   </View>
                 ) : null}
               </Card>

@@ -477,6 +477,15 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     await root('PUT', `/api/platform/faq/${made.body.id}`, { is_published: false });
     expect((await titles(f.S1)).some((i) => i.question === 'Câu hỏi thử có đủ dài?')).toBe(false);
     expect((await root('GET', '/api/platform/faq/all')).body.some((i: any) => i.id === made.body.id && i.is_published === false)).toBe(true);
+    // 18/11/2026: thứ tự tự động (không gửi position thì xếp cuối nhóm), ảnh / video là tệp tải lên kho tệp của hệ thống
+    const first = await root('POST', '/api/platform/faq', { ...bad, category: 'Nhóm thứ tự', question: 'Mục thứ tự một?' });
+    const second = await root('POST', '/api/platform/faq', { ...bad, category: 'Nhóm thứ tự', question: 'Mục thứ tự hai?', image_url: '/api/content/media/0123456789abcdef0123456789abcdef', video_url: '/api/content/media/fedcba9876543210fedcba9876543210' });
+    expect(second.status).toBe(200);
+    expect(second.body.position).toBe(first.body.position + 1);
+    expect(second.body).toMatchObject({ image_url: '/api/content/media/0123456789abcdef0123456789abcdef' });
+    expect((await root('PUT', `/api/platform/faq/${second.body.id}`, { answer: 'Sửa nội dung, giữ thứ tự.' })).body.position).toBe(second.body.position);
+    expect((await root('POST', '/api/platform/faq', { ...bad, image_url: '/api/content/media/../../etc' })).status).toBe(400);
+    for (const id of [first.body.id, second.body.id]) await root('DELETE', `/api/platform/faq/${id}`);
     expect((await root('DELETE', `/api/platform/faq/${made.body.id}`)).body.deleted).toBe(true);
     expect((await root('DELETE', `/api/platform/faq/${made.body.id}`)).status).toBe(404);
     expect((await as(f.A)('GET', '/api/platform/faq/all')).status).toBe(403);
