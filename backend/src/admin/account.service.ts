@@ -482,6 +482,11 @@ export class AccountService {
         if (phone && !PHONE.test(phone)) throw new UnprocessableEntityException('Số điện thoại gồm đúng 10 chữ số');
         fields.phone = phone;
       }
+      // ngày sinh: giáo viên, học sinh (mã) và quản trị viên trường (ghép mật khẩu theo quy ước) – 18/11/2026
+      if (target.role === 'school_admin' && body.birth_date !== undefined) {
+        if (body.birth_date !== null && (!parseDate(body.birth_date) || body.birth_date > todayVn())) throw new UnprocessableEntityException('Ngày sinh không hợp lệ (YYYY-MM-DD, không ở tương lai)');
+        fields.birth_date = body.birth_date;
+      }
       if (target.role === 'student' || target.role === 'teacher') {
         if (body.birth_date !== undefined) {
           if ((target.role==='teacher'||target.role==='student') && target.birth_date && !body.birth_date) throw new UnprocessableEntityException('Tài khoản cần ngày sinh để sinh mã');

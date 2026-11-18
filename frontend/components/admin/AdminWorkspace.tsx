@@ -119,7 +119,7 @@ export function AdminWorkspace<T extends string>({ session, nav, active, onSelec
           {extra}
           <Pressable testID="admin-profile-open" accessibilityRole="button" accessibilityLabel="Mở hồ sơ cá nhân" onPress={() => setProfile(true)} style={({ pressed }) => ({ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 4, paddingRight: roomy ? 12 : 4, borderRadius: 999, backgroundColor: pressed ? c.adminCanvas : 'transparent' })}>
             {avatar ?? <Avatar name={session.user.full_name} uri={session.user.avatar_url} size={34} />}
-            {roomy && <View style={{ maxWidth: 190, gap: 2 }}><Txt f="bold" size={12} numberOfLines={1}>{session.user.full_name}</Txt>{roleLine ?? <Txt size={10} color={c.muc3}>{ROLE_LABEL[session.user.role]}</Txt>}</View>}
+            {roomy && <View style={{ maxWidth: 220, gap: 2 }}><Txt f="bold" size={15} color={c.logoInk} numberOfLines={1} style={{ lineHeight: 21 }}>{session.user.full_name}</Txt>{roleLine ?? <Txt size={10} color={c.muc3}>{ROLE_LABEL[session.user.role]}</Txt>}</View>}
           </Pressable>
           <Pressable testID="admin-logout" accessibilityRole="button" accessibilityLabel="Đăng xuất" onPress={() => session.logout()} style={({ pressed }) => ({ minHeight: 44, minWidth: 44, paddingHorizontal: roomy ? 18 : 12, borderRadius: 999, backgroundColor: pressed ? c.logoInk : c.den, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 })}>
             <LogOut size={16} color={c.trang} />{roomy && <Txt f="bold" size={14} color={c.trang}>Đăng xuất</Txt>}

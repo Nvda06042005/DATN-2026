@@ -106,10 +106,10 @@ test('bộ lọc kiểu Excel: nút mũi tên ở tiêu đề từng cột mở 
   assert.match(kit, /\{filters\.length && !inHeader \? \(/);
   assert.match(kit, /\{!inHeader && open && filters\.length \? \(/);
   assert.match(kit, /Xóa lọc \(\{active\.length\}\)/);
-  // sáu bảng dùng bộ lọc cột: trường, người dùng, yêu cầu hỗ trợ, nhật ký thao tác, nhật ký đăng nhập, lỗi hệ thống
+  // các bảng dùng bộ lọc cột: trường, người dùng, yêu cầu hỗ trợ, nhật ký thao tác, nhật ký đăng nhập (18/11/2026: bỏ tab Lỗi hệ thống; mỗi cột nhật ký lọc theo giá trị cụ thể)
   const admin = read('components', 'admin', 'RootAdmin.tsx');
   const ops = read('components', 'admin', 'PlatformOps.tsx');
-  for (const [src, col, f] of [[admin, 'city', 'city'], [admin, 'status', 'active'], [admin, 'role', 'role'], [admin, 'school', 'school'], [ops, 'from', 'role'], [ops, 'status', 'status'], [ops, 'who', 'students'], [ops, 'res', 'ok'], [ops, 'src', 'source']]) {
+  for (const [src, col, f] of [[admin, 'city', 'city'], [admin, 'status', 'active'], [admin, 'role', 'role'], [admin, 'school', 'school'], [ops, 'from', 'role'], [ops, 'status', 'status'], [ops, 'who', 'actor'], [ops, 'what', 'action'], [ops, 'time', 'date'], [ops, 'res', 'ok'], [ops, 'portal', 'portal'], [ops, 'device', 'device']]) {
     assert.ok(src.includes(`key: '${col}', filter: f_${f}, `), `${col} ← f_${f}`);
   }
 });

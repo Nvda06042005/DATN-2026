@@ -87,11 +87,12 @@ test('trường, người dùng và ba mục nhật ký, yêu cầu hỗ trợ d
   assert.match(admin, /searchId="user-search"\s+filters=\{\[f_name, f_role, f_school, f_email, f_last, f_active\]\}/);
   assert.ok(!admin.includes('<FilterBar>'), 'RootAdmin còn FilterBar cũ');
   const ops = read('components', 'admin', 'PlatformOps.tsx');
-  assert.equal((ops.match(/<SearchFilterBar/g) ?? []).length, 4);
-  for (const id of ['support-search', 'audit-search', 'login-search', 'error-search']) assert.match(ops, new RegExp(`searchId="${id}"`));
+  assert.equal((ops.match(/<SearchFilterBar/g) ?? []).length, 3); // 18/11/2026: bỏ tab Lỗi hệ thống (lỗi vẫn ghi ngầm)
+  for (const id of ['support-search', 'audit-search', 'login-search']) assert.match(ops, new RegExp(`searchId="${id}"`));
+  assert.doesNotMatch(ops, /searchId="error-search"|label: 'Lỗi hệ thống'|key: 'ip'/);
   assert.match(ops, /key: 'status'[\s\S]*?key: 'role'/); // yêu cầu hỗ trợ
   assert.match(ops, /key: 'students'/);                  // nhật ký thao tác
-  assert.match(ops, /key: 'source'[\s\S]*?extra=\{session\.user\.admin_level === 1/); // lỗi hệ thống giữ nút xóa lỗi cũ
+  assert.match(ops, /suggest: \(term\) => api\.logFacets\(session\.token, 'audit', field, term/); // bộ lọc nhật ký có danh sách giá trị
   // mọi thay đổi tìm kiếm hoặc bộ lọc đều quay về trang đầu
   for (const src of [admin, ops]) {
     const bars = src.match(/<SearchFilterBar[\s\S]*?\/>/g) ?? [];

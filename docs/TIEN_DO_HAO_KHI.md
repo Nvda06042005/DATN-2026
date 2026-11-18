@@ -1463,3 +1463,15 @@ Theo 10 ý người dùng gửi kèm ảnh (người dùng chọn qua câu hỏi
 10. Mật khẩu tài khoản: cột Trạng thái là nút gạt khóa / mở (chữ "Chưa đổi / Đã đổi mật khẩu" chuyển xuống dưới ô Mật khẩu); **lọc cột STT** (gõ số thứ tự, máy chủ trả đúng dòng đó theo các bộ lọc khác, kèm `offset`).
 
 Kiểm thử: `backend/test/password_list.spec.ts` (xem mật khẩu đã đổi, cấp lại xóa bản cũ, lọc STT, viết hoa họ tên, không lưu cho quản trị tổng), `frontend/tests/*.test.cjs`.
+
+## Bộ lọc có danh sách giá trị, Nhật ký gọn, ngày sinh quản trị viên trường (18/11/2026)
+
+Theo 7 ý người dùng gửi kèm ảnh (người dùng chọn: cột IP **chỉ bỏ khỏi giao diện**, máy chủ vẫn lưu):
+
+1. Tạo tài khoản quản trị: **email tự nhập** (không còn danh sách thả xuống tài khoản đã có; email trùng thì máy chủ báo lỗi).
+2. Tên ở thanh đầu của cả bốn cổng (quản trị tổng, quản trị trường, giáo viên, học sinh) dùng **cùng kiểu chữ ô Họ tên** của bảng (Manrope đậm 15, màu mực logo).
+3. Hồ sơ quản trị viên trường có **Ngày sinh** (xem và sửa; máy chủ nhận `birth_date` cho quản trị viên trường). Tài khoản tạo trước khi bắt buộc ngày sinh hiện "Chưa có" – bấm Sửa thông tin để bổ sung.
+4. **Bộ lọc cột hiện danh sách giá trị thật** để chọn (trước đây chỉ có "Tất cả" và ô gõ): `SearchFilter.suggest` trong `kit.tsx`, áp cho Mật khẩu tài khoản (STT, Họ và tên, Tên đăng nhập), Người dùng, Trường học, Giáo viên / Học sinh, Lớp học; danh sách lấy theo các bộ lọc khác đang bật.
+5. Nhật ký › Thao tác chỉ hiện nhãn dễ đọc, **không còn dòng đường dẫn kỹ thuật** ("POST /api/admin/users/:id/lock"); nhãn mới "Cấp lại mật khẩu tài khoản", "Khóa / mở khóa tài khoản", "Đổi logo trường".
+6. Nhật ký **lọc cụ thể từng cột** (Thời điểm theo ngày, Người thực hiện, Thao tác, Kết quả, Trường; Đăng nhập: Thời điểm, Tài khoản, Cổng, Kết quả chi tiết, Thiết bị) qua `GET /api/platform/logs/facets` (giá trị trong phạm vi trường của người xem). **Bỏ cột Địa chỉ IP** khỏi giao diện và API trả cho giao diện; máy chủ vẫn lưu IP trong `app_login_events` để điều tra sự cố.
+7. **Bỏ tab "Lỗi hệ thống"** khỏi giao diện; lỗi vẫn được ghi ngầm vào `hk_error_log`.

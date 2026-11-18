@@ -10,13 +10,13 @@ import { AccountActiveSwitch, AccountSheet, GENDER_TEXT, useAccountLock } from '
 import { AdminSelect } from '@/components/admin/AdminSelect';
 import { RegistrationCode } from './RegistrationCode';
 import { TeacherImportSheet } from './TeacherImportSheet';
-import { CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, NameCell, Page, PageHeader, Pager, SearchFilterBar, useDebounced, useLoad, yearOptions, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
+import { CredentialSheet, DataTable, distinctValues, vnDate, DownloadButton, ErrorNote, FormSheet, NameCell, Page, PageHeader, Pager, SearchFilterBar, useDebounced, useLoad, yearOptions, type FieldDef, type SearchFilter, usePageSize } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { codeFontSize } from '@/lib/code-font';
 import { todayVn } from '@/lib/school-terms';
-import type { CreatedAccount, YearItem } from '@/types/api';
+import type { Account, CreatedAccount, YearItem } from '@/types/api';
 
 /** Chữ số rộng bằng nhau để số thứ tự, mã, số điện thoại và ngày sinh thẳng cột */
 const NUM = { fontVariant: ['tabular-nums' as const] };
@@ -85,12 +85,13 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }], onChange: (v) => { setActive(v); setPage(1); } };
   const f_grade: SearchFilter = { key: 'grade', label: 'Khối', value: grade, options: [{ value: '', label: 'Mọi khối' }, ...[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }))], onChange: (v) => { setGrade(v); setPage(1); } };
   const f_class: SearchFilter = { key: 'class', label: 'Lớp', value: classId, options: [{ value: '', label: 'Mọi lớp' }, ...classOptions], onChange: (v) => { setClassId(v); setPage(1); } };
-  const textFilter = (key: string, label: string): SearchFilter => ({ key, label, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => { setColumnValues((old) => ({ ...old, [key]: v })); setPage(1); } });
-  const f_code = textFilter('code', teacher ? 'Mã giáo viên' : 'Mã học sinh');
-  const f_name = textFilter('name', 'Họ và tên');
-  const f_phone = textFilter('phone', 'SĐT');
-  const f_email = textFilter('email', 'Email');
-  const f_birth = textFilter('birth', 'Ngày sinh');
+  const textFilter = (key: string, label: string, suggest?: SearchFilter['suggest']): SearchFilter => ({ key, label, suggest, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => { setColumnValues((old) => ({ ...old, [key]: v })); setPage(1); } });
+  const memberValues = (key: string, pick: (u: Account) => string | null) => (term: string) => api.listMembers(token, kind, { ...query, [key]: term || undefined, page: 1, limit: 200 }).then((r) => distinctValues(r.items, pick));
+  const f_code = textFilter('code', teacher ? 'Mã giáo viên' : 'Mã học sinh', memberValues('code', (u) => u.user_code));
+  const f_name = textFilter('name', 'Họ và tên', memberValues('name', (u) => u.full_name));
+  const f_phone = textFilter('phone', 'SĐT', memberValues('phone', (u) => u.phone));
+  const f_email = textFilter('email', 'Email', memberValues('email', (u) => u.email));
+  const f_birth = textFilter('birth', 'Ngày sinh', memberValues('birth', (u) => vnDate(u.birth_date)));
   const f_gender: SearchFilter = { key: 'gender', label: 'Giới tính', value: columnValues.gender ?? '', options: [{ value: '', label: 'Tất cả' }, { value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }, { value: 'other', label: 'Khác' }], onChange: (v) => { setColumnValues((old) => ({ ...old, gender: v })); setPage(1); } };
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);

@@ -11,7 +11,7 @@ import { AdminSelect } from '@/components/admin/AdminSelect';
 import { RegistrationCode } from './RegistrationCode';
 import { TeacherChangeReview } from './ClassTeacherChange';
 import { fmtDay,todayVn } from '@/lib/school-terms';
-import { CredentialSheet, DataTable, DownloadButton, ErrorNote, FormSheet, ImportSheet, NameCell, Page, PageHeader, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, valuesToIds, yearOptions, YEAR_TEXT, type FieldDef, type SearchFilter } from '@/components/admin/kit';
+import { CredentialSheet, DataTable, distinctValues, DownloadButton, ErrorNote, FormSheet, ImportSheet, NameCell, Page, PageHeader, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, valuesToIds, yearOptions, YEAR_TEXT, type FieldDef, type SearchFilter } from '@/components/admin/kit';
 import { dateText, GENDER_TEXT } from '@/components/admin/AccountSheet';
 import { personFields } from './SchoolPeople';
 import type { Session } from '@/components/auth';
@@ -108,12 +108,15 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
   const ended = year?.status === 'ended';
   const f_grade: SearchFilter = { key: 'grade', label: 'Khối', value: grade, options: [{ value: '', label: 'Mọi khối' }, ...[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }))], onChange: setGrade };
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã lưu trữ' }], onChange: setActive };
-  const textFilter = (key: string, label: string): SearchFilter => ({ key, label, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => setColumnValues((old) => ({ ...old, [key]: key === 'students' ? v.replace(/\D/g, '') : v })) });
-  const f_name = textFilter('name', 'Tên lớp');
-  const f_registration = textFilter('registration', 'Mã lớp');
-  const f_teacher = textFilter('teacher', 'Giáo viên phụ trách');
-  const f_students = textFilter('students', 'Sĩ số chính xác');
-  const f_join = textFilter('join_code', 'Mã tham gia');
+  const textFilter = (key: string, label: string, suggest?: SearchFilter['suggest']): SearchFilter => ({ key, label, suggest, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => setColumnValues((old) => ({ ...old, [key]: key === 'students' ? v.replace(/\D/g, '') : v })) });
+  const classValues = (key: string, pick: (k: ClassItem) => string | number | Array<string> | null) => async (term: string) => (yearId
+    ? distinctValues((await api.listClasses(token, { year_id: yearId, semester, grade: grade || undefined, q: dq, active: active || undefined, ...columnValues, students: undefined, [key]: key === 'students' ? (/^\d+$/.test(term) ? Number(term) : undefined) : term || undefined, limit: 200 })).items, pick)
+    : []);
+  const f_name = textFilter('name', 'Tên lớp', classValues('name', (k) => k.name));
+  const f_registration = textFilter('registration', 'Mã lớp', classValues('registration', (k) => k.registration_code));
+  const f_teacher = textFilter('teacher', 'Giáo viên phụ trách', classValues('teacher', (k) => k.teachers.map((t) => t.full_name)));
+  const f_students = textFilter('students', 'Sĩ số chính xác', classValues('students', (k) => k.students));
+  const f_join = textFilter('join_code', 'Mã tham gia', classValues('join_code', (k) => k.join_code));
 
   return (
     <Page>

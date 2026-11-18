@@ -548,7 +548,7 @@ export const TopBar: React.FC<{ session: Session; subtitle: string; extra?: Reac
           <Avatar name={user.full_name} uri={user.avatar_url} size={34} />
           {width >= 760 && (
             <View>
-              <Txt f="bold" size={14} numberOfLines={1} style={{ maxWidth: 180 }}>
+              <Txt f="bold" size={15} color={c.logoInk} numberOfLines={1} style={{ maxWidth: 200, lineHeight: 21 }}>
                 {user.full_name}
               </Txt>
               <Txt size={12} color={c.muc2}>

@@ -12,7 +12,7 @@ import { SystemStats } from '@/components/admin/AnalyticsAdmin';
 import { PasswordList } from '@/components/admin/PasswordList';
 import { BroadcastManager } from '@/components/admin/PlatformComms';
 import { FaqManager, LogsPanel, SupportInbox } from '@/components/admin/PlatformOps';
-import { Cell, CredentialSheet, ErrorNote, FormSheet, NameCell, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, usePageSize, DataTable, type FieldDef, type SearchFilter } from '@/components/admin/kit';
+import { Cell, CredentialSheet, distinctValues, ErrorNote, vnDate, FormSheet, NameCell, Page, PageHeader, Pager, SearchFilterBar, StatusChip, useAction, useDebounced, useLoad, usePageSize, DataTable, type FieldDef, type SearchFilter } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { SchoolEmblem, SchoolLinkBox } from '@/components/school-brand';
 import { schoolLogoUrl } from '@/lib/school-logos';
@@ -22,7 +22,7 @@ import { addressText, composeAddress, isNewUnit, isOldDistrict, placeText, stree
 import { useTheme } from '@/hooks/use-theme';
 import { usePortalTab } from '@/hooks/use-portal-tab';
 import { fmt } from '@/lib/format';
-import type { AuthRole, CreatedAccount, CreatedSchool, SchoolDirectoryItem, SchoolDuplicate, SchoolItem } from '@/types/api';
+import type { Account, AuthRole, CreatedAccount, CreatedSchool, SchoolDirectoryItem, SchoolDuplicate, SchoolItem } from '@/types/api';
 
 const NAV = [
   { id: 'stats' as const, label: 'Thống kê hệ thống', icon: ChartColumn },
@@ -114,11 +114,12 @@ const SchoolsPanel: React.FC<{ session: Session; schools: Array<{ value: string;
 
   const f_city: SearchFilter = { key: 'city', label: 'Tỉnh / thành', value: city, options: cities, onChange: (v) => { setCity(v); setPage(1); } };
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã vô hiệu hóa' }], onChange: (v) => { setActive(v); setPage(1); } };
-  const textFilter = (key: string, label: string): SearchFilter => ({ key, label, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => { setColumnValues((old) => ({ ...old, [key]: key === 'users' ? v.replace(/\D/g, '') : v })); setPage(1); } });
-  const f_name = textFilter('name', 'Trường');
-  const f_code = textFilter('code', 'Mã trường');
-  const f_users = textFilter('users', 'Số người dùng');
-  const f_created = textFilter('created', 'Ngày tạo');
+  const textFilter = (key: string, label: string, suggest?: SearchFilter['suggest']): SearchFilter => ({ key, label, suggest, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => { setColumnValues((old) => ({ ...old, [key]: key === 'users' ? v.replace(/\D/g, '') : v })); setPage(1); } });
+  const schoolValues = (key: string, pick: (s: SchoolItem) => string | number | null) => (term: string) => api.listSchools(token, { q: dq, city, active, ...columnValues, users: undefined, [key]: key === 'users' ? (/^\d+$/.test(term) ? Number(term) : undefined) : term || undefined, page: 1, limit: 200 }).then((r) => distinctValues(r.items, pick));
+  const f_name = textFilter('name', 'Trường', schoolValues('name', (s) => s.name));
+  const f_code = textFilter('code', 'Mã trường', schoolValues('code', (s) => s.school_code));
+  const f_users = textFilter('users', 'Số người dùng', schoolValues('users', (s) => s.users));
+  const f_created = textFilter('created', 'Ngày tạo', schoolValues('created', (s) => vnDate(s.created_at)));
   return (
     <Page>
       <PageHeader title="Trường học" subtitle="Thêm trường, sửa thông tin, gạt nút để vô hiệu hóa hoặc kích hoạt lại trường, xóa trường. Xóa trường là xóa luôn toàn bộ tài khoản và dữ liệu của trường." actions={<Btn title="Thêm trường" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="school-add" />} />
@@ -354,10 +355,11 @@ const UsersPanel: React.FC<{ session: Session; schools: Array<{ value: string; l
   const f_role: SearchFilter = { key: 'role', label: 'Vai trò', value: role, options: [{ value: '', label: 'Mọi vai trò' }, ...(Object.keys(ROLE_TEXT) as AuthRole[]).map((r) => ({ value: r, label: ROLE_TEXT[r] }))], onChange: (v) => { setRole(v); setPage(1); } };
   const f_school: SearchFilter = { key: 'school', label: 'Trường', value: schoolId, options: [{ value: '', label: 'Mọi trường' }, ...schools], onChange: (v) => { setSchoolId(v); setPage(1); } };
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }], onChange: (v) => { setActive(v); setPage(1); } };
-  const textFilter = (key: string, label: string): SearchFilter => ({ key, label, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => { setColumnValues((old) => ({ ...old, [key]: v })); setPage(1); } });
-  const f_name = textFilter('name', 'Họ tên');
-  const f_email = textFilter('email', 'Email');
-  const f_last = textFilter('last', 'Đăng nhập cuối');
+  const textFilter = (key: string, label: string, suggest?: SearchFilter['suggest']): SearchFilter => ({ key, label, suggest, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => { setColumnValues((old) => ({ ...old, [key]: v })); setPage(1); } });
+  const userValues = (key: string, pick: (u: Account) => string | null) => (term: string) => api.listUsers(token, { q: dq, role: (role || undefined) as AuthRole | undefined, school_id: schoolId ? Number(schoolId) : undefined, active: (active || undefined) as 'true' | 'false' | undefined, ...columnValues, [key]: term || undefined, page: 1, limit: 200 }).then((r) => distinctValues(r.items, pick));
+  const f_name = textFilter('name', 'Họ tên', userValues('name', (u) => u.full_name));
+  const f_email = textFilter('email', 'Email', userValues('email', (u) => u.email));
+  const f_last = textFilter('last', 'Đăng nhập cuối', userValues('last', (u) => vnDate(u.last_login_at)));
   return (
     <Page>
       <PageHeader title="Người dùng toàn hệ thống" subtitle="Xem, tìm, lọc; sửa, đổi vai trò, gạt nút để khóa / mở khóa, xóa từng tài khoản. Cấp lại mật khẩu ở mục Mật khẩu tài khoản." actions={<Btn title="Tạo tài khoản quản trị" icon={Plus} tone="son" onPress={() => setCreating(true)} testID="user-add" />} />

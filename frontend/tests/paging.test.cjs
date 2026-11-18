@@ -98,7 +98,7 @@ test('danh sách chia trang ở máy chủ dùng cùng số dòng đang chọn, 
     'SchoolPeople.tsx': [/api\.listMembers\(token, kind, \{ \.\.\.query, page, limit: size \}\)/, /<Pager page=\{page\} limit=\{size\}/],
     'QuestionBank.tsx': [/page, limit: size \}\)/, /<Pager page=\{page\} limit=\{size\}/],
     'QuizManager.tsx': [/page, limit: size \}\)/, /<Pager page=\{page\} limit=\{size\}/],
-    'PlatformOps.tsx': [/api\.allTickets\([^)]*limit: size/, /api\.auditLog\([^)]*limit: size/, /api\.loginLog\([^)]*limit: size/, /api\.errorLog\([^)]*limit: size/],
+    'PlatformOps.tsx': [/api\.allTickets\([^)]*limit: size/, /api\.auditLog\([^)]*limit: size/, /api\.loginLog\([^)]*limit: size/],
   };
   for (const [file, patterns] of Object.entries(need)) {
     const src = read('components', 'admin', file);

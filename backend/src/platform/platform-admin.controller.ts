@@ -10,7 +10,11 @@ import { SystemService } from './system.service';
 
 type Json = Record<string, any>;
 const num = (v: unknown): number | undefined => (v === undefined || v === '' ? undefined : Number(v));
-const filter = (q: Json) => ({ q: q.q, school_id: num(q.school_id), user_id: num(q.user_id), success: q.success === 'true' || q.success === 'false' ? (q.success as 'true' | 'false') : undefined, page: num(q.page), limit: num(q.limit) });
+const text = (v: unknown, max = 200): string | undefined => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : undefined);
+const filter = (q: Json) => ({ q: q.q, school_id: num(q.school_id), user_id: num(q.user_id), success: q.success === 'true' || q.success === 'false' ? (q.success as 'true' | 'false') : undefined, page: num(q.page), limit: num(q.limit),
+  // lọc theo giá trị cụ thể của từng cột (18/11/2026)
+  date: text(q.date, 10), actor: text(q.actor), username: text(q.username), portal: text(q.portal, 40), reason: text(q.reason, 40), label: text(q.label), device: text(q.device) });
+const FACETS = { audit: ['date', 'actor', 'action', 'school'], login: ['date', 'username', 'portal', 'reason', 'device', 'school'] } as const;
 
 /**
  * /api/platform (phần quản trị): cấu hình hệ thống, cờ tính năng, mẫu thư, giới hạn theo trường, phân quyền, nhật ký, sao lưu, giám sát và quản lý hướng dẫn.
@@ -49,6 +53,12 @@ export class PlatformAdminController {
   // ---------------------------------------------------------------------- nhật ký (HK.QT.051, HK.AD.027, HK.AD.075, HK.AD.076, HK.SYS.020)
   @Get('logs/audit') @Roles('school_admin', 'root_admin') audit(@CurrentUser() user: UserRow, @Query() q: Json) { return this.logs.audit(user, { ...filter(q), staff_only: q.students !== 'true' }); }
   @Get('logs/logins') @Roles('school_admin', 'root_admin') logins(@CurrentUser() user: UserRow, @Query() q: Json) { return this.logs.logins(user, filter(q)); }
+  /** Giá trị để chọn trong bộ lọc cột của nhật ký: kind = audit | login, field = cột */
+  @Get('logs/facets') @Roles('school_admin', 'root_admin') logFacets(@CurrentUser() user: UserRow, @Query() q: Json) {
+    const kind = q.kind === 'login' ? 'login' : 'audit';
+    const field = (FACETS[kind] as readonly string[]).includes(q.field) ? q.field : null;
+    return field ? this.logs.facets(user, kind, field, text(q.q) ?? '', q.students !== 'true') : [];
+  }
   @Get('logs/errors') @Roles('root_admin') errors(@CurrentUser() user: UserRow, @Query() q: Json) { return this.logs.errors(user, { source: q.source, q: q.q, from: q.from, to: q.to, page: num(q.page), limit: num(q.limit) }); }
   @Delete('logs/errors') @Roles('root_admin') clearErrors(@CurrentUser() user: UserRow, @Query('older_than_days') days?: string) { return this.logs.clearErrors(user, Number(days ?? 30)); }
 

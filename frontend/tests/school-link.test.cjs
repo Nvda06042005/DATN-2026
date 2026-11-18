@@ -275,3 +275,24 @@ test('họ tên viết hoa chữ cái đầu mỗi từ (18/11/2026): Nguyễn V
   // tổ hợp dấu tách rời (NFD, gõ trên một số máy Mac) vẫn được chuẩn hóa
   assert.equal(nameCaseError('Nguyễn Vũ'.normalize('NFD')), null);
 });
+
+test('18/11/2026: bộ lọc cột hiện danh sách giá trị; nhật ký lọc cụ thể từng cột, không hiện đường dẫn kỹ thuật, không cột IP, không tab Lỗi hệ thống; email tự nhập; tên ở thanh đầu cùng kiểu chữ ô Họ tên', () => {
+  const kit = read('components', 'admin', 'kit.tsx');
+  assert.match(kit, /suggest\?: \(term: string\) => Promise<Array<\{ value: string; label: string \}>>;/);
+  assert.match(kit, /suggest\(typedTerm\)\.then\(\(items\) => \{ if \(live\) setFound\(\{ term: typedTerm, items \}\); \}\)/);
+  for (const [file, re] of [
+    [['components', 'admin', 'PasswordList.tsx'], /textFilter\('name', 'Họ và tên hoặc mã', values\('name'/],
+    [['components', 'admin', 'RootAdmin.tsx'], /textFilter\('name', 'Họ tên', userValues\('name'/],
+    [['components', 'admin', 'RootAdmin.tsx'], /textFilter\('name', 'Trường', schoolValues\('name'/],
+    [['components', 'admin', 'SchoolPeople.tsx'], /textFilter\('name', 'Họ và tên', memberValues\('name'/],
+    [['components', 'admin', 'SchoolClasses.tsx'], /textFilter\('name', 'Tên lớp', classValues\('name'/],
+  ]) assert.match(read(...file), re, file.join('/'));
+  const ops = read('components', 'admin', 'PlatformOps.tsx');
+  assert.match(ops, /\{ key: 'what', filter: f_action, label: 'Thao tác', flex: 2, render: \(i\) => <Cell main=\{i\.label\} \/> \}/);
+  assert.doesNotMatch(ops, /sub=\{i\.action\}|i\.ip|Địa chỉ IP|ErrorTable/);
+  assert.match(read('api', 'platformApi.ts'), /export const logFacets = /);
+  const sheet = read('components', 'admin', 'CreateSchoolAdminSheet.tsx');
+  assert.match(sheet, /<Field label="Email \*" nativeID="field-email"/);
+  assert.doesNotMatch(sheet, /AccountSuggestField|admin-suggest/);
+  assert.match(read('components', 'admin', 'AdminWorkspace.tsx'), /<Txt f="bold" size=\{15\} color=\{c\.logoInk\} numberOfLines=\{1\} style=\{\{ lineHeight: 21 \}\}>\{session\.user\.full_name\}<\/Txt>/);
+});

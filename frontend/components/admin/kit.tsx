@@ -119,7 +119,27 @@ export interface SearchFilter {
   testID?: string;
   /** Cột có giá trị tự do: ô tìm trong danh sách luôn hiện, gõ chữ rồi chọn dòng "Lọc theo …" để lọc theo chữ vừa gõ */
   custom?: boolean;
+  /**
+   * Danh sách giá trị thật của cột để chọn (18/11/2026: mở bộ lọc phải thấy các giá trị, không chỉ "Tất cả"): gọi khi mở và khi gõ (chữ đang gõ trong `term`),
+   * trả các lựa chọn; chọn một dòng là lọc đúng giá trị đó.
+   */
+  suggest?: (term: string) => Promise<Array<{ value: string; label: string }>>;
 }
+
+/** Giá trị khác nhau (bỏ trùng, bỏ rỗng) lấy từ các dòng của danh sách, dùng làm `suggest` của bộ lọc cột */
+export const distinctValues = <T,>(rows: T[], pick: (row: T) => string | number | null | undefined | Array<string | null | undefined>, limit = 200): Array<{ value: string; label: string }> =>
+  [...new Set(rows.flatMap((row) => { const v = pick(row); return Array.isArray(v) ? v : [v]; }).filter((v) => v !== null && v !== undefined && String(v).trim() !== '').map((v) => String(v).trim()))]
+    .slice(0, limit).map((v) => ({ value: v, label: v }));
+
+/** Ngày dạng DD/MM/YYYY theo giờ Việt Nam (khớp bộ lọc ngày của máy chủ) */
+export const vnDate = (iso: string | null | undefined): string | null => {
+  if (!iso) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const vn = new Date(d.getTime() + 7 * 3_600_000);
+  return `${String(vn.getUTCDate()).padStart(2, '0')}/${String(vn.getUTCMonth() + 1).padStart(2, '0')}/${vn.getUTCFullYear()}`;
+};
 
 /**
  * Thanh tìm kiếm kèm lọc. Trên màn hình đủ rộng để hiện bảng, mỗi bộ lọc nằm ngay tiêu đề cột tương ứng (nút mũi tên ở `Column.filter`, như bộ lọc của Excel) nên thanh
@@ -258,17 +278,30 @@ const ColumnFilter: React.FC<{ filter: SearchFilter }> = ({ filter }) => {
   const ref = useRef<React.ComponentRef<typeof Pressable>>(null);
   const [anchor, setAnchor] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [term, setTerm] = useState('');
+  const [found, setFound] = useState<{ term: string; items: Array<{ value: string; label: string }> } | null>(null);
+  const [looking, setLooking] = useState(false);
   const on = filter.value !== '';
-  const close = () => { setAnchor(null); setTerm(''); };
+  const close = () => { setAnchor(null); setTerm(''); setFound(null); };
   const needle = term.trim().toLowerCase();
-  const shown = needle ? filter.options.filter((o) => o.label.toLowerCase().includes(needle)) : filter.options;
+  const typedTerm = useDebounced(term.trim(), 250);
+  const suggest = filter.suggest;
+  // mở bộ lọc thì tải danh sách giá trị của cột; gõ chữ thì tải lại theo chữ đang gõ
+  useEffect(() => {
+    if (!anchor || !suggest) return undefined;
+    let live = true;
+    setLooking(true);
+    suggest(typedTerm).then((items) => { if (live) setFound({ term: typedTerm, items }); }).catch(() => { if (live) setFound({ term: typedTerm, items: [] }); }).finally(() => { if (live) setLooking(false); });
+    return () => { live = false; };
+  }, [anchor, suggest, typedTerm]); // eslint-disable-line react-hooks/exhaustive-deps
+  const all = suggest && found ? [...filter.options, ...found.items.filter((o) => !filter.options.some((x) => x.value === o.value))] : filter.options;
+  const shown = needle ? all.filter((o) => o.value === '' || o.label.toLowerCase().includes(needle)) : all;
   const menuWidth = Math.min(264, width - 16);
   const left = anchor ? Math.max(8, Math.min(anchor.x + anchor.w - menuWidth, width - menuWidth - 8)) : 0;
   const top = anchor ? anchor.y + anchor.h + 6 : 0;
-  const customValue = filter.custom && filter.value && !filter.options.some((o) => o.value === filter.value) ? filter.value : '';
-  const chosen = filter.options.find((o) => o.value === filter.value)?.label ?? (customValue || undefined);
+  const customValue = filter.custom && filter.value && !all.some((o) => o.value === filter.value) ? filter.value : '';
+  const chosen = all.find((o) => o.value === filter.value)?.label ?? (customValue || undefined);
   const typed = filter.custom ? term.trim() : '';
-  const canUseTyped = !!typed && typed.toLowerCase() !== customValue.toLowerCase() && !filter.options.some((o) => o.label.toLowerCase() === typed.toLowerCase());
+  const canUseTyped = !!typed && typed.toLowerCase() !== customValue.toLowerCase() && !all.some((o) => o.label.toLowerCase() === typed.toLowerCase());
   return (
     <>
       <Pressable ref={ref} testID={`col-filter-${filter.key}`} accessibilityRole="button" accessibilityLabel={on ? `Lọc theo ${filter.label}, đang lọc: ${chosen ?? filter.value}` : `Lọc theo ${filter.label}`} accessibilityState={{ expanded: !!anchor }}
@@ -281,14 +314,16 @@ const ColumnFilter: React.FC<{ filter: SearchFilter }> = ({ filter }) => {
           <Pressable accessibilityRole="button" accessibilityLabel="Đóng danh sách lọc" onPress={close} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
           <View testID="col-filter-menu" accessibilityViewIsModal style={{ position: 'absolute', left, top, width: menuWidth, maxHeight: Math.max(180, Math.min(400, height - top - 16)), borderRadius: 10, borderWidth: 1, borderColor: c.adminLine, backgroundColor: c.the, padding: 6, boxShadow: '0 12px 32px rgba(35, 56, 47, 0.18)' } as object}>
             <Txt f="bold" size={12} color={c.muc3} style={{ paddingHorizontal: 10, paddingTop: 6, paddingBottom: 4 }}>Lọc theo {filter.label.toLowerCase()}</Txt>
-            {filter.options.length > 8 || filter.custom ? (
+            {filter.options.length > 8 || filter.custom || suggest ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 4, marginBottom: 4, paddingHorizontal: 10, minHeight: 38, borderRadius: 8, borderWidth: 1, borderColor: c.adminLine }}>
                 <Search size={15} color={c.muc3} />
-                <TextInput testID="col-filter-search" accessibilityLabel={`Tìm trong danh sách ${filter.label.toLowerCase()}`} placeholder={filter.custom ? 'Gõ để lọc hoặc tìm' : 'Tìm trong danh sách'} placeholderTextColor={c.muc3} value={term} onChangeText={setTerm} autoCapitalize="none" autoCorrect={false}
+                <TextInput testID="col-filter-search" accessibilityLabel={`Tìm trong danh sách ${filter.label.toLowerCase()}`} placeholder={suggest ? 'Tìm trong danh sách' : filter.custom ? 'Gõ để lọc hoặc tìm' : 'Tìm trong danh sách'} placeholderTextColor={c.muc3} value={term} onChangeText={setTerm} autoCapitalize="none" autoCorrect={false}
                   style={[{ flex: 1, minWidth: 0, minHeight: 36, fontFamily: FONT.medium, fontSize: 13, color: c.logoInk }, Platform.OS === 'web' ? ({ outlineStyle: 'solid', outlineWidth: 0 } as object) : null]} />
               </View>
             ) : null}
             <ScrollView style={{ flexShrink: 1 }} keyboardShouldPersistTaps="handled">
+              {suggest && looking && !found ? <Txt size={13} color={c.muc3} style={{ paddingHorizontal: 10, paddingVertical: 8 }}>Đang tải danh sách…</Txt> : null}
+              {suggest && found && !looking && shown.length <= 1 ? <Txt size={13} color={c.muc3} style={{ paddingHorizontal: 10, paddingVertical: 8 }}>Không có giá trị nào khớp.</Txt> : null}
               {canUseTyped ? (
                 <Pressable testID={`col-filter-${filter.key}-option-custom`} accessibilityRole="button" onPress={() => { filter.onChange(typed); close(); }}
                   style={({ pressed }) => ({ minHeight: 40, paddingHorizontal: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: pressed ? c.adminCanvas : c.adminTint })}>

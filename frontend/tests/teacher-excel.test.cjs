@@ -65,7 +65,7 @@ test('trang Giáo viên: hai cách thêm, biểu mẫu cùng cột với file m�
   const importer=read('components','admin','TeacherImportSheet.tsx');
   assert.match(importer, /hint="Tải file mẫu, điền danh sách rồi chọn file để nhập\."/);
   const sheet = read('components', 'admin', 'AccountSheet.tsx');
-  assert.match(sheet, /u\.role === 'student' \|\| u\.role === 'teacher' \? \['Ngày sinh', u\.birth_date\]/);
+  assert.match(sheet, /u\.role === 'student' \|\| u\.role === 'teacher' \|\| u\.role === 'school_admin' \? \['Ngày sinh', u\.birth_date\]/);
   assert.match(sheet, /birth_date: v\.birth_date \|\| null, gender: v\.gender \|\| null/);
   // ô ngày bằng lịch chỉ trên web, điện thoại vẫn gõ YYYY-MM-DD
   const kit = read('components', 'admin', 'kit.tsx');

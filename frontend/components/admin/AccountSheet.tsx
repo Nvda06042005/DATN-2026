@@ -89,7 +89,7 @@ export const AccountSheet: React.FC<{
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
               {([
                 ['Tên đăng nhập', u.username], ['Mã người dùng', u.user_code], ['Email', u.email], ['Số điện thoại', u.phone], ['Trường', u.school_name],
-                u.role === 'student' || u.role === 'teacher' ? ['Ngày sinh', u.birth_date] : null, u.role === 'student' || u.role === 'teacher' ? ['Giới tính', u.gender ? GENDER_TEXT[u.gender] : null] : null,
+                u.role === 'student' || u.role === 'teacher' || u.role === 'school_admin' ? ['Ngày sinh', u.birth_date] : null, u.role === 'student' || u.role === 'teacher' ? ['Giới tính', u.gender ? GENDER_TEXT[u.gender] : null] : null,
                 u.role === 'root_admin' ? ['Cấp quản trị', `Cấp ${u.admin_level}`] : null,
                 ['Đăng nhập lần cuối', dateText(u.last_login_at)], ['Ngày tạo', dateText(u.created_at)],
                 // ngày kết thúc = ngày khóa tài khoản (bỏ khi mở khóa)
@@ -138,6 +138,7 @@ export const AccountSheet: React.FC<{
             const body: Record<string, unknown> = { full_name: v.full_name, email: v.email || null, phone: v.phone || null };
             if (u.role === 'student') Object.assign(body, { birth_date: v.birth_date || null, gender: v.gender || null });
             if (u.role === 'teacher') Object.assign(body, { birth_date: v.birth_date || null, gender: v.gender || null });
+            if (u.role === 'school_admin' && v.birth_date) body.birth_date = v.birth_date;
             if (root && u.role !== 'root_admin' && v.school_id && Number(v.school_id) !== u.school_id) body.school_id = Number(v.school_id);
             await api.updateUser(token, u.id, body);
             setDialog(null);
@@ -175,6 +176,8 @@ function editFields(u: AccountDetail, schools: Array<{ value: string; label: str
   const today = todayVn();
   if (u.role === 'teacher') fields.push({ name: 'user_code', label: 'Mã giáo viên', render:(v)=><RegistrationCode token={token} kind="teacher" showSerial userId={u.id} schoolId={Number(v.school_id)||u.school_id||undefined} birthDate={String(v.birth_date||'')}/> }, { name: 'gender', label: 'Giới tính', type: 'select', options: GENDER_OPTIONS.filter((o) => o.value !== 'other') }, { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1940-01-01', max: today, required:true });
   if (u.role === 'student') fields.push({ name: 'user_code', label: 'Mã học sinh', render:(v)=><RegistrationCode token={token} kind="student" showSerial userId={u.id} schoolId={Number(v.school_id)||u.school_id||undefined} birthDate={String(v.birth_date||'')}/> }, { name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '2000-01-01', max: today, required: true }, { name: 'gender', label: 'Giới tính', type: 'select', options: GENDER_OPTIONS });
+  // quản trị viên trường: ngày sinh dùng ghép mật khẩu theo quy ước (DongA + ngày sinh + @ + tên), có ở hộp tạo tài khoản quản trị
+  if (u.role === 'school_admin') fields.push({ name: 'birth_date', label: 'Ngày tháng năm sinh', type: 'date', calendar: true, min: '1930-01-01', max: today, hint: 'Dùng ghép mật khẩu khi cấp lại theo quy ước.' });
   if (schools.length && u.role !== 'root_admin') fields.push({ name: 'school_id', label: 'Trường', type: 'select', options: schools, hint: 'Chỉ chuyển trường được khi tài khoản chưa thuộc lớp nào.' });
   return fields;
 }

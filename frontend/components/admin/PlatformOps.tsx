@@ -13,7 +13,7 @@ import { StatGrid, StatTile } from '@/components/charts';
 import { TicketImage } from '@/components/portal/HelpCenter';
 import { Btn, Card, Chip, ConfirmSheet, Field, InfoNote, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
-import type { AuditItem, ErrorItem, FaqItem, LoginItem, Ticket, TicketStatus } from '@/types/platform';
+import type { AuditItem, FaqItem, LoginItem, Ticket, TicketStatus } from '@/types/platform';
 import { TICKET_CATEGORY_TEXT, TICKET_STATUS_TEXT } from '@/types/platform';
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }) : '—');
@@ -150,33 +150,43 @@ export const FaqManager: React.FC<{ session: Session }> = ({ session }) => {
 };
 
 // ---------------------------------------------------------------------- nhật ký
-type LogPart = 'audit' | 'logins' | 'errors';
+type LogPart = 'audit' | 'logins';
 
 const AuditTable: React.FC<{ session: Session }> = ({ session }) => {
   const [query, setQuery] = useState('');
   const q = useDebounced(query);
   const [ok, setOk] = useState('');
   const [students, setStudents] = useState('');
+  // lọc cụ thể từng cột (18/11/2026): ngày, người thực hiện, thao tác, trường
+  const [col, setCol] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const size = usePageSize();
-  const data = useLoad(() => api.auditLog(session.token, { q, success: ok, students: students || undefined, page, limit: size }), [session.token, q, ok, students, page, size], session.expired);
+  const root = session.user.role === 'root_admin';
+  const data = useLoad(() => api.auditLog(session.token, { q, success: ok, students: students || undefined, date: col.date, actor: col.actor, label: col.label, school_id: col.school, page, limit: size }), [session.token, q, ok, students, col, page, size], session.expired);
+  const facet = (key: string, field: string, label: string, all: string): SearchFilter => ({ key, label, value: col[key] ?? '', options: [{ value: '', label: all }],
+    suggest: (term) => api.logFacets(session.token, 'audit', field, term, students || undefined), onChange: (v) => { setCol((old) => ({ ...old, [key]: v })); setPage(1); } });
+  const f_date = facet('date', 'date', 'Thời điểm', 'Mọi ngày');
+  const f_actor = facet('actor', 'actor', 'Người thực hiện', 'Mọi người');
+  const f_action = facet('label', 'action', 'Thao tác', 'Mọi thao tác');
+  const f_school = facet('school', 'school', 'Trường', 'Mọi trường');
   const f_ok: SearchFilter = { key: 'ok', label: 'Kết quả', value: ok, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Thành công' }, { value: 'false', label: 'Thất bại' }], onChange: (v) => { setOk(v); setPage(1); } };
-  const f_students: SearchFilter = { key: 'students', label: 'Người thực hiện', value: students, options: [{ value: '', label: 'Giáo viên và quản trị' }, { value: 'true', label: 'Cả học sinh' }], onChange: (v) => { setStudents(v); setPage(1); }, testID: 'audit-students' };
+  const f_students: SearchFilter = { key: 'students', label: 'Vai trò thực hiện', value: students, options: [{ value: '', label: 'Giáo viên và quản trị' }, { value: 'true', label: 'Cả học sinh' }], onChange: (v) => { setStudents(v); setPage(1); }, testID: 'audit-students' };
   return (
     <View style={{ gap: 12 }}>
       <SearchFilterBar placeholder="Tìm theo người thực hiện hoặc thao tác" value={query} onChange={(v) => { setQuery(v); setPage(1); }} searchId="audit-search"
-        filters={[f_ok, f_students]} />
+        filters={[f_date, f_actor, f_students, f_action, f_ok, ...(root ? [f_school] : [])]} />
       <ErrorNote message={data.error} />
       {data.loading && !data.data ? <Spinner /> : null}
       {data.data ? (
         <>
           <DataTable<AuditItem> paginate={false} rows={data.data.items} rowKey={(i) => i.id} empty="Chưa có thao tác nào được ghi lại."
             columns={[
-              { key: 'time', label: 'Thời điểm', render: (i) => <Txt size={13}>{when(i.created_at)}</Txt> },
-              { key: 'who', filter: f_students, label: 'Người thực hiện', flex: 1.3, render: (i) => <Cell main={i.actor_name} sub={ROLE_TEXT[i.actor_role] ?? i.actor_role} /> },
-              { key: 'what', label: 'Thao tác', flex: 2, render: (i) => <Cell main={i.label} sub={i.action} /> },
+              { key: 'time', filter: f_date, label: 'Thời điểm', render: (i) => <Txt size={13}>{when(i.created_at)}</Txt> },
+              { key: 'who', filter: f_actor, label: 'Người thực hiện', flex: 1.3, render: (i) => <Cell main={i.actor_name} sub={ROLE_TEXT[i.actor_role] ?? i.actor_role} /> },
+              // chỉ nhãn dễ đọc, không hiện đường dẫn kỹ thuật (POST /api/…) bên dưới
+              { key: 'what', filter: f_action, label: 'Thao tác', flex: 2, render: (i) => <Cell main={i.label} /> },
               { key: 'res', filter: f_ok, label: 'Kết quả', render: (i) => <StatusChip kind={i.success ? 'on' : 'off'} text={i.success ? 'Thành công' : 'Thất bại'} /> },
-              ...(session.user.role === 'root_admin' ? [{ key: 'school', label: 'Trường', render: (i: AuditItem) => <Txt size={13}>{i.school_name ?? '—'}</Txt> }] : []),
+              ...(root ? [{ key: 'school', filter: f_school, label: 'Trường', render: (i: AuditItem) => <Txt size={13}>{i.school_name ?? '—'}</Txt> }] : []),
             ]} />
           <Pager page={data.data.page} limit={data.data.limit} total={data.data.total} onPage={setPage} />
         </>
@@ -186,63 +196,40 @@ const AuditTable: React.FC<{ session: Session }> = ({ session }) => {
 };
 
 const REASON: Record<string, string> = { success: 'Thành công', credentials: 'Sai mật khẩu', locked: 'Tài khoản bị khóa', deleted: 'Tài khoản đã xóa', portal: 'Sai cổng đăng nhập', rate_limit: 'Bị khóa tạm', two_factor: 'Sai mã hai lớp' };
+const PORTAL_TEXT: Record<string, string> = { root_admin: 'Quản trị tổng', school_admin: 'Quản trị trường', teacher: 'Giáo viên', student: 'Học sinh', app: 'Học sinh / giáo viên', portal: 'Cổng chung' };
 const LoginTable: React.FC<{ session: Session }> = ({ session }) => {
   const [query, setQuery] = useState('');
   const q = useDebounced(query);
-  const [ok, setOk] = useState('');
+  const [col, setCol] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const size = usePageSize();
-  const data = useLoad(() => api.loginLog(session.token, { q, success: ok, page, limit: size }), [session.token, q, ok, page, size], session.expired);
-  const f_ok: SearchFilter = { key: 'ok', label: 'Kết quả', value: ok, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Thành công' }, { value: 'false', label: 'Thất bại' }], onChange: (v) => { setOk(v); setPage(1); } };
+  const root = session.user.role === 'root_admin';
+  const data = useLoad(() => api.loginLog(session.token, { q, date: col.date, username: col.username, portal: col.portal, reason: col.reason, device: col.device, school_id: col.school, page, limit: size }), [session.token, q, col, page, size], session.expired);
+  const facet = (key: string, label: string, all: string, text?: Record<string, string>): SearchFilter => ({ key, label, value: col[key] ?? '', options: [{ value: '', label: all }],
+    suggest: (term) => api.logFacets(session.token, 'login', key, term).then((rows) => rows.map((r) => ({ value: r.value, label: text?.[r.label] ?? r.label }))),
+    onChange: (v) => { setCol((old) => ({ ...old, [key]: v })); setPage(1); } });
+  const f_date = facet('date', 'Thời điểm', 'Mọi ngày');
+  const f_user = facet('username', 'Tài khoản', 'Mọi tài khoản');
+  const f_portal = facet('portal', 'Cổng', 'Mọi cổng', PORTAL_TEXT);
+  const f_reason = facet('reason', 'Kết quả', 'Tất cả', REASON);
+  const f_device = facet('device', 'Thiết bị', 'Mọi thiết bị');
+  const f_school = facet('school', 'Trường', 'Mọi trường');
   return (
     <View style={{ gap: 12 }}>
       <SearchFilterBar placeholder="Tìm theo tên đăng nhập" value={query} onChange={(v) => { setQuery(v); setPage(1); }} searchId="login-search"
-        filters={[f_ok]} />
+        filters={[f_date, f_user, f_portal, f_reason, f_device, ...(root ? [f_school] : [])]} />
       <ErrorNote message={data.error} />
       {data.loading && !data.data ? <Spinner /> : null}
       {data.data ? (
         <>
+          {/* 18/11/2026: không hiện địa chỉ IP (người dùng chọn chỉ bỏ khỏi giao diện; máy chủ vẫn lưu để điều tra sự cố) */}
           <DataTable<LoginItem> paginate={false} rows={data.data.items} rowKey={(i) => i.id} empty="Chưa có lượt đăng nhập nào."
             columns={[
-              { key: 'time', label: 'Thời điểm', render: (i) => <Txt size={13}>{when(i.created_at)}</Txt> },
-              { key: 'user', label: 'Tài khoản', flex: 1.2, render: (i) => <Cell main={i.username} sub={i.school_name ?? undefined} /> },
-              { key: 'portal', label: 'Cổng', render: (i) => <Txt size={13}>{i.portal}</Txt> },
-              { key: 'res', filter: f_ok, label: 'Kết quả', render: (i) => <StatusChip kind={i.success ? 'on' : 'off'} text={REASON[i.reason] ?? i.reason} /> },
-              { key: 'device', label: 'Thiết bị', flex: 1.2, render: (i) => <Txt size={13}>{i.device}</Txt> },
-              { key: 'ip', label: 'Địa chỉ IP', render: (i) => <Txt size={13}>{i.ip ?? '—'}</Txt> },
-            ]} />
-          <Pager page={data.data.page} limit={data.data.limit} total={data.data.total} onPage={setPage} />
-        </>
-      ) : null}
-    </View>
-  );
-};
-
-const SOURCE: Record<string, string> = { api: 'API', ai: 'AI', email: 'Gửi thư', job: 'Việc nền', db: 'Cơ sở dữ liệu' };
-const ErrorTable: React.FC<{ session: Session }> = ({ session }) => {
-  const [source, setSource] = useState('');
-  const [query, setQuery] = useState('');
-  const q = useDebounced(query);
-  const [page, setPage] = useState(1);
-  const { busy, run } = useAction(session.expired);
-  const size = usePageSize();
-  const data = useLoad(() => api.errorLog(session.token, { source, q, page, limit: size }), [session.token, source, q, page, size], session.expired);
-  const f_source: SearchFilter = { key: 'source', label: 'Nguồn lỗi', value: source, options: [{ value: '', label: 'Tất cả' }, ...Object.entries(SOURCE).map(([value, label]) => ({ value, label }))], onChange: (v) => { setSource(v); setPage(1); } };
-  return (
-    <View style={{ gap: 12 }}>
-      {data.data ? <StatGrid>{Object.entries(SOURCE).map(([k, label]) => <StatTile key={k} label={`${label} (24 giờ)`} value={data.data!.last_24h[k] ?? 0} tone={data.data!.last_24h[k] ? 'son' : 'ngoc'} />)}</StatGrid> : null}
-      <SearchFilterBar placeholder="Tìm trong nội dung lỗi" value={query} onChange={(v) => { setQuery(v); setPage(1); }} searchId="error-search"
-        filters={[f_source]}
-        extra={session.user.admin_level === 1 ? <Btn icon={Trash2} title="Xóa lỗi cũ hơn 30 ngày" tone="giay" size="sm" loading={busy} onPress={async () => { const r = await run(() => api.clearErrors(session.token, 30)); if (r) { data.reload(); } }} /> : null} />
-      <ErrorNote message={data.error} />
-      {data.loading && !data.data ? <Spinner /> : null}
-      {data.data ? (
-        <>
-          <DataTable<ErrorItem> paginate={false} rows={data.data.items} rowKey={(i) => i.id} empty="Không có lỗi nào được ghi lại."
-            columns={[
-              { key: 'time', label: 'Thời điểm', render: (i) => <Txt size={13}>{when(i.created_at)}</Txt> },
-              { key: 'src', filter: f_source, label: 'Nguồn', render: (i) => <StatusChip kind={i.source === 'api' ? 'off' : 'warn'} text={SOURCE[i.source] ?? i.source} /> },
-              { key: 'msg', label: 'Nội dung', flex: 3, render: (i) => <Cell main={i.message} sub={[i.route, i.status ? `mã ${i.status}` : null, i.user_name].filter(Boolean).join(' · ')} /> },
+              { key: 'time', filter: f_date, label: 'Thời điểm', render: (i) => <Txt size={13}>{when(i.created_at)}</Txt> },
+              { key: 'user', filter: f_user, label: 'Tài khoản', flex: 1.2, render: (i) => <Cell main={i.username} sub={i.school_name ?? undefined} /> },
+              { key: 'portal', filter: f_portal, label: 'Cổng', render: (i) => <Txt size={13}>{PORTAL_TEXT[i.portal] ?? i.portal}</Txt> },
+              { key: 'res', filter: f_reason, label: 'Kết quả', render: (i) => <StatusChip kind={i.success ? 'on' : 'off'} text={REASON[i.reason] ?? i.reason} /> },
+              { key: 'device', filter: f_device, label: 'Thiết bị', flex: 1.2, render: (i) => <Txt size={13}>{i.device}</Txt> },
             ]} />
           <Pager page={data.data.page} limit={data.data.limit} total={data.data.total} onPage={setPage} />
         </>
@@ -256,9 +243,10 @@ export const LogsPanel: React.FC<{ session: Session }> = ({ session }) => {
   const [part, setPart] = useState<LogPart>('audit');
   return (
     <Page>
-      <PageHeader title="Nhật ký" subtitle={root ? 'Thao tác của quản trị viên, lịch sử đăng nhập có thiết bị và địa chỉ IP, và lỗi hệ thống' : 'Ai đã làm gì trong trường và lịch sử đăng nhập của người dùng trong trường'} />
-      <Segmented<LogPart> label="Loại nhật ký" value={part} onChange={setPart} options={[{ value: 'audit', label: 'Thao tác' }, { value: 'logins', label: 'Đăng nhập' }, ...(root ? [{ value: 'errors' as const, label: 'Lỗi hệ thống' }] : [])]} />
-      {part === 'audit' ? <AuditTable session={session} /> : part === 'logins' ? <LoginTable session={session} /> : <ErrorTable session={session} />}
+      {/* 18/11/2026: bỏ tab Lỗi hệ thống khỏi giao diện; lỗi vẫn được ghi ngầm (hk_error_log) để kiểm tra khi cần */}
+      <PageHeader title="Nhật ký" subtitle={root ? 'Thao tác của quản trị viên và lịch sử đăng nhập có thiết bị' : 'Ai đã làm gì trong trường và lịch sử đăng nhập của người dùng trong trường'} />
+      <Segmented<LogPart> label="Loại nhật ký" value={part} onChange={setPart} options={[{ value: 'audit', label: 'Thao tác' }, { value: 'logins', label: 'Đăng nhập' }]} />
+      {part === 'audit' ? <AuditTable session={session} /> : <LoginTable session={session} />}
     </Page>
   );
 };

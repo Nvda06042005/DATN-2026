@@ -488,7 +488,10 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     const res = await fetch(`${s.base}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'X-Forwarded-For': '1.2.3.4, 203.0.113.9' }, body: JSON.stringify({ username: 'admin', password: 'sai-mat-khau', portal: 'root_admin' }) });
     expect(res.status).toBe(401);
     const logins = (await root('GET', '/api/platform/logs/logins?q=admin&success=false')).body;
-    expect(logins.items[0]).toMatchObject({ username: 'admin', success: false, reason: 'credentials', ip: '203.0.113.9', device: 'Chrome trên Windows' }); // lấy mục bên phải nhất do proxy tin cậy ghi
+    expect(logins.items[0]).toMatchObject({ username: 'admin', success: false, reason: 'credentials', device: 'Chrome trên Windows' });
+    // 18/11/2026: giao diện không hiện IP (API không trả), máy chủ vẫn lưu IP – lấy mục bên phải nhất do proxy tin cậy ghi
+    expect(logins.items[0]).not.toHaveProperty('ip');
+    expect((await s.moduleRef.get((await import('../src/database/database.service')).DatabaseService).query<{ ip: string }>('SELECT ip FROM app_login_events WHERE id = $1', [logins.items[0].id]))[0].ip).toBe('203.0.113.9');
     expect((await as(f.A)('GET', '/api/platform/logs/logins')).body.items.every((i: any) => i.school_id === f.A.schoolId)).toBe(true);
     expect((await as(f.T1)('GET', '/api/platform/logs/logins')).status).toBe(403);
     // nhật ký thao tác: nhãn dễ đọc và đúng phạm vi trường
@@ -507,6 +510,35 @@ const mailSent = async () => s.moduleRef.get((await import('../src/admin/mail.se
     expect(describeAction('POST /platform/surveys/:id/respond')).toBe('Trả lời khảo sát');
     expect(describeAction('PUT /platform/rbac')).toBe('Đổi ma trận phân quyền');
     expect(describeAction('POST /platform/backups/:id/restore')).toBe('Phục hồi dữ liệu');
+    expect(describeAction('POST /admin/users/:id/reissue-password')).toBe('Cấp lại mật khẩu tài khoản');
+    expect(describeAction('POST /admin/users/:id/lock')).toBe('Khóa / mở khóa tài khoản');
+    // lọc cụ thể từng cột (18/11/2026): danh sách giá trị (facets) theo phạm vi trường, lọc đúng giá trị đã chọn
+    const facet = async (who: (m: string, p: string) => Promise<{ status: number; body: any }>, kind: string, field: string) => (await who('GET', `/api/platform/logs/facets?kind=${kind}&field=${field}`)).body as Array<{ value: string; label: string }>;
+    const actions = await facet(as(f.A), 'audit', 'action');
+    expect(actions.map((x) => x.label)).toContain('Tạo / thực hiện giáo viên');
+    const byLabel = (await as(f.A)('GET', `/api/platform/logs/audit?label=${encodeURIComponent('Tạo / thực hiện giáo viên')}`)).body;
+    expect(byLabel.total).toBeGreaterThan(0);
+    expect(byLabel.items.every((i: any) => i.label === 'Tạo / thực hiện giáo viên')).toBe(true);
+    const actors = await facet(as(f.A), 'audit', 'actor');
+    expect(actors.length).toBeGreaterThan(0);
+    const one = actors[0].value;
+    expect((await as(f.A)('GET', `/api/platform/logs/audit?actor=${encodeURIComponent(one)}`)).body.items.every((i: any) => i.actor_name === one)).toBe(true);
+    const dates = await facet(as(f.A), 'audit', 'date');
+    expect(dates[0].value).toMatch(/^\d{2}\/\d{2}\/\d{4}$/);
+    expect((await as(f.A)('GET', `/api/platform/logs/audit?date=${encodeURIComponent(dates[0].value)}`)).body.total).toBeGreaterThan(0);
+    expect((await as(f.A)('GET', '/api/platform/logs/audit?date=01/01/1999')).body.total).toBe(0);
+    expect((await as(f.A)('GET', `/api/platform/logs/audit?label=${encodeURIComponent('Không có thao tác này')}`)).body.total).toBe(0);
+    // trường khác không lộ giá trị của trường A
+    const bActors = (await facet(as(f.B), 'audit', 'actor')).map((x) => x.value);
+    expect(auditA.items.map((i: any) => i.actor_name).filter((n: string) => !bActors.includes(n)).length).toBeGreaterThan(0);
+    const reasons = await facet(root, 'login', 'reason');
+    expect(reasons.map((x) => x.value)).toContain('credentials');
+    expect((await root('GET', '/api/platform/logs/logins?reason=credentials')).body.items.every((i: any) => i.reason === 'credentials')).toBe(true);
+    const devices = await facet(root, 'login', 'device');
+    expect(devices.map((x) => x.value)).toContain('Chrome trên Windows');
+    expect((await root('GET', `/api/platform/logs/logins?device=${encodeURIComponent('Chrome trên Windows')}`)).body.items.every((i: any) => i.device === 'Chrome trên Windows')).toBe(true);
+    expect((await root('GET', '/api/platform/logs/facets?kind=audit&field=khong_co')).body).toEqual([]);
+    expect((await as(f.S1)('GET', '/api/platform/logs/facets?kind=audit&field=actor')).status).toBe(403);
     // mặc định ẩn thao tác của học sinh; students=true thì hiện
     expect((await as(f.A)('GET', '/api/platform/logs/audit')).body.items.some((i: any) => i.actor_role === 'student')).toBe(false);
     expect((await as(f.A)('GET', '/api/platform/logs/audit?students=true')).body.items.some((i: any) => i.actor_role === 'student')).toBe(true);

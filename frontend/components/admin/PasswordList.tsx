@@ -9,7 +9,7 @@ import { View } from 'react-native';
 import { Eye, EyeOff, KeyRound } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AccountActiveSwitch, useAccountLock } from '@/components/admin/AccountSheet';
-import { CredentialSheet, DataTable, ErrorNote, NameCell, Page, PageHeader, Pager, SearchFilterBar, useAction, useDebounced, useLoad, usePageSize, type SearchFilter } from '@/components/admin/kit';
+import { CredentialSheet, DataTable, distinctValues, ErrorNote, NameCell, Page, PageHeader, Pager, SearchFilterBar, useAction, useDebounced, useLoad, usePageSize, type SearchFilter } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, ConfirmSheet, Inset, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -40,11 +40,14 @@ export const PasswordList: React.FC<{ session: Session; schools?: Array<{ value:
 
   const f_role: SearchFilter = { key: 'role', label: 'Vai trò', value: role, options: [{ value: '', label: 'Mọi vai trò' }, ...(['school_admin', 'teacher', 'student'] as const).map((r) => ({ value: r, label: ROLE_LABEL[r] }))], onChange: (v) => { setRole(v); setPage(1); } };
   const f_school: SearchFilter = { key: 'school', label: 'Trường', value: schoolId, options: [{ value: '', label: 'Mọi trường' }, ...(schools ?? [])], onChange: (v) => { setSchoolId(v); setPage(1); } };
-  const textFilter = (key: string, label: string): SearchFilter => ({ key, label, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => { setColumnValues((old) => ({ ...old, [key]: key === 'stt' ? v.replace(/\D/g, '') : v })); setPage(1); } });
+  const textFilter = (key: string, label: string, suggest?: SearchFilter['suggest']): SearchFilter => ({ key, label, suggest, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => { setColumnValues((old) => ({ ...old, [key]: key === 'stt' ? v.replace(/\D/g, '') : v })); setPage(1); } });
   // lọc STT (18/11/2026): gõ số thứ tự để hiện đúng dòng đó (theo các bộ lọc khác)
-  const f_stt = textFilter('stt', 'STT');
-  const f_name = textFilter('name', 'Họ và tên hoặc mã');
-  const f_username = textFilter('username', 'Tên đăng nhập');
+  // danh sách giá trị của từng cột để chọn khi lọc (theo các bộ lọc khác đang bật)
+  const base = { q: dq, role: (role || undefined) as PasswordRow['role'] | undefined, school_id: schoolId ? Number(schoolId) : undefined, ...columnValues, active: columnValues.active as 'true' | 'false' | undefined, password_state: columnValues.password_state as 'initial' | 'changed' | 'unknown' | undefined, stt: undefined, page: 1, limit: 200 };
+  const values = (key: string, pick: (u: PasswordRow) => string | null) => (term: string) => api.passwordList(token, { ...base, [key]: term || undefined }).then((r) => distinctValues(r.items, pick));
+  const f_stt = textFilter('stt', 'STT', async (term) => Array.from({ length: Math.min(data?.total ?? 0, 500) }, (_, i) => String(i + 1)).filter((n) => !term || n.startsWith(term.replace(/\D/g, ''))).map((n) => ({ value: n, label: n })));
+  const f_name = textFilter('name', 'Họ và tên hoặc mã', values('name', (u) => u.full_name));
+  const f_username = textFilter('username', 'Tên đăng nhập', values('username', (u) => u.username));
   const f_password: SearchFilter = { key: 'password_state', label: 'Mật khẩu', value: columnValues.password_state ?? '', options: [{ value: '', label: 'Tất cả' }, { value: 'initial', label: 'Chưa đổi' }, { value: 'changed', label: 'Đã đổi' }, { value: 'unknown', label: 'Chưa có bản xem được' }], onChange: (v) => { setColumnValues((old) => ({ ...old, password_state: v })); setPage(1); } };
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái tài khoản', value: columnValues.active ?? '', options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Hoạt động' }, { value: 'false', label: 'Đã khóa' }], onChange: (v) => { setColumnValues((old) => ({ ...old, active: v })); setPage(1); } };
   return (

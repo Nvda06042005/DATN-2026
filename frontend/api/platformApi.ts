@@ -57,8 +57,10 @@ export const allTickets = (token: string, q: { status?: string; role?: string; q
 export const setTicketStatus = (token: string, id: number, status: string) => apiRequest<TicketDetail>(`${base}/support/${id}/status`, { token, method: 'PATCH', body: { status } });
 
 // ---------------------------------------------------------------------- nhật ký
-export const auditLog = (token: string, q: { q?: string; success?: string; students?: string; page?: number; limit?: number }) => apiRequest<Paged<AuditItem>>(`${base}/logs/audit${qs(q)}`, { token });
-export const loginLog = (token: string, q: { q?: string; success?: string; page?: number; limit?: number }) => apiRequest<Paged<LoginItem>>(`${base}/logs/logins${qs(q)}`, { token });
+export const auditLog = (token: string, q: { q?: string; success?: string; students?: string; date?: string; actor?: string; label?: string; school_id?: string; page?: number; limit?: number }) => apiRequest<Paged<AuditItem>>(`${base}/logs/audit${qs(q)}`, { token });
+export const loginLog = (token: string, q: { q?: string; success?: string; date?: string; username?: string; portal?: string; reason?: string; device?: string; school_id?: string; page?: number; limit?: number }) => apiRequest<Paged<LoginItem>>(`${base}/logs/logins${qs(q)}`, { token });
+/** Giá trị của một cột nhật ký để chọn khi lọc (ngày, người thực hiện, thao tác, trường, tài khoản, cổng, kết quả, thiết bị) */
+export const logFacets = (token: string, kind: 'audit' | 'login', field: string, q = '', students?: string) => apiRequest<Array<{ value: string; label: string }>>(`${base}/logs/facets${qs({ kind, field, q, students })}`, { token });
 export const errorLog = (token: string, q: { source?: string; q?: string; page?: number; limit?: number }) => apiRequest<Paged<ErrorItem> & { last_24h: Record<string, number> }>(`${base}/logs/errors${qs(q)}`, { token });
 export const clearErrors = (token: string, days: number) => apiRequest<{ deleted: number }>(`${base}/logs/errors${qs({ older_than_days: days })}`, { token, method: 'DELETE' });
 

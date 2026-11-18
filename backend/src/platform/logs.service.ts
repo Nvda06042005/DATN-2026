@@ -4,7 +4,7 @@
  * Quản trị trường chỉ thấy dữ liệu của trường mình; quản trị tổng thấy tất cả. Không ghi nội dung yêu cầu, mật khẩu hay mã.
  */
 import { ForbiddenException, Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { SecurityService, SecurityFilter } from '../auth/security.service';
+import { LogFacet, SecurityService, SecurityFilter } from '../auth/security.service';
 import { DatabaseService, UserRow } from '../database/database.service';
 import { ErrorEntry, ErrorLog } from './error-log';
 
@@ -15,7 +15,7 @@ const NOUN: Array<[RegExp, string]> = [
   [/\/battle\b/, 'mô phỏng trận đánh'], [/\/platform\b/, 'hệ thống'], [/\/content\b/, 'nội dung'], [/\/mail\b/, 'thư'], [/\/auth\b/, 'tài khoản'], [/\/analytics\b/, 'báo cáo'],
 ];
 const VERB: Array<[RegExp, string]> = [
-  [/reset-password/, 'Đặt lại mật khẩu'], [/\/lock\b/, 'Khóa'], [/\/unlock\b/, 'Mở khóa'], [/\/restore\b/, 'Khôi phục'], [/\/status\b/, 'Đổi trạng thái'], [/\/publish/, 'Công bố'],
+  [/reissue-password/, 'Cấp lại mật khẩu'], [/reset-password/, 'Đặt lại mật khẩu'], [/\/lock\b/, 'Khóa'], [/\/unlock\b/, 'Mở khóa'], [/\/restore\b/, 'Khôi phục'], [/\/status\b/, 'Đổi trạng thái'], [/\/publish/, 'Công bố'],
   [/\/copy\b/, 'Nhân bản'], [/\/import\b/, 'Nhập Excel'], [/\/archive\b/, 'Lưu trữ'], [/\/approve\b/, 'Duyệt'], [/\/reject\b/, 'Từ chối'], [/\/assign\b/, 'Giao'], [/\/transfer\b/, 'Chuyển'],
   [/\/members\b/, 'Cập nhật thành viên'], [/\/send\b|\/feedback\b|\/broadcasts\b/, 'Gửi'], [/\/reindex\b/, 'Lập chỉ mục'], [/change-password/, 'Đổi mật khẩu'], [/\/settings\b/, 'Đổi cấu hình'],
 ];
@@ -30,7 +30,7 @@ const SPECIAL: Array<[string | null, RegExp, string]> = [
   [null, /\/platform\/prefs$/, 'Đổi cài đặt cá nhân'], [null, /\/platform\/notices\//, 'Đọc / xóa thông báo'], [null, /\/platform\/settings$/, 'Đổi cấu hình hệ thống'], [null, /\/platform\/flags\//, 'Bật / tắt tính năng'],
   [null, /\/platform\/templates\//, 'Sửa mẫu thư'], [null, /\/platform\/schools\/:id\/limits/, 'Đổi giới hạn của trường'], [null, /\/platform\/rbac$/, 'Đổi ma trận phân quyền'],
   [null, /\/platform\/backups\/:id\/restore$/, 'Phục hồi dữ liệu'], [null, /\/platform\/backups/, 'Sao lưu dữ liệu'], [null, /\/platform\/2fa/, 'Đổi cài đặt xác thực hai lớp'], [null, /\/platform\/faq/, 'Sửa hướng dẫn / FAQ'],
-  [null, /\/platform\/logs\/errors/, 'Dọn nhật ký lỗi'], [null, /\/auth\/confirm-profile$/, 'Xác nhận hồ sơ'], [null, /\/auth\/change-password$/, 'Đổi mật khẩu'], [null, /\/game\/character$/, 'Chọn nhân vật'],
+  [null, /\/platform\/logs\/errors/, 'Dọn nhật ký lỗi'], ['POST', /\/users\/:id\/lock$/, 'Khóa / mở khóa tài khoản'], [null, /\/schools\/:id\/logo$/, 'Đổi logo trường'], [null, /\/school\/logo$/, 'Đổi logo trường'], [null, /\/auth\/confirm-profile$/, 'Xác nhận hồ sơ'], [null, /\/auth\/change-password$/, 'Đổi mật khẩu'], [null, /\/game\/character$/, 'Chọn nhân vật'],
 ];
 
 /** "POST /admin/teachers" → "Tạo giáo viên": nhãn dễ đọc cho nhật ký thao tác (không phải bản dịch hoàn chỉnh của mọi đường dẫn) */
@@ -99,17 +99,34 @@ export class LogsService implements OnModuleInit, OnModuleDestroy {
     return { deleted: rows.length, older_than_days: days };
   }
 
-  /** Nhật ký thao tác kèm nhãn dễ đọc (HK.QT.051, HK.AD.075) */
-  async audit(user: UserRow, f: SecurityFilter) {
+  /** Nhật ký thao tác kèm nhãn dễ đọc (HK.QT.051, HK.AD.075); `label` lọc theo nhãn thao tác (quy đổi ra các đường dẫn gốc) */
+  async audit(user: UserRow, f: SecurityFilter & { label?: string }) {
     // mặc định chỉ hiện thao tác của giáo viên và quản trị (học sinh thao tác rất nhiều nên làm loãng nhật ký); `students=true` để hiện cả học sinh
-    const page = (await this.security.events(user, 'audit', { ...f, staff_only: f.staff_only ?? true })) as unknown as { total: number; page: number; limit: number; items: Array<{ action: string } & Record<string, unknown>> };
+    const staff_only = f.staff_only ?? true;
+    const actions = f.label ? (await this.security.facets(user, 'audit', 'action', '', staff_only)).map((x) => x.value).filter((a) => describeAction(a) === f.label) : undefined;
+    const page = (await this.security.events(user, 'audit', { ...f, staff_only, actions: actions ? (actions.length ? actions : ['__khong_co__']) : undefined })) as unknown as { total: number; page: number; limit: number; items: Array<{ action: string } & Record<string, unknown>> };
     return { ...page, items: page.items.map((i) => ({ ...i, label: describeAction(i.action) })) };
   }
 
-  /** Lịch sử đăng nhập có thiết bị và IP (HK.AD.027); quản trị trường chỉ xem người dùng trường mình */
-  async logins(user: UserRow, f: SecurityFilter) {
-    const page = (await this.security.events(user, 'login', f)) as unknown as { items: Array<{ user_agent?: string | null } & Record<string, unknown>> } & Record<string, unknown>;
-    return { ...page, items: page.items.map((i) => ({ ...i, device: deviceOf(i.user_agent ?? null) })) };
+  /**
+   * Lịch sử đăng nhập có thiết bị (HK.AD.027); quản trị trường chỉ xem người dùng trường mình. Từ 18/11/2026 không trả địa chỉ IP cho giao diện
+   * (người dùng chọn chỉ bỏ khỏi giao diện; máy chủ vẫn lưu để điều tra sự cố). `device` lọc theo nhãn thiết bị (quy đổi ra user-agent gốc).
+   */
+  async logins(user: UserRow, f: SecurityFilter & { device?: string }) {
+    const agents = f.device ? (await this.security.facets(user, 'login', 'device', '', false)).map((x) => x.value).filter((ua) => deviceOf(ua || null) === f.device) : undefined;
+    const page = (await this.security.events(user, 'login', { ...f, agents: agents ? (agents.length ? agents : ['__khong_co__']) : undefined })) as unknown as { items: Array<{ user_agent?: string | null; ip?: unknown } & Record<string, unknown>> } & Record<string, unknown>;
+    return { ...page, items: page.items.map(({ ip: _ip, ...i }) => ({ ...i, device: deviceOf(i.user_agent ?? null) })) };
+  }
+
+  /** Giá trị để chọn khi lọc một cột nhật ký: thao tác / thiết bị gộp theo nhãn dễ đọc, kết quả đăng nhập theo lý do */
+  async facets(user: UserRow, kind: 'audit' | 'login', field: LogFacet, term = '', staffOnly = true): Promise<Array<{ value: string; label: string }>> {
+    if (field === 'action' || field === 'device') {
+      const raw = await this.security.facets(user, kind, field, '', staffOnly);
+      const labels = [...new Set(raw.map((x) => (field === 'action' ? describeAction(x.value) : deviceOf(x.value || null))))].sort((a, b) => a.localeCompare(b, 'vi'));
+      const needle = term.trim().toLowerCase();
+      return labels.filter((l) => !needle || l.toLowerCase().includes(needle)).map((l) => ({ value: l, label: l }));
+    }
+    return (await this.security.facets(user, kind, field, term, staffOnly)).slice(0, 500);
   }
 }
 

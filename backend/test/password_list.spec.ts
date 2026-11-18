@@ -69,6 +69,10 @@ describe('mã hóa mật khẩu ban đầu', () => {
     expect(good.status).toBe(201);
     expect((await call(s.base, 'PATCH', `/api/admin/users/${good.body.user.id}`, { full_name: 'PHẠM MINH CHÂU' }, root)).status).toBe(422);
     expect((await call(s.base, 'PATCH', `/api/admin/users/${good.body.user.id}`, { phone: '0901112224' }, root)).status).toBe(200);
+    // ngày sinh của quản trị viên trường: xem và sửa trong hồ sơ (18/11/2026)
+    expect((await call(s.base, 'GET', `/api/admin/users/${good.body.user.id}`, undefined, root)).body.birth_date).toBe('1991-02-03');
+    expect((await call(s.base, 'PATCH', `/api/admin/users/${good.body.user.id}`, { birth_date: '1992-03-04' }, root)).body.birth_date).toBe('1992-03-04');
+    expect((await call(s.base, 'PATCH', `/api/admin/users/${good.body.user.id}`, { birth_date: '2999-01-01' }, root)).status).toBe(422);
     const me = (await call(s.base, 'GET', '/api/auth/me', undefined, root)).body.user ?? (await call(s.base, 'GET', '/api/auth/me', undefined, root)).body;
     await sql(s.url, "UPDATE app_users SET password_view_enc = 'x' WHERE id = $1", [me.id]);
     expect((await sql<{ v: string | null }>(s.url, 'SELECT password_view_enc AS v FROM app_users WHERE id = $1', [me.id]))[0].v).toBeNull(); // trigger: không lưu cho quản trị tổng
