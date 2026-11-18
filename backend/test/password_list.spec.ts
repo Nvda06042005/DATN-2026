@@ -171,6 +171,37 @@ describe('mã hóa mật khẩu ban đầu', () => {
     expect((await api('GET', '/api/analytics/details?kind=khong_co')).status).toBe(400);
   });
 
+  test('khối 6–9 tự có và đang bật khi tạo / kích hoạt năm học (bỏ mục Khối lớp, migration 077); giáo viên: lọc STT, lọc khối theo lớp đang dạy', async () => {
+    const years = (await api('GET', '/api/admin/school-years')).body as Array<{ id: number; label: string; status: string }>;
+    const current = years.find((y) => y.status === 'active') as { id: number };
+    const grades = async (id: number) => ((await api('GET', `/api/admin/school-grades?year_id=${id}`)).body.grades as Array<{ grade: number; is_active: boolean }>).map((g) => [g.grade, g.is_active]);
+    expect(await grades(current.id)).toEqual([[6, true], [7, true], [8, true], [9, true]]);
+    // giáo viên dạy lớp khối 7 trong năm đang hoạt động: lọc khối 7 có, khối 8 không; lớp trả kèm khối
+    const cls = await api('POST', '/api/admin/classes', { year_id: current.id, grade: 7, name: '7K1', semester: 1, teacher_ids: [teacher.id] });
+    expect(cls.status).toBe(201);
+    const list = async (query: string) => (await api('GET', `/api/admin/teachers?year_id=${current.id}&semester=1${query}`)).body;
+    expect((await list('&grade=7')).items.map((u: { id: number }) => u.id)).toEqual([teacher.id]);
+    expect((await list('&grade=7')).items[0].classes).toEqual([expect.objectContaining({ name: '7K1', grade: 7 })]);
+    expect((await list('&grade=8')).items).toEqual([]);
+    // lọc STT: đúng một dòng, kèm offset
+    const first = await list('&stt=1&limit=5');
+    expect(first).toMatchObject({ total: 1, offset: 0 });
+    expect(first.items.map((u: { id: number }) => u.id)).toEqual([teacher.id]);
+    expect((await list('&stt=2')).items).toEqual([]);
+    // năm mới: đủ bốn khối dù năm trước có khối bị tắt (không còn chép trạng thái khối của năm trước)
+    expect((await api('PUT', '/api/admin/school-grades', { year_id: current.id, grade: 9, is_active: false })).status).toBe(200);
+    const terms = { calendar_mode: 'manual', term1_starts_on: '2027-09-05', term1_ends_on: '2028-01-15', term2_starts_on: '2028-01-17', term2_ends_on: '2028-05-25' };
+    const next = await api('POST', '/api/admin/school-years', { label: '2027-2028', starts_on: '2027-09-05', ends_on: '2028-05-31', ...terms });
+    expect(next.status).toBe(201);
+    expect(await grades(next.body.id)).toEqual([[6, true], [7, true], [8, true], [9, true]]);
+    // tắt / xóa khối của năm chưa kích hoạt (API cũ) rồi kích hoạt: tự có lại đủ bốn khối đang bật
+    expect((await api('PUT', '/api/admin/school-grades', { year_id: next.body.id, grade: 6, is_active: false })).status).toBe(200);
+    expect((await call(s.base, 'DELETE', `/api/admin/school-grades?year_id=${next.body.id}&grade=8`, undefined, A.token)).status).toBe(204);
+    expect((await api('POST', `/api/admin/school-years/${current.id}/end`)).status).toBe(200);
+    expect((await api('POST', `/api/admin/school-years/${next.body.id}/activate`)).body.status).toBe('active');
+    expect(await grades(next.body.id)).toEqual([[6, true], [7, true], [8, true], [9, true]]);
+  });
+
   test('đổi người liên hệ của trường: tài khoản quản trị viên trường đổi theo, cấp lại tên đăng nhập + mật khẩu theo quy ước, gửi thư; thông tin cũ lưu ở kho dữ liệu đã xóa', async () => {
     const before = (await sql<{ id: number; username: string }>(s.url, "SELECT id, username FROM app_users WHERE school_id = $1 AND role = 'school_admin' ORDER BY created_at, id LIMIT 1", [A.id]))[0];
     // sai quy tắc viết hoa thì không đổi gì

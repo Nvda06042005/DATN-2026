@@ -65,13 +65,16 @@ export const PasswordList: React.FC<{ session: Session; schools?: Array<{ value:
           <DataTable paginate={false} gap={10} rows={data.items} rowKey={(u) => u.id} empty="Không có tài khoản nào khớp bộ lọc."
             columns={[
               { key: 'stt', filter: f_stt, label: 'STT', width: 64, minWidth: 64, render: (u) => <Txt size={14} color={c.muc2}>{(data.offset ?? (page - 1) * size) + data.items.indexOf(u) + 1}</Txt> },
-              { key: 'name', filter: f_name, label: 'Họ và tên', width: 190, minWidth: 160, grow: 2, render: (u: PasswordRow) => <NameCell main={u.full_name} sub={[ROLE_LABEL[u.role], root ? u.school_name : null, u.user_code].filter(Boolean).join(' · ')} /> },
+              { key: 'name', filter: f_name, label: 'Họ và tên', width: 190, minWidth: 160, grow: 2, render: (u: PasswordRow) => <NameCell main={u.full_name} sub={u.user_code ?? undefined} /> },
+              // 18/11/2026: vai trò (và trường, ở quản trị tổng) thành cột riêng có lọc ở tiêu đề như các cột khác
+              { key: 'role', filter: f_role, label: 'Vai trò', width: 120, minWidth: 104, render: (u) => <Txt size={13} numberOfLines={2}>{ROLE_LABEL[u.role]}</Txt> },
+              ...(root ? [{ key: 'school', filter: f_school, label: 'Trường', width: 150, minWidth: 120, grow: 1, render: (u: PasswordRow) => <Txt size={13} numberOfLines={2}>{u.school_name ?? '—'}</Txt> }] : []),
               { key: 'username', filter: f_username, label: 'Tên đăng nhập', width: 150, grow: 1, render: (u) => <Txt size={13} selectable numberOfLines={1}>{u.username}</Txt> },
               { key: 'password', filter: f_password, label: 'Mật khẩu', width: 180, grow: 1, render: (u) => (
                 <View style={{ gap: 2 }}>
                   {u.password
                     ? <Txt f="bold" size={13} selectable numberOfLines={1} testID={`password-${u.id}`}>{shown ? u.password : '••••••••••'}</Txt>
-                    : <Txt size={13} color={c.muc3} numberOfLines={2}>{u.status === 'changed' ? (root ? 'Đổi trước 18/11/2026, không xem được – bấm Cấp lại' : 'Đã tự đổi, chỉ quản trị tổng xem được') : 'Chưa có bản xem được – bấm Cấp lại'}</Txt>}
+                    : <Txt size={13} color={c.muc3} numberOfLines={2}>{u.status === 'changed' ? (root ? 'Không xem được (đổi trước 18/11/2026)' : 'Đã tự đổi, chỉ quản trị tổng xem được') : 'Chưa có bản xem được – bấm Cấp lại'}</Txt>}
                   <Txt size={12} color={u.status === 'changed' ? c.mocChu : c.vangChu}>{u.status === 'changed' ? 'Đã đổi mật khẩu' : 'Chưa đổi mật khẩu'}</Txt>
                 </View>
               ) },

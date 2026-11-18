@@ -310,7 +310,7 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     expect((await upload(s.base, '/api/admin/teachers/import', 'to.xlsx', Buffer.alloc(2 * 1024 * 1024 + 10, 1), A.token)).status).toBe(413);
   });
 
-  test('danh sách xuất cùng bố cục: Đông A, trường, ngày xuất, số giáo viên, bảng cùng cột (thêm Lớp phụ trách, Trạng thái), giới tính và ngày sinh; nhập lại được', async () => {
+  test('danh sách xuất cùng bố cục: Đông A, trường, ngày xuất, số giáo viên, bảng cùng cột (thêm Lớp đang dạy, Trạng thái), giới tính và ngày sinh; nhập lại được', async () => {
     const res = await download(s.base, '/api/admin/teachers/export', A.token);
     expect(res.status).toBe(200);
     const wb = await open(res.buffer);
@@ -325,7 +325,7 @@ const HEADER = ['Số thứ tự', 'Mã giáo viên', 'Họ và tên *', 'Giới
     expect(sheet.getCell('C4').value).toBe(String(total));
     let headerRow = 0;
     sheet.eachRow((row, n) => { if (!headerRow && (row.values as unknown[]).includes('Họ và tên')) headerRow = n; });
-    expect((sheet.getRow(headerRow).values as unknown[]).slice(1)).toEqual(['Số thứ tự', 'Mã giáo viên', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh', 'Lớp phụ trách', 'Trạng thái']);
+    expect((sheet.getRow(headerRow).values as unknown[]).slice(1)).toEqual(['Số thứ tự', 'Mã giáo viên', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh', 'Lớp đang dạy', 'Trạng thái']);
     const rows: Array<Record<string, unknown>> = [];
     for (let n = headerRow + 1; n <= sheet.rowCount; n += 1) {
       const r = sheet.getRow(n);

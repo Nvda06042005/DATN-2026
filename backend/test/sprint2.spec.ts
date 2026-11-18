@@ -204,7 +204,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
   test('HK.QT.023 xuất danh sách giáo viên ra Excel theo bộ lọc', async () => {
     const table = (rows: string[][]) => { const at = rows.findIndex((r) => r.includes('Họ và tên')); return { header: rows[at], data: rows.slice(at + 1) }; };
     const all = table(await readRows((await download(s.base, '/api/admin/teachers/export', A.token)).buffer));
-    expect(all.header).toEqual(['Số thứ tự', 'Mã giáo viên', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh', 'Lớp phụ trách', 'Trạng thái']);
+    expect(all.header).toEqual(['Số thứ tự', 'Mã giáo viên', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh', 'Lớp đang dạy', 'Trạng thái']);
     expect(all.data.length).toBe((await qa('GET', '/api/admin/teachers')).body.total);
     const filtered = table(await readRows((await download(s.base, '/api/admin/teachers/export?q=nhap', A.token)).buffer));
     expect(filtered.data.map((r) => r[2]).sort()).toEqual(['Lê Văn Nhập Một', 'Phạm Thị Nhập Hai'].sort()); // lọc theo từ khóa như ở danh sách

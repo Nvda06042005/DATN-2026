@@ -1492,3 +1492,18 @@ Theo 4 ý người dùng gửi kèm ảnh (người dùng chọn: dashboard **b�
 4. Bảng **Năm học**: lọc mọi cột (Năm học, Học kỳ 1, Học kỳ 2, Trạng thái, Số lớp, Bắt đầu lúc, Kết thúc lúc), **Trạng thái là nút gạt** (gạt bật = kích hoạt, gạt tắt = kết thúc, có hộp xác nhận; năm đã kết thúc khóa), thêm cột **Bắt đầu lúc** (`activated_at`, migration 076 điền lại từ nhật ký thao tác).
 
 Kiểm thử: `backend/test/password_list.spec.ts` (Bắt đầu lúc, danh sách thống kê + phạm vi trường, đổi người liên hệ cấp lại đăng nhập / phiên cũ hết hạn / lưu kho không mật khẩu), `frontend/tests/admin-shell|phone|school-terms|school-link.test.cjs`.
+
+## Bỏ mục Khối lớp, bảng Giáo viên gọn, hồ sơ có nút gạt (18/11/2026)
+
+Theo 8 ý người dùng gửi kèm ảnh:
+
+1. **Bỏ mục "Khối lớp"** ở Trường và năm học: tạo hoặc kích hoạt năm học thì tự có đủ khối 6, 7, 8, 9 đang bật (migration 077 bật đủ cho các năm học chưa kết thúc đang có).
+2. **Mật khẩu tài khoản**: thêm cột **Vai trò** (và **Trường** ở quản trị tổng) có nút lọc ở tiêu đề – trước đây bộ lọc vai trò / trường chỉ có ở màn hẹp.
+3. Bảng Giáo viên (và Học sinh): "Số thứ tự" đổi **STT** và **lọc được** (gõ / chọn số thứ tự để hiện đúng dòng đó).
+4. Thêm ô chọn **Khối** (và **Lớp**) cạnh Năm học, Học kỳ; lọc khối của giáo viên theo lớp đang dạy trong năm học / học kỳ đang chọn.
+5. Bảng Giáo viên **ẩn SĐT, Email, Ngày tháng năm sinh** (xem trong hồ sơ khi bấm vào dòng); lớp chọn bằng ô chọn như Năm học, Học kỳ; cột lớp chỉ hiện các lớp khớp khối / lớp đang chọn, nhiều lớp thì "7A1, 7A2, 7A3 +2 lớp".
+6. "Lớp phụ trách" đổi tên **"Lớp đang dạy"** (bảng, hồ sơ, hồ sơ cá nhân của giáo viên, PDF / Excel xuất).
+7. Hồ sơ: **Trạng thái là nút gạt** khóa / mở (cùng hộp hỏi lý do / xác nhận như danh sách).
+8. Hồ sơ luôn hiện **Ngày kết thúc** (ngày khóa; "Chưa kết thúc" khi đang hoạt động) và **Lớp đang dạy** dạng bảng Năm học – Khối – Lớp.
+
+Kiểm thử: `backend/test/password_list.spec.ts` (khối tự có khi tạo / kích hoạt, lọc khối theo lớp đang dạy, lọc STT), `backend/test/sprint2.spec.ts`, `frontend/tests/teacher-excel|people-table|member-excel|school-delete|school-link|paging.test.cjs`.

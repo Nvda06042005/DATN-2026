@@ -258,7 +258,8 @@ test('trang Trường học: nút gạt thay chữ Vô hiệu / Kích hoạt, c�
   assert.match(school, /await saveStagedLogo\(v, \(data\) => api\.uploadMySchoolLogo\(token, data\), \(\) => api\.removeMySchoolLogo\(token\)\);/);
   assert.match(place, /if \(values\.logo_data\) await upload\(String\(values\.logo_data\)\);/);
   assert.match(school, /\.\.\.placeFields\(token\)/);
-  assert.match(school, /<Switch value=\{row\.is_active\}/);
+  // 18/11/2026 (đợt sau): bỏ hẳn mục "Khối lớp" (khối 6–9 tự có khi tạo / kích hoạt năm học, migration 077)
+  assert.doesNotMatch(school, /title="Khối lớp"|grade-active|listGrades|setGrade|removeGrade/);
   assert.doesNotMatch(school, /title=\{row\.is_active \? 'Tắt' : 'Bật'\}/);
   // trang đăng nhập của trường, ô chọn trường: không hiện quận / huyện cũ là khu vực
   assert.match(read('components', 'school-brand.tsx'), /const place = placeText\(school\.region, school\.city\);/);

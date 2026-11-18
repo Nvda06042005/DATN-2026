@@ -157,6 +157,8 @@ export interface Paged<T> {
   total: number;
   page: number;
   limit: number;
+  /** vị trí dòng đầu (lọc STT trả đúng một dòng) */
+  offset?: number;
 }
 
 // ---------------------------------------------------------------------- người dùng

@@ -578,13 +578,16 @@ export class SchoolService {
       if ((await q('SELECT 1 FROM app_school_years WHERE school_id = $1 AND label = $2', [schoolId, label])).length) throw new ConflictException(`Năm học ${label} đã có`);
       const year = (await q<YearRow>('INSERT INTO app_school_years (school_id, label, starts_on, ends_on, term1_starts_on, term1_ends_on, term2_starts_on, term2_ends_on, calendar_mode, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
         [schoolId, label, starts_on, ends_on, terms.term1_starts_on, terms.term1_ends_on, terms.term2_starts_on, terms.term2_ends_on, national ? 'national' : 'manual', actor.id]))[0];
-      // Khối của năm mới chép từ năm gần nhất của trường (hoặc bật cả bốn khối 6–9 nếu là năm đầu tiên); quản trị viên chỉnh lại ở mục khối lớp
-      const previous = await q<{ grade: number; is_active: boolean }>(
-        `SELECT grade, is_active FROM app_school_grades WHERE school_id = $1 AND school_year = (SELECT max(school_year) FROM app_school_grades WHERE school_id = $1 AND school_year < $2)`, [schoolId, label]);
-      const grades = previous.length ? previous : GRADES.map((grade) => ({ grade, is_active: true }));
-      for (const g of grades) await q('INSERT INTO app_school_grades (school_id, school_year, grade, is_active, created_by) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING', [schoolId, label, g.grade, g.is_active, actor.id]);
+      // 18/11/2026 (bỏ mục "Khối lớp" khỏi giao diện): năm học nào cũng tự có đủ bốn khối 6, 7, 8, 9 đang bật
+      await this.ensureGrades(q, schoolId, label, actor.id);
       return this.withYearFramework(q, year);
     });
+  }
+
+  /** Bốn khối 6–9 của một năm học luôn có và đang bật (không còn bật / tắt / xóa khối trên giao diện) */
+  private async ensureGrades(q: Q, schoolId: number, label: string, actorId: number | null) {
+    await q(`INSERT INTO app_school_grades (school_id, school_year, grade, is_active, created_by) SELECT $1, $2, g, true, $3 FROM unnest($4::smallint[]) g
+             ON CONFLICT (school_id, school_year, grade) DO UPDATE SET is_active = true, updated_at = now() WHERE NOT app_school_grades.is_active`, [schoolId, label, actorId, GRADES]);
   }
 
   private async yearOf(q: Q, actor: UserRow, id: number, lock = true): Promise<YearRow> {
@@ -627,6 +630,8 @@ export class SchoolService {
       if (year.status === 'active') return year;
       const other = (await q<{ label: string }>("SELECT label FROM app_school_years WHERE school_id = $1 AND status = 'active'", [year.school_id]))[0];
       if (other) throw new ConflictException(`Năm học ${other.label} đang hoạt động. Hãy kết thúc năm học đó trước khi kích hoạt năm mới.`);
+      // bật năm học là có sẵn khối 6, 7, 8, 9
+      await this.ensureGrades(q, year.school_id, year.label, actor.id);
       return (await q<YearRow>("UPDATE app_school_years SET status = 'active', activated_at = now(), updated_at = now() WHERE id = $1 RETURNING *", [id]))[0];
     });
   }

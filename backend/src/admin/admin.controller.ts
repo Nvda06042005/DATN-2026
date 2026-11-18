@@ -152,6 +152,7 @@ class UserQuery extends Page {
   @IsOptional() @IsString() @MaxLength(20) birth?: string;
   @IsOptional() @IsString() @MaxLength(80) username?: string;
   @IsOptional() @IsString() @MaxLength(20) last?: string;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) stt?: number;
 }
 
 class MemberExportQuery extends UserQuery {

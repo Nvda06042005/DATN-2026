@@ -65,7 +65,7 @@ test('trang Giáo viên: hai cách thêm, biểu mẫu cùng cột với file m�
   const importer=read('components','admin','TeacherImportSheet.tsx');
   assert.match(importer, /hint="Tải file mẫu, điền danh sách rồi chọn file để nhập\."/);
   const sheet = read('components', 'admin', 'AccountSheet.tsx');
-  assert.match(sheet, /u\.role === 'student' \|\| u\.role === 'teacher' \|\| u\.role === 'school_admin' \? \['Ngày sinh', u\.birth_date\]/);
+  assert.match(sheet, /u\.role === 'student' \|\| u\.role === 'teacher' \|\| u\.role === 'school_admin' \? \['Ngày sinh', dmy\(u\.birth_date\)\]/);
   assert.match(sheet, /birth_date: v\.birth_date \|\| null, gender: v\.gender \|\| null/);
   // ô ngày bằng lịch chỉ trên web, điện thoại vẫn gõ YYYY-MM-DD
   const kit = read('components', 'admin', 'kit.tsx');
@@ -73,16 +73,19 @@ test('trang Giáo viên: hai cách thêm, biểu mẫu cùng cột với file m�
   assert.match(kit, /type: 'date', id: `field-\$\{def\.name\}`/);
 });
 
-test('bảng danh sách giáo viên cùng cột với file Excel: Số thứ tự, Mã giáo viên, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh, rồi Lớp phụ trách và Trạng thái', () => {
+test('18/11/2026: bảng giáo viên gọn – STT (lọc), Mã giáo viên, Họ và tên, Giới tính, Khối, Lớp đang dạy, Trạng thái; SĐT, email, ngày sinh xem trong hồ sơ', () => {
   const people = read('components', 'admin', 'SchoolPeople.tsx');
   const tableStart=people.indexOf('columns={teacher ? [');
   const table = people.slice(tableStart, people.indexOf('] : [',tableStart));
   const labels = [...table.matchAll(/label: '([^']+)'/g)].map((m) => m[1]);
-  assert.deepEqual(labels, ['Số thứ tự', 'Mã giáo viên', 'Họ và tên', 'Giới tính', 'SĐT', 'Email', 'Ngày tháng năm sinh', 'Lớp phụ trách', 'Trạng thái']);
-  // số thứ tự nối tiếp qua các trang; ngày sinh hiện dd/mm/yyyy như trong Excel; lọc được theo các cột
-  assert.match(table, /\(page - 1\) \* size \+ data\.items\.indexOf\(u\) \+ 1/);
+  assert.deepEqual(labels, ['STT', 'Mã giáo viên', 'Họ và tên', 'Giới tính', 'Khối', 'Lớp đang dạy', 'Trạng thái']);
+  // số thứ tự nối tiếp qua các trang (lọc STT trả đúng dòng đó: offset từ máy chủ); ngày sinh của học sinh hiện dd/mm/yyyy như trong Excel; lọc được theo các cột
+  assert.match(people, /const rowNo = \(u: Account\) => String\(\(data\?\.offset \?\? \(page - 1\) \* size\) \+ \(data\?\.items\.indexOf\(u\) \?\? 0\) \+ 1\)/);
   assert.match(people, /`\$\{iso\.slice\(8, 10\)\}\/\$\{iso\.slice\(5, 7\)\}\/\$\{iso\.slice\(0, 4\)\}`/);
-  assert.match(people, /filters=\{teacher \? \[f_code, f_name, f_gender, f_phone, f_email, f_birth, f_class, f_active\] : \[f_code, f_name, f_gender, f_phone, f_email, f_birth, f_grade, f_class, f_active\]\}/);
+  assert.match(people, /filters=\{teacher \? \[f_stt, f_code, f_name, f_gender, f_grade, f_class, f_active\] : \[f_stt, f_code, f_name, f_gender, f_phone, f_email, f_birth, f_grade, f_class, f_active\]\}/);
+  // ô chọn Khối, Lớp cạnh Năm học, Học kỳ; lớp đang dạy theo khối / lớp đang chọn, nhiều lớp thì "+N lớp"
+  for (const id of ['member-year', 'member-semester', 'member-grade', 'member-class-filter']) assert.ok(people.includes(`testID="${id}"`), id);
+  assert.match(people, /list\.length > 3 \? ` \+\$\{list\.length - 3\} lớp` : ''/);
   // không còn Bộ môn ở chi tiết, biểu mẫu sửa, nhãn chọn giáo viên của lớp và hồ sơ cá nhân
   assert.doesNotMatch(read('components', 'admin', 'AccountSheet.tsx'), /Bộ môn|subject/);
   assert.doesNotMatch(read('components', 'admin', 'SchoolClasses.tsx'), /\.subject/);

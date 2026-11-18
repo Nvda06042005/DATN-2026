@@ -1,6 +1,7 @@
 /**
  * Giáo viên (HK.QT.014–023) và học sinh (HK.QT.024–034) của trường: danh sách có tìm kiếm/lọc, thêm tài khoản, nhập Excel có xem trước,
  * xuất PDF; mở một người để sửa, khóa, đặt lại mật khẩu, xóa (AccountSheet).
+ * 18/11/2026: cột STT có lọc; bảng giáo viên gọn (SĐT, email, ngày sinh xem trong hồ sơ), có Khối và "Lớp đang dạy", ô chọn Khối / Lớp cạnh Năm học, Học kỳ.
  */
 import React, { useMemo, useState } from 'react';
 import { View } from 'react-native';
@@ -76,17 +77,26 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const periodLabel = year ? `Năm học ${year.label} · Học kỳ ${semester}` : 'Mọi năm học';
   const dq = useDebounced(q);
   const query = { q: dq, active: (active || undefined) as 'true' | 'false' | undefined, grade: grade ? Number(grade) : undefined, class_id: classId ? Number(classId) : undefined, year_id: yearId || undefined, semester, ...columnValues };
-  const { data, error, loading, reload } = useLoad(() => api.listMembers(token, kind, { ...query, page, limit: size }), [token, kind, dq, active, grade, classId, yearId, semester, columnValues, page, size], session.expired);
+  const stt = Number(columnValues.stt) > 0 ? Number(columnValues.stt) : undefined;
+  const { data, error, loading, reload } = useLoad(() => api.listMembers(token, kind, { ...query, stt, page, limit: size }), [token, kind, dq, active, grade, classId, yearId, semester, columnValues, page, size], session.expired);
   const lock = useAccountLock(session, reload);
   // lớp đang hoạt động của mọi năm học chưa kết thúc (yêu cầu 13/11/2026): trước đây chỉ lấy năm học đang hoạt động nên năm đó chưa có lớp thì ô chọn lớp trống
   const { data: classes } = useLoad(() => api.listClasses(token, { active: 'true', limit: 200 }), [token], session.expired);
-  const classOptions = useMemo(() => (classes?.items ?? []).filter((x) => x.is_active && x.year_status !== 'ended' && (!yearId || x.year_id === yearId)).map((x) => ({ value: String(x.id), label: `${x.name} · Khối ${x.grade ?? '?'} (${x.school_year})` })), [classes, yearId]);
+  const classOptions = useMemo(() => (classes?.items ?? []).filter((x) => x.is_active && x.year_status !== 'ended' && (!yearId || x.year_id === yearId) && (!grade || x.grade === Number(grade))).map((x) => ({ value: String(x.id), label: `${x.name} · Khối ${x.grade ?? '?'} (${x.school_year})` })), [classes, yearId, grade]);
   // mỗi bộ lọc khai báo một lần: nút mũi tên ở tiêu đề cột (màn rộng) và nút "Bộ lọc" của thanh tìm kiếm (màn hẹp) dùng chung
   const f_active: SearchFilter = { key: 'active', label: 'Trạng thái', value: active, options: [{ value: '', label: 'Tất cả' }, { value: 'true', label: 'Đang hoạt động' }, { value: 'false', label: 'Đã khóa' }], onChange: (v) => { setActive(v); setPage(1); } };
-  const f_grade: SearchFilter = { key: 'grade', label: 'Khối', value: grade, options: [{ value: '', label: 'Mọi khối' }, ...[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }))], onChange: (v) => { setGrade(v); setPage(1); } };
+  const f_grade: SearchFilter = { key: 'grade', label: 'Khối', value: grade, options: [{ value: '', label: 'Mọi khối' }, ...[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }))], onChange: (v) => { setGrade(v); setClassId(''); setPage(1); } };
   const f_class: SearchFilter = { key: 'class', label: 'Lớp', value: classId, options: [{ value: '', label: 'Mọi lớp' }, ...classOptions], onChange: (v) => { setClassId(v); setPage(1); } };
-  const textFilter = (key: string, label: string, suggest?: SearchFilter['suggest']): SearchFilter => ({ key, label, suggest, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => { setColumnValues((old) => ({ ...old, [key]: v })); setPage(1); } });
-  const memberValues = (key: string, pick: (u: Account) => string | null) => (term: string) => api.listMembers(token, kind, { ...query, [key]: term || undefined, page: 1, limit: 200 }).then((r) => distinctValues(r.items, pick));
+  const textFilter = (key: string, label: string, suggest?: SearchFilter['suggest']): SearchFilter => ({ key, label, suggest, value: columnValues[key] ?? '', options: [{ value: '', label: 'Tất cả' }], custom: true, onChange: (v) => { setColumnValues((old) => ({ ...old, [key]: key === 'stt' ? v.replace(/\D/g, '') : v })); setPage(1); } });
+  // lọc STT (18/11/2026, như Mật khẩu tài khoản): chọn / gõ số thứ tự để hiện đúng dòng đó theo các bộ lọc khác
+  const f_stt = textFilter('stt', 'STT', async (term) => Array.from({ length: Math.min(data?.total ?? 0, 500) }, (_, i) => String(i + 1)).filter((n) => !term || n.startsWith(term.replace(/\D/g, ''))).map((n) => ({ value: n, label: n })));
+  const rowNo = (u: Account) => String((data?.offset ?? (page - 1) * size) + (data?.items.indexOf(u) ?? 0) + 1);
+  /** Lớp đang dạy của giáo viên theo khối / lớp đang chọn; nhiều lớp thì hiện 3 lớp đầu và "+N" (đủ danh sách trong hồ sơ) */
+  const teaching = (u: Account) => {
+    const list = u.classes.filter((k) => (!grade || k.grade === Number(grade)) && (!classId || k.id === Number(classId)));
+    return { text: list.length ? `${list.slice(0, 3).map((k) => k.name).join(', ')}${list.length > 3 ? ` +${list.length - 3} lớp` : ''}` : '—', grades: [...new Set(list.map((k) => k.grade).filter(Boolean))].map((g) => `Khối ${g}`).join(', ') || '—', empty: !list.length };
+  };
+  const memberValues = (key: string, pick: (u: Account) => string | null) => (term: string) => api.listMembers(token, kind, { ...query, stt: undefined, [key]: term || undefined, page: 1, limit: 200 }).then((r) => distinctValues(r.items, pick));
   const f_code = textFilter('code', teacher ? 'Mã giáo viên' : 'Mã học sinh', memberValues('code', (u) => u.user_code));
   const f_name = textFilter('name', 'Họ và tên', memberValues('name', (u) => u.full_name));
   const f_phone = textFilter('phone', 'SĐT', memberValues('phone', (u) => u.phone));
@@ -97,7 +107,7 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
   const [credential, setCredential] = useState<CreatedAccount | null>(null);
-  const exportQuery = new URLSearchParams(Object.entries(query).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)])).toString();
+  const exportQuery = new URLSearchParams(Object.entries(query).filter(([k, v]) => k !== 'stt' && v !== undefined && v !== '').map(([k, v]) => [k, String(v)])).toString();
 
   if (credential) return <CredentialSheet title="Tài khoản đã được tạo" account={{ full_name: credential.user.full_name, username: credential.display_username ?? credential.user.username, temporary_password: credential.temporary_password, mail: credential.mail }} onClose={() => setCredential(null)} />;
 
@@ -119,8 +129,10 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
           <Btn title={teacher ? 'Thêm giáo viên' : 'Thêm học sinh'} icon={Plus} tone="son" size="sm" onPress={() => setCreating(true)} disabled={!entryYear} testID="member-add" />
         </>} />
       <SearchFilterBar placeholder={teacher ? 'Tìm theo tên, email' : 'Tìm theo tên, mã học sinh'} value={q} onChange={(v) => { setQ(v); setPage(1); }} searchId="member-search"
-        filters={teacher ? [f_code, f_name, f_gender, f_phone, f_email, f_birth, f_class, f_active] : [f_code, f_name, f_gender, f_phone, f_email, f_birth, f_grade, f_class, f_active]}
-        extra={<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}><View style={{ width: 220 }}><AdminSelect bare label="Năm học" value={yearId ? String(yearId) : 'all'} options={[{ value: 'all', label: 'Mọi năm học' }, ...yearOptions(years)]} onChange={(v) => { setYearSel(String(v)); setSemesterSel(''); setClassId(''); setPage(1); }} testID="member-year" /></View><View style={{ width: 160 }}><AdminSelect bare label="Học kỳ" value={String(semester)} options={[{ value: '1', label: 'Học kỳ 1' }, { value: '2', label: 'Học kỳ 2' }]} onChange={(v) => { setSemesterSel(String(v)); setPage(1); }} testID="member-semester" /></View></View>}
+        filters={teacher ? [f_stt, f_code, f_name, f_gender, f_grade, f_class, f_active] : [f_stt, f_code, f_name, f_gender, f_phone, f_email, f_birth, f_grade, f_class, f_active]}
+        extra={<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}><View style={{ width: 220 }}><AdminSelect bare label="Năm học" value={yearId ? String(yearId) : 'all'} options={[{ value: 'all', label: 'Mọi năm học' }, ...yearOptions(years)]} onChange={(v) => { setYearSel(String(v)); setSemesterSel(''); setClassId(''); setPage(1); }} testID="member-year" /></View><View style={{ width: 160 }}><AdminSelect bare label="Học kỳ" value={String(semester)} options={[{ value: '1', label: 'Học kỳ 1' }, { value: '2', label: 'Học kỳ 2' }]} onChange={(v) => { setSemesterSel(String(v)); setPage(1); }} testID="member-semester" /></View>
+          {/* giáo viên (18/11/2026): chọn Khối, Lớp như Năm học, Học kỳ để xem ai đang dạy khối / lớp nào */}
+          {teacher ? <><View style={{ width: 150 }}><AdminSelect bare label="Khối" value={grade} options={f_grade.options} onChange={(v) => f_grade.onChange(String(v))} testID="member-grade" /></View><View style={{ width: 200 }}><AdminSelect bare label="Lớp" value={classId} options={f_class.options} onChange={(v) => f_class.onChange(String(v))} testID="member-class-filter" /></View></> : null}</View>}
         />
       <ErrorNote message={error} />
       {loading && !data ? <Spinner label="Đang tải danh sách…" /> : null}
@@ -128,19 +140,16 @@ export const SchoolPeople: React.FC<{ session: Session; kind: 'teachers' | 'stud
         <>
           <DataTable paginate={false} gap={10} rows={data.items} rowKey={(u) => u.id} empty={teacher ? 'Chưa có giáo viên nào khớp bộ lọc.' : 'Chưa có học sinh nào khớp bộ lọc.'} onRowPress={(u) => setOpen(u.id)}
             columns={teacher ? [
-              // cùng các cột với file Excel (mẫu nhập và danh sách xuất): Số thứ tự, Mã giáo viên, Họ và tên, Giới tính, SĐT, Email, Ngày tháng năm sinh; thêm Lớp phụ trách và Trạng thái.
-              // Bảy cột đầu giống hệt bảng học sinh; tên dài xuống dòng để hiện đầy đủ, các cột số và mã giữ một dòng.
-              { key: 'stt', label: 'Số thứ tự', width: 58, minWidth: 58, render: (u) => <Line text={String((page - 1) * size + data.items.indexOf(u) + 1)} muted num /> },
+              // 18/11/2026: SĐT, email, ngày sinh chỉ xem trong hồ sơ (bấm vào dòng); Khối và Lớp đang dạy theo năm học, học kỳ, khối, lớp đang chọn.
+              { key: 'stt', filter: f_stt, label: 'STT', width: 58, minWidth: 58, render: (u) => <Line text={rowNo(u)} muted num /> },
               { key: 'code', filter: f_code, label: 'Mã giáo viên', width: 140, minWidth: 140, render: (u) => <CodeText value={u.user_code || '—'} /> },
               { key: 'name', filter: f_name, label: 'Họ và tên', width: 180, minWidth: 150, grow: 2, render: (u) => <NameCell main={u.full_name} /> },
               { key: 'gender', filter: f_gender, label: 'Giới tính', width: 56, minWidth: 56, render: (u) => <Line text={u.gender ? GENDER_TEXT[u.gender] : '—'} /> },
-              { key: 'phone', filter: f_phone, label: 'SĐT', width: 92, minWidth: 84, render: (u) => <Line text={u.phone || '—'} num /> },
-              { key: 'email', filter: f_email, label: 'Email', width: 140, grow: 2, render: (u) => <Line text={u.email || 'Chưa có email'} muted={!u.email} /> },
-              { key: 'birth', filter: f_birth, label: 'Ngày tháng năm sinh', width: 90, minWidth: 76, render: (u) => <Line text={fmtBirth(u.birth_date)} num /> },
-              { key: 'classes', filter: f_class, label: 'Lớp phụ trách', width: 120, grow: 1, render: (u) => <Line text={u.classes.map((k) => k.name).join(', ') || '—'} muted={!u.classes.length} /> },
+              { key: 'grade', filter: f_grade, label: 'Khối', width: 90, minWidth: 70, render: (u) => <Line text={teaching(u).grades} muted={teaching(u).empty} /> },
+              { key: 'classes', filter: f_class, label: 'Lớp đang dạy', width: 170, minWidth: 120, grow: 1, render: (u) => <Line text={teaching(u).text} muted={teaching(u).empty} /> },
               { key: 'status', filter: f_active, label: 'Trạng thái', width: 130, minWidth: 124, render: (u) => <AccountActiveSwitch session={session} account={u} onRequest={lock.request} /> },
             ] : [
-              { key: 'stt', label: 'Số thứ tự', width: 58, minWidth: 58, render: (u) => <Line text={String((page - 1) * size + data.items.indexOf(u) + 1)} muted num /> },
+              { key: 'stt', filter: f_stt, label: 'STT', width: 58, minWidth: 58, render: (u) => <Line text={rowNo(u)} muted num /> },
               { key: 'code', filter: f_code, label: 'Mã học sinh', width: 140, minWidth: 140, render: (u) => <CodeText value={u.user_code || '—'} /> },
               { key: 'name', filter: f_name, label: 'Họ và tên', width: 180, minWidth: 150, grow: 2, render: (u) => <NameCell main={u.full_name} /> },
               { key: 'gender', filter: f_gender, label: 'Giới tính', width: 56, minWidth: 56, render: (u) => <Line text={u.gender ? GENDER_TEXT[u.gender] : '—'} /> },

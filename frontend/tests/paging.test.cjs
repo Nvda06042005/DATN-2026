@@ -95,7 +95,7 @@ test('bảng luôn có thanh chuyển trang (mặc định bật) và tự chia 
 test('danh sách chia trang ở máy chủ dùng cùng số dòng đang chọn, nên bảng không chia trang lần nữa', () => {
   const need = {
     'RootAdmin.tsx': [/api\.listSchools\(token, \{[^}]*limit: size \}\)/, /api\.listUsers\(token, \{[\s\S]*?limit: size/, /<Pager page=\{page\} limit=\{size\} total=\{data\.total\}/],
-    'SchoolPeople.tsx': [/api\.listMembers\(token, kind, \{ \.\.\.query, page, limit: size \}\)/, /<Pager page=\{page\} limit=\{size\}/],
+    'SchoolPeople.tsx': [/api\.listMembers\(token, kind, \{ \.\.\.query, stt, page, limit: size \}\)/, /<Pager page=\{page\} limit=\{size\}/],
     'QuestionBank.tsx': [/page, limit: size \}\)/, /<Pager page=\{page\} limit=\{size\}/],
     'QuizManager.tsx': [/page, limit: size \}\)/, /<Pager page=\{page\} limit=\{size\}/],
     'PlatformOps.tsx': [/api\.allTickets\([^)]*limit: size/, /api\.auditLog\([^)]*limit: size/, /api\.loginLog\([^)]*limit: size/],

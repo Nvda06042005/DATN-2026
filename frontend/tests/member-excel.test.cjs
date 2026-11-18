@@ -36,7 +36,7 @@ test('hộp nhập của hai vai trò dùng mẫu Excel có lịch, không còn 
 
 test('danh sách và biểu mẫu học sinh cùng cột mẫu Excel; mã xem trước và số thứ tự không nhập tay',()=>{
  const people=read('components/admin/SchoolPeople.tsx'),start=people.indexOf('columns={teacher ? ['),studentStart=people.indexOf('] : [',start),table=people.slice(studentStart,people.indexOf(']} />',studentStart));
- const labels=[...table.matchAll(/label: '([^']+)'/g)].map(m=>m[1]);assert.deepEqual(labels.slice(0,7),['Số thứ tự','Mã học sinh','Họ và tên','Giới tính','SĐT','Email','Ngày tháng năm sinh']);
+ const labels=[...table.matchAll(/label: '([^']+)'/g)].map(m=>m[1]);assert.deepEqual(labels.slice(0,7),['STT','Mã học sinh','Họ và tên','Giới tính','SĐT','Email','Ngày tháng năm sinh']);
  assert.match(people,/kind=\{teacher \? 'teacher' : 'student'\} showSerial birthDate=\{String\(v\.birth_date \|\| ''\)\}/);
  assert.match(people,/TeacherImportSheet session=\{session\} kind=\{kind\}/);
  const edit=read('components/admin/AccountSheet.tsx');assert.match(edit,/kind="student" showSerial userId=\{u\.id\}/);
@@ -109,7 +109,7 @@ test('mật khẩu tài khoản: menu ở quản trị trường và quản tr�
  assert.match(page,/const \[shown, setShown\] = useState\(false\);/); // mặc định ẩn, bấm Hiện mật khẩu mới thấy
  // 18/11/2026: hiện mọi mật khẩu xem được (ban đầu / cấp lại; mật khẩu tự đổi từ 18/11/2026 với quản trị tổng – migration 074)
  assert.match(page,/\{u\.password\s*\? <Txt f="bold"[^\n]*\{shown \? u\.password : '••••••••••'\}/);
- assert.match(page,/'Đổi trước 18\/11\/2026, không xem được – bấm Cấp lại'/);
+ assert.match(page,/'Không xem được \(đổi trước 18\/11\/2026\)'/); // 18/11/2026: cột Mật khẩu hẹp hơn (thêm cột Vai trò, Trường) nên ghi ngắn; hướng dẫn Cấp lại ở khung trên
  assert.match(page,/'Đã tự đổi, chỉ quản trị tổng xem được'/);
  assert.match(page,/<AccountActiveSwitch session=\{session\} account=\{u\} onRequest=\{lock\.request\} \/>/);
  assert.match(page,/key: 'stt', filter: f_stt/);

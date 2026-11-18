@@ -18,7 +18,7 @@ import type { YearItem } from '@/types/api';
 
 const DATE_FIELDS = ['starts_on', 'ends_on', 'term1_starts_on', 'term1_ends_on', 'term2_starts_on', 'term2_ends_on'] as const;
 
-export const SchoolYears: React.FC<{ session: Session; years: YearItem[]; onSelect: (id: string) => void; onChanged: () => void }> = ({ session, years, onSelect, onChanged }) => {
+export const SchoolYears: React.FC<{ session: Session; years: YearItem[]; onChanged: () => void }> = ({ session, years, onChanged }) => {
   const { c } = useTheme();
   const { token } = session;
   const today = todayVn();
@@ -62,7 +62,7 @@ export const SchoolYears: React.FC<{ session: Session; years: YearItem[]; onSele
 
   return <>
     <PageHeader title="Năm học" actions={<Btn title="Thêm năm học" icon={Plus} tone="son" size="sm" onPress={() => setForm({ year: null })} testID="year-add" />} />
-    <DataTable rows={rows} rowKey={y => y.id} empty="Chưa có năm học nào khớp. Hãy thêm năm học." onRowPress={y => onSelect(String(y.id))}
+    <DataTable rows={rows} rowKey={y => y.id} empty="Chưa có năm học nào khớp. Hãy thêm năm học."
       columns={[
         { key: 'label', filter: f_label, label: 'Năm học', flex: 1.3, render: y => <Cell main={y.label} sub={`${fmtDay(y.starts_on)} → ${fmtDay(y.ends_on)}`} /> },
         { key: 'term1', filter: f_term1, label: 'Học kỳ 1', flex: 1.3, render: y => <Txt size={13}>{termText(y, 1)}</Txt> },

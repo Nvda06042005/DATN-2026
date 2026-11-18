@@ -1,13 +1,13 @@
 /**
- * Cổng quản trị viên trường học (/school-manager-admin): thông tin trường, năm học, khối lớp (HK.QT.010–013), giáo viên (HK.QT.014–023),
+ * Cổng quản trị viên trường học (/school-manager-admin): thông tin trường, năm học (HK.QT.010–013; khối 6–9 tự có khi tạo / kích hoạt năm học,
+ * không còn mục "Khối lớp" từ 18/11/2026), giáo viên (HK.QT.014–023),
  * học sinh (HK.QT.024–034), lớp học (HK.QT.035–040). Chỉ làm việc trên trường ghi trong token.
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
-import { Bell, CalendarDays, ChartColumn, FolderCog, History, KeyRound, LifeBuoy, GraduationCap, Inbox, School, Trash2, UserRound, Users } from 'lucide-react-native';
+import { Bell, ChartColumn, FolderCog, History, KeyRound, LifeBuoy, GraduationCap, Inbox, School, UserRound, Users } from 'lucide-react-native';
 import * as api from '@/api/adminApi';
 import { AdminWorkspace, navLeaves } from '@/components/admin/AdminWorkspace';
-import { AdminSelect } from '@/components/admin/AdminSelect';
 import { SchoolReports } from '@/components/admin/AnalyticsAdmin';
 import { SchoolYears } from '@/components/admin/SchoolYears';
 import { phaseText, todayVn } from '@/lib/school-terms';
@@ -16,7 +16,7 @@ import { LogsPanel } from '@/components/admin/PlatformOps';
 import { SchoolEmblem } from '@/components/school-brand';
 import { HelpPage } from '@/components/portal/HelpCenter';
 import { NoticeBell } from '@/components/portal/NoticeCenter';
-import { CredentialSheet, ErrorNote, FilterBar, FilterBox, FormSheet, Page, PageHeader, StatusChip, useAction, useLoad, yearOptions, type FieldDef } from '@/components/admin/kit';
+import { CredentialSheet, FormSheet, Page, PageHeader, useLoad, type FieldDef } from '@/components/admin/kit';
 import { nameCaseError } from '@/lib/person-name';
 import { placeFields, saveStagedLogo, SchoolLogoField } from '@/components/admin/SchoolPlace';
 import { addressText, isNewUnit, isOldDistrict, streetPart } from '@/lib/admin-units';
@@ -25,7 +25,7 @@ import { PasswordList } from '@/components/admin/PasswordList';
 import { ShareInbox } from '@/components/admin/ShareInbox';
 import { SchoolPeople } from '@/components/admin/SchoolPeople';
 import type { Session } from '@/components/auth';
-import { AdminUiContext, Btn, Card, Inset, Spinner, Switch, Txt } from '@/components/ui';
+import { AdminUiContext, Btn, Card, Inset, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { usePortalTab } from '@/hooks/use-portal-tab';
 import type { YearItem } from '@/types/api';
@@ -97,14 +97,10 @@ const SchoolPanel: React.FC<{ session: Session; school: Awaited<ReturnType<typeo
   const { token } = session;
   const [editing, setEditing] = useState(false);
   const [reissued, setReissued] = useState<NonNullable<Awaited<ReturnType<typeof api.updateMySchool>>['reissued']> | null>(null);
-  const [selected, setSelected] = useState('');
-  const yearId = Number(selected || years.find((y) => y.status === 'active')?.id || years[0]?.id || 0);
-  const grades = useLoad(async () => (yearId ? api.listGrades(token, yearId) : null), [token, yearId, years.length], session.expired);
-  const gradeAction = useAction(session.expired);
 
   return (
     <Page>
-      <PageHeader title="Trường và năm học" subtitle="Thông tin hiển thị của trường, các năm học và khối lớp theo từng năm." />
+      <PageHeader title="Trường và năm học" subtitle="Thông tin hiển thị của trường và các năm học. Năm học tự có đủ khối 6, 7, 8, 9." />
       {!school ? <Spinner label="Đang tải thông tin trường…" /> : (
         <Card flat pad={16} style={{ gap: 12 }}>
           <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -125,38 +121,8 @@ const SchoolPanel: React.FC<{ session: Session; school: Awaited<ReturnType<typeo
         </Card>
       )}
 
-      <SchoolYears session={session} years={years} onSelect={setSelected} onChanged={onChanged} />
+      <SchoolYears session={session} years={years} onChanged={onChanged} />
 
-      {yearId ? (
-        <>
-          <PageHeader title="Khối lớp" subtitle="Chỉ tạo được lớp ở khối đang bật. Bật/tắt hoặc xóa khối của từng năm học." />
-          <FilterBar><FilterBox><AdminSelect label="Năm học" value={String(yearId)} options={yearOptions(years)} onChange={(v) => setSelected(String(v))} /></FilterBox></FilterBar>
-          <ErrorNote message={grades.error} />
-          {grades.data ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-              {([6, 7, 8, 9] as const).map((g) => {
-                const row = grades.data?.grades.find((x) => x.grade === g);
-                const ended = grades.data?.year.status === 'ended';
-                return (
-                  <Card key={g} flat pad={14} style={{ flexBasis: 200, flexGrow: 1, gap: 8 }}>
-                    <Txt f="displayHeavy" size={20}>Khối {g}</Txt>
-                    {row ? <Txt size={13} color={c.muc2}>{row.classes} lớp · {row.students} học sinh</Txt> : <Txt size={13} color={c.muc3}>Chưa thêm vào năm học này</Txt>}
-                    {row ? <StatusChip kind={row.is_active ? 'on' : 'muted'} text={row.is_active ? 'Đang bật' : 'Đã tắt'} /> : null}
-                    <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                      {!row ? <Btn title="Thêm khối" tone="giay" size="sm" disabled={ended} onPress={async () => { if (await gradeAction.run(() => api.setGrade(token, { year_id: yearId, grade: g, is_active: true }), `Đã thêm khối ${g}`)) grades.reload(); }} /> : (<>
-                        <Switch value={row.is_active} disabled={ended || gradeAction.busy} testID={`grade-active-${g}`} label={row.is_active ? `Khối ${g} đang bật. Gạt để tắt` : `Khối ${g} đang tắt. Gạt để bật`}
-                          onChange={async (on) => { if (await gradeAction.run(() => api.setGrade(token, { year_id: yearId, grade: g, is_active: on }), on ? `Đã bật khối ${g}` : `Đã tắt khối ${g}`)) grades.reload(); }} />
-                        <Btn icon={Trash2} label={`Xóa khối ${g}`} tone="giay" size="sm" disabled={ended} onPress={async () => { if (await gradeAction.run(() => api.removeGrade(token, yearId, g).then(() => true), `Đã xóa khối ${g}`)) grades.reload(); }} />
-                      </>)}
-                    </View>
-                  </Card>
-                );
-              })}
-            </View>
-          ) : <Spinner label="Đang tải khối lớp…" />}
-          {grades.data?.year.status === 'ended' ? <Inset><Txt size={13} color={c.muc2}><CalendarDays size={13} color={c.muc2} /> Năm học đã kết thúc: không sửa được dữ liệu của năm học này.</Txt></Inset> : null}
-        </>
-      ) : null}
 
       {editing && school ? (
         <FormSheet title="Sửa thông tin trường" subtitle="Mã trường do hệ thống cấp, không sửa được." wide

@@ -111,6 +111,8 @@ export function checkTemplateOwner(role: MemberRole, subtitle: string, spec: { s
 export interface AccountFilter {
   q?: string; role?: Role; school_id?: number; active?: 'true' | 'false'; grade?: number; class_id?: number; year_id?: number; semester?: number;
   code?: string; name?: string; gender?: 'male' | 'female' | 'other'; phone?: string; email?: string; birth?: string; username?: string; last?: string;
+  /** lọc STT (18/11/2026): chỉ dòng có số thứ tự đó theo các bộ lọc khác */
+  stt?: number;
   page?: number; limit?: number;
 }
 
@@ -252,7 +254,14 @@ export class AccountService {
       if (f.gender) add('u.gender = ?', f.gender);
       if (f.birth?.trim()) add("to_char(u.birth_date,'DD/MM/YYYY') ILIKE ? ESCAPE '\\'", `%${likeEscape(f.birth.trim())}%`);
       if (f.last?.trim()) add("to_char(u.last_login_at AT TIME ZONE 'Asia/Ho_Chi_Minh','DD/MM/YYYY') ILIKE ? ESCAPE '\\'", `%${likeEscape(f.last.trim())}%`);
-      if (f.grade) add('(u.grade = ? OR EXISTS (SELECT 1 FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = u.id AND c.grade = ?::smallint))', f.grade);
+      if (f.grade) {
+        // học sinh: khối của học sinh / lớp đã vào; giáo viên (18/11/2026): khối của lớp đang dạy trong năm học, học kỳ đang chọn
+        params.push(f.grade, f.year_id ?? null, f.semester ?? null);
+        const gp = `$${params.length - 2}`, yp = `$${params.length - 1}`, sp = `$${params.length}`;
+        where.push(`(u.grade = ${gp} OR EXISTS (SELECT 1 FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = u.id AND c.grade = ${gp}::smallint)
+          OR EXISTS (SELECT 1 FROM app_class_teacher_assignments t JOIN app_classes c ON c.id = t.class_id WHERE t.teacher_id = u.id AND c.grade = ${gp}::smallint
+            AND (${yp}::int IS NULL OR c.year_id = ${yp}::int) AND t.semester = COALESCE(${sp}::int, public.app_class_semester(c.year_id), 1)))`);
+      }
       if (f.class_id) { params.push(f.class_id); const p = `$${params.length}`; params.push(f.semester ?? null); const sp = `$${params.length}`; where.push(`(EXISTS (SELECT 1 FROM app_class_members m WHERE m.user_id = u.id AND m.class_id = ${p}) OR EXISTS (SELECT 1 FROM app_class_teacher_assignments t JOIN app_classes c ON c.id=t.class_id WHERE t.teacher_id = u.id AND t.class_id = ${p} AND t.semester = COALESCE(${sp}::int, public.app_class_semester(c.year_id), 1)))`); }
       if (f.year_id && fixedRole) {
         params.push(f.year_id);
@@ -270,8 +279,9 @@ export class AccountService {
       }
       const text = searchText(f.q);
       if (text) add("u.search_text LIKE ? ESCAPE '\\'", `%${likeEscape(text)}%`);
-      const limit = Math.min(200, Math.max(1, f.limit ?? 50));
+      const limit = f.stt ? 1 : Math.min(200, Math.max(1, f.limit ?? 50));
       const page = Math.max(1, f.page ?? 1);
+      const offset = f.stt ? f.stt - 1 : (page - 1) * limit;
       const total = Number((await q<{ n: string }>(`SELECT COUNT(*) AS n FROM app_users u WHERE ${where.join(' AND ')}`, params))[0].n);
       const yearParam = `$${params.length + 3}`, semesterParam = `$${params.length + 4}`;
       const rows = await q<Record<string, unknown>>(
@@ -287,13 +297,13 @@ export class AccountService {
          WHERE ${where.join(' AND ')}
          ORDER BY CASE u.role WHEN 'root_admin' THEN 0 WHEN 'school_admin' THEN 1 WHEN 'teacher' THEN 2 ELSE 3 END, u.full_name, u.id
          LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-        [...params, limit, (page - 1) * limit, f.year_id ?? null, f.semester ?? null],
+        [...params, limit, offset, f.year_id ?? null, f.semester ?? null],
       );
       const items = rows.map((r) => {
         const u = toUser(r);
         return { ...toPublic(u), username: displayAccountUsername(u), school_name: (r.school_name as string | null) ?? null, classes: u.role === 'teacher' ? r.teaching_classes : u.role === 'student' ? r.member_classes : [] };
       });
-      return { total, page, limit, items };
+      return { total, page, limit, offset, items };
     });
   }
 
@@ -827,7 +837,7 @@ export class AccountService {
   private async allMembers(actor: UserRow, role: MemberRole, f: AccountFilter) {
     const all: Awaited<ReturnType<AccountService['list']>>['items'] = [];
     for (let page = 1; page <= 100; page += 1) {
-      const chunk = (await this.list(actor, { ...f, page, limit: 200 }, role)).items;
+      const chunk = (await this.list(actor, { ...f, stt: undefined, page, limit: 200 }, role)).items;
       all.push(...chunk);
       if (chunk.length < 200) break;
     }
@@ -857,7 +867,7 @@ export class AccountService {
     const cols: PdfCol[] = teacher
       ? [{ header: 'Mã giáo viên', key: 'user_code', width: 18, align: 'center' }, { header: 'Họ và tên', key: 'full_name', width: 24, keep: true }, { header: 'Giới tính', key: 'gender', width: 8, align: 'center' },
         { header: 'Ngày sinh', key: 'birth', width: 11, align: 'center' }, { header: 'Số điện thoại', key: 'phone', width: 12, align: 'center' }, { header: 'Email', key: 'email', width: 27 },
-        { header: 'Lớp phụ trách', key: 'classes_text', width: 14, align: 'center' }, { header: 'Trạng thái', key: 'status', width: 12, align: 'center' }]
+        { header: 'Lớp đang dạy', key: 'classes_text', width: 14, align: 'center' }, { header: 'Trạng thái', key: 'status', width: 12, align: 'center' }]
       : [{ header: 'Mã học sinh', key: 'user_code', width: 20, align: 'center' }, { header: 'Họ và tên', key: 'full_name', width: 24, keep: true }, { header: 'Giới tính', key: 'gender', width: 8, align: 'center' },
         { header: 'Ngày sinh', key: 'birth', width: 11, align: 'center' }, { header: 'Lớp', key: 'classes_text', width: 10, align: 'center' }, { header: 'Số điện thoại', key: 'phone', width: 12, align: 'center' },
         { header: 'Email', key: 'email', width: 26 }, { header: 'Trạng thái', key: 'status', width: 12, align: 'center' }];
@@ -886,7 +896,7 @@ export class AccountService {
       const now = new Date();
       return buildFormSheet({
         sheetName: 'Giáo viên', title: 'Đông A', subtitle: exportSubtitle('teacher', school, code), meta: [{ label: 'Ngày xuất', value: vnDayLabel(now) }, { label: 'Số giáo viên', value: String(rows.length) }],
-        columns: [...TEACHER_FORM_COLUMNS.map((c) => ({ ...c, header: c.header.replace(' *', '') })), { key: 'classes_text', header: 'Lớp phụ trách', kind: 'text' as const, width: 26 }, { key: 'status', header: 'Trạng thái', kind: 'text' as const, width: 18 }],
+        columns: [...TEACHER_FORM_COLUMNS.map((c) => ({ ...c, header: c.header.replace(' *', '') })), { key: 'classes_text', header: 'Lớp đang dạy', kind: 'text' as const, width: 26 }, { key: 'status', header: 'Trạng thái', kind: 'text' as const, width: 18 }],
         rows, now,
       });
     }

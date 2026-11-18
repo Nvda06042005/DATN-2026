@@ -137,7 +137,7 @@ export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (pa
         {!editable.includes('phone') && user.role !== 'student' ? info('Số điện thoại', user.phone) : null}
         {school ? info('Trường', `${school.name} (${school.school_code})`) : null}
         {user.role === 'student' && user.grade ? info('Khối', `Khối ${user.grade}`) : null}
-        {classes.length ? info(user.role === 'teacher' ? 'Lớp phụ trách' : 'Lớp đã tham gia', classes.map((k) => `${k.class_code} (${k.school_year})`).join(', ')) : null}
+        {classes.length ? info(user.role === 'teacher' ? 'Lớp đang dạy' : 'Lớp đã tham gia', classes.map((k) => `${k.class_code} (${k.school_year})`).join(', ')) : null}
       </View>
       {error ? <Inset style={{ backgroundColor: c.sonNhat }}><Txt color={c.sonChu} accessibilityRole="alert">{error}</Txt></Inset> : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>

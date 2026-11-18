@@ -2,7 +2,8 @@
  * Chi tiết và thao tác trên một tài khoản (HK.AD.021–025, HK.QT.018–021, HK.QT.028–032): sửa thông tin, đổi vai trò (quản trị tổng), xóa.
  * Quản trị tổng được xóa từng tài khoản đã dùng; quản trị trường chỉ xóa khi chưa có dữ liệu. Dùng chung cho danh sách người dùng, giáo viên và học sinh.
  * 18/11/2026: khóa / mở khóa bằng nút gạt ở cột Trạng thái của danh sách (AccountActiveSwitch); đặt lại mật khẩu chỉ ở mục Mật khẩu tài khoản ("Cấp lại"
- * theo quy ước) nên hồ sơ không còn nút "Khóa tài khoản", "Đặt lại mật khẩu". Hồ sơ hiện Ngày kết thúc (ngày khóa) khi tài khoản bị khóa.
+ * theo quy ước) nên hồ sơ không còn nút "Khóa tài khoản", "Đặt lại mật khẩu". Cùng ngày (đợt sau): hồ sơ có nút gạt Trạng thái như danh sách, luôn hiện
+ * Ngày kết thúc (ngày khóa; chưa khóa thì "Chưa kết thúc"), lớp đang dạy / đã tham gia chia theo Năm học – Khối – Lớp.
  */
 import React, { useState } from 'react';
 import { View } from 'react-native';
@@ -21,6 +22,20 @@ export const ROLE_TEXT: Record<AuthRole, string> = { root_admin: 'Quản trị v
 const GENDER_OPTIONS = [{ value: '', label: 'Chưa chọn' }, { value: 'male', label: 'Nam' }, { value: 'female', label: 'Nữ' }, { value: 'other', label: 'Khác' }];
 export const GENDER_TEXT: Record<Gender, string> = { male: 'Nam', female: 'Nữ', other: 'Khác' };
 export const dateText = (iso: string | null) => (iso ? new Date(iso).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : 'Chưa có');
+/** YYYY-MM-DD → dd/mm/yyyy */
+const dmy = (iso: string | null | undefined) => (iso && /^\d{4}-\d{2}-\d{2}/.test(iso) ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : null);
+
+/** Lớp của một người chia theo năm học và khối: [năm học, khối, "7A1, 7A2"] */
+const classGroups = (classes: AccountDetail['classes']) => {
+  const groups = new Map<string, { year: string; grade: number | null; names: string[] }>();
+  for (const k of classes) {
+    const key = `${k.school_year}|${k.grade ?? ''}`;
+    const g = groups.get(key) ?? { year: k.school_year, grade: k.grade ?? null, names: [] };
+    g.names.push(`${k.name}${k.is_active ? '' : ' (đã lưu trữ)'}`);
+    groups.set(key, g);
+  }
+  return [...groups.values()].sort((a, b) => b.year.localeCompare(a.year) || (a.grade ?? 0) - (b.grade ?? 0));
+};
 
 type Dialog = null | 'edit' | 'role' | 'delete';
 
@@ -72,6 +87,7 @@ export const AccountSheet: React.FC<{
   const { busy, run } = useAction(session.expired);
   const [dialog, setDialog] = useState<Dialog>(null);
   const changed = () => { reload(); onChanged(); };
+  const lock = useAccountLock(session, changed);
 
   const u = data as AccountDetail | null;
   const self = u?.id === session.user.id;
@@ -89,11 +105,11 @@ export const AccountSheet: React.FC<{
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
               {([
                 ['Tên đăng nhập', u.username], ['Mã người dùng', u.user_code], ['Email', u.email], ['Số điện thoại', u.phone], ['Trường', u.school_name],
-                u.role === 'student' || u.role === 'teacher' || u.role === 'school_admin' ? ['Ngày sinh', u.birth_date] : null, u.role === 'student' || u.role === 'teacher' ? ['Giới tính', u.gender ? GENDER_TEXT[u.gender] : null] : null,
+                u.role === 'student' || u.role === 'teacher' || u.role === 'school_admin' ? ['Ngày sinh', dmy(u.birth_date)] : null, u.role === 'student' || u.role === 'teacher' ? ['Giới tính', u.gender ? GENDER_TEXT[u.gender] : null] : null,
                 u.role === 'root_admin' ? ['Cấp quản trị', `Cấp ${u.admin_level}`] : null,
                 ['Đăng nhập lần cuối', dateText(u.last_login_at)], ['Ngày tạo', dateText(u.created_at)],
-                // ngày kết thúc = ngày khóa tài khoản (bỏ khi mở khóa)
-                locked ? ['Ngày kết thúc', u.locked_at ? dateText(u.locked_at) : 'Không rõ ngày'] : null,
+                // ngày kết thúc = ngày khóa tài khoản (bỏ khi mở khóa); luôn hiện
+                ['Ngày kết thúc', locked ? (u.locked_at ? dateText(u.locked_at) : 'Không rõ ngày') : 'Chưa kết thúc'],
               ] as Array<[string, string | null] | null>).filter((x): x is [string, string | null] => !!x).map(([k, v]) => (
                 <View key={k} style={{ flexBasis: 200, flexGrow: 1, gap: 2 }}>
                   <Txt f="bold" size={12} color={c.muc3}>{k}</Txt>
@@ -101,16 +117,28 @@ export const AccountSheet: React.FC<{
                 </View>
               ))}
             </View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              <StatusChip kind={locked ? 'off' : 'on'} text={locked ? 'Đã khóa' : 'Đang hoạt động'} />
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+              {/* trạng thái là nút gạt khóa / mở như cột Trạng thái của danh sách */}
+              <AccountActiveSwitch session={session} account={u} onRequest={lock.request} label={locked ? 'Đã khóa' : 'Đang hoạt động'} />
               {u.must_change_password ? <StatusChip kind="warn" text="Chưa đổi mật khẩu tạm" /> : null}
               {u.self_registered ? <StatusChip kind="info" text="Tự đăng ký (tự học)" /> : null}
             </View>
             {locked ? <Inset style={{ backgroundColor: c.sonNhat }}><Txt size={14} color={c.sonChu}>Lý do khóa: {u.lock_reason || 'chưa ghi lý do'}</Txt></Inset> : null}
             {u.classes.length ? (
-              <View style={{ gap: 4 }}>
-                <Txt f="bold" size={14}>{u.role === 'teacher' ? 'Lớp phụ trách' : 'Lớp đã tham gia'}</Txt>
-                {u.classes.map((k) => <Txt key={`${k.relation}${k.id}`} size={14} color={c.muc2}>• {k.name} · khối {k.grade ?? '?'} · {k.school_year}{k.is_active ? '' : ' (đã lưu trữ)'}</Txt>)}
+              <View style={{ gap: 6 }} testID="acc-classes">
+                <Txt f="bold" size={14}>{u.role === 'teacher' ? 'Lớp đang dạy' : 'Lớp đã tham gia'}</Txt>
+                <View style={{ borderWidth: 1, borderColor: c.adminLine, borderRadius: 10, overflow: 'hidden' }}>
+                  <View style={{ flexDirection: 'row', backgroundColor: c.adminCanvas, paddingHorizontal: 12, paddingVertical: 8, gap: 12 }}>
+                    {['Năm học', 'Khối', 'Lớp'].map((h, i) => <Txt key={h} f="bold" size={12} color={c.muc3} style={{ flex: i === 2 ? 3 : 1 }}>{h}</Txt>)}
+                  </View>
+                  {classGroups(u.classes).map((g) => (
+                    <View key={`${g.year}${g.grade}`} style={{ flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, gap: 12, borderTopWidth: 1, borderTopColor: c.adminLine }}>
+                      <Txt size={14} style={{ flex: 1 }}>{g.year}</Txt>
+                      <Txt size={14} style={{ flex: 1 }}>{g.grade ? `Khối ${g.grade}` : '—'}</Txt>
+                      <Txt size={14} style={{ flex: 3 }}>{g.names.join(', ')}</Txt>
+                    </View>
+                  ))}
+                </View>
               </View>
             ) : null}
             {self ? <Txt size={13} color={c.muc3}>Đây là tài khoản của bạn: không tự khóa, xóa hoặc đổi quyền được. Dùng mục Hồ sơ cá nhân để sửa thông tin.</Txt> : null}
@@ -126,6 +154,7 @@ export const AccountSheet: React.FC<{
           </>
         ) : null}
       </Sheet>
+      {lock.dialogs}
 
       {dialog === 'edit' && u ? (
         <FormSheet title="Sửa thông tin" subtitle={u.full_name} fields={editFields(u, root ? schools : [], token)}
