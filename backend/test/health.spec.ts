@@ -7,7 +7,7 @@ describe('public deployment identity', () => {
   });
   test('reports only a valid public Git commit, never arbitrary environment contents', async () => {
     const { AppController } = await import('../src/app.controller');
-    const controller = new AppController({} as any);
+    const controller = new AppController({} as any, { warm: () => false } as any);
     process.env.RENDER_GIT_COMMIT = 'a'.repeat(40);
     expect(controller.health()).toMatchObject({ status: 'healthy', commit: 'a'.repeat(40) });
     process.env.RENDER_GIT_COMMIT = 'not-a-public-commit';
@@ -16,9 +16,20 @@ describe('public deployment identity', () => {
 
   test('ai_engine: cho biết trợ lý AI dùng mô hình Python hay chế độ dự phòng, kèm lý do và bộ nhớ; không lộ đường dẫn máy chủ', async () => {
     const { AppController } = await import('../src/app.controller');
-    const health = new AppController({} as any).health() as { ai_engine: Record<string, unknown> };
+    const health = new AppController({} as any, { warm: () => false } as any).health() as { ai_engine: Record<string, unknown> };
     expect(health.ai_engine).toMatchObject({ mode: 'fallback', status: 'idle', reason: null, memory_mb: { node: expect.any(Number) } });
     expect(Object.keys(health.ai_engine).sort()).toEqual(['memory_mb', 'mode', 'python', 'ready_seconds', 'reason', 'since', 'status']);
+  });
+
+  test('lịch keep-alive gọi /api/health?warm=ai: nạp lại mô hình AI (không chờ), không có tham số thì không đụng tới mô hình', async () => {
+    const { AppController } = await import('../src/app.controller');
+    let calls = 0;
+    const controller = new AppController({} as any, { warm: () => { calls += 1; return true; } } as any);
+    expect(controller.health()).not.toHaveProperty('warming');
+    expect(calls).toBe(0);
+    expect(controller.health('ai')).toMatchObject({ status: 'healthy', warming: true });
+    expect(controller.health('khac')).not.toHaveProperty('warming');
+    expect(calls).toBe(1);
   });
 });
 

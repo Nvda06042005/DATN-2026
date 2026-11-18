@@ -40,6 +40,13 @@ test('polyfill bổ sung đúng các hàm thiếu trên trình duyệt cũ và k
   assert.deepEqual(check('[1,2,3].with(-1, 9)'), [1, 2, 9]);
   assert.equal(check('"abc".at(-1)'), 'c');
   assert.equal(check('Object.hasOwn({ a: 1 }, "a")'), true);
+  // Safari cũ: không có requestIdleCallback; crypto.randomUUID có thể là thuộc tính mang giá trị undefined
+  const ctx2 = vm.createContext({ exports: {}, module: { exports: {} }, setTimeout, clearTimeout });
+  vm.runInContext("globalThis.crypto = { randomUUID: undefined, getRandomValues: (a) => { for (let i = 0; i < a.length; i += 1) a[i] = (i * 37 + 11) & 255; return a; } };", ctx2);
+  vm.runInContext(js, ctx2);
+  assert.equal(vm.runInContext('typeof requestIdleCallback + "/" + typeof cancelIdleCallback', ctx2), 'function/function');
+  assert.match(vm.runInContext('crypto.randomUUID()', ctx2), /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.equal(vm.runInContext('typeof Promise.withResolvers', ctx2), 'function');
   // không liệt kê trong for…in (giống hàm gốc)
   assert.deepEqual(check('(() => { const keys = []; for (const k in [1]) keys.push(k); return keys; })()'), ['0']);
 });
@@ -57,4 +64,42 @@ test('đánh thức máy chủ khi mở trang; báo lỗi kết nối rõ ràng;
   assert.match(tutor, /const ENGINE_WAIT_MS = 25_000;/);
   assert.match(tutor, /const ready = await this\.engineReady\(ENGINE_WAIT_MS\);/);
   assert.match(tutor, /throw new ServiceUnavailableException\('Tiểu Tướng đang khởi động mô hình/);
+});
+
+test('bộ kiểm tra bản build (CI) bắt cú pháp và hàm mới mà trình duyệt cũ không chạy được', () => {
+  const { spawnSync } = require('node:child_process');
+  const os = require('node:os');
+  const script = path.join(__dirname, '..', 'scripts', 'check-browser-support.cjs');
+  const run = (code) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'donga-browsers-'));
+    fs.mkdirSync(path.join(dir, '_expo'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '_expo', 'a.js'), code);
+    const r = spawnSync(process.execPath, [script, dir], { encoding: 'utf8' });
+    fs.rmSync(dir, { recursive: true, force: true });
+    return { status: r.status, out: r.stdout + r.stderr };
+  };
+  const ok = run('const a = [3, 1].toSorted(); const b = x?.y ?? 1; class K { f = 1; static s = 2 } requestIdleCallback(() => 0);');
+  assert.equal(ok.status, 0, ok.out);
+  for (const [code, hint] of [
+    ['class K { #p = 1; get() { return this.#p; } }', 'tên riêng'],
+    ['class K { static { init(); } }', 'static'],
+    ['const r = /(?<=a)b/;', 'nhìn lùi'],
+    ['const c = structuredClone({});', 'structuredClone'],
+    ['const g = Object.groupBy([], (x) => x);', 'groupBy'],
+    ['const x = a ||= {', 'cú pháp'],
+  ]) {
+    const bad = run(code);
+    assert.equal(bad.status, 1, code);
+    assert.match(bad.out, new RegExp(hint), code);
+  }
+  assert.match(read('package.json'), /"check:browsers": "node scripts\/check-browser-support\.cjs dist"/);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', '..', '.github', 'workflows', 'ci.yml'), 'utf8'), /run: npm run check:browsers/);
+});
+
+test('lịch giữ máy chủ thức: GitHub Actions gọi /api/health?warm=ai mỗi 10 phút, không dùng bí mật', () => {
+  const wf = fs.readFileSync(path.join(__dirname, '..', '..', '.github', 'workflows', 'keep-alive.yml'), 'utf8');
+  assert.match(wf, /cron: '3-59\/10 \* \* \* \*'/);
+  assert.match(wf, /https:\/\/dong-a-api\.onrender\.com\/api\/health\?warm=ai/);
+  assert.match(wf, /permissions: \{\}/);
+  assert.doesNotMatch(wf, /\$\{\{\s*secrets\.|Authorization:|-u\s+\S+:/);
 });

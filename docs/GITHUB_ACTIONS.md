@@ -21,3 +21,14 @@ Dùng Ubuntu 24.04 và Node 22.21.0; các action chính thức được cố đ�
 Lần kích hoạt đầu tiên ngày 01/11/2026 đã tạo đủ ba check, nhưng [GitHub chặn khởi động job vì billing](https://github.com/Nvda06042005/DATN-2026/actions/runs/41312953129). Chưa có bước build/test nào chạy trong lượt đó; không coi trạng thái đỏ này là kết luận kiểm thử mã nguồn.
 
 Tài liệu chính thức: [GitHub status checks](https://docs.github.com/en/pull-requests/reference/status-checks), [Ubuntu runner image](https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md), [setup-node](https://github.com/actions/setup-node).
+
+## Giữ máy chủ Render luôn thức (`keep-alive.yml`, 17/11/2026)
+
+- Gói miễn phí của Render cho `dong-a-api` ngủ sau 15 phút không có yêu cầu; người vào lúc đó chờ khoảng 1 phút và AI phải nạp lại mô hình, nên trang báo "không kết nối được máy chủ". Theo yêu cầu của người dùng, workflow `Keep server awake` gọi `https://dong-a-api.onrender.com/api/health?warm=ai` mỗi 10 phút (phút 3, 13, …, 53 mỗi giờ; thử lại tối đa 4 lần, mỗi lần chờ 90 giây). `?warm=ai` nạp lại mô hình AI Python nếu nó đang tắt (lần thử trước thất bại chưa quá 3 phút thì chờ).
+- Không dùng mật khẩu, token hay khóa bí mật; `permissions: {}`. Repo công khai nên GitHub Actions không tính phí phút chạy. Có thể chạy tay ở tab Actions (Run workflow).
+- Hệ quả cần biết: máy chủ luôn chạy dùng khoảng 720–744 giờ / tháng, gần hết **750 giờ miễn phí của cả tài khoản Render**; nếu tài khoản có thêm dịch vụ miễn phí khác đang chạy thì có thể hết giờ giữa tháng (Render tạm dừng dịch vụ tới đầu tháng sau). Muốn bỏ hẳn giới hạn thì nâng gói của dịch vụ trên Render.
+- GitHub chỉ chạy lịch trên nhánh mặc định (`main`), có thể trễ vài phút lúc đông, và **tự tạm dừng lịch của repo công khai sau 60 ngày không có commit**; khi đó vào tab Actions → Keep server awake → Enable workflow.
+
+## Kiểm tra trình duyệt cũ (`npm run check:browsers`, 17/11/2026)
+
+- Job Frontend chạy `scripts/check-browser-support.cjs` sau bước build: mọi tệp JavaScript của bản build phải phân tích được ở mức ES2022 và không dùng cú pháp Safari 15 chưa hiểu (khối `static {}`, tên riêng `#x`, regex nhìn lùi, cờ regex `d` / `v`); hàm mới hơn mức hỗ trợ (ví dụ `toSpliced`, `findLast`, `requestIdleCallback`, `crypto.randomUUID`) phải có trong `lib/polyfills.ts`, hàm không vá được (`structuredClone`, `Object.groupBy`, …) thì báo lỗi. Mức hỗ trợ: Chrome 80+ (gồm Windows 7/8.1 – Chrome 109), Safari 14.1+ (iOS 14.5+), Firefox 75+.

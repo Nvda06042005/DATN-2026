@@ -74,6 +74,18 @@ export class AiTutorService implements OnModuleDestroy {
   ) {}
 
   /** Render: nạp sẵn mô hình Python sau khi backend khởi động (python-runtime.ts) để câu hỏi đầu tiên không phải chờ */
+  /**
+   * Nạp lại mô hình Python khi lịch keep-alive gọi /api/health?warm=ai (17/11/2026): chỉ trên máy chủ bật nạp sẵn (Render), khi mô hình chưa chạy;
+   * lần thử trước thất bại chưa quá 3 phút thì chờ (tránh khởi động liên tục khi thiếu bộ nhớ). Trả true nếu vừa bắt đầu nạp.
+   */
+  warm(): boolean {
+    const h = engineHealth();
+    if (!warmOnBoot() || h.status === 'ready' || h.status === 'starting') return false;
+    if (h.status === 'unavailable' && h.since && Date.now() - Date.parse(h.since) < 180_000) return false;
+    void this.ensurePythonBridge();
+    return true;
+  }
+
   onModuleInit() {
     if (warmOnBoot()) setTimeout(() => { void this.ensurePythonBridge(); }, 15_000).unref();
   }

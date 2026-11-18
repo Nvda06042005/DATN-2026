@@ -153,6 +153,8 @@ jobs:
           const info = require('./dist/build-info.json');
           assert.equal(info.commit, process.env.GITHUB_SHA);
           NODE
+      - name: Check old-browser support (Chrome 80+, Safari 14.1+ – Windows 7/8.1, iOS 14.5+)
+        run: npm run check:browsers
 
   automation:
     name: Local auto-sync regression tests

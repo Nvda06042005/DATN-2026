@@ -1,0 +1,35 @@
+name: Keep server awake
+
+# Render gói miễn phí cho máy chủ ngủ sau 15 phút không có yêu cầu nào; người vào lúc đó phải chờ khoảng 1 phút và AI phải nạp lại mô hình.
+# Theo yêu cầu ngày 17/11/2026, cứ 10 phút gọi /api/health một lần để máy chủ luôn thức; `?warm=ai` nạp lại mô hình AI Python nếu nó đang tắt.
+# Lưu ý: máy chủ luôn chạy dùng gần hết 750 giờ miễn phí / tháng của tài khoản Render (nếu tài khoản còn dịch vụ miễn phí khác thì có thể hết giờ
+# giữa tháng). Không dùng mật khẩu, token hay khóa bí mật nào. Lịch chỉ chạy trên nhánh mặc định (main); GitHub tạm dừng lịch của repo công khai
+# sau 60 ngày không có hoạt động – khi đó bật lại ở tab Actions. Xem docs/GITHUB_ACTIONS.md.
+on:
+  schedule:
+    # phút 3, 13, 23, … mỗi giờ (tránh đầu giờ – lúc GitHub hay trễ lịch)
+    - cron: '3-59/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: Ping API and warm AI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - name: Wake API and AI model
+        run: |
+          url='https://dong-a-api.onrender.com/api/health?warm=ai'
+          for attempt in 1 2 3 4; do
+            code=$(curl -s -o health.json -w '%{http_code}' --max-time 90 "$url" || echo 000)
+            echo "Attempt $attempt: HTTP $code"
+            if [ "$code" = 200 ]; then cat health.json; echo; exit 0; fi
+            sleep 30
+          done
+          echo "::warning::API did not answer /api/health with 200 after 4 attempts"
