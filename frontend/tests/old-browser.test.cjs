@@ -98,7 +98,7 @@ test('bộ kiểm tra bản build (CI) bắt cú pháp và hàm mới mà trình
 
 test('lịch giữ máy chủ thức: GitHub Actions gọi /api/health?warm=ai mỗi 10 phút, không dùng bí mật', () => {
   const wf = fs.readFileSync(path.join(__dirname, '..', '..', '.github', 'workflows', 'keep-alive.yml'), 'utf8');
-  assert.match(wf, /cron: '3-59\/10 \* \* \* \*'/);
+  assert.match(wf, /cron: '\*\/10 \* \* \* \*'/);
   assert.match(wf, /https:\/\/dong-a-api\.onrender\.com\/api\/health\?warm=ai/);
   assert.match(wf, /permissions: \{\}/);
   assert.doesNotMatch(wf, /\$\{\{\s*secrets\.|Authorization:|-u\s+\S+:/);

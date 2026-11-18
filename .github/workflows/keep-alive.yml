@@ -7,8 +7,8 @@ name: Keep server awake
 # sau 60 ngày không có hoạt động – khi đó bật lại ở tab Actions. Xem docs/GITHUB_ACTIONS.md.
 on:
   schedule:
-    # phút 3, 13, 23, … mỗi giờ (tránh đầu giờ – lúc GitHub hay trễ lịch)
-    - cron: '3-59/10 * * * *'
+    # mỗi 10 phút (dạng chuẩn trong tài liệu GitHub; dạng khoảng-có-bước '3-59/10' không được lập lịch – 18/11/2026)
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 permissions: {}
