@@ -2,10 +2,8 @@
  * Trang học sinh (/hoc-sinh và đường dẫn riêng của trường với role=student) – Hành trình Đông A (xây dựng lại 15/11/2026).
  * Vòng chơi: chọn cuộc kháng chiến → chọn chặng trên bản đồ → học kiến thức ngắn → minigame luyện tập → nhập vai khám phá → chạm trán (nếu có) → tổng kết, ôn tập → nhận thưởng,
  * lưu tiến độ, mở chặng tiếp theo. Mọi điểm, sao, phần thưởng và việc mở khóa do máy chủ quyết định (/api/saga); giao diện chỉ gửi lệnh và vẽ lại.
- * Khung trang (yêu cầu 16/11/2026: "trang học sinh lấy giao diện của quản trị tổng, quản trị trường và giáo viên"): dùng chung AdminWorkspace và giao diện phẳng
- * (AdminUiContext) với các cổng quản trị: thanh trên cùng (logo, đường dẫn, thông báo, hồ sơ, đăng xuất), menu bên trái (Chiến dịch, Nhập vai, Câu hỏi ôn tập,
- * Tư liệu, Bộ thẻ, Hỏi Tiểu Tướng, Trợ giúp), giao diện sáng như các cổng quản trị. Trang học sinh không có mục Khảo sát (xóa hẳn; đường dẫn cũ
- * `tab=khao-sat` mở trang Chiến dịch); logo ở thanh đầu đã khôi phục, không có nút loa (16/11/2026).
+ * Từ 20/11/2026, khung StudentWorkspace riêng cho học sinh THCS: sảnh phiêu lưu, cấp độ, nhiệm vụ, minh họa game và nút có chiều sâu.
+ * Bảng màu chỉ áp dụng trong trang học sinh. Giữ các API, kiểm tra lớp và điều hướng hiện có; không khôi phục giao diện học sinh đã xóa.
  * Mục đang mở nằm trên URL (tab, c = cuộc kháng chiến, s = chặng, v = bước) nên Back / Forward / tải lại giữ đúng chỗ.
  * Mỗi lần chuyển mục, bộ điều hướng dựng một màn mới và giữ màn cũ ẩn bên dưới: màn không còn được xem thì gỡ hết nội dung (game Phaser, đồng hồ, phím tắt, hộp thoại)
  * để lúc nào cũng chỉ có một màn chơi đang chạy; khi quay lại, màn đó tải lại trạng thái chuẩn từ máy chủ.
@@ -23,7 +21,7 @@ import * as game from '@/api/gameApi';
 import * as platform from '@/api/platformApi';
 import * as saga from '@/lib/saga-api';
 import { errorMessage } from '@/api/client';
-import { AdminWorkspace, type NavLeaf } from '@/components/admin/AdminWorkspace';
+import type { NavLeaf } from '@/components/admin/AdminWorkspace';
 import { useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { HelpPage } from '@/components/portal/HelpCenter';
@@ -35,9 +33,11 @@ import { SagaHeader, SagaPage, num, type SagaNav, type SagaRoute, type SagaStep,
 import { LessonScreen, PracticeScreen, SummaryScreen } from '@/components/portal/SagaLearn';
 import { BattleScreen, ExploreScreen } from '@/components/portal/SagaPlay';
 import { StudentAiHub } from '@/components/ai/StudentAiHub';
+import { StudentWorkspace } from '@/components/portal/StudentWorkspace';
+import { STUDENT_PALETTE } from '@/components/portal/StudentDesign';
 import { AdminUiContext, Btn, Sheet, Txt, useToast } from '@/components/ui';
 import { usePortalTab } from '@/hooks/use-portal-tab';
-import { useTheme } from '@/hooks/use-theme';
+import { ThemeContext } from '@/hooks/use-theme';
 import { play, setSound, soundEnabled } from '@/lib/saga-sound';
 import type { Prefs } from '@/types/platform';
 import type { Completion, SagaHome } from '@/types/saga';
@@ -113,7 +113,7 @@ function useHome(session: Session, active: boolean): { data: SagaHome | null; er
 }
 
 export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
-  const { c } = useTheme();
+  const c = STUDENT_PALETTE;
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
@@ -198,7 +198,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const stage = route.s !== null && route.c !== null && route.v !== null ? { session, nav, stageId: route.s, campaignNo: route.c } : null;
   // Chiến dịch bắt đầu từ danh sách lớp: lớp của em thì vào học, lớp khác đăng ký bằng mã; vào lớp rồi mới tới ba phần (16/11/2026 đợt 5)
   const catalog = (
-    <StudentCatalog session={session} prefill={prefill} onPrefillUsed={() => setPrefill(null)}
+    <StudentCatalog session={session} home={home.data} onInbox={() => pick('tin-nhan')} prefill={prefill} onPrefillUsed={() => setPrefill(null)}
       onJoined={(k) => { setClassTick((n) => n + 1); nav.refresh(); enter(k.id); pick('chien-dich'); }} onEnter={(k) => { enter(k.id); pick('chien-dich'); }} />
   );
   // màn đang nằm ẩn dưới một màn khác: không dựng gì để game, đồng hồ, phím tắt và hộp thoại của nó được gỡ sạch
@@ -237,15 +237,16 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   );
 
   return (
-    <AdminUiContext.Provider value>
+    <ThemeContext.Provider value={{ c: STUDENT_PALETTE, dark: false }}>
+    <AdminUiContext.Provider value={false}>
       <View style={{ flex: 1 }} testID="student-app">
-        <AdminWorkspace session={session} nav={navItems} active={route.tab === 'lop-hoc' ? 'chien-dich' : route.tab} onSelect={pick}
+        <StudentWorkspace session={session} nav={navItems} active={route.tab === 'lop-hoc' ? 'chien-dich' : route.tab} onSelect={pick} home={home.data}
           avatar={home.data?.look?.frame || home.data?.look?.avatar ? <FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={34} frame={home.data.look.frame} preset={home.data.look.avatar} testID="top-framed-avatar" /> : undefined}
           profileAvatar={<FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={56} frame={home.data?.look?.frame} preset={home.data?.look?.avatar} testID="profile-framed-avatar" />}
           profileExtra={<ProfileLook session={session} onChanged={home.reload} />}
           roleLine={home.data?.look?.title ? <TitleBadge title={home.data.look.title} testID="top-title" /> : undefined} schoolName={profile.data?.school?.name} extra={extra}>
           {body}
-        </AdminWorkspace>
+        </StudentWorkspace>
         {levelUp && !reward ? (
           <Sheet open onClose={() => setLevelUp(null)} title={`Lên cấp ${levelUp.level}`} subtitle={levelUp.title || undefined} footer={<Btn title="Tiếp tục" tone="son" full onPress={() => setLevelUp(null)} testID="level-up-close" />}>
             <View style={{ alignItems: 'center', gap: 8 }} testID="level-up">
@@ -260,5 +261,6 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
         {cite ? <DetailSheet session={session} type={cite.type} id={cite.id} onClose={() => setCite(null)} onOpen={(type, id) => setCite({ type, id })} /> : null}
       </View>
     </AdminUiContext.Provider>
+    </ThemeContext.Provider>
   );
 };

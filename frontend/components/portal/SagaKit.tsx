@@ -1,19 +1,19 @@
 /**
- * Bộ thành phần chung của trang học sinh (Hành trình Đông A). Từ 16/11/2026 trang học sinh dùng chung khung và bộ thành phần với các cổng quản trị
- * (AdminWorkspace, `components/admin/kit.tsx`, giao diện phẳng AdminUiContext): tiêu đề hai nửa, thẻ viền mảnh, nút đỏ son / nút giấy, nhãn trạng thái, bảng.
+ * Bộ thành phần chung của Hành trình Đông A. Từ 20/11/2026, dùng bảng màu học sinh và tiêu đề Manrope dễ đọc;
+ * nút, thẻ và các tiện ích nền tảng vẫn dùng bộ thành phần chung, có chiều sâu khi nằm trong StudentWorkspace.
  * Tệp này chỉ giữ phần riêng của trò chơi: màu trạng thái chặng và ba cuộc kháng chiến, chân dung cách điệu của các nhân vật (tranh minh họa tự vẽ,
  * không phải chân dung lịch sử), huy chương, ảnh bản đồ, thanh tiến độ, dòng nguồn tham khảo, ô phương án trả lời và phím tắt.
  * Chữ dùng Manrope / Newsreader qua `Txt`; mọi nút có vùng chạm ≥ 44pt và nhãn trợ năng.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, View, type ImageSourcePropType, type ScrollViewInstance, type StyleProp, type ViewStyle } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, View, useWindowDimensions, type ImageSourcePropType, type ScrollViewInstance, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Circle, Ellipse, G, Path, Polygon, Rect } from 'react-native-svg';
 import {
   Anchor, BookOpen, Check, ChevronLeft, Crown, Droplets, ExternalLink, Fence, Flag, Flame, Footprints, House, Info, Landmark, Lock, Mail, Map as MapIcon, Moon, Play, RotateCcw, Sailboat, ScrollText, Shield, Ship, Star, Sun,
   Swords, Target, Tent, Users, Warehouse, X,
 } from 'lucide-react-native';
 import { errorMessage } from '@/api/client';
-import { ErrorNote, PageHeader } from '@/components/admin/kit';
+import { ErrorNote } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { Btn, Spinner, Txt } from '@/components/ui';
 import { PALETTES } from '@/constants/theme';
@@ -81,21 +81,33 @@ export const LoadState: React.FC<{ loading: boolean; error: string | null; onRet
 
 // ---------------------------------------------------------------------- bố cục trang
 /** Một trang trong khung học sinh: cuộn dọc, lề và độ rộng như `Page` của trang quản trị; màn chơi dùng `max` rộng hơn */
-export const SagaPage: React.FC<{ children: React.ReactNode; testID: string; max?: number; scrollRef?: React.Ref<ScrollViewInstance> }> = ({ children, testID, max = 1120, scrollRef }) => (
+export const SagaPage: React.FC<{ children: React.ReactNode; testID: string; max?: number; scrollRef?: React.Ref<ScrollViewInstance> }> = ({ children, testID, max = 1120, scrollRef }) => {
+  const { width } = useWindowDimensions();
+  return (
   <View style={{ flex: 1 }} testID={testID}>
-    <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 16, maxWidth: max, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: width >= 1080 ? 26 : 16, paddingBottom: 48, gap: 22, maxWidth: max, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
       {children}
     </ScrollView>
   </View>
-);
+  );
+};
 
 /** Đầu trang: nút quay về màn cha (dạng đường dẫn nhỏ) rồi tiêu đề hai nửa của trang quản trị */
-export const SagaHeader: React.FC<{ title: string; subtitle?: string; back?: { label: string; onPress: () => void; hint?: string }; actions?: React.ReactNode }> = ({ title, subtitle, back, actions }) => (
-  <View style={{ gap: 4 }}>
+export const SagaHeader: React.FC<{ title: string; subtitle?: string; back?: { label: string; onPress: () => void; hint?: string }; actions?: React.ReactNode }> = ({ title, subtitle, back, actions }) => {
+  const { c } = useTheme();
+  return (
+  <View style={{ gap: 8 }}>
     {back ? <Btn title={back.label} icon={ChevronLeft} tone="ghost" size="sm" onPress={back.onPress} label={back.hint ?? back.label} testID="saga-back" style={{ marginLeft: -10 }} /> : null}
-    <PageHeader title={title} subtitle={subtitle} actions={actions} />
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 13 }}>
+      <View style={{ flex: 1, minWidth: 200, gap: 6 }}>
+        <Txt f="heavy" size={26} accessibilityRole="header">{title}</Txt>
+        {subtitle ? <Txt size={16} color={c.muc2} style={{ lineHeight: 25 }}>{subtitle}</Txt> : null}
+      </View>
+      {actions ? <View style={{ maxWidth: '100%' }}>{actions}</View> : null}
+    </View>
   </View>
-);
+  );
+};
 
 /** Tiêu đề nhỏ của một khối trong trang */
 export const BlockTitle: React.FC<{ title: string; note?: string; icon?: IconType }> = ({ title, note, icon: Icon }) => {

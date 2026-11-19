@@ -1,5 +1,5 @@
 // 15/11/2026: trang học sinh được xây dựng lại thành Hành trình Đông A (chọn cuộc kháng chiến → bản đồ → học → luyện tập → nhập vai → trận đánh → tổng kết).
-// 16/11/2026: trang học sinh dùng chung khung AdminWorkspace và bộ thành phần phẳng của quản trị tổng, quản trị trường và giáo viên (giao diện sáng, menu bên trái).
+// 20/11/2026: StudentWorkspace có giao diện game riêng; các luồng điều hướng, kiểm tra lớp, API và máy chủ chấm điểm giữ nguyên.
 // Giao diện cũ (StudentNav, lộ trình học, bản đồ nhiệm vụ, lớp học, thẻ tướng…) đã xóa và không được nối lại; API và dữ liệu học sinh giữ nguyên.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -11,7 +11,7 @@ const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8');
 const exists = (...p) => fs.existsSync(path.join(root, ...p));
 const walk = (dir) => fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : /\.tsx?$/.test(e.name) ? [path.join(dir, e.name)] : []));
 
-test('trang học sinh: khung Hành trình Đông A dùng chung khung của các cổng quản trị, các mục nằm ở menu bên trái, mục đang mở nằm trên URL', () => {
+test('trang học sinh: khung game riêng giữ các mục học tập, điều hướng URL, quyền theo lớp và quản lý phiên', () => {
   const app = read('components', 'portal', 'StudentApp.tsx');
   assert.match(read('app', 'hoc-sinh.tsx'), /<StudentApp session=\{session\} \/>/);
   assert.match(app, /usePortalTab<SagaTab>\('chien-dich', TABS\)/);
@@ -23,10 +23,11 @@ test('trang học sinh: khung Hành trình Đông A dùng chung khung của các
   assert.doesNotMatch(read('components', 'admin', 'AdminWorkspace.tsx'), /role !== 'student' \? <View style=\{\{ flexShrink: 1 \}\}><BrandLogo/);
   for (const gone of ['sound-toggle', 'Volume2', 'VolumeX']) assert.ok(!app.includes(gone), gone);
   assert.match(app, /useEffect\(\(\) => \{ if \(soundEnabled\(\)\) setSound\(false\); \}, \[\]\);/);
-  // cùng khung với quản trị tổng / quản trị trường / giáo viên: AdminWorkspace + giao diện phẳng; không còn thanh HUD, nút tròn, nút nổi hay trình đơn riêng của bản trò chơi cũ
-  assert.match(app, /<AdminUiContext\.Provider value>/);
-  assert.match(app, /<AdminWorkspace session=\{session\} nav=\{navItems\} active=\{route\.tab === 'lop-hoc' \? 'chien-dich' : route\.tab\} onSelect=\{pick\}/);
-  for (const gone of ['RoundIcon', 'student-hud', 'ask-tieu-tuong', 'account-menu', 'ThemeContext', 'PALETTES.dark']) assert.ok(!app.includes(gone), gone);
+  // Chỉ học sinh dùng bảng màu và nút game; không đổi ThemeContext toàn ứng dụng hay khung của giáo viên / quản trị.
+  assert.match(app, /<AdminUiContext\.Provider value=\{false\}>/);
+  assert.match(app, /<ThemeContext\.Provider value=\{\{ c: STUDENT_PALETTE, dark: false \}\}>/);
+  assert.match(app, /<StudentWorkspace session=\{session\} nav=\{navItems\} active=\{route\.tab === 'lop-hoc' \? 'chien-dich' : route\.tab\} onSelect=\{pick\}/);
+  for (const gone of ['RoundIcon', 'student-hud', 'ask-tieu-tuong', 'account-menu', 'PALETTES.dark']) assert.ok(!app.includes(gone), gone);
   // bước của chặng: học, luyện tập, nhập vai, trận đánh, tổng kết
   assert.match(app, /const STEPS: readonly SagaStep\[\] = \['hoc', 'luyen', 'kham-pha', 'tran', 'tong-ket'\];/);
   for (const screen of ['HomeScreen', 'CampaignScreen', 'LessonScreen', 'PracticeScreen', 'ExploreScreen', 'BattleScreen', 'SummaryScreen', 'ReviewScreen', 'CollectionScreen', 'ArchiveScreen', 'RolePlayScreen']) assert.ok(app.includes(`<${screen} `), screen);
@@ -41,9 +42,11 @@ test('trang học sinh: khung Hành trình Đông A dùng chung khung của các
   assert.match(app, /const midStep = route\.v !== null && route\.v !== 'tong-ket';/);
   assert.match(app, /\{levelUp && !reward \? \(/);
   assert.match(app, /platform\.prefs\(session\.token\)/);
-  // tài khoản (hồ sơ, đổi mật khẩu, đăng xuất) nằm ở khung chung; khung tự ghi "Không gian học sinh" và đường dẫn "Học sinh / …"
-  const shell = read('components', 'admin', 'AdminWorkspace.tsx');
-  for (const text of ['Hồ sơ cá nhân', 'Đổi mật khẩu', 'Đăng xuất', 'session.changePassword', 'session.logout()', "role === 'student' ? 'Không gian học sinh'", "role === 'student' ? 'Học sinh'"]) assert.ok(shell.includes(text), text);
+  const shell = read('components', 'portal', 'StudentWorkspace.tsx');
+  for (const text of ['Hồ sơ cá nhân', 'Đổi mật khẩu', 'Đăng xuất', 'session.changePassword()', 'session.logout()', 'Không gian học sinh', '<BrandLogo ', 'onRequestClose={() => setMenu(false)}']) assert.ok(shell.includes(text), text);
+  assert.match(shell, /authApi\.getProfile\(session\.token\)/);
+  assert.match(shell, /authApi\.updateProfile\(session\.token, patch\)/);
+  assert.match(shell, /authApi\.uploadAvatar\(session\.token, img\)/);
   // giao diện sáng như các cổng quản trị: bảng Cài đặt không còn chọn sáng / tối; âm thanh trò chơi chỉ bật khi người dùng tự bật
   assert.doesNotMatch(read('components', 'portal', 'NoticeCenter.tsx'), /label: 'Tối'/);
   assert.match(read('lib', 'saga-sound.ts'), /let enabled = false;/);
@@ -127,9 +130,9 @@ test('16/11/2026: giáo viên không còn Khảo sát, trình soạn Quiz (Kahoo
   for (const gone of ['title="Thêm học sinh"', 'title="Nhập từ Excel"', 'const AddStudents', 'const ImportStudents']) assert.ok(!people.includes(gone), gone);
 });
 
-test('các màn của Hành trình Đông A dựng bằng thành phần của cổng quản trị (tiêu đề hai nửa, thẻ, nút, bảng), không còn bộ nút khối / nền trời / pháo giấy của bản trò chơi cũ', () => {
+test('các màn Hành trình dùng thành phần hiện tại, giữ bản đồ lịch sử, thành tích máy chủ và các luồng vào lớp', () => {
   const kit = read('components', 'portal', 'SagaKit.tsx');
-  assert.match(kit, /import \{ ErrorNote, PageHeader \} from '@\/components\/admin\/kit';/);
+  assert.match(kit, /import \{ ErrorNote \} from '@\/components\/admin\/kit';/);
   for (const gone of ['GameBtn', 'Chunky', 'SkyBg', 'Sunburst', 'Confetti', 'RoundIcon', 'TieuTuongArt', 'CampaignArt']) assert.doesNotMatch(kit, new RegExp(`export (const|function) ${gone}(?![A-Za-z])`), gone);
   assert.doesNotMatch(kit, /LinearGradient/);
   for (const f of ['SagaHome', 'SagaLearn', 'SagaPlay', 'SagaExtras']) {
@@ -169,7 +172,7 @@ test('các màn của Hành trình Đông A dựng bằng thành phần của c�
   for (const code of ['dong-bo-dau', 'chuong-duong', 'bach-dang']) assert.ok(look.includes(`'${code}'`), code);
   assert.match(read('components', 'portal', 'StudentApp.tsx'), /avatar=\{home\.data\?\.look\?\.frame \|\| home\.data\?\.look\?\.avatar \? <FramedAvatar /);
   assert.match(read('components', 'portal', 'StudentApp.tsx'), /roleLine=\{home\.data\?\.look\?\.title \? <TitleBadge /);
-  assert.match(read('components', 'admin', 'AdminWorkspace.tsx'), /\{avatar \?\? <Avatar name=\{session\.user\.full_name\}/);
+  assert.match(read('components', 'portal', 'StudentWorkspace.tsx'), /\{avatar \?\? <Avatar name=\{session\.user\.full_name\}/);
   assert.match(rail, /testID="rail-profile"/);
   assert.match(rail, /<WardrobeSheet session=\{session\}/);
   assert.match(opening, /testID=\{`chest-unlock-\$\{u\.code\}`\}/);
@@ -181,7 +184,7 @@ test('các màn của Hành trình Đông A dựng bằng thành phần của c�
   assert.match(student, /profileAvatar=\{<FramedAvatar /);
   assert.match(student, /profileExtra=\{<ProfileLook session=\{session\} onChanged=\{home\.reload\} \/>\}/);
   assert.match(read('components', 'profile.tsx'), /\{avatar \?\? <Avatar name=\{user\.full_name\} uri=\{user\.avatar_url\} size=\{56\} \/>\}/);
-  assert.match(read('components', 'admin', 'AdminWorkspace.tsx'), /avatar=\{profileAvatar\} extra=\{profileExtra\}/);
+  assert.match(read('components', 'portal', 'StudentWorkspace.tsx'), /avatar=\{profileAvatar\} extra=\{profileExtra\}/);
   for (const gone of ['unit-path', 'unit-map-toggle', 'join-class', 'join-code', 'join-submit']) assert.ok(!home.includes(`testID="${gone}"`), gone);
   assert.doesNotMatch(home, /testID="stage-table"|<DataTable columns=\{columns\} rows=\{view\.stages\}|testID="home-path"|'Kéo bản đồ ra'|const ClassStrip|mapOpen|const UnitPath|Bản đồ bên dưới|Vị trí các chặng do nhóm phát triển đánh dấu/);
   assert.match(home, /testID=\{`saga-part-\$\{no\}`\}/);

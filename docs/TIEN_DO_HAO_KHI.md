@@ -1,5 +1,11 @@
 # Tiến độ xây dựng Hào Khí Đông A (theo mã HK.*)
 
+## Giao diện học sinh THCS theo hướng phiêu lưu – 20/11/2026
+
+- Tách khung học sinh khỏi giao diện quản trị: menu sáng, thẻ cấp độ, kinh nghiệm, vàng và chuỗi ngày, menu thu gọn trên màn hình nhỏ. Giữ hồ sơ, trang phục, cài đặt, thông báo, đổi mật khẩu và đăng xuất qua các API hiện có.
+- Làm lại sảnh chọn lớp, tìm kiếm hỗ trợ không dấu và bộ lọc lớp đã tham gia; thẻ lớp minh họa thành lũy, hướng dẫn tân binh, nhiệm vụ hôm nay và tiến độ thật. Trong lớp có nút học tiếp nổi bật, ba thẻ chiến dịch, góc thành tích và nhiệm vụ. Nút, thẻ và tiêu đề các màn học sử dụng bảng màu học sinh riêng.
+- Không thay đổi backend, cấu trúc dữ liệu, seed hay các luật chấm điểm/mở khóa. Supabase tiếp tục dùng migration 079; không tạo SQL chỉ để đổi giao diện. Giữ nguyên bản đồ lịch sử gốc và các chức năng của vai trò khác. Xem [giao diện học sinh](GIAO_DIEN_HOC_SINH.md).
+
 ## Cập nhật lịch Excel – 11/11/2026
 
 Theo yêu cầu mới nhất, bỏ gói cài Lịch Đông A và quay về tham chiếu Office Store của **Mini Calendar and Date Picker (Vertex42)** trong mẫu .xlsx giáo viên và học sinh. Giữ các sửa đổi AI, xác thực và bộ đếm mã đã có. Không có migration mới. Phần ghi chép ngày 10/11 bên dưới là lịch sử, đã được thay thế; xem [hướng dẫn hiện hành](LICH_EXCEL.md).

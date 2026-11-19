@@ -2,7 +2,7 @@
 
 Trang học sinh (`/hoc-sinh` và đường dẫn riêng của trường với `role=student`) là một vòng chơi học lịch sử về ba lần kháng chiến chống quân Mông – Nguyên (1258, 1285, 1287–1288):
 
-**đăng nhập → chọn cuộc kháng chiến → chọn chặng trên bản đồ → học kiến thức ngắn → minigame luyện tập → nhập vai khám phá và ghi nhớ → chạm trán (nếu có) → tổng kết, ôn tập → nhận thưởng, lưu tiến độ, mở chặng tiếp theo.**
+**đăng nhập → chọn lớp (chưa tham gia thì nhập mã thầy cô gửi) → chọn cuộc kháng chiến → chọn chặng trên bản đồ → học kiến thức ngắn → minigame luyện tập → nhập vai khám phá và ghi nhớ → chạm trán (nếu có) → tổng kết, ôn tập → nhận thưởng, lưu tiến độ, mở chặng tiếp theo.**
 
 Giao diện bám theo các khung hình của video giới thiệu (`HaoKhiDongA_promo_1080p_v3.mp4`); nền bản đồ là **bản đồ gốc của ba bài Wikipedia tiếng Việt** "Chiến tranh Nguyên Mông – Đại Việt lần 1 / 2 / 3" (tác giả Lưu Ly, phạm vi công cộng), không dùng bản đồ do AI vẽ.
 
@@ -16,9 +16,10 @@ Giao diện bám theo các khung hình của video giới thiệu (`HaoKhiDongA_
 | Tư liệu (`tu-lieu`) | Kho tư liệu: văn bản gốc (mở dần theo chặng), nhân vật, niên biểu, bản đồ; đều ghi nguồn |
 | Bộ thẻ (`bo-the`) | Thẻ nhân vật đã mở, huy chương, bảng xếp hạng tuần của lớp |
 | Hỏi Tiểu Tướng (`hoi`), Trợ giúp (`tro-giup`) | Trợ lý lịch sử có trích nguồn; hướng dẫn và gửi hỗ trợ |
-| Thanh trên cùng | Không có logo (xóa theo yêu cầu 16/11/2026). Đường dẫn trang ("tên trường · Học sinh / mục đang mở"), bật / tắt âm thanh trò chơi (mặc định tắt), cài đặt nhắc học, thông báo, hồ sơ, đăng xuất; menu bên trái có Đổi mật khẩu |
+| Kỳ thi (`ky-thi`), Tin nhắn (`tin-nhan`) | Bài kiểm tra thầy cô tổ chức; hộp thư và mã tham gia lớp |
+| Khung học sinh | Logo ở menu, tên mục và trường ở thanh đầu; các chỉ số thành tích thật trên màn hình rộng, cài đặt, thông báo, hồ sơ, đăng xuất; menu có Đổi mật khẩu. Âm thanh mặc định tắt, không có nút loa trên thanh đầu |
 
-**Giao diện (16/11/2026):** trang học sinh dùng chung khung `AdminWorkspace` và bộ thành phần phẳng của quản trị tổng, quản trị trường và giáo viên: menu bên trái (trên điện thoại là nút menu), tiêu đề hai nửa, thẻ viền mảnh, thẻ số liệu, bảng dữ liệu, nút đỏ son / nút giấy, hộp thoại `Sheet`, giao diện sáng. Phần riêng của trò chơi chỉ còn ba cảnh Phaser, chân dung nhân vật, huy chương và màu trạng thái chặng. Cùng ngày, theo yêu cầu, trang học sinh bỏ hẳn logo ở thanh đầu và mục Khảo sát (đường dẫn cũ `tab=khao-sat` mở trang Chiến dịch; các cổng quản trị và giáo viên vẫn giữ logo, giáo viên vẫn có Khảo sát).
+**Giao diện hiện hành (20/11/2026):** khung riêng `StudentWorkspace`, bảng màu sáng xanh ngọc – vàng, nút có chiều sâu, sảnh chọn lớp và ba cổng chiến dịch có phong cảnh minh họa. Cấp độ, vàng, chuỗi ngày, tiến độ và nhiệm vụ lấy từ máy chủ. Các màn học dùng tiêu đề Manrope và bộ thành phần hiện có với bảng màu học sinh; giữ nguyên bản đồ gốc. Mục Khảo sát không khôi phục. Khung `AdminWorkspace` của giáo viên / quản trị giữ nguyên. Xem [thiết kế và giới hạn kiểm tra](GIAO_DIEN_HOC_SINH.md).
 
 Mục đang mở nằm trên URL: `tab`, `c` (cuộc kháng chiến 1–3), `s` (mã số chặng), `v` (bước: `hoc`, `luyen`, `kham-pha`, `tran`, `tong-ket`). Back / Forward / tải lại giữ đúng chỗ. Mở và đóng bảng thông tin chặng, đổi bản đồ không thêm bước vào lịch sử trình duyệt; một bước chơi vừa kết thúc thì bước sau thay thế nó (không quay lại "màn kết quả cũ").
 

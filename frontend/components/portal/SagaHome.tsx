@@ -21,6 +21,7 @@ import {
 } from '@/components/portal/SagaKit';
 import { ChestArt, SagaRail } from '@/components/portal/SagaRail';
 import { ChestOpening } from '@/components/portal/SagaChest';
+import { AdventureHero, AdventureScene, GameButton, LearnerStats, STUDENT as S } from '@/components/portal/StudentDesign';
 import { Btn, Card, Chip, InfoNote, Inset, Segmented, Sheet, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
@@ -50,24 +51,37 @@ const ClassBar: React.FC<{ cls: MyClass }> = ({ cls }) => {
   );
 };
 
-/** Một phần của Hành trình (một cuộc kháng chiến): tiến độ chặng, sao, nút Vào học (đợt 8: bỏ ảnh thu nhỏ bản đồ trên thẻ). Bấm để mở bản đồ của phần. */
-const UnitBanner: React.FC<{ camp: SagaCampaign; onOpen: () => void; label?: string }> = ({ camp, onOpen, label = 'Vào học' }) => {
+/** Campaign portal. The miniature island is decorative; the actual campaign uses the original Wikipedia map. */
+const UnitBanner: React.FC<{ camp: SagaCampaign; onOpen: () => void }> = ({ camp, onOpen }) => {
   const tone = TONE[camp.campaign_no];
+  const { width } = useWindowDimensions();
+  const label = camp.completed ? 'Ôn lại chiến dịch' : camp.available ? 'Khám phá chiến dịch' : 'Xem điều kiện mở';
   return (
     <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={`Phần ${camp.campaign_no}: ${camp.title}, ${camp.done} trên ${camp.stages} chặng, ${camp.stars} trên ${camp.max_stars} sao. ${label}`} testID={`path-unit-${camp.campaign_no}`}
-      style={({ pressed }) => ({ borderRadius: 14, backgroundColor: tone.main, padding: 16, gap: 8, alignSelf: 'stretch', opacity: pressed ? 0.92 : 1, transform: [{ scale: pressed ? 0.995 : 1 }] })}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <View style={{ flex: 1, minWidth: 200, gap: 2 }}>
-          <Txt f="bold" size={12} color="#ffffff" style={{ opacity: 0.85, letterSpacing: 0.6 }}>PHẦN {camp.campaign_no} · {tone.years}</Txt>
-          <Txt f="bold" size={18} color="#ffffff" accessibilityRole="header">{camp.title}</Txt>
-          <Txt size={12} color="#ffffff" style={{ opacity: 0.9 }}>{camp.done}/{camp.stages} chặng · {camp.stars}/{camp.max_stars} sao{camp.available ? '' : ' · mở khi xong phần trước'}</Txt>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.85)', paddingHorizontal: 14, minHeight: 36 }} testID={`path-go-${camp.campaign_no}`}>
-          {camp.available ? <Play size={14} color="#ffffff" /> : <Lock size={14} color="#ffffff" />}<Txt f="bold" size={13} color="#ffffff">{label}</Txt>
+      style={({ pressed }) => ({ borderRadius: 22, backgroundColor: pressed ? '#f1faf6' : S.white, padding: 18, gap: 13, alignSelf: 'stretch', borderWidth: 1, borderBottomWidth: 4, borderColor: S.line, opacity: pressed ? 0.94 : 1 })}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+        {width >= 680 ? <View style={{ width: 132, height: 137, borderRadius: 17, backgroundColor: tone.soft, overflow: 'hidden', justifyContent: 'center' }}><AdventureScene variant={camp.campaign_no} style={{ width: 169, height: 137, marginLeft: -18 }} /></View> : null}
+        <View style={{ flex: 1, minWidth: 0, gap: 9 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'wrap' }}>
+            <Txt f="bold" size={12} color={tone.text} style={{ letterSpacing: 0.9 }}>PHẦN {camp.campaign_no} · {tone.years}</Txt>
+            {camp.completed ? <Check size={19} color={S.teal} /> : !camp.available ? <Lock size={17} color={S.muted} /> : null}
+          </View>
+          <Txt f="heavy" size={18} color={S.ink} accessibilityRole="header">{camp.title}</Txt>
+          <Txt size={16} color={S.muted} numberOfLines={2}>{camp.summary}</Txt>
+          <View style={{ height: 10, borderRadius: 5, backgroundColor: '#e6efe8', overflow: 'hidden' }}>
+            <View style={{ width: `${Math.max(0, Math.min(100, Math.round(camp.percent)))}%`, height: '100%', borderRadius: 5, backgroundColor: tone.main }} />
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+            <Txt size={13} color={S.muted}>{camp.done}/{camp.stages} chặng</Txt>
+            <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}><StarRow n={camp.stars > 0 ? 1 : 0} max={1} size={16} /><Txt f="bold" size={13} color={S.goldInk}>{camp.stars}/{camp.max_stars}</Txt></View>
+          </View>
         </View>
       </View>
-      <View style={{ height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.35)', overflow: 'hidden' }}>
-        <View style={{ width: `${Math.round(camp.percent)}%`, height: 8, borderRadius: 4, backgroundColor: '#ffffff' }} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <Txt f="semibold" size={13} color={camp.available ? S.teal : S.muted}>{camp.completed ? 'Đã chinh phục' : camp.available ? 'Sẵn sàng khám phá' : 'Hoàn thành phần trước để mở'}</Txt>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 11, backgroundColor: camp.available ? S.mint : '#edf1ef', paddingHorizontal: 12, minHeight: 44 }} testID={`path-go-${camp.campaign_no}`}>
+          {camp.available ? <Play size={15} color={S.teal} /> : <Lock size={15} color={S.muted} />}<Txt f="bold" size={13} color={camp.available ? S.deep : S.muted}>{label}</Txt>
+        </View>
       </View>
     </Pressable>
   );
@@ -80,29 +94,44 @@ const UnitBanner: React.FC<{ camp: SagaCampaign; onOpen: () => void; label?: str
  * cột bên phải: cấp độ – kinh nghiệm, chuỗi ngày học, vàng, nhiệm vụ hôm nay, câu cần ôn, kỳ thi.
  */
 export const HomeScreen: React.FC<{ session: Session; nav: SagaNav; loading: boolean; error: string | null; cls: MyClass | null; onLeave: () => void }> = ({ session, nav, loading, error, cls, onLeave }) => {
-  const { c } = useTheme();
   const { width } = useWindowDimensions();
-  const wide = width >= 1180;
+  const wide = width >= 1280;
   const home = nav.home;
   const hud = home?.hud ?? null;
   const next = home?.next ?? null;
+  const finished = Boolean(home && home.totals.stages > 0 && home.totals.done >= home.totals.stages);
   const level = hud?.level ?? null;
   // cột bên phải kiểu Duolingo (17/11/2026): dải chỉ số, cấp độ, giải đấu tuần, nhiệm vụ hằng ngày có hòm báu, ôn tập, kỳ thi
   const rail = home && hud && level ? <SagaRail session={session} nav={nav} wide={wide} /> : null;
   const units = home ? (
     <View style={{ gap: 14, flex: wide ? 1 : undefined, minWidth: 0, alignSelf: 'stretch' }} testID="home-units">
+      <View style={{ gap: 5 }}><Txt f="heavy" size={22} accessibilityRole="header">Bản đồ hành trình</Txt><Txt size={14} color={S.muted}>Ba chiến dịch · {home.totals.stages} chặng khám phá · Một hào khí Đông A</Txt></View>
       {home.campaigns.map((camp) => <UnitBanner key={camp.campaign_no} camp={camp} onOpen={() => nav.go('chien-dich', { c: camp.campaign_no, s: null, v: null })} />)}
-      <Txt size={12} color={c.muc3} center>Bấm một phần để mở bản đồ các chặng; cuộn xuống để xem tiếp các phần sau.</Txt>
+      <View style={{ borderRadius: 20, backgroundColor: '#e8f3ed', padding: 19, gap: 12 }}>
+        <Txt f="bold" size={17}>Đổi gió một chút?</Txt>
+        <Txt size={16} color={S.muted}>Luyện trí nhớ, nhập vai hoặc khám phá bộ thẻ của em.</Txt>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
+          <Btn title="Ôn tập" icon={RotateCcw} tone="giay" onPress={() => nav.go('cau-hoi')} />
+          <Btn title="Nhập vai" icon={Gamepad2} tone="giay" onPress={() => nav.go('nhap-vai')} />
+          <Btn title="Bộ thẻ" icon={Award} tone="giay" onPress={() => nav.go('bo-the')} />
+        </View>
+      </View>
     </View>
   ) : null;
   return (
-    <SagaPage testID="saga-home" max={1180}>
+    <SagaPage testID="saga-home" max={1320}>
       <SagaHeader title="Hành trình Đông A" back={{ label: 'Lớp học', hint: 'Về danh sách lớp học', onPress: onLeave }}
-        subtitle={home ? `Chào ${home.learner.name}! Đi hết con đường qua ba lần kháng chiến chống quân Mông – Nguyên (1258, 1285, 1287–1288): mỗi chặng học, luyện, khám phá rồi ra trận.` : 'Ba lần kháng chiến chống quân Mông – Nguyên (1258, 1285, 1287–1288).'}
-        actions={next ? <Btn title={`${next.state === 'learning' ? 'Học tiếp' : 'Bắt đầu'}: ${next.title}`} icon={Play} tone="son" size="sm" onPress={() => nav.go('chien-dich', { c: next.campaign_no, s: next.stage_id, v: null })} testID="home-continue" /> : undefined} />
+        subtitle="Cùng học, cùng khám phá, cùng ghi dấu trên hành trình lịch sử." />
       {cls ? <ClassBar cls={cls} /> : null}
+      <AdventureHero eyebrow={next ? `CHẶNG TIẾP THEO · PHẦN ${next.campaign_no}` : 'HÀNH TRÌNH CỦA EM'}
+        title={next ? `${home?.learner.name ?? 'Em'} ơi,\nhành trình đang chờ!` : finished ? 'Tuyệt lắm, em đã\nđi trọn hành trình!' : 'Lịch sử mở ra\ntừ mỗi bước nhỏ.'}
+        subtitle={next ? `Tiếp bước khám phá: ${next.title}. Học kiến thức, thử tài và nhận những ngôi sao của em.` : 'Ba lần kháng chiến chống quân Mông – Nguyên (1258, 1285, 1287–1288). Cùng tìm hiểu những câu chuyện làm nên hào khí Đông A.'}
+        variant={next?.campaign_no}
+        action={next ? <GameButton title={next.state === 'learning' ? 'Tiếp tục hành trình' : 'Bắt đầu khám phá'} icon={Play} light onPress={() => nav.go('chien-dich', { c: next.campaign_no, s: next.stage_id, v: null })} testID="home-continue" /> : undefined}
+        footnote={home ? `${home.totals.done}/${home.totals.stages} chặng hoàn thành · Điểm và sao được lưu theo tiến độ học` : undefined} />
+      {home && width < 1320 ? <LearnerStats home={home} compact={width < 600} /> : null}
       {!home || !hud || !level ? <LoadState loading={loading} error={error} onRetry={nav.refresh} /> : (
-        <View style={{ flexDirection: wide ? 'row' : 'column', gap: 18, alignItems: 'flex-start' }}>
+        <View style={{ flexDirection: wide ? 'row' : 'column', gap: 24, alignItems: 'flex-start' }}>
           {units}{rail}
         </View>
       )}

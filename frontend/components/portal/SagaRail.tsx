@@ -21,6 +21,7 @@ import type { IconType } from '@/types/game';
 import type { GameQuest, GameQuests, LeagueView } from '@/types/gamification';
 import type { SagaLook } from '@/types/saga';
 import { FramedAvatar, TitleBadge, WardrobeSheet } from '@/components/portal/SagaLook';
+import { STUDENT as S } from '@/components/portal/StudentDesign';
 
 // ---------------------------------------------------------------------- hình vẽ: hòm báu, huy hiệu giải đấu
 /** Hòm báu vẽ bằng SVG: khóa (xám), sẵn sàng (gỗ – vàng), đã mở (nắp mở, có vàng bên trong) */
@@ -93,13 +94,13 @@ const QuestRow: React.FC<{ q: GameQuest; last?: boolean }> = ({ q, last }) => {
       accessible accessibilityLabel={`${q.title}: ${Math.min(q.progress, q.target)} trên ${q.target}${done ? ', đã xong' : ''}. Thưởng ${q.reward_xp} điểm${q.reward_gold ? `, ${q.reward_gold} vàng` : ''}`}>
       <meta.icon size={26} color={meta.color} />
       <View style={{ flex: 1, gap: 6 }}>
-        <Txt f="bold" size={13} numberOfLines={2}>{q.title}</Txt>
+        <Txt f="bold" size={14} numberOfLines={2}>{q.title}</Txt>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <View style={{ flex: 1, height: 16, borderRadius: 8, backgroundColor: c.adminLine, overflow: 'hidden', justifyContent: 'center' }}>
-            <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.round(value * 100)}%`, backgroundColor: done ? c.moc : c.vang, borderRadius: 8 }} />
-            <Txt f="bold" size={10} center color={c.muc}>{Math.min(q.progress, q.target)} / {q.target}</Txt>
+          <View style={{ flex: 1, height: 10, borderRadius: 5, backgroundColor: c.adminLine, overflow: 'hidden' }}>
+            <View style={{ height: '100%', width: `${Math.round(value * 100)}%`, backgroundColor: done ? S.teal : '#d09b28', borderRadius: 5 }} />
           </View>
-          <ChestArt size={26} state={done ? 'opened' : 'ready'} />
+          <Txt f="bold" size={12} color={c.muc2}>{Math.min(q.progress, q.target)}/{q.target}</Txt>
+          <ChestArt size={29} state={done ? 'opened' : 'locked'} />
         </View>
       </View>
     </View>
@@ -221,18 +222,20 @@ export const SagaRail: React.FC<{ session: Session; nav: SagaNav; wide: boolean 
   ];
   const leagueLine = !league.data || !mine ? 'Học để có điểm kinh nghiệm và vào bảng xếp hạng tuần này.'
     : mine.zone === 'promote' ? 'Em đang ở vùng lên hạng, giữ vững nhé!'
-    : mine.zone === 'demote' ? 'Em đang ở vùng xuống hạng – học thêm để vượt lên!'
+    : mine.zone === 'demote' ? 'Mỗi lượt học đều giúp em tiến bộ và tích lũy thêm điểm.'
     : league.data.promote ? `Còn ${mine.rank - league.data.promote} hạng nữa là vào vùng lên hạng.` : 'Học thêm để tăng hạng trong tuần.';
   return (
-    <View style={{ gap: 14, width: wide ? 330 : '100%' }} testID="saga-rail">
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingHorizontal: 4 }} testID="home-metrics">
+    <View style={{ gap: 18, width: wide ? 330 : '100%' }} testID="saga-rail">
+      <Txt f="heavy" size={22} accessibilityRole="header">Góc thành tích</Txt>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }} testID="home-metrics">
         {stats.map((s) => (
-          <View key={s.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }} accessible accessibilityLabel={`${s.value} ${s.label}`}>
-            <s.icon size={20} color={s.color} /><Txt f="heavy" size={15} color={s.color}>{s.value}</Txt>
+          <View key={s.label} style={{ flexGrow: 1, flexBasis: '45%', borderRadius: 15, borderWidth: 1, borderColor: S.line, backgroundColor: '#ffffff', padding: 12, gap: 6 }} accessible accessibilityLabel={`${s.value} ${s.label}`}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><s.icon size={20} color={s.color} /><Txt f="heavy" size={19} color={S.ink}>{s.value}</Txt></View>
+            <Txt size={12} color={S.muted}>{s.label}</Txt>
           </View>
         ))}
       </View>
-      <Card flat pad={14} style={{ borderRadius: 14, gap: 10, flexDirection: 'row', alignItems: 'center' }} testID="rail-profile">
+      <Card flat pad={17} style={{ borderRadius: 20, borderWidth: 1, borderBottomWidth: 4, gap: 10, flexDirection: 'row', alignItems: 'center' }} testID="rail-profile">
         <FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={52} frame={home.look?.frame} preset={home.look?.avatar} />
         <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
           <Txt f="bold" size={15} numberOfLines={1}>{home.learner.name}</Txt>
@@ -240,14 +243,22 @@ export const SagaRail: React.FC<{ session: Session; nav: SagaNav; wide: boolean 
         </View>
         <Btn icon={Shirt} label="Kho trang phục" tone="giay" size="sm" onPress={() => setSheet('wardrobe')} testID="open-wardrobe" />
       </Card>
-      <Card flat pad={14} style={{ borderRadius: 14, gap: 8 }} testID="home-level">
+      <Card flat pad={17} style={{ borderRadius: 20, borderWidth: 1, borderBottomWidth: 4, gap: 10 }} testID="home-level">
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Txt f="bold" size={15}>Cấp {level.level} · {level.title}</Txt>
-          <Txt size={12} color={c.muc3}>{level.next_xp ? `${num(hud.xp)}/${num(level.next_xp)} điểm` : 'cấp cao nhất'}</Txt>
+          <Txt f="bold" size={15} style={{ flex: 1 }}>Cấp {level.level} · {level.title}</Txt>
         </View>
-        <Meter value={level.progress / 100} label={`Cấp ${level.level}, ${level.title}. ${num(hud.xp)} điểm kinh nghiệm`} />
+        <Meter value={level.progress / 100} height={11} label={`Cấp ${level.level}, ${level.title}. ${num(hud.xp)} điểm kinh nghiệm`} />
+        <Txt size={13} color={c.muc3}>{level.next_xp ? `${num(hud.xp)}/${num(level.next_xp)} kinh nghiệm · Từng bước tiến lên` : 'Em đã đạt cấp cao nhất'}</Txt>
       </Card>
-      <Card flat pad={14} style={{ borderRadius: 14, gap: 10 }} testID="rail-league">
+      <Card flat pad={17} style={{ borderRadius: 20, borderWidth: 1, borderBottomWidth: 4, gap: 5, backgroundColor: '#fffdf4' }} testID="rail-quests">
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <Txt f="bold" size={16}>Nhiệm vụ hằng ngày</Txt>
+          <Btn title="XEM TẤT CẢ" tone="ghost" size="sm" disabled={!quests.data} onPress={() => setSheet('quests')} testID="rail-quests-open" />
+        </View>
+        {quests.data ? quests.data.daily.map((q, i) => <QuestRow key={q.id} q={q} last={i === quests.data!.daily.length - 1} />)
+          : <Txt size={14} color={c.muc3}>{quests.error ? 'Chưa tải được nhiệm vụ.' : 'Đang tải nhiệm vụ…'}</Txt>}
+      </Card>
+      <Card flat pad={17} style={{ borderRadius: 20, borderWidth: 1, borderBottomWidth: 4, gap: 10 }} testID="rail-league">
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Txt f="bold" size={16}>{league.data ? `Giải ${league.data.tier_name}` : 'Giải đấu tuần'}</Txt>
           <Btn title="XEM BẢNG" tone="ghost" size="sm" disabled={!league.data} onPress={() => setSheet('league')} testID="rail-league-open" />
@@ -259,14 +270,6 @@ export const SagaRail: React.FC<{ session: Session; nav: SagaNav; wide: boolean 
             <Txt size={13} color={c.muc2}>{league.error ? 'Chưa tải được bảng xếp hạng.' : leagueLine}</Txt>
           </View>
         </View>
-      </Card>
-      <Card flat pad={14} style={{ borderRadius: 14, gap: 2 }} testID="rail-quests">
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Txt f="bold" size={16}>Nhiệm vụ hằng ngày</Txt>
-          <Btn title="XEM TẤT CẢ" tone="ghost" size="sm" disabled={!quests.data} onPress={() => setSheet('quests')} testID="rail-quests-open" />
-        </View>
-        {quests.data ? quests.data.daily.map((q, i) => <QuestRow key={q.id} q={q} last={i === quests.data!.daily.length - 1} />)
-          : <Txt size={13} color={c.muc3}>{quests.error ? 'Chưa tải được nhiệm vụ.' : 'Đang tải nhiệm vụ…'}</Txt>}
       </Card>
       <Card flat pad={14} style={{ borderRadius: 14, gap: 8 }}>
         <BlockTitle title={home.review_due ? `${home.review_due} câu cần ôn lại` : 'Ôn tập nhanh'} icon={RotateCcw} />
