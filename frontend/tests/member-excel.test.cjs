@@ -78,6 +78,12 @@ test('Lớp học / Phân công giáo viên (19/11/2026): tạo lớp chỉ Lớ
  // xếp lớp từ Excel và đề nghị đổi giáo viên chỉ ở Phân công giáo viên
  assert.match(classes,/actions=\{assign \? <>\s*<Btn title=\{`Đề nghị đổi giáo viên/);
  assert.match(classes,/importing && yearId \? \(assign \? <ClassImportSheet/);
+ // nhập tay từng lớp ở Phân công (như Tạo lớp): lớp, học kỳ, giáo viên phụ trách (chọn sẵn giáo viên hiện tại), học sinh theo mã
+ assert.match(classes,/<Btn title="Phân công lớp" icon=\{Plus\} tone="son" size="sm" disabled=\{!yearId \|\| ended\} onPress=\{\(\) => setAssigning\(true\)\} testID="assign-add" \/>/);
+ const manual=classes.slice(classes.indexOf('const AssignForm'),classes.indexOf('// ---------------------------------------------------------------------- tạo lớp từ Excel'));
+ assert.deepEqual([...manual.matchAll(/\{ name: '(\w+)'/g)].map(m=>m[1]),['class_id','semester','teacher_id','student_ids']);
+ assert.match(manual,/api\.addClassMembers\(token, classId, ids\)/);
+ assert.match(manual,/confirm_reassignment: current \? true : undefined/);
  assert.match(classes,/api\.classImportSpec\(token, yearId\)/);
  assert.match(classes,/<ImportSheet title=\{title\} multiple hint=\{`Mỗi lớp một sheet \(chép sheet trong Excel\) hoặc mỗi lớp một file \(chọn nhiều file cùng lúc\)\. Mỗi lớp điền đủ Lớp, Khối, Học kỳ, Giáo viên phụ trách; thiếu một ô là file bị báo lỗi\./);
  // chọn nhiều file: xem trước / lưu lần lượt, gộp kết quả, mỗi dòng ghi file và lớp
