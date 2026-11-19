@@ -384,7 +384,7 @@ describe('file migration', () => {
     expect(await sql(url, 'SELECT checksum FROM public._prisma_migrations')).toEqual([{ checksum: 'original-checksum' }]);
   });
 
-  test('014 giữ nguyên lớp, giáo viên, học sinh hiện có: tạo năm học, mã tham gia 6 ký tự, bảng giáo viên–lớp', async () => {
+  test('014 giữ nguyên lớp, giáo viên, học sinh hiện có: tạo năm học, mã tham gia (079: theo quy ước), bảng giáo viên–lớp', async () => {
     // Chỉ bản sao tạm của file 014–016 được dời đi; migration trong repo giữ nguyên
     const held = new Map<string, string>();
     for (const f of readdirSync(dir).filter((x) => /^0(1[4-9]|[2-9][0-9])_/.test(x))) {
@@ -406,9 +406,12 @@ describe('file migration', () => {
     expect(await sql(url, 'SELECT c.id, y.label AS year FROM app_classes c LEFT JOIN app_school_years y ON y.id = c.year_id WHERE c.school_id = 901 ORDER BY c.id')).toEqual([
       { id: 901, year: '2025-2026' }, { id: 902, year: '2026-2027' }, { id: 903, year: null },
     ]);
-    const codes = await sql<{ join_code: string }>(url, 'SELECT join_code FROM app_classes WHERE school_id = 901');
-    expect(codes.every((c) => /^[ABCDEFGHJKLMNPQRSTUVWXYZ2-9]{6}$/.test(c.join_code))).toBe(true);
-    expect(new Set(codes.map((c) => c.join_code)).size).toBe(3);
+    // 014 cấp mã 6 ký tự; 079 (19/11/2026, mã chỉ theo quy ước): lớp có giáo viên đổi sang DongA + lớp + giáo viên + HK + năm học, lớp chưa từng có giáo viên bỏ mã
+    const codes = await sql<{ id: number; join_code: string | null }>(url, 'SELECT id, join_code FROM app_classes WHERE school_id = 901 ORDER BY id');
+    expect(codes.map((c) => c.id)).toEqual([901, 902, 903]);
+    expect(codes[0].join_code).toMatch(/^DongALop7A1[A-Za-z0-9]*HK[12]2025-2026$/);
+    expect(codes[1].join_code).toMatch(/^DongALop7A2[A-Za-z0-9]*HK[12]2026-2027$/);
+    expect(codes[2].join_code).toBeNull();
     expect(await sql(url, 'SELECT class_id, teacher_id FROM app_class_teachers ORDER BY class_id')).toEqual([{ class_id: 901, teacher_id: 901 }, { class_id: 902, teacher_id: 901 }]);
     // Dữ liệu cũ còn nguyên: lớp có mật khẩu gia nhập cũ, học sinh bị khóa vẫn bị khóa, thành viên lớp còn
     expect(await sql(url, 'SELECT is_active, lock_reason, admin_level FROM app_users WHERE id = 902')).toEqual([{ is_active: 0, lock_reason: null, admin_level: 1 }]);

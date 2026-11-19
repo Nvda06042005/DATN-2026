@@ -4,7 +4,8 @@
  *   xuất PDF danh sách lớp dạng bảng (như PDF danh sách giáo viên / học sinh); sửa tên / khối / sĩ số dự kiến, lưu trữ / xóa lớp.
  * - "Phân công giáo viên" (`mode="assign"`, ngay dưới Lớp học): giáo viên phụ trách theo học kỳ, mã tham gia DongA + lớp + giáo viên + HK + năm học,
  *   xếp học sinh vào lớp (chọn theo mã hoặc file Excel xếp lớp), chuyển lớp cùng khối, đề nghị đổi giáo viên, PDF danh sách học sinh theo lớp.
- *   Nút "Phân công lớp" (nhập tay, như Tạo lớp): chọn lớp, học kỳ, giáo viên phụ trách và học sinh theo mã cho từng lớp.
+ *   Nút "Phân công lớp" (nhập tay, như Tạo lớp): phân công giáo viên phụ trách cho một lớp đã tạo (lớp, học kỳ, giáo viên) – không gồm học sinh.
+ *   Mã tham gia chỉ theo quy ước DongA + lớp + giáo viên + HK + năm học: lớp chưa có giáo viên thì chưa có mã (migration 079). Cột Trạng thái là nút gạt Hoạt động ↔ Lưu trữ.
  * Nút "Nhân bản sang năm học mới" đã bỏ khỏi giao diện theo yêu cầu 12/11/2026 (API nhân bản vẫn giữ).
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -18,7 +19,7 @@ import { CredentialSheet, DataTable, distinctValues, DownloadButton, ErrorNote, 
 import { dateText, GENDER_TEXT } from '@/components/admin/AccountSheet';
 import { personFields } from './SchoolPeople';
 import type { Session } from '@/components/auth';
-import { Btn, ConfirmSheet, Field, Inset, Sheet, Spinner, Txt, useToast } from '@/components/ui';
+import { Btn, ConfirmSheet, Field, Inset, Sheet, Spinner, Switch, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { Account, ClassDetail, ClassItem, CreatedAccount, YearItem } from '@/types/api';
 
@@ -30,6 +31,8 @@ const KIND_TEXT: Record<string, string> = {
 const SEMESTERS=[{value:'1',label:'Học kỳ 1'},{value:'2',label:'Học kỳ 2'}];
 const GRADES=[{ value: '', label: 'Mọi khối' }, ...[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }))];
 const GRADE_OPTIONS=[6, 7, 8, 9].map((g) => ({ value: String(g), label: `Khối ${g}` }));
+/** Lớp chưa có giáo viên phụ trách thì chưa có mã tham gia (mã theo quy ước cần giáo viên) */
+const NO_JOIN_CODE = 'Chưa có – phân công giáo viên';
 
 /**
  * Chọn học sinh của trường theo mã (như cột Mã học sinh của file Excel xếp lớp, yêu cầu 13/11/2026): gõ mã hoặc họ tên để tìm, bấm để chọn;
@@ -89,6 +92,7 @@ const StudentPicker: React.FC<{ session: Session; value: string[]; onChange: (id
 };
 
 export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYearsChanged: () => void; mode?: 'classes' | 'assign' }> = ({ session, years, mode = 'classes' }) => {
+  const { c } = useTheme();
   const { token } = session;
   const assign = mode === 'assign';
   const [yearSel, setYearSel] = useState('');
@@ -108,6 +112,16 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
   const [open, setOpen] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [toggling, setToggling] = useState<ClassItem | null>(null);
+  const toggle = useAction(session.expired);
+  /** Nút gạt Trạng thái: bật = hoạt động, tắt = lưu trữ (hỏi xác nhận); năm học đã kết thúc thì khóa */
+  const statusSwitch = (x: ClassItem) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <Switch value={x.is_active} disabled={ended || x.year_status === 'ended'} testID={`class-active-${x.id}`} onChange={() => setToggling(x)}
+        label={x.is_active ? `Lớp ${x.name} đang hoạt động. Gạt để lưu trữ` : `Lớp ${x.name} đã lưu trữ. Gạt để khôi phục`} />
+      <Txt size={13} numberOfLines={1} style={{ flexShrink: 1 }}>{x.is_active ? (assign && !x.join_open ? 'Đóng tự tham gia' : 'Hoạt động') : 'Đã lưu trữ'}</Txt>
+    </View>
+  );
   const [importing, setImporting] = useState(false);
   const requests=useLoad(()=>(assign ? api.teacherChangeRequests(token) : Promise.resolve([])),[token, assign],session.expired);
   const [reviewing,setReviewing]=useState(false);
@@ -158,15 +172,15 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
             { key: 'name', filter: f_name, label: 'Lớp', render: (x) => <NameCell main={x.name} sub={`Khối ${x.grade ?? '?'}`} /> },
             { key: 'teachers', filter: f_teacher, label: 'Giáo viên phụ trách lớp', flex: 2, render: (x) => <NameCell main={x.teachers.map((t) => t.full_name).join(', ') || 'Chưa phân công'} sub={`Học kỳ ${semester}`} /> },
             { key: 'students', filter: f_students, label: 'Sĩ số', render: (x) => <Txt size={14}>{x.students}{x.expected_size ? ` / ${x.expected_size}` : ''}</Txt> },
-            { key: 'code', filter: f_join, label: 'Mã tham gia', flex: 1.6, render: (x) => <Txt f="bold" size={(x.join_code?.length ?? 0) > 8 ? 13 : 15} selectable numberOfLines={1} style={{ letterSpacing: (x.join_code?.length ?? 0) > 8 ? 0 : 2 }}>{x.join_code ?? '—'}</Txt> },
-            { key: 'status', filter: f_active, label: 'Trạng thái', render: (x) => <StatusChip kind={x.is_active ? 'on' : 'muted'} text={x.is_active ? (x.join_open ? 'Hoạt động' : 'Đóng tự tham gia') : 'Đã lưu trữ'} /> },
+            { key: 'code', filter: f_join, label: 'Mã tham gia', flex: 1.6, render: (x) => (x.join_code ? <Txt f="bold" size={13} selectable numberOfLines={1}>{x.join_code}</Txt> : <Txt size={13} color={c.muc3} numberOfLines={1}>{NO_JOIN_CODE}</Txt>) },
+            { key: 'status', filter: f_active, label: 'Trạng thái', flex: 1.2, render: statusSwitch },
           ] : [
             { key: 'name', filter: f_name, label: 'Lớp', render: (x) => <NameCell main={x.name} sub={x.school_year} /> },
             { key: 'registration', filter: f_registration, label: 'Mã lớp', render: (x) => <Txt size={14} selectable>{x.registration_code}</Txt> },
             { key: 'grade', label: 'Khối', flex: 0.7, render: (x) => <Txt size={14}>Khối {x.grade ?? '?'}</Txt> },
             { key: 'expected', label: 'Sĩ số dự kiến', flex: 0.8, render: (x) => <Txt size={14}>{x.expected_size ?? '—'}</Txt> },
             { key: 'students', filter: f_students, label: 'Sĩ số', flex: 0.7, render: (x) => <Txt size={14}>{x.students}</Txt> },
-            { key: 'status', filter: f_active, label: 'Trạng thái', render: (x) => <StatusChip kind={x.is_active ? 'on' : 'muted'} text={x.is_active ? 'Hoạt động' : 'Đã lưu trữ'} /> },
+            { key: 'status', filter: f_active, label: 'Trạng thái', flex: 1.2, render: statusSwitch },
           ]} />
       ) : null}
 
@@ -186,6 +200,9 @@ export const SchoolClasses: React.FC<{ session: Session; years: YearItem[]; onYe
             reload();
           }} />
       ) : null}
+      <ConfirmSheet open={!!toggling} title={toggling?.is_active ? 'Lưu trữ lớp' : 'Khôi phục lớp'} busy={toggle.busy} confirmLabel={toggling?.is_active ? 'Lưu trữ' : 'Khôi phục'} onCancel={() => setToggling(null)}
+        message={toggling?.is_active ? `Lưu trữ lớp ${toggling?.name}? Lớp không nhận học sinh mới và mã tham gia ngừng dùng được; dữ liệu giữ nguyên, khôi phục lại được.` : `Khôi phục lớp ${toggling?.name} về trạng thái hoạt động?`}
+        onConfirm={async () => { if (toggling && (await toggle.run(() => api.archiveClass(token, toggling.id, toggling.is_active), toggling.is_active ? 'Đã lưu trữ lớp' : 'Đã khôi phục lớp'))) { setToggling(null); reload(); } }} />
       {assigning && year ? <AssignForm session={session} yearId={year.id} yearLabel={year.label} semester={semester} teacherOptions={teacherOptions} onClose={() => setAssigning(false)} onDone={reload} /> : null}
       {importing && yearId ? (assign ? <ClassImportSheet session={session} yearId={yearId} onClose={() => setImporting(false)} onDone={reload} /> : <ClassCreateImportSheet session={session} yearId={yearId} onClose={() => setImporting(false)} onDone={reload} />) : null}
     </Page>
@@ -216,40 +233,32 @@ const AssignTeacherField: React.FC<{ session: Session; v: Record<string, string 
       <ErrorNote message={detail.error} />
       {k ? (
         <View testID="assign-class-info"><Inset style={{ gap: 4 }}>
-          <Txt size={13}><Txt f="bold" size={13}>Mã lớp: </Txt>{k.registration_code} · <Txt f="bold" size={13}>Mã tham gia: </Txt>{k.join_code ?? '—'}</Txt>
+          <Txt size={13}><Txt f="bold" size={13}>Mã lớp: </Txt>{k.registration_code} · <Txt f="bold" size={13}>Mã tham gia: </Txt>{k.join_code ?? 'chưa có (cấp theo quy ước khi lưu phân công)'}</Txt>
           <Txt size={13}><Txt f="bold" size={13}>Học kỳ {semester} · giáo viên đang phụ trách: </Txt>{term.map((t) => t.teacher_name).filter(Boolean).join(', ') || 'Chưa phân công'} · <Txt f="bold" size={13}>Sĩ số: </Txt>{k.members.length}{k.expected_size ? ` / ${k.expected_size}` : ''}</Txt>
         </Inset></View>
       ) : <Spinner label="Đang tải lớp…" />}
       {needsApproval
-        ? <Txt size={13} color={c.muc2}>Học kỳ {semester} đang diễn ra và lớp đã có giáo viên phụ trách: đổi giáo viên qua “Đề nghị đổi giáo viên” để quản trị trường duyệt. Vẫn thêm được học sinh bên dưới.</Txt>
-        : <AdminSelect label="Giáo viên phụ trách lớp (mã giáo viên · họ tên)" value={String(v.teacher_id ?? '')} options={[{ value: '', label: 'Chưa phân công' }, ...teacherOptions]} onChange={(value) => set('teacher_id', String(value))} testID="assign-teacher" />}
+        ? <Txt size={13} color={c.muc2}>Học kỳ {semester} đang diễn ra và lớp đã có giáo viên phụ trách: đổi giáo viên qua “Đề nghị đổi giáo viên” để quản trị trường duyệt.</Txt>
+        : <AdminSelect label="Giáo viên phụ trách lớp * (mã giáo viên · họ tên)" value={String(v.teacher_id ?? '')} options={[{ value: '', label: 'Chọn giáo viên' }, ...teacherOptions]} onChange={(value) => set('teacher_id', String(value))} testID="assign-teacher" />}
       {!needsApproval && current && String(v.teacher_id) !== String(current) ? <Txt size={13} color={c.vangChu}>Lưu sẽ thay giáo viên đang phụ trách học kỳ {semester}; phân công học kỳ khác và dữ liệu của lớp giữ nguyên.</Txt> : null}
     </View>
   );
 };
 
-/** Học sinh thêm vào lớp, chọn theo mã; không hiện học sinh đã ở trong lớp */
-const AssignStudentsField: React.FC<{ session: Session; v: Record<string, string | string[]>; set: (name: string, value: string | string[]) => void }> = ({ session, v, set }) => {
-  const classId = Number(v.class_id) || 0;
-  const detail = useLoad(() => (classId ? api.getClass(session.token, classId) : Promise.resolve(null)), [session.token, classId], session.expired);
-  const members = useMemo(() => new Set((detail.data?.members ?? []).map((m) => m.id)), [detail.data]);
-  return <StudentPicker session={session} label="Học sinh thêm vào lớp (mã học sinh · họ tên)" value={Array.isArray(v.student_ids) ? v.student_ids : []} onChange={(ids) => set('student_ids', ids)} exclude={members} />;
-};
-
 const AssignForm: React.FC<{ session: Session; yearId: number; yearLabel: string; semester: number; teacherOptions: Array<{ value: string; label: string }>; onClose: () => void; onDone: () => void }> = ({ session, yearId, yearLabel, semester, teacherOptions, onClose, onDone }) => {
   const { token } = session;
   const toast = useToast();
-  const classes = useLoad(() => api.listClasses(token, { year_id: yearId, active: 'true', limit: 200 }), [token, yearId], session.expired);
-  const classOptions = (classes.data?.items ?? []).map((x) => ({ value: String(x.id), label: `${x.name} · Khối ${x.grade ?? '?'}` }));
+  const classes = useLoad(() => api.listClasses(token, { year_id: yearId, active: 'true', semester, limit: 200 }), [token, yearId, semester], session.expired);
+  // lớp đã tạo ở mục Lớp học, kèm giáo viên đang phụ trách học kỳ đang chọn trên trang
+  const classOptions = (classes.data?.items ?? []).map((x) => ({ value: String(x.id), label: `${x.name} · Khối ${x.grade ?? '?'} · ${x.teachers.map((t) => t.full_name).join(', ') || 'chưa phân công'}` }));
   return (
-    <FormSheet title={`Phân công lớp – năm học ${yearLabel}`} subtitle="Chọn lớp, học kỳ, giáo viên phụ trách và học sinh (theo mã). Có giáo viên phụ trách thì mã tham gia là DongA + lớp + giáo viên + HK + năm học." submitLabel="Lưu phân công" wide
+    <FormSheet title={`Phân công lớp – năm học ${yearLabel}`} subtitle="Phân công giáo viên phụ trách cho lớp đã tạo ở mục Lớp học. Lưu xong lớp có mã tham gia DongA + lớp + giáo viên + HK + năm học." submitLabel="Lưu phân công" wide
       fields={[
         { name: 'class_id', label: 'Lớp', required: true, render: (v, set) => <AdminSelect label="Lớp *" value={String(v.class_id ?? '')} options={[{ value: '', label: classes.data ? (classOptions.length ? 'Chọn lớp' : 'Năm học chưa có lớp – tạo ở mục Lớp học') : 'Đang tải lớp…' }, ...classOptions]} onChange={(value) => set('class_id', String(value))} testID="assign-class" /> },
         { name: 'semester', label: 'Học kỳ', type: 'select', required: true, options: SEMESTERS },
         { name: 'teacher_id', label: 'Giáo viên phụ trách', render: (v, set) => <AssignTeacherField session={session} v={v} set={set} teacherOptions={teacherOptions} /> },
-        { name: 'student_ids', label: 'Học sinh', render: (v, set) => <AssignStudentsField session={session} v={v} set={set} /> },
       ]}
-      initial={{ class_id: '', semester: String(semester), teacher_id: '', student_ids: [] }} onClose={onClose}
+      initial={{ class_id: '', semester: String(semester), teacher_id: '' }} onClose={onClose}
       onSubmit={async (v) => {
         const classId = Number(v.class_id);
         if (!classId) throw new Error('Chọn lớp cần phân công.');
@@ -259,12 +268,11 @@ const AssignForm: React.FC<{ session: Session; yearId: number; yearLabel: string
         const current = term.find((t) => t.teacher_id)?.teacher_id ?? null;
         const chosen = v.teacher_id ? Number(v.teacher_id) : null;
         const needsApproval = k.year_status === 'active' && sem === k.active_semester && (term.some((t) => t.teacher_id !== null) || !!k.legacy_teacher_review);
-        const ids = valuesToIds(v.student_ids);
-        const teacherChange = !needsApproval && chosen !== current;
-        if (!teacherChange && !ids.length) throw new Error(needsApproval ? 'Chọn học sinh để thêm vào lớp (đổi giáo viên của học kỳ đang diễn ra làm qua Đề nghị đổi giáo viên).' : 'Chọn giáo viên khác hoặc học sinh để phân công.');
-        if (teacherChange) await api.updateClass(token, classId, { semester: sem, teacher_ids: chosen ? [chosen] : [], confirm_reassignment: current ? true : undefined });
-        const added = ids.length ? (await api.addClassMembers(token, classId, ids)).added : 0;
-        toast(`Đã lưu phân công lớp ${k.name}${teacherChange ? ' · giáo viên phụ trách' : ''}${ids.length ? ` · thêm ${added} học sinh` : ''}`);
+        if (needsApproval) throw new Error(`Học kỳ ${sem} đang diễn ra và lớp ${k.name} đã có giáo viên phụ trách: đổi giáo viên qua Đề nghị đổi giáo viên.`);
+        if (!chosen) throw new Error('Chọn giáo viên phụ trách lớp.');
+        if (chosen === current) throw new Error(`Giáo viên này đang phụ trách lớp ${k.name} học kỳ ${sem}.`);
+        const saved = await api.updateClass(token, classId, { semester: sem, teacher_ids: [chosen], confirm_reassignment: current ? true : undefined });
+        toast(`Đã phân công giáo viên cho lớp ${k.name}${saved.join_code ? ` · mã tham gia ${saved.join_code}` : ''}`);
         onDone();
         onClose();
       }} />
@@ -364,9 +372,10 @@ const ClassSheet: React.FC<{
               <>
                 <Inset style={{ gap: 6 }}>
                   <Txt size={13} color={c.muc2}>Mã tham gia lớp (giáo viên đọc cho học sinh nhập)</Txt>
-                  <Txt f="bold" size={(k.join_code?.length ?? 0) > 8 ? 20 : 30} selectable style={{ letterSpacing: (k.join_code?.length ?? 0) > 8 ? 0.5 : 6 }} testID="class-join-code">{k.join_code ?? '—'}</Txt>
+                  {k.join_code ? <Txt f="bold" size={20} selectable style={{ letterSpacing: 0.5 }} testID="class-join-code">{k.join_code}</Txt>
+                    : <Txt size={15} color={c.muc2} testID="class-join-code">Chưa có mã – bấm “Phân công giáo viên”: lưu xong lớp có mã DongA + lớp + giáo viên + HK + năm học.</Txt>}
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    <Btn title="Đổi mã mới" icon={RefreshCw} tone="giay" size="sm" disabled={locked || !k.is_active} onPress={() => setDialog('code')} />
+                    <Btn title="Cập nhật mã theo quy ước" icon={RefreshCw} tone="giay" size="sm" disabled={locked || !k.is_active || !k.teachers.length} onPress={() => setDialog('code')} />
                     <Btn title={k.join_open ? 'Tắt tự tham gia' : 'Bật tự tham gia'} tone="giay" size="sm" disabled={locked} onPress={async () => { if (await run(() => api.updateClass(token, id, { join_open: !k.join_open }), 'Đã cập nhật')) refresh(); }} />
                   </View>
                 </Inset>
@@ -458,7 +467,7 @@ const ClassSheet: React.FC<{
         onConfirm={async () => { if (k && (await run(() => api.archiveClass(token, id, k.is_active), 'Đã cập nhật lớp'))) { setDialog(null); refresh(); } }} />
       <ConfirmSheet open={dialog === 'delete'} title="Xóa lớp" busy={busy} confirmLabel="Xóa lớp" onCancel={() => setDialog(null)} message={`Xóa hẳn lớp ${k?.name}? Chỉ xóa được lớp chưa có học sinh.`}
         onConfirm={async () => { if (await run(() => api.deleteClass(token, id).then(() => true), 'Đã xóa lớp')) { setDialog(null); onChanged(); onClose(); } }} />
-      <ConfirmSheet open={dialog === 'code'} title="Đổi mã tham gia lớp" busy={busy} confirmLabel="Đổi mã" onCancel={() => setDialog(null)} message="Tạo mã mới và vô hiệu hóa mã cũ? Học sinh đã vào lớp không bị ảnh hưởng."
+      <ConfirmSheet open={dialog === 'code'} title="Cập nhật mã tham gia theo quy ước" busy={busy} confirmLabel="Cập nhật mã" onCancel={() => setDialog(null)} message="Đặt lại mã tham gia theo quy ước DongA + lớp + giáo viên phụ trách + HK + năm học? Mã cũ ngừng dùng được; học sinh đã vào lớp không bị ảnh hưởng."
         onConfirm={async () => { if (await run(() => api.regenerateJoinCode(token, id), 'Đã đổi mã')) { setDialog(null); refresh(); } }} />
     </>
   );

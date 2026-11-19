@@ -78,11 +78,17 @@ test('Lớp học / Phân công giáo viên (19/11/2026): tạo lớp chỉ Lớ
  // xếp lớp từ Excel và đề nghị đổi giáo viên chỉ ở Phân công giáo viên
  assert.match(classes,/actions=\{assign \? <>\s*<Btn title=\{`Đề nghị đổi giáo viên/);
  assert.match(classes,/importing && yearId \? \(assign \? <ClassImportSheet/);
- // nhập tay từng lớp ở Phân công (như Tạo lớp): lớp, học kỳ, giáo viên phụ trách (chọn sẵn giáo viên hiện tại), học sinh theo mã
+ // nhập tay từng lớp ở Phân công (như Tạo lớp): chỉ phân công giáo viên cho lớp đã tạo – lớp, học kỳ, giáo viên (chọn sẵn giáo viên hiện tại); không gồm học sinh (19/11/2026)
  assert.match(classes,/<Btn title="Phân công lớp" icon=\{Plus\} tone="son" size="sm" disabled=\{!yearId \|\| ended\} onPress=\{\(\) => setAssigning\(true\)\} testID="assign-add" \/>/);
  const manual=classes.slice(classes.indexOf('const AssignForm'),classes.indexOf('// ---------------------------------------------------------------------- tạo lớp từ Excel'));
- assert.deepEqual([...manual.matchAll(/\{ name: '(\w+)'/g)].map(m=>m[1]),['class_id','semester','teacher_id','student_ids']);
- assert.match(manual,/api\.addClassMembers\(token, classId, ids\)/);
+ assert.deepEqual([...manual.matchAll(/\{ name: '(\w+)'/g)].map(m=>m[1]),['class_id','semester','teacher_id']);
+ assert.doesNotMatch(manual,/addClassMembers|StudentPicker|student_ids/);
+ // mã tham gia chỉ theo quy ước: lớp chưa có giáo viên thì chưa có mã; nút cập nhật mã theo quy ước; cột Trạng thái là nút gạt lưu trữ
+ assert.match(classes,/const NO_JOIN_CODE = 'Chưa có – phân công giáo viên';/);
+ assert.match(classes,/title="Cập nhật mã theo quy ước"/);
+ assert.doesNotMatch(classes,/title="Đổi mã mới"/);
+ assert.match(classes,/\{ key: 'status', filter: f_active, label: 'Trạng thái', flex: 1\.2, render: statusSwitch \}/);
+ assert.match(classes,/api\.archiveClass\(token, toggling\.id, toggling\.is_active\)/);
  assert.match(manual,/confirm_reassignment: current \? true : undefined/);
  assert.match(classes,/api\.classImportSpec\(token, yearId\)/);
  assert.match(classes,/<ImportSheet title=\{title\} multiple hint=\{`Mỗi lớp một sheet \(chép sheet trong Excel\) hoặc mỗi lớp một file \(chọn nhiều file cùng lúc\)\. Mỗi lớp điền đủ Lớp, Khối, Học kỳ, Giáo viên phụ trách; thiếu một ô là file bị báo lỗi\./);
@@ -92,7 +98,7 @@ test('Lớp học / Phân công giáo viên (19/11/2026): tạo lớp chỉ Lớ
  assert.match(kit,/sheet: `\$\{f\.name\}\$\{r\.sheet \? ` · \$\{r\.sheet\}` : ''\}`/);
  assert.match(kit,/\{r\.sheet \? `\$\{r\.sheet\} · ` : ''\}Dòng \{r\.row\}/);
  // mã tham gia dài theo quy ước DongA… hiển thị gọn; học sinh gõ được mã dài
- assert.match(classes,/size=\{\(k\.join_code\?\.length \?\? 0\) > 8 \? 20 : 30\}/);
+ assert.match(classes,/\{k\.join_code \? <Txt f="bold" size=\{20\} selectable/); // 19/11/2026: chỉ mã theo quy ước (dài); chưa có giáo viên thì chưa có mã
  // ô nhập mã tham gia lớp của học sinh (ClassTab) đã xóa cùng giao diện trang học sinh ngày 15/11/2026; máy chủ vẫn nhận mã dài DongA…
  // đề nghị đổi giáo viên phụ trách có lý do (nghỉ sinh con, tai nạn, bệnh dài ngày…)
  const change=read('components/admin/ClassTeacherChange.tsx');

@@ -164,7 +164,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     expect(first.body.user.must_change_password).toBe(true);
     const token = first.body.token as string;
     expect((await call(s.base, 'GET', '/api/student/classes', undefined, token)).status).toBe(403);
-    expect((await call(s.base, 'POST', '/api/student/join-class', { code: classA.join_code }, token)).status).toBe(403);
+    expect((await call(s.base, 'POST', '/api/student/join-class', { code: 'DongA7A1' }, token)).status).toBe(403);
     const profile = await call(s.base, 'GET', '/api/auth/profile', undefined, token);
     expect(profile.body.needs_profile_confirmation).toBe(true);
     expect(profile.body.school.name).toBe('THCS Kiểm Thử A');
@@ -420,38 +420,48 @@ async function newSchool(code: string, name: string, adminName: string, email: s
   });
 
   // ------------------------------------------------------------------ HK.HS.008
-  test('HK.HS.008 tham gia lớp bằng mã 6 ký tự (không mật khẩu): nhiều lớp, đã vào rồi, mã trường khác, tắt tham gia, lớp lưu trữ, đổi mã', async () => {
+  test('HK.HS.008 tham gia lớp bằng mã theo quy ước (không mật khẩu): lớp chưa có giáo viên thì chưa có mã; nhiều lớp, đã vào rồi, mã trường khác, tắt tham gia, lớp lưu trữ, cập nhật mã', async () => {
     const student = await api('POST', '/api/admin/students', { user_code: 'HS7010', full_name: 'Ngô Vào Lớp', birth_date: '2013-06-06', phone: '0900000034', email: 'tu.dong35.sprint1@example.edu.vn' }, a.token);
     const token = (await activate(s.base, student.body.user.username, student.body.temporary_password, PW, 'student')).token;
-    expect(classA.join_code).toMatch(/^[A-Z2-9]{6}$/);
+    // 19/11/2026: mã tham gia chỉ theo quy ước DongA + lớp + giáo viên + HK + năm học – lớp mới chưa có giáo viên thì chưa có mã, phân công xong mới có
+    const gv = (await api('POST', '/api/admin/teachers', { full_name: 'Cô Vào Lớp', email: 'gv.vaolop@example.edu.vn', phone: '0900000061', birth_date: '1985-03-15' }, a.token)).body.user;
+    const fresh = (await call(s.base, 'POST', '/api/admin/classes', { year_id: yearA, grade: 7, name: '7A5' }, a.token)).body;
+    expect(fresh.join_code).toBeNull();
+    expect((await call(s.base, 'POST', `/api/admin/classes/${fresh.id}/regenerate-code`, undefined, a.token)).status).toBe(409); // chưa có giáo viên: không có mã
+    const classJ = (await call(s.base, 'PATCH', `/api/admin/classes/${fresh.id}`, { teacher_ids: [gv.id] }, a.token)).body;
+    expect(classJ.join_code).toMatch(/^DongA7A5VaoLopHK[12]2026-2027$/);
     expect((await call(s.base, 'POST', '/api/student/join-class', { code: 'ab' }, token)).status).toBe(422);
     expect((await call(s.base, 'POST', '/api/student/join-class', { code: 'ZZZZZZ' }, token)).status).toBe(404);
-    const joined = await call(s.base, 'POST', '/api/student/join-class', { code: ` ${classA.join_code.toLowerCase()} ` }, token);
+    const joined = await call(s.base, 'POST', '/api/student/join-class', { code: ` ${classJ.join_code.toLowerCase()} ` }, token);
     expect(joined.status).toBe(200);
-    expect(joined.body).toMatchObject({ name: '7A1', students: expect.any(Number) });
-    expect((await call(s.base, 'POST', '/api/student/join-class', { code: classA.join_code }, token)).status).toBe(409);
+    expect(joined.body).toMatchObject({ name: '7A5', students: expect.any(Number) });
+    expect((await call(s.base, 'POST', '/api/student/join-class', { code: classJ.join_code }, token)).status).toBe(409);
     // Lớp thứ hai: một học sinh thuộc nhiều lớp
-    const class2 = (await call(s.base, 'POST', '/api/admin/classes', { year_id: yearA, grade: 7, name: '7A2' }, a.token)).body;
+    const class2 = (await call(s.base, 'POST', '/api/admin/classes', { year_id: yearA, grade: 7, name: '7A2', teacher_ids: [gv.id] }, a.token)).body;
+    expect(class2.join_code).toMatch(/^DongA7A2VaoLopHK[12]2026-2027$/);
     expect((await call(s.base, 'POST', '/api/student/join-class', { code: class2.join_code }, token)).status).toBe(200);
-    expect((await call(s.base, 'GET', '/api/student/classes', undefined, token)).body.map((c: any) => c.name)).toEqual(['7A1', '7A2']);
+    expect((await call(s.base, 'GET', '/api/student/classes', undefined, token)).body.map((c: any) => c.name).sort()).toEqual(['7A2', '7A5']);
     // Mã của trường khác trả về như mã sai
     const classB = await (async () => {
       const y = (await call(s.base, 'POST', '/api/admin/school-years', { label: '2026-2027', starts_on: '2026-09-05', ends_on: '2027-05-31' }, b.token)).body.id;
-      return (await call(s.base, 'POST', '/api/admin/classes', { year_id: y, grade: 8, name: '8B1' }, b.token)).body;
+      const gvB = (await call(s.base, 'POST', '/api/admin/teachers', { full_name: 'Thầy Trường Bê', email: 'gv.truongbe@example.edu.vn', phone: '0900000062', birth_date: '1985-03-15' }, b.token)).body.user;
+      return (await call(s.base, 'POST', '/api/admin/classes', { year_id: y, grade: 8, name: '8B1', teacher_ids: [gvB.id] }, b.token)).body;
     })();
+    expect(classB.join_code).toMatch(/^DongA8B1/);
     expect((await call(s.base, 'POST', '/api/student/join-class', { code: classB.join_code }, token)).status).toBe(404);
-    // Tắt cho phép tự tham gia, lưu trữ lớp, đổi mã
+    // Tắt cho phép tự tham gia, lưu trữ lớp, cập nhật mã theo quy ước (đổi tên lớp rồi cập nhật thì mã cũ hết dùng)
     const other = await api('POST', '/api/admin/students', { user_code: 'HS7011', full_name: 'Vũ Chưa Vào', birth_date: '2013-07-07', phone: '0900000036', email: 'tu.dong37.sprint1@example.edu.vn' }, a.token);
     const otherToken = (await activate(s.base, other.body.user.username, other.body.temporary_password, PW, 'student')).token;
     await call(s.base, 'PATCH', `/api/admin/classes/${class2.id}`, { join_open: false }, a.token);
     expect((await call(s.base, 'POST', '/api/student/join-class', { code: class2.join_code }, otherToken)).status).toBe(403);
+    await call(s.base, 'PATCH', `/api/admin/classes/${class2.id}`, { name: '7A6' }, a.token);
     const regenerated = (await call(s.base, 'POST', `/api/admin/classes/${class2.id}/regenerate-code`, undefined, a.token)).body;
-    expect(regenerated.join_code).not.toBe(class2.join_code);
+    expect(regenerated.join_code).toMatch(/^DongA7A6VaoLopHK[12]2026-2027$/);
     expect((await call(s.base, 'POST', '/api/student/join-class', { code: class2.join_code }, otherToken)).status).toBe(404);
     await call(s.base, 'PATCH', `/api/admin/classes/${class2.id}`, { join_open: true }, a.token);
-    await call(s.base, 'POST', `/api/admin/classes/${classA.id}/archive`, { archived: true }, a.token);
-    expect((await call(s.base, 'POST', '/api/student/join-class', { code: classA.join_code }, otherToken)).status).toBe(409);
-    await call(s.base, 'POST', `/api/admin/classes/${classA.id}/archive`, { archived: false }, a.token);
+    await call(s.base, 'POST', `/api/admin/classes/${classJ.id}/archive`, { archived: true }, a.token);
+    expect((await call(s.base, 'POST', '/api/student/join-class', { code: classJ.join_code }, otherToken)).status).toBe(409);
+    await call(s.base, 'POST', `/api/admin/classes/${classJ.id}/archive`, { archived: false }, a.token);
     expect((await call(s.base, 'POST', '/api/student/join-class', { code: regenerated.join_code }, otherToken)).status).toBe(200);
   });
 
@@ -650,7 +660,7 @@ async function newSchool(code: string, name: string, adminName: string, email: s
     const teacher = await api('POST', '/api/admin/teachers', { full_name: 'Cô Quyền', email: 'quyen.gv@example.edu.vn', phone: '0900000050', birth_date: '1985-03-15' }, a.token);
     const gv = (await activate(s.base, teacher.body.user.username, teacher.body.temporary_password, PW, 'teacher')).token;
     expect((await api('GET', '/api/admin/users', undefined, gv)).status).toBe(403);
-    expect((await api('POST', '/api/student/join-class', { code: classA.join_code }, gv)).status).toBe(403);
+    expect((await api('POST', '/api/student/join-class', { code: 'DongA7A1' }, gv)).status).toBe(403);
     // Quản trị viên trường A không đọc/ghi được dữ liệu trường B dù đoán id
     expect((await api('GET', `/api/admin/schools/${b.id}`, undefined, a.token)).status).toBe(404);
     expect((await api('GET', `/api/admin/users/${b.admin.id}`, undefined, a.token)).status).toBe(404);

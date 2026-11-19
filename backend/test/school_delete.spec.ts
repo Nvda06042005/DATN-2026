@@ -21,6 +21,8 @@ import { activate, adminLogin, call, hasPostgres, sql, Started, startApp } from 
     const klass = (await api('POST', '/api/admin/classes', { year_id: year.id, grade: 7, name: '7A1' }, admin.token)).body;
     const t = await api('POST', '/api/admin/teachers', { full_name: `Cô Giáo ${tag}`, email: `gv.${tag}@example.edu.vn`, phone: '0900000021', birth_date: '1985-03-15' }, admin.token);
     const teacher = await activate(s.base, t.body.user.username, t.body.temporary_password, PW, 'teacher');
+    // 19/11/2026: lớp có mã tham gia (theo quy ước) khi đã phân công giáo viên
+    klass.join_code = (await api('PATCH', `/api/admin/classes/${klass.id}`, { teacher_ids: [t.body.user.id] }, admin.token)).body.join_code;
     const st1 = await api('POST', '/api/admin/students', { user_code: `HS-${tag}-1`, full_name: `Học Sinh ${tag} Một`, birth_date: '2013-04-02', phone: '0900000022', email: `tu.dong23.${tag}@example.edu.vn` }, admin.token);
     const student = await activate(s.base, st1.body.user.username, st1.body.temporary_password, PW, 'student');
     const st2 = await api('POST', '/api/admin/students', { user_code: `HS-${tag}-2`, full_name: `Học Sinh ${tag} Hai`, birth_date: '2013-05-03', phone: '0900000024', email: `tu.dong25.${tag}@example.edu.vn` }, admin.token);

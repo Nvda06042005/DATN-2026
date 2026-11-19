@@ -219,17 +219,13 @@ export class ClassService {
   private async insertClass(q: Q, actor: UserRow, c: { schoolId: number; year: { id: number; label: string }; grade: number; name: string; expected_size: number | null; description: string | null }): Promise<number> {
     const code = c.name.toUpperCase().replace(/\s+/g, '');
     if ((await q('SELECT 1 FROM app_classes WHERE school_id = $1 AND school_year = $2 AND class_code = $3', [c.schoolId, c.year.label, code])).length) throw new ConflictException(`Lớp ${c.name} đã có trong năm học ${c.year.label}`);
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-      const joinCode = newJoinCode();
-      if ((await q('SELECT 1 FROM app_classes WHERE join_code = $1', [joinCode])).length) continue;
-      const row = (await q<{ id: number }>(
-        `INSERT INTO app_classes (school_id, year_id, school_year, class_code, name, grade, status, is_active, join_open, join_code, expected_size, description, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, 'APPROVED', true, true, $7, $8, $9, $10) RETURNING id`,
-        [c.schoolId, c.year.id, c.year.label, code, c.name, c.grade, joinCode, c.expected_size, c.description, actor.id]))[0];
-      await this.log(q, { id: row.id, school_id: c.schoolId }, 'create', actor);
-      return row.id;
-    }
-    throw new ConflictException('Không sinh được mã tham gia lớp duy nhất, thử lại');
+    // 19/11/2026: mã tham gia chỉ theo quy ước DongA + lớp + giáo viên + HK + năm học (applyJoinCode khi phân công giáo viên); lớp mới chưa có giáo viên thì chưa có mã
+    const row = (await q<{ id: number }>(
+      `INSERT INTO app_classes (school_id, year_id, school_year, class_code, name, grade, status, is_active, join_open, join_code, expected_size, description, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, 'APPROVED', true, true, NULL, $7, $8, $9) RETURNING id`,
+      [c.schoolId, c.year.id, c.year.label, code, c.name, c.grade, c.expected_size, c.description, actor.id]))[0];
+    await this.log(q, { id: row.id, school_id: c.schoolId }, 'create', actor);
+    return row.id;
   }
 
   /** Sửa lớp (HK.QT.037) và phân công giáo viên (HK.QT.022): `teacher_ids` thay toàn bộ danh sách giáo viên của lớp */
@@ -275,7 +271,8 @@ export class ClassService {
     await q('INSERT INTO app_class_term_teachers(class_id,school_id,semester,teacher_id,assigned_by) SELECT $1,$2,s.n,NULL,$3 FROM (VALUES(1),(2)) s(n) ON CONFLICT DO NOTHING',[cls.id,cls.school_id,actor.id]);
     if (previous===next && !legacy.length) return;
     await q('UPDATE app_class_term_teachers SET teacher_id=$3,assigned_by=$4,assigned_at=now() WHERE class_id=$1 AND semester=$2',[cls.id,semester,next,actor.id]);
-    if (next !== null && cls.join_code?.startsWith('DongA') && cls.join_code.includes(`HK${semester}`)) await this.applyJoinCode(q, actor, cls, semester);
+    // lớp chưa có mã (hoặc còn mã ngẫu nhiên cũ) thì cấp mã theo quy ước; mã theo quy ước của học kỳ khác giữ nguyên (19/11/2026)
+    if (next !== null && (!cls.join_code || !cls.join_code.startsWith('DongA') || cls.join_code.includes(`HK${semester}`))) await this.applyJoinCode(q, actor, cls, semester);
     await this.log(q,cls,previous===null ? 'assign' : next===null ? 'unassign' : 'change_teacher',actor,{teacher_id:next,note:`Học kỳ ${semester}: ${previous ?? 'chưa phân công'} → ${next ?? 'chưa phân công'}`});
   }
 
@@ -393,17 +390,15 @@ export class ClassService {
   }
 
   /** Đổi mã tham gia lớp (làm mới mã 6 ký tự; mã cũ hết dùng được) */
+  /** Cập nhật mã tham gia theo quy ước (19/11/2026, thay "Đổi mã mới" ngẫu nhiên): giáo viên của học kỳ hiện tại, không có thì học kỳ còn lại */
   async regenerateCode(actor: UserRow, id: number) {
     return this.schools.run(actor, async (q) => {
       const cls = await this.openClass(q, actor, id);
-      for (let attempt = 0; attempt < 10; attempt += 1) {
-        const code = newJoinCode();
-        if ((await q('SELECT 1 FROM app_classes WHERE join_code = $1', [code])).length) continue;
-        await q('UPDATE app_classes SET join_code = $2 WHERE id = $1', [id, code]);
-        await this.log(q, cls, 'code', actor);
-        return this.view(q, id);
+      const current = Number((await q<{ n: number }>('SELECT COALESCE(public.app_class_semester($1),1) AS n', [cls.year_id]))[0]?.n ?? 1);
+      for (const semester of [current, current === 1 ? 2 : 1]) {
+        if (await this.applyJoinCode(q, actor, cls, semester)) return this.view(q, id, semester);
       }
-      throw new ConflictException('Không sinh được mã tham gia lớp duy nhất, thử lại');
+      throw new ConflictException('Lớp chưa có giáo viên phụ trách: phân công giáo viên để có mã tham gia theo quy ước (DongA + lớp + giáo viên + HK + năm học).');
     });
   }
 

@@ -235,7 +235,7 @@ async function readRows(buffer: Buffer): Promise<string[][]> {
     expect(created.body.teachers.map((t: any) => t.id).sort()).toEqual([t1]);
     c7b = (await qa('POST', '/api/admin/classes', { year_id: y25, grade: 7, name: '7A2' })).body;
     expect(c7b).toMatchObject({ teachers: [], students: 0 });
-    expect((c7b as any).join_code).toMatch(/^[A-Z2-9]{6}$/); // chưa có giáo viên: mã 6 ký tự như trước
+    expect((c7b as any).join_code).toBeNull(); // 19/11/2026: chưa có giáo viên thì chưa có mã tham gia (mã chỉ theo quy ước)
     expect(new Set([c7a.join_code, (c7b as any).join_code]).size).toBe(2);
     expect((await qa('POST', '/api/admin/classes', { year_id: y25, grade: 7, name: ' 7a1 ' })).status).toBe(409);
     expect((await qa('POST', '/api/admin/classes', { year_id: y26, grade: 7, name: '7A1' })).status).toBe(201); // cùng tên ở năm khác được

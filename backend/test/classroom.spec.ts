@@ -58,7 +58,7 @@ const notes = async (who: { token: string }) => (await call(s.base, 'GET', '/api
     expect((await api('PATCH', `/api/classroom/classes/${classId}`, { description: 'Mô tả do giáo viên sửa' })).body.description).toBe('Mô tả do giáo viên sửa'); // lớp của trường cũng sửa được mô tả
     const code1 = (await api('GET', `/api/classroom/classes/${own.id}`)).body.join_code;
     const code2 = (await api('POST', `/api/classroom/classes/${own.id}/regenerate-code`)).body.join_code;
-    expect(code2).toMatch(/^[A-Z2-9]{6}$/);
+    expect(code2).toMatch(/^DongA7A9chuyenSuVanSuHK[12]\d{4}-\d{4}$/); // 19/11/2026: tạo lại mã = mã theo quy ước với tên lớp mới
     expect(code2).not.toBe(code1);
     expect((await call(s.base, 'POST', '/api/student/join-class', { code: code1 }, f.S3.token)).status).toBeGreaterThanOrEqual(400); // mã cũ hết dùng
     expect((await api('POST', `/api/classroom/classes/${own.id}/join`, { open: false })).body.join_open).toBe(false);
