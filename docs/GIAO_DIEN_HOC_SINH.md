@@ -8,13 +8,15 @@ Giữ các màu đỏ ngữ nghĩa hiện có cho câu trả lời sai, lỗi nh
 
 - **Sảnh chọn lớp:** chào học sinh, vào nhanh lớp đã tham gia; tìm theo lớp/giáo viên có hoặc không dấu; lọc tất cả/lớp đã tham gia; nhóm theo học kỳ; thẻ lớp có giáo viên và sĩ số. Lớp chưa tham gia vẫn cần mã thầy cô gửi trong Tin nhắn. Có trạng thái tải, lỗi kèm nút tải lại và kết quả tìm kiếm trống. Form mã lớp không gửi khi lớp đã đóng, đã tham gia hoặc đang gửi yêu cầu.
 - **Trong lớp:** nút tiếp tục chặng từ `home.next`, ba chiến dịch với tiến độ và số sao; góc thành tích, nhiệm vụ ngày, giải đấu tuần, trang phục và các lối vào ôn tập/nhập vai/bộ thẻ. Chỉ chúc mừng đi trọn hành trình khi tổng chặng lớn hơn 0 và số chặng hoàn thành đã đạt tổng.
-- **Khung chung của các màn học sinh:** desktop có menu trái; dưới 1080px có menu mở bằng nút, đóng bằng nền ngoài/nút đóng/Escape. Hồ sơ, đổi mật khẩu, đăng xuất, cài đặt và thông báo giữ các API cũ. Bảng màu giới hạn ở cây `StudentApp`, các vai trò khác dùng khung và màu hiện có.
+- **Khung chung của các màn học sinh (sửa 20/11/2026):** không còn menu trái; các mục là dải nút dưới thanh trên cùng (cuộn ngang trên màn hẹp, tự đưa mục đang mở vào khung nhìn). Hồ sơ (có Đổi mật khẩu), đăng xuất, cài đặt và thông báo giữ các API cũ. Bảng màu giới hạn ở cây `StudentApp`, các vai trò khác dùng khung và màu hiện có.
+- **Sảnh trong lớp (20/11/2026, theo ảnh VL-LEGEND người dùng gửi – chỉ lấy thể loại):** trang cuộn dọc `StudentHall.tsx` gồm màn mở đầu cung điện + nút cuộn giấy VÀO TRẬN, giới thiệu Học – Luyện – Ra trận và ba chiến dịch, thang danh hiệu 5 bậc khoa cử thời Trần (`lib/scholar-rank.ts`), bảng vàng (bảng xếp hạng lớp / trường dạng sân khấu, ba bạn đầu là Tam khôi) và thư viện tranh. Bảng màu riêng của sảnh: sơn son `#b8261b`, vàng kim `#e3b244`, giấy `#fffaf0`, chữ `#2b1d16` / `#6b5644` (đạt ≥ 4,5 : 1 trên nền giấy).
+- **Hình vẽ (`StudentArt.tsx`):** nhân vật chibi nam / nữ trong 5 bộ trang phục theo bậc, cung điện tưởng tượng, 5 tranh phong tục khoa cử – SVG tự vẽ, cách điệu, không phục dựng; áo Trạng nguyên đỏ son (không vàng hoàng bào). Nhân vật trên bục bảng vàng là một dáng chung đại diện danh hiệu, không đoán giới tính người đứng hạng. Nhân vật bập bênh nhẹ, đứng yên khi máy bật giảm chuyển động.
 
 ## Mã nguồn và dữ liệu
 
 - `frontend/components/portal/StudentWorkspace.tsx`: bố cục và các hành động tài khoản, dùng lại `ProfileSheet` và API xác thực.
 - `frontend/components/portal/StudentDesign.tsx`: màu, nút, chỉ số và phong cảnh SVG tự vẽ. Đây là minh họa trang trí của thế giới trò chơi, không phải bản đồ địa lý hay phục dựng một di tích cụ thể. Không dùng tài nguyên hoặc nhân vật sao chép từ website mẫu.
-- `StudentClasses.tsx`, `SagaHome.tsx`, `SagaRail.tsx`, `SagaKit.tsx`: sảnh, lớp, chiến dịch, nhiệm vụ và bộ thành phần học tập.
+- `StudentClasses.tsx`, `SagaHome.tsx`, `SagaRail.tsx`, `SagaKit.tsx`: sảnh, lớp, chiến dịch, nhiệm vụ và bộ thành phần học tập; `StudentHall.tsx`, `StudentArt.tsx`, `lib/scholar-rank.ts`: sảnh cuộn dọc, hình vẽ và thang danh hiệu (20/11/2026).
 - `StudentApp.tsx`: vẫn dùng `usePortalTab`, kiểm tra lớp, phiên và các API cũ; các màn đang ẩn không giữ game đang chạy. Cấp độ, kinh nghiệm, vàng, chuỗi ngày, tiến độ và mở khóa do máy chủ trả về. Không cộng thưởng ở frontend.
 - Bản đồ chiến dịch tiếp tục dùng các ảnh Wikipedia gốc và nguồn đã ghi công. Không thay đổi database, seed, lịch sử migration hoặc dữ liệu học sinh; schema hiện hành là 079.
 

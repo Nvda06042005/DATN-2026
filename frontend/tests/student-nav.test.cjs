@@ -43,7 +43,9 @@ test('trang học sinh: khung game riêng giữ các mục học tập, điều 
   assert.match(app, /\{levelUp && !reward \? \(/);
   assert.match(app, /platform\.prefs\(session\.token\)/);
   const shell = read('components', 'portal', 'StudentWorkspace.tsx');
-  for (const text of ['Hồ sơ cá nhân', 'Đổi mật khẩu', 'Đăng xuất', 'session.changePassword()', 'session.logout()', 'Không gian học sinh', '<BrandLogo ', 'onRequestClose={() => setMenu(false)}']) assert.ok(shell.includes(text), text);
+  for (const text of ['Hồ sơ cá nhân', 'Đổi mật khẩu', 'Đăng xuất', 'session.changePassword()', 'session.logout()', 'Không gian học sinh', '<BrandLogo ', 'testID="student-tabs"', 'accessibilityRole="tablist"', 'accessibilityRole="tab"']) assert.ok(shell.includes(text), text);
+  // 20/11/2026 (người dùng chọn "Bỏ menu trái, trang cuộn dọc"): không còn menu trái / ngăn kéo menu – các mục là dải nút ngay dưới thanh trên cùng
+  for (const gone of ['student-sidebar', 'student-menu-toggle', '<Modal', 'setMenu(']) assert.ok(!shell.includes(gone), gone);
   assert.match(shell, /authApi\.getProfile\(session\.token\)/);
   assert.match(shell, /authApi\.updateProfile\(session\.token, patch\)/);
   assert.match(shell, /authApi\.uploadAvatar\(session\.token, img\)/);
@@ -223,4 +225,54 @@ test('16/11/2026: tạo phòng thi đấu ở trang riêng (không còn hộp th
   const host = read('components', 'admin', 'LiveHost.tsx');
   assert.match(host, /testID="live-pin-display"/);
   assert.doesNotMatch(host, /join\.qr|quét mã QR|<Image /);
+});
+
+test('20/11/2026: sảnh học sinh cuộn dọc – mở đầu VÀO TRẬN, giới thiệu, thang danh hiệu thời Trần, bảng vàng, thư viện tranh; hình tự vẽ, số liệu từ máy chủ', () => {
+  const home = read('components', 'portal', 'SagaHome.tsx');
+  const hall = read('components', 'portal', 'StudentHall.tsx');
+  const art = read('components', 'portal', 'StudentArt.tsx');
+  const rank = read('lib', 'scholar-rank.ts');
+  // thứ tự người dùng chọn: màn mở đầu → giới thiệu → thang danh hiệu → bảng xếp hạng → thư viện tranh
+  const order = ['<HallHero ', '<HallSteps ', '<RankLadder ', '<HallBoard ', '<HallGallery '].map((t) => home.indexOf(t));
+  assert.ok(order.every((at, k) => at > 0 && (k === 0 || at > order[k - 1])), String(order));
+  for (const id of ['hall-hero', 'hall-play', 'hall-map', 'hall-rank', 'hall-intro', 'rank-ladder', 'rank-detail', 'hall-board', 'board-podium', 'board-list', 'hall-gallery', 'gallery-view']) assert.ok(hall.includes(`testID="${id}"`), id);
+  // VÀO TRẬN mở chặng tiếp theo do máy chủ chọn; danh hiệu tính từ tiến độ máy chủ trả về; bảng vàng dùng API bảng xếp hạng sẵn có (lớp / trường)
+  assert.match(home, /nav\.go\('chien-dich', next \? \{ c: next\.campaign_no, s: next\.stage_id, v: null \} : \{ c: 1, s: null, v: null \}\)/);
+  assert.match(home, /scholarRank\(home\?\.campaigns\)/);
+  assert.match(hall, /game\.leaderboard\(t, scope === 'class' \? \{ scope, period, class_id: classId \?\? undefined \} : \{ scope \}\)/);
+  for (const f of [hall, art, rank]) assert.doesNotMatch(f, /localStorage|sessionStorage|awardXp|addGold|saga\.act|apiRequest/);
+  // hình vẽ SVG tự làm: không tải ảnh ngoài; không dùng tên trang mẫu trên giao diện; áo Trạng nguyên đỏ son, không vàng hoàng bào
+  assert.doesNotMatch(art, /require\(|uri:|https?:\/\//);
+  for (const f of [hall, art, rank]) assert.doesNotMatch(f.replace(/\/\*[\s\S]*?\*\//g, ''), /VL[- ]?LEGEND/i);
+  assert.match(art, /\{ robe: '#b8261b', [^\n]*flower: true \}/);
+  for (const t of ['Học trò', 'Thái học sinh', 'Thám hoa', 'Bảng nhãn', 'Trạng nguyên', '1232', '1247', 'Lê Văn Hưu', 'Nguyễn Hiền', 'Đặng Ma La', '12 hoặc 13 tuổi']) assert.ok(rank.includes(t), t);
+  assert.match(hall, /Nguồn: Wikipedia tiếng Việt/);
+  assert.match(hall, /Thời xưa chỉ nam giới được dự thi/);
+  // nhân vật trang trí đứng yên khi bật giảm chuyển động; nút đủ vùng chạm 44; tranh còn khóa không bấm được
+  assert.match(hall, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
+  assert.match(hall, /minHeight: 44, paddingHorizontal: 16, borderRadius: 22/);
+  assert.match(hall, /p\.locked \? <View testID=\{`gallery-\$\{p\.key\}`\} accessible/);
+  // bản đồ trong thư viện tranh là ảnh gốc Wikipedia đã đóng gói (mapSource), không phải ảnh mới
+  assert.match(hall, /mapSource\(\{ image_key: `ban-do-khang-chien-\$\{p\.n\}`, image_url: null \}\)/);
+});
+
+test('thang danh hiệu: phần xong liên tiếp từ Phần 1, đủ sao cả ba phần mới là Trạng nguyên, kèm tiến độ tới bậc sau', () => {
+  const ts = require('typescript');
+  const vm = require('node:vm');
+  const compiled = ts.transpileModule(read('lib', 'scholar-rank.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  const loaded = { exports: {} };
+  new vm.Script(`(function(module,exports){${compiled}\n})`).runInThisContext()(loaded, loaded.exports);
+  const { scholarRank, RANKS } = loaded.exports;
+  const camp = (n, done, stages, stars, max) => ({ campaign_no: n, stages, done, stars, max_stars: max, completed: stages > 0 && done >= stages });
+  assert.deepEqual(RANKS.map((r) => r.name), ['Học trò', 'Thái học sinh', 'Thám hoa', 'Bảng nhãn', 'Trạng nguyên']);
+  assert.deepEqual(scholarRank(null), { level: 0, next: null });
+  assert.deepEqual(scholarRank([camp(1, 2, 5, 4, 15), camp(2, 0, 4, 0, 12), camp(3, 0, 4, 0, 12)]), { level: 0, next: { done: 2, total: 5, unit: 'chặng' } });
+  // thứ tự trả về không quan trọng; xong Phần 1 thì là Thái học sinh và đang tới Phần 2
+  assert.deepEqual(scholarRank([camp(2, 1, 4, 2, 12), camp(1, 5, 5, 9, 15), camp(3, 0, 4, 0, 12)]), { level: 1, next: { done: 1, total: 4, unit: 'chặng' } });
+  // xong Phần 2 mà chưa xong Phần 1 (dữ liệu bất thường) không được nhảy bậc
+  assert.equal(scholarRank([camp(1, 4, 5, 9, 15), camp(2, 4, 4, 12, 12), camp(3, 0, 4, 0, 12)]).level, 0);
+  assert.deepEqual(scholarRank([camp(1, 5, 5, 9, 15), camp(2, 4, 4, 10, 12), camp(3, 4, 4, 8, 12)]), { level: 3, next: { done: 27, total: 39, unit: 'sao' } });
+  assert.deepEqual(scholarRank([camp(1, 5, 5, 15, 15), camp(2, 4, 4, 12, 12), camp(3, 4, 4, 12, 12)]), { level: 4, next: null });
+  // phần chưa có chặng nào (chưa có nội dung) không tính là đã xong
+  assert.equal(scholarRank([camp(1, 0, 0, 0, 0), camp(2, 0, 0, 0, 0), camp(3, 0, 0, 0, 0)]).level, 0);
 });

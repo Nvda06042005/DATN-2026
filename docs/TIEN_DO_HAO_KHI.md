@@ -1,5 +1,15 @@
 # Tiến độ xây dựng Hào Khí Đông A (theo mã HK.*)
 
+## Sảnh học sinh cuộn dọc theo kiểu VL-LEGEND – 20/11/2026
+
+Người dùng gửi 9 ảnh trang VL-LEGEND ("Tôi muốn kiểu như này trong trang học sinh đi") và chọn: **bỏ menu trái, trang cuộn dọc**; **danh hiệu khoa cử thời Trần**; đủ bốn phần **màn mở đầu cung điện, thang danh hiệu 5 bậc, bảng xếp hạng sân khấu, thư viện tranh**.
+
+- Khung `StudentWorkspace`: không còn menu trái / ngăn kéo; thanh trên cùng (logo, trường, chỉ số, cài đặt, thông báo, hồ sơ – đổi mật khẩu trong hồ sơ, đăng xuất) + dải nút các mục (`student-tabs`, cuộn ngang và tự cuộn tới mục đang mở trên màn hẹp). Kiểm tra lớp, `usePortalTab`, mục trước khi vào lớp giữ nguyên.
+- `HomeScreen` = sảnh cuộn dọc (`StudentHall.tsx`): (1) cung điện tưởng tượng, hai nhân vật mặc trang phục theo danh hiệu hiện tại, nút cuộn giấy VÀO TRẬN tới chặng tiếp theo, dòng "Danh hiệu của em" + tiến độ tới bậc sau; (2) Học – Luyện – Ra trận, ba chiến dịch và cột nhiệm vụ / giải đấu / ôn tập / kỳ thi như trước; (3) thang 5 bậc (thẻ chọn được, khung chi tiết có ghi chú lịch sử, nguồn); (4) Bảng vàng lớp / toàn trường (tuần / tháng / từ đầu cho lớp), bục Tam khôi, hạng 4–10 và hàng của em; (5) thư viện 5 tranh (đèn sách, lều chõng, xướng danh, bảng vàng, vinh quy) mở theo danh hiệu + 3 bản đồ gốc, bấm để xem lớn.
+- Danh hiệu: `lib/scholar-rank.ts` (có kiểm thử) – xong Phần 1 → Thái học sinh, Phần 2 → Thám hoa, Phần 3 → Bảng nhãn, đủ sao tối đa cả ba phần → Trạng nguyên; phần xong phải liên tiếp từ Phần 1. Chỉ hiển thị tiến độ máy chủ trả về.
+- Nguồn đã đối chiếu (vi.wikipedia, 20/11/2026): Thái học sinh (từ khoa Nhâm Thìn 1232), Tam khôi (đặt năm 1247), Lê Văn Hưu (Bảng nhãn 1247, Đại Việt sử ký xong 1272), Nguyễn Hiền (Trạng nguyên 1247, tuổi chép 12 hoặc 13 – không khẳng định một con số).
+- Không đổi backend, database, seed (schema vẫn 079). Kiểm tra: typecheck, frontend 191/191, kiểm tra trình duyệt cũ, ảnh chụp 1366 px và 390 px trên PostgreSQL tạm (VÀO TRẬN mở bản đồ + bảng chặng, bảng vàng lớp / trường, tranh khóa / mở, không lỗi trang).
+
 ## Giao diện học sinh THCS theo hướng phiêu lưu – 20/11/2026
 
 - Tách khung học sinh khỏi giao diện quản trị: menu sáng, thẻ cấp độ, kinh nghiệm, vàng và chuỗi ngày, menu thu gọn trên màn hình nhỏ. Giữ hồ sơ, trang phục, cài đặt, thông báo, đổi mật khẩu và đăng xuất qua các API hiện có.

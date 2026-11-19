@@ -10,7 +10,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Image, Platform, Pressable, ScrollView, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
-import { Award, BookOpen, Check, Coins, Footprints, Gamepad2, Lock, Maximize2, Play, Puzzle, RotateCcw, Sparkles, Swords, Target, Users, ZoomIn, ZoomOut } from 'lucide-react-native';
+import { Award, BookOpen, Check, ChevronLeft, Coins, Footprints, Gamepad2, Lock, Maximize2, Play, Puzzle, RotateCcw, Sparkles, Swords, Target, Users, ZoomIn, ZoomOut } from 'lucide-react-native';
 import * as saga from '@/lib/saga-api';
 import * as authApi from '@/api/authApi';
 import { Mascot } from '@/components/art';
@@ -21,7 +21,8 @@ import {
 } from '@/components/portal/SagaKit';
 import { ChestArt, SagaRail } from '@/components/portal/SagaRail';
 import { ChestOpening } from '@/components/portal/SagaChest';
-import { AdventureHero, AdventureScene, GameButton, LearnerStats, STUDENT as S } from '@/components/portal/StudentDesign';
+import { AdventureScene, LearnerStats, STUDENT as S } from '@/components/portal/StudentDesign';
+import { HALL, HallBoard, HallGallery, HallHero, HallSteps, HallTitle, RankLadder, scholarRank } from '@/components/portal/StudentHall';
 import { Btn, Card, Chip, InfoNote, Inset, Segmented, Sheet, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
@@ -87,11 +88,12 @@ const UnitBanner: React.FC<{ camp: SagaCampaign; onOpen: () => void }> = ({ camp
   );
 };
 
-// ---------------------------------------------------------------------- 1. trang chủ: lộ trình Hành trình Đông A
+// ---------------------------------------------------------------------- 1. trang chủ: sảnh Hành trình Đông A (trang cuộn dọc)
 /**
- * Trang chủ học sinh dạng trò chơi (16/11/2026, giữ menu như các cổng quản trị), mở sau khi em chọn lớp ở danh sách lớp: thanh lớp đang học,
- * ba phần theo ba cuộc kháng chiến (bấm một phần mở trang bản đồ, cuộn tới phần đó);
- * cột bên phải: cấp độ – kinh nghiệm, chuỗi ngày học, vàng, nhiệm vụ hôm nay, câu cần ôn, kỳ thi.
+ * Trang chủ học sinh (20/11/2026, theo ảnh VL-LEGEND người dùng gửi, chọn "Bỏ menu trái, trang cuộn dọc"), mở sau khi em chọn lớp ở danh sách lớp:
+ * nút quay lại "Lớp học" + lớp đang học → màn mở đầu cung điện có nút VÀO TRẬN (tới chặng tiếp theo) → giới thiệu Học – Luyện – Ra trận,
+ * ba chiến dịch (bấm một phần mở trang bản đồ) và cột nhiệm vụ / giải đấu / ôn tập / kỳ thi → thang danh hiệu 5 bậc khoa cử thời Trần
+ * → bảng vàng (bảng xếp hạng lớp / trường) → thư viện tranh. Mọi số liệu lấy từ máy chủ; danh hiệu chỉ là cách hiển thị tiến độ đó.
  */
 export const HomeScreen: React.FC<{ session: Session; nav: SagaNav; loading: boolean; error: string | null; cls: MyClass | null; onLeave: () => void }> = ({ session, nav, loading, error, cls, onLeave }) => {
   const { width } = useWindowDimensions();
@@ -99,13 +101,13 @@ export const HomeScreen: React.FC<{ session: Session; nav: SagaNav; loading: boo
   const home = nav.home;
   const hud = home?.hud ?? null;
   const next = home?.next ?? null;
-  const finished = Boolean(home && home.totals.stages > 0 && home.totals.done >= home.totals.stages);
   const level = hud?.level ?? null;
+  const rank = useMemo(() => scholarRank(home?.campaigns), [home]);
   // cột bên phải kiểu Duolingo (17/11/2026): dải chỉ số, cấp độ, giải đấu tuần, nhiệm vụ hằng ngày có hòm báu, ôn tập, kỳ thi
   const rail = home && hud && level ? <SagaRail session={session} nav={nav} wide={wide} /> : null;
   const units = home ? (
     <View style={{ gap: 14, flex: wide ? 1 : undefined, minWidth: 0, alignSelf: 'stretch' }} testID="home-units">
-      <View style={{ gap: 5 }}><Txt f="heavy" size={22} accessibilityRole="header">Bản đồ hành trình</Txt><Txt size={14} color={S.muted}>Ba chiến dịch · {home.totals.stages} chặng khám phá · Một hào khí Đông A</Txt></View>
+      <HallTitle eyebrow="BẢN ĐỒ HÀNH TRÌNH" ink="Ba chiến dịch," red={`${home.totals.stages} chặng khám phá`} />
       {home.campaigns.map((camp) => <UnitBanner key={camp.campaign_no} camp={camp} onOpen={() => nav.go('chien-dich', { c: camp.campaign_no, s: null, v: null })} />)}
       <View style={{ borderRadius: 20, backgroundColor: '#e8f3ed', padding: 19, gap: 12 }}>
         <Txt f="bold" size={17}>Đổi gió một chút?</Txt>
@@ -118,22 +120,29 @@ export const HomeScreen: React.FC<{ session: Session; nav: SagaNav; loading: boo
       </View>
     </View>
   ) : null;
+  const play = (): void => nav.go('chien-dich', next ? { c: next.campaign_no, s: next.stage_id, v: null } : { c: 1, s: null, v: null });
   return (
     <SagaPage testID="saga-home" max={1320}>
-      <SagaHeader title="Hành trình Đông A" back={{ label: 'Lớp học', hint: 'Về danh sách lớp học', onPress: onLeave }}
-        subtitle="Cùng học, cùng khám phá, cùng ghi dấu trên hành trình lịch sử." />
-      {cls ? <ClassBar cls={cls} /> : null}
-      <AdventureHero eyebrow={next ? `CHẶNG TIẾP THEO · PHẦN ${next.campaign_no}` : 'HÀNH TRÌNH CỦA EM'}
-        title={next ? `${home?.learner.name ?? 'Em'} ơi,\nhành trình đang chờ!` : finished ? 'Tuyệt lắm, em đã\nđi trọn hành trình!' : 'Lịch sử mở ra\ntừ mỗi bước nhỏ.'}
-        subtitle={next ? `Tiếp bước khám phá: ${next.title}. Học kiến thức, thử tài và nhận những ngôi sao của em.` : 'Ba lần kháng chiến chống quân Mông – Nguyên (1258, 1285, 1287–1288). Cùng tìm hiểu những câu chuyện làm nên hào khí Đông A.'}
-        variant={next?.campaign_no}
-        action={next ? <GameButton title={next.state === 'learning' ? 'Tiếp tục hành trình' : 'Bắt đầu khám phá'} icon={Play} light onPress={() => nav.go('chien-dich', { c: next.campaign_no, s: next.stage_id, v: null })} testID="home-continue" /> : undefined}
-        footnote={home ? `${home.totals.done}/${home.totals.stages} chặng hoàn thành · Điểm và sao được lưu theo tiến độ học` : undefined} />
-      {home && width < 1320 ? <LearnerStats home={home} compact={width < 600} /> : null}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <Btn title="Lớp học" icon={ChevronLeft} tone="ghost" size="sm" onPress={onLeave} label="Về danh sách lớp học" testID="saga-back" style={{ marginLeft: -10 }} />
+        {cls ? <View style={{ flex: 1, minWidth: 220 }}><ClassBar cls={cls} /></View> : null}
+      </View>
       {!home || !hud || !level ? <LoadState loading={loading} error={error} onRetry={nav.refresh} /> : (
-        <View style={{ flexDirection: wide ? 'row' : 'column', gap: 24, alignItems: 'flex-start' }}>
-          {units}{rail}
-        </View>
+        <>
+          <HallHero home={home} rank={rank} onPlay={play} onMap={() => nav.go('chien-dich', { c: next?.campaign_no ?? 1, s: null, v: null })} />
+          {width < 1320 ? <LearnerStats home={home} compact={width < 600} /> : null}
+          <HallSteps />
+          <View style={{ flexDirection: wide ? 'row' : 'column', gap: 24, alignItems: 'flex-start' }}>
+            {units}{rail}
+          </View>
+          <RankLadder rank={rank} />
+          <HallBoard session={session} classId={cls?.id ?? null} className={cls?.name ?? null} />
+          <HallGallery level={rank.level} home={home} />
+          <Txt size={12} color={HALL.muted} center style={{ lineHeight: 18 }}>
+            Nhân vật, trang phục, cung điện và tranh trong sảnh là hình vẽ cách điệu do nhóm Đông A tự sáng tác, không phục dựng di tích hay trang phục cụ thể.
+            Bản đồ các phần là bản đồ gốc trên Wikipedia tiếng Việt.
+          </Txt>
+        </>
       )}
     </SagaPage>
   );
