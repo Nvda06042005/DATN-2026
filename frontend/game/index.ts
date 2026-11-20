@@ -1,16 +1,25 @@
 /**
- * Khởi tạo game Phaser (Canvas / WebGL) cho một màn chơi của Hành trình Đông A. Tệp này chỉ được nạp bằng `import()` động từ GameViewport bản web,
- * nên Phaser (khoảng 1,5 MB) nằm trong một gói riêng, không làm nặng các trang khác và không bao giờ vào bản điện thoại.
+ * Khởi tạo sa bàn Three.js, dự phòng Phaser/Canvas khi máy thiếu WebGL. Tệp này chỉ được nạp bằng import() từ GameViewport web;
+ * renderer không vào trang công khai hoặc bản điện thoại. Mỗi viewport chỉ tạo một renderer.
  */
 import Phaser from 'phaser';
 import { BACHDANG_SIZE, BachDangScene } from './bachdang-scene';
 import type { GameBridge, GameKind } from './bridge';
 import { EXPLORE_SIZE, ExploreScene } from './explore-scene';
 import { TACTICS_SIZE, TacticsScene } from './tactics-scene';
+import { createHistoricalGame } from './historical-game';
 
 export const GAME_SIZE: Record<GameKind, { width: number; height: number }> = { explore: EXPLORE_SIZE, tactics: TACTICS_SIZE, bachdang: BACHDANG_SIZE };
 
 export function createGame(parent: HTMLElement, kind: GameKind, bridge: GameBridge): { destroy: () => void } {
+  try {
+    const game = createHistoricalGame(parent, kind, bridge);
+    bridge.set('game:renderer', '3d');
+    return game;
+  } catch {
+    // Keep the existing Canvas renderer usable on school computers without WebGL.
+    bridge.set('game:renderer', '2d');
+  }
   const scene = kind === 'explore' ? new ExploreScene(bridge) : kind === 'tactics' ? new TacticsScene(bridge) : new BachDangScene(bridge);
   const game = new Phaser.Game({
     type: Phaser.AUTO, parent, ...GAME_SIZE[kind], backgroundColor: kind === 'explore' ? '#8fce6a' : '#8fd3ff', banner: false,

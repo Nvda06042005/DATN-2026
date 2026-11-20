@@ -30,7 +30,7 @@ export function RolePlayIntro({ onDone }: { onDone: () => void }) {
       </View>
       <View style={{ flexDirection: wide ? 'row' : 'column', gap: 20, alignItems: 'stretch' }}>
         <View style={{ flex: wide ? 1 : undefined, width: wide ? undefined : '100%', minWidth: 0, borderWidth: 1, borderColor: '#3d6364', borderRadius: 22, overflow: 'hidden', backgroundColor: '#254e4b' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 14, backgroundColor: '#1b3c40' }}><Compass size={19} color="#edc978" /><Txt f="bold" size={14} color="#e3eee6" style={{ flex: 1 }}>Thế giới khối Đông A</Txt><Txt size={12} color="#c2d7cd">Phối cảnh hư cấu</Txt></View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 14, backgroundColor: '#1b3c40' }}><Compass size={19} color="#edc978" /><Txt f="bold" size={14} color="#e3eee6" style={{ flex: 1 }}>Đại Việt trước giờ ra trận</Txt><Txt size={12} color="#c2d7cd">Tái hiện nghệ thuật</Txt></View>
           <RolePlayWorld mood={current.mood} player={place ? [place.x, place.z] : undefined} />
           <View style={{ padding: 15, gap: 11 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}><Txt size={14} color="#e1ede1">Chạm một địa điểm để khám phá bối cảnh</Txt><Txt f="bold" size={13} color="#ffdc8d">Đã xem {visited.length}/3</Txt></View>
@@ -63,7 +63,7 @@ export function RolePlayIntro({ onDone }: { onDone: () => void }) {
       <Pressable accessibilityRole="button" accessibilityLabel="Xem nguồn lịch sử và phân biệt phần sáng tạo" onPress={() => setSources(true)} testID="intro-sources" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}><Txt size={13} color="#d0e2d5" style={{ textDecorationLine: 'underline' }}>Nguồn: Bài 14, SGK tr. 68–73 và bản Tổng hợp lịch sử · Xem chi tiết</Txt></Pressable>
     </ScrollView>
     {sources ? <Sheet open onClose={() => setSources(false)} title="Nguồn lịch sử và phần sáng tạo">
-      <View style={{ gap: 15 }}><Txt size={16}>Nguồn chính: Lịch sử và Địa lí 7 – Kết nối tri thức với cuộc sống, Bài 14, trang in 68–73 (trang 69–74 của tệp PDF bạn cung cấp).</Txt><Txt size={16}>Đối chiếu: Tổng hợp lịch sử, phần 1 (các vua), phần 2 (ba cuộc kháng chiến). Các hướng tiến quân không được tự gọi thành “đường lớn, đường nhỏ”.</Txt><Txt f="bold" size={16}>Cảnh đang xem</Txt><Txt size={16}>{current.source}</Txt><Txt size={16}>Làng, doanh trại, nhân vật liên lạc và lời giao nhiệm vụ là sáng tạo của trò chơi. Sa bàn khối minh họa bối cảnh; bản đồ địa lý và sử liệu của chặng vẫn dùng nguồn đã ghi công. Khám phá intro không cộng điểm hay mở khóa chặng.</Txt></View>
+      <View style={{ gap: 15 }}><Txt size={16}>Nguồn chính: Lịch sử và Địa lí 7 – Kết nối tri thức với cuộc sống, Bài 14, trang in 68–73 (trang 69–74 của tệp PDF bạn cung cấp).</Txt><Txt size={16}>Đối chiếu: Tổng hợp lịch sử, phần 1 (các vua), phần 2 (ba cuộc kháng chiến). Các hướng tiến quân không được tự gọi thành “đường lớn, đường nhỏ”.</Txt><Txt f="bold" size={16}>Cảnh đang xem</Txt><Txt size={16}>{current.source}</Txt><Txt size={16}>Làng, doanh trại, trang phục, kiến trúc, nhân vật liên lạc và lời giao nhiệm vụ là tái hiện nghệ thuật của trò chơi, không phải phục dựng khảo cổ. Số hình người trong đội hình không biểu thị quân số lịch sử. Bản đồ địa lý và sử liệu của chặng vẫn dùng nguồn đã ghi công. Khám phá intro không cộng điểm hay mở khóa chặng.</Txt></View>
     </Sheet> : null}
   </View>;
 }
@@ -74,7 +74,7 @@ export function RolePlayLobby({ session, nav }: { session: Session; nav: SagaNav
   const next = nav.home?.next ?? null;
   if (intro) return <RolePlayIntro onDone={() => { INTRO_SEEN.add(session.token); setIntro(false); }} />;
   return <SagaPage testID="saga-roleplay" max={1320}>
-    <SagaHeader title="Doanh trại nhập vai" subtitle="Nhận quân lệnh, tìm nhân vật và khám phá bối cảnh trong thế giới khối Đông A."
+    <SagaHeader title="Doanh trại nhập vai" subtitle="Nhận quân lệnh, gặp nhân vật và bước vào phong cảnh Đại Việt trong sa bàn lịch sử."
       actions={<Btn title="Xem lại mở đầu" icon={RotateCcw} tone="giay" onPress={() => setIntro(true)} testID="roleplay-intro-replay" />} />
     <View style={{ borderRadius: 21, overflow: 'hidden', backgroundColor: '#244a45', flexDirection: 'row', alignItems: 'center', padding: 18, gap: 18 }}>
       <View style={{ flex: 1, gap: 9 }}><Txt f="heavy" size={23} color="#fff5d6">Quân lệnh đang chờ em</Txt><Txt size={16} color="#d7e9db" style={{ lineHeight: 25 }}>Học kiến thức và hoàn thành luyện tập để mở cảnh nhập vai. Trong cảnh, dùng WASD / phím mũi tên hoặc chạm để đi, nhấn E để tương tác.</Txt>{next ? <GameButton title={`Mở chặng: ${next.title}`} light icon={Play} onPress={() => nav.go('chien-dich',{ c: next.campaign_no,s: next.stage_id,v: null })} testID="roleplay-next" /> : null}</View>

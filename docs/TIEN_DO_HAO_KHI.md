@@ -1,5 +1,11 @@
 # Tiến độ xây dựng Hào Khí Đông A (theo mã HK.*)
 
+## Sửa bối cảnh nhập vai thành sa bàn lịch sử 3D – 20/11/2026
+
+- Theo phản hồi mới nhất, thay cảnh ô vuông/nhân vật khối trên web bằng phong cảnh Three.js có nền tự nhiên, cây, trại, nhà, bến, người tỷ lệ thật, kỵ binh, voi, thuyền và đội hình. Tham khảo trực tiếp các khung hình video `PjC8qsPHbkc`; tạo hình nguyên bản, không dùng tài nguyên của video.
+- Áp dụng cho intro, khám phá, bộ chiến, trận thủy/bộ và Bạch Đằng. Có góc nhìn kéo/thu/phóng, mô hình dùng chung và đội quân instancing; bản Canvas dự phòng cho máy thiếu WebGL. Giữ bridge, lưới/API và mọi quyết định kết quả ở máy chủ; không đổi schema/seed Supabase.
+- Kiểm thử engine thực tế không cần browser về tọa độ/raycast, nhiệm vụ, lượt chiến đấu và vòng đời. Kết xuất hình học ngoại tuyến để kiểm tra bố cục; kiểm tra đầy đủ WebGL/trình duyệt còn giới hạn do CUA không nhận diện được URL Chrome. Xem [chi tiết](NHAP_VAI_VA_INTRO.md).
+
 ## Intro lịch sử và nhập vai thế giới khối – 20/11/2026
 
 - Đọc Bài 14, SGK trang 68–73 và đối chiếu bản Tổng hợp lịch sử. Sáu cảnh dẫn chuyện đi từ bối cảnh Đại Việt tới đế chế Mông Cổ, chuẩn bị cuối 1257, ba cuộc kháng chiến rồi nhận vai. Có nguồn và phân biệt nhân vật/lời thoại hư cấu.
