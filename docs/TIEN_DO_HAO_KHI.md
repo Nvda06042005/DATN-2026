@@ -1,5 +1,10 @@
 # Tiến độ xây dựng Hào Khí Đông A (theo mã HK.*)
 
+## Intro lịch sử và nhập vai thế giới khối – 20/11/2026
+
+- Đọc Bài 14, SGK trang 68–73 và đối chiếu bản Tổng hợp lịch sử. Sáu cảnh dẫn chuyện đi từ bối cảnh Đại Việt tới đế chế Mông Cổ, chuẩn bị cuối 1257, ba cuộc kháng chiến rồi nhận vai. Có nguồn và phân biệt nhân vật/lời thoại hư cấu.
+- Mục Nhập vai có sa bàn khối, địa điểm khám phá, quân lệnh dạng thẻ, nút xem lại intro. Cảnh khám phá dùng nhân vật và đạo cụ voxel tạo bằng mã; giữ lưới, điều khiển, API, tiến độ và phần thưởng máy chủ. Không đổi DB hoặc seed. Xem [chi tiết](NHAP_VAI_VA_INTRO.md).
+
 ## Sảnh học sinh cuộn dọc theo kiểu VL-LEGEND – 20/11/2026
 
 Người dùng gửi 9 ảnh trang VL-LEGEND ("Tôi muốn kiểu như này trong trang học sinh đi") và chọn: **bỏ menu trái, trang cuộn dọc**; **danh hiệu khoa cử thời Trần**; đủ bốn phần **màn mở đầu cung điện, thang danh hiệu 5 bậc, bảng xếp hạng sân khấu, thư viện tranh**.

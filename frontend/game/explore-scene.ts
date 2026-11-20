@@ -6,7 +6,8 @@
 import Phaser from 'phaser';
 import type { ExploreEvent, ExploreView, XY } from '@/types/saga';
 import type { GameBridge } from './bridge';
-import { GROUND_OF, LOOKS, makeChar, makeTiles, PROP_OF, TILE } from './pixel';
+import { GROUND_OF, LOOKS, makeTiles, PROP_OF, TILE } from './pixel';
+import { makeVoxelChar as makeChar, makeVoxelWorld } from './voxel';
 
 const S = 2;
 const T = TILE * S;
@@ -46,16 +47,17 @@ export class ExploreScene extends Phaser.Scene {
   create(): void {
     this.view = this.bridge.get<ExploreView>('explore:view')!;
     makeTiles(this);
+    makeVoxelWorld(this);
     for (const key of new Set(['player', ...this.view.npcs.map((n) => n.sprite)])) makeChar(this, `ch_${key}`, LOOKS[key] ?? LOOKS.villager);
     for (const key of this.textures.getTextureKeys()) this.textures.get(key).setFilter(NEAREST);
 
     // nền, vật cản và lưới va chạm
     this.blocked = this.view.grid.map((row) => [...row].map((ch) => !WALK.includes(ch)));
     this.view.grid.forEach((row, y) => [...row].forEach((ch, x) => {
-      const ground = this.add.image(x * T, y * T, 'tiles', GROUND_OF[ch] ?? 'grass').setOrigin(0).setScale(S).setDepth(0);
+      const ground = this.add.image(x * T, y * T, 'voxel-tiles', GROUND_OF[ch] ?? 'grass').setOrigin(0).setScale(S).setDepth(0);
       if (ch === '~' || ch === 'b') this.waters.push(ground);
       const prop = PROP_OF[ch];
-      if (prop) this.add.image(centerOf(x), (y + 1) * T, prop).setOrigin(0.5, 1).setScale(S).setDepth((y + 1) * T - 1);
+      if (prop) this.add.image(centerOf(x), (y + 1) * T, this.textures.exists(`vx_${prop}`) ? `vx_${prop}` : prop).setOrigin(0.5, 1).setScale(S).setDepth((y + 1) * T - 1);
     }));
     this.time.addEvent({ delay: 520, loop: true, callback: () => this.waters.forEach((w, i) => w.setFrame((Math.floor(this.time.now / 520) + i) % 2 ? 'water' : 'water2')) });
 
@@ -121,7 +123,7 @@ export class ExploreScene extends Phaser.Scene {
     for (const [id, rect] of this.zones) rect.setVisible(mark === `zone:${id}`);
     const at = mark ? this.cellOf(mark) : null;
     this.marker.setVisible(Boolean(at) && !mark!.startsWith('zone:'));
-    if (at) this.marker.setPosition(centerOf(at[0]), at[1] * T - 14);
+    if (at) this.marker.setPosition(centerOf(at[0]), at[1] * T - 46);
     // sang bước mới thì vùng đang đứng được báo lại (bước mới có thể cần đúng vùng này); cùng một bước thì không báo lặp
     if (stepChanged) this.zoneIn = null;
   }

@@ -14,7 +14,7 @@ import { Award, BookOpen, Check, ChevronLeft, Coins, Footprints, Gamepad2, Lock,
 import * as saga from '@/lib/saga-api';
 import * as authApi from '@/api/authApi';
 import { Mascot } from '@/components/art';
-import { Cell, DataTable, type Column } from '@/components/admin/kit';
+import { RolePlayLobby } from '@/components/portal/RolePlayLobby';
 import type { Session } from '@/components/auth';
 import {
   BlockTitle, KIND_TEXT, LoadState, Portrait, RARITY, STATE, SagaHeader, SagaPage, StarRow, TONE, mapSource, num, stageIcon, useLoad, type SagaNav, type SagaStep,
@@ -23,7 +23,7 @@ import { ChestArt, SagaRail } from '@/components/portal/SagaRail';
 import { ChestOpening } from '@/components/portal/SagaChest';
 import { AdventureScene, LearnerStats, STUDENT as S } from '@/components/portal/StudentDesign';
 import { HALL, HallBoard, HallGallery, HallHero, HallSteps, HallTitle, RankLadder, scholarRank } from '@/components/portal/StudentHall';
-import { Btn, Card, Chip, InfoNote, Inset, Segmented, Sheet, Txt, useToast } from '@/components/ui';
+import { Btn, Card, Chip, Inset, Segmented, Sheet, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
 import type { CampaignView, SagaCampaign, SagaChest, SagaMapInfo, StageBrief, StageDetail, StepState } from '@/types/saga';
@@ -595,49 +595,4 @@ const StageSheet: React.FC<{ session: Session; nav: SagaNav; stageId: number; ca
 };
 
 // ---------------------------------------------------------------------- mục "Nhập vai": cảnh khám phá và trận đánh đã mở
-export const RolePlayScreen: React.FC<{ session: Session; nav: SagaNav }> = ({ session, nav }) => {
-  const { c } = useTheme();
-  const data = useLoad<CampaignView[]>(session, (t) => Promise.all([1, 2, 3].map((n) => saga.campaign(t, n))), []);
-  const next = nav.home?.next ?? null;
-  const columns: Column<StageBrief>[] = [
-    { key: 'title', label: 'Chặng', width: 240, grow: 2, render: (st) => <Cell main={`${st.order}. ${st.title}`} sub={st.date_label} /> },
-    { key: 'explore', label: 'Nhập vai', width: 220, grow: 1, render: (st) => <Txt size={13} color={c.muc2} numberOfLines={2}>{st.steps.explore === 'done' ? 'Đã hoàn thành nhiệm vụ nhập vai' : st.steps.explore !== 'locked' ? 'Cảnh nhập vai đã mở' : st.lock_reason ?? 'Đạt phần luyện tập của chặng để mở'}</Txt> },
-    { key: 'battle', label: 'Trận đánh', width: 110, render: (st) => (!st.has_battle ? <Txt size={13} color={c.muc3}>Không có</Txt> : st.battle_stars > 0 ? <StarRow n={st.battle_stars} size={14} /> : <Txt size={13} color={c.muc3}>Chưa thắng</Txt>) },
-  ];
-  return (
-    <SagaPage testID="saga-roleplay">
-      <SagaHeader title="Nhập vai" subtitle="Vào vai một người lính nhà Trần: đi lại trong cảnh, nhận quân lệnh, tìm người, tìm vật rồi ra trận. Mở lại các cảnh và trận đánh em đã mở để chơi lại." />
-      {next ? (
-        <Card flat pad={14} style={{ borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <View style={{ flex: 1, minWidth: 220 }}>
-            <Txt f="bold" size={15}>Chặng đang chờ: {next.title}</Txt>
-            <Txt size={13} color={c.muc2}>Học thẻ kiến thức và đạt phần luyện tập để mở cảnh nhập vai của chặng.</Txt>
-          </View>
-          <Btn title="Mở chặng" icon={Play} tone="son" size="sm" onPress={() => nav.go('chien-dich', { c: next.campaign_no, s: next.stage_id, v: null })} testID="roleplay-next" />
-        </Card>
-      ) : null}
-      {!data.data ? <LoadState loading={data.loading} error={data.error} onRetry={data.reload} /> : data.data.map((cv) => {
-        const tone = TONE[cv.map.campaign_no] ?? TONE[1];
-        return (
-          <Card key={cv.map.campaign_no} flat pad={14} style={{ borderRadius: 12, gap: 10 }} testID={`roleplay-campaign-${cv.map.campaign_no}`}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <Chip text={`${tone.label} · ${tone.years}`} bg={tone.soft} fg={tone.text} />
-              <Txt f="bold" size={16} accessibilityRole="header" style={{ flex: 1 }}>{cv.map.title}</Txt>
-            </View>
-            <DataTable columns={columns} rows={cv.stages} rowKey={(st) => st.id} paginate={false} empty="Chưa có chặng nào." actionsWidth={250}
-              actions={(st) => {
-                const canExplore = st.steps.explore !== 'locked', canBattle = st.steps.battle === 'done';
-                return (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                    <Btn title="Nhập vai" icon={Footprints} tone="giay" size="sm" disabled={!canExplore} onPress={() => nav.go('chien-dich', { c: st.campaign_no, s: st.id, v: 'kham-pha' })} testID={`roleplay-explore-${st.code}`} label={`Nhập vai ở chặng ${st.title}`} />
-                    {st.has_battle ? <Btn title="Đánh trận" icon={Swords} tone="giay" size="sm" disabled={!canBattle} onPress={() => nav.go('chien-dich', { c: st.campaign_no, s: st.id, v: 'tran' })} testID={`roleplay-battle-${st.code}`} label={canBattle ? `Đánh lại trận ${st.title}` : `Trận ${st.title}: thắng lần đầu trong phần nhập vai để mở`} /> : null}
-                  </View>
-                );
-              }} />
-          </Card>
-        );
-      })}
-      <InfoNote>Nhân vật em điều khiển và các nhân vật phụ trong cảnh là hư cấu; sự kiện lịch sử nằm ở thẻ kiến thức và phần tổng kết, có ghi nguồn.</InfoNote>
-    </SagaPage>
-  );
-};
+export const RolePlayScreen: React.FC<{ session: Session; nav: SagaNav }> = ({ session, nav }) => <RolePlayLobby session={session} nav={nav} />;
