@@ -37,6 +37,7 @@ export function RolePlayMapIntro({onDone}:{onDone:()=>void}) {
         <View style={{flexDirection:'row',alignItems:'center',gap:12,padding:compact?12:16,borderBottomWidth:1,borderColor:'#83714b',backgroundColor:'#25372c'}}>
           <View style={{backgroundColor:'#e4c382',borderRadius:7,paddingHorizontal:14,paddingVertical:7}}><Txt testID="intro-year" f="heavy" size={compact?17:22} color="#332a1c">{current.time}</Txt></View>
           <Txt f="bold" size={compact?15:20} color="#fff0cd" style={{flex:1}} accessibilityLiveRegion="polite">{current.title}</Txt>
+          {!calm&&current.duration>0?<Btn title={player.playing?'Dừng':'Phát'} icon={player.playing?Pause:Play} tone="giay" onPress={toggle} testID="intro-play-top" label={player.playing?'Tạm dừng câu chuyện':'Phát câu chuyện bản đồ'}/>:null}
         </View>
         <HistoryAtlas chapter={current} progress={calm?1:progress} selected={selected} onSelect={setSelected} pixelWidth={Math.min(1410,width-(compact?26:50))} zoom={zoom} calm={calm}/>
         <View style={{paddingHorizontal:12,paddingVertical:9,backgroundColor:'#1c2e24',flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:8}}>
