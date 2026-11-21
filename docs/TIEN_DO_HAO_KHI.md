@@ -1,5 +1,11 @@
 # Tiến độ xây dựng Hào Khí Đông A (theo mã HK.*)
 
+## Bản đồ kể chuyện 2D theo phản hồi cụ thể – 21/11/2026
+
+- Mở mục Nhập vai bằng bản đồ địa hình Á–Âu thật (Natural Earth public domain), vùng đỏ minh họa, mũi tên và đoàn kỵ binh. Mạch: 1206 → 1219–1221 → Kalka 1223 → Moscow 1238 → Kyiv 1240 → Đại Việt 1257/1258 → hai lần kháng chiến tiếp theo → nhận vai. Chuẩn hóa lỗi chép 2006/1233; không quy chiến dịch sau 1227 cho Thành Cát Tư Hãn trực tiếp chỉ huy.
+- Có phát/tạm dừng, chuyển cảnh, chọn mốc năm, phóng/thu, bấm địa danh và nguồn sử liệu. Nhãn bản điện thoại giản lược để không đè nhau. Phần chơi dùng Phaser 2D và hình nhân vật/quân/thuyền vẽ bằng Canvas; giữ physics, bridge và API. Không đổi schema hoặc seed.
+- Đối chiếu bảo tàng Royal Armouries, University of Washington, Canadian Institute of Ukrainian Studies; Bài 14 SGK/DOCX vẫn là nguồn Đại Việt. Asset, world file, bounds, checksum và giấy phép ở `frontend/assets/roleplay-atlas/`. Xem [chi tiết](NHAP_VAI_VA_INTRO.md).
+
 ## Sửa bối cảnh nhập vai thành sa bàn lịch sử 3D – 20/11/2026
 
 - Theo phản hồi mới nhất, thay cảnh ô vuông/nhân vật khối trên web bằng phong cảnh Three.js có nền tự nhiên, cây, trại, nhà, bến, người tỷ lệ thật, kỵ binh, voi, thuyền và đội hình. Tham khảo trực tiếp các khung hình video `PjC8qsPHbkc`; tạo hình nguyên bản, không dùng tài nguyên của video.

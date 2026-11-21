@@ -27,8 +27,10 @@ test('intro cannot unlock a stage; entry and battle replay require the server st
 
 test('historical opening has its prior context, distinguishes the three campaigns and supplies source notes', () => {
   const chapters = story.ROLEPLAY_CHAPTERS;
-  assert.equal(chapters[0].id,'homeland');
-  assert.equal(chapters[1].id,'empire');
+  assert.equal(chapters[0].id,'foundation');
+  assert.equal(chapters[0].year,1206);
+  assert.equal(chapters[1].id,'west');
+  assert.deepEqual(Array.from(chapters.slice(0,5),c=>c.year),[1206,1219,1223,1238,1240]);
   assert.match(chapters.find(c=>c.id==='warning').time,/1257/);
   assert.match(chapters.find(c=>c.id==='first').body,/Trần Thái Tông/);
   const later = chapters.find(c=>c.id==='later');

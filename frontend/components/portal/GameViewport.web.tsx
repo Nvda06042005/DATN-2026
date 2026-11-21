@@ -15,7 +15,7 @@ export interface GameViewportProps { kind: GameKind; bridge: GameBridge; aspect:
 export const GameViewport: React.FC<GameViewportProps> = ({ kind, bridge, aspect, label, maxHeight }) => {
   const host = useRef<HTMLDivElement | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading');
-  const [renderer, setRenderer] = useState('3d');
+  const [renderer, setRenderer] = useState('2d');
   const [retry, setRetry] = useState(0);
   const reduce = useReduceMotion();
   const { width } = useWindowDimensions();

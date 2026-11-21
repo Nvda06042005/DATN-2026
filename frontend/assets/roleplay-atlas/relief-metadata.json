@@ -1,0 +1,33 @@
+{
+  "source_url": "https://naturalearth.s3.amazonaws.com/50m_raster/HYP_50M_SR_W.zip",
+  "source_page": "https://www.naturalearthdata.com/downloads/50m-raster-data/50m-cross-blend-hypso/",
+  "license_url": "https://www.naturalearthdata.com/about/terms-of-use/",
+  "license": "Public domain",
+  "source_archive_sha256": "57d89405e8f7d1e5d1cca11701d394b3d45aea75b301a6992ad5571eff64527a",
+  "source_raster_member": "HYP_50M_SR_W.tif",
+  "source_raster_size": [
+    10800,
+    5400
+  ],
+  "source_world_file": "0.03333333333333 \n          0.00000000000000 \n          0.00000000000000 \n          -0.03333333333333 \n          -179.98333333333333 \n          89.98333333333333",
+  "projection": "Equirectangular / geographic longitude-latitude, WGS84",
+  "bounds": {
+    "west": 10,
+    "south": 5,
+    "east": 150,
+    "north": 70
+  },
+  "source_crop_pixels": [
+    5700,
+    600,
+    9900,
+    2550
+  ],
+  "output_size": [
+    2800,
+    1300
+  ],
+  "output_bytes": 578708,
+  "output_sha256": "c73eb35286ff3bbebd88b1e6b0a864eda2188af45cafaca67d31f45861d3c859",
+  "conversion": "Geographic crop and LANCZOS resize only; WebP quality86. No recoloring, invented terrain, modern political boundaries or video artwork."
+}

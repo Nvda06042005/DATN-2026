@@ -29,6 +29,12 @@ function ImageCredits() {
     <Band id="thong-tin-hinh-anh" bg={c.logoPaper} wide={wide} padTop={wide ? 136 : 108} decor={<GoldRings />}>
       <SectionHeading eyebrow="Nguồn tư liệu" title="Thông tin" accent="hình ảnh" description="Nguồn, tác giả và giấy phép của các bản đồ và hình ảnh được sử dụng trên Đông A." wide={wide} singleLine testID="image-credits-heading" />
       <View style={{ gap: 24 }}>
+        <View testID="atlas-image-credit" style={[{ gap: 8, padding: wide ? 28 : 20, borderWidth: 1, borderRadius: 28 }, PAPER_CARD]}>
+          <Txt f="heavy" size={wide ? 24 : 20} color={c.logoInk} accessibilityRole="header">Bản đồ địa hình Á–Âu trong đoạn dẫn nhập</Txt>
+          <Txt color={c.logoInk}>Made with Natural Earth · Tom Patterson, Nathaniel Vaughn Kelso và cộng tác viên · Public domain. Nền Cross-blended Hypsometric Tints with Shaded Relief and Water được cắt theo kinh/vĩ độ và chuyển WebP.</Txt>
+          <Txt color={c.logoInk}>Các lớp tô màu, đường tiến quân và ký hiệu quân là minh họa khái quát do Đông A tạo; không phải biên giới hoặc quân số được khảo chứng. Không sử dụng ảnh từ video tham khảo.</Txt>
+          <Pressable accessibilityRole="link" accessibilityLabel="Nguồn bản đồ Natural Earth" onPress={()=>void Linking.openURL('https://www.naturalearthdata.com/downloads/50m-raster-data/50m-cross-blend-hypso/')} style={{minHeight:44,justifyContent:'center'}}><Txt color={c.logoRed} style={{textDecorationLine:'underline'}}>Nguồn địa hình Natural Earth</Txt></Pressable>
+        </View>
         <View testID="map-image-credits" style={[{ gap: 8, padding: wide ? 28 : 20, borderWidth: 1, borderRadius: 28 }, PAPER_CARD]}>
           <Txt f="heavy" size={wide ? 24 : 20} color={c.logoInk} accessibilityRole="header">Bản đồ ba lần kháng chiến</Txt>
           <Txt color={c.logoInk}>Tác giả: Lưu Ly · Phạm vi công cộng · Bản hiển thị được thu nhỏ và chuyển WebP.</Txt>

@@ -6,18 +6,18 @@
 import Phaser from 'phaser';
 import type { ExploreEvent, ExploreView, XY } from '@/types/saga';
 import type { GameBridge } from './bridge';
-import { GROUND_OF, LOOKS, makeTiles, PROP_OF, TILE } from './pixel';
-import { makeVoxelChar as makeChar, makeVoxelWorld } from './voxel';
+import { LOOKS, PROP_OF, TILE } from './pixel';
+import { ART_SCALE, makeExploreMap, makeMapChar as makeChar, makeMapProps } from './cartographic-art';
 
 const S = 2;
 const T = TILE * S;
+const A = S / ART_SCALE;
 const COLS = 22;
 const ROWS = 13;
 const WALK = '.,=_:+';
 const SPEED = 118;
 export const EXPLORE_SIZE = { width: COLS * T, height: ROWS * T };
 
-const NEAREST = 1 as unknown as Phaser.Textures.FilterMode;
 const tileOf = (px: number): number => Math.floor(px / T);
 const centerOf = (t: number): number => t * T + T / 2;
 
@@ -30,7 +30,6 @@ export class ExploreScene extends Phaser.Scene {
   private readonly npcs = new Map<string, Phaser.GameObjects.Sprite>();
   private readonly items = new Map<string, Phaser.GameObjects.Image>();
   private readonly zones = new Map<string, Phaser.GameObjects.Rectangle>();
-  private waters: Phaser.GameObjects.Image[] = [];
   private path: XY[] = [];
   private pending: string | null = null;
   private near: string | null = null;
@@ -46,20 +45,21 @@ export class ExploreScene extends Phaser.Scene {
 
   create(): void {
     this.view = this.bridge.get<ExploreView>('explore:view')!;
-    makeTiles(this);
-    makeVoxelWorld(this);
+    makeExploreMap(this, this.view.grid, EXPLORE_SIZE.width, EXPLORE_SIZE.height);
+    makeMapProps(this);
     for (const key of new Set(['player', ...this.view.npcs.map((n) => n.sprite)])) makeChar(this, `ch_${key}`, LOOKS[key] ?? LOOKS.villager);
-    for (const key of this.textures.getTextureKeys()) this.textures.get(key).setFilter(NEAREST);
+    for (const key of this.textures.getTextureKeys()) this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
 
     // nền, vật cản và lưới va chạm
     this.blocked = this.view.grid.map((row) => [...row].map((ch) => !WALK.includes(ch)));
+    this.add.image(0, 0, 'cartographic-ground').setOrigin(0).setDisplaySize(EXPLORE_SIZE.width, EXPLORE_SIZE.height).setDepth(0);
     this.view.grid.forEach((row, y) => [...row].forEach((ch, x) => {
-      const ground = this.add.image(x * T, y * T, 'voxel-tiles', GROUND_OF[ch] ?? 'grass').setOrigin(0).setScale(S).setDepth(0);
-      if (ch === '~' || ch === 'b') this.waters.push(ground);
       const prop = PROP_OF[ch];
-      if (prop) this.add.image(centerOf(x), (y + 1) * T, this.textures.exists(`vx_${prop}`) ? `vx_${prop}` : prop).setOrigin(0.5, 1).setScale(S).setDepth((y + 1) * T - 1);
+      if (prop && ch !== 'w') {
+        const vertical = ch === '#' && (this.view.grid[y - 1]?.[x] === '#' || this.view.grid[y + 1]?.[x] === '#') && row[x - 1] !== '#' && row[x + 1] !== '#';
+        this.add.image(centerOf(x), (y + 1) * T, vertical ? 'map_fence_v' : `map_${prop}`).setOrigin(0.5, 1).setScale(A).setDepth((y + 1) * T - 1);
+      }
     }));
-    this.time.addEvent({ delay: 520, loop: true, callback: () => this.waters.forEach((w, i) => w.setFrame((Math.floor(this.time.now / 520) + i) % 2 ? 'water' : 'water2')) });
 
     for (const z of this.view.zones) {
       const [x, y, w, h] = z.rect;
@@ -70,18 +70,18 @@ export class ExploreScene extends Phaser.Scene {
     }
     for (const n of this.view.npcs) {
       this.blocked[n.at[1]][n.at[0]] = true;
-      this.add.image(centerOf(n.at[0]), (n.at[1] + 1) * T - 2, 'shadow').setScale(S).setDepth(2);
-      const sprite = this.add.sprite(centerOf(n.at[0]), (n.at[1] + 1) * T - 3, `ch_${n.sprite}`, 0).setOrigin(0.5, 1).setScale(S).setDepth((n.at[1] + 1) * T);
+      this.add.image(centerOf(n.at[0]), (n.at[1] + 1) * T - 2, 'map_shadow').setScale(A).setDepth(2);
+      const sprite = this.add.sprite(centerOf(n.at[0]), (n.at[1] + 1) * T - 3, `ch_${n.sprite}`, 0).setOrigin(0.5, 1).setScale(A).setDepth((n.at[1] + 1) * T);
       this.tweens.add({ targets: sprite, y: sprite.y - 2, duration: 620 + (n.at[0] * 37) % 300, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       sprite.setInteractive({ useHandCursor: true });
       this.npcs.set(n.id, sprite);
     }
-    this.marker = this.add.image(0, 0, 'marker').setScale(S).setOrigin(0.5, 1).setDepth(9000).setVisible(false);
-    this.tweens.add({ targets: this.marker, scale: S * 1.18, duration: 480, yoyo: true, repeat: -1 });
+    this.marker = this.add.image(0, 0, 'map_marker').setScale(A).setOrigin(0.5, 1).setDepth(9000).setVisible(false);
+    this.tweens.add({ targets: this.marker, scale: A * 1.18, duration: 480, yoyo: true, repeat: -1 });
 
     const [sx, sy] = this.view.spawn;
-    this.shadow = this.add.image(centerOf(sx), (sy + 1) * T - 2, 'shadow').setScale(S).setDepth(2);
-    this.player = this.add.sprite(centerOf(sx), (sy + 1) * T - 4, 'ch_player', 0).setOrigin(0.5, 1).setScale(S);
+    this.shadow = this.add.image(centerOf(sx), (sy + 1) * T - 2, 'map_shadow').setScale(A).setDepth(2);
+    this.player = this.add.sprite(centerOf(sx), (sy + 1) * T - 4, 'ch_player', 0).setOrigin(0.5, 1).setScale(A);
 
     const kb = this.input.keyboard!;
     this.cursors = kb.createCursorKeys();
@@ -114,8 +114,7 @@ export class ExploreScene extends Phaser.Scene {
     for (const it of v.items) {
       if (this.items.has(it.id)) continue;
       this.blocked[it.at[1]][it.at[0]] = true;
-      const img = this.add.image(centerOf(it.at[0]), (it.at[1] + 1) * T - 6, `it_${it.sprite}`).setOrigin(0.5, 1).setScale(S).setDepth((it.at[1] + 1) * T).setData('at', it.at);
-      if (!this.textures.exists(`it_${it.sprite}`)) img.setTexture('it_scroll');
+      const img = this.add.image(centerOf(it.at[0]), (it.at[1] + 1) * T - 6, this.textures.exists(`map_it_${it.sprite}`) ? `map_it_${it.sprite}` : 'map_it_scroll').setOrigin(0.5, 1).setScale(A).setDepth((it.at[1] + 1) * T).setData('at', it.at);
       this.tweens.add({ targets: img, y: img.y - 5, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
       this.items.set(it.id, img);
     }
@@ -140,8 +139,8 @@ export class ExploreScene extends Phaser.Scene {
     for (const e of events) {
       const npc = e.who ? this.view.npcs.find((n) => n.name === e.who) : undefined;
       const sprite = npc ? this.npcs.get(npc.id) : undefined;
-      if (sprite) this.tweens.add({ targets: sprite, scaleY: S * 1.12, duration: 110, yoyo: true, repeat: 1 });
-      if (e.t === 'got' || e.t === 'gave' || e.t === 'right') this.tweens.add({ targets: this.player, scaleY: S * 1.15, duration: 120, yoyo: true });
+      if (sprite) this.tweens.add({ targets: sprite, scaleY: A * 1.12, duration: 110, yoyo: true, repeat: 1 });
+      if (e.t === 'got' || e.t === 'gave' || e.t === 'right') this.tweens.add({ targets: this.player, scaleY: A * 1.15, duration: 120, yoyo: true });
       if (e.t === 'wrong' && !this.bridge.get<boolean>('game:calm')) this.cameras.main.shake(140, 0.004);
     }
   }

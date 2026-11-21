@@ -6,13 +6,13 @@
 import Phaser from 'phaser';
 import type { TacticsEvent, TacticsUnit, TacticsView } from '@/types/saga';
 import type { GameBridge } from './bridge';
-import { makeUnits, UNIT, unitTop } from './pixel';
+import { LOOKS, makeUnits, UNIT } from './pixel';
+import { ART_SCALE, makeMapUnits, makeTacticalMap, mapUnitTop } from './cartographic-art';
 
 export const TACTICS_SIZE = { width: 960, height: 540 };
 /** Tâm đội hình theo chiều dọc và khoảng cách tối đa giữa hai đơn vị cùng cột */
 const MID_Y = 334;
 const GAP = 118;
-const NEAREST = 1 as unknown as Phaser.Textures.FilterMode;
 const COL = { ally: { front: 345, back: 175 }, enemy: { front: 615, back: 785 } } as const;
 const FONT = 'Manrope_800ExtraBold, "Segoe UI", sans-serif';
 
@@ -34,7 +34,8 @@ export class TacticsScene extends Phaser.Scene {
   create(): void {
     this.view = this.bridge.get<TacticsView>('tactics:view')!;
     makeUnits(this);
-    for (const key of this.textures.getTextureKeys()) this.textures.get(key).setFilter(NEAREST);
+    makeMapUnits(this, LOOKS);
+    for (const key of this.textures.getTextureKeys()) if (key.startsWith('map_') || key.startsWith('cartographic')) this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
     this.backdrop();
     this.layout();
     this.offs = [
@@ -49,16 +50,9 @@ export class TacticsScene extends Phaser.Scene {
 
   private backdrop(): void {
     const { width: w, height: h } = TACTICS_SIZE;
-    const g = this.add.graphics();
-    g.fillGradientStyle(0x8fd3ff, 0x8fd3ff, 0xd9f2ff, 0xd9f2ff, 1).fillRect(0, 0, w, 210);
-    g.fillStyle(0xa8d5b5, 1);
-    for (const [x, r] of [[120, 120], [330, 90], [560, 130], [800, 100], [930, 80]] as const) g.fillEllipse(x, 215, r * 2, r * 1.5);
-    g.fillStyle(0x8fd46b, 1).fillRect(0, 200, w, h - 200);
-    g.fillStyle(0x7cc65a, 1);
-    for (let i = 0; i < 26; i++) g.fillRect((i * 137) % w, 230 + ((i * 71) % 290), 18, 4);
-    g.fillStyle(0xd9b77e, 0.55).fillRoundedRect(430, 210, 100, 320, 30);
-    g.fillStyle(0xffffff, 0.9);
-    for (const [x, y] of [[150, 60], [470, 40], [760, 80]] as const) { g.fillEllipse(x, y, 90, 28); g.fillEllipse(x + 30, y - 12, 60, 26); }
+    const isShip = (u: TacticsUnit): boolean => /thuyen|luong/.test(u.cls + u.sprite);
+    makeTacticalMap(this, w, h, this.view.units.every(isShip) ? 'river' : this.view.units.some(isShip) ? 'shore' : 'land');
+    this.add.image(0, 0, 'cartographic-battle').setOrigin(0).setDisplaySize(w, h);
   }
 
   /** Vị trí từng đơn vị: mỗi phe hai cột (hàng trước gần giữa sân), các đơn vị cùng cột giãn đều theo chiều dọc */
@@ -68,16 +62,19 @@ export class TacticsScene extends Phaser.Scene {
     const gap = Math.min(GAP, 250 / Math.max(1, most - 1));
     this.S = most >= 5 ? 1.75 : most === 4 ? 2 : 2.5;
     const S = this.S;
+    const isShip = (u: TacticsUnit): boolean => /thuyen|luong/.test(u.cls + u.sprite);
+    const mixed = this.view.units.some(isShip) && !this.view.units.every(isShip);
     for (const side of ['ally', 'enemy'] as const) for (const row of ['front', 'back'] as const) {
       const list = this.view.units.filter((u) => u.side === side && u.row === row);
       list.forEach((u, i) => {
-        const x = COL[side][row], y = MID_Y + (i - (list.length - 1) / 2) * gap;
+        const similar = list.filter(n => isShip(n) === isShip(u)), index = similar.indexOf(u);
+        const x = COL[side][row], y = mixed ? (isShip(u) ? 420 : 218) + (index - (similar.length - 1) / 2) * Math.min(isShip(u) ? 78 : 86, (isShip(u) ? 130 : 160) / Math.max(1, similar.length - 1)) : MID_Y + (i - (list.length - 1) / 2) * gap;
         const ring = this.add.ellipse(0, 4, 34 * S, 10 * S, 0xffd23f, 0).setStrokeStyle(4, 0xffd23f, 0);
         const shade = this.add.ellipse(0, 4, 28 * S, 7 * S, 0x000000, 0.22);
-        const key = this.textures.exists(`u_${u.sprite}`) ? `u_${u.sprite}` : side === 'ally' ? 'u_bo' : 'u_e_bo';
-        const sprite = this.add.image(0, 6, key).setOrigin(0.5, 1).setScale(S).setFlipX(side === 'enemy');
+        const key = this.textures.exists(`map_u_${u.sprite}`) ? `map_u_${u.sprite}` : side === 'ally' ? 'map_u_bo' : 'map_u_e_bo';
+        const sprite = this.add.image(0, 6, key).setOrigin(0.5, 1).setScale(S / ART_SCALE).setFlipX(side === 'enemy');
         const bar = this.add.graphics();
-        const top = 6 - (UNIT - unitTop(key)) * S;
+        const top = 6 - (UNIT - mapUnitTop()) * S;
         const icons = this.add.container(0, top - 30);
         // không đặt kích thước cho container: vùng bấm bên dưới tính đúng theo gốc của đơn vị (chân hình), không bị Phaser dịch đi nửa kích thước
         const box = this.add.container(x, y, [ring, shade, sprite, bar, icons]).setDepth(y);

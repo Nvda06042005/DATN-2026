@@ -6,13 +6,13 @@
 import Phaser from 'phaser';
 import type { BdEvent, BdUnit, BdView, XY } from '@/types/saga';
 import type { GameBridge } from './bridge';
-import { makeUnits } from './pixel';
+import { LOOKS, makeUnits } from './pixel';
+import { ART_SCALE, makeMapUnits } from './cartographic-art';
 
 export const BACHDANG_SIZE = { width: 960, height: 520 };
 const CELL = 72;
 const OX = 48;
 const OY = 80;
-const NEAREST = 1 as unknown as Phaser.Textures.FilterMode;
 const FONT = 'Manrope_800ExtraBold, "Segoe UI", sans-serif';
 const cx = (x: number): number => OX + x * CELL + CELL / 2;
 const cy = (y: number): number => OY + y * CELL + CELL / 2;
@@ -42,7 +42,8 @@ export class BachDangScene extends Phaser.Scene {
     this.view = this.bridge.get<BdView>('bd:view')!;
     this.mode = this.bridge.get<BdMode>('bd:mode') ?? { kind: 'none' };
     makeUnits(this);
-    for (const k of this.textures.getTextureKeys()) this.textures.get(k).setFilter(NEAREST);
+    makeMapUnits(this, LOOKS);
+    for (const k of this.textures.getTextureKeys()) if (k.startsWith('map_')) this.textures.get(k).setFilter(Phaser.Textures.FilterMode.LINEAR);
     this.banks();
     this.water = this.add.graphics().setDepth(1);
     this.stakeLayer = this.add.container(0, 0).setDepth(3);
@@ -86,10 +87,10 @@ export class BachDangScene extends Phaser.Scene {
   private banks(): void {
     const { width: w, height: h } = BACHDANG_SIZE;
     const g = this.add.graphics().setDepth(0);
-    g.fillStyle(0x7cc65a, 1).fillRect(0, 0, w, h);
-    g.fillStyle(0x6ab84c, 1);
+    g.fillStyle(0x8b956b, 1).fillRect(0, 0, w, h);
+    g.fillStyle(0x7c8960, 1);
     for (let i = 0; i < 40; i++) g.fillRect((i * 97) % w, i % 2 ? 8 + ((i * 13) % 52) : h - 64 + ((i * 17) % 52), 16, 4);
-    g.fillStyle(0x4f9a52, 1);
+    g.fillStyle(0x596f4c, 1);
     for (const [x, y, r] of [[90, 34, 26], [300, 22, 20], [560, 30, 24], [820, 26, 22], [180, 492, 24], [470, 500, 20], [720, 488, 26], [910, 498, 18]] as const) { g.fillCircle(x, y, r); g.fillCircle(x + r * 0.8, y + 4, r * 0.75); }
     // mũi tên hướng ra biển và hướng địch tới
     g.fillStyle(0x1e2a4a, 0.55).fillTriangle(930, 250, 912, 238, 912, 262);
@@ -102,12 +103,12 @@ export class BachDangScene extends Phaser.Scene {
     const sand = [0.86, 0.5, 0.14][level];
     this.view.grid.cells.forEach((row, y) => [...row].forEach((ch, x) => {
       const px = OX + x * CELL, py = OY + y * CELL;
-      if (ch === 'b') { g.fillStyle(0x7cc65a, 1).fillRect(px, py, CELL, CELL); g.fillStyle(0xd9c58a, 1).fillRect(px, y < 2 ? py + CELL - 8 : py, CELL, 8); return; }
-      g.fillStyle(ch === 'd' ? 0x2b7fd0 : 0x4aa3e6, 1).fillRect(px, py, CELL, CELL);
-      if (ch === 's' || ch === 'm') { g.fillStyle(0xe6d59a, sand).fillRoundedRect(px + 4, py + 4, CELL - 8, CELL - 8, 14); g.fillStyle(0xcdb977, sand * 0.9); for (let i = 0; i < 5; i++) g.fillRect(px + 12 + ((i * 23 + x * 7) % 44), py + 14 + ((i * 17 + y * 11) % 40), 8, 3); }
-      if (ch === 'm') { g.fillStyle(0x4aa3e6, 1).fillRect(px + 20, y < 2 ? py - 80 : py + CELL, CELL - 40, 80); g.lineStyle(3, 0xffd23f, 0.95).strokeRoundedRect(px + 5, py + 5, CELL - 10, CELL - 10, 12); }
+      if (ch === 'b') { g.fillStyle(0x8b956b, 1).fillRect(px, py, CELL, CELL); g.fillStyle(0xc3b384, 1).fillRect(px, y < 2 ? py + CELL - 8 : py, CELL, 8); return; }
+      g.fillStyle(ch === 'd' ? 0x5d8490 : 0x72959b, 1).fillRect(px, py, CELL, CELL);
+      if (ch === 's' || ch === 'm') { g.fillStyle(0xcdbb8e, sand).fillRoundedRect(px + 4, py + 4, CELL - 8, CELL - 8, 14); g.fillStyle(0xac9b70, sand * 0.9); for (let i = 0; i < 5; i++) g.fillRect(px + 12 + ((i * 23 + x * 7) % 44), py + 14 + ((i * 17 + y * 11) % 40), 8, 3); }
+      if (ch === 'm') { g.fillStyle(0x72959b, 1).fillRect(px + 20, y < 2 ? py - 80 : py + CELL, CELL - 40, 80); g.lineStyle(3, 0xe6ce87, 0.95).strokeRoundedRect(px + 5, py + 5, CELL - 10, CELL - 10, 12); }
       if (ch === 'r') { g.fillStyle(0x8f8a82, 1).fillCircle(px + 26, py + 40, 18).fillCircle(px + 48, py + 30, 16); g.fillStyle(0xbdb8ae, 1).fillCircle(px + 24, py + 34, 8); }
-      g.lineStyle(1, 0xffffff, ch === 'd' ? 0.28 : 0.4);
+      g.lineStyle(1, 0xe2e2c9, ch === 'd' ? 0.25 : 0.4);
       for (let i = 0; i < 2; i++) { const wx = px + 10 + ((i * 31 + x * 13 + y * 5) % 40), wy = py + 16 + i * 30; g.lineBetween(wx, wy, wx + 18, wy); }
     }));
     if (this.view.grid.revealed) {
@@ -126,7 +127,7 @@ export class BachDangScene extends Phaser.Scene {
   }
 
   private boat(u: BdUnit): Boat {
-    const sprite = this.add.image(0, 14, this.textures.exists(`u_${u.sprite}`) ? `u_${u.sprite}` : 'u_thuyen').setOrigin(0.5, 0.75).setScale(2.1).setFlipX(u.side === 'ally');
+    const sprite = this.add.image(0, 14, this.textures.exists(`map_u_${u.sprite}`) ? `map_u_${u.sprite}` : 'map_u_thuyen').setOrigin(0.5, 0.75).setScale(2.1 / ART_SCALE).setFlipX(u.side === 'ally');
     const bar = this.add.graphics();
     const icon = this.add.image(18, -30, 'fx_alert').setScale(2).setVisible(false);
     const ring = this.add.ellipse(0, 22, 60, 18, 0x000000, 0.18);
@@ -177,7 +178,7 @@ export class BachDangScene extends Phaser.Scene {
         const on = v.stakes.some(([sx, sy]) => sx === e.x && sy === e.y);
         const cur = v.units.find((u) => u.id === e.id);
         if (cur && cur.x === e.x && cur.y === e.y) continue;
-        this.ghostLayer.add(this.add.image(cx(e.x), cy(e.y) + 14, 'u_e_thuyen').setOrigin(0.5, 0.75).setScale(2.1).setAlpha(0.5).setTint(on ? 0x7ee28a : 0xffffff));
+        this.ghostLayer.add(this.add.image(cx(e.x), cy(e.y) + 14, 'map_u_e_thuyen').setOrigin(0.5, 0.75).setScale(2.1 / ART_SCALE).setAlpha(0.5).setTint(on ? 0x7ee28a : 0xffffff));
         this.ghostLayer.add(this.add.ellipse(cx(e.x), cy(e.y) + 22, 62, 20).setStrokeStyle(3, on ? 0x34b354 : 0xffffff, 0.95));
       }
     };
