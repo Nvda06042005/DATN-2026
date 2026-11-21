@@ -19,6 +19,8 @@ export type BattleScenario = TacticsScenario | BdScenario;
 export interface StageContent {
   objectives: StageObjective[]; cards: StageCard[]; sources: StageSource[];
   explore: ExploreScript; battle: BattleScenario | null; debrief: StageDebrief;
+  /** Nhiệm vụ thế giới khối thay cảnh nhập vai 2D (21/11/2026); kiểm tra cùng bản đồ khối bằng normalizeWorldQuest (world.ts) */
+  world?: unknown;
 }
 
 const bad = (m: string): never => { throw new BadRequestException(m); };
@@ -63,7 +65,7 @@ export function normalizeStage(raw: unknown): StageContent {
     title: text(d.title, 'Tổng kết: tiêu đề', 100), paragraphs: list(d.paragraphs, 'Tổng kết', 2, 6).map((p, i) => text(p, `Tổng kết: đoạn ${i + 1}`, 700)),
     sources: list(d.sources, 'Tổng kết: nguồn', 1, 6).map((k) => hasSource(k, 'Tổng kết')), fiction: text(d.fiction, 'Tổng kết: ghi chú phần sáng tạo', 400),
   };
-  return { objectives, cards, sources, explore, battle, debrief };
+  return { objectives, cards, sources, explore, battle, debrief, ...(isObj(raw.world) ? { world: raw.world } : {}) };
 }
 
 /** Bài học gửi cho học sinh: thẻ kiến thức kèm nguồn đầy đủ để bấm "Xem nguồn" */

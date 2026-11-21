@@ -504,6 +504,9 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
     expect((await api('GET', `/api/saga/stages/${id}/lesson`, undefined, f.S2.token)).status).toBe(409);
     // mở sẵn chặng cuối cho học sinh 2 (như một migration nội dung đổi điều kiện mở khóa; không còn trang quản trị để chỉnh)
     await sql(s.url, 'UPDATE hk_saga_stages SET unlock_after = NULL WHERE id = $1', [id]);
+    // 21/11/2026: chặng này nay mở thế giới khối ở bước nhập vai (thử ở world.spec.ts); bỏ nhiệm vụ khối trong cơ sở dữ liệu thử để giữ phép thử luồng cảnh 2D + trận Bạch Đằng
+    // (cảnh 2D vẫn dùng cho các chặng chưa có nhiệm vụ khối)
+    await sql(s.url, "UPDATE hk_saga_stages SET content = content - 'world' WHERE id = $1", [id]);
     expect((await api('GET', '/api/saga/campaigns/3', undefined, f.S2.token)).body.stages.map((x: any) => x.state)).toEqual(['ready', 'locked', 'locked', 'ready']);
     await learn('bach-dang', f.S2.token);
     const p = await practice('bach-dang', f.S2.token);

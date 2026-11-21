@@ -174,7 +174,8 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
     if (same && router.canGoBack()) router.back(); else go(tabTo, to, 'replace');
   }, [go, navigation, router]);
 
-  const nav: SagaNav = useMemo(() => ({ route, go, back, home: home.data, refresh: home.reload, reward, setReward }), [route, go, back, home.data, home.reload, reward, setReward]);
+  const classId = cls?.id ?? entered;
+  const nav: SagaNav = useMemo(() => ({ route, go, back, home: home.data, refresh: home.reload, reward, setReward, classId }), [route, go, back, home.data, home.reload, reward, setReward, classId]);
 
   // chúc mừng do máy chủ ghi lại (lên cấp, nhiệm vụ, huy hiệu): hiện một lần rồi báo đã xem
   const seen = useRef(false);

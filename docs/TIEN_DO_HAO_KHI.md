@@ -1,5 +1,14 @@
 # Tiến độ xây dựng Hào Khí Đông A (theo mã HK.*)
 
+## Thế giới khối vuông của bước Nhập vai – 21/11/2026
+
+Người dùng gửi cấu trúc trò chơi khối vuông (khám phá – thu thập – chế tạo – xây dựng – nhiệm vụ – trang sử) và chọn: 3D nhìn chéo, chỉ thay bước Nhập vai, làm trọn bản đồ phần 3 (1287–1288) trước, bạn cùng lớp chơi chung trực tuyến.
+
+- Bản đồ khối 48 × 36 ô (Thăng Long, cửa ải, trại tiền quân, kho trong núi, làng, rừng, sông Bạch Đằng có bãi bồi, đài chỉ huy, đảo Vân Đồn) và 4 nhiệm vụ: Chuẩn bị đón giặc, Trinh sát đoàn thuyền lương, Giặc cạn lương ở Vạn Kiếp, Bí mật lòng sông (đúng 5 thao tác và 3 câu giải thích người dùng đề xuất). Trận đánh sẵn có của chặng nằm trong nhiệm vụ.
+- Máy chủ: `backend/src/saga/world.ts` (luật thuần), `world.hub.ts`, `world.gateway.ts` (Socket.IO `/world`), `saga.service.ts` (phiên `state.v = 2`, ghi khối của phòng, phát thay đổi sau khi giao dịch xong); API `GET/POST /api/saga/world/look`; migration 080.
+- Giao diện: `game/world3d.ts` (three.js nạp động), `WorldViewport.web.tsx`, `WorldScreen.tsx`, `lib/world-map.ts`, `lib/world-socket.ts`; `ExploreScreen` mở thế giới khối khi máy chủ trả phiên khối.
+- Kiểm tra: backend `world.spec.ts` + `saga.spec.ts` + `migrations.spec.ts` (60/60), frontend `tests/world.test.cjs`, chụp trên trình duyệt thật (cảnh 3D, tạo nhân vật, bạn cùng lớp vào phòng, nói chuyện, thu thập, chế tạo, điện thoại). Chi tiết và phần chưa làm: [Thế giới khối](THE_GIOI_KHOI.md).
+
 ## Bản đồ kể chuyện 2D theo phản hồi cụ thể – 21/11/2026
 
 - Mở mục Nhập vai bằng bản đồ địa hình Á–Âu thật (Natural Earth public domain), vùng đỏ minh họa, mũi tên và đoàn kỵ binh. Mạch: 1206 → 1219–1221 → Kalka 1223 → Moscow 1238 → Kyiv 1240 → Đại Việt 1257/1258 → hai lần kháng chiến tiếp theo → nhận vai. Chuẩn hóa lỗi chép 2006/1233; không quy chiến dịch sau 1227 cho Thành Cát Tư Hãn trực tiếp chỉ huy.

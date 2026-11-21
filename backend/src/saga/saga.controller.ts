@@ -1,11 +1,22 @@
 import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsObject, IsOptional, IsString, Matches, Min, ValidateIf } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsObject, IsOptional, IsString, Matches, Min, ValidateIf } from 'class-validator';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { UserRow } from '../database/database.service';
-import { SagaService } from './saga.service';
+import { SagaService, WORLD_LOOK } from './saga.service';
 
-class StartDto { @IsOptional() @IsBoolean() restart?: boolean; }
+class StartDto {
+  @IsOptional() @IsBoolean() restart?: boolean;
+  /** Lớp em đang học (thế giới khối: vào phòng chung của lớp này); máy chủ kiểm tra em có thuộc lớp không */
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) class_id?: number;
+}
+/** Tự tạo nhân vật trong thế giới khối (21/11/2026) */
+class WorldLookDto {
+  @IsIn([...WORLD_LOOK.gender]) gender: 'nam' | 'nu';
+  @IsIn([...WORLD_LOOK.robe]) robe: string;
+  @IsIn([...WORLD_LOOK.hat]) hat: string;
+  @IsIn([...WORLD_LOOK.skin]) skin: string;
+}
 /** Trang bị khung ảnh đại diện / danh hiệu (null = bỏ trang bị) */
 class EquipDto {
   @IsOptional() @ValidateIf((_o, v) => v !== null) @IsString() @Matches(/^[a-z0-9-]{2,40}$/) frame?: string | null;
@@ -45,7 +56,10 @@ export class SagaController {
   @Post('stages/:id/practice') @Roles('student') @HttpCode(200)
   practice(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: StartDto) { return this.saga.start(user, id, 'practice', Boolean(body.restart)); }
   @Post('stages/:id/explore') @Roles('student') @HttpCode(200)
-  explore(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: StartDto) { return this.saga.start(user, id, 'explore', Boolean(body.restart)); }
+  explore(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: StartDto) { return this.saga.start(user, id, 'explore', Boolean(body.restart), { classId: body.class_id }); }
+  /** Nhân vật của em trong thế giới khối: xem / lưu lựa chọn */
+  @Get('world/look') @Roles('student') worldLook(@CurrentUser() user: UserRow) { return this.saga.worldLook(user); }
+  @Post('world/look') @Roles('student') @HttpCode(200) setWorldLook(@CurrentUser() user: UserRow, @Body() body: WorldLookDto) { return this.saga.setWorldLook(user, body); }
   @Post('stages/:id/battle') @Roles('student') @HttpCode(200)
   battle(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: StartDto) { return this.saga.start(user, id, 'battle', Boolean(body.restart)); }
   @Get('stages/:id/summary') @Roles('student') summary(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.saga.summary(user, id); }

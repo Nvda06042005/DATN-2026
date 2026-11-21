@@ -1,5 +1,6 @@
 /** Kiểu dữ liệu của Hành trình Đông A (/api/saga): bản đồ, chặng, phiên chơi, ôn tập, bộ sưu tập và kho tư liệu. Đáp án không bao giờ nằm trong các kiểu gửi cho học sinh. */
 import type { Hud } from '@/types/gamification';
+import type { PlacedBlock, TerrainInfo, WorldMapInfo } from '@/lib/world-map';
 
 export type StageState = 'locked' | 'ready' | 'learning' | 'done' | 'review';
 export type StepState = 'locked' | 'ready' | 'done' | 'none';
@@ -91,6 +92,24 @@ export interface ExploreView {
   battle: { title: string; mode: 'tactics' | 'bachdang'; won: boolean } | null;
 }
 export interface ExploreFinished { hints: number; mistakes: number; first: boolean; xp: number; suggest_review: boolean }
+
+// ---------------------------------------------------------------------- thế giới khối (bước Nhập vai của các chặng có nhiệm vụ khối, 21/11/2026)
+export interface WorldLook { gender: 'nam' | 'nu'; robe: string; hat: string; skin: string }
+export type WorldStepType = 'talk' | 'ask' | 'zone' | 'gather' | 'craft' | 'place' | 'battle';
+export interface WorldNeed { item?: string; zone?: string; count?: number; have?: number; own?: number; team?: number; total?: number; tide?: 'low' | 'high' }
+export interface WorldEvent { t: 'say' | 'got' | 'made' | 'placed' | 'ask' | 'right' | 'wrong' | 'step' | 'battle' | 'clue' | 'done' | 'wait'; who?: string; lines?: string[]; prompt?: string; options?: Choice[]; text?: string; item?: string; n?: number }
+export interface WorldSession {
+  session_id: number; kind: 'explore'; seq: number; status: 'active' | 'done' | 'abandoned'; stage: StageRef | null; world: true;
+  title: string; intro: string; map: WorldMapInfo; terrain: TerrainInfo; items: Record<string, string>;
+  recipes: Record<string, { item: string; makes: number; needs: Record<string, number> }>; yield: Record<string, number>; regrow_ms: number;
+  progress: { step: number; total: number; done: boolean; hints: number; mistakes: number; inventory: Record<string, number>; placed: Record<string, number> };
+  current: { id: string; type: WorldStepType; goal: string; marker: string | null; has_clue: boolean; need: WorldNeed | null; asking: { prompt: string; options: Choice[] } | null } | null;
+  room: { id: number; class_id: number | null; class_name: string | null; campaign_no: number; online: number };
+  blocks: PlacedBlock[]; nodes: Array<{ x: number; z: number; until: number }>; tide: { state: 'low' | 'high'; until: number; period: number }; server_now: number;
+  look: WorldLook & { chosen: boolean };
+  battle: { title: string; mode: 'tactics' | 'bachdang'; won: boolean } | null;
+}
+export const isWorldSession = (v: unknown): v is WorldSession => Boolean(v && typeof v === 'object' && (v as { world?: unknown }).world === true);
 
 // ---------------------------------------------------------------------- trận đánh theo lượt
 export type Side = 'ally' | 'enemy';

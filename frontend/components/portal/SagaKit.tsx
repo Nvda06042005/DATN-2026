@@ -279,6 +279,8 @@ export interface SagaNav {
   /** Phần thưởng của chặng vừa hoàn thành, chờ màn tổng kết hiển thị một lần */
   reward: { stageId: number; completion: Completion } | null;
   setReward: (r: { stageId: number; completion: Completion } | null) => void;
+  /** Lớp em đang học (đã chọn ở danh sách lớp): thế giới khối vào phòng chung của lớp này */
+  classId?: number | null;
 }
 
 // ---------------------------------------------------------------------- chặng: biểu tượng và trạng thái

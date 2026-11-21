@@ -11,7 +11,7 @@
  *    hay báo cáo của giáo viên (người dùng yêu cầu xóa): nội dung chỉ đổi qua migration số mới.
  */
 import { createHash } from 'node:crypto';
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
 import { GameService } from '../game/game.service';
 import { dayKey } from '../game/clock';
@@ -21,6 +21,8 @@ import { debriefView, knowledgeStars, lessonView, StageContent } from './content
 import { applyExplore, ExploreState, newExplore, publicExplore } from './explore';
 import { gradeItem, ItemKind, ItemRow, KIND_LABEL, newSlot, publicItem, SlotState, tally } from './practice';
 import { applyTactics, createTactics, publicTactics, TacticsScenario, tacticsResult, TState } from './tactics';
+import { applyWorld, isWorldState, newWorld, normalizeWorldMap, normalizeWorldQuest, publicWorld, tideAt, WorldAction, WorldCtx, WorldMap, WorldQuest, WorldState } from './world';
+import { WorldHub } from './world.hub';
 
 export type SessionKind = 'practice' | 'explore' | 'battle' | 'review';
 export type StageState = 'locked' | 'ready' | 'learning' | 'done' | 'review';
@@ -47,6 +49,14 @@ const STAGE_COLS = `s.id, s.code, s.campaign_no, s.position, s.title, s.place, s
   (jsonb_typeof(s.content->'battle') = 'object') AS has_battle, s.content->'battle'->>'mode' AS battle_mode`;
 const SESSION_COLS = 'id::int AS id, user_id, stage_id, kind, status, seq, state, result, started_at';
 const XP = { lesson: 10, practice: 30, explore: 20, battle: 50, review: 5 };
+/** Thay đổi của thế giới khối chung: chỉ phát cho cả phòng sau khi giao dịch đã ghi xong */
+type WorldPending = { room: number; kind: 'take'; x: number; z: number } | { room: number; kind: 'block'; placed: { x: number; z: number; block: string; zone: string; by: number }; removed: { x: number; z: number } | null };
+/** Lựa chọn khi tự tạo nhân vật trong thế giới khối (lưu hk_players.appearance.saga_world_look) */
+export const WORLD_LOOK = {
+  gender: ['nam', 'nu'], robe: ['#8b6b4c', '#2f5f8f', '#1d7a68', '#6a4c9c', '#b8261b', '#3f4a5a'], hat: ['none', 'non', 'khan', 'helmet'], skin: ['#f9d8bb', '#eec39a', '#d9a676', '#b98258'],
+} as const;
+export type WorldLook = { gender: 'nam' | 'nu'; robe: string; hat: string; skin: string };
+const DEFAULT_LOOK: WorldLook = { gender: 'nam', robe: '#2f5f8f', hat: 'non', skin: '#f9d8bb' };
 /** Hòm báu trên bản đồ (17/11/2026, migration 072): giữa hai chặng liền nhau (mở khi xong chặng trước) và cuối mỗi phần (mở khi xong cả phần) */
 /**
  * Hòm báu bí ẩn (17/11/2026): mỗi hòm có độ hiếm chỉ lộ ra khi mở (Thường / Hiếm / Sử thi / Huyền thoại) và phần thưởng theo độ hiếm. Kết quả tung
@@ -115,7 +125,7 @@ const isObj = (v: unknown): v is Record<string, any> => typeof v === 'object' &&
 
 @Injectable()
 export class SagaService {
-  constructor(private readonly db: DatabaseService, private readonly game: GameService) {}
+  constructor(private readonly db: DatabaseService, private readonly game: GameService, private readonly hub: WorldHub) {}
 
   private readonly read: Q = (sql, params) => this.db.query(sql, params);
 
@@ -406,12 +416,14 @@ export class SagaService {
    * Bắt đầu hoặc tiếp tục một phiên của chặng. Mỗi học sinh chỉ có một phiên đang mở cho mỗi chặng và mỗi loại: gọi lại (tải lại trang, thiết bị khác) nhận đúng phiên đó;
    * `restart` đóng phiên cũ (ghi là bỏ dở) rồi mở phiên mới.
    */
-  async start(user: UserRow, stageId: number, kind: Exclude<SessionKind, 'review'>, restart = false) {
+  async start(user: UserRow, stageId: number, kind: Exclude<SessionKind, 'review'>, restart = false, opts: { classId?: number } = {}) {
     return this.db.tx(async (q) => {
       const { stage } = await this.openStage(q, user, stageId);
       const p = await this.lockProgress(q, user, stage.id);
       const active = (await q<SessionRow>(`SELECT ${SESSION_COLS} FROM hk_saga_sessions WHERE user_id = $1 AND stage_id = $2 AND kind = $3 AND status = 'active' FOR UPDATE`, [user.id, stage.id, kind]))[0];
-      if (active && !restart) return { ...(await this.view(q, user, active, stage)), resumed: true, events: [] };
+      // chặng đã chuyển sang thế giới khối (21/11/2026) mà phiên đang mở là cảnh 2D cũ: mở phiên mới thay vì tiếp tục cảnh cũ
+      const legacy = kind === 'explore' && Boolean(active) && Boolean(stage.content.world) && !isWorldState(active!.state);
+      if (active && !restart && !legacy) return { ...(await this.view(q, user, active, stage)), resumed: true, events: [] };
       if (active) await q("UPDATE hk_saga_sessions SET status = 'abandoned', finished_at = now(), updated_at = now() WHERE id = $1", [active.id]);
 
       let state: Record<string, any>;
@@ -424,7 +436,9 @@ export class SagaService {
         state = { v: 1, slots: rows.map((r, i) => newSlot(r, seed + i * 977)) } satisfies PracticeState;
       } else if (kind === 'explore') {
         if (!p.practice_passed_at) throw new ConflictException(`Hãy đạt ít nhất ${stage.pass_percent}% phần luyện tập trước khi nhập vai`);
-        state = newExplore();
+        // chặng có nhiệm vụ thế giới khối: vào phòng chung của lớp em (mỗi lớp một phòng cho mỗi cuộc kháng chiến)
+        const world = await this.worldOf(q, stage);
+        state = world ? newWorld(await this.worldRoom(q, (await this.worldClass(q, user, opts.classId)).id, stage.campaign_no)) : newExplore();
       } else {
         if (!stage.content.battle) throw new ConflictException('Chặng này không có trận đánh');
         if (!p.practice_passed_at) throw new ConflictException(`Hãy đạt ít nhất ${stage.pass_percent}% phần luyện tập trước khi ra trận`);
@@ -442,8 +456,10 @@ export class SagaService {
 
   /** Học sinh đang đứng ở bước chạm trán của cảnh khám phá đang mở? */
   private async atBattleStep(q: Q, user: UserRow, stage: StageRow): Promise<boolean> {
-    const s = (await q<{ state: ExploreState }>("SELECT state FROM hk_saga_sessions WHERE user_id = $1 AND stage_id = $2 AND kind = 'explore' AND status = 'active'", [user.id, stage.id]))[0];
-    return Boolean(s) && stage.content.explore.steps[s.state.step]?.type === 'battle';
+    const s = (await q<{ state: ExploreState | WorldState }>("SELECT state FROM hk_saga_sessions WHERE user_id = $1 AND stage_id = $2 AND kind = 'explore' AND status = 'active'", [user.id, stage.id]))[0];
+    if (!s) return false;
+    if (isWorldState(s.state)) return (await this.worldOf(q, stage))?.quest.steps[s.state.step]?.type === 'battle';
+    return stage.content.explore.steps[s.state.step]?.type === 'battle';
   }
 
   private async owned(q: Q, user: UserRow, sessionId: number, lock: boolean): Promise<SessionRow> {
@@ -477,7 +493,9 @@ export class SagaService {
     }
     if (row.kind === 'explore') {
       const p = (await q<ProgressRow>('SELECT * FROM hk_saga_progress WHERE user_id = $1 AND stage_id = $2', [user.id, stage!.id]))[0];
-      return { ...head, ...publicExplore(stage!.content.explore, row.state as ExploreState), battle: stage!.content.battle ? { title: stage!.content.battle.title, mode: stage!.content.battle.mode, won: this.battleWon(p, row) } : null };
+      const battle = stage!.content.battle ? { title: stage!.content.battle.title, mode: stage!.content.battle.mode, won: this.battleWon(p, row) } : null;
+      if (isWorldState(row.state)) return { ...head, ...(await this.worldView(q, user, stage!, row.state)), battle };
+      return { ...head, ...publicExplore(stage!.content.explore, row.state as ExploreState), battle };
     }
     const b = row.state as BattleSessionState;
     return { ...head, knowledge: b.knowledge, ...(b.mode === 'bachdang' ? publicBachDang(stage!.content.battle as BdScenario, b.engine as BdState) : publicTactics(stage!.content.battle as TacticsScenario, b.engine as TState)) };
@@ -501,7 +519,8 @@ export class SagaService {
    */
   async act(user: UserRow, sessionId: number, body: { action_id: string; seq: number; action: Record<string, any> }) {
     if (!isObj(body.action) || typeof body.action.type !== 'string') throw new BadRequestException('Lệnh không hợp lệ');
-    return this.db.tx(async (q) => {
+    const pending: WorldPending[] = [];
+    const res = await this.db.tx(async (q) => {
       const row = await this.owned(q, user, sessionId, true);
       const stage = row.stage_id ? await this.stage(q, row.stage_id) : null;
       // gửi lặp (bấm hai lần, mạng chập chờn, kết nối lại): trả kết quả đã lưu kèm trạng thái hiện tại, không xử lý và không thưởng lần hai
@@ -515,7 +534,7 @@ export class SagaService {
       let finished: Record<string, any> | null = null;
       if (row.kind === 'practice') ({ outcome, finished } = await this.actPractice(q, user, row, stage!, p!, body.action));
       else if (row.kind === 'review') ({ outcome, finished } = await this.actReview(q, user, row, body.action));
-      else if (row.kind === 'explore') ({ outcome, finished } = await this.actExplore(q, user, row, stage!, p!, body.action));
+      else if (row.kind === 'explore') ({ outcome, finished } = await this.actExplore(q, user, row, stage!, p!, body.action, pending));
       else ({ outcome, finished } = await this.actBattle(q, user, row, stage!, p!, body.action));
 
       row.seq += 1;
@@ -527,6 +546,12 @@ export class SagaService {
       await q('INSERT INTO hk_saga_actions (session_id, seq, user_id, action_id, action, outcome) VALUES ($1, $2, $3, $4, $5, $6)', [row.id, row.seq, user.id, body.action_id, JSON.stringify(body.action), JSON.stringify(saved)]);
       return { ...saved, view: await this.view(q, user, row, stage), replayed: false };
     });
+    // thế giới chung: ô vừa thu hoạch chờ mọc lại, khối vừa đặt – phát cho cả phòng sau khi đã ghi xong
+    for (const c of pending) {
+      if (c.kind === 'take') this.hub.publish(c.room, 'world:node', { x: c.x, z: c.z, until: this.hub.take(c.room, c.x, c.z, this.worldNow()) });
+      else this.hub.publish(c.room, 'world:block', { placed: c.placed, removed: c.removed });
+    }
+    return res;
   }
 
   // ------------------------------------------------------------------ luyện tập
@@ -573,18 +598,147 @@ export class SagaService {
   }
 
   // ------------------------------------------------------------------ nhập vai khám phá
-  private async actExplore(q: Q, user: UserRow, row: SessionRow, stage: StageRow, p: ProgressRow, action: Record<string, any>) {
+  private async actExplore(q: Q, user: UserRow, row: SessionRow, stage: StageRow, p: ProgressRow, action: Record<string, any>, pending: WorldPending[]) {
+    if (isWorldState(row.state)) {
+      const events = await this.actWorld(q, user, row, stage, p, action, pending);
+      const ws = row.state as WorldState;
+      return { outcome: { events }, finished: ws.done ? await this.exploreDone(q, user, stage, p, ws.hints, ws.mistakes) : null };
+    }
     const st = row.state as ExploreState;
     if (!['interact', 'answer', 'hint'].includes(action.type)) throw new BadRequestException('Lệnh không hợp lệ trong cảnh khám phá');
     const events = applyExplore(stage.content.explore, st, action as any, this.battleWon(p, row));
     if (!st.done) return { outcome: { events }, finished: null };
+    return { outcome: { events }, finished: await this.exploreDone(q, user, stage, p, st.hints, st.mistakes) };
+  }
+
+  /** Xong bước nhập vai (cảnh 2D hoặc thế giới khối): ghi tiến độ, thưởng điểm lần đầu */
+  private async exploreDone(q: Q, user: UserRow, stage: StageRow, p: ProgressRow, hints: number, mistakes: number) {
     const first = !p.explore_done_at;
     await q(`UPDATE hk_saga_progress SET explore_done_at = COALESCE(explore_done_at, now()), explore_hints = CASE WHEN explore_done_at IS NULL THEN $3 ELSE LEAST(explore_hints, $3) END,
-               explore_mistakes = CASE WHEN explore_done_at IS NULL THEN $4 ELSE LEAST(explore_mistakes, $4) END, updated_at = now() WHERE user_id = $1 AND stage_id = $2`, [user.id, stage.id, st.hints, st.mistakes]);
+               explore_mistakes = CASE WHEN explore_done_at IS NULL THEN $4 ELSE LEAST(explore_mistakes, $4) END, updated_at = now() WHERE user_id = $1 AND stage_id = $2`, [user.id, stage.id, hints, mistakes]);
     let xp = 0;
     if (first && (await this.game.awardXp(q, user, XP.explore, 'node', `hq:explore:${stage.id}`))) xp = XP.explore;
-    return { outcome: { events }, finished: { hints: st.hints, mistakes: st.mistakes, first, xp, suggest_review: st.hints + st.mistakes >= 3 } };
+    return { hints, mistakes, first, xp, suggest_review: hints + mistakes >= 3 };
   }
+
+  // ------------------------------------------------------------------ thế giới khối (21/11/2026)
+  /** Bản đồ khối của cuộc kháng chiến và nhiệm vụ của chặng; null khi chặng vẫn dùng cảnh nhập vai 2D */
+  private async worldOf(q: Q, stage: StageRow): Promise<{ map: WorldMap; quest: WorldQuest } | null> {
+    if (!stage.content.world) return null;
+    const map = await this.worldMapOf(q, stage.campaign_no);
+    return map ? { map, quest: normalizeWorldQuest(stage.content.world, map) } : null;
+  }
+
+  private async worldMapOf(q: Q, campaignNo: number): Promise<WorldMap | null> {
+    const raw = (await q<{ world: unknown }>('SELECT world FROM hk_saga_maps WHERE campaign_no = $1', [campaignNo]))[0]?.world;
+    return raw ? normalizeWorldMap(raw) : null;
+  }
+
+  /** Lớp em đang học để vào phòng chung: lớp được chọn (phải là lớp của em, đang hoạt động) hoặc lớp gần nhất */
+  private async worldClass(q: Q, user: UserRow, classId?: number | null): Promise<{ id: number; name: string }> {
+    const rows = await q<{ id: number; name: string }>(
+      `SELECT c.id, c.name FROM app_class_members m JOIN app_classes c ON c.id = m.class_id
+       WHERE m.user_id = $1 AND c.is_active AND ($2::int IS NULL OR c.id = $2) ORDER BY c.school_year DESC, c.id DESC LIMIT 1`, [user.id, classId ?? null]);
+    if (rows[0]) return rows[0];
+    throw classId ? new ForbiddenException('Em không thuộc lớp này hoặc lớp đã lưu trữ') : new ConflictException('Em cần vào một lớp để cùng các bạn khám phá thế giới khối');
+  }
+
+  private async worldRoom(q: Q, classId: number, campaignNo: number): Promise<number> {
+    await q('INSERT INTO hk_world_rooms (class_id, campaign_no) VALUES ($1, $2) ON CONFLICT (class_id, campaign_no) DO NOTHING', [classId, campaignNo]);
+    return (await q<{ id: number }>('SELECT id FROM hk_world_rooms WHERE class_id = $1 AND campaign_no = $2', [classId, campaignNo]))[0].id;
+  }
+
+  private async roomBlocks(q: Q, room: number): Promise<Array<{ x: number; z: number; block: string; zone: string; user_id: number | null }>> {
+    return q('SELECT x, z, block, zone, user_id FROM hk_world_blocks WHERE room_id = $1 ORDER BY placed_at, x, z', [room]);
+  }
+
+  /** Giờ máy chủ (đồng hồ của trò chơi) dùng cho thủy triều và ô tài nguyên mọc lại */
+  worldNow(): number { return this.game.clock.now().getTime(); }
+
+  private async worldLookOf(q: Q, user: UserRow): Promise<WorldLook & { chosen: boolean }> {
+    const raw = ((await q<{ appearance: Record<string, any> }>('SELECT appearance FROM hk_players WHERE user_id = $1', [user.id]))[0]?.appearance ?? {}).saga_world_look;
+    const ok = isObj(raw) && (WORLD_LOOK.gender as readonly string[]).includes(raw.gender) && (WORLD_LOOK.robe as readonly string[]).includes(raw.robe)
+      && (WORLD_LOOK.hat as readonly string[]).includes(raw.hat) && (WORLD_LOOK.skin as readonly string[]).includes(raw.skin);
+    return ok ? { gender: raw.gender, robe: raw.robe, hat: raw.hat, skin: raw.skin, chosen: true } : { ...DEFAULT_LOOK, chosen: false };
+  }
+
+  async worldLook(user: UserRow) {
+    return { look: await this.worldLookOf(this.read, user), options: WORLD_LOOK };
+  }
+
+  async setWorldLook(user: UserRow, body: WorldLook) {
+    return this.db.tx(async (q) => {
+      await this.game.fresh(q, user);
+      const look: WorldLook = { gender: body.gender, robe: body.robe, hat: body.hat, skin: body.skin };
+      await q('UPDATE hk_players SET appearance = appearance || $2::jsonb, updated_at = now() WHERE user_id = $1', [user.id, JSON.stringify({ saga_world_look: look })]);
+      return { look: { ...look, chosen: true }, options: WORLD_LOOK };
+    });
+  }
+
+  /** Vào phòng chung qua kênh thời gian thực: kiểm tra em thuộc lớp (đang hoạt động) và phần có bản đồ khối */
+  async worldPresence(user: UserRow, classId: number, campaignNo: number): Promise<{ room: number; name: string; look: Record<string, unknown>; spawn: [number, number] }> {
+    return this.db.tx(async (q) => {
+      const cls = await this.worldClass(q, user, classId);
+      const map = await this.worldMapOf(q, campaignNo);
+      if (!map) throw new NotFoundException('Phần này chưa có thế giới khối');
+      const { chosen: _chosen, ...look } = await this.worldLookOf(q, user);
+      return { room: await this.worldRoom(q, cls.id, campaignNo), name: user.full_name, look, spawn: map.spawn };
+    });
+  }
+
+  private async worldView(q: Q, user: UserRow, stage: StageRow, st: WorldState): Promise<Record<string, unknown>> {
+    const world = await this.worldOf(q, stage);
+    if (!world) throw new ConflictException('Bản đồ khối của chặng chưa sẵn sàng');
+    const blocks = await this.roomBlocks(q, st.room);
+    const totals = new Map<string, number>();
+    for (const b of blocks) totals.set(b.zone, (totals.get(b.zone) ?? 0) + 1);
+    const cls = (await q<{ id: number; name: string }>('SELECT c.id, c.name FROM hk_world_rooms r JOIN app_classes c ON c.id = r.class_id WHERE r.id = $1', [st.room]))[0];
+    const now = this.worldNow();
+    return {
+      ...publicWorld(world.quest, world.map, st, { zoneTotal: (z) => totals.get(z) ?? 0 }),
+      room: { id: st.room, class_id: cls?.id ?? null, class_name: cls?.name ?? null, campaign_no: stage.campaign_no, online: this.hub.online(st.room) },
+      blocks: blocks.map((b) => ({ x: b.x, z: b.z, block: b.block, zone: b.zone, mine: b.user_id === user.id })),
+      nodes: this.hub.nodes(st.room, now), tide: tideAt(now), server_now: now,
+      look: await this.worldLookOf(q, user),
+    };
+  }
+
+  /** Một lệnh trong thế giới khối: luật ở world.ts; dịch vụ cung cấp khối của phòng, thủy triều, ô đang mọc lại và ghi khối đặt vào phòng */
+  private async actWorld(q: Q, user: UserRow, row: SessionRow, stage: StageRow, p: ProgressRow, action: Record<string, any>, pending: WorldPending[]) {
+    const st = row.state as WorldState;
+    const world = await this.worldOf(q, stage);
+    if (!world) throw new ConflictException('Bản đồ khối của chặng chưa sẵn sàng');
+    if (!['interact', 'answer', 'hint', 'zone', 'gather', 'craft', 'place'].includes(action.type)) throw new BadRequestException('Lệnh không hợp lệ trong thế giới khối');
+    // đặt vật: khóa phòng để hai bạn không đặt trùng ô hay vượt sức chứa của vùng cùng một lúc
+    if (action.type === 'place') await q('SELECT pg_advisory_xact_lock(80080, $1)', [st.room]);
+    const blocks = await this.roomBlocks(q, st.room);
+    const occupied = new Set(blocks.map((b) => `${b.x},${b.z}`));
+    const totals = new Map<string, number>();
+    for (const b of blocks) totals.set(b.zone, (totals.get(b.zone) ?? 0) + 1);
+    const now = this.worldNow();
+    const ctx: WorldCtx = {
+      battleWon: this.battleWon(p, row), tide: tideAt(now).state, nodeReady: (x, z) => this.hub.nodeReady(st.room, x, z, now),
+      occupied: (x, z) => occupied.has(`${x},${z}`), zoneTotal: (z) => totals.get(z) ?? 0,
+    };
+    const { events, effects } = applyWorld(world.quest, world.map, st, action as WorldAction, ctx);
+    for (const e of effects) {
+      if (e.kind === 'take') { pending.push({ room: st.room, kind: 'take', x: e.x, z: e.z }); continue; }
+      const zone = world.map.zones.find((z) => z.id === e.zone)!;
+      let removed: { x: number; z: number } | null = null;
+      if ((totals.get(e.zone) ?? 0) >= zone.cap) {
+        // vùng đã đầy (cả lớp đặt rất nhiều): khối cũ nhất của vùng chuyển sang ô mới – cập nhật, không xóa dữ liệu
+        removed = (await q<{ x: number; z: number }>(`UPDATE hk_world_blocks b SET x = $3, z = $4, block = $5, user_id = $6, placed_at = now()
+          FROM (SELECT x, z FROM hk_world_blocks WHERE room_id = $1 AND zone = $2 ORDER BY placed_at, x, z LIMIT 1) old
+          WHERE b.room_id = $1 AND b.x = old.x AND b.z = old.z RETURNING old.x, old.z`, [st.room, e.zone, e.x, e.z, e.block, user.id]))[0] ?? null;
+      } else {
+        await q('INSERT INTO hk_world_blocks (room_id, x, z, block, zone, user_id) VALUES ($1, $2, $3, $4, $5, $6)', [st.room, e.x, e.z, e.block, e.zone, user.id]);
+      }
+      pending.push({ room: st.room, kind: 'block', placed: { x: e.x, z: e.z, block: e.block, zone: e.zone, by: user.id }, removed });
+    }
+    return events;
+  }
+
+
 
   // ------------------------------------------------------------------ trận đánh
   private async actBattle(q: Q, user: UserRow, row: SessionRow, stage: StageRow, p: ProgressRow, action: Record<string, any>) {

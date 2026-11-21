@@ -11,12 +11,13 @@ import * as saga from '@/lib/saga-api';
 import { errorMessage } from '@/api/client';
 import type { Session } from '@/components/auth';
 import { GameViewport } from '@/components/portal/GameViewport';
+import { WorldScreen } from '@/components/portal/WorldScreen';
 import { BlockTitle, Flash, LoadState, Meter, OptionButton, SagaHeader, SagaPage, StarRow, num, useFlash, useKeys, type SagaNav } from '@/components/portal/SagaKit';
 import { Btn, Card, Chip, InfoNote, Inset, Sheet, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { GameBridge } from '@/game/bridge';
 import { play } from '@/lib/saga-sound';
-import type { BattleFinished, BattleSession, BdEvent, BdUnit, BdView, Choice, ExploreEvent, ExploreFinished, ExploreSession, TacticsEvent, TacticsUnit, TacticsView, XY } from '@/types/saga';
+import { isWorldSession, type BattleFinished, type BattleSession, type BdEvent, type BdUnit, type BdView, type Choice, type ExploreEvent, type ExploreFinished, type ExploreSession, type TacticsEvent, type TacticsUnit, type TacticsView, type WorldSession, type XY } from '@/types/saga';
 
 const EXPLORE_ASPECT = 704 / 416;
 const TACTICS_ASPECT = 960 / 540;
@@ -51,6 +52,8 @@ export const ExploreScreen: React.FC<StageProps> = ({ session, nav, stageId, cam
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [flash, setFlash] = useFlash(5000);
+  // chặng có nhiệm vụ thế giới khối (21/11/2026): mở WorldScreen thay cảnh nhập vai 2D
+  const [world, setWorld] = useState<WorldSession | null>(null);
 
   const apply = useCallback((v: ExploreSession): void => { viewRef.current = v; setView(v); bridge.set('explore:view', v); }, [bridge]);
 
@@ -86,9 +89,11 @@ export const ExploreScreen: React.FC<StageProps> = ({ session, nav, stageId, cam
   useEffect(() => {
     let live = true;
     setLoading(true); setError(null); setPages([]); setFinished(null); setReached(false); reachedRef.current = false;
-    saga.startExplore(session.token, stageId, restart.current).then((v) => {
+    saga.startExplore(session.token, stageId, restart.current, ctx.current.nav.classId).then((v) => {
       if (!live) return;
       restart.current = false;
+      if (isWorldSession(v)) { setWorld(v); setLoading(false); return; }
+      setWorld(null);
       apply(v);
       setLoading(false);
       // vừa thắng trận quay lại: bước chạm trán được qua ngay, không bắt đi lại tới vùng địch
@@ -164,6 +169,10 @@ export const ExploreScreen: React.FC<StageProps> = ({ session, nav, stageId, cam
     const t = setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 120);
     return () => clearTimeout(t);
   }, [over, hasTalk, page]);
+  if (world) {
+    return <WorldScreen key={world.session_id} session={session} nav={nav} stageId={stageId} campaignNo={campaignNo} initial={world}
+      onRestart={() => { restart.current = true; setWorld(null); setRound((n) => n + 1); }} onReload={() => { setWorld(null); setRound((n) => n + 1); }} />;
+  }
   return (
     <SagaPage testID="saga-explore" max={1060} scrollRef={scroller}>
       <SagaHeader title={view ? view.title : 'Nhập vai khám phá'} subtitle={view?.stage ? `Nhập vai khám phá · ${view.stage.title} · ${view.stage.date_label}` : 'Nhập vai khám phá'}
