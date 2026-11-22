@@ -253,7 +253,11 @@ export class BlockWorld {
     // người chơi
     this.player = this.char(this.lookOf(view.look));
     this.scene.add(this.player.group);
-    this.me.x = m.spawn[0] + 0.5; this.me.z = m.spawn[1] + 0.5; this.me.y = this.topOf(m.spawn[0], m.spawn[1]);
+    // quay lại sau trận: đứng đúng chỗ đã vào trận nếu ô đó còn đi được, không thì chỗ xuất phát
+    const back = this.bridge.get<Cell>('world:start');
+    const at: Cell = back && !blockedFn(m, this.terrain, view.blocks)(back[0], back[1]) ? back : m.spawn;
+    this.me.x = at[0] + 0.5; this.me.z = at[1] + 0.5; this.me.y = this.topOf(at[0], at[1]);
+    if (at !== m.spawn) setTimeout(() => this.bridge.emit('world:pos', { x: this.me.x, z: this.me.z, ry: this.me.ry, cell: at }), 0);
     this.meLabel = this.label('Em', 'me');
     this.meBubble = this.bubble();
     // mũi tên chỉ mục tiêu

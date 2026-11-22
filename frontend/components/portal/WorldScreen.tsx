@@ -61,6 +61,22 @@ const LookPreview: React.FC<{ look: WorldLook; size?: number }> = ({ look, size 
 };
 
 /** Sổ sử Đông A: sau mỗi cuộc kháng chiến, sắp xếp đúng thứ tự các sự kiện để hoàn thiện trang sổ (máy chủ chấm, thưởng điểm một lần) */
+/** Chỗ đứng khi vào trận của phiên thế giới khối (chỉ trong tab này; trình duyệt chặn lưu trữ thì về chỗ xuất phát như trước) */
+const RETURN_KEY = (sessionId: number): string => `donga_world_return_${sessionId}`;
+function saveReturnCell(sessionId: number, cell: [number, number]): void {
+  try { (globalThis as { sessionStorage?: Storage }).sessionStorage?.setItem(RETURN_KEY(sessionId), JSON.stringify(cell)); } catch { /* không lưu được thì thôi */ }
+}
+function takeReturnCell(sessionId: number): [number, number] | null {
+  try {
+    const ss = (globalThis as { sessionStorage?: Storage }).sessionStorage;
+    const raw = ss?.getItem(RETURN_KEY(sessionId));
+    if (!raw) return null;
+    ss?.removeItem(RETURN_KEY(sessionId));
+    const v = JSON.parse(raw) as unknown;
+    return Array.isArray(v) && v.length === 2 && v.every((n) => Number.isInteger(n) && n >= 0 && n < 200) ? [v[0] as number, v[1] as number] : null;
+  } catch { return null; }
+}
+
 export const BookSheet: React.FC<{ session: Session; onClose: () => void; onXp: () => void }> = ({ session, onClose, onXp }) => {
   const { c } = useTheme();
   const [pages, setPages] = useState<WorldBookPage[] | null>(null);
@@ -140,7 +156,8 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
   const { c } = useTheme();
   const { width, height } = useWindowDimensions();
   const scroller = useRef<ScrollViewInstance | null>(null);
-  const bridge = useMemo(() => { const b = new GameBridge(); b.set('world:view', initial); return b; }, [initial]);
+  // Vào trận rồi quay lại: cảnh mới dựng lại đặt em đúng chỗ đã bấm "Vào trận" (lời mời hứa như vậy), không về chỗ xuất phát
+  const bridge = useMemo(() => { const b = new GameBridge(); b.set('world:view', initial); const back = takeReturnCell(initial.session_id); if (back) b.set('world:start', back); return b; }, [initial]);
   const ctx = useRef({ session, nav });
   ctx.current = { session, nav };
   const [view, setView] = useState<WorldSession>(initial);
@@ -295,7 +312,7 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
         <Txt f="bold" size={16}>Tới lúc ra trận!</Txt>
         <Txt size={14} color={c.muc2}>{view.battle.title}. Thắng trận rồi em quay lại đúng chỗ này để làm tiếp nhiệm vụ.</Txt>
       </View>
-      <Btn title="Vào trận" icon={Swords} tone="son" onPress={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'tran' }, 'replace')} testID="world-fight" />
+      <Btn title="Vào trận" icon={Swords} tone="son" onPress={() => { saveReturnCell(view.session_id, [Math.floor(pos.current.x), Math.floor(pos.current.z)]); nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'tran' }, 'replace'); }} testID="world-fight" />
     </Box>
   ) : null;
   const hasTalk = talk !== null;

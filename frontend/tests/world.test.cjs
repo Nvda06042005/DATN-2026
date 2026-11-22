@@ -142,6 +142,16 @@ test('đợt 2: tuyến vận chuyển, Sổ sử Đông A, dấu ấn, danh hi�
   assert.match(rules, /code: 'dong-long-giu-nuoc', name: 'Đồng lòng giữ nước'/);
 });
 
+test('vào trận rồi quay lại: em đứng đúng chỗ đã bấm "Vào trận" (không về chỗ xuất phát)', () => {
+  const screen = read('components', 'portal', 'WorldScreen.tsx');
+  assert.match(screen, /saveReturnCell\(view\.session_id, \[Math\.floor\(pos\.current\.x\), Math\.floor\(pos\.current\.z\)\]\); nav\.go\('chien-dich', \{ c: campaignNo, s: stageId, v: 'tran' \}/);
+  assert.match(screen, /const back = takeReturnCell\(initial\.session_id\); if \(back\) b\.set\('world:start', back\);/);
+  assert.match(screen, /try \{ \(globalThis as \{ sessionStorage\?: Storage \}\)\.sessionStorage\?\.setItem/);
+  const world = read('game', 'world3d.ts');
+  assert.match(world, /const back = this\.bridge\.get<Cell>\('world:start'\);/);
+  assert.match(world, /back && !blockedFn\(m, this\.terrain, view\.blocks\)\(back\[0\], back\[1\]\) \? back : m\.spawn/);
+});
+
 test('bước chọn nơi / luyện đội hình: đường tự tìm không cắt ngang vùng khác của bước (không bị tính lỗi oan)', () => {
   const m = { w: 6, h: 5, rows: ['......', '......', '......', '......', '......'], spawn: [0, 0], labels: [], note: '', npcs: [], stations: [],
     zones: [{ id: 'a', name: 'A', rect: [1, 1, 1, 1], kind: 'goal' }, { id: 'b', name: 'B', rect: [4, 1, 1, 1], kind: 'goal' }, { id: 'c', name: 'C', rect: [1, 3, 1, 1], kind: 'goal' }] };
