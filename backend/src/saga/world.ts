@@ -87,6 +87,13 @@ const text = (v: unknown, label: string, max: number): string => {
 const lines = (v: unknown, label: string): string[] => (Array.isArray(v) && v.length >= 1 && v.length <= 6 ? v.map((x, i) => text(x, `${label} (câu ${i + 1})`, 360)) : bad(`${label}: cần 1–6 câu thoại`));
 const int = (v: unknown, label: string, min: number, max: number): number => (Number.isInteger(v) && (v as number) >= min && (v as number) <= max ? (v as number) : bad(`${label}: cần số nguyên từ ${min} đến ${max}`));
 
+/** Ô `cell` còn lối ra (một trong 4 ô kề đi được, không có vật, không có người / bàn) nếu đặt thêm vật ở `extra` */
+export function hasExit(map: WorldMap, occupied: (x: number, z: number) => boolean, cell: [number, number], extra: [number, number] | null): boolean {
+  const solid = (x: number, z: number): boolean => !walkable(map, x, z) || occupied(x, z) || (extra !== null && x === extra[0] && z === extra[1])
+    || map.npcs.some((n) => n.at[0] === x && n.at[1] === z) || map.stations.some((st) => st.at[0] === x && st.at[1] === z);
+  return [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => !solid(cell[0] + dx, cell[1] + dz));
+}
+
 export const cellAt = (m: Pick<WorldMap, 'rows' | 'w' | 'h'>, x: number, z: number): string => (x >= 0 && z >= 0 && x < m.w && z < m.h ? m.rows[z][x] : '~');
 export const walkable = (m: Pick<WorldMap, 'rows' | 'w' | 'h'>, x: number, z: number): boolean => Boolean(TERRAIN[cellAt(m, x, z)]?.walk);
 export const inRect = (r: [number, number, number, number], x: number, z: number): boolean => x >= r[0] && z >= r[1] && x < r[0] + r[2] && z < r[1] + r[3];
@@ -259,7 +266,8 @@ export interface WorldEvent { t: 'say' | 'got' | 'made' | 'placed' | 'gave' | 'a
 /** Thay đổi của thế giới chung mà dịch vụ phải ghi / phát cho cả phòng */
 export type WorldEffect = { kind: 'take'; x: number; z: number; res: ResKey } | { kind: 'place'; x: number; z: number; block: ItemKey; zone: string } | { kind: 'award'; code: string };
 /** Thông tin của phòng do dịch vụ cung cấp (đọc từ cơ sở dữ liệu / bộ nhớ trước khi gọi) */
-export interface WorldCtx { battleWon: boolean; tide: Tide; nodeReady: (x: number, z: number) => boolean; occupied: (x: number, z: number) => boolean; zoneTotal: (zone: string) => number; bonusYield?: number }
+/** `standing`: ô có bạn cùng lớp khác đang đứng (theo kênh thời gian thực) – không đặt vật đè lên người */
+export interface WorldCtx { battleWon: boolean; tide: Tide; nodeReady: (x: number, z: number) => boolean; occupied: (x: number, z: number) => boolean; zoneTotal: (zone: string) => number; bonusYield?: number; standing?: (x: number, z: number) => boolean }
 
 export const newWorld = (room: number): WorldState => ({ v: 2, room, step: 0, inventory: {}, placed: {}, hints: 0, mistakes: 0, asking: false, done: false, drill: 0, drill_miss: 0, own_done_at: null });
 export const isWorldState = (s: unknown): s is WorldState => isObj(s) && s.v === 2;
@@ -429,6 +437,10 @@ function applyOne(q: WorldQuest, map: WorldMap, s: WorldState, action: WorldActi
       if (!zone || !zone.on.includes(cellAt(map, at[0], at[1]))) return { events: [{ t: 'wait', text: `Không đặt ${ITEM_NAME[it].toLowerCase()} ở đây được. Hãy đặt trong vùng được đánh dấu.` }], effects };
       if (zone.tide && zone.tide !== ctx.tide) return { events: [{ t: 'wait', text: zone.tide === 'low' ? 'Nước đang lên, lòng sông ngập sâu. Chờ nước triều rút rồi mới đóng cọc.' : 'Chờ nước triều lên rồi mới đặt được.' }], effects };
       if (ctx.occupied(at[0], at[1])) return { events: [{ t: 'wait', text: 'Ô này đã có vật rồi.' }], effects };
+      // không đặt vật lên chính chỗ mình / bạn đang đứng (người bị kẹt trong khối vừa đặt)
+      if (at[0] === from[0] && at[1] === from[1]) return { events: [{ t: 'wait', text: 'Em đang đứng ở ô này. Lùi ra một bước rồi đặt.' }], effects };
+      if (ctx.standing?.(at[0], at[1])) return { events: [{ t: 'wait', text: 'Bạn cùng lớp đang đứng ở ô này. Chọn ô khác nhé.' }], effects };
+      if (!hasExit(map, ctx.occupied, from, at)) return { events: [{ t: 'wait', text: `Đặt ${ITEM_NAME[it].toLowerCase()} ở ô này thì em bị vây kín, không còn lối ra. Đứng ra phía ngoài rồi đặt nhé.` }], effects };
       if (count(s, it) < 1) return { events: [{ t: 'wait', text: `Em chưa có ${ITEM_NAME[it].toLowerCase()} trong túi.` }], effects };
       add(s, it, -1);
       s.placed[zone.id] = (s.placed[zone.id] ?? 0) + 1;

@@ -73,6 +73,17 @@ async function playBachDang(start: any, token: string): Promise<any> {
 }
 
 /** Ô tài nguyên còn dùng được và một ô đi được ngay cạnh để đứng thu thập */
+/** Ô đi được sát ô cần đặt để đứng: không phải ô có vật / người / bàn, và đặt xong vẫn còn lối ra (máy chủ từ chối đặt lên chỗ mình đứng hay tự nhốt mình) */
+function besideCell(map: any, terrain: any, at: [number, number], skip: Set<string> = new Set()): [number, number] {
+  const solid = new Set([...skip, `${at[0]},${at[1]}`, ...map.npcs.map((n: any) => `${n.at[0]},${n.at[1]}`), ...map.stations.map((st: any) => `${st.at[0]},${st.at[1]}`)]);
+  const free = (x: number, z: number): boolean => x >= 0 && z >= 0 && z < map.rows.length && x < map.rows[0].length && !solid.has(`${x},${z}`) && Boolean(terrain[map.rows[z][x]]?.walk);
+  for (const [dx, dz] of [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1], [0, -2], [0, 2], [-2, 0], [2, 0]]) {
+    const x = at[0] + dx, z = at[1] + dz;
+    if (free(x, z) && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([ex, ez]) => free(x + ex, z + ez))) return [x, z];
+  }
+  throw new Error(`không có ô đứng cạnh ${at}`);
+}
+
 function resourceSpots(map: any, terrain: any, res: string): Array<{ at: [number, number]; from: [number, number] }> {
   const out: Array<{ at: [number, number]; from: [number, number] }> = [];
   for (let z = 0; z < map.h; z++) for (let x = 0; x < map.w; x++) {
@@ -138,7 +149,7 @@ async function playWorld(code: string, token: string, opts: { classId?: number }
         if (zone.on.includes(view.map.rows[z][x]) && !taken.has(`${x},${z}`)) cell = [x, z];
       }
       // đứng ở chính ô cần đặt hoặc ô đi được sát đó
-      await send({ type: 'place', at: cell!, from: cell!, item: step.item });
+      await send({ type: 'place', at: cell!, from: besideCell(view.map, view.terrain, cell!, taken), item: step.item });
       placed += 1;
     } else {
       const out = await send({ type: 'zone', zone: step.zone });
@@ -243,8 +254,15 @@ async function playWorld(code: string, token: string, opts: { classId?: number }
     expect(w.applyWorld(quest, map, st, { type: 'place', at: [30, 28], from: [30, 28], item: 'coc' }, ctx('low')).events[0].t).toBe('wait');
     expect(() => w.applyWorld(quest, map, st, { type: 'place', at: [35, 22], from: [33, 22], item: 'coc' }, ctx('low'))).not.toThrow();
     expect(w.applyWorld(quest, map, st, { type: 'place', at: [31, 22], from: [31, 22], item: 'coc' }, { ...ctx('low'), occupied: () => true }).events[0].text).toMatch(/đã có vật/);
+    // không đặt vật lên chính chỗ mình đứng hay chỗ bạn cùng lớp đang đứng (người bị kẹt trong khối)
+    expect(w.applyWorld(quest, map, st, { type: 'place', at: [31, 22], from: [31, 22], item: 'coc' }, ctx('low')).events[0].text).toMatch(/Em đang đứng ở ô này/);
+    expect(w.applyWorld(quest, map, st, { type: 'place', at: [31, 22], from: [31, 23], item: 'coc' }, { ...ctx('low'), standing: (x: number, z: number) => x === 31 && z === 22 }).events[0].text).toMatch(/Bạn cùng lớp đang đứng/);
+    // đặt xong mà chỗ đứng không còn ô kề nào đi được (ba phía có vật, phía còn lại là ô định đặt) thì không cho – tránh tự nhốt mình
+    const walled = (x: number, z: number): boolean => (x === 30 && z === 23) || (x === 32 && z === 23) || (x === 31 && z === 24);
+    expect(w.applyWorld(quest, map, st, { type: 'place', at: [31, 22], from: [31, 23], item: 'coc' }, { ...ctx('low'), occupied: walled }).events[0].text).toMatch(/vây kín/);
+    expect(w.hasExit(map, walled, [31, 23], null)).toBe(true);
     for (const x of [30, 31, 32, 33]) {
-      const r = w.applyWorld(quest, map, st, { type: 'place', at: [x, 23], from: [x, 23], item: 'coc' }, ctx('low'));
+      const r = w.applyWorld(quest, map, st, { type: 'place', at: [x, 23], from: [x, 24], item: 'coc' }, ctx('low'));
       expect(r.effects[0]).toMatchObject({ kind: 'place', block: 'coc', zone: 'baicoc' });
       total += 1;
     }
@@ -352,7 +370,8 @@ async function playWorld(code: string, token: string, opts: { classId?: number }
     await sql(s.url, `UPDATE hk_saga_sessions SET state = jsonb_set(state, '{inventory}', '{"coc": 2}'::jsonb) WHERE id = $1`, [view.session_id]);
     await tideTo('low');
     const archived = Number((await sql<{ n: string }>(s.url, 'SELECT count(*) AS n FROM app_deleted_records'))[0].n);
-    let res = await act(view.session_id, view.seq, { type: 'place', at: free[0], from: free[0], item: 'coc' });
+    const stand = besideCell(view.map, view.terrain, free[0], new Set([...taken]));
+    let res = await act(view.session_id, view.seq, { type: 'place', at: free[0], from: stand, item: 'coc' });
     expect([res.status, res.body.outcome.events[0].t]).toEqual([200, 'placed']);
     const after = await blocksOf();
     expect(after).toHaveLength(16);
@@ -360,7 +379,7 @@ async function playWorld(code: string, token: string, opts: { classId?: number }
     expect(after.some((b) => b.x === free[0][0] && b.z === free[0][1])).toBe(true);
     expect(Number((await sql<{ n: string }>(s.url, 'SELECT count(*) AS n FROM app_deleted_records'))[0].n)).toBe(archived);
     view = res.body.view;
-    res = await act(view.session_id, view.seq, { type: 'place', at: free[0], from: free[0], item: 'coc' });
+    res = await act(view.session_id, view.seq, { type: 'place', at: free[0], from: stand, item: 'coc' });
     expect(res.body.outcome.events[0].text).toMatch(/đã có vật/);
 
     await unlockFor(f.S3.id, 'bach-dang');

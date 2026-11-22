@@ -142,6 +142,19 @@ test('đợt 2: tuyến vận chuyển, Sổ sử Đông A, dấu ấn, danh hi�
   assert.match(rules, /code: 'dong-long-giu-nuoc', name: 'Đồng lòng giữ nước'/);
 });
 
+test('không đặt vật lên chỗ đang đứng; bị khối đè thì tự bước ra; đứng trong tầm thì đặt ngay', () => {
+  const world = read('game', 'world3d.ts');
+  // bị vây kín (không ô kề nào đi được) cũng tự bước ra; máy chủ không cho tự nhốt mình, dân binh không đặt sát người
+  assert.match(world, /if \(\(this\.blocked\(cell\[0\], cell\[1\]\) \|\| !this\.hasExit\(cell\)\) && !this\.path\.length\) this\.unstick\(cell\);/);
+  assert.match(read('..', 'backend', 'src', 'saga', 'world.ts'), /if \(!hasExit\(map, ctx\.occupied, from, at\)\)/);
+  assert.match(read('..', 'backend', 'src', 'saga', 'saga.service.ts'), /for \(const \[px, pz\] of people\) for \(let dz = -1; dz <= 1; dz\+\+\) for \(let dx = -1; dx <= 1; dx\+\+\) taken\.add/);
+  assert.match(world, /!this\.placed\.has\(key\(x\[0\], x\[1\]\)\) && !\(x\[0\] === mine\[0\] && x\[1\] === mine\[1\]\)/);
+  assert.match(world, /if \(!r\.path\.length\) this\.finish\(\);/);
+  const rules = read('..', 'backend', 'src', 'saga', 'world.ts');
+  assert.match(rules, /if \(at\[0\] === from\[0\] && at\[1\] === from\[1\]\) return \{ events: \[\{ t: 'wait', text: 'Em đang đứng ở ô này\./);
+  assert.match(rules, /if \(ctx\.standing\?\.\(at\[0\], at\[1\]\)\)/);
+});
+
 test('vật đang cầm không cướp lượt chạm: sang bước khác thì cất, chỉ xuyên qua vật che', () => {
   const screen = read('components', 'portal', 'WorldScreen.tsx');
   assert.match(screen, /const stepId = view\.current\?\.id \?\? null;\r?\n\s+useEffect\(\(\) => \{ setMode\(null\); \}, \[stepId, setMode\]\);/);
@@ -199,5 +212,5 @@ test('tự chơi trên trình duyệt: nút Tương tác ưu tiên thứ bước
   assert.match(world, /const t = this\.nearThing\(cell\);/);
   // đang cầm vật: lấy ô vùng xây dựng còn trống đầu tiên dọc theo tia chạm (núi / nhà / khối đã đặt che khuất)
   assert.match(world, /const hits = this\.ray\.intersectObjects\(this\.pickables, false\);/);
-  assert.match(world, /cells\.find\(\(x\) => !this\.placed\.has\(key\(x\[0\], x\[1\]\)\)\) \?\? cells\[0\]/);
+  assert.match(world, /cells\.find\(\(x\) => !this\.placed\.has\(key\(x\[0\], x\[1\]\)\).*\) \?\? cells\[0\]/);
 });

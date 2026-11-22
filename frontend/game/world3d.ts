@@ -591,7 +591,9 @@ export class BlockWorld {
     const occluder = Boolean(first && this.blocked(first[0], first[1]) && !this.map.stations.some((st) => st.at[0] === first[0] && st.at[1] === first[1]) && !this.terrain[cellAt(this.map, first[0], first[1])]?.res);
     if (this.mode && first && (occluder || buildZoneAt(this.map, first[0], first[1], this.mode))) {
       const cells = hits.map((h) => this.cellOfHit(h)).filter((c): c is Cell => Boolean(c && buildZoneAt(this.map, c[0], c[1], this.mode!)));
-      const c = cells.find((x) => !this.placed.has(key(x[0], x[1]))) ?? cells[0];
+      // không chọn ô em đang đứng (đặt lên chân mình là kẹt trong khối)
+      const mine = this.myCell();
+      const c = cells.find((x) => !this.placed.has(key(x[0], x[1])) && !(x[0] === mine[0] && x[1] === mine[1])) ?? cells[0];
       if (c) { this.goNear(c, { kind: 'place', at: c, item: this.mode }, 2); return; }
     }
     const npc = hit.object.userData.npc as string | undefined;
@@ -625,6 +627,21 @@ export class BlockWorld {
     return standNear(this.map, this.blocked, target, me, range);
   }
 
+  private hasExit(c: Cell): boolean { return [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => !this.blocked(c[0] + dx, c[1] + dz)); }
+
+  /** Bị khối đè lên chỗ đứng hoặc bị vây kín (không còn ô kề nào đi được): bước qua ra ô trống gần nhất còn lối đi */
+  private unstick(cell: Cell): void {
+    for (let r = 1; r <= 5; r++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+      const x = cell[0] + dx, z = cell[1] + dz;
+      if (this.blocked(x, z) || !this.hasExit([x, z])) continue;
+      this.me.x = x + 0.5; this.me.z = z + 0.5; this.me.y = this.topOf(x, z);
+      this.bridge.emit('world:pos', { x: this.me.x, z: this.me.z, ry: this.me.ry, cell: [x, z] });
+      this.bridge.emit('world:hint', 'Em bước qua các vật vừa đặt, ra chỗ trống để đi tiếp.');
+      return;
+    }
+  }
+
   /** Ô bản đồ ứng với một điểm chạm (khối địa hình dùng InstancedMesh: mỗi bản sao một ô) */
   private cellOfHit(h: THREE.Intersection): Cell | null {
     const list = this.cellOfPick.get(h.object);
@@ -638,6 +655,7 @@ export class BlockWorld {
     const r = this.plan(target, me, range);
     if (!r) { this.bridge.emit('world:hint', 'Không tìm được đường tới đó. Thử đi vòng hoặc chọn chỗ khác.'); return; }
     this.path = r.path; this.pending = pending;
+    if (!r.path.length) this.finish(); // đã đứng trong tầm (kể cả khi ô dưới chân đang bị chặn): làm luôn, không chờ đi
   }
 
   /** Tới nơi: gửi lệnh tương ứng qua cầu nối (giao diện gửi máy chủ) */
@@ -718,6 +736,8 @@ export class BlockWorld {
     // gần ai / gần cái gì, đang ở vùng nào
     if (now - this.nearAt > 150) {
       this.nearAt = now;
+      // bị khối đè lên chỗ đang đứng (bạn / dân binh vừa đặt): tự bước ra ô trống gần nhất
+      if ((this.blocked(cell[0], cell[1]) || !this.hasExit(cell)) && !this.path.length) this.unstick(cell);
       const t = this.nearThing(cell);
       const near = t ? `${t.kind}:${t.id}:${this.view.current?.id ?? ''}` : '';
       if (near !== this.near) { this.near = near; this.bridge.emit('world:near', t ? { kind: t.kind, id: t.id, name: t.name } : null); }

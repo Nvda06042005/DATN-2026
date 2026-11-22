@@ -738,11 +738,12 @@ export class SagaService {
     const ctx: WorldCtx = {
       battleWon: this.battleWon(p, row), tide: tideAt(now).state, nodeReady: (x, z) => this.hub.nodeReady(st.room, x, z, now),
       occupied: (x, z) => occupied.has(`${x},${z}`), zoneTotal: (z) => totals.get(z) ?? 0,
+      standing: (x, z) => this.hub.players(st.room).some((pl) => pl.id !== user.id && Math.floor(pl.x) === x && Math.floor(pl.z) === z),
       // danh hiệu "Người giữ làng": dân làng em từng giúp góp sức ở các nhiệm vụ sau
       bonusYield: awards.has('title:nguoi-giu-lang') ? VILLAGE_BONUS : 0,
     };
     const { events, effects } = applyWorld(world.quest, world.map, st, action as WorldAction, ctx);
-    await this.worldHelpers(q, user, st, world, occupied, totals, now, awards.has('title:nguoi-giu-lang'), ctx, events, effects, pending);
+    await this.worldHelpers(q, user, st, world, occupied, totals, now, awards.has('title:nguoi-giu-lang'), ctx, events, effects, pending, action);
     for (const e of effects) {
       if (e.kind === 'take') { pending.push({ room: st.room, kind: 'take', x: e.x, z: e.z }); continue; }
       if (e.kind === 'award') {
@@ -777,7 +778,7 @@ export class SagaService {
    * trong phòng không có bạn nào khác, hoặc khi đã chờ các bạn 60 giây. Khối của họ ghi vào phòng như khối của cả lớp (không gắn với tài khoản nào).
    */
   private async worldHelpers(q: Q, user: UserRow, st: WorldState, world: { map: WorldMap; quest: WorldQuest }, occupied: Set<string>, totals: Map<string, number>, now: number,
-    villagers: boolean, ctx: WorldCtx, events: WorldEvent[], effects: WorldEffect[], pending: WorldPending[]): Promise<void> {
+    villagers: boolean, ctx: WorldCtx, events: WorldEvent[], effects: WorldEffect[], pending: WorldPending[], action: Record<string, unknown>): Promise<void> {
     const step = st.done ? undefined : world.quest.steps[st.step];
     if (!step || step.type !== 'place') return;
     const placedNow = effects.filter((e) => e.kind === 'place' && e.zone === step.zone).length;
@@ -787,7 +788,12 @@ export class SagaService {
     const mates = this.hub.players(st.room).filter((x) => x.id !== user.id).length;
     if (mates > 0 && now - st.own_done_at < 60_000) return;
     const zone = world.map.zones.find((z) => z.id === step.zone)!;
+    // dân binh không đặt lên ô đã có vật, ô vừa đặt, chỗ các bạn đang đứng và chỗ em đang đứng (kể cả khi em mất kết nối chung)
+    // và không đặt sát người (ô kề 8 hướng) – không thì có thể vây kín một bạn đang đứng trong góc vùng
+    const me: Array<[number, number]> = Array.isArray(action.from) ? [[Math.floor(Number(action.from[0])), Math.floor(Number(action.from[1]))]] : [];
+    const people: Array<[number, number]> = [...this.hub.players(st.room).map((pl): [number, number] => [Math.floor(pl.x), Math.floor(pl.z)]), ...me];
     const taken = new Set([...occupied, ...effects.filter((e): e is Extract<WorldEffect, { kind: 'place' }> => e.kind === 'place').map((e) => `${e.x},${e.z}`)]);
+    for (const [px, pz] of people) for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) taken.add(`${px + dx},${pz + dz}`);
     const free: Array<[number, number]> = [];
     for (let z = zone.rect[1]; z < zone.rect[1] + zone.rect[3]; z++) for (let x = zone.rect[0]; x < zone.rect[0] + zone.rect[2]; x++) {
       if (zone.on.includes(world.map.rows[z][x]) && !taken.has(`${x},${z}`)) free.push([x, z]);
