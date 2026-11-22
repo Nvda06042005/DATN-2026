@@ -5,13 +5,14 @@
  * máy chủ quyết định kết quả, giao diện chỉ dựng lại từ sự kiện trả về.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, useWindowDimensions } from 'react-native';
+import { Platform, View, useWindowDimensions } from 'react-native';
 import { Anchor, ArrowDown, ArrowUp, BookOpen, Check, Flag, Flame, Footprints, Lightbulb, Minus, Play, RotateCcw, Shield, SkipForward, Sparkles, Swords, Wheat, X } from 'lucide-react-native';
 import * as saga from '@/lib/saga-api';
 import { errorMessage } from '@/api/client';
 import type { Session } from '@/components/auth';
 import { GameViewport } from '@/components/portal/GameViewport';
 import { WorldScreen } from '@/components/portal/WorldScreen';
+import { WorldEmbed } from '@/components/portal/WorldViewport';
 import { BlockTitle, Flash, LoadState, Meter, OptionButton, SagaHeader, SagaPage, StarRow, num, useFlash, useKeys, type SagaNav } from '@/components/portal/SagaKit';
 import { Btn, Card, Chip, InfoNote, Inset, Sheet, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -42,7 +43,10 @@ export const ExploreScreen: React.FC<StageProps> = ({ session, nav, stageId, cam
   const [error, setError] = useState<string | null>(null);
   const [round, setRound] = useState(0);
   const restart = useRef(false);
+  // ứng dụng gốc: trang website trong WebView tự mở phiên (không tạo hai phiên)
+  const native = Platform.OS !== 'web';
   useEffect(() => {
+    if (native) return undefined;
     let live = true;
     setLoading(true); setError(null); setMissing(false);
     saga.startExplore(session.token, stageId, restart.current, ctx.current.nav.classId).then((v) => {
@@ -52,8 +56,9 @@ export const ExploreScreen: React.FC<StageProps> = ({ session, nav, stageId, cam
       setLoading(false);
     }).catch((e) => { if (!live) return; if (statusOf(e) === 401) ctx.current.session.expired(); setError(errorMessage(e)); setLoading(false); });
     return () => { live = false; };
-  }, [ctx, session.token, stageId, round]);
+  }, [ctx, native, session.token, stageId, round]);
   const back = (): void => nav.back('chien-dich', { c: campaignNo, s: stageId, v: null });
+  if (native) return <WorldEmbed token={session.token} userId={session.user.id} schoolCode={session.user.school_code ?? null} classId={nav.classId ?? null} stageId={stageId} campaignNo={campaignNo} onBack={back} />;
   if (world) {
     return <WorldScreen key={world.session_id} session={session} nav={nav} stageId={stageId} campaignNo={campaignNo} initial={world}
       onRestart={() => { restart.current = true; setWorld(null); setRound((n) => n + 1); }} onReload={() => { setWorld(null); setRound((n) => n + 1); }} />;

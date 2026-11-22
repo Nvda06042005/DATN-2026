@@ -13,6 +13,10 @@ import type { GameBridge } from '@/game/bridge';
 /** `webUrl`: đúng màn này trên website (ứng dụng điện thoại gốc mở bằng trình duyệt của máy) */
 export interface WorldViewportProps { bridge: GameBridge; label: string; height: number; webUrl?: string; children?: React.ReactNode }
 
+/** Ứng dụng gốc nhúng thế giới khối của website trong WebView (WorldViewport.tsx); trên web không dùng tới */
+export interface WorldEmbedProps { token: string; userId: number; schoolCode: string | null; classId: number | null; stageId: number; campaignNo: number; onBack: () => void }
+export const WorldEmbed: React.FC<WorldEmbedProps> = () => null;
+
 export const WorldViewport: React.FC<WorldViewportProps> = ({ bridge, label, height, children }) => {
   const host = useRef<HTMLDivElement | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading');

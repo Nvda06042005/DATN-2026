@@ -9,6 +9,7 @@ import { StudentApp } from '@/components/portal/StudentApp';
 import { TeacherApp } from '@/components/portal/TeacherApp';
 import { ErrorPage } from '@/components/error-page';
 import { Spinner } from '@/components/ui';
+import { deepLinkParams } from '@/lib/school-session';
 import { isSchoolRole, schoolRoleFromParam } from '@/lib/school-portal';
 import { isSchoolSlug } from '@/lib/school-link';
 import { loadSchoolIdentity, peekSchoolIdentity } from '@/lib/school-identity-cache';
@@ -23,7 +24,7 @@ export default function SchoolLinkRoute() {
 
 function SchoolLinkLogin({ slug }: { slug: string }) {
   const router = useRouter();
-  const params = useLocalSearchParams<{ role?: string; tab?: string; pin?: string }>();
+  const params = useLocalSearchParams<{ role?: string; tab?: string; pin?: string; c?: string; s?: string; v?: string; embed?: string }>();
   const role = isSchoolRole(params.role) ? schoolRoleFromParam(params.role) : 'school_admin';
   const [school, setSchool] = useState<SchoolLinkInfo | null>(() => peekSchoolIdentity(slug));
   const [status, setStatus] = useState<'loading' | 'missing' | 'failed'>('loading');
@@ -36,7 +37,8 @@ function SchoolLinkLogin({ slug }: { slug: string }) {
       if (!live) return;
       setSchool(info);
       // Tên hoặc khu vực trong đường dẫn cũ/gõ sai vẫn mở đúng trường; đưa về đường dẫn chuẩn của trường
-      if (info.slug.toLowerCase() !== slug.toLowerCase()) router.replace({ pathname: '/[school]', params: { school: info.slug, role, ...(params.tab ? { tab: params.tab } : {}), ...(params.pin ? { pin: params.pin } : {}) } });
+      // giữ cả màn đang mở thẳng tới (chiến dịch / chặng / bước, chế độ nhúng của ứng dụng gốc) – không thì đường dẫn tới một chặng chỉ còn về trang đầu
+      if (info.slug.toLowerCase() !== slug.toLowerCase()) router.replace({ pathname: '/[school]', params: { school: info.slug, role, ...deepLinkParams(params) } });
     }).catch((error) => {
       if (!live) return;
       if (error instanceof ApiError && error.status === 404) setStatus('missing');

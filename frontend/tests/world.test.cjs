@@ -134,7 +134,7 @@ test('đợt 2: tuyến vận chuyển, Sổ sử Đông A, dấu ấn, danh hi�
   const world = read('game', 'world3d.ts');
   for (const name of ['refreshChanges', 'refreshRoutes', 'travel(']) assert.ok(world.includes(name), name);
   const native = read('components', 'portal', 'WorldViewport.tsx');
-  assert.match(native, /Linking\.openURL\(webUrl\)/);
+  assert.match(native, /Linking\.openURL\(url\)/); // nút dự phòng "Mở trên trình duyệt"
   assert.match(screen, /webUrl=\{`\$\{SITE\}\/hoc-sinh\?tab=chien-dich&c=\$\{campaignNo\}&s=\$\{stageId\}&v=kham-pha`\}/);
   // danh hiệu của thế giới khối có ở máy chủ (khớp tên hiển thị)
   const rules = read('..', 'backend', 'src', 'saga', 'world.ts');
@@ -213,4 +213,38 @@ test('tự chơi trên trình duyệt: nút Tương tác ưu tiên thứ bước
   // đang cầm vật: lấy ô vùng xây dựng còn trống đầu tiên dọc theo tia chạm (núi / nhà / khối đã đặt che khuất)
   assert.match(world, /const hits = this\.ray\.intersectObjects\(this\.pickables, false\);/);
   assert.match(world, /cells\.find\(\(x\) => !this\.placed\.has\(key\(x\[0\], x\[1\]\)\).*\) \?\? cells\[0\]/);
+});
+
+test('ứng dụng gốc nhúng thế giới khối của website trong WebView: chuyển sẵn phiên + lớp, embed=1 ẩn khung web, bản web không nạp WebView', () => {
+  // mã khởi động ghi đúng khóa phiên (lib/storage.ts) và lớp đang học (StudentApp); giá trị lạ không thoát khỏi chuỗi
+  const token = 'abc"); alert(1); ("';
+  const script = wm.embedBootScript({ token, userId: 7, schoolCode: '00000001', classId: 3 });
+  const local = new Map(), session = new Map();
+  const fake = (m) => ({ setItem: (k, v) => m.set(k, String(v)), getItem: (k) => m.get(k) ?? null });
+  const ctx = { localStorage: fake(local), sessionStorage: fake(session), JSON, alert: () => { throw new Error('mã bị chèn'); } };
+  assert.equal(vm.runInNewContext(script, ctx), true);
+  assert.equal(local.get('donga_token_student'), token);
+  assert.equal(local.get('donga_token_student_school_00000001'), token);
+  assert.deepEqual(JSON.parse(session.get('donga.student.entered-class')), { user: 7, classId: 3 });
+  assert.match(read('lib', 'storage.ts'), /const tokenKey = \(portal: Portal, schoolCode\?: string\) => `donga_token_\$\{portal\}\$\{schoolCode \? `_school_\$\{schoolCode\}` : ''\}`;/);
+  assert.match(read('components', 'portal', 'StudentApp.tsx'), /const ENTER_KEY = 'donga\.student\.entered-class';/);
+  const none = new Map();
+  vm.runInNewContext(wm.embedBootScript({ token: 't', userId: 7, schoolCode: null, classId: null }), { localStorage: fake(none), sessionStorage: fake(new Map()), JSON });
+  assert.deepEqual([...none.keys()], ['donga_token_student']);
+  // WebView chỉ ở bản ứng dụng gốc; chỉ cho điều hướng trong website, liên kết ngoài mở bằng trình duyệt
+  const native = read('components', 'portal', 'WorldViewport.tsx');
+  assert.match(native, /from 'react-native-webview'/);
+  assert.match(native, /injectedJavaScriptBeforeContentLoaded=\{boot\}/);
+  assert.match(native, /if \(req\.url\.toLowerCase\(\)\.startsWith\(ORIGIN\) \|\| req\.url\.startsWith\('about:'\)\) return true;\s+void Linking\.openURL\(req\.url\);/);
+  assert.match(native, /v=kham-pha&embed=1/);
+  assert.doesNotMatch(read('components', 'portal', 'WorldViewport.web.tsx'), /react-native-webview/);
+  for (const f of fs.readdirSync(path.join(root, 'components', 'portal'))) if (f !== 'WorldViewport.tsx' && /\.tsx?$/.test(f)) assert.doesNotMatch(read('components', 'portal', f), /react-native-webview/, f);
+  const play = read('components', 'portal', 'SagaPlay.tsx');
+  assert.match(play, /if \(native\) return <WorldEmbed token=\{session\.token\}/);
+  assert.match(play, /if \(native\) return undefined;/); // ứng dụng gốc không tự tạo phiên (trang trong WebView tạo)
+  const app = read('components', 'portal', 'StudentApp.tsx');
+  assert.match(app, /const embed = Platform\.OS === 'web' && one\(params\.embed\) === '1';/);
+  assert.match(app, /embed: embed \? '1' : undefined/);
+  assert.match(app, /\{embed \? <View style=\{\{ flex: 1, minHeight: 0, backgroundColor: c\.giay \}\} testID="student-embed">\{body\}<\/View> : \(/);
+  assert.equal(JSON.parse(read('package.json')).dependencies['react-native-webview'], '14.0.1');
 });

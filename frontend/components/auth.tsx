@@ -21,7 +21,7 @@ import { useSystemBrand } from '@/hooks/use-system-brand';
 import { useTheme } from '@/hooks/use-theme';
 import { readToken, readTokenNow, saveToken } from '@/lib/storage';
 import { forgetVerifiedUser, peekVerifiedUser, rememberVerifiedUser } from '@/lib/verified-session';
-import { schoolSessionPath } from '@/lib/school-session';
+import { deepLinkParams, schoolSessionPath } from '@/lib/school-session';
 import { newPasswordError, PASSWORD_HINT } from '@/lib/password-policy';
 import type { AuthRole, AuthUser, Portal, ProfileData, ProfilePatch, SchoolLinkInfo } from '@/types/api';
 
@@ -253,14 +253,15 @@ export const PortalApp: React.FC<{ portal: Portal; school?: SchoolLinkInfo; onRo
 /** Chuyển tiếp một lần bằng replace, giữ mục menu và không tạo bước đăng nhập thừa trong lịch sử. */
 function SchoolSessionRedirect({ token, user }: { token: string; user: AuthUser }) {
   const router = useRouter();
-  const { tab } = useLocalSearchParams<{ tab?: string }>();
+  const params = useLocalSearchParams<{ tab?: string; pin?: string; c?: string; s?: string; v?: string; embed?: string }>();
+  const extra = new URLSearchParams(deepLinkParams(params)).toString(); // giữ mục menu, chặng đang mở, chế độ nhúng
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     let live = true;
-    schoolSessionPath(token, user).then(path => { if (live) router.replace(`${path}${tab ? `&tab=${encodeURIComponent(tab)}` : ''}` as '/portal'); }).catch(e => { if (live) setError(errorMessage(e)); });
+    schoolSessionPath(token, user).then(path => { if (live) router.replace(`${path}${extra ? `&${extra}` : ''}` as '/portal'); }).catch(e => { if (live) setError(errorMessage(e)); });
     return () => { live = false; };
-  }, [token, user, tab, router, retry]);
+  }, [token, user, extra, router, retry]);
   return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}><PaperBg />{error ? <><Txt>{error}</Txt><Btn title="Thử lại" onPress={() => { setError(null); setRetry(n => n + 1); }} /></> : <Spinner label="Đang mở đường dẫn riêng của trường…" />}</View>;
 }
 

@@ -152,7 +152,14 @@ Lời thoại về sự kiện chỉ lấy từ thẻ kiến thức và tổng k
 
 ### Ứng dụng điện thoại gốc
 
-Ứng dụng gốc chưa có thư viện WebView / GL nên chưa vẽ cảnh 3D. Khung thế giới khối có nút **"Mở trên trình duyệt"** mở đúng chặng này trên website (`/hoc-sinh?tab=chien-dich&c=..&s=..&v=kham-pha`); em đăng nhập là chơi tiếp, tiến độ lưu ở máy chủ.
+- Đợt 2: ứng dụng gốc chỉ có nút **"Mở trên trình duyệt"** (em phải đăng nhập lại trên website).
+- 22/11/2026, người dùng chọn **nhúng WebView trong ứng dụng** (thư viện `react-native-webview` 14.0.1 – bản Expo SDK 58 yêu cầu, Expo Go có sẵn):
+  - Màn Nhập vai trên ứng dụng (`WorldEmbed` trong `components/portal/WorldViewport.tsx`, `SagaPlay.tsx` chọn khi không phải web) mở đúng thế giới khối của trang trường (đường dẫn chuẩn lấy từ `/api/auth/school-link`) với `embed=1`.
+  - Trước khi trang tải, WebView ghi sẵn phiên đăng nhập và lớp đang học vào kho của WebView (`embedBootScript` trong `lib/world-map.ts`, cùng khóa với `lib/storage.ts` và `StudentApp`) – em không phải đăng nhập lại.
+  - Website ở chế độ `embed=1` chỉ hiện nội dung, không thanh đầu / nút mục (`StudentApp`), chuyển màn (vào trận, trang sử) vẫn giữ `embed`.
+  - WebView chỉ cho điều hướng trong website của dự án; liên kết ngoài (nguồn tham khảo…) mở bằng trình duyệt của máy. Không nạp được thì có Thử lại và nút "Mở trên trình duyệt" dự phòng. Cần Internet.
+  - Bản web không nạp `react-native-webview` (chỉ tệp gốc `WorldViewport.tsx` nhập thư viện).
+  - Kèm theo: trang trường khi chuyển về đường dẫn chuẩn và bước đưa học sinh về trang trường nay giữ cả `c`, `s`, `v`, `embed` (trước chỉ giữ `tab`, `pin` nên đường dẫn mở thẳng một chặng bị về trang đầu).
 
 ### Bỏ cảnh nhập vai 2D
 
@@ -170,7 +177,7 @@ Lời thoại về sự kiện chỉ lấy từ thẻ kiến thức và tổng k
 ### Kiểm tra đợt 2
 
 - Backend `world.spec.ts` (8 bài): nội dung 13 chặng hợp lệ và đi được hết, luật `give` / `pick` / `drill` / phần thưởng, dân binh ở Bạch Đằng, dấu ấn của bạn cùng lớp, chặng "Vườn không nhà trống" qua API (danh hiệu, tuyến, thêm tài nguyên, tủ danh hiệu, Sổ sử sai / đúng / 400 / 409). `saga.spec.ts` 15 bài.
-- Frontend 214 bài (`tests/world.test.cjs` kiểm tra đã bỏ cảnh 2D, three.js chỉ nạp động).
+- Frontend 214 bài (22/11: thêm kiểm thử WebView nhúng – mã khởi động chạy trong hộp cát, không chèn được mã lạ) (`tests/world.test.cjs` kiểm tra đã bỏ cảnh 2D, three.js chỉ nạp động).
 - **Tự chơi trọn nhiệm vụ bằng chuột trên trình duyệt thật** (kịch bản `s41_play_quest.cjs` / `s42_book.cjs` của bộ kiểm thử trình duyệt, PostgreSQL tạm, không gọi API thay thao tác):
   - "Sơ tán – vườn không nhà trống" 11 bước: nói chuyện, gặt lúa, đóng bao ở bàn chế tạo, đi nhầm bến rồi đúng bến (mở tuyến), cất lương (dân binh vào giúp sau 59 giây vì có một bạn ở trong phòng mà không góp), nhận "Người giữ làng", lấy tre, làm và dựng lều, gặp Thái sư, trả lời → hoàn thành → mở trang sử. Không có lỗi trên trang.
   - Chơi lại khi đã có danh hiệu: mỗi lần gặt được 3 lúa thay vì 2; đặt bao vào hàng ô sau núi (chạm xuyên vật che).

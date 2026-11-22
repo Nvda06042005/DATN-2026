@@ -9,7 +9,7 @@
  * để lúc nào cũng chỉ có một màn chơi đang chạy; khi quay lại, màn đó tải lại trạng thái chuẩn từ máy chủ.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { useIsFocused, useLocalSearchParams, useNavigation, usePathname, useRouter, type Href } from 'expo-router';
 import { CircleQuestionMark, ClipboardCheck, GalleryHorizontalEnd, Gamepad2, LifeBuoy, Mail, Map as MapIcon, ScrollText, Sparkles } from 'lucide-react-native';
 import * as learningApi from '@/api/learningApi';
@@ -117,7 +117,9 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
-  const params = useLocalSearchParams<{ tab?: string | string[]; c?: string | string[]; s?: string | string[]; v?: string | string[] }>();
+  const params = useLocalSearchParams<{ tab?: string | string[]; c?: string | string[]; s?: string | string[]; v?: string | string[]; embed?: string | string[] }>();
+  // ứng dụng điện thoại gốc nhúng trang này trong WebView (embed=1): chỉ hiện nội dung, không thanh đầu / nút mục; chuyển màn giữ embed
+  const embed = Platform.OS === 'web' && one(params.embed) === '1';
   const [tab, setTab] = usePortalTab<SagaTab>('chien-dich', TABS);
   useEffect(() => {
     if (one(params.tab) === 'ai') {
@@ -157,12 +159,12 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const go = useCallback<SagaNav['go']>((next, to = {}, mode = 'push') => {
     const target = { c: to.c ?? null, s: to.s ?? null, v: to.v ?? null };
     if (next === route.tab && target.c === route.c && target.s === route.s && target.v === route.v) return; // đang ở đúng màn này
-    const extra = { c: target.c ? String(target.c) : undefined, s: target.s ? String(target.s) : undefined, v: target.v ?? undefined };
+    const extra = { c: target.c ? String(target.c) : undefined, s: target.s ? String(target.s) : undefined, v: target.v ?? undefined, embed: embed ? '1' : undefined };
     if (mode === 'params') { router.setParams({ ...extra, tab: next }); return; }
     if (mode === 'push') { setTab(next, extra); return; }
     const keep = Object.fromEntries(Object.entries(params as Record<string, unknown>).filter(([k, val]) => !['school', 'tab', 'c', 's', 'v'].includes(k) && val !== undefined));
     router.replace({ pathname, params: { ...keep, ...extra, tab: next } } as Href);
-  }, [params, pathname, route, router, setTab]);
+  }, [embed, params, pathname, route, router, setTab]);
 
   const back = useCallback<SagaNav['back']>((tabTo, to = {}) => {
     const st = navigation.getState() as { index: number; routes: Array<{ name: string; params?: Record<string, string | string[] | undefined> }> } | undefined;
@@ -241,6 +243,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
     <ThemeContext.Provider value={{ c: STUDENT_PALETTE, dark: false }}>
     <AdminUiContext.Provider value={false}>
       <View style={{ flex: 1 }} testID="student-app">
+        {embed ? <View style={{ flex: 1, minHeight: 0, backgroundColor: c.giay }} testID="student-embed">{body}</View> : (
         <StudentWorkspace session={session} nav={navItems} active={route.tab === 'lop-hoc' ? 'chien-dich' : route.tab} onSelect={pick} home={home.data}
           avatar={home.data?.look?.frame || home.data?.look?.avatar ? <FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={34} frame={home.data.look.frame} preset={home.data.look.avatar} testID="top-framed-avatar" /> : undefined}
           profileAvatar={<FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={56} frame={home.data?.look?.frame} preset={home.data?.look?.avatar} testID="profile-framed-avatar" />}
@@ -248,6 +251,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
           roleLine={home.data?.look?.title ? <TitleBadge title={home.data.look.title} testID="top-title" /> : undefined} schoolName={profile.data?.school?.name} extra={extra}>
           {body}
         </StudentWorkspace>
+        )}
         {levelUp && !reward ? (
           <Sheet open onClose={() => setLevelUp(null)} title={`Lên cấp ${levelUp.level}`} subtitle={levelUp.title || undefined} footer={<Btn title="Tiếp tục" tone="son" full onPress={() => setLevelUp(null)} testID="level-up-close" />}>
             <View style={{ alignItems: 'center', gap: 8 }} testID="level-up">

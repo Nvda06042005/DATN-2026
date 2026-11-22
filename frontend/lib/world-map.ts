@@ -151,3 +151,12 @@ export function applyBlockChange(blocks: PlacedBlock[], change: { placed: Placed
   next.push({ x: change.placed.x, z: change.placed.z, block: change.placed.block, zone: change.placed.zone, mine: me !== null && change.placed.by === me });
   return next;
 }
+
+/**
+ * Ứng dụng điện thoại gốc nhúng thế giới khối của website trong WebView (22/11/2026): mã chạy trong WebView trước khi trang tải, ghi phiên đăng nhập
+ * của học sinh (khóa giống lib/storage.ts) và lớp đang học (khóa giống StudentApp, chỉ mã người dùng và mã lớp). Mọi giá trị đi qua JSON.stringify.
+ */
+export function embedBootScript(p: { token: string; userId: number; schoolCode: string | null; classId: number | null }): string {
+  const t = JSON.stringify(p.token), code = JSON.stringify(p.schoolCode ?? ''), entered = JSON.stringify(p.classId ? { user: p.userId, classId: p.classId } : null);
+  return `(function(){try{var t=${t},c=${code},e=${entered};localStorage.setItem('donga_token_student',t);if(c)localStorage.setItem('donga_token_student_school_'+c,t);if(e)sessionStorage.setItem('donga.student.entered-class',JSON.stringify(e));}catch(x){}})();true;`;
+}
