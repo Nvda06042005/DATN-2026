@@ -586,7 +586,10 @@ export class BlockWorld {
     const hit = hits[0];
     if (!hit) return;
     // Đang cầm vật: ô sáng của vùng xây dựng nằm sau núi / nhà / khối đã đặt (nhìn chéo nên bị che) vẫn chạm được – lấy ô còn trống đầu tiên dọc theo tia
-    if (this.mode) {
+    // chỉ xuyên qua khi chạm trúng vật che (núi, nhà, khối đã đặt) hoặc chính ô của vùng; chạm người / bàn / cây / đất trống thì làm việc bình thường
+    const first = hit.object.userData.npc ? null : this.cellOfHit(hit);
+    const occluder = Boolean(first && this.blocked(first[0], first[1]) && !this.map.stations.some((st) => st.at[0] === first[0] && st.at[1] === first[1]) && !this.terrain[cellAt(this.map, first[0], first[1])]?.res);
+    if (this.mode && first && (occluder || buildZoneAt(this.map, first[0], first[1], this.mode))) {
       const cells = hits.map((h) => this.cellOfHit(h)).filter((c): c is Cell => Boolean(c && buildZoneAt(this.map, c[0], c[1], this.mode!)));
       const c = cells.find((x) => !this.placed.has(key(x[0], x[1]))) ?? cells[0];
       if (c) { this.goNear(c, { kind: 'place', at: c, item: this.mode }, 2); return; }
@@ -603,9 +606,11 @@ export class BlockWorld {
       return;
     }
     if (this.mode && buildZoneAt(this.map, cell[0], cell[1], this.mode)) { this.goNear(cell, { kind: 'place', at: cell, item: this.mode }, 2); return; }
-    if (!this.blocked(cell[0], cell[1])) {
-      const me = this.myCell();
-      const r = this.plan(cell, me, 0);
+    // chạm trúng núi / đá / tường / nhà cao (nhìn chéo nên che ô phía sau): đi tới ô đi được đầu tiên dọc theo tia chạm
+    const ground = !this.blocked(cell[0], cell[1]) ? cell
+      : hits.map((h) => this.cellOfHit(h)).find((c): c is Cell => Boolean(c && !this.blocked(c[0], c[1]) && !this.terrain[cellAt(this.map, c[0], c[1])]?.res));
+    if (ground) {
+      const r = this.plan(ground, this.myCell(), 0);
       if (r) { this.path = r.path; this.pending = null; }
     }
   }
@@ -717,7 +722,8 @@ export class BlockWorld {
       const near = t ? `${t.kind}:${t.id}:${this.view.current?.id ?? ''}` : '';
       if (near !== this.near) { this.near = near; this.bridge.emit('world:near', t ? { kind: t.kind, id: t.id, name: t.name } : null); }
       const zone = this.map.zones.find((z) => inRect(z.rect, cell[0], cell[1]))?.id ?? '';
-      if (zone !== this.zoneIn) { this.zoneIn = zone; if (zone) this.bridge.emit('world:zone', zone); }
+      // báo cả khi rời vùng ('' = không ở vùng nào) để giao diện biết em còn đứng trong vùng hay không
+      if (zone !== this.zoneIn) { this.zoneIn = zone; this.bridge.emit('world:zone', zone); }
     }
     // nước triều, ô mọc lại
     this.waterY += (this.tideTarget() - this.waterY) * Math.min(1, dt * (this.calm ? 3 : 0.8));

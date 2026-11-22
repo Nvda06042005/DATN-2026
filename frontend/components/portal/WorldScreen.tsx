@@ -180,9 +180,13 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
   const goalY = useRef<number | null>(null);
   const skew = useRef(initial.server_now - Date.now());
   const pos = useRef<{ x: number; z: number }>({ x: initial.map.spawn[0] + 0.5, z: initial.map.spawn[1] + 0.5 });
+  const zoneIn = useRef('');
 
   const apply = useCallback((v: WorldSession): void => { viewRef.current = v; skew.current = v.server_now - Date.now(); setView(v); bridge.emit('world:view', v); }, [bridge]);
   const setMode = useCallback((item: string | null) => { setModeState(item); bridge.emit('world:mode', item); }, [bridge]);
+  // sang bước khác thì cất vật đang cầm (không thì vật dư sau bước đặt vật khiến chạm để đi bị hiểu thành đặt vật)
+  const stepId = view.current?.id ?? null;
+  useEffect(() => { setMode(null); }, [stepId, setMode]);
 
   const room = useWorldRoom(session.token, { class_id: initial.room.class_id, campaign_no: initial.room.campaign_no }, bridge, {
     block: (ch: BlockChange, me: number | null) => {
@@ -242,6 +246,8 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
       bridge.on('world:travel', (name: string) => setFlash(`Đi thuyền: ${name}`)),
       bridge.on('world:pos', (p: { x: number; z: number; ry: number }) => { pos.current = p; room.move(p); }),
       bridge.on('world:zone', (id: string) => {
+        zoneIn.current = id;
+        if (!id) return;
         const step = viewRef.current.current;
         // chọn đúng đường / luyện đội hình: bước vào bất kỳ vùng nào của bước này đều gửi máy chủ chấm
         if (step && (step.type === 'pick' || step.type === 'drill') && step.need?.zones?.includes(id)) { void send({ type: 'zone', zone: id }); return; }
@@ -255,6 +261,14 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
   // đồng hồ con nước theo giờ máy chủ
   useEffect(() => { const t = setInterval(() => setClock(tideAt(Date.now() + skew.current)), 1000); return () => clearInterval(t); }, []);
   useEffect(() => { if (room.said && Date.now() - room.said.at < 1500) setFlash(`${room.said.name}: ${room.said.text}`); }, [room.said, setFlash]);
+  // bước cần đúng con nước (vd. nhử giặc khi nước lên): em đã đứng sẵn trong vùng lúc nước chưa tới thì khi con nước đổi đúng lúc, tự gửi lại –
+  // không thì em đứng chờ mãi (máy khách chỉ gửi khi bước VÀO vùng)
+  const tideZone = view.current?.type === 'zone' && view.current.need?.tide && view.current.marker?.startsWith('zone:') ? view.current.marker.slice(5) : null;
+  useEffect(() => {
+    if (tideZone && clock.state === view.current?.need?.tide && zoneIn.current === tideZone) void send({ type: 'zone', zone: tideZone });
+  // chỉ khi con nước đổi (hoặc sang bước khác)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clock.state, tideZone]);
   // em đã đặt đủ phần mình mà cả lớp chưa đủ, trong phòng còn bạn khác: hỏi lại máy chủ mỗi 20 giây – chờ các bạn 60 giây rồi dân binh tới giúp
   const waiting = view.current?.type === 'place' && (view.current.need?.own ?? 0) >= (view.current.need?.count ?? 1) ? view.current.need?.zone ?? null : null;
   useEffect(() => {

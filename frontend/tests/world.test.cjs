@@ -142,6 +142,29 @@ test('đợt 2: tuyến vận chuyển, Sổ sử Đông A, dấu ấn, danh hi�
   assert.match(rules, /code: 'dong-long-giu-nuoc', name: 'Đồng lòng giữ nước'/);
 });
 
+test('vật đang cầm không cướp lượt chạm: sang bước khác thì cất, chỉ xuyên qua vật che', () => {
+  const screen = read('components', 'portal', 'WorldScreen.tsx');
+  assert.match(screen, /const stepId = view\.current\?\.id \?\? null;\r?\n\s+useEffect\(\(\) => \{ setMode\(null\); \}, \[stepId, setMode\]\);/);
+  const world = read('game', 'world3d.ts');
+  assert.match(world, /const first = hit\.object\.userData\.npc \? null : this\.cellOfHit\(hit\);/);
+  assert.match(world, /if \(this\.mode && first && \(occluder \|\| buildZoneAt\(this\.map, first\[0\], first\[1\], this\.mode\)\)\) \{/);
+});
+
+test('chạm trúng núi / đá che khuất: đi tới ô đi được phía sau dọc theo tia chạm (vd. đá ghi dấu mực nước ở Bạch Đằng)', () => {
+  const world = read('game', 'world3d.ts');
+  assert.match(world, /const ground = !this\.blocked\(cell\[0\], cell\[1\]\) \? cell/);
+  assert.match(world, /hits\.map\(\(h\) => this\.cellOfHit\(h\)\)\.find\(\(c\): c is Cell => Boolean\(c && !this\.blocked\(c\[0\], c\[1\]\) && !this\.terrain\[cellAt\(this\.map, c\[0\], c\[1\]\)\]\?\.res\)\)/);
+});
+
+test('bước cần đúng con nước: đứng sẵn trong vùng thì khi con nước đổi đúng lúc, tự gửi lại (không kẹt)', () => {
+  const world = read('game', 'world3d.ts');
+  assert.match(world, /if \(zone !== this\.zoneIn\) \{ this\.zoneIn = zone; this\.bridge\.emit\('world:zone', zone\); \}/);
+  const screen = read('components', 'portal', 'WorldScreen.tsx');
+  assert.match(screen, /zoneIn\.current = id;\r?\n\s+if \(!id\) return;/);
+  assert.match(screen, /if \(tideZone && clock\.state === view\.current\?\.need\?\.tide && zoneIn\.current === tideZone\) void send\(\{ type: 'zone', zone: tideZone \}\);/);
+  assert.match(screen, /\}, \[clock\.state, tideZone\]\);/);
+});
+
 test('vào trận rồi quay lại: em đứng đúng chỗ đã bấm "Vào trận" (không về chỗ xuất phát)', () => {
   const screen = read('components', 'portal', 'WorldScreen.tsx');
   assert.match(screen, /saveReturnCell\(view\.session_id, \[Math\.floor\(pos\.current\.x\), Math\.floor\(pos\.current\.z\)\]\); nav\.go\('chien-dich', \{ c: campaignNo, s: stageId, v: 'tran' \}/);
