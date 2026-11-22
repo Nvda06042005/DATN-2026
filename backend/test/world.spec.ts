@@ -174,6 +174,11 @@ async function playWorld(code: string, token: string, opts: { classId?: number }
     expect(withWorld.length).toBe(13);
     expect(Number((await sql<{ n: string }>(s.url, "SELECT count(*) AS n FROM hk_saga_stages WHERE NOT (content ? 'world')"))[0].n)).toBe(0);
     const maps = Object.fromEntries(await Promise.all([1, 2, 3].map(async (no) => [no, normalizeWorldMap(await worldRaw(no))] as const)));
+    // 082: hiệu lệnh luyện đội hình không dựa vào hướng (em xoay được góc nhìn) và không nhắc lá cờ không có trên sân
+    const drill = (await content('dien-hong')).world.steps.find((x: any) => x.type === 'drill');
+    expect(drill.commands).toHaveLength(5);
+    for (const c of drill.commands) expect(c).not.toMatch(/phải|trái|cờ đỏ/);
+    expect(maps[2].zones.find((z) => z.id === 'doi_1')?.name).toBe('Vị trí 1');
     for (const no of [1, 2, 3]) {
       expect([no, maps[no].book?.events.length ?? 0]).toEqual([no, expect.any(Number)]);
       expect(maps[no].book!.events.length).toBeGreaterThanOrEqual(5);

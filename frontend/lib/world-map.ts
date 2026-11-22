@@ -112,6 +112,22 @@ export function buildZoneAt(m: WorldMapInfo, x: number, z: number, item: string)
   return m.zones.find((zn) => zn.kind === 'build' && zn.accepts.includes(item) && inRect(zn.rect, x, z) && zn.on.includes(cellAt(m, x, z))) ?? null;
 }
 
+/**
+ * Bước chọn nơi (pick) / luyện đội hình (drill): máy chủ tính lỗi khi em bước vào sai vùng của bước, nên đường TỰ TÌM (chạm để đi) tránh các ô của
+ * những vùng đó, trừ vùng chứa ô em chạm tới – không thì đường đi cắt ngang một vị trí khác là bị tính lệch hàng / chọn nhầm oan.
+ * Đi bằng phím vẫn tự do như cũ (đó là lựa chọn của em). Không lộ đáp án: tránh mọi vùng của bước như nhau.
+ */
+export function stepAvoid(m: Pick<WorldMapInfo, 'zones'>, cur: { type: string; need?: { zones?: string[] } | null } | null | undefined, dest: Cell): Set<string> {
+  const out = new Set<string>();
+  if (!cur || (cur.type !== 'pick' && cur.type !== 'drill')) return out;
+  for (const id of cur.need?.zones ?? []) {
+    const z = m.zones.find((x) => x.id === id);
+    if (!z || inRect(z.rect, dest[0], dest[1])) continue;
+    for (let zz = z.rect[1]; zz < z.rect[1] + z.rect[3]; zz++) for (let x = z.rect[0]; x < z.rect[0] + z.rect[2]; x++) out.add(key(x, zz));
+  }
+  return out;
+}
+
 /** Bến của tuyến vận chuyển đã mở ngay cạnh em (cách tối đa 1 ô): trả về tuyến và bến bên kia để đi thuyền sang */
 export function routeNear(m: Pick<WorldMapInfo, 'routes'>, open: string[], me: Cell): { route: WorldRouteInfo; to: Cell } | null {
   for (const r of m.routes ?? []) {

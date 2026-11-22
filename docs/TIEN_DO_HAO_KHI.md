@@ -5,6 +5,7 @@
 - Bản đồ khối phần 1 (1258) và phần 2 (1285) và nhiệm vụ cho 9 chặng còn lại; **bỏ cảnh nhập vai 2D** (xóa `game/explore-scene.ts`, giữ dữ liệu `content.explore` trong cơ sở dữ liệu).
 - Bước mới `give` / `pick` / `drill`; danh hiệu "Người giữ làng", "Đồng lòng giữ nước"; mở tuyến vận chuyển (đi thuyền giữa hai bến); dấu ấn trên bản đồ theo chặng đã xong; Sổ sử Đông A (sắp xếp sự kiện sau mỗi cuộc kháng chiến, 30 XP lần đầu xếp đúng).
 - Dân binh đặt nốt phần "cả lớp" khi em chơi một mình hoặc mất kết nối chung; vùng đầy vẫn dời khối cũ nhất. Ứng dụng gốc có nút "Mở trên trình duyệt".
+- 22/11: tự chơi thêm "Bình Than" (trao cờ) và "Diên Hồng" (luyện đội hình, danh hiệu) bằng chuột; đường tự tìm tránh vùng khác của bước chọn nơi / luyện đội hình; migration 082 sửa lời hiệu lệnh không dựa vào trái / phải; khung hoàn thiện Sổ sử khi đủ 3 trang.
 - Migration 081 (`hk_world_awards` có RLS, bản đồ phần 1–2, `content.world` cho 9 chặng). Kiểm tra: backend world.spec 8 + saga.spec 15, frontend 214, tự chơi trọn "Vườn không nhà trống" bằng chuột trên trình duyệt thật. Chi tiết: [Thế giới khối](THE_GIOI_KHOI.md).
 
 ## Thế giới khối vuông của bước Nhập vai – 21/11/2026

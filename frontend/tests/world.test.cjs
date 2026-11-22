@@ -127,7 +127,7 @@ test('đợt 2: tuyến vận chuyển, Sổ sử Đông A, dấu ấn, danh hi�
   assert.equal(wm.routeNear(m, ['song-hong-1258'], [5, 5]), null);
   assert.ok(wm.PLACEABLE.includes('leu'));
   const screen = read('components', 'portal', 'WorldScreen.tsx');
-  for (const id of ['world-book', 'world-book-open', 'world-marks']) assert.ok(screen.includes(`testID="${id}"`), id);
+  for (const id of ['world-book', 'world-book-open', 'world-marks', 'book-complete']) assert.ok(screen.includes(`testID="${id}"`), id);
   assert.match(screen, /saga\.submitBook\(session\.token, no, orders\[no\] \?\? \[\]\)/);
   assert.match(screen, /step\.type === 'pick' \|\| step\.type === 'drill'\) && step\.need\?\.zones\?\.includes\(id\)/);
   assert.match(screen, /'nguoi-giu-lang': 'Người giữ làng', 'dong-long-giu-nuoc': 'Đồng lòng giữ nước'/);
@@ -140,6 +140,20 @@ test('đợt 2: tuyến vận chuyển, Sổ sử Đông A, dấu ấn, danh hi�
   const rules = read('..', 'backend', 'src', 'saga', 'world.ts');
   assert.match(rules, /code: 'nguoi-giu-lang', name: 'Người giữ làng'/);
   assert.match(rules, /code: 'dong-long-giu-nuoc', name: 'Đồng lòng giữ nước'/);
+});
+
+test('bước chọn nơi / luyện đội hình: đường tự tìm không cắt ngang vùng khác của bước (không bị tính lỗi oan)', () => {
+  const m = { w: 6, h: 5, rows: ['......', '......', '......', '......', '......'], spawn: [0, 0], labels: [], note: '', npcs: [], stations: [],
+    zones: [{ id: 'a', name: 'A', rect: [1, 1, 1, 1], kind: 'goal' }, { id: 'b', name: 'B', rect: [4, 1, 1, 1], kind: 'goal' }, { id: 'c', name: 'C', rect: [1, 3, 1, 1], kind: 'goal' }] };
+  const terrain = { '.': { name: 'đất', walk: true, res: null } };
+  const cur = { type: 'drill', need: { zones: ['a', 'b', 'c'], next: 'c' } };
+  const avoid = wm.stepAvoid(m, cur, [1, 3]);
+  assert.deepEqual([...avoid].sort(), ['1,1', '4,1']); // vùng đích (c) không bị tránh
+  assert.equal(wm.stepAvoid(m, { type: 'place', need: { zones: ['a'] } }, [1, 3]).size, 0);
+  const blocked = wm.blockedFn(m, terrain, []);
+  const path = wm.standNear(m, (x, z) => blocked(x, z) || avoid.has(wm.key(x, z)), [1, 3], [1, 0], 0).path;
+  assert.ok(path.length > 0 && path.every(([x, z]) => !avoid.has(wm.key(x, z))), JSON.stringify(path));
+  assert.match(read('game', 'world3d.ts'), /const avoid = stepAvoid\(this\.map, this\.view\.current, target\);/);
 });
 
 test('tự chơi trên trình duyệt: nút Tương tác ưu tiên thứ bước đang cần, bến thuyền trước người đứng cạnh, chạm xuyên vật che tới ô xây dựng', () => {

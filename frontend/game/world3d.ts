@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import type { GameBridge } from './bridge';
 import {
-  blockedFn, buildZoneAt, cellAt, chebyshev, inRect, key, markerCells, reachable, routeNear, standNear, tideAt,
+  blockedFn, buildZoneAt, cellAt, chebyshev, inRect, key, markerCells, reachable, routeNear, standNear, stepAvoid, tideAt,
   type Cell, type PlacedBlock, type TerrainInfo, type WorldChangeInfo, type WorldMapInfo,
 } from '@/lib/world-map';
 import type { WorldLook, WorldSession } from '@/types/saga';
@@ -601,9 +601,19 @@ export class BlockWorld {
     if (this.mode && buildZoneAt(this.map, cell[0], cell[1], this.mode)) { this.goNear(cell, { kind: 'place', at: cell, item: this.mode }, 2); return; }
     if (!this.blocked(cell[0], cell[1])) {
       const me = this.myCell();
-      const r = standNear(this.map, this.blocked, cell, me, 0);
+      const r = this.plan(cell, me, 0);
       if (r) { this.path = r.path; this.pending = null; }
     }
+  }
+
+  /** Tìm đường tới gần ô đích; ở bước chọn nơi / luyện đội hình thì tránh các vùng khác của bước (xem stepAvoid), không có đường như vậy mới đi thẳng */
+  private plan(target: Cell, me: Cell, range: number): { cell: Cell; path: Cell[] } | null {
+    const avoid = stepAvoid(this.map, this.view.current, target);
+    if (avoid.size) {
+      const r = standNear(this.map, (x, z) => this.blocked(x, z) || avoid.has(key(x, z)), target, me, range);
+      if (r) return r;
+    }
+    return standNear(this.map, this.blocked, target, me, range);
   }
 
   /** Ô bản đồ ứng với một điểm chạm (khối địa hình dùng InstancedMesh: mỗi bản sao một ô) */
@@ -616,7 +626,7 @@ export class BlockWorld {
   private goNear(target: Cell, pending: NonNullable<Pending>, range = 1): void {
     const me = this.myCell();
     if (chebyshev(me, target) <= range && !this.blocked(me[0], me[1])) { this.path = []; this.pending = pending; this.finish(); return; }
-    const r = standNear(this.map, this.blocked, target, me, range);
+    const r = this.plan(target, me, range);
     if (!r) { this.bridge.emit('world:hint', 'Không tìm được đường tới đó. Thử đi vòng hoặc chọn chỗ khác.'); return; }
     this.path = r.path; this.pending = pending;
   }

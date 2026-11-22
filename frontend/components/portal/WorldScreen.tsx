@@ -122,6 +122,15 @@ export const BookSheet: React.FC<{ session: Session; onClose: () => void; onXp: 
             </View>
           );
         })}
+        {pages && pages.length > 0 && pages.every((pg) => pg.done) ? (
+          <View style={{ gap: 6, padding: 14, borderRadius: 14, backgroundColor: c.mocNhat }} testID="book-complete">
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Check size={20} color={c.mocChu} />
+              <Txt f="bold" size={16} color={c.mocChu} style={{ flex: 1 }}>Em đã hoàn thiện Sổ sử Đông A</Txt>
+            </View>
+            <Txt size={14} style={{ lineHeight: 21 }}>Đủ {pages.length} trang: {pages.map((pg) => `${pg.title}`).join('; ')}. Sổ ghi lại đúng thứ tự những gì quân dân nhà Trần đã làm để giữ nước – em có thể mở lại bất cứ lúc nào để ôn.</Txt>
+          </View>
+        ) : null}
       </View>
     </Sheet>
   );

@@ -176,4 +176,10 @@ Lời thoại về sự kiện chỉ lấy từ thẻ kiến thức và tổng k
   - Chơi lại khi đã có danh hiệu: mỗi lần gặt được 3 lúa thay vì 2; đặt bao vào hàng ô sau núi (chạm xuyên vật che).
   - Đứng ở Bến Nam, nút thành "Đi thuyền: Thuyền sông Hồng: Bến Nam ⇄ Thiên Mạc", bấm là sang bến bên kia.
   - Bản đồ phần 2, hộp "Dấu ấn và phần thưởng của em", Sổ sử: ghi thứ tự sai được nhắc "Đúng 0/6 vị trí", xếp lại bằng nút lên / xuống rồi ghi → "Đã hoàn thiện".
+- 22/11/2026 tự chơi thêm bằng chuột (sau khi 081 đã lên Supabase):
+  - "Hội nghị Bình Than" 7 bước, có bước trao cờ hiệu tận tay Trần Quốc Toản → hoàn thành, mở tổng kết chặng.
+  - "Diên Hồng" 8 bước: dựng lều quân doanh, luyện đội hình 5 hiệu lệnh không lệch lần nào → nhận "Đồng lòng giữ nước".
+  - Sổ sử: hoàn thiện đủ 3 trang bằng nút lên / xuống → hiện khung "Em đã hoàn thiện Sổ sử Đông A" (mới, `testID="book-complete"`).
+  - Sửa: đường tự tìm (chạm để đi) ở bước chọn nơi / luyện đội hình tránh các vùng khác của bước (`stepAvoid` trong `lib/world-map.ts`), trừ vùng em chạm tới. Trước đó đường đi có thể cắt ngang vị trí 4 khi đi từ vị trí 2 sang 3 và bị tính lệch hàng oan, mất danh hiệu. Đi bằng phím vẫn tự do.
+  - Migration **082**: viết lại 5 hiệu lệnh luyện đội hình không dựa vào "bên phải / bên trái" (em xoay được góc nhìn) và bỏ "dưới cờ đỏ" (trên sân không có cờ); tên vùng "Vị trí 1 (cờ đỏ)" thành "Vị trí 1". Chỉ cập nhật khi nội dung còn đúng bản 081.
 - Sửa nội dung sau khi chơi: hai nhãn đè nhau ("Thăng Long" / "Điện Diên Hồng" ở phần 2, "Bến Nam" / người chèo thuyền ở phần 1) được dời chỗ; câu dấu ấn của Bình Than sửa thành "Lá cờ sáu chữ … đã được Trần Quốc Toản dựng lên khi về quê tập hợp nghĩa quân" (Toàn thư chép ông về quê mới dựng cờ, không phải tại hội nghị Bình Than).
