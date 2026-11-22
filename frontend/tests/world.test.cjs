@@ -215,6 +215,13 @@ test('tự chơi trên trình duyệt: nút Tương tác ưu tiên thứ bước
   assert.match(world, /cells\.find\(\(x\) => !this\.placed\.has\(key\(x\[0\], x\[1\]\)\).*\) \?\? cells\[0\]/);
 });
 
+test('điện thoại: lời thoại dưới cảnh 3D chỉ cuộn vừa đủ, đóng lời thoại thì cuộn về cảnh (không trượt tới cuối trang)', () => {
+  const screen = read('components', 'portal', 'WorldScreen.tsx');
+  assert.doesNotMatch(screen, /scrollToEnd/);
+  assert.match(screen, /scroller\.current\?\.scrollTo\(\{ y: Math\.max\(0, talkBox\.current\.y \+ talkBox\.current\.height \+ 12 - visible\), animated: true \}\)/);
+  assert.match(screen, /else if \(!hasTalk && goalY\.current !== null\) scroller\.current\?\.scrollTo\(\{ y: Math\.max\(0, goalY\.current - 8\), animated: true \}\)/);
+});
+
 test('ứng dụng gốc nhúng thế giới khối của website trong WebView: chuyển sẵn phiên + lớp, embed=1 ẩn khung web, bản web không nạp WebView', () => {
   // mã khởi động ghi đúng khóa phiên (lib/storage.ts) và lớp đang học (StudentApp); giá trị lạ không thoát khỏi chuỗi
   const token = 'abc"); alert(1); ("';

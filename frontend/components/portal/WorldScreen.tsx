@@ -178,6 +178,7 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
   const [bookOpen, setBookOpen] = useState(false);
   const [clock, setClock] = useState(() => tideAt(Date.now() + (initial.server_now - Date.now())));
   const goalY = useRef<number | null>(null);
+  const talkBox = useRef<{ y: number; height: number } | null>(null);
   const skew = useRef(initial.server_now - Date.now());
   const pos = useRef<{ x: number; z: number }>({ x: initial.map.spawn[0] + 0.5, z: initial.map.spawn[1] + 0.5 });
   const zoneIn = useRef('');
@@ -330,11 +331,20 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
     </Box>
   ) : null;
   const hasTalk = talk !== null;
+  // Màn hẹp (điện thoại): lời thoại nằm ngay dưới cảnh 3D. Hiện lời thoại thì cuộn VỪA ĐỦ để thấy hết hộp (không cuộn tới cuối trang – trước đây
+  // trượt tới tận phần giới thiệu, che cả hộp lẫn cảnh); đóng lời thoại thì cuộn về khung mục tiêu + cảnh 3D để em chơi tiếp.
+  const shownTalk = useRef(false);
   useEffect(() => {
-    if (over || !hasTalk) return undefined;
-    const t = setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 120);
+    if (over) return undefined;
+    if (!hasTalk && !shownTalk.current) return undefined; // chưa từng mở lời thoại: giữ vị trí cuộn ban đầu
+    const t = setTimeout(() => {
+      const node = (scroller.current as unknown as { getScrollableNode?: () => HTMLElement | null } | null)?.getScrollableNode?.();
+      const visible = node?.clientHeight || height;
+      if (hasTalk && talkBox.current) { shownTalk.current = true; scroller.current?.scrollTo({ y: Math.max(0, talkBox.current.y + talkBox.current.height + 12 - visible), animated: true }); }
+      else if (!hasTalk && goalY.current !== null) scroller.current?.scrollTo({ y: Math.max(0, goalY.current - 8), animated: true });
+    }, 140);
     return () => clearTimeout(t);
-  }, [over, hasTalk, page]);
+  }, [over, hasTalk, page, height]);
 
   const inv = Object.entries(view.progress.inventory).filter(([, n]) => n > 0);
   const nearLabel = !near ? null : near.kind === 'npc' ? `Nói chuyện với ${near.name}` : near.kind === 'station' ? 'Mở bàn chế tạo' : near.kind === 'route' ? `Đi thuyền: ${near.name}` : NEAR_VERB[near.id] ?? 'Thu thập';
@@ -413,7 +423,7 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
       </WorldViewport>
 
       <Flash text={flash} tone="info" />
-      {!over && hasTalk ? talk : null}
+      {!over && hasTalk ? <View onLayout={(e) => { talkBox.current = { y: e.nativeEvent.layout.y, height: e.nativeEvent.layout.height }; }}>{talk}</View> : null}
 
       <Box style={{ gap: 10 }} testID="world-bag">
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
