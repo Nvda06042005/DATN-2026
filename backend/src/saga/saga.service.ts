@@ -21,7 +21,7 @@ import { debriefView, knowledgeStars, lessonView, StageContent } from './content
 import { applyExplore, ExploreState, newExplore, publicExplore } from './explore';
 import { gradeItem, ItemKind, ItemRow, KIND_LABEL, newSlot, publicItem, SlotState, tally } from './practice';
 import { applyTactics, createTactics, publicTactics, TacticsScenario, tacticsResult, TState } from './tactics';
-import { applyWorld, isWorldState, newWorld, normalizeWorldMap, normalizeWorldQuest, publicWorld, tideAt, WorldAction, WorldCtx, WorldMap, WorldQuest, WorldState } from './world';
+import { applyWorld, isWorldState, ITEM_NAME, newWorld, normalizeWorldMap, normalizeWorldQuest, publicWorld, settleWorld, tideAt, VILLAGE_BONUS, WORLD_TITLES, WorldAction, WorldCtx, WorldEffect, WorldEvent, WorldMap, WorldQuest, WorldState } from './world';
 import { WorldHub } from './world.hub';
 
 export type SessionKind = 'practice' | 'explore' | 'battle' | 'review';
@@ -308,7 +308,9 @@ export class SagaService {
     const opened = new Set((await q<{ ref_key: string }>("SELECT ref_key FROM hk_gold_ledger WHERE user_id = $1 AND reason = 'chest'", [user.id])).map((r) => r.ref_key.replace(/^hq:chest:/, '')));
     const look = ((await q<{ appearance: Record<string, unknown> }>('SELECT appearance FROM hk_players WHERE user_id = $1', [user.id]))[0]?.appearance ?? {}) as Record<string, unknown>;
     const frames = FRAMES.map((f) => ({ code: f.code, name: f.name, rarity: f.rarity, need: f.need, unlocked: opened.has(f.chest) }));
-    const titles = TITLES.map((t) => ({ code: t.code, name: t.name, rarity: t.rarity, need: `Mở ${t.min} hòm báu trên bản đồ`, unlocked: opened.size >= t.min }));
+    const awards = await this.awardsOf(q, user);
+    const titles = [...TITLES.map((t) => ({ code: t.code, name: t.name, rarity: t.rarity, need: `Mở ${t.min} hòm báu trên bản đồ`, unlocked: opened.size >= t.min })),
+      ...WORLD_TITLES.map((t) => ({ code: t.code, name: t.name, rarity: t.rarity as Rarity, need: t.need, unlocked: awards.has(`title:${t.code}`) }))];
     const pick = (list: Array<{ code: string; name: string; rarity: Rarity; unlocked: boolean }>, code: unknown) => {
       const x = list.find((i) => i.code === code && i.unlocked);
       return x ? { code: x.code, name: x.name, rarity: x.rarity } : null;
@@ -652,6 +654,16 @@ export class SagaService {
     return q('SELECT x, z, block, zone, user_id FROM hk_world_blocks WHERE room_id = $1 ORDER BY placed_at, x, z', [room]);
   }
 
+  /** Phần thưởng đã nhận trong thế giới khối: `title:…`, `route:…`, `book:…` (bảng hk_world_awards, migration 081) */
+  private async awardsOf(q: Q, user: UserRow): Promise<Set<string>> {
+    return new Set((await q<{ code: string }>('SELECT code FROM hk_world_awards WHERE user_id = $1', [user.id])).map((r) => r.code));
+  }
+
+  /** Mã các chặng em đã xong bước nhập vai (để hiện dấu ấn của em trên bản đồ) */
+  private async exploredCodes(q: Q, user: UserRow): Promise<Set<string>> {
+    return new Set((await q<{ code: string }>('SELECT s.code FROM hk_saga_progress p JOIN hk_saga_stages s ON s.id = p.stage_id WHERE p.user_id = $1 AND p.explore_done_at IS NOT NULL', [user.id])).map((r) => r.code));
+  }
+
   /** Giờ máy chủ (đồng hồ của trò chơi) dùng cho thủy triều và ô tài nguyên mọc lại */
   worldNow(): number { return this.game.clock.now().getTime(); }
 
@@ -694,8 +706,14 @@ export class SagaService {
     for (const b of blocks) totals.set(b.zone, (totals.get(b.zone) ?? 0) + 1);
     const cls = (await q<{ id: number; name: string }>('SELECT c.id, c.name FROM hk_world_rooms r JOIN app_classes c ON c.id = r.class_id WHERE r.id = $1', [st.room]))[0];
     const now = this.worldNow();
+    const awards = await this.awardsOf(q, user);
+    const explored = await this.exploredCodes(q, user);
     return {
       ...publicWorld(world.quest, world.map, st, { zoneTotal: (z) => totals.get(z) ?? 0 }),
+      awards: [...awards].filter((a) => !a.startsWith('book:')),
+      routes_open: world.map.routes.filter((r) => awards.has(`route:${r.id}`)).map((r) => r.id),
+      changes: world.map.changes.filter((c) => explored.has(c.stage)),
+      village_help: awards.has('title:nguoi-giu-lang'),
       room: { id: st.room, class_id: cls?.id ?? null, class_name: cls?.name ?? null, campaign_no: stage.campaign_no, online: this.hub.online(st.room) },
       blocks: blocks.map((b) => ({ x: b.x, z: b.z, block: b.block, zone: b.zone, mine: b.user_id === user.id })),
       nodes: this.hub.nodes(st.room, now), tide: tideAt(now), server_now: now,
@@ -704,7 +722,7 @@ export class SagaService {
   }
 
   /** Một lệnh trong thế giới khối: luật ở world.ts; dịch vụ cung cấp khối của phòng, thủy triều, ô đang mọc lại và ghi khối đặt vào phòng */
-  private async actWorld(q: Q, user: UserRow, row: SessionRow, stage: StageRow, p: ProgressRow, action: Record<string, any>, pending: WorldPending[]) {
+  private async actWorld(q: Q, user: UserRow, row: SessionRow, stage: StageRow, p: ProgressRow, action: Record<string, any>, pending: WorldPending[]): Promise<WorldEvent[]> {
     const st = row.state as WorldState;
     const world = await this.worldOf(q, stage);
     if (!world) throw new ConflictException('Bản đồ khối của chặng chưa sẵn sàng');
@@ -716,13 +734,23 @@ export class SagaService {
     const totals = new Map<string, number>();
     for (const b of blocks) totals.set(b.zone, (totals.get(b.zone) ?? 0) + 1);
     const now = this.worldNow();
+    const awards = await this.awardsOf(q, user);
     const ctx: WorldCtx = {
       battleWon: this.battleWon(p, row), tide: tideAt(now).state, nodeReady: (x, z) => this.hub.nodeReady(st.room, x, z, now),
       occupied: (x, z) => occupied.has(`${x},${z}`), zoneTotal: (z) => totals.get(z) ?? 0,
+      // danh hiệu "Người giữ làng": dân làng em từng giúp góp sức ở các nhiệm vụ sau
+      bonusYield: awards.has('title:nguoi-giu-lang') ? VILLAGE_BONUS : 0,
     };
     const { events, effects } = applyWorld(world.quest, world.map, st, action as WorldAction, ctx);
+    await this.worldHelpers(q, user, st, world, occupied, totals, now, awards.has('title:nguoi-giu-lang'), ctx, events, effects, pending);
     for (const e of effects) {
       if (e.kind === 'take') { pending.push({ room: st.room, kind: 'take', x: e.x, z: e.z }); continue; }
+      if (e.kind === 'award') {
+        const fresh = (await q<{ code: string }>('INSERT INTO hk_world_awards (user_id, code) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING code', [user.id, e.code])).length > 0;
+        const ev = events.find((x) => x.t === 'award' && x.code === e.code);
+        if (ev) ev.text = this.awardText(world.map, e.code, fresh);
+        continue;
+      }
       const zone = world.map.zones.find((z) => z.id === e.zone)!;
       let removed: { x: number; z: number } | null = null;
       if ((totals.get(e.zone) ?? 0) >= zone.cap) {
@@ -736,6 +764,90 @@ export class SagaService {
       pending.push({ room: st.room, kind: 'block', placed: { x: e.x, z: e.z, block: e.block, zone: e.zone, by: user.id }, removed });
     }
     return events;
+  }
+
+  private awardText(map: WorldMap, code: string, fresh: boolean): string {
+    const [kind, id] = code.split(':');
+    const name = kind === 'title' ? `danh hiệu “${WORLD_TITLES.find((t) => t.code === id)?.name ?? id}”` : `tuyến vận chuyển “${map.routes.find((r) => r.id === id)?.name ?? id}” – đứng ở bến để đi thuyền`;
+    return fresh ? `Em nhận được ${name}!` : `Em đã có ${name}.`;
+  }
+
+  /**
+   * Bước đặt vật mà cả lớp chưa đủ: em đã đặt đủ phần mình thì dân binh (hoặc dân làng, nếu em có danh hiệu "Người giữ làng") tới đặt nốt phần còn thiếu khi
+   * trong phòng không có bạn nào khác, hoặc khi đã chờ các bạn 60 giây. Khối của họ ghi vào phòng như khối của cả lớp (không gắn với tài khoản nào).
+   */
+  private async worldHelpers(q: Q, user: UserRow, st: WorldState, world: { map: WorldMap; quest: WorldQuest }, occupied: Set<string>, totals: Map<string, number>, now: number,
+    villagers: boolean, ctx: WorldCtx, events: WorldEvent[], effects: WorldEffect[], pending: WorldPending[]): Promise<void> {
+    const step = st.done ? undefined : world.quest.steps[st.step];
+    if (!step || step.type !== 'place') return;
+    const placedNow = effects.filter((e) => e.kind === 'place' && e.zone === step.zone).length;
+    const total = (totals.get(step.zone) ?? 0) + placedNow;
+    if ((st.placed[step.zone] ?? 0) < step.count || total >= step.team) return;
+    if (!st.own_done_at) st.own_done_at = now;
+    const mates = this.hub.players(st.room).filter((x) => x.id !== user.id).length;
+    if (mates > 0 && now - st.own_done_at < 60_000) return;
+    const zone = world.map.zones.find((z) => z.id === step.zone)!;
+    const taken = new Set([...occupied, ...effects.filter((e): e is Extract<WorldEffect, { kind: 'place' }> => e.kind === 'place').map((e) => `${e.x},${e.z}`)]);
+    const free: Array<[number, number]> = [];
+    for (let z = zone.rect[1]; z < zone.rect[1] + zone.rect[3]; z++) for (let x = zone.rect[0]; x < zone.rect[0] + zone.rect[2]; x++) {
+      if (zone.on.includes(world.map.rows[z][x]) && !taken.has(`${x},${z}`)) free.push([x, z]);
+    }
+    const need = Math.min(step.team - total, free.length);
+    if (need <= 0) return;
+    for (const [x, z] of free.slice(0, need)) {
+      await q('INSERT INTO hk_world_blocks (room_id, x, z, block, zone, user_id) VALUES ($1, $2, $3, $4, $5, NULL)', [st.room, x, z, step.item, step.zone]);
+      pending.push({ room: st.room, kind: 'block', placed: { x, z, block: step.item, zone: step.zone, by: 0 }, removed: null });
+    }
+    totals.set(step.zone, (totals.get(step.zone) ?? 0) + need);
+    events.push({ t: 'help', n: need, text: `${villagers ? 'Dân làng em từng giúp sơ tán' : 'Dân binh'} tới góp sức: thêm ${need} ${ITEM_NAME[step.item].toLowerCase()} ở ${zone.name}.` });
+    settleWorld(world.quest, st, { ...ctx, zoneTotal: (zz) => (totals.get(zz) ?? 0) + effects.filter((e) => e.kind === 'place' && e.zone === zz).length }, events, effects);
+  }
+
+  // ------------------------------------------------------------------ Sổ sử Đông A (21/11/2026)
+  /** Thứ tự xáo cố định theo học sinh và cuộc kháng chiến (tải lại không đổi, không lộ thứ tự đúng) */
+  private shuffled<T extends { id: string }>(user: UserRow, no: number, list: T[]): T[] {
+    const h = (id: string) => createHash('sha256').update(`book|${user.id}|${no}|${id}`).digest('hex');
+    const out = [...list].sort((a, b) => (h(a.id) < h(b.id) ? -1 : 1));
+    return out.every((e, i) => e.id === list[i].id) ? [...out.slice(1), out[0]] : out;
+  }
+
+  private async bookOf(q: Q, user: UserRow) {
+    const awards = await this.awardsOf(q, user);
+    const maps = await q<{ campaign_no: number; years: string; world: unknown }>('SELECT campaign_no, years, world FROM hk_saga_maps WHERE world IS NOT NULL ORDER BY campaign_no');
+    const progress = await q<{ campaign_no: number; total: number; done: number }>(
+      `SELECT s.campaign_no, count(*)::int AS total, count(p.completed_at)::int AS done FROM hk_saga_stages s
+       LEFT JOIN hk_saga_progress p ON p.stage_id = s.id AND p.user_id = $1 WHERE s.status = 'published' GROUP BY s.campaign_no`, [user.id]);
+    return maps.flatMap((m) => {
+      const map = normalizeWorldMap(m.world);
+      if (!map.book) return [];
+      const pr = progress.find((x) => x.campaign_no === m.campaign_no);
+      const unlocked = Boolean(pr && pr.total > 0 && pr.done >= pr.total);
+      const done = awards.has(`book:${m.campaign_no}`);
+      return [{ campaign_no: m.campaign_no, years: m.years, title: map.book.title, unlocked, done, stages: pr ? { done: pr.done, total: pr.total } : { done: 0, total: 0 },
+        events: done ? map.book.events : unlocked ? this.shuffled(user, m.campaign_no, map.book.events) : [] }];
+    });
+  }
+
+  async worldBook(user: UserRow) { return { pages: await this.bookOf(this.read, user) }; }
+
+  /** Sắp xếp các sự kiện của một cuộc kháng chiến; đúng hết thì hoàn thiện trang Sổ sử (thưởng điểm một lần) */
+  async submitBook(user: UserRow, no: number, order: string[]) {
+    return this.db.tx(async (q) => {
+      const page = (await this.bookOf(q, user)).find((x) => x.campaign_no === no);
+      if (!page) throw notFound('trang Sổ sử');
+      if (!page.unlocked) throw new ConflictException('Hoàn thành mọi chặng của phần này để mở trang Sổ sử');
+      const raw = (await q<{ world: unknown }>('SELECT world FROM hk_saga_maps WHERE campaign_no = $1', [no]))[0].world;
+      const right = normalizeWorldMap(raw).book!.events.map((e) => e.id);
+      if (!Array.isArray(order) || order.length !== right.length || new Set(order).size !== right.length || order.some((id) => !right.includes(id))) throw new BadRequestException('Hãy xếp đủ tất cả sự kiện, mỗi sự kiện một lần');
+      const positions = order.filter((id, i) => right[i] === id).length;
+      const correct = positions === right.length;
+      let first = false, xp = 0;
+      if (correct) {
+        first = (await q('INSERT INTO hk_world_awards (user_id, code) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING code', [user.id, `book:${no}`])).length > 0;
+        if (first && (await this.game.awardXp(q, user, 30, 'node', `hq:book:${no}`))) xp = 30;
+      }
+      return { correct, positions, total: right.length, first, xp, pages: await this.bookOf(q, user) };
+    });
   }
 
 

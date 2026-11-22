@@ -5,7 +5,7 @@ Người dùng gửi cấu trúc trò chơi: thế giới khối vuông, ngườ
 Người dùng đã chọn qua câu hỏi:
 - **Góc nhìn:** 3D nhìn chéo từ trên (three.js).
 - **Vị trí:** chỉ thay bước Nhập vai của mỗi chặng. Học, luyện tập, trận đánh và tổng kết giữ nguyên.
-- **Đợt này:** làm trọn bản đồ phần 3 (1287–1288) trước.
+- **Đợt 1:** làm trọn bản đồ phần 3 (1287–1288) trước. **Đợt 2** (cùng ngày, migration 081): bản đồ phần 1 và phần 2, cả 13 chặng dùng thế giới khối, bỏ cảnh nhập vai 2D; danh hiệu, tuyến vận chuyển, Sổ sử Đông A, dấu ấn trên bản đồ, dân binh giúp khi chơi một mình (xem mục **Đợt 2** cuối tài liệu).
 - **Phối hợp:** bạn cùng lớp chơi chung trực tuyến.
 
 Chỉ lấy thể loại trò chơi khối vuông. Không dùng tên, hình, kết cấu, nhân vật hay âm thanh của trò chơi khác; khối, màu, nhân vật đều do nhóm tự thiết kế bằng mã.
@@ -25,7 +25,7 @@ Chỉ lấy thể loại trò chơi khối vuông. Không dùng tên, hình, k�
 - **Thủy triều:** chu kỳ 80 giây theo đồng hồ máy chủ, 40 giây rút rồi 40 giây lên. Cả lớp thấy cùng một con nước. Nước lên thì mặt sông phủ kín bãi cọc. Có bước chỉ làm được khi nước lên (nhử giặc) hoặc nước rút (đóng cọc).
 - **Phối hợp:** bạn cùng lớp vào cùng một phòng (mỗi lớp một phòng cho mỗi cuộc kháng chiến), thấy nhau đi lại theo thời gian thực.
   - Khối đã đặt là của cả lớp và được giữ lại.
-  - Bước đặt vật yêu cầu "em ít nhất N, cả lớp ít nhất M". Chơi một mình thì em tự đặt đủ M.
+  - Bước đặt vật yêu cầu "em ít nhất N, cả lớp ít nhất M". Em đặt đủ N mà cả lớp chưa đủ M thì **dân binh** (nhân vật của trò chơi) đặt nốt phần còn lại: ngay lập tức khi phòng không còn bạn nào, hoặc sau 60 giây khi có bạn đang chơi mà chưa góp (đợt 2).
   - Có 8 tín hiệu nhanh có sẵn ("Cần thêm gỗ!", "Chờ con nước!"…), không có ô chat tự do.
 - **Trang sử:** xong nhiệm vụ thì mở màn tổng kết đã có nguồn của chặng.
 
@@ -83,7 +83,7 @@ Nhân vật phụ (lão chài, người tòng quân, lính canh…), lời tho�
   - Rời màn thì hủy renderer, hình khối, vật liệu, bộ nghe.
 - `WorldScreen.tsx`: khung nhiệm vụ (mục tiêu, tiến độ "em / cả lớp", đồng hồ con nước, số bạn đang chơi), cảnh 3D, lời thoại / câu hỏi / ra trận, túi đồ, bàn chế tạo, tín hiệu nhanh, tự tạo nhân vật, hoàn thành → "Mở trang sử".
 - `lib/world-map.ts` gồm tìm đường, ô chặn, đứng cạnh mục tiêu, thủy triều, mục tiêu của bước. `lib/world-socket.ts` là kết nối phòng của lớp.
-- `SagaPlay.tsx` (`ExploreScreen`): máy chủ trả phiên thế giới khối thì mở `WorldScreen`, không thì cảnh 2D như cũ. Gửi `class_id` của lớp em đang học.
+- `SagaPlay.tsx` (`ExploreScreen`): mở `WorldScreen` với phiên thế giới khối; gửi `class_id` của lớp em đang học. Từ đợt 2 không còn cảnh nhập vai 2D (chặng chưa có bản đồ khối thì báo chưa có nội dung).
 
 ## Kiểm tra
 
@@ -104,9 +104,76 @@ Nhân vật phụ (lão chài, người tòng quân, lính canh…), lời tho�
   - chạm nhân vật để nói chuyện, chạm tre để thu thập, chạm bàn chế tạo để làm bè;
   - bản điện thoại có nút đi lại.
 
-## Chưa làm (đợt sau)
+## Đợt 2 – cả 13 chặng (21/11/2026, migration 081)
 
-- Bản đồ khối của phần 1 (1258) và phần 2 (1285) theo bảng của người dùng: sơ tán, dựng nơi trú, chuẩn bị thuyền Đông Bộ Đầu; quân doanh, Diên Hồng, Hịch tướng sĩ, Hàm Tử – Chương Dương.
-- Danh hiệu "Người giữ làng", "Đồng lòng giữ nước", mở tuyến vận chuyển mới, "Sổ sử Đông A" (sắp xếp sự kiện sau mỗi chiến dịch).
-- Thế giới thay đổi theo việc em làm qua nhiều nhiệm vụ: làng có người ở, kho lương, thuyền đưa đồng đội về.
-- Ứng dụng điện thoại gốc (React Native) chưa chạy cảnh 3D; dùng trình duyệt.
+Người dùng yêu cầu làm tiếp mọi phần còn lại của đợt 1 và **bỏ cảnh nhập vai 2D ở 9 chặng còn lại**.
+
+### Bản đồ và nhiệm vụ mới
+
+Hai bản đồ khối 48 × 36 ô (sa bàn thu gọn, không phải bản đồ địa lý):
+- **Phần 1 – Vùng Thăng Long – Thiên Mạc năm 1258:** trại Bình Lệ Nguyên, làng ven kinh thành có ruộng lúa, kinh thành, bến Chợ / bến Nam, Thiên Mạc có kho kín và nơi trú tạm, bến Đông Bộ Đầu.
+- **Phần 2 – Vùng sông Hồng 1282–1285:** bến Bình Than, điện Diên Hồng và quân doanh, Thiên Trường, Hàm Tử, Chương Dương, Tây Kết.
+
+| Chặng | Nhiệm vụ | Thao tác chính |
+|---|---|---|
+| Bình Lệ Nguyên | Giữ biên giới phía bắc | Lấy gỗ, làm ván che tên, trận đánh sẵn có, trao ván cho Lê Tần, tới Phù Lỗ, trả lời |
+| Vườn không nhà trống | Sơ tán | Gặp trưởng làng, bà cụ; gặt lúa, đóng bao; **chọn đúng bến** có thuyền về Thiên Mạc (mở tuyến); cất lương vào kho kín (em 2, cả lớp 4); lấy tre, làm lều, dựng nơi trú tạm; gặp Thái sư Trần Thủ Độ |
+| Đông Bộ Đầu | Phản công | Lấy gỗ, tre; đóng thuyền, đưa ra bến (em 2, cả lớp 4); trận đánh sẵn có |
+| Bình Than | Hội nghị Bình Than | Gặp vua Trần Nhân Tông, Trần Khánh Dư, Trần Quốc Toản; lấy tre làm cờ hiệu và trao cho Quốc Toản; trả lời vua |
+| Diên Hồng | Dựng quân doanh, luyện đội hình | Gặp Thượng hoàng Trần Thánh Tông, vào điện Diên Hồng, nghe Trần Quốc Tuấn; dựng lều quân doanh (em 2, cả lớp 4); **luyện đội hình** theo 5 hiệu lệnh (đi đúng ô theo thứ tự) |
+| Rút lui chiến lược | Rút lui 1285 | Nghe Trần Quốc Tuấn; đóng bao lương, đưa xuống thuyền rút quân (em 2, cả lớp 4); gặp Trần Bình Trọng, trận Đà Mạc sẵn có; về Thiên Trường |
+| Hàm Tử | Tiếp tế | Đóng bao lương, **chọn đúng đường sông** (mở tuyến), trao lương cho hỏa đầu quân; trận đánh sẵn có |
+| Chương Dương | Đánh vào bến thuyền | Đóng thuyền, đưa ra bến; trận đánh sẵn có |
+| Tây Kết | Trận Tây Kết | Lấy gỗ, tre, làm rào chặn đường (em 2, cả lớp 4); gặp Trương Hiển; trận đánh sẵn có |
+
+Lời thoại về sự kiện chỉ lấy từ thẻ kiến thức và tổng kết đã có nguồn của từng chặng (migration 066). Nhân vật phụ (trưởng làng, bà cụ, người chèo thuyền, hỏa đầu quân…), dân binh, công thức (ván che tên, lều, cờ hiệu) và số lượng là phần sáng tạo, được đánh dấu trong trò chơi.
+
+### Bước mới
+
+- `give`: mang vật tới tận tay một người (Lê Tần, Trần Quốc Toản, hỏa đầu quân).
+- `pick`: đọc bản đồ, đi tới đúng nơi trong các ô sáng; đi nhầm chỗ thì nghe gợi ý và tính một lỗi.
+- `drill`: đi lần lượt đúng các ô theo hiệu lệnh; lệch hàng tính một lỗi.
+- Mỗi bước có thể có `award`: `title:<mã>` (danh hiệu) hoặc `route:<mã>` (tuyến vận chuyển). Bước luyện đội hình chỉ trao danh hiệu khi không lệch lần nào.
+
+### Phần thưởng và thế giới thay đổi
+
+- **Danh hiệu** (bảng `hk_world_awards`, nằm chung tủ danh hiệu của nhân vật):
+  - "Người giữ làng" (hiếm): đưa dân và lương thực tới nơi an toàn. Từ đó em gặt / lấy tài nguyên được thêm 1 và dân làng đến giúp khi em chơi một mình.
+  - "Đồng lòng giữ nước" (sử thi): luyện đội hình Diên Hồng không lệch hàng lần nào.
+- **Mở tuyến vận chuyển:** chọn đúng bến / đường sông thì mở tuyến thuyền ("Thuyền sông Hồng: Bến Nam ⇄ Thiên Mạc", "Thuyền tiếp tế: Bến sông phía nam ⇄ Hàm Tử"). Ở hai đầu có cột đèn và thuyền chờ; đứng cạnh bến thì nút Tương tác thành "Đi thuyền", sang ngay bến bên kia. Chỉ đổi chỗ đứng, không ảnh hưởng điểm.
+- **Dấu ấn trên bản đồ:** mỗi chặng em đã xong để lại người, kho lương, thuyền, cờ, lều, lửa trại trên bản đồ của em (chỉ trang trí, không chặn đường), kể cả ở phần 3.
+- **Sổ sử Đông A:** mở được khi em xong mọi chặng của một cuộc kháng chiến. Em sắp lại 5–6 sự kiện theo đúng thứ tự (sự kiện lấy từ thẻ đã có nguồn; thứ tự ban đầu xáo khác nhau cho từng em). Xếp đúng lần đầu được 30 XP và trang sổ được đánh dấu hoàn thành. API `GET /api/saga/world/book`, `POST /api/saga/world/book/:no`.
+
+### Chơi khi mất kết nối chung
+
+- Máy chủ Render gói miễn phí có thể làm rớt kênh chơi chung. Lệnh của em vẫn đi qua API thường nên vẫn chơi tiếp được.
+- Dân binh (khối có `user_id` rỗng) đặt nốt phần "cả lớp" khi em đã đặt đủ phần của em (xem mục Phối hợp). Khi có bạn trong phòng, giao diện nhắc lại vùng đang chờ mỗi 20 giây để máy chủ kiểm tra lại.
+- Vùng đầy vẫn dời khối cũ nhất sang ô mới bằng UPDATE (giữ luật đợt 1).
+
+### Ứng dụng điện thoại gốc
+
+Ứng dụng gốc chưa có thư viện WebView / GL nên chưa vẽ cảnh 3D. Khung thế giới khối có nút **"Mở trên trình duyệt"** mở đúng chặng này trên website (`/hoc-sinh?tab=chien-dich&c=..&s=..&v=kham-pha`); em đăng nhập là chơi tiếp, tiến độ lưu ở máy chủ.
+
+### Bỏ cảnh nhập vai 2D
+
+- `SagaPlay.tsx` chỉ còn mở thế giới khối; đã xóa `frontend/game/explore-scene.ts`, `game/index.ts` chỉ còn trận đánh Phaser (chiến thuật, Bạch Đằng).
+- Dữ liệu `content.explore` cũ trong cơ sở dữ liệu được **giữ nguyên** (không xóa dữ liệu); máy chủ vẫn hiểu phiên 2D cũ nhưng chặng nào có `content.world` cũng mở phiên khối.
+
+### Giao diện
+
+- Ba lỗi phát hiện khi tự chơi trên trình duyệt, đã sửa trong `world3d.ts`:
+  - Nút "Tương tác" / phím E ưu tiên đúng thứ bước đang cần: người cần gặp, bàn chế tạo khi đang chế tạo. Trước đây đứng giữa bà cụ và bàn chế tạo thì bấm mãi chỉ nghe bà cụ nói lại.
+  - Bến của tuyến thuyền đã mở đứng trước người đứng cạnh: người chèo thuyền đứng ngay ở Bến Nam nên nút từng luôn là "Nói chuyện", không bao giờ thành "Đi thuyền".
+  - Đang cầm vật thì chạm xuyên qua núi / nhà / khối đã đặt để tới ô sáng còn trống phía sau. Nhìn chéo nên hàng ô sau của kho dưới chân núi bị núi che, chạm vào chỉ trúng núi.
+- Nút "Sổ sử", "Nhân vật"; hộp "Dấu ấn của em" (danh hiệu, tuyến đã mở); thông báo dân binh / dân làng giúp, nhận danh hiệu, đi thuyền.
+
+### Kiểm tra đợt 2
+
+- Backend `world.spec.ts` (8 bài): nội dung 13 chặng hợp lệ và đi được hết, luật `give` / `pick` / `drill` / phần thưởng, dân binh ở Bạch Đằng, dấu ấn của bạn cùng lớp, chặng "Vườn không nhà trống" qua API (danh hiệu, tuyến, thêm tài nguyên, tủ danh hiệu, Sổ sử sai / đúng / 400 / 409). `saga.spec.ts` 15 bài.
+- Frontend 214 bài (`tests/world.test.cjs` kiểm tra đã bỏ cảnh 2D, three.js chỉ nạp động).
+- **Tự chơi trọn nhiệm vụ bằng chuột trên trình duyệt thật** (kịch bản `s41_play_quest.cjs` / `s42_book.cjs` của bộ kiểm thử trình duyệt, PostgreSQL tạm, không gọi API thay thao tác):
+  - "Sơ tán – vườn không nhà trống" 11 bước: nói chuyện, gặt lúa, đóng bao ở bàn chế tạo, đi nhầm bến rồi đúng bến (mở tuyến), cất lương (dân binh vào giúp sau 59 giây vì có một bạn ở trong phòng mà không góp), nhận "Người giữ làng", lấy tre, làm và dựng lều, gặp Thái sư, trả lời → hoàn thành → mở trang sử. Không có lỗi trên trang.
+  - Chơi lại khi đã có danh hiệu: mỗi lần gặt được 3 lúa thay vì 2; đặt bao vào hàng ô sau núi (chạm xuyên vật che).
+  - Đứng ở Bến Nam, nút thành "Đi thuyền: Thuyền sông Hồng: Bến Nam ⇄ Thiên Mạc", bấm là sang bến bên kia.
+  - Bản đồ phần 2, hộp "Dấu ấn và phần thưởng của em", Sổ sử: ghi thứ tự sai được nhắc "Đúng 0/6 vị trí", xếp lại bằng nút lên / xuống rồi ghi → "Đã hoàn thiện".
+- Sửa nội dung sau khi chơi: hai nhãn đè nhau ("Thăng Long" / "Điện Diên Hồng" ở phần 2, "Bến Nam" / người chèo thuyền ở phần 1) được dời chỗ; câu dấu ấn của Bình Than sửa thành "Lá cờ sáu chữ … đã được Trần Quốc Toản dựng lên khi về quê tập hợp nghĩa quân" (Toàn thư chép ông về quê mới dựng cờ, không phải tại hội nghị Bình Than).

@@ -7,8 +7,8 @@
 import * as THREE from 'three';
 import type { GameBridge } from './bridge';
 import {
-  blockedFn, buildZoneAt, cellAt, chebyshev, inRect, key, markerCells, reachable, standNear, tideAt,
-  type Cell, type PlacedBlock, type TerrainInfo, type WorldMapInfo,
+  blockedFn, buildZoneAt, cellAt, chebyshev, inRect, key, markerCells, reachable, routeNear, standNear, tideAt,
+  type Cell, type PlacedBlock, type TerrainInfo, type WorldChangeInfo, type WorldMapInfo,
 } from '@/lib/world-map';
 import type { WorldLook, WorldSession } from '@/types/saga';
 
@@ -61,6 +61,10 @@ export class BlockWorld {
   private waterY = WATER_LOW;
   private marker!: THREE.Group;
   private zonePlates = new THREE.Group();
+  private readonly changeGroup = new THREE.Group();
+  private readonly routeGroup = new THREE.Group();
+  private changeKey = '';
+  private routeKey = '';
   private skew = 0;
   private yaw = Math.PI / 4;
   private yawTarget = Math.PI / 4;
@@ -100,7 +104,7 @@ export class BlockWorld {
     const sun = new THREE.DirectionalLight('#fff3d6', 1.6);
     sun.position.set(-30, 60, 20);
     this.scene.add(sun);
-    this.scene.add(this.zonePlates);
+    this.scene.add(this.zonePlates, this.changeGroup, this.routeGroup);
     this.calm = Boolean(bridge.get<boolean>('game:calm'));
     const view = bridge.get<WorldSession>('world:view');
     if (!view) throw new Error('Chưa có dữ liệu thế giới khối');
@@ -322,6 +326,54 @@ export class BlockWorld {
     for (const n of view.nodes) this.takeNode(n.x, n.z, n.until);
     this.markerKey = '';
     this.refreshPlates();
+    this.refreshChanges(view.changes ?? []);
+    this.refreshRoutes(view.routes_open ?? []);
+  }
+
+  /** Dấu ấn của em: các chặng đã xong để lại người, kho lương, thuyền, cờ, lều, lửa trại trên bản đồ (chỉ trang trí, không chặn đường) */
+  private refreshChanges(changes: WorldChangeInfo[]): void {
+    const k = changes.map((c) => c.stage).join('|');
+    if (k === this.changeKey) return;
+    this.changeKey = k;
+    for (const c of [...this.changeGroup.children]) this.changeGroup.remove(c);
+    const robes = ['#7a5a3a', '#2f5f8f', '#8a3a24', '#3f5a3a', '#6a4c9c'];
+    changes.forEach((ch, ci) => ch.props.forEach((pp, i) => {
+      const g = new THREE.Group();
+      if (pp.kind === 'villager') {
+        const c = this.char({ robe: robes[(ci + i) % robes.length], hat: (ci + i) % 2 ? 'non' : 'khan', gender: (ci + i) % 2 ? 'nu' : 'nam' });
+        c.group.rotation.y = hash(pp.at[0], pp.at[1]) * Math.PI * 2;
+        g.add(c.group);
+      } else if (pp.kind === 'granary') g.add(this.mesh(this.box(0.9, 0.7, 0.9), '#c9a473', 0, 0.35, 0), this.mesh(this.own(new THREE.ConeGeometry(0.8, 0.5, 4)), '#7a5232', 0, 0.95, 0), this.mesh(this.box(0.62, 0.2, 0.4), '#d9c48f', 0.25, 0.1, 0.5));
+      else if (pp.kind === 'boat') g.add(this.mesh(this.box(0.95, 0.22, 0.5), '#7a5232', 0, 0.13, 0), this.mesh(this.box(1, 0.08, 0.56), '#a87a4c', 0, 0.26, 0), this.mesh(this.box(0.06, 0.8, 0.06), '#5c4128', 0, 0.65, 0), this.mesh(this.box(0.04, 0.5, 0.4), '#efe2c4', 0.04, 0.75, 0));
+      else if (pp.kind === 'flag') g.add(this.mesh(this.box(0.07, 1.7, 0.07), '#5c4128', 0, 0.85, 0), this.mesh(this.box(0.04, 0.34, 0.56), '#b8261b', 0, 1.5, 0.3), this.mesh(this.box(0.05, 0.06, 0.56), '#e3b244', 0, 1.34, 0.3));
+      else if (pp.kind === 'tent') g.add(this.mesh(this.own(new THREE.ConeGeometry(0.55, 0.95, 4)), '#eadcb5', 0, 0.48, 0));
+      else if (pp.kind === 'fire') {
+        g.add(this.mesh(this.box(0.5, 0.08, 0.12), '#5c4128', 0, 0.04, 0), this.mesh(this.box(0.12, 0.08, 0.5), '#5c4128', 0, 0.04, 0));
+        const flame = this.mesh(this.own(new THREE.ConeGeometry(0.2, 0.5, 6)), '#f08a2a', 0, 0.3, 0);
+        flame.userData.fire = true;
+        g.add(flame, this.mesh(this.own(new THREE.ConeGeometry(0.1, 0.3, 6)), '#ffd36a', 0, 0.26, 0));
+      }
+      g.position.set(pp.at[0] + 0.5, this.topOf(pp.at[0], pp.at[1]), pp.at[1] + 0.5);
+      this.changeGroup.add(g);
+    }));
+  }
+
+  /** Bến của các tuyến vận chuyển em đã mở: cột đèn và chiếc thuyền chờ ở mỗi đầu */
+  private refreshRoutes(open: string[]): void {
+    const k = open.join('|');
+    if (k === this.routeKey) return;
+    this.routeKey = k;
+    for (const c of [...this.routeGroup.children]) this.routeGroup.remove(c);
+    for (const r of this.map.routes ?? []) {
+      if (!open.includes(r.id)) continue;
+      for (const end of [r.a, r.b]) {
+        const g = new THREE.Group();
+        g.add(this.mesh(this.box(0.1, 1.4, 0.1), '#5c4128', -0.38, 0.7, -0.38), this.mesh(this.box(0.22, 0.26, 0.22), '#f2c230', -0.38, 1.45, -0.38),
+          this.mesh(this.box(0.8, 0.16, 0.42), '#7a5232', 0.15, 0.1, 0.2), this.mesh(this.box(0.84, 0.06, 0.46), '#a87a4c', 0.15, 0.2, 0.2));
+        g.position.set(end[0] + 0.5, this.topOf(end[0], end[1]), end[1] + 0.5);
+        this.routeGroup.add(g);
+      }
+    }
   }
 
   private addBlock(b: PlacedBlock, pop: boolean): void {
@@ -330,6 +382,7 @@ export class BlockWorld {
     if (b.block === 'coc') { g.add(this.mesh(this.box(0.22, 0.55, 0.22), '#5a3a22', 0, 0.28, 0)); const tip = this.mesh(this.own(new THREE.ConeGeometry(0.16, 0.26, 4)), '#3b2614', 0, 0.68, 0); g.add(tip); }
     else if (b.block === 'rao') g.add(this.mesh(this.box(0.12, 0.8, 0.12), '#6b4a2a', -0.38, 0.4, 0), this.mesh(this.box(0.12, 0.8, 0.12), '#6b4a2a', 0.38, 0.4, 0), this.mesh(this.box(0.9, 0.1, 0.1), '#a77d4e', 0, 0.55, 0), this.mesh(this.box(0.9, 0.1, 0.1), '#a77d4e', 0, 0.3, 0));
     else if (b.block === 'bao') g.add(this.mesh(this.box(0.62, 0.48, 0.55), '#d9c48f', 0, 0.24, 0), this.mesh(this.box(0.64, 0.06, 0.57), '#a8925e', 0, 0.36, 0));
+    else if (b.block === 'leu') g.add(this.mesh(this.own(new THREE.ConeGeometry(0.5, 0.85, 4)), '#eadcb5', 0, 0.43, 0), this.mesh(this.box(0.2, 0.34, 0.02), '#6b4a2a', 0, 0.17, 0.33));
     else if (b.block === 'thuyen') g.add(this.mesh(this.box(0.92, 0.22, 0.5), '#7a5232', 0, 0.13, 0), this.mesh(this.box(0.98, 0.08, 0.56), '#a87a4c', 0, 0.26, 0), this.mesh(this.box(0.06, 0.7, 0.06), '#5c4128', 0, 0.6, 0));
     else g.add(this.mesh(this.box(0.6, 0.6, 0.6), '#9c7347', 0, 0.3, 0));
     g.position.set(b.x + 0.5, t, b.z + 0.5);
@@ -367,12 +420,15 @@ export class BlockWorld {
     const cur = this.view.current;
     const ids = new Set<string>();
     if (cur?.type === 'place' && cur.need?.zone) ids.add(cur.need.zone);
+    if (cur?.type === 'pick') for (const z of cur.need?.zones ?? []) ids.add(z);
+    if (cur?.type === 'drill' && cur.need?.next) ids.add(cur.need.next);
     if (this.mode) for (const z of this.map.zones) if (z.kind === 'build' && z.accepts.includes(this.mode)) ids.add(z.id);
     const plate = this.box(0.92, 0.04, 0.92);
     for (const z of this.map.zones) {
       if (!ids.has(z.id)) continue;
       for (let zz = z.rect[1]; zz < z.rect[1] + z.rect[3]; zz++) for (let x = z.rect[0]; x < z.rect[0] + z.rect[2]; x++) {
-        if (!z.on.includes(cellAt(this.map, x, zz))) continue;
+        const ch = cellAt(this.map, x, zz);
+        if (z.kind === 'build' ? !z.on.includes(ch) : !this.terrain[ch]?.walk) continue;
         const p = new THREE.Mesh(plate, this.mat('#f7d84a', { transparent: true, opacity: 0.45 }));
         p.position.set(x + 0.5, this.topOf(x, zz) + 0.03, zz + 0.5);
         this.zonePlates.add(p);
@@ -466,15 +522,48 @@ export class BlockWorld {
 
   private myCell(): Cell { return [Math.floor(this.me.x), Math.floor(this.me.z)]; }
 
-  /** Nút "Tương tác" / phím E: nói chuyện, mở bàn chế tạo, thu thập ở ô cạnh em */
+  /**
+   * Thứ ở cạnh em mà nút "Tương tác" / phím E sẽ dùng. Ưu tiên đúng thứ bước hiện tại cần (người cần gặp, bàn chế tạo khi đang chế tạo) – nếu không,
+   * em đứng giữa một người và bàn chế tạo sẽ bấm mãi mà chỉ nghe người đó nói lại. Sau đó là bến của tuyến thuyền đã mở (người chèo thuyền đứng ngay
+   * ở bến, không thì nút luôn là "Nói chuyện"), rồi tới người, bàn, tài nguyên gần nhất.
+   */
+  private nearThing(cell: Cell): { kind: 'npc' | 'station' | 'route' | 'res'; id: string; name: string; at: Cell } | null {
+    const cur = this.view.current;
+    const npcs = [...this.npcs].filter(([, n]) => chebyshev(n.at, cell) <= 1).map(([id, n]) => ({ kind: 'npc' as const, id, name: this.map.npcs.find((x) => x.id === id)?.name ?? '', at: n.at }));
+    const stations = this.map.stations.filter((st) => chebyshev(st.at, cell) <= 1).map((st) => ({ kind: 'station' as const, id: st.id, name: st.name, at: st.at }));
+    const wanted = npcs.find((n) => cur?.marker === `npc:${n.id}`);
+    if (wanted) return wanted;
+    if (cur?.type === 'craft' && stations[0]) return stations[0];
+    const ride = routeNear(this.map, this.view.routes_open ?? [], cell);
+    if (ride) return { kind: 'route', id: ride.route.id, name: ride.route.name, at: ride.to };
+    if (npcs[0]) return npcs[0];
+    if (stations[0]) return stations[0];
+    const r = this.resNear(cell);
+    if (r) { const t = this.terrain[cellAt(this.map, r[0], r[1])]; return { kind: 'res', id: t.res!, name: t.name, at: r }; }
+    return null;
+  }
+
+  /** Nút "Tương tác" / phím E: nói chuyện, mở bàn chế tạo, đi thuyền, thu thập ở ô cạnh em */
   private press(): void {
     if (this.locked) return;
     const me = this.myCell();
-    for (const [id, n] of this.npcs) if (chebyshev(n.at, me) <= 1) { this.face(n.at); this.bridge.emit('world:act', { type: 'interact', target: `npc:${id}` }); return; }
-    for (const st of this.map.stations) if (chebyshev(st.at, me) <= 1) { this.bridge.emit('world:craft', st.id); return; }
-    const res = this.resNear(me);
-    if (res) { this.face(res); this.bridge.emit('world:act', { type: 'gather', at: res, from: me }); }
+    const t = this.nearThing(me);
+    if (!t) return;
+    if (t.kind === 'npc') { this.face(t.at); this.bridge.emit('world:act', { type: 'interact', target: `npc:${t.id}` }); }
+    else if (t.kind === 'station') this.bridge.emit('world:craft', t.id);
+    else if (t.kind === 'route') this.travel(t.at, t.name);
+    else { this.face(t.at); this.bridge.emit('world:act', { type: 'gather', at: t.at, from: me }); }
   }
+  /** Đi thuyền theo tuyến đã mở: sang bến bên kia (chỉ đổi chỗ đứng; vị trí không ảnh hưởng điểm) */
+  private travel(to: Cell, name: string): void {
+    this.path = []; this.pending = null;
+    this.me.x = to[0] + 0.5; this.me.z = to[1] + 0.5; this.me.y = this.topOf(to[0], to[1]);
+    this.focus.set(this.me.x, this.me.y, this.me.z);
+    this.lastPos.at = 0;
+    this.bridge.emit('world:travel', name);
+    this.bridge.emit('world:pos', { x: this.me.x, z: this.me.z, ry: this.me.ry, cell: to });
+  }
+
   private resNear(me: Cell): Cell | null {
     for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
       const x = me[0] + dx, z = me[1] + dz;
@@ -489,13 +578,18 @@ export class BlockWorld {
     const rect = this.renderer.domElement.getBoundingClientRect();
     const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
     this.ray.setFromCamera(ndc, this.camera);
-    const hit = this.ray.intersectObjects(this.pickables, false)[0];
+    const hits = this.ray.intersectObjects(this.pickables, false);
+    const hit = hits[0];
     if (!hit) return;
+    // Đang cầm vật: ô sáng của vùng xây dựng nằm sau núi / nhà / khối đã đặt (nhìn chéo nên bị che) vẫn chạm được – lấy ô còn trống đầu tiên dọc theo tia
+    if (this.mode) {
+      const cells = hits.map((h) => this.cellOfHit(h)).filter((c): c is Cell => Boolean(c && buildZoneAt(this.map, c[0], c[1], this.mode!)));
+      const c = cells.find((x) => !this.placed.has(key(x[0], x[1]))) ?? cells[0];
+      if (c) { this.goNear(c, { kind: 'place', at: c, item: this.mode }, 2); return; }
+    }
     const npc = hit.object.userData.npc as string | undefined;
     if (npc) { const n = this.npcs.get(npc)!; this.goNear(n.at, { kind: 'npc', at: n.at, id: npc }); return; }
-    const list = this.cellOfPick.get(hit.object);
-    if (!list) return;
-    const cell = hit.instanceId !== undefined && list.length > 1 ? list[hit.instanceId] : list[0];
+    const cell = this.cellOfHit(hit);
     if (!cell) return;
     const st = this.map.stations.find((s) => s.at[0] === cell[0] && s.at[1] === cell[1]);
     if (st) { this.goNear(st.at, { kind: 'station', at: st.at, id: st.id }); return; }
@@ -510,6 +604,13 @@ export class BlockWorld {
       const r = standNear(this.map, this.blocked, cell, me, 0);
       if (r) { this.path = r.path; this.pending = null; }
     }
+  }
+
+  /** Ô bản đồ ứng với một điểm chạm (khối địa hình dùng InstancedMesh: mỗi bản sao một ô) */
+  private cellOfHit(h: THREE.Intersection): Cell | null {
+    const list = this.cellOfPick.get(h.object);
+    if (!list) return null;
+    return (h.instanceId !== undefined && list.length > 1 ? list[h.instanceId] : list[0]) ?? null;
   }
 
   private goNear(target: Cell, pending: NonNullable<Pending>, range = 1): void {
@@ -598,11 +699,9 @@ export class BlockWorld {
     // gần ai / gần cái gì, đang ở vùng nào
     if (now - this.nearAt > 150) {
       this.nearAt = now;
-      let near = '', payload: { kind: string; id: string; name: string } | null = null;
-      for (const [id, n] of this.npcs) if (chebyshev(n.at, cell) <= 1) { near = `npc:${id}`; payload = { kind: 'npc', id, name: this.map.npcs.find((x) => x.id === id)!.name }; break; }
-      if (!near) for (const st of this.map.stations) if (chebyshev(st.at, cell) <= 1) { near = `station:${st.id}`; payload = { kind: 'station', id: st.id, name: st.name }; break; }
-      if (!near) { const r = this.resNear(cell); if (r) { const res = this.terrain[cellAt(this.map, r[0], r[1])].res!; near = `res:${res}`; payload = { kind: 'res', id: res, name: this.terrain[cellAt(this.map, r[0], r[1])].name }; } }
-      if (near !== this.near) { this.near = near; this.bridge.emit('world:near', payload); }
+      const t = this.nearThing(cell);
+      const near = t ? `${t.kind}:${t.id}:${this.view.current?.id ?? ''}` : '';
+      if (near !== this.near) { this.near = near; this.bridge.emit('world:near', t ? { kind: t.kind, id: t.id, name: t.name } : null); }
       const zone = this.map.zones.find((z) => inRect(z.rect, cell[0], cell[1]))?.id ?? '';
       if (zone !== this.zoneIn) { this.zoneIn = zone; if (zone) this.bridge.emit('world:zone', zone); }
     }
@@ -610,6 +709,8 @@ export class BlockWorld {
     this.waterY += (this.tideTarget() - this.waterY) * Math.min(1, dt * (this.calm ? 3 : 0.8));
     this.water.position.y = this.waterY + (this.calm ? 0 : Math.sin(t * 1.3) * 0.02);
     if ((this.frame & 31) === 0) this.regrow(server);
+    // lửa trại bập bùng (đứng yên khi giảm chuyển động)
+    if (!this.calm) this.changeGroup.traverse((o) => { if (o.userData.fire) o.scale.set(1, 0.8 + Math.sin(t * 9 + o.id) * 0.25, 1); });
     // khối vừa đặt lớn dần
     for (const obj of this.placed.values()) if (obj.userData.grow !== undefined) { obj.userData.grow = Math.min(1, obj.userData.grow + dt * 3); obj.scale.setScalar(obj.userData.grow); if (obj.userData.grow >= 1) delete obj.userData.grow; }
     // bạn cùng lớp
@@ -629,7 +730,9 @@ export class BlockWorld {
     // mũi tên chỉ mục tiêu
     if (now - this.markerAt > 600) {
       this.markerAt = now;
-      const target = markerCells(this.view.current?.marker ?? null, this.map, this.terrain, cell, (x, z) => this.nodeTaken(x, z))[0];
+      const cur = this.view.current;
+      const mk = cur?.type === 'drill' && cur.need?.next ? `zone:${cur.need.next}` : cur?.marker ?? null;
+      const target = markerCells(mk, this.map, this.terrain, cell, (x, z) => this.nodeTaken(x, z))[0];
       const k = target ? key(target[0], target[1]) : '';
       if (k !== this.markerKey) { this.markerKey = k; this.marker.visible = Boolean(target); if (target) this.marker.position.set(target[0] + 0.5, this.topOf(target[0], target[1]) + 2.7, target[1] + 0.5); }
     }

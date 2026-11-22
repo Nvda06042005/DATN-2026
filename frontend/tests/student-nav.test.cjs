@@ -63,7 +63,9 @@ test('đã xóa các tệp giao diện cũ của học sinh; giữ phần dùng 
   const kept = ['TieuTuong', 'QuizPlayer', 'LiveKit', 'LessonReader', 'Library', 'NoticeCenter', 'HelpCenter', 'Media', 'LiveTheme', 'MapGraph', 'GameKit', 'LessonCelebrationView', 'PathArt', 'SandTableView', 'TeacherApp'];
   for (const f of kept) assert.ok(exists('components', 'portal', `${f}.tsx`), f);
   for (const f of ['SagaKit', 'SagaHome', 'SagaLearn', 'SagaPlay', 'SagaExtras', 'GameViewport', 'GameViewport.web']) assert.ok(exists('components', 'portal', `${f}.tsx`), f);
-  for (const f of ['index.ts', 'bridge.ts', 'pixel.ts', 'explore-scene.ts', 'tactics-scene.ts', 'bachdang-scene.ts']) assert.ok(exists('game', f), f);
+  // 21/11/2026: bước nhập vai là thế giới khối 3D (world3d.ts); cảnh nhập vai 2D (explore-scene.ts) đã xóa theo yêu cầu
+  for (const f of ['index.ts', 'bridge.ts', 'pixel.ts', 'world3d.ts', 'tactics-scene.ts', 'bachdang-scene.ts']) assert.ok(exists('game', f), f);
+  assert.ok(!exists('game', 'explore-scene.ts'), 'explore-scene.ts');
 });
 
 test('Phaser chỉ nạp động từ GameViewport bản web: một khung một game, hủy khi rời màn, không vào bản điện thoại và không nằm trong gói của trang khác', () => {

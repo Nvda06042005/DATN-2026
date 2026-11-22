@@ -1,5 +1,12 @@
 # Tiến độ xây dựng Hào Khí Đông A (theo mã HK.*)
 
+## Thế giới khối cả 13 chặng, phần thưởng, Sổ sử Đông A – 21/11/2026 (đợt 2)
+
+- Bản đồ khối phần 1 (1258) và phần 2 (1285) và nhiệm vụ cho 9 chặng còn lại; **bỏ cảnh nhập vai 2D** (xóa `game/explore-scene.ts`, giữ dữ liệu `content.explore` trong cơ sở dữ liệu).
+- Bước mới `give` / `pick` / `drill`; danh hiệu "Người giữ làng", "Đồng lòng giữ nước"; mở tuyến vận chuyển (đi thuyền giữa hai bến); dấu ấn trên bản đồ theo chặng đã xong; Sổ sử Đông A (sắp xếp sự kiện sau mỗi cuộc kháng chiến, 30 XP lần đầu xếp đúng).
+- Dân binh đặt nốt phần "cả lớp" khi em chơi một mình hoặc mất kết nối chung; vùng đầy vẫn dời khối cũ nhất. Ứng dụng gốc có nút "Mở trên trình duyệt".
+- Migration 081 (`hk_world_awards` có RLS, bản đồ phần 1–2, `content.world` cho 9 chặng). Kiểm tra: backend world.spec 8 + saga.spec 15, frontend 214, tự chơi trọn "Vườn không nhà trống" bằng chuột trên trình duyệt thật. Chi tiết: [Thế giới khối](THE_GIOI_KHOI.md).
+
 ## Thế giới khối vuông của bước Nhập vai – 21/11/2026
 
 Người dùng gửi cấu trúc trò chơi khối vuông (khám phá – thu thập – chế tạo – xây dựng – nhiệm vụ – trang sử) và chọn: 3D nhìn chéo, chỉ thay bước Nhập vai, làm trọn bản đồ phần 3 (1287–1288) trước, bạn cùng lớp chơi chung trực tuyến.

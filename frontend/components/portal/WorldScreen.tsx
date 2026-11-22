@@ -7,8 +7,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
 import {
-  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ChevronRight, Droplets, Fence, Hammer, Hand, Leaf, Lightbulb, MessageCircle, Package, Pencil, RotateCcw, RotateCw, Sailboat,
-  Ship, Shirt, Sparkles, Swords, Target, TreePine, Users, Wheat, ZoomIn, ZoomOut,
+  ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Award, BookOpen, Check, ChevronDown, ChevronRight, ChevronUp, Droplets, Fence, Flag, Hammer, Hand, Leaf, Lightbulb, MessageCircle,
+  Package, Pencil, RotateCcw, RotateCw, Sailboat, Shield, Ship, Shirt, Sparkles, Swords, Target, Tent, TreePine, Users, Wheat, ZoomIn, ZoomOut,
 } from 'lucide-react-native';
 import * as saga from '@/lib/saga-api';
 import { errorMessage } from '@/api/client';
@@ -22,12 +22,15 @@ import { play } from '@/lib/saga-sound';
 import { applyBlockChange, PLACEABLE, tideAt, zoneTotals } from '@/lib/world-map';
 import { WORLD_SAY, useWorldRoom, type BlockChange } from '@/lib/world-socket';
 import type { IconType } from '@/types/game';
-import type { Choice, ExploreFinished, WorldEvent, WorldLook, WorldSession } from '@/types/saga';
+import type { Choice, ExploreFinished, WorldBookPage, WorldEvent, WorldLook, WorldSession } from '@/types/saga';
 
 type Page = { who: string | null; text: string; tone: 'say' | 'good' | 'bad' | 'clue' };
 const statusOf = (e: unknown): number | undefined => (e as { status?: number }).status;
-const ICON: Record<string, IconType> = { go: TreePine, tre: Leaf, lua: Wheat, coc: Pencil, be: Sailboat, bao: Package, rao: Fence, thuyen: Ship };
-const TINT: Record<string, string> = { go: '#8a5a32', tre: '#5f8f3e', lua: '#a8902a', coc: '#5a3a22', be: '#3f7f8a', bao: '#9a7a3e', rao: '#8a6238', thuyen: '#6b4a2a' };
+const ICON: Record<string, IconType> = { go: TreePine, tre: Leaf, lua: Wheat, coc: Pencil, be: Sailboat, bao: Package, rao: Fence, thuyen: Ship, van: Shield, leu: Tent, co: Flag };
+const TINT: Record<string, string> = { go: '#8a5a32', tre: '#5f8f3e', lua: '#a8902a', coc: '#5a3a22', be: '#3f7f8a', bao: '#9a7a3e', rao: '#8a6238', thuyen: '#6b4a2a', van: '#7a5a3a', leu: '#9a7a3e', co: '#b8261b' };
+const TITLE_NAME: Record<string, string> = { 'nguoi-giu-lang': 'Người giữ làng', 'dong-long-giu-nuoc': 'Đồng lòng giữ nước' };
+/** Website chính thức: ứng dụng điện thoại gốc mở đúng màn thế giới khối trên trình duyệt */
+const SITE = process.env.EXPO_PUBLIC_SITE_URL || 'https://datn-2026-indol.vercel.app';
 const NEAR_VERB: Record<string, string> = { go: 'Chặt cây lấy gỗ', tre: 'Chặt tre', lua: 'Gặt lúa' };
 /** Lựa chọn khi tự tạo nhân vật (máy chủ chỉ nhận đúng các giá trị này) */
 const LOOK_OPTIONS = {
@@ -57,6 +60,73 @@ const LookPreview: React.FC<{ look: WorldLook; size?: number }> = ({ look, size 
   );
 };
 
+/** Sổ sử Đông A: sau mỗi cuộc kháng chiến, sắp xếp đúng thứ tự các sự kiện để hoàn thiện trang sổ (máy chủ chấm, thưởng điểm một lần) */
+export const BookSheet: React.FC<{ session: Session; onClose: () => void; onXp: () => void }> = ({ session, onClose, onXp }) => {
+  const { c } = useTheme();
+  const [pages, setPages] = useState<WorldBookPage[] | null>(null);
+  const [orders, setOrders] = useState<Record<number, string[]>>({});
+  const [result, setResult] = useState<Record<number, { ok: boolean; text: string }>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const adopt = useCallback((list: WorldBookPage[]) => { setPages(list); setOrders(Object.fromEntries(list.map((pg) => [pg.campaign_no, pg.events.map((e) => e.id)]))); }, []);
+  useEffect(() => { saga.worldBook(session.token).then((r) => adopt(r.pages)).catch((e) => setError(errorMessage(e))); }, [adopt, session.token]);
+  const move = (no: number, i: number, d: -1 | 1): void => setOrders((o) => {
+    const list = [...(o[no] ?? [])];
+    const j = i + d;
+    if (j < 0 || j >= list.length) return o;
+    [list[i], list[j]] = [list[j], list[i]];
+    return { ...o, [no]: list };
+  });
+  const submit = async (no: number): Promise<void> => {
+    setBusy(true);
+    try {
+      const r = await saga.submitBook(session.token, no, orders[no] ?? []);
+      setResult((x) => ({ ...x, [no]: { ok: r.correct, text: r.correct ? (r.first ? `Hoàn thiện trang Sổ sử! +${r.xp} điểm kinh nghiệm.` : 'Trang này đã hoàn thiện từ trước.') : `Đúng ${r.positions}/${r.total} vị trí. Đọc lại và thử xếp lần nữa nhé.` } }));
+      if (r.correct) adopt(r.pages);
+      if (r.xp) onXp();
+    } catch (e) { setResult((x) => ({ ...x, [no]: { ok: false, text: errorMessage(e) } })); } finally { setBusy(false); }
+  };
+  return (
+    <Sheet open wide onClose={onClose} title="Sổ sử Đông A" subtitle="Sau mỗi cuộc kháng chiến, sắp xếp đúng thứ tự các sự kiện để hoàn thiện một trang sổ">
+      <View style={{ gap: 14 }} testID="world-book">
+        {error ? <InfoNote>{error}</InfoNote> : null}
+        {!pages && !error ? <Txt size={14} color={c.muc2}>Đang mở Sổ sử…</Txt> : null}
+        {(pages ?? []).map((pg) => {
+          const order = orders[pg.campaign_no] ?? [];
+          const byId = Object.fromEntries(pg.events.map((e) => [e.id, e.text]));
+          return (
+            <View key={pg.campaign_no} style={{ gap: 8, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: c.adminLine }} testID={`book-page-${pg.campaign_no}`}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <BookOpen size={18} color={c.son} />
+                <Txt f="bold" size={15} style={{ flex: 1 }}>Phần {pg.campaign_no} · {pg.title}</Txt>
+                <Chip text={pg.done ? 'Đã hoàn thiện' : pg.unlocked ? 'Đang xếp' : `Chưa mở · xong ${pg.stages.done}/${pg.stages.total} chặng`} icon={pg.done ? Check : undefined}
+                  bg={pg.done ? c.mocNhat : pg.unlocked ? c.vangNhat : c.adminCanvas} fg={pg.done ? c.mocChu : pg.unlocked ? c.vangChu : c.muc2} />
+              </View>
+              {!pg.unlocked ? <Txt size={13} color={c.muc2}>Hoàn thành mọi chặng của phần này để mở trang sổ.</Txt> : null}
+              {pg.unlocked ? order.map((id, i) => (
+                <View key={id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8, borderRadius: 10, backgroundColor: pg.done ? c.mocNhat : c.adminCanvas }}>
+                  <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: pg.done ? c.mocChu : c.son, alignItems: 'center', justifyContent: 'center' }}><Txt f="bold" size={13} color="#ffffff">{i + 1}</Txt></View>
+                  <Txt size={14} style={{ flex: 1, lineHeight: 20 }}>{byId[id]}</Txt>
+                  {!pg.done ? (
+                    <View style={{ flexDirection: 'row', gap: 4 }}>
+                      <Pressable accessibilityRole="button" accessibilityLabel={`Đưa lên: ${byId[id]}`} disabled={i === 0 || busy} onPress={() => move(pg.campaign_no, i, -1)} testID={`book-${pg.campaign_no}-up-${i}`}
+                        style={{ width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: c.the, opacity: i === 0 ? 0.4 : 1 }}><ChevronUp size={20} color={c.muc} /></Pressable>
+                      <Pressable accessibilityRole="button" accessibilityLabel={`Đưa xuống: ${byId[id]}`} disabled={i === order.length - 1 || busy} onPress={() => move(pg.campaign_no, i, 1)} testID={`book-${pg.campaign_no}-down-${i}`}
+                        style={{ width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: c.the, opacity: i === order.length - 1 ? 0.4 : 1 }}><ChevronDown size={20} color={c.muc} /></Pressable>
+                    </View>
+                  ) : null}
+                </View>
+              )) : null}
+              {pg.unlocked && !pg.done ? <Btn title="Ghi vào Sổ sử" icon={BookOpen} tone="son" size="sm" disabled={busy} onPress={() => { void submit(pg.campaign_no); }} testID={`book-${pg.campaign_no}-submit`} style={{ alignSelf: 'flex-start' }} /> : null}
+              {result[pg.campaign_no] ? <Txt f="semibold" size={13} color={result[pg.campaign_no].ok ? c.mocChu : c.sonChu} accessibilityLiveRegion="polite">{result[pg.campaign_no].text}</Txt> : null}
+            </View>
+          );
+        })}
+      </View>
+    </Sheet>
+  );
+};
+
 export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: number; campaignNo: number; initial: WorldSession; onRestart: () => void; onReload: () => void }> = ({ session, nav, stageId, campaignNo, initial, onRestart, onReload }) => {
   const { c } = useTheme();
   const { width, height } = useWindowDimensions();
@@ -79,6 +149,7 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
   const [lookOpen, setLookOpen] = useState(!initial.look.chosen);
   const [look, setLook] = useState<WorldLook>({ gender: initial.look.gender, robe: initial.look.robe, hat: initial.look.hat, skin: initial.look.skin });
   const [savingLook, setSavingLook] = useState(false);
+  const [bookOpen, setBookOpen] = useState(false);
   const [clock, setClock] = useState(() => tideAt(Date.now() + (initial.server_now - Date.now())));
   const goalY = useRef<number | null>(null);
   const skew = useRef(initial.server_now - Date.now());
@@ -110,6 +181,9 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
         else if (e.t === 'wrong') { play('wrong'); for (const line of e.lines ?? []) next.push({ who: e.who ?? null, text: line, tone: 'bad' }); }
         else if (e.t === 'clue') next.push({ who: 'Manh mối', text: e.text ?? '', tone: 'clue' });
         else if (e.t === 'got' || e.t === 'made' || e.t === 'placed') { play('reward'); setFlash(e.text ?? ''); }
+        else if (e.t === 'gave') { play('reward'); for (const line of e.lines ?? []) next.push({ who: e.who ?? null, text: line, tone: 'good' }); }
+        else if (e.t === 'award') { play('reward'); next.push({ who: 'Phần thưởng', text: e.text ?? 'Em nhận được phần thưởng mới!', tone: 'good' }); }
+        else if (e.t === 'help') setFlash(e.text ?? '');
         else if (e.t === 'wait') setFlash(e.text ?? '');
         else if (e.t === 'step') setFlash(`Mục tiêu mới: ${e.text ?? ''}`);
         else if (e.t === 'battle') { reachedRef.current = true; setReached(true); }
@@ -139,9 +213,12 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
       bridge.on('world:craft', (id: string) => setCraft(id)),
       bridge.on('world:near', (n: { kind: string; id: string; name: string } | null) => setNear(n)),
       bridge.on('world:hint', (t: string) => setFlash(t)),
+      bridge.on('world:travel', (name: string) => setFlash(`Đi thuyền: ${name}`)),
       bridge.on('world:pos', (p: { x: number; z: number; ry: number }) => { pos.current = p; room.move(p); }),
       bridge.on('world:zone', (id: string) => {
         const step = viewRef.current.current;
+        // chọn đúng đường / luyện đội hình: bước vào bất kỳ vùng nào của bước này đều gửi máy chủ chấm
+        if (step && (step.type === 'pick' || step.type === 'drill') && step.need?.zones?.includes(id)) { void send({ type: 'zone', zone: id }); return; }
         if (!step || step.marker !== `zone:${id}` || (step.type !== 'zone' && step.type !== 'battle') || (step.type === 'battle' && reachedRef.current)) return;
         void send({ type: 'zone', zone: id });
       }),
@@ -152,11 +229,18 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
   // đồng hồ con nước theo giờ máy chủ
   useEffect(() => { const t = setInterval(() => setClock(tideAt(Date.now() + skew.current)), 1000); return () => clearInterval(t); }, []);
   useEffect(() => { if (room.said && Date.now() - room.said.at < 1500) setFlash(`${room.said.name}: ${room.said.text}`); }, [room.said, setFlash]);
+  // em đã đặt đủ phần mình mà cả lớp chưa đủ, trong phòng còn bạn khác: hỏi lại máy chủ mỗi 20 giây – chờ các bạn 60 giây rồi dân binh tới giúp
+  const waiting = view.current?.type === 'place' && (view.current.need?.own ?? 0) >= (view.current.need?.count ?? 1) ? view.current.need?.zone ?? null : null;
+  useEffect(() => {
+    if (!waiting) return undefined;
+    const t = setInterval(() => { void send({ type: 'zone', zone: waiting }); }, 20_000);
+    return () => clearInterval(t);
+  }, [send, waiting]);
 
   const cur = view.current;
   const asking = cur?.asking ?? null;
   const talking = pages.length > 0;
-  const locked = talking || Boolean(asking) || Boolean(finished) || Boolean(craft) || lookOpen;
+  const locked = talking || Boolean(asking) || Boolean(finished) || Boolean(craft) || lookOpen || bookOpen;
   useEffect(() => {
     if (locked) { bridge.emit('world:lock', true); return undefined; }
     const t = setTimeout(() => bridge.emit('world:lock', false), 220);
@@ -170,6 +254,9 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
   const totals = zoneTotals(view.blocks);
   const need = cur?.need ?? null;
   const needText = !need ? null
+    : cur?.type === 'drill' && need.command ? `Hiệu lệnh ${(need.index ?? 0) + 1}/${need.zones?.length ?? 0}: ${need.command}`
+    : cur?.type === 'pick' ? 'Tìm đúng nơi trên bản đồ (các ô sáng là những nơi có thể chọn)'
+    : cur?.type === 'give' && need.item ? `${view.items[need.item] ?? need.item}: ${Math.min(need.have ?? 0, need.count ?? 0)}/${need.count} – mang tới tận tay`
     : need.zone ? `Em ${need.own ?? 0}/${need.count} · Cả lớp ${Math.max(need.total ?? 0, totals[need.zone] ?? 0)}/${need.team}`
     : need.item ? `${view.items[need.item] ?? need.item}: ${Math.min(need.have ?? 0, need.count ?? 0)}/${need.count}`
     : need.tide ? (need.tide === 'high' ? 'Cần nước lên' : 'Cần nước rút') : null;
@@ -210,7 +297,7 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
   }, [over, hasTalk, page]);
 
   const inv = Object.entries(view.progress.inventory).filter(([, n]) => n > 0);
-  const nearLabel = !near ? null : near.kind === 'npc' ? `Nói chuyện với ${near.name}` : near.kind === 'station' ? 'Mở bàn chế tạo' : NEAR_VERB[near.id] ?? 'Thu thập';
+  const nearLabel = !near ? null : near.kind === 'npc' ? `Nói chuyện với ${near.name}` : near.kind === 'station' ? 'Mở bàn chế tạo' : near.kind === 'route' ? `Đi thuyền: ${near.name}` : NEAR_VERB[near.id] ?? 'Thu thập';
   const station = craft ? view.map.stations.find((s) => s.id === craft) : null;
   const camBtn = (k: string, label: string, Icon: IconType) => (
     <Pressable key={k} accessibilityRole="button" accessibilityLabel={label} onPress={() => bridge.emit('world:camera', k)} testID={`world-cam-${k}`}
@@ -251,12 +338,13 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
           <View testID="world-online"><Chip text={!room.connected ? 'Đang kết nối lớp…' : room.mates.length ? `${room.mates.length} bạn cùng lớp đang chơi` : 'Chỉ có em trong phòng'} icon={Users} bg={c.adminCanvas} fg={c.muc2} /></View>
           <View style={{ flex: 1 }} />
           <Btn title="Manh mối" icon={Lightbulb} tone="giay" size="sm" disabled={!cur?.has_clue || locked} onPress={() => { void send({ type: 'hint' }); }} testID="world-hint" label="Xem lại manh mối (mỗi lần xem được ghi nhận)" />
+          <Btn title="Sổ sử" icon={BookOpen} tone="giay" size="sm" onPress={() => setBookOpen(true)} testID="world-book-open" label="Mở Sổ sử Đông A" />
           <Btn title="Nhân vật" icon={Shirt} tone="giay" size="sm" onPress={() => setLookOpen(true)} testID="world-look" label="Tự tạo nhân vật của em" />
         </View>
       </Box>
       </View>
 
-      <WorldViewport bridge={bridge} height={canvasH} label={`Thế giới khối: ${view.map.title}`}>
+      <WorldViewport bridge={bridge} height={canvasH} label={`Thế giới khối: ${view.map.title}`} webUrl={`${SITE}/hoc-sinh?tab=chien-dich&c=${campaignNo}&s=${stageId}&v=kham-pha`}>
         <View style={{ position: 'absolute', right: 10, top: 10, gap: 6 }} pointerEvents="box-none">
           {camBtn('left', 'Xoay góc nhìn sang trái (phím Q)', RotateCcw)}{camBtn('right', 'Xoay góc nhìn sang phải (phím R)', RotateCw)}
           {camBtn('in', 'Phóng to', ZoomIn)}{camBtn('out', 'Thu nhỏ', ZoomOut)}
@@ -278,7 +366,7 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
         ) : null}
         {near && !locked && !hasTalk ? (
           <View style={width < 900 ? { position: 'absolute', right: 10, bottom: 12, maxWidth: '55%', alignItems: 'flex-end' } : { position: 'absolute', left: 0, right: 0, bottom: 12, alignItems: 'center' }} pointerEvents="box-none">
-            <Btn title={nearLabel ?? ''} icon={near.kind === 'station' ? Hammer : Hand} tone="son" onPress={() => bridge.emit('world:press')} testID="world-interact" label={`${nearLabel} (phím E)`} style={{ alignSelf: width < 900 ? 'flex-end' : 'center' }} />
+            <Btn title={nearLabel ?? ''} icon={near.kind === 'station' ? Hammer : near.kind === 'route' ? Ship : Hand} tone="son" onPress={() => bridge.emit('world:press')} testID="world-interact" label={`${nearLabel} (phím E)`} style={{ alignSelf: width < 900 ? 'flex-end' : 'center' }} />
           </View>
         ) : null}
         {over && hasTalk ? <View style={{ position: 'absolute', left: 10, right: 10, bottom: 10 }}>{talk}</View> : null}
@@ -321,6 +409,19 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
         </View>
       </Box>
 
+      <Box style={{ gap: 8 }} testID="world-marks">
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Award size={18} color={c.muc} /><Txt f="bold" size={15} style={{ flex: 1 }}>Dấu ấn và phần thưởng của em</Txt>
+        </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {view.awards.filter((a) => a.startsWith('title:')).map((a) => <Chip key={a} text={`Danh hiệu: ${TITLE_NAME[a.slice(6)] ?? a.slice(6)}`} icon={Award} bg={c.vangNhat} fg={c.vangChu} />)}
+          {(view.map.routes ?? []).filter((r) => view.routes_open.includes(r.id)).map((r) => <Chip key={r.id} text={r.name} icon={Ship} bg={c.thuyNhat} fg={c.thuyChu} />)}
+          {view.village_help ? <Chip text="Dân làng góp sức: mỗi lần thu thập +1" icon={Users} bg={c.mocNhat} fg={c.mocChu} /> : null}
+        </View>
+        {view.changes.length ? view.changes.map((ch) => <Txt key={ch.stage} size={13} color={c.muc2}>• {ch.text}</Txt>)
+          : <Txt size={13} color={c.muc2}>Xong mỗi nhiệm vụ, bản đồ sẽ đổi theo việc em đã làm: làng có người ở, kho lương đầy, thuyền đưa đồng đội về…</Txt>}
+      </Box>
+
       <Box style={{ gap: 4 }}>
         <Txt f="semibold" size={14}>{view.intro}</Txt>
         <Txt size={13} color={c.muc2}>Đi lại: phím W A S D / mũi tên, hoặc chạm vào nơi muốn tới. Chạm vào cây, bụi tre, ruộng lúa để thu thập; tới bàn chế tạo để làm cọc, bè, thuyền…; phím E để tương tác. Kéo chuột / vuốt ngang để xoay góc nhìn, Q / R xoay 90°, cuộn chuột để phóng to.</Txt>
@@ -350,6 +451,8 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
           </View>
         </Sheet>
       ) : null}
+
+      {bookOpen ? <BookSheet session={session} onClose={() => setBookOpen(false)} onXp={() => nav.refresh()} /> : null}
 
       {lookOpen ? (
         <Sheet open onClose={() => setLookOpen(false)} title={view.look.chosen ? 'Nhân vật của em' : 'Tạo nhân vật của em'} subtitle="Các bạn cùng lớp sẽ thấy nhân vật này trong thế giới khối"

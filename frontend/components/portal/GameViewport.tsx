@@ -8,7 +8,7 @@ import { View } from 'react-native';
 import { Txt } from '@/components/ui';
 import type { GameBridge, GameKind } from '@/game/bridge';
 
-export interface GameViewportProps { kind: GameKind; bridge: GameBridge; aspect: number; label: string; maxHeight?: number }
+export interface GameViewportProps { kind: Exclude<GameKind, 'explore'>; bridge: GameBridge; aspect: number; label: string; maxHeight?: number }
 
 export const GameViewport: React.FC<GameViewportProps> = ({ aspect, label, maxHeight }) => (
   <View accessibilityLabel={label} testID="game-viewport" style={{ width: '100%', maxWidth: maxHeight ? Math.round(maxHeight * aspect) : undefined, aspectRatio: aspect, alignSelf: 'center', borderRadius: 18, backgroundColor: '#16253f', alignItems: 'center', justifyContent: 'center', padding: 20 }}>

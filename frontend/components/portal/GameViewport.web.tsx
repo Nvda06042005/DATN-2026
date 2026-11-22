@@ -10,7 +10,7 @@ import { Spinner, Txt } from '@/components/ui';
 import { useReduceMotion } from '@/hooks/use-motion';
 import type { GameBridge, GameKind } from '@/game/bridge';
 
-export interface GameViewportProps { kind: GameKind; bridge: GameBridge; aspect: number; label: string; maxHeight?: number }
+export interface GameViewportProps { kind: Exclude<GameKind, 'explore'>; bridge: GameBridge; aspect: number; label: string; maxHeight?: number }
 
 export const GameViewport: React.FC<GameViewportProps> = ({ kind, bridge, aspect, label, maxHeight }) => {
   const host = useRef<HTMLDivElement | null>(null);

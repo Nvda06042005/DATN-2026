@@ -5,8 +5,8 @@
  * máy chủ quyết định kết quả, giao diện chỉ dựng lại từ sự kiện trả về.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
-import { Anchor, ArrowDown, ArrowUp, BookOpen, Check, ChevronRight, Flag, Flame, Footprints, Hand, Lightbulb, Minus, Play, RotateCcw, Shield, SkipForward, Sparkles, Swords, Target, Wheat, X } from 'lucide-react-native';
+import { View, useWindowDimensions } from 'react-native';
+import { Anchor, ArrowDown, ArrowUp, BookOpen, Check, Flag, Flame, Footprints, Lightbulb, Minus, Play, RotateCcw, Shield, SkipForward, Sparkles, Swords, Wheat, X } from 'lucide-react-native';
 import * as saga from '@/lib/saga-api';
 import { errorMessage } from '@/api/client';
 import type { Session } from '@/components/auth';
@@ -17,9 +17,8 @@ import { Btn, Card, Chip, InfoNote, Inset, Sheet, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { GameBridge } from '@/game/bridge';
 import { play } from '@/lib/saga-sound';
-import { isWorldSession, type BattleFinished, type BattleSession, type BdEvent, type BdUnit, type BdView, type Choice, type ExploreEvent, type ExploreFinished, type ExploreSession, type TacticsEvent, type TacticsUnit, type TacticsView, type WorldSession, type XY } from '@/types/saga';
+import { isWorldSession, type BattleFinished, type BattleSession, type BdEvent, type BdUnit, type BdView, type TacticsEvent, type TacticsUnit, type TacticsView, type WorldSession, type XY } from '@/types/saga';
 
-const EXPLORE_ASPECT = 704 / 416;
 const TACTICS_ASPECT = 960 / 540;
 const BD_ASPECT = 960 / 520;
 type StageProps = { session: Session; nav: SagaNav; stageId: number; campaignNo: number };
@@ -30,204 +29,39 @@ function useLatest<T>(value: T): React.MutableRefObject<T> { const ref = useRef(
 const Box: React.FC<{ children: React.ReactNode; pad?: number; style?: object; testID?: string }> = ({ children, pad = 12, style, testID }) => <Card flat pad={pad} style={{ borderRadius: 12, ...style }} testID={testID}>{children}</Card>;
 
 // ---------------------------------------------------------------------- nhập vai khám phá
-interface Page { who: string | null; text: string; tone: 'say' | 'good' | 'bad' | 'clue' }
 
+/**
+ * Bước Nhập vai (21/11/2026): cả 13 chặng mở thế giới khối vuông 3D chơi chung cùng lớp (WorldScreen); cảnh nhập vai 2D cũ đã gỡ khỏi giao diện theo yêu cầu
+ * "xóa 9 chặng còn lại vẫn dùng cảnh nhập vai 2D" (dữ liệu cũ trong cơ sở dữ liệu giữ nguyên, không xóa). Màn này chỉ nạp / tải lại phiên của máy chủ.
+ */
 export const ExploreScreen: React.FC<StageProps> = ({ session, nav, stageId, campaignNo }) => {
-  const { c } = useTheme();
-  const { height, width } = useWindowDimensions();
-  const scroller = useRef<ScrollViewInstance | null>(null);
-  const bridge = useMemo(() => new GameBridge(), []);
   const ctx = useLatest({ session, nav });
-  const [view, setView] = useState<ExploreSession | null>(null);
-  const viewRef = useRef<ExploreSession | null>(null);
+  const [world, setWorld] = useState<WorldSession | null>(null);
+  const [missing, setMissing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [round, setRound] = useState(0);
   const restart = useRef(false);
-  const [near, setNear] = useState<{ target: string; name: string } | null>(null);
-  const [pages, setPages] = useState<Page[]>([]);
-  const [finished, setFinished] = useState<ExploreFinished | null>(null);
-  const [reached, setReached] = useState(false);
-  const reachedRef = useRef(false);
-  const [busy, setBusy] = useState(false);
-  const busyRef = useRef(false);
-  const [flash, setFlash] = useFlash(5000);
-  // chặng có nhiệm vụ thế giới khối (21/11/2026): mở WorldScreen thay cảnh nhập vai 2D
-  const [world, setWorld] = useState<WorldSession | null>(null);
-
-  const apply = useCallback((v: ExploreSession): void => { viewRef.current = v; setView(v); bridge.set('explore:view', v); }, [bridge]);
-
-  const send = useCallback(async (action: Record<string, unknown>): Promise<void> => {
-    const cur = viewRef.current;
-    if (!cur || busyRef.current || cur.status !== 'active') return;
-    busyRef.current = true; setBusy(true);
-    try {
-      const res = await saga.act<ExploreSession, { events: ExploreEvent[] }, ExploreFinished>(ctx.current.session.token, cur.session_id, cur.seq, action);
-      apply(res.view);
-      const events = res.replayed ? [] : res.outcome.events;
-      bridge.emit('explore:events', events);
-      const next: Page[] = [];
-      for (const e of events) {
-        if (e.t === 'say' || e.t === 'gave') for (const line of e.lines ?? []) next.push({ who: e.who ?? null, text: line, tone: 'say' });
-        else if (e.t === 'right') { play('right'); for (const line of e.lines ?? []) next.push({ who: e.who ?? null, text: line, tone: 'good' }); }
-        else if (e.t === 'wrong') { play('wrong'); for (const line of e.lines ?? []) next.push({ who: e.who ?? null, text: line, tone: 'bad' }); }
-        else if (e.t === 'got') { play('reward'); next.push({ who: null, text: `Em nhặt được: ${e.text ?? 'một vật'}.`, tone: 'good' }); }
-        else if (e.t === 'clue') next.push({ who: 'Manh mối', text: e.text ?? '', tone: 'clue' });
-        else if (e.t === 'step') setFlash(`Mục tiêu mới: ${e.text ?? ''}`);
-        else if (e.t === 'battle') { reachedRef.current = true; setReached(true); }
-      }
-      if (next.length) setPages((p) => [...p, ...next]);
-      if (res.finished) { setFinished(res.finished); if (res.finished.xp) ctx.current.nav.refresh(); }
-      if (res.completion?.first) ctx.current.nav.setReward({ stageId, completion: res.completion });
-    } catch (e) {
-      if (statusOf(e) === 401) ctx.current.session.expired();
-      else if (statusOf(e) === 409) setRound((n) => n + 1);
-      setFlash(errorMessage(e));
-    } finally { busyRef.current = false; setBusy(false); }
-  }, [apply, bridge, ctx, setFlash, stageId]);
-
   useEffect(() => {
     let live = true;
-    setLoading(true); setError(null); setPages([]); setFinished(null); setReached(false); reachedRef.current = false;
+    setLoading(true); setError(null); setMissing(false);
     saga.startExplore(session.token, stageId, restart.current, ctx.current.nav.classId).then((v) => {
       if (!live) return;
       restart.current = false;
-      if (isWorldSession(v)) { setWorld(v); setLoading(false); return; }
-      setWorld(null);
-      apply(v);
+      if (isWorldSession(v)) setWorld(v); else { setWorld(null); setMissing(true); }
       setLoading(false);
-      // vừa thắng trận quay lại: bước chạm trán được qua ngay, không bắt đi lại tới vùng địch
-      if (v.current?.type === 'battle' && v.battle?.won && v.current.marker) void send({ type: 'interact', target: v.current.marker });
     }).catch((e) => { if (!live) return; if (statusOf(e) === 401) ctx.current.session.expired(); setError(errorMessage(e)); setLoading(false); });
     return () => { live = false; };
-  }, [apply, ctx, send, session.token, stageId, round]);
-
-  const asking = view?.current?.asking ?? null;
-  const talking = pages.length > 0;
-  const locked = talking || Boolean(asking) || Boolean(finished) || busy;
-  // nhả khóa trễ một nhịp để phím Enter vừa đóng lời thoại không bị cảnh game hiểu là "nói chuyện lần nữa"
-  useEffect(() => {
-    if (locked) { bridge.set('explore:lock', true); return undefined; }
-    const t = setTimeout(() => bridge.set('explore:lock', false), 220);
-    return () => clearTimeout(t);
-  }, [bridge, locked]);
-
-  useEffect(() => {
-    const offs = [
-      bridge.on('explore:near', (n: { target: string; name: string } | null) => setNear(n)),
-      bridge.on('explore:interact', (p: { target: string }) => { void send({ type: 'interact', target: p.target }); }),
-      bridge.on('explore:zone', (id: string) => {
-        const step = viewRef.current?.current;
-        // đã báo chạm trán rồi thì chờ người chơi bấm "Vào trận", không gửi lại lệnh mỗi lần cảnh báo vùng
-        if (!step || step.marker !== `zone:${id}` || (step.type === 'battle' && reachedRef.current)) return;
-        void send({ type: 'interact', target: `zone:${id}` });
-      }),
-    ];
-    return () => offs.forEach((off) => off());
-  }, [bridge, send]);
-
-  const nextPage = (): void => { play('tap'); setPages((p) => p.slice(1)); };
-  useKeys((k) => { if (talking && (k === 'Enter' || k === ' ' || k.toLowerCase() === 'e')) nextPage(); }, talking);
-  useKeys((k) => { const i = Number(k) - 1; if (asking && !talking && asking.options[i]) void send({ type: 'answer', choice: asking.options[i].id }); }, Boolean(asking) && !talking && !busy);
-
+  }, [ctx, session.token, stageId, round]);
   const back = (): void => nav.back('chien-dich', { c: campaignNo, s: stageId, v: null });
-  const page = pages[0] ?? null;
-  const cur = view?.current ?? null;
-  const pageTone = page?.tone === 'good' ? [c.mocNhat, c.mocChu] : page?.tone === 'bad' ? [c.sonNhat, c.sonChu] : page?.tone === 'clue' ? [c.vangNhat, c.vangChu] : [c.thuyNhat, c.thuyChu];
-  // Khung game cao tối đa phần còn lại của màn hình; đủ cao thì lời thoại / câu hỏi nổi ngay trên cảnh (như game nhập vai), màn nhỏ thì nằm ngay dưới cảnh
-  const maxH = Math.max(220, height - 300);
-  const canvasH = Math.min(maxH, Math.min(width - 24, 1000) / EXPLORE_ASPECT);
-  const over = canvasH >= 400;
-  const atBattle = Boolean(reached && cur?.type === 'battle' && view?.battle && !view.battle.won);
-  const talk = !view ? null : page ? (
-    <Box style={{ gap: 6 }} testID="explore-dialog">
-      {page.who ? <Chip text={page.who} bg={pageTone[0]} fg={pageTone[1]} /> : null}
-      <Txt size={16} style={{ lineHeight: 25 }} accessibilityLiveRegion="polite">{page.text}</Txt>
-      <Btn title={pages.length > 1 ? 'Tiếp' : 'Đã rõ'} iconRight={ChevronRight} tone="son" size="sm" onPress={nextPage} testID="explore-next" label={`${pages.length > 1 ? 'Tiếp' : 'Đã rõ'} (phím Enter)`} style={{ alignSelf: 'flex-end' }} />
-    </Box>
-  ) : asking ? (
-    <Box style={{ gap: 8 }} testID="explore-ask">
-      <Txt f="bold" size={16}>{asking.prompt}</Txt>
-      {asking.options.map((o: Choice, i: number) => (
-        <OptionButton key={o.id} badge={String(i + 1)} text={o.text} disabled={busy} onPress={() => { void send({ type: 'answer', choice: o.id }); }} label={`Phương án ${i + 1}: ${o.text}`} testID={`explore-answer-${i + 1}`} />
-      ))}
-    </Box>
-  ) : atBattle && view.battle ? (
-    <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap', borderLeftWidth: 4, borderLeftColor: c.son }} testID="explore-battle">
-      <Swords size={24} color={c.son} />
-      <View style={{ flex: 1, minWidth: 180 }}>
-        <Txt f="bold" size={16}>Chạm trán quân địch!</Txt>
-        <Txt size={14} color={c.muc2}>{view.battle.title}. Thắng trận rồi em sẽ quay lại đúng chỗ này để làm tiếp nhiệm vụ.</Txt>
-      </View>
-      <Btn title="Vào trận" icon={Swords} tone="son" onPress={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'tran' }, 'replace')} testID="explore-fight" />
-    </Box>
-  ) : null;
-  const hasTalk = talk !== null;
-  // màn nhỏ: lời thoại nằm dưới cảnh, tự cuộn tới để không bị khuất
-  useEffect(() => {
-    if (over || !hasTalk) return undefined;
-    const t = setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 120);
-    return () => clearTimeout(t);
-  }, [over, hasTalk, page]);
   if (world) {
     return <WorldScreen key={world.session_id} session={session} nav={nav} stageId={stageId} campaignNo={campaignNo} initial={world}
       onRestart={() => { restart.current = true; setWorld(null); setRound((n) => n + 1); }} onReload={() => { setWorld(null); setRound((n) => n + 1); }} />;
   }
   return (
-    <SagaPage testID="saga-explore" max={1060} scrollRef={scroller}>
-      <SagaHeader title={view ? view.title : 'Nhập vai khám phá'} subtitle={view?.stage ? `Nhập vai khám phá · ${view.stage.title} · ${view.stage.date_label}` : 'Nhập vai khám phá'}
-        back={{ label: 'Thông tin chặng', hint: 'Về bảng thông tin chặng', onPress: back }} />
-      {!view ? <LoadState loading={loading} error={error} onRetry={() => setRound((n) => n + 1)} /> : (
-        <>
-          <Box style={{ gap: 8 }} testID="explore-goal">
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Target size={18} color={c.son} />
-              <Txt f="bold" size={15} style={{ flex: 1 }} accessibilityLiveRegion="polite">{cur ? cur.goal : 'Đã hoàn thành nhiệm vụ ở cảnh này.'}</Txt>
-              <Chip text={`Bước ${Math.min(view.progress.step + 1, view.progress.total)}/${view.progress.total}`} bg={c.adminCanvas} fg={c.muc} />
-            </View>
-            <Meter value={view.progress.step / Math.max(1, view.progress.total)} color={c.moc} label="Tiến độ nhiệm vụ nhập vai" height={6} />
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-              {view.progress.inventory.map((it) => <Chip key={it.id} text={`Đang mang: ${it.name}`} icon={Hand} bg={c.vangNhat} fg={c.vangChu} />)}
-              <Chip text={`Gợi ý đã xem: ${view.progress.hints}`} bg={c.adminCanvas} fg={c.muc2} />
-              <Chip text={`Sai: ${view.progress.mistakes}`} bg={c.adminCanvas} fg={c.muc2} />
-              <View style={{ flex: 1 }} />
-              <Btn title="Xem lại manh mối" icon={Lightbulb} tone="giay" size="sm" disabled={!cur?.has_clue || locked} onPress={() => { void send({ type: 'hint' }); }} testID="explore-hint" label="Xem lại manh mối (mỗi lần xem được ghi nhận)" />
-            </View>
-          </Box>
-
-          <View style={{ width: '100%', maxWidth: Math.round(maxH * EXPLORE_ASPECT), alignSelf: 'center' }}>
-            <GameViewport kind="explore" bridge={bridge} aspect={EXPLORE_ASPECT} label={`Cảnh nhập vai: ${view.title}`} />
-            {near && !locked && !hasTalk ? (
-              <View style={{ position: 'absolute', left: 0, right: 0, bottom: 10, alignItems: 'center' }} pointerEvents="box-none">
-                <Btn title={near.target.startsWith('item:') ? `Nhặt ${near.name}` : `Nói chuyện với ${near.name}`} icon={Hand} tone="son" onPress={() => bridge.emit('explore:press')} testID="explore-interact" label={`${near.target.startsWith('item:') ? 'Nhặt' : 'Nói chuyện với'} ${near.name} (phím E)`} style={{ alignSelf: 'center' }} />
-              </View>
-            ) : null}
-            {over && hasTalk ? <View style={{ position: 'absolute', left: 10, right: 10, bottom: 10 }}>{talk}</View> : null}
-          </View>
-
-          <Flash text={flash} tone="info" />
-          {!over && hasTalk ? talk : (
-            <Box style={{ gap: 4 }}>
-              <Txt f="semibold" size={14}>{view.intro}</Txt>
-              <Txt size={13} color={c.muc2}>Đi lại: phím W A S D hoặc phím mũi tên, hoặc chạm vào nơi muốn tới. Tương tác: tới gần rồi nhấn E / Enter, hoặc bấm nút hiện trên cảnh.</Txt>
-              <Txt size={13} color={c.muc2}>Nhân vật em điều khiển và các nhân vật phụ trong cảnh là hư cấu; lời kể lịch sử lấy từ nội dung đã kiểm chứng của chặng.</Txt>
-            </Box>
-          )}
-        </>
-      )}
-      {finished && !talking ? (
-        <Sheet open persistent onClose={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'tong-ket' }, 'replace')} title="Hoàn thành nhiệm vụ nhập vai" subtitle={view?.title}
-          footer={<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'flex-end' }}>
-            <Btn title="Chơi lại cảnh" icon={RotateCcw} tone="giay" onPress={() => { restart.current = true; setRound((n) => n + 1); }} testID="explore-replay" />
-            <Btn title="Xem tổng kết" icon={Sparkles} tone="son" onPress={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'tong-ket' }, 'replace')} testID="explore-summary" />
-          </View>}>
-          <View style={{ gap: 10 }} testID="explore-done">
-            <Txt size={15}>Em đã xem lại manh mối {finished.hints} lần và nhầm {finished.mistakes} lần.</Txt>
-            {finished.xp ? <Chip text={`+${finished.xp} điểm kinh nghiệm`} icon={Sparkles} bg={c.thongNhat} fg={c.thongChu} /> : null}
-            {finished.suggest_review ? <InfoNote>Chặng này được đánh dấu “Cần ôn” vì em phải xem gợi ý hoặc sai nhiều lần. Ôn lại để nhớ chắc hơn nhé.</InfoNote> : null}
-          </View>
-        </Sheet>
-      ) : null}
+    <SagaPage testID="saga-explore" max={1060}>
+      <SagaHeader title="Nhập vai" subtitle="Thế giới khối" back={{ label: 'Thông tin chặng', hint: 'Về bảng thông tin chặng', onPress: back }} />
+      {missing ? <InfoNote>Chặng này chưa có nhiệm vụ thế giới khối. Em quay lại bảng thông tin chặng nhé.</InfoNote> : <LoadState loading={loading} error={error} onRetry={() => setRound((n) => n + 1)} />}
     </SagaPage>
   );
 };

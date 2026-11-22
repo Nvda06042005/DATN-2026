@@ -11,14 +11,18 @@ export interface WorldMapInfo {
   npcs: Array<{ id: string; name: string; role: string; at: Cell; fictional: boolean; look: { robe: string; hat: string; beard: boolean } }>;
   stations: Array<{ id: string; name: string; at: Cell }>;
   zones: WorldZoneInfo[];
+  /** tuyến vận chuyển (mở bằng phần thưởng): đứng ở một bến thì đi thuyền sang bến kia */
+  routes?: WorldRouteInfo[];
 }
+export interface WorldRouteInfo { id: string; name: string; a: Cell; b: Cell }
+export interface WorldChangeInfo { stage: string; text: string; props: Array<{ kind: 'villager' | 'granary' | 'boat' | 'flag' | 'tent' | 'fire'; at: Cell }> }
 export type TerrainInfo = Record<string, { name: string; walk: boolean; res: string | null }>;
 export interface PlacedBlock { x: number; z: number; block: string; zone: string; mine?: boolean }
 
 /** Bằng máy chủ: với tới được khi cách nhau tối đa 2 ô theo mọi hướng */
 export const REACH = 2;
 export const TIDE_PERIOD_MS = 80_000;
-export const PLACEABLE = ['coc', 'rao', 'bao', 'thuyen'] as const;
+export const PLACEABLE = ['coc', 'rao', 'bao', 'thuyen', 'leu'] as const;
 
 export const cellAt = (m: Pick<WorldMapInfo, 'rows' | 'w' | 'h'>, x: number, z: number): string => (x >= 0 && z >= 0 && x < m.w && z < m.h ? m.rows[z][x] : '~');
 export const inRect = (r: [number, number, number, number], x: number, z: number): boolean => x >= r[0] && z >= r[1] && x < r[0] + r[2] && z < r[1] + r[3];
@@ -106,6 +110,16 @@ export function markerCells(marker: string | null, m: WorldMapInfo, terrain: Ter
 /** Vùng xây dựng nhận vật `item` có chứa ô (x, z) và ô đó đúng loại ô được đặt */
 export function buildZoneAt(m: WorldMapInfo, x: number, z: number, item: string): WorldZoneInfo | null {
   return m.zones.find((zn) => zn.kind === 'build' && zn.accepts.includes(item) && inRect(zn.rect, x, z) && zn.on.includes(cellAt(m, x, z))) ?? null;
+}
+
+/** Bến của tuyến vận chuyển đã mở ngay cạnh em (cách tối đa 1 ô): trả về tuyến và bến bên kia để đi thuyền sang */
+export function routeNear(m: Pick<WorldMapInfo, 'routes'>, open: string[], me: Cell): { route: WorldRouteInfo; to: Cell } | null {
+  for (const r of m.routes ?? []) {
+    if (!open.includes(r.id)) continue;
+    if (chebyshev(r.a, me) <= 1) return { route: r, to: r.b };
+    if (chebyshev(r.b, me) <= 1) return { route: r, to: r.a };
+  }
+  return null;
 }
 
 /** Số khối của cả phòng trong từng vùng (cập nhật ngay khi bạn cùng lớp đặt, trước khi tải lại trạng thái phiên) */

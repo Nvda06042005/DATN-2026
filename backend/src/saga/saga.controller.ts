@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsIn, IsInt, IsObject, IsOptional, IsString, Matches, Min, ValidateIf } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsObject, IsOptional, IsString, Matches, Min, ValidateIf } from 'class-validator';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { UserRow } from '../database/database.service';
 import { SagaService, WORLD_LOOK } from './saga.service';
@@ -10,6 +10,8 @@ class StartDto {
   /** Lớp em đang học (thế giới khối: vào phòng chung của lớp này); máy chủ kiểm tra em có thuộc lớp không */
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) class_id?: number;
 }
+/** Thứ tự sự kiện em xếp cho trang Sổ sử Đông A */
+class BookDto { @IsArray() @ArrayMaxSize(8) @IsString({ each: true }) @Matches(/^[a-z0-9_]{1,24}$/, { each: true }) order: string[]; }
 /** Tự tạo nhân vật trong thế giới khối (21/11/2026) */
 class WorldLookDto {
   @IsIn([...WORLD_LOOK.gender]) gender: 'nam' | 'nu';
@@ -60,6 +62,9 @@ export class SagaController {
   /** Nhân vật của em trong thế giới khối: xem / lưu lựa chọn */
   @Get('world/look') @Roles('student') worldLook(@CurrentUser() user: UserRow) { return this.saga.worldLook(user); }
   @Post('world/look') @Roles('student') @HttpCode(200) setWorldLook(@CurrentUser() user: UserRow, @Body() body: WorldLookDto) { return this.saga.setWorldLook(user, body); }
+  /** Sổ sử Đông A: sắp xếp sự kiện sau mỗi cuộc kháng chiến */
+  @Get('world/book') @Roles('student') worldBook(@CurrentUser() user: UserRow) { return this.saga.worldBook(user); }
+  @Post('world/book/:no') @Roles('student') @HttpCode(200) submitBook(@CurrentUser() user: UserRow, @Param('no', ParseIntPipe) no: number, @Body() body: BookDto) { return this.saga.submitBook(user, no, body.order); }
   @Post('stages/:id/battle') @Roles('student') @HttpCode(200)
   battle(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: StartDto) { return this.saga.start(user, id, 'battle', Boolean(body.restart)); }
   @Get('stages/:id/summary') @Roles('student') summary(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.saga.summary(user, id); }

@@ -1,6 +1,6 @@
 # Bản đồ kể chuyện 2D của mục Nhập vai
 
-> Cập nhật 21/11/2026: bước Nhập vai của 4 chặng phần 3 nay là **thế giới khối vuông 3D** chơi chung với bạn cùng lớp (xem [Thế giới khối](THE_GIOI_KHOI.md)); bản đồ kể chuyện, mục Nhập vai và cảnh 2D của các chặng khác giữ nguyên như mô tả dưới đây.
+> Cập nhật 21/11/2026: bước Nhập vai của **cả 13 chặng** nay là **thế giới khối vuông 3D** chơi chung với bạn cùng lớp (xem [Thế giới khối](THE_GIOI_KHOI.md)); cảnh khám phá 2D (`game/explore-scene.ts`) đã bỏ. Bản đồ kể chuyện, mục Nhập vai và các trận đánh Phaser giữ nguyên như mô tả dưới đây; phần nói về cảnh khám phá 2D chỉ còn là lịch sử.
 
 Yêu cầu cụ thể ngày 21/11/2026: mở đầu theo cách video lịch sử dẫn chuyện trên bản đồ địa hình, từ sự xuất hiện của đế quốc Mông Cổ rồi mới đến Đại Việt. Bản hiện tại dùng bản đồ 2D có chuyển góc vùng nhìn, màu đỏ, mũi tên, đội kỵ binh và địa danh. Không sử dụng tài nguyên của video `PjC8qsPHbkc`.
 

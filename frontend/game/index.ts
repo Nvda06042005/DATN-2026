@@ -4,14 +4,15 @@
 import Phaser from 'phaser';
 import { BACHDANG_SIZE, BachDangScene } from './bachdang-scene';
 import type { GameBridge, GameKind } from './bridge';
-import { EXPLORE_SIZE, ExploreScene } from './explore-scene';
 import { TACTICS_SIZE, TacticsScene } from './tactics-scene';
 
-export const GAME_SIZE: Record<GameKind, { width: number; height: number }> = { explore: EXPLORE_SIZE, tactics: TACTICS_SIZE, bachdang: BACHDANG_SIZE };
+/** Cảnh Phaser của trận đánh. Bước nhập vai không còn cảnh 2D (21/11/2026: cả 13 chặng dùng thế giới khối 3D – game/world3d.ts) */
+export type PhaserKind = Exclude<GameKind, 'explore'>;
+export const GAME_SIZE: Record<PhaserKind, { width: number; height: number }> = { tactics: TACTICS_SIZE, bachdang: BACHDANG_SIZE };
 
-export function createGame(parent: HTMLElement, kind: GameKind, bridge: GameBridge): { destroy: () => void } {
+export function createGame(parent: HTMLElement, kind: PhaserKind, bridge: GameBridge): { destroy: () => void } {
   bridge.set('game:renderer', '2d');
-  const scene = kind === 'explore' ? new ExploreScene(bridge) : kind === 'tactics' ? new TacticsScene(bridge) : new BachDangScene(bridge);
+  const scene = kind === 'tactics' ? new TacticsScene(bridge) : new BachDangScene(bridge);
   const game = new Phaser.Game({
     type: Phaser.AUTO, parent, ...GAME_SIZE[kind], backgroundColor: '#8c9469', banner: false,
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },

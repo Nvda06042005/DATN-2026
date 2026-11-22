@@ -165,6 +165,9 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
     clock = s.moduleRef.get((await import('../src/game/clock')).GameClock);
     stageId = Object.fromEntries((await sql<{ code: string; id: number }>(s.url, 'SELECT code, id FROM hk_saga_stages')).map((r) => [r.code, r.id]));
     for (const r of await sql<{ id: number; kind: string; data: any }>(s.url, 'SELECT id, kind, data FROM hk_saga_items')) keys.set(r.id, r);
+    // 21/11/2026: cả 13 chặng nay mở thế giới khối ở bước nhập vai (thử ở world.spec.ts). Bỏ nhiệm vụ khối trong cơ sở dữ liệu thử để tệp này tiếp tục thử
+    // luồng dự phòng của máy chủ (cảnh nhập vai 2D theo content.explore) cùng học, luyện tập, trận đánh, hoàn thành chặng và phần thưởng
+    await sql(s.url, "UPDATE hk_saga_stages SET content = content - 'world'");
   }, 240_000);
   afterAll(async () => { clock?.reset(); await s?.close(); });
 
@@ -378,7 +381,8 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
     const w = (await api('GET', '/api/saga/cosmetics')).body;
     expect(w).toMatchObject({ opened: 1, total: 13, equipped: { frame: null, title: { code: 'tan-binh-sat-that', rarity: 'common' } } });
     expect(w.frames.map((x: any) => [x.code, x.rarity, x.unlocked])).toEqual([['dong-bo-dau', 'rare', false], ['chuong-duong', 'epic', false], ['bach-dang', 'legendary', false]]);
-    expect(w.titles.map((x: any) => x.unlocked)).toEqual([true, false, false, false, false]);
+    expect(w.titles.map((x: any) => x.unlocked)).toEqual([true, false, false, false, false, false, false]); // + 2 danh hiệu của thế giới khối (21/11/2026)
+    expect(w.titles.slice(5).map((x: any) => x.code)).toEqual(['nguoi-giu-lang', 'dong-long-giu-nuoc']);
     expect(w.titles[4]).toMatchObject({ code: 'dai-tuong-hao-khi', need: 'Mở 13 hòm báu trên bản đồ' });
     expect((await api('GET', '/api/saga/home')).body.look).toEqual(w.equipped);
     expect((await api('POST', '/api/saga/cosmetics/equip', { frame: 'bach-dang' })).status).toBe(409);
@@ -504,9 +508,6 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
     expect((await api('GET', `/api/saga/stages/${id}/lesson`, undefined, f.S2.token)).status).toBe(409);
     // mở sẵn chặng cuối cho học sinh 2 (như một migration nội dung đổi điều kiện mở khóa; không còn trang quản trị để chỉnh)
     await sql(s.url, 'UPDATE hk_saga_stages SET unlock_after = NULL WHERE id = $1', [id]);
-    // 21/11/2026: chặng này nay mở thế giới khối ở bước nhập vai (thử ở world.spec.ts); bỏ nhiệm vụ khối trong cơ sở dữ liệu thử để giữ phép thử luồng cảnh 2D + trận Bạch Đằng
-    // (cảnh 2D vẫn dùng cho các chặng chưa có nhiệm vụ khối)
-    await sql(s.url, "UPDATE hk_saga_stages SET content = content - 'world' WHERE id = $1", [id]);
     expect((await api('GET', '/api/saga/campaigns/3', undefined, f.S2.token)).body.stages.map((x: any) => x.state)).toEqual(['ready', 'locked', 'locked', 'ready']);
     await learn('bach-dang', f.S2.token);
     const p = await practice('bach-dang', f.S2.token);

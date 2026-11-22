@@ -3,7 +3,7 @@
  * thư mục đó đã đủ 12 tệp nên thêm tệp thứ 13 làm bước triển khai thất bại (16/11/2026) dù bản dựng vẫn xong. */
 import { apiRequest } from '@/api/client';
 import type {
-  ActResult, Archive, BattleSession, CampaignView, CardAlbum, ChestOpen, ExploreSession, LessonView, PracticeSession, ReviewInfo, SagaHome, StageDetail, StageSummary, Wardrobe, WorldLook, WorldSession,
+  ActResult, Archive, BattleSession, CampaignView, CardAlbum, ChestOpen, ExploreSession, LessonView, PracticeSession, ReviewInfo, SagaHome, StageDetail, StageSummary, Wardrobe, WorldBookPage, WorldLook, WorldSession,
 } from '@/types/saga';
 
 // ---------------------------------------------------------------------- học sinh
@@ -24,6 +24,10 @@ export const startExplore = (token: string, id: number, restart = false, classId
 /** Tự tạo nhân vật trong thế giới khối */
 export const worldLook = (token: string) => apiRequest<{ look: WorldLook & { chosen: boolean }; options: { gender: string[]; robe: string[]; hat: string[]; skin: string[] } }>('/api/saga/world/look', { token });
 export const setWorldLook = (token: string, look: WorldLook) => apiRequest<{ look: WorldLook & { chosen: boolean } }>('/api/saga/world/look', { token, body: look });
+/** Sổ sử Đông A: sắp xếp sự kiện sau mỗi cuộc kháng chiến (máy chủ chấm, thưởng một lần) */
+export const worldBook = (token: string) => apiRequest<{ pages: WorldBookPage[] }>('/api/saga/world/book', { token });
+export const submitBook = (token: string, no: number, order: string[]) =>
+  apiRequest<{ correct: boolean; positions: number; total: number; first: boolean; xp: number; pages: WorldBookPage[] }>(`/api/saga/world/book/${no}`, { token, body: { order } });
 export const startBattle = (token: string, id: number, restart = false) => apiRequest<BattleSession>(`/api/saga/stages/${id}/battle`, { token, body: { restart } });
 export const summary = (token: string, id: number) => apiRequest<StageSummary>(`/api/saga/stages/${id}/summary`, { token });
 export const session = <V = PracticeSession | ExploreSession | BattleSession>(token: string, id: number) => apiRequest<V>(`/api/saga/sessions/${id}`, { token });

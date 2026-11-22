@@ -1,6 +1,6 @@
 /** Kiểu dữ liệu của Hành trình Đông A (/api/saga): bản đồ, chặng, phiên chơi, ôn tập, bộ sưu tập và kho tư liệu. Đáp án không bao giờ nằm trong các kiểu gửi cho học sinh. */
 import type { Hud } from '@/types/gamification';
-import type { PlacedBlock, TerrainInfo, WorldMapInfo } from '@/lib/world-map';
+import type { PlacedBlock, TerrainInfo, WorldChangeInfo, WorldMapInfo } from '@/lib/world-map';
 
 export type StageState = 'locked' | 'ready' | 'learning' | 'done' | 'review';
 export type StepState = 'locked' | 'ready' | 'done' | 'none';
@@ -95,9 +95,11 @@ export interface ExploreFinished { hints: number; mistakes: number; first: boole
 
 // ---------------------------------------------------------------------- thế giới khối (bước Nhập vai của các chặng có nhiệm vụ khối, 21/11/2026)
 export interface WorldLook { gender: 'nam' | 'nu'; robe: string; hat: string; skin: string }
-export type WorldStepType = 'talk' | 'ask' | 'zone' | 'gather' | 'craft' | 'place' | 'battle';
-export interface WorldNeed { item?: string; zone?: string; count?: number; have?: number; own?: number; team?: number; total?: number; tide?: 'low' | 'high' }
-export interface WorldEvent { t: 'say' | 'got' | 'made' | 'placed' | 'ask' | 'right' | 'wrong' | 'step' | 'battle' | 'clue' | 'done' | 'wait'; who?: string; lines?: string[]; prompt?: string; options?: Choice[]; text?: string; item?: string; n?: number }
+export type WorldStepType = 'talk' | 'ask' | 'zone' | 'gather' | 'craft' | 'place' | 'battle' | 'give' | 'pick' | 'drill';
+export interface WorldNeed { item?: string; zone?: string; count?: number; have?: number; own?: number; team?: number; total?: number; tide?: 'low' | 'high'; zones?: string[]; next?: string; command?: string; index?: number }
+export interface WorldEvent { t: 'say' | 'got' | 'made' | 'placed' | 'gave' | 'ask' | 'right' | 'wrong' | 'step' | 'battle' | 'clue' | 'done' | 'wait' | 'award' | 'help'; who?: string; lines?: string[]; prompt?: string; options?: Choice[]; text?: string; item?: string; n?: number; code?: string }
+/** Trang Sổ sử Đông A của một cuộc kháng chiến */
+export interface WorldBookPage { campaign_no: number; years: string; title: string; unlocked: boolean; done: boolean; stages: { done: number; total: number }; events: Array<{ id: string; text: string }> }
 export interface WorldSession {
   session_id: number; kind: 'explore'; seq: number; status: 'active' | 'done' | 'abandoned'; stage: StageRef | null; world: true;
   title: string; intro: string; map: WorldMapInfo; terrain: TerrainInfo; items: Record<string, string>;
@@ -108,6 +110,8 @@ export interface WorldSession {
   blocks: PlacedBlock[]; nodes: Array<{ x: number; z: number; until: number }>; tide: { state: 'low' | 'high'; until: number; period: number }; server_now: number;
   look: WorldLook & { chosen: boolean };
   battle: { title: string; mode: 'tactics' | 'bachdang'; won: boolean } | null;
+  /** phần thưởng đã nhận (`title:…`, `route:…`), tuyến vận chuyển đã mở, dấu ấn của em trên bản đồ, dân làng góp sức (có danh hiệu Người giữ làng) */
+  awards: string[]; routes_open: string[]; changes: WorldChangeInfo[]; village_help: boolean;
 }
 export const isWorldSession = (v: unknown): v is WorldSession => Boolean(v && typeof v === 'object' && (v as { world?: unknown }).world === true);
 

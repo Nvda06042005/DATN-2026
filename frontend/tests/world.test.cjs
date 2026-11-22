@@ -77,7 +77,7 @@ test('three.js chỉ nạp động trong game/world3d.ts; cảnh Phaser 2D và i
   assert.match(view, /import\('@\/game\/world3d'\)\.then\(\(\{ createWorld \}\) =>/);
   assert.match(view, /world\?\.destroy\(\);/);
   assert.doesNotMatch(read('components', 'portal', 'WorldViewport.tsx'), /from ['"]three['"]|@\/game\/world3d/);
-  assert.doesNotMatch(read('game', 'index.ts'), /from ['"]three['"]|world3d/);
+  assert.doesNotMatch(read('game', 'index.ts'), /from ['"]three['"]|from ['"]\.\/world3d['"]|import\(['"][^'"]*world3d/);
   const world = read('game', 'world3d.ts');
   assert.match(world, /import \* as THREE from 'three';/);
   for (const name of ['renderer.dispose()', 'cancelAnimationFrame(this.frame)', 'this.resize?.disconnect()']) assert.ok(world.includes(name), name);
@@ -111,7 +111,46 @@ test('màn thế giới khối: lệnh đi qua phiên chơi của máy chủ; t�
   // bước Nhập vai: chặng có nhiệm vụ khối mở WorldScreen, chặng khác giữ cảnh 2D; vào phòng của lớp em đang học
   const play = read('components', 'portal', 'SagaPlay.tsx');
   assert.match(play, /saga\.startExplore\(session\.token, stageId, restart\.current, ctx\.current\.nav\.classId\)/);
-  assert.match(play, /if \(isWorldSession\(v\)\) \{ setWorld\(v\);/);
-  assert.match(play, /<GameViewport kind="explore"/);
+  assert.match(play, /if \(isWorldSession\(v\)\) setWorld\(v\); else/);
+  // 21/11/2026: không còn cảnh nhập vai 2D – cả 13 chặng dùng thế giới khối; Phaser chỉ còn cho trận đánh
+  assert.doesNotMatch(play, /kind="explore"|EXPLORE_ASPECT|explore:view/);
+  assert.ok(!fs.existsSync(path.join(root, 'game', 'explore-scene.ts')));
+  assert.doesNotMatch(read('game', 'index.ts'), /ExploreScene|explore-scene/);
   assert.match(read('components', 'portal', 'StudentApp.tsx'), /const classId = cls\?\.id \?\? entered;/);
+});
+
+test('đợt 2: tuyến vận chuyển, Sổ sử Đông A, dấu ấn, danh hiệu, dân binh; ứng dụng điện thoại mở đúng màn trên trình duyệt', () => {
+  const m = { routes: [{ id: 'song-hong-1258', name: 'Thuyền', a: [2, 2], b: [9, 9] }] };
+  assert.equal(wm.routeNear(m, [], [2, 3]), null); // tuyến chưa mở
+  assert.deepEqual(wm.routeNear(m, ['song-hong-1258'], [2, 3]).to, [9, 9]);
+  assert.deepEqual(wm.routeNear(m, ['song-hong-1258'], [9, 8]).to, [2, 2]);
+  assert.equal(wm.routeNear(m, ['song-hong-1258'], [5, 5]), null);
+  assert.ok(wm.PLACEABLE.includes('leu'));
+  const screen = read('components', 'portal', 'WorldScreen.tsx');
+  for (const id of ['world-book', 'world-book-open', 'world-marks']) assert.ok(screen.includes(`testID="${id}"`), id);
+  assert.match(screen, /saga\.submitBook\(session\.token, no, orders\[no\] \?\? \[\]\)/);
+  assert.match(screen, /step\.type === 'pick' \|\| step\.type === 'drill'\) && step\.need\?\.zones\?\.includes\(id\)/);
+  assert.match(screen, /'nguoi-giu-lang': 'Người giữ làng', 'dong-long-giu-nuoc': 'Đồng lòng giữ nước'/);
+  const world = read('game', 'world3d.ts');
+  for (const name of ['refreshChanges', 'refreshRoutes', 'travel(']) assert.ok(world.includes(name), name);
+  const native = read('components', 'portal', 'WorldViewport.tsx');
+  assert.match(native, /Linking\.openURL\(webUrl\)/);
+  assert.match(screen, /webUrl=\{`\$\{SITE\}\/hoc-sinh\?tab=chien-dich&c=\$\{campaignNo\}&s=\$\{stageId\}&v=kham-pha`\}/);
+  // danh hiệu của thế giới khối có ở máy chủ (khớp tên hiển thị)
+  const rules = read('..', 'backend', 'src', 'saga', 'world.ts');
+  assert.match(rules, /code: 'nguoi-giu-lang', name: 'Người giữ làng'/);
+  assert.match(rules, /code: 'dong-long-giu-nuoc', name: 'Đồng lòng giữ nước'/);
+});
+
+test('tự chơi trên trình duyệt: nút Tương tác ưu tiên thứ bước đang cần, bến thuyền trước người đứng cạnh, chạm xuyên vật che tới ô xây dựng', () => {
+  const world = read('game', 'world3d.ts');
+  const body = world.slice(world.indexOf('private nearThing('), world.indexOf('private press('));
+  const order = ['const wanted', "cur?.type === 'craft' && stations[0]", 'if (ride) return', 'if (npcs[0]) return', 'if (stations[0]) return', 'this.resNear(cell)'].map((s) => body.indexOf(s));
+  assert.ok(order.every((i) => i > 0), JSON.stringify(order));
+  assert.deepEqual([...order].sort((a, b) => a - b), order);
+  assert.match(world, /const t = this\.nearThing\(me\);/);
+  assert.match(world, /const t = this\.nearThing\(cell\);/);
+  // đang cầm vật: lấy ô vùng xây dựng còn trống đầu tiên dọc theo tia chạm (núi / nhà / khối đã đặt che khuất)
+  assert.match(world, /const hits = this\.ray\.intersectObjects\(this\.pickables, false\);/);
+  assert.match(world, /cells\.find\(\(x\) => !this\.placed\.has\(key\(x\[0\], x\[1\]\)\)\) \?\? cells\[0\]/);
 });

@@ -10,7 +10,8 @@ import { Spinner, Txt } from '@/components/ui';
 import { useReduceMotion } from '@/hooks/use-motion';
 import type { GameBridge } from '@/game/bridge';
 
-export interface WorldViewportProps { bridge: GameBridge; label: string; height: number; children?: React.ReactNode }
+/** `webUrl`: đúng màn này trên website (ứng dụng điện thoại gốc mở bằng trình duyệt của máy) */
+export interface WorldViewportProps { bridge: GameBridge; label: string; height: number; webUrl?: string; children?: React.ReactNode }
 
 export const WorldViewport: React.FC<WorldViewportProps> = ({ bridge, label, height, children }) => {
   const host = useRef<HTMLDivElement | null>(null);

@@ -19,7 +19,7 @@ const api = (method: string, path: string, body?: unknown, token = f.S1.token) =
 const act = (sessionId: number, seq: number, action: Record<string, unknown>, token = f.S1.token) =>
   api('POST', `/api/saga/sessions/${sessionId}/actions`, { action_id: randomUUID(), seq, action }, token);
 const content = async (code: string): Promise<any> => (await sql<{ content: any }>(s.url, 'SELECT content FROM hk_saga_stages WHERE code = $1', [code]))[0].content;
-const worldRaw = async (): Promise<any> => (await sql<{ world: any }>(s.url, 'SELECT world FROM hk_saga_maps WHERE campaign_no = 3'))[0].world;
+const worldRaw = async (no = 3): Promise<any> => (await sql<{ world: any }>(s.url, 'SELECT world FROM hk_saga_maps WHERE campaign_no = $1', [no]))[0].world;
 function keysOf(v: unknown, out = new Set<string>()): Set<string> {
   if (Array.isArray(v)) v.forEach((x) => keysOf(x, out));
   else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) { out.add(k); keysOf(x, out); }
@@ -106,6 +106,9 @@ async function playWorld(code: string, token: string, opts: { classId?: number }
     if (step.type === 'talk') await send({ type: 'interact', target: `npc:${step.npc}` });
     else if (step.type === 'ask') { await send({ type: 'interact', target: `npc:${step.npc}` }); await send({ type: 'answer', choice: step.correct }); }
     else if (step.type === 'zone') { if (step.tide) await tideTo(step.tide); await send({ type: 'zone', zone: step.zone }); }
+    else if (step.type === 'give') await send({ type: 'interact', target: `npc:${step.npc}` });
+    else if (step.type === 'pick') { for (const z of step.zones.filter((x: string) => x !== step.correct).slice(0, 1)) await send({ type: 'zone', zone: z }); await send({ type: 'zone', zone: step.correct }); }
+    else if (step.type === 'drill') { for (const z of step.zones) await send({ type: 'zone', zone: z }); }
     else if (step.type === 'gather') {
       const spot = resourceSpots(view.map, view.terrain, step.res).find((p) => !used.has(p.at.join(',')))!;
       used.add(spot.at.join(','));
@@ -160,22 +163,35 @@ async function playWorld(code: string, token: string, opts: { classId?: number }
   }, 240_000);
   afterAll(async () => { clock?.reset(); await s?.close(); });
 
-  it('nội dung khởi tạo hợp lệ: bản đồ khối phần 3 và nhiệm vụ của đúng 4 chặng phần 3; các chặng khác vẫn dùng cảnh 2D', async () => {
+  it('nội dung khởi tạo hợp lệ: bản đồ khối của cả 3 phần và nhiệm vụ của đủ 13 chặng (không còn chặng nào dùng cảnh 2D); dấu ấn, tuyến, Sổ sử', async () => {
     const { normalizeWorldMap, normalizeWorldQuest } = await import('../src/saga/world');
     const map = normalizeWorldMap(await worldRaw());
     expect([map.w, map.h, map.rows.length]).toEqual([48, 36, 36]);
     expect(map.zones.find((z) => z.id === 'baicoc')).toMatchObject({ accepts: ['coc'], on: ',', tide: 'low', cap: 16 }); // 24 ô bãi bồi, sức chứa luôn nhỏ hơn số ô
     const raw = await worldRaw();
     expect(() => normalizeWorldMap({ ...raw, zones: [{ id: 'z', name: 'Vùng thử', rect: [30, 22, 4, 1], kind: 'build', accepts: ['coc'], on: ',', cap: 4 }] })).toThrow(/nhỏ hơn 4 ô/);
-    const withWorld = (await sql<{ code: string }>(s.url, "SELECT code FROM hk_saga_stages WHERE content ? 'world' ORDER BY position")).map((r) => r.code);
-    expect(withWorld).toEqual(['chuan-bi-1287', 'van-don', 'van-kiep-1288', 'bach-dang']);
-    for (const code of withWorld) {
+    const withWorld = (await sql<{ code: string; campaign_no: number }>(s.url, "SELECT code, campaign_no FROM hk_saga_stages WHERE content ? 'world' ORDER BY position")).map((r) => r);
+    expect(withWorld.length).toBe(13);
+    expect(Number((await sql<{ n: string }>(s.url, "SELECT count(*) AS n FROM hk_saga_stages WHERE NOT (content ? 'world')"))[0].n)).toBe(0);
+    const maps = Object.fromEntries(await Promise.all([1, 2, 3].map(async (no) => [no, normalizeWorldMap(await worldRaw(no))] as const)));
+    for (const no of [1, 2, 3]) {
+      expect([no, maps[no].book?.events.length ?? 0]).toEqual([no, expect.any(Number)]);
+      expect(maps[no].book!.events.length).toBeGreaterThanOrEqual(5);
+      expect(maps[no].changes.length).toBeGreaterThanOrEqual(3);
+    }
+    expect(maps[1].routes.map((r) => r.id)).toEqual(['song-hong-1258']);
+    expect(maps[2].routes.map((r) => r.id)).toEqual(['tiep-te-1285']);
+    const awards: string[] = [];
+    for (const { code, campaign_no } of withWorld) {
       const c = await content(code);
-      const quest = normalizeWorldQuest(c.world, map);
+      const quest = normalizeWorldQuest(c.world, maps[campaign_no]);
+      for (const st of quest.steps) if (st.award) awards.push(st.award);
       // chặng có trận đánh thì nhiệm vụ có đúng một bước ra trận, chặng không có trận thì không có
       expect([code, quest.steps.filter((x) => x.type === 'battle').length]).toEqual([code, c.battle ? 1 : 0]);
-      expect(c.explore.steps.length).toBeGreaterThan(0); // cảnh 2D cũ giữ nguyên
+      expect(c.explore.steps.length).toBeGreaterThan(0); // dữ liệu cảnh 2D cũ vẫn giữ trong cơ sở dữ liệu (không xóa), giao diện không còn dùng
     }
+    // bảng phần thưởng người dùng gửi: "Người giữ làng", "Đồng lòng giữ nước", mở tuyến vận chuyển
+    expect(awards.sort()).toEqual(['route:song-hong-1258', 'route:tiep-te-1285', 'title:dong-long-giu-nuoc', 'title:nguoi-giu-lang']);
     const bd = normalizeWorldQuest((await content('bach-dang')).world, map);
     expect(bd.title).toBe('Bí mật lòng sông');
     // đúng 5 bước người dùng mô tả: khám phá con nước → thu thập → chế tạo → xây dựng khi nước rút → nhử khi nước lên, rồi 3 câu giải thích
@@ -237,6 +253,48 @@ async function playWorld(code: string, token: string, opts: { classId?: number }
     expect(keysOf(pub).has('right')).toBe(false);
   });
 
+  it('luật thuần của bước mới: đưa đồ cho người, chọn đúng đường (mở tuyến), luyện đội hình (danh hiệu chỉ khi không lệch hàng), dân làng góp sức', async () => {
+    const w = await import('../src/saga/world');
+    const ctx: any = { battleWon: true, tide: 'low', nodeReady: () => true, occupied: () => false, zoneTotal: () => 99 };
+    const m1 = w.normalizeWorldMap(await worldRaw(1)), m2 = w.normalizeWorldMap(await worldRaw(2));
+    // Bình Lệ Nguyên: đưa ván che tên cho Lê Tần
+    const q1 = w.normalizeWorldQuest((await content('binh-le-nguyen')).world, m1);
+    const s1 = w.newWorld(1);
+    s1.step = q1.steps.findIndex((x) => x.type === 'give');
+    expect(w.applyWorld(q1, m1, s1, { type: 'interact', target: 'npc:le_tan' }, ctx).events[0].lines![0]).toMatch(/2 ván che tên/);
+    s1.inventory = { van: 2 };
+    const gave = w.applyWorld(q1, m1, s1, { type: 'interact', target: 'npc:le_tan' }, ctx);
+    expect(gave.events[0]).toMatchObject({ t: 'gave', n: 2 });
+    expect(s1.inventory).toEqual({});
+    // Vườn không nhà trống: chọn sai bến tính một lần sai, chọn đúng mở tuyến thuyền; dân làng góp sức khi thu thập
+    const q2 = w.normalizeWorldQuest((await content('vuon-khong-nha-trong')).world, m1);
+    const s2 = w.newWorld(1);
+    s2.step = q2.steps.findIndex((x) => x.type === 'pick');
+    expect(w.applyWorld(q2, m1, s2, { type: 'zone', zone: 'ben_cho' }, ctx).events[0].t).toBe('wrong');
+    expect(s2.mistakes).toBe(1);
+    const ok = w.applyWorld(q2, m1, s2, { type: 'zone', zone: 'ben_nam' }, ctx);
+    expect(ok.effects).toContainEqual({ kind: 'award', code: 'route:song-hong-1258' });
+    expect(q2.steps[s2.step].type).toBe('place');
+    const g = w.applyWorld(q2, m1, s2, { type: 'gather', at: [1, 27], from: [1, 26] }, { ...ctx, bonusYield: w.VILLAGE_BONUS });
+    expect(g.events[0].text).toMatch(/\+3 lúa \(dân làng góp sức\)/);
+    // Diên Hồng: đi đúng thứ tự vị trí đội hình thì nhận "Đồng lòng giữ nước"; lệch hàng thì làm lại từ đầu và không nhận danh hiệu
+    const q3 = w.normalizeWorldQuest((await content('dien-hong')).world, m2);
+    const drill = q3.steps.findIndex((x) => x.type === 'drill');
+    const s3 = w.newWorld(1); s3.step = drill;
+    const zones = (q3.steps[drill] as any).zones as string[];
+    let last: any = null;
+    for (const z of zones) last = w.applyWorld(q3, m2, s3, { type: 'zone', zone: z }, ctx);
+    expect(last.effects).toContainEqual({ kind: 'award', code: 'title:dong-long-giu-nuoc' });
+    const s4 = w.newWorld(1); s4.step = drill;
+    w.applyWorld(q3, m2, s4, { type: 'zone', zone: zones[0] }, ctx);
+    expect(w.applyWorld(q3, m2, s4, { type: 'zone', zone: zones[2] }, ctx).events[0].t).toBe('wrong'); // lệch hàng
+    expect(s4.drill).toBe(0);
+    for (const z of zones) last = w.applyWorld(q3, m2, s4, { type: 'zone', zone: z }, ctx);
+    expect(q3.steps[s4.step].type).toBe('ask');
+    expect(last.effects.some((e: any) => e.kind === 'award')).toBe(false);
+    expect(w.publicWorld(q3, m2, w.newWorld(1), { zoneTotal: () => 0 })).toBeTruthy();
+  });
+
   it('chơi trọn "Bí mật lòng sông" qua API: trận Bạch Đằng ở giữa, xong thì ghi tiến độ nhập vai và thưởng điểm một lần; bạn cùng lớp dùng chung bãi cọc', async () => {
     await unlockFor(f.S1.id, 'bach-dang');
     // học sinh chọn lớp không phải của mình bị chặn; không chọn thì vào lớp của em
@@ -249,7 +307,7 @@ async function playWorld(code: string, token: string, opts: { classId?: number }
     const xpBefore = Number((await sql<{ n: string }>(s.url, 'SELECT COALESCE(sum(points),0) AS n FROM hk_points WHERE user_id = $1', [f.S1.id]))[0].n);
     const played = await playWorld('bach-dang', f.S1.token);
     expect(played.last.finished).toMatchObject({ first: true, xp: 20 });
-    expect(played.placed).toBe(10); // chơi một mình: đóng đủ phần của cả lớp
+    expect(played.placed).toBe(4); // chơi một mình: em đóng đủ phần của em, dân binh tới đóng nốt phần còn thiếu của cả lớp
     const p = (await sql<any>(s.url, 'SELECT explore_done_at, battle_won_at FROM hk_saga_progress WHERE user_id = $1 AND stage_id = $2', [f.S1.id, stageId['bach-dang']]))[0];
     expect(p.explore_done_at).not.toBeNull();
     expect(p.battle_won_at).not.toBeNull();
@@ -257,12 +315,15 @@ async function playWorld(code: string, token: string, opts: { classId?: number }
     expect(xpAfter).toBeGreaterThan(xpBefore);
     const room = (await sql<{ id: number }>(s.url, 'SELECT id FROM hk_world_rooms WHERE class_id = $1 AND campaign_no = 3', [f.class7a.id]))[0].id;
     expect(Number((await sql<{ n: string }>(s.url, "SELECT count(*) AS n FROM hk_world_blocks WHERE room_id = $1 AND zone = 'baicoc' AND block = 'coc'", [room]))[0].n)).toBe(10);
+    expect(Number((await sql<{ n: string }>(s.url, "SELECT count(*) AS n FROM hk_world_blocks WHERE room_id = $1 AND zone = 'baicoc' AND user_id IS NULL", [room]))[0].n)).toBe(6); // khối của dân binh
 
     // bạn cùng lớp: thấy 10 cọc của bạn (không phải của mình), chỉ cần đóng 4 cọc của mình là qua bước
     await unlockFor(f.S2.id, 'bach-dang');
     const mate = await api('POST', `/api/saga/stages/${stageId['bach-dang']}/explore`, {}, f.S2.token);
     expect(mate.body.room.id).toBe(room);
     expect(mate.body.blocks.filter((b: any) => b.zone === 'baicoc')).toHaveLength(10);
+    // dấu ấn chỉ có ở các chặng bạn đã xong bước nhập vai: bạn chưa xong Bạch Đằng nên chưa có dấu ấn của chặng này
+    expect(mate.body.changes.map((c: any) => c.stage)).toEqual(['chuan-bi-1287', 'van-don', 'van-kiep-1288']);
     expect(mate.body.blocks.every((b: any) => b.mine === false)).toBe(true);
     const second = await playWorld('bach-dang', f.S2.token);
     expect(second.placed).toBe(4);
@@ -301,6 +362,48 @@ async function playWorld(code: string, token: string, opts: { classId?: number }
     const lone = await api('POST', `/api/saga/stages/${stageId['bach-dang']}/explore`, {}, f.S3.token);
     expect([lone.status, lone.body.detail]).toEqual([409, 'Em cần vào một lớp để cùng các bạn khám phá thế giới khối']);
   }, 60_000);
+
+  it('sơ tán (Vườn không nhà trống) qua API: mở tuyến thuyền và danh hiệu "Người giữ làng", trang bị danh hiệu, dân làng góp sức; dấu ấn trên bản đồ; Sổ sử Đông A', async () => {
+    await unlockFor(f.S1.id, 'vuon-khong-nha-trong');
+    const played = await playWorld('vuon-khong-nha-trong', f.S1.token);
+    expect(played.placed).toBe(4); // 2 bao + 2 lều của em; dân binh đặt nốt phần cả lớp
+    const awards = (await sql<{ code: string }>(s.url, 'SELECT code FROM hk_world_awards WHERE user_id = $1 ORDER BY code', [f.S1.id])).map((r) => r.code);
+    expect(awards).toEqual(['route:song-hong-1258', 'title:nguoi-giu-lang']);
+    const again = (await api('POST', `/api/saga/stages/${stageId['vuon-khong-nha-trong']}/explore`, { restart: true })).body;
+    expect(again).toMatchObject({ routes_open: ['song-hong-1258'], village_help: true });
+    expect(again.awards.sort()).toEqual(['route:song-hong-1258', 'title:nguoi-giu-lang']);
+    expect(again.changes.map((c: any) => c.stage)).toEqual(expect.arrayContaining(['vuon-khong-nha-trong', 'binh-le-nguyen', 'dong-bo-dau']));
+    // dân làng góp sức: mỗi lần thu thập thêm 1
+    const spot = resourceSpots(again.map, again.terrain, 'lua')[5];
+    const g = await act(again.session_id, again.seq, { type: 'gather', at: spot.at, from: spot.from });
+    expect(g.body.outcome.events[0]).toMatchObject({ t: 'got', n: 3 });
+    // danh hiệu nằm trong kho trang phục, trang bị được
+    const wardrobe = (await api('GET', '/api/saga/cosmetics')).body;
+    expect(wardrobe.titles.find((t: any) => t.code === 'nguoi-giu-lang')).toMatchObject({ name: 'Người giữ làng', unlocked: true });
+    expect(wardrobe.titles.find((t: any) => t.code === 'dong-long-giu-nuoc')).toMatchObject({ unlocked: false });
+    expect((await api('POST', '/api/saga/cosmetics/equip', { title: 'nguoi-giu-lang' })).body.equipped.title).toMatchObject({ code: 'nguoi-giu-lang' });
+    expect((await api('POST', '/api/saga/cosmetics/equip', { title: 'dong-long-giu-nuoc' })).status).toBe(409);
+    // Sổ sử Đông A: phần đã xong mọi chặng thì xếp sự kiện; xếp sai báo số vị trí đúng, xếp đúng hoàn thiện trang (thưởng điểm một lần)
+    const book = (await api('GET', '/api/saga/world/book')).body.pages;
+    expect(book.map((p: any) => p.campaign_no)).toEqual([1, 2, 3]);
+    const p1 = book[0];
+    expect(p1).toMatchObject({ unlocked: true, done: false });
+    const right = (await worldRaw(1)).book.events.map((e: any) => e.id);
+    expect(p1.events.map((e: any) => e.id)).not.toEqual(right); // đã xáo, không lộ thứ tự đúng
+    expect(p1.events.map((e: any) => e.id).sort()).toEqual([...right].sort());
+    const wrong = await api('POST', '/api/saga/world/book/1', { order: [...right].reverse() });
+    expect(wrong.body).toMatchObject({ correct: false, total: right.length });
+    expect((await api('POST', '/api/saga/world/book/1', { order: right.slice(1) })).status).toBe(400);
+    const done = await api('POST', '/api/saga/world/book/1', { order: right });
+    expect(done.body).toMatchObject({ correct: true, first: true, xp: 30 });
+    expect(done.body.pages[0]).toMatchObject({ done: true });
+    expect(done.body.pages[0].events.map((e: any) => e.id)).toEqual(right);
+    expect((await api('POST', '/api/saga/world/book/1', { order: right })).body).toMatchObject({ correct: true, first: false, xp: 0 });
+    // phần chưa xong hết các chặng thì trang Sổ sử còn khóa (học sinh 3 chưa xong chặng Bạch Đằng)
+    const lone = (await api('GET', '/api/saga/world/book', undefined, f.S3.token)).body.pages;
+    expect(lone.find((p: any) => p.campaign_no === 3)).toMatchObject({ unlocked: false, done: false, events: [] });
+    expect((await api('POST', '/api/saga/world/book/3', { order: ['a', 'b', 'c', 'd', 'e'] }, f.S3.token)).status).toBe(409);
+  }, 120_000);
 
   it('tự tạo nhân vật: lưu lựa chọn hợp lệ, từ chối giá trị ngoài danh sách', async () => {
     const before = await api('GET', '/api/saga/world/look');
