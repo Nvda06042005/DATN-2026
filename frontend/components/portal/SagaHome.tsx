@@ -10,7 +10,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Image, Platform, Pressable, ScrollView, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
-import { Award, BookOpen, Check, ChevronLeft, Coins, Footprints, Gamepad2, Lock, Maximize2, Play, Puzzle, RotateCcw, Sparkles, Swords, Target, Users, ZoomIn, ZoomOut } from 'lucide-react-native';
+import { Award, BookOpen, Check, ChevronLeft, Coins, Footprints, Gamepad2, Lock, Map as MapIcon, Maximize2, Play, Puzzle, Route, RotateCcw, Sparkles, Swords, Target, Users, ZoomIn, ZoomOut } from 'lucide-react-native';
 import * as saga from '@/lib/saga-api';
 import * as authApi from '@/api/authApi';
 import { Mascot } from '@/components/art';
@@ -21,7 +21,8 @@ import {
 } from '@/components/portal/SagaKit';
 import { ChestArt, SagaRail } from '@/components/portal/SagaRail';
 import { ChestOpening } from '@/components/portal/SagaChest';
-import { AdventureScene, LearnerStats, STUDENT as S } from '@/components/portal/StudentDesign';
+import { BlockCard, GameButton, LearnerStats, STUDENT as S, sceneOf } from '@/components/portal/StudentDesign';
+import { Chibi, DrumSun, VnScene, type ChibiKind } from '@/components/portal/StudentArt';
 import { HALL, HallBoard, HallGallery, HallHero, HallSteps, HallTitle, RankLadder, scholarRank } from '@/components/portal/StudentHall';
 import { Btn, Card, Chip, Inset, Segmented, Sheet, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
@@ -52,75 +53,214 @@ const ClassBar: React.FC<{ cls: MyClass }> = ({ cls }) => {
   );
 };
 
-/** Campaign portal. The miniature island is decorative; the actual campaign uses the original Wikipedia map. */
-const UnitBanner: React.FC<{ camp: SagaCampaign; onOpen: () => void }> = ({ camp, onOpen }) => {
-  const tone = TONE[camp.campaign_no];
-  const { width } = useWindowDimensions();
-  const label = camp.completed ? 'Ôn lại chiến dịch' : camp.available ? 'Khám phá chiến dịch' : 'Xem điều kiện mở';
+// ---------------------------------------------------------------------- lộ trình kiểu trò chơi học tập (23/11/2026, "Sắc Việt")
+/**
+ * Người dùng chọn "Đường đi kiểu Duolingo": mỗi phần là một dải tiêu đề màu (tên cuộc kháng chiến, tiến độ, nút "Xem bản đồ" mở bản đồ gốc Wikipedia)
+ * và con đường uốn lượn qua các chặng – nút tròn khối theo trạng thái (vàng: đã xong, màu của phần: đang mở, cam: cần ôn, be: còn khóa), hòm báu nằm giữa
+ * hai chặng, bóng chữ "BẮT ĐẦU / HỌC TIẾP" và nhân vật chibi đứng cạnh chặng đang chờ. Nền là cảnh làng tre / đình làng / sông núi tự vẽ (StudentArt).
+ * Trạng thái, sao, hòm do máy chủ trả về; bấm chặng mở bảng thông tin chặng như trên bản đồ. Chỉ lấy thể loại, không dùng hình của sản phẩm khác.
+ */
+const PART_EDGE: Record<number, string> = { 1: '#0f5e2c', 2: '#8f300a', 3: '#7f1d1d' };
+const PART_GUIDE: Record<number, ChibiKind> = { 1: 'thu-sinh', 2: 'thieu-nu', 3: 'tuong' };
+const PART_GUEST: Record<number, ChibiKind> = { 1: 'nong-nu', 2: 'quan', 3: 'nong-nam' };
+const WAVE = [0, 0.6, 0.95, 0.6, 0, -0.6, -0.95, -0.6];
+const DUO = 76;
+const STAGE_GAP = 160, CHEST_GAP = 96, CHEST_DROP = 140, PATH_TOP = 250;
+type PathItem = { kind: 'stage'; st: StageBrief; x: number; y: number } | { kind: 'chest'; box: SagaChest; x: number; y: number };
+
+const nodeLook = (st: StageBrief, no: number): { face: string; edge: string; fg: string; icon: IconType } => {
+  if (st.state === 'done') return { face: S.gold, edge: S.goldDeep, fg: '#5a3d00', icon: Check };
+  if (st.state === 'review') return { face: '#f08a24', edge: '#b25a0a', fg: '#ffffff', icon: RotateCcw };
+  if (st.state === 'locked') return { face: '#eadfcb', edge: '#cdb995', fg: '#8a7552', icon: Lock };
+  return { face: TONE[no].main, edge: PART_EDGE[no], fg: '#ffffff', icon: st.battle_mode ? Swords : st.state === 'learning' ? BookOpen : Play };
+};
+
+/** Một phần của lộ trình: dải tiêu đề + con đường các chặng (dùng ở trang chủ trong lớp và trang Hành trình) */
+const PathPart: React.FC<{
+  no: number; camp: SagaCampaign | null; view: CampaignView | null; loading: boolean; error: string | null; onRetry: () => void; currentId: number | null; selectedId?: number | null;
+  onPick: (st: StageBrief) => void; onChest: (box: SagaChest) => void; onMap: () => void; onLayoutPart?: (y: number, h: number) => void;
+}> = ({ no, camp: given, view, loading, error, onRetry, currentId, selectedId = null, onPick, onChest, onMap, onLayoutPart }) => {
+  const tone = TONE[no];
+  const [w, setW] = useState(0);
+  const camp: SagaCampaign = given ?? {
+    campaign_no: no, title: view?.map.title ?? `Phần ${no}`, short_title: view?.map.short_title ?? '', years: tone.years, enemy: '', places: '', summary: '',
+    stages: view?.totals.stages ?? 0, done: view?.totals.done ?? 0, stars: view?.totals.stars ?? 0, max_stars: view?.totals.max_stars ?? 0, percent: 0, completed: false, is_new: false, available: true,
+  };
+  // vị trí các chặng / hòm: đi xuống theo hàng, lệch trái phải theo nhịp sóng
+  const { items, height } = useMemo(() => {
+    const out: PathItem[] = [];
+    if (!view || !w) return { items: out, height: 520 };
+    const amp = Math.max(36, Math.min(118, (w - 230) / 2));
+    let y = PATH_TOP, j = 0;
+    const at = (): number => w / 2 + WAVE[j++ % WAVE.length] * amp;
+    // hòm nằm dưới nhãn tên chặng (nhãn có thể hai dòng + hàng sao), chặng sau cách hòm một khoảng CHEST_GAP
+    view.stages.forEach((st, k) => {
+      const top = y;
+      out.push({ kind: 'stage', st, x: at(), y }); y += STAGE_GAP;
+      for (const box of (view.chests ?? []).filter((b) => b.after === k + 1)) { const cy = Math.max(top + CHEST_DROP, y - 20); out.push({ kind: 'chest', box, x: at(), y: cy }); y = cy + CHEST_GAP; }
+    });
+    return { items: out, height: y + 10 };
+  }, [view, w]);
+  const cur = items.findIndex((it) => it.kind === 'stage' && it.st.id === currentId);
+  const guest = items.length > 3 ? Math.floor(items.length / 2) + (cur === Math.floor(items.length / 2) ? 1 : 0) : -1;
+  /** chỗ đứng của nhân vật cạnh một chặng: phía đối diện với hướng lệch của đường, không tràn mép */
+  const beside = (it: PathItem, size: number): { left: number; top: number } | null => {
+    const sides = it.x >= w / 2 ? [-1, 1] : [1, -1];
+    for (const sd of sides) {
+      const left = sd < 0 ? it.x - DUO / 2 - 14 - size : it.x + DUO / 2 + 14;
+      if (left >= 0 && left + size <= w) return { left, top: it.y - (size * 1.4) / 2 - 18 };
+    }
+    return null;
+  };
+  const chibiSize = w < 420 ? 74 : 96;
+  const guideAt = cur >= 0 ? beside(items[cur], chibiSize) : null;
+  const guestAt = guest >= 0 && guest < items.length && w >= 440 ? beside(items[guest], 86) : null;
   return (
-    <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={`Phần ${camp.campaign_no}: ${camp.title}, ${camp.done} trên ${camp.stages} chặng, ${camp.stars} trên ${camp.max_stars} sao. ${label}`} testID={`path-unit-${camp.campaign_no}`}
-      style={({ pressed }) => ({ borderRadius: 22, backgroundColor: pressed ? '#f1faf6' : S.white, padding: 18, gap: 13, alignSelf: 'stretch', borderWidth: 1, borderBottomWidth: 4, borderColor: S.line, opacity: pressed ? 0.94 : 1 })}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-        {width >= 680 ? <View style={{ width: 132, height: 137, borderRadius: 17, backgroundColor: tone.soft, overflow: 'hidden', justifyContent: 'center' }}><AdventureScene variant={camp.campaign_no} style={{ width: 169, height: 137, marginLeft: -18 }} /></View> : null}
-        <View style={{ flex: 1, minWidth: 0, gap: 9 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6, flexWrap: 'wrap' }}>
-            <Txt f="bold" size={12} color={tone.text} style={{ letterSpacing: 0.9 }}>PHẦN {camp.campaign_no} · {tone.years}</Txt>
-            {camp.completed ? <Check size={19} color={S.teal} /> : !camp.available ? <Lock size={17} color={S.muted} /> : null}
+    <View style={{ gap: 12 }} testID={`path-part-${no}`} onLayout={onLayoutPart ? (e) => onLayoutPart(e.nativeEvent.layout.y, e.nativeEvent.layout.height) : undefined}>
+      <View testID={`path-unit-${no}`} style={{ borderRadius: 22, overflow: 'hidden', backgroundColor: tone.main, borderBottomWidth: 6, borderBottomColor: PART_EDGE[no] }}>
+        <DrumSun size={240} color="#ffffff" opacity={0.16} style={{ position: 'absolute', right: -70, top: -90 }} />
+        <View style={{ padding: 16, paddingLeft: 18, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+          <View style={{ flex: 1, minWidth: 210, gap: 3 }}>
+            <Txt f="heavy" size={12} color="#ffe9c2" style={{ letterSpacing: 1.6 }}>PHẦN {no} · {tone.years}{camp.completed ? ' · ĐÃ CHINH PHỤC' : ''}</Txt>
+            <Txt f="heavy" size={21} color="#ffffff" accessibilityRole="header" style={{ lineHeight: 27 }}>{camp.title}</Txt>
+            <Txt f="semibold" size={13} color="#fff4e2">{camp.done}/{camp.stages} chặng · {camp.stars}/{camp.max_stars} sao{!camp.available ? ' · mở khi xong phần trước' : ''}</Txt>
           </View>
-          <Txt f="heavy" size={18} color={S.ink} accessibilityRole="header">{camp.title}</Txt>
-          <Txt size={16} color={S.muted} numberOfLines={2}>{camp.summary}</Txt>
-          <View style={{ height: 10, borderRadius: 5, backgroundColor: '#e6efe8', overflow: 'hidden' }}>
-            <View style={{ width: `${Math.max(0, Math.min(100, Math.round(camp.percent)))}%`, height: '100%', borderRadius: 5, backgroundColor: tone.main }} />
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-            <Txt size={13} color={S.muted}>{camp.done}/{camp.stages} chặng</Txt>
-            <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}><StarRow n={camp.stars > 0 ? 1 : 0} max={1} size={16} /><Txt f="bold" size={13} color={S.goldInk}>{camp.stars}/{camp.max_stars}</Txt></View>
-          </View>
+          <Pressable testID={`path-go-${camp.campaign_no}`} accessibilityRole="button" accessibilityLabel={`Xem bản đồ gốc Phần ${camp.campaign_no}: ${camp.title}`} onPress={onMap} style={{ paddingBottom: 4 }}>
+            {({ pressed }) => (
+              <>
+                <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: 4, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.22)' }} />
+                <View style={{ minHeight: 46, paddingHorizontal: 15, borderRadius: 14, backgroundColor: '#ffffff', flexDirection: 'row', alignItems: 'center', gap: 8, transform: [{ translateY: pressed ? 3 : 0 }] }}>
+                  <MapIcon size={18} color={tone.main} strokeWidth={2.6} /><Txt f="heavy" size={14} color={tone.text}>Xem bản đồ</Txt>
+                </View>
+              </>
+            )}
+          </Pressable>
         </View>
       </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-        <Txt f="semibold" size={13} color={camp.available ? S.teal : S.muted}>{camp.completed ? 'Đã chinh phục' : camp.available ? 'Sẵn sàng khám phá' : 'Hoàn thành phần trước để mở'}</Txt>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 11, backgroundColor: camp.available ? S.mint : '#edf1ef', paddingHorizontal: 12, minHeight: 44 }} testID={`path-go-${camp.campaign_no}`}>
-          {camp.available ? <Play size={15} color={S.teal} /> : <Lock size={15} color={S.muted} />}<Txt f="bold" size={13} color={camp.available ? S.deep : S.muted}>{label}</Txt>
+      {!view ? <LoadState loading={loading} error={error} onRetry={onRetry} /> : (
+        <View onLayout={(e) => setW(e.nativeEvent.layout.width)} style={{ height, borderRadius: 26, overflow: 'hidden', borderWidth: 2, borderBottomWidth: 5, borderColor: S.line, backgroundColor: '#fffaf0' }}>
+          <VnScene kind={sceneOf(no)} fade="#fffaf0" style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 240 }} />
+          {Array.from({ length: Math.floor((height - 260) / 520) + 1 }, (_, i) => (
+            <DrumSun key={i} size={230} opacity={0.08} style={{ position: 'absolute', top: 300 + i * 520, ...(i % 2 ? { right: -90 } : { left: -90 }) }} />
+          ))}
+          {w > 0 && items.length > 1 ? (
+            <Svg width={w} height={height} style={{ position: 'absolute', left: 0, top: 0 }} pointerEvents="none">
+              <Polyline points={items.map((it) => `${it.x},${it.y}`).join(' ')} fill="none" stroke="#e6d3ad" strokeWidth={10} strokeDasharray="1 18" strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          ) : null}
+          {guestAt ? <View pointerEvents="none" style={{ position: 'absolute', ...guestAt }}><Chibi kind={PART_GUEST[no]} size={86} flip={guestAt.left < w / 2} /></View> : null}
+          {guideAt ? <View pointerEvents="none" testID="path-guide" style={{ position: 'absolute', zIndex: 4, ...guideAt }}><Chibi kind={PART_GUIDE[no]} size={chibiSize} flip={guideAt.left > w / 2} /></View> : null}
+          {items.map((it) => {
+            if (it.kind === 'chest') {
+              const box = it.box;
+              return (
+                <Pressable key={box.key} onPress={() => onChest(box)} accessibilityRole="button" testID={`path-chest-${box.key}`}
+                  accessibilityLabel={`${box.kind === 'part' ? 'Hòm báu cuối phần' : `Hòm báu sau chặng ${box.after}`}: ${box.state === 'opened' ? 'đã mở' : box.state === 'ready' ? `hòm bí ẩn, bấm để mở – phần thưởng lên tới ${box.max_gold ?? 100} vàng` : 'còn khóa'}`}
+                  style={({ pressed }) => ({ position: 'absolute', zIndex: 3, left: it.x - 36, top: it.y - 32, width: 72, height: 64, alignItems: 'center', justifyContent: 'center', borderRadius: 20, opacity: pressed ? 0.85 : 1,
+                    backgroundColor: box.state === 'ready' ? 'rgba(255,194,58,0.28)' : 'transparent' })}>
+                  {box.state === 'ready' ? <Bounce><ChestArt size={56} state="ready" /></Bounce> : <ChestArt size={50} state={box.state} />}
+                </Pressable>
+              );
+            }
+            const st = it.st;
+            const look = nodeLook(st, no);
+            const current = st.id === currentId, picked = st.id === selectedId;
+            const Icon = look.icon;
+            return (
+              <View key={st.id} pointerEvents="box-none" style={{ position: 'absolute', left: it.x - 95, top: it.y - DUO / 2, width: 190, alignItems: 'center', zIndex: current || picked ? 5 : 2 }}>
+                {current || picked ? <View pointerEvents="none" style={{ position: 'absolute', top: -9, left: 95 - (DUO + 18) / 2, width: DUO + 18, height: DUO + 24, borderRadius: (DUO + 18) / 2, borderWidth: 5, borderColor: picked ? '#e3b244' : `${tone.main}55` }} /> : null}
+                {current ? (
+                  <View pointerEvents="none" style={{ position: 'absolute', top: -58, left: 0, right: 0, alignItems: 'center' }}>
+                    <Bounce>
+                      <View style={{ alignItems: 'center' }}>
+                        <View style={{ backgroundColor: '#ffffff', borderRadius: 12, borderWidth: 2, borderColor: tone.main, paddingHorizontal: 12, paddingVertical: 4 }}>
+                          <Txt f="heavy" size={13} color={tone.text} style={{ letterSpacing: 1 }}>{st.state === 'learning' ? 'HỌC TIẾP' : st.state === 'review' ? 'ÔN LẠI' : 'BẮT ĐẦU'}</Txt>
+                        </View>
+                        <View style={{ width: 12, height: 12, backgroundColor: '#ffffff', borderRightWidth: 2, borderBottomWidth: 2, borderColor: tone.main, transform: [{ rotate: '45deg' }], marginTop: -7 }} />
+                      </View>
+                    </Bounce>
+                  </View>
+                ) : null}
+                <Pressable testID={`path-node-${st.code}`} accessibilityRole="button" onPress={() => onPick(st)}
+                  accessibilityLabel={`Chặng ${st.order}: ${st.title}, ${st.date_label}. ${STATE[st.state].label}${st.stars ? `, ${st.stars} sao` : ''}${st.lock_reason ? `. ${st.lock_reason}` : ''}`}
+                  style={{ width: DUO, height: DUO + 6 }}>
+                  {({ pressed }) => (
+                    <>
+                      <View style={{ position: 'absolute', top: 6, left: 0, width: DUO, height: DUO, borderRadius: DUO / 2, backgroundColor: look.edge }} />
+                      <View style={{ position: 'absolute', top: pressed ? 5 : 0, left: 0, width: DUO, height: DUO, borderRadius: DUO / 2, backgroundColor: look.face, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.4)' }}>
+                        <Icon size={31} color={look.fg} strokeWidth={2.8} />
+                      </View>
+                    </>
+                  )}
+                </Pressable>
+                <View pointerEvents="none" style={{ marginTop: 6, maxWidth: 190, backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 12, borderWidth: 2, borderColor: current ? tone.main : S.line, paddingHorizontal: 10, paddingVertical: 3, alignItems: 'center' }}>
+                  <Txt f="heavy" size={13} color={st.state === 'locked' ? S.muted : S.ink} numberOfLines={2} center>{st.order}. {st.title}</Txt>
+                  {st.stars > 0 ? <StarRow n={st.stars} size={13} /> : <Txt size={11} color={S.muted} numberOfLines={1}>{st.date_label}</Txt>}
+                </View>
+              </View>
+            );
+          })}
         </View>
-      </View>
-    </Pressable>
+      )}
+    </View>
   );
 };
 
+/** Kiểu xem của trang Hành trình (lộ trình / bản đồ gốc): nút "Xem bản đồ" mở bản đồ; quay lại từ một bước của chặng giữ kiểu xem đã chọn */
+let campaignView: 'path' | 'map' = 'path';
+
 // ---------------------------------------------------------------------- 1. trang chủ: sảnh Hành trình Đông A (trang cuộn dọc)
 /**
- * Trang chủ học sinh (20/11/2026, theo ảnh VL-LEGEND người dùng gửi, chọn "Bỏ menu trái, trang cuộn dọc"), mở sau khi em chọn lớp ở danh sách lớp:
- * nút quay lại "Lớp học" + lớp đang học → màn mở đầu cung điện có nút VÀO TRẬN (tới chặng tiếp theo) → giới thiệu Học – Luyện – Ra trận,
- * ba chiến dịch (bấm một phần mở trang bản đồ) và cột nhiệm vụ / giải đấu / ôn tập / kỳ thi → thang danh hiệu 5 bậc khoa cử thời Trần
- * → bảng vàng (bảng xếp hạng lớp / trường) → thư viện tranh. Mọi số liệu lấy từ máy chủ; danh hiệu chỉ là cách hiển thị tiến độ đó.
+ * Trang chủ học sinh, mở sau khi em chọn lớp ở danh sách lớp. 20/11/2026: sảnh cuộn dọc (màn mở đầu có VÀO TRẬN, giới thiệu, thang danh hiệu, bảng vàng,
+ * thư viện tranh). 23/11/2026 ("Sắc Việt"): ngay sau màn mở đầu là **lộ trình kiểu trò chơi học tập** của cả ba phần (13 chặng) cạnh cột nhiệm vụ / giải đấu
+ * bên phải; bấm chặng mở bảng thông tin chặng ngay trên trang, "Xem bản đồ" mở bản đồ gốc Wikipedia của phần đó. Mọi số liệu lấy từ máy chủ; danh hiệu chỉ là
+ * cách hiển thị tiến độ đó.
  */
 export const HomeScreen: React.FC<{ session: Session; nav: SagaNav; loading: boolean; error: string | null; cls: MyClass | null; onLeave: () => void }> = ({ session, nav, loading, error, cls, onLeave }) => {
+  const toast = useToast();
   const { width } = useWindowDimensions();
-  const wide = width >= 1280;
+  const wide = width >= 1180;
   const home = nav.home;
   const hud = home?.hud ?? null;
   const next = home?.next ?? null;
   const level = hud?.level ?? null;
   const rank = useMemo(() => scholarRank(home?.campaigns), [home]);
+  const p1 = useLoad<CampaignView>(session, (t) => saga.campaign(t, 1), []);
+  const p2 = useLoad<CampaignView>(session, (t) => saga.campaign(t, 2), []);
+  const p3 = useLoad<CampaignView>(session, (t) => saga.campaign(t, 3), []);
+  const parts = [p1, p2, p3];
+  const [sheet, setSheet] = useState<{ id: number; no: number } | null>(null);
+  const [opening, setOpening] = useState<{ box: SagaChest; part: number } | null>(null);
+  const onChest = (box: SagaChest, part: number): void => {
+    if (box.state === 'opened') { toast('Em đã mở hòm báu này rồi.'); return; }
+    if (box.state === 'locked') { toast(box.kind === 'part' ? 'Hoàn thành mọi chặng của phần này để mở hòm báu cuối phần.' : `Hoàn thành chặng ${box.after} để mở hòm báu này.`); return; }
+    setOpening({ box, part });
+  };
+  const toMap = (no: number): void => { campaignView = 'map'; nav.go('chien-dich', { c: no, s: null, v: null }); };
   // cột bên phải kiểu Duolingo (17/11/2026): dải chỉ số, cấp độ, giải đấu tuần, nhiệm vụ hằng ngày có hòm báu, ôn tập, kỳ thi
-  const rail = home && hud && level ? <SagaRail session={session} nav={nav} wide={wide} /> : null;
+  const rail = home && hud && level ? <View style={{ width: wide ? 340 : '100%' }}><SagaRail session={session} nav={nav} wide={wide} /></View> : null;
   const units = home ? (
-    <View style={{ gap: 14, flex: wide ? 1 : undefined, minWidth: 0, alignSelf: 'stretch' }} testID="home-units">
-      <HallTitle eyebrow="BẢN ĐỒ HÀNH TRÌNH" ink="Ba chiến dịch," red={`${home.totals.stages} chặng khám phá`} />
-      {home.campaigns.map((camp) => <UnitBanner key={camp.campaign_no} camp={camp} onOpen={() => nav.go('chien-dich', { c: camp.campaign_no, s: null, v: null })} />)}
-      <View style={{ borderRadius: 20, backgroundColor: '#e8f3ed', padding: 19, gap: 12 }}>
-        <Txt f="bold" size={17}>Đổi gió một chút?</Txt>
-        <Txt size={16} color={S.muted}>Luyện trí nhớ, nhập vai hoặc khám phá bộ thẻ của em.</Txt>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
-          <Btn title="Ôn tập" icon={RotateCcw} tone="giay" onPress={() => nav.go('cau-hoi')} />
-          <Btn title="Nhập vai" icon={Gamepad2} tone="giay" onPress={() => nav.go('nhap-vai')} />
-          <Btn title="Bộ thẻ" icon={Award} tone="giay" onPress={() => nav.go('bo-the')} />
-        </View>
+    <View style={{ gap: 18, flex: wide ? 1 : undefined, width: wide ? undefined : '100%', minWidth: 0 }} testID="home-units">
+      <HallTitle eyebrow="LỘ TRÌNH HÀNH TRÌNH" ink="Ba chiến dịch," red={`${home.totals.stages} chặng khám phá`} />
+      <View style={{ gap: 26 }} testID="duo-path">
+        {parts.map((p, i) => (
+          <PathPart key={i + 1} no={i + 1} camp={home.campaigns.find((x) => x.campaign_no === i + 1) ?? null} view={p.data} loading={p.loading} error={p.error} onRetry={p.reload}
+            currentId={next && next.campaign_no === i + 1 ? next.stage_id : null} selectedId={sheet?.id ?? null}
+            onPick={(st) => setSheet({ id: st.id, no: i + 1 })} onChest={(box) => onChest(box, i + 1)} onMap={() => toMap(i + 1)} />
+        ))}
       </View>
+      <BlockCard pad={18} color="#cfe6c4" bg={S.greenSoft} style={{ gap: 12 }}>
+        <Txt f="heavy" size={17} color={S.ink}>Đổi gió một chút?</Txt>
+        <Txt size={15} color={S.muted}>Luyện trí nhớ, nhập vai hoặc khám phá bộ thẻ của em.</Txt>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
+          <GameButton title="Ôn tập" icon={RotateCcw} tone="paper" onPress={() => nav.go('cau-hoi')} />
+          <GameButton title="Nhập vai" icon={Gamepad2} tone="paper" onPress={() => nav.go('nhap-vai')} />
+          <GameButton title="Bộ thẻ" icon={Award} tone="paper" onPress={() => nav.go('bo-the')} />
+        </View>
+      </BlockCard>
     </View>
   ) : null;
-  const play = (): void => nav.go('chien-dich', next ? { c: next.campaign_no, s: next.stage_id, v: null } : { c: 1, s: null, v: null });
+  const play = (): void => { campaignView = 'path'; nav.go('chien-dich', next ? { c: next.campaign_no, s: next.stage_id, v: null } : { c: 1, s: null, v: null }); };
   return (
     <SagaPage testID="saga-home" max={1320}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -129,21 +269,26 @@ export const HomeScreen: React.FC<{ session: Session; nav: SagaNav; loading: boo
       </View>
       {!home || !hud || !level ? <LoadState loading={loading} error={error} onRetry={nav.refresh} /> : (
         <>
-          <HallHero home={home} rank={rank} onPlay={play} onMap={() => nav.go('chien-dich', { c: next?.campaign_no ?? 1, s: null, v: null })} />
-          {width < 1320 ? <LearnerStats home={home} compact={width < 600} /> : null}
-          <HallSteps />
+          <HallHero home={home} rank={rank} onPlay={play} onMap={() => toMap(next?.campaign_no ?? 1)} />
+          {width < 560 ? <LearnerStats home={home} compact /> : null}
           <View style={{ flexDirection: wide ? 'row' : 'column', gap: 24, alignItems: 'flex-start' }}>
             {units}{rail}
           </View>
+          <HallSteps />
           <RankLadder rank={rank} />
           <HallBoard session={session} classId={cls?.id ?? null} className={cls?.name ?? null} />
           <HallGallery level={rank.level} home={home} />
           <Txt size={12} color={HALL.muted} center style={{ lineHeight: 18 }}>
-            Nhân vật, trang phục, cung điện và tranh trong sảnh là hình vẽ cách điệu do nhóm Đông A tự sáng tác, không phục dựng di tích hay trang phục cụ thể.
+            Nhân vật, trang phục, cảnh làng quê, cung điện và tranh trong trang là hình vẽ cách điệu do nhóm Đông A tự sáng tác, không phục dựng di tích hay trang phục cụ thể.
             Bản đồ các phần là bản đồ gốc trên Wikipedia tiếng Việt.
           </Txt>
         </>
       )}
+      {sheet ? <StageSheet session={session} nav={nav} stageId={sheet.id} campaignNo={sheet.no} onClose={() => setSheet(null)} /> : null}
+      {opening ? (
+        <ChestOpening session={session} chest={opening.box} look={nav.home?.look} open={() => saga.openChest(session.token, opening.box.key)}
+          onClose={(opened) => { const part = opening.part; setOpening(null); if (opened) { parts[part - 1].reload(); nav.refresh(); } }} />
+      ) : null}
     </SagaPage>
   );
 };
@@ -439,6 +584,7 @@ export const CampaignScreen: React.FC<{ session: Session; nav: SagaNav; no: numb
   // cuộn tới phần đang chọn: vị trí tính từ phần 1 cộng chiều cao các phần phía trên (bản đồ dãn ra sau khi đo khung nên trong ~2 giây đầu
   // mỗi lần một phần đổi chiều cao thì cuộn lại cho đúng)
   const scroll = useRef<ScrollViewInstance | null>(null);
+  const [view, setViewState] = useState<'path' | 'map'>(campaignView);
   const lay = useRef<Record<number, { y: number; h: number }>>({});
   const shown = useRef<number | null>(null);
   const settle = useRef(0);
@@ -459,25 +605,47 @@ export const CampaignScreen: React.FC<{ session: Session; nav: SagaNav; no: numb
     settle.current = Date.now() + 2000;
     const t = setTimeout(() => jump(animated), 120);
     return () => clearTimeout(t);
-  }, [loaded, no, jump]);
+  }, [loaded, no, jump, view]);
   const onLayoutPart = (n: number, y: number, h: number): void => {
     lay.current[n] = { y, h };
     if (shown.current !== null && Date.now() < settle.current) jump(false);
   };
+  // 23/11/2026: hai kiểu xem – lộ trình kiểu trò chơi học tập (mặc định) và bản đồ gốc Wikipedia (nút "Xem bản đồ"); đổi kiểu thì cuộn lại tới phần đang chọn
+  const setView = (v: 'path' | 'map'): void => {
+    if (v === view) return;
+    campaignView = v; lay.current = {}; shown.current = null; setViewState(v);
+  };
+  const VIEWS: ReadonlyArray<{ v: 'path' | 'map'; label: string; icon: IconType }> = [{ v: 'path', label: 'Lộ trình', icon: Route }, { v: 'map', label: 'Bản đồ gốc', icon: MapIcon }];
   return (
     <SagaPage testID="saga-campaign" max={1180} scrollRef={scroll}>
-      <SagaHeader title="Bản đồ Hành trình" subtitle={loaded ? `Ba lần kháng chiến chống quân Mông – Nguyên · đã xong ${sum('done')}/${sum('stages')} chặng · ${sum('stars')}/${sum('max_stars')} sao` : 'Ba lần kháng chiến chống quân Mông – Nguyên (1258, 1285, 1287–1288)'}
+      <SagaHeader title={view === 'map' ? 'Bản đồ Hành trình' : 'Lộ trình Hành trình'} subtitle={loaded ? `Ba lần kháng chiến chống quân Mông – Nguyên · đã xong ${sum('done')}/${sum('stages')} chặng · ${sum('stars')}/${sum('max_stars')} sao` : 'Ba lần kháng chiến chống quân Mông – Nguyên (1258, 1285, 1287–1288)'}
         back={{ label: 'Chiến dịch', hint: 'Về ba phần của Hành trình', onPress: () => nav.back('chien-dich', { c: null, s: null, v: null }) }}
         actions={next ? <Btn icon={Play} title={`${next.state === 'learning' ? 'Học tiếp' : 'Bắt đầu'}: ${next.title}`} tone="son" size="sm" onPress={() => nav.go('chien-dich', { c: next.campaign_no, s: next.stage_id, v: null }, 'params')} testID="unit-continue" /> : undefined} />
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'center' }} accessibilityRole="tablist" accessibilityLabel="Kiểu xem">
+        {VIEWS.map(({ v, label, icon: Icon }) => {
+          const on = view === v;
+          return (
+            <Pressable key={v} testID={`campaign-view-${v}`} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={label} onPress={() => setView(v)}
+              style={({ pressed }) => ({ minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, borderRadius: 16, borderWidth: 2, borderBottomWidth: 4,
+                borderColor: on ? S.red : S.line, backgroundColor: on ? S.mint : pressed ? S.paper2 : S.white })}>
+              <Icon size={18} color={on ? S.red : S.muted} strokeWidth={2.6} /><Txt f="heavy" size={14} color={on ? S.deep : S.muted}>{label}</Txt>
+            </Pressable>
+          );
+        })}
+      </View>
       <Segmented<number> label="Chọn phần" value={no} onChange={(n) => nav.go('chien-dich', { c: n, s: null, v: null }, 'params')}
         options={[1, 2, 3].map((n) => ({ value: n, label: `Phần ${n} · ${TONE[n].years}` }))} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
         {(Object.keys(STATE) as Array<keyof typeof STATE>).map((k) => <StateChip key={k} state={k} />)}
       </View>
-      {parts.map((p, i) => (
+      {view === 'map' ? parts.map((p, i) => (
         <PartSection key={i + 1} no={i + 1} camp={nav.home?.campaigns.find((x) => x.campaign_no === i + 1) ?? null} view={p.data} loading={p.loading} error={p.error} onRetry={p.reload}
           selectedId={open} mascotId={next && next.campaign_no === i + 1 ? next.stage_id : null} onPick={pick} maxHeight={Math.max(320, Math.min(760, height - 190))}
           onLayoutPart={(y, h) => onLayoutPart(i + 1, y, h)} onChest={(box) => onChest(box, i + 1)} />
+      )) : parts.map((p, i) => (
+        <PathPart key={i + 1} no={i + 1} camp={nav.home?.campaigns.find((x) => x.campaign_no === i + 1) ?? null} view={p.data} loading={p.loading} error={p.error} onRetry={p.reload}
+          currentId={next && next.campaign_no === i + 1 ? next.stage_id : null} selectedId={open} onPick={pick} onChest={(box) => onChest(box, i + 1)}
+          onMap={() => { setView('map'); nav.go('chien-dich', { c: i + 1, s: null, v: null }, 'params'); }} onLayoutPart={(y, h) => onLayoutPart(i + 1, y, h)} />
       ))}
       {open !== null ? <StageSheet session={session} nav={nav} stageId={open} campaignNo={openNo} /> : null}
       {opening ? (
@@ -508,11 +676,11 @@ const StepLine: React.FC<{ icon: IconType; title: string; note: string; state: S
   );
 };
 
-const StageSheet: React.FC<{ session: Session; nav: SagaNav; stageId: number; campaignNo: number }> = ({ session, nav, stageId, campaignNo }) => {
+const StageSheet: React.FC<{ session: Session; nav: SagaNav; stageId: number; campaignNo: number; onClose?: () => void }> = ({ session, nav, stageId, campaignNo, onClose }) => {
   const { c } = useTheme();
   const data = useLoad<StageDetail>(session, (t) => saga.stage(t, stageId), [stageId]);
   const d = data.data;
-  const close = (): void => nav.go('chien-dich', { c: campaignNo, s: null, v: null }, 'params');
+  const close = (): void => (onClose ? onClose() : nav.go('chien-dich', { c: campaignNo, s: null, v: null }, 'params'));
   const open = (v: SagaStep): void => nav.go('chien-dich', { c: campaignNo, s: stageId, v });
   const locked = d?.state === 'locked';
   const next = d?.steps.next ?? null;

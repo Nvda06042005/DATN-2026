@@ -17,45 +17,59 @@ import { Avatar, Btn, Card, EmptyState, Field, InfoNote, Spinner, Txt } from '@/
 import { useTheme } from '@/hooks/use-theme';
 import type { CatalogClass, InboxMessage } from '@/types/learning';
 import type { SagaHome } from '@/types/saga';
-import { AdventureHero, AdventureScene, GameButton, LearnerStats, RookieGuide, STUDENT as S } from '@/components/portal/StudentDesign';
+import { AdventureHero, AdventureScene, BlockCard, GameButton, IconBadge, LearnerStats, RookieGuide, STUDENT as S } from '@/components/portal/StudentDesign';
+import { Chibi, type ChibiKind } from '@/components/portal/StudentArt';
 import { SagaHeader, SagaPage } from '@/components/portal/SagaKit';
 
-const BANNER = ['#266d59', '#2d6c83', '#6b5b94', '#92582e', '#266d59', '#2d6c83'];
-const bannerOf = (k: CatalogClass) => BANNER[((k.grade ?? 6) - 6 + BANNER.length) % BANNER.length];
+/** Màu "biển lớp" theo khối (đỏ son, ngọc, chàm, nâu đất) và nhân vật chibi đứng cạnh biển */
+const BANNER: Record<number, string> = { 6: '#c8261c', 7: '#1f7a63', 8: '#2d4a8a', 9: '#9a5420' };
+const bannerOf = (k: CatalogClass) => BANNER[k.grade ?? 6] ?? BANNER[6];
+const CHIBI_OF: Record<number, ChibiKind> = { 6: 'nong-nam', 7: 'thieu-nu', 8: 'thu-sinh', 9: 'tuong' };
 const when = (iso: string) => new Date(iso).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-const searchable = (value: string) => value.toLocaleLowerCase('vi').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+const searchable = (value: string) => value.toLocaleLowerCase('vi').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
 
 const ClassCard: React.FC<{ k: CatalogClass; onPress: () => void; preview?: boolean }> = ({ k, onPress, preview = false }) => {
+  const color = bannerOf(k);
   return (
     <Pressable onPress={onPress} disabled={preview} accessibilityRole={preview ? 'summary' : 'button'} accessibilityLabel={`Lớp ${k.name}${preview ? '' : k.mine ? ', em đã ở trong lớp. Bấm để vào học' : '. Bấm để đăng ký tham gia'}`} testID={`catalog-class-${k.id}`}
-      style={({ pressed }) => ({ flexGrow: 1, flexShrink: 1, flexBasis: 280, minWidth: 0, maxWidth: 430, borderRadius: 21, overflow: 'hidden', borderWidth: 1, borderBottomWidth: 5, borderColor: k.mine ? '#b4d7cb' : S.line, backgroundColor: S.white, opacity: pressed ? 0.92 : 1 })}>
-      <View style={{ height: 151, backgroundColor: bannerOf(k), padding: 16, justifyContent: 'space-between', overflow: 'hidden' }}>
-        <AdventureScene variant={((k.grade ?? 6) - 6) % 3 + 1} style={{ position: 'absolute', right: -31, bottom: -22, width: 242, height: 172, opacity: 0.85 }} />
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <View style={{ backgroundColor: '#ffffff', borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 }}><Txt f="bold" size={12} color={bannerOf(k)}>Khối {k.grade ?? '?'} · HK{k.semester}</Txt></View>
-          <View style={{ width: 31, height: 31, borderRadius: 11, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' }}>
-            {k.mine ? <ShieldCheck size={19} color={S.teal} /> : <KeyRound size={17} color={bannerOf(k)} />}
+      style={({ pressed }) => ({ flexGrow: 1, flexShrink: 1, flexBasis: 280, minWidth: 0, maxWidth: 430, borderRadius: 22, overflow: 'hidden', borderWidth: 2, borderBottomWidth: 6, borderColor: k.mine ? '#efb7a2' : S.line, backgroundColor: S.white, transform: [{ translateY: pressed ? 2 : 0 }] })}>
+      <View style={{ height: 156, overflow: 'hidden', backgroundColor: S.paper2 }}>
+        <AdventureScene variant={((k.grade ?? 6) - 6) % 3 + 1} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} />
+        <View style={{ position: 'absolute', left: 12, top: 12, right: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View style={{ backgroundColor: '#ffffff', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 2, borderColor: `${color}55` }}><Txt f="heavy" size={12} color={color}>Khối {k.grade ?? '?'} · HK{k.semester}</Txt></View>
+          <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: k.mine ? S.green : `${color}55` }}>
+            {k.mine ? <ShieldCheck size={18} color={S.greenDeep} /> : <KeyRound size={16} color={color} />}
           </View>
         </View>
-        <View style={{ gap: 2 }}><Txt f="bold" size={11} color="#e2f1ec" style={{ letterSpacing: 1.6 }}>CÙNG ĐỒNG ĐỘI</Txt><Txt f="heavy" size={30} color="#ffffff">Lớp {k.name}</Txt></View>
+        {/* biển lớp như bức hoành phi: nền màu khối, viền vàng */}
+        <View style={{ position: 'absolute', left: 12, bottom: 12, backgroundColor: color, borderRadius: 12, borderWidth: 3, borderColor: '#e3b244', paddingHorizontal: 14, paddingVertical: 5, boxShadow: '0 3px 0 rgba(0,0,0,0.25)' } as object}>
+          <Txt f="heavy" size={10} color="#ffe6a6" style={{ letterSpacing: 1.6 }}>CÙNG ĐỒNG ĐỘI</Txt>
+          <Txt f="heavy" size={26} color="#ffffff" style={{ lineHeight: 32 }}>Lớp {k.name}</Txt>
+        </View>
+        <View pointerEvents="none" style={{ position: 'absolute', right: 6, bottom: -6 }}><Chibi kind={CHIBI_OF[k.grade ?? 6] ?? 'thu-sinh'} size={86} flip /></View>
       </View>
-      <View style={{ padding: 17, gap: 13 }}>
+      <View style={{ padding: 16, gap: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
-          <Txt f="bold" size={16}>Hành trình Đông A</Txt>
-          {k.mine ? <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}><Check size={14} color={S.teal} /><Txt f="bold" size={12} color={S.teal}>Lớp của em</Txt></View> : null}
+          <Txt f="heavy" size={16} color={S.ink}>Hành trình Đông A</Txt>
+          {k.mine ? <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center', backgroundColor: S.greenSoft, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}><Check size={14} color={S.greenInk} strokeWidth={3} /><Txt f="heavy" size={12} color={S.greenInk}>Lớp của em</Txt></View> : null}
         </View>
         {k.teachers.length ? k.teachers.map((t) => (
           <View key={t.full_name} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Avatar name={t.full_name} size={32} />
-            <View style={{ flex: 1 }}><Txt f="semibold" size={14}>{t.full_name}</Txt><Txt size={12} color={S.muted}>Giáo viên đồng hành</Txt></View>
+            <View style={{ flex: 1 }}><Txt f="bold" size={14}>{t.full_name}</Txt><Txt size={12} color={S.muted}>Giáo viên đồng hành</Txt></View>
           </View>
         )) : <Txt size={14} color={S.muted}>Chưa phân công giáo viên</Txt>}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Users size={16} color={S.muted} /><Txt size={13} color={S.muted}>{k.members} học sinh · {k.year_label}</Txt>
         </View>
-        {!preview ? <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 46, gap: 8, borderRadius: 13, backgroundColor: k.mine ? S.teal : S.mint, borderBottomWidth: 3, borderBottomColor: k.mine ? S.deep : '#c6e4d6' }}>
-          {k.mine ? <Play size={17} color="#ffffff" fill="#ffffff" /> : <KeyRound size={17} color={S.teal} />}<Txt f="bold" size={14} color={k.mine ? '#ffffff' : S.teal}>{k.mine ? 'Vào hành trình' : 'Tham gia bằng mã lớp'}</Txt>
-        </View> : null}
+        {!preview ? (
+          <View style={{ paddingBottom: 4 }}>
+            <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: 4, borderRadius: 14, backgroundColor: k.mine ? S.redDeep : S.line2 }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 46, gap: 8, borderRadius: 14, backgroundColor: k.mine ? S.red : S.white, borderWidth: k.mine ? 0 : 2, borderColor: S.line }}>
+              {k.mine ? <Play size={17} color="#ffffff" fill="#ffffff" /> : <KeyRound size={17} color={S.teal} />}<Txt f="heavy" size={14} color={k.mine ? '#ffffff' : S.teal}>{k.mine ? 'VÀO HÀNH TRÌNH' : 'Tham gia bằng mã lớp'}</Txt>
+            </View>
+          </View>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -79,8 +93,8 @@ const EnrolPage: React.FC<{ session: Session; k: CatalogClass; code?: string; on
       <Txt f="bold" size={20}>Tùy chọn tham gia</Txt>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, alignItems: 'flex-start' }} testID="enrol-page">
         <View style={{ flexGrow: 1, flexBasis: 300, maxWidth: 460 }}><ClassCard k={k} preview onPress={() => undefined} /></View>
-        <Card flat pad={18} style={{ flexGrow: 2, flexBasis: 320, gap: 12, borderRadius: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><ChevronDown size={18} color={c.muc} /><Txt f="bold" size={18}>Tự đăng ký bằng mã lớp</Txt></View>
+        <BlockCard pad={18} style={{ flexGrow: 2, flexBasis: 320, gap: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><IconBadge icon={KeyRound} color={S.red} size={34} /><Txt f="heavy" size={18}>Tự đăng ký bằng mã lớp</Txt></View>
           {k.mine ? <View style={{ gap: 10 }}><InfoNote>Em đã ở trong lớp này.</InfoNote><Btn icon={Play} title="Vào học" tone="son" size="sm" style={{ alignSelf: 'flex-start' }} onPress={onEnter} testID="enrol-enter" /></View> : !k.join_open ? <InfoNote>Thầy cô đang tạm đóng việc tham gia bằng mã. Em hỏi thầy cô nhé.</InfoNote> : null}
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end' }}>
             <Field label="Mã tham gia lớp" value={code} onChangeText={(v) => setCode(v.replace(/\s/g, ''))} autoCapitalize="characters" autoCorrect={false} maxLength={80}
@@ -89,7 +103,7 @@ const EnrolPage: React.FC<{ session: Session; k: CatalogClass; code?: string; on
           </View>
           <ErrorNote message={problem} />
           <Txt size={12} color={c.muc3}>Chưa có mã? Mở mục Tin nhắn: thầy cô gửi mã tham gia lớp ở đó.</Txt>
-        </Card>
+        </BlockCard>
       </View>
     </Page>
   );
@@ -131,14 +145,14 @@ export const StudentCatalog: React.FC<{ session: Session; home?: SagaHome | null
       {home && width < 1320 ? <LearnerStats home={home} compact={width < 600} /> : null}
       <View style={{ flexDirection: wide ? 'row' : 'column', gap: 24, alignItems: 'flex-start' }}>
       <View style={{ flex: wide ? 1 : undefined, width: wide ? undefined : '100%', minWidth: 0, gap: 18 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{ width: 43, height: 43, borderRadius: 14, backgroundColor: S.mint, alignItems: 'center', justifyContent: 'center' }}><Flag size={23} color={S.teal} /></View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <IconBadge icon={Flag} color={S.red} size={44} />
           <View style={{ flex: 1 }}><Txt f="heavy" size={22} accessibilityRole="header">Lớp học của em</Txt><Txt size={16} color={S.muted}>Chọn lớp của em, bắt đầu khám phá.</Txt></View>
         </View>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }} accessibilityRole="tablist" accessibilityLabel="Lọc danh sách lớp">
           {[{ title: 'Tất cả lớp', value: false }, { title: `Lớp đã tham gia${list.data ? ` (${mine.length})` : ''}`, value: true }].map((filter) => (
             <Pressable key={filter.title} accessibilityRole="tab" accessibilityState={{ selected: onlyMine === filter.value }} onPress={() => setOnlyMine(filter.value)} testID={filter.value ? 'catalog-filter-mine' : 'catalog-filter-all'}
-              style={{ minHeight: 44, borderRadius: 12, paddingHorizontal: 14, justifyContent: 'center', backgroundColor: onlyMine === filter.value ? S.teal : S.white, borderWidth: 1, borderColor: onlyMine === filter.value ? S.teal : S.line }}><Txt f="bold" size={14} color={onlyMine === filter.value ? '#ffffff' : S.muted}>{filter.title}</Txt></Pressable>
+              style={{ minHeight: 44, borderRadius: 14, paddingHorizontal: 16, justifyContent: 'center', backgroundColor: onlyMine === filter.value ? S.mint : S.white, borderWidth: 2, borderBottomWidth: 4, borderColor: onlyMine === filter.value ? S.red : S.line }}><Txt f="heavy" size={14} color={onlyMine === filter.value ? S.deep : S.muted}>{filter.title}</Txt></Pressable>
           ))}
         </View>
         <View style={{ flexDirection: 'row', gap: 9, alignItems: 'center' }}>
@@ -157,8 +171,8 @@ export const StudentCatalog: React.FC<{ session: Session; home?: SagaHome | null
             <View key={key} style={{ gap: 10 }}>
               <Pressable onPress={() => setClosed((x) => (shut ? x.filter((y) => y !== key) : [...x, key]))} accessibilityRole="button" accessibilityState={{ expanded: !shut }}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 }}>
-                {shut ? <ChevronRight size={17} color={S.teal} /> : <ChevronDown size={17} color={S.teal} />}
-                <Txt f="bold" size={14} color={S.ink}>{key}</Txt>
+                {shut ? <ChevronRight size={18} color={S.teal} strokeWidth={2.6} /> : <ChevronDown size={18} color={S.teal} strokeWidth={2.6} />}
+                <Txt f="heavy" size={15} color={S.ink}>{key}</Txt>
                 <Txt size={13} color={S.muted}> · {items.length} lớp</Txt>
               </Pressable>
               {shut ? null : (
@@ -172,20 +186,20 @@ export const StudentCatalog: React.FC<{ session: Session; home?: SagaHome | null
       </View>
       </View>
       <View style={{ width: wide ? 290 : '100%', gap: 18 }}>
-        {home?.daily ? <View testID="lobby-daily-quest" style={{ padding: 20, borderRadius: 21, borderWidth: 1, borderBottomWidth: 4, borderColor: S.line, backgroundColor: S.white, gap: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}><Flag size={20} color={S.teal} /><Txt f="bold" size={17}>Nhiệm vụ hôm nay</Txt></View>
+        {home?.daily ? <BlockCard testID="lobby-daily-quest" pad={18} style={{ gap: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><IconBadge icon={Flag} color={S.orange} size={34} /><Txt f="heavy" size={17}>Nhiệm vụ hôm nay</Txt></View>
           <Txt f="semibold" size={14}>{home.daily.title}</Txt>
-          <View accessible accessibilityRole="progressbar" accessibilityLabel={home.daily.title} accessibilityValue={{ min: 0, max: home.daily.target, now: Math.min(home.daily.progress, home.daily.target) }} style={{ height: 11, borderRadius: 6, backgroundColor: S.mint, overflow: 'hidden' }}><View style={{ height: '100%', width: `${Math.max(0, Math.min(100, home.daily.progress / Math.max(1, home.daily.target) * 100))}%`, borderRadius: 6, backgroundColor: S.teal }} /></View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 6 }}><Txt size={13} color={S.muted}>{Math.min(home.daily.progress, home.daily.target)}/{home.daily.target} · {home.daily.done ? 'Đã hoàn thành' : 'Đang chinh phục'}</Txt><Txt f="bold" size={13} color={S.teal}>+{home.daily.reward_xp} XP</Txt></View>
+          <View accessible accessibilityRole="progressbar" accessibilityLabel={home.daily.title} accessibilityValue={{ min: 0, max: home.daily.target, now: Math.min(home.daily.progress, home.daily.target) }} style={{ height: 14, borderRadius: 7, backgroundColor: S.paper2, overflow: 'hidden' }}><View style={{ height: '100%', width: `${Math.max(0, Math.min(100, home.daily.progress / Math.max(1, home.daily.target) * 100))}%`, borderRadius: 7, backgroundColor: S.green }} /></View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 6 }}><Txt size={13} color={S.muted}>{Math.min(home.daily.progress, home.daily.target)}/{home.daily.target} · {home.daily.done ? 'Đã hoàn thành' : 'Đang chinh phục'}</Txt><Txt f="heavy" size={13} color={S.teal}>+{home.daily.reward_xp} XP</Txt></View>
           {home.daily.reward_gold > 0 ? <Txt size={13} color={S.goldInk}>Phần thưởng kèm {home.daily.reward_gold} vàng</Txt> : null}
-        </View> : null}
+        </BlockCard> : null}
         <RookieGuide onInbox={onInbox} />
-        {home ? <View style={{ padding: 20, borderRadius: 20, borderWidth: 1, borderColor: '#e5d49a', backgroundColor: '#fff8e2', gap: 10 }}>
-          <Txt f="bold" size={16} color={S.goldInk}>Từng bước trở thành sử gia</Txt>
-          <Txt size={16} color={S.goldInk}>{home.totals.done === 0 ? 'Bắt đầu chặng đầu tiên để nhận những ngôi sao của em.' : `Em đã hoàn thành ${home.totals.done} chặng. Tiếp tục khám phá để ghi thêm dấu ấn nhé!`}</Txt>
-          <View accessible accessibilityRole="progressbar" accessibilityLabel="Tiến độ Hành trình Đông A" accessibilityValue={{ min: 0, max: home.totals.stages, now: home.totals.done }} style={{ height: 11, borderRadius: 6, backgroundColor: '#f0e3b8', overflow: 'hidden' }}><View style={{ height: '100%', width: `${Math.min(100, home.totals.done / Math.max(1, home.totals.stages) * 100)}%`, backgroundColor: '#c48c20', borderRadius: 6 }} /></View>
-          <Txt f="bold" size={13} color={S.goldInk}>{home.totals.done}/{home.totals.stages} chặng hoàn thành</Txt>
-        </View> : null}
+        {home ? <BlockCard pad={18} color="#efd48a" bg={S.goldSoft} style={{ gap: 10 }}>
+          <Txt f="heavy" size={16} color={S.goldInk}>Từng bước trở thành sử gia</Txt>
+          <Txt size={15} color={S.goldInk}>{home.totals.done === 0 ? 'Bắt đầu chặng đầu tiên để nhận những ngôi sao của em.' : `Em đã hoàn thành ${home.totals.done} chặng. Tiếp tục khám phá để ghi thêm dấu ấn nhé!`}</Txt>
+          <View accessible accessibilityRole="progressbar" accessibilityLabel="Tiến độ Hành trình Đông A" accessibilityValue={{ min: 0, max: home.totals.stages, now: home.totals.done }} style={{ height: 14, borderRadius: 7, backgroundColor: '#f3e2b0', overflow: 'hidden' }}><View style={{ height: '100%', width: `${Math.min(100, home.totals.done / Math.max(1, home.totals.stages) * 100)}%`, backgroundColor: S.goldDeep, borderRadius: 7 }} /></View>
+          <Txt f="heavy" size={13} color={S.goldInk}>{home.totals.done}/{home.totals.stages} chặng hoàn thành</Txt>
+        </BlockCard> : null}
       </View>
       </View>
     </SagaPage>
@@ -205,7 +219,7 @@ export const StudentInbox: React.FC<{ session: Session; onJoinCode: (classId: nu
     return (
       <Page>
         <Btn icon={ArrowLeft} title="Hộp thư" tone="ghost" size="sm" onPress={() => setOpen(null)} style={{ marginLeft: -10, alignSelf: 'flex-start' }} />
-        <Card flat pad={20} style={{ gap: 14, borderRadius: 12 }} testID="inbox-view">
+        <BlockCard pad={20} style={{ gap: 14 }} testID="inbox-view">
           <Txt f="bold" size={20} accessibilityRole="header">{open.subject}</Txt>
           <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
             <Avatar name={open.sender ?? 'Thầy cô'} size={40} />
@@ -221,7 +235,7 @@ export const StudentInbox: React.FC<{ session: Session; onJoinCode: (classId: nu
               <Btn icon={LogIn} title={`Vào lớp ${open.class_name ?? ''}`} tone="son" size="sm" style={{ alignSelf: 'flex-start' }} onPress={() => onJoinCode(open.class_id!, open.join_code!)} testID="inbox-join" />
             </Card>
           ) : null}
-        </Card>
+        </BlockCard>
       </Page>
     );
   }
@@ -231,7 +245,7 @@ export const StudentInbox: React.FC<{ session: Session; onJoinCode: (classId: nu
       <SagaHeader title="Tin nhắn" subtitle="Tin nhắn thầy cô và nhà trường gửi cho em." />
       <ErrorNote message={list.error} />
       {list.loading && !list.data ? <Spinner /> : null}
-      <Card flat pad={0} style={{ borderRadius: 12, overflow: 'hidden' }} testID="inbox-list">
+      <BlockCard pad={0} style={{ overflow: 'hidden' }} testID="inbox-list">
         {rows.length ? rows.map((m) => (
           <Pressable key={m.id} onPress={() => read(m)} accessibilityRole="button" accessibilityLabel={`${m.read_at ? '' : 'Chưa đọc. '}${m.subject}, từ ${m.sender ?? 'thầy cô'}`} testID={`inbox-row-${m.id}`}
             style={({ pressed }) => ({ flexDirection: 'row', gap: 12, padding: 14, minHeight: 64, borderBottomWidth: 1, borderBottomColor: c.adminLine, backgroundColor: pressed ? c.adminCanvas : m.read_at ? c.the : c.adminTint })}>
@@ -253,7 +267,7 @@ export const StudentInbox: React.FC<{ session: Session; onJoinCode: (classId: nu
             <Txt size={14} color={c.muc2} center>Chưa có tin nhắn nào.</Txt>
           </View>
         )}
-      </Card>
+      </BlockCard>
     </Page>
   );
 };

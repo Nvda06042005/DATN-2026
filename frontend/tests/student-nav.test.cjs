@@ -278,3 +278,38 @@ test('thang danh hiệu: phần xong liên tiếp từ Phần 1, đủ sao cả 
   // phần chưa có chặng nào (chưa có nội dung) không tính là đã xong
   assert.equal(scholarRank([camp(1, 0, 0, 0, 0), camp(2, 0, 0, 0, 0), camp(3, 0, 0, 0, 0)]).level, 0);
 });
+
+test('23/11/2026 "Sắc Việt": trang học sinh kiểu trò chơi học tập mang bản sắc Việt – lộ trình uốn lượn, thanh mục dưới đáy trên điện thoại, sân khấu bảng vàng; hình tự vẽ', () => {
+  const design = read('components', 'portal', 'StudentDesign.tsx');
+  const shell = read('components', 'portal', 'StudentWorkspace.tsx');
+  const home = read('components', 'portal', 'SagaHome.tsx');
+  const hall = read('components', 'portal', 'StudentHall.tsx');
+  const art = read('components', 'portal', 'StudentArt.tsx');
+  const code = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  // bảng màu chỉ trong trang học sinh (đỏ son, vàng, xanh tre trên nền giấy dó); nút / thẻ khối dày
+  assert.match(design, /export const STUDENT_PALETTE: Palette = \{\n {2}\.\.\.PALETTES\.light,/);
+  for (const name of ['GameButton', 'BlockCard', 'IconBadge', 'AdventureHero', 'LearnerStats', 'RookieGuide']) assert.match(design, new RegExp(`export (function|const) ${name}\\b`), name);
+  // nhân vật chibi, hoa văn trống đồng, cảnh làng / đình / sông núi, phông sân khấu: SVG tự vẽ, không tải ảnh ngoài, không dùng tên / hình sản phẩm khác
+  for (const name of ['chibiG', 'Chibi', 'DrumSun', 'VnScene', 'StageBackdrop']) assert.match(art, new RegExp(`export (function|const) ${name}\\b`), name);
+  for (const kind of ['nong-nam', 'nong-nu', 'thu-sinh', 'thieu-nu', 'quan', 'phu-nhan', 'tuong']) assert.ok(art.includes(`'${kind}'`), kind);
+  assert.doesNotMatch(design, /require\(|uri:|https?:\/\//);
+  for (const f of [design, art, shell, code(home), hall]) assert.doesNotMatch(code(f), /duolingo/i);
+  // giữ dải nút trên cùng (không menu trái); điện thoại: thanh mục dưới đáy, nhiều hơn 5 mục thì 4 mục đầu + "Thêm" mở bảng ngay trong trang
+  for (const id of ['student-bottom-tabs', 'student-nav-more', 'student-more']) assert.ok(shell.includes(`testID="${id}"`), id);
+  assert.match(shell, /const bottom = nav\.length <= 5 \? nav : nav\.slice\(0, 4\);/);
+  // lộ trình: nút chặng theo trạng thái máy chủ, hòm báu giữa các chặng, nhân vật dẫn đường ở chặng đang chờ; bấm chặng mở bảng chặng ngay trên trang chủ;
+  // "Xem bản đồ" mở bản đồ gốc Wikipedia; trang Hành trình có hai kiểu xem Lộ trình / Bản đồ gốc
+  for (const id of ['duo-path', 'path-guide']) assert.ok(home.includes(`testID="${id}"`), id);
+  assert.match(home, /testID=\{`path-node-\$\{st\.code\}`\}/);
+  assert.match(home, /testID=\{`path-chest-\$\{box\.key\}`\}/);
+  assert.match(home, /testID=\{`campaign-view-\$\{v\}`\}/);
+  assert.match(home, /onPick=\{\(st\) => setSheet\(\{ id: st\.id, no: i \+ 1 \}\)\}/);
+  assert.match(home, /const toMap = \(no: number\): void => \{ campaignView = 'map';/);
+  // trang chủ: màn mở đầu → lộ trình + cột phải → giới thiệu → thang danh hiệu → bảng vàng → thư viện tranh
+  const order = ['<HallHero ', '{units}{rail}', '<HallSteps ', '<RankLadder ', '<HallBoard ', '<HallGallery '].map((t) => home.indexOf(t));
+  assert.ok(order.every((at, k) => at > 0 && (k === 0 || at > order[k - 1])), String(order));
+  // bảng vàng là sân khấu (tường cam, rèm, đèn lồng) với hai nhân vật cầm quạt hai bên
+  assert.match(hall, /<StageBackdrop /);
+  assert.match(hall, /<Chibi kind="quan" /);
+  assert.match(hall, /<Chibi kind="phu-nhan" /);
+});

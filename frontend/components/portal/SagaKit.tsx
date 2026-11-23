@@ -164,9 +164,10 @@ export const OptionButton: React.FC<{ badge: string; text: string; mark?: Option
   const plain = mark === 'idle' || mark === 'dim';
   return (
     <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: Boolean(disabled), selected: mark === 'picked' }} disabled={disabled} onPress={onPress}
-      style={({ pressed }) => [{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: t.line, backgroundColor: pressed && plain ? c.adminCanvas : t.bg, opacity: mark === 'dim' ? 0.6 : 1 }, style]}>
-      <View style={{ minWidth: 30, height: 30, paddingHorizontal: 6, borderRadius: 6, backgroundColor: plain ? c.adminCanvas : t.line, alignItems: 'center', justifyContent: 'center' }}>
-        <Txt f="bold" size={14} color={plain ? c.muc2 : '#ffffff'}>{badge}</Txt>
+      style={({ pressed }) => [{ minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 2, borderBottomWidth: pressed && !disabled ? 2 : 5, marginTop: pressed && !disabled ? 3 : 0,
+        borderColor: t.line, backgroundColor: pressed && plain ? c.adminCanvas : t.bg, opacity: mark === 'dim' ? 0.6 : 1 }, style]}>
+      <View style={{ minWidth: 32, height: 32, paddingHorizontal: 6, borderRadius: 10, borderWidth: plain ? 2 : 0, borderColor: c.adminLine, backgroundColor: plain ? c.the : t.line, alignItems: 'center', justifyContent: 'center' }}>
+        <Txt f="heavy" size={14} color={plain ? c.muc2 : '#ffffff'}>{badge}</Txt>
       </View>
       <Txt f="semibold" size={15} color={t.fg} style={{ flex: 1 }}>{text}</Txt>
       {mark === 'right' ? <Check size={20} color={c.moc} strokeWidth={2.6} /> : mark === 'wrong' ? <X size={20} color={c.son} strokeWidth={2.6} /> : null}

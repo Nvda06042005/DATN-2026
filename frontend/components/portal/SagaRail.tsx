@@ -229,13 +229,13 @@ export const SagaRail: React.FC<{ session: Session; nav: SagaNav; wide: boolean 
       <Txt f="heavy" size={22} accessibilityRole="header">Góc thành tích</Txt>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }} testID="home-metrics">
         {stats.map((s) => (
-          <View key={s.label} style={{ flexGrow: 1, flexBasis: '45%', borderRadius: 15, borderWidth: 1, borderColor: S.line, backgroundColor: '#ffffff', padding: 12, gap: 6 }} accessible accessibilityLabel={`${s.value} ${s.label}`}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><s.icon size={20} color={s.color} /><Txt f="heavy" size={19} color={S.ink}>{s.value}</Txt></View>
+          <View key={s.label} style={{ flexGrow: 1, flexBasis: '45%', borderRadius: 16, borderWidth: 2, borderBottomWidth: 4, borderColor: S.line, backgroundColor: '#ffffff', padding: 12, gap: 6 }} accessible accessibilityLabel={`${s.value} ${s.label}`}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><s.icon size={21} color={s.color} strokeWidth={2.4} /><Txt f="heavy" size={19} color={S.ink}>{s.value}</Txt></View>
             <Txt size={12} color={S.muted}>{s.label}</Txt>
           </View>
         ))}
       </View>
-      <Card flat pad={17} style={{ borderRadius: 20, borderWidth: 1, borderBottomWidth: 4, gap: 10, flexDirection: 'row', alignItems: 'center' }} testID="rail-profile">
+      <Card flat pad={17} style={{ borderRadius: 20, borderWidth: 2, borderBottomWidth: 5, gap: 10, flexDirection: 'row', alignItems: 'center' }} testID="rail-profile">
         <FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={52} frame={home.look?.frame} preset={home.look?.avatar} />
         <View style={{ flex: 1, gap: 4, minWidth: 0 }}>
           <Txt f="bold" size={15} numberOfLines={1}>{home.learner.name}</Txt>
@@ -243,14 +243,14 @@ export const SagaRail: React.FC<{ session: Session; nav: SagaNav; wide: boolean 
         </View>
         <Btn icon={Shirt} label="Kho trang phục" tone="giay" size="sm" onPress={() => setSheet('wardrobe')} testID="open-wardrobe" />
       </Card>
-      <Card flat pad={17} style={{ borderRadius: 20, borderWidth: 1, borderBottomWidth: 4, gap: 10 }} testID="home-level">
+      <Card flat pad={17} style={{ borderRadius: 20, borderWidth: 2, borderBottomWidth: 5, gap: 10 }} testID="home-level">
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Txt f="bold" size={15} style={{ flex: 1 }}>Cấp {level.level} · {level.title}</Txt>
         </View>
         <Meter value={level.progress / 100} height={11} label={`Cấp ${level.level}, ${level.title}. ${num(hud.xp)} điểm kinh nghiệm`} />
         <Txt size={13} color={c.muc3}>{level.next_xp ? `${num(hud.xp)}/${num(level.next_xp)} kinh nghiệm · Từng bước tiến lên` : 'Em đã đạt cấp cao nhất'}</Txt>
       </Card>
-      <Card flat pad={17} style={{ borderRadius: 20, borderWidth: 1, borderBottomWidth: 4, gap: 5, backgroundColor: '#fffdf4' }} testID="rail-quests">
+      <Card flat pad={17} style={{ borderRadius: 20, borderWidth: 2, borderBottomWidth: 5, gap: 5, backgroundColor: '#fffdf4' }} testID="rail-quests">
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <Txt f="bold" size={16}>Nhiệm vụ hằng ngày</Txt>
           <Btn title="XEM TẤT CẢ" tone="ghost" size="sm" disabled={!quests.data} onPress={() => setSheet('quests')} testID="rail-quests-open" />
@@ -258,7 +258,7 @@ export const SagaRail: React.FC<{ session: Session; nav: SagaNav; wide: boolean 
         {quests.data ? quests.data.daily.map((q, i) => <QuestRow key={q.id} q={q} last={i === quests.data!.daily.length - 1} />)
           : <Txt size={14} color={c.muc3}>{quests.error ? 'Chưa tải được nhiệm vụ.' : 'Đang tải nhiệm vụ…'}</Txt>}
       </Card>
-      <Card flat pad={17} style={{ borderRadius: 20, borderWidth: 1, borderBottomWidth: 4, gap: 10 }} testID="rail-league">
+      <Card flat pad={17} style={{ borderRadius: 20, borderWidth: 2, borderBottomWidth: 5, gap: 10 }} testID="rail-league">
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Txt f="bold" size={16}>{league.data ? `Giải ${league.data.tier_name}` : 'Giải đấu tuần'}</Txt>
           <Btn title="XEM BẢNG" tone="ghost" size="sm" disabled={!league.data} onPress={() => setSheet('league')} testID="rail-league-open" />
@@ -271,12 +271,12 @@ export const SagaRail: React.FC<{ session: Session; nav: SagaNav; wide: boolean 
           </View>
         </View>
       </Card>
-      <Card flat pad={14} style={{ borderRadius: 14, gap: 8 }}>
+      <Card flat pad={16} style={{ borderRadius: 20, borderWidth: 2, borderBottomWidth: 5, gap: 8 }}>
         <BlockTitle title={home.review_due ? `${home.review_due} câu cần ôn lại` : 'Ôn tập nhanh'} icon={RotateCcw} />
         <Txt size={13} color={c.muc2}>{home.review_due ? 'Những câu em từng trả lời sai đang chờ.' : 'Trả lời câu hỏi tính giờ để giữ chuỗi đúng.'}</Txt>
         <Btn title="Ôn tập" icon={RotateCcw} tone="giay" size="sm" onPress={() => nav.go('cau-hoi', { c: null, s: null, v: null })} testID="home-review" />
       </Card>
-      <Card flat pad={14} style={{ borderRadius: 14, gap: 8 }}>
+      <Card flat pad={16} style={{ borderRadius: 20, borderWidth: 2, borderBottomWidth: 5, gap: 8 }}>
         <BlockTitle title="Kỳ thi" icon={ClipboardCheck} />
         <Txt size={13} color={c.muc2}>Bài kiểm tra giữa kỳ, cuối kỳ thầy cô tổ chức; vào giờ thi nhập mật khẩu để làm.</Txt>
         <Btn title="Mở Kỳ thi" icon={ClipboardCheck} tone="giay" size="sm" onPress={() => nav.go('ky-thi', { c: null, s: null, v: null })} testID="home-exams" />

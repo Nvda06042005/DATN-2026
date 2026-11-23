@@ -1,153 +1,174 @@
-/** Visual language for the learner portal. Illustrations are decorative, never geographical maps. */
+/**
+ * Ngôn ngữ hình ảnh của trang học sinh. Minh họa là tranh trang trí tự vẽ, không phải bản đồ địa lý.
+ * 23/11/2026 – "Sắc Việt" (người dùng: "na ná Duolingo, mang đậm tính tự tôn dân tộc, bản sắc Việt Nam", gửi ảnh mẫu nhân vật chibi áo nâu, áo tứ thân,
+ * quan phục, sân khấu bảng xếp hạng; chọn "chỉ tham khảo – tự vẽ mới"): nền giấy dó ấm, đỏ son làm màu chính, vàng cho phần thưởng, xanh tre cho tiến độ;
+ * nút / thẻ khối dày có viền đáy như trò chơi học tập; nhân vật và cảnh nền vẽ bằng SVG ở `StudentArt.tsx`. Chỉ lấy thể loại, không dùng hình, tên hay nhân vật
+ * của sản phẩm khác. Tên khóa cũ của `STUDENT` (teal, mint, deep…) giữ lại để các màn khác không phải đổi, nhưng nay mang màu son.
+ */
 import React from 'react';
 import { Pressable, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
-import Svg, { Circle, Ellipse, G, Path, Rect } from 'react-native-svg';
-import { BookOpen, Coins, Flag, Flame, Sparkles, Star } from 'lucide-react-native';
-import { Mascot } from '@/components/art';
+import { BookOpen, Coins, Flag, Flame, Star } from 'lucide-react-native';
 import { Txt } from '@/components/ui';
+import { Chibi, DrumSun, VnScene, type ChibiKind, type VnSceneKind } from '@/components/portal/StudentArt';
 import { PALETTES, type Palette } from '@/constants/theme';
 import type { IconType } from '@/types/game';
 import type { SagaHome } from '@/types/saga';
 
 export const STUDENT = {
-  ink: '#193c40', muted: '#526e70', teal: '#087f78', deep: '#125b58',
-  mint: '#e7f7f1', line: '#d7e8e3', canvas: '#f3f8f5', gold: '#ffce58',
-  goldInk: '#744905', white: '#ffffff', blue: '#2875a7',
+  ink: '#2b1d12', muted: '#6b5644', canvas: '#fff8ec', paper2: '#f8ecd6', white: '#ffffff', line: '#ecdcc2', line2: '#dcc39b',
+  /** đỏ son – màu chính (giữ tên khóa cũ `teal` / `deep` / `mint`) */
+  teal: '#c8261c', deep: '#9c1a12', mint: '#fdebe3', red: '#d6281e', redDeep: '#a11a12',
+  gold: '#ffc23a', goldDeep: '#d99300', goldSoft: '#fff3d1', goldInk: '#6e4b00',
+  green: '#46a840', greenDeep: '#2e7d2c', greenSoft: '#e6f4dc', greenInk: '#245f1d',
+  jade: '#1f8a70', jadeSoft: '#dcf2ea', indigo: '#2d4a8a', indigoSoft: '#e3e9f6', orange: '#e8751a', orangeSoft: '#ffeedd',
+  blue: '#2a6fb0',
 };
 
-/** Scoped to StudentApp: the teacher and management palettes keep their existing values. */
+/** Chỉ áp dụng trong StudentApp: bảng màu của giáo viên và quản trị giữ nguyên. */
 export const STUDENT_PALETTE: Palette = {
   ...PALETTES.light,
-  giay: STUDENT.canvas, giay2: '#eaf4ef', the2: '#f1faf6',
-  muc: STUDENT.ink, muc2: STUDENT.muted, muc3: '#597174',
-  vien: STUDENT.line, vien2: '#bed8cf',
-  // Keep the original red semantic colors for incorrect answers, validation and API errors.
-  logoInk: STUDENT.ink, logoPaper: STUDENT.canvas, logoRed: STUDENT.teal,
-  adminLine: STUDENT.line, adminCanvas: STUDENT.canvas, adminTint: STUDENT.mint,
+  giay: STUDENT.canvas, giay2: STUDENT.paper2, the: STUDENT.white, the2: '#fff4e0',
+  muc: STUDENT.ink, muc2: STUDENT.muted, muc3: '#7a6450',
+  vien: STUDENT.line, vien2: STUDENT.line2,
+  // đỏ son vẫn là màu báo sai / lỗi (đáp án sai, lỗi nhập, lỗi máy chủ) như trước, chỉ tươi hơn
+  son: STUDENT.red, sonDam: STUDENT.redDeep, sonNhat: '#fde4dc', sonChu: '#b3241a',
+  ngoc: STUDENT.green, ngocDam: STUDENT.greenDeep, ngocNhat: STUDENT.greenSoft, ngocChu: STUDENT.greenInk,
+  vang: STUDENT.gold, vangDam: STUDENT.goldDeep, vangNhat: STUDENT.goldSoft, vangChu: STUDENT.goldInk,
+  logoInk: STUDENT.ink, logoPaper: STUDENT.canvas, logoRed: STUDENT.red, logoGold: '#e3b244',
+  adminLine: STUDENT.line, adminCanvas: '#fdf3e2', adminTint: STUDENT.mint,
 };
 
-export function GameButton({ title, onPress, icon: Icon, light = false, testID, style }: {
-  title: string; onPress: () => void; icon?: IconType; light?: boolean; testID?: string; style?: StyleProp<ViewStyle>;
+type GameTone = 'red' | 'gold' | 'green' | 'paper';
+const GAME_TONE: Record<GameTone, { bg: string; edge: string; fg: string; border?: string }> = {
+  red: { bg: STUDENT.red, edge: STUDENT.redDeep, fg: '#ffffff' },
+  gold: { bg: STUDENT.gold, edge: STUDENT.goldDeep, fg: '#3d2600' },
+  green: { bg: STUDENT.green, edge: STUDENT.greenDeep, fg: '#0f2b0a' },
+  paper: { bg: STUDENT.white, edge: STUDENT.line2, fg: STUDENT.ink, border: STUDENT.line },
+};
+
+/** Nút khối dày (viền đáy, nhấn thì lún xuống) của trang học sinh */
+export function GameButton({ title, onPress, icon: Icon, light = false, tone, testID, style, label, size = 'md' }: {
+  title: string; onPress: () => void; icon?: IconType; light?: boolean; tone?: GameTone; testID?: string; style?: StyleProp<ViewStyle>; label?: string; size?: 'md' | 'lg';
 }) {
+  const t = GAME_TONE[tone ?? (light ? 'gold' : 'red')];
+  const depth = size === 'lg' ? 5 : 4;
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} testID={testID}
-      style={({ pressed }) => [{ minHeight: 48, paddingHorizontal: 20, paddingVertical: 11, borderRadius: 15,
-        backgroundColor: light ? STUDENT.gold : STUDENT.teal, borderWidth: 1, borderBottomWidth: pressed ? 2 : 5,
-        borderColor: light ? '#d89d21' : STUDENT.deep, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-        gap: 9, opacity: pressed ? 0.9 : 1, paddingTop: pressed ? 14 : 11, alignSelf: 'flex-start', maxWidth: '100%' }, style]}>
-      {Icon ? <Icon size={19} color={light ? '#47340b' : STUDENT.white} strokeWidth={2.5} /> : null}
-      <Txt f="bold" size={15} color={light ? '#47340b' : STUDENT.white} style={{ flexShrink: 1 }}>{title}</Txt>
+    <Pressable accessibilityRole="button" accessibilityLabel={label ?? title} onPress={onPress} testID={testID} style={[{ alignSelf: 'flex-start', maxWidth: '100%' }, style]}>
+      {({ pressed }) => (
+        <View style={{ paddingBottom: depth }}>
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: depth, borderRadius: 16, backgroundColor: t.edge }} />
+          <View style={{ minHeight: size === 'lg' ? 54 : 48, paddingHorizontal: size === 'lg' ? 24 : 20, borderRadius: 16, backgroundColor: t.bg, borderWidth: t.border ? 2 : 0, borderColor: t.border,
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, transform: [{ translateY: pressed ? depth - 1 : 0 }] }}>
+            {Icon ? <Icon size={size === 'lg' ? 21 : 19} color={t.fg} strokeWidth={2.6} /> : null}
+            <Txt f="heavy" size={size === 'lg' ? 17 : 15} color={t.fg} style={{ flexShrink: 1, letterSpacing: 0.3 }}>{title}</Txt>
+          </View>
+        </View>
+      )}
     </Pressable>
   );
 }
 
-/** Original, code-native game scenery. This is an imaginary island, not a historical map or reconstruction. */
+/** Thẻ khối: nền trắng, viền 2, viền đáy dày (kiểu thẻ của trò chơi học tập) */
+export const BlockCard: React.FC<{ children: React.ReactNode; style?: StyleProp<ViewStyle>; testID?: string; color?: string; bg?: string; pad?: number }> = ({ children, style, testID, color = STUDENT.line, bg = STUDENT.white, pad = 18 }) => (
+  <View testID={testID} style={[{ backgroundColor: bg, borderRadius: 20, borderWidth: 2, borderBottomWidth: 5, borderColor: color, padding: pad }, style]}>{children}</View>
+);
+
+/** Huy hiệu tròn có biểu tượng (nút mục, bước, chỉ số) */
+export const IconBadge: React.FC<{ icon: IconType; color: string; size?: number; soft?: boolean }> = ({ icon: Icon, color, size = 36, soft = false }) => (
+  <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: soft ? `${color}22` : color, alignItems: 'center', justifyContent: 'center', borderBottomWidth: soft ? 0 : 3, borderBottomColor: 'rgba(0,0,0,0.18)' }}>
+    <Icon size={Math.round(size * 0.5)} color={soft ? color : '#ffffff'} strokeWidth={2.5} />
+  </View>
+);
+
+/** Cảnh nền trang trí theo phần: 1 làng tre (1258), 2 đình làng (1285), 3 sông núi Bạch Đằng (1287–1288) */
+export const sceneOf = (variant: number): VnSceneKind => (variant === 3 ? 'song' : variant === 2 ? 'dinh' : 'lang');
+
+/** Giữ tên cũ: tranh cảnh trang trí (nay là cảnh làng quê Việt tự vẽ), không phải bản đồ lịch sử */
 export function AdventureScene({ variant = 1, style }: { variant?: number; style?: StyleProp<ViewStyle> }) {
-  const river = variant === 3;
-  return (
-    <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={style}>
-      <Svg width="100%" height="100%" viewBox="0 0 460 280" preserveAspectRatio="xMidYMid meet">
-        <Circle cx={328} cy={78} r={61} fill="#fce7a1" opacity={0.65} />
-        <Path d="M32 142L118 49l71 87 64-99 115 114z" fill="#4d9286" opacity={0.6} />
-        <Path d="M76 140l61-60 65 75 68-89 92 100z" fill="#75b5a0" />
-        <Path d="M40 173Q222 73 423 172L394 219Q229 294 72 219Z" fill="#205e53" />
-        <Path d="M40 170Q217 70 423 170Q237 272 40 170Z" fill="#9bc89b" />
-        <Path d="M60 169Q228 90 399 169Q229 246 60 169Z" fill="#bad79f" />
-        <Path d={river ? 'M110 145Q302 147 239 177T341 207' : 'M126 147Q315 151 244 180T294 215'} fill="none" stroke={river ? '#3c9fad' : '#e4b878'} strokeWidth={river ? 31 : 18} />
-        <Path d={river ? 'M110 145Q302 147 239 177T341 207' : 'M126 147Q315 151 244 180T294 215'} fill="none" stroke={river ? '#87d6d1' : '#fce2a5'} strokeWidth={river ? 16 : 10} />
-        <Ellipse cx={237} cy={148} rx={74} ry={22} fill="#4d876d" opacity={0.35} />
-        <Path d="M181 104l54-23 62 23v44l-62 25-54-24z" fill="#d8c392" />
-        <Path d="M235 127l62-23v44l-62 25z" fill="#baa477" />
-        <Path d="M174 104l61-28 69 27-69 29z" fill="#eecc8e" />
-        <Path d="M211 128v31l24 11v-34z" fill="#2c6659" />
-        <Path d="M217 135v24l12 5v-25z" fill="#123d37" />
-        <Rect x={182} y={85} width={27} height={38} rx={2} fill="#f5dbab" />
-        <Path d="M175 87l20-20 23 20z" fill="#b7563f" />
-        <Path d="M178 85h37l7 5h-51z" fill="#824434" />
-        <Rect x={268} y={83} width={27} height={39} rx={2} fill="#ead4a7" />
-        <Path d="M261 85l20-20 23 20z" fill="#b7563f" />
-        <Path d="M264 83h37l7 5h-51z" fill="#824434" />
-        <Rect x={221} y={56} width={29} height={55} rx={2} fill="#f3d8a1" />
-        <Path d="M213 59l22-20 23 20z" fill="#ba5940" />
-        <Path d="M214 58h43l6 5h-55z" fill="#844633" />
-        <Path d="M235 39V15" stroke="#613f31" strokeWidth={3} />
-        <Path d="M237 16h29l-7 9 7 7h-29z" fill="#eebd42" />
-        <Path d="M228 78h12v16h-12z" fill="#426c5b" />
-        {[{ x: 112, y: 157, s: 1 }, { x: 328, y: 163, s: 1.2 }, { x: 367, y: 145, s: 0.8 }, { x: 155, y: 186, s: 0.8 }].map(({ x, y, s }, i) => (
-          <G key={i} transform={`translate(${x},${y}) scale(${s})`}>
-            <Ellipse cy={8} rx={13} ry={5} fill="#598d68" opacity={0.4} />
-            <Path d="M0-17v26" stroke="#806441" strokeWidth={5} />
-            <Path d="M-16-5L0-37 16-5z" fill="#287b65" /><Path d="M-12-18L0-44 12-18z" fill="#3c9270" />
-          </G>
-        ))}
-        <Path d="M107 177v-41" stroke="#775939" strokeWidth={3} /><Path d="M109 137h28l-6 9 6 8h-28z" fill="#e3a54b" />
-        <Path d="M334 205v-33" stroke="#775939" strokeWidth={3} /><Path d="M336 173h25l-6 8 6 8h-25z" fill="#b95740" />
-        {river ? <G transform="translate(295,181)"><Path d="M-20 0h43l-10 10h-24z" fill="#885e3f" /><Path d="M0-30v30h20z" fill="#fff0c5" /><Path d="M-3-28v25h-15z" fill="#d88750" /></G> : null}
-        <Circle cx={157} cy={48} r={3} fill="#ffe097" /><Circle cx={389} cy={110} r={4} fill="#ffe097" />
-        <Path d="M91 76h13m-6-6v13M372 43h13m-6-6v13" stroke="#ffe097" strokeWidth={2} strokeLinecap="round" />
-      </Svg>
-    </View>
-  );
+  return <VnScene kind={sceneOf(variant)} style={style} />;
 }
 
-export function AdventureHero({ eyebrow = 'HÀO KHÍ ĐÔNG A', title, subtitle, action, footnote, variant = 1 }: {
-  eyebrow?: string; title: string; subtitle: string; action?: React.ReactNode; footnote?: string; variant?: number;
+/** Ô chào lớn đầu trang: cảnh làng quê Việt, đôi bạn chibi áo ngũ thân, tiêu đề và nút hành động */
+export function AdventureHero({ eyebrow = 'HÀO KHÍ ĐÔNG A', title, subtitle, action, footnote, variant = 1, pair = ['thu-sinh', 'thieu-nu'] }: {
+  eyebrow?: string; title: string; subtitle: string; action?: React.ReactNode; footnote?: string; variant?: number; pair?: [ChibiKind, ChibiKind];
 }) {
   const { width } = useWindowDimensions();
   const compact = width < 760;
   return (
-    <View testID="student-adventure-hero" style={{ backgroundColor: '#164e49', borderRadius: 25, overflow: 'hidden', borderWidth: 1, borderColor: '#1f655c', minHeight: compact ? 256 : 282 }}>
-      <View pointerEvents="none" style={{ position: 'absolute', right: -50, top: -135, width: 440, height: 440, borderRadius: 220, backgroundColor: '#277368', opacity: 0.55 }} />
-      {!compact ? <AdventureScene variant={variant} style={{ position: 'absolute', right: -12, bottom: 0, width: '46%', height: '100%' }} /> : null}
-      <View style={{ padding: compact ? 23 : 30, gap: 14, width: compact ? '100%' : '59%' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}><Sparkles size={15} color={STUDENT.gold} /><Txt f="bold" size={12} color="#ffe49b" style={{ letterSpacing: 1.8 }}>{eyebrow}</Txt></View>
-        <Txt f="heavy" size={compact ? 28 : 33} color="#ffffff" accessibilityRole="header" style={{ lineHeight: compact ? 36 : 43 }}>{title}</Txt>
-        <Txt size={16} color="#d9eee3" style={{ lineHeight: 25, maxWidth: 460 }}>{subtitle}</Txt>
-        {action}
-        {footnote ? <Txt size={13} color="#d1e8d8">{footnote}</Txt> : null}
+    <View testID="student-adventure-hero" style={{ borderRadius: 26, overflow: 'hidden', borderWidth: 2, borderBottomWidth: 6, borderColor: '#e6cfa6', backgroundColor: STUDENT.canvas }}>
+      {compact ? (
+        <View style={{ height: 176 }}>
+          <AdventureScene variant={variant} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} />
+          <View pointerEvents="none" style={{ position: 'absolute', bottom: -4, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
+            <Chibi kind={pair[0]} size={92} /><Chibi kind={pair[1]} size={92} flip />
+          </View>
+        </View>
+      ) : (
+        <>
+          <AdventureScene variant={variant} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} />
+          <View pointerEvents="none" style={{ position: 'absolute', right: 34, bottom: -6, flexDirection: 'row', gap: 4 }}>
+            <Chibi kind={pair[0]} size={128} /><Chibi kind={pair[1]} size={128} flip />
+          </View>
+        </>
+      )}
+      <View style={{ padding: compact ? 20 : 28, paddingRight: compact ? 20 : 300, minHeight: compact ? undefined : 290, justifyContent: 'center' }}>
+        <View style={{ gap: 12, backgroundColor: compact ? 'transparent' : 'rgba(255,248,236,0.93)', borderRadius: 22, padding: compact ? 0 : 22, maxWidth: 560, borderWidth: compact ? 0 : 2, borderColor: '#efdcb8' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ backgroundColor: STUDENT.red, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 3 }}><Txt f="heavy" size={11} color="#ffffff" style={{ letterSpacing: 1.6 }}>{eyebrow}</Txt></View>
+          </View>
+          <Txt f="heavy" size={compact ? 27 : 32} color={STUDENT.ink} accessibilityRole="header" style={{ lineHeight: compact ? 34 : 40 }}>{title}</Txt>
+          <Txt size={16} color={STUDENT.muted} style={{ lineHeight: 25, maxWidth: 480 }}>{subtitle}</Txt>
+          {action}
+          {footnote ? <Txt size={13} color={STUDENT.muted}>{footnote}</Txt> : null}
+        </View>
       </View>
     </View>
   );
 }
 
-export function LearnerStats({ home, compact = false }: { home: SagaHome; compact?: boolean }) {
+/** Chỉ số của em (chuỗi ngày, vàng, điểm kinh nghiệm); `bare` là kiểu gọn trên thanh đầu (biểu tượng + số) */
+export function LearnerStats({ home, compact = false, bare = false }: { home: SagaHome; compact?: boolean; bare?: boolean }) {
   const stats = [
-    { icon: Flame, value: home.hud.streak.current, label: 'ngày liên tiếp', short: 'ngày', color: '#ae4c1e', bg: '#fff2e6' },
-    { icon: Coins, value: home.hud.gold.toLocaleString('vi-VN'), label: 'vàng', short: 'vàng', color: STUDENT.goldInk, bg: '#fff7d9' },
-    { icon: Star, value: home.hud.xp.toLocaleString('vi-VN'), label: 'kinh nghiệm', short: 'XP', color: STUDENT.teal, bg: STUDENT.mint },
+    { icon: Flame, value: home.hud.streak.current, label: 'ngày liên tiếp', short: 'ngày', color: STUDENT.orange, ink: '#9a4300', bg: STUDENT.orangeSoft, fill: true },
+    { icon: Coins, value: home.hud.gold.toLocaleString('vi-VN'), label: 'vàng', short: 'vàng', color: STUDENT.goldDeep, ink: STUDENT.goldInk, bg: STUDENT.goldSoft, fill: true },
+    { icon: Star, value: home.hud.xp.toLocaleString('vi-VN'), label: 'kinh nghiệm', short: 'XP', color: STUDENT.red, ink: STUDENT.deep, bg: STUDENT.mint, fill: true },
   ];
   return (
-    <View testID="student-live-stats" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: compact ? 8 : 12 }}>
-      {stats.map(({ icon: Icon, value, label, short, color, bg }) => (
-        <View key={label} accessible accessibilityLabel={`${value} ${label}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 7, borderRadius: 13, backgroundColor: bg, paddingHorizontal: compact ? 10 : 14, minHeight: 42 }}>
-          <Icon size={compact ? 18 : 21} color={color} strokeWidth={2.3} />
-          <Txt f="bold" size={compact ? 14 : 16} color={color}>{value}</Txt>
-          <Txt size={compact ? 12 : 13} color={color}>{compact ? short : label}</Txt>
+    <View testID="student-live-stats" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: bare ? 4 : compact ? 8 : 12 }}>
+      {stats.map(({ icon: Icon, value, label, short, color, ink, bg, fill }) => (
+        <View key={label} accessible accessibilityLabel={`${value} ${label}`}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 14, minHeight: bare ? 40 : 44, paddingHorizontal: bare ? 8 : compact ? 11 : 14,
+            backgroundColor: bare ? 'transparent' : bg, borderWidth: bare ? 0 : 2, borderBottomWidth: bare ? 0 : 4, borderColor: bare ? 'transparent' : `${color}55` }}>
+          <Icon size={bare ? 22 : compact ? 18 : 21} color={color} fill={fill ? color : 'transparent'} strokeWidth={2.2} />
+          <Txt f="heavy" size={bare ? 16 : compact ? 14 : 16} color={bare ? color : ink}>{value}</Txt>
+          {bare ? null : <Txt f="semibold" size={compact ? 12 : 13} color={ink}>{compact ? short : label}</Txt>}
         </View>
       ))}
     </View>
   );
 }
 
+/** Hướng dẫn tân binh (chưa vào lớp nào): nhân vật chào, ba bước, nút xem mã lớp */
 export function RookieGuide({ onInbox }: { onInbox?: () => void }) {
   return (
-    <View testID="student-rookie-guide" style={{ borderWidth: 1, borderBottomWidth: 4, borderColor: STUDENT.line, backgroundColor: STUDENT.white, borderRadius: 22, padding: 21, gap: 17 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Mascot size={68} mood="happy" accessory="helmet" />
-        <View style={{ flex: 1, gap: 3 }}><Txt f="heavy" size={17} color={STUDENT.ink}>Chào em, tân binh!</Txt><Txt size={16} color={STUDENT.muted}>Rồng Con đồng hành cùng em.</Txt></View>
+    <BlockCard testID="student-rookie-guide" style={{ gap: 16, overflow: 'hidden' }} pad={20}>
+      <DrumSun size={210} style={{ position: 'absolute', right: -70, top: -70 }} opacity={0.12} />
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 12 }}>
+        <Chibi kind="thu-sinh" size={74} />
+        <View style={{ flex: 1, gap: 3, paddingBottom: 8 }}><Txt f="heavy" size={18} color={STUDENT.ink}>Chào em, tân binh!</Txt><Txt size={15} color={STUDENT.muted}>Rồng Con và các bạn đồng hành cùng em.</Txt></View>
       </View>
-      <Txt f="bold" size={16}>Cuộc phiêu lưu bắt đầu từ đây</Txt>
+      <Txt f="heavy" size={16} color={STUDENT.ink}>Cuộc phiêu lưu bắt đầu từ đây</Txt>
       {[
-        { icon: Flag, title: 'Vào lớp của em', text: 'Chọn lớp. Nếu chưa tham gia, nhập mã thầy cô đã gửi.' },
-        { icon: BookOpen, title: 'Khám phá từng chặng', text: 'Học kiến thức, luyện tập rồi thử sức nhập vai.' },
-        { icon: Star, title: 'Ghi dấu thành tích', text: 'Hoàn thành chặng để tích lũy sao và mở phần thưởng.' },
-      ].map(({ icon: Icon, title, text }) => (
-        <View key={title} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 11 }}>
-          <View style={{ width: 36, height: 36, borderRadius: 11, backgroundColor: STUDENT.mint, alignItems: 'center', justifyContent: 'center' }}><Icon size={18} color={STUDENT.teal} /></View>
-          <View style={{ flex: 1, gap: 3 }}><Txt f="bold" size={14}>{title}</Txt><Txt size={16} color={STUDENT.muted} style={{ lineHeight: 24 }}>{text}</Txt></View>
+        { icon: Flag, color: STUDENT.red, title: 'Vào lớp của em', text: 'Chọn lớp. Nếu chưa tham gia, nhập mã thầy cô đã gửi.' },
+        { icon: BookOpen, color: STUDENT.green, title: 'Khám phá từng chặng', text: 'Học kiến thức, luyện tập rồi thử sức nhập vai.' },
+        { icon: Star, color: STUDENT.goldDeep, title: 'Ghi dấu thành tích', text: 'Hoàn thành chặng để tích lũy sao và mở phần thưởng.' },
+      ].map(({ icon, color, title, text }) => (
+        <View key={title} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+          <IconBadge icon={icon} color={color} size={38} />
+          <View style={{ flex: 1, gap: 2 }}><Txt f="bold" size={15} color={STUDENT.ink}>{title}</Txt><Txt size={15} color={STUDENT.muted} style={{ lineHeight: 23 }}>{text}</Txt></View>
         </View>
       ))}
       {onInbox ? <GameButton title="Xem mã lớp trong Tin nhắn" onPress={onInbox} style={{ alignSelf: 'stretch' }} /> : null}
-    </View>
+    </BlockCard>
   );
 }
