@@ -33,6 +33,7 @@ import { SagaHeader, SagaPage, num, type SagaNav, type SagaRoute, type SagaStep,
 import { LessonScreen, PracticeScreen, SummaryScreen } from '@/components/portal/SagaLearn';
 import { BattleScreen, ExploreScreen } from '@/components/portal/SagaPlay';
 import { StudentAiHub } from '@/components/ai/StudentAiHub';
+import { HallLandingScreen } from '@/components/portal/StudentHall';
 import { StudentWorkspace } from '@/components/portal/StudentWorkspace';
 import { STUDENT_PALETTE } from '@/components/portal/StudentDesign';
 import { AdminUiContext, Btn, Sheet, Txt, useToast } from '@/components/ui';
@@ -42,8 +43,8 @@ import { play, setSound, soundEnabled } from '@/lib/saga-sound';
 import type { Prefs } from '@/types/platform';
 import type { Completion, SagaHome } from '@/types/saga';
 
-/** `lop-hoc` chỉ còn cho đường dẫn cũ: danh sách lớp nay là bước đầu của Chiến dịch (16/11/2026 đợt 5) */
-const TABS: readonly SagaTab[] = ['chien-dich', 'nhap-vai', 'cau-hoi', 'ky-thi', 'tu-lieu', 'bo-the', 'hoi', 'lop-hoc', 'tin-nhan', 'tro-giup'];
+/** `trang-chu` là sảnh mở đầu ngay sau khi đăng nhập (không hiện dải 9 tab); bấm VÀO TRẬN mới vào không gian học tập 9 mục */
+const TABS: readonly SagaTab[] = ['trang-chu', 'chien-dich', 'nhap-vai', 'cau-hoi', 'ky-thi', 'tu-lieu', 'bo-the', 'hoi', 'lop-hoc', 'tin-nhan', 'tro-giup'];
 /** Chưa vào lớp nào: chỉ có Chiến dịch (danh sách lớp, đăng ký bằng mã), Tin nhắn (mã lớp thầy cô gửi), Trợ giúp (16/11/2026) */
 const BEFORE_CLASS: readonly SagaTab[] = ['chien-dich', 'tin-nhan', 'tro-giup'];
 const STEPS: readonly SagaStep[] = ['hoc', 'luyen', 'kham-pha', 'tran', 'tong-ket'];
@@ -120,7 +121,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const params = useLocalSearchParams<{ tab?: string | string[]; c?: string | string[]; s?: string | string[]; v?: string | string[]; embed?: string | string[] }>();
   // ứng dụng điện thoại gốc nhúng trang này trong WebView (embed=1): chỉ hiện nội dung, không thanh đầu / nút mục; chuyển màn giữ embed
   const embed = Platform.OS === 'web' && one(params.embed) === '1';
-  const [tab, setTab] = usePortalTab<SagaTab>('chien-dich', TABS);
+  const [tab, setTab] = usePortalTab<SagaTab>(embed ? 'chien-dich' : 'trang-chu', TABS);
   useEffect(() => {
     if (one(params.tab) === 'ai') {
       const keep = Object.fromEntries(Object.entries(params as Record<string, unknown>).filter(([k, val]) => k !== 'school' && k !== 'tab' && val !== undefined));
@@ -139,7 +140,14 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const inbox = useLoad(() => learningApi.messageInbox(session.token), [session.token, inboxTick, focused], session.expired);
   const gated = Boolean(myClasses.data) && !(myClasses.data ?? []).some((k) => k.is_active);
   const [entered, setEnteredState] = useState<number | null>(() => readEntered(session.user.id));
-  const enter = useCallback((id: number | null) => { writeEntered(session.user.id, id); setEnteredState(id); }, [session.user.id]);
+  const [leftClass, setLeftClass] = useState(false);
+  const enter = useCallback((id: number | null) => { writeEntered(session.user.id, id); setEnteredState(id); if (id !== null) setLeftClass(false); }, [session.user.id]);
+  // Vừa đăng nhập: tự vào lớp đang hoạt động đầu tiên để mở thẳng sảnh mở đầu Hoàng thành Đông A (vẫn đổi/chọn lớp qua nút Lớp học)
+  useEffect(() => {
+    if (entered !== null || leftClass || !myClasses.data) return;
+    const first = myClasses.data.find((k) => k.is_active);
+    if (first) enter(first.id);
+  }, [entered, leftClass, myClasses.data, enter]);
   const cls = (myClasses.data ?? []).find((k) => k.is_active && k.id === entered) ?? null;
   const inClass = entered !== null && (!myClasses.data || cls !== null); // đang tải danh sách lớp thì vẫn ở ba phần, tránh nháy
   // chỉ nhận phần thưởng đang chờ của chính phiên này (đăng xuất rồi tài khoản khác đăng nhập trên cùng máy thì không thấy)
@@ -217,7 +225,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       : stage && route.v === 'tran' ? <BattleScreen key={`tran${stage.stageId}`} {...stage} />
       : stage && route.v === 'tong-ket' ? <SummaryScreen key={`tk${stage.stageId}`} {...stage} />
       : route.c !== null ? <CampaignScreen key="campaign" session={session} nav={nav} no={route.c} />
-      : inClass ? <HomeScreen session={session} nav={nav} loading={home.loading} error={home.error} cls={cls} onLeave={() => enter(null)} /> : catalog
+      : inClass ? <HomeScreen session={session} nav={nav} loading={home.loading} error={home.error} cls={cls} onLeave={() => { setLeftClass(true); enter(null); }} /> : catalog
     : route.tab === 'nhap-vai' ? <RolePlayScreen session={session} nav={nav} />
     : route.tab === 'cau-hoi' ? <ReviewScreen session={session} nav={nav} />
     : route.tab === 'ky-thi' ? <StudentExams session={session} />
@@ -239,18 +247,39 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
     </View>
   );
 
+  const topAvatar = home.data?.look?.frame || home.data?.look?.avatar ? <FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={34} frame={home.data.look.frame} preset={home.data.look.avatar} testID="top-framed-avatar" /> : undefined;
+  const profAvatar = <FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={56} frame={home.data?.look?.frame} preset={home.data?.look?.avatar} testID="profile-framed-avatar" />;
+  const profExtra = <ProfileLook session={session} onChanged={home.reload} />;
+
   return (
     <ThemeContext.Provider value={{ c: STUDENT_PALETTE, dark: false }}>
     <AdminUiContext.Provider value={false}>
       <View style={{ flex: 1 }} testID="student-app">
         {embed ? <View style={{ flex: 1, minHeight: 0, backgroundColor: c.giay }} testID="student-embed">{body}</View> : (
-        <StudentWorkspace session={session} nav={navItems} active={route.tab === 'lop-hoc' ? 'chien-dich' : route.tab} onSelect={pick} home={home.data}
-          avatar={home.data?.look?.frame || home.data?.look?.avatar ? <FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={34} frame={home.data.look.frame} preset={home.data.look.avatar} testID="top-framed-avatar" /> : undefined}
-          profileAvatar={<FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={56} frame={home.data?.look?.frame} preset={home.data?.look?.avatar} testID="profile-framed-avatar" />}
-          profileExtra={<ProfileLook session={session} onChanged={home.reload} />}
-          roleLine={home.data?.look?.title ? <TitleBadge title={home.data.look.title} testID="top-title" /> : undefined} schoolName={profile.data?.school?.name} extra={extra}>
-          {body}
-        </StudentWorkspace>
+          route.tab === 'trang-chu' ? (
+            <HallLandingScreen
+              session={session}
+              home={home.data}
+              loading={home.loading}
+              error={home.error}
+              onRetry={home.reload}
+              classId={cls?.id ?? null}
+              className={cls?.name ?? null}
+              schoolName={profile.data?.school?.name}
+              avatar={topAvatar}
+              profileAvatar={profAvatar}
+              profileExtra={profExtra}
+              onPlay={() => pick('chien-dich')}
+            />
+          ) : (
+            <StudentWorkspace session={session} nav={navItems} active={route.tab === 'lop-hoc' ? 'chien-dich' : route.tab} onSelect={pick} onHome={() => pick('trang-chu')} home={home.data}
+              avatar={topAvatar}
+              profileAvatar={profAvatar}
+              profileExtra={profExtra}
+              roleLine={home.data?.look?.title ? <TitleBadge title={home.data.look.title} testID="top-title" /> : undefined} schoolName={profile.data?.school?.name} extra={extra}>
+              {body}
+            </StudentWorkspace>
+          )
         )}
         {levelUp && !reward ? (
           <Sheet open onClose={() => setLevelUp(null)} title={`Lên cấp ${levelUp.level}`} subtitle={levelUp.title || undefined} footer={<Btn title="Tiếp tục" tone="son" full onPress={() => setLevelUp(null)} testID="level-up-close" />}>

@@ -133,14 +133,15 @@ export function LearnerStats({ home, compact = false, bare = false }: { home: Sa
     { icon: Coins, value: home.hud.gold.toLocaleString('vi-VN'), label: 'vàng', short: 'vàng', color: STUDENT.goldDeep, ink: STUDENT.goldInk, bg: STUDENT.goldSoft, fill: true },
     { icon: Star, value: home.hud.xp.toLocaleString('vi-VN'), label: 'kinh nghiệm', short: 'XP', color: STUDENT.red, ink: STUDENT.deep, bg: STUDENT.mint, fill: true },
   ];
+  const tight = bare && compact;
   return (
-    <View testID="student-live-stats" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: bare ? 4 : compact ? 8 : 12 }}>
+    <View testID="student-live-stats" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: tight ? 8 : bare ? 4 : compact ? 8 : 12 }}>
       {stats.map(({ icon: Icon, value, label, short, color, ink, bg, fill }) => (
         <View key={label} accessible accessibilityLabel={`${value} ${label}`}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 14, minHeight: bare ? 40 : 44, paddingHorizontal: bare ? 8 : compact ? 11 : 14,
+          style={{ flexDirection: 'row', alignItems: 'center', gap: tight ? 3 : 6, borderRadius: 14, minHeight: tight ? 22 : bare ? 40 : 44, paddingHorizontal: tight ? 2 : bare ? 8 : compact ? 11 : 14,
             backgroundColor: bare ? 'transparent' : bg, borderWidth: bare ? 0 : 2, borderBottomWidth: bare ? 0 : 4, borderColor: bare ? 'transparent' : `${color}55` }}>
-          <Icon size={bare ? 22 : compact ? 18 : 21} color={color} fill={fill ? color : 'transparent'} strokeWidth={2.2} />
-          <Txt f="heavy" size={bare ? 16 : compact ? 14 : 16} color={bare ? color : ink}>{value}</Txt>
+          <Icon size={tight ? 14 : bare ? 22 : compact ? 18 : 21} color={color} fill={fill ? color : 'transparent'} strokeWidth={2.2} />
+          <Txt f="heavy" size={tight ? 12 : bare ? 16 : compact ? 14 : 16} color={bare ? color : ink}>{value}</Txt>
           {bare ? null : <Txt f="semibold" size={compact ? 12 : 13} color={ink}>{compact ? short : label}</Txt>}
         </View>
       ))}

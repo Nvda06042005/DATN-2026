@@ -23,7 +23,7 @@ import { ChestArt, SagaRail } from '@/components/portal/SagaRail';
 import { ChestOpening } from '@/components/portal/SagaChest';
 import { BlockCard, GameButton, LearnerStats, STUDENT as S, sceneOf } from '@/components/portal/StudentDesign';
 import { Chibi, DrumSun, VnScene, type ChibiKind } from '@/components/portal/StudentArt';
-import { HALL, HallBoard, HallGallery, HallHero, HallSteps, HallTitle, RankLadder, scholarRank } from '@/components/portal/StudentHall';
+import { HALL, HallTitle, RankLadder, scholarRank } from '@/components/portal/StudentHall';
 import { Btn, Card, Chip, Inset, Segmented, Sheet, Txt, useToast } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
@@ -231,13 +231,15 @@ export const HomeScreen: React.FC<{ session: Session; nav: SagaNav; loading: boo
   const parts = [p1, p2, p3];
   const [sheet, setSheet] = useState<{ id: number; no: number } | null>(null);
   const [opening, setOpening] = useState<{ box: SagaChest; part: number } | null>(null);
+
   const onChest = (box: SagaChest, part: number): void => {
     if (box.state === 'opened') { toast('Em đã mở hòm báu này rồi.'); return; }
     if (box.state === 'locked') { toast(box.kind === 'part' ? 'Hoàn thành mọi chặng của phần này để mở hòm báu cuối phần.' : `Hoàn thành chặng ${box.after} để mở hòm báu này.`); return; }
     setOpening({ box, part });
   };
   const toMap = (no: number): void => { campaignView = 'map'; nav.go('chien-dich', { c: no, s: null, v: null }); };
-  // cột bên phải kiểu Duolingo (17/11/2026): dải chỉ số, cấp độ, giải đấu tuần, nhiệm vụ hằng ngày có hòm báu, ôn tập, kỳ thi
+
+  // cột bên phải: dải chỉ số, cấp độ, giải đấu tuần, nhiệm vụ hằng ngày có hòm báu, ôn tập, kỳ thi
   const rail = home && hud && level ? <View style={{ width: wide ? 340 : '100%' }}><SagaRail session={session} nav={nav} wide={wide} /></View> : null;
   const units = home ? (
     <View style={{ gap: 18, flex: wide ? 1 : undefined, width: wide ? undefined : '100%', minWidth: 0 }} testID="home-units">
@@ -260,7 +262,6 @@ export const HomeScreen: React.FC<{ session: Session; nav: SagaNav; loading: boo
       </BlockCard>
     </View>
   ) : null;
-  const play = (): void => { campaignView = 'path'; nav.go('chien-dich', next ? { c: next.campaign_no, s: next.stage_id, v: null } : { c: 1, s: null, v: null }); };
   return (
     <SagaPage testID="saga-home" max={1320}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -269,18 +270,13 @@ export const HomeScreen: React.FC<{ session: Session; nav: SagaNav; loading: boo
       </View>
       {!home || !hud || !level ? <LoadState loading={loading} error={error} onRetry={nav.refresh} /> : (
         <>
-          <HallHero home={home} rank={rank} onPlay={play} onMap={() => toMap(next?.campaign_no ?? 1)} />
           {width < 560 ? <LearnerStats home={home} compact /> : null}
           <View style={{ flexDirection: wide ? 'row' : 'column', gap: 24, alignItems: 'flex-start' }}>
             {units}{rail}
           </View>
-          <HallSteps />
           <RankLadder rank={rank} />
-          <HallBoard session={session} classId={cls?.id ?? null} className={cls?.name ?? null} />
-          <HallGallery level={rank.level} home={home} />
           <Txt size={12} color={HALL.muted} center style={{ lineHeight: 18 }}>
-            Nhân vật, trang phục, cảnh làng quê, cung điện và tranh trong trang là hình vẽ cách điệu do nhóm Đông A tự sáng tác, không phục dựng di tích hay trang phục cụ thể.
-            Bản đồ các phần là bản đồ gốc trên Wikipedia tiếng Việt.
+            Bản đồ các phần là bản đồ gốc trên Wikipedia tiếng Việt (tác giả Lưu Ly).
           </Txt>
         </>
       )}
