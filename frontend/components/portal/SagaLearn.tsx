@@ -544,7 +544,7 @@ export const SummaryScreen: React.FC<StageProps> = ({ session, nav, stageId, cam
                   <Txt size={14} style={{ flex: 1 }}>{w.text}</Txt><Txt f="bold" size={13} color={c.hoaChu}>{w.percent}% đúng</Txt>
                 </View>
               ))}
-              <Btn title="Ôn câu hỏi" icon={RotateCcw} tone="giay" size="sm" onPress={() => nav.go('cau-hoi', { c: null, s: null, v: null })} testID="summary-review" />
+              <Btn title="Luyện lại chặng này" icon={RotateCcw} tone="giay" size="sm" onPress={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'luyen' }, 'replace')} testID="summary-review" />
             </Card>
           ) : null}
 

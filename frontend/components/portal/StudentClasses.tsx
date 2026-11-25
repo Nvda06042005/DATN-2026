@@ -7,21 +7,19 @@
  */
 import React, { useMemo, useState } from 'react';
 import { Image, Platform, Pressable, ScrollView, TextInput, View, useWindowDimensions } from 'react-native';
-import { ArrowLeft, Check, ChevronDown, ChevronRight, Inbox, KeyRound, LogIn, Mail, Play, Search } from 'lucide-react-native';
+import { ArrowLeft, Check, ChevronDown, ChevronRight, KeyRound, LogIn, Play, Search } from 'lucide-react-native';
 import * as authApi from '@/api/authApi';
-import * as learning from '@/api/learningApi';
 import { errorMessage } from '@/api/client';
 import { ErrorNote, Page, useLoad } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { HALL_ART } from '@/components/portal/HallMedia';
-import { Avatar, Btn, Card, EmptyState, Field, InfoNote, Spinner, Txt } from '@/components/ui';
+import { Btn, EmptyState, Field, InfoNote, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
-import type { CatalogClass, InboxMessage } from '@/types/learning';
+import type { CatalogClass } from '@/types/learning';
 import type { SagaHome } from '@/types/saga';
 import { BlockCard, GameButton, IconBadge, STUDENT as S } from '@/components/portal/StudentDesign';
 import { SagaHeader } from '@/components/portal/SagaKit';
 
-const when = (iso: string) => new Date(iso).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const searchable = (value: string) => value.toLocaleLowerCase('vi').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
 
 /** Nền vách gỗ dọc giống bố cục chọn lớp mẫu */
@@ -273,71 +271,5 @@ export const StudentCatalog: React.FC<{ session: Session; home?: SagaHome | null
         </View>
       </View>
     </ScrollView>
-  );
-};
-
-/** Hộp thư đến của học sinh: tin nhắn của thầy cô; tin nhắn kèm mã lớp có nút mở trang đăng ký lớp */
-export const StudentInbox: React.FC<{ session: Session; onJoinCode: (classId: number, code: string) => void; onRead?: () => void }> = ({ session, onJoinCode, onRead }) => {
-  const { c } = useTheme();
-  const list = useLoad(() => learning.messageInbox(session.token), [session.token], session.expired);
-  const [open, setOpen] = useState<InboxMessage | null>(null);
-  const read = (m: InboxMessage) => {
-    setOpen(m);
-    if (!m.read_at) learning.readMessage(session.token, m.id).then(() => { list.reload(); onRead?.(); }).catch(() => undefined);
-  };
-  if (open) {
-    return (
-      <Page>
-        <Btn icon={ArrowLeft} title="Hộp thư" tone="ghost" size="sm" onPress={() => setOpen(null)} style={{ marginLeft: -10, alignSelf: 'flex-start' }} />
-        <BlockCard pad={20} style={{ gap: 14 }} testID="inbox-view">
-          <Txt f="bold" size={20} accessibilityRole="header">{open.subject}</Txt>
-          <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-            <Avatar name={open.sender ?? 'Thầy cô'} size={40} />
-            <View style={{ flex: 1 }}><Txt f="bold" size={14}>{open.sender ?? 'Thầy cô'}</Txt><Txt size={12} color={c.muc3}>{open.sender_role === 'school_admin' ? 'Quản trị trường' : 'Giáo viên'} · {when(open.created_at)}</Txt></View>
-          </View>
-          <View style={{ borderTopWidth: 1, borderTopColor: c.adminLine, paddingTop: 14 }}>
-            {open.body ? <Txt size={15} style={{ lineHeight: 24 }} selectable>{open.body}</Txt> : <Txt size={14} color={c.muc3} style={{ fontStyle: 'italic' }}>(Tin nhắn không có nội dung)</Txt>}
-          </View>
-          {open.class_id && open.join_code ? (
-            <Card flat pad={14} style={{ gap: 8, borderRadius: 12, borderWidth: 2, borderColor: c.logoRed }} testID="inbox-class-code">
-              <Txt size={13} color={c.muc2}>Mã tham gia lớp {open.class_name}</Txt>
-              <Txt f="heavy" size={22} selectable style={{ letterSpacing: 1 }}>{open.join_code}</Txt>
-              <Btn icon={LogIn} title={`Vào lớp ${open.class_name ?? ''}`} tone="son" size="sm" style={{ alignSelf: 'flex-start' }} onPress={() => onJoinCode(open.class_id!, open.join_code!)} testID="inbox-join" />
-            </Card>
-          ) : null}
-        </BlockCard>
-      </Page>
-    );
-  }
-  const rows = list.data ?? [];
-  return (
-    <Page>
-      <SagaHeader title="Tin nhắn" subtitle="Tin nhắn thầy cô và nhà trường gửi cho em." />
-      <ErrorNote message={list.error} />
-      {list.loading && !list.data ? <Spinner /> : null}
-      <BlockCard pad={0} style={{ overflow: 'hidden' }} testID="inbox-list">
-        {rows.length ? rows.map((m) => (
-          <Pressable key={m.id} onPress={() => read(m)} accessibilityRole="button" accessibilityLabel={`${m.read_at ? '' : 'Chưa đọc. '}${m.subject}, từ ${m.sender ?? 'thầy cô'}`} testID={`inbox-row-${m.id}`}
-            style={({ pressed }) => ({ flexDirection: 'row', gap: 12, padding: 14, minHeight: 64, borderBottomWidth: 1, borderBottomColor: c.adminLine, backgroundColor: pressed ? c.adminCanvas : m.read_at ? c.the : c.adminTint })}>
-            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: m.class_id ? c.sonNhat : c.thuyNhat, alignItems: 'center', justifyContent: 'center' }}>
-              {m.class_id ? <KeyRound size={17} color={c.sonChu} /> : <Mail size={17} color={c.thuyChu} />}
-            </View>
-            <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                <Txt f={m.read_at ? 'semibold' : 'bold'} size={14} numberOfLines={1} style={{ flex: 1 }}>{m.sender ?? 'Thầy cô'}</Txt>
-                <Txt size={12} color={c.muc3}>{when(m.created_at)}</Txt>
-              </View>
-              <Txt f={m.read_at ? 'semibold' : 'bold'} size={14} numberOfLines={1}>{m.subject}</Txt>
-              <Txt size={13} color={c.muc3} numberOfLines={1}>{(m.body ?? '').replace(/\s+/g, ' ') || (m.class_id ? `Mã tham gia lớp ${m.class_name ?? ''}` : '')}</Txt>
-            </View>
-          </Pressable>
-        )) : (
-          <View style={{ padding: 24, alignItems: 'center', gap: 8 }}>
-            <Inbox size={28} color={c.muc3} />
-            <Txt size={14} color={c.muc2} center>Chưa có tin nhắn nào.</Txt>
-          </View>
-        )}
-      </BlockCard>
-    </Page>
   );
 };

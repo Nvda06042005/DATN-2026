@@ -253,11 +253,10 @@ export const HomeScreen: React.FC<{ session: Session; nav: SagaNav; loading: boo
       </View>
       <BlockCard pad={18} color="#cfe6c4" bg={S.greenSoft} style={{ gap: 12 }}>
         <Txt f="heavy" size={17} color={S.ink}>Đổi gió một chút?</Txt>
-        <Txt size={15} color={S.muted}>Luyện trí nhớ, nhập vai hoặc khám phá bộ thẻ của em.</Txt>
+        <Txt size={15} color={S.muted}>Nhập vai khám phá thế giới khối hoặc hỏi Tiểu Tướng về sử Trần.</Txt>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 9 }}>
-          <GameButton title="Ôn tập" icon={RotateCcw} tone="paper" onPress={() => nav.go('cau-hoi')} />
           <GameButton title="Nhập vai" icon={Gamepad2} tone="paper" onPress={() => nav.go('nhap-vai')} />
-          <GameButton title="Bộ thẻ" icon={Award} tone="paper" onPress={() => nav.go('bo-the')} />
+          <GameButton title="Hỏi Tiểu Tướng" icon={Sparkles} tone="paper" onPress={() => nav.go('hoi')} />
         </View>
       </BlockCard>
     </View>
@@ -748,7 +747,6 @@ const StageSheet: React.FC<{ session: Session; nav: SagaNav; stageId: number; ca
                 <Btn title="Luyện lại" icon={Puzzle} tone="giay" size="sm" onPress={() => open('luyen')} testID="replay-practice" />
                 <Btn title="Nhập vai lại" icon={Gamepad2} tone="giay" size="sm" onPress={() => open('kham-pha')} testID="replay-explore" />
                 {d.battle ? <Btn title="Đánh lại trận" icon={Swords} tone="giay" size="sm" onPress={() => open('tran')} testID="replay-battle" /> : null}
-                {d.review_due ? <Btn title={`Ôn ${d.review_due} câu đã sai`} icon={RotateCcw} tone="giay" size="sm" onPress={() => nav.go('cau-hoi', { c: null, s: null, v: null })} testID="replay-review" /> : null}
               </View>
             </View>
           ) : null}

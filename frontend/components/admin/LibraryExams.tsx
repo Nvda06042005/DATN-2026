@@ -3,9 +3,10 @@
  * - "Giáo viên khác": bộ đề trong kho chung của trường do giáo viên khác cùng trường soạn (đã được duyệt vào kho trường), xem trước, tổ chức thi đấu.
  * - "Đề kiểm tra": giáo viên gửi đề giữa kỳ / cuối kỳ cho quản trị trường duyệt; đề được duyệt thì "Tổ chức thi" (mật khẩu, giờ mở, giờ đóng),
  *   hệ thống tạo bài thi cho lớp và báo học sinh; học sinh nhập mật khẩu giáo viên cung cấp để làm (migration 068).
- * - Quản trị trường duyệt đề ở mục Duyệt nội dung (`ExamReview`); học sinh làm bài ở mục Kỳ thi (`StudentExams`).
+ * - Quản trị trường duyệt đề ở mục Duyệt nội dung (`ExamReview`). Mục Kỳ thi của trang học sinh đã bỏ theo yêu cầu ngày 25/11/2026 (`StudentExams` đã xóa;
+ *   API / dữ liệu bài thi giữ nguyên).
  */
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { View } from 'react-native';
 import { Check, ClipboardCheck, Eye, KeyRound, Play, Plus, RefreshCw, Send, Undo2, X } from 'lucide-react-native';
 import * as classroom from '@/api/classroomApi';
@@ -16,9 +17,9 @@ import { dateText } from '@/components/admin/AccountSheet';
 import { Cell, DataTable, ErrorNote, Page, PageHeader, SearchFilterBar, StatusChip, useAction, useLoad, type SearchFilter } from '@/components/admin/kit';
 import type { Session } from '@/components/auth';
 import { QuizPlayer } from '@/components/portal/QuizPlayer';
-import { Btn, Card, EmptyState, Field, InfoNote, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
+import { Btn, Card, Field, InfoNote, Segmented, Sheet, Spinner, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
-import type { ExamItem, MyAssignment } from '@/types/classroom';
+import type { ExamItem } from '@/types/classroom';
 import type { AttemptState, QuizItem } from '@/types/learning';
 
 const STATUS: Record<ExamItem['status'], { kind: 'warn' | 'on' | 'off' | 'info'; text: string }> = {
@@ -276,70 +277,6 @@ export const ExamReview: React.FC<{ session: Session; switcher?: React.ReactNode
         </Sheet>
       ) : null}
       {preview ? <PreviewSheet session={session} quiz={preview} onClose={() => setPreview(null)} /> : null}
-    </Page>
-  );
-};
-
-// ---------------------------------------------------------------------- học sinh: kỳ thi
-export const StudentExams: React.FC<{ session: Session }> = ({ session }) => {
-  const { c } = useTheme();
-  const list = useLoad(() => classroom.myAssignments(session.token), [session.token], session.expired);
-  const exams = useMemo(() => (list.data ?? []).filter((a): a is MyAssignment & { exam_kind: 'midterm' | 'final' } => Boolean(a.exam_kind)), [list.data]);
-  const [entering, setEntering] = useState<MyAssignment | null>(null);
-  const [password, setPassword] = useState('');
-  const [problem, setProblem] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [playing, setPlaying] = useState<{ title: string; attempt: AttemptState } | null>(null);
-  const start = async () => {
-    if (!entering) return;
-    setProblem(null); setBusy(true);
-    try {
-      const res = await classroom.startAssignment(session.token, entering.id, password.trim());
-      if (res.kind === 'quiz') { setPlaying({ title: entering.title, attempt: res.attempt }); setEntering(null); setPassword(''); }
-    } catch (e) { setProblem(errorMessage(e)); } finally { setBusy(false); }
-  };
-  if (playing) {
-    return (
-      <Page>
-        <QuizPlayer session={session} initial={playing.attempt} title={playing.title} onClose={() => { setPlaying(null); list.reload(); }} />
-      </Page>
-    );
-  }
-  const now = Date.now();
-  return (
-    <Page>
-      <PageHeader title="Kỳ thi" subtitle="Bài kiểm tra giữa kỳ, cuối kỳ thầy cô tổ chức. Vào giờ thi, nhập mật khẩu thầy cô đọc để làm bài; mỗi bài làm một lần." />
-      <ErrorNote message={list.error} />
-      {list.loading && !list.data ? <Spinner /> : null}
-      {list.data && !exams.length ? <EmptyState mood="happy" title="Chưa có kỳ thi nào" text="Khi thầy cô tổ chức thi, bài thi sẽ hiện ở đây và em nhận được thông báo." /> : null}
-      <View style={{ gap: 10 }} testID="student-exams">
-        {exams.map((a) => {
-          const opens = a.exam_starts_at ? new Date(a.exam_starts_at).getTime() : 0, closes = new Date(a.exam_ends_at ?? a.due_at).getTime();
-          const state = a.submitted_at ? { kind: 'on' as const, text: `Đã làm · ${a.best_percent ?? 0}%` } : now < opens ? { kind: 'info' as const, text: 'Chưa mở' } : now > closes ? { kind: 'off' as const, text: 'Đã đóng' } : { kind: 'warn' as const, text: 'Đang mở' };
-          const can = !a.submitted_at && now >= opens && now <= closes && a.attempts_left > 0;
-          return (
-            <Card key={a.id} flat pad={16} style={{ gap: 8, borderRadius: 12 }} testID={`student-exam-${a.id}`}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <ClipboardCheck size={18} color={c.logoRed} />
-                <Txt f="bold" size={16} style={{ flex: 1, minWidth: 200 }}>{a.title}</Txt>
-                <StatusChip kind={state.kind} text={state.text} />
-              </View>
-              <Txt size={13} color={c.muc2}>Lớp {a.class_name} · Mở {at(a.exam_starts_at ?? null)} – đóng {at(a.exam_ends_at ?? a.due_at)}</Txt>
-              {can ? <Btn icon={KeyRound} title="Vào làm bài" tone="son" size="sm" onPress={() => { setEntering(a); setPassword(''); setProblem(null); }} style={{ alignSelf: 'flex-start' }} testID={`student-exam-enter-${a.id}`} /> : null}
-            </Card>
-          );
-        })}
-      </View>
-      {entering ? (
-        <Sheet open onClose={() => setEntering(null)} title="Nhập mật khẩu bài thi" subtitle={entering.title} icon={<KeyRound size={20} color="#b91c1c" />}
-          footer={<View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}><Btn title="Hủy" tone="giay" onPress={() => setEntering(null)} /><Btn icon={Play} title="Bắt đầu làm bài" tone="son" loading={busy} disabled={password.trim().length < 4} onPress={() => { void start(); }} testID="student-exam-start" /></View>}>
-          <View style={{ gap: 10 }}>
-            <Field label="Mật khẩu (thầy cô cung cấp)" value={password} onChangeText={setPassword} autoCapitalize="characters" autoCorrect={false} maxLength={32} onSubmitEditing={() => { void start(); }} testID="student-exam-password" />
-            <InfoNote>Em chỉ được làm bài này một lần. Bắt đầu rồi thì làm cho xong trước giờ đóng.</InfoNote>
-            <ErrorNote message={problem} />
-          </View>
-        </Sheet>
-      ) : null}
     </Page>
   );
 };

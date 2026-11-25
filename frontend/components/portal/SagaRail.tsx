@@ -10,11 +10,11 @@
 import React from 'react';
 import { View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { BookOpen, ChevronDown, ChevronUp, ClipboardCheck, Clock, Coins, Flag, Flame, Lock, RotateCcw, Shirt, Star, Swords, Target, Zap } from 'lucide-react-native';
+import { BookOpen, ChevronDown, ChevronUp, Clock, Coins, Flag, Flame, Lock, Shirt, Star, Swords, Target, Zap } from 'lucide-react-native';
 import * as game from '@/api/gameApi';
 import { Mascot } from '@/components/art';
 import type { Session } from '@/components/auth';
-import { BlockTitle, Meter, num, useLoad, type SagaNav } from '@/components/portal/SagaKit';
+import { Meter, num, useLoad, type SagaNav } from '@/components/portal/SagaKit';
 import { Avatar, Btn, Card, Sheet, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
@@ -270,16 +270,6 @@ export const SagaRail: React.FC<{ session: Session; nav: SagaNav; wide: boolean 
             <Txt size={13} color={c.muc2}>{league.error ? 'Chưa tải được bảng xếp hạng.' : leagueLine}</Txt>
           </View>
         </View>
-      </Card>
-      <Card flat pad={16} style={{ borderRadius: 20, borderWidth: 2, borderBottomWidth: 5, gap: 8 }}>
-        <BlockTitle title={home.review_due ? `${home.review_due} câu cần ôn lại` : 'Ôn tập nhanh'} icon={RotateCcw} />
-        <Txt size={13} color={c.muc2}>{home.review_due ? 'Những câu em từng trả lời sai đang chờ.' : 'Trả lời câu hỏi tính giờ để giữ chuỗi đúng.'}</Txt>
-        <Btn title="Ôn tập" icon={RotateCcw} tone="giay" size="sm" onPress={() => nav.go('cau-hoi', { c: null, s: null, v: null })} testID="home-review" />
-      </Card>
-      <Card flat pad={16} style={{ borderRadius: 20, borderWidth: 2, borderBottomWidth: 5, gap: 8 }}>
-        <BlockTitle title="Kỳ thi" icon={ClipboardCheck} />
-        <Txt size={13} color={c.muc2}>Bài kiểm tra giữa kỳ, cuối kỳ thầy cô tổ chức; vào giờ thi nhập mật khẩu để làm.</Txt>
-        <Btn title="Mở Kỳ thi" icon={ClipboardCheck} tone="giay" size="sm" onPress={() => nav.go('ky-thi', { c: null, s: null, v: null })} testID="home-exams" />
       </Card>
       {sheet === 'league' && league.data ? <LeagueSheet data={league.data} look={home.look ?? null} name={session.user.full_name} uri={session.user.avatar_url} onClose={() => setSheet(null)} /> : null}
       {sheet === 'wardrobe' ? <WardrobeSheet session={session} name={session.user.full_name} uri={session.user.avatar_url} onClose={() => setSheet(null)} onChanged={() => nav.refresh()} /> : null}

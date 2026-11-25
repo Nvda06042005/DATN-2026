@@ -91,12 +91,12 @@ test('thư viện học liệu (16/11/2026): Giáo viên khác cùng trường, 
   assert.match(lib, /\{ id: 'exams' as const, label: 'Đề kiểm tra', icon: ClipboardCheck, badge: examCount \}/);
   assert.match(lib, /section === 'others' \? <OtherTeachersLibrary session=\{session\} onStartLiveQuiz=\{onStartLiveQuiz\} \/>/);
   const ex = read('components', 'admin', 'LibraryExams.tsx');
-  for (const id of ['library-others', 'library-exams', 'exam-request-sheet', 'exam-organize-sheet', 'exam-password-shown', 'exam-review-sheet', 'exam-approve', 'student-exams', 'student-exam-start', 'student-exam-password']) assert.ok(ex.includes(`testID="${id}"`), id);
+  for (const id of ['library-others', 'library-exams', 'exam-request-sheet', 'exam-organize-sheet', 'exam-password-shown', 'exam-review-sheet', 'exam-approve']) assert.ok(ex.includes(`testID="${id}"`), id);
   assert.match(ex, /classroom\.organizeExam\(session\.token, exam\.id, \{ password, starts_at: starts, ends_at: ends \}\)/);
-  assert.match(ex, /classroom\.startAssignment\(session\.token, entering\.id, password\.trim\(\)\)/);
   assert.match(read('components', 'admin', 'ShareInbox.tsx'), /options=\{\[\{ value: 'shares', label: 'Nội dung chia sẻ' \}, \{ value: 'exams', label: 'Đề kiểm tra' \}\]\}/);
+  // 25/11/2026: người dùng bỏ mục Kỳ thi của trang học sinh (màn StudentExams đã xóa; API bài thi giữ nguyên)
   const student = read('components', 'portal', 'StudentApp.tsx');
-  assert.match(student, /\{ id: 'ky-thi', label: 'Kỳ thi', icon: ClipboardCheck \}/);
-  assert.match(student, /n\.kind === 'exam' \? 'ky-thi'/);
+  assert.doesNotMatch(student, /'ky-thi'|StudentExams/);
+  assert.doesNotMatch(ex, /student-exam-start|export const StudentExams/);
   assert.match(read('api', 'classroomApi.ts'), /export const organizeExam = /);
 });

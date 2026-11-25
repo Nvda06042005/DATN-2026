@@ -1,14 +1,16 @@
 /**
- * Sảnh mở đầu trang học sinh Hào Khí Đông A (24/11/2026):
- * Bố cục cuộn dọc nhiều phân đoạn toàn màn hình bằng bộ 12 hình minh họa riêng (HallMedia.ts):
- *   1. Thanh điều hướng nhanh (nền xanh đậm) tới từng phân đoạn của sảnh.
- *   2. Màn mở đầu Hoàng thành Thăng Long (hoang-thanh-thang-long.png), Vua Trần & Trần Hưng Đạo, nút biển gỗ VÀO TRẬN, mây xoáy tiền cảnh.
- *   3. Giới thiệu “Muốn làm Trạng nguyên?” với ba trụ cột học tập trên nền sáng sạch.
- *   4. Khu trưng bày 9 nhân vật lịch sử thời Trần trên nền chuyển sắc xanh đậm – tím – đỏ son (tự luân phiên & chọn tay).
- *   5. Sân khấu Bảng vàng dùng khung bảng Vua Trần & Trần Hưng Đạo (khung-bang-vang.png) kết nối API bảng xếp hạng thật (/api/game/leaderboard).
- *   6. Thư viện tranh & bản đồ gốc Wikipedia (lưới 2 hàng, tự đổi vị trí nhẹ và bấm xem lớn).
- *   7. Mục Hướng dẫn chơi toàn màn hình nền tranh bàn kế trận Bạch Đằng (ban-ke-bach-dang.jpg) kèm nút Play mở hướng dẫn tương tác.
- *   8. Thang danh hiệu khoa cử 5 bậc thời Trần & chân trang xanh đậm.
+ * Sảnh mở đầu trang học sinh Hào Khí Đông A (24/11/2026, làm lại giao diện 25/11/2026 theo trang chủ công khai):
+ * mục **Trang chủ** của thanh đầu chung (`StudentWorkspace`), cuộn dọc nhiều phần bằng bộ hình minh họa riêng (HallMedia.ts):
+ *   1. Màn mở đầu Hoàng thành Thăng Long (hoang-thanh-thang-long.png), Vua Trần & Trần Hưng Đạo, nút biển gỗ VÀO CHƠI, mây xoáy tiền cảnh.
+ *   2. Giới thiệu “Muốn làm Trạng nguyên?” với ba thẻ học tập.
+ *   3. Khu trưng bày 5 bậc danh hiệu Khoa bảng và 9 nhân vật lịch sử thời Trần (tự luân phiên & chọn tay).
+ *   4. Bảng vàng trong khung Vua Trần & Trần Hưng Đạo (khung-bang-vang.png), API bảng xếp hạng thật (/api/game/leaderboard).
+ *   5. Thư viện tranh & bản đồ minh họa (lưới tự đổi vị trí, chỉ xem).
+ *   6. Hướng dẫn chơi nền tranh bàn kế trận Bạch Đằng (ban-ke-bach-dang.jpg) kèm nút Play mở hướng dẫn.
+ *   7. Thang danh hiệu (dùng ở trang Chiến dịch) và chân trang.
+ * Phần 2–5 dùng **nền giấy kem có hoa văn mờ, hai vòng vàng, dải mây vàng nối khối và tiêu đề hai màu** như các khối của trang chủ công khai
+ * (người dùng 25/11/2026: "sử dụng background như trang chủ, cái nào màu tím đỏ thì đổi lại giống giao diện trang chủ"); không còn nền chuyển sắc
+ * xanh – tím – đỏ hay sân khấu cam đỏ. Các phần của sảnh là menu sổ xuống của mục Trang chủ (`HALL_SECTIONS`).
  *
  * Danh hiệu là cách hiển thị tiến độ do máy chủ trả về (/api/saga/home) – không trao thưởng, không lưu gì ở giao diện:
  *   Học trò (bắt đầu) → Thái học sinh (xong Phần 1 · 1258) → Thám hoa (xong Phần 2 · 1285) → Bảng nhãn (xong Phần 3 · 1287–1288)
@@ -17,47 +19,38 @@
  * Tam khôi đặt lần đầu năm 1247 – Trạng nguyên Nguyễn Hiền (các nguồn chép 12 hoặc 13 tuổi), Bảng nhãn Lê Văn Hưu (soạn Đại Việt sử ký, xong 1272),
  * Thám hoa Đặng Ma La.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { AccessibilityInfo, Animated, Easing, Image, Platform, Pressable, ScrollView, View, useWindowDimensions, type ImageSourcePropType, type ScrollViewInstance } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { ArrowUp, Award, BookOpen, Check, KeyRound, Lock, LogOut, Play, Puzzle, Swords } from 'lucide-react-native';
-import * as authApi from '@/api/authApi';
+import { ArrowUp, Award, BookOpen, Check, Lock, Play, Puzzle, Swords } from 'lucide-react-native';
 import * as game from '@/api/gameApi';
-import { BrandLogo } from '@/components/art';
+import { PatternOverlay } from '@/components/art';
 import type { Session } from '@/components/auth';
 import { HALL_ART, HALL_CHARACTERS, HALL_RANK_ART, type HallCharacter } from '@/components/portal/HallMedia';
 import { LoadState, num, useLoad } from '@/components/portal/SagaKit';
-import { Chibi, DrumSun, RANK_LOOK, StageBackdrop } from '@/components/portal/StudentArt';
-import { ProfileSheet } from '@/components/profile';
-import { Avatar, Btn, Sheet, Txt } from '@/components/ui';
-import { useSystemBrand } from '@/hooks/use-system-brand';
+import { DrumSun, RANK_LOOK } from '@/components/portal/StudentArt';
+import { HOME_LOOK } from '@/components/portal/StudentWorkspace';
+import { CloudPair, SectionCloud } from '@/components/section-cloud';
+import { SectionHeading } from '@/components/section-heading';
+import { Sheet, Txt } from '@/components/ui';
+import { PALETTES } from '@/constants/theme';
+import { ThemeContext } from '@/hooks/use-theme';
 import { RANKS, scholarRank, type RankState } from '@/lib/scholar-rank';
-import type { ProfilePatch } from '@/types/api';
 import type { Board } from '@/types/gamification';
 import type { SagaHome } from '@/types/saga';
 
-/** Bảng màu sảnh học sinh: xanh navy đậm, đỏ son, vàng kim, giấy dó và nền sáng trung tính */
+/** Màu riêng của sảnh (thang danh hiệu, nút biển gỗ, bảng vàng); nền và chữ các phần của sảnh lấy theo trang chủ công khai (`HOME_LOOK`) */
 export const HALL = {
-  navy: '#05162b',
-  navyFooter: '#07294d',
-  accentBlue: '#1890ff',
-  teal: '#008e9b',
-  coral: '#eb7a64',
-  rust: '#c34a36',
-  lightBg: '#f4f5f7',
   red: '#b8261b',
   redDeep: '#8f1f17',
-  lacquer: '#5b1a14',
   gold: '#e3b244',
   goldBright: '#ffc75f',
   goldHover: '#f9f871',
   goldSoft: '#f6dc97',
-  ribbon: '#cca574',
   paper: '#fffaf0',
   paperLine: '#ecd9b4',
   ink: '#2b1d16',
   muted: '#5f5246',
-  wood: '#6b3416',
 };
 
 export { RANKS, scholarRank, type RankState };
@@ -117,78 +110,52 @@ export const HallTitle: React.FC<{ eyebrow: string; ink: string; red: string; su
   );
 };
 
-// ---------------------------------------------------------------------- 0. Thanh điều hướng đầu trang chủ (nền xanh navy đậm duy nhất)
-const ANCHORS: ReadonlyArray<{ id: HallSectionKey; label: string }> = [
-  { id: 'hero', label: 'TRANG CHỦ' },
-  { id: 'about', label: 'GIỚI THIỆU' },
-  { id: 'characters', label: 'NHÂN VẬT' },
-  { id: 'board', label: 'BẢNG VÀNG' },
-  { id: 'gallery', label: 'THƯ VIỆN' },
-  { id: 'tutorial', label: 'HƯỚNG DẪN' },
+// ---------------------------------------------------------------------- 0. Các phần của sảnh (menu sổ xuống của Trang chủ) và nền giấy như trang chủ công khai
+/** Các phần của sảnh theo thứ tự trên trang; là menu sổ xuống của mục Trang chủ trên thanh đầu (25/11/2026) */
+export const HALL_SECTIONS: ReadonlyArray<{ id: HallSectionKey; label: string }> = [
+  { id: 'about', label: 'Giới thiệu' },
+  { id: 'characters', label: 'Nhân vật' },
+  { id: 'board', label: 'Bảng vàng' },
+  { id: 'gallery', label: 'Thư viện' },
+  { id: 'tutorial', label: 'Hướng dẫn' },
 ];
+const HALL_ORDER: ReadonlyArray<HallSectionKey> = ['hero', 'about', 'characters', 'board', 'gallery', 'tutorial'];
 
-export const HallAnchorBar: React.FC<{
-  session: Session;
-  active: HallSectionKey;
-  onJump: (id: HallSectionKey) => void;
-  onPlay: () => void;
-  schoolName?: string | null;
-  avatar?: React.ReactNode;
-  onOpenProfile: () => void;
-}> = ({ session, active, onJump, onPlay, schoolName, avatar, onOpenProfile }) => {
+/** Thẻ giấy mờ như các khối của trang chủ công khai (`PAPER_CARD` trong `components/home.tsx`) */
+const PAPER_CARD = { backgroundColor: 'rgba(255, 255, 255, 0.74)', borderWidth: 1, borderColor: HOME_LOOK.line, boxShadow: '0 10px 30px rgba(35, 56, 47, 0.10)' } as object;
+/** Nền ô ảnh nhân vật / tranh danh hiệu trên nền giấy */
+const TILE = '#f3e7cf';
+/** Màu nút đen của trang chủ công khai ("Vào học ngay", nút lên đầu trang) */
+const L_DEN = PALETTES.light.den;
+
+/** Hai vòng tròn vàng mảnh ở hai góc nền (như `GoldRings` của trang chủ công khai) */
+const Rings: React.FC = () => (
+  <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}>
+    <View style={{ position: 'absolute', width: 440, height: 440, borderRadius: 220, borderWidth: 1, borderColor: HOME_LOOK.gold, opacity: 0.3, right: -260, top: 40 }} />
+    <View style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, borderWidth: 1, borderColor: HOME_LOOK.gold, opacity: 0.3, left: -190, bottom: 60 }} />
+  </View>
+);
+
+/** Khối nền giấy kem có hoa văn mờ và hai vòng vàng – nền chung các phần của sảnh, giống các khối của trang chủ công khai */
+const PaperBand: React.FC<{ testID: string; children: React.ReactNode }> = ({ testID, children }) => {
   const { width } = useWindowDimensions();
-  const wide = width >= 1020;
-  const compact = width < 640;
-  const brand = useSystemBrand(session.token);
+  const wide = width >= 900;
   return (
-    <View testID="hall-anchor-bar" style={{ backgroundColor: '#ffffff', borderBottomWidth: 1.5, borderBottomColor: '#e8e0d2', zIndex: 20 }}>
-      <View style={{ maxWidth: 1340, width: '100%', alignSelf: 'center', paddingHorizontal: wide ? 24 : 12, minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: wide ? 16 : 8 }}>
-        {/* Logo Đông A & tên trường trên nền trắng đồng bộ */}
-        <Pressable accessibilityRole="button" accessibilityLabel="Về đầu trang chủ Đông A" onPress={() => onJump('hero')}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          <BrandLogo compact={compact} brand={brand} />
-          {width >= 1240 && schoolName ? (
-            <Txt f="semibold" size={12} color={HALL.muted} numberOfLines={1} style={{ maxWidth: 190 }}>{schoolName}</Txt>
-          ) : null}
-        </Pressable>
-
-        {/* Thanh mục điều hướng cuộn mượt + mục VÀO CHƠI vào thẳng trò chơi */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: wide ? 'center' : 'flex-start', gap: wide ? 20 : 14, paddingVertical: 6 }}>
-          {ANCHORS.map((it) => {
-            const on = it.id === active;
-            return (
-              <Pressable key={it.id} accessibilityRole="button" accessibilityLabel={it.label} onPress={() => onJump(it.id)} testID={`hall-anchor-${it.id}`}
-                style={{ minHeight: 38, justifyContent: 'center', borderBottomWidth: 2.5, borderBottomColor: on ? HALL.red : 'transparent', paddingHorizontal: 2 }}>
-                {({ pressed }) => (
-                  <Txt f="bold" size={13} color={on || pressed ? HALL.red : HALL.ink} style={{ letterSpacing: 1 }}>{it.label}</Txt>
-                )}
-              </Pressable>
-            );
-          })}
-          <Pressable accessibilityRole="button" accessibilityLabel="Vào chơi" onPress={onPlay} testID="hall-anchor-play"
-            style={({ pressed }) => ({ minHeight: 38, justifyContent: 'center', borderBottomWidth: 2.5, borderBottomColor: pressed ? HALL.red : 'transparent', paddingHorizontal: 2 })}>
-            {({ pressed }) => (
-              <Txt f="bold" size={13} color={pressed ? HALL.red : HALL.ink} style={{ letterSpacing: 1 }}>VÀO CHƠI</Txt>
-            )}
-          </Pressable>
-        </ScrollView>
-
-        {/* Hồ sơ & Đăng xuất */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          <Pressable testID="hall-profile-open" accessibilityRole="button" accessibilityLabel="Hồ sơ cá nhân" onPress={onOpenProfile}
-            style={{ minHeight: 40, minWidth: 40, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {avatar ?? <Avatar name={session.user.full_name} uri={session.user.avatar_url} size={34} />}
-            {width >= 1340 ? <Txt f="bold" size={13} color={HALL.ink} numberOfLines={1} style={{ maxWidth: 140 }}>{session.user.full_name}</Txt> : null}
-          </Pressable>
-          <Pressable testID="hall-logout" accessibilityRole="button" accessibilityLabel="Đăng xuất" onPress={() => session.logout()}
-            style={({ pressed }) => ({ width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? '#f1ece2' : '#faf7f1', borderWidth: 1.5, borderColor: '#e5dccb' })}>
-            <LogOut size={17} color={HALL.muted} />
-          </Pressable>
-        </View>
-      </View>
+    <View testID={testID} style={{ width: '100%', backgroundColor: HOME_LOOK.paper, overflow: 'hidden', paddingTop: wide ? 88 : 60, paddingBottom: wide ? 96 : 64, paddingHorizontal: wide ? 32 : 16 }}>
+      <PatternOverlay opacity={0.075} />
+      <Rings />
+      {children}
     </View>
   );
 };
+
+/** Khung tên: chữ đậm màu mực, dòng phụ nghiêng đỏ, gờ trái đỏ son */
+const NamePlate: React.FC<{ name: string; sub?: string; wide: boolean }> = ({ name, sub, wide }) => (
+  <View style={[{ alignSelf: 'stretch', borderRadius: 18, paddingVertical: 14, paddingHorizontal: 20, gap: 2 }, PAPER_CARD, { borderLeftWidth: 5, borderLeftColor: HOME_LOOK.red }]}>
+    <Txt f="heavy" size={wide ? 26 : 21} color={HOME_LOOK.ink} accessibilityRole="header">{name}</Txt>
+    {sub ? <Txt f="serifItalic" size={16} color={HOME_LOOK.red}>{sub}</Txt> : null}
+  </View>
+);
 
 // ---------------------------------------------------------------------- 1. Màn mở đầu Hoàng thành Thăng Long & nút biển gỗ VÀO TRẬN
 /** Biển gỗ sơn son viền vàng hai trục cuốn rồng kiểu bảng lệnh cổ */
@@ -343,46 +310,37 @@ export const HallHero: React.FC<{ onPlay: () => void }> = ({ onPlay }) => {
   );
 };
 
-// ---------------------------------------------------------------------- 2. Giới thiệu “MUỐN LÀM TRẠNG NGUYÊN?” (nền sáng sạch, 3 cột minh họa)
+// ---------------------------------------------------------------------- 2. Giới thiệu “Muốn làm Trạng nguyên?” (nền giấy, tiêu đề và thẻ giấy như trang chủ công khai)
 const FEATURES: ReadonlyArray<{ image: ImageSourcePropType; title: string; text: string }> = [
-  { image: HALL_ART.featureGame, title: 'HỌC QUA TRÒ CHƠI', text: 'Kết hợp học sử và vượt 13 chặng khám phá, mở hòm báu, tích sao để thăng bậc Khoa bảng từ Học trò tới Trạng nguyên.' },
-  { image: HALL_ART.featureMap, title: 'NHẬP VAI & BẢN ĐỒ', text: 'Trải nghiệm thế giới 3D, nhận quân lệnh, dàn trận cọc Bạch Đằng và đối chiếu trực tiếp trên bản đồ lịch sử.' },
-  { image: HALL_ART.featureAi, title: 'ÔN TẬP & TRỢ LÝ AI', text: 'Chấm điểm tức thì, luyện câu hay sai, thi đấu lớp học và hỏi đáp sử liệu cùng Tiểu Tướng mọi lúc.' },
+  { image: HALL_ART.featureGame, title: 'Học qua trò chơi', text: 'Kết hợp học sử và vượt 13 chặng khám phá, mở hòm báu, tích sao để thăng bậc Khoa bảng từ Học trò tới Trạng nguyên.' },
+  { image: HALL_ART.featureMap, title: 'Nhập vai và bản đồ', text: 'Trải nghiệm thế giới 3D, nhận quân lệnh, dàn trận cọc Bạch Đằng và đối chiếu trực tiếp trên bản đồ lịch sử.' },
+  { image: HALL_ART.featureAi, title: 'Hỏi Tiểu Tướng', text: 'Trợ lý AI giải đáp sử liệu, gợi ý lộ trình học và thẻ ghi nhớ để em ôn lại mọi lúc.' },
 ];
 
 export const HallSteps: React.FC = () => {
   const { width } = useWindowDimensions();
-  const compact = width < 640;
+  const wide = width >= 900;
   return (
-    <View testID="hall-intro" style={{ width: '100%', backgroundColor: HALL.lightBg, paddingVertical: compact ? 44 : 68, paddingHorizontal: compact ? 16 : 32 }}>
-      <View style={{ maxWidth: 1120, width: '100%', alignSelf: 'center', alignItems: 'center', gap: 18 }}>
-        <View style={{ alignItems: 'center', gap: 8 }}>
-          <Txt f="heavy" size={compact ? 25 : 35} color="#24292f" center accessibilityRole="header" style={{ letterSpacing: 0.8, lineHeight: compact ? 34 : 44 }}>
-            MUỐN LÀM <Txt f="heavy" size={compact ? 25 : 35} color={HALL.coral}>“ TRẠNG NGUYÊN ”</Txt> ?
-          </Txt>
-          <Txt f="serifItalic" size={17} color="#57606a" center>“ Học hết mình, chinh phục sử Trần ”</Txt>
-          <View style={{ width: 48, height: 3.5, borderRadius: 2, backgroundColor: HALL.accentBlue, marginTop: 4 }} />
-        </View>
-
-        <Txt size={compact ? 16 : 19} color="#333b44" center style={{ maxWidth: 820, lineHeight: compact ? 25 : 30 }}>
-          <Txt f="heavy" size={compact ? 16 : 19} color={HALL.rust}>HÀO KHÍ ĐÔNG A</Txt> giúp mỗi giờ học Lịch sử trở nên sống động và đáng nhớ thông qua hành trình ba lần kháng chiến chống quân Mông – Nguyên thời Trần.
-        </Txt>
-
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: compact ? 20 : 32, marginTop: 18, width: '100%' }}>
+    <PaperBand testID="hall-intro">
+      <View style={{ maxWidth: 1120, width: '100%', alignSelf: 'center', alignItems: 'center', gap: wide ? 40 : 28 }}>
+        <SectionHeading eyebrow="Hào Khí Đông A" title="Muốn làm" accent="Trạng nguyên?" wide={wide} testID="hall-intro-heading"
+          description="Học hết mình, chinh phục sử Trần: mỗi giờ học Lịch sử trở nên sống động và đáng nhớ qua hành trình ba lần kháng chiến chống quân Mông – Nguyên thời Trần." />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: wide ? 24 : 16, width: '100%' }}>
           {FEATURES.map(({ image, title, text }) => (
-            <View key={title} style={{ flexGrow: 1, flexBasis: 260, maxWidth: 340, alignItems: 'center', gap: 12, paddingHorizontal: 10 }}>
+            <View key={title} style={[{ flexGrow: 1, flexBasis: 280, maxWidth: 360, alignItems: 'center', gap: 12, borderRadius: 28, paddingVertical: 24, paddingHorizontal: 22 }, PAPER_CARD]}>
               <Image source={image} style={{ width: 148, height: 118 }} resizeMode="contain" accessibilityLabel={title} />
-              <Txt f="heavy" size={18} color={HALL.teal} center style={{ letterSpacing: 0.6 }}>{title}</Txt>
-              <Txt size={14} color="#4b5563" center style={{ lineHeight: 22 }}>{text}</Txt>
+              <Txt f="heavy" size={19} color={HOME_LOOK.ink} center>{title}</Txt>
+              <Txt f="medium" size={15} color={HOME_LOOK.soft} center style={{ lineHeight: 23 }}>{text}</Txt>
             </View>
           ))}
         </View>
       </View>
-    </View>
+    </PaperBand>
   );
 };
 
-// ---------------------------------------------------------------------- 3. Khu trưng bày gộp chung Danh hiệu Khoa bảng (5 bậc) & Nhân vật lịch sử thời Trần (9 nhân vật) theo mẫu nền chuyển sắc xanh – tím – đỏ
+// ---------------------------------------------------------------------- 3. Khu trưng bày Danh hiệu Khoa bảng (5 bậc) & Nhân vật lịch sử thời Trần (9 nhân vật)
+// 25/11/2026: bỏ nền chuyển sắc xanh – tím – đỏ, dùng nền giấy, thẻ giấy và tiêu đề như khối "Các vị vua thời Trần" của trang chủ công khai
 type ShowcaseMode = 'ranks' | 'heroes';
 
 export const HallCharacters: React.FC<{ rank?: RankState }> = ({ rank }) => {
@@ -399,7 +357,7 @@ export const HallCharacters: React.FC<{ rank?: RankState }> = ({ rank }) => {
     if (rank) setRankIdx(rank.level);
   }, [rank?.level]);
 
-  // Tự chuyển luân phiên sau mỗi 6 giây giống trang mẫu; dừng khi người dùng bấm chọn hoặc bật giảm chuyển động
+  // Tự chuyển luân phiên sau mỗi 6 giây; dừng khi người dùng bấm chọn hoặc bật giảm chuyển động
   useEffect(() => {
     if (calm || paused) return undefined;
     const t = setInterval(() => {
@@ -419,56 +377,37 @@ export const HallCharacters: React.FC<{ rank?: RankState }> = ({ rank }) => {
   const pickRank = (i: number) => { setRankIdx(i); setPaused(true); };
   const pickHero = (i: number) => { setHeroIdx(i); setPaused(true); };
   const switchMode = (next: ShowcaseMode) => { setMode(next); setPaused(false); };
-
-  const bgStyle = Platform.OS === 'web'
-    ? ({ backgroundImage: 'linear-gradient(125deg, #061636 0%, #3a0f44 50%, #7d0a1e 100%)' } as object)
-    : { backgroundColor: '#2c103b' };
+  const ring = (sel: boolean) => ({ borderWidth: sel ? 3 : 1, borderColor: sel ? HOME_LOOK.red : HOME_LOOK.line });
 
   const renderHeroCard = (ch: HallCharacter, i: number) => {
     const sel = i === heroIdx;
     return (
       <Pressable key={ch.key} testID={`hall-char-${ch.key}`} onPress={() => pickHero(i)} accessibilityRole="button" accessibilityState={{ selected: sel }} accessibilityLabel={`Xem nhân vật ${ch.name}`}
-        style={({ pressed }) => ({
-          flex: 1, minWidth: 0, alignItems: 'center', gap: 6,
-          opacity: sel ? 1 : pressed ? 0.9 : 0.68,
-          transform: [{ scale: sel ? 1.04 : 1 }],
-        })}>
-        <View style={{
-          width: '100%', maxWidth: oneRow ? 106 : 112, height: oneRow ? 86 : 82, borderRadius: 12, overflow: 'hidden',
-          backgroundColor: ch.backdrop, borderWidth: sel ? 3 : 1.5, borderColor: sel ? HALL.goldBright : 'rgba(255,255,255,0.35)',
-          alignItems: 'center', justifyContent: 'flex-end',
-        }}>
+        style={({ pressed }) => ({ flex: 1, minWidth: 0, alignItems: 'center', gap: 6, opacity: pressed ? 0.85 : 1, transform: [{ translateY: sel ? -3 : 0 }] })}>
+        <View style={{ width: '100%', maxWidth: oneRow ? 106 : 112, height: oneRow ? 86 : 82, borderRadius: 14, overflow: 'hidden', backgroundColor: TILE, alignItems: 'center', justifyContent: 'flex-end', ...ring(sel) }}>
           <Image source={ch.image} style={{ width: 66, height: 80 }} resizeMode="contain" />
         </View>
-        <View style={{
-          width: '100%', maxWidth: oneRow ? 116 : 124, paddingHorizontal: 4, paddingVertical: 5, borderRadius: 12,
-          backgroundColor: sel ? '#dfb377' : 'rgba(204,165,116,0.75)', alignItems: 'center',
-        }}>
-          <Txt f={sel ? 'heavy' : 'bold'} size={11} color="#24333c" numberOfLines={1}>{ch.shortName}</Txt>
-        </View>
-        <View style={{ width: 7, height: 7, borderRadius: 4, borderWidth: 1.5, borderColor: sel ? HALL.goldBright : 'rgba(255,255,255,0.65)', backgroundColor: sel ? HALL.goldBright : 'transparent' }} />
+        <Txt f={sel ? 'heavy' : 'bold'} size={12} color={sel ? HOME_LOOK.red : HOME_LOOK.ink} numberOfLines={1} center>{ch.shortName}</Txt>
       </Pressable>
     );
   };
 
   return (
-    <View testID="hall-characters" style={[{ width: '100%', paddingVertical: wide ? 60 : 40, paddingHorizontal: wide ? 36 : 16 }, bgStyle]}>
-      <View style={{ maxWidth: 1180, width: '100%', alignSelf: 'center', gap: 26 }}>
-        {/* Thanh chuyển nhanh giữa 5 bậc Danh hiệu Khoa bảng & 9 Nhân vật lịch sử thời Trần */}
-        <View style={{ alignItems: 'center', gap: 14 }}>
-          <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 999, padding: 5, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' }}>
+    <PaperBand testID="hall-characters">
+      <View style={{ maxWidth: 1180, width: '100%', alignSelf: 'center', gap: wide ? 32 : 24 }}>
+        <SectionHeading eyebrow="Gương mặt lịch sử" title="Khoa bảng và" accent="nhân vật thời Trần" wide={wide} testID="hall-characters-heading" />
+        {/* Chuyển giữa 5 bậc Danh hiệu Khoa bảng và 9 Nhân vật lịch sử thời Trần */}
+        <View style={{ alignItems: 'center' }}>
+          <View accessibilityRole="tablist" style={[{ flexDirection: 'row', borderRadius: 999, padding: 5, gap: 6 }, PAPER_CARD]}>
             {([
-              { id: 'ranks' as const, label: 'BẬC DANH HIỆU (5)' },
-              { id: 'heroes' as const, label: 'NHÂN VẬT THỜI TRẦN (9)' },
+              { id: 'ranks' as const, label: 'Bậc danh hiệu (5)' },
+              { id: 'heroes' as const, label: 'Nhân vật thời Trần (9)' },
             ]).map((tab) => {
               const on = mode === tab.id;
               return (
                 <Pressable key={tab.id} testID={`hall-mode-${tab.id}`} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => switchMode(tab.id)}
-                  style={({ pressed }) => ({
-                    paddingHorizontal: wide ? 22 : 14, minHeight: 40, borderRadius: 999, justifyContent: 'center', alignItems: 'center',
-                    backgroundColor: on ? HALL.ribbon : pressed ? 'rgba(255,255,255,0.16)' : 'transparent',
-                  })}>
-                  <Txt f="heavy" size={wide ? 13 : 12} color={on ? '#24333c' : '#ffffff'} style={{ letterSpacing: 0.8 }}>{tab.label}</Txt>
+                  style={({ pressed }) => ({ paddingHorizontal: wide ? 22 : 14, minHeight: 44, borderRadius: 999, justifyContent: 'center', alignItems: 'center', backgroundColor: on ? HOME_LOOK.red : pressed ? HOME_LOOK.paper : 'transparent' })}>
+                  <Txt f="bold" size={wide ? 14.5 : 13} color={on ? '#ffffff' : HOME_LOOK.ink}>{tab.label}</Txt>
                 </Pressable>
               );
             })}
@@ -476,85 +415,54 @@ export const HallCharacters: React.FC<{ rank?: RankState }> = ({ rank }) => {
         </View>
 
         {mode === 'ranks' ? (
-          /* Chế độ 1 (mặc định): 5 bậc Danh hiệu Khoa bảng đúng bố cục mẫu — ảnh dọc lớn bên trái, thanh tên vàng đồng + khung đen mờ + khay 5 bậc nằm gọn bên phải */
           <View style={{ flexDirection: wide ? 'row' : 'column', gap: wide ? 40 : 22, alignItems: wide ? 'center' : 'stretch' }}>
-            {/* Cột trái: Tranh dọc lớn full khung tỉ lệ 2:3 */}
+            {/* Tranh dọc lớn của bậc đang xem */}
             <View style={{
-              width: wide ? 360 : '100%', maxWidth: 380, alignSelf: 'center',
-              aspectRatio: 682 / 1024, borderRadius: 22, overflow: 'hidden',
-              backgroundColor: '#23182a', position: 'relative',
-              boxShadow: '0 18px 40px rgba(0,0,0,0.46)',
+              width: wide ? 360 : '100%', maxWidth: 380, alignSelf: 'center', aspectRatio: 682 / 1024, borderRadius: 28, overflow: 'hidden',
+              backgroundColor: TILE, borderWidth: 1, borderColor: HOME_LOOK.line, position: 'relative', boxShadow: '0 18px 40px rgba(35, 56, 47, 0.16)',
             } as object}>
               <Image source={activeRankArt} style={{ width: '100%', height: '100%' }} resizeMode="cover" accessibilityLabel={`Minh họa bậc ${activeRank.name}`} />
               {rank && rankIdx === curLevel ? (
-                <View style={{ position: 'absolute', top: 14, left: 14, backgroundColor: HALL.red, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1.5, borderColor: '#fff3cf' }}>
+                <View style={{ position: 'absolute', top: 14, left: 14, backgroundColor: HOME_LOOK.red, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1.5, borderColor: '#fff3cf' }}>
                   <Txt f="heavy" size={11} color="#fff3cf" style={{ letterSpacing: 0.8 }}>EM Ở ĐÂY</Txt>
                 </View>
               ) : null}
             </View>
 
-            {/* Cột phải: Thanh tên vàng đồng + Khung mô tả đen mờ + Khay kính mờ 5 bậc */}
-            <View style={{ flex: 1, gap: 18, minWidth: 0 }}>
-              {/* Thanh tên kiểu ruy-băng vàng đồng */}
-              <View style={{
-                alignSelf: 'flex-start', minWidth: wide ? 290 : '100%', maxWidth: '100%',
-                backgroundColor: HALL.ribbon, borderRadius: 4, paddingVertical: 12, paddingHorizontal: 20,
-                flexDirection: 'row', alignItems: 'center', gap: 14,
-                boxShadow: '3px 4px 12px rgba(0,0,0,0.32)',
-              } as object}>
-                <View style={{ width: 22, height: 22, borderWidth: 2.5, borderColor: '#24333c', transform: [{ rotate: '45deg' }], alignItems: 'center', justifyContent: 'center' }}>
-                  <View style={{ width: 8, height: 8, backgroundColor: '#24333c' }} />
-                </View>
-                <Txt f="heavy" size={wide ? 25 : 21} color="#24333c">{activeRank.name}</Txt>
-              </View>
-
-              {/* Khung mô tả đen trong suốt */}
-              <View style={{ backgroundColor: 'rgba(1, 1, 1, 0.52)', borderRadius: 20, padding: wide ? 22 : 16, gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                <Txt size={15.5} color="#ffffff" style={{ lineHeight: 26 }}>- {activeRank.note}</Txt>
-                <Txt size={14.5} color={HALL.goldSoft} style={{ lineHeight: 22 }}>
-                  <Txt f="heavy" size={14.5} color={HALL.goldBright}>Điều kiện trong trò chơi: </Txt>{activeRank.need}
+            <View style={{ flex: 1, gap: 16, minWidth: 0 }}>
+              <NamePlate name={activeRank.name} sub={`Bậc ${rankIdx + 1} / ${RANKS.length} · khoa cử thời Trần`} wide={wide} />
+              <View style={[{ borderRadius: 22, padding: wide ? 22 : 16, gap: 10 }, PAPER_CARD]}>
+                <Txt f="medium" size={15.5} color={HOME_LOOK.ink} style={{ lineHeight: 26 }}>{activeRank.note}</Txt>
+                <Txt size={14.5} color={HOME_LOOK.soft} style={{ lineHeight: 22 }}>
+                  <Txt f="heavy" size={14.5} color={HOME_LOOK.red}>Điều kiện trong trò chơi: </Txt>{activeRank.need}
                 </Txt>
                 {rank ? (
                   reached ? (
-                    <Txt f="bold" size={13.5} color="#7ee0c0">{rankIdx === curLevel ? 'Đây là danh hiệu hiện tại của em.' : 'Em đã đạt danh hiệu này.'}</Txt>
+                    <Txt f="bold" size={13.5} color="#145a4c">{rankIdx === curLevel ? 'Đây là danh hiệu hiện tại của em.' : 'Em đã đạt danh hiệu này.'}</Txt>
                   ) : aiming && rank.next ? (
                     <View style={{ gap: 6, marginTop: 2 }}>
-                      <Txt f="bold" size={13.5} color={HALL.goldBright}>Tiến độ: {rank.next.done}/{rank.next.total} {rank.next.unit}</Txt>
-                      <Progress light done={rank.next.done} total={rank.next.total} label={`Tiến độ tới danh hiệu ${activeRank.name}`} />
+                      <Txt f="bold" size={13.5} color={HOME_LOOK.red}>Tiến độ: {rank.next.done}/{rank.next.total} {rank.next.unit}</Txt>
+                      <Progress done={rank.next.done} total={rank.next.total} label={`Tiến độ tới danh hiệu ${activeRank.name}`} />
                     </View>
                   ) : (
-                    <Txt size={13} color="rgba(255,255,255,0.72)">Đạt danh hiệu {RANKS[rankIdx - 1]?.name ?? ''} trước để mở bậc này.</Txt>
+                    <Txt size={13} color={HOME_LOOK.soft}>Đạt danh hiệu {RANKS[rankIdx - 1]?.name ?? ''} trước để mở bậc này.</Txt>
                   )
                 ) : null}
               </View>
 
-              {/* Khay kính mờ chọn 5 bậc danh hiệu nằm gọn 1 hàng ngang */}
-              <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.28)', borderRadius: 20, padding: wide ? 16 : 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' }}>
+              {/* Khay chọn 5 bậc */}
+              <View style={[{ borderRadius: 22, padding: wide ? 16 : 12 }, PAPER_CARD]}>
                 <View style={{ flexDirection: 'row', gap: wide ? 12 : 8, alignItems: 'flex-start' }}>
                   {RANKS.map((rk, i) => {
                     const sel = i === rankIdx;
                     const thumb = HALL_RANK_ART[i] ?? HALL_ART.rankHocTro;
                     return (
                       <Pressable key={rk.key} testID={`hall-rank-${rk.key}`} onPress={() => pickRank(i)} accessibilityRole="button" accessibilityState={{ selected: sel }} accessibilityLabel={`Xem bậc ${rk.name}`}
-                        style={({ pressed }) => ({
-                          flex: 1, minWidth: 0, alignItems: 'center', gap: 8,
-                          opacity: sel ? 1 : pressed ? 0.9 : 0.62,
-                          transform: [{ scale: sel ? 1.04 : 1 }],
-                        })}>
-                        <View style={{
-                          width: '100%', aspectRatio: 1, borderRadius: 12, overflow: 'hidden',
-                          borderWidth: sel ? 2.5 : 1, borderColor: sel ? '#ffffff' : 'rgba(255,255,255,0.25)',
-                          backgroundColor: '#2c1f2e',
-                        }}>
+                        style={({ pressed }) => ({ flex: 1, minWidth: 0, alignItems: 'center', gap: 8, opacity: pressed ? 0.85 : 1, transform: [{ translateY: sel ? -3 : 0 }] })}>
+                        <View style={{ width: '100%', aspectRatio: 1, borderRadius: 14, overflow: 'hidden', backgroundColor: TILE, ...ring(sel) }}>
                           <Image source={thumb} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                         </View>
-                        <View style={{
-                          width: '100%', paddingHorizontal: 4, paddingVertical: 6, borderRadius: 12,
-                          backgroundColor: sel ? '#dfb377' : 'rgba(182, 148, 114, 0.72)', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          <Txt f={sel ? 'heavy' : 'bold'} size={wide ? 11.5 : 10} color={sel ? '#ffffff' : '#f3e7d8'} numberOfLines={1}>{rk.name}</Txt>
-                        </View>
-                        <View style={{ width: 7, height: 7, borderRadius: 4, borderWidth: 1.5, borderColor: sel ? '#ffffff' : 'rgba(255,255,255,0.6)', backgroundColor: sel ? '#ffffff' : 'transparent' }} />
+                        <Txt f={sel ? 'heavy' : 'bold'} size={wide ? 12.5 : 11} color={sel ? HOME_LOOK.red : HOME_LOOK.ink} numberOfLines={1} center>{rk.name}</Txt>
                       </Pressable>
                     );
                   })}
@@ -563,20 +471,16 @@ export const HallCharacters: React.FC<{ rank?: RankState }> = ({ rank }) => {
             </View>
           </View>
         ) : (
-          /* Chế độ 2: 9 nhân vật lịch sử thời Trần (cùng sân khấu chuyển sắc, khay 9 thẻ cân đối) */
           <View style={{ gap: 24 }}>
             <View style={{ flexDirection: wide ? 'row' : 'column', gap: wide ? 34 : 20, alignItems: wide ? 'center' : 'stretch' }}>
               <View style={{
-                width: wide ? 340 : '100%', maxWidth: 400, alignSelf: 'center',
-                height: wide ? 370 : 320, borderRadius: 20, overflow: 'hidden',
-                backgroundColor: activeHero.backdrop, borderWidth: 3, borderColor: 'rgba(227, 178, 68, 0.72)',
-                alignItems: 'center', justifyContent: 'flex-end', position: 'relative',
-                boxShadow: '0 16px 36px rgba(0,0,0,0.42)',
+                width: wide ? 340 : '100%', maxWidth: 400, alignSelf: 'center', height: wide ? 370 : 320, borderRadius: 28, overflow: 'hidden',
+                backgroundColor: TILE, borderWidth: 1, borderColor: HOME_LOOK.line, alignItems: 'center', justifyContent: 'flex-end', position: 'relative',
+                boxShadow: '0 18px 40px rgba(35, 56, 47, 0.16)',
               } as object}>
-                <DrumSun size={280} color="#ffffff" opacity={0.14} style={{ position: 'absolute', top: -60, right: -60 }} />
-                <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 68, backgroundColor: 'rgba(0,0,0,0.28)' }} />
-                <View style={{ position: 'absolute', top: 14, left: 14, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, backgroundColor: 'rgba(5,22,43,0.72)', borderWidth: 1, borderColor: 'rgba(255,199,95,0.45)' }}>
-                  <Txt f="bold" size={12} color={HALL.goldBright}>{activeHero.era}</Txt>
+                <DrumSun size={280} color={HOME_LOOK.gold} opacity={0.45} style={{ position: 'absolute', top: -60, right: -60 }} />
+                <View style={{ position: 'absolute', top: 14, left: 14, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, backgroundColor: '#ffffff', borderWidth: 1, borderColor: HOME_LOOK.line }}>
+                  <Txt f="bold" size={12} color={HOME_LOOK.red}>{activeHero.era}</Txt>
                 </View>
                 <Bob range={5}>
                   <Image source={activeHero.image} style={{ width: wide ? 250 : 205, height: wide ? 330 : 280, marginBottom: 8 }} resizeMode="contain" accessibilityLabel={activeHero.name} />
@@ -584,33 +488,19 @@ export const HallCharacters: React.FC<{ rank?: RankState }> = ({ rank }) => {
               </View>
 
               <View style={{ flex: 1, gap: 16, minWidth: 0 }}>
-                <View style={{
-                  alignSelf: 'flex-start', minWidth: wide ? 340 : '100%', maxWidth: '100%',
-                  backgroundColor: HALL.ribbon, borderRadius: 4, paddingVertical: 12, paddingHorizontal: 20,
-                  flexDirection: 'row', alignItems: 'center', gap: 12,
-                  boxShadow: '3px 4px 10px rgba(0,0,0,0.3)',
-                } as object}>
-                  <View style={{ width: 22, height: 22, borderWidth: 2.5, borderColor: '#24333c', transform: [{ rotate: '45deg' }], alignItems: 'center', justifyContent: 'center' }}>
-                    <View style={{ width: 8, height: 8, backgroundColor: '#24333c' }} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Txt f="heavy" size={wide ? 24 : 20} color="#24333c">{activeHero.name}</Txt>
-                    <Txt f="semibold" size={13} color="#3a2f22">{activeHero.title}</Txt>
-                  </View>
-                </View>
-
-                <View style={{ backgroundColor: 'rgba(1, 1, 1, 0.54)', borderRadius: 20, padding: wide ? 24 : 18, gap: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
-                  <Txt size={15.5} color="#ffffff" style={{ lineHeight: 26 }}>{activeHero.bio}</Txt>
-                  <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.14)' }} />
-                  <Txt size={14.5} color={HALL.goldSoft} style={{ lineHeight: 23 }}>
-                    <Txt f="heavy" size={14.5} color={HALL.goldBright}>Chiến công nổi bật: </Txt>{activeHero.deed}
+                <NamePlate name={activeHero.name} sub={activeHero.title} wide={wide} />
+                <View style={[{ borderRadius: 22, padding: wide ? 24 : 18, gap: 12 }, PAPER_CARD]}>
+                  <Txt f="medium" size={15.5} color={HOME_LOOK.ink} style={{ lineHeight: 26 }}>{activeHero.bio}</Txt>
+                  <View style={{ height: 1, backgroundColor: HOME_LOOK.line }} />
+                  <Txt size={14.5} color={HOME_LOOK.soft} style={{ lineHeight: 23 }}>
+                    <Txt f="heavy" size={14.5} color={HOME_LOOK.red}>Chiến công nổi bật: </Txt>{activeHero.deed}
                   </Txt>
-                  <Txt f="serifItalic" size={15.5} color="#e2e8f0" style={{ lineHeight: 24 }}>{activeHero.quote}</Txt>
+                  <Txt f="serifItalic" size={16} color={HOME_LOOK.ink} style={{ lineHeight: 25 }}>{activeHero.quote}</Txt>
                 </View>
               </View>
             </View>
 
-            <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.18)', borderRadius: 18, padding: oneRow ? 14 : 12, gap: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' }}>
+            <View style={[{ borderRadius: 22, padding: oneRow ? 14 : 12, gap: 12 }, PAPER_CARD]}>
               {oneRow ? (
                 <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
                   {HALL_CHARACTERS.map((ch, i) => renderHeroCard(ch, i))}
@@ -628,33 +518,32 @@ export const HallCharacters: React.FC<{ rank?: RankState }> = ({ rank }) => {
           </View>
         )}
       </View>
-    </View>
+    </PaperBand>
   );
 };
 
-// ---------------------------------------------------------------------- 4. Sân khấu Bảng vàng (dùng khung khung-bang-vang.png)
+// ---------------------------------------------------------------------- 4. Bảng vàng (khung khung-bang-vang.png) trên nền giấy như trang chủ công khai (25/11/2026: bỏ sân khấu cam đỏ)
 type Scope = 'class' | 'school';
 type Period = 'week' | 'month' | 'all';
 const PERIOD_TEXT: Record<string, string> = { week: 'tuần này', month: 'tháng này', all: 'từ trước tới nay' };
 
-const STAGE = { plaque: '#3a140d', panel: '#2d4048', row: 'rgba(255,255,255,0.06)', line: 'rgba(255,255,255,0.16)', text: '#ffffff', soft: '#f6dfc0' };
+/** Bảng chữ sẫm màu mực của trang chủ đặt trong khung gỗ */
+const STAGE = { panel: HOME_LOOK.ink, line: 'rgba(255,255,255,0.16)' };
 const TOP_BADGE = ['#f54545', '#ff8547', '#ffac38'];
 
 const Pill: React.FC<{ on: boolean; label: string; onPress: () => void; testID: string }> = ({ on, label, onPress, testID }) => (
   <Pressable accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={label} onPress={onPress} testID={testID}
     style={({ pressed }) => ({
       minHeight: 44, paddingHorizontal: 16, borderRadius: 22, justifyContent: 'center',
-      backgroundColor: on ? HALL.goldBright : pressed ? 'rgba(36,16,10,0.8)' : 'rgba(36,16,10,0.6)',
-      borderWidth: 2, borderBottomWidth: on ? 4 : 2, borderColor: on ? '#b98a1e' : 'rgba(255,226,168,0.55)',
+      backgroundColor: on ? HOME_LOOK.red : pressed ? HOME_LOOK.paper : '#ffffff', borderWidth: 1, borderColor: on ? HOME_LOOK.red : HOME_LOOK.line,
     })}>
-    <Txt f="heavy" size={13} color={on ? '#3a1a08' : STAGE.text}>{label}</Txt>
+    <Txt f="bold" size={14} color={on ? '#ffffff' : HOME_LOOK.ink}>{label}</Txt>
   </Pressable>
 );
 
 export const HallBoard: React.FC<{ session: Session; classId: number | null; className?: string | null }> = ({ session, classId, className }) => {
   const { width } = useWindowDimensions();
   const wideFrame = width >= 860;
-  const compact = width < 640;
   const [picked, setScope] = useState<Scope | null>(null);
   const scope: Scope = picked ?? (classId ? 'class' : 'school');
   const [period, setPeriod] = useState<Period>('week');
@@ -713,31 +602,14 @@ export const HallBoard: React.FC<{ session: Session; classId: number | null; cla
   );
 
   // Kích thước khung khung-bang-vang.png (1024x445) đủ rộng để chứa gọn Top 10
-  const frameW = Math.min(width - 48, 1140);
+  const frameW = Math.min(width - 64, 1140);
   const frameH = Math.max(460, frameW * (445 / 1024));
+  const label = data?.label ?? (scope === 'class' ? `Lớp ${className ?? ''}` : 'Toàn trường');
 
   return (
-    <View testID="hall-board" style={{ width: '100%', overflow: 'hidden', backgroundColor: '#d9532e', position: 'relative' }}>
-      <StageBackdrop style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }} />
-      {/* Giữ hai nhân vật nền cho chế độ trang trí sân khấu */}
-      {wideFrame ? null : (
-        <View pointerEvents="none" style={{ position: 'absolute', left: -9999, top: 0 }}>
-          <Chibi kind="quan" size={20} /><Chibi kind="phu-nhan" size={20} flip />
-        </View>
-      )}
-
-      <View style={{ maxWidth: 1240, width: '100%', alignSelf: 'center', paddingHorizontal: compact ? 14 : 24, paddingTop: compact ? 44 : 58, paddingBottom: compact ? 38 : 54, gap: 18 }}>
-        {/* Tiêu đề lớn BẢNG VÀNG kiểu sân khấu */}
-        <View style={{ alignItems: 'center', gap: 6 }}>
-          <Txt f="heavy" size={compact ? 26 : 36} color={HALL.goldBright} center accessibilityRole="header"
-            style={{ letterSpacing: 5, textShadowColor: 'rgba(0,0,0,0.45)', textShadowOffset: { width: 0, height: 3 }, textShadowRadius: 4 }}>
-            BẢNG VÀNG
-          </Txt>
-          <View style={{ width: compact ? 180 : 270, height: 4, borderRadius: 2, backgroundColor: HALL.goldBright }} />
-          <Txt f="semibold" size={14} color="#fff3dc" center style={{ marginTop: 2 }}>
-            {data?.label ?? (scope === 'class' ? `Lớp ${className ?? ''}` : 'Toàn trường')} · {shownPeriod}
-          </Txt>
-        </View>
+    <PaperBand testID="hall-board">
+      <View style={{ maxWidth: 1240, width: '100%', alignSelf: 'center', gap: 22 }}>
+        <SectionHeading eyebrow="Bảng vàng" title="Ghi danh" accent="Top 10" description={`${label} · ${shownPeriod}`} wide={wideFrame} testID="hall-board-heading" />
 
         {/* Bộ lọc Lớp / Trường & Tuần / Tháng / Từ đầu */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 }}>
@@ -748,7 +620,7 @@ export const HallBoard: React.FC<{ session: Session; classId: number | null; cla
           )) : null}
         </View>
 
-        {/* Khung bảng gỗ Vua Trần & Trần Hưng Đạo */}
+        {/* Khung bảng gỗ Vua Trần & Trần Hưng Đạo (màn rộng); màn hẹp chỉ còn bảng chữ viền vàng */}
         {wideFrame ? (
           <View style={{ width: frameW, height: frameH, alignSelf: 'center', position: 'relative' }}>
             <Image source={HALL_ART.boardFrame} style={{ width: '100%', height: '100%' }} resizeMode="stretch" accessibilityLabel="Khung Bảng vàng có Vua Trần và Trần Hưng Đạo" />
@@ -756,7 +628,7 @@ export const HallBoard: React.FC<{ session: Session; classId: number | null; cla
             <View pointerEvents="none" style={{ position: 'absolute', left: '31%', right: '31%', top: '5.5%', height: '13%', alignItems: 'center', justifyContent: 'center' }}>
               <Txt f="heavy" size={17} color={HALL.goldBright} style={{ letterSpacing: 2.5 }} numberOfLines={1}>TOP 10 GHI DANH</Txt>
             </View>
-            {/* Bảng xanh đen đặt lọt lòng trong phần giấy giữa khung (left 18%..82%, top 21.5%..84.5%) */}
+            {/* Bảng chữ đặt lọt lòng trong phần giấy giữa khung (left 18%..82%, top 21.5%..84.5%) */}
             <View style={{
               position: 'absolute', left: '18.2%', right: '18.2%', top: '21.5%', bottom: '15.2%',
               backgroundColor: STAGE.panel, borderRadius: 10, borderWidth: 2, borderColor: '#5c3c1e', overflow: 'hidden',
@@ -767,19 +639,19 @@ export const HallBoard: React.FC<{ session: Session; classId: number | null; cla
             </View>
           </View>
         ) : (
-          <View style={{ gap: 12 }}>
-            <Image source={HALL_ART.boardFrame} style={{ width: '100%', height: Math.min(200, width * 0.42) }} resizeMode="contain" accessibilityLabel="Khung Bảng vàng có Vua Trần và Trần Hưng Đạo" />
-            <View style={{ backgroundColor: STAGE.panel, borderRadius: 16, borderWidth: 4, borderColor: '#c9a16b', overflow: 'hidden' }}>
-              {boardContent}
+          <View style={{ backgroundColor: STAGE.panel, borderRadius: 20, borderWidth: 3, borderColor: HOME_LOOK.gold, overflow: 'hidden', boxShadow: '0 10px 30px rgba(35, 56, 47, 0.16)' } as object}>
+            <View style={{ paddingVertical: 10, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: STAGE.line }}>
+              <Txt f="heavy" size={15} color={HALL.goldBright} style={{ letterSpacing: 2 }}>TOP 10 GHI DANH</Txt>
             </View>
+            {boardContent}
           </View>
         )}
       </View>
-    </View>
+    </PaperBand>
   );
 };
 
-// ---------------------------------------------------------------------- 5. Thư viện tranh & bản đồ (chỉ xem ảnh thuần, không bấm mở chi tiết, 10 thẻ 5×2 tự trượt đổi vị trí liên tục)
+// ---------------------------------------------------------------------- 5. Thư viện tranh & bản đồ (chỉ xem ảnh, không bấm mở chi tiết, 10 thẻ tự trượt đổi vị trí) trên nền giấy như trang chủ công khai
 type Picture = { key: string; title: string; src: typeof HALL_ART[keyof typeof HALL_ART]; bg?: string };
 
 const shuffleSlots = (prev: number[]): number[] => {
@@ -824,7 +696,7 @@ export const HallGallery: React.FC<{ level: number; home: SagaHome }> = ({ level
 
   const cols = width >= 960 ? 5 : width >= 540 ? 2 : 1;
   const gap = wide ? 14 : 10;
-  const fallbackW = Math.max(260, Math.min(width - (wide ? 278 : 32), 1046));
+  const fallbackW = Math.max(260, Math.min(width - (wide ? 64 : 32), 1260));
   const usableW = gridW > 0 ? gridW : fallbackW;
   const cardW = (usableW - gap * (cols - 1)) / cols;
   const cardH = Math.round(cardW / 1.62);
@@ -838,22 +710,18 @@ export const HallGallery: React.FC<{ level: number; home: SagaHome }> = ({ level
   );
 
   return (
-    <View testID="hall-gallery" style={{ width: '100%', backgroundColor: HALL.lightBg, paddingVertical: wide ? 56 : 38, paddingHorizontal: wide ? 32 : 16 }}>
-      <View style={{ maxWidth: 1260, width: '100%', alignSelf: 'center', flexDirection: wide ? 'row' : 'column', gap: wide ? 24 : 18, alignItems: wide ? 'center' : 'stretch' }}>
-        {/* Cột trái tiêu đề THƯ VIỆN */}
-        <View style={{ width: wide ? 184 : '100%', alignItems: 'center', gap: 8 }}>
-          <Txt f="heavy" size={wide ? 30 : 25} color="#24292f" center accessibilityRole="header" style={{ letterSpacing: 1 }}>THƯ VIỆN</Txt>
-          <Txt size={14} color="#57606a" center>Sống động & sáng tạo</Txt>
-          <View style={{ width: 42, height: 3, borderRadius: 2, backgroundColor: HALL.accentBlue, marginVertical: 2 }} />
-        </View>
+    <PaperBand testID="hall-gallery">
+      <View style={{ maxWidth: 1260, width: '100%', alignSelf: 'center', gap: wide ? 34 : 24 }}>
+        <SectionHeading eyebrow="Thư viện" title="Tranh và" accent="bản đồ" wide={wide} testID="hall-gallery-heading"
+          description="Sống động và sáng tạo: cảnh ra quân, thủy chiến và bản đồ minh họa ba lần kháng chiến (bản đồ gốc Wikipedia ở trang Chiến dịch)." />
 
-        {/* Lưới 10 thẻ ảnh thuần (5×2), chỉ xem – không bấm mở chi tiết, trượt mượt đổi vị trí liên tục */}
+        {/* Lưới 10 thẻ ảnh (5 × 2), chỉ xem – không bấm mở chi tiết, trượt mượt đổi vị trí liên tục */}
         <View
           onLayout={(e) => {
             const w = Math.round(e.nativeEvent.layout.width);
             if (w > 0 && Math.abs(w - gridW) > 1) setGridW(w);
           }}
-          style={{ flex: 1, height: totalH, position: 'relative' }}
+          style={{ width: '100%', height: totalH, position: 'relative' }}
         >
           {pictures.map((p, i) => {
             const slot = slots[i] ?? i;
@@ -875,8 +743,8 @@ export const HallGallery: React.FC<{ level: number; home: SagaHome }> = ({ level
               <View key={p.key} style={posStyle}>
                 <View testID={`gallery-${p.key}`} accessible accessibilityLabel={p.title}
                   style={{
-                    width: '100%', height: '100%', borderRadius: 8, overflow: 'hidden', backgroundColor: '#efe1c4',
-                    boxShadow: '0 6px 16px rgba(15,23,42,0.12)',
+                    width: '100%', height: '100%', borderRadius: 16, overflow: 'hidden', backgroundColor: TILE, borderWidth: 1, borderColor: HOME_LOOK.line,
+                    boxShadow: '0 10px 24px rgba(35, 56, 47, 0.12)',
                   } as object}>
                   {renderArt(p)}
                 </View>
@@ -885,11 +753,11 @@ export const HallGallery: React.FC<{ level: number; home: SagaHome }> = ({ level
           })}
         </View>
       </View>
-    </View>
+    </PaperBand>
   );
 };
 
-// ---------------------------------------------------------------------- 6. Hướng dẫn cách chơi (nền tranh Bạch Đằng phủ tối + nút Play tròn lớn)
+// ---------------------------------------------------------------------- 6. Hướng dẫn cách chơi (nền tranh Bạch Đằng phủ màu mực như khối cuối trang chủ công khai + nút Play tròn lớn)
 const GUIDE_STEPS = [
   { icon: BookOpen, title: '1. Đọc thẻ kiến thức ngắn', desc: 'Mỗi chặng mở đầu bằng thẻ sử liệu súc tích: ai, ở đâu, khi nào, diễn biến và ý nghĩa lịch sử.' },
   { icon: Puzzle, title: '2. Vượt minigame luyện tập', desc: 'Trắc nghiệm, ghép cặp nhân vật – sự kiện, sắp xếp dòng thời gian và chấm điểm trên bản đồ gốc.' },
@@ -901,26 +769,27 @@ export const HallTutorial: React.FC<{ onPlay: () => void }> = ({ onPlay }) => {
   const { width } = useWindowDimensions();
   const compact = width < 640;
   const [open, setOpen] = useState(false);
+  const size = compact ? 30 : 42;
 
   return (
-    <View testID="hall-tutorial" style={{ width: '100%', minHeight: compact ? 320 : 390, overflow: 'hidden', justifyContent: 'center', alignItems: 'center', position: 'relative', backgroundColor: '#091529' }}>
+    <View testID="hall-tutorial" style={{ width: '100%', minHeight: compact ? 340 : 420, overflow: 'hidden', justifyContent: 'center', alignItems: 'center', position: 'relative', backgroundColor: HOME_LOOK.ink }}>
       <Image source={HALL_ART.bachDangPlan} style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, width: '100%', height: '100%' }} resizeMode="cover" accessibilityLabel="Bối cảnh họp bàn kế trận Bạch Đằng" />
-      <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(6, 18, 38, 0.72)' }} />
+      <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: 'rgba(20, 31, 26, 0.74)' }} />
 
-      <View style={{ paddingHorizontal: 20, paddingVertical: 44, alignItems: 'center', gap: 14, maxWidth: 740 }}>
-        <Txt f="heavy" size={compact ? 25 : 35} color="#ffffff" center accessibilityRole="header" style={{ letterSpacing: 1.5 }}>
-          HƯỚNG DẪN CÁCH CHƠI
+      <View style={{ paddingHorizontal: 20, paddingTop: 72, paddingBottom: 52, alignItems: 'center', gap: 14, maxWidth: 760 }}>
+        <Txt f="bold" size={12.5} color={HOME_LOOK.gold} center style={{ letterSpacing: 1.6 }}>HƯỚNG DẪN</Txt>
+        <Txt f="heavy" size={size} color="#ffffff" center accessibilityRole="header" style={{ lineHeight: size + 9, letterSpacing: -1 }}>
+          Hướng dẫn <Txt f="serifItalic" size={size} color={HOME_LOOK.gold} style={{ letterSpacing: -0.5 }}>cách chơi</Txt>
         </Txt>
-        <Txt size={16} color="rgba(255,255,255,0.88)" center style={{ lineHeight: 24 }}>
+        <Txt f="medium" size={16} color="rgba(250, 244, 231, 0.88)" center style={{ lineHeight: 24 }}>
           Xem nhanh lộ trình 4 bước giúp em chinh phục trọn vẹn 13 chặng sử Trần và ghi danh Bảng vàng
         </Txt>
-        <View style={{ width: 48, height: 3, borderRadius: 2, backgroundColor: HALL.accentBlue, marginBottom: 8 }} />
 
         <Pressable testID="hall-tutorial-play" accessibilityRole="button" accessibilityLabel="Mở hướng dẫn cách chơi Hành trình Đông A" onPress={() => setOpen(true)}
           style={({ pressed }) => ({
-            width: compact ? 88 : 108, height: compact ? 88 : 108, borderRadius: 54,
-            borderWidth: 2, borderColor: '#ffffff',
-            backgroundColor: pressed ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.08)',
+            marginTop: 8, width: compact ? 88 : 108, height: compact ? 88 : 108, borderRadius: 54,
+            borderWidth: 2, borderColor: HOME_LOOK.gold,
+            backgroundColor: pressed ? 'rgba(223, 182, 111, 0.28)' : 'rgba(223, 182, 111, 0.12)',
             alignItems: 'center', justifyContent: 'center',
             transform: [{ scale: pressed ? 0.95 : 1 }],
           })}>
@@ -934,20 +803,20 @@ export const HallTutorial: React.FC<{ onPlay: () => void }> = ({ onPlay }) => {
             <Image source={HALL_ART.bachDangPlan} style={{ width: '100%', height: 210, borderRadius: 14 }} resizeMode="cover" />
             <View style={{ gap: 10 }}>
               {GUIDE_STEPS.map(({ icon: Icon, title, desc }) => (
-                <View key={title} style={{ flexDirection: 'row', gap: 12, padding: 12, borderRadius: 14, backgroundColor: HALL.paper, borderWidth: 1.5, borderColor: HALL.paperLine }}>
-                  <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: HALL.red, alignItems: 'center', justifyContent: 'center' }}>
+                <View key={title} style={{ flexDirection: 'row', gap: 12, padding: 12, borderRadius: 14, backgroundColor: HOME_LOOK.paper, borderWidth: 1, borderColor: HOME_LOOK.line }}>
+                  <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: HOME_LOOK.red, alignItems: 'center', justifyContent: 'center' }}>
                     <Icon size={20} color="#ffffff" />
                   </View>
                   <View style={{ flex: 1, gap: 2 }}>
-                    <Txt f="heavy" size={15} color={HALL.ink}>{title}</Txt>
-                    <Txt size={13} color={HALL.muted} style={{ lineHeight: 20 }}>{desc}</Txt>
+                    <Txt f="heavy" size={15} color={HOME_LOOK.ink}>{title}</Txt>
+                    <Txt size={13} color={HOME_LOOK.soft} style={{ lineHeight: 20 }}>{desc}</Txt>
                   </View>
                 </View>
               ))}
             </View>
             <Pressable accessibilityRole="button" accessibilityLabel="Bắt đầu vào chơi ngay" onPress={() => { setOpen(false); onPlay(); }}
-              style={({ pressed }) => ({ minHeight: 48, borderRadius: 14, backgroundColor: pressed ? HALL.redDeep : HALL.red, alignItems: 'center', justifyContent: 'center' })}>
-              <Txt f="heavy" size={15} color="#fff3cf" style={{ letterSpacing: 1 }}>BẮT ĐẦU VÀO CHƠI NGAY</Txt>
+              style={({ pressed }) => ({ minHeight: 48, borderRadius: 999, backgroundColor: pressed ? '#000000' : L_DEN, alignItems: 'center', justifyContent: 'center' })}>
+              <Txt f="bold" size={15} color="#ffffff">Bắt đầu vào chơi ngay</Txt>
             </Pressable>
           </View>
         </Sheet>
@@ -1047,16 +916,20 @@ export const RankLadder: React.FC<{ rank: RankState; onPlay?: () => void; center
   );
 };
 
-// ---------------------------------------------------------------------- 8. Chân trang gọn nhẹ (chỉ hiển thị dòng bản quyền căn giữa)
+// ---------------------------------------------------------------------- 8. Chân trang gọn (màu mực của trang chủ công khai)
 export const HallFooter: React.FC = () => (
-  <View testID="hall-footer" style={{ width: '100%', backgroundColor: '#ffffff', borderTopWidth: 1, borderTopColor: '#e8e0d2', paddingVertical: 20, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' }}>
-    <Txt size={13} color={HALL.muted} center>
+  <View testID="hall-footer" style={{ width: '100%', backgroundColor: HOME_LOOK.ink, paddingVertical: 22, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' }}>
+    <Txt size={13} color="rgba(250, 244, 231, 0.82)" center>
       © 2026 · Bản quyền thuộc quản lý Đông A
     </Txt>
   </View>
 );
 
-// ---------------------------------------------------------------------- 9. Màn trang chủ mở đầu độc lập (hiện ngay sau khi học sinh đăng nhập, không hiện dải 9 tab)
+/**
+ * Sảnh mở đầu (mục Trang chủ): nằm trong khung `StudentWorkspace` như mọi mục khác (thanh đầu chung, 25/11/2026).
+ * Bảng màu của trang chủ công khai (`PALETTES.light`) áp cho cả sảnh để tiêu đề, dải mây vàng và hoa văn nền giống hệt trang chủ.
+ * `jump` = phần cần cuộn tới (bấm ở menu sổ xuống của Trang chủ; `n` tăng mỗi lần bấm), `onSection` báo phần đang xem cho thanh đầu.
+ */
 export const HallLandingScreen: React.FC<{
   session: Session;
   home: SagaHome | null;
@@ -1065,77 +938,96 @@ export const HallLandingScreen: React.FC<{
   onRetry: () => void;
   classId: number | null;
   className?: string | null;
-  schoolName?: string | null;
-  avatar?: React.ReactNode;
-  profileAvatar?: React.ReactNode;
-  profileExtra?: React.ReactNode;
   onPlay: () => void;
-}> = ({ session, home, loading, error, onRetry, classId, className, schoolName, avatar, profileAvatar, profileExtra, onPlay }) => {
+  jump?: { key: HallSectionKey; n: number } | null;
+  onSection?: (key: HallSectionKey) => void;
+}> = ({ session, home, loading, error, onRetry, classId, className, onPlay, jump = null, onSection }) => {
+  const { width } = useWindowDimensions();
+  const wide = width >= 900;
   const scroller = useRef<ScrollViewInstance>(null);
+  // Vị trí các phần đo lại mỗi lần cần (không chỉ lúc dựng): phía trên còn đổi chiều cao sau đó (bảng vàng tải xong, bậc danh hiệu tự đổi)
+  const content = useRef<ComponentRef<typeof View>>(null);
+  const boxes = useRef<Partial<Record<HallSectionKey, ComponentRef<typeof View> | null>>>({});
   const sectionY = useRef<Partial<Record<HallSectionKey, number>>>({});
-  const [activeAnchor, setActiveAnchor] = useState<HallSectionKey>('hero');
+  const want = useRef<HallSectionKey | null>(null);
+  const current = useRef<HallSectionKey>('hero');
+  const measuredAt = useRef(0);
+  const recheck = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showTop, setShowTop] = useState(false);
-  const [profile, setProfile] = useState(false);
   const rank = useMemo(() => scholarRank(home?.campaigns), [home]);
-  const loadProfile = useCallback(() => authApi.getProfile(session.token), [session.token]);
-  const saveProfile = useCallback((patch: ProfilePatch) => authApi.updateProfile(session.token, patch), [session.token]);
-  const uploadAvatar = useCallback((img: { data: string }) => authApi.uploadAvatar(session.token, img), [session.token]);
+  useEffect(() => () => { if (recheck.current) clearTimeout(recheck.current); }, []);
 
-  const jumpTo = (key: HallSectionKey): void => {
-    setActiveAnchor(key);
-    const y = key === 'hero' ? 0 : (sectionY.current[key] ?? 0);
-    scroller.current?.scrollTo({ y: Math.max(0, y), animated: true });
-  };
-  const recordY = (key: HallSectionKey) => (e: { nativeEvent: { layout: { y: number } } }) => {
-    sectionY.current[key] = e.nativeEvent.layout.y;
-  };
+  const measure = useCallback((key: HallSectionKey, done?: (y: number) => void): void => {
+    const box = boxes.current[key], base = content.current;
+    if (!box || !base) return;
+    box.measureLayout(base, (_x, y) => { sectionY.current[key] = y; done?.(y); }, () => undefined);
+  }, []);
+  const scrollTo = useCallback((key: HallSectionKey): void => {
+    if (key === 'hero') { scroller.current?.scrollTo({ y: 0, animated: true }); return; }
+    if (!boxes.current[key]) { want.current = key; return; } // phần chưa dựng xong: cuộn khi dựng
+    want.current = null;
+    measure(key, (y) => {
+      scroller.current?.scrollTo({ y: Math.max(0, y), animated: true });
+      // cuộn xong đo lại một lần: phần phía trên vừa đổi chiều cao thì chỉnh cho khớp
+      if (recheck.current) clearTimeout(recheck.current);
+      recheck.current = setTimeout(() => measure(key, (y2) => { if (Math.abs(y2 - y) > 6) scroller.current?.scrollTo({ y: Math.max(0, y2), animated: false }); }), 900);
+    });
+  }, [measure]);
+  const jumpKey = jump?.key ?? null, jumpN = jump?.n ?? 0;
+  useEffect(() => { if (jumpKey) scrollTo(jumpKey); }, [jumpKey, jumpN, scrollTo]);
+  const hold = (key: HallSectionKey) => ({
+    ref: (el: ComponentRef<typeof View> | null) => { boxes.current[key] = el; },
+    onLayout: () => { if (want.current === key) scrollTo(key); else measure(key); },
+  });
   const handleScroll = (y: number) => {
     setShowTop(y > 420);
-    const ordered: HallSectionKey[] = ['hero', 'about', 'characters', 'board', 'gallery', 'tutorial'];
-    let current: HallSectionKey = 'hero';
-    for (const k of ordered) {
+    if (Date.now() - measuredAt.current > 400) { measuredAt.current = Date.now(); HALL_ORDER.forEach((k) => measure(k)); }
+    let now: HallSectionKey = 'hero';
+    for (const k of HALL_ORDER) {
       const sy = sectionY.current[k];
-      if (sy !== undefined && y + 120 >= sy) current = k;
+      if (sy !== undefined && y + 140 >= sy) now = k;
     }
-    setActiveAnchor(current);
+    if (now !== current.current) { current.current = now; onSection?.(now); }
   };
 
   return (
-    <View testID="hall-landing" style={{ flex: 1, backgroundColor: HALL.lightBg }}>
-      <HallAnchorBar session={session} active={activeAnchor} onJump={jumpTo} onPlay={onPlay} schoolName={schoolName} avatar={avatar} onOpenProfile={() => setProfile(true)} />
-      <ScrollView ref={scroller} style={{ flex: 1 }} scrollEventThrottle={64} onScroll={(e) => handleScroll(e.nativeEvent.contentOffset.y)} keyboardShouldPersistTaps="handled">
-        {!home ? (
-          <View style={{ maxWidth: 1120, width: '100%', alignSelf: 'center', padding: 32 }}>
-            <LoadState loading={loading} error={error} onRetry={onRetry} />
+    <ThemeContext.Provider value={{ c: PALETTES.light, dark: false }}>
+      <View testID="hall-landing" style={{ flex: 1, backgroundColor: HOME_LOOK.paper }}>
+        <ScrollView ref={scroller} style={{ flex: 1 }} scrollEventThrottle={64} onScroll={(e) => handleScroll(e.nativeEvent.contentOffset.y)} keyboardShouldPersistTaps="handled">
+          <View ref={content}>
+          {!home ? (
+            <View style={{ maxWidth: 1120, width: '100%', alignSelf: 'center', padding: 32 }}>
+              <LoadState loading={loading} error={error} onRetry={onRetry} />
+            </View>
+          ) : (
+            <>
+              <View {...hold('hero')}><HallHero onPlay={onPlay} /></View>
+              <SectionCloud color={HOME_LOOK.paper} rim wide={wide} direction="up" variant={1} />
+              <View {...hold('about')}><HallSteps /></View>
+              <CloudPair upper={HOME_LOOK.paper} lower={HOME_LOOK.paper} wide={wide} variant={1} />
+              <View {...hold('characters')}><HallCharacters rank={rank} /></View>
+              <CloudPair upper={HOME_LOOK.paper} lower={HOME_LOOK.paper} wide={wide} variant={0} />
+              <View {...hold('board')}><HallBoard session={session} classId={classId} className={className} /></View>
+              <CloudPair upper={HOME_LOOK.paper} lower={HOME_LOOK.paper} wide={wide} variant={2} />
+              <View {...hold('gallery')}><HallGallery level={rank.level} home={home} /></View>
+              <SectionCloud color={HOME_LOOK.paper} rim wide={wide} variant={2} />
+              <View {...hold('tutorial')}><HallTutorial onPlay={onPlay} /></View>
+              <HallFooter />
+            </>
+          )}
           </View>
-        ) : (
-          <>
-            <View onLayout={recordY('hero')}><HallHero onPlay={onPlay} /></View>
-            <View onLayout={recordY('about')}><HallSteps /></View>
-            <View onLayout={recordY('characters')}><HallCharacters rank={rank} /></View>
-            <View onLayout={recordY('board')}><HallBoard session={session} classId={classId} className={className} /></View>
-            <View onLayout={recordY('gallery')}><HallGallery level={rank.level} home={home} /></View>
-            <View onLayout={recordY('tutorial')}><HallTutorial onPlay={onPlay} /></View>
-            <HallFooter />
-          </>
-        )}
-      </ScrollView>
-      {showTop ? (
-        <Pressable accessibilityRole="button" accessibilityLabel="Về đầu trang" onPress={() => jumpTo('hero')} testID="hall-back-top"
-          style={({ pressed }) => ({
-            position: 'absolute', right: 20, bottom: 22, width: 46, height: 46, borderRadius: 23,
-            backgroundColor: pressed ? '#0e66c2' : HALL.accentBlue, alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 6px 16px rgba(0,0,0,0.28)',
-          } as object)}>
-          <ArrowUp size={22} color="#06162b" strokeWidth={2.8} />
-        </Pressable>
-      ) : null}
-      {profile ? (
-        <ProfileSheet onClose={() => setProfile(false)} load={loadProfile} save={saveProfile} upload={uploadAvatar} onSaved={session.updateUser} avatar={profileAvatar} extra={profileExtra}>
-          <Btn title="Đổi mật khẩu" icon={KeyRound} tone="giay" onPress={() => { setProfile(false); session.changePassword(); }} />
-          <Btn title="Đăng xuất" icon={LogOut} tone="giay" onPress={() => { setProfile(false); session.logout(); }} />
-        </ProfileSheet>
-      ) : null}
-    </View>
+        </ScrollView>
+        {showTop ? (
+          <Pressable accessibilityRole="button" accessibilityLabel="Lên đầu trang" onPress={() => scrollTo('hero')} testID="hall-back-top"
+            style={({ pressed }) => ({
+              position: 'absolute', right: 20, bottom: 20, width: 52, height: 52, borderRadius: 26,
+              backgroundColor: L_DEN, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.28)', alignItems: 'center', justifyContent: 'center',
+              opacity: pressed ? 0.8 : 1, boxShadow: '0 1px 2px rgba(14, 17, 22, 0.12), 0 8px 24px rgba(14, 17, 22, 0.18)',
+            } as object)}>
+            <ArrowUp size={19} color="#ffffff" strokeWidth={2} />
+          </Pressable>
+        ) : null}
+      </View>
+    </ThemeContext.Provider>
   );
 };
