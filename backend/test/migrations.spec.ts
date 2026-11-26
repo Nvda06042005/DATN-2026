@@ -470,8 +470,10 @@ describe('file migration', () => {
     expect((await sql<{ code: string }>(url, 'SELECT code FROM hk_character_classes ORDER BY sort_order')).map((r) => r.code)).toEqual(['tuong_quan', 'quan_su', 'luong_y']);
     expect(await count('SELECT count(*) AS n FROM hk_shop_items')).toBe(14);
     expect(await count("SELECT count(*) AS n FROM hk_shop_items WHERE kind IN ('outfit', 'weapon', 'banner') AND price = 0 AND min_level = 1")).toBe(3); // mỗi loại một đồ mặc định miễn phí
-    expect(await count('SELECT count(*) AS n FROM hk_quest_templates')).toBe(8);
-    expect(await count("SELECT count(*) AS n FROM hk_quest_templates WHERE period = 'daily'")).toBe(4);
+    // 083 (25/11/2026) thêm 2 nhiệm vụ ngày của bản vẽ (nhặt 2 thẻ Binh thư, hỏi Tiểu Tướng) và tạm tắt các nhiệm vụ ngày khác của mẫu hệ thống
+    expect(await count('SELECT count(*) AS n FROM hk_quest_templates')).toBe(10);
+    expect(await count("SELECT count(*) AS n FROM hk_quest_templates WHERE period = 'daily'")).toBe(6);
+    expect((await sql<{ code: string }>(url, "SELECT code FROM hk_quest_templates WHERE period = 'daily' AND is_active ORDER BY sort_order, code")).map((r) => r.code)).toEqual(['ngay-10-cau-dung', 'ngay-2-the-binh-thu', 'ngay-hoi-tieu-tuong']);
     expect(await count('SELECT count(*) AS n FROM hk_badges WHERE rule IS NOT NULL')).toBe(12);
     expect(await count("SELECT count(*) AS n FROM hk_badges WHERE rule->>'type' = 'campaign_complete' AND (rule->>'campaign_id') IS NOT NULL")).toBe(3);
     expect(await count('SELECT count(*) AS n FROM hk_cards')).toBe(17); // 13 thẻ tướng (021) + 4 thẻ chiến thuật (029)

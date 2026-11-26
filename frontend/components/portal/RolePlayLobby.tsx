@@ -24,7 +24,7 @@ export function RolePlayLobby({ session, nav }: { session: Session; nav: SagaNav
     <SagaHeader title="Doanh trại nhập vai" subtitle="Theo bản đồ 2D, tìm hiểu bối cảnh và bước vào những chặng lịch sử đã mở."
       actions={<Btn title="Xem lại mở đầu" icon={RotateCcw} tone="giay" onPress={() => setIntro(true)} testID="roleplay-intro-replay" />} />
     <View style={{ borderRadius: 21, overflow: 'hidden', backgroundColor: '#244a45', flexDirection: 'row', alignItems: 'center', padding: 18, gap: 18 }}>
-      <View style={{ flex: 1, gap: 9 }}><Txt f="heavy" size={23} color="#fff5d6">Quân lệnh đang chờ em</Txt><Txt size={16} color="#d7e9db" style={{ lineHeight: 25 }}>Học kiến thức và hoàn thành luyện tập để mở cảnh nhập vai. Trong cảnh, dùng WASD / phím mũi tên hoặc chạm để đi, nhấn E để tương tác.</Txt>{next ? <GameButton title={`Mở chặng: ${next.title}`} light icon={Play} onPress={() => nav.go('chien-dich',{ c: next.campaign_no,s: next.stage_id,v: null })} testID="roleplay-next" /> : null}</View>
+      <View style={{ flex: 1, gap: 9 }}><Txt f="heavy" size={23} color="#fff5d6">Quân lệnh đang chờ em</Txt><Txt size={16} color="#d7e9db" style={{ lineHeight: 25 }}>Học kiến thức và hoàn thành luyện tập để mở cảnh nhập vai. Trong cảnh, dùng WASD / phím mũi tên hoặc chạm để đi, nhấn E để tương tác.</Txt>{next ? <GameButton title={`Mở chặng: ${next.title}`} light icon={Play} onPress={() => nav.go('chien-dich',{ c: next.grade,s: next.stage_id,v: null })} testID="roleplay-next" /> : null}</View>
     </View>
     {!data.data ? <LoadState loading={data.loading} error={data.error} onRetry={data.reload} /> : data.data.map((cv) => {
       const tone = TONE[cv.map.campaign_no] ?? TONE[1];
@@ -38,8 +38,8 @@ export function RolePlayLobby({ session, nav }: { session: Session; nav: SagaNav
             <Txt size={16} color={S.muted}>{canExplore ? st.summary : st.lock_reason ?? 'Hoàn thành phần học và luyện tập của chặng để mở cảnh nhập vai.'}</Txt>
             {st.battle_stars > 0 ? <StarRow n={st.battle_stars} /> : null}
             <View style={{ marginTop: 'auto', flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              <Btn title={st.steps.explore === 'done' ? 'Khám phá lại' : 'Nhập vai'} icon={Footprints} tone="son" disabled={!canExplore} onPress={() => { if (canExplore) nav.go('chien-dich',{ c: st.campaign_no,s: st.id,v: 'kham-pha' }); }} testID={`roleplay-explore-${st.code}`} />
-              {st.has_battle ? <Btn title="Đánh lại trận" icon={Swords} tone="giay" disabled={!canBattle} onPress={() => { if (canBattle) nav.go('chien-dich',{ c: st.campaign_no,s: st.id,v: 'tran' }); }} testID={`roleplay-battle-${st.code}`} /> : null}
+              <Btn title={st.steps.explore === 'done' ? 'Khám phá lại' : 'Nhập vai'} icon={Footprints} tone="son" disabled={!canExplore} onPress={() => { if (canExplore) nav.go('chien-dich',{ c: st.grade,s: st.id,v: 'kham-pha' }); }} testID={`roleplay-explore-${st.code}`} />
+              {st.has_battle ? <Btn title="Đánh lại trận" icon={Swords} tone="giay" disabled={!canBattle} onPress={() => { if (canBattle) nav.go('chien-dich',{ c: st.grade,s: st.id,v: 'xuat-tran' }); }} testID={`roleplay-battle-${st.code}`} /> : null}
             </View>
           </Card>;
         })}</View>

@@ -1,5 +1,7 @@
 # Giao diện học sinh – 20/11/2026
 
+> **Từ 25/11/2026 trang học sinh theo hướng "Binh thư Sát Thát" (mục cuối tệp).** Các mục 20/11, 23/11 và 25/11 bên dưới chỉ còn để tra lịch sử: sảnh mở đầu, lộ trình uốn lượn, cột phải và thanh đầu có menu Trang chủ đã thay.
+
 Theo yêu cầu làm lại giao diện học sinh cho lứa tuổi THCS và tăng tính trò chơi hóa, không gian học sinh có ngôn ngữ thiết kế riêng: xanh ngọc, vàng, nền sáng, nút có chiều sâu, thẻ bo góc, Rồng Con và phong cảnh thành lũy minh họa. Nhãn hành động bằng tiếng Việt; số liệu luôn lấy từ API của người đang đăng nhập.
 
 Giữ các màu đỏ ngữ nghĩa hiện có cho câu trả lời sai, lỗi nhập liệu và lỗi API; không đổi phản hồi sai thành màu xanh của hành trình.
@@ -55,3 +57,42 @@ Người dùng (kèm ảnh dải nút có huy hiệu, ảnh menu sổ xuống HO
 - **Sảnh mở đầu** (`StudentHall.tsx`) nằm trong khung chung (không còn thanh neo riêng) và dùng bảng màu trang chủ công khai cho cả sảnh: sau màn Hoàng thành là dải mây vàng nối khối, các phần Giới thiệu, Nhân vật (5 bậc danh hiệu / 9 nhân vật), Bảng vàng, Thư viện đều **nền giấy kem có hoa văn mờ + hai vòng vàng**, nối nhau bằng dải mây vàng (`CloudPair`, `SectionCloud`), tiêu đề hai màu `SectionHeading` (dòng nhỏ đỏ, chữ đậm màu mực, dòng nghiêng đỏ), thẻ giấy mờ như `PAPER_CARD`. **Bỏ nền chuyển sắc xanh – tím – đỏ** của khu Nhân vật và **sân khấu cam đỏ có rèm** của Bảng vàng (khung gỗ có Vua Trần, Trần Hưng Đạo giữ nguyên trên màn rộng; màn hẹp là bảng chữ viền vàng); nút / chip đỏ son như trang chủ; Hướng dẫn phủ màu mực, chân trang màu mực, nút lên đầu trang đen như trang chủ. Thẻ giới thiệu thứ ba đổi thành "Hỏi Tiểu Tướng" (không còn nói tới ôn câu sai / thi đấu).
 
 Kiểm tra: `npm run typecheck`, `npm test` (bài 25/11/2026 trong `tests/student-nav.test.cjs`, cập nhật `assessment-ui.test.cjs`), chụp bản web xuất (1366 × 860 và 390 × 844): rê chuột / bấm mũi tên mở menu, đi chuột xuống menu vẫn mở, bấm từng phần cuộn đúng chỗ, phần đang xem tô đỏ, Esc đóng, từ Chiến dịch bấm "Thư viện" về đúng phần, đường dẫn cũ `tab=cau-hoi` / `tab=ky-thi` về Trang chủ, các mục Chiến dịch / Nhập vai / Hỏi Tiểu Tướng / Trợ giúp trong khung mới.
+
+## "Binh thư Sát Thát" – 25–26/11/2026
+
+Người dùng gửi bản vẽ 15 màn điện thoại (artifact trên claude.ai) và yêu cầu "làm theo"; chọn qua câu hỏi: **giữ thế giới khối 3D làm phần thêm**, **bỏ sảnh mở đầu** (đăng nhập vào thẳng Doanh trại, Trợ giúp chuyển vào Hồ sơ), **máy tính dùng thanh đầu chữ + bố cục rộng**.
+
+### Điều hướng
+
+- Năm mục chính: **Doanh trại · Chiến dịch · Binh thư · Tiểu Tướng · Bảng vàng**. Điện thoại (< 900 px): thanh 5 mục dưới đáy (biểu tượng + chữ, mục đang mở màu nhấn), ẩn ở các bước trong chặng và các màn phụ có nút quay lại. Máy tính: thanh đầu viên thuốc chỉ có chữ, chuỗi ngày, vàng, Cài đặt, Thông báo, ảnh đại diện (→ Hồ sơ), Đăng xuất. Không có menu trái.
+- Mục phụ: Hồ sơ, Chợ phiên Thăng Long, Giao diện, Luyện binh riêng, Trợ giúp, Lớp học (danh sách lớp, đăng ký bằng mã), Nhập vai (thế giới khối 3D).
+- URL: `tab`, `c` (khối 6–9), `s` (chặng), `v` (bước: `quan-lenh`, `tham-su`, `hoi-dong`, `xuat-tran`, `su-quan`, `kham-pha`). Đường dẫn cũ tự chuyển: `tab=trang-chu` → Doanh trại, `tab=hoi|ai` → Tiểu Tướng, `v=hoc|luyen|tran|tong-ket` → bước mới, `c=1–3` → khối 6–8.
+- Chưa vào lớp nào: chỉ có danh sách lớp, Hồ sơ, Giao diện, Trợ giúp.
+
+### Các màn (theo bản vẽ)
+
+| Màn | Tệp | Nội dung |
+| --- | --- | --- |
+| Doanh trại | `SagaHome.tsx` `HomeScreen` | lời chào + bậc Khoa bảng, 3 ô chỉ số, chặng đang học (5 vạch bước, nút đi tiếp), nhiệm vụ hôm nay, gợi ý Luyện binh riêng của Tiểu Tướng, chiến dịch của khối, chuỗi ngày |
+| Chiến dịch | `CampaignScreen` | 4 tab Khối 6–9, dải tối của khối (vai, mức nhận thức, dạng câu, số câu, số trận, phần thưởng), danh sách chặng có hòm báu xen giữa; kiểu xem **Bản đồ gốc** giữ bản đồ Wikipedia kiểu sa bàn (Khối 6–8) |
+| Quân lệnh (bước 1) | `OrderScreen` | lời giao nhiệm vụ (ghi rõ là lời dẫn của trò chơi), mục tiêu, năm bước, "Khám phá thêm (3D, không bắt buộc)", phần thưởng lần đầu |
+| Thám sử (bước 2) | `SagaLearn.tsx` `ThamSuScreen` | cảnh bản đồ có điểm sáng + danh sách thẻ; mỗi thẻ có dữ kiện, mục tiêu, nguồn; "Nhận thẻ vào Binh thư", "Hỏi Tiểu Tướng về thẻ này" |
+| Hội đồng quân sự (bước 3) | `HoiDongScreen` | 5 mẫu câu hỏi do máy chủ chấm, "Gợi ý chiến thuật" (mua ở Chợ phiên) gạch một phương án sai |
+| Xuất trận (bước 4) | `SagaPlay.tsx` | trận chiến thuật, Bạch Đằng 1288, **trận hội đồng** (`CouncilHost`: hội thoại theo lượt, thanh chỉ số, phương án chưa chọn không lộ điểm) |
+| Sử quan (bước 5) | `SuQuanScreen` | sao, bảng "Em và lịch sử", nhận xét của Tiểu Tướng, diễn biến có nguồn, phần sáng tạo, phần thưởng (một lần), chặng tiếp |
+| Luyện binh riêng | `LuyenBinhScreen` | lượt 6 câu tính giờ (đồng hồ do máy chủ giữ) gom câu hay sai |
+| Binh thư | `BinhThuScreen` | ngăn Nhân vật / Kế sách / Địa danh, thẻ danh tướng (tranh của nhóm cho 6 nhân vật, ghi rõ là tranh minh họa cách điệu) |
+| Tiểu Tướng | `SagaAsk.tsx` | hỏi đáp kèm nguồn, câu hỏi gợi ý / hỏi tiếp, nói thay gõ khi trình duyệt có nhận dạng giọng nói tiếng Việt, nút Trung tâm AI (`StudentAiHub`) |
+| Bảng vàng | `BoardScreen` | giải đấu tuần, bảng Lớp / Toàn trường, "So với tuần trước" (▲ ▼ do máy chủ tính), Khoa bảng, huy hiệu |
+| Hồ sơ | `SagaLook.tsx` `ProfileScreen` | ảnh có khung + cờ hiệu, Cấp / KN / Vàng / Sao, chuỗi ngày và mốc, bảng "Cách kiếm", thang Khoa bảng, ảnh nhân vật, danh hiệu, nút Chợ phiên / Giao diện / Tài khoản / Lớp học / Trợ giúp / Đăng xuất |
+| Chợ phiên Thăng Long | `ShopScreen` | xem thử khung / cờ hiệu, mua bằng vàng (mua xong tự trang bị), vật phẩm giới hạn tuần, món thành tích không có nút mua |
+| Giao diện | `ThemeScreen` | xem thử trên khung điện thoại, dùng / mua; Hoàng thành chỉ cho Trạng nguyên |
+
+### Màu và chữ
+
+- `StudentDesign.tsx`: `BtTheme` + 4 giao diện `BT_THEMES` (Thăng Long mặc định, Sông Bạch Đằng, **Đêm Đông Bộ Đầu – tối**, Hoàng thành); `StudentApp` bọc `BtProvider` và `ThemeContext` bằng `themePalette(bt)` nên cả các thành phần dùng chung (Txt, Sheet, ô nhập) đổi màu theo. Kiểm thử `student-nav.test.cjs` đo tương phản WCAG của 21 cặp chữ / nền ở cả bốn giao diện (≥ 4,5:1).
+- Chỉ dùng Manrope (nội dung) và Newsreader (tiêu đề, đoạn sử liệu). Nút / ô chạm ≥ 44 px, mọi nút biểu tượng có nhãn trợ năng, hoạt ảnh dừng khi bật giảm chuyển động.
+
+### Kiểm tra trên trình duyệt (26/11/2026)
+
+Chạy bản xuất web với máy chủ thật và cơ sở dữ liệu thử đã có tiến độ (migration 083 áp dụng lên dữ liệu cũ không lỗi) ở 390 px và 1366 px: Doanh trại, bốn khối, bản đồ gốc, Quân lệnh, Thám sử (nhặt đủ 5 thẻ), Hội đồng (6/6 câu), trận hội đồng Bạch Đằng 938 (thắng, 3 sao), Sử quan + hộp thưởng + lên cấp, Bảng vàng, Binh thư, Tiểu Tướng (máy AI chưa chạy thì báo dễ hiểu và giữ câu hỏi), Hồ sơ, Chợ phiên (mua Gợi ý), Giao diện (mua và đổi sang giao diện tối – cả trang đổi màu).

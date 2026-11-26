@@ -1,6 +1,7 @@
-// 15/11/2026: trang học sinh được xây dựng lại thành Hành trình Đông A (chọn cuộc kháng chiến → bản đồ → học → luyện tập → nhập vai → trận đánh → tổng kết).
-// 20/11/2026: StudentWorkspace có giao diện game riêng; các luồng điều hướng, kiểm tra lớp, API và máy chủ chấm điểm giữ nguyên.
-// Giao diện cũ (StudentNav, lộ trình học, bản đồ nhiệm vụ, lớp học, thẻ tướng…) đã xóa và không được nối lại; API và dữ liệu học sinh giữ nguyên.
+// 15/11/2026: trang học sinh được xây dựng lại thành Hành trình Đông A; 25/11/2026: chuyển sang hướng "Binh thư Sát Thát" theo bản vẽ người dùng gửi
+// (Doanh trại · Chiến dịch theo khối 6–9 · Binh thư · Tiểu Tướng · Bảng vàng; mỗi chặng 5 bước Quân lệnh → Thám sử → Hội đồng quân sự → Xuất trận → Sử quan).
+// Người dùng chọn: giữ thế giới khối 3D làm phần thêm, bỏ sảnh mở đầu, máy tính dùng thanh đầu chữ + bố cục rộng (điện thoại: thanh 5 mục dưới đáy).
+// Giao diện cũ (StudentNav, lộ trình học, sảnh mở đầu, cột phải SagaRail…) đã xóa và không được nối lại; API và dữ liệu học sinh giữ nguyên.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -10,67 +11,202 @@ const root = path.join(__dirname, '..');
 const read = (...p) => fs.readFileSync(path.join(root, ...p), 'utf8');
 const exists = (...p) => fs.existsSync(path.join(root, ...p));
 const walk = (dir) => fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : /\.tsx?$/.test(e.name) ? [path.join(dir, e.name)] : []));
+const code = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
-test('trang học sinh: khung game riêng giữ các mục học tập, điều hướng URL, quyền theo lớp và quản lý phiên', () => {
+test('trang học sinh "Binh thư Sát Thát": năm mục chính, URL và đường dẫn cũ, quyền theo lớp, giao diện màu, quản lý phiên', () => {
   const app = read('components', 'portal', 'StudentApp.tsx');
   assert.match(read('app', 'hoc-sinh.tsx'), /<StudentApp session=\{session\} \/>/);
-  assert.match(app, /usePortalTab<SagaTab>\(embed \? 'chien-dich' : 'trang-chu', TABS\)/);
-  for (const [id, label] of [['chien-dich', 'Chiến dịch'], ['nhap-vai', 'Nhập vai'], ['hoi', 'Hỏi Tiểu Tướng'], ['tro-giup', 'Trợ giúp']]) assert.ok(app.includes(`{ id: '${id}', label: '${label}' }`), id);
-  // 25/11/2026: bỏ hẳn Câu hỏi ôn tập, Kỳ thi, Tư liệu, Bộ thẻ, Tin nhắn của trang học sinh
-  for (const gone of ["'cau-hoi'", "'ky-thi'", "'tu-lieu'", "'bo-the'", "'tin-nhan'", "label: 'Câu hỏi ôn tập'", 'StudentExams', 'StudentInbox', 'SagaExtras']) assert.ok(!app.includes(gone), gone);
-  assert.doesNotMatch(read('components', 'portal', 'SagaKit.tsx'), /'cau-hoi'|'ky-thi'|'tu-lieu'|'bo-the'|'tin-nhan'/);
-  // 16/11/2026: xóa hẳn mục Khảo sát của trang học sinh; logo ở thanh đầu từng bỏ rồi khôi phục cùng ngày ("khôi phục header cho trang học sinh"), nút loa bỏ hẳn
-  for (const gone of ["'khao-sat'", "label: 'Khảo sát'", '<SurveyCenter', 'ClipboardList']) assert.ok(!app.includes(gone), gone);
-  assert.doesNotMatch(read('components', 'portal', 'SagaKit.tsx'), /'khao-sat'/);
-  assert.match(read('components', 'admin', 'AdminWorkspace.tsx'), /\n {8}<View style=\{\{ flexShrink: 1 \}\}><BrandLogo /);
-  assert.doesNotMatch(read('components', 'admin', 'AdminWorkspace.tsx'), /role !== 'student' \? <View style=\{\{ flexShrink: 1 \}\}><BrandLogo/);
-  for (const gone of ['sound-toggle', 'Volume2', 'VolumeX']) assert.ok(!app.includes(gone), gone);
+  assert.match(app, /usePortalTab<SagaTab>\(embed \? 'chien-dich' : 'doanh-trai', TABS\)/);
+  for (const [id, label] of [['doanh-trai', 'Doanh trại'], ['chien-dich', 'Chiến dịch'], ['binh-thu', 'Binh thư'], ['tieu-tuong', 'Tiểu Tướng'], ['bang-vang', 'Bảng vàng']]) assert.ok(app.includes(`{ id: '${id}', label: '${label}' }`), id);
+  assert.match(app, /const TABS: readonly SagaTab\[\] = \['doanh-trai', 'chien-dich', 'binh-thu', 'tieu-tuong', 'bang-vang', 'ho-so', 'cua-hang', 'giao-dien', 'luyen-binh', 'tro-giup', 'lop-hoc', 'nhap-vai'\];/);
+  assert.match(app, /const STEPS: readonly SagaStep\[\] = \['quan-lenh', 'tham-su', 'hoi-dong', 'xuat-tran', 'su-quan', 'kham-pha'\];/);
+  // đường dẫn cũ (sảnh trang-chu, hoi, bước hoc/luyen/tran/tong-ket, c = cuộc kháng chiến 1–3) chuyển sang mục mới bằng replace
+  assert.match(app, /const LEGACY_TAB: Record<string, SagaTab> = \{ 'trang-chu': 'doanh-trai', hoi: 'tieu-tuong', ai: 'tieu-tuong' \};/);
+  assert.match(app, /const LEGACY_STEP: Record<string, SagaStep> = \{ hoc: 'tham-su', luyen: 'hoi-dong', tran: 'xuat-tran', 'tong-ket': 'su-quan' \};/);
+  assert.match(app, /c: String\(rawC! \+ 5\)/);
+  // c là khối 6–9
+  assert.match(app, /c: cNo && cNo >= 6 && cNo <= 9 \? cNo : null/);
+  // 25/11/2026: bỏ hẳn sảnh mở đầu và năm mục cũ (Câu hỏi ôn tập, Kỳ thi, Tư liệu, Bộ thẻ, Tin nhắn); không còn Khảo sát, nút loa
+  for (const gone of ["'trang-chu', 'chien-dich'", 'HallLandingScreen', 'HALL_SECTIONS', 'pendingSection', "'cau-hoi'", "'ky-thi'", "'tu-lieu'", "'bo-the'", "'tin-nhan'", 'StudentExams', 'StudentInbox', 'SagaExtras', "'khao-sat'", '<SurveyCenter', 'sound-toggle', 'Volume2']) assert.ok(!app.includes(gone), gone);
+  assert.doesNotMatch(read('components', 'portal', 'SagaKit.tsx'), /'cau-hoi'|'ky-thi'|'tu-lieu'|'bo-the'|'tin-nhan'|'khao-sat'|'trang-chu'/);
   assert.match(app, /useEffect\(\(\) => \{ if \(soundEnabled\(\)\) setSound\(false\); \}, \[\]\);/);
-  // Chỉ học sinh dùng bảng màu và nút game; không đổi ThemeContext toàn ứng dụng hay khung của giáo viên / quản trị.
-  assert.match(app, /<AdminUiContext\.Provider value=\{false\}>/);
-  assert.match(app, /<ThemeContext\.Provider value=\{\{ c: STUDENT_PALETTE, dark: false \}\}>/);
-  assert.match(app, /<StudentWorkspace session=\{session\} nav=\{navItems\} active=\{route\.tab === 'trang-chu' \? null : route\.tab === 'lop-hoc' \? 'chien-dich' : route\.tab\} onSelect=\{pick\}/);
-  assert.match(app, /onHome=\{\(\) => pick\('trang-chu'\)\} homeActive=\{route\.tab === 'trang-chu'\} homeMenu=\{HALL_SECTIONS\}/);
-  for (const gone of ['RoundIcon', 'student-hud', 'ask-tieu-tuong', 'account-menu', 'PALETTES.dark']) assert.ok(!app.includes(gone), gone);
-  // bước của chặng: học, luyện tập, nhập vai, trận đánh, tổng kết
-  assert.match(app, /const STEPS: readonly SagaStep\[\] = \['hoc', 'luyen', 'kham-pha', 'tran', 'tong-ket'\];/);
-  for (const screen of ['HallLandingScreen', 'HomeScreen', 'CampaignScreen', 'LessonScreen', 'PracticeScreen', 'ExploreScreen', 'BattleScreen', 'SummaryScreen', 'RolePlayScreen']) assert.ok(app.includes(`<${screen} `), screen);
+  // chưa vào lớp: chỉ danh sách lớp (đăng ký bằng mã), Hồ sơ, Giao diện, Trợ giúp; lớp đã chọn nhớ theo thẻ trình duyệt, không lưu token
+  assert.match(app, /const BEFORE_CLASS: readonly SagaTab\[\] = \['lop-hoc', 'ho-so', 'giao-dien', 'tro-giup'\];/);
+  assert.match(app, /const needClass = \(gated \|\| !inClass\) && !BEFORE_CLASS\.includes\(route\.tab\);/);
+  assert.match(app, /const body = needClass \|\| route\.tab === 'lop-hoc' \? catalog/);
+  assert.doesNotMatch(app, /sessionStorage\?\.setItem\(ENTER_KEY, JSON\.stringify\(\{[^}]*token/);
+  // các màn của từng mục / bước
+  for (const screen of ['HomeScreen', 'CampaignScreen', 'OrderScreen', 'ThamSuScreen', 'HoiDongScreen', 'ExploreScreen', 'BattleScreen', 'SuQuanScreen', 'BinhThuScreen', 'AskScreen', 'BoardScreen', 'ProfileScreen', 'ShopScreen', 'ThemeScreen', 'LuyenBinhScreen', 'RolePlayScreen', 'HelpPage']) assert.ok(app.includes(`<${screen} `), screen);
   assert.match(app, /saga\.home\(session\.token\)/);
-  // mỗi lần điều hướng là một màn mới chồng lên màn cũ: màn không còn được xem phải gỡ hết nội dung (game Phaser, đồng hồ, phím tắt, hộp thoại)
+  // một màn chơi chạy tại một thời điểm: màn ẩn dưới màn khác gỡ hết nội dung
   assert.match(app, /const focused = useIsFocused\(\);/);
   assert.match(app, /if \(!focused\) return <View style=\{\{ flex: 1 \}\} testID="student-app-hidden" \/>;/);
-  // ba kiểu điều hướng: thêm bước lịch sử, thay bước hiện tại (bước chơi vừa xong), đổi ngay trên màn (mở / đóng bảng chặng)
   assert.match(app, /if \(mode === 'params'\) \{ router\.setParams\(/);
   assert.match(app, /router\.replace\(\{ pathname, params:/);
-  // màn "Lên cấp" không chen ngang bước đang chơi và không chồng lên màn nhận thưởng
-  assert.match(app, /const midStep = route\.v !== null && route\.v !== 'tong-ket';/);
+  // màn "Lên cấp" / chúc mừng không chen ngang bước đang chơi và không chồng lên màn nhận thưởng; mốc chuỗi ngày báo bằng thông báo ngắn
+  assert.match(app, /const midStep = route\.v !== null && route\.v !== 'su-quan' && route\.v !== 'quan-lenh';/);
   assert.match(app, /\{levelUp && !reward \? \(/);
+  assert.match(app, /Chuỗi \$\{String\(pl\.milestone\)\} ngày!/);
   assert.match(app, /platform\.prefs\(session\.token\)/);
+  // giao diện màu chỉ trong trang học sinh: bảng màu dùng chung theo giao diện đang dùng, không đổi ThemeContext của các cổng khác
+  assert.match(app, /<AdminUiContext\.Provider value=\{false\}>/);
+  assert.match(app, /<ThemeContext\.Provider value=\{\{ c: palette, dark: bt\.dark \}\}>/);
+  assert.match(app, /<BtProvider value=\{bt\}>/);
+  assert.match(app, /const bt = themeOf\(picked \?\? serverTheme \?\? stored\);/);
+  // Tài khoản (họ tên, ảnh, mật khẩu, đăng xuất) mở từ Hồ sơ
+  for (const text of ['<ProfileSheet ', 'session.changePassword()', 'session.logout()', 'authApi.getProfile(session.token)', 'authApi.updateProfile(session.token, patch)', 'authApi.uploadAvatar(session.token, img)']) assert.ok(app.includes(text), text);
+  // khung: điện thoại có thanh 5 mục dưới đáy (biểu tượng + chữ), máy tính có thanh đầu chữ; không menu trái, không ngăn kéo menu
   const shell = read('components', 'portal', 'StudentWorkspace.tsx');
-  for (const text of ['Hồ sơ cá nhân', 'Đổi mật khẩu', 'Đăng xuất', 'session.changePassword()', 'session.logout()', 'Không gian học sinh', '<BrandLogo ', 'testID="student-tabs"', 'role="navigation"', 'accessibilityRole="link"']) assert.ok(shell.includes(text), text);
-  // 20/11/2026 (người dùng chọn "Bỏ menu trái, trang cuộn dọc"): không còn menu trái / ngăn kéo menu – các mục là dải nút ngay dưới thanh trên cùng
-  for (const gone of ['student-sidebar', 'student-menu-toggle', '<Modal', 'setMenu(']) assert.ok(!shell.includes(gone), gone);
-  assert.match(shell, /authApi\.getProfile\(session\.token\)/);
-  assert.match(shell, /authApi\.updateProfile\(session\.token, patch\)/);
-  assert.match(shell, /authApi\.uploadAvatar\(session\.token, img\)/);
-  // giao diện sáng như các cổng quản trị: bảng Cài đặt không còn chọn sáng / tối; âm thanh trò chơi chỉ bật khi người dùng tự bật
+  for (const text of ['testID="student-tabbar"', 'testID={`student-tab-${it.id}`}', 'testID="student-topbar"', 'testID="student-tabs"', 'testID={`student-nav-${it.id}`}', 'testID="student-profile-open"', 'testID="student-logout"', 'role="navigation"', 'accessibilityRole="link"', '<BrandLogo ', "aria-current={on ? 'page' : undefined}"]) assert.ok(shell.includes(text), text);
+  for (const gone of ['student-sidebar', 'student-menu-toggle', '<Modal', 'setMenu(', 'homeMenu', 'student-home-menu']) assert.ok(!shell.includes(gone), gone);
+  assert.match(shell, /const ICONS: Record<string, IconType> = \{ 'doanh-trai': House, 'chien-dich': Flag, 'binh-thu': Layers, 'tieu-tuong': MessageSquareText, 'bang-vang': Trophy \};/);
+  assert.match(app, /const NO_TABBAR: readonly SagaTab\[\] = \['ho-so', 'cua-hang', 'giao-dien', 'luyen-binh'\];/);
+  assert.match(app, /const tabBar = !needClass && route\.tab !== 'lop-hoc' && route\.v === null && !NO_TABBAR\.includes\(route\.tab\) && navItems\.length > 0;/);
+  assert.match(read('components', 'portal', 'StudentDesign.tsx'), /paddingBottom: phone && tabBar \? 108 : 40/);
   assert.doesNotMatch(read('components', 'portal', 'NoticeCenter.tsx'), /label: 'Tối'/);
   assert.match(read('lib', 'saga-sound.ts'), /let enabled = false;/);
-  // không còn nối tới giao diện cũ
-  for (const old of ['StudentNav', 'LearningPath', 'QuestMap', 'ClassTab', 'LiveTab', 'WarPlay', 'GameTabs', 'AiHubDashboard', 'đang được xây dựng lại']) assert.doesNotMatch(app, new RegExp(old), old);
+  for (const old of ['StudentNav', 'LearningPath', 'QuestMap', 'ClassTab', 'LiveTab', 'WarPlay', 'GameTabs', 'AiHubDashboard', 'đang được xây dựng lại', 'SagaRail', 'StudentHall']) assert.doesNotMatch(app, new RegExp(old), old);
 });
 
-test('đã xóa các tệp giao diện cũ của học sinh; giữ phần dùng chung; có đủ tệp của Hành trình Đông A', () => {
-  const gone = ['BattleKit', 'Celebrations', 'ClassTab', 'DemoActivityPlayer', 'DuolingoRightPanel', 'GameTabs', 'LearnerHome', 'LearningPath', 'LearningSections', 'LessonSteps', 'LivePlay', 'LiveTab', 'MiniGames', 'PathNodePopover', 'Progress', 'QuestMap', 'StudentNav', 'StudyPlan', 'WarCards', 'WarPlay'];
+test('đã xóa các tệp giao diện cũ của học sinh; giữ phần dùng chung; có đủ tệp của "Binh thư Sát Thát"', () => {
+  const gone = ['BattleKit', 'Celebrations', 'ClassTab', 'DemoActivityPlayer', 'DuolingoRightPanel', 'GameTabs', 'LearnerHome', 'LearningPath', 'LearningSections', 'LessonSteps', 'LivePlay', 'LiveTab', 'MiniGames', 'PathNodePopover', 'Progress', 'QuestMap', 'StudentNav', 'StudyPlan', 'WarCards', 'WarPlay', 'SagaExtras', 'StudentHall', 'SagaRail'];
   for (const f of gone) assert.ok(!exists('components', 'portal', `${f}.tsx`), f);
-  for (const f of ['learning-path.ts', 'learning-path-demo.ts']) assert.ok(!exists('lib', f), f);
-  const kept = ['TieuTuong', 'QuizPlayer', 'LiveKit', 'LessonReader', 'Library', 'NoticeCenter', 'HelpCenter', 'Media', 'LiveTheme', 'MapGraph', 'GameKit', 'LessonCelebrationView', 'PathArt', 'SandTableView', 'TeacherApp'];
+  for (const f of ['learning-path.ts', 'learning-path-demo.ts', 'scholar-rank.ts']) assert.ok(!exists('lib', f), f);
+  const kept = ['TieuTuong', 'QuizPlayer', 'LiveKit', 'LessonReader', 'Library', 'NoticeCenter', 'HelpCenter', 'Media', 'LiveTheme', 'MapGraph', 'GameKit', 'LessonCelebrationView', 'PathArt', 'SandTableView', 'TeacherApp', 'StudentClasses', 'StudentArt'];
   for (const f of kept) assert.ok(exists('components', 'portal', `${f}.tsx`), f);
-  for (const f of ['SagaKit', 'SagaHome', 'SagaLearn', 'SagaPlay', 'GameViewport', 'GameViewport.web']) assert.ok(exists('components', 'portal', `${f}.tsx`), f);
-  assert.ok(!exists('components', 'portal', 'SagaExtras.tsx'), 'SagaExtras.tsx (Câu hỏi ôn tập, Bộ thẻ, Tư liệu – đã bỏ 25/11/2026)');
+  for (const f of ['SagaKit', 'SagaHome', 'SagaLearn', 'SagaPlay', 'SagaLook', 'SagaChest', 'SagaAsk', 'StudentDesign', 'StudentWorkspace', 'GameViewport', 'GameViewport.web']) assert.ok(exists('components', 'portal', `${f}.tsx`), f);
   // 21/11/2026: bước nhập vai là thế giới khối 3D (world3d.ts); cảnh nhập vai 2D (explore-scene.ts) đã xóa theo yêu cầu
   for (const f of ['index.ts', 'bridge.ts', 'pixel.ts', 'world3d.ts', 'tactics-scene.ts', 'bachdang-scene.ts']) assert.ok(exists('game', f), f);
   assert.ok(!exists('game', 'explore-scene.ts'), 'explore-scene.ts');
+});
+
+test('Doanh trại, Chiến dịch theo khối, Quân lệnh, Bảng vàng: số liệu và phần thưởng từ máy chủ, hòm báu, bản đồ gốc giữ làm kiểu xem', () => {
+  const home = read('components', 'portal', 'SagaHome.tsx');
+  for (const name of ['HomeScreen', 'CampaignScreen', 'OrderScreen', 'BoardScreen', 'RolePlayScreen']) assert.match(home, new RegExp(`export const ${name}: React\\.FC`), name);
+  // Doanh trại: chặng đang học với 5 vạch bước và nút đi tiếp, nhiệm vụ hôm nay, gợi ý Luyện binh riêng của Tiểu Tướng, chiến dịch của khối, chuỗi ngày
+  for (const id of ['home-greet', 'home-stats', 'home-next', 'home-continue', 'home-quests', 'home-suggest', 'home-grade', 'home-streak-card']) assert.ok(home.includes(`testID="${id}"`), id);
+  assert.match(home, /<StepDots states=\{stepDots\(next\.steps\)\}/);
+  assert.match(home, /nav\.go\('luyen-binh'\)/);
+  // Chiến dịch: bốn tab khối, dải tối của khối, danh sách chặng có hòm báu xen giữa; khối cao hơn lớp em vẫn xem trước được
+  for (const id of ['grade-tab', 'grade-header', 'grade-stages', 'campaign-view', 'campaign-world', 'campaign-roleplay']) assert.ok(home.includes(`testID="${id}"`), id);
+  assert.match(home, /const data = useLoad<GradeView>\(session, \(tk\) => saga\.grade\(tk, g\), \[g\]\);/);
+  assert.match(home, /testID=\{`stage-\$\{st\.code\}`\}/);
+  assert.match(home, /testID=\{`chest-\$\{box\.key\}`\}/);
+  assert.match(home, /v\.chests\.filter\(\(c\) => c\.after === i \+ 1\)/);
+  assert.match(home, /Em vẫn xem trước được các chặng\./);
+  // hòm báu: máy chủ mở, thưởng một lần; màn mở rương kiểu game, công bố tỉ lệ, không pháo giấy, tôn trọng giảm chuyển động
+  assert.match(home, /open=\{\(\) => saga\.openChest\(session\.token, opening\.box\.key\)\}/);
+  const opening = read('components', 'portal', 'SagaChest.tsx');
+  for (const id of ['chest-opening', 'chest-tap', 'chest-rarity', 'chest-claim', 'chest-odds', 'chest-loot-gold', 'chest-loot-xp', 'chest-loot-freeze', 'chest-next']) assert.ok(opening.includes(`testID="${id}"`), id);
+  for (const t of ['THƯỜNG', 'HIẾM', 'SỬ THI', 'HUYỀN THOẠI', 'Chạm vào hòm để mở!']) assert.ok(opening.includes(t), t);
+  assert.match(opening, /export const ChestArt: React\.FC/);
+  assert.match(opening, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
+  assert.doesNotMatch(opening, /[Cc]onfetti/);
+  // bản đồ gốc Wikipedia kiểu sa bàn (Khối 6–8) giữ làm kiểu xem "Bản đồ gốc": vị trí theo tỉ lệ, Rồng Con, phóng to, hòm báu
+  for (const id of ['saga-map', 'map-mascot', 'map-zoom-in']) assert.ok(home.includes(`testID="${id}"`), id);
+  assert.match(home, /testID=\{`unit-map-\$\{no\}`\}/);
+  assert.match(home, /testID=\{`map-chest-\$\{box\.key\}`\}/);
+  assert.match(home, /<Bounce><ChestArt /);
+  assert.match(home, /const data = useLoad<CampaignView>\(session, \(tk\) => saga\.campaign\(tk, no\), \[no\]\);/);
+  assert.match(home, /\{st\.order\}\. \{st\.title\}/);
+  assert.match(read('constants', 'map-credits.ts'), /Chongquannguyenlan1\.svg/);
+  // Quân lệnh: lời dẫn của trò chơi (ghi rõ không phải trích dẫn lịch sử), năm bước, khám phá 3D là phần thêm, phần thưởng lần đầu
+  for (const id of ['order-text', 'order-objectives', 'order-steps', 'step-world', 'order-rewards', 'stage-cta']) assert.ok(home.includes(`testID="${id}"`), id);
+  assert.match(home, /Lời dẫn của trò chơi, không phải trích dẫn lịch sử\./);
+  assert.match(home, /Khám phá thêm \(3D, không bắt buộc\)/);
+  assert.match(home, /d\.order_text \? \(/);
+  // Bảng vàng: giải đấu tuần, lớp / toàn trường, so với tuần trước (▲ ▼ do máy chủ tính), Khoa bảng, huy hiệu
+  for (const id of ['board-league', 'board-card', 'board-scope', 'board-compare', 'board-podium', 'board-list', 'board-khoa-bang', 'board-badges']) assert.ok(home.includes(`testID="${id}"`), id);
+  assert.match(home, /game\.leaderboard\(tk, scope === 'class' \? \{ scope, period: 'week', class_id: classId \?\? undefined \} : \{ scope, period: 'week' \}\)/);
+  assert.match(home, /const showDelta = compare && Boolean\(data\?\.compare\);/);
+  assert.match(home, /game\.leagueView\(tk\)/);
+  assert.match(home, /game\.gameBadges\(tk\)/);
+  assert.doesNotMatch(code(home), /localStorage|sessionStorage|awardXp|addGold|duolingo/i);
+  // danh sách lớp (StudentClasses) giữ luồng đăng ký bằng mã
+  const classes = read('components', 'portal', 'StudentClasses.tsx');
+  for (const id of ['catalog', 'enrol-page', 'enrol-code', 'enrol-submit', 'enrol-enter']) assert.ok(classes.includes(`testID="${id}"`), id);
+  assert.match(classes, /authApi\.joinClass\(session\.token, code\.trim\(\), k\.id\)/);
+});
+
+test('năm bước của chặng: Thám sử nhặt thẻ có nguồn, Hội đồng quân sự có Gợi ý chiến thuật, Sử quan so sánh với lịch sử; Luyện binh riêng; sổ Binh thư', () => {
+  const learn = read('components', 'portal', 'SagaLearn.tsx');
+  for (const name of ['ThamSuScreen', 'HoiDongScreen', 'SuQuanScreen', 'LuyenBinhScreen', 'BinhThuScreen', 'ItemBody', 'Feedback']) assert.match(learn, new RegExp(`export const ${name}: React\\.FC`), name);
+  // Thám sử: cảnh bản đồ có điểm sáng + danh sách thẻ (trợ năng); nhận thẻ do máy chủ ghi; đủ thẻ thì mở Hội đồng
+  for (const id of ['lore-scene', 'lore-list', 'lore-sheet', 'lore-collect', 'lore-ask', 'lore-count', 'lesson-done', 'lesson-to-practice']) assert.ok(learn.includes(`testID="${id}"`), id);
+  assert.match(learn, /testID=\{`lore-spot-\$\{c\.id\}`\}/);
+  assert.match(learn, /await saga\.collectLore\(session\.token, stageId, card\.id\)/);
+  assert.match(learn, /\{card\.source \? <SourceLine source=\{card\.source\} \/> : null\}/);
+  // Hội đồng quân sự: máy chủ chấm; Gợi ý chiến thuật gửi lệnh "hint" và chỉ gạch phương án máy chủ trả về
+  assert.match(learn, /\{ type: 'hint', item_id: item\.id \}/);
+  assert.match(learn, /const removed = new Set\(item\.removed \?\? \[\]\);/);
+  for (const id of ['practice-hint', 'practice-buy-hint', 'practice-result', 'practice-to-battle', 'practice-to-lesson', 'practice-retry']) assert.ok(learn.includes(`testID="${id}"`), id);
+  // Sử quan: bảng "Em và lịch sử", nhận xét của Tiểu Tướng, diễn biến có nguồn, phần sáng tạo được ghi rõ, phần thưởng một lần
+  for (const id of ['summary-stars', 'summary-compare', 'summary-comment', 'summary-debrief', 'summary-rewards', 'summary-next', 'reward-overlay', 'reward-claim']) assert.ok(learn.includes(`testID="${id}"`), id);
+  assert.match(learn, /Phần sáng tạo trong trò chơi: \{sum\.debrief\.fiction\}/);
+  // Luyện binh riêng: lượt ôn tính giờ, đồng hồ do máy chủ giữ (báo "ready" khi mở câu)
+  for (const id of ['review-suggest', 'review-start', 'review-timer', 'review-result']) assert.ok(learn.includes(`testID="${id}"`), id);
+  assert.match(learn, /else void act\(\{ type: 'ready' \}\);/);
+  // Binh thư: ba ngăn Nhân vật / Kế sách / Địa danh, thẻ danh tướng; tranh nhân vật ghi rõ là minh họa cách điệu
+  for (const id of ['binh-thu-tab', 'binh-thu-heroes', 'binh-thu-card', 'hero-detail']) assert.ok(learn.includes(`testID="${id}"`), id);
+  assert.match(learn, /saga\.lore\(tk\)/);
+  assert.match(learn, /saga\.cards\(tk\)/);
+  assert.match(learn, /Tranh nhân vật là hình minh họa cách điệu, không phải chân dung lịch sử\./);
+  // trận hội đồng (Diên Hồng, Vườn không nhà trống, Vạn Kiếp, Khối 9): phương án chưa chọn không lộ điểm; Sử quan đối chiếu với lịch sử
+  const play = read('components', 'portal', 'SagaPlay.tsx');
+  assert.match(play, /const CouncilHost: React\.FC<HostProps<CouncilView>>/);
+  for (const id of ['saga-council', 'council-band', 'council-dialogue', 'council-options', 'council-decide', 'council-result', 'council-summary']) assert.ok(play.includes(`testID="${id}"`), id);
+  assert.match(play, /\{ type: 'play', option: pick \}/);
+  // Tiểu Tướng: hỏi đáp kèm nguồn, câu hỏi tiếp, nói thay gõ khi trình duyệt hỗ trợ, Trung tâm AI
+  const ask = read('components', 'portal', 'SagaAsk.tsx');
+  for (const id of ['saga-ask', 'ask-chat', 'ask-input', 'ask-send', 'ask-open-hub', 'saga-ai-hub']) assert.ok(ask.includes(`testID="${id}"`), id);
+  assert.match(ask, /ai\.aiAsk\(session\.token, \{ question, conversation_id: conversation \?\? undefined, mode: 'tutor' \}\)/);
+  assert.match(ask, /export function askTieuTuong\(question: string\): void/);
+  assert.match(ask, /r\.lang = 'vi-VN'/);
+});
+
+test('Hồ sơ, Chợ phiên Thăng Long, Giao diện: vàng chỉ đổi đồ trang trí, mua qua máy chủ, món đẹp nhất chỉ mở bằng thành tích', () => {
+  const look = read('components', 'portal', 'SagaLook.tsx');
+  for (const name of ['ProfileScreen', 'ShopScreen', 'ThemeScreen', 'ThemePreview', 'FramedAvatar', 'FlagMark', 'TitleBadge', 'AvatarPicker', 'CharacterAvatar']) assert.match(look, new RegExp(`export const ${name}: React\\.FC`), name);
+  // Hồ sơ: ảnh có khung + cờ hiệu, 4 chỉ số, chuỗi ngày và mốc, bảng "Cách kiếm", thang Khoa bảng, danh hiệu; nút sang Chợ phiên, Giao diện, Tài khoản
+  for (const id of ['profile-hero', 'profile-stats', 'profile-streak', 'profile-milestones', 'profile-level', 'profile-earn', 'profile-khoa-bang', 'profile-look', 'profile-titles', 'profile-shop', 'profile-theme', 'profile-account', 'profile-classes', 'profile-help', 'profile-logout']) assert.ok(look.includes(`testID="${id}"`), id);
+  for (const t of ['Trả lời đúng 1 câu (lần đầu)', 'Mỗi sao trong trận (lần đầu đạt)', 'Xong 1 chặng lần đầu', 'Xong chiến dịch Khối 6', 'Xong Khối 9 và đủ sao cả bốn khối']) assert.ok(look.includes(t), t);
+  // Chợ phiên: mua bằng vàng qua máy chủ (sổ cái), mua xong tự trang bị; vật phẩm có giới hạn tuần; món thành tích không có nút mua
+  assert.match(look, /saga\.buy\(session\.token, it\.kind, it\.code\)/);
+  assert.match(look, /saga\.equipLook\(session\.token, \{ \[kind\]: code \}\)/);
+  for (const id of ['saga-shop', 'shop-tab', 'shop-preview', 'shop-confirm', 'shop-cancel', 'gold-balance']) assert.ok(look.includes(`testID="${id}"`), id);
+  assert.match(look, /Chỉ mở bằng thành tích: \{slot\.need\}/);
+  assert.match(look, /không mua được KN, sao hay đáp án/);
+  for (const code of ['go-moc', 'dong-co', 'lua-dong-a', 'rong-thoi-tran', 'hoa-sen-vang', 'sat-that', 'thuyen-chien', 'pha-cuong-dich', 'rong-cuon', 'coc-bach-dang', 'an-dong-a']) assert.ok(look.includes(`'${code}'`), code);
+  // Giao diện: xem thử trên khung điện thoại, đổi xong cả trang đổi màu ngay
+  for (const id of ['saga-theme', 'theme-preview-card', 'theme-apply', 'theme-buy']) assert.ok(look.includes(`testID="${id}"`), id);
+  assert.match(look, /nav\.setTheme\?\.\(code\)/);
+  assert.match(look, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
+  assert.doesNotMatch(code(look), /localStorage|sessionStorage|awardXp|addGold/);
+});
+
+test('bốn giao diện màu của học sinh: chữ trên nền đạt tương phản ít nhất 4,5:1 (WCAG AA)', () => {
+  const ts = require('typescript');
+  const vm = require('node:vm');
+  const src = read('components', 'portal', 'StudentDesign.tsx');
+  const compiled = ts.transpileModule(src, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React } }).outputText;
+  const stub = { createContext: (v) => ({ Provider: null, v }), useContext: () => null, PALETTES: { light: {}, dark: {} } };
+  const fakeRequire = () => new Proxy(stub, { get: (o, k) => (k in o ? o[k] : () => null) });
+  const loaded = { exports: {} };
+  new vm.Script(`(function(module,exports,require){${compiled}\n})`).runInThisContext()(loaded, loaded.exports, fakeRequire);
+  const themes = loaded.exports.BT_THEMES;
+  assert.deepEqual(Object.keys(themes), ['thang-long', 'bach-dang', 'dem-dong-bo-dau', 'hoang-thanh']);
+  const lum = (hex) => {
+    const n = hex.replace('#', '');
+    const [r, g, b] = [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  const pairs = [['ink', 'bg'], ['ink', 'card'], ['soft', 'card'], ['muted', 'card'], ['muted', 'bg'], ['muted', 'card2'], ['accent', 'bg'], ['accent', 'card'], ['onAccent', 'accent'],
+    ['onHero', 'hero'], ['onHeroMuted', 'hero'], ['gold', 'hero'], ['onNight', 'night'], ['onNightMuted', 'night'], ['gold', 'night'], ['goldInk', 'goldSoft'], ['goldInk', 'card'],
+    ['green', 'greenSoft'], ['danger', 'dangerSoft'], ['teal', 'tealSoft'], ['teal', 'card']];
+  for (const [code, t] of Object.entries(themes)) {
+    for (const [fg, bg] of pairs) assert.ok(ratio(t[fg], t[bg]) >= 4.5, `${code}: ${fg} ${t[fg]} trên ${bg} ${t[bg]} = ${ratio(t[fg], t[bg]).toFixed(2)}`);
+  }
 });
 
 test('Phaser chỉ nạp động từ GameViewport bản web: một khung một game, hủy khi rời màn, không vào bản điện thoại và không nằm trong gói của trang khác', () => {
@@ -139,91 +275,6 @@ test('16/11/2026: giáo viên không còn Khảo sát, trình soạn Quiz (Kahoo
   for (const gone of ['title="Thêm học sinh"', 'title="Nhập từ Excel"', 'const AddStudents', 'const ImportStudents']) assert.ok(!people.includes(gone), gone);
 });
 
-test('các màn Hành trình dùng thành phần hiện tại, giữ bản đồ lịch sử, thành tích máy chủ và các luồng vào lớp', () => {
-  const kit = read('components', 'portal', 'SagaKit.tsx');
-  assert.match(kit, /import \{ ErrorNote \} from '@\/components\/admin\/kit';/);
-  for (const gone of ['GameBtn', 'Chunky', 'SkyBg', 'Sunburst', 'Confetti', 'RoundIcon', 'TieuTuongArt', 'CampaignArt']) assert.doesNotMatch(kit, new RegExp(`export (const|function) ${gone}(?![A-Za-z])`), gone);
-  assert.doesNotMatch(kit, /LinearGradient/);
-  for (const f of ['SagaHome', 'SagaLearn', 'SagaPlay']) {
-    const text = read('components', 'portal', `${f}.tsx`);
-    assert.match(text, /from '@\/components\/ui';/, f);
-    assert.match(text, /<SagaHeader /, f);
-    assert.doesNotMatch(text, /GameBtn|Chunky|SkyBg|Sunburst|Confetti|LinearGradient|tone="(green|yellow|purple|navy|white|blue|orange|red)"/, f);
-  }
-  // 16/11/2026 đợt 5: Chiến dịch mở danh sách lớp trước (không còn menu Lớp học riêng), vào lớp rồi mới tới ba phần; trang bản đồ + bảng chặng cũ đã xóa
-  // đợt 7: trang bản đồ = ba phần nối nhau khi cuộn, mỗi phần một bản đồ gốc kiểu sa bàn; Rồng Con đi trên bản đồ tới chặng đang học;
-  // bỏ lộ trình uốn lượn, thẻ phần có ảnh thu nhỏ "Bản đồ bên dưới" và dòng ghi nguồn dưới bản đồ (ghi công ở trang Thông tin hình ảnh)
-  const home = read('components', 'portal', 'SagaHome.tsx');
-  for (const id of ['home-units', 'map-caption', 'map-mascot', 'unit-continue', 'my-class']) assert.ok(home.includes(`testID="${id}"`), id);
-  // 17/11/2026: hòm báu trên bản đồ (máy chủ mở, thưởng một lần) và cột bên phải kiểu Duolingo (chỉ số, cấp độ, giải đấu tuần, nhiệm vụ hằng ngày có hòm báu)
-  assert.match(home, /testID=\{`map-chest-\$\{box\.key\}`\}/);
-  assert.match(home, /open=\{\(\) => saga\.openChest\(session\.token, opening\.box\.key\)\}/);
-  // 17/11/2026: hòm báu bí ẩn – màn mở rương kiểu game (chạm để mở, lóe sáng, tia sáng theo độ hiếm, phần thưởng bật ra, số vàng đếm lên, công bố tỉ lệ)
-  const opening = read('components', 'portal', 'SagaChest.tsx');
-  for (const id of ['chest-opening', 'chest-tap', 'chest-rarity', 'chest-claim', 'chest-odds', 'chest-loot-gold', 'chest-loot-xp', 'chest-loot-freeze', 'chest-next']) assert.ok(opening.includes(`testID="${id}"`), id);
-  for (const t of ['THƯỜNG', 'HIẾM', 'SỬ THI', 'HUYỀN THOẠI', 'Chạm vào hòm để mở!', 'Khiên giữ chuỗi']) assert.ok(opening.includes(t), t);
-  assert.match(opening, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
-  assert.doesNotMatch(opening, /[Cc]onfetti/);
-  assert.match(home, /<Bounce><ChestArt /);
-  assert.match(home, /<SagaRail session=\{session\} nav=\{nav\} wide=\{wide\} \/>/);
-  assert.match(read('lib', 'saga-api.ts'), /export const openChest = /);
-  const rail = read('components', 'portal', 'SagaRail.tsx');
-  for (const id of ['saga-rail', 'home-metrics', 'home-level', 'rail-league', 'rail-league-open', 'rail-quests', 'rail-quests-open', 'league-sheet', 'quests-sheet']) assert.ok(rail.includes(`testID="${id}"`), id);
-  // 25/11/2026: cột phải không còn ô Ôn tập và Kỳ thi (hai mục đã bỏ)
-  for (const gone of ['home-review', 'home-exams']) assert.ok(!rail.includes(`testID="${gone}"`), gone);
-  assert.match(rail, /game\.leagueView\(t\)/);
-  assert.match(rail, /game\.gameQuests\(t\)/);
-  for (const t of ['VÙNG LÊN HẠNG', 'VÙNG XUỐNG HẠNG', 'Nhiệm vụ hằng ngày', 'Nhiệm vụ tuần', 'XEM TẤT CẢ', 'XEM BẢNG']) assert.ok(rail.includes(t), t);
-  assert.doesNotMatch(rail, /duolingo\.com|\.png'\)|require\(/i);
-  // 17/11/2026: khung ảnh đại diện (vòng màu xoay, quầng sáng, tia lấp lánh) và danh hiệu (viền nhấp nháy) nhận từ hòm báu, kiểu quà sự kiện của game
-  const look = read('components', 'portal', 'SagaLook.tsx');
-  for (const name of ['FramedAvatar', 'TitleBadge', 'WardrobeSheet']) assert.match(look, new RegExp(`export const ${name}: React\.FC`), name);
-  assert.match(look, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
-  assert.match(look, /saga\.equipLook\(session\.token, body\)/);
-  for (const code of ['dong-bo-dau', 'chuong-duong', 'bach-dang']) assert.ok(look.includes(`'${code}'`), code);
-  assert.match(read('components', 'portal', 'StudentApp.tsx'), /const topAvatar = home\.data\?\.look\?\.frame \|\| home\.data\?\.look\?\.avatar \? <FramedAvatar /);
-  assert.match(read('components', 'portal', 'StudentApp.tsx'), /roleLine=\{home\.data\?\.look\?\.title \? <TitleBadge /);
-  assert.match(read('components', 'portal', 'StudentWorkspace.tsx'), /\{avatar \?\? <Avatar name=\{session\.user\.full_name\}/);
-  assert.match(rail, /testID="rail-profile"/);
-  assert.match(rail, /<WardrobeSheet session=\{session\}/);
-  assert.match(opening, /testID=\{`chest-unlock-\$\{u\.code\}`\}/);
-  // ảnh đại diện có sẵn theo nhân vật (Rồng Con, danh tướng) chọn ở Hồ sơ cá nhân như ô "Set your status"; ảnh ở hồ sơ mang khung / danh hiệu từ hòm báu
-  for (const name of ['CharacterAvatar', 'AvatarPicker', 'ProfileLook']) assert.match(look, new RegExp(`export const ${name}: React\.FC`), name);
-  for (const code of ['rong-con-vui', 'rong-con-ra-tran', 'tran-hung-dao', 'tran-quoc-toan']) assert.ok(look.includes(`'${code}'`), code);
-  assert.match(look, /saga\.equipLook\(session\.token, \{ avatar \}\)/);
-  const student = read('components', 'portal', 'StudentApp.tsx');
-  assert.match(student, /const profAvatar = <FramedAvatar /);
-  assert.match(student, /const profExtra = <ProfileLook session=\{session\} onChanged=\{home\.reload\} \/>;/);
-  assert.match(read('components', 'profile.tsx'), /\{avatar \?\? <Avatar name=\{user\.full_name\} uri=\{user\.avatar_url\} size=\{56\} \/>\}/);
-  assert.match(read('components', 'portal', 'StudentWorkspace.tsx'), /avatar=\{profileAvatar\} extra=\{profileExtra\}/);
-  for (const gone of ['unit-path', 'unit-map-toggle', 'join-class', 'join-code', 'join-submit']) assert.ok(!home.includes(`testID="${gone}"`), gone);
-  assert.doesNotMatch(home, /testID="stage-table"|<DataTable columns=\{columns\} rows=\{view\.stages\}|testID="home-path"|'Kéo bản đồ ra'|const ClassStrip|mapOpen|const UnitPath|Bản đồ bên dưới|Vị trí các chặng do nhóm phát triển đánh dấu/);
-  assert.match(home, /testID=\{`saga-part-\$\{no\}`\}/);
-  assert.match(home, /testID=\{`unit-map-\$\{no\}`\}/);
-  assert.match(home, /const p1 = useLoad<CampaignView>\(session, \(t\) => saga\.campaign\(t, 1\), \[\]\);/);
-  assert.match(home, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
-  // đợt 8: bản đồ không có thanh cuộn riêng ở cỡ mặc định (chỉ cuộn khi bấm phóng to); thẻ phần ở trang Chiến dịch không còn ảnh thu nhỏ bản đồ
-  assert.match(home, /const zi = chosen \?\? 0;/);
-  assert.match(home, /const viewH = baseH;/);
-  assert.doesNotMatch(home, /Math\.min\(ch, maxH\)|path-map-|const thumb = /);
-  assert.match(home, /testID=\{`path-go-\$\{camp\.campaign_no\}`\}/);
-  assert.match(home, /\{st\.order\}\. \{st\.title\}/);
-  assert.match(read('components', 'portal', 'StudentApp.tsx'), /<CampaignScreen key="campaign" /);
-  assert.match(read('constants', 'map-credits.ts'), /Chongquannguyenlan1\.svg/);
-  // học sinh chưa vào lớp: ngoài Trang chủ chỉ có Chiến dịch (danh sách lớp, đăng ký bằng mã) và Trợ giúp (Tin nhắn đã bỏ 25/11/2026)
-  const app = read('components', 'portal', 'StudentApp.tsx');
-  assert.match(app, /const BEFORE_CLASS: readonly SagaTab\[\] = \['chien-dich', 'tro-giup'\];/);
-  assert.match(app, /NAV\.filter\(\(it\) => !gated \|\| BEFORE_CLASS\.includes\(it\.id\)\)/);
-  assert.doesNotMatch(app, /\{ id: 'lop-hoc', label: 'Lớp học'/);
-  assert.match(app, /: inClass \? <HomeScreen session=\{session\} nav=\{nav\} loading=\{home\.loading\} error=\{home\.error\} cls=\{cls\} onLeave=\{\(\) => \{ setLeftClass\(true\); enter\(null\); \}\} \/> : catalog/);
-  assert.doesNotMatch(app, /sessionStorage\?\.setItem\(ENTER_KEY, JSON\.stringify\(\{[^}]*token/);
-  const classes = read('components', 'portal', 'StudentClasses.tsx');
-  for (const id of ['catalog', 'enrol-page', 'enrol-code', 'enrol-submit', 'enrol-enter']) assert.ok(classes.includes(`testID="${id}"`), id);
-  for (const gone of ['inbox-list', 'inbox-view', 'StudentInbox']) assert.ok(!classes.includes(gone), gone);
-  assert.match(classes, /authApi\.joinClass\(session\.token, code\.trim\(\), k\.id\)/);
-  assert.match(classes, /onPress=\{\(\) => \(k\.mine \? onEnter\(k\) : setOpenId\(k\.id\)\)\}/);
-});
-
 test('16/11/2026: tạo phòng thi đấu ở trang riêng (không còn hộp thoại), câu hỏi lấy từ ngân hàng câu hỏi hoặc bộ đề trong thư viện học liệu; phòng chờ chỉ hiện mã PIN, không còn mã QR', () => {
   const live = read('components', 'admin', 'LiveManager.tsx');
   assert.match(live, /const CreateRoomPage: React\.FC</);
@@ -234,125 +285,4 @@ test('16/11/2026: tạo phòng thi đấu ở trang riêng (không còn hộp th
   const host = read('components', 'admin', 'LiveHost.tsx');
   assert.match(host, /testID="live-pin-display"/);
   assert.doesNotMatch(host, /join\.qr|quét mã QR|<Image /);
-});
-
-test('20/11/2026: sảnh học sinh cuộn dọc – mở đầu VÀO TRẬN, giới thiệu, thang danh hiệu thời Trần, bảng vàng, thư viện tranh; hình tự vẽ, số liệu từ máy chủ', () => {
-  const home = read('components', 'portal', 'SagaHome.tsx');
-  const hall = read('components', 'portal', 'StudentHall.tsx');
-  const art = read('components', 'portal', 'StudentArt.tsx');
-  const rank = read('lib', 'scholar-rank.ts');
-  // 24/11/2026: sảnh mở đầu độc lập (HallLandingScreen, hiện ngay khi vừa đăng nhập, không có dải 9 tab) gồm Hoàng thành VÀO TRẬN → giới thiệu → 9 nhân vật → bảng vàng → thư viện → hướng dẫn → chân trang
-  const landing = hall.slice(hall.indexOf('export const HallLandingScreen'));
-  const order = ['<HallHero ', '<HallSteps ', '<HallCharacters ', '<HallBoard ', '<HallGallery ', '<HallTutorial ', '<HallFooter '].map((t) => landing.indexOf(t));
-  assert.ok(order.every((at, k) => at > 0 && (k === 0 || at > order[k - 1])), String(order));
-  for (const id of ['hall-landing', 'hall-hero', 'hall-play', 'hall-intro', 'hall-characters', 'hall-board', 'board-podium', 'board-list', 'hall-gallery', 'hall-tutorial', 'rank-ladder', 'rank-detail', 'hall-footer']) assert.ok(hall.includes(`testID="${id}"`), id);
-  // VÀO TRẬN chuyển sang không gian học tập 9 mục (chien-dich); bảng vàng dùng API bảng xếp hạng sẵn có (lớp / trường)
-  assert.match(read('components', 'portal', 'StudentApp.tsx'), /onPlay=\{\(\) => pick\('chien-dich'\)\}/);
-  assert.match(home, /scholarRank\(home\?\.campaigns\)/);
-  assert.match(hall, /game\.leaderboard\(t, scope === 'class' \? \{ scope, period, class_id: classId \?\? undefined \} : \{ scope \}\)/);
-  for (const f of [hall, art, rank]) assert.doesNotMatch(f, /localStorage|sessionStorage|awardXp|addGold|saga\.act|apiRequest/);
-  // hình vẽ SVG tự làm: không tải ảnh ngoài; không dùng tên trang mẫu trên giao diện; áo Trạng nguyên đỏ son, không vàng hoàng bào
-  assert.doesNotMatch(art, /require\(|uri:|https?:\/\//);
-  for (const f of [hall, art, rank]) assert.doesNotMatch(f.replace(/\/\*[\s\S]*?\*\//g, ''), /VL[- ]?LEGEND/i);
-  assert.match(art, /\{ robe: '#b8261b', [^\n]*flower: true \}/);
-  for (const t of ['Học trò', 'Thái học sinh', 'Thám hoa', 'Bảng nhãn', 'Trạng nguyên', '1232', '1247', 'Lê Văn Hưu', 'Nguyễn Hiền', 'Đặng Ma La', '12 hoặc 13 tuổi']) assert.ok(rank.includes(t), t);
-  assert.doesNotMatch(hall, /Thời xưa chỉ nam giới được dự thi/);
-  // nhân vật trang trí đứng yên khi bật giảm chuyển động; nút đủ vùng chạm 44; tranh thư viện chỉ để xem (không bấm mở chi tiết)
-  assert.match(hall, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
-  assert.match(hall, /minHeight: 44, paddingHorizontal: 16, borderRadius: 22/);
-  assert.match(hall, /<View testID=\{`gallery-\$\{p\.key\}`\} accessible/);
-  assert.doesNotMatch(hall, /testID="gallery-view"/);
-  // 3 bản đồ minh họa trong thư viện tranh dùng bộ tranh bản đồ hoạt hình mới (giữ nguyên bản đồ gốc Wikipedia ở màn Chiến dịch)
-  assert.match(hall, /HALL_ART\.map1/);
-  assert.match(hall, /HALL_ART\.map2/);
-  assert.match(hall, /HALL_ART\.map3/);
-});
-
-test('thang danh hiệu: phần xong liên tiếp từ Phần 1, đủ sao cả ba phần mới là Trạng nguyên, kèm tiến độ tới bậc sau', () => {
-  const ts = require('typescript');
-  const vm = require('node:vm');
-  const compiled = ts.transpileModule(read('lib', 'scholar-rank.ts'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
-  const loaded = { exports: {} };
-  new vm.Script(`(function(module,exports){${compiled}\n})`).runInThisContext()(loaded, loaded.exports);
-  const { scholarRank, RANKS } = loaded.exports;
-  const camp = (n, done, stages, stars, max) => ({ campaign_no: n, stages, done, stars, max_stars: max, completed: stages > 0 && done >= stages });
-  assert.deepEqual(RANKS.map((r) => r.name), ['Học trò', 'Thái học sinh', 'Thám hoa', 'Bảng nhãn', 'Trạng nguyên']);
-  assert.deepEqual(scholarRank(null), { level: 0, next: null });
-  assert.deepEqual(scholarRank([camp(1, 2, 5, 4, 15), camp(2, 0, 4, 0, 12), camp(3, 0, 4, 0, 12)]), { level: 0, next: { done: 2, total: 5, unit: 'chặng' } });
-  // thứ tự trả về không quan trọng; xong Phần 1 thì là Thái học sinh và đang tới Phần 2
-  assert.deepEqual(scholarRank([camp(2, 1, 4, 2, 12), camp(1, 5, 5, 9, 15), camp(3, 0, 4, 0, 12)]), { level: 1, next: { done: 1, total: 4, unit: 'chặng' } });
-  // xong Phần 2 mà chưa xong Phần 1 (dữ liệu bất thường) không được nhảy bậc
-  assert.equal(scholarRank([camp(1, 4, 5, 9, 15), camp(2, 4, 4, 12, 12), camp(3, 0, 4, 0, 12)]).level, 0);
-  assert.deepEqual(scholarRank([camp(1, 5, 5, 9, 15), camp(2, 4, 4, 10, 12), camp(3, 4, 4, 8, 12)]), { level: 3, next: { done: 27, total: 39, unit: 'sao' } });
-  assert.deepEqual(scholarRank([camp(1, 5, 5, 15, 15), camp(2, 4, 4, 12, 12), camp(3, 4, 4, 12, 12)]), { level: 4, next: null });
-  // phần chưa có chặng nào (chưa có nội dung) không tính là đã xong
-  assert.equal(scholarRank([camp(1, 0, 0, 0, 0), camp(2, 0, 0, 0, 0), camp(3, 0, 0, 0, 0)]).level, 0);
-});
-
-test('23/11/2026 "Sắc Việt": trang học sinh kiểu trò chơi học tập mang bản sắc Việt – lộ trình uốn lượn, thanh mục dưới đáy trên điện thoại, sân khấu bảng vàng; hình tự vẽ', () => {
-  const design = read('components', 'portal', 'StudentDesign.tsx');
-  const shell = read('components', 'portal', 'StudentWorkspace.tsx');
-  const home = read('components', 'portal', 'SagaHome.tsx');
-  const hall = read('components', 'portal', 'StudentHall.tsx');
-  const art = read('components', 'portal', 'StudentArt.tsx');
-  const code = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  // bảng màu chỉ trong trang học sinh (đỏ son, vàng, xanh tre trên nền giấy dó); nút / thẻ khối dày
-  assert.match(design, /export const STUDENT_PALETTE: Palette = \{\r?\n {2}\.\.\.PALETTES\.light,/);
-  for (const name of ['GameButton', 'BlockCard', 'IconBadge', 'AdventureHero', 'LearnerStats', 'RookieGuide']) assert.match(design, new RegExp(`export (function|const) ${name}\\b`), name);
-  // nhân vật chibi, hoa văn trống đồng, cảnh làng / đình / sông núi, phông sân khấu: SVG tự vẽ, không tải ảnh ngoài, không dùng tên / hình sản phẩm khác
-  for (const name of ['chibiG', 'Chibi', 'DrumSun', 'VnScene', 'StageBackdrop']) assert.match(art, new RegExp(`export (function|const) ${name}\\b`), name);
-  for (const kind of ['nong-nam', 'nong-nu', 'thu-sinh', 'thieu-nu', 'quan', 'phu-nhan', 'tuong']) assert.ok(art.includes(`'${kind}'`), kind);
-  assert.doesNotMatch(design, /require\(|uri:|https?:\/\//);
-  for (const f of [design, art, shell, code(home), hall]) assert.doesNotMatch(code(f), /duolingo/i);
-  // 25/11/2026 thay thanh mục dưới đáy / dải huy hiệu tròn bằng thanh chữ như trang chủ công khai (xem bài kiểm thử 25/11/2026)
-  for (const gone of ['student-bottom-tabs', 'student-nav-more', 'student-more']) assert.ok(!shell.includes(`testID="${gone}"`), gone);
-  // lộ trình: nút chặng theo trạng thái máy chủ, hòm báu giữa các chặng, nhân vật dẫn đường ở chặng đang chờ; bấm chặng mở bảng chặng ngay trên trang chủ;
-  // "Xem bản đồ" mở bản đồ gốc Wikipedia; trang Hành trình có hai kiểu xem Lộ trình / Bản đồ gốc
-  for (const id of ['duo-path', 'path-guide']) assert.ok(home.includes(`testID="${id}"`), id);
-  assert.match(home, /testID=\{`path-node-\$\{st\.code\}`\}/);
-  assert.match(home, /testID=\{`path-chest-\$\{box\.key\}`\}/);
-  assert.match(home, /testID=\{`campaign-view-\$\{v\}`\}/);
-  assert.match(home, /onPick=\{\(st\) => setSheet\(\{ id: st\.id, no: i \+ 1 \}\)\}/);
-  assert.match(home, /const toMap = \(no: number\): void => \{ campaignView = 'map';/);
-  // Chiến dịch (sau khi bấm VÀO TRẬN): lộ trình + cột phải → thang danh hiệu
-  const order = ['{units}{rail}', '<RankLadder '].map((t) => home.indexOf(t));
-  assert.ok(order.every((at, k) => at > 0 && (k === 0 || at > order[k - 1])), String(order));
-  // 25/11/2026: bảng vàng nằm trên nền giấy như trang chủ công khai (không còn sân khấu cam đỏ); StageBackdrop vẫn còn trong StudentArt
-  assert.doesNotMatch(hall, /<StageBackdrop |<Chibi /);
-});
-
-test('25/11/2026: trang học sinh bỏ 5 mục; thanh đầu chỉ có chữ như trang chủ công khai, Trang chủ có menu sổ xuống; sảnh nền giấy, không còn tím đỏ', () => {
-  const app = read('components', 'portal', 'StudentApp.tsx');
-  const shell = read('components', 'portal', 'StudentWorkspace.tsx');
-  const hall = read('components', 'portal', 'StudentHall.tsx');
-  const code = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  // năm mục đã bỏ; đường dẫn cũ (tab=cau-hoi…) rơi về Trang chủ vì không có trong TABS; thông báo bài thi / tin nhắn mở Chiến dịch
-  assert.match(app, /const TABS: readonly SagaTab\[\] = \['trang-chu', 'chien-dich', 'nhap-vai', 'hoi', 'lop-hoc', 'tro-giup'\];/);
-  assert.match(app, /onGo=\{\(n\) => pick\(n\.kind === 'support' \? 'tro-giup' : 'chien-dich'\)\}/);
-  for (const f of ['SagaHome', 'SagaRail', 'SagaLearn']) assert.doesNotMatch(read('components', 'portal', `${f}.tsx`), /nav\.go\('(cau-hoi|ky-thi|tu-lieu|bo-the|tin-nhan)'/, f);
-  assert.ok(!exists('components', 'portal', 'SagaExtras.tsx'));
-  assert.doesNotMatch(read('components', 'admin', 'LibraryExams.tsx'), /export const StudentExams/);
-  // thanh đầu: chữ, không biểu tượng của từng mục; màu và viên thuốc trắng lấy từ bảng màu trang chủ công khai
-  assert.match(shell, /const L = PALETTES\.light;/);
-  assert.doesNotMatch(code(shell), /icon: Icon|<Icon |TAB_COLOR|Grid2x2|student-bottom-tabs/);
-  assert.match(shell, /borderRadius: 999, borderWidth: 1, borderColor: HOME_LOOK\.line, backgroundColor: HOME_LOOK\.white/);
-  assert.match(shell, /color=\{on \? HOME_LOOK\.navOn : HOME_LOOK\.nav\}/);
-  assert.doesNotMatch(app, /from 'lucide-react-native'/);
-  // Trang chủ: bấm chữ mở sảnh; rê chuột hoặc bấm mũi tên mở menu sổ xuống các phần của sảnh (không chỉ dựa vào rê chuột); Esc đóng
-  for (const id of ['student-nav-trang-chu', 'student-home-caret', 'student-home-menu', 'student-nav-toggle', 'student-nav-panel']) assert.ok(shell.includes(id), id);
-  assert.match(shell, /testID=\{`student-home-\$\{it\.id\}`\}/);
-  assert.match(shell, /onPointerEnter=\{homeMenu\.length \? \(e\) => \{ if \(byMouse\(e\)\) keepOpen\(\); \} : undefined\}/);
-  assert.match(shell, /onPress=\{toggleDrop\}/);
-  assert.match(shell, /if \(e\.key === 'Escape'\)/);
-  assert.match(hall, /export const HALL_SECTIONS: ReadonlyArray<\{ id: HallSectionKey; label: string \}> = \[/);
-  for (const label of ['Giới thiệu', 'Nhân vật', 'Bảng vàng', 'Thư viện', 'Hướng dẫn']) assert.ok(hall.includes(`label: '${label}'`), label);
-  // bấm một phần từ mục khác: nhớ phần cần cuộn (chuyển mục tạo màn mới) rồi mở Trang chủ
-  assert.match(app, /else \{ pendingSection = key; pick\('trang-chu'\); \}/);
-  assert.match(hall, /useEffect\(\(\) => \{ if \(jumpKey\) scrollTo\(jumpKey\); \}, \[jumpKey, jumpN, scrollTo\]\);/);
-  // sảnh: bảng màu, hoa văn nền, dải mây vàng và tiêu đề của trang chủ công khai; không còn nền chuyển sắc xanh – tím – đỏ
-  assert.match(hall, /<ThemeContext\.Provider value=\{\{ c: PALETTES\.light, dark: false \}\}>/);
-  assert.match(hall, /<PatternOverlay opacity=\{0\.075\} \/>/);
-  assert.match(hall, /<CloudPair upper=\{HOME_LOOK\.paper\} lower=\{HOME_LOOK\.paper\}/);
-  assert.match(hall, /<SectionHeading eyebrow="Gương mặt lịch sử"/);
-  assert.doesNotMatch(code(hall), /linear-gradient|#3a0f44|#7d0a1e|#061636|HallAnchorBar|accentBlue/);
 });

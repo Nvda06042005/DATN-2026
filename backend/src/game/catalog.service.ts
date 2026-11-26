@@ -92,7 +92,7 @@ export const SPECS: Record<string, Spec> = {
   quests: {
     entity: 'quests', label: 'Mẫu nhiệm vụ', plural: 'Nhiệm vụ hằng ngày / tuần mẫu', table: 'hk_quest_templates', pk: 'id', order: 'period, sort_order, id', summary: ['title', 'target'],
     fields: [code, enumOf('period', 'Chu kỳ', [['daily', 'Hằng ngày'], ['weekly', 'Hằng tuần']]), text('title', 'Nội dung nhiệm vụ', 120, true),
-      enumOf('metric', 'Đo bằng', [['correct_answers', 'Số câu trả lời đúng'], ['nodes_completed', 'Số nút hoàn thành'], ['battles_completed', 'Số trận đánh hoàn thành'], ['lessons_completed', 'Số bài học hoàn thành'], ['xp_earned', 'Điểm học tập kiếm được'], ['perfect_quizzes', 'Số bài đạt 100%']]),
+      enumOf('metric', 'Đo bằng', [['correct_answers', 'Số câu trả lời đúng'], ['nodes_completed', 'Số nút hoàn thành'], ['battles_completed', 'Số trận đánh hoàn thành'], ['lessons_completed', 'Số bài học hoàn thành'], ['xp_earned', 'Điểm học tập kiếm được'], ['perfect_quizzes', 'Số bài đạt 100%'], ['lore_collected', 'Số thẻ Binh thư nhặt được'], ['ai_questions', 'Số câu hỏi Tiểu Tướng']]),
       int('target', 'Mục tiêu', 1, 1000, true), int('reward_xp', 'Thưởng điểm', 0, 10000), int('reward_gold', 'Thưởng vàng', 0, 10000), sort, active],
   },
 };

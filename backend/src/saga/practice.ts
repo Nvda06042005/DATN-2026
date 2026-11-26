@@ -79,6 +79,29 @@ export interface SlotState {
   item_id: number; kind: ItemKind; seed: number; done: boolean; score: number;
   /** Ghép cặp: mã thẻ -> mã cặp (chỉ máy chủ biết), các cặp đã ghép và số lần ghép sai */
   tokens?: Record<string, string>; matched?: string[]; misses?: number;
+  /** "Gợi ý chiến thuật" (vật phẩm mua ở Chợ phiên, 25/11/2026): một phương án sai đã được gạch bỏ */
+  hint?: string;
+}
+
+/** Các dạng câu dùng được "Gợi ý chiến thuật": có từ 3 lựa chọn trở lên để gạch bỏ một lựa chọn sai mà vẫn còn phải suy nghĩ */
+export const HINT_KINDS: ItemKind[] = ['quiz', 'tactic', 'locate'];
+
+/** Phương án sai bị gạch bỏ khi dùng gợi ý: cố định theo phiên (phương án sai kém nhất đứng đầu theo thứ tự xáo của câu); null khi không dùng được */
+export function hintFor(item: ItemRow, slot: SlotState): string | null {
+  if (slot.done || slot.hint || !HINT_KINDS.includes(item.kind)) return null;
+  const d = item.data as Record<string, any>;
+  if (item.kind === 'quiz') {
+    const opts = seededShuffle((d as QuizData).options, slot.seed);
+    return opts.length >= 3 ? opts.find((o) => o.id !== (d as QuizData).correct)?.id ?? null : null;
+  }
+  if (item.kind === 'tactic') {
+    const opts = seededShuffle((d as TacticData).options, slot.seed);
+    if (opts.length < 3) return null;
+    const low = Math.min(...opts.map((o) => o.score));
+    return opts.find((o) => o.score === low && o.score < 2)?.id ?? null;
+  }
+  const spots = seededShuffle((d as LocateData).spots, slot.seed);
+  return spots.length >= 3 ? spots.find((s) => s.id !== (d as LocateData).correct)?.id ?? null : null;
 }
 
 export function newSlot(item: ItemRow, seed: number): SlotState {
@@ -97,7 +120,7 @@ export function newSlot(item: ItemRow, seed: number): SlotState {
 
 /** Dạng hiển thị cho học sinh: không có đáp án đúng, không có phản hồi của từng phương án */
 export function publicItem(item: ItemRow, slot: SlotState): Record<string, unknown> {
-  const base = { id: item.id, kind: item.kind, kind_label: KIND_LABEL[item.kind], prompt: item.prompt, objective: item.objective, done: slot.done };
+  const base = { id: item.id, kind: item.kind, kind_label: KIND_LABEL[item.kind], prompt: item.prompt, objective: item.objective, done: slot.done, removed: slot.hint ? [slot.hint] : [], hintable: hintFor(item, slot) !== null };
   const d = item.data as Record<string, any>;
   if (item.kind === 'quiz') return { ...base, options: seededShuffle((d as QuizData).options, slot.seed).map((o) => ({ id: o.id, text: o.text })) };
   if (item.kind === 'tactic') return { ...base, situation: d.situation, options: seededShuffle((d as TacticData).options, slot.seed).map((o) => ({ id: o.id, text: o.text })) };

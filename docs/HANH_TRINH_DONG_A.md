@@ -180,3 +180,30 @@ set EXPO_PUBLIC_API_URL=http://localhost:8000 && npm run web
 - Không còn trang chỉnh nội dung / bản đồ cho quản trị tổng và báo cáo Hành trình Đông A cho giáo viên (xóa theo yêu cầu 16/11/2026): nội dung chỉ đổi bằng migration số mới.
 - Giao diện học sinh dùng giao diện sáng như các cổng quản trị; lựa chọn sáng / tối trong Cài đặt đã bỏ (giá trị cũ vẫn lưu nhưng không dùng).
 - Các bảng và API của hành trình học, bản đồ nhiệm vụ, thẻ tướng cũ vẫn giữ nguyên trong cơ sở dữ liệu (không xóa), trang học sinh mới không dùng tới.
+
+## 15. Chiến dịch theo khối và vòng 5 bước – "Binh thư Sát Thát" (25/11/2026, migration 083)
+
+**Bốn chiến dịch không trùng nội dung** (`hk_saga_grades`, `hk_saga_stages.grade`):
+
+| Khối | Vai | Nội dung | Mức nhận thức | Chặng |
+| --- | --- | --- | --- | --- |
+| 6 | Tân binh | Bạch Đằng 938 (chặng mới) + kháng chiến lần thứ nhất 1258 | nhận biết | 4 |
+| 7 | Đội trưởng | kháng chiến lần thứ hai 1285 | thông hiểu | 6 |
+| 8 | Tướng quân | kháng chiến lần thứ ba 1287–1288 | vận dụng | 4 |
+| 9 | Nguyên soái | tổng kết: so sánh ba lần, Hội đồng Đại cục, tư liệu – tranh biện, thử thách "nếu… thì" (4 chặng mới) | vận dụng cao | 4 |
+
+Mỗi khối đúng 24 câu luyện tập (13 câu cũ chuyển sang chỉ dùng ôn tập). Khối học sinh lấy từ khối của lớp (`app_classes.grade`, hoặc chữ số đầu tên lớp); khối cao hơn bị khóa "Mở khi em lên lớp N" nhưng vẫn xem danh sách; không có khối (tài khoản thử) thì không khóa theo khối. Nội dung mới đối chiếu Wikipedia tiếng Việt "Trận Bạch Đằng (938)", "Ngô Quyền" (dẫn *Đại Việt sử ký toàn thư*); nhân vật hư cấu trong trận hội đồng được ghi rõ.
+
+**Vòng 5 bước** (`steps()` của máy chủ): Quân lệnh (`order_text` của chặng, lời dẫn của trò chơi) → Thám sử (nhặt từng thẻ: `POST /api/saga/stages/:id/lore/:card`, đủ thẻ thì bài học xong, +10 KN) → Hội đồng quân sự (luyện tập; đạt ngưỡng) → Xuất trận (chỉ cần qua Hội đồng; không còn bắt buộc đi nhập vai trước) → Sử quan (`GET …/summary` có `compare`, `comment`, `battle_text`). Thế giới khối 3D là phần thêm sau Hội đồng (+20 KN), không chặn hoàn thành chặng.
+
+**Trận hội đồng** (`backend/src/saga/council.ts`, `battle.mode = council`): 2–6 lượt, mỗi lượt một người hỏi, 3 phương án (đúng một phương án điểm 2), 1–3 thanh chỉ số; thắng khi mọi thanh đạt ngưỡng; sao theo tỉ lệ điểm. Kiểu `persuade` (Diên Hồng), `command` (Vườn không nhà trống, Vạn Kiếp 1288, Hội đồng Đại cục, Bạch Đằng 938), `whatif` (Thử thách lịch sử). Phương án chưa chọn không lộ điểm / tác động; kết quả có bảng so sánh với lịch sử.
+
+**Kinh tế** (`saga.service.ts`, sổ cái `hk_gold_ledger` khóa duy nhất nên chơi lại không thưởng lần hai): đúng 1 câu lần đầu +10 KN +2 vàng (Luyện binh riêng: mỗi câu mỗi ngày); mỗi sao trận lần đầu +30 KN +10 vàng; xong chặng lần đầu theo `reward_xp` / `reward_gold`; nhiệm vụ ngày (trả lời đúng 10 câu, nhặt 2 thẻ Binh thư, hỏi Tiểu Tướng 1 câu). Mốc chuỗi ngày 3 / 7 / 14 / 30 → +30 vàng / khung Lửa Đông A / +200 vàng / cờ Ấn Đông A. KN chỉ để lên cấp; vàng chỉ tiêu ở Chợ phiên.
+
+**Khoa bảng**: Học trò → Thái học sinh (xong Khối 6) → Thám hoa (Khối 7) → Bảng nhãn (Khối 8) → Trạng nguyên (Khối 9 và đủ sao cả bốn khối). Học sinh đã xong phần 1 cũ cần xong thêm chặng Bạch Đằng 938 mới đủ Khối 6.
+
+**Chợ phiên Thăng Long** (`GET /api/saga/shop`, `POST /api/saga/shop/buy {kind, code}`; trang bị `POST /api/saga/cosmetics/equip {frame|title|avatar|flag|theme}`): khung (Gỗ mộc miễn phí, Đồng cổ 300, Rồng thời Trần 900; Đông Bộ Đầu / Chương Dương / Sóng Bạch Đằng mở bằng hòm báu, Lửa Đông A bằng chuỗi 7 ngày, Hoa sen vàng khi đỗ Trạng nguyên), cờ hiệu (Sát Thát miễn phí, Thuyền chiến 350, Rồng cuộn 600; Phá cường địch khi có thẻ Trần Quốc Toản, Cọc Bạch Đằng khi 3 sao trận Bạch Đằng, Ấn Đông A bằng chuỗi 30 ngày), giao diện (Thăng Long miễn phí, Sông Bạch Đằng 600, Đêm Đông Bộ Đầu 600, Hoàng thành cho Trạng nguyên), vật phẩm (Lệnh bài giữ chuỗi 150 vàng, tối đa 2 / tuần; Gợi ý chiến thuật 50 vàng, tối đa 3 / tuần). Món thành tích không bán.
+
+**API mới**: `GET /api/saga/grades/:grade`, `GET /api/saga/lore`, `POST /api/saga/stages/:id/lore/:card`, `GET /api/saga/shop`, `POST /api/saga/shop/buy`; `GET /api/saga/home` thêm `grades`, `grade`, `rank`, `quests`, `suggest`, `streak` (tuần + mốc), `look` (cờ hiệu, giao diện), `hints`; bảng xếp hạng tuần thêm `delta` (đổi hạng so với tuần trước) và `compare`. Tiểu Tướng đếm lượt hỏi được trả lời cho nhiệm vụ `ai_questions`.
+
+**Nội dung**: soạn ở `backend/scripts/saga-seed/grades.cjs`, sinh migration bằng `npm run build` rồi `node scripts/saga-seed/build-grades.cjs <số> <tên>` (kiểm tra bằng bộ chuẩn hóa của máy chủ). Kiểm thử: `test/saga.spec.ts` (khối, khóa theo lớp, Thám sử, Hội đồng + gợi ý, trận hội đồng, Sử quan, hòm báu, Chợ phiên, chuỗi ngày, bảng tuần so với tuần trước, RLS của `hk_saga_grades`), `test/world.spec.ts`, `test/migrations.spec.ts`.

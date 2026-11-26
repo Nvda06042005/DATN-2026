@@ -410,12 +410,16 @@ export function applyTactics(scn: TacticsScenario, s: TState, a: TAction): TEven
 }
 
 /** Sao: 3 khi không mất đơn vị nào, 2 khi mất một, còn lại 1; thua thì 0. Điểm trận đánh tách khỏi mức hiểu kiến thức. */
-export function tacticsResult(scn: TacticsScenario, s: TState): { won: boolean; stars: number; score: number; rounds: number; lost: number } {
+export function tacticsResult(scn: TacticsScenario, s: TState): { won: boolean; stars: number; score: number; rounds: number; lost: number; compare: Array<{ label: string; mine: string; history: string; ok: boolean }> } {
   const won = s.status === 'won';
   const stars = !won ? 0 : s.stats.lost === 0 ? 3 : s.stats.lost === 1 ? 2 : 1;
   const hpLeft = sideOf(s, 'ally').reduce((n, u) => n + u.hp, 0), hpMax = scn.allies.reduce((n, u) => n + u.hp, 0);
   const score = won ? 300 + stars * 100 + Math.round((hpLeft / Math.max(1, hpMax)) * 200) + (s.stats.stratagem === 'strong' ? 100 : 0) : Math.min(250, s.stats.dealt * 5);
-  return { won, stars, score, rounds: s.round, lost: s.stats.lost };
+  // bảng so sánh của màn Sử quan (25/11/2026): mưu kế em dùng và kết quả trận, cạnh lời giải thích lịch sử của mưu kế và lời kết của kịch bản
+  const compare: Array<{ label: string; mine: string; history: string; ok: boolean }> = [];
+  if (scn.stratagem) compare.push({ label: `Mưu kế: ${scn.stratagem.name}`, mine: s.stats.stratagem === 'strong' ? 'Dùng đúng lúc, trả lời đúng' : s.stats.stratagem === 'weak' ? 'Có dùng nhưng trả lời chưa đúng' : 'Chưa dùng mưu kế', history: scn.stratagem.explain, ok: s.stats.stratagem === 'strong' });
+  compare.push({ label: 'Kết quả', mine: won ? `Thắng sau ${s.round} vòng, mất ${s.stats.lost} đơn vị` : 'Chưa thắng', history: scn.win_text, ok: won });
+  return { won, stars, score, rounds: s.round, lost: s.stats.lost, compare };
 }
 
 /** Trạng thái gửi cho trình duyệt: đủ để vẽ và để biết lệnh nào hợp lệ; đáp án của mưu kế không bao giờ nằm trong này */

@@ -5,8 +5,8 @@
  * máy chủ quyết định kết quả, giao diện chỉ dựng lại từ sự kiện trả về.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, View, useWindowDimensions } from 'react-native';
-import { Anchor, ArrowDown, ArrowUp, BookOpen, Check, Flag, Flame, Footprints, Lightbulb, Minus, Play, RotateCcw, Shield, SkipForward, Sparkles, Swords, Wheat, X } from 'lucide-react-native';
+import { Platform, Pressable, View, useWindowDimensions } from 'react-native';
+import { Anchor, ArrowDown, ArrowUp, BookOpen, Check, Coins, Flag, Flame, Footprints, Lightbulb, Minus, Play, RotateCcw, Shield, SkipForward, Sparkles, Swords, Wheat, X } from 'lucide-react-native';
 import * as saga from '@/lib/saga-api';
 import { errorMessage } from '@/api/client';
 import type { Session } from '@/components/auth';
@@ -18,7 +18,8 @@ import { Btn, Card, Chip, InfoNote, Inset, Sheet, Txt } from '@/components/ui';
 import { useTheme } from '@/hooks/use-theme';
 import { GameBridge } from '@/game/bridge';
 import { play } from '@/lib/saga-sound';
-import { isWorldSession, type BattleFinished, type BattleSession, type BdEvent, type BdUnit, type BdView, type TacticsEvent, type TacticsUnit, type TacticsView, type WorldSession, type XY } from '@/types/saga';
+import { isWorldSession, type BattleFinished, type BattleSession, type BdEvent, type BdUnit, type BdView, type CouncilEvent, type CouncilView, type TacticsEvent, type TacticsUnit, type TacticsView, type WorldSession, type XY } from '@/types/saga';
+import { BtButton, BtCard, Eyebrow, Pill, SerifTitle, StepHeader, TtSays, useBT } from '@/components/portal/StudentDesign';
 
 const TACTICS_ASPECT = 960 / 540;
 const BD_ASPECT = 960 / 520;
@@ -65,8 +66,8 @@ export const ExploreScreen: React.FC<StageProps> = ({ session, nav, stageId, cam
   }
   return (
     <SagaPage testID="saga-explore" max={1060}>
-      <SagaHeader title="Nhập vai" subtitle="Thế giới khối" back={{ label: 'Thông tin chặng', hint: 'Về bảng thông tin chặng', onPress: back }} />
-      {missing ? <InfoNote>Chặng này chưa có nhiệm vụ thế giới khối. Em quay lại bảng thông tin chặng nhé.</InfoNote> : <LoadState loading={loading} error={error} onRetry={() => setRound((n) => n + 1)} />}
+      <SagaHeader title="Khám phá thêm cùng lớp" subtitle="Thế giới khối 3D (không bắt buộc để qua chặng)" back={{ label: 'Quân lệnh', hint: 'Về Quân lệnh của chặng', onPress: back }} />
+      {missing ? <InfoNote>Chặng này chưa có thế giới khối. Em quay lại Quân lệnh của chặng nhé.</InfoNote> : <LoadState loading={loading} error={error} onRetry={() => setRound((n) => n + 1)} />}
     </SagaPage>
   );
 };
@@ -91,15 +92,16 @@ export const BattleScreen: React.FC<StageProps> = (p) => {
   if (!sess) {
     return (
       <SagaPage testID="saga-battle" max={900}>
-        <SagaHeader title="Trận đánh" back={{ label: 'Thông tin chặng', hint: 'Về bảng thông tin chặng', onPress: () => nav.back('chien-dich', { c: campaignNo, s: stageId, v: null }) }} />
+        <SagaHeader title="Xuất trận" back={{ label: 'Quân lệnh', hint: 'Về Quân lệnh của chặng', onPress: () => nav.back('chien-dich', { c: campaignNo, s: stageId, v: null }) }} />
         <LoadState loading={loading} error={error} onRetry={() => again(false)} />
-        {error ? <Btn title="Vào phần nhập vai" icon={Footprints} tone="son" onPress={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'kham-pha' }, 'replace')} testID="battle-to-explore" /> : null}
+        {error ? <Btn title="Vào Hội đồng quân sự" icon={Footprints} tone="son" onPress={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'hoi-dong' }, 'replace')} testID="battle-to-council" /> : null}
       </SagaPage>
     );
   }
   return sess.mode === 'bachdang'
     ? <BachDangHost key={sess.session_id} {...p} initial={sess as BattleSession & BdView} onAgain={again} />
-    : <TacticsHost key={sess.session_id} {...p} initial={sess as BattleSession & TacticsView} onAgain={again} />;
+    : sess.mode === 'council' ? <CouncilHost key={sess.session_id} {...p} initial={sess as BattleSession & CouncilView} onAgain={again} />
+      : <TacticsHost key={sess.session_id} {...p} initial={sess as BattleSession & TacticsView} onAgain={again} />;
 };
 
 type HostProps<V> = StageProps & { initial: BattleSession & V; onAgain: (fresh: boolean) => void };
@@ -117,15 +119,16 @@ const ResultSheet: React.FC<{ finished: BattleFinished; reasonText: string | nul
   return (
     <Sheet open persistent onClose={onStage} title={finished.won ? 'Chiến thắng!' : 'Trận đánh chưa thắng'}
       footer={<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' }}>
-        <Btn title="Về chặng" tone="giay" onPress={onStage} testID="battle-stage" />
-        {finished.won ? <Btn title="Đánh lại" icon={RotateCcw} tone="giay" onPress={onRetry} testID="battle-retry" /> : <Btn title="Xem lại thẻ kiến thức" icon={BookOpen} tone="giay" onPress={onLesson} testID="battle-lesson" />}
-        {finished.won ? <Btn title="Tiếp tục nhiệm vụ" icon={Play} tone="son" onPress={onContinue} testID="battle-continue" /> : <Btn title="Đánh lại" icon={RotateCcw} tone="son" onPress={onRetry} testID="battle-retry" />}
+        <Btn title="Quân lệnh" tone="giay" onPress={onStage} testID="battle-stage" />
+        {finished.won ? <Btn title="Đánh lại lấy 3 sao" icon={RotateCcw} tone="giay" onPress={onRetry} testID="battle-retry" /> : <Btn title="Xem lại thẻ Binh thư" icon={BookOpen} tone="giay" onPress={onLesson} testID="battle-lesson" />}
+        {finished.won ? <Btn title="Sử quan tổng kết" icon={Play} tone="son" onPress={onContinue} testID="battle-continue" /> : <Btn title="Đánh lại" icon={RotateCcw} tone="son" onPress={onRetry} testID="battle-retry" />}
       </View>}>
       <View style={{ gap: 12 }} testID="battle-result">
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
           {finished.won ? <StarRow n={finished.stars} size={26} /> : null}
           <Chip text={`${num(finished.score)} điểm trận`} icon={Swords} bg={c.adminCanvas} fg={c.muc} />
-          {finished.xp ? <Chip text={`+${finished.xp} điểm kinh nghiệm`} icon={Sparkles} bg={c.thongNhat} fg={c.thongChu} /> : null}
+          {finished.xp ? <Chip text={`+${finished.xp} kinh nghiệm`} icon={Sparkles} bg={c.thongNhat} fg={c.thongChu} /> : null}
+          {finished.gold ? <Chip text={`+${finished.gold} vàng`} icon={Coins} bg={c.vangNhat} fg={c.vangChu} /> : null}
         </View>
         {reasonText ? <Txt f="bold" size={15} color={finished.won ? c.mocChu : c.sonChu}>{reasonText}</Txt> : null}
         <Txt size={15}>{finished.text}</Txt>
@@ -323,7 +326,7 @@ const TacticsHost: React.FC<HostProps<TacticsView>> = ({ session, nav, stageId, 
   );
   return (
     <SagaPage testID="saga-battle" max={1320}>
-      <SagaHeader title={view.title} subtitle={view.objective_text} back={{ label: 'Rời trận', hint: 'Rời trận, về phần nhập vai', onPress: () => nav.go('chien-dich', { ...stage, v: 'kham-pha' }, 'replace') }} />
+      <SagaHeader title={view.title} subtitle={view.objective_text} back={{ label: 'Rời trận', hint: 'Rời trận, về Quân lệnh của chặng', onPress: () => nav.go('chien-dich', { ...stage, v: null }, 'replace') }} />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
         <Chip text={`Vòng ${view.round}/${view.max_rounds}`} bg={c.adminCanvas} fg={c.muc} />
         <Chip text={`Quân lương: ${view.supply.ally}`} icon={Wheat} bg={c.vangNhat} fg={c.vangChu} />
@@ -359,8 +362,8 @@ const TacticsHost: React.FC<HostProps<TacticsView>> = ({ session, nav, stageId, 
       </View>
       {finished ? (
         <ResultSheet finished={finished} reasonText={!finished.won ? LOSE_REASON[view.reason ?? ''] ?? null : null} tips={view.tips}
-          onContinue={() => nav.go('chien-dich', { ...stage, v: 'kham-pha' }, 'replace')} onRetry={() => onAgain(true)}
-          onLesson={() => nav.go('chien-dich', { ...stage, v: 'hoc' }, 'replace')} onStage={() => nav.go('chien-dich', { ...stage, v: null }, 'replace')} />
+          onContinue={() => nav.go('chien-dich', { ...stage, v: 'su-quan' }, 'replace')} onRetry={() => onAgain(true)}
+          onLesson={() => nav.go('chien-dich', { ...stage, v: 'tham-su' }, 'replace')} onStage={() => nav.go('chien-dich', { ...stage, v: null }, 'replace')} />
       ) : null}
     </SagaPage>
   );
@@ -601,7 +604,7 @@ const BachDangHost: React.FC<HostProps<BdView>> = ({ session, nav, stageId, camp
   );
   return (
     <SagaPage testID="saga-bachdang" max={1320}>
-      <SagaHeader title={view.title} subtitle={view.stage ? `${view.stage.place} · ${view.stage.date_label}` : undefined} back={{ label: 'Rời trận', hint: 'Rời trận, về phần nhập vai', onPress: () => nav.go('chien-dich', { ...stage, v: 'kham-pha' }, 'replace') }} />
+      <SagaHeader title={view.title} subtitle={view.stage ? `${view.stage.place} · ${view.stage.date_label}` : undefined} back={{ label: 'Rời trận', hint: 'Rời trận, về Quân lệnh của chặng', onPress: () => nav.go('chien-dich', { ...stage, v: null }, 'replace') }} />
       {wide ? (
         <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
           <View style={{ width: fieldW }}>{field}</View>
@@ -649,9 +652,144 @@ const BachDangHost: React.FC<HostProps<BdView>> = ({ session, nav, stageId, camp
       </View>
       {finished ? (
         <ResultSheet finished={finished} reasonText={finished.won ? `Vướng cọc: ${finished.stranded ?? 0} đoàn thuyền · thoát: ${finished.escaped ?? 0}` : null} tips={[]}
-          onContinue={() => nav.go('chien-dich', { ...stage, v: 'kham-pha' }, 'replace')} onRetry={() => onAgain(true)}
-          onLesson={() => nav.go('chien-dich', { ...stage, v: 'hoc' }, 'replace')} onStage={() => nav.go('chien-dich', { ...stage, v: null }, 'replace')} />
+          onContinue={() => nav.go('chien-dich', { ...stage, v: 'su-quan' }, 'replace')} onRetry={() => onAgain(true)}
+          onLesson={() => nav.go('chien-dich', { ...stage, v: 'tham-su' }, 'replace')} onStage={() => nav.go('chien-dich', { ...stage, v: null }, 'replace')} />
       ) : null}
+    </SagaPage>
+  );
+};
+
+// ---------------------------------------------------------------------- trận hội đồng (25/11/2026): Diên Hồng, Vườn không nhà trống, Vạn Kiếp, Khối 9
+const COUNCIL_STYLE: Record<CouncilView['style'], string> = { persuade: 'Game hội thoại', command: 'Hội đồng chỉ huy', whatif: 'Thử thách Nếu… thì…' };
+const SCORE_TEXT = ['Chưa ổn', 'Tạm được', 'Đúng như lịch sử'];
+const initials = (name: string): string => name.split(/\s+/).filter(Boolean).slice(-2).map((w) => w[0]).join('').toUpperCase();
+
+/**
+ * Trận hội đồng: mỗi lượt một người hỏi, em đưa ra một thẻ / phương án; máy chủ chấm, trả lời đáp và đổi thanh chỉ số (ví dụ "Đồng lòng kháng chiến").
+ * Phương án chưa chọn không lộ điểm hay tác động. Hết lượt: thắng khi mọi thanh đạt ngưỡng; bảng so sánh với lịch sử nằm ở màn Sử quan.
+ */
+const CouncilHost: React.FC<HostProps<CouncilView>> = ({ session, nav, stageId, campaignNo, initial, onAgain }) => {
+  const t = useBT();
+  const { width } = useWindowDimensions();
+  const [view, setView] = useState<BattleSession & CouncilView>(initial);
+  const [pick, setPick] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [last, setLast] = useState<CouncilEvent | null>(null);
+  const [finished, setFinished] = useState<BattleFinished | null>(null);
+  const [flash, setFlash] = useFlash();
+  const ctx = useLatest({ session, nav });
+  const stage = { c: campaignNo, s: stageId };
+  const band = view.style === 'persuade' ? '#5B4632' : t.night;
+  const decide = async (): Promise<void> => {
+    if (!pick || busy) return;
+    setBusy(true);
+    try {
+      const res = await saga.act<BattleSession & CouncilView, { events: CouncilEvent[] }, BattleFinished>(ctx.current.session.token, view.session_id, view.seq, { type: 'play', option: pick });
+      const ev = res.outcome.events.find((e) => e.t === 'play') ?? null;
+      setView(res.view);
+      setPick(null);
+      setLast(ev);
+      play((ev?.score ?? 0) >= 2 ? 'right' : 'step');
+      if (res.finished) { setFinished(res.finished); play(res.finished.won ? 'win' : 'lose'); ctx.current.nav.refresh(); }
+      if (res.completion?.first) ctx.current.nav.setReward({ stageId, completion: res.completion });
+    } catch (e) {
+      if (statusOf(e) === 401) ctx.current.session.expired();
+      setFlash(errorMessage(e));
+    } finally { setBusy(false); }
+  };
+  const castBy = new Map(view.cast.map((c) => [c.name, c]));
+  const bubble = (who: string, text: string, mine: boolean, key: string, extra?: React.ReactNode) => (
+    <View key={key} style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '92%', backgroundColor: mine ? t.accent : t.card, borderWidth: mine ? 0 : 1, borderColor: t.line,
+      borderRadius: 14, borderTopLeftRadius: mine ? 14 : 4, borderTopRightRadius: mine ? 4 : 14, paddingHorizontal: 12, paddingVertical: 10, gap: 4 }}>
+      {mine ? null : <Txt f="heavy" size={12} color={t.accent}>{who}{castBy.get(who)?.fictional ? ' (nhân vật hư cấu)' : ''}</Txt>}
+      <Txt size={14} color={mine ? t.onAccent : t.ink} style={{ lineHeight: 21 }}>{text}</Txt>
+      {extra}
+    </View>
+  );
+  const meterOf = (id: string) => view.meters.find((m) => m.id === id)?.label ?? id;
+  return (
+    <SagaPage testID="saga-council" max={980}>
+      <View style={{ backgroundColor: band, borderRadius: 18, padding: 14, gap: 12 }} testID="council-band">
+        <StepHeader dark eyebrow={`Bước 4/5 · Xuất trận · ${COUNCIL_STYLE[view.style]}`} title={view.title} backLabel="Rời trận, về Quân lệnh của chặng"
+          onBack={() => nav.go('chien-dich', { ...stage, v: null }, 'replace')}
+          right={<Pill text={`Lượt ${view.round}/${view.rounds}`} bg="rgba(255,255,255,0.14)" fg={t.gold} strong />} />
+        {view.cast.length ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-around' }}>
+            {view.cast.map((c) => (
+              <View key={c.id} style={{ alignItems: 'center', width: 76, gap: 3 }}>
+                <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.fictional ? '#D9CBB0' : t.bronze, alignItems: 'center', justifyContent: 'center' }}>
+                  <Txt f="serifBold" size={15} color="#2A1D14">{initials(c.name)}</Txt>
+                </View>
+                <Txt size={10} color={t.onNightMuted} center numberOfLines={2}>{c.name}</Txt>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        {view.meters.map((m) => (
+          <View key={m.id} style={{ gap: 5 }} testID={`council-meter-${m.id}`}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+              <Txt f="heavy" size={12} color={t.onNight}>{m.label}</Txt>
+              <Txt f="heavy" size={12} color={t.gold}>{m.value}% · cần {m.win}%</Txt>
+            </View>
+            <View accessible accessibilityRole="progressbar" accessibilityLabel={`${m.label}: ${m.value} trên 100, cần ${m.win}`} style={{ height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.16)', overflow: 'hidden' }}>
+              <View style={{ width: `${m.value}%`, height: 10, borderRadius: 5, backgroundColor: t.gold }} />
+              <View style={{ position: 'absolute', left: `${m.win}%`, top: 0, bottom: 0, width: 2, backgroundColor: '#FFF6E5' }} />
+            </View>
+          </View>
+        ))}
+      </View>
+      <Txt size={14} color={t.soft} style={{ lineHeight: 21 }}>{view.intro}</Txt>
+      <View style={{ gap: 8 }} testID="council-dialogue">
+        {view.history.map((h, i) => (
+          <View key={h.round} style={{ gap: 6 }}>
+            {bubble(h.who, h.ask, false, `${h.round}-ask`)}
+            {bubble('Em', h.say ?? h.text, true, `${h.round}-say`)}
+            {bubble(h.who, h.reply, false, `${h.round}-reply`, (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 }}>
+                <Pill text={SCORE_TEXT[h.score] ?? ''} bg={h.score >= 2 ? t.greenSoft : t.card2} fg={h.score >= 2 ? t.green : t.muted} strong />
+                {i === view.history.length - 1 && last?.effect ? Object.entries(last.effect).map(([k, v]) => <Pill key={k} text={`${meterOf(k)} ${v > 0 ? '+' : ''}${v}`} bg={v >= 0 ? t.goldSoft : t.dangerSoft} fg={v >= 0 ? t.goldInk : t.danger} />) : null}
+              </View>
+            ))}
+          </View>
+        ))}
+        {view.current ? bubble(view.current.who, view.current.ask, false, 'current') : null}
+      </View>
+      <Flash text={flash} />
+      {view.current ? (
+        <View style={{ gap: 8 }} testID="council-options">
+          <Txt f="heavy" size={13} color={t.ink}>{view.style === 'persuade' ? 'Đưa ra một thẻ để thuyết phục' : view.style === 'whatif' ? 'Chọn suy luận có căn cứ nhất' : 'Chọn quyết định của em'}</Txt>
+          <View style={{ flexDirection: width >= 640 ? 'row' : 'column', flexWrap: 'wrap', gap: 8 }}>
+            {view.current.options.map((o, i) => {
+              const on = pick === o.id;
+              return (
+                <Pressable key={o.id} testID={`council-option-${o.id}`} accessibilityRole="radio" accessibilityState={{ checked: on, disabled: busy }} accessibilityLabel={`${o.tag}: ${o.text}`} disabled={busy} onPress={() => setPick(o.id)}
+                  style={({ pressed }) => ({ flexGrow: 1, flexBasis: width >= 640 ? 0 : 'auto', minHeight: 84, borderRadius: 12, padding: 10, gap: 4, backgroundColor: ['#5B4632', '#2F5563', '#7E1616'][i % 3],
+                    borderWidth: 3, borderColor: on ? t.gold : 'transparent', opacity: pressed ? 0.9 : 1 })}>
+                  <Txt f="heavy" size={11} color="#F2C66D">{o.tag.toUpperCase()}</Txt>
+                  <Txt f="bold" size={14} color="#FFF6E5" style={{ lineHeight: 20 }}>{o.text}</Txt>
+                </Pressable>
+              );
+            })}
+          </View>
+          <BtButton title={pick ? 'Quyết định' : 'Chọn một thẻ trước'} onPress={() => { void decide(); }} disabled={!pick} loading={busy} full size="lg" testID="council-decide" />
+          {view.tips.length ? <Txt size={12} color={t.muted}>{view.tips.join(' ')}</Txt> : null}
+        </View>
+      ) : null}
+      {view.result ? (
+        <BtCard tone={view.result.won ? 'gold' : 'sunk'} testID="council-result" style={{ alignItems: 'center' }}>
+          <SerifTitle size={22} color={view.result.won ? t.accent : t.ink} center>{view.result.won ? 'Thắng lợi!' : 'Chưa thành công'}</SerifTitle>
+          {view.result.won ? <StarRow n={view.result.stars} size={28} /> : null}
+          <Txt size={15} color={t.soft} center style={{ lineHeight: 22 }}>{view.result.text}</Txt>
+          {finished?.xp || finished?.gold ? <Txt f="heavy" size={13} color={t.goldInk}>{[finished.xp ? `+${finished.xp} KN` : '', finished.gold ? `+${finished.gold} vàng` : ''].filter(Boolean).join(' · ')}</Txt> : null}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+            {view.result.won ? <BtButton title="Sử quan tổng kết" onPress={() => nav.go('chien-dich', { ...stage, v: 'su-quan' }, 'replace')} testID="council-summary" /> : null}
+            <BtButton title={view.result.won ? 'Đánh lại lấy 3 sao' : 'Chơi lại'} tone="ghost" icon={RotateCcw} onPress={() => onAgain(true)} testID="council-retry" />
+            <BtButton title="Xem lại thẻ Binh thư" tone="ghost" icon={BookOpen} onPress={() => nav.go('chien-dich', { ...stage, v: 'tham-su' }, 'replace')} testID="council-lesson" />
+          </View>
+        </BtCard>
+      ) : null}
+      <TtSays tone="light"><Txt size={12} color={t.soft} style={{ lineHeight: 18 }}>Lời thoại, các nhân vật hư cấu và thanh chỉ số là phần sáng tạo của trò chơi. Màn Sử quan đối chiếu từng quyết định với lịch sử có nguồn.</Txt></TtSays>
+      <Eyebrow text="Hào khí Đông A" color={t.muted} />
     </SagaPage>
   );
 };

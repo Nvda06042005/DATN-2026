@@ -1595,3 +1595,10 @@ Người dùng: "giao diện hiện giờ quá xấu… làm na ná Duolingo, ma
 ## Trang học sinh: bỏ 5 mục, thanh đầu chữ có menu Trang chủ, sảnh nền giấy (25/11/2026)
 
 - Theo yêu cầu: bỏ Câu hỏi ôn tập, Kỳ thi, Tư liệu, Bộ thẻ, Tin nhắn của trang học sinh (xóa `SagaExtras.tsx`, `StudentInbox`, `StudentExams`; API / dữ liệu giữ nguyên vì giáo viên, quản trị trường dùng chung). Thanh đầu chỉ có chữ như trang chủ công khai, mục Trang chủ có menu sổ xuống các phần của sảnh; điện thoại dùng nút menu thay thanh mục dưới đáy. Sảnh dùng nền giấy, hoa văn, dải mây vàng và tiêu đề của trang chủ công khai, bỏ nền tím đỏ và sân khấu cam đỏ. Không migration. Chi tiết `docs/GIAO_DIEN_HOC_SINH.md`.
+
+## Trang học sinh "Binh thư Sát Thát": chiến dịch theo khối, vòng 5 bước, Chợ phiên, bốn giao diện (25–26/11/2026)
+
+- Theo bản vẽ 15 màn người dùng gửi: năm mục Doanh trại · Chiến dịch · Binh thư · Tiểu Tướng · Bảng vàng (điện thoại: thanh dưới đáy; máy tính: thanh đầu chữ, hai cột); bỏ sảnh mở đầu; thế giới khối 3D giữ làm phần thêm.
+- Máy chủ: chiến dịch theo khối 6–9 (khóa theo khối của lớp), vòng 5 bước (Quân lệnh → Thám sử nhặt thẻ → Hội đồng quân sự → Xuất trận → Sử quan so sánh với lịch sử), trận hội đồng mới (`council.ts`), Gợi ý chiến thuật, KN / vàng theo bảng "Cách kiếm", mốc chuỗi ngày, Khoa bảng theo khối, Chợ phiên Thăng Long (khung, cờ hiệu, giao diện, vật phẩm giới hạn tuần), bảng tuần so với tuần trước, nhiệm vụ ngày mới. Migration 083 (5 chặng mới, 30 câu, `hk_saga_grades` có RLS).
+- Giao diện: viết lại `StudentApp`, `StudentWorkspace`, `StudentDesign`, `SagaHome`, `SagaLearn`, `SagaLook`; mới `SagaAsk`; xóa `StudentHall`, `SagaRail`, `lib/scholar-rank.ts`. Bốn giao diện màu (có giao diện tối) kiểm thử tương phản tự động.
+- Kiểm tra: kiểm thử máy chủ (saga, world, migrations…), 223 kiểm thử giao diện, typecheck, bản xuất web chạy trên trình duyệt cũ, chạy thử cả vòng 5 bước trên trình duyệt ở 390 px và 1366 px. Chi tiết `docs/GIAO_DIEN_HOC_SINH.md`, `docs/HANH_TRINH_DONG_A.md`.

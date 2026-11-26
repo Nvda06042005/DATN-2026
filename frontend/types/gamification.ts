@@ -48,8 +48,8 @@ export interface StreakCalendar { current: number; longest: number; freezes: num
 
 export interface Celebration { id: number; kind: 'level_up' | 'badge' | 'card' | 'goal' | 'quest' | 'gift' | 'league' | 'contest'; payload: Record<string, any>; created_at: string }
 
-export interface BoardEntry { rank: number; name: string; xp: number; me: boolean }
-export interface Board { scope: string; period: string; label: string; entries: BoardEntry[]; me: { rank: number; xp: number } | null; size: number; disabled?: boolean; message?: string }
+export interface BoardEntry { rank: number; name: string; xp: number; me: boolean; /** đổi hạng so với tuần trước (dương = lên), null khi tuần trước chưa có điểm */ delta?: number | null }
+export interface Board { scope: string; period: string; label: string; entries: BoardEntry[]; me: { rank: number; xp: number; delta?: number | null } | null; size: number; disabled?: boolean; message?: string; compare?: boolean }
 export interface LeagueView {
   week: string; ends_at: string; tier: number; tier_name: string; tiers: string[]; size: number; promote: number; demote: number; saved_tier: number;
   /** Thứ chốt bảng đang áp dụng (1 = thứ Hai … 7 = Chủ nhật) và lịch mới đang chờ tới tuần kế tiếp */

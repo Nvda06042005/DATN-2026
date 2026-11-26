@@ -10,22 +10,44 @@ export interface SagaCampaign {
   campaign_no: number; title: string; short_title: string; years: string; enemy: string; places: string; summary: string;
   stages: number; done: number; stars: number; max_stars: number; percent: number; completed: boolean; is_new: boolean; available: boolean;
 }
+/** Một khối lớp 6–9 (25/11/2026): mỗi khối một chiến dịch, không trùng nội dung; `state`: đã xong / khối của em / mở để học trước hoặc ôn / khóa */
+export interface GradeSummary {
+  grade: number; tag: string; role: string; level: string; title: string; forms: string; note: string | null; reward: string;
+  stages: number; done: number; stars: number; max_stars: number; completed: boolean; state: 'done' | 'current' | 'open' | 'locked'; mine: boolean; lock_reason: string | null;
+  questions: number; battles: number;
+}
+/** Bậc Khoa bảng: Học trò → Thái học sinh (xong Khối 6) → Thám hoa (Khối 7) → Bảng nhãn (Khối 8) → Trạng nguyên (Khối 9 và đủ sao cả bốn khối) */
+export interface RankInfo { level: number; name: string; next_name: string | null; next: { done: number; total: number; unit: 'chặng' | 'sao'; grade: number | null } | null; names: string[] }
+export interface HomeQuest { id: number; title: string; metric: string; progress: number; target: number; done: boolean; reward_xp: number; reward_gold: number }
+export interface Suggest { kind: 'review' | 'weak'; topic: string; stages: string[]; wrong: number; size: number; xp: number; text: string }
+export interface StreakView {
+  current: number; longest: number; freezes: number; freeze_max: number; last_day: string | null; at_risk: boolean;
+  week: Array<{ day: string; weekday: number; state: 'done' | 'freeze' | 'today' | 'miss' }>;
+  milestones: Array<{ days: number; label: string; reached: boolean }>;
+}
 export interface SagaHome {
-  learner: { name: string; full_name: string; avatar_url: string | null; class_name: string | null };
+  learner: { name: string; full_name: string; avatar_url: string | null; class_name: string | null; grade?: number | null };
   hud: Pick<Hud, 'level' | 'gold' | 'xp' | 'streak' | 'daily' | 'unseen_celebrations'>;
   campaigns: SagaCampaign[];
-  next: { stage_id: number; title: string; campaign_no: number; state: StageState } | null;
+  grades: GradeSummary[]; grade: number | null; rank: RankInfo;
+  next: { stage_id: number; title: string; campaign_no: number | null; grade: number | null; order: number; of: number; place: string; date_label: string; state: StageState;
+    has_battle: boolean; battle_mode: BattleMode | null; steps: StageBrief['steps']; lore: { have: number; total: number } } | null;
   daily: { title: string; progress: number; target: number; done: boolean; reward_xp: number; reward_gold: number; done_count: number; total: number } | null;
+  quests: HomeQuest[]; quests_reset: string;
   review_due: number; totals: { stages: number; done: number };
-  /** khung ảnh đại diện và danh hiệu đang trang bị */
-  look?: SagaLook;
+  suggest: Suggest | null; streak: StreakView;
+  /** khung ảnh đại diện, danh hiệu, cờ hiệu, giao diện đang trang bị */
+  look?: SagaLook; hints?: number;
 }
+export type BattleMode = 'tactics' | 'bachdang' | 'council';
 
 export interface StageBrief {
-  id: number; code: string; campaign_no: number; position: number; order: number; title: string; place: string; date_label: string; kind: 'battle' | 'council' | 'strategy' | 'prepare'; icon: string; summary: string;
-  map_x: number; map_y: number; anchor_x: number | null; anchor_y: number | null; has_battle: boolean; battle_mode: 'tactics' | 'bachdang' | null;
-  state: StageState; lock_reason: string | null; stars: number; knowledge_percent: number; battle_stars: number; review_due: number;
-  steps: { lesson: StepState; practice: StepState; explore: StepState; battle: StepState; next: 'lesson' | 'practice' | 'explore' | 'replay' | null };
+  id: number; code: string; campaign_no: number | null; grade: number | null; position: number; order: number; map_order: number | null; title: string; place: string; date_label: string;
+  kind: 'battle' | 'council' | 'strategy' | 'prepare'; icon: string; summary: string;
+  map_x: number; map_y: number; anchor_x: number | null; anchor_y: number | null; has_battle: boolean; battle_mode: BattleMode | null; has_world: boolean;
+  state: StageState; lock_reason: string | null; stars: number; knowledge_percent: number; battle_stars: number; review_due: number; lore: { have: number; total: number };
+  /** vòng 5 bước: Quân lệnh (order) → Thám sử (lesson) → Hội đồng (practice) → Xuất trận (battle) → Sử quan (summary); world = khám phá thêm 3D */
+  steps: { order: StepState; lesson: StepState; practice: StepState; battle: StepState; summary: StepState; world: StepState; explore: StepState; next: 'lesson' | 'practice' | 'battle' | 'summary' | null };
 }
 export interface SagaMapInfo {
   campaign_no: number; title: string; short_title: string; years: string; enemy?: string; places?: string; summary?: string;
@@ -38,9 +60,23 @@ export interface SagaChest { key: string; kind: 'stage' | 'part'; after: number;
 /** Khung ảnh đại diện / danh hiệu nhận từ hòm báu (17/11/2026) */
 export type LookRarity = 'common' | 'rare' | 'epic' | 'legendary';
 export interface LookItem { code: string; name: string; rarity: LookRarity }
-export interface LookSlot extends LookItem { need: string; unlocked: boolean }
-export interface SagaLook { frame: LookItem | null; title: LookItem | null; /** ảnh đại diện có sẵn (Rồng Con, danh tướng); null = ảnh / chữ cái của em */ avatar?: string | null }
-export interface Wardrobe { frames: LookSlot[]; titles: LookSlot[]; avatars: string[]; opened: number; total: number; equipped: SagaLook }
+export interface LookSlot extends LookItem { need: string; unlocked: boolean; price?: number | null; buyable?: boolean }
+export type ThemeCode = 'thang-long' | 'bach-dang' | 'dem-dong-bo-dau' | 'hoang-thanh';
+export interface SagaLook {
+  frame: LookItem | null; title: LookItem | null; /** ảnh đại diện có sẵn (Rồng Con, danh tướng); null = ảnh / chữ cái của em */ avatar?: string | null;
+  flag?: LookItem | null; theme?: ThemeCode | string;
+}
+export interface ShopItemView { code: 'lenh-bai' | 'goi-y'; name: string; price: number; weekly: number; note: string; bought_week: number; have: number }
+/** Kho trang phục + Chợ phiên Thăng Long (25/11/2026) */
+export interface Wardrobe {
+  frames: LookSlot[]; titles: LookSlot[]; flags: LookSlot[]; themes: LookSlot[]; items: ShopItemView[]; avatars: string[]; opened: number; total: number;
+  gold: number; freezes: number; freeze_max: number; hints: number; rank: { level: number; name: string }; equipped: SagaLook;
+  bought?: { kind: string; code: string; name: string; price: number };
+}
+export interface GradeView {
+  grade: GradeSummary; stages: StageBrief[]; chests: Array<SagaChest & { campaign_no: number }>; my_grade: number | null; current_stage_id: number | null;
+  maps: Array<Pick<SagaMapInfo, 'campaign_no' | 'title' | 'short_title' | 'years' | 'image_key' | 'image_url' | 'image_w' | 'image_h' | 'credit' | 'credit_url'>>;
+}
 export interface ChestOpen {
   key: string; kind: 'stage' | 'part'; first: boolean; rarity?: ChestRarity; gold: number; xp: number; freeze?: number; freeze_as_gold?: number;
   unlocked?: Array<LookItem & { kind: 'frame' | 'title'; equipped: boolean }>; opened?: number; total?: number;
@@ -52,20 +88,30 @@ export interface CardBrief { code: string; name: string; title: string; rarity: 
 export interface StageDetail extends StageBrief {
   objectives: Array<{ id: string; text: string }>; cards_count: number; pass_percent: number;
   practice: { items: number; kinds: Array<{ kind: ItemKind; label: string; count: number }>; best: number; tries: number; passed: boolean };
-  explore: { title: string; done: boolean; hints: number; mistakes: number };
-  battle: { title: string; mode: 'tactics' | 'bachdang'; best: number; stars: number; tries: number; won: boolean } | null;
-  rewards: { xp: number; gold: number; card: CardBrief | null; has_badge: boolean };
+  explore: { title: string; done: boolean; hints: number; mistakes: number; world: boolean } | null;
+  battle: { title: string; mode: BattleMode; best: number; stars: number; tries: number; won: boolean } | null;
+  rewards: { xp: number; gold: number; card: CardBrief | null; has_badge: boolean; rank_up: string | null };
   completed_at: string | null; unlocks_next: { id: number; title: string } | null;
+  /** lời giao nhiệm vụ của màn Quân lệnh (lời dẫn của trò chơi, không phải trích dẫn lịch sử) */
+  order_text: { by: string; text: string } | null; grade_info: { grade: number; tag: string; role: string; level: string } | null; of: number;
 }
 
 export interface SourceRef { key: string; title: string; publisher: string; url: string | null; note: string | null }
-export interface LessonCard { id: string; kind: 'who' | 'where' | 'when' | 'why' | 'how'; kind_label: string; title: string; body: string; facts: Array<{ label: string; value: string }>; objective: string; objective_text: string | null; source: SourceRef | null; art: string | null }
-export interface LessonView { stage: StageRef; objectives: Array<{ id: string; text: string }>; cards: LessonCard[]; sources: SourceRef[]; done: boolean }
-export interface StageRef { id: number; title: string; place: string; date_label: string; campaign_no: number }
+export type LoreShelf = 'nhan-vat' | 'ke-sach' | 'dia-danh';
+export interface LessonCard {
+  id: string; kind: 'who' | 'where' | 'when' | 'why' | 'how'; kind_label: string; tag: string; shelf: LoreShelf; title: string; body: string; facts: Array<{ label: string; value: string }>;
+  objective: string; objective_text: string | null; source: SourceRef | null; art: string | null;
+}
+export interface LessonView { stage: StageRef & { grade?: number | null; kind?: string; icon?: string }; objectives: Array<{ id: string; text: string }>; cards: LessonCard[]; sources: SourceRef[]; done: boolean; lore: string[]; world?: boolean }
+export interface StageRef { id: number; title: string; place: string; date_label: string; campaign_no: number | null; grade?: number | null }
+export interface LoreCollect { card: string; fresh: boolean; lore: string[]; total: number; done: boolean; first_done: boolean; xp: number }
+/** Bộ sưu tập Binh thư: thẻ chưa nhặt chỉ có tên, loại và chặng */
+export interface LoreCard { key: string; stage_id: number; stage_title: string; grade: number | null; card: string; kind: LessonCard['kind']; tag: string; shelf: LoreShelf; title: string; owned: boolean; body?: string; facts?: Array<{ label: string; value: string }>; source?: SourceRef | null }
+export interface LoreView { cards: LoreCard[]; shelves: Record<LoreShelf, { owned: number; total: number }>; owned: number; total: number }
 
 // ---------------------------------------------------------------------- luyện tập và ôn tập
 export type ItemKind = 'quiz' | 'pairs' | 'sequence' | 'locate' | 'tactic';
-interface ItemBase { id: number; kind: ItemKind; kind_label: string; prompt: string; objective: string; done: boolean; score: number | null; stage_title: string | null }
+interface ItemBase { id: number; kind: ItemKind; kind_label: string; prompt: string; objective: string; done: boolean; score: number | null; stage_title: string | null; removed?: string[]; hintable?: boolean }
 export interface Choice { id: string; text: string }
 export type PracticeItem =
   | (ItemBase & { kind: 'quiz'; options: Choice[] })
@@ -75,10 +121,12 @@ export type PracticeItem =
   | (ItemBase & { kind: 'locate'; campaign_no: number; spots: Array<{ id: string; letter: string; x: number; y: number }> });
 export interface AnswerOutcome {
   item_id: number; done: boolean; correct: boolean; score: number; detail: Record<string, any>;
-  explanation?: string; source?: SourceRef | null; objective_text?: string | null; stage_title?: string | null; timeout?: boolean; streak?: number; xp?: number;
+  explanation?: string; source?: SourceRef | null; objective_text?: string | null; stage_title?: string | null; timeout?: boolean; streak?: number; xp?: number; gold?: number;
 }
-export interface PracticeFinished { percent: number; passed: boolean; stars: number; right: number; total: number; pass_percent: number; best: number; first_pass: boolean; xp: number }
-export interface ReviewFinished { right: number; total: number; percent: number; best_streak: number }
+/** Kết quả dùng "Gợi ý chiến thuật": phương án sai đã bị gạch */
+export interface HintOutcome { item_id: number; hint: true; removed: string; hints_left: number }
+export interface PracticeFinished { percent: number; passed: boolean; stars: number; right: number; total: number; pass_percent: number; best: number; first_pass: boolean; xp: number; gold?: number }
+export interface ReviewFinished { right: number; total: number; percent: number; best_streak: number; xp?: number; gold?: number }
 
 // ---------------------------------------------------------------------- nhập vai khám phá
 export interface SceneNpc { id: string; name: string; role: string; sprite: string; at: XY; fictional: boolean }
@@ -156,26 +204,43 @@ export interface BdView {
     | null;
   result: { won: boolean; stars: number; score: number; stranded: number; escaped: number; mistakes: Array<{ code: string; text: string }>; good: string[]; text: string } | null;
 }
-export interface BattleFinished { won: boolean; stars: number; score: number; first_win: boolean; xp: number; best: number; text: string; mistakes?: Array<{ code: string; text: string }>; good?: string[]; stranded?: number; escaped?: number; rounds?: number; lost?: number }
+// ---------------------------------------------------------------------- trận hội đồng (Diên Hồng, Vườn không nhà trống, Vạn Kiếp, Khối 9)
+export interface CouncilView {
+  mode: 'council'; style: 'persuade' | 'command' | 'whatif'; title: string; intro: string; cast: Array<{ id: string; name: string; role: string; fictional: boolean }>; tips: string[];
+  status: 'active' | 'won' | 'lost'; round: number; rounds: number; meters: Array<{ id: string; label: string; value: number; win: number }>;
+  current: { id: string; who: string; ask: string; options: Array<{ id: string; tag: string; text: string }> } | null;
+  history: Array<{ round: string; who: string; ask: string; option: string; tag: string; text: string; say: string | null; reply: string; score: number }>;
+  result: { won: boolean; stars: number; score: number; rounds: number; historic: number; compare: CompareRow[]; text: string } | null;
+}
+export interface CouncilEvent { t: 'play' | 'end'; round?: string; option?: string; tag?: string; text?: string; say?: string | null; reply?: string; score?: number; effect?: Record<string, number>; meters?: Record<string, number>; won?: boolean }
+/** Một dòng bảng "Quyết định / Của em / Lịch sử" của màn Sử quan */
+export interface CompareRow { label: string; mine: string; history: string; ok: boolean }
+export interface BattleFinished {
+  won: boolean; stars: number; score: number; first_win: boolean; xp: number; gold?: number; best: number; text: string; mistakes?: Array<{ code: string; text: string }>; good?: string[];
+  stranded?: number; escaped?: number; rounds?: number; lost?: number; compare?: CompareRow[]; historic?: number;
+}
 
 // ---------------------------------------------------------------------- phiên chơi
 interface SessionHead { session_id: number; seq: number; status: 'active' | 'done' | 'abandoned'; result: Record<string, any> | null; stage: StageRef | null; resumed?: boolean }
 export type PracticeSession = SessionHead & { kind: 'practice' | 'review'; pass_percent: number | null; index: number; total: number; items: PracticeItem[]; timer?: { limit_s: number; left_ms: number } | null; streak?: number };
 export type ExploreSession = SessionHead & { kind: 'explore' } & ExploreView;
-export type BattleSession = SessionHead & { kind: 'battle'; knowledge: number; events?: Array<TacticsEvent | BdEvent> } & (TacticsView | BdView);
+export type BattleSession = SessionHead & { kind: 'battle'; knowledge: number; events?: Array<TacticsEvent | BdEvent | CouncilEvent> } & (TacticsView | BdView | CouncilView);
 
 export interface Completion {
   first: boolean; stars: number; knowledge_percent: number; battle: { stars: number; score: number } | null;
   rewards: { xp: number; gold: number; card: (CardBrief & { role_text?: string }) | null; badge: { code?: string; name: string; icon: string; color: string } | null; docs: Array<{ id: number; title: string; kind: string }> };
-  next: { id: number; title: string; campaign_no: number } | null; campaign_done: boolean;
+  next: { id: number; title: string; campaign_no: number | null; grade?: number | null } | null; campaign_done: boolean;
+  grade_done?: boolean; grade?: number | null; rank_up?: { from: string; to: string; level: number } | null;
 }
 export interface ActResult<V, O, F> { seq: number; outcome: O; finished: F | null; completion: Completion | null; view: V; replayed: boolean }
 
 export interface StageSummary {
   stage: StageRef;
-  result: { stars: number; knowledge_percent: number; practice_tries: number; explore_hints: number; explore_mistakes: number; battle: { stars: number; score: number; tries: number } | null };
+  result: { stars: number; knowledge_percent: number; practice_tries: number; explore_hints: number; explore_mistakes: number; battle: { stars: number; score: number; tries: number; mode: BattleMode; title: string } | null };
+  compare: CompareRow[]; comment: string; comment_source: string | null; battle_text: string | null;
   debrief: { title: string; paragraphs: string[]; sources: SourceRef[]; fiction: string };
-  weak_objectives: WeakObjective[]; next: { id: number; title: string; campaign_no: number } | null;
+  rewards: { xp: number; gold: number; card: CardBrief | null }; rank: { level: number; name: string };
+  weak_objectives: WeakObjective[]; next: { id: number; title: string; campaign_no: number | null; grade?: number | null } | null;
 }
 
 // ---------------------------------------------------------------------- ôn tập, bộ sưu tập, kho tư liệu
@@ -183,6 +248,7 @@ export interface WeakObjective { stage_id: number; stage_title: string; objectiv
 export interface ReviewInfo {
   due: Array<{ item_id: number; wrong_count: number; last_wrong_at: string; prompt: string; kind: ItemKind; kind_label: string; stage_id: number; stage_title: string }>;
   weak_objectives: WeakObjective[]; pool: number; can_start: boolean; active_session_id: number | null; size: number; stats: { answers: number; right: number; percent: number };
+  suggest: Suggest | null;
 }
 export interface SagaCard extends CardBrief {
   owned: boolean; years?: string | null; intro?: string; role_text?: string; quote?: string | null; quote_source?: string | null; source?: string; source_url?: string | null; unlocked_at?: string;

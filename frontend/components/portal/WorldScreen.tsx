@@ -327,7 +327,7 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
         <Txt f="bold" size={16}>Tới lúc ra trận!</Txt>
         <Txt size={14} color={c.muc2}>{view.battle.title}. Thắng trận rồi em quay lại đúng chỗ này để làm tiếp nhiệm vụ.</Txt>
       </View>
-      <Btn title="Vào trận" icon={Swords} tone="son" onPress={() => { saveReturnCell(view.session_id, [Math.floor(pos.current.x), Math.floor(pos.current.z)]); nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'tran' }, 'replace'); }} testID="world-fight" />
+      <Btn title="Vào trận" icon={Swords} tone="son" onPress={() => { saveReturnCell(view.session_id, [Math.floor(pos.current.x), Math.floor(pos.current.z)]); nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'xuat-tran' }, 'replace'); }} testID="world-fight" />
     </Box>
   ) : null;
   const hasTalk = talk !== null;
@@ -529,10 +529,10 @@ export const WorldScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
       ) : null}
 
       {finished && !talking ? (
-        <Sheet open persistent onClose={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'tong-ket' }, 'replace')} title="Hoàn thành nhiệm vụ" subtitle={view.title}
+        <Sheet open persistent onClose={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'su-quan' }, 'replace')} title="Hoàn thành nhiệm vụ" subtitle={view.title}
           footer={<View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'flex-end' }}>
             <Btn title="Chơi lại" icon={RotateCcw} tone="giay" onPress={onRestart} testID="world-replay" />
-            <Btn title="Mở trang sử" icon={Sparkles} tone="son" onPress={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'tong-ket' }, 'replace')} testID="world-summary" />
+            <Btn title="Mở trang sử" icon={Sparkles} tone="son" onPress={() => nav.go('chien-dich', { c: campaignNo, s: stageId, v: 'su-quan' }, 'replace')} testID="world-summary" />
           </View>}>
           <View style={{ gap: 10 }} testID="world-done">
             <Txt size={15}>Em đã cùng các bạn hoàn thành “{view.title}”. Trang sử tiếp theo kể lại những điều em vừa trải nghiệm, kèm nguồn tư liệu.</Txt>

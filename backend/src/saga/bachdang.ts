@@ -475,7 +475,9 @@ export function applyBachDang(scn: BdScenario, s: BdState, a: BdAction): BdEvent
 }
 
 // ---------------------------------------------------------------------- kết quả và lời giải thích
-export interface BdResult { won: boolean; stars: number; score: number; stranded: number; escaped: number; mistakes: Array<{ code: string; text: string }>; good: string[] }
+/** Một dòng của bảng "Quyết định / Của em / Lịch sử 1288" ở màn Sử quan tổng kết (25/11/2026) */
+export interface BdCompare { label: string; mine: string; history: string; ok: boolean }
+export interface BdResult { won: boolean; stars: number; score: number; stranded: number; escaped: number; mistakes: Array<{ code: string; text: string }>; good: string[]; compare: BdCompare[] }
 
 export function bachDangResult(_scn: BdScenario, s: BdState): BdResult {
   const won = s.status === 'won';
@@ -506,7 +508,19 @@ export function bachDangResult(_scn: BdScenario, s: BdState): BdResult {
   const stars = !won ? 0 : Math.max(1, 3 - (escaped > 0 || stranded < enemies.length ? 1 : 0) - (sunk > 0 || s.flags.hits >= 2 ? 1 : 0));
   const hp = allies.filter(onBoard).reduce((n, a) => n + a.hp, 0), hpMax = allies.reduce((n, a) => n + a.maxHp, 0);
   const score = won ? 400 + stars * 100 + stranded * 50 + Math.round((hp / Math.max(1, hpMax)) * 100) : Math.min(250, stranded * 40 + s.flags.dealt * 3);
-  return { won, stars, score, stranded, escaped, mistakes, good };
+  // dòng "Lịch sử" lấy từ Đại Việt sử ký toàn thư và bài Wikipedia về trận Bạch Đằng 1288 (đã có trong thẻ kiến thức của chặng)
+  const provoked = s.flags.provoked;
+  const compare: BdCompare[] = [
+    { label: 'Bãi cọc', mine: s.stakes.length >= 3 && !s.flags.blocked.length ? `Đóng ${s.stakes.length} cụm cọc trên bãi cạn, chừa cửa sông nhánh` : s.flags.blocked.length ? 'Cọc chắn cả cửa sông nhánh của quân ta' : `Chỉ đóng ${s.stakes.length} cụm cọc`,
+      history: 'Đóng cọc gỗ đầu nhọn xuống lòng sông lúc nước triều rút', ok: s.stakes.length >= 3 && !s.flags.blocked.length },
+    { label: 'Nhử giặc', mine: !provoked ? 'Chưa cho thuyền nhẹ khiêu chiến' : s.flags.hits >= 2 ? `Có khiêu chiến nhưng thuyền nhẹ bị đánh ${s.flags.hits} lần` : 'Thuyền nhẹ khiêu chiến rồi giả thua chạy',
+      history: 'Nhân lúc nước triều lên, cho quân khiêu chiến rồi giả thua chạy', ok: provoked && s.flags.hits < 2 },
+    { label: 'Thời điểm đánh', mine: stranded > 0 ? `Nước rút, ${stranded} đoàn thuyền giặc vướng cọc` : 'Không thuyền giặc nào vướng cọc lúc nước rút',
+      history: 'Nước triều xuống, thuyền giặc vướng cọc hết', ok: stranded > 0 },
+    { label: 'Thuyền chỉ huy', mine: !flag ? 'Không có thuyền chỉ huy' : flag.state === 'escaped' ? `${flag.name} chạy thoát ra biển` : `Giữ chân được ${flag.name}`,
+      history: 'Tướng Đỗ Hành bắt được Ô Mã Nhi', ok: Boolean(flag) && flag!.state !== 'escaped' && won },
+  ];
+  return { won, stars, score, stranded, escaped, mistakes, good, compare };
 }
 
 // ---------------------------------------------------------------------- phần gửi cho trình duyệt

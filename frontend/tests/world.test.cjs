@@ -180,7 +180,7 @@ test('bước cần đúng con nước: đứng sẵn trong vùng thì khi con n
 
 test('vào trận rồi quay lại: em đứng đúng chỗ đã bấm "Vào trận" (không về chỗ xuất phát)', () => {
   const screen = read('components', 'portal', 'WorldScreen.tsx');
-  assert.match(screen, /saveReturnCell\(view\.session_id, \[Math\.floor\(pos\.current\.x\), Math\.floor\(pos\.current\.z\)\]\); nav\.go\('chien-dich', \{ c: campaignNo, s: stageId, v: 'tran' \}/);
+  assert.match(screen, /saveReturnCell\(view\.session_id, \[Math\.floor\(pos\.current\.x\), Math\.floor\(pos\.current\.z\)\]\); nav\.go\('chien-dich', \{ c: campaignNo, s: stageId, v: 'xuat-tran' \}/);
   assert.match(screen, /const back = takeReturnCell\(initial\.session_id\); if \(back\) b\.set\('world:start', back\);/);
   assert.match(screen, /try \{ \(globalThis as \{ sessionStorage\?: Storage \}\)\.sessionStorage\?\.setItem/);
   const world = read('game', 'world3d.ts');
@@ -252,6 +252,6 @@ test('ứng dụng gốc nhúng thế giới khối của website trong WebView:
   const app = read('components', 'portal', 'StudentApp.tsx');
   assert.match(app, /const embed = Platform\.OS === 'web' && one\(params\.embed\) === '1';/);
   assert.match(app, /embed: embed \? '1' : undefined/);
-  assert.match(app, /\{embed \? <View style=\{\{ flex: 1, minHeight: 0, backgroundColor: c\.giay \}\} testID="student-embed">\{body\}<\/View> : \(/);
+  assert.match(app, /\{embed \? <View style=\{\{ flex: 1, minHeight: 0, backgroundColor: bt\.bg \}\} testID="student-embed">\{body\}<\/View> : \(/);
   assert.equal(JSON.parse(read('package.json')).dependencies['react-native-webview'], '14.0.1');
 });

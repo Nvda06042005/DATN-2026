@@ -109,6 +109,9 @@ export class BoardService {
     const sums = (range: [Date, Date] | null) => `LEFT JOIN hk_points p ON p.user_id = u.id${range ? ' AND p.created_at >= $2 AND p.created_at < $3' : ''}`;
     let label = '';
     let rows: BoardRow[];
+    // "So với tuần trước" (25/11/2026): bảng tuần còn tính hạng của tuần trước cho cùng nhóm học sinh để hiện ▲ / ▼ số hạng
+    let prev: BoardRow[] | null = null;
+    const lastWeek = (): [Date, Date] => { const k = weekKey(this.clock.now()); return [dayStart(addDays(k, -7)), dayStart(k)]; };
     let used = period && ['week', 'month', 'all'].includes(period) ? period : 'week';
     let anonymous = false;
     if (scope === 'class') {
@@ -120,9 +123,10 @@ export class BoardService {
       // Giáo viên có thể tắt bảng xếp hạng của lớp (HK.GV.060)
       const on = (await this.db.query<{ leaderboard_enabled: boolean }>('SELECT leaderboard_enabled FROM hk_class_settings WHERE class_id = $1', [cls.class_id]))[0]?.leaderboard_enabled ?? true;
       if (!on) return { scope, period: used, label, entries: [], me: null, size: 0, disabled: true, message: 'Giáo viên đã tắt bảng xếp hạng của lớp này.' };
-      rows = await this.rows(`class|${cls.class_id}|${used}`,
-        `SELECT u.id, u.nickname, u.full_name, COALESCE(sum(p.points), 0)::int AS xp FROM app_class_members m JOIN app_users u ON u.id = m.user_id AND u.role = 'student' AND u.is_active::int = 1
-         ${sums(range)} WHERE m.class_id = $1 GROUP BY u.id ORDER BY xp DESC, u.id LIMIT ${sizeLimit}`, range ? [cls.class_id, range[0], range[1]] : [cls.class_id]);
+      const classSql = (r: [Date, Date] | null) => `SELECT u.id, u.nickname, u.full_name, COALESCE(sum(p.points), 0)::int AS xp FROM app_class_members m JOIN app_users u ON u.id = m.user_id AND u.role = 'student' AND u.is_active::int = 1
+         ${sums(r)} WHERE m.class_id = $1 GROUP BY u.id ORDER BY xp DESC, u.id LIMIT ${sizeLimit}`;
+      rows = await this.rows(`class|${cls.class_id}|${used}`, classSql(range), range ? [cls.class_id, range[0], range[1]] : [cls.class_id]);
+      if (used === 'week') { const lw = lastWeek(); prev = await this.rows(`class|${cls.class_id}|prev|${lw[0].toISOString()}`, classSql(lw), [cls.class_id, lw[0], lw[1]]); }
     } else {
       anonymous = true;
       const cfg = user.school_id ? await this.schoolSettings(user.school_id) : { leaderboard_enabled: true, leaderboard_scope: 'school' as const, leaderboard_period: 'week' as const };
@@ -134,15 +138,22 @@ export class BoardService {
       label = scope === 'system' ? 'Toàn hệ thống' : grade ? `Khối ${grade} của trường` : 'Toàn trường';
       const params: unknown[] = range ? [scope === 'school' ? user.school_id : 0, range[0], range[1]] : [scope === 'school' ? user.school_id : 0];
       const gradeSql = grade ? ` AND u.grade = $${params.push(grade)}` : '';
-      rows = await this.rows(`${scope}|${scope === 'school' ? user.school_id : 0}|${used}|${grade ?? 0}`,
-        `SELECT u.id, u.nickname, u.full_name, COALESCE(sum(p.points), 0)::int AS xp FROM app_users u ${sums(range)}
-         WHERE u.role = 'student' AND u.is_active::int = 1 AND ($1 = 0 OR u.school_id = $1)${gradeSql} GROUP BY u.id HAVING COALESCE(sum(p.points), 0) > 0 ORDER BY xp DESC, u.id LIMIT ${sizeLimit}`, params);
+      const schoolSql = (r: [Date, Date] | null) => `SELECT u.id, u.nickname, u.full_name, COALESCE(sum(p.points), 0)::int AS xp FROM app_users u ${sums(r)}
+         WHERE u.role = 'student' AND u.is_active::int = 1 AND ($1 = 0 OR u.school_id = $1)${gradeSql} GROUP BY u.id HAVING COALESCE(sum(p.points), 0) > 0 ORDER BY xp DESC, u.id LIMIT ${sizeLimit}`;
+      rows = await this.rows(`${scope}|${scope === 'school' ? user.school_id : 0}|${used}|${grade ?? 0}`, schoolSql(range), params);
+      if (used === 'week') {
+        const lw = lastWeek();
+        prev = await this.rows(`${scope}|${scope === 'school' ? user.school_id : 0}|prev|${grade ?? 0}|${lw[0].toISOString()}`, schoolSql(lw), [params[0], lw[0], lw[1], ...params.slice(3)]);
+      }
     }
     const ranked = rows.map((r, i) => ({ ...r, rank: 1 + rows.filter((x) => x.xp > r.xp).length, pos: i }));
-    const view = (r: (typeof ranked)[number]) => ({ rank: r.rank, name: r.id === user.id ? 'Em' : anonymous ? (r.nickname || ANON) : (r.nickname || r.full_name), xp: r.xp, me: r.id === user.id });
+    // hạng tuần trước của từng bạn (chỉ tính người có điểm tuần trước); delta dương = lên hạng
+    const prevRank = new Map((prev ?? []).filter((r) => r.xp > 0).map((r) => [r.id, 1 + (prev ?? []).filter((x) => x.xp > r.xp).length]));
+    const delta = (r: (typeof ranked)[number]): number | null => (prev && prevRank.has(r.id) ? prevRank.get(r.id)! - r.rank : null);
+    const view = (r: (typeof ranked)[number]) => ({ rank: r.rank, name: r.id === user.id ? 'Em' : anonymous ? (r.nickname || ANON) : (r.nickname || r.full_name), xp: r.xp, me: r.id === user.id, delta: delta(r) });
     const me = ranked.find((r) => r.id === user.id);
     const top = ranked.slice(0, 20).map(view);
-    return { scope, period: used, label, entries: me && !top.some((e) => e.me) ? [...top, view(me)] : top, me: me ? { rank: me.rank, xp: me.xp } : null, size: rows.length };
+    return { scope, period: used, label, entries: me && !top.some((e) => e.me) ? [...top, view(me)] : top, me: me ? { rank: me.rank, xp: me.xp, delta: delta(me) } : null, size: rows.length, compare: prev !== null };
   }
 
   // ------------------------------------------------------------------ giải đấu tuần (HK.HS.077, HK.SYS.006)

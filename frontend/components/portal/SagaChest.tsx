@@ -6,13 +6,40 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Modal, Platform, Pressable, View } from 'react-native';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { Coins, Shield, Sparkles, Star, X, Zap } from 'lucide-react-native';
 import { errorMessage } from '@/api/client';
 import type { Session } from '@/components/auth';
 import { FramedAvatar, TitleBadge } from '@/components/portal/SagaLook';
-import { ChestArt } from '@/components/portal/SagaRail';
 import { Btn, Txt } from '@/components/ui';
 import type { ChestOpen, LookItem, SagaChest } from '@/types/saga';
+
+/** Hòm báu vẽ bằng SVG: khóa (xám), sẵn sàng (gỗ – vàng), đã mở (nắp mở, có vàng bên trong) */
+export const ChestArt: React.FC<{ size?: number; state: 'locked' | 'ready' | 'opened' }> = ({ size = 32, state }) => {
+  const wood = state === 'locked' ? '#9aa1ab' : '#b45309';
+  const dark = state === 'locked' ? '#6b7280' : '#7c2d12';
+  const trim = state === 'locked' ? '#c7ccd3' : '#facc15';
+  const h = size * 0.86;
+  return (
+    <Svg width={size} height={h} viewBox="0 0 40 34" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      {state === 'opened' ? (
+        <>
+          <Path d="M4 4 L36 4 L34 13 L6 13 Z" fill={wood} stroke={dark} strokeWidth={1.5} />
+          <Rect x={4} y={14} width={32} height={6} fill="#3f1d0b" />
+          <Circle cx={13} cy={16} r={3.2} fill="#fde047" stroke="#ca8a04" strokeWidth={1} />
+          <Circle cx={20} cy={15} r={3.2} fill="#fde047" stroke="#ca8a04" strokeWidth={1} />
+          <Circle cx={27} cy={16} r={3.2} fill="#fde047" stroke="#ca8a04" strokeWidth={1} />
+        </>
+      ) : (
+        <Path d="M3 15 L3 9 Q3 3 9 3 L31 3 Q37 3 37 9 L37 15 Z" fill={wood} stroke={dark} strokeWidth={1.5} />
+      )}
+      <Rect x={3} y={15} width={34} height={17} rx={3} fill={wood} stroke={dark} strokeWidth={1.5} />
+      <Rect x={9} y={state === 'opened' ? 15 : 3} width={3.5} height={state === 'opened' ? 17 : 29} fill={trim} />
+      <Rect x={27.5} y={state === 'opened' ? 15 : 3} width={3.5} height={state === 'opened' ? 17 : 29} fill={trim} />
+      {state === 'opened' ? null : <Rect x={16.5} y={12} width={7} height={8} rx={1.5} fill={trim} stroke={dark} strokeWidth={1} />}
+    </Svg>
+  );
+};
 
 type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 const RARITY: Record<Rarity, { label: string; color: string; glow: string; rays: string[]; text: string }> = {

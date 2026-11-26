@@ -1,7 +1,8 @@
 /**
- * Hành trình Đông A qua API thật trên PostgreSQL tạm (migration 065–066): bản đồ, mở khóa chặng, học – luyện tập – nhập vai – trận đánh, hoàn thành chặng và phần thưởng,
- * chống gửi lặp, thứ tự lệnh, quyền sở hữu phiên, ôn tập, bộ sưu tập, kho tư liệu. Chỉ học sinh dùng được /api/saga: mục Hành trình Đông A của quản trị tổng
- * và báo cáo của giáo viên đã xóa theo yêu cầu ngày 16/11/2026.
+ * Hành trình Đông A qua API thật trên PostgreSQL tạm (migration 065–066, 083): bốn chiến dịch theo khối 6–9, khóa theo khối, vòng 5 bước của chặng
+ * (Quân lệnh → Thám sử nhặt thẻ Binh thư → Hội đồng quân sự → Xuất trận → Sử quan tổng kết), phần thưởng theo câu đúng và sao, trận hội đồng,
+ * hòm báu, Chợ phiên Thăng Long, chuỗi ngày, chống gửi lặp, thứ tự lệnh, quyền sở hữu phiên, ôn tập (Luyện binh riêng), bộ sưu tập, kho tư liệu.
+ * Chỉ học sinh dùng được /api/saga: mục Hành trình Đông A của quản trị tổng và báo cáo của giáo viên đã xóa theo yêu cầu ngày 16/11/2026.
  * Đáp án lấy thẳng từ cơ sở dữ liệu (học sinh không bao giờ nhận được dữ liệu này qua API).
  */
 import { randomUUID } from 'crypto';
@@ -157,6 +158,24 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
   return playItems(start.body, token, wrong);
 }
 
+/** Trận hội đồng (25/11/2026): đọc kịch bản từ cơ sở dữ liệu, chọn phương án như lịch sử (hoặc kém nhất khi `worst`) */
+async function playCouncil(view: any, code: string, token: string, worst = false): Promise<any> {
+  const { autoCouncil, normalizeCouncil } = await import('../src/saga/council');
+  const scn = normalizeCouncil((await content(code)).battle);
+  let seq: number = view.seq;
+  let res: any = null;
+  for (let guard = 0; guard < 10; guard++) {
+    const engine = (await sessionState(view.session_id)).engine;
+    if (engine.status !== 'active') break;
+    res = await act(view.session_id, seq, autoCouncil(scn, engine, worst) as any, token);
+    expect(res.status).toBe(200);
+    seq = res.body.seq;
+  }
+  return res.body;
+}
+
+const todayVN = "(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date";
+
 (hasPostgres() ? describe : describe.skip)('Hành trình Đông A (API)', () => {
   beforeAll(async () => {
     s = await startApp('saga_spec');
@@ -165,78 +184,148 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
     clock = s.moduleRef.get((await import('../src/game/clock')).GameClock);
     stageId = Object.fromEntries((await sql<{ code: string; id: number }>(s.url, 'SELECT code, id FROM hk_saga_stages')).map((r) => [r.code, r.id]));
     for (const r of await sql<{ id: number; kind: string; data: any }>(s.url, 'SELECT id, kind, data FROM hk_saga_items')) keys.set(r.id, r);
-    // 21/11/2026: cả 13 chặng nay mở thế giới khối ở bước nhập vai (thử ở world.spec.ts). Bỏ nhiệm vụ khối trong cơ sở dữ liệu thử để tệp này tiếp tục thử
-    // luồng dự phòng của máy chủ (cảnh nhập vai 2D theo content.explore) cùng học, luyện tập, trận đánh, hoàn thành chặng và phần thưởng
+    // 21/11/2026: cả 13 chặng nay mở thế giới khối ở bước khám phá thêm (thử ở world.spec.ts). Bỏ nhiệm vụ khối trong cơ sở dữ liệu thử để tệp này
+    // thử luồng dự phòng của máy chủ (cảnh nhập vai 2D theo content.explore) cùng các bước chính
     await sql(s.url, "UPDATE hk_saga_stages SET content = content - 'world'");
+    // 25/11/2026: chặng của khối cao hơn khối của lớp bị khóa; lớp thử của tệp này là khối 9 để mở cả bốn khối (khóa khối thử riêng ở dưới)
+    await sql(s.url, 'UPDATE app_classes SET grade = 9 WHERE id = $1', [f.class7a.id]);
   }, 240_000);
   afterAll(async () => { clock?.reset(); await s?.close(); });
 
-  it('nội dung khởi tạo đã công bố: ba cuộc kháng chiến, 13 chặng trên bản đồ, vị trí điểm theo tỉ lệ ảnh', async () => {
+  it('nội dung: bốn chiến dịch theo khối 6–9 (24 câu Hội đồng mỗi khối), ba cuộc kháng chiến vẫn giữ bản đồ gốc, Doanh trại có nhiệm vụ, chuỗi ngày, bậc Khoa bảng', async () => {
     const home = await api('GET', '/api/saga/home');
     expect(home.status).toBe(200);
+    expect(home.body.grade).toBe(9);
+    expect(home.body.grades.map((g: any) => [g.grade, g.stages, g.questions, g.battles, g.state])).toEqual([[6, 4, 24, 4, 'open'], [7, 6, 24, 5, 'open'], [8, 4, 24, 3, 'open'], [9, 4, 24, 2, 'current']]);
+    expect(home.body.grades[0]).toMatchObject({ tag: 'KHỐI 6 · TÂN BINH', role: 'Tân binh', level: 'Nhận biết' });
     expect(home.body.campaigns.map((c: any) => [c.campaign_no, c.years, c.stages, c.done, c.is_new])).toEqual([[1, '1258', 3, 0, true], [2, '1285', 6, 0, true], [3, '1287–1288', 4, 0, true]]);
-    expect(home.body.next).toMatchObject({ stage_id: stageId['binh-le-nguyen'] });
-    expect(home.body.hud.level.level).toBe(1);
+    // chặng đang học: ưu tiên khối của em
+    expect(home.body.next).toMatchObject({ stage_id: stageId['so-sanh-ba-lan'], grade: 9, order: 1, of: 4 });
+    expect(home.body.next.steps).toMatchObject({ lesson: 'ready', practice: 'locked', battle: 'none', next: 'lesson' });
+    expect(home.body.rank).toMatchObject({ level: 0, name: 'Học trò', next_name: 'Thái học sinh', next: { done: 0, total: 4, unit: 'chặng', grade: 6 } });
+    expect(home.body.quests.map((x: any) => x.metric).sort()).toEqual(['ai_questions', 'correct_answers', 'lore_collected']);
+    expect(home.body.streak.milestones.map((m: any) => [m.days, m.reached])).toEqual([[3, false], [7, false], [14, false], [30, false]]);
+    expect(home.body.streak.week).toHaveLength(7);
+    expect(home.body.suggest).toBeNull();
+    // chiến dịch Khối 6: Bạch Đằng 938 mở đầu, hòm báu của cuộc kháng chiến lần thứ nhất đặt đúng sau chặng của nó, bản đồ gốc phần 1
+    const g6 = (await api('GET', '/api/saga/grades/6')).body;
+    expect(g6.stages.map((x: any) => [x.code, x.state, x.order])).toEqual([['bach-dang-938', 'ready', 1], ['binh-le-nguyen', 'ready', 2], ['vuon-khong-nha-trong', 'locked', 3], ['dong-bo-dau', 'locked', 4]]);
+    expect(g6.chests.map((c: any) => [c.key, c.after])).toEqual([[`s${stageId['binh-le-nguyen']}`, 2], [`s${stageId['vuon-khong-nha-trong']}`, 3], ['p1', 4]]);
+    expect(g6.maps.map((m: any) => m.campaign_no)).toEqual([1]);
+    expect(g6.stages[0]).toMatchObject({ campaign_no: null, battle_mode: 'council', lore: { have: 0, total: 5 } });
+    expect((await api('GET', '/api/saga/grades/9')).body.stages.map((x: any) => [x.code, x.state])).toEqual([['so-sanh-ba-lan', 'ready'], ['hoi-dong-dai-cuc', 'locked'], ['tu-lieu-tranh-bien', 'locked'], ['thu-thach-lich-su', 'locked']]);
+    expect((await api('GET', '/api/saga/grades/5')).status).toBe(404);
     const map = await api('GET', '/api/saga/campaigns/1');
     expect(map.body.map).toMatchObject({ image_key: 'ban-do-khang-chien-1', image_w: 1500, image_h: 1052 });
     expect(map.body.map.credit).toMatch(/Wikimedia Commons/);
-    expect(map.body.stages.map((x: any) => [x.code, x.state, x.order])).toEqual([['binh-le-nguyen', 'ready', 1], ['vuon-khong-nha-trong', 'locked', 2], ['dong-bo-dau', 'locked', 3]]);
+    expect(map.body.stages.map((x: any) => [x.code, x.state, x.map_order])).toEqual([['binh-le-nguyen', 'ready', 1], ['vuon-khong-nha-trong', 'locked', 2], ['dong-bo-dau', 'locked', 3]]);
     for (const st of map.body.stages) { expect(st.map_x).toBeGreaterThan(0); expect(st.map_x).toBeLessThan(1); expect(st.map_y).toBeGreaterThan(0); expect(st.map_y).toBeLessThan(1); }
     expect(map.body.stages[1].lock_reason).toMatch(/Bình Lệ Nguyên/);
     expect((await api('GET', '/api/saga/campaigns/9')).status).toBe(404);
-    // thẻ của điểm trên bản đồ: kiến thức sẽ học, yêu cầu mở khóa, kết quả cũ; không lộ nội dung bài và đáp án
+    // Quân lệnh: lời dẫn, mục tiêu, vòng 5 bước, trận đánh; không lộ nội dung bài, đáp án, kịch bản trận
     const detail = await api('GET', `/api/saga/stages/${stageId['vuon-khong-nha-trong']}`);
-    expect(detail.body).toMatchObject({ state: 'locked', pass_percent: 70, cards_count: 4 });
+    expect(detail.body).toMatchObject({ state: 'locked', pass_percent: 70, cards_count: 4, grade: 6, battle: { mode: 'council', won: false } });
+    expect(detail.body.order_text.text.length).toBeGreaterThan(20);
     expect(detail.body.objectives).toHaveLength(2);
     expect(detail.body.practice.items).toBe(6);
-    for (const secret of ['correct', 'feedback', 'cards', 'explore_script', 'steps_script']) expect(keysOf(detail.body).has(secret)).toBe(false);
+    for (const secret of ['correct', 'feedback', 'cards', 'explore_script', 'steps_script', 'effect', 'rounds', 'reply']) expect(keysOf(detail.body).has(secret)).toBe(false);
   });
 
-  it('chặng khóa không mở được bằng cách gọi thẳng API; trong một chặng phải đi đúng thứ tự học → luyện tập → nhập vai → trận đánh', async () => {
+  it('khóa theo khối: chặng của khối cao hơn khối của lớp chỉ mở khi em lên lớp đó; khối thấp hơn vẫn học / ôn được', async () => {
+    await sql(s.url, 'UPDATE app_classes SET grade = 7 WHERE id = $1', [f.class7a.id]);
+    try {
+      const g8 = (await api('GET', '/api/saga/grades/8')).body;
+      expect(g8.grade).toMatchObject({ state: 'locked', lock_reason: 'Mở khi em lên lớp 8' });
+      expect(g8.stages.every((x: any) => x.state === 'locked' && x.lock_reason === 'Mở khi em lên lớp 8')).toBe(true);
+      expect((await api('GET', `/api/saga/stages/${stageId['chuan-bi-1287']}/lesson`)).status).toBe(409);
+      const home = (await api('GET', '/api/saga/home')).body;
+      expect(home.grades.map((g: any) => g.state)).toEqual(['open', 'current', 'locked', 'locked']);
+      expect(home.next).toMatchObject({ stage_id: stageId['binh-than'], grade: 7 });
+    } finally {
+      await sql(s.url, 'UPDATE app_classes SET grade = 9 WHERE id = $1', [f.class7a.id]);
+    }
+    expect((await api('GET', `/api/saga/stages/${stageId['chuan-bi-1287']}/lesson`)).status).toBe(200);
+  });
+
+  it('chặng khóa không mở được bằng cách gọi thẳng API; trong một chặng phải đi đúng thứ tự Thám sử → Hội đồng → Xuất trận', async () => {
     const locked = stageId['vuon-khong-nha-trong'];
     expect((await api('GET', `/api/saga/stages/${locked}/lesson`)).status).toBe(409);
+    expect((await api('POST', `/api/saga/stages/${locked}/lore/c1`, {})).status).toBe(409);
     expect((await api('POST', `/api/saga/stages/${locked}/lesson/complete`, {})).status).toBe(409);
     for (const kind of ['practice', 'explore', 'battle']) expect([kind, (await api('POST', `/api/saga/stages/${locked}/${kind}`, {})).status]).toEqual([kind, 409]);
     expect((await api('GET', `/api/saga/stages/${locked}/summary`)).status).toBe(409);
     const open = stageId['binh-le-nguyen'];
-    expect((await api('POST', `/api/saga/stages/${open}/practice`, {})).body.detail).toMatch(/học xong/);
+    expect((await api('POST', `/api/saga/stages/${open}/practice`, {})).body.detail).toMatch(/Thám sử/);
     expect((await api('POST', `/api/saga/stages/${open}/explore`, {})).body.detail).toMatch(/70%/);
-    expect((await api('POST', `/api/saga/stages/${open}/battle`, {})).status).toBe(409);
+    expect((await api('POST', `/api/saga/stages/${open}/battle`, {})).body.detail).toMatch(/Hội đồng quân sự/);
     expect((await api('GET', `/api/saga/stages/999999`)).status).toBe(404);
   });
 
-  it('học ngắn: 3–5 thẻ kiến thức kèm nguồn; hoàn thành bài học chỉ được thưởng một lần', async () => {
+  it('Thám sử: nhặt từng thẻ Binh thư (có nguồn), nhặt đủ là xong bước và chỉ thưởng một lần; nhiệm vụ "nhặt 2 thẻ"; bộ sưu tập Binh thư', async () => {
     const id = stageId['binh-le-nguyen'];
-    const lesson = await api('GET', `/api/saga/stages/${id}/lesson`);
-    expect(lesson.body.cards).toHaveLength(4);
-    for (const c of lesson.body.cards) { expect(c.source.url).toMatch(/^https:\/\//); expect(typeof c.objective_text).toBe('string'); }
-    const done = await api('POST', `/api/saga/stages/${id}/lesson/complete`, {});
-    expect(done.body).toMatchObject({ done: true, first: true, xp: 10 });
+    const lesson = (await api('GET', `/api/saga/stages/${id}/lesson`)).body;
+    expect(lesson.cards).toHaveLength(4);
+    expect(lesson).toMatchObject({ lore: [], done: false });
+    for (const c of lesson.cards) { expect(c.source.url).toMatch(/^https:\/\//); expect(typeof c.objective_text).toBe('string'); expect(['nhan-vat', 'ke-sach', 'dia-danh']).toContain(c.shelf); expect(c.tag.length).toBeGreaterThan(2); }
+    const ids = lesson.cards.map((c: any) => c.id);
+    const one = await api('POST', `/api/saga/stages/${id}/lore/${ids[0]}`, {});
+    expect(one.body).toMatchObject({ fresh: true, done: false, lore: [ids[0]], total: 4, xp: 0 });
+    expect((await api('POST', `/api/saga/stages/${id}/lore/${ids[0]}`, {})).body).toMatchObject({ fresh: false, lore: [ids[0]] });
+    expect((await api('POST', `/api/saga/stages/${id}/lore/khong-co`, {})).status).toBe(404);
+    expect((await api('POST', `/api/saga/stages/${id}/lore/SAI!`, {})).status).toBe(404);
+    let last: any = null;
+    for (const c of ids.slice(1)) last = (await api('POST', `/api/saga/stages/${id}/lore/${c}`, {})).body;
+    expect(last).toMatchObject({ done: true, first_done: true, xp: 10 });
     expect((await api('POST', `/api/saga/stages/${id}/lesson/complete`, {})).body).toMatchObject({ first: false, xp: 0 });
-    expect(await count("SELECT count(*) AS n FROM hk_points WHERE user_id = $1 AND ref_key = $2", [f.S1.id, `hq:lesson:${id}`])).toBe(1);
+    expect(await count('SELECT count(*) AS n FROM hk_points WHERE user_id = $1 AND ref_key = $2', [f.S1.id, `hq:lesson:${id}`])).toBe(1);
+    const quest = (await api('GET', '/api/game/quests')).body.daily.find((x: any) => x.metric === 'lore_collected');
+    expect(quest).toMatchObject({ title: 'Thu thập 2 thẻ Binh thư', progress: 2, target: 2 });
+    expect(quest.completed_at).not.toBeNull();
+    const lore = (await api('GET', '/api/saga/lore')).body;
+    expect(lore.owned).toBe(4);
+    expect(lore.total).toBeGreaterThanOrEqual(18 * 3);
+    expect(Object.values(lore.shelves).reduce((n: number, x: any) => n + x.total, 0)).toBe(lore.total);
+    expect(lore.cards.find((c: any) => !c.owned).body).toBeUndefined(); // thẻ chưa nhặt chỉ lộ tên
+    expect(lore.cards.find((c: any) => c.owned && c.stage_id === id).source.url).toMatch(/^https:/);
   });
 
-  it('luyện tập: đề không có đáp án; dưới ngưỡng thì chưa đạt và được làm lại; câu sai vào danh sách ôn; đạt lần đầu mới thưởng', async () => {
+  it('Hội đồng quân sự: đề không có đáp án; đúng một câu lần đầu +10 KN +2 vàng; dưới ngưỡng thì chưa đạt; câu sai vào danh sách ôn; Gợi ý chiến thuật gạch một phương án sai', async () => {
     const id = stageId['binh-le-nguyen'];
     const start = await api('POST', `/api/saga/stages/${id}/practice`, {});
     expect(start.body).toMatchObject({ kind: 'practice', total: 6, index: 0, pass_percent: 70, resumed: false });
     for (const secret of ['correct', 'feedback', 'score_key', 'tokens', 'explanation', 'when']) expect(keysOf(start.body.items).has(secret)).toBe(false);
     expect(start.body.items.map((i: any) => i.kind).sort()).toEqual(['locate', 'pairs', 'quiz', 'quiz', 'sequence', 'tactic']);
-    // gọi lại (tải lại trang) nhận đúng phiên đang mở
     expect((await api('POST', `/api/saga/stages/${id}/practice`, {})).body).toMatchObject({ session_id: start.body.session_id, resumed: true });
     const fail = await playItems(start.body, f.S1.token, 3);
-    expect(fail.finished).toMatchObject({ percent: 50, passed: false, stars: 0, first_pass: false, xp: 0, pass_percent: 70 });
+    expect(fail.finished).toMatchObject({ percent: 50, passed: false, stars: 0, first_pass: false, xp: 30, gold: 6, pass_percent: 70 });
     expect(fail.completion).toBeNull();
-    expect((await api('POST', `/api/saga/stages/${id}/explore`, {})).status).toBe(409); // chưa đạt thì chưa được nhập vai
+    expect((await api('POST', `/api/saga/stages/${id}/battle`, {})).status).toBe(409); // chưa đạt thì chưa xuất trận
     expect((await api('GET', '/api/saga/review')).body.due).toHaveLength(3);
     const pass = await practice('binh-le-nguyen', f.S1.token, 1);
-    expect(pass.finished).toMatchObject({ percent: 83, passed: true, stars: 1, first_pass: true, xp: 30, best: 83 });
+    expect(pass.finished).toMatchObject({ percent: 83, passed: true, stars: 1, first_pass: true, xp: 20, gold: 4, best: 83 });
     const again = await practice('binh-le-nguyen', f.S1.token);
-    expect(again.finished).toMatchObject({ percent: 100, passed: true, stars: 3, first_pass: false, xp: 0, best: 100 });
-    expect(await count('SELECT count(*) AS n FROM hk_points WHERE user_id = $1 AND ref_key = $2', [f.S1.id, `hq:practice:${id}`])).toBe(1);
+    expect(again.finished).toMatchObject({ percent: 100, passed: true, stars: 3, first_pass: false, xp: 10, gold: 2, best: 100 });
+    expect(await count("SELECT count(*) AS n FROM hk_points WHERE user_id = $1 AND ref_key LIKE 'hq:ans:%'", [f.S1.id])).toBe(6);
+    expect(await count("SELECT count(*) AS n FROM hk_gold_ledger WHERE user_id = $1 AND reason = 'answer'", [f.S1.id])).toBe(6);
+    expect(await count('SELECT count(*) AS n FROM hk_points WHERE user_id = $1 AND ref_key = $2', [f.S1.id, `hq:practice:${id}`])).toBe(0);
     const detail = (await api('GET', `/api/saga/stages/${id}`)).body;
     expect(detail.practice).toMatchObject({ best: 100, tries: 3, passed: true });
     expect(detail.state).toBe('learning');
+    expect(detail.steps).toMatchObject({ lesson: 'done', practice: 'done', battle: 'ready', next: 'battle' });
+    // Gợi ý chiến thuật: vật phẩm mua ở Chợ phiên (ở đây đặt sẵn một cái)
+    await sql(s.url, `UPDATE hk_players SET buffs = jsonb_set(COALESCE(buffs, '{}'::jsonb), '{goi_y}', '1'::jsonb) WHERE user_id = $1`, [f.S1.id]);
+    const h = (await api('POST', `/api/saga/stages/${id}/practice`, {})).body;
+    const q = h.items.find((i: any) => i.kind === 'quiz' && i.hintable);
+    expect(q.removed).toEqual([]);
+    const used = await act(h.session_id, h.seq, { type: 'hint', item_id: q.id });
+    expect(used.status).toBe(200);
+    expect(used.body.outcome).toMatchObject({ hint: true, hints_left: 0, item_id: q.id });
+    expect(used.body.outcome.removed).not.toBe(keys.get(q.id)!.data.correct);
+    expect(used.body.view.items.find((i: any) => i.id === q.id)).toMatchObject({ removed: [used.body.outcome.removed], hintable: false });
+    expect((await act(h.session_id, used.body.seq, { type: 'hint', item_id: q.id })).status).toBe(409);
+    const seqItem = h.items.find((i: any) => i.kind === 'sequence');
+    expect((await act(h.session_id, used.body.seq, { type: 'hint', item_id: seqItem.id })).status).toBe(409);
+    await playItems(used.body.view, f.S1.token);
   });
 
   it('gửi lặp một lệnh nhận lại kết quả cũ và không cộng thưởng lần hai; lệnh lệch thứ tự bị từ chối; phiên của người khác không chạm được', async () => {
@@ -247,36 +336,26 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
     const xpBefore = (await api('GET', '/api/game/me')).body.xp;
     const one = await act(start.session_id, start.seq, { type: 'answer', item_id: first.id, answer: answerOf(first.id, true) }, f.S1.token, actionId);
     expect(one.body).toMatchObject({ seq: 1, replayed: false });
-    // cùng mã lệnh gửi lại (bấm hai lần, mạng chập chờn): kết quả cũ, không xử lý lại
     const dup = await act(start.session_id, start.seq, { type: 'answer', item_id: first.id, answer: answerOf(first.id, false) }, f.S1.token, actionId);
     expect(dup.status).toBe(200);
     expect(dup.body).toMatchObject({ seq: 1, replayed: true });
     expect(dup.body.outcome).toEqual(one.body.outcome);
     expect(await count('SELECT count(*) AS n FROM hk_saga_answers WHERE session_id = $1', [start.session_id])).toBe(1);
     expect(await count('SELECT count(*) AS n FROM hk_saga_actions WHERE session_id = $1', [start.session_id])).toBe(1);
-    // lệnh mới nhưng dựa trên trạng thái cũ (seq 0): từ chối, trạng thái không đổi
     const other = start.items.find((i: any) => i.kind === 'locate');
-    const stale = await act(start.session_id, 0, { type: 'answer', item_id: other.id, answer: answerOf(other.id, true) });
-    expect(stale.status).toBe(409);
+    expect((await act(start.session_id, 0, { type: 'answer', item_id: other.id, answer: answerOf(other.id, true) })).status).toBe(409);
     expect((await api('GET', `/api/saga/sessions/${start.session_id}`)).body).toMatchObject({ seq: 1, index: start.items.findIndex((i: any) => i.id !== first.id && !i.done) });
-    // trả lời lại câu đã trả lời, sai định dạng lệnh
     expect((await act(start.session_id, 1, { type: 'answer', item_id: first.id, answer: answerOf(first.id, true) })).status).toBe(400);
     expect((await api('POST', `/api/saga/sessions/${start.session_id}/actions`, { action_id: 'ngan', seq: 1, action: { type: 'answer' } })).status).toBe(422);
     expect((await api('POST', `/api/saga/sessions/${start.session_id}/actions`, { action_id: randomUUID(), seq: 1, action: 'x' })).status).toBe(422);
-    // học sinh khác: không xem, không gửi lệnh vào phiên của bạn
     expect((await api('GET', `/api/saga/sessions/${start.session_id}`, undefined, f.S2.token)).status).toBe(404);
     expect((await act(start.session_id, 1, { type: 'answer', item_id: other.id, answer: answerOf(other.id, true) }, f.S2.token)).status).toBe(404);
-    expect((await api('GET', '/api/game/me')).body.xp).toBe(xpBefore);
-    // làm nốt lượt này để không còn phiên dở
+    expect((await api('GET', '/api/game/me')).body.xp).toBe(xpBefore); // câu đã thưởng ở lượt trước không thưởng lại
     await playItems((await api('GET', `/api/saga/sessions/${start.session_id}`)).body, f.S1.token);
   });
 
-  it('vòng chơi đầu – cuối của một chặng có trận đánh: nhập vai tới điểm chạm trán, đánh trận, quay lại cảnh, tổng kết, thưởng một lần và mở chặng sau', async () => {
+  it('Xuất trận ngay sau Hội đồng; thắng là xong chặng (thưởng một lần, mở chặng sau); mỗi sao lần đầu +30 KN +10 vàng; Sử quan có bảng so sánh; khám phá thêm không bắt buộc', async () => {
     const id = stageId['binh-le-nguyen'];
-    const stopped = await playExplore('binh-le-nguyen', f.S1.token, { stopAtBattle: true });
-    expect(stopped.view.current).toMatchObject({ type: 'battle', marker: 'zone:front' });
-    expect(keysOf(stopped.view).has('correct')).toBe(false);
-    // trận đánh: máy chủ giữ trạng thái; mở lại nhận đúng phiên; `restart` bỏ phiên cũ
     const battle = await api('POST', `/api/saga/stages/${id}/battle`, {});
     expect(battle.body).toMatchObject({ kind: 'battle', mode: 'tactics', status: 'active', resumed: false });
     expect(keysOf(battle.body).has('correct')).toBe(false);
@@ -285,61 +364,58 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
     const fresh = await api('POST', `/api/saga/stages/${id}/battle`, { restart: true });
     expect(fresh.body.session_id).not.toBe(battle.body.session_id);
     expect((await sql(s.url, 'SELECT status FROM hk_saga_sessions WHERE id = $1', [battle.body.session_id]))[0]).toEqual({ status: 'abandoned' });
-    expect((await act(battle.body.session_id, 0, { type: 'defend' })).status).toBe(409); // phiên đã bỏ không nhận lệnh
-    // lệnh không hợp lệ bị máy chủ từ chối và không làm đổi trạng thái
+    expect((await act(battle.body.session_id, 0, { type: 'defend' })).status).toBe(409);
     expect((await act(fresh.body.session_id, fresh.body.seq, { type: 'attack', target: 'khong_co' })).status).toBe(400);
     expect((await act(fresh.body.session_id, fresh.body.seq, { type: 'thang_luon' })).status).toBe(400);
-    expect((await api('GET', `/api/saga/sessions/${fresh.body.session_id}`)).body.seq).toBe(fresh.body.seq);
     const won = await playTactics(fresh.body, 'binh-le-nguyen', f.S1.token);
-    expect(won.finished).toMatchObject({ won: true, first_win: true, xp: 50 });
+    expect(won.finished).toMatchObject({ won: true, first_win: true });
     expect(won.finished.stars).toBeGreaterThanOrEqual(1);
-    expect(won.completion).toBeNull(); // còn phải quay lại cảnh và báo cáo
-    // quay lại đúng cảnh và đúng bước đang làm
-    const back = (await api('POST', `/api/saga/stages/${id}/explore`, {})).body;
-    expect(back).toMatchObject({ resumed: true, session_id: stopped.view.session_id });
-    expect(back.current.type).toBe('battle');
-    expect(back.battle.won).toBe(true);
-    const done = await playExplore('binh-le-nguyen', f.S1.token);
-    expect(done.finished).toMatchObject({ hints: 0, mistakes: 0, first: true, xp: 20 });
-    expect(done.completion).toMatchObject({ first: true, stars: 3, knowledge_percent: 100, campaign_done: false });
-    expect(done.completion.rewards).toMatchObject({ xp: 100, gold: 30, badge: null });
-    expect(done.completion.rewards.card).toMatchObject({ code: 'le-phu-tran', name: 'Lê Phụ Trần' });
-    expect(done.completion.next).toMatchObject({ id: stageId['vuon-khong-nha-trong'] });
-    // bản đồ: chặng xong, chặng sau mở
+    expect(won.finished).toMatchObject({ xp: 30 * won.finished.stars, gold: 10 * won.finished.stars });
+    expect(won.finished.compare.map((r: any) => r.label)).toEqual(['Mưu kế: Lui quân có trật tự', 'Kết quả']);
+    expect(won.completion).toMatchObject({ first: true, stars: 3, knowledge_percent: 100, campaign_done: false, grade_done: false, grade: 6, rank_up: null });
+    expect(won.completion.rewards).toMatchObject({ xp: 100, gold: 30, badge: null });
+    expect(won.completion.rewards.card).toMatchObject({ code: 'le-phu-tran', name: 'Lê Phụ Trần' });
+    expect(won.completion.next).toMatchObject({ id: stageId['vuon-khong-nha-trong'], grade: 6 });
     const map = (await api('GET', '/api/saga/campaigns/1')).body;
-    // chặng đã xong nhưng còn 3 câu từng trả lời sai chưa ôn lại nên mang trạng thái "cần ôn"
     expect(map.stages.map((x: any) => x.state)).toEqual(['review', 'ready', 'locked']);
     expect(map.stages[0]).toMatchObject({ stars: 3, knowledge_percent: 100, review_due: 3 });
-    expect(map.stages[0].battle_stars).toBeGreaterThanOrEqual(1);
-    // tổng kết: diễn biến lịch sử đã kiểm chứng kèm nguồn và ghi chú phần sáng tạo
+    // Sử quan tổng kết: bảng so sánh của trận, lời nhận xét, diễn biến lịch sử có nguồn và ghi chú phần sáng tạo
     const summary = (await api('GET', `/api/saga/stages/${id}/summary`)).body;
+    expect(summary.compare).toHaveLength(2);
+    expect(summary.comment.length).toBeGreaterThan(10);
     expect(summary.debrief.paragraphs.length).toBeGreaterThanOrEqual(3);
     expect(summary.debrief.sources[0].url).toMatch(/^https:\/\//);
     expect(summary.debrief.fiction).toMatch(/sáng tạo/);
-    // chơi lại không được thưởng lần hai
+    expect(summary).toMatchObject({ rank: { level: 0 }, rewards: { xp: 100, gold: 30 }, next: { id: stageId['vuon-khong-nha-trong'] } });
+    // chơi lại không được thưởng lần hai; sao đã nhận không nhận lại
     const replay = await practice('binh-le-nguyen', f.S1.token);
     expect(replay.completion).toMatchObject({ first: false });
     expect(replay.completion.rewards).toMatchObject({ xp: 0, gold: 0, card: null });
-    const again = await playExplore('binh-le-nguyen', f.S1.token, { battle: (b) => playTactics(b, 'binh-le-nguyen', f.S1.token) });
-    expect(again.finished).toMatchObject({ first: false, xp: 0 });
-    for (const ref of [`hq:stage:${id}`, `hq:explore:${id}`, `hq:battle:${id}`]) expect([ref, await count('SELECT count(*) AS n FROM hk_points WHERE user_id = $1 AND ref_key = $2', [f.S1.id, ref])]).toEqual([ref, 1]);
+    const again = await playTactics((await api('POST', `/api/saga/stages/${id}/battle`, {})).body, 'binh-le-nguyen', f.S1.token);
+    expect(again.finished.first_win).toBe(false);
+    expect(again.finished.xp).toBe(30 * Math.max(0, again.finished.stars - won.finished.stars));
+    // khám phá thêm (cảnh 2D dự phòng / thế giới khối): mở sau Hội đồng, không bắt buộc, thưởng một lần
+    const explored = await playExplore('binh-le-nguyen', f.S1.token, { battle: (b) => playTactics(b, 'binh-le-nguyen', f.S1.token) });
+    expect(explored.finished).toMatchObject({ first: true, xp: 20 });
+    expect(explored.completion).toMatchObject({ first: false });
+    for (const ref of [`hq:stage:${id}`, `hq:explore:${id}`, `hq:star:${id}:1`]) expect([ref, await count('SELECT count(*) AS n FROM hk_points WHERE user_id = $1 AND ref_key = $2', [f.S1.id, ref])]).toEqual([ref, 1]);
+    expect(await count('SELECT count(*) AS n FROM hk_points WHERE user_id = $1 AND ref_key = $2', [f.S1.id, `hq:battle:${id}`])).toBe(0);
     expect(await count('SELECT count(*) AS n FROM hk_gold_ledger WHERE user_id = $1 AND ref_key = $2', [f.S1.id, `hq:stage:${id}`])).toBe(1);
     expect(await count('SELECT count(*) AS n FROM hk_saga_user_cards WHERE user_id = $1', [f.S1.id])).toBe(1);
-  });
+  }, 180_000);
 
   it('hòm báu trên bản đồ: hòm giữa hai chặng mở khi xong chặng trước, hòm cuối phần mở khi xong cả phần; máy chủ kiểm tra điều kiện, mỗi hòm chỉ thưởng một lần', async () => {
     const id = stageId['binh-le-nguyen'], id2 = stageId['vuon-khong-nha-trong'];
     const map = (await api('GET', '/api/saga/campaigns/1')).body;
     expect(map.chests.map((c: any) => [c.key, c.kind, c.after, c.state, c.max_gold])).toEqual([[`s${id}`, 'stage', 1, 'ready', 100], [`s${id2}`, 'stage', 2, 'locked', 100], ['p1', 'part', 3, 'locked', 100]]);
-    // hòm bí ẩn: không lộ độ hiếm trước khi mở, công bố tỉ lệ; hòm cuối phần không có loại Thường
     expect(map.chests[0].odds).toEqual([{ rarity: 'common', percent: 55 }, { rarity: 'rare', percent: 30 }, { rarity: 'epic', percent: 12 }, { rarity: 'legendary', percent: 3 }]);
     expect(map.chests[2].odds.map((o: any) => o.rarity)).toEqual(['rare', 'epic', 'legendary']);
     for (const c of map.chests) expect(Object.keys(c)).not.toContain('rarity');
     expect((await api('POST', `/api/saga/chests/s${id2}/open`, {})).status).toBe(409);
     expect((await api('POST', '/api/saga/chests/p1/open', {})).status).toBe(409);
     expect((await api('POST', `/api/saga/chests/s${stageId['dong-bo-dau']}/open`, {})).status).toBe(404); // chặng cuối phần không có hòm "sau chặng"
+    expect((await api('POST', `/api/saga/chests/s${stageId['bach-dang-938']}/open`, {})).status).toBe(404); // chặng không thuộc cuộc kháng chiến nào
     for (const bad of ['xyz', 'p9', 's99999']) expect((await api('POST', `/api/saga/chests/${bad}/open`, {})).status).toBe(404);
-    // học sinh khác chưa xong chặng thì không mở được hòm của chặng đó
     expect((await api('POST', `/api/saga/chests/s${id}/open`, {}, f.S2.token)).status).toBe(409);
     const gold = async () => Number((await sql<{ gold: number }>(s.url, 'SELECT gold FROM hk_players WHERE user_id = $1', [f.S1.id]))[0].gold);
     const before = await gold();
@@ -349,20 +425,19 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
     expect(['common', 'rare', 'epic', 'legendary']).toContain(opened.body.rarity);
     expect(opened.body.gold).toBeGreaterThanOrEqual(10);
     expect(opened.body.gold).toBeLessThanOrEqual(115);
-    // hòm đầu tiên mở khóa danh hiệu "Tân binh Sát Thát" và tự trang bị vì ô danh hiệu đang trống
     expect(opened.body.unlocked).toEqual([{ kind: 'title', code: 'tan-binh-sat-that', name: 'Tân binh Sát Thát', rarity: 'common', equipped: true }]);
-    // mở lại: cùng độ hiếm (không đổi được kết quả), không thưởng thêm
     expect((await api('POST', `/api/saga/chests/s${id}/open`, {})).body).toMatchObject({ first: false, rarity: opened.body.rarity, gold: 0, xp: 0, freeze: 0, unlocked: [] });
     expect(await gold()).toBe(before + opened.body.gold);
     expect(await count("SELECT count(*) AS n FROM hk_gold_ledger WHERE user_id = $1 AND reason = 'chest' AND ref_key = $2", [f.S1.id, `hq:chest:s${id}`])).toBe(1);
     expect((await api('GET', '/api/saga/campaigns/1')).body.chests[0].state).toBe('opened');
+    expect((await api('GET', '/api/saga/grades/6')).body.chests[0].state).toBe('opened');
     expect((await api('GET', '/api/saga/campaigns/1', undefined, f.S2.token)).body.chests[0].state).toBe('locked');
   });
 
   it('hòm báu bí ẩn: độ hiếm theo tỉ lệ công bố, cố định theo học sinh và hòm, phần thưởng đúng khoảng của độ hiếm', async () => {
     const { rollChest } = await import('../src/saga/saga.service');
-    const count = (kind: 'stage' | 'part') => { const n: Record<string, number> = {}; for (let u = 1; u <= 4000; u += 1) { const r = rollChest(u, kind === 'stage' ? 's7' : 'p2', kind); n[r.rarity] = (n[r.rarity] ?? 0) + 1; } return n; };
-    const st = count('stage'), pt = count('part');
+    const tally = (kind: 'stage' | 'part') => { const n: Record<string, number> = {}; for (let u = 1; u <= 4000; u += 1) { const r = rollChest(u, kind === 'stage' ? 's7' : 'p2', kind); n[r.rarity] = (n[r.rarity] ?? 0) + 1; } return n; };
+    const st = tally('stage'), pt = tally('part');
     expect(st.common / 4000).toBeGreaterThan(0.5); expect(st.common / 4000).toBeLessThan(0.6);
     expect(st.legendary / 4000).toBeGreaterThan(0.015); expect(st.legendary / 4000).toBeLessThan(0.045);
     expect(pt.common ?? 0).toBe(0);
@@ -377,36 +452,56 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
     }
   });
 
-  it('khung ảnh đại diện và danh hiệu từ hòm báu: kho theo số hòm đã mở, chỉ trang bị món đã mở khóa, trang chủ trả món đang trang bị', async () => {
-    const w = (await api('GET', '/api/saga/cosmetics')).body;
-    expect(w).toMatchObject({ opened: 1, total: 13, equipped: { frame: null, title: { code: 'tan-binh-sat-that', rarity: 'common' } } });
-    expect(w.frames.map((x: any) => [x.code, x.rarity, x.unlocked])).toEqual([['dong-bo-dau', 'rare', false], ['chuong-duong', 'epic', false], ['bach-dang', 'legendary', false]]);
-    expect(w.titles.map((x: any) => x.unlocked)).toEqual([true, false, false, false, false, false, false]); // + 2 danh hiệu của thế giới khối (21/11/2026)
-    expect(w.titles.slice(5).map((x: any) => x.code)).toEqual(['nguoi-giu-lang', 'dong-long-giu-nuoc']);
-    expect(w.titles[4]).toMatchObject({ code: 'dai-tuong-hao-khi', need: 'Mở 13 hòm báu trên bản đồ' });
+  it('Chợ phiên Thăng Long: khung / cờ hiệu / giao diện mua bằng vàng một lần, món thành tích không mua được, vật phẩm giới hạn mỗi tuần; trang bị chỉ món đã có', async () => {
+    const w = (await api('GET', '/api/saga/shop')).body;
+    expect(w).toMatchObject({ opened: 1, total: 13, equipped: { frame: null, title: { code: 'tan-binh-sat-that', rarity: 'common' }, avatar: null, flag: null, theme: 'thang-long' } });
+    expect(w.frames.map((x: any) => [x.code, x.unlocked, x.price])).toEqual([
+      ['go-moc', true, null], ['dong-co', false, 300], ['dong-bo-dau', false, null], ['lua-dong-a', false, null], ['chuong-duong', false, null], ['rong-thoi-tran', false, 900], ['bach-dang', false, null], ['hoa-sen-vang', false, null]]);
+    expect(w.frames.find((x: any) => x.code === 'bach-dang')).toMatchObject({ name: 'Sóng Bạch Đằng' });
+    expect(w.frames.find((x: any) => x.code === 'bach-dang').need).toMatch(/Khối 8/);
+    expect(w.frames.find((x: any) => x.code === 'hoa-sen-vang').need).toBe('Đỗ Trạng nguyên');
+    expect(w.flags.map((x: any) => [x.code, x.unlocked])).toEqual([['sat-that', true], ['thuyen-chien', false], ['pha-cuong-dich', false], ['rong-cuon', false], ['coc-bach-dang', false], ['an-dong-a', false]]);
+    expect(w.themes.map((x: any) => [x.code, x.unlocked, x.price])).toEqual([['thang-long', true, null], ['bach-dang', false, 600], ['dem-dong-bo-dau', false, 600], ['hoang-thanh', false, null]]);
+    expect(w.items.map((x: any) => [x.code, x.price, x.weekly, x.bought_week])).toEqual([['lenh-bai', 150, 2, 0], ['goi-y', 50, 3, 0]]);
+    expect(w.titles.map((x: any) => x.unlocked)).toEqual([true, false, false, false, false, false, false]);
     expect((await api('GET', '/api/saga/home')).body.look).toEqual(w.equipped);
     expect((await api('POST', '/api/saga/cosmetics/equip', { frame: 'bach-dang' })).status).toBe(409);
     expect((await api('POST', '/api/saga/cosmetics/equip', { title: 'hieu-uy-dong-a' })).status).toBe(409);
     expect((await api('POST', '/api/saga/cosmetics/equip', { title: 'khong-co' })).status).toBe(404);
     expect((await api('POST', '/api/saga/cosmetics/equip', { title: 'Sai Định Dạng!' })).status).toBe(422);
-    const off = await api('POST', '/api/saga/cosmetics/equip', { title: null });
-    expect(off.status).toBe(200);
-    expect(off.body.equipped).toEqual({ frame: null, title: null, avatar: null });
-    expect((await api('POST', '/api/saga/cosmetics/equip', { title: 'tan-binh-sat-that' })).body.equipped.title).toMatchObject({ code: 'tan-binh-sat-that' });
-    // ảnh đại diện có sẵn (Rồng Con, danh tướng): chọn tự do, mã lạ bị từ chối, null = dùng ảnh của em
+    expect((await api('POST', '/api/saga/cosmetics/equip', { title: null })).body.equipped).toEqual({ frame: null, title: null, avatar: null, flag: null, theme: 'thang-long' });
+    expect((await api('POST', '/api/saga/cosmetics/equip', { title: 'tan-binh-sat-that', frame: 'go-moc', flag: 'sat-that' })).body.equipped).toMatchObject({ title: { code: 'tan-binh-sat-that' }, frame: { code: 'go-moc' }, flag: { code: 'sat-that' } });
     expect(w.avatars).toHaveLength(12);
-    expect(w.avatars).toEqual(expect.arrayContaining(['rong-con-vui', 'tran-hung-dao']));
     expect((await api('POST', '/api/saga/cosmetics/equip', { avatar: 'rong-con-vua' })).body.equipped.avatar).toBe('rong-con-vua');
     expect((await api('POST', '/api/saga/cosmetics/equip', { avatar: 'khong-co' })).status).toBe(404);
-    expect((await api('GET', '/api/saga/home')).body.look.avatar).toBe('rong-con-vua');
-    expect((await api('POST', '/api/saga/cosmetics/equip', { avatar: 'tran-hung-dao' }, f.S2.token)).body.equipped).toMatchObject({ avatar: 'tran-hung-dao', frame: null });
-    expect((await api('POST', '/api/saga/cosmetics/equip', { avatar: null }, f.S2.token)).body.equipped.avatar).toBeNull();
-    // học sinh khác chưa mở hòm nào: không trang bị được khung / danh hiệu
-    expect((await api('POST', '/api/saga/cosmetics/equip', { title: 'tan-binh-sat-that' }, f.S2.token)).status).toBe(409);
-    expect((await api('GET', '/api/saga/cosmetics', undefined, f.S2.token)).body).toMatchObject({ opened: 0, equipped: { frame: null, title: null, avatar: null } });
-    // trang bị nằm trong hk_players.appearance, không làm mất ngoại hình nhân vật cũ
+    // mua bằng vàng
+    await sql(s.url, 'UPDATE hk_players SET gold = 1000, freezes = 0 WHERE user_id = $1', [f.S1.id]);
+    const frame = await api('POST', '/api/saga/shop/buy', { kind: 'frame', code: 'dong-co' });
+    expect(frame.status).toBe(200);
+    expect(frame.body).toMatchObject({ bought: { kind: 'frame', code: 'dong-co', price: 300 }, gold: 700, equipped: { frame: { code: 'dong-co' } } });
+    expect((await api('POST', '/api/saga/shop/buy', { kind: 'frame', code: 'dong-co' })).status).toBe(409);
+    expect((await api('POST', '/api/saga/shop/buy', { kind: 'frame', code: 'bach-dang' })).body.detail).toMatch(/thành tích/);
+    expect((await api('POST', '/api/saga/shop/buy', { kind: 'frame', code: 'khong-co' })).status).toBe(404);
+    expect((await api('POST', '/api/saga/shop/buy', { kind: 'xyz', code: 'dong-co' })).status).toBe(422);
+    const theme = await api('POST', '/api/saga/shop/buy', { kind: 'theme', code: 'dem-dong-bo-dau' });
+    expect(theme.body).toMatchObject({ gold: 100, equipped: { theme: 'dem-dong-bo-dau' } });
+    expect((await api('POST', '/api/saga/cosmetics/equip', { theme: 'thang-long' })).body.equipped.theme).toBe('thang-long');
+    expect((await api('POST', '/api/saga/shop/buy', { kind: 'item', code: 'lenh-bai' })).body.detail).toMatch(/Chưa đủ vàng/);
+    await sql(s.url, 'UPDATE hk_players SET gold = 1000 WHERE user_id = $1', [f.S1.id]);
+    expect((await api('POST', '/api/saga/shop/buy', { kind: 'item', code: 'lenh-bai' })).body).toMatchObject({ freezes: 1, gold: 850 });
+    expect((await api('POST', '/api/saga/shop/buy', { kind: 'item', code: 'lenh-bai' })).body).toMatchObject({ freezes: 2, gold: 700 });
+    expect((await api('POST', '/api/saga/shop/buy', { kind: 'item', code: 'lenh-bai' })).status).toBe(409); // hết giới hạn tuần (và đủ tối đa)
+    expect((await api('POST', '/api/saga/shop/buy', { kind: 'item', code: 'goi-y' })).body).toMatchObject({ hints: 1, gold: 650 });
+    expect(await count("SELECT count(*) AS n FROM hk_gold_ledger WHERE user_id = $1 AND reason = 'shop' AND ref_key LIKE 'hq:shop:%'", [f.S1.id])).toBe(5);
+    // cờ hiệu thành tích: cần thẻ Trần Quốc Toản
+    expect((await api('POST', '/api/saga/cosmetics/equip', { flag: 'pha-cuong-dich' })).status).toBe(409);
+    await sql(s.url, "INSERT INTO hk_saga_user_cards (user_id, card_code) VALUES ($1, 'tran-quoc-toan')", [f.S1.id]);
+    expect((await api('POST', '/api/saga/cosmetics/equip', { flag: 'pha-cuong-dich' })).body.equipped.flag).toMatchObject({ code: 'pha-cuong-dich' });
+    await sql(s.url, "DELETE FROM hk_saga_user_cards WHERE user_id = $1 AND card_code = 'tran-quoc-toan'", [f.S1.id]);
+    // học sinh khác chưa có gì
+    expect((await api('GET', '/api/saga/shop', undefined, f.S2.token)).body).toMatchObject({ opened: 0, equipped: { frame: null, title: null, avatar: null, flag: null, theme: 'thang-long' } });
     const look = (await sql<{ appearance: Record<string, unknown> }>(s.url, 'SELECT appearance FROM hk_players WHERE user_id = $1', [f.S1.id]))[0].appearance;
-    expect(look).toMatchObject({ saga_title: 'tan-binh-sat-that', saga_avatar: 'rong-con-vua' });
+    expect(look).toMatchObject({ saga_title: 'tan-binh-sat-that', saga_avatar: 'rong-con-vua', saga_frame: 'dong-co', saga_theme: 'thang-long' });
   });
 
   it('đăng nhập lại vẫn đúng tiến độ; thẻ nhân vật và tư liệu mở theo kết quả học', async () => {
@@ -415,142 +510,165 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
     expect(login.status).toBe(200);
     const home = (await api('GET', '/api/saga/home', undefined, login.body.token)).body;
     expect(home.campaigns[0]).toMatchObject({ done: 1, stars: 3, is_new: false, percent: 33 });
-    expect(home.next).toMatchObject({ stage_id: stageId['vuon-khong-nha-trong'] });
-    expect(home.hud.xp).toBeGreaterThanOrEqual(210);
+    expect(home.grades[0]).toMatchObject({ grade: 6, done: 1, stars: 3 });
+    expect(home.next).toMatchObject({ stage_id: stageId['so-sanh-ba-lan'] });
+    expect(home.suggest).toMatchObject({ kind: 'review', wrong: 3 });
+    expect(home.hud.xp).toBeGreaterThanOrEqual(200);
     const cards = (await api('GET', '/api/saga/cards', undefined, login.body.token)).body;
-    expect([cards.total, cards.owned, cards.latest_code]).toEqual([13, 1, 'le-phu-tran']);
-    expect(cards.cards.find((c: any) => c.code === 'le-phu-tran')).toMatchObject({ owned: true });
+    expect([cards.total, cards.owned, cards.latest_code]).toEqual([14, 1, 'le-phu-tran']);
     expect(cards.cards.find((c: any) => c.code === 'le-phu-tran').intro.length).toBeGreaterThan(20);
     const hidden = cards.cards.find((c: any) => c.code === 'tran-hung-dao');
     expect(hidden).toMatchObject({ owned: false, stage_title: 'Bạch Đằng' });
-    expect(hidden.intro).toBeUndefined(); // thẻ chưa mở không lộ phần giới thiệu
+    expect(hidden.intro).toBeUndefined();
+    expect(cards.cards.find((c: any) => c.code === 'ngo-quyen')).toMatchObject({ owned: false, stage_title: 'Bạch Đằng 938' });
     const archive = (await api('GET', '/api/saga/archive', undefined, login.body.token)).body;
     expect(archive.maps).toHaveLength(3);
-    expect(archive.timeline.length).toBeGreaterThanOrEqual(13);
+    expect(archive.timeline.length).toBeGreaterThanOrEqual(18);
     const doc = archive.texts.find((t: any) => t.code === 'loi-tran-thu-do');
     expect(doc).toMatchObject({ locked: true, lock: { stage_title: 'Vườn không nhà trống' } });
     expect(doc.body).toBeUndefined();
   });
 
-  it('chặng không có trận đánh hoàn thành bằng nhiệm vụ khám phá; xem lại manh mối và hỏi nhầm người được ghi nhận để gợi ý ôn tập', async () => {
+  it('trận hội đồng (Vườn không nhà trống): đề không lộ điểm / tác động; chọn sai thì thua, chọn như lịch sử thì thắng 3 sao; xong chặng mở thẻ và tư liệu', async () => {
     const code = 'vuon-khong-nha-trong';
     await learn(code, f.S1.token);
     await practice(code, f.S1.token);
-    expect((await api('POST', `/api/saga/stages/${stageId[code]}/battle`, {})).body.detail).toMatch(/không có trận đánh/);
-    const start = (await api('POST', `/api/saga/stages/${stageId[code]}/explore`, {})).body;
-    expect(start.battle).toBeNull();
-    // hỏi nhầm người ở bước đầu chỉ nhận câu chào; xem lại manh mối sau khi đã nghe lệnh được tính là một lần gợi ý
-    const idle = await act(start.session_id, start.seq, { type: 'interact', target: 'npc:boy' });
-    expect(idle.body.outcome.events[0]).toMatchObject({ t: 'say' });
-    expect(idle.body.view.progress).toMatchObject({ step: 0, mistakes: 0 });
-    const talk = await act(start.session_id, idle.body.seq, { type: 'interact', target: 'npc:chief' });
-    const hint = await act(start.session_id, talk.body.seq, { type: 'hint' });
-    expect(hint.body.outcome.events[0].t).toBe('clue');
-    expect(hint.body.view.progress).toMatchObject({ step: 1, hints: 1 });
-    const done = await playExplore(code, f.S1.token);
-    expect(done.finished).toMatchObject({ hints: 1, mistakes: 0, first: true });
-    expect(done.completion).toMatchObject({ first: true, battle: null });
-    expect(done.completion.rewards.card).toMatchObject({ code: 'tran-thu-do' });
-    expect(done.completion.rewards.docs.map((d: any) => d.title)).toEqual(['Lời Thái sư Trần Thủ Độ']);
+    const start = (await api('POST', `/api/saga/stages/${stageId[code]}/battle`, {})).body;
+    expect(start).toMatchObject({ kind: 'battle', mode: 'council', style: 'command', status: 'active', round: 1, rounds: 3, history: [], result: null });
+    expect(start.meters).toEqual([{ id: 'luong', label: 'Lương không về tay giặc', value: 30, win: 70 }, { id: 'luc', label: 'Lực lượng được giữ', value: 40, win: 70 }]);
+    expect(start.current.options.every((o: any) => Object.keys(o).sort().join() === 'id,tag,text')).toBe(true);
+    for (const secret of ['effect', 'reply', 'score', 'history_text']) expect(keysOf(start.current).has(secret)).toBe(false);
+    expect((await act(start.session_id, start.seq, { type: 'play', option: 'zz' })).status).toBe(400);
+    const lost = await playCouncil(start, code, f.S1.token, true);
+    expect(lost.finished).toMatchObject({ won: false, stars: 0, xp: 0, first_win: false });
+    expect(lost.completion).toBeNull();
+    const again = (await api('POST', `/api/saga/stages/${stageId[code]}/battle`, {})).body;
+    const won = await playCouncil(again, code, f.S1.token);
+    expect(won.finished).toMatchObject({ won: true, stars: 3, xp: 90, gold: 30, first_win: true, historic: 3 });
+    expect(won.finished.compare.map((r: any) => [r.label, r.ok])).toEqual([['Lương thực trong làng', true], ['Kinh thành Thăng Long', true], ['Lời bàn trên sông Thiên Mạc', true]]);
+    expect(won.view.history.map((h: any) => h.score)).toEqual([2, 2, 2]);
+    expect(won.completion).toMatchObject({ first: true, battle: { stars: 3 } });
+    expect(won.completion.rewards.card).toMatchObject({ code: 'tran-thu-do' });
+    expect(won.completion.rewards.docs.map((d: any) => d.title)).toEqual(['Lời Thái sư Trần Thủ Độ']);
+    const summary = (await api('GET', `/api/saga/stages/${stageId[code]}/summary`)).body;
+    expect(summary.compare).toHaveLength(3);
+    expect(summary.compare[2].history).toMatch(/Đầu thần chưa rơi xuống đất/);
     const archive = (await api('GET', '/api/saga/archive')).body;
-    expect(archive.texts.find((t: any) => t.code === 'loi-tran-thu-do')).toMatchObject({ locked: false });
     expect(archive.texts.find((t: any) => t.code === 'loi-tran-thu-do').body.lines[0]).toMatch(/Đầu thần/);
   });
 
-  it('ôn tập: ưu tiên câu đã sai, đồng hồ do máy chủ giữ, trả lời đúng thì câu ra khỏi danh sách ôn và mỗi câu chỉ thưởng một lần trong ngày', async () => {
+  it('Luyện binh riêng (ôn tập): ưu tiên câu đã sai, đồng hồ do máy chủ giữ, đúng một câu +10 KN +2 vàng mỗi ngày, câu đúng ra khỏi danh sách ôn', async () => {
     const before = (await api('GET', '/api/saga/review')).body;
     expect(before.due).toHaveLength(3);
     expect(before.can_start).toBe(true);
+    expect(before.suggest).toMatchObject({ kind: 'review', wrong: 3, size: 3 });
     const start = (await api('POST', '/api/saga/review/start', {})).body;
     expect(start).toMatchObject({ kind: 'review', stage: null, index: 0 });
-    expect(start.items.length).toBe(Math.min(10, before.pool));
+    expect(start.items.length).toBe(Math.min(6, before.pool));
     expect(start.items.every((i: any) => i.kind !== 'pairs')).toBe(true);
     expect(start.timer.left_ms).toBeGreaterThan(15_000);
     const dueIds = before.due.map((d: any) => d.item_id).sort();
     expect(start.items.slice(0, 3).map((i: any) => i.id).sort()).toEqual(dueIds);
-    // phải trả lời đúng câu đang hiển thị
     expect((await act(start.session_id, 0, { type: 'answer', item_id: start.items[1].id, answer: answerOf(start.items[1].id, true) })).status).toBe(400);
     const one = await act(start.session_id, 0, { type: 'answer', item_id: start.items[0].id, answer: answerOf(start.items[0].id, true) });
-    expect(one.body.outcome).toMatchObject({ correct: true, timeout: false, streak: 1, xp: 5 });
-    // đồng hồ của câu sau chỉ chạy khi học sinh mở câu đó: thời gian đọc lời giải thích không bị trừ
+    expect(one.body.outcome).toMatchObject({ correct: true, timeout: false, streak: 1, xp: 10, gold: 2 });
     expect(one.body.view.timer).toBeNull();
     clock.advance(60_000);
     const ready = await act(start.session_id, 1, { type: 'ready' });
     expect(ready.body.outcome).toMatchObject({ ready: true, item_id: start.items[1].id });
     expect(ready.body.view.timer.left_ms).toBeGreaterThan(15_000);
-    // quá giờ: dù gửi đáp án đúng vẫn tính sai và chuỗi đúng về 0
     clock.advance(120_000);
     const late = await act(start.session_id, 2, { type: 'answer', item_id: start.items[1].id, answer: answerOf(start.items[1].id, true) });
     expect(late.body.outcome).toMatchObject({ correct: false, timeout: true, streak: 0, xp: 0 });
-    // không báo mở câu mà để quá lâu (hơn 90 giây đọc giải thích cộng giờ làm bài) thì vẫn bị tính hết giờ
     clock.advance(200_000);
     const skipped = await act(start.session_id, 3, { type: 'answer', item_id: start.items[2].id, answer: answerOf(start.items[2].id, true) });
     expect(skipped.body.outcome).toMatchObject({ correct: false, timeout: true });
     clock.reset();
     const rest = await playItems(skipped.body.view, f.S1.token);
-    expect(rest.finished).toMatchObject({ total: start.items.length, right: start.items.length - 2 });
+    expect(rest.finished).toMatchObject({ total: start.items.length, right: start.items.length - 2, xp: 10 * (start.items.length - 2) });
     const stillWrong = [start.items[1].id, start.items[2].id].sort();
-    const after = (await api('GET', '/api/saga/review')).body;
-    expect(after.due.map((d: any) => d.item_id).sort()).toEqual(stillWrong);
-    // lượt ôn thứ hai cùng ngày: câu đã thưởng không thưởng nữa
+    expect((await api('GET', '/api/saga/review')).body.due.map((d: any) => d.item_id).sort()).toEqual(stillWrong);
     const second = (await api('POST', '/api/saga/review/start', {})).body;
     const firstAgain = await act(second.session_id, 0, { type: 'answer', item_id: second.items[0].id, answer: answerOf(second.items[0].id, true) });
     expect(firstAgain.body.outcome.correct).toBe(true);
-    expect(second.items.slice(0, 2).map((i: any) => i.id).sort()).toEqual(stillWrong); // các câu còn sai lên đầu
+    expect(second.items.slice(0, 2).map((i: any) => i.id).sort()).toEqual(stillWrong);
     await playItems(firstAgain.body.view, f.S1.token);
     expect((await api('GET', '/api/saga/review')).body.due).toEqual([]);
-    expect(await count("SELECT count(*) AS n FROM hk_points WHERE user_id = $1 AND ref_key LIKE 'hq:rv:%'", [f.S1.id])).toBe(start.items.length);
+    expect(await count("SELECT count(*) AS n FROM hk_points WHERE user_id = $1 AND ref_key LIKE 'hq:rv:%'", [f.S1.id])).toBe(new Set([...start.items, ...second.items].map((i: any) => i.id)).size);
     expect((await api('GET', '/api/saga/campaigns/1')).body.stages[0].state).toBe('done');
   });
 
-  it('màn Bạch Đằng chơi trọn vẹn qua API: thua khi bày trận sai, thắng khi chơi đúng, nhận thẻ và huy hiệu', async () => {
+  it('màn Bạch Đằng (Khối 8) qua API: thua khi bày trận sai, thắng khi chơi đúng 3 sao; xong chặng nhận thẻ, huy hiệu, cờ hiệu Cọc Bạch Đằng; bảng vàng so với tuần trước', async () => {
     const id = stageId['bach-dang'];
     expect((await api('GET', `/api/saga/stages/${id}/lesson`, undefined, f.S2.token)).status).toBe(409);
-    // mở sẵn chặng cuối cho học sinh 2 (như một migration nội dung đổi điều kiện mở khóa; không còn trang quản trị để chỉnh)
     await sql(s.url, 'UPDATE hk_saga_stages SET unlock_after = NULL WHERE id = $1', [id]);
-    expect((await api('GET', '/api/saga/campaigns/3', undefined, f.S2.token)).body.stages.map((x: any) => x.state)).toEqual(['ready', 'locked', 'locked', 'ready']);
+    expect((await api('GET', '/api/saga/grades/8', undefined, f.S2.token)).body.stages.map((x: any) => x.state)).toEqual(['ready', 'locked', 'locked', 'ready']);
     await learn('bach-dang', f.S2.token);
     const p = await practice('bach-dang', f.S2.token);
-    expect(p.finished).toMatchObject({ percent: 100, passed: true, total: 7 });
-    const stopped = await playExplore('bach-dang', f.S2.token, { stopAtBattle: true });
-    expect(stopped.at_battle).toBe(true);
-    // lần 1: nhử theo lạch sâu, nước rút không thuyền nào vướng cọc
+    expect(p.finished).toMatchObject({ percent: 100, passed: true, total: 6 });
     const first = (await api('POST', `/api/saga/stages/${id}/battle`, {}, f.S2.token)).body;
     expect(first).toMatchObject({ mode: 'bachdang', phase: 'prepare' });
     expect(first.tide).toMatchObject({ level: 2, label: 'Cao' });
-    expect(first.grid.revealed).toBe(false);
-    expect(first.rules.length).toBeGreaterThanOrEqual(6);
     const lost = await playBachDang(first, f.S2.token, BD_STAKES, [{ type: 'provoke' }, { type: 'move', to: [5, 2] }, { type: 'move', to: [7, 2] }, { type: 'move', to: [9, 2] }, { type: 'move', to: [10, 2] }]);
     expect(lost.finished).toMatchObject({ won: false, stars: 0, first_win: false, xp: 0 });
     expect(lost.finished.mistakes.map((m: any) => m.code)).toContain('no_strand');
     expect(lost.completion).toBeNull();
     expect((await api('GET', `/api/saga/stages/${id}`, undefined, f.S2.token)).body.battle).toMatchObject({ won: false, tries: 1 });
-    // thua thì chưa qua được điểm chạm trán
-    const still = await act(stopped.view.session_id, stopped.view.seq, { type: 'interact', target: 'zone:river' }, f.S2.token);
-    expect(still.body.outcome.events).toEqual([{ t: 'battle' }]);
-    // lần 2: chơi đúng
     const second = (await api('POST', `/api/saga/stages/${id}/battle`, {}, f.S2.token)).body;
-    expect(second.session_id).not.toBe(first.session_id);
     const won = await playBachDang(second, f.S2.token);
-    expect(won.finished).toMatchObject({ won: true, stars: 3, stranded: 3, escaped: 0, first_win: true, xp: 50 });
+    expect(won.finished).toMatchObject({ won: true, stars: 3, stranded: 3, escaped: 0, first_win: true, xp: 90, gold: 30 });
     expect(won.view.result.mistakes).toEqual([]);
-    const done = await playExplore('bach-dang', f.S2.token);
-    expect(done.completion).toMatchObject({ first: true, stars: 3, campaign_done: false, next: null });
-    expect(done.completion.rewards).toMatchObject({ xp: 200, gold: 80 });
-    expect(done.completion.rewards.card).toMatchObject({ code: 'tran-hung-dao', rarity: 'legendary' });
-    expect(done.completion.rewards.badge).toMatchObject({ name: 'Bạch Đằng' });
-    expect(done.completion.rewards.docs.map((d: any) => d.title)).toEqual(expect.arrayContaining(['Toàn thư chép trận Bạch Đằng']));
+    expect(won.finished.compare.map((r: any) => [r.label, r.ok])).toEqual([['Bãi cọc', true], ['Nhử giặc', true], ['Thời điểm đánh', true], ['Thuyền chỉ huy', true]]);
+    expect(won.completion).toMatchObject({ first: true, stars: 3, campaign_done: false, grade_done: false, next: { id: stageId['chuan-bi-1287'] } });
+    expect(won.completion.rewards).toMatchObject({ xp: 200, gold: 80 });
+    expect(won.completion.rewards.card).toMatchObject({ code: 'tran-hung-dao', rarity: 'legendary' });
+    expect(won.completion.rewards.badge).toMatchObject({ name: 'Bạch Đằng' });
+    expect(won.completion.rewards.docs.map((d: any) => d.title)).toEqual(expect.arrayContaining(['Toàn thư chép trận Bạch Đằng']));
     expect((await api('GET', '/api/game/badges', undefined, f.S2.token)).body.find((b: any) => b.code === 'saga-bach-dang')).toMatchObject({ earned: true });
-    // bảng xếp hạng tuần của lớp tính cả điểm của hành trình
+    expect((await api('GET', '/api/saga/shop', undefined, f.S2.token)).body.flags.find((x: any) => x.code === 'coc-bach-dang')).toMatchObject({ unlocked: true });
+    expect((await api('GET', `/api/saga/stages/${id}/summary`, undefined, f.S2.token)).body.compare).toHaveLength(4);
+    // bảng vàng tuần của lớp: có so với tuần trước (hạng tuần trước của bạn có điểm tuần trước)
+    await sql(s.url, `INSERT INTO hk_points (user_id, points, reason, ref_key, created_at) VALUES ($1, 500, 'teacher', 'test:tuan-truoc', now() - interval '8 days')`, [f.S2.id]);
     const board = (await api('GET', '/api/game/leaderboard?scope=class&period=week', undefined, f.S2.token)).body;
-    expect(board.entries.find((e: any) => e.me).xp).toBeGreaterThanOrEqual(310);
+    expect(board.compare).toBe(true);
+    const me = board.entries.find((e: any) => e.me);
+    expect(me.xp).toBeGreaterThanOrEqual(350);
     expect(board.entries).toHaveLength(2);
+    expect(me.delta === null || typeof me.delta === 'number').toBe(true);
   }, 180_000);
+
+  it('Hội nghị Diên Hồng: đưa thẻ thuyết phục các bô lão, thanh "Đồng lòng" thay đổi theo thẻ; muôn người như một thì thắng', async () => {
+    const code = 'dien-hong';
+    await sql(s.url, 'UPDATE hk_saga_stages SET unlock_after = NULL WHERE code = $1', [code]);
+    await learn(code, f.S2.token);
+    await practice(code, f.S2.token);
+    const start = (await api('POST', `/api/saga/stages/${stageId[code]}/battle`, {}, f.S2.token)).body;
+    expect(start).toMatchObject({ mode: 'council', style: 'persuade', rounds: 3, meters: [{ id: 'dong_long', value: 40, win: 80 }] });
+    expect(start.cast.filter((c: any) => c.fictional)).toHaveLength(3);
+    expect(start.current.who).toBe('Bô lão Đông Triều');
+    const r1 = await act(start.session_id, start.seq, { type: 'play', option: 'a' }, f.S2.token);
+    expect(r1.body.outcome.events[0]).toMatchObject({ t: 'play', score: 2, meters: { dong_long: 65 } });
+    expect(r1.body.view.history[0]).toMatchObject({ option: 'a', score: 2 });
+    const won = await playCouncil(r1.body.view, code, f.S2.token);
+    expect(won.finished).toMatchObject({ won: true, stars: 3 });
+    expect(won.finished.text).toMatch(/Đánh!/);
+  });
+
+  it('chuỗi ngày: đạt mục tiêu ngày ba hôm liền thì nhận mốc +30 vàng một lần; Doanh trại hiện tuần học và mốc đã đạt', async () => {
+    await sql(s.url, `UPDATE hk_players SET streak_current = 2, streak_longest = 2, streak_last_day = ${todayVN} - 1 WHERE user_id = $1`, [f.S2.id]);
+    await sql(s.url, `UPDATE hk_daily SET reached = false, xp = 0, goal = 10 WHERE user_id = $1 AND day = ${todayVN}`, [f.S2.id]);
+    expect((await api('POST', `/api/saga/stages/${stageId['so-sanh-ba-lan']}/lesson/complete`, {}, f.S2.token)).body).toMatchObject({ first: true, xp: 10 });
+    expect(await count("SELECT count(*) AS n FROM hk_gold_ledger WHERE user_id = $1 AND reason = 'streak' AND ref_key = 'hq:streak:3'", [f.S2.id])).toBe(1);
+    const home = (await api('GET', '/api/saga/home', undefined, f.S2.token)).body;
+    expect(home.streak).toMatchObject({ current: 3 });
+    expect(home.streak.milestones[0]).toMatchObject({ days: 3, reached: true });
+    expect(home.streak.week[6].state).toBe('done');
+  });
 
   it('chỉ học sinh dùng được /api/saga; mục Hành trình Đông A của quản trị tổng và báo cáo lớp của giáo viên đã xóa hẳn (404)', async () => {
     expect((await call(s.base, 'GET', '/api/saga/home')).status).toBe(401);
     expect((await call(s.base, 'GET', '/api/saga/home', undefined, f.T1.token)).status).toBe(403);
-    expect((await call(s.base, 'GET', '/api/saga/home', undefined, f.A.token)).status).toBe(403);
+    expect((await call(s.base, 'GET', '/api/saga/shop', undefined, f.A.token)).status).toBe(403);
     expect((await call(s.base, 'GET', '/api/saga/home', undefined, f.root)).status).toBe(403);
     const gone: Array<[string, string, string]> = [
       ['GET', '/api/saga/admin/overview', f.root], ['GET', `/api/saga/admin/stages/${stageId['bach-dang']}`, f.root], ['PUT', '/api/saga/admin/maps/1', f.root],
@@ -561,8 +679,8 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
     for (const [method, path, token] of gone) expect([method, path, (await call(s.base, method, path, method === 'GET' ? undefined : {}, token)).status]).toEqual([method, path, 404]);
   });
 
-  it('các bảng mới bật RLS: vai trò theo trường chỉ đọc nội dung mẫu và chỉ thấy tiến độ của trường mình', async () => {
-    const tables = ['hk_saga_maps', 'hk_saga_stages', 'hk_saga_stage_versions', 'hk_saga_items', 'hk_saga_cards', 'hk_saga_docs', 'hk_saga_progress', 'hk_saga_sessions', 'hk_saga_actions', 'hk_saga_answers', 'hk_saga_review', 'hk_saga_user_cards'];
+  it('các bảng bật RLS: vai trò theo trường chỉ đọc nội dung mẫu (cả thông tin bốn khối) và chỉ thấy tiến độ của trường mình', async () => {
+    const tables = ['hk_saga_maps', 'hk_saga_stages', 'hk_saga_stage_versions', 'hk_saga_items', 'hk_saga_cards', 'hk_saga_docs', 'hk_saga_progress', 'hk_saga_sessions', 'hk_saga_actions', 'hk_saga_answers', 'hk_saga_review', 'hk_saga_user_cards', 'hk_saga_grades'];
     expect(await count('SELECT count(*) AS n FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND c.relname = ANY($2) AND c.relrowsecurity', ['public', tables])).toBe(tables.length);
     expect(await count("SELECT count(*) AS n FROM information_schema.role_table_grants WHERE table_name = ANY($1) AND grantee = 'PUBLIC'", [tables])).toBe(0);
     const { Client } = await import('pg');
@@ -581,8 +699,10 @@ async function practice(code: string, token: string, wrong = 0): Promise<any> {
       expect(Number((await scoped(f.B.schoolId, f.TB.id, 'SELECT count(*) AS n FROM hk_saga_progress'))[0].n)).toBe(0);
       expect(Number((await scoped(f.B.schoolId, f.TB.id, 'SELECT count(*) AS n FROM hk_saga_sessions'))[0].n)).toBe(0);
       expect(Number((await scoped(f.B.schoolId, f.TB.id, 'SELECT count(*) AS n FROM hk_saga_answers'))[0].n)).toBe(0);
-      expect(Number((await scoped(f.B.schoolId, f.TB.id, 'SELECT count(*) AS n FROM hk_saga_stages'))[0].n)).toBe(13); // nội dung mẫu đọc được ở mọi trường
+      expect(Number((await scoped(f.B.schoolId, f.TB.id, 'SELECT count(*) AS n FROM hk_saga_stages'))[0].n)).toBe(18); // nội dung mẫu đọc được ở mọi trường
+      expect(Number((await scoped(f.B.schoolId, f.TB.id, 'SELECT count(*) AS n FROM hk_saga_grades'))[0].n)).toBe(4);
       await expect(scoped(f.B.schoolId, f.TB.id, "UPDATE hk_saga_stages SET title = 'x'")).rejects.toThrow(/permission denied/);
+      await expect(scoped(f.B.schoolId, f.TB.id, "UPDATE hk_saga_grades SET tag = 'x'")).rejects.toThrow(/permission denied/);
       await expect(scoped(f.B.schoolId, f.TB.id, `INSERT INTO hk_saga_progress (user_id, stage_id) VALUES (${f.S1.id}, ${stageId['tay-ket']})`)).rejects.toThrow();
     } finally { await client.end(); }
   });

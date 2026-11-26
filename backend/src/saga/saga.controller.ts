@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, NotFoundException, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsObject, IsOptional, IsString, Matches, Min, ValidateIf } from 'class-validator';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
@@ -19,11 +19,18 @@ class WorldLookDto {
   @IsIn([...WORLD_LOOK.hat]) hat: string;
   @IsIn([...WORLD_LOOK.skin]) skin: string;
 }
-/** Trang bị khung ảnh đại diện / danh hiệu (null = bỏ trang bị) */
+/** Trang bị khung ảnh đại diện / danh hiệu / cờ hiệu / giao diện (null = bỏ trang bị) */
 class EquipDto {
   @IsOptional() @ValidateIf((_o, v) => v !== null) @IsString() @Matches(/^[a-z0-9-]{2,40}$/) frame?: string | null;
   @IsOptional() @ValidateIf((_o, v) => v !== null) @IsString() @Matches(/^[a-z0-9-]{2,40}$/) title?: string | null;
   @IsOptional() @ValidateIf((_o, v) => v !== null) @IsString() @Matches(/^[a-z0-9-]{2,40}$/) avatar?: string | null;
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @IsString() @Matches(/^[a-z0-9-]{2,40}$/) flag?: string | null;
+  @IsOptional() @ValidateIf((_o, v) => v !== null) @IsString() @Matches(/^[a-z0-9-]{2,40}$/) theme?: string | null;
+}
+/** Mua một món ở Chợ phiên Thăng Long (25/11/2026) */
+class BuyDto {
+  @IsIn(['frame', 'flag', 'theme', 'item']) kind: 'frame' | 'flag' | 'theme' | 'item';
+  @IsString() @Matches(/^[a-z0-9-]{2,40}$/) code: string;
 }
 class ActionDto {
   /** Mã do trình duyệt sinh cho mỗi lệnh: gửi lặp cùng mã nhận lại kết quả cũ */
@@ -46,6 +53,13 @@ export class SagaController {
   // ------------------------------------------------------------------ học sinh
   @Get('home') @Roles('student') home(@CurrentUser() user: UserRow) { return this.saga.home(user); }
   @Get('campaigns/:no') @Roles('student') campaign(@CurrentUser() user: UserRow, @Param('no', ParseIntPipe) no: number) { return this.saga.campaign(user, no); }
+  /** Chiến dịch theo khối 6–9 (25/11/2026) */
+  @Get('grades/:grade') @Roles('student') grade(@CurrentUser() user: UserRow, @Param('grade', ParseIntPipe) grade: number) { return this.saga.grade(user, grade); }
+  /** Bộ sưu tập thẻ Binh thư nhặt ở bước Thám sử */
+  @Get('lore') @Roles('student') lore(@CurrentUser() user: UserRow) { return this.saga.lore(user); }
+  /** Chợ phiên Thăng Long: xem hàng và mua (máy chủ trừ vàng, kiểm tra giới hạn tuần) */
+  @Get('shop') @Roles('student') shop(@CurrentUser() user: UserRow) { return this.saga.cosmetics(user); }
+  @Post('shop/buy') @Roles('student') @HttpCode(200) buy(@CurrentUser() user: UserRow, @Body() body: BuyDto) { return this.saga.buy(user, body.kind, body.code); }
 
   /** Khung ảnh đại diện và danh hiệu nhận từ hòm báu (17/11/2026) */
   @Get('cosmetics') @Roles('student') cosmetics(@CurrentUser() user: UserRow) { return this.saga.cosmetics(user); }
@@ -55,6 +69,12 @@ export class SagaController {
   @Get('stages/:id') @Roles('student') stage(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.saga.stageDetail(user, id); }
   @Get('stages/:id/lesson') @Roles('student') lesson(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.saga.lesson(user, id); }
   @Post('stages/:id/lesson/complete') @Roles('student') @HttpCode(200) lessonDone(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number) { return this.saga.completeLesson(user, id); }
+  /** Thám sử: nhặt một thẻ Binh thư của chặng (nhặt đủ là xong bước) */
+  @Post('stages/:id/lore/:card') @Roles('student') @HttpCode(200)
+  collect(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Param('card') card: string) {
+    if (!/^[a-z0-9-]{1,30}$/.test(card)) throw new NotFoundException('Không tìm thấy thẻ Binh thư');
+    return this.saga.collectLore(user, id, card);
+  }
   @Post('stages/:id/practice') @Roles('student') @HttpCode(200)
   practice(@CurrentUser() user: UserRow, @Param('id', ParseIntPipe) id: number, @Body() body: StartDto) { return this.saga.start(user, id, 'practice', Boolean(body.restart)); }
   @Post('stages/:id/explore') @Roles('student') @HttpCode(200)

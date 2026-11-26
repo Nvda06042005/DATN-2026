@@ -5,6 +5,7 @@
  */
 import { BadRequestException } from '@nestjs/common';
 import { BdScenario, normalizeBachDang } from './bachdang';
+import { CouncilScenario, normalizeCouncil } from './council';
 import { ExploreScript, normalizeExplore } from './explore';
 import { normalizeTactics, TacticsScenario } from './tactics';
 
@@ -15,10 +16,14 @@ export type CardKind = (typeof CARD_KINDS)[number];
 export const CARD_KIND_LABEL: Record<CardKind, string> = { who: 'Nhân vật', where: 'Địa điểm', when: 'Mốc thời gian', why: 'Nguyên nhân – kết quả', how: 'Diễn biến' };
 export interface StageCard { id: string; kind: CardKind; title: string; body: string; facts: Array<{ label: string; value: string }>; objective: string; source: string; art: string | null }
 export interface StageDebrief { title: string; paragraphs: string[]; sources: string[]; fiction: string }
-export type BattleScenario = TacticsScenario | BdScenario;
+export type BattleScenario = TacticsScenario | BdScenario | CouncilScenario;
+/** Lời dẫn của màn Quân lệnh (25/11/2026): ai giao nhiệm vụ và nội dung; là lời dẫn của trò chơi, không phải trích dẫn lịch sử */
+export interface StageOrder { by: string; text: string }
 export interface StageContent {
   objectives: StageObjective[]; cards: StageCard[]; sources: StageSource[];
-  explore: ExploreScript; battle: BattleScenario | null; debrief: StageDebrief;
+  /** Cảnh nhập vai 2D cũ (đã bỏ khỏi giao diện 21/11/2026, dữ liệu giữ nguyên); chặng mới từ 25/11/2026 không có */
+  explore: ExploreScript | null; battle: BattleScenario | null; debrief: StageDebrief;
+  order?: StageOrder | null;
   /** Nhiệm vụ thế giới khối thay cảnh nhập vai 2D (21/11/2026); kiểm tra cùng bản đồ khối bằng normalizeWorldQuest (world.ts) */
   world?: unknown;
 }
@@ -54,26 +59,33 @@ export function normalizeStage(raw: unknown): StageContent {
   }));
   unique(cards.map((c) => c.id), 'Thẻ kiến thức');
   for (const o of objectives) if (!cards.some((c) => c.objective === o.id)) bad(`Mục tiêu "${o.text}" chưa có thẻ kiến thức nào`);
-  const explore = normalizeExplore(raw.explore);
+  // 25/11/2026 (vòng 5 bước Quân lệnh → Thám sử → Hội đồng → Xuất trận → Sử quan): cảnh khám phá không còn bắt buộc, trận đánh mở thẳng sau Hội đồng
+  const explore = raw.explore ? normalizeExplore(raw.explore) : null;
   let battle: BattleScenario | null = null;
-  if (raw.battle) battle = raw.battle.mode === 'bachdang' ? normalizeBachDang(raw.battle) : raw.battle.mode === 'tactics' ? normalizeTactics(raw.battle) : bad('Kiểu trận đánh không hợp lệ');
-  const battleStep = explore.steps.some((s) => s.type === 'battle');
-  if (battle && !battleStep) bad('Chặng có trận đánh thì cảnh khám phá phải có bước chạm trán');
-  if (!battle && battleStep) bad('Cảnh khám phá có bước chạm trán nhưng chặng chưa có kịch bản trận đánh');
+  if (raw.battle) {
+    const mode = raw.battle.mode;
+    battle = mode === 'bachdang' ? normalizeBachDang(raw.battle) : mode === 'tactics' ? normalizeTactics(raw.battle) : mode === 'council' ? normalizeCouncil(raw.battle) : bad('Kiểu trận đánh không hợp lệ');
+  }
+  if (!battle && explore?.steps.some((s) => s.type === 'battle')) bad('Cảnh khám phá có bước chạm trán nhưng chặng chưa có kịch bản trận đánh');
+  const order: StageOrder | null = isObj(raw.order) ? { by: text(raw.order.by, 'Quân lệnh: người giao', 60), text: text(raw.order.text, 'Quân lệnh', 400) } : null;
   const d = isObj(raw.debrief) ? raw.debrief : bad('Thiếu phần tổng kết lịch sử');
   const debrief: StageDebrief = {
     title: text(d.title, 'Tổng kết: tiêu đề', 100), paragraphs: list(d.paragraphs, 'Tổng kết', 2, 6).map((p, i) => text(p, `Tổng kết: đoạn ${i + 1}`, 700)),
     sources: list(d.sources, 'Tổng kết: nguồn', 1, 6).map((k) => hasSource(k, 'Tổng kết')), fiction: text(d.fiction, 'Tổng kết: ghi chú phần sáng tạo', 400),
   };
-  return { objectives, cards, sources, explore, battle, debrief, ...(isObj(raw.world) ? { world: raw.world } : {}) };
+  return { objectives, cards, sources, explore, battle, debrief, ...(order ? { order } : {}), ...(isObj(raw.world) ? { world: raw.world } : {}) };
 }
+
+/** Loại thẻ Binh thư (25/11/2026): thẻ kiến thức nhặt ở bước Thám sử xếp vào ba ngăn của bộ sưu tập Binh thư */
+export const LORE_SHELF: Record<CardKind, 'nhan-vat' | 'ke-sach' | 'dia-danh'> = { who: 'nhan-vat', where: 'dia-danh', when: 'ke-sach', why: 'ke-sach', how: 'ke-sach' };
+export const LORE_TAG: Record<CardKind, string> = { who: 'Nhân vật', where: 'Địa thế', when: 'Thời cơ', why: 'Thế trận', how: 'Kế sách' };
 
 /** Bài học gửi cho học sinh: thẻ kiến thức kèm nguồn đầy đủ để bấm "Xem nguồn" */
 export function lessonView(c: StageContent): Record<string, unknown> {
   const source = (key: string): StageSource | null => c.sources.find((s) => s.key === key) ?? null;
   return {
     objectives: c.objectives,
-    cards: c.cards.map((card) => ({ ...card, kind_label: CARD_KIND_LABEL[card.kind], objective_text: c.objectives.find((o) => o.id === card.objective)?.text ?? null, source: source(card.source) })),
+    cards: c.cards.map((card) => ({ ...card, kind_label: CARD_KIND_LABEL[card.kind], tag: LORE_TAG[card.kind], shelf: LORE_SHELF[card.kind], objective_text: c.objectives.find((o) => o.id === card.objective)?.text ?? null, source: source(card.source) })),
     sources: c.sources,
   };
 }

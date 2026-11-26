@@ -151,7 +151,7 @@ describe('Nhập vai khám phá', () => {
 
   it('mọi cảnh đi hết được bằng thao tác đúng; cảnh có trận đánh dừng ở điểm chạm trán cho tới khi thắng trận', () => {
     for (const st of stages) {
-      const script = st.content.explore;
+      const script = st.content.explore!;
       const hasBattle = script.steps.some((x) => x.type === 'battle');
       if (hasBattle) {
         const stopped = walk(script);
@@ -163,7 +163,7 @@ describe('Nhập vai khám phá', () => {
   });
 
   it('chỉ qua bước khi đủ điều kiện: hỏi nhầm người, giao vật chưa nhặt, trả lời sai đều không qua; xem lại manh mối được ghi nhận', () => {
-    const script = stage('binh-le-nguyen').content.explore;
+    const script = stage('binh-le-nguyen').content.explore!;
     const s = newExplore();
     // chưa nhận lệnh mà đi hỏi người khác: chỉ nhận câu chào, không qua bước
     expect(applyExplore(script, s, { type: 'interact', target: 'npc:cook' }, false)[0].t).toBe('say');
@@ -199,7 +199,7 @@ describe('Nhập vai khám phá', () => {
   });
 
   it('phần gửi cho trình duyệt chỉ có mục tiêu của bước đang làm, không có đáp án và không lộ các bước sau', () => {
-    const script = stage('bach-dang').content.explore;
+    const script = stage('bach-dang').content.explore!;
     const view = publicExplore(script, newExplore()) as Record<string, any>;
     expect(keysOf(view).has('correct')).toBe(false);
     expect(keysOf(view).has('steps')).toBe(false);

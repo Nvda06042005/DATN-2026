@@ -3,17 +3,27 @@
  * thư mục đó đã đủ 12 tệp nên thêm tệp thứ 13 làm bước triển khai thất bại (16/11/2026) dù bản dựng vẫn xong. */
 import { apiRequest } from '@/api/client';
 import type {
-  ActResult, Archive, BattleSession, CampaignView, CardAlbum, ChestOpen, ExploreSession, LessonView, PracticeSession, ReviewInfo, SagaHome, StageDetail, StageSummary, Wardrobe, WorldBookPage, WorldLook, WorldSession,
+  ActResult, Archive, BattleSession, CampaignView, CardAlbum, ChestOpen, ExploreSession, GradeView, LessonView, LoreCollect, LoreView, PracticeSession, ReviewInfo, SagaHome, StageDetail, StageSummary, Wardrobe,
+  WorldBookPage, WorldLook, WorldSession,
 } from '@/types/saga';
 
 // ---------------------------------------------------------------------- học sinh
 export const home = (token: string) => apiRequest<SagaHome>('/api/saga/home', { token });
 export const campaign = (token: string, no: number) => apiRequest<CampaignView>(`/api/saga/campaigns/${no}`, { token });
+/** Chiến dịch của một khối 6–9 (25/11/2026) */
+export const grade = (token: string, g: number) => apiRequest<GradeView>(`/api/saga/grades/${g}`, { token });
+/** Bộ sưu tập thẻ Binh thư nhặt ở bước Thám sử */
+export const lore = (token: string) => apiRequest<LoreView>('/api/saga/lore', { token });
+/** Thám sử: nhặt một thẻ Binh thư của chặng (máy chủ ghi nhận, nhặt đủ là xong bước) */
+export const collectLore = (token: string, stageId: number, card: string) => apiRequest<LoreCollect>(`/api/saga/stages/${stageId}/lore/${encodeURIComponent(card)}`, { token, body: {} });
+/** Chợ phiên Thăng Long: xem hàng và mua (máy chủ trừ vàng, kiểm tra giới hạn tuần) */
+export const shop = (token: string) => apiRequest<Wardrobe>('/api/saga/shop', { token });
+export const buy = (token: string, kind: 'frame' | 'flag' | 'theme' | 'item', code: string) => apiRequest<Wardrobe>('/api/saga/shop/buy', { token, body: { kind, code } });
 /** Mở hòm báu trên bản đồ; máy chủ kiểm tra điều kiện và chỉ thưởng một lần */
 export const openChest = (token: string, key: string) => apiRequest<ChestOpen>(`/api/saga/chests/${encodeURIComponent(key)}/open`, { token, body: {} });
 /** Kho khung ảnh đại diện / danh hiệu và trang bị (null = bỏ) */
 export const wardrobe = (token: string) => apiRequest<Wardrobe>('/api/saga/cosmetics', { token });
-export const equipLook = (token: string, body: { frame?: string | null; title?: string | null; avatar?: string | null }) => apiRequest<Wardrobe>('/api/saga/cosmetics/equip', { token, body });
+export const equipLook = (token: string, body: { frame?: string | null; title?: string | null; avatar?: string | null; flag?: string | null; theme?: string | null }) => apiRequest<Wardrobe>('/api/saga/cosmetics/equip', { token, body });
 export const stage = (token: string, id: number) => apiRequest<StageDetail>(`/api/saga/stages/${id}`, { token });
 export const lesson = (token: string, id: number) => apiRequest<LessonView>(`/api/saga/stages/${id}/lesson`, { token });
 export const completeLesson = (token: string, id: number) => apiRequest<{ done: boolean; first: boolean; xp: number }>(`/api/saga/stages/${id}/lesson/complete`, { token, body: {} });

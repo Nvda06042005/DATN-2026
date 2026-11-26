@@ -80,31 +80,36 @@ export const LoadState: React.FC<{ loading: boolean; error: string | null; onRet
 };
 
 // ---------------------------------------------------------------------- bố cục trang
-/** Một trang trong khung học sinh: cuộn dọc, lề và độ rộng như `Page` của trang quản trị; màn chơi dùng `max` rộng hơn */
+/** Một trang trong khung học sinh (màn chơi, khám phá thêm): cuộn dọc, nền của giao diện đang dùng; màn chơi dùng `max` rộng hơn */
 export const SagaPage: React.FC<{ children: React.ReactNode; testID: string; max?: number; scrollRef?: React.Ref<ScrollViewInstance> }> = ({ children, testID, max = 1120, scrollRef }) => {
   const { width } = useWindowDimensions();
+  const { c } = useTheme();
   return (
-  <View style={{ flex: 1 }} testID={testID}>
-    <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: width >= 1080 ? 26 : 16, paddingBottom: 48, gap: 22, maxWidth: max, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
+  <View style={{ flex: 1, backgroundColor: c.giay }} testID={testID}>
+    <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: width >= 1080 ? 24 : 16, paddingBottom: 48, gap: 18, maxWidth: max, width: '100%', alignSelf: 'center' }} keyboardShouldPersistTaps="handled">
       {children}
     </ScrollView>
   </View>
   );
 };
 
-/** Đầu trang: nút quay về màn cha (dạng đường dẫn nhỏ) rồi tiêu đề hai nửa của trang quản trị */
+/** Đầu màn (25/11/2026, bản vẽ "Binh thư Sát Thát"): nút quay lại vuông 44×44, tiêu đề chữ có chân, dòng phụ; phần hành động bên phải */
 export const SagaHeader: React.FC<{ title: string; subtitle?: string; back?: { label: string; onPress: () => void; hint?: string }; actions?: React.ReactNode }> = ({ title, subtitle, back, actions }) => {
   const { c } = useTheme();
   return (
-  <View style={{ gap: 8 }}>
-    {back ? <Btn title={back.label} icon={ChevronLeft} tone="ghost" size="sm" onPress={back.onPress} label={back.hint ?? back.label} testID="saga-back" style={{ marginLeft: -10 }} /> : null}
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 13 }}>
-      <View style={{ flex: 1, minWidth: 200, gap: 6 }}>
-        <Txt f="heavy" size={26} accessibilityRole="header">{title}</Txt>
-        {subtitle ? <Txt size={16} color={c.muc2} style={{ lineHeight: 25 }}>{subtitle}</Txt> : null}
-      </View>
-      {actions ? <View style={{ maxWidth: '100%' }}>{actions}</View> : null}
+  <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+    {back ? (
+      <Pressable testID="saga-back" accessibilityRole="button" accessibilityLabel={back.hint ?? back.label} onPress={back.onPress} hitSlop={4}
+        style={({ pressed }) => ({ width: 44, height: 44, borderRadius: 12, borderWidth: 1, borderColor: c.vien, backgroundColor: c.the, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.8 : 1 })}>
+        <ChevronLeft size={20} color={c.muc} strokeWidth={2.4} />
+      </Pressable>
+    ) : null}
+    <View style={{ flex: 1, minWidth: 200, gap: 2 }}>
+      {back ? <Txt f="heavy" size={11} color={c.son} style={{ letterSpacing: 0.9 }}>{back.label.toUpperCase()}</Txt> : null}
+      <Txt f="serifBold" size={24} accessibilityRole="header" style={{ lineHeight: 30 }}>{title}</Txt>
+      {subtitle ? <Txt size={14} color={c.muc2} style={{ lineHeight: 21 }}>{subtitle}</Txt> : null}
     </View>
+    {actions ? <View style={{ maxWidth: '100%' }}>{actions}</View> : null}
   </View>
   );
 };
@@ -192,6 +197,7 @@ const FACES: Record<string, Face> = {
   'tran-khanh-du': { hat: 'scarf', hatColor: '#2f5fa8', robe: '#2f5fa8', trim: '#dfe8f7', bg: '#cfeaff', beard: 'short' },
   'nguyen-khoai': { hat: 'helmet', hatColor: '#c9a227', robe: '#3f6b3a', trim: '#f6c445', bg: '#dff5d2', stern: true },
   'tran-hung-dao': { hat: 'helmet', hatColor: '#f6c445', robe: '#b3261e', trim: '#f6c445', bg: '#ffe08a', beard: 'long', stern: true },
+  'ngo-quyen': { hat: 'helmet', hatColor: '#7d8fa6', robe: '#2f5f8a', trim: '#f6c445', bg: '#d9ecff', beard: 'short', stern: true },
 };
 
 export const Portrait: React.FC<{ code: string; size?: number; locked?: boolean; round?: boolean }> = ({ code, size = 96, locked = false, round = false }) => {
@@ -262,10 +268,14 @@ export const Medal: React.FC<{ code: string; size?: number; earned?: boolean }> 
 export const num = (n: number): string => Math.round(n).toLocaleString('vi-VN');
 
 // ---------------------------------------------------------------------- điều hướng trong trang học sinh
-/** 25/11/2026: đã bỏ Câu hỏi ôn tập, Kỳ thi, Tư liệu, Bộ thẻ, Tin nhắn của trang học sinh */
-export type SagaTab = 'trang-chu' | 'chien-dich' | 'nhap-vai' | 'hoi' | 'lop-hoc' | 'tro-giup';
-/** Bước đang mở của một chặng: học thẻ kiến thức, luyện tập, nhập vai khám phá, trận đánh, tổng kết */
-export type SagaStep = 'hoc' | 'luyen' | 'kham-pha' | 'tran' | 'tong-ket';
+/**
+ * Mục của trang học sinh "Binh thư Sát Thát" (25/11/2026): năm mục chính (Doanh trại, Chiến dịch, Binh thư, Tiểu Tướng, Bảng vàng) và các trang phụ
+ * (Hồ sơ, Chợ phiên, Giao diện, Luyện binh riêng, Trợ giúp, danh sách lớp, khám phá thêm 3D / bối cảnh nhập vai).
+ */
+export type SagaTab = 'doanh-trai' | 'chien-dich' | 'binh-thu' | 'tieu-tuong' | 'bang-vang' | 'ho-so' | 'cua-hang' | 'giao-dien' | 'luyen-binh' | 'tro-giup' | 'lop-hoc' | 'nhap-vai';
+/** Bước đang mở của một chặng: Quân lệnh (mặc định), Thám sử, Hội đồng quân sự, Xuất trận, Sử quan tổng kết, khám phá thêm 3D */
+export type SagaStep = 'quan-lenh' | 'tham-su' | 'hoi-dong' | 'xuat-tran' | 'su-quan' | 'kham-pha';
+/** `c` là khối 6–9 đang xem (đường dẫn cũ c = 1–3 là phần 1–3, tự đổi sang khối 6–8) */
 export interface SagaRoute { tab: SagaTab; c: number | null; s: number | null; v: SagaStep | null }
 export type SagaTarget = { c?: number | null; s?: number | null; v?: SagaStep | null };
 /** `push`: thêm một bước vào lịch sử trình duyệt; `replace`: thay bước hiện tại (một bước chơi vừa kết thúc); `params`: đổi ngay trên màn đang mở (mở / đóng bảng chặng, đổi bản đồ) */
@@ -283,6 +293,11 @@ export interface SagaNav {
   setReward: (r: { stageId: number; completion: Completion } | null) => void;
   /** Lớp em đang học (đã chọn ở danh sách lớp): thế giới khối vào phòng chung của lớp này */
   classId?: number | null;
+  /** Giao diện đang dùng và hàm đổi ngay (sau khi máy chủ đã lưu trang bị) */
+  theme?: string;
+  setTheme?: (code: string) => void;
+  /** Mở hộp Tài khoản (họ tên, ảnh, mật khẩu, đăng xuất) */
+  openAccount?: () => void;
 }
 
 // ---------------------------------------------------------------------- chặng: biểu tượng và trạng thái

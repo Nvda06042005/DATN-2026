@@ -287,6 +287,20 @@ export class GameService {
     await this.addGold(q, user, s.daily_goal.bonus_gold, 'goal', `goal:${today}`);
     const streak = (await q<{ streak_current: number }>('SELECT streak_current FROM hk_players WHERE user_id = $1', [user.id]))[0].streak_current;
     await this.celebrate(q, user, 'goal', { goal, streak, gold: s.daily_goal.bonus_gold });
+    await this.streakMilestone(q, user, streak);
+  }
+
+  /**
+   * Mốc chuỗi ngày (25/11/2026, bản vẽ "Binh thư Sát Thát"): 3 ngày +30 vàng, 14 ngày +200 vàng (mỗi mốc một lần, khóa sổ vàng `hq:streak:<ngày>`);
+   * 7 ngày mở khung "Lửa Đông A", 30 ngày mở cờ hiệu "Ấn Đông A" (trang phục tính theo chuỗi dài nhất, ở đây chỉ báo chúc mừng đúng ngày đạt mốc).
+   */
+  private async streakMilestone(q: Q, user: UserRow, streak: number): Promise<void> {
+    const gold: Record<number, number> = { 3: 30, 14: 200 };
+    const unlock: Record<number, string> = { 7: 'khung Lửa Đông A', 30: 'cờ hiệu Ấn Đông A' };
+    if (gold[streak] && (await this.addGold(q, user, gold[streak], 'streak', `hq:streak:${streak}`))) await this.celebrate(q, user, 'goal', { milestone: streak, gold: gold[streak] });
+    if (unlock[streak] && !(await q("SELECT 1 FROM hk_celebrations WHERE user_id = $1 AND kind = 'goal' AND payload->>'milestone' = $2 LIMIT 1", [user.id, String(streak)])).length) {
+      await this.celebrate(q, user, 'goal', { milestone: streak, unlock: unlock[streak] });
+    }
   }
 
   private async levels(q: Q): Promise<LevelRow[]> {

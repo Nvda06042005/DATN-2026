@@ -171,6 +171,8 @@ async function playWorld(code: string, token: string, opts: { classId?: number }
     f = await bootstrap(s, root);
     clock = s.moduleRef.get((await import('../src/game/clock')).GameClock);
     stageId = Object.fromEntries((await sql<{ code: string; id: number }>(s.url, 'SELECT code, id FROM hk_saga_stages')).map((r) => [r.code, r.id]));
+    // 25/11/2026: chặng của khối cao hơn khối của lớp bị khóa ("mở khi em lên lớp 8"); thế giới khối phần 3 thuộc Khối 8 nên cho các lớp thử là khối 9
+    await sql(s.url, 'UPDATE app_classes SET grade = 9 WHERE id = ANY($1)', [[f.class7a.id, f.class7b.id]]);
   }, 240_000);
   afterAll(async () => { clock?.reset(); await s?.close(); });
 
@@ -183,7 +185,9 @@ async function playWorld(code: string, token: string, opts: { classId?: number }
     expect(() => normalizeWorldMap({ ...raw, zones: [{ id: 'z', name: 'Vùng thử', rect: [30, 22, 4, 1], kind: 'build', accepts: ['coc'], on: ',', cap: 4 }] })).toThrow(/nhỏ hơn 4 ô/);
     const withWorld = (await sql<{ code: string; campaign_no: number }>(s.url, "SELECT code, campaign_no FROM hk_saga_stages WHERE content ? 'world' ORDER BY position")).map((r) => r);
     expect(withWorld.length).toBe(13);
-    expect(Number((await sql<{ n: string }>(s.url, "SELECT count(*) AS n FROM hk_saga_stages WHERE NOT (content ? 'world')"))[0].n)).toBe(0);
+    // 25/11/2026: 5 chặng mới (Bạch Đằng 938, bốn chặng tổng kết Khối 9) không thuộc cuộc kháng chiến nào nên không có thế giới khối
+    expect(Number((await sql<{ n: string }>(s.url, "SELECT count(*) AS n FROM hk_saga_stages WHERE NOT (content ? 'world') AND campaign_no IS NOT NULL"))[0].n)).toBe(0);
+    expect(Number((await sql<{ n: string }>(s.url, "SELECT count(*) AS n FROM hk_saga_stages WHERE campaign_no IS NULL AND NOT (content ? 'world')"))[0].n)).toBe(5);
     const maps = Object.fromEntries(await Promise.all([1, 2, 3].map(async (no) => [no, normalizeWorldMap(await worldRaw(no))] as const)));
     // 082: hiệu lệnh luyện đội hình không dựa vào hướng (em xoay được góc nhìn) và không nhắc lá cờ không có trên sân
     const drill = (await content('dien-hong')).world.steps.find((x: any) => x.type === 'drill');
@@ -202,8 +206,9 @@ async function playWorld(code: string, token: string, opts: { classId?: number }
       const c = await content(code);
       const quest = normalizeWorldQuest(c.world, maps[campaign_no]);
       for (const st of quest.steps) if (st.award) awards.push(st.award);
-      // chặng có trận đánh thì nhiệm vụ có đúng một bước ra trận, chặng không có trận thì không có
-      expect([code, quest.steps.filter((x) => x.type === 'battle').length]).toEqual([code, c.battle ? 1 : 0]);
+      // chặng có trận đánh thì nhiệm vụ có đúng một bước ra trận, chặng không có trận thì không có; trận hội đồng thêm ngày 25/11/2026 (Diên Hồng,
+      // Vườn không nhà trống, Vạn Kiếp) mở thẳng sau Hội đồng quân sự nên nhiệm vụ khối của ba chặng đó không có bước ra trận
+      expect([code, quest.steps.filter((x) => x.type === 'battle').length]).toEqual([code, c.battle && c.battle.mode !== 'council' ? 1 : 0]);
       expect(c.explore.steps.length).toBeGreaterThan(0); // dữ liệu cảnh 2D cũ vẫn giữ trong cơ sở dữ liệu (không xóa), giao diện không còn dùng
     }
     // bảng phần thưởng người dùng gửi: "Người giữ làng", "Đồng lòng giữ nước", mở tuyến vận chuyển

@@ -18,6 +18,7 @@ import { AiRetrievalService, Passage } from './ai-retrieval.service';
 import { AiSettings, AiSettingsService } from './ai-settings.service';
 import { LlmClient, LlmConfig, LlmMessage } from './llm.client';
 import { AnalyticsService } from '../analytics/analytics.service';
+import { GameService } from '../game/game.service';
 import { buildNodeBktRecommendations, buildProfilePromptContext, enrichBktResponse } from './bkt-profile';
 import { engineHealth, bridgeReadyMs, bridgeRequestMs, markEngine, memoryRoom, pythonCommand, shapePythonAnswer, warmOnBoot } from './python-runtime';
 
@@ -71,7 +72,14 @@ export class AiTutorService implements OnModuleDestroy {
   constructor(
     private readonly db: DatabaseService, private readonly settings: AiSettingsService, private readonly retrieval: AiRetrievalService, private readonly llm: LlmClient,
     @Optional() private readonly analytics?: AnalyticsService,
+    @Optional() private readonly game?: GameService,
   ) {}
+
+  /** Nhiệm vụ hằng ngày "Hỏi Tiểu Tướng 1 câu về sử Trần" (25/11/2026): đếm mỗi câu hỏi của học sinh được trả lời; lỗi đếm không làm hỏng câu trả lời */
+  private async countAsk(user: UserRow): Promise<void> {
+    if (user.role !== 'student' || !this.game || !this.db.ready) return;
+    await this.db.tx((q) => this.game!.bumpQuests(q, user, 'ai_questions', 1)).catch(() => undefined);
+  }
 
   /** Render: nạp sẵn mô hình Python sau khi backend khởi động (python-runtime.ts) để câu hỏi đầu tiên không phải chờ */
   /**
@@ -546,6 +554,7 @@ export class AiTutorService implements OnModuleDestroy {
           passages: [],
         };
         const saved = await this.save(conv.id, question, pyAnswer, startedAt);
+        if (!pyAnswer.refused) await this.countAsk(user);
         return {
           conversation: { id: conv.id, mode: conv.mode, figure_id: conv.figure_id },
           user_message: saved.user_message,
@@ -579,7 +588,9 @@ export class AiTutorService implements OnModuleDestroy {
     } else {
       answer = await this.respond({ question, history, searchText });
     }
-    return { conversation: { id: conv.id, mode: conv.mode, figure_id: conv.figure_id }, ...(await this.save(conv.id, question, answer, startedAt)) };
+    const saved = await this.save(conv.id, question, answer, startedAt);
+    if (!answer.refused) await this.countAsk(user);
+    return { conversation: { id: conv.id, mode: conv.mode, figure_id: conv.figure_id }, ...saved };
   }
 
   // ---------------------------------------------------------------------- giải thích câu làm sai (HK.HS.089)

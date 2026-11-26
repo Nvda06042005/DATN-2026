@@ -165,9 +165,11 @@ test('StudentAiHub wires AiHubDashboard (Lộ trình Cá nhân hóa, Flash Cards
   assert.match(entry, /Trung tâm AI \(Lộ trình & Flash Cards\)/);
   assert.match(entry, /Tiểu Tướng & Lịch sử chat/);
 
-  const app = read('components/portal/StudentApp.tsx');
-  assert.match(app, /import \{ StudentAiHub \} from '@\/components\/ai\/StudentAiHub'/);
-  assert.match(app, /<StudentAiHub session=\{session\}/);
+  // 25/11/2026 "Binh thư Sát Thát": mục Tiểu Tướng (SagaAsk.tsx) hỏi đáp kèm nguồn, nút "Trung tâm AI" mở StudentAiHub
+  const ask = read('components/portal/SagaAsk.tsx');
+  assert.match(ask, /import \{ StudentAiHub \} from '@\/components\/ai\/StudentAiHub'/);
+  assert.match(ask, /<StudentAiHub session=\{session\}/);
+  assert.match(read('components/portal/StudentApp.tsx'), /<AskScreen session=\{session\} nav=\{nav\}/);
 
   const hub = read('components/ai/AiHubDashboard.tsx');
   assert.match(hub, /embedded\?: boolean/);
