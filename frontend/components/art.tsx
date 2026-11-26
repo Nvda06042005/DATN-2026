@@ -564,6 +564,64 @@ export const CloudBank: React.FC<{ color: string; flip?: boolean; height?: numbe
   );
 };
 
+/**
+ * Nền cảnh Hoàng thành của khung đầu trang chủ (26/11/2026, lấy cảnh mở đầu của nhánh feat/giao_dien_hs_than_thien): trời xanh, hai dải mây,
+ * tán cây hai bên, sân gạch vàng và thảm đỏ viền hoa văn. `floor` là chiều cao sân + thảm tính từ đáy; Hoàng thành, nhân vật đặt chồng lên ở home.tsx.
+ */
+export const CourtBackdrop: React.FC<{ width: number; floor: number }> = ({ width, floor }) => {
+  const w = Math.max(320, Math.round(width));
+  const ground = floor - 36;
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: floor - 1 }}>
+        <Svg width="100%" height="100%" viewBox="0 0 1440 500" preserveAspectRatio="xMidYMax slice">
+          <Rect width="1440" height="500" fill="#8fd3ec" />
+          <Rect width="1440" height="200" fill="#7fc8e5" opacity="0.55" />
+          <Path d="M0 155 Q85 90 170 130 Q255 62 355 115 Q445 72 530 128 Q620 76 720 124 Q825 70 935 120 Q1040 66 1150 118 Q1255 70 1355 122 Q1405 96 1440 114 L1440 420 L0 420 Z" fill="#cbeaf7" />
+          <Path d="M0 245 Q95 190 205 225 Q310 170 430 215 Q540 175 660 222 Q780 170 915 218 Q1040 175 1170 220 Q1300 178 1440 218 L1440 500 L0 500 Z" fill="#e6f6fc" />
+          <Circle cx="45" cy="400" r="108" fill="#2c6334" />
+          <Circle cx="135" cy="435" r="98" fill="#23542b" />
+          <Circle cx="215" cy="468" r="82" fill="#35733e" />
+          <Circle cx="1395" cy="400" r="108" fill="#2c6334" />
+          <Circle cx="1305" cy="435" r="98" fill="#23542b" />
+          <Circle cx="1225" cy="468" r="82" fill="#35733e" />
+        </Svg>
+      </View>
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: floor }}>
+        <Svg width="100%" height="100%" viewBox={`0 0 ${w} ${floor}`} preserveAspectRatio="none">
+          <Rect width={w} height={ground} fill="#e7b64c" />
+          <Rect width={w} height="7" fill="#462d1b" />
+          {[0.3, 0.57, 0.84].map((f) => <Rect key={f} y={7 + (ground - 7) * f} width={w} height="3" fill="#c78d2c" opacity="0.65" />)}
+          {Array.from({ length: Math.ceil(w / 84) }, (_, i) => <Rect key={i} x={i * 84 + 12} y="7" width="3" height={ground - 7} fill="#c78d2c" opacity="0.45" />)}
+          <Rect y={ground} width={w} height="36" fill="#b8261b" />
+          <Rect y={ground} width={w} height="5" fill="#f3c552" />
+          {Array.from({ length: Math.ceil(w / 60) }, (_, i) => (
+            <Path key={i} d={`M${i * 60 + 10} ${ground + 11} H${i * 60 + 48} V${ground + 26} H${i * 60 + 22} V${ground + 18} H${i * 60 + 36}`} fill="none" stroke="#f3c552" strokeWidth="3.2" opacity="0.88" />
+          ))}
+        </Svg>
+      </View>
+    </View>
+  );
+};
+
+/** Mây xoáy xanh ngọc viền kem ở hai góc dưới của cảnh Hoàng thành (`width` là bề ngang mỗi đám mây) */
+export const CornerSwirls: React.FC<{ width: number }> = ({ width }) => {
+  const h = (width * 195) / 320;
+  const swirl = (flip: boolean) => (
+    <Svg width={width} height={h} viewBox="0 0 320 195" style={flip ? { transform: [{ scaleX: -1 }] } : undefined}>
+      <Path d="M0 195 L0 48 Q42 14 96 42 Q144 64 148 118 Q195 94 236 128 Q272 152 292 195 Z" fill="#2c7fa1" stroke="#f2e2b8" strokeWidth="10" />
+      <Path d="M40 94 C64 68 106 80 100 112 C94 138 62 134 66 112 C69 98 84 102 82 112" fill="none" stroke="#f2e2b8" strokeWidth="8" strokeLinecap="round" />
+      <Path d="M168 156 C188 134 222 144 216 168 C212 184 188 182 190 168" fill="none" stroke="#f2e2b8" strokeWidth="7" strokeLinecap="round" />
+    </Svg>
+  );
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+      {swirl(false)}
+      {swirl(true)}
+    </View>
+  );
+};
+
 /** Biểu tượng logo: hình vuông bo góc cắt từ assets/logo.jpg (chiến binh cầm cờ đỏ trước mặt trời) */
 const LOGO_MARK = require('../assets/logo-mark.png');
 

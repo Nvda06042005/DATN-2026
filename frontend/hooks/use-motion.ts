@@ -25,8 +25,8 @@ export function useSystemReduceMotion(): boolean {
   return reduce;
 }
 
-/** Nhún nhẹ liên tục (Rồng Con, huy hiệu) */
-export function useBob(enabled: boolean, distance = 6) {
+/** Nhún nhẹ liên tục (Rồng Con, huy hiệu, nhân vật ở khung đầu trang chủ); `delay` lệch nhịp để hai nhân vật đứng cạnh nhau không nhún cùng lúc */
+export function useBob(enabled: boolean, distance = 6, delay = 0) {
   const reduce = useReduceMotion();
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -35,10 +35,11 @@ export function useBob(enabled: boolean, distance = 6) {
       return;
     }
     const step = (toValue: number) => Animated.timing(v, { toValue, duration: 1300, easing: Easing.inOut(Easing.quad), useNativeDriver: NATIVE });
-    const loop = Animated.loop(Animated.sequence([step(1), step(0)]));
+    const bob = Animated.loop(Animated.sequence([step(1), step(0)]));
+    const loop = delay > 0 ? Animated.sequence([Animated.delay(delay), bob]) : bob;
     loop.start();
     return () => loop.stop();
-  }, [enabled, reduce, v]);
+  }, [enabled, reduce, v, delay]);
   return enabled ? { transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, -distance] }) }] } : null;
 }
 

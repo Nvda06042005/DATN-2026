@@ -118,14 +118,18 @@ function MetallicBrand({ height, tint, enabled, testID }: { height: number; tint
   );
 }
 
-export function HeroTitle({ wide }: { wide: boolean }) {
+/** Màu chữ tiêu đề trên nền trời sáng của cảnh Hoàng thành (`ink`): mực nâu đậm + đỏ son đậm, viền sáng thay bóng tối */
+export const HERO_INK = '#3a1a08';
+
+export function HeroTitle({ wide, ink = false }: { wide: boolean; ink?: boolean }) {
   const { c } = useTheme();
   const reduce = useReduceMotion();
+  const shadow = ink ? '0 2px 0 rgba(255, 250, 235, 0.95), 0 0 18px rgba(255, 255, 255, 0.9)' : `0 4px 22px ${c.den}`;
   return (
-    <h1 data-testid="hero-title" style={{ margin: 0, maxWidth: '100%', textAlign: 'center', fontFamily: FONT.heavy, fontWeight: 400, fontSize: wide ? 96 : 50, lineHeight: wide ? '108px' : '58px', textShadow: `0 4px 22px ${c.den}` }}>
-      <MetallicWord text="Hào Khí" family={FONT.heavy} tint={c.trang} tracking={wide ? -3.6 : -1.8} enabled={wide && !reduce} />
+    <h1 data-testid="hero-title" style={{ margin: 0, maxWidth: '100%', textAlign: 'center', fontFamily: FONT.heavy, fontWeight: 400, fontSize: wide ? 96 : 50, lineHeight: wide ? '108px' : '58px', textShadow: shadow }}>
+      <MetallicWord text="Hào Khí" family={FONT.heavy} tint={ink ? HERO_INK : c.trang} tracking={wide ? -3.6 : -1.8} enabled={wide && !reduce} />
       {' '}
-      <MetallicBrand height={wide ? 106 : 58} tint={c.sonSang} enabled={wide && !reduce} testID="hero-title-brand" />
+      <MetallicBrand height={wide ? 106 : 58} tint={ink ? c.logoRed : c.sonSang} enabled={wide && !reduce} testID="hero-title-brand" />
     </h1>
   );
 }

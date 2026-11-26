@@ -4,13 +4,16 @@ import { useTheme } from '@/hooks/use-theme';
 import { View } from 'react-native';
 import { BrandWordmark } from '@/components/brand-wordmark';
 
-export function HeroTitle({ wide }: { wide: boolean }) {
+/** Màu chữ tiêu đề trên nền trời sáng của cảnh Hoàng thành (`ink`) */
+export const HERO_INK = '#3a1a08';
+
+export function HeroTitle({ wide, ink = false }: { wide: boolean; ink?: boolean }) {
   const { c } = useTheme();
   const size = wide ? 96 : 50;
   return (
     <View testID="hero-title" accessible accessibilityRole="header" accessibilityLabel="Hào Khí Đông A" style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 12 }}>
-      <Txt f="heavy" size={size} color={c.trang} style={{ lineHeight: wide ? 108 : 58, letterSpacing: wide ? -3.6 : -1.8 }}>Hào Khí</Txt>
-      <BrandWordmark height={wide ? 106 : 58} color={c.sonSang} edu={false} testID="hero-title-brand" />
+      <Txt f="heavy" size={size} color={ink ? HERO_INK : c.trang} style={{ lineHeight: wide ? 108 : 58, letterSpacing: wide ? -3.6 : -1.8, ...(ink ? { textShadowColor: 'rgba(255, 250, 235, 0.95)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 8 } : null) }}>Hào Khí</Txt>
+      <BrandWordmark height={wide ? 106 : 58} color={ink ? c.logoRed : c.sonSang} edu={false} testID="hero-title-brand" />
     </View>
   );
 }

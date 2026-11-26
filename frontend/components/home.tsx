@@ -14,12 +14,13 @@ import {
   Trophy, Users, X, ZoomIn, ArrowUp, ArrowUpRight, FileSpreadsheet, Plus, Menu,
 } from 'lucide-react-native';
 import {
-  BattleBackdrop, BrandLogo, CloudBank, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, PatternOverlay, VietnamFlag,
+  BattleBackdrop, BrandLogo, CloudBank, CornerSwirls, CourtBackdrop, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, PatternOverlay, VietnamFlag,
 } from '@/components/art';
 import { Chip, Txt } from '@/components/ui';
 import { HomeVideo } from '@/components/home-video';
 import { HeroGallery } from '@/components/hero-gallery';
-import { ClosingTitle, HeroTitle } from '@/components/hero-title';
+import { ClosingTitle, HERO_INK, HeroTitle } from '@/components/hero-title';
+import { HALL_ART } from '@/components/portal/HallMedia';
 import { SectionHeading } from '@/components/section-heading';
 import { HistoryShowcase } from '@/components/history-showcase';
 import { CloudPair, SectionCloud } from '@/components/section-cloud';
@@ -31,7 +32,7 @@ import { ENEMIES } from '@/constants/game';
 import { HERO_BY_ID } from '@/constants/heroes';
 import { ANSWER_STYLES, type Palette } from '@/constants/theme';
 import { Lift, Reveal, useScrollY } from '@/components/motion';
-import { usePopIn, useReduceMotion } from '@/hooks/use-motion';
+import { useBob, usePopIn, useReduceMotion } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
 import type { IconType } from '@/types/game';
 
@@ -391,15 +392,81 @@ export const BackToTop: React.FC<{ scrollY: Animated.Value; visible: boolean; on
 };
 
 // ---------------------------------------------------------------------- hero
+/** Màu cảnh Hoàng thành ở khung đầu trang (như sảnh mở đầu của nhánh feat/giao_dien_hs_than_thien): biển gỗ, viền vàng, chữ vàng kim, kem */
+const COURT = {
+  sky: '#8fd3ec', wood: '#58240c', woodHover: '#6b2f10', rim: '#f59e0b', rimHover: '#facc15', gold: '#ffc75f', goldHover: '#f9f871', cream: '#fff3cf',
+  rod: '#a32a18', rodCap: '#f5b938', rodEdge: '#7a3f07',
+} as const;
+
+/** Biển gỗ VÀO CHƠI có trục cuộn hai bên (mở trang đăng nhập như nút Vào học ngay); rê chuột thì nổi lên, bấm thì lún xuống */
+const PlaySign: React.FC<{ large: boolean; onPress: () => void }> = ({ large, onPress }) => {
+  const [hovered, setHovered] = useState(false);
+  const cap = { width: large ? 20 : 15, height: 10, borderRadius: 5, backgroundColor: COURT.rodCap, borderWidth: 2, borderColor: COURT.rodEdge };
+  const rod = (
+    <View style={{ width: large ? 22 : 16, height: large ? 104 : 84, alignItems: 'center', justifyContent: 'space-between', zIndex: 2 }}>
+      <View style={cap} />
+      <View style={{ width: large ? 18 : 14, flex: 1, marginVertical: -2, borderRadius: 4, backgroundColor: COURT.rod, borderWidth: 2.5, borderColor: COURT.rodCap }} />
+      <View style={cap} />
+    </View>
+  );
+  return (
+    <Pressable
+      testID="home-play"
+      accessibilityRole="link"
+      accessibilityLabel="Vào chơi: mở trang đăng nhập để học"
+      onPress={onPress}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', alignSelf: 'center', transform: [{ translateY: pressed ? 3 : hovered ? -2 : 0 }, { scale: pressed ? 0.98 : 1 }], ...(WEB ? { cursor: 'pointer' } : null) }) as ViewStyle}
+    >
+      {rod}
+      <View
+        style={{
+          minHeight: large ? 86 : 68, minWidth: large ? 248 : 200, paddingHorizontal: large ? 34 : 26, paddingVertical: 10, marginHorizontal: -6,
+          backgroundColor: hovered ? COURT.woodHover : COURT.wood, borderWidth: 4, borderColor: hovered ? COURT.rimHover : COURT.rim, alignItems: 'center', justifyContent: 'center',
+          ...(WEB ? { boxShadow: hovered ? '4px 4px 0 #f59e0b, 0 12px 24px rgba(0,0,0,0.35)' : '4px 4px 0 #5c2308, 0 10px 20px rgba(0,0,0,0.3)' } : null),
+        } as ViewStyle}
+      >
+        <View pointerEvents="none" style={{ position: 'absolute', left: 4, right: 4, top: 4, bottom: 4, borderWidth: 1.5, borderColor: 'rgba(255,214,102,0.55)' }} />
+        <Txt f="heavy" size={large ? 32 : 24} color={hovered ? COURT.goldHover : COURT.gold} style={{ letterSpacing: 3, textShadowColor: 'rgba(0,0,0,0.65)', textShadowOffset: { width: 1, height: 2 }, textShadowRadius: 2 }}>
+          VÀO CHƠI
+        </Txt>
+      </View>
+      {rod}
+    </Pressable>
+  );
+};
+
+/** Nhân vật đứng nhún nhẹ (đứng yên khi bật giảm chuyển động); `delay` lệch nhịp hai người */
+const BobbingFigure: React.FC<{ source: ImageSourcePropType; label: string; w: number; h: number; delay?: number; style?: StyleProp<ViewStyle> }> = ({ source, label, w, h, delay = 0, style }) => (
+  <Animated.View style={[style, useBob(true, 6, delay)]}>
+    <Image source={source} style={{ width: w, height: h }} resizeMode="contain" accessibilityLabel={label} />
+  </Animated.View>
+);
+
 /**
- * Hero: ảnh bìa điện ảnh ghép tám khung hình minh họa thành một cảnh chuyển động (xem FilmBackdrop),
- * tiêu đề Hào Khí Đông A và ba mốc năm bấm được. Màn hẹp dùng bản ảnh dọc phủ kín khung.
+ * Hero (26/11/2026, theo yêu cầu "vô nhánh feat/giao_dien_hs_than_thien, chỉ lấy ảnh 2, nội dung caption để lại"): cảnh mở đầu của nhánh đó –
+ * trời xanh, Hoàng thành Thăng Long trên sân gạch vàng, Vua Trần và Trần Hưng Đạo bên trái, biển gỗ VÀO CHƠI bên phải, mây xoáy hai góc –
+ * thay ảnh bìa điện ảnh; chữ giữ nguyên: tiêu đề Hào Khí Đông A, lời giới thiệu và ba mốc năm bấm được (chữ màu mực vì nền trời sáng).
+ * Màn hẹp: hai nhân vật ở giữa, biển VÀO CHƠI bên dưới. Khung cao thêm khi không đủ chỗ, chữ không bao giờ đè lên nhân vật.
  */
 const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wide, go }) => {
-  const { c } = useTheme();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
-  const minH = Math.min(Math.max(wide ? 780 : 700, height), wide ? 1000 : 900);
+  const { width, height } = useWindowDimensions();
+  // Khung vừa một màn hình: phần chữ cao khoảng 300, nhân vật co theo chiều cao còn lại để ba mốc năm luôn thấy được (màn thấp hơn mức tối thiểu thì khung cao thêm)
+  const minH = Math.min(Math.max(wide ? 640 : 600, height), wide ? 1000 : 900);
+  const [box, setBox] = useState({ h: minH, text: 0 });
+  /** Đủ rộng để hai nhân vật và biển lớn đứng cùng hàng */
+  const roomy = width >= 1100;
+  const floor = wide ? 148 : 188;
+  const fit = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+  const charH = roomy ? fit(Math.min(height * 0.4, height - 420), 220, 340) : wide ? fit(Math.min(height * 0.32, height - 420), 190, 250) : fit(Math.min(width * 0.52, height - 490), 140, 210);
+  const charW = charH * (682 / 1024);
+  // Hoàng thành đứng trên mép sân; thu nhỏ khi nóc lầu sắp chạm phần chữ. Màn hẹp phóng to hơn bề ngang (hai cánh thành khuất mép) để lầu giữa lộ ra giữa hai nhân vật
+  const room = box.text ? box.h - (floor - 8) - box.text - 12 : Number.POSITIVE_INFINITY;
+  const citadelW = Math.max(wide ? 520 : 300, Math.min(width * (wide ? 0.86 : 1.1), 1120, room * (1024 / 341)));
+  const play = () => router.push('/portal');
   const reduce = useReduceMotion();
   const scrollY = useScrollY();
   const on = !!scrollY && !reduce;
@@ -415,41 +482,72 @@ const HeroSection: React.FC<{ wide: boolean; go: (id: string) => void }> = ({ wi
         ],
       }
     : null;
-  const shade = { textShadowColor: 'rgba(0, 0, 0, 0.55)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 22 } as const;
+  const glow = { textShadowColor: 'rgba(255, 255, 255, 0.9)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 14 } as const;
+  // Máy tính: hai nhân vật đứng sát nhau bên trái; màn hẹp: đứng hai bên lầu giữa của Hoàng thành
+  const duo = (
+    <View style={wide ? { flexDirection: 'row', alignItems: 'flex-end' } : { width: '100%', flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: 4 }}>
+      <BobbingFigure source={HALL_ART.vuaTran} label="Vua Trần (tranh minh họa)" w={charW} h={charH} style={wide ? { marginRight: -charW * 0.12 } : undefined} />
+      <BobbingFigure source={HALL_ART.tranHungDao} label="Trần Hưng Đạo (tranh minh họa)" w={charW * 1.03} h={charH * 1.03} delay={450} />
+    </View>
+  );
   return (
-    <View testID="home-hero-section" style={{ width: '100%', minHeight: minH, backgroundColor: c.dem, overflow: 'hidden' }}>
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, sceneFx]}>
-        <FilmBackdrop wide={wide} scrim />
+    <View
+      testID="home-hero-section"
+      onLayout={(e) => { const h = e.nativeEvent.layout.height; setBox((b) => (b.h === h ? b : { ...b, h })); }}
+      style={{ width: '100%', minHeight: minH, backgroundColor: COURT.sky, overflow: 'hidden' }}
+    >
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: 0 }, sceneFx]}>
+        <CourtBackdrop width={width} floor={floor} />
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: floor - 8, alignItems: 'center' }}>
+          <Image source={HALL_ART.citadel} style={{ width: citadelW, height: citadelW * (341 / 1024) }} resizeMode="contain" accessibilityLabel="Hoàng thành Thăng Long (tranh minh họa)" />
+        </View>
       </Animated.View>
-      <Animated.View style={[{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: insets.top + HEADER_SPACE + (wide ? 36 : 16), alignItems: 'center', gap: 20 }, textFx]}>
-        <HeroTitle wide={wide} />
-        <Txt f="bold" size={wide ? 24 : 18} color={c.trang} center style={[{ lineHeight: wide ? 32 : 25, maxWidth: 780 }, shade]}>
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: 1 }]}>
+        <CornerSwirls width={wide ? fit(width * 0.2, 150, 320) : 120} />
+      </View>
+      <Animated.View
+        testID="home-hero-caption"
+        onLayout={(e) => { const t = Math.round(e.nativeEvent.layout.y + e.nativeEvent.layout.height); setBox((b) => (b.text === t ? b : { ...b, text: t })); }}
+        style={[{ width: '100%', maxWidth: MAX_W, alignSelf: 'center', paddingHorizontal: 16, paddingTop: insets.top + HEADER_SPACE + (wide ? 28 : 12), alignItems: 'center', gap: wide ? 16 : 12, zIndex: 2 }, textFx]}
+      >
+        <HeroTitle wide={wide} ink />
+        <Txt f="bold" size={wide ? 24 : 18} color={HERO_INK} center style={[{ lineHeight: wide ? 32 : 25, maxWidth: 780 }, glow]}>
           Nền tảng học tập game hóa về ba lần kháng chiến chống quân Nguyên – Mông thời Trần
         </Txt>
       </Animated.View>
-      <Animated.View style={[{ position: 'absolute', left: 0, right: 0, bottom: wide ? 32 : 14, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: wide ? 18 : 8, paddingHorizontal: 12 }, textFx]}>
+      <View style={{ flexGrow: 1, minHeight: 16 }} />
+      {wide ? (
+        <View testID="home-hero-stage" style={{ width: '100%', maxWidth: 1260, alignSelf: 'center', paddingHorizontal: roomy ? 56 : 24, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', zIndex: 2 }}>
+          {duo}
+          <View style={{ marginBottom: charH * 0.28 }}><PlaySign large={roomy} onPress={play} /></View>
+        </View>
+      ) : (
+        <View testID="home-hero-stage" style={{ alignItems: 'center', gap: 8, zIndex: 2 }}>
+          {duo}
+          <PlaySign large={false} onPress={play} />
+        </View>
+      )}
+      {/* Ba mốc năm nằm trên sân: không bay lên theo chữ khi cuộn để khỏi đè chân nhân vật */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: wide ? 16 : 8, paddingHorizontal: 12, marginTop: 10, marginBottom: wide ? 26 : 14, zIndex: 3 }}>
         {VICTORIES.map((v) => (
           <Pressable
             key={v.year}
             onPress={() => go('khang-chien')}
             accessibilityRole="button"
             accessibilityLabel={`${v.war}, năm ${v.year}: ${v.place}`}
-            style={({ pressed }) => [
-              { minHeight: 48, paddingHorizontal: wide ? 20 : 14, paddingVertical: 6, borderRadius: 999, backgroundColor: c.kinh, borderWidth: 1, borderColor: c.kinhVien, flexDirection: 'row', alignItems: 'center', gap: wide ? 12 : 6, opacity: pressed ? 0.8 : 1 },
-              GLASS,
-            ]}
+            style={({ pressed }) => ({ minHeight: 48, paddingHorizontal: wide ? 20 : 14, paddingVertical: 6, borderRadius: 999, backgroundColor: pressed ? COURT.woodHover : COURT.wood, borderWidth: 2, borderColor: COURT.rim, flexDirection: 'row', alignItems: 'center', gap: wide ? 12 : 6 })}
           >
-            <Txt f="heavy" size={wide ? 22 : 17} color={c.vang}>
+            <Txt f="heavy" size={wide ? 22 : 17} color={COURT.gold}>
               {v.year}
             </Txt>
             {wide && (
-              <Txt f="semibold" size={14} color={c.trang}>
+              <Txt f="semibold" size={14} color={COURT.cream}>
                 {v.place}
               </Txt>
             )}
           </Pressable>
         ))}
-      </Animated.View>
+      </View>
     </View>
   );
 };

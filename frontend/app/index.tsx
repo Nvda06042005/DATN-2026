@@ -116,7 +116,7 @@ function HomePage() {
           <HomeSections wide={wide} go={go} onSection={onSection} onVideoImmersiveChange={setVideoImmersive} />
         </ScrollView>
       </FxProvider>
-      {!videoImmersive && <Header width={width} scrollY={scrollY} stuck={stuck} active={active} go={go} revealOnScroll />}
+      {!videoImmersive && <Header width={width} scrollY={scrollY} stuck={stuck} active={active} go={go} revealOnScroll paper />}
       {!videoImmersive && <BackToTop scrollY={scrollY} visible={showTop} onPress={() => go('home')} />}
     </View>
   );
