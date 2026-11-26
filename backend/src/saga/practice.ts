@@ -2,7 +2,8 @@
  * Minigame luyện tập của Hành trình Đông A (hàm thuần, không đụng cơ sở dữ liệu): năm mẫu dùng lại cho mọi chặng.
  *   quiz     – trắc nghiệm ngắn có giải thích
  *   tactic   – quyết định chiến thuật theo tình huống (mỗi phương án có phản hồi và mức điểm)
- *   sequence – xếp trình tự diễn biến (bấm chọn hoặc kéo thả)
+ *   sequence – xếp trình tự diễn biến; từ 26/11/2026 đặt từng thẻ vào mốc trên dòng thời gian (`{ place: { card, slot } }`, chấm từng lần đặt),
+ *              vẫn nhận cả dãy thứ tự một lần (`{ order }`)
  *   pairs    – lật thẻ ghép hai nội dung liên quan (nhân vật – vai trò, sự kiện – địa điểm)
  *   locate   – chọn địa điểm trên bản đồ của cuộc kháng chiến
  * Máy chủ chấm mọi câu: dạng gửi cho học sinh (`publicItem`) không chứa đáp án; thẻ ghép cặp mang mã ngẫu nhiên theo phiên nên không suy ra được cặp đúng.
@@ -79,6 +80,8 @@ export interface SlotState {
   item_id: number; kind: ItemKind; seed: number; done: boolean; score: number;
   /** Ghép cặp: mã thẻ -> mã cặp (chỉ máy chủ biết), các cặp đã ghép và số lần ghép sai */
   tokens?: Record<string, string>; matched?: string[]; misses?: number;
+  /** Xếp dòng thời gian (26/11/2026): thẻ đã đặt đúng vào từng mốc (theo thứ tự thời gian); số lần đặt sai dùng chung `misses` */
+  placed?: Array<string | null>;
   /** "Gợi ý chiến thuật" (vật phẩm mua ở Chợ phiên, 25/11/2026): một phương án sai đã được gạch bỏ */
   hint?: string;
 }
@@ -115,6 +118,10 @@ export function newSlot(item: ItemRow, seed: number): SlotState {
     slot.matched = [];
     slot.misses = 0;
   }
+  if (item.kind === 'sequence') {
+    slot.placed = (item.data as SequenceData).items.map(() => null);
+    slot.misses = 0;
+  }
   return slot;
 }
 
@@ -128,7 +135,10 @@ export function publicItem(item: ItemRow, slot: SlotState): Record<string, unkno
     const items = (d as SequenceData).items.map((o) => ({ id: o.id, text: o.text }));
     let shuffled = seededShuffle(items, slot.seed);
     if (shuffled.every((o, i) => o.id === items[i].id)) shuffled = [...items.slice(1), items[0]];
-    return { ...base, items: shuffled };
+    // dòng thời gian: các mốc theo thứ tự thời gian (chỉ nhãn thời điểm, không lộ sự kiện nào ở mốc nào); mốc đã đặt đúng thì hiện thẻ
+    const placed = slot.placed ?? [];
+    const slots = (d as SequenceData).items.map((o, i) => ({ i, when: o.when ?? null, card: placed[i] ? items.find((x) => x.id === placed[i]) ?? null : null }));
+    return { ...base, items: shuffled, slots, misses: slot.misses ?? 0 };
   }
   if (item.kind === 'pairs') {
     const p = d as PairsData;
@@ -152,6 +162,15 @@ export interface AnswerOutcome {
 /** Số lần ghép sai được bỏ qua: lật thẻ luôn có vài lần đoán */
 const PAIR_FREE_MISSES = 2;
 const PAIR_HALF_MISSES = 5;
+/** Xếp dòng thời gian: đặt đúng hết ngay lần đầu mới trọn điểm; sai 1–2 lần được nửa điểm */
+const SEQ_HALF_MISSES = 2;
+
+/** Lời nhắc khi đặt sai một thẻ: chỉ nói sự kiện xảy ra sớm hơn hay muộn hơn mốc vừa chọn (gợi mở, không lộ đáp án) */
+function placeHint(want: SequenceData['items'], card: number, slot: number): string {
+  const later = card > slot;
+  const at = want[slot].when ? `mốc ${want[slot].when}` : 'vị trí này';
+  return `Chưa đúng. “${want[card].text}” diễn ra ${later ? 'sau' : 'trước'} ${at}. Thử đặt vào một mốc ${later ? 'muộn' : 'sớm'} hơn nhé.`;
+}
 
 /** Chấm một câu trả lời và cập nhật trạng thái câu. Dữ liệu sai cấu trúc tính là sai, không báo lỗi để không lộ đáp án. */
 export function gradeItem(item: ItemRow, slot: SlotState, answer: unknown): AnswerOutcome {
@@ -175,6 +194,24 @@ export function gradeItem(item: ItemRow, slot: SlotState, answer: unknown): Answ
   }
   if (item.kind === 'sequence') {
     const want = (d as SequenceData).items;
+    // Xếp dòng thời gian (26/11/2026): đặt từng thẻ vào một mốc, máy chủ chấm ngay; đủ thẻ thì xong câu
+    if (isObj(a.place)) {
+      const placed = slot.placed ?? (slot.placed = want.map(() => null));
+      const card = typeof a.place.card === 'string' ? a.place.card : '';
+      const at = Number(a.place.slot);
+      if (!Number.isInteger(at) || at < 0 || at >= want.length) return bad('Mốc này không có trên dòng thời gian');
+      const ci = want.findIndex((o) => o.id === card);
+      if (ci < 0) return bad('Thẻ này không thuộc câu đang làm');
+      if (placed[at]) return bad('Mốc này đã có thẻ');
+      if (placed.includes(card)) return bad('Thẻ này đã được đặt rồi');
+      const ok = ci === at;
+      if (ok) placed[at] = card; else slot.misses = (slot.misses ?? 0) + 1;
+      const misses = slot.misses ?? 0;
+      const step = { place: { card, slot: at }, ok, hint: ok ? null : placeHint(want, ci, at), placed: placed.filter(Boolean).length, total: want.length, misses };
+      if (placed.some((x) => !x)) return { done: false, correct: ok, score: 0, detail: step };
+      const out = finish(misses === 0 ? 1 : misses <= SEQ_HALF_MISSES ? 0.5 : 0, { ...step, right: want.map(() => true), order: want.map((o) => ({ id: o.id, text: o.text, when: o.when ?? null })) });
+      return { ...out, correct: ok };
+    }
     const got: unknown[] = Array.isArray(a.order) ? a.order : [];
     const right = want.map((o, i) => got[i] === o.id);
     return finish(right.every(Boolean) && got.length === want.length ? 1 : 0, { right, order: want.map((o) => ({ id: o.id, text: o.text, when: o.when ?? null })) });

@@ -64,8 +64,11 @@ describe('Minigame luyện tập', () => {
     for (const raw of stages.flatMap((s) => s.items as Array<Record<string, any>>)) {
       const it0 = item(raw);
       const view = publicItem(it0, newSlot(it0, 12345));
-      const keys = keysOf(view);
+      // xếp dòng thời gian (26/11/2026): các mốc có nhãn thời điểm (`slots[].when`) nhưng thẻ sự kiện thì không, và chưa mốc nào có thẻ
+      const { slots, ...rest } = view as Record<string, any>;
+      const keys = keysOf(rest);
       for (const secret of ['correct', 'feedback', 'score', 'pairs', 'label', 'when', 'explanation']) expect([raw.code, secret, keys.has(secret)]).toEqual([raw.code, secret, false]);
+      if (slots) expect([raw.code, (slots as Array<{ card: unknown }>).every((x) => x.card === null)]).toEqual([raw.code, true]);
     }
   });
 

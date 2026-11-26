@@ -116,12 +116,14 @@ export interface Choice { id: string; text: string }
 export type PracticeItem =
   | (ItemBase & { kind: 'quiz'; options: Choice[] })
   | (ItemBase & { kind: 'tactic'; situation: string; options: Choice[] })
-  | (ItemBase & { kind: 'sequence'; items: Choice[] })
+  | (ItemBase & { kind: 'sequence'; items: Choice[]; /** dòng thời gian (26/11/2026): các mốc theo thứ tự thời gian, mốc đã đặt đúng có thẻ */ slots?: Array<{ i: number; when: string | null; card: Choice | null }>; misses?: number })
   | (ItemBase & { kind: 'pairs'; left_label: string; right_label: string; cards: Array<{ token: string; side: 'left' | 'right'; text: string; matched: boolean }>; pairs_total: number; misses: number })
   | (ItemBase & { kind: 'locate'; campaign_no: number; spots: Array<{ id: string; letter: string; x: number; y: number }> });
 export interface AnswerOutcome {
   item_id: number; done: boolean; correct: boolean; score: number; detail: Record<string, any>;
   explanation?: string; source?: SourceRef | null; objective_text?: string | null; stage_title?: string | null; timeout?: boolean; streak?: number; xp?: number; gold?: number;
+  /** Luyện binh riêng: lịch ôn của câu sau lượt này – hẹn ôn lại sau mấy ngày, đã nhớ chắc, hay còn phải ôn */
+  review?: { next: 'later' | 'done' | 'again'; days?: number; due_at?: string } | null;
 }
 /** Kết quả dùng "Gợi ý chiến thuật": phương án sai đã bị gạch */
 export interface HintOutcome { item_id: number; hint: true; removed: string; hints_left: number }
@@ -249,6 +251,8 @@ export interface ReviewInfo {
   due: Array<{ item_id: number; wrong_count: number; last_wrong_at: string; prompt: string; kind: ItemKind; kind_label: string; stage_id: number; stage_title: string }>;
   weak_objectives: WeakObjective[]; pool: number; can_start: boolean; active_session_id: number | null; size: number; stats: { answers: number; right: number; percent: number };
   suggest: Suggest | null;
+  /** câu đã đúng một lần, hẹn ôn lại (chưa tới hạn) – migration 084 */
+  later?: { count: number; next_at: string | null; gap_days: number };
 }
 export interface SagaCard extends CardBrief {
   owned: boolean; years?: string | null; intro?: string; role_text?: string; quote?: string | null; quote_source?: string | null; source?: string; source_url?: string | null; unlocked_at?: string;

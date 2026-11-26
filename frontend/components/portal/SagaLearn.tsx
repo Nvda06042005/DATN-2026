@@ -10,7 +10,7 @@
  * Máy chủ giữ đáp án, chấm điểm và trao thưởng; giao diện chỉ nhận giải thích sau khi đã trả lời.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, Image, Pressable, ScrollView, View, useWindowDimensions, type ImageSourcePropType, type ScrollViewInstance } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, Image, Pressable, View, useWindowDimensions, type ImageSourcePropType, type ScrollViewInstance } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 import {
   ArrowDown, ArrowUp, BookOpen, Box, Check, ChevronRight, Clock, Compass, Hourglass, Lightbulb, Lock, MapPin, MessageSquareText, RotateCcw, Store, Swords, Target, Users, X,
@@ -205,6 +205,94 @@ const PairsBody: React.FC<BodyProps> = ({ item, outcome, step, busy, onAnswer })
   );
 };
 
+/**
+ * Xếp dòng thời gian (bản vẽ màn 10, 26/11/2026): các mốc thời gian theo thứ tự trên một đường dọc; em chọn một thẻ sự kiện rồi chạm vào mốc của nó.
+ * Máy chủ chấm ngay từng lần đặt: đúng thì thẻ nằm lại ở mốc (xanh), sai thì thẻ hiện đỏ một lúc và Tiểu Tướng gợi ý sự kiện xảy ra sớm hơn hay muộn hơn.
+ * Không cần kéo thả (bấm được bằng bàn phím, trình đọc màn hình).
+ */
+const TimelineBody: React.FC<BodyProps> = ({ item, outcome, step, busy, onAnswer }) => {
+  const t = useBT();
+  const slots = item.kind === 'sequence' ? item.slots ?? [] : [];
+  const cards = item.kind === 'sequence' ? item.items : [];
+  const placed = new Set(slots.map((s) => s.card?.id).filter((x): x is string => Boolean(x)));
+  const tray = cards.filter((c) => !placed.has(c.id));
+  const [pick, setPick] = useState<string | null>(null);
+  const [miss, setMiss] = useState<{ slot: number; card: string; hint: string | null } | null>(null);
+  useEffect(() => { setPick(null); setMiss(null); }, [item.id]);
+  // kết quả của lần đặt vừa rồi: sai thì thẻ đỏ hiện ở mốc đó một lúc kèm lời gợi ý (lời gợi ý giữ tới lần đặt sau); đúng thì bỏ chọn
+  useEffect(() => {
+    const d = (outcome ?? step)?.detail as { place?: { card: string; slot: number }; ok?: boolean; hint?: string | null } | undefined;
+    if (!d?.place) return undefined;
+    const at = d.place;
+    play(d.ok ? 'right' : 'wrong');
+    setPick(null);
+    if (d.ok) { setMiss(null); return undefined; }
+    setMiss({ slot: at.slot, card: at.card, hint: d.hint ?? null });
+    const tm = setTimeout(() => setMiss((m) => (m && m.slot === at.slot && m.card === at.card ? { ...m, slot: -1 } : m)), 1500);
+    return () => clearTimeout(tm);
+  }, [step, outcome]);
+  const done = Boolean(outcome);
+  const textOf = (id: string): string => cards.find((c) => c.id === id)?.text ?? '';
+  const place = (slot: number): void => { if (pick && !busy && !done) onAnswer({ place: { card: pick, slot } }); };
+  const truth = (outcome?.detail.order as Array<{ id: string; text: string; when: string | null }> | undefined) ?? null;
+  const allPlaced = slots.length > 0 && slots.every((s) => s.card);
+  return (
+    <View style={{ gap: 12 }} testID="timeline">
+      {!done ? <Txt size={14} color={t.muted}>{pick ? `Chạm vào mốc thời gian của “${textOf(pick)}”.` : 'Chọn một thẻ bên dưới rồi chạm vào mốc thời gian của nó.'}</Txt> : null}
+      <BtCard style={{ gap: 10 }}>
+        <View pointerEvents="none" style={{ position: 'absolute', left: 14 + 66 + 10 + 5, top: 24, bottom: 24, width: 3, borderRadius: 2, backgroundColor: t.line2 }} />
+        {slots.map((s) => {
+          const card = s.card;
+          const wrong = !card && miss && miss.slot === s.i;
+          const target = !card && Boolean(pick) && !done;
+          const label = s.when ?? `Mốc ${s.i + 1}`;
+          return (
+            <View key={s.i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Txt f="heavy" size={12} color={t.ink} style={{ width: 66, textAlign: 'right' }}>{label}</Txt>
+              <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: card ? t.green : wrong ? t.danger : t.card, borderWidth: card || wrong ? 0 : 2, borderColor: target ? t.accent : t.line2 }} />
+              <Pressable onPress={() => place(s.i)} disabled={Boolean(card) || !pick || busy || done} accessibilityRole="button" testID={`timeline-slot-${s.i}`}
+                accessibilityLabel={`${label}: ${card ? `${card.text}, đã đặt đúng` : pick ? `trống, bấm để đặt “${textOf(pick)}”` : 'trống'}`}
+                style={({ pressed }) => ({ flex: 1, minHeight: 46, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, justifyContent: 'center', opacity: pressed ? 0.85 : 1,
+                  backgroundColor: card ? t.greenSoft : wrong ? t.dangerSoft : target ? t.goldSoft : 'transparent',
+                  borderWidth: card || wrong ? 1 : 2, borderStyle: card || wrong ? 'solid' : 'dashed', borderColor: card ? t.green : wrong ? t.danger : target ? t.accent : t.line2 })}>
+                <Txt f={card || wrong ? 'heavy' : 'semibold'} size={13} color={card ? t.green : wrong ? t.danger : target ? t.accent : t.muted}>
+                  {card ? `${card.text} ✓` : wrong ? `${textOf(miss!.card)} ✗` : target ? 'Đặt vào đây' : 'Trống'}
+                </Txt>
+              </Pressable>
+            </View>
+          );
+        })}
+      </BtCard>
+      {miss?.hint && !done ? <TtSays tone="warn" testID="timeline-hint"><Txt size={13} color={t.ink} style={{ lineHeight: 19 }}>{miss.hint}</Txt></TtSays> : null}
+      {!done && tray.length ? (
+        <View style={{ gap: 6 }}>
+          <Txt f="heavy" size={12} color={t.ink}>Thẻ cần xếp</Txt>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {tray.map((c, k) => {
+              const on = pick === c.id;
+              return (
+                <Pressable key={c.id} onPress={() => setPick(on ? null : c.id)} disabled={busy} accessibilityRole="button" accessibilityState={{ selected: on }} testID={`timeline-card-${c.id}`}
+                  accessibilityLabel={`Thẻ ${c.text}${on ? ', đang chọn' : ''}`}
+                  style={({ pressed }) => ({ flexGrow: 1, flexBasis: 140, minHeight: 52, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, justifyContent: 'center',
+                    backgroundColor: ['#2F5563', '#7E1616', '#5B4632'][k % 3], borderWidth: 3, borderColor: on ? t.gold : 'transparent', opacity: pressed ? 0.9 : 1, transform: [{ rotate: on ? '-2deg' : '0deg' }] })}>
+                  <Txt f="heavy" size={13} color="#FFF6E5">{c.text}</Txt>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
+      {!done && item.kind === 'sequence' && (item.misses ?? 0) > 0 ? <Txt size={12} color={t.muted}>Đã đặt sai {item.misses} lần · đặt đúng hết ngay lần đầu mới trọn điểm.</Txt> : null}
+      {done && truth && !allPlaced ? (
+        <BtCard tone="sunk" style={{ gap: 4 }}>
+          <Txt f="heavy" size={14} color={t.ink}>Dòng thời gian đúng</Txt>
+          {truth.map((x, i) => <Txt key={x.id} size={14} color={t.ink}>{x.when ?? `Mốc ${i + 1}`}: {x.text}</Txt>)}
+        </BtCard>
+      ) : null}
+    </View>
+  );
+};
+
 const MAP_RATIO: Record<number, [number, number]> = { 1: [1500, 1052], 2: [1000, 1458], 3: [1300, 974] };
 const MAP_CACHE = new Map<number, SagaMapInfo>();
 /** Ảnh và kích thước bản đồ của một cuộc kháng chiến (dùng ảnh có sẵn khi chưa tải được) */
@@ -270,14 +358,15 @@ const LocateBody: React.FC<BodyProps> = ({ session, item, outcome, busy, onAnswe
 
 /** Thân của một câu theo đúng mẫu của nó */
 export const ItemBody: React.FC<BodyProps> = (p) =>
-  p.item.kind === 'sequence' ? <SequenceBody {...p} /> : p.item.kind === 'pairs' ? <PairsBody {...p} /> : p.item.kind === 'locate' ? <LocateBody {...p} /> : <ChoiceBody {...p} />;
+  p.item.kind === 'sequence' ? (p.item.slots ? <TimelineBody {...p} /> : <SequenceBody {...p} />) : p.item.kind === 'pairs' ? <PairsBody {...p} /> : p.item.kind === 'locate' ? <LocateBody {...p} /> : <ChoiceBody {...p} />;
 
 /** Phản hồi sau khi trả lời: đúng / sai, giải thích, mục tiêu kiến thức và nguồn (máy chủ chỉ gửi sau khi đã chấm) */
 export const Feedback: React.FC<{ outcome: AnswerOutcome; kind: PracticeItem['kind']; onNext: () => void; nextLabel: string }> = ({ outcome, kind, onNext, nextLabel }) => {
   const t = useBT();
   const half = outcome.score > 0 && outcome.score < 1;
   const [line, ink, title] = outcome.timeout ? [t.danger, t.danger, 'Hết giờ!'] : outcome.score >= 1 ? [t.green, t.green, kind === 'tactic' ? 'Quyết định tốt nhất!' : 'Chính xác!']
-    : half ? [t.bronze, t.goldInk, kind === 'pairs' ? 'Ghép xong, nhưng sai hơi nhiều' : 'Tạm được, còn cách tốt hơn'] : [t.danger, t.danger, kind === 'pairs' ? 'Ghép xong, nhưng sai quá nhiều lần' : 'Chưa đúng'];
+    : half ? [t.bronze, t.goldInk, kind === 'pairs' ? 'Ghép xong, nhưng sai hơi nhiều' : kind === 'sequence' ? 'Xếp xong, nhưng có lần đặt sai' : 'Tạm được, còn cách tốt hơn']
+    : [t.danger, t.danger, kind === 'pairs' ? 'Ghép xong, nhưng sai quá nhiều lần' : kind === 'sequence' ? 'Xếp xong, nhưng đặt sai nhiều lần' : 'Chưa đúng'];
   const feedback = outcome.detail.feedback as string | null | undefined, best = outcome.detail.best_feedback as string | undefined;
   const pairs = outcome.detail.pairs as Array<{ id: string; left: string; right: string }> | undefined;
   useKeys((k) => { if (k === 'Enter') onNext(); });
@@ -505,6 +594,8 @@ export const HoiDongScreen: React.FC<StageProps> = ({ session, nav, stageId, cam
   const t = useBT();
   const toast = useToast();
   const detail = useLoad<StageDetail>(session, (tk) => saga.stage(tk, stageId), [stageId]);
+  // thẻ Binh thư em đã nhặt ở Thám sử – "vũ khí" khi bàn ở Hội đồng (bản vẽ màn 6)
+  const lessonView = useLoad<LessonView>(session, (tk) => saga.lesson(tk, stageId), [stageId]);
   const [sess, setSess] = useState<PracticeSession | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -546,7 +637,7 @@ export const HoiDongScreen: React.FC<StageProps> = ({ session, nav, stageId, cam
     try {
       const res = await saga.act<PracticeSession, AnswerOutcome, PracticeFinished>(session.token, sess.session_id, sess.seq, { type: 'answer', item_id: item.id, answer: a });
       setSess(res.view);
-      if (res.outcome.done) { setOutcome(res.outcome); if (item.kind !== 'pairs') play(res.outcome.correct ? 'right' : 'wrong'); } else setStep(res.outcome);
+      if (res.outcome.done) { setOutcome(res.outcome); if (item.kind !== 'pairs' && item.kind !== 'sequence') play(res.outcome.correct ? 'right' : 'wrong'); } else setStep(res.outcome);
       if (res.finished) { setFinished(res.finished); nav.refresh(); }
       if (res.completion) setCompleted(true);
       if (res.completion?.first) nav.setReward({ stageId, completion: res.completion });
@@ -581,6 +672,7 @@ export const HoiDongScreen: React.FC<StageProps> = ({ session, nav, stageId, cam
   const doneCount = sess?.items.filter((it) => it.done).length ?? 0;
   const d = detail.data;
   const hasBattle = d ? Boolean(d.battle) : true;
+  const ownedLore = (lessonView.data?.cards ?? []).filter((c) => lessonView.data!.lore.includes(c.id) || lessonView.data!.done);
   const canHint = Boolean(item && item.hintable && !outcome && !(item.removed ?? []).length && (item.kind === 'quiz' || item.kind === 'tactic' || item.kind === 'locate'));
   return (
     <BtPage testID="saga-practice" tabBar={false} max={920} scrollRef={scroller}>
@@ -619,6 +711,20 @@ export const HoiDongScreen: React.FC<StageProps> = ({ session, nav, stageId, cam
           ) : null}
           <Flash text={flash} />
           {outcome ? <Feedback outcome={outcome} kind={item.kind} onNext={next} nextLabel={finished ? 'Xem kết quả' : 'Câu tiếp'} /> : null}
+          {ownedLore.length ? (
+            <View style={{ gap: 6 }} testID="practice-lore">
+              <Txt f="heavy" size={12.5} color={t.ink}>Thẻ Binh thư em đang có ({ownedLore.length})</Txt>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {ownedLore.map((c, k) => (
+                  <Pressable key={c.id} onPress={() => stepTo(nav, grade, stageId, 'tham-su')} accessibilityRole="button" accessibilityLabel={`Thẻ ${c.tag}: ${c.title}. Bấm để đọc lại ở Thám sử`}
+                    style={({ pressed }) => ({ flexGrow: 1, flexBasis: 100, maxWidth: 220, minHeight: 52, borderRadius: 10, padding: 8, backgroundColor: ['#2F5563', '#7E1616', '#5B4632'][k % 3], opacity: pressed ? 0.85 : 1 })}>
+                    <Txt f="heavy" size={10.5} color="#F2C66D">{c.tag}</Txt>
+                    <Txt f="semibold" size={11.5} color="#FFF6E5" numberOfLines={2}>{c.title}</Txt>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
           <BtButton title="Xem lại thẻ Binh thư" icon={BookOpen} tone="muted" size="sm" onPress={() => stepTo(nav, grade, stageId, 'tham-su')} style={{ alignSelf: 'flex-start' }} testID="practice-lesson" />
         </>
       )}
@@ -771,11 +877,16 @@ export const SuQuanScreen: React.FC<StageProps> = ({ session, nav, stageId, camp
 };
 
 // ---------------------------------------------------------------------- Luyện binh riêng
-const ReviewQuiz: React.FC<{ session: Session; nav: SagaNav; initial: PracticeSession; onExit: () => void }> = ({ session, nav, initial, onExit }) => {
+/**
+ * Lượt Luyện binh riêng (bản vẽ màn 10): nút đóng + thanh tiến độ "3/6", dòng "LUYỆN BINH RIÊNG · TIỂU TƯỚNG ĐỀ XUẤT", câu hỏi làm tiêu đề, lý do Tiểu Tướng chọn lượt này,
+ * thân câu (câu xếp trình tự là dòng thời gian đặt từng thẻ), cuối màn ghi cách thưởng và lịch ôn lại. Đồng hồ do máy chủ giữ, chỉ chạy khi câu được mở.
+ */
+const ReviewQuiz: React.FC<{ session: Session; nav: SagaNav; initial: PracticeSession; reason: string | null; gapDays: number; onExit: () => void }> = ({ session, nav, initial, reason, gapDays, onExit }) => {
   const t = useBT();
   const [sess, setSess] = useState(initial);
   const [cursor, setCursor] = useState(Math.min(initial.index, initial.total - 1));
   const [outcome, setOutcome] = useState<AnswerOutcome | null>(null);
+  const [step, setStep] = useState<AnswerOutcome | null>(null);
   const [finished, setFinished] = useState<ReviewFinished | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -799,9 +910,11 @@ const ReviewQuiz: React.FC<{ session: Session; nav: SagaNav; initial: PracticeSe
       const res = await saga.act<PracticeSession, AnswerOutcome & { ready?: boolean }, ReviewFinished>(cur.session.token, cur.sess.session_id, cur.sess.seq, action);
       setSess(res.view);
       if (res.outcome.ready) return;
+      // xếp dòng thời gian: mỗi lần đặt một thẻ là một bước, câu chưa xong thì đồng hồ vẫn chạy
+      if (!res.outcome.done) { setStep(res.outcome); return; }
       deadline.current = null; setLeft(null);
       setOutcome({ ...res.outcome, timeout: res.outcome.timeout || timedOut });
-      play(res.outcome.correct ? 'right' : 'wrong');
+      if (item?.kind !== 'sequence') play(res.outcome.correct ? 'right' : 'wrong');
       if (res.finished) { setFinished(res.finished); cur.nav.refresh(); }
     } catch (e) {
       if (statusOf(e) === 401) cur.session.expired();
@@ -826,43 +939,61 @@ const ReviewQuiz: React.FC<{ session: Session; nav: SagaNav; initial: PracticeSe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const next = (): void => {
-    setOutcome(null);
+    setOutcome(null); setStep(null);
     if (finished) { setShowResult(true); play('win'); return; }
     const i = sess.items.findIndex((it) => !it.done);
     setCursor(i < 0 ? sess.total - 1 : i);
   };
   const streak = outcome?.streak ?? sess.streak ?? 0;
   const urgent = left !== null && left <= 5;
+  const doneCount = sess.items.filter((it) => it.done).length;
+  const sched = outcome?.review ?? null;
   return (
     <BtPage testID="saga-review-quiz" tabBar={false} max={920} scrollRef={scroller}>
-      <StepHeader eyebrow="Luyện binh riêng" title={showResult ? 'Xong lượt luyện' : `Câu ${cursor + 1}/${sess.total}`} onBack={onExit} backLabel="Dừng lượt luyện, có thể tiếp tục sau" />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Pressable onPress={onExit} accessibilityRole="button" accessibilityLabel="Dừng lượt luyện, về Luyện binh riêng (có thể tiếp tục sau)" testID="review-close" hitSlop={4}
+          style={({ pressed }) => ({ width: 44, height: 44, borderRadius: 12, borderWidth: 1, borderColor: t.line, backgroundColor: t.card, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.8 : 1 })}>
+          <X size={19} color={t.ink} strokeWidth={2.4} />
+        </Pressable>
+        <BtBar value={sess.total ? doneCount / sess.total : 0} color={t.green} height={10} label={`Đã làm ${doneCount}/${sess.total} câu`} style={{ flex: 1 }} />
+        <Txt f="heavy" size={13} color={t.ink}>{doneCount}/{sess.total}</Txt>
+      </View>
       {showResult && finished ? (
         <BtCard tone="gold" pad={20} style={{ alignItems: 'center' }} testID="review-result">
           <SerifTitle size={26} color={t.green} center>Xong lượt luyện!</SerifTitle>
           <Txt f="serifBold" size={40} color={t.ink}>{finished.right}/{finished.total}</Txt>
           <Txt size={14} color={t.muted} center>Đúng {finished.percent}% · chuỗi đúng dài nhất {finished.best_streak} câu</Txt>
           {finished.xp || finished.gold ? <Pill text={[finished.xp ? `+${finished.xp} KN` : '', finished.gold ? `+${finished.gold} vàng` : ''].filter(Boolean).join(' · ')} bg={t.goldSoft} fg={t.goldInk} strong /> : null}
-          <Txt size={14} color={t.muted} center>Câu trả lời đúng đã ra khỏi danh sách cần ôn; câu còn sai sẽ được hỏi lại ở lượt sau.</Txt>
+          <Txt size={14} color={t.muted} center>Câu trả lời đúng được hẹn ôn lại sau {gapDays} ngày; đúng thêm lần nữa là nhớ chắc. Câu còn sai sẽ được hỏi lại ở lượt sau.</Txt>
           <BtButton title="Xong" icon={Check} onPress={onExit} testID="review-done" />
         </BtCard>
       ) : item ? (
         <>
+          <View style={{ gap: 3 }} testID={`review-item-${item.kind}`}>
+            <Eyebrow text={`Luyện binh riêng · Tiểu Tướng đề xuất · ${item.kind_label}`} color={t.teal} />
+            <SerifTitle size={20}>{item.prompt}</SerifTitle>
+            {item.stage_title ? <View style={{ alignSelf: 'flex-start' }}><Pill text={`Chặng ${item.stage_title}`} /></View> : null}
+            {cursor === 0 || !reason ? <Txt size={12.5} color={t.muted} style={{ lineHeight: 18 }}>{reason ?? 'Tiểu Tướng chọn các câu em hay nhầm và câu tới ngày ôn lại.'}</Txt> : null}
+          </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <View accessible accessibilityRole="timer" accessibilityLabel={left === null ? 'Đồng hồ đang dừng' : `Còn ${left} giây`} testID="review-timer"
-              style={{ minWidth: 76, height: 44, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: urgent ? t.danger : t.line, backgroundColor: urgent ? t.dangerSoft : t.card, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              style={{ minWidth: 76, height: 40, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: urgent ? t.danger : t.line, backgroundColor: urgent ? t.dangerSoft : t.card, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <Clock size={16} color={urgent ? t.danger : t.muted} />
-              <Txt f="heavy" size={18} color={urgent ? t.danger : t.ink}>{left === null ? '–' : `${left}s`}</Txt>
+              <Txt f="heavy" size={16} color={urgent ? t.danger : t.ink}>{left === null ? '–' : `${left}s`}</Txt>
             </View>
             <Pill text={`Chuỗi đúng: ${streak}`} bg={t.goldSoft} fg={t.goldInk} strong />
-            <BtBar value={sess.items.filter((it) => it.done).length / sess.total} label="Tiến độ lượt luyện" style={{ flex: 1, minWidth: 120 }} />
           </View>
-          <BtCard tone="night" pad={16} testID={`review-item-${item.kind}`}>
-            <Eyebrow text={`${item.kind_label}${item.stage_title ? ` · ${item.stage_title}` : ''}`} color={t.gold} />
-            <Txt f="serifBold" size={19} color={t.onNight} accessibilityRole="header" style={{ lineHeight: 27 }}>{item.prompt}</Txt>
-          </BtCard>
-          <ItemBody session={session} item={item} outcome={outcome} step={null} busy={busy} onAnswer={(a) => { void act({ type: 'answer', item_id: item.id, answer: a }); }} />
+          <ItemBody session={session} item={item} outcome={outcome} step={step} busy={busy} onAnswer={(a) => { void act({ type: 'answer', item_id: item.id, answer: a }); }} />
           <Flash text={flash} />
           {outcome ? <Feedback outcome={outcome} kind={item.kind} onNext={next} nextLabel={finished ? 'Xem kết quả' : 'Câu tiếp'} /> : null}
+          {sched ? (
+            <Pill testID="review-schedule" text={sched.next === 'done' ? 'Đã nhớ chắc – câu này ra khỏi hàng ôn' : sched.next === 'later' ? `Hẹn ôn lại sau ${sched.days ?? gapDays} ngày` : 'Câu này sẽ được hỏi lại ở lượt sau'}
+              bg={sched.next === 'again' ? t.dangerSoft : t.greenSoft} fg={sched.next === 'again' ? t.danger : t.green} strong />
+          ) : null}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+            <Txt size={12} color={t.muted}>Đúng mỗi câu (lần đầu trong ngày): +10 KN +2 vàng</Txt>
+            <Txt size={12} color={t.muted}>Câu đúng hẹn ôn lại sau {gapDays} ngày</Txt>
+          </View>
           <BtButton title="Dừng lượt luyện" tone="muted" size="sm" onPress={onExit} style={{ alignSelf: 'flex-start' }} testID="review-exit" label="Dừng lượt luyện, có thể tiếp tục sau" />
         </>
       ) : null}
@@ -883,8 +1014,8 @@ export const LuyenBinhScreen: React.FC<{ session: Session; nav: SagaNav }> = ({ 
     setBusy(true);
     try { setQuiz(await saga.startReview(session.token, restart)); play('tap'); } catch (e) { if (statusOf(e) === 401) session.expired(); setFlash(errorMessage(e)); } finally { setBusy(false); }
   };
-  if (quiz) return <ReviewQuiz session={session} nav={nav} initial={quiz} onExit={() => { setQuiz(null); setRound((n) => n + 1); nav.refresh(); }} />;
   const d = info.data;
+  if (quiz) return <ReviewQuiz session={session} nav={nav} initial={quiz} reason={d?.suggest?.text ?? null} gapDays={d?.later?.gap_days ?? 3} onExit={() => { setQuiz(null); setRound((n) => n + 1); nav.refresh(); }} />;
   const head = <StepHeader eyebrow="Luyện binh riêng" title="Ôn những câu em hay nhầm" onBack={() => nav.back('doanh-trai')} backLabel="Về Doanh trại" />;
   if (!d) return <BtPage testID="saga-review" tabBar={false} max={1080}>{head}<LoadState loading={info.loading} error={info.error} onRetry={info.reload} /></BtPage>;
   return (
@@ -905,6 +1036,11 @@ export const LuyenBinhScreen: React.FC<{ session: Session; nav: SagaNav }> = ({ 
               <Txt size={12} color={t.muted}>Mỗi câu có đồng hồ (20–45 giây) chỉ chạy khi câu được mở. Đúng mỗi câu +10 KN +2 vàng, mỗi câu một lần trong ngày.</Txt>
             </View>
           ) : <BtButton title="Mở Chiến dịch" iconRight={ChevronRight} onPress={() => nav.go('chien-dich')} testID="review-to-map" />}
+          {d.later && d.later.count ? (
+            <TtSays tone="light" testID="review-later">
+              <Txt size={13} color={t.ink} style={{ lineHeight: 19 }}>{d.later.count} câu em đã trả lời đúng đang được hẹn ôn lại{d.later.next_at ? ` (sớm nhất ngày ${new Date(d.later.next_at).toLocaleDateString('vi-VN')})` : ''}. Đúng thêm một lần nữa khi tới hạn là nhớ chắc.</Txt>
+            </TtSays>
+          ) : null}
           {d.due.length ? (
             <BtCard testID="review-due">
               <Txt f="heavy" size={15} color={t.ink}>Câu từng trả lời sai ({d.due.length})</Txt>
@@ -972,6 +1108,7 @@ export const BinhThuScreen: React.FC<{ session: Session; nav: SagaNav }> = ({ se
   const [tab, setTab] = useState<BinhTab>('nhan-vat');
   const [card, setCard] = useState<LoreCard | null>(null);
   const [hero, setHero] = useState<SagaCard | null>(null);
+  const [focus, setFocus] = useState<string | null>(null);
   const v = lore.data;
   const list = (v?.cards ?? []).filter((c) => c.shelf === tab);
   const shelfCount = (s: LoreShelf) => v?.shelves[s] ?? { owned: 0, total: 0 };
@@ -995,6 +1132,8 @@ export const BinhThuScreen: React.FC<{ session: Session; nav: SagaNav }> = ({ se
     </View>
   );
   const heroes = album.data;
+  // thẻ nổi bật (bản vẽ màn 11): thẻ em đang xem, mặc định thẻ mới nhận gần đây nhất
+  const featured = heroes ? heroes.cards.find((h) => h.code === (focus ?? heroes.latest_code)) ?? heroes.cards.find((h) => h.owned) ?? heroes.cards[0] ?? null : null;
   return (
     <BtPage testID="saga-binh-thu" max={1180}>
       <View style={{ gap: 2 }}>
@@ -1009,17 +1148,42 @@ export const BinhThuScreen: React.FC<{ session: Session; nav: SagaNav }> = ({ se
             <BtCard testID="binh-thu-heroes">
               <Txt f="heavy" size={15} color={t.ink}>Thẻ danh tướng</Txt>
               {!heroes ? <LoadState loading={album.loading} error={album.error} onRetry={album.reload} /> : (
-                <ScrollRow>
-                  {heroes.cards.map((h) => (
-                    <Pressable key={h.code} onPress={() => setHero(h)} accessibilityRole="button" testID={`hero-${h.code}`}
-                      accessibilityLabel={h.owned ? `Thẻ ${h.name}, ${h.title}` : `Thẻ ${h.name} chưa mở${h.stage_title ? `: xong chặng ${h.stage_title}` : ''}`}
-                      style={({ pressed }) => ({ width: 112, alignItems: 'center', gap: 4, opacity: pressed ? 0.85 : 1 })}>
-                      <HeroFace card={h} size={96} />
-                      <Txt f="heavy" size={12.5} color={h.owned ? t.ink : t.muted} center numberOfLines={2}>{h.name}</Txt>
-                      <Txt size={11} color={t.muted} center numberOfLines={1}>{h.owned ? RARITY[h.rarity]?.label ?? '' : 'Chưa mở'}</Txt>
-                    </Pressable>
-                  ))}
-                </ScrollRow>
+                <>
+                  {featured ? (
+                    <BtCard tone="night" testID="binh-thu-featured" style={{ flexDirection: 'row', gap: 14 }}>
+                      <View style={{ alignItems: 'center', gap: 6 }}>
+                        <HeroFace card={featured} size={96} />
+                        <Pill text={featured.owned ? RARITY[featured.rarity]?.label ?? '' : 'Chưa mở'} bg="rgba(255,255,255,0.14)" fg={t.gold} strong />
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+                        <SerifTitle size={19} color={t.onNight}>{featured.name}</SerifTitle>
+                        <Txt size={12.5} color={t.onNightMuted} style={{ lineHeight: 18 }} numberOfLines={6}>
+                          {featured.owned ? featured.intro || featured.title : `Thẻ còn khóa${featured.stage_title ? `: xong chặng “${featured.stage_title}” để mở` : ''}.`}
+                        </Txt>
+                        {featured.stage_title ? <Txt size={11.5} color={t.gold}>Mở ở chặng: {featured.stage_title}</Txt> : null}
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                          {featured.owned ? <BtButton title="Xem đầy đủ" size="sm" tone="gold" onPress={() => setHero(featured)} testID="hero-open" /> : null}
+                          <BtButton title="Hỏi Tiểu Tướng" size="sm" tone="glass" onPress={() => { askTieuTuong(`Kể cho em nghe về ${featured.name} trong các cuộc kháng chiến.`); nav.go('tieu-tuong'); }} testID="hero-ask" />
+                        </View>
+                      </View>
+                    </BtCard>
+                  ) : null}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {heroes.cards.map((h) => {
+                      const on = featured?.code === h.code;
+                      return (
+                        <Pressable key={h.code} onPress={() => setFocus(h.code)} accessibilityRole="button" accessibilityState={{ selected: on }} testID={`hero-${h.code}`}
+                          accessibilityLabel={h.owned ? `Thẻ ${h.name}, ${h.title}${on ? ', đang xem' : ''}` : `Thẻ ${h.name} chưa mở${h.stage_title ? `: xong chặng ${h.stage_title}` : ''}`}
+                          style={({ pressed }) => ({ flexGrow: 1, flexBasis: 96, maxWidth: 170, alignItems: 'center', gap: 4, padding: 8, borderRadius: 12, borderWidth: on ? 2 : 1,
+                            borderStyle: h.owned ? 'solid' : 'dashed', borderColor: on ? t.accent : h.owned ? t.line : t.line2, backgroundColor: on ? t.goldSoft : h.owned ? t.card : t.card2, opacity: pressed ? 0.85 : 1 })}>
+                          <HeroFace card={h} size={52} />
+                          <Txt f="heavy" size={11.5} color={h.owned ? t.ink : t.muted} center numberOfLines={2}>{h.name}</Txt>
+                          <Txt size={10.5} color={on ? t.accent : t.muted} center numberOfLines={1}>{on ? 'Đang xem' : h.owned ? h.title : h.stage_title ? `Mở ở ${h.stage_title}` : 'Chưa mở'}</Txt>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
               )}
               <Txt size={11.5} color={t.muted}>Tranh nhân vật là hình minh họa cách điệu, không phải chân dung lịch sử.</Txt>
             </BtCard>
@@ -1067,8 +1231,3 @@ export const BinhThuScreen: React.FC<{ session: Session; nav: SagaNav }> = ({ se
     </BtPage>
   );
 };
-
-/** Hàng cuộn ngang (thẻ danh tướng) */
-const ScrollRow: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>{children}</ScrollView>
-);

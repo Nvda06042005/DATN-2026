@@ -293,7 +293,10 @@ const todayVN = "(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date";
     const id = stageId['binh-le-nguyen'];
     const start = await api('POST', `/api/saga/stages/${id}/practice`, {});
     expect(start.body).toMatchObject({ kind: 'practice', total: 6, index: 0, pass_percent: 70, resumed: false });
-    for (const secret of ['correct', 'feedback', 'score_key', 'tokens', 'explanation', 'when']) expect(keysOf(start.body.items).has(secret)).toBe(false);
+    // mốc của câu xếp dòng thời gian có nhãn thời điểm (`slots`) nhưng thẻ sự kiện thì không; chưa mốc nào có thẻ
+    const noSlots = start.body.items.map(({ slots, ...rest }: any) => rest);
+    for (const secret of ['correct', 'feedback', 'score_key', 'tokens', 'explanation', 'when']) expect(keysOf(noSlots).has(secret)).toBe(false);
+    expect(start.body.items.flatMap((i: any) => i.slots ?? []).every((x: any) => x.card === null)).toBe(true);
     expect(start.body.items.map((i: any) => i.kind).sort()).toEqual(['locate', 'pairs', 'quiz', 'quiz', 'sequence', 'tactic']);
     expect((await api('POST', `/api/saga/stages/${id}/practice`, {})).body).toMatchObject({ session_id: start.body.session_id, resumed: true });
     const fail = await playItems(start.body, f.S1.token, 3);
@@ -596,6 +599,84 @@ const todayVN = "(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date";
     expect((await api('GET', '/api/saga/review')).body.due).toEqual([]);
     expect(await count("SELECT count(*) AS n FROM hk_points WHERE user_id = $1 AND ref_key LIKE 'hq:rv:%'", [f.S1.id])).toBe(new Set([...start.items, ...second.items].map((i: any) => i.id)).size);
     expect((await api('GET', '/api/saga/campaigns/1')).body.stages[0].state).toBe('done');
+  });
+
+  it('xếp dòng thời gian (26/11/2026): đặt từng thẻ vào mốc, máy chủ chấm ngay; sai thì gợi ý sớm / muộn hơn; đủ thẻ mới xong câu, sai một lần được nửa điểm', async () => {
+    const id = stageId['binh-le-nguyen'];
+    expect((await api('POST', `/api/saga/stages/${id}/lesson/complete`, {}, f.S2.token)).status).toBeLessThan(300);
+    const start = (await api('POST', `/api/saga/stages/${id}/practice`, { restart: true }, f.S2.token)).body;
+    const item = start.items.find((i: any) => i.kind === 'sequence');
+    const want = keys.get(item.id)!.data.items as Array<{ id: string; text: string; when?: string }>;
+    // các mốc theo thứ tự thời gian chỉ có nhãn thời điểm, chưa lộ thẻ nào ở mốc nào
+    expect(item.slots).toEqual(want.map((o, i) => ({ i, when: o.when ?? null, card: null })));
+    expect(item.misses).toBe(0);
+    const last = want.length - 1;
+    const wrong = await act(start.session_id, start.seq, { type: 'answer', item_id: item.id, answer: { place: { card: want[last].id, slot: 0 } } }, f.S2.token);
+    expect(wrong.status).toBe(200);
+    expect(wrong.body.outcome).toMatchObject({ done: false, correct: false, detail: { ok: false, placed: 0, total: want.length, misses: 1 } });
+    expect(wrong.body.outcome.detail.hint).toMatch(/diễn ra sau .*muộn hơn/);
+    expect(wrong.body.outcome.explanation).toBeUndefined(); // chưa xong câu thì chưa có lời giải
+    expect((await act(start.session_id, wrong.body.seq, { type: 'answer', item_id: item.id, answer: { place: { card: 'khong-co', slot: 0 } } }, f.S2.token)).status).toBe(400);
+    expect((await act(start.session_id, wrong.body.seq, { type: 'answer', item_id: item.id, answer: { place: { card: want[0].id, slot: 99 } } }, f.S2.token)).status).toBe(400);
+    let seq: number = wrong.body.seq;
+    let res: any = null;
+    for (const [i, o] of want.entries()) {
+      res = await act(start.session_id, seq, { type: 'answer', item_id: item.id, answer: { place: { card: o.id, slot: i } } }, f.S2.token);
+      expect(res.status).toBe(200);
+      seq = res.body.seq;
+      if (i < last) {
+        expect(res.body.outcome).toMatchObject({ done: false, correct: true, detail: { ok: true, placed: i + 1 } });
+        expect(res.body.view.items.find((x: any) => x.id === item.id).slots[i].card).toMatchObject({ id: o.id });
+        // mốc đã có thẻ không nhận thẻ khác
+        if (i === 0) expect((await act(start.session_id, seq, { type: 'answer', item_id: item.id, answer: { place: { card: want[1].id, slot: 0 } } }, f.S2.token)).status).toBe(400);
+      }
+    }
+    expect(res.body.outcome).toMatchObject({ done: true, correct: true, score: 0.5, detail: { misses: 1, total: want.length } });
+    expect(res.body.outcome.detail.order.map((o: any) => o.id)).toEqual(want.map((o) => o.id));
+    expect(typeof res.body.outcome.explanation).toBe('string');
+    // nửa điểm chưa tính là đúng: câu vào hàng ôn (tới hạn ngay)
+    await playItems(res.body.view, f.S2.token);
+    expect((await api('GET', '/api/saga/review', undefined, f.S2.token)).body.due.map((d: any) => d.item_id)).toContain(item.id);
+  });
+
+  it('Luyện binh riêng ôn giãn cách (migration 084): đúng câu tới hạn thì hẹn ôn lại sau 3 ngày; tới hạn đúng thêm lần nữa thì ra khỏi hàng ôn', async () => {
+    const seqItem = (await api('GET', '/api/saga/review', undefined, f.S2.token)).body.due.map((d: any) => d.item_id)
+      .find((id: number) => keys.get(id)!.kind === 'sequence') as number;
+    expect(seqItem).toBeDefined();
+    const want = keys.get(seqItem)!.data.items as Array<{ id: string }>;
+    /** làm một lượt ôn: câu xếp dòng thời gian đặt đúng từng thẻ, các câu khác trả lời đúng */
+    const round = async (): Promise<any> => {
+      const start = (await api('POST', '/api/saga/review/start', { restart: true }, f.S2.token)).body;
+      expect(start.items[0].id).toBe(seqItem); // câu tới hạn đứng đầu
+      let seq: number = start.seq;
+      let res: any = null;
+      for (const [i, o] of want.entries()) {
+        res = await act(start.session_id, seq, { type: 'answer', item_id: seqItem, answer: { place: { card: o.id, slot: i } } }, f.S2.token);
+        expect(res.status).toBe(200);
+        seq = res.body.seq;
+      }
+      expect(res.body.outcome).toMatchObject({ done: true, correct: true, score: 1, timeout: false });
+      const outcome = res.body.outcome;
+      await playItems(res.body.view, f.S2.token);
+      return outcome;
+    };
+    const first = await round();
+    expect(first.review).toMatchObject({ next: 'later', days: 3 });
+    let info = (await api('GET', '/api/saga/review', undefined, f.S2.token)).body;
+    expect(info.due.map((d: any) => d.item_id)).not.toContain(seqItem);
+    expect(info.later).toMatchObject({ gap_days: 3 });
+    expect(info.later.count).toBeGreaterThanOrEqual(1);
+    expect(await count('SELECT count(*) AS n FROM hk_saga_review WHERE user_id = $1 AND item_id = $2 AND box = 1 AND cleared_at IS NULL', [f.S2.id, seqItem])).toBe(1);
+    // chưa tới hạn: số câu cần ôn của chặng không tính câu đã hẹn
+    clock.advance(3 * 86_400_000 + 60_000);
+    try {
+      info = (await api('GET', '/api/saga/review', undefined, f.S2.token)).body;
+      expect(info.due.map((d: any) => d.item_id)).toContain(seqItem);
+      const second = await round();
+      expect(second.review).toMatchObject({ next: 'done' });
+      expect(await count('SELECT count(*) AS n FROM hk_saga_review WHERE user_id = $1 AND item_id = $2 AND cleared_at IS NOT NULL', [f.S2.id, seqItem])).toBe(1);
+      expect((await api('GET', '/api/saga/review', undefined, f.S2.token)).body.due.map((d: any) => d.item_id)).not.toContain(seqItem);
+    } finally { clock.reset(); }
   });
 
   it('màn Bạch Đằng (Khối 8) qua API: thua khi bày trận sai, thắng khi chơi đúng 3 sao; xong chặng nhận thẻ, huy hiệu, cờ hiệu Cọc Bạch Đằng; bảng vàng so với tuần trước', async () => {

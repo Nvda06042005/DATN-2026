@@ -509,7 +509,7 @@ export const ProfileScreen: React.FC<{ session: Session; nav: SagaNav; schoolNam
       {rank.names.map((n, i) => {
         const got = i <= rank.level, now = i === rank.level;
         return (
-          <View key={n} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, opacity: got ? 1 : 0.7 }} testID={`rank-${i}`}>
+          <View key={n} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} testID={`rank-${i}`}>
             <View style={{ width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: now ? t.accent : got ? t.goldSoft : t.card2, borderWidth: got && !now ? 1 : 0, borderColor: t.line2 }}>
               {got && !now ? <Check size={15} color={t.goldInk} strokeWidth={3} /> : <Txt f="heavy" size={13} color={now ? t.onAccent : t.muted}>{i + 1}</Txt>}
             </View>

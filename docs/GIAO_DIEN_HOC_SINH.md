@@ -97,3 +97,13 @@ Người dùng gửi bản vẽ 15 màn điện thoại (artifact trên claude.a
 ### Kiểm tra trên trình duyệt (26/11/2026)
 
 Chạy bản xuất web với máy chủ thật và cơ sở dữ liệu thử đã có tiến độ (migration 083 áp dụng lên dữ liệu cũ không lỗi) ở 390 px và 1366 px: Doanh trại, bốn khối, bản đồ gốc, Quân lệnh, Thám sử (nhặt đủ 5 thẻ), Hội đồng (6/6 câu), trận hội đồng Bạch Đằng 938 (thắng, 3 sao), Sử quan + hộp thưởng + lên cấp, Bảng vàng, Binh thư, Tiểu Tướng (máy AI chưa chạy thì báo dễ hiểu và giữ câu hỏi), Hồ sơ, Chợ phiên (mua Gợi ý), Giao diện (mua và đổi sang giao diện tối – cả trang đổi màu).
+
+### Đối chiếu lại bản vẽ – 26/11/2026
+
+- **Màn 10 "Luyện binh riêng – xếp dòng thời gian"**: câu xếp trình tự hiện các mốc thời gian theo thứ tự trên một đường dọc (mốc không có thời điểm ghi "Mốc n"); em chọn một thẻ sự kiện rồi chạm vào mốc. Máy chủ chấm từng lần đặt: đúng thì thẻ nằm lại (xanh, ✓), sai thì thẻ hiện đỏ một lúc và Tiểu Tướng gợi ý sự kiện xảy ra sớm hơn hay muộn hơn mốc vừa chọn. Đặt đúng hết ngay lần đầu mới trọn điểm, sai 1–2 lần được nửa điểm. Dùng cả ở Hội đồng quân sự. Màn Luyện binh riêng có nút đóng + thanh tiến độ "k/6", dòng "LUYỆN BINH RIÊNG · TIỂU TƯỚNG ĐỀ XUẤT", lý do Tiểu Tướng chọn lượt, và lịch ôn của từng câu ("Hẹn ôn lại sau 3 ngày" / "Đã nhớ chắc" / "Hỏi lại ở lượt sau") – ôn giãn cách theo migration 084.
+- Hội đồng quân sự hiện **"Thẻ Binh thư em đang có"** (bấm để đọc lại ở Thám sử).
+- Doanh trại: ô thứ ba là số chặng đã xong của khối em, thêm **thanh kinh nghiệm của cấp**, nhiệm vụ ghi "làm mới sau N giờ".
+- Bảng vàng: lưới huy hiệu gồm cả huy hiệu chưa có (ô mờ có ổ khóa, chữ vẫn đủ tương phản).
+- Binh thư (ngăn Nhân vật): **thẻ danh tướng nổi bật** (tranh, độ hiếm, giới thiệu, chặng mở thẻ, Xem đầy đủ, Hỏi Tiểu Tướng) + lưới thẻ; bấm một thẻ để xem.
+- Chưa làm: vật phẩm **"Đổi tướng hiệu"** (100 vàng) của Chợ phiên – học sinh hiện đổi biệt danh miễn phí trong hồ sơ, bán việc đổi tên sẽ bỏ quyền đó nên chờ người dùng quyết.
+- Sửa tương phản: các hàng "còn khóa" (chặng, bước, bậc Khoa bảng, huy hiệu) không làm mờ cả chữ bằng độ trong suốt nữa – chỉ làm mờ biểu tượng.

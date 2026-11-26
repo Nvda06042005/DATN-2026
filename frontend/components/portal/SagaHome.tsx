@@ -59,6 +59,13 @@ const StatePill: React.FC<{ state: StageBrief['state'] }> = ({ state }) => {
 };
 
 // ---------------------------------------------------------------------- 1. Doanh trại
+/** "Làm mới sau N giờ" – nhiệm vụ ngày làm mới lúc 0 giờ (giờ Việt Nam) của ngày máy chủ ghi trong `quests_reset` (YYYY-MM-DD) */
+function resetText(day: string | null | undefined): string {
+  const at = day ? new Date(`${day}T00:00:00+07:00`).getTime() : NaN;
+  if (!Number.isFinite(at)) return 'Nhiệm vụ làm mới lúc 0 giờ mỗi ngày.';
+  const h = Math.ceil((at - Date.now()) / 3_600_000);
+  return h <= 1 ? 'Nhiệm vụ làm mới trong chưa đầy 1 giờ nữa.' : h > 24 ? 'Nhiệm vụ làm mới lúc 0 giờ mỗi ngày.' : `Nhiệm vụ làm mới sau ${h} giờ.`;
+}
 /**
  * Doanh trại: lời chào + chỉ số (chuỗi ngày, vàng), thẻ chặng đang học (5 vạch bước, nút đi tiếp), nhiệm vụ hôm nay, gợi ý Luyện binh riêng của Tiểu Tướng,
  * chiến dịch của khối em, chuỗi ngày và mốc thưởng kế tiếp. Máy rộng: hai cột.
@@ -96,11 +103,23 @@ export const HomeScreen: React.FC<{ session: Session; nav: SagaNav; loading: boo
       </View>
     </View>
   );
+  const lv = home.hud.level;
+  // bản vẽ màn 1: ba ô (chuỗi ngày → Hồ sơ, vàng → Chợ phiên, chặng của khối → Chiến dịch) và thanh kinh nghiệm của cấp
   const stats = (
-    <View style={{ flexDirection: 'row', gap: 8 }} testID="home-stats">
-      <StatTile value={`${home.hud.streak.current} ngày`} label="Chuỗi học" color={t.accent} onPress={() => nav.go('ho-so')} testID="home-streak" />
-      <StatTile value={num(home.hud.gold)} label="Vàng · Chợ phiên" color={t.goldInk} onPress={() => nav.go('cua-hang')} testID="home-gold" />
-      <StatTile value={`Cấp ${home.hud.level.level}`} label={`${num(home.hud.xp)} KN`} onPress={() => nav.go('ho-so')} testID="home-level" />
+    <View style={{ gap: 10 }}>
+      <View style={{ flexDirection: 'row', gap: 8 }} testID="home-stats">
+        <StatTile value={`${home.hud.streak.current} ngày`} label="Chuỗi học" color={t.accent} onPress={() => nav.go('ho-so')} testID="home-streak" />
+        <StatTile value={num(home.hud.gold)} label="Vàng · Chợ phiên" color={t.goldInk} onPress={() => nav.go('cua-hang')} testID="home-gold" />
+        <StatTile value={gradeInfo ? `${gradeInfo.done}/${gradeInfo.stages}` : `Cấp ${lv.level}`} label={gradeInfo ? `chặng Khối ${gradeInfo.grade}` : `${num(home.hud.xp)} KN`}
+          onPress={() => (gradeInfo ? nav.go('chien-dich', { c: gradeInfo.grade }) : nav.go('ho-so'))} testID="home-level" />
+      </View>
+      <Pressable onPress={() => nav.go('ho-so')} accessibilityRole="button" accessibilityLabel={`Kinh nghiệm cấp ${lv.level}: ${num(lv.xp)}${lv.next_xp ? ` trên ${num(lv.next_xp)}` : ''} KN. Mở Hồ sơ`} testID="home-xp" style={{ gap: 5 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
+          <Txt size={12} color={t.muted}>Kinh nghiệm cấp {lv.level}{lv.title ? ` · ${lv.title}` : ''}</Txt>
+          <Txt size={12} color={t.muted}>{lv.next_xp ? `${num(lv.xp)} / ${num(lv.next_xp)}` : `${num(lv.xp)} KN`}</Txt>
+        </View>
+        <BtBar value={lv.progress / 100} label={`Tiến độ lên cấp ${lv.level + 1}: ${lv.progress}%`} />
+      </Pressable>
     </View>
   );
   const hero = next ? (
@@ -155,7 +174,7 @@ export const HomeScreen: React.FC<{ session: Session; nav: SagaNav; loading: boo
           {!q.done ? <BtBar value={q.target ? q.progress / q.target : 0} height={6} label={`${q.title}: ${q.progress}/${q.target}`} style={{ marginLeft: 30 }} /> : null}
         </View>
       )) : <Txt size={13} color={t.muted}>Hôm nay chưa có nhiệm vụ.</Txt>}
-      <Txt size={11.5} color={t.muted}>Nhiệm vụ làm mới lúc 0 giờ mỗi ngày.</Txt>
+      <Txt size={11.5} color={t.muted}>{resetText(home.quests_reset)}</Txt>
     </BtCard>
   );
   const suggest = home.suggest ? (
@@ -240,7 +259,7 @@ const StageRow: React.FC<{ st: StageBrief; current: boolean; onPress: () => void
     <Pressable onPress={onPress} accessibilityRole="button" testID={`stage-${st.code}`}
       accessibilityLabel={`Chặng ${st.order}: ${st.title}, ${st.date_label}. ${STATE[st.state].label}${st.stars ? `, ${st.stars} sao` : ''}${st.lock_reason ? `. ${st.lock_reason}` : ''}`}
       style={({ pressed }) => ({ flexDirection: 'row', gap: 12, alignItems: 'center', padding: 12, borderRadius: 16, borderWidth: current ? 2 : 1, borderColor: current ? t.accent : t.line,
-        backgroundColor: locked ? t.card2 : t.card, opacity: pressed ? 0.88 : locked ? 0.8 : 1 })}>
+        backgroundColor: locked ? t.card2 : t.card, opacity: pressed ? 0.88 : 1 })}>
       <View style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: done ? t.green : current ? t.accent : locked ? t.seg : t.goldSoft }}>
         {done ? <Check size={20} color={t.dark ? '#0F1115' : '#FFFFFF'} strokeWidth={3} /> : locked ? <Lock size={17} color={t.muted} /> : <Txt f="heavy" size={17} color={current ? t.onAccent : t.goldInk}>{st.order}</Txt>}
       </View>
@@ -469,7 +488,7 @@ export const OrderScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
                 <Pressable key={r.key} disabled={!can} onPress={() => open(r.v)} accessibilityRole="button" testID={`step-${r.key}`}
                   accessibilityLabel={`Bước ${r.n}, ${r.title}: ${s === 'done' ? 'đã xong' : s === 'ready' ? 'sẵn sàng' : 'chưa mở'}. ${note(r.key)}`}
                   style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 12, borderWidth: now ? 2 : 1, borderColor: now ? t.accent : t.line,
-                    backgroundColor: s === 'locked' ? t.card2 : t.card, opacity: pressed ? 0.85 : s === 'locked' ? 0.75 : 1 })}>
+                    backgroundColor: s === 'locked' ? t.card2 : t.card, opacity: pressed ? 0.85 : 1 })}>
                   <View style={{ width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: s === 'done' ? t.greenSoft : now ? t.accent : t.card2 }}>
                     {s === 'done' ? <Check size={18} color={t.green} strokeWidth={3} /> : s === 'locked' ? <Lock size={16} color={t.muted} /> : <Icon size={18} color={now ? t.onAccent : t.soft} />}
                   </View>
@@ -484,7 +503,7 @@ export const OrderScreen: React.FC<{ session: Session; nav: SagaNav; stageId: nu
             {d.steps.world !== 'none' ? (
               <Pressable disabled={d.steps.world === 'locked'} onPress={() => open('kham-pha')} accessibilityRole="button" testID="step-world"
                 accessibilityLabel={`Khám phá thêm trong thế giới 3D: ${d.steps.world === 'done' ? 'đã xong' : d.steps.world === 'ready' ? 'sẵn sàng' : 'mở sau khi qua Hội đồng'}`}
-                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: t.line2, opacity: pressed ? 0.85 : d.steps.world === 'locked' ? 0.7 : 1 })}>
+                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: t.line2, backgroundColor: d.steps.world === 'locked' ? t.card2 : 'transparent', opacity: pressed ? 0.85 : 1 })}>
                 <View style={{ width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: t.tealSoft }}><Box size={18} color={t.teal} /></View>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Txt f="heavy" size={14} color={t.ink}>Khám phá thêm (3D, không bắt buộc)</Txt>
@@ -640,21 +659,28 @@ export const BoardScreen: React.FC<{ session: Session; nav: SagaNav; classId: nu
       {home.rank.next && home.rank.next_name ? <Txt size={12.5} color={t.soft}>Còn {Math.max(0, home.rank.next.total - home.rank.next.done)} {home.rank.next.unit} nữa để đỗ {home.rank.next_name}.</Txt> : <Txt size={12.5} color={t.soft}>Em đã đỗ Trạng nguyên!</Txt>}
     </BtCard>
   ) : null;
-  const earned = (badges.data ?? []).filter((b) => b.earned);
+  const all = badges.data ?? [];
+  const earned = all.filter((b) => b.earned);
+  // bản vẽ màn 4: lưới huy hiệu – đã có thì có màu, chưa có thì mờ kèm ổ khóa và điều kiện (mô tả)
   const badgeCard = (
     <BtCard testID="board-badges">
-      <Txt f="heavy" size={15} color={t.ink}>Huy hiệu</Txt>
-      {!badges.data ? <Spinner /> : earned.length ? (
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <Txt f="heavy" size={15} color={t.ink}>Huy hiệu</Txt>
+        <Txt size={12} color={t.muted}>{earned.length}/{all.length}</Txt>
+      </View>
+      {!badges.data ? <Spinner /> : all.length ? (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {earned.map((b) => (
-            <View key={b.id} accessible accessibilityLabel={`Huy hiệu ${b.name}${b.description ? `: ${b.description}` : ''}`} style={{ width: 88, alignItems: 'center', gap: 4 }}>
-              <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: b.color || t.bronze, alignItems: 'center', justifyContent: 'center' }}><Award size={22} color="#FFFFFF" /></View>
-              <Txt size={11.5} f="semibold" color={t.ink} center numberOfLines={2}>{b.name}</Txt>
+          {[...earned, ...all.filter((b) => !b.earned)].slice(0, 12).map((b) => (
+            <View key={b.id} accessible accessibilityLabel={`Huy hiệu ${b.name}${b.earned ? '' : ', chưa có'}${b.description ? `: ${b.description}` : ''}`} style={{ width: 84, alignItems: 'center', gap: 4 }}>
+              <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: b.earned ? b.color || t.bronze : t.card2, borderWidth: b.earned ? 0 : 1, borderColor: t.line, alignItems: 'center', justifyContent: 'center', opacity: b.earned ? 1 : 0.7 }}>
+                {b.earned ? <Award size={22} color="#FFFFFF" /> : <Lock size={18} color={t.muted} />}
+              </View>
+              <Txt size={11} f="semibold" color={b.earned ? t.ink : t.muted} center numberOfLines={2}>{b.name}</Txt>
             </View>
           ))}
         </View>
-      ) : <Txt size={13} color={t.muted}>Chưa có huy hiệu. Xong chặng, giữ chuỗi ngày và đánh trận 3 sao để nhận huy hiệu.</Txt>}
-      <Txt size={11.5} color={t.muted}>{earned.length}/{(badges.data ?? []).length} huy hiệu</Txt>
+      ) : <Txt size={13} color={t.muted}>Chưa có huy hiệu nào.</Txt>}
+      {!earned.length && all.length ? <Txt size={12} color={t.muted}>Xong chặng, giữ chuỗi ngày và đánh trận 3 sao để nhận huy hiệu.</Txt> : null}
     </BtCard>
   );
   return (

@@ -180,6 +180,13 @@ const REVIEW_GRACE_MS = 3000;
 /** Thời gian tối đa đọc lời giải thích của câu trước khi trình duyệt không báo "đã mở câu": quá mức này đồng hồ của câu vẫn tính */
 const REVIEW_READ_MS = 90_000;
 const REVIEW_KINDS: ItemKind[] = ['quiz', 'tactic', 'sequence', 'locate'];
+/**
+ * Ôn giãn cách của Luyện binh riêng (26/11/2026, bản vẽ màn 10 "Ôn lại sau 3 ngày"; migration 084): câu sai vào hàng ôn và tới hạn ngay (ô 0);
+ * trả lời đúng câu tới hạn lần thứ nhất thì hẹn ôn lại sau REVIEW_GAP_DAYS ngày (ô 1); đúng thêm lần nữa khi tới hạn thì xong (cleared_at).
+ */
+const REVIEW_GAP_DAYS = 3;
+/** Điều kiện "tới hạn ôn" của một dòng hk_saga_review (bí danh `r`, tham số thời điểm hiện tại) */
+const REVIEW_DUE = (r: string, now: string): string => `(${r}.due_at IS NULL OR ${r}.due_at <= ${now})`;
 const notFound = (what: string): NotFoundException => new NotFoundException(`Không tìm thấy ${what}`);
 const isObj = (v: unknown): v is Record<string, any> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
@@ -205,10 +212,11 @@ export class SagaService {
     return new Map(rows.map((r) => [r.stage_id, r]));
   }
 
-  /** Số câu đã sai còn chờ ôn của từng chặng */
+  /** Số câu đã sai tới hạn ôn của từng chặng (câu hẹn ôn lại sau chưa tới ngày thì chưa tính – migration 084) */
   private async dueByStage(q: Q, userId: number): Promise<Map<number, number>> {
     const rows = await q<{ stage_id: number; n: number }>(
-      'SELECT i.stage_id, count(*)::int AS n FROM hk_saga_review r JOIN hk_saga_items i ON i.id = r.item_id WHERE r.user_id = $1 AND r.cleared_at IS NULL AND i.is_active GROUP BY i.stage_id', [userId]);
+      `SELECT i.stage_id, count(*)::int AS n FROM hk_saga_review r JOIN hk_saga_items i ON i.id = r.item_id
+       WHERE r.user_id = $1 AND r.cleared_at IS NULL AND ${REVIEW_DUE('r', '$2')} AND i.is_active GROUP BY i.stage_id`, [userId, this.game.clock.now()]);
     return new Map(rows.map((r) => [r.stage_id, r.n]));
   }
 
@@ -363,7 +371,8 @@ export class SagaService {
   private async suggestion(q: Q, user: UserRow) {
     const rows = await q<{ kind: ItemKind; n: number; titles: string[] }>(
       `SELECT i.kind, count(*)::int AS n, array_agg(DISTINCT s.title) AS titles FROM hk_saga_review r JOIN hk_saga_items i ON i.id = r.item_id AND i.is_active
-       JOIN hk_saga_stages s ON s.id = i.stage_id AND s.status = 'published' WHERE r.user_id = $1 AND r.cleared_at IS NULL GROUP BY i.kind ORDER BY count(*) DESC, i.kind`, [user.id]);
+       JOIN hk_saga_stages s ON s.id = i.stage_id AND s.status = 'published' WHERE r.user_id = $1 AND r.cleared_at IS NULL AND ${REVIEW_DUE('r', '$2')}
+       GROUP BY i.kind ORDER BY count(*) DESC, i.kind`, [user.id, this.game.clock.now()]);
     const total = rows.reduce((n, r) => n + r.n, 0);
     if (total > 0) {
       const top = rows[0];
@@ -913,13 +922,20 @@ export class SagaService {
    */
   private async recordAnswer(q: Q, user: UserRow, item: ItemRow & { stage_id: number }, sessionId: number, mode: 'practice' | 'review', correct: boolean): Promise<{ xp: number; gold: number }> {
     await q('INSERT INTO hk_saga_answers (user_id, item_id, stage_id, session_id, mode, correct) VALUES ($1, $2, $3, $4, $5, $6)', [user.id, item.id, item.stage_id, sessionId, mode, correct]);
+    const now = this.game.clock.now();
     if (!correct) {
-      await q(`INSERT INTO hk_saga_review (user_id, item_id) VALUES ($1, $2)
-               ON CONFLICT (user_id, item_id) DO UPDATE SET wrong_count = hk_saga_review.wrong_count + 1, last_wrong_at = now(), cleared_at = NULL`, [user.id, item.id]);
+      // câu sai: tới hạn ngay (due_at rỗng), về ô 0
+      await q(`INSERT INTO hk_saga_review (user_id, item_id, box, due_at) VALUES ($1, $2, 0, NULL)
+               ON CONFLICT (user_id, item_id) DO UPDATE SET wrong_count = hk_saga_review.wrong_count + 1, last_wrong_at = now(), cleared_at = NULL, box = 0, due_at = NULL`, [user.id, item.id]);
       return { xp: 0, gold: 0 };
     }
     await this.game.onCorrectAnswer(q, user);
-    if (mode === 'review') await q('UPDATE hk_saga_review SET cleared_at = now() WHERE user_id = $1 AND item_id = $2 AND cleared_at IS NULL', [user.id, item.id]);
+    // Luyện binh riêng: câu tới hạn đúng lần đầu → hẹn ôn lại sau 3 ngày; đúng thêm lần nữa khi tới hạn → đã nhớ chắc (ra khỏi hàng ôn)
+    if (mode === 'review') {
+      await q(`UPDATE hk_saga_review SET box = LEAST(box + 1, 2), cleared_at = CASE WHEN box >= 1 THEN now() END,
+                 due_at = CASE WHEN box >= 1 THEN due_at ELSE $3::timestamptz + make_interval(days => $4) END
+               WHERE user_id = $1 AND item_id = $2 AND cleared_at IS NULL AND ${REVIEW_DUE('hk_saga_review', '$3')}`, [user.id, item.id, now, REVIEW_GAP_DAYS]);
+    }
     const ref = mode === 'review' ? `hq:rv:${item.id}:${dayKey(this.game.clock.now())}` : `hq:ans:${item.id}`;
     const xp = (await this.game.awardXp(q, user, mode === 'review' ? XP.review : XP.answer, 'practice', ref)) ? (mode === 'review' ? XP.review : XP.answer) : 0;
     const gold = (await this.game.addGold(q, user, GOLD.answer, 'answer', ref)) ? GOLD.answer : 0;
@@ -1360,14 +1376,19 @@ export class SagaService {
     const due = await q<Record<string, any>>(
       `SELECT r.item_id, r.wrong_count, r.last_wrong_at, i.prompt, i.kind, s.id AS stage_id, s.title AS stage_title
        FROM hk_saga_review r JOIN hk_saga_items i ON i.id = r.item_id AND i.is_active JOIN hk_saga_stages s ON s.id = i.stage_id AND s.status = 'published'
-       WHERE r.user_id = $1 AND r.cleared_at IS NULL ORDER BY r.last_wrong_at DESC LIMIT 30`, [user.id]);
+       WHERE r.user_id = $1 AND r.cleared_at IS NULL AND ${REVIEW_DUE('r', '$2')} ORDER BY r.last_wrong_at DESC LIMIT 30`, [user.id, this.game.clock.now()]);
+    // câu đã trả lời đúng một lần, hẹn ôn lại sau (chưa tới hạn)
+    const later = await q<{ n: number; next_at: Date | null }>(
+      `SELECT count(*)::int AS n, min(r.due_at) AS next_at FROM hk_saga_review r JOIN hk_saga_items i ON i.id = r.item_id AND i.is_active
+       WHERE r.user_id = $1 AND r.cleared_at IS NULL AND NOT ${REVIEW_DUE('r', '$2')}`, [user.id, this.game.clock.now()]);
     const weak = (await this.weakObjectives(q, user.id)).filter((w) => w.percent < 80).sort((a, b) => a.percent - b.percent).slice(0, 8);
     const pool = Number((await q<{ n: string }>(
       `SELECT count(*) AS n FROM hk_saga_items i JOIN hk_saga_stages s ON s.id = i.stage_id AND s.status = 'published' JOIN hk_saga_progress p ON p.stage_id = s.id AND p.user_id = $1 AND p.practice_tries > 0
        WHERE i.is_active AND i.usage IN ('review', 'both') AND i.kind = ANY($2)`, [user.id, REVIEW_KINDS]))[0].n);
     const active = (await q<{ id: number }>("SELECT id::int AS id FROM hk_saga_sessions WHERE user_id = $1 AND kind = 'review' AND status = 'active'", [user.id]))[0];
     const stats = (await q<{ answers: number; right: number }>('SELECT count(*)::int AS answers, count(*) FILTER (WHERE correct)::int AS right FROM hk_saga_answers WHERE user_id = $1', [user.id]))[0];
-    return { due: due.map((d) => ({ ...d, kind_label: KIND_LABEL[d.kind as ItemKind] })), weak_objectives: weak, pool, can_start: pool > 0, active_session_id: active?.id ?? null, suggest: await this.suggestion(q, user),
+    return { due: due.map((d) => ({ ...d, kind_label: KIND_LABEL[d.kind as ItemKind] })), later: { count: later[0]?.n ?? 0, next_at: later[0]?.next_at ?? null, gap_days: REVIEW_GAP_DAYS },
+      weak_objectives: weak, pool, can_start: pool > 0, active_session_id: active?.id ?? null, suggest: await this.suggestion(q, user),
       size: Math.min(REVIEW_SIZE, pool), stats: { answers: stats.answers, right: stats.right, percent: stats.answers ? Math.round((stats.right / stats.answers) * 100) : 0 } };
   }
 
@@ -1378,15 +1399,16 @@ export class SagaService {
       if (active && !restart) return { ...(await this.view(q, user, active, null)), resumed: true, events: [] };
       if (active) await q("UPDATE hk_saga_sessions SET status = 'abandoned', finished_at = now(), updated_at = now() WHERE id = $1", [active.id]);
       const rows = await q<ItemRow & { stage_id: number; due: boolean }>(
-        `SELECT i.id, i.stage_id, i.kind, i.prompt, i.data, i.explanation, i.objective, i.source, (r.item_id IS NOT NULL) AS due
+        `SELECT i.id, i.stage_id, i.kind, i.prompt, i.data, i.explanation, i.objective, i.source, (r.item_id IS NOT NULL AND ${REVIEW_DUE('r', '$4')}) AS due
          FROM hk_saga_items i JOIN hk_saga_stages s ON s.id = i.stage_id AND s.status = 'published'
          JOIN hk_saga_progress p ON p.stage_id = s.id AND p.user_id = $1 AND p.practice_tries > 0
          LEFT JOIN hk_saga_review r ON r.item_id = i.id AND r.user_id = $1 AND r.cleared_at IS NULL
-         WHERE i.is_active AND i.usage IN ('review', 'both') AND i.kind = ANY($2) ORDER BY (r.item_id IS NOT NULL) DESC, r.last_wrong_at DESC NULLS LAST, random() LIMIT $3`, [user.id, REVIEW_KINDS, REVIEW_SIZE]);
+         WHERE i.is_active AND i.usage IN ('review', 'both') AND i.kind = ANY($2)
+         ORDER BY (r.item_id IS NOT NULL AND ${REVIEW_DUE('r', '$4')}) DESC, (r.item_id IS NOT NULL) ASC, r.last_wrong_at DESC NULLS LAST, random() LIMIT $3`, [user.id, REVIEW_KINDS, REVIEW_SIZE, this.game.clock.now()]);
       if (!rows.length) throw new ConflictException('Hãy luyện tập ít nhất một chặng trước khi ôn');
       const seed = Math.floor(Math.random() * 2 ** 30);
       const now = this.game.clock.now().getTime();
-      const state: ReviewState = { v: 1, streak: 0, best_streak: 0, slots: rows.map((r, i) => ({ ...newSlot(r, seed + i * 977), served_at: i === 0 ? now : null, limit_s: r.kind === 'sequence' ? 45 : r.kind === 'tactic' ? 30 : 20 })) };
+      const state: ReviewState = { v: 1, streak: 0, best_streak: 0, slots: rows.map((r, i) => ({ ...newSlot(r, seed + i * 977), served_at: i === 0 ? now : null, limit_s: r.kind === 'sequence' ? 60 : r.kind === 'tactic' ? 30 : 20 })) };
       const row = (await q<SessionRow>(`INSERT INTO hk_saga_sessions (user_id, stage_id, kind, state) VALUES ($1, NULL, 'review', $2) RETURNING ${SESSION_COLS}`, [user.id, JSON.stringify(state)]))[0];
       return { ...(await this.view(q, user, row, null)), resumed: false, events: [] };
     });
@@ -1411,6 +1433,8 @@ export class SagaService {
     const late = now - servedAt > slot.limit_s * 1000 + REVIEW_GRACE_MS + (slot.served_at === null ? REVIEW_READ_MS : 0);
     // hết giờ: tính là sai nhưng vẫn cho xem đáp án và giải thích
     const graded = gradeItem(item, slot, late ? {} : action.answer);
+    // xếp dòng thời gian: mỗi lần đặt một thẻ là một bước, chưa đủ thẻ thì câu chưa xong (đồng hồ vẫn chạy)
+    if (!graded.done) return { outcome: { item_id: item.id, ...graded, timeout: false }, finished: null };
     const correct = graded.score >= 1;
     // Luyện binh riêng: đúng một câu +10 KN +2 vàng, mỗi câu một lần mỗi ngày (recordAnswer)
     const { xp, gold } = await this.recordAnswer(q, user, item, row.id, 'review', correct);
@@ -1418,7 +1442,10 @@ export class SagaService {
     st.best_streak = Math.max(st.best_streak, st.streak);
     const nextSlot = st.slots[index + 1];
     if (nextSlot) { nextSlot.served_at = null; nextSlot.opened_at = now; }
-    const outcome = { item_id: item.id, ...graded, timeout: late, streak: st.streak, xp, gold, ...(await this.explain(q, item)) };
+    // lịch ôn của câu sau lượt này: hẹn ôn lại sau mấy ngày, hay đã nhớ chắc (ra khỏi hàng ôn)
+    const sched = (await q<{ cleared: boolean; due_at: Date | null }>('SELECT cleared_at IS NOT NULL AS cleared, due_at FROM hk_saga_review WHERE user_id = $1 AND item_id = $2', [user.id, item.id]))[0];
+    const review = !sched ? null : sched.cleared ? { next: 'done' } : correct && sched.due_at && sched.due_at.getTime() > now ? { next: 'later', days: REVIEW_GAP_DAYS, due_at: sched.due_at } : { next: 'again' };
+    const outcome = { item_id: item.id, ...graded, timeout: late, streak: st.streak, xp, gold, review, ...(await this.explain(q, item)) };
     st.xp = (st.xp ?? 0) + xp;
     st.gold = (st.gold ?? 0) + gold;
     if (nextSlot) return { outcome, finished: null };

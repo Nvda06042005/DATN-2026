@@ -156,6 +156,22 @@ test('năm bước của chặng: Thám sử nhặt thẻ có nguồn, Hội đ�
   // Luyện binh riêng: lượt ôn tính giờ, đồng hồ do máy chủ giữ (báo "ready" khi mở câu)
   for (const id of ['review-suggest', 'review-start', 'review-timer', 'review-result']) assert.ok(learn.includes(`testID="${id}"`), id);
   assert.match(learn, /else void act\(\{ type: 'ready' \}\);/);
+  // 26/11/2026 bản vẽ màn 10 "Luyện binh riêng – xếp dòng thời gian": câu xếp trình tự là dòng thời gian – chọn thẻ rồi chạm mốc, máy chủ chấm từng lần đặt
+  // (`{ place: { card, slot } }`), đặt sai thì Tiểu Tướng gợi ý sớm / muộn hơn; nút đóng + thanh tiến độ, lịch "hẹn ôn lại sau 3 ngày" (migration 084)
+  for (const id of ['timeline', 'timeline-hint', 'review-close', 'review-schedule', 'review-later']) assert.ok(learn.includes(`testID="${id}"`), id);
+  assert.match(learn, /testID=\{`timeline-slot-\$\{s\.i\}`\}/);
+  assert.match(learn, /testID=\{`timeline-card-\$\{c\.id\}`\}/);
+  assert.match(learn, /onAnswer\(\{ place: \{ card: pick, slot \} \}\)/);
+  assert.match(learn, /p\.item\.kind === 'sequence' \? \(p\.item\.slots \? <TimelineBody \{\.\.\.p\} \/> : <SequenceBody \{\.\.\.p\} \/>\)/);
+  assert.match(learn, /if \(!res\.outcome\.done\) \{ setStep\(res\.outcome\); return; \}/);
+  assert.match(learn, /Luyện binh riêng · Tiểu Tướng đề xuất/);
+  // Hội đồng hiện thẻ Binh thư em đang có; Binh thư có thẻ nổi bật + lưới thẻ danh tướng
+  for (const id of ['practice-lore', 'binh-thu-featured', 'hero-open', 'hero-ask']) assert.ok(learn.includes(`testID="${id}"`), id);
+  const homeScr = read('components', 'portal', 'SagaHome.tsx');
+  // Doanh trại: thanh kinh nghiệm, ô chặng của khối, "làm mới sau N giờ"; Bảng vàng: cả huy hiệu chưa có (mờ, có ổ khóa)
+  assert.ok(homeScr.includes('testID="home-xp"'), 'home-xp');
+  assert.match(homeScr, /function resetText\(day: string \| null \| undefined\): string/);
+  assert.match(homeScr, /\{b\.earned \? <Award size=\{22\} color="#FFFFFF" \/> : <Lock size=\{18\} color=\{t\.muted\} \/>\}/);
   // Binh thư: ba ngăn Nhân vật / Kế sách / Địa danh, thẻ danh tướng; tranh nhân vật ghi rõ là minh họa cách điệu
   for (const id of ['binh-thu-tab', 'binh-thu-heroes', 'binh-thu-card', 'hero-detail']) assert.ok(learn.includes(`testID="${id}"`), id);
   assert.match(learn, /saga\.lore\(tk\)/);
