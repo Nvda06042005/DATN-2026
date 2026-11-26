@@ -465,7 +465,7 @@ const todayVN = "(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date";
     expect(w.frames.find((x: any) => x.code === 'hoa-sen-vang').need).toBe('Đỗ Trạng nguyên');
     expect(w.flags.map((x: any) => [x.code, x.unlocked])).toEqual([['sat-that', true], ['thuyen-chien', false], ['pha-cuong-dich', false], ['rong-cuon', false], ['coc-bach-dang', false], ['an-dong-a', false]]);
     expect(w.themes.map((x: any) => [x.code, x.unlocked, x.price])).toEqual([['thang-long', true, null], ['bach-dang', false, 600], ['dem-dong-bo-dau', false, 600], ['hoang-thanh', false, null]]);
-    expect(w.items.map((x: any) => [x.code, x.price, x.weekly, x.bought_week])).toEqual([['lenh-bai', 150, 2, 0], ['goi-y', 50, 3, 0]]);
+    expect(w.items.map((x: any) => [x.code, x.price, x.weekly, x.bought_week])).toEqual([['lenh-bai', 150, 2, 0], ['goi-y', 50, 3, 0], ['doi-ten', 100, 1, 0]]);
     expect(w.titles.map((x: any) => x.unlocked)).toEqual([true, false, false, false, false, false, false]);
     expect((await api('GET', '/api/saga/home')).body.look).toEqual(w.equipped);
     expect((await api('POST', '/api/saga/cosmetics/equip', { frame: 'bach-dang' })).status).toBe(409);
@@ -505,6 +505,52 @@ const todayVN = "(now() AT TIME ZONE 'Asia/Ho_Chi_Minh')::date";
     expect((await api('GET', '/api/saga/shop', undefined, f.S2.token)).body).toMatchObject({ opened: 0, equipped: { frame: null, title: null, avatar: null, flag: null, theme: 'thang-long' } });
     const look = (await sql<{ appearance: Record<string, unknown> }>(s.url, 'SELECT appearance FROM hk_players WHERE user_id = $1', [f.S1.id]))[0].appearance;
     expect(look).toMatchObject({ saga_title: 'tan-binh-sat-that', saga_avatar: 'rong-con-vua', saga_frame: 'dong-co', saga_theme: 'thang-long' });
+  });
+
+  it('Đổi tướng hiệu: đặt biệt danh lần đầu miễn phí, đổi lại cần một lượt mua ở Chợ phiên (giữ tối đa 1 lượt, máy chủ trừ lượt khi lưu)', async () => {
+    const as2 = (m: string, p: string, b?: unknown) => api(m, p, b, f.S2.token);
+    const item = (w: any) => w.items.find((x: any) => x.code === 'doi-ten');
+    await sql(s.url, 'UPDATE app_users SET nickname = NULL WHERE id = $1', [f.S2.id]);
+    const before = (await as2('GET', '/api/saga/shop')).body;
+    const gold0 = before.gold;
+    await sql(s.url, 'UPDATE hk_players SET gold = 500 WHERE user_id = $1', [f.S2.id]);
+    expect(item(before)).toMatchObject({ name: 'Đổi tướng hiệu', price: 100, weekly: 1, have: 0 });
+    expect(item(before).block).toMatch(/miễn phí/);
+    // chưa có biệt danh: chưa cần mua, lần đặt đầu tiên miễn phí
+    expect((await as2('POST', '/api/saga/shop/buy', { kind: 'item', code: 'doi-ten' })).status).toBe(409);
+    expect((await as2('GET', '/api/auth/profile')).body.nickname_change).toEqual({ free: true, tokens: 0, price: 100 });
+    const first = await as2('PATCH', '/api/auth/profile', { nickname: 'Cờ Lau' });
+    expect(first.status).toBe(200);
+    expect(first.body.user.nickname).toBe('Cờ Lau');
+    expect(first.body.nickname_change).toEqual({ free: false, tokens: 0, price: 100 });
+    // lưu lại đúng biệt danh đang có (kèm ô khác) không cần lượt
+    expect((await as2('PATCH', '/api/auth/profile', { nickname: 'Cờ Lau', bio: 'Em thích sử' })).status).toBe(200);
+    // đổi lần hai hoặc xóa: cần lượt
+    const denied = await as2('PATCH', '/api/auth/profile', { nickname: 'Sóng Bạch Đằng' });
+    expect(denied.status).toBe(409);
+    expect(denied.body.detail).toMatch(/Đổi tướng hiệu/);
+    expect((await as2('PATCH', '/api/auth/profile', { nickname: null })).status).toBe(409);
+    expect((await as2('GET', '/api/auth/profile')).body.user.nickname).toBe('Cờ Lau');
+    // mua một lượt (giữ tối đa 1 lượt chưa dùng)
+    const bought = await as2('POST', '/api/saga/shop/buy', { kind: 'item', code: 'doi-ten' });
+    expect(bought.status).toBe(200);
+    expect(bought.body).toMatchObject({ gold: 400, renames: 1, nickname: 'Cờ Lau' });
+    expect(item(bought.body)).toMatchObject({ have: 1, bought_week: 1 });
+    expect(item(bought.body).block).toMatch(/chưa dùng/);
+    expect((await as2('POST', '/api/saga/shop/buy', { kind: 'item', code: 'doi-ten' })).status).toBe(409);
+    expect((await as2('GET', '/api/auth/profile')).body.nickname_change).toEqual({ free: false, tokens: 1, price: 100 });
+    const renamed = await as2('PATCH', '/api/auth/profile', { nickname: 'Sóng Bạch Đằng' });
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.user.nickname).toBe('Sóng Bạch Đằng');
+    expect(renamed.body.nickname_change).toEqual({ free: false, tokens: 0, price: 100 });
+    expect((await as2('PATCH', '/api/auth/profile', { nickname: 'Lần Ba' })).status).toBe(409);
+    // tuần này đã mua 1 lượt
+    expect((await as2('POST', '/api/saga/shop/buy', { kind: 'item', code: 'doi-ten' })).body.detail).toMatch(/Mỗi tuần/);
+    const buffs = (await sql<{ buffs: Record<string, number> }>(s.url, 'SELECT buffs FROM hk_players WHERE user_id = $1', [f.S2.id]))[0].buffs;
+    expect(buffs.doi_ten ?? 0).toBe(0);
+    expect(await count("SELECT count(*) AS n FROM hk_gold_ledger WHERE user_id = $1 AND reason = 'shop' AND ref_key LIKE 'hq:shop:item:doi-ten:%'", [f.S2.id])).toBe(1);
+    await sql(s.url, 'UPDATE app_users SET nickname = NULL, bio = NULL WHERE id = $1', [f.S2.id]);
+    await sql(s.url, 'UPDATE hk_players SET gold = $2 WHERE user_id = $1', [f.S2.id, gold0]);
   });
 
   it('đăng nhập lại vẫn đúng tiến độ; thẻ nhân vật và tư liệu mở theo kết quả học', async () => {

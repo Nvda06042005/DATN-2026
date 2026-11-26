@@ -9,6 +9,13 @@ import { notFound } from '../content/access';
 import { addDays, dayKey, daysBetween, dayStart, GameClock, monthKey, weekKey } from './clock';
 import { DAILY_GOALS, GameSettings, SettingsService, tierIndex } from './settings';
 
+/**
+ * "Đổi tướng hiệu" (26/11/2026, người dùng chọn): học sinh đặt biệt danh lần đầu miễn phí; đã có biệt danh thì mỗi lần đổi (kể cả xóa)
+ * dùng một lượt mua ở Chợ phiên Thăng Long. Số lượt lưu trong `hk_players.buffs` (khóa dưới đây) như vật phẩm Gợi ý chiến thuật.
+ */
+export const RENAME_BUFF = 'doi_ten';
+export const RENAME_PRICE = 100;
+
 export interface PlayerRow {
   user_id: number; class_id: number | null; hearts: number; hearts_at: Date; gold: number; xp: number; level: number; daily_goal: number; streak_current: number; streak_longest: number;
   streak_last_day: string | null; freezes: number; appearance: Record<string, number | null>; last_gift_day: string | null; gift_streak: number; league_tier: number;

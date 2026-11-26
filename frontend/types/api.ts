@@ -53,6 +53,8 @@ export interface ProfileData {
   classes: Array<{ id: number; class_code: string; name: string; grade: number | null; school_year: string; is_active: boolean; join_code?: string; teachers?: string[] }>;
   editable: EditableField[];
   needs_profile_confirmation: boolean;
+  /** học sinh (26/11/2026, "Đổi tướng hiệu"): đặt biệt danh lần đầu miễn phí; đã có thì mỗi lần đổi cần 1 lượt mua ở Chợ phiên (`price` vàng) */
+  nickname_change?: { free: boolean; tokens: number; price: number } | null;
 }
 export type ProfilePatch = Partial<Record<EditableField, string | null>>;
 

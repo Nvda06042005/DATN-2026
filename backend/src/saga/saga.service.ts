@@ -13,7 +13,7 @@
 import { createHash } from 'node:crypto';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService, Q, UserRow } from '../database/database.service';
-import { GameService } from '../game/game.service';
+import { GameService, RENAME_BUFF, RENAME_PRICE } from '../game/game.service';
 import { addDays, dayKey, weekKey } from '../game/clock';
 import { logEvent } from '../student/events';
 import { applyBachDang, bachDangResult, BdScenario, BdState, createBachDang, publicBachDang } from './bachdang';
@@ -159,12 +159,15 @@ const THEMES: LookDef[] = [
   { code: 'dem-dong-bo-dau', name: 'Đêm Đông Bộ Đầu', rarity: 'rare', need: { kind: 'gold', price: 600 } },
   { code: 'hoang-thanh', name: 'Hoàng thành', rarity: 'legendary', need: { kind: 'rank', level: 4 } },
 ];
-/** Vật phẩm hỗ trợ: giới hạn mua mỗi tuần để không ảnh hưởng công bằng trên Bảng vàng */
-const ITEMS: Array<{ code: 'lenh-bai' | 'goi-y'; name: string; price: number; weekly: number; note: string }> = [
+/** Vật phẩm hỗ trợ: giới hạn mua mỗi tuần để không ảnh hưởng công bằng trên Bảng vàng. "Đổi tướng hiệu" là một lượt đổi biệt danh (giữ tối đa 1 lượt chưa dùng) */
+const ITEMS: Array<{ code: 'lenh-bai' | 'goi-y' | 'doi-ten'; name: string; price: number; weekly: number; note: string }> = [
   { code: 'lenh-bai', name: 'Lệnh bài giữ chuỗi', price: 150, weekly: 2, note: 'Nghỉ một ngày không mất chuỗi học' },
   { code: 'goi-y', name: 'Gợi ý chiến thuật', price: 50, weekly: 3, note: 'Ở Hội đồng quân sự, gạch bỏ một phương án sai' },
+  { code: 'doi-ten', name: 'Đổi tướng hiệu', price: RENAME_PRICE, weekly: 1, note: 'Đổi biệt danh thêm một lần (lần đặt đầu tiên miễn phí trong Hồ sơ)' },
 ];
 const HINT_BUFF = 'goi_y';
+/** Vật phẩm lưu số lượt trong hk_players.buffs (Lệnh bài giữ chuỗi lưu ở cột freezes) */
+const ITEM_BUFF: Record<'goi-y' | 'doi-ten', string> = { 'goi-y': HINT_BUFF, 'doi-ten': RENAME_BUFF };
 /** Ảnh đại diện có sẵn (17/11/2026): Rồng Con và chân dung danh tướng của dự án, chọn tự do; giao diện vẽ theo mã, máy chủ chỉ kiểm mã hợp lệ */
 const AVATARS = ['rong-con-vui', 'rong-con-ra-tran', 'rong-con-hoc-gia', 'rong-con-non-la', 'rong-con-vua', 'rong-con-dang-yeu',
   'tran-hung-dao', 'tran-quoc-toan', 'tran-thu-do', 'tran-binh-trong', 'tran-nhan-tong', 'tran-khanh-du'];
@@ -573,13 +576,20 @@ export class SagaService {
     };
     const avatar = typeof look.saga_avatar === 'string' && AVATARS.includes(look.saga_avatar) ? look.saga_avatar : null;
     const week = weekKey(this.game.clock.now());
-    const items = ITEMS.map((it) => ({ code: it.code, name: it.name, price: it.price, weekly: it.weekly, note: it.note,
-      bought_week: ledger.filter((r) => r.reason === 'shop' && r.ref_key.startsWith(`hq:shop:item:${it.code}:${week}:`)).length,
-      have: it.code === 'lenh-bai' ? p.freezes : Number(p.buffs?.[HINT_BUFF] ?? 0) }));
+    const freezeMax = (await this.game.cfg()).streak.freeze_max;
+    const nickname = (await q<{ nickname: string | null }>('SELECT nickname FROM app_users WHERE id = $1', [user.id]))[0]?.nickname ?? null;
+    const items = ITEMS.map((it) => {
+      const have = it.code === 'lenh-bai' ? p.freezes : Number(p.buffs?.[ITEM_BUFF[it.code]] ?? 0);
+      // lý do chưa mua được (ngoài giới hạn tuần và số vàng): máy chủ quyết định, giao diện chỉ hiện
+      const block = it.code === 'lenh-bai' ? (have >= freezeMax ? `Em đang giữ tối đa ${freezeMax} Lệnh bài giữ chuỗi` : null)
+        : it.code === 'doi-ten' ? (!nickname ? 'Em chưa có biệt danh: lần đặt đầu tiên miễn phí trong Hồ sơ' : have >= 1 ? 'Em còn 1 lượt “Đổi tướng hiệu” chưa dùng' : null) : null;
+      return { code: it.code, name: it.name, price: it.price, weekly: it.weekly, note: it.note,
+        bought_week: ledger.filter((r) => r.reason === 'shop' && r.ref_key.startsWith(`hq:shop:item:${it.code}:${week}:`)).length, have, block };
+    });
     const chests = all.filter((s) => s.campaign_no !== null).length;
     return {
-      frames, flags, themes, titles, items, avatars: AVATARS, opened: opened.size, total: chests, gold: p.gold, freezes: p.freezes,
-      freeze_max: (await this.game.cfg()).streak.freeze_max, hints: Number(p.buffs?.[HINT_BUFF] ?? 0), rank: { level: rank.level, name: rank.name },
+      frames, flags, themes, titles, items, avatars: AVATARS, opened: opened.size, total: chests, gold: p.gold, freezes: p.freezes, nickname,
+      freeze_max: freezeMax, hints: Number(p.buffs?.[HINT_BUFF] ?? 0), renames: Number(p.buffs?.[RENAME_BUFF] ?? 0), rank: { level: rank.level, name: rank.name },
       equipped: { frame: pick(frames, look.saga_frame), title: pick(titles, look.saga_title), avatar, flag: pick(flags, look.saga_flag), theme: pick(themes, look.saga_theme)?.code ?? 'thang-long' },
     };
   }
@@ -624,13 +634,13 @@ export class SagaService {
       if (kind === 'item') {
         const it = ITEMS.find((x) => x.code === code) ?? (() => { throw notFound('vật phẩm'); })();
         const cur = w.items.find((x) => x.code === code)!;
+        if (cur.block) throw new ConflictException(cur.block);
         if (cur.bought_week >= it.weekly) throw new ConflictException(`Mỗi tuần chỉ mua được ${it.weekly} “${it.name}”`);
-        if (code === 'lenh-bai' && w.freezes >= w.freeze_max) throw new ConflictException(`Em đang giữ tối đa ${w.freeze_max} Lệnh bài giữ chuỗi`);
         if (w.gold < it.price) throw new ConflictException(`Chưa đủ vàng: cần ${it.price}, em có ${w.gold}`);
         const ok = await this.game.addGold(q, user, -it.price, 'shop', `hq:shop:item:${code}:${weekKey(this.game.clock.now())}:${cur.bought_week + 1}`);
         if (!ok) throw new ConflictException('Giao dịch này đã được ghi nhận');
         if (code === 'lenh-bai') await q('UPDATE hk_players SET freezes = freezes + 1, updated_at = now() WHERE user_id = $1', [user.id]);
-        else await q(`UPDATE hk_players SET buffs = jsonb_set(COALESCE(buffs, '{}'::jsonb), '{${HINT_BUFF}}', to_jsonb(COALESCE((buffs->>'${HINT_BUFF}')::int, 0) + 1)), updated_at = now() WHERE user_id = $1`, [user.id]);
+        else await q("UPDATE hk_players SET buffs = jsonb_set(COALESCE(buffs, '{}'::jsonb), ARRAY[$2::text], to_jsonb(COALESCE((buffs->>$2::text)::int, 0) + 1)), updated_at = now() WHERE user_id = $1", [user.id, ITEM_BUFF[it.code as 'goi-y' | 'doi-ten']]);
         await logEvent(null, user, 'shop_buy', 'saga_item', null, null, { code, price: it.price }, null, q);
         return { bought: { kind, code, name: it.name, price: it.price }, ...(await this.wardrobe(q, user)) };
       }

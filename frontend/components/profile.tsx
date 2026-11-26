@@ -84,7 +84,13 @@ export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (pa
     return picked && upload ? upload(await readAvatar(picked)) : null;
   });
   const removeAvatar = () => changeAvatar(() => save({ avatar_url: null }));
-  const textFields = editable.filter((k) => k !== 'avatar_url');
+  // "Đổi tướng hiệu" (học sinh, 26/11/2026): đặt lần đầu miễn phí; đã có biệt danh mà chưa có lượt đổi thì ô chỉ đọc (máy chủ cũng chặn)
+  const rename = data.nickname_change ?? null;
+  const nickLocked = Boolean(rename && !rename.free && rename.tokens < 1);
+  const nickHint = !rename ? LABEL.nickname.hint
+    : rename.free ? `${LABEL.nickname.hint} Lần đặt đầu tiên miễn phí; đổi lại sau này cần 1 lượt “Đổi tướng hiệu” (${rename.price} vàng ở Chợ phiên).`
+      : `${LABEL.nickname.hint} Em có ${rename.tokens} lượt “Đổi tướng hiệu”: lưu biệt danh mới sẽ dùng 1 lượt.`;
+  const textFields = editable.filter((k) => k !== 'avatar_url' && !(k === 'nickname' && nickLocked));
   const dirty = textFields.some((k) => (form[k] ?? '') !== ((user[k] as string | null) ?? ''));
   const info = (label: string, value: string | null | undefined) => (
     <View key={label} style={{ gap: 1, flexGrow: 1, flexBasis: 170, minWidth: 0 }}>
@@ -138,7 +144,11 @@ export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (pa
         {school ? info('Trường', `${school.name} (${school.school_code})`) : null}
         {user.role === 'student' && user.grade ? info('Khối', `Khối ${user.grade}`) : null}
         {classes.length ? info(user.role === 'teacher' ? 'Lớp đang dạy' : 'Lớp đã tham gia', classes.map((k) => `${k.class_code} (${k.school_year})`).join(', ')) : null}
+        {nickLocked ? info('Biệt danh', user.nickname) : null}
       </View>
+      {nickLocked && rename ? (
+        <Txt size={12} color={c.muc2} testID="profile-nickname-locked">Muốn đổi biệt danh, em mua “Đổi tướng hiệu” ({rename.price} vàng) ở Chợ phiên Thăng Long rồi quay lại đây.</Txt>
+      ) : null}
       {error ? <Inset style={{ backgroundColor: c.sonNhat }}><Txt color={c.sonChu} accessibilityRole="alert">{error}</Txt></Inset> : null}
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
         {textFields.map((k) => {
@@ -147,7 +157,7 @@ export const ProfileForm: React.FC<{ load: () => Promise<ProfileData>; save: (pa
             <View key={k} style={{ flexGrow: 1, flexBasis: meta.multiline ? '100%' : 220, minWidth: 0 }}>
               {k === 'phone'
                 ? <PhoneField label={meta.label} hint={'Đúng 10 chữ số, ví dụ 0901234567.'} value={form[k] ?? ''} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} />
-                : <Field label={meta.label} hint={meta.hint} value={form[k] ?? ''} onChangeText={(v) => setForm((f) => ({ ...f, [k]: v }))} autoCapitalize={k === 'email' || k === 'recovery_email' ? 'none' : 'sentences'}
+                : <Field label={meta.label} hint={k === 'nickname' ? nickHint : meta.hint} value={form[k] ?? ''} onChangeText={(v) => setForm((f) => ({ ...f, [k]: v }))} autoCapitalize={k === 'email' || k === 'recovery_email' ? 'none' : 'sentences'}
                 keyboardType={k === 'email' || k === 'recovery_email' ? 'email-address' : 'default'} multiline={meta.multiline} numberOfLines={meta.multiline ? 3 : 1} inputStyle={meta.multiline ? { minHeight: 72, textAlignVertical: 'top' } : undefined} />}
             </View>
           );

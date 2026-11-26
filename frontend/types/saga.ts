@@ -66,11 +66,17 @@ export interface SagaLook {
   frame: LookItem | null; title: LookItem | null; /** ảnh đại diện có sẵn (Rồng Con, danh tướng); null = ảnh / chữ cái của em */ avatar?: string | null;
   flag?: LookItem | null; theme?: ThemeCode | string;
 }
-export interface ShopItemView { code: 'lenh-bai' | 'goi-y'; name: string; price: number; weekly: number; note: string; bought_week: number; have: number }
+export interface ShopItemView {
+  code: 'lenh-bai' | 'goi-y' | 'doi-ten'; name: string; price: number; weekly: number; note: string; bought_week: number; have: number;
+  /** lý do máy chủ chưa cho mua (ngoài giới hạn tuần và số vàng), ví dụ đang giữ tối đa / chưa đặt biệt danh lần đầu */
+  block?: string | null;
+}
 /** Kho trang phục + Chợ phiên Thăng Long (25/11/2026) */
 export interface Wardrobe {
   frames: LookSlot[]; titles: LookSlot[]; flags: LookSlot[]; themes: LookSlot[]; items: ShopItemView[]; avatars: string[]; opened: number; total: number;
   gold: number; freezes: number; freeze_max: number; hints: number; rank: { level: number; name: string }; equipped: SagaLook;
+  /** biệt danh hiện tại và số lượt "Đổi tướng hiệu" chưa dùng (26/11/2026) */
+  nickname?: string | null; renames?: number;
   bought?: { kind: string; code: string; name: string; price: number };
 }
 export interface GradeView {

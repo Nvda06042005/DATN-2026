@@ -7,7 +7,7 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Platform, Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
-import { Check, Coins, Crown, Fence, Flag, Flame, KeyRound, LifeBuoy, Lightbulb, Lock, LogOut, Palette, Sailboat, ShieldCheck, Sparkles, Stamp, Store, Swords, Users } from 'lucide-react-native';
+import { Check, Coins, Crown, Fence, Flag, Flame, KeyRound, LifeBuoy, Lightbulb, Lock, LogOut, Palette, PenLine, Sailboat, ShieldCheck, Sparkles, Stamp, Store, Swords, Users } from 'lucide-react-native';
 import * as saga from '@/lib/saga-api';
 import { errorMessage } from '@/api/client';
 import type { Session } from '@/components/auth';
@@ -576,12 +576,13 @@ export const ProfileScreen: React.FC<{ session: Session; nav: SagaNav; schoolNam
 const SHOP_TABS: Array<{ value: ShopKind | 'item'; label: string }> = [{ value: 'frame', label: 'Khung' }, { value: 'flag', label: 'Cờ hiệu' }, { value: 'theme', label: 'Giao diện' }, { value: 'item', label: 'Vật phẩm' }];
 /**
  * Chợ phiên Thăng Long (bản vẽ màn 14): xem thử khung / cờ hiệu trên ảnh của em, mua bằng vàng (máy chủ trừ vàng qua sổ cái, mua rồi tự trang bị) hoặc dùng món đã có;
- * vật phẩm hỗ trợ (Lệnh bài giữ chuỗi, Gợi ý chiến thuật) có giới hạn mỗi tuần. Món đẹp nhất chỉ mở bằng thành tích.
+ * vật phẩm hỗ trợ (Lệnh bài giữ chuỗi, Gợi ý chiến thuật, Đổi tướng hiệu – một lượt đổi biệt danh, lần đặt đầu miễn phí) có giới hạn mỗi tuần. Món đẹp nhất chỉ mở bằng thành tích.
  */
 export const ShopScreen: React.FC<{ session: Session; nav: SagaNav }> = ({ session, nav }) => {
   const t = useBT();
   const toast = useToast();
-  const data = useLoad<Wardrobe>(session, (tk) => saga.shop(tk), []);
+  // đổi biệt danh ở Hồ sơ (mở từ thẻ "Đổi tướng hiệu") thì tải lại để thẻ hiện đúng số lượt còn lại
+  const data = useLoad<Wardrobe>(session, (tk) => saga.shop(tk), [session.user.nickname ?? null]);
   const [tab, setTab] = useState<ShopKind | 'item'>('frame');
   const [preview, setPreview] = useState<{ frame?: LookItem | null; flag?: LookItem | null; theme?: string }>({});
   const [confirm, setConfirm] = useState<{ kind: ShopKind | 'item'; code: string; name: string; price: number } | null>(null);
@@ -641,7 +642,10 @@ export const ShopScreen: React.FC<{ session: Session; nav: SagaNav }> = ({ sessi
                 const full = it.code === 'lenh-bai' && w.freezes >= w.freeze_max;
                 const weekDone = it.bought_week >= it.weekly;
                 const short = w.gold < it.price;
-                const Icon = it.code === 'lenh-bai' ? ShieldCheck : Lightbulb;
+                const rename = it.code === 'doi-ten';
+                // "Đổi tướng hiệu": chưa có biệt danh (đặt lần đầu miễn phí) hoặc đang có lượt thì mở Hồ sơ để đổi ngay
+                const canRename = rename && (!w.nickname || it.have > 0);
+                const Icon = it.code === 'lenh-bai' ? ShieldCheck : rename ? PenLine : Lightbulb;
                 return (
                   <BtCard key={it.code} testID={`shop-item-${it.code}`}>
                     <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
@@ -649,11 +653,17 @@ export const ShopScreen: React.FC<{ session: Session; nav: SagaNav }> = ({ sessi
                       <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
                         <Txt f="heavy" size={15} color={t.ink}>{it.name}</Txt>
                         <Txt size={13} color={t.soft}>{it.note}</Txt>
+                        {rename ? <Txt size={12} color={t.muted}>Biệt danh hiện tại: {w.nickname ?? 'chưa đặt'}</Txt> : null}
                         <Txt size={12} color={t.muted}>Đang có {it.have}{it.code === 'lenh-bai' ? `/${w.freeze_max}` : ''} · Tuần này đã mua {it.bought_week}/{it.weekly}</Txt>
+                        {it.block && !full ? <Txt size={12} color={t.goldInk} testID={`shop-block-${it.code}`}>{it.block}</Txt> : null}
                       </View>
                     </View>
-                    <BtButton title={full ? 'Đang giữ tối đa' : weekDone ? 'Hết lượt tuần này' : short ? `Cần thêm ${it.price - w.gold} vàng` : `Mua · ${it.price} vàng`} icon={Coins} tone="gold" size="sm"
-                      disabled={busy || full || weekDone || short} onPress={() => setConfirm({ kind: 'item', code: it.code, name: it.name, price: it.price })} full testID={`shop-buy-item-${it.code}`} />
+                    {canRename ? (
+                      <BtButton title={w.nickname ? 'Đổi biệt danh ngay' : 'Đặt biệt danh (miễn phí)'} icon={PenLine} tone="green" size="sm" onPress={() => nav.openAccount?.()} full testID="shop-rename-open" label="Mở Hồ sơ để đặt hoặc đổi biệt danh" />
+                    ) : (
+                      <BtButton title={full ? 'Đang giữ tối đa' : it.block ? 'Chưa cần mua' : weekDone ? 'Hết lượt tuần này' : short ? `Cần thêm ${it.price - w.gold} vàng` : `Mua · ${it.price} vàng`} icon={Coins} tone="gold" size="sm"
+                        disabled={busy || full || Boolean(it.block) || weekDone || short} onPress={() => setConfirm({ kind: 'item', code: it.code, name: it.name, price: it.price })} full testID={`shop-buy-item-${it.code}`} />
+                    )}
                   </BtCard>
                 );
               })}

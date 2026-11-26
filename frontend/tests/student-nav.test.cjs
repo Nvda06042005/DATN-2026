@@ -312,3 +312,15 @@ test('16/11/2026: tạo phòng thi đấu ở trang riêng (không còn hộp th
   assert.match(host, /testID="live-pin-display"/);
   assert.doesNotMatch(host, /join\.qr|quét mã QR|<Image /);
 });
+
+test('27/11/2026 "Đổi tướng hiệu": Chợ phiên có thẻ doi-ten mở Hồ sơ; hồ sơ khóa ô biệt danh khi đã có mà hết lượt (máy chủ vẫn là nơi chặn)', () => {
+  const look = read('components', 'portal', 'SagaLook.tsx');
+  const profile = read('components', 'profile.tsx');
+  assert.match(read('types', 'saga.ts'), /code: 'lenh-bai' \| 'goi-y' \| 'doi-ten'/);
+  assert.match(look, /testID="shop-rename-open"/);
+  assert.match(look, /nav\.openAccount\?\.\(\)/);
+  assert.match(look, /useLoad<Wardrobe>\(session, \(tk\) => saga\.shop\(tk\), \[session\.user\.nickname \?\? null\]\)/);
+  assert.match(profile, /const nickLocked = Boolean\(rename && !rename\.free && rename\.tokens < 1\);/);
+  assert.match(profile, /testID="profile-nickname-locked"/);
+  assert.match(read('types', 'api.ts'), /nickname_change\?: \{ free: boolean; tokens: number; price: number \} \| null;/);
+});

@@ -8,7 +8,8 @@ import { config } from '../config';
 import { currentSchoolLogo } from '../admin/school-brand';
 import { SecurityService } from './security.service';
 import { TwoFactorService } from '../platform/twofa.service';
-import { DatabaseService, Role, searchText, UserRow } from '../database/database.service';
+import { DatabaseService, Q, Role, searchText, UserRow } from '../database/database.service';
+import { RENAME_BUFF, RENAME_PRICE } from '../game/game.service';
 import { hashPassword, needsPasswordUpgrade, passwordFingerprint, sealPassword, verifyPassword } from './passwords';
 
 export type PublicUser = Omit<UserRow, 'password_hash' | 'token_version'>;
@@ -381,7 +382,11 @@ export class AuthService {
             COALESCE((SELECT json_agg(u.full_name ORDER BY u.full_name) FROM app_current_class_teachers t JOIN app_users u ON u.id = t.teacher_id WHERE t.class_id = c.id), '[]'::json) AS teachers
             FROM app_class_members m JOIN app_classes c ON c.id = m.class_id WHERE m.user_id = $1 ORDER BY c.school_year DESC, c.name`, [user.id])
         : [];
-    return { user: toPublic(user), school, school_year: year, classes, editable: PROFILE_FIELDS[user.role], needs_profile_confirmation: user.role === 'student' && !user.profile_confirmed_at };
+    // "Đổi tướng hiệu": lần đặt biệt danh đầu tiên miễn phí, đã có biệt danh thì cần lượt đổi mua ở Chợ phiên
+    const nicknameChange = user.role === 'student'
+      ? { free: !user.nickname, tokens: Number((await this.db.query<{ n: number }>('SELECT COALESCE((buffs->>$2::text)::int, 0) AS n FROM hk_players WHERE user_id = $1', [user.id, RENAME_BUFF]))[0]?.n ?? 0), price: RENAME_PRICE }
+      : null;
+    return { user: toPublic(user), school, school_year: year, classes, editable: PROFILE_FIELDS[user.role], needs_profile_confirmation: user.role === 'student' && !user.profile_confirmed_at, nickname_change: nicknameChange };
   }
 
   /** Tự sửa hồ sơ trong các trường vai trò được phép; trường khác bị từ chối rõ ràng thay vì bỏ qua âm thầm */
@@ -406,10 +411,29 @@ export class AuthService {
     if (email && keptRecovery && email.toLowerCase() === keptRecovery) throw new UnprocessableEntityException('Email chính phải khác email khôi phục');
     if (clean.length) {
       const sets = clean.map(([k], i) => `${k} = $${i + 2}`);
-      await this.db.query(`UPDATE app_users SET ${sets.join(', ')} WHERE id = $1`, [user.id, ...clean.map(([k, v]) => ((k === 'email' || k === 'recovery_email') && v ? v.toLowerCase() : v))]);
+      const nick = user.role === 'student' ? clean.find(([k]) => k === 'nickname') : undefined;
+      await this.db.tx(async (q) => {
+        if (nick) await this.spendRename(q, user.id, nick[1]);
+        await q(`UPDATE app_users SET ${sets.join(', ')} WHERE id = $1`, [user.id, ...clean.map(([k, v]) => ((k === 'email' || k === 'recovery_email') && v ? v.toLowerCase() : v))]);
+      });
       const fresh = (await this.db.getById(user.id))!;
       await this.db.query('UPDATE app_users SET search_text = $1 WHERE id = $2', [searchText(fresh.full_name, fresh.username, fresh.user_code, fresh.email, fresh.class_name), user.id]);
     }
     return this.profile((await this.db.getById(user.id))!);
+  }
+
+  /**
+   * "Đổi tướng hiệu" (26/11/2026, người dùng chọn): học sinh chưa có biệt danh thì đặt miễn phí; đã có thì mỗi lần đổi / xóa dùng một lượt
+   * mua ở Chợ phiên (hk_players.buffs). Khóa dòng người dùng và người chơi, trừ lượt cùng giao dịch với lần ghi biệt danh nên hai lần lưu cùng lúc không dùng chung một lượt.
+   */
+  private async spendRename(q: Q, userId: number, nickname: string | null): Promise<void> {
+    const current = (await q<{ nickname: string | null }>('SELECT nickname FROM app_users WHERE id = $1 FOR UPDATE', [userId]))[0]?.nickname ?? null;
+    if (!current || current === nickname) return;
+    const row = (await q<{ buffs: Record<string, number> | null }>('SELECT buffs FROM hk_players WHERE user_id = $1 FOR UPDATE', [userId]))[0];
+    const have = Number(row?.buffs?.[RENAME_BUFF] ?? 0);
+    if (have < 1) throw new ConflictException(`Em đã đặt biệt danh rồi. Muốn đổi, hãy mua “Đổi tướng hiệu” (${RENAME_PRICE} vàng) ở Chợ phiên Thăng Long.`);
+    const rest = Object.fromEntries(Object.entries(row?.buffs ?? {}).filter(([k]) => k !== RENAME_BUFF));
+    if (have > 1) rest[RENAME_BUFF] = have - 1;
+    await q('UPDATE hk_players SET buffs = $2, updated_at = now() WHERE user_id = $1', [userId, JSON.stringify(rest)]);
   }
 }

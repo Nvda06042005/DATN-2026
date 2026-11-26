@@ -45,7 +45,7 @@ test('hồ sơ cá nhân: ô dán liên kết https được thay bằng nút t�
   assert.match(profile, /blob\.size > AVATAR_MAX/);
   // xóa ảnh gửi avatar_url: null; đổi ảnh có hiệu lực ngay và không làm mất chữ đang gõ dở trong form
   assert.match(profile, /save\(\{ avatar_url: null \}\)/);
-  assert.match(profile, /const textFields = editable\.filter\(\(k\) => k !== 'avatar_url'\);/);
+  assert.match(profile, /const textFields = editable\.filter\(\(k\) => k !== 'avatar_url'( && [^;]+)?\);/);
   assert.match(profile, /setData\(next\);\s*onSaved\?\.\(next\.user\);/);
   assert.match(read('api', 'authApi.ts'), /uploadAvatar = \(token: string, body: \{ data: string \}\) => apiRequest<ProfileData>\('\/api\/auth\/avatar', \{ token, body \}\)/);
 });
