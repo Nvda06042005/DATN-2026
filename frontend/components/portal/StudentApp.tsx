@@ -8,6 +8,8 @@
  * c=1–3) được chuyển sang mục mới tương ứng. Mỗi lần chuyển mục, bộ điều hướng dựng một màn mới và giữ màn cũ ẩn bên dưới: màn không còn được xem thì gỡ hết
  * nội dung (game, đồng hồ, phím tắt, hộp thoại) để lúc nào cũng chỉ có một màn chơi đang chạy.
  * Chưa vào lớp nào: chỉ có danh sách lớp (đăng ký bằng mã), Hồ sơ, Giao diện và Trợ giúp.
+ * 26/11/2026 (người dùng chọn "Lớp học trước, rồi Doanh trại"): đăng nhập xong luôn mở trang LỚP HỌC trước (băng rôn + thẻ lớp), bấm VÀO LỚP mới tới Doanh trại;
+ * tải lại trang vẫn ở lớp đang vào, đăng nhập lại thì bắt đầu từ trang Lớp học. Không còn tự vào lớp đầu tiên.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
@@ -73,22 +75,28 @@ const THEME_KEY = 'donga.student.theme';
 const readTheme = (): string | null => { try { return globalThis.localStorage?.getItem(THEME_KEY) ?? null; } catch { return null; } };
 const writeTheme = (code: string): void => { try { globalThis.localStorage?.setItem(THEME_KEY, code); } catch { /* trình duyệt chặn lưu trữ */ } };
 /**
- * Lớp em đã chọn ở danh sách lớp: nhớ trong bộ nhớ và sessionStorage của thẻ trình duyệt (chỉ mã người dùng và mã lớp, không có token) để chuyển mục hay tải lại
- * trang vẫn ở trong lớp; đăng nhập lại thì tự vào lớp đang hoạt động đầu tiên.
+ * Lớp em đã bấm VÀO LỚP: nhớ trong bộ nhớ và sessionStorage của thẻ trình duyệt (mã người dùng, mã lớp và dấu của lần đăng nhập – không có token) để chuyển mục
+ * hay tải lại trang vẫn ở trong lớp. Dấu lần đăng nhập là băm ngắn của token: đăng nhập lại (token mới) thì dấu khác nên mở trang Lớp học trước.
+ * Ứng dụng gốc nhúng thế giới khối ghi sẵn lớp không kèm dấu (lib/world-map.ts) – vẫn nhận.
  */
-let enteredClass: { user: number; classId: number } | null = null;
+let enteredClass: { user: number; classId: number; login: string } | null = null;
 const ENTER_KEY = 'donga.student.entered-class';
-function readEntered(user: number): number | null {
-  if (enteredClass) return enteredClass.user === user ? enteredClass.classId : null;
+const loginMark = (token: string): string => {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < token.length; i += 1) { h ^= token.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16);
+};
+function readEntered(user: number, login: string): number | null {
+  if (enteredClass) return enteredClass.user === user && enteredClass.login === login ? enteredClass.classId : null;
   try {
-    const v = JSON.parse(globalThis.sessionStorage?.getItem(ENTER_KEY) ?? 'null') as { user?: unknown; classId?: unknown } | null;
-    if (v && v.user === user && Number.isInteger(v.classId)) { enteredClass = { user, classId: Number(v.classId) }; return enteredClass.classId; }
+    const v = JSON.parse(globalThis.sessionStorage?.getItem(ENTER_KEY) ?? 'null') as { user?: unknown; classId?: unknown; login?: unknown } | null;
+    if (v && v.user === user && Number.isInteger(v.classId) && (v.login === undefined || v.login === login)) { enteredClass = { user, classId: Number(v.classId), login }; return enteredClass.classId; }
   } catch { /* trình duyệt chặn lưu trữ: chỉ nhớ trong bộ nhớ */ }
   return null;
 }
-function writeEntered(user: number, classId: number | null): void {
-  enteredClass = classId ? { user, classId } : null;
-  try { if (classId) globalThis.sessionStorage?.setItem(ENTER_KEY, JSON.stringify({ user, classId })); else globalThis.sessionStorage?.removeItem(ENTER_KEY); } catch { /* như trên */ }
+function writeEntered(user: number, login: string, classId: number | null): void {
+  enteredClass = classId ? { user, classId, login } : null;
+  try { if (classId) globalThis.sessionStorage?.setItem(ENTER_KEY, JSON.stringify({ user, classId, login })); else globalThis.sessionStorage?.removeItem(ENTER_KEY); } catch { /* như trên */ }
 }
 
 function useHome(session: Session, active: boolean): { data: SagaHome | null; error: string | null; loading: boolean; reload: () => void } {
@@ -137,15 +145,10 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const [classTick, setClassTick] = useState(0);
   const myClasses = useLoad(() => authApi.myClasses(session.token), [session.token, classTick], session.expired);
   const gated = Boolean(myClasses.data) && !(myClasses.data ?? []).some((k) => k.is_active);
-  const [entered, setEnteredState] = useState<number | null>(() => readEntered(session.user.id));
-  const [leftClass, setLeftClass] = useState(false);
-  const enter = useCallback((id: number | null) => { writeEntered(session.user.id, id); setEnteredState(id); if (id !== null) setLeftClass(false); }, [session.user.id]);
-  // vừa đăng nhập: tự vào lớp đang hoạt động đầu tiên để mở thẳng Doanh trại (đổi lớp ở Hồ sơ → Lớp học của em)
-  useEffect(() => {
-    if (entered !== null || leftClass || !myClasses.data) return;
-    const first = myClasses.data.find((k) => k.is_active);
-    if (first) enter(first.id);
-  }, [entered, leftClass, myClasses.data, enter]);
+  // trang Lớp học trước (26/11/2026): chỉ vào lớp khi em bấm VÀO LỚP; đổi lớp ở Doanh trại (Đổi lớp) hoặc Hồ sơ → Lớp học của em
+  const login = useMemo(() => loginMark(session.token), [session.token]);
+  const [entered, setEnteredState] = useState<number | null>(() => readEntered(session.user.id, loginMark(session.token)));
+  const enter = useCallback((id: number | null) => { writeEntered(session.user.id, login, id); setEnteredState(id); }, [session.user.id, login]);
   const cls = (myClasses.data ?? []).find((k) => k.is_active && k.id === entered) ?? null;
   // chỉ nhận phần thưởng đang chờ của chính phiên này (đăng xuất rồi tài khoản khác đăng nhập trên cùng máy thì không thấy)
   const [reward, setRewardState] = useState<{ stageId: number; completion: Completion } | null>(() => (pendingReward && pendingReward.token === session.token ? { stageId: pendingReward.stageId, completion: pendingReward.completion } : null));
@@ -220,10 +223,12 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
 
   const pick = (id: SagaTab): void => go(id, { c: null, s: null, v: null });
   const stage = route.s !== null && route.v !== null ? { session, nav, stageId: route.s, campaignNo: route.c ?? home.data?.grade ?? 6 } : null;
-  // danh sách lớp: lớp của em thì vào học, lớp khác đăng ký bằng mã
+  // trang Lớp học: lớp của em thì VÀO LỚP, lớp khác đăng ký bằng mã. Vào lớp xong mở Doanh trại; nếu em đến từ một đường dẫn tới thẳng mục / chặng
+  // (thông báo, liên kết) thì mở đúng chỗ đó
+  const afterEnter = (): void => { if (route.tab === 'lop-hoc') pick('doanh-trai'); };
   const catalog = (
     <StudentCatalog session={session} home={home.data}
-      onJoined={(k) => { setClassTick((n) => n + 1); nav.refresh(); enter(k.id); pick('doanh-trai'); }} onEnter={(k) => { enter(k.id); pick('doanh-trai'); }} />
+      onJoined={(k) => { setClassTick((n) => n + 1); nav.refresh(); enter(k.id); afterEnter(); }} onEnter={(k) => { enter(k.id); afterEnter(); }} />
   );
   // màn đang nằm ẩn dưới một màn khác: không dựng gì để game, đồng hồ, phím tắt và hộp thoại của nó được gỡ sạch
   if (!focused) return <View style={{ flex: 1 }} testID="student-app-hidden" />;
@@ -261,7 +266,8 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
   const avatar = <FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={34} frame={look?.frame} preset={look?.avatar} flag={look?.flag} testID="top-framed-avatar" />;
   const active: SagaTab | null = NAV.some((it) => it.id === route.tab) ? route.tab : route.tab === 'luyen-binh' || route.tab === 'ho-so' || route.tab === 'cua-hang' || route.tab === 'giao-dien' ? 'doanh-trai' : route.tab === 'nhap-vai' ? 'chien-dich' : null;
   const navItems = needClass || gated ? [] : NAV;
-  const tabBar = !needClass && route.tab !== 'lop-hoc' && route.v === null && !NO_TABBAR.includes(route.tab) && navItems.length > 0;
+  // trang Lớp học khi đã ở trong lớp (Đổi lớp) vẫn có thanh dưới đáy để quay về; chưa vào lớp thì điện thoại dùng thanh gọn (logo, Hồ sơ, Đăng xuất)
+  const tabBar = !needClass && route.v === null && !NO_TABBAR.includes(route.tab) && navItems.length > 0;
 
   return (
     <ThemeContext.Provider value={{ c: palette, dark: bt.dark }}>
@@ -270,7 +276,7 @@ export const StudentApp: React.FC<{ session: Session }> = ({ session }) => {
       <View style={{ flex: 1, backgroundColor: bt.bg }} testID="student-app">
         {embed ? <View style={{ flex: 1, minHeight: 0, backgroundColor: bt.bg }} testID="student-embed">{body}</View> : (
           <StudentWorkspace session={session} nav={navItems} active={active} onSelect={pick} home={home.data} extra={extra} avatar={avatar}
-            onProfile={() => pick('ho-so')} tabBar={tabBar} schoolName={profile.data?.school?.name}>
+            onProfile={() => pick('ho-so')} tabBar={tabBar} phoneBar={needClass} schoolName={profile.data?.school?.name}>
             {body}
           </StudentWorkspace>
         )}

@@ -19,7 +19,7 @@ const DrumEngraving = React.memo(function DrumEngraving() {
       {[91, 99, 132, 140, 172, 180, 192].map(r => <Circle key={r} cx={200} cy={200} r={r} strokeWidth={r === 192 ? 2 : 1} />)}
       <Polygon points={sun} fill={c.logoGold} fillOpacity={0.12} strokeWidth={1.5} />
       <Circle cx={200} cy={200} r={19} strokeWidth={1.5} />
-      {Array.from({ length: 32 }, (_, i) => <G key={i} rotation={i * 11.25} origin="200, 200">
+      {Array.from({ length: 32 }, (_, i) => <G key={i} transform={`rotate(${i * 11.25} 200 200)`}>
         <Path d="M192 77 L200 64 L208 77 Z M194 49 L200 40 L206 49" strokeWidth={1.2} />
         <Path d="M195 15 L200 22 L205 15" strokeWidth={1} />
       </G>)}

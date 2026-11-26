@@ -68,6 +68,7 @@ Người dùng gửi bản vẽ 15 màn điện thoại (artifact trên claude.a
 - Mục phụ: Hồ sơ, Chợ phiên Thăng Long, Giao diện, Luyện binh riêng, Trợ giúp, Lớp học (danh sách lớp, đăng ký bằng mã), Nhập vai (thế giới khối 3D).
 - URL: `tab`, `c` (khối 6–9), `s` (chặng), `v` (bước: `quan-lenh`, `tham-su`, `hoi-dong`, `xuat-tran`, `su-quan`, `kham-pha`). Đường dẫn cũ tự chuyển: `tab=trang-chu` → Doanh trại, `tab=hoi|ai` → Tiểu Tướng, `v=hoc|luyen|tran|tong-ket` → bước mới, `c=1–3` → khối 6–8.
 - Chưa vào lớp nào: chỉ có danh sách lớp, Hồ sơ, Giao diện, Trợ giúp.
+- **26/11/2026 (người dùng chọn "Lớp học trước, rồi Doanh trại")**: đăng nhập xong luôn mở trang **LỚP HỌC** (băng rôn + thẻ lớp, `StudentClasses.tsx`) trước, bấm **VÀO LỚP** mới tới Doanh trại – không còn tự vào lớp đầu tiên. Tải lại trang (F5) vẫn ở lớp đang vào; đăng nhập lại (token mới) bắt đầu lại từ trang Lớp học (sessionStorage chỉ giữ mã người dùng, mã lớp và một dấu băm ngắn của lần đăng nhập, không giữ token). Mở bằng đường dẫn tới thẳng một mục / chặng thì vào lớp xong mở đúng chỗ đó. Doanh trại có liên kết **Đổi lớp**; trang Lớp học trên điện thoại có thanh gọn (logo, Hồ sơ, Đăng xuất), khi đã ở trong lớp thì vẫn có thanh 5 mục dưới đáy.
 
 ### Các màn (theo bản vẽ)
 

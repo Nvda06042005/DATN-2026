@@ -4,6 +4,7 @@
  *    Tiểu Tướng, Bảng vàng: biểu tượng + chữ, mục đang mở màu đỏ son). Các bước trong một chặng, Hồ sơ, Giao diện, Luyện binh riêng ẩn thanh dưới (có nút quay lại).
  *  - Máy tính: thanh đầu dạng viên thuốc như trước (logo, năm mục chỉ có chữ, chuỗi ngày, vàng, cài đặt, thông báo, ảnh đại diện → Hồ sơ, đăng xuất).
  * Màu lấy từ giao diện đang dùng (`useBT`). Không có menu trái.
+ * 26/11/2026: trang Lớp học (màn đầu sau khi đăng nhập, chưa vào lớp) trên điện thoại có thanh gọn `phoneBar`: logo, ảnh đại diện → Hồ sơ, Đăng xuất.
  */
 import { type ReactNode } from 'react';
 import { Platform, Pressable, View, useWindowDimensions } from 'react-native';
@@ -22,9 +23,9 @@ const WEB = Platform.OS === 'web';
 export interface StudentLink<T extends string> { id: T; label: string; count?: number }
 const ICONS: Record<string, IconType> = { 'doanh-trai': House, 'chien-dich': Flag, 'binh-thu': Layers, 'tieu-tuong': MessageSquareText, 'bang-vang': Trophy };
 
-export function StudentWorkspace<T extends string>({ session, nav, active, onSelect, home, extra, avatar, onProfile, tabBar = true, schoolName, children }: {
+export function StudentWorkspace<T extends string>({ session, nav, active, onSelect, home, extra, avatar, onProfile, tabBar = true, phoneBar = false, schoolName, children }: {
   session: Session; nav: ReadonlyArray<StudentLink<T>>; active: T | null; onSelect: (tab: T) => void; home: SagaHome | null;
-  extra?: ReactNode; avatar: ReactNode; onProfile: () => void; tabBar?: boolean; schoolName?: string; children: ReactNode;
+  extra?: ReactNode; avatar: ReactNode; onProfile: () => void; tabBar?: boolean; phoneBar?: boolean; schoolName?: string; children: ReactNode;
 }) {
   const t = useBT();
   const { width } = useWindowDimensions();
@@ -71,6 +72,18 @@ export function StudentWorkspace<T extends string>({ session, nav, active, onSel
               </Pressable>
             </View>
           </View>
+        </View>
+      ) : phoneBar ? (
+        <View testID="student-phonebar" style={{ zIndex: 30, backgroundColor: t.card, borderBottomWidth: 1, borderBottomColor: t.line, paddingTop: Math.max(6, insets.top), paddingBottom: 6, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View style={{ flex: 1, minWidth: 0 }}><BrandLogo compact brand={brand} /></View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>{extra}</View>
+          <Pressable testID="student-profile-open" accessibilityRole="button" accessibilityLabel="Mở Hồ sơ của em" onPress={onProfile} style={{ minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' }}>
+            {avatar}
+          </Pressable>
+          <Pressable testID="student-logout" accessibilityRole="button" accessibilityLabel="Đăng xuất" onPress={() => session.logout()}
+            style={({ pressed }) => ({ minWidth: 44, minHeight: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: pressed ? t.card2 : 'transparent' })}>
+            <LogOut size={18} color={t.muted} />
+          </Pressable>
         </View>
       ) : null}
       <View style={{ flex: 1, minHeight: 0 }}>{children}</View>

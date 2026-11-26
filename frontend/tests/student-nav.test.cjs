@@ -35,6 +35,13 @@ test('trang học sinh "Binh thư Sát Thát": năm mục chính, URL và đư�
   assert.match(app, /const needClass = \(gated \|\| !inClass\) && !BEFORE_CLASS\.includes\(route\.tab\);/);
   assert.match(app, /const body = needClass \|\| route\.tab === 'lop-hoc' \? catalog/);
   assert.doesNotMatch(app, /sessionStorage\?\.setItem\(ENTER_KEY, JSON\.stringify\(\{[^}]*token/);
+  // 26/11/2026 (người dùng chọn "Lớp học trước, rồi Doanh trại"): không tự vào lớp; đăng nhập lại (token mới → dấu khác) mở trang Lớp học trước,
+  // tải lại trang giữ lớp đang vào; lớp ghi sẵn của ứng dụng gốc (không có dấu) vẫn nhận; vào lớp xong giữ đường dẫn tới thẳng mục / chặng
+  assert.doesNotMatch(app, /const first = myClasses\.data\.find|leftClass/);
+  assert.match(app, /JSON\.stringify\(\{ user, classId, login \}\)/);
+  assert.match(app, /v\.login === undefined \|\| v\.login === login/);
+  assert.match(app, /const afterEnter = \(\): void => \{ if \(route\.tab === 'lop-hoc'\) pick\('doanh-trai'\); \};/);
+  assert.match(read('components', 'portal', 'SagaHome.tsx'), /onPress=\{\(\) => nav\.go\('lop-hoc'\)\} accessibilityRole="link" accessibilityLabel="Đổi lớp: mở trang Lớp học"/);
   // các màn của từng mục / bước
   for (const screen of ['HomeScreen', 'CampaignScreen', 'OrderScreen', 'ThamSuScreen', 'HoiDongScreen', 'ExploreScreen', 'BattleScreen', 'SuQuanScreen', 'BinhThuScreen', 'AskScreen', 'BoardScreen', 'ProfileScreen', 'ShopScreen', 'ThemeScreen', 'LuyenBinhScreen', 'RolePlayScreen', 'HelpPage']) assert.ok(app.includes(`<${screen} `), screen);
   assert.match(app, /saga\.home\(session\.token\)/);
@@ -61,7 +68,10 @@ test('trang học sinh "Binh thư Sát Thát": năm mục chính, URL và đư�
   for (const gone of ['student-sidebar', 'student-menu-toggle', '<Modal', 'setMenu(', 'homeMenu', 'student-home-menu']) assert.ok(!shell.includes(gone), gone);
   assert.match(shell, /const ICONS: Record<string, IconType> = \{ 'doanh-trai': House, 'chien-dich': Flag, 'binh-thu': Layers, 'tieu-tuong': MessageSquareText, 'bang-vang': Trophy \};/);
   assert.match(app, /const NO_TABBAR: readonly SagaTab\[\] = \['ho-so', 'cua-hang', 'giao-dien', 'luyen-binh'\];/);
-  assert.match(app, /const tabBar = !needClass && route\.tab !== 'lop-hoc' && route\.v === null && !NO_TABBAR\.includes\(route\.tab\) && navItems\.length > 0;/);
+  assert.match(app, /const tabBar = !needClass && route\.v === null && !NO_TABBAR\.includes\(route\.tab\) && navItems\.length > 0;/);
+  // trang Lớp học trước khi vào lớp: điện thoại có thanh gọn (logo, Hồ sơ, Đăng xuất) để không bị kẹt
+  assert.match(app, /phoneBar=\{needClass\}/);
+  assert.ok(shell.includes('testID="student-phonebar"'), 'student-phonebar');
   assert.match(read('components', 'portal', 'StudentDesign.tsx'), /paddingBottom: phone && tabBar \? 108 : 40/);
   assert.doesNotMatch(read('components', 'portal', 'NoticeCenter.tsx'), /label: 'Tối'/);
   assert.match(read('lib', 'saga-sound.ts'), /let enabled = false;/);

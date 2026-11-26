@@ -82,7 +82,12 @@ export const HomeScreen: React.FC<{ session: Session; nav: SagaNav; loading: boo
         <FramedAvatar name={session.user.full_name} uri={session.user.avatar_url} size={46} frame={look?.frame} preset={look?.avatar} flag={look?.flag} testID="home-avatar" />
       </Pressable>
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Eyebrow text={`Doanh trại${className ? ` · Lớp ${className}` : ''}`} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <Eyebrow text={`Doanh trại${className ? ` · Lớp ${className}` : ''}`} />
+          <Pressable onPress={() => nav.go('lop-hoc')} accessibilityRole="link" accessibilityLabel="Đổi lớp: mở trang Lớp học" hitSlop={12} testID="home-classes">
+            <Txt f="heavy" size={11.5} color={t.teal} style={{ textDecorationLine: 'underline' }}>Đổi lớp</Txt>
+          </Pressable>
+        </View>
         <SerifTitle size={width < 400 ? 21 : 24}>Chào {firstName}, sẵn sàng ra quân?</SerifTitle>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
           <Pill text={`Khoa bảng: ${home.rank.name}`} bg={t.goldSoft} fg={t.goldInk} strong />
