@@ -14,11 +14,11 @@ import {
   Trophy, Users, X, ZoomIn, ArrowUp, ArrowUpRight, FileSpreadsheet, Plus, Menu,
 } from 'lucide-react-native';
 import {
-  BattleBackdrop, BrandLogo, CloudBank, CornerSwirls, CourtBackdrop, EnemyBadge, FilmBackdrop, HeroMedallion, KahootShape, Mascot, PatternOverlay, VietnamFlag,
+  BattleBackdrop, BrandLogo, CloudBank, CornerSwirls, CourtBackdrop, EnemyBadge, HeroMedallion, KahootShape, Mascot, PatternOverlay, VietnamFlag,
 } from '@/components/art';
 import { Chip, Txt } from '@/components/ui';
 import { HomeVideo } from '@/components/home-video';
-import { HeroGallery } from '@/components/hero-gallery';
+import { BoardStage, TranShowcase, TrangNguyenSection } from '@/components/home-hall';
 import { ClosingTitle, HERO_INK, HeroTitle } from '@/components/hero-title';
 import { HALL_ART } from '@/components/portal/HallMedia';
 import { SectionHeading } from '@/components/section-heading';
@@ -843,11 +843,15 @@ const FactRow: React.FC<{ icon: IconType; label: string; text: string; color: st
   );
 };
 
-/** Bản đồ ba cuộc kháng chiến lấy từ Wikipedia tiếng Việt (Wikimedia Commons, phạm vi công cộng, tác giả Lưu Ly; trên trang không ghi dòng nguồn theo yêu cầu); ratio = rộng / cao của tệp */
+/**
+ * Bản đồ ba cuộc kháng chiến (27/11/2026, người dùng gửi): tranh minh họa vẽ lại theo ba bản đồ Wikipedia tiếng Việt (Wikimedia Commons, phạm vi công cộng,
+ * tác giả Lưu Ly – ghi công ở /thong-tin-hinh-anh), giữ địa danh và hướng mũi tên của bản gốc; không theo tỉ lệ. Trang học sinh vẫn dùng bản đồ gốc
+ * (`ban-do-khang-chien-*.webp`, có ghim vị trí chặng). ratio = rộng / cao của tệp.
+ */
 const CAMPAIGN_MAP: Record<1 | 2 | 3, { src: ImageSourcePropType; ratio: number }> = {
-  1: { src: require('../assets/ban-do-khang-chien-1.webp'), ratio: 1500 / 1052 },
-  2: { src: require('../assets/ban-do-khang-chien-2.webp'), ratio: 1000 / 1458 },
-  3: { src: require('../assets/ban-do-khang-chien-3.webp'), ratio: 1300 / 974 },
+  1: { src: require('../assets/ban-do-minh-hoa-1.jpg'), ratio: 1498 / 1050 },
+  2: { src: require('../assets/ban-do-minh-hoa-2.jpg'), ratio: 1031 / 1526 },
+  3: { src: require('../assets/ban-do-minh-hoa-3.jpg'), ratio: 1450 / 1085 },
 };
 
 /** Bản đồ của cuộc kháng chiến đang chọn; bấm để mở khung phóng to (điện thoại kéo ngang để xem hết) */
@@ -881,7 +885,7 @@ const CampaignMap: React.FC<{ id: 1 | 2 | 3; name: string; wide: boolean }> = ({
           {label}
         </Txt>
         <Txt size={12.5} color={INK_SOFT} style={{ lineHeight: 18 }}>
-          Mũi tên đỏ là quân Đại Việt, mũi tên đen là quân Mông Nguyên (tiến quân, rút chạy); chú thích đầy đủ nằm trong bản đồ.
+          Mũi tên đỏ là quân Đại Việt, mũi tên đen là quân {id === 1 ? 'Mông Cổ' : 'Nguyên'}, nét đứt là đường rút lui. Tranh vẽ lại theo bản đồ Wikipedia, không theo tỉ lệ.
         </Txt>
       </View>
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -1025,13 +1029,16 @@ const ExplorerSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
 };
 
 // ---------------------------------------------------------------------- danh tướng và lời ông cha
-/** Khối danh tướng với tiêu đề theo yêu cầu, dùng màu logo và hiển thị ngay khi cuộn tới. */
+/**
+ * Khối danh tướng với tiêu đề theo yêu cầu. 27/11/2026: bỏ lưới ảnh tượng, phù điêu (người dùng: "xóa toàn bộ ảnh có trong đó") và thay bằng khu trưng bày
+ * "Nhân vật thời Trần" của sảnh nhánh feat/giao_dien_hs_than_thien (ảnh chibi; tiểu sử theo HERO_PROFILE).
+ */
 const CastSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
   return (
     <Band id="danh-tuong" bg={c.logoPaper} wide={wide} onSection={onSection} decor={<GoldRings />}>
       <SectionHeading eyebrow="Gương mặt lịch sử" title="Các vị vua" accent="thời Trần" wide={wide} singleLine testID="generals-heading" />
-      <HeroGallery wide={wide} />
+      <TranShowcase initial="heroes" framed />
     </Band>
   );
 };
@@ -1186,12 +1193,20 @@ const FaqSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) =
 
 // ---------------------------------------------------------------------- kêu gọi cuối trang và chân trang
 /** Khối tối cuối trang: cảnh bình minh Bạch Đằng, mây trắng nối từ khối trên (kiểu khối ảnh tối + mây của Papumba) */
+const CLOSING_ART = require('../assets/loi-moi-bach-dang.jpg') as ImageSourcePropType;
+/** Lớp tối phủ tranh (đậm hơn ở giữa, nơi có tiêu đề và nút) */
+const CLOSING_SCRIM = (WEB
+  ? { backgroundImage: 'radial-gradient(ellipse 70% 62% at 50% 52%, rgba(8, 12, 20, 0.8) 0%, rgba(8, 12, 20, 0.52) 62%, rgba(8, 12, 20, 0.28) 100%)' }
+  : { backgroundColor: 'rgba(8, 12, 20, 0.45)' }) as unknown as ViewStyle;
+
 const ClosingSection: React.FC<{ wide: boolean }> = ({ wide }) => {
   const { c } = useTheme();
   const router = useRouter();
   return (
     <View testID="home-closing-section" style={{ width: '100%', backgroundColor: c.dem, overflow: 'hidden' }}>
-      <FilmBackdrop wide={wide} only={[7]} dim={0.12} scrim />
+      {/* 27/11/2026: tranh pixel quân dân nhà Trần mừng thắng trên sông Bạch Đằng (người dùng gửi) thay ảnh bìa điện ảnh; lớp tối ở giữa giữ chữ trắng đủ tương phản */}
+      <Image source={CLOSING_ART} resizeMode="cover" accessibilityLabel="Tranh minh họa quân dân nhà Trần mừng chiến thắng trên sông Bạch Đằng" style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]} />
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, CLOSING_SCRIM]} />
       <View style={{ width: '100%', maxWidth: 860, alignSelf: 'center', paddingHorizontal: 16, paddingTop: wide ? 190 : 150, paddingBottom: wide ? 130 : 90 }}>
       <Reveal from="scale">
       <View style={{ alignItems: 'center', gap: 22 }}>
@@ -1299,10 +1314,16 @@ export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; o
     </View>
     <PhaseCampaignGallery wide={wide} onSection={onSection} />
     <CloudPair upper={c.xam} lower={c.logoPaper} wide={wide} variant={1} />
+    {/* 27/11/2026: "Muốn làm Trạng nguyên?", Bậc danh hiệu và Bảng vàng lấy từ sảnh của nhánh feat/giao_dien_hs_than_thien (components/home-hall.tsx) */}
+    <TrangNguyenSection wide={wide} />
+    <SectionCloud color={c.logoPaper} rim wide={wide} variant={0} />
     <HomeVideo wide={wide} onImmersiveChange={onVideoImmersiveChange} />
     <SectionCloud color={c.logoPaper} rim wide={wide} direction="up" variant={1} />
     <ShowcaseSection wide={wide} onSection={onSection} />
-    <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={1} />
+    <SectionCloud color={c.logoPaper} rim wide={wide} variant={2} />
+    <TranShowcase initial="ranks" />
+    <BoardStage wide={wide} />
+    <SectionCloud color={c.logoPaper} rim wide={wide} direction="up" variant={0} />
     <ExplorerSection wide={wide} onSection={onSection} />
     <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={1} />
     <CastSection wide={wide} onSection={onSection} />

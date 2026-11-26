@@ -1,11 +1,9 @@
 import { useRef } from 'react';
 import { Linking, Pressable, View, useWindowDimensions, type ScrollViewInstance } from 'react-native';
-import { HeroPhotoCredit } from '@/components/hero-photo';
 import { Band, GoldRings, PAPER_CARD } from '@/components/home';
 import { InfoShell } from '@/components/info-page';
 import { SectionHeading } from '@/components/section-heading';
 import { Txt } from '@/components/ui';
-import { HEROES } from '@/constants/heroes';
 import { MAP_IMAGE_CREDITS } from '@/constants/map-credits';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useTheme } from '@/hooks/use-theme';
@@ -37,20 +35,16 @@ function ImageCredits() {
         </View>
         <View testID="map-image-credits" style={[{ gap: 8, padding: wide ? 28 : 20, borderWidth: 1, borderRadius: 28 }, PAPER_CARD]}>
           <Txt f="heavy" size={wide ? 24 : 20} color={c.logoInk} accessibilityRole="header">Bản đồ ba lần kháng chiến</Txt>
-          <Txt color={c.logoInk}>Tác giả: Lưu Ly · Phạm vi công cộng · Bản hiển thị được thu nhỏ và chuyển WebP.</Txt>
+          <Txt color={c.logoInk}>Tác giả: Lưu Ly · Phạm vi công cộng. Trang học sinh dùng bản gốc (thu nhỏ, chuyển WebP); trang chủ dùng tranh minh họa vẽ lại theo ba bản đồ này, giữ địa danh và hướng tiến quân, không theo tỉ lệ.</Txt>
           {MAP_IMAGE_CREDITS.map((map) => (
             <Pressable key={map.id} accessibilityRole="link" accessibilityLabel={`Nguồn bản đồ kháng chiến lần ${map.id} trên Wikipedia`} onPress={() => { void Linking.openURL(map.url); }} style={{ minHeight: 44, justifyContent: 'center' }}>
               <Txt color={c.logoRed} style={{ textDecorationLine: 'underline' }}>Bản đồ kháng chiến lần {map.id} ({map.years}) · Wikipedia ↗</Txt>
             </Pressable>
           ))}
         </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 20 }}>
-          {HEROES.map((hero) => (
-            <View key={hero.id} style={[{ flexBasis: wide ? '47%' : '100%', flexGrow: 1, gap: 8, padding: wide ? 28 : 20, borderWidth: 1, borderRadius: 28 }, PAPER_CARD]}>
-              <Txt f="bold" size={20} color={c.logoInk} accessibilityRole="header">{hero.name}</Txt>
-              <HeroPhotoCredit id={hero.id} />
-            </View>
-          ))}
+        <View testID="hall-art-credit" style={[{ gap: 8, padding: wide ? 28 : 20, borderWidth: 1, borderRadius: 28 }, PAPER_CARD]}>
+          <Txt f="heavy" size={wide ? 24 : 20} color={c.logoInk} accessibilityRole="header">Tranh minh họa nhân vật, danh hiệu và Bảng vàng</Txt>
+          <Txt color={c.logoInk}>Tranh chibi nhân vật thời Trần, tranh năm bậc Khoa bảng, cảnh Hoàng thành, khung Bảng vàng và tranh bàn kế trận Bạch Đằng là bộ minh họa của nhóm Đông A (nhánh giao diện học sinh). Đây là hình cách điệu, không phải chân dung thật: không có chân dung đương thời nào của các nhân vật này còn lại.</Txt>
         </View>
       </View>
     </Band>

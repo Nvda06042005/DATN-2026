@@ -7,9 +7,8 @@ import {
 import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
 import { Play, Volume2, VolumeX, X } from 'lucide-react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { PatternOverlay } from '@/components/art';
 import { useScrollY } from '@/components/motion';
+import { HALL_ART } from '@/components/portal/HallMedia';
 import { Btn, Txt } from '@/components/ui';
 import { useReduceMotion } from '@/hooks/use-motion';
 import { useTheme } from '@/hooks/use-theme';
@@ -30,22 +29,16 @@ function playVideo(player: VideoPlayer, container: ViewInstance | null) {
   } else player.play();
 }
 
-/** Họa tiết cờ, mặt trời, núi và sóng lấy cảm hứng từ chính logo; không dùng hình trang mẫu. */
-function LogoBackdrop() {
-  const { c } = useTheme();
+/**
+ * Nền khung video (27/11/2026, người dùng: lấy nền của khối "Hướng dẫn cách chơi" ở sảnh nhánh feat/giao_dien_hs_than_thien): tranh bàn kế trận Bạch Đằng
+ * (ban-ke-bach-dang.jpg) phủ kín, thêm lớp tối như khối đó để khung video nổi lên.
+ */
+function CouncilBackdrop() {
   return (
-    <Svg width="100%" height="100%" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" accessibilityElementsHidden>
-      <Rect width="1440" height="900" fill={c.logoPaper} />
-      {Array.from({ length: 10 }, (_, i) => <Rect key={i} x={i * 160} width="80" height="900" fill={c.logoGold} opacity="0.09" />)}
-      <Circle cx="150" cy="260" r="112" fill={c.logoGold} opacity="0.55" />
-      <Circle cx="150" cy="260" r="132" stroke={c.logoGold} strokeWidth="2" fill="none" opacity="0.4" />
-      <Path d="M1100 0H1440V280C1360 200 1310 237 1230 155S1130 70 1100 0Z" fill={c.logoRed} />
-      <Path d="M1180 0C1230 85 1310 155 1440 174" stroke={c.logoGold} strokeWidth="8" fill="none" />
-      <Path d="M1060 610L1190 410 1300 570 1370 480 1490 660V900H980Z" fill={c.logoInk} opacity="0.12" />
-      <Path d="M0 790C200 630 340 890 600 780S1050 660 1440 760V900H0Z" fill={c.logoInk} />
-      <Path d="M-60 860C170 700 380 930 670 815S1100 760 1500 820" stroke={c.logoGold} strokeWidth="10" fill="none" />
-      <Path d="M0 910C240 790 400 970 720 868S1120 820 1440 880" stroke={c.logoPaper} strokeWidth="3" fill="none" opacity="0.5" />
-    </Svg>
+    <View style={StyleSheet.absoluteFill}>
+      <Image source={HALL_ART.bachDangPlan} resizeMode="cover" accessibilityLabel="Tranh minh họa các tướng nhà Trần họp bàn kế trận Bạch Đằng" style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(5, 22, 43, 0.5)' }]} />
+    </View>
   );
 }
 
@@ -197,8 +190,7 @@ export function HomeVideo({ wide, onImmersiveChange }: { wide: boolean; onImmers
         pin ? { position: 'sticky', top: 0 } as unknown as ViewStyle : null,
       ]}>
         <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: progress.interpolate({ inputRange: [0, 0.8, 1], outputRange: [1, 0.6, 0], ...clipped }) }]}>
-          <LogoBackdrop />
-          <PatternOverlay opacity={0.075} />
+          <CouncilBackdrop />
         </Animated.View>
         <Animated.View testID="home-video-frame" style={[{ borderColor: c.logoGold, overflow: 'hidden', backgroundColor: c.logoInk, boxShadow: `0 24px 70px ${c.bong}` }, frameStyle]}>
           <View ref={preview} pointerEvents="none" style={StyleSheet.absoluteFill}>
