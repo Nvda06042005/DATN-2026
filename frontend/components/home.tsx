@@ -18,7 +18,7 @@ import {
 } from '@/components/art';
 import { Chip, Txt } from '@/components/ui';
 import { HomeVideo } from '@/components/home-video';
-import { BoardStage, GallerySection, TranShowcase, TrangNguyenSection } from '@/components/home-hall';
+import { BoardStage, GallerySection, SHOWCASE_EDGE, TranShowcase, TrangNguyenSection } from '@/components/home-hall';
 import { ClosingTitle, HERO_INK, HeroTitle } from '@/components/hero-title';
 import { HALL_ART } from '@/components/portal/HallMedia';
 import { SectionHeading } from '@/components/section-heading';
@@ -1314,6 +1314,8 @@ export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; o
     <View id="danh-tuong" onLayout={(e) => onSection('danh-tuong', e.nativeEvent.layout.y)} style={ANCHOR}>
       <TranShowcase initial="ranks" />
     </View>
+    {/* Dải mây vàng ngăn khu trưng bày với sân khấu Bảng vàng (mây trôi, đổi dáng, ánh sáng lướt như các chỗ nối khác của trang) */}
+    <CloudPair upper={SHOWCASE_EDGE} lower={SHOWCASE_EDGE} wide={wide} variant={1} />
     <BoardStage wide={wide} />
     <SectionCloud color={c.logoPaper} rim wide={wide} direction="up" variant={0} />
     <ExplorerSection wide={wide} onSection={onSection} />

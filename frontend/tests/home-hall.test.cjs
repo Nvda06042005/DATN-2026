@@ -98,3 +98,13 @@ test('thư viện tranh (ảnh 15) ngay sau Lời ông cha còn vang mãi; tự 
   assert.match(hall, /const live = seen && onScreen && !reduce && !hover;/);
   assert.equal((hall.match(/\{ key: '[a-z0-9-]+', title: '/g) || []).filter(Boolean).length >= 10, true);
 });
+
+test('dải mây ngăn khu trưng bày với Bảng vàng: cùng màu đáy hai khối, có hiệu ứng như các chỗ nối khác', () => {
+  const home = read('components', 'home.tsx');
+  const body = home.slice(home.indexOf('export const HomeSections'));
+  assert.match(body, /<TranShowcase initial="ranks" \/>\s*<\/View>\s*\{\/\*[^*]*\*\/\}\s*<CloudPair upper=\{SHOWCASE_EDGE\} lower=\{SHOWCASE_EDGE\} wide=\{wide\} variant=\{1\} \/>\s*<BoardStage/);
+  const hall = read('components', 'home-hall.tsx');
+  assert.match(hall, /export const SHOWCASE_EDGE = LOGO\.inkDeep;/);
+  assert.match(hall, /linear-gradient\(180deg, rgba\(21,38,32,0\) 72%, \$\{SHOWCASE_EDGE\} 100%\)/);
+  assert.match(hall, /testID="home-board-stage" style=\{\{ width: '100%', overflow: 'hidden', backgroundColor: LOGO\.inkDeep \}\}/);
+});

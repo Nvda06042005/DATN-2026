@@ -37,6 +37,9 @@ const LOGO = {
   paper: '#faf4e7',
 };
 
+/** Màu đáy khu trưng bày = nền sân khấu Bảng vàng: dải mây ngăn cách giữa hai khối (CloudPair trong home.tsx) dùng màu này cho cả hai phía */
+export const SHOWCASE_EDGE = LOGO.inkDeep;
+
 /** Chỉ nạp ảnh khi khối sắp vào màn hình (web, sớm 600 px); ứng dụng gốc hoặc trình duyệt thiếu IntersectionObserver thì nạp ngay */
 function useSeen(): [React.RefObject<ViewInstance | null>, boolean] {
   const ref = useRef<ViewInstance>(null);
@@ -245,9 +248,10 @@ export const TranShowcase: React.FC<{ initial: ShowcaseMode }> = ({ initial }) =
 
   const rank = RANKS[rankIdx] ?? RANKS[0];
   const hero = CAST[heroIdx] ?? CAST[0];
+  // Đáy khối chuyển dần về đúng màu xanh mực của sân khấu Bảng vàng để dải mây ngăn cách (CloudPair, SHOWCASE_EDGE) nối liền hai bên
   const bg = (WEB
-    ? { backgroundImage: 'radial-gradient(circle at 86% 14%, rgba(223,182,111,0.30) 0%, rgba(223,182,111,0) 30%), linear-gradient(160deg, #152620 0%, #23382f 55%, #3b2d1f 82%, #7a2414 100%)' }
-    : { backgroundColor: LOGO.ink }) as ViewStyle;
+    ? { backgroundImage: `linear-gradient(180deg, rgba(21,38,32,0) 72%, ${SHOWCASE_EDGE} 100%), radial-gradient(circle at 86% 14%, rgba(223,182,111,0.30) 0%, rgba(223,182,111,0) 30%), linear-gradient(160deg, #152620 0%, #23382f 55%, #3b2d1f 82%, #7a2414 100%)` }
+    : { backgroundColor: SHOWCASE_EDGE }) as ViewStyle;
   const shadow = (WEB ? { boxShadow: '0 18px 40px rgba(0,0,0,0.46)' } : null) as ViewStyle | null;
   const panel = { backgroundColor: 'rgba(12, 22, 18, 0.58)', borderRadius: 20, padding: wide ? 22 : 16, gap: 10, borderWidth: 1, borderColor: 'rgba(223,182,111,0.28)' } as const;
   const pickMode = (m: ShowcaseMode): void => { setMode(m); setPaused(false); };
@@ -368,7 +372,7 @@ export const TranShowcase: React.FC<{ initial: ShowcaseMode }> = ({ initial }) =
   );
 
   return (
-    <View ref={ref} testID="home-showcase" style={[{ width: '100%', overflow: 'hidden', paddingHorizontal: wide ? 36 : 16, paddingTop: wide ? 118 : 86, paddingBottom: wide ? 64 : 44 }, bg]}>
+    <View ref={ref} testID="home-showcase" style={[{ width: '100%', overflow: 'hidden', paddingHorizontal: wide ? 36 : 16, paddingTop: wide ? 118 : 86, paddingBottom: wide ? 96 : 76 }, bg]}>
       <View ref={screenRef} style={{ maxWidth: 1180, width: '100%', alignSelf: 'center', gap: 26 }}>
         {tabs}
         {mode === 'ranks' ? ranksView : heroesView}
@@ -546,7 +550,7 @@ export const BoardStage: React.FC<{ wide: boolean }> = ({ wide }) => {
 
   return (
     <View ref={ref} testID="home-board-stage" style={{ width: '100%', overflow: 'hidden', backgroundColor: LOGO.inkDeep }}>
-      <View style={{ alignItems: 'center', gap: 14, paddingTop: compact ? 52 : 64, paddingBottom: 20, paddingHorizontal: 14 }}>
+      <View style={{ alignItems: 'center', gap: 14, paddingTop: compact ? 80 : 96, paddingBottom: 20, paddingHorizontal: 14 }}>
         <View style={{ alignItems: 'center', gap: 6, backgroundColor: LOGO.ink, borderRadius: 18, paddingHorizontal: compact ? 22 : 36, paddingVertical: 12, borderWidth: 1.5, borderColor: LOGO.gold }}>
           <Txt f="heavy" size={compact ? 26 : 34} color={LOGO.gold} center accessibilityRole="header" style={{ letterSpacing: 5 }}>BẢNG VÀNG</Txt>
           <View style={{ width: compact ? 150 : 220, height: 3, borderRadius: 2, backgroundColor: LOGO.red }} />
