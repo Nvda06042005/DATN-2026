@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { BackToTop, Header, HomeSections, NAV } from '@/components/home';
+import { openShowcaseTab } from '@/components/home-hall';
 import { FxProvider } from '@/components/motion';
 import { PaperBg } from '@/components/ui';
 import { PALETTES } from '@/constants/theme';
@@ -79,6 +80,8 @@ function HomePage() {
       scrollRef.current?.scrollTo({ y: 0, animated: !reduce });
       return;
     }
+    // "Danh tướng": mở sẵn thẻ Nhân vật thời Trần của khu trưng bày rồi mới cuộn tới (27/11/2026)
+    if (id === 'danh-tuong') openShowcaseTab('heroes');
     const landing = landings.current[id];
     if (landing && sections.current[id] !== undefined) {
       scrollRef.current?.scrollTo({ y: sections.current[id] + landing, animated: !reduce });

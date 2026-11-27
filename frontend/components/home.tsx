@@ -47,11 +47,14 @@ const ANCHOR = (WEB ? { scrollMarginTop: 88 } : null) as unknown as ViewStyle;
 /** Làm mờ phía sau lớp kính (chỉ web) */
 const GLASS = (WEB ? { backdropFilter: 'blur(10px)' } : null) as unknown as ViewStyle;
 
-/** Các phần có neo: label dùng ở chân trang, short là nhãn ngắn trên thanh điều hướng (thứ tự phải trùng thứ tự trên trang để mục đang xem đúng) */
+/**
+ * Các phần có neo: label dùng ở chân trang, short là nhãn ngắn trên thanh điều hướng (thứ tự phải trùng thứ tự trên trang để mục đang xem đúng).
+ * 27/11/2026: "Danh tướng" là khu Bậc danh hiệu / Nhân vật thời Trần ngay dưới "Tính năng" (khối "Các vị vua thời Trần" cũ đã xóa) – bấm thì mở thẻ Nhân vật.
+ */
 export const NAV = [
   { id: 'kham-pha', label: 'Tính năng', short: 'Tính năng' },
-  { id: 'khang-chien', label: 'Ba lần kháng chiến', short: 'Kháng chiến' },
   { id: 'danh-tuong', label: 'Danh tướng', short: 'Danh tướng' },
+  { id: 'khang-chien', label: 'Ba lần kháng chiến', short: 'Kháng chiến' },
   { id: 'cach-hoat-dong', label: 'Cách hoạt động', short: 'Cách hoạt động' },
   { id: 'cau-hoi', label: 'Câu hỏi thường gặp', short: 'Câu hỏi thường gặp' },
 ] as const;
@@ -1028,21 +1031,7 @@ const ExplorerSection: React.FC<{ wide: boolean; onSection: (id: string, y: numb
   );
 };
 
-// ---------------------------------------------------------------------- danh tướng và lời ông cha
-/**
- * Khối danh tướng với tiêu đề theo yêu cầu. 27/11/2026: bỏ lưới ảnh tượng, phù điêu (người dùng: "xóa toàn bộ ảnh có trong đó") và thay bằng khu trưng bày
- * "Nhân vật thời Trần" của sảnh nhánh feat/giao_dien_hs_than_thien (ảnh chibi; tiểu sử theo HERO_PROFILE).
- */
-const CastSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
-  const { c } = useTheme();
-  return (
-    <Band id="danh-tuong" bg={c.logoPaper} wide={wide} onSection={onSection} decor={<GoldRings />}>
-      <SectionHeading eyebrow="Gương mặt lịch sử" title="Các vị vua" accent="thời Trần" wide={wide} singleLine testID="generals-heading" />
-      <TranShowcase initial="heroes" framed />
-    </Band>
-  );
-};
-
+// ---------------------------------------------------------------------- lời ông cha
 /** Bốn thẻ lời ông cha theo bảng màu logo như khối "Nơi học sinh khám phá lịch sử" (đỏ cờ, vàng cổ, mực xanh, giấy kem); chỉ dùng lời có trong dữ liệu game và sử liệu */
 const QuotesSection: React.FC<{ wide: boolean; onSection: (id: string, y: number) => void }> = ({ wide, onSection }) => {
   const { c } = useTheme();
@@ -1225,8 +1214,8 @@ const ClosingSection: React.FC<{ wide: boolean }> = ({ wide }) => {
 const FOOT_LINKS: Array<{ id: string; label: string }> = [
   { id: 'home', label: 'Về Đông A' },
   { id: 'kham-pha', label: 'Tính năng' },
-  { id: 'khang-chien', label: 'Ba lần kháng chiến' },
   { id: 'danh-tuong', label: 'Danh tướng' },
+  { id: 'khang-chien', label: 'Ba lần kháng chiến' },
   { id: 'cach-hoat-dong', label: 'Cách hoạt động' },
   { id: 'cau-hoi', label: 'Câu hỏi thường gặp' },
 ];
@@ -1321,12 +1310,13 @@ export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; o
     <SectionCloud color={c.logoPaper} rim wide={wide} direction="up" variant={1} />
     <ShowcaseSection wide={wide} onSection={onSection} />
     <SectionCloud color={c.logoPaper} rim wide={wide} variant={2} />
-    <TranShowcase initial="ranks" />
+    {/* Mục "Danh tướng" của thanh điều hướng: khu Bậc danh hiệu / Nhân vật thời Trần (thay khối "Các vị vua thời Trần" đã xóa ngày 27/11/2026) */}
+    <View id="danh-tuong" onLayout={(e) => onSection('danh-tuong', e.nativeEvent.layout.y)} style={ANCHOR}>
+      <TranShowcase initial="ranks" />
+    </View>
     <BoardStage wide={wide} />
     <SectionCloud color={c.logoPaper} rim wide={wide} direction="up" variant={0} />
     <ExplorerSection wide={wide} onSection={onSection} />
-    <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={1} />
-    <CastSection wide={wide} onSection={onSection} />
     <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={1} />
     <QuotesSection wide={wide} onSection={onSection} />
     <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={0} />
