@@ -15,7 +15,7 @@ const exists = (...p) => fs.existsSync(path.join(root, ...p));
 test('thứ tự khối trang chủ và neo "danh-tuong"; khối Các vị vua thời Trần đã xóa', () => {
   const home = read('components', 'home.tsx');
   const body = home.slice(home.indexOf('export const HomeSections'));
-  const order = ['<PhaseCampaignGallery', '<TrangNguyenSection', '<HomeVideo', '<ShowcaseSection', 'id="danh-tuong"', '<TranShowcase initial="ranks"', '<BoardStage', '<ExplorerSection', '<QuotesSection', '<ClosingSection'];
+  const order = ['<PhaseCampaignGallery', '<TrangNguyenSection', '<HomeVideo', '<ShowcaseSection', 'id="danh-tuong"', '<TranShowcase initial="ranks"', '<BoardStage', '<ExplorerSection', '<QuotesSection', '<GallerySection', '<HowSection', '<ClosingSection'];
   let at = -1;
   for (const tag of order) {
     const i = body.indexOf(tag);
@@ -86,4 +86,15 @@ test('nền khung video là tranh bàn kế trận Bạch Đằng; lời mời c
   assert.ok(exists('assets', 'loi-moi-bach-dang.jpg'));
   const closing = home.slice(home.indexOf('const ClosingSection'));
   assert.ok(!closing.slice(0, 1200).includes('FilmBackdrop'), 'lời mời cuối trang không còn ảnh bìa điện ảnh');
+});
+
+test('thư viện tranh (ảnh 15) ngay sau Lời ông cha còn vang mãi; tự đổi chỗ nhưng dừng khi rê chuột, ra khỏi màn hình hoặc giảm chuyển động', () => {
+  const home = read('components', 'home.tsx');
+  const body = home.slice(home.indexOf('export const HomeSections'));
+  assert.match(body, /<QuotesSection wide=\{wide\} onSection=\{onSection\} \/>[^<]*(<!--)?[\s\S]{0,200}<CloudPair[^>]*\/>\s*<GallerySection wide=\{wide\} \/>/);
+  const hall = read('components', 'home-hall.tsx');
+  assert.match(hall, /THƯ VIỆN/);
+  assert.match(hall, /Sống động & sáng tạo/);
+  assert.match(hall, /const live = seen && onScreen && !reduce && !hover;/);
+  assert.equal((hall.match(/\{ key: '[a-z0-9-]+', title: '/g) || []).filter(Boolean).length >= 10, true);
 });

@@ -18,7 +18,7 @@ import {
 } from '@/components/art';
 import { Chip, Txt } from '@/components/ui';
 import { HomeVideo } from '@/components/home-video';
-import { BoardStage, TranShowcase, TrangNguyenSection } from '@/components/home-hall';
+import { BoardStage, GallerySection, TranShowcase, TrangNguyenSection } from '@/components/home-hall';
 import { ClosingTitle, HERO_INK, HeroTitle } from '@/components/hero-title';
 import { HALL_ART } from '@/components/portal/HallMedia';
 import { SectionHeading } from '@/components/section-heading';
@@ -1319,6 +1319,9 @@ export const HomeSections: React.FC<{ wide: boolean; go: (id: string) => void; o
     <ExplorerSection wide={wide} onSection={onSection} />
     <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={1} />
     <QuotesSection wide={wide} onSection={onSection} />
+    {/* 27/11/2026 (ảnh 15 người dùng gửi lại): thư viện tranh của sảnh nhánh feat/giao_dien_hs_than_thien, ngay sau "Lời ông cha còn vang mãi" */}
+    <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={1} />
+    <GallerySection wide={wide} />
     <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={0} />
     <HowSection wide={wide} onSection={onSection} />
     <CloudPair upper={c.logoPaper} lower={c.logoPaper} wide={wide} variant={2} />

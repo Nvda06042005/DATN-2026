@@ -4,6 +4,7 @@
  *  - TranShowcase: hai thẻ "Bậc danh hiệu (5)" / "Nhân vật thời Trần (9)" dưới "Nơi học sinh khám phá lịch sử" (mục "Danh tướng" của thanh điều hướng
  *    cuộn tới đây và mở thẻ Nhân vật – openShowcaseTab). Khối "Các vị vua thời Trần" cũ đã xóa theo yêu cầu.
  *  - BoardStage: sân khấu Bảng vàng có rèm khép / mở. Trang chủ chưa đăng nhập nên bảng là VÍ DỤ (biệt danh minh họa), kèm nút vào học.
+ *  - GallerySection: "THƯ VIỆN – Sống động & sáng tạo", 10 tranh tự đổi chỗ, đặt sau "Lời ông cha còn vang mãi".
  * Màu (yêu cầu "tông màu giống logo"): xanh mực, đỏ cờ, vàng mặt trời, giấy kem của logo (LOGO dưới đây = logoInk / logoRed / logoGold / logoPaper
  * trong constants/theme.ts và các sắc đậm nhạt của chúng). Chữ: điều kiện danh hiệu theo luật hiện tại (Khoa bảng theo khối 6 – 9, RANK_NAMES trong
  * backend/src/saga/saga.service.ts); tiểu sử nhân vật lấy HERO_PROFILE (đã đối chiếu Wikipedia tiếng Việt), không dùng lời giới thiệu cũ của nhánh
@@ -602,6 +603,106 @@ export const BoardStage: React.FC<{ wide: boolean }> = ({ wide }) => {
           <Txt f="heavy" size={15} color={LOGO.paper}>Vào học để ghi danh</Txt>
           <ArrowRight size={18} color={LOGO.paper} strokeWidth={2.4} />
         </Pressable>
+      </View>
+    </View>
+  );
+};
+
+// ---------------------------------------------------------------------- 4. Thư viện tranh (ảnh 15 người dùng gửi lại: đặt sau "Lời ông cha còn vang mãi")
+/** Mười tranh của bộ minh họa (bản đồ là tranh vẽ lại, không theo tỉ lệ); tranh nền trong suốt đặt trên nền màu riêng */
+const PICTURES: ReadonlyArray<{ key: string; title: string; src: ImageSourcePropType; bg?: string }> = [
+  { key: 'bach-dang-plan', title: 'Các tướng nhà Trần bàn kế trận Bạch Đằng (tranh minh họa)', src: HALL_ART.bachDangPlan },
+  { key: 'citadel', title: 'Hoàng thành Thăng Long (tranh minh họa)', src: HALL_ART.citadel, bg: '#bfe8f7' },
+  { key: 'board-frame', title: 'Khung Bảng vàng có Vua Trần và Trần Hưng Đạo', src: HALL_ART.boardFrame, bg: '#fbe7c6' },
+  { key: 'scene-river', title: 'Quân nhà Trần ra quân giữ sông nước (tranh minh họa)', src: HALL_ART.sceneRiver },
+  { key: 'scene-march', title: 'Quân nhà Trần hành quân qua núi non (tranh minh họa)', src: HALL_ART.sceneMarch },
+  { key: 'map-1', title: 'Tranh bản đồ kháng chiến lần thứ nhất, 1258', src: HALL_ART.map1 },
+  { key: 'map-2', title: 'Tranh bản đồ kháng chiến lần thứ hai, 1285', src: HALL_ART.map2 },
+  { key: 'map-3', title: 'Tranh bản đồ kháng chiến lần thứ ba, 1287 – 1288', src: HALL_ART.map3 },
+  { key: 'scene-fleet', title: 'Thủy quân nhà Trần (tranh minh họa)', src: HALL_ART.sceneFleet },
+  { key: 'scene-bach-dang', title: 'Trận Bạch Đằng năm 1288 (tranh minh họa)', src: HALL_ART.sceneBachDang },
+];
+
+/** Xáo vị trí các tranh, bảo đảm mỗi lượt đều có tranh đổi chỗ */
+const shuffleSlots = (prev: number[]): number[] => {
+  const next = [...prev];
+  for (let i = next.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [next[i], next[j]] = [next[j], next[i]];
+  }
+  if (next.every((v, k) => v === prev[k]) && next.length > 1) next.push(next.shift()!);
+  return next;
+};
+
+/**
+ * "THƯ VIỆN – Sống động & sáng tạo" như sảnh của nhánh: tiêu đề bên trái, lưới 10 tranh 5 × 2 bên phải (điện thoại: tiêu đề trên, lưới 2 cột).
+ * Tranh tự trượt đổi chỗ mỗi 3,2 giây; dừng khi rê chuột lên lưới, khi khối ra khỏi màn hình hoặc bật giảm chuyển động. Chỉ để xem, không mở chi tiết.
+ */
+export const GallerySection: React.FC<{ wide: boolean }> = ({ wide }) => {
+  const { c } = useTheme();
+  const { width } = useWindowDimensions();
+  const reduce = useReduceMotion();
+  const [ref, seen] = useSeen();
+  const [screenRef, onScreen] = useOnScreen();
+  const gridRef = useRef<ViewInstance>(null);
+  const [hover, setHover] = useState(false);
+  const [gridW, setGridW] = useState(0);
+  const [slots, setSlots] = useState<number[]>(() => PICTURES.map((_, i) => i));
+  const row = width >= 960;
+  const cols = row ? 5 : 2;
+  const live = seen && onScreen && !reduce && !hover;
+  useEffect(() => {
+    if (!live) return undefined;
+    const t = setInterval(() => setSlots(shuffleSlots), 3200);
+    return () => clearInterval(t);
+  }, [live]);
+  // rê chuột lên lưới thì dừng xáo để xem kỹ một tranh (web)
+  useEffect(() => {
+    const el = gridRef.current as unknown as HTMLElement | null;
+    if (!WEB || !el?.addEventListener) return undefined;
+    const enter = (): void => setHover(true);
+    const leave = (): void => setHover(false);
+    el.addEventListener('mouseenter', enter);
+    el.addEventListener('mouseleave', leave);
+    return () => { el.removeEventListener('mouseenter', enter); el.removeEventListener('mouseleave', leave); };
+  }, []);
+
+  const gap = row ? 14 : 10;
+  const usableW = gridW > 0 ? gridW : Math.max(260, Math.min(width - (row ? 278 : 32), 1046));
+  const cardW = (usableW - gap * (cols - 1)) / cols;
+  const cardH = Math.round(cardW / 1.62);
+  const rows = Math.ceil(PICTURES.length / cols);
+  const totalH = rows * cardH + Math.max(0, rows - 1) * gap;
+
+  return (
+    <View ref={ref} testID="home-gallery" style={{ width: '100%', backgroundColor: c.logoPaper, paddingTop: row ? 92 : 64, paddingBottom: row ? 92 : 64, paddingHorizontal: row ? 32 : 16 }}>
+      <View ref={screenRef} style={{ maxWidth: 1260, width: '100%', alignSelf: 'center', flexDirection: row ? 'row' : 'column', gap: row ? 24 : 18, alignItems: row ? 'center' : 'stretch' }}>
+        <View style={{ width: row ? 184 : '100%', alignItems: 'center', gap: 8 }}>
+          <Txt f="heavy" size={wide ? 30 : 25} color="#24292f" center accessibilityRole="header" style={{ letterSpacing: 1 }}>THƯ VIỆN</Txt>
+          <Txt size={14} color="#57606a" center>Sống động & sáng tạo</Txt>
+          <View style={{ width: 42, height: 3, borderRadius: 2, backgroundColor: '#1890ff', marginVertical: 2 }} />
+        </View>
+        <View ref={gridRef} testID="home-gallery-grid"
+          onLayout={(e) => { const w = Math.round(e.nativeEvent.layout.width); if (w > 0 && Math.abs(w - gridW) > 1) setGridW(w); }}
+          style={{ flex: row ? 1 : undefined, width: row ? undefined : '100%', height: totalH }}>
+          {PICTURES.map((p, i) => {
+            const slot = slots[i] ?? i;
+            const x = (slot % cols) * (cardW + gap);
+            const y = Math.floor(slot / cols) * (cardH + gap);
+            const pos = (WEB
+              ? { position: 'absolute', left: 0, top: 0, width: cardW, height: cardH, transform: [{ translateX: x }, { translateY: y }],
+                transitionProperty: 'transform', transitionDuration: reduce || gridW === 0 ? '0ms' : '950ms', transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)' }
+              : { position: 'absolute', left: x, top: y, width: cardW, height: cardH }) as ViewStyle;
+            return (
+              <View key={p.key} style={pos}>
+                <View testID={`home-gallery-${p.key}`} accessible accessibilityRole="image" accessibilityLabel={p.title}
+                  style={{ width: '100%', height: '100%', borderRadius: 8, overflow: 'hidden', backgroundColor: p.bg ?? '#1c1815', alignItems: 'center', justifyContent: 'center', padding: p.bg ? 6 : 0, ...(WEB ? { boxShadow: '0 6px 16px rgba(15,23,42,0.12)' } : null) } as ViewStyle}>
+                  {seen ? <Image source={p.src} style={{ width: '100%', height: '100%' }} resizeMode={p.bg ? 'contain' : 'cover'} /> : null}
+                </View>
+              </View>
+            );
+          })}
+        </View>
       </View>
     </View>
   );
