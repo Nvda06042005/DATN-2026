@@ -1624,3 +1624,14 @@ Người dùng: "giao diện hiện giờ quá xấu… làm na ná Duolingo, ma
 - 27/11/2026 (đợt 3, người dùng gửi lại ảnh 15): thêm thư viện tranh "THƯ VIỆN – Sống động & sáng tạo" của sảnh nhánh ngay sau "Lời ông cha còn vang mãi" (`GallerySection` trong `components/home-hall.tsx`): tiêu đề bên trái, lưới 10 tranh 5 × 2 (điện thoại 2 cột), tranh tự trượt đổi chỗ mỗi 3,2 giây – dừng khi rê chuột lên lưới, khi khối ra khỏi màn hình hoặc bật giảm chuyển động; chỉ để xem, không mở chi tiết; ảnh nạp khi sắp cuộn tới. Đã kiểm tra ở 1440, 768, 390 px.
 - 27/11/2026 (đợt 4, người dùng: "cho hiệu ứng chia này ra"): giữa khu trưng bày và sân khấu Bảng vàng thêm dải mây vàng `CloudPair` như các chỗ nối khác của trang (mây trôi, đổi dáng, ánh sáng lướt; đứng yên khi giảm chuyển động); đáy khu trưng bày chuyển dần về màu nền sân khấu (`SHOWCASE_EDGE` = xanh mực đậm) để dải mây nối liền hai bên.
 - 27/11/2026 (người dùng bảo "tiếp tục"): rà toàn trang chủ ở 1440 px và 390 px (cuộn hết trang, không cuộn ngang, không lỗi console). Giảm dung lượng ảnh của bộ minh họa `assets/student-hall` (bản gốc cỡ lớn vẫn ở `assets/`): 7 tranh thư viện thu về rộng 728 px, 5 tranh danh hiệu nén lại (giữ kích thước), 9 ảnh chibi thu về cao 720 px (đủ cho cỡ lớn nhất ở đầu trang trên màn hình độ phân giải gấp đôi; trang học sinh chỉ dùng ô nhỏ) – 21 tệp từ 10,5 MB còn 4,6 MB; ảnh tải khi cuộn hết trang chủ từ 9,4 MB còn 5,7 MB, hai nhân vật ở khung đầu trang từ 1,3 MB còn 0,6 MB. Không đổi mã.
+
+## Tiểu Tướng dùng Gemma 4 trên GPU máy giáo viên, bật suy nghĩ (27–28/11/2026)
+
+Người dùng: "phần AI chuyển qua sử dụng model Gemma 4 4B chạy trên local, dùng kỹ thuật prompt tạo rule cho chatbot, bật thinking, thay cho cách dùng API hiện tại"; chọn cài Ollama giúp, mô hình ở ổ D, suy nghĩ hiện thu gọn dưới câu trả lời, "dùng chính GPU trên máy để chạy Gemma, máy tôi chưa chạy thì dùng phương án API cũ".
+
+- Đã cài Ollama 0.40.18 và `gemma4:e4b` (Q4_K_M, 6,6 GB) ở `D:\ollama\models`; chạy 100 % trên RTX 4050 6 GB.
+- Máy chủ: `GemmaClient` (trực tiếp hoặc người nhận việc `npm run gemma:worker`), bộ quy tắc `gemma-rules.ts`, Gemma viết lại câu trả lời của NLP Python có trích dẫn, công cụ giáo viên và Kiểm tra kết nối dùng Gemma khi có; phương án cũ giữ nguyên làm dự phòng; migration 085 lưu phần suy nghĩ.
+- Giao diện: "Tiểu Tướng đã suy nghĩ N giây" thu gọn dưới câu trả lời (giáo viên + học sinh), đếm giây khi chờ, lời gọi AI chờ 120 giây.
+- Thử trên mô hình thật: định dạng + trích dẫn đúng, từ chối câu ngoài phạm vi / chèn lệnh, nhập vai xưng "ta"; mô hình đã nóng thì 10–14 giây mỗi câu (suy nghĩ 6–10 giây).
+- Việc của người dùng: đặt `GEMMA_WORKER_KEY` trên Render, chạy `npm run gemma:worker` trên máy có GPU (xem `docs/AI_GEMMA_CUC_BO.md`).
+- Giới hạn: người nhận việc làm từng câu một – cả lớp cùng hỏi thì phần lớn câu dùng phương án cũ; máy giáo viên tắt / ngủ thì cũng vậy.

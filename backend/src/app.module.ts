@@ -29,7 +29,8 @@ import { AiRetrievalService } from './ai/ai-retrieval.service';
 import { AiSettingsService } from './ai/ai-settings.service';
 import { AiToolsService } from './ai/ai-tools.service';
 import { AiTutorService } from './ai/ai-tutor.service';
-import { AiController } from './ai/ai.controller';
+import { AiController, GemmaWorkerController } from './ai/ai.controller';
+import { GemmaClient } from './ai/gemma.client';
 import { LlmClient } from './ai/llm.client';
 import { AnalyticsController } from './analytics/analytics.controller';
 import { AnalyticsJob } from './analytics/analytics.job';
@@ -95,8 +96,8 @@ import { WorldHub } from './saga/world.hub';
   imports: [
     JwtModule.register({ secret: config.authSecret, signOptions: { algorithm: 'HS256', expiresIn: config.tokenTtlHours * 3600 }, verifyOptions: { algorithms: ['HS256'] } }),
   ],
-  controllers: [AppController, AuthController, AdminController, HistoryController, ContentController, StudentController, LearnController, PlayController, GameController, BattleController, ClassroomController, LiveController, WarController, AiController, AnalyticsController, PlatformController, PlatformAdminController, ResearchController, MediaController, MediaFileController, SchoolLogoController, SagaController],
-  providers: [KeepAlive, WorldHub, SagaService, WorldGateway, WarClassService, MediaService, ResearchService, SystemService, RbacService, LogsService, PrefsService, NoticeService, SupportService, FaqService, TwoFactorService, BackupService, PlatformJob, { provide: APP_INTERCEPTOR, useClass: PolicyInterceptor }, { provide: APP_INTERCEPTOR, useClass: WorkspaceInterceptor }, AnalyticsService, RecoService, FeedbackService, AnalyticsJob, LlmClient, AiSettingsService, AiRetrievalService, AiIndexService, AiTutorService, AiToolsService, AiAdminService, SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, MailService, SchoolService, AccountService, ClassService, HistoryService, QuestionService, QuizService, LessonService, JourneyService, ShareService, MessageService, LearnService, PlayService, GameClock, SettingsService, GameService, BoardService, CatalogService, GameJob, BattleService, WarGate, WarCardsService, WarMarchService, WarService, ClassroomService, AssignmentService, ExamService, SkillService, LiveService, LiveGateway, { provide: APP_INTERCEPTOR, useClass: DeletionArchiveInterceptor }],
+  controllers: [AppController, AuthController, AdminController, HistoryController, ContentController, StudentController, LearnController, PlayController, GameController, BattleController, ClassroomController, LiveController, WarController, AiController, GemmaWorkerController, AnalyticsController, PlatformController, PlatformAdminController, ResearchController, MediaController, MediaFileController, SchoolLogoController, SagaController],
+  providers: [KeepAlive, WorldHub, SagaService, WorldGateway, WarClassService, MediaService, ResearchService, SystemService, RbacService, LogsService, PrefsService, NoticeService, SupportService, FaqService, TwoFactorService, BackupService, PlatformJob, { provide: APP_INTERCEPTOR, useClass: PolicyInterceptor }, { provide: APP_INTERCEPTOR, useClass: WorkspaceInterceptor }, AnalyticsService, RecoService, FeedbackService, AnalyticsJob, LlmClient, GemmaClient, AiSettingsService, AiRetrievalService, AiIndexService, AiTutorService, AiToolsService, AiAdminService, SecurityService, { provide: APP_INTERCEPTOR, useClass: AuditInterceptor }, DatabaseService, AuthService, AuthGuard, MailService, SchoolService, AccountService, ClassService, HistoryService, QuestionService, QuizService, LessonService, JourneyService, ShareService, MessageService, LearnService, PlayService, GameClock, SettingsService, GameService, BoardService, CatalogService, GameJob, BattleService, WarGate, WarCardsService, WarMarchService, WarService, ClassroomService, AssignmentService, ExamService, SkillService, LiveService, LiveGateway, { provide: APP_INTERCEPTOR, useClass: DeletionArchiveInterceptor }],
 })
 export class AppModule {}
 
@@ -141,11 +142,11 @@ export function configureApp(app: INestApplication): INestApplication {
     try { return (await app.get(SystemService, { strict: false }).settings()).rate_ip_per_min ?? DEFAULT_RATE.ip(); } catch { return DEFAULT_RATE.ip(); }
   };
   app.use(requestMiddleware(ipLimit));
-  // yêu cầu hỗ trợ kèm ảnh chụp màn hình và ảnh tải lên cho Quiz (tối đa 1,5 MB, mã hóa base64 nên lớn hơn): chỉ các tuyến này được nhận thân lớn hơn mặc định
+  // yêu cầu hỗ trợ kèm ảnh chụp màn hình và ảnh tải lên cho Quiz (tối đa 1,5 MB, mã hóa base64 nên lớn hơn), kết quả Gemma kèm phần suy luận dài: chỉ các tuyến này được nhận thân lớn hơn mặc định
   const largeJson = jsonBody({ limit: '3mb' });
   // tải video lên (tối đa 8 MB, mã hóa base64 nên khoảng 10,7 MB): chỉ tuyến tải tệp được nhận thân lớn như vậy
   const mediaJson = jsonBody({ limit: '12mb' });
-  app.use((req: { path?: string; originalUrl?: string }, res: unknown, next: () => void) => (/^\/api\/content\/media(\/|$|\?)/.test(req.originalUrl ?? '') ? (mediaJson as any)(req, res, next) : /^\/api\/(platform\/support|auth\/avatar|admin\/schools\/\d+\/logo|admin\/school\/logo)(\/|$|\?)/.test(req.originalUrl ?? '') ? (largeJson as any)(req, res, next) : next()));
+  app.use((req: { path?: string; originalUrl?: string }, res: unknown, next: () => void) => (/^\/api\/content\/media(\/|$|\?)/.test(req.originalUrl ?? '') ? (mediaJson as any)(req, res, next) : /^\/api\/(platform\/support|auth\/avatar|admin\/schools\/\d+\/logo|admin\/school\/logo|ai\/gemma\/result)(\/|$|\?)/.test(req.originalUrl ?? '') ? (largeJson as any)(req, res, next) : next()));
   app.enableShutdownHooks();
   return app;
 }

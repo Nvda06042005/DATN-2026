@@ -41,3 +41,7 @@ services:
         sync: false
       - key: MAIL_RELAY_SECRET
         sync: false
+      # Gemma 4 trên GPU máy giáo viên (docs/AI_GEMMA_CUC_BO.md): khóa chung với `npm run gemma:worker` trên máy đó (ít nhất 16 ký tự).
+      # Để trống thì Tiểu Tướng dùng phương án cũ (NLP Python → API đã cấu hình → trích tư liệu).
+      - key: GEMMA_WORKER_KEY
+        sync: false

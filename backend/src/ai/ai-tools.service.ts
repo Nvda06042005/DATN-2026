@@ -10,7 +10,6 @@ import { DatabaseService, UserRow } from '../database/database.service';
 import { sentences, words } from './ai-text';
 import { AiSettingsService } from './ai-settings.service';
 import { AiTutorService, Answer } from './ai-tutor.service';
-import { LlmClient } from './llm.client';
 
 export interface QuestionDraft { qtype: QType; prompt: string; explanation: string; difficulty: number; data: Record<string, unknown> }
 const short = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
@@ -69,7 +68,7 @@ export function templateDrafts(text: string, count: number): QuestionDraft[] {
 export class AiToolsService {
   private readonly logger = new Logger('AiTools');
 
-  constructor(private readonly db: DatabaseService, private readonly tutor: AiTutorService, private readonly settings: AiSettingsService, private readonly llm: LlmClient) {}
+  constructor(private readonly db: DatabaseService, private readonly tutor: AiTutorService, private readonly settings: AiSettingsService) {}
 
   // ---------------------------------------------------------------------- HK.GV.038
   async questionDrafts(user: UserRow, body: { kind?: string; id?: number; text?: string; count?: number }) {
@@ -83,22 +82,25 @@ export class AiToolsService {
     if (text.length > 12000) text = text.slice(0, 12000);
     const startedAt = Date.now();
     await this.tutor.assertQuota(user);
-    const cfg = await this.settings.llm();
+    // 27/11/2026: Gemma 4 trên GPU máy giáo viên (ưu tiên, không suy luận vì câu trả lời dài) → API cũ đã cấu hình → soạn theo mẫu
+    const lm = await this.tutor.languageModel();
     const s = await this.settings.get();
     let drafts: QuestionDraft[] = [];
     let mode: 'llm' | 'template' = 'template';
     let usage = { tokensIn: 0, tokensOut: 0 };
-    if (cfg) {
+    let model: string | null = null;
+    if (lm) {
       try {
-        const res = await this.llm.chat(cfg, {
+        const res = await this.tutor.chatWith(lm, {
           system: 'Bạn là giáo viên Lịch sử THCS soạn câu hỏi kiểm tra từ tư liệu. Chỉ dùng thông tin có trong tư liệu, không bịa. Trả về DUY NHẤT một mảng JSON, không kèm chữ nào khác.',
           messages: [{ role: 'user', content: `TƯ LIỆU (${title}):\n${text}\n\nSoạn ${count} câu hỏi tiếng Việt, đa dạng dạng. Mỗi phần tử là một trong:\n`
             + '{"qtype":"single","prompt":"...","options":["A","B","C","D"],"correct":0,"explanation":"...","difficulty":1}\n'
             + '{"qtype":"truefalse","prompt":"...","correct":true,"explanation":"...","difficulty":1}\n'
             + '{"qtype":"fill","prompt":"... ____ ...","blanks":[["đáp án","cách viết khác"]],"explanation":"...","difficulty":2}\n'
             + 'difficulty từ 1 (dễ) đến 3 (khó); câu điền khuyết có đúng một "____" cho mỗi chỗ trống; đáp án sai phải hợp lý, không trùng nhau.' }],
-          temperature: Math.min(0.7, s.temperature + 0.2), maxTokens: 2500,
+          temperature: Math.min(0.7, s.temperature + 0.2), maxTokens: 2500, think: false,
         });
+        model = res.model;
         const m = res.text.match(/\[[\s\S]*\]/);
         const arr = m ? JSON.parse(m[0]) : [];
         const seen = new Set<string>();
@@ -113,7 +115,7 @@ export class AiToolsService {
     }
     if (!drafts.length) drafts = templateDrafts(text, count);
     if (!drafts.length) throw new ConflictException('Chưa soạn được câu hỏi: nội dung không có câu nào chứa mốc thời gian để soạn theo mẫu. Hãy nhờ quản trị viên bật mô hình AI.');
-    const convId = await this.logSaved(user, 'questions', `Soạn câu hỏi: ${title}`, `Soạn ${count} câu hỏi từ: ${title}`, `Đã soạn ${drafts.length} bản nháp câu hỏi (${mode === 'llm' ? 'mô hình AI' : 'theo mẫu'}).`, mode === 'llm' ? { mode: 'llm', model: cfg?.chatModel ?? null, ...usage } : {}, startedAt);
+    const convId = await this.logSaved(user, 'questions', `Soạn câu hỏi: ${title}`, `Soạn ${count} câu hỏi từ: ${title}`, `Đã soạn ${drafts.length} bản nháp câu hỏi (${mode === 'llm' ? 'mô hình AI' : 'theo mẫu'}).`, mode === 'llm' ? { mode: 'llm', model, ...usage } : {}, startedAt);
     return { conversation_id: convId, mode, title, drafts, note: mode === 'llm' ? 'Bản nháp do AI soạn: hãy đọc, chỉnh sửa và đối chiếu tư liệu trước khi lưu.' : 'Chưa nối mô hình AI nên câu hỏi được soạn theo mẫu từ các câu có mốc năm; hãy đọc và chỉnh sửa trước khi lưu.' };
   }
 
@@ -148,24 +150,25 @@ export class AiToolsService {
     const note = String(body.note ?? '').trim().slice(0, 300);
     const startedAt = Date.now();
     await this.tutor.assertQuota(user);
-    const cfg = await this.settings.llm();
+    const lm = await this.tutor.languageModel();
     const s = await this.settings.get();
     let text = '';
     let mode: 'llm' | 'template' = 'template';
     let usage = { tokensIn: 0, tokensOut: 0 };
-    if (cfg) {
+    let model: string | null = null;
+    if (lm) {
       try {
-        const res = await this.llm.chat(cfg, {
+        const res = await this.tutor.chatWith(lm, {
           system: 'Bạn là chuyên viên đào tạo giáo viên Lịch sử THCS. Soạn kịch bản tiết học thực tế, ngắn gọn, bằng tiếng Việt, chỉ dựa vào thông tin được cung cấp; không bịa sự kiện lịch sử.',
           messages: [{ role: 'user', content: `${context.slice(0, 7000)}\n\nSoạn kịch bản tiết học ${minutes} phút có dùng nền tảng Hào Khí Đông A (bài học từng bước, câu hỏi, mô phỏng trận đánh, thi đấu trực tiếp, bản đồ hành quân). `
             + `Gồm: Mục tiêu; Chuẩn bị; Tiến trình theo mốc thời gian (tổng đúng ${minutes} phút); Câu hỏi thảo luận; Đánh giá.${note ? ` Ghi chú của giáo viên: ${note}` : ''}` }],
-          temperature: s.temperature, maxTokens: 1800,
+          temperature: s.temperature, maxTokens: 1800, think: false,
         });
-        text = res.text; usage = { tokensIn: res.tokensIn, tokensOut: res.tokensOut }; mode = 'llm';
+        text = res.text; usage = { tokensIn: res.tokensIn, tokensOut: res.tokensOut }; mode = 'llm'; model = res.model;
       } catch (e) { this.logger.warn(`AI soạn giáo án lỗi, dùng mẫu: ${(e as Error).message}`); }
     }
     if (!text) text = this.planTemplate(title, minutes, outline, note);
-    const convId = await this.logSaved(user, 'plan', `Kịch bản: ${title}`, `Gợi ý kịch bản tiết học ${minutes} phút: ${title}`, text, mode === 'llm' ? { mode: 'llm', model: cfg?.chatModel ?? null, ...usage } : {}, startedAt);
+    const convId = await this.logSaved(user, 'plan', `Kịch bản: ${title}`, `Gợi ý kịch bản tiết học ${minutes} phút: ${title}`, text, mode === 'llm' ? { mode: 'llm', model, ...usage } : {}, startedAt);
     return { conversation_id: convId, mode, title, minutes, text, note: mode === 'llm' ? 'Kịch bản do AI gợi ý: hãy điều chỉnh theo lớp của thầy cô.' : 'Chưa nối mô hình AI nên kịch bản được dựng theo mẫu từ cấu trúc hành trình; hãy điều chỉnh theo lớp của thầy cô.' };
   }
 

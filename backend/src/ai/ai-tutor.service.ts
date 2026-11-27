@@ -21,13 +21,23 @@ import { AnalyticsService } from '../analytics/analytics.service';
 import { GameService } from '../game/game.service';
 import { buildNodeBktRecommendations, buildProfilePromptContext, enrichBktResponse } from './bkt-profile';
 import { engineHealth, bridgeReadyMs, bridgeRequestMs, markEngine, memoryRoom, pythonCommand, shapePythonAnswer, warmOnBoot } from './python-runtime';
+import { config } from '../config';
+import { GemmaClient } from './gemma.client';
+import { gemmaProfile, gemmaSystemPrompt, gemmaUserMessage, splitAnswer } from './gemma-rules';
 
 export interface Citation { n: number; kind: string; kind_label: string; id: number; title: string; snippet: string; openable: boolean }
 export type RefusalReason = 'out_of_scope' | 'unsafe' | 'quota' | 'not_configured';
 export interface Answer {
   text: string; citations: Citation[]; followups: string[]; refused: boolean; reason: RefusalReason | null; mode: 'llm' | 'extractive' | null;
   model: string | null; tokensIn: number; tokensOut: number; topScore: number | null; passages: Passage[];
+  /** Phần suy luận của Gemma 4 (thinking) và thời gian suy nghĩ; hiện thu gọn dưới câu trả lời */
+  thinking?: string | null; thinkingMs?: number | null;
 }
+/** Mô hình ngôn ngữ của một lượt: Gemma 4 trên GPU máy giáo viên (ưu tiên) hoặc API cũ đã cấu hình */
+export type LanguageModel = { kind: 'gemma' } | { kind: 'api'; cfg: LlmConfig };
+export interface ModelReply { text: string; tokensIn: number; tokensOut: number; model: string; thinking: string | null; thinkingMs: number | null }
+/** Số lượt trò chuyện gần nhất gửi kèm cho Gemma (chỉ câu trả lời cuối, không kèm phần suy luận – hướng dẫn của Gemma 4) */
+const GEMMA_HISTORY = 6;
 
 /** Loại tư liệu mà màn chi tiết của học sinh mở được */
 const OPENABLE = new Set(['figure', 'event', 'place', 'battle', 'source', 'term']);
@@ -71,6 +81,7 @@ export class AiTutorService implements OnModuleDestroy {
 
   constructor(
     private readonly db: DatabaseService, private readonly settings: AiSettingsService, private readonly retrieval: AiRetrievalService, private readonly llm: LlmClient,
+    private readonly gemma: GemmaClient,
     @Optional() private readonly analytics?: AnalyticsService,
     @Optional() private readonly game?: GameService,
   ) {}
@@ -282,14 +293,22 @@ export class AiTutorService implements OnModuleDestroy {
       const chunks = await this.retrieval.size().catch(() => 56);
       return { mode: 'grounded', ready: true, chunks: chunks || 56, quota: { limit: 50, used: 0, school_limit: 1000, school_used: 0, remaining: 50, unlimited: true }, roleplay: true, modes: MODES_BY_ROLE[user.role] ?? ['tutor', 'roleplay', 'explain', 'summary'] };
     }
-    const [pub, quota, chunks] = await Promise.all([this.settings.publicView(), this.quota(user), this.retrieval.size()]);
+    const [pub, quota, chunks, gemmaOn] = await Promise.all([this.settings.publicView(), this.quota(user), this.retrieval.size(), this.gemma.available()]);
     // 16/11/2026: câu hỏi của mọi vai trò đi qua mô hình NLP Đông A (Python) khi mô hình đang chạy, nên học sinh dùng được như giáo viên
     // kể cả khi kho chỉ mục tư liệu còn trống hoặc chưa cấu hình LLM (trước đây trang học sinh báo "kho còn trống" và khóa nhập vai)
+    // 27/11/2026: Gemma 4 trên GPU máy giáo viên đang chạy thì trả lời bằng mô hình ngôn ngữ (có suy luận)
     const python = pythonOn();
-    return { mode: python ? 'grounded' : pub.mode, ready: python || chunks > 0, chunks, quota, roleplay: python || pub.mode === 'llm', modes: MODES_BY_ROLE[user.role] ?? [] };
+    return {
+      mode: gemmaOn ? 'llm' : python ? 'grounded' : pub.mode, ready: gemmaOn || python || chunks > 0, chunks, quota, roleplay: gemmaOn || python || pub.mode === 'llm',
+      modes: MODES_BY_ROLE[user.role] ?? [], gemma: this.gemma.publicStatus(),
+    };
   }
 
   // ---------------------------------------------------------------------- lõi: truy xuất → trả lời
+  private citationOf(p: Passage, n: number): Citation {
+    return { n, kind: p.kind, kind_label: kindLabel(p.kind), id: p.sourceId, title: p.title, snippet: short(p.content, 160), openable: OPENABLE.has(p.kind) };
+  }
+
   private citations(passages: Passage[], used: number[] | null): Citation[] {
     const pick = used?.length ? used : passages.slice(0, 3).map((_, i) => i + 1);
     const seen = new Set<string>();
@@ -368,13 +387,19 @@ export class AiTutorService implements OnModuleDestroy {
   async respond(o: {
     question: string; history?: LlmMessage[]; instruction?: string; only?: string[]; focus?: Array<{ kind: string; id: number; w?: number }>; fixed?: Passage[]; skipGate?: boolean;
     persona?: { name: string; honorific: string | null }; searchText?: string; needLlm?: boolean; extractFallback?: (passages: Passage[]) => { text: string; used: number[] }; maxTokens?: number;
+    /** Người hỏi (giọng văn của Gemma): học sinh hay thầy cô; mặc định học sinh */
+    audience?: 'student' | 'teacher';
+    /** Hồ sơ học tập ngắn cho Gemma (chủ đề còn yếu / đã vững) */
+    profile?: string | null;
   }): Promise<Answer> {
     const s = await this.settings.get();
     const cfg = await this.settings.llm();
     const bad = unsafeReason(o.question, s.banned_terms);
     if (bad === 'unsafe') return this.refusal('unsafe', UNSAFE_MESSAGE);
     if (bad === 'injection') return this.refusal('out_of_scope', s.refusal_message, await this.exampleQuestions());
-    if (o.needLlm && !cfg) return this.refusal('not_configured', 'Tính năng này cần bật mô hình AI. Em nhờ thầy cô hoặc quản trị viên cấu hình giúp nhé; trong lúc chờ em vẫn hỏi đáp bình thường được.');
+    // 27/11/2026: Gemma 4 trên GPU máy giáo viên được ưu tiên; máy chưa chạy thì dùng API cũ (nếu đã cấu hình), không có nữa thì trích tư liệu
+    const gemmaOn = await this.gemma.available();
+    if (o.needLlm && !cfg && !gemmaOn) return this.refusal('not_configured', 'Tính năng này cần bật mô hình AI. Em nhờ thầy cô hoặc quản trị viên cấu hình giúp nhé; trong lúc chờ em vẫn hỏi đáp bình thường được.');
 
     let queryVector: number[] | null = null;
     if (cfg?.embedModel && !o.fixed) { try { queryVector = (await this.llm.embed(cfg, [o.question]))[0]; } catch (e) { this.logger.warn(`Không nhúng được câu hỏi: ${(e as Error).message}`); } }
@@ -384,6 +409,20 @@ export class AiTutorService implements OnModuleDestroy {
     const inScope = o.skipGate || Boolean(best && (best.coverage >= s.min_score || best.cos >= 0.5));
     if (!inScope) return { ...this.refusal('out_of_scope', s.refusal_message, await this.exampleQuestions()), topScore };
 
+    if (gemmaOn) {
+      try {
+        const g = await this.generateGemma(s, o, passages);
+        if (unsafeReason(g.text, s.banned_terms)) return this.refusal('unsafe', UNSAFE_MESSAGE);
+        const used = citedNumbers(g.text, passages.length);
+        return {
+          text: g.text, citations: this.citations(passages, used), followups: g.followups.length ? g.followups : this.followupsFrom(passages), refused: false, reason: null,
+          // chạy trên máy giáo viên, không tốn tiền API: không tính token vào chi phí AI của báo cáo (như mô hình Python)
+          mode: 'llm', model: g.model, tokensIn: 0, tokensOut: 0, topScore, passages, thinking: g.thinking, thinkingMs: g.thinkingMs,
+        };
+      } catch (e) {
+        this.logger.warn(`Gemma chưa trả lời được, dùng phương án cũ: ${(e as Error).message}`);
+      }
+    }
     if (cfg) {
       try {
         const out = await this.generate(cfg, s, o, passages);
@@ -418,6 +457,78 @@ export class AiTutorService implements OnModuleDestroy {
     const followups = (m[1] ?? '').split('\n').map((l) => l.replace(/^[-•*\d.)\s]+/, '').trim()).filter((l) => l.length > 5 && l.length <= 160).slice(0, 3);
     const text = m[0].trim().replace(/\[(\d{1,2})\]/g, (all, n) => (Number(n) >= 1 && Number(n) <= passages.length ? all : '')).trim();
     return { text: text || res.text.trim(), followups, tokensIn: res.tokensIn, tokensOut: res.tokensOut };
+  }
+
+  /**
+   * Gemma 4 trả lời theo bộ quy tắc ở gemma-rules.ts (bật suy luận theo GEMMA_THINK): tư liệu đánh số, đáp án chuẩn của mô hình Python (nếu có),
+   * hồ sơ học tập, vài lượt trò chuyện gần nhất. Trả phần trả lời, câu hỏi gợi ý và phần suy luận.
+   */
+  private async generateGemma(s: AiSettings, o: Parameters<AiTutorService['respond']>[0] & { reference?: string | null }, passages: Pick<Passage, 'kind' | 'title' | 'content'>[]) {
+    const system = gemmaSystemPrompt({ audience: o.audience ?? 'student', refusal: s.refusal_message, persona: o.persona ?? null, think: config.gemmaThink, task: o.instruction ?? null });
+    const user = gemmaUserMessage({ passages, question: o.question, reference: o.reference ?? null, profile: o.profile ?? null, persona: o.persona ?? null, kindLabel });
+    const res = await this.gemma.chat({ system, messages: [...(o.history ?? []).slice(-GEMMA_HISTORY), { role: 'user', content: user }], temperature: s.temperature, maxTokens: o.maxTokens ?? s.max_tokens });
+    const parts = splitAnswer(res.text, passages.length);
+    return { ...parts, model: res.model, thinking: res.thinking || null, thinkingMs: res.thinking ? res.thinkingMs : null };
+  }
+
+  /** Mô hình ngôn ngữ cho công cụ giáo viên: Gemma 4 trên GPU máy giáo viên (ưu tiên), không thì API cũ đã cấu hình; null khi chưa có mô hình nào */
+  async languageModel(): Promise<LanguageModel | null> {
+    if (await this.gemma.available()) return { kind: 'gemma' };
+    const cfg = await this.settings.llm();
+    return cfg ? { kind: 'api', cfg } : null;
+  }
+
+  /** Gọi mô hình đã chọn; Gemma lỗi thì thử tiếp API cũ (nếu có), cuối cùng ném lỗi để công cụ dùng mẫu soạn sẵn */
+  async chatWith(lm: LanguageModel, req: { system: string; messages: LlmMessage[]; temperature: number; maxTokens: number; think?: boolean }): Promise<ModelReply> {
+    if (lm.kind === 'gemma') {
+      try {
+        const r = await this.gemma.chat(req);
+        return { text: r.text, tokensIn: 0, tokensOut: 0, model: r.model, thinking: r.thinking || null, thinkingMs: r.thinking ? r.thinkingMs : null };
+      } catch (e) {
+        const cfg = await this.settings.llm();
+        if (!cfg) throw e;
+        this.logger.warn(`Gemma chưa trả lời được, dùng API cũ: ${(e as Error).message}`);
+        lm = { kind: 'api', cfg };
+      }
+    }
+    const r = await this.llm.chat(lm.cfg, req);
+    return { text: r.text, tokensIn: r.tokensIn, tokensOut: r.tokensOut, model: lm.cfg.chatModel, thinking: null, thinkingMs: null };
+  }
+
+  /**
+   * Gemma 4 viết câu trả lời khi mô hình Python đã tìm đúng chủ đề: đáp án chuẩn của mô hình Python làm <dap_an_chuan>, tư liệu đánh số gồm các đoạn sử liệu
+   * mô hình Python trích (giữ đúng số [n] của chúng) rồi các đoạn đã công bố đủ liên quan. Trích dẫn trả về chỉ gồm đoạn mô hình thật sự dùng.
+   */
+  private async gemmaOverPython(o: {
+    user: UserRow; question: string; mode: string; figure?: { id: number; name: string; honorific: string | null }; py: any; history: LlmMessage[]; profile: string | null; studyHint: string | null;
+  }): Promise<Answer> {
+    const s = await this.settings.get();
+    const pyCites: Citation[] = (Array.isArray(o.py.citations) ? o.py.citations : []).filter((c: any) => c && typeof c.snippet === 'string' && c.snippet.trim());
+    const pyPassages = pyCites.map((c) => ({ kind: 'source', title: String(c.title ?? 'Sử liệu'), content: String(c.snippet) }));
+    const roleplay = o.mode === 'roleplay' && o.figure;
+    const found = await this.retrieval.search(o.question, Math.max(2, s.top_k - pyPassages.length), roleplay ? { focus: [{ kind: 'figure', id: o.figure!.id, w: 0.2 }] } : {});
+    const node = found.filter((p) => Math.max(p.coverage, p.cos) >= s.min_score);
+    const passages = [...pyPassages, ...node];
+    // đáp án chuẩn: câu trả lời gốc của mô hình Python, bỏ phần hồ sơ học tập ("---" về sau) và câu cảnh báo độ tin cậy
+    const reference = String(o.py.raw_answer || o.py.answer || '').split(/\n-{3,}\n/)[0].trim();
+    const g = await this.generateGemma(s, {
+      question: o.question, history: o.history, persona: roleplay ? o.figure : undefined, audience: o.user.role === 'student' ? 'student' : 'teacher', profile: o.profile, reference,
+    }, passages);
+    if (unsafeReason(g.text, s.banned_terms)) return this.refusal('unsafe', UNSAFE_MESSAGE);
+    const used = citedNumbers(g.text, passages.length);
+    const citations: Citation[] = [];
+    const seen = new Set<string>();
+    for (const n of used.length ? used : passages.map((_, i) => i + 1).slice(0, 3)) {
+      const c = n <= pyCites.length ? { ...pyCites[n - 1], n } : this.citationOf(node[n - pyCites.length - 1], n);
+      const key = `${c.kind}:${c.id}:${c.title}`;
+      if (!seen.has(key)) { seen.add(key); citations.push(c); }
+    }
+    const followups = g.followups.length ? g.followups : Array.isArray(o.py.followups) ? o.py.followups : [];
+    const text = o.user.role === 'student' && o.studyHint ? `${g.text}\n\n---\n${o.studyHint}` : g.text;
+    return {
+      text, citations, followups, refused: false, reason: null, mode: 'llm', model: g.model, tokensIn: 0, tokensOut: 0,
+      topScore: typeof o.py.confidence === 'number' ? o.py.confidence : 0.95, passages: node, thinking: g.thinking, thinkingMs: g.thinkingMs,
+    };
   }
 
   // ---------------------------------------------------------------------- hội thoại
@@ -458,18 +569,24 @@ export class AiTutorService implements OnModuleDestroy {
           answer_mode: a.mode,
           reported: false,
           created_at: now,
+          model: a.model, thinking: a.thinking ?? null, thinking_ms: a.thinkingMs ?? null,
         },
       };
     }
+    const thinking = a.thinking ? a.thinking.slice(0, 20000) : null;
+    const thinkingMs = thinking && a.thinkingMs != null ? Math.max(0, Math.round(a.thinkingMs)) : null;
     const u = (await this.db.query<{ id: number; created_at: string }>("INSERT INTO hk_ai_messages (conversation_id, role, content) VALUES ($1, 'user', $2) RETURNING id::int AS id, created_at", [conversationId, question]))[0];
     const m = (await this.db.query<{ id: number; created_at: string }>(
-      `INSERT INTO hk_ai_messages (conversation_id, role, content, citations, followups, refused, refusal_reason, answer_mode, model, tokens_in, tokens_out, latency_ms, top_score)
-       VALUES ($1, 'assistant', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id::int AS id, created_at`,
-      [conversationId, a.text.slice(0, 8000), JSON.stringify(a.citations), JSON.stringify(a.followups), a.refused, a.reason, a.mode, a.model, a.tokensIn, a.tokensOut, Date.now() - startedAt, a.topScore === null ? null : Number(a.topScore.toFixed(3))]))[0];
+      `INSERT INTO hk_ai_messages (conversation_id, role, content, citations, followups, refused, refusal_reason, answer_mode, model, tokens_in, tokens_out, latency_ms, top_score, thinking, thinking_ms)
+       VALUES ($1, 'assistant', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id::int AS id, created_at`,
+      [conversationId, a.text.slice(0, 8000), JSON.stringify(a.citations), JSON.stringify(a.followups), a.refused, a.reason, a.mode, a.model, a.tokensIn, a.tokensOut, Date.now() - startedAt, a.topScore === null ? null : Number(a.topScore.toFixed(3)), thinking, thinkingMs]))[0];
     await this.db.query('UPDATE hk_ai_conversations SET updated_at = now() WHERE id = $1', [conversationId]);
     return {
       user_message: { id: u.id, role: 'user', content: question, created_at: u.created_at },
-      message: { id: m.id, role: 'assistant', content: a.text, citations: a.citations, followups: a.followups, refused: a.refused, refusal_reason: a.reason, answer_mode: a.mode, reported: false, created_at: m.created_at },
+      message: {
+        id: m.id, role: 'assistant', content: a.text, citations: a.citations, followups: a.followups, refused: a.refused, refusal_reason: a.reason, answer_mode: a.mode, reported: false, created_at: m.created_at,
+        model: a.model, thinking, thinking_ms: thinkingMs,
+      },
     };
   }
 
@@ -528,6 +645,7 @@ export class AiTutorService implements OnModuleDestroy {
       const dbProfile = user.role === 'student' && this.analytics
         ? await this.analytics.studentAiProfile(user).catch(() => null)
         : null;
+      const studentProfile = dbProfile ? buildProfilePromptContext(dbProfile) : undefined;
       const pyRes = await this.callPythonBridge('ask', {
         question,
         session_id: `user_${user.id || 1}_conv_${conv.id}`,
@@ -535,11 +653,14 @@ export class AiTutorService implements OnModuleDestroy {
         figure_id: figure?.id ?? figureId,
         figure_name: figure?.name ?? null,
         mode,
-        student_profile: dbProfile ? buildProfilePromptContext(dbProfile) : undefined,
+        student_profile: studentProfile,
       });
-      if (pyRes && typeof pyRes.answer === 'string') {
+      // 27/11/2026: Gemma 4 trên GPU máy giáo viên đang chạy mà mô hình Python không tìm thấy chủ đề → để luồng truy xuất tư liệu bên dưới
+      // (kiểm soát phạm vi + Gemma) trả lời, thay vì từ chối ngay
+      const gemmaOn = await this.gemma.available();
+      if (pyRes && typeof pyRes.answer === 'string' && !(gemmaOn && pyRes.is_not_found)) {
         const shaped = shapePythonAnswer(pyRes, user.role);
-        const pyAnswer: Answer = {
+        let pyAnswer: Answer = {
           text: shaped.text,
           citations: Array.isArray(pyRes.citations) ? pyRes.citations : [],
           followups: Array.isArray(pyRes.followups) ? pyRes.followups : [],
@@ -553,19 +674,31 @@ export class AiTutorService implements OnModuleDestroy {
           topScore: typeof pyRes.confidence === 'number' ? pyRes.confidence : 0.95,
           passages: [],
         };
+        // Gemma viết câu trả lời từ đáp án chuẩn của mô hình Python + tư liệu đã công bố (có suy luận); mô hình Python vẫn ghi hồ sơ học tập (BKT).
+        // Gemma lỗi hoặc quá chậm thì giữ nguyên câu trả lời của mô hình Python.
+        let viaGemma = false;
+        if (gemmaOn && !pyAnswer.refused) {
+          const history = conv0 ? await this.historyOf(conv.id) : [];
+          const g = await this.gemmaOverPython({ user, question, mode, figure, py: pyRes, history, profile: gemmaProfile(studentProfile), studyHint: shaped.study_hint }).catch((e: Error) => {
+            this.logger.warn(`Gemma chưa trả lời được, giữ câu trả lời của mô hình Python: ${e.message}`);
+            return null;
+          });
+          if (g) { pyAnswer = g; viaGemma = true; }
+        }
         const saved = await this.save(conv.id, question, pyAnswer, startedAt);
         if (!pyAnswer.refused) await this.countAsk(user);
+        const personaName = figure ? `${figure.honorific ? `${figure.honorific} ` : ''}${figure.name}` : null;
         return {
           conversation: { id: conv.id, mode: conv.mode, figure_id: conv.figure_id },
           user_message: saved.user_message,
           message: {
             ...saved.message,
-            character_name: pyRes.character_name || (figure ? `${figure.honorific ? `${figure.honorific} ` : ''}${figure.name}` : 'Trợ Lý AI Lịch Sử Đông A'),
+            character_name: viaGemma ? personaName ?? 'Tiểu Tướng' : pyRes.character_name || personaName || 'Trợ Lý AI Lịch Sử Đông A',
             unit_id: pyRes.unit_id,
             topic: pyRes.topic,
             study_hint: shaped.study_hint,
             student_mastery_summary: shaped.student_mastery_summary,
-            low_confidence: shaped.low_confidence,
+            low_confidence: viaGemma ? false : shaped.low_confidence,
             recommended_materials: pyRes.recommended_materials ?? [],
             badge_unlocked: pyRes.badge_unlocked ?? null,
             exp_reward: pyRes.exp_reward ?? 0,
@@ -575,6 +708,7 @@ export class AiTutorService implements OnModuleDestroy {
     }
 
     const history = conv0 ? await this.historyOf(conv.id) : [];
+    const audience: 'student' | 'teacher' = user.role === 'student' ? 'student' : 'teacher';
     // câu hỏi nối tiếp ngắn ("Còn ông ấy thì sao?") mượn từ khóa của câu hỏi trước để truy xuất
     const prev = history.filter((h) => h.role === 'user').slice(-1)[0]?.content ?? '';
     const searchText = words(question).length < 3 && prev ? `${prev} ${question}` : question;
@@ -584,9 +718,9 @@ export class AiTutorService implements OnModuleDestroy {
         ? await this.db.query<{ kind: string; id: number }>(
             `SELECT b_type AS kind, b_id AS id FROM hist_links WHERE a_type = 'figure' AND a_id = $1 UNION SELECT a_type, a_id FROM hist_links WHERE b_type = 'figure' AND b_id = $1`, [figure.id])
         : [];
-      answer = await this.respond({ question, history, searchText, needLlm: true, persona: figure, focus: [{ kind: 'figure', id: figure.id, w: 0.2 }, ...links.map((l) => ({ ...l, w: 0.02 }))], skipGate: true, only: ['figure', 'event', 'battle', 'source', 'campaign', 'place', 'term', 'doc'] });
+      answer = await this.respond({ question, history, searchText, needLlm: true, persona: figure, audience, focus: [{ kind: 'figure', id: figure.id, w: 0.2 }, ...links.map((l) => ({ ...l, w: 0.02 }))], skipGate: true, only: ['figure', 'event', 'battle', 'source', 'campaign', 'place', 'term', 'doc'] });
     } else {
-      answer = await this.respond({ question, history, searchText });
+      answer = await this.respond({ question, history, searchText, audience });
     }
     const saved = await this.save(conv.id, question, answer, startedAt);
     if (!answer.refused) await this.countAsk(user);
@@ -734,7 +868,8 @@ export class AiTutorService implements OnModuleDestroy {
     const c = (await this.db.query<Record<string, any>>('SELECT id::int AS id, title, mode, figure_id, created_at FROM hk_ai_conversations WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL', [id, user.id]))[0];
     if (!c) throw notFound('cuộc trò chuyện');
     const messages = await this.db.query(
-      `SELECT m.id::int AS id, m.role, m.content, m.citations, m.followups, m.refused, m.refusal_reason, m.answer_mode, m.created_at, EXISTS (SELECT 1 FROM hk_ai_reports r WHERE r.message_id = m.id AND r.user_id = $2) AS reported
+      `SELECT m.id::int AS id, m.role, m.content, m.citations, m.followups, m.refused, m.refusal_reason, m.answer_mode, m.model, m.thinking, m.thinking_ms, m.created_at,
+              EXISTS (SELECT 1 FROM hk_ai_reports r WHERE r.message_id = m.id AND r.user_id = $2) AS reported
        FROM hk_ai_messages m WHERE m.conversation_id = $1 ORDER BY m.id`, [id, user.id]);
     return { ...c, messages };
   }

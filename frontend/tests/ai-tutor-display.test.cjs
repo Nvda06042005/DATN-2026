@@ -19,3 +19,22 @@ test('bộ tách định dạng: đậm, nghiêng giữa câu, mã; dấu ** l�
   assert.match(src, /style=\{\{ fontStyle: 'italic' \}\}/);
   assert.match(src, /part\.replace\(\/\\\*\\\*\/g, ''\)/);
 });
+
+// Gemma 4 trên GPU máy giáo viên (27/11/2026, người dùng chọn "hiện thu gọn dưới câu trả lời"): phần suy nghĩ đóng sẵn, nằm dưới câu trả lời,
+// có ở cả trang Tiểu Tướng (giáo viên) lẫn Hỏi Tiểu Tướng của học sinh; hỏi AI chờ tới 120 giây (Gemma suy nghĩ lâu hơn API cũ)
+test('phần suy nghĩ của Gemma: thu gọn dưới câu trả lời, có ở cả hai trang hỏi đáp', () => {
+  const saga = fs.readFileSync(path.join(__dirname, '..', 'components', 'portal', 'SagaAsk.tsx'), 'utf8');
+  const api = fs.readFileSync(path.join(__dirname, '..', 'api', 'aiApi.ts'), 'utf8');
+  const note = src.slice(src.indexOf('export const ThinkingNote'), src.indexOf('export function useWaited'));
+  assert.match(note, /useState\(false\)/, 'mặc định thu gọn');
+  assert.match(note, /if \(!msg\.thinking\)|!msg\.thinking/, 'không có suy nghĩ thì không hiện gì');
+  assert.match(note, /đã suy nghĩ \$\{secs\} giây/);
+  assert.match(note, /accessibilityState=\{\{ expanded: open \}\}/);
+  for (const file of [src, saga]) {
+    const bubble = file.indexOf('<ThinkingNote');
+    assert.ok(bubble > 0, 'bong bóng trả lời phải có ThinkingNote');
+    assert.ok(file.lastIndexOf('<MarkdownText', bubble) > 0 && file.lastIndexOf('<MarkdownText', bubble) < bubble, 'ThinkingNote nằm sau câu trả lời');
+  }
+  assert.match(saga, /useWaited\(busy\)/);
+  assert.match(api, /aiAsk = [^\n]*timeoutMs: 120_000/);
+});

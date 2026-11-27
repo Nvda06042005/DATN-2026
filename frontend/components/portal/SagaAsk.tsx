@@ -13,7 +13,7 @@ import { errorMessage } from '@/api/client';
 import type { Session } from '@/components/auth';
 import { StudentAiHub } from '@/components/ai/StudentAiHub';
 import { useLoad, type SagaNav } from '@/components/portal/SagaKit';
-import { MarkdownText, ReportSheet } from '@/components/portal/TieuTuong';
+import { MarkdownText, ReportSheet, ThinkingNote, useWaited } from '@/components/portal/TieuTuong';
 import { BtButton, BtCard, BtPage, Columns, Eyebrow, Pill, SerifTitle, TtMark, TtSays, useBT } from '@/components/portal/StudentDesign';
 import { Txt, useToast } from '@/components/ui';
 import { FONT } from '@/constants/theme';
@@ -62,6 +62,7 @@ const Bubble: React.FC<{ msg: AiMessage; onOpen: (kind: string, id: number) => v
             {msg.answer_mode === 'extractive' ? <Pill text="Trích nguyên văn tư liệu" /> : null}
           </View>
           <MarkdownText content={msg.content} size={15} lineHeight={23} color={t.ink} />
+          <ThinkingNote msg={msg} ink={t.ink} muted={t.muted} line={t.line2} />
           {msg.citations?.length ? (
             <View style={{ gap: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: t.line }}>
               <Eyebrow text="Nguồn sử liệu" color={t.muted} />
@@ -109,6 +110,7 @@ export const AskScreen: React.FC<{ session: Session; nav: SagaNav; onOpen: (kind
   const [messages, setMessages] = useState<AiMessage[]>(saved?.messages ?? []);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const waited = useWaited(busy);
   const [hub, setHub] = useState(false);
   const [report, setReport] = useState<AiMessage | null>(null);
   const [listening, setListening] = useState(false);
@@ -203,7 +205,7 @@ export const AskScreen: React.FC<{ session: Session; nav: SagaNav; onOpen: (kind
           {messages.map((m) => <Bubble key={m.id} msg={m} onOpen={onOpen} onAsk={(q) => { void send(q); }} onReport={setReport} busy={busy} />)}
           {busy ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }} accessibilityLiveRegion="polite">
-              <TtMark size={32} /><Txt size={13.5} color={t.muted}>Tiểu Tướng đang lật sử sách…</Txt>
+              <TtMark size={32} /><Txt size={13.5} color={t.muted}>{status.data?.gemma?.online ? 'Tiểu Tướng đang suy nghĩ…' : 'Tiểu Tướng đang lật sử sách…'}{waited >= 3 ? ` ${waited} giây` : ''}</Txt>
             </View>
           ) : null}
         </View>

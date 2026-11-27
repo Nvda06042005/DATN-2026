@@ -1,5 +1,6 @@
 import { Controller, Get, Query, ServiceUnavailableException } from '@nestjs/common';
 import { AiTutorService } from './ai/ai-tutor.service';
+import { GemmaClient } from './ai/gemma.client';
 import { keepAliveState } from './platform/keep-alive';
 import { engineHealth } from './ai/python-runtime';
 import { config } from './config';
@@ -7,7 +8,7 @@ import { DatabaseService } from './database/database.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly db: DatabaseService, private readonly tutor: AiTutorService) {}
+  constructor(private readonly db: DatabaseService, private readonly tutor: AiTutorService, private readonly gemma: GemmaClient) {}
 
   @Get()
   root() {
@@ -20,7 +21,8 @@ export class AppController {
     // `?warm=ai` (lịch keep-alive của GitHub Actions, 17/11/2026): nạp lại mô hình AI Python nếu đang tắt – không chờ, không cần đăng nhập
     const warming = warm === 'ai' ? this.tutor.warm() : false;
     // ai_engine: trợ lý AI đang dùng mô hình Python (mode "python") hay chế độ dự phòng, kèm lý do và bộ nhớ (python-runtime.ts)
-    return { status: 'healthy', commit: /^[a-f0-9]{40}$/.test(commit ?? '') ? commit : null, ai_engine: engineHealth(), keep_alive: keepAliveState(), ...(warm === 'ai' ? { warming } : {}) };
+    // gemma: Gemma 4 trên GPU máy giáo viên có đang nhận câu hỏi không (27/11/2026; không lộ tên máy hay cấu hình máy)
+    return { status: 'healthy', commit: /^[a-f0-9]{40}$/.test(commit ?? '') ? commit : null, ai_engine: engineHealth(), gemma: this.gemma.publicStatus(), keep_alive: keepAliveState(), ...(warm === 'ai' ? { warming } : {}) };
   }
 
   /** Kiểm tra kết nối PostgreSQL (Supabase); migration chạy khi khởi động */

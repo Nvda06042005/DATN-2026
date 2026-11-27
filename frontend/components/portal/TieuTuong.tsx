@@ -5,7 +5,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
-import { BookOpen, Flag, History as HistoryIcon, Plus, RotateCcw, Search, SendHorizontal, ShieldQuestion, Sparkles, SquarePen, Trash2 } from 'lucide-react-native';
+import { BookOpen, Brain, ChevronDown, ChevronUp, Flag, History as HistoryIcon, Plus, RotateCcw, Search, SendHorizontal, ShieldQuestion, Sparkles, SquarePen, Trash2 } from 'lucide-react-native';
 import * as api from '@/api/aiApi';
 import { ApiError, errorMessage } from '@/api/client';
 import { ErrorNote, useAction, useLoad } from '@/components/admin/kit';
@@ -175,6 +175,7 @@ export const AiBubble: React.FC<{ msg: AiMessage; onOpen?: OpenSource; onAsk?: (
           ) : null}
         </View>
         <MarkdownText content={msg.content} size={15} lineHeight={23} />
+        <ThinkingNote msg={msg} ink={c.muc} muted={c.muc2} line={c.vien} />
         {msg.citations?.length ? (
           <View style={{ gap: 6, paddingTop: 4, borderTopWidth: 1, borderTopColor: c.vien }}>
             <Txt f="bold" size={12} color={c.muc3}>📚 Nguồn sử liệu đối chiếu</Txt>
@@ -203,6 +204,45 @@ export const AiBubble: React.FC<{ msg: AiMessage; onOpen?: OpenSource; onAsk?: (
     </View>
   );
 };
+
+/**
+ * Phần suy luận của Gemma 4 (27/11/2026, người dùng chọn "hiện thu gọn dưới câu trả lời"): dòng "Tiểu Tướng đã suy nghĩ N giây", bấm mới mở xem.
+ * Dùng chung cho mục Hỏi Tiểu Tướng của học sinh (giao diện Binh thư) và khung hỏi đáp này; màu truyền từ giao diện đang dùng. Câu trả lời không qua Gemma thì không hiện.
+ */
+export const ThinkingNote: React.FC<{ msg: AiMessage; ink: string; muted: string; line: string }> = ({ msg, ink, muted, line }) => {
+  const [open, setOpen] = useState(false);
+  if (!msg.thinking) return null;
+  const secs = Math.max(1, Math.round((msg.thinking_ms ?? 0) / 1000));
+  const label = `Tiểu Tướng đã suy nghĩ ${secs} giây`;
+  return (
+    <View style={{ gap: 6 }}>
+      <Pressable onPress={() => setOpen((o) => !o)} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={`${label}. ${open ? 'Ẩn' : 'Xem'} phần suy nghĩ`} testID="ai-thinking-toggle"
+        style={({ pressed }) => ({ minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', opacity: pressed ? 0.75 : 1 })}>
+        <Brain size={14} color={muted} />
+        <Txt size={12.5} color={muted}>{label}</Txt>
+        {open ? <ChevronUp size={14} color={muted} /> : <ChevronDown size={14} color={muted} />}
+      </Pressable>
+      {open ? (
+        <View testID="ai-thinking-text" style={{ borderLeftWidth: 2, borderLeftColor: line, paddingLeft: 10, gap: 4 }}>
+          <Txt size={13} color={ink} style={{ lineHeight: 20 }} selectable>{msg.thinking}</Txt>
+          {msg.model ? <Txt size={11.5} color={muted}>Mô hình {msg.model} · chạy trên GPU máy giáo viên</Txt> : null}
+        </View>
+      ) : null}
+    </View>
+  );
+};
+
+/** Số giây đã chờ câu trả lời (Gemma có suy luận có thể mất tới hơn 1 phút); về 0 khi không chờ */
+export function useWaited(running: boolean): number {
+  const [secs, setSecs] = useState(0);
+  useEffect(() => {
+    if (!running) { setSecs(0); return undefined; }
+    const t0 = Date.now();
+    const id = setInterval(() => setSecs(Math.floor((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, [running]);
+  return secs;
+}
 
 export const ReportSheet: React.FC<{ session: Session; message: AiMessage; onClose: () => void; onDone: () => void }> = ({ session, message, onClose, onDone }) => {
   const { busy, run } = useAction(session.expired);
@@ -253,6 +293,7 @@ export const ChatPanel: React.FC<ChatProps> = ({
   const [messages, setMessages] = useState<AiMessage[]>(initial?.messages ?? []);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const waited = useWaited(busy);
   const [error, setError] = useState<string | null>(null);
   const [reporting, setReporting] = useState<AiMessage | null>(null);
   const consumedInitRef = useRef<string | null>(null);
@@ -331,7 +372,7 @@ export const ChatPanel: React.FC<ChatProps> = ({
       )}
       <View style={{ gap: 12 }}>
         {messages.map((m) => <AiBubble key={m.id} msg={m} onOpen={onOpen} onAsk={m === last ? send : undefined} onReport={mode === 'roleplay' ? undefined : setReporting} />)}
-        {busy ? <View style={{ alignSelf: 'flex-start' }}><Spinner label="Trợ lý AI Đông A đang phân tích & đối chiếu sử liệu…" /></View> : null}
+        {busy ? <View style={{ alignSelf: 'flex-start' }}><Spinner label={`Trợ lý AI Đông A đang phân tích & đối chiếu sử liệu…${waited >= 3 ? ` (${waited} giây)` : ''}`} /></View> : null}
       </View>
       <ErrorNote message={error} />
       <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-end' }}>

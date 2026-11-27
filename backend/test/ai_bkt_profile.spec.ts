@@ -151,6 +151,7 @@ describe('BKT & AI Student Profile Sync', () => {
       {} as any,
       {} as any,
       {} as any,
+      { available: async () => false } as any,
       { studentAiProfile: async () => makeActiveProfile() } as unknown as AnalyticsService,
     );
     jest.spyOn(tutor as any, 'callPythonBridge').mockResolvedValue(null);

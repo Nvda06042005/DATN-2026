@@ -8,6 +8,7 @@
     "postbuild": "node scripts/setup-ai-python.mjs",
     "ai:setup": "node scripts/setup-ai-python.mjs --local",
     "ai:smoke": "node scripts/ai-smoke.mjs",
+    "gemma:worker": "node scripts/gemma-worker.mjs",
     "start": "node dist/main.js",
     "dev": "nest start --watch",
     "test": "jest --runInBand",

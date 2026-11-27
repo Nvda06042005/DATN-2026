@@ -52,4 +52,17 @@ export const config = {
   aiEmbedModel: env('AI_EMBED_MODEL'),
   /** Tự lập chỉ mục khi nội dung công bố thay đổi và lúc khởi động; kiểm thử đặt AI_INDEX_JOB=off để tự gọi lập chỉ mục */
   aiIndexJob: env('AI_INDEX_JOB', 'on') !== 'off',
+  /**
+   * Gemma 4 E4B chạy bằng Ollama trên GPU của máy giáo viên (27/11/2026, thay cho gọi API; API cũ thành phương án dự phòng – ai/gemma.client.ts):
+   *  - GEMMA_URL: địa chỉ Ollama khi backend chạy cùng máy (vd. http://127.0.0.1:11434); để trống thì không gọi trực tiếp;
+   *  - GEMMA_WORKER_KEY: khóa bí mật để máy có GPU nhận việc từ máy chủ này (npm run gemma:worker); để trống thì tắt đường này;
+   *  - GEMMA_MODEL (mặc định gemma4:e4b), GEMMA_THINK=off để tắt suy luận, GEMMA_TIMEOUT_MS (mặc định 100000; quá hạn thì dùng phương án cũ).
+   */
+  gemmaUrl: env('GEMMA_URL').replace(/\/+$/, ''),
+  gemmaWorkerKey: env('GEMMA_WORKER_KEY'),
+  gemmaModel: env('GEMMA_MODEL', 'gemma4:e4b'),
+  gemmaThink: env('GEMMA_THINK', 'on') !== 'off',
+  gemmaTimeoutMs: Number(env('GEMMA_TIMEOUT_MS', '100000')) || 100_000,
+  /** Kết quả kiểm tra Ollama gọi trực tiếp được giữ bao lâu (kiểm thử đặt 0) */
+  gemmaHealthMs: Number(env('GEMMA_HEALTH_MS', '15000')),
 };

@@ -1,4 +1,5 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, ParseIntPipe, Patch, Post, Put, Query, StreamableFile, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Headers, HttpCode, NotFoundException, Param, ParseIntPipe, Patch, Post, Put, Query, Res, StreamableFile, UnauthorizedException, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard, CurrentUser, Roles } from '../auth/auth.guard';
 import { UserRow } from '../database/database.service';
@@ -7,6 +8,7 @@ import { AiIndexService } from './ai-index.service';
 import { AiSettingsService } from './ai-settings.service';
 import { AiToolsService } from './ai-tools.service';
 import { AiTutorService } from './ai-tutor.service';
+import { GemmaClient } from './gemma.client';
 
 type Json = Record<string, any>;
 const ALL = ['student', 'teacher', 'school_admin', 'root_admin'] as const;
@@ -66,4 +68,39 @@ export class AiController {
   }
   @Get('admin/limits') @Roles('root_admin', 'school_admin') limits() { return this.admin.limits(); }
   @Put('admin/limits/:schoolId') @Roles('root_admin', 'school_admin') setLimit(@CurrentUser() user: UserRow, @Param('schoolId', ParseIntPipe) id: number, @Body() body: Json) { return this.admin.setLimit(user, id, body); }
+}
+
+/**
+ * /api/ai/gemma – người nhận việc Gemma 4 (máy giáo viên có GPU chạy `npm run gemma:worker`, 27/11/2026) hỏi việc và gửi kết quả.
+ * Không dùng tài khoản đăng nhập: xác thực bằng khóa GEMMA_WORKER_KEY ở tiêu đề `x-gemma-key` (so khớp thời gian không đổi); máy chủ chưa đặt khóa thì 404.
+ * Hỏi việc giữ kết nối tối đa 25 giây (204 khi không có việc); kết nối đứt sau khi đã giao việc thì việc được đưa lại hàng chờ.
+ */
+@Controller('ai/gemma')
+export class GemmaWorkerController {
+  constructor(private readonly gemma: GemmaClient) {}
+
+  private guard(key: string | undefined): void {
+    const k = this.gemma.checkKey(key);
+    if (k === 'off') throw new NotFoundException('Máy chủ chưa bật người nhận việc Gemma (GEMMA_WORKER_KEY)');
+    if (k === 'bad') throw new UnauthorizedException('Khóa người nhận việc Gemma không đúng');
+  }
+
+  @Post('poll')
+  async poll(@Headers('x-gemma-key') key: string | undefined, @Body() body: Json, @Res() res: Response): Promise<void> {
+    this.guard(key);
+    const handle = this.gemma.poll(body ?? {});
+    let sent = false;
+    res.on('close', () => { if (!sent) handle.cancel(); });
+    const job = await handle.job;
+    if (res.destroyed || res.writableEnded) return;
+    sent = true;
+    if (!job) { res.status(204).end(); return; }
+    res.status(200).json({ job });
+  }
+
+  @Post('result') @HttpCode(200)
+  result(@Headers('x-gemma-key') key: string | undefined, @Body() body: Json) {
+    this.guard(key);
+    return { accepted: this.gemma.result(body ?? {}) };
+  }
 }

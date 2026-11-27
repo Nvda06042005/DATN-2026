@@ -13,8 +13,9 @@ const qs = (q: Record<string, string | number | undefined>): string => {
 // ---------------------------------------------------------------------- học sinh và giáo viên
 export const aiStatus = (token: string) => apiRequest<AiStatus>(`${base}/status`, { token });
 export const aiAsk = (token: string, body: { question: string; conversation_id?: number; mode?: string; figure_id?: number }) => apiRequest<AiReply>(`${base}/ask`, { token, body, timeoutMs: 120_000 });
-export const aiExplain = (token: string, attemptId: number, questionId: number) => apiRequest<AiReply>(`${base}/explain`, { token, body: { attempt_id: attemptId, question_id: questionId } });
-export const aiSummarize = (token: string, kind: string, id: number) => apiRequest<AiReply>(`${base}/summarize`, { token, body: { kind, id } });
+// Gemma 4 trên máy giáo viên có suy luận nên một câu có thể mất tới gần 2 phút: các lệnh gọi mô hình chờ 120 giây (máy chủ tự quay về phương án cũ sau 100 giây)
+export const aiExplain = (token: string, attemptId: number, questionId: number) => apiRequest<AiReply>(`${base}/explain`, { token, body: { attempt_id: attemptId, question_id: questionId }, timeoutMs: 120_000 });
+export const aiSummarize = (token: string, kind: string, id: number) => apiRequest<AiReply>(`${base}/summarize`, { token, body: { kind, id }, timeoutMs: 120_000 });
 export const aiSummaryOptions = (token: string) => apiRequest<SummaryOptions>(`${base}/summary/options`, { token });
 export const aiFigures = (token: string) => apiRequest<Array<{ id: number; name: string; honorific: string | null; role_text: string | null }>>(`${base}/roleplay/figures`, { token });
 export const aiBktRecommendations = (token: string, topK = 6) => apiRequest<BktRecommendationsResponse>(`${base}/bkt-recommendations${qs({ top_k: topK })}`, { token });
@@ -26,8 +27,8 @@ export const aiDeleteConversation = (token: string, id: number) => apiRequest<vo
 export const aiReport = (token: string, messageId: number, reason: string) => apiRequest<{ reported: boolean }>(`${base}/messages/${messageId}/report`, { token, body: { reason } });
 
 // ---------------------------------------------------------------------- giáo viên
-export const aiQuestionDrafts = (token: string, body: { kind: string; id?: number; text?: string; count?: number }) => apiRequest<DraftResult>(`${base}/teacher/question-drafts`, { token, body });
-export const aiLessonPlan = (token: string, body: { journey_id?: number; battle_id?: number; minutes?: number; note?: string }) => apiRequest<PlanResult>(`${base}/teacher/lesson-plan`, { token, body });
+export const aiQuestionDrafts = (token: string, body: { kind: string; id?: number; text?: string; count?: number }) => apiRequest<DraftResult>(`${base}/teacher/question-drafts`, { token, body, timeoutMs: 120_000 });
+export const aiLessonPlan = (token: string, body: { journey_id?: number; battle_id?: number; minutes?: number; note?: string }) => apiRequest<PlanResult>(`${base}/teacher/lesson-plan`, { token, body, timeoutMs: 120_000 });
 export const aiTopics = (token: string, days = 30) => apiRequest<TopicsResult>(`${base}/teacher/topics${qs({ days })}`, { token });
 export const aiTopicGroups = (token: string) => apiRequest<TopicGroupsResponse>(`${base}/teacher/topic-groups`, { token });
 export const aiGenerateQuiz = (token: string, body: QuizGenerateRequest) => apiRequest<QuizGenerateResponse>(`${base}/teacher/quiz-generate`, { token, body });
@@ -43,7 +44,7 @@ export const aiUploadDoc = (token: string, file: PickedFile) => apiUpload<{ id: 
 export const aiAddText = (token: string, title: string, text: string) => apiRequest<{ id: number; title: string; chunks: number }>(`${base}/admin/docs`, { token, body: { title, text } });
 export const aiDocStatus = (token: string, id: number, status: AiDoc['status']) => apiRequest<{ id: number; status: string }>(`${base}/admin/docs/${id}`, { token, method: 'PATCH', body: { status } });
 export const aiDeleteDoc = (token: string, id: number) => apiRequest<void>(`${base}/admin/docs/${id}`, { token, method: 'DELETE' });
-export const aiPlayground = (token: string, question: string) => apiRequest<Playground>(`${base}/admin/playground`, { token, body: { question } });
+export const aiPlayground = (token: string, question: string) => apiRequest<Playground>(`${base}/admin/playground`, { token, body: { question }, timeoutMs: 120_000 });
 export const aiLogs = (token: string, q: { school_id?: number; from?: string; to?: string; reported?: boolean; refused?: boolean; page?: number }) =>
   apiRequest<LogPage>(`${base}/admin/logs${qs({ school_id: q.school_id, from: q.from, to: q.to, reported: q.reported ? 'true' : undefined, refused: q.refused ? 'true' : undefined, page: q.page })}`, { token });
 export const aiReports = (token: string, status?: string) => apiRequest<AiReport[]>(`${base}/admin/reports${qs({ status })}`, { token });

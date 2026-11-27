@@ -18,11 +18,17 @@ export interface AiMessage {
   student_mastery_summary?: StudentMasterySummary | null;
   badge_unlocked?: string | null;
   exp_reward?: number;
+  /** Gemma 4 trên GPU máy giáo viên (27/11/2026): mô hình trả lời, phần suy luận (thinking) và thời gian suy nghĩ – hiện thu gọn dưới câu trả lời */
+  model?: string | null;
+  thinking?: string | null;
+  thinking_ms?: number | null;
 }
 export interface AiConversation { id: number; title: string; mode: AiMode; figure_id: number | null; created_at: string; updated_at: string; questions?: number }
 export interface AiReply { conversation: { id: number; mode: AiMode; figure_id: number | null }; user_message: AiMessage; message: AiMessage }
 export interface AiQuota { limit: number; used: number; school_limit: number; school_used: number; remaining: number | null; unlimited: boolean }
-export interface AiStatus { mode: 'llm' | 'extractive' | 'grounded'; ready: boolean; chunks: number; quota: AiQuota; roleplay: boolean; modes: AiMode[] }
+/** Gemma 4 trên GPU máy giáo viên có đang nhận câu hỏi không (27/11/2026) */
+export interface GemmaStatus { enabled: boolean; online: boolean; via: 'local' | 'worker' | null; model: string | null; last_seen: string | null }
+export interface AiStatus { mode: 'llm' | 'extractive' | 'grounded'; ready: boolean; chunks: number; quota: AiQuota; roleplay: boolean; modes: AiMode[]; gemma?: GemmaStatus }
 export interface SummaryOptions { lessons: Array<{ id: number; title: string }>; battles: Array<{ id: number; title: string }>; events: Array<{ id: number; title: string }>; figures: Array<{ id: number; title: string }>; campaigns: Array<{ id: number; title: string }> }
 
 export interface BktRecommendationItem {

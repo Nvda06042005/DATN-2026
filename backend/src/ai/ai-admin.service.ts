@@ -8,6 +8,7 @@ import { DatabaseService, UserRow } from '../database/database.service';
 import { AiSettingsService } from './ai-settings.service';
 import { AiTutorService } from './ai-tutor.service';
 import { LlmClient, LlmError } from './llm.client';
+import { GemmaClient } from './gemma.client';
 
 const WHO = "substr(md5(c.user_id::text || 'hk-ai-log'), 1, 6)";
 const DAY_START = "(date_trunc('day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh') AT TIME ZONE 'Asia/Ho_Chi_Minh')";
@@ -15,7 +16,7 @@ const REPORT_STATUS = ['open', 'reviewing', 'resolved', 'dismissed'];
 
 @Injectable()
 export class AiAdminService {
-  constructor(private readonly db: DatabaseService, private readonly settings: AiSettingsService, private readonly tutor: AiTutorService, private readonly llm: LlmClient) {}
+  constructor(private readonly db: DatabaseService, private readonly settings: AiSettingsService, private readonly tutor: AiTutorService, private readonly llm: LlmClient, private readonly gemma: GemmaClient) {}
 
   /** Playground (HK.AD.059): chạy đúng quy trình trả lời nhưng không lưu hội thoại và không tính hạn mức */
   async playground(body: { question?: string }) {
@@ -31,11 +32,14 @@ export class AiAdminService {
     };
   }
 
-  /** Kiểm tra kết nối (HK.AD.057): một lượt trả lời ngắn và một lượt nhúng nếu có mô hình nhúng */
+  /**
+   * Kiểm tra kết nối (HK.AD.057): Gemma 4 trên GPU máy giáo viên (27/11/2026, được ưu tiên) rồi API cũ – một lượt trả lời ngắn và một lượt nhúng nếu có mô hình nhúng
+   */
   async testConnection() {
+    const gemma = await this.gemma.ping();
     const cfg = await this.settings.llm();
-    if (!cfg) return { configured: false, chat: null, embed: null, message: 'Chưa cấu hình nhà cung cấp hoặc khóa API: AI Tutor đang dùng chế độ trích tư liệu.' };
-    const out: { configured: true; provider: string; chat: Record<string, unknown>; embed: Record<string, unknown> | null } = { configured: true, provider: cfg.provider, chat: {}, embed: null };
+    if (!cfg) return { configured: false, gemma, chat: null, embed: null, message: gemma.online ? 'AI Tutor đang trả lời bằng Gemma 4 trên máy giáo viên; chưa cấu hình API dự phòng.' : 'Chưa cấu hình nhà cung cấp hoặc khóa API: AI Tutor đang dùng chế độ trích tư liệu.' };
+    const out: { configured: true; gemma: typeof gemma; provider: string; chat: Record<string, unknown>; embed: Record<string, unknown> | null } = { configured: true, gemma, provider: cfg.provider, chat: {}, embed: null };
     let t = Date.now();
     try {
       const r = await this.llm.chat(cfg, { system: 'Trả lời đúng một từ.', messages: [{ role: 'user', content: 'Nói "ok".' }], temperature: 0, maxTokens: 20 });
