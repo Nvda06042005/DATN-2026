@@ -30,7 +30,7 @@ function fakeOllama() {
       let content: string;
       if (/soạn câu hỏi kiểm tra/.test(system)) {
         content = JSON.stringify([{ qtype: 'single', prompt: 'Ai chỉ huy quân Trần ở Bạch Đằng năm 1288?', options: ['Trần Hưng Đạo', 'Lê Lợi', 'Ngô Quyền', 'Quang Trung'], correct: 0, explanation: 'Theo tư liệu.', difficulty: 1 }]);
-      } else content = 'Quân Trần cắm cọc để **bẫy thủy quân Nguyên** [1]. Số lạ [9].\n\nGỢI Ý:\n- Ai chỉ huy trận Bạch Đằng?\n- Thủy triều giúp gì?\n- Kết quả ra sao?';
+      } else content = 'Quân Trần cắm cọc để **bẫy thủy quân Nguyên** [1]. Số lạ [9]. Ý soạn sẵn [dap_an_chuan].\n\nGỢI Ý:\n- Ai chỉ huy trận Bạch Đằng?\n- Thủy triều giúp gì?\n- Kết quả ra sao?';
       res.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
       const line = (o: unknown) => res.write(`${JSON.stringify(o)}\n`);
       if (body.think) for (const part of THOUGHT.match(/.{1,40}/g) ?? []) line({ message: { role: 'assistant', content: '', thinking: part }, done: false });
@@ -79,6 +79,9 @@ function fakeOllama() {
     expect(m.thinking_ms).toBeGreaterThanOrEqual(0);
     expect(m.content).toMatch(/bẫy thủy quân Nguyên/);
     expect(m.content).not.toMatch(/\[9\]/); // số trích dẫn không có thật bị bỏ
+    expect(m.content).toContain('Số lạ.'); // bỏ cả khoảng trắng đứng trước số trích dẫn
+    expect(m.content).toContain('Ý soạn sẵn.'); // "trích dẫn" bằng tên thẻ cũng bị bỏ
+    expect(m.content).not.toMatch(/dap_an_chuan/);
     expect(m.followups).toEqual(['Ai chỉ huy trận Bạch Đằng?', 'Thủy triều giúp gì?', 'Kết quả ra sao?']);
     expect(m.citations[0]).toMatchObject({ n: 1 });
     // yêu cầu gửi Ollama: bật suy luận, bộ quy tắc, tư liệu và câu hỏi trong thẻ, token cho phần suy luận
@@ -142,7 +145,7 @@ function fakeOllama() {
         const { job } = await r.json() as { job: any };
         seen.push(job);
         const accepted = await (await result(WORKER_KEY, {
-          id: job.id, ok: true, model: 'gemma4:e4b', thinking: 'Suy nghĩ của máy có GPU.\n\nConstraint Checklist & Confidence Score:\n1. Yes.\nStrategizing complete.', thinking_ms: 4200, tokens_in: 900, tokens_out: 80,
+          id: job.id, ok: true, model: 'gemma4:e4b', thinking: 'Suy nghĩ của máy có GPU, đối chiếu <dap_an_chuan> [dap_an_chuan].\n\nConstraint Checklist & Confidence Score:\n1. Yes.\nStrategizing complete.', thinking_ms: 4200, tokens_in: 900, tokens_out: 80,
           content: 'Trận Bạch Đằng năm 1288 quân Trần thắng lớn [1].\n\nGỢI Ý:\n- Ai chỉ huy?\n- Vì sao thắng?\n- Ý nghĩa là gì?',
         })).json() as { accepted: boolean };
         expect(accepted.accepted).toBe(true);
@@ -156,7 +159,7 @@ function fakeOllama() {
     running = false;
     expect(res.status).toBe(200);
     // bảng tự kiểm tiếng Anh Gemma hay viết cuối phần suy nghĩ bị cắt, học sinh chỉ thấy phần tiếng Việt
-    expect(res.body.message).toMatchObject({ answer_mode: 'llm', model: 'gemma4:e4b', thinking: 'Suy nghĩ của máy có GPU.', thinking_ms: 4200, followups: ['Ai chỉ huy?', 'Vì sao thắng?', 'Ý nghĩa là gì?'] });
+    expect(res.body.message).toMatchObject({ answer_mode: 'llm', model: 'gemma4:e4b', thinking: 'Suy nghĩ của máy có GPU, đối chiếu đáp án chuẩn (đáp án chuẩn).', thinking_ms: 4200, followups: ['Ai chỉ huy?', 'Vì sao thắng?', 'Ý nghĩa là gì?'] });
     expect(seen.length).toBeGreaterThanOrEqual(1);
     expect(seen[0]).toMatchObject({ think: true, options: { num_ctx: 8192 } });
     expect(seen[0].messages[0].role).toBe('system');

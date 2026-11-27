@@ -62,7 +62,7 @@ export function gemmaSystemPrompt(c: RuleContext): string {
     '',
     '# QUY TẮC BẮT BUỘC (theo thứ tự ưu tiên)',
     '1. CHỈ DÙNG TƯ LIỆU: mọi tên người, địa danh, ngày tháng, con số phải lấy từ <tu_lieu> hoặc <dap_an_chuan>. Không thêm chi tiết lấy từ hiểu biết riêng, kể cả khi em hỏi gặng.',
-    '2. TRÍCH DẪN: sau mỗi ý lấy từ một đoạn trong <tu_lieu>, ghi số đoạn trong ngoặc vuông, ví dụ [1] hoặc [1][3]. Chỉ dùng số đoạn có thật trong <tu_lieu>.',
+    '2. TRÍCH DẪN: sau mỗi ý lấy từ một đoạn trong <tu_lieu>, ghi số đoạn trong ngoặc vuông, ví dụ [1] hoặc [1][3]. Chỉ dùng số đoạn có thật trong <tu_lieu>; trong ngoặc vuông chỉ có chữ số, không bao giờ ghi tên thẻ như [dap_an_chuan] hay [tu_lieu].',
     who
       ? '3. THIẾU TƯ LIỆU THÌ NÓI THẬT: chuyện không có trong tư liệu hoặc thuộc thời nay thì trả lời "ta không rõ chuyện ấy"; không đoán.'
       : '3. THIẾU TƯ LIỆU THÌ NÓI THẬT: nếu tư liệu không đủ để trả lời, nói rõ "Tư liệu của lớp chưa có thông tin này" và gợi ý hỏi thầy cô; không đoán.',
@@ -74,7 +74,7 @@ export function gemmaSystemPrompt(c: RuleContext): string {
     '# CÁCH VIẾT',
     ...(who ? PERSONA_STYLE : STYLE[c.audience]).map((s) => `- ${s}`),
     '- Viết tiếng Việt chuẩn, có dấu. Không dùng tiêu đề markdown (#); được in đậm **từ khóa** chính.',
-    '- <dap_an_chuan> là câu trả lời đã được giáo viên duyệt cho chủ đề gần nhất: ưu tiên ý của nó, diễn đạt lại cho tự nhiên; không ghi số trích dẫn cho phần này.',
+    '- <dap_an_chuan> là câu trả lời soạn sẵn của Tiểu Tướng cho chủ đề gần nhất: ưu tiên ý của nó, diễn đạt lại cho tự nhiên. Ý chỉ có trong <dap_an_chuan> thì không ghi gì trong ngoặc vuông; ý có cả trong một đoạn <tu_lieu> thì ghi số đoạn đó.',
     '- <ho_so_hoc_tap> (nếu có) chỉ dùng để chọn câu hỏi gợi ý ôn tập phù hợp; không nhắc điểm số hay phần trăm của em.',
     '',
     '# ĐỊNH DẠNG ĐẦU RA (bắt buộc)',
@@ -150,10 +150,18 @@ export function gemmaProfile(p: Record<string, unknown> | null | undefined): str
  * Tách câu trả lời của mô hình thành phần trả lời và các câu hỏi gợi ý; bỏ số trích dẫn không có thật và các dòng chỉ là thẻ
  * (mô hình nhỏ đôi khi chép lại chỗ giữ chỗ như "<câu trả lời>" hay "</tu_lieu>")
  */
+/** "[dap_an_chuan]", "[tu_lieu 2]", "[đáp án chuẩn]"… mà mô hình viết như một trích dẫn */
+const TAG_CITE = /[ \t]*\[(?:dap_an_chuan|tu_lieu|ho_so_hoc_tap|cau_hoi|đáp án chuẩn|tư liệu)[^\]\n]{0,8}\]/gi;
+
 export function splitAnswer(raw: string, passages: number): { text: string; followups: string[] } {
   const clean = raw.replace(/^\s*<\/?[^<>\n]{1,40}>\s*$/gm, '').replace(/^\s*<\/?[^<>\n]{1,40}>\s*/, '');
   const m = clean.split(/\n\s*\**\s*GỢI Ý\s*\**\s*:?\s*\**\s*\n?/i);
   const followups = (m[1] ?? '').split('\n').map((l) => l.replace(/^[-•*\d.)\s]+/, '').trim()).filter((l) => l.length > 5 && l.length <= 160).slice(0, 3);
-  const text = (m[0] ?? '').trim().replace(/\[(\d{1,2})\]/g, (all, n) => (Number(n) >= 1 && Number(n) <= passages ? all : '')).replace(/\n{3,}/g, '\n\n').trim();
+  // số trích dẫn không có trong tư liệu bị bỏ cùng khoảng trắng đứng trước (tránh "trận địa ." còn sót dấu cách);
+  // Gemma đôi khi "trích dẫn" bằng tên thẻ ([dap_an_chuan], [tu_lieu]…) – bỏ luôn
+  const text = (m[0] ?? '').trim()
+    .replace(/[ \t]*\[(\d{1,2})\]/g, (all, n) => (Number(n) >= 1 && Number(n) <= passages ? all : ''))
+    .replace(TAG_CITE, '')
+    .replace(/\n{3,}/g, '\n\n').trim();
   return { text: text || clean.trim(), followups };
 }

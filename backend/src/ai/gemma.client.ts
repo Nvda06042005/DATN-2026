@@ -65,8 +65,14 @@ export function tidyThinking(thought: string): string {
   const s = thought.trim();
   const m = THOUGHT_TAIL.exec(s);
   const head = m ? s.slice(0, m.index).trim() : '';
-  return (head || s).slice(0, MAX_THINKING);
+  // tên thẻ dữ liệu của bộ quy tắc (<tu_lieu>, <dap_an_chuan>…) đổi thành chữ thường cho dễ đọc
+  return (head || s)
+    .replace(/\[(tu_lieu|dap_an_chuan|ho_so_hoc_tap|cau_hoi)\]/g, (_all, tag: keyof typeof TAG_WORDS) => `(${TAG_WORDS[tag]})`)
+    .replace(/<\/?(tu_lieu|dap_an_chuan|ho_so_hoc_tap|cau_hoi)>/g, (_all, tag: keyof typeof TAG_WORDS) => TAG_WORDS[tag])
+    .slice(0, MAX_THINKING);
 }
+
+const TAG_WORDS = { tu_lieu: 'tư liệu', dap_an_chuan: 'đáp án chuẩn', ho_so_hoc_tap: 'hồ sơ học tập', cau_hoi: 'câu hỏi' } as const;
 
 /** Đọc phản hồi NDJSON của Ollama (stream: true): gom phần suy luận và câu trả lời, đo thời gian tới chữ đầu tiên của câu trả lời */
 export async function readOllamaStream(body: ReadableStream<Uint8Array>, startedAt: number): Promise<{ text: string; thinking: string; thinkingMs: number; tokensIn: number; tokensOut: number; doneReason: string }> {
