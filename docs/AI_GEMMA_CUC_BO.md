@@ -103,6 +103,26 @@ Kết quả thử trên mô hình thật (RTX 4050 6 GB):
 
    Bấm Ctrl+C để dừng: mô hình được giải phóng khỏi GPU và website quay về phương án cũ.
 
+### Tự chạy khi đăng nhập Windows (máy giáo viên, 28/11/2026)
+
+Người dùng yêu cầu Gemma tự chạy khi bật máy, không phải gõ lệnh. Trên máy giáo viên đã có:
+
+- **Ollama** tự mở cùng Windows (lối tắt `Ollama.lnk` trong thư mục Startup, do bộ cài tạo).
+- **Tác vụ "DongA Gemma 4"** trong Task Scheduler:
+  - Chạy khi tài khoản Windows đăng nhập, sau 30 giây, không cửa sổ.
+  - Gọi `powershell -WindowStyle Hidden -File D:\ollama\gemma-auto.ps1`.
+- Script `gemma-auto.ps1` (nằm ngoài repo vì chứa khóa):
+  - mở Ollama nếu Ollama chưa chạy;
+  - chạy `backend/scripts/gemma-worker.mjs` trong thư mục `test\wt9\backend`;
+  - tự chạy lại sau 30 giây khi người nhận việc dừng hoặc lỗi;
+  - chỉ cho một bản chạy cùng lúc;
+  - ghi nhật ký vào `D:\ollama\gemma-worker.log`, quá 5 MB thì đổi tên thành `.old`.
+- Tắt tự chạy: `Disable-ScheduledTask -TaskName 'DongA Gemma 4'`. Bật lại: `Enable-ScheduledTask` rồi `Start-ScheduledTask` với cùng tên.
+
+Giới hạn: Gemma chỉ trả lời khi máy **đang bật và đã đăng nhập Windows**. Máy tắt, ngủ, ngủ đông hoặc gập nắp (mặc định là ngủ) thì website dùng phương án cũ. Máy đang để tự ngủ sau 5 phút khi cắm sạc. Muốn Gemma trả lời cả lúc không dùng máy thì đặt "không tự ngủ khi cắm sạc" (`powercfg /change standby-timeout-ac 0`, trả lại bằng `powercfg /change standby-timeout-ac 5`) và không gập nắp, hoặc đặt "khi gập nắp: không làm gì" lúc cắm sạc.
+
+**Giới hạn lượt hỏi mỗi ngày** ("Còn N lượt hôm nay") là `daily_per_user` trong cài đặt AI (mặc định 50 câu cho học sinh, giáo viên gấp 3), áp dụng cho mọi cách trả lời, kể cả Gemma. Đây không phải dấu hiệu website đang dùng API cũ.
+
 Kiểm tra trạng thái: `GET https://dong-a-api.onrender.com/api/health` → phần `gemma`:
 
 ```json
