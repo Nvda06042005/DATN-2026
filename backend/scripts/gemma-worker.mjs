@@ -111,7 +111,8 @@ async function main() {
   // (đo trên RTX 4050: ~30 giây). Lượt này dùng đúng num_ctx của câu hỏi thật, khác num_ctx thì Ollama nạp lại mô hình.
   const warm = async () => {
     try {
-      await ollama('/api/generate', { model: MODEL, keep_alive: KEEP }, 300_000);
+      // phải kèm num_ctx: thiếu thì Ollama nạp với ngữ cảnh mặc định 4096 rồi nạp lại khi có câu hỏi thật (mỗi lần ~45 giây)
+      await ollama('/api/generate', { model: MODEL, keep_alive: KEEP, options: { num_ctx: NUM_CTX } }, 300_000);
       const r = await fetch(`${OLLAMA}/api/chat`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(180_000),
         body: JSON.stringify({ model: MODEL, stream: true, keep_alive: KEEP, think: false, messages: [{ role: 'user', content: 'Xin chào' }], options: { num_predict: 1, num_ctx: NUM_CTX } }),

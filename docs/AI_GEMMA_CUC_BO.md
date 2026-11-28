@@ -143,6 +143,7 @@ Phần này không chứa tên máy hay cấu hình của máy giáo viên.
 | "Máy chủ chưa bật người nhận việc Gemma" | Chưa đặt `GEMMA_WORKER_KEY` trên Render, hoặc Render chưa chạy bản mới. Người nhận việc tự thử lại mỗi phút. |
 | "Khóa không đúng" (401) | Khóa ở `backend/.env` khác khóa trên Render. |
 | Câu trả lời vẫn theo phương án cũ | Xem `/api/health` → `gemma.online`. Máy đang bận câu khác quá 15 giây cũng chuyển sang phương án cũ. |
+| "Nạp mô hình lỗi", nhật ký Ollama (`%LOCALAPPDATA%\Ollama\server.log`) có "unable to allocate CUDA_Host buffer" hoặc "CUDA error: shared object initialization failed" | Gemma 4 cần khoảng 3 GB RAM khóa trang ngoài GPU, và driver NVIDIA đôi khi lỗi sau khi máy ngủ. Đóng bớt ứng dụng nặng (trình duyệt nhiều thẻ…), thoát Ollama ở khay hệ thống rồi mở lại, sau đó chạy lại người nhận việc. Lần nạp sau thường thành công (đã gặp ngày 28/11/2026). |
 | Máy báo thiếu bộ nhớ khi chạy việc khác | Mô hình chiếm khoảng 9 GB bộ nhớ ảo khi nạp. Dừng người nhận việc (Ctrl+C) hoặc chạy `ollama stop gemma4:e4b`. |
 
 ## Kiểm thử
